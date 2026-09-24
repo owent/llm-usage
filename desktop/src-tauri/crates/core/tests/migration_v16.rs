@@ -48,7 +48,11 @@ fn v16_fresh_open_creates_all_contract_tables() {
     // 迁移记录按版本落盘。
     let applied: i64 = storage
         .conn()
-        .query_row("SELECT COUNT(*) FROM schema_migrations WHERE version = 1", [], |r| r.get(0))
+        .query_row(
+            "SELECT COUNT(*) FROM schema_migrations WHERE version = 1",
+            [],
+            |r| r.get(0),
+        )
         .unwrap();
     assert_eq!(applied, 1);
 }
@@ -57,11 +61,20 @@ fn v16_fresh_open_creates_all_contract_tables() {
 fn v16_pragmas_match_contract() {
     let dir = TempDir::new("v16pragma");
     let storage = Storage::open(&dir.db_path()).unwrap();
-    let fk: i64 = storage.conn().pragma_query_value(None, "foreign_keys", |r| r.get(0)).unwrap();
+    let fk: i64 = storage
+        .conn()
+        .pragma_query_value(None, "foreign_keys", |r| r.get(0))
+        .unwrap();
     assert_eq!(fk, 1);
-    let journal: String = storage.conn().pragma_query_value(None, "journal_mode", |r| r.get(0)).unwrap();
+    let journal: String = storage
+        .conn()
+        .pragma_query_value(None, "journal_mode", |r| r.get(0))
+        .unwrap();
     assert_eq!(journal.to_lowercase(), "wal");
-    let sync: i64 = storage.conn().pragma_query_value(None, "synchronous", |r| r.get(0)).unwrap();
+    let sync: i64 = storage
+        .conn()
+        .pragma_query_value(None, "synchronous", |r| r.get(0))
+        .unwrap();
     assert_eq!(sync, 2, "synchronous=FULL");
 }
 
@@ -82,7 +95,9 @@ fn v16_reopen_is_idempotent() {
     assert_eq!(storage.schema_version().unwrap(), SCHEMA_VERSION);
     let value: String = storage
         .conn()
-        .query_row("SELECT value FROM settings WHERE key = 'k'", [], |r| r.get(0))
+        .query_row("SELECT value FROM settings WHERE key = 'k'", [], |r| {
+            r.get(0)
+        })
         .unwrap();
     assert_eq!(value, "v");
     // 不重复应用迁移。
@@ -90,7 +105,7 @@ fn v16_reopen_is_idempotent() {
         .conn()
         .query_row("SELECT COUNT(*) FROM schema_migrations", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(applied, 1);
+    assert_eq!(applied, i64::from(SCHEMA_VERSION));
 }
 
 /// 旧程序打开新版本 schema：拒绝写入，不破坏性降级。
@@ -100,11 +115,17 @@ fn v16_old_program_refuses_newer_schema() {
     {
         let storage = Storage::open(&dir.db_path()).unwrap();
         // 模拟更新版本程序写入的库。
-        storage.conn().pragma_update(None, "user_version", SCHEMA_VERSION + 1).unwrap();
+        storage
+            .conn()
+            .pragma_update(None, "user_version", SCHEMA_VERSION + 1)
+            .unwrap();
     }
     let err = Storage::open_with(
         &dir.db_path(),
-        OpenOptions { max_supported_version: Some(SCHEMA_VERSION), ..OpenOptions::default() },
+        OpenOptions {
+            max_supported_version: Some(SCHEMA_VERSION),
+            ..OpenOptions::default()
+        },
     )
     .unwrap_err();
     match err {
@@ -117,7 +138,10 @@ fn v16_old_program_refuses_newer_schema() {
     // 库内容未被破坏（以支持新版本的程序打开核验）。
     let storage = Storage::open_with(
         &dir.db_path(),
-        OpenOptions { max_supported_version: Some(SCHEMA_VERSION + 1), ..OpenOptions::default() },
+        OpenOptions {
+            max_supported_version: Some(SCHEMA_VERSION + 1),
+            ..OpenOptions::default()
+        },
     )
     .unwrap();
     assert_eq!(storage.schema_version().unwrap(), SCHEMA_VERSION + 1);
@@ -139,30 +163,44 @@ fn v16_failed_migration_preserves_old_database() {
             .unwrap();
     }
     // 模拟一次必然失败的 v2 迁移。
-    let bad = Migration { version: 2, name: "bad", sql: "CREATE TABLE broken (col BAD SYNTAX !!!);" };
+    let bad = Migration {
+        version: SCHEMA_VERSION + 1,
+        name: "bad",
+        sql: "CREATE TABLE broken (col BAD SYNTAX !!!);",
+    };
     let err = Storage::open_with(
         &dir.db_path(),
-        OpenOptions { max_supported_version: Some(2), extra_migrations: vec![bad], ..OpenOptions::default() },
+        OpenOptions {
+            max_supported_version: Some(SCHEMA_VERSION + 1),
+            extra_migrations: vec![bad],
+            ..OpenOptions::default()
+        },
     )
     .unwrap_err();
     match err {
         CoreError::MigrationFailed { version, name, .. } => {
-            assert_eq!(version, 2);
+            assert_eq!(version, SCHEMA_VERSION + 1);
             assert_eq!(name, "bad");
         }
         other => panic!("expected MigrationFailed, got {other}"),
     }
     // 旧库保留：版本仍是 1，数据仍在，旧程序可正常打开。
     let storage = Storage::open(&dir.db_path()).unwrap();
-    assert_eq!(storage.schema_version().unwrap(), 1);
+    assert_eq!(storage.schema_version().unwrap(), SCHEMA_VERSION);
     let value: String = storage
         .conn()
-        .query_row("SELECT value FROM settings WHERE key = 'keep'", [], |r| r.get(0))
+        .query_row("SELECT value FROM settings WHERE key = 'keep'", [], |r| {
+            r.get(0)
+        })
         .unwrap();
     assert_eq!(value, "me");
     let broken: i64 = storage
         .conn()
-        .query_row("SELECT COUNT(*) FROM sqlite_master WHERE name = 'broken'", [], |r| r.get(0))
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE name = 'broken'",
+            [],
+            |r| r.get(0),
+        )
         .unwrap();
     assert_eq!(broken, 0);
 }

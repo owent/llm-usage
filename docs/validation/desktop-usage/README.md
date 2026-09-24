@@ -9,3 +9,6 @@
   不复制私人数据或绝对个人路径。
 
 应用图标、资源预览、Windows 图标嵌入与 LFS 迁移的实际结果见 [静态资源验证](static-assets.md)。
+最近两次提交的缺陷、修复、升级兼容与回归结果见 [M0/M1 审查](m0-m1-review.md)。
+M2 的 Codex 适配器验收见 [m2a-codex.md](m2a-codex.md)；pi/Claude/Gemini/Qwen 按用户要求
+中断、半成品未验收，状态与恢复方式见 [m2bc-suspended.md](m2bc-suspended.md)。

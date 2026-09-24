@@ -10,7 +10,11 @@ pub enum CoreError {
     /// 数据库 user_version 比本程序支持的更新：拒绝打开写入，不破坏性降级。
     SchemaTooNew { found: u32, supported: u32 },
     /// 迁移执行失败；旧库保持不变。
-    MigrationFailed { version: u32, name: String, detail: String },
+    MigrationFailed {
+        version: u32,
+        name: String,
+        detail: String,
+    },
     /// 记录校验失败（负值、超过上限、时间明显不合理等）。
     Validation(String),
     /// token 聚合溢出（i64 上溢防护）。
@@ -35,7 +39,11 @@ impl fmt::Display for CoreError {
             CoreError::SchemaTooNew { found, supported } => {
                 write!(f, "schema version {found} is newer than supported {supported}; refusing to open for write")
             }
-            CoreError::MigrationFailed { version, name, detail } => {
+            CoreError::MigrationFailed {
+                version,
+                name,
+                detail,
+            } => {
                 write!(f, "migration v{version} ({name}) failed: {detail}")
             }
             CoreError::Validation(msg) => write!(f, "validation: {msg}"),

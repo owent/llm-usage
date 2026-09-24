@@ -37,7 +37,7 @@ Harness Agent 按用户提供官网更正为 Hermes Agent。所有工具均保�
 | OpenClaw | 当前官方文档指向每 Agent 的 openclaw-agent.sqlite；旧 sessions 目录为迁移/归档输入 | 不沿用“只扫 JSONL”假设；运行时库、旧归档和外部 CLI 镜像去重；远端 Gateway 不等于本机 | M3；本地候选，A09 |
 | Gemini CLI | 官方会话存储 ~/.gemini/tmp/<project_hash>/chats/ 含 token；OTel 提供 input/output/thought/cache/tool 和请求统计 | JSON/JSONL 具体版本探测；thought/cache/tool 字段的包含关系逐 provider 核验；Gemini 网页和 Code Assist 不冒充 CLI | M2/M5；本地候选/需启用，A10 |
 | Kilo Code CLI / 桌面 / IDE 扩展 | 原型读取 kilo.db；固定上游已有 core session 数据层及用量索引迁移 | 新版与旧 message 表不保证兼容；本机 7.4.21 实测库在 `~/.local/share/kilo/kilo.db`（非 ~/.config/kilo），usage 在 message.data.tokens（M0 fixture）；缺少独立证据的 IDE 扩展后移，不能拿 CLI 通过代表 IDE 通过 | CLI/桌面 M3；缺证 IDE 变体 F1，A11 |
-| 新版 Kimi Code | 官方确认 `KIMI_CODE_HOME/sessions/<workDir>/<session>/agents/*/wire.jsonl`；原型 usage.record 有 inputOther/output/inputCacheRead/inputCacheCreation | 本机 desktop 1.0.3、wire protocol_version=1.5 已实证 camelCase usage.record 四字段与毫秒时间（M0 fixture，见 [验证记录](../validation/desktop-usage/m0-agent-fixtures.md)）；其他版本仍需各自 fixture | M4；本机字段已证，A12 |
+| 新版 Kimi Code | 官方确认 `KIMI_CODE_HOME/sessions/<workDir>/<session>/agents/*/wire.jsonl`；原型 usage.record 有 inputOther/output/inputCacheRead/inputCacheCreation | 本机 desktop 1.0.3、wire protocol_version=1.5 已实证 camelCase usage.record 四字段与毫秒时间（M0 fixture，见 [验证记录](../../validation/desktop-usage/m0-agent-fixtures.md)）；其他版本仍需各自 fixture | M4；本机字段已证，A12 |
 | Kimi Work | 原型读取内嵌 kimi-code 的 wire usage.record | 原型有机器专属 D 盘路径；不能作为默认合同，也不能仅因内核同名与独立 Kimi Code 合并；需产品版本/安装发现与样本 | M4；待证实，A13 |
 | MiMo Code | 官方开源；固定源码 message tokens 有 input/output/reasoning/cache.read/write，路径经 resolveMimocodeHome | 单独 namespace 与 schema 探测；不能因 OpenCode 派生关系直接使用其目录；step 与 message 汇总不双计 | M3；本地候选，A14 |
 | oh-my-pi | 官方 session 文档确认 ~/.omp/agent/sessions/...jsonl，assistant usage 与模型/provider | 原型还读 title-generator 日志；需验证其与会话记录是否重叠，并补压缩/分支等辅助消耗 | M2；本地候选，A15 |
@@ -94,10 +94,15 @@ A24 固定源码 `ef70b3661cbfcf57e583008ad91dd04d8ba46070` 确认以下内容�
 
 ## 每个适配器的交付合同
 
+代码布局遵守 [Agent 独立目录与版本组织](architecture.md#adapter-layout)。
+每个 Agent 一个目录，历史版本实现在目录内分模块；该要求适用于本表全部阶段，
+不改变当前支持范围，也不把 M2 中尚待执行的目录迁移记为已完成。
+
 | 项目 | 必须交付的内容 |
 | --- | --- |
+| 目录与版本 | Agent 独立目录、统一入口、发布版本/来源格式到内部实现的映射、逐版本 fixture；新增版本保留历史实现及回归，按 V30 验收 |
 | 发现 | 产品/表面/OS/版本范围、本机归属依据、候选路径、环境覆盖、profile、手工添加方法 |
-| 探测 | 文件 magic/记录类型或数据库 schema 指纹；未知版本 fail closed，不能猜表结构 |
+| 探测 | 按每个来源文件/数据库的版本、记录类型或 schema 指纹分派；不能用当前安装版本推断全部历史，未知/冲突格式 fail closed |
 | 字段映射 | 每个 token 字段包含关系、单位、时间基准、模型归属、调用 ID、request 证据 |
 | 生命周期 | 单次/累计/流式/最终/更正/聚合、重试和分支/子 Agent/辅助调用的处理 |
 | 增量 | 游标、重写/轮转检测、事务恢复、数据源自身保留和最早可回填日期 |

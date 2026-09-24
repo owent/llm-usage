@@ -4,13 +4,18 @@
 use crate::calendar::Calendar;
 use crate::domain::{EventInput, QualityBucket};
 use crate::error::CoreError;
-use crate::identity::{arbitrate, content_hash, event_id, Arbitration, ExistingMeta};
+use crate::identity::{
+    arbitrate, content_hash, event_content_hash, event_id, Arbitration, ExistingMeta,
+};
 use crate::jobs::{self, RunStats};
 use crate::metrics::detect_contradictions;
 use crate::storage::Storage;
 use jiff::civil::Date;
-use rusqlite::{params, Transaction};
+use rusqlite::{params, OptionalExtension, Transaction};
 use std::collections::BTreeSet;
+
+/// usage_events 中已存在记录的去重判定视图。
+type ExistingRow = (ExistingMeta, i64, String, Option<i64>, Option<String>);
 
 /// 游标与版本化解析上下文更新（模型状态、累计基线、未完成请求）。
 #[derive(Debug, Clone)]
@@ -102,6 +107,44 @@ pub fn commit_batch(
     let calendar = Calendar::new(&batch.timezone)?;
     let conn = storage.conn();
     let tx = conn.unchecked_transaction()?;
+    if batch
+        .events
+        .iter()
+        .any(|e| e.source_instance_id != batch.instance_id)
+    {
+        return Err(CoreError::Validation(
+            "batch events must belong to the batch source instance".into(),
+        ));
+    }
+    if let Some(run_id) = &batch.run_id {
+        let running: bool = tx.query_row(
+            "SELECT EXISTS(SELECT 1 FROM ingest_runs WHERE run_id = ?1 AND instance_id = ?2 AND status = 'running')",
+            params![run_id, batch.instance_id], |r| r.get(0),
+        )?;
+        if !running {
+            return Err(CoreError::JobState(
+                "batch requires a running job for the same source".into(),
+            ));
+        }
+    }
+    let persisted_cutoff: Option<String> = tx
+        .query_row(
+            "SELECT value FROM settings WHERE key = 'detail_retention_floor_ms'",
+            [],
+            |r| r.get(0),
+        )
+        .optional()?;
+    let persisted_cutoff = persisted_cutoff
+        .map(|v| {
+            v.parse::<i64>()
+                .map_err(|_| CoreError::Validation("invalid retention floor".into()))
+        })
+        .transpose()?;
+    let cutoff = batch
+        .retention_cutoff_ms
+        .into_iter()
+        .chain(persisted_cutoff)
+        .max();
     let mut outcome = BatchOutcome {
         added: 0,
         updated: 0,
@@ -132,7 +175,7 @@ pub fn commit_batch(
             ));
             continue;
         }
-        if let Some(cutoff) = batch.retention_cutoff_ms {
+        if let Some(cutoff) = cutoff {
             if event.occurred_at_ms < cutoff {
                 outcome.skipped += 1;
                 pending_diagnostics.push((
@@ -142,16 +185,17 @@ pub fn commit_batch(
                         code: "expired_by_retention".to_string(),
                         field: Some("occurred_at_ms".to_string()),
                         position: None,
-                        message: "event is older than the retention cutoff; not restored".to_string(),
+                        message: "event is older than the retention cutoff; not restored"
+                            .to_string(),
                     },
                 ));
                 continue;
             }
         }
-        let hash = content_hash(event);
-        let existing: Option<(ExistingMeta, i64)> = tx
+        let hash = event_content_hash(event);
+        let mut existing: Option<ExistingRow> = tx
             .query_row(
-                "SELECT lifecycle, source_revision, content_hash, occurred_at_ms
+                "SELECT lifecycle, source_revision, content_hash, occurred_at_ms, event_id, observed_at_ms, source_time
                  FROM usage_events WHERE source_instance_id = ?1 AND source_record_key = ?2",
                 params![event.source_instance_id, event.source_record_key],
                 |r| {
@@ -163,11 +207,32 @@ pub fn commit_batch(
                             content_hash: r.get(2)?,
                         },
                         r.get::<_, i64>(3)?,
+                        r.get::<_, String>(4)?,
+                        r.get::<_, Option<i64>>(5)?,
+                        r.get::<_, Option<String>>(6)?,
                     ))
                 },
             )
-            .ok();
-        match arbitrate(existing.as_ref().map(|(m, _)| m), event, &hash) {
+            .optional()?;
+        // v1 的内容摘要包含 observed_at；仅观察时间改变仍视为同一内容。
+        // 同键同内容的重复 final（仅发生/观察/源时间文本不同）是重报而非冲突，同样视为同一内容。
+        if let Some((meta, old_ms, _, observed, old_source_time)) = &mut existing {
+            let mut legacy = event.clone();
+            legacy.observed_at_ms = *observed;
+            if meta.content_hash == content_hash(&legacy) {
+                meta.content_hash = hash.clone();
+            }
+            legacy.occurred_at_ms = *old_ms;
+            legacy.source_time = old_source_time.clone();
+            if meta.content_hash == event_content_hash(&legacy) {
+                meta.content_hash = hash.clone();
+            }
+        }
+        let eid = existing
+            .as_ref()
+            .map(|(_, _, id, _, _)| id.clone())
+            .unwrap_or(eid);
+        match arbitrate(existing.as_ref().map(|(m, _, _, _, _)| m), event, &hash) {
             Arbitration::Insert => {
                 insert_event(&tx, event, &eid, &hash, batch.now_ms)?;
                 outcome.added += 1;
@@ -177,7 +242,7 @@ pub fn commit_batch(
                 update_event(&tx, event, &eid, &hash, batch.now_ms)?;
                 outcome.updated += 1;
                 affected.insert(calendar.local_day_of(event.occurred_at_ms)?);
-                if let Some((_, old_ms)) = existing {
+                if let Some((_, old_ms, _, _, _)) = existing {
                     affected.insert(calendar.local_day_of(old_ms)?);
                 }
             }
@@ -191,7 +256,7 @@ pub fn commit_batch(
                     params![eid],
                 )?;
                 outcome.conflicts += 1;
-                if let Some((_, old_ms)) = existing {
+                if let Some((_, old_ms, _, _, _)) = existing {
                     affected.insert(calendar.local_day_of(old_ms)?);
                 }
                 pending_diagnostics.push((
@@ -201,7 +266,8 @@ pub fn commit_batch(
                         code: "update_conflict".to_string(),
                         field: None,
                         position: None,
-                        message: "incoming record conflicts with existing; kept existing, not MAX".to_string(),
+                        message: "incoming record conflicts with existing; kept existing, not MAX"
+                            .to_string(),
                     },
                 ));
             }
@@ -402,55 +468,55 @@ fn event_params(
         None => (None, None, None, None, None),
     };
     vec![
-        Value::Text(event_id.to_string()),                       // 1
-        Value::Text(event.source_instance_id.clone()),           // 2
-        Value::Text(event.source_record_key.clone()),            // 3
-        Value::Text(event.record_kind.as_str().to_string()),     // 4
-        Value::Text(event.schema_version.clone()),               // 5
-        Value::Text(event.parser_version.clone()),               // 6
-        opt_text(&event.origin_call_id),                         // 7
-        opt_text(&event.attempt_id),                             // 8
-        opt_text(&event.session_id),                             // 9
-        opt_text(&event.parent_session_id),                      // 10
-        opt_text(&event.host_application),                       // 11
-        Value::Text(event.agent.clone()),                        // 12
-        Value::Text(event.call_category.as_str().to_string()),   // 13
-        Value::Integer(event.occurred_at_ms),                    // 14
-        opt_int(event.observed_at_ms),                           // 15
-        opt_text(&event.source_time),                            // 16
-        Value::Text(event.time_basis.as_str().to_string()),      // 17
-        opt_int(event.interval_start_ms),                        // 18
-        opt_int(event.interval_end_ms),                          // 19
-        opt_text(&event.provider_id),                            // 20
-        opt_text(&event.model_raw),                              // 21
-        opt_text(&event.model_canonical),                        // 22
-        Value::Text(event.model_attribution.as_str().to_string()), // 23
-        opt_int(event.usage.input_uncached),                     // 24
-        opt_int(event.usage.input_cache_read),                   // 25
-        opt_int(event.usage.input_cache_write),                  // 26
-        opt_int(event.usage.input_total),                        // 27
-        opt_int(event.usage.output_total),                       // 28
-        opt_int(event.usage.output_reasoning),                   // 29
-        opt_int(event.usage.total_tokens),                       // 30
-        opt_int(event.usage.source_total),                       // 31
-        Value::Text(quality_json),                               // 32
-        Value::Text(bucket.as_str().to_string()),                // 33
-        Value::Text(event.lifecycle.as_str().to_string()),       // 34
-        opt_int(event.source_revision),                          // 35
-        opt_text(&event.error_status),                           // 36
-        opt_int(event.duration_ms),                              // 37
-        opt_int(event.ttft_ms),                                  // 38
+        Value::Text(event_id.to_string()),                          // 1
+        Value::Text(event.source_instance_id.clone()),              // 2
+        Value::Text(event.source_record_key.clone()),               // 3
+        Value::Text(event.record_kind.as_str().to_string()),        // 4
+        Value::Text(event.schema_version.clone()),                  // 5
+        Value::Text(event.parser_version.clone()),                  // 6
+        opt_text(&event.origin_call_id),                            // 7
+        opt_text(&event.attempt_id),                                // 8
+        opt_text(&event.session_id),                                // 9
+        opt_text(&event.parent_session_id),                         // 10
+        opt_text(&event.host_application),                          // 11
+        Value::Text(event.agent.clone()),                           // 12
+        Value::Text(event.call_category.as_str().to_string()),      // 13
+        Value::Integer(event.occurred_at_ms),                       // 14
+        opt_int(event.observed_at_ms),                              // 15
+        opt_text(&event.source_time),                               // 16
+        Value::Text(event.time_basis.as_str().to_string()),         // 17
+        opt_int(event.interval_start_ms),                           // 18
+        opt_int(event.interval_end_ms),                             // 19
+        opt_text(&event.provider_id),                               // 20
+        opt_text(&event.model_raw),                                 // 21
+        opt_text(&event.model_canonical),                           // 22
+        Value::Text(event.model_attribution.as_str().to_string()),  // 23
+        opt_int(event.usage.input_uncached),                        // 24
+        opt_int(event.usage.input_cache_read),                      // 25
+        opt_int(event.usage.input_cache_write),                     // 26
+        opt_int(event.usage.input_total),                           // 27
+        opt_int(event.usage.output_total),                          // 28
+        opt_int(event.usage.output_reasoning),                      // 29
+        opt_int(event.usage.total_tokens),                          // 30
+        opt_int(event.usage.source_total),                          // 31
+        Value::Text(quality_json),                                  // 32
+        Value::Text(bucket.as_str().to_string()),                   // 33
+        Value::Text(event.lifecycle.as_str().to_string()),          // 34
+        opt_int(event.source_revision),                             // 35
+        opt_text(&event.error_status),                              // 36
+        opt_int(event.duration_ms),                                 // 37
+        opt_int(event.ttft_ms),                                     // 38
         Value::Text(event.attribution_status.as_str().to_string()), // 39
-        opt_text(&event.exclusion_reason),                       // 40
-        Value::Integer(0),                                       // 41 conflict 占位
-        Value::Text(hash.to_string()),                           // 42
-        opt_int(cost_minor),                                     // 43
-        opt_text(&cost_currency),                                // 44
-        opt_text(&cost_kind),                                    // 45
-        opt_text(&price_version),                                // 46
-        opt_text(&billing_scope),                                // 47
-        Value::Integer(now_ms),                                  // 48 created（INSERT）
-        Value::Integer(now_ms),                                  // 49 updated
+        opt_text(&event.exclusion_reason),                          // 40
+        Value::Integer(0),                                          // 41 conflict 占位
+        Value::Text(hash.to_string()),                              // 42
+        opt_int(cost_minor),                                        // 43
+        opt_text(&cost_currency),                                   // 44
+        opt_text(&cost_kind),                                       // 45
+        opt_text(&price_version),                                   // 46
+        opt_text(&billing_scope),                                   // 47
+        Value::Integer(now_ms),                                     // 48 created（INSERT）
+        Value::Integer(now_ms),                                     // 49 updated
     ]
 }
 
@@ -511,29 +577,39 @@ pub(crate) fn recompute_day(
            SUM(CASE WHEN record_kind = 'model_call' THEN 1 ELSE 0 END),
            SUM(CASE WHEN record_kind = 'transport_attempt' THEN 1 ELSE 0 END),
            SUM(CASE WHEN record_kind = 'usage_observation' THEN 1 ELSE 0 END),
-           SUM(CASE WHEN record_kind != 'transport_attempt' THEN input_total END),
-           SUM(CASE WHEN record_kind != 'transport_attempt' AND input_total IS NOT NULL THEN 1 ELSE 0 END),
-           SUM(CASE WHEN record_kind != 'transport_attempt' AND input_total IS NULL THEN 1 ELSE 0 END),
-           SUM(CASE WHEN record_kind != 'transport_attempt' THEN input_uncached END),
-           SUM(CASE WHEN record_kind != 'transport_attempt' AND input_uncached IS NOT NULL THEN 1 ELSE 0 END),
-           SUM(CASE WHEN record_kind != 'transport_attempt' THEN input_cache_read END),
-           SUM(CASE WHEN record_kind != 'transport_attempt' AND input_cache_read IS NOT NULL THEN 1 ELSE 0 END),
-           SUM(CASE WHEN record_kind != 'transport_attempt' THEN input_cache_write END),
-           SUM(CASE WHEN record_kind != 'transport_attempt' AND input_cache_write IS NOT NULL THEN 1 ELSE 0 END),
-           SUM(CASE WHEN record_kind != 'transport_attempt' THEN output_total END),
-           SUM(CASE WHEN record_kind != 'transport_attempt' AND output_total IS NOT NULL THEN 1 ELSE 0 END),
-           SUM(CASE WHEN record_kind != 'transport_attempt' AND output_total IS NULL THEN 1 ELSE 0 END),
-           SUM(CASE WHEN record_kind != 'transport_attempt' THEN total_tokens END),
-           SUM(CASE WHEN record_kind != 'transport_attempt' AND total_tokens IS NOT NULL THEN 1 ELSE 0 END),
-           SUM(CASE WHEN record_kind != 'transport_attempt' AND total_tokens IS NULL THEN 1 ELSE 0 END),
-           SUM(CASE WHEN record_kind != 'transport_attempt' AND input_total IS NOT NULL AND input_cache_read IS NOT NULL THEN input_total END),
-           SUM(CASE WHEN record_kind != 'transport_attempt' AND input_total IS NOT NULL AND input_cache_read IS NOT NULL THEN input_cache_read END),
-           SUM(CASE WHEN record_kind != 'transport_attempt' AND input_total IS NOT NULL AND input_cache_read IS NOT NULL THEN 1 ELSE 0 END),
+           SUM(CASE WHEN record_kind != 'transport_attempt' THEN known_input END),
+           SUM(CASE WHEN record_kind != 'transport_attempt' AND known_input IS NOT NULL THEN 1 ELSE 0 END),
+           SUM(CASE WHEN record_kind != 'transport_attempt' AND known_input IS NULL THEN 1 ELSE 0 END),
+           SUM(CASE WHEN record_kind != 'transport_attempt' THEN known_uncached END),
+           SUM(CASE WHEN record_kind != 'transport_attempt' AND known_uncached IS NOT NULL THEN 1 ELSE 0 END),
+           SUM(CASE WHEN record_kind != 'transport_attempt' THEN known_read END),
+           SUM(CASE WHEN record_kind != 'transport_attempt' AND known_read IS NOT NULL THEN 1 ELSE 0 END),
+           SUM(CASE WHEN record_kind != 'transport_attempt' THEN known_write END),
+           SUM(CASE WHEN record_kind != 'transport_attempt' AND known_write IS NOT NULL THEN 1 ELSE 0 END),
+           SUM(CASE WHEN record_kind != 'transport_attempt' THEN known_output END),
+           SUM(CASE WHEN record_kind != 'transport_attempt' AND known_output IS NOT NULL THEN 1 ELSE 0 END),
+           SUM(CASE WHEN record_kind != 'transport_attempt' AND known_output IS NULL THEN 1 ELSE 0 END),
+           SUM(CASE WHEN record_kind != 'transport_attempt' THEN known_total END),
+           SUM(CASE WHEN record_kind != 'transport_attempt' AND known_total IS NOT NULL THEN 1 ELSE 0 END),
+           SUM(CASE WHEN record_kind != 'transport_attempt' AND known_total IS NULL THEN 1 ELSE 0 END),
+           SUM(CASE WHEN record_kind != 'transport_attempt' AND known_input IS NOT NULL AND known_read IS NOT NULL THEN known_input END),
+           SUM(CASE WHEN record_kind != 'transport_attempt' AND known_input IS NOT NULL AND known_read IS NOT NULL THEN known_read END),
+           SUM(CASE WHEN record_kind != 'transport_attempt' AND known_input IS NOT NULL AND known_read IS NOT NULL THEN 1 ELSE 0 END),
            SUM(conflict),
            0, ?3
-         FROM usage_events
+         FROM (
+           SELECT *,
+             CASE WHEN json_extract(quality_json, '$.input_total') IN ('reported', 'derived') THEN input_total END AS known_input,
+             CASE WHEN json_extract(quality_json, '$.input_uncached') IN ('reported', 'derived') THEN input_uncached END AS known_uncached,
+             CASE WHEN json_extract(quality_json, '$.input_cache_read') IN ('reported', 'derived') THEN input_cache_read END AS known_read,
+             CASE WHEN json_extract(quality_json, '$.input_cache_write') IN ('reported', 'derived') THEN input_cache_write END AS known_write,
+             CASE WHEN json_extract(quality_json, '$.output_total') IN ('reported', 'derived') THEN output_total END AS known_output,
+             CASE WHEN json_extract(quality_json, '$.total_tokens') IN ('reported', 'derived') THEN total_tokens END AS known_total
+           FROM usage_events
+         )
          WHERE occurred_at_ms >= ?4 AND occurred_at_ms < ?5
            AND attribution_status = 'verified'
+           AND record_kind IN ('model_call', 'transport_attempt', 'usage_observation')
          GROUP BY agent, COALESCE(provider_id, ''), COALESCE(model_raw, ''), call_category, quality_bucket",
         params![calendar.tz_name(), day_str, data_revision, start_ms, end_ms],
     )?;

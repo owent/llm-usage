@@ -2,7 +2,7 @@
 //! 迁移按版本事务执行；失败回滚该版本，旧库保持不变。
 
 /// 本程序支持的最新 schema 版本。
-pub const SCHEMA_VERSION: u32 = 1;
+pub const SCHEMA_VERSION: u32 = 2;
 
 pub struct Migration {
     pub version: u32,
@@ -10,11 +10,57 @@ pub struct Migration {
     pub sql: &'static str,
 }
 
-pub const MIGRATIONS: &[Migration] = &[Migration {
-    version: 1,
-    name: "initial",
-    sql: INITIAL_SCHEMA,
-}];
+pub const MIGRATIONS: &[Migration] = &[
+    Migration {
+        version: 1,
+        name: "initial",
+        sql: INITIAL_SCHEMA,
+    },
+    Migration {
+        version: 2,
+        name: "review_identity_and_known_usage",
+        sql: REVIEW_SCHEMA,
+    },
+];
+
+// 先用临时身份搬移，避免转义后的目标与另一个尚未搬移的旧身份相撞。
+// 外键在事务提交时统一校验，别名始终指向同一个逻辑记录。
+const REVIEW_SCHEMA: &str = r#"
+PRAGMA defer_foreign_keys = ON;
+CREATE TEMP TABLE review_event_ids AS
+SELECT event_id AS old_id, 'review-' || hex(randomblob(32)) AS temp_id,
+       replace(replace(source_instance_id, '%', '%25'), '#', '%23') || '#' ||
+       replace(replace(source_record_key, '%', '%25'), '#', '%23') AS new_id
+FROM usage_events;
+UPDATE event_aliases SET
+  canonical_event_id = (SELECT new_id FROM review_event_ids WHERE old_id = canonical_event_id),
+  member_event_id = (SELECT new_id FROM review_event_ids WHERE old_id = member_event_id);
+UPDATE diagnostics SET event_id = (SELECT new_id FROM review_event_ids WHERE old_id = diagnostics.event_id)
+WHERE event_id IN (SELECT old_id FROM review_event_ids);
+UPDATE usage_events SET event_id = (SELECT temp_id FROM review_event_ids WHERE old_id = usage_events.event_id);
+UPDATE usage_events SET event_id = (SELECT new_id FROM review_event_ids WHERE temp_id = usage_events.event_id);
+DROP TABLE review_event_ids;
+UPDATE source_aggregates SET aggregate_id = 'review-' || hex(randomblob(32));
+UPDATE source_aggregates SET aggregate_id =
+  replace(replace(instance_id, '%', '%25'), '#', '%23') || '#' ||
+  replace(replace(scope || '#' || scope_key, '%', '%25'), '#', '%23');
+
+-- 已封存的估算分区缺少逐字段明细，不能把旧的混合总量继续当作已知量。
+INSERT INTO diagnostics (code, message, created_ms)
+SELECT 'sealed_estimate_unavailable', 'v1 sealed estimated partition cannot recover per-field known usage',
+       CAST(strftime('%s', 'now') AS INTEGER) * 1000
+WHERE EXISTS(SELECT 1 FROM daily_usage WHERE sealed = 1 AND quality_bucket = 'estimated');
+UPDATE daily_usage SET
+  input_known_sum = NULL, input_known_count = 0, input_unknown_count = event_count - attempt_count,
+  uncached_known_sum = NULL, uncached_known_count = 0,
+  cache_read_known_sum = NULL, cache_read_known_count = 0,
+  cache_write_known_sum = NULL, cache_write_known_count = 0,
+  output_known_sum = NULL, output_known_count = 0, output_unknown_count = event_count - attempt_count,
+  total_known_sum = NULL, total_known_count = 0, total_unknown_count = event_count - attempt_count,
+  ratio_input_sum = NULL, ratio_cache_read_sum = NULL, ratio_sample_count = 0,
+  seal_field_version = 'v1-estimated-unrecoverable'
+WHERE sealed = 1 AND quality_bucket = 'estimated';
+"#;
 
 const INITIAL_SCHEMA: &str = r#"
 CREATE TABLE source_instances (

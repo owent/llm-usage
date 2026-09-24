@@ -1,5 +1,14 @@
-//! 来源字段口径映射（V01）。各 provider 的缓存包含关系互不相同，
+//! 来源接入：字段口径映射（V01）、有界 JSONL 读取器（V07）、适配器框架
+//! （discover/detect/scan/capability + V12 运行管线）与各 Agent 适配器。
+//!
 //! 口径依据 docs/validation/desktop-usage/m0-agent-fixtures.md 的实读核验结论，
 //! 按来源与版本固定，不能由 UI 猜测缺失字段。
 
+pub mod claude;
+pub mod codex;
+pub mod framework;
+pub mod gemini;
+pub mod jsonl;
+pub mod pi;
+pub mod qwen;
 pub mod usage_map;

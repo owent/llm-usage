@@ -38,8 +38,12 @@ fn v03_call_attempt_observation_classified_separately() {
     // 一条 usage_observation：计入用量，不计入调用数。
     let mut observation = with_tokens(evt("inst", "obs-1", base + 2), 200, 100);
     observation.record_kind = RecordKind::UsageObservation;
-    commit_batch(&storage, &batch("inst", "UTC", base + 3, vec![call, attempt, observation]), None)
-        .unwrap();
+    commit_batch(
+        &storage,
+        &batch("inst", "UTC", base + 3, vec![call, attempt, observation]),
+        None,
+    )
+    .unwrap();
 
     let summary = summarize(&storage);
     let sums = &summary.periods[0].sums;
@@ -59,7 +63,12 @@ fn v03_failed_call_without_usage_counts_call_not_tokens() {
     let mut failed = evt("inst", "call-fail", base);
     failed.error_status = Some("http_500".into());
     // usage 全部未知。
-    commit_batch(&storage, &batch("inst", "UTC", base + 1, vec![failed]), None).unwrap();
+    commit_batch(
+        &storage,
+        &batch("inst", "UTC", base + 1, vec![failed]),
+        None,
+    )
+    .unwrap();
 
     let summary = summarize(&storage);
     let sums = &summary.periods[0].sums;
@@ -71,7 +80,9 @@ fn v03_failed_call_without_usage_counts_call_not_tokens() {
     // 质量分区为 unknown（无任何已知 token 字段）。
     let bucket: String = storage
         .conn()
-        .query_row("SELECT quality_bucket FROM daily_usage LIMIT 1", [], |r| r.get(0))
+        .query_row("SELECT quality_bucket FROM daily_usage LIMIT 1", [], |r| {
+            r.get(0)
+        })
         .unwrap();
     assert_eq!(bucket, QualityBucket::Unknown.as_str());
 }
@@ -82,7 +93,12 @@ fn v03_usage_observation_alone_produces_no_request_count() {
     let base = ts("2026-09-24T10:00:00Z");
     let mut observation = with_tokens(evt("inst", "obs-1", base), 500, 0);
     observation.record_kind = RecordKind::UsageObservation;
-    commit_batch(&storage, &batch("inst", "UTC", base + 1, vec![observation]), None).unwrap();
+    commit_batch(
+        &storage,
+        &batch("inst", "UTC", base + 1, vec![observation]),
+        None,
+    )
+    .unwrap();
     let summary = summarize(&storage);
     assert_eq!(summary.periods[0].sums.call_count, 0);
     assert_eq!(summary.periods[0].sums.input_total_known, Some(500));

@@ -37,14 +37,30 @@ fn make_batch(now: i64) -> IngestBatch {
 
 fn db_state(storage: &Storage) -> (i64, i64, i64, i64, i64) {
     let conn = storage.conn();
-    let events: i64 = conn.query_row("SELECT COUNT(*) FROM usage_events", [], |r| r.get(0)).unwrap();
-    let checkpoints: i64 =
-        conn.query_row("SELECT COUNT(*) FROM ingestion_checkpoints", [], |r| r.get(0)).unwrap();
-    let daily: i64 = conn.query_row("SELECT COUNT(*) FROM daily_usage", [], |r| r.get(0)).unwrap();
-    let input_sum: Option<i64> =
-        conn.query_row("SELECT SUM(input_known_sum) FROM daily_usage", [], |r| r.get(0)).unwrap();
+    let events: i64 = conn
+        .query_row("SELECT COUNT(*) FROM usage_events", [], |r| r.get(0))
+        .unwrap();
+    let checkpoints: i64 = conn
+        .query_row("SELECT COUNT(*) FROM ingestion_checkpoints", [], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    let daily: i64 = conn
+        .query_row("SELECT COUNT(*) FROM daily_usage", [], |r| r.get(0))
+        .unwrap();
+    let input_sum: Option<i64> = conn
+        .query_row("SELECT SUM(input_known_sum) FROM daily_usage", [], |r| {
+            r.get(0)
+        })
+        .unwrap();
     let revision = storage.data_revision().unwrap();
-    (events, checkpoints, daily, input_sum.unwrap_or(-1), revision)
+    (
+        events,
+        checkpoints,
+        daily,
+        input_sum.unwrap_or(-1),
+        revision,
+    )
 }
 
 /// 每个故障点注入后：整体回滚（无部分提交），随后干净重放成功且结果相同。
@@ -61,12 +77,20 @@ fn v09_fault_at_each_point_rolls_back_and_replays_identically() {
             "expected injected fault at {point:?}, got {err}"
         );
         // 回滚后没有任何部分提交：无事件、无游标、无汇总、修订号不变。
-        assert_eq!(db_state(&storage), (0, 0, 0, -1, 0), "partial commit at {point:?}");
+        assert_eq!(
+            db_state(&storage),
+            (0, 0, 0, -1, 0),
+            "partial commit at {point:?}"
+        );
 
         // 干净重放。
         let out = commit_batch(&storage, &make_batch(now), None).unwrap();
         assert_eq!(out.added, 2);
-        assert_eq!(db_state(&storage), (2, 1, 1, 300, 1), "after clean replay {point:?}");
+        assert_eq!(
+            db_state(&storage),
+            (2, 1, 1, 300, 1),
+            "after clean replay {point:?}"
+        );
     }
 }
 
@@ -78,7 +102,12 @@ fn v09_process_restart_replay_is_idempotent() {
     let now = ts("2026-09-24T12:00:00Z");
     {
         let storage = Storage::open(&path).unwrap();
-        let err = commit_batch(&storage, &make_batch(now), Some(FaultPoint::AfterAggregates)).unwrap_err();
+        let err = commit_batch(
+            &storage,
+            &make_batch(now),
+            Some(FaultPoint::AfterAggregates),
+        )
+        .unwrap_err();
         assert!(matches!(err, llm_usage_core::CoreError::FaultInjected(_)));
         assert_eq!(db_state(&storage), (0, 0, 0, -1, 0));
     }

@@ -62,6 +62,6 @@
 # Opaque runtime assets; application source/configuration stays in ordinary Git.
 desktop/public/** filter=lfs diff=lfs merge=lfs -text
 desktop/src-tauri/icons/** filter=lfs diff=lfs merge=lfs -text
+previous-draft/data/usage.db filter=lfs diff=lfs merge=lfs -text
 previous-draft/dashboard/echarts.min.js filter=lfs diff=lfs merge=lfs -text
 previous-draft/dashboard/data.json filter=lfs diff=lfs merge=lfs -text
-previous-draft/data/usage.db filter=lfs diff=lfs merge=lfs -text

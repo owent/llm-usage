@@ -31,14 +31,27 @@ pub fn checked_sum(values: &[Option<i64>], what: &'static str) -> Result<Option<
 /// input_total：三类互斥拆分全已知时相加；否则采用来源直报值；都没有则为 None。
 /// 返回值的第二个分量是推导出的字段质量。
 pub fn input_total(usage: &TokenUsage, quality: &TokenQuality) -> Option<(i64, FieldQuality)> {
-    if let (Some(u), Some(r), Some(w)) =
-        (usage.input_uncached, usage.input_cache_read, usage.input_cache_write)
-    {
+    if let (Some(u), Some(r), Some(w)) = (
+        usage.input_uncached,
+        usage.input_cache_read,
+        usage.input_cache_write,
+    ) {
         let sum = (u as i128) + (r as i128) + (w as i128);
         if sum <= i64::MAX as i128 {
-            let worst = [quality.input_uncached, quality.input_cache_read, quality.input_cache_write]
-                .contains(&FieldQuality::Estimated);
-            return Some((sum as i64, if worst { FieldQuality::Estimated } else { FieldQuality::Derived }));
+            let worst = [
+                quality.input_uncached,
+                quality.input_cache_read,
+                quality.input_cache_write,
+            ]
+            .contains(&FieldQuality::Estimated);
+            return Some((
+                sum as i64,
+                if worst {
+                    FieldQuality::Estimated
+                } else {
+                    FieldQuality::Derived
+                },
+            ));
         }
     }
     usage.input_total.map(|v| (v, quality.input_total))
@@ -46,10 +59,21 @@ pub fn input_total(usage: &TokenUsage, quality: &TokenQuality) -> Option<(i64, F
 
 /// total_tokens：input_total 与 output_total 均已知时相加；否则保留源 total（含 basis）。
 pub fn total_tokens(usage: &TokenUsage, quality: &TokenQuality) -> Option<(i64, FieldQuality)> {
-    if let (Some((input, _)), Some(output)) = (input_total(usage, quality), usage.output_total) {
+    if let (Some((input, input_quality)), Some(output)) =
+        (input_total(usage, quality), usage.output_total)
+    {
         let sum = (input as i128) + (output as i128);
         if sum <= i64::MAX as i128 {
-            return Some((sum as i64, FieldQuality::Derived));
+            let estimated = input_quality == FieldQuality::Estimated
+                || quality.output_total == FieldQuality::Estimated;
+            return Some((
+                sum as i64,
+                if estimated {
+                    FieldQuality::Estimated
+                } else {
+                    FieldQuality::Derived
+                },
+            ));
         }
     }
     usage.total_tokens.map(|v| (v, quality.total_tokens))
@@ -77,9 +101,11 @@ pub fn detect_contradictions(usage: &TokenUsage) -> Vec<Contradiction> {
             });
         }
     }
-    if let (Some(read), Some(write), Some(total)) =
-        (usage.input_cache_read, usage.input_cache_write, usage.input_total)
-    {
+    if let (Some(read), Some(write), Some(total)) = (
+        usage.input_cache_read,
+        usage.input_cache_write,
+        usage.input_total,
+    ) {
         if (read as i128) + (write as i128) > total as i128 {
             out.push(Contradiction {
                 code: "cache_sum_exceeds_input_total",
@@ -106,8 +132,10 @@ pub fn detect_contradictions(usage: &TokenUsage) -> Vec<Contradiction> {
             });
         }
     }
-    if let (Some(source), Some((normalized, _))) = (usage.source_total, total_tokens(usage, &TokenQuality::default()))
-    {
+    if let (Some(source), Some((normalized, _))) = (
+        usage.source_total,
+        total_tokens(usage, &TokenQuality::default()),
+    ) {
         if source != normalized {
             out.push(Contradiction {
                 code: "source_total_mismatch",
@@ -122,16 +150,19 @@ pub fn detect_contradictions(usage: &TokenUsage) -> Vec<Contradiction> {
 /// 比例：分子/分母的精确整数对。分母为零或无有效样本时返回 None（显示"—"）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Ratio {
-    pub numerator: i64,
-    pub denominator: i64,
+    pub numerator: i128,
+    pub denominator: i128,
 }
 
 impl Ratio {
-    pub fn new(numerator: i64, denominator: i64) -> Option<Self> {
+    pub fn new(numerator: i128, denominator: i128) -> Option<Self> {
         if denominator <= 0 {
             return None;
         }
-        Some(Ratio { numerator, denominator })
+        Some(Ratio {
+            numerator,
+            denominator,
+        })
     }
 
     pub fn as_f64(self) -> f64 {
@@ -157,8 +188,8 @@ pub fn cache_input_ratio(samples: &[(Option<i64>, Option<i64>)]) -> (Option<Rati
     }
     (
         Some(Ratio {
-            numerator: read_sum as i64,
-            denominator: input_sum as i64,
+            numerator: read_sum,
+            denominator: input_sum,
         }),
         n,
     )

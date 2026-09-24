@@ -5,9 +5,13 @@ mod common;
 
 use common::{batch, evt, temp_storage, ts, with_tokens, TempDir};
 use llm_usage_core::calendar::{ymd, WeekStart};
-use llm_usage_core::domain::{AttributionStatus, FieldQuality, TokenQuality, TokenUsage, MAX_TOKEN_VALUE};
+use llm_usage_core::domain::{
+    AttributionStatus, FieldQuality, TokenQuality, TokenUsage, MAX_TOKEN_VALUE,
+};
 use llm_usage_core::ingest::commit_batch;
-use llm_usage_core::jobs::{finish_run, run_status, start_run, RunStart, RunStats, RunStatus, TriggerKind};
+use llm_usage_core::jobs::{
+    finish_run, run_status, start_run, RunStart, RunStats, RunStatus, TriggerKind,
+};
 use llm_usage_core::query::{list_excluded, query_summary, Filters, Granularity, SummaryRequest};
 use llm_usage_core::storage::Storage;
 
@@ -42,26 +46,66 @@ fn jobs_state_machine_and_restart_interruption() {
         assert_eq!(merged, RunStart::Merged("run-1".into()));
         let merged_triggers: String = storage
             .conn()
-            .query_row("SELECT merged_triggers FROM ingest_runs WHERE run_id = 'run-1'", [], |r| r.get(0))
+            .query_row(
+                "SELECT merged_triggers FROM ingest_runs WHERE run_id = 'run-1'",
+                [],
+                |r| r.get(0),
+            )
             .unwrap();
         assert!(merged_triggers.contains("interval"));
 
         // 批次统计与作业进度同事务提交。
-        let mut b = batch("inst", "UTC", now, vec![with_tokens(evt("inst", "k1", now - 1000), 10, 0)]);
+        let mut b = batch(
+            "inst",
+            "UTC",
+            now,
+            vec![with_tokens(evt("inst", "k1", now - 1000), 10, 0)],
+        );
         b.run_id = Some("run-1".into());
         commit_batch(&storage, &b, None).unwrap();
         let added: i64 = storage
             .conn()
-            .query_row("SELECT added FROM ingest_runs WHERE run_id = 'run-1'", [], |r| r.get(0))
+            .query_row(
+                "SELECT added FROM ingest_runs WHERE run_id = 'run-1'",
+                [],
+                |r| r.get(0),
+            )
             .unwrap();
         assert_eq!(added, 1);
 
         // 终态后不能再 finish。
-        finish_run(&storage, "run-1", RunStatus::Succeeded, RunStats::default(), None, now + 2).unwrap();
-        assert_eq!(run_status(&storage, "run-1").unwrap(), Some(RunStatus::Succeeded));
-        assert!(finish_run(&storage, "run-1", RunStatus::Failed, RunStats::default(), None, now + 3).is_err());
+        finish_run(
+            &storage,
+            "run-1",
+            RunStatus::Succeeded,
+            RunStats::default(),
+            None,
+            now + 2,
+        )
+        .unwrap();
+        assert_eq!(
+            run_status(&storage, "run-1").unwrap(),
+            Some(RunStatus::Succeeded)
+        );
+        assert!(finish_run(
+            &storage,
+            "run-1",
+            RunStatus::Failed,
+            RunStats::default(),
+            None,
+            now + 3
+        )
+        .is_err());
         // finish 不接受非终态。
-        assert!(finish_run(&storage, "run-x", RunStatus::Running, RunStats::default(), None, now).is_err());
+        assert!(finish_run(
+            &storage,
+            "run-x",
+            RunStatus::Running,
+            RunStats::default(),
+            None,
+            now
+        )
+        .is_err());
 
         // 遗留一个 running 作业，模拟进程退出。
         start_run(&storage, "run-orphan", "inst-b", TriggerKind::Interval, now).unwrap();
@@ -69,9 +113,15 @@ fn jobs_state_machine_and_restart_interruption() {
     // 重启：running → interrupted，幂等恢复。
     {
         let storage = Storage::open(&path).unwrap();
-        assert_eq!(run_status(&storage, "run-orphan").unwrap(), Some(RunStatus::Interrupted));
+        assert_eq!(
+            run_status(&storage, "run-orphan").unwrap(),
+            Some(RunStatus::Interrupted)
+        );
         // 已终态的不受影响。
-        assert_eq!(run_status(&storage, "run-1").unwrap(), Some(RunStatus::Succeeded));
+        assert_eq!(
+            run_status(&storage, "run-1").unwrap(),
+            Some(RunStatus::Succeeded)
+        );
     }
 }
 
@@ -80,8 +130,28 @@ fn data_revision_is_monotonic_and_visible_to_queries() {
     let (_dir, storage) = temp_storage("revision");
     let now = ts("2026-09-24T12:00:00Z");
     assert_eq!(storage.data_revision().unwrap(), 0);
-    let o1 = commit_batch(&storage, &batch("inst", "UTC", now, vec![with_tokens(evt("inst", "k1", now - 1000), 1, 0)]), None).unwrap();
-    let o2 = commit_batch(&storage, &batch("inst", "UTC", now + 1, vec![with_tokens(evt("inst", "k2", now - 900), 2, 0)]), None).unwrap();
+    let o1 = commit_batch(
+        &storage,
+        &batch(
+            "inst",
+            "UTC",
+            now,
+            vec![with_tokens(evt("inst", "k1", now - 1000), 1, 0)],
+        ),
+        None,
+    )
+    .unwrap();
+    let o2 = commit_batch(
+        &storage,
+        &batch(
+            "inst",
+            "UTC",
+            now + 1,
+            vec![with_tokens(evt("inst", "k2", now - 900), 2, 0)],
+        ),
+        None,
+    )
+    .unwrap();
     assert!(o2.data_revision > o1.data_revision);
     assert_eq!(storage.data_revision().unwrap(), o2.data_revision);
     // 查询返回同一修订号视图。
@@ -100,7 +170,12 @@ fn attribution_excluded_events_stay_out_of_totals_and_are_listable() {
     remote.exclusion_reason = Some("remote_sync_folder".into());
     let mut pending = with_tokens(evt("inst", "pending-1", base), 500, 0);
     pending.attribution_status = AttributionStatus::Pending;
-    commit_batch(&storage, &batch("inst", "UTC", base + 1, vec![verified, remote, pending]), None).unwrap();
+    commit_batch(
+        &storage,
+        &batch("inst", "UTC", base + 1, vec![verified, remote, pending]),
+        None,
+    )
+    .unwrap();
 
     let summary = day_totals(&storage);
     // 未确认归属的不进总计。
@@ -108,11 +183,16 @@ fn attribution_excluded_events_stay_out_of_totals_and_are_listable() {
     assert_eq!(summary.excluded_event_count, 2);
 
     // 按排除原因列出。
-    let (start, _) = llm_usage_core::calendar::Calendar::utc().day_range_ms(ymd(2026, 9, 24)).unwrap();
+    let (start, _) = llm_usage_core::calendar::Calendar::utc()
+        .day_range_ms(ymd(2026, 9, 24))
+        .unwrap();
     let excluded = list_excluded(&storage, start, start + 86_400_000).unwrap();
     assert_eq!(
         excluded,
-        vec![("remote_sync_folder".to_string(), 1), ("unverified".to_string(), 1)]
+        vec![
+            ("remote_sync_folder".to_string(), 1),
+            ("unverified".to_string(), 1)
+        ]
     );
 }
 
@@ -128,7 +208,11 @@ fn token_limits_near_i64_and_js_safe_integer() {
     commit_batch(&storage, &batch("inst", "UTC", base + 1, vec![e]), None).unwrap();
     let stored: i64 = storage
         .conn()
-        .query_row("SELECT input_total FROM usage_events WHERE source_record_key = 'big'", [], |r| r.get(0))
+        .query_row(
+            "SELECT input_total FROM usage_events WHERE source_record_key = 'big'",
+            [],
+            |r| r.get(0),
+        )
         .unwrap();
     assert_eq!(stored, big);
     assert_eq!(day_totals(&storage).totals.input_total_known, Some(big));
@@ -137,19 +221,34 @@ fn token_limits_near_i64_and_js_safe_integer() {
     let mut at_max = evt("inst", "at-max", base);
     at_max.usage.input_total = Some(MAX_TOKEN_VALUE);
     at_max.quality.input_total = FieldQuality::Reported;
-    commit_batch(&storage, &batch("inst", "UTC", base + 2, vec![at_max]), None).unwrap();
+    commit_batch(
+        &storage,
+        &batch("inst", "UTC", base + 2, vec![at_max]),
+        None,
+    )
+    .unwrap();
 
     // 聚合溢出防护：两条 MAX 记录求和超过 i64 → 报错且整体回滚，不静默回绕。
     let mut m1 = evt("inst", "m1", base);
     m1.usage.input_total = Some(MAX_TOKEN_VALUE);
+    m1.quality.input_total = FieldQuality::Reported;
     let mut m2 = evt("inst", "m2", base);
     m2.usage.input_total = Some(MAX_TOKEN_VALUE);
-    let result = commit_batch(&storage, &batch("inst", "UTC", base + 3, vec![m1, m2]), None);
+    m2.quality.input_total = FieldQuality::Reported;
+    let result = commit_batch(
+        &storage,
+        &batch("inst", "UTC", base + 3, vec![m1, m2]),
+        None,
+    );
     assert!(result.is_err());
     // 回滚：m1/m2 未入库。
     let count: i64 = storage
         .conn()
-        .query_row("SELECT COUNT(*) FROM usage_events WHERE source_record_key IN ('m1','m2')", [], |r| r.get(0))
+        .query_row(
+            "SELECT COUNT(*) FROM usage_events WHERE source_record_key IN ('m1','m2')",
+            [],
+            |r| r.get(0),
+        )
         .unwrap();
     assert_eq!(count, 0);
 }
@@ -160,12 +259,22 @@ fn seconds_vs_milliseconds_misjudgment_rejected() {
     // 秒级时间戳（~2023-11-14）被当作毫秒 → 早于 2000 年，拒绝并记诊断。
     let mut bad = evt("inst", "sec-ts", 1_700_000_000);
     bad.usage.input_total = Some(1);
-    let out = commit_batch(&storage, &batch("inst", "UTC", ts("2026-09-24T12:00:00Z"), vec![bad]), None).unwrap();
+    bad.quality.input_total = FieldQuality::Reported;
+    let out = commit_batch(
+        &storage,
+        &batch("inst", "UTC", ts("2026-09-24T12:00:00Z"), vec![bad]),
+        None,
+    )
+    .unwrap();
     assert_eq!(out.errors, 1);
     assert_eq!(out.added, 0);
     let diag: i64 = storage
         .conn()
-        .query_row("SELECT COUNT(*) FROM diagnostics WHERE code = 'validation_failed'", [], |r| r.get(0))
+        .query_row(
+            "SELECT COUNT(*) FROM diagnostics WHERE code = 'validation_failed'",
+            [],
+            |r| r.get(0),
+        )
         .unwrap();
     assert_eq!(diag, 1);
 }
@@ -179,7 +288,11 @@ fn null_fields_propagate_through_storage_and_aggregation() {
     commit_batch(&storage, &batch("inst", "UTC", base + 1, vec![e]), None).unwrap();
     let stored: Option<i64> = storage
         .conn()
-        .query_row("SELECT input_total FROM usage_events WHERE source_record_key = 'all-unknown'", [], |r| r.get(0))
+        .query_row(
+            "SELECT input_total FROM usage_events WHERE source_record_key = 'all-unknown'",
+            [],
+            |r| r.get(0),
+        )
         .unwrap();
     assert_eq!(stored, None);
     let summary = day_totals(&storage);
@@ -212,7 +325,11 @@ fn quota_snapshots_are_not_converted_to_tokens() {
     .unwrap();
     let kind: String = storage
         .conn()
-        .query_row("SELECT kind FROM quota_snapshots WHERE quota_id = 'q-1'", [], |r| r.get(0))
+        .query_row(
+            "SELECT kind FROM quota_snapshots WHERE quota_id = 'q-1'",
+            [],
+            |r| r.get(0),
+        )
         .unwrap();
     assert_eq!(kind, "subscription_window");
     // 额度不进入 token 统计。
@@ -239,7 +356,11 @@ fn event_aliases_link_cross_source_records() {
         .unwrap();
     let linked: String = storage
         .conn()
-        .query_row("SELECT member_event_id FROM event_aliases WHERE canonical_event_id = 'inst#k1'", [], |r| r.get(0))
+        .query_row(
+            "SELECT member_event_id FROM event_aliases WHERE canonical_event_id = 'inst#k1'",
+            [],
+            |r| r.get(0),
+        )
         .unwrap();
     assert_eq!(linked, "inst2#k9");
 }
@@ -280,7 +401,11 @@ fn field_quality_roundtrip() {
     commit_batch(&storage, &batch("inst", "UTC", base + 1, vec![e]), None).unwrap();
     let json: String = storage
         .conn()
-        .query_row("SELECT quality_json FROM usage_events WHERE source_record_key = 'q1'", [], |r| r.get(0))
+        .query_row(
+            "SELECT quality_json FROM usage_events WHERE source_record_key = 'q1'",
+            [],
+            |r| r.get(0),
+        )
         .unwrap();
     let quality: TokenQuality = serde_json::from_str(&json).unwrap();
     assert_eq!(quality.input_total, FieldQuality::Estimated);
@@ -288,7 +413,11 @@ fn field_quality_roundtrip() {
     // 估算进入 estimated 质量分区，与 reported 分开。
     let bucket: String = storage
         .conn()
-        .query_row("SELECT quality_bucket FROM usage_events WHERE source_record_key = 'q1'", [], |r| r.get(0))
+        .query_row(
+            "SELECT quality_bucket FROM usage_events WHERE source_record_key = 'q1'",
+            [],
+            |r| r.get(0),
+        )
         .unwrap();
     assert_eq!(bucket, "estimated");
 }
@@ -306,7 +435,11 @@ fn contradiction_diagnostics_stored_without_clamping() {
     commit_batch(&storage, &batch("inst", "UTC", base + 1, vec![e]), None).unwrap();
     let read: i64 = storage
         .conn()
-        .query_row("SELECT input_cache_read FROM usage_events WHERE source_record_key = 'bad-cache'", [], |r| r.get(0))
+        .query_row(
+            "SELECT input_cache_read FROM usage_events WHERE source_record_key = 'bad-cache'",
+            [],
+            |r| r.get(0),
+        )
         .unwrap();
     assert_eq!(read, 800, "矛盾值原样保留，不做 max(0,…) 修正");
     let diag: i64 = storage
@@ -326,7 +459,10 @@ fn token_usage_default_is_all_unknown() {
     let usage = TokenUsage::default();
     let quality = TokenQuality::default();
     assert_eq!(llm_usage_core::metrics::input_total(&usage, &quality), None);
-    assert_eq!(llm_usage_core::metrics::total_tokens(&usage, &quality), None);
+    assert_eq!(
+        llm_usage_core::metrics::total_tokens(&usage, &quality),
+        None
+    );
     assert_eq!(llm_usage_core::metrics::cache_input_ratio(&[]), (None, 0));
 }
 
@@ -367,7 +503,15 @@ fn schedule_tables_roundtrip() {
             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
         )
         .unwrap();
-    assert_eq!((tz.as_str(), rule.as_str(), desired.as_str(), applied.as_str()), ("Asia/Shanghai", "interval", "enabled", "applied"));
+    assert_eq!(
+        (
+            tz.as_str(),
+            rule.as_str(),
+            desired.as_str(),
+            applied.as_str()
+        ),
+        ("Asia/Shanghai", "interval", "enabled", "applied")
+    );
 }
 
 /// 导入批次身份与状态：planned → committed / rolled_back（旧库导入幂等细节属 M2）。
@@ -392,9 +536,11 @@ fn import_manifests_roundtrip() {
         .unwrap();
     let (status, stats): (String, String) = storage
         .conn()
-        .query_row("SELECT status, stats FROM import_manifests WHERE import_id = 'imp-1'", [], |r| {
-            Ok((r.get(0)?, r.get(1)?))
-        })
+        .query_row(
+            "SELECT status, stats FROM import_manifests WHERE import_id = 'imp-1'",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
         .unwrap();
     assert_eq!(status, "committed");
     assert!(stats.contains("42"));

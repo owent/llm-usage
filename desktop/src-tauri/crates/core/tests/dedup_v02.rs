@@ -92,12 +92,18 @@ fn v02_same_revision_different_content_is_conflict_not_max() {
     // 诊断与 daily 冲突计数可见。
     let diag_count: i64 = storage
         .conn()
-        .query_row("SELECT COUNT(*) FROM diagnostics WHERE code = 'update_conflict'", [], |r| r.get(0))
+        .query_row(
+            "SELECT COUNT(*) FROM diagnostics WHERE code = 'update_conflict'",
+            [],
+            |r| r.get(0),
+        )
         .unwrap();
     assert_eq!(diag_count, 1);
     let conflict_sum: i64 = storage
         .conn()
-        .query_row("SELECT SUM(conflict_count) FROM daily_usage", [], |r| r.get(0))
+        .query_row("SELECT SUM(conflict_count) FROM daily_usage", [], |r| {
+            r.get(0)
+        })
         .unwrap();
     assert_eq!(conflict_sum, 1);
 }
@@ -118,7 +124,12 @@ fn v02_lifecycle_ordering_without_revision() {
     // corrected 覆盖 final。
     let mut corrected = with_tokens(evt("inst", "req-1", ms), 90, 0);
     corrected.lifecycle = Lifecycle::Corrected;
-    let out = commit_batch(&storage, &batch("inst", "UTC", ms + 2, vec![corrected]), None).unwrap();
+    let out = commit_batch(
+        &storage,
+        &batch("inst", "UTC", ms + 2, vec![corrected]),
+        None,
+    )
+    .unwrap();
     assert_eq!(out.updated, 1);
     assert_eq!(day_input_total(&storage), Some(90));
 }

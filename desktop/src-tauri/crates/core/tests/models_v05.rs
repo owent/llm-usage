@@ -36,7 +36,12 @@ fn v05_model_switch_keeps_historical_attribution() {
     let mut e2 = with_tokens(evt("inst", "k2", base + 3600_000), 200, 0);
     e2.model_raw = Some("model-new".into());
     e2.model_attribution = ModelAttribution::StructuredChange;
-    commit_batch(&storage, &batch("inst", "UTC", base + 7200_000, vec![e1, e2]), None).unwrap();
+    commit_batch(
+        &storage,
+        &batch("inst", "UTC", base + 7200_000, vec![e1, e2]),
+        None,
+    )
+    .unwrap();
 
     let summary = summarize(&storage);
     assert_eq!(summary.model_breakdown.len(), 2);
@@ -64,7 +69,11 @@ fn v05_model_switch_keeps_historical_attribution() {
         .unwrap();
     let raw: String = storage
         .conn()
-        .query_row("SELECT model_raw FROM usage_events WHERE source_record_key = 'k1'", [], |r| r.get(0))
+        .query_row(
+            "SELECT model_raw FROM usage_events WHERE source_record_key = 'k1'",
+            [],
+            |r| r.get(0),
+        )
         .unwrap();
     assert_eq!(raw, "model-old");
 }
@@ -79,7 +88,12 @@ fn v05_same_name_different_providers_not_merged() {
     let mut e2 = with_tokens(evt("inst", "k2", base), 300, 0);
     e2.provider_id = Some("provider-b".into());
     e2.model_raw = Some("same-name".into());
-    commit_batch(&storage, &batch("inst", "UTC", base + 1, vec![e1, e2]), None).unwrap();
+    commit_batch(
+        &storage,
+        &batch("inst", "UTC", base + 1, vec![e1, e2]),
+        None,
+    )
+    .unwrap();
 
     let summary = summarize(&storage);
     assert_eq!(summary.model_breakdown.len(), 2);
@@ -96,11 +110,20 @@ fn v05_unknown_model_in_totals_with_own_row() {
     unknown.provider_id = None;
     unknown.model_raw = None;
     unknown.model_attribution = ModelAttribution::Unknown;
-    commit_batch(&storage, &batch("inst", "UTC", base + 1, vec![known, unknown]), None).unwrap();
+    commit_batch(
+        &storage,
+        &batch("inst", "UTC", base + 1, vec![known, unknown]),
+        None,
+    )
+    .unwrap();
 
     let summary = summarize(&storage);
     // unknown 独立行存在且总计包含其已知 token。
-    let unknown_row = summary.model_breakdown.iter().find(|r| r.model_raw.is_none()).unwrap();
+    let unknown_row = summary
+        .model_breakdown
+        .iter()
+        .find(|r| r.model_raw.is_none())
+        .unwrap();
     assert_eq!(unknown_row.sums.input_total_known, Some(50));
     assert_eq!(summary.totals.input_total_known, Some(150));
 
@@ -113,7 +136,10 @@ fn v05_unknown_model_in_totals_with_own_row() {
             first_day: ymd(2026, 9, 20),
             last_day: ymd(2026, 9, 24),
             granularity: Granularity::Week,
-            filters: Filters { models: vec!["m".to_string()], ..Filters::default() },
+            filters: Filters {
+                models: vec!["m".to_string()],
+                ..Filters::default()
+            },
             today: ymd(2026, 9, 24),
             retention_cutoff: None,
         },

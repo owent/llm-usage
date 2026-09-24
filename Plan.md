@@ -2,9 +2,15 @@
 
 状态：实施前设计准备已完成。M0 主体完成：根文档依赖声明已恢复并锁定、版本全部固定、
 最小 release 试验与包体/内存测量完成、5 源脱敏 fixture 取得、CI 矩阵建立、WSL 构建与 WSLg 冒烟通过；
-剩余 GitHub CI 首次实际运行待推送后登记。M1 统计核心与 SQLite 存储已实现（72 测试通过），
-仅余性能初值随规模基准补测。M2–M7 待执行。证据见 [验证记录](docs/validation/desktop-usage/)。
+剩余 GitHub CI 首次实际运行待推送后登记。M1 统计核心与 SQLite 存储已实现，
+M0/M1 审查修复见 [记录](docs/validation/desktop-usage/m0-m1-review.md)；
+性能初值及迁移前空间检查/一致备份仍待验收。M2 部分完成：框架 + Codex 适配器已验收；
+pi/Claude/Gemini/Qwen 已启动但按用户要求中断，半成品保留待续
+（[中断记录](docs/validation/desktop-usage/m2bc-suspended.md)）。M3–M7 待执行。
 用户已允许实施阶段提取本机真实 Agent 数据验证。设计基线日期：2026-09-24。
+
+新增 M1a 历史数据来源身份补强、F2 模型 API 按量价格获取调研，均待执行；
+本次更新计划与合同，不表示已实现来源迁移、导入合并或费用估算。
 
 目标：在本地按 Agent、模型和时间汇总 token、模型请求及缓存使用，
 支持今日刷新、日/周/月图表、定时提取和界面配置，提供小体积桌面客户端。
@@ -37,19 +43,23 @@ JetBrains/TRAE 等缺少本地格式证据的 IDE 列入后续 F1，当前不实
 | ID | 状态 | 任务 | 依赖 | 完成条件 |
 | --- | --- | --- | --- | --- |
 | M0 | **基本完成**（2026-09-24；仅余 GitHub CI 首次运行待推送后登记；空闲内存 206.5 MB 超 180 MiB 目标，转 M6/M7 定位） | 固定版本样本、开发合同和三平台 CI 基线 | 开始实施 | 按已确认平台方案锁定版本，使用已获允许的本机数据取得脱敏 fixture；三平台构建、WSL 可行性、包体报告；恢复文档依赖声明 |
-| M1 | **基本完成**（2026-09-24；核心库/迁移/原子提交/查询/保留已实现，72 测试通过，[记录](docs/validation/desktop-usage/m1-core.md)；仅余性能初值随 V20 规模基准补测） | 统计合同、SQLite 存储、导入事务和迁移 | M0 | 已知/未知与完整性可区分；请求更新、去重、崩溃恢复、日周月数学用例通过 |
-| M2 | 未完成 | 首批本地适配器：Codex、Claude Code、pi、oh-my-pi、Gemini CLI、Qwen Code | M1 | 每个发布版本有固定格式样本；重复扫描不增量；主调用、辅助调用、子 Agent 的覆盖情况可见 |
+| M1 | **基本完成**（2026-09-24；统计/事务/查询/保留及 schema v2 修复见[审查记录](docs/validation/desktop-usage/m0-m1-review.md)；余 V20 性能初值、V15/V16 迁移前空间检查和一致备份） | 统计合同、SQLite 存储、导入事务和迁移 | M0 | 已知/未知与完整性可区分；请求更新、去重、崩溃恢复、日周月数学用例通过 |
+| M1a | 未完成 | [历史来源身份与存储分区](docs/design/desktop-usage/execution.md#m1a)，为后续导入/导出/Merge 保留依据 | M1；在 M6 数据导出前完成 | 稳定主机 ID、主机名和来源实例可追溯；事件唯一键、历史汇总分区及索引保留来源；旧数据迁移不猜测归属；V28 对应存储用例通过 |
+| M2 | 部分完成（2026-09-24：框架 + Codex 适配器完成，135 测试与本机真实核对通过，[记录](docs/validation/desktop-usage/m2a-codex.md)；pi/Claude/Gemini/Qwen 适配器已由 M2-B/C 启动但按用户要求中断，半成品保留在工作树且编译测试全绿、**未验收**，见[中断记录](docs/validation/desktop-usage/m2bc-suspended.md)；oh-my-pi 独立适配器与 Codex 旧版本逐版本 fixture 未完成；新增目录迁移与版本组织待执行） | 首批本地适配器及[目录化](docs/design/desktop-usage/execution.md#m2-layout)：Codex、Claude Code、pi、oh-my-pi、Gemini CLI、Qwen Code | M1 | 每个 Agent 独立目录，历史版本在该目录内实现；已有单文件迁移与 V30 对应回归通过；每个支持版本有固定格式样本；重复扫描不增量；主调用、辅助调用、子 Agent 的覆盖情况可见 |
 | M3 | 未完成 | 扩展本地适配器：Cline、Kilo Code、OpenCode、MiMo Code、Zoo Code、DSH、OpenClaw、Hermes Agent | M1；可与 M2 独立排期 | 分产品/格式验收；流式更正、模型/辅助累计、历史迁移与聚合重叠通过 |
 | M4 | 未完成（M0 已取证：Kimi Code 1.0.3 与 ZCode 3.14.3 本机字段已证，Kimi Work/WorkBuddy 本机无数据） | 新版 Kimi Code、Kimi Work、ZCode、WorkBuddy 本地格式核验 | M0/M1 | 本阶段产品有本地提取尝试记录；交付适配器或字段/版本限制；F1 的 IDE 不实施，不以远端 API 替代 |
 | M5 | 未完成（M0 已取证：Copilot CLI 1.0.73 assistant_usage_events 逐 turn 字段已证） | 本机文件遥测及可选 loopback 接入：Copilot CLI、VS Code、CodeBuddy 等 | M1 | 本地 OTLP/file 协议、采样/重传、来源归属、敏感字段过滤通过；拒绝远端/账号范围数据 |
-| M6 | 未完成 | 桌面界面、真实刷新、定时任务、设置、保留和导出 | M1/M2；对接 M3–M5 | 图表与日周月联动；全局/逐源定时配置、手动触发去重、休眠补扫、Windows 关闭界面提取和重启恢复通过；按[资源合同](desktop/assets/README.md)接入导航、主题托盘与空状态，核验高 DPI、深浅主题和可访问名称 |
+| M6 | 未完成 | 桌面界面、真实刷新、定时任务、设置、保留和导出 | M1/M1a/M2；对接 M3–M5 | 图表与日周月联动；可供后续合并的数据导出保留来源身份、覆盖范围和修订；全局/逐源定时配置、手动触发去重、休眠补扫、Windows 关闭界面提取和重启恢复通过；按[资源合同](desktop/assets/README.md)接入导航、主题托盘与空状态，核验高 DPI、深浅主题和可访问名称 |
 | M7 | 未完成 | 轻量化、三平台持续构建、安装与发布候选验收 | M2–M6 | Windows 11 实机与三平台 CI 证据分列；适配器状态明确，性能/包体、离线、任务清理与升级回滚通过；确认 LFS 下载后的安装包、任务栏及 macOS/Linux 桌面图标 |
 | F1 | 后续支持，未排期，未实施 | 后续 IDE 支持：JetBrains/TRAE、Zed 内置及其他缺证 IDE 变体 | 后续支持阶段；不属于 M0–M7 | 启动该阶段后逐项取得本地格式证据及验证结果；当前只保留计划，不探测/开发，不阻塞首版 |
+| F2 | 后续调研，未排期，未实施 | [模型 API 按量价格获取与 token 费用估算方案](docs/design/desktop-usage/execution.md#f2) | 数据合同；调研不阻塞首版 | 比较价格获取渠道并记录可核验证据；明确模型映射、计费维度、版本/生效期、离线缓存及更新方式；交付 V29 验收样本设计和后续实施任务 |
 
 M4/M5 的本地格式证据不足不阻止 M1/M2/M6，但对应工具必须保持“待验证/受限”，
 不能为了宣布计划完成而从能力矩阵删除。M7 可交付有明确支持范围的首个版本，
 未解决的工具继续留在本计划。
 F1 单独标为“后续支持，未实施”，不计入首版必验适配器；具体变体边界见接入矩阵。
+M1a 先保存来源与交换合同，完整导入/Merge 功能另行排期；来源不同不代表用量覆盖必然互斥。
+F2 只调研公开价格元数据及本地估算，不接入远端用量/账单 API；估算实现待调研后细化排期。
 
 ## 已确认的实施边界与首阶段核验
 
@@ -64,6 +74,8 @@ F1 单独标为“后续支持，未实施”，不计入首版必验适配器�
 
 优先方案为 Tauri 2 + Rust + SQLite + Svelte/TypeScript + 按需 ECharts。
 先实现有证据的核心，再扩展适配器；不打包 Python/Node 采集服务，不自动启动 Agent。
+M2–M5 及后续 F1 的 Agent 适配器统一遵守[独立目录与版本组织合同](docs/design/desktop-usage/architecture.md#adapter-layout)：
+每个 Agent 使用自己的目录，当前及历史版本实现留在该目录内；本轮仅更新计划，不移动代码。
 只读取用户启用的本地数据源；定时任务只运行本应用采集逻辑，不启动 Agent 或模型调用。
 本地数据的来源边界见设计入口；仅将文件保存到本地不构成本机使用证据。
 额度、会话计数、累计快照与逐次模型调用保持不同统计单位。

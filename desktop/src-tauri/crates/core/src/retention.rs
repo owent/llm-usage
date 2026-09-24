@@ -6,7 +6,7 @@ use crate::error::CoreError;
 use crate::ingest;
 use crate::storage::Storage;
 use jiff::civil::Date;
-use rusqlite::params;
+use rusqlite::{params, OptionalExtension};
 use std::collections::BTreeSet;
 use std::path::Path;
 
@@ -76,6 +76,13 @@ pub fn enforce_retention(
 
     let conn = storage.conn();
     let tx = conn.unchecked_transaction()?;
+    // 清理下限持久化且只前进；重启/扩大保留期也不能普通重扫复活已删除数据。
+    tx.execute(
+        "INSERT INTO settings (key, value, schema_version, updated_at_ms)
+         VALUES ('detail_retention_floor_ms', ?1, 1, ?2)
+         ON CONFLICT(key) DO UPDATE SET value = CAST(MAX(CAST(value AS INTEGER), CAST(excluded.value AS INTEGER)) AS TEXT), updated_at_ms = excluded.updated_at_ms",
+        params![cutoff_ms.to_string(), now_ms],
+    )?;
 
     // 1. 找到有明细的过期本地日。
     let mut expired_days: BTreeSet<Date> = BTreeSet::new();
@@ -128,12 +135,27 @@ pub fn enforce_retention(
     }
 
     // 3. 删除过期明细（SQLite 逻辑删除不承诺物理擦除）。
-    let deleted_events = tx.execute("DELETE FROM usage_events WHERE occurred_at_ms < ?1", params![cutoff_ms])? as i64;
+    tx.execute(
+        "DELETE FROM event_aliases WHERE canonical_event_id IN
+         (SELECT event_id FROM usage_events WHERE occurred_at_ms < ?1)
+         OR member_event_id IN (SELECT event_id FROM usage_events WHERE occurred_at_ms < ?1)",
+        params![cutoff_ms],
+    )?;
+    let deleted_events = tx.execute(
+        "DELETE FROM usage_events WHERE occurred_at_ms < ?1",
+        params![cutoff_ms],
+    )? as i64;
 
     // 4. 诊断保留。
-    let diag_cutoff = now_ms - i64::from(policy.diagnostics_days) * 86_400_000;
-    let deleted_diagnostics =
-        tx.execute("DELETE FROM diagnostics WHERE created_ms < ?1", params![diag_cutoff])? as i64;
+    let mut diag_cutoff = now_ms - i64::from(policy.diagnostics_days) * 86_400_000;
+    if let Some(hard_days) = policy.hard_max_days {
+        let hard_day = calendar.retention_cutoff_day(today, hard_days)?;
+        diag_cutoff = diag_cutoff.max(calendar.day_range_ms(hard_day)?.0);
+    }
+    let deleted_diagnostics = tx.execute(
+        "DELETE FROM diagnostics WHERE created_ms < ?1",
+        params![diag_cutoff],
+    )? as i64;
 
     // 5. 硬性最长保留：约束日汇总与额度快照。
     let mut deleted_daily_rows = 0i64;
@@ -145,10 +167,21 @@ pub fn enforce_retention(
             params![calendar.tz_name(), hard_cutoff_day.to_string()],
         )? as i64;
         let (hard_cutoff_ms, _) = calendar.day_range_ms(hard_cutoff_day)?;
+        tx.execute(
+            "INSERT INTO settings (key, value, schema_version, updated_at_ms)
+             VALUES ('hard_retention_floor_ms', ?1, 1, ?2)
+             ON CONFLICT(key) DO UPDATE SET value = CAST(MAX(CAST(value AS INTEGER), CAST(excluded.value AS INTEGER)) AS TEXT), updated_at_ms = excluded.updated_at_ms",
+            params![hard_cutoff_ms.to_string(), now_ms],
+        )?;
         deleted_quota_rows = tx.execute(
             "DELETE FROM quota_snapshots WHERE observed_at_ms < ?1",
             params![hard_cutoff_ms],
         )? as i64;
+        // 原生区间不能按比例拆分；跨越截止或起点未知的汇总无法证明满足硬期限。
+        tx.execute(
+            "DELETE FROM source_aggregates WHERE interval_start_ms IS NULL OR interval_start_ms < ?1 OR interval_end_ms < ?1",
+            params![hard_cutoff_ms],
+        )?;
     }
 
     tx.execute(
@@ -169,6 +202,22 @@ pub fn enforce_retention(
     })
 }
 
+pub(crate) fn hard_retention_floor(conn: &rusqlite::Connection) -> Result<Option<i64>, CoreError> {
+    let value: Option<String> = conn
+        .query_row(
+            "SELECT value FROM settings WHERE key = 'hard_retention_floor_ms'",
+            [],
+            |r| r.get(0),
+        )
+        .optional()?;
+    value
+        .map(|v| {
+            v.parse::<i64>()
+                .map_err(|_| CoreError::Validation("invalid hard retention floor".into()))
+        })
+        .transpose()
+}
+
 /// 容量统计：主库 + WAL + SHM + 备份目录。
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct StorageFootprint {
@@ -179,7 +228,10 @@ pub struct StorageFootprint {
     pub total_bytes: u64,
 }
 
-pub fn storage_footprint(db_path: &Path, backup_dir: Option<&Path>) -> Result<StorageFootprint, CoreError> {
+pub fn storage_footprint(
+    db_path: &Path,
+    backup_dir: Option<&Path>,
+) -> Result<StorageFootprint, CoreError> {
     let file_len = |p: &Path| -> u64 { std::fs::metadata(p).map(|m| m.len()).unwrap_or(0) };
     let main = file_len(db_path);
     let wal = file_len(&sidecar(db_path, "-wal"));

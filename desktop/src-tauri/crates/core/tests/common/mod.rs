@@ -114,3 +114,211 @@ pub fn batch(instance: &str, tz: &str, now_ms: i64, events: Vec<EventInput>) -> 
         retention_cutoff_ms: None,
     }
 }
+
+// ---- M2-A：Codex 适配器测试辅助 ----
+
+use llm_usage_core::adapters::codex::CodexAdapter;
+use llm_usage_core::adapters::framework::{
+    run_adapter_scan, DiscoverContext, RunConfig, ScanLimits, SourceRunReport,
+};
+use llm_usage_core::jobs::TriggerKind;
+
+/// 把 M0 脱敏 fixture（sanitized projection）还原为 rollout JSONL 字节流。
+/// 投影保留了每行的 timestamp/type/payload 白名单结构，正文为常量占位；
+/// 去掉提取器附加的 `line` 键后逐行序列化即得原始形状的 JSONL。
+pub fn reconstruct_codex_jsonl(sanitized_path: &Path) -> Vec<u8> {
+    let text = std::fs::read_to_string(sanitized_path).unwrap();
+    let fixture: serde_json::Value = serde_json::from_str(&text).unwrap();
+    let mut out = Vec::new();
+    for record in fixture["records"].as_array().unwrap() {
+        let mut line = record.clone();
+        line.as_object_mut().unwrap().remove("line");
+        out.extend_from_slice(serde_json::to_string(&line).unwrap().as_bytes());
+        out.push(b'\n');
+    }
+    out
+}
+
+/// 在临时目录构造 <root>/sessions/2026/09/24/rollout-reconstructed.jsonl 布局。
+pub fn codex_root_with_file(dir: &TempDir, file_name: &str, contents: &[u8]) -> PathBuf {
+    let day_dir = dir
+        .path()
+        .join("sessions")
+        .join("2026")
+        .join("09")
+        .join("24");
+    std::fs::create_dir_all(&day_dir).unwrap();
+    std::fs::write(day_dir.join(file_name), contents).unwrap();
+    dir.path().to_path_buf()
+}
+
+/// M0 真实 fixture（本机 0.155.0-alpha.16.3 脱敏提取）在仓库内的路径。
+pub fn codex_fixture(name: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures")
+        .join("codex")
+        .join(name)
+}
+
+/// 运行一次完整采集（发现→探测→扫描→commit_batch→查询就绪）。
+pub fn run_codex(storage: &Storage, root: &Path, now_ms: i64) -> Vec<SourceRunReport> {
+    run_codex_with_limits(storage, root, now_ms, ScanLimits::default())
+}
+
+pub fn run_codex_with_limits(
+    storage: &Storage,
+    root: &Path,
+    now_ms: i64,
+    limits: ScanLimits,
+) -> Vec<SourceRunReport> {
+    let adapter = CodexAdapter::new();
+    let ctx = DiscoverContext {
+        home_dir: None,
+        env: Default::default(),
+        manual_roots: vec![root.to_path_buf()],
+    };
+    let config = RunConfig {
+        timezone: "UTC".to_string(),
+        now_ms,
+        limits,
+        trigger: TriggerKind::Manual,
+        run_id_prefix: format!("run-{now_ms}"),
+    };
+    let reports = run_adapter_scan(storage, &adapter, &ctx, &config).unwrap();
+    assert_eq!(reports.len(), 1, "expected exactly one discovered root");
+    reports
+}
+
+/// UTC 日汇总查询（测试期望均为人工核算值）。
+pub fn summary(
+    storage: &Storage,
+    first_day: &str,
+    last_day: &str,
+) -> llm_usage_core::query::Summary {
+    llm_usage_core::query::query_summary(
+        storage,
+        &llm_usage_core::query::SummaryRequest {
+            timezone: "UTC".to_string(),
+            week_start: llm_usage_core::calendar::WeekStart::Monday,
+            first_day: llm_usage_core::calendar::parse_date(first_day).unwrap(),
+            last_day: llm_usage_core::calendar::parse_date(last_day).unwrap(),
+            granularity: llm_usage_core::query::Granularity::Day,
+            filters: llm_usage_core::query::Filters::default(),
+            today: llm_usage_core::calendar::parse_date(last_day).unwrap(),
+            retention_cutoff: None,
+        },
+    )
+    .unwrap()
+}
+
+// ---- M2-C：Claude Code / Qwen Code / Gemini CLI 适配器测试辅助 ----
+
+use llm_usage_core::adapters::claude::ClaudeAdapter;
+use llm_usage_core::adapters::gemini::GeminiAdapter;
+use llm_usage_core::adapters::qwen::QwenAdapter;
+use llm_usage_core::adapters::framework::SourceAdapter;
+
+/// 在临时目录构造 <root>/projects/<rel> 布局（rel 如 "proj/sess-1.jsonl" 或
+/// "proj/sess-1/subagents/a.jsonl"），返回配置根。
+pub fn claude_root_with_file(dir: &TempDir, rel: &str, contents: &[u8]) -> PathBuf {
+    let path = dir.path().join("projects").join(rel);
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::write(path, contents).unwrap();
+    dir.path().to_path_buf()
+}
+
+/// 在临时目录构造 <root>/tmp/<rel> 布局（rel 如 "proj-1/chats/sess-1.jsonl"），返回配置根。
+pub fn qwen_root_with_file(dir: &TempDir, rel: &str, contents: &[u8]) -> PathBuf {
+    let path = dir.path().join("tmp").join(rel);
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::write(path, contents).unwrap();
+    dir.path().to_path_buf()
+}
+
+/// 在临时目录构造 <root>/tmp/<rel> 布局（rel 如 "hash-1/chats/session-1.json"），返回配置根。
+pub fn gemini_root_with_file(dir: &TempDir, rel: &str, contents: &[u8]) -> PathBuf {
+    let path = dir.path().join("tmp").join(rel);
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::write(path, contents).unwrap();
+    dir.path().to_path_buf()
+}
+
+/// 合成 fixture 在仓库内的路径（目录/文件头均标 synthetic；三者本机无真实样本）。
+pub fn claude_fixture(name: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures")
+        .join("claude")
+        .join(name)
+}
+
+pub fn qwen_fixture(name: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures")
+        .join("qwen")
+        .join(name)
+}
+
+pub fn gemini_fixture(name: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures")
+        .join("gemini")
+        .join(name)
+}
+
+fn run_adapter(
+    adapter: &dyn SourceAdapter,
+    storage: &Storage,
+    root: &Path,
+    now_ms: i64,
+    limits: ScanLimits,
+) -> Vec<SourceRunReport> {
+    let ctx = DiscoverContext {
+        home_dir: None,
+        env: Default::default(),
+        manual_roots: vec![root.to_path_buf()],
+    };
+    let config = RunConfig {
+        timezone: "UTC".to_string(),
+        now_ms,
+        limits,
+        trigger: TriggerKind::Manual,
+        run_id_prefix: format!("run-{now_ms}"),
+    };
+    let reports = run_adapter_scan(storage, adapter, &ctx, &config).unwrap();
+    assert_eq!(reports.len(), 1, "expected exactly one discovered root");
+    reports
+}
+
+pub fn run_claude(storage: &Storage, root: &Path, now_ms: i64) -> Vec<SourceRunReport> {
+    run_adapter(&ClaudeAdapter::new(), storage, root, now_ms, ScanLimits::default())
+}
+
+pub fn run_claude_with_limits(
+    storage: &Storage,
+    root: &Path,
+    now_ms: i64,
+    limits: ScanLimits,
+) -> Vec<SourceRunReport> {
+    run_adapter(&ClaudeAdapter::new(), storage, root, now_ms, limits)
+}
+
+pub fn run_qwen(storage: &Storage, root: &Path, now_ms: i64) -> Vec<SourceRunReport> {
+    run_adapter(&QwenAdapter::new(), storage, root, now_ms, ScanLimits::default())
+}
+
+pub fn run_qwen_with_limits(
+    storage: &Storage,
+    root: &Path,
+    now_ms: i64,
+    limits: ScanLimits,
+) -> Vec<SourceRunReport> {
+    run_adapter(&QwenAdapter::new(), storage, root, now_ms, limits)
+}
+
+pub fn run_gemini(storage: &Storage, root: &Path, now_ms: i64) -> Vec<SourceRunReport> {
+    run_adapter(&GeminiAdapter::new(), storage, root, now_ms, ScanLimits::default())
+}

@@ -1,12 +1,29 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use rusqlite::Connection;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+use tauri::Manager;
+
+static PROBE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+
+struct ProbeDirectory(PathBuf);
+impl Drop for ProbeDirectory {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
 
 #[tauri::command]
 fn sqlite_probe() -> Result<serde_json::Value, String> {
-    let dir = std::env::temp_dir().join("llm-usage-m0-probe");
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    let db_path = dir.join("probe.db");
+    let dir = std::env::temp_dir().join(format!(
+        "llm-usage-m0-probe-{}-{}",
+        std::process::id(),
+        PROBE_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+    ));
+    std::fs::create_dir(&dir).map_err(|e| e.to_string())?;
+    let dir = ProbeDirectory(dir);
+    let db_path = dir.0.join("probe.db");
     let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
     conn.execute(
         "CREATE TABLE IF NOT EXISTS probe (id INTEGER PRIMARY KEY, note TEXT NOT NULL)",
@@ -33,13 +50,42 @@ fn sqlite_probe() -> Result<serde_json::Value, String> {
 }
 
 #[tauri::command]
-fn read_sample_file() -> Result<serde_json::Value, String> {
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../sample-data.txt");
-    let bytes = std::fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+fn read_sample_file(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    read_sample_from(&app.path().resource_dir().map_err(|e| e.to_string())?)
+}
+
+fn read_sample_from(resource_dir: &Path) -> Result<serde_json::Value, String> {
+    let bytes = std::fs::read(resource_dir.join("sample-data.txt"))
+        .map_err(|e| format!("sample-data.txt: {e}"))?;
     Ok(serde_json::json!({
         "path": "sample-data.txt",
         "len": bytes.len(),
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sqlite_probes_are_independent_when_concurrent() {
+        let probes: Vec<_> = (0..8).map(|_| std::thread::spawn(sqlite_probe)).collect();
+        for probe in probes {
+            assert_eq!(probe.join().unwrap().unwrap()["rows"], 2);
+        }
+    }
+
+    #[test]
+    fn sample_is_read_from_the_installed_resource_directory() {
+        let dir =
+            std::env::temp_dir().join(format!("llm-usage-resource-test-{}", std::process::id()));
+        std::fs::create_dir(&dir).unwrap();
+        let dir = ProbeDirectory(dir);
+        // 不回退到仍存在的开发源码：安装目录缺资源必须失败。
+        assert!(read_sample_from(&dir.0).is_err());
+        std::fs::write(dir.0.join("sample-data.txt"), b"installed sample").unwrap();
+        assert_eq!(read_sample_from(&dir.0).unwrap()["len"], 16);
+    }
 }
 
 fn main() {

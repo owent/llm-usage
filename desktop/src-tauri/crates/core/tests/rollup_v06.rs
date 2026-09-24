@@ -40,12 +40,23 @@ fn v06_rollup_sums_and_weighted_ratio() {
     let mut b = with_tokens(evt("inst", "b", ts("2026-09-23T12:00:00Z")), 900, 10);
     b.usage.input_cache_read = Some(90);
     b.quality.input_cache_read = FieldQuality::Reported;
-    commit_batch(&storage, &batch("inst", "UTC", ts("2026-09-24T00:00:00Z"), vec![a, b]), None)
-        .unwrap();
+    commit_batch(
+        &storage,
+        &batch("inst", "UTC", ts("2026-09-24T00:00:00Z"), vec![a, b]),
+        None,
+    )
+    .unwrap();
 
     let daily = query_summary(
         &storage,
-        &request("UTC", ymd(2026, 9, 22), ymd(2026, 9, 23), Granularity::Day, ymd(2026, 9, 24), None),
+        &request(
+            "UTC",
+            ymd(2026, 9, 22),
+            ymd(2026, 9, 23),
+            Granularity::Day,
+            ymd(2026, 9, 24),
+            None,
+        ),
     )
     .unwrap();
     assert_eq!(daily.periods.len(), 2);
@@ -56,7 +67,14 @@ fn v06_rollup_sums_and_weighted_ratio() {
     for granularity in [Granularity::Week, Granularity::Month] {
         let s = query_summary(
             &storage,
-            &request("UTC", ymd(2026, 9, 21), ymd(2026, 9, 30), granularity, ymd(2026, 9, 24), None),
+            &request(
+                "UTC",
+                ymd(2026, 9, 21),
+                ymd(2026, 9, 30),
+                granularity,
+                ymd(2026, 9, 24),
+                None,
+            ),
         )
         .unwrap();
         assert_eq!(s.periods.len(), 1);
@@ -78,10 +96,22 @@ fn v06_zero_denominator_ratio_is_none() {
     let mut e = with_tokens(evt("inst", "z", ts("2026-09-24T12:00:00Z")), 0, 0);
     e.usage.input_cache_read = Some(0);
     e.quality.input_cache_read = FieldQuality::Reported;
-    commit_batch(&storage, &batch("inst", "UTC", ts("2026-09-24T13:00:00Z"), vec![e]), None).unwrap();
+    commit_batch(
+        &storage,
+        &batch("inst", "UTC", ts("2026-09-24T13:00:00Z"), vec![e]),
+        None,
+    )
+    .unwrap();
     let s = query_summary(
         &storage,
-        &request("UTC", ymd(2026, 9, 24), ymd(2026, 9, 24), Granularity::Day, ymd(2026, 9, 24), None),
+        &request(
+            "UTC",
+            ymd(2026, 9, 24),
+            ymd(2026, 9, 24),
+            Granularity::Day,
+            ymd(2026, 9, 24),
+            None,
+        ),
     )
     .unwrap();
     let sums = &s.periods[0].sums;
@@ -103,11 +133,23 @@ fn v06_distinct_sessions_not_summed_across_days() {
         mk("k2", "sess-1", ts("2026-09-23T10:00:00Z")),
         mk("k3", "sess-2", ts("2026-09-23T11:00:00Z")),
     ];
-    commit_batch(&storage, &batch("inst", "UTC", ts("2026-09-24T00:00:00Z"), events), None).unwrap();
+    commit_batch(
+        &storage,
+        &batch("inst", "UTC", ts("2026-09-24T00:00:00Z"), events),
+        None,
+    )
+    .unwrap();
 
     let daily = query_summary(
         &storage,
-        &request("UTC", ymd(2026, 9, 22), ymd(2026, 9, 23), Granularity::Day, ymd(2026, 9, 24), None),
+        &request(
+            "UTC",
+            ymd(2026, 9, 22),
+            ymd(2026, 9, 23),
+            Granularity::Day,
+            ymd(2026, 9, 24),
+            None,
+        ),
     )
     .unwrap();
     assert_eq!(daily.periods[0].distinct_sessions, Some(1));
@@ -115,7 +157,14 @@ fn v06_distinct_sessions_not_summed_across_days() {
 
     let weekly = query_summary(
         &storage,
-        &request("UTC", ymd(2026, 9, 21), ymd(2026, 9, 27), Granularity::Week, ymd(2026, 9, 24), None),
+        &request(
+            "UTC",
+            ymd(2026, 9, 21),
+            ymd(2026, 9, 27),
+            Granularity::Week,
+            ymd(2026, 9, 24),
+            None,
+        ),
     )
     .unwrap();
     // 周 DISTINCT = 2，不是每日之和 1+2=3。
@@ -131,7 +180,12 @@ fn v06_partial_period_flags() {
         with_tokens(evt("inst", "old", ts("2026-08-03T10:00:00Z")), 1, 0), // 2026-W32
         with_tokens(evt("inst", "now", ts("2026-09-24T10:00:00Z")), 2, 0), // 2026-W39
     ];
-    commit_batch(&storage, &batch("inst", "UTC", ts("2026-09-24T12:00:00Z"), events), None).unwrap();
+    commit_batch(
+        &storage,
+        &batch("inst", "UTC", ts("2026-09-24T12:00:00Z"), events),
+        None,
+    )
+    .unwrap();
 
     let today = ymd(2026, 9, 24); // 周四
     let s = query_summary(

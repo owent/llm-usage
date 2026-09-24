@@ -4,3 +4,7 @@
 /.env.*
 !/.env.example
 /development/secret/
+
+/.venv
+__pycache__
+*.pyc

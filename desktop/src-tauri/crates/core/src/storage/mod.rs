@@ -4,7 +4,7 @@
 pub mod schema;
 
 use crate::error::CoreError;
-use rusqlite::{Connection, OpenFlags};
+use rusqlite::{Connection, OpenFlags, OptionalExtension};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -55,22 +55,30 @@ impl Storage {
     }
 
     pub fn open_with(path: &Path, options: OpenOptions) -> Result<Self, CoreError> {
-        let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE)?;
+        let conn = Connection::open_with_flags(
+            path,
+            OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE,
+        )?;
         Self::setup(conn, path.to_path_buf(), options)
     }
 
     fn setup(conn: Connection, path: PathBuf, options: OpenOptions) -> Result<Self, CoreError> {
-        let supported = options.max_supported_version.unwrap_or(schema::SCHEMA_VERSION);
+        let supported = options
+            .max_supported_version
+            .unwrap_or(schema::SCHEMA_VERSION);
+        conn.busy_timeout(options.busy_timeout)?;
+        let found_version: u32 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
+        if found_version > supported {
+            return Err(CoreError::SchemaTooNew {
+                found: found_version,
+                supported,
+            });
+        }
         conn.pragma_update(None, "foreign_keys", "ON")?;
         // journal_mode 是持久化设置；内存库返回 memory，可忽略其结果差异。
         conn.pragma_update(None, "journal_mode", "WAL")?;
         conn.pragma_update(None, "synchronous", "FULL")?;
         conn.busy_timeout(options.busy_timeout)?;
-
-        let found_version: u32 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
-        if found_version > supported {
-            return Err(CoreError::SchemaTooNew { found: found_version, supported });
-        }
 
         let mut migrations: Vec<&schema::Migration> = schema::MIGRATIONS.iter().collect();
         let extra: Vec<&schema::Migration> = options.extra_migrations.iter().collect();
@@ -99,7 +107,9 @@ impl Storage {
 
     /// 当前 user_version。
     pub fn schema_version(&self) -> Result<u32, CoreError> {
-        Ok(self.conn.pragma_query_value(None, "user_version", |r| r.get(0))?)
+        Ok(self
+            .conn
+            .pragma_query_value(None, "user_version", |r| r.get(0))?)
     }
 
     /// 数据修订号：单调递增，查询按同一修订号返回一致视图。
@@ -108,8 +118,13 @@ impl Storage {
     }
 
     /// 提升数据修订号并返回新值。仅在事务内调用。
-    pub fn bump_data_revision_tx(tx: &rusqlite::Transaction<'_>, now_ms: i64) -> Result<i64, CoreError> {
-        let next = data_revision(tx)? + 1;
+    pub fn bump_data_revision_tx(
+        tx: &rusqlite::Transaction<'_>,
+        now_ms: i64,
+    ) -> Result<i64, CoreError> {
+        let next = data_revision(tx)?
+            .checked_add(1)
+            .ok_or(CoreError::Overflow("data_revision"))?;
         tx.execute(
             "INSERT INTO settings (key, value, schema_version, updated_at_ms)
              VALUES ('data_revision', ?1, 1, ?2)
@@ -132,8 +147,12 @@ impl Storage {
 
 pub(crate) fn data_revision(conn: &Connection) -> Result<i64, CoreError> {
     let value: Option<String> = conn
-        .query_row("SELECT value FROM settings WHERE key = 'data_revision'", [], |r| r.get(0))
-        .ok();
+        .query_row(
+            "SELECT value FROM settings WHERE key = 'data_revision'",
+            [],
+            |r| r.get(0),
+        )
+        .optional()?;
     match value {
         Some(v) => v
             .parse::<i64>()
@@ -143,13 +162,41 @@ pub(crate) fn data_revision(conn: &Connection) -> Result<i64, CoreError> {
 }
 
 fn run_migration(conn: &Connection, migration: &schema::Migration) -> Result<(), CoreError> {
-    let tx = conn.unchecked_transaction().map_err(|e| CoreError::MigrationFailed {
-        version: migration.version,
-        name: migration.name.to_string(),
-        detail: e.to_string(),
-    })?;
+    let tx = conn
+        .unchecked_transaction()
+        .map_err(|e| CoreError::MigrationFailed {
+            version: migration.version,
+            name: migration.name.to_string(),
+            detail: e.to_string(),
+        })?;
     let result = (|| -> Result<(), CoreError> {
         tx.execute_batch(migration.sql)?;
+        if migration.version == 2 && migration.name == "review_identity_and_known_usage" {
+            let partitions = {
+                let mut stmt = tx.prepare(
+                    "SELECT DISTINCT tz_version, local_day FROM daily_usage WHERE sealed = 0",
+                )?;
+                let rows =
+                    stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?;
+                rows.collect::<Result<Vec<_>, _>>()?
+            };
+            let has_data: bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM daily_usage) OR EXISTS(SELECT 1 FROM usage_events) OR EXISTS(SELECT 1 FROM source_aggregates)", [], |r| r.get(0))?;
+            if has_data {
+                let revision = Storage::bump_data_revision_tx(&tx, crate::jobs::now_ms_fallback())?;
+                tx.execute(
+                    "UPDATE daily_usage SET data_revision = ?1 WHERE sealed = 1",
+                    [revision],
+                )?;
+                for (tz, day) in partitions {
+                    crate::ingest::recompute_day(
+                        &tx,
+                        &crate::calendar::Calendar::new(&tz)?,
+                        crate::calendar::parse_date(&day)?,
+                        revision,
+                    )?;
+                }
+            }
+        }
         tx.execute(
             "INSERT INTO schema_migrations (version, name, applied_ms, notes) VALUES (?1, ?2, ?3, NULL)",
             rusqlite::params![migration.version, migration.name, crate::jobs::now_ms_fallback()],

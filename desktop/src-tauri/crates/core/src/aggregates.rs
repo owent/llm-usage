@@ -9,10 +9,10 @@
 
 use crate::domain::{TimeBasis, TokenQuality, TokenUsage};
 use crate::error::CoreError;
-use crate::identity::content_hash;
+use crate::identity::{content_hash, event_id};
 use crate::metrics::detect_contradictions;
 use crate::storage::Storage;
-use rusqlite::params;
+use rusqlite::{params, OptionalExtension};
 use serde::{Deserialize, Serialize};
 
 /// 汇总范围类型。
@@ -95,6 +95,21 @@ pub struct SourceAggregateInput {
 impl SourceAggregateInput {
     pub fn validate(&self) -> Result<(), CoreError> {
         self.usage.validate()?;
+        self.quality.validate(&self.usage)?;
+        if self.reported_call_count.is_some_and(|v| v < 0) {
+            return Err(CoreError::Validation(
+                "reported call count must be nonnegative".into(),
+            ));
+        }
+        if self.interval_end_ms < crate::domain::MIN_PLAUSIBLE_MS
+            || self
+                .interval_start_ms
+                .is_some_and(|v| v < crate::domain::MIN_PLAUSIBLE_MS)
+        {
+            return Err(CoreError::Validation(
+                "aggregate timestamps must be UTC milliseconds".into(),
+            ));
+        }
         if let Some(start) = self.interval_start_ms {
             if self.interval_end_ms < start {
                 return Err(CoreError::Validation(format!(
@@ -115,25 +130,27 @@ pub fn upsert_source_aggregate(
     now_ms: i64,
 ) -> Result<bool, CoreError> {
     input.validate()?;
-    for c in detect_contradictions(&input.usage) {
-        // 矛盾进入诊断，不隐藏。
-        storage.conn().execute(
-            "INSERT INTO diagnostics (batch_id, run_id, instance_id, event_id, code, field, position, message, created_ms)
-             VALUES (NULL, NULL, ?1, NULL, ?2, ?3, NULL, ?4, ?5)",
-            params![input.instance_id, c.code, c.field, c.detail, now_ms],
-        )?;
+    let tx = storage.conn().unchecked_transaction()?;
+    if let Some(floor) = crate::retention::hard_retention_floor(&tx)? {
+        if input.interval_start_ms.map_or(true, |start| start < floor)
+            || input.interval_end_ms < floor
+        {
+            return Ok(false);
+        }
     }
     let hash = content_hash(input);
-    let aggregate_id = format!("{}#{}#{}", input.instance_id, input.scope.as_str(), input.scope_key);
-    let existing: Option<(String, Option<i64>)> = storage
-        .conn()
+    let aggregate_id = event_id(
+        &input.instance_id,
+        &format!("{}#{}", input.scope.as_str(), input.scope_key),
+    );
+    let existing: Option<(String, Option<i64>)> = tx
         .query_row(
             "SELECT content_hash, source_revision FROM source_aggregates
              WHERE instance_id = ?1 AND scope = ?2 AND scope_key = ?3",
             params![input.instance_id, input.scope.as_str(), input.scope_key],
             |r| Ok((r.get(0)?, r.get(1)?)),
         )
-        .ok();
+        .optional()?;
     if let Some((old_hash, old_rev)) = &existing {
         // 重复扫描幂等：内容相同则不变更。
         if *old_hash == hash {
@@ -145,8 +162,19 @@ pub fn upsert_source_aggregate(
                 return Ok(false);
             }
         }
+        if !matches!((input.source_revision, *old_rev), (Some(new), Some(old)) if new > old) {
+            tx.execute("INSERT INTO diagnostics (instance_id, code, message, created_ms) VALUES (?1, 'aggregate_conflict', 'ambiguous aggregate revision; kept existing value', ?2)", params![input.instance_id, now_ms])?;
+            tx.commit()?;
+            return Ok(false);
+        }
     }
-    storage.conn().execute(
+    for c in detect_contradictions(&input.usage) {
+        tx.execute(
+            "INSERT INTO diagnostics (instance_id, code, field, message, created_ms) VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![input.instance_id, c.code, c.field, c.detail, now_ms],
+        )?;
+    }
+    tx.execute(
         "INSERT INTO source_aggregates (
            aggregate_id, instance_id, scope, scope_key, interval_start_ms, interval_end_ms,
            interval_end_inclusive, input_uncached, input_cache_read, input_cache_write, input_total,
@@ -200,6 +228,8 @@ pub fn upsert_source_aggregate(
             now_ms
         ],
     )?;
+    Storage::bump_data_revision_tx(&tx, now_ms)?;
+    tx.commit()?;
     Ok(true)
 }
 
@@ -212,7 +242,7 @@ pub fn sum_exclusive_aggregates(
     let mut totals = AggregateTotals::default();
     let mut stmt = storage.conn().prepare(
         "SELECT coverage, input_uncached, input_cache_read, input_cache_write, input_total,
-                output_total, output_reasoning, total_tokens, reported_call_count
+                output_total, output_reasoning, total_tokens, reported_call_count, quality_json
          FROM source_aggregates WHERE instance_id = ?1",
     )?;
     let rows = stmt.query_map(params![instance_id], |r| {
@@ -226,22 +256,53 @@ pub fn sum_exclusive_aggregates(
             r.get::<_, Option<i64>>(6)?,
             r.get::<_, Option<i64>>(7)?,
             r.get::<_, Option<i64>>(8)?,
+            r.get::<_, String>(9)?,
         ))
     })?;
     for row in rows {
-        let (coverage, uncached, read, write, input, output, reasoning, total, calls) = row?;
+        let (coverage, uncached, read, write, input, output, reasoning, total, calls, quality_json) =
+            row?;
+        let quality: TokenQuality = serde_json::from_str(&quality_json)?;
+        let known = |value, quality| {
+            if matches!(
+                quality,
+                crate::domain::FieldQuality::Reported | crate::domain::FieldQuality::Derived
+            ) {
+                value
+            } else {
+                None
+            }
+        };
         match Coverage::parse(&coverage)? {
             Coverage::Exclusive => {
                 totals.exclusive_rows += 1;
-                add_opt(&mut totals.input_uncached, uncached)?;
-                add_opt(&mut totals.input_cache_read, read)?;
-                add_opt(&mut totals.input_cache_write, write)?;
-                add_opt(&mut totals.input_total, input)?;
-                add_opt(&mut totals.output_total, output)?;
-                add_opt(&mut totals.output_reasoning, reasoning)?;
-                add_opt(&mut totals.total_tokens, total)?;
-                if let Some(c) = calls {
-                    totals.reported_call_count = totals.reported_call_count.checked_add(c).ok_or(CoreError::Overflow("reported_call_count"))?;
+                add_opt(
+                    &mut totals.input_uncached,
+                    known(uncached, quality.input_uncached),
+                )?;
+                add_opt(
+                    &mut totals.input_cache_read,
+                    known(read, quality.input_cache_read),
+                )?;
+                add_opt(
+                    &mut totals.input_cache_write,
+                    known(write, quality.input_cache_write),
+                )?;
+                add_opt(&mut totals.input_total, known(input, quality.input_total))?;
+                add_opt(
+                    &mut totals.output_total,
+                    known(output, quality.output_total),
+                )?;
+                add_opt(
+                    &mut totals.output_reasoning,
+                    known(reasoning, quality.output_reasoning),
+                )?;
+                add_opt(&mut totals.total_tokens, known(total, quality.total_tokens))?;
+                add_opt(&mut totals.reported_call_count, calls)?;
+                if calls.is_some() {
+                    totals.call_count_known_rows += 1;
+                } else {
+                    totals.call_count_unknown_rows += 1;
                 }
             }
             Coverage::Duplicate => totals.duplicate_rows += 1,
@@ -254,7 +315,10 @@ pub fn sum_exclusive_aggregates(
 fn add_opt(acc: &mut Option<i64>, value: Option<i64>) -> Result<(), CoreError> {
     if let Some(v) = value {
         let base = acc.unwrap_or(0);
-        *acc = Some(base.checked_add(v).ok_or(CoreError::Overflow("aggregate sum"))?);
+        *acc = Some(
+            base.checked_add(v)
+                .ok_or(CoreError::Overflow("aggregate sum"))?,
+        );
     }
     Ok(())
 }
@@ -268,7 +332,9 @@ pub struct AggregateTotals {
     pub output_total: Option<i64>,
     pub output_reasoning: Option<i64>,
     pub total_tokens: Option<i64>,
-    pub reported_call_count: i64,
+    pub reported_call_count: Option<i64>,
+    pub call_count_known_rows: i64,
+    pub call_count_unknown_rows: i64,
     pub exclusive_rows: i64,
     pub duplicate_rows: i64,
     pub overlap_unknown_rows: i64,
@@ -287,6 +353,8 @@ pub struct CumulativeState {
 /// 累计观察结果。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CumulativeOutcome {
+    /// 迟到或同一采样时点内容不一致；保留现有基线，交给调用方诊断。
+    OutOfOrder,
     /// 首次看到累计值：保存为源原生区间总量，不硬塞进今天。
     FirstObservation { native_total: i64 },
     /// 区间增量（含 0）。
@@ -307,29 +375,66 @@ pub fn observe_cumulative(
 ) -> (CumulativeState, CumulativeOutcome) {
     match previous {
         None => (
-            CumulativeState { series_key: series_key.to_string(), last_value: value, last_observed_ms: observed_ms, start_ms: None },
-            CumulativeOutcome::FirstObservation { native_total: value },
+            CumulativeState {
+                series_key: series_key.to_string(),
+                last_value: value,
+                last_observed_ms: observed_ms,
+                start_ms: None,
+            },
+            CumulativeOutcome::FirstObservation {
+                native_total: value,
+            },
         ),
         Some(prev) => {
-            if value > prev.last_value {
+            if series_key != prev.series_key {
+                return observe_cumulative(series_key, None, value, observed_ms, reset_evidence);
+            }
+            if observed_ms < prev.last_observed_ms
+                || (observed_ms == prev.last_observed_ms && value != prev.last_value)
+            {
+                return (prev.clone(), CumulativeOutcome::OutOfOrder);
+            }
+            if observed_ms == prev.last_observed_ms {
+                return (prev.clone(), CumulativeOutcome::Delta { amount: 0 });
+            }
+            if reset_evidence {
                 (
-                    CumulativeState { last_value: value, last_observed_ms: observed_ms, ..prev.clone() },
-                    CumulativeOutcome::Delta { amount: value - prev.last_value },
+                    CumulativeState {
+                        series_key: series_key.to_string(),
+                        last_value: value,
+                        last_observed_ms: observed_ms,
+                        start_ms: Some(observed_ms),
+                    },
+                    CumulativeOutcome::Reset {
+                        new_baseline: value,
+                    },
+                )
+            } else if value > prev.last_value {
+                (
+                    CumulativeState {
+                        last_value: value,
+                        last_observed_ms: observed_ms,
+                        ..prev.clone()
+                    },
+                    CumulativeOutcome::Delta {
+                        amount: value - prev.last_value,
+                    },
                 )
             } else if value == prev.last_value {
                 (
-                    CumulativeState { last_observed_ms: observed_ms, ..prev.clone() },
+                    CumulativeState {
+                        last_observed_ms: observed_ms,
+                        ..prev.clone()
+                    },
                     CumulativeOutcome::Delta { amount: 0 },
-                )
-            } else if reset_evidence {
-                (
-                    CumulativeState { series_key: series_key.to_string(), last_value: value, last_observed_ms: observed_ms, start_ms: Some(observed_ms) },
-                    CumulativeOutcome::Reset { new_baseline: value },
                 )
             } else {
                 (
                     prev.clone(),
-                    CumulativeOutcome::Regression { previous: prev.last_value, observed: value },
+                    CumulativeOutcome::Regression {
+                        previous: prev.last_value,
+                        observed: value,
+                    },
                 )
             }
         }
@@ -354,8 +459,17 @@ pub struct QuotaSnapshotInput {
     pub detail: Option<serde_json::Value>,
 }
 
-pub fn insert_quota_snapshot(storage: &Storage, input: &QuotaSnapshotInput) -> Result<(), CoreError> {
-    storage.conn().execute(
+pub fn insert_quota_snapshot(
+    storage: &Storage,
+    input: &QuotaSnapshotInput,
+) -> Result<(), CoreError> {
+    let tx = storage.conn().unchecked_transaction()?;
+    if crate::retention::hard_retention_floor(&tx)?
+        .is_some_and(|floor| input.observed_at_ms < floor)
+    {
+        return Ok(());
+    }
+    tx.execute(
         "INSERT INTO quota_snapshots (
            quota_id, instance_id, observed_at_ms, kind, quantity_minor, unit,
            window_start_ms, window_end_ms, locality_verified, detail_json, created_at_ms
@@ -379,9 +493,15 @@ pub fn insert_quota_snapshot(storage: &Storage, input: &QuotaSnapshotInput) -> R
             input.window_start_ms,
             input.window_end_ms,
             input.locality_verified as i64,
-            input.detail.as_ref().map(serde_json::to_string).transpose()?,
+            input
+                .detail
+                .as_ref()
+                .map(serde_json::to_string)
+                .transpose()?,
             input.observed_at_ms
         ],
     )?;
+    Storage::bump_data_revision_tx(&tx, input.observed_at_ms)?;
+    tx.commit()?;
     Ok(())
 }

@@ -10,7 +10,19 @@ use serde::Serialize;
 /// event_id = 源实例命名空间 + 源记录键。复合唯一约束 (source_instance_id,
 /// source_record_key) 才是权威身份；本字符串便于日志与跨表引用。
 pub fn event_id(source_instance_id: &str, source_record_key: &str) -> String {
-    format!("{source_instance_id}#{source_record_key}")
+    let escape = |s: &str| s.replace('%', "%25").replace('#', "%23");
+    format!(
+        "{}#{}",
+        escape(source_instance_id),
+        escape(source_record_key)
+    )
+}
+
+/// 采集观察时间会随重扫改变，不代表源记录发生变化。
+pub fn event_content_hash(event: &EventInput) -> String {
+    let mut content = event.clone();
+    content.observed_at_ms = None;
+    content_hash(&content)
 }
 
 /// FNV-1a 64 位内容哈希：只用于变更检测，不独立作为事件身份。
@@ -46,7 +58,11 @@ pub enum Arbitration {
 }
 
 /// 仲裁：修订号优先，其次生命周期；同层级内容不同 → conflict。
-pub fn arbitrate(existing: Option<&ExistingMeta>, incoming: &EventInput, incoming_hash: &str) -> Arbitration {
+pub fn arbitrate(
+    existing: Option<&ExistingMeta>,
+    incoming: &EventInput,
+    incoming_hash: &str,
+) -> Arbitration {
     let Some(existing) = existing else {
         return Arbitration::Insert;
     };
@@ -120,7 +136,11 @@ mod tests {
     }
 
     fn meta(revision: Option<i64>, lifecycle: Lifecycle, hash: &str) -> ExistingMeta {
-        ExistingMeta { lifecycle, source_revision: revision, content_hash: hash.into() }
+        ExistingMeta {
+            lifecycle,
+            source_revision: revision,
+            content_hash: hash.into(),
+        }
     }
 
     #[test]
@@ -161,11 +181,19 @@ mod tests {
             Arbitration::Replace
         );
         assert_eq!(
-            arbitrate(Some(&meta(None, Lifecycle::Final, "same")), &sample_event(None, Lifecycle::Final), "same"),
+            arbitrate(
+                Some(&meta(None, Lifecycle::Final, "same")),
+                &sample_event(None, Lifecycle::Final),
+                "same"
+            ),
             Arbitration::Keep
         );
         assert_eq!(
-            arbitrate(Some(&meta(None, Lifecycle::Final, "x")), &sample_event(None, Lifecycle::Final), "y"),
+            arbitrate(
+                Some(&meta(None, Lifecycle::Final, "x")),
+                &sample_event(None, Lifecycle::Final),
+                "y"
+            ),
             Arbitration::Conflict
         );
         assert_eq!(arbitrate(None, &partial, "h"), Arbitration::Insert);

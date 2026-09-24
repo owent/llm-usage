@@ -41,11 +41,17 @@ impl Calendar {
     pub fn new(iana_name: &str) -> Result<Self, CoreError> {
         let tz = TimeZone::get(iana_name)
             .map_err(|e| CoreError::Calendar(format!("unknown IANA time zone {iana_name}: {e}")))?;
-        Ok(Calendar { tz, tz_name: iana_name.to_string() })
+        Ok(Calendar {
+            tz,
+            tz_name: iana_name.to_string(),
+        })
     }
 
     pub fn utc() -> Self {
-        Calendar { tz: TimeZone::UTC, tz_name: "UTC".to_string() }
+        Calendar {
+            tz: TimeZone::UTC,
+            tz_name: "UTC".to_string(),
+        }
     }
 
     pub fn tz_name(&self) -> &str {
@@ -73,7 +79,10 @@ impl Calendar {
         let end = day
             .checked_add(Span::new().days(1))
             .and_then(|d| d.to_zoned(self.tz.clone()))?;
-        Ok((start.timestamp().as_millisecond(), end.timestamp().as_millisecond()))
+        Ok((
+            start.timestamp().as_millisecond(),
+            end.timestamp().as_millisecond(),
+        ))
     }
 
     /// now 所在本地日。
@@ -84,7 +93,9 @@ impl Calendar {
     /// 有限保留 D 天的截止本地日：今天起点往前 D−1 天；今天与前 D−1 个本地日保留。
     pub fn retention_cutoff_day(&self, today: Date, days: u32) -> Result<Date, CoreError> {
         if days == 0 {
-            return Err(CoreError::Calendar("retention days must be >= 1".to_string()));
+            return Err(CoreError::Calendar(
+                "retention days must be >= 1".to_string(),
+            ));
         }
         Ok(today.checked_sub(Span::new().days(i64::from(days) - 1))?)
     }
@@ -128,7 +139,10 @@ impl Calendar {
             .checked_add(Span::new().months(1))
             .map_err(CoreError::from)?;
         Ok((
-            first.to_zoned(self.tz.clone())?.timestamp().as_millisecond(),
+            first
+                .to_zoned(self.tz.clone())?
+                .timestamp()
+                .as_millisecond(),
             next.to_zoned(self.tz.clone())?.timestamp().as_millisecond(),
         ))
     }

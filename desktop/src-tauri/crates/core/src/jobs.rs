@@ -136,7 +136,11 @@ pub fn finish_run(
     }
     let current: String = storage
         .conn()
-        .query_row("SELECT status FROM ingest_runs WHERE run_id = ?1", params![run_id], |r| r.get(0))
+        .query_row(
+            "SELECT status FROM ingest_runs WHERE run_id = ?1",
+            params![run_id],
+            |r| r.get(0),
+        )
         .map_err(|_| CoreError::JobState(format!("unknown run {run_id}")))?;
     if current != "running" {
         return Err(CoreError::JobState(format!(
@@ -166,7 +170,11 @@ pub fn finish_run(
 pub fn run_status(storage: &Storage, run_id: &str) -> Result<Option<RunStatus>, CoreError> {
     let row: Option<String> = storage
         .conn()
-        .query_row("SELECT status FROM ingest_runs WHERE run_id = ?1", params![run_id], |r| r.get(0))
+        .query_row(
+            "SELECT status FROM ingest_runs WHERE run_id = ?1",
+            params![run_id],
+            |r| r.get(0),
+        )
         .ok();
     row.map(|s| RunStatus::parse(&s)).transpose()
 }
@@ -183,7 +191,15 @@ pub(crate) fn merge_run_stats_tx(
          unchanged = unchanged + ?3, skipped = skipped + ?4, errors = errors + ?5,
          data_revision = ?6
          WHERE run_id = ?7 AND status = 'running'",
-        params![stats.added, stats.updated, stats.unchanged, stats.skipped, stats.errors, data_revision, run_id],
+        params![
+            stats.added,
+            stats.updated,
+            stats.unchanged,
+            stats.skipped,
+            stats.errors,
+            data_revision,
+            run_id
+        ],
     )?;
     Ok(())
 }

@@ -20,7 +20,10 @@ fn v01_codex_cached_subset_of_input_reasoning_subset_of_output() {
     assert_eq!(m.usage.input_cache_write, Some(0));
     assert_eq!(m.usage.input_total, Some(1000));
     assert_eq!(m.usage.output_reasoning, Some(40));
-    assert_eq!(total_tokens(&m.usage, &m.quality).map(|(v, _)| v), Some(1100));
+    assert_eq!(
+        total_tokens(&m.usage, &m.quality).map(|(v, _)| v),
+        Some(1100)
+    );
     assert!(m.diagnostics.is_empty());
 }
 
@@ -34,7 +37,10 @@ fn v01_codex_total_mismatch_is_diagnostic() {
         total_tokens: 9999,
         declares_no_cache_creation: true,
     });
-    assert!(m.diagnostics.iter().any(|d| d.code == "source_total_mismatch"));
+    assert!(m
+        .diagnostics
+        .iter()
+        .any(|d| d.code == "source_total_mismatch"));
 }
 
 #[test]
@@ -49,8 +55,14 @@ fn v01_codex_cached_exceeds_input_not_clamped() {
     });
     // uncached 派生为负 → 不留 0，uncached 置未知并记诊断。
     assert_eq!(m.usage.input_uncached, None);
-    assert!(m.diagnostics.iter().any(|d| d.code == "negative_derived_field"));
-    assert!(m.diagnostics.iter().any(|d| d.code == "cache_read_exceeds_input_total"));
+    assert!(m
+        .diagnostics
+        .iter()
+        .any(|d| d.code == "negative_derived_field"));
+    assert!(m
+        .diagnostics
+        .iter()
+        .any(|d| d.code == "cache_read_exceeds_input_total"));
 }
 
 #[test]
@@ -79,7 +91,9 @@ fn v01_zcode_dual_calibers_are_opposite() {
         reasoning_tokens: None,
         total_tokens: Some(1100),
     });
-    assert_eq!(sdk.usage.input_uncached, Some(200));
+    // 缓存创建未知，不能假设为零并补出未缓存输入。
+    assert_eq!(sdk.usage.input_uncached, None);
+    assert_eq!(sdk.quality.input_uncached, FieldQuality::Unknown);
     assert_eq!(sdk.usage.input_total, Some(1000));
     assert_eq!(sdk.quality.input_total, FieldQuality::Reported);
 
@@ -97,8 +111,14 @@ fn v01_zcode_dual_calibers_are_opposite() {
         input_total(&sdk.usage, &sdk.quality).map(|(v, _)| v),
         input_total(&anthropic.usage, &anthropic.quality).map(|(v, _)| v)
     );
-    assert_eq!(total_tokens(&sdk.usage, &sdk.quality).map(|(v, _)| v), Some(1100));
-    assert_eq!(total_tokens(&anthropic.usage, &anthropic.quality).map(|(v, _)| v), Some(1100));
+    assert_eq!(
+        total_tokens(&sdk.usage, &sdk.quality).map(|(v, _)| v),
+        Some(1100)
+    );
+    assert_eq!(
+        total_tokens(&anthropic.usage, &anthropic.quality).map(|(v, _)| v),
+        Some(1100)
+    );
 }
 
 #[test]
@@ -113,7 +133,10 @@ fn v01_copilot_input_includes_cache_read_and_write() {
     assert_eq!(m.usage.input_cache_read, Some(300));
     assert_eq!(m.usage.input_cache_write, Some(200));
     assert_eq!(m.usage.input_total, Some(1000));
-    assert_eq!(total_tokens(&m.usage, &m.quality).map(|(v, _)| v), Some(1100));
+    assert_eq!(
+        total_tokens(&m.usage, &m.quality).map(|(v, _)| v),
+        Some(1100)
+    );
 }
 
 #[test]
@@ -130,14 +153,24 @@ fn v01_kilo_all_mutually_exclusive_reasoning_not_in_output() {
     // canonical output_total 并入互斥的 reasoning。
     assert_eq!(m.usage.output_total, Some(100));
     assert_eq!(m.usage.output_reasoning, Some(40));
-    assert_eq!(total_tokens(&m.usage, &m.quality).map(|(v, _)| v), Some(1100));
+    assert_eq!(
+        total_tokens(&m.usage, &m.quality).map(|(v, _)| v),
+        Some(1100)
+    );
     assert!(m.diagnostics.is_empty());
 }
 
 #[test]
 fn v01_missing_zero_negative_overflow_are_distinct() {
     // 缺失：保持 None / unknown，不补零。
-    let m = map_kilo(&KiloUsage { input: 10, output: 5, reasoning: None, cache_read: 0, cache_write: 0, total: 15 });
+    let m = map_kilo(&KiloUsage {
+        input: 10,
+        output: 5,
+        reasoning: None,
+        cache_read: 0,
+        cache_write: 0,
+        total: 15,
+    });
     assert_eq!(m.usage.output_reasoning, None);
     assert_eq!(m.quality.output_reasoning, FieldQuality::Unknown);
     // 零值是已知量。
@@ -145,12 +178,21 @@ fn v01_missing_zero_negative_overflow_are_distinct() {
     assert_eq!(m.quality.input_cache_read, FieldQuality::Reported);
 
     // 负值：校验拒绝整条记录。
-    let negative = TokenUsage { input_total: Some(-1), ..TokenUsage::default() };
+    let negative = TokenUsage {
+        input_total: Some(-1),
+        ..TokenUsage::default()
+    };
     assert!(negative.validate().is_err());
 
     // 上限：MAX_TOKEN_VALUE 接受，超限拒绝。
-    let at_max = TokenUsage { input_total: Some(MAX_TOKEN_VALUE), ..TokenUsage::default() };
+    let at_max = TokenUsage {
+        input_total: Some(MAX_TOKEN_VALUE),
+        ..TokenUsage::default()
+    };
     assert!(at_max.validate().is_ok());
-    let over_max = TokenUsage { input_total: Some(MAX_TOKEN_VALUE + 1), ..TokenUsage::default() };
+    let over_max = TokenUsage {
+        input_total: Some(MAX_TOKEN_VALUE + 1),
+        ..TokenUsage::default()
+    };
     assert!(over_max.validate().is_err());
 }

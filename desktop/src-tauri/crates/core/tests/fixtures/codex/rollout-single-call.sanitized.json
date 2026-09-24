@@ -1,0 +1,451 @@
+{
+ "fixture": "rollout-single-call",
+ "format": "codex",
+ "generatedAt": "2026-09-24T08:47:05.220Z",
+ "sourceFileIdentity": "anonymized",
+ "totalLines": 17,
+ "tailLinesExtracted": 17,
+ "parseErrors": 0,
+ "records": [
+  {
+   "line": 1,
+   "timestamp": "2026-09-24T08:10:24.567Z",
+   "type": "session_meta",
+   "payload": {
+    "session_id": "anon-1",
+    "id": "anon-2",
+    "parent_thread_id": "anon-1",
+    "timestamp": "2026-09-24T08:10:24.334Z",
+    "cwd": "<PATH>",
+    "originator": "anon-3",
+    "cli_version": "0.155.0-alpha.16.3",
+    "model_provider": "openai",
+    "base_instructions": {
+     "text": "REDACTED",
+     "provenance": {
+      "type": "custom"
+     }
+    },
+    "context_window": {
+     "window_id": "anon-4"
+    }
+   }
+  },
+  {
+   "line": 2,
+   "timestamp": "2026-09-24T08:10:24.567Z",
+   "type": "response_item",
+   "payload": {
+    "type": "compaction",
+    "id": "anon-5",
+    "encrypted_content": "REDACTED",
+    "internal_chat_message_metadata_passthrough": {
+     "turn_id": "anon-6"
+    }
+   }
+  },
+  {
+   "line": 3,
+   "timestamp": "2026-09-24T08:10:24.567Z",
+   "type": "event_msg",
+   "payload": {
+    "type": "thread_settings_applied",
+    "thread_id": "anon-2",
+    "thread_settings": {
+     "model": "codex-auto-review",
+     "model_provider_id": "anon-7",
+     "service_tier": "default",
+     "approval_policy": "never",
+     "permission_profile": {
+      "type": "managed",
+      "file_system": {
+       "type": "restricted",
+       "entries": [
+        {
+         "path": "<PATH>"
+        },
+        {
+         "path": "<PATH>"
+        },
+        {
+         "path": "<PATH>"
+        },
+        {
+         "path": "<PATH>"
+        },
+        {
+         "path": "<PATH>"
+        },
+        {
+         "path": "<PATH>"
+        },
+        {
+         "path": "<PATH>"
+        }
+       ]
+      }
+     },
+     "cwd": "<PATH>",
+     "reasoning_effort": "low",
+     "collaboration_mode": {
+      "mode": "default",
+      "settings": {
+       "model": "codex-auto-review",
+       "reasoning_effort": "low",
+       "developer_instructions": null
+      }
+     }
+    }
+   }
+  },
+  {
+   "line": 4,
+   "timestamp": "2026-09-24T08:10:45.906Z",
+   "type": "event_msg",
+   "payload": {
+    "type": "thread_settings_applied",
+    "thread_id": "anon-2",
+    "thread_settings": {
+     "model": "codex-auto-review",
+     "model_provider_id": "anon-7",
+     "service_tier": "default",
+     "approval_policy": "never",
+     "permission_profile": {
+      "type": "managed",
+      "file_system": {
+       "type": "restricted",
+       "entries": [
+        {
+         "path": "<PATH>"
+        },
+        {
+         "path": "<PATH>"
+        },
+        {
+         "path": "<PATH>"
+        },
+        {
+         "path": "<PATH>"
+        },
+        {
+         "path": "<PATH>"
+        },
+        {
+         "path": "<PATH>"
+        },
+        {
+         "path": "<PATH>"
+        }
+       ]
+      }
+     },
+     "cwd": "<PATH>",
+     "reasoning_effort": "low",
+     "collaboration_mode": {
+      "mode": "default",
+      "settings": {
+       "model": "codex-auto-review",
+       "reasoning_effort": "low",
+       "developer_instructions": null
+      }
+     }
+    }
+   }
+  },
+  {
+   "line": 5,
+   "timestamp": "2026-09-24T08:10:45.914Z",
+   "type": "event_msg",
+   "payload": {
+    "type": "task_started",
+    "turn_id": "anon-8",
+    "root_turn_id": "anon-9",
+    "model_context_window": 258400
+   }
+  },
+  {
+   "line": 6,
+   "timestamp": "2026-09-24T08:10:45.922Z",
+   "type": "response_item",
+   "payload": {
+    "type": "message",
+    "id": "anon-10",
+    "role": "developer",
+    "content": "REDACTED",
+    "internal_chat_message_metadata_passthrough": {
+     "turn_id": "anon-8"
+    }
+   }
+  },
+  {
+   "line": 7,
+   "timestamp": "2026-09-24T08:10:45.922Z",
+   "type": "response_item",
+   "payload": {
+    "type": "message",
+    "id": "anon-11",
+    "role": "user",
+    "content": "REDACTED",
+    "internal_chat_message_metadata_passthrough": {
+     "turn_id": "anon-8"
+    }
+   }
+  },
+  {
+   "line": 8,
+   "timestamp": "2026-09-24T08:10:45.923Z",
+   "type": "world_state",
+   "payload": {
+    "state": {
+     "agents_md": {
+      "directory": "<PATH>",
+      "text": "REDACTED"
+     },
+     "collaboration_mode": {
+      "mode": "default",
+      "model": "codex-auto-review",
+      "instructions": "REDACTED"
+     },
+     "environments": {
+      "environments": {
+       "local": {
+        "cwd": "<PATH>",
+        "status": "available"
+       }
+      }
+     },
+     "model": "codex-auto-review",
+     "permissions": {
+      "instructions": "REDACTED"
+     }
+    }
+   }
+  },
+  {
+   "line": 9,
+   "timestamp": "2026-09-24T08:10:45.923Z",
+   "type": "turn_context",
+   "payload": {
+    "turn_id": "anon-8",
+    "root_turn_id": "anon-9",
+    "cwd": "<PATH>",
+    "workspace_roots": "<PATH>",
+    "approval_policy": "never",
+    "sandbox_policy": {
+     "type": "read-only"
+    },
+    "permission_profile": {
+     "type": "managed",
+     "file_system": {
+      "type": "restricted",
+      "entries": [
+       {
+        "path": "<PATH>"
+       },
+       {
+        "path": "<PATH>"
+       },
+       {
+        "path": "<PATH>"
+       },
+       {
+        "path": "<PATH>"
+       },
+       {
+        "path": "<PATH>"
+       },
+       {
+        "path": "<PATH>"
+       },
+       {
+        "path": "<PATH>"
+       }
+      ]
+     }
+    },
+    "file_system_sandbox_policy": {
+     "kind": "restricted",
+     "entries": [
+      {
+       "path": "<PATH>"
+      },
+      {
+       "path": "<PATH>"
+      },
+      {
+       "path": "<PATH>"
+      },
+      {
+       "path": "<PATH>"
+      },
+      {
+       "path": "<PATH>"
+      },
+      {
+       "path": "<PATH>"
+      },
+      {
+       "path": "<PATH>"
+      }
+     ]
+    },
+    "model": "codex-auto-review",
+    "collaboration_mode": {
+     "mode": "default",
+     "settings": {
+      "model": "codex-auto-review",
+      "reasoning_effort": "low",
+      "developer_instructions": null
+     }
+    },
+    "effort": "low",
+    "summary": "REDACTED"
+   }
+  },
+  {
+   "line": 10,
+   "timestamp": "2026-09-24T08:10:45.931Z",
+   "type": "response_item",
+   "payload": {
+    "type": "message",
+    "id": "anon-12",
+    "role": "user",
+    "content": "REDACTED",
+    "internal_chat_message_metadata_passthrough": {
+     "turn_id": "anon-8"
+    }
+   }
+  },
+  {
+   "line": 11,
+   "timestamp": "2026-09-24T08:10:45.932Z",
+   "type": "event_msg",
+   "payload": {
+    "type": "user_message",
+    "message": "REDACTED"
+   }
+  },
+  {
+   "line": 12,
+   "timestamp": "2026-09-24T08:10:48.504Z",
+   "type": "response_item",
+   "payload": {
+    "type": "reasoning",
+    "id": "anon-13",
+    "summary": "REDACTED",
+    "encrypted_content": "REDACTED",
+    "internal_chat_message_metadata_passthrough": {
+     "turn_id": "anon-8"
+    }
+   }
+  },
+  {
+   "line": 13,
+   "timestamp": "2026-09-24T08:10:49.548Z",
+   "type": "event_msg",
+   "payload": {
+    "type": "agent_message",
+    "message": "REDACTED",
+    "phase": "final_answer",
+    "memory_citation": null
+   }
+  },
+  {
+   "line": 14,
+   "timestamp": "2026-09-24T08:10:49.548Z",
+   "type": "response_item",
+   "payload": {
+    "type": "message",
+    "id": "anon-14",
+    "role": "assistant",
+    "content": "REDACTED",
+    "phase": "final_answer",
+    "internal_chat_message_metadata_passthrough": {
+     "turn_id": "anon-8"
+    }
+   }
+  },
+  {
+   "line": 15,
+   "timestamp": "2026-09-24T08:10:49.556Z",
+   "type": "token_usage_record",
+   "payload": {
+    "thread_id": "anon-2",
+    "turn_id": "anon-8",
+    "session_id": "anon-1",
+    "root_turn_id": "anon-9",
+    "response_id": "anon-15",
+    "usage": {
+     "input_tokens": 25558,
+     "cached_input_tokens": 4864,
+     "cache_write_input_tokens": 0,
+     "output_tokens": 131,
+     "reasoning_output_tokens": 65,
+     "total_tokens": 25689
+    },
+    "turn_token_usage": {
+     "input_tokens": 25558,
+     "cached_input_tokens": 4864,
+     "cache_write_input_tokens": 0,
+     "output_tokens": 131,
+     "reasoning_output_tokens": 65,
+     "total_tokens": 25689
+    },
+    "thread_token_usage": {
+     "input_tokens": 25558,
+     "cached_input_tokens": 4864,
+     "cache_write_input_tokens": 0,
+     "output_tokens": 131,
+     "reasoning_output_tokens": 65,
+     "total_tokens": 25689
+    }
+   }
+  },
+  {
+   "line": 16,
+   "timestamp": "2026-09-24T08:10:49.556Z",
+   "type": "event_msg",
+   "payload": {
+    "type": "token_count",
+    "info": {
+     "total_token_usage": {
+      "input_tokens": 25558,
+      "cached_input_tokens": 4864,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 131,
+      "reasoning_output_tokens": 65,
+      "total_tokens": 25689
+     },
+     "last_token_usage": {
+      "input_tokens": 25558,
+      "cached_input_tokens": 4864,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 131,
+      "reasoning_output_tokens": 65,
+      "total_tokens": 25689
+     },
+     "model_context_window": 258400
+    },
+    "rate_limits": {
+     "limit_id": "anon-16",
+     "limit_name": null,
+     "secondary": null,
+     "individual_limit": null,
+     "spend_control_reached": null,
+     "rate_limit_reached_type": null
+    }
+   }
+  },
+  {
+   "line": 17,
+   "timestamp": "2026-09-24T08:10:49.565Z",
+   "type": "event_msg",
+   "payload": {
+    "type": "task_complete",
+    "turn_id": "anon-8",
+    "duration_ms": 3650,
+    "time_to_first_token_ms": 2598
+   }
+  }
+ ]
+}

@@ -57,9 +57,15 @@ fn sample2_inclusive_input_no_double_count() {
     assert_eq!(mapped.usage.input_uncached, Some(200));
     assert_eq!(mapped.usage.input_total, Some(1000));
     assert_eq!(mapped.usage.output_total, Some(100));
-    assert_eq!(total_tokens(&mapped.usage, &mapped.quality).map(|(v, _)| v), Some(1100));
+    assert_eq!(
+        total_tokens(&mapped.usage, &mapped.quality).map(|(v, _)| v),
+        Some(1100)
+    );
     // 绝不是 1940（重复相加缓存/推理）。
-    assert_ne!(total_tokens(&mapped.usage, &mapped.quality).map(|(v, _)| v), Some(1940));
+    assert_ne!(
+        total_tokens(&mapped.usage, &mapped.quality).map(|(v, _)| v),
+        Some(1940)
+    );
     assert!(mapped.diagnostics.is_empty());
 }
 
@@ -84,8 +90,14 @@ fn sample3_weighted_ratio_not_average() {
 #[test]
 fn sample4_unknown_output_not_a_total() {
     // 纯函数层。
-    let usage = TokenUsage { input_total: Some(100), ..TokenUsage::default() };
-    let quality = TokenQuality { input_total: FieldQuality::Reported, ..TokenQuality::default() };
+    let usage = TokenUsage {
+        input_total: Some(100),
+        ..TokenUsage::default()
+    };
+    let quality = TokenQuality {
+        input_total: FieldQuality::Reported,
+        ..TokenQuality::default()
+    };
     assert_eq!(total_tokens(&usage, &quality), None);
 
     // 入库层：日汇总 input 已知 100，输出/总量保持未知（NULL），不补零。
@@ -93,7 +105,12 @@ fn sample4_unknown_output_not_a_total() {
     let mut e = evt("inst", "k1", ts("2026-09-24T12:00:00Z"));
     e.usage.input_total = Some(100);
     e.quality.input_total = FieldQuality::Reported;
-    commit_batch(&storage, &batch("inst", "UTC", ts("2026-09-24T13:00:00Z"), vec![e]), None).unwrap();
+    commit_batch(
+        &storage,
+        &batch("inst", "UTC", ts("2026-09-24T13:00:00Z"), vec![e]),
+        None,
+    )
+    .unwrap();
     let summary = query_summary(
         &storage,
         &SummaryRequest {
@@ -122,13 +139,22 @@ fn sample5_correction_replaces_old_contribution() {
     let (_dir, storage) = temp_storage("sample5");
     let mut e1 = with_tokens(evt("inst", "req-1", ts("2026-09-24T10:00:00Z")), 100, 0);
     e1.source_revision = Some(1);
-    commit_batch(&storage, &batch("inst", "UTC", ts("2026-09-24T10:01:00Z"), vec![e1]), None).unwrap();
+    commit_batch(
+        &storage,
+        &batch("inst", "UTC", ts("2026-09-24T10:01:00Z"), vec![e1]),
+        None,
+    )
+    .unwrap();
 
     let mut e2 = with_tokens(evt("inst", "req-1", ts("2026-09-24T10:00:00Z")), 80, 0);
     e2.source_revision = Some(2);
     e2.lifecycle = llm_usage_core::domain::Lifecycle::Corrected;
-    let outcome =
-        commit_batch(&storage, &batch("inst", "UTC", ts("2026-09-24T10:02:00Z"), vec![e2]), None).unwrap();
+    let outcome = commit_batch(
+        &storage,
+        &batch("inst", "UTC", ts("2026-09-24T10:02:00Z"), vec![e2]),
+        None,
+    )
+    .unwrap();
     assert_eq!(outcome.updated, 1);
 
     let summary = query_summary(
@@ -157,7 +183,12 @@ fn sample6_identical_content_different_ids_counts_twice() {
     let ms = ts("2026-09-24T10:00:00Z");
     let e1 = with_tokens(evt("inst", "req-a", ms), 100, 0);
     let e2 = with_tokens(evt("inst", "req-b", ms), 100, 0);
-    let outcome = commit_batch(&storage, &batch("inst", "UTC", ms + 1000, vec![e1, e2]), None).unwrap();
+    let outcome = commit_batch(
+        &storage,
+        &batch("inst", "UTC", ms + 1000, vec![e1, e2]),
+        None,
+    )
+    .unwrap();
     assert_eq!(outcome.added, 2);
     let summary = query_summary(
         &storage,
@@ -187,14 +218,29 @@ fn sample7_dsh_attempt_stream_then_retry() {
     partial.attempt_id = Some("attempt-1".into());
     let mut fin = with_tokens(evt("inst", "attempt-1", base), 100, 0);
     fin.attempt_id = Some("attempt-1".into());
-    commit_batch(&storage, &batch("inst", "UTC", base + 1000, vec![partial]), None).unwrap();
+    commit_batch(
+        &storage,
+        &batch("inst", "UTC", base + 1000, vec![partial]),
+        None,
+    )
+    .unwrap();
     // final 替换同 attempt 的流式值。
-    let out = commit_batch(&storage, &batch("inst", "UTC", base + 2000, vec![fin]), None).unwrap();
+    let out = commit_batch(
+        &storage,
+        &batch("inst", "UTC", base + 2000, vec![fin]),
+        None,
+    )
+    .unwrap();
     assert_eq!(out.updated, 1);
     // retry 边界产生新尝试。
     let mut retry = with_tokens(evt("inst", "attempt-2", base + 5000), 40, 0);
     retry.attempt_id = Some("attempt-2".into());
-    commit_batch(&storage, &batch("inst", "UTC", base + 6000, vec![retry]), None).unwrap();
+    commit_batch(
+        &storage,
+        &batch("inst", "UTC", base + 6000, vec![retry]),
+        None,
+    )
+    .unwrap();
 
     let summary = query_summary(
         &storage,
@@ -224,7 +270,10 @@ fn sample8_cumulative_deltas_and_reset() {
     let t4 = ts("2026-09-24T10:00:00Z");
 
     let (state, out1) = observe_cumulative("series-1", None, 100, t1, false);
-    assert_eq!(out1, CumulativeOutcome::FirstObservation { native_total: 100 });
+    assert_eq!(
+        out1,
+        CumulativeOutcome::FirstObservation { native_total: 100 }
+    );
     let (state, out2) = observe_cumulative("series-1", Some(&state), 150, t2, false);
     assert_eq!(out2, CumulativeOutcome::Delta { amount: 50 });
     let (state, out3) = observe_cumulative("series-1", Some(&state), 150, t3, false);
@@ -235,7 +284,13 @@ fn sample8_cumulative_deltas_and_reset() {
     // 无重置证据的下降：不按零重新累加。
     let (state_x, _) = observe_cumulative("series-x", None, 100, t1, false);
     let (_s, out_y) = observe_cumulative("series-x", Some(&state_x), 30, t2, false);
-    assert_eq!(out_y, CumulativeOutcome::Regression { previous: 100, observed: 30 });
+    assert_eq!(
+        out_y,
+        CumulativeOutcome::Regression {
+            previous: 100,
+            observed: 30
+        }
+    );
 
     // 首次 100 保存为源原生区间总量（起点未知），不进入日汇总。
     let (_dir, storage) = temp_storage("sample8");
@@ -248,8 +303,14 @@ fn sample8_cumulative_deltas_and_reset() {
             interval_start_ms: None,
             interval_end_ms: t1,
             interval_end_inclusive: true,
-            usage: TokenUsage { total_tokens: Some(100), ..TokenUsage::default() },
-            quality: TokenQuality { total_tokens: FieldQuality::Reported, ..TokenQuality::default() },
+            usage: TokenUsage {
+                total_tokens: Some(100),
+                ..TokenUsage::default()
+            },
+            quality: TokenQuality {
+                total_tokens: FieldQuality::Reported,
+                ..TokenQuality::default()
+            },
             reported_call_count: None,
             coverage: Coverage::OverlapUnknown,
             duplicate_of: None,
@@ -287,8 +348,12 @@ fn sample9_distinct_session_across_days() {
     e1.session_id = Some("sess-1".into());
     let mut e2 = with_tokens(evt("inst", "k2", ts("2026-09-24T12:00:00Z")), 20, 5);
     e2.session_id = Some("sess-1".into());
-    commit_batch(&storage, &batch("inst", "UTC", ts("2026-09-24T13:00:00Z"), vec![e1, e2]), None)
-        .unwrap();
+    commit_batch(
+        &storage,
+        &batch("inst", "UTC", ts("2026-09-24T13:00:00Z"), vec![e1, e2]),
+        None,
+    )
+    .unwrap();
 
     for granularity in [Granularity::Week, Granularity::Month] {
         let summary = query_summary(
@@ -326,8 +391,14 @@ fn sample10_hermes_interval_aggregate() {
         interval_start_ms: Some(first_seen),
         interval_end_ms: last_seen,
         interval_end_inclusive: true,
-        usage: TokenUsage { total_tokens: Some(1000), ..TokenUsage::default() },
-        quality: TokenQuality { total_tokens: FieldQuality::Reported, ..TokenQuality::default() },
+        usage: TokenUsage {
+            total_tokens: Some(1000),
+            ..TokenUsage::default()
+        },
+        quality: TokenQuality {
+            total_tokens: FieldQuality::Reported,
+            ..TokenQuality::default()
+        },
         reported_call_count: Some(3),
         coverage: Coverage::Exclusive,
         duplicate_of: None,
@@ -340,7 +411,7 @@ fn sample10_hermes_interval_aggregate() {
 
     let totals = sum_exclusive_aggregates(&storage, "hermes").unwrap();
     assert_eq!(totals.total_tokens, Some(1000));
-    assert_eq!(totals.reported_call_count, 3);
+    assert_eq!(totals.reported_call_count, Some(3));
 
     // 不产生逐次 model_call，也不把 1000 放到最后一天的日汇总。
     let summary = query_summary(
@@ -376,20 +447,36 @@ fn sample11_disjoint_coverage_sums_to_120() {
         interval_start_ms: Some(t0),
         interval_end_ms: t1,
         interval_end_inclusive: false,
-        usage: TokenUsage { total_tokens: Some(total), ..TokenUsage::default() },
-        quality: TokenQuality { total_tokens: FieldQuality::Reported, ..TokenQuality::default() },
+        usage: TokenUsage {
+            total_tokens: Some(total),
+            ..TokenUsage::default()
+        },
+        quality: TokenQuality {
+            total_tokens: FieldQuality::Reported,
+            ..TokenQuality::default()
+        },
         reported_call_count: None,
         coverage,
         duplicate_of: dup.map(str::to_string),
         time_basis: TimeBasis::Uncertain,
         source_revision: None,
     };
-    upsert_source_aggregate(&storage, &mk("model-main", 100, Coverage::Exclusive, None), t1).unwrap();
+    upsert_source_aggregate(
+        &storage,
+        &mk("model-main", 100, Coverage::Exclusive, None),
+        t1,
+    )
+    .unwrap();
     upsert_source_aggregate(&storage, &mk("task-aux", 20, Coverage::Exclusive, None), t1).unwrap();
     // sessions 主循环与 model-main 覆盖相同：对照不叠加。
     upsert_source_aggregate(
         &storage,
-        &mk("sessions-main-loop", 100, Coverage::Duplicate, Some("model-main")),
+        &mk(
+            "sessions-main-loop",
+            100,
+            Coverage::Duplicate,
+            Some("model-main"),
+        ),
         t1,
     )
     .unwrap();

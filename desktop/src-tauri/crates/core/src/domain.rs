@@ -37,7 +37,9 @@ impl FieldQuality {
             "derived" => Ok(FieldQuality::Derived),
             "estimated" => Ok(FieldQuality::Estimated),
             "unknown" => Ok(FieldQuality::Unknown),
-            other => Err(CoreError::Validation(format!("unknown field quality: {other}"))),
+            other => Err(CoreError::Validation(format!(
+                "unknown field quality: {other}"
+            ))),
         }
     }
 }
@@ -80,7 +82,9 @@ impl RecordKind {
             "cumulative_snapshot" => Ok(RecordKind::CumulativeSnapshot),
             "interval_aggregate" => Ok(RecordKind::IntervalAggregate),
             "quota_snapshot" => Ok(RecordKind::QuotaSnapshot),
-            other => Err(CoreError::Validation(format!("unknown record kind: {other}"))),
+            other => Err(CoreError::Validation(format!(
+                "unknown record kind: {other}"
+            ))),
         }
     }
 }
@@ -139,7 +143,9 @@ impl CallCategory {
             "sub_agent" => Ok(CallCategory::SubAgent),
             "auxiliary" => Ok(CallCategory::Auxiliary),
             "unknown" => Ok(CallCategory::Unknown),
-            other => Err(CoreError::Validation(format!("unknown call category: {other}"))),
+            other => Err(CoreError::Validation(format!(
+                "unknown call category: {other}"
+            ))),
         }
     }
 }
@@ -173,7 +179,9 @@ impl ModelAttribution {
             "structured_change" => Ok(ModelAttribution::StructuredChange),
             "provider_mapping" => Ok(ModelAttribution::ProviderMapping),
             "unknown" => Ok(ModelAttribution::Unknown),
-            other => Err(CoreError::Validation(format!("unknown model attribution: {other}"))),
+            other => Err(CoreError::Validation(format!(
+                "unknown model attribution: {other}"
+            ))),
         }
     }
 }
@@ -208,7 +216,9 @@ impl TimeBasis {
             "observed_at" => Ok(TimeBasis::ObservedAt),
             "interval_start" => Ok(TimeBasis::IntervalStart),
             "uncertain" => Ok(TimeBasis::Uncertain),
-            other => Err(CoreError::Validation(format!("unknown time basis: {other}"))),
+            other => Err(CoreError::Validation(format!(
+                "unknown time basis: {other}"
+            ))),
         }
     }
 }
@@ -245,7 +255,9 @@ impl LocalityBasis {
             "remote_sync" => Ok(LocalityBasis::RemoteSync),
             "cloud_report" => Ok(LocalityBasis::CloudReport),
             "unknown" => Ok(LocalityBasis::Unknown),
-            other => Err(CoreError::Validation(format!("unknown locality basis: {other}"))),
+            other => Err(CoreError::Validation(format!(
+                "unknown locality basis: {other}"
+            ))),
         }
     }
 }
@@ -273,7 +285,9 @@ impl AttributionStatus {
             "verified" => Ok(AttributionStatus::Verified),
             "pending" => Ok(AttributionStatus::Pending),
             "excluded" => Ok(AttributionStatus::Excluded),
-            other => Err(CoreError::Validation(format!("unknown attribution status: {other}"))),
+            other => Err(CoreError::Validation(format!(
+                "unknown attribution status: {other}"
+            ))),
         }
     }
 }
@@ -308,7 +322,9 @@ impl TokenUsage {
         for (name, value) in fields {
             if let Some(v) = value {
                 if v < 0 {
-                    return Err(CoreError::Validation(format!("token field {name} is negative: {v}")));
+                    return Err(CoreError::Validation(format!(
+                        "token field {name} is negative: {v}"
+                    )));
                 }
                 if v > MAX_TOKEN_VALUE {
                     return Err(CoreError::Validation(format!(
@@ -350,6 +366,38 @@ impl Default for TokenQuality {
 }
 
 impl TokenQuality {
+    pub fn validate(&self, usage: &TokenUsage) -> Result<(), CoreError> {
+        for (name, value, quality) in [
+            ("input_uncached", usage.input_uncached, self.input_uncached),
+            (
+                "input_cache_read",
+                usage.input_cache_read,
+                self.input_cache_read,
+            ),
+            (
+                "input_cache_write",
+                usage.input_cache_write,
+                self.input_cache_write,
+            ),
+            ("input_total", usage.input_total, self.input_total),
+            ("output_total", usage.output_total, self.output_total),
+            (
+                "output_reasoning",
+                usage.output_reasoning,
+                self.output_reasoning,
+            ),
+            ("total_tokens", usage.total_tokens, self.total_tokens),
+            ("source_total", usage.source_total, self.source_total),
+        ] {
+            if value.is_none() != (quality == FieldQuality::Unknown) {
+                return Err(CoreError::Validation(format!(
+                    "token field {name} value and quality disagree"
+                )));
+            }
+        }
+        Ok(())
+    }
+
     pub fn any_estimated(&self) -> bool {
         [
             self.input_uncached,
@@ -359,6 +407,7 @@ impl TokenQuality {
             self.output_total,
             self.output_reasoning,
             self.total_tokens,
+            self.source_total,
         ]
         .contains(&FieldQuality::Estimated)
     }
@@ -394,7 +443,9 @@ impl QualityBucket {
             "partial" => Ok(QualityBucket::Partial),
             "estimated" => Ok(QualityBucket::Estimated),
             "unknown" => Ok(QualityBucket::Unknown),
-            other => Err(CoreError::Validation(format!("unknown quality bucket: {other}"))),
+            other => Err(CoreError::Validation(format!(
+                "unknown quality bucket: {other}"
+            ))),
         }
     }
 
@@ -492,6 +543,15 @@ impl EventInput {
     /// 入库前校验：token 字段非负有上限；时间戳 plausible（毫秒而非秒）。
     pub fn validate(&self) -> Result<(), CoreError> {
         self.usage.validate()?;
+        self.quality.validate(&self.usage)?;
+        if !matches!(
+            self.record_kind,
+            RecordKind::ModelCall | RecordKind::TransportAttempt | RecordKind::UsageObservation
+        ) {
+            return Err(CoreError::Validation(
+                "aggregate and quota records require their dedicated storage API".into(),
+            ));
+        }
         for (name, ts) in [
             ("occurred_at_ms", Some(self.occurred_at_ms)),
             ("observed_at_ms", self.observed_at_ms),

@@ -42,11 +42,21 @@ fn v04_cross_midnight_belongs_to_completion_day() {
     e.time_basis = llm_usage_core::domain::TimeBasis::SourceCompletion;
     e.interval_start_ms = Some(ts("2026-09-24T23:55:00Z"));
     e.interval_end_ms = Some(ts("2026-09-25T00:10:00Z"));
-    commit_batch(&storage, &batch("inst", "UTC", ts("2026-09-25T01:00:00Z"), vec![e]), None).unwrap();
+    commit_batch(
+        &storage,
+        &batch("inst", "UTC", ts("2026-09-25T01:00:00Z"), vec![e]),
+        None,
+    )
+    .unwrap();
 
     let s = summary_for(
-        &storage, "UTC", WeekStart::Monday, ymd(2026, 9, 24), ymd(2026, 9, 25),
-        Granularity::Day, ymd(2026, 9, 25),
+        &storage,
+        "UTC",
+        WeekStart::Monday,
+        ymd(2026, 9, 24),
+        ymd(2026, 9, 25),
+        Granularity::Day,
+        ymd(2026, 9, 25),
     );
     assert_eq!(s.periods.len(), 1);
     assert_eq!(s.periods[0].label, "2026-09-25");
@@ -61,10 +71,20 @@ fn v04_leap_day_and_half_open_boundary() {
         with_tokens(evt("inst", "leap-noon", ts("2024-02-29T12:00:00Z")), 2, 0),
         with_tokens(evt("inst", "end-of-29", ts("2024-03-01T00:00:00Z")), 4, 0), // 恰好进入 3-01
     ];
-    commit_batch(&storage, &batch("inst", "UTC", ts("2024-03-01T01:00:00Z"), events), None).unwrap();
+    commit_batch(
+        &storage,
+        &batch("inst", "UTC", ts("2024-03-01T01:00:00Z"), events),
+        None,
+    )
+    .unwrap();
     let s = summary_for(
-        &storage, "UTC", WeekStart::Monday, ymd(2024, 2, 28), ymd(2024, 3, 1),
-        Granularity::Day, ymd(2024, 3, 1),
+        &storage,
+        "UTC",
+        WeekStart::Monday,
+        ymd(2024, 2, 28),
+        ymd(2024, 3, 1),
+        Granularity::Day,
+        ymd(2024, 3, 1),
     );
     let day29 = s.periods.iter().find(|p| p.label == "2024-02-29").unwrap();
     assert_eq!(day29.sums.input_total_known, Some(3));
@@ -83,10 +103,20 @@ fn v04_iso_cross_year_week_label() {
         with_tokens(evt("inst", "b", ts("2025-12-31T10:00:00Z")), 2, 0),
         with_tokens(evt("inst", "c", ts("2026-01-04T10:00:00Z")), 4, 0),
     ];
-    commit_batch(&storage, &batch("inst", "UTC", ts("2026-01-05T00:00:00Z"), events), None).unwrap();
+    commit_batch(
+        &storage,
+        &batch("inst", "UTC", ts("2026-01-05T00:00:00Z"), events),
+        None,
+    )
+    .unwrap();
     let s = summary_for(
-        &storage, "UTC", WeekStart::Monday, ymd(2025, 12, 28), ymd(2026, 1, 5),
-        Granularity::Week, ymd(2026, 1, 5),
+        &storage,
+        "UTC",
+        WeekStart::Monday,
+        ymd(2025, 12, 28),
+        ymd(2026, 1, 5),
+        Granularity::Week,
+        ymd(2026, 1, 5),
     );
     assert_eq!(s.periods.len(), 1);
     assert_eq!(s.periods[0].label, "2026-W01");
@@ -103,10 +133,20 @@ fn v04_sunday_week_uses_start_date_label() {
         with_tokens(evt("inst", "a", ts("2025-12-29T10:00:00Z")), 1, 0),
         with_tokens(evt("inst", "b", ts("2026-01-01T10:00:00Z")), 2, 0),
     ];
-    commit_batch(&storage, &batch("inst", "UTC", ts("2026-01-05T00:00:00Z"), events), None).unwrap();
+    commit_batch(
+        &storage,
+        &batch("inst", "UTC", ts("2026-01-05T00:00:00Z"), events),
+        None,
+    )
+    .unwrap();
     let s = summary_for(
-        &storage, "UTC", WeekStart::Sunday, ymd(2025, 12, 27), ymd(2026, 1, 5),
-        Granularity::Week, ymd(2026, 1, 5),
+        &storage,
+        "UTC",
+        WeekStart::Sunday,
+        ymd(2025, 12, 27),
+        ymd(2026, 1, 5),
+        Granularity::Week,
+        ymd(2026, 1, 5),
     );
     assert_eq!(s.periods.len(), 1);
     // 周日起始：2025-12-28 开始的一周；标签是开始日期。
@@ -125,8 +165,14 @@ fn v04_dst_23_and_25_hour_days() {
     let (s, e) = cal.day_range_ms(ymd(2026, 3, 8)).unwrap();
     assert_eq!(e - s, 23 * 3_600_000);
     // 间隙两侧事件同属 2026-03-08。
-    assert_eq!(cal.local_day_of(ts("2026-03-08T06:30:00Z")).unwrap(), ymd(2026, 3, 8)); // 01:30 EST
-    assert_eq!(cal.local_day_of(ts("2026-03-08T07:30:00Z")).unwrap(), ymd(2026, 3, 8)); // 03:30 EDT
+    assert_eq!(
+        cal.local_day_of(ts("2026-03-08T06:30:00Z")).unwrap(),
+        ymd(2026, 3, 8)
+    ); // 01:30 EST
+    assert_eq!(
+        cal.local_day_of(ts("2026-03-08T07:30:00Z")).unwrap(),
+        ymd(2026, 3, 8)
+    ); // 03:30 EDT
 
     // 秋季拨回：2026-11-01 有 25 小时，01:30 出现两次，offset 可分辨。
     let (s, e) = cal.day_range_ms(ymd(2026, 11, 1)).unwrap();
@@ -144,10 +190,20 @@ fn v04_dst_23_and_25_hour_days() {
         with_tokens(evt("inst", "edt", first), 1, 0),
         with_tokens(evt("inst", "est", second), 2, 0),
     ];
-    commit_batch(&storage, &batch("inst", "America/New_York", second + 1000, events), None).unwrap();
+    commit_batch(
+        &storage,
+        &batch("inst", "America/New_York", second + 1000, events),
+        None,
+    )
+    .unwrap();
     let s = summary_for(
-        &storage, "America/New_York", WeekStart::Monday, ymd(2026, 10, 31), ymd(2026, 11, 2),
-        Granularity::Day, ymd(2026, 11, 2),
+        &storage,
+        "America/New_York",
+        WeekStart::Monday,
+        ymd(2026, 10, 31),
+        ymd(2026, 11, 2),
+        Granularity::Day,
+        ymd(2026, 11, 2),
     );
     assert_eq!(s.periods.len(), 1);
     assert_eq!(s.periods[0].label, "2026-11-01");
