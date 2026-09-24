@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>llm-usage · 资源预览</title>
+    <link rel="icon" href="/favicon.svg" />
+    <style>
+      * { box-sizing: border-box; }
+      body { margin: 0; background: #eef3f0; color: #102a35; font: 15px/1.65 system-ui, sans-serif; }
+      main { max-width: 1180px; margin: auto; padding: 48px 36px; }
+      header { display: flex; justify-content: space-between; align-items: start; gap: 24px; margin-bottom: 32px; }
+      h1 { font-size: 42px; line-height: 1.2; letter-spacing: -2px; margin: 6px 0 14px; font-weight: 650; }
+      h2 { margin: 0; font-size: 18px; font-weight: 600; }
+      p { margin: 8px 0; }
+      .eyebrow { font-size: 11px; letter-spacing: 3px; color: #526c72; }
+      .muted, footer { color: #526c72; }
+      .badge { border: 1px solid #bed1c9; padding: 6px 12px; border-radius: 30px; font-size: 12px; white-space: nowrap; }
+      .hero { display: grid; grid-template-columns: 1fr 1fr; border-radius: 24px; overflow: hidden; margin: 24px 0; }
+      .panel { padding: 30px; min-height: 320px; display: flex; flex-direction: column; justify-content: space-between; }
+      .light { background: #fff; color-scheme: light; }
+      .dark { background: #102a35; color: #d8fff3; color-scheme: dark; }
+      .dark .muted, .dark figcaption { color: #9bbcb6; }
+      .lockup { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 20px 0; }
+      .lockup img { width: 144px; height: 144px; }
+      .wordmark { font-size: 28px; font-weight: 600; letter-spacing: -1px; }
+      .caption { display: flex; justify-content: space-between; font-size: 11px; letter-spacing: 1px; }
+      .row { display: flex; flex-wrap: wrap; gap: 24px; align-items: end; margin: 22px 0; }
+      figure { margin: 0; display: grid; justify-items: center; gap: 8px; }
+      figcaption { font-size: 11px; color: #526c72; }
+      .section { background: #fff; border: 1px solid #dce5df; border-radius: 20px; padding: 26px 30px; margin-top: 24px; }
+      .swatch { width: 28px; height: 28px; border-radius: 8px; border: 1px solid #102a3514; }
+      .palette { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 20px; }
+      .palette span { display: flex; gap: 9px; align-items: center; font: 11px monospace; }
+      .states { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 20px; color-scheme: light; }
+      .state { text-align: center; border-radius: 16px; padding: 16px 12px; background: #f5f8f6; }
+      .state img { display: block; width: 100%; max-width: 270px; margin: 0 auto 12px; }
+      .state p { font-size: 12px; }
+      .state strong { display: block; font-size: 14px; }
+      .themes { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 20px; }
+      .themes > div { padding: 20px; border-radius: 14px; border: 1px solid #dce5df; }
+      .ui-row { display: flex; flex-wrap: wrap; gap: 21px; margin-top: 20px; }
+      .ui-row img { width: 24px; height: 24px; }
+      button { cursor: pointer; border: 1px solid #bed1c9; border-radius: 8px; background: #fff; color: #102a35; padding: 8px 14px; font: inherit; }
+      button:focus-visible { outline: 3px solid #167f74; outline-offset: 3px; }
+      .states[data-theme="dark"] { color-scheme: dark; color: #d8fff3; }
+      .states[data-theme="dark"] .state { background: #102a35; }
+      .states[data-theme="dark"] .muted { color: #9bbcb6; }
+      footer { margin-top: 26px; font-size: 12px; }
+      @media(max-width: 720px) { main { padding: 24px 16px; } .hero,.themes,.states { grid-template-columns: 1fr; } header { flex-direction: column; } h1 { font-size: 34px; } .panel { padding: 24px; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header><div><div class="eyebrow">LLM-USAGE / VISUAL ASSETS</div><h1>看见每一份用量。</h1><p class="muted">Usage U · 本机 Agent 用量统计的应用标识与界面资源</p></div><span class="badge">01 / 2026</span></header>
+      <div class="hero">
+        <section class="panel light"><div class="caption"><span>PRIMARY / LIGHT</span><span>01</span></div><div class="lockup"><img src="/brand/app-icon.svg" alt="Usage U 应用图标" /><div><div class="wordmark">llm-usage</div><div class="muted">Local signals. Clear usage.</div></div></div><div class="muted">U 形轮廓 · 用量刻度 · 本机观测</div></section>
+        <section class="panel dark"><div class="caption"><span>PRIMARY / DARK</span><span>02</span></div><div class="lockup"><img src="/brand/app-icon.svg" alt="深色背景下的应用图标" /><div><div class="wordmark">llm-usage</div><div class="muted">Local signals. Clear usage.</div></div></div><div class="muted">青绿主体 / 薄荷刻度 / 琥珀识别点</div></section>
+      </div>
+      <section class="section"><h2>尺寸与色彩</h2><p class="muted">从任务栏到应用列表，保持同一个轮廓。以下以实际像素展示。</p><div class="row" id="sizes"></div><div class="palette" id="palette"></div></section>
+      <section class="section"><h2>托盘与操作图标</h2><p class="muted">单色托盘省略装饰点；24 px 操作图标使用统一线宽。</p><div class="themes"><div class="light"><div>浅色背景</div><div class="row" id="tray-dark"></div><div class="ui-row" id="ui-light"></div></div><div class="dark"><div>深色背景</div><div class="row" id="tray-light"></div><div class="ui-row" id="ui-dark"></div></div></div></section>
+      <section class="section"><div class="caption"><h2>空状态与受限状态</h2><button id="theme" type="button" aria-pressed="false">切换深色预览</button></div><p class="muted">文案独立于插画；未采集与读取失败均不表示零用量。</p><div class="states" data-theme="light"><article class="state"><img src="/illustrations/no-sources.svg" alt="待连接的本地来源" /><strong>还没有添加数据源</strong><p class="muted">添加本机 Agent 的日志目录后开始统计。</p></article><article class="state"><img src="/illustrations/no-results.svg" alt="放大镜与空记录列表" /><strong>当前筛选没有匹配记录</strong><p class="muted">试试调整日期，或检查数据源的采集状态。</p></article><article class="state"><img src="/illustrations/source-warning.svg" alt="来源文件与警告标记" /><strong>部分来源暂时不可读取</strong><p class="muted">保留已有数据，并显示具体原因和更新时间。</p></article></div></section>
+      <footer>原创 SVG 几何图形 · 无外部字体或图片请求 · 图标及插画均由 Git LFS 管理<br />这是资源审阅页；托盘、采集与空状态交互将在 M6 接入。</footer>
+    </main>
+    <script type="module">
+      function figure(src, label, size) {
+        const element = document.createElement('figure');
+        const image = new Image(size, size);
+        image.src = src;
+        image.alt = label;
+        const caption = document.createElement('figcaption');
+        caption.textContent = label;
+        element.append(image, caption);
+        return element;
+      }
+      for (const size of [16, 24, 32, 48, 64, 128]) document.querySelector('#sizes').append(figure(size < 24 ? '/favicon.svg' : '/brand/app-icon.svg', `${size} px`, size));
+      for (const color of ['#102A35', '#53DDC5', '#D8FFF3', '#F2B86B', '#77958F']) {
+        const item = document.createElement('span');
+        const swatch = document.createElement('i');
+        swatch.className = 'swatch';
+        swatch.style.background = color;
+        item.append(swatch, color);
+        document.querySelector('#palette').append(item);
+      }
+      for (const theme of ['dark', 'light']) {
+        for (const size of [16, 20, 24, 32]) document.querySelector(`#tray-${theme}`).append(figure(`/src-tauri/icons/tray/${theme}-${size}.png`, `${size} px`, size));
+      }
+      for (const theme of ['light', 'dark']) {
+        for (const name of ['overview', 'models', 'sources', 'settings', 'refresh', 'calendar', 'download', 'folder']) document.querySelector(`#ui-${theme}`).append(figure(`/ui/${name}.svg`, name, 24));
+      }
+      document.querySelector('#theme').addEventListener('click', (event) => {
+        const states = document.querySelector('.states');
+        const dark = states.dataset.theme !== 'dark';
+        states.dataset.theme = dark ? 'dark' : 'light';
+        event.currentTarget.setAttribute('aria-pressed', String(dark));
+        event.currentTarget.textContent = dark ? '切换浅色预览' : '切换深色预览';
+      });
+    </script>
+  </body>
+</html>

@@ -29,15 +29,15 @@ Harness Agent 按用户提供官网更正为 Hermes Agent。所有工具均保�
 | Claude Code | projects 下会话/子 Agent JSONL；官方 OTel 的 input/output/cacheRead/cacheCreation、模型与请求事件 | 本地 JSONL 逐请求形态需 fixture；遥测需显式启用，防会话/辅助统计重叠 | M2/M5；本地候选/需启用，A01 |
 | Cline | VS Code task 的 ui_messages.json；api_req_started/finished 及 tokensIn/Out、cacheReads/Writes、cost | 固定源码同时处理 deleted_api_reqs/subagent_usage 聚合；不能每条 say 算请求；模型逐请求归属需核验。CLI SDK 单独探测 | M3；本地候选，A03 |
 | CodeBuddy Code / IDE / 插件 | CodeBuddy Code 官方 OTel model_stream，输入/输出/总 token、模型和 TTFT；IDE 有积分用量页 | CLI 官方合同不能自动推广到 IDE/插件；model_request 与 model_stream 不双计；缓存字段尚需样本 | CLI M5；缺证 IDE/插件 F1，A04 |
-| Codex CLI / 桌面 / IDE | 原型读 CODEX_HOME 下 rollout 的 token_usage_record；官方 OTel 支持请求、响应完成 usage 和流事件 | 原型固定默认路径需改为发现/配置；旧 token_count 与新记录必须分格式；模型从结构化上下文归属，缺 response ID 不碰撞 | M2/M5；本地候选/需启用，A02 + 原型 |
-| GitHub Copilot CLI | 官方 OTel 的 chat span、token 统计，支持 JSONL file exporter；原型另有 assistant_usage_events SQLite | 优先官方文件/OTLP；原型数据库只能作为待验格式，不能认定所有版本都有；premium request 独立 | M5；需启用，旧库存量待证，A05 |
+| Codex CLI / 桌面 / IDE | 原型读 CODEX_HOME 下 rollout 的 token_usage_record；官方 OTel 支持请求、响应完成 usage 和流事件 | 本机 0.155.0-alpha.16.3 已取 rollout fixture：逐次/累计/turn_context 三类记录，compaction 重置累计快照（M0 fixture）；原型固定默认路径需改为发现/配置；旧 token_count 与新记录必须分格式；模型从结构化上下文归属，缺 response ID 不碰撞 | M2/M5；本地候选/需启用，A02 + 原型 |
+| GitHub Copilot CLI | 官方 OTel 的 chat span、token 统计，支持 JSONL file exporter；原型另有 assistant_usage_events SQLite | 优先官方文件/OTLP；本机 1.0.73 实测 events.jsonl 无逐次 token，session-store.db 的 assistant_usage_events 逐 turn 全字段（M0 fixture）；不能认定所有版本都有该库；premium request 独立 | M5；需启用，A05 |
 | JetBrains 内置 AI Assistant / Junie | 后续探测 IDE 本地日志、插件数据、会话存储/本机导出 | A07 只证实企业远端分析，已排除；本地 token/cache schema 待证，当前不探测/开发 | F1；后续支持，A07 为范围排除依据 |
 | DeepSeek Harness（DSH） | 官方 token-meter 从持久日志折叠普通输入、输出、缓存读写；可按 attempt/turn 派生用量 | 最终样本替换同尝试流式值，retry 新开替换范围；pressure/contextBreakdown 是估算，不能计账；存储格式需版本探测 | M3；本地候选，A08 |
 | Hermes Agent（原需求 Harness Agent） | HERMES_HOME/profile 下 state.db；sessions 与 session_model_usage 的模型、任务、token/缓存、调用计数、费用字段 | 后者按路由/任务累计，并非逐请求表；辅助用量不含在主会话汇总中；旧迁移/跨日及日志详单另验，见下节 | M3；本地候选，A24 |
 | OpenClaw | 当前官方文档指向每 Agent 的 openclaw-agent.sqlite；旧 sessions 目录为迁移/归档输入 | 不沿用“只扫 JSONL”假设；运行时库、旧归档和外部 CLI 镜像去重；远端 Gateway 不等于本机 | M3；本地候选，A09 |
 | Gemini CLI | 官方会话存储 ~/.gemini/tmp/<project_hash>/chats/ 含 token；OTel 提供 input/output/thought/cache/tool 和请求统计 | JSON/JSONL 具体版本探测；thought/cache/tool 字段的包含关系逐 provider 核验；Gemini 网页和 Code Assist 不冒充 CLI | M2/M5；本地候选/需启用，A10 |
-| Kilo Code CLI / 桌面 / IDE 扩展 | 原型读取 kilo.db；固定上游已有 core session 数据层及用量索引迁移 | 新版与旧 message 表不保证兼容；缺少独立证据的 IDE 扩展后移，不能拿 CLI 通过代表 IDE 通过 | CLI/桌面 M3；缺证 IDE 变体 F1，A11 |
-| 新版 Kimi Code | 官方确认 `KIMI_CODE_HOME/sessions/<workDir>/<session>/agents/*/wire.jsonl`；原型 usage.record 有 inputOther/output/inputCacheRead/inputCacheCreation | 新目录已获官方证实；本轮读到的 Python 上游文件不足以证明新版 camelCase wire schema，需新版实际版本/fixture，不凭原型“v2.x”注释定版本 | M4；路径已证、字段待证，A12 |
+| Kilo Code CLI / 桌面 / IDE 扩展 | 原型读取 kilo.db；固定上游已有 core session 数据层及用量索引迁移 | 新版与旧 message 表不保证兼容；本机 7.4.21 实测库在 `~/.local/share/kilo/kilo.db`（非 ~/.config/kilo），usage 在 message.data.tokens（M0 fixture）；缺少独立证据的 IDE 扩展后移，不能拿 CLI 通过代表 IDE 通过 | CLI/桌面 M3；缺证 IDE 变体 F1，A11 |
+| 新版 Kimi Code | 官方确认 `KIMI_CODE_HOME/sessions/<workDir>/<session>/agents/*/wire.jsonl`；原型 usage.record 有 inputOther/output/inputCacheRead/inputCacheCreation | 本机 desktop 1.0.3、wire protocol_version=1.5 已实证 camelCase usage.record 四字段与毫秒时间（M0 fixture，见 [验证记录](../validation/desktop-usage/m0-agent-fixtures.md)）；其他版本仍需各自 fixture | M4；本机字段已证，A12 |
 | Kimi Work | 原型读取内嵌 kimi-code 的 wire usage.record | 原型有机器专属 D 盘路径；不能作为默认合同，也不能仅因内核同名与独立 Kimi Code 合并；需产品版本/安装发现与样本 | M4；待证实，A13 |
 | MiMo Code | 官方开源；固定源码 message tokens 有 input/output/reasoning/cache.read/write，路径经 resolveMimocodeHome | 单独 namespace 与 schema 探测；不能因 OpenCode 派生关系直接使用其目录；step 与 message 汇总不双计 | M3；本地候选，A14 |
 | oh-my-pi | 官方 session 文档确认 ~/.omp/agent/sessions/...jsonl，assistant usage 与模型/provider | 原型还读 title-generator 日志；需验证其与会话记录是否重叠，并补压缩/分支等辅助消耗 | M2；本地候选，A15 |
@@ -47,7 +47,7 @@ Harness Agent 按用户提供官网更正为 Hermes Agent。所有工具均保�
 | Zoo Code | 固定源码 consolidateTokenUsage 包含 api_req_started/finished、condense_context、cacheReads/Writes | 独立产品，不能擅自改为 Roo Code；API protocol 影响字段含义；已有字段证据的表面独立验收，缺证 JetBrains 变体后移 | 本地候选 M3；JetBrains 变体 F1，A19 |
 | TRAE / TraeCode 及插件 | 后续探测本地 IDE/CLI 日志、会话库、插件数据和本机会话导出 | A20 企业 API/控制台报表不纳入；当前整个产品家族后移，不推测通用目录/schema | F1；后续支持，A20 为范围排除依据 |
 | VS Code | 官方 Copilot Chat OTel 的逐 LLM chat span 有模型、输入/输出、可选缓存与推理、TTFT | VS Code 是宿主；与 Copilot/Claude/Codex 等底层 Agent 去重；不承诺读取所有扩展的 usage | M5；需启用，A06 |
-| ZCode | 原型 model-io JSONL 的 response.usage；官方用量页明确区分本机 session 与 Coding Plan | 官方确认本地统计存在，不等于公开原型日志 schema；缺 requestId/traceId 时不得全部变成 zcode:None | M4；产品能力已证、日志格式待证，A21 |
+| ZCode | 原型 model-io JSONL 的 response.usage；官方用量页明确区分本机 session 与 Coding Plan | 本机 3.14.3 已取 model-io 双口径样本：AI SDK inputTokens 含缓存读、anthropic input_tokens 不含（M0 fixture）；缺 requestId/traceId 时不得全部变成 zcode:None | M4；本机格式已证、跨版本待证，A21 |
 | WorkBuddy | 官方日志诊断入口作本地探测线索；核验安装/profile 对应的日志/缓存与本机会话导出 | 套餐/账号积分页不纳入；未证实本地逐请求 token/cache，不能把 CodeBuddy CLI OTel 直接套用 | M4；待证实，A22 |
 | Zed | 官方说明 hosted 服务有 token 计量，客户端 telemetry log 可查看；外部 Agent 有独立数据源 | 内置存储 schema 后续核验；外部 ACP Agent 仍按底层适配器读取原生日志，不计为 Zed 内置支持 | 内置 Agent F1；外部来源按原阶段，A23 |
 

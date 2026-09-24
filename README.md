@@ -1,7 +1,7 @@
 # llm-usage
 
 本项目计划提供本地 AI Agent 用量桌面客户端，统计各模型的 token、请求和缓存使用。
-实施前的设计准备已完成，尚未开始 M0–M7，也未实现桌面客户端。
+实施前的设计准备已完成；M0 进行中，桌面客户端尚未实现。
 
 已确认 Windows 11 x64 首发，GitHub CI 保留 macOS/Linux，本地可尝试 WSL 构建。
 所有 Agent 均保留本地支持计划，缺证 IDE 后移 F1；仅统计本机来源，支持计划中的界面定时提取配置。
@@ -12,21 +12,40 @@
 - [详细设计](docs/design/desktop-usage/README.md)：架构、统计合同、Agent 接入、配置与测试。
 - [调研依据](docs/design/desktop-usage/research.md)：官方资料、固定源码和原型静态核对。
 - [定时提取](docs/design/desktop-usage/scheduling.md)与 [平台/CI](docs/design/desktop-usage/platform-ci.md)：后台任务和跨平台验收合同。
+- [验证记录](docs/validation/desktop-usage/)：M0 起的实际执行证据，随证据产生逐条登记。
+- [应用图标与静态资源](desktop/assets/README.md)：Usage U 设计、预览、重新生成与 Git LFS 约定。
 - 已有 [previous-draft](previous-draft/README.md) 作为参考，未进行运行验收。
 
 - 共享规则：[AGENTS.md](AGENTS.md)。
 - 维护流程与按需资源：[Skills](.agents/skills/README.md)。
 
-## 文档验证
+## 常用命令
 
-Node.js 22+。2026-09-24 核验发现根 package.json/package-lock.json 缺失，
-恢复可复现文档依赖列在 M0，当前不能使用 npm ci 或 npm run lint:docs。
-本机已有 markdownlint-cli2 时可在根目录直接检查：
+Node.js 22+（当前锁定 24）与 Rust（当前锁定 1.98.x）。在仓库根直接执行：
 
 ```powershell
-node node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs
-git diff --check
+git lfs install --local  # 为当前克隆启用 LFS（首次）
+git lfs pull            # 下载图标及其他静态/二进制资源
+npm ci                  # 恢复文档工具依赖（首次）
+npm --prefix desktop ci # 恢复桌面工具依赖（首次）
+npm run assets:check    # 检查资源格式、派生文件与 LFS 属性
+npm run lint:md         # Markdown 检查
+npm run dev:web         # 仅前端 Vite 热更新服务（http://127.0.0.1:1420，无后端）
+npm run dev:desktop     # 开发模式拉起 GUI（debug 构建 + 热重载，不打包）
+npm run check           # 前端类型检查（svelte-check）
+npm run build:web       # 前端产物构建
+npm run test:rust       # Rust 测试
+npm run clippy          # Rust 静态检查（-D warnings）
+npm run fmt:check       # Rust 格式检查
+npm run build:desktop   # 桌面 release 构建（产出 NSIS/deb/AppImage/.app 按平台）
+npm run verify          # 以上检查与测试的一条龙（不含 build:desktop）
 ```
 
-已有 node_modules 不代表新检出的仓库可以复现安装。业务构建、测试与发布命令在 M0 建立，
-文档检查不代替业务验收。
+`npm run verify` 与 `npm run dev:desktop` 已于 2026-09-24 实测退出码 0、GUI 窗口正常出现；
+日常功能验证用 dev:desktop 即可，不必打包。业务命令与锁定版本以
+`desktop/package.json`、`desktop/src-tauri/Cargo.toml` 及各自锁文件为准。
+文档检查不代替业务验收；M0 实测证据见 [验证记录](docs/validation/desktop-usage/)。
+
+图片（含 SVG）、字体、媒体及二进制文件使用 Git LFS；首次构建前须下载实际资源。
+重新生成图标：`npm run assets:generate`。资源预览页：
+`npm run dev:web` 后打开 `http://127.0.0.1:1420/asset-preview.html`。

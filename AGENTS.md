@@ -27,18 +27,21 @@ Windows 11 x64 首发，GitHub CI 保留 macOS/Linux；WSL 构建不等于 Linux
 
 ## 开发、构建与验证
 
-在仓库根使用 Node.js 22+。当前 package.json/package-lock.json 缺失，
-恢复文档依赖声明列入 M0；已有本地 markdownlint-cli2 时可执行：
+在仓库根使用 Node.js 22+。根 package.json/package-lock.json 已于 M0 恢复，
+文档与业务检查统一从根目录执行：
 
 ```powershell
-node node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs
+npm ci
+npm run verify          # lint:md + svelte-check + cargo fmt/clippy/test + 前端构建
+npm run dev:desktop     # 开发模式拉起 GUI（debug 构建，不打包；dev:web 仅前端）
+npm run build:desktop   # Tauri release 构建
 git diff --check
 git status --short
 ```
 
-文档工具缺失时报告缺口，不因计划任务自动安装；恢复声明后再核验 npm 脚本。
-业务 build/test/format/typecheck 合同尚未建立；文档检查不能代替业务验收。
-新文件未跟踪时另查其内容，不能只看 git diff。
+各命令的实际定义见根 package.json scripts；业务命令与锁定版本以
+desktop/package.json、desktop/src-tauri/Cargo.toml 及各自锁文件为准。
+文档检查不能代替业务验收。新文件未跟踪时另查其内容，不能只看 git diff。
 
 ## 工具与执行约定
 

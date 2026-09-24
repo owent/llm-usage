@@ -1,0 +1,147 @@
+name: CI
+
+# 合同见 docs/design/desktop-usage/platform-ci.md：
+# 三平台真实构建、fail-fast=false、Actions 固定完整提交 SHA、PR 只读权限、
+# 不做发布/签名；制品记录 revision、大小与校验和。M1 起逐步加入 fixture 与集成测试。
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "24"
+  RUST_TOOLCHAIN: "1.98.0"
+
+jobs:
+  docs:
+    name: Markdown / 文档检查
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          lfs: true
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run lint:md
+
+  frontend:
+    name: 前端类型检查与构建
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          lfs: true
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: node scripts/assets.mjs --check
+      - run: npm run build
+
+  rust:
+    name: Rust fmt / clippy / test
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: desktop/src-tauri
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          lfs: true
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: clippy, rustfmt
+      - uses: swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with:
+          key: ${{ runner.os }}-x64-rust-${{ env.RUST_TOOLCHAIN }}
+          workspaces: desktop/src-tauri
+      - run: cargo fmt --check
+      - run: cargo clippy --locked -- -D warnings
+      - run: cargo test --locked
+
+  build:
+    name: ${{ matrix.os }} release 构建
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            bundles: nsis
+          - os: ubuntu-22.04
+            bundles: deb,appimage
+          - os: macos-15
+            bundles: app
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          lfs: true
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+      - uses: swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with:
+          key: ${{ runner.os }}-${{ runner.arch }}-rust-${{ env.RUST_TOOLCHAIN }}
+          workspaces: desktop/src-tauri
+      - name: Linux WebKitGTK 等系统依赖
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libssl-dev libgtk-3-dev \
+            libayatana-appindicator3-dev librsvg2-dev patchelf build-essential curl wget file
+      - name: 前端安装与构建
+        working-directory: desktop
+        run: |
+          npm ci
+          node scripts/assets.mjs --check
+          npm run check
+          npm run build
+      - name: Tauri release 构建
+        working-directory: desktop
+        run: npx tauri build --bundles ${{ matrix.bundles }}
+      - name: 制品大小与校验和
+        if: success()
+        shell: bash
+        run: |
+          set -e
+          BUNDLE=desktop/src-tauri/target/release/bundle
+          if [ -d "$BUNDLE" ]; then
+            find "$BUNDLE" -type f \( -name '*.exe' -o -name '*.msi' -o -name '*.deb' -o \
+              -name '*.AppImage' -o -name '*.app' -o -name '*.dmg' -o -name '*.tar.gz' \) \
+              -exec ls -l {} \; -exec sha256sum {} \;
+          else
+            echo "bundle 目录缺失：$BUNDLE" >&2
+            exit 1
+          fi
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: success()
+        with:
+          name: llm-usage-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
+          path: |
+            desktop/src-tauri/target/release/bundle/**
+          if-no-files-found: error
+          retention-days: 14
