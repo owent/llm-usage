@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM 用量看板</title>
+<style>
+  /* 独立运行（浏览器直接打开）时的回退主题；在 Kimi Work 宿主内由宿主变量覆盖 */
+  :root {
+    --kimi-font-sans: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    --kimi-space-2: 8px; --kimi-space-3: 12px; --kimi-space-4: 16px;
+    --kimi-color-text-primary: #1a1a1a; --kimi-color-text-secondary: #444;
+    --kimi-color-text-tertiary: #8a8f99; --kimi-color-text-quaternary: #c0c4cc;
+    --kimi-color-border: rgba(0,0,0,.1); --kimi-color-bg: #fff;
+    --kimi-color-fill-secondary: rgba(0,0,0,.04);
+    --kimi-color-positive: #2ea44f; --kimi-color-danger: #eb5757; --kimi-color-warning: #f2994a;
+    --kimi-radius-full: 999px; --kimi-radius-panel: 12px; --kimi-radius-card: 8px;
+    --kimi-chart-1: #4E6EF2; --kimi-chart-2: #F2994A; --kimi-chart-3: #27AE60;
+    --kimi-chart-4: #EB5757; --kimi-chart-5: #9B51E0; --kimi-chart-6: #12B5CB;
+    --kimi-chart-7: #F2C94C;
+    font-family: var(--kimi-font-sans, sans-serif);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: transparent; }
+  body.standalone { background: var(--kimi-color-bg, #fff); }
+  button, input, select, textarea { font: inherit; }
+  .wrap { padding-block-start: var(--kimi-space-4); padding-inline: var(--kimi-space-4);
+          font-family: var(--kimi-font-sans, sans-serif); color: var(--kimi-color-text-primary);
+          position: relative; max-width: 1180px; }
+  .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+
+  /* 顶部条 */
+  .topbar { display: flex; align-items: baseline; gap: var(--kimi-space-3); flex-wrap: wrap; }
+  .topbar h1 { font-size: 17px; font-weight: 500; margin: 0; }
+  .meta { font-size: 12px; color: var(--kimi-color-text-tertiary); }
+  .src-dots { display: flex; gap: var(--kimi-space-2); margin-inline-start: auto; align-items: center; }
+  .dot { width: 8px; height: 8px; border-radius: var(--kimi-radius-full); background: var(--kimi-color-text-quaternary); display: inline-block; margin-inline-start: 4px; }
+  .dot.ok { background: var(--kimi-color-positive); }
+  .dot.error { background: var(--kimi-color-danger); }
+  .src-name { font-size: 12px; color: var(--kimi-color-text-tertiary); }
+  .badge-sample { font-size: 12px; color: var(--kimi-color-warning); margin-inline-start: var(--kimi-space-2); }
+
+  /* 面板通用 */
+  .panel { margin-top: var(--kimi-space-3); border: 1px solid var(--kimi-color-border);
+           border-radius: var(--kimi-radius-panel); padding: var(--kimi-space-3); }
+  .panel-head { display: flex; align-items: center; gap: var(--kimi-space-3); flex-wrap: wrap; margin-bottom: var(--kimi-space-3); }
+  .panel-label { font-size: 14px; font-weight: 500; }
+  .sub { font-size: 12px; color: var(--kimi-color-text-tertiary); }
+  .ctl-label { font-size: 12px; color: var(--kimi-color-text-tertiary); }
+
+  /* 今日统计条 */
+  .stat-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--kimi-space-2); margin-bottom: var(--kimi-space-3); }
+  .stat { background: var(--kimi-color-fill-secondary, rgba(0,0,0,.03)); border-radius: var(--kimi-radius-card, 8px); padding: 8px 12px; }
+  .stat .k { font-size: 12px; color: var(--kimi-color-text-tertiary); }
+  .stat .v { font-size: 18px; font-weight: 600; margin-top: 2px; }
+  .stat .v small { font-size: 12px; font-weight: 400; color: var(--kimi-color-text-tertiary); margin-inline-start: 4px; }
+
+  /* 今日三张图 */
+  .today-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--kimi-space-3); }
+  .tchart { min-width: 0; }
+  .tchart-title { font-size: 12px; color: var(--kimi-color-text-secondary); margin-bottom: 4px; }
+  .chart-box { width: 100%; height: 210px; }
+  .chart-box.main-chart { height: 300px; }
+  .today-empty { display: flex; align-items: center; justify-content: center; height: 100%;
+                 color: var(--kimi-color-text-tertiary); font-size: 12px; }
+
+  /* 控制条 */
+  .controls { display: flex; align-items: center; gap: var(--kimi-space-3); flex-wrap: wrap; margin-top: var(--kimi-space-4); }
+  .kimi-segmented { display: inline-flex; gap: 4px; }
+  .kimi-chip { border: 1px solid var(--kimi-color-border); background: transparent; color: var(--kimi-color-text-secondary);
+               border-radius: var(--kimi-radius-full, 999px); padding: 3px 12px; font-size: 12px; cursor: pointer; }
+  .kimi-chip.is-selected { background: var(--kimi-color-text-primary); color: var(--kimi-color-bg, #fff); border-color: var(--kimi-color-text-primary); }
+  #range-note { margin-inline-start: auto; }
+
+  /* 汇总卡片 */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: var(--kimi-space-2); margin-top: var(--kimi-space-3); }
+  .card { border: 1px solid var(--kimi-color-border); border-radius: var(--kimi-radius-card, 8px); padding: 8px 12px; }
+  .card .k { font-size: 12px; color: var(--kimi-color-text-tertiary); }
+  .card .v { font-size: 18px; font-weight: 600; margin-top: 2px; }
+
+  .chart-head { display: flex; align-items: baseline; gap: var(--kimi-space-2); margin-top: var(--kimi-space-3); flex-wrap: wrap; }
+  .chart-title { font-size: 13px; font-weight: 500; color: var(--kimi-color-text-secondary); }
+  .kimi-chip:disabled { opacity: .38; cursor: default; }
+  .focus-chip { border-style: dashed; }
+
+  /* 表格 */
+  .tables { display: grid; grid-template-columns: repeat(auto-fit, minmax(430px, 1fr)); gap: var(--kimi-space-3); margin-top: var(--kimi-space-3); }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  caption { text-align: left; font-size: 13px; font-weight: 500; padding-bottom: 6px; color: var(--kimi-color-text-secondary); }
+  th, td { padding: 6px 8px; border-bottom: 1px solid var(--kimi-color-border); text-align: right; white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  thead th { color: var(--kimi-color-text-tertiary); font-weight: 400; font-size: 11px; }
+  tfoot td { font-weight: 600; border-bottom: none; }
+  td .sub { font-size: 11px; }
+  .hitbar { display: inline-block; width: 52px; height: 6px; border-radius: 3px; background: var(--kimi-color-fill-secondary, rgba(0,0,0,.06)); overflow: hidden; vertical-align: middle; margin-inline-end: 6px; }
+  .hitbar > i { display: block; height: 100%; background: var(--kimi-color-positive, #2ea44f); }
+
+  .spin { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--kimi-color-border); border-top-color: var(--kimi-color-text-primary);
+          border-radius: 50%; animation: kwspin 0.8s linear infinite; vertical-align: -2px; margin-inline-end: 6px; }
+  @keyframes kwspin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap">
+  <div class="topbar">
+    <h1>LLM 用量看板</h1>
+    <span class="meta" id="genat">—</span>
+    <span class="badge-sample" id="sample-badge" hidden>示例数据</span>
+    <div class="src-dots" id="src-dots"></div>
+  </div>
+
+  <!-- 今日实时 -->
+  <div class="panel">
+    <div class="panel-head">
+      <span class="panel-label">今日实时</span>
+      <span class="sub" id="today-time"></span>
+      <span style="flex:1"></span>
+      <span class="ctl-label">指标</span>
+      <div class="kimi-segmented" id="today-metric-tabs">
+        <button class="kimi-chip" data-tmetric="totalInput" type="button">总输入</button>
+        <button class="kimi-chip" data-tmetric="cacheRead" type="button">缓存命中输入</button>
+        <button class="kimi-chip" data-tmetric="output" type="button">输出</button>
+      </div>
+      <button class="kimi-chip" id="refresh" type="button">刷新今日数据</button>
+    </div>
+    <div class="stat-strip" id="today-stats"></div>
+    <div class="today-charts">
+      <div class="tchart"><div class="tchart-title" id="tcm-title">按模型 · 总输入</div><div class="chart-box" id="today-chart-model"></div></div>
+      <div class="tchart"><div class="tchart-title" id="tca-title">按 Agent · 总输入</div><div class="chart-box" id="today-chart-agent"></div></div>
+      <div class="tchart"><div class="tchart-title">分时缓存命中率</div><div class="chart-box" id="today-chart-hit"></div></div>
+      <div class="tchart"><div class="tchart-title" id="tsa-title">今日按 Agent 汇总 · 总输入</div><div class="chart-box" id="today-sum-agent"></div></div>
+      <div class="tchart"><div class="tchart-title" id="tsm-title">今日按模型汇总 · 总输入</div><div class="chart-box" id="today-sum-model"></div></div>
+    </div>
+    <div style="margin-top:8px" id="today-rows"></div>
+  </div>
+
+  <!-- 历史趋势 -->
+  <div class="controls">
+    <div class="kimi-segmented" id="grain-tabs">
+      <button class="kimi-chip" data-grain="month" type="button">按月</button>
+      <button class="kimi-chip" data-grain="week" type="button">按周</button>
+      <button class="kimi-chip" data-grain="day" type="button">按天</button>
+    </div>
+    <span class="ctl-label">指标</span>
+    <div class="kimi-segmented" id="metric-tabs">
+      <button class="kimi-chip" data-metric="totalInput" type="button">总输入</button>
+      <button class="kimi-chip" data-metric="cacheRead" type="button">缓存命中输入</button>
+      <button class="kimi-chip" data-metric="input" type="button">未命中输入</button>
+      <button class="kimi-chip" data-metric="output" type="button">输出</button>
+      <button class="kimi-chip" data-metric="hitRate" type="button">命中率</button>
+    </div>
+    <span class="ctl-label">序列</span>
+    <div class="kimi-segmented" id="series-tabs">
+      <button class="kimi-chip" data-series="total" type="button">全部汇总</button>
+      <button class="kimi-chip" data-series="model" type="button">按模型</button>
+      <button class="kimi-chip" data-series="agent" type="button">Agent × 模型</button>
+    </div>
+    <button class="kimi-chip" id="pg-prev" type="button" title="往前翻一页">‹ 往前</button>
+    <button class="kimi-chip" id="pg-next" type="button" title="往后翻一页" disabled>往后 ›</button>
+    <button class="kimi-chip focus-chip" id="focus-chip" type="button" hidden></button>
+    <span class="meta" id="range-note"></span>
+  </div>
+
+  <div class="cards">
+    <div class="card"><div class="k">请求数</div><div class="v num" id="c-req">—</div></div>
+    <div class="card"><div class="k">总输入</div><div class="v num" id="c-tin">—</div></div>
+    <div class="card"><div class="k">缓存命中输入</div><div class="v num" id="c-cr">—</div></div>
+    <div class="card"><div class="k">未命中输入</div><div class="v num" id="c-in">—</div></div>
+    <div class="card"><div class="k">输出</div><div class="v num" id="c-out">—</div></div>
+    <div class="card"><div class="k">缓存命中率</div><div class="v num" id="c-hit">—</div></div>
+  </div>
+
+  <div class="chart-head">
+    <span class="chart-title" id="chart-title">总输入趋势（按模型）</span>
+    <span class="sub">点击图中数据点，汇总与明细联动到该时间点；再点一次取消</span>
+    <span class="sub" id="page-note"></span>
+  </div>
+  <div class="chart-box main-chart" id="chart"></div>
+
+  <div class="tables">
+    <table>
+      <caption>Agent × 模型（当前时间粒度窗口内）</caption>
+      <thead><tr><th>Agent · 模型</th><th>请求</th><th>未命中输入</th><th>输出</th><th>缓存命中输入</th><th>命中率</th></tr></thead>
+      <tbody id="tb-agent"></tbody>
+      <tfoot><tr><td>合计</td><td class="num" id="tf-a0"></td><td class="num" id="tf-a1"></td><td class="num" id="tf-a2"></td><td class="num" id="tf-a3"></td><td class="num" id="tf-a4"></td></tr></tfoot>
+    </table>
+    <table>
+      <caption>按模型汇总（当前时间粒度窗口内）</caption>
+      <thead><tr><th>模型</th><th>请求</th><th>未命中输入</th><th>输出</th><th>缓存命中输入</th><th>命中率</th></tr></thead>
+      <tbody id="tb-model"></tbody>
+      <tfoot><tr><td>合计</td><td class="num" id="tf-m0"></td><td class="num" id="tf-m1"></td><td class="num" id="tf-m2"></td><td class="num" id="tf-m3"></td><td class="num" id="tf-m4"></td></tr></tfoot>
+    </table>
+  </div>
+</div>
+
+<script src="echarts.min.js"></script>
+<script>
+(function () {
+  "use strict";
+  var host = window.DaimonWidget;
+
+  // ---------- 示例数据（首次运行前渲染） ----------
+  var SAMPLE = {
+    generatedAt: "",
+    sources: [
+      { tool: "oh-my-pi", status: "ok" }, { tool: "kilo-code", status: "ok" },
+      { tool: "codex", status: "ok" }, { tool: "zcode", status: "ok" },
+      { tool: "copilot", status: "ok" }, { tool: "kimi-work", status: "ok" }
+    ],
+    byDay: [], byWeek: [], byMonth: [], today: [], todayHourly: []
+  };
+
+  var GRAIN_KEY = { month: "byMonth", week: "byWeek", day: "byDay" };
+  var GRAIN_N = { month: 12, week: 12, day: 14 };
+  var GRAIN_UNIT = { month: "个月", week: "周", day: "天" };
+  var GRAIN_NAME = { month: "按月", week: "按周", day: "按天" };
+  var SERIES_NAME = { total: "全部汇总", model: "按模型", agent: "Agent × 模型" };
+  var METRIC_LABEL = { totalInput: "总输入", cacheRead: "缓存命中输入", input: "未命中输入", output: "输出", hitRate: "缓存命中率" };
+  var state = { grain: "day", metric: "totalInput", series: "model", tmetric: "totalInput", page: 0, focusPeriod: null, data: null, running: false };
+
+  function fmt(n) {
+    n = Number(n) || 0;
+    if (n >= 1e8) return (n / 1e8).toFixed(2) + " 亿";
+    if (n >= 1e4) return (n / 1e4).toFixed(1) + " 万";
+    return n.toLocaleString("en-US");
+  }
+  function fmtPct(x) { return (Math.round(x * 10) / 10).toFixed(1) + "%"; }
+  function hitOf(r) {
+    var d = (r.cacheRead || 0) + (r.input || 0);
+    return d > 0 ? (r.cacheRead / d) * 100 : 0;
+  }
+  function totalInputOf(r) { return (r.input || 0) + (r.cacheRead || 0); }
+  function metricOf(r, m) {
+    switch (m) {
+      case "totalInput": return totalInputOf(r);
+      case "cacheRead": return r.cacheRead || 0;
+      case "input": return r.input || 0;
+      case "hitRate": return hitOf(r);
+      default: return r.output || 0;
+    }
+  }
+  function agg(rows, keyfn) {
+    var m = {};
+    rows.forEach(function (r) {
+      var k = keyfn(r);
+      var a = m[k] || (m[k] = { requests: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0 });
+      a.requests += r.requests; a.input += r.input; a.output += r.output;
+      a.cacheRead += r.cacheRead; a.cacheWrite += r.cacheWrite;
+    });
+    return m;
+  }
+  function totals(rows) {
+    var t = { requests: 0, input: 0, output: 0, cacheRead: 0 };
+    rows.forEach(function (r) {
+      t.requests += r.requests; t.input += r.input; t.output += r.output; t.cacheRead += r.cacheRead;
+    });
+    return t;
+  }
+
+  // ---------- 主题色（读取宿主 CSS 变量，失败用回退色） ----------
+  function cssVar(name, fb) {
+    try {
+      if (typeof getComputedStyle === "function") {
+        var v = getComputedStyle(document.documentElement).getPropertyValue(name);
+        if (v && v.trim()) return v.trim();
+      }
+    } catch (e) {}
+    return fb;
+  }
+  function palette() {
+    return [
+      cssVar("--kimi-chart-1", "#4E6EF2"), cssVar("--kimi-chart-2", "#F2994A"),
+      cssVar("--kimi-chart-3", "#27AE60"), cssVar("--kimi-chart-4", "#EB5757"),
+      cssVar("--kimi-chart-5", "#9B51E0"), cssVar("--kimi-chart-6", "#12B5CB"),
+      cssVar("--kimi-chart-7", "#F2C94C")
+    ];
+  }
+  function otherColor() { return cssVar("--kimi-color-text-quaternary", "#9AA0A6"); }
+  function axisColors() {
+    return {
+      line: cssVar("--kimi-color-border", "rgba(128,128,128,.25)"),
+      text: cssVar("--kimi-color-text-tertiary", "#8A8F99"),
+      split: cssVar("--kimi-color-border", "rgba(128,128,128,.18)")
+    };
+  }
+  function fontFamily() {
+    return cssVar("--kimi-font-sans", "-apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif");
+  }
+
+  // ---------- ECharts 封装 ----------
+  var charts = {};
+  function renderChart(elId, option, emptyText, onClick) {
+    var el = document.getElementById(elId);
+    if (!el) return;
+    if (typeof echarts === "undefined") {
+      el.innerHTML = '<div class="today-empty">' + (emptyText || "图表库未加载") + "</div>";
+      return;
+    }
+    try {
+      if (emptyText) {  // 无数据：销毁实例显示占位
+        if (charts[elId] && !charts[elId].isDisposed()) charts[elId].dispose();
+        charts[elId] = null;
+        el.innerHTML = '<div class="today-empty">' + emptyText + "</div>";
+        return;
+      }
+      var inst = charts[elId];
+      if (!inst || inst.isDisposed()) { inst = echarts.init(el); charts[elId] = inst; }
+      inst.setOption(option, true);
+      if (typeof onClick === "function" && typeof inst.on === "function") {
+        try {
+          if (typeof inst.off === "function") inst.off("click");
+          inst.on("click", onClick);
+        } catch (e) {}
+      }
+    } catch (e) { /* smoke 沙箱等环境直接跳过 */ }
+  }
+  function tooltipVal(metric) {
+    return function (v) {
+      if (v == null || v === "-") return "—";
+      return metric === "hitRate" ? Number(v).toFixed(1) + "%" : fmt(v);
+    };
+  }
+  function axisTooltip(metric) {
+    var f = tooltipVal(metric);
+    return {
+      trigger: "axis",
+      confine: true,
+      textStyle: { fontSize: 12 },
+      formatter: function (params) {
+        if (!params || !params.length) return "";
+        var html = '<div style="font-weight:600;margin-bottom:4px">' + params[0].axisValue + "</div>";
+        params.forEach(function (p) {
+          if (p.value == null) return;
+          html += '<div>' + p.marker + " " + p.seriesName + '：<b class="num">' + f(p.value) + "</b></div>";
+        });
+        return html;
+      }
+    };
+  }
+  function baseGrid(bottom) { return { left: 64, right: 24, top: 34, bottom: bottom || 30 }; }
+
+  // ---------- 今日实时 ----------
+  function renderToday(data) {
+    var rows = data.todayHourly || [];
+    var tot = data.today || [];
+    var T = totals(tot);
+    var nHours = {};
+    rows.forEach(function (r) { nHours[r.hour] = 1; });
+    document.getElementById("today-time").textContent = rows.length
+      ? "覆盖 " + Object.keys(nHours).length + " 个时段 · 鼠标悬停查看数值" : "";
+
+    // 今日统计条：总输入 / 缓存命中输入 / 未命中输入 / 输出 / 命中率 / 请求数
+    var strip = document.getElementById("today-stats");
+    strip.innerHTML = "";
+    var hit = T.cacheRead + T.input > 0 ? fmtPct(T.cacheRead / (T.cacheRead + T.input) * 100) : "—";
+    [["总输入", fmt(T.input + T.cacheRead)], ["缓存命中输入", fmt(T.cacheRead)],
+     ["未命中输入", fmt(T.input)], ["输出", fmt(T.output)],
+     ["缓存命中率", hit], ["请求数", fmt(T.requests)]].forEach(function (kv) {
+      var d = document.createElement("div");
+      d.className = "stat";
+      d.innerHTML = '<div class="k">' + kv[0] + '</div><div class="v num">' + kv[1] + "</div>";
+      strip.appendChild(d);
+    });
+
+    var metric = state.tmetric;
+    document.getElementById("tcm-title").textContent = "按模型 · " + METRIC_LABEL[metric];
+    document.getElementById("tca-title").textContent = "按 Agent · " + METRIC_LABEL[metric];
+    document.getElementById("tsa-title").textContent = "今日按 Agent 汇总 · " + METRIC_LABEL[metric];
+    document.getElementById("tsm-title").textContent = "今日按模型汇总 · " + METRIC_LABEL[metric];
+
+    // 连续小时轴：00:00 到 当前/最新数据小时，零填充无空档
+    var nowHour = new Date().getHours();
+    var lastHour = 0;
+    rows.forEach(function (r) { lastHour = Math.max(lastHour, parseInt(r.hour, 10) || 0); });
+    var endHour = Math.max(nowHour, lastHour);
+    var hours = [];
+    for (var h = 0; h <= endHour; h++) hours.push(h);
+    var hourLabel = function (h) { return (h < 10 ? "0" : "") + h + ":00"; };
+
+    todayStack(rows, "today-chart-model", function (r) { return r.model; }, 5, metric, hours, hourLabel);
+    todayStack(rows, "today-chart-agent", function (r) { return r.tool; }, 6, metric, hours, hourLabel);
+    todayHitLine(rows, hours, hourLabel);
+    todaySummary(rows, "today-sum-agent", function (r) { return r.tool; }, metric, "按 Agent");
+    todaySummary(rows, "today-sum-model", function (r) { return r.model; }, metric, "按模型");
+
+    // 今日按工具+模型明细 chips
+    var chipBox = document.getElementById("today-rows");
+    chipBox.innerHTML = "";
+    if (!tot.length) {
+      if (!rows.length) chipBox.innerHTML = '<span class="sub">今日暂无用量记录</span>';
+      return;
+    }
+    tot.forEach(function (r) {
+      var c = document.createElement("span");
+      c.className = "kimi-chip";
+      c.style.cursor = "default";
+      c.innerHTML = "<b>" + r.tool + "</b> · " + r.model + " · 请求 <b>" + r.requests +
+        "</b> · 总输入 <b>" + fmt(totalInputOf(r)) + "</b> · 输出 <b>" + fmt(r.output) +
+        "</b> · 命中 <b>" + fmtPct(hitOf(r)) + "</b>";
+      chipBox.appendChild(c);
+    });
+  }
+
+  function todayStack(rows, elId, keyfn, topN, metric, hours, hourLabel) {
+    if (!rows.length) { renderChart(elId, null, "暂无数据"); return; }
+    var sum = agg(rows, keyfn);
+    var keys = Object.keys(sum).sort(function (a, b) { return metricOf(sum[b], metric) - metricOf(sum[a], metric); });
+    var top = keys.slice(0, topN);
+    var hasOther = keys.length > topN;
+    var seriesKeys = top.concat(hasOther ? ["其他"] : []);
+    var colors = palette();
+    var byHK = {};
+    rows.forEach(function (r) {
+      var key = keyfn(r);
+      if (top.indexOf(key) < 0) key = hasOther ? "其他" : null;
+      if (!key) return;
+      var k = r.hour + "" + key;
+      var a = byHK[k] || (byHK[k] = { v: 0, req: 0 });
+      a.v += metricOf(r, metric); a.req += r.requests;
+    });
+    var series = seriesKeys.map(function (s, i) {
+      return {
+        name: s, type: "bar", stack: "usage", barMaxWidth: 20,
+        itemStyle: { color: s === "其他" ? otherColor() : colors[i % colors.length], borderRadius: [0, 0, 0, 0] },
+        emphasis: { focus: "series" },
+        data: hours.map(function (h) {
+          var hk = (h < 10 ? "0" : "") + h + "" + s;
+          return byHK[hk] ? byHK[hk].v : 0;
+        })
+      };
+    });
+    var ac = axisColors();
+    renderChart(elId, {
+      textStyle: { fontFamily: fontFamily() },
+      grid: baseGrid(34),
+      tooltip: axisTooltip(metric),
+      legend: { show: seriesKeys.length > 1, top: 0, left: 0, type: "scroll",
+                itemWidth: 10, itemHeight: 10, textStyle: { fontSize: 11, color: ac.text }, icon: "roundRect" },
+      xAxis: { type: "category", data: hours.map(hourLabel),
+               axisLine: { lineStyle: { color: ac.line } }, axisTick: { show: false },
+               axisLabel: { color: ac.text, fontSize: 10, interval: hours.length > 13 ? 1 : 0 } },
+      yAxis: { type: "value", axisLabel: { color: ac.text, fontSize: 10, formatter: fmt },
+               splitLine: { lineStyle: { color: ac.split, type: "dashed" } } },
+      series: series
+    });
+  }
+
+  function todayHitLine(rows, hours, hourLabel) {
+    if (!rows.length) { renderChart("today-chart-hit", null, "暂无数据"); return; }
+    var byH = {};
+    rows.forEach(function (r) {
+      var a = byH[r.hour] || (byH[r.hour] = { input: 0, cacheRead: 0 });
+      a.input += r.input; a.cacheRead += r.cacheRead;
+    });
+    var data = hours.map(function (h) {
+      var a = byH[(h < 10 ? "0" : "") + h];
+      if (!a || a.input + a.cacheRead <= 0) return null;
+      return +(a.cacheRead / (a.input + a.cacheRead) * 100).toFixed(2);
+    });
+    var ac = axisColors();
+    var c = cssVar("--kimi-color-text-primary", "#333");
+    renderChart("today-chart-hit", {
+      textStyle: { fontFamily: fontFamily() },
+      grid: baseGrid(34),
+      tooltip: {
+        trigger: "axis", confine: true, textStyle: { fontSize: 12 },
+        formatter: function (params) {
+          if (!params || !params.length || params[0].value == null) return "";
+          var p = params[0];
+          var h = hours[p.dataIndex];
+          var a = byH[(h < 10 ? "0" : "") + h] || { input: 0, cacheRead: 0 };
+          return '<div style="font-weight:600;margin-bottom:4px">' + p.axisValue + "</div>" +
+            p.marker + " 命中率：<b class='num'>" + Number(p.value).toFixed(1) + "%</b>" +
+            '<div class="sub" style="margin-top:2px">命中 ' + fmt(a.cacheRead) + " / 总输入 " + fmt(a.input + a.cacheRead) + "</div>";
+        }
+      },
+      xAxis: { type: "category", data: hours.map(hourLabel), boundaryGap: false,
+               axisLine: { lineStyle: { color: ac.line } }, axisTick: { show: false },
+               axisLabel: { color: ac.text, fontSize: 10, interval: hours.length > 13 ? 1 : 0 } },
+      yAxis: { type: "value", min: 0, max: 100, axisLabel: { color: ac.text, fontSize: 10, formatter: "{value}%" },
+               splitLine: { lineStyle: { color: ac.split, type: "dashed" } } },
+      series: [{ name: "缓存命中率", type: "line", data: data, connectNulls: false,
+                 symbol: "circle", symbolSize: 5, lineStyle: { width: 2, color: c },
+                 itemStyle: { color: c },
+                 areaStyle: { color: c, opacity: 0.08 } }]
+    });
+  }
+
+  // 今日汇总条形图：不按时间，仅按 Agent / 模型聚合当日总量
+  function todaySummary(rows, elId, keyfn, metric, label) {
+    if (!rows.length) { renderChart(elId, null, "暂无数据"); return; }
+    var sum = agg(rows, keyfn);
+    var keys = Object.keys(sum).sort(function (a, b) {
+      return metricOf(sum[a], metric) - metricOf(sum[b], metric);  // 升序，条形自上而下降序
+    });
+    var colors = palette();
+    var ac = axisColors();
+    renderChart(elId, {
+      textStyle: { fontFamily: fontFamily() },
+      grid: { left: 8, right: 56, top: 8, bottom: 8, containLabel: true },
+      tooltip: { trigger: "item", confine: true, textStyle: { fontSize: 12 },
+        formatter: function (p) {
+          return p.marker + " " + p.name + "：<b class='num'>" + fmt(p.value) + "</b>";
+        } },
+      xAxis: { type: "value", axisLabel: { color: ac.text, fontSize: 10, formatter: fmt },
+               splitLine: { lineStyle: { color: ac.split, type: "dashed" } } },
+      yAxis: { type: "category", data: keys, axisLine: { lineStyle: { color: ac.line } },
+               axisTick: { show: false }, axisLabel: { color: ac.text, fontSize: 11 } },
+      series: [{ name: label, type: "bar", barMaxWidth: 18,
+        data: keys.map(function (k, i) {
+          return { value: metricOf(sum[k], metric),
+                   itemStyle: { color: colors[i % colors.length], borderRadius: [0, 3, 3, 0] } };
+        }),
+        label: { show: true, position: "right", fontSize: 10, color: ac.text,
+                 formatter: function (p) { return fmt(p.value); } } }]
+    });
+  }
+
+  // ---------- 历史趋势 ----------
+  function continuousPeriods(grain, page) {
+    page = page || 0;
+    var out = [];
+    var now = new Date();
+    if (grain === "day") {
+      var end = new Date(now.getFullYear(), now.getMonth(), now.getDate() - page * GRAIN_N.day);
+      var from = new Date(end); from.setDate(from.getDate() - (GRAIN_N.day - 1));
+      for (var d = new Date(from); d <= end; d.setDate(d.getDate() + 1)) {
+        out.push(d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2));
+      }
+    } else if (grain === "month") {
+      for (var i = GRAIN_N.month - 1; i >= 0; i--) {
+        var m = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        out.push(m.getFullYear() + "-" + ("0" + (m.getMonth() + 1)).slice(-2));
+      }
+    } else {  // week：ISO 周
+      var dayMs = 86400000;
+      var todayDow = (now.getDay() + 6) % 7;  // 周一=0
+      var thisMonday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - todayDow);
+      var endMonday = new Date(thisMonday.getTime() - page * GRAIN_N.week * 7 * dayMs);
+      for (var w = GRAIN_N.week - 1; w >= 0; w--) {
+        var mon = new Date(endMonday.getTime() - w * 7 * dayMs);
+        out.push(isoWeekOf(mon));
+      }
+    }
+    return out;
+  }
+  function isoWeekOf(d) {
+    var dd = new Date(d.getTime());
+    dd.setHours(0, 0, 0, 0);
+    dd.setDate(dd.getDate() + 3 - ((dd.getDay() + 6) % 7));  // 本周周四
+    var week1 = new Date(dd.getFullYear(), 0, 4);
+    var week = 1 + Math.round(((dd - week1) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7);
+    return dd.getFullYear() + "-W" + ("0" + week).slice(-2);
+  }
+
+  function lastPageOf(rowsAll, grain) {
+    if (grain === "month" || !rowsAll.length) return 0;
+    var earliest = rowsAll.reduce(function (a, r) { return r.period < a ? r.period : a; }, rowsAll[0].period);
+    var p = 0;
+    while (p < 60) {
+      var ps = continuousPeriods(grain, p);
+      if (ps[ps.length - 1] < earliest) break;  // 窗口末尾已早于最早数据，再往前无数据
+      p++;
+    }
+    return Math.max(0, p - 1);
+  }
+
+  function renderMain() {
+    var data = state.data; if (!data) return;
+    var grain = state.grain;
+    var rowsAll = data[GRAIN_KEY[grain]] || [];
+    var lastPage = lastPageOf(rowsAll, grain);
+    if (state.page > lastPage) state.page = lastPage;
+    var periods = rowsAll.length ? continuousPeriods(grain, state.page) : [];
+    var keep = {};
+    periods.forEach(function (p) { keep[p] = 1; });
+    var rows = rowsAll.filter(function (r) { return keep[r.period]; });
+    // 点击数据点：汇总卡与明细表联动到该期
+    if (state.focusPeriod && !keep[state.focusPeriod]) state.focusPeriod = null;
+    var rowsView = state.focusPeriod ? rows.filter(function (r) { return r.period === state.focusPeriod; }) : rows;
+
+    var rangeNote = document.getElementById("range-note");
+    rangeNote.textContent = periods.length
+      ? (state.page > 0 ? "第 " + (state.page + 1) + " 页 · " : "") + periods.length + " " + GRAIN_UNIT[grain] +
+        "（" + periods[0] + " ~ " + periods[periods.length - 1] + "）"
+      : "暂无历史数据";
+    if (state.focusPeriod) {
+      rangeNote.textContent = "已选 " + state.focusPeriod +
+        (rowsView.length ? "" : "（该期无数据）") + " · 再点图上该点取消";
+    }
+
+    var focusChip = document.getElementById("focus-chip");
+    if (focusChip) {
+      focusChip.hidden = !state.focusPeriod;
+      focusChip.textContent = state.focusPeriod ? "✕ " + state.focusPeriod : "";
+    }
+    var pgPrev = document.getElementById("pg-prev"), pgNext = document.getElementById("pg-next");
+    if (pgPrev && pgNext) {
+      var paged = grain !== "month";
+      pgPrev.hidden = !paged; pgNext.hidden = !paged;
+      pgPrev.disabled = !paged || state.page >= lastPage;
+      pgNext.disabled = !paged || state.page <= 0;
+    }
+    var pageNote = document.getElementById("page-note");
+    if (pageNote) pageNote.textContent = state.focusPeriod ? "汇总与明细已过滤到所选时间点" : "";
+
+    setTabs("#grain-tabs", "grain", state.grain);
+    setTabs("#metric-tabs", "metric", state.metric);
+    setTabs("#series-tabs", "series", state.series);
+    setTabs("#today-metric-tabs", "tmetric", state.tmetric);
+    document.getElementById("chart-title").textContent =
+      METRIC_LABEL[state.metric] + "趋势（" + SERIES_NAME[state.series] + "）· " + GRAIN_NAME[grain];
+
+    var t = totals(rowsView);
+    var hit = t.cacheRead + t.input > 0 ? fmtPct(t.cacheRead / (t.cacheRead + t.input) * 100) : "—";
+    document.getElementById("c-req").textContent = fmt(t.requests);
+    document.getElementById("c-tin").textContent = fmt(t.input + t.cacheRead);
+    document.getElementById("c-cr").textContent = fmt(t.cacheRead);
+    document.getElementById("c-in").textContent = fmt(t.input);
+    document.getElementById("c-out").textContent = fmt(t.output);
+    document.getElementById("c-hit").textContent = hit;
+
+    renderLineChart(rows, periods);
+    renderTable("tb-agent", "tf-a", agg(rowsView, function (r) { return r.tool + "" + (r.provider ? r.provider + "/" : "") + r.model; }),
+      function (k) { var p = k.split(""); return { main: p[0], sub: p[1] }; });
+    renderTable("tb-model", "tf-m", agg(rowsView, function (r) { return r.model; }),
+      function (k) { return { main: k, sub: "" }; });
+  }
+
+  function renderLineChart(rows, periods) {
+    if (!periods.length) { renderChart("chart", null, "暂无历史数据"); return; }
+    var metric = state.metric;
+    var mode = state.series;  // total | model | agent
+    var byAgent = mode === "agent";
+    var keyOf = mode === "agent"
+      ? function (r) { return r.tool + " · " + r.model; }
+      : mode === "total" ? function () { return "全部"; }
+      : function (r) { return r.model; };
+    var sum = agg(rows, keyOf);
+    var keys = Object.keys(sum).sort(function (a, b) { return metricOf(sum[b], metric) - metricOf(sum[a], metric); });
+    var topN = byAgent ? 8 : 6;
+    var top = mode === "total" ? keys : keys.slice(0, topN);
+    var hasOther = mode !== "total" && keys.length > topN;
+    var seriesKeys = top.concat(hasOther ? ["其他"] : []);
+
+    // 颜色：Agent×模型 按 Agent 上色；其余按序列上色
+    var colors = palette();
+    var toolRank = {};
+    if (byAgent) {
+      var tsum = agg(rows, function (r) { return r.tool; });
+      Object.keys(tsum).sort(function (a, b) { return tsum[b].output - tsum[a].output; })
+        .forEach(function (t, i) { toolRank[t] = i; });
+    }
+    function colorOf(s, j) {
+      if (!byAgent) return colors[j % colors.length];
+      var t = s.split(" · ")[0];
+      return colors[(toolRank[t] === undefined ? 6 : Math.min(toolRank[t], 6)) % colors.length];
+    }
+
+    // 按 期×序列 累计原始量，命中率由总量加权计算（避免比率直接相加出错）
+    var acc = {};
+    rows.forEach(function (r) {
+      var key = keyOf(r);
+      if (top.indexOf(key) < 0) key = hasOther ? "其他" : null;
+      if (!key) return;
+      var k = r.period + "" + key;
+      var a = acc[k] || (acc[k] = { requests: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0 });
+      a.requests += r.requests; a.input += r.input; a.output += r.output;
+      a.cacheRead += r.cacheRead; a.cacheWrite += r.cacheWrite;
+    });
+
+    var series = seriesKeys.map(function (s, j) {
+      var color = colorOf(s, j);
+      var ser = {
+        name: s, type: "line", connectNulls: false,
+        symbol: "circle", symbolSize: 5, smooth: 0.25,
+        lineStyle: { width: mode === "total" ? 2.6 : 2, color: color }, itemStyle: { color: color },
+        emphasis: { focus: "series" },
+        data: periods.map(function (p) {
+          var a = acc[p + "" + s];
+          if (!a) return metric === "hitRate" ? null : 0;
+          if (metric === "hitRate") {
+            var d = a.cacheRead + a.input;
+            return d > 0 ? +(a.cacheRead / d * 100).toFixed(2) : null;
+          }
+          return metricOf(a, metric);
+        })
+      };
+      if (j === 0 && state.focusPeriod && periods.indexOf(state.focusPeriod) >= 0) {
+        ser.markArea = {
+          silent: true,
+          itemStyle: { color: cssVar("--kimi-color-text-primary", "#333"), opacity: 0.07 },
+          data: [[{ xAxis: state.focusPeriod }, { xAxis: state.focusPeriod }]]
+        };
+      }
+      return ser;
+    });
+    var ac = axisColors();
+    renderChart("chart", {
+      textStyle: { fontFamily: fontFamily() },
+      grid: baseGrid(34),
+      tooltip: axisTooltip(metric),
+      legend: { show: seriesKeys.length > 1, top: 0, left: 0, type: "scroll",
+                itemWidth: 10, itemHeight: 10, textStyle: { fontSize: 11, color: ac.text }, icon: "roundRect" },
+      xAxis: { type: "category", data: periods, boundaryGap: false,
+               axisLine: { lineStyle: { color: ac.line } }, axisTick: { show: false },
+               axisLabel: { color: ac.text, fontSize: 10, formatter: function (v) { return v.length > 7 ? v.slice(2) : v; } } },
+      yAxis: { type: "value", min: 0, max: metric === "hitRate" ? 100 : null,
+               axisLabel: { color: ac.text, fontSize: 10, formatter: metric === "hitRate" ? "{value}%" : fmt },
+               splitLine: { lineStyle: { color: ac.split, type: "dashed" } } },
+      series: series
+    }, null, function (p) {
+      if (!p || p.name == null) return;
+      var name = String(p.name);
+      if (!name) return;
+      state.focusPeriod = state.focusPeriod === name ? null : name;
+      try { renderMain(); } catch (e) {}
+    });
+  }
+
+  function setTabs(sel, attr, cur) {
+    var tabs = document.querySelectorAll(sel + " .kimi-chip");
+    for (var i = 0; i < tabs.length; i++) {
+      var on = tabs[i].getAttribute("data-" + attr) === cur;
+      tabs[i].setAttribute("aria-pressed", on ? "true" : "false");
+      tabs[i].classList.toggle("is-selected", on);
+    }
+  }
+
+  function rowCells(a, label) {
+    var hit = hitOf(a);
+    var bar = '<span class="hitbar"><i style="width:' + hit.toFixed(0) + '%"></i></span>';
+    return "<td>" + label + '</td><td class="num">' + fmt(a.requests) + '</td><td class="num">' + fmt(a.input) +
+      '</td><td class="num">' + fmt(a.output) + '</td><td class="num">' + fmt(a.cacheRead) +
+      '</td><td class="num">' + bar + hit.toFixed(1) + "%</td>";
+  }
+  function renderTable(tbodyId, tfPrefix, map, labelOf) {
+    var tbody = document.getElementById(tbodyId);
+    tbody.innerHTML = "";
+    var keys = Object.keys(map).sort(function (x, y) { return totalInputOf(map[y]) - totalInputOf(map[x]); });
+    keys.forEach(function (k) {
+      var lab = labelOf(k);
+      var tr = document.createElement("tr");
+      var sub = lab.sub ? '<div class="sub">' + lab.sub + "</div>" : "";
+      tr.innerHTML = rowCells(map[k], "<div>" + lab.main + "</div>" + sub);
+      tbody.appendChild(tr);
+    });
+    var t = totals(keys.map(function (k) { return map[k]; }));
+    var hit = t.cacheRead + t.input > 0 ? fmtPct(t.cacheRead / (t.cacheRead + t.input) * 100) : "—";
+    var vals = [fmt(t.requests), fmt(t.input), fmt(t.output), fmt(t.cacheRead), hit];
+    for (var i = 0; i < 5; i++) document.getElementById(tfPrefix + i).textContent = vals[i];
+  }
+
+  // ---------- 渲染入口 ----------
+  function render(data) {
+    if (!data || !data.generatedAt) { data = SAMPLE; document.getElementById("sample-badge").hidden = false; }
+    else { document.getElementById("sample-badge").hidden = true; }
+    state.data = data;
+
+    document.getElementById("genat").textContent = data.generatedAt
+      ? "更新于 " + data.generatedAt.replace("T", " ").slice(0, 19) : "等待首次采集…";
+
+    var dots = document.getElementById("src-dots");
+    dots.innerHTML = "";
+    (data.sources || []).forEach(function (s) {
+      var span = document.createElement("span");
+      span.className = "src-name";
+      span.textContent = s.tool;
+      var d = document.createElement("i");
+      d.className = "dot " + (s.status === "ok" ? "ok" : s.status === "error" ? "error" : "");
+      d.title = s.tool + "：" + (s.status === "ok" ? ("新增 " + (s.events || 0) + " 条") : s.error || s.note || s.status);
+      span.appendChild(d);
+      dots.appendChild(span);
+    });
+
+    try { renderToday(data); } catch (e) {}
+    try { renderMain(); } catch (e) {}
+  }
+
+  // ---------- 事件 ----------
+  function bindTabs(sel, attr, apply) {
+    var tabs = document.querySelectorAll(sel + " .kimi-chip");
+    for (var i = 0; i < tabs.length; i++) {
+      tabs[i].addEventListener("click", function () {
+        apply(this.getAttribute("data-" + attr));
+      });
+    }
+  }
+  function persist() {
+    if (window.DaimonCanvas && typeof window.DaimonCanvas.setViewState === "function") {
+      try {
+        window.DaimonCanvas.setViewState({ main: {
+          grain: state.grain, metric: state.metric, series: state.series, tmetric: state.tmetric,
+          page: state.page
+        } });
+      } catch (e) {}
+    }
+  }
+
+  var resizeTimer = null;
+  function onResize() {
+    try {
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function () {
+        Object.keys(charts).forEach(function (id) {
+          var c = charts[id];
+          if (c && !c.isDisposed()) c.resize();
+        });
+      }, 120);
+    } catch (e) {}
+  }
+
+  function bind() {
+    bindTabs("#grain-tabs", "grain", function (g) {
+      state.grain = g; state.page = 0; state.focusPeriod = null; persist(); renderMain();
+    });
+    bindTabs("#metric-tabs", "metric", function (m) { state.metric = m; persist(); renderMain(); });
+    bindTabs("#series-tabs", "series", function (s) { state.series = s; persist(); renderMain(); });
+    bindTabs("#today-metric-tabs", "tmetric", function (m) { state.tmetric = m; persist(); renderToday(state.data || SAMPLE); });
+    var pgPrev = document.getElementById("pg-prev"), pgNext = document.getElementById("pg-next");
+    if (pgPrev) pgPrev.addEventListener("click", function () {
+      state.page += 1; state.focusPeriod = null; persist(); renderMain();
+    });
+    if (pgNext) pgNext.addEventListener("click", function () {
+      state.page = Math.max(0, state.page - 1); state.focusPeriod = null; persist(); renderMain();
+    });
+    var focusChip = document.getElementById("focus-chip");
+    if (focusChip) focusChip.addEventListener("click", function () {
+      state.focusPeriod = null; renderMain();
+    });
+    var btn = document.getElementById("refresh");
+    if (btn) btn.addEventListener("click", function () {
+      if (state.running) return;
+      if (host && typeof host.emit === "function") {
+        host.emit("submit", { refresh: true });
+        setRunning(true);
+      } else if (state.standalone) {
+        loadStandaloneData(true);
+      }
+    });
+    try {
+      if (typeof window.addEventListener === "function") window.addEventListener("resize", onResize);
+      if (typeof ResizeObserver === "function") {
+        var ro = new ResizeObserver(onResize);
+        ["chart", "today-chart-model", "today-chart-agent", "today-chart-hit", "today-sum-agent", "today-sum-model"].forEach(function (id) {
+          var el = document.getElementById(id);
+          if (el) ro.observe(el);
+        });
+      }
+    } catch (e) {}
+  }
+
+  function setRunning(on) {
+    state.running = on;
+    var btn = document.getElementById("refresh");
+    if (!btn) return;
+    btn.disabled = on;
+    if (on) btn.innerHTML = '<span class="spin"></span>正在刷新…';
+    else btn.textContent = "刷新今日数据";
+  }
+
+  function restoreViewState() {
+    if (window.DaimonCanvas && window.DaimonCanvas.viewState && window.DaimonCanvas.viewState.main) {
+      var m = window.DaimonCanvas.viewState.main;
+      if (m.grain && GRAIN_KEY[m.grain]) state.grain = m.grain;
+      if (m.metric && METRIC_LABEL[m.metric]) state.metric = m.metric;
+      if (m.series && SERIES_NAME[m.series]) state.series = m.series;
+      if (m.tmetric && METRIC_LABEL[m.tmetric]) state.tmetric = m.tmetric;
+      if (typeof m.page === "number" && m.page >= 0) state.page = Math.floor(m.page);
+    }
+  }
+
+  // ---------- 启动（能力防护，兼容 Binding 投递 smoke 沙箱） ----------
+  // 独立模式：不在 Kimi Work 宿主内时，从同目录 data.json 读取快照并渲染
+  function loadStandaloneData(isRefresh) {
+    if (typeof fetch !== "function") { render(SAMPLE); return; }
+    setRunning(!!isRefresh);
+    fetch("data.json", { cache: "no-store" }).then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    }).then(function (d) {
+      render(d && d.generatedAt ? d : SAMPLE);
+    }).catch(function () {
+      render(SAMPLE);
+    }).finally(function () { setRunning(false); });
+  }
+  try {
+    if (host && host.data) {
+      restoreViewState();
+      bind();
+      render(host && host.data && host.data.main ? host.data.main : SAMPLE);
+      setRunning(host && host.status === "running");
+      if (host && typeof host.onDataChange === "function") {
+        host.onDataChange(function (d) { render(d && d.main); setRunning(host.status === "running"); });
+      }
+      if (host && typeof host.onStatusChange === "function") {
+        host.onStatusChange(function () { setRunning(host.status === "running"); });
+      }
+      if (host && typeof host.onThemeChange === "function") {
+        host.onThemeChange(function () { render(state.data); });
+      }
+    } else {
+      document.body.classList.add("standalone");
+      state.standalone = true;
+      bind();
+      loadStandaloneData(false);
+    }
+  } catch (e) { /* smoke 沙箱中保持静态渲染 */ }
+})();
+</script>
+</body>
+</html>

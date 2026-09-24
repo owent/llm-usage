@@ -8,7 +8,8 @@
 
 维护规则由一个根入口、一个 Skill 和按需 references 承载；
 覆盖与验证记录放 references/records，只在恢复初始化或审查证据时读取。
-文档 lint 配置及锁文件位于仓库根；保留 Kilo 本地忽略文件。
+文档 lint 配置位于仓库根；2026-09-24 复核时 package.json/package-lock.json 缺失，
+已有 node_modules 仅用于当前本地检查，恢复声明列入根 Plan.md 的 M0；保留 Kilo 本地忽略文件。
 没有模块差异，因此不创建嵌套规则；没有已采用的 Claude 工作流，因此暂不创建
 CLAUDE.md；没有独立角色、业务 change、部署资源或配置需求，
 因此不创建各客户端配置、OpenSpec、roadmap、development 或秘密样例空壳。
@@ -136,8 +137,16 @@ VS Code 的 prompt files 需要区分 Local 与 Agent Host：
 | 安全/迁移/部署 | 确定权限、环境、影响、顺序和回滚 | 预演与实际发布证据分别记录 |
 | 需求不明/架构分歧 | 有边界探索与关键澄清，继续独立部分 | 决策、依据及未决问题 |
 
-本项目未采用 OpenSpec 或 Superpowers，也没有原有 spec/issue/ADR/Plan。
-复杂需求出现时按上述合同创建必要设计，普通维护不套用额外审批门。
+本项目未采用 OpenSpec 或 Superpowers。当前桌面客户端计划见
+[Plan.md](../../../../Plan.md)，统计合同、接入证据与阶段详情见
+[设计入口](../../../../docs/design/desktop-usage/README.md)；均尚未实施。
+后续工作更新这套合同，普通维护不套用额外审批门。
+本项目已确定仅统计本机 Agent 来源；平台/CI 与定时任务分别见设计入口引用的专项合同。
+核验新增适配器时逐项记录本地提取尝试及字段限制，不能以远端账单/API 代替；
+新增自动任务仍须共用采集合同，计划编写不授权注册任务或启动环境。
+用户已允许实施时提取本机真实 Agent 数据验证，按
+[准备合同](../../../../docs/design/desktop-usage/implementation-readiness.md)只读提取、脱敏，不重复询问同一许可。
+JetBrains/TRAE 等缺证 IDE 后移 F1，当前不探测/实施；不能仍用“全部 Agent 首版尝试”阻塞主线。
 安装或升级可选工具须有采用决定和现有授权；参考理念不叫实际执行工具。
 隔离工作区按风险选择，worktree 不隔离数据库及远程系统。
 

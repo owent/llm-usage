@@ -30,8 +30,12 @@ update_trigger = 升级、弃用、安全公告、加载失败、实际行为变
 | S13 | Claude 原生读取的版本/会话门槛、导入四跳、路径规则与加载检查 | [Memory](https://code.claude.com/docs/en/memory)，rolling | 打开正文；PATH 无客户端；文档已核验，运行未验证 | maintenance、clients |
 | S14 | VS Code Local/Agent Host 的 prompt files 支持不同，Agent Host 迁移到 Skills | [Prompt files](https://code.visualstudio.com/docs/agent-customization/prompt-files)，rolling | 打开正文；VS Code 1.139.0，实际会话类型未确认 | maintenance、clients |
 
-npm 元数据给出的 0.23.3 完整性值由 package-lock.json 保存，
-安装使用 --ignore-scripts；此处不把滚动主分支等同锁文件版本。
+初始化记录中的 npm 元数据曾用于 0.23.3 完整性核验，安装使用 --ignore-scripts。
+2026-09-24 桌面设计调研复核：根 package.json/package-lock.json 当前均缺失，
+本机 node_modules 仍有 markdownlint-cli2 0.23.3；不能据历史记录声称当前锁文件存在。
+恢复可复现声明列入 [Plan.md](../../../../Plan.md) M0。
+业务设计的独立来源与版本见 [调研索引](../../../../docs/design/desktop-usage/research.md)，
+不复制到 AI 客户端兼容来源表；此处不把滚动主分支等同锁文件版本。
 OpenAI 规则页面的 .md 端点读取失败，已使用成功打开的 HTML 正文，
 不把失败响应当作事实依据。
 

@@ -3,7 +3,17 @@
 ## 项目与范围
 
 已有 LLM 用量看板原型见 [previous-draft](previous-draft/README.md)，运行合同尚未核验。
-根 `package.json` 只管理文档工具。先读源码、配置、测试和版本依据，再下结论。
+桌面客户端设计见 [设计入口](docs/design/desktop-usage/README.md)，待办见 [Plan.md](Plan.md)。
+先读源码、配置、测试和版本依据，再下结论；计划不代表实现或执行授权。
+
+维护用量采集与统计时，按需读 [数据合同](docs/design/desktop-usage/data-contract.md)
+和 [接入矩阵](docs/design/desktop-usage/adapters.md)。未知用量不补零；消息、调用、
+累计值和额度分开；共享内核或同名字段不能替代逐版本证据。
+只统计本机 Agent 来源，不接入远端用量/账单 API 或跨设备账号报表；落盘文件仍须核验来源。
+Windows 11 x64 首发，GitHub CI 保留 macOS/Linux；WSL 构建不等于 Linux 桌面验收。
+定时任务只调度本地采集，按需读 [调度合同](docs/design/desktop-usage/scheduling.md)。
+用户已允许实施时只读提取本机真实 Agent 数据验证，按 [准备合同](docs/design/desktop-usage/implementation-readiness.md)
+限定字段与脱敏，无需重复询问这项许可。JetBrains/TRAE 等缺证 IDE 已后移 F1，当前不实施。
 
 ## 规则入口与按需读取
 
@@ -17,16 +27,17 @@
 
 ## 开发、构建与验证
 
-在仓库根使用 Node.js 22+：
+在仓库根使用 Node.js 22+。当前 package.json/package-lock.json 缺失，
+恢复文档依赖声明列入 M0；已有本地 markdownlint-cli2 时可执行：
 
 ```powershell
-npm ci --ignore-scripts --no-audit --no-fund
-npm run lint:docs
+node node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs
 git diff --check
 git status --short
 ```
 
-业务 build/test/format/typecheck 合同尚未核验；文档检查不能代替业务验收。
+文档工具缺失时报告缺口，不因计划任务自动安装；恢复声明后再核验 npm 脚本。
+业务 build/test/format/typecheck 合同尚未建立；文档检查不能代替业务验收。
 新文件未跟踪时另查其内容，不能只看 git diff。
 
 ## 工具与执行约定
