@@ -7,3 +7,5 @@
 - 区分静态检查、本机真实测量、CI/WSL 与真实桌面验收证据，不互相替代。
 - 脱敏 fixture 的中间产物放已忽略的 `build/desktop-usage-validation/`，本目录只引用其清单与结论，
   不复制私人数据或绝对个人路径。
+
+应用图标、资源预览、Windows 图标嵌入与 LFS 迁移的实际结果见 [静态资源验证](static-assets.md)。

@@ -5,6 +5,11 @@ description = "M0 minimal release trial for llm-usage desktop"
 edition = "2021"
 rust-version = "1.77.2"
 
+[workspace]
+members = ["crates/core"]
+# 根 package.json 的 cargo 命令不带 --workspace；默认成员须同时覆盖 app 与 core。
+default-members = [".", "crates/core"]
+
 [build-dependencies]
 tauri-build = { version = "=2.6.3", features = [] }
 
@@ -13,6 +18,7 @@ tauri = { version = "=2.11.6", features = [] }
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = { version = "=1.0.151" }
 rusqlite = { version = "=0.40.2", features = ["bundled"] }
+llm-usage-core = { path = "crates/core" }
 
 [profile.release]
 panic = "abort"

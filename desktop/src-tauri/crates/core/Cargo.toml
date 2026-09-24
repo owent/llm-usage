@@ -1,0 +1,18 @@
+[package]
+name = "llm-usage-core"
+version = "0.1.0"
+description = "Statistics core and SQLite storage for the llm-usage desktop client (M1)"
+edition = "2021"
+rust-version = "1.77.2"
+license = "MIT"
+
+[dependencies]
+rusqlite = { version = "=0.40.2", features = ["bundled"] }
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = { version = "=1.0.151" }
+jiff = { version = "=0.2.37" }
+
+[dev-dependencies]
+serde_json = { version = "=1.0.151" }
+jiff = { version = "=0.2.37" }
+rusqlite = { version = "=0.40.2", features = ["bundled"] }

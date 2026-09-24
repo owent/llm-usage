@@ -28,6 +28,7 @@ fn sqlite_probe() -> Result<serde_json::Value, String> {
     Ok(serde_json::json!({
         "rows": rows,
         "sqliteVersion": sqlite_version,
+        "coreSchemaVersion": llm_usage_core::storage::schema::SCHEMA_VERSION,
     }))
 }
 
