@@ -1,0 +1,10 @@
+{
+  "globs": ["**/*.md", ".agents/**/*.md"],
+  "ignores": ["node_modules/**", "build/**", ".git/**", ".kilo/**"],
+  "config": {
+    "default": true,
+    "MD013": { "line_length": 160, "tables": false, "code_blocks": false },
+    "MD033": { "allowed_elements": ["a"] },
+    "MD060": { "style": "compact" }
+  }
+}
