@@ -45,7 +45,7 @@ JetBrains/TRAE 等缺少本地格式证据的 IDE 列入后续 F1，当前不实
 | M0 | **基本完成**（2026-09-24；仅余 GitHub CI 首次运行待推送后登记；空闲内存 206.5 MB 超 180 MiB 目标，转 M6/M7 定位） | 固定版本样本、开发合同和三平台 CI 基线 | 开始实施 | 按已确认平台方案锁定版本，使用已获允许的本机数据取得脱敏 fixture；三平台构建、WSL 可行性、包体报告；恢复文档依赖声明 |
 | M1 | **基本完成**（2026-09-24；统计/事务/查询/保留及 schema v2 修复见[审查记录](docs/validation/desktop-usage/m0-m1-review.md)；余 V20 性能初值、V15/V16 迁移前空间检查和一致备份） | 统计合同、SQLite 存储、导入事务和迁移 | M0 | 已知/未知与完整性可区分；请求更新、去重、崩溃恢复、日周月数学用例通过 |
 | M1a | 未完成 | [历史来源身份与存储分区](docs/design/desktop-usage/execution.md#m1a)，为后续导入/导出/Merge 保留依据 | M1；在 M6 数据导出前完成 | 稳定主机 ID、主机名和来源实例可追溯；事件唯一键、历史汇总分区及索引保留来源；旧数据迁移不猜测归属；V28 对应存储用例通过 |
-| M2 | 部分完成（2026-09-24：框架 + Codex 适配器完成，135 测试与本机真实核对通过，[记录](docs/validation/desktop-usage/m2a-codex.md)；pi/Claude/Gemini/Qwen 适配器已由 M2-B/C 启动但按用户要求中断，半成品保留在工作树且编译测试全绿、**未验收**，见[中断记录](docs/validation/desktop-usage/m2bc-suspended.md)；oh-my-pi 独立适配器与 Codex 旧版本逐版本 fixture 未完成；新增目录迁移与版本组织待执行） | 首批本地适配器及[目录化](docs/design/desktop-usage/execution.md#m2-layout)：Codex、Claude Code、pi、oh-my-pi、Gemini CLI、Qwen Code | M1 | 每个 Agent 独立目录，历史版本在该目录内实现；已有单文件迁移与 V30 对应回归通过；每个支持版本有固定格式样本；重复扫描不增量；主调用、辅助调用、子 Agent 的覆盖情况可见 |
+| M2 | 部分完成（2026-09-24：框架 + Codex 适配器完成，135 测试与本机真实核对通过，[记录](docs/validation/desktop-usage/m2a-codex.md)；pi/Claude/Gemini/Qwen 适配器已由 M2-B/C 启动但按用户要求中断，半成品保留在工作树且编译测试全绿、**未验收**，见[中断记录](docs/validation/desktop-usage/m2bc-suspended.md)；oh-my-pi 独立适配器与 Codex 旧版本逐版本 fixture 未完成；新增目录迁移、版本组织及未知版本兼容尝试待执行） | 首批本地适配器及[目录化](docs/design/desktop-usage/execution.md#m2-layout)：Codex、Claude Code、pi、oh-my-pi、Gemini CLI、Qwen Code | M1 | 每个 Agent 独立目录，历史版本在该目录内实现；已有单文件迁移与 V30 对应回归通过；每个已验证版本有固定格式样本；未知版本默认尝试最新内置解析器，通过校验的数据带兼容标记统计；重复扫描不增量；主调用、辅助调用、子 Agent 的覆盖情况可见 |
 | M3 | 未完成 | 扩展本地适配器：Cline、Kilo Code、OpenCode、MiMo Code、Zoo Code、DSH、OpenClaw、Hermes Agent | M1；可与 M2 独立排期 | 分产品/格式验收；流式更正、模型/辅助累计、历史迁移与聚合重叠通过 |
 | M4 | 未完成（M0 已取证：Kimi Code 1.0.3 与 ZCode 3.14.3 本机字段已证，Kimi Work/WorkBuddy 本机无数据） | 新版 Kimi Code、Kimi Work、ZCode、WorkBuddy 本地格式核验 | M0/M1 | 本阶段产品有本地提取尝试记录；交付适配器或字段/版本限制；F1 的 IDE 不实施，不以远端 API 替代 |
 | M5 | 未完成（M0 已取证：Copilot CLI 1.0.73 assistant_usage_events 逐 turn 字段已证） | 本机文件遥测及可选 loopback 接入：Copilot CLI、VS Code、CodeBuddy 等 | M1 | 本地 OTLP/file 协议、采样/重传、来源归属、敏感字段过滤通过；拒绝远端/账号范围数据 |
@@ -76,6 +76,8 @@ F2 只调研公开价格元数据及本地估算，不接入远端用量/账单 
 先实现有证据的核心，再扩展适配器；不打包 Python/Node 采集服务，不自动启动 Agent。
 M2–M5 及后续 F1 的 Agent 适配器统一遵守[独立目录与版本组织合同](docs/design/desktop-usage/architecture.md#adapter-layout)：
 每个 Agent 使用自己的目录，当前及历史版本实现留在该目录内；本轮仅更新计划，不移动代码。
+应用更新频率低于 Agent；[未知版本默认先尝试该 Agent 最新内置解析器](docs/design/desktop-usage/architecture.md#unknown-version)，
+不得仅因版本号未收录就停止采集。兼容尝试成功与逐版本验证通过分别记录。
 只读取用户启用的本地数据源；定时任务只运行本应用采集逻辑，不启动 Agent 或模型调用。
 本地数据的来源边界见设计入口；仅将文件保存到本地不构成本机使用证据。
 额度、会话计数、累计快照与逐次模型调用保持不同统计单位。

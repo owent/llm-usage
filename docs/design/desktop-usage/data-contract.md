@@ -70,6 +70,7 @@ quota_snapshot 仅在本地记录可证明属于本机使用时接入；账号�
 | 组 | 必需或可选字段 |
 | --- | --- |
 | 身份 | event_id、origin_host_id、source_instance_id、source_record_key、record_kind、schema_version、parser_version |
+| 解析兼容 | 来源原始版本（可空）、解析器选择依据 known_version/latest_fallback、兼容验证状态；与字段质量分别保存 |
 | 关联 | origin_call_id、attempt_id、session_id、parent_session_id、host_application、agent、调用类别 |
 | 时间 | occurred_at_utc、observed_at_utc、source_time、time_basis、可选 interval_start/end |
 | 模型 | provider_id、model_raw、model_canonical、model_attribution；保留 unknown |
@@ -90,6 +91,11 @@ token 在数据库用非负有符号 64 位整数并检查上限，聚合前防�
 
 IDE 是 host_application，实际调用方是 agent：例如 VS Code + Copilot，Zed + Codex。
 父级宿主显示和底层 Agent 消耗是同一记录的不同维度，不是两个可以相加的事件。
+
+未知版本按 [兼容策略](architecture.md#unknown-version) 尝试最新内置解析器；
+通过校验的数据可以入库统计，兼容验证状态随查询、日汇总/封存和导出保留，不能汇总后丢失提示。
+兼容状态不改变 reported/derived 等字段来源分类，也不把缺失值补成零；
+部分解析结果标明覆盖缺口，后续专用解析器重扫按稳定身份更正旧贡献，不重复累计。
 
 <a id="provenance"></a>
 
