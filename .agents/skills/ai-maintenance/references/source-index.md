@@ -55,7 +55,7 @@ OpenSpec、Superpowers、MCP、ClawHub 未采用，不复制原模板中的 late
 - [MCP 规范入口](https://modelcontextprotocol.io/specification)。
 - [ClawHub API](https://docs.openclaw.ai/clawhub/api)、
   [安全审计](https://docs.openclaw.ai/clawhub/security-audits)。
-- [OWASP 秘密管理](https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html)、
+- [OWASP 密钥管理](https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html)、
   [GitHub Actions 安全](https://docs.github.com/en/actions/reference/security/secure-use)、
   [AWS 幂等重试](https://aws.amazon.com/builders-library/making-retries-safe-with-idempotent-APIs/)。
 

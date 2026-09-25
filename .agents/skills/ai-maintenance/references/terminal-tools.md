@@ -81,7 +81,7 @@ rg、jq、yq 及 PowerShell 的采用事实已核验，见 [来源](source-index
 - 输出尽量结构化；按工具能力关闭颜色和分页，限制文件集合及结果规模。非交互 `fzf` 使用 `--filter`，不启动需要 TTY 选择的流程。
 - `rg --max-count` 限制每个文件的匹配行数，不是总输出上限；默认忽略文件、隐藏项和二进制也可能影响搜索完整性。[ripgrep](https://github.com/BurntSushi/ripgrep/blob/master/GUIDE.md)
 - 退出码按工具语义判断：`rg` 的 1 通常为无匹配；`jq -e` 最后输出为 false/null 时是 1，没有有效输出时是 4，不能都写成 1。[jq](https://jqlang.org/manual/)
-- 参数作为参数传递；JSON 序列化不是 shell 转义。不要将网页或用户文本拼进可执行代码，不打印含秘密的完整命令。
+- 参数作为参数传递；JSON 序列化不是 shell 转义。不要将网页或用户文本拼进可执行代码，不打印含密钥的完整命令。
 
 Windows 规则：
 

@@ -297,8 +297,7 @@ impl SourceAdapter for ClaudeAdapter {
                         ));
                         continue;
                     };
-                    if !context.unmapped_usage_keys_reported
-                        && has_unknown_usage_keys(usage_value)
+                    if !context.unmapped_usage_keys_reported && has_unknown_usage_keys(usage_value)
                     {
                         context.unmapped_usage_keys_reported = true;
                         diagnostics.push(diag(
@@ -411,10 +410,7 @@ impl SourceAdapter for ClaudeAdapter {
                 "user" | "system" => {
                     // 非 usage 载体记录携带 usage 字段：格式偏离，整文件 fail closed。
                     let carries_usage = line.get("usage").is_some()
-                        || line
-                            .get("message")
-                            .and_then(|m| m.get("usage"))
-                            .is_some();
+                        || line.get("message").and_then(|m| m.get("usage")).is_some();
                     if carries_usage {
                         fail_closed = Some((
                             raw.number,
@@ -552,7 +548,10 @@ impl SourceAdapter for ClaudeAdapter {
         fields.insert(
             "latency".into(),
             field(
-                Availability::Unavailable("transcript 条目无逐次延迟字段（OTel api_response 有 duration_ms，未接入）".into()),
+                Availability::Unavailable(
+                    "transcript 条目无逐次延迟字段（OTel api_response 有 duration_ms，未接入）"
+                        .into(),
+                ),
                 "无",
             ),
         );

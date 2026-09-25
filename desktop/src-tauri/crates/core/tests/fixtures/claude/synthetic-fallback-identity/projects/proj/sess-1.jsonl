@@ -1,0 +1,4 @@
+{"type":"user","timestamp":"2026-09-24T10:00:00.000Z","sessionId":"syn-sess-1","uuid":"syn-uuid-fu1","message":{"role":"user"}}
+{"type":"assistant","timestamp":"2026-09-24T10:00:05.000Z","sessionId":"syn-sess-1","uuid":"syn-uuid-fb1","isSidechain":false,"message":{"id":"syn-msg-fb1","model":"syn-claude-model-a","usage":{"input_tokens":1,"output_tokens":1,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}}
+{"type":"assistant","timestamp":"2026-09-24T10:00:06.000Z","sessionId":"syn-sess-1","uuid":"syn-uuid-fb2","isSidechain":false,"message":{"model":"syn-claude-model-a","usage":{"input_tokens":2,"output_tokens":2,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}}
+{"type":"assistant","timestamp":"2026-09-24T10:00:07.000Z","sessionId":"syn-sess-1","isSidechain":false,"message":{"model":"syn-claude-model-a","usage":{"input_tokens":4,"output_tokens":4,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}}

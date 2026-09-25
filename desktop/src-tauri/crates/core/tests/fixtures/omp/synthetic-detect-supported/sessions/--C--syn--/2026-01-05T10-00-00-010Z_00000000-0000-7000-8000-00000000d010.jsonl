@@ -1,0 +1,5 @@
+{"type":"title","v":1,"title":"syn-detect-ok","updatedAt":"2026-01-05T10:00:00.000Z"}
+{"type":"session","version":3,"id":"syn-omp-detect","timestamp":"2026-01-05T10:00:00.010Z","cwd":"syn-cwd"}
+{"type":"model_change","id":"syn-mc1","parentId":null,"timestamp":"2026-01-05T10:00:01.000Z","model":"syn-provider/syn-model-a","resolvedModelIsFallback":false}
+{"type":"message","id":"syn-u1","parentId":"syn-mc1","timestamp":"2026-01-05T10:00:02.000Z","message":{"role":"user","timestamp":1789706402000}}
+{"type":"message","id":"syn-a1","parentId":"syn-u1","timestamp":"2026-01-05T10:00:05.000Z","message":{"role":"assistant","provider":"syn-provider","model":"syn-model-a","usage":{"input":100,"output":10,"cacheRead":0,"cacheWrite":0,"totalTokens":110},"stopReason":"stop","responseId":"syn-r1","duration":100.4,"ttft":50.4,"timestamp":1789706405000}}

@@ -1,0 +1,2 @@
+{"type":"event_msg","id":"syn-np-1","timestamp":"2026-01-05T10:00:00.000Z","payload":{"type":"task_started"}}
+{"type":"session","version":3,"id":"syn-sess-np-late","timestamp":"2026-01-05T10:00:01.000Z"}

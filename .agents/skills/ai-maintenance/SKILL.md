@@ -11,13 +11,13 @@ metadata:
 修改后按根 [AGENTS.md](../../../AGENTS.md) 的当前可用命令检查文档与引用；
 迁移保留覆盖 ID、来源和未验收项，不把缺失的依赖声明当作已有运行合同。
 
-| Use when | 读取 |
-| --- | --- |
-| 维护规则分层、工程流程或文档约定 | [维护合同](references/maintenance.md) |
-| 编写或修改回复、注释、文档、PR 说明 | [写作指导](references/writing-guidance.md) |
-| 选择 CLI 或处理 Windows 执行问题 | [终端工具](references/terminal-tools.md) |
-| 接入 MCP、调试外部服务、部署或处理秘密 | [操作边界](references/operations.md) |
-| 核验客户端入口与加载差异 | [客户端记录](references/clients.md) |
-| 修改易变事实或核对官方依据 | [来源索引](references/source-index.md) |
-| 实质修改 Skill 描述或流程 | [触发与质量评估](references/skill-evaluation.md) |
-| 恢复初始化或审查交付证据 | [覆盖表](references/records/initialization-coverage.md)、[验证记录](references/records/validation.md) |
+| Use when                               | 读取                                                                                                  |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| 维护规则分层、工程流程或文档约定       | [维护合同](references/maintenance.md)                                                                 |
+| 编写或修改回复、注释、文档、PR 说明    | [写作指导](references/writing-guidance.md)                                                            |
+| 选择 CLI 或处理 Windows 执行问题       | [终端工具](references/terminal-tools.md)                                                              |
+| 接入 MCP、调试外部服务、部署或处理密钥 | [操作边界](references/operations.md)                                                                  |
+| 核验客户端入口与加载差异               | [客户端记录](references/clients.md)                                                                   |
+| 修改易变事实或核对官方依据             | [来源索引](references/source-index.md)                                                                |
+| 实质修改 Skill 描述或流程              | [触发与质量评估](references/skill-evaluation.md)                                                      |
+| 恢复初始化或审查交付证据               | [覆盖表](references/records/initialization-coverage.md)、[验证记录](references/records/validation.md) |

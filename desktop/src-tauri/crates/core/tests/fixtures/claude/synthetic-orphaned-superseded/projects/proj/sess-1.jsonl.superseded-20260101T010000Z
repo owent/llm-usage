@@ -1,0 +1,2 @@
+{"type":"user","timestamp":"2026-09-24T10:00:00.000Z","sessionId":"syn-sess-1","uuid":"syn-uuid-ou1","message":{"role":"user"}}
+{"type":"assistant","timestamp":"2026-09-24T10:00:07.000Z","sessionId":"syn-sess-1","requestId":"syn-req-c","uuid":"syn-uuid-c","isSidechain":false,"message":{"id":"syn-msg-c","model":"syn-claude-model-a","usage":{"input_tokens":30,"output_tokens":6,"cache_read_input_tokens":0,"cache_creation_input_tokens":10}}}

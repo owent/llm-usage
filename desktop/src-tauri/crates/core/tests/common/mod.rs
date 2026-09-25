@@ -215,9 +215,9 @@ pub fn summary(
 // ---- M2-C：Claude Code / Qwen Code / Gemini CLI 适配器测试辅助 ----
 
 use llm_usage_core::adapters::claude::ClaudeAdapter;
+use llm_usage_core::adapters::framework::SourceAdapter;
 use llm_usage_core::adapters::gemini::GeminiAdapter;
 use llm_usage_core::adapters::qwen::QwenAdapter;
-use llm_usage_core::adapters::framework::SourceAdapter;
 
 /// 在临时目录构造 <root>/projects/<rel> 布局（rel 如 "proj/sess-1.jsonl" 或
 /// "proj/sess-1/subagents/a.jsonl"），返回配置根。
@@ -294,7 +294,13 @@ fn run_adapter(
 }
 
 pub fn run_claude(storage: &Storage, root: &Path, now_ms: i64) -> Vec<SourceRunReport> {
-    run_adapter(&ClaudeAdapter::new(), storage, root, now_ms, ScanLimits::default())
+    run_adapter(
+        &ClaudeAdapter::new(),
+        storage,
+        root,
+        now_ms,
+        ScanLimits::default(),
+    )
 }
 
 pub fn run_claude_with_limits(
@@ -307,7 +313,13 @@ pub fn run_claude_with_limits(
 }
 
 pub fn run_qwen(storage: &Storage, root: &Path, now_ms: i64) -> Vec<SourceRunReport> {
-    run_adapter(&QwenAdapter::new(), storage, root, now_ms, ScanLimits::default())
+    run_adapter(
+        &QwenAdapter::new(),
+        storage,
+        root,
+        now_ms,
+        ScanLimits::default(),
+    )
 }
 
 pub fn run_qwen_with_limits(
@@ -320,5 +332,102 @@ pub fn run_qwen_with_limits(
 }
 
 pub fn run_gemini(storage: &Storage, root: &Path, now_ms: i64) -> Vec<SourceRunReport> {
-    run_adapter(&GeminiAdapter::new(), storage, root, now_ms, ScanLimits::default())
+    run_adapter(
+        &GeminiAdapter::new(),
+        storage,
+        root,
+        now_ms,
+        ScanLimits::default(),
+    )
+}
+
+// ---- M2-B/C 恢复：pi / oh-my-pi 适配器测试辅助 ----
+
+use llm_usage_core::adapters::omp::OmpAdapter;
+use llm_usage_core::adapters::pi::PiAdapter;
+
+/// 通用：把脱敏投影（{records:[{line, ...条目}]}）还原为 JSONL 字节流。
+/// 与 reconstruct_codex_jsonl 同逻辑，命名不绑定具体 Agent。
+pub fn reconstruct_jsonl_projection(sanitized_path: &Path) -> Vec<u8> {
+    let text = std::fs::read_to_string(sanitized_path).unwrap();
+    let fixture: serde_json::Value = serde_json::from_str(&text).unwrap();
+    let mut out = Vec::new();
+    for record in fixture["records"].as_array().unwrap() {
+        let mut line = record.clone();
+        line.as_object_mut().unwrap().remove("line");
+        out.extend_from_slice(serde_json::to_string(&line).unwrap().as_bytes());
+        out.push(b'\n');
+    }
+    out
+}
+
+/// 在临时目录构造 <root>/sessions/<rel> 布局（rel 如 "--C--Users-anon--/2026-...jsonl"），
+/// 返回配置根（手工根语义：含 sessions 子目录按 agent 根解析）。
+pub fn pi_root_with_file(dir: &TempDir, rel: &str, contents: &[u8]) -> PathBuf {
+    let path = dir.path().join("sessions").join(rel);
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::write(path, contents).unwrap();
+    dir.path().to_path_buf()
+}
+
+/// omp 同 pi 布局；rel 可为深层（子 Agent 文件：
+/// "--CWD--/<ts>_<父UUID>/SubAgent.jsonl" 或更深的嵌套子目录）。
+pub fn omp_root_with_file(dir: &TempDir, rel: &str, contents: &[u8]) -> PathBuf {
+    pi_root_with_file(dir, rel, contents)
+}
+
+/// pi 真实/合成 fixture 在仓库内的路径。
+pub fn pi_fixture(name: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures")
+        .join("pi")
+        .join(name)
+}
+
+/// omp 真实/合成 fixture 在仓库内的路径。
+pub fn omp_fixture(name: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures")
+        .join("omp")
+        .join(name)
+}
+
+pub fn run_pi(storage: &Storage, root: &Path, now_ms: i64) -> Vec<SourceRunReport> {
+    run_adapter(
+        &PiAdapter::new(),
+        storage,
+        root,
+        now_ms,
+        ScanLimits::default(),
+    )
+}
+
+pub fn run_pi_with_limits(
+    storage: &Storage,
+    root: &Path,
+    now_ms: i64,
+    limits: ScanLimits,
+) -> Vec<SourceRunReport> {
+    run_adapter(&PiAdapter::new(), storage, root, now_ms, limits)
+}
+
+pub fn run_omp(storage: &Storage, root: &Path, now_ms: i64) -> Vec<SourceRunReport> {
+    run_adapter(
+        &OmpAdapter::new(),
+        storage,
+        root,
+        now_ms,
+        ScanLimits::default(),
+    )
+}
+
+pub fn run_omp_with_limits(
+    storage: &Storage,
+    root: &Path,
+    now_ms: i64,
+    limits: ScanLimits,
+) -> Vec<SourceRunReport> {
+    run_adapter(&OmpAdapter::new(), storage, root, now_ms, limits)
 }

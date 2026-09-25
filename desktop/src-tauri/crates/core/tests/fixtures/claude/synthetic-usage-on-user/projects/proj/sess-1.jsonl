@@ -1,0 +1,3 @@
+{"type":"user","timestamp":"2026-09-24T10:00:00.000Z","sessionId":"syn-sess-1","uuid":"syn-uuid-wu1","message":{"role":"user"}}
+{"type":"assistant","timestamp":"2026-09-24T10:00:05.000Z","sessionId":"syn-sess-1","requestId":"syn-req-would","uuid":"syn-uuid-wu2","isSidechain":false,"message":{"id":"syn-msg-would","model":"syn-claude-model-a","usage":{"input_tokens":10,"output_tokens":5,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}}
+{"type":"user","timestamp":"2026-09-24T10:00:06.000Z","sessionId":"syn-sess-1","uuid":"syn-uuid-wu3","message":{"role":"user"},"usage":{"input_tokens":1,"output_tokens":1,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}

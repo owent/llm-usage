@@ -1,0 +1,819 @@
+{
+ "fixture": "session-error-zero-usage",
+ "format": "pi",
+ "generatedAt": "2026-09-24T18:04:46.649Z",
+ "sourceFileIdentity": "anonymized",
+ "totalLines": 7,
+ "tailLinesExtracted": 7,
+ "parseErrors": 0,
+ "records": [
+  {
+   "line": 1,
+   "type": "session",
+   "version": 3,
+   "id": "anon-1",
+   "timestamp": "2026-09-24T16:37:28.439Z",
+   "cwd": "REDACTED"
+  },
+  {
+   "line": 2,
+   "type": "model_change",
+   "id": "anon-2",
+   "parentId": null,
+   "timestamp": "2026-09-24T16:37:35.793Z",
+   "provider": "kimi-coding",
+   "modelId": "REDACTED"
+  },
+  {
+   "line": 3,
+   "type": "thinking_level_change",
+   "id": "anon-3",
+   "parentId": "anon-2",
+   "timestamp": "2026-09-24T16:37:35.793Z",
+   "thinkingLevel": "REDACTED"
+  },
+  {
+   "line": 4,
+   "type": "custom",
+   "customType": "web-search-results",
+   "data": "REDACTED",
+   "id": "anon-4",
+   "parentId": "anon-3",
+   "timestamp": "2026-09-24T16:38:24.518Z"
+  },
+  {
+   "line": 5,
+   "type": "message",
+   "id": "anon-5",
+   "parentId": "anon-4",
+   "timestamp": "2026-09-24T16:38:24.521Z",
+   "message": {
+    "role": "system",
+    "content": "REDACTED",
+    "timestamp": 1790267904520,
+    "toolsAdded": [
+     {
+      "name": "REDACTED",
+      "description": "REDACTED",
+      "parameters": {
+       "type": "object",
+       "required": [
+        "REDACTED"
+       ],
+       "properties": {
+        "path": {
+         "type": "string",
+         "description": "REDACTED"
+        },
+        "offset": {
+         "type": "number",
+         "description": "REDACTED"
+        },
+        "limit": {
+         "type": "number",
+         "description": "REDACTED"
+        }
+       }
+      },
+      "constrainedSampling": {
+       "type": "json_schema",
+       "strict": "REDACTED"
+      }
+     },
+     {
+      "name": "REDACTED",
+      "description": "REDACTED",
+      "parameters": {
+       "type": "object",
+       "required": [
+        "REDACTED"
+       ],
+       "properties": {
+        "command": {
+         "type": "string",
+         "description": "REDACTED"
+        },
+        "timeout": {
+         "type": "number",
+         "description": "REDACTED"
+        }
+       }
+      },
+      "constrainedSampling": {
+       "type": "json_schema",
+       "strict": "REDACTED"
+      }
+     },
+     {
+      "name": "REDACTED",
+      "description": "REDACTED",
+      "parameters": {
+       "type": "object",
+       "required": [
+        "REDACTED",
+        "REDACTED"
+       ],
+       "properties": {
+        "path": {
+         "type": "string",
+         "description": "REDACTED"
+        },
+        "edits": {
+         "type": "array",
+         "items": {
+          "type": "object",
+          "required": [
+           "REDACTED",
+           "REDACTED"
+          ],
+          "properties": {
+           "oldText": {
+            "type": "string",
+            "description": "REDACTED"
+           },
+           "newText": {
+            "type": "string",
+            "description": "REDACTED"
+           }
+          }
+         },
+         "description": "REDACTED"
+        }
+       }
+      },
+      "constrainedSampling": {
+       "type": "json_schema",
+       "strict": "REDACTED"
+      }
+     },
+     {
+      "name": "REDACTED",
+      "description": "REDACTED",
+      "parameters": {
+       "type": "object",
+       "required": [
+        "REDACTED",
+        "REDACTED"
+       ],
+       "properties": {
+        "path": {
+         "type": "string",
+         "description": "REDACTED"
+        },
+        "content": "REDACTED"
+       }
+      },
+      "constrainedSampling": {
+       "type": "json_schema",
+       "strict": "REDACTED"
+      }
+     },
+     {
+      "name": "REDACTED",
+      "description": "REDACTED",
+      "parameters": {
+       "type": "object",
+       "required": [
+        "REDACTED"
+       ],
+       "properties": {
+        "code": {
+         "type": "string",
+         "description": "REDACTED"
+        },
+        "timeoutMs": {
+         "type": "number",
+         "minimum": 1,
+         "description": "REDACTED"
+        }
+       }
+      }
+     },
+     {
+      "name": "REDACTED",
+      "description": "REDACTED",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "tool": {
+         "type": "string",
+         "description": "REDACTED"
+        },
+        "args": {
+         "anyOf": [
+          {
+           "type": "string",
+           "description": "REDACTED"
+          },
+          {
+           "type": "object",
+           "properties": {},
+           "additionalProperties": true,
+           "description": "REDACTED"
+          }
+         ],
+         "description": "REDACTED"
+        },
+        "connect": {
+         "type": "string",
+         "description": "REDACTED"
+        },
+        "describe": {
+         "type": "string",
+         "description": "REDACTED"
+        },
+        "instructions": {
+         "type": "string",
+         "description": "REDACTED"
+        },
+        "search": {
+         "type": "string",
+         "description": "REDACTED"
+        },
+        "searchMode": {
+         "type": "string",
+         "enum": [
+          "REDACTED",
+          "REDACTED"
+         ],
+         "description": "REDACTED"
+        },
+        "regex": {
+         "type": "boolean",
+         "description": "REDACTED"
+        },
+        "includeSchemas": {
+         "type": "boolean",
+         "description": "REDACTED"
+        },
+        "limit": {
+         "type": "number",
+         "minimum": 1,
+         "description": "REDACTED"
+        },
+        "offset": {
+         "type": "number",
+         "minimum": 0,
+         "description": "REDACTED"
+        },
+        "server": {
+         "type": "string",
+         "description": "REDACTED"
+        },
+        "action": {
+         "type": "string",
+         "description": "REDACTED"
+        },
+        "url": {
+         "type": "string",
+         "description": "REDACTED"
+        },
+        "target": {
+         "type": "string",
+         "description": "REDACTED"
+        }
+       }
+      }
+     },
+     {
+      "name": "REDACTED",
+      "description": "REDACTED",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "query": {
+         "type": "string",
+         "description": "REDACTED"
+        },
+        "queries": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         },
+         "description": "REDACTED"
+        },
+        "numResults": {
+         "type": "integer",
+         "minimum": 1,
+         "maximum": 20,
+         "description": "REDACTED"
+        },
+        "includeContent": {
+         "type": "boolean",
+         "description": "REDACTED"
+        },
+        "recencyFilter": {
+         "type": "string",
+         "enum": [
+          "REDACTED",
+          "REDACTED",
+          "REDACTED",
+          "REDACTED"
+         ],
+         "description": "REDACTED"
+        },
+        "domainFilter": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         },
+         "description": "REDACTED"
+        },
+        "provider": {
+         "anyOf": [
+          {
+           "type": "string",
+           "enum": [
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED"
+           ]
+          },
+          {
+           "type": "array",
+           "items": {
+            "type": "string",
+            "enum": [
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED"
+            ]
+           },
+           "minItems": 1
+          }
+         ],
+         "description": "REDACTED"
+        },
+        "workflow": {
+         "type": "string",
+         "enum": [
+          "REDACTED",
+          "REDACTED",
+          "REDACTED"
+         ],
+         "description": "REDACTED"
+        },
+        "proxy": {
+         "type": "string",
+         "description": "REDACTED"
+        }
+       }
+      }
+     },
+     {
+      "name": "REDACTED",
+      "description": "REDACTED",
+      "parameters": {
+       "type": "object",
+       "required": [
+        "REDACTED"
+       ],
+       "properties": {
+        "claim": {
+         "type": "string",
+         "description": "REDACTED"
+        },
+        "queries": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         },
+         "description": "REDACTED"
+        },
+        "numResults": {
+         "type": "integer",
+         "minimum": 1,
+         "maximum": 20,
+         "description": "REDACTED"
+        },
+        "fetchContent": {
+         "type": "boolean",
+         "description": "REDACTED"
+        },
+        "recencyFilter": {
+         "type": "string",
+         "enum": [
+          "REDACTED",
+          "REDACTED",
+          "REDACTED",
+          "REDACTED"
+         ],
+         "description": "REDACTED"
+        },
+        "domainFilter": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         },
+         "description": "REDACTED"
+        },
+        "provider": {
+         "anyOf": [
+          {
+           "type": "string",
+           "enum": [
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED",
+            "REDACTED"
+           ]
+          },
+          {
+           "type": "array",
+           "items": {
+            "type": "string",
+            "enum": [
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED",
+             "REDACTED"
+            ]
+           },
+           "minItems": 1
+          }
+         ],
+         "description": "REDACTED"
+        },
+        "proxy": {
+         "type": "string",
+         "description": "REDACTED"
+        }
+       }
+      }
+     },
+     {
+      "name": "REDACTED",
+      "description": "REDACTED",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "url": {
+         "type": "string",
+         "description": "REDACTED"
+        },
+        "urls": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         },
+         "description": "REDACTED"
+        },
+        "forceClone": {
+         "type": "boolean",
+         "description": "REDACTED"
+        },
+        "prompt": "REDACTED",
+        "mode": {
+         "type": "string",
+         "enum": [
+          "REDACTED",
+          "REDACTED",
+          "REDACTED"
+         ],
+         "description": "REDACTED"
+        },
+        "answerModel": {
+         "type": "string",
+         "description": "REDACTED"
+        },
+        "timestamp": {
+         "type": "string",
+         "description": "REDACTED"
+        },
+        "frames": {
+         "type": "integer",
+         "minimum": 1,
+         "maximum": 12,
+         "description": "REDACTED"
+        },
+        "model": {
+         "type": "string",
+         "description": "REDACTED"
+        },
+        "auth": {
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "boolean"
+          }
+         ],
+         "description": "REDACTED"
+        },
+        "proxy": {
+         "type": "string",
+         "description": "REDACTED"
+        }
+       }
+      }
+     },
+     {
+      "name": "REDACTED",
+      "description": "REDACTED",
+      "parameters": {
+       "type": "object",
+       "required": [
+        "REDACTED"
+       ],
+       "properties": {
+        "responseId": {
+         "type": "string",
+         "description": "REDACTED"
+        },
+        "query": {
+         "type": "string",
+         "description": "REDACTED"
+        },
+        "queryIndex": {
+         "type": "integer",
+         "minimum": 0,
+         "description": "REDACTED"
+        },
+        "url": {
+         "type": "string",
+         "description": "REDACTED"
+        },
+        "urlIndex": {
+         "type": "integer",
+         "minimum": 0,
+         "description": "REDACTED"
+        },
+        "offset": {
+         "type": "integer",
+         "minimum": 0,
+         "description": "REDACTED"
+        },
+        "limit": {
+         "type": "integer",
+         "minimum": 1,
+         "maximum": 30000,
+         "description": "REDACTED"
+        },
+        "findText": {
+         "anyOf": [
+          {
+           "type": "string",
+           "minLength": 1,
+           "maxLength": 500
+          },
+          {
+           "type": "array",
+           "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+           },
+           "minItems": 1,
+           "maxItems": 10
+          }
+         ],
+         "description": "REDACTED"
+        },
+        "findMode": {
+         "type": "string",
+         "enum": [
+          "REDACTED",
+          "REDACTED",
+          "REDACTED"
+         ],
+         "description": "REDACTED"
+        }
+       }
+      }
+     },
+     {
+      "name": "REDACTED",
+      "description": "REDACTED",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "id": {
+         "type": "string",
+         "description": "REDACTED"
+        },
+        "nonBlocking": {
+         "type": "boolean",
+         "description": "REDACTED"
+        },
+        "all": {
+         "type": "boolean",
+         "description": "REDACTED"
+        },
+        "timeoutMs": {
+         "type": "integer",
+         "minimum": 1,
+         "description": "REDACTED"
+        },
+        "stopOnAttention": {
+         "type": "boolean",
+         "description": "REDACTED"
+        }
+       }
+      }
+     },
+     {
+      "name": "REDACTED",
+      "description": "REDACTED",
+      "parameters": {
+       "type": "object",
+       "properties": {},
+       "additionalProperties": false
+      }
+     },
+     {
+      "name": "REDACTED",
+      "description": "REDACTED",
+      "parameters": {
+       "type": "object",
+       "required": [
+        "REDACTED"
+       ],
+       "properties": {
+        "action": {
+         "type": "string",
+         "enum": [
+          "REDACTED",
+          "REDACTED",
+          "REDACTED",
+          "REDACTED"
+         ]
+        },
+        "to": {
+         "type": "string"
+        },
+        "message": {
+         "type": "string"
+        },
+        "replyTo": {
+         "type": "string"
+        }
+       },
+       "additionalProperties": false
+      }
+     }
+    ]
+   }
+  },
+  {
+   "line": 6,
+   "type": "custom_message",
+   "customType": "web-search-results",
+   "content": "REDACTED",
+   "display": true,
+   "details": "REDACTED",
+   "id": "anon-6",
+   "parentId": "anon-5",
+   "timestamp": "2026-09-24T16:38:24.522Z"
+  },
+  {
+   "line": 7,
+   "type": "message",
+   "id": "anon-7",
+   "parentId": "anon-6",
+   "timestamp": "2026-09-24T16:38:24.776Z",
+   "message": {
+    "role": "assistant",
+    "content": "REDACTED",
+    "api": "REDACTED",
+    "provider": "kimi-coding",
+    "model": "kimi-for-coding",
+    "usage": {
+     "input": 0,
+     "output": 0,
+     "cacheRead": 0,
+     "cacheWrite": 0,
+     "totalTokens": 0,
+     "cost": {
+      "input": 0,
+      "output": 0,
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "total": 0
+     }
+    },
+    "stopReason": "error",
+    "timestamp": 1790267904529,
+    "errorMessage": "REDACTED"
+   }
+  }
+ ]
+}

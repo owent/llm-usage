@@ -1,16 +1,15 @@
 # 桌面用量客户端执行计划
 
-状态：实施前设计准备已完成。M0 主体完成：根文档依赖声明已恢复并锁定、版本全部固定、
-最小 release 试验与包体/内存测量完成、5 源脱敏 fixture 取得、CI 矩阵建立、WSL 构建与 WSLg 冒烟通过；
-剩余 GitHub CI 首次实际运行待推送后登记。M1 统计核心与 SQLite 存储已实现，
-M0/M1 审查修复见 [记录](docs/validation/desktop-usage/m0-m1-review.md)；
-性能初值及迁移前空间检查/一致备份仍待验收。M2 部分完成：框架 + Codex 适配器已验收；
-pi/Claude/Gemini/Qwen 已启动但按用户要求中断，半成品保留待续
-（[中断记录](docs/validation/desktop-usage/m2bc-suspended.md)）。M3–M7 待执行。
+状态：M0 基本完成（仅余 GitHub CI 首次运行待推送后登记；空闲内存 206.5 MB 超
+180 MiB 目标，转 M6/M7 定位）。M1 基本完成（余 V20 性能初值、V15/V16 迁移前空间检查
+与一致备份；[M0/M1 审查记录](docs/validation/desktop-usage/m0-m1-review.md)）。
+M2 部分完成：框架与 Codex/pi/oh-my-pi/Claude/Gemini/Qwen 六源适配器已验收
+（[M2-A](docs/validation/desktop-usage/m2a-codex.md)、
+[M2-B/C](docs/validation/desktop-usage/m2bc-resumed.md)）；余 Codex 旧版本逐版本
+fixture、适配器目录化迁移与未知版本兼容尝试。M1a、M3–M7、F2 待执行；F1 未排期。
 用户已允许实施阶段提取本机真实 Agent 数据验证。设计基线日期：2026-09-24。
 
-新增 M1a 历史数据来源身份补强、F2 模型 API 按量价格获取调研，均待执行；
-本次更新计划与合同，不表示已实现来源迁移、导入合并或费用估算。
+M1a 与 F2 仅为计划与合同，不表示已实现来源迁移、导入合并或费用估算。
 
 目标：在本地按 Agent、模型和时间汇总 token、模型请求及缓存使用，
 支持今日刷新、日/周/月图表、定时提取和界面配置，提供小体积桌面客户端。
@@ -37,15 +36,15 @@ JetBrains/TRAE 等缺少本地格式证据的 IDE 列入后续 F1，当前不实
 
 ## 待办与验收
 
-详情维护在对应设计文档。状态列逐阶段标注完成/未完成；M0 起各阶段证据见
+详情维护在对应设计文档。状态列逐阶段标注完成/未完成；各阶段证据见
 [验证记录](docs/validation/desktop-usage/)。
 
 | ID | 状态 | 任务 | 依赖 | 完成条件 |
 | --- | --- | --- | --- | --- |
-| M0 | **基本完成**（2026-09-24；仅余 GitHub CI 首次运行待推送后登记；空闲内存 206.5 MB 超 180 MiB 目标，转 M6/M7 定位） | 固定版本样本、开发合同和三平台 CI 基线 | 开始实施 | 按已确认平台方案锁定版本，使用已获允许的本机数据取得脱敏 fixture；三平台构建、WSL 可行性、包体报告；恢复文档依赖声明 |
-| M1 | **基本完成**（2026-09-24；统计/事务/查询/保留及 schema v2 修复见[审查记录](docs/validation/desktop-usage/m0-m1-review.md)；余 V20 性能初值、V15/V16 迁移前空间检查和一致备份） | 统计合同、SQLite 存储、导入事务和迁移 | M0 | 已知/未知与完整性可区分；请求更新、去重、崩溃恢复、日周月数学用例通过 |
+| M0 | **基本完成**（仅余 GitHub CI 首次运行待推送后登记；空闲内存 206.5 MB 超 180 MiB 目标，转 M6/M7 定位） | 固定版本样本、开发合同和三平台 CI 基线 | 开始实施 | 按已确认平台方案锁定版本，使用已获允许的本机数据取得脱敏 fixture；三平台构建、WSL 可行性、包体报告；恢复文档依赖声明 |
+| M1 | **基本完成**（余 V20 性能初值、V15/V16 迁移前空间检查和一致备份；[审查记录](docs/validation/desktop-usage/m0-m1-review.md)） | 统计合同、SQLite 存储、导入事务和迁移 | M0 | 已知/未知与完整性可区分；请求更新、去重、崩溃恢复、日周月数学用例通过 |
 | M1a | 未完成 | [历史来源身份与存储分区](docs/design/desktop-usage/execution.md#m1a)，为后续导入/导出/Merge 保留依据 | M1；在 M6 数据导出前完成 | 稳定主机 ID、主机名和来源实例可追溯；事件唯一键、历史汇总分区及索引保留来源；旧数据迁移不猜测归属；V28 对应存储用例通过 |
-| M2 | 部分完成（2026-09-24：框架 + Codex 适配器完成，135 测试与本机真实核对通过，[记录](docs/validation/desktop-usage/m2a-codex.md)；pi/Claude/Gemini/Qwen 适配器已由 M2-B/C 启动但按用户要求中断，半成品保留在工作树且编译测试全绿、**未验收**，见[中断记录](docs/validation/desktop-usage/m2bc-suspended.md)；oh-my-pi 独立适配器与 Codex 旧版本逐版本 fixture 未完成；新增目录迁移、版本组织及未知版本兼容尝试待执行） | 首批本地适配器及[目录化](docs/design/desktop-usage/execution.md#m2-layout)：Codex、Claude Code、pi、oh-my-pi、Gemini CLI、Qwen Code | M1 | 每个 Agent 独立目录，历史版本在该目录内实现；已有单文件迁移与 V30 对应回归通过；每个已验证版本有固定格式样本；未知版本默认尝试最新内置解析器，通过校验的数据带兼容标记统计；重复扫描不增量；主调用、辅助调用、子 Agent 的覆盖情况可见 |
+| M2 | 部分完成（框架 + Codex/pi/oh-my-pi/Claude/Gemini/Qwen 六源适配器已验收：[M2-A](docs/validation/desktop-usage/m2a-codex.md)、[M2-B/C](docs/validation/desktop-usage/m2bc-resumed.md)；余 Codex 旧版本逐版本 fixture、目录迁移/版本组织及未知版本兼容尝试） | 首批本地适配器及[目录化](docs/design/desktop-usage/execution.md#m2-layout)：Codex、Claude Code、pi、oh-my-pi、Gemini CLI、Qwen Code | M1 | 每个 Agent 独立目录，历史版本在该目录内实现；已有单文件迁移与 V30 对应回归通过；每个已验证版本有固定格式样本；未知版本默认尝试最新内置解析器，通过校验的数据带兼容标记统计；重复扫描不增量；主调用、辅助调用、子 Agent 的覆盖情况可见 |
 | M3 | 未完成 | 扩展本地适配器：Cline、Kilo Code、OpenCode、MiMo Code、Zoo Code、DSH、OpenClaw、Hermes Agent | M1；可与 M2 独立排期 | 分产品/格式验收；流式更正、模型/辅助累计、历史迁移与聚合重叠通过 |
 | M4 | 未完成（M0 已取证：Kimi Code 1.0.3 与 ZCode 3.14.3 本机字段已证，Kimi Work/WorkBuddy 本机无数据） | 新版 Kimi Code、Kimi Work、ZCode、WorkBuddy 本地格式核验 | M0/M1 | 本阶段产品有本地提取尝试记录；交付适配器或字段/版本限制；F1 的 IDE 不实施，不以远端 API 替代 |
 | M5 | 未完成（M0 已取证：Copilot CLI 1.0.73 assistant_usage_events 逐 turn 字段已证） | 本机文件遥测及可选 loopback 接入：Copilot CLI、VS Code、CodeBuddy 等 | M1 | 本地 OTLP/file 协议、采样/重传、来源归属、敏感字段过滤通过；拒绝远端/账号范围数据 |
@@ -63,10 +62,10 @@ F2 只调研公开价格元数据及本地估算，不接入远端用量/账单 
 
 ## 已确认的实施边界与首阶段核验
 
-- 实施阶段可只读提取本机真实 Agent 数据验证，无需重复确认这项已给出的允许；M0 已按合同完成 5 源脱敏 fixture 提取（记录见验证记录目录）。
+- 实施阶段可只读提取本机真实 Agent 数据验证，无需重复确认这项已给出的允许；脱敏 fixture 提取与核验记录见验证记录目录。
 - JetBrains/TRAE 等缺证 IDE 已后移 F1，保留支持计划，当前不实施。
-- 已确认在 M0 固定 GitHub runner、工具链及 Linux 基线；WSL/WSLg 实际探测留在 M0，macOS/Linux 不承诺首发发行支持。
-- 包体和性能数字均为拟定验收目标，M0 测量后才能确认；不是已有结果。
+- GitHub runner、工具链及 Linux 基线已在 M0 固定；WSL/WSLg 实际探测已在 M0 完成，macOS/Linux 不承诺首发发行支持。
+- 包体和性能数字为验收目标；M0 实测包体已出报告，空闲内存 206.5 MB 超 180 MiB 目标，转 M6/M7 定位。
 
 设计准备结论、数据验证步骤和未执行项见开工准备文档；以上技术核验属于实施任务，不再列为待用户决策。
 
@@ -75,7 +74,7 @@ F2 只调研公开价格元数据及本地估算，不接入远端用量/账单 
 优先方案为 Tauri 2 + Rust + SQLite + Svelte/TypeScript + 按需 ECharts。
 先实现有证据的核心，再扩展适配器；不打包 Python/Node 采集服务，不自动启动 Agent。
 M2–M5 及后续 F1 的 Agent 适配器统一遵守[独立目录与版本组织合同](docs/design/desktop-usage/architecture.md#adapter-layout)：
-每个 Agent 使用自己的目录，当前及历史版本实现留在该目录内；本轮仅更新计划，不移动代码。
+每个 Agent 使用自己的目录，当前及历史版本实现留在该目录内。
 应用更新频率低于 Agent；[未知版本默认先尝试该 Agent 最新内置解析器](docs/design/desktop-usage/architecture.md#unknown-version)，
 不得仅因版本号未收录就停止采集。兼容尝试成功与逐版本验证通过分别记录。
 只读取用户启用的本地数据源；定时任务只运行本应用采集逻辑，不启动 Agent 或模型调用。

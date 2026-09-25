@@ -1,0 +1,25 @@
+{
+  "sessionId": "syn-sess-noid",
+  "projectHash": "hash-syn1",
+  "startTime": "2026-01-05T10:00:00.000Z",
+  "lastUpdated": "2026-01-05T10:00:05.000Z",
+  "messages": [
+    {
+      "id": "syn-u-1",
+      "type": "user",
+      "timestamp": "2026-01-05T10:00:00.000Z",
+      "content": "synthetic user prompt"
+    },
+    {
+      "type": "gemini",
+      "model": "gemini-3.0-flash",
+      "timestamp": "2026-01-05T10:00:05.000Z",
+      "content": "synthetic model reply without id",
+      "tokens": {
+        "input": 100,
+        "output": 20,
+        "total": 120
+      }
+    }
+  ]
+}

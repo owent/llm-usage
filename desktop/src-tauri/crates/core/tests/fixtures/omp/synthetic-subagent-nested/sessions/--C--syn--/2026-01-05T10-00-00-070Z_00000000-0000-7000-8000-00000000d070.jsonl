@@ -1,0 +1,3 @@
+{"type":"title","v":1,"title":"syn-main","updatedAt":"2026-01-05T10:00:00.000Z"}
+{"type":"session","version":3,"id":"syn-omp-main","timestamp":"2026-01-05T10:00:00.070Z","cwd":"syn-cwd"}
+{"type":"message","id":"syn-ma-1","parentId":null,"timestamp":"2026-01-05T10:00:05.000Z","message":{"role":"assistant","provider":"syn-provider","model":"syn-model-a","usage":{"input":10,"output":5,"cacheRead":0,"cacheWrite":0,"totalTokens":15},"stopReason":"stop","responseId":"syn-rm1","duration":100.4,"ttft":50.4,"timestamp":1789706405000}}

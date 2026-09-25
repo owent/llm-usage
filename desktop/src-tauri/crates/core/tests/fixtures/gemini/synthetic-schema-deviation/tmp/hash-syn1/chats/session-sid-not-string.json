@@ -1,0 +1,20 @@
+{
+  "sessionId": 12345,
+  "projectHash": "hash-syn1",
+  "startTime": "2026-01-05T10:00:00.000Z",
+  "lastUpdated": "2026-01-05T10:00:05.000Z",
+  "messages": [
+    {
+      "id": "syn-msg-1",
+      "type": "gemini",
+      "model": "gemini-3.0-flash",
+      "timestamp": "2026-01-05T10:00:05.000Z",
+      "content": "synthetic model reply",
+      "tokens": {
+        "input": 100,
+        "output": 20,
+        "total": 120
+      }
+    }
+  ]
+}

@@ -1,5 +1,9 @@
 # M2-B/C 中断记录：pi/oh-my-pi/Claude/Gemini/Qwen 适配器（半成品保留，未验收）
 
+> **已于 2026-09-25 恢复并完成验收**，见 [m2bc-resumed.md](m2bc-resumed.md)。
+> 本文保留为中断经过与冷启动简报的历史记录；下方「与 M2 完成条件的差距」
+> 状态列已按恢复结果更新。
+
 本文件不是通过记录。M2-B（pi + oh-my-pi）与 M2-C（Claude Code/Gemini CLI/Qwen Code）
 两个并行实现任务由用户决定于 2026-09-24 中断，工作树半成品经核验编译与测试全绿后保留，
 待用户恢复后继续。恢复前不得以「M2 适配器已完成」对外表述。
@@ -99,13 +103,16 @@ oh-my-pi 适配器未见独立文件（仅共享 `map_pi_family` 口径）；M2-
 
 ## 与 M2 完成条件的差距（恢复后待办）
 
+> 2026-09-25 恢复完成，各项状态如下；验收细节见 [m2bc-resumed.md](m2bc-resumed.md)。
+
 | 项 | 状态 | 原因 | 后续条件 |
 | --- | --- | --- | --- |
-| 合同级集成测试（对照 Codex 的 contract/gaps/incremental 测试组） | 未执行 | 中断时四适配器仅有内联单测，`tests/` 下无对应集成测试文件 | 恢复 M2-B/C 后补齐，`tests/common/mod.rs` 的辅助函数即为此预留 |
-| 合成/真实 fixture | 未执行 | `tests/fixtures/` 下仅有 codex；claude/qwen/gemini 本机 not_found，pi 本机 sessions 为空（no_data） | 合成 fixture 入仓并标注；真实样本按 m0-agent-fixtures 脱敏流程取得后再核验 |
-| 本机真实只读核对（对照 `real_verify_codex` example） | 未执行 | 中断 | 每源补 example 或在记录中写明 not_found/no_data 证据 |
-| 重复扫描不增量、主/辅助/子 Agent 覆盖可见（M2 完成条件） | 未验收 | 中断 | 集成测试与记录补齐后复核 |
+| 合同级集成测试（对照 Codex 的 contract/gaps/incremental 测试组） | **已完成**（2026-09-25） | 五源 15 个集成测试文件 103 用例全绿；oh-my-pi 定案为独立适配器 omp.rs | — |
+| 合成/真实 fixture | **已完成**（2026-09-25） | pi 真实 1 + 合成 7；omp 真实 3 + 合成 9；claude/gemini/qwen 合成各 8（本机无真实数据，no_data/not_found 证据在恢复记录） | 三源真实样本待本机出现数据后按 m0 脱敏流程补取 |
+| 本机真实只读核对（对照 `real_verify_codex` example） | **已完成**（2026-09-25） | examples ×6 齐备；pi/omp 真实核对通过（幂等、不变量成立）；claude/gemini/qwen 记录 no_data/not_found | — |
+| 重复扫描不增量、主/辅助/子 Agent 覆盖可见（M2 完成条件） | **已验收**（2026-09-25） | V12 增量套件五源全绿；omp 真实核对类别计数 primary/sub_agent 分列 | — |
 | Codex 旧版本 fail closed 逐版本 fixture | 未执行（M2-A 遗留） | 同 M2-A 记录 | 按 m2a-codex.md 后续条件执行 |
+| 适配器目录化迁移与未知版本兼容尝试（execution.md#m2-layout） | 未执行 | M2 完成条件，不在中断记录待办内 | 另行排期 |
 
 ## 证据文件
 

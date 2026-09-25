@@ -359,8 +359,8 @@ impl SourceAdapter for QwenAdapter {
                             "usageMetadata carries keys beyond the pinned six; mapped fields kept",
                         ));
                     }
-                    let Some((occurred_ms, source_time)) = json_str(&line, "timestamp")
-                        .and_then(|raw_ts| {
+                    let Some((occurred_ms, source_time)) =
+                        json_str(&line, "timestamp").and_then(|raw_ts| {
                             raw_ts
                                 .parse::<jiff::Timestamp>()
                                 .ok()
@@ -407,9 +407,7 @@ impl SourceAdapter for QwenAdapter {
                         source_instance_id: target.instance_id.clone(),
                         source_record_key,
                         record_kind: RecordKind::ModelCall,
-                        schema_version: json_str(&line, "version")
-                            .unwrap_or("unknown")
-                            .to_string(),
+                        schema_version: json_str(&line, "version").unwrap_or("unknown").to_string(),
                         parser_version: QWEN_PARSER_VERSION.to_string(),
                         origin_call_id,
                         attempt_id: None,

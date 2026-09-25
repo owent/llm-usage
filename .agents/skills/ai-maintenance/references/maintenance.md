@@ -12,7 +12,7 @@
 已有 node_modules 仅用于当前本地检查，恢复声明列入根 Plan.md 的 M0；保留 Kilo 本地忽略文件。
 没有模块差异，因此不创建嵌套规则；没有已采用的 Claude 工作流，因此暂不创建
 CLAUDE.md；没有独立角色、业务 change、部署资源或配置需求，
-因此不创建各客户端配置、OpenSpec、roadmap、development 或秘密样例空壳。
+因此不创建各客户端配置、OpenSpec、roadmap、development 或密钥样例空壳。
 客户端范围未确认不等于该客户端“不适用”，详见 [客户端记录](clients.md)。
 
 调研顺序：确认范围与授权，检查工作区及上级/就近规则，查看已有索引，

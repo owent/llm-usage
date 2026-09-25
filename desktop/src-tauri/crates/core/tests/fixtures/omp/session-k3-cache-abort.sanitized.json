@@ -1,0 +1,554 @@
+{
+ "fixture": "session-k3-cache-abort",
+ "format": "omp",
+ "generatedAt": "2026-09-24T18:04:46.737Z",
+ "sourceFileIdentity": "anonymized",
+ "totalLines": 31,
+ "tailLinesExtracted": 31,
+ "parseErrors": 0,
+ "records": [
+  {
+   "line": 1,
+   "type": "title",
+   "v": 1,
+   "title": "REDACTED",
+   "source": "auto",
+   "updatedAt": "2026-09-15T17:34:06.762Z",
+   "pad": "REDACTED"
+  },
+  {
+   "line": 2,
+   "type": "session",
+   "version": 3,
+   "id": "anon-1",
+   "timestamp": "2026-09-15T17:33:37.534Z",
+   "cwd": "REDACTED"
+  },
+  {
+   "line": 3,
+   "type": "model_change",
+   "id": "anon-2",
+   "parentId": null,
+   "timestamp": "2026-09-15T17:33:37.555Z",
+   "model": "kimi-code/k3-256k",
+   "resolvedModelIsFallback": false
+  },
+  {
+   "line": 4,
+   "type": "thinking_level_change",
+   "id": "anon-3",
+   "parentId": "anon-2",
+   "timestamp": "2026-09-15T17:33:37.555Z",
+   "thinkingLevel": "REDACTED",
+   "configured": null
+  },
+  {
+   "line": 5,
+   "type": "message",
+   "id": "anon-4",
+   "parentId": "anon-3",
+   "timestamp": "2026-09-15T17:33:54.110Z",
+   "message": {
+    "role": "user",
+    "content": "REDACTED",
+    "attribution": "REDACTED",
+    "timestamp": 1789493634077
+   }
+  },
+  {
+   "line": 6,
+   "type": "message",
+   "id": "anon-5",
+   "parentId": "anon-4",
+   "timestamp": "2026-09-15T17:34:05.160Z",
+   "message": {
+    "role": "assistant",
+    "content": "REDACTED",
+    "api": "REDACTED",
+    "provider": "kimi-code",
+    "model": "k3-256k",
+    "usage": {
+     "input": 140,
+     "output": 385,
+     "cacheRead": 17408,
+     "cacheWrite": 0,
+     "totalTokens": 17933,
+     "cost": {
+      "input": 0,
+      "output": 0,
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "total": 0
+     }
+    },
+    "stopReason": "toolUse",
+    "timestamp": 1789493634109,
+    "responseId": "anon-6",
+    "duration": 10312.2929,
+    "ttft": 2587.1515,
+    "completedAt": 1789493644422,
+    "contextSnapshot": {
+     "promptTokens": 17548,
+     "nonMessageTokens": 15624,
+     "compactionEpoch": 0
+    }
+   }
+  },
+  {
+   "line": 7,
+   "type": "custom",
+   "customType": "tool_execution_start",
+   "data": "REDACTED",
+   "id": "anon-7",
+   "parentId": "anon-5",
+   "timestamp": "2026-09-15T17:34:05.161Z"
+  },
+  {
+   "line": 8,
+   "type": "credential_pin",
+   "id": "anon-8",
+   "parentId": "anon-7",
+   "timestamp": "2026-09-15T17:34:05.162Z",
+   "provider": "kimi-code",
+   "hash": "REDACTED"
+  },
+  {
+   "line": 9,
+   "type": "custom",
+   "customType": "tool_execution_start",
+   "data": "REDACTED",
+   "id": "anon-9",
+   "parentId": "anon-8",
+   "timestamp": "2026-09-15T17:34:05.163Z"
+  },
+  {
+   "line": 10,
+   "type": "message",
+   "id": "anon-10",
+   "parentId": "anon-9",
+   "timestamp": "2026-09-15T17:34:05.168Z",
+   "message": {
+    "role": "toolResult",
+    "toolCallId": "REDACTED",
+    "toolName": "REDACTED",
+    "content": "REDACTED",
+    "details": "REDACTED",
+    "isError": false,
+    "timestamp": 1789493645168
+   }
+  },
+  {
+   "line": 11,
+   "type": "message",
+   "id": "anon-11",
+   "parentId": "anon-10",
+   "timestamp": "2026-09-15T17:34:05.460Z",
+   "message": {
+    "role": "toolResult",
+    "toolCallId": "REDACTED",
+    "toolName": "REDACTED",
+    "content": "REDACTED",
+    "details": "REDACTED",
+    "isError": false,
+    "timestamp": 1789493645460
+   }
+  },
+  {
+   "line": 12,
+   "type": "title_change",
+   "id": "anon-12",
+   "parentId": "anon-11",
+   "timestamp": "2026-09-15T17:34:06.762Z",
+   "title": "REDACTED",
+   "source": "auto"
+  },
+  {
+   "line": 13,
+   "type": "message",
+   "id": "anon-13",
+   "parentId": "anon-12",
+   "timestamp": "2026-09-15T17:34:33.829Z",
+   "message": {
+    "role": "assistant",
+    "content": "REDACTED",
+    "api": "REDACTED",
+    "provider": "kimi-code",
+    "model": "k3-256k",
+    "usage": {
+     "input": 995,
+     "output": 1152,
+     "cacheRead": 17408,
+     "cacheWrite": 0,
+     "totalTokens": 19555,
+     "cost": {
+      "input": 0,
+      "output": 0,
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "total": 0
+     }
+    },
+    "stopReason": "toolUse",
+    "timestamp": 1789493645485,
+    "responseId": "anon-14",
+    "duration": 28324.230099999997,
+    "ttft": 2886.3884,
+    "completedAt": 1789493673828,
+    "contextSnapshot": {
+     "promptTokens": 18403,
+     "nonMessageTokens": 15624,
+     "compactionEpoch": 0
+    }
+   }
+  },
+  {
+   "line": 14,
+   "type": "custom",
+   "customType": "tool_execution_start",
+   "data": "REDACTED",
+   "id": "anon-15",
+   "parentId": "anon-13",
+   "timestamp": "2026-09-15T17:34:33.830Z"
+  },
+  {
+   "line": 15,
+   "type": "custom",
+   "customType": "tool_execution_start",
+   "data": "REDACTED",
+   "id": "anon-16",
+   "parentId": "anon-15",
+   "timestamp": "2026-09-15T17:34:33.830Z"
+  },
+  {
+   "line": 16,
+   "type": "message",
+   "id": "anon-17",
+   "parentId": "anon-16",
+   "timestamp": "2026-09-15T17:34:34.007Z",
+   "message": {
+    "role": "toolResult",
+    "toolCallId": "REDACTED",
+    "toolName": "REDACTED",
+    "content": "REDACTED",
+    "details": "REDACTED",
+    "isError": false,
+    "timestamp": 1789493674007
+   }
+  },
+  {
+   "line": 17,
+   "type": "message",
+   "id": "anon-18",
+   "parentId": "anon-17",
+   "timestamp": "2026-09-15T17:34:34.279Z",
+   "message": {
+    "role": "toolResult",
+    "toolCallId": "REDACTED",
+    "toolName": "REDACTED",
+    "content": "REDACTED",
+    "details": "REDACTED",
+    "isError": true,
+    "timestamp": 1789493674279
+   }
+  },
+  {
+   "line": 18,
+   "type": "message",
+   "id": "anon-19",
+   "parentId": "anon-18",
+   "timestamp": "2026-09-15T17:34:46.236Z",
+   "message": {
+    "role": "assistant",
+    "content": "REDACTED",
+    "api": "REDACTED",
+    "provider": "kimi-code",
+    "model": "k3-256k",
+    "usage": {
+     "input": 1593,
+     "output": 483,
+     "cacheRead": 18176,
+     "cacheWrite": 0,
+     "totalTokens": 20252,
+     "cost": {
+      "input": 0,
+      "output": 0,
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "total": 0
+     }
+    },
+    "stopReason": "toolUse",
+    "timestamp": 1789493674305,
+    "responseId": "anon-20",
+    "duration": 11910.879,
+    "ttft": 2870.492400000003,
+    "completedAt": 1789493686235,
+    "contextSnapshot": {
+     "promptTokens": 19769,
+     "nonMessageTokens": 15624,
+     "compactionEpoch": 0
+    }
+   }
+  },
+  {
+   "line": 19,
+   "type": "custom",
+   "customType": "tool_execution_start",
+   "data": "REDACTED",
+   "id": "anon-21",
+   "parentId": "anon-19",
+   "timestamp": "2026-09-15T17:34:46.236Z"
+  },
+  {
+   "line": 20,
+   "type": "message",
+   "id": "anon-22",
+   "parentId": "anon-21",
+   "timestamp": "2026-09-15T17:35:27.470Z",
+   "message": {
+    "role": "toolResult",
+    "toolCallId": "REDACTED",
+    "toolName": "REDACTED",
+    "content": "REDACTED",
+    "details": "REDACTED",
+    "isError": true,
+    "timestamp": 1789493727469
+   }
+  },
+  {
+   "line": 21,
+   "type": "message",
+   "id": "anon-23",
+   "parentId": "anon-22",
+   "timestamp": "2026-09-15T17:36:20.037Z",
+   "message": {
+    "role": "assistant",
+    "content": "REDACTED",
+    "api": "REDACTED",
+    "provider": "kimi-code",
+    "model": "k3-256k",
+    "usage": {
+     "input": 15051,
+     "output": 2225,
+     "cacheRead": 19712,
+     "cacheWrite": 0,
+     "totalTokens": 36988,
+     "cost": {
+      "input": 0,
+      "output": 0,
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "total": 0
+     }
+    },
+    "stopReason": "toolUse",
+    "timestamp": 1789493727496,
+    "responseId": "anon-24",
+    "duration": 52519.234400000016,
+    "ttft": 2494.293300000005,
+    "completedAt": 1789493780036,
+    "contextSnapshot": {
+     "promptTokens": 34763,
+     "nonMessageTokens": 15624,
+     "compactionEpoch": 0
+    }
+   }
+  },
+  {
+   "line": 22,
+   "type": "custom",
+   "customType": "tool_execution_start",
+   "data": "REDACTED",
+   "id": "anon-25",
+   "parentId": "anon-23",
+   "timestamp": "2026-09-15T17:36:20.037Z"
+  },
+  {
+   "line": 23,
+   "type": "message",
+   "id": "anon-26",
+   "parentId": "anon-25",
+   "timestamp": "2026-09-15T17:36:24.162Z",
+   "message": {
+    "role": "toolResult",
+    "toolCallId": "REDACTED",
+    "toolName": "REDACTED",
+    "content": "REDACTED",
+    "details": "REDACTED",
+    "isError": false,
+    "timestamp": 1789493784161
+   }
+  },
+  {
+   "line": 24,
+   "type": "message",
+   "id": "anon-27",
+   "parentId": "anon-26",
+   "timestamp": "2026-09-15T17:36:29.745Z",
+   "message": {
+    "role": "assistant",
+    "content": "REDACTED",
+    "api": "REDACTED",
+    "provider": "kimi-code",
+    "model": "k3-256k",
+    "usage": {
+     "input": 2470,
+     "output": 177,
+     "cacheRead": 34560,
+     "cacheWrite": 0,
+     "totalTokens": 37207,
+     "cost": {
+      "input": 0,
+      "output": 0,
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "total": 0
+     }
+    },
+    "stopReason": "toolUse",
+    "timestamp": 1789493784188,
+    "responseId": "anon-28",
+    "duration": 5556.653699999995,
+    "ttft": 3081.112300000008,
+    "completedAt": 1789493789745,
+    "contextSnapshot": {
+     "promptTokens": 37030,
+     "nonMessageTokens": 15624,
+     "compactionEpoch": 0
+    }
+   }
+  },
+  {
+   "line": 25,
+   "type": "custom",
+   "customType": "tool_execution_start",
+   "data": "REDACTED",
+   "id": "anon-29",
+   "parentId": "anon-27",
+   "timestamp": "2026-09-15T17:36:29.745Z"
+  },
+  {
+   "line": 26,
+   "type": "message",
+   "id": "anon-30",
+   "parentId": "anon-29",
+   "timestamp": "2026-09-15T17:37:24.757Z",
+   "message": {
+    "role": "toolResult",
+    "toolCallId": "REDACTED",
+    "toolName": "REDACTED",
+    "content": "REDACTED",
+    "details": "REDACTED",
+    "isError": false,
+    "timestamp": 1789493844756
+   }
+  },
+  {
+   "line": 27,
+   "type": "message",
+   "id": "anon-31",
+   "parentId": "anon-30",
+   "timestamp": "2026-09-15T17:37:36.652Z",
+   "message": {
+    "role": "assistant",
+    "content": "REDACTED",
+    "api": "REDACTED",
+    "provider": "kimi-code",
+    "model": "k3-256k",
+    "usage": {
+     "input": 380,
+     "output": 406,
+     "cacheRead": 36864,
+     "cacheWrite": 0,
+     "totalTokens": 37650,
+     "cost": {
+      "input": 0,
+      "output": 0,
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "total": 0
+     }
+    },
+    "stopReason": "toolUse",
+    "timestamp": 1789493844782,
+    "responseId": "anon-32",
+    "duration": 11869.064899999998,
+    "ttft": 2727.783299999981,
+    "completedAt": 1789493856651,
+    "contextSnapshot": {
+     "promptTokens": 37244,
+     "nonMessageTokens": 15624,
+     "compactionEpoch": 0
+    }
+   }
+  },
+  {
+   "line": 28,
+   "type": "custom",
+   "customType": "tool_execution_start",
+   "data": "REDACTED",
+   "id": "anon-33",
+   "parentId": "anon-31",
+   "timestamp": "2026-09-15T17:37:36.653Z"
+  },
+  {
+   "line": 29,
+   "type": "message",
+   "id": "anon-34",
+   "parentId": "anon-33",
+   "timestamp": "2026-09-15T17:37:37.207Z",
+   "message": {
+    "role": "toolResult",
+    "toolCallId": "REDACTED",
+    "toolName": "REDACTED",
+    "content": "REDACTED",
+    "details": "REDACTED",
+    "isError": true,
+    "timestamp": 1789493857206
+   }
+  },
+  {
+   "line": 30,
+   "type": "custom",
+   "customType": "session_exit",
+   "data": "REDACTED",
+   "id": "anon-35",
+   "parentId": "anon-34",
+   "timestamp": "2026-09-15T17:37:42.573Z"
+  },
+  {
+   "line": 31,
+   "type": "message",
+   "id": "anon-36",
+   "parentId": "anon-35",
+   "timestamp": "2026-09-15T17:37:42.581Z",
+   "message": {
+    "role": "assistant",
+    "content": "REDACTED",
+    "api": "REDACTED",
+    "provider": "kimi-code",
+    "model": "k3-256k",
+    "usage": {
+     "input": 683,
+     "output": 0,
+     "cacheRead": 37120,
+     "cacheWrite": 0,
+     "totalTokens": 37803,
+     "cost": {
+      "input": 0,
+      "output": 0,
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "total": 0
+     }
+    },
+    "stopReason": "aborted",
+    "timestamp": 1789493857232,
+    "responseId": "anon-37",
+    "errorMessage": "REDACTED",
+    "errorId": 134221824,
+    "completedAt": 1789493862579
+   }
+  }
+ ]
+}

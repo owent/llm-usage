@@ -27,7 +27,7 @@ fn seed_ten_days(storage: &llm_usage_core::storage::Storage) {
             )
         })
         .collect();
-    commit_batch(&storage, &batch("inst", "UTC", ts(TODAY), events), None).unwrap();
+    commit_batch(storage, &batch("inst", "UTC", ts(TODAY), events), None).unwrap();
 }
 
 fn daily_rows(storage: &llm_usage_core::storage::Storage) -> Vec<(String, i64, i64)> {

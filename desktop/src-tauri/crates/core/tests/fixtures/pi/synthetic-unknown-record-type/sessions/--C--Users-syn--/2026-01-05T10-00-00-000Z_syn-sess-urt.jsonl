@@ -1,0 +1,4 @@
+{"type":"session","version":3,"id":"syn-sess-urt","timestamp":"2026-01-05T10:00:00.000Z","cwd":"C:/Users/syn"}
+{"type":"brand_new_thing","id":"syn-x-1","parentId":null,"timestamp":"2026-01-05T10:00:01.000Z","data":"syn"}
+{"type":"message","id":"syn-m-1","parentId":"syn-x-1","timestamp":"2026-01-05T10:00:02.000Z","message":{"role":"assistant","provider":"syn-prov","model":"syn-model-a","usage":{"input":7,"output":3,"cacheRead":0,"cacheWrite":0,"totalTokens":10},"stopReason":"stop"}}
+{"type":"brand_new_thing","id":"syn-x-2","parentId":"syn-m-1","timestamp":"2026-01-05T10:00:03.000Z","data":"syn again"}

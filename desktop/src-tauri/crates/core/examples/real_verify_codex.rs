@@ -12,8 +12,12 @@ use llm_usage_core::storage::Storage;
 use std::path::PathBuf;
 
 fn main() {
-    let root = std::env::args().nth(1).expect("usage: <codex_root> <work_dir>");
-    let work = std::env::args().nth(2).expect("usage: <codex_root> <work_dir>");
+    let root = std::env::args()
+        .nth(1)
+        .expect("usage: <codex_root> <work_dir>");
+    let work = std::env::args()
+        .nth(2)
+        .expect("usage: <codex_root> <work_dir>");
     std::fs::create_dir_all(&work).expect("create work dir");
     let db_path = PathBuf::from(&work).join("real-check.sqlite");
     let _ = std::fs::remove_file(&db_path);
@@ -64,7 +68,9 @@ fn main() {
             }
         }
         println!("source_files_complete={files_complete} other_status={files_other}");
-        println!("lines_read={lines} records_seen={records} events={events} diagnostics={diagnostics}");
+        println!(
+            "lines_read={lines} records_seen={records} events={events} diagnostics={diagnostics}"
+        );
         println!("reconcile matched={matched} mismatch={mismatched} no_snapshot={no_snapshot}");
         if let Some(o) = &report.outcome {
             println!(
@@ -75,7 +81,10 @@ fn main() {
     }
     // 二次扫描：幂等（重复扫描不增量）。
     let reports2 = run_adapter_scan(&storage, &adapter, &ctx, &config).expect("rescan");
-    let added2: i64 = reports2.iter().filter_map(|r| r.outcome.as_ref().map(|o| o.added)).sum();
+    let added2: i64 = reports2
+        .iter()
+        .filter_map(|r| r.outcome.as_ref().map(|o| o.added))
+        .sum();
     println!("rescan_added={added2}");
 
     // 汇总查询白名单核对：调用数与 token 合计（UTC）。

@@ -1,0 +1,9 @@
+{
+  "sessionId": "syn-sess-dev",
+  "projectHash": "hash-syn1",
+  "startTime": "2026-01-05T10:00:00.000Z",
+  "lastUpdated": "2026-01-05T10:00:05.000Z",
+  "messages": {
+    "not": "an array"
+  }
+}

@@ -9,6 +9,7 @@ pub mod codex;
 pub mod framework;
 pub mod gemini;
 pub mod jsonl;
+pub mod omp;
 pub mod pi;
 pub mod qwen;
 pub mod usage_map;

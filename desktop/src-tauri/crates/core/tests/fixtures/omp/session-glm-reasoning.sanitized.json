@@ -1,0 +1,107 @@
+{
+ "fixture": "session-glm-reasoning",
+ "format": "omp",
+ "generatedAt": "2026-09-24T18:04:46.693Z",
+ "sourceFileIdentity": "anonymized",
+ "totalLines": 7,
+ "tailLinesExtracted": 7,
+ "parseErrors": 0,
+ "records": [
+  {
+   "line": 1,
+   "type": "title",
+   "v": 1,
+   "title": "REDACTED",
+   "updatedAt": "2026-09-24T16:39:54.647Z",
+   "pad": "REDACTED"
+  },
+  {
+   "line": 2,
+   "type": "session",
+   "version": 3,
+   "id": "anon-1",
+   "timestamp": "2026-09-24T16:39:54.647Z",
+   "cwd": "REDACTED"
+  },
+  {
+   "line": 3,
+   "type": "model_change",
+   "id": "anon-2",
+   "parentId": null,
+   "timestamp": "2026-09-24T16:39:55.003Z",
+   "model": "zhipu-coding-plan/glm-5.3-flash",
+   "resolvedModelIsFallback": false
+  },
+  {
+   "line": 4,
+   "type": "thinking_level_change",
+   "id": "anon-3",
+   "parentId": "anon-2",
+   "timestamp": "2026-09-24T16:39:55.003Z",
+   "thinkingLevel": "REDACTED",
+   "configured": null
+  },
+  {
+   "line": 5,
+   "type": "message",
+   "id": "anon-4",
+   "parentId": "anon-3",
+   "timestamp": "2026-09-24T16:39:57.298Z",
+   "message": {
+    "role": "user",
+    "content": "REDACTED",
+    "attribution": "REDACTED",
+    "timestamp": 1790267997264
+   }
+  },
+  {
+   "line": 6,
+   "type": "message",
+   "id": "anon-5",
+   "parentId": "anon-4",
+   "timestamp": "2026-09-24T16:40:03.379Z",
+   "message": {
+    "role": "assistant",
+    "content": "REDACTED",
+    "api": "REDACTED",
+    "provider": "zhipu-coding-plan",
+    "model": "glm-5.3-flash",
+    "usage": {
+     "input": 17542,
+     "output": 65,
+     "cacheRead": 0,
+     "cacheWrite": 0,
+     "totalTokens": 17607,
+     "reasoningTokens": 54,
+     "cost": {
+      "input": 0,
+      "output": 0,
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "total": 0
+     }
+    },
+    "stopReason": "stop",
+    "timestamp": 1790267997299,
+    "responseId": "anon-6",
+    "duration": 6058.1505,
+    "ttft": 4360.7924,
+    "completedAt": 1790268003379,
+    "contextSnapshot": {
+     "promptTokens": 17542,
+     "nonMessageTokens": 14640,
+     "compactionEpoch": 0
+    }
+   }
+  },
+  {
+   "line": 7,
+   "type": "custom",
+   "customType": "session_exit",
+   "data": "REDACTED",
+   "id": "anon-7",
+   "parentId": "anon-5",
+   "timestamp": "2026-09-24T16:40:05.667Z"
+  }
+ ]
+}

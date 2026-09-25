@@ -1,0 +1,672 @@
+{
+ "fixture": "subagent-community-research",
+ "format": "omp",
+ "generatedAt": "2026-09-24T18:04:46.783Z",
+ "sourceFileIdentity": "anonymized",
+ "totalLines": 41,
+ "tailLinesExtracted": 41,
+ "parseErrors": 0,
+ "records": [
+  {
+   "line": 1,
+   "type": "title",
+   "v": 1,
+   "title": "REDACTED",
+   "updatedAt": "2026-08-21T02:35:14.699Z",
+   "pad": "REDACTED"
+  },
+  {
+   "line": 2,
+   "type": "session",
+   "version": 3,
+   "id": "anon-1",
+   "timestamp": "2026-08-21T02:35:14.699Z",
+   "cwd": "REDACTED"
+  },
+  {
+   "line": 3,
+   "type": "model_change",
+   "id": "anon-2",
+   "parentId": null,
+   "timestamp": "2026-08-21T02:35:14.789Z",
+   "model": "kimi-code/k3-256k",
+   "resolvedModelIsFallback": false
+  },
+  {
+   "line": 4,
+   "type": "thinking_level_change",
+   "id": "anon-3",
+   "parentId": "anon-2",
+   "timestamp": "2026-08-21T02:35:14.789Z",
+   "thinkingLevel": "REDACTED",
+   "configured": null
+  },
+  {
+   "line": 5,
+   "type": "session_init",
+   "id": "anon-4",
+   "parentId": "anon-3",
+   "timestamp": "2026-08-21T02:35:14.790Z",
+   "systemPrompt": "REDACTED",
+   "task": "REDACTED",
+   "tools": [
+    "REDACTED",
+    "REDACTED",
+    "REDACTED",
+    "REDACTED",
+    "REDACTED",
+    "REDACTED"
+   ],
+   "agent": "REDACTED",
+   "modelRole": "REDACTED",
+   "resolvedModel": "REDACTED",
+   "readOnly": true,
+   "spawns": "REDACTED",
+   "readSummarize": false,
+   "outputSchema": {
+    "properties": {
+     "summary": "REDACTED",
+     "files": {
+      "metadata": {
+       "description": "REDACTED"
+      },
+      "elements": {
+       "properties": {
+        "path": {
+         "metadata": {
+          "description": "REDACTED"
+         },
+         "type": "string"
+        },
+        "description": {
+         "metadata": {
+          "description": "REDACTED"
+         },
+         "type": "string"
+        }
+       }
+      }
+     },
+     "architecture": {
+      "metadata": {
+       "description": "REDACTED"
+      },
+      "type": "string"
+     }
+    }
+   },
+   "outputSchemaMode": "REDACTED"
+  },
+  {
+   "line": 6,
+   "type": "message",
+   "id": "anon-5",
+   "parentId": "anon-4",
+   "timestamp": "2026-08-21T02:35:14.844Z",
+   "message": {
+    "role": "user",
+    "content": "REDACTED",
+    "attribution": "REDACTED",
+    "timestamp": 1787279714791
+   }
+  },
+  {
+   "line": 7,
+   "type": "message",
+   "id": "anon-6",
+   "parentId": "anon-5",
+   "timestamp": "2026-08-21T02:35:32.158Z",
+   "message": {
+    "role": "assistant",
+    "content": "REDACTED",
+    "api": "REDACTED",
+    "provider": "kimi-code",
+    "model": "k3-256k",
+    "usage": {
+     "input": 8574,
+     "output": 382,
+     "cacheRead": 768,
+     "cacheWrite": 0,
+     "totalTokens": 9724,
+     "cost": {
+      "input": 0,
+      "output": 0,
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "total": 0
+     }
+    },
+    "stopReason": "toolUse",
+    "timestamp": 1787279714844,
+    "responseId": "anon-7",
+    "duration": 17309.34289999993,
+    "ttft": 6857.021999999997,
+    "contextSnapshot": {
+     "promptTokens": 9342,
+     "nonMessageTokens": 8106,
+     "compactionEpoch": 0
+    }
+   }
+  },
+  {
+   "line": 8,
+   "type": "custom",
+   "customType": "tool_execution_start",
+   "data": "REDACTED",
+   "id": "anon-8",
+   "parentId": "anon-6",
+   "timestamp": "2026-08-21T02:35:32.158Z"
+  },
+  {
+   "line": 9,
+   "type": "credential_pin",
+   "id": "anon-9",
+   "parentId": "anon-8",
+   "timestamp": "2026-08-21T02:35:32.159Z",
+   "provider": "kimi-code",
+   "hash": "REDACTED"
+  },
+  {
+   "line": 10,
+   "type": "custom",
+   "customType": "tool_execution_start",
+   "data": "REDACTED",
+   "id": "anon-10",
+   "parentId": "anon-9",
+   "timestamp": "2026-08-21T02:35:32.159Z"
+  },
+  {
+   "line": 11,
+   "type": "custom",
+   "customType": "tool_execution_start",
+   "data": "REDACTED",
+   "id": "anon-11",
+   "parentId": "anon-10",
+   "timestamp": "2026-08-21T02:35:32.159Z"
+  },
+  {
+   "line": 12,
+   "type": "custom",
+   "customType": "tool_execution_start",
+   "data": "REDACTED",
+   "id": "anon-12",
+   "parentId": "anon-11",
+   "timestamp": "2026-08-21T02:35:32.160Z"
+  },
+  {
+   "line": 13,
+   "type": "message",
+   "id": "anon-13",
+   "parentId": "anon-12",
+   "timestamp": "2026-08-21T02:35:35.826Z",
+   "message": {
+    "role": "toolResult",
+    "toolCallId": "REDACTED",
+    "toolName": "REDACTED",
+    "content": "REDACTED",
+    "details": "REDACTED",
+    "isError": false,
+    "timestamp": 1787279735826
+   }
+  },
+  {
+   "line": 14,
+   "type": "message",
+   "id": "anon-14",
+   "parentId": "anon-13",
+   "timestamp": "2026-08-21T02:35:35.936Z",
+   "message": {
+    "role": "toolResult",
+    "toolCallId": "REDACTED",
+    "toolName": "REDACTED",
+    "content": "REDACTED",
+    "details": "REDACTED",
+    "isError": false,
+    "timestamp": 1787279735936
+   }
+  },
+  {
+   "line": 15,
+   "type": "message",
+   "id": "anon-15",
+   "parentId": "anon-14",
+   "timestamp": "2026-08-21T02:35:36.389Z",
+   "message": {
+    "role": "toolResult",
+    "toolCallId": "REDACTED",
+    "toolName": "REDACTED",
+    "content": "REDACTED",
+    "details": "REDACTED",
+    "isError": false,
+    "timestamp": 1787279736388
+   }
+  },
+  {
+   "line": 16,
+   "type": "message",
+   "id": "anon-16",
+   "parentId": "anon-15",
+   "timestamp": "2026-08-21T02:35:36.892Z",
+   "message": {
+    "role": "toolResult",
+    "toolCallId": "REDACTED",
+    "toolName": "REDACTED",
+    "content": "REDACTED",
+    "details": "REDACTED",
+    "isError": false,
+    "timestamp": 1787279736891
+   }
+  },
+  {
+   "line": 17,
+   "type": "message",
+   "id": "anon-17",
+   "parentId": "anon-16",
+   "timestamp": "2026-08-21T02:35:51.596Z",
+   "message": {
+    "role": "assistant",
+    "content": "REDACTED",
+    "api": "REDACTED",
+    "provider": "kimi-code",
+    "model": "k3-256k",
+    "usage": {
+     "input": 3542,
+     "output": 382,
+     "cacheRead": 9216,
+     "cacheWrite": 0,
+     "totalTokens": 13140,
+     "cost": {
+      "input": 0,
+      "output": 0,
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "total": 0
+     }
+    },
+    "stopReason": "toolUse",
+    "timestamp": 1787279736945,
+    "responseId": "anon-18",
+    "duration": 14649.890800000052,
+    "ttft": 6983.533100000001,
+    "contextSnapshot": {
+     "promptTokens": 12758,
+     "nonMessageTokens": 8106,
+     "compactionEpoch": 0
+    }
+   }
+  },
+  {
+   "line": 18,
+   "type": "custom",
+   "customType": "tool_execution_start",
+   "data": "REDACTED",
+   "id": "anon-19",
+   "parentId": "anon-17",
+   "timestamp": "2026-08-21T02:35:51.597Z"
+  },
+  {
+   "line": 19,
+   "type": "custom",
+   "customType": "tool_execution_start",
+   "data": "REDACTED",
+   "id": "anon-20",
+   "parentId": "anon-19",
+   "timestamp": "2026-08-21T02:35:51.597Z"
+  },
+  {
+   "line": 20,
+   "type": "custom",
+   "customType": "tool_execution_start",
+   "data": "REDACTED",
+   "id": "anon-21",
+   "parentId": "anon-20",
+   "timestamp": "2026-08-21T02:35:51.597Z"
+  },
+  {
+   "line": 21,
+   "type": "custom",
+   "customType": "tool_execution_start",
+   "data": "REDACTED",
+   "id": "anon-22",
+   "parentId": "anon-21",
+   "timestamp": "2026-08-21T02:35:51.597Z"
+  },
+  {
+   "line": 22,
+   "type": "message",
+   "id": "anon-23",
+   "parentId": "anon-22",
+   "timestamp": "2026-08-21T02:35:53.820Z",
+   "message": {
+    "role": "toolResult",
+    "toolCallId": "REDACTED",
+    "toolName": "REDACTED",
+    "content": "REDACTED",
+    "details": "REDACTED",
+    "isError": false,
+    "timestamp": 1787279753819
+   }
+  },
+  {
+   "line": 23,
+   "type": "message",
+   "id": "anon-24",
+   "parentId": "anon-23",
+   "timestamp": "2026-08-21T02:35:54.102Z",
+   "message": {
+    "role": "toolResult",
+    "toolCallId": "REDACTED",
+    "toolName": "REDACTED",
+    "content": "REDACTED",
+    "details": "REDACTED",
+    "isError": false,
+    "timestamp": 1787279754101
+   }
+  },
+  {
+   "line": 24,
+   "type": "message",
+   "id": "anon-25",
+   "parentId": "anon-24",
+   "timestamp": "2026-08-21T02:35:54.687Z",
+   "message": {
+    "role": "toolResult",
+    "toolCallId": "REDACTED",
+    "toolName": "REDACTED",
+    "content": "REDACTED",
+    "details": "REDACTED",
+    "isError": false,
+    "timestamp": 1787279754687
+   }
+  },
+  {
+   "line": 25,
+   "type": "message",
+   "id": "anon-26",
+   "parentId": "anon-25",
+   "timestamp": "2026-08-21T02:35:57.521Z",
+   "message": {
+    "role": "toolResult",
+    "toolCallId": "REDACTED",
+    "toolName": "REDACTED",
+    "content": "REDACTED",
+    "details": "REDACTED",
+    "isError": false,
+    "timestamp": 1787279757521
+   }
+  },
+  {
+   "line": 26,
+   "type": "message",
+   "id": "anon-27",
+   "parentId": "anon-26",
+   "timestamp": "2026-08-21T02:36:05.918Z",
+   "message": {
+    "role": "assistant",
+    "content": "REDACTED",
+    "api": "REDACTED",
+    "provider": "kimi-code",
+    "model": "k3-256k",
+    "usage": {
+     "input": 3432,
+     "output": 303,
+     "cacheRead": 12544,
+     "cacheWrite": 0,
+     "totalTokens": 16279,
+     "cost": {
+      "input": 0,
+      "output": 0,
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "total": 0
+     }
+    },
+    "stopReason": "toolUse",
+    "timestamp": 1787279757529,
+    "responseId": "anon-28",
+    "duration": 8387.370200000005,
+    "ttft": 1649.5432000000728,
+    "contextSnapshot": {
+     "promptTokens": 15976,
+     "nonMessageTokens": 8106,
+     "compactionEpoch": 0
+    }
+   }
+  },
+  {
+   "line": 27,
+   "type": "custom",
+   "customType": "tool_execution_start",
+   "data": "REDACTED",
+   "id": "anon-29",
+   "parentId": "anon-27",
+   "timestamp": "2026-08-21T02:36:05.918Z"
+  },
+  {
+   "line": 28,
+   "type": "custom",
+   "customType": "tool_execution_start",
+   "data": "REDACTED",
+   "id": "anon-30",
+   "parentId": "anon-29",
+   "timestamp": "2026-08-21T02:36:05.918Z"
+  },
+  {
+   "line": 29,
+   "type": "custom",
+   "customType": "tool_execution_start",
+   "data": "REDACTED",
+   "id": "anon-31",
+   "parentId": "anon-30",
+   "timestamp": "2026-08-21T02:36:05.919Z"
+  },
+  {
+   "line": 30,
+   "type": "message",
+   "id": "anon-32",
+   "parentId": "anon-31",
+   "timestamp": "2026-08-21T02:36:07.188Z",
+   "message": {
+    "role": "toolResult",
+    "toolCallId": "REDACTED",
+    "toolName": "REDACTED",
+    "content": "REDACTED",
+    "details": "REDACTED",
+    "isError": false,
+    "timestamp": 1787279767188
+   }
+  },
+  {
+   "line": 31,
+   "type": "message",
+   "id": "anon-33",
+   "parentId": "anon-32",
+   "timestamp": "2026-08-21T02:36:07.320Z",
+   "message": {
+    "role": "toolResult",
+    "toolCallId": "REDACTED",
+    "toolName": "REDACTED",
+    "content": "REDACTED",
+    "details": "REDACTED",
+    "isError": false,
+    "timestamp": 1787279767319
+   }
+  },
+  {
+   "line": 32,
+   "type": "message",
+   "id": "anon-34",
+   "parentId": "anon-33",
+   "timestamp": "2026-08-21T02:36:11.959Z",
+   "message": {
+    "role": "toolResult",
+    "toolCallId": "REDACTED",
+    "toolName": "REDACTED",
+    "content": "REDACTED",
+    "details": "REDACTED",
+    "isError": false,
+    "timestamp": 1787279771958
+   }
+  },
+  {
+   "line": 33,
+   "type": "message",
+   "id": "anon-35",
+   "parentId": "anon-34",
+   "timestamp": "2026-08-21T02:36:26.976Z",
+   "message": {
+    "role": "assistant",
+    "content": "REDACTED",
+    "api": "REDACTED",
+    "provider": "kimi-code",
+    "model": "k3-256k",
+    "usage": {
+     "input": 3467,
+     "output": 275,
+     "cacheRead": 15872,
+     "cacheWrite": 0,
+     "totalTokens": 19614,
+     "cost": {
+      "input": 0,
+      "output": 0,
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "total": 0
+     }
+    },
+    "stopReason": "toolUse",
+    "timestamp": 1787279772014,
+    "responseId": "anon-36",
+    "duration": 14960.637299999944,
+    "ttft": 7235.652699999977,
+    "contextSnapshot": {
+     "promptTokens": 19339,
+     "nonMessageTokens": 8106,
+     "compactionEpoch": 0
+    }
+   }
+  },
+  {
+   "line": 34,
+   "type": "custom",
+   "customType": "tool_execution_start",
+   "data": "REDACTED",
+   "id": "anon-37",
+   "parentId": "anon-35",
+   "timestamp": "2026-08-21T02:36:26.976Z"
+  },
+  {
+   "line": 35,
+   "type": "custom",
+   "customType": "tool_execution_start",
+   "data": "REDACTED",
+   "id": "anon-38",
+   "parentId": "anon-37",
+   "timestamp": "2026-08-21T02:36:26.976Z"
+  },
+  {
+   "line": 36,
+   "type": "message",
+   "id": "anon-39",
+   "parentId": "anon-38",
+   "timestamp": "2026-08-21T02:36:28.895Z",
+   "message": {
+    "role": "toolResult",
+    "toolCallId": "REDACTED",
+    "toolName": "REDACTED",
+    "content": "REDACTED",
+    "details": "REDACTED",
+    "isError": false,
+    "timestamp": 1787279788894
+   }
+  },
+  {
+   "line": 37,
+   "type": "message",
+   "id": "anon-40",
+   "parentId": "anon-39",
+   "timestamp": "2026-08-21T02:36:28.976Z",
+   "message": {
+    "role": "toolResult",
+    "toolCallId": "REDACTED",
+    "toolName": "REDACTED",
+    "content": "REDACTED",
+    "details": "REDACTED",
+    "isError": false,
+    "timestamp": 1787279788976
+   }
+  },
+  {
+   "line": 38,
+   "type": "message",
+   "id": "anon-41",
+   "parentId": "anon-40",
+   "timestamp": "2026-08-21T02:38:35.737Z",
+   "message": {
+    "role": "assistant",
+    "content": "REDACTED",
+    "api": "REDACTED",
+    "provider": "kimi-code",
+    "model": "k3-256k",
+    "usage": {
+     "input": 1695,
+     "output": 4793,
+     "cacheRead": 19200,
+     "cacheWrite": 0,
+     "totalTokens": 25688,
+     "cost": {
+      "input": 0,
+      "output": 0,
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "total": 0
+     }
+    },
+    "stopReason": "toolUse",
+    "timestamp": 1787279788996,
+    "responseId": "anon-42",
+    "duration": 126737.42190000007,
+    "ttft": 9318.338600000017,
+    "contextSnapshot": {
+     "promptTokens": 20895,
+     "nonMessageTokens": 8106,
+     "compactionEpoch": 0
+    }
+   }
+  },
+  {
+   "line": 39,
+   "type": "custom",
+   "customType": "tool_execution_start",
+   "data": "REDACTED",
+   "id": "anon-43",
+   "parentId": "anon-41",
+   "timestamp": "2026-08-21T02:38:35.737Z"
+  },
+  {
+   "line": 40,
+   "type": "message",
+   "id": "anon-44",
+   "parentId": "anon-43",
+   "timestamp": "2026-08-21T02:38:35.739Z",
+   "message": {
+    "role": "toolResult",
+    "toolCallId": "REDACTED",
+    "toolName": "REDACTED",
+    "content": "REDACTED",
+    "details": "REDACTED",
+    "isError": false,
+    "timestamp": 1787279915738
+   }
+  },
+  {
+   "line": 41,
+   "type": "custom",
+   "customType": "session_exit",
+   "data": "REDACTED",
+   "id": "anon-45",
+   "parentId": "anon-44",
+   "timestamp": "2026-08-21T02:45:35.753Z"
+  }
+ ]
+}

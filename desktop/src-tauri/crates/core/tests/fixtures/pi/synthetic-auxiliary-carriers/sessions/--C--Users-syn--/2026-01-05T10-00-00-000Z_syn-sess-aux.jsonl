@@ -1,0 +1,8 @@
+{"type":"session","version":3,"id":"syn-sess-aux","timestamp":"2026-01-05T10:00:00.000Z","cwd":"C:/Users/syn"}
+{"type":"model_change","id":"syn-mc-1","parentId":null,"timestamp":"2026-01-05T10:00:01.000Z","provider":"syn-prov","modelId":"syn-model-a"}
+{"type":"message","id":"syn-a-1","parentId":"syn-mc-1","timestamp":"2026-01-05T10:00:02.000Z","message":{"role":"assistant","provider":"syn-prov","model":"syn-model-a","usage":{"input":100,"output":50,"cacheRead":800,"cacheWrite":100,"totalTokens":1050,"reasoning":10},"stopReason":"stop"}}
+{"type":"message","id":"syn-a-2","parentId":"syn-a-1","timestamp":"2026-01-05T10:00:03.000Z","message":{"role":"assistant","provider":"syn-prov","model":"syn-model-a","stopReason":"stop"}}
+{"type":"usage","id":"syn-u-1","parentId":"syn-a-2","timestamp":"2026-01-05T10:00:04.000Z","kind":"cache_warm","provider":"syn-prov","model":"syn-model-a","usage":{"input":10,"output":0,"cacheRead":90,"cacheWrite":0,"totalTokens":100}}
+{"type":"compaction","id":"syn-c-1","parentId":"syn-u-1","timestamp":"2026-01-05T10:00:05.000Z","summary":"syn-summary","usage":{"input":1000,"output":200,"cacheRead":0,"cacheWrite":0,"totalTokens":1200}}
+{"type":"branch_summary","id":"syn-b-1","parentId":"syn-c-1","timestamp":"2026-01-05T10:00:06.000Z","summary":"syn-branch","usage":{"input":500,"output":100,"cacheRead":300,"cacheWrite":0,"totalTokens":900}}
+{"type":"message","id":"syn-t-1","parentId":"syn-b-1","timestamp":"2026-01-05T10:00:07.000Z","message":{"role":"toolResult","toolName":"syn-tool","usage":{"input":5,"output":5,"cacheRead":0,"cacheWrite":10,"totalTokens":20}}}

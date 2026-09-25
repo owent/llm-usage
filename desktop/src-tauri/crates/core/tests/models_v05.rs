@@ -33,12 +33,12 @@ fn v05_model_switch_keeps_historical_attribution() {
     let mut e1 = with_tokens(evt("inst", "k1", base), 100, 0);
     e1.model_raw = Some("model-old".into());
     e1.model_attribution = ModelAttribution::StructuredChange;
-    let mut e2 = with_tokens(evt("inst", "k2", base + 3600_000), 200, 0);
+    let mut e2 = with_tokens(evt("inst", "k2", base + 3_600_000), 200, 0);
     e2.model_raw = Some("model-new".into());
     e2.model_attribution = ModelAttribution::StructuredChange;
     commit_batch(
         &storage,
-        &batch("inst", "UTC", base + 7200_000, vec![e1, e2]),
+        &batch("inst", "UTC", base + 7_200_000, vec![e1, e2]),
         None,
     )
     .unwrap();

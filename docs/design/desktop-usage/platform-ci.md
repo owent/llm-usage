@@ -42,7 +42,7 @@ M0 在代码骨架具备后建立三平台作业；M1–M6 逐步加入实际测
 
 矩阵使用 fail-fast=false 留下全部结果；每作业有超时，重跑只针对已定位的临时基础设施故障。
 缓存键包含 OS、架构、Rust/Node 版本和锁文件摘要，隔离不同 target，不缓存真实 Agent 数据。
-Actions 固定完整提交 SHA，PR 使用只读权限，无发布/签名秘密；不在特权 pull_request_target 中执行 PR 代码。
+Actions 固定完整提交 SHA，PR 使用只读权限，无发布/签名密钥；不在特权 pull_request_target 中执行 PR 代码。
 CI artifact 与 GitHub Release 发布分开，发布/签名/公证待相应授权，不复制官方示例中的自动发版步骤。
 
 桌面测试依据：[Tauri WebDriver](https://v2.tauri.app/develop/tests/webdriver/)。

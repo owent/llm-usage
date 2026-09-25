@@ -1,0 +1,39 @@
+{
+  "sessionId": "syn-sess-neg",
+  "projectHash": "hash-syn1",
+  "startTime": "2026-01-05T10:00:00.000Z",
+  "lastUpdated": "2026-01-05T10:00:12.000Z",
+  "messages": [
+    {
+      "id": "syn-u-1",
+      "type": "user",
+      "timestamp": "2026-01-05T10:00:00.000Z",
+      "content": "synthetic user prompt"
+    },
+    {
+      "id": "syn-msg-bad",
+      "type": "gemini",
+      "model": "gemini-3.0-flash",
+      "timestamp": "2026-01-05T10:00:05.000Z",
+      "content": "synthetic model reply with negative token",
+      "tokens": {
+        "input": -100,
+        "output": 20,
+        "total": 120
+      }
+    },
+    {
+      "id": "syn-msg-ok",
+      "type": "gemini",
+      "model": "gemini-3.0-flash",
+      "timestamp": "2026-01-05T10:00:12.000Z",
+      "content": "synthetic model reply valid",
+      "tokens": {
+        "input": 1000,
+        "output": 50,
+        "cached": 400,
+        "total": 1050
+      }
+    }
+  ]
+}

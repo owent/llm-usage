@@ -1,4 +1,6 @@
-/build/
+# 任务执行临时产物（脚本、日志、探测输出、核对库等）一律放 build/<任务名>/；
+# 不锚定根目录：任何深度误建的 build/ 同样忽略（防相对路径散落子目录）。
+build/
 /node_modules/
 /.env
 /.env.*
@@ -8,3 +10,35 @@
 /.venv
 __pycache__
 *.pyc
+
+# codegraph index directories (mcp integration, per-platform)
+.codegraph*
+.tgrep
+.omp
+.codex
+.kilo
+.kilocode
+.zcode
+
+# AI agent project-level MCP configs (written by project/integration/mcp/setup.js
+# with machine-specific absolute paths; not meant to be committed)
+.mcp.json
+/mcp.json
+opencode.json
+opencode.jsonc
+/kilo.json
+/kilo.jsonc
+/mimocode.json
+/mimocode.jsonc
+.cursor
+.zed
+.roo
+.gemini
+.kimi-code
+.qwen
+.mimocode
+.workbuddy
+.cline
+/.trae
+.pi
+/.agents/mcp.json

@@ -1,0 +1,4 @@
+{"type":"title","v":1,"title":"syn-err","updatedAt":"2026-01-05T10:00:00.000Z"}
+{"type":"session","version":3,"id":"syn-omp-err","timestamp":"2026-01-05T10:00:00.080Z","cwd":"syn-cwd"}
+{"type":"message","id":"syn-e-1","parentId":null,"timestamp":"2026-01-05T10:00:01.000Z","message":{"role":"assistant","provider":"syn-provider","model":"syn-model-a","usage":{"input":15,"output":20,"cacheRead":5,"cacheWrite":0,"totalTokens":40},"stopReason":"error","responseId":"syn-re1","duration":100.4,"timestamp":1789706401000,"errorMessage":"synthetic provider error"}}
+{"type":"message","id":"syn-e-2","parentId":"syn-e-1","timestamp":"2026-01-05T10:00:02.000Z","message":{"role":"assistant","provider":"syn-provider","model":"syn-model-a","usage":{"input":5,"output":5,"cacheRead":0,"cacheWrite":0,"totalTokens":10},"stopReason":"aborted","responseId":"syn-re2","timestamp":1789706402000}}

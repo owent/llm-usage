@@ -515,7 +515,10 @@ impl SourceAdapter for PiAdapter {
                     }
                 }
                 "message" => {
-                    let message = entry.get("message").cloned().unwrap_or(serde_json::Value::Null);
+                    let message = entry
+                        .get("message")
+                        .cloned()
+                        .unwrap_or(serde_json::Value::Null);
                     let role = message.get("role").and_then(|r| r.as_str()).unwrap_or("");
                     match role {
                         "assistant" => {
@@ -633,7 +636,10 @@ impl SourceAdapter for PiAdapter {
                 }
                 "usage" => {
                     // 独立 usage 条目（kind 如 cache_warm）：辅助调用，provider/model 自有字段。
-                    let usage_json = entry.get("usage").cloned().unwrap_or(serde_json::Value::Null);
+                    let usage_json = entry
+                        .get("usage")
+                        .cloned()
+                        .unwrap_or(serde_json::Value::Null);
                     let Some(usage) = parse_usage(&usage_json) else {
                         diagnostics.push(diag(
                             "usage_shape_deviation",
@@ -726,8 +732,12 @@ impl SourceAdapter for PiAdapter {
                         &mut diagnostics,
                     ));
                 }
-                "thinking_level_change" | "custom" | "label" | "session_info"
-                | "custom_message" | "context_edit" => {}
+                "thinking_level_change"
+                | "custom"
+                | "label"
+                | "session_info"
+                | "custom_message"
+                | "context_edit" => {}
                 other => {
                     if !context.unknown_types.iter().any(|t| t == other) {
                         context.unknown_types.push(other.to_string());
@@ -885,7 +895,7 @@ impl SourceAdapter for PiAdapter {
             }),
             dedup: serde_json::json!({
                 "primary": "pi:{message|usage|compaction|branch_summary|toolresult}:{entry id}:{parentId}:{timestamp}（实例命名空间）",
-                "fork_copies": "fork 复制件四元组逐字相同，upsert 幂等（同键同内容 Keep）",
+                "fork_copies": "fork 复制件四元组逐字相同：内容逐字相同者 upsert 幂等 Keep；但复制条目在 fork 文件中会带 fork 会话身份（session_id/parent_session_id 与本文件头一致），与源文件已存事件同键不同内容，仲裁为 conflict 并保留先扫者——净效果不双计",
                 "cross_source": "无第二本机来源；auth/models-store 非用量不读",
             }),
             integrity: serde_json::json!({
@@ -931,7 +941,10 @@ mod tests {
         });
         let usage = parse_usage(&v).unwrap();
         assert_eq!(usage.total_tokens, 1050);
-        assert_eq!(usage.reasoning, None, "absent reasoning stays unknown, not zero");
+        assert_eq!(
+            usage.reasoning, None,
+            "absent reasoning stays unknown, not zero"
+        );
         let with_reasoning = serde_json::json!({
             "input": 100,
             "output": 50,

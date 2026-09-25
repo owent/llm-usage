@@ -1,0 +1,4 @@
+{"type":"session","version":3,"id":"syn-sess-src","timestamp":"2026-01-05T10:00:00.000Z","cwd":"C:/Users/syn"}
+{"type":"model_change","id":"syn-fm-1","parentId":null,"timestamp":"2026-01-05T10:00:01.000Z","provider":"syn-prov","modelId":"syn-model-a"}
+{"type":"message","id":"syn-fa-1","parentId":"syn-fm-1","timestamp":"2026-01-05T10:00:02.000Z","message":{"role":"assistant","provider":"syn-prov","model":"syn-model-a","usage":{"input":100,"output":50,"cacheRead":0,"cacheWrite":0,"totalTokens":150},"stopReason":"stop"}}
+{"type":"message","id":"syn-fa-2","parentId":"syn-fa-1","timestamp":"2026-01-05T10:00:03.000Z","message":{"role":"assistant","provider":"syn-prov","model":"syn-model-a","usage":{"input":200,"output":60,"cacheRead":40,"cacheWrite":0,"totalTokens":300},"stopReason":"stop"}}

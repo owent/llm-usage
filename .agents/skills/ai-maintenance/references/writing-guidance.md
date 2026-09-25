@@ -30,6 +30,8 @@ examples, agent instructions, commit messages, and PR or release notes.
 | 对齐、拉齐、收敛 | 保持哪项一致、合并什么、统一什么状态或缩小什么范围 |
 | 口径、维度、颗粒度 | 计算规则、时间来源、检查条件、指标或处理单位 |
 | 链路、投影、水位 | 实际调用顺序、缓存/副本/派生视图、最大值或已处理序号 |
+| 夹具 | 指测试直接读取的静态数据文件时写测试数据；泛指 xUnit 固定测试前提时保留英文 fixture |
+| 秘密、机密 | 按实际对象写密钥、凭据、口令或敏感信息，不把 secret 直译为“秘密” |
 | 预算 | 若谈执行限制，写重试次数上限、剩余次数、超时时间或数量上限 |
 | 兜底、护栏、门禁、钳制 | 写触发条件及实际动作：返回默认值、拒绝、重试、限制数值或阻止合入 |
 | 全面、深度、系统性、全方位 | 写实际检查的文件、场景和方法，避免暗示未做的工作 |
@@ -80,6 +82,8 @@ Use sentence-case headings. Dashes and real contrasts are useful only when the m
 
 ## 参考与取舍
 
+2026-09-25 按用户反馈在“中文表达”表补充术语约定：静态测试数据文件写“测试数据”不用“夹具”；
+secret 按实际对象写密钥、凭据、口令或敏感信息，不直译“秘密”。
 2026-09-24 读取兄弟仓库 AICodeReviewer、atsf4g-co 的
 `.agents/skills/ai-agent-maintenance/references/writing-guidance.md` 后，
 按本仓库任务改写；来源记录见 [来源索引](source-index.md#本地写作参考)。

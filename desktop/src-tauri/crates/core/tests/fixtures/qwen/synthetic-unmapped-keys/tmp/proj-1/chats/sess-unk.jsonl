@@ -1,0 +1,3 @@
+{"uuid":"syn-u-1","sessionId":"syn-sess-unk","timestamp":"2026-01-05T10:00:00.000Z","type":"user","version":"0.5.0","message":{"role":"user","content":"synthetic"}}
+{"uuid":"syn-a-1","sessionId":"syn-sess-unk","timestamp":"2026-01-05T10:00:05.000Z","type":"assistant","version":"0.5.0","model":"qwen3-coder-plus","usageMetadata":{"promptTokenCount":100,"candidatesTokenCount":20,"totalTokenCount":120,"serviceTier":"standard"}}
+{"uuid":"syn-a-2","sessionId":"syn-sess-unk","timestamp":"2026-01-05T10:00:08.000Z","type":"assistant","version":"0.5.0","model":"qwen3-coder-plus","usageMetadata":{"promptTokenCount":200,"candidatesTokenCount":30,"totalTokenCount":230,"anotherUnknown":9}}

@@ -604,7 +604,11 @@ pub fn map_claude_transcript(raw: &ClaudeTranscriptUsage) -> MappedUsage {
         },
         output_total: Q::Reported,
         output_reasoning: Q::Unknown,
-        total_tokens: if total.is_some() { Q::Derived } else { Q::Unknown },
+        total_tokens: if total.is_some() {
+            Q::Derived
+        } else {
+            Q::Unknown
+        },
         source_total: Q::Unknown,
     };
     finish(usage, quality, Vec::new())

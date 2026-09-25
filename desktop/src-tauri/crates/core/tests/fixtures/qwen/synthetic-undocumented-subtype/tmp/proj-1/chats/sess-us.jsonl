@@ -1,0 +1,2 @@
+{"uuid":"syn-u-1","sessionId":"syn-sess-us","timestamp":"2026-01-05T10:00:00.000Z","type":"user","version":"0.5.0","message":{"role":"user","content":"synthetic"}}
+{"uuid":"syn-a-1","sessionId":"syn-sess-us","timestamp":"2026-01-05T10:00:05.000Z","type":"assistant","subtype":"brand_new_subtype","version":"0.5.0","model":"qwen3-coder-plus","usageMetadata":{"promptTokenCount":100,"candidatesTokenCount":20,"totalTokenCount":120}}

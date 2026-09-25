@@ -280,10 +280,10 @@ impl SourceAdapter for GeminiAdapter {
         };
         // fail closed 出口：事件清空、游标不推进、degraded，下轮确定性再拒。
         let fail_closed = |events: &mut Vec<EventInput>,
-                         diagnostics: &mut Vec<DiagnosticInput>,
-                         records_seen: u64,
-                         code: &'static str,
-                         detail: String|
+                           diagnostics: &mut Vec<DiagnosticInput>,
+                           records_seen: u64,
+                           code: &'static str,
+                           detail: String|
          -> Result<ScanOutcome, CoreError> {
             events.clear();
             diagnostics.push(diag(code, None, "document", &detail));
@@ -380,14 +380,14 @@ impl SourceAdapter for GeminiAdapter {
                     "tokens object carries keys beyond the documented six; mapped fields kept",
                 ));
             }
-            let Some((occurred_ms, source_time)) = json_str(message, "timestamp").and_then(
-                |raw_ts| {
+            let Some((occurred_ms, source_time)) =
+                json_str(message, "timestamp").and_then(|raw_ts| {
                     raw_ts
                         .parse::<jiff::Timestamp>()
                         .ok()
                         .map(|t| (t.as_millisecond(), raw_ts.to_string()))
-                },
-            ) else {
+                })
+            else {
                 diagnostics.push(diag(
                     "timestamp_unparseable",
                     Some("timestamp"),
@@ -397,10 +397,7 @@ impl SourceAdapter for GeminiAdapter {
                 continue;
             };
             let (source_record_key, origin_call_id) = match json_str(message, "id") {
-                Some(id) => (
-                    format!("gemini:{session_id}:{id}"),
-                    Some(id.to_string()),
-                ),
+                Some(id) => (format!("gemini:{session_id}:{id}"), Some(id.to_string())),
                 None => {
                     diagnostics.push(diag(
                         "missing_message_id",
@@ -543,7 +540,10 @@ impl SourceAdapter for GeminiAdapter {
         fields.insert(
             "latency".into(),
             field(
-                Availability::Unavailable("会话 JSON 无逐次延迟字段（telemetry api_response 有 duration_ms，未接入）".into()),
+                Availability::Unavailable(
+                    "会话 JSON 无逐次延迟字段（telemetry api_response 有 duration_ms，未接入）"
+                        .into(),
+                ),
                 "无",
             ),
         );
