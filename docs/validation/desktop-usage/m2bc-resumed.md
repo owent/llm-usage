@@ -18,7 +18,7 @@ real_verify examples ×5、本机真实只读核对。
 | # | 命令（cwd） | 退出码 | 结果摘要 |
 | --- | --- | --- | --- |
 | 1 | `cargo test --locked -p llm-usage-core`（desktop/src-tauri） | 0 | **249 passed / 0 failed**（中断时基线 143 + 本次净增 106：五源集成测试 103 + omp 内联单测 3） |
-| 2 | `cargo clippy --locked -p llm-usage-core --all-targets -- -D warnings` | 0 | 比项目门禁（不带 --all-targets）更严的口径也通过；顺手修了 4 处存量/新增测试 lint（见「修复记录」） |
+| 2 | `cargo clippy --locked -p llm-usage-core --all-targets -- -D warnings` | 0 | 比项目门禁（不带 --all-targets）更严的检查范围也通过；顺手修了 4 处存量/新增测试 lint（见「修复记录」） |
 | 3 | `npm run verify`（仓库根） | 0 | lint:md 89 文件 0 问题、assets:check、test:scripts、svelte-check、fmt --check、clippy、cargo test（core 249 + app 2 = **251**）、vite build 全绿 |
 | 4 | `cargo run -p llm-usage-core --example real_verify_pi -- ~/.pi/agent build/desktop-usage-validation/real-check-pi` | 0 | 本机真实只读核对，白名单聚合见下 |
 | 5 | `cargo run -p llm-usage-core --example real_verify_omp -- ~/.omp/agent build/desktop-usage-validation/real-check-omp` | 0 | 同上 |

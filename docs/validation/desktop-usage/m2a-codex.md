@@ -33,7 +33,7 @@
 
 ## 测试（新增 63 个，全部真实临时文件/SQLite）
 
-- `codex_contract.rs`：M0 三个真实 fixture 全链路期望（单调用/49 调用/多模型 compaction），
+- `codex_contract.rs`：M0 三份真实测试数据的全链路期望（单调用/49 调用/多模型 compaction），
   能力声明结构、发现/实例/落库。
 - `codex_gaps_synthetic.rs`：合成样本（目录头标注 synthetic）：重复 final、子 Agent、
   cache write>0、无 usage 的 tool/user 消息、缺 response_id 回退身份；V17 未知版本/格式 fail closed。
@@ -46,7 +46,7 @@
 | 指标 | 实测 |
 | --- | --- |
 | 完整扫描文件 | 53（另有 6 degraded：空文件/异常 meta） |
-| fail closed | 212 个文件，均为其他版本（0.154.0-alpha.6.2×89、0.155.0-alpha.16×18、0.146/147/149/150/151/153 等 12+ 版本）；合同行为，多版本支持需逐版本 fixture |
+| fail closed | 212 个文件，均为其他版本（0.154.0-alpha.6.2×89、0.155.0-alpha.16×18、0.146/147/149/150/151/153 等 12+ 版本）；合同行为，多版本支持需逐版本测试数据 |
 | 行/记录/事件 | 23,059 行 → 2,620 个模型调用事件 |
 | 快照对账 | matched 48 / mismatch 5 / no_snapshot 0；mismatch 均为"最终快照 > 逐次合计"（差 2.9M–31.5M token），与源端保留截断或跨文件会话一致，差异已存 reconcile_mismatch 诊断，不静默吸收 |
 | 重复扫描 | rescan_added=0（幂等） |
@@ -59,14 +59,14 @@ reconcile_mismatch 5、unknown_record_type 4、usage_shape_deviation 1。无正�
 ## 中断后收尾（主会话完成）
 
 M2-A 子代理因额度中断，以下由其代码基础上修复后验收：能力声明 cost 断言、
-重复 final 幂等（ingest 仲裁）、同长替换测试夹具（原夹具破坏 cli_version 与 fail-closed 冲突，
+重复 final 幂等（ingest 仲裁）、同长替换测试数据（原测试数据破坏 cli_version 与 fail-closed 冲突，
 改为整行交换）、clippy 6 处、fmt、bundle-report tar 加 --force-local（Windows 路径冒号）。
 
 ## 未完成项
 
 | 项 | 状态 | 后续 |
 | --- | --- | --- |
-| Codex 其他版本（0.146–0.155 系） | fail closed | 逐版本 fixture 后扩展 supported_versions |
+| Codex 其他版本（0.146–0.155 系） | fail closed | 逐版本补齐测试数据后扩展 supported_versions |
 | OTel 遥测接入 | 未实现 | M5 |
 | 真实 GUI 数据源页 | 未实现 | M6 |
 
