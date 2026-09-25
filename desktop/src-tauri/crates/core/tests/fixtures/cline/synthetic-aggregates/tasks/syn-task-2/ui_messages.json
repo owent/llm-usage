@@ -1,0 +1,5 @@
+[
+  {"type":"say","say":"api_req_started","ts":1790208010000,"text":"{\"request\":\"synthetic request 4\",\"tokensIn\":30,\"tokensOut\":3,\"cacheWrites\":0,\"cacheReads\":5,\"cost\":0.001}"},
+  {"type":"say","say":"deleted_api_reqs","ts":1790208020000,"text":"{\"tokensIn\":80,\"tokensOut\":8,\"cacheWrites\":4,\"cacheReads\":10,\"cost\":0.003}"},
+  {"type":"say","say":"subagent_usage","ts":1790208030000,"text":"{\"tokensIn\":60,\"tokensOut\":6,\"cacheWrites\":2,\"cacheReads\":0,\"cost\":0.002}"}
+]

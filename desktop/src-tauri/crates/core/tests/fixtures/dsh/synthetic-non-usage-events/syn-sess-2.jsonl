@@ -1,0 +1,6 @@
+{"type":"step/start"}
+{"type":"assistant/message"}
+{"type":"request/context","pressureTokens":1200,"projectedTokens":1500,"contextWindow":128000}
+{"type":"request/header"}
+{"type":"image/offload"}
+{"type":"assistant/message","usage":{"uncachedInputTokens":10,"outputTokens":2,"cacheReadTokens":0,"cacheWriteTokens":0}}

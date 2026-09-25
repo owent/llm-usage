@@ -3,7 +3,8 @@ mod common;
 
 use common::{batch, evt, temp_storage, ts, with_tokens, TempDir};
 use llm_usage_core::adapters::codex::{map_codex, CodexUsage};
-use llm_usage_core::adapters::usage_map::*;
+use llm_usage_core::adapters::kilo::{map_kilo, KiloUsage};
+use llm_usage_core::adapters::zcode::{map_zcode_ai_sdk, ZcodeAiSdkUsage};
 use llm_usage_core::aggregates::{
     observe_cumulative, sum_exclusive_aggregates, upsert_source_aggregate, AggregateScope,
     Coverage, CumulativeOutcome, SourceAggregateInput,
@@ -63,7 +64,7 @@ fn missing_mapping_fields_are_not_assumed_zero() {
         reasoning: None,
         cache_read: 0,
         cache_write: 0,
-        total: 130,
+        total: Some(130),
     });
     assert_eq!(kilo.usage.output_total, None);
     assert_eq!(kilo.quality.output_total, FieldQuality::Unknown);

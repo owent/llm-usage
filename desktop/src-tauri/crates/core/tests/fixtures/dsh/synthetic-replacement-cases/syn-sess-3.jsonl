@@ -1,0 +1,10 @@
+{"type":"step/start"}
+{"type":"assistant/message","usage":{"uncachedInputTokens":120,"outputTokens":12,"cacheReadTokens":20,"cacheWriteTokens":10}}
+{"type":"assistant/message","usage":{"uncachedInputTokens":70,"outputTokens":8,"cacheReadTokens":25,"cacheWriteTokens":5}}
+{"type":"step/start"}
+{"type":"assistant/message","usage":{"uncachedInputTokens":40,"outputTokens":4,"cacheReadTokens":30,"cacheWriteTokens":0}}
+{"type":"assistant/message","usage":{"uncachedInputTokens":50,"outputTokens":4,"cacheReadTokens":30,"cacheWriteTokens":0}}
+{"type":"assistant/message","usage":{"uncachedInputTokens":60,"outputTokens":4,"cacheReadTokens":30,"cacheWriteTokens":0}}
+{"type":"llm/retry-started"}
+{"type":"assistant/message","usage":{"uncachedInputTokens":5,"outputTokens":1,"cacheReadTokens":0,"cacheWriteTokens":0}}
+{"type":"step/start"}

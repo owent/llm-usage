@@ -1,0 +1,41 @@
+{
+ "kind": "openclaw-legacy-archive-synthetic",
+ "synthetic": true,
+ "redaction": "全合成样本；条目字段为文档提及的规范化 usage 形状占位（entry 级 schema 未文档化）",
+ "note": "布局按官方 store 参考：~/.openclaw/agents/<agentId>/sessions/ 为旧归档/迁移输入",
+ "files": [
+  {
+   "path": "agents/main/sessions/sessions.json",
+   "kind": "json",
+   "content": {
+    "synthetic": true,
+    "note": "legacy session-row migration input 占位"
+   }
+  },
+  {
+   "path": "agents/main/sessions/2026-09-20.jsonl",
+   "kind": "jsonl",
+   "records": [
+    {
+     "id": "syn-entry-1",
+     "parentId": null,
+     "role": "assistant",
+     "usage": {
+      "input_tokens": 1200,
+      "output_tokens": 300,
+      "cacheRead": 400
+     }
+    },
+    {
+     "id": "syn-entry-2",
+     "parentId": "syn-entry-1",
+     "role": "assistant",
+     "usage": {
+      "prompt_tokens": 60,
+      "completion_tokens": 15
+     }
+    }
+   ]
+  }
+ ]
+}

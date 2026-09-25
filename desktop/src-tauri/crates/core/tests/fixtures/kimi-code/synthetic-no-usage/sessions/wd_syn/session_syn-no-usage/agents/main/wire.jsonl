@@ -1,0 +1,5 @@
+{"type":"metadata","protocol_version":"1.5","created_at":1767225600000}
+{"type":"llm.request","agentId":"main","kind":"loop","provider":"openai","model":"k3-256k","modelAlias":"synthetic-alias/k3-256k","turnStep":"0.1","messageCount":2,"time":1767225600100}
+{"type":"context.append_loop_event","agentId":"main","event":{"type":"step.begin","uuid":"syn-step-1","turnId":"0","step":1},"time":1767225600101}
+{"type":"context.append_loop_event","agentId":"main","event":{"type":"step.end","uuid":"syn-step-1","turnId":"0","step":1,"messageId":null,"usage":null,"finishReason":"error"},"time":1767225600200}
+{"type":"turn.step.retrying","agentId":"main","turnId":0,"step":1,"stepId":"syn-step-1","failedAttempt":1,"nextAttempt":2,"maxAttempts":10,"errorName":"APIProviderRateLimitError","statusCode":429,"time":1767225600300}

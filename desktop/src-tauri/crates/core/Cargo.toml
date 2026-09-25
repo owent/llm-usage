@@ -7,7 +7,8 @@ rust-version = "1.77.2"
 license = "MIT"
 
 [dependencies]
-rusqlite = { version = "=0.40.2", features = ["bundled"] }
+# backup：SQLite Online Backup API（源库一致暂存副本，kilo 只读合同）。
+rusqlite = { version = "=0.40.2", features = ["bundled", "backup"] }
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = { version = "=1.0.151" }
 jiff = { version = "=0.2.37" }
@@ -15,4 +16,4 @@ jiff = { version = "=0.2.37" }
 [dev-dependencies]
 serde_json = { version = "=1.0.151" }
 jiff = { version = "=0.2.37" }
-rusqlite = { version = "=0.40.2", features = ["bundled"] }
+rusqlite = { version = "=0.40.2", features = ["bundled", "backup"] }

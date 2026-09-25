@@ -1,0 +1,4 @@
+{"type":"metadata","protocol_version":"1.5","created_at":1767225600000}
+{"type":"llm.request","kind":"loop","provider":"kimi","model":"k3-agent","modelAlias":"k3-agent","turnStep":"0.1","messageCount":2,"time":1767225600100}
+{"type":"usage.record","model":"k3-agent","usage":{"inputOther":100,"output":50,"inputCacheRead":400,"inputCacheCreation":0},"usageScope":"turn","time":1767225601000}
+{"type":"context.append_loop_event","event":{"type":"step.end","uuid":"syn-step-1","turnId":"0","step":1,"messageId":"chatcmpl-syn1","usage":{"inputOther":100,"output":50,"inputCacheRead":400,"inputCacheCreation":0},"finishReason":"tool_use"},"time":1767225601100}

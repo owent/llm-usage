@@ -9,7 +9,6 @@
    "type": "model_io",
    "attempt": 1,
    "sessionId": "syn-sess-1",
-   "requestId": "syn-req-1",
    "turnId": "turn-syn-1",
    "traceId": "trace-syn-1",
    "querySource": "main_turn",

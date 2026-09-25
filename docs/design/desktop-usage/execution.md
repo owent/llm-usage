@@ -6,7 +6,7 @@ M2 目录迁移、版本组织与未知版本兼容尝试已于 2026-09-25 实�
 M1a 已于同日完成（[m1a 验证记录](../../validation/desktop-usage/m1a-provenance.md)）；
 M6 主体功能已实现（[m6 验证记录](../../validation/desktop-usage/m6-desktop-core.md)，
 余桌面逐操作验收等）；F3 调研已完成（[i18n 合同](i18n.md)）。
-M3–M5、M7、F2 仍为计划，不以计划更新代替实现或验证记录。
+F2 调研已完成（[价格合同](pricing.md)，费用引擎实施待排期）；M3–M5、M7 仍为计划，不以计划更新代替实现或验证记录。
 开工前的范围决策与准备检查见 [准备结论](implementation-readiness.md)。
 实施阶段提取本机真实 Agent 数据验证已获用户允许，按该合同执行，无需重复确认同一许可。
 

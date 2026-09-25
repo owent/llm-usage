@@ -1,0 +1,9 @@
+{"type":"metadata","protocol_version":"1.5","created_at":1767225600000}
+{"type":"usage.record","agentId":"main","model":"synthetic-alias/k3-256k","usage":{"inputOther":100,"output":50,"inputCacheRead":400,"inputCacheCreation":0},"usageScope":"turn","time":1767225601000}
+{"type":"context.append_loop_event","agentId":"main","event":{"type":"step.end","uuid":"syn-step-1","turnId":"0","step":1,"messageId":"chatcmpl-syn1","usage":{"inputOther":100,"output":50,"inputCacheRead":400,"inputCacheCreation":0},"finishReason":"tool_use"},"time":1767225601100}
+{"type":"full_compaction.begin","time":1767225602000}
+{"type":"llm.request","agentId":"main","kind":"compaction","provider":"openai","model":"k3-256k","modelAlias":"synthetic-alias/k3-256k","turnStep":null,"messageCount":30,"time":1767225602100}
+{"type":"usage.record","agentId":"main","model":"synthetic-alias/k3-256k","usage":{"inputOther":900,"output":70,"inputCacheRead":0,"inputCacheCreation":0},"usageScope":"session","time":1767225603000}
+{"type":"full_compaction.complete","time":1767225603100}
+{"type":"subagent.spawned","subagentId":"agent-9","subagentName":"coder","parentToolCallId":"tool_syn1","parentAgentId":"main","callerAgentId":"main","time":1767225604000}
+{"type":"subagent.completed","subagentId":"agent-9","resultSummary":"synthetic","usage":{"inputOther":123,"output":45,"inputCacheRead":678,"inputCacheCreation":0},"contextTokens":846,"time":1767225605000}

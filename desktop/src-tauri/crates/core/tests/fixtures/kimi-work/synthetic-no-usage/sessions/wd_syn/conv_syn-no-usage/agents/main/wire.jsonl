@@ -1,0 +1,5 @@
+{"type":"metadata","protocol_version":"1.4","created_at":1767225600000}
+{"type":"llm.request","kind":"loop","provider":"kimi","model":"k3-agent","modelAlias":"k3-agent","turnStep":"0.1","messageCount":2,"time":1767225600100}
+{"type":"context.append_loop_event","event":{"type":"step.begin","uuid":"syn-step-1","turnId":"0","step":1},"time":1767225600101}
+{"type":"context.append_loop_event","event":{"type":"step.end","uuid":"syn-step-1","turnId":"0","step":1,"messageId":null,"usage":null,"finishReason":"error"},"time":1767225600200}
+{"type":"tools.register_user_tool","name":"synthetic","time":1767225600250}

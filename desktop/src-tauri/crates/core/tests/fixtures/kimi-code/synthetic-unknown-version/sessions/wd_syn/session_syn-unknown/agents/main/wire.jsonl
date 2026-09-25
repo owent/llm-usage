@@ -1,0 +1,4 @@
+{"type":"metadata","protocol_version":"9.9","created_at":1767225600000}
+{"type":"llm.request","agentId":"main","kind":"loop","provider":"openai","model":"k3-256k","modelAlias":"synthetic-alias/k3-256k","turnStep":"0.1","messageCount":2,"time":1767225600100}
+{"type":"usage.record","agentId":"main","model":"synthetic-alias/k3-256k","usage":{"inputOther":100,"output":50,"inputCacheRead":400,"inputCacheCreation":0},"usageScope":"turn","time":1767225601000}
+{"type":"context.append_loop_event","agentId":"main","event":{"type":"step.end","uuid":"syn-step-1","turnId":"0","step":1,"messageId":"chatcmpl-syn1","usage":{"inputOther":100,"output":50,"inputCacheRead":400,"inputCacheCreation":0},"finishReason":"tool_use"},"time":1767225601100}

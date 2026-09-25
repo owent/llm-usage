@@ -1,0 +1,5 @@
+[
+  {"type":"say","say":"api_req_started","ts":1790208040000,"text":"{\"request\":\"synthetic unfinished request\"}"},
+  {"type":"say","say":"api_req_started","ts":1790208045000,"text":"{\"request\":\"synthetic request 5\",\"tokensIn\":70,\"tokensOut\":7,\"cacheWrites\":1,\"cacheReads\":2,\"cost\":0.001}"},
+  {"type":"say","say":"api_req_started","ts":1790208050000,"text":"{\"request\":\"synthetic another unfinished\"}"}
+]

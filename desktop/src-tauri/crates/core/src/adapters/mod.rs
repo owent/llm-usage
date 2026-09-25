@@ -5,11 +5,22 @@
 //! 按来源与版本固定，不能由 UI 猜测缺失字段。
 
 pub mod claude;
+pub mod cline;
 pub mod codex;
+pub mod dsh;
 pub mod framework;
 pub mod gemini;
+pub mod hermes;
 pub mod jsonl;
+pub mod kilo;
+#[path = "kimi-code/mod.rs"]
+pub mod kimi_code;
+pub mod kimi_wire;
+#[path = "kimi-work/mod.rs"]
+pub mod kimi_work;
 pub mod omp;
+pub mod openclaw;
 pub mod pi;
 pub mod qwen;
 pub mod usage_map;
+pub mod zcode;

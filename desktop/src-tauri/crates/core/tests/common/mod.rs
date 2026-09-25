@@ -434,3 +434,267 @@ pub fn run_omp_with_limits(
 ) -> Vec<SourceRunReport> {
     run_adapter(&OmpAdapter::new(), storage, root, now_ms, limits)
 }
+
+// ---- M4：ZCode 适配器测试辅助 ----
+
+use llm_usage_core::adapters::zcode::ZcodeAdapter;
+
+/// 在临时目录构造 <root>/rollout/<rel> 布局（rel 如 "model-io-sess-1.jsonl"），
+/// 返回配置根（手工根语义：含 rollout 子目录按 cli 根解析）。
+pub fn zcode_root_with_file(dir: &TempDir, rel: &str, contents: &[u8]) -> PathBuf {
+    let path = dir.path().join("rollout").join(rel);
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::write(path, contents).unwrap();
+    dir.path().to_path_buf()
+}
+
+/// zcode 真实/合成 fixture 在仓库内的路径（real-* 为真实脱敏样本，
+/// synthetic-* 为合成缺口场景，均带 _expectations.md 人工核算）。
+pub fn zcode_fixture(name: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures")
+        .join("zcode")
+        .join(name)
+}
+
+pub fn run_zcode(storage: &Storage, root: &Path, now_ms: i64) -> Vec<SourceRunReport> {
+    run_adapter(
+        &ZcodeAdapter::new(),
+        storage,
+        root,
+        now_ms,
+        ScanLimits::default(),
+    )
+}
+
+pub fn run_zcode_with_limits(
+    storage: &Storage,
+    root: &Path,
+    now_ms: i64,
+    limits: ScanLimits,
+) -> Vec<SourceRunReport> {
+    run_adapter(&ZcodeAdapter::new(), storage, root, now_ms, limits)
+}
+
+// ---- M3：Kilo Code CLI 适配器测试辅助 ----
+
+use llm_usage_core::adapters::kilo::KiloAdapter;
+use rusqlite::Connection;
+
+/// kilo 真实/合成 fixture 在仓库内的路径。
+pub fn kilo_fixture(name: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures")
+        .join("kilo")
+        .join(name)
+}
+
+/// serde_json 值 → SQLite 值（投影数字保持整/浮形态；嵌套结构序列化为文本，
+/// 与实读投影里 time_created 持 JSON 字符串等异形一致）。
+fn json_to_sql(value: &serde_json::Value) -> rusqlite::types::Value {
+    use rusqlite::types::Value as Sql;
+    match value {
+        serde_json::Value::Null => Sql::Null,
+        serde_json::Value::Bool(b) => Sql::Integer(i64::from(*b)),
+        serde_json::Value::Number(n) => n
+            .as_i64()
+            .map(Sql::Integer)
+            .or_else(|| n.as_f64().map(Sql::Real))
+            .unwrap_or(Sql::Null),
+        serde_json::Value::String(s) => Sql::Text(s.clone()),
+        other => Sql::Text(other.to_string()),
+    }
+}
+
+/// 按脱敏投影（{schema:{message_ddl,session_ddl}, sessions, messages}）在
+/// <dir>/.local/share/kilo/kilo.db 重建真实 SQLite 库（原始 DDL + 投影值），
+/// 返回可作为手工根传入 discover 的目录（默认 home 形状）。
+/// 投影可以是仓库 fixture 文件解析结果，也可以是测试内联构造的合成 JSON。
+pub fn build_kilo_db(dir: &TempDir, projection: &serde_json::Value) -> PathBuf {
+    let kilo_home = dir.path().join(".local").join("share").join("kilo");
+    std::fs::create_dir_all(&kilo_home).unwrap();
+    let db_path = kilo_home.join("kilo.db");
+    let conn = Connection::open(&db_path).unwrap();
+    // bundled SQLite 默认开外键；投影只重建 message/session 两表，
+    // 显式关闭以允许 FK 指向未重建的 project 表（源库行为不受影响）。
+    conn.execute_batch("PRAGMA foreign_keys = OFF;").unwrap();
+    conn.execute_batch(projection["schema"]["message_ddl"].as_str().unwrap())
+        .unwrap();
+    conn.execute_batch(projection["schema"]["session_ddl"].as_str().unwrap())
+        .unwrap();
+    for session in projection["sessions"].as_array().unwrap() {
+        let obj = session.as_object().unwrap();
+        let columns: Vec<&str> = obj.keys().map(|k| k.as_str()).collect();
+        let placeholders: Vec<String> = (1..=columns.len()).map(|i| format!("?{i}")).collect();
+        let sql = format!(
+            "INSERT INTO session ({}) VALUES ({})",
+            columns.join(", "),
+            placeholders.join(", ")
+        );
+        // 投影里 session.time_created 在源端是异形值（脱敏后为 null / 权限数组
+        // 字符串）；DDL NOT NULL 下 null 以 0 占位（适配器从不读该列）。
+        let values: Vec<rusqlite::types::Value> = obj
+            .iter()
+            .map(|(k, v)| match (k.as_str(), v) {
+                ("time_created", serde_json::Value::Null) => rusqlite::types::Value::Integer(0),
+                (_, v) => json_to_sql(v),
+            })
+            .collect();
+        conn.execute(
+            &sql,
+            rusqlite::params_from_iter(values.iter().map(|v| v as &dyn rusqlite::ToSql)),
+        )
+        .unwrap();
+    }
+    for message in projection["messages"].as_array().unwrap() {
+        conn.execute(
+            "INSERT INTO message (id, session_id, time_created, time_updated, data) \
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![
+                message["id"].as_str().unwrap(),
+                message["session_id"].as_str().unwrap(),
+                message["time_created"].as_i64().unwrap(),
+                message["time_updated"].as_i64().unwrap(),
+                serde_json::to_string(&message["data"]).unwrap(),
+            ],
+        )
+        .unwrap();
+    }
+    drop(conn);
+    dir.path().to_path_buf()
+}
+
+/// 读取仓库内脱敏 fixture 并重建为临时目录中的 kilo.db。
+pub fn build_kilo_db_from_fixture(dir: &TempDir, sanitized_name: &str) -> PathBuf {
+    let text = std::fs::read_to_string(kilo_fixture(sanitized_name)).unwrap();
+    let projection: serde_json::Value = serde_json::from_str(&text).unwrap();
+    build_kilo_db(dir, &projection)
+}
+
+/// 真实脱敏 fixture 的原始 DDL（合成库复用同形 schema）。
+pub const KILO_MESSAGE_DDL: &str = "CREATE TABLE `message` ( `id` text PRIMARY KEY, \
+`session_id` text NOT NULL, `time_created` integer NOT NULL, `time_updated` integer NOT NULL, \
+`data` text NOT NULL, CONSTRAINT `fk_message_session_id_session_id_fk` FOREIGN KEY \
+(`session_id`) REFERENCES `session`(`id`) ON DELETE CASCADE )";
+pub const KILO_SESSION_DDL: &str = "CREATE TABLE `session` ( `id` text PRIMARY KEY, \
+`project_id` text NOT NULL, `parent_id` text, `slug` text NOT NULL, `directory` text NOT NULL, \
+`title` text NOT NULL, `version` text NOT NULL, `share_url` text, `summary_additions` integer, \
+`summary_deletions` integer, `summary_files` integer, `summary_diffs` text, `revert` text, \
+`permission` text, `time_created` integer NOT NULL, `time_updated` integer NOT NULL, \
+`time_compacting` integer, `time_archived` integer, `workspace_id` text, `path` text, \
+`agent` text, `model` text, `cost` real DEFAULT 0 NOT NULL, `tokens_input` integer DEFAULT 0 \
+NOT NULL, `tokens_output` integer DEFAULT 0 NOT NULL, `tokens_reasoning` integer DEFAULT 0 \
+NOT NULL, `tokens_cache_read` integer DEFAULT 0 NOT NULL, `tokens_cache_write` integer \
+DEFAULT 0 NOT NULL, `metadata` text, CONSTRAINT `fk_session_project_id_project_id_fk` \
+FOREIGN KEY (`project_id`) REFERENCES `project`(`id`) ON DELETE CASCADE )";
+
+/// 用测试提供的 sessions/messages 构造合成投影（schema 同真实 fixture DDL）。
+pub fn synthetic_kilo_projection(
+    sessions: serde_json::Value,
+    messages: serde_json::Value,
+) -> serde_json::Value {
+    serde_json::json!({
+        "synthetic": true,
+        "schema": {
+            "message_ddl": KILO_MESSAGE_DDL,
+            "session_ddl": KILO_SESSION_DDL,
+        },
+        "sessions": sessions,
+        "messages": messages,
+    })
+}
+
+pub fn run_kilo(storage: &Storage, root: &Path, now_ms: i64) -> Vec<SourceRunReport> {
+    run_adapter(
+        &KiloAdapter::new(),
+        storage,
+        root,
+        now_ms,
+        ScanLimits::default(),
+    )
+}
+
+/// 对指定 kilo.db 路径做一次直接探测（不经 discover）。
+pub fn kilo_detect(db_path: &Path) -> llm_usage_core::adapters::framework::DetectOutcome {
+    use llm_usage_core::adapters::framework::SourceAdapter;
+    KiloAdapter::new().detect(db_path).unwrap()
+}
+
+// ---- M4：Kimi Code / Kimi Work 适配器测试辅助 ----
+
+use llm_usage_core::adapters::kimi_code::KimiCodeAdapter;
+use llm_usage_core::adapters::kimi_work::KimiWorkAdapter;
+
+/// 在临时目录构造 <root>/sessions/<wd>/<session>/agents/<agent>/wire.jsonl 布局
+/// （rel 如 "wd_syn/session_syn-1/agents/main/wire.jsonl"；kimi-work 传
+/// "wd_syn/conv_syn-1/agents/main/wire.jsonl"），返回配置根。
+pub fn kimi_root_with_file(dir: &TempDir, rel: &str, contents: &[u8]) -> PathBuf {
+    let path = dir.path().join("sessions").join(rel);
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::write(path, contents).unwrap();
+    dir.path().to_path_buf()
+}
+
+/// 把 M4 脱敏投影（{records:[{line, ...条目}]}）还原为 wire JSONL 字节流。
+/// 重建时保持提取器保留的行序（原始行号不要求连续，JSONL 语义不受影响）。
+pub fn reconstruct_kimi_wire(sanitized_path: &Path) -> Vec<u8> {
+    reconstruct_jsonl_projection(sanitized_path)
+}
+
+/// kimi-code 真实/合成 fixture 在仓库内的路径。
+pub fn kimi_code_fixture(name: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures")
+        .join("kimi-code")
+        .join(name)
+}
+
+/// kimi-work 真实/合成 fixture 在仓库内的路径。
+pub fn kimi_work_fixture(name: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures")
+        .join("kimi-work")
+        .join(name)
+}
+
+pub fn run_kimi_code(storage: &Storage, root: &Path, now_ms: i64) -> Vec<SourceRunReport> {
+    run_adapter(
+        &KimiCodeAdapter::new(),
+        storage,
+        root,
+        now_ms,
+        ScanLimits::default(),
+    )
+}
+
+pub fn run_kimi_code_with_limits(
+    storage: &Storage,
+    root: &Path,
+    now_ms: i64,
+    limits: ScanLimits,
+) -> Vec<SourceRunReport> {
+    run_adapter(&KimiCodeAdapter::new(), storage, root, now_ms, limits)
+}
+
+pub fn run_kimi_work(storage: &Storage, root: &Path, now_ms: i64) -> Vec<SourceRunReport> {
+    run_adapter(
+        &KimiWorkAdapter::new(),
+        storage,
+        root,
+        now_ms,
+        ScanLimits::default(),
+    )
+}
+
+pub fn run_kimi_work_with_limits(
+    storage: &Storage,
+    root: &Path,
+    now_ms: i64,
+    limits: ScanLimits,
+) -> Vec<SourceRunReport> {
+    run_adapter(&KimiWorkAdapter::new(), storage, root, now_ms, limits)
+}

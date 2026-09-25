@@ -1,0 +1,16 @@
+{
+ "kind": "openclaw-runtime-store-synthetic",
+ "synthetic": true,
+ "redaction": "全合成样本；表名为占位发明（文档未给出表级 schema），仅验证发现形状与 fail-closed",
+ "note": "布局按官方 store 参考：~/.openclaw/agents/<agentId>/agent/openclaw-agent.sqlite",
+ "files": [
+  {
+   "path": "agents/main/agent/openclaw-agent.sqlite",
+   "kind": "sqlite",
+   "placeholder_tables": [
+    "CREATE TABLE synthetic_table_rows (k TEXT PRIMARY KEY, v TEXT)",
+    "CREATE TABLE synthetic_table_events (id INTEGER PRIMARY KEY, parent_id INTEGER, payload TEXT)"
+   ]
+  }
+ ]
+}

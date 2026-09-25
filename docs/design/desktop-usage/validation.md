@@ -1,7 +1,8 @@
 # 测试与验收计划
 
 本文是验收清单，实际进度以 [Plan.md](../../../Plan.md) 和 [验证记录](../../validation/desktop-usage/) 为准。
-新增 V29/V31 尚未执行；V31 的合同与验收要点由 F3 调研交付（调研已完成，见
+新增 V29/V31 尚未执行；V29 的渠道证据、价格合同和人工期望样本设计由 F2 交付
+（[价格合同](pricing.md)），V31 的合同与验收要点由 F3 调研交付（调研已完成，见
 [i18n 合同](i18n.md)）。设计期文档验证另见 [调研记录](research.md#verification)。
 V17/V30 的未知版本回退与目录迁移已随 [m2d](../../validation/desktop-usage/m2d-layout-versions.md)
 实施并通过回归；V28 已随 [m1a](../../validation/desktop-usage/m1a-provenance.md)

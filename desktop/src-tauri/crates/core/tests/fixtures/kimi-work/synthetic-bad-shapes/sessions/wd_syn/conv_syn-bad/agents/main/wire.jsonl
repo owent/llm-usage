@@ -1,0 +1,5 @@
+{"type":"metadata","protocol_version":"1.4","created_at":1767225600000}
+{"type":"usage.record","model":"k3-agent","usage":{"inputOther":-5,"output":50,"inputCacheRead":400,"inputCacheCreation":0},"usageScope":"turn","time":1767225601000}
+{"type":"usage.record","model":"k3-agent","usage":{"inputOther":100,"output":50,"inputCacheRead":400,"inputCacheCreation":0},"usageScope":"lifetime","time":1767225602000}
+{"type":"usage.record","model":"k3-agent","usage":{"inputOther":200,"output":60,"inputCacheRead":800,"inputCacheCreation":10},"usageScope":"turn","time":1767225603000}
+{"type":"usage.record","model":"k3-agent","usage":{"inputOther":300,"output":70,"inputCacheRead":900,"inputCacheCreation":0},"usageScope":"turn","time":1767225600}

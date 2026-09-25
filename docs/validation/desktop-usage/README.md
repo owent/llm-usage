@@ -14,6 +14,9 @@ M2 的 Codex 适配器验收见 [m2a-codex.md](m2a-codex.md)；pi/oh-my-pi/Claud
 五源恢复验收见 [m2bc-resumed.md](m2bc-resumed.md)（中断经过见
 [m2bc-suspended.md](m2bc-suspended.md)）；适配器目录化迁移、未知版本兼容尝试与
 Codex 逐版本 fixture 见 [m2d-layout-versions.md](m2d-layout-versions.md)。
+M3/M4 的 kilo/zcode/kimi 双源适配器见 [m34-kilo-zcode-kimi.md](m34-kilo-zcode-kimi.md)；
+cline/dsh/hermes/openclaw 文档级证据适配器见 [m3-doclevel-cmdh.md](m3-doclevel-cmdh.md)。
+M7 部分的 release 构建与包体证据见 [m7-build-partial.md](m7-build-partial.md)。
 M1a 来源身份与存储分区见 [m1a-provenance.md](m1a-provenance.md)；
 M6 主体功能（界面/刷新/调度/导出/headless/i18n）见 [m6-desktop-core.md](m6-desktop-core.md)，
 其中记录了 Roaming 占位文件事故与 kilo/zcode 适配器中断状态。

@@ -2,7 +2,12 @@
 //! 缺失、零、异常负值、溢出必须可区分；矛盾进诊断，不用 max(0,…) 隐藏。
 
 use llm_usage_core::adapters::codex::{map_codex, CodexUsage};
+use llm_usage_core::adapters::kilo::{map_kilo, KiloUsage};
+use llm_usage_core::adapters::kimi_wire::{map_kimi_wire, KimiWireUsage};
 use llm_usage_core::adapters::usage_map::*;
+use llm_usage_core::adapters::zcode::{
+    map_zcode_ai_sdk, map_zcode_anthropic, ZcodeAiSdkUsage, ZcodeAnthropicUsage,
+};
 use llm_usage_core::domain::{FieldQuality, TokenUsage, MAX_TOKEN_VALUE};
 use llm_usage_core::metrics::{input_total, total_tokens};
 
@@ -148,7 +153,7 @@ fn v01_kilo_all_mutually_exclusive_reasoning_not_in_output() {
         reasoning: Some(40),
         cache_read: 800,
         cache_write: 100,
-        total: 1100,
+        total: Some(1100),
     });
     assert_eq!(m.usage.input_total, Some(1000));
     // canonical output_total 并入互斥的 reasoning。
@@ -170,7 +175,7 @@ fn v01_missing_zero_negative_overflow_are_distinct() {
         reasoning: None,
         cache_read: 0,
         cache_write: 0,
-        total: 15,
+        total: Some(15),
     });
     assert_eq!(m.usage.output_reasoning, None);
     assert_eq!(m.quality.output_reasoning, FieldQuality::Unknown);

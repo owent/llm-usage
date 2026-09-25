@@ -1,0 +1,6 @@
+[
+  {"type":"say","say":"api_req_started","ts":1790208000000,"text":"{\"request\":\"synthetic request 1\",\"tokensIn\":100,\"tokensOut\":20,\"cacheWrites\":10,\"cacheReads\":40,\"cost\":0.005}"},
+  {"type":"say","say":"compaction","ts":1790208001000,"text":"{\"status\":\"completed\",\"tokensBefore\":1200,\"tokensAfter\":600}"},
+  {"type":"say","say":"api_req_started","ts":1790208005000,"text":"{\"request\":\"synthetic request 2\",\"tokensIn\":200,\"tokensOut\":30,\"cacheWrites\":50,\"cacheReads\":0,\"cost\":0.010}"},
+  {"type":"say","say":"api_req_started","ts":1790208009000,"text":"{\"request\":\"synthetic request 3\",\"tokensIn\":50,\"tokensOut\":5,\"cacheWrites\":0,\"cacheReads\":25,\"cost\":0.002}"}
+]

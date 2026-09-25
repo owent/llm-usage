@@ -1,0 +1,34 @@
+//! kimi-work 探测与版本分派：有界读取首行 metadata 头（家族共享指纹），
+//! 按 [`super::versions`] 注册表（锚点 1.4）选择格式实现。
+//!
+//! 合同（architecture.md#unknown-version，V17/V30）：
+//! - 首行不是 JSON / 不是 metadata 头 ⇒ 未知格式，fail closed；
+//! - protocol_version 已收录（"1.4"）⇒ KnownVersion；
+//! - 未收录（含 "1.5"——kimi-code 的锚点在本注册表不算已验证）/缺失 ⇒
+//!   LatestFallback（兼容尝试带标记）。
+
+use crate::adapters::framework::DetectOutcome;
+use crate::adapters::kimi_wire::{read_metadata_head, HeadProbe};
+use crate::error::CoreError;
+use std::path::Path;
+
+use super::versions;
+
+pub const KIMI_WORK_FORMAT: &str = "kimi-wire-jsonl";
+
+/// 探测一个 wire.jsonl 并按注册表分派。wire 指纹与 kimi-code 同族（首行
+/// metadata 头）；产品身份由发现根决定，注册表锚点独立（A12/A13）。
+pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
+    match read_metadata_head(path)? {
+        HeadProbe::Pending => Ok(DetectOutcome::Pending),
+        HeadProbe::NotMetadata(reason) => Ok(DetectOutcome::UnknownFormat { reason }),
+        HeadProbe::Metadata(head) => {
+            let selection = versions::select(head.protocol_version.as_deref());
+            Ok(DetectOutcome::Supported {
+                format: KIMI_WORK_FORMAT.to_string(),
+                format_version: head.protocol_version,
+                basis: selection.basis,
+            })
+        }
+    }
+}

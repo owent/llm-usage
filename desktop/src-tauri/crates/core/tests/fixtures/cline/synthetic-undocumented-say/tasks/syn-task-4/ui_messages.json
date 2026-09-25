@@ -1,0 +1,4 @@
+[
+  {"type":"say","say":"api_req_started","ts":1790208060000,"text":"{\"request\":\"synthetic request 6\",\"tokensIn\":10,\"tokensOut\":1,\"cacheWrites\":0,\"cacheReads\":0}"},
+  {"type":"say","say":"text","ts":1790208061000,"text":"synthetic plain text say message"}
+]

@@ -1,0 +1,2044 @@
+{
+ "fixture": "conv-main",
+ "format": "kimi-work",
+ "generatedAt": "2026-09-25T12:39:21.744Z",
+ "sourceFileIdentity": "anonymized",
+ "protocolVersion": "1.4",
+ "totalLines": 363,
+ "keptLines": 115,
+ "tailLinesExtracted": 115,
+ "parseErrors": 0,
+ "droppedByType": {
+  "config.update": 10,
+  "context.append_loop_event": 175,
+  "context.append_message": 7,
+  "llm.tools_snapshot": 1,
+  "permission.set_mode": 6,
+  "tools.register_user_tool": 39,
+  "tools.set_active_tools": 7,
+  "turn.prompt": 3
+ },
+ "anonIds": 76,
+ "records": [
+  {
+   "line": 1,
+   "type": "metadata",
+   "protocol_version": "1.4",
+   "created_at": 1789304754720
+  },
+  {
+   "line": 29,
+   "type": "llm.request",
+   "kind": "loop",
+   "provider": "kimi",
+   "model": "k28-agent-preview",
+   "modelAlias": "k28-agent-preview",
+   "thinkingEffort": "high",
+   "thinkingKeep": "all",
+   "maxTokens": 262144,
+   "toolSelect": true,
+   "systemPromptHash": "REDACTED",
+   "toolsHash": "REDACTED",
+   "messageCount": 2,
+   "turnStep": "0.1",
+   "time": 1789304755216
+  },
+  {
+   "line": 33,
+   "type": "context.append_loop_event",
+   "event": {
+    "type": "step.end",
+    "uuid": "anon-1",
+    "turnId": "0",
+    "step": 1,
+    "usage": {
+     "inputOther": 6130,
+     "output": 228,
+     "inputCacheRead": 13056,
+     "inputCacheCreation": 0
+    },
+    "finishReason": "tool_use",
+    "llmFirstTokenLatencyMs": 3430,
+    "llmStreamDurationMs": 3838,
+    "llmRequestBuildMs": 1,
+    "llmClientConsumeMs": 1,
+    "messageId": "anon-2"
+   },
+   "time": 1789304762761
+  },
+  {
+   "line": 34,
+   "type": "usage.record",
+   "model": "k28-agent-preview",
+   "usage": {
+    "inputOther": 6130,
+    "output": 228,
+    "inputCacheRead": 13056,
+    "inputCacheCreation": 0
+   },
+   "usageScope": "turn",
+   "time": 1789304762761
+  },
+  {
+   "line": 36,
+   "type": "llm.request",
+   "kind": "loop",
+   "provider": "kimi",
+   "model": "k28-agent-preview",
+   "modelAlias": "k28-agent-preview",
+   "thinkingEffort": "high",
+   "thinkingKeep": "all",
+   "maxTokens": 242730,
+   "toolSelect": true,
+   "systemPromptHash": "REDACTED",
+   "toolsHash": "REDACTED",
+   "messageCount": 4,
+   "turnStep": "0.2",
+   "time": 1789304762763
+  },
+  {
+   "line": 40,
+   "type": "context.append_loop_event",
+   "event": {
+    "type": "step.end",
+    "uuid": "anon-3",
+    "turnId": "0",
+    "step": 2,
+    "usage": {
+     "inputOther": 1344,
+     "output": 274,
+     "inputCacheRead": 18944,
+     "inputCacheCreation": 0
+    },
+    "finishReason": "tool_use",
+    "llmFirstTokenLatencyMs": 5347,
+    "llmStreamDurationMs": 5366,
+    "llmRequestBuildMs": 1,
+    "llmClientConsumeMs": 2,
+    "messageId": "anon-4"
+   },
+   "time": 1789304773601
+  },
+  {
+   "line": 41,
+   "type": "usage.record",
+   "model": "k28-agent-preview",
+   "usage": {
+    "inputOther": 1344,
+    "output": 274,
+    "inputCacheRead": 18944,
+    "inputCacheCreation": 0
+   },
+   "usageScope": "turn",
+   "time": 1789304773602
+  },
+  {
+   "line": 43,
+   "type": "llm.request",
+   "kind": "loop",
+   "provider": "kimi",
+   "model": "k28-agent-preview",
+   "modelAlias": "k28-agent-preview",
+   "thinkingEffort": "high",
+   "thinkingKeep": "all",
+   "maxTokens": 241582,
+   "toolSelect": true,
+   "systemPromptHash": "REDACTED",
+   "toolsHash": "REDACTED",
+   "messageCount": 6,
+   "turnStep": "0.3",
+   "time": 1789304773603
+  },
+  {
+   "line": 47,
+   "type": "context.append_loop_event",
+   "event": {
+    "type": "step.end",
+    "uuid": "anon-5",
+    "turnId": "0",
+    "step": 3,
+    "usage": {
+     "inputOther": 1572,
+     "output": 215,
+     "inputCacheRead": 20224,
+     "inputCacheCreation": 0
+    },
+    "finishReason": "tool_use",
+    "llmFirstTokenLatencyMs": 2663,
+    "llmStreamDurationMs": 3617,
+    "llmRequestBuildMs": 1,
+    "llmClientConsumeMs": 0,
+    "messageId": "anon-6"
+   },
+   "time": 1789304780061
+  },
+  {
+   "line": 48,
+   "type": "usage.record",
+   "model": "k28-agent-preview",
+   "usage": {
+    "inputOther": 1572,
+    "output": 215,
+    "inputCacheRead": 20224,
+    "inputCacheCreation": 0
+   },
+   "usageScope": "turn",
+   "time": 1789304780061
+  },
+  {
+   "line": 50,
+   "type": "llm.request",
+   "kind": "loop",
+   "provider": "kimi",
+   "model": "k28-agent-preview",
+   "modelAlias": "k28-agent-preview",
+   "thinkingEffort": "high",
+   "thinkingKeep": "all",
+   "maxTokens": 240133,
+   "toolSelect": true,
+   "systemPromptHash": "REDACTED",
+   "toolsHash": "REDACTED",
+   "messageCount": 8,
+   "turnStep": "0.4",
+   "time": 1789304780063
+  },
+  {
+   "line": 55,
+   "type": "context.append_loop_event",
+   "event": {
+    "type": "step.end",
+    "uuid": "anon-7",
+    "turnId": "0",
+    "step": 4,
+    "usage": {
+     "inputOther": 920,
+     "output": 1220,
+     "inputCacheRead": 21760,
+     "inputCacheCreation": 0
+    },
+    "finishReason": "tool_use",
+    "llmFirstTokenLatencyMs": 2715,
+    "llmStreamDurationMs": 29017,
+    "llmRequestBuildMs": 0,
+    "llmClientConsumeMs": 7,
+    "messageId": "anon-8"
+   },
+   "time": 1789304811898
+  },
+  {
+   "line": 56,
+   "type": "usage.record",
+   "model": "k28-agent-preview",
+   "usage": {
+    "inputOther": 920,
+    "output": 1220,
+    "inputCacheRead": 21760,
+    "inputCacheCreation": 0
+   },
+   "usageScope": "turn",
+   "time": 1789304811898
+  },
+  {
+   "line": 58,
+   "type": "llm.request",
+   "kind": "loop",
+   "provider": "kimi",
+   "model": "k28-agent-preview",
+   "modelAlias": "k28-agent-preview",
+   "thinkingEffort": "high",
+   "thinkingKeep": "all",
+   "maxTokens": 238244,
+   "toolSelect": true,
+   "systemPromptHash": "REDACTED",
+   "toolsHash": "REDACTED",
+   "messageCount": 10,
+   "turnStep": "0.5",
+   "time": 1789304811899
+  },
+  {
+   "line": 62,
+   "type": "context.append_loop_event",
+   "event": {
+    "type": "step.end",
+    "uuid": "anon-9",
+    "turnId": "0",
+    "step": 5,
+    "usage": {
+     "inputOther": 1458,
+     "output": 154,
+     "inputCacheRead": 22528,
+     "inputCacheCreation": 0
+    },
+    "finishReason": "tool_use",
+    "llmFirstTokenLatencyMs": 3375,
+    "llmStreamDurationMs": 1031,
+    "llmRequestBuildMs": 1,
+    "llmClientConsumeMs": 1,
+    "messageId": "anon-10"
+   },
+   "time": 1789304816390
+  },
+  {
+   "line": 63,
+   "type": "usage.record",
+   "model": "k28-agent-preview",
+   "usage": {
+    "inputOther": 1458,
+    "output": 154,
+    "inputCacheRead": 22528,
+    "inputCacheCreation": 0
+   },
+   "usageScope": "turn",
+   "time": 1789304816390
+  },
+  {
+   "line": 65,
+   "type": "llm.request",
+   "kind": "loop",
+   "provider": "kimi",
+   "model": "k28-agent-preview",
+   "modelAlias": "k28-agent-preview",
+   "thinkingEffort": "high",
+   "thinkingKeep": "all",
+   "maxTokens": 238004,
+   "toolSelect": true,
+   "systemPromptHash": "REDACTED",
+   "toolsHash": "REDACTED",
+   "messageCount": 12,
+   "turnStep": "0.6",
+   "time": 1789304816391
+  },
+  {
+   "line": 69,
+   "type": "context.append_loop_event",
+   "event": {
+    "type": "step.end",
+    "uuid": "anon-11",
+    "turnId": "0",
+    "step": 6,
+    "usage": {
+     "inputOther": 431,
+     "output": 102,
+     "inputCacheRead": 23808,
+     "inputCacheCreation": 0
+    },
+    "finishReason": "tool_use",
+    "llmFirstTokenLatencyMs": 2997,
+    "llmStreamDurationMs": 49,
+    "llmRequestBuildMs": 0,
+    "llmClientConsumeMs": 0,
+    "messageId": "anon-12"
+   },
+   "time": 1789304819524
+  },
+  {
+   "line": 70,
+   "type": "usage.record",
+   "model": "k28-agent-preview",
+   "usage": {
+    "inputOther": 431,
+    "output": 102,
+    "inputCacheRead": 23808,
+    "inputCacheCreation": 0
+   },
+   "usageScope": "turn",
+   "time": 1789304819524
+  },
+  {
+   "line": 72,
+   "type": "llm.request",
+   "kind": "loop",
+   "provider": "kimi",
+   "model": "k28-agent-preview",
+   "modelAlias": "k28-agent-preview",
+   "thinkingEffort": "high",
+   "thinkingKeep": "all",
+   "maxTokens": 237803,
+   "toolSelect": true,
+   "systemPromptHash": "REDACTED",
+   "toolsHash": "REDACTED",
+   "messageCount": 14,
+   "turnStep": "0.7",
+   "time": 1789304819525
+  },
+  {
+   "line": 76,
+   "type": "context.append_loop_event",
+   "event": {
+    "type": "step.end",
+    "uuid": "anon-13",
+    "turnId": "0",
+    "step": 7,
+    "usage": {
+     "inputOther": 363,
+     "output": 176,
+     "inputCacheRead": 24064,
+     "inputCacheCreation": 0
+    },
+    "finishReason": "tool_use",
+    "llmFirstTokenLatencyMs": 3466,
+    "llmStreamDurationMs": 1510,
+    "llmRequestBuildMs": 1,
+    "llmClientConsumeMs": 1,
+    "messageId": "anon-14"
+   },
+   "time": 1789304824571
+  },
+  {
+   "line": 77,
+   "type": "usage.record",
+   "model": "k28-agent-preview",
+   "usage": {
+    "inputOther": 363,
+    "output": 176,
+    "inputCacheRead": 24064,
+    "inputCacheCreation": 0
+   },
+   "usageScope": "turn",
+   "time": 1789304824571
+  },
+  {
+   "line": 79,
+   "type": "llm.request",
+   "kind": "loop",
+   "provider": "kimi",
+   "model": "k28-agent-preview",
+   "modelAlias": "k28-agent-preview",
+   "thinkingEffort": "high",
+   "thinkingKeep": "all",
+   "maxTokens": 237541,
+   "toolSelect": true,
+   "systemPromptHash": "REDACTED",
+   "toolsHash": "REDACTED",
+   "messageCount": 16,
+   "turnStep": "0.8",
+   "time": 1789304824572
+  },
+  {
+   "line": 83,
+   "type": "context.append_loop_event",
+   "event": {
+    "type": "step.end",
+    "uuid": "anon-15",
+    "turnId": "0",
+    "step": 8,
+    "usage": {
+     "inputOther": 406,
+     "output": 194,
+     "inputCacheRead": 24320,
+     "inputCacheCreation": 0
+    },
+    "finishReason": "tool_use",
+    "llmFirstTokenLatencyMs": 8580,
+    "llmStreamDurationMs": 2023,
+    "llmRequestBuildMs": 1,
+    "llmClientConsumeMs": 0,
+    "messageId": "anon-16"
+   },
+   "time": 1789304835262
+  },
+  {
+   "line": 84,
+   "type": "usage.record",
+   "model": "k28-agent-preview",
+   "usage": {
+    "inputOther": 406,
+    "output": 194,
+    "inputCacheRead": 24320,
+    "inputCacheCreation": 0
+   },
+   "usageScope": "turn",
+   "time": 1789304835262
+  },
+  {
+   "line": 86,
+   "type": "llm.request",
+   "kind": "loop",
+   "provider": "kimi",
+   "model": "k28-agent-preview",
+   "modelAlias": "k28-agent-preview",
+   "thinkingEffort": "high",
+   "thinkingKeep": "all",
+   "maxTokens": 237224,
+   "toolSelect": true,
+   "systemPromptHash": "REDACTED",
+   "toolsHash": "REDACTED",
+   "messageCount": 18,
+   "turnStep": "0.9",
+   "time": 1789304835263
+  },
+  {
+   "line": 91,
+   "type": "context.append_loop_event",
+   "event": {
+    "type": "step.end",
+    "uuid": "anon-17",
+    "turnId": "0",
+    "step": 9,
+    "usage": {
+     "inputOther": 449,
+     "output": 973,
+     "inputCacheRead": 24576,
+     "inputCacheCreation": 0
+    },
+    "finishReason": "tool_use",
+    "llmFirstTokenLatencyMs": 2615,
+    "llmStreamDurationMs": 21309,
+    "llmRequestBuildMs": 0,
+    "llmClientConsumeMs": 3,
+    "messageId": "anon-18"
+   },
+   "time": 1789304859271
+  },
+  {
+   "line": 92,
+   "type": "usage.record",
+   "model": "k28-agent-preview",
+   "usage": {
+    "inputOther": 449,
+    "output": 973,
+    "inputCacheRead": 24576,
+    "inputCacheCreation": 0
+   },
+   "usageScope": "turn",
+   "time": 1789304859272
+  },
+  {
+   "line": 94,
+   "type": "llm.request",
+   "kind": "loop",
+   "provider": "kimi",
+   "model": "k28-agent-preview",
+   "modelAlias": "k28-agent-preview",
+   "thinkingEffort": "high",
+   "thinkingKeep": "all",
+   "maxTokens": 236146,
+   "toolSelect": true,
+   "systemPromptHash": "REDACTED",
+   "toolsHash": "REDACTED",
+   "messageCount": 20,
+   "turnStep": "0.10",
+   "time": 1789304859273
+  },
+  {
+   "line": 98,
+   "type": "context.append_loop_event",
+   "event": {
+    "type": "step.end",
+    "uuid": "anon-19",
+    "turnId": "0",
+    "step": 10,
+    "usage": {
+     "inputOther": 1197,
+     "output": 334,
+     "inputCacheRead": 24832,
+     "inputCacheCreation": 0
+    },
+    "finishReason": "tool_use",
+    "llmFirstTokenLatencyMs": 3079,
+    "llmStreamDurationMs": 6763,
+    "llmRequestBuildMs": 0,
+    "llmClientConsumeMs": 0,
+    "messageId": "anon-20"
+   },
+   "time": 1789304869232
+  },
+  {
+   "line": 99,
+   "type": "usage.record",
+   "model": "k28-agent-preview",
+   "usage": {
+    "inputOther": 1197,
+    "output": 334,
+    "inputCacheRead": 24832,
+    "inputCacheCreation": 0
+   },
+   "usageScope": "turn",
+   "time": 1789304869232
+  },
+  {
+   "line": 102,
+   "type": "llm.request",
+   "kind": "loop",
+   "provider": "kimi",
+   "model": "k28-agent-preview",
+   "modelAlias": "k28-agent-preview",
+   "thinkingEffort": "high",
+   "thinkingKeep": "all",
+   "maxTokens": 235781,
+   "toolSelect": true,
+   "systemPromptHash": "REDACTED",
+   "toolsHash": "REDACTED",
+   "messageCount": 23,
+   "turnStep": "0.11",
+   "time": 1789304869234
+  },
+  {
+   "line": 107,
+   "type": "context.append_loop_event",
+   "event": {
+    "type": "step.end",
+    "uuid": "anon-21",
+    "turnId": "0",
+    "step": 11,
+    "usage": {
+     "inputOther": 848,
+     "output": 864,
+     "inputCacheRead": 25856,
+     "inputCacheCreation": 0
+    },
+    "finishReason": "tool_use",
+    "llmFirstTokenLatencyMs": 2576,
+    "llmStreamDurationMs": 16415,
+    "llmRequestBuildMs": 0,
+    "llmClientConsumeMs": 7,
+    "messageId": "anon-22"
+   },
+   "time": 1789304889128
+  },
+  {
+   "line": 108,
+   "type": "usage.record",
+   "model": "k28-agent-preview",
+   "usage": {
+    "inputOther": 848,
+    "output": 864,
+    "inputCacheRead": 25856,
+    "inputCacheCreation": 0
+   },
+   "usageScope": "turn",
+   "time": 1789304889128
+  },
+  {
+   "line": 110,
+   "type": "llm.request",
+   "kind": "loop",
+   "provider": "kimi",
+   "model": "k28-agent-preview",
+   "modelAlias": "k28-agent-preview",
+   "thinkingEffort": "high",
+   "thinkingKeep": "all",
+   "maxTokens": 234576,
+   "toolSelect": true,
+   "systemPromptHash": "REDACTED",
+   "toolsHash": "REDACTED",
+   "messageCount": 25,
+   "turnStep": "0.12",
+   "time": 1789304889129
+  },
+  {
+   "line": 113,
+   "type": "context.append_loop_event",
+   "event": {
+    "type": "step.end",
+    "uuid": "anon-23",
+    "turnId": "0",
+    "step": 12,
+    "usage": {
+     "inputOther": 1222,
+     "output": 604,
+     "inputCacheRead": 26624,
+     "inputCacheCreation": 0
+    },
+    "finishReason": "end_turn",
+    "llmFirstTokenLatencyMs": 2558,
+    "llmStreamDurationMs": 14983,
+    "llmRequestBuildMs": 0,
+    "llmClientConsumeMs": 1,
+    "messageId": "anon-24"
+   },
+   "time": 1789304906670
+  },
+  {
+   "line": 114,
+   "type": "usage.record",
+   "model": "k28-agent-preview",
+   "usage": {
+    "inputOther": 1222,
+    "output": 604,
+    "inputCacheRead": 26624,
+    "inputCacheCreation": 0
+   },
+   "usageScope": "turn",
+   "time": 1789304906670
+  },
+  {
+   "line": 138,
+   "type": "llm.request",
+   "kind": "loop",
+   "provider": "kimi",
+   "model": "k28-agent-preview",
+   "modelAlias": "k28-agent-preview",
+   "thinkingEffort": "high",
+   "thinkingKeep": "all",
+   "maxTokens": 233694,
+   "toolSelect": true,
+   "systemPromptHash": "REDACTED",
+   "toolsHash": "REDACTED",
+   "messageCount": 27,
+   "turnStep": "1.1",
+   "time": 1789305189029
+  },
+  {
+   "line": 142,
+   "type": "context.append_loop_event",
+   "event": {
+    "type": "step.end",
+    "uuid": "anon-25",
+    "turnId": "1",
+    "step": 1,
+    "usage": {
+     "inputOther": 866,
+     "output": 382,
+     "inputCacheRead": 27648,
+     "inputCacheCreation": 0
+    },
+    "finishReason": "tool_use",
+    "llmFirstTokenLatencyMs": 2857,
+    "llmStreamDurationMs": 8601,
+    "llmRequestBuildMs": 0,
+    "llmClientConsumeMs": 2,
+    "messageId": "anon-26"
+   },
+   "time": 1789305200596
+  },
+  {
+   "line": 143,
+   "type": "usage.record",
+   "model": "k28-agent-preview",
+   "usage": {
+    "inputOther": 866,
+    "output": 382,
+    "inputCacheRead": 27648,
+    "inputCacheCreation": 0
+   },
+   "usageScope": "turn",
+   "time": 1789305200596
+  },
+  {
+   "line": 145,
+   "type": "llm.request",
+   "kind": "loop",
+   "provider": "kimi",
+   "model": "k28-agent-preview",
+   "modelAlias": "k28-agent-preview",
+   "thinkingEffort": "high",
+   "thinkingKeep": "all",
+   "maxTokens": 233248,
+   "toolSelect": true,
+   "systemPromptHash": "REDACTED",
+   "toolsHash": "REDACTED",
+   "messageCount": 29,
+   "turnStep": "1.2",
+   "time": 1789305200597
+  },
+  {
+   "line": 149,
+   "type": "context.append_loop_event",
+   "event": {
+    "type": "step.end",
+    "uuid": "anon-27",
+    "turnId": "1",
+    "step": 2,
+    "usage": {
+     "inputOther": 534,
+     "output": 150,
+     "inputCacheRead": 28416,
+     "inputCacheCreation": 0
+    },
+    "finishReason": "tool_use",
+    "llmFirstTokenLatencyMs": 3872,
+    "llmStreamDurationMs": 1538,
+    "llmRequestBuildMs": 0,
+    "llmClientConsumeMs": 0,
+    "messageId": "anon-28"
+   },
+   "time": 1789305206118
+  },
+  {
+   "line": 150,
+   "type": "usage.record",
+   "model": "k28-agent-preview",
+   "usage": {
+    "inputOther": 534,
+    "output": 150,
+    "inputCacheRead": 28416,
+    "inputCacheCreation": 0
+   },
+   "usageScope": "turn",
+   "time": 1789305206118
+  },
+  {
+   "line": 152,
+   "type": "llm.request",
+   "kind": "loop",
+   "provider": "kimi",
+   "model": "k28-agent-preview",
+   "modelAlias": "k28-agent-preview",
+   "thinkingEffort": "high",
+   "thinkingKeep": "all",
+   "maxTokens": 233044,
+   "toolSelect": true,
+   "systemPromptHash": "REDACTED",
+   "toolsHash": "REDACTED",
+   "messageCount": 31,
+   "turnStep": "1.3",
+   "time": 1789305206120
+  },
+  {
+   "line": 156,
+   "type": "context.append_loop_event",
+   "event": {
+    "type": "step.end",
+    "uuid": "anon-29",
+    "turnId": "1",
+    "step": 3,
+    "usage": {
+     "inputOther": 230,
+     "output": 192,
+     "inputCacheRead": 28928,
+     "inputCacheCreation": 0
+    },
+    "finishReason": "tool_use",
+    "llmFirstTokenLatencyMs": 2804,
+    "llmStreamDurationMs": 2981,
+    "llmRequestBuildMs": 0,
+    "llmClientConsumeMs": 1,
+    "messageId": "anon-30"
+   },
+   "time": 1789305211999
+  },
+  {
+   "line": 157,
+   "type": "usage.record",
+   "model": "k28-agent-preview",
+   "usage": {
+    "inputOther": 230,
+    "output": 192,
+    "inputCacheRead": 28928,
+    "inputCacheCreation": 0
+   },
+   "usageScope": "turn",
+   "time": 1789305211999
+  },
+  {
+   "line": 159,
+   "type": "llm.request",
+   "kind": "loop",
+   "provider": "kimi",
+   "model": "k28-agent-preview",
+   "modelAlias": "k28-agent-preview",
+   "thinkingEffort": "high",
+   "thinkingKeep": "all",
+   "maxTokens": 232794,
+   "toolSelect": true,
+   "systemPromptHash": "REDACTED",
+   "toolsHash": "REDACTED",
+   "messageCount": 33,
+   "turnStep": "1.4",
+   "time": 1789305212001
+  },
+  {
+   "line": 163,
+   "type": "context.append_loop_event",
+   "event": {
+    "type": "step.end",
+    "uuid": "anon-31",
+    "turnId": "1",
+    "step": 4,
+    "usage": {
+     "inputOther": 959,
+     "output": 245,
+     "inputCacheRead": 28928,
+     "inputCacheCreation": 0
+    },
+    "finishReason": "tool_use",
+    "llmFirstTokenLatencyMs": 3096,
+    "llmStreamDurationMs": 4877,
+    "llmRequestBuildMs": 0,
+    "llmClientConsumeMs": 0,
+    "messageId": "anon-32"
+   },
+   "time": 1789305220069
+  },
+  {
+   "line": 164,
+   "type": "usage.record",
+   "model": "k28-agent-preview",
+   "usage": {
+    "inputOther": 959,
+    "output": 245,
+    "inputCacheRead": 28928,
+    "inputCacheCreation": 0
+   },
+   "usageScope": "turn",
+   "time": 1789305220069
+  },
+  {
+   "line": 166,
+   "type": "llm.request",
+   "kind": "loop",
+   "provider": "kimi",
+   "model": "k28-agent-preview",
+   "modelAlias": "k28-agent-preview",
+   "thinkingEffort": "high",
+   "thinkingKeep": "all",
+   "maxTokens": 232012,
+   "toolSelect": true,
+   "systemPromptHash": "REDACTED",
+   "toolsHash": "REDACTED",
+   "messageCount": 35,
+   "turnStep": "1.5",
+   "time": 1789305220071
+  },
+  {
+   "line": 172,
+   "type": "context.append_loop_event",
+   "event": {
+    "type": "step.end",
+    "uuid": "anon-33",
+    "turnId": "1",
+    "step": 5,
+    "usage": {
+     "inputOther": 806,
+     "output": 362,
+     "inputCacheRead": 29696,
+     "inputCacheCreation": 0
+    },
+    "finishReason": "tool_use",
+    "llmFirstTokenLatencyMs": 2801,
+    "llmStreamDurationMs": 7301,
+    "llmRequestBuildMs": 0,
+    "llmClientConsumeMs": 2,
+    "messageId": "anon-34"
+   },
+   "time": 1789305230433
+  },
+  {
+   "line": 173,
+   "type": "usage.record",
+   "model": "k28-agent-preview",
+   "usage": {
+    "inputOther": 806,
+    "output": 362,
+    "inputCacheRead": 29696,
+    "inputCacheCreation": 0
+   },
+   "usageScope": "turn",
+   "time": 1789305230433
+  },
+  {
+   "line": 175,
+   "type": "llm.request",
+   "kind": "loop",
+   "provider": "kimi",
+   "model": "k28-agent-preview",
+   "modelAlias": "k28-agent-preview",
+   "thinkingEffort": "high",
+   "thinkingKeep": "all",
+   "maxTokens": 231280,
+   "toolSelect": true,
+   "systemPromptHash": "REDACTED",
+   "toolsHash": "REDACTED",
+   "messageCount": 38,
+   "turnStep": "1.6",
+   "time": 1789305230434
+  },
+  {
+   "line": 181,
+   "type": "context.append_loop_event",
+   "event": {
+    "type": "step.end",
+    "uuid": "anon-35",
+    "turnId": "1",
+    "step": 6,
+    "usage": {
+     "inputOther": 2547,
+     "output": 404,
+     "inputCacheRead": 30464,
+     "inputCacheCreation": 0
+    },
+    "finishReason": "tool_use",
+    "llmFirstTokenLatencyMs": 2787,
+    "llmStreamDurationMs": 7829,
+    "llmRequestBuildMs": 1,
+    "llmClientConsumeMs": 1,
+    "messageId": "anon-36"
+   },
+   "time": 1789305258712
+  },
+  {
+   "line": 182,
+   "type": "usage.record",
+   "model": "k28-agent-preview",
+   "usage": {
+    "inputOther": 2547,
+    "output": 404,
+    "inputCacheRead": 30464,
+    "inputCacheCreation": 0
+   },
+   "usageScope": "turn",
+   "time": 1789305258712
+  },
+  {
+   "line": 184,
+   "type": "llm.request",
+   "kind": "loop",
+   "provider": "kimi",
+   "model": "k28-agent-preview",
+   "modelAlias": "k28-agent-preview",
+   "thinkingEffort": "high",
+   "thinkingKeep": "all",
+   "maxTokens": 228729,
+   "toolSelect": true,
+   "systemPromptHash": "REDACTED",
+   "toolsHash": "REDACTED",
+   "messageCount": 41,
+   "turnStep": "1.7",
+   "time": 1789305258713
+  },
+  {
+   "line": 190,
+   "type": "context.append_loop_event",
+   "event": {
+    "type": "step.end",
+    "uuid": "anon-37",
+    "turnId": "1",
+    "step": 7,
+    "usage": {
+     "inputOther": 1501,
+     "output": 409,
+     "inputCacheRead": 32768,
+     "inputCacheCreation": 0
+    },
+    "finishReason": "tool_use",
+    "llmFirstTokenLatencyMs": 3569,
+    "llmStreamDurationMs": 8064,
+    "llmRequestBuildMs": 1,
+    "llmClientConsumeMs": 1,
+    "messageId": "anon-38"
+   },
+   "time": 1789305270504
+  },
+  {
+   "line": 191,
+   "type": "usage.record",
+   "model": "k28-agent-preview",
+   "usage": {
+    "inputOther": 1501,
+    "output": 409,
+    "inputCacheRead": 32768,
+    "inputCacheCreation": 0
+   },
+   "usageScope": "turn",
+   "time": 1789305270504
+  },
+  {
+   "line": 193,
+   "type": "llm.request",
+   "kind": "loop",
+   "provider": "kimi",
+   "model": "k28-agent-preview",
+   "modelAlias": "k28-agent-preview",
+   "thinkingEffort": "high",
+   "thinkingKeep": "all",
+   "maxTokens": 227466,
+   "toolSelect": true,
+   "systemPromptHash": "REDACTED",
+   "toolsHash": "REDACTED",
+   "messageCount": 44,
+   "turnStep": "1.8",
+   "time": 1789305270506
+  },
+  {
+   "line": 199,
+   "type": "context.append_loop_event",
+   "event": {
+    "type": "step.end",
+    "uuid": "anon-39",
+    "turnId": "1",
+    "step": 8,
+    "usage": {
+     "inputOther": 956,
+     "output": 361,
+     "inputCacheRead": 34048,
+     "inputCacheCreation": 0
+    },
+    "finishReason": "tool_use",
+    "llmFirstTokenLatencyMs": 2903,
+    "llmStreamDurationMs": 7186,
+    "llmRequestBuildMs": 0,
+    "llmClientConsumeMs": 3,
+    "messageId": "anon-40"
+   },
+   "time": 1789305280777
+  },
+  {
+   "line": 200,
+   "type": "usage.record",
+   "model": "k28-agent-preview",
+   "usage": {
+    "inputOther": 956,
+    "output": 361,
+    "inputCacheRead": 34048,
+    "inputCacheCreation": 0
+   },
+   "usageScope": "turn",
+   "time": 1789305280777
+  },
+  {
+   "line": 203,
+   "type": "llm.request",
+   "kind": "loop",
+   "provider": "kimi",
+   "model": "k28-agent-preview",
+   "modelAlias": "k28-agent-preview",
+   "thinkingEffort": "high",
+   "thinkingKeep": "all",
+   "maxTokens": 226779,
+   "toolSelect": true,
+   "systemPromptHash": "REDACTED",
+   "toolsHash": "REDACTED",
+   "messageCount": 48,
+   "turnStep": "1.9",
+   "time": 1789305280778
+  },
+  {
+   "line": 209,
+   "type": "context.append_loop_event",
+   "event": {
+    "type": "step.end",
+    "uuid": "anon-41",
+    "turnId": "1",
+    "step": 9,
+    "usage": {
+     "inputOther": 1403,
+     "output": 607,
+     "inputCacheRead": 34816,
+     "inputCacheCreation": 0
+    },
+    "finishReason": "tool_use",
+    "llmFirstTokenLatencyMs": 2853,
+    "llmStreamDurationMs": 14056,
+    "llmRequestBuildMs": 1,
+    "llmClientConsumeMs": 4,
+    "messageId": "anon-42"
+   },
+   "time": 1789305297995
+  },
+  {
+   "line": 210,
+   "type": "usage.record",
+   "model": "k28-agent-preview",
+   "usage": {
+    "inputOther": 1403,
+    "output": 607,
+    "inputCacheRead": 34816,
+    "inputCacheCreation": 0
+   },
+   "usageScope": "turn",
+   "time": 1789305297995
+  },
+  {
+   "line": 212,
+   "type": "llm.request",
+   "kind": "loop",
+   "provider": "kimi",
+   "model": "k28-agent-preview",
+   "modelAlias": "k28-agent-preview",
+   "thinkingEffort": "high",
+   "thinkingKeep": "all",
+   "maxTokens": 225318,
+   "toolSelect": true,
+   "systemPromptHash": "REDACTED",
+   "toolsHash": "REDACTED",
+   "messageCount": 51,
+   "turnStep": "1.10",
+   "time": 1789305297997
+  },
+  {
+   "line": 218,
+   "type": "context.append_loop_event",
+   "event": {
+    "type": "step.end",
+    "uuid": "anon-43",
+    "turnId": "1",
+    "step": 10,
+    "usage": {
+     "inputOther": 996,
+     "output": 556,
+     "inputCacheRead": 36096,
+     "inputCacheCreation": 0
+    },
+    "finishReason": "tool_use",
+    "llmFirstTokenLatencyMs": 2723,
+    "llmStreamDurationMs": 13117,
+    "llmRequestBuildMs": 0,
+    "llmClientConsumeMs": 3,
+    "messageId": "anon-44"
+   },
+   "time": 1789305319176
+  },
+  {
+   "line": 219,
+   "type": "usage.record",
+   "model": "k28-agent-preview",
+   "usage": {
+    "inputOther": 996,
+    "output": 556,
+    "inputCacheRead": 36096,
+    "inputCacheCreation": 0
+   },
+   "usageScope": "turn",
+   "time": 1789305319176
+  },
+  {
+   "line": 221,
+   "type": "llm.request",
+   "kind": "loop",
+   "provider": "kimi",
+   "model": "k28-agent-preview",
+   "modelAlias": "k28-agent-preview",
+   "thinkingEffort": "high",
+   "thinkingKeep": "all",
+   "maxTokens": 224496,
+   "toolSelect": true,
+   "systemPromptHash": "REDACTED",
+   "toolsHash": "REDACTED",
+   "messageCount": 54,
+   "turnStep": "1.11",
+   "time": 1789305319177
+  },
+  {
+   "line": 227,
+   "type": "context.append_loop_event",
+   "event": {
+    "type": "step.end",
+    "uuid": "anon-45",
+    "turnId": "1",
+    "step": 11,
+    "usage": {
+     "inputOther": 1184,
+     "output": 476,
+     "inputCacheRead": 36864,
+     "inputCacheCreation": 0
+    },
+    "finishReason": "tool_use",
+    "llmFirstTokenLatencyMs": 3057,
+    "llmStreamDurationMs": 10226,
+    "llmRequestBuildMs": 1,
+    "llmClientConsumeMs": 2,
+    "messageId": "anon-46"
+   },
+   "time": 1789305332660
+  },
+  {
+   "line": 228,
+   "type": "usage.record",
+   "model": "k28-agent-preview",
+   "usage": {
+    "inputOther": 1184,
+    "output": 476,
+    "inputCacheRead": 36864,
+    "inputCacheCreation": 0
+   },
+   "usageScope": "turn",
+   "time": 1789305332660
+  },
+  {
+   "line": 230,
+   "type": "llm.request",
+   "kind": "loop",
+   "provider": "kimi",
+   "model": "k28-agent-preview",
+   "modelAlias": "k28-agent-preview",
+   "thinkingEffort": "high",
+   "thinkingKeep": "all",
+   "maxTokens": 223620,
+   "toolSelect": true,
+   "systemPromptHash": "REDACTED",
+   "toolsHash": "REDACTED",
+   "messageCount": 57,
+   "turnStep": "1.12",
+   "time": 1789305332661
+  },
+  {
+   "line": 236,
+   "type": "context.append_loop_event",
+   "event": {
+    "type": "step.end",
+    "uuid": "anon-47",
+    "turnId": "1",
+    "step": 12,
+    "usage": {
+     "inputOther": 918,
+     "output": 397,
+     "inputCacheRead": 37888,
+     "inputCacheCreation": 0
+    },
+    "finishReason": "tool_use",
+    "llmFirstTokenLatencyMs": 2621,
+    "llmStreamDurationMs": 7802,
+    "llmRequestBuildMs": 1,
+    "llmClientConsumeMs": 2,
+    "messageId": "anon-48"
+   },
+   "time": 1789305343241
+  },
+  {
+   "line": 237,
+   "type": "usage.record",
+   "model": "k28-agent-preview",
+   "usage": {
+    "inputOther": 918,
+    "output": 397,
+    "inputCacheRead": 37888,
+    "inputCacheCreation": 0
+   },
+   "usageScope": "turn",
+   "time": 1789305343241
+  },
+  {
+   "line": 239,
+   "type": "llm.request",
+   "kind": "loop",
+   "provider": "kimi",
+   "model": "k28-agent-preview",
+   "modelAlias": "k28-agent-preview",
+   "thinkingEffort": "high",
+   "thinkingKeep": "all",
+   "maxTokens": 222941,
+   "toolSelect": true,
+   "systemPromptHash": "REDACTED",
+   "toolsHash": "REDACTED",
+   "messageCount": 60,
+   "turnStep": "1.13",
+   "time": 1789305343242
+  },
+  {
+   "line": 245,
+   "type": "context.append_loop_event",
+   "event": {
+    "type": "step.end",
+    "uuid": "anon-49",
+    "turnId": "1",
+    "step": 13,
+    "usage": {
+     "inputOther": 2053,
+     "output": 626,
+     "inputCacheRead": 38656,
+     "inputCacheCreation": 0
+    },
+    "finishReason": "tool_use",
+    "llmFirstTokenLatencyMs": 2924,
+    "llmStreamDurationMs": 12453,
+    "llmRequestBuildMs": 1,
+    "llmClientConsumeMs": 4,
+    "messageId": "anon-50"
+   },
+   "time": 1789305358796
+  },
+  {
+   "line": 246,
+   "type": "usage.record",
+   "model": "k28-agent-preview",
+   "usage": {
+    "inputOther": 2053,
+    "output": 626,
+    "inputCacheRead": 38656,
+    "inputCacheCreation": 0
+   },
+   "usageScope": "turn",
+   "time": 1789305358796
+  },
+  {
+   "line": 248,
+   "type": "llm.request",
+   "kind": "loop",
+   "provider": "kimi",
+   "model": "k28-agent-preview",
+   "modelAlias": "k28-agent-preview",
+   "thinkingEffort": "high",
+   "thinkingKeep": "all",
+   "maxTokens": 220809,
+   "toolSelect": true,
+   "systemPromptHash": "REDACTED",
+   "toolsHash": "REDACTED",
+   "messageCount": 63,
+   "turnStep": "1.14",
+   "time": 1789305358797
+  },
+  {
+   "line": 254,
+   "type": "context.append_loop_event",
+   "event": {
+    "type": "step.end",
+    "uuid": "anon-51",
+    "turnId": "1",
+    "step": 14,
+    "usage": {
+     "inputOther": 884,
+     "output": 584,
+     "inputCacheRead": 40704,
+     "inputCacheCreation": 0
+    },
+    "finishReason": "tool_use",
+    "llmFirstTokenLatencyMs": 2606,
+    "llmStreamDurationMs": 12715,
+    "llmRequestBuildMs": 1,
+    "llmClientConsumeMs": 2,
+    "messageId": "anon-52"
+   },
+   "time": 1789305374271
+  },
+  {
+   "line": 255,
+   "type": "usage.record",
+   "model": "k28-agent-preview",
+   "usage": {
+    "inputOther": 884,
+    "output": 584,
+    "inputCacheRead": 40704,
+    "inputCacheCreation": 0
+   },
+   "usageScope": "turn",
+   "time": 1789305374271
+  },
+  {
+   "line": 257,
+   "type": "llm.request",
+   "kind": "loop",
+   "provider": "kimi",
+   "model": "k28-agent-preview",
+   "modelAlias": "k28-agent-preview",
+   "thinkingEffort": "high",
+   "thinkingKeep": "all",
+   "maxTokens": 219972,
+   "toolSelect": true,
+   "systemPromptHash": "REDACTED",
+   "toolsHash": "REDACTED",
+   "messageCount": 66,
+   "turnStep": "1.15",
+   "time": 1789305374272
+  },
+  {
+   "line": 263,
+   "type": "context.append_loop_event",
+   "event": {
+    "type": "step.end",
+    "uuid": "anon-53",
+    "turnId": "1",
+    "step": 15,
+    "usage": {
+     "inputOther": 1016,
+     "output": 426,
+     "inputCacheRead": 41472,
+     "inputCacheCreation": 0
+    },
+    "finishReason": "tool_use",
+    "llmFirstTokenLatencyMs": 3343,
+    "llmStreamDurationMs": 7222,
+    "llmRequestBuildMs": 0,
+    "llmClientConsumeMs": 3,
+    "messageId": "anon-54"
+   },
+   "time": 1789305385196
+  },
+  {
+   "line": 264,
+   "type": "usage.record",
+   "model": "k28-agent-preview",
+   "usage": {
+    "inputOther": 1016,
+    "output": 426,
+    "inputCacheRead": 41472,
+    "inputCacheCreation": 0
+   },
+   "usageScope": "turn",
+   "time": 1789305385196
+  },
+  {
+   "line": 266,
+   "type": "llm.request",
+   "kind": "loop",
+   "provider": "kimi",
+   "model": "k28-agent-preview",
+   "modelAlias": "k28-agent-preview",
+   "thinkingEffort": "high",
+   "thinkingKeep": "all",
+   "maxTokens": 219230,
+   "toolSelect": true,
+   "systemPromptHash": "REDACTED",
+   "toolsHash": "REDACTED",
+   "messageCount": 69,
+   "turnStep": "1.16",
+   "time": 1789305385197
+  },
+  {
+   "line": 270,
+   "type": "context.append_loop_event",
+   "event": {
+    "type": "step.end",
+    "uuid": "anon-55",
+    "turnId": "1",
+    "step": 16,
+    "usage": {
+     "inputOther": 1373,
+     "output": 479,
+     "inputCacheRead": 42240,
+     "inputCacheCreation": 0
+    },
+    "finishReason": "tool_use",
+    "llmFirstTokenLatencyMs": 2798,
+    "llmStreamDurationMs": 10892,
+    "llmRequestBuildMs": 1,
+    "llmClientConsumeMs": 3,
+    "messageId": "anon-56"
+   },
+   "time": 1789305399014
+  },
+  {
+   "line": 271,
+   "type": "usage.record",
+   "model": "k28-agent-preview",
+   "usage": {
+    "inputOther": 1373,
+    "output": 479,
+    "inputCacheRead": 42240,
+    "inputCacheCreation": 0
+   },
+   "usageScope": "turn",
+   "time": 1789305399014
+  },
+  {
+   "line": 273,
+   "type": "llm.request",
+   "kind": "loop",
+   "provider": "kimi",
+   "model": "k28-agent-preview",
+   "modelAlias": "k28-agent-preview",
+   "thinkingEffort": "high",
+   "thinkingKeep": "all",
+   "maxTokens": 218052,
+   "toolSelect": true,
+   "systemPromptHash": "REDACTED",
+   "toolsHash": "REDACTED",
+   "messageCount": 71,
+   "turnStep": "1.17",
+   "time": 1789305399016
+  },
+  {
+   "line": 277,
+   "type": "context.append_loop_event",
+   "event": {
+    "type": "step.end",
+    "uuid": "anon-57",
+    "turnId": "1",
+    "step": 17,
+    "usage": {
+     "inputOther": 959,
+     "output": 285,
+     "inputCacheRead": 43520,
+     "inputCacheCreation": 0
+    },
+    "finishReason": "tool_use",
+    "llmFirstTokenLatencyMs": 2766,
+    "llmStreamDurationMs": 4822,
+    "llmRequestBuildMs": 0,
+    "llmClientConsumeMs": 2,
+    "messageId": "anon-58"
+   },
+   "time": 1789305406744
+  },
+  {
+   "line": 278,
+   "type": "usage.record",
+   "model": "k28-agent-preview",
+   "usage": {
+    "inputOther": 959,
+    "output": 285,
+    "inputCacheRead": 43520,
+    "inputCacheCreation": 0
+   },
+   "usageScope": "turn",
+   "time": 1789305406744
+  },
+  {
+   "line": 280,
+   "type": "llm.request",
+   "kind": "loop",
+   "provider": "kimi",
+   "model": "k28-agent-preview",
+   "modelAlias": "k28-agent-preview",
+   "thinkingEffort": "high",
+   "thinkingKeep": "all",
+   "maxTokens": 217380,
+   "toolSelect": true,
+   "systemPromptHash": "REDACTED",
+   "toolsHash": "REDACTED",
+   "messageCount": 73,
+   "turnStep": "1.18",
+   "time": 1789305406745
+  },
+  {
+   "line": 284,
+   "type": "context.append_loop_event",
+   "event": {
+    "type": "step.end",
+    "uuid": "anon-59",
+    "turnId": "1",
+    "step": 18,
+    "usage": {
+     "inputOther": 1696,
+     "output": 430,
+     "inputCacheRead": 44288,
+     "inputCacheCreation": 0
+    },
+    "finishReason": "tool_use",
+    "llmFirstTokenLatencyMs": 2785,
+    "llmStreamDurationMs": 9524,
+    "llmRequestBuildMs": 1,
+    "llmClientConsumeMs": 1,
+    "messageId": "anon-60"
+   },
+   "time": 1789305419170
+  },
+  {
+   "line": 285,
+   "type": "usage.record",
+   "model": "k28-agent-preview",
+   "usage": {
+    "inputOther": 1696,
+    "output": 430,
+    "inputCacheRead": 44288,
+    "inputCacheCreation": 0
+   },
+   "usageScope": "turn",
+   "time": 1789305419170
+  },
+  {
+   "line": 288,
+   "type": "llm.request",
+   "kind": "loop",
+   "provider": "kimi",
+   "model": "k28-agent-preview",
+   "modelAlias": "k28-agent-preview",
+   "thinkingEffort": "high",
+   "thinkingKeep": "all",
+   "maxTokens": 215730,
+   "toolSelect": true,
+   "systemPromptHash": "REDACTED",
+   "toolsHash": "REDACTED",
+   "messageCount": 76,
+   "turnStep": "1.19",
+   "time": 1789305419171
+  },
+  {
+   "line": 292,
+   "type": "context.append_loop_event",
+   "event": {
+    "type": "step.end",
+    "uuid": "anon-61",
+    "turnId": "1",
+    "step": 19,
+    "usage": {
+     "inputOther": 1189,
+     "output": 326,
+     "inputCacheRead": 45824,
+     "inputCacheCreation": 0
+    },
+    "finishReason": "tool_use",
+    "llmFirstTokenLatencyMs": 2675,
+    "llmStreamDurationMs": 6964,
+    "llmRequestBuildMs": 0,
+    "llmClientConsumeMs": 4,
+    "messageId": "anon-62"
+   },
+   "time": 1789305428993
+  },
+  {
+   "line": 293,
+   "type": "usage.record",
+   "model": "k28-agent-preview",
+   "usage": {
+    "inputOther": 1189,
+    "output": 326,
+    "inputCacheRead": 45824,
+    "inputCacheCreation": 0
+   },
+   "usageScope": "turn",
+   "time": 1789305428993
+  },
+  {
+   "line": 295,
+   "type": "llm.request",
+   "kind": "loop",
+   "provider": "kimi",
+   "model": "k28-agent-preview",
+   "modelAlias": "k28-agent-preview",
+   "thinkingEffort": "high",
+   "thinkingKeep": "all",
+   "maxTokens": 214805,
+   "toolSelect": true,
+   "systemPromptHash": "REDACTED",
+   "toolsHash": "REDACTED",
+   "messageCount": 78,
+   "turnStep": "1.20",
+   "time": 1789305428994
+  },
+  {
+   "line": 300,
+   "type": "context.append_loop_event",
+   "event": {
+    "type": "step.end",
+    "uuid": "anon-63",
+    "turnId": "1",
+    "step": 20,
+    "usage": {
+     "inputOther": 978,
+     "output": 1408,
+     "inputCacheRead": 46848,
+     "inputCacheCreation": 0
+    },
+    "finishReason": "tool_use",
+    "llmFirstTokenLatencyMs": 3151,
+    "llmStreamDurationMs": 32038,
+    "llmRequestBuildMs": 0,
+    "llmClientConsumeMs": 4,
+    "messageId": "anon-64"
+   },
+   "time": 1789305464763
+  },
+  {
+   "line": 301,
+   "type": "usage.record",
+   "model": "k28-agent-preview",
+   "usage": {
+    "inputOther": 978,
+    "output": 1408,
+    "inputCacheRead": 46848,
+    "inputCacheCreation": 0
+   },
+   "usageScope": "turn",
+   "time": 1789305464763
+  },
+  {
+   "line": 303,
+   "type": "llm.request",
+   "kind": "loop",
+   "provider": "kimi",
+   "model": "k28-agent-preview",
+   "modelAlias": "k28-agent-preview",
+   "thinkingEffort": "high",
+   "thinkingKeep": "all",
+   "maxTokens": 212910,
+   "toolSelect": true,
+   "systemPromptHash": "REDACTED",
+   "toolsHash": "REDACTED",
+   "messageCount": 80,
+   "turnStep": "1.21",
+   "time": 1789305464764
+  },
+  {
+   "line": 307,
+   "type": "context.append_loop_event",
+   "event": {
+    "type": "step.end",
+    "uuid": "anon-65",
+    "turnId": "1",
+    "step": 21,
+    "usage": {
+     "inputOther": 2053,
+     "output": 1115,
+     "inputCacheRead": 47616,
+     "inputCacheCreation": 0
+    },
+    "finishReason": "tool_use",
+    "llmFirstTokenLatencyMs": 3461,
+    "llmStreamDurationMs": 21464,
+    "llmRequestBuildMs": 1,
+    "llmClientConsumeMs": 9,
+    "messageId": "anon-66"
+   },
+   "time": 1789305490194
+  },
+  {
+   "line": 308,
+   "type": "usage.record",
+   "model": "k28-agent-preview",
+   "usage": {
+    "inputOther": 2053,
+    "output": 1115,
+    "inputCacheRead": 47616,
+    "inputCacheCreation": 0
+   },
+   "usageScope": "turn",
+   "time": 1789305490194
+  },
+  {
+   "line": 310,
+   "type": "llm.request",
+   "kind": "loop",
+   "provider": "kimi",
+   "model": "k28-agent-preview",
+   "modelAlias": "k28-agent-preview",
+   "thinkingEffort": "high",
+   "thinkingKeep": "all",
+   "maxTokens": 211360,
+   "toolSelect": true,
+   "systemPromptHash": "REDACTED",
+   "toolsHash": "REDACTED",
+   "messageCount": 82,
+   "turnStep": "1.22",
+   "time": 1789305490195
+  },
+  {
+   "line": 314,
+   "type": "context.append_loop_event",
+   "event": {
+    "type": "step.end",
+    "uuid": "anon-67",
+    "turnId": "1",
+    "step": 22,
+    "usage": {
+     "inputOther": 1289,
+     "output": 548,
+     "inputCacheRead": 49664,
+     "inputCacheCreation": 0
+    },
+    "finishReason": "tool_use",
+    "llmFirstTokenLatencyMs": 2791,
+    "llmStreamDurationMs": 12700,
+    "llmRequestBuildMs": 0,
+    "llmClientConsumeMs": 4,
+    "messageId": "anon-68"
+   },
+   "time": 1789305505873
+  },
+  {
+   "line": 315,
+   "type": "usage.record",
+   "model": "k28-agent-preview",
+   "usage": {
+    "inputOther": 1289,
+    "output": 548,
+    "inputCacheRead": 49664,
+    "inputCacheCreation": 0
+   },
+   "usageScope": "turn",
+   "time": 1789305505873
+  },
+  {
+   "line": 317,
+   "type": "llm.request",
+   "kind": "loop",
+   "provider": "kimi",
+   "model": "k28-agent-preview",
+   "modelAlias": "k28-agent-preview",
+   "thinkingEffort": "high",
+   "thinkingKeep": "all",
+   "maxTokens": 210643,
+   "toolSelect": true,
+   "systemPromptHash": "REDACTED",
+   "toolsHash": "REDACTED",
+   "messageCount": 84,
+   "turnStep": "1.23",
+   "time": 1789305505874
+  },
+  {
+   "line": 321,
+   "type": "context.append_loop_event",
+   "event": {
+    "type": "step.end",
+    "uuid": "anon-69",
+    "turnId": "1",
+    "step": 23,
+    "usage": {
+     "inputOther": 2089,
+     "output": 936,
+     "inputCacheRead": 50944,
+     "inputCacheCreation": 0
+    },
+    "finishReason": "tool_use",
+    "llmFirstTokenLatencyMs": 2929,
+    "llmStreamDurationMs": 24677,
+    "llmRequestBuildMs": 1,
+    "llmClientConsumeMs": 5,
+    "messageId": "anon-70"
+   },
+   "time": 1789305533564
+  },
+  {
+   "line": 322,
+   "type": "usage.record",
+   "model": "k28-agent-preview",
+   "usage": {
+    "inputOther": 2089,
+    "output": 936,
+    "inputCacheRead": 50944,
+    "inputCacheCreation": 0
+   },
+   "usageScope": "turn",
+   "time": 1789305533564
+  },
+  {
+   "line": 324,
+   "type": "llm.request",
+   "kind": "loop",
+   "provider": "kimi",
+   "model": "k28-agent-preview",
+   "modelAlias": "k28-agent-preview",
+   "thinkingEffort": "high",
+   "thinkingKeep": "all",
+   "maxTokens": 208175,
+   "toolSelect": true,
+   "systemPromptHash": "REDACTED",
+   "toolsHash": "REDACTED",
+   "messageCount": 86,
+   "turnStep": "1.24",
+   "time": 1789305533565
+  },
+  {
+   "line": 327,
+   "type": "context.append_loop_event",
+   "event": {
+    "type": "step.end",
+    "uuid": "anon-71",
+    "turnId": "1",
+    "step": 24,
+    "usage": {
+     "inputOther": 1038,
+     "output": 921,
+     "inputCacheRead": 52992,
+     "inputCacheCreation": 0
+    },
+    "finishReason": "end_turn",
+    "llmFirstTokenLatencyMs": 2518,
+    "llmStreamDurationMs": 22819,
+    "llmRequestBuildMs": 0,
+    "llmClientConsumeMs": 4,
+    "messageId": "anon-72"
+   },
+   "time": 1789305558902
+  },
+  {
+   "line": 328,
+   "type": "usage.record",
+   "model": "k28-agent-preview",
+   "usage": {
+    "inputOther": 1038,
+    "output": 921,
+    "inputCacheRead": 52992,
+    "inputCacheCreation": 0
+   },
+   "usageScope": "turn",
+   "time": 1789305558902
+  },
+  {
+   "line": 352,
+   "type": "llm.request",
+   "kind": "loop",
+   "provider": "kimi",
+   "model": "k28-agent-preview",
+   "modelAlias": "k28-agent-preview",
+   "thinkingEffort": "high",
+   "thinkingKeep": "all",
+   "maxTokens": 207193,
+   "toolSelect": true,
+   "systemPromptHash": "REDACTED",
+   "toolsHash": "REDACTED",
+   "messageCount": 88,
+   "turnStep": "2.1",
+   "time": 1789305737275
+  },
+  {
+   "line": 356,
+   "type": "context.append_loop_event",
+   "event": {
+    "type": "step.end",
+    "uuid": "anon-73",
+    "turnId": "2",
+    "step": 1,
+    "usage": {
+     "inputOther": 978,
+     "output": 185,
+     "inputCacheRead": 54016,
+     "inputCacheCreation": 0
+    },
+    "finishReason": "tool_use",
+    "llmFirstTokenLatencyMs": 3958,
+    "llmStreamDurationMs": 2054,
+    "llmRequestBuildMs": 0,
+    "llmClientConsumeMs": 3,
+    "messageId": "anon-74"
+   },
+   "time": 1789305743736
+  },
+  {
+   "line": 357,
+   "type": "usage.record",
+   "model": "k28-agent-preview",
+   "usage": {
+    "inputOther": 978,
+    "output": 185,
+    "inputCacheRead": 54016,
+    "inputCacheCreation": 0
+   },
+   "usageScope": "turn",
+   "time": 1789305743736
+  },
+  {
+   "line": 359,
+   "type": "llm.request",
+   "kind": "loop",
+   "provider": "kimi",
+   "model": "k28-agent-preview",
+   "modelAlias": "k28-agent-preview",
+   "thinkingEffort": "high",
+   "thinkingKeep": "all",
+   "maxTokens": 206965,
+   "toolSelect": true,
+   "systemPromptHash": "REDACTED",
+   "toolsHash": "REDACTED",
+   "messageCount": 90,
+   "turnStep": "2.2",
+   "time": 1789305743737
+  },
+  {
+   "line": 362,
+   "type": "context.append_loop_event",
+   "event": {
+    "type": "step.end",
+    "uuid": "anon-75",
+    "turnId": "2",
+    "step": 2,
+    "usage": {
+     "inputOther": 739,
+     "output": 510,
+     "inputCacheRead": 54784,
+     "inputCacheCreation": 0
+    },
+    "finishReason": "end_turn",
+    "llmFirstTokenLatencyMs": 2294,
+    "llmStreamDurationMs": 11421,
+    "llmRequestBuildMs": 1,
+    "llmClientConsumeMs": 1,
+    "messageId": "anon-76"
+   },
+   "time": 1789305757452
+  },
+  {
+   "line": 363,
+   "type": "usage.record",
+   "model": "k28-agent-preview",
+   "usage": {
+    "inputOther": 739,
+    "output": 510,
+    "inputCacheRead": 54784,
+    "inputCacheCreation": 0
+   },
+   "usageScope": "turn",
+   "time": 1789305757452
+  }
+ ]
+}

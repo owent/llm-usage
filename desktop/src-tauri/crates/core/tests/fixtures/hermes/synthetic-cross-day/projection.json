@@ -1,0 +1,50 @@
+{
+ "kind": "hermes-state-db-synthetic",
+ "synthetic": true,
+ "redaction": "全合成样本（syn- 前缀）；schema 取 A24 固定源码逐字列名/主键，数值人工构造",
+ "evidence": {
+  "commit": "ef70b3661cbfcf57e583008ad91dd04d8ba46070",
+  "schema": "https://github.com/NousResearch/hermes-agent/blob/ef70b3661cbfcf57e583008ad91dd04d8ba46070/hermes_state_common.py",
+  "usage": "https://github.com/NousResearch/hermes-agent/blob/ef70b3661cbfcf57e583008ad91dd04d8ba46070/hermes_state_usage.py",
+  "migrations": "https://github.com/NousResearch/hermes-agent/blob/ef70b3661cbfcf57e583008ad91dd04d8ba46070/hermes_state_schema.py",
+  "constants": "https://github.com/NousResearch/hermes-agent/blob/ef70b3661cbfcf57e583008ad91dd04d8ba46070/hermes_constants.py",
+  "doc": "https://hermes-agent.nousresearch.com/docs/developer-guide/session-storage/"
+ },
+ "schema": {
+  "schema_version": 30,
+  "sessions_ddl": "CREATE TABLE sessions (\n    id TEXT PRIMARY KEY,\n    source TEXT NOT NULL,\n    parent_session_id TEXT,\n    started_at REAL NOT NULL,\n    ended_at REAL,\n    end_reason TEXT,\n    FOREIGN KEY (parent_session_id) REFERENCES sessions(id)\n) -- pinned 子集：本适配器只读身份/时间/世系列",
+  "session_model_usage_ddl": "CREATE TABLE session_model_usage (\n    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,\n    model TEXT NOT NULL,\n    billing_provider TEXT NOT NULL DEFAULT '',\n    billing_base_url TEXT NOT NULL DEFAULT '',\n    billing_mode TEXT NOT NULL DEFAULT '',\n    task TEXT NOT NULL DEFAULT '',\n    api_call_count INTEGER NOT NULL DEFAULT 0,\n    input_tokens INTEGER NOT NULL DEFAULT 0,\n    output_tokens INTEGER NOT NULL DEFAULT 0,\n    cache_read_tokens INTEGER NOT NULL DEFAULT 0,\n    cache_write_tokens INTEGER NOT NULL DEFAULT 0,\n    reasoning_tokens INTEGER NOT NULL DEFAULT 0,\n    estimated_cost_usd REAL NOT NULL DEFAULT 0,\n    actual_cost_usd REAL NOT NULL DEFAULT 0,\n    cost_status TEXT,\n    cost_source TEXT,\n    first_seen REAL,\n    last_seen REAL,\n    PRIMARY KEY (session_id, model, billing_provider, billing_base_url, billing_mode, task)\n)"
+ },
+ "sessions": [
+  {
+   "id": "syn-sess-cross",
+   "source": "cli",
+   "parent_session_id": null,
+   "started_at": 1790157600.0,
+   "ended_at": 1790361000.0,
+   "end_reason": "user_exit"
+  }
+ ],
+ "session_model_usage": [
+  {
+   "session_id": "syn-sess-cross",
+   "model": "syn-model-a",
+   "billing_provider": "syn-provider",
+   "billing_base_url": "https://api.syn.example/v1",
+   "billing_mode": "paid",
+   "task": "",
+   "api_call_count": 3,
+   "input_tokens": 1000,
+   "output_tokens": 200,
+   "cache_read_tokens": 0,
+   "cache_write_tokens": 0,
+   "reasoning_tokens": 0,
+   "estimated_cost_usd": 0.0,
+   "actual_cost_usd": 0.0,
+   "cost_status": null,
+   "cost_source": null,
+   "first_seen": 1790157600.0,
+   "last_seen": 1790361000.0
+  }
+ ]
+}

@@ -25,6 +25,16 @@ pub fn built_in_adapters() -> Vec<Box<dyn SourceAdapter>> {
         Box::new(OmpAdapter::new()),
         Box::new(GeminiAdapter::new()),
         Box::new(QwenAdapter::new()),
+        Box::new(llm_usage_core::adapters::kilo::KiloAdapter::new()),
+        Box::new(llm_usage_core::adapters::zcode::ZcodeAdapter::new()),
+        Box::new(llm_usage_core::adapters::kimi_code::KimiCodeAdapter::new()),
+        Box::new(llm_usage_core::adapters::kimi_work::KimiWorkAdapter::new()),
+        // 以下为本机未安装产品（2026-09-25 盘点 not_found）：文档级证据实现，
+        // discover 在本机返回空；真实数据出现后自动发现（真实验收后置）。
+        Box::new(llm_usage_core::adapters::cline::ClineAdapter::new()),
+        Box::new(llm_usage_core::adapters::dsh::DshAdapter::new()),
+        Box::new(llm_usage_core::adapters::hermes::HermesAdapter::new()),
+        Box::new(llm_usage_core::adapters::openclaw::OpenClawAdapter::new()),
     ]
 }
 

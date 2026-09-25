@@ -1,0 +1,6 @@
+{"type":"step/start"}
+{"type":"assistant/message","usage":{"uncachedInputTokens":60,"outputTokens":8,"cacheReadTokens":15,"cacheWriteTokens":5}}
+{"type":"assistant/message","usage":{"uncachedInputTokens":75,"outputTokens":12,"cacheReadTokens":20,"cacheWriteTokens":5}}
+{"type":"llm/retry-started"}
+{"type":"assistant/message","usage":{"uncachedInputTokens":30,"outputTokens":6,"cacheReadTokens":5,"cacheWriteTokens":5}}
+{"type":"step/start"}
