@@ -8,6 +8,7 @@ mod common;
 use common::*;
 use llm_usage_core::adapters::claude::ClaudeAdapter;
 use llm_usage_core::adapters::framework::{DetectOutcome, SourceAdapter};
+use llm_usage_core::domain::VersionBasis;
 
 const NOW: i64 = 1_800_000_000_000;
 
@@ -329,7 +330,8 @@ fn undocumented_record_type_fails_closed() {
         adapter.detect(&path).unwrap(),
         DetectOutcome::Supported {
             format: "claude-transcript-jsonl".to_string(),
-            format_version: "transcript-doc-1".to_string(),
+            format_version: Some("transcript-doc-1".to_string()),
+            basis: VersionBasis::KnownVersion,
         }
     );
 
@@ -411,7 +413,8 @@ fn detect_documented_first_line_supported() {
         adapter.detect(&path).unwrap(),
         DetectOutcome::Supported {
             format: "claude-transcript-jsonl".to_string(),
-            format_version: "transcript-doc-1".to_string(),
+            format_version: Some("transcript-doc-1".to_string()),
+            basis: VersionBasis::KnownVersion,
         }
     );
 }

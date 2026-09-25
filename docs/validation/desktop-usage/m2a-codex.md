@@ -66,7 +66,7 @@ M2-A 子代理因额度中断，以下由其代码基础上修复后验收：能
 
 | 项 | 状态 | 后续 |
 | --- | --- | --- |
-| Codex 其他版本（0.146–0.155 系） | fail closed | 逐版本补齐测试数据后扩展 supported_versions |
+| Codex 其他版本（0.146–0.155 系） | 部分完成（[m2d](m2d-layout-versions.md)：0.153.0/0.154.0-alpha.6.1/6.2 已验证；0.139–0.151 无逐次载体待专用实现；未收录版本按 latest_fallback 尝试） | 0.139–0.151 取证 token_count/last_token_usage 身份语义后扩展 |
 | OTel 遥测接入 | 未实现 | M5 |
 | 真实 GUI 数据源页 | 未实现 | M6 |
 

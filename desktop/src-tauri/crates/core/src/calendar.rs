@@ -65,6 +65,32 @@ impl Calendar {
         Ok(ts.to_zoned(self.tz.clone()).date())
     }
 
+    /// UTC 毫秒 → 本地小时（0–23）。DST 重复小时的两次出现得到同一标签，
+    /// 需要区分时用 [`Calendar::offset_seconds_at`]。
+    pub fn local_hour_of(&self, ms: i64) -> Result<u32, CoreError> {
+        let ts = Timestamp::from_millisecond(ms)
+            .map_err(|e| CoreError::Calendar(format!("timestamp {ms}ms out of range: {e}")))?;
+        let hour = ts.to_zoned(self.tz.clone()).hour();
+        Ok(if hour < 0 { 0 } else { hour as u32 })
+    }
+
+    /// UTC 毫秒 → ISO 星期几（周一=1 … 周日=7）。
+    pub fn local_weekday_of(&self, ms: i64) -> Result<u8, CoreError> {
+        let ts = Timestamp::from_millisecond(ms)
+            .map_err(|e| CoreError::Calendar(format!("timestamp {ms}ms out of range: {e}")))?;
+        let wd = ts.to_zoned(self.tz.clone()).weekday();
+        let n = match wd {
+            jiff::civil::Weekday::Monday => 1,
+            jiff::civil::Weekday::Tuesday => 2,
+            jiff::civil::Weekday::Wednesday => 3,
+            jiff::civil::Weekday::Thursday => 4,
+            jiff::civil::Weekday::Friday => 5,
+            jiff::civil::Weekday::Saturday => 6,
+            jiff::civil::Weekday::Sunday => 7,
+        };
+        Ok(n)
+    }
+
     /// UTC 毫秒 → 该时刻的 UTC offset 秒（分辨 DST 重复小时）。
     pub fn offset_seconds_at(&self, ms: i64) -> Result<i32, CoreError> {
         let ts = Timestamp::from_millisecond(ms)

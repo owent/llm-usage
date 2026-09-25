@@ -60,6 +60,7 @@ pub fn evt(instance: &str, key: &str, occurred_ms: i64) -> EventInput {
         record_kind: RecordKind::ModelCall,
         schema_version: "1".to_string(),
         parser_version: "1".to_string(),
+        parse_basis: None,
         origin_call_id: None,
         attempt_id: None,
         session_id: None,
@@ -183,6 +184,7 @@ pub fn run_codex_with_limits(
         now_ms,
         limits,
         trigger: TriggerKind::Manual,
+        origin_host_id: None,
         run_id_prefix: format!("run-{now_ms}"),
     };
     let reports = run_adapter_scan(storage, &adapter, &ctx, &config).unwrap();
@@ -286,6 +288,7 @@ fn run_adapter(
         now_ms,
         limits,
         trigger: TriggerKind::Manual,
+        origin_host_id: None,
         run_id_prefix: format!("run-{now_ms}"),
     };
     let reports = run_adapter_scan(storage, adapter, &ctx, &config).unwrap();

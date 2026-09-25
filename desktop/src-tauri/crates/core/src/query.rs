@@ -605,3 +605,185 @@ fn append_filters(sql: &mut String, values: &mut Vec<rusqlite::types::Value>, fi
         sql.push_str(&clause);
     }
 }
+
+/// Agent 分组行（与 ModelRow 同构；总计口径一致）。
+#[derive(Debug, Clone)]
+pub struct AgentRow {
+    pub agent: String,
+    pub sums: MetricSums,
+}
+
+/// 按 Agent 分组（含 unknown 独立行：provider/model 为空的记录归入该 Agent 名下）。
+pub fn agent_breakdown(
+    storage: &Storage,
+    request: &SummaryRequest,
+) -> Result<Vec<AgentRow>, CoreError> {
+    let rows = load_daily_rows(
+        storage,
+        &request.timezone,
+        request.first_day,
+        request.last_day,
+    )?;
+    let mut groups: BTreeMap<String, MetricSums> = BTreeMap::new();
+    for row in rows {
+        if !request.filters.matches(&row) {
+            continue;
+        }
+        let sums = groups.entry(row.agent.clone()).or_default();
+        sums.add_row(&row)?;
+    }
+    Ok(groups
+        .into_iter()
+        .map(|(agent, sums)| AgentRow { agent, sums })
+        .collect())
+}
+
+/// 单日逐小时桶（今日小时图）。calls/known sums 按 source_completion 的本地小时分桶；
+/// DST 重复小时先合并显示（offset 可区分的完整处理随 V04 用例细化）。
+#[derive(Debug, Clone, Default)]
+pub struct HourBucket {
+    pub hour: u32,
+    pub event_count: i64,
+    pub call_count: i64,
+    pub input_total_known: Option<i64>,
+    pub cache_read_known: Option<i64>,
+    pub output_total_known: Option<i64>,
+    pub total_tokens_known: Option<i64>,
+}
+
+pub fn hourly_breakdown(
+    storage: &Storage,
+    timezone: &str,
+    day: Date,
+    filters: &Filters,
+) -> Result<Vec<HourBucket>, CoreError> {
+    let calendar = Calendar::new(timezone)?;
+    let (start_ms, end_ms) = calendar.day_range_ms(day)?;
+    let mut sql = String::from(
+        "SELECT occurred_at_ms, record_kind, input_total, input_cache_read, output_total,
+                total_tokens, quality_json
+         FROM usage_events
+         WHERE occurred_at_ms >= ?1 AND occurred_at_ms < ?2
+           AND attribution_status = 'verified'
+           AND record_kind IN ('model_call', 'transport_attempt', 'usage_observation')",
+    );
+    let mut values: Vec<rusqlite::types::Value> = vec![start_ms.into(), end_ms.into()];
+    append_filters(&mut sql, &mut values, filters);
+    let mut stmt = storage.conn().prepare(&sql)?;
+    let rows = stmt.query_map(rusqlite::params_from_iter(values), |r| {
+        Ok((
+            r.get::<_, i64>(0)?,
+            r.get::<_, String>(1)?,
+            r.get::<_, Option<i64>>(2)?,
+            r.get::<_, Option<i64>>(3)?,
+            r.get::<_, Option<i64>>(4)?,
+            r.get::<_, Option<i64>>(5)?,
+            r.get::<_, String>(6)?,
+        ))
+    })?;
+    let mut buckets: BTreeMap<u32, HourBucket> = BTreeMap::new();
+    for row in rows {
+        let (ms, kind, input, cache_read, output, total, quality_json) = row?;
+        let hour = calendar.local_hour_of(ms)?;
+        let bucket = buckets.entry(hour).or_default();
+        bucket.event_count += 1;
+        if kind == "model_call" {
+            bucket.call_count += 1;
+        }
+        if kind != "transport_attempt" {
+            let known = |field: &str| -> bool {
+                serde_json::from_str::<serde_json::Value>(&quality_json)
+                    .ok()
+                    .and_then(|q| {
+                        q.get(field)
+                            .and_then(|v| v.as_str())
+                            .map(|s| s == "reported" || s == "derived")
+                    })
+                    .unwrap_or(false)
+            };
+            if known("input_total") {
+                bucket.input_total_known =
+                    Some(bucket.input_total_known.unwrap_or(0) + input.unwrap_or(0));
+            }
+            if known("input_cache_read") {
+                bucket.cache_read_known =
+                    Some(bucket.cache_read_known.unwrap_or(0) + cache_read.unwrap_or(0));
+            }
+            if known("output_total") {
+                bucket.output_total_known =
+                    Some(bucket.output_total_known.unwrap_or(0) + output.unwrap_or(0));
+            }
+            if known("total_tokens") {
+                bucket.total_tokens_known =
+                    Some(bucket.total_tokens_known.unwrap_or(0) + total.unwrap_or(0));
+            }
+        }
+    }
+    Ok((0u32..24).filter_map(|h| buckets.remove(&h)).collect())
+}
+
+/// 热力图单元格：本地星期几（1=周一）× 小时的调用数与 token。
+#[derive(Debug, Clone, Default)]
+pub struct HeatCell {
+    pub weekday: u8,
+    pub hour: u32,
+    pub call_count: i64,
+    pub total_tokens_known: Option<i64>,
+}
+
+pub fn heatmap_cells(
+    storage: &Storage,
+    timezone: &str,
+    first_day: Date,
+    last_day: Date,
+    filters: &Filters,
+) -> Result<Vec<HeatCell>, CoreError> {
+    let calendar = Calendar::new(timezone)?;
+    let (start_ms, _) = calendar.day_range_ms(first_day)?;
+    let (_, end_ms) = calendar.day_range_ms(last_day)?;
+    let mut sql = String::from(
+        "SELECT occurred_at_ms, record_kind, total_tokens, quality_json
+         FROM usage_events
+         WHERE occurred_at_ms >= ?1 AND occurred_at_ms < ?2
+           AND attribution_status = 'verified'
+           AND record_kind IN ('model_call', 'transport_attempt', 'usage_observation')",
+    );
+    let mut values: Vec<rusqlite::types::Value> = vec![start_ms.into(), end_ms.into()];
+    append_filters(&mut sql, &mut values, filters);
+    let mut stmt = storage.conn().prepare(&sql)?;
+    let rows = stmt.query_map(rusqlite::params_from_iter(values), |r| {
+        Ok((
+            r.get::<_, i64>(0)?,
+            r.get::<_, String>(1)?,
+            r.get::<_, Option<i64>>(2)?,
+            r.get::<_, String>(3)?,
+        ))
+    })?;
+    let mut cells: BTreeMap<(u8, u32), HeatCell> = BTreeMap::new();
+    for row in rows {
+        let (ms, kind, total, quality_json) = row?;
+        let weekday = calendar.local_weekday_of(ms)?;
+        let hour = calendar.local_hour_of(ms)?;
+        let cell = cells.entry((weekday, hour)).or_default();
+        cell.weekday = weekday;
+        cell.hour = hour;
+        if kind == "model_call" {
+            cell.call_count += 1;
+        }
+        if kind != "transport_attempt" {
+            let known_total = serde_json::from_str::<serde_json::Value>(&quality_json)
+                .ok()
+                .and_then(|q| {
+                    q.get("total_tokens")
+                        .and_then(|v| v.as_str())
+                        .map(|s| s == "reported" || s == "derived")
+                })
+                .unwrap_or(false);
+            if known_total {
+                cell.total_tokens_known =
+                    Some(cell.total_tokens_known.unwrap_or(0) + total.unwrap_or(0));
+            }
+        }
+    }
+    Ok(cells.into_values().collect())
+}

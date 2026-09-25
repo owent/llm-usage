@@ -1,96 +1,90 @@
+//! llm-usage 桌面客户端入口（M6）。
+//! GUI 模式：单窗口 + 后台间隔调度；headless 模式（--headless）：无 WebView，
+//! 执行一次全源采集后退出（供系统定时任务使用，V24 的无窗口提取路径）。
+//! M0 试验命令（sqlite_probe/read_sample_file）已被真实功能取代；
+//! 对应回归语义保留在 core 测试与 M0 验证记录中。
+
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use rusqlite::Connection;
-use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
-use tauri::Manager;
+mod app_state;
+mod commands;
+mod scanner;
 
-static PROBE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+use app_state::AppState;
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 
-struct ProbeDirectory(PathBuf);
-impl Drop for ProbeDirectory {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.0);
+fn hostname() -> String {
+    std::env::var("COMPUTERNAME")
+        .or_else(|_| std::env::var("HOSTNAME"))
+        .unwrap_or_else(|_| "unknown-host".to_string())
+}
+
+fn db_path() -> std::path::PathBuf {
+    // 无 Tauri 句柄阶段（headless/启动前）：%APPDATA%/llm-usage-desktop/ 或
+    // ~/.local/share/llm-usage-desktop/ 下的 llm-usage.sqlite；
+    // 与 architecture.md「应用数据库放系统应用数据目录」一致。
+    // 目录名避开 Roaming 下已存在的同名占位文件 llm-usage（第三方遗留，不改动它）。
+    if let Ok(appdata) = std::env::var("APPDATA") {
+        return std::path::PathBuf::from(appdata)
+            .join("llm-usage-desktop")
+            .join("llm-usage.sqlite");
     }
-}
-
-#[tauri::command]
-fn sqlite_probe() -> Result<serde_json::Value, String> {
-    let dir = std::env::temp_dir().join(format!(
-        "llm-usage-m0-probe-{}-{}",
-        std::process::id(),
-        PROBE_SEQUENCE.fetch_add(1, Ordering::Relaxed)
-    ));
-    std::fs::create_dir(&dir).map_err(|e| e.to_string())?;
-    let dir = ProbeDirectory(dir);
-    let db_path = dir.0.join("probe.db");
-    let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS probe (id INTEGER PRIMARY KEY, note TEXT NOT NULL)",
-        [],
-    )
-    .map_err(|e| e.to_string())?;
-    conn.execute("DELETE FROM probe", [])
-        .map_err(|e| e.to_string())?;
-    conn.execute("INSERT INTO probe (note) VALUES ('alpha')", [])
-        .map_err(|e| e.to_string())?;
-    conn.execute("INSERT INTO probe (note) VALUES ('beta')", [])
-        .map_err(|e| e.to_string())?;
-    let rows: i64 = conn
-        .query_row("SELECT COUNT(*) FROM probe", [], |r| r.get(0))
-        .map_err(|e| e.to_string())?;
-    let sqlite_version: String = conn
-        .query_row("SELECT sqlite_version()", [], |r| r.get(0))
-        .map_err(|e| e.to_string())?;
-    Ok(serde_json::json!({
-        "rows": rows,
-        "sqliteVersion": sqlite_version,
-        "coreSchemaVersion": llm_usage_core::storage::schema::SCHEMA_VERSION,
-    }))
-}
-
-#[tauri::command]
-fn read_sample_file(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
-    read_sample_from(&app.path().resource_dir().map_err(|e| e.to_string())?)
-}
-
-fn read_sample_from(resource_dir: &Path) -> Result<serde_json::Value, String> {
-    let bytes = std::fs::read(resource_dir.join("sample-data.txt"))
-        .map_err(|e| format!("sample-data.txt: {e}"))?;
-    Ok(serde_json::json!({
-        "path": "sample-data.txt",
-        "len": bytes.len(),
-    }))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn sqlite_probes_are_independent_when_concurrent() {
-        let probes: Vec<_> = (0..8).map(|_| std::thread::spawn(sqlite_probe)).collect();
-        for probe in probes {
-            assert_eq!(probe.join().unwrap().unwrap()["rows"], 2);
-        }
+    if let Ok(home) = std::env::var("USERPROFILE").or_else(|_| std::env::var("HOME")) {
+        return std::path::PathBuf::from(home)
+            .join(".local")
+            .join("share")
+            .join("llm-usage-desktop")
+            .join("llm-usage.sqlite");
     }
-
-    #[test]
-    fn sample_is_read_from_the_installed_resource_directory() {
-        let dir =
-            std::env::temp_dir().join(format!("llm-usage-resource-test-{}", std::process::id()));
-        std::fs::create_dir(&dir).unwrap();
-        let dir = ProbeDirectory(dir);
-        // 不回退到仍存在的开发源码：安装目录缺资源必须失败。
-        assert!(read_sample_from(&dir.0).is_err());
-        std::fs::write(dir.0.join("sample-data.txt"), b"installed sample").unwrap();
-        assert_eq!(read_sample_from(&dir.0).unwrap()["len"], 16);
-    }
+    std::path::PathBuf::from("llm-usage.sqlite")
 }
 
 fn main() {
+    let headless = std::env::args().any(|a| a == "--headless" || a == "--scan-once");
+    let state = Arc::new(AppState::init(db_path(), &hostname()).expect("init app state"));
+
+    if headless {
+        // 无 WebView headless 提取：一次采集后退出；不启动窗口/调度线程。
+        let started = scanner::run_refresh(&state, llm_usage_core::jobs::TriggerKind::Interval);
+        let refresh = state.refresh.lock().unwrap();
+        for instance in &refresh.instances {
+            if let Some(error) = &instance.error {
+                println!(
+                    "instance {} status={} error={error}",
+                    instance.instance_id, instance.status
+                );
+            }
+        }
+        let events: u64 = refresh.instances.iter().map(|i| i.events).sum();
+        let diags: u64 = refresh.instances.iter().map(|i| i.diagnostics).sum();
+        println!(
+            "headless scan executed={} instances={} events={events} diagnostics={diags}",
+            started,
+            refresh.instances.len()
+        );
+        return;
+    }
+
+    let stop = Arc::new(AtomicBool::new(false));
+    let scheduler_state = Arc::clone(&state);
+    scanner::spawn_scheduler(scheduler_state, stop);
+
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![sqlite_probe, read_sample_file])
+        .manage(Arc::clone(&state))
+        .invoke_handler(tauri::generate_handler![
+            commands::summary,
+            commands::heatmap,
+            commands::list_sources,
+            commands::set_source_enabled,
+            commands::refresh_sources,
+            commands::refresh_status,
+            commands::get_settings,
+            commands::set_settings,
+            commands::app_info,
+            commands::export_data,
+            commands::reload_settings,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

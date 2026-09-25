@@ -1,14 +1,17 @@
-//! oh-my-pi（omp）适配器缺口场景：合成样本（目录/文件头均标 synthetic）与 V17 拒绝。
-//! 覆盖真实样本缺失的场景：四类辅助 usage 载体、无 usage 的 assistant、fork 继承
-//! 去重（已知偏差定案同 pi）、嵌套子 Agent 路径归属、stopReason=error/aborted、
-//! cost 映射边界、detect 首行闸口（title/session/Pending）、未知版本/未知格式
-//! fail closed、未知条目类型诊断。期望值均由 fixture 手工核算（见各 _expectations.md）。
+//! oh-my-pi（omp）适配器缺口场景：合成样本（目录/文件头均标 synthetic）与
+//! V17/V30 版本策略。覆盖真实样本缺失的场景：四类辅助 usage 载体、无 usage 的
+//! assistant、fork 继承去重（已知偏差定案同 pi）、嵌套子 Agent 路径归属、
+//! stopReason=error/aborted、cost 映射边界、detect 首行闸口（title/session/Pending）、
+//! 未知版本 latest_fallback 兼容回退（V30 新语义，omp 无 evidenced-incompatible
+//! 分支，与 pi 不同）、未知格式 fail closed、未知条目类型诊断。
+//! 期望值均由 fixture 手工核算（见各 _expectations.md）。
 
 mod common;
 
 use common::*;
 use llm_usage_core::adapters::framework::{DetectOutcome, SourceAdapter};
 use llm_usage_core::adapters::omp::OmpAdapter;
+use llm_usage_core::domain::VersionBasis;
 use rusqlite::OptionalExtension;
 
 fn synthetic_root(name: &str) -> std::path::PathBuf {
@@ -433,7 +436,8 @@ fn detect_supported_title_first_and_full_scan() {
         adapter.detect(&path).unwrap(),
         DetectOutcome::Supported {
             format: "omp-session-jsonl".to_string(),
-            format_version: "3".to_string(),
+            format_version: Some("3".to_string()),
+            basis: VersionBasis::KnownVersion,
         }
     );
 
@@ -485,7 +489,8 @@ fn detect_session_header_first_also_supported() {
         adapter.detect(&path).unwrap(),
         DetectOutcome::Supported {
             format: "omp-session-jsonl".to_string(),
-            format_version: "3".to_string(),
+            format_version: Some("3".to_string()),
+            basis: VersionBasis::KnownVersion,
         }
     );
     let _ = dir;
@@ -516,8 +521,15 @@ fn detect_pending_on_empty_file() {
     let _ = dir;
 }
 
+// 手工核算值（synthetic-unsupported-version，目录名为历史样本组织，V30 起行为
+// 已变）：未收录数值版本（version=4）与缺失 version（legacy 形状）都按
+// LatestFallback 回退 session_v3 尝试（omp 旧版落盘格式未取证，无证据不兼容，
+// 不直接拒绝——与 pi 的 evidenced-incompatible 分支不同）。两文件各 1 事件
+// （100/10/0/0/110）：合计 call_count=2、input_total=200（派生）、output=20、
+// total=220；事件 parse_basis=latest_fallback；文件 active_compat；
+// latest_fallback 诊断每文件一条（框架层探测时记）。
 #[test]
-fn v17_unknown_version_fails_closed_not_success_zero() {
+fn v17_unknown_version_falls_back_with_compat_mark() {
     let adapter = OmpAdapter::new();
     let case = synthetic_root("synthetic-unsupported-version");
     let v4 = case.join(
@@ -526,18 +538,21 @@ fn v17_unknown_version_fails_closed_not_success_zero() {
     let legacy = case.join(
         "sessions/--C--syn--/2026-01-05T10-00-00-021Z_00000000-0000-7000-8000-00000000d021.jsonl",
     );
+    // 未收录数值版本与缺失 version 都回退最新内置解析器并带兼容标记。
     assert_eq!(
         adapter.detect(&v4).unwrap(),
-        DetectOutcome::UnsupportedVersion {
+        DetectOutcome::Supported {
             format: "omp-session-jsonl".to_string(),
-            found: "4".to_string(),
+            format_version: Some("4".to_string()),
+            basis: VersionBasis::LatestFallback,
         }
     );
     assert_eq!(
         adapter.detect(&legacy).unwrap(),
-        DetectOutcome::UnsupportedVersion {
+        DetectOutcome::Supported {
             format: "omp-session-jsonl".to_string(),
-            found: "legacy (no version field)".to_string(),
+            format_version: None,
+            basis: VersionBasis::LatestFallback,
         }
     );
 
@@ -546,28 +561,100 @@ fn v17_unknown_version_fails_closed_not_success_zero() {
     let report = &reports[0];
     assert_eq!(report.files.len(), 2);
     for file in &report.files {
-        assert_eq!(file.status, "unsupported_version");
-        assert_eq!(file.events, 0);
+        assert_eq!(file.status, "complete");
+        assert_eq!(file.events, 1, "兼容尝试成功，事件正常产出");
     }
-    let events: i64 = storage
-        .conn()
-        .query_row("SELECT COUNT(*) FROM usage_events", [], |r| r.get(0))
-        .unwrap();
-    assert_eq!(events, 0);
     assert_eq!(
-        diag_count(&storage, "unsupported_version"),
-        2,
-        "显式拒绝逐文件落诊断；不是静默的成功 0 条"
+        report.files[0].detail.as_deref(),
+        Some("latest_fallback: version compatibility unverified (found: 4)")
     );
-    let active: i64 = storage
-        .conn()
-        .query_row(
-            "SELECT COUNT(*) FROM source_files WHERE status != 'unsupported'",
-            [],
-            |r| r.get(0),
+    assert_eq!(
+        report.files[1].detail.as_deref(),
+        Some("latest_fallback: version compatibility unverified (found: missing)")
+    );
+    let outcome = report.outcome.as_ref().unwrap();
+    assert_eq!(
+        (outcome.added, outcome.conflicts, outcome.errors),
+        (2, 0, 0)
+    );
+
+    // 兼容尝试成功的数据正常统计。
+    let summary = summary(&storage, "2026-01-05", "2026-01-05");
+    assert_eq!(summary.totals.call_count, 2);
+    assert_eq!(summary.totals.input_total_known, Some(200));
+    assert_eq!(summary.totals.output_total_known, Some(20));
+    assert_eq!(summary.totals.total_tokens_known, Some(220));
+
+    // 兼容标记持久化：事件 parse_basis、文件 active_compat、探测结论 JSON。
+    let row_for = |key: &str| {
+        storage
+            .conn()
+            .query_row(
+                "SELECT parse_basis, schema_version, session_id FROM usage_events
+                 WHERE source_record_key = ?1",
+                [key],
+                |r| {
+                    Ok((
+                        r.get::<_, Option<String>>(0)?,
+                        r.get::<_, String>(1)?,
+                        r.get::<_, Option<String>>(2)?,
+                    ))
+                },
+            )
+            .unwrap()
+    };
+    assert_eq!(
+        row_for("omp:message:syn-m1:-:2026-01-05T10:00:05.000Z"),
+        (
+            Some("latest_fallback".into()),
+            "4".into(),
+            Some("syn-omp-v4".into())
         )
-        .unwrap();
-    assert_eq!(active, 0);
+    );
+    // 缺失 version 的 legacy 形状：schema_version 无从得知记 unknown，basis 仍带标记。
+    assert_eq!(
+        row_for("omp:message:syn-l1:-:2026-01-05T10:00:05.000Z"),
+        (
+            Some("latest_fallback".into()),
+            "unknown".into(),
+            Some("syn-omp-legacy".into())
+        )
+    );
+    assert_eq!(
+        diag_count(&storage, "latest_fallback"),
+        2,
+        "兼容尝试逐文件可见，不是静默处理"
+    );
+    let statuses: Vec<(String, String)> = {
+        let mut stmt = storage
+            .conn()
+            .prepare("SELECT status, format_status FROM source_files ORDER BY file_id")
+            .unwrap();
+        stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect()
+    };
+    assert_eq!(statuses.len(), 2);
+    for (status, format_status) in &statuses {
+        assert_eq!(status, "active_compat");
+        let fs: serde_json::Value = serde_json::from_str(format_status).unwrap();
+        assert_eq!(fs["basis"], "latest_fallback");
+        assert_eq!(fs["compat"], "unverified");
+    }
+    // file_id 排序：d020（version=4）在前，d021（缺失 version）在后。
+    let fs0: serde_json::Value = serde_json::from_str(&statuses[0].1).unwrap();
+    let fs1: serde_json::Value = serde_json::from_str(&statuses[1].1).unwrap();
+    assert_eq!(fs0["found_version"], "4");
+    assert_eq!(fs1["found_version"], serde_json::Value::Null);
+
+    // 重复扫描不增量（兼容标记不改变幂等）。
+    let second = run_omp(&storage, &case, 1_800_000_000_000 + 1000);
+    let added2: i64 = second
+        .iter()
+        .filter_map(|r| r.outcome.as_ref().map(|o| o.added))
+        .sum();
+    assert_eq!(added2, 0);
 }
 
 #[test]

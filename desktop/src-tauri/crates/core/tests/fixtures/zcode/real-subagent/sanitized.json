@@ -1,0 +1,207 @@
+{
+ "kind": "zcode-model-io-sanitized",
+ "extracted_at": "2026-09-25T09:11:46.060Z",
+ "source_file_shape": "cli/rollout/model-io-<sessionId>.jsonl (append-only JSONL)",
+ "source_total_lines": 7,
+ "source_extracted_head": 4,
+ "version_anchors_observed": {
+  "request_headers_x_zcode_app_version": [
+   "3.14.3"
+  ]
+ },
+ "redaction": "UUID→anon-N（跨字段一致）；request 只保留 x-zcode-app-version 头；response 只保留 finishReason/modelId/responseId/usage/providerMetadata.anthropic.{usage,cacheCreationInputTokens}；正文/请求体/响应文本/工具调用不复制",
+ "records": [
+  {
+   "line": 1,
+   "type": "model_io",
+   "attempt": 1,
+   "sessionId": "sess_subagent_agent_anon-19",
+   "requestId": "anon-20",
+   "turnId": "turn_anon-21",
+   "traceId": "anon-4",
+   "querySource": "subagent",
+   "model": {
+    "modelId": "GLM-5.3",
+    "providerId": "account:bigmodel-individual-coding-plan"
+   },
+   "startedAt": "2026-09-25T09:09:53.428Z",
+   "completedAt": "2026-09-25T09:10:38.336Z",
+   "durationMs": 44908,
+   "request": {
+    "headers": {
+     "x-zcode-app-version": "3.14.3"
+    }
+   },
+   "response": {
+    "finishReason": "tool-calls",
+    "modelId": "GLM-5.3",
+    "responseId": "msg_anon-22",
+    "usage": {
+     "inputTokens": 145225,
+     "outputTokens": 2984,
+     "totalTokens": 148209,
+     "cacheReadTokens": 142656,
+     "cacheWriteTokens": 0
+    },
+    "providerMetadata": {
+     "anthropic": {
+      "usage": {
+       "input_tokens": 2569,
+       "output_tokens": 2984,
+       "cache_read_input_tokens": 142656,
+       "server_tool_use": {
+        "web_search_requests": 0
+       },
+       "service_tier": "standard"
+      },
+      "cacheCreationInputTokens": null
+     }
+    }
+   }
+  },
+  {
+   "line": 2,
+   "type": "model_io",
+   "attempt": 1,
+   "sessionId": "sess_subagent_agent_anon-19",
+   "requestId": "anon-23",
+   "turnId": "turn_anon-21",
+   "traceId": "anon-4",
+   "querySource": "subagent",
+   "model": {
+    "modelId": "GLM-5.3",
+    "providerId": "account:bigmodel-individual-coding-plan"
+   },
+   "startedAt": "2026-09-25T09:10:38.687Z",
+   "completedAt": "2026-09-25T09:10:49.497Z",
+   "durationMs": 10810,
+   "request": {
+    "headers": {
+     "x-zcode-app-version": "3.14.3"
+    }
+   },
+   "response": {
+    "finishReason": "tool-calls",
+    "modelId": "GLM-5.3",
+    "responseId": "msg_anon-24",
+    "usage": {
+     "inputTokens": 149108,
+     "outputTokens": 607,
+     "totalTokens": 149715,
+     "cacheReadTokens": 145216,
+     "cacheWriteTokens": 0
+    },
+    "providerMetadata": {
+     "anthropic": {
+      "usage": {
+       "input_tokens": 3892,
+       "output_tokens": 607,
+       "cache_read_input_tokens": 145216,
+       "server_tool_use": {
+        "web_search_requests": 0
+       },
+       "service_tier": "standard"
+      },
+      "cacheCreationInputTokens": null
+     }
+    }
+   }
+  },
+  {
+   "line": 3,
+   "type": "model_io",
+   "attempt": 1,
+   "sessionId": "sess_subagent_agent_anon-19",
+   "requestId": "anon-25",
+   "turnId": "turn_anon-21",
+   "traceId": "anon-4",
+   "querySource": "subagent",
+   "model": {
+    "modelId": "GLM-5.3",
+    "providerId": "account:bigmodel-individual-coding-plan"
+   },
+   "startedAt": "2026-09-25T09:10:49.782Z",
+   "completedAt": "2026-09-25T09:10:59.558Z",
+   "durationMs": 9776,
+   "request": {
+    "headers": {
+     "x-zcode-app-version": "3.14.3"
+    }
+   },
+   "response": {
+    "finishReason": "tool-calls",
+    "modelId": "GLM-5.3",
+    "responseId": "msg_anon-26",
+    "usage": {
+     "inputTokens": 150451,
+     "outputTokens": 754,
+     "totalTokens": 151205,
+     "cacheReadTokens": 149056,
+     "cacheWriteTokens": 0
+    },
+    "providerMetadata": {
+     "anthropic": {
+      "usage": {
+       "input_tokens": 1395,
+       "output_tokens": 754,
+       "cache_read_input_tokens": 149056,
+       "server_tool_use": {
+        "web_search_requests": 0
+       },
+       "service_tier": "standard"
+      },
+      "cacheCreationInputTokens": null
+     }
+    }
+   }
+  },
+  {
+   "line": 4,
+   "type": "model_io",
+   "attempt": 1,
+   "sessionId": "sess_subagent_agent_anon-19",
+   "requestId": "anon-27",
+   "turnId": "turn_anon-21",
+   "traceId": "anon-4",
+   "querySource": "subagent",
+   "model": {
+    "modelId": "GLM-5.3",
+    "providerId": "account:bigmodel-individual-coding-plan"
+   },
+   "startedAt": "2026-09-25T09:10:59.673Z",
+   "completedAt": "2026-09-25T09:11:06.290Z",
+   "durationMs": 6617,
+   "request": {
+    "headers": {
+     "x-zcode-app-version": "3.14.3"
+    }
+   },
+   "response": {
+    "finishReason": "tool-calls",
+    "modelId": "GLM-5.3",
+    "responseId": "msg_anon-28",
+    "usage": {
+     "inputTokens": 151581,
+     "outputTokens": 249,
+     "totalTokens": 151830,
+     "cacheReadTokens": 150400,
+     "cacheWriteTokens": 0
+    },
+    "providerMetadata": {
+     "anthropic": {
+      "usage": {
+       "input_tokens": 1181,
+       "output_tokens": 249,
+       "cache_read_input_tokens": 150400,
+       "server_tool_use": {
+        "web_search_requests": 0
+       },
+       "service_tier": "standard"
+      },
+      "cacheCreationInputTokens": null
+     }
+    }
+   }
+  }
+ ]
+}

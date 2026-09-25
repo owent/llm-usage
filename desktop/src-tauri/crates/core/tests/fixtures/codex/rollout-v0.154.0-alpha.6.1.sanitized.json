@@ -1,0 +1,1525 @@
+{
+ "fixture": "rollout-v0.154.0-alpha.6.1",
+ "format": "codex",
+ "generatedAt": "2026-09-25T06:57:20.777Z",
+ "sourceFileIdentity": "anonymized",
+ "totalLines": 37,
+ "tailLinesExtracted": 37,
+ "parseErrors": 0,
+ "records": [
+  {
+   "line": 1,
+   "timestamp": "2026-09-12T00:35:20.731Z",
+   "ordinal": 0,
+   "type": "session_meta",
+   "payload": {
+    "session_id": "anon-1",
+    "id": "anon-2",
+    "parent_thread_id": "anon-1",
+    "timestamp": "2026-09-12T00:35:20.623Z",
+    "cwd": "<PATH>",
+    "originator": "anon-3",
+    "cli_version": "0.154.0-alpha.6.1",
+    "source": {
+     "subagent": {
+      "other": "REDACTED"
+     }
+    },
+    "thread_source": "anon-4",
+    "model_provider": "openai",
+    "base_instructions": "REDACTED",
+    "history_mode": "REDACTED",
+    "subagent_history_start_ordinal": 37,
+    "multi_agent_version": "REDACTED",
+    "context_window": {
+     "window_id": "anon-5"
+    },
+    "git": {
+     "commit_hash": "REDACTED",
+     "branch": "REDACTED",
+     "repository_url": "REDACTED"
+    }
+   }
+  },
+  {
+   "line": 2,
+   "timestamp": "2026-09-12T00:35:20.731Z",
+   "ordinal": 1,
+   "type": "event_msg",
+   "payload": {
+    "type": "task_started",
+    "turn_id": "anon-6",
+    "started_at": 1789173320,
+    "model_context_window": 258400,
+    "collaboration_mode_kind": "REDACTED"
+   }
+  },
+  {
+   "line": 3,
+   "timestamp": "2026-09-12T00:35:22.030Z",
+   "ordinal": 2,
+   "type": "response_item",
+   "payload": {
+    "type": "message",
+    "id": "anon-7",
+    "role": "REDACTED",
+    "content": "REDACTED",
+    "internal_chat_message_metadata_passthrough": {
+     "turn_id": "anon-6",
+     "create_time": 1789173322.030123,
+     "content_item_kinds": [
+      "REDACTED"
+     ]
+    }
+   }
+  },
+  {
+   "line": 4,
+   "timestamp": "2026-09-12T00:35:22.030Z",
+   "ordinal": 3,
+   "type": "response_item",
+   "payload": {
+    "type": "message",
+    "id": "anon-8",
+    "role": "REDACTED",
+    "content": "REDACTED",
+    "internal_chat_message_metadata_passthrough": {
+     "turn_id": "anon-6",
+     "create_time": 1789173322.0301242,
+     "content_item_kinds": [
+      "REDACTED",
+      "REDACTED"
+     ]
+    }
+   }
+  },
+  {
+   "line": 5,
+   "timestamp": "2026-09-12T00:35:22.030Z",
+   "ordinal": 4,
+   "type": "world_state",
+   "payload": {
+    "full": true,
+    "state": {
+     "agents_md": {
+      "directory": "REDACTED",
+      "text": "REDACTED"
+     },
+     "apps_instructions": false,
+     "collaboration_mode": {
+      "mode": "REDACTED",
+      "model": "codex-auto-review",
+      "instructions": "REDACTED"
+     },
+     "context_window_guidance": "REDACTED",
+     "environments": {
+      "environments": {
+       "local": {
+        "cwd": "<PATH>",
+        "status": "REDACTED",
+        "shell": "REDACTED"
+       }
+      },
+      "current_date": "REDACTED",
+      "timezone": "REDACTED",
+      "filesystem": "REDACTED"
+     },
+     "environments_instructions": false,
+     "model": "codex-auto-review",
+     "multi_agent_mode": {},
+     "permissions": {
+      "instructions": "REDACTED",
+      "approved_command_prefixes": []
+     },
+     "personality": {
+      "model": "codex-auto-review",
+      "personality": "REDACTED"
+     },
+     "plugins_instructions": false,
+     "realtime": {
+      "active": false
+     }
+    }
+   }
+  },
+  {
+   "line": 6,
+   "timestamp": "2026-09-12T00:35:22.030Z",
+   "ordinal": 5,
+   "type": "turn_context",
+   "payload": {
+    "turn_id": "anon-6",
+    "root_turn_id": "anon-9",
+    "cwd": "<PATH>",
+    "workspace_roots": [
+     "REDACTED"
+    ],
+    "current_date": "REDACTED",
+    "timezone": "REDACTED",
+    "approval_policy": "REDACTED",
+    "approvals_reviewer": "REDACTED",
+    "sandbox_policy": {
+     "type": "read-only"
+    },
+    "permission_profile": {
+     "type": "managed",
+     "file_system": {
+      "type": "restricted",
+      "entries": [
+       {
+        "path": {
+         "type": "special",
+         "value": {
+          "kind": "REDACTED"
+         }
+        },
+        "access": "REDACTED"
+       },
+       {
+        "path": {
+         "type": "path",
+         "path": "REDACTED"
+        },
+        "access": "REDACTED"
+       },
+       {
+        "path": {
+         "type": "special",
+         "value": {
+          "kind": "REDACTED"
+         }
+        },
+        "access": "REDACTED"
+       },
+       {
+        "path": {
+         "type": "special",
+         "value": {
+          "kind": "REDACTED"
+         }
+        },
+        "access": "REDACTED"
+       },
+       {
+        "path": {
+         "type": "path",
+         "path": "REDACTED"
+        },
+        "access": "REDACTED",
+        "missing_path_behavior": "REDACTED"
+       },
+       {
+        "path": {
+         "type": "path",
+         "path": "REDACTED"
+        },
+        "access": "REDACTED",
+        "missing_path_behavior": "REDACTED"
+       },
+       {
+        "path": {
+         "type": "path",
+         "path": "REDACTED"
+        },
+        "access": "REDACTED",
+        "missing_path_behavior": "REDACTED"
+       }
+      ]
+     },
+     "network": "REDACTED"
+    },
+    "file_system_sandbox_policy": {
+     "kind": "REDACTED",
+     "entries": [
+      {
+       "path": {
+        "type": "special",
+        "value": {
+         "kind": "REDACTED"
+        }
+       },
+       "access": "REDACTED"
+      },
+      {
+       "path": {
+        "type": "path",
+        "path": "REDACTED"
+       },
+       "access": "REDACTED"
+      },
+      {
+       "path": {
+        "type": "special",
+        "value": {
+         "kind": "REDACTED"
+        }
+       },
+       "access": "REDACTED"
+      },
+      {
+       "path": {
+        "type": "special",
+        "value": {
+         "kind": "REDACTED"
+        }
+       },
+       "access": "REDACTED"
+      },
+      {
+       "path": {
+        "type": "path",
+        "path": "REDACTED"
+       },
+       "access": "REDACTED",
+       "missing_path_behavior": "REDACTED"
+      },
+      {
+       "path": {
+        "type": "path",
+        "path": "REDACTED"
+       },
+       "access": "REDACTED",
+       "missing_path_behavior": "REDACTED"
+      },
+      {
+       "path": {
+        "type": "path",
+        "path": "REDACTED"
+       },
+       "access": "REDACTED",
+       "missing_path_behavior": "REDACTED"
+      }
+     ]
+    },
+    "model": "codex-auto-review",
+    "comp_hash": "REDACTED",
+    "personality": "REDACTED",
+    "collaboration_mode": {
+     "mode": "REDACTED",
+     "settings": {
+      "model": "codex-auto-review",
+      "reasoning_effort": "REDACTED",
+      "developer_instructions": null
+     }
+    },
+    "multi_agent_version": "REDACTED",
+    "realtime_active": false,
+    "effort": "REDACTED",
+    "summary": "REDACTED"
+   }
+  },
+  {
+   "line": 7,
+   "timestamp": "2026-09-12T00:35:22.037Z",
+   "ordinal": 6,
+   "type": "response_item",
+   "payload": {
+    "type": "message",
+    "id": "anon-10",
+    "role": "REDACTED",
+    "content": "REDACTED",
+    "internal_chat_message_metadata_passthrough": {
+     "turn_id": "anon-6",
+     "create_time": 1789173322.0376086,
+     "content_item_kinds": [
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED"
+     ]
+    }
+   }
+  },
+  {
+   "line": 8,
+   "timestamp": "2026-09-12T00:35:22.038Z",
+   "ordinal": 7,
+   "type": "event_msg",
+   "payload": {
+    "type": "item_completed",
+    "thread_id": "anon-2",
+    "turn_id": "anon-6",
+    "item": {
+     "type": "UserMessage",
+     "id": "anon-11",
+     "content": "REDACTED"
+    },
+    "completed_at_ms": 1789173322038
+   }
+  },
+  {
+   "line": 9,
+   "timestamp": "2026-09-12T00:35:25.143Z",
+   "ordinal": 8,
+   "type": "response_item",
+   "payload": {
+    "type": "reasoning",
+    "id": "anon-12",
+    "summary": "REDACTED",
+    "content": null,
+    "encrypted_content": "REDACTED",
+    "internal_chat_message_metadata_passthrough": {
+     "turn_id": "anon-6"
+    }
+   }
+  },
+  {
+   "line": 10,
+   "timestamp": "2026-09-12T00:35:26.389Z",
+   "ordinal": 9,
+   "type": "event_msg",
+   "payload": {
+    "type": "item_completed",
+    "thread_id": "anon-2",
+    "turn_id": "anon-6",
+    "item": {
+     "type": "AgentMessage",
+     "id": "anon-13",
+     "content": "REDACTED",
+     "phase": "REDACTED"
+    },
+    "completed_at_ms": 1789173326389
+   }
+  },
+  {
+   "line": 11,
+   "timestamp": "2026-09-12T00:35:26.389Z",
+   "ordinal": 10,
+   "type": "response_item",
+   "payload": {
+    "type": "message",
+    "id": "anon-14",
+    "role": "REDACTED",
+    "content": "REDACTED",
+    "phase": "REDACTED",
+    "internal_chat_message_metadata_passthrough": {
+     "turn_id": "anon-6",
+     "create_time": 1789173322.604198,
+     "content_item_kinds": [
+      "REDACTED"
+     ]
+    }
+   }
+  },
+  {
+   "line": 12,
+   "timestamp": "2026-09-12T00:35:26.420Z",
+   "ordinal": 11,
+   "type": "token_usage_record",
+   "payload": {
+    "thread_id": "anon-2",
+    "turn_id": "anon-6",
+    "session_id": "anon-1",
+    "root_turn_id": "anon-9",
+    "response_id": "anon-15",
+    "usage": {
+     "input_tokens": 22124,
+     "cached_input_tokens": 4864,
+     "cache_write_input_tokens": 0,
+     "output_tokens": 172,
+     "reasoning_output_tokens": 93,
+     "total_tokens": 22296
+    },
+    "turn_token_usage": {
+     "input_tokens": 22124,
+     "cached_input_tokens": 4864,
+     "cache_write_input_tokens": 0,
+     "output_tokens": 172,
+     "reasoning_output_tokens": 93,
+     "total_tokens": 22296
+    },
+    "thread_token_usage": {
+     "input_tokens": 22124,
+     "cached_input_tokens": 4864,
+     "cache_write_input_tokens": 0,
+     "output_tokens": 172,
+     "reasoning_output_tokens": 93,
+     "total_tokens": 22296
+    }
+   }
+  },
+  {
+   "line": 13,
+   "timestamp": "2026-09-12T00:35:26.420Z",
+   "ordinal": 12,
+   "type": "event_msg",
+   "payload": {
+    "type": "token_count",
+    "info": {
+     "total_token_usage": {
+      "input_tokens": 22124,
+      "cached_input_tokens": 4864,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 172,
+      "reasoning_output_tokens": 93,
+      "total_tokens": 22296
+     },
+     "last_token_usage": {
+      "input_tokens": 22124,
+      "cached_input_tokens": 4864,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 172,
+      "reasoning_output_tokens": 93,
+      "total_tokens": 22296
+     },
+     "model_context_window": 258400
+    },
+    "rate_limits": {
+     "limit_id": "anon-16",
+     "limit_name": null,
+     "primary": {
+      "used_percent": 1,
+      "window_minutes": 300,
+      "resets_at": 1789191320
+     },
+     "secondary": {
+      "used_percent": 90,
+      "window_minutes": 10080,
+      "resets_at": 1789567059
+     },
+     "credits": {
+      "has_credits": false,
+      "unlimited": false,
+      "balance": "REDACTED"
+     },
+     "individual_limit": null,
+     "spend_control_reached": null,
+     "plan_type": "REDACTED",
+     "rate_limit_reached_type": null
+    }
+   }
+  },
+  {
+   "line": 14,
+   "timestamp": "2026-09-12T00:35:26.430Z",
+   "ordinal": 13,
+   "type": "event_msg",
+   "payload": {
+    "type": "task_complete",
+    "turn_id": "anon-6",
+    "last_agent_message": "REDACTED",
+    "started_at": 1789173320,
+    "completed_at": 1789173326,
+    "duration_ms": 5763,
+    "time_to_first_token_ms": 4480
+   }
+  },
+  {
+   "line": 15,
+   "timestamp": "2026-09-12T00:35:36.660Z",
+   "ordinal": 14,
+   "type": "response_item",
+   "payload": {
+    "type": "message",
+    "id": "anon-17",
+    "role": "REDACTED",
+    "content": "REDACTED",
+    "internal_chat_message_metadata_passthrough": {
+     "turn_id": "anon-18",
+     "create_time": 1789173336.660212,
+     "content_item_kinds": [
+      "REDACTED"
+     ]
+    }
+   }
+  },
+  {
+   "line": 16,
+   "timestamp": "2026-09-12T00:35:36.670Z",
+   "ordinal": 15,
+   "type": "event_msg",
+   "payload": {
+    "type": "thread_settings_applied",
+    "thread_id": "anon-2",
+    "thread_settings": {
+     "model": "codex-auto-review",
+     "model_provider_id": "anon-19",
+     "service_tier": "REDACTED",
+     "approval_policy": "REDACTED",
+     "approvals_reviewer": "REDACTED",
+     "permission_profile": {
+      "type": "managed",
+      "file_system": {
+       "type": "restricted",
+       "entries": [
+        {
+         "path": {
+          "type": "special",
+          "value": {
+           "kind": "REDACTED"
+          }
+         },
+         "access": "REDACTED"
+        },
+        {
+         "path": {
+          "type": "path",
+          "path": "REDACTED"
+         },
+         "access": "REDACTED"
+        },
+        {
+         "path": {
+          "type": "special",
+          "value": {
+           "kind": "REDACTED"
+          }
+         },
+         "access": "REDACTED"
+        },
+        {
+         "path": {
+          "type": "special",
+          "value": {
+           "kind": "REDACTED"
+          }
+         },
+         "access": "REDACTED"
+        },
+        {
+         "path": {
+          "type": "path",
+          "path": "REDACTED"
+         },
+         "access": "REDACTED",
+         "missing_path_behavior": "REDACTED"
+        },
+        {
+         "path": {
+          "type": "path",
+          "path": "REDACTED"
+         },
+         "access": "REDACTED",
+         "missing_path_behavior": "REDACTED"
+        },
+        {
+         "path": {
+          "type": "path",
+          "path": "REDACTED"
+         },
+         "access": "REDACTED",
+         "missing_path_behavior": "REDACTED"
+        }
+       ]
+      },
+      "network": "REDACTED"
+     },
+     "cwd": "<PATH>",
+     "reasoning_effort": "REDACTED",
+     "reasoning_summary": "REDACTED",
+     "personality": "REDACTED",
+     "collaboration_mode": {
+      "mode": "REDACTED",
+      "settings": {
+       "model": "codex-auto-review",
+       "reasoning_effort": "REDACTED",
+       "developer_instructions": null
+      }
+     }
+    }
+   }
+  },
+  {
+   "line": 17,
+   "timestamp": "2026-09-12T00:35:36.678Z",
+   "ordinal": 16,
+   "type": "event_msg",
+   "payload": {
+    "type": "task_started",
+    "turn_id": "anon-20",
+    "started_at": 1789173336,
+    "model_context_window": 258400,
+    "collaboration_mode_kind": "REDACTED"
+   }
+  },
+  {
+   "line": 18,
+   "timestamp": "2026-09-12T00:35:36.687Z",
+   "ordinal": 17,
+   "type": "turn_context",
+   "payload": {
+    "turn_id": "anon-20",
+    "root_turn_id": "anon-9",
+    "cwd": "<PATH>",
+    "workspace_roots": [
+     "REDACTED"
+    ],
+    "current_date": "REDACTED",
+    "timezone": "REDACTED",
+    "approval_policy": "REDACTED",
+    "approvals_reviewer": "REDACTED",
+    "sandbox_policy": {
+     "type": "read-only"
+    },
+    "permission_profile": {
+     "type": "managed",
+     "file_system": {
+      "type": "restricted",
+      "entries": [
+       {
+        "path": {
+         "type": "special",
+         "value": {
+          "kind": "REDACTED"
+         }
+        },
+        "access": "REDACTED"
+       },
+       {
+        "path": {
+         "type": "path",
+         "path": "REDACTED"
+        },
+        "access": "REDACTED"
+       },
+       {
+        "path": {
+         "type": "special",
+         "value": {
+          "kind": "REDACTED"
+         }
+        },
+        "access": "REDACTED"
+       },
+       {
+        "path": {
+         "type": "special",
+         "value": {
+          "kind": "REDACTED"
+         }
+        },
+        "access": "REDACTED"
+       },
+       {
+        "path": {
+         "type": "path",
+         "path": "REDACTED"
+        },
+        "access": "REDACTED",
+        "missing_path_behavior": "REDACTED"
+       },
+       {
+        "path": {
+         "type": "path",
+         "path": "REDACTED"
+        },
+        "access": "REDACTED",
+        "missing_path_behavior": "REDACTED"
+       },
+       {
+        "path": {
+         "type": "path",
+         "path": "REDACTED"
+        },
+        "access": "REDACTED",
+        "missing_path_behavior": "REDACTED"
+       }
+      ]
+     },
+     "network": "REDACTED"
+    },
+    "file_system_sandbox_policy": {
+     "kind": "REDACTED",
+     "entries": [
+      {
+       "path": {
+        "type": "special",
+        "value": {
+         "kind": "REDACTED"
+        }
+       },
+       "access": "REDACTED"
+      },
+      {
+       "path": {
+        "type": "path",
+        "path": "REDACTED"
+       },
+       "access": "REDACTED"
+      },
+      {
+       "path": {
+        "type": "special",
+        "value": {
+         "kind": "REDACTED"
+        }
+       },
+       "access": "REDACTED"
+      },
+      {
+       "path": {
+        "type": "special",
+        "value": {
+         "kind": "REDACTED"
+        }
+       },
+       "access": "REDACTED"
+      },
+      {
+       "path": {
+        "type": "path",
+        "path": "REDACTED"
+       },
+       "access": "REDACTED",
+       "missing_path_behavior": "REDACTED"
+      },
+      {
+       "path": {
+        "type": "path",
+        "path": "REDACTED"
+       },
+       "access": "REDACTED",
+       "missing_path_behavior": "REDACTED"
+      },
+      {
+       "path": {
+        "type": "path",
+        "path": "REDACTED"
+       },
+       "access": "REDACTED",
+       "missing_path_behavior": "REDACTED"
+      }
+     ]
+    },
+    "model": "codex-auto-review",
+    "comp_hash": "REDACTED",
+    "personality": "REDACTED",
+    "collaboration_mode": {
+     "mode": "REDACTED",
+     "settings": {
+      "model": "codex-auto-review",
+      "reasoning_effort": "REDACTED",
+      "developer_instructions": null
+     }
+    },
+    "multi_agent_version": "REDACTED",
+    "realtime_active": false,
+    "effort": "REDACTED",
+    "summary": "REDACTED"
+   }
+  },
+  {
+   "line": 19,
+   "timestamp": "2026-09-12T00:35:36.694Z",
+   "ordinal": 18,
+   "type": "response_item",
+   "payload": {
+    "type": "message",
+    "id": "anon-21",
+    "role": "REDACTED",
+    "content": "REDACTED",
+    "internal_chat_message_metadata_passthrough": {
+     "turn_id": "anon-20",
+     "create_time": 1789173336.6940885,
+     "content_item_kinds": [
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED"
+     ]
+    }
+   }
+  },
+  {
+   "line": 20,
+   "timestamp": "2026-09-12T00:35:36.694Z",
+   "ordinal": 19,
+   "type": "event_msg",
+   "payload": {
+    "type": "item_completed",
+    "thread_id": "anon-2",
+    "turn_id": "anon-20",
+    "item": {
+     "type": "UserMessage",
+     "id": "anon-22",
+     "content": "REDACTED"
+    },
+    "completed_at_ms": 1789173336694
+   }
+  },
+  {
+   "line": 21,
+   "timestamp": "2026-09-12T00:35:38.343Z",
+   "ordinal": 20,
+   "type": "response_item",
+   "payload": {
+    "type": "reasoning",
+    "id": "anon-23",
+    "summary": "REDACTED",
+    "content": null,
+    "encrypted_content": "REDACTED",
+    "internal_chat_message_metadata_passthrough": {
+     "turn_id": "anon-20"
+    }
+   }
+  },
+  {
+   "line": 22,
+   "timestamp": "2026-09-12T00:35:39.326Z",
+   "ordinal": 21,
+   "type": "event_msg",
+   "payload": {
+    "type": "item_completed",
+    "thread_id": "anon-2",
+    "turn_id": "anon-20",
+    "item": {
+     "type": "AgentMessage",
+     "id": "anon-24",
+     "content": "REDACTED",
+     "phase": "REDACTED"
+    },
+    "completed_at_ms": 1789173339326
+   }
+  },
+  {
+   "line": 23,
+   "timestamp": "2026-09-12T00:35:39.327Z",
+   "ordinal": 22,
+   "type": "response_item",
+   "payload": {
+    "type": "message",
+    "id": "anon-25",
+    "role": "REDACTED",
+    "content": "REDACTED",
+    "phase": "REDACTED",
+    "internal_chat_message_metadata_passthrough": {
+     "turn_id": "anon-20",
+     "create_time": 1789173337.115071,
+     "content_item_kinds": [
+      "REDACTED"
+     ]
+    }
+   }
+  },
+  {
+   "line": 24,
+   "timestamp": "2026-09-12T00:35:39.348Z",
+   "ordinal": 23,
+   "type": "token_usage_record",
+   "payload": {
+    "thread_id": "anon-2",
+    "turn_id": "anon-20",
+    "session_id": "anon-1",
+    "root_turn_id": "anon-9",
+    "response_id": "anon-26",
+    "usage": {
+     "input_tokens": 22687,
+     "cached_input_tokens": 21248,
+     "cache_write_input_tokens": 0,
+     "output_tokens": 96,
+     "reasoning_output_tokens": 32,
+     "total_tokens": 22783
+    },
+    "turn_token_usage": {
+     "input_tokens": 22687,
+     "cached_input_tokens": 21248,
+     "cache_write_input_tokens": 0,
+     "output_tokens": 96,
+     "reasoning_output_tokens": 32,
+     "total_tokens": 22783
+    },
+    "thread_token_usage": {
+     "input_tokens": 44811,
+     "cached_input_tokens": 26112,
+     "cache_write_input_tokens": 0,
+     "output_tokens": 268,
+     "reasoning_output_tokens": 125,
+     "total_tokens": 45079
+    }
+   }
+  },
+  {
+   "line": 25,
+   "timestamp": "2026-09-12T00:35:39.348Z",
+   "ordinal": 24,
+   "type": "event_msg",
+   "payload": {
+    "type": "token_count",
+    "info": {
+     "total_token_usage": {
+      "input_tokens": 44811,
+      "cached_input_tokens": 26112,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 268,
+      "reasoning_output_tokens": 125,
+      "total_tokens": 45079
+     },
+     "last_token_usage": {
+      "input_tokens": 22687,
+      "cached_input_tokens": 21248,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 96,
+      "reasoning_output_tokens": 32,
+      "total_tokens": 22783
+     },
+     "model_context_window": 258400
+    },
+    "rate_limits": {
+     "limit_id": "anon-16",
+     "limit_name": null,
+     "primary": {
+      "used_percent": 1,
+      "window_minutes": 300,
+      "resets_at": 1789191320
+     },
+     "secondary": {
+      "used_percent": 90,
+      "window_minutes": 10080,
+      "resets_at": 1789567059
+     },
+     "credits": {
+      "has_credits": false,
+      "unlimited": false,
+      "balance": "REDACTED"
+     },
+     "individual_limit": null,
+     "spend_control_reached": null,
+     "plan_type": "REDACTED",
+     "rate_limit_reached_type": null
+    }
+   }
+  },
+  {
+   "line": 26,
+   "timestamp": "2026-09-12T00:35:39.356Z",
+   "ordinal": 25,
+   "type": "event_msg",
+   "payload": {
+    "type": "task_complete",
+    "turn_id": "anon-20",
+    "last_agent_message": "REDACTED",
+    "started_at": 1789173336,
+    "completed_at": 1789173339,
+    "duration_ms": 2678,
+    "time_to_first_token_ms": 1676
+   }
+  },
+  {
+   "line": 27,
+   "timestamp": "2026-09-12T00:35:51.715Z",
+   "ordinal": 26,
+   "type": "event_msg",
+   "payload": {
+    "type": "thread_settings_applied",
+    "thread_id": "anon-2",
+    "thread_settings": {
+     "model": "codex-auto-review",
+     "model_provider_id": "anon-19",
+     "service_tier": "REDACTED",
+     "approval_policy": "REDACTED",
+     "approvals_reviewer": "REDACTED",
+     "permission_profile": {
+      "type": "managed",
+      "file_system": {
+       "type": "restricted",
+       "entries": [
+        {
+         "path": {
+          "type": "special",
+          "value": {
+           "kind": "REDACTED"
+          }
+         },
+         "access": "REDACTED"
+        },
+        {
+         "path": {
+          "type": "path",
+          "path": "REDACTED"
+         },
+         "access": "REDACTED"
+        },
+        {
+         "path": {
+          "type": "special",
+          "value": {
+           "kind": "REDACTED"
+          }
+         },
+         "access": "REDACTED"
+        },
+        {
+         "path": {
+          "type": "special",
+          "value": {
+           "kind": "REDACTED"
+          }
+         },
+         "access": "REDACTED"
+        },
+        {
+         "path": {
+          "type": "path",
+          "path": "REDACTED"
+         },
+         "access": "REDACTED",
+         "missing_path_behavior": "REDACTED"
+        },
+        {
+         "path": {
+          "type": "path",
+          "path": "REDACTED"
+         },
+         "access": "REDACTED",
+         "missing_path_behavior": "REDACTED"
+        },
+        {
+         "path": {
+          "type": "path",
+          "path": "REDACTED"
+         },
+         "access": "REDACTED",
+         "missing_path_behavior": "REDACTED"
+        }
+       ]
+      },
+      "network": "REDACTED"
+     },
+     "cwd": "<PATH>",
+     "reasoning_effort": "REDACTED",
+     "reasoning_summary": "REDACTED",
+     "personality": "REDACTED",
+     "collaboration_mode": {
+      "mode": "REDACTED",
+      "settings": {
+       "model": "codex-auto-review",
+       "reasoning_effort": "REDACTED",
+       "developer_instructions": null
+      }
+     }
+    }
+   }
+  },
+  {
+   "line": 28,
+   "timestamp": "2026-09-12T00:35:51.722Z",
+   "ordinal": 27,
+   "type": "event_msg",
+   "payload": {
+    "type": "task_started",
+    "turn_id": "anon-27",
+    "started_at": 1789173351,
+    "model_context_window": 258400,
+    "collaboration_mode_kind": "REDACTED"
+   }
+  },
+  {
+   "line": 29,
+   "timestamp": "2026-09-12T00:35:51.730Z",
+   "ordinal": 28,
+   "type": "turn_context",
+   "payload": {
+    "turn_id": "anon-27",
+    "root_turn_id": "anon-9",
+    "cwd": "<PATH>",
+    "workspace_roots": [
+     "REDACTED"
+    ],
+    "current_date": "REDACTED",
+    "timezone": "REDACTED",
+    "approval_policy": "REDACTED",
+    "approvals_reviewer": "REDACTED",
+    "sandbox_policy": {
+     "type": "read-only"
+    },
+    "permission_profile": {
+     "type": "managed",
+     "file_system": {
+      "type": "restricted",
+      "entries": [
+       {
+        "path": {
+         "type": "special",
+         "value": {
+          "kind": "REDACTED"
+         }
+        },
+        "access": "REDACTED"
+       },
+       {
+        "path": {
+         "type": "path",
+         "path": "REDACTED"
+        },
+        "access": "REDACTED"
+       },
+       {
+        "path": {
+         "type": "special",
+         "value": {
+          "kind": "REDACTED"
+         }
+        },
+        "access": "REDACTED"
+       },
+       {
+        "path": {
+         "type": "special",
+         "value": {
+          "kind": "REDACTED"
+         }
+        },
+        "access": "REDACTED"
+       },
+       {
+        "path": {
+         "type": "path",
+         "path": "REDACTED"
+        },
+        "access": "REDACTED",
+        "missing_path_behavior": "REDACTED"
+       },
+       {
+        "path": {
+         "type": "path",
+         "path": "REDACTED"
+        },
+        "access": "REDACTED",
+        "missing_path_behavior": "REDACTED"
+       },
+       {
+        "path": {
+         "type": "path",
+         "path": "REDACTED"
+        },
+        "access": "REDACTED",
+        "missing_path_behavior": "REDACTED"
+       }
+      ]
+     },
+     "network": "REDACTED"
+    },
+    "file_system_sandbox_policy": {
+     "kind": "REDACTED",
+     "entries": [
+      {
+       "path": {
+        "type": "special",
+        "value": {
+         "kind": "REDACTED"
+        }
+       },
+       "access": "REDACTED"
+      },
+      {
+       "path": {
+        "type": "path",
+        "path": "REDACTED"
+       },
+       "access": "REDACTED"
+      },
+      {
+       "path": {
+        "type": "special",
+        "value": {
+         "kind": "REDACTED"
+        }
+       },
+       "access": "REDACTED"
+      },
+      {
+       "path": {
+        "type": "special",
+        "value": {
+         "kind": "REDACTED"
+        }
+       },
+       "access": "REDACTED"
+      },
+      {
+       "path": {
+        "type": "path",
+        "path": "REDACTED"
+       },
+       "access": "REDACTED",
+       "missing_path_behavior": "REDACTED"
+      },
+      {
+       "path": {
+        "type": "path",
+        "path": "REDACTED"
+       },
+       "access": "REDACTED",
+       "missing_path_behavior": "REDACTED"
+      },
+      {
+       "path": {
+        "type": "path",
+        "path": "REDACTED"
+       },
+       "access": "REDACTED",
+       "missing_path_behavior": "REDACTED"
+      }
+     ]
+    },
+    "model": "codex-auto-review",
+    "comp_hash": "REDACTED",
+    "personality": "REDACTED",
+    "collaboration_mode": {
+     "mode": "REDACTED",
+     "settings": {
+      "model": "codex-auto-review",
+      "reasoning_effort": "REDACTED",
+      "developer_instructions": null
+     }
+    },
+    "multi_agent_version": "REDACTED",
+    "realtime_active": false,
+    "effort": "REDACTED",
+    "summary": "REDACTED"
+   }
+  },
+  {
+   "line": 30,
+   "timestamp": "2026-09-12T00:35:51.737Z",
+   "ordinal": 29,
+   "type": "response_item",
+   "payload": {
+    "type": "message",
+    "id": "anon-28",
+    "role": "REDACTED",
+    "content": "REDACTED",
+    "internal_chat_message_metadata_passthrough": {
+     "turn_id": "anon-27",
+     "create_time": 1789173351.737263,
+     "content_item_kinds": [
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED",
+      "REDACTED"
+     ]
+    }
+   }
+  },
+  {
+   "line": 31,
+   "timestamp": "2026-09-12T00:35:51.737Z",
+   "ordinal": 30,
+   "type": "event_msg",
+   "payload": {
+    "type": "item_completed",
+    "thread_id": "anon-2",
+    "turn_id": "anon-27",
+    "item": {
+     "type": "UserMessage",
+     "id": "anon-29",
+     "content": "REDACTED"
+    },
+    "completed_at_ms": 1789173351737
+   }
+  },
+  {
+   "line": 32,
+   "timestamp": "2026-09-12T00:35:53.215Z",
+   "ordinal": 31,
+   "type": "response_item",
+   "payload": {
+    "type": "reasoning",
+    "id": "anon-30",
+    "summary": "REDACTED",
+    "content": null,
+    "encrypted_content": "REDACTED",
+    "internal_chat_message_metadata_passthrough": {
+     "turn_id": "anon-27"
+    }
+   }
+  },
+  {
+   "line": 33,
+   "timestamp": "2026-09-12T00:35:54.411Z",
+   "ordinal": 32,
+   "type": "event_msg",
+   "payload": {
+    "type": "item_completed",
+    "thread_id": "anon-2",
+    "turn_id": "anon-27",
+    "item": {
+     "type": "AgentMessage",
+     "id": "anon-31",
+     "content": "REDACTED",
+     "phase": "REDACTED"
+    },
+    "completed_at_ms": 1789173354411
+   }
+  },
+  {
+   "line": 34,
+   "timestamp": "2026-09-12T00:35:54.411Z",
+   "ordinal": 33,
+   "type": "response_item",
+   "payload": {
+    "type": "message",
+    "id": "anon-32",
+    "role": "REDACTED",
+    "content": "REDACTED",
+    "phase": "REDACTED",
+    "internal_chat_message_metadata_passthrough": {
+     "turn_id": "anon-27",
+     "create_time": 1789173352.098353,
+     "content_item_kinds": [
+      "REDACTED"
+     ]
+    }
+   }
+  },
+  {
+   "line": 35,
+   "timestamp": "2026-09-12T00:35:54.424Z",
+   "ordinal": 34,
+   "type": "token_usage_record",
+   "payload": {
+    "thread_id": "anon-2",
+    "turn_id": "anon-27",
+    "session_id": "anon-1",
+    "root_turn_id": "anon-9",
+    "response_id": "anon-33",
+    "usage": {
+     "input_tokens": 24562,
+     "cached_input_tokens": 22272,
+     "cache_write_input_tokens": 0,
+     "output_tokens": 99,
+     "reasoning_output_tokens": 26,
+     "total_tokens": 24661
+    },
+    "turn_token_usage": {
+     "input_tokens": 24562,
+     "cached_input_tokens": 22272,
+     "cache_write_input_tokens": 0,
+     "output_tokens": 99,
+     "reasoning_output_tokens": 26,
+     "total_tokens": 24661
+    },
+    "thread_token_usage": {
+     "input_tokens": 69373,
+     "cached_input_tokens": 48384,
+     "cache_write_input_tokens": 0,
+     "output_tokens": 367,
+     "reasoning_output_tokens": 151,
+     "total_tokens": 69740
+    }
+   }
+  },
+  {
+   "line": 36,
+   "timestamp": "2026-09-12T00:35:54.424Z",
+   "ordinal": 35,
+   "type": "event_msg",
+   "payload": {
+    "type": "token_count",
+    "info": {
+     "total_token_usage": {
+      "input_tokens": 69373,
+      "cached_input_tokens": 48384,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 367,
+      "reasoning_output_tokens": 151,
+      "total_tokens": 69740
+     },
+     "last_token_usage": {
+      "input_tokens": 24562,
+      "cached_input_tokens": 22272,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 99,
+      "reasoning_output_tokens": 26,
+      "total_tokens": 24661
+     },
+     "model_context_window": 258400
+    },
+    "rate_limits": {
+     "limit_id": "anon-16",
+     "limit_name": null,
+     "primary": {
+      "used_percent": 4,
+      "window_minutes": 300,
+      "resets_at": 1789191320
+     },
+     "secondary": {
+      "used_percent": 90,
+      "window_minutes": 10080,
+      "resets_at": 1789567059
+     },
+     "credits": {
+      "has_credits": false,
+      "unlimited": false,
+      "balance": "REDACTED"
+     },
+     "individual_limit": null,
+     "spend_control_reached": null,
+     "plan_type": "REDACTED",
+     "rate_limit_reached_type": null
+    }
+   }
+  },
+  {
+   "line": 37,
+   "timestamp": "2026-09-12T00:35:54.433Z",
+   "ordinal": 36,
+   "type": "event_msg",
+   "payload": {
+    "type": "task_complete",
+    "turn_id": "anon-27",
+    "last_agent_message": "REDACTED",
+    "started_at": 1789173351,
+    "completed_at": 1789173354,
+    "duration_ms": 2710,
+    "time_to_first_token_ms": 1505
+   }
+  }
+ ]
+}

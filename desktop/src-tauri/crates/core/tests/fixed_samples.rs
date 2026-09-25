@@ -3,7 +3,7 @@
 mod common;
 
 use common::{batch, evt, temp_storage, ts, with_tokens};
-use llm_usage_core::adapters::usage_map::{map_codex, CodexUsage};
+use llm_usage_core::adapters::codex::{map_codex, CodexUsage};
 use llm_usage_core::aggregates::{
     observe_cumulative, sum_exclusive_aggregates, upsert_source_aggregate, AggregateScope,
     Coverage, CumulativeOutcome, SourceAggregateInput,

@@ -10,5 +10,10 @@
 
 应用图标、资源预览、Windows 图标嵌入与 LFS 迁移的实际结果见 [静态资源验证](static-assets.md)。
 最近两次提交的缺陷、修复、升级兼容与回归结果见 [M0/M1 审查](m0-m1-review.md)。
-M2 的 Codex 适配器验收见 [m2a-codex.md](m2a-codex.md)；pi/Claude/Gemini/Qwen 按用户要求
-中断、半成品未验收，状态与恢复方式见 [m2bc-suspended.md](m2bc-suspended.md)。
+M2 的 Codex 适配器验收见 [m2a-codex.md](m2a-codex.md)；pi/oh-my-pi/Claude/Gemini/Qwen
+五源恢复验收见 [m2bc-resumed.md](m2bc-resumed.md)（中断经过见
+[m2bc-suspended.md](m2bc-suspended.md)）；适配器目录化迁移、未知版本兼容尝试与
+Codex 逐版本 fixture 见 [m2d-layout-versions.md](m2d-layout-versions.md)。
+M1a 来源身份与存储分区见 [m1a-provenance.md](m1a-provenance.md)；
+M6 主体功能（界面/刷新/调度/导出/headless/i18n）见 [m6-desktop-core.md](m6-desktop-core.md)，
+其中记录了 Roaming 占位文件事故与 kilo/zcode 适配器中断状态。

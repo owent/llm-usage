@@ -223,6 +223,35 @@ impl TimeBasis {
     }
 }
 
+/// 版本选择依据（architecture.md 未知版本兼容合同）：
+/// 已知版本按注册表映射分派；未知/缺失版本先尝试该 Agent 最新内置解析器，
+/// 结果带兼容标记，兼容状态与 token 字段质量分别记录。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum VersionBasis {
+    KnownVersion,
+    LatestFallback,
+}
+
+impl VersionBasis {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            VersionBasis::KnownVersion => "known_version",
+            VersionBasis::LatestFallback => "latest_fallback",
+        }
+    }
+
+    pub fn parse(s: &str) -> Result<Self, CoreError> {
+        match s {
+            "known_version" => Ok(VersionBasis::KnownVersion),
+            "latest_fallback" => Ok(VersionBasis::LatestFallback),
+            other => Err(CoreError::Validation(format!(
+                "unknown version basis: {other}"
+            ))),
+        }
+    }
+}
+
 /// 本机归属依据。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -508,6 +537,9 @@ pub struct EventInput {
     pub record_kind: RecordKind,
     pub schema_version: String,
     pub parser_version: String,
+    /// 版本选择依据（known_version / latest_fallback）；None 为未区分的历史数据。
+    /// 兼容状态是解析依据，不是记录内容，不参与内容哈希。
+    pub parse_basis: Option<VersionBasis>,
     pub origin_call_id: Option<String>,
     pub attempt_id: Option<String>,
     pub session_id: Option<String>,

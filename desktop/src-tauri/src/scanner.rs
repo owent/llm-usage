@@ -1,0 +1,170 @@
+//! 采集运行器：内置适配器注册表 + 全源刷新 + 间隔调度循环（M6）。
+//! 合同：只读取用户启用的本地来源；定时任务只运行本应用采集逻辑；
+//! 同一时刻仅一个刷新在执行（重复触发合并，V12/V23）。
+
+use crate::app_state::{summarize_reports, AppState, RefreshInstanceSummary};
+use llm_usage_core::adapters::claude::ClaudeAdapter;
+use llm_usage_core::adapters::codex::CodexAdapter;
+use llm_usage_core::adapters::framework::{
+    run_adapter_scan, DiscoverContext, RunConfig, ScanLimits, SourceAdapter,
+};
+use llm_usage_core::adapters::gemini::GeminiAdapter;
+use llm_usage_core::adapters::omp::OmpAdapter;
+use llm_usage_core::adapters::pi::PiAdapter;
+use llm_usage_core::adapters::qwen::QwenAdapter;
+use llm_usage_core::jobs::TriggerKind;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+
+/// 内置适配器注册表：新增适配器在此登记（目录合同见 architecture.md#adapter-layout）。
+pub fn built_in_adapters() -> Vec<Box<dyn SourceAdapter>> {
+    vec![
+        Box::new(CodexAdapter::new()),
+        Box::new(ClaudeAdapter::new()),
+        Box::new(PiAdapter::new()),
+        Box::new(OmpAdapter::new()),
+        Box::new(GeminiAdapter::new()),
+        Box::new(QwenAdapter::new()),
+    ]
+}
+
+pub fn now_ms() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0)
+}
+
+fn discover_context(manual_roots: Vec<String>) -> DiscoverContext {
+    DiscoverContext {
+        home_dir: std::env::var("USERPROFILE")
+            .or_else(|_| std::env::var("HOME"))
+            .ok()
+            .map(std::path::PathBuf::from),
+        env: std::env::vars().collect(),
+        manual_roots: manual_roots
+            .into_iter()
+            .map(std::path::PathBuf::from)
+            .collect(),
+    }
+}
+
+/// 执行一次全源刷新（已启用来源）。已在执行时直接返回 false（合并触发，不并发）。
+pub fn run_refresh(state: &Arc<AppState>, trigger: TriggerKind) -> bool {
+    {
+        let refresh = state.refresh.lock().unwrap();
+        if refresh.running {
+            return false;
+        }
+    }
+    let (host_id, manual_roots, retention_days) = {
+        let settings = state.settings.lock().unwrap();
+        let host = state.host_id.lock().unwrap().clone();
+        (host, settings.manual_roots.clone(), settings.retention_days)
+    };
+    {
+        let mut refresh = state.refresh.lock().unwrap();
+        refresh.running = true;
+        refresh.started_ms = now_ms();
+        refresh.trigger = trigger.as_str().to_string();
+        refresh.instances.clear();
+    }
+    let now = now_ms();
+    let config = RunConfig {
+        timezone: "UTC".to_string(),
+        now_ms: now,
+        limits: ScanLimits::default(),
+        trigger,
+        run_id_prefix: format!("scan-{now}"),
+        origin_host_id: Some(host_id),
+    };
+    let ctx = discover_context(manual_roots);
+    let mut summaries: Vec<RefreshInstanceSummary> = Vec::new();
+    {
+        let storage = state.storage.lock().unwrap();
+        for (adapter_index, adapter) in built_in_adapters().into_iter().enumerate() {
+            // run_id 全局唯一：核心按「前缀-实例序号」生成，前缀须每次调用唯一
+            //（ingest_runs.run_id 是主键；同前缀多适配器会撞键）。
+            let config = RunConfig {
+                run_id_prefix: format!("scan-{now}-a{adapter_index}"),
+                ..config.clone()
+            };
+            match run_adapter_scan(&storage, adapter.as_ref(), &ctx, &config) {
+                Ok(reports) => summaries.extend(summarize_reports(&reports)),
+                Err(e) => summaries.push(RefreshInstanceSummary {
+                    instance_id: format!("{}@*", adapter.adapter_id()),
+                    agent: adapter.agent().to_string(),
+                    status: "failed".to_string(),
+                    error: Some(e.to_string()),
+                    added: 0,
+                    updated: 0,
+                    files: 0,
+                    events: 0,
+                    diagnostics: 0,
+                }),
+            }
+        }
+        // 有限保留：采集后按设置执行（封存过期日 → 删除过期明细；单事务）。
+        if let Some(days) = retention_days {
+            let policy = llm_usage_core::retention::RetentionPolicy {
+                detail_days: days,
+                diagnostics_days: 30.min(days),
+                hard_max_days: None,
+            };
+            let timezone = state.settings.lock().unwrap().timezone.clone();
+            if let Err(e) =
+                llm_usage_core::retention::enforce_retention(&storage, &timezone, now_ms(), &policy)
+            {
+                summaries.push(RefreshInstanceSummary {
+                    instance_id: "retention".to_string(),
+                    agent: "app".to_string(),
+                    status: "failed".to_string(),
+                    error: Some(format!("retention enforcement failed: {e}")),
+                    added: 0,
+                    updated: 0,
+                    files: 0,
+                    events: 0,
+                    diagnostics: 0,
+                });
+            }
+        }
+    }
+    {
+        let mut refresh = state.refresh.lock().unwrap();
+        refresh.running = false;
+        refresh.last_finished_ms = now_ms();
+        refresh.instances = summaries;
+    }
+    true
+}
+
+/// 间隔调度循环：按设置的全局间隔触发刷新；间隔 0 = 暂停自动提取。
+/// 错过时点（休眠）醒来后立即补一次扫描（V23 补扫合并语义：只补一次）。
+pub fn spawn_scheduler(state: Arc<AppState>, stop: Arc<AtomicBool>) {
+    std::thread::spawn(move || {
+        // 启动后先做一次回填扫描（Startup 触发）。
+        run_refresh(&state, TriggerKind::Startup);
+        let mut next_due = next_due_ms(&state);
+        loop {
+            if stop.load(Ordering::Relaxed) {
+                break;
+            }
+            let now = now_ms();
+            if now >= next_due {
+                run_refresh(&state, TriggerKind::Interval);
+                next_due = next_due_ms(&state);
+            }
+            let wait = next_due.saturating_sub(now_ms()).clamp(500, 5_000);
+            std::thread::sleep(std::time::Duration::from_millis(wait as u64));
+        }
+    });
+}
+
+fn next_due_ms(state: &Arc<AppState>) -> i64 {
+    let interval = state.settings.lock().unwrap().refresh_interval_secs;
+    if interval == 0 {
+        // 暂停自动提取：仅轮询设置变化，不采集。
+        return now_ms() + 5_000;
+    }
+    now_ms() + (interval as i64) * 1000
+}

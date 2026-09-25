@@ -111,8 +111,8 @@ oh-my-pi 适配器未见独立文件（仅共享 `map_pi_family` 口径）；M2-
 | 合成/真实 fixture | **已完成**（2026-09-25） | pi 真实 1 + 合成 7；omp 真实 3 + 合成 9；claude/gemini/qwen 合成各 8（本机无真实数据，no_data/not_found 证据在恢复记录） | 三源真实样本待本机出现数据后按 m0 脱敏流程补取 |
 | 本机真实只读核对（对照 `real_verify_codex` example） | **已完成**（2026-09-25） | examples ×6 齐备；pi/omp 真实核对通过（幂等、不变量成立）；claude/gemini/qwen 记录 no_data/not_found | — |
 | 重复扫描不增量、主/辅助/子 Agent 覆盖可见（M2 完成条件） | **已验收**（2026-09-25） | V12 增量套件五源全绿；omp 真实核对类别计数 primary/sub_agent 分列 | — |
-| Codex 旧版本 fail closed 逐版本 fixture | 未执行（M2-A 遗留） | 同 M2-A 记录 | 按 m2a-codex.md 后续条件执行 |
-| 适配器目录化迁移与未知版本兼容尝试（execution.md#m2-layout） | 未执行 | M2 完成条件，不在中断记录待办内 | 另行排期 |
+| Codex 旧版本 fail closed 逐版本 fixture | **部分完成**（2026-09-25，[m2d](m2d-layout-versions.md)） | 0.153.0/0.154.0-alpha.6.1/6.2 已验证；0.139–0.151 实测无逐次载体，待专用实现取证 | 按 m2d 记录后续条件执行 |
+| 适配器目录化迁移与未知版本兼容尝试（execution.md#m2-layout） | **已完成**（2026-09-25，[m2d](m2d-layout-versions.md)） | 六源目录化 + 注册表分派 + 兼容标记持久化回归全绿 | — |
 
 ## 证据文件
 

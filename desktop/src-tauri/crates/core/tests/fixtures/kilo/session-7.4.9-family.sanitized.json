@@ -1,0 +1,1917 @@
+{
+ "source": "kilo-code-cli",
+ "schema": {
+  "note": "仅重建 message/session 两表（其余表与 usage 无关）；DDL 为实读原文（空白归一）",
+  "message_ddl": "CREATE TABLE `message` ( `id` text PRIMARY KEY, `session_id` text NOT NULL, `time_created` integer NOT NULL, `time_updated` integer NOT NULL, `data` text NOT NULL, CONSTRAINT `fk_message_session_id_session_id_fk` FOREIGN KEY (`session_id`) REFERENCES `session`(`id`) ON DELETE CASCADE )",
+  "session_ddl": "CREATE TABLE `session` ( `id` text PRIMARY KEY, `project_id` text NOT NULL, `parent_id` text, `slug` text NOT NULL, `directory` text NOT NULL, `title` text NOT NULL, `version` text NOT NULL, `share_url` text, `summary_additions` integer, `summary_deletions` integer, `summary_files` integer, `summary_diffs` text, `revert` text, `permission` text, `time_created` integer NOT NULL, `time_updated` integer NOT NULL, `time_compacting` integer, `time_archived` integer, `workspace_id` text, `path` text, `agent` text, `model` text, `cost` real DEFAULT 0 NOT NULL, `tokens_input` integer DEFAULT 0 NOT NULL, `tokens_output` integer DEFAULT 0 NOT NULL, `tokens_reasoning` integer DEFAULT 0 NOT NULL, `tokens_cache_read` integer DEFAULT 0 NOT NULL, `tokens_cache_write` integer DEFAULT 0 NOT NULL, `metadata` text, CONSTRAINT `fk_session_project_id_project_id_fk` FOREIGN KEY (`project_id`) REFERENCES `project`(`id`) ON DELETE CASCADE )"
+ },
+ "sessions": [
+  {
+   "id": "anon-1",
+   "project_id": "anon-2",
+   "parent_id": null,
+   "slug": "REDACTED",
+   "directory": "REDACTED",
+   "title": "REDACTED",
+   "version": "7.4.9",
+   "share_url": null,
+   "summary_additions": null,
+   "summary_deletions": null,
+   "summary_files": null,
+   "revert": null,
+   "permission": null,
+   "time_created": null,
+   "time_updated": 1784190948433,
+   "time_compacting": 1784191318622,
+   "time_archived": null,
+   "workspace_id": null,
+   "path": "REDACTED",
+   "agent": "",
+   "model": "code",
+   "cost": "{\"id\":\"glm-5.2\",\"providerID\":\"zhipuai-coding-plan\",\"variant\":\"max\"}",
+   "tokens_input": 0.0,
+   "tokens_output": 89396,
+   "tokens_reasoning": 7318,
+   "tokens_cache_read": 24825,
+   "tokens_cache_write": 1863424,
+   "metadata": null
+  },
+  {
+   "id": "anon-3",
+   "project_id": "anon-2",
+   "parent_id": "anon-1",
+   "slug": "REDACTED",
+   "directory": "REDACTED",
+   "title": "REDACTED",
+   "version": "7.4.9",
+   "share_url": null,
+   "summary_additions": null,
+   "summary_deletions": null,
+   "summary_files": null,
+   "revert": null,
+   "permission": null,
+   "time_created": "[{\"permission\":\"question\",\"action\":\"deny\",\"pattern\":\"*\"},{\"permission\":\"interactive_terminal\",\"action\":\"deny\",\"pattern\":\"*\"},{\"permission\":\"task\",\"action\":\"deny\",\"pattern\":\"*\"}]",
+   "time_updated": 1784192395912,
+   "time_compacting": 1784192395934,
+   "time_archived": null,
+   "workspace_id": null,
+   "path": "REDACTED",
+   "agent": "",
+   "model": "general",
+   "cost": "{\"id\":\"glm-5.2\",\"providerID\":\"zhipuai-coding-plan\",\"variant\":\"max\"}",
+   "tokens_input": 0.0,
+   "tokens_output": 10044,
+   "tokens_reasoning": 234,
+   "tokens_cache_read": 2711,
+   "tokens_cache_write": 27008,
+   "metadata": null
+  },
+  {
+   "id": "anon-4",
+   "project_id": "anon-2",
+   "parent_id": "anon-1",
+   "slug": "REDACTED",
+   "directory": "REDACTED",
+   "title": "REDACTED",
+   "version": "7.4.9",
+   "share_url": null,
+   "summary_additions": null,
+   "summary_deletions": null,
+   "summary_files": null,
+   "revert": null,
+   "permission": null,
+   "time_created": "[{\"permission\":\"question\",\"action\":\"deny\",\"pattern\":\"*\"},{\"permission\":\"interactive_terminal\",\"action\":\"deny\",\"pattern\":\"*\"},{\"permission\":\"task\",\"action\":\"deny\",\"pattern\":\"*\"}]",
+   "time_updated": 1784192403582,
+   "time_compacting": 1784192403596,
+   "time_archived": null,
+   "workspace_id": null,
+   "path": "REDACTED",
+   "agent": "",
+   "model": "general",
+   "cost": "{\"id\":\"glm-5.2\",\"providerID\":\"zhipuai-coding-plan\",\"variant\":\"max\"}",
+   "tokens_input": 0.0,
+   "tokens_output": 15593,
+   "tokens_reasoning": 772,
+   "tokens_cache_read": 11904,
+   "tokens_cache_write": 138816,
+   "metadata": null
+  },
+  {
+   "id": "anon-5",
+   "project_id": "anon-2",
+   "parent_id": "anon-1",
+   "slug": "REDACTED",
+   "directory": "REDACTED",
+   "title": "REDACTED",
+   "version": "7.4.9",
+   "share_url": null,
+   "summary_additions": null,
+   "summary_deletions": null,
+   "summary_files": null,
+   "revert": null,
+   "permission": null,
+   "time_created": "[{\"permission\":\"question\",\"action\":\"deny\",\"pattern\":\"*\"},{\"permission\":\"interactive_terminal\",\"action\":\"deny\",\"pattern\":\"*\"},{\"permission\":\"task\",\"action\":\"deny\",\"pattern\":\"*\"}]",
+   "time_updated": 1784192412472,
+   "time_compacting": 1784192412490,
+   "time_archived": null,
+   "workspace_id": null,
+   "path": "REDACTED",
+   "agent": "",
+   "model": "general",
+   "cost": "{\"id\":\"glm-5.2\",\"providerID\":\"zhipuai-coding-plan\",\"variant\":\"max\"}",
+   "tokens_input": 0.0,
+   "tokens_output": 3359,
+   "tokens_reasoning": 444,
+   "tokens_cache_read": 3642,
+   "tokens_cache_write": 54144,
+   "metadata": null
+  },
+  {
+   "id": "anon-6",
+   "project_id": "anon-2",
+   "parent_id": "anon-1",
+   "slug": "REDACTED",
+   "directory": "REDACTED",
+   "title": "REDACTED",
+   "version": "7.4.9",
+   "share_url": null,
+   "summary_additions": null,
+   "summary_deletions": null,
+   "summary_files": null,
+   "revert": null,
+   "permission": null,
+   "time_created": "[{\"permission\":\"question\",\"action\":\"deny\",\"pattern\":\"*\"},{\"permission\":\"interactive_terminal\",\"action\":\"deny\",\"pattern\":\"*\"},{\"permission\":\"task\",\"action\":\"deny\",\"pattern\":\"*\"}]",
+   "time_updated": 1784192418368,
+   "time_compacting": 1784192418390,
+   "time_archived": null,
+   "workspace_id": null,
+   "path": "REDACTED",
+   "agent": "",
+   "model": "general",
+   "cost": "{\"id\":\"glm-5.2\",\"providerID\":\"zhipuai-coding-plan\",\"variant\":\"max\"}",
+   "tokens_input": 0.0,
+   "tokens_output": 3382,
+   "tokens_reasoning": 108,
+   "tokens_cache_read": 2220,
+   "tokens_cache_write": 54080,
+   "metadata": null
+  }
+ ],
+ "messages": [
+  {
+   "id": "anon-7",
+   "session_id": "anon-1",
+   "time_created": 1784190948474,
+   "time_updated": 1784190948525,
+   "data": {
+    "role": "user",
+    "agent": "code",
+    "time": {
+     "created": 1784190948474
+    },
+    "model": {
+     "modelID": "glm-5.2",
+     "providerID": "zhipuai-coding-plan",
+     "variant": "max"
+    }
+   }
+  },
+  {
+   "id": "anon-8",
+   "session_id": "anon-1",
+   "time_created": 1784190948552,
+   "time_updated": 1784190965521,
+   "data": {
+    "role": "assistant",
+    "agent": "code",
+    "mode": "code",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-7",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784190948552,
+     "completed": 1784190965520
+    },
+    "tokens": {
+     "input": 20040,
+     "output": 51,
+     "reasoning": 477,
+     "cache": {
+      "read": 0,
+      "write": 0
+     },
+     "total": 20568
+    }
+   }
+  },
+  {
+   "id": "anon-9",
+   "session_id": "anon-1",
+   "time_created": 1784190965526,
+   "time_updated": 1784191011459,
+   "data": {
+    "role": "assistant",
+    "agent": "code",
+    "mode": "code",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-7",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784190965526,
+     "completed": 1784191011457
+    },
+    "tokens": {
+     "input": 1188,
+     "output": 108,
+     "reasoning": 1684,
+     "cache": {
+      "read": 20032,
+      "write": 0
+     },
+     "total": 23012
+    }
+   }
+  },
+  {
+   "id": "anon-10",
+   "session_id": "anon-1",
+   "time_created": 1784191011464,
+   "time_updated": 1784191237038,
+   "data": {
+    "role": "assistant",
+    "agent": "code",
+    "mode": "code",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-7",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784191011464,
+     "completed": 1784191237037
+    },
+    "tokens": {
+     "input": 4883,
+     "output": 555,
+     "reasoning": 1373,
+     "cache": {
+      "read": 21184,
+      "write": 0
+     },
+     "total": 27995
+    }
+   }
+  },
+  {
+   "id": "anon-11",
+   "session_id": "anon-1",
+   "time_created": 1784191237041,
+   "time_updated": 1784191252535,
+   "data": {
+    "role": "assistant",
+    "agent": "code",
+    "mode": "code",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-7",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784191237041,
+     "completed": 1784191252533
+    },
+    "tokens": {
+     "input": 2029,
+     "output": 129,
+     "reasoning": 363,
+     "cache": {
+      "read": 26048,
+      "write": 0
+     },
+     "total": 28569
+    }
+   }
+  },
+  {
+   "id": "anon-12",
+   "session_id": "anon-1",
+   "time_created": 1784191252539,
+   "time_updated": 1784191263508,
+   "data": {
+    "role": "assistant",
+    "agent": "code",
+    "mode": "code",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-7",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784191252539,
+     "completed": 1784191263506
+    },
+    "tokens": {
+     "input": 2278,
+     "output": 142,
+     "reasoning": 139,
+     "cache": {
+      "read": 28032,
+      "write": 0
+     },
+     "total": 30591
+    }
+   }
+  },
+  {
+   "id": "anon-13",
+   "session_id": "anon-1",
+   "time_created": 1784191263515,
+   "time_updated": 1784191263516,
+   "data": {
+    "role": "assistant",
+    "agent": "code",
+    "mode": "code",
+    "variant": "max",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-7",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784191263515
+    },
+    "tokens": {
+     "input": 0,
+     "output": 0,
+     "reasoning": 0,
+     "cache": {
+      "read": 0,
+      "write": 0
+     }
+    }
+   }
+  },
+  {
+   "id": "anon-14",
+   "session_id": "anon-1",
+   "time_created": 1784191296557,
+   "time_updated": 1784191296559,
+   "data": {
+    "role": "user",
+    "agent": "code",
+    "time": {
+     "created": 1784191296557
+    },
+    "model": {
+     "modelID": "glm-5.2",
+     "providerID": "zhipuai-coding-plan",
+     "variant": "max"
+    }
+   }
+  },
+  {
+   "id": "anon-15",
+   "session_id": "anon-1",
+   "time_created": 1784191318613,
+   "time_updated": 1784191318618,
+   "data": {
+    "role": "user",
+    "agent": "code",
+    "time": {
+     "created": 1784191318613
+    },
+    "model": {
+     "modelID": "glm-5.2",
+     "providerID": "zhipuai-coding-plan",
+     "variant": "max"
+    }
+   }
+  },
+  {
+   "id": "anon-16",
+   "session_id": "anon-1",
+   "time_created": 1784191318648,
+   "time_updated": 1784191417530,
+   "data": {
+    "role": "assistant",
+    "agent": "code",
+    "mode": "code",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-15",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784191318648,
+     "completed": 1784191417528
+    },
+    "tokens": {
+     "input": 12147,
+     "output": 132,
+     "reasoning": 3173,
+     "cache": {
+      "read": 19840,
+      "write": 0
+     },
+     "total": 35292
+    }
+   }
+  },
+  {
+   "id": "anon-17",
+   "session_id": "anon-1",
+   "time_created": 1784191417547,
+   "time_updated": 1784191481538,
+   "data": {
+    "role": "assistant",
+    "agent": "code",
+    "mode": "code",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-15",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784191417547,
+     "completed": 1784191481537
+    },
+    "tokens": {
+     "input": 7962,
+     "output": 61,
+     "reasoning": 2165,
+     "cache": {
+      "read": 31936,
+      "write": 0
+     },
+     "total": 42124
+    }
+   }
+  },
+  {
+   "id": "anon-18",
+   "session_id": "anon-1",
+   "time_created": 1784191481541,
+   "time_updated": 1784191488439,
+   "data": {
+    "role": "assistant",
+    "agent": "code",
+    "mode": "code",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-15",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784191481541,
+     "completed": 1784191488438
+    },
+    "tokens": {
+     "input": 2777,
+     "output": 33,
+     "reasoning": 0,
+     "cache": {
+      "read": 39872,
+      "write": 0
+     },
+     "total": 42682
+    }
+   }
+  },
+  {
+   "id": "anon-19",
+   "session_id": "anon-1",
+   "time_created": 1784191488442,
+   "time_updated": 1784191695086,
+   "data": {
+    "role": "assistant",
+    "agent": "code",
+    "mode": "code",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-15",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784191488442,
+     "completed": 1784191695085
+    },
+    "tokens": {
+     "input": 395,
+     "output": 359,
+     "reasoning": 8338,
+     "cache": {
+      "read": 42624,
+      "write": 0
+     },
+     "total": 51716
+    }
+   }
+  },
+  {
+   "id": "anon-20",
+   "session_id": "anon-1",
+   "time_created": 1784191695101,
+   "time_updated": 1784191709812,
+   "data": {
+    "role": "assistant",
+    "agent": "code",
+    "mode": "code",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-15",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784191695101,
+     "completed": 1784191709811
+    },
+    "tokens": {
+     "input": 8957,
+     "output": 401,
+     "reasoning": 25,
+     "cache": {
+      "read": 43008,
+      "write": 0
+     },
+     "total": 52391
+    }
+   }
+  },
+  {
+   "id": "anon-21",
+   "session_id": "anon-1",
+   "time_created": 1784191709824,
+   "time_updated": 1784191716060,
+   "data": {
+    "role": "assistant",
+    "agent": "code",
+    "mode": "code",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-15",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784191709824,
+     "completed": 1784191716060
+    },
+    "tokens": {
+     "input": 495,
+     "output": 31,
+     "reasoning": 14,
+     "cache": {
+      "read": 51904,
+      "write": 0
+     },
+     "total": 52444
+    }
+   }
+  },
+  {
+   "id": "anon-22",
+   "session_id": "anon-1",
+   "time_created": 1784191716077,
+   "time_updated": 1784191736466,
+   "data": {
+    "role": "assistant",
+    "agent": "code",
+    "mode": "code",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-15",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784191716077,
+     "completed": 1784191736465
+    },
+    "tokens": {
+     "input": 212,
+     "output": 55,
+     "reasoning": 208,
+     "cache": {
+      "read": 52352,
+      "write": 0
+     },
+     "total": 52827
+    }
+   }
+  },
+  {
+   "id": "anon-23",
+   "session_id": "anon-1",
+   "time_created": 1784191736469,
+   "time_updated": 1784191748904,
+   "data": {
+    "role": "assistant",
+    "agent": "code",
+    "mode": "code",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-15",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784191736469,
+     "completed": 1784191748903
+    },
+    "tokens": {
+     "input": 2011,
+     "output": 288,
+     "reasoning": 51,
+     "cache": {
+      "read": 52544,
+      "write": 0
+     },
+     "total": 54894
+    }
+   }
+  },
+  {
+   "id": "anon-24",
+   "session_id": "anon-1",
+   "time_created": 1784191748908,
+   "time_updated": 1784191755350,
+   "data": {
+    "role": "assistant",
+    "agent": "code",
+    "mode": "code",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-15",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784191748908,
+     "completed": 1784191755348
+    },
+    "tokens": {
+     "input": 374,
+     "output": 134,
+     "reasoning": 0,
+     "cache": {
+      "read": 54528,
+      "write": 0
+     },
+     "total": 55036
+    }
+   }
+  },
+  {
+   "id": "anon-25",
+   "session_id": "anon-1",
+   "time_created": 1784191755358,
+   "time_updated": 1784191761931,
+   "data": {
+    "role": "assistant",
+    "agent": "code",
+    "mode": "code",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-15",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784191755358,
+     "completed": 1784191761930
+    },
+    "tokens": {
+     "input": 196,
+     "output": 36,
+     "reasoning": 0,
+     "cache": {
+      "read": 54848,
+      "write": 0
+     },
+     "total": 55080
+    }
+   }
+  },
+  {
+   "id": "anon-26",
+   "session_id": "anon-1",
+   "time_created": 1784191761937,
+   "time_updated": 1784191771881,
+   "data": {
+    "role": "assistant",
+    "agent": "code",
+    "mode": "code",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-15",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784191761937,
+     "completed": 1784191771879
+    },
+    "tokens": {
+     "input": 342,
+     "output": 224,
+     "reasoning": 67,
+     "cache": {
+      "read": 55040,
+      "write": 0
+     },
+     "total": 55673
+    }
+   }
+  },
+  {
+   "id": "anon-27",
+   "session_id": "anon-1",
+   "time_created": 1784191771887,
+   "time_updated": 1784191777705,
+   "data": {
+    "role": "assistant",
+    "agent": "code",
+    "mode": "code",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-15",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784191771887,
+     "completed": 1784191777704
+    },
+    "tokens": {
+     "input": 562,
+     "output": 85,
+     "reasoning": 0,
+     "cache": {
+      "read": 55360,
+      "write": 0
+     },
+     "total": 56007
+    }
+   }
+  },
+  {
+   "id": "anon-28",
+   "session_id": "anon-1",
+   "time_created": 1784191777710,
+   "time_updated": 1784191785341,
+   "data": {
+    "role": "assistant",
+    "agent": "code",
+    "mode": "code",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-15",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784191777710,
+     "completed": 1784191785341
+    },
+    "tokens": {
+     "input": 143,
+     "output": 61,
+     "reasoning": 114,
+     "cache": {
+      "read": 55872,
+      "write": 0
+     },
+     "total": 56190
+    }
+   }
+  },
+  {
+   "id": "anon-29",
+   "session_id": "anon-1",
+   "time_created": 1784191785357,
+   "time_updated": 1784191796079,
+   "data": {
+    "role": "assistant",
+    "agent": "code",
+    "mode": "code",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-15",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784191785357,
+     "completed": 1784191796078
+    },
+    "tokens": {
+     "input": 428,
+     "output": 346,
+     "reasoning": 47,
+     "cache": {
+      "read": 56000,
+      "write": 0
+     },
+     "total": 56821
+    }
+   }
+  },
+  {
+   "id": "anon-30",
+   "session_id": "anon-1",
+   "time_created": 1784191796084,
+   "time_updated": 1784191804866,
+   "data": {
+    "role": "assistant",
+    "agent": "code",
+    "mode": "code",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-15",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784191796084,
+     "completed": 1784191804865
+    },
+    "tokens": {
+     "input": 445,
+     "output": 69,
+     "reasoning": 63,
+     "cache": {
+      "read": 56384,
+      "write": 0
+     },
+     "total": 56961
+    }
+   }
+  },
+  {
+   "id": "anon-31",
+   "session_id": "anon-1",
+   "time_created": 1784191804871,
+   "time_updated": 1784191813412,
+   "data": {
+    "role": "assistant",
+    "agent": "code",
+    "mode": "code",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-15",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784191804871,
+     "completed": 1784191813412
+    },
+    "tokens": {
+     "input": 519,
+     "output": 285,
+     "reasoning": 0,
+     "cache": {
+      "read": 56768,
+      "write": 0
+     },
+     "total": 57572
+    }
+   }
+  },
+  {
+   "id": "anon-32",
+   "session_id": "anon-1",
+   "time_created": 1784191813415,
+   "time_updated": 1784191820080,
+   "data": {
+    "role": "assistant",
+    "agent": "code",
+    "mode": "code",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-15",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784191813415,
+     "completed": 1784191820079
+    },
+    "tokens": {
+     "input": 300,
+     "output": 63,
+     "reasoning": 0,
+     "cache": {
+      "read": 57280,
+      "write": 0
+     },
+     "total": 57643
+    }
+   }
+  },
+  {
+   "id": "anon-33",
+   "session_id": "anon-1",
+   "time_created": 1784191820092,
+   "time_updated": 1784191954265,
+   "data": {
+    "role": "assistant",
+    "agent": "code",
+    "mode": "code",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-15",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784191820092,
+     "completed": 1784191954263
+    },
+    "tokens": {
+     "input": 381,
+     "output": 543,
+     "reasoning": 5389,
+     "cache": {
+      "read": 57536,
+      "write": 0
+     },
+     "total": 63849
+    }
+   }
+  },
+  {
+   "id": "anon-34",
+   "session_id": "anon-1",
+   "time_created": 1784191954273,
+   "time_updated": 1784191970153,
+   "data": {
+    "role": "assistant",
+    "agent": "code",
+    "mode": "code",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-15",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784191954273,
+     "completed": 1784191970152
+    },
+    "tokens": {
+     "input": 6001,
+     "output": 83,
+     "reasoning": 0,
+     "cache": {
+      "read": 57856,
+      "write": 0
+     },
+     "total": 63940
+    }
+   }
+  },
+  {
+   "id": "anon-35",
+   "session_id": "anon-1",
+   "time_created": 1784191970169,
+   "time_updated": 1784191981817,
+   "data": {
+    "role": "assistant",
+    "agent": "code",
+    "mode": "code",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-15",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784191970169,
+     "completed": 1784191981815
+    },
+    "tokens": {
+     "input": 215,
+     "output": 56,
+     "reasoning": 48,
+     "cache": {
+      "read": 63808,
+      "write": 0
+     },
+     "total": 64127
+    }
+   }
+  },
+  {
+   "id": "anon-36",
+   "session_id": "anon-1",
+   "time_created": 1784191981826,
+   "time_updated": 1784192020015,
+   "data": {
+    "role": "assistant",
+    "agent": "code",
+    "mode": "code",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-15",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784191981826,
+     "completed": 1784192020014
+    },
+    "tokens": {
+     "input": 590,
+     "output": 52,
+     "reasoning": 20,
+     "cache": {
+      "read": 64000,
+      "write": 0
+     },
+     "total": 64662
+    }
+   }
+  },
+  {
+   "id": "anon-37",
+   "session_id": "anon-1",
+   "time_created": 1784192020021,
+   "time_updated": 1784192038083,
+   "data": {
+    "role": "assistant",
+    "agent": "code",
+    "mode": "code",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-15",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784192020021,
+     "completed": 1784192038082
+    },
+    "tokens": {
+     "input": 756,
+     "output": 35,
+     "reasoning": 0,
+     "cache": {
+      "read": 64576,
+      "write": 0
+     },
+     "total": 65367
+    }
+   }
+  },
+  {
+   "id": "anon-38",
+   "session_id": "anon-1",
+   "time_created": 1784192038089,
+   "time_updated": 1784192046096,
+   "data": {
+    "role": "assistant",
+    "agent": "code",
+    "mode": "code",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-15",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784192038089,
+     "completed": 1784192046095
+    },
+    "tokens": {
+     "input": 1557,
+     "output": 75,
+     "reasoning": 60,
+     "cache": {
+      "read": 65280,
+      "write": 0
+     },
+     "total": 66972
+    }
+   }
+  },
+  {
+   "id": "anon-39",
+   "session_id": "anon-1",
+   "time_created": 1784192046101,
+   "time_updated": 1784192065731,
+   "data": {
+    "role": "assistant",
+    "agent": "code",
+    "mode": "code",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-15",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784192046101,
+     "completed": 1784192065730
+    },
+    "tokens": {
+     "input": 592,
+     "output": 82,
+     "reasoning": 66,
+     "cache": {
+      "read": 66816,
+      "write": 0
+     },
+     "total": 67556
+    }
+   }
+  },
+  {
+   "id": "anon-40",
+   "session_id": "anon-1",
+   "time_created": 1784192065737,
+   "time_updated": 1784192075919,
+   "data": {
+    "role": "assistant",
+    "agent": "code",
+    "mode": "code",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-15",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784192065737,
+     "completed": 1784192075918
+    },
+    "tokens": {
+     "input": 496,
+     "output": 77,
+     "reasoning": 110,
+     "cache": {
+      "read": 67392,
+      "write": 0
+     },
+     "total": 68075
+    }
+   }
+  },
+  {
+   "id": "anon-41",
+   "session_id": "anon-1",
+   "time_created": 1784192075946,
+   "time_updated": 1784192083565,
+   "data": {
+    "role": "assistant",
+    "agent": "code",
+    "mode": "code",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-15",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784192075946,
+     "completed": 1784192083564
+    },
+    "tokens": {
+     "input": 324,
+     "output": 58,
+     "reasoning": 0,
+     "cache": {
+      "read": 67840,
+      "write": 0
+     },
+     "total": 68222
+    }
+   }
+  },
+  {
+   "id": "anon-42",
+   "session_id": "anon-1",
+   "time_created": 1784192083571,
+   "time_updated": 1784192096169,
+   "data": {
+    "role": "assistant",
+    "agent": "code",
+    "mode": "code",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-15",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784192083571,
+     "completed": 1784192096168
+    },
+    "tokens": {
+     "input": 1186,
+     "output": 219,
+     "reasoning": 122,
+     "cache": {
+      "read": 68160,
+      "write": 0
+     },
+     "total": 69687
+    }
+   }
+  },
+  {
+   "id": "anon-43",
+   "session_id": "anon-1",
+   "time_created": 1784192096174,
+   "time_updated": 1784192318422,
+   "data": {
+    "role": "assistant",
+    "agent": "code",
+    "mode": "code",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-15",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784192096174,
+     "completed": 1784192318421
+    },
+    "tokens": {
+     "input": 623,
+     "output": 455,
+     "reasoning": 0,
+     "cache": {
+      "read": 69312,
+      "write": 0
+     },
+     "total": 70390
+    }
+   }
+  },
+  {
+   "id": "anon-44",
+   "session_id": "anon-1",
+   "time_created": 1784192318429,
+   "time_updated": 1784192374201,
+   "data": {
+    "role": "assistant",
+    "agent": "code",
+    "mode": "code",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-15",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784192318429,
+     "completed": 1784192374200
+    },
+    "tokens": {
+     "input": 4582,
+     "output": 75,
+     "reasoning": 441,
+     "cache": {
+      "read": 69888,
+      "write": 0
+     },
+     "total": 74986
+    }
+   }
+  },
+  {
+   "id": "anon-45",
+   "session_id": "anon-1",
+   "time_created": 1784192374206,
+   "time_updated": 1784192748157,
+   "data": {
+    "role": "assistant",
+    "agent": "code",
+    "mode": "code",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-15",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784192374206,
+     "completed": 1784192748156
+    },
+    "tokens": {
+     "input": 648,
+     "output": 1460,
+     "reasoning": 178,
+     "cache": {
+      "read": 74432,
+      "write": 0
+     },
+     "total": 76718
+    }
+   }
+  },
+  {
+   "id": "anon-46",
+   "session_id": "anon-3",
+   "time_created": 1784192395926,
+   "time_updated": 1784192395930,
+   "data": {
+    "role": "user",
+    "agent": "general",
+    "time": {
+     "created": 1784192395926
+    },
+    "model": {
+     "modelID": "glm-5.2",
+     "providerID": "zhipuai-coding-plan",
+     "variant": "max"
+    }
+   }
+  },
+  {
+   "id": "anon-47",
+   "session_id": "anon-3",
+   "time_created": 1784192395970,
+   "time_updated": 1784192405019,
+   "data": {
+    "role": "assistant",
+    "agent": "general",
+    "mode": "general",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-46",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784192395970,
+     "completed": 1784192405018
+    },
+    "tokens": {
+     "input": 7958,
+     "output": 35,
+     "reasoning": 45,
+     "cache": {
+      "read": 9536,
+      "write": 0
+     },
+     "total": 17574
+    }
+   }
+  },
+  {
+   "id": "anon-48",
+   "session_id": "anon-4",
+   "time_created": 1784192403591,
+   "time_updated": 1784192403593,
+   "data": {
+    "role": "user",
+    "agent": "general",
+    "time": {
+     "created": 1784192403591
+    },
+    "model": {
+     "modelID": "glm-5.2",
+     "providerID": "zhipuai-coding-plan",
+     "variant": "max"
+    }
+   }
+  },
+  {
+   "id": "anon-49",
+   "session_id": "anon-4",
+   "time_created": 1784192403612,
+   "time_updated": 1784192412697,
+   "data": {
+    "role": "assistant",
+    "agent": "general",
+    "mode": "general",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-48",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784192403612,
+     "completed": 1784192412696
+    },
+    "tokens": {
+     "input": 530,
+     "output": 35,
+     "reasoning": 18,
+     "cache": {
+      "read": 17088,
+      "write": 0
+     },
+     "total": 17671
+    }
+   }
+  },
+  {
+   "id": "anon-50",
+   "session_id": "anon-3",
+   "time_created": 1784192405021,
+   "time_updated": 1784192492546,
+   "data": {
+    "role": "assistant",
+    "agent": "general",
+    "mode": "general",
+    "variant": "max",
+    "finish": "stop",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-46",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784192405021,
+     "completed": 1784192492545
+    },
+    "tokens": {
+     "input": 2086,
+     "output": 199,
+     "reasoning": 2666,
+     "cache": {
+      "read": 17472,
+      "write": 0
+     },
+     "total": 22423
+    }
+   }
+  },
+  {
+   "id": "anon-51",
+   "session_id": "anon-5",
+   "time_created": 1784192412483,
+   "time_updated": 1784192412486,
+   "data": {
+    "role": "user",
+    "agent": "general",
+    "time": {
+     "created": 1784192412483
+    },
+    "model": {
+     "modelID": "glm-5.2",
+     "providerID": "zhipuai-coding-plan",
+     "variant": "max"
+    }
+   }
+  },
+  {
+   "id": "anon-52",
+   "session_id": "anon-5",
+   "time_created": 1784192412521,
+   "time_updated": 1784192422304,
+   "data": {
+    "role": "assistant",
+    "agent": "general",
+    "mode": "general",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-51",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784192412521,
+     "completed": 1784192422303
+    },
+    "tokens": {
+     "input": 450,
+     "output": 35,
+     "reasoning": 18,
+     "cache": {
+      "read": 17088,
+      "write": 0
+     },
+     "total": 17591
+    }
+   }
+  },
+  {
+   "id": "anon-53",
+   "session_id": "anon-4",
+   "time_created": 1784192412700,
+   "time_updated": 1784192422415,
+   "data": {
+    "role": "assistant",
+    "agent": "general",
+    "mode": "general",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-48",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784192412700,
+     "completed": 1784192422414
+    },
+    "tokens": {
+     "input": 2055,
+     "output": 68,
+     "reasoning": 11,
+     "cache": {
+      "read": 17600,
+      "write": 0
+     },
+     "total": 19734
+    }
+   }
+  },
+  {
+   "id": "anon-54",
+   "session_id": "anon-6",
+   "time_created": 1784192418384,
+   "time_updated": 1784192418387,
+   "data": {
+    "role": "user",
+    "agent": "general",
+    "time": {
+     "created": 1784192418384
+    },
+    "model": {
+     "modelID": "glm-5.2",
+     "providerID": "zhipuai-coding-plan",
+     "variant": "max"
+    }
+   }
+  },
+  {
+   "id": "anon-55",
+   "session_id": "anon-6",
+   "time_created": 1784192418407,
+   "time_updated": 1784192444100,
+   "data": {
+    "role": "assistant",
+    "agent": "general",
+    "mode": "general",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-54",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784192418407,
+     "completed": 1784192444099
+    },
+    "tokens": {
+     "input": 447,
+     "output": 35,
+     "reasoning": 21,
+     "cache": {
+      "read": 17088,
+      "write": 0
+     },
+     "total": 17591
+    }
+   }
+  },
+  {
+   "id": "anon-56",
+   "session_id": "anon-5",
+   "time_created": 1784192422306,
+   "time_updated": 1784192447419,
+   "data": {
+    "role": "assistant",
+    "agent": "general",
+    "mode": "general",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-51",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784192422306,
+     "completed": 1784192447418
+    },
+    "tokens": {
+     "input": 2039,
+     "output": 91,
+     "reasoning": 33,
+     "cache": {
+      "read": 17536,
+      "write": 0
+     },
+     "total": 19699
+    }
+   }
+  },
+  {
+   "id": "anon-57",
+   "session_id": "anon-4",
+   "time_created": 1784192422417,
+   "time_updated": 1784192707555,
+   "data": {
+    "role": "assistant",
+    "agent": "general",
+    "mode": "general",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-48",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784192422417,
+     "completed": 1784192707554
+    },
+    "tokens": {
+     "input": 777,
+     "output": 141,
+     "reasoning": 11189,
+     "cache": {
+      "read": 19648,
+      "write": 0
+     },
+     "total": 31755
+    }
+   }
+  },
+  {
+   "id": "anon-58",
+   "session_id": "anon-6",
+   "time_created": 1784192444103,
+   "time_updated": 1784192449628,
+   "data": {
+    "role": "assistant",
+    "agent": "general",
+    "mode": "general",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-54",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784192444103,
+     "completed": 1784192449628
+    },
+    "tokens": {
+     "input": 2103,
+     "output": 68,
+     "reasoning": 18,
+     "cache": {
+      "read": 17472,
+      "write": 0
+     },
+     "total": 19661
+    }
+   }
+  },
+  {
+   "id": "anon-59",
+   "session_id": "anon-5",
+   "time_created": 1784192447422,
+   "time_updated": 1784192556543,
+   "data": {
+    "role": "assistant",
+    "agent": "general",
+    "mode": "general",
+    "variant": "max",
+    "finish": "stop",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-51",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784192447422,
+     "completed": 1784192556541
+    },
+    "tokens": {
+     "input": 870,
+     "output": 318,
+     "reasoning": 3591,
+     "cache": {
+      "read": 19520,
+      "write": 0
+     },
+     "total": 24299
+    }
+   }
+  },
+  {
+   "id": "anon-60",
+   "session_id": "anon-6",
+   "time_created": 1784192449632,
+   "time_updated": 1784192509453,
+   "data": {
+    "role": "assistant",
+    "agent": "general",
+    "mode": "general",
+    "variant": "max",
+    "finish": "stop",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-54",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784192449632,
+     "completed": 1784192509452
+    },
+    "tokens": {
+     "input": 832,
+     "output": 5,
+     "reasoning": 2181,
+     "cache": {
+      "read": 19520,
+      "write": 0
+     },
+     "total": 22538
+    }
+   }
+  },
+  {
+   "id": "anon-61",
+   "session_id": "anon-4",
+   "time_created": 1784192707558,
+   "time_updated": 1784192715726,
+   "data": {
+    "role": "assistant",
+    "agent": "general",
+    "mode": "general",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-48",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784192707558,
+     "completed": 1784192715725
+    },
+    "tokens": {
+     "input": 11420,
+     "output": 51,
+     "reasoning": 16,
+     "cache": {
+      "read": 20416,
+      "write": 0
+     },
+     "total": 31903
+    }
+   }
+  },
+  {
+   "id": "anon-62",
+   "session_id": "anon-4",
+   "time_created": 1784192715728,
+   "time_updated": 1784192723287,
+   "data": {
+    "role": "assistant",
+    "agent": "general",
+    "mode": "general",
+    "variant": "max",
+    "finish": "tool-calls",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-48",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784192715728,
+     "completed": 1784192723286
+    },
+    "tokens": {
+     "input": 478,
+     "output": 46,
+     "reasoning": 0,
+     "cache": {
+      "read": 31808,
+      "write": 0
+     },
+     "total": 32332
+    }
+   }
+  },
+  {
+   "id": "anon-63",
+   "session_id": "anon-4",
+   "time_created": 1784192723289,
+   "time_updated": 1784192748111,
+   "data": {
+    "role": "assistant",
+    "agent": "general",
+    "mode": "general",
+    "variant": "max",
+    "finish": "stop",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-48",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784192723289,
+     "completed": 1784192748109
+    },
+    "tokens": {
+     "input": 333,
+     "output": 431,
+     "reasoning": 670,
+     "cache": {
+      "read": 32256,
+      "write": 0
+     },
+     "total": 33690
+    }
+   }
+  },
+  {
+   "id": "anon-64",
+   "session_id": "anon-1",
+   "time_created": 1784192748163,
+   "time_updated": 1784192765346,
+   "data": {
+    "role": "assistant",
+    "agent": "code",
+    "mode": "code",
+    "variant": "max",
+    "finish": "stop",
+    "modelID": "glm-5.2",
+    "providerID": "zhipuai-coding-plan",
+    "parentID": "anon-15",
+    "path": "REDACTED",
+    "cost": 0,
+    "time": {
+     "created": 1784192748163,
+     "completed": 1784192765345
+    },
+    "tokens": {
+     "input": 2762,
+     "output": 400,
+     "reasoning": 90,
+     "cache": {
+      "read": 75072,
+      "write": 0
+     },
+     "total": 78324
+    }
+   }
+  }
+ ]
+}

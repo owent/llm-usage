@@ -1,13 +1,15 @@
-//! pi 适配器缺口场景：合成样本（目录/文件头均标 synthetic）与 V17 拒绝。
+//! pi 适配器缺口场景：合成样本（目录/文件头均标 synthetic）与 V17/V30 拒绝/回退。
 //! 覆盖真实样本缺失的场景：四类辅助 usage 载体、无 usage 的 assistant、fork 继承
-//! 去重、stopReason=error/aborted、cost 映射边界、未知版本/未知格式 fail closed、
-//! 未知条目类型诊断。期望值均由 fixture 手工核算（jq 验算，见各 _expectations.md）。
+//! 去重、stopReason=error/aborted、cost 映射边界、未知版本策略（有证据不兼容拒绝、
+//! 未收录数值 latest_fallback 回退）、未知格式 fail closed、未知条目类型诊断。
+//! 期望值均由 fixture 手工核算（jq 验算，见各 _expectations.md）。
 
 mod common;
 
 use common::*;
 use llm_usage_core::adapters::framework::{DetectOutcome, SourceAdapter};
 use llm_usage_core::adapters::pi::PiAdapter;
+use llm_usage_core::domain::VersionBasis;
 use rusqlite::OptionalExtension;
 
 fn synthetic_root(name: &str) -> std::path::PathBuf {
@@ -318,8 +320,11 @@ fn cost_total_positive_maps_estimated_zero_stays_unknown() {
     assert_eq!(summary.totals.total_tokens_known, Some(160));
 }
 
+// V30 新语义（synthetic-unknown-version）：未收录数值（version=4）默认回退最新内置
+// 解析器，数据带兼容标记入库；缺失 version 的 legacy 形状（固定源码证实 v1/v2 时代
+// 不写该字段，落盘无 id/parentId）有证据不兼容，仍 fail closed 拒绝。
 #[test]
-fn v17_unknown_version_fails_closed_not_success_zero() {
+fn v17_unknown_version_fallback_or_evidenced_reject() {
     let adapter = PiAdapter::new();
     let case = synthetic_root("synthetic-unknown-version");
     let v4 = case.join("sessions/--C--Users-syn--/2026-01-05T10-00-00-000Z_syn-sess-v4.jsonl");
@@ -327,46 +332,151 @@ fn v17_unknown_version_fails_closed_not_success_zero() {
         case.join("sessions/--C--Users-syn--/2026-01-05T10-00-00-000Z_syn-sess-legacy.jsonl");
     assert_eq!(
         adapter.detect(&v4).unwrap(),
-        DetectOutcome::UnsupportedVersion {
+        DetectOutcome::Supported {
             format: "pi-session-jsonl".to_string(),
-            found: "4".to_string(),
+            format_version: Some("4".to_string()),
+            basis: VersionBasis::LatestFallback,
         }
     );
-    assert_eq!(
-        adapter.detect(&legacy).unwrap(),
+    match adapter.detect(&legacy).unwrap() {
         DetectOutcome::UnsupportedVersion {
-            format: "pi-session-jsonl".to_string(),
-            found: "legacy-v1 (no version field)".to_string(),
+            format,
+            found,
+            reason,
+        } => {
+            assert_eq!(format, "pi-session-jsonl");
+            assert_eq!(
+                found, None,
+                "缺失 version 按 legacy 形态拒绝（found: None）"
+            );
+            assert!(
+                reason.contains("legacy"),
+                "reason 须注明 legacy 依据：{reason}"
+            );
         }
-    );
+        other => panic!("legacy shape should be UnsupportedVersion, got {other:?}"),
+    }
 
     let (_db, storage) = temp_storage("pi-uv");
     let reports = run_pi(&storage, &case, 1_800_000_000_000);
     let report = &reports[0];
     assert_eq!(report.files.len(), 2);
-    for file in &report.files {
-        assert_eq!(file.status, "unsupported_version");
-        assert_eq!(file.events, 0);
-    }
+    let file_for = |frag: &str| {
+        report
+            .files
+            .iter()
+            .find(|f| f.file_id.contains(frag))
+            .unwrap_or_else(|| panic!("no report file containing {frag}"))
+            .clone()
+    };
+    // v4：latest_fallback 成功扫描入库，1 事件（syn-v4-1：1/1/0/0/2）。
+    let v4_file = file_for("syn-sess-v4");
+    assert_eq!(v4_file.status, "complete");
+    assert_eq!(v4_file.events, 1);
+    assert_eq!(
+        v4_file.detail.as_deref(),
+        Some("latest_fallback: version compatibility unverified (found: 4)")
+    );
+    // legacy：有证据不兼容，显式拒绝（不是静默的「成功 0 条」）。
+    let legacy_file = file_for("syn-sess-legacy");
+    assert_eq!(legacy_file.status, "unsupported_version");
+    assert_eq!(legacy_file.events, 0);
+
     let events: i64 = storage
         .conn()
         .query_row("SELECT COUNT(*) FROM usage_events", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(events, 0);
+    assert_eq!(events, 1, "仅 legacy 被拒绝；v4 兼容入库");
+    assert_eq!(diag_count(&storage, "latest_fallback"), 1);
     assert_eq!(
         diag_count(&storage, "unsupported_version"),
-        2,
+        1,
         "显式拒绝逐文件落诊断；不是静默的成功 0 条"
     );
-    let active: i64 = storage
+    // 文件状态：v4 active_compat（兼容标记），legacy unsupported。
+    let status_for = |frag: &str| -> String {
+        storage
+            .conn()
+            .query_row(
+                "SELECT status FROM source_files WHERE file_id LIKE '%' || ?1 || '%'",
+                [frag],
+                |r| r.get(0),
+            )
+            .unwrap()
+    };
+    assert_eq!(status_for("syn-sess-v4"), "active_compat");
+    assert_eq!(status_for("syn-sess-legacy"), "unsupported");
+}
+
+// 手工核算值（synthetic-version-fallback，version=4 未收录）：2 事件均 primary：
+// syn-vf-1（10/5/0/0/15）、syn-vf-2（20/10/0/0/30）；合计 call_count=2、
+// input_total=30、output=15、total=45。全部事件 parse_basis=latest_fallback，
+// schema_version 记录来源声明 "4"，文件 active_compat，latest_fallback 诊断 ×1，
+// 重复扫描不增量。
+#[test]
+fn unrecorded_version_falls_back_with_compat_marks() {
+    let (_db, storage) = temp_storage("pi-vf");
+    let root = synthetic_root("synthetic-version-fallback");
+    let reports = run_pi(&storage, &root, 1_800_000_000_000);
+    let report = &reports[0];
+    assert_eq!(report.files.len(), 1);
+    assert_eq!(report.files[0].status, "complete");
+    assert_eq!(report.files[0].lines_read, 3);
+    assert_eq!(report.files[0].records_seen, 3);
+    assert_eq!(report.files[0].events, 2);
+    assert_eq!(
+        report.files[0].detail.as_deref(),
+        Some("latest_fallback: version compatibility unverified (found: 4)")
+    );
+    let outcome = report.outcome.as_ref().unwrap();
+    assert_eq!((outcome.added, outcome.updated, outcome.errors), (2, 0, 0));
+
+    let summary = summary(&storage, "2026-01-05", "2026-01-05");
+    assert_eq!(summary.totals.call_count, 2);
+    // input_total 为派生口径 input+cacheRead+cacheWrite：10+20。
+    assert_eq!(summary.totals.input_total_known, Some(30));
+    assert_eq!(summary.totals.output_total_known, Some(15));
+    assert_eq!(summary.totals.total_tokens_known, Some(45));
+
+    // 兼容标记持久化：事件 parse_basis=latest_fallback，schema_version 记录来源声明。
+    let rows: Vec<(String, String)> = storage
         .conn()
-        .query_row(
-            "SELECT COUNT(*) FROM source_files WHERE status != 'unsupported'",
-            [],
-            |r| r.get(0),
-        )
+        .prepare("SELECT parse_basis, schema_version FROM usage_events ORDER BY source_record_key")
+        .unwrap()
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+        .unwrap()
+        .map(|r| r.unwrap())
+        .collect();
+    assert_eq!(
+        rows,
+        vec![
+            ("latest_fallback".to_string(), "4".to_string()),
+            ("latest_fallback".to_string(), "4".to_string()),
+        ]
+    );
+    assert_eq!(diag_count(&storage, "latest_fallback"), 1);
+
+    // 文件状态与探测结论 JSON：active_compat、basis/found_version/compat。
+    let (file_status, format_status): (String, String) = storage
+        .conn()
+        .query_row("SELECT status, format_status FROM source_files", [], |r| {
+            Ok((r.get(0)?, r.get(1)?))
+        })
         .unwrap();
-    assert_eq!(active, 0);
+    assert_eq!(file_status, "active_compat");
+    let fs: serde_json::Value = serde_json::from_str(&format_status).unwrap();
+    assert_eq!(fs["format"], "pi-session-jsonl");
+    assert_eq!(fs["found_version"], "4");
+    assert_eq!(fs["basis"], "latest_fallback");
+    assert_eq!(fs["compat"], "unverified");
+
+    // 重复扫描不增量（兼容标记不改变幂等）。
+    let reports2 = run_pi(&storage, &root, 1_800_000_000_100);
+    let added2: i64 = reports2
+        .iter()
+        .filter_map(|r| r.outcome.as_ref().map(|o| o.added))
+        .sum();
+    assert_eq!(added2, 0);
 }
 
 #[test]

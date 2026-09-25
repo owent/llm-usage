@@ -1,0 +1,57 @@
+{
+ "kind": "zcode-model-io-synthetic",
+ "synthetic": true,
+ "note": "缺口：cacheWriteTokens=200>0（本机真实样本全 0；M0 记待合成补充）且 anthropic cache_creation_input_tokens=200 在场，双口径一致（1000+800+200=2000）。",
+ "redaction": "全合成样本（syn- 前缀）；形状按本机 3.14.3 实读 model-io 记录构造",
+ "records": [
+  {
+   "line": 1,
+   "type": "model_io",
+   "attempt": 1,
+   "sessionId": "syn-sess-1",
+   "requestId": "syn-req-1",
+   "turnId": "turn-syn-1",
+   "traceId": "trace-syn-1",
+   "querySource": "main_turn",
+   "model": {
+    "modelId": "syn-model",
+    "providerId": "syn-provider"
+   },
+   "startedAt": "2026-01-05T10:00:00.000Z",
+   "completedAt": "2026-01-05T10:00:05.000Z",
+   "durationMs": 5000,
+   "request": {
+    "headers": {
+     "x-zcode-app-version": "3.14.3"
+    }
+   },
+   "response": {
+    "finishReason": "tool-calls",
+    "modelId": "syn-model",
+    "responseId": "msg-syn-1",
+    "usage": {
+     "inputTokens": 2000,
+     "outputTokens": 100,
+     "totalTokens": 2100,
+     "cacheReadTokens": 800,
+     "cacheWriteTokens": 200
+    },
+    "providerMetadata": {
+     "anthropic": {
+      "usage": {
+       "input_tokens": 1000,
+       "output_tokens": 100,
+       "cache_read_input_tokens": 800,
+       "cache_creation_input_tokens": 200,
+       "server_tool_use": {
+        "web_search_requests": 0
+       },
+       "service_tier": "standard"
+      },
+      "cacheCreationInputTokens": 200
+     }
+    }
+   }
+  }
+ ]
+}

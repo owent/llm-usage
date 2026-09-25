@@ -19,9 +19,12 @@ pub fn event_id(source_instance_id: &str, source_record_key: &str) -> String {
 }
 
 /// 采集观察时间会随重扫改变，不代表源记录发生变化。
+/// parse_basis 是解析依据（known_version/latest_fallback），同一记录随注册表
+/// 扩展升级为已验证不构成内容变更，同样不参与内容哈希。
 pub fn event_content_hash(event: &EventInput) -> String {
     let mut content = event.clone();
     content.observed_at_ms = None;
+    content.parse_basis = None;
     content_hash(&content)
 }
 
@@ -105,6 +108,7 @@ mod tests {
             record_kind: RecordKind::ModelCall,
             schema_version: "1".into(),
             parser_version: "1".into(),
+            parse_basis: None,
             origin_call_id: None,
             attempt_id: None,
             session_id: None,

@@ -195,9 +195,15 @@ fn capability_table_is_structured_and_complete() {
     let cap = adapter.capability();
     let json = serde_json::to_value(&cap).unwrap();
     assert_eq!(json["adapter_id"], "codex");
+    // supported_versions 由版本注册表生成（M2-D 后含逐版本 fixture 核验的历史版本）。
     assert_eq!(
         json["supported_versions"],
-        serde_json::json!(["0.155.0-alpha.16.3"])
+        serde_json::json!([
+            "0.155.0-alpha.16.3",
+            "0.154.0-alpha.6.2",
+            "0.154.0-alpha.6.1",
+            "0.153.0"
+        ])
     );
     // 字段能力八项齐全。
     for key in [
@@ -238,6 +244,7 @@ fn capability_table_is_structured_and_complete() {
     llm_usage_core::adapters::framework::upsert_source_instance(
         &storage,
         &llm_usage_core::adapters::framework::SourceInstanceInput {
+            origin_host_id: None,
             instance_id: "codex@test".to_string(),
             agent: "codex".to_string(),
             host_application: None,
@@ -271,6 +278,7 @@ fn source_file_row_composite_roundtrip() {
     llm_usage_core::adapters::framework::upsert_source_instance(
         &storage,
         &llm_usage_core::adapters::framework::SourceInstanceInput {
+            origin_host_id: None,
             instance_id: "codex@test".to_string(),
             agent: "codex".to_string(),
             host_application: None,
@@ -297,6 +305,7 @@ fn source_file_row_composite_roundtrip() {
         head_len: 1234,
         tail_hash: 0xEF01,
         status: "active".to_string(),
+        format_status: None,
     };
     llm_usage_core::adapters::framework::upsert_source_file(&storage, "codex@test", &row, 1)
         .unwrap();

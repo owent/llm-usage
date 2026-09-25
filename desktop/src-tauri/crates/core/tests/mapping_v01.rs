@@ -1,6 +1,7 @@
 //! V01：各 provider 缓存包含关系、reasoning 子集、cache TTL 子集映射。
 //! 缺失、零、异常负值、溢出必须可区分；矛盾进诊断，不用 max(0,…) 隐藏。
 
+use llm_usage_core::adapters::codex::{map_codex, CodexUsage};
 use llm_usage_core::adapters::usage_map::*;
 use llm_usage_core::domain::{FieldQuality, TokenUsage, MAX_TOKEN_VALUE};
 use llm_usage_core::metrics::{input_total, total_tokens};

@@ -1,3 +1,3 @@
 {"type":"title","v":1,"title":"syn-uv-legacy","updatedAt":"2026-01-05T10:00:00.000Z"}
 {"type":"session","id":"syn-omp-legacy","timestamp":"2026-01-05T10:00:00.021Z","cwd":"syn-cwd"}
-{"type":"message","id":"syn-m1","parentId":null,"timestamp":"2026-01-05T10:00:05.000Z","message":{"role":"assistant","provider":"syn-provider","model":"syn-model-a","usage":{"input":100,"output":10,"cacheRead":0,"cacheWrite":0,"totalTokens":110},"stopReason":"stop","responseId":"syn-r1","timestamp":1789706405000}}
+{"type":"message","id":"syn-l1","parentId":null,"timestamp":"2026-01-05T10:00:05.000Z","message":{"role":"assistant","provider":"syn-provider","model":"syn-model-a","usage":{"input":100,"output":10,"cacheRead":0,"cacheWrite":0,"totalTokens":110},"stopReason":"stop","responseId":"syn-r1","timestamp":1789706405000}}

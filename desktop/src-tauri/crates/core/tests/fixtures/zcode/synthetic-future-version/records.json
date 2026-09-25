@@ -1,0 +1,78 @@
+{
+ "kind": "zcode-model-io-synthetic",
+ "synthetic": true,
+ "note": "缺口：x-zcode-app-version=9.9.9（未收录）⇒ latest_fallback 兼容尝试；结构通过则带标记统计（active_compat）。",
+ "redaction": "全合成样本（syn- 前缀）；形状按本机 3.14.3 实读 model-io 记录构造",
+ "records": [
+  {
+   "line": 1,
+   "type": "model_io",
+   "attempt": 1,
+   "sessionId": "syn-sess-1",
+   "requestId": "syn-req-1",
+   "turnId": "turn-syn-1",
+   "traceId": "trace-syn-1",
+   "querySource": "main_turn",
+   "model": {
+    "modelId": "syn-model",
+    "providerId": "syn-provider"
+   },
+   "startedAt": "2026-01-05T10:00:00.000Z",
+   "completedAt": "2026-01-05T10:00:05.000Z",
+   "durationMs": 5000,
+   "request": {
+    "headers": {
+     "x-zcode-app-version": "9.9.9"
+    }
+   },
+   "response": {
+    "finishReason": "tool-calls",
+    "modelId": "syn-model",
+    "responseId": "msg-syn-1",
+    "usage": {
+     "inputTokens": 1000,
+     "outputTokens": 100,
+     "totalTokens": 1100,
+     "cacheReadTokens": 400,
+     "cacheWriteTokens": 0
+    },
+    "providerMetadata": null
+   }
+  },
+  {
+   "line": 2,
+   "type": "model_io",
+   "attempt": 1,
+   "sessionId": "syn-sess-1",
+   "requestId": "syn-req-2",
+   "turnId": "turn-syn-1",
+   "traceId": "trace-syn-1",
+   "querySource": "main_turn",
+   "model": {
+    "modelId": "syn-model",
+    "providerId": "syn-provider"
+   },
+   "startedAt": "2026-01-05T10:00:00.000Z",
+   "completedAt": "2026-01-05T10:00:05.000Z",
+   "durationMs": 5000,
+   "request": {
+    "headers": {
+     "x-zcode-app-version": "9.9.9"
+    }
+   },
+   "response": {
+    "finishReason": "tool-calls",
+    "modelId": "syn-model",
+    "responseId": "msg-syn-2",
+    "usage": {
+     "inputTokens": 2000,
+     "outputTokens": 200,
+     "totalTokens": 2200,
+     "cacheReadTokens": 800,
+     "cacheWriteTokens": 0
+    },
+    "providerMetadata": null
+   }
+  }
+ ]
+}

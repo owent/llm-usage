@@ -1,7 +1,13 @@
-//! V01：五种来源口径的 token 字段映射函数。
+//! V01：来源口径的 token 字段映射（跨 Agent 共享部分）。
+//!
+//! 目录合同（architecture.md#adapter-layout）：产品特有映射已下沉到各 Agent 目录
+//! （codex → adapters/codex/common.rs，claude → adapters/claude/）；本模块只保留
+//! 跨 Agent 共享的类型与辅助逻辑，以及尚无适配器目录的未来产品映射
+//! （kimi/zcode/copilot/kilo，M3–M5 实现时再下沉）：
+//! - pi/omp 共享 `map_pi_family`（固定源码证实两家族同口径）；
+//! - gemini/qwen 共享 `map_genai_usage`（usageMetadata 同形）。
 //!
 //! 实读核验结论（m0-agent-fixtures.md）：
-//! - codex：total=input+output，cached⊆input，reasoning⊆output；usage 无 model 字段。
 //! - kimi wire：inputOther/inputCacheRead/inputCacheCreation/output 四字段互斥，无 total。
 //! - zcode：AI SDK `inputTokens` 含缓存读；anthropic `input_tokens` 不含缓存（双口径相反）。
 //! - copilot：input = 未缓存 + read + write。
@@ -21,7 +27,7 @@ pub struct MappedUsage {
     pub diagnostics: Vec<Contradiction>,
 }
 
-fn finish(
+pub(crate) fn finish(
     usage: TokenUsage,
     mut quality: TokenQuality,
     mut diagnostics: Vec<Contradiction>,
@@ -48,7 +54,7 @@ fn finish(
     }
 }
 
-fn sub_checked(
+pub(crate) fn sub_checked(
     name: &'static str,
     total: i64,
     part: i64,
@@ -66,144 +72,6 @@ fn sub_checked(
         }
     }
 }
-
-/// codex rollout token_usage_record：input 含缓存读，无缓存创建字段；
-/// output 含 reasoning；total=input+output。
-/// `declares_no_cache_creation` 为格式级证据：该版本明确无缓存创建时，
-/// 未缓存输入才可证明为 input-cached，缓存写记 0（derived）。
-#[derive(Debug, Clone, Copy)]
-pub struct CodexUsage {
-    pub input_tokens: i64,
-    pub cached_input_tokens: i64,
-    pub output_tokens: i64,
-    pub reasoning_output_tokens: i64,
-    pub total_tokens: i64,
-    pub declares_no_cache_creation: bool,
-}
-
-/// codex 0.155.0-alpha.16.3 完整 usage 记录（token_usage_record.payload.usage
-/// 与 token_count 的 total/last_token_usage 同形）：六字段全部存在。
-/// 口径：`cached ⊆ input`（真实样本 319/319 成立）、`reasoning ⊆ output`、
-/// `total = input + output`；`cache_write ⊆ input` 是该版本 schema 的映射假设
-/// （真实样本仅覆盖 cache_write=0），矛盾进诊断，不用 max(0, …) 隐藏。
-#[derive(Debug, Clone, Copy)]
-pub struct CodexRecordUsage {
-    pub input_tokens: i64,
-    pub cached_input_tokens: i64,
-    pub cache_write_input_tokens: i64,
-    pub output_tokens: i64,
-    pub reasoning_output_tokens: i64,
-    pub total_tokens: i64,
-}
-
-pub fn map_codex_record(raw: &CodexRecordUsage) -> MappedUsage {
-    let mut diagnostics = Vec::new();
-    let cache_parts = match raw
-        .cached_input_tokens
-        .checked_add(raw.cache_write_input_tokens)
-    {
-        Some(v) => v,
-        None => {
-            diagnostics.push(Contradiction {
-                code: "derived_overflow",
-                field: "input_uncached",
-                detail: "cached + cache_write overflows i64".into(),
-            });
-            return finish(TokenUsage::default(), TokenQuality::default(), diagnostics);
-        }
-    };
-    let uncached = sub_checked(
-        "input_uncached",
-        raw.input_tokens,
-        cache_parts,
-        &mut diagnostics,
-    );
-    if raw.total_tokens != raw.input_tokens.saturating_add(raw.output_tokens) {
-        diagnostics.push(Contradiction {
-            code: "source_total_mismatch",
-            field: "total_tokens",
-            detail: format!(
-                "codex total {} != input {} + output {}",
-                raw.total_tokens, raw.input_tokens, raw.output_tokens
-            ),
-        });
-    }
-    let usage = TokenUsage {
-        input_uncached: uncached,
-        input_cache_read: Some(raw.cached_input_tokens),
-        input_cache_write: Some(raw.cache_write_input_tokens),
-        input_total: Some(raw.input_tokens),
-        output_total: Some(raw.output_tokens),
-        output_reasoning: Some(raw.reasoning_output_tokens),
-        total_tokens: raw.input_tokens.checked_add(raw.output_tokens),
-        source_total: Some(raw.total_tokens),
-    };
-    let quality = TokenQuality {
-        input_uncached: Q::Derived,
-        input_cache_read: Q::Reported,
-        input_cache_write: Q::Reported,
-        input_total: Q::Reported,
-        output_total: Q::Reported,
-        output_reasoning: Q::Reported,
-        total_tokens: Q::Derived,
-        source_total: Q::Reported,
-    };
-    finish(usage, quality, diagnostics)
-}
-
-pub fn map_codex(raw: &CodexUsage) -> MappedUsage {
-    let mut diagnostics = Vec::new();
-    let uncached = if raw.declares_no_cache_creation {
-        sub_checked(
-            "input_uncached",
-            raw.input_tokens,
-            raw.cached_input_tokens,
-            &mut diagnostics,
-        )
-    } else {
-        None
-    };
-    if raw.total_tokens != raw.input_tokens.saturating_add(raw.output_tokens) {
-        diagnostics.push(Contradiction {
-            code: "source_total_mismatch",
-            field: "total_tokens",
-            detail: format!(
-                "codex total {} != input {} + output {}",
-                raw.total_tokens, raw.input_tokens, raw.output_tokens
-            ),
-        });
-    }
-    let usage = TokenUsage {
-        input_uncached: uncached,
-        input_cache_read: Some(raw.cached_input_tokens),
-        input_cache_write: if raw.declares_no_cache_creation {
-            Some(0)
-        } else {
-            None
-        },
-        input_total: Some(raw.input_tokens),
-        output_total: Some(raw.output_tokens),
-        output_reasoning: Some(raw.reasoning_output_tokens),
-        total_tokens: raw.input_tokens.checked_add(raw.output_tokens),
-        source_total: Some(raw.total_tokens),
-    };
-    let quality = TokenQuality {
-        input_uncached: Q::Derived,
-        input_cache_read: Q::Reported,
-        input_cache_write: if raw.declares_no_cache_creation {
-            Q::Derived
-        } else {
-            Q::Unknown
-        },
-        input_total: Q::Reported,
-        output_total: Q::Reported,
-        output_reasoning: Q::Reported,
-        total_tokens: Q::Derived,
-        source_total: Q::Reported,
-    };
-    finish(usage, quality, diagnostics)
-}
-
 /// kimi wire usage.record：四字段互斥，无 total。epoch 毫秒时间。
 #[derive(Debug, Clone, Copy)]
 pub struct KimiWireUsage {
@@ -562,56 +430,6 @@ pub fn map_pi_family(raw: &PiFamilyUsage) -> MappedUsage {
         source_total: Q::Reported,
     };
     finish(usage, quality, diagnostics)
-}
-
-/// Claude Code transcript assistant 条目的 usage 四字段（文档级证据 A01：
-/// monitoring-usage 的 input/output/cache_read/cache_creation 分类 + Anthropic
-/// usage 块互斥口径，与 map_zcode_anthropic 同形）。四字段缺一不可（缺失是未知，
-/// 不能当 0）；input_total/total_tokens 由互斥拆分派生。
-/// 真实 transcript fixture 尚未取得（本机 not_found），口径标注待真实样本。
-#[derive(Debug, Clone, Copy)]
-pub struct ClaudeTranscriptUsage {
-    pub input_tokens: i64,
-    pub output_tokens: i64,
-    pub cache_read_input_tokens: i64,
-    pub cache_creation_input_tokens: i64,
-}
-
-pub fn map_claude_transcript(raw: &ClaudeTranscriptUsage) -> MappedUsage {
-    let input_total = raw
-        .input_tokens
-        .checked_add(raw.cache_read_input_tokens)
-        .and_then(|v| v.checked_add(raw.cache_creation_input_tokens));
-    let total = input_total.and_then(|i| i.checked_add(raw.output_tokens));
-    let usage = TokenUsage {
-        input_uncached: Some(raw.input_tokens),
-        input_cache_read: Some(raw.cache_read_input_tokens),
-        input_cache_write: Some(raw.cache_creation_input_tokens),
-        input_total,
-        output_total: Some(raw.output_tokens),
-        output_reasoning: None,
-        total_tokens: total,
-        source_total: None,
-    };
-    let quality = TokenQuality {
-        input_uncached: Q::Reported,
-        input_cache_read: Q::Reported,
-        input_cache_write: Q::Reported,
-        input_total: if input_total.is_some() {
-            Q::Derived
-        } else {
-            Q::Unknown
-        },
-        output_total: Q::Reported,
-        output_reasoning: Q::Unknown,
-        total_tokens: if total.is_some() {
-            Q::Derived
-        } else {
-            Q::Unknown
-        },
-        source_total: Q::Unknown,
-    };
-    finish(usage, quality, Vec::new())
 }
 
 /// genai usageMetadata 六分类（Gemini CLI 会话 JSON 的 tokens 对象、Qwen Code

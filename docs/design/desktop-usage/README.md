@@ -100,6 +100,7 @@ JetBrains/TRAE、Zed 内置及其他缺证 IDE 变体保留在 F1 后续支持�
 | 各模型统计与汇总 | [数据合同](data-contract.md)，模型/供应商/Agent 分离 | V01–V06，M1/M6 |
 | 历史落盘包含主机等来源，支持后续导入/导出/Merge 判断 | [来源身份与交换合同](data-contract.md#provenance) | V28，M1a/M6；完整 Merge 另行排期 |
 | 后续调研模型 API 按量价格，估算对应 token 费用 | [费用合同](data-contract.md#pricing)及 [价格获取调研](execution.md#f2) | V29，F2；实际计价待调研后实施 |
+| 界面多语言与本地化格式 | [多语言方案调研](execution.md#f3) | V31，F3 调研 + M6 实施 |
 | 当天刷新 | [采集流程](architecture.md#refresh) | V07–V12，M2/M6 |
 | 自动任务定时提取 | [调度与后台生命周期](scheduling.md) | V23/V24，M1/M6 |
 | 仅本地；全部 Agent 分期尝试提取 | 本文来源边界及 [矩阵](adapters.md) | V17/V25，M2–M5；缺证 IDE 留 F1 |

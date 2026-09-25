@@ -245,6 +245,7 @@ fn capability_table_is_structured_and_complete() {
     llm_usage_core::adapters::framework::upsert_source_instance(
         &storage,
         &llm_usage_core::adapters::framework::SourceInstanceInput {
+            origin_host_id: None,
             instance_id: "claude@test".to_string(),
             agent: "claude-code".to_string(),
             host_application: None,

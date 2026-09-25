@@ -60,7 +60,8 @@ IPC 返回结构化 DTO：数值、已知字段数量、范围、来源状态、
 
 每个 Agent 的实现统一放在 `desktop/src-tauri/crates/core/src/adapters/<agent_id>/`，
 即使只支持一个版本也使用独立目录。升级后需要兼容的历史版本仍在该 Agent 目录内实现。
-现有 `codex.rs`、`claude.rs`、`pi.rs`、`gemini.rs`、`qwen.rs` 的迁移列入 M2，尚未执行。
+`codex.rs`、`claude.rs`、`pi.rs`、`omp.rs`、`gemini.rs`、`qwen.rs` 的单文件迁移
+已在 M2 完成（V30 结构检查 + 迁移前后回归见验证记录 m2d）。
 此要求适用于 M2–M5 和后续 F1；同源衍生产品仍有自己的 Agent 目录及支持范围。
 
 目标结构示意，`agent_id` 和 `format_id` 为占位标识，不代表已支持的产品或版本：
@@ -121,7 +122,9 @@ fixtures 按 Agent 及版本/格式组织并注明确切来源版本；单元测
 失败批次不提交不可信事件、游标或聚合；不得返回“成功 0 条”掩盖失败。
 解析器更新、来源变化或显式重扫后允许重新尝试，不永久封禁该版本。
 后续取得逐版本样本后可增加专用实现；用稳定记录身份更正旧贡献并回归，不能再追加同一份用量。
-此策略列入 M2 待实施，现有按版本白名单拒绝的代码与测试需同步调整。
+此策略已在 M2 实施（探测/扫描共用版本注册表分派，兼容标记持久化于
+usage_events.parse_basis 与 source_files.format_status）；
+各 Agent 的回退行为与标记见验证记录 m2d。
 
 <a id="database"></a>
 

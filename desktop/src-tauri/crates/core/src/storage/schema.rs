@@ -2,7 +2,7 @@
 //! 迁移按版本事务执行；失败回滚该版本，旧库保持不变。
 
 /// 本程序支持的最新 schema 版本。
-pub const SCHEMA_VERSION: u32 = 2;
+pub const SCHEMA_VERSION: u32 = 4;
 
 pub struct Migration {
     pub version: u32,
@@ -21,7 +21,119 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "review_identity_and_known_usage",
         sql: REVIEW_SCHEMA,
     },
+    Migration {
+        version: 3,
+        name: "version_basis_compat_marks",
+        sql: VERSION_BASIS_SCHEMA,
+    },
+    Migration {
+        version: 4,
+        name: "origin_host_identity_and_source_partitions",
+        sql: ORIGIN_HOST_SCHEMA,
+    },
 ];
+
+// v3（architecture.md 未知版本兼容合同）：逐事件持久化版本选择依据，
+// 逐文件持久化探测结果（原始版本、所选实现、兼容状态）。
+// 历史行 parse_basis/format_status 为 NULL，表示未区分（等价 known_version 语义）。
+const VERSION_BASIS_SCHEMA: &str = r#"
+ALTER TABLE usage_events ADD COLUMN parse_basis TEXT;
+ALTER TABLE source_files ADD COLUMN format_status TEXT;
+"#;
+
+// v4（data-contract.md 历史来源身份与交换合同，M1a）：
+// - origin_hosts/origin_host_names：不透明稳定主机 ID 与主机名观察史
+//   （改名不换 ID；主机名仅辨认，不参与键）；
+// - source_instances.origin_host_id：来源归属主机；迁移时无主机证据的历史
+//   统一进 legacy_unknown 命名空间，后续本机核验采集可认领（可证明映射）；
+// - daily_usage 按来源实例分区（instance_id 进主键）：查询跨来源求和，
+//   落盘保留每个来源的贡献；旧混合行保留原值进 legacy_unknown 分区，
+//   不虚构拆分。封存行随分区迁移，语义不变。
+const ORIGIN_HOST_SCHEMA: &str = r#"
+CREATE TABLE origin_hosts (
+  host_id TEXT PRIMARY KEY,
+  is_local INTEGER NOT NULL DEFAULT 0,
+  note TEXT,
+  first_seen_ms INTEGER NOT NULL,
+  last_seen_ms INTEGER NOT NULL
+);
+CREATE TABLE origin_host_names (
+  host_id TEXT NOT NULL REFERENCES origin_hosts(host_id),
+  hostname TEXT NOT NULL,
+  first_seen_ms INTEGER NOT NULL,
+  last_seen_ms INTEGER NOT NULL,
+  PRIMARY KEY (host_id, hostname)
+);
+ALTER TABLE source_instances ADD COLUMN origin_host_id TEXT NOT NULL DEFAULT 'legacy_unknown';
+CREATE INDEX idx_source_instances_host ON source_instances(origin_host_id);
+CREATE TABLE daily_usage_v4 (
+  tz_version TEXT NOT NULL,
+  local_day TEXT NOT NULL,
+  instance_id TEXT NOT NULL DEFAULT 'legacy_unknown',
+  agent TEXT NOT NULL,
+  provider_id TEXT NOT NULL DEFAULT '',
+  model_raw TEXT NOT NULL DEFAULT '',
+  call_category TEXT NOT NULL,
+  quality_bucket TEXT NOT NULL,
+  event_count INTEGER NOT NULL,
+  call_count INTEGER NOT NULL,
+  attempt_count INTEGER NOT NULL,
+  observation_count INTEGER NOT NULL,
+  input_known_sum INTEGER,
+  input_known_count INTEGER NOT NULL,
+  input_unknown_count INTEGER NOT NULL,
+  uncached_known_sum INTEGER,
+  uncached_known_count INTEGER NOT NULL,
+  cache_read_known_sum INTEGER,
+  cache_read_known_count INTEGER NOT NULL,
+  cache_write_known_sum INTEGER,
+  cache_write_known_count INTEGER NOT NULL,
+  output_known_sum INTEGER,
+  output_known_count INTEGER NOT NULL,
+  output_unknown_count INTEGER NOT NULL,
+  total_known_sum INTEGER,
+  total_known_count INTEGER NOT NULL,
+  total_unknown_count INTEGER NOT NULL,
+  ratio_input_sum INTEGER,
+  ratio_cache_read_sum INTEGER,
+  ratio_sample_count INTEGER NOT NULL,
+  conflict_count INTEGER NOT NULL,
+  sealed INTEGER NOT NULL DEFAULT 0,
+  sealed_at_ms INTEGER,
+  seal_tz TEXT,
+  seal_field_version TEXT,
+  seal_source_version TEXT,
+  data_revision INTEGER NOT NULL,
+  PRIMARY KEY (tz_version, local_day, instance_id, agent, provider_id, model_raw, call_category, quality_bucket)
+);
+INSERT INTO daily_usage_v4 (
+  tz_version, local_day, instance_id, agent, provider_id, model_raw, call_category, quality_bucket,
+  event_count, call_count, attempt_count, observation_count,
+  input_known_sum, input_known_count, input_unknown_count,
+  uncached_known_sum, uncached_known_count,
+  cache_read_known_sum, cache_read_known_count,
+  cache_write_known_sum, cache_write_known_count,
+  output_known_sum, output_known_count, output_unknown_count,
+  total_known_sum, total_known_count, total_unknown_count,
+  ratio_input_sum, ratio_cache_read_sum, ratio_sample_count,
+  conflict_count, sealed, sealed_at_ms, seal_tz, seal_field_version, seal_source_version, data_revision
+)
+SELECT
+  tz_version, local_day, 'legacy_unknown', agent, provider_id, model_raw, call_category, quality_bucket,
+  event_count, call_count, attempt_count, observation_count,
+  input_known_sum, input_known_count, input_unknown_count,
+  uncached_known_sum, uncached_known_count,
+  cache_read_known_sum, cache_read_known_count,
+  cache_write_known_sum, cache_write_known_count,
+  output_known_sum, output_known_count, output_unknown_count,
+  total_known_sum, total_known_count, total_unknown_count,
+  ratio_input_sum, ratio_cache_read_sum, ratio_sample_count,
+  conflict_count, sealed, sealed_at_ms, seal_tz, seal_field_version, seal_source_version, data_revision
+FROM daily_usage;
+DROP TABLE daily_usage;
+ALTER TABLE daily_usage_v4 RENAME TO daily_usage;
+CREATE INDEX idx_daily_usage_instance ON daily_usage(instance_id, local_day);
+"#;
 
 // 先用临时身份搬移，避免转义后的目标与另一个尚未搬移的旧身份相撞。
 // 外键在事务提交时统一校验，别名始终指向同一个逻辑记录。

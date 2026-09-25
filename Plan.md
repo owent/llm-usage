@@ -3,13 +3,23 @@
 状态：M0 基本完成（仅余 GitHub CI 首次运行待推送后登记；空闲内存 206.5 MB 超
 180 MiB 目标，转 M6/M7 定位）。M1 基本完成（余 V20 性能初值、V15/V16 迁移前空间检查
 与一致备份；[M0/M1 审查记录](docs/validation/desktop-usage/m0-m1-review.md)）。
-M2 部分完成：框架与 Codex/pi/oh-my-pi/Claude/Gemini/Qwen 六源适配器已验收
+M2 基本完成：六源适配器、适配器目录化迁移/版本注册表与未知版本兼容尝试均已验收
 （[M2-A](docs/validation/desktop-usage/m2a-codex.md)、
-[M2-B/C](docs/validation/desktop-usage/m2bc-resumed.md)）；余 Codex 旧版本逐版本
-fixture、适配器目录化迁移与未知版本兼容尝试。M1a、M3–M7、F2 待执行；F1 未排期。
+[M2-B/C](docs/validation/desktop-usage/m2bc-resumed.md)、
+[M2-D](docs/validation/desktop-usage/m2d-layout-versions.md)）；余 Codex
+0.139–0.151 旧载体专用实现（需先取证 token_count/last_token_usage 身份语义）
+与 claude/gemini/qwen 真实 fixture（本机无数据）。
+M1a 已完成（[验证记录](docs/validation/desktop-usage/m1a-provenance.md)：主机身份/
+来源分区/交换合同，V28 通过）。M6 主体功能已实现（界面/刷新/调度/设置/导出/
+headless/i18n，[验证记录](docs/validation/desktop-usage/m6-desktop-core.md)），
+余真实桌面逐操作验收、系统任务注册（V24）、逐源定时与监听等（见记录未完成项）。
+F3 调研已完成（[i18n 合同](docs/design/desktop-usage/i18n.md)），实施已随 M6 落地
+zh-CN/en 双语。M3–M5、M7、F2 待执行（kilo/zcode fixtures 已提取、适配器待实施）；
+F1 未排期。
 用户已允许实施阶段提取本机真实 Agent 数据验证。设计基线日期：2026-09-24。
 
-M1a 与 F2 仅为计划与合同，不表示已实现来源迁移、导入合并或费用估算。
+M3–M5 与 F2 仅为计划与合同，不表示已实现对应适配器、遥测接入或费用估算；
+完整导入/Merge 功能未实施（M1a 交付格式与判定）。
 
 目标：在本地按 Agent、模型和时间汇总 token、模型请求及缓存使用，
 支持今日刷新、日/周/月图表、定时提取和界面配置，提供小体积桌面客户端。
@@ -43,15 +53,16 @@ JetBrains/TRAE 等缺少本地格式证据的 IDE 列入后续 F1，当前不实
 | --- | --- | --- | --- | --- |
 | M0 | **基本完成**（仅余 GitHub CI 首次运行待推送后登记；空闲内存 206.5 MB 超 180 MiB 目标，转 M6/M7 定位） | 固定版本样本、开发合同和三平台 CI 基线 | 开始实施 | 按已确认平台方案锁定版本，使用已获允许的本机数据取得脱敏 fixture；三平台构建、WSL 可行性、包体报告；恢复文档依赖声明 |
 | M1 | **基本完成**（余 V20 性能初值、V15/V16 迁移前空间检查和一致备份；[审查记录](docs/validation/desktop-usage/m0-m1-review.md)） | 统计合同、SQLite 存储、导入事务和迁移 | M0 | 已知/未知与完整性可区分；请求更新、去重、崩溃恢复、日周月数学用例通过 |
-| M1a | 未完成 | [历史来源身份与存储分区](docs/design/desktop-usage/execution.md#m1a)，为后续导入/导出/Merge 保留依据 | M1；在 M6 数据导出前完成 | 稳定主机 ID、主机名和来源实例可追溯；事件唯一键、历史汇总分区及索引保留来源；旧数据迁移不猜测归属；V28 对应存储用例通过 |
-| M2 | 部分完成（框架 + Codex/pi/oh-my-pi/Claude/Gemini/Qwen 六源适配器已验收：[M2-A](docs/validation/desktop-usage/m2a-codex.md)、[M2-B/C](docs/validation/desktop-usage/m2bc-resumed.md)；余 Codex 旧版本逐版本 fixture、目录迁移/版本组织及未知版本兼容尝试） | 首批本地适配器及[目录化](docs/design/desktop-usage/execution.md#m2-layout)：Codex、Claude Code、pi、oh-my-pi、Gemini CLI、Qwen Code | M1 | 每个 Agent 独立目录，历史版本在该目录内实现；已有单文件迁移与 V30 对应回归通过；每个已验证版本有固定格式样本；未知版本默认尝试最新内置解析器，通过校验的数据带兼容标记统计；重复扫描不增量；主调用、辅助调用、子 Agent 的覆盖情况可见 |
+| M1a | **已完成**（[验证记录](docs/validation/desktop-usage/m1a-provenance.md)：主机身份/来源分区/legacy_unknown 迁移/交换合同与合并判定，V28 通过；完整导入/Merge 另行排期） | [历史来源身份与存储分区](docs/design/desktop-usage/execution.md#m1a)，为后续导入/导出/Merge 保留依据 | M1；在 M6 数据导出前完成 | 稳定主机 ID、主机名和来源实例可追溯；事件唯一键、历史汇总分区及索引保留来源；旧数据迁移不猜测归属；V28 对应存储用例通过 |
+| M2 | **基本完成**（六源适配器 + 目录化迁移/版本注册表 + 未知版本兼容尝试 + Codex 逐版本 fixture 已验收：[M2-A](docs/validation/desktop-usage/m2a-codex.md)、[M2-B/C](docs/validation/desktop-usage/m2bc-resumed.md)、[M2-D](docs/validation/desktop-usage/m2d-layout-versions.md)；余 Codex 0.139–0.151 旧载体专用实现待取证、claude/gemini/qwen 真实 fixture 待本机数据） | 首批本地适配器及[目录化](docs/design/desktop-usage/execution.md#m2-layout)：Codex、Claude Code、pi、oh-my-pi、Gemini CLI、Qwen Code | M1 | 每个 Agent 独立目录，历史版本在该目录内实现；已有单文件迁移与 V30 对应回归通过；每个已验证版本有固定格式样本；未知版本默认尝试最新内置解析器，通过校验的数据带兼容标记统计；重复扫描不增量；主调用、辅助调用、子 Agent 的覆盖情况可见 |
 | M3 | 未完成 | 扩展本地适配器：Cline、Kilo Code、OpenCode、MiMo Code、Zoo Code、DSH、OpenClaw、Hermes Agent | M1；可与 M2 独立排期 | 分产品/格式验收；流式更正、模型/辅助累计、历史迁移与聚合重叠通过 |
 | M4 | 未完成（M0 已取证：Kimi Code 1.0.3 与 ZCode 3.14.3 本机字段已证，Kimi Work/WorkBuddy 本机无数据） | 新版 Kimi Code、Kimi Work、ZCode、WorkBuddy 本地格式核验 | M0/M1 | 本阶段产品有本地提取尝试记录；交付适配器或字段/版本限制；F1 的 IDE 不实施，不以远端 API 替代 |
 | M5 | 未完成（M0 已取证：Copilot CLI 1.0.73 assistant_usage_events 逐 turn 字段已证） | 本机文件遥测及可选 loopback 接入：Copilot CLI、VS Code、CodeBuddy 等 | M1 | 本地 OTLP/file 协议、采样/重传、来源归属、敏感字段过滤通过；拒绝远端/账号范围数据 |
-| M6 | 未完成 | 桌面界面、真实刷新、定时任务、设置、保留和导出 | M1/M1a/M2；对接 M3–M5 | 图表与日周月联动；可供后续合并的数据导出保留来源身份、覆盖范围和修订；全局/逐源定时配置、手动触发去重、休眠补扫、Windows 关闭界面提取和重启恢复通过；按[资源合同](desktop/assets/README.md)接入导航、主题托盘与空状态，核验高 DPI、深浅主题和可访问名称 |
+| M6 | **主体功能已实现，部分验收**（[验证记录](docs/validation/desktop-usage/m6-desktop-core.md)：界面/图表/筛选/来源页/设置/导出/调度/headless/i18n 齐备，headless 端到端三源 11,401 事件验证；余真实桌面逐操作验收 V13–V18/V23–V25、V24 系统任务、逐源定时、监听、对话框导出等） | 桌面界面、真实刷新、定时任务、设置、保留和导出 | M1/M1a/M2；对接 M3–M5 | 图表与日周月联动；可供后续合并的数据导出保留来源身份、覆盖范围和修订；全局/逐源定时配置、手动触发去重、休眠补扫、Windows 关闭界面提取和重启恢复通过；按[资源合同](desktop/assets/README.md)接入导航、主题托盘与空状态，核验高 DPI、深浅主题和可访问名称 |
 | M7 | 未完成 | 轻量化、三平台持续构建、安装与发布候选验收 | M2–M6 | Windows 11 实机与三平台 CI 证据分列；适配器状态明确，性能/包体、离线、任务清理与升级回滚通过；确认 LFS 下载后的安装包、任务栏及 macOS/Linux 桌面图标 |
 | F1 | 后续支持，未排期，未实施 | 后续 IDE 支持：JetBrains/TRAE、Zed 内置及其他缺证 IDE 变体 | 后续支持阶段；不属于 M0–M7 | 启动该阶段后逐项取得本地格式证据及验证结果；当前只保留计划，不探测/开发，不阻塞首版 |
 | F2 | 后续调研，未排期，未实施 | [模型 API 按量价格获取与 token 费用估算方案](docs/design/desktop-usage/execution.md#f2) | 数据合同；调研不阻塞首版 | 比较价格获取渠道并记录可核验证据；明确模型映射、计费维度、版本/生效期、离线缓存及更新方式；交付 V29 验收样本设计和后续实施任务 |
+| F3 | **调研已完成**（[i18n 合同](docs/design/desktop-usage/i18n.md)：方案对比与选型证据、键名/回退/格式化口径；zh-CN/en 已随 M6 落地，V31 验收随桌面验收） | [界面多语言（i18n）方案调研与设计](docs/design/desktop-usage/execution.md#f3) | M6 界面实现开始前完成调研设计；不阻塞 M0–M5 | 比较 Svelte/Tauri 生态 i18n 方案并记录可核验证据；确定语言集合/协商顺序/缺失键回退/切换行为、数字日期单位本地化口径及诊断消息语言策略；交付键名与语言包合同及 V31 验收要点，实施随 M6 |
 
 M4/M5 的本地格式证据不足不阻止 M1/M2/M6，但对应工具必须保持“待验证/受限”，
 不能为了宣布计划完成而从能力矩阵删除。M7 可交付有明确支持范围的首个版本，

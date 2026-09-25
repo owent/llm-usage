@@ -107,6 +107,9 @@ pub fn commit_batch(
     let calendar = Calendar::new(&batch.timezone)?;
     let conn = storage.conn();
     let tx = conn.unchecked_transaction()?;
+    // schema < 3（测试钩子冻结的旧库）没有 parse_basis 列：按旧 schema 降级写入，
+    // 新字段不持久化（等价历史行为）。正常运行总是先迁移到 SCHEMA_VERSION。
+    let parse_basis_column = storage.schema_version().unwrap_or(u32::MAX) >= 3;
     if batch
         .events
         .iter()
@@ -234,12 +237,12 @@ pub fn commit_batch(
             .unwrap_or(eid);
         match arbitrate(existing.as_ref().map(|(m, _, _, _, _)| m), event, &hash) {
             Arbitration::Insert => {
-                insert_event(&tx, event, &eid, &hash, batch.now_ms)?;
+                insert_event(&tx, event, &eid, &hash, batch.now_ms, parse_basis_column)?;
                 outcome.added += 1;
                 affected.insert(calendar.local_day_of(event.occurred_at_ms)?);
             }
             Arbitration::Replace => {
-                update_event(&tx, event, &eid, &hash, batch.now_ms)?;
+                update_event(&tx, event, &eid, &hash, batch.now_ms, parse_basis_column)?;
                 outcome.updated += 1;
                 affected.insert(calendar.local_day_of(event.occurred_at_ms)?);
                 if let Some((_, old_ms, _, _, _)) = existing {
@@ -395,8 +398,25 @@ fn insert_event(
     event_id: &str,
     hash: &str,
     now_ms: i64,
+    parse_basis_column: bool,
 ) -> Result<(), CoreError> {
-    tx.execute(
+    let sql = if parse_basis_column {
+        "INSERT INTO usage_events (
+           event_id, source_instance_id, source_record_key, record_kind, schema_version, parser_version,
+           origin_call_id, attempt_id, session_id, parent_session_id, host_application, agent, call_category,
+           occurred_at_ms, observed_at_ms, source_time, time_basis, interval_start_ms, interval_end_ms,
+           provider_id, model_raw, model_canonical, model_attribution,
+           input_uncached, input_cache_read, input_cache_write, input_total, output_total, output_reasoning,
+           total_tokens, source_total, quality_json, quality_bucket, lifecycle, source_revision,
+           error_status, duration_ms, ttft_ms, attribution_status, exclusion_reason, conflict, content_hash,
+           cost_amount_minor, cost_currency, cost_kind, price_version, billing_scope,
+           created_at_ms, updated_at_ms, parse_basis
+         ) VALUES (
+           ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19,
+           ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33, ?34, ?35, ?36,
+           ?37, ?38, ?39, ?40, ?41, ?42, ?43, ?44, ?45, ?46, ?47, ?48, ?49, ?50
+         )"
+    } else {
         "INSERT INTO usage_events (
            event_id, source_instance_id, source_record_key, record_kind, schema_version, parser_version,
            origin_call_id, attempt_id, session_id, parent_session_id, host_application, agent, call_category,
@@ -411,9 +431,13 @@ fn insert_event(
            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19,
            ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33, ?34, ?35, ?36,
            ?37, ?38, ?39, ?40, ?41, ?42, ?43, ?44, ?45, ?46, ?47, ?48, ?49
-         )",
-        rusqlite::params_from_iter(event_params(event, event_id, hash, now_ms, now_ms)),
-    )?;
+         )"
+    };
+    let mut params = event_params(event, event_id, hash, now_ms, now_ms);
+    if !parse_basis_column {
+        params.pop();
+    }
+    tx.execute(sql, rusqlite::params_from_iter(params))?;
     Ok(())
 }
 
@@ -423,8 +447,25 @@ fn update_event(
     event_id: &str,
     hash: &str,
     now_ms: i64,
+    parse_basis_column: bool,
 ) -> Result<(), CoreError> {
-    tx.execute(
+    let sql = if parse_basis_column {
+        "UPDATE usage_events SET
+           record_kind = ?4, schema_version = ?5, parser_version = ?6,
+           origin_call_id = ?7, attempt_id = ?8, session_id = ?9, parent_session_id = ?10,
+           host_application = ?11, agent = ?12, call_category = ?13,
+           occurred_at_ms = ?14, observed_at_ms = ?15, source_time = ?16, time_basis = ?17,
+           interval_start_ms = ?18, interval_end_ms = ?19,
+           provider_id = ?20, model_raw = ?21, model_canonical = ?22, model_attribution = ?23,
+           input_uncached = ?24, input_cache_read = ?25, input_cache_write = ?26, input_total = ?27,
+           output_total = ?28, output_reasoning = ?29, total_tokens = ?30, source_total = ?31,
+           quality_json = ?32, quality_bucket = ?33, lifecycle = ?34, source_revision = ?35,
+           error_status = ?36, duration_ms = ?37, ttft_ms = ?38,
+           attribution_status = ?39, exclusion_reason = ?40, conflict = 0, content_hash = ?42,
+           cost_amount_minor = ?43, cost_currency = ?44, cost_kind = ?45, price_version = ?46,
+           billing_scope = ?47, updated_at_ms = ?49, parse_basis = ?50
+         WHERE event_id = ?1"
+    } else {
         "UPDATE usage_events SET
            record_kind = ?4, schema_version = ?5, parser_version = ?6,
            origin_call_id = ?7, attempt_id = ?8, session_id = ?9, parent_session_id = ?10,
@@ -439,9 +480,13 @@ fn update_event(
            attribution_status = ?39, exclusion_reason = ?40, conflict = 0, content_hash = ?42,
            cost_amount_minor = ?43, cost_currency = ?44, cost_kind = ?45, price_version = ?46,
            billing_scope = ?47, updated_at_ms = ?49
-         WHERE event_id = ?1",
-        rusqlite::params_from_iter(event_params(event, event_id, hash, 0, now_ms)),
-    )?;
+         WHERE event_id = ?1"
+    };
+    let mut params = event_params(event, event_id, hash, 0, now_ms);
+    if !parse_basis_column {
+        params.pop();
+    }
+    tx.execute(sql, rusqlite::params_from_iter(params))?;
     Ok(())
 }
 
@@ -468,55 +513,56 @@ fn event_params(
         None => (None, None, None, None, None),
     };
     vec![
-        Value::Text(event_id.to_string()),                          // 1
-        Value::Text(event.source_instance_id.clone()),              // 2
-        Value::Text(event.source_record_key.clone()),               // 3
-        Value::Text(event.record_kind.as_str().to_string()),        // 4
-        Value::Text(event.schema_version.clone()),                  // 5
-        Value::Text(event.parser_version.clone()),                  // 6
-        opt_text(&event.origin_call_id),                            // 7
-        opt_text(&event.attempt_id),                                // 8
-        opt_text(&event.session_id),                                // 9
-        opt_text(&event.parent_session_id),                         // 10
-        opt_text(&event.host_application),                          // 11
-        Value::Text(event.agent.clone()),                           // 12
-        Value::Text(event.call_category.as_str().to_string()),      // 13
-        Value::Integer(event.occurred_at_ms),                       // 14
-        opt_int(event.observed_at_ms),                              // 15
-        opt_text(&event.source_time),                               // 16
-        Value::Text(event.time_basis.as_str().to_string()),         // 17
-        opt_int(event.interval_start_ms),                           // 18
-        opt_int(event.interval_end_ms),                             // 19
-        opt_text(&event.provider_id),                               // 20
-        opt_text(&event.model_raw),                                 // 21
-        opt_text(&event.model_canonical),                           // 22
-        Value::Text(event.model_attribution.as_str().to_string()),  // 23
-        opt_int(event.usage.input_uncached),                        // 24
-        opt_int(event.usage.input_cache_read),                      // 25
-        opt_int(event.usage.input_cache_write),                     // 26
-        opt_int(event.usage.input_total),                           // 27
-        opt_int(event.usage.output_total),                          // 28
-        opt_int(event.usage.output_reasoning),                      // 29
-        opt_int(event.usage.total_tokens),                          // 30
-        opt_int(event.usage.source_total),                          // 31
-        Value::Text(quality_json),                                  // 32
-        Value::Text(bucket.as_str().to_string()),                   // 33
-        Value::Text(event.lifecycle.as_str().to_string()),          // 34
-        opt_int(event.source_revision),                             // 35
-        opt_text(&event.error_status),                              // 36
-        opt_int(event.duration_ms),                                 // 37
-        opt_int(event.ttft_ms),                                     // 38
-        Value::Text(event.attribution_status.as_str().to_string()), // 39
-        opt_text(&event.exclusion_reason),                          // 40
-        Value::Integer(0),                                          // 41 conflict 占位
-        Value::Text(hash.to_string()),                              // 42
-        opt_int(cost_minor),                                        // 43
-        opt_text(&cost_currency),                                   // 44
-        opt_text(&cost_kind),                                       // 45
-        opt_text(&price_version),                                   // 46
-        opt_text(&billing_scope),                                   // 47
-        Value::Integer(now_ms),                                     // 48 created（INSERT）
-        Value::Integer(now_ms),                                     // 49 updated
+        Value::Text(event_id.to_string()),                            // 1
+        Value::Text(event.source_instance_id.clone()),                // 2
+        Value::Text(event.source_record_key.clone()),                 // 3
+        Value::Text(event.record_kind.as_str().to_string()),          // 4
+        Value::Text(event.schema_version.clone()),                    // 5
+        Value::Text(event.parser_version.clone()),                    // 6
+        opt_text(&event.origin_call_id),                              // 7
+        opt_text(&event.attempt_id),                                  // 8
+        opt_text(&event.session_id),                                  // 9
+        opt_text(&event.parent_session_id),                           // 10
+        opt_text(&event.host_application),                            // 11
+        Value::Text(event.agent.clone()),                             // 12
+        Value::Text(event.call_category.as_str().to_string()),        // 13
+        Value::Integer(event.occurred_at_ms),                         // 14
+        opt_int(event.observed_at_ms),                                // 15
+        opt_text(&event.source_time),                                 // 16
+        Value::Text(event.time_basis.as_str().to_string()),           // 17
+        opt_int(event.interval_start_ms),                             // 18
+        opt_int(event.interval_end_ms),                               // 19
+        opt_text(&event.provider_id),                                 // 20
+        opt_text(&event.model_raw),                                   // 21
+        opt_text(&event.model_canonical),                             // 22
+        Value::Text(event.model_attribution.as_str().to_string()),    // 23
+        opt_int(event.usage.input_uncached),                          // 24
+        opt_int(event.usage.input_cache_read),                        // 25
+        opt_int(event.usage.input_cache_write),                       // 26
+        opt_int(event.usage.input_total),                             // 27
+        opt_int(event.usage.output_total),                            // 28
+        opt_int(event.usage.output_reasoning),                        // 29
+        opt_int(event.usage.total_tokens),                            // 30
+        opt_int(event.usage.source_total),                            // 31
+        Value::Text(quality_json),                                    // 32
+        Value::Text(bucket.as_str().to_string()),                     // 33
+        Value::Text(event.lifecycle.as_str().to_string()),            // 34
+        opt_int(event.source_revision),                               // 35
+        opt_text(&event.error_status),                                // 36
+        opt_int(event.duration_ms),                                   // 37
+        opt_int(event.ttft_ms),                                       // 38
+        Value::Text(event.attribution_status.as_str().to_string()),   // 39
+        opt_text(&event.exclusion_reason),                            // 40
+        Value::Integer(0),                                            // 41 conflict 占位
+        Value::Text(hash.to_string()),                                // 42
+        opt_int(cost_minor),                                          // 43
+        opt_text(&cost_currency),                                     // 44
+        opt_text(&cost_kind),                                         // 45
+        opt_text(&price_version),                                     // 46
+        opt_text(&billing_scope),                                     // 47
+        Value::Integer(now_ms),                                       // 48 created（INSERT）
+        Value::Integer(now_ms),                                       // 49 updated
+        opt_text(&event.parse_basis.map(|b| b.as_str().to_string())), // 50 版本选择依据
     ]
 }
 
@@ -556,7 +602,29 @@ pub(crate) fn recompute_day(
         params![calendar.tz_name(), day_str],
     )?;
     let (start_ms, end_ms) = calendar.day_range_ms(day)?;
-    tx.execute(
+    // v4 起 daily_usage 按来源实例分区（M1a：查询跨来源求和，落盘保留每来源贡献）。
+    // v2 迁移的旧库重算发生在 v4 分区之前，按旧形状（无 instance_id 列）写入。
+    let partitioned: bool = tx.query_row(
+        "SELECT EXISTS(SELECT 1 FROM pragma_table_info('daily_usage') WHERE name = 'instance_id')",
+        [],
+        |r| r.get(0),
+    )?;
+    let insert_head = if partitioned {
+        "INSERT INTO daily_usage (
+           tz_version, local_day, instance_id, agent, provider_id, model_raw, call_category, quality_bucket,
+           event_count, call_count, attempt_count, observation_count,
+           input_known_sum, input_known_count, input_unknown_count,
+           uncached_known_sum, uncached_known_count,
+           cache_read_known_sum, cache_read_known_count,
+           cache_write_known_sum, cache_write_known_count,
+           output_known_sum, output_known_count, output_unknown_count,
+           total_known_sum, total_known_count, total_unknown_count,
+           ratio_input_sum, ratio_cache_read_sum, ratio_sample_count,
+           conflict_count, sealed, data_revision
+         )
+         SELECT
+           ?1, ?2, source_instance_id, agent,"
+    } else {
         "INSERT INTO daily_usage (
            tz_version, local_day, agent, provider_id, model_raw, call_category, quality_bucket,
            event_count, call_count, attempt_count, observation_count,
@@ -570,7 +638,15 @@ pub(crate) fn recompute_day(
            conflict_count, sealed, data_revision
          )
          SELECT
-           ?1, ?2, agent,
+           ?1, ?2, agent,"
+    };
+    let group_by = if partitioned {
+        "GROUP BY source_instance_id, agent, COALESCE(provider_id, ''), COALESCE(model_raw, ''), call_category, quality_bucket"
+    } else {
+        "GROUP BY agent, COALESCE(provider_id, ''), COALESCE(model_raw, ''), call_category, quality_bucket"
+    };
+    let sql = format!(
+        "{insert_head}
            COALESCE(provider_id, ''), COALESCE(model_raw, ''),
            call_category, quality_bucket,
            COUNT(*),
@@ -610,7 +686,10 @@ pub(crate) fn recompute_day(
          WHERE occurred_at_ms >= ?4 AND occurred_at_ms < ?5
            AND attribution_status = 'verified'
            AND record_kind IN ('model_call', 'transport_attempt', 'usage_observation')
-         GROUP BY agent, COALESCE(provider_id, ''), COALESCE(model_raw, ''), call_category, quality_bucket",
+         {group_by}"
+    );
+    tx.execute(
+        &sql,
         params![calendar.tz_name(), day_str, data_revision, start_ms, end_ms],
     )?;
     Ok(())

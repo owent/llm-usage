@@ -143,6 +143,114 @@ impl Storage {
         )?;
         Ok(n)
     }
+
+    /// 确保本机来源主机身份存在并返回其不透明稳定 ID（data-contract.md#provenance）。
+    /// - 首次调用生成 `host-<32hex>` 持久化于 origin_hosts（is_local=1），
+    ///   并把 settings.local_origin_host_id 指向它；不使用主机名/IP/硬件指纹作身份。
+    /// - 后续调用返回同一 ID 并记录主机名观察（改名不换 ID、不重复计数；
+    ///   主机名只进观察表用于辨认，不参与任何键）。
+    /// - 复制数据库到新机器时不自动认领历史：身份与采集由调用方显式传入，
+    ///   来源注册冲突走映射/确认流程（M1a 只提供判定，不做静默合并）。
+    pub fn ensure_local_host(&self, hostname: &str, now_ms: i64) -> Result<String, CoreError> {
+        let existing: Option<String> = self
+            .conn
+            .query_row(
+                "SELECT value FROM settings WHERE key = 'local_origin_host_id'",
+                [],
+                |r| r.get(0),
+            )
+            .optional()?;
+        let host_id = match existing {
+            Some(id) => {
+                let present: bool = self.conn.query_row(
+                    "SELECT EXISTS(SELECT 1 FROM origin_hosts WHERE host_id = ?1)",
+                    rusqlite::params![id],
+                    |r| r.get(0),
+                )?;
+                if !present {
+                    return Err(CoreError::Validation(format!(
+                        "local_origin_host_id {id:?} has no origin_hosts row; refusing to guess ownership"
+                    )));
+                }
+                id
+            }
+            None => {
+                let id = format!(
+                    "host-{}",
+                    self.conn
+                        .query_row("SELECT lower(hex(randomblob(16)))", [], |r| {
+                            r.get::<_, String>(0)
+                        })?
+                );
+                self.conn.execute(
+                    "INSERT INTO origin_hosts (host_id, is_local, note, first_seen_ms, last_seen_ms)
+                     VALUES (?1, 1, NULL, ?2, ?2)",
+                    rusqlite::params![id, now_ms],
+                )?;
+                self.conn.execute(
+                    "INSERT INTO settings (key, value, schema_version, updated_at_ms)
+                     VALUES ('local_origin_host_id', ?1, 1, ?2)
+                     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at_ms = excluded.updated_at_ms",
+                    rusqlite::params![id, now_ms],
+                )?;
+                id
+            }
+        };
+        self.observe_hostname(&host_id, hostname, now_ms)?;
+        Ok(host_id)
+    }
+
+    /// 当前本机主机 ID（未初始化时为 None）。
+    pub fn local_host_id(&self) -> Result<Option<String>, CoreError> {
+        let id: Option<String> = self
+            .conn
+            .query_row(
+                "SELECT value FROM settings WHERE key = 'local_origin_host_id'",
+                [],
+                |r| r.get(0),
+            )
+            .optional()?;
+        Ok(id)
+    }
+
+    /// 记录主机名观察（同一主机的历史名称都保留；改名不换 ID）。
+    pub fn observe_hostname(
+        &self,
+        host_id: &str,
+        hostname: &str,
+        now_ms: i64,
+    ) -> Result<(), CoreError> {
+        self.conn.execute(
+            "INSERT INTO origin_host_names (host_id, hostname, first_seen_ms, last_seen_ms)
+             VALUES (?1, ?2, ?3, ?3)
+             ON CONFLICT(host_id, hostname) DO UPDATE SET last_seen_ms = excluded.last_seen_ms",
+            rusqlite::params![host_id, hostname, now_ms],
+        )?;
+        self.conn.execute(
+            "UPDATE origin_hosts SET last_seen_ms = ?2 WHERE host_id = ?1",
+            rusqlite::params![host_id, now_ms],
+        )?;
+        Ok(())
+    }
+
+    /// 登记一台外部来源主机（导入用）：返回其 host_id；同一 host_id 重复登记幂等。
+    pub fn register_origin_host(
+        &self,
+        host_id: &str,
+        hostname: Option<&str>,
+        now_ms: i64,
+    ) -> Result<(), CoreError> {
+        self.conn.execute(
+            "INSERT INTO origin_hosts (host_id, is_local, note, first_seen_ms, last_seen_ms)
+             VALUES (?1, 0, NULL, ?2, ?2)
+             ON CONFLICT(host_id) DO UPDATE SET last_seen_ms = excluded.last_seen_ms",
+            rusqlite::params![host_id, now_ms],
+        )?;
+        if let Some(name) = hostname {
+            self.observe_hostname(host_id, name, now_ms)?;
+        }
+        Ok(())
+    }
 }
 
 pub(crate) fn data_revision(conn: &Connection) -> Result<i64, CoreError> {
@@ -182,6 +290,33 @@ fn run_migration(conn: &Connection, migration: &schema::Migration) -> Result<(),
             };
             let has_data: bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM daily_usage) OR EXISTS(SELECT 1 FROM usage_events) OR EXISTS(SELECT 1 FROM source_aggregates)", [], |r| r.get(0))?;
             if has_data {
+                let revision = Storage::bump_data_revision_tx(&tx, crate::jobs::now_ms_fallback())?;
+                tx.execute(
+                    "UPDATE daily_usage SET data_revision = ?1 WHERE sealed = 1",
+                    [revision],
+                )?;
+                for (tz, day) in partitions {
+                    crate::ingest::recompute_day(
+                        &tx,
+                        &crate::calendar::Calendar::new(&tz)?,
+                        crate::calendar::parse_date(&day)?,
+                        revision,
+                    )?;
+                }
+            }
+        }
+        if migration.version == 4 && migration.name == "origin_host_identity_and_source_partitions"
+        {
+            // 旧混合日汇总按来源分区重算（事件仍在 ⇒ 推导不是猜测；封存行除外）。
+            let partitions = {
+                let mut stmt = tx.prepare(
+                    "SELECT DISTINCT tz_version, local_day FROM daily_usage WHERE sealed = 0",
+                )?;
+                let rows =
+                    stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?;
+                rows.collect::<Result<Vec<_>, _>>()?
+            };
+            if !partitions.is_empty() {
                 let revision = Storage::bump_data_revision_tx(&tx, crate::jobs::now_ms_fallback())?;
                 tx.execute(
                     "UPDATE daily_usage SET data_revision = ?1 WHERE sealed = 1",

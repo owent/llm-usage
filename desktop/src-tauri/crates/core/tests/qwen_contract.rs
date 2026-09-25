@@ -199,6 +199,7 @@ fn capability_table_is_structured_and_complete() {
     framework::upsert_source_instance(
         &storage,
         &framework::SourceInstanceInput {
+            origin_host_id: None,
             instance_id: "qwen@test".to_string(),
             agent: "qwen-code".to_string(),
             host_application: None,

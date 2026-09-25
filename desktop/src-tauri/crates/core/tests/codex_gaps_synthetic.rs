@@ -1,13 +1,14 @@
-//! Codex 适配器缺口场景：合成样本（目录/文件头均标 synthetic）与 V17 拒绝。
+//! Codex 适配器缺口场景：合成样本（目录/文件头均标 synthetic）与 V17 语义。
 //! 合成样本覆盖 M0 真实样本缺失的场景：重复 final、子 Agent、cache write>0、
-//! 无 usage 的 tool/user 消息、缺 response_id；未知版本/未知格式 fail closed。
+//! 无 usage 的 tool/user 消息、缺 response_id；未知版本默认回退最新内置解析器
+//! 并带兼容标记（V17/V30），未知格式 fail closed。
 
 mod common;
 
 use common::*;
-use llm_usage_core::adapters::codex::CodexAdapter;
+use llm_usage_core::adapters::codex::{map_codex_record, CodexAdapter, CodexRecordUsage};
 use llm_usage_core::adapters::framework::{DetectOutcome, SourceAdapter};
-use llm_usage_core::adapters::usage_map::{map_codex_record, CodexRecordUsage};
+use llm_usage_core::domain::VersionBasis;
 
 fn synthetic_root(name: &str) -> std::path::PathBuf {
     codex_fixture(name)
@@ -138,16 +139,19 @@ fn missing_response_id_falls_back_to_session_ordinal_identity() {
 }
 
 #[test]
-fn v17_unknown_version_fails_closed_not_success_zero() {
+fn v17_unknown_version_falls_back_with_compat_mark() {
+    // 未收录版本 + 结构不变：默认回退最新内置解析器，数据正常入库并带兼容标记，
+    // 不因版本号未收录直接拒绝（V17/V30 新语义）。
     let adapter = CodexAdapter::new();
     let path = synthetic_root("synthetic-unknown-version")
         .join("sessions/2026/01/05/rollout-synthetic-uv.jsonl");
     let outcome = adapter.detect(&path).unwrap();
     assert_eq!(
         outcome,
-        DetectOutcome::UnsupportedVersion {
+        DetectOutcome::Supported {
             format: "codex-rollout-jsonl".to_string(),
-            found: "0.999.0-synthetic".to_string(),
+            format_version: Some("0.999.0-synthetic".to_string()),
+            basis: VersionBasis::LatestFallback,
         }
     );
 
@@ -155,31 +159,202 @@ fn v17_unknown_version_fails_closed_not_success_zero() {
     let root = synthetic_root("synthetic-unknown-version");
     let reports = run_codex(&storage, &root, 1_800_000_000_000);
     let report = &reports[0];
-    assert_eq!(report.files[0].status, "unsupported_version");
-    assert_eq!(report.files[0].detail.as_deref(), Some("0.999.0-synthetic"));
+    assert_eq!(report.files[0].status, "complete");
+    assert_eq!(report.files[0].events, 1);
+    assert_eq!(
+        report.files[0].detail.as_deref(),
+        Some("latest_fallback: version compatibility unverified (found: 0.999.0-synthetic)")
+    );
+    // 兼容尝试成功的数据正常统计：1 次调用 input=10 output=5 total=15。
+    let summary = summary(&storage, "2026-01-05", "2026-01-05");
+    assert_eq!(summary.totals.call_count, 1);
+    assert_eq!(summary.totals.input_total_known, Some(10));
+    assert_eq!(summary.totals.output_total_known, Some(5));
+    assert_eq!(summary.totals.total_tokens_known, Some(15));
+    // 兼容标记持久化：事件 parse_basis、文件 active_compat、探测结论 JSON。
+    let (basis, schema_version): (String, String) = storage
+        .conn()
+        .query_row(
+            "SELECT parse_basis, schema_version FROM usage_events",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(basis, "latest_fallback");
+    assert_eq!(schema_version, "0.999.0-synthetic");
+    let diags: i64 = storage
+        .conn()
+        .query_row(
+            "SELECT COUNT(*) FROM diagnostics WHERE code = 'latest_fallback'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(diags, 1, "compat attempt visible in diagnostics");
+    let (file_status, format_status): (String, String) = storage
+        .conn()
+        .query_row("SELECT status, format_status FROM source_files", [], |r| {
+            Ok((r.get(0)?, r.get(1)?))
+        })
+        .unwrap();
+    assert_eq!(file_status, "active_compat");
+    let fs: serde_json::Value = serde_json::from_str(&format_status).unwrap();
+    assert_eq!(fs["basis"], "latest_fallback");
+    assert_eq!(fs["found_version"], "0.999.0-synthetic");
+    assert_eq!(fs["compat"], "unverified");
+    // 重复扫描不增量（兼容标记不改变幂等）。
+    let reports2 = run_codex(&storage, &root, 1_800_000_000_100);
+    let added2: i64 = reports2
+        .iter()
+        .filter_map(|r| r.outcome.as_ref().map(|o| o.added))
+        .sum();
+    assert_eq!(added2, 0);
+}
+
+#[test]
+fn v17_missing_version_but_agent_identified_falls_back() {
+    // 版本字段缺失但 Agent 身份可识别（session_meta 携带会话 id）：
+    // 默认回退最新内置解析器（V30 场景），format_version 为空。
+    let dir = TempDir::new("codex-mv");
+    let root = dir.path().join("root");
+    let file = concat!(
+        "{\"timestamp\":\"2026-01-06T10:00:00.000Z\",\"type\":\"session_meta\",\"payload\":{\"id\":\"syn-sess-mv\",\"session_id\":\"syn-sess-mv\",\"originator\":\"codex_cli\",\"model_provider\":\"openai\"}}\n",
+        "{\"timestamp\":\"2026-01-06T10:00:01.000Z\",\"type\":\"token_usage_record\",\"payload\":{\"thread_id\":\"syn-sess-mv\",\"response_id\":\"syn-resp-mv-1\",\"usage\":{\"input_tokens\":7,\"cached_input_tokens\":0,\"cache_write_input_tokens\":0,\"output_tokens\":3,\"reasoning_output_tokens\":0,\"total_tokens\":10}}}\n"
+    );
+    let sessions = root.join("sessions/2026/01/06");
+    std::fs::create_dir_all(&sessions).unwrap();
+    std::fs::write(sessions.join("rollout-synthetic-mv.jsonl"), file).unwrap();
+    let adapter = CodexAdapter::new();
+    let outcome = adapter
+        .detect(&sessions.join("rollout-synthetic-mv.jsonl"))
+        .unwrap();
+    assert_eq!(
+        outcome,
+        DetectOutcome::Supported {
+            format: "codex-rollout-jsonl".to_string(),
+            format_version: None,
+            basis: VersionBasis::LatestFallback,
+        }
+    );
+    let (_db, storage) = temp_storage("codex-mv");
+    let reports = run_codex(&storage, &root, 1_800_000_000_000);
+    assert_eq!(reports[0].files[0].events, 1);
+    let summary = summary(&storage, "2026-01-06", "2026-01-06");
+    assert_eq!(summary.totals.total_tokens_known, Some(10));
+}
+
+#[test]
+fn v17_extra_optional_fields_tolerated_under_fallback() {
+    // 仅新增可选字段（envelope/payload/usage 各加未知键）：结构校验不受影响，
+    // 数据正常入库（V30“仅新增可选字段”场景）。
+    let dir = TempDir::new("codex-ef");
+    let root = dir.path().join("root");
+    let file = concat!(
+        "{\"timestamp\":\"2026-01-07T10:00:00.000Z\",\"type\":\"session_meta\",\"payload\":{\"id\":\"syn-sess-ef\",\"session_id\":\"syn-sess-ef\",\"cli_version\":\"0.998.0-synthetic\",\"originator\":\"codex_cli\",\"model_provider\":\"openai\",\"new_optional_field\":{\"nested\":true}}}\n",
+        "{\"timestamp\":\"2026-01-07T10:00:01.000Z\",\"type\":\"token_usage_record\",\"payload\":{\"thread_id\":\"syn-sess-ef\",\"response_id\":\"syn-resp-ef-1\",\"new_payload_field\":\"x\",\"usage\":{\"input_tokens\":20,\"cached_input_tokens\":0,\"cache_write_input_tokens\":0,\"output_tokens\":10,\"reasoning_output_tokens\":0,\"total_tokens\":30,\"new_usage_field\":123}}}\n"
+    );
+    let sessions = root.join("sessions/2026/01/07");
+    std::fs::create_dir_all(&sessions).unwrap();
+    std::fs::write(sessions.join("rollout-synthetic-ef.jsonl"), file).unwrap();
+    let (_db, storage) = temp_storage("codex-ef");
+    let reports = run_codex(&storage, &root, 1_800_000_000_000);
+    assert_eq!(reports[0].files[0].status, "complete");
+    let summary = summary(&storage, "2026-01-07", "2026-01-07");
+    assert_eq!(summary.totals.call_count, 1);
+    assert_eq!(summary.totals.total_tokens_known, Some(30));
+}
+
+#[test]
+fn v17_fallback_structural_break_marks_incompatible_and_keeps_old() {
+    // 结构破坏的未知版本：读到了记录但零事件且带结构诊断 ⇒ 判不兼容
+    // （状态 incompatible、无游标推进、不提交事件/聚合），保留旧结果；
+    // 下轮重新尝试，解析器更新后允许重试（V30）。
+    let dir = TempDir::new("codex-ib");
+    let root = dir.path().join("root");
+    let file = concat!(
+        "{\"timestamp\":\"2026-01-08T10:00:00.000Z\",\"type\":\"session_meta\",\"payload\":{\"id\":\"syn-sess-ib\",\"session_id\":\"syn-sess-ib\",\"cli_version\":\"0.997.0-synthetic\",\"originator\":\"codex_cli\",\"model_provider\":\"openai\"}}\n",
+        "{\"timestamp\":\"2026-01-08T10:00:01.000Z\",\"type\":\"totally_unknown_record\",\"payload\":{\"whatever\":\"structure\"}}\n",
+        "{\"timestamp\":\"2026-01-08T10:00:02.000Z\",\"type\":\"token_usage_record\",\"payload\":{\"response_id\":\"syn-resp-ib-1\",\"usage\":{\"input_tokens\":\"not-a-number\"}}}\n"
+    );
+    let sessions = root.join("sessions/2026/01/08");
+    std::fs::create_dir_all(&sessions).unwrap();
+    std::fs::write(sessions.join("rollout-synthetic-ib.jsonl"), file).unwrap();
+    let (_db, storage) = temp_storage("codex-ib");
+    let reports = run_codex(&storage, &root, 1_800_000_000_000);
+    let report = &reports[0];
+    assert_eq!(report.files[0].status, "incompatible");
     assert_eq!(report.files[0].events, 0);
     let events: i64 = storage
         .conn()
         .query_row("SELECT COUNT(*) FROM usage_events", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(events, 0);
-    let diags: i64 = storage
+    assert_eq!(events, 0, "no untrusted events committed");
+    // 游标未推进：ingestion_checkpoints 为空，下轮可重新尝试。
+    let checkpoints: i64 = storage
         .conn()
-        .query_row(
-            "SELECT COUNT(*) FROM diagnostics WHERE code = 'unsupported_version'",
-            [],
-            |r| r.get(0),
-        )
+        .query_row("SELECT COUNT(*) FROM ingestion_checkpoints", [], |r| {
+            r.get(0)
+        })
         .unwrap();
-    assert_eq!(
-        diags, 1,
-        "explicit refusal recorded; not a silent success-zero"
-    );
+    assert_eq!(checkpoints, 0);
     let file_status: String = storage
         .conn()
         .query_row("SELECT status FROM source_files", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(file_status, "unsupported");
+    assert_eq!(file_status, "incompatible");
+    // 不是“成功 0 条”：latest_fallback 与结构诊断都可见。
+    for code in [
+        "latest_fallback",
+        "unknown_record_type",
+        "usage_shape_deviation",
+    ] {
+        let n: i64 = storage
+            .conn()
+            .query_row(
+                "SELECT COUNT(*) FROM diagnostics WHERE code = ?1",
+                [code],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(n > 0, "diagnostic {code} expected, found 0");
+    }
+}
+
+#[test]
+fn v17_fallback_partial_usability_keeps_validated_part() {
+    // 部分可用：一条结构完好的 usage 记录 + 一条必需字段类型错误的记录。
+    // 可独立校验的部分保留入库（带兼容标记），缺口随诊断返回（V30）。
+    let dir = TempDir::new("codex-pu");
+    let root = dir.path().join("root");
+    let file = concat!(
+        "{\"timestamp\":\"2026-01-09T10:00:00.000Z\",\"type\":\"session_meta\",\"payload\":{\"id\":\"syn-sess-pu\",\"session_id\":\"syn-sess-pu\",\"cli_version\":\"0.996.0-synthetic\",\"originator\":\"codex_cli\",\"model_provider\":\"openai\"}}\n",
+        "{\"timestamp\":\"2026-01-09T10:00:01.000Z\",\"type\":\"token_usage_record\",\"payload\":{\"response_id\":\"syn-resp-pu-1\",\"usage\":{\"input_tokens\":100,\"cached_input_tokens\":0,\"cache_write_input_tokens\":0,\"output_tokens\":50,\"reasoning_output_tokens\":0,\"total_tokens\":150}}}\n",
+        "{\"timestamp\":\"2026-01-09T10:00:02.000Z\",\"type\":\"token_usage_record\",\"payload\":{\"response_id\":\"syn-resp-pu-2\",\"usage\":{\"input_tokens\":null}}}\n"
+    );
+    let sessions = root.join("sessions/2026/01/09");
+    std::fs::create_dir_all(&sessions).unwrap();
+    std::fs::write(sessions.join("rollout-synthetic-pu.jsonl"), file).unwrap();
+    let (_db, storage) = temp_storage("codex-pu");
+    let reports = run_codex(&storage, &root, 1_800_000_000_000);
+    let report = &reports[0];
+    assert_eq!(report.files[0].events, 1);
+    let summary = summary(&storage, "2026-01-09", "2026-01-09");
+    assert_eq!(summary.totals.call_count, 1);
+    assert_eq!(summary.totals.total_tokens_known, Some(150));
+    let basis: String = storage
+        .conn()
+        .query_row("SELECT parse_basis FROM usage_events", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(basis, "latest_fallback");
+    let n: i64 = storage
+        .conn()
+        .query_row(
+            "SELECT COUNT(*) FROM diagnostics WHERE code = 'usage_shape_deviation'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(n, 1, "broken record visible as coverage gap");
 }
 
 #[test]

@@ -35,6 +35,7 @@ fn main() {
         now_ms,
         limits: ScanLimits::default(),
         trigger: TriggerKind::Manual,
+        origin_host_id: None,
         run_id_prefix: format!("real-{now_ms}"),
     };
 

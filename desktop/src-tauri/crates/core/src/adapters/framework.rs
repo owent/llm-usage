@@ -3,7 +3,9 @@
 //!
 //! 合同要点：
 //! - discover：候选路径 + 环境覆盖 + 手工根，有界枚举，不全盘扫描；
-//! - detect：文件 magic/记录类型/schema 指纹；未知版本 fail closed 返回受限；
+//! - detect：文件 magic/记录类型/schema 指纹 + Agent 目录版本注册表分派；
+//!   未知/缺失版本默认尝试该 Agent 最新内置解析器并带兼容标记（V17/V30），
+//!   有证据的不兼容版本与未知格式 fail closed 返回受限；
 //! - scan：增量游标读取（JSONL 游标 = 文件身份 + generation + 完整行字节偏移 + 解析上下文）；
 //! - capability：每源字段能力声明，供未来数据源页使用；
 //! - 诊断只存字段名/错误码/位置，不复制原始内容。
@@ -54,16 +56,23 @@ pub struct DiscoveredRoot {
     pub files: Vec<PathBuf>,
 }
 
-/// 格式探测结果。未知版本/未知格式必须显式拒绝，不能返回“成功 0 条”（V17）。
+/// 格式探测结果（architecture.md 未知版本兼容合同）：
+/// - Supported：Agent 身份与输入类型已确认。已知版本按注册表映射分派（KnownVersion）；
+///   未知/缺失版本默认选择该 Agent 最新内置解析器（LatestFallback），结果须带兼容标记。
+/// - UnsupportedVersion：有证据判定不兼容的版本（如固定源码证实格式不同），不尝试回退。
+/// - UnknownFormat：Agent 身份或格式无法确认，fail closed；不得返回“成功 0 条”（V17）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DetectOutcome {
     Supported {
         format: String,
-        format_version: String,
+        /// 来源原始版本；版本字段缺失时为 None（仍可 LatestFallback）。
+        format_version: Option<String>,
+        basis: crate::domain::VersionBasis,
     },
     UnsupportedVersion {
         format: String,
-        found: String,
+        found: Option<String>,
+        reason: String,
     },
     UnknownFormat {
         reason: String,
@@ -261,6 +270,9 @@ pub fn enumerate_files_bounded(
 }
 
 /// source_instances 注册输入。enabled 等用户设置在冲突更新时保留。
+/// origin_host_id：本机核验采集传入本地主机 ID；None 表示未区分（legacy_unknown）。
+/// 已属于其他主机的来源不被覆盖；legacy_unknown 来源可被本机核验采集认领
+/// （文件就在本机且 locality 已核验 = 可证明映射，data-contract.md#provenance）。
 #[derive(Debug, Clone)]
 pub struct SourceInstanceInput {
     pub instance_id: String,
@@ -274,19 +286,28 @@ pub struct SourceInstanceInput {
     pub parser_version: String,
     pub capabilities: serde_json::Value,
     pub health: String,
+    /// 来源归属主机（M1a）；None → legacy_unknown 命名空间。
+    pub origin_host_id: Option<String>,
 }
+
+/// 迁移前的历史来源命名空间（v4 前无主机证据）。
+pub const LEGACY_UNKNOWN_HOST: &str = "legacy_unknown";
 
 pub fn upsert_source_instance(
     storage: &Storage,
     input: &SourceInstanceInput,
     now_ms: i64,
 ) -> Result<(), CoreError> {
+    let host_id = input
+        .origin_host_id
+        .clone()
+        .unwrap_or_else(|| LEGACY_UNKNOWN_HOST.to_string());
     storage.conn().execute(
         "INSERT INTO source_instances (
            instance_id, agent, host_application, locality_basis, attribution_status,
            exclusion_reason, enabled, format, location_hint, parser_version, capabilities,
-           health, created_at_ms, updated_at_ms
-         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, ?7, ?8, ?9, ?10, ?11, ?12, ?12)
+           health, origin_host_id, created_at_ms, updated_at_ms
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?13)
          ON CONFLICT(instance_id) DO UPDATE SET
            agent = excluded.agent,
            host_application = excluded.host_application,
@@ -297,6 +318,12 @@ pub fn upsert_source_instance(
            parser_version = excluded.parser_version,
            capabilities = excluded.capabilities,
            health = excluded.health,
+           origin_host_id = CASE
+             WHEN source_instances.origin_host_id = 'legacy_unknown'
+                  AND excluded.origin_host_id != 'legacy_unknown'
+             THEN excluded.origin_host_id
+             ELSE source_instances.origin_host_id
+           END,
            updated_at_ms = excluded.updated_at_ms",
         params![
             input.instance_id,
@@ -310,6 +337,7 @@ pub fn upsert_source_instance(
             input.parser_version,
             serde_json::to_string(&input.capabilities)?,
             input.health,
+            host_id,
             now_ms
         ],
     )?;
@@ -329,6 +357,8 @@ pub struct SourceFileRow {
     pub head_len: u64,
     pub tail_hash: u64,
     pub status: String,
+    /// 探测结论（JSON）：原始版本、所选格式/parser、选择依据、兼容状态（v3 列）。
+    pub format_status: Option<String>,
 }
 
 pub fn load_source_file(
@@ -339,7 +369,7 @@ pub fn load_source_file(
     let row = storage
         .conn()
         .query_row(
-            "SELECT file_id, file_identity, generation, byte_size, mtime_ms, status, 0, content_hash
+            "SELECT file_id, file_identity, generation, byte_size, mtime_ms, status, 0, content_hash, format_status
              FROM source_files WHERE instance_id = ?1 AND file_id = ?2",
             params![instance_id, file_id],
             |r| {
@@ -351,12 +381,22 @@ pub fn load_source_file(
                     r.get::<_, Option<i64>>(4)?,
                     r.get::<_, String>(5)?,
                     r.get::<_, String>(7)?,
+                    r.get::<_, Option<String>>(8)?,
                 ))
             },
         )
         .optional()?;
     match row {
-        Some((file_id, file_identity, generation, byte_size, mtime_ms, status, composite)) => {
+        Some((
+            file_id,
+            file_identity,
+            generation,
+            byte_size,
+            mtime_ms,
+            status,
+            composite,
+            format_status,
+        )) => {
             let mut parts = composite.split(':');
             let parse = |p: Option<&str>| p.and_then(|v| v.parse::<u64>().ok()).unwrap_or(0);
             let head_hash = parse(parts.next());
@@ -377,6 +417,7 @@ pub fn load_source_file(
                 head_len,
                 tail_hash,
                 status,
+                format_status,
             }))
         }
         None => Ok(None),
@@ -419,8 +460,8 @@ pub fn upsert_source_file(
     storage.conn().execute(
         "INSERT INTO source_files (
            file_id, instance_id, file_identity, generation, byte_size, mtime_ms,
-           content_hash, status, first_seen_ms, last_seen_ms
-         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?9)
+           content_hash, status, format_status, first_seen_ms, last_seen_ms
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?10)
          ON CONFLICT(instance_id, file_identity) DO UPDATE SET
            file_id = excluded.file_id,
            generation = excluded.generation,
@@ -428,6 +469,7 @@ pub fn upsert_source_file(
            mtime_ms = excluded.mtime_ms,
            content_hash = excluded.content_hash,
            status = excluded.status,
+           format_status = excluded.format_status,
            last_seen_ms = excluded.last_seen_ms",
         params![
             row.file_id,
@@ -438,6 +480,7 @@ pub fn upsert_source_file(
             row.mtime_ms,
             composite,
             row.status,
+            row.format_status,
             now_ms
         ],
     )?;
@@ -490,6 +533,9 @@ pub struct RunConfig {
     pub trigger: TriggerKind,
     /// 运行/批次 ID 前缀；实际 ID 追加实例序号。
     pub run_id_prefix: String,
+    /// 采集归属的本机来源主机 ID（M1a）；None 表示未区分（legacy_unknown）。
+    /// 由应用层经 `Storage::ensure_local_host` 取得后传入。
+    pub origin_host_id: Option<String>,
 }
 
 /// 逐文件运行报告。
@@ -563,6 +609,7 @@ pub fn run_adapter_scan(
                     .to_string(),
                 capabilities: serde_json::to_value(&capability)?,
                 health: "ok".to_string(),
+                origin_host_id: config.origin_host_id.clone(),
             },
             config.now_ms,
         )?;
@@ -713,6 +760,7 @@ fn scan_one_file(
                 head_len: probe.head_len,
                 tail_hash: probe.tail_hash,
                 status: "new".to_string(),
+                format_status: None,
             },
         },
     };
@@ -746,10 +794,35 @@ fn scan_one_file(
             false,
         ));
     }
-    // 首次或重扫时重新探测格式；未知版本/格式 fail closed。
+    // 首次或重扫时重新探测格式；有证据的不兼容版本与未知格式 fail closed（V17），
+    // 未知/缺失版本按该 Agent 注册表选择最新内置解析器并带兼容标记。
+    let mut detect_basis: Option<crate::domain::VersionBasis> = None;
     if stored.cursor.is_none() || rescan {
         match adapter.detect(path)? {
-            DetectOutcome::Supported { .. } => {}
+            DetectOutcome::Supported {
+                format,
+                format_version,
+                basis,
+            } => {
+                row.format_status = Some(format_status_json(
+                    &format,
+                    format_version.as_deref(),
+                    basis,
+                ));
+                if basis == crate::domain::VersionBasis::LatestFallback {
+                    batch.diagnostics.push(DiagnosticInput {
+                        event_id: None,
+                        code: "latest_fallback".to_string(),
+                        field: Some("version".to_string()),
+                        position: Some(file_id.clone()),
+                        message: format!(
+                            "using latest built-in parser; version compatibility unverified (found: {})",
+                            format_version.as_deref().unwrap_or("missing")
+                        ),
+                    });
+                }
+                detect_basis = Some(basis);
+            }
             DetectOutcome::Pending => {
                 row.status = "pending".to_string();
                 upsert_source_file(storage, instance_id, &row, config.now_ms)?;
@@ -766,21 +839,24 @@ fn scan_one_file(
                     false,
                 ));
             }
-            DetectOutcome::UnsupportedVersion { found, .. } => {
+            DetectOutcome::UnsupportedVersion { found, reason, .. } => {
                 row.status = "unsupported".to_string();
                 upsert_source_file(storage, instance_id, &row, config.now_ms)?;
                 batch.diagnostics.push(DiagnosticInput {
                     event_id: None,
                     code: "unsupported_version".to_string(),
-                    field: Some("cli_version".to_string()),
+                    field: Some("version".to_string()),
                     position: Some(file_id.clone()),
-                    message: format!("unsupported format version {found:?}; fail closed"),
+                    message: format!(
+                        "evidenced incompatible version {:?}; fail closed: {reason}",
+                        found.clone().unwrap_or_else(|| "missing".to_string())
+                    ),
                 });
                 return Ok((
                     FileReport {
                         file_id,
                         status: "unsupported_version".to_string(),
-                        detail: Some(found),
+                        detail: Some(found.unwrap_or_else(|| "missing".to_string())),
                         lines_read: 0,
                         records_seen: 0,
                         events: 0,
@@ -824,11 +900,17 @@ fn scan_one_file(
         rescan,
     };
     let outcome = adapter.scan(&target, &stored, &config.limits, config.now_ms)?;
+    // 未知版本兼容尝试的失败判定（V30）：读到记录、零事件且带结构诊断 ⇒ 判不兼容，
+    // 保留旧结果、不提交事件/游标/聚合；下轮解析器更新或显式重扫可重新尝试。
+    let fallback_failed = detect_basis == Some(crate::domain::VersionBasis::LatestFallback)
+        && outcome.events.is_empty()
+        && outcome.records_seen > 0
+        && !outcome.diagnostics.is_empty();
     batch.events.extend(outcome.events.iter().cloned());
     batch
         .diagnostics
         .extend(outcome.diagnostics.iter().cloned());
-    if outcome.cursor.is_some() || outcome.parse_context.is_some() {
+    if !fallback_failed && (outcome.cursor.is_some() || outcome.parse_context.is_some()) {
         batch.checkpoints.push(CheckpointUpdate {
             scope_key: row.file_identity.clone(),
             cursor_value: outcome.cursor.clone(),
@@ -836,24 +918,48 @@ fn scan_one_file(
             source_revision: None,
         });
     }
-    aggregates.extend(outcome.aggregates);
+    if !fallback_failed {
+        aggregates.extend(outcome.aggregates);
+    }
     reconciliations.extend(outcome.reconciliations.iter().cloned());
     row.len = probe.len;
     row.mtime_ms = probe.mtime_ms;
     row.head_hash = probe.head_hash;
     row.head_len = probe.head_len;
     row.tail_hash = probe.tail_hash;
-    row.status = if outcome.health == "degraded" || outcome.status == ScanStatus::LineTooLong {
+    row.status = if fallback_failed {
+        "incompatible".to_string()
+    } else if detect_basis == Some(crate::domain::VersionBasis::LatestFallback) {
+        "active_compat".to_string()
+    } else if outcome.health == "degraded" || outcome.status == ScanStatus::LineTooLong {
         "degraded".to_string()
     } else {
         "active".to_string()
     };
     upsert_source_file(storage, instance_id, &row, config.now_ms)?;
+    let report_detail = if fallback_failed {
+        Some("latest parser produced no validatable records; kept old results".to_string())
+    } else if detect_basis == Some(crate::domain::VersionBasis::LatestFallback) {
+        Some(format!(
+            "latest_fallback: version compatibility unverified (found: {})",
+            row.format_status
+                .as_deref()
+                .and_then(extract_found_version)
+                .unwrap_or_else(|| "missing".to_string())
+        ))
+    } else {
+        None
+    };
+    let report_status = if fallback_failed {
+        "incompatible".to_string()
+    } else {
+        outcome.status.as_str().to_string()
+    };
     Ok((
         FileReport {
             file_id,
-            status: outcome.status.as_str().to_string(),
-            detail: None,
+            status: report_status.to_string(),
+            detail: report_detail,
             lines_read: outcome.lines_read,
             records_seen: outcome.records_seen,
             events: outcome.events.len() as u64,
@@ -861,6 +967,33 @@ fn scan_one_file(
         },
         true,
     ))
+}
+
+/// 探测结论 JSON（source_files.format_status，v3 列）：白名单字段，无正文。
+fn format_status_json(
+    format: &str,
+    found_version: Option<&str>,
+    basis: crate::domain::VersionBasis,
+) -> String {
+    let compat = match basis {
+        crate::domain::VersionBasis::KnownVersion => "verified",
+        crate::domain::VersionBasis::LatestFallback => "unverified",
+    };
+    serde_json::json!({
+        "format": format,
+        "found_version": found_version,
+        "basis": basis.as_str(),
+        "compat": compat,
+    })
+    .to_string()
+}
+
+fn extract_found_version(json: &str) -> Option<String> {
+    serde_json::from_str::<serde_json::Value>(json)
+        .ok()?
+        .get("found_version")
+        .and_then(|v| v.as_str())
+        .map(str::to_string)
 }
 
 /// 文件内容流身份：创建时间 + 首采样指纹（追加稳定，不依赖路径）。

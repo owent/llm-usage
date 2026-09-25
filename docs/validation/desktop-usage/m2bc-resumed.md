@@ -123,8 +123,8 @@ conflict 而非 Keep。pi.rs/omp.rs 的 capability dedup.fork_copies 文本与
 
 | 项 | 状态 | 后续 |
 | --- | --- | --- |
-| Codex 旧版本逐版本 fixture | 未执行（M2-A 遗留） | 按 m2a-codex.md 后续条件执行 |
-| 适配器目录化迁移与未知版本兼容尝试（execution.md#m2-layout） | 未执行 | M2 完成条件之一，另行排期 |
+| Codex 旧版本逐版本 fixture | **部分完成**（2026-09-25，[m2d](m2d-layout-versions.md)：0.153.0/0.154.0-alpha.6.1/6.2 已验证；0.139–0.151 实测无逐次载体，待专用实现取证） | 按 m2d 记录后续条件执行 |
+| 适配器目录化迁移与未知版本兼容尝试（execution.md#m2-layout） | **已完成**（2026-09-25，[m2d](m2d-layout-versions.md)） | — |
 | OMP_PROFILE 命名 profile 目录规则 | 未核验 | 仅支持默认 ~/.omp，已记 omp.rs limitations |
 | claude/gemini/qwen 真实 fixture | 本机无数据 | 本机出现数据后按脱敏流程补取复验 |
 | OTel 遥测 | 未实现 | M5 |

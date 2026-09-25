@@ -1,0 +1,96 @@
+# M6 核心实现：桌面界面、刷新、调度、设置与导出（主体功能，部分验收）
+
+本记录覆盖 M6 的功能实现与已执行的验证；**真实 Windows 桌面逐操作验收
+（V13–V18/V23–V25 的 GUI 部分）尚未执行**，见「未完成项」。
+
+## 元信息
+
+| 项目 | 内容 |
+| --- | --- |
+| 日期 | 2026-09-25 |
+| 执行环境 | Windows 11 x64；rustc 1.98.0；Node v24.21.0；WSL2 Ubuntu（rustc 1.98.1） |
+| 代码 revision | 未提交工作树（M1a 之后 + 本次新增） |
+| 依据合同 | execution.md M6；architecture.md（refresh/IPC/资源）；scheduling.md；F3 i18n 合同 |
+
+## 命令与结果
+
+| # | 命令（cwd） | 退出码 | 结果摘要 |
+| --- | --- | --- | --- |
+| 1 | `npm run verify`（仓库根） | 0 | lint:md 110 文件 0 问题、svelte-check 0 错 0 警、fmt/clippy、cargo test 283+2、vite build **650.86 kB / gzip 220.32 kB**（预算 gzip ≤ 1 MiB 内） |
+| 2 | `cargo run -p llm-usage-m0 -- --headless`（desktop/src-tauri，APPDATA 指向临时目录） | 0 | 三源全 succeeded：codex 2,597 + pi 37 + omp 8,767 = **11,401 事件**；跨源合计 input 1,322,967,993 = pi 2,805,788 + omp 1,021,931,700 + codex 298,230,505（与 m2bc/m2d 基线一致） |
+| 3 | 同上（复扫） | 0 | **幂等**：added=0，总数仍 11,401（不兼容旧版文件的重复诊断为既有设计行为） |
+| 4 | WSL `cargo check -p llm-usage-core` / `-p llm-usage-m0` | 0 | core 与 app 在 Linux 编译通过（V27 分项证据） |
+| 5 | WSL `cargo test -p llm-usage-core` | 0 | 36 个测试二进制全绿（Linux 侧） |
+
+## 实现清单
+
+- **后端**（desktop/src-tauri/src/）：app_state（单写者 Mutex+Storage+、设置持久化、
+  主机身份初始化）、scanner（六适配器注册表、全源刷新、间隔调度线程、有限保留接线）、
+  commands（summary/heatmap/list_sources/set_source_enabled/refresh_*、get/set_settings、
+  app_info、export_data）。M0 试验命令（sqlite_probe/read_sample_file）退役。
+  token 大数值按 IPC 合同以十进制字符串传输；错误为结构化 code+message。
+- **查询扩展**（core/query.rs）：agent_breakdown、hourly_breakdown（今日逐小时，
+  质量白名单过滤 unknown）、heatmap_cells（周×小时）；calendar 增加 local_hour_of/
+  local_weekday_of。
+- **前端**（desktop/src/）：App（四页签：总览/趋势/数据源/设置）+ 组件
+  （SummaryCards、BreakdownTables 模型/Agent 表、TodayHourly、TrendChart 日/周/月、
+  UsageHeatmap、SourceList 含兼容尝试/不兼容标记与启停、SettingsPanel 含导出）。
+  ECharts 按需（bar/line/heatmap + Canvas 一个渲染器）；筛选（范围/粒度/Agent/模型）
+  防抖重查；空态/错误态/进行中标记/部分历史标记/未知行；刷新按钮合并触发 +
+  3 秒轮询状态。
+- **i18n（F3 合同落地）**：src/lib/i18n.svelte.ts——自实现轻量消息目录
+  （zh-CN 完整 + en），语言协商（设置→系统→默认）、缺键回退默认语言+告警、
+  {name} 插值、Intl 数字/百分比格式化（统计口径不随语言改变）、切换即时生效。
+- **headless 模式**：`--headless`/`--scan-once` 无 WebView 单次采集后退出
+  （V24 系统任务的提取路径）。
+- **导出**：summary-csv（展示用，公式注入防护）与 exchange（M1a 无损交换 JSON，
+  含来源身份/修订/parse_basis，主机名默认脱敏）；写入应用数据目录 exports/
+  或调用方指定目录，返回完整路径。
+- **调度**：全局间隔（默认 60 秒，0=暂停）；启动先回填一次；休眠醒来立即补扫
+  一次（错过合并）；设置变化下一轮生效。逐源启停在数据源页。
+
+## 发现并修复的缺陷
+
+| 处 | 问题 | 修法 |
+| --- | --- | --- |
+| scanner | 六适配器共用同一 run_id 前缀 ⇒ ingest_runs.run_id 主键冲突（pi/omp 整实例失败） | 前缀按适配器序号唯一化（`scan-{ts}-a{n}`） |
+| main.rs db_path | 漏拼文件名，把数据库指到 `%APPDATA%` 下既有占位文件 `llm-usage`（空 SQLite 库）并写入了数据 | 修正路径为独立目录 `llm-usage-desktop/llm-usage.sqlite`；见下方事故记录 |
+
+### 事故记录（Roaming 占位文件）
+
+`%APPDATA%\llm-usage` 是一个既有的空 SQLite 文件（无任何表；来源不明，第三方遗留）。
+db_path 缺陷使首次 headless 把应用库写在该文件上（4.1 MB，仅含本应用 schema）。
+处置：数据无外部内容受损（文件原本无表）；已将该文件恢复为空 SQLite 占位
+（保留其存在，不删除第三方文件），应用改用 `llm-usage-desktop` 独立目录避开。
+
+## 未完成项（显式遗留）
+
+| 项 | 状态 | 后续 |
+| --- | --- | --- |
+| 真实 Windows 桌面逐操作验收（V13–V18、V23–V25 GUI 部分） | 未执行 | 计划要求"不能仅以 Web DOM 测试证明 IPC 正常"；需实机操作或 GUI 自动化记录 |
+| 系统对话框选择导出位置（tauri-plugin-dialog） | 未实现 | 当前写应用数据目录/指定目录；对话框插件随后续迭代（合同要求最终落地） |
+| Windows 系统任务注册、跨进程互斥、卸载清理（V24） | 未实现 | headless 路径已就绪；注册/对账另做 |
+| 逐源定时（per-source interval/定点） | 未实现 | 当前全局间隔 + 逐源启停；逐源配置待 extraction_schedules 接线 |
+| 文件监听触发 | 未实现 | 调度合同允许轮询先行；监听为优化项 |
+| 清理影响预览/恢复默认/会话导入/重扫预览 | 未实现 | M6 后续 |
+| V20 性能初值（100 万事件查询分位数） | 未执行 | M7 前 |
+| kilo/zcode/kimi/kimi-work 适配器未接入 scanner 注册表 | 进行中 | 见下 |
+
+## kilo/zcode 适配器中断记录（2026-09-25）
+
+两个并行实施子代理因 API 使用限额中断（17:12），**未留下源码**，但已完成
+脱敏 fixture 提取：`tests/fixtures/kilo/`（2 个真实会话 + 期望值）、
+`tests/fixtures/zcode/`（2 个真实 + 9 个合成 + 期望值）。泄漏核查（UUID/路径）
+通过；markdownlint 已修。适配器实现待限额恢复后继续（M3/M4）。
+M3/M4/M5 本机盘点结论（2026-09-25，build/desktop-usage-validation/
+m345-inventory-2026-09-25.md，gitignored）：kilo 495 MB 活跃、zcode 140 MB 活跃、
+kimi-code 18.2 MB、**kimi-work 31.5 MB（首次证实真实数据，路径已迁移）**；
+Copilot CLI 用量存储一日内消失（疑升级迁移，需重定位）；cline/opencode/mimo/
+zoo/dsh/openclaw/hermes/codebuddy 未安装。
+
+## 证据文件
+
+- 后端：desktop/src-tauri/src/{app_state,scanner,commands,main}.rs；
+  前端：desktop/src/{App.svelte,lib/api.ts,lib/i18n.svelte.ts,components/*}；
+- core：query.rs（agent/hourly/heatmap）、calendar.rs；
+- 临时核对库：`C:\Users\owt50\AppData\Local\Temp\llm-appdata-test\`（系统临时目录，可清理）。

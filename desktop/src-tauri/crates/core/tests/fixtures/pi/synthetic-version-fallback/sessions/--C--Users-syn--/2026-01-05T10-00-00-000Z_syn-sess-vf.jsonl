@@ -1,0 +1,3 @@
+{"type":"session","version":4,"id":"syn-sess-vf","timestamp":"2026-01-05T10:00:00.000Z","cwd":"C:/Users/syn"}
+{"type":"message","id":"syn-vf-1","parentId":null,"timestamp":"2026-01-05T10:00:01.000Z","message":{"role":"assistant","provider":"syn-prov","model":"syn-model-a","usage":{"input":10,"output":5,"cacheRead":0,"cacheWrite":0,"totalTokens":15},"stopReason":"stop"}}
+{"type":"message","id":"syn-vf-2","parentId":"syn-vf-1","timestamp":"2026-01-05T10:00:02.000Z","message":{"role":"assistant","provider":"syn-prov","model":"syn-model-a","usage":{"input":20,"output":10,"cacheRead":0,"cacheWrite":0,"totalTokens":30},"stopReason":"stop"}}
