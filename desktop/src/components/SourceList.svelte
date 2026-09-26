@@ -110,11 +110,11 @@
   td {
     text-align: left;
     padding: 4px 6px;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--border-light);
     vertical-align: middle;
   }
   th {
-    color: #666;
+    color: var(--text-secondary);
     font-weight: 500;
   }
   .mono {
@@ -126,7 +126,7 @@
     white-space: nowrap;
   }
   .muted {
-    color: #999;
+    color: var(--text-muted);
   }
   .tag {
     display: inline-block;
@@ -136,23 +136,23 @@
     margin-right: 6px;
   }
   .compat {
-    background: #fff4d6;
-    color: #8a6d1a;
+    background: var(--warning-bg);
+    color: var(--warning);
   }
   .bad {
-    background: #fdecea;
-    color: #b3261e;
+    background: var(--danger-bg);
+    color: var(--danger);
   }
   .error {
-    color: #b3261e;
-    background: #fdecea;
+    color: var(--danger);
+    background: var(--danger-bg);
     border-radius: 6px;
     padding: 6px 10px;
     font-size: 13px;
   }
   .empty {
-    color: #666;
-    background: #f5f6f7;
+    color: var(--text-muted);
+    background: var(--bg-hover);
     border-radius: 8px;
     padding: 24px;
     text-align: center;

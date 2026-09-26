@@ -1,0 +1,99 @@
+/* 主题 CSS 变量（data-theme 属性切换；system 走 prefers-color-scheme） */
+
+:root, [data-theme='light'] {
+  --bg: #f5f6f8;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f8f9fa;
+  --bg-input: #ffffff;
+  --bg-nav-active: #e8f0fe;
+  --bg-code: #f0f1f3;
+  --bg-hover: #eef0f3;
+  --bg-modal: #ffffff;
+  --bg-skeleton: #e8eaed;
+  --text: #1c1e21;
+  --text-secondary: #555;
+  --text-muted: #888;
+  --text-heading: #111;
+  --border: #dcdfe3;
+  --border-light: #e8eaed;
+  --accent: #1a56c4;
+  --accent-bg: #e8f0fe;
+  --accent-text: #fff;
+  --success: #1e7a3c;
+  --success-bg: #e6f4ea;
+  --warning: #8a6d1a;
+  --warning-bg: #fff4d6;
+  --danger: #b3261e;
+  --danger-bg: #fdecea;
+  --chart-text: #555;
+  --chart-border: #e0e0e0;
+  --chart-bg: #ffffff;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08);
+  --scrollbar: #c4c6c9;
+}
+
+[data-theme='dark'] {
+  --bg: #1a1b1e;
+  --bg-card: #242528;
+  --bg-card-hover: #2a2b2f;
+  --bg-input: #2a2b2f;
+  --bg-nav-active: #2d3b5e;
+  --bg-code: #2a2b2f;
+  --bg-hover: #2e2f33;
+  --bg-modal: #242528;
+  --bg-skeleton: #2e2f33;
+  --text: #e0e0e0;
+  --text-secondary: #aaa;
+  --text-muted: #777;
+  --text-heading: #fff;
+  --border: #3a3b3f;
+  --border-light: #2e2f33;
+  --accent: #4a90d9;
+  --accent-bg: #1a2d4a;
+  --accent-text: #fff;
+  --success: #4caf50;
+  --success-bg: #1a3320;
+  --warning: #ffc107;
+  --warning-bg: #33290e;
+  --danger: #ef5350;
+  --danger-bg: #3a1a1a;
+  --chart-text: #aaa;
+  --chart-border: #3a3b3f;
+  --chart-bg: #242528;
+  --shadow: 0 1px 3px rgba(0,0,0,0.3);
+  --scrollbar: #4a4b4f;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']):not([data-theme='dark']) {
+    --bg: #1a1b1e;
+    --bg-card: #242528;
+    --bg-card-hover: #2a2b2f;
+    --bg-input: #2a2b2f;
+    --bg-nav-active: #2d3b5e;
+    --bg-code: #2a2b2f;
+    --bg-hover: #2e2f33;
+    --bg-modal: #242528;
+    --bg-skeleton: #2e2f33;
+    --text: #e0e0e0;
+    --text-secondary: #aaa;
+    --text-muted: #777;
+    --text-heading: #fff;
+    --border: #3a3b3f;
+    --border-light: #2e2f33;
+    --accent: #4a90d9;
+    --accent-bg: #1a2d4a;
+    --accent-text: #fff;
+    --success: #4caf50;
+    --success-bg: #1a3320;
+    --warning: #ffc107;
+    --warning-bg: #33290e;
+    --danger: #ef5350;
+    --danger-bg: #3a1a1a;
+    --chart-text: #aaa;
+    --chart-border: #3a3b3f;
+    --chart-bg: #242528;
+    --shadow: 0 1px 3px rgba(0,0,0,0.3);
+    --scrollbar: #4a4b4f;
+  }
+}

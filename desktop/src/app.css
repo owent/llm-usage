@@ -12,3 +12,32 @@ body {
   min-height: 100vh;
   box-sizing: border-box;
 }
+
+/* 主题全局基线（变量定义见 themes.css）：
+   - html 背景铺满窗口（含 overscroll），文字色兜底；
+   - color-scheme 让原生控件（select 下拉/滚动条/输入框）随主题变深浅。 */
+html {
+  background: var(--bg);
+  color: var(--text);
+  color-scheme: light;
+}
+html[data-theme='dark'] {
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme='light']):not([data-theme='dark']) {
+    color-scheme: dark;
+  }
+}
+
+/* 表单控件主题化（组件内显式样式优先生效）；checkbox/radio 保持原生。 */
+select,
+textarea,
+input:not([type='checkbox']):not([type='radio']) {
+  background: var(--bg-input);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+button {
+  color: var(--text);
+}

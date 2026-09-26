@@ -100,6 +100,27 @@ pub fn run_refresh(state: &Arc<AppState>, trigger: TriggerKind) -> bool {
     };
     let ctx = discover_context(manual_roots);
     let mut summaries: Vec<RefreshInstanceSummary> = Vec::new();
+    // 注册表变更后重扫：active_compat 文件的游标已推进，不会被 unchanged 短路
+    // 重新检测——主动清除其游标与状态让下轮全量重扫（幂等，事件去重保证不双计）。
+    {
+        let storage = state.storage.lock().unwrap();
+        let n = storage
+            .conn()
+            .execute(
+                "DELETE FROM ingestion_checkpoints WHERE scope_key IN (
+                   SELECT file_identity FROM source_files WHERE status = 'active_compat'
+                 )",
+                [],
+            )
+            .unwrap_or(0);
+        if n > 0 {
+            let _ = storage.conn().execute(
+                "UPDATE source_files SET status = 'new' WHERE status = 'active_compat'",
+                [],
+            );
+            eprintln!("reset {n} compat files for re-detection (registry may have changed)");
+        }
+    }
     // 写锁按适配器分段获取（而非整个刷新持有）：查询走 WAL 只读连接不受影响，
     // 设置写入等其他写操作可在适配器之间交错；任意时刻仍只有一个写者。
     let total_adapters = 17usize; // built_in_adapters().len()；硬编码避免双重枚举
@@ -187,7 +208,35 @@ pub fn run_refresh(state: &Arc<AppState>, trigger: TriggerKind) -> bool {
         refresh.progress_percent = 100;
         refresh.eta_seconds = None;
     }
+    // 操作日志：采集完成摘要（白名单计数）。
+    {
+        let storage = state.storage.lock().unwrap();
+        let total_events: u64 = refresh_summary_events(state);
+        let _ = storage.conn().execute(
+            "INSERT INTO diagnostics (code, message, created_ms) VALUES ('scan_completed', ?1, ?2)",
+            rusqlite::params![
+                format!(
+                    "scan finished: {} instances, {} events collected ({})",
+                    state.refresh.lock().unwrap().instances.len(),
+                    total_events,
+                    trigger.as_str()
+                ),
+                now_ms()
+            ],
+        );
+    }
     true
+}
+
+fn refresh_summary_events(state: &Arc<AppState>) -> u64 {
+    state
+        .refresh
+        .lock()
+        .unwrap()
+        .instances
+        .iter()
+        .map(|i| i.events)
+        .sum()
 }
 
 /// 间隔调度循环：按设置的全局间隔触发刷新；间隔 0 = 暂停自动提取。

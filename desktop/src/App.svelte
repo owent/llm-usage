@@ -10,8 +10,8 @@
     SummaryQuery,
     UserDto,
   } from './lib/api';
-  import { i18n, initLocale, setLocale, t, fmtEtaDuration } from './lib/i18n.svelte';
-  import { loadPanelGroup, savePanelGroup } from './lib/panels';
+  import { i18n, initLocale, setLocale, t, fmtEtaDuration, fmtSmart, fmtPercent, fmtDurationShort } from './lib/i18n.svelte';
+  import { loadPanelGroup, savePanelGroup, clearPanelPage } from './lib/panels';
   import Panel from './components/Panel.svelte';
   import CallsChart from './components/CallsChart.svelte';
   import TokenChart from './components/TokenChart.svelte';
@@ -43,6 +43,30 @@
   let rangeKey = $state<RangeKey>('30');
   let agentFilter = $state('');
   let modelFilter = $state('');
+
+  // ---- 主题（跟随系统/亮色/暗色）：data-theme 属性 + isDark 派生（供 ECharts）。 ----
+  /** 系统深色偏好实时状态（change 时更新；system 模式下系统切换立即重绘图表）。 */
+  let systemDark = $state(window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+  $effect(() => {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = (e: MediaQueryListEvent) => (systemDark = e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  });
+
+  /** 生效主题：设置显式 light/dark 优先，其余（含未知值）回落 system。 */
+  const theme = $derived(
+    settings?.theme === 'light' || settings?.theme === 'dark' ? settings.theme : 'system'
+  );
+  /** 是否深色（显式 dark，或 system 且系统偏好深色）；传给各 ECharts 组件。 */
+  const isDark = $derived(theme === 'dark' || (theme === 'system' && systemDark));
+
+  // system = 移除 data-theme（themes.css 的 prefers-color-scheme 媒体查询接管）。
+  $effect(() => {
+    if (theme === 'system') delete document.documentElement.dataset.theme;
+    else document.documentElement.dataset.theme = theme;
+  });
 
   // 多用户（v6）：顶栏切换 + 新建。
   let users = $state<UserDto[]>([]);
@@ -131,13 +155,45 @@
   function persistGroup(gk: PanelGroupKey): void {
     const def = PANEL_GROUPS[gk];
     const g = panelState[gk];
-    savePanelGroup(def.page, def.group, { order: g.order, hidden: g.hidden });
+    savePanelGroup(def.page, def.group, { order: g.order, hidden: g.hidden, sizes: g.sizes });
   }
 
   function togglePanel(gk: PanelGroupKey, id: string): void {
     const g = panelState[gk];
     g.hidden = g.hidden.includes(id) ? g.hidden.filter((x) => x !== id) : [...g.hidden, id];
     persistGroup(gk);
+  }
+
+  /** 面板生效跨列数：编辑模式把手拖出的档位优先，其次面板默认值。 */
+  function spanOf(gk: PanelGroupKey, id: string): number {
+    return panelState[gk].sizes[id]?.span ?? PANEL_SPAN[id] ?? 3;
+  }
+
+  /** 面板生效高度（px；未调整过 = 自适应）。 */
+  function heightOf(gk: PanelGroupKey, id: string): number | undefined {
+    return panelState[gk].sizes[id]?.height;
+  }
+
+  /** resize 把手拖动结束：记录 span/height 并持久化布局。 */
+  function panelResize(gk: PanelGroupKey, id: string, span: number, height: number | undefined): void {
+    const g = panelState[gk];
+    g.sizes[id] = height === undefined ? { span } : { span, height };
+    persistGroup(gk);
+  }
+
+  /** 重置布局（编辑模式）：清除当前页 localStorage 记录，恢复默认顺序/尺寸/显隐。 */
+  function resetLayout(): void {
+    if (tab === 'overview') {
+      const def = PANEL_GROUPS.overviewToday;
+      clearPanelPage(def.page);
+      panelState.overviewToday = loadPanelGroup(def.page, def.group, def.ids);
+      const defH = PANEL_GROUPS.overviewHistory;
+      panelState.overviewHistory = loadPanelGroup(defH.page, defH.group, defH.ids);
+    } else if (tab === 'trend') {
+      const def = PANEL_GROUPS.trendMain;
+      clearPanelPage(def.page);
+      panelState.trendMain = loadPanelGroup(def.page, def.group, def.ids);
+    }
   }
 
   /** 布局编辑模式：仅此时面板可拖拽/调整显隐（总览与趋势共用一个开关）。 */
@@ -287,6 +343,44 @@
       .map((a) => ({ name: a.agent, value: Number(a.sums.total_tokens_known ?? 0) }))
       .filter((d) => d.value > 0)
   );
+
+  // 趋势页范围汇总（2026-09-26）：totals 汇总 + 会话数按周期求和
+  // （distinct_sessions 全部未知时显示 —，不补零）。
+  const trendSessions = $derived.by(() => {
+    let sum = 0;
+    let known = false;
+    for (const p of summary?.periods ?? []) {
+      if (p.distinct_sessions !== null) {
+        sum += p.distinct_sessions;
+        known = true;
+      }
+    }
+    return known ? sum : null;
+  });
+
+  const trendSummaryCards = $derived.by(() => {
+    const totals = summary?.totals;
+    if (!totals) return [];
+    const avgMs = totals.avg_duration_ms === null ? null : Number(totals.avg_duration_ms);
+    return [
+      { key: 'calls', label: t('trend.calls'), value: fmtSmart(totals.call_count) },
+      {
+        key: 'input',
+        label: t('cards.input'),
+        value: fmtSmart(totals.input_total_known),
+        hint: t('cards.input.hint'),
+        sub: t('overview.breakdown.input', {
+          hit: fmtSmart(totals.cache_read_known),
+          miss: fmtSmart(totals.uncached_known),
+        }),
+      },
+      { key: 'output', label: t('cards.output'), value: fmtSmart(totals.output_total_known) },
+      { key: 'total', label: t('cards.total'), value: fmtSmart(totals.total_tokens_known) },
+      { key: 'ratio', label: t('cards.cacheRatio'), value: fmtPercent(totals.cache_input_ratio) },
+      { key: 'sessions', label: t('trend.sessions'), value: fmtSmart(trendSessions) },
+      { key: 'avg', label: t('cards.avgDuration'), value: fmtDurationShort(avgMs) },
+    ];
+  });
 
   /** 今日分区日期标签。 */
   const todayDateLabel = $derived(new Date().toLocaleDateString(i18n.locale));
@@ -564,7 +658,7 @@
 
   {#if tab === 'overview' || tab === 'trend' || tab === 'details'}
     <div class="filters">
-      {#if tab !== 'details'}
+      {#if tab === 'trend'}
         <label>{t('filter.range')}
           <select bind:value={rangeKey}>
             <option value="24h">{t('filter.quick.24h')}</option>
@@ -601,6 +695,11 @@
       </label>
       {#if tab === 'overview' || tab === 'trend'}
         <span class="spacer"></span>
+        {#if editLayout}
+          <button type="button" class="edit-toggle" onclick={resetLayout}>
+            ↺ {t('panel.reset')}
+          </button>
+        {/if}
         <button
           type="button"
           class="edit-toggle"
@@ -633,7 +732,8 @@
           {#each panelState.overviewToday.order as id, i (id)}
             <Panel
               title={panelTitle(id)}
-              span={PANEL_SPAN[id] ?? 3}
+              span={spanOf('overviewToday', id)}
+              height={heightOf('overviewToday', id)}
               hidden={panelState.overviewToday.hidden.includes(id)}
               editable={editLayout}
               dragging={dragFrom?.gk === 'overviewToday' && dragFrom.index === i}
@@ -642,6 +742,7 @@
               panelIndex={i}
               ontoggle={() => togglePanel('overviewToday', id)}
               onpickstart={(e) => panelPickStart('overviewToday', i, e)}
+              onsize={(span, height) => panelResize('overviewToday', id, span, height)}
             >
               {#if id === 'today-cards'}
                 {#if todaySummary}
@@ -650,11 +751,11 @@
                   <p class="muted">{t('common.loading')}</p>
                 {/if}
               {:else if id === 'today-hourly'}
-                <TodayHourly hourly={todaySummary?.today_hourly ?? []} />
+                <TodayHourly hourly={todaySummary?.today_hourly ?? []} query={todayQuery} {isDark} />
               {:else if id === 'today-model-pie'}
-                <SharePie data={todayModelPie} />
+                <SharePie data={todayModelPie} {isDark} />
               {:else if id === 'today-agent-pie'}
-                <SharePie data={todayAgentPie} />
+                <SharePie data={todayAgentPie} {isDark} />
               {:else if id === 'today-model-table'}
                 <BreakdownTables models={todaySummary?.models ?? []} kind="model" />
               {:else if id === 'today-agent-table'}
@@ -664,14 +765,35 @@
           {/each}
         </div>
 
+        <!-- 范围/粒度只影响历史趋势区（今日数据独立查询），故放在该分区内侧而非页面顶部。 -->
         <div class="section-head">
           <h2>{t('overview.historySection')}</h2>
+          <span class="section-controls" title={t('overview.historyFilterHint')}>
+            <label>{t('filter.range')}
+              <select bind:value={rangeKey}>
+                <option value="24h">{t('filter.quick.24h')}</option>
+                <option value="today">{t('filter.quick.today')}</option>
+                <option value="7">{t('filter.quick.7')}</option>
+                <option value="30">{t('filter.quick.30')}</option>
+                <option value="365">{t('filter.quick.365')}</option>
+              </select>
+            </label>
+            <label>{t('filter.granularity.label')}
+              <select bind:value={granularity}>
+                <option value="hour">{t('filter.granularity.hour')}</option>
+                <option value="day">{t('filter.granularity.day')}</option>
+                <option value="week">{t('filter.granularity.week')}</option>
+                <option value="month">{t('filter.granularity.month')}</option>
+              </select>
+            </label>
+          </span>
         </div>
         <div class="panel-grid">
           {#each panelState.overviewHistory.order as id, i (id)}
             <Panel
               title={panelTitle(id)}
-              span={PANEL_SPAN[id] ?? 3}
+              span={spanOf('overviewHistory', id)}
+              height={heightOf('overviewHistory', id)}
               hidden={panelState.overviewHistory.hidden.includes(id)}
               editable={editLayout}
               dragging={dragFrom?.gk === 'overviewHistory' && dragFrom.index === i}
@@ -680,11 +802,12 @@
               panelIndex={i}
               ontoggle={() => togglePanel('overviewHistory', id)}
               onpickstart={(e) => panelPickStart('overviewHistory', i, e)}
+              onsize={(span, height) => panelResize('overviewHistory', id, span, height)}
             >
               {#if id === 'history-calls'}
-                <CallsChart periods={summary.periods} {query} {granularity} />
+                <CallsChart periods={summary.periods} {query} {granularity} {isDark} />
               {:else if id === 'history-tokens'}
-                <TokenChart periods={summary.periods} {query} {granularity} />
+                <TokenChart periods={summary.periods} {query} {granularity} {isDark} />
               {/if}
             </Panel>
           {/each}
@@ -695,11 +818,29 @@
     {/if}
   {:else if tab === 'trend'}
     {#if summary}
+      <!-- 范围汇总面板（图表区上方固定位置）：7 张小卡片，取 summary.totals。 -->
+      <div class="range-summary">
+        <div class="section-head">
+          <h2>{t('trend.summary')}</h2>
+        </div>
+        <div class="summary-cards">
+          {#each trendSummaryCards as c (c.key)}
+            <div class="scard" title={c.hint ?? ''}>
+              <div class="slabel">
+                {c.label}{#if c.hint}<span class="shint">{c.hint}</span>{/if}
+              </div>
+              <div class="svalue">{c.value}</div>
+              {#if c.sub}<div class="ssub">{c.sub}</div>{/if}
+            </div>
+          {/each}
+        </div>
+      </div>
       <div class="panel-grid">
         {#each panelState.trendMain.order as id, i (id)}
           <Panel
             title={panelTitle(id)}
-            span={PANEL_SPAN[id] ?? 3}
+            span={spanOf('trendMain', id)}
+            height={heightOf('trendMain', id)}
             hidden={panelState.trendMain.hidden.includes(id)}
             editable={editLayout}
             dragging={dragFrom?.gk === 'trendMain' && dragFrom.index === i}
@@ -708,19 +849,20 @@
             panelIndex={i}
             ontoggle={() => togglePanel('trendMain', id)}
             onpickstart={(e) => panelPickStart('trendMain', i, e)}
+            onsize={(span, height) => panelResize('trendMain', id, span, height)}
           >
             {#if id === 'trend-calls'}
-              <CallsChart periods={summary.periods} {query} {granularity} />
+              <CallsChart periods={summary.periods} {query} {granularity} {isDark} />
             {:else if id === 'trend-tokens'}
-              <TokenChart periods={summary.periods} {query} {granularity} />
+              <TokenChart periods={summary.periods} {query} {granularity} {isDark} />
             {:else if id === 'trend-heatmap'}
-              <UsageHeatmap {query} reloadKey={dataReloadKey} oncells={(cells) => (heatmapCells = cells)} />
+              <UsageHeatmap {query} reloadKey={dataReloadKey} oncells={(cells) => (heatmapCells = cells)} {isDark} />
             {:else if id === 'trend-weekday'}
-              <WeekdayBar cells={heatmapCells} />
+              <WeekdayBar cells={heatmapCells} {isDark} />
             {:else if id === 'trend-model-pie'}
-              <SharePie data={trendModelPie} />
+              <SharePie data={trendModelPie} {isDark} />
             {:else if id === 'trend-agent-pie'}
-              <SharePie data={trendAgentPie} />
+              <SharePie data={trendAgentPie} {isDark} />
             {/if}
           </Panel>
         {/each}
@@ -743,14 +885,17 @@
   main {
     padding: 12px 20px 32px;
     font-family: system-ui, 'Segoe UI', sans-serif;
-    color: #1c1e21;
+    color: var(--text);
+    background: var(--bg);
+    min-height: 100vh;
+    box-sizing: border-box;
   }
   header {
     display: flex;
     align-items: center;
     gap: 12px;
     padding: 6px 0;
-    border-bottom: 1px solid #e3e5e8;
+    border-bottom: 1px solid var(--border);
     flex-wrap: wrap;
   }
   h1 {
@@ -761,7 +906,7 @@
     margin: 0;
   }
   .subtitle {
-    color: #666;
+    color: var(--text-muted);
     font-size: 12px;
   }
   .spacer {
@@ -781,8 +926,8 @@
     font-size: 13px;
   }
   nav button.active {
-    background: #e8f0fe;
-    color: #1a56c4;
+    background: var(--bg-nav-active);
+    color: var(--accent);
     font-weight: 600;
   }
   .filters {
@@ -797,31 +942,31 @@
     display: flex;
     gap: 4px;
     align-items: center;
-    color: #444;
+    color: var(--text-secondary);
   }
   .filters .spacer {
     flex: 1;
   }
   /* 布局编辑模式开关（🔧；激活时高亮）。 */
   .edit-toggle {
-    border: 1px solid #dcdfe3;
-    background: #fff;
+    border: 1px solid var(--border);
+    background: var(--bg-input);
     border-radius: 6px;
     padding: 3px 12px;
     cursor: pointer;
     font-size: 12.5px;
-    color: #444;
+    color: var(--text-secondary);
   }
   .edit-toggle.active {
-    background: #e8f0fe;
-    color: #1a56c4;
-    border-color: #9db8e8;
+    background: var(--accent-bg);
+    color: var(--accent);
+    border-color: var(--accent);
     font-weight: 600;
   }
   .edit-hint {
     margin: 2px 0 0;
     font-size: 12px;
-    color: #8a6d1a;
+    color: var(--warning);
   }
   select {
     padding: 2px 4px;
@@ -832,7 +977,7 @@
     align-items: center;
     gap: 6px;
     font-size: 12.5px;
-    color: #444;
+    color: var(--text-secondary);
   }
   .user-picker select {
     max-width: 170px;
@@ -843,7 +988,7 @@
     align-items: center;
     gap: 8px;
     font-size: 12.5px;
-    color: #444;
+    color: var(--text-secondary);
     white-space: nowrap;
   }
   .refresh-progress .rbar {
@@ -851,21 +996,21 @@
     width: 110px;
     height: 6px;
     border-radius: 3px;
-    background: #e6e8eb;
+    background: var(--bg-skeleton);
     overflow: hidden;
   }
   .refresh-progress .rfill {
     display: block;
     height: 100%;
     border-radius: 3px;
-    background: #1a56c4;
+    background: var(--accent);
     transition: width 0.3s ease;
   }
   .refresh-progress .rlabel {
     font-variant-numeric: tabular-nums;
   }
   .refresh-progress .reta {
-    color: #777;
+    color: var(--text-muted);
   }
   .user-create {
     display: flex;
@@ -884,8 +1029,8 @@
     font-size: 12.5px;
   }
   button.primary {
-    background: #1a56c4;
-    color: #fff;
+    background: var(--accent);
+    color: var(--accent-text);
     border: none;
     border-radius: 6px;
     padding: 5px 14px;
@@ -893,44 +1038,60 @@
     font-size: 12.5px;
   }
   button.primary:disabled {
-    background: #9db8e8;
+    background: var(--accent);
+    opacity: 0.55;
     cursor: wait;
   }
   .error {
-    color: #b3261e;
-    background: #fdecea;
+    color: var(--danger);
+    background: var(--danger-bg);
     border-radius: 6px;
     padding: 8px 12px;
     font-size: 13px;
   }
   .empty {
-    color: #666;
-    background: #f5f6f7;
+    color: var(--text-muted);
+    background: var(--bg-hover);
     border-radius: 8px;
     padding: 32px;
     text-align: center;
   }
   .muted {
-    color: #777;
+    color: var(--text-muted);
     font-size: 13px;
   }
-  /* 今日/历史醒目分区标题（任务 D8）。 */
+  /* 今日/历史醒目分区标题（任务 D8）；历史区标题右侧内联范围/粒度筛选（只影响该区）。 */
   .section-head {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 10px;
     margin: 14px 0 6px;
+    flex-wrap: wrap;
   }
   .section-head h2 {
     font-size: 15px;
     margin: 0;
     padding-left: 10px;
-    border-left: 4px solid #1a56c4;
-    color: #1c2b4a;
+    border-left: 4px solid var(--accent);
+    color: var(--text-heading);
   }
   .section-date {
-    color: #777;
+    color: var(--text-muted);
     font-size: 12.5px;
+  }
+  /* 历史趋势区标题右侧的范围/粒度下拉（与今日数据区视觉分离）。 */
+  .section-controls {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+  }
+  .section-controls label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
   }
   /* 面板 6 列格子布局（任务 E10）；跨列数由 Panel 的 span 类决定。 */
   .panel-grid {
@@ -938,6 +1099,48 @@
     grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 12px;
     align-items: stretch;
+  }
+  /* 趋势页范围汇总（图表区上方）：一行水平卡片组（7 张小卡片）。 */
+  .range-summary {
+    margin-bottom: 4px;
+  }
+  .range-summary .section-head {
+    margin: 4px 0 6px;
+  }
+  .summary-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 8px;
+    padding: 8px 0 10px;
+  }
+  .scard {
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    min-width: 0;
+  }
+  .scard .slabel {
+    font-size: 12px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+  .scard .slabel .shint {
+    color: var(--text-muted);
+    font-size: 11px;
+  }
+  .scard .svalue {
+    font-size: 18px;
+    font-weight: 600;
+    margin-top: 4px;
+    font-variant-numeric: tabular-nums;
+  }
+  .scard .ssub {
+    margin-top: 2px;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
   }
   @media (max-width: 900px) {
     .panel-grid {

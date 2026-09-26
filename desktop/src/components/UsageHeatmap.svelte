@@ -14,18 +14,25 @@
     query,
     reloadKey = 0,
     oncells,
+    isDark = false,
   }: {
     query: SummaryQuery;
     /** 用户切换/导入等不改变 query 的强制重查信号。 */
     reloadKey?: number;
     /** 载入后把 cells 交给父级（周分布图复用同一数据）。 */
     oncells?: (cells: { weekday: number; hour: number; calls: number; total_tokens: string | null }[]) => void;
+    /** 深色主题（父级传入；变化时重绘轴文字与 splitArea 底色）。 */
+    isDark?: boolean;
   } = $props();
 
   let el: HTMLDivElement;
   let chart: echarts.ECharts | null = null;
   let cells = $state<{ weekday: number; hour: number; calls: number; total_tokens: string | null }[]>([]);
   let failed = $state(false);
+
+  /** 主题感知色：全局文字（axis/visualMap 继承）与 splitArea 交替底色。 */
+  const chartText = $derived(isDark ? '#aaa' : '#555');
+  const splitAreaColors = $derived(isDark ? ['#242528', '#2a2b2f'] : ['#fff', '#f9f9f9']);
 
   const weekdayLabels = ['一', '二', '三', '四', '五', '六', '日'];
   const hours = Array.from({ length: 24 }, (_, h) => h);
@@ -48,14 +55,16 @@
     chart.setOption(
       {
         tooltip: {
+          hideDelay: 999999, transitionDuration: 0,
           formatter: (p: { value: [number, number, number] }) => {
             const cell = cells.find((c) => c.hour === p.value[0] && c.weekday - 1 === p.value[1]);
             return `${weekdayLabels[p.value[1]]} ${String(p.value[0]).padStart(2, '0')}:00<br/>${t('trend.calls')}: ${fmtPrecise(p.value[2])}<br/>${t('trend.tokens')}: ${fmtPrecise(cell?.total_tokens ?? null)}`;
           },
         },
         grid: { left: 44, right: 24, top: 16, bottom: 60 },
-        xAxis: { type: 'category', data: hours.map(String), splitArea: { show: true } },
-        yAxis: { type: 'category', data: weekdayLabels, splitArea: { show: true } },
+        textStyle: { color: chartText },
+        xAxis: { type: 'category', data: hours.map(String), splitArea: { show: true, color: splitAreaColors } },
+        yAxis: { type: 'category', data: weekdayLabels, splitArea: { show: true, color: splitAreaColors } },
         visualMap: {
           min: 0,
           max,
@@ -63,7 +72,17 @@
           orient: 'horizontal',
           left: 'center',
           bottom: 8,
-          inRange: { color: ['#f2f6fc', '#9db8e8', '#1a56c4'] },
+          textStyle: { color: chartText },
+          inRange: {
+            // 暗色：冷→暖多色相渐变（深海军蓝→亮蓝→青→琥珀）。
+            // 设计依据：暗背景上最低值须靠色相（非仅亮度）区分——#1e3a5f 的
+            // 蓝调与中性暗背景 #242528 有明确色相差；高值端用暖色形成强对比
+            //（参考 GitHub 暗色贡献图/Grafana 暗色热力图的冷暖模式惯例）。
+            // 亮色：浅蓝→中蓝渐变（白底可辨识，用户未报问题）。
+            color: isDark
+              ? ['#1e3a5f', '#2563eb', '#06b6d4', '#fbbf24']
+              : ['#f2f6fc', '#9db8e8', '#1a56c4'],
+          },
         },
         series: [
           {
@@ -79,7 +98,12 @@
 
   onMount(() => {
     chart = echarts.init(el, i18n.locale === 'zh-CN' ? 'ZH' : 'EN');
-    const onResize = () => chart?.resize();
+
+      // Tooltip 持续显示：hideDelay 999999 防止自动隐藏；
+      // 鼠标离开图表时立即手动隐藏（globalout 事件）。
+      chart?.on('globalout', () => {
+        chart?.dispatchAction({ type: 'hideTip' });
+      });    const onResize = () => chart?.resize();
     window.addEventListener('resize', onResize);
     // 面板显示/隐藏或网格变化时容器尺寸变化（含 display:none 恢复），自动重设画布。
     const observer = new ResizeObserver(() => chart?.resize());
@@ -102,6 +126,7 @@
   $effect(() => {
     void cells;
     void i18n.locale;
+    void isDark;
     render();
   });
 </script>
@@ -118,7 +143,7 @@
     margin-top: 8px;
   }
   .muted {
-    color: #999;
+    color: var(--text-muted);
     font-size: 12px;
   }
 </style>

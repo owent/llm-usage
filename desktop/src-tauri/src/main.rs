@@ -6,6 +6,8 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use tauri::Manager;
+
 mod app_state;
 mod commands;
 mod scanner;
@@ -78,6 +80,24 @@ fn main() {
     scanner::spawn_scheduler(scheduler_state, stop);
 
     tauri::Builder::default()
+        .setup(|app| {
+            // 根据主显示器分辨率自适应窗口大小（60–85%，上限 1600×1000）。
+            if let Some(window) = app.get_webview_window("main") {
+                if let Ok(Some(monitor)) = window.primary_monitor() {
+                    let size = monitor.size();
+                    let scale = monitor.scale_factor();
+                    let phys_w = size.width as f64 / scale;
+                    let phys_h = size.height as f64 / scale;
+                    let w = (phys_w * 0.72).clamp(900.0, 1600.0) as u32;
+                    let h = (phys_h * 0.78).clamp(600.0, 1000.0) as u32;
+                    let _ = window.set_size(tauri::PhysicalSize::new(
+                        (w as f64 * scale) as u32,
+                        (h as f64 * scale) as u32,
+                    ));
+                }
+            }
+            Ok(())
+        })
         .manage(Arc::clone(&state))
         .invoke_handler(tauri::generate_handler![
             commands::summary,

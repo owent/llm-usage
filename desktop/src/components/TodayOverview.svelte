@@ -63,19 +63,19 @@
     padding: 8px 0 2px;
   }
   .card {
-    background: #f7f8fa;
-    border: 1px solid #e6e8eb;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
     border-radius: 8px;
     padding: 8px 12px;
     min-width: 0;
   }
   .label {
     font-size: 12px;
-    color: #666;
+    color: var(--text-secondary);
     white-space: nowrap;
   }
   .label .hint {
-    color: #999;
+    color: var(--text-muted);
     font-size: 11px;
   }
   .value {
@@ -88,7 +88,7 @@
   .sub {
     margin-top: 2px;
     font-size: 11px;
-    color: #999;
+    color: var(--text-muted);
     font-variant-numeric: tabular-nums;
     overflow-wrap: anywhere;
   }

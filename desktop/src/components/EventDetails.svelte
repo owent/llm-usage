@@ -3,6 +3,9 @@
    * 用量明细页（任务 F）：event_details 分页表格（每页 50 条，上/下页 + 跳转）。
    * 列：时间/Agent/模型/类别/输入/缓存命中/输出/总量/耗时（秒，1 位小数）/会话。
    * 时间格式化到秒；查询条件（Agent/模型过滤）与全局筛选联动。
+   * 加载优化：挂载即显示灰色骨架占位（首屏无数据时），请求只带当前页
+   * page/pageSize；effect 依赖查询字段的稳定串（queryKey）而非对象身份，
+   * 父级轮询刷新 summary 产生的 query 新对象不会触发本页重复请求。
    */
   import { api, parseError } from '../lib/api';
   import type { EventDetailRowDto, SummaryQuery } from '../lib/api';
@@ -24,11 +27,14 @@
   let total = $state(0);
   let page = $state(0);
   let jumpText = $state('');
-  let loading = $state(false);
+  /** 初始 true：挂载即骨架占位，首次请求返回后填充。 */
+  let loading = $state(true);
   let error = $state('');
   let loadToken = 0;
 
   const totalPages = $derived(Math.max(1, Math.ceil(total / pageSize)));
+  /** 首屏加载（尚无任何行）时显示骨架矩形而非空表。 */
+  const showSkeleton = $derived(loading && rows.length === 0 && error === '');
 
   function fmtTime(ms: number): string {
     return new Intl.DateTimeFormat(i18n.locale, {
@@ -53,6 +59,7 @@
     loading = true;
     error = '';
     try {
+      // 只请求当前页：page/pageSize 原样传给后端，后端做 LIMIT/OFFSET。
       const r = await api.eventDetails(query, page, pageSize);
       if (token !== loadToken) return;
       rows = r.rows;
@@ -69,9 +76,21 @@
 
   // 查询条件/强制重查信号变化：回到第 1 页并防抖重查（声明在分页动作前，
   // 同一 flush 内先重置页码再加载，避免旧页码多拉一次）。
+  // queryKey 为查询字段的稳定序列化：父级每次轮询重建 query 对象（身份变化）
+  // 但字段值不变时不重查，只有真正的过滤/范围变化才重新请求。
+  const queryKey = $derived(
+    JSON.stringify([
+      query.first_day,
+      query.last_day,
+      query.granularity,
+      query.agents,
+      query.providers,
+      query.models,
+    ])
+  );
   let queryTimer: ReturnType<typeof setTimeout> | undefined;
   $effect(() => {
-    void query;
+    void queryKey;
     void reloadKey;
     page = 0;
     if (queryTimer) clearTimeout(queryTimer);
@@ -96,42 +115,51 @@
   {#if error}
     <p class="error">{t('common.error', { message: error })}</p>
   {/if}
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>{t('details.time')}</th>
-          <th>{t('table.agent')}</th>
-          <th>{t('table.model')}</th>
-          <th>{t('details.category')}</th>
-          <th class="num">{t('table.input')}</th>
-          <th class="num">{t('table.cacheRead')}</th>
-          <th class="num">{t('table.output')}</th>
-          <th class="num">{t('table.total')}</th>
-          <th class="num">{t('details.duration')}</th>
-          <th>{t('details.session')}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each rows as r (r.event_id)}
+  {#if showSkeleton}
+    <!-- 首屏骨架：灰色矩形占位，请求返回后替换为表格。 -->
+    <div class="skeleton" aria-busy="true">
+      {#each Array.from({ length: 10 }) as _, i (i)}
+        <div class="sk-row" style:width="{96 - ((i * 7) % 30)}%"></div>
+      {/each}
+    </div>
+  {:else}
+    <div class="table-wrap">
+      <table>
+        <thead>
           <tr>
-            <td class="time">{fmtTime(r.occurred_at_ms)}</td>
-            <td>{r.agent}</td>
-            <td>{r.model ?? t('common.unknown')}</td>
-            <td>{r.category ?? t('common.unknown')}</td>
-            <td class="num">{fmtPrecise(r.input)}</td>
-            <td class="num">{fmtPrecise(r.cache_read)}</td>
-            <td class="num">{fmtPrecise(r.output)}</td>
-            <td class="num">{fmtPrecise(r.total)}</td>
-            <td class="num">{fmtSeconds(r.duration_ms)}</td>
-            <td class="session" title={r.session ?? ''}>{r.session ?? '—'}</td>
+            <th>{t('details.time')}</th>
+            <th>{t('table.agent')}</th>
+            <th>{t('table.model')}</th>
+            <th>{t('details.category')}</th>
+            <th class="num">{t('table.input')}</th>
+            <th class="num">{t('table.cacheRead')}</th>
+            <th class="num">{t('table.output')}</th>
+            <th class="num">{t('table.total')}</th>
+            <th class="num">{t('details.duration')}</th>
+            <th>{t('details.session')}</th>
           </tr>
-        {:else}
-          <tr><td colspan="10" class="empty">{loading ? t('common.loading') : t('details.empty')}</td></tr>
-        {/each}
-      </tbody>
-    </table>
-  </div>
+        </thead>
+        <tbody>
+          {#each rows as r (r.event_id)}
+            <tr>
+              <td class="time">{fmtTime(r.occurred_at_ms)}</td>
+              <td>{r.agent}</td>
+              <td>{r.model ?? t('common.unknown')}</td>
+              <td>{r.category ?? t('common.unknown')}</td>
+              <td class="num">{fmtPrecise(r.input)}</td>
+              <td class="num">{fmtPrecise(r.cache_read)}</td>
+              <td class="num">{fmtPrecise(r.output)}</td>
+              <td class="num">{fmtPrecise(r.total)}</td>
+              <td class="num">{fmtSeconds(r.duration_ms)}</td>
+              <td class="session" title={r.session ?? ''}>{r.session ?? '—'}</td>
+            </tr>
+          {:else}
+            <tr><td colspan="10" class="empty">{loading ? t('common.loading') : t('details.empty')}</td></tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
+  {/if}
 
   <div class="pager">
     <label class="size-select">
@@ -180,18 +208,49 @@
     padding: 8px 0;
   }
   .error {
-    color: #b3261e;
-    background: #fdecea;
+    color: var(--danger);
+    background: var(--danger-bg);
     border-radius: 6px;
     padding: 8px 12px;
     font-size: 13px;
   }
   .table-wrap {
     overflow-x: auto;
-    background: #fff;
-    border: 1px solid #e6e8eb;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
     border-radius: 10px;
-    box-shadow: 0 1px 3px rgba(16, 24, 40, 0.06);
+    box-shadow: var(--shadow);
+  }
+  /* 首屏骨架：灰色矩形占位（微光动画），请求返回后替换为表格。 */
+  .skeleton {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .sk-row {
+    height: 14px;
+    border-radius: 4px;
+    background: linear-gradient(90deg, var(--bg-skeleton) 25%, var(--bg-hover) 45%, var(--bg-skeleton) 65%);
+    background-size: 200% 100%;
+    animation: sk-shimmer 1.3s ease-in-out infinite;
+  }
+  @keyframes sk-shimmer {
+    0% {
+      background-position: 120% 0;
+    }
+    100% {
+      background-position: -80% 0;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .sk-row {
+      animation: none;
+    }
   }
   table {
     width: 100%;
@@ -202,18 +261,18 @@
   td {
     text-align: left;
     padding: 5px 8px;
-    border-bottom: 1px solid #f0f1f3;
+    border-bottom: 1px solid var(--border-light);
     white-space: nowrap;
   }
   thead th {
-    color: #666;
+    color: var(--text-secondary);
     font-weight: 500;
-    background: #fafbfc;
+    background: var(--bg-card-hover);
     position: sticky;
     top: 0;
   }
   tbody tr:hover {
-    background: #f7f9fd;
+    background: var(--bg-hover);
   }
   .num {
     text-align: right;
@@ -229,7 +288,7 @@
   }
   .empty {
     text-align: center;
-    color: #999;
+    color: var(--text-muted);
     padding: 24px 0;
   }
   .pager {
@@ -244,7 +303,7 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    color: #555;
+    color: var(--text-secondary);
     font-size: 12px;
   }
   .size-select select {
@@ -255,10 +314,10 @@
     padding: 4px 12px;
     cursor: pointer;
     font-size: 12.5px;
-    border: 1px solid #dcdfe3;
-    background: #fff;
+    border: 1px solid var(--border);
+    background: var(--bg-input);
     border-radius: 6px;
-    color: #444;
+    color: var(--text-secondary);
   }
   .pager button:disabled {
     opacity: 0.5;
@@ -266,10 +325,10 @@
   }
   .page-info {
     font-variant-numeric: tabular-nums;
-    color: #444;
+    color: var(--text-secondary);
   }
   .muted {
-    color: #888;
+    color: var(--text-muted);
   }
   .jump {
     display: inline-flex;

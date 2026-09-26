@@ -8,10 +8,20 @@
 
   echarts.use([PieChart, LegendComponent, TooltipComponent, CanvasRenderer]);
 
-  let { data }: { data: { name: string; value: number }[] } = $props();
+  let {
+    data,
+    isDark = false,
+  }: {
+    data: { name: string; value: number }[];
+    /** 深色主题（父级传入；变化时重绘 legend 文字）。 */
+    isDark?: boolean;
+  } = $props();
 
   let el: HTMLDivElement;
   let chart: echarts.ECharts | null = null;
+
+  /** 主题感知色：全局文字（legend 继承）。 */
+  const chartText = $derived(isDark ? '#aaa' : '#555');
 
   const PALETTE = [
     '#1a56c4', '#3f8f5f', '#c9a227', '#b3601e', '#7a5fb0',
@@ -24,6 +34,7 @@
       {
         tooltip: {
           trigger: 'item',
+          hideDelay: 999999, transitionDuration: 0,
           formatter: (p: { name: string; value: number; percent: number }) =>
             `${p.name}: ${fmtPrecise(p.value)} (${p.percent}%)`,
         },
@@ -34,7 +45,7 @@
           top: 'middle',
           itemWidth: 12,
           itemHeight: 8,
-          textStyle: { fontSize: 11, width: 120, overflow: 'truncate' },
+          textStyle: { fontSize: 11, width: 120, overflow: 'truncate', color: chartText },
         },
         color: PALETTE,
         series: [
@@ -54,7 +65,12 @@
 
   onMount(() => {
     chart = echarts.init(el, i18n.locale === 'zh-CN' ? 'ZH' : 'EN');
-    render();
+
+      // Tooltip 持续显示：hideDelay 999999 防止自动隐藏；
+      // 鼠标离开图表时立即手动隐藏（globalout 事件）。
+      chart?.on('globalout', () => {
+        chart?.dispatchAction({ type: 'hideTip' });
+      });    render();
     const onResize = () => chart?.resize();
     window.addEventListener('resize', onResize);
     // 面板显示/隐藏或网格变化时容器尺寸变化（含 display:none 恢复），自动重设画布。
@@ -71,6 +87,7 @@
   $effect(() => {
     void data;
     void i18n.locale;
+    void isDark;
     render();
   });
 </script>
@@ -89,7 +106,7 @@
     height: 4px;
   }
   .muted {
-    color: #666;
+    color: var(--text-muted);
     font-size: 12px;
   }
 </style>

@@ -69,10 +69,10 @@
   let exportMessage = $state('');
   let exportError = $state('');
 
-  // 导出过滤（任务 G）：用户/主机下拉，默认当前用户/当前主机。
+  // 导出过滤（任务 G）：用户/主机多选（默认当前用户/当前主机），全选 = 不过滤。
   let filterOptions = $state<ExportFilterOptionsDto | null>(null);
-  let userFilter = $state('');
-  let hostFilter = $state('');
+  let selectedUsers = $state<string[]>([]);
+  let selectedHosts = $state<string[]>([]);
 
   // 存储统计与手动清理。
   let stats = $state<StorageStatsDto | null>(null);
@@ -93,14 +93,28 @@
   let importMessage = $state('');
   let importError = $state('');
 
-  // 诊断日志（日志 Tab）：最近 200 条，支持手动/自动刷新。
+  // 诊断日志（日志 Tab）：最近 200 条，支持手动/自动刷新 + code 过滤。
   let logs = $state<DiagnosticLogRowDto[]>([]);
   let logsLoading = $state(false);
   let logsError = $state('');
   let logsAuto = $state(false);
-  let logsLoadedOnce = $state(false);
+  /** code 下拉过滤（'' = 全部；选中后传 code_filter 给 diagnostic_logs）。 */
+  let logsCode = $state('');
+  /** code 选项列表（未过滤加载时从返回行提取 DISTINCT code）。 */
+  let logsCodes = $state<string[]>([]);
+  /** 快捷开关：客户端隐藏 expired_by_retention 保留清理行。 */
+  let hideRetention = $state(false);
 
-  /** 常见 IANA 时区（datalist 可输入筛选；自由输入仍允许）。 */
+  const RETENTION_CODE = 'expired_by_retention';
+  /** 保留清理行占比过半时显示“隐藏保留清理”快捷按钮（已开启时保留按钮供还原）。 */
+  const retentionDominant = $derived(
+    logs.length > 0 && logs.filter((r) => r.code === RETENTION_CODE).length > logs.length / 2
+  );
+  const displayLogs = $derived(
+    hideRetention ? logs.filter((r) => r.code !== RETENTION_CODE) : logs
+  );
+
+  /** 常见 IANA 时区（纯下拉选择；上方搜索框过滤长列表）。 */
   const TIMEZONES: string[] = [
     'UTC',
     'Asia/Shanghai', 'Asia/Hong_Kong', 'Asia/Taipei', 'Asia/Tokyo', 'Asia/Seoul',
@@ -120,6 +134,34 @@
     'Australia/Sydney', 'Australia/Melbourne', 'Australia/Brisbane',
     'Pacific/Auckland',
   ];
+
+  // 时区选择（2026-09-26 改造）：默认只显示当前值的“伪 select”按钮，点击弹出
+  // absolute 覆盖层（搜索框 + 过滤后的选项列表）；选择/点击外部/Esc 关闭。
+  let tzFilter = $state('');
+  let tzOpen = $state(false);
+  /** 覆盖层根节点（click-outside 命中测试用；bind:this 赋值）。 */
+  let tzRoot = $state<HTMLElement | null>(null);
+  const tzOptions = $derived.by(() => {
+    const needle = tzFilter.trim().toLowerCase();
+    const list = needle === '' ? [...TIMEZONES] : TIMEZONES.filter((z) => z.toLowerCase().includes(needle));
+    if (draft.timezone && !list.includes(draft.timezone)) list.unshift(draft.timezone);
+    return list;
+  });
+
+  function openTz(): void {
+    tzFilter = '';
+    tzOpen = true;
+  }
+
+  function pickTz(z: string): void {
+    draft.timezone = z;
+    tzOpen = false;
+  }
+
+  /** 覆盖层打开时聚焦搜索框（Svelte action，元素插入即执行）。 */
+  function focusInput(node: HTMLInputElement): void {
+    node.focus();
+  }
 
   // 当前查询（导出用）：近 30 天日粒度。
   const exportQuery: SummaryQuery = {
@@ -191,15 +233,19 @@
     }
   }
 
-  /** 导出过滤选项：is_current 项默认选中（失败时下拉退化为仅当前值）。 */
+  /** 导出过滤选项：默认勾选当前用户/当前主机（失败时多选框退化为仅当前值）。 */
   async function loadExportFilters() {
     try {
       const r = await api.exportFilterOptions();
       filterOptions = r;
-      userFilter = r.users.find((u) => u.is_current)?.user_id ?? r.current_user;
-      hostFilter = r.hosts.find((h) => h.is_current)?.host_id ?? r.current_host;
+      const curUser = r.users.find((u) => u.is_current)?.user_id ?? r.current_user;
+      const curHost = r.hosts.find((h) => h.is_current)?.host_id ?? r.current_host;
+      selectedUsers = [curUser];
+      selectedHosts = [curHost];
     } catch {
       filterOptions = null;
+      selectedUsers = [];
+      selectedHosts = [];
     }
   }
   loadInfo();
@@ -319,6 +365,26 @@
     return i > 0 ? path.slice(0, i) : path;
   }
 
+  /**
+   * 多选 → 后端单值过滤的展开：全部勾选 = null（不过滤，等价合并一份）；
+   * 单选 = 该值；子集多选 = 逐个值分别导出（交换包文件名含时间戳不互相覆盖）。
+   */
+  function expandSelection(all: string[], selected: string[]): (string | null)[] {
+    if (all.length > 0 && selected.length === all.length) return [null];
+    return [...selected];
+  }
+
+  /** 至少勾选一个用户和一个主机才允许导出。 */
+  const canExport = $derived(selectedUsers.length > 0 && selectedHosts.length > 0);
+
+  function selectAllUsers(): void {
+    if (filterOptions) selectedUsers = filterOptions.users.map((u) => u.user_id);
+  }
+
+  function selectAllHosts(): void {
+    if (filterOptions) selectedHosts = filterOptions.hosts.map((h) => h.host_id);
+  }
+
   async function exportData(kind: 'summary-csv' | 'exchange') {
     exportMessage = '';
     exportError = '';
@@ -338,14 +404,31 @@
       return;
     }
     try {
-      const r = await api.exportData(
-        kind,
-        parentDir(picked),
-        exportQuery,
-        userFilter || null,
-        hostFilter || null
-      );
-      exportMessage = t('export.done', { path: r.path });
+      if (kind === 'summary-csv') {
+        // CSV 为展示用汇总，后端不按用户/主机过滤，单次导出即可。
+        const r = await api.exportData(kind, parentDir(picked), exportQuery, null, null);
+        exportMessage = t('export.done', { path: r.path });
+        return;
+      }
+      // 交换包：按勾选的用户 × 主机组合展开（全选合并为一份 null 过滤）。
+      const userScopes = expandSelection(filterOptions?.users.map((u) => u.user_id) ?? [], selectedUsers);
+      const hostScopes = expandSelection(filterOptions?.hosts.map((h) => h.host_id) ?? [], selectedHosts);
+      const paths: string[] = [];
+      for (const u of userScopes) {
+        for (const h of hostScopes) {
+          const r = await api.exportData('exchange', parentDir(picked), exportQuery, u, h);
+          paths.push(r.path);
+          // 交换包文件名含毫秒时间戳，错开 2ms 防止同毫秒覆盖。
+          await new Promise((res) => setTimeout(res, 2));
+        }
+      }
+      exportMessage =
+        paths.length === 1
+          ? t('export.done', { path: paths[0] })
+          : t('export.doneMulti', {
+              count: paths.length,
+              paths: paths.join(i18n.locale === 'zh-CN' ? '；' : '; '),
+            });
     } catch (e) {
       exportError = t('export.failed', { message: parseError(e) });
     }
@@ -401,9 +484,13 @@
 
   async function loadLogs() {
     logsLoading = true;
+    // 同步读取以建立 effect 依赖（code 过滤变化时在 Tab 内自动重查）。
+    const code = logsCode || null;
     try {
-      const r = await api.diagnosticLogs(200);
+      const r = await api.diagnosticLogs(200, code);
       logs = r.rows;
+      // 未过滤加载时刷新 code 选项列表（过滤加载保留旧列表供切换）。
+      if (!code) logsCodes = Array.from(new Set(r.rows.map((x) => x.code))).sort();
       logsError = '';
     } catch (e) {
       logsError = t('logs.failed', { message: parseError(e) });
@@ -412,12 +499,11 @@
     }
   }
 
-  // 首次进入日志 Tab 时加载一次；自动刷新开启时每 10 秒重拉（仅 Tab 激活期间）。
+  // 进入日志 Tab 或切换 code 过滤时（重新）加载。
   $effect(() => {
-    if (sub === 'logs' && !logsLoadedOnce) {
-      logsLoadedOnce = true;
-      void loadLogs();
-    }
+    if (sub !== 'logs') return;
+    void logsCode;
+    void loadLogs();
   });
   $effect(() => {
     if (sub !== 'logs' || !logsAuto) return;
@@ -501,6 +587,11 @@
 <svelte:window
   onkeydown={(e) => {
     if (clearAllOpen && !clearAllBusy && e.key === 'Escape') clearAllOpen = false;
+    if (tzOpen && e.key === 'Escape') tzOpen = false;
+  }}
+  onpointerdown={(e) => {
+    // 时区覆盖层点击外部关闭（命中层内元素不关）。
+    if (tzOpen && tzRoot && !tzRoot.contains(e.target as Node)) tzOpen = false;
   }}
 />
 
@@ -525,9 +616,71 @@
             </div>
           </div>
           <div class="frow">
+            <span class="flabel">{t('settings.theme')}</span>
+            <div class="fvalue">
+              <div class="theme-seg" role="radiogroup" aria-label={t('settings.theme')}>
+                {#each ['system', 'light', 'dark'] as opt (opt)}
+                  <button
+                    type="button"
+                    class:active={draft.theme === opt}
+                    role="radio"
+                    aria-checked={draft.theme === opt}
+                    onclick={() => (draft.theme = opt)}
+                  >
+                    {t(`settings.theme.${opt}`)}
+                  </button>
+                {/each}
+              </div>
+            </div>
+          </div>
+          <div class="frow">
             <span class="flabel">{t('settings.timezone')}</span>
             <div class="fvalue">
-              <input list="tz-list" bind:value={draft.timezone} placeholder="Asia/Shanghai" spellcheck="false" />
+              <div class="tz-picker" bind:this={tzRoot}>
+                <button
+                  type="button"
+                  class="tz-select"
+                  aria-haspopup="listbox"
+                  aria-expanded={tzOpen}
+                  onclick={() => (tzOpen ? (tzOpen = false) : openTz())}
+                >
+                  <span class="mono">{draft.timezone}</span>
+                  <span class="tz-caret" aria-hidden="true">▾</span>
+                </button>
+                {#if tzOpen}
+                  <div class="tz-overlay" role="listbox">
+                    <input
+                      class="tz-search"
+                      placeholder={t('settings.timezone.search')}
+                      bind:value={tzFilter}
+                      spellcheck="false"
+                      use:focusInput
+                      onkeydown={(e) => {
+                        if (e.key === 'Escape') {
+                          e.stopPropagation();
+                          tzOpen = false;
+                        }
+                      }}
+                    />
+                    <div class="tz-list">
+                      {#each tzOptions as z (z)}
+                        <button
+                          type="button"
+                          class="tz-option"
+                          class:active={z === draft.timezone}
+                          role="option"
+                          aria-selected={z === draft.timezone}
+                          onclick={() => pickTz(z)}
+                        >
+                          {z}
+                        </button>
+                      {:else}
+                        <p class="tz-empty">{t('settings.timezone.noMatch')}</p>
+                      {/each}
+                    </div>
+                  </div>
+                {/if}
+              </div>
             </div>
           </div>
           <div class="frow">
@@ -677,35 +830,61 @@
         </section>
       {:else if sub === 'export'}
         <section class="panel">
+          <h4>{t('export.scopeTitle')}</h4>
           {#if filterOptions}
             <div class="export-filters">
-              <label class="efilter">
-                {t('export.userFilter')}
-                <select bind:value={userFilter}>
+              <div class="escope">
+                <div class="escope-head">
+                  <span class="escope-title">{t('export.userFilter')}</span>
+                  <button type="button" class="mini" onclick={selectAllUsers}>{t('export.selectAll')}</button>
+                </div>
+                <div class="echecks">
                   {#each filterOptions.users as u (u.user_id)}
-                    <option value={u.user_id}>{u.name || u.user_id}{u.is_current ? t('export.currentTag') : ''}</option>
+                    <label class="echeck">
+                      <input type="checkbox" value={u.user_id} bind:group={selectedUsers} />
+                      <span class="ename">{u.name || u.user_id}</span>
+                      {#if u.is_current}<span class="etag">{t('export.currentTag')}</span>{/if}
+                    </label>
                   {/each}
-                </select>
-              </label>
-              <label class="efilter">
-                {t('export.hostFilter')}
-                <select bind:value={hostFilter}>
+                </div>
+              </div>
+              <div class="escope">
+                <div class="escope-head">
+                  <span class="escope-title">{t('export.hostFilter')}</span>
+                  <button type="button" class="mini" onclick={selectAllHosts}>{t('export.selectAll')}</button>
+                </div>
+                <div class="echecks">
                   {#each filterOptions.hosts as h (h.host_id)}
-                    <option value={h.host_id}>{h.name || h.host_id}{h.is_current ? t('export.currentTag') : ''}</option>
+                    <label class="echeck">
+                      <input type="checkbox" value={h.host_id} bind:group={selectedHosts} />
+                      <span class="ename">{h.name || h.host_id}</span>
+                      {#if h.is_current}<span class="etag">{t('export.currentTag')}</span>{/if}
+                    </label>
                   {/each}
-                </select>
-              </label>
+                </div>
+              </div>
             </div>
+            <p class="hint">{t('export.scopeHint')}</p>
+          {:else}
+            <p class="hint">{t('common.loading')}</p>
           {/if}
           <div class="export">
-            <button type="button" onclick={() => void exportData('summary-csv')}>{t('export.csv')}</button>
-            <button type="button" onclick={() => void exportData('exchange')}>{t('export.exchange')}</button>
+            <button type="button" disabled={!canExport} onclick={() => void exportData('summary-csv')}>{t('export.csv')}</button>
+            <button type="button" disabled={!canExport} onclick={() => void exportData('exchange')}>{t('export.exchange')}</button>
+          </div>
+          {#if filterOptions && !canExport}<p class="bad">{t('export.noneSelected')}</p>{/if}
+          {#if exportMessage}<p class="ok">{exportMessage}</p>{/if}
+          {#if exportError}<p class="bad">{exportError}</p>{/if}
+        </section>
+        <!-- 导入与导出用分隔线隔开（.panel + .panel 顶边框）；导入不受导出范围影响。 -->
+        <section class="panel">
+          <h4>{t('import.title')}</h4>
+          <p class="hint">{t('import.scopeHint')}</p>
+          <div class="export">
             <button type="button" disabled={importing} onclick={() => void importData()}>
               {importing ? t('common.loading') : t('import.button')}
             </button>
           </div>
-          {#if exportMessage}<p class="ok">{exportMessage}</p>{/if}
-          {#if exportError}<p class="bad">{exportError}</p>{/if}
           {#if importMessage}<p class="ok">{importMessage}</p>{/if}
           {#if importError}<p class="bad">{importError}</p>{/if}
         </section>
@@ -713,6 +892,20 @@
         <section class="panel">
           <div class="logs-toolbar">
             <h4>{t('logs.title')}</h4>
+            <label class="logs-filter">
+              {t('logs.code')}
+              <select bind:value={logsCode}>
+                <option value="">{t('common.all')}</option>
+                {#each logsCodes as c (c)}
+                  <option value={c}>{c}</option>
+                {/each}
+              </select>
+            </label>
+            {#if retentionDominant || hideRetention}
+              <button type="button" class="mini" onclick={() => (hideRetention = !hideRetention)}>
+                {hideRetention ? t('logs.showRetention') : t('logs.hideRetention')}
+              </button>
+            {/if}
             <span class="logs-spacer"></span>
             <label class="logs-auto">
               <input
@@ -730,9 +923,9 @@
           {#if logsError}
             <p class="bad">{logsError}</p>
           {/if}
-          {#if logsLoading && logs.length === 0}
+          {#if logsLoading && displayLogs.length === 0}
             <p class="hint">{t('common.loading')}</p>
-          {:else if logs.length === 0 && !logsError}
+          {:else if displayLogs.length === 0 && !logsError}
             <p class="hint">{t('logs.empty')}</p>
           {:else}
             <div class="logs-table-wrap">
@@ -747,7 +940,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  {#each logs as row, i (i)}
+                  {#each displayLogs as row, i (i)}
                     <tr>
                       <td class="mono nowrap">{fmtLogTime(row.time)}</td>
                       <td class="mono">{row.code}</td>
@@ -772,10 +965,6 @@
       {/if}
     </div>
   </div>
-
-  <datalist id="tz-list">
-    {#each TIMEZONES as z (z)}<option value="z"></option>{/each}
-  </datalist>
 
   {#if clearAllOpen}
     <div class="overlay">
@@ -812,7 +1001,7 @@
     flex-direction: column;
     gap: 2px;
     padding: 8px 0;
-    border-right: 1px solid #e3e5e8;
+    border-right: 1px solid var(--border);
     position: sticky;
     top: 0;
   }
@@ -824,14 +1013,14 @@
     cursor: pointer;
     font-size: 13px;
     text-align: left;
-    color: #444;
+    color: var(--text-secondary);
   }
   .sidebar button:hover {
-    background: #f0f2f5;
+    background: var(--bg-hover);
   }
   .sidebar button.active {
-    background: #e8f0fe;
-    color: #1a56c4;
+    background: var(--bg-nav-active);
+    color: var(--accent);
     font-weight: 600;
   }
   .content {
@@ -842,14 +1031,14 @@
     padding: 4px 0 10px;
   }
   .panel + .panel {
-    border-top: 1px solid #f0f1f3;
+    border-top: 1px solid var(--border-light);
     margin-top: 6px;
     padding-top: 10px;
   }
   .panel h4 {
     font-size: 13px;
     margin: 2px 0 8px;
-    color: #333;
+    color: var(--text-heading);
   }
   /* 紧凑表单行：行距 10px、标签 140px 右对齐。 */
   .frow {
@@ -862,12 +1051,38 @@
   .frow.top {
     align-items: flex-start;
   }
+  .theme-seg {
+    display: inline-flex;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .theme-seg button {
+    padding: 5px 14px;
+    font-size: 13px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .theme-seg button + button {
+    border-left: 1px solid var(--border);
+  }
+  .theme-seg button.active {
+    background: var(--accent);
+    color: var(--accent-text);
+    font-weight: 500;
+  }
+  .theme-seg button:not(.active):hover {
+    background: var(--bg-hover);
+  }
   .flabel {
     flex: none;
     width: 140px;
     text-align: right;
     font-size: 12.5px;
-    color: #444;
+    color: var(--text-secondary);
   }
   .fvalue {
     display: flex;
@@ -892,16 +1107,16 @@
   }
   .note {
     font-size: 12px;
-    color: #888;
+    color: var(--text-muted);
     margin: 2px 0 0 150px;
   }
   .hint {
     font-size: 12px;
-    color: #888;
+    color: var(--text-muted);
   }
   .name {
     font-size: 12.5px;
-    color: #333;
+    color: var(--text);
   }
   .stats {
     display: flex;
@@ -913,19 +1128,19 @@
     display: inline-flex;
     align-items: baseline;
     gap: 6px;
-    background: #f7f8fa;
-    border: 1px solid #e6e8eb;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
     border-radius: 8px;
     padding: 5px 10px;
     font-size: 12px;
   }
   .chip .k {
-    color: #666;
+    color: var(--text-secondary);
   }
   .chip .v {
     font-weight: 600;
     font-variant-numeric: tabular-nums;
-    color: #1c1e21;
+    color: var(--text);
   }
   .tier {
     display: grid;
@@ -934,7 +1149,7 @@
     align-items: center;
     padding: 5px 0;
     margin-bottom: 5px;
-    border-bottom: 1px solid #f5f6f7;
+    border-bottom: 1px solid var(--border-light);
   }
   .tier .name {
     text-align: right;
@@ -945,7 +1160,7 @@
   }
   .unit {
     font-size: 12px;
-    color: #666;
+    color: var(--text-secondary);
   }
   .days {
     width: 90px !important;
@@ -953,7 +1168,7 @@
   }
   .warning {
     font-size: 12px;
-    color: #8a6d1a;
+    color: var(--warning);
     margin: 8px 0 0;
   }
   .sysrow {
@@ -962,7 +1177,7 @@
     align-items: center;
     gap: 16px;
     padding: 8px 0;
-    border-bottom: 1px solid #f0f1f3;
+    border-bottom: 1px solid var(--border-light);
   }
   .sysinfo {
     display: flex;
@@ -971,12 +1186,12 @@
   }
   .sysinfo .name {
     font-size: 13px;
-    color: #333;
+    color: var(--text);
   }
   .switch {
     width: 16px;
     height: 16px;
-    accent-color: #1a56c4;
+    accent-color: var(--accent);
     cursor: pointer;
   }
   .meta {
@@ -984,18 +1199,93 @@
     grid-template-columns: max-content 1fr;
     gap: 6px 12px;
     font-size: 12.5px;
-    background: #f7f8fa;
+    background: var(--bg-code);
     border-radius: 8px;
     padding: 10px 14px;
     align-items: center;
   }
   .meta dt {
-    color: #666;
+    color: var(--text-secondary);
   }
   .mono {
     font-family: ui-monospace, monospace;
     font-size: 12px;
     overflow-wrap: anywhere;
+  }
+  /* 时区选择：伪 select 按钮 + 点击展开的搜索覆盖层（absolute，点击外部关闭）。 */
+  .tz-picker {
+    position: relative;
+    width: 240px;
+  }
+  .tz-select {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 4px 8px;
+    font-size: 12.5px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .tz-select:hover {
+    border-color: var(--accent);
+  }
+  .tz-caret {
+    color: var(--text-muted);
+    font-size: 10px;
+  }
+  .tz-overlay {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    width: 280px;
+    background: var(--bg-modal);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(16, 24, 40, 0.14);
+    z-index: 60;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .tz-overlay .tz-search {
+    width: 100%;
+  }
+  .tz-list {
+    max-height: 240px;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .tz-option {
+    text-align: left;
+    border: none;
+    background: transparent;
+    padding: 4px 8px;
+    font-size: 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: ui-monospace, monospace;
+    color: var(--text);
+  }
+  .tz-option:hover {
+    background: var(--bg-hover);
+  }
+  .tz-option.active {
+    background: var(--accent-bg);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .tz-empty {
+    margin: 0;
+    padding: 6px 8px;
+    font-size: 12px;
+    color: var(--text-muted);
   }
   .export {
     display: flex;
@@ -1016,18 +1306,32 @@
   .logs-spacer {
     flex: 1;
   }
+  /* code 过滤下拉（“全部” + DISTINCT code 选项）。 */
+  .logs-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+  }
+  .logs-filter select {
+    padding: 3px 6px;
+    font-size: 12px;
+    font-family: ui-monospace, monospace;
+    max-width: 220px;
+  }
   .logs-auto {
     display: inline-flex;
     align-items: center;
     gap: 6px;
     font-size: 12.5px;
-    color: #444;
+    color: var(--text-secondary);
     cursor: pointer;
   }
   .logs-table-wrap {
     max-height: 440px;
     overflow: auto;
-    border: 1px solid #eceef1;
+    border: 1px solid var(--border);
     border-radius: 8px;
   }
   .logs-table {
@@ -1039,14 +1343,14 @@
   .logs-table td {
     text-align: left;
     padding: 4px 10px;
-    border-bottom: 1px solid #f2f3f5;
+    border-bottom: 1px solid var(--border-light);
     vertical-align: top;
   }
   .logs-table th {
     position: sticky;
     top: 0;
-    background: #f7f8fa;
-    color: #666;
+    background: var(--bg-code);
+    color: var(--text-secondary);
     font-weight: 600;
     white-space: nowrap;
   }
@@ -1065,22 +1369,71 @@
     overflow-wrap: anywhere;
     min-width: 220px;
   }
-  /* 导出过滤下拉（任务 G）：用户/主机并排。 */
+  /* 导出范围（任务 G + 多选改造）：用户/主机两组 checkbox（每组带“全选”）。 */
   .export-filters {
     display: flex;
-    gap: 14px;
+    gap: 24px;
     flex-wrap: wrap;
-    margin-bottom: 10px;
+    margin-bottom: 6px;
   }
-  .efilter {
+  .escope {
+    min-width: 220px;
+    max-width: 340px;
+    flex: 1;
+  }
+  .escope-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .escope-title {
+    font-size: 12.5px;
+    color: var(--text);
+    font-weight: 600;
+  }
+  button.mini {
+    border: 1px solid var(--border);
+    background: var(--bg-input);
+    border-radius: 6px;
+    padding: 2px 10px;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  button.mini:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .echecks {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: 180px;
+    overflow: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 10px;
+  }
+  .echeck {
     display: flex;
     align-items: center;
     gap: 6px;
     font-size: 12.5px;
-    color: #444;
+    color: var(--text);
+    cursor: pointer;
   }
-  .efilter select {
-    min-width: 180px;
+  .echeck input {
+    accent-color: var(--accent);
+    margin: 0;
+  }
+  .echeck .ename {
+    overflow-wrap: anywhere;
+  }
+  .echeck .etag {
+    color: var(--text-muted);
+    font-size: 12px;
+    white-space: nowrap;
   }
   button {
     padding: 5px 14px;
@@ -1088,19 +1441,20 @@
     font-size: 12.5px;
   }
   button.primary {
-    background: #1a56c4;
-    color: #fff;
+    background: var(--accent);
+    color: var(--accent-text);
     border: none;
     border-radius: 6px;
   }
   button.primary:disabled {
-    background: #9db8e8;
+    background: var(--accent);
+    opacity: 0.55;
     cursor: wait;
   }
   button.danger {
-    color: #b3261e;
-    border: 1px solid #e3b4b0;
-    background: #fff;
+    color: var(--danger);
+    border: 1px solid var(--danger);
+    background: var(--bg-input);
     border-radius: 6px;
   }
   button.danger:disabled {
@@ -1109,9 +1463,9 @@
   }
   /* 危险操作的实心红样式（清理全部数据）。 */
   button.danger.solid {
-    background: #b3261e;
-    color: #fff;
-    border-color: #b3261e;
+    background: var(--danger);
+    color: var(--accent-text);
+    border-color: var(--danger);
   }
   .clear-all-row {
     display: flex;
@@ -1130,15 +1484,16 @@
     z-index: 100;
   }
   .dialog {
-    background: #fff;
+    background: var(--bg-modal);
     border-radius: 10px;
     padding: 18px 20px;
     max-width: 480px;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
   }
   .dialog-text {
     font-size: 13px;
-    color: #333;
+    color: var(--text);
     margin: 0;
   }
   .dialog-actions {
@@ -1154,11 +1509,11 @@
     padding-top: 8px;
   }
   .ok {
-    color: #1e7a3c;
+    color: var(--success);
     font-size: 12.5px;
   }
   .bad {
-    color: #b3261e;
+    color: var(--danger);
     font-size: 12.5px;
   }
   .ok, .bad {
@@ -1171,7 +1526,7 @@
     .sidebar {
       flex-direction: row;
       border-right: none;
-      border-bottom: 1px solid #e3e5e8;
+      border-bottom: 1px solid var(--border);
       flex-wrap: wrap;
     }
     /* 窄屏退化为常规堆叠，避免 140px 标签挤压输入。 */

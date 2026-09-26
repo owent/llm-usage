@@ -1,26 +1,30 @@
 <script lang="ts">
   /**
    * token 趋势图（任务 C5）：四个子图（tab 切换）——
-   * 总 token / 输入 token（缓存命中 + 未命中缓存堆叠）/ 输出 token / 缓存命中率%；
+   * 总 token / 输入 token（缓存命中 + 未命中缓存堆叠面积）/ 输出 token / 缓存命中率%；
+   * token 相关子图全部为平滑曲线（任务：曲线替代柱状；输入为堆叠面积图）；
    * y 轴 fmtSmart 缩放、tooltip 精确值（任务 B3）；
    * 面板底部带平均耗时/总耗时文字摘要（任务 C6）。
    * 分组维度（2026-09-26）：总用量/按模型/按Agent/按Agent+模型；分组数据经
-   * chart_series 命令从聚合表直读，各分组按子图分别渲染（输入=命中+未命中堆叠、
-   * 命中率=cache_read/input 折线），legend 显示分组名、tooltip 按系列显示。
-   * 布局修复：grid.right ≥ 80 给右侧留位，legend 左对齐可滚动。
+   * chart_series 命令从聚合表直读，各分组按子图分别渲染（输入=命中+未命中堆叠
+   * 面积、命中率=cache_read/input 折线），legend 显示分组名、tooltip 按系列显示；
+   * 维度选择为分段按钮组（DimensionPicker，非下拉）。
+   * 布局修复：grid.left ≥ 70 + containLabel 给 y 轴标签/轴名留位，legend 顶部
+   * 居中（top 0 + left center），不再与左上 y 轴名重叠。
    */
   import { onMount } from 'svelte';
   import * as echarts from 'echarts/core';
-  import { BarChart, LineChart } from 'echarts/charts';
-  import type { BarSeriesOption, LineSeriesOption } from 'echarts/charts';
-  import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components';
+  import { LineChart } from 'echarts/charts';
+  import type { LineSeriesOption } from 'echarts/charts';
+  import { DataZoomComponent, GridComponent, LegendComponent, TooltipComponent } from 'echarts/components';
   import { CanvasRenderer } from 'echarts/renderers';
   import { api, parseError } from '../lib/api';
   import type { ChartDimension, PeriodDto, SummaryQuery } from '../lib/api';
   import { t, i18n, fmtSmart, fmtPrecise, fmtPercent, fmtDurationShort } from '../lib/i18n.svelte';
   import { durationStatsOf, pivotChartSeries, type ChartGroupData } from '../lib/derive';
+  import DimensionPicker from './DimensionPicker.svelte';
 
-  echarts.use([BarChart, LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);
+  echarts.use([LineChart, GridComponent, LegendComponent, TooltipComponent, DataZoomComponent, CanvasRenderer]);
 
   type TokenSub = 'total' | 'input' | 'output' | 'ratio';
 
@@ -28,11 +32,14 @@
     periods,
     query,
     granularity,
+    isDark = false,
   }: {
     periods: PeriodDto[];
     /** 当前查询（chart_series 分组数据用；随筛选/范围变化重新拉取）。 */
     query: SummaryQuery;
     granularity: 'hour' | 'day' | 'week' | 'month';
+    /** 深色主题（父级传入；变化时重绘轴/legend 文字与分隔线）。 */
+    isDark?: boolean;
   } = $props();
 
   let sub = $state<TokenSub>('total');
@@ -44,6 +51,10 @@
   let chart: echarts.ECharts | null = null;
 
   const duration = $derived(durationStatsOf(periods));
+
+  /** 主题感知色：全局文字（axis/legend 继承）与 y 轴分隔线。 */
+  const chartText = $derived(isDark ? '#aaa' : '#555');
+  const splitColor = $derived(isDark ? '#3a3b3f' : '#e0e0e0');
 
   const PALETTE = [
     '#1a56c4', '#3f8f5f', '#c9a227', '#b3601e', '#7a5fb0',
@@ -58,16 +69,6 @@
         ['output', t('trend.metric.output')],
         ['ratio', t('trend.metric.ratio')],
       ] as [TokenSub, string][]
-  );
-
-  const dimensionOptions = $derived.by(
-    () =>
-      [
-        ['total', t('chart.dimension.total')],
-        ['model', t('chart.dimension.model')],
-        ['agent', t('chart.dimension.agent')],
-        ['agent_model', t('chart.dimension.agentModel')],
-      ] as [ChartDimension, string][]
   );
 
   // 分组数据：dimension/query 变化时经 chart_series 拉取；失败时保底显示错误文案。
@@ -104,6 +105,7 @@
     const base = {
       tooltip: {
         trigger: 'axis',
+        hideDelay: 999999, transitionDuration: 0,
         formatter: (params: { dataIndex: number }[]) => {
           const p = periods[params[0]?.dataIndex ?? 0];
           if (!p) return '';
@@ -128,7 +130,8 @@
           return lines.join('<br/>');
         },
       },
-      grid: { left: 64, right: 80, top: 40, bottom: 44 },
+      grid: { left: 70, right: 80, top: 48, bottom: 44, containLabel: true },
+      textStyle: { color: chartText },
       xAxis: { type: 'category', data: labels },
       dataZoom: granularity === 'hour' || granularity === 'day' ? [{ type: 'inside' }] : [],
     };
@@ -140,7 +143,10 @@
           yAxis: {
             type: 'value',
             name: t('trend.metric.ratio'),
+            nameGap: 14,
+            nameTextStyle: { align: 'left' },
             axisLabel: { formatter: (v: number) => `${v}%` },
+            splitLine: { lineStyle: { color: splitColor } },
           },
           series: [
             {
@@ -163,30 +169,40 @@
     }
 
     if (sub === 'input') {
+      // 输入 token：缓存命中（底）+ 未命中（上）堆叠面积图。
       chart.setOption(
         {
           ...base,
-          legend: { top: 0, left: 8, type: 'scroll', itemWidth: 12, itemHeight: 8, textStyle: { fontSize: 11 } },
+          legend: { top: 0, left: 'center', type: 'scroll', itemWidth: 12, itemHeight: 8, textStyle: { fontSize: 11 } },
           yAxis: {
             type: 'value',
             name: t('trend.metric.input'),
+            nameGap: 14,
+            nameTextStyle: { align: 'left' },
             axisLabel: { formatter: (v: number) => fmtSmart(v) },
+            splitLine: { lineStyle: { color: splitColor } },
           },
           series: [
             {
-              type: 'bar',
+              type: 'line',
               name: t('cards.cacheRead'),
               stack: 'input',
-              barMaxWidth: 26,
+              smooth: true,
+              symbol: 'none',
+              lineStyle: { width: 1.5 },
               itemStyle: { color: '#7aa5e8' },
+              areaStyle: { opacity: 0.45 },
               data: periods.map((p) => Number(p.sums.cache_read_known ?? 0)),
             },
             {
-              type: 'bar',
+              type: 'line',
               name: t('cards.cacheMiss'),
               stack: 'input',
-              barMaxWidth: 26,
+              smooth: true,
+              symbol: 'none',
+              lineStyle: { width: 1.5 },
               itemStyle: { color: '#1a56c4' },
+              areaStyle: { opacity: 0.35 },
               data: periods.map((p) => Number(p.sums.uncached_known ?? 0)),
             },
           ],
@@ -203,13 +219,18 @@
         yAxis: {
           type: 'value',
           name: sub === 'output' ? t('trend.metric.output') : t('trend.metric.total'),
+          nameGap: 14,
+          nameTextStyle: { align: 'left' },
           axisLabel: { formatter: (v: number) => fmtSmart(v) },
+          splitLine: { lineStyle: { color: splitColor } },
         },
         series: [
           {
-            type: 'bar',
+            type: 'line',
             name: sub === 'output' ? t('trend.metric.output') : t('trend.metric.total'),
-            barMaxWidth: 26,
+            smooth: true,
+            symbolSize: 3,
+            lineStyle: { width: 2 },
             itemStyle: { color: sub === 'output' ? '#3f8f5f' : '#1a56c4' },
             data: periods.map((p) =>
               metric === 'output'
@@ -245,9 +266,10 @@
       return;
     }
     const base = {
-      tooltip: { trigger: 'axis', formatter: groupedTooltip(g) },
-      legend: { top: 0, left: 8, type: 'scroll', itemWidth: 12, itemHeight: 8, textStyle: { fontSize: 11 } },
-      grid: { left: 64, right: 80, top: 40, bottom: 44 },
+      tooltip: { trigger: 'axis', hideDelay: 999999, transitionDuration: 0, formatter: groupedTooltip(g) },
+      legend: { top: 0, left: 'center', type: 'scroll', itemWidth: 12, itemHeight: 8, textStyle: { fontSize: 11 } },
+      textStyle: { color: chartText },
+      grid: { left: 70, right: 80, top: 48, bottom: 44, containLabel: true },
       xAxis: { type: 'category', data: g.labels },
       dataZoom: [{ type: 'inside' }],
       color: PALETTE,
@@ -260,7 +282,10 @@
           yAxis: {
             type: 'value',
             name: t('trend.metric.ratio'),
+            nameGap: 14,
+            nameTextStyle: { align: 'left' },
             axisLabel: { formatter: (v: number) => `${v}%` },
+            splitLine: { lineStyle: { color: splitColor } },
           },
           series: g.names.map(
             (name): LineSeriesOption => ({
@@ -283,24 +308,30 @@
     }
 
     if (sub === 'input') {
-      // 每个分组两根堆叠柱：缓存命中（浅色）+ 未命中（input - cache_read，深色）。
-      const series: BarSeriesOption[] = [];
+      // 每个分组两层堆叠面积：缓存命中（浅色，底）+ 未命中（input - cache_read，上）。
+      const series: LineSeriesOption[] = [];
       g.names.forEach((name, i) => {
         const color = PALETTE[i % PALETTE.length];
         series.push({
-          type: 'bar',
+          type: 'line',
           name: `${name} · ${t('cards.cacheRead')}`,
-          stack: name,
-          barMaxWidth: 26,
+          stack: `input-${name}`,
+          smooth: true,
+          symbol: 'none',
+          lineStyle: { width: 1.5 },
           itemStyle: { color, opacity: 0.55 },
+          areaStyle: { color, opacity: 0.45 },
           data: g.labels.map((label) => g.cell(name, label)?.cacheRead ?? 0),
         });
         series.push({
-          type: 'bar',
+          type: 'line',
           name: `${name} · ${t('cards.cacheMiss')}`,
-          stack: name,
-          barMaxWidth: 26,
+          stack: `input-${name}`,
+          smooth: true,
+          symbol: 'none',
+          lineStyle: { width: 1.5 },
           itemStyle: { color },
+          areaStyle: { color, opacity: 0.3 },
           data: g.labels.map((label) => {
             const c = g.cell(name, label);
             if (!c || c.input === null) return 0;
@@ -314,7 +345,10 @@
           yAxis: {
             type: 'value',
             name: t('trend.metric.input'),
+            nameGap: 14,
+            nameTextStyle: { align: 'left' },
             axisLabel: { formatter: (v: number) => fmtSmart(v) },
+            splitLine: { lineStyle: { color: splitColor } },
           },
           series,
         },
@@ -330,13 +364,18 @@
         yAxis: {
           type: 'value',
           name: sub === 'output' ? t('trend.metric.output') : t('trend.metric.total'),
+          nameGap: 14,
+          nameTextStyle: { align: 'left' },
           axisLabel: { formatter: (v: number) => fmtSmart(v) },
+          splitLine: { lineStyle: { color: splitColor } },
         },
         series: g.names.map(
-          (name): BarSeriesOption => ({
-            type: 'bar',
+          (name): LineSeriesOption => ({
+            type: 'line',
             name,
-            barMaxWidth: 26,
+            smooth: true,
+            symbolSize: 3,
+            lineStyle: { width: 1.5 },
             data: g.labels.map((label) => (g.cell(name, label)?.[metric] as number | null) ?? 0),
           })
         ),
@@ -360,7 +399,12 @@
 
   onMount(() => {
     chart = echarts.init(el, i18n.locale === 'zh-CN' ? 'ZH' : 'EN');
-    render();
+
+      // Tooltip 持续显示：hideDelay 999999 防止自动隐藏；
+      // 鼠标离开图表时立即手动隐藏（globalout 事件）。
+      chart?.on('globalout', () => {
+        chart?.dispatchAction({ type: 'hideTip' });
+      });    render();
     const onResize = () => chart?.resize();
     window.addEventListener('resize', onResize);
     // 面板显示/隐藏或网格变化时容器尺寸变化（含 display:none 恢复），自动重设画布。
@@ -381,18 +425,13 @@
     void dimension;
     void grouped;
     void i18n.locale;
+    void isDark;
     render();
   });
 </script>
 
 <div class="dim-row">
-  <label>{t('chart.dimension.label')}
-    <select bind:value={dimension}>
-      {#each dimensionOptions as [id, label] (id)}
-        <option value={id}>{label}</option>
-      {/each}
-    </select>
-  </label>
+  <DimensionPicker value={dimension} onselect={(v) => (dimension = v)} />
   {#if groupedError}
     <span class="dim-error">{t('chart.loadFailed', { message: groupedError })}</span>
   {/if}
@@ -411,7 +450,7 @@
 </p>
 
 <style>
-  /* 分组维度选择行（面板顶部，位于子图切换之上）。 */
+  /* 分组维度选择行（面板顶部，位于子图切换之上；维度为分段按钮组）。 */
   .dim-row {
     display: flex;
     align-items: center;
@@ -420,18 +459,8 @@
     flex-wrap: wrap;
     font-size: 12.5px;
   }
-  .dim-row label {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    color: #444;
-  }
-  .dim-row select {
-    padding: 2px 4px;
-    font-size: 12.5px;
-  }
   .dim-error {
-    color: #b3261e;
+    color: var(--danger);
     font-size: 12px;
     overflow-wrap: anywhere;
   }
@@ -442,18 +471,18 @@
     flex-wrap: wrap;
   }
   .token-tabs button {
-    border: 1px solid #dcdfe3;
-    background: #fff;
+    border: 1px solid var(--border);
+    background: var(--bg-input);
     border-radius: 6px;
     padding: 3px 12px;
     cursor: pointer;
     font-size: 12.5px;
-    color: #444;
+    color: var(--text-secondary);
   }
   .token-tabs button.active {
-    background: #e8f0fe;
-    color: #1a56c4;
-    border-color: #9db8e8;
+    background: var(--accent-bg);
+    color: var(--accent);
+    border-color: var(--accent);
     font-weight: 600;
   }
   .token-chart {
@@ -464,7 +493,7 @@
   .dur-summary {
     margin: 2px 0 0;
     font-size: 12px;
-    color: #777;
+    color: var(--text-muted);
     font-variant-numeric: tabular-nums;
   }
 </style>

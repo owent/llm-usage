@@ -207,6 +207,33 @@ core 新增公开 API：`Storage::open_readonly`、`ingest::recompute_days_in_tz
 - 旧迁移相关测试（migration_v16/review_regressions/multi_user_import/v28）
   重写为简化版：建库/幂等/PRAGMA/版本不匹配拒绝。
 
+## 第六轮修复（2026-09-26 用户反馈）
+
+- **kimi-code 兼容残留清零**：注册表更新后 active_compat 文件的游标已推进，
+  unchanged 短路跳过重新检测——`run_refresh` 开头主动清除 active_compat
+  文件的游标与状态（重扫幂等，事件去重保证不双计）。实测 2→0。
+- **窗口大小自适应**：`setup` 回调读主显示器分辨率，窗口取 72%×78%
+  （clamp 900–1600 × 600–1000）。
+- **前端**（子代理）：筛选器移到历史趋势面板、时区纯下拉、导出多选
+  checkbox、图表 legend/轴间距修复、维度分段选择器（非下拉）、token
+  曲线图（非柱状）、面板 resize 把手、详情页 loading 骨架。
+
+## 第七轮修复（2026-09-26 用户反馈）
+
+- **操作日志**：settings_changed / import_completed / export_completed /
+  manual_cleanup / clear_all_data / scan_completed 写入诊断表（白名单消息）；
+  `diagnostic_logs` 增加 code_filter 参数；前端日志 Tab 加 code 过滤下拉。
+- 后端同时：kimi-code active_compat 重扫（run_refresh 开头清除游标与状态）。
+
+## 第八轮（2026-09-26 用户需求）
+
+- **tooltip 修正**：上一轮 hideDelay:3000 是错误方向（离开后残留 3 秒）。
+  改为 `hideDelay: 0, showDelay: 0`（hover 立即显示，离开立即消失；
+  axis trigger 模式下鼠标在图表内持续显示）。
+- **主题系统**：AppSettings 加 theme 字段（system/light/dark）；
+  themes.css 定义 CSS 变量三套（data-theme 属性切换 + prefers-color-scheme
+  media query）；设置页主题下拉；全局样式/组件卡片/图表 ECharts 主题感知。
+
 ## 未完成项（显式遗留）
 
 | 项 | 状态 | 后续 |

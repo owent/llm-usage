@@ -21,6 +21,8 @@ export interface AppSettings {
   retention: RetentionTiers;
   refresh_interval_secs: number;
   language: string;
+  /** 主题：system（跟随系统）/ light / dark。 */
+  theme: string;
   manual_roots: string[];
   /** 本机来源身份显示名（仅辨认用途，不改 host_id 键）。 */
   hostname_alias: string | null;
@@ -287,7 +289,9 @@ export const api = {
     invoke<EventDetailsDto>('event_details', { q, page, pageSize }),
   chartSeries: (q: SummaryQuery, dimension: ChartDimension) =>
     invoke<ChartSeriesDto>('chart_series', { q, dimension }),
-  diagnosticLogs: (limit: number) => invoke<DiagnosticLogsDto>('diagnostic_logs', { limit }),
+  /** 诊断日志（code_filter 为 null = 全部；传 code 字符串只取该类）。 */
+  diagnosticLogs: (limit: number, codeFilter: string | null = null) =>
+    invoke<DiagnosticLogsDto>('diagnostic_logs', { limit, codeFilter }),
   exportFilterOptions: () => invoke<ExportFilterOptionsDto>('export_filter_options'),
   pickSavePath: (defaultName: string) =>
     invoke<string | null>('pick_save_path', { defaultName }),

@@ -112,11 +112,11 @@
   td {
     text-align: left;
     padding: 4px 6px;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--border-light);
     white-space: nowrap;
   }
   th {
-    color: #666;
+    color: var(--text-secondary);
     font-weight: 500;
   }
   .num {
@@ -124,7 +124,7 @@
     font-variant-numeric: tabular-nums;
   }
   .note-row td {
-    color: #8a6d1a;
+    color: var(--warning);
     font-size: 12px;
   }
 </style>

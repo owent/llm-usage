@@ -30,6 +30,14 @@ fn user_instances(storage: &llm_usage_core::storage::Storage, user_id: &str) -> 
         .unwrap_or_default()
 }
 
+/// 写操作日志到诊断表（白名单 code，无正文）。
+fn log_operation(storage: &llm_usage_core::storage::Storage, code: &str, message: &str) {
+    let _ = storage.conn().execute(
+        "INSERT INTO diagnostics (code, message, created_ms) VALUES (?1, ?2, ?3)",
+        rusqlite::params![code, message, crate::scanner::now_ms()],
+    );
+}
+
 fn err(code: &str, message: impl Into<String>) -> String {
     serde_json::json!({ "code": code, "message": message.into() }).to_string()
 }
@@ -514,6 +522,10 @@ pub fn set_settings(
             crate::app_state::repair_tz_partitions(&storage, &settings.timezone);
         }
     }
+    {
+        let storage = state.storage.lock().unwrap();
+        log_operation(&storage, "settings_changed", "user settings updated");
+    }
     *state.settings.lock().unwrap() = settings;
     Ok(())
 }
@@ -617,6 +629,14 @@ pub fn export_data(
                 .map_err(|e| err("io", e.to_string()))?;
             }
             w.flush().map_err(|e| err("io", e.to_string()))?;
+            {
+                let writer = state.storage.lock().unwrap();
+                log_operation(
+                    &writer,
+                    "export_completed",
+                    &format!("exported {kind} to {path:?}"),
+                );
+            }
             Ok(serde_json::json!({ "path": path.to_string_lossy(), "kind": kind }))
         }
         "exchange" => {
@@ -878,6 +898,14 @@ pub fn manual_cleanup(
         },
     )
     .map_err(|e| err("cleanup", e.to_string()))?;
+    log_operation(
+        &storage,
+        "manual_cleanup",
+        &format!(
+            "cleaned data older than {days_before} days: {} events, {} daily rows pruned",
+            outcome.deleted_events, outcome.deleted_daily_rows
+        ),
+    );
     Ok(serde_json::json!({
         "deleted_events": outcome.deleted_events,
         "deleted_hourly_rows": outcome.deleted_hourly_rows,
@@ -931,6 +959,11 @@ pub fn clear_all_data(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_js
         llm_usage_core::storage::Storage::bump_data_revision_tx(&tx, crate::scanner::now_ms())
             .map_err(|e| err("db", e.to_string()))?;
     tx.commit().map_err(|e| err("db", e.to_string()))?;
+    log_operation(
+        &storage,
+        "clear_all_data",
+        "all statistics cleared; full rescan will trigger",
+    );
     Ok(serde_json::json!({ "cleared": cleared, "data_revision": revision }))
 }
 
@@ -1080,10 +1113,15 @@ pub fn chart_series(
 pub fn diagnostic_logs(
     state: tauri::State<'_, Arc<AppState>>,
     limit: i64,
+    code_filter: Option<String>,
 ) -> Result<serde_json::Value, String> {
     let storage = crate::app_state::read_conn(&state);
-    let rows = llm_usage_core::query::diagnostic_logs(&storage, limit.clamp(1, 500))
-        .map_err(|e| err("query", e.to_string()))?;
+    let rows = llm_usage_core::query::diagnostic_logs(
+        &storage,
+        limit.clamp(1, 500),
+        code_filter.as_deref(),
+    )
+    .map_err(|e| err("query", e.to_string()))?;
     Ok(serde_json::json!({
         "rows": rows.iter().map(|r| serde_json::json!({
             "time": r.created_ms,

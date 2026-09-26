@@ -1321,12 +1321,30 @@ pub struct DiagnosticLogRow {
 }
 
 /// 查询最近诊断日志（按时间倒序，限量；白名单字段无正文）。
-pub fn diagnostic_logs(storage: &Storage, limit: i64) -> Result<Vec<DiagnosticLogRow>, CoreError> {
-    let mut stmt = storage.conn().prepare(
-        "SELECT created_ms, code, field, instance_id, message
-         FROM diagnostics ORDER BY created_ms DESC LIMIT ?1",
-    )?;
-    let rows = stmt.query_map(params![limit], |r| {
+pub fn diagnostic_logs(
+    storage: &Storage,
+    limit: i64,
+    code_filter: Option<&str>,
+) -> Result<Vec<DiagnosticLogRow>, CoreError> {
+    let (sql, values): (String, Vec<rusqlite::types::Value>) = match code_filter {
+        Some(code) => (
+            "SELECT created_ms, code, field, instance_id, message
+             FROM diagnostics WHERE code = ?1 ORDER BY created_ms DESC LIMIT ?2"
+                .to_string(),
+            vec![
+                rusqlite::types::Value::Text(code.to_string()),
+                rusqlite::types::Value::Integer(limit),
+            ],
+        ),
+        None => (
+            "SELECT created_ms, code, field, instance_id, message
+             FROM diagnostics ORDER BY created_ms DESC LIMIT ?1"
+                .to_string(),
+            vec![rusqlite::types::Value::Integer(limit)],
+        ),
+    };
+    let mut stmt = storage.conn().prepare(&sql)?;
+    let rows = stmt.query_map(rusqlite::params_from_iter(values), |r| {
         Ok(DiagnosticLogRow {
             created_ms: r.get(0)?,
             code: r.get(1)?,

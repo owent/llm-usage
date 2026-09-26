@@ -46,12 +46,19 @@ pub struct AppSettings {
     #[serde(default = "default_refresh_interval")]
     pub refresh_interval_secs: u64,
     pub language: String,
+    /// 主题：system（跟随系统）/ light / dark。
+    #[serde(default = "default_theme")]
+    pub theme: String,
     /// 手工添加的数据源根目录。
     #[serde(default)]
     pub manual_roots: Vec<String>,
     /// 本机来源身份显示名（仅辨认用途，不改 host_id 键）。
     #[serde(default)]
     pub hostname_alias: Option<String>,
+}
+
+fn default_theme() -> String {
+    "system".to_string()
 }
 
 fn default_refresh_interval() -> u64 {
@@ -66,6 +73,7 @@ impl Default for AppSettings {
             retention: RetentionTiers::default(),
             refresh_interval_secs: default_refresh_interval(),
             language: "zh-CN".to_string(),
+            theme: default_theme(),
             manual_roots: Vec::new(),
             hostname_alias: None,
         }
