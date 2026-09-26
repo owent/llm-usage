@@ -1,4 +1,4 @@
-# M3（部分）：Cline、DSH、Hermes、OpenClaw 文档级证据适配器
+# M3：Cline、DSH、Hermes、OpenClaw、OpenCode 家族文档级证据适配器
 
 本机未安装四个产品（2026-09-25 盘点 not_found，`~/.cline` 等候选路径不存在；
 real_verify 四例 discovered_roots=0 为证据）。按用户指示以固定源码/官方文档
@@ -74,16 +74,34 @@ real_verify 入口复验）。适配器与 fixtures 均明确标注文档级证�
 | cline 内联测试 | "request" 未入已知键集合；map_cost 不拒负值 | 补键集合 + 非有限/负值拒绝（口径与 parse 一致） |
 | hermes_contract | 元组类型第 4 位误标不可空；evidence_level 断言过严 | 改可空类型；前缀断言 |
 
+### OpenCode / MiMo Code / Zoo Code（2026-09-26 第二批，A17/A14/A19）
+
+- **OpenCode**（固定源码 0027387）：逐次数据可得——part 表 `data.type="step-finish"`
+  部件携带 tokens{input(未缓存),output,reasoning,cache{read,write}}+cost；语义经
+  projector/publish-llm-event 逐字证实（inclusive inputTokens=in+cr+cw、
+  total=五字段和）；session.tokens_* 仅对账（本实现 matched）；message.data
+  turn 聚合不读防双计；逐调用精确时间/模型切换序待 event 层（observed_at 口径）。
+- **MiMo Code**（456678b）：与 OpenCode 同形；`message.agent_id` 互斥指纹；
+  session 无累计列；MIMOCODE_HOME/data 路径；不从 fork 推兼容（双向 fail closed）。
+- **Zoo Code**（f780647）：Roo 血统整写 ui_messages.json；LIFO 配对合并
+  （finish 覆盖 start、无配对丢弃）；condense_context.cost 计上游 totalCost
+  （辅助调用、token 未知）；**tokensIn 含缓存**（与 opencode 家族相反）。
+- 家族共享模块 `adapters/opencode_family.rs`（OpenCode+MiMo 共享 step-finish
+  扫描核心，产品身份注入）；合同测试 16 个 + 模块单测 12 个绿。
+- **跨产品碰撞发现与修复**：kilo 数据目录存在同形 `opencode-rc.db`，首版
+  discover 曾误识别为 OpenCode 库（14 事件对账 matched 证实同形）；修复为按
+  数据目录名收敛（仅 opencode/mimocode 目录或 MIMOCODE_HOME data 直接子级），
+  修复后 not_found 与盘点一致，负向测试覆盖，capability 记录碰撞风险。
+
 ## 未完成项
 
 | 项 | 状态 | 后续 |
 | --- | --- | --- |
-| OpenCode / MiMo Code / Zoo Code 适配器 | 未实施（实施子代理因限额中断且未留产物） | 限额恢复后按 A17/A14/A19 固定源码实施（同文本档级证据模式） |
-| 四产品真实数据验收 | 后置（本机 not_found） | 安装后 real_verify 复验 + 脱敏 fixture 补取 |
+| 七产品真实数据验收 | 后置（本机 not_found） | 安装后 real_verify 复验 + 脱敏 fixture 补取；逐 session.version 升 known_version |
 
 ## 证据文件
 
 - 适配器：`adapters/{cline,dsh,hermes,openclaw}/`；
-- 测试：`tests/{cline,dsh,openclaw}_contract.rs`、`tests/hermes_contract.rs`；
+- 测试：`tests/{cline,dsh,openclaw,opencode,mimo_code,zoo}_contract.rs`、`tests/hermes_contract.rs`；
 - fixtures：`tests/fixtures/{cline,dsh,hermes,openclaw}/`（合成 + 期望文档）；
-- examples：`real_verify_{cline,dsh,hermes,openclaw}.rs`、`discover_probe.rs`。
+- examples：`real_verify_{cline,dsh,hermes,openclaw,opencode,mimo_code,zoo}.rs`、`discover_probe.rs`。

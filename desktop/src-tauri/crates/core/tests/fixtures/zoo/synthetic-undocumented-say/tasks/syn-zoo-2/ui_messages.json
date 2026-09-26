@@ -1,0 +1,8 @@
+[
+  {
+    "type": "say",
+    "say": "text",
+    "ts": 1781337600000,
+    "text": "synthetic streaming text message (undocumented say kind)"
+  }
+]

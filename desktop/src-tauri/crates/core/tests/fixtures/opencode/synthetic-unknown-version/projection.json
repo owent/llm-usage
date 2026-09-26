@@ -1,0 +1,85 @@
+{
+  "synthetic": true,
+  "source": {
+    "repo": "anomalyco/opencode",
+    "pin": "0027387dc5c59793c12dfc531abc78f825ed6868",
+    "evidence": [
+      "packages/core/src/session/sql.ts",
+      "packages/core/src/session/projector.ts"
+    ]
+  },
+  "schema": {
+    "session_ddl": "CREATE TABLE `session` ( `id` text PRIMARY KEY, `project_id` text NOT NULL, `parent_id` text, `slug` text NOT NULL, `directory` text NOT NULL, `title` text NOT NULL, `version` text NOT NULL, `time_created` integer NOT NULL, `time_updated` integer NOT NULL, `time_compacting` integer, `time_archived` integer, `agent` text, `model` text, `cost` real NOT NULL DEFAULT 0, `tokens_input` integer NOT NULL DEFAULT 0, `tokens_output` integer NOT NULL DEFAULT 0, `tokens_reasoning` integer NOT NULL DEFAULT 0, `tokens_cache_read` integer NOT NULL DEFAULT 0, `tokens_cache_write` integer NOT NULL DEFAULT 0 )",
+    "message_ddl": "CREATE TABLE `message` ( `id` text PRIMARY KEY, `session_id` text NOT NULL, `time_created` integer NOT NULL, `time_updated` integer NOT NULL, `data` text NOT NULL )",
+    "part_ddl": "CREATE TABLE `part` ( `id` text PRIMARY KEY, `message_id` text NOT NULL, `session_id` text NOT NULL, `time_created` integer NOT NULL, `time_updated` integer NOT NULL, `data` text NOT NULL )"
+  },
+  "sessions": [
+    {
+      "id": "ses_syn_future",
+      "project_id": "prj_syn",
+      "parent_id": null,
+      "slug": "syn-future",
+      "directory": "/syn/work",
+      "title": "synthetic uncollected version",
+      "version": "9.9.9-syn-uncollected",
+      "time_created": 1781337000000,
+      "time_updated": 1781340000000,
+      "agent": "build",
+      "model": "{\"id\":\"claude-sonnet-4-6\",\"providerID\":\"anthropic\"}",
+      "cost": 0.01,
+      "tokens_input": 1000,
+      "tokens_output": 200,
+      "tokens_reasoning": 50,
+      "tokens_cache_read": 8000,
+      "tokens_cache_write": 500
+    }
+  ],
+  "messages": [
+    {
+      "id": "msg_syn_future_1",
+      "session_id": "ses_syn_future",
+      "time_created": 1781337600000,
+      "time_updated": 1781338100000,
+      "data": {
+        "role": "assistant",
+        "parentID": "msg_syn_future_user",
+        "modelID": "claude-sonnet-4-6",
+        "providerID": "anthropic",
+        "agent": "build",
+        "mode": "primary",
+        "path": { "cwd": "/syn/work", "root": "/syn/work" },
+        "time": { "created": 1781337600000, "completed": 1781338100000 },
+        "cost": 0.01,
+        "tokens": {
+          "input": 1000,
+          "output": 200,
+          "reasoning": 50,
+          "cache": { "read": 8000, "write": 500 },
+          "total": 9750
+        },
+        "finish": "stop"
+      }
+    }
+  ],
+  "parts": [
+    {
+      "id": "part_syn_future_1",
+      "message_id": "msg_syn_future_1",
+      "session_id": "ses_syn_future",
+      "time_created": 1781337600500,
+      "time_updated": 1781337600500,
+      "data": {
+        "type": "step-finish",
+        "reason": "stop",
+        "cost": 0.01,
+        "tokens": {
+          "input": 1000,
+          "output": 200,
+          "reasoning": 50,
+          "cache": { "read": 8000, "write": 500 },
+          "total": 9750
+        }
+      }
+    }
+  ]
+}

@@ -35,6 +35,9 @@ pub fn built_in_adapters() -> Vec<Box<dyn SourceAdapter>> {
         Box::new(llm_usage_core::adapters::dsh::DshAdapter::new()),
         Box::new(llm_usage_core::adapters::hermes::HermesAdapter::new()),
         Box::new(llm_usage_core::adapters::openclaw::OpenClawAdapter::new()),
+        Box::new(llm_usage_core::adapters::opencode::OpenCodeAdapter::new()),
+        Box::new(llm_usage_core::adapters::mimo_code::MimoCodeAdapter::new()),
+        Box::new(llm_usage_core::adapters::zoo::ZooAdapter::new()),
     ]
 }
 
@@ -67,10 +70,15 @@ pub fn run_refresh(state: &Arc<AppState>, trigger: TriggerKind) -> bool {
             return false;
         }
     }
-    let (host_id, manual_roots, retention_days) = {
+    let (host_id, manual_roots, retention_days, timezone) = {
         let settings = state.settings.lock().unwrap();
         let host = state.host_id.lock().unwrap().clone();
-        (host, settings.manual_roots.clone(), settings.retention_days)
+        (
+            host,
+            settings.manual_roots.clone(),
+            settings.retention_days,
+            settings.timezone.clone(),
+        )
     };
     {
         let mut refresh = state.refresh.lock().unwrap();
@@ -80,8 +88,10 @@ pub fn run_refresh(state: &Arc<AppState>, trigger: TriggerKind) -> bool {
         refresh.instances.clear();
     }
     let now = now_ms();
+    // 日汇总分区用用户统计时区（V04/V12：日界随用户时区；此前误用 UTC 导致
+    // UI 按本地时区查询永远为空——2026-09-26 修复，验证记录见 m6 修订）。
     let config = RunConfig {
-        timezone: "UTC".to_string(),
+        timezone: timezone.clone(),
         now_ms: now,
         limits: ScanLimits::default(),
         trigger,
@@ -90,30 +100,35 @@ pub fn run_refresh(state: &Arc<AppState>, trigger: TriggerKind) -> bool {
     };
     let ctx = discover_context(manual_roots);
     let mut summaries: Vec<RefreshInstanceSummary> = Vec::new();
-    {
-        let storage = state.storage.lock().unwrap();
-        for (adapter_index, adapter) in built_in_adapters().into_iter().enumerate() {
-            // run_id 全局唯一：核心按「前缀-实例序号」生成，前缀须每次调用唯一
-            //（ingest_runs.run_id 是主键；同前缀多适配器会撞键）。
-            let config = RunConfig {
-                run_id_prefix: format!("scan-{now}-a{adapter_index}"),
-                ..config.clone()
-            };
-            match run_adapter_scan(&storage, adapter.as_ref(), &ctx, &config) {
-                Ok(reports) => summaries.extend(summarize_reports(&reports)),
-                Err(e) => summaries.push(RefreshInstanceSummary {
-                    instance_id: format!("{}@*", adapter.adapter_id()),
-                    agent: adapter.agent().to_string(),
-                    status: "failed".to_string(),
-                    error: Some(e.to_string()),
-                    added: 0,
-                    updated: 0,
-                    files: 0,
-                    events: 0,
-                    diagnostics: 0,
-                }),
-            }
+    // 写锁按适配器分段获取（而非整个刷新持有）：查询走 WAL 只读连接不受影响，
+    // 设置写入等其他写操作可在适配器之间交错；任意时刻仍只有一个写者。
+    for (adapter_index, adapter) in built_in_adapters().into_iter().enumerate() {
+        // run_id 全局唯一：核心按「前缀-实例序号」生成，前缀须每次调用唯一
+        //（ingest_runs.run_id 是主键；同前缀多适配器会撞键）。
+        let config = RunConfig {
+            run_id_prefix: format!("scan-{now}-a{adapter_index}"),
+            ..config.clone()
+        };
+        let result = {
+            let storage = state.storage.lock().unwrap();
+            run_adapter_scan(&storage, adapter.as_ref(), &ctx, &config)
+        };
+        match result {
+            Ok(reports) => summaries.extend(summarize_reports(&reports)),
+            Err(e) => summaries.push(RefreshInstanceSummary {
+                instance_id: format!("{}@*", adapter.adapter_id()),
+                agent: adapter.agent().to_string(),
+                status: "failed".to_string(),
+                error: Some(e.to_string()),
+                added: 0,
+                updated: 0,
+                files: 0,
+                events: 0,
+                diagnostics: 0,
+            }),
         }
+    }
+    {
         // 有限保留：采集后按设置执行（封存过期日 → 删除过期明细；单事务）。
         if let Some(days) = retention_days {
             let policy = llm_usage_core::retention::RetentionPolicy {
@@ -121,10 +136,11 @@ pub fn run_refresh(state: &Arc<AppState>, trigger: TriggerKind) -> bool {
                 diagnostics_days: 30.min(days),
                 hard_max_days: None,
             };
-            let timezone = state.settings.lock().unwrap().timezone.clone();
-            if let Err(e) =
+            let outcome = {
+                let storage = state.storage.lock().unwrap();
                 llm_usage_core::retention::enforce_retention(&storage, &timezone, now_ms(), &policy)
-            {
+            };
+            if let Err(e) = outcome {
                 summaries.push(RefreshInstanceSummary {
                     instance_id: "retention".to_string(),
                     agent: "app".to_string(),

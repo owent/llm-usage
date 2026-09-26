@@ -62,6 +62,18 @@ impl Storage {
         Self::setup(conn, path.to_path_buf(), options)
     }
 
+    /// 只读连接（architecture.md：一个后台写者、少量只读连接）。
+    /// 不执行迁移、不写任何 pragma 持久化设置；WAL 库上可与写者并发。
+    /// 库不存在或无读权限时报错（调用方显示空态/错误，不回退到建新库）。
+    pub fn open_readonly(path: &Path) -> Result<Self, CoreError> {
+        let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+        conn.busy_timeout(DEFAULT_BUSY_TIMEOUT)?;
+        Ok(Storage {
+            conn,
+            path: path.to_path_buf(),
+        })
+    }
+
     fn setup(conn: Connection, path: PathBuf, options: OpenOptions) -> Result<Self, CoreError> {
         let supported = options
             .max_supported_version

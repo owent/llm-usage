@@ -694,3 +694,37 @@ pub(crate) fn recompute_day(
     )?;
     Ok(())
 }
+
+/// 按目标时区重算 [from_ms, to_ms] 覆盖的本地日（维护/修复路径：时区分区修复）。
+/// 事件仍在 ⇒ 重算是推导不是猜测；该时区下已封存的日跳过；单事务 + 修订号。
+/// 返回新数据修订号；范围内无未封存重算时返回当前修订号。
+pub fn recompute_days_in_tz(
+    storage: &Storage,
+    timezone: &str,
+    from_ms: i64,
+    to_ms: i64,
+    now_ms: i64,
+) -> Result<i64, CoreError> {
+    let calendar = Calendar::new(timezone)?;
+    let mut day = calendar.local_day_of(from_ms)?;
+    let last = calendar.local_day_of(to_ms)?;
+    // 有界防护：最多重算 750 天（超出报错，由调用方分批）。
+    let mut guard = 0;
+    let conn = storage.conn();
+    let tx = conn.unchecked_transaction()?;
+    let revision = Storage::bump_data_revision_tx(&tx, now_ms)?;
+    while day <= last {
+        guard += 1;
+        if guard > 750 {
+            return Err(CoreError::Validation(
+                "recompute_days_in_tz: range exceeds 750 days; batch the repair".into(),
+            ));
+        }
+        recompute_day(&tx, &calendar, day, revision)?;
+        day = day
+            .checked_add(jiff::Span::new().days(1))
+            .map_err(|e| CoreError::Validation(format!("day advance: {e}")))?;
+    }
+    tx.commit()?;
+    Ok(revision)
+}

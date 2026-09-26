@@ -118,7 +118,8 @@ pub fn summary(
 ) -> Result<serde_json::Value, String> {
     let settings = state.settings.lock().unwrap().clone();
     let request = build_request(&settings, &q)?;
-    let storage = state.storage.lock().unwrap();
+    // 读路径：常驻只读连接（WAL 与后台扫描并发；失败回退写连接）。
+    let storage = crate::app_state::read_conn(&state);
     let s = query_summary(&storage, &request).map_err(|e| err("query", e.to_string()))?;
     let agents = agent_breakdown(&storage, &request).map_err(|e| err("query", e.to_string()))?;
     let today_hourly = hourly_breakdown(
@@ -170,7 +171,7 @@ pub fn heatmap(
 ) -> Result<serde_json::Value, String> {
     let settings = state.settings.lock().unwrap().clone();
     let request = build_request(&settings, &q)?;
-    let storage = state.storage.lock().unwrap();
+    let storage = crate::app_state::read_conn(&state);
     let cells = heatmap_cells(
         &storage,
         &settings.timezone,
@@ -193,7 +194,7 @@ pub fn heatmap(
 /// 来源清单：实例注册 + 最近运行 + 兼容标记计数。
 #[tauri::command]
 pub fn list_sources(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_json::Value, String> {
-    let storage = state.storage.lock().unwrap();
+    let storage = crate::app_state::read_conn(&state);
     let mut stmt = storage
         .conn()
         .prepare(
@@ -288,6 +289,11 @@ pub fn set_settings(
     {
         let storage = state.storage.lock().unwrap();
         save_settings(&storage, &settings)?;
+        // 时区变更 ⇒ 在新时区重算日分区（事件仍在 ⇒ 推导；封存日跳过）。
+        let old_tz = state.settings.lock().unwrap().timezone.clone();
+        if old_tz != settings.timezone {
+            crate::app_state::repair_tz_partitions(&storage, &settings.timezone);
+        }
     }
     *state.settings.lock().unwrap() = settings;
     Ok(())
@@ -336,7 +342,7 @@ pub fn export_data(
     std::fs::create_dir_all(&dir).map_err(|e| err("io", e.to_string()))?;
     match kind.as_str() {
         "summary-csv" => {
-            let storage = state.storage.lock().unwrap();
+            let storage = crate::app_state::read_conn(&state);
             let s = query_summary(&storage, &request).map_err(|e| err("query", e.to_string()))?;
             drop(storage);
             let path = dir.join(format!("usage-{}-{}.csv", q.first_day, q.last_day));
@@ -393,7 +399,7 @@ pub fn export_data(
             Ok(serde_json::json!({ "path": path.to_string_lossy(), "kind": kind }))
         }
         "exchange" => {
-            let storage = state.storage.lock().unwrap();
+            let storage = crate::app_state::read_conn(&state);
             let export = build_export(
                 &storage,
                 &ExportRequest {

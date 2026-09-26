@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "llm-usage-m0",
+  "productName": "LLMUsage",
   "version": "0.1.0",
   "identifier": "com.llmusage.dev",
   "build": {
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "llm-usage-m0",
+        "title": "LLM Usage",
         "width": 1280,
         "height": 800
       }

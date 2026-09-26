@@ -1,0 +1,41 @@
+[
+  {
+    "type": "say",
+    "say": "api_req_started",
+    "ts": 1781337600500,
+    "text": "{\"request\":\"synthetic prompt\",\"apiProtocol\":\"anthropic\"}"
+  },
+  {
+    "type": "say",
+    "say": "api_req_finished",
+    "ts": 1781337600600,
+    "text": "{\"tokensIn\":1000,\"tokensOut\":200,\"cacheWrites\":100,\"cacheReads\":8000,\"cost\":0.012}"
+  },
+  {
+    "type": "say",
+    "say": "condense_context",
+    "ts": 1781338000000,
+    "contextCondense": {
+      "cost": 0.003,
+      "newContextTokens": 5000
+    }
+  },
+  {
+    "type": "say",
+    "say": "api_req_started",
+    "ts": 1781339000000,
+    "text": "{\"request\":\"synthetic prompt 2\",\"apiProtocol\":\"openai\"}"
+  },
+  {
+    "type": "say",
+    "say": "api_req_finished",
+    "ts": 1781339000100,
+    "text": "{\"tokensIn\":500,\"tokensOut\":80,\"cacheWrites\":0,\"cacheReads\":9000,\"cost\":0.006}"
+  },
+  {
+    "type": "say",
+    "say": "api_req_started",
+    "ts": 1781339500000,
+    "text": "{\"request\":\"synthetic prompt 3 (unfinished)\"}"
+  }
+]

@@ -92,6 +92,9 @@ impl AppState {
             .ensure_local_host(hostname, now)
             .map_err(|e| e.to_string())?;
         let settings = load_settings(&storage);
+        // 时区分区修复：老版本扫描以 UTC 写日分区而用户统计时区不同 ⇒
+        // 在用户时区下重算事件覆盖范围（推导非猜测；2026-09-26 缺陷修复）。
+        repair_tz_partitions(&storage, &settings.timezone);
         Ok(AppState {
             storage: Mutex::new(storage),
             host_id: Mutex::new(host_id),
@@ -110,6 +113,72 @@ fn now_ms() -> i64 {
 }
 
 const SETTINGS_KEY: &str = "app_settings";
+
+/// 若日汇总只有其他时区分区而缺用户时区分区，按事件范围在用户时区重算。
+/// 封存日在目标时区不存在封存行，重算安全；失败不阻塞启动（下次扫描再修）。
+pub fn repair_tz_partitions(storage: &Storage, timezone: &str) {
+    let has_user_tz: i64 = storage
+        .conn()
+        .query_row(
+            "SELECT COUNT(*) FROM daily_usage WHERE tz_version = ?1",
+            [timezone],
+            |r| r.get(0),
+        )
+        .unwrap_or(0);
+    if has_user_tz > 0 {
+        return;
+    }
+    let range: Option<(i64, i64)> = storage
+        .conn()
+        .query_row(
+            "SELECT MIN(occurred_at_ms), MAX(occurred_at_ms) FROM usage_events",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .ok();
+    if let Some((min_ms, max_ms)) = range {
+        if let Err(e) = llm_usage_core::ingest::recompute_days_in_tz(
+            storage,
+            timezone,
+            min_ms,
+            max_ms,
+            now_ms(),
+        ) {
+            eprintln!("tz partition repair failed (will retry on next scan): {e}");
+        }
+    }
+}
+
+/// 查询连接：优先常驻只读连接（懒建，打开失败带短重试——观察到的
+/// 间歇性 disk I/O error 多为打开瞬间冲突）；仍失败时回退写连接互斥锁，
+/// 保证 UI 查询永不因只读路径失败而硬错（宁可短暂排队）。
+/// 查询连接：只读连接（带短重试——观察到的间歇性 disk I/O error 发生在
+/// 打开瞬间）；仍失败时回退写连接互斥锁，UI 查询宁可短暂排队也不硬错。
+pub enum ReadConn<'a> {
+    Ro(Storage),
+    Writer(std::sync::MutexGuard<'a, Storage>),
+}
+
+impl std::ops::Deref for ReadConn<'_> {
+    type Target = Storage;
+    fn deref(&self) -> &Storage {
+        match self {
+            ReadConn::Ro(s) => s,
+            ReadConn::Writer(guard) => guard,
+        }
+    }
+}
+
+pub fn read_conn(state: &AppState) -> ReadConn<'_> {
+    for _ in 0..3 {
+        if let Ok(s) = Storage::open_readonly(&state.db_path) {
+            return ReadConn::Ro(s);
+        }
+        std::thread::sleep(std::time::Duration::from_millis(40));
+    }
+    eprintln!("read path: readonly unavailable; falling back to writer connection");
+    ReadConn::Writer(state.storage.lock().unwrap())
+}
 
 pub fn load_settings(storage: &Storage) -> AppSettings {
     let raw: Option<String> = storage

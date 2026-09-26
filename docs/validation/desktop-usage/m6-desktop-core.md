@@ -63,6 +63,40 @@ db_path 缺陷使首次 headless 把应用库写在该文件上（4.1 MB，仅�
 处置：数据无外部内容受损（文件原本无表）；已将该文件恢复为空 SQLite 占位
 （保留其存在，不删除第三方文件），应用改用 `llm-usage-desktop` 独立目录避开。
 
+## 修订：UI 查询为空缺陷（2026-09-26 发现并修复）
+
+用户实机反馈"查询失败、页面无显示"。定位（query_probe 对应用库复现）与修复：
+
+| 处 | 问题 | 修法 | 验证 |
+| --- | --- | --- | --- |
+| scanner.rs | 日汇总分区硬编码 `timezone: "UTC"`，UI 按用户统计时区（Asia/Shanghai）查询 ⇒ tz_version 不匹配，汇总永远为空（数据实际已入库） | RunConfig.timezone 取设置值（V04/V12 日界随用户时区） | 回归测试：UTC 提交后上海时区 0 可见 → recompute 后 1 调用归属上海日 2026-09-26 |
+| app 读写共锁 | 查询与扫描共用一把互斥锁，长扫描（kilo 首扫分钟级）阻塞全部 UI 命令 | 查询路径改 `Storage::open_readonly` 独立只读连接（WAL 一写多读合同）；写锁按适配器分段获取 | 回归测试：写事务未提交期间只读查询照常、未提交数据不可见 |
+| 存量库 | 已有 UTC 分区在新时区下不可见 | init/时区变更触发 `recompute_days_in_tz`（事件仍在 ⇒ 推导非猜测；封存日跳过；750 天上限） | 用户库副本修复后：14 周期、12,954 调用、1.55B token、18 模型、7 Agent |
+
+新增诊断工具：`examples/query_probe.rs`（复现 app 查询构建步骤，可选 repair 模式）。
+core 新增公开 API：`Storage::open_readonly`、`ingest::recompute_days_in_tz`。
+
+### 追加加固（2026-09-26 用户复验后）
+
+用户实机 dev 模式复验：查询间歇性报
+`db_readonly: ... disk I/O error`（截图证据；同一会话内亦有成功查询——修订号
+芯片与错误横幅同现）。单测/探针对库文件与 API 均无法复现（含带 stale WAL/SHM
+副本），判断为打开瞬间的环境性冲突（杀软实时扫描/热文件句柄等）：
+
+- 读路径加固为 `read_conn`：只读打开带 3 次短重试（40ms），仍失败回退写连接
+  互斥锁——UI 查询宁可短暂排队也不硬错；
+- `open_readonly` 去掉多余 foreign_keys pragma（查询不需要，减少失败面）；
+- 单实例纪律：发现旧实例崩溃残留（stuck running run + 18MB WAL）。跨进程互斥
+  属 V24 未实施项，当前需用户避免多实例同时运行（已在此记录）。
+
+**应用改名**（用户要求）：Cargo 包 llm-usage-m0 → llm-usage-desktop、二进制与
+安装包 **LLMUsage**（LLMUsage_0.1.0_x64-setup.exe）、npm 包 llm-usage-desktop、
+窗口标题 "LLM Usage"。数据库路径不变（llm-usage-desktop 目录），数据无需迁移。
+
+**用户真实库预跑验证**（headless 等价重启路径）：时区分区修复生效
+（Asia/Shanghai 180 行）、stuck run 清零、查询 14 周期/13,272 调用/
+1.65B token/18 模型/7 Agent。
+
 ## 未完成项（显式遗留）
 
 | 项 | 状态 | 后续 |

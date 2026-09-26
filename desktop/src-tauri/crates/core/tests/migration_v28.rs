@@ -602,3 +602,115 @@ fn merge_decisions_follow_contract_table() {
         llm_usage_core::exchange::MergeDecision::AddIndependent
     );
 }
+
+#[test]
+fn tz_partition_repair_makes_history_visible_in_user_timezone() {
+    // 回归（2026-09-26 缺陷）：扫描以 UTC 写日分区而用户按 Asia/Shanghai 查询
+    // ⇒ tz_version 不匹配导致 UI 永远为空。事件仍在 ⇒ 重算是推导非猜测。
+    let (_dir, storage) = temp_storage("tz-repair");
+    // 模拟旧行为：UTC 日界提交（2026-09-25 18:30 UTC = 上海 09-26 02:30）。
+    commit_batch(
+        &storage,
+        &batch(
+            "codex@a",
+            "UTC",
+            ts("2026-09-25T18:30:00Z"),
+            vec![with_tokens(
+                evt("codex@a", "r-tz", ts("2026-09-25T18:30:00Z")),
+                100,
+                10,
+            )],
+        ),
+        None,
+    )
+    .unwrap();
+    let sh = llm_usage_core::query::SummaryRequest {
+        timezone: "Asia/Shanghai".to_string(),
+        week_start: llm_usage_core::calendar::WeekStart::Monday,
+        first_day: llm_usage_core::calendar::parse_date("2026-09-20").unwrap(),
+        last_day: llm_usage_core::calendar::parse_date("2026-09-30").unwrap(),
+        granularity: Granularity::Day,
+        filters: Filters::default(),
+        today: llm_usage_core::calendar::parse_date("2026-09-30").unwrap(),
+        retention_cutoff: None,
+    };
+    let before = query_summary(&storage, &sh).unwrap();
+    assert_eq!(
+        before.totals.call_count, 0,
+        "UTC 分区在上海时区下不可见（缺陷复现）"
+    );
+    // 修复：在用户时区重算事件覆盖范围。
+    llm_usage_core::ingest::recompute_days_in_tz(
+        &storage,
+        "Asia/Shanghai",
+        ts("2026-09-25T18:30:00Z"),
+        ts("2026-09-25T18:30:00Z"),
+        1_800_000_100_000,
+    )
+    .unwrap();
+    let after = query_summary(&storage, &sh).unwrap();
+    assert_eq!(after.totals.call_count, 1);
+    assert_eq!(after.totals.total_tokens_known, Some(110));
+    // 事件归属上海日 2026-09-26（18:30Z = 02:30+08）。
+    assert_eq!(after.periods[0].label, "2026-09-26");
+    // UTC 分区保留（多时区并存按 tz_version 区分，不互相污染）。
+    let utc_rows: i64 = storage
+        .conn()
+        .query_row(
+            "SELECT COUNT(*) FROM daily_usage WHERE tz_version = 'UTC'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert!(utc_rows > 0);
+}
+
+#[test]
+fn readonly_queries_do_not_block_behind_writer_transaction() {
+    // WAL 合同：一个后台写者 + 只读连接并发。写事务未提交期间，
+    // open_readonly 的查询照常进行（M6 修复：UI 查询不再被长扫描阻塞）。
+    let (_dir, storage) = temp_storage("wal-concurrent");
+    commit_batch(
+        &storage,
+        &batch(
+            "codex@a",
+            "UTC",
+            ts("2026-09-25T10:00:00Z"),
+            vec![with_tokens(
+                evt("codex@a", "r-wal", ts("2026-09-25T10:00:00Z")),
+                50,
+                5,
+            )],
+        ),
+        None,
+    )
+    .unwrap();
+    let conn = storage.conn();
+    let held = conn.unchecked_transaction().unwrap();
+    held.execute_batch("INSERT INTO settings (key, value, schema_version, updated_at_ms) VALUES ('hold', '1', 1, 1)").unwrap();
+    // 写事务未提交：只读连接读到的仍是提交前视图，且不被阻塞。
+    let reader = Storage::open_readonly(storage.path()).unwrap();
+    let req = llm_usage_core::query::SummaryRequest {
+        timezone: "UTC".to_string(),
+        week_start: llm_usage_core::calendar::WeekStart::Monday,
+        first_day: llm_usage_core::calendar::parse_date("2026-09-25").unwrap(),
+        last_day: llm_usage_core::calendar::parse_date("2026-09-25").unwrap(),
+        granularity: Granularity::Day,
+        filters: Filters::default(),
+        today: llm_usage_core::calendar::parse_date("2026-09-25").unwrap(),
+        retention_cutoff: None,
+    };
+    let s = query_summary(&reader, &req).unwrap();
+    assert_eq!(
+        s.totals.call_count, 1,
+        "reader sees committed snapshot during writer transaction"
+    );
+    let value: Option<String> = reader
+        .conn()
+        .query_row("SELECT value FROM settings WHERE key = 'hold'", [], |r| {
+            r.get(0)
+        })
+        .ok();
+    assert_eq!(value, None, "未提交写对只读连接不可见");
+    held.commit().unwrap();
+}

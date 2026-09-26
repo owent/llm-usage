@@ -18,9 +18,14 @@ pub mod kimi_code;
 pub mod kimi_wire;
 #[path = "kimi-work/mod.rs"]
 pub mod kimi_work;
+#[path = "mimo-code/mod.rs"]
+pub mod mimo_code;
 pub mod omp;
 pub mod openclaw;
+pub mod opencode;
+pub mod opencode_family;
 pub mod pi;
 pub mod qwen;
 pub mod usage_map;
 pub mod zcode;
+pub mod zoo;
