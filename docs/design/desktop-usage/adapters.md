@@ -47,7 +47,7 @@ Harness Agent 按用户提供官网更正为 Hermes Agent。所有工具均保�
 | pi | 固定源码 Usage 含 input/output/cacheRead/cacheWrite/reasoning；session 有 message、独立 usage、compaction/branch summary usage | 推理已含于 output；仅 assistant message 会漏辅助用量；分支继承不代表新调用；目录由该版本配置函数解析；本机 0.87.1 已取真实 fixture 并通过幂等核对（2026-09-25，[M2-B/C 恢复记录](../../validation/desktop-usage/m2bc-resumed.md)）；fork 复制条目带 fork 会话身份，仲裁为 conflict 保留先扫者，净效果不双计 | M2；本地候选，A16 |
 | OpenCode | 适配器已实现（M3，2026-09-25，文档级证据：固定源码 0027387；本机未安装 not_found） | 逐次数据可得：part 表 step-finish 部件 tokens{input(未缓存),output,reasoning,cache{read,write}}+cost；session.tokens_* 仅对账（matched）；message.data turn 聚合不读防双计；发现层按数据目录名收敛（kilo 目录同形库碰撞已修，负向测试覆盖） | M3 已实施（待真实验收），A17 |
 | Qwen Code | 固定 recording service 记录 usageMetadata/model，位于 ~/.qwen/tmp/<project_id>/chats；官方 OTel | 不把 Goal 累计 histogram sum 当总消耗；旧日志缺 spend 时零不等于实测零；显式禁用 prompt 日志 | M2/M5；本地候选/需启用，A18 |
-| Zoo Code | 固定源码 consolidateTokenUsage 包含 api_req_started/finished、condense_context、cacheReads/Writes | 独立产品，不能擅自改为 Roo Code；API protocol 影响字段含义；已有字段证据的表面独立验收，缺证 JetBrains 变体后移 | 本地候选 M3；JetBrains 变体 F1，A19 |
+| Zoo Code | 适配器已实现（M3，2026-09-26，文档级证据：固定源码 f780647；本机未安装 not_found） | Roo 血统整写 ui_messages.json；LIFO 配对合并（finish 覆盖 start、无配对丢弃）；condense_context.cost 计上游 totalCost（辅助调用、token 未知）；tokensIn 含缓存（与 opencode 家族相反）；独立产品不能擅自改为 Roo Code；缺证 JetBrains 变体后移 | M3 已实施（待真实验收）；JetBrains 变体 F1，A19 |
 | TRAE / TraeCode 及插件 | 后续探测本地 IDE/CLI 日志、会话库、插件数据和本机会话导出 | A20 企业 API/控制台报表不纳入；当前整个产品家族后移，不推测通用目录/schema | F1；后续支持，A20 为范围排除依据 |
 | VS Code | 官方 Copilot Chat OTel 的逐 LLM chat span 有模型、输入/输出、可选缓存与推理、TTFT | VS Code 是宿主；与 Copilot/Claude/Codex 等底层 Agent 去重；不承诺读取所有扩展的 usage | M5；需启用，A06 |
 | ZCode | 适配器已实现（M4，2026-09-25）：model-io JSONL 双口径——AI SDK 五键为主（inputTokens 含缓存读）、anthropic snake_case 对照互斥校验（矛盾进诊断）；db.sqlite 只读对账（活库 418/438 matched，在途轮 mismatch 可见）；真实核对幂等 | 已验证 3.14.3（真实 fixture）；未收录版本 latest_fallback；`~/.zcode/v2` 布局与 `%APPDATA%/zcode` 桌面存储未接入（待证）；缺 requestId/traceId 时不得全部变成 zcode:None | M4 已实施；跨版本待证，A21 |
@@ -98,8 +98,9 @@ A24 固定源码 `ef70b3661cbfcf57e583008ad91dd04d8ba46070` 确认以下内容�
 ## 每个适配器的交付合同
 
 代码布局遵守 [Agent 独立目录与版本组织](architecture.md#adapter-layout)。
-每个 Agent 一个目录，历史版本实现在目录内分模块；该要求适用于本表全部阶段，
-已验证支持与未知版本兼容尝试分别记录，不把 M2 中尚待执行的目录迁移或兼容策略记为已实现。
+每个 Agent 一个目录，历史版本实现在目录内分模块；该要求适用于本表全部阶段
+（目录迁移与版本注册表已随 M2 实施，见 [架构合同](architecture.md#adapter-layout)）；
+已验证支持与未知版本兼容尝试分别记录，不把尚待执行的结构调整记为已实现。
 
 | 项目 | 必须交付的内容 |
 | --- | --- |

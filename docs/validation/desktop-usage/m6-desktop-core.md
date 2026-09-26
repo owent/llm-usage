@@ -97,6 +97,116 @@ core 新增公开 API：`Storage::open_readonly`、`ingest::recompute_days_in_tz
 （Asia/Shanghai 180 行）、stuck run 清零、查询 14 周期/13,272 调用/
 1.65B token/18 模型/7 Agent。
 
+## 分级归档与设置页合同（2026-09-26 用户需求实施）
+
+- **schema v5**：`hourly_usage`（小时分桶，提交事务内随受影响日重算）与
+  `period_usage`（周/月/年物化）两张新表；`enforce_tiered_retention`
+  按明细 7/小时 30/日 365/周 3650/月 10950 天/年终身逐级清理；
+  **进行中周期保护**（日层下限不越过当前周/月/年起点——否则未完成周期
+  永远缺失；实际生效保留期可比设定多至一个周期）。
+- **查询合并**：周/月粒度在日层存活期外读物化行（同周期二选一，日层
+  更新鲜）；小时图改读持久化小时表（明细删除后仍有 30 天数据）。
+  修复既有缺陷：小时桶 `hour` 字段从未赋值（旧实现所有数据落在 0 点）。
+- **设置 DTO**：week_start 改 Option（None=跟随语言地区：zh→周一、
+  en-US/CA→周日）；refresh_interval_secs 默认 3600（每小时）；
+  新增 RetentionTiers 与 hostname_alias。
+- **系统命令**（Windows，无需提权）：`set_auto_start`（HKCU Run 键）、
+  `set_refresh_task`（schtasks 每小时 headless 任务 LLMUsageDataRefresh）、
+  `system_task_status`、`pick_save_path`（rfd 原生保存对话框，导出位置
+  由用户选定——满足 architecture.md 导出合同）。
+- **导出改造**：交换包改为**聚合数据**（来源注册 + 全部日分区 + 周期分区
+  \+ 小时层，不含 session 明细；重导入可重建历史趋势）。
+- 增量读取既有方案（文档化）：JSONL 字节偏移游标 + SQLite 水位
+  （kilo/opencode part.id 更新序）+ 文件身份/代数（改名/截断/同长替换重扫）。
+- 回归：tests/tiered_retention.rs 4 用例（分层清理/物化/查询合并/小时存活
+  /策略校验）；全套 57 个测试二进制绿。
+
+## 多用户、导入闭环、Codex 旧版与 UI 补全（2026-09-26 第三轮）
+
+### v6 多用户
+
+- `users` 表 + `source_instances.user_id`（默认 default）；不同用户的来源可
+  共享同一来源主机（origin_hosts 与 user 多对多）；查询按
+  `Filters.instances`（app 层解析当前用户来源集合，core 不感知 user）。
+- 用户命令：list/create/set_current/assign_source；顶栏用户切换下拉。
+- 真实库副本预跑：schema 6、7 来源全归 default、查询过滤正确。
+
+### 导入闭环（M1a 合同实施）
+
+- 导出补小时层（ExchangeHourlyPartition）；`import_aggregate`：
+  同分区键修订比较（更高替换/同修订幂等/更低冲突+诊断）；来源注册
+  不覆盖已有归属；导入主机登记外部。UI：设置→导出→导入按钮
+  （pick_open_path 对话框 → import_exchange → 计数展示）。
+
+### 分级归档新默认与手动清理
+
+- 新默认（二轮调整降低聚合消耗）：小时 3/日 90/周 3 年/月 10 年/年终身；
+  明细 7 天不变。明细层无层级约束（可比小时长——冗余不丢数据）。
+- `storage_stats`（各层条目数 + 库/WAL 字节）；`manual_cleanup(days_before)`
+  各层统一按天数截断（进行中周期保护仍生效）。归档页显示统计+手动清理。
+
+### Codex 0.139–0.151 旧版支持（M2-D 遗留清零）
+
+- **取证**：全量 238 文件 13,481 条 token_count 逐条分桶
+  （build/codex-legacy-forensics/）。语义判据（total 增量法）：
+  delta>0 ⇒ 新调用（last=最新一次）；delta==0 且 last 未变 ⇒ 重复上报去重；
+  delta==0 且 last 变化 ⇒ 85/85 紧随 compacted（压缩回声，carried 口径）；
+  delta<0 ⇒ 源端回退（诊断+基线重定）。
+- `rollout_legacy.rs`：21 个版本注册 → 不兼容 238→**0**；
+  真实核对 codex 事件 2,578→**15,955**（legacy 13,358 与 Python 取证一致）；
+  对账 262 matched/37 mismatch（均已解释类别）。
+- **端到端**：全新空库 headless 采集 40,472 事件 → 7 天明细层即时清理
+  （合同行为）→ 聚合层保留完整历史：codex 日汇总 1,835,125,364
+  （与 real_verify 逐位一致）、56 天、查询 14 周期/13,194 调用可见。
+
+### 前端补全
+
+- 滚动修复：根因 app.css `#app{height:100vh;overflow:hidden}` 钉死视口；
+  改 `min-height:100vh` 恢复原生滚动。
+- 总览：今日概览卡 + 缓存构成堆叠图 + Agent/模型饼图（两列网格）；
+  趋势：指标四选一切换 + 周分布条形图。
+- 设置页 Typora 风格左侧竖排菜单；归档统计与手动清理；导入按钮。
+- i18n 新增 43×2 键（累计 161×2）。
+
+## 第四轮（2026-09-26 用户需求）
+
+- **清理全部数据**：`clear_all_data` 命令删除所有归档层+诊断+游标
+  （usage_events/hourly/daily/period/diagnostics/checkpoints/aliases/
+  aggregates/runs/quotas），source_files 状态重置 new（下次刷新全量重采）；
+  主机/用户/设置保留。UI 红色按钮+确认层。
+- **采集进度**：RefreshState 增加 progress_percent（适配器序号/总数）+
+  eta_seconds（按已完成适配器平均耗时估算）；顶栏进度条展示。
+- **导入覆盖语义**：同修订也替换（原为 skip——重复导出导入时同修订
+  不同内容会缺失）。回归测试：同键同修订重复导入（值 100→200→200）
+  ⇒ 单行 200，不冗余不缺失不双计。
+- **默认用户名**：AppState::init 首次运行时把 v6 的 default 用户重命名为
+  OS 当前用户名（USERPROFILE/USER 环境变量推导），来源归属不变（同 user_id）。
+
+## 第五轮修复（2026-09-26 用户反馈）
+
+- **AVG 返回 REAL 类型错误**：小时图 duration 子查询 `AVG()` 返回浮点，
+  Rust 读 `Option<i64>` 不匹配——SQL 侧加 `CAST(AVG(...) AS INTEGER)`。
+- **小时粒度真正生效**：`query_summary` 的小时分支从 `hourly_usage` 读数据
+  （DailyRow 新增 `hour` 字段；标签格式 "YYYY-MM-DD HH:00"）。
+- **图表维度分组**：`chart_series` 命令按 总用量/模型/Agent/Agent+模型 分组，
+  直接从 `daily_usage` 读（低计算量）；前端维度下拉切换。
+- **详情页性能**：v7 迁移加复合索引 `idx_usage_events_instance_time`
+  (source_instance_id, occurred_at_ms DESC)；`event_details` 日期范围由请求
+  给出（不再 0..now+1d 全量扫描）；page_size 上限 500。
+- **诊断日志查询**：`diagnostic_logs` 命令（设置页日志 Tab）；
+  v7 加 `idx_diagnostics_created_code` 索引。
+
+## 数据库简化（2026-09-26 用户决策：预发布阶段）
+
+- 删除全部 7 个增量迁移（v1–v7），改为**单一全量建库 SQL**（FULL_SCHEMA）。
+- 打开逻辑：user_version 匹配 → 正常使用；不匹配 → SchemaMismatch 错误 →
+  应用层弹原生对话框（rfd）"数据库版本不兼容，是否删除重建？"
+  → 用户允许则删除 .sqlite/.sqlite-wal/.sqlite-shm 后重建；不允许则退出。
+- 同时修复 tauri.conf.json 的 dragDropEnabled（从 app 级移到 window 级，
+  解决 HTML5 拖拽事件被 WebView2 拦截的问题）。
+- 旧迁移相关测试（migration_v16/review_regressions/multi_user_import/v28）
+  重写为简化版：建库/幂等/PRAGMA/版本不匹配拒绝。
+
 ## 未完成项（显式遗留）
 
 | 项 | 状态 | 后续 |

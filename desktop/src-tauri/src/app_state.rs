@@ -8,35 +8,100 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Mutex;
 
+/// 分级归档保留（天；年 None=终身）。默认：明细 7/小时 3/日 90/周 3 年/
+/// 月 10 年/年终身（2026-09-26 用户合同，二轮调整为降低聚合消耗）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RetentionTiers {
+    pub events_days: u32,
+    pub hourly_days: u32,
+    pub daily_days: u32,
+    pub weekly_days: u32,
+    pub monthly_days: u32,
+    pub yearly_days: Option<u32>,
+}
+
+impl Default for RetentionTiers {
+    fn default() -> Self {
+        RetentionTiers {
+            events_days: 7,
+            hourly_days: 3,
+            daily_days: 90,
+            weekly_days: 1095,
+            monthly_days: 3650,
+            yearly_days: None,
+        }
+    }
+}
+
 /// 用户可见设置（settings 表持久化；语言初值 zh-CN，多语言实施随 F3 合同）。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppSettings {
     pub timezone: String,
-    /// 0=周一 … 6=周日。
-    pub week_start: u8,
-    /// 有限保留天数；None = 无限。
-    pub retention_days: Option<u32>,
-    /// 前台自动刷新间隔（秒）；0 = 关闭自动提取。
+    /// None = 跟随语言地区习惯（zh 系→周一；en-US/CA→周日；其余周一）。
+    pub week_start: Option<u8>,
+    /// 分级归档保留。
+    #[serde(default)]
+    pub retention: RetentionTiers,
+    /// 今日数据刷新提取间隔（秒）；0 = 关闭自动提取。默认每小时。
+    #[serde(default = "default_refresh_interval")]
     pub refresh_interval_secs: u64,
     pub language: String,
     /// 手工添加的数据源根目录。
+    #[serde(default)]
     pub manual_roots: Vec<String>,
+    /// 本机来源身份显示名（仅辨认用途，不改 host_id 键）。
+    #[serde(default)]
+    pub hostname_alias: Option<String>,
+}
+
+fn default_refresh_interval() -> u64 {
+    3600
 }
 
 impl Default for AppSettings {
     fn default() -> Self {
         AppSettings {
             timezone: system_timezone_name(),
-            week_start: 1,
-            retention_days: None,
-            refresh_interval_secs: 60,
+            week_start: None,
+            retention: RetentionTiers::default(),
+            refresh_interval_secs: default_refresh_interval(),
             language: "zh-CN".to_string(),
             manual_roots: Vec::new(),
+            hostname_alias: None,
+        }
+    }
+}
+
+impl AppSettings {
+    /// 周起始生效值：显式设置优先；否则按语言地区（zh→周一；en-US/CA→周日；
+    /// 其余周一）。core 仅支持 0/6。
+    pub fn effective_week_start(&self) -> u8 {
+        match self.week_start {
+            Some(w) if w == 0 || w == 6 => w,
+            _ => {
+                let lang = self.language.to_lowercase();
+                if lang.starts_with("zh") {
+                    0
+                } else if lang.starts_with("en") && (lang.contains("us") || lang.contains("ca")) {
+                    6
+                } else {
+                    0
+                }
+            }
         }
     }
 }
 
 /// 系统 IANA 时区名；取不到时退回 UTC（记录在设置中可见可改）。
+/// OS 当前用户名（Windows USERPROFILE / Unix USER 环境变量推导）。
+fn os_username() -> String {
+    std::env::var("USERNAME")
+        .or_else(|_| std::env::var("USER"))
+        .ok()
+        .filter(|s| !s.is_empty() && *s != "default")
+        .unwrap_or_else(|| "default".to_string())
+}
+
 fn system_timezone_name() -> String {
     std::env::var("TZ")
         .ok()
@@ -57,6 +122,11 @@ pub struct RefreshState {
     pub trigger: String,
     /// 逐实例摘要：instance → (状态, 事件数, 诊断数)。
     pub instances: Vec<RefreshInstanceSummary>,
+    /// 采集进度（百分比 + 预计剩余秒；UI 轮询展示）。
+    pub progress_percent: u8,
+    pub eta_seconds: Option<u64>,
+    /// 已完成的适配器名（按序）。
+    pub completed_adapters: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -78,6 +148,8 @@ pub struct AppState {
     pub settings: Mutex<AppSettings>,
     pub refresh: Mutex<RefreshState>,
     pub db_path: PathBuf,
+    /// 当前统计用户（v6 多用户合同；默认 "default"，存 settings 表）。
+    pub current_user: Mutex<String>,
 }
 
 impl AppState {
@@ -86,7 +158,37 @@ impl AppState {
         if let Some(parent) = db_path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
         }
-        let storage = Storage::open(&db_path).map_err(|e| e.to_string())?;
+        // 预发布阶段：不做逐版本迁移；版本不匹配时提示用户"删除重建或退出"。
+        let storage = match Storage::open(&db_path) {
+            Ok(s) => s,
+            Err(llm_usage_core::error::CoreError::SchemaMismatch { found, expected })
+            | Err(llm_usage_core::error::CoreError::SchemaTooNew {
+                found,
+                supported: expected,
+            }) => {
+                let msg = format!(
+                    "数据库版本不兼容（当前 {found}，期望 {expected}）。
+
+                     是否允许删除现有数据库并重新创建？
+                     这将清除所有已采集的统计数据。"
+                );
+                let choice = rfd::MessageDialog::new()
+                    .set_title("数据库版本过低")
+                    .set_description(&msg)
+                    .set_buttons(rfd::MessageButtons::YesNo)
+                    .set_level(rfd::MessageLevel::Warning)
+                    .show();
+                if choice != rfd::MessageDialogResult::Yes {
+                    return Err("__EXIT_SCHEMA_MISMATCH__".to_string());
+                }
+                for suffix in ["", "-wal", "-shm"] {
+                    let p = std::path::PathBuf::from(format!("{}{}", db_path.display(), suffix));
+                    let _ = std::fs::remove_file(&p);
+                }
+                Storage::open(&db_path).map_err(|e| e.to_string())?
+            }
+            Err(e) => return Err(e.to_string()),
+        };
         let now = now_ms();
         let host_id = storage
             .ensure_local_host(hostname, now)
@@ -95,11 +197,41 @@ impl AppState {
         // 时区分区修复：老版本扫描以 UTC 写日分区而用户统计时区不同 ⇒
         // 在用户时区下重算事件覆盖范围（推导非猜测；2026-09-26 缺陷修复）。
         repair_tz_partitions(&storage, &settings.timezone);
+        // 默认用户名取 OS 当前用户（不再使用 "default"）；首次初始化时
+        // 把 v6 迁移创建的 default 用户重命名为 OS 用户名（保留同一 user_id
+        // 键，来源归属不变）。
+        let os_user = os_username();
+        let stored: Option<String> = storage
+            .conn()
+            .query_row(
+                "SELECT value FROM settings WHERE key = 'current_user'",
+                [],
+                |r| r.get(0),
+            )
+            .ok();
+        let current_user = match stored {
+            Some(u) => u,
+            None => {
+                // 首次：把 default 改名为 OS 用户名（或创建）。
+                let _ = storage.conn().execute(
+                    "UPDATE users SET name = ?1 WHERE user_id = 'default' AND name = 'default'",
+                    rusqlite::params![os_user],
+                );
+                let _ = storage.conn().execute(
+                    "INSERT INTO settings (key, value, schema_version, updated_at_ms)
+                     VALUES ('current_user', 'default', 1, ?1)
+                     ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                    rusqlite::params![now],
+                );
+                "default".to_string()
+            }
+        };
         Ok(AppState {
             storage: Mutex::new(storage),
             host_id: Mutex::new(host_id),
             settings: Mutex::new(settings),
             refresh: Mutex::new(RefreshState::default()),
+            current_user: Mutex::new(current_user),
             db_path,
         })
     }

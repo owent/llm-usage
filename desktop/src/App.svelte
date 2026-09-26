@@ -1,45 +1,245 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { api, parseError } from './lib/api';
-  import type { AppSettings, SummaryDto, SourceDto, RefreshStateDto } from './lib/api';
-  import { i18n, initLocale, setLocale, t } from './lib/i18n.svelte';
-  import TrendChart from './components/TrendChart.svelte';
+  import type {
+    AppSettings,
+    HeatmapDto,
+    RefreshStateDto,
+    SourceDto,
+    SummaryDto,
+    SummaryQuery,
+    UserDto,
+  } from './lib/api';
+  import { i18n, initLocale, setLocale, t, fmtEtaDuration } from './lib/i18n.svelte';
+  import { loadPanelGroup, savePanelGroup } from './lib/panels';
+  import Panel from './components/Panel.svelte';
+  import CallsChart from './components/CallsChart.svelte';
+  import TokenChart from './components/TokenChart.svelte';
   import TodayHourly from './components/TodayHourly.svelte';
   import UsageHeatmap from './components/UsageHeatmap.svelte';
-  import SummaryCards from './components/SummaryCards.svelte';
+  import TodayOverview from './components/TodayOverview.svelte';
   import BreakdownTables from './components/BreakdownTables.svelte';
   import SourceList from './components/SourceList.svelte';
   import SettingsPanel from './components/SettingsPanel.svelte';
+  import SharePie from './components/SharePie.svelte';
+  import WeekdayBar from './components/WeekdayBar.svelte';
+  import EventDetails from './components/EventDetails.svelte';
 
-  type Tab = 'overview' | 'trend' | 'sources' | 'settings';
+  type Tab = 'overview' | 'trend' | 'sources' | 'details' | 'settings';
+  type Granularity = 'hour' | 'day' | 'week' | 'month';
+  /** 时间范围（任务 C7）：近 24 小时/当天自动切小时粒度。 */
+  type RangeKey = '24h' | 'today' | '7' | '30' | '365';
 
   let tab = $state<Tab>('overview');
   let settings = $state<AppSettings | null>(null);
   let summary = $state<SummaryDto | null>(null);
+  /** 今日独立查询（任务 D8）：当日 first=last 的 summary，供今日分区使用。 */
+  let todaySummary = $state<SummaryDto | null>(null);
   let sources = $state<SourceDto[]>([]);
   let refresh = $state<RefreshStateDto | null>(null);
   let loadError = $state('');
   let queryError = $state('');
-  let granularity = $state<'day' | 'week' | 'month'>('day');
-  let quickDays = $state(30);
+  let granularity = $state<Granularity>('day');
+  let rangeKey = $state<RangeKey>('30');
   let agentFilter = $state('');
   let modelFilter = $state('');
 
-  function isoDay(d: Date): string {
-    return d.toISOString().slice(0, 10);
+  // 多用户（v6）：顶栏切换 + 新建。
+  let users = $state<UserDto[]>([]);
+  let currentUser = $state('');
+  let userSelect = $state('');
+  let newUserOpen = $state(false);
+  let newUserName = $state('');
+  let userBusy = $state(false);
+  let userError = $state('');
+
+  // 热力图数据复用（周分布图）。
+  let heatmapCells = $state<HeatmapDto['cells']>([]);
+  /** 用户切换/导入等不改变 query 的强制重查信号（传给子组件）。 */
+  let dataReloadKey = $state(0);
+
+  // ---- 面板布局（任务 E10/E11）：拖拽顺序 + 显示/隐藏，按页持久化 localStorage。 ----
+  type PanelGroupKey = 'overviewToday' | 'overviewHistory' | 'trendMain';
+  const PANEL_GROUPS: Record<PanelGroupKey, { page: string; group: string; ids: string[] }> = {
+    overviewToday: {
+      page: 'overview',
+      group: 'today',
+      ids: [
+        'today-cards',
+        'today-hourly',
+        'today-model-pie',
+        'today-agent-pie',
+        'today-model-table',
+        'today-agent-table',
+      ],
+    },
+    overviewHistory: {
+      page: 'overview',
+      group: 'history',
+      ids: ['history-calls', 'history-tokens'],
+    },
+    trendMain: {
+      page: 'trend',
+      group: 'main',
+      ids: [
+        'trend-calls',
+        'trend-tokens',
+        'trend-heatmap',
+        'trend-weekday',
+        'trend-model-pie',
+        'trend-agent-pie',
+      ],
+    },
+  };
+
+  let panelState = $state({
+    overviewToday: loadPanelGroup(
+      PANEL_GROUPS.overviewToday.page,
+      PANEL_GROUPS.overviewToday.group,
+      PANEL_GROUPS.overviewToday.ids
+    ),
+    overviewHistory: loadPanelGroup(
+      PANEL_GROUPS.overviewHistory.page,
+      PANEL_GROUPS.overviewHistory.group,
+      PANEL_GROUPS.overviewHistory.ids
+    ),
+    trendMain: loadPanelGroup(
+      PANEL_GROUPS.trendMain.page,
+      PANEL_GROUPS.trendMain.group,
+      PANEL_GROUPS.trendMain.ids
+    ),
+  });
+
+  /** 面板在 6 列网格中的默认跨列数。 */
+  const PANEL_SPAN: Record<string, number> = {
+    'today-cards': 6,
+    'today-hourly': 6,
+    'today-model-pie': 3,
+    'today-agent-pie': 3,
+    'today-model-table': 3,
+    'today-agent-table': 3,
+    'history-calls': 6,
+    'history-tokens': 6,
+    'trend-calls': 6,
+    'trend-tokens': 6,
+    'trend-heatmap': 4,
+    'trend-weekday': 2,
+    'trend-model-pie': 3,
+    'trend-agent-pie': 3,
+  };
+
+  function persistGroup(gk: PanelGroupKey): void {
+    const def = PANEL_GROUPS[gk];
+    const g = panelState[gk];
+    savePanelGroup(def.page, def.group, { order: g.order, hidden: g.hidden });
   }
 
-  const query = $derived.by(() => {
-    const last = new Date();
-    const first = new Date(last.getTime() - (quickDays - 1) * 86_400_000);
-    return {
-      first_day: isoDay(first),
-      last_day: isoDay(last),
-      granularity,
-      agents: agentFilter ? [agentFilter] : [],
-      providers: [],
-      models: modelFilter ? [modelFilter] : [],
+  function togglePanel(gk: PanelGroupKey, id: string): void {
+    const g = panelState[gk];
+    g.hidden = g.hidden.includes(id) ? g.hidden.filter((x) => x !== id) : [...g.hidden, id];
+    persistGroup(gk);
+  }
+
+  /** 布局编辑模式：仅此时面板可拖拽/调整显隐（总览与趋势共用一个开关）。 */
+  let editLayout = $state(false);
+
+  let dragFrom = $state<{ gk: PanelGroupKey; index: number } | null>(null);
+  let dropIndex = $state(-1);
+
+  /**
+   * 面板拖拽（Pointer Events；2026-09-26 修复“完全无法拖动”）：
+   * WebView2 在 Tauri 默认 dragDropEnabled=true 时拦截 HTML5 drag 事件，
+   * dragstart/drop 根本不触发。改为 pointerdown（Panel 内）+ window 级
+   * pointermove/pointerup/pointercancel：move 时 elementsFromPoint 命中
+   * 落点面板（data-panel-group/-index），抬起时交换 order 并持久化。
+   */
+  function panelPickStart(gk: PanelGroupKey, index: number, e: PointerEvent): void {
+    e.preventDefault();
+    dragFrom = { gk, index };
+    dropIndex = index;
+  }
+
+  function panelPointerMove(e: PointerEvent): void {
+    if (!dragFrom) return;
+    for (const raw of document.elementsFromPoint(e.clientX, e.clientY)) {
+      const card = (raw as Element).closest?.('.pcard');
+      if (!card) continue;
+      // 命中其它分组/页面区域：落点回退为自身（松手不产生交换）。
+      if (card.getAttribute('data-panel-group') !== dragFrom.gk) {
+        dropIndex = dragFrom.index;
+        break;
+      }
+      const idx = Number(card.getAttribute('data-panel-index'));
+      if (Number.isInteger(idx) && idx >= 0) dropIndex = idx;
+      break;
+    }
+  }
+
+  function panelPointerEnd(): void {
+    const from = dragFrom;
+    if (from && dropIndex >= 0 && dropIndex !== from.index) {
+      const g = panelState[from.gk];
+      const order = [...g.order];
+      [order[from.index], order[dropIndex]] = [order[dropIndex], order[from.index]];
+      g.order = order;
+      persistGroup(from.gk);
+    }
+    dragFrom = null;
+    dropIndex = -1;
+  }
+
+  $effect(() => {
+    if (!dragFrom) return;
+    window.addEventListener('pointermove', panelPointerMove);
+    window.addEventListener('pointerup', panelPointerEnd);
+    window.addEventListener('pointercancel', panelPointerEnd);
+    return () => {
+      window.removeEventListener('pointermove', panelPointerMove);
+      window.removeEventListener('pointerup', panelPointerEnd);
+      window.removeEventListener('pointercancel', panelPointerEnd);
     };
+  });
+
+  /** 本机日期（YYYY-MM-DD）：后端按统计时区日历解释，本机日期是最接近的代理。 */
+  function localDay(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+      d.getDate()
+    ).padStart(2, '0')}`;
+  }
+
+  const filters = $derived.by(() => ({
+    agents: agentFilter ? [agentFilter] : [],
+    providers: [] as string[],
+    models: modelFilter ? [modelFilter] : [],
+  }));
+
+  const query = $derived.by((): SummaryQuery => {
+    const now = new Date();
+    if (rangeKey === 'today') {
+      const day = localDay(now);
+      return { first_day: day, last_day: day, granularity, ...filters };
+    }
+    if (rangeKey === '24h') {
+      return {
+        first_day: localDay(new Date(now.getTime() - 86_400_000)),
+        last_day: localDay(now),
+        granularity,
+        ...filters,
+      };
+    }
+    const days = Number(rangeKey);
+    return {
+      first_day: localDay(new Date(now.getTime() - (days - 1) * 86_400_000)),
+      last_day: localDay(now),
+      granularity,
+      ...filters,
+    };
+  });
+
+  /** 今日分区查询：当日 first=last（granularity 不影响今日小时数据）。 */
+  const todayQuery = $derived.by((): SummaryQuery => {
+    const day = localDay(new Date());
+    return { first_day: day, last_day: day, granularity: 'day', ...filters };
   });
 
   const agentsAvailable = $derived(
@@ -48,6 +248,81 @@
   const modelsAvailable = $derived(
     Array.from(new Set((summary?.models ?? []).map((m) => m.model ?? '__unknown__'))).sort()
   );
+
+  // 下拉选项 = 用户列表 +（当前用户不在列表时合成一项，如初始 default）。
+  const userOptions = $derived.by(() => {
+    const list = [...users];
+    if (currentUser && !list.some((u) => u.user_id === currentUser)) {
+      list.unshift({ user_id: currentUser, name: currentUser, created_at_ms: 0 });
+    }
+    return list;
+  });
+
+  // 今日饼图数据：total_tokens 占比（unknown 归“未知”；0 值不参与）。
+  const todayModelPie = $derived(
+    (todaySummary?.models ?? [])
+      .map((m) => ({
+        name: m.model ?? t('common.unknown'),
+        value: Number(m.sums.total_tokens_known ?? 0),
+      }))
+      .filter((d) => d.value > 0)
+  );
+  const todayAgentPie = $derived(
+    (todaySummary?.agents ?? [])
+      .map((a) => ({ name: a.agent, value: Number(a.sums.total_tokens_known ?? 0) }))
+      .filter((d) => d.value > 0)
+  );
+
+  // 趋势页饼图数据：当前时间范围 summary 的模型/Agent total_tokens 占比。
+  const trendModelPie = $derived(
+    (summary?.models ?? [])
+      .map((m) => ({
+        name: m.model ?? t('common.unknown'),
+        value: Number(m.sums.total_tokens_known ?? 0),
+      }))
+      .filter((d) => d.value > 0)
+  );
+  const trendAgentPie = $derived(
+    (summary?.agents ?? [])
+      .map((a) => ({ name: a.agent, value: Number(a.sums.total_tokens_known ?? 0) }))
+      .filter((d) => d.value > 0)
+  );
+
+  /** 今日分区日期标签。 */
+  const todayDateLabel = $derived(new Date().toLocaleDateString(i18n.locale));
+
+  function panelTitle(id: string): string {
+    switch (id) {
+      case 'today-cards':
+        return t('overview.today');
+      case 'today-hourly':
+        return t('hourly.title');
+      case 'today-model-pie':
+        return t('overview.todayPie.model');
+      case 'today-agent-pie':
+        return t('overview.todayPie.agent');
+      case 'today-model-table':
+        return t('overview.todayTable.model');
+      case 'today-agent-table':
+        return t('overview.todayTable.agent');
+      case 'history-calls':
+      case 'trend-calls':
+        return t('trend.chart.calls');
+      case 'history-tokens':
+      case 'trend-tokens':
+        return t('trend.chart.tokens');
+      case 'trend-heatmap':
+        return t('heatmap.title');
+      case 'trend-weekday':
+        return t('trend.weekday');
+      case 'trend-model-pie':
+        return t('trend.pie.model');
+      case 'trend-agent-pie':
+        return t('trend.pie.agent');
+      default:
+        return id;
+    }
+  }
 
   async function loadSettings() {
     try {
@@ -58,10 +333,14 @@
     }
   }
 
+  /** 主查询 + 今日查询（同一次用户交互/刷新内成对加载）。 */
   async function loadSummary() {
     queryError = '';
+    const [q, tq] = [query, todayQuery];
     try {
-      summary = await api.summary(query);
+      const [s, ts] = await Promise.all([api.summary(q), api.summary(tq)]);
+      summary = s;
+      todaySummary = ts;
     } catch (e) {
       queryError = parseError(e);
     }
@@ -73,6 +352,75 @@
       sources = r.sources;
     } catch (e) {
       loadError = parseError(e);
+    }
+  }
+
+  async function loadUsers() {
+    try {
+      const r = await api.listUsers();
+      users = r.users;
+      currentUser = r.current;
+      userSelect = r.current;
+    } catch (e) {
+      userError = parseError(e);
+    }
+  }
+
+  /** 用户切换/导入等不改变 query 的数据重载（summary/heatmap/sources 都要刷新）。 */
+  async function reloadUserData() {
+    dataReloadKey += 1;
+    await Promise.all([loadSummary(), loadSources()]);
+  }
+
+  async function onUserChange(e: Event) {
+    const value = (e.currentTarget as HTMLSelectElement).value;
+    if (value === '__new__') {
+      // 打开新建行；下拉回落到当前用户。
+      newUserOpen = true;
+      newUserName = '';
+      userSelect = currentUser;
+      return;
+    }
+    if (!value || value === currentUser) {
+      userSelect = currentUser;
+      return;
+    }
+    userBusy = true;
+    userError = '';
+    try {
+      await api.setCurrentUser(value);
+      currentUser = value;
+      userSelect = value;
+      // summary/heatmap 后端按当前用户过滤，切换后必须重拉。
+      await reloadUserData();
+    } catch (e) {
+      userError = parseError(e);
+      userSelect = currentUser;
+    } finally {
+      userBusy = false;
+    }
+  }
+
+  function cancelCreateUser() {
+    newUserOpen = false;
+    newUserName = '';
+  }
+
+  async function confirmCreateUser() {
+    const name = newUserName.trim();
+    if (!name || userBusy) return;
+    userBusy = true;
+    userError = '';
+    try {
+      await api.createUser(name, true);
+      newUserOpen = false;
+      newUserName = '';
+      await loadUsers();
+      await reloadUserData();
+    } catch (e) {
+      userError = parseError(e);
+    } finally {
+      userBusy = false;
     }
   }
 
@@ -106,17 +454,21 @@
   onMount(() => {
     void (async () => {
       await loadSettings();
-      await Promise.all([loadSummary(), loadSources(), pollRefresh()]);
+      await Promise.all([loadSummary(), loadSources(), loadUsers(), pollRefresh()]);
     })();
     const pollTimer = setInterval(() => void pollRefresh(), 3000);
     return () => clearInterval(pollTimer);
+  });
+
+  // 近 24 小时/当天自动切到小时粒度（任务 C7）。
+  $effect(() => {
+    if (rangeKey === '24h' || rangeKey === 'today') granularity = 'hour';
   });
 
   // 查询条件变化即重查（防抖 300ms）。
   let queryTimer: ReturnType<typeof setTimeout> | undefined;
   $effect(() => {
     void query;
-    void granularity;
     if (queryTimer) clearTimeout(queryTimer);
     queryTimer = setTimeout(() => void loadSummary(), 300);
   });
@@ -138,15 +490,59 @@
           })
         : t('action.refresh')
   );
+
+  // 采集中：ETA 文案（null/不可估时为空串，模板据此隐藏）。
+  const refreshEtaText = $derived(fmtEtaDuration(refresh?.eta_seconds));
 </script>
 
 <main>
   <header>
-    <h1><img src="/brand/app-icon.svg" width="36" height="36" alt="" />{t('app.title')}</h1>
+    <h1><img src="/brand/app-icon.svg" width="28" height="28" alt="" />{t('app.title')}</h1>
     <span class="subtitle">{t('app.subtitle')}</span>
     <span class="spacer"></span>
     {#if summary}
       <span class="muted">{t('cards.revision', { revision: summary.data_revision })}</span>
+    {/if}
+    {#if newUserOpen}
+      <span class="user-create">
+        <input
+          placeholder={t('users.namePlaceholder')}
+          bind:value={newUserName}
+          onkeydown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              void confirmCreateUser();
+            }
+          }}
+        />
+        <button class="primary" disabled={userBusy || newUserName.trim() === ''} onclick={() => void confirmCreateUser()}>
+          {t('users.createConfirm')}
+        </button>
+        <button disabled={userBusy} onclick={cancelCreateUser}>{t('users.createCancel')}</button>
+      </span>
+    {:else}
+      <label class="user-picker">
+        {t('users.label')}
+        <select value={userSelect} disabled={userBusy} onchange={onUserChange}>
+          {#each userOptions as u (u.user_id)}
+            <option value={u.user_id}>{u.name}</option>
+          {/each}
+          <option value="__new__">{t('users.create')}</option>
+        </select>
+      </label>
+    {/if}
+    {#if refresh?.running}
+      <span class="refresh-progress" role="status" aria-live="polite">
+        <span class="rbar" aria-hidden="true">
+          <span class="rfill" style:width="{refresh.progress_percent}%"></span>
+        </span>
+        <span class="rlabel">
+          {t('refresh.progress', { percent: refresh.progress_percent })}
+          {#if refreshEtaText}
+            <span class="reta">· {t('refresh.eta', { eta: refreshEtaText })}</span>
+          {/if}
+        </span>
+      </span>
     {/if}
     <button class="primary" disabled={refreshing || refresh?.running} onclick={manualRefresh}>
       {refreshLabel}
@@ -154,7 +550,7 @@
   </header>
 
   <nav>
-    {#each [['overview', t('nav.overview')], ['trend', t('nav.trend')], ['sources', t('nav.sources')], ['settings', t('nav.settings')]] as [id, label] (id)}
+    {#each [['overview', t('nav.overview')], ['trend', t('nav.trend')], ['sources', t('nav.sources')], ['details', t('nav.details')], ['settings', t('nav.settings')]] as [id, label] (id)}
       <button class:active={tab === id} onclick={() => (tab = id as Tab)}>{label}</button>
     {/each}
   </nav>
@@ -162,23 +558,31 @@
   {#if loadError}
     <p class="error">{t('common.error', { message: loadError })}</p>
   {/if}
+  {#if userError}
+    <p class="error">{t('users.actionFailed', { message: userError })}</p>
+  {/if}
 
-  {#if tab === 'overview' || tab === 'trend'}
+  {#if tab === 'overview' || tab === 'trend' || tab === 'details'}
     <div class="filters">
-      <label>{t('filter.range')}
-        <select bind:value={quickDays}>
-          <option value={7}>{t('filter.quick.7')}</option>
-          <option value={30}>{t('filter.quick.30')}</option>
-          <option value={365}>{t('filter.quick.365')}</option>
-        </select>
-      </label>
-      <label>{t('filter.granularity.day')}
-        <select bind:value={granularity}>
-          <option value="day">{t('filter.granularity.day')}</option>
-          <option value="week">{t('filter.granularity.week')}</option>
-          <option value="month">{t('filter.granularity.month')}</option>
-        </select>
-      </label>
+      {#if tab !== 'details'}
+        <label>{t('filter.range')}
+          <select bind:value={rangeKey}>
+            <option value="24h">{t('filter.quick.24h')}</option>
+            <option value="today">{t('filter.quick.today')}</option>
+            <option value="7">{t('filter.quick.7')}</option>
+            <option value="30">{t('filter.quick.30')}</option>
+            <option value="365">{t('filter.quick.365')}</option>
+          </select>
+        </label>
+        <label>{t('filter.granularity.label')}
+          <select bind:value={granularity}>
+            <option value="hour">{t('filter.granularity.hour')}</option>
+            <option value="day">{t('filter.granularity.day')}</option>
+            <option value="week">{t('filter.granularity.week')}</option>
+            <option value="month">{t('filter.granularity.month')}</option>
+          </select>
+        </label>
+      {/if}
       <label>{t('filter.agent')}
         <select bind:value={agentFilter}>
           <option value="">{t('common.all')}</option>
@@ -195,7 +599,21 @@
           {/each}
         </select>
       </label>
+      {#if tab === 'overview' || tab === 'trend'}
+        <span class="spacer"></span>
+        <button
+          type="button"
+          class="edit-toggle"
+          class:active={editLayout}
+          onclick={() => (editLayout = !editLayout)}
+        >
+          🔧 {editLayout ? t('panel.editDone') : t('panel.edit')}
+        </button>
+      {/if}
     </div>
+    {#if editLayout && (tab === 'overview' || tab === 'trend')}
+      <p class="edit-hint">{t('panel.editHint')}</p>
+    {/if}
   {/if}
 
   {#if queryError}
@@ -207,25 +625,116 @@
       {#if summary.totals.call_count === 0 && summary.periods.length === 0}
         <p class="empty">{t('common.empty')}</p>
       {:else}
-        <SummaryCards totals={summary.totals} excluded={summary.excluded_event_count} />
-        <BreakdownTables models={summary.models} agents={summary.agents} />
-        <TodayHourly hourly={summary.today_hourly} />
+        <div class="section-head">
+          <h2>{t('overview.todaySection')}</h2>
+          <span class="section-date">{todayDateLabel}</span>
+        </div>
+        <div class="panel-grid">
+          {#each panelState.overviewToday.order as id, i (id)}
+            <Panel
+              title={panelTitle(id)}
+              span={PANEL_SPAN[id] ?? 3}
+              hidden={panelState.overviewToday.hidden.includes(id)}
+              editable={editLayout}
+              dragging={dragFrom?.gk === 'overviewToday' && dragFrom.index === i}
+              dropTarget={dragFrom?.gk === 'overviewToday' && dropIndex === i}
+              panelGroup="overviewToday"
+              panelIndex={i}
+              ontoggle={() => togglePanel('overviewToday', id)}
+              onpickstart={(e) => panelPickStart('overviewToday', i, e)}
+            >
+              {#if id === 'today-cards'}
+                {#if todaySummary}
+                  <TodayOverview totals={todaySummary.totals} hourly={todaySummary.today_hourly} />
+                {:else}
+                  <p class="muted">{t('common.loading')}</p>
+                {/if}
+              {:else if id === 'today-hourly'}
+                <TodayHourly hourly={todaySummary?.today_hourly ?? []} />
+              {:else if id === 'today-model-pie'}
+                <SharePie data={todayModelPie} />
+              {:else if id === 'today-agent-pie'}
+                <SharePie data={todayAgentPie} />
+              {:else if id === 'today-model-table'}
+                <BreakdownTables models={todaySummary?.models ?? []} kind="model" />
+              {:else if id === 'today-agent-table'}
+                <BreakdownTables agents={todaySummary?.agents ?? []} kind="agent" />
+              {/if}
+            </Panel>
+          {/each}
+        </div>
+
+        <div class="section-head">
+          <h2>{t('overview.historySection')}</h2>
+        </div>
+        <div class="panel-grid">
+          {#each panelState.overviewHistory.order as id, i (id)}
+            <Panel
+              title={panelTitle(id)}
+              span={PANEL_SPAN[id] ?? 3}
+              hidden={panelState.overviewHistory.hidden.includes(id)}
+              editable={editLayout}
+              dragging={dragFrom?.gk === 'overviewHistory' && dragFrom.index === i}
+              dropTarget={dragFrom?.gk === 'overviewHistory' && dropIndex === i}
+              panelGroup="overviewHistory"
+              panelIndex={i}
+              ontoggle={() => togglePanel('overviewHistory', id)}
+              onpickstart={(e) => panelPickStart('overviewHistory', i, e)}
+            >
+              {#if id === 'history-calls'}
+                <CallsChart periods={summary.periods} {query} {granularity} />
+              {:else if id === 'history-tokens'}
+                <TokenChart periods={summary.periods} {query} {granularity} />
+              {/if}
+            </Panel>
+          {/each}
+        </div>
       {/if}
     {:else}
       <p class="muted">{t('common.loading')}</p>
     {/if}
   {:else if tab === 'trend'}
     {#if summary}
-      <TrendChart periods={summary.periods} granularity={granularity} />
-      <UsageHeatmap {query} />
+      <div class="panel-grid">
+        {#each panelState.trendMain.order as id, i (id)}
+          <Panel
+            title={panelTitle(id)}
+            span={PANEL_SPAN[id] ?? 3}
+            hidden={panelState.trendMain.hidden.includes(id)}
+            editable={editLayout}
+            dragging={dragFrom?.gk === 'trendMain' && dragFrom.index === i}
+            dropTarget={dragFrom?.gk === 'trendMain' && dropIndex === i}
+            panelGroup="trendMain"
+            panelIndex={i}
+            ontoggle={() => togglePanel('trendMain', id)}
+            onpickstart={(e) => panelPickStart('trendMain', i, e)}
+          >
+            {#if id === 'trend-calls'}
+              <CallsChart periods={summary.periods} {query} {granularity} />
+            {:else if id === 'trend-tokens'}
+              <TokenChart periods={summary.periods} {query} {granularity} />
+            {:else if id === 'trend-heatmap'}
+              <UsageHeatmap {query} reloadKey={dataReloadKey} oncells={(cells) => (heatmapCells = cells)} />
+            {:else if id === 'trend-weekday'}
+              <WeekdayBar cells={heatmapCells} />
+            {:else if id === 'trend-model-pie'}
+              <SharePie data={trendModelPie} />
+            {:else if id === 'trend-agent-pie'}
+              <SharePie data={trendAgentPie} />
+            {/if}
+          </Panel>
+        {/each}
+      </div>
     {:else}
       <p class="muted">{t('common.loading')}</p>
     {/if}
+  {:else if tab === 'details'}
+    <EventDetails {query} reloadKey={dataReloadKey} />
   {:else if tab === 'sources'}
-    <SourceList {sources} onchanged={loadSources} />
+    <SourceList {sources} users={userOptions} onchanged={loadSources} />
   {:else if tab === 'settings'}
     {#if settings}
-      <SettingsPanel settings={settings} onsaved={onSettingsSaved} />
+      <SettingsPanel settings={settings} collecting={!!refresh?.running} onsaved={onSettingsSaved} ondatachanged={() => void reloadUserData()} />
     {/if}
   {/if}
 </main>
@@ -240,19 +749,20 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 6px 0 10px;
+    padding: 6px 0;
     border-bottom: 1px solid #e3e5e8;
+    flex-wrap: wrap;
   }
   h1 {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 18px;
+    font-size: 16px;
     margin: 0;
   }
   .subtitle {
     color: #666;
-    font-size: 13px;
+    font-size: 12px;
   }
   .spacer {
     flex: 1;
@@ -260,15 +770,15 @@
   nav {
     display: flex;
     gap: 4px;
-    padding: 8px 0;
+    padding: 6px 0;
   }
   nav button {
     border: none;
     background: transparent;
-    padding: 6px 14px;
+    padding: 4px 12px;
     border-radius: 6px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 13px;
   }
   nav button.active {
     background: #e8f0fe;
@@ -277,29 +787,110 @@
   }
   .filters {
     display: flex;
-    gap: 16px;
+    gap: 10px;
     align-items: center;
-    padding: 8px 0;
-    font-size: 13px;
+    padding: 4px 0;
+    font-size: 12.5px;
     flex-wrap: wrap;
   }
   .filters label {
     display: flex;
-    gap: 6px;
+    gap: 4px;
     align-items: center;
     color: #444;
   }
+  .filters .spacer {
+    flex: 1;
+  }
+  /* 布局编辑模式开关（🔧；激活时高亮）。 */
+  .edit-toggle {
+    border: 1px solid #dcdfe3;
+    background: #fff;
+    border-radius: 6px;
+    padding: 3px 12px;
+    cursor: pointer;
+    font-size: 12.5px;
+    color: #444;
+  }
+  .edit-toggle.active {
+    background: #e8f0fe;
+    color: #1a56c4;
+    border-color: #9db8e8;
+    font-weight: 600;
+  }
+  .edit-hint {
+    margin: 2px 0 0;
+    font-size: 12px;
+    color: #8a6d1a;
+  }
   select {
-    padding: 3px 6px;
+    padding: 2px 4px;
+    font-size: 12.5px;
+  }
+  .user-picker {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: #444;
+  }
+  .user-picker select {
+    max-width: 170px;
+  }
+  /* 采集中：简洁进度条（宽度 = 百分比）+ 百分比/剩余时间文案。 */
+  .refresh-progress {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12.5px;
+    color: #444;
+    white-space: nowrap;
+  }
+  .refresh-progress .rbar {
+    display: inline-block;
+    width: 110px;
+    height: 6px;
+    border-radius: 3px;
+    background: #e6e8eb;
+    overflow: hidden;
+  }
+  .refresh-progress .rfill {
+    display: block;
+    height: 100%;
+    border-radius: 3px;
+    background: #1a56c4;
+    transition: width 0.3s ease;
+  }
+  .refresh-progress .rlabel {
+    font-variant-numeric: tabular-nums;
+  }
+  .refresh-progress .reta {
+    color: #777;
+  }
+  .user-create {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .user-create input {
+    padding: 4px 8px;
+    font-size: 12.5px;
+    width: 150px;
+    box-sizing: border-box;
+  }
+  .user-create button {
+    padding: 4px 12px;
+    cursor: pointer;
+    font-size: 12.5px;
   }
   button.primary {
     background: #1a56c4;
     color: #fff;
     border: none;
     border-radius: 6px;
-    padding: 7px 16px;
+    padding: 5px 14px;
     cursor: pointer;
-    font-size: 13px;
+    font-size: 12.5px;
   }
   button.primary:disabled {
     background: #9db8e8;
@@ -322,5 +913,35 @@
   .muted {
     color: #777;
     font-size: 13px;
+  }
+  /* 今日/历史醒目分区标题（任务 D8）。 */
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin: 14px 0 6px;
+  }
+  .section-head h2 {
+    font-size: 15px;
+    margin: 0;
+    padding-left: 10px;
+    border-left: 4px solid #1a56c4;
+    color: #1c2b4a;
+  }
+  .section-date {
+    color: #777;
+    font-size: 12.5px;
+  }
+  /* 面板 6 列格子布局（任务 E10）；跨列数由 Panel 的 span 类决定。 */
+  .panel-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 12px;
+    align-items: stretch;
+  }
+  @media (max-width: 900px) {
+    .panel-grid {
+      grid-template-columns: 1fr;
+    }
   }
 </style>

@@ -195,14 +195,36 @@ fn capability_table_is_structured_and_complete() {
     let cap = adapter.capability();
     let json = serde_json::to_value(&cap).unwrap();
     assert_eq!(json["adapter_id"], "codex");
-    // supported_versions 由版本注册表生成（M2-D 后含逐版本 fixture 核验的历史版本）。
+    // supported_versions 由版本注册表生成（M2-D 逐版本 fixture + 2026-09-26
+    // 0.139–0.151 旧载体取证登记）。
     assert_eq!(
         json["supported_versions"],
         serde_json::json!([
             "0.155.0-alpha.16.3",
             "0.154.0-alpha.6.2",
             "0.154.0-alpha.6.1",
-            "0.153.0"
+            "0.153.0",
+            "0.151.0-alpha.7.1",
+            "0.149.0-alpha.4.1",
+            "0.148.0-alpha.9",
+            "0.147.0-alpha.6.5",
+            "0.146.0-alpha.9.2",
+            "0.146.0-alpha.3.1",
+            "0.146.0-alpha.3",
+            "0.145.0-alpha.27",
+            "0.145.0-alpha.18",
+            "0.144.5",
+            "0.144.2",
+            "0.144.0-alpha.4",
+            "0.142.5",
+            "0.142.4",
+            "0.142.3",
+            "0.142.2",
+            "0.142.0",
+            "0.142.0-alpha.6",
+            "0.142.0-alpha.1",
+            "0.140.0-alpha.2",
+            "0.139.0"
         ])
     );
     // 字段能力八项齐全。

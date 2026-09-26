@@ -12,15 +12,17 @@ M2 基本完成：六源适配器、适配器目录化迁移/版本注册表与�
 M1a 已完成（[验证记录](docs/validation/desktop-usage/m1a-provenance.md)：主机身份/
 来源分区/交换合同，V28 通过）。M6 主体功能已实现（界面/刷新/调度/设置/导出/
 headless/i18n，[验证记录](docs/validation/desktop-usage/m6-desktop-core.md)），
-余真实桌面逐操作验收、系统任务注册（V24）、逐源定时与监听等（见记录未完成项）。
+余真实桌面逐操作验收（V13–V18/V23–V25）、系统任务真实验收（V24，注册命令已实现）、
+逐源定时与监听等（见记录未完成项）。
 F3 调研已完成（[i18n 合同](docs/design/desktop-usage/i18n.md)），实施已随 M6 落地
 zh-CN/en 双语。F2 调研已完成（[价格合同](docs/design/desktop-usage/pricing.md)，
-费用引擎实施待排期）。M3–M5、M7 待执行（kilo/zcode/kimi 适配器进行中）；
-F1 未排期。
+费用引擎实施待排期）。M3/M4 基本完成（七产品文档级实施、kilo/kimi-code/
+kimi-work/zcode 真实核对，真实验收后置）；M5 待执行；M7 部分完成
+（release 构建 + NSIS 包体 + WSL 编译/测试）。F1 未排期。
 用户已允许实施阶段提取本机真实 Agent 数据验证。设计基线日期：2026-09-24。
 
-M3–M5 与 F2 仅为计划与合同，不表示已实现对应适配器、遥测接入或费用估算；
-完整导入/Merge 功能未实施（M1a 交付格式与判定）。
+M5 与 F2 仅为计划与合同，不表示已实现遥测接入或费用估算；
+聚合层导入已按 M1a 判定实施（明细级导入与完整 Merge 另行排期）。
 
 目标：在本地按 Agent、模型和时间汇总 token、模型请求及缓存使用，
 支持今日刷新、日/周/月图表、定时提取和界面配置，提供小体积桌面客户端。
@@ -60,7 +62,7 @@ JetBrains/TRAE 等缺少本地格式证据的 IDE 列入后续 F1，当前不实
 | M3 | **基本完成**（kilo 真实核对；cline/dsh/hermes/openclaw/opencode/mimo/zoo 七产品文档级证据实施、合成测试通过、真实验收后置：[M3/M4 记录](docs/validation/desktop-usage/m34-kilo-zcode-kimi.md)、[文档级记录](docs/validation/desktop-usage/m3-doclevel-cmdh.md)） | 扩展本地适配器：Cline、Kilo Code、OpenCode、MiMo Code、Zoo Code、DSH、OpenClaw、Hermes Agent | M1；可与 M2 独立排期 | 分产品/格式验收；流式更正、模型/辅助累计、历史迁移与聚合重叠通过 |
 | M4 | **基本完成**（kimi-code/kimi-work/zcode 适配器已实施并真实核对，[M3/M4 记录](docs/validation/desktop-usage/m34-kilo-zcode-kimi.md)；WorkBuddy 本机已无数据（盘点 2026-09-25 全盘未检出，M0 三处残留目录已消失），无本地格式可核验——待重新出现数据再验） | 新版 Kimi Code、Kimi Work、ZCode、WorkBuddy 本地格式核验 | M0/M1 | 本阶段产品有本地提取尝试记录；交付适配器或字段/版本限制；F1 的 IDE 不实施，不以远端 API 替代 |
 | M5 | 未完成（M0 已取证：Copilot CLI 1.0.73 assistant_usage_events 逐 turn 字段已证） | 本机文件遥测及可选 loopback 接入：Copilot CLI、VS Code、CodeBuddy 等 | M1 | 本地 OTLP/file 协议、采样/重传、来源归属、敏感字段过滤通过；拒绝远端/账号范围数据 |
-| M6 | **主体功能已实现，部分验收**（[验证记录](docs/validation/desktop-usage/m6-desktop-core.md)：界面/图表/筛选/来源页/设置/导出/调度/headless/i18n 齐备，headless 端到端三源 11,401 事件验证；余真实桌面逐操作验收 V13–V18/V23–V25、V24 系统任务、逐源定时、监听、对话框导出等） | 桌面界面、真实刷新、定时任务、设置、保留和导出 | M1/M1a/M2；对接 M3–M5 | 图表与日周月联动；可供后续合并的数据导出保留来源身份、覆盖范围和修订；全局/逐源定时配置、手动触发去重、休眠补扫、Windows 关闭界面提取和重启恢复通过；按[资源合同](desktop/assets/README.md)接入导航、主题托盘与空状态，核验高 DPI、深浅主题和可访问名称 |
+| M6 | **主体功能已实现，部分验收**（[验证记录](docs/validation/desktop-usage/m6-desktop-core.md)：界面/图表/筛选/来源页/设置/导出导入/调度/headless/i18n/多用户齐备，headless 端到端三源 11,401 事件验证；对话框导出与聚合导入已实现；余真实桌面逐操作验收 V13–V18/V23–V25、V24 系统任务真实验收、逐源定时、监听等） | 桌面界面、真实刷新、定时任务、设置、保留和导出 | M1/M1a/M2；对接 M3–M5 | 图表与日周月联动；可供后续合并的数据导出保留来源身份、覆盖范围和修订；全局/逐源定时配置、手动触发去重、休眠补扫、Windows 关闭界面提取和重启恢复通过；按[资源合同](desktop/assets/README.md)接入导航、主题托盘与空状态，核验高 DPI、深浅主题和可访问名称 |
 | M7 | **部分完成**（release 构建 + NSIS 包体 2.24 MiB 达标 + WSL 编译/测试：[M7 记录](docs/validation/desktop-usage/m7-build-partial.md)；余真实安装/资源/系统任务/三平台 CI 验收） | 轻量化、三平台持续构建、安装与发布候选验收 | M2–M6 | Windows 11 实机与三平台 CI 证据分列；适配器状态明确，性能/包体、离线、任务清理与升级回滚通过；确认 LFS 下载后的安装包、任务栏及 macOS/Linux 桌面图标 |
 | F1 | 后续支持，未排期，未实施 | 后续 IDE 支持：JetBrains/TRAE、Zed 内置及其他缺证 IDE 变体 | 后续支持阶段；不属于 M0–M7 | 启动该阶段后逐项取得本地格式证据及验证结果；当前只保留计划，不探测/开发，不阻塞首版 |
 | F2 | **调研已完成**（[价格合同](docs/design/desktop-usage/pricing.md)：渠道比较/四家计费维度核验/版本化快照合同/V29 样本设计；费用引擎与 UI 实施待排期） | [模型 API 按量价格获取与 token 费用估算方案](docs/design/desktop-usage/execution.md#f2) | 数据合同；调研不阻塞首版 | 比较价格获取渠道并记录可核验证据；明确模型映射、计费维度、版本/生效期、离线缓存及更新方式；交付 V29 验收样本设计和后续实施任务 |

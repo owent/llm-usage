@@ -254,7 +254,7 @@ fn detect_pending_and_unknown_format() {
 fn detect_registry_dispatches_by_own_anchor() {
     let adapter = KimiCodeAdapter::new();
     let dir = TempDir::new("kimi-code-dispatch");
-    for (version, expected_basis) in [("1.5", "known"), ("1.4", "fallback")] {
+    for (version, expected_basis) in [("1.5", "known"), ("1.4", "known")] {
         let path = dir.path().join(format!("wire-{version}.jsonl"));
         std::fs::write(
             &path,

@@ -12,7 +12,9 @@ pub mod versions;
 
 pub use common::{map_codex, map_codex_record, CodexRecordUsage, CodexUsage};
 pub use detect::CODEX_FORMAT;
-pub use versions::{rollout_v1, LATEST_IMPL_ID, SUPPORTED_CLI_VERSIONS, VERIFIED_VERSION_IMPLS};
+pub use versions::{
+    rollout_legacy, rollout_v1, LATEST_IMPL_ID, SUPPORTED_CLI_VERSIONS, VERIFIED_VERSION_IMPLS,
+};
 
 pub const CODEX_ENV_HOME: &str = "CODEX_HOME";
 
@@ -99,8 +101,9 @@ impl crate::adapters::framework::SourceAdapter for CodexAdapter {
         limits: &crate::adapters::framework::ScanLimits,
         now_ms: i64,
     ) -> Result<crate::adapters::framework::ScanOutcome, crate::error::CoreError> {
-        // 当前所有已验证版本共用 rollout_v1；注册表扩展多实现后在此按选择分派。
-        versions::rollout_v1::scan(target, stored, limits, now_ms)
+        // 版本注册表分派（探测/扫描同一注册表）：0.153+ → rollout_v1，
+        // 0.139–0.151 旧载体 → rollout_legacy，未收录 → LatestFallback（rollout_v1）。
+        versions::dispatch_scan(target, stored, limits, now_ms)
     }
 
     fn capability(&self) -> crate::adapters::framework::CapabilityTable {
@@ -183,10 +186,10 @@ impl crate::adapters::framework::SourceAdapter for CodexAdapter {
             }),
             fields,
             lifecycle: serde_json::json!({
-                "model_call": "token_usage_record（final，response_id 身份）",
-                "cumulative_snapshot": "token_count.total_token_usage 取最终值；compaction 携带记录被排除出快照；Σ逐次==最终快照+Σ携带（实读核对）",
-                "last_token_usage": "逐次回声，忽略防双计",
-                "aborted": "turn_aborted 已观测；已返回部分经其 token_usage_record 记账",
+                "model_call": "token_usage_record（final，response_id 身份）；0.139–0.151 无该载体，按 token_count.last_token_usage 的 total 增量判据发逐次事件（rollout_legacy，身份 seq:{session}:{行号}）",
+                "cumulative_snapshot": "token_count.total_token_usage 取最终值；0.153+ compaction 携带记录与 0.139–0.151 压缩摘要回声（delta==0 且 last 变化）均排除出快照；Σ逐次==最终快照+Σ携带（实读核对）",
+                "last_token_usage": "0.153+ 为逐次回声忽略防双计；0.139–0.151 为唯一逐次载体，按增量判据去重（delta==0 且 last 未变=重复上报）",
+                "aborted": "turn_aborted 已观测；已返回部分按 token_count 回声记账",
                 "retries": "格式内未观测到 transport 重试记录",
                 "subagent": "session_meta.parent_thread_id 存在 ⇒ sub_agent；子 Agent 是独立 rollout 文件",
             }),
@@ -210,7 +213,7 @@ impl crate::adapters::framework::SourceAdapter for CodexAdapter {
             }),
             maintenance: serde_json::json!({
                 "parser_version": versions::rollout_v1::CODEX_PARSER_VERSION,
-                "format_evidence": "M0 本机 fixture（0.155.0-alpha.16.3，3 会话）",
+                "format_evidence": "M0 本机 fixture（0.155.0-alpha.16.3，3 会话）；M2-D 逐版本 fixture（0.153/0.154）；2026-09-26 本机 238 个 0.139–0.151 文件全量实读取证（rollout_legacy）",
                 "upgrade_policy": "未收录版本 latest_fallback 兼容尝试；逐版本 fixture 核验后升为已验证",
             }),
             scheduling: serde_json::json!({

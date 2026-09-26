@@ -9,6 +9,8 @@ pub enum CoreError {
     Io(std::io::Error),
     /// 数据库 user_version 比本程序支持的更新：拒绝打开写入，不破坏性降级。
     SchemaTooNew { found: u32, supported: u32 },
+    /// 预发布阶段：版本不匹配（旧库或未知版本），需用户确认删除重建或退出。
+    SchemaMismatch { found: u32, expected: u32 },
     /// 迁移执行失败；旧库保持不变。
     MigrationFailed {
         version: u32,
@@ -38,6 +40,9 @@ impl fmt::Display for CoreError {
             CoreError::Io(e) => write!(f, "io: {e}"),
             CoreError::SchemaTooNew { found, supported } => {
                 write!(f, "schema version {found} is newer than supported {supported}; refusing to open for write")
+            }
+            CoreError::SchemaMismatch { found, expected } => {
+                write!(f, "database schema version {found} != expected {expected}; rebuild required (pre-release, no incremental migration)")
             }
             CoreError::MigrationFailed {
                 version,

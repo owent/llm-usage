@@ -331,9 +331,11 @@ pub fn commit_batch(
     outcome.data_revision = next_revision;
     check_fault(fault, FaultPoint::BeforeAggregates)?;
 
-    // 4. 受影响日按（时区, 日）分区重算；封存日不追加。
+    // 4. 受影响日按（时区, 日）分区重算；封存日不追加。小时分桶同事务持久化
+    //    （分级归档：明细删除后小时层仍有数据）。
     for day in &affected {
         recompute_day(&tx, &calendar, *day, next_revision)?;
+        persist_hourly_day(&tx, &calendar, *day, next_revision)?;
     }
     outcome.affected_days = affected.iter().map(Date::to_string).collect();
     check_fault(fault, FaultPoint::AfterAggregates)?;
@@ -727,4 +729,178 @@ pub fn recompute_days_in_tz(
     }
     tx.commit()?;
     Ok(revision)
+}
+
+/// 小时分桶持久化（分级归档的 30 天层）：按本地日重算该日各小时分桶行，
+/// 维度与日汇总一致（实例/Agent/provider/模型/类别/质量桶）。
+/// 与 recompute_day 同事务调用；封存日的小时层同样冻结（不重算）。
+/// 小时换算按事件时刻的本地偏移（DST 日 23/25 小时自然正确）。
+pub(crate) fn persist_hourly_day(
+    tx: &Transaction<'_>,
+    calendar: &Calendar,
+    day: Date,
+    data_revision: i64,
+) -> Result<(), CoreError> {
+    // schema < 5（测试钩子冻结的旧库）没有 hourly_usage 表：跳过
+    //（迁移到当前版本后自然生效；不影响日/明细层语义）。
+    let has_table: bool = tx.query_row(
+        "SELECT EXISTS(SELECT 1 FROM pragma_table_info('hourly_usage'))",
+        [],
+        |r| r.get(0),
+    )?;
+    if !has_table {
+        return Ok(());
+    }
+    let tz = calendar.tz_name().to_string();
+    let day_str = day.to_string();
+    let sealed: i64 = tx.query_row(
+        "SELECT COUNT(*) FROM daily_usage WHERE tz_version = ?1 AND local_day = ?2 AND sealed = 1",
+        params![tz, day_str],
+        |r| r.get(0),
+    )?;
+    if sealed > 0 {
+        return Ok(());
+    }
+    let (start_ms, end_ms) = calendar.day_range_ms(day)?;
+    tx.execute(
+        "DELETE FROM hourly_usage WHERE tz_version = ?1 AND local_day = ?2",
+        params![tz, day_str],
+    )?;
+    let mut stmt = tx.prepare(
+        "SELECT source_instance_id, occurred_at_ms, record_kind, agent,
+                COALESCE(provider_id, ''), COALESCE(model_raw, ''), call_category,
+                quality_json, input_total, input_cache_read, input_cache_write,
+                output_total, total_tokens
+         FROM usage_events
+         WHERE occurred_at_ms >= ?1 AND occurred_at_ms < ?2
+           AND attribution_status = 'verified'
+           AND record_kind IN ('model_call', 'transport_attempt', 'usage_observation')",
+    )?;
+    #[derive(Default)]
+    struct Bucket {
+        event_count: i64,
+        call_count: i64,
+        input: i64,
+        known_input: bool,
+        cache_read: i64,
+        known_read: bool,
+        cache_write: i64,
+        known_write: bool,
+        output: i64,
+        known_output: bool,
+        total: i64,
+        known_total: bool,
+    }
+    /// 小时桶键：本地小时 + (实例, Agent, provider, 模型, 类别)。
+    type HourKey = (u32, (String, String, String, String, String));
+    let mut buckets: std::collections::BTreeMap<HourKey, Bucket> =
+        std::collections::BTreeMap::new();
+    let mut rows = stmt.query(params![start_ms, end_ms])?;
+    while let Some(row) = rows.next()? {
+        let instance: String = row.get(0)?;
+        let ms: i64 = row.get(1)?;
+        let kind: String = row.get(2)?;
+        let hour = calendar.local_hour_of(ms)?;
+        let agent: String = row.get(3)?;
+        let provider: String = row.get(4)?;
+        let model: String = row.get(5)?;
+        let category: String = row.get(6)?;
+        let quality_json: String = row.get(7)?;
+        let quality = serde_json::from_str::<serde_json::Value>(&quality_json).ok();
+        let known = |field: &str| -> bool {
+            quality
+                .as_ref()
+                .and_then(|q| q.get(field).and_then(|v| v.as_str()))
+                .map(|s| s == "reported" || s == "derived")
+                .unwrap_or(false)
+        };
+        let bucket = buckets
+            .entry((hour, (instance, agent, provider, model, category)))
+            .or_default();
+        bucket.event_count += 1;
+        if kind == "model_call" {
+            bucket.call_count += 1;
+        }
+        if kind != "transport_attempt" {
+            if known("input_total") {
+                bucket.input += row.get::<_, Option<i64>>(8)?.unwrap_or(0);
+                bucket.known_input = true;
+            }
+            if known("input_cache_read") {
+                bucket.cache_read += row.get::<_, Option<i64>>(9)?.unwrap_or(0);
+                bucket.known_read = true;
+            }
+            if known("input_cache_write") {
+                bucket.cache_write += row.get::<_, Option<i64>>(10)?.unwrap_or(0);
+                bucket.known_write = true;
+            }
+            if known("output_total") {
+                bucket.output += row.get::<_, Option<i64>>(11)?.unwrap_or(0);
+                bucket.known_output = true;
+            }
+            if known("total_tokens") {
+                bucket.total += row.get::<_, Option<i64>>(12)?.unwrap_or(0);
+                bucket.known_total = true;
+            }
+        }
+    }
+    drop(rows);
+    drop(stmt);
+    let mut insert = tx.prepare(
+        "INSERT INTO hourly_usage (
+           tz_version, local_day, hour, instance_id, agent, provider_id, model_raw,
+           call_category, quality_bucket, event_count, call_count,
+           input_known_sum, cache_read_known_sum, cache_write_known_sum,
+           output_known_sum, total_known_sum, conflict_count, data_revision
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, 0, ?17)",
+    )?;
+    for ((hour, (instance, agent, provider, model, category)), bucket) in buckets {
+        // quality_bucket 列本层只承载"合计字段是否全部已知"的粗标记，
+        // 不冒充逐事件 exact/estimated 分桶（该语义保留在日/明细层）。
+        let label = if bucket.known_total {
+            "totals_known"
+        } else {
+            "totals_unknown"
+        };
+        insert.execute(params![
+            tz,
+            day_str,
+            hour as i64,
+            instance,
+            agent,
+            provider,
+            model,
+            category,
+            label,
+            bucket.event_count,
+            bucket.call_count,
+            if bucket.known_input {
+                Some(bucket.input)
+            } else {
+                None
+            },
+            if bucket.known_read {
+                Some(bucket.cache_read)
+            } else {
+                None
+            },
+            if bucket.known_write {
+                Some(bucket.cache_write)
+            } else {
+                None
+            },
+            if bucket.known_output {
+                Some(bucket.output)
+            } else {
+                None
+            },
+            if bucket.known_total {
+                Some(bucket.total)
+            } else {
+                None
+            },
+            data_revision,
+        ])?;
+    }
+    Ok(())
 }

@@ -24,6 +24,7 @@ serde_json = { version = "=1.0.151" }
 rusqlite = { version = "=0.40.2", features = ["bundled"] }
 llm-usage-core = { path = "crates/core" }
 jiff = { version = "=0.2.37" }
+rfd = { version = "=0.15.4" }
 
 [profile.release]
 panic = "abort"

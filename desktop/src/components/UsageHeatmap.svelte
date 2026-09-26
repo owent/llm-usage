@@ -6,11 +6,21 @@
   import { CanvasRenderer } from 'echarts/renderers';
   import { api } from '../lib/api';
   import type { SummaryQuery } from '../lib/api';
-  import { t, i18n, fmtNumber } from '../lib/i18n.svelte';
+  import { t, i18n, fmtPrecise } from '../lib/i18n.svelte';
 
   echarts.use([HeatmapChart, GridComponent, TooltipComponent, VisualMapComponent, CanvasRenderer]);
 
-  let { query }: { query: SummaryQuery } = $props();
+  let {
+    query,
+    reloadKey = 0,
+    oncells,
+  }: {
+    query: SummaryQuery;
+    /** 用户切换/导入等不改变 query 的强制重查信号。 */
+    reloadKey?: number;
+    /** 载入后把 cells 交给父级（周分布图复用同一数据）。 */
+    oncells?: (cells: { weekday: number; hour: number; calls: number; total_tokens: string | null }[]) => void;
+  } = $props();
 
   let el: HTMLDivElement;
   let chart: echarts.ECharts | null = null;
@@ -25,6 +35,7 @@
       const r = await api.heatmap(query);
       cells = r.cells;
       failed = false;
+      oncells?.(r.cells);
     } catch {
       failed = true;
     }
@@ -36,14 +47,13 @@
     const max = Math.max(1, ...cells.map((c) => c.calls));
     chart.setOption(
       {
-        title: { text: t('heatmap.title'), left: 8, top: 4, textStyle: { fontSize: 13 } },
         tooltip: {
           formatter: (p: { value: [number, number, number] }) => {
             const cell = cells.find((c) => c.hour === p.value[0] && c.weekday - 1 === p.value[1]);
-            return `${weekdayLabels[p.value[1]]} ${String(p.value[0]).padStart(2, '0')}:00<br/>${t('trend.calls')}: ${fmtNumber(p.value[2])}<br/>${t('trend.tokens')}: ${fmtNumber(cell?.total_tokens ?? null)}`;
+            return `${weekdayLabels[p.value[1]]} ${String(p.value[0]).padStart(2, '0')}:00<br/>${t('trend.calls')}: ${fmtPrecise(p.value[2])}<br/>${t('trend.tokens')}: ${fmtPrecise(cell?.total_tokens ?? null)}`;
           },
         },
-        grid: { left: 44, right: 24, top: 40, bottom: 60 },
+        grid: { left: 44, right: 24, top: 16, bottom: 60 },
         xAxis: { type: 'category', data: hours.map(String), splitArea: { show: true } },
         yAxis: { type: 'category', data: weekdayLabels, splitArea: { show: true } },
         visualMap: {
@@ -71,7 +81,11 @@
     chart = echarts.init(el, i18n.locale === 'zh-CN' ? 'ZH' : 'EN');
     const onResize = () => chart?.resize();
     window.addEventListener('resize', onResize);
+    // 面板显示/隐藏或网格变化时容器尺寸变化（含 display:none 恢复），自动重设画布。
+    const observer = new ResizeObserver(() => chart?.resize());
+    observer.observe(el);
     return () => {
+      observer.disconnect();
       window.removeEventListener('resize', onResize);
       chart?.dispose();
       chart = null;
@@ -81,6 +95,7 @@
   let timer: ReturnType<typeof setTimeout> | undefined;
   $effect(() => {
     void query;
+    void reloadKey;
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => void load(), 300);
   });
@@ -99,7 +114,7 @@
 <style>
   .heatmap {
     width: 100%;
-    height: 300px;
+    height: 260px;
     margin-top: 8px;
   }
   .muted {

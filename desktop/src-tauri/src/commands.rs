@@ -18,6 +18,18 @@ use std::io::Write;
 use std::sync::Arc;
 use tauri::Manager;
 
+/// 当前用户的来源实例集合（多用户过滤：v6 合同；查询失败返回空=不过滤降级）。
+fn user_instances(storage: &llm_usage_core::storage::Storage, user_id: &str) -> Vec<String> {
+    storage
+        .conn()
+        .prepare("SELECT instance_id FROM source_instances WHERE user_id = ?1")
+        .and_then(|mut stmt| {
+            let rows = stmt.query_map([user_id], |r| r.get(0))?;
+            rows.collect::<Result<Vec<String>, _>>()
+        })
+        .unwrap_or_default()
+}
+
 fn err(code: &str, message: impl Into<String>) -> String {
     serde_json::json!({ "code": code, "message": message.into() }).to_string()
 }
@@ -30,6 +42,176 @@ fn week_start_of(n: u8) -> Result<WeekStart, String> {
             "invalid_week_start",
             format!("week_start {n} unsupported; core supports Monday(0)/Sunday(6)"),
         )),
+    }
+}
+
+#[cfg(target_family = "windows")]
+mod win_tasks {
+    use super::err;
+
+    const RUN_KEY: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run";
+    const TASK_NAME: &str = "LLMUsageDataRefresh";
+
+    fn run_value() -> String {
+        format!(
+            "\"{}\"",
+            std::env::current_exe().unwrap_or_default().display()
+        )
+    }
+
+    pub fn auto_start_enabled() -> Result<bool, String> {
+        let out = std::process::Command::new("reg")
+            .args(["query", RUN_KEY, "/v", "LLMUsage"])
+            .output()
+            .map_err(|e| err("reg_query", e.to_string()))?;
+        Ok(out.status.success() && String::from_utf8_lossy(&out.stdout).contains("REG_SZ"))
+    }
+
+    pub fn set_auto_start(enabled: bool) -> Result<(), String> {
+        let result = if enabled {
+            std::process::Command::new("reg")
+                .args([
+                    "add",
+                    RUN_KEY,
+                    "/v",
+                    "LLMUsage",
+                    "/t",
+                    "REG_SZ",
+                    "/d",
+                    &run_value(),
+                    "/f",
+                ])
+                .output()
+        } else {
+            std::process::Command::new("reg")
+                .args(["delete", RUN_KEY, "/v", "LLMUsage", "/f"])
+                .output()
+        }
+        .map_err(|e| err("reg_write", e.to_string()))?;
+        // 删除不存在的值也返回错误码（视为已关闭）。
+        if !result.status.success() && enabled {
+            return Err(err(
+                "reg_write",
+                String::from_utf8_lossy(&result.stderr).to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn refresh_task_enabled() -> Result<bool, String> {
+        let out = std::process::Command::new("schtasks")
+            .args(["/Query", "/TN", TASK_NAME])
+            .output()
+            .map_err(|e| err("schtasks", e.to_string()))?;
+        Ok(out.status.success())
+    }
+
+    /// 安装每小时 headless 刷新任务（当前用户上下文，无需提权）。
+    /// 间隔与界面"刷新间隔"独立：系统任务保证应用未运行时也补采集。
+    pub fn install_refresh_task() -> Result<(), String> {
+        let exe = run_value();
+        let out = std::process::Command::new("schtasks")
+            .args([
+                "/Create",
+                "/TN",
+                TASK_NAME,
+                "/TR",
+                &format!("{exe} --headless"),
+                "/SC",
+                "HOURLY",
+                "/F",
+            ])
+            .output()
+            .map_err(|e| err("schtasks", e.to_string()))?;
+        if !out.status.success() {
+            return Err(err(
+                "schtasks_install",
+                String::from_utf8_lossy(&out.stderr).to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn uninstall_refresh_task() -> Result<(), String> {
+        let out = std::process::Command::new("schtasks")
+            .args(["/Delete", "/TN", TASK_NAME, "/F"])
+            .output()
+            .map_err(|e| err("schtasks", e.to_string()))?;
+        if !out.status.success() {
+            return Err(err(
+                "schtasks_uninstall",
+                String::from_utf8_lossy(&out.stderr).to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// 系统保存对话框：用户选定导出位置（返回 None = 取消）。
+/// 后端只把文件写到该路径（architecture.md 导出合同）。
+#[tauri::command]
+pub fn pick_save_path(default_name: String) -> Option<String> {
+    rfd::FileDialog::new()
+        .set_file_name(&default_name)
+        .save_file()
+        .map(|p| p.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub fn system_task_status() -> Result<serde_json::Value, String> {
+    #[cfg(target_family = "windows")]
+    {
+        Ok(serde_json::json!({
+            "platform": "windows",
+            "auto_start": win_tasks::auto_start_enabled()?,
+            "refresh_task": win_tasks::refresh_task_enabled()?,
+            "refresh_task_interval": "hourly",
+        }))
+    }
+    #[cfg(not(target_family = "windows"))]
+    {
+        Ok(serde_json::json!({
+            "platform": std::env::consts::OS,
+            "auto_start": false,
+            "refresh_task": false,
+            "unsupported": true,
+        }))
+    }
+}
+
+#[tauri::command]
+pub fn set_auto_start(enabled: bool) -> Result<(), String> {
+    #[cfg(target_family = "windows")]
+    {
+        win_tasks::set_auto_start(enabled)
+    }
+    #[cfg(not(target_family = "windows"))]
+    {
+        let _ = enabled;
+        Err(err(
+            "unsupported_platform",
+            "auto start is Windows-only for now",
+        ))
+    }
+}
+
+#[tauri::command]
+pub fn set_refresh_task(install: bool) -> Result<(), String> {
+    #[cfg(target_family = "windows")]
+    {
+        if install {
+            win_tasks::install_refresh_task()
+        } else {
+            win_tasks::uninstall_refresh_task()
+        }
+    }
+    #[cfg(not(target_family = "windows"))]
+    {
+        let _ = install;
+        Err(err(
+            "unsupported_platform",
+            "background task is Windows-only for now",
+        ))
     }
 }
 
@@ -48,8 +230,13 @@ pub struct SummaryQuery {
     pub models: Vec<String>,
 }
 
-fn build_request(settings: &AppSettings, q: &SummaryQuery) -> Result<SummaryRequest, String> {
+fn build_request(
+    settings: &AppSettings,
+    q: &SummaryQuery,
+    instances: Vec<String>,
+) -> Result<SummaryRequest, String> {
     let granularity = match q.granularity.as_str() {
+        "hour" => Granularity::Hour,
         "day" => Granularity::Day,
         "week" => Granularity::Week,
         "month" => Granularity::Month,
@@ -62,7 +249,7 @@ fn build_request(settings: &AppSettings, q: &SummaryQuery) -> Result<SummaryRequ
     };
     Ok(SummaryRequest {
         timezone: settings.timezone.clone(),
-        week_start: week_start_of(settings.week_start)?,
+        week_start: week_start_of(settings.effective_week_start())?,
         first_day: parse_date(&q.first_day)
             .map_err(|e| err("invalid_date", format!("first_day: {e}")))?,
         last_day: parse_date(&q.last_day)
@@ -73,6 +260,7 @@ fn build_request(settings: &AppSettings, q: &SummaryQuery) -> Result<SummaryRequ
             providers: q.providers.clone(),
             models: q.models.clone(),
             quality_buckets: Vec::new(),
+            instances,
         },
         today: {
             let cal = llm_usage_core::calendar::Calendar::new(&settings.timezone)
@@ -108,6 +296,8 @@ fn metric_sums_dto(s: &llm_usage_core::query::MetricSums) -> serde_json::Value {
         "attempt_count": s.attempt_count,
         "conflict_count": s.conflict_count,
         "cache_input_ratio": s.cache_input_ratio().map(|r| r.as_f64()),
+        "avg_duration_ms": opt_num(s.avg_duration_ms),
+        "total_duration_ms": opt_num(s.total_duration_ms),
     })
 }
 
@@ -117,9 +307,18 @@ pub fn summary(
     q: SummaryQuery,
 ) -> Result<serde_json::Value, String> {
     let settings = state.settings.lock().unwrap().clone();
-    let request = build_request(&settings, &q)?;
+    let current_user = state.current_user.lock().unwrap().clone();
+    let request = build_request(&settings, &q, Vec::new())?;
     // 读路径：常驻只读连接（WAL 与后台扫描并发；失败回退写连接）。
     let storage = crate::app_state::read_conn(&state);
+    let instances = user_instances(&storage, &current_user);
+    let request = SummaryRequest {
+        filters: Filters {
+            instances,
+            ..request.filters
+        },
+        ..request
+    };
     let s = query_summary(&storage, &request).map_err(|e| err("query", e.to_string()))?;
     let agents = agent_breakdown(&storage, &request).map_err(|e| err("query", e.to_string()))?;
     let today_hourly = hourly_breakdown(
@@ -158,7 +357,10 @@ pub fn summary(
             "calls": h.call_count,
             "total_tokens": opt_num(h.total_tokens_known),
             "input_total": opt_num(h.input_total_known),
+            "cache_read": opt_num(h.cache_read_known),
             "output_total": opt_num(h.output_total_known),
+            "sessions": h.session_count,
+            "avg_duration_ms": opt_num(h.avg_duration_ms),
         })).collect::<Vec<_>>(),
         "excluded_event_count": s.excluded_event_count,
     }))
@@ -170,8 +372,10 @@ pub fn heatmap(
     q: SummaryQuery,
 ) -> Result<serde_json::Value, String> {
     let settings = state.settings.lock().unwrap().clone();
-    let request = build_request(&settings, &q)?;
+    let current_user = state.current_user.lock().unwrap().clone();
+    let mut request = build_request(&settings, &q, Vec::new())?;
     let storage = crate::app_state::read_conn(&state);
+    request.filters.instances = user_instances(&storage, &current_user);
     let cells = heatmap_cells(
         &storage,
         &settings.timezone,
@@ -199,6 +403,7 @@ pub fn list_sources(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_json
         .conn()
         .prepare(
             "SELECT s.instance_id, s.agent, s.format, s.health, s.enabled, s.origin_host_id,
+                    s.user_id,
                     (SELECT MAX(finished_ms) FROM ingest_runs r
                      WHERE r.instance_id = s.instance_id AND r.status = 'succeeded') AS last_ok_ms,
                     (SELECT COUNT(*) FROM source_files f WHERE f.instance_id = s.instance_id
@@ -217,9 +422,10 @@ pub fn list_sources(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_json
                 "health": r.get::<_, String>(3)?,
                 "enabled": r.get::<_, i64>(4)? != 0,
                 "origin_host_id": r.get::<_, String>(5)?,
-                "last_success_ms": r.get::<_, Option<i64>>(6)?,
-                "compat_files": r.get::<_, i64>(7)?,
-                "incompatible_files": r.get::<_, i64>(8)?,
+                "user_id": r.get::<_, String>(6)?,
+                "last_success_ms": r.get::<_, Option<i64>>(7)?,
+                "compat_files": r.get::<_, i64>(8)?,
+                "incompatible_files": r.get::<_, i64>(9)?,
             }))
         })
         .map_err(|e| err("db", e.to_string()))?;
@@ -277,7 +483,20 @@ pub fn set_settings(
     state: tauri::State<'_, Arc<AppState>>,
     settings: AppSettings,
 ) -> Result<(), String> {
-    week_start_of(settings.week_start)?;
+    if let Some(w) = settings.week_start {
+        week_start_of(w)?;
+    }
+    // 分级保留层级合法性（复用 core 校验）。
+    llm_usage_core::retention_tiered::TieredRetentionPolicy {
+        events_days: settings.retention.events_days,
+        hourly_days: settings.retention.hourly_days,
+        daily_days: settings.retention.daily_days,
+        weekly_days: settings.retention.weekly_days,
+        monthly_days: settings.retention.monthly_days,
+        yearly_days: settings.retention.yearly_days,
+    }
+    .validate()
+    .map_err(|e| err("invalid_retention", e.to_string()))?;
     if settings.timezone != "UTC" {
         llm_usage_core::calendar::Calendar::new(&settings.timezone).map_err(|_| {
             err(
@@ -328,9 +547,11 @@ pub fn export_data(
     kind: String,
     target_dir: Option<String>,
     q: SummaryQuery,
+    user_filter: Option<String>,
+    host_filter: Option<String>,
 ) -> Result<serde_json::Value, String> {
     let settings = state.settings.lock().unwrap().clone();
-    let request = build_request(&settings, &q)?;
+    let request = build_request(&settings, &q, Vec::new())?;
     let dir = match target_dir {
         Some(d) => std::path::PathBuf::from(d),
         None => app
@@ -400,13 +621,35 @@ pub fn export_data(
         }
         "exchange" => {
             let storage = crate::app_state::read_conn(&state);
+            // 按用户/主机过滤导出范围（默认当前用户+当前主机）。
+            let instances: Vec<String> = {
+                let mut sql = String::from("SELECT instance_id FROM source_instances WHERE 1=1");
+                let mut vals: Vec<rusqlite::types::Value> = Vec::new();
+                if let Some(user) = &user_filter {
+                    vals.push(user.clone().into());
+                    sql.push_str(&format!(" AND user_id = ?{}", vals.len()));
+                }
+                if let Some(host) = &host_filter {
+                    vals.push(host.clone().into());
+                    sql.push_str(&format!(" AND origin_host_id = ?{}", vals.len()));
+                }
+                storage
+                    .conn()
+                    .prepare(&sql)
+                    .and_then(|mut stmt| {
+                        let rows =
+                            stmt.query_map(rusqlite::params_from_iter(vals), |r| r.get(0))?;
+                        rows.collect::<Result<Vec<String>, _>>()
+                    })
+                    .map_err(|e| err("db", e.to_string()))?
+            };
             let export = build_export(
                 &storage,
                 &ExportRequest {
                     timezone: settings.timezone.clone(),
                     from_ms: 0,
                     to_ms: now_ms() + 86_400_000,
-                    instances: Vec::new(),
+                    instances,
                     redact_hostnames: true,
                     kind: ExchangeKind::FullSnapshot,
                     batch_id: format!("export-{}", now_ms()),
@@ -439,4 +682,415 @@ pub fn reload_settings(state: tauri::State<'_, Arc<AppState>>) -> Result<(), Str
     drop(storage);
     *state.settings.lock().unwrap() = s;
     Ok(())
+}
+
+// ---- 多用户（v6）与导入/归档统计命令 ----
+
+#[tauri::command]
+pub fn list_users(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_json::Value, String> {
+    let storage = crate::app_state::read_conn(&state);
+    let mut stmt = storage
+        .conn()
+        .prepare("SELECT user_id, name, created_at_ms FROM users ORDER BY user_id")
+        .map_err(|e| err("db", e.to_string()))?;
+    let users: Vec<serde_json::Value> = stmt
+        .query_map([], |r| {
+            Ok(serde_json::json!({
+                "user_id": r.get::<_, String>(0)?,
+                "name": r.get::<_, String>(1)?,
+                "created_at_ms": r.get::<_, i64>(2)?,
+            }))
+        })
+        .map_err(|e| err("db", e.to_string()))?
+        .collect::<Result<_, _>>()
+        .map_err(|e| err("db", e.to_string()))?;
+    let current = state.current_user.lock().unwrap().clone();
+    Ok(serde_json::json!({ "users": users, "current": current }))
+}
+
+/// 创建用户并（可选）立即切换。
+#[tauri::command]
+pub fn create_user(
+    state: tauri::State<'_, Arc<AppState>>,
+    name: String,
+    switch: bool,
+) -> Result<serde_json::Value, String> {
+    let user_id = format!(
+        "u-{}",
+        name.to_lowercase()
+            .replace(|c: char| !c.is_ascii_alphanumeric(), "-")
+    );
+    if user_id.is_empty() {
+        return Err(err("invalid_user", "name is empty"));
+    }
+    {
+        let storage = state.storage.lock().unwrap();
+        storage
+            .conn()
+            .execute(
+                "INSERT INTO users (user_id, name, created_at_ms) VALUES (?1, ?2, ?3)",
+                rusqlite::params![user_id, name, crate::scanner::now_ms()],
+            )
+            .map_err(|e| err("db", e.to_string()))?;
+        if switch {
+            set_current_user_locked(&storage, &user_id)?;
+        }
+    }
+    if switch {
+        *state.current_user.lock().unwrap() = user_id.clone();
+    }
+    Ok(serde_json::json!({ "user_id": user_id }))
+}
+
+/// 切换当前统计用户（持久化 settings.current_user）。
+#[tauri::command]
+pub fn set_current_user(
+    state: tauri::State<'_, Arc<AppState>>,
+    user_id: String,
+) -> Result<(), String> {
+    {
+        let storage = state.storage.lock().unwrap();
+        let exists: bool = storage
+            .conn()
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM users WHERE user_id = ?1)",
+                [&user_id],
+                |r| r.get(0),
+            )
+            .map_err(|e| err("db", e.to_string()))?;
+        if !exists {
+            return Err(err("unknown_user", format!("user {user_id:?} not found")));
+        }
+        set_current_user_locked(&storage, &user_id)?;
+    }
+    *state.current_user.lock().unwrap() = user_id;
+    Ok(())
+}
+
+fn set_current_user_locked(
+    storage: &llm_usage_core::storage::Storage,
+    user_id: &str,
+) -> Result<(), String> {
+    storage
+        .conn()
+        .execute(
+            "INSERT INTO settings (key, value, schema_version, updated_at_ms)
+             VALUES ('current_user', ?1, 1, ?2)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at_ms = excluded.updated_at_ms",
+            rusqlite::params![user_id, crate::scanner::now_ms()],
+        )
+        .map_err(|e| err("db", e.to_string()))?;
+    Ok(())
+}
+
+/// 把来源实例改归指定用户（多用户分开统计的分配入口）。
+#[tauri::command]
+pub fn assign_source_user(
+    state: tauri::State<'_, Arc<AppState>>,
+    instance_id: String,
+    user_id: String,
+) -> Result<(), String> {
+    let storage = state.storage.lock().unwrap();
+    storage
+        .conn()
+        .execute(
+            "UPDATE source_instances SET user_id = ?2, updated_at_ms = ?3 WHERE instance_id = ?1",
+            rusqlite::params![instance_id, user_id, crate::scanner::now_ms()],
+        )
+        .map_err(|e| err("db", e.to_string()))?;
+    Ok(())
+}
+
+/// 导入聚合交换包（导出 → 导入闭环；M1a 合并规则）。
+#[tauri::command]
+pub fn import_exchange(
+    state: tauri::State<'_, Arc<AppState>>,
+    path: String,
+) -> Result<serde_json::Value, String> {
+    let bytes = std::fs::read(&path).map_err(|e| err("io", format!("{path:?}: {e}")))?;
+    let export: llm_usage_core::exchange::ExchangeExport =
+        serde_json::from_slice(&bytes).map_err(|e| err("parse", e.to_string()))?;
+    let storage = state.storage.lock().unwrap();
+    let outcome = llm_usage_core::exchange_import::import_aggregate(
+        &storage,
+        &export,
+        crate::scanner::now_ms(),
+    )
+    .map_err(|e| err("import", e.to_string()))?;
+    serde_json::to_value(&outcome).map_err(|e| err("serialize", e.to_string()))
+}
+
+/// 各归档层条目数 + 库文件占用（含 WAL）。
+#[tauri::command]
+pub fn storage_stats(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_json::Value, String> {
+    let storage = crate::app_state::read_conn(&state);
+    let count = |table: &str| -> i64 {
+        storage
+            .conn()
+            .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |r| r.get(0))
+            .unwrap_or(0)
+    };
+    let db_bytes: i64 = storage
+        .conn()
+        .query_row(
+            "SELECT page_count * page_size FROM pragma_page_count, pragma_page_size",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap_or(0);
+    let wal = std::fs::metadata(format!("{}-wal", state.db_path.display()))
+        .map(|m| m.len())
+        .unwrap_or(0);
+    Ok(serde_json::json!({
+        "events": count("usage_events"),
+        "hourly": count("hourly_usage"),
+        "daily": count("daily_usage"),
+        "period": count("period_usage"),
+        "diagnostics": count("diagnostics"),
+        "db_bytes": db_bytes,
+        "wal_bytes": wal,
+    }))
+}
+
+/// 手动清理：按"days_before 天之前"执行一次分层保留（各层 cutoff = min(设置, days_before)）。
+#[tauri::command]
+pub fn manual_cleanup(
+    state: tauri::State<'_, Arc<AppState>>,
+    days_before: u32,
+) -> Result<serde_json::Value, String> {
+    if days_before < 1 {
+        return Err(err("invalid_days", "days_before must be >= 1"));
+    }
+    // 各层统一按 days_before 截断（用户"清理多久之前"语义；进行中周期保护仍生效）。
+    let timezone = state.settings.lock().unwrap().timezone.clone();
+    let storage = state.storage.lock().unwrap();
+    let outcome = llm_usage_core::retention_tiered::enforce_tiered_retention(
+        &storage,
+        &timezone,
+        crate::scanner::now_ms(),
+        &llm_usage_core::retention_tiered::TieredRetentionPolicy {
+            events_days: days_before,
+            hourly_days: days_before,
+            daily_days: days_before,
+            weekly_days: days_before,
+            monthly_days: days_before,
+            yearly_days: Some(days_before),
+        },
+    )
+    .map_err(|e| err("cleanup", e.to_string()))?;
+    Ok(serde_json::json!({
+        "deleted_events": outcome.deleted_events,
+        "deleted_hourly_rows": outcome.deleted_hourly_rows,
+        "deleted_daily_rows": outcome.deleted_daily_rows,
+        "deleted_period_rows": outcome.deleted_period_rows,
+        "materialized_period_rows": outcome.materialized_period_rows,
+    }))
+}
+
+/// 原生打开对话框（导入文件选择）。
+#[tauri::command]
+pub fn pick_open_path(extension: String) -> Option<String> {
+    rfd::FileDialog::new()
+        .add_filter("LLMUsage export", &[&extension])
+        .pick_file()
+        .map(|p| p.to_string_lossy().to_string())
+}
+
+/// 清理全部数据（所有归档层+诊断+游标），下次刷新触发全量重新采集计算。
+/// 主机身份、用户、设置保留；source_files 状态重置为 new 使探测重新执行。
+#[tauri::command]
+pub fn clear_all_data(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_json::Value, String> {
+    let storage = state.storage.lock().unwrap();
+    let tx = storage
+        .conn()
+        .unchecked_transaction()
+        .map_err(|e| err("db", e.to_string()))?;
+    let mut cleared = serde_json::Map::new();
+    for table in [
+        "usage_events",
+        "hourly_usage",
+        "daily_usage",
+        "period_usage",
+        "diagnostics",
+        "ingestion_checkpoints",
+        "event_aliases",
+        "source_aggregates",
+        "ingest_runs",
+        "quota_snapshots",
+    ] {
+        let n = tx
+            .execute(&format!("DELETE FROM {table}"), [])
+            .map_err(|e| err("db", format!("{table}: {e}")))?;
+        cleared.insert(table.to_string(), serde_json::json!(n));
+    }
+    // 游标清除后 source_files 的代数/身份保留（避免同文件重复探测），
+    // 但状态重置为 new 让下一轮扫描重新判定。
+    tx.execute("UPDATE source_files SET status = 'new'", [])
+        .map_err(|e| err("db", e.to_string()))?;
+    let revision =
+        llm_usage_core::storage::Storage::bump_data_revision_tx(&tx, crate::scanner::now_ms())
+            .map_err(|e| err("db", e.to_string()))?;
+    tx.commit().map_err(|e| err("db", e.to_string()))?;
+    Ok(serde_json::json!({ "cleared": cleared, "data_revision": revision }))
+}
+
+#[tauri::command]
+pub fn event_details(
+    state: tauri::State<'_, Arc<AppState>>,
+    q: SummaryQuery,
+    page: i64,
+    page_size: i64,
+) -> Result<serde_json::Value, String> {
+    let settings = state.settings.lock().unwrap().clone();
+    let current_user = state.current_user.lock().unwrap().clone();
+    let storage = crate::app_state::read_conn(&state);
+    let instances = user_instances(&storage, &current_user);
+    let request = build_request(&settings, &q, instances)?;
+    // 日期范围由请求给出（避免全量扫描；近 24h/当天时精确到小时）。
+    let calendar = llm_usage_core::calendar::Calendar::new(&settings.timezone)
+        .map_err(|e| err("calendar", e.to_string()))?;
+    let (from_ms, to_ms) = calendar
+        .day_range_ms(request.last_day)
+        .map_err(|e| err("calendar", e.to_string()))?;
+    let from_ms = if request.first_day == request.last_day {
+        from_ms
+    } else {
+        calendar
+            .day_range_ms(request.first_day)
+            .map_err(|e| err("calendar", e.to_string()))?
+            .0
+    };
+    let detail = llm_usage_core::query::event_details(
+        &storage,
+        &llm_usage_core::query::EventDetailRequest {
+            timezone: settings.timezone.clone(),
+            from_ms,
+            to_ms,
+            offset: page.max(0) * page_size,
+            limit: page_size.clamp(1, 500),
+            filters: request.filters,
+        },
+    )
+    .map_err(|e| err("query", e.to_string()))?;
+    Ok(serde_json::json!({
+        "rows": detail.rows.iter().map(|r| serde_json::json!({
+            "event_id": r.event_id,
+            "agent": r.agent,
+            "model": r.model_raw,
+            "category": r.call_category,
+            "occurred_at_ms": r.occurred_at_ms,
+            "session": r.session_id,
+            "input": opt_num(r.input_total),
+            "cache_read": opt_num(r.cache_read),
+            "output": opt_num(r.output_total),
+            "total": opt_num(r.total_tokens),
+            "duration_ms": opt_num(r.duration_ms),
+            "lifecycle": r.lifecycle,
+        })).collect::<Vec<_>>(),
+        "total": detail.total_count,
+        "page": page,
+        "page_size": page_size,
+    }))
+}
+
+/// 导出过滤选项：可用的用户与主机列表（含当前值）。
+#[tauri::command]
+pub fn export_filter_options(
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<serde_json::Value, String> {
+    let storage = crate::app_state::read_conn(&state);
+    let users: Vec<(String, String)> = storage
+        .conn()
+        .prepare("SELECT user_id, name FROM users ORDER BY user_id")
+        .and_then(|mut s| {
+            s.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+                .and_then(|rows| rows.collect::<Result<_, _>>())
+        })
+        .map_err(|e| err("db", e.to_string()))?;
+    let hosts: Vec<(String, Option<String>)> = storage
+        .conn()
+        .prepare(
+            "SELECT DISTINCT s.origin_host_id,
+                    (SELECT hostname FROM origin_host_names n WHERE n.host_id = s.origin_host_id
+                     ORDER BY last_seen_ms DESC LIMIT 1)
+             FROM source_instances s ORDER BY s.origin_host_id",
+        )
+        .and_then(|mut s| {
+            s.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+                .and_then(|rows| rows.collect::<Result<_, _>>())
+        })
+        .map_err(|e| err("db", e.to_string()))?;
+    let current_user = state.current_user.lock().unwrap().clone();
+    let current_host = state.host_id.lock().unwrap().clone();
+    Ok(serde_json::json!({
+        "users": users.iter().map(|(id, name)| serde_json::json!({
+            "user_id": id, "name": name,
+            "is_current": id == &current_user,
+        })).collect::<Vec<_>>(),
+        "hosts": hosts.iter().map(|(id, name)| serde_json::json!({
+            "host_id": id, "name": name,
+            "is_current": id == &current_host,
+        })).collect::<Vec<_>>(),
+        "current_user": current_user,
+        "current_host": current_host,
+    }))
+}
+
+/// 按维度分组的时间序列（图表数据源；直接从聚合表读，低计算量）。
+#[tauri::command]
+pub fn chart_series(
+    state: tauri::State<'_, Arc<AppState>>,
+    q: SummaryQuery,
+    dimension: String,
+) -> Result<serde_json::Value, String> {
+    let settings = state.settings.lock().unwrap().clone();
+    let current_user = state.current_user.lock().unwrap().clone();
+    let storage = crate::app_state::read_conn(&state);
+    let instances = user_instances(&storage, &current_user);
+    let request = build_request(&settings, &q, instances)?;
+    let dim = match dimension.as_str() {
+        "total" => llm_usage_core::query::ChartDimension::Total,
+        "model" => llm_usage_core::query::ChartDimension::ByModel,
+        "agent" => llm_usage_core::query::ChartDimension::ByAgent,
+        "agent_model" => llm_usage_core::query::ChartDimension::ByAgentModel,
+        other => {
+            return Err(err(
+                "invalid_dimension",
+                format!("unknown dimension {other:?}"),
+            ))
+        }
+    };
+    let rows = llm_usage_core::query::chart_series(&storage, &request, &dim)
+        .map_err(|e| err("query", e.to_string()))?;
+    Ok(serde_json::json!({
+        "rows": rows.iter().map(|r| serde_json::json!({
+            "label": r.label,
+            "series": r.series_name,
+            "calls": r.call_count,
+            "input": opt_num(r.input_total),
+            "cache_read": opt_num(r.cache_read),
+            "output": opt_num(r.output_total),
+            "total": opt_num(r.total_tokens),
+        })).collect::<Vec<_>>(),
+    }))
+}
+
+/// 最近诊断日志（设置页日志 Tab）。
+#[tauri::command]
+pub fn diagnostic_logs(
+    state: tauri::State<'_, Arc<AppState>>,
+    limit: i64,
+) -> Result<serde_json::Value, String> {
+    let storage = crate::app_state::read_conn(&state);
+    let rows = llm_usage_core::query::diagnostic_logs(&storage, limit.clamp(1, 500))
+        .map_err(|e| err("query", e.to_string()))?;
+    Ok(serde_json::json!({
+        "rows": rows.iter().map(|r| serde_json::json!({
+            "time": r.created_ms,
+            "code": r.code,
+            "field": r.field,
+            "instance": r.instance_id,
+            "message": r.message,
+        })).collect::<Vec<_>>(),
+    }))
 }

@@ -1,13 +1,19 @@
 <script lang="ts">
+  /**
+   * 模型/Agent 明细表。kind 支持单表（今日分区各自成面板）或双表（默认）。
+   * 输入列显示 input_total（含缓存命中）；缓存列显示"缓存命中"（任务 A1）。
+   */
   import type { MetricSumsDto } from '../lib/api';
   import { t, fmtNumber } from '../lib/i18n.svelte';
 
   let {
-    models,
-    agents,
+    models = [],
+    agents = [],
+    kind = 'both',
   }: {
-    models: { provider: string | null; model: string | null; sums: MetricSumsDto }[];
-    agents: { agent: string; sums: MetricSumsDto }[];
+    models?: { provider: string | null; model: string | null; sums: MetricSumsDto }[];
+    agents?: { agent: string; sums: MetricSumsDto }[];
+    kind?: 'both' | 'model' | 'agent';
   } = $props();
 
   function unknownNote(sums: MetricSumsDto): string {
@@ -16,62 +22,66 @@
   }
 </script>
 
-<div class="tables">
-  <section>
-    <h3>{t('table.model')}</h3>
-    <table>
-      <thead>
-        <tr>
-          <th>{t('table.model')}</th>
-          <th>{t('table.calls')}</th>
-          <th>{t('table.input')}</th>
-          <th>{t('table.output')}</th>
-          <th>{t('table.total')}</th>
-          <th>{t('table.cacheRead')}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each models as m (`${m.provider ?? ''}/${m.model ?? ''}`)}
+<div class="tables" class:single={kind !== 'both'}>
+  {#if kind === 'both' || kind === 'model'}
+    <section>
+      {#if kind === 'both'}<h3>{t('table.model')}</h3>{/if}
+      <table>
+        <thead>
           <tr>
-            <td>{m.model ?? t('common.unknown')}</td>
-            <td class="num">{fmtNumber(m.sums.call_count)}</td>
-            <td class="num">{fmtNumber(m.sums.input_total_known)}</td>
-            <td class="num">{fmtNumber(m.sums.output_total_known)}</td>
-            <td class="num">{fmtNumber(m.sums.total_tokens_known)}</td>
-            <td class="num">{fmtNumber(m.sums.cache_read_known)}</td>
+            <th>{t('table.model')}</th>
+            <th>{t('table.calls')}</th>
+            <th>{t('table.input')}</th>
+            <th>{t('table.output')}</th>
+            <th>{t('table.total')}</th>
+            <th>{t('table.cacheRead')}</th>
           </tr>
-          {#if unknownNote(m.sums)}
-            <tr class="note-row"><td colspan="6">{unknownNote(m.sums)}</td></tr>
-          {/if}
-        {/each}
-      </tbody>
-    </table>
-  </section>
-  <section>
-    <h3>{t('table.agent')}</h3>
-    <table>
-      <thead>
-        <tr>
-          <th>{t('table.agent')}</th>
-          <th>{t('table.calls')}</th>
-          <th>{t('table.input')}</th>
-          <th>{t('table.output')}</th>
-          <th>{t('table.total')}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each agents as a (a.agent)}
+        </thead>
+        <tbody>
+          {#each models as m (`${m.provider ?? ''}/${m.model ?? ''}`)}
+            <tr>
+              <td>{m.model ?? t('common.unknown')}</td>
+              <td class="num">{fmtNumber(m.sums.call_count)}</td>
+              <td class="num">{fmtNumber(m.sums.input_total_known)}</td>
+              <td class="num">{fmtNumber(m.sums.output_total_known)}</td>
+              <td class="num">{fmtNumber(m.sums.total_tokens_known)}</td>
+              <td class="num">{fmtNumber(m.sums.cache_read_known)}</td>
+            </tr>
+            {#if unknownNote(m.sums)}
+              <tr class="note-row"><td colspan="6">{unknownNote(m.sums)}</td></tr>
+            {/if}
+          {/each}
+        </tbody>
+      </table>
+    </section>
+  {/if}
+  {#if kind === 'both' || kind === 'agent'}
+    <section>
+      {#if kind === 'both'}<h3>{t('table.agent')}</h3>{/if}
+      <table>
+        <thead>
           <tr>
-            <td>{a.agent}</td>
-            <td class="num">{fmtNumber(a.sums.call_count)}</td>
-            <td class="num">{fmtNumber(a.sums.input_total_known)}</td>
-            <td class="num">{fmtNumber(a.sums.output_total_known)}</td>
-            <td class="num">{fmtNumber(a.sums.total_tokens_known)}</td>
+            <th>{t('table.agent')}</th>
+            <th>{t('table.calls')}</th>
+            <th>{t('table.input')}</th>
+            <th>{t('table.output')}</th>
+            <th>{t('table.total')}</th>
           </tr>
-        {/each}
-      </tbody>
-    </table>
-  </section>
+        </thead>
+        <tbody>
+          {#each agents as a (a.agent)}
+            <tr>
+              <td>{a.agent}</td>
+              <td class="num">{fmtNumber(a.sums.call_count)}</td>
+              <td class="num">{fmtNumber(a.sums.input_total_known)}</td>
+              <td class="num">{fmtNumber(a.sums.output_total_known)}</td>
+              <td class="num">{fmtNumber(a.sums.total_tokens_known)}</td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </section>
+  {/if}
 </div>
 
 <style>
@@ -80,6 +90,9 @@
     grid-template-columns: 1fr 1fr;
     gap: 16px;
     padding: 8px 0;
+  }
+  .tables.single {
+    grid-template-columns: 1fr;
   }
   @media (max-width: 900px) {
     .tables {
@@ -93,13 +106,14 @@
   table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 13px;
+    font-size: 12.5px;
   }
   th,
   td {
     text-align: left;
-    padding: 5px 8px;
+    padding: 4px 6px;
     border-bottom: 1px solid #eee;
+    white-space: nowrap;
   }
   th {
     color: #666;

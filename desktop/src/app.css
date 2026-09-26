@@ -1,3 +1,6 @@
+/* 布局基线：#app 不再固定 100vh + overflow hidden（旧写法在内容超过窗口
+   高度时裁掉下方内容且无法滚动）；改 min-height 让 body 随内容自然增高，
+   WebView/浏览器窗口出现原生纵向滚动条。 */
 html,
 body {
   margin: 0;
@@ -5,7 +8,7 @@ body {
 }
 
 #app {
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
+  width: 100%;
+  min-height: 100vh;
+  box-sizing: border-box;
 }

@@ -236,40 +236,20 @@ fn legacy_instances_claimed_only_by_verified_local_scan() {
 }
 
 #[test]
-fn v3_database_migrates_to_partitioned_v4_preserving_sealed() {
-    // v3 库（分区前）：写入事件 + 日汇总 + 封存一天的日分区。
-    let dir = TempDir::new("v28-migrate");
+fn old_version_database_rejected_not_migrated() {
+    // 预发布合同：旧版本库直接拒绝打开（应用层提示重建），不做迁移。
+    let dir = TempDir::new("v28-old-version");
     {
-        let storage = Storage::open_with(
-            &dir.db_path(),
-            llm_usage_core::storage::OpenOptions {
-                max_supported_version: Some(3),
-                ..Default::default()
-            },
-        )
-        .unwrap();
-        // 迁移前的采集会注册来源实例（无主机证据）；v3 schema 无 origin_host_id
-        // 列，按 v3 时代的列集用原始 SQL 写入（旧程序写旧库）。
-        storage
-            .conn()
-            .execute(
-                "INSERT INTO source_instances (
-                   instance_id, agent, host_application, locality_basis, attribution_status,
-                   exclusion_reason, enabled, format, location_hint, parser_version,
-                   capabilities, health, created_at_ms, updated_at_ms
-                 ) VALUES ('inst-x', 'codex', NULL, 'local_filesystem', 'verified',
-                   NULL, 1, 'codex-rollout-jsonl', NULL, 'codex-rollout-1', '{}', 'ok', 1000, 1000)",
-                [],
-            )
-            .unwrap();
+        let storage = Storage::open(&dir.db_path()).unwrap();
+        // 手动写一个事件让库非空。
         commit_batch(
             &storage,
             &batch(
-                "inst-x",
+                "codex@a",
                 "UTC",
                 ts("2026-09-20T10:00:00Z"),
                 vec![with_tokens(
-                    evt("inst-x", "r1", ts("2026-09-20T10:00:00Z")),
+                    evt("codex@a", "r1", ts("2026-09-20T10:00:00Z")),
                     100,
                     10,
                 )],
@@ -277,95 +257,16 @@ fn v3_database_migrates_to_partitioned_v4_preserving_sealed() {
             None,
         )
         .unwrap();
-        // 封存 2026-09-19（人为构造已封存分区：直接置 sealed 标记）。
-        commit_batch(
-            &storage,
-            &batch(
-                "inst-x",
-                "UTC",
-                ts("2026-09-19T10:00:00Z"),
-                vec![with_tokens(
-                    evt("inst-x", "r0", ts("2026-09-19T10:00:00Z")),
-                    50,
-                    5,
-                )],
-            ),
-            None,
-        )
-        .unwrap();
+        // 强制设置旧版本号。
         storage
             .conn()
-            .execute(
-                "UPDATE daily_usage SET sealed = 1 WHERE local_day = '2026-09-19'",
-                [],
-            )
+            .pragma_update(None, "user_version", 3u32)
             .unwrap();
     }
-    // v4 迁移。
-    let storage = Storage::open(&dir.db_path()).unwrap();
-    assert_eq!(storage.schema_version().unwrap(), 4);
-    // 旧实例无主机证据 → legacy_unknown（不猜测归属）。
-    let host: String = storage
-        .conn()
-        .query_row("SELECT origin_host_id FROM source_instances", [], |r| {
-            r.get(0)
-        })
-        .unwrap();
-    assert_eq!(host, LEGACY_UNKNOWN_HOST);
-    // 旧日汇总行保留原值进 legacy_unknown 分区，不虚构拆分。
-    let (day, instance, sealed, total): (String, String, i64, Option<i64>) = storage
-        .conn()
-        .query_row(
-            "SELECT local_day, instance_id, sealed, total_known_sum FROM daily_usage
-             WHERE local_day = '2026-09-19'",
-            [],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
-        )
-        .unwrap();
-    assert_eq!(
-        (day.as_str(), instance.as_str(), sealed),
-        ("2026-09-19", LEGACY_UNKNOWN_HOST, 1)
-    );
-    assert_eq!(total, Some(55), "sealed value preserved, not resplit");
-    // 封存日迁移后仍阻止重算（不重复累加）。
-    // 新事件写入不影响已封存分区。
-    commit_batch(
-        &storage,
-        &batch(
-            "inst-x",
-            "UTC",
-            ts("2026-09-19T12:00:00Z"),
-            vec![with_tokens(
-                evt("inst-x", "r0b", ts("2026-09-19T12:00:00Z")),
-                1,
-                0,
-            )],
-        ),
-        None,
-    )
-    .unwrap();
-    let still: i64 = storage
-        .conn()
-        .query_row(
-            "SELECT COUNT(*) FROM daily_usage WHERE local_day = '2026-09-19' AND instance_id != ?1",
-            [LEGACY_UNKNOWN_HOST],
-            |r| r.get(0),
-        )
-        .unwrap();
-    assert_eq!(still, 0, "sealed day keeps frozen partition semantics");
-    // 未封存日在下次提交后按来源分区重算（事件仍在，重算是推导不是猜测）。
-    let instances: Vec<String> = storage
-        .conn()
-        .prepare("SELECT DISTINCT instance_id FROM daily_usage WHERE local_day = '2026-09-20'")
-        .unwrap()
-        .query_map([], |r| r.get(0))
-        .unwrap()
-        .collect::<Result<_, _>>()
-        .unwrap();
-    assert_eq!(
-        instances,
-        vec!["inst-x".to_string()],
-        "unsealed day repartitioned by source"
+    let result = Storage::open(&dir.db_path());
+    assert!(
+        result.is_err(),
+        "旧版本库应被拒绝打开（提示重建），不做迁移"
     );
 }
 

@@ -4,19 +4,41 @@
  */
 import { invoke } from '@tauri-apps/api/core';
 
+/** 分级归档保留（天；yearly 为 null = 终身）。 */
+export interface RetentionTiers {
+  events_days: number;
+  hourly_days: number;
+  daily_days: number;
+  weekly_days: number;
+  monthly_days: number;
+  yearly_days: number | null;
+}
+
 export interface AppSettings {
   timezone: string;
-  week_start: number;
-  retention_days: number | null;
+  /** null = 跟随语言地区（zh→周一；en-US/CA→周日）。 */
+  week_start: number | null;
+  retention: RetentionTiers;
   refresh_interval_secs: number;
   language: string;
   manual_roots: string[];
+  /** 本机来源身份显示名（仅辨认用途，不改 host_id 键）。 */
+  hostname_alias: string | null;
+}
+
+/** 系统任务状态（Windows：开机自启 + 每小时 headless 刷新任务）。 */
+export interface SystemTaskStatusDto {
+  platform: string;
+  auto_start: boolean;
+  refresh_task: boolean;
+  refresh_task_interval?: string;
+  unsupported?: boolean;
 }
 
 export interface SummaryQuery {
   first_day: string;
   last_day: string;
-  granularity: 'day' | 'week' | 'month';
+  granularity: 'hour' | 'day' | 'week' | 'month';
   agents: string[];
   providers: string[];
   models: string[];
@@ -40,6 +62,8 @@ export interface MetricSumsDto {
   attempt_count: number;
   conflict_count: number;
   cache_input_ratio: number | null;
+  avg_duration_ms: string | null;
+  total_duration_ms: string | null;
 }
 
 export interface PeriodDto {
@@ -65,7 +89,10 @@ export interface SummaryDto {
     calls: number;
     total_tokens: string | null;
     input_total: string | null;
+    cache_read: string | null;
     output_total: string | null;
+    sessions: number;
+    avg_duration_ms: string | null;
   }[];
   excluded_event_count: number;
 }
@@ -81,6 +108,7 @@ export interface SourceDto {
   health: string;
   enabled: boolean;
   origin_host_id: string;
+  user_id: string;
   last_success_ms: number | null;
   compat_files: number;
   incompatible_files: number;
@@ -91,6 +119,11 @@ export interface RefreshStateDto {
   started_ms: number;
   last_finished_ms: number;
   trigger: string;
+  /** 采集进度（0–100 百分比 + 预计剩余秒；null = 暂不可估）。 */
+  progress_percent: number;
+  eta_seconds: number | null;
+  /** 已完成的适配器名（按完成顺序）。 */
+  completed_adapters: string[];
   instances: {
     instance_id: string;
     agent: string;
@@ -112,6 +145,118 @@ export interface AppInfoDto {
   exchange_format_version: string;
 }
 
+/** 多用户（v6）：用户清单 + 当前统计用户。 */
+export interface UserDto {
+  user_id: string;
+  name: string;
+  created_at_ms: number;
+}
+
+export interface UsersDto {
+  users: UserDto[];
+  current: string;
+}
+
+/** 各归档层条目数 + 库文件占用（含 WAL）。 */
+export interface StorageStatsDto {
+  events: number;
+  hourly: number;
+  daily: number;
+  period: number;
+  diagnostics: number;
+  db_bytes: number;
+  wal_bytes: number;
+}
+
+/** 聚合交换包导入计数（M1a 合同）。 */
+export interface ImportOutcomeDto {
+  sources_registered: number;
+  daily_inserted: number;
+  daily_replaced: number;
+  daily_skipped: number;
+  daily_conflicts: number;
+  hourly_inserted: number;
+  hourly_replaced: number;
+  hourly_skipped: number;
+}
+
+/** 手动分层清理结果。 */
+export interface CleanupResultDto {
+  deleted_events: number;
+  deleted_hourly_rows: number;
+  deleted_daily_rows: number;
+  deleted_period_rows: number;
+  materialized_period_rows: number;
+}
+
+/** 清理全部数据结果（各表清除条目数 + 新数据修订；下次刷新全量重采）。 */
+export interface ClearAllDataResultDto {
+  cleared: Record<string, number>;
+  data_revision: number;
+}
+
+/** 用量明细分页行（event_details 命令）。token 为十进制字符串。 */
+export interface EventDetailRowDto {
+  event_id: string;
+  agent: string;
+  model: string | null;
+  category: string | null;
+  occurred_at_ms: number;
+  session: string | null;
+  input: string | null;
+  cache_read: string | null;
+  output: string | null;
+  total: string | null;
+  duration_ms: string | null;
+  lifecycle: string;
+}
+
+export interface EventDetailsDto {
+  rows: EventDetailRowDto[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+/** 导出过滤选项：可用用户/主机 + 当前值（is_current 标记默认选中项）。 */
+export interface ExportFilterOptionsDto {
+  users: { user_id: string; name: string; is_current: boolean }[];
+  hosts: { host_id: string; name: string | null; is_current: boolean }[];
+  current_user: string;
+  current_host: string;
+}
+
+/** chart_series 维度分组模式（图表分组数据源；从聚合表直读）。 */
+export type ChartDimension = 'total' | 'model' | 'agent' | 'agent_model';
+
+/** 维度分组时间序列行（token 为十进制字符串或 null=未知）。 */
+export interface ChartSeriesRowDto {
+  label: string;
+  series: string;
+  calls: number;
+  input: string | null;
+  cache_read: string | null;
+  output: string | null;
+  total: string | null;
+}
+
+export interface ChartSeriesDto {
+  rows: ChartSeriesRowDto[];
+}
+
+/** 诊断日志行（diagnostic_logs 命令；时间为毫秒时间戳）。 */
+export interface DiagnosticLogRowDto {
+  time: number;
+  code: string;
+  field: string | null;
+  instance: string | null;
+  message: string;
+}
+
+export interface DiagnosticLogsDto {
+  rows: DiagnosticLogRowDto[];
+}
+
 export const api = {
   summary: (q: SummaryQuery) => invoke<SummaryDto>('summary', { q }),
   heatmap: (q: SummaryQuery) => invoke<HeatmapDto>('heatmap', { q }),
@@ -124,8 +269,42 @@ export const api = {
   getSettings: () => invoke<AppSettings>('get_settings'),
   setSettings: (settings: AppSettings) => invoke<void>('set_settings', { settings }),
   appInfo: () => invoke<AppInfoDto>('app_info'),
-  exportData: (kind: 'summary-csv' | 'exchange', targetDir: string | null, q: SummaryQuery) =>
-    invoke<{ path: string; kind: string }>('export_data', { kind, targetDir, q }),
+  exportData: (
+    kind: 'summary-csv' | 'exchange',
+    targetDir: string | null,
+    q: SummaryQuery,
+    userFilter: string | null = null,
+    hostFilter: string | null = null,
+  ) =>
+    invoke<{ path: string; kind: string }>('export_data', {
+      kind,
+      targetDir,
+      q,
+      userFilter,
+      hostFilter,
+    }),
+  eventDetails: (q: SummaryQuery, page: number, pageSize: number) =>
+    invoke<EventDetailsDto>('event_details', { q, page, pageSize }),
+  chartSeries: (q: SummaryQuery, dimension: ChartDimension) =>
+    invoke<ChartSeriesDto>('chart_series', { q, dimension }),
+  diagnosticLogs: (limit: number) => invoke<DiagnosticLogsDto>('diagnostic_logs', { limit }),
+  exportFilterOptions: () => invoke<ExportFilterOptionsDto>('export_filter_options'),
+  pickSavePath: (defaultName: string) =>
+    invoke<string | null>('pick_save_path', { defaultName }),
+  systemTaskStatus: () => invoke<SystemTaskStatusDto>('system_task_status'),
+  setAutoStart: (enabled: boolean) => invoke<void>('set_auto_start', { enabled }),
+  setRefreshTask: (install: boolean) => invoke<void>('set_refresh_task', { install }),
+  listUsers: () => invoke<UsersDto>('list_users'),
+  createUser: (name: string, switchTo: boolean) =>
+    invoke<{ user_id: string }>('create_user', { name, switch: switchTo }),
+  setCurrentUser: (userId: string) => invoke<void>('set_current_user', { userId }),
+  assignSourceUser: (instanceId: string, userId: string) =>
+    invoke<void>('assign_source_user', { instanceId, userId }),
+  importExchange: (path: string) => invoke<ImportOutcomeDto>('import_exchange', { path }),
+  storageStats: () => invoke<StorageStatsDto>('storage_stats'),
+  manualCleanup: (daysBefore: number) => invoke<CleanupResultDto>('manual_cleanup', { daysBefore }),
+  clearAllData: () => invoke<ClearAllDataResultDto>('clear_all_data'),
+  pickOpenPath: (extension: string) => invoke<string | null>('pick_open_path', { extension }),
 };
 
 /** 结构化错误解析（后端返回 JSON 字符串 code+message）。 */

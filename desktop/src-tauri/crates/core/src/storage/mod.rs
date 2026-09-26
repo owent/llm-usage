@@ -15,8 +15,6 @@ pub struct OpenOptions {
     pub busy_timeout: Duration,
     /// 本程序支持的最新 schema 版本；None 表示 [`schema::SCHEMA_VERSION`]。
     pub max_supported_version: Option<u32>,
-    /// 测试钩子：附加迁移（用于模拟迁移失败/多版本）。
-    pub extra_migrations: Vec<schema::Migration>,
 }
 
 impl Default for OpenOptions {
@@ -24,7 +22,6 @@ impl Default for OpenOptions {
         OpenOptions {
             busy_timeout: DEFAULT_BUSY_TIMEOUT,
             max_supported_version: None,
-            extra_migrations: Vec::new(),
         }
     }
 }
@@ -80,29 +77,41 @@ impl Storage {
             .unwrap_or(schema::SCHEMA_VERSION);
         conn.busy_timeout(options.busy_timeout)?;
         let found_version: u32 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
-        if found_version > supported {
-            return Err(CoreError::SchemaTooNew {
+
+        // 预发布阶段合同（2026-09-26 用户决策）：不做逐版本迁移。
+        // 版本不匹配 ⇒ 报错让应用层提示"删除重建或退出"。
+        // user_version == 0 且文件为空/新建 ⇒ 建全量 schema。
+        if found_version == 0 {
+            // 可能是新建空文件或旧库；检查是否有表。
+            let has_tables: bool = conn.query_row(
+                "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='settings')",
+                [],
+                |r| r.get(0),
+            )?;
+            if !has_tables {
+                // 全新库：一步建表。
+                conn.execute_batch(schema::FULL_SCHEMA)?;
+                conn.pragma_update(None, "user_version", supported)?;
+            } else {
+                // 有表但无版本号——旧库，要求重建。
+                return Err(CoreError::SchemaTooNew {
+                    found: found_version,
+                    supported,
+                });
+            }
+        } else if found_version != supported {
+            // 预发布阶段：任何版本差异都要求重建（不尝试迁移）。
+            return Err(CoreError::SchemaMismatch {
                 found: found_version,
-                supported,
+                expected: supported,
             });
         }
+
         conn.pragma_update(None, "foreign_keys", "ON")?;
         // journal_mode 是持久化设置；内存库返回 memory，可忽略其结果差异。
         conn.pragma_update(None, "journal_mode", "WAL")?;
         conn.pragma_update(None, "synchronous", "FULL")?;
         conn.busy_timeout(options.busy_timeout)?;
-
-        let mut migrations: Vec<&schema::Migration> = schema::MIGRATIONS.iter().collect();
-        let extra: Vec<&schema::Migration> = options.extra_migrations.iter().collect();
-        migrations.extend(extra);
-        migrations.sort_by_key(|m| m.version);
-
-        for migration in migrations {
-            if migration.version <= found_version || migration.version > supported {
-                continue;
-            }
-            run_migration(&conn, migration)?;
-        }
 
         let storage = Storage { conn, path };
         storage.mark_running_jobs_interrupted(crate::jobs::now_ms_fallback())?;
@@ -278,93 +287,5 @@ pub(crate) fn data_revision(conn: &Connection) -> Result<i64, CoreError> {
             .parse::<i64>()
             .map_err(|e| CoreError::Validation(format!("bad data_revision value {v:?}: {e}"))),
         None => Ok(0),
-    }
-}
-
-fn run_migration(conn: &Connection, migration: &schema::Migration) -> Result<(), CoreError> {
-    let tx = conn
-        .unchecked_transaction()
-        .map_err(|e| CoreError::MigrationFailed {
-            version: migration.version,
-            name: migration.name.to_string(),
-            detail: e.to_string(),
-        })?;
-    let result = (|| -> Result<(), CoreError> {
-        tx.execute_batch(migration.sql)?;
-        if migration.version == 2 && migration.name == "review_identity_and_known_usage" {
-            let partitions = {
-                let mut stmt = tx.prepare(
-                    "SELECT DISTINCT tz_version, local_day FROM daily_usage WHERE sealed = 0",
-                )?;
-                let rows =
-                    stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?;
-                rows.collect::<Result<Vec<_>, _>>()?
-            };
-            let has_data: bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM daily_usage) OR EXISTS(SELECT 1 FROM usage_events) OR EXISTS(SELECT 1 FROM source_aggregates)", [], |r| r.get(0))?;
-            if has_data {
-                let revision = Storage::bump_data_revision_tx(&tx, crate::jobs::now_ms_fallback())?;
-                tx.execute(
-                    "UPDATE daily_usage SET data_revision = ?1 WHERE sealed = 1",
-                    [revision],
-                )?;
-                for (tz, day) in partitions {
-                    crate::ingest::recompute_day(
-                        &tx,
-                        &crate::calendar::Calendar::new(&tz)?,
-                        crate::calendar::parse_date(&day)?,
-                        revision,
-                    )?;
-                }
-            }
-        }
-        if migration.version == 4 && migration.name == "origin_host_identity_and_source_partitions"
-        {
-            // 旧混合日汇总按来源分区重算（事件仍在 ⇒ 推导不是猜测；封存行除外）。
-            let partitions = {
-                let mut stmt = tx.prepare(
-                    "SELECT DISTINCT tz_version, local_day FROM daily_usage WHERE sealed = 0",
-                )?;
-                let rows =
-                    stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?;
-                rows.collect::<Result<Vec<_>, _>>()?
-            };
-            if !partitions.is_empty() {
-                let revision = Storage::bump_data_revision_tx(&tx, crate::jobs::now_ms_fallback())?;
-                tx.execute(
-                    "UPDATE daily_usage SET data_revision = ?1 WHERE sealed = 1",
-                    [revision],
-                )?;
-                for (tz, day) in partitions {
-                    crate::ingest::recompute_day(
-                        &tx,
-                        &crate::calendar::Calendar::new(&tz)?,
-                        crate::calendar::parse_date(&day)?,
-                        revision,
-                    )?;
-                }
-            }
-        }
-        tx.execute(
-            "INSERT INTO schema_migrations (version, name, applied_ms, notes) VALUES (?1, ?2, ?3, NULL)",
-            rusqlite::params![migration.version, migration.name, crate::jobs::now_ms_fallback()],
-        )?;
-        tx.pragma_update(None, "user_version", migration.version)?;
-        Ok(())
-    })();
-    match result {
-        Ok(()) => tx.commit().map_err(|e| CoreError::MigrationFailed {
-            version: migration.version,
-            name: migration.name.to_string(),
-            detail: e.to_string(),
-        }),
-        Err(e) => {
-            // 回滚该版本，保留旧库。
-            let _ = tx.rollback();
-            Err(CoreError::MigrationFailed {
-                version: migration.version,
-                name: migration.name.to_string(),
-                detail: e.to_string(),
-            })
-        }
     }
 }

@@ -1,0 +1,440 @@
+{
+ "fixture": "rollout-legacy-v0.142.5",
+ "format": "codex",
+ "generatedAt": "2026-09-26T05:44:17.671Z",
+ "sourceFileIdentity": "anonymized",
+ "totalLines": 19,
+ "tailLinesExtracted": 19,
+ "parseErrors": 0,
+ "records": [
+  {
+   "line": 1,
+   "timestamp": "2026-07-01T15:18:19.992Z",
+   "ordinal": 0,
+   "type": "session_meta",
+   "payload": {
+    "session_id": "anon-1",
+    "id": "anon-2",
+    "parent_thread_id": "anon-1",
+    "timestamp": "2026-07-01T15:18:14.922Z",
+    "cwd": "<PATH>",
+    "originator": "anon-3",
+    "cli_version": "0.142.5",
+    "source": {
+     "subagent": {
+      "other": "REDACTED"
+     }
+    },
+    "thread_source": "anon-4",
+    "model_provider": "openai",
+    "base_instructions": "REDACTED",
+    "history_mode": "REDACTED",
+    "subagent_history_start_ordinal": 19,
+    "multi_agent_version": "REDACTED"
+   }
+  },
+  {
+   "line": 2,
+   "timestamp": "2026-07-01T15:18:19.992Z",
+   "ordinal": 1,
+   "type": "event_msg",
+   "payload": {
+    "type": "task_started",
+    "turn_id": "anon-5",
+    "started_at": 1782919094,
+    "model_context_window": 258400,
+    "collaboration_mode_kind": "REDACTED"
+   }
+  },
+  {
+   "line": 3,
+   "timestamp": "2026-07-01T15:18:20.002Z",
+   "ordinal": 2,
+   "type": "response_item",
+   "payload": {
+    "type": "message",
+    "role": "REDACTED",
+    "content": "REDACTED",
+    "internal_chat_message_metadata_passthrough": {
+     "turn_id": "anon-5"
+    }
+   }
+  },
+  {
+   "line": 4,
+   "timestamp": "2026-07-01T15:18:20.002Z",
+   "ordinal": 3,
+   "type": "response_item",
+   "payload": {
+    "type": "message",
+    "role": "REDACTED",
+    "content": "REDACTED",
+    "internal_chat_message_metadata_passthrough": {
+     "turn_id": "anon-5"
+    }
+   }
+  },
+  {
+   "line": 5,
+   "timestamp": "2026-07-01T15:18:20.002Z",
+   "ordinal": 4,
+   "type": "turn_context",
+   "payload": {
+    "turn_id": "anon-5",
+    "cwd": "<PATH>",
+    "workspace_roots": [
+     "REDACTED"
+    ],
+    "current_date": "REDACTED",
+    "timezone": "REDACTED",
+    "approval_policy": "REDACTED",
+    "sandbox_policy": {
+     "type": "read-only"
+    },
+    "permission_profile": {
+     "type": "managed",
+     "file_system": {
+      "type": "restricted",
+      "entries": [
+       {
+        "path": {
+         "type": "special",
+         "value": {
+          "kind": "REDACTED"
+         }
+        },
+        "access": "REDACTED"
+       }
+      ]
+     },
+     "network": "REDACTED"
+    },
+    "model": "codex-auto-review",
+    "personality": "REDACTED",
+    "collaboration_mode": {
+     "mode": "REDACTED",
+     "settings": {
+      "model": "codex-auto-review",
+      "reasoning_effort": "REDACTED",
+      "developer_instructions": null
+     }
+    },
+    "multi_agent_version": "REDACTED",
+    "realtime_active": false,
+    "effort": "REDACTED",
+    "summary": "REDACTED"
+   }
+  },
+  {
+   "line": 6,
+   "timestamp": "2026-07-01T15:18:20.011Z",
+   "ordinal": 5,
+   "type": "response_item",
+   "payload": {
+    "type": "message",
+    "role": "REDACTED",
+    "content": "REDACTED",
+    "internal_chat_message_metadata_passthrough": {
+     "turn_id": "anon-5"
+    }
+   }
+  },
+  {
+   "line": 7,
+   "timestamp": "2026-07-01T15:18:20.011Z",
+   "ordinal": 6,
+   "type": "event_msg",
+   "payload": {
+    "type": "item_completed",
+    "thread_id": "anon-2",
+    "turn_id": "anon-5",
+    "item": {
+     "type": "UserMessage",
+     "id": "anon-6",
+     "content": "REDACTED"
+    },
+    "completed_at_ms": 1782919100011
+   }
+  },
+  {
+   "line": 8,
+   "timestamp": "2026-07-01T15:18:23.440Z",
+   "ordinal": 7,
+   "type": "response_item",
+   "payload": {
+    "type": "reasoning",
+    "id": "anon-7",
+    "summary": "REDACTED",
+    "content": null,
+    "encrypted_content": "REDACTED",
+    "internal_chat_message_metadata_passthrough": {
+     "turn_id": "anon-5"
+    }
+   }
+  },
+  {
+   "line": 9,
+   "timestamp": "2026-07-01T15:18:23.643Z",
+   "ordinal": 8,
+   "type": "event_msg",
+   "payload": {
+    "type": "item_completed",
+    "thread_id": "anon-2",
+    "turn_id": "anon-5",
+    "item": {
+     "type": "AgentMessage",
+     "id": "anon-8",
+     "content": "REDACTED",
+     "phase": "REDACTED"
+    },
+    "completed_at_ms": 1782919103643
+   }
+  },
+  {
+   "line": 10,
+   "timestamp": "2026-07-01T15:18:23.643Z",
+   "ordinal": 9,
+   "type": "response_item",
+   "payload": {
+    "type": "message",
+    "id": "anon-9",
+    "role": "REDACTED",
+    "content": "REDACTED",
+    "phase": "REDACTED",
+    "internal_chat_message_metadata_passthrough": {
+     "turn_id": "anon-5"
+    }
+   }
+  },
+  {
+   "line": 11,
+   "timestamp": "2026-07-01T15:18:23.665Z",
+   "ordinal": 10,
+   "type": "event_msg",
+   "payload": {
+    "type": "token_count",
+    "info": {
+     "total_token_usage": {
+      "input_tokens": 27648,
+      "cached_input_tokens": 7040,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 109,
+      "reasoning_output_tokens": 91,
+      "total_tokens": 27757
+     },
+     "last_token_usage": {
+      "input_tokens": 27648,
+      "cached_input_tokens": 7040,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 109,
+      "reasoning_output_tokens": 91,
+      "total_tokens": 27757
+     },
+     "model_context_window": 258400
+    },
+    "rate_limits": {
+     "limit_id": "anon-10",
+     "limit_name": null,
+     "primary": {
+      "used_percent": 100,
+      "window_minutes": 300,
+      "resets_at": 1782920046
+     },
+     "secondary": {
+      "used_percent": 50,
+      "window_minutes": 10080,
+      "resets_at": 1783402697
+     },
+     "credits": {
+      "has_credits": false,
+      "unlimited": false,
+      "balance": "REDACTED"
+     },
+     "individual_limit": null,
+     "spend_control_reached": null,
+     "plan_type": "REDACTED",
+     "rate_limit_reached_type": null
+    }
+   }
+  },
+  {
+   "line": 12,
+   "timestamp": "2026-07-01T15:18:23.677Z",
+   "ordinal": 11,
+   "type": "event_msg",
+   "payload": {
+    "type": "task_complete",
+    "turn_id": "anon-5",
+    "last_agent_message": "REDACTED",
+    "completed_at": 1782919103,
+    "duration_ms": 8701,
+    "time_to_first_token_ms": 8470
+   }
+  },
+  {
+   "line": 13,
+   "timestamp": "2026-07-01T15:19:51.193Z",
+   "ordinal": 12,
+   "type": "response_item",
+   "payload": {
+    "type": "message",
+    "role": "REDACTED",
+    "content": "REDACTED",
+    "internal_chat_message_metadata_passthrough": {
+     "turn_id": "anon-11"
+    }
+   }
+  },
+  {
+   "line": 14,
+   "timestamp": "2026-07-01T15:19:51.208Z",
+   "ordinal": 13,
+   "type": "event_msg",
+   "payload": {
+    "type": "task_started",
+    "turn_id": "anon-12",
+    "started_at": 1782919191,
+    "model_context_window": 258400,
+    "collaboration_mode_kind": "REDACTED"
+   }
+  },
+  {
+   "line": 15,
+   "timestamp": "2026-07-01T15:19:51.221Z",
+   "ordinal": 14,
+   "type": "turn_context",
+   "payload": {
+    "turn_id": "anon-12",
+    "cwd": "<PATH>",
+    "workspace_roots": [
+     "REDACTED"
+    ],
+    "current_date": "REDACTED",
+    "timezone": "REDACTED",
+    "approval_policy": "REDACTED",
+    "sandbox_policy": {
+     "type": "read-only"
+    },
+    "permission_profile": {
+     "type": "managed",
+     "file_system": {
+      "type": "restricted",
+      "entries": [
+       {
+        "path": {
+         "type": "special",
+         "value": {
+          "kind": "REDACTED"
+         }
+        },
+        "access": "REDACTED"
+       }
+      ]
+     },
+     "network": "REDACTED"
+    },
+    "model": "codex-auto-review",
+    "personality": "REDACTED",
+    "collaboration_mode": {
+     "mode": "REDACTED",
+     "settings": {
+      "model": "codex-auto-review",
+      "reasoning_effort": "REDACTED",
+      "developer_instructions": null
+     }
+    },
+    "multi_agent_version": "REDACTED",
+    "realtime_active": false,
+    "effort": "REDACTED",
+    "summary": "REDACTED"
+   }
+  },
+  {
+   "line": 16,
+   "timestamp": "2026-07-01T15:19:51.233Z",
+   "ordinal": 15,
+   "type": "response_item",
+   "payload": {
+    "type": "message",
+    "role": "REDACTED",
+    "content": "REDACTED",
+    "internal_chat_message_metadata_passthrough": {
+     "turn_id": "anon-12"
+    }
+   }
+  },
+  {
+   "line": 17,
+   "timestamp": "2026-07-01T15:19:51.233Z",
+   "ordinal": 16,
+   "type": "event_msg",
+   "payload": {
+    "type": "item_completed",
+    "thread_id": "anon-2",
+    "turn_id": "anon-12",
+    "item": {
+     "type": "UserMessage",
+     "id": "anon-13",
+     "content": "REDACTED"
+    },
+    "completed_at_ms": 1782919191233
+   }
+  },
+  {
+   "line": 18,
+   "timestamp": "2026-07-01T15:19:51.745Z",
+   "ordinal": 17,
+   "type": "event_msg",
+   "payload": {
+    "type": "token_count",
+    "info": {
+     "total_token_usage": {
+      "input_tokens": 27648,
+      "cached_input_tokens": 7040,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 109,
+      "reasoning_output_tokens": 91,
+      "total_tokens": 27757
+     },
+     "last_token_usage": {
+      "input_tokens": 27648,
+      "cached_input_tokens": 7040,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 109,
+      "reasoning_output_tokens": 91,
+      "total_tokens": 27757
+     },
+     "model_context_window": 258400
+    },
+    "rate_limits": {
+     "limit_id": "anon-14",
+     "limit_name": null,
+     "primary": null,
+     "secondary": null,
+     "credits": {
+      "has_credits": false,
+      "unlimited": false,
+      "balance": "REDACTED"
+     },
+     "individual_limit": null,
+     "spend_control_reached": null,
+     "plan_type": "REDACTED",
+     "rate_limit_reached_type": null
+    }
+   }
+  },
+  {
+   "line": 19,
+   "timestamp": "2026-07-01T15:19:51.757Z",
+   "ordinal": 18,
+   "type": "event_msg",
+   "payload": {
+    "type": "task_complete",
+    "turn_id": "anon-12",
+    "last_agent_message": null,
+    "completed_at": 1782919191,
+    "duration_ms": 549
+   }
+  }
+ ]
+}

@@ -142,6 +142,28 @@ pub struct ExchangeDailyPartition {
     pub data_revision: i64,
 }
 
+/// 小时层交换行（分级归档的 30 天层；导入按 (tz,day,hour,dims) 键合并）。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExchangeHourlyPartition {
+    pub tz_version: String,
+    pub local_day: String,
+    pub hour: i64,
+    pub instance_id: String,
+    pub agent: String,
+    pub provider_id: String,
+    pub model_raw: String,
+    pub call_category: String,
+    pub quality_bucket: String,
+    pub event_count: i64,
+    pub call_count: i64,
+    pub input_known_sum: Option<i64>,
+    pub cache_read_known_sum: Option<i64>,
+    pub cache_write_known_sum: Option<i64>,
+    pub output_known_sum: Option<i64>,
+    pub total_known_sum: Option<i64>,
+    pub data_revision: i64,
+}
+
 /// 完整导出包。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ExchangeExport {
@@ -158,6 +180,9 @@ pub struct ExchangeExport {
     /// 分区仅在对应明细缺失时作为汇总对照）。
     #[serde(default)]
     pub daily_partitions: Vec<ExchangeDailyPartition>,
+    /// 小时层（今日小时图在明细删除后的数据来源）。
+    #[serde(default)]
+    pub hourly_partitions: Vec<ExchangeHourlyPartition>,
 }
 
 /// 导出请求。
@@ -366,6 +391,45 @@ pub fn build_export(
         }
     }
 
+    // 小时层（有界：仅现存的；导入按修订合并）。
+    let mut hourly = Vec::new();
+    {
+        let mut stmt = storage.conn().prepare(
+            "SELECT tz_version, local_day, hour, instance_id, agent, provider_id, model_raw,
+                    call_category, quality_bucket, event_count, call_count,
+                    input_known_sum, cache_read_known_sum, cache_write_known_sum,
+                    output_known_sum, total_known_sum, data_revision
+             FROM hourly_usage",
+        )?;
+        let rows = stmt.query_map([], |r| {
+            Ok(ExchangeHourlyPartition {
+                tz_version: r.get(0)?,
+                local_day: r.get(1)?,
+                hour: r.get(2)?,
+                instance_id: r.get(3)?,
+                agent: r.get(4)?,
+                provider_id: r.get(5)?,
+                model_raw: r.get(6)?,
+                call_category: r.get(7)?,
+                quality_bucket: r.get(8)?,
+                event_count: r.get(9)?,
+                call_count: r.get(10)?,
+                input_known_sum: r.get(11)?,
+                cache_read_known_sum: r.get(12)?,
+                cache_write_known_sum: r.get(13)?,
+                output_known_sum: r.get(14)?,
+                total_known_sum: r.get(15)?,
+                data_revision: r.get(16)?,
+            })
+        })?;
+        for row in rows {
+            let h = row?;
+            if wanted.contains(&h.instance_id) {
+                hourly.push(h);
+            }
+        }
+    }
+
     Ok(ExchangeExport {
         format_version: EXCHANGE_FORMAT_VERSION.to_string(),
         kind: request.kind.clone(),
@@ -379,6 +443,7 @@ pub fn build_export(
         sources,
         records,
         daily_partitions: partitions,
+        hourly_partitions: hourly,
     })
 }
 

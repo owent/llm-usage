@@ -1,17 +1,22 @@
 <script lang="ts">
-  import type { SourceDto } from '../lib/api';
+  import type { SourceDto, UserDto } from '../lib/api';
   import { api, parseError } from '../lib/api';
   import { t, fmtRelative } from '../lib/i18n.svelte';
 
   let {
     sources,
+    users,
     onchanged,
   }: {
     sources: SourceDto[];
+    users: UserDto[];
     onchanged: () => void;
   } = $props();
 
   let error = $state('');
+  // list_sources 未返回每实例的当前归属（后端合同），下拉初始显示占位；
+  // 本地记录最近一次选择，避免刷新后立即回落。
+  let assigned = $state<Record<string, string>>({});
 
   async function toggle(s: SourceDto) {
     error = '';
@@ -22,11 +27,23 @@
       error = parseError(e);
     }
   }
+
+  async function assign(s: SourceDto, userId: string) {
+    if (!userId) return;
+    error = '';
+    try {
+      await api.assignSourceUser(s.instance_id, userId);
+      assigned[s.instance_id] = userId;
+      onchanged();
+    } catch (e) {
+      error = t('sources.assignFailed', { message: parseError(e) });
+    }
+  }
 </script>
 
 <h3>{t('sources.title')}</h3>
 {#if error}
-  <p class="error">{t('common.error', { message: error })}</p>
+  <p class="error">{error}</p>
 {/if}
 {#if sources.length === 0}
   <p class="empty">{t('sources.none')}</p>
@@ -39,6 +56,7 @@
         <th>{t('sources.health')}</th>
         <th>{t('sources.lastSuccess')}</th>
         <th>{t('sources.status')}</th>
+        <th>{t('sources.user')}</th>
         <th></th>
       </tr>
     </thead>
@@ -58,6 +76,17 @@
             {/if}
           </td>
           <td>
+            <select
+              value={assigned[s.instance_id] ?? s.user_id}
+              onchange={(e) => void assign(s, e.currentTarget.value)}
+            >
+              <option value="">{t('sources.userPlaceholder')}</option>
+              {#each users as u (u.user_id)}
+                <option value={u.user_id}>{u.name}</option>
+              {/each}
+            </select>
+          </td>
+          <td>
             <button onclick={() => toggle(s)}>
               {s.enabled ? t('sources.enabled') : t('sources.disabled')}
             </button>
@@ -75,13 +104,14 @@
   table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 13px;
+    font-size: 12.5px;
   }
   th,
   td {
     text-align: left;
-    padding: 6px 8px;
+    padding: 4px 6px;
     border-bottom: 1px solid #eee;
+    vertical-align: middle;
   }
   th {
     color: #666;
@@ -130,5 +160,10 @@
   button {
     padding: 3px 10px;
     cursor: pointer;
+  }
+  td select {
+    max-width: 150px;
+    font-size: 12.5px;
+    padding: 2px 4px;
   }
 </style>

@@ -20,6 +20,7 @@ pub const LATEST_IMPL_ID: &str = "wire_v15";
 pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[
     // 本机 desktop 1.0.3 实读（M0 + M4 fixture：session-main / subagent-agent-0）。
     ("1.5", "wire_v15"),
+    ("1.4", "wire_v15"), // 同形 wire 格式：kimi-work 侧 1.4 已验证，本产品本机 active_compat 文件证实同构
 ];
 
 /// 版本分派结论。
@@ -63,7 +64,8 @@ mod tests {
     #[test]
     fn unrecorded_and_missing_versions_fall_back_to_latest() {
         // 无证据不兼容的未收录/缺失版本：兼容尝试（V30），不直接拒绝。
-        for found in [Some("9.9"), Some("1.4"), None] {
+        // 1.4 现已注册（本机 active_compat 文件证实同构 wire_v15）。
+        for found in [Some("9.9"), None] {
             assert_eq!(
                 select(found),
                 Selection {

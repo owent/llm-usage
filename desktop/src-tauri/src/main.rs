@@ -42,7 +42,14 @@ fn db_path() -> std::path::PathBuf {
 
 fn main() {
     let headless = std::env::args().any(|a| a == "--headless" || a == "--scan-once");
-    let state = Arc::new(AppState::init(db_path(), &hostname()).expect("init app state"));
+    let state = match AppState::init(db_path(), &hostname()) {
+        Ok(s) => Arc::new(s),
+        Err(e) if e == "__EXIT_SCHEMA_MISMATCH__" => {
+            println!("user declined database rebuild; exiting");
+            return;
+        }
+        Err(e) => panic!("init app state: {e}"),
+    };
 
     if headless {
         // 无 WebView headless 提取：一次采集后退出；不启动窗口/调度线程。
@@ -84,6 +91,23 @@ fn main() {
             commands::app_info,
             commands::export_data,
             commands::reload_settings,
+            commands::pick_save_path,
+            commands::system_task_status,
+            commands::set_auto_start,
+            commands::set_refresh_task,
+            commands::list_users,
+            commands::create_user,
+            commands::set_current_user,
+            commands::assign_source_user,
+            commands::import_exchange,
+            commands::storage_stats,
+            commands::manual_cleanup,
+            commands::pick_open_path,
+            commands::clear_all_data,
+            commands::event_details,
+            commands::export_filter_options,
+            commands::chart_series,
+            commands::diagnostic_logs,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

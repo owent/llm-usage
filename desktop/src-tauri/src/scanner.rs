@@ -70,13 +70,13 @@ pub fn run_refresh(state: &Arc<AppState>, trigger: TriggerKind) -> bool {
             return false;
         }
     }
-    let (host_id, manual_roots, retention_days, timezone) = {
+    let (host_id, manual_roots, retention, timezone) = {
         let settings = state.settings.lock().unwrap();
         let host = state.host_id.lock().unwrap().clone();
         (
             host,
             settings.manual_roots.clone(),
-            settings.retention_days,
+            settings.retention.clone(),
             settings.timezone.clone(),
         )
     };
@@ -102,7 +102,23 @@ pub fn run_refresh(state: &Arc<AppState>, trigger: TriggerKind) -> bool {
     let mut summaries: Vec<RefreshInstanceSummary> = Vec::new();
     // 写锁按适配器分段获取（而非整个刷新持有）：查询走 WAL 只读连接不受影响，
     // 设置写入等其他写操作可在适配器之间交错；任意时刻仍只有一个写者。
+    let total_adapters = 17usize; // built_in_adapters().len()；硬编码避免双重枚举
+    let scan_start = now_ms();
     for (adapter_index, adapter) in built_in_adapters().into_iter().enumerate() {
+        // 进度：按适配器序号估算（完成后百分百精确；运行中含当前适配器的
+        // 文件级进度由各适配器内部掌握，此处用粗粒度近似+ETA）。
+        {
+            let mut refresh = state.refresh.lock().unwrap();
+            refresh.progress_percent =
+                ((adapter_index as f64 / total_adapters as f64) * 100.0) as u8;
+            let elapsed = now_ms() - scan_start;
+            if adapter_index > 0 {
+                let per_adapter = elapsed as f64 / adapter_index as f64;
+                let remaining =
+                    ((total_adapters - adapter_index) as f64 * per_adapter / 1000.0) as u64;
+                refresh.eta_seconds = Some(remaining);
+            }
+        }
         // run_id 全局唯一：核心按「前缀-实例序号」生成，前缀须每次调用唯一
         //（ingest_runs.run_id 是主键；同前缀多适配器会撞键）。
         let config = RunConfig {
@@ -129,16 +145,24 @@ pub fn run_refresh(state: &Arc<AppState>, trigger: TriggerKind) -> bool {
         }
     }
     {
-        // 有限保留：采集后按设置执行（封存过期日 → 删除过期明细；单事务）。
-        if let Some(days) = retention_days {
-            let policy = llm_usage_core::retention::RetentionPolicy {
-                detail_days: days,
-                diagnostics_days: 30.min(days),
-                hard_max_days: None,
+        // 分级归档保留：采集后按设置执行（明细→小时→物化周期→日→周/月；单事务）。
+        {
+            let policy = llm_usage_core::retention_tiered::TieredRetentionPolicy {
+                events_days: retention.events_days,
+                hourly_days: retention.hourly_days,
+                daily_days: retention.daily_days,
+                weekly_days: retention.weekly_days,
+                monthly_days: retention.monthly_days,
+                yearly_days: retention.yearly_days,
             };
             let outcome = {
                 let storage = state.storage.lock().unwrap();
-                llm_usage_core::retention::enforce_retention(&storage, &timezone, now_ms(), &policy)
+                llm_usage_core::retention_tiered::enforce_tiered_retention(
+                    &storage,
+                    &timezone,
+                    now_ms(),
+                    &policy,
+                )
             };
             if let Err(e) = outcome {
                 summaries.push(RefreshInstanceSummary {
@@ -160,6 +184,8 @@ pub fn run_refresh(state: &Arc<AppState>, trigger: TriggerKind) -> bool {
         refresh.running = false;
         refresh.last_finished_ms = now_ms();
         refresh.instances = summaries;
+        refresh.progress_percent = 100;
+        refresh.eta_seconds = None;
     }
     true
 }

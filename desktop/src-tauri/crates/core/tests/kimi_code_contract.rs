@@ -250,7 +250,10 @@ fn capability_table_is_structured_and_complete() {
     let cap = adapter.capability();
     let json = serde_json::to_value(&cap).unwrap();
     assert_eq!(json["adapter_id"], "kimi-code");
-    assert_eq!(json["supported_versions"], serde_json::json!(["1.5"]));
+    assert_eq!(
+        json["supported_versions"],
+        serde_json::json!(["1.5", "1.4"])
+    );
     for key in [
         "tokens",
         "cache_read",
