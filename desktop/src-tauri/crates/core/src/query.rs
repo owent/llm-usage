@@ -250,6 +250,38 @@ struct DailyRow {
     conflict_count: i64,
 }
 
+/// 周期分组键（标签 + 起止日）：query_summary 与 chart_series 共用，
+/// 保证总用量视图与维度分组视图的时间轴标签一致。
+/// 小时粒度标签 "YYYY-MM-DD HH:00"；周标签按 week_start（ISO 周或起始日）；
+/// 月标签 "YYYY-MM"。
+fn period_key_of(
+    calendar: &Calendar,
+    granularity: Granularity,
+    week_start: WeekStart,
+    day: Date,
+    hour: Option<i64>,
+) -> (String, Date, Date) {
+    match granularity {
+        Granularity::Hour => {
+            let label = match hour {
+                Some(h) => format!("{} {:02}:00", day, h),
+                None => day.to_string(),
+            };
+            (label, day, day)
+        }
+        Granularity::Day => (day.to_string(), day, day),
+        Granularity::Week => {
+            let start = calendar.week_start_of(day, week_start);
+            let end = start.checked_add(Span::new().days(6)).expect("week end");
+            (calendar.week_label(day, week_start), start, end)
+        }
+        Granularity::Month => {
+            let start = calendar.month_start_of(day);
+            (calendar.month_label(day), start, start.last_of_month())
+        }
+    }
+}
+
 /// 执行汇总查询。
 pub fn query_summary(storage: &Storage, request: &SummaryRequest) -> Result<Summary, CoreError> {
     if request.last_day < request.first_day {
@@ -282,25 +314,13 @@ pub fn query_summary(storage: &Storage, request: &SummaryRequest) -> Result<Summ
 
     // 周期分组键。
     let key_of = |day: Date, hour: Option<i64>| -> (String, Date, Date) {
-        match request.granularity {
-            Granularity::Hour => {
-                let label = match hour {
-                    Some(h) => format!("{} {:02}:00", day, h),
-                    None => day.to_string(),
-                };
-                (label, day, day)
-            }
-            Granularity::Day => (day.to_string(), day, day),
-            Granularity::Week => {
-                let start = calendar.week_start_of(day, request.week_start);
-                let end = start.checked_add(Span::new().days(6)).expect("week end");
-                (calendar.week_label(day, request.week_start), start, end)
-            }
-            Granularity::Month => {
-                let start = calendar.month_start_of(day);
-                (calendar.month_label(day), start, start.last_of_month())
-            }
-        }
+        period_key_of(
+            &calendar,
+            request.granularity,
+            request.week_start,
+            day,
+            hour,
+        )
     };
 
     let mut groups: BTreeMap<(Date, String), (Date, Date, Vec<&DailyRow>)> = BTreeMap::new();
@@ -1255,59 +1275,205 @@ pub struct ChartSeriesRow {
     pub total_tokens: Option<i64>,
 }
 
-/// 按维度分组查询时间序列（从 daily_usage / hourly_usage / period_usage 直接读，
-/// 不触 usage_events 明细——降低图表数据源计算量，2026-09-26 用户合同）。
+/// 按维度分组查询时间序列（趋势图表数据源；不触 usage_events 明细——降低图表
+/// 数据源计算量，2026-09-26 用户合同）。数据源与 query_summary 一致：小时粒度读
+/// hourly_usage，日/周/月读 daily_usage；周/月再并入 period_usage 物化周期
+/// （日层已覆盖的周期不重复计入）；筛选（Agent/provider/model/实例）同样生效。
+/// 标签经共享 period_key_of 生成，与总用量视图时间轴一致。
 pub fn chart_series(
     storage: &Storage,
     request: &SummaryRequest,
     dimension: &ChartDimension,
 ) -> Result<Vec<ChartSeriesRow>, CoreError> {
-    let group_expr = match dimension {
-        ChartDimension::Total => "'总量'".to_string(),
-        ChartDimension::ByModel => "COALESCE(NULLIF(model_raw, ''), 'unknown')".to_string(),
-        ChartDimension::ByAgent => "agent".to_string(),
-        ChartDimension::ByAgentModel => {
-            "agent || '/' || COALESCE(NULLIF(model_raw, ''), 'unknown')".to_string()
+    let calendar = Calendar::new(&request.timezone)?;
+    let rows = if request.granularity == Granularity::Hour {
+        load_hourly_as_daily(
+            storage,
+            &request.timezone,
+            request.first_day,
+            request.last_day,
+        )?
+    } else {
+        load_daily_rows(
+            storage,
+            &request.timezone,
+            request.first_day,
+            request.last_day,
+        )?
+    };
+
+    /// 组内累计：已知 token 语义同 SQL SUM（全部未知保持未知，不补零）。
+    #[derive(Default)]
+    struct SeriesAcc {
+        end_day: Option<Date>,
+        call_count: i64,
+        input_total: Option<i64>,
+        cache_read: Option<i64>,
+        output_total: Option<i64>,
+        total_tokens: Option<i64>,
+    }
+    impl SeriesAcc {
+        fn add_sums(
+            &mut self,
+            call_count: i64,
+            input: Option<i64>,
+            cache_read: Option<i64>,
+            output: Option<i64>,
+            total: Option<i64>,
+        ) {
+            self.call_count += call_count;
+            self.input_total = merge_opt(self.input_total, input);
+            self.cache_read = merge_opt(self.cache_read, cache_read);
+            self.output_total = merge_opt(self.output_total, output);
+            self.total_tokens = merge_opt(self.total_tokens, total);
+        }
+    }
+
+    // 维度系列名：模型空串归 "unknown"（与总用量视图的 unknown 行口径一致）。
+    let series_of = |agent: &str, model_raw: &str| -> String {
+        let model = || {
+            if model_raw.is_empty() {
+                "unknown".to_string()
+            } else {
+                model_raw.to_string()
+            }
+        };
+        match dimension {
+            ChartDimension::Total => "总量".to_string(),
+            ChartDimension::ByModel => model(),
+            ChartDimension::ByAgent => agent.to_string(),
+            ChartDimension::ByAgentModel => format!("{}/{}", agent, model()),
         }
     };
-    let sql = format!(
-        "SELECT local_day, {ge} as series_name,
-                SUM(call_count), SUM(input_known_sum), SUM(cache_read_known_sum),
-                SUM(output_known_sum), SUM(total_known_sum)
-         FROM daily_usage
-         WHERE tz_version = ?1 AND local_day >= ?2 AND local_day <= ?3
-         GROUP BY local_day, {ge}
-         ORDER BY local_day",
-        ge = group_expr
-    );
-    let mut stmt = storage.conn().prepare(&sql)?;
-    let rows = stmt.query_map(
-        params![
-            request.timezone,
-            request.first_day.to_string(),
-            request.last_day.to_string()
-        ],
-        |r| {
-            Ok(ChartSeriesRow {
-                label: r.get(0)?,
-                start_day: parse_date(&r.get::<_, String>(0)?)
-                    .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
-                end_day: parse_date(&r.get::<_, String>(0)?)
-                    .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
-                series_name: r.get(1)?,
-                call_count: r.get(2)?,
-                input_total: r.get(3)?,
-                cache_read: r.get(4)?,
-                output_total: r.get(5)?,
-                total_tokens: r.get(6)?,
-            })
-        },
-    )?;
-    let mut out = Vec::new();
-    for row in rows {
-        out.push(row?);
+
+    // 按（起始日, 标签, 系列）累计；BTreeMap 迭代即时间序（标签内含日/小时前缀）。
+    let mut groups: BTreeMap<(Date, String, String), SeriesAcc> = BTreeMap::new();
+    let mut covered: BTreeSet<String> = BTreeSet::new();
+    for row in rows.iter().filter(|r| request.filters.matches(r)) {
+        let (label, start, end) = period_key_of(
+            &calendar,
+            request.granularity,
+            request.week_start,
+            row.local_day,
+            row.hour,
+        );
+        covered.insert(label.clone());
+        let acc = groups
+            .entry((start, label, series_of(&row.agent, &row.model_raw)))
+            .or_default();
+        acc.end_day = Some(end);
+        acc.add_sums(
+            row.call_count,
+            row.input_known_sum,
+            row.cache_read_known_sum,
+            row.output_known_sum,
+            row.total_known_sum,
+        );
     }
-    Ok(out)
+
+    // 周/月：并入 period_usage 物化周期（日层保留期外的历史），跳过已覆盖标签。
+    if matches!(request.granularity, Granularity::Week | Granularity::Month) {
+        let granularity_str = match request.granularity {
+            Granularity::Week => "week",
+            _ => "month",
+        };
+        let mut stmt = storage.conn().prepare(
+            "SELECT period_key, period_start_day, period_end_day, instance_id, agent,
+                    provider_id, model_raw, call_count,
+                    input_known_sum, cache_read_known_sum, output_known_sum, total_known_sum
+             FROM period_usage
+             WHERE tz_version = ?1 AND granularity = ?2
+               AND period_end_day >= ?3 AND period_start_day <= ?4",
+        )?;
+        let mat_rows = stmt.query_map(
+            params![
+                request.timezone,
+                granularity_str,
+                request.first_day.to_string(),
+                request.last_day.to_string()
+            ],
+            |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, String>(2)?,
+                    r.get::<_, String>(3)?,
+                    r.get::<_, String>(4)?,
+                    r.get::<_, String>(5)?,
+                    r.get::<_, String>(6)?,
+                    r.get::<_, i64>(7)?,
+                    r.get::<_, Option<i64>>(8)?,
+                    r.get::<_, Option<i64>>(9)?,
+                    r.get::<_, Option<i64>>(10)?,
+                    r.get::<_, Option<i64>>(11)?,
+                ))
+            },
+        )?;
+        for row in mat_rows {
+            let (key, start, end, instance, agent, provider, model, call_count, input, cache_read, output, total) =
+                row?;
+            if covered.contains(&key) {
+                continue;
+            }
+            // 筛选与 query_summary 同一判定（借 DailyRow 形状；质量桶为空不过滤）。
+            let start_day = parse_date(&start)
+                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+            let end_day = parse_date(&end)
+                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+            let filter_row = DailyRow {
+                local_day: start_day,
+                instance_id: instance,
+                hour: None,
+                agent,
+                provider_id: provider,
+                model_raw: model,
+                quality_bucket: String::new(),
+                sealed: true,
+                event_count: 0,
+                call_count: 0,
+                attempt_count: 0,
+                observation_count: 0,
+                input_known_sum: None,
+                input_known_count: 0,
+                input_unknown_count: 0,
+                uncached_known_sum: None,
+                cache_read_known_sum: None,
+                cache_write_known_sum: None,
+                output_known_sum: None,
+                output_known_count: 0,
+                output_unknown_count: 0,
+                total_known_sum: None,
+                total_known_count: 0,
+                total_unknown_count: 0,
+                ratio_input_sum: None,
+                ratio_cache_read_sum: None,
+                ratio_sample_count: 0,
+                conflict_count: 0,
+            };
+            if !request.filters.matches(&filter_row) {
+                continue;
+            }
+            let series = series_of(&filter_row.agent, &filter_row.model_raw);
+            let acc = groups.entry((start_day, key, series)).or_default();
+            acc.end_day = Some(end_day);
+            acc.add_sums(call_count, input, cache_read, output, total);
+        }
+    }
+
+    Ok(groups
+        .into_iter()
+        .map(|((start, label, series), acc)| ChartSeriesRow {
+            label,
+            start_day: start,
+            end_day: acc.end_day.unwrap_or(start),
+            series_name: series,
+            call_count: acc.call_count,
+            input_total: acc.input_total,
+            cache_read: acc.cache_read,
+            output_total: acc.output_total,
+            total_tokens: acc.total_tokens,
+        })
+        .collect())
 }
 
 /// 诊断日志行（设置页日志查看器）。

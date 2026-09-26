@@ -187,7 +187,7 @@
     { field: 'hourly', label: t('settings.retention.hourly'), hint: t('settings.retention.defaultDays', { days: 3 }) },
     { field: 'daily', label: t('settings.retention.daily'), hint: t('settings.retention.defaultDays', { days: 90 }) },
     { field: 'weekly', label: t('settings.retention.weekly'), hint: t('settings.retention.defaultDays', { days: 1095 }) },
-    { field: 'monthly', label: t('settings.retention.monthly'), hint: t('settings.retention.defaultDays', { days: 10950 }) },
+    { field: 'monthly', label: t('settings.retention.monthly'), hint: t('settings.retention.defaultDays', { days: 3650 }) },
     { field: 'yearly', label: t('settings.retention.yearly'), hint: t('settings.retention.yearlyForever') },
   ] as { field: RetentionField; label: string; hint: string }[]);
 
@@ -265,6 +265,33 @@
   function fail(msg: string): void {
     errorMessage = t('settings.saveFailed', { message: msg });
     saving = false;
+  }
+
+  /**
+   * 常规页恢复默认（仅改草稿，保存后生效）：语言 zh-CN、主题跟随系统、
+   * 时区系统值、周起始自动、采集间隔 3600。手工根目录是用户数据源清单，
+   * 不属于偏好默认，不清空。
+   */
+  function restoreGeneralDefaults(): void {
+    draft.language = 'zh-CN';
+    draft.theme = 'system';
+    draft.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+    inputs.weekStart = '';
+    draft.refresh_interval_secs = 3600;
+    errorMessage = '';
+    message = t('settings.defaultsPending');
+  }
+
+  /** 归档保留页恢复默认（仅改草稿，保存后生效）：7/3/90/1095/3650 天，年 = 空（终身）。 */
+  function restoreRetentionDefaults(): void {
+    inputs.events = '7';
+    inputs.hourly = '3';
+    inputs.daily = '90';
+    inputs.weekly = '1095';
+    inputs.monthly = '3650';
+    inputs.yearly = '';
+    errorMessage = '';
+    message = t('settings.defaultsPending');
   }
 
   // 保存仅提交常规/归档/来源身份类字段；开机与后台即时生效，不经此路径。
@@ -702,6 +729,15 @@
             <span class="flabel">{t('settings.interval')}</span>
             <div class="fvalue">
               <input type="number" min="0" max="86400" bind:value={draft.refresh_interval_secs} />
+              <span class="hint">{t('settings.interval.hint')}</span>
+            </div>
+          </div>
+          <div class="frow">
+            <span class="flabel">{t('settings.restoreDefaults')}</span>
+            <div class="fvalue">
+              <button type="button" class="mini" onclick={restoreGeneralDefaults}>
+                {t('settings.restoreDefaults')}
+              </button>
             </div>
           </div>
           <div class="frow top">
@@ -737,6 +773,14 @@
               <span class="unit">{t('settings.retention.days')}</span>
             </div>
           {/each}
+          <div class="frow">
+            <span class="flabel">{t('settings.restoreDefaults')}</span>
+            <div class="fvalue">
+              <button type="button" class="mini" onclick={restoreRetentionDefaults}>
+                {t('settings.restoreDefaults')}
+              </button>
+            </div>
+          </div>
           <p class="warning">{t('settings.retention.warning')}</p>
         </section>
         <section class="panel">

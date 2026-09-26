@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { hideTooltipOnBlank, setupTooltipAutoHide } from '../lib/chart';
   import * as echarts from 'echarts/core';
   import { HeatmapChart } from 'echarts/charts';
   import { GridComponent, TooltipComponent, VisualMapComponent } from 'echarts/components';
@@ -55,7 +56,7 @@
     chart.setOption(
       {
         tooltip: {
-          hideDelay: 999999, transitionDuration: 0,
+          hideDelay: 0, transitionDuration: 0,
           formatter: (p: { value: [number, number, number] }) => {
             const cell = cells.find((c) => c.hour === p.value[0] && c.weekday - 1 === p.value[1]);
             return `${weekdayLabels[p.value[1]]} ${String(p.value[0]).padStart(2, '0')}:00<br/>${t('trend.calls')}: ${fmtPrecise(p.value[2])}<br/>${t('trend.tokens')}: ${fmtPrecise(cell?.total_tokens ?? null)}`;
@@ -99,16 +100,18 @@
   onMount(() => {
     chart = echarts.init(el, i18n.locale === 'zh-CN' ? 'ZH' : 'EN');
 
-      // Tooltip 持续显示：hideDelay 999999 防止自动隐藏；
-      // 鼠标离开图表时立即手动隐藏（globalout 事件）。
-      chart?.on('globalout', () => {
-        chart?.dispatchAction({ type: 'hideTip' });
-      });    const onResize = () => chart?.resize();
+    // Tooltip 持续显示（hideDelay 0；ECharts 6 的手动 hideTip 同样被 hideDelay 延迟，不可用大值）+ 离开画布/移出窗口/失焦即隐藏（统一封装）；
+    // item 触发：图内空白处（无命中图形）也立即隐藏。
+    const disposeTipHide = setupTooltipAutoHide(chart!);
+    const disposeBlankHide = hideTooltipOnBlank(chart!);
+    const onResize = () => chart?.resize();
     window.addEventListener('resize', onResize);
     // 面板显示/隐藏或网格变化时容器尺寸变化（含 display:none 恢复），自动重设画布。
     const observer = new ResizeObserver(() => chart?.resize());
     observer.observe(el);
     return () => {
+      disposeTipHide();
+      disposeBlankHide();
       observer.disconnect();
       window.removeEventListener('resize', onResize);
       chart?.dispose();

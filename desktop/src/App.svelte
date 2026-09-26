@@ -3,6 +3,7 @@
   import { api, parseError } from './lib/api';
   import type {
     AppSettings,
+    ChartSeriesRowDto,
     HeatmapDto,
     RefreshStateDto,
     SourceDto,
@@ -298,6 +299,59 @@
     return { first_day: day, last_day: day, granularity: 'day', ...filters };
   });
 
+  // ---- 历史趋势选中时间点（点击图表数据点；切换粒度/范围/筛选后清空）。 ----
+  let selectedPeriodLabel = $state<string | null>(null);
+
+  /** 选中时间点的周期行（按标签在 summary.periods 中回查；失配为 null）。 */
+  const selectedPeriod = $derived(
+    selectedPeriodLabel === null
+      ? null
+      : (summary?.periods.find((p) => p.label === selectedPeriodLabel) ?? null)
+  );
+
+  /** 点击历史趋势图数据点：选中该时间点；再次点击同一点取消。 */
+  function onHistoryPeriodClick(label: string): void {
+    selectedPeriodLabel = label === selectedPeriodLabel ? null : label;
+  }
+
+  // 选中时间点的模型/Agent 饼图：chart_series 按维度拉取后按标签过滤
+  // （无新后端命令；total_tokens 占比，与趋势页饼图同口径）。
+  type PieDatum = { name: string; value: number };
+  let periodPies = $state<{ models: PieDatum[]; agents: PieDatum[] } | null>(null);
+  let periodPiesError = $state('');
+
+  $effect(() => {
+    const p = selectedPeriod; // 依赖选中变化；summary 刷新时 periods 引用变化同样重拉。
+    const q = query;
+    periodPiesError = '';
+    if (!p) {
+      periodPies = null;
+      return;
+    }
+    const label = p.label;
+    let cancelled = false;
+    // 换选时间点时保留旧饼图直到新数据到达（原地替换，不塌缩成加载态）。
+    Promise.all([api.chartSeries(q, 'model'), api.chartSeries(q, 'agent')])
+      .then(([m, a]) => {
+        if (cancelled) return;
+        const pie = (rows: ChartSeriesRowDto[]): PieDatum[] =>
+          rows
+            .filter((r) => r.label === label)
+            .map((r) => ({
+              name: r.series === 'unknown' ? t('common.unknown') : r.series,
+              value: Number(r.total ?? 0),
+            }))
+            .filter((d) => d.value > 0);
+        periodPies = { models: pie(m.rows), agents: pie(a.rows) };
+      })
+      .catch((e) => {
+        if (!cancelled) periodPiesError = parseError(e);
+      });
+    return () => {
+      cancelled = true;
+    };
+  });
+
   const agentsAvailable = $derived(
     Array.from(new Set((summary?.agents ?? []).map((a) => a.agent))).sort()
   );
@@ -385,6 +439,36 @@
   /** 今日分区日期标签。 */
   const todayDateLabel = $derived(new Date().toLocaleDateString(i18n.locale));
 
+  /**
+   * 选中时间点汇总卡（结构同今日汇总）：总调用、输入（总量 + 命中/未命中分解）、
+   * 输出、总 token、缓存命中率、会话数；周/月粒度附加活动天数。
+   */
+  const selectedPeriodCards = $derived.by(() => {
+    const p = selectedPeriod;
+    if (!p) return [];
+    const cards = [
+      { key: 'calls', label: t('trend.calls'), value: fmtSmart(p.sums.call_count) },
+      {
+        key: 'input',
+        label: t('cards.input'),
+        value: fmtSmart(p.sums.input_total_known),
+        hint: t('cards.input.hint'),
+        sub: t('overview.breakdown.input', {
+          hit: fmtSmart(p.sums.cache_read_known),
+          miss: fmtSmart(p.sums.uncached_known),
+        }),
+      },
+      { key: 'output', label: t('cards.output'), value: fmtSmart(p.sums.output_total_known) },
+      { key: 'total', label: t('cards.total'), value: fmtSmart(p.sums.total_tokens_known) },
+      { key: 'ratio', label: t('cards.cacheRatio'), value: fmtPercent(p.sums.cache_input_ratio) },
+      { key: 'sessions', label: t('trend.sessions'), value: fmtSmart(p.distinct_sessions) },
+    ];
+    if (granularity === 'week' || granularity === 'month') {
+      cards.push({ key: 'activeDays', label: t('cards.activeDays'), value: fmtSmart(p.active_days) });
+    }
+    return cards;
+  });
+
   function panelTitle(id: string): string {
     switch (id) {
       case 'today-cards':
@@ -427,14 +511,20 @@
     }
   }
 
-  /** 主查询 + 今日查询（同一次用户交互/刷新内成对加载）。 */
-  async function loadSummary() {
+  /** 主查询 + 今日查询（同一次用户交互/刷新内成对加载）。
+   * 查询键与数据修订均未变化时保留现有对象引用：派生值/图表不重算，
+   * 避免空闲轮询导致的整体重绘闪烁（2026-09-26 用户反馈）。 */
+  async function loadSummary(force = false) {
     queryError = '';
     const [q, tq] = [query, todayQuery];
     try {
       const [s, ts] = await Promise.all([api.summary(q), api.summary(tq)]);
-      summary = s;
-      todaySummary = ts;
+      const key = `${JSON.stringify(q)}|${JSON.stringify(tq)}|${s.data_revision}`;
+      if (force || !summary || !todaySummary || key !== loadedDataKey) {
+        loadedDataKey = key;
+        summary = s;
+        todaySummary = ts;
+      }
     } catch (e) {
       queryError = parseError(e);
     }
@@ -463,7 +553,7 @@
   /** 用户切换/导入等不改变 query 的数据重载（summary/heatmap/sources 都要刷新）。 */
   async function reloadUserData() {
     dataReloadKey += 1;
-    await Promise.all([loadSummary(), loadSources()]);
+    await Promise.all([loadSummary(true), loadSources()]);
   }
 
   async function onUserChange(e: Event) {
@@ -518,19 +608,79 @@
     }
   }
 
-  let lastLoadedRevision = $state(0);
+  // ---- 采集状态轮询与数据自动刷新 ----
+  /** 上次观察到"已结束"的采集完成时间（变化 = 一次采集结束，需要重查数据）。 */
+  let lastFinishedMs = 0;
+  /** 已加载 summary 的查询键 + 数据修订（loadSummary 跳过重复赋值用）。 */
+  let loadedDataKey = '';
+
+  /**
+   * 轮询采集状态：只在采集刚结束（running→结束）或完成时间变化（计划任务/
+   * headless 触发的采集结束）时重查数据；空闲轮询仅更新进度条状态，
+   * 不触发查询与图表重建（修复总览页周期性闪烁）。
+   */
   async function pollRefresh() {
     try {
-      refresh = await api.refreshStatus();
-      if (!refresh.running && refresh.last_finished_ms > 0) {
-        // 刷新完成后以同修订重新查询（V12：刷新后 UI 用同一修订的总计/图表查询）。
+      const wasRunning = refresh?.running ?? false;
+      const r = await api.refreshStatus();
+      refresh = r;
+      if (
+        !r.running &&
+        r.last_finished_ms > 0 &&
+        (wasRunning || lastFinishedMs !== r.last_finished_ms)
+      ) {
+        lastFinishedMs = r.last_finished_ms;
         await Promise.all([loadSummary(), loadSources()]);
-        lastLoadedRevision = summary?.data_revision ?? 0;
       }
     } catch {
       /* 轮询失败下次再试 */
     }
   }
+
+  /**
+   * 状态轮询间隔自适应：采集中 3 秒（进度条/ETA 平滑），空闲 10 秒
+   * （仅探测系统任务/调度器启动的采集；状态查询本身不重绘图表）。
+   */
+  const collecting = $derived(refresh?.running ?? false);
+  $effect(() => {
+    void collecting;
+    const timer = setInterval(() => void pollRefresh(), collecting ? 3_000 : 10_000);
+    return () => clearInterval(timer);
+  });
+
+  // ---- 顶部数据自动刷新间隔（UI 定时重查；localStorage 持久化，默认 5 分钟）。 ----
+  const AUTO_REFRESH_OPTIONS = [0, 30, 60, 120, 300, 600];
+  // 键带 v2：默认值由 60 秒改为 300 秒（2026-09-26），旧默认的存量记录作废，
+  // 已运行过的界面首次启动回落新默认而非保留旧默认 60。
+  const AUTO_REFRESH_KEY = 'llm-usage-auto-refresh-v2';
+
+  function loadAutoRefreshSecs(): number {
+    const raw = Number(localStorage.getItem(AUTO_REFRESH_KEY));
+    return AUTO_REFRESH_OPTIONS.includes(raw) ? raw : 300;
+  }
+
+  let autoRefreshSecs = $state(loadAutoRefreshSecs());
+
+  function setAutoRefreshSecs(v: number): void {
+    autoRefreshSecs = v;
+    try {
+      localStorage.setItem(AUTO_REFRESH_KEY, String(v));
+    } catch {
+      /* 存储不可用时仅本次会话生效 */
+    }
+  }
+
+  function autoRefreshLabel(v: number): string {
+    return v < 60
+      ? t('header.autoRefresh.sec', { n: v })
+      : t('header.autoRefresh.min', { n: v / 60 });
+  }
+
+  $effect(() => {
+    if (!autoRefreshSecs) return;
+    const timer = setInterval(() => void loadSummary(), autoRefreshSecs * 1000);
+    return () => clearInterval(timer);
+  });
 
   let refreshing = $state(false);
   async function manualRefresh() {
@@ -548,10 +698,8 @@
   onMount(() => {
     void (async () => {
       await loadSettings();
-      await Promise.all([loadSummary(), loadSources(), loadUsers(), pollRefresh()]);
+      await Promise.all([loadSummary(true), loadSources(), loadUsers(), pollRefresh()]);
     })();
-    const pollTimer = setInterval(() => void pollRefresh(), 3000);
-    return () => clearInterval(pollTimer);
   });
 
   // 近 24 小时/当天自动切到小时粒度（任务 C7）。
@@ -559,10 +707,11 @@
     if (rangeKey === '24h' || rangeKey === 'today') granularity = 'hour';
   });
 
-  // 查询条件变化即重查（防抖 300ms）。
+  // 查询条件变化即重查（防抖 300ms）；旧选中时间点标签可能失效，一并清空。
   let queryTimer: ReturnType<typeof setTimeout> | undefined;
   $effect(() => {
     void query;
+    selectedPeriodLabel = null;
     if (queryTimer) clearTimeout(queryTimer);
     queryTimer = setTimeout(() => void loadSummary(), 300);
   });
@@ -570,7 +719,8 @@
   function onSettingsSaved(next: AppSettings) {
     settings = next;
     if (next.language === 'zh-CN' || next.language === 'en') setLocale(next.language);
-    void loadSummary();
+    // 时区/周起始影响统计口径但不改查询键，需强制重查。
+    void loadSummary(true);
   }
 
   const refreshLabel = $derived(
@@ -638,6 +788,18 @@
         </span>
       </span>
     {/if}
+    <!-- 数据自动重查间隔（与后台采集间隔独立；关闭 = 只手动刷新）。 -->
+    <label class="auto-refresh" title={t('header.autoRefresh.hint')}>
+      {t('header.autoRefresh')}
+      <select
+        value={autoRefreshSecs}
+        onchange={(e) => setAutoRefreshSecs(Number((e.currentTarget as HTMLSelectElement).value))}
+      >
+        {#each AUTO_REFRESH_OPTIONS as v (v)}
+          <option value={v}>{v === 0 ? t('header.autoRefresh.off') : autoRefreshLabel(v)}</option>
+        {/each}
+      </select>
+    </label>
     <button class="primary" disabled={refreshing || refresh?.running} onclick={manualRefresh}>
       {refreshLabel}
     </button>
@@ -788,6 +950,70 @@
             </label>
           </span>
         </div>
+        <!-- 选中时间点汇总（点击任一历史趋势图的数据点出现；结构同今日汇总）。 -->
+        {#if selectedPeriod}
+          <div class="period-summary">
+            <div class="period-head">
+              <span class="period-label">
+                {t('overview.periodSummary')}：
+                <b>{selectedPeriod.label}</b>
+                <span class="period-range">
+                  （{selectedPeriod.start_day === selectedPeriod.end_day
+                    ? selectedPeriod.start_day
+                    : `${selectedPeriod.start_day} ~ ${selectedPeriod.end_day}`}）
+                </span>
+              </span>
+              <button
+                type="button"
+                class="period-clear"
+                onclick={() => (selectedPeriodLabel = null)}
+              >
+                × {t('overview.periodSummary.clear')}
+              </button>
+            </div>
+            <div class="summary-cards">
+              {#each selectedPeriodCards as c (c.key)}
+                <div class="scard" title={c.hint ?? ''}>
+                  <div class="slabel">
+                    {c.label}{#if c.hint}<span class="shint">{c.hint}</span>{/if}
+                  </div>
+                  <div class="svalue">{c.value}</div>
+                  {#if c.sub}<div class="ssub">{c.sub}</div>{/if}
+                </div>
+              {/each}
+            </div>
+            <!-- 选中时间点的模型/Agent 占比饼图（chart_series 数据，同筛选口径）。
+                 加载占位与饼图同高度、换选保留旧图原地换数据，避免布局跳动。 -->
+            {#if periodPiesError}
+              <p class="error">{t('chart.loadFailed', { message: periodPiesError })}</p>
+            {/if}
+            {#if periodPies}
+              <div class="period-pies">
+                <div class="ppie">
+                  <div class="ppie-title">{t('trend.pie.model')}</div>
+                  <SharePie data={periodPies.models} {isDark} height={190} />
+                </div>
+                <div class="ppie">
+                  <div class="ppie-title">{t('trend.pie.agent')}</div>
+                  <SharePie data={periodPies.agents} {isDark} height={190} />
+                </div>
+              </div>
+            {:else if !periodPiesError}
+              <div class="period-pies" aria-busy="true">
+                <div class="ppie">
+                  <div class="ppie-title">{t('trend.pie.model')}</div>
+                  <div class="ppie-skeleton"></div>
+                </div>
+                <div class="ppie">
+                  <div class="ppie-title">{t('trend.pie.agent')}</div>
+                  <div class="ppie-skeleton"></div>
+                </div>
+              </div>
+            {/if}
+          </div>
+        {:else}
+          <p class="period-hint">{t('overview.periodSummary.hint')}</p>
+        {/if}
         <div class="panel-grid">
           {#each panelState.overviewHistory.order as id, i (id)}
             <Panel
@@ -805,9 +1031,9 @@
               onsize={(span, height) => panelResize('overviewHistory', id, span, height)}
             >
               {#if id === 'history-calls'}
-                <CallsChart periods={summary.periods} {query} {granularity} {isDark} />
+                <CallsChart periods={summary.periods} {query} {granularity} {isDark} onperiodclick={onHistoryPeriodClick} />
               {:else if id === 'history-tokens'}
-                <TokenChart periods={summary.periods} {query} {granularity} {isDark} />
+                <TokenChart periods={summary.periods} {query} {granularity} {isDark} onperiodclick={onHistoryPeriodClick} />
               {/if}
             </Panel>
           {/each}
@@ -982,6 +1208,15 @@
   .user-picker select {
     max-width: 170px;
   }
+  /* 顶部自动刷新间隔（与采集进度条/刷新按钮同行）。 */
+  .auto-refresh {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
   /* 采集中：简洁进度条（宽度 = 百分比）+ 百分比/剩余时间文案。 */
   .refresh-progress {
     display: inline-flex;
@@ -1093,6 +1328,71 @@
     align-items: center;
     gap: 4px;
   }
+  /* 选中时间点汇总（历史趋势区内）：标题行 + 复用 summary-cards 卡片网格。 */
+  .period-summary {
+    margin: 2px 0 6px;
+  }
+  .period-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    flex-wrap: wrap;
+  }
+  .period-head .period-label b {
+    color: var(--text-heading);
+  }
+  .period-head .period-range {
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .period-clear {
+    margin-left: auto;
+    border: 1px solid var(--border);
+    background: var(--bg-input);
+    border-radius: 6px;
+    padding: 2px 10px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .period-clear:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .period-hint {
+    margin: 2px 0 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  /* 选中时间点饼图行：模型/Agent 两列卡片（窄屏叠一行一个）。 */
+  .period-pies {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 8px;
+  }
+  .ppie {
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px 6px;
+    min-width: 0;
+    /* 与加载骨架/空数据态保持同高：换选时间点时布局零跳动。 */
+    min-height: 224px;
+    box-sizing: border-box;
+  }
+  .ppie-title {
+    font-size: 12.5px;
+    color: var(--text-secondary);
+  }
+  /* 饼图加载占位：高度与 SharePie 190px 一致，加载完成不产生布局跳动。 */
+  .ppie-skeleton {
+    height: 190px;
+    border-radius: 6px;
+    background: var(--bg-skeleton);
+  }
   /* 面板 6 列格子布局（任务 E10）；跨列数由 Panel 的 span 类决定。 */
   .panel-grid {
     display: grid;
@@ -1144,6 +1444,9 @@
   }
   @media (max-width: 900px) {
     .panel-grid {
+      grid-template-columns: 1fr;
+    }
+    .period-pies {
       grid-template-columns: 1fr;
     }
   }

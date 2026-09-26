@@ -13,6 +13,7 @@
    * 居中（top 0 + left center），不再与左上 y 轴名重叠。
    */
   import { onMount } from 'svelte';
+  import { setupTooltipAutoHide } from '../lib/chart';
   import * as echarts from 'echarts/core';
   import { LineChart } from 'echarts/charts';
   import type { LineSeriesOption } from 'echarts/charts';
@@ -33,6 +34,7 @@
     query,
     granularity,
     isDark = false,
+    onperiodclick,
   }: {
     periods: PeriodDto[];
     /** 当前查询（chart_series 分组数据用；随筛选/范围变化重新拉取）。 */
@@ -40,6 +42,8 @@
     granularity: 'hour' | 'day' | 'week' | 'month';
     /** 深色主题（父级传入；变化时重绘轴/legend 文字与分隔线）。 */
     isDark?: boolean;
+    /** 点击数据点回调（携带该点的时间轴标签；总用量/分组两模式均生效）。 */
+    onperiodclick?: (label: string) => void;
   } = $props();
 
   let sub = $state<TokenSub>('total');
@@ -49,6 +53,20 @@
 
   let el: HTMLDivElement;
   let chart: echarts.ECharts | null = null;
+
+  /**
+   * 增量渲染（2026-09-26 用户反馈）：渲染结构签名（子图/维度/标签/系列名/主题/
+   * 语言）与上次相同 → setOption 合并更新（ECharts 内部 diff，不整图重建）；
+   * 结构变化 → notMerge 整体重建。数据刷新时避免可见闪烁。
+   */
+  let lastRenderKey = '';
+
+  function applyOption(option: echarts.EChartsCoreOption, key: string): void {
+    if (!chart) return;
+    if (key === lastRenderKey) chart.setOption(option);
+    else chart.setOption(option, { notMerge: true });
+    lastRenderKey = key;
+  }
 
   const duration = $derived(durationStatsOf(periods));
 
@@ -105,7 +123,7 @@
     const base = {
       tooltip: {
         trigger: 'axis',
-        hideDelay: 999999, transitionDuration: 0,
+        hideDelay: 0, transitionDuration: 0,
         formatter: (params: { dataIndex: number }[]) => {
           const p = periods[params[0]?.dataIndex ?? 0];
           if (!p) return '';
@@ -137,7 +155,7 @@
     };
 
     if (sub === 'ratio') {
-      chart.setOption(
+      applyOption(
         {
           ...base,
           yAxis: {
@@ -163,14 +181,14 @@
             },
           ],
         },
-        { notMerge: true }
+        `total-${sub}|${i18n.locale}|${chartText}|${granularity}|${labels.join('\u0001')}`
       );
       return;
     }
 
     if (sub === 'input') {
       // 输入 token：缓存命中（底）+ 未命中（上）堆叠面积图。
-      chart.setOption(
+      applyOption(
         {
           ...base,
           legend: { top: 0, left: 'center', type: 'scroll', itemWidth: 12, itemHeight: 8, textStyle: { fontSize: 11 } },
@@ -207,13 +225,13 @@
             },
           ],
         },
-        { notMerge: true }
+        `total-${sub}|${i18n.locale}|${chartText}|${granularity}|${labels.join('\u0001')}`
       );
       return;
     }
 
     const metric = sub === 'output' ? 'output' : 'total';
-    chart.setOption(
+    applyOption(
       {
         ...base,
         yAxis: {
@@ -240,7 +258,7 @@
           },
         ],
       },
-      { notMerge: true }
+      `total-${sub}|${i18n.locale}|${chartText}|${granularity}|${labels.join('\u0001')}`
     );
   }
 
@@ -263,10 +281,11 @@
     const g = grouped;
     if (!g.labels.length) {
       chart.clear();
+      lastRenderKey = '';
       return;
     }
     const base = {
-      tooltip: { trigger: 'axis', hideDelay: 999999, transitionDuration: 0, formatter: groupedTooltip(g) },
+      tooltip: { trigger: 'axis', hideDelay: 0, transitionDuration: 0, formatter: groupedTooltip(g) },
       legend: { top: 0, left: 'center', type: 'scroll', itemWidth: 12, itemHeight: 8, textStyle: { fontSize: 11 } },
       textStyle: { color: chartText },
       grid: { left: 70, right: 80, top: 48, bottom: 44, containLabel: true },
@@ -276,7 +295,7 @@
     };
 
     if (sub === 'ratio') {
-      chart.setOption(
+      applyOption(
         {
           ...base,
           yAxis: {
@@ -302,7 +321,7 @@
             })
           ),
         },
-        { notMerge: true }
+        `grp-${sub}|${dimension}|${i18n.locale}|${chartText}|${g.labels.join('\u0001')}|${g.names.join('\u0001')}`
       );
       return;
     }
@@ -339,7 +358,7 @@
           }),
         });
       });
-      chart.setOption(
+      applyOption(
         {
           ...base,
           yAxis: {
@@ -352,13 +371,13 @@
           },
           series,
         },
-        { notMerge: true }
+        `grp-${sub}|${dimension}|${i18n.locale}|${chartText}|${g.labels.join('\u0001')}|${g.names.join('\u0001')}`
       );
       return;
     }
 
     const metric = sub === 'output' ? 'output' : 'total';
-    chart.setOption(
+    applyOption(
       {
         ...base,
         yAxis: {
@@ -380,7 +399,7 @@
           })
         ),
       },
-      { notMerge: true }
+      `grp-${sub}|${dimension}|${i18n.locale}|${chartText}|${g.labels.join('\u0001')}|${g.names.join('\u0001')}`
     );
   }
 
@@ -392,6 +411,7 @@
     }
     if (!grouped || groupedError) {
       chart.clear();
+      lastRenderKey = '';
       return;
     }
     renderGrouped();
@@ -400,17 +420,38 @@
   onMount(() => {
     chart = echarts.init(el, i18n.locale === 'zh-CN' ? 'ZH' : 'EN');
 
-      // Tooltip 持续显示：hideDelay 999999 防止自动隐藏；
-      // 鼠标离开图表时立即手动隐藏（globalout 事件）。
-      chart?.on('globalout', () => {
-        chart?.dispatchAction({ type: 'hideTip' });
-      });    render();
+    // Tooltip：hideDelay 0（ECharts 6 手动 hideTip 也走 hideLater(hideDelay)，不可用大值）+ 离开画布/移出窗口/失焦即隐藏（统一封装）。
+    const disposeTipHide = setupTooltipAutoHide(chart!);
+    // 数据点/横轴任意位置点击：网格内像素 → 最近类目索引（不要求命中数据点，
+    // 2026-09-26 用户需求）；zr 级事件覆盖整个画布，legend/坐标轴外区域被
+    // containPixel('grid') 排除。
+    chart?.getZr().on('click', (e: { offsetX: number; offsetY: number }) => {
+      if (!onperiodclick || !chart) return;
+      const labels =
+        dimension === 'total' ? periods.map((p) => p.label) : (grouped?.labels ?? []);
+      if (!labels.length) return;
+      try {
+        if (!chart.containPixel('grid', [e.offsetX, e.offsetY])) return;
+        const raw = chart.convertFromPixel({ xAxisIndex: 0 }, e.offsetX);
+        if (typeof raw !== 'number' || !Number.isFinite(raw)) return;
+        const idx = Math.max(0, Math.min(labels.length - 1, Math.round(raw)));
+        if (labels[idx]) {
+          onperiodclick(labels[idx]);
+          // 点击即选点：汇总条展开使布局位移，tooltip 位置随即过期，主动隐藏。
+          chart.dispatchAction({ type: 'hideTip' });
+        }
+      } catch {
+        /* 选项未就绪/像素转换失败时忽略点击 */
+      }
+    });
+    render();
     const onResize = () => chart?.resize();
     window.addEventListener('resize', onResize);
     // 面板显示/隐藏或网格变化时容器尺寸变化（含 display:none 恢复），自动重设画布。
     const observer = new ResizeObserver(() => chart?.resize());
     observer.observe(el);
     return () => {
+      disposeTipHide();
       observer.disconnect();
       window.removeEventListener('resize', onResize);
       chart?.dispose();

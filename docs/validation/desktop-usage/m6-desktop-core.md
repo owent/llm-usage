@@ -234,6 +234,104 @@ core 新增公开 API：`Storage::open_readonly`、`ingest::recompute_days_in_tz
   themes.css 定义 CSS 变量三套（data-theme 属性切换 + prefers-color-scheme
   media query）；设置页主题下拉；全局样式/组件卡片/图表 ECharts 主题感知。
 
+## 图表粒度修复与时间点汇总（2026-09-26 用户反馈）
+
+- **分组维度粒度不生效（缺陷）**：`chart_series` 旧实现固定从 `daily_usage`
+  按 `local_day` 分组，忽略请求的 granularity 与 filters——切小时/周/月后
+  仅"总用量"（走 `query_summary`）变化，按模型/按Agent/按Agent+模型仍是日序列，
+  且 Agent/模型筛选对分组序列完全无效。重写：周期分组键提取为 `period_key_of`
+  （`query_summary` 与 `chart_series` 共用，保证两种视图时间轴标签一致）；
+  小时粒度读 `hourly_usage`（标签 "YYYY-MM-DD HH:00"），日/周/月读
+  `daily_usage` 按日历周期聚合，周/月并入 `period_usage` 物化周期
+  （日层已覆盖的标签不重复计入，与 query_summary 同口径）；筛选
+  （Agent/provider/model/实例白名单）经同一 `Filters::matches` 生效；
+  组内 token 合并语义同 SQL SUM（全部未知保持 null，不补零）。
+- **总览历史趋势时间点汇总（新功能）**：点击历史趋势图（调用图或 token 图）
+  的数据点，历史分区上方出现该时段汇总卡（结构同今日汇总）：总调用、
+  输入 token（总量 + 命中/未命中分解）、输出、总 token、缓存命中率、
+  会话数；周/月粒度附加活动天数。卡片下方附该时段的模型/Agent 占比
+  饼图（chart_series 按维度拉取后按标签过滤，total_tokens 占比，与趋势页
+  饼图同口径；SharePie 加可选 height 参数，选中态用 190px 紧凑高度）。
+  再次点击同一点或"清除"按钮取消；切换粒度/范围/筛选自动清空选择。
+  汇总数据直接取 `summary.periods` 按标签回查（分组模式下点击经
+  chart_series 标签与 periods 对齐，无需额外查询）；饼图数据在选中后
+  懒加载（两个 chart_series 调用，聚合表直读）。
+  图表点击经 ECharts click 事件上报原始标签（总用量/分组两模式均生效）。
+- 回归测试：`tests/chart_series_grouping.rs` 5 例——小时粒度读 hourly 且
+  标签与 query_summary 一致、周粒度并日成周、月标签、模型/实例筛选、
+  物化周期并入 + covered 去重 + 实例白名单过滤物化行。
+- 验证：`npm run verify`（仓库根）退出码 0（svelte-check 0 错 0 警、
+  fmt/clippy 通过、cargo test 全绿含新增 5 例、vite build 798.75 kB）。
+  i18n 新增 4×2 键（cards.activeDays、overview.periodSummary[.clear/.hint]）。
+
+## 闪烁修复、x 轴点击与设置默认项（2026-09-26 用户反馈）
+
+- **总览页周期性闪烁（缺陷）**：根因一，`pollRefresh` 每 3 秒轮询且条件
+  `!running && last_finished_ms > 0` 在首次刷新后恒真——每 3 秒重查
+  summary/sources，`notMerge` 整图重建全部图表；根因二，重查结果无条件
+  赋值 `summary`，数据未变也触发派生重算。修复：
+  1. 只在采集结束转换（running→结束）或完成时间变化（计划任务/headless
+     触发的采集结束）时重查数据；空闲轮询仅更新状态。
+  2. `loadSummary` 加查询键+数据修订守卫：均未变化时保留现有对象引用，
+     图表/派生不重算；用户切换/导入/设置保存路径强制重载。
+  3. 状态轮询间隔自适应：采集中 3 秒（进度条/ETA），空闲 10 秒。
+- **顶部自动刷新间隔（新功能；默认后改 5 分钟）**：顶栏新增"自动刷新"下拉
+  （关闭/30 秒/1 分/2 分/5 分/10 分），定时重查界面数据；localStorage 持久化。
+  默认值初为 60 秒，同日按用户要求改为 300 秒（5 分钟），存储键升级
+  `llm-usage-auto-refresh-v2` 使旧默认的存量记录回落新默认。
+  与后台采集间隔（默认 3600 秒）相互独立。
+- **图表增量更新**：四图表组件（CallsChart/TokenChart/TodayHourly/SharePie）
+  改为结构签名渲染——签名（子图/维度/标签/系列名/主题/语言）相同 →
+  `setOption` 合并更新（ECharts 内部 diff）；结构变化 → `notMerge` 重建。
+  数据变化时不再整图重建。
+- **x 轴任意位置点击选择时间点**：图表点击从 series 元素事件改为 zr 级
+  画布事件：`containPixel('grid')` 限定网格内，`convertFromPixel` 像素 →
+  最近类目索引，不要求命中数据点；legend/轴外区域被排除。
+- **设置默认项**：常规页/归档保留页各加"恢复默认设置"按钮（仅改草稿，
+  保存后生效；常规页不动手工根目录——用户数据源清单不属于偏好默认；
+  时区默认取系统值 Intl，采集间隔默认 3600，保留层级默认 7/3/90/1095/
+  3650/终身）。间隔字段加"默认 3600（每小时）"提示；修正归档页月层级
+  默认天数提示 10950→3650（与后端 RetentionTiers::default 一致，
+  原提示为笔误）。
+- **时间点汇总"原地替换"**（用户复检反馈：换选时间点仍闪一下）：三个来源
+  一并消除——换选时饼图数据先置 null 导致整条塌缩成加载态再撑开；首次
+  加载态（一行文字）与饼图行高度不一致造成二次跳动；无数据时段饼图折叠。
+  修复：换选保留旧饼图直到新数据到达（stale-while-revalidate，原地换数据）；
+  加载占位改为与饼图同尺寸的双骨架卡；饼图卡固定 min-height（空数据态
+  不塌缩）；SharePie 增量签名只含名称集合（同名不同值走 setOption 合并，
+  饼图原地动画过渡而非重建）。换选时间点现在布局零跳动，汇总卡数值与
+  饼图数据原地更新。
+
+## Tooltip 离开隐藏加固（2026-09-27 用户反馈，三轮，浏览器复现定论）
+
+- 现象：鼠标移出图表后 tooltip 不消失（用户两次截图复现）。
+- **真根因（第三轮浏览器复现 + ECharts 6.1.0 源码实锤）**：此前定论的
+  `hideDelay: 999999 + globalout 手动 hideTip` 方案在 ECharts 6 失效——
+  `TooltipView.manuallyHideTip` 内部调用 `tooltipContent.hideLater(
+  tooltipModel.get('hideDelay'))`，即**手动 hideTip 动作同样被 hideDelay
+  延迟**；999999ms ≈ 16.7 分钟，等于永远不隐藏。之前两轮加的
+  globalout/document mouseout/blur/mousemove 兜底事件路径全部正确执行了
+  dispatchAction，但动作本身被延迟，故无一生效。用同版本 echarts 6.1.0
+  搭独立复现页（build/tooltip-repro，已清理服务）以真实 CDP 鼠标事件
+  验证：999999 下 hover→移出→直接 dispatchAction({hideTip})、甚至
+  setOption({tooltip:{show:false}}) 均**无法**隐藏可见 tooltip；
+  `hideDelay: 0` 下全部路径立即隐藏。
+- **修复**：六个图表组件 tooltip `hideDelay: 999999 → 0`（transitionDuration
+  保持 0）。行为变化：指针在画布内但网格外（legend/边距）时 tooltip 立即
+  隐藏（标准 ECharts 行为），网格内移动仍持续显示。保留
+  `setupTooltipAutoHide` 封装（globalout/document mousemove 目标不在本图
+  容器/document mouseout 出窗/window blur）——覆盖布局位移（点击选点后
+  汇总条展开、画布从指针底下移走，无 mouseout 派发）与 WebView2 漏事件
+  路径，hideDelay 0 后这些兜底的 hideTip 立即生效；item 触发图表（饼图/
+  热力图）保留 `hideTooltipOnBlank`；两趋势图点击选点后主动 hideTip。
+- 验证：浏览器复现页全路径（悬停显示/legend 隐藏/回网格重显/移出隐藏/
+  点击选点后隐藏、位移后指针仍在图内则正确重显）；`npm run verify`
+  退出码 0。**定论修订：ECharts 6 下 tooltip 不得使用大 hideDelay；
+  手动隐藏必须配合 hideDelay 0。**
+- 验证：`npm run verify` 退出码 0。i18n 新增 8×2 键（header.autoRefresh.*
+  5 个、settings.interval.hint/restoreDefaults/defaultsPending）。
+  后端无改动（采集间隔默认值本为 3600，无需变更）。
+
 ## 未完成项（显式遗留）
 
 | 项 | 状态 | 后续 |

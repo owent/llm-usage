@@ -9,6 +9,7 @@
    * - y 轴 fmtSmart 缩放、tooltip 精确值并附输入/缓存/输出/会话明细。
    */
   import { onMount } from 'svelte';
+  import { setupTooltipAutoHide } from '../lib/chart';
   import * as echarts from 'echarts/core';
   import { BarChart, LineChart } from 'echarts/charts';
   import type { LineSeriesOption } from 'echarts/charts';
@@ -49,6 +50,19 @@
 
   let el: HTMLDivElement;
   let chart: echarts.ECharts | null = null;
+
+  /**
+   * 增量渲染（2026-09-26 用户反馈）：渲染结构签名与上次相同 → setOption 合并
+   * 更新（不整图重建）；结构变化 → notMerge 重建。数据刷新时避免闪烁。
+   */
+  let lastRenderKey = '';
+
+  function applyOption(option: echarts.EChartsCoreOption, key: string): void {
+    if (!chart) return;
+    if (key === lastRenderKey) chart.setOption(option);
+    else chart.setOption(option, { notMerge: true });
+    lastRenderKey = key;
+  }
 
   /** 主题感知色：全局文字（axis/legend 继承）与 y 轴分隔线。 */
   const chartText = $derived(isDark ? '#aaa' : '#555');
@@ -94,16 +108,17 @@
     const rows = activeHours;
     if (!rows.length) {
       chart.clear();
+      lastRenderKey = '';
       return;
     }
     const labels = rows.map((h) => `${String(h.hour).padStart(2, '0')}:00`);
     const calls = rows.map((h) => h.calls);
     const tokens = rows.map((h) => Number(h.total_tokens ?? 0));
-    chart.setOption(
+    applyOption(
       {
         tooltip: {
           trigger: 'axis',
-          hideDelay: 999999, transitionDuration: 0,
+          hideDelay: 0, transitionDuration: 0,
           formatter: (params: { dataIndex: number }[]) => {
             const h = rows[params[0]?.dataIndex ?? 0];
             if (!h) return '';
@@ -139,7 +154,13 @@
           },
         ],
         series: [
-          { type: 'bar', name: t('trend.calls'), barMaxWidth: 18, itemStyle: { color: '#1a56c4' }, data: calls },
+          {
+            type: 'bar',
+            name: t('trend.calls'),
+            barMaxWidth: 18,
+            itemStyle: { color: '#1a56c4' },
+            data: calls,
+          },
           {
             type: 'line',
             name: t('trend.tokens'),
@@ -151,18 +172,18 @@
           },
         ],
       },
-      { notMerge: true }
+      `total|${i18n.locale}|${chartText}|${labels.join('\u0001')}`
     );
   }
 
   /** 单时间标签（今天，chart_series 按天聚合）：x = 分组名，双指标（调用+token）。 */
   function renderGroupedSingleLabel(g: ChartGroupData) {
     const label = g.labels[0];
-    chart!.setOption(
+    applyOption(
       {
         tooltip: {
           trigger: 'axis',
-          hideDelay: 999999, transitionDuration: 0,
+          hideDelay: 0, transitionDuration: 0,
           formatter: (params: { dataIndex: number }[]) => {
             const name = g.names[params[0]?.dataIndex ?? 0];
             const c = name === undefined ? undefined : g.cell(name, label);
@@ -223,7 +244,7 @@
           },
         ],
       },
-      { notMerge: true }
+      `grp1|${dimension}|${i18n.locale}|${chartText}|${label}|${g.names.join('\u0001')}`
     );
   }
 
@@ -251,11 +272,11 @@
         data: g.labels.map((l) => Number(g.cell(name, l)?.total ?? 0)),
       });
     });
-    chart!.setOption(
+    applyOption(
       {
         tooltip: {
           trigger: 'axis',
-          hideDelay: 999999, transitionDuration: 0,
+          hideDelay: 0, transitionDuration: 0,
           formatter: (params: { dataIndex: number; marker: string; seriesName?: string; value: number | null }[]) => {
             const label = g.labels[params[0]?.dataIndex ?? 0] ?? '';
             const lines = [`<b>${label}</b>`];
@@ -290,7 +311,7 @@
         color: PALETTE,
         series,
       },
-      { notMerge: true }
+      `grpN|${dimension}|${i18n.locale}|${chartText}|${g.labels.join('\u0001')}|${g.names.join('\u0001')}`
     );
   }
 
@@ -302,11 +323,13 @@
     }
     if (!grouped || groupedError) {
       chart.clear();
+      lastRenderKey = '';
       return;
     }
     const g = grouped;
     if (!g.names.length) {
       chart.clear();
+      lastRenderKey = '';
       return;
     }
     if (g.labels.length > 1) renderGroupedByTime(g);
@@ -316,17 +339,16 @@
   onMount(() => {
     chart = echarts.init(el, i18n.locale === 'zh-CN' ? 'ZH' : 'EN');
 
-      // Tooltip 持续显示：hideDelay 999999 防止自动隐藏；
-      // 鼠标离开图表时立即手动隐藏（globalout 事件）。
-      chart?.on('globalout', () => {
-        chart?.dispatchAction({ type: 'hideTip' });
-      });    render();
+    // Tooltip：hideDelay 0（ECharts 6 手动 hideTip 也走 hideLater(hideDelay)，不可用大值）+ 离开画布/移出窗口/失焦即隐藏（统一封装）。
+    const disposeTipHide = setupTooltipAutoHide(chart!);
+    render();
     const onResize = () => chart?.resize();
     window.addEventListener('resize', onResize);
     // 面板显示/隐藏或网格变化时容器尺寸变化（含 display:none 恢复），自动重设画布。
     const observer = new ResizeObserver(() => chart?.resize());
     observer.observe(el);
     return () => {
+      disposeTipHide();
       observer.disconnect();
       window.removeEventListener('resize', onResize);
       chart?.dispose();
