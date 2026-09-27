@@ -14,8 +14,10 @@ export async function reportBundles(directory, revision) {
       const path = join(dir, entry.name);
       if (entry.isDirectory() && entry.name.endsWith('.app')) {
         const archive = `${path}.tar.gz`;
-        const result = spawnSync('tar', ['--force-local', '-czf', archive, '-C', dirname(path), basename(path)], {
-          encoding: 'utf8', timeout: 120_000, windowsHide: true,
+        // A relative archive name avoids Windows drive-colon interpretation
+        // without GNU-only flags (macOS and Windows ship BSD tar).
+        const result = spawnSync('tar', ['-czf', basename(archive), basename(path)], {
+          cwd: dirname(path), encoding: 'utf8', timeout: 120_000, windowsHide: true,
         });
         if (result.error || result.status !== 0) throw new Error(`App archive failed: ${result.error?.message ?? result.stderr}`);
         artifacts.push(archive);

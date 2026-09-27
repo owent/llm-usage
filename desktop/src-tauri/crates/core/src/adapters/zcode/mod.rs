@@ -6,12 +6,12 @@
 //!   latest_fallback 兼容尝试）；
 //! - [`common`]：双口径 usage 映射（AI SDK 主口径 + anthropic 对照口径，
 //!   从根级 usage_map.rs 下沉）；
-//! - [`db_reconciliation`]：cli/db/db.sqlite 只读对照（Σmodel_usage 对
-//!   turn_usage 对账），不入库计量。
+//! - [`db_backfill`]：数据库逐次记录为主来源，按来源/日原子替换；
+//! - [`db_reconciliation`]：轮级累计只用于对账，不与逐次记录相加。
 //!
 //! 发现依据（m345-inventory-2026-09-25 路径证据，本机实读）：
 //! 数据根 `<home>/.zcode/cli`；用量逐次记录在 `rollout/model-io-*.jsonl`；
-//! `db/db.sqlite` 另存 model_usage/turn_usage 两表（只读对照）；
+//! `db/db.sqlite` 的 model_usage 用于采集，turn_usage 用于对照；
 //! `agents/*/transcript.jsonl` 为正文类（不计量）；`~/.zcode/v2` 无 rollout；
 //! `%APPDATA%/zcode` 为桌面端 session 小存储（未接入）。无文档化环境覆盖。
 
@@ -66,16 +66,21 @@ impl crate::adapters::framework::SourceAdapter for ZcodeAdapter {
         let mut out = Vec::new();
         for (root, basis) in roots {
             let rollout = root.join("rollout");
-            if !rollout.is_dir() {
+            let db = root.join("db").join("db.sqlite");
+            if !rollout.is_dir() && !db.is_file() {
                 continue;
             }
             // rollout/model-io-<sessionId>.jsonl：深度 1，有界枚举。
-            let files = crate::adapters::framework::enumerate_files_bounded(&rollout, 1, &|p| {
-                p.file_name()
-                    .and_then(|n| n.to_str())
-                    .map(|n| n.starts_with("model-io-") && n.ends_with(".jsonl"))
-                    .unwrap_or(false)
-            });
+            let mut files =
+                crate::adapters::framework::enumerate_files_bounded(&rollout, 1, &|p| {
+                    p.file_name()
+                        .and_then(|n| n.to_str())
+                        .map(|n| n.starts_with("model-io-") && n.ends_with(".jsonl"))
+                        .unwrap_or(false)
+                });
+            if db.is_file() {
+                files.push(db);
+            }
             if !files.is_empty() {
                 out.push(DiscoveredRoot { root, basis, files });
             }
@@ -135,7 +140,7 @@ impl crate::adapters::framework::SourceAdapter for ZcodeAdapter {
             "per_request_calls".into(),
             field(
                 Availability::Available,
-                "每条 model_io 是一次模型调用；requestId+attempt 身份，缺 requestId 回退 sessionId+行号",
+                "数据库按 model_usage.id 识别已完成调用；没有数据库的来源才使用 JSONL requestId+attempt",
             ),
         );
         fields.insert(
@@ -188,7 +193,7 @@ impl crate::adapters::framework::SourceAdapter for ZcodeAdapter {
             }),
             fields,
             lifecycle: serde_json::json!({
-                "model_call": "model_io 记录（final，requestId+attempt 身份）",
+                "model_call": "model_usage 已完成记录（native id 身份）；JSONL 仅作从未使用过 DB 的来源回退",
                 "in_flight_tail": "finishReason=null 且无 usage/providerMetadata：正常形状，不产事件、不失败",
                 "retries": "attempt 字段入身份（zcode:{requestId}:{attempt}）；本机实读 attempt 恒 1，>1 未观测",
                 "subagent": "querySource=subagent ⇒ sub_agent（独立 model-io 文件）",
@@ -196,22 +201,22 @@ impl crate::adapters::framework::SourceAdapter for ZcodeAdapter {
                 "category_unknown": "querySource 超出已证值域 ⇒ unknown + 一次性诊断，不猜",
             }),
             incremental: serde_json::json!({
-                "cursor": "文件身份 + generation + 完整行字节偏移 + 解析上下文",
+                "cursor": "DB 使用来源/日快照摘要，JSONL 使用文件身份 + generation + 完整行偏移",
                 "rewrite_detection": ["截断", "同长替换", "改名重探测", "重建（创建时间变化）"],
                 "budget": "单源每轮 30s 初值；单行 8 MiB；单块 4 MiB",
                 "half_line": "半行不前移游标",
             }),
             dedup: serde_json::json!({
-                "primary": "zcode:{requestId}:{attempt}（实例命名空间）",
+                "primary": "zcodedb:{model_usage.id}（实例命名空间）；JSONL 回退为 zcode:{requestId}:{attempt}",
                 "fallback": "seq:{sessionId}:{行号}（缺 requestId，已验证替代）",
                 "dual_caliber": "AI SDK 与 anthropic 双口径互斥取一，绝不相加；矛盾进诊断、主口径保留",
-                "cross_source": "cli/db/db.sqlite 的 model_usage/turn_usage 只读对照（db_reconciliation）不入库计量不与 JSONL 相加；另提供 db_backfill 恢复路径（model-io 滚动窗口丢史时按行对行去重回填 model_usage，2026-09-27）",
+                "cross_source": "同一来源优先 model_usage；整来源/日替换 JSONL 贡献，不靠相近时间和 token 猜测关联。使用过 DB 的来源在 DB 缺失时保留统计并报错，不退回 JSONL",
             }),
             integrity: serde_json::json!({
                 "success_only": false,
                 "hidden_calls": "未知；model-io JSONL 只含已完成模型调用记录",
                 "sampling": "未观测到采样；坏行/坏记录逐条隔离记诊断",
-                "source_retention": "源端保留未知；可回填范围以现存文件为准",
+                "source_retention": "本机安装包 recordModelUsage 按 started_at 清理 30 天前的记录；保留已采集旧日，边界日不以部分快照替换",
                 "prompt_content": "只读白名单字段（type/attempt/sessionId/requestId/turnId/traceId/querySource/model/时间/durationMs/x-zcode-app-version 头/response.usage 与 providerMetadata.anthropic 的数值），正文/请求体/响应文本不提取",
             }),
             maintenance: serde_json::json!({
@@ -221,7 +226,7 @@ impl crate::adapters::framework::SourceAdapter for ZcodeAdapter {
             }),
             scheduling: serde_json::json!({
                 "entry": "统一 run_adapter_scan；手动/间隔/监听触发按源合并",
-                "incremental_cost": "字节偏移续读；无变化文件探测短路",
+                "incremental_cost": "DB 读取有界快照，未变化日不重写；JSONL 无变化文件探测短路",
                 "pause_cancel": "文件间可停；单轮预算有界",
             }),
             limitations: vec![
@@ -229,17 +234,56 @@ impl crate::adapters::framework::SourceAdapter for ZcodeAdapter {
                 "真实样本 cacheWriteTokens 全 0；cache_write⊆input 以合成样本与 AI SDK 语义为据"
                     .into(),
                 "双口径矛盾（dual_caliber_mismatch）保留 AI SDK 主口径，不自动择值".into(),
-                "cli/db/db.sqlite 常规采集只作只读对账（Σmodel_usage vs turn_usage），不入库计量；"
+                "DB 没有逐行产品版本，结构校验后按 latest_fallback 记录兼容状态；"
                     .into(),
                 "model-io JSONL 为滚动窗口：子代理会话文件被 ZCode 即时删除、主文件反复压实丢旧记录；"
                     .into(),
-                "清空重采找不回被清理的历史——恢复走 db_backfill（model_usage 行对行去重回填）"
+                "JSONL 与 DB 均会清理历史；来源删除且从未采集的调用无法恢复"
                     .into(),
                 "子 Agent 无父会话字段：parent_session_id 不猜测（保持 None）".into(),
                 "缺 requestId 记录用 sessionId+行号身份，文件同位替换后可能形成新键".into(),
                 "符号链接/junction 不跟随；Windows 无稳定文件索引号，身份靠创建时间+首采样".into(),
             ],
         }
+    }
+
+    fn scan_archive(
+        &self,
+        storage: &crate::storage::Storage,
+        root: &crate::adapters::framework::DiscoveredRoot,
+        config: &crate::adapters::framework::RunConfig,
+    ) -> Result<Option<crate::ingest::BatchOutcome>, crate::error::CoreError> {
+        let instance = self.instance_id(root);
+        let path = root.root.join("db").join("db.sqlite");
+        if !path.is_file() {
+            let authoritative: bool = storage.conn().query_row(
+                "SELECT EXISTS(SELECT 1 FROM settings WHERE key=?1)",
+                [db_backfill::authority_key(&instance)],
+                |r| r.get(0),
+            )?;
+            if authoritative {
+                return Err(crate::error::CoreError::Validation(
+                    "ZCode usage database is unavailable; previous statistics are preserved. JSONL fallback is disabled to prevent duplicate counting.".into()));
+            }
+            return Ok(None);
+        }
+        let out = db_backfill::zcode_db_backfill(
+            storage,
+            &path,
+            &instance,
+            &config.timezone,
+            config.now_ms,
+        )?;
+        Ok(Some(crate::ingest::BatchOutcome {
+            added: out.added as i64,
+            updated: out.updated as i64,
+            unchanged: out.matched_existing as i64,
+            skipped: 0,
+            errors: 0,
+            conflicts: 0,
+            data_revision: storage.data_revision()?,
+            affected_days: vec![],
+        }))
     }
 }
 
@@ -273,6 +317,8 @@ pub fn db_reconciliation(
         | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX
         | rusqlite::OpenFlags::SQLITE_OPEN_URI;
     let conn = Connection::open_with_flags(db_path, flags)?;
+    conn.busy_timeout(std::time::Duration::from_secs(5))?;
+    let snapshot = conn.unchecked_transaction()?;
     let (model_rows, model_computed_total_sum): (i64, i64) = conn.query_row(
         "SELECT COUNT(*), COALESCE(SUM(computed_total_tokens), 0) FROM model_usage",
         [],
@@ -285,9 +331,9 @@ pub fn db_reconciliation(
     )?;
     let (turns_total, turns_without, turns_mismatched): (i64, i64, i64) = conn.query_row(
         "SELECT COUNT(*),
-                SUM(CASE WHEN m.s IS NULL THEN 1 ELSE 0 END),
-                SUM(CASE WHEN m.s IS NOT NULL
-                          AND t.computed_total_tokens != m.s THEN 1 ELSE 0 END)
+                COALESCE(SUM(CASE WHEN m.s IS NULL THEN 1 ELSE 0 END), 0),
+                COALESCE(SUM(CASE WHEN m.s IS NOT NULL
+                          AND t.computed_total_tokens != m.s THEN 1 ELSE 0 END), 0)
          FROM turn_usage t
          LEFT JOIN (
            SELECT session_id, turn_id, SUM(computed_total_tokens) AS s
@@ -296,6 +342,7 @@ pub fn db_reconciliation(
         [],
         |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
     )?;
+    snapshot.commit()?;
     Ok(DbReconciliation {
         model_rows,
         turn_rows,

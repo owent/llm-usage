@@ -1,14 +1,48 @@
 /**
  * 多语言消息目录（F3 合同：docs/design/desktop-usage/i18n.md）。
- * - zh-CN 默认语言 + en；语言协商：用户设置 → 系统语言 → 默认；
+ * - 语言协商：用户设置 → 系统语言 → 默认；
  * - 缺失键回退默认语言并 console.warn（开发可诊断）；
  * - 键名点分命名空间，{name} 插值；复数按 key.one/key.other（zh 只有 other）；
  * - 数字/日期/百分比用 Intl（ECMA-402）；统计口径（时区/周起始）不随语言改变；
  * - 切换即时生效（runes 响应式，无需重启）。
  */
-export type Locale = 'zh-CN' | 'en';
+import { translatedCatalogs } from './locales';
+
+export const LANGUAGE_OPTIONS = [
+  ['zh-CN', '简体中文'],
+  ['zh-TW', '繁體中文'],
+  ['en', 'English'],
+  ['ja', '日本語'],
+  ['ko', '한국어'],
+  ['es', 'Español'],
+  ['fr', 'Français'],
+  ['de', 'Deutsch'],
+  ['pt-BR', 'Português (Brasil)'],
+  ['ru', 'Русский'],
+] as const;
+export type Locale = (typeof LANGUAGE_OPTIONS)[number][0];
 
 const zhCN: Record<string, string> = {
+  'cards.cacheWrite': '缓存写入',
+  'sources.localHint': '管理本机 Agent 的采集状态和用户归属。归档数据随刷新自动检查。',
+  'sources.search': '搜索 Agent 或来源路径',
+  'sources.noMatch': '没有匹配的数据源。',
+  'sources.health.ok': '已就绪',
+  'sources.health.degraded': '部分数据需核对',
+  'sources.health.error': '读取失败',
+  'sources.health.unknown': '等待采集',
+  'workspace.local': '本机用量工作台',
+  'workspace.private': '数据保存在本机',
+  'workspace.updated': '最近采集 {time}',
+  'workspace.filterReset': '清除筛选',
+  'insights.title': '统计覆盖情况',
+  'insights.activeDays': '活跃天数',
+  'insights.knownUsage': '用量已知比例',
+  'insights.knownHint': '按有记录的用量条目计算',
+  'insights.durationSamples': '耗时样本',
+  'insights.conflicts': '待核查记录',
+  'insights.retained': '部分明细已清理，会话数和耗时无法完整还原。历史用量仍保留。',
+  'insights.note': '未知数据以 — 显示；统计仅涵盖已采集的本机记录。',
   'app.title': 'LLM 用量',
   'app.subtitle': 'Agent 用量看板',
   'nav.overview': '总览',
@@ -16,7 +50,7 @@ const zhCN: Record<string, string> = {
   'nav.sources': '数据源',
   'nav.settings': '设置',
   'nav.details': '详情',
-  'action.refresh': '刷新今日',
+  'action.refresh': '采集并刷新',
   'action.refreshing': '采集中…',
   'common.loading': '加载中…',
   'common.empty': '尚无数据。启用数据源并刷新后，这里会显示用量统计。',
@@ -24,12 +58,12 @@ const zhCN: Record<string, string> = {
   'common.unknown': '未知',
   'common.all': '全部',
   'cards.input': '输入 token',
-  'cards.input.hint': '（含缓存命中）',
+  'cards.input.hint': '（含缓存）',
   'cards.output': '输出 token',
   'cards.total': '总 token',
-  'cards.cacheRead': '缓存命中',
-  'cards.cacheMiss': '未命中缓存',
-  'cards.cacheRatio': '缓存命中率',
+  'cards.cacheRead': '缓存读取',
+  'cards.cacheMiss': '普通输入',
+  'cards.cacheRatio': '缓存读取占比',
   'cards.conflicts': '冲突记录',
   'cards.excluded': '未计入（归属未核验）',
   'cards.revision': '数据修订 {revision}',
@@ -50,7 +84,7 @@ const zhCN: Record<string, string> = {
   'filter.granularity.month': '月',
   'filter.agent': 'Agent',
   'filter.model': '模型',
-  'filter.quick.24h': '近 24 小时',
+  'filter.quick.24h': '昨天和今天',
   'filter.quick.today': '当天',
   'filter.quick.7': '近 7 天',
   'filter.quick.30': '近 30 天',
@@ -63,16 +97,25 @@ const zhCN: Record<string, string> = {
   'trend.partial': '（部分历史）',
   'trend.chart.calls': '调用与会话',
   'trend.chart.tokens': 'token 用量',
-  'trend.metric.ratio': '缓存命中率',
+  'trend.metric.ratio': '缓存读取占比',
   'hourly.title': '今日逐小时',
-  'heatmap.title': '活跃热力图（周 × 小时）',
+  'heatmap.title': '活跃热力图（每天一格）',
+  'heatmap.noCalls': '无调用',
+  'heatmap.unavailable': '无按日数据',
+  'heatmap.partial': '部分按日数据',
+  'heatmap.loadFailed': '热力图加载失败。',
+  'heatmap.activeDays': '已知活跃天数',
+  'heatmap.longestStreak': '已知最长连续活跃',
+  'heatmap.peakDay': '已知最高调用日',
+  'heatmap.coverage': '每格代表一个本地日期。斜纹表示无法按日还原；虚线表示只有部分按日数据。',
+  'time.lessThanMinute': '不到 1 分钟',
   'table.model': '模型',
   'table.agent': 'Agent',
   'table.calls': '调用',
   'table.input': '输入',
   'table.output': '输出',
   'table.total': '总量',
-  'table.cacheRead': '缓存命中',
+  'table.cacheRead': '缓存读取',
   'table.unknownFields': '未知字段 {count}',
   'sources.title': '数据源',
   'sources.agent': 'Agent',
@@ -80,7 +123,9 @@ const zhCN: Record<string, string> = {
   'sources.health': '健康',
   'sources.status': '状态',
   'sources.lastSuccess': '最近成功',
-  'sources.compatFiles': '兼容尝试 {count} 个文件（版本未验证）',
+  'sources.compatFiles': '兼容读取 {count} 个文件',
+  'sources.degradedFiles': '需核对 {count} 个文件',
+  'sources.unsupportedFiles': '未识别 {count} 个文件',
   'sources.incompatibleFiles': '不兼容 {count} 个文件',
   'sources.missingFiles': '源文件已被清理 {count} 个',
   'sources.missingFiles.hint': '这些源文件已被对应 Agent 自行删除或压实，其历史用量只保存在本应用存档中；清空数据后无法从源重采（清空前会自动备份）。',
@@ -92,6 +137,7 @@ const zhCN: Record<string, string> = {
   'refresh.progress': '采集进度 {percent}%',
   'refresh.eta': '约 {eta}',
   'settings.tab.general': '常规',
+  'settings.archives.hint': '采集会自动读取已支持的会话归档。来源已删除且从未采集的历史无法恢复。',
   'settings.tab.retention': '归档保留',
   'settings.tab.system': '开机与后台',
   'settings.tab.identity': '来源身份',
@@ -135,7 +181,7 @@ const zhCN: Record<string, string> = {
   'settings.hostnameAlias.hint': '仅用于辨认本机来源，不改变身份标识',
   'settings.dbPath': '数据库位置',
   'settings.schemaVersion': '数据库结构版本',
-  'settings.note': '时区/周起始只影响统计展示口径，不改变已存储数据。',
+  'settings.note': '时区更改会重算仍保留的明细；仅剩汇总的历史无法改换时区。',
   'system.autoStart': '开机自动运行',
   'system.autoStart.hint': '登录 Windows 后自动启动本应用（当前用户，无需管理员）',
   'system.state.on': '已开启',
@@ -195,9 +241,6 @@ const zhCN: Record<string, string> = {
   'cleanup.clearAllMissing': '警告：有 {n} 个源文件已被对应 Agent 清理（源端不存在），清空后这部分历史无法重新采集。',
   'cleanup.clearAllBackup': '清空前将自动备份当前数据库（backups/ 目录，保留最近 3 份）。',
   'cleanup.clearAllBackupAt': '已备份至：{path}',
-  'settings.zcodeBackfill': '从 ZCode 数据库回填缺失历史',
-  'settings.zcodeBackfill.hint': 'ZCode 的 model-io 文件是滚动窗口（旧文件会被其自身清理/压实）；cli/db/db.sqlite 保留完整逐次记录，可回填缺失历史并与已入库事件自动去重。',
-  'settings.zcodeBackfill.done': '回填完成：数据库 {rows} 行，已存在跳过 {matched}，新增 {added}，更新 {updated}。',
   'cleanup.clearAllDone': '已清理：{detail}',
   'cleanup.clearAllTriggered': '已触发全量重新采集，进度见顶栏。',
   'import.button': '导入全部数据…',
@@ -216,7 +259,7 @@ const zhCN: Record<string, string> = {
   'overview.today.input': '输入 token',
   'overview.today.output': '输出 token',
   'overview.today.total': '总 token',
-  'overview.today.cacheRatio': '缓存命中率',
+  'overview.today.cacheRatio': '缓存读取占比',
   'overview.today.sessions': '会话数',
   'overview.today.avgDuration': '平均耗时',
   'overview.todayPie.model': '今日模型用量',
@@ -227,6 +270,7 @@ const zhCN: Record<string, string> = {
   'trend.metric.output': '输出 token',
   'trend.metric.total': '总 token',
   'trend.weekday': '周分布',
+  'trend.weekdayCoverage': '仅包含仍有每日数据的日期。',
   'trend.pie.model': '模型用量分布',
   'trend.pie.agent': 'Agent 用量分布',
   'trend.summary': '当前范围汇总',
@@ -236,9 +280,9 @@ const zhCN: Record<string, string> = {
   'chart.dimension.agent': '按Agent',
   'chart.dimension.agentModel': '按Agent+模型',
   'chart.loadFailed': '图表分组数据加载失败：{message}',
-  'overview.breakdown.input': '命中 {hit} · 未命中 {miss}',
+  'overview.breakdown.input': '缓存读取 {hit} · 普通输入 {miss}',
   'panel.dragHint': '拖拽标题栏调整位置',
-  'panel.resizeHint': '拖动调整面板宽度与高度',
+  'panel.resizeHint': '拖动调整尺寸；方向键调整宽高，Home 恢复自动高度',
   'panel.hide': '隐藏面板',
   'panel.show': '显示面板',
   'panel.durationSummary': '平均耗时 {avg} · 总耗时 {total}',
@@ -274,6 +318,26 @@ const zhCN: Record<string, string> = {
 };
 
 const en: Record<string, string> = {
+  'cards.cacheWrite': 'Cache write',
+  'sources.localHint': 'Manage local Agent collection and user assignments. Archives are checked during collection.',
+  'sources.search': 'Search Agent or source path',
+  'sources.noMatch': 'No matching sources.',
+  'sources.health.ok': 'Ready',
+  'sources.health.degraded': 'Some data needs review',
+  'sources.health.error': 'Read failed',
+  'sources.health.unknown': 'Awaiting collection',
+  'workspace.local': 'LOCAL USAGE WORKSPACE',
+  'workspace.private': 'Data stays on this device',
+  'workspace.updated': 'Last collected {time}',
+  'workspace.filterReset': 'Clear filters',
+  'insights.title': 'Data coverage',
+  'insights.activeDays': 'Active days',
+  'insights.knownUsage': 'Known usage',
+  'insights.knownHint': 'Share of recorded usage entries',
+  'insights.durationSamples': 'Duration samples',
+  'insights.conflicts': 'Records to check',
+  'insights.retained': 'Some details have expired. Sessions and durations are unavailable; historical usage is retained.',
+  'insights.note': 'Unknown values appear as —. Statistics cover collected local records.',
   'app.title': 'LLM Usage',
   'app.subtitle': 'Agent usage dashboard',
   'nav.overview': 'Overview',
@@ -281,7 +345,7 @@ const en: Record<string, string> = {
   'nav.sources': 'Sources',
   'nav.settings': 'Settings',
   'nav.details': 'Details',
-  'action.refresh': 'Refresh today',
+  'action.refresh': 'Collect & refresh',
   'action.refreshing': 'Scanning…',
   'common.loading': 'Loading…',
   'common.empty': 'No data yet. Enable sources and refresh; usage will appear here.',
@@ -293,8 +357,8 @@ const en: Record<string, string> = {
   'cards.output': 'Output tokens',
   'cards.total': 'Total tokens',
   'cards.cacheRead': 'Cache hits',
-  'cards.cacheMiss': 'Cache misses',
-  'cards.cacheRatio': 'Cache hit rate',
+  'cards.cacheMiss': 'Uncached input',
+  'cards.cacheRatio': 'Cached input share',
   'cards.conflicts': 'Conflicting records',
   'cards.excluded': 'Excluded (unverified)',
   'cards.revision': 'Data revision {revision}',
@@ -315,7 +379,7 @@ const en: Record<string, string> = {
   'filter.granularity.month': 'Month',
   'filter.agent': 'Agent',
   'filter.model': 'Model',
-  'filter.quick.24h': 'Last 24 hours',
+  'filter.quick.24h': 'Yesterday & today',
   'filter.quick.today': 'Today',
   'filter.quick.7': 'Last 7 days',
   'filter.quick.30': 'Last 30 days',
@@ -328,9 +392,18 @@ const en: Record<string, string> = {
   'trend.partial': ' (partial history)',
   'trend.chart.calls': 'Calls & sessions',
   'trend.chart.tokens': 'Token usage',
-  'trend.metric.ratio': 'Cache hit rate',
+  'trend.metric.ratio': 'Cached input share',
   'hourly.title': 'Today by hour',
-  'heatmap.title': 'Activity heatmap (weekday × hour)',
+  'heatmap.title': 'Activity heatmap (one day per square)',
+  'heatmap.noCalls': 'No calls',
+  'heatmap.unavailable': 'Daily data unavailable',
+  'heatmap.partial': 'Partial daily data',
+  'heatmap.loadFailed': 'Could not load the heatmap.',
+  'heatmap.activeDays': 'Known active days',
+  'heatmap.longestStreak': 'Longest known streak',
+  'heatmap.peakDay': 'Busiest known day',
+  'heatmap.coverage': 'Each square is one local date. Hatching means no daily data; a dashed outline means only partial daily data.',
+  'time.lessThanMinute': 'Less than 1 minute ago',
   'table.model': 'Model',
   'table.agent': 'Agent',
   'table.calls': 'Calls',
@@ -345,7 +418,9 @@ const en: Record<string, string> = {
   'sources.health': 'Health',
   'sources.status': 'Status',
   'sources.lastSuccess': 'Last success',
-  'sources.compatFiles': '{count} files via compat attempt (unverified)',
+  'sources.compatFiles': '{count} files read with a compatible parser',
+  'sources.degradedFiles': '{count} files need review',
+  'sources.unsupportedFiles': '{count} unrecognized files',
   'sources.incompatibleFiles': '{count} incompatible files',
   'sources.missingFiles': '{count} source files removed',
   'sources.missingFiles.hint': 'These source files were deleted or compacted by their agent. Their usage history only exists in this app\u2019s archive and cannot be re-collected after clearing (an automatic backup is made first).',
@@ -357,6 +432,7 @@ const en: Record<string, string> = {
   'refresh.progress': 'Progress {percent}%',
   'refresh.eta': '≈ {eta}',
   'settings.tab.general': 'General',
+  'settings.archives.hint': 'Collection includes supported session archives automatically. History deleted before collection cannot be recovered.',
   'settings.tab.retention': 'Retention',
   'settings.tab.system': 'Startup & background',
   'settings.tab.identity': 'Origin identity',
@@ -400,7 +476,7 @@ const en: Record<string, string> = {
   'settings.hostnameAlias.hint': 'Display only; does not change the identity key',
   'settings.dbPath': 'Database location',
   'settings.schemaVersion': 'Schema version',
-  'settings.note': 'Timezone/week start only affect display; stored data is unchanged.',
+  'settings.note': 'Changing timezone rebuilds retained details. Aggregate-only history cannot be rebucketed.',
   'system.autoStart': 'Launch at startup',
   'system.autoStart.hint': 'Start this app automatically at sign-in (current user, no admin required)',
   'system.state.on': 'On',
@@ -460,9 +536,6 @@ const en: Record<string, string> = {
   'cleanup.clearAllMissing': 'Warning: {n} source files have already been removed by their agents. That history cannot be re-collected after clearing.',
   'cleanup.clearAllBackup': 'A database backup is created automatically before clearing (backups/ directory, latest 3 kept).',
   'cleanup.clearAllBackupAt': 'Backup saved to: {path}',
-  'settings.zcodeBackfill': 'Backfill missing history from ZCode database',
-  'settings.zcodeBackfill.hint': "ZCode's model-io files are a rolling window (old files get cleaned up/compacted by ZCode itself); cli/db/db.sqlite keeps complete per-call records and can backfill the gap, deduplicating against ingested events.",
-  'settings.zcodeBackfill.done': 'Backfill done: {rows} db rows, {matched} already present, {added} added, {updated} updated.',
   'cleanup.clearAllDone': 'Cleared: {detail}',
   'cleanup.clearAllTriggered': 'Full re-collection started; see progress in the top bar.',
   'import.button': 'Import all data…',
@@ -481,7 +554,7 @@ const en: Record<string, string> = {
   'overview.today.input': 'Input tokens',
   'overview.today.output': 'Output tokens',
   'overview.today.total': 'Total tokens',
-  'overview.today.cacheRatio': 'Cache hit rate',
+  'overview.today.cacheRatio': 'Cached input share',
   'overview.today.sessions': 'Sessions',
   'overview.today.avgDuration': 'Avg duration',
   'overview.todayPie.model': 'Today by model',
@@ -492,6 +565,7 @@ const en: Record<string, string> = {
   'trend.metric.output': 'Output tokens',
   'trend.metric.total': 'Total tokens',
   'trend.weekday': 'By weekday',
+  'trend.weekdayCoverage': 'Includes dates with retained daily data only.',
   'trend.pie.model': 'Model usage share',
   'trend.pie.agent': 'Agent usage share',
   'trend.summary': 'Current range summary',
@@ -501,9 +575,9 @@ const en: Record<string, string> = {
   'chart.dimension.agent': 'By agent',
   'chart.dimension.agentModel': 'By agent + model',
   'chart.loadFailed': 'Failed to load grouped chart data: {message}',
-  'overview.breakdown.input': 'Hits {hit} · misses {miss}',
+  'overview.breakdown.input': 'Cache read {hit} · uncached {miss}',
   'panel.dragHint': 'Drag the title bar to reorder',
-  'panel.resizeHint': 'Drag to resize the panel',
+  'panel.resizeHint': 'Drag to resize; arrow keys adjust width/height, Home restores automatic height',
   'panel.hide': 'Hide panel',
   'panel.show': 'Show panel',
   'panel.durationSummary': 'Avg duration {avg} · total {total}',
@@ -541,14 +615,38 @@ const en: Record<string, string> = {
 const catalogs: Record<Locale, Record<string, string>> = {
   'zh-CN': zhCN,
   en,
+  'zh-TW': translatedCatalogs['zh-TW'],
+  ja: translatedCatalogs.ja,
+  ko: translatedCatalogs.ko,
+  es: translatedCatalogs.es,
+  fr: translatedCatalogs.fr,
+  de: translatedCatalogs.de,
+  'pt-BR': translatedCatalogs['pt-BR'],
+  ru: translatedCatalogs.ru,
 };
 
 export const DEFAULT_LOCALE: Locale = 'zh-CN';
 
+export function normalizeLocale(value: string | null): Locale | null {
+  if (!value) return null;
+  const tag = value.toLowerCase().replace('_', '-');
+  if (tag.startsWith('zh-hant') || tag.startsWith('zh-tw') || tag.startsWith('zh-hk') || tag.startsWith('zh-mo')) return 'zh-TW';
+  if (tag.startsWith('zh')) return 'zh-CN';
+  if (tag.startsWith('en')) return 'en';
+  if (tag.startsWith('ja')) return 'ja';
+  if (tag.startsWith('ko')) return 'ko';
+  if (tag.startsWith('es')) return 'es';
+  if (tag.startsWith('fr')) return 'fr';
+  if (tag.startsWith('de')) return 'de';
+  if (tag.startsWith('pt')) return 'pt-BR';
+  if (tag.startsWith('ru')) return 'ru';
+  return null;
+}
+
 function detectSystemLocale(): Locale {
   for (const tag of navigator.languages ?? [navigator.language]) {
-    if (tag.startsWith('zh')) return 'zh-CN';
-    if (tag.startsWith('en')) return 'en';
+    const locale = normalizeLocale(tag);
+    if (locale) return locale;
   }
   return DEFAULT_LOCALE;
 }
@@ -560,7 +658,7 @@ export const i18n = $state({
 });
 
 export function initLocale(userChoice: string | null): void {
-  i18n.userChoice = (userChoice === 'zh-CN' || userChoice === 'en' ? userChoice : null);
+  i18n.userChoice = normalizeLocale(userChoice);
   i18n.locale = i18n.userChoice ?? detectSystemLocale();
 }
 
@@ -610,13 +708,14 @@ export function fmtSmart(value: number | string | null | undefined): string {
   const n = typeof value === 'string' ? Number(value) : value;
   if (!Number.isFinite(n)) return String(value);
   const abs = Math.abs(n);
-  if (i18n.locale === 'zh-CN') {
+  if (i18n.locale === 'zh-CN' || i18n.locale === 'zh-TW') {
+    const units = i18n.locale === 'zh-TW' ? ['萬', '億', '兆'] : ['万', '亿', '万亿'];
     if (abs < 10_000) return String(n);
-    if (abs < 1e8) return `${oneDecimal(n / 1e4)}万`;
-    if (abs < 1e12) return `${oneDecimal(n / 1e8)}亿`;
-    return `${oneDecimal(n / 1e12)}万亿`;
+    if (abs < 1e8) return String(oneDecimal(n / 1e4)) + units[0];
+    if (abs < 1e12) return String(oneDecimal(n / 1e8)) + units[1];
+    return String(oneDecimal(n / 1e12)) + units[2];
   }
-  return new Intl.NumberFormat('en', {
+  return new Intl.NumberFormat(i18n.locale, {
     notation: 'compact',
     maximumFractionDigits: 1,
   }).format(n);
@@ -646,11 +745,12 @@ export function fmtRelative(ms: number | null | undefined): string {
   if (!ms) return '—';
   const delta = Date.now() - ms;
   const minutes = Math.round(delta / 60_000);
-  if (minutes < 1) return '<1 min';
-  if (minutes < 60) return `${minutes} min`;
+  if (minutes < 1) return t('time.lessThanMinute');
+  const formatter = new Intl.RelativeTimeFormat(i18n.locale, { numeric: 'always', style: 'short' });
+  if (minutes < 60) return formatter.format(-minutes, 'minute');
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours} h`;
-  return `${Math.round(hours / 24)} d`;
+  if (hours < 24) return formatter.format(-hours, 'hour');
+  return formatter.format(-Math.round(hours / 24), 'day');
 }
 
 /** 预计剩余时长（<60 秒按秒、<3600 按分钟、否则按小时；单位词随语言）。 */

@@ -65,7 +65,7 @@ fn contract_main_session_matches_expectations() {
 
     let conn = storage.conn();
     // 首条事件（line 1，requestId anon-2，attempt 1）逐字段核对。
-    let row: (
+    type RowRow = (
         i64,
         i64,
         i64,
@@ -81,7 +81,8 @@ fn contract_main_session_matches_expectations() {
         Option<String>,
         Option<String>,
         i64,
-    ) = conn
+    );
+    let row: RowRow = conn
         .query_row(
             "SELECT input_total, input_cache_read, output_total, total_tokens, \
              input_uncached, output_reasoning, source_total, duration_ms, \
@@ -229,7 +230,7 @@ fn contract_merged_roots_match_combined_expectations() {
     std::fs::write(
         dir.path()
             .join("rollout/model-io-sess_subagent_agent_anon-19.jsonl"),
-        &subagent_jsonl(),
+        subagent_jsonl(),
     )
     .unwrap();
     let reports = run_zcode(&storage, &root, NOW);
@@ -322,8 +323,15 @@ fn capability_table_is_structured_and_complete() {
         json["dedup"]["primary"]
             .as_str()
             .unwrap()
-            .starts_with("zcode:{requestId}:{attempt}"),
-        "身份合同固定在能力声明"
+            .starts_with("zcodedb:{model_usage.id}"),
+        "数据库使用原生调用身份"
+    );
+    assert!(
+        json["dedup"]["primary"]
+            .as_str()
+            .unwrap()
+            .contains("zcode:{requestId}:{attempt}"),
+        "保留无数据库来源的 JSONL 身份合同"
     );
     assert!(!cap.limitations.is_empty());
     // 能力声明可落库（source_instances.capabilities）roundtrip。

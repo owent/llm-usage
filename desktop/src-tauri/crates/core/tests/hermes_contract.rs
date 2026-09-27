@@ -185,6 +185,52 @@ fn aggregate_rows(storage: &Storage, instance: &str) -> Vec<AggRow> {
 }
 
 #[test]
+fn aggregate_write_failure_rolls_back_cursor_and_allows_retry() {
+    use llm_usage_core::jobs::RunStatus;
+    let dir = TempDir::new("hermes-write-failure");
+    let root = build_hermes_db_from_fixture(&dir, "synthetic-basic-cumulative");
+    let (_db, storage) = temp_storage("hermes-write-failure");
+    storage.conn().execute_batch("CREATE TRIGGER fail_aggregate BEFORE INSERT ON source_aggregates BEGIN SELECT RAISE(ABORT, 'injected aggregate failure'); END;").unwrap();
+    let failed = run_hermes(&storage, &root, NOW);
+    assert_eq!(failed[0].finish, RunStatus::Failed);
+    assert!(failed[0]
+        .error
+        .as_deref()
+        .unwrap()
+        .contains("injected aggregate failure"));
+    assert_eq!(storage.data_revision().unwrap(), 0);
+    let checkpoints: i64 = storage
+        .conn()
+        .query_row("SELECT COUNT(*) FROM ingestion_checkpoints", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    assert_eq!(
+        checkpoints, 0,
+        "failed aggregate must not advance the source cursor"
+    );
+    assert_eq!(
+        llm_usage_core::jobs::run_status(&storage, failed[0].run_id.as_deref().unwrap()).unwrap(),
+        Some(RunStatus::Failed)
+    );
+    assert!(aggregate_rows(&storage, &hermes_instance(&root)).is_empty());
+    storage
+        .conn()
+        .execute_batch("DROP TRIGGER fail_aggregate")
+        .unwrap();
+    let retry = run_hermes(&storage, &root, NOW + 1);
+    assert_eq!(retry[0].finish, RunStatus::Succeeded);
+    let rows = aggregate_rows(&storage, &hermes_instance(&root));
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].3, Some(100));
+    assert_eq!(rows[0].10, Some(3));
+    let revision = storage.data_revision().unwrap();
+    run_hermes(&storage, &root, NOW + 2);
+    assert_eq!(storage.data_revision().unwrap(), revision);
+    assert_eq!(aggregate_rows(&storage, &hermes_instance(&root)).len(), 1);
+}
+
+#[test]
 fn contract_basic_cumulative_row_maps_to_interval_aggregate() {
     let dir = TempDir::new("hermes-basic");
     let root = build_hermes_db_from_fixture(&dir, "synthetic-basic-cumulative");

@@ -2,7 +2,7 @@
 //! 只输出白名单聚合：文件数、记录数、事件数、token 合计、幂等结论、
 //! db.sqlite 的 Σmodel_usage==turn_usage 对账计数与诊断计数；
 //! 不打印路径、会话 ID、requestId、正文等任何记录内容。
-//! db.sqlite 只读对照（M0 结论持续核验），不入库计量。
+//! 只读采集 model_usage 到隔离应用库；turn_usage 仅对照，不参与计量。
 //! 用法：cargo run -p llm-usage-core --example real_verify_zcode -- <zcode_cli_root> <work_dir>
 //!（<zcode_cli_root> 为含 rollout/ 与 db/ 的 cli 根，如 <home>/.zcode/cli）
 
@@ -27,7 +27,10 @@ fn main() {
     let storage = Storage::open(&db_path).expect("open storage");
 
     let adapter = ZcodeAdapter::new();
-    let now_ms = 1_800_000_000_000_i64;
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as i64;
     let ctx = DiscoverContext {
         home_dir: None,
         env: Default::default(),
@@ -73,12 +76,22 @@ fn main() {
         }
     }
     // 二次扫描：幂等（重复扫描不增量）。
-    let reports2 = run_adapter_scan(&storage, &adapter, &ctx, &config).expect("rescan");
+    assert!(!reports.is_empty());
+    assert!(reports.iter().all(|r| r.error.is_none()));
+    let revision = storage.data_revision().unwrap();
+    let config2 = RunConfig {
+        run_id_prefix: format!("rescan-{now_ms}"),
+        ..config.clone()
+    };
+    let reports2 = run_adapter_scan(&storage, &adapter, &ctx, &config2).expect("rescan");
+    assert!(reports2.iter().all(|r| r.error.is_none()));
+    assert_eq!(storage.data_revision().unwrap(), revision);
     let added2: i64 = reports2
         .iter()
         .filter_map(|r| r.outcome.as_ref().map(|o| o.added))
         .sum();
     println!("rescan_added={added2}");
+    assert_eq!(added2, 0);
 
     // 汇总查询白名单核对：调用数与 token 合计（UTC 全区间）。
     let summary = llm_usage_core::query::query_summary(

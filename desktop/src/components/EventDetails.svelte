@@ -1,12 +1,4 @@
 <script lang="ts">
-  /**
-   * 用量明细页（任务 F）：event_details 分页表格（每页 50 条，上/下页 + 跳转）。
-   * 列：时间/Agent/模型/类别/输入/缓存命中/输出/总量/耗时（秒，1 位小数）/会话。
-   * 时间格式化到秒；查询条件（Agent/模型过滤）与全局筛选联动。
-   * 加载优化：挂载即显示灰色骨架占位（首屏无数据时），请求只带当前页
-   * page/pageSize；effect 依赖查询字段的稳定串（queryKey）而非对象身份，
-   * 父级轮询刷新 summary 产生的 query 新对象不会触发本页重复请求。
-   */
   import { api, parseError } from '../lib/api';
   import type { EventDetailRowDto, SummaryQuery } from '../lib/api';
   import { i18n, t, fmtPrecise } from '../lib/i18n.svelte';
@@ -14,10 +6,14 @@
   let {
     query,
     reloadKey = 0,
+    timezone = 'UTC',
+    scopeKey = '',
   }: {
     query: SummaryQuery;
     /** 用户切换/导入等不改变 query 的强制重查信号。 */
     reloadKey?: number;
+    timezone?: string;
+    scopeKey?: string;
   } = $props();
 
   const PAGE_SIZE_OPTIONS = [20, 50, 100, 200];
@@ -45,6 +41,7 @@
       minute: '2-digit',
       second: '2-digit',
       hour12: false,
+      timeZone: timezone,
     }).format(new Date(ms));
   }
 
@@ -62,8 +59,14 @@
       // 只请求当前页：page/pageSize 原样传给后端，后端做 LIMIT/OFFSET。
       const r = await api.eventDetails(query, page, pageSize);
       if (token !== loadToken) return;
-      rows = r.rows;
       total = r.total;
+      const lastPage = Math.max(0, Math.ceil(r.total / pageSize) - 1);
+      if (page > lastPage) {
+        page = lastPage;
+        await load();
+        return;
+      }
+      rows = r.rows;
     } catch (e) {
       if (token !== loadToken) return;
       error = parseError(e);
@@ -74,8 +77,7 @@
     }
   }
 
-  // 查询条件/强制重查信号变化：回到第 1 页并防抖重查（声明在分页动作前，
-  // 同一 flush 内先重置页码再加载，避免旧页码多拉一次）。
+  // 查询范围变化时回到第 1 页；后台刷新保留页码，数据缩减时回到最后一页。
   // queryKey 为查询字段的稳定序列化：父级每次轮询重建 query 对象（身份变化）
   // 但字段值不变时不重查，只有真正的过滤/范围变化才重新请求。
   const queryKey = $derived(
@@ -88,13 +90,20 @@
       query.models,
     ])
   );
-  let queryTimer: ReturnType<typeof setTimeout> | undefined;
+  let previousScope = '';
   $effect(() => {
-    void queryKey;
+    const scope = JSON.stringify([queryKey, scopeKey, timezone]);
     void reloadKey;
-    page = 0;
-    if (queryTimer) clearTimeout(queryTimer);
-    queryTimer = setTimeout(() => void load(), 300);
+    if (scope !== previousScope) {
+      previousScope = scope;
+      page = 0;
+      rows = [];
+      total = 0;
+      loading = true;
+    }
+    ++loadToken;
+    const timer = setTimeout(() => void load(), 200);
+    return () => { ++loadToken; clearTimeout(timer); };
   });
 
   function go(next: number) {
@@ -255,7 +264,7 @@
   table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 12.5px;
+    font-size: 13px;
   }
   th,
   td {
@@ -296,7 +305,7 @@
     align-items: center;
     gap: 10px;
     padding: 10px 2px;
-    font-size: 12.5px;
+    font-size: 13px;
     flex-wrap: wrap;
   }
   .size-select {
@@ -313,7 +322,7 @@
   .pager button {
     padding: 4px 12px;
     cursor: pointer;
-    font-size: 12.5px;
+    font-size: 13px;
     border: 1px solid var(--border);
     background: var(--bg-input);
     border-radius: 6px;
@@ -338,7 +347,7 @@
   .jump input {
     width: 64px;
     padding: 3px 6px;
-    font-size: 12.5px;
+    font-size: 13px;
     text-align: right;
     box-sizing: border-box;
   }

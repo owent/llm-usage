@@ -2,171 +2,92 @@
   import type { SourceDto, UserDto } from '../lib/api';
   import { api, parseError } from '../lib/api';
   import { t, fmtRelative } from '../lib/i18n.svelte';
-
-  let {
-    sources,
-    users,
-    onchanged,
-  }: {
-    sources: SourceDto[];
-    users: UserDto[];
-    onchanged: () => void;
+  import Icon from './Icon.svelte';
+  let { sources, users, onchanged }: {
+    sources: SourceDto[]; users: UserDto[]; onchanged: () => void | Promise<void>;
   } = $props();
-
   let error = $state('');
-  // list_sources 未返回每实例的当前归属（后端合同），下拉初始显示占位；
-  // 本地记录最近一次选择，避免刷新后立即回落。
-  let assigned = $state<Record<string, string>>({});
-
-  async function toggle(s: SourceDto) {
+  let search = $state('');
+  let pending = $state<Record<string, boolean>>({});
+  const visible = $derived(sources.filter((s) =>
+    `${s.agent} ${s.instance_id}`.toLowerCase().includes(search.toLowerCase())));
+  async function change(s: SourceDto, action: () => Promise<unknown>) {
+    if (pending[s.instance_id]) return;
+    pending[s.instance_id] = true;
     error = '';
-    try {
-      await api.setSourceEnabled(s.instance_id, !s.enabled);
-      onchanged();
-    } catch (e) {
-      error = parseError(e);
-    }
-  }
-
-  async function assign(s: SourceDto, userId: string) {
-    if (!userId) return;
-    error = '';
-    try {
-      await api.assignSourceUser(s.instance_id, userId);
-      assigned[s.instance_id] = userId;
-      onchanged();
-    } catch (e) {
-      error = t('sources.assignFailed', { message: parseError(e) });
-    }
+    try { await action(); await onchanged(); }
+    catch (e) { error = parseError(e); }
+    finally { pending[s.instance_id] = false; }
   }
 </script>
 
-<h3>{t('sources.title')}</h3>
-{#if error}
-  <p class="error">{error}</p>
-{/if}
-{#if sources.length === 0}
-  <p class="empty">{t('sources.none')}</p>
-{:else}
-  <table>
-    <thead>
-      <tr>
-        <th>{t('sources.agent')}</th>
-        <th>{t('sources.instance')}</th>
-        <th>{t('sources.health')}</th>
-        <th>{t('sources.lastSuccess')}</th>
-        <th>{t('sources.status')}</th>
-        <th>{t('sources.user')}</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      {#each sources as s (s.instance_id)}
-        <tr class:muted={!s.enabled}>
-          <td>{s.agent}</td>
-          <td class="mono">{s.instance_id}</td>
-          <td>{s.health}</td>
-          <td>{fmtRelative(s.last_success_ms)}</td>
-          <td>
-            {#if s.compat_files > 0}
-              <span class="tag compat">{t('sources.compatFiles', { count: s.compat_files })}</span>
-            {/if}
-            {#if s.incompatible_files > 0}
-              <span class="tag bad">{t('sources.incompatibleFiles', { count: s.incompatible_files })}</span>
-            {/if}
-            {#if s.missing_files > 0}
-              <span class="tag bad" title={t('sources.missingFiles.hint')}>{t('sources.missingFiles', { count: s.missing_files })}</span>
-            {/if}
-          </td>
-          <td>
-            <select
-              value={assigned[s.instance_id] ?? s.user_id}
-              onchange={(e) => void assign(s, e.currentTarget.value)}
-            >
-              <option value="">{t('sources.userPlaceholder')}</option>
-              {#each users as u (u.user_id)}
-                <option value={u.user_id}>{u.name}</option>
-              {/each}
-            </select>
-          </td>
-          <td>
-            <button onclick={() => toggle(s)}>
-              {s.enabled ? t('sources.enabled') : t('sources.disabled')}
-            </button>
-          </td>
-        </tr>
-      {/each}
-    </tbody>
-  </table>
-{/if}
+<div class="source-toolbar">
+  <div><h2>{t('sources.title')}</h2><p>{t('sources.localHint')}</p></div>
+  <input type="search" bind:value={search} aria-label={t('sources.search')} placeholder={t('sources.search')} />
+</div>
+{#if error}<p class="error" role="alert">{error}</p>{/if}
+<div class="source-grid">
+  {#each visible as s (s.instance_id)}
+    <section class="source-card" class:paused={!s.enabled}>
+      <div class="source-head">
+        <span class="source-icon"><Icon name="sources" size={22} /></span>
+        <div><h3>{s.agent}</h3><span class="health" class:attention={s.health !== 'ok'}>{t('sources.health.' + s.health)}</span></div>
+        <button class="toggle" class:on={s.enabled} role="switch" aria-checked={s.enabled}
+          aria-label={`${s.agent}: ${t('sources.enabled')}`}
+          disabled={pending[s.instance_id]}
+          onclick={() => change(s, () => api.setSourceEnabled(s.instance_id, !s.enabled))}><span></span></button>
+      </div>
+      <p class="instance" title={s.instance_id}>{s.instance_id}</p>
+      <div class="tags">
+        {#if s.compat_files > 0}<span class="tag compat">{t('sources.compatFiles', { count: s.compat_files })}</span>{/if}
+        {#if s.degraded_files > 0}<span class="tag bad">{t('sources.degradedFiles', { count: s.degraded_files })}</span>{/if}
+        {#if s.unsupported_files > 0}<span class="tag bad">{t('sources.unsupportedFiles', { count: s.unsupported_files })}</span>{/if}
+        {#if s.incompatible_files > 0}<span class="tag bad">{t('sources.incompatibleFiles', { count: s.incompatible_files })}</span>{/if}
+        {#if s.missing_files > 0}<span class="tag compat" title={t('sources.missingFiles.hint')}>{t('sources.missingFiles', { count: s.missing_files })}</span>{/if}
+      </div>
+      <div class="source-meta"><span>{t('sources.lastSuccess')}</span><strong>{fmtRelative(s.last_success_ms)}</strong></div>
+      <div class="source-footer">
+        <label>{t('sources.user')}
+          <select value={s.user_id} disabled={pending[s.instance_id]} aria-label={`${s.agent}: ${t('sources.user')}`}
+            onchange={(e) => { const value = e.currentTarget.value; void change(s, () => api.assignSourceUser(s.instance_id, value)); }}>
+            {#each users as u (u.user_id)}<option value={u.user_id}>{u.name}</option>{/each}
+          </select>
+        </label>
+        <span>{s.enabled ? t('sources.enabled') : t('sources.disabled')}</span>
+      </div>
+    </section>
+  {:else}
+    <p class="empty">{sources.length ? t('sources.noMatch') : t('sources.none')}</p>
+  {/each}
+</div>
 
 <style>
-  h3 {
-    font-size: 14px;
-  }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 12.5px;
-  }
-  th,
-  td {
-    text-align: left;
-    padding: 4px 6px;
-    border-bottom: 1px solid var(--border-light);
-    vertical-align: middle;
-  }
-  th {
-    color: var(--text-secondary);
-    font-weight: 500;
-  }
-  .mono {
-    font-family: ui-monospace, monospace;
-    font-size: 12px;
-    max-width: 380px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .muted {
-    color: var(--text-muted);
-  }
-  .tag {
-    display: inline-block;
-    border-radius: 10px;
-    padding: 1px 8px;
-    font-size: 12px;
-    margin-right: 6px;
-  }
-  .compat {
-    background: var(--warning-bg);
-    color: var(--warning);
-  }
-  .bad {
-    background: var(--danger-bg);
-    color: var(--danger);
-  }
-  .error {
-    color: var(--danger);
-    background: var(--danger-bg);
-    border-radius: 6px;
-    padding: 6px 10px;
-    font-size: 13px;
-  }
-  .empty {
-    color: var(--text-muted);
-    background: var(--bg-hover);
-    border-radius: 8px;
-    padding: 24px;
-    text-align: center;
-  }
-  button {
-    padding: 3px 10px;
-    cursor: pointer;
-  }
-  td select {
-    max-width: 150px;
-    font-size: 12.5px;
-    padding: 2px 4px;
-  }
+  .source-toolbar { display: flex; gap: 20px; align-items: center; justify-content: space-between; margin: 24px 0; flex-wrap: wrap; }
+  h2 { margin: 0; color: var(--text-heading); font-size: 18px; }
+  .source-toolbar p { margin: 6px 0 0; color: var(--text-secondary); font-size: 13px; }
+  .source-toolbar input { width: 260px; }
+  .source-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 20px; }
+  .source-card { padding: 22px; border: 1px solid var(--border); border-radius: 16px; background: var(--bg-card); box-shadow: var(--shadow); min-width: 0; }
+  .source-card.paused { background: var(--bg-card-hover); }
+  .source-head { display: flex; align-items: center; gap: 12px; }
+  .source-icon { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; background: var(--accent-bg); color: var(--accent); }
+  h3 { font-size: 16px; margin: 0 0 3px; color: var(--text-heading); }
+  .health { color: var(--success); font-size: 12px; }
+  .health.attention { color: var(--warning); }
+  .toggle { margin-left: auto; width: 40px; height: 24px; border: 0; border-radius: 20px; padding: 3px; background: var(--scrollbar); }
+  .toggle span { display: block; width: 18px; height: 18px; border-radius: 50%; background: white; transition: transform 120ms; }
+  .toggle.on { background: var(--accent); }
+  .toggle.on span { transform: translateX(16px); }
+  .instance { font-family: ui-monospace, monospace; font-size: 11px; color: var(--text-muted); padding: 11px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 10px 0 0; }
+  .tags { display: flex; gap: 6px; flex-wrap: wrap; min-height: 24px; }
+  .tag { border-radius: 6px; padding: 3px 7px; font-size: 11px; }
+  .compat { color: var(--accent); background: var(--accent-bg); }
+  .bad, .error { color: var(--danger); background: var(--danger-bg); }
+  .source-meta { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); padding: 18px 0; }
+  .source-meta strong { font-weight: 500; }
+  .source-footer { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-light); padding-top: 16px; font-size: 12px; color: var(--text-muted); gap: 12px; }
+  label { display: flex; align-items: center; gap: 10px; }
+  select { max-width: 150px; font-size: 12px; }
+  .empty, .error { padding: 24px; border-radius: 12px; grid-column: 1 / -1; }
+  .empty { text-align: center; color: var(--text-secondary); background: var(--bg-card); border: 1px dashed var(--border); }
 </style>

@@ -162,7 +162,7 @@ pub struct AppState {
 
 impl AppState {
     /// 打开/迁移应用数据库并初始化主机身份与设置。
-    pub fn init(db_path: PathBuf, hostname: &str) -> Result<Self, String> {
+    pub fn init(db_path: PathBuf, hostname: &str, interactive: bool) -> Result<Self, String> {
         if let Some(parent) = db_path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
         }
@@ -174,6 +174,9 @@ impl AppState {
                 found,
                 supported: expected,
             }) => {
+                if !interactive {
+                    return Err(format!("database schema mismatch: found {found}, expected {expected}; open the desktop app to review recovery options"));
+                }
                 let msg = format!(
                     "数据库版本不兼容（当前 {found}，期望 {expected}）。
 
@@ -204,7 +207,7 @@ impl AppState {
         let settings = load_settings(&storage);
         // 时区分区修复：老版本扫描以 UTC 写日分区而用户统计时区不同 ⇒
         // 在用户时区下重算事件覆盖范围（推导非猜测；2026-09-26 缺陷修复）。
-        repair_tz_partitions(&storage, &settings.timezone);
+        repair_tz_partitions(&storage, &settings.timezone, false)?;
         // 默认用户名取 OS 当前用户（不再使用 "default"）；首次初始化时
         // 把 v6 迁移创建的 default 用户重命名为 OS 用户名（保留同一 user_id
         // 键，来源归属不变）。
@@ -256,7 +259,7 @@ const SETTINGS_KEY: &str = "app_settings";
 
 /// 若日汇总只有其他时区分区而缺用户时区分区，按事件范围在用户时区重算。
 /// 封存日在目标时区不存在封存行，重算安全；失败不阻塞启动（下次扫描再修）。
-pub fn repair_tz_partitions(storage: &Storage, timezone: &str) {
+pub fn repair_tz_partitions(storage: &Storage, timezone: &str, force: bool) -> Result<(), String> {
     let has_user_tz: i64 = storage
         .conn()
         .query_row(
@@ -265,8 +268,16 @@ pub fn repair_tz_partitions(storage: &Storage, timezone: &str) {
             |r| r.get(0),
         )
         .unwrap_or(0);
-    if has_user_tz > 0 {
-        return;
+    let repaired: bool = storage
+        .conn()
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM settings WHERE key=?1 AND value='1')",
+            [format!("hourly_fields_version:{timezone}")],
+            |r| r.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    if has_user_tz > 0 && repaired && !force {
+        return Ok(());
     }
     let range: Option<(i64, i64)> = storage
         .conn()
@@ -277,21 +288,20 @@ pub fn repair_tz_partitions(storage: &Storage, timezone: &str) {
         )
         .ok();
     if let Some((min_ms, max_ms)) = range {
-        if let Err(e) = llm_usage_core::ingest::recompute_days_in_tz(
-            storage,
-            timezone,
-            min_ms,
-            max_ms,
-            now_ms(),
-        ) {
-            eprintln!("tz partition repair failed (will retry on next scan): {e}");
-        }
+        llm_usage_core::ingest::recompute_days_in_tz(storage, timezone, min_ms, max_ms, now_ms())
+            .map_err(|e| format!("timezone partition rebuild failed: {e}"))?;
     }
+    storage
+        .conn()
+        .execute(
+            "INSERT INTO settings(key,value,schema_version,updated_at_ms) VALUES (?1,'1',1,?2)
+        ON CONFLICT(key) DO UPDATE SET value='1',updated_at_ms=excluded.updated_at_ms",
+            rusqlite::params![format!("hourly_fields_version:{timezone}"), now_ms()],
+        )
+        .map_err(|e| e.to_string())?;
+    Ok(())
 }
 
-/// 查询连接：优先常驻只读连接（懒建，打开失败带短重试——观察到的
-/// 间歇性 disk I/O error 多为打开瞬间冲突）；仍失败时回退写连接互斥锁，
-/// 保证 UI 查询永不因只读路径失败而硬错（宁可短暂排队）。
 /// 查询连接：只读连接（带短重试——观察到的间歇性 disk I/O error 发生在
 /// 打开瞬间）；仍失败时回退写连接互斥锁，UI 查询宁可短暂排队也不硬错。
 pub enum ReadConn<'a> {
@@ -372,4 +382,41 @@ pub fn summarize_reports(reports: &[SourceRunReport]) -> Vec<RefreshInstanceSumm
             diagnostics: r.files.iter().map(|f| f.diagnostics).sum(),
         })
         .collect()
+}
+
+#[cfg(test)]
+mod partition_tests {
+    #[test]
+    fn returning_to_a_previous_timezone_rebuilds_new_details_and_hours() {
+        let storage = llm_usage_core::storage::Storage::open_in_memory().unwrap();
+        let at = "2026-09-27T20:00:00Z"
+            .parse::<jiff::Timestamp>()
+            .unwrap()
+            .as_millisecond();
+        let insert = |id: &str| {
+            storage.conn().execute(
+            "INSERT INTO usage_events(event_id,source_instance_id,source_record_key,record_kind,schema_version,parser_version,agent,occurred_at_ms,time_basis,quality_json,quality_bucket,lifecycle,content_hash,created_at_ms,updated_at_ms)
+             VALUES (?1,'source',?1,'model_call','1','test','codex',?2,'source_completion','{}','unknown','final',?1,?2,?2)",
+            rusqlite::params![id,at]).unwrap()
+        };
+        insert("first");
+        super::repair_tz_partitions(&storage, "UTC", false).unwrap();
+        super::repair_tz_partitions(&storage, "Asia/Shanghai", true).unwrap();
+        insert("second");
+        super::repair_tz_partitions(&storage, "UTC", true).unwrap();
+        for table in ["daily_usage", "hourly_usage"] {
+            let count: i64 = storage
+                .conn()
+                .query_row(
+                    &format!("SELECT SUM(call_count) FROM {table} WHERE tz_version='UTC'"),
+                    [],
+                    |r| r.get(0),
+                )
+                .unwrap();
+            assert_eq!(
+                count, 2,
+                "{table} must include events collected under the other timezone"
+            );
+        }
+    }
 }

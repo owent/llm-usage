@@ -65,10 +65,14 @@ fn discover_context(manual_roots: Vec<String>) -> DiscoverContext {
 /// 执行一次全源刷新（已启用来源）。已在执行时直接返回 false（合并触发，不并发）。
 pub fn run_refresh(state: &Arc<AppState>, trigger: TriggerKind) -> bool {
     {
-        let refresh = state.refresh.lock().unwrap();
+        let mut refresh = state.refresh.lock().unwrap();
         if refresh.running {
             return false;
         }
+        refresh.running = true;
+        refresh.progress_percent = 0;
+        refresh.eta_seconds = None;
+        refresh.completed_adapters.clear();
     }
     let (host_id, manual_roots, retention, timezone) = {
         let settings = state.settings.lock().unwrap();
@@ -82,7 +86,6 @@ pub fn run_refresh(state: &Arc<AppState>, trigger: TriggerKind) -> bool {
     };
     {
         let mut refresh = state.refresh.lock().unwrap();
-        refresh.running = true;
         refresh.started_ms = now_ms();
         refresh.trigger = trigger.as_str().to_string();
         refresh.instances.clear();
@@ -100,32 +103,12 @@ pub fn run_refresh(state: &Arc<AppState>, trigger: TriggerKind) -> bool {
     };
     let ctx = discover_context(manual_roots);
     let mut summaries: Vec<RefreshInstanceSummary> = Vec::new();
-    // 注册表变更后重扫：active_compat 文件的游标已推进，不会被 unchanged 短路
-    // 重新检测——主动清除其游标与状态让下轮全量重扫（幂等，事件去重保证不双计）。
-    {
-        let storage = state.storage.lock().unwrap();
-        let n = storage
-            .conn()
-            .execute(
-                "DELETE FROM ingestion_checkpoints WHERE scope_key IN (
-                   SELECT file_identity FROM source_files WHERE status = 'active_compat'
-                 )",
-                [],
-            )
-            .unwrap_or(0);
-        if n > 0 {
-            let _ = storage.conn().execute(
-                "UPDATE source_files SET status = 'new' WHERE status = 'active_compat'",
-                [],
-            );
-            eprintln!("reset {n} compat files for re-detection (registry may have changed)");
-        }
-    }
     // 写锁按适配器分段获取（而非整个刷新持有）：查询走 WAL 只读连接不受影响，
     // 设置写入等其他写操作可在适配器之间交错；任意时刻仍只有一个写者。
-    let total_adapters = 17usize; // built_in_adapters().len()；硬编码避免双重枚举
+    let adapters = built_in_adapters();
+    let total_adapters = adapters.len();
     let scan_start = now_ms();
-    for (adapter_index, adapter) in built_in_adapters().into_iter().enumerate() {
+    for (adapter_index, adapter) in adapters.into_iter().enumerate() {
         // 进度：按适配器序号估算（完成后百分百精确；运行中含当前适配器的
         // 文件级进度由各适配器内部掌握，此处用粗粒度近似+ETA）。
         {
@@ -150,6 +133,12 @@ pub fn run_refresh(state: &Arc<AppState>, trigger: TriggerKind) -> bool {
             let storage = state.storage.lock().unwrap();
             run_adapter_scan(&storage, adapter.as_ref(), &ctx, &config)
         };
+        state
+            .refresh
+            .lock()
+            .unwrap()
+            .completed_adapters
+            .push(adapter.agent().to_string());
         match result {
             Ok(reports) => summaries.extend(summarize_reports(&reports)),
             Err(e) => summaries.push(RefreshInstanceSummary {
@@ -245,27 +234,78 @@ pub fn spawn_scheduler(state: Arc<AppState>, stop: Arc<AtomicBool>) {
     std::thread::spawn(move || {
         // 启动后先做一次回填扫描（Startup 触发）。
         run_refresh(&state, TriggerKind::Startup);
-        let mut next_due = next_due_ms(&state);
+        let mut schedule = IntervalSchedule::default();
         loop {
             if stop.load(Ordering::Relaxed) {
                 break;
             }
-            let now = now_ms();
-            if now >= next_due {
+            let interval = state.settings.lock().unwrap().refresh_interval_secs;
+            let finished = state.refresh.lock().unwrap().last_finished_ms;
+            let requested = {
+                let storage = state.storage.lock().unwrap();
+                crate::process_guard::take_refresh_request(&storage).unwrap_or(false)
+            };
+            if requested || schedule.tick(now_ms(), interval, finished) {
                 run_refresh(&state, TriggerKind::Interval);
-                next_due = next_due_ms(&state);
             }
-            let wait = next_due.saturating_sub(now_ms()).clamp(500, 5_000);
-            std::thread::sleep(std::time::Duration::from_millis(wait as u64));
+            std::thread::sleep(std::time::Duration::from_millis(500));
         }
     });
 }
 
-fn next_due_ms(state: &Arc<AppState>) -> i64 {
-    let interval = state.settings.lock().unwrap().refresh_interval_secs;
-    if interval == 0 {
-        // 暂停自动提取：仅轮询设置变化，不采集。
-        return now_ms() + 5_000;
+/// Pure scheduling state: zero disables, settings changes reset the deadline,
+/// and waking after multiple missed intervals schedules only one scan.
+#[derive(Default)]
+struct IntervalSchedule {
+    interval_secs: u64,
+    last_finished: i64,
+    due: Option<i64>,
+}
+
+impl IntervalSchedule {
+    fn tick(&mut self, now: i64, interval_secs: u64, last_finished: i64) -> bool {
+        let delay = i64::try_from(interval_secs)
+            .unwrap_or(i64::MAX)
+            .saturating_mul(1000);
+        if interval_secs != self.interval_secs || last_finished != self.last_finished {
+            self.interval_secs = interval_secs;
+            self.last_finished = last_finished;
+            self.due = (interval_secs > 0).then(|| now.saturating_add(delay));
+        }
+        if self.due.is_some_and(|due| now >= due) {
+            self.due = Some(now.saturating_add(delay));
+            true
+        } else {
+            false
+        }
     }
-    now_ms() + (interval as i64) * 1000
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn disabled_interval_never_scans_and_changes_take_effect() {
+        let mut timer = IntervalSchedule::default();
+        for now in [0, 5000, 10000, 1000000] {
+            assert!(!timer.tick(now, 0, 0));
+        }
+        assert!(!timer.tick(1000000, 60, 0));
+        assert!(!timer.tick(1059999, 60, 0));
+        assert!(timer.tick(1060000, 60, 0));
+        assert!(!timer.tick(1060001, 0, 0));
+        assert!(!timer.tick(i64::MAX, 0, 0));
+    }
+
+    #[test]
+    fn sleep_missed_intervals_merge_and_manual_completion_resets_due() {
+        let mut timer = IntervalSchedule::default();
+        assert!(!timer.tick(0, 10, 0));
+        assert!(timer.tick(100000, 10, 0));
+        assert!(!timer.tick(100001, 10, 0));
+        assert!(!timer.tick(105000, 10, 105000));
+        assert!(!timer.tick(110000, 10, 105000));
+        assert!(timer.tick(115000, 10, 105000));
+    }
 }

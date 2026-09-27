@@ -8,7 +8,7 @@ use crate::error::CoreError;
 use crate::storage::Storage;
 use jiff::civil::Date;
 use jiff::Span;
-use rusqlite::{params, Transaction};
+use rusqlite::{params, OptionalExtension, Transaction};
 
 /// 分级保留策略（天数）。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -91,6 +91,20 @@ pub fn enforce_tiered_retention(
     let mut outcome = TieredRetentionOutcome::default();
     let conn = storage.conn();
     let tx = conn.unchecked_transaction()?;
+    let memo_key = format!("retention_applied:{timezone}");
+    let revision_before = crate::storage::data_revision(&tx)?;
+    let signature = |revision| format!("{today}|{policy:?}|{revision}");
+    let last: Option<String> = tx
+        .query_row(
+            "SELECT value FROM settings WHERE key=?1",
+            [&memo_key],
+            |r| r.get(0),
+        )
+        .optional()?;
+    if last.as_deref() == Some(signature(revision_before).as_str()) {
+        outcome.data_revision = revision_before;
+        return Ok(outcome);
+    }
     let revision = Storage::bump_data_revision_tx(&tx, now_ms)?;
 
     // 1. 明细层：封存过期日 → 删除过期明细/诊断（沿用既有封存语义）。
@@ -164,10 +178,18 @@ pub fn enforce_tiered_retention(
             cutoff_day = cutoff_day.min(year_start);
         }
         cutoff_day = cutoff_day.min(week_start).min(month_start);
+        // Keep a whole ISO week at the boundary. A later cleanup must not
+        // rebuild that week from only its surviving January days.
+        cutoff_day = calendar.week_start_of(cutoff_day, crate::calendar::WeekStart::Monday);
         outcome.deleted_daily_rows = tx.execute(
             "DELETE FROM daily_usage WHERE tz_version = ?1 AND local_day < ?2",
             params![timezone, cutoff_day.to_string()],
         )? as i64;
+        tx.execute(
+            "INSERT INTO settings(key, value, schema_version, updated_at_ms) VALUES (?1, ?2, 1, ?3)
+             ON CONFLICT(key) DO UPDATE SET value = MAX(value, excluded.value), updated_at_ms = excluded.updated_at_ms",
+            params![format!("daily_retention_floor:{timezone}"), cutoff_day.to_string(), now_ms],
+        )?;
     }
 
     // 5. 周/月层删除；年层按策略（None = 终身保留）。
@@ -181,14 +203,19 @@ pub fn enforce_tiered_retention(
     }
     if let Some(yearly) = policy.yearly_days {
         let cutoff_day = calendar.retention_cutoff_day(today, yearly)?;
-        tx.execute(
+        outcome.deleted_period_rows += tx.execute(
             "DELETE FROM period_usage WHERE tz_version = ?1 AND granularity = 'year'
              AND period_end_day < ?2",
             params![timezone, cutoff_day.to_string()],
-        )?;
+        )? as i64;
     }
 
     outcome.data_revision = revision;
+    tx.execute(
+        "INSERT INTO settings(key,value,schema_version,updated_at_ms) VALUES (?1,?2,1,?3)
+        ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at_ms=excluded.updated_at_ms",
+        params![memo_key, signature(revision), now_ms],
+    )?;
     tx.commit()?;
     Ok(outcome)
 }
@@ -328,6 +355,14 @@ pub(crate) fn materialize_periods(
     }
     drop(stmt);
     let mut written = 0i64;
+    let floor: Option<String> = tx
+        .query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            [format!("daily_retention_floor:{timezone}")],
+            |r| r.get(0),
+        )
+        .optional()?;
+    let mut replaced = std::collections::BTreeSet::new();
     let mut insert = tx.prepare(
         "INSERT INTO period_usage (
            tz_version, granularity, period_key, period_start_day, period_end_day,
@@ -341,11 +376,19 @@ pub(crate) fn materialize_periods(
         if agg.end >= to {
             continue;
         }
-        tx.execute(
-            "DELETE FROM period_usage WHERE tz_version = ?1 AND granularity = ?2
+        if floor
+            .as_ref()
+            .is_some_and(|floor| agg.start.to_string() < *floor)
+        {
+            continue;
+        }
+        if replaced.insert((granularity.clone(), key.clone())) {
+            tx.execute(
+                "DELETE FROM period_usage WHERE tz_version = ?1 AND granularity = ?2
              AND period_key = ?3",
-            params![timezone, granularity, key],
-        )?;
+                params![timezone, granularity, key],
+            )?;
+        }
         insert.execute(params![
             timezone,
             granularity,

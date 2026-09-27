@@ -139,7 +139,20 @@ fn contract_full_chain_matches_manual_expectations() {
         .unwrap();
     assert_eq!(events, 3);
 
-    let p1: (String, Option<i64>, Option<i64>, Option<i64>, Option<i64>, Option<i64>, Option<i64>, Option<i64>, Option<String>, Option<String>, String) = conn
+    type P1Row = (
+        String,
+        Option<i64>,
+        Option<i64>,
+        Option<i64>,
+        Option<i64>,
+        Option<i64>,
+        Option<i64>,
+        Option<i64>,
+        Option<String>,
+        Option<String>,
+        String,
+    );
+    let p1: P1Row = conn
         .query_row(
             "SELECT call_category, input_total, output_total, total_tokens, source_total, \
                     input_cache_read, input_cache_write, cost_amount_minor, model_raw, provider_id, time_basis \
@@ -178,7 +191,8 @@ fn contract_full_chain_matches_manual_expectations() {
     assert_eq!(p1.9, Some("mimo".to_string()));
     assert_eq!(p1.10, "observed_at");
 
-    let sub: (String, String) = conn
+    type SubRow = (String, String);
+    let sub: SubRow = conn
         .query_row(
             "SELECT call_category, agent FROM usage_events \
              WHERE source_instance_id = ?1 AND source_record_key = ?2",

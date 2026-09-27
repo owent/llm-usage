@@ -59,6 +59,8 @@ pub struct ExchangeSource {
     pub first_seen_ms: i64,
     /// 字段完整性/能力摘要（白名单 JSON，无正文）。
     pub completeness: serde_json::Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin_host_id: Option<String>,
 }
 
 /// 逐事件交换记录：来源 + 记录键构成逻辑唯一键；数值与完整性随记录走。
@@ -119,9 +121,30 @@ pub struct ExchangeUsage {
     pub source_total: Option<i64>,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExchangeDailyStatistics {
+    pub attempt_count: i64,
+    pub observation_count: i64,
+    pub input_known_count: i64,
+    pub input_unknown_count: i64,
+    pub uncached_known_count: i64,
+    pub cache_read_known_count: i64,
+    pub cache_write_known_count: i64,
+    pub output_known_count: i64,
+    pub output_unknown_count: i64,
+    pub total_known_count: i64,
+    pub total_unknown_count: i64,
+    pub ratio_sample_count: i64,
+    pub uncached_known_sum: Option<i64>,
+    pub ratio_input_sum: Option<i64>,
+    pub ratio_cache_read_sum: Option<i64>,
+}
+
 /// 日/封存分区（明细已清理时历史汇总仍可导出，保留来源与修订）。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExchangeDailyPartition {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub statistics: Option<ExchangeDailyStatistics>,
     pub tz_version: String,
     pub local_day: String,
     pub instance_id: String,
@@ -142,9 +165,11 @@ pub struct ExchangeDailyPartition {
     pub data_revision: i64,
 }
 
-/// 小时层交换行（分级归档的 30 天层；导入按 (tz,day,hour,dims) 键合并）。
+/// 小时层交换行（按配置保留；导入按 (tz,day,hour,dims) 键合并）。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExchangeHourlyPartition {
+    #[serde(default)]
+    pub conflict_count: i64,
     pub tz_version: String,
     pub local_day: String,
     pub hour: i64,
@@ -164,6 +189,33 @@ pub struct ExchangeHourlyPartition {
     pub data_revision: i64,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExchangePeriodPartition {
+    pub tz_version: String,
+    pub granularity: String,
+    pub period_key: String,
+    pub period_start_day: String,
+    pub period_end_day: String,
+    pub instance_id: String,
+    pub agent: String,
+    pub provider_id: String,
+    pub model_raw: String,
+    pub call_category: String,
+    pub quality_bucket: String,
+    pub event_count: i64,
+    pub call_count: i64,
+    pub conflict_count: i64,
+    pub active_days: i64,
+    pub materialized_at_ms: i64,
+    pub data_revision: i64,
+    pub input_known_sum: Option<i64>,
+    pub cache_read_known_sum: Option<i64>,
+    pub cache_write_known_sum: Option<i64>,
+    pub output_known_sum: Option<i64>,
+    pub total_known_sum: Option<i64>,
+    pub distinct_sessions: Option<i64>,
+}
+
 /// 完整导出包。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ExchangeExport {
@@ -176,13 +228,15 @@ pub struct ExchangeExport {
     pub host: ExchangeHost,
     pub sources: Vec<ExchangeSource>,
     pub records: Vec<ExchangeRecord>,
-    /// 封存/已清理明细的日分区（与 records 互补；同时导出时以 records 明细为准，
-    /// 分区仅在对应明细缺失时作为汇总对照）。
+    /// 全部日分区，包含仍有明细的近期日期。聚合导入仅使用这些分区，
+    /// 不把 records 再次相加；桌面聚合导出省略 records。
     #[serde(default)]
     pub daily_partitions: Vec<ExchangeDailyPartition>,
     /// 小时层（今日小时图在明细删除后的数据来源）。
     #[serde(default)]
     pub hourly_partitions: Vec<ExchangeHourlyPartition>,
+    #[serde(default)]
+    pub period_partitions: Vec<ExchangePeriodPartition>,
 }
 
 /// 导出请求。
@@ -192,8 +246,8 @@ pub struct ExportRequest {
     /// 事件时间下界/上界（毫秒，半开区间语义由调用方定义并写入导出）。
     pub from_ms: i64,
     pub to_ms: i64,
-    /// 只导出这些来源实例；空 = 全部。
-    pub instances: Vec<String>,
+    /// None = all sources; Some([]) = empty selection.
+    pub instances: Option<Vec<String>>,
     /// true 时省略主机名（导出脱敏）。
     pub redact_hostnames: bool,
     pub kind: ExchangeKind,
@@ -206,9 +260,27 @@ pub fn build_export(
     request: &ExportRequest,
     now_ms: i64,
 ) -> Result<ExchangeExport, CoreError> {
+    build_export_inner(storage, request, now_ms, true)
+}
+
+/// Aggregate-only desktop exchange omits raw request/session identities.
+pub fn build_aggregate_export(
+    storage: &Storage,
+    request: &ExportRequest,
+    now_ms: i64,
+) -> Result<ExchangeExport, CoreError> {
+    build_export_inner(storage, request, now_ms, false)
+}
+
+fn build_export_inner(
+    storage: &Storage,
+    request: &ExportRequest,
+    now_ms: i64,
+    include_records: bool,
+) -> Result<ExchangeExport, CoreError> {
+    let snapshot = storage.conn().unchecked_transaction()?;
     let local_host = storage.local_host_id()?;
-    // 本导出实现只从本库导出：主机身份取 local_origin_host_id；
-    // 多主机历史（导入产生）在完整 Merge 排期后扩展为按 host 分包。
+    // 包主机取本机身份；每个来源另存原始主机，避免再导出改写历史归属。
     let Some(host_id) = local_host else {
         return Err(CoreError::Validation(
             "export requires an initialized local origin host".into(),
@@ -234,16 +306,12 @@ pub fn build_export(
     };
 
     // 来源注册：本导出涉及的实例（含其 origin_host_id 关联的原始注册信息）。
-    let instance_filter = if request.instances.is_empty() {
-        None
-    } else {
-        Some(request.instances.clone())
-    };
+    let instance_filter = &request.instances;
     let mut sources = Vec::new();
     {
         let mut stmt = storage.conn().prepare(
             "SELECT instance_id, agent, format, parser_version, locality_basis,
-                    attribution_status, created_at_ms, capabilities
+                    attribution_status, created_at_ms, capabilities, origin_host_id
              FROM source_instances",
         )?;
         let rows = stmt.query_map([], |r| {
@@ -256,6 +324,7 @@ pub fn build_export(
                 r.get::<_, String>(5)?,
                 r.get::<_, i64>(6)?,
                 r.get::<_, Option<String>>(7)?,
+                r.get::<_, Option<String>>(8)?,
             ))
         })?;
         for row in rows {
@@ -268,6 +337,7 @@ pub fn build_export(
                 attribution_status,
                 created_at_ms,
                 capabilities,
+                origin_host_id,
             ) = row?;
             if let Some(list) = &instance_filter {
                 if !list.contains(&instance_id) {
@@ -287,6 +357,7 @@ pub fn build_export(
                 attribution_status,
                 first_seen_ms: created_at_ms,
                 completeness,
+                origin_host_id: origin_host_id.filter(|id| id != "legacy_unknown"),
             });
         }
     }
@@ -297,7 +368,7 @@ pub fn build_export(
         .iter()
         .map(|s| s.source_instance_id.clone())
         .collect();
-    {
+    if include_records {
         let mut stmt = storage.conn().prepare(
             "SELECT source_instance_id, source_record_key, record_kind, schema_version,
                     parser_version, parse_basis, occurred_at_ms, source_time, time_basis,
@@ -351,17 +422,18 @@ pub fn build_export(
         }
     }
 
-    // 封存日分区（明细可能已清理，分区保留来源与修订）。
+    // 全部日分区（含近期未封存日期），保留来源、修订和完整性计数。
     let mut partitions = Vec::new();
     {
         let mut stmt = storage.conn().prepare(
             "SELECT tz_version, local_day, instance_id, agent, provider_id, model_raw,
                     call_category, quality_bucket, event_count, call_count,
                     input_known_sum, cache_read_known_sum, cache_write_known_sum,
-                    output_known_sum, total_known_sum, conflict_count, sealed, data_revision
-             FROM daily_usage WHERE sealed = 1",
+                    output_known_sum, total_known_sum, conflict_count, sealed, data_revision,
+                    attempt_count, observation_count, input_known_count, input_unknown_count, uncached_known_count, cache_read_known_count, cache_write_known_count, output_known_count, output_unknown_count, total_known_count, total_unknown_count, ratio_sample_count, uncached_known_sum, ratio_input_sum, ratio_cache_read_sum
+             FROM daily_usage WHERE tz_version = ?1",
         )?;
-        let rows = stmt.query_map([], |r| {
+        let rows = stmt.query_map([&request.timezone], |r| {
             Ok(ExchangeDailyPartition {
                 tz_version: r.get(0)?,
                 local_day: r.get(1)?,
@@ -381,11 +453,28 @@ pub fn build_export(
                 conflict_count: r.get(15)?,
                 sealed: r.get::<_, i64>(16)? != 0,
                 data_revision: r.get(17)?,
+                statistics: Some(ExchangeDailyStatistics {
+                    attempt_count: r.get(18)?,
+                    observation_count: r.get(19)?,
+                    input_known_count: r.get(20)?,
+                    input_unknown_count: r.get(21)?,
+                    uncached_known_count: r.get(22)?,
+                    cache_read_known_count: r.get(23)?,
+                    cache_write_known_count: r.get(24)?,
+                    output_known_count: r.get(25)?,
+                    output_unknown_count: r.get(26)?,
+                    total_known_count: r.get(27)?,
+                    total_unknown_count: r.get(28)?,
+                    ratio_sample_count: r.get(29)?,
+                    uncached_known_sum: r.get(30)?,
+                    ratio_input_sum: r.get(31)?,
+                    ratio_cache_read_sum: r.get(32)?,
+                }),
             })
         })?;
         for row in rows {
             let p = row?;
-            if wanted.contains(&p.instance_id) {
+            if wanted.contains(&p.instance_id) && day_in_request(request, &p.local_day)? {
                 partitions.push(p);
             }
         }
@@ -398,10 +487,10 @@ pub fn build_export(
             "SELECT tz_version, local_day, hour, instance_id, agent, provider_id, model_raw,
                     call_category, quality_bucket, event_count, call_count,
                     input_known_sum, cache_read_known_sum, cache_write_known_sum,
-                    output_known_sum, total_known_sum, data_revision
-             FROM hourly_usage",
+                    output_known_sum, total_known_sum, data_revision, conflict_count
+             FROM hourly_usage WHERE tz_version = ?1",
         )?;
-        let rows = stmt.query_map([], |r| {
+        let rows = stmt.query_map([&request.timezone], |r| {
             Ok(ExchangeHourlyPartition {
                 tz_version: r.get(0)?,
                 local_day: r.get(1)?,
@@ -420,16 +509,58 @@ pub fn build_export(
                 output_known_sum: r.get(14)?,
                 total_known_sum: r.get(15)?,
                 data_revision: r.get(16)?,
+                conflict_count: r.get(17)?,
             })
         })?;
         for row in rows {
             let h = row?;
-            if wanted.contains(&h.instance_id) {
+            if wanted.contains(&h.instance_id) && day_in_request(request, &h.local_day)? {
                 hourly.push(h);
             }
         }
     }
 
+    let mut periods = Vec::new();
+    {
+        let mut stmt = storage.conn().prepare("SELECT tz_version, granularity, period_key, period_start_day, period_end_day, instance_id, agent, provider_id, model_raw, call_category, quality_bucket, event_count, call_count, conflict_count, active_days, materialized_at_ms, data_revision, input_known_sum, cache_read_known_sum, cache_write_known_sum, output_known_sum, total_known_sum, distinct_sessions FROM period_usage WHERE tz_version=?1")?;
+        let rows = stmt.query_map([&request.timezone], |r| {
+            Ok(ExchangePeriodPartition {
+                tz_version: r.get(0)?,
+                granularity: r.get(1)?,
+                period_key: r.get(2)?,
+                period_start_day: r.get(3)?,
+                period_end_day: r.get(4)?,
+                instance_id: r.get(5)?,
+                agent: r.get(6)?,
+                provider_id: r.get(7)?,
+                model_raw: r.get(8)?,
+                call_category: r.get(9)?,
+                quality_bucket: r.get(10)?,
+                event_count: r.get(11)?,
+                call_count: r.get(12)?,
+                conflict_count: r.get(13)?,
+                active_days: r.get(14)?,
+                materialized_at_ms: r.get(15)?,
+                data_revision: r.get(16)?,
+                input_known_sum: r.get(17)?,
+                cache_read_known_sum: r.get(18)?,
+                cache_write_known_sum: r.get(19)?,
+                output_known_sum: r.get(20)?,
+                total_known_sum: r.get(21)?,
+                distinct_sessions: r.get(22)?,
+            })
+        })?;
+        for row in rows {
+            let p = row?;
+            if wanted.contains(&p.instance_id)
+                && day_in_request(request, &p.period_start_day)?
+                && day_in_request(request, &p.period_end_day)?
+            {
+                periods.push(p);
+            }
+        }
+    }
+    snapshot.commit()?;
     Ok(ExchangeExport {
         format_version: EXCHANGE_FORMAT_VERSION.to_string(),
         kind: request.kind.clone(),
@@ -444,7 +575,14 @@ pub fn build_export(
         records,
         daily_partitions: partitions,
         hourly_partitions: hourly,
+        period_partitions: periods,
     })
+}
+
+fn day_in_request(request: &ExportRequest, day: &str) -> Result<bool, CoreError> {
+    let calendar = crate::calendar::Calendar::new(&request.timezone)?;
+    let (start, end) = calendar.day_range_ms(crate::calendar::parse_date(day)?)?;
+    Ok(start >= request.from_ms && end <= request.to_ms)
 }
 
 /// 合并判定输入：现存记录元数据（导入侧从库中读出）。

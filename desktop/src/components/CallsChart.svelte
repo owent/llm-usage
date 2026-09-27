@@ -1,18 +1,6 @@
 <script lang="ts">
-  /**
-   * 次数趋势图（任务 C5）：调用次数（折线，2026-09-26 由柱改线）+ 会话数（折线）
-   * 双 y 轴，分组维度多系列也全部为平滑折线；
-   * y 轴单位自动缩放（fmtSmart），tooltip 显示千分位精确值（任务 B3）；
-   * 面板底部带平均耗时/总耗时文字摘要（任务 C6）。
-   * 分组维度（2026-09-26）：总用量/按模型/按Agent/按Agent+模型；分组数据经
-   * chart_series 命令从聚合表直读（低计算量），多系列 legend + 按系列 tooltip；
-   * 维度选择为分段按钮组（DimensionPicker，非下拉）。
-   * 布局修复：grid.left ≥ 70 给 y 轴标签/轴名留位，legend 顶部居中
-   * （top 0 + left center），不再与左上 y 轴名重叠；双 y 轴首轴名左对齐 +
-   * nameGap 拉开距离。
-   */
   import { onMount } from 'svelte';
-  import { setupTooltipAutoHide } from '../lib/chart';
+  import { setChartOption, setupTooltipAutoHide, escapeHtml, CHART_PALETTE } from '../lib/chart';
   import * as echarts from 'echarts/core';
   import { LineChart } from 'echarts/charts';
   import type { LineSeriesOption } from 'echarts/charts';
@@ -46,6 +34,7 @@
   let dimension = $state<ChartDimension>('total');
   let grouped = $state<ChartGroupData | null>(null);
   let groupedError = $state('');
+  let groupedScope = '';
 
   let el: HTMLDivElement;
   let chart: echarts.ECharts | null = null;
@@ -59,27 +48,27 @@
 
   function applyOption(option: echarts.EChartsCoreOption, key: string): void {
     if (!chart) return;
-    if (key === lastRenderKey) chart.setOption(option);
-    else chart.setOption(option, { notMerge: true });
+    if (key === lastRenderKey) setChartOption(chart, isDark, option);
+    else setChartOption(chart, isDark, option, { notMerge: true });
     lastRenderKey = key;
   }
 
   const duration = $derived(durationStatsOf(periods));
 
   /** 主题感知色：全局文字（axis/legend 继承）与 y 轴分隔线。 */
-  const chartText = $derived(isDark ? '#aaa' : '#555');
-  const splitColor = $derived(isDark ? '#3a3b3f' : '#e0e0e0');
+  const chartText = $derived(isDark ? '#b0bfd4' : '#5b6a82');
+  const splitColor = $derived(isDark ? '#2c3a52' : '#e8edf5');
 
-  const PALETTE = [
-    '#1a56c4', '#3f8f5f', '#c9a227', '#b3601e', '#7a5fb0',
-    '#2f8f8f', '#c46a9a', '#8a8f36', '#5d6b9e', '#a05f46',
-  ];
+  const PALETTE = CHART_PALETTE;
 
   // 分组数据：dimension/query 变化时经 chart_series 拉取；失败时保底显示错误文案。
   $effect(() => {
     const q = query;
+    void periods;
     void dimension;
-    grouped = null;
+    const scope = JSON.stringify([q, dimension]);
+    if (groupedScope !== scope) grouped = null;
+    groupedScope = scope;
     groupedError = '';
     if (dimension === 'total') return;
     const dim = dimension;
@@ -98,7 +87,8 @@
   });
 
   function renderTotal() {
-    if (!chart || !periods.length) return;
+    if (!chart) return;
+    if (!periods.length) { chart.clear(); lastRenderKey = ''; return; }
     const labels = periods.map((p) => {
       let label = p.label;
       if (p.in_progress) label += t('trend.inProgress');
@@ -106,7 +96,7 @@
       return label;
     });
     const calls = periods.map((p) => p.sums.call_count);
-    const sessions = periods.map((p) => p.distinct_sessions ?? 0);
+    const sessions = periods.map((p) => p.distinct_sessions);
     applyOption(
       {
         tooltip: {
@@ -190,9 +180,9 @@
           hideDelay: 0, transitionDuration: 0,
           formatter: (params: { dataIndex: number; marker: string; seriesName?: string; value: number }[]) => {
             const label = g.labels[params[0]?.dataIndex ?? 0] ?? '';
-            const lines = [`<b>${label}</b>`];
+            const lines = [`<b>${escapeHtml(label)}</b>`];
             for (const p of params) {
-              if (p.value) lines.push(`${p.marker}${p.seriesName}: ${fmtPrecise(p.value)}`);
+              if (p.value) lines.push(`${p.marker}${escapeHtml(p.seriesName)}: ${fmtPrecise(p.value)}`);
             }
             return lines.join('<br/>');
           },
@@ -315,7 +305,7 @@
     gap: 10px;
     padding: 6px 0 0;
     flex-wrap: wrap;
-    font-size: 12.5px;
+    font-size: 13px;
   }
   .dim-error {
     color: var(--danger);

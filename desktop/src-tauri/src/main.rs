@@ -10,6 +10,7 @@ use tauri::Manager;
 
 mod app_state;
 mod commands;
+mod process_guard;
 mod scanner;
 
 use app_state::AppState;
@@ -44,13 +45,41 @@ fn db_path() -> std::path::PathBuf {
 
 fn main() {
     let headless = std::env::args().any(|a| a == "--headless" || a == "--scan-once");
-    let state = match AppState::init(db_path(), &hostname()) {
+    let path = db_path();
+    let _owner = match process_guard::acquire(&path) {
+        Ok(Some(owner)) => owner,
+        Ok(None) => {
+            if headless {
+                if let Err(error) = process_guard::request_refresh(&path, scanner::now_ms()) {
+                    eprintln!("could not queue refresh: {error}");
+                    std::process::exit(1);
+                }
+                println!("refresh queued for the running application");
+            } else {
+                rfd::MessageDialog::new()
+                    .set_title("LLM Usage")
+                    .set_description(
+                        "应用已在运行，请使用已打开的窗口。\nLLM Usage is already running.",
+                    )
+                    .show();
+            }
+            return;
+        }
+        Err(error) => {
+            eprintln!("could not acquire application lock: {error}");
+            std::process::exit(1);
+        }
+    };
+    let state = match AppState::init(path, &hostname(), !headless) {
         Ok(s) => Arc::new(s),
         Err(e) if e == "__EXIT_SCHEMA_MISMATCH__" => {
             println!("user declined database rebuild; exiting");
             return;
         }
-        Err(e) => panic!("init app state: {e}"),
+        Err(e) => {
+            eprintln!("could not initialize application: {e}");
+            std::process::exit(1);
+        }
     };
 
     if headless {
@@ -72,6 +101,9 @@ fn main() {
             started,
             refresh.instances.len()
         );
+        if refresh.instances.iter().any(|i| i.status == "failed") {
+            std::process::exit(1);
+        }
         return;
     }
 
@@ -125,7 +157,6 @@ fn main() {
             commands::pick_open_path,
             commands::clear_all_data,
             commands::clear_all_preview,
-            commands::zcode_db_backfill,
             commands::event_details,
             commands::export_filter_options,
             commands::chart_series,

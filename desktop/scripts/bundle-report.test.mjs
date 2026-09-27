@@ -41,7 +41,7 @@ test('macOS app directory becomes a nonempty archive and repeated reports do not
   assert.equal(report.bundles.length, 1);
   assert.equal(report.bundles[0].path, 'macos/Test App.app.tar.gz');
   assert.ok(report.bundles[0].bytes > 0);
-  const contents = spawnSync('tar', ['--force-local', '-tzf', join(root, report.bundles[0].path)], { encoding: 'utf8', windowsHide: true });
+  const contents = spawnSync('tar', ['-tzf', report.bundles[0].path], { cwd: root, encoding: 'utf8', windowsHide: true });
   assert.equal(contents.status, 0, contents.stderr);
   assert.match(contents.stdout, /Test App\.app\/Contents\/MacOS\/test/);
 });

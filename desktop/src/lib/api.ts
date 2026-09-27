@@ -66,6 +66,7 @@ export interface MetricSumsDto {
   cache_input_ratio: number | null;
   avg_duration_ms: string | null;
   total_duration_ms: string | null;
+  duration_sample_count: number;
 }
 
 export interface PeriodDto {
@@ -84,6 +85,8 @@ export interface SummaryDto {
   timezone: string;
   periods: PeriodDto[];
   totals: MetricSumsDto;
+  distinct_sessions: number | null;
+  active_days: number | null;
   models: { provider: string | null; model: string | null; sums: MetricSumsDto }[];
   agents: { agent: string; sums: MetricSumsDto }[];
   today_hourly: {
@@ -93,14 +96,14 @@ export interface SummaryDto {
     input_total: string | null;
     cache_read: string | null;
     output_total: string | null;
-    sessions: number;
+    sessions: number | null;
     avg_duration_ms: string | null;
   }[];
   excluded_event_count: number;
 }
 
 export interface HeatmapDto {
-  cells: { weekday: number; hour: number; calls: number; total_tokens: string | null }[];
+  cells: { day: string; weekday: number; calls: number; total_tokens: string | null; available: boolean; partial: boolean }[];
 }
 
 export interface SourceDto {
@@ -113,6 +116,8 @@ export interface SourceDto {
   user_id: string;
   last_success_ms: number | null;
   compat_files: number;
+  degraded_files: number;
+  unsupported_files: number;
   incompatible_files: number;
   /** 注册过但磁盘已不存在（Agent 自行清理/压实）：其历史只存于本应用存档。 */
   missing_files: number;
@@ -207,14 +212,6 @@ export interface ClearAllPreviewDto {
   total_files: number;
 }
 
-/** zcode db 回填结果计数。 */
-export interface ZcodeBackfillDto {
-  db_rows: number;
-  matched_existing: number;
-  added: number;
-  updated: number;
-}
-
 /** 用量明细分页行（event_details 命令）。token 为十进制字符串。 */
 export interface EventDetailRowDto {
   event_id: string;
@@ -251,6 +248,9 @@ export type ChartDimension = 'total' | 'model' | 'agent' | 'agent_model';
 
 /** 维度分组时间序列行（token 为十进制字符串或 null=未知）。 */
 export interface ChartSeriesRowDto {
+  cache_write: string | null;
+  uncached: string | null;
+  cache_ratio: number | null;
   label: string;
   series: string;
   calls: number;
@@ -327,7 +327,6 @@ export const api = {
   manualCleanup: (daysBefore: number) => invoke<CleanupResultDto>('manual_cleanup', { daysBefore }),
   clearAllData: () => invoke<ClearAllDataResultDto>('clear_all_data'),
   clearAllPreview: () => invoke<ClearAllPreviewDto>('clear_all_preview'),
-  zcodeDbBackfill: () => invoke<ZcodeBackfillDto>('zcode_db_backfill'),
   pickOpenPath: (extension: string) => invoke<string | null>('pick_open_path', { extension }),
 };
 

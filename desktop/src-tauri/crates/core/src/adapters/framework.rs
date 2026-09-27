@@ -219,6 +219,17 @@ pub trait SourceAdapter {
     ) -> Result<ScanOutcome, CoreError>;
     /// 结构化能力声明。
     fn capability(&self) -> CapabilityTable;
+
+    /// A verified authoritative archive can replace file scanning for this root.
+    /// Errors must remain visible; never silently add a second carrier's counts.
+    fn scan_archive(
+        &self,
+        _storage: &Storage,
+        _root: &DiscoveredRoot,
+        _config: &RunConfig,
+    ) -> Result<Option<BatchOutcome>, CoreError> {
+        Ok(None)
+    }
 }
 
 /// 规范化路径字符串（统一分隔符并去除 Windows verbatim 前缀；仅用于本地身份）。
@@ -302,7 +313,31 @@ pub fn upsert_source_instance(
         .origin_host_id
         .clone()
         .unwrap_or_else(|| LEGACY_UNKNOWN_HOST.to_string());
-    storage.conn().execute(
+    let tx = storage.conn().unchecked_transaction()?;
+    let previous: Option<(Option<String>, Option<String>)> = tx
+        .query_row(
+            "SELECT parser_version, capabilities FROM source_instances WHERE instance_id=?1",
+            [&input.instance_id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .optional()?;
+    if previous.is_some_and(|(parser, capabilities)| {
+        let old: serde_json::Value = capabilities
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or_default();
+        parser.as_deref() != Some(&input.parser_version)
+            || old["supported_versions"] != input.capabilities["supported_versions"]
+    }) {
+        tx.execute(
+            "DELETE FROM ingestion_checkpoints WHERE instance_id=?1",
+            [&input.instance_id],
+        )?;
+        tx.execute(
+            "UPDATE source_files SET status='new', format_status=NULL WHERE instance_id=?1",
+            [&input.instance_id],
+        )?;
+    }
+    tx.execute(
         "INSERT INTO source_instances (
            instance_id, agent, host_application, locality_basis, attribution_status,
            exclusion_reason, enabled, format, location_hint, parser_version, capabilities,
@@ -341,6 +376,7 @@ pub fn upsert_source_instance(
             now_ms
         ],
     )?;
+    tx.commit()?;
     Ok(())
 }
 
@@ -577,7 +613,14 @@ pub fn run_adapter_scan(
     let mut seen: BTreeSet<String> = BTreeSet::new();
     let roots: Vec<DiscoveredRoot> = roots
         .into_iter()
-        .filter(|r| seen.insert(normalize_path(&r.root).to_lowercase()))
+        .filter(|r| {
+            let path = normalize_path(&r.root);
+            seen.insert(if cfg!(windows) {
+                path.to_lowercase()
+            } else {
+                path
+            })
+        })
         .collect();
     let capability = adapter.capability();
     for (index, root) in roots.iter().enumerate() {
@@ -635,6 +678,47 @@ pub fn run_adapter_scan(
             }
         }
         let active_run = report.run_id.clone().unwrap_or(run_id);
+        if matches!(report.start, Some(RunStart::Merged(_))) {
+            reports.push(report);
+            continue;
+        }
+        match adapter.scan_archive(storage, root, config) {
+            Ok(Some(outcome)) => {
+                let stats = RunStats {
+                    added: outcome.added,
+                    updated: outcome.updated,
+                    unchanged: outcome.unchanged,
+                    skipped: outcome.skipped,
+                    errors: outcome.errors,
+                };
+                report.outcome = Some(outcome);
+                jobs::finish_run(
+                    storage,
+                    &active_run,
+                    RunStatus::Succeeded,
+                    stats,
+                    None,
+                    config.now_ms,
+                )?;
+                reports.push(report);
+                continue;
+            }
+            Err(e) => {
+                report.finish = RunStatus::Failed;
+                report.error = Some(e.to_string());
+                jobs::finish_run(
+                    storage,
+                    &active_run,
+                    report.finish,
+                    RunStats::default(),
+                    report.error.as_deref(),
+                    config.now_ms,
+                )?;
+                reports.push(report);
+                continue;
+            }
+            Ok(None) => {}
+        }
         let mut batch = IngestBatch {
             batch_id: format!("{}-batch", active_run),
             instance_id: instance_id.clone(),
@@ -665,6 +749,8 @@ pub fn run_adapter_scan(
                     report.files.push(fr);
                 }
                 Err(e) => {
+                    report.finish = RunStatus::Failed;
+                    report.error = Some(e.to_string());
                     report.files.push(FileReport {
                         file_id: normalize_path(path),
                         status: "error".to_string(),
@@ -679,7 +765,18 @@ pub fn run_adapter_scan(
         }
         // 无任何文件变化时跳过提交（无变化扫描不推进修订号）。
         if any_scanned || !batch.events.is_empty() || !batch.checkpoints.is_empty() {
-            match ingest::commit_batch(storage, &batch, None) {
+            let committed = (|| {
+                let tx = storage.conn().unchecked_transaction()?;
+                let mut outcome = ingest::commit_batch_tx(storage, &tx, &batch, None, false)?;
+                // 原生汇总与事件、游标一起提交；任一失败均可完整重放。
+                for aggregate in &aggregates {
+                    crate::aggregates::upsert_source_aggregate_tx(&tx, aggregate, config.now_ms)?;
+                }
+                outcome.data_revision = storage.data_revision()?;
+                tx.commit()?;
+                Ok::<_, CoreError>(outcome)
+            })();
+            match committed {
                 Ok(outcome) => report.outcome = Some(outcome),
                 Err(e) => {
                     report.finish = RunStatus::Failed;
@@ -696,10 +793,6 @@ pub fn run_adapter_scan(
                     continue;
                 }
             }
-            for aggregate in &aggregates {
-                // 汇总用于对账，独立于事件事务；重放幂等。
-                crate::aggregates::upsert_source_aggregate(storage, aggregate, config.now_ms)?;
-            }
         }
         let stats = report
             .outcome
@@ -715,9 +808,9 @@ pub fn run_adapter_scan(
         jobs::finish_run(
             storage,
             &active_run,
-            RunStatus::Succeeded,
+            report.finish,
             stats,
-            None,
+            report.error.as_deref(),
             config.now_ms,
         )?;
         reports.push(report);
@@ -902,7 +995,15 @@ fn scan_one_file(
     let outcome = adapter.scan(&target, &stored, &config.limits, config.now_ms)?;
     // 未知版本兼容尝试的失败判定（V30）：读到记录、零事件且带结构诊断 ⇒ 判不兼容，
     // 保留旧结果、不提交事件/游标/聚合；下轮解析器更新或显式重扫可重新尝试。
-    let fallback_failed = detect_basis == Some(crate::domain::VersionBasis::LatestFallback)
+    let compat_basis = detect_basis.or_else(|| {
+        row.format_status
+            .as_deref()
+            .and_then(|json| serde_json::from_str::<serde_json::Value>(json).ok())
+            .and_then(|value| value.get("basis")?.as_str().map(str::to_string))
+            .and_then(|basis| crate::domain::VersionBasis::parse(&basis).ok())
+    });
+    let fallback_failed = (stored.cursor.is_none() || rescan)
+        && compat_basis == Some(crate::domain::VersionBasis::LatestFallback)
         && outcome.events.is_empty()
         && outcome.records_seen > 0
         && !outcome.diagnostics.is_empty();
@@ -929,17 +1030,17 @@ fn scan_one_file(
     row.tail_hash = probe.tail_hash;
     row.status = if fallback_failed {
         "incompatible".to_string()
-    } else if detect_basis == Some(crate::domain::VersionBasis::LatestFallback) {
-        "active_compat".to_string()
     } else if outcome.health == "degraded" || outcome.status == ScanStatus::LineTooLong {
         "degraded".to_string()
+    } else if compat_basis == Some(crate::domain::VersionBasis::LatestFallback) {
+        "active_compat".to_string()
     } else {
         "active".to_string()
     };
     upsert_source_file(storage, instance_id, &row, config.now_ms)?;
     let report_detail = if fallback_failed {
         Some("latest parser produced no validatable records; kept old results".to_string())
-    } else if detect_basis == Some(crate::domain::VersionBasis::LatestFallback) {
+    } else if compat_basis == Some(crate::domain::VersionBasis::LatestFallback) {
         Some(format!(
             "latest_fallback: version compatibility unverified (found: {})",
             row.format_status

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { setupTooltipAutoHide } from '../lib/chart';
+  import { setChartOption, setupTooltipAutoHide } from '../lib/chart';
   import * as echarts from 'echarts/core';
   import { BarChart } from 'echarts/charts';
   import { GridComponent, TooltipComponent } from 'echarts/components';
@@ -13,7 +13,7 @@
     cells,
     isDark = false,
   }: {
-    cells: { weekday: number; calls: number }[];
+    cells: { weekday: number; calls: number; available?: boolean; partial?: boolean }[];
     /** 深色主题（父级传入；变化时重绘轴文字与分隔线）。 */
     isDark?: boolean;
   } = $props();
@@ -22,8 +22,8 @@
   let chart: echarts.ECharts | null = null;
 
   /** 主题感知色：全局文字（axis 继承）与 y 轴分隔线。 */
-  const chartText = $derived(isDark ? '#aaa' : '#555');
-  const splitColor = $derived(isDark ? '#3a3b3f' : '#e0e0e0');
+  const chartText = $derived(isDark ? '#b0bfd4' : '#5b6a82');
+  const splitColor = $derived(isDark ? '#2c3a52' : '#e8edf5');
 
   // 周一=0 … 周日=6（后端 weekday 1–7）；周名按当前语言 Intl 生成。
   // 2024-01-01 是周一，作为周名基准日。
@@ -46,7 +46,7 @@
 
   function render() {
     if (!chart) return;
-    chart.setOption(
+    setChartOption(chart, isDark,
       {
         tooltip: {
           trigger: 'axis',
@@ -107,10 +107,14 @@
 </script>
 
 <div bind:this={el} class="weekday"></div>
+{#if cells.some((cell) => cell.available === false || cell.partial)}
+  <p class="coverage">{t('trend.weekdayCoverage')}</p>
+{/if}
 
 <style>
   .weekday {
     width: 100%;
     height: 260px;
   }
+  .coverage { color: var(--text-muted); font-size: 12px; margin: 2px 0 0; }
 </style>

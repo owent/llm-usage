@@ -125,7 +125,8 @@ fn v09_process_restart_replay_is_idempotent() {
         assert_eq!(state1.0, state2.0);
         assert_eq!(state1.1, state2.1);
         assert_eq!(state1.3, state2.3);
-        assert!(state2.4 > state1.4);
+        // Replaying identical data advances checkpoints, not visible data.
+        assert_eq!(state2.4, state1.4);
     }
 }
 

@@ -129,9 +129,19 @@ pub fn upsert_source_aggregate(
     input: &SourceAggregateInput,
     now_ms: i64,
 ) -> Result<bool, CoreError> {
-    input.validate()?;
     let tx = storage.conn().unchecked_transaction()?;
-    if let Some(floor) = crate::retention::hard_retention_floor(&tx)? {
+    let changed = upsert_source_aggregate_tx(&tx, input, now_ms)?;
+    tx.commit()?;
+    Ok(changed)
+}
+
+pub(crate) fn upsert_source_aggregate_tx(
+    tx: &rusqlite::Transaction<'_>,
+    input: &SourceAggregateInput,
+    now_ms: i64,
+) -> Result<bool, CoreError> {
+    input.validate()?;
+    if let Some(floor) = crate::retention::hard_retention_floor(tx)? {
         if input.interval_start_ms.map_or(true, |start| start < floor)
             || input.interval_end_ms < floor
         {
@@ -164,7 +174,6 @@ pub fn upsert_source_aggregate(
         }
         if !matches!((input.source_revision, *old_rev), (Some(new), Some(old)) if new > old) {
             tx.execute("INSERT INTO diagnostics (instance_id, code, message, created_ms) VALUES (?1, 'aggregate_conflict', 'ambiguous aggregate revision; kept existing value', ?2)", params![input.instance_id, now_ms])?;
-            tx.commit()?;
             return Ok(false);
         }
     }
@@ -228,8 +237,7 @@ pub fn upsert_source_aggregate(
             now_ms
         ],
     )?;
-    Storage::bump_data_revision_tx(&tx, now_ms)?;
-    tx.commit()?;
+    Storage::bump_data_revision_tx(tx, now_ms)?;
     Ok(true)
 }
 

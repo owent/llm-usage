@@ -6,7 +6,7 @@ mod common;
 
 use common::*;
 use llm_usage_core::ingest::commit_batch;
-use llm_usage_core::query::{query_summary, Filters, Granularity, SummaryRequest};
+use llm_usage_core::query::{heatmap_cells, query_summary, Filters, Granularity, SummaryRequest};
 use llm_usage_core::retention_tiered::{enforce_tiered_retention, TieredRetentionPolicy};
 
 fn request(first: &str, last: &str, granularity: Granularity) -> SummaryRequest {
@@ -137,6 +137,39 @@ fn tiered_retention_prunes_by_layer_and_materializes_history() {
     .unwrap();
     assert_eq!(s2.totals.call_count, 3, "重复执行不增量");
     assert_eq!(s2.totals.total_tokens_known, Some(231));
+    let daily_heatmap = heatmap_cells(
+        &storage,
+        "UTC",
+        llm_usage_core::calendar::parse_date("2025-12-15").unwrap(),
+        llm_usage_core::calendar::parse_date("2026-09-26").unwrap(),
+        &Filters::default(),
+    )
+    .unwrap();
+    assert!(!daily_heatmap[0].available, "周期归档不能假装还原出每日值");
+    assert_eq!(daily_heatmap.iter().map(|c| c.call_count).sum::<i64>(), 2);
+    storage
+        .conn()
+        .execute(
+            "DELETE FROM settings WHERE key = 'daily_retention_floor:UTC'",
+            [],
+        )
+        .unwrap();
+    let imported_period_only = heatmap_cells(
+        &storage,
+        "UTC",
+        llm_usage_core::calendar::parse_date("2025-12-15").unwrap(),
+        llm_usage_core::calendar::parse_date("2025-12-15").unwrap(),
+        &Filters {
+            agents: vec!["AGENT-A".into()],
+            models: vec!["M".into()],
+            ..Filters::default()
+        },
+    )
+    .unwrap();
+    assert!(
+        !imported_period_only[0].available,
+        "缺少截止线的周期归档仍不能显示为零调用"
+    );
 }
 
 #[test]

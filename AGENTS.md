@@ -32,7 +32,9 @@ Windows 11 x64 首发，GitHub CI 保留 macOS/Linux；WSL 构建不等于 Linux
 
 ```powershell
 npm ci
+npm --prefix desktop ci
 npm run verify          # lint:md + svelte-check + cargo fmt/clippy/test + 前端构建
+npm run test:browser    # 浏览器交互回归；Windows 使用已安装 Edge
 npm run dev:desktop     # 开发模式拉起 GUI（debug 构建，不打包；dev:web 仅前端）
 npm run build:desktop   # Tauri release 构建
 git diff --check

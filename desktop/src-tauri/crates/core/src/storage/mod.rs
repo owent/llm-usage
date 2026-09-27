@@ -11,6 +11,18 @@ use std::time::Duration;
 /// 默认 busy_timeout：有界，避免长读者/写者死等。
 pub const DEFAULT_BUSY_TIMEOUT: Duration = Duration::from_millis(5_000);
 
+// SQLite's built-in lower/NOCASE only handle ASCII. Use the same Unicode
+// lowercase mapping for SQL filters and Rust grouping, including old rows.
+fn register_functions(conn: &Connection) -> Result<(), rusqlite::Error> {
+    use rusqlite::functions::FunctionFlags;
+    conn.create_scalar_function(
+        "fold_name",
+        1,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        |ctx| Ok(ctx.get::<Option<String>>(0)?.map(|s| s.to_lowercase())),
+    )
+}
+
 pub struct OpenOptions {
     pub busy_timeout: Duration,
     /// 本程序支持的最新 schema 版本；None 表示 [`schema::SCHEMA_VERSION`]。
@@ -64,6 +76,7 @@ impl Storage {
     /// 库不存在或无读权限时报错（调用方显示空态/错误，不回退到建新库）。
     pub fn open_readonly(path: &Path) -> Result<Self, CoreError> {
         let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+        register_functions(&conn)?;
         conn.busy_timeout(DEFAULT_BUSY_TIMEOUT)?;
         Ok(Storage {
             conn,
@@ -72,6 +85,7 @@ impl Storage {
     }
 
     fn setup(conn: Connection, path: PathBuf, options: OpenOptions) -> Result<Self, CoreError> {
+        register_functions(&conn)?;
         let supported = options
             .max_supported_version
             .unwrap_or(schema::SCHEMA_VERSION);

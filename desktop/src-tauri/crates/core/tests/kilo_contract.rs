@@ -23,6 +23,31 @@ use common::*;
 const NOW: i64 = 1_800_000_000_000;
 
 #[test]
+fn archived_sessions_before_and_after_collection_keep_the_same_usage() {
+    let dir = TempDir::new("kilo-archived");
+    let root = build_kilo_db_from_fixture(&dir, "session-7.4.9-family.sanitized.json");
+    let path = root.join(".local/share/kilo/kilo.db");
+    let source = rusqlite::Connection::open(path).unwrap();
+    source
+        .execute("UPDATE session SET time_archived=?1", [NOW])
+        .unwrap();
+    let (_db, storage) = temp_storage("kilo-archived");
+    run_kilo(&storage, &root, NOW);
+    let before = summary(&storage, "2026-01-01", "2026-12-31").totals;
+    assert_eq!(before.call_count, 51);
+    assert_eq!(before.total_tokens_known, Some(2_313_424));
+    source
+        .execute("UPDATE session SET time_archived=NULL", [])
+        .unwrap();
+    run_kilo(&storage, &root, NOW + 1);
+    source
+        .execute("UPDATE session SET time_archived=?1", [NOW + 2])
+        .unwrap();
+    run_kilo(&storage, &root, NOW + 2);
+    assert_eq!(summary(&storage, "2026-01-01", "2026-12-31").totals, before);
+}
+
+#[test]
 fn contract_family_fixture_full_pipeline_matches_expectations() {
     let dir = TempDir::new("kilo-family");
     let root = build_kilo_db_from_fixture(&dir, "session-7.4.9-family.sanitized.json");
@@ -75,7 +100,7 @@ fn contract_family_fixture_full_pipeline_matches_expectations() {
     );
 
     // 事件键与白名单字段（kilo:msg:{message.id} 稳定身份）。
-    let row: (
+    type RowRow = (
         Option<i64>,
         Option<i64>,
         Option<i64>,
@@ -87,7 +112,8 @@ fn contract_family_fixture_full_pipeline_matches_expectations() {
         String,
         String,
         String,
-    ) = conn
+    );
+    let row: RowRow = conn
         .query_row(
             "SELECT input_total, input_cache_read, input_uncached, output_total, \
              output_reasoning, total_tokens, provider_id, model_raw, session_id, \

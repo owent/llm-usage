@@ -365,7 +365,7 @@ fn export_contains_contract_fields_and_round_trips() {
         timezone: "UTC".to_string(),
         from_ms: 0,
         to_ms: 4_102_444_800_000,
-        instances: vec![],
+        instances: None,
         redact_hostnames: true,
         kind: ExchangeKind::FullSnapshot,
         batch_id: "batch-1".to_string(),

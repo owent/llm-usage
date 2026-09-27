@@ -37,7 +37,7 @@ function readPage(page: string): Record<string, PanelGroupLayout> {
 export function loadPanelGroup(page: string, group: string, ids: string[]): PanelGroupLayout {
   const saved = readPage(page)[group];
   const savedOrder = Array.isArray(saved?.order) ? (saved?.order as string[]) : [];
-  const order = ids.filter((id) => savedOrder.includes(id));
+  const order = [...new Set(savedOrder.filter((id) => ids.includes(id)))];
   for (const id of ids) {
     if (!order.includes(id)) order.push(id);
   }

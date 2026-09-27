@@ -8,6 +8,9 @@
 - 脱敏 fixture 的中间产物放已忽略的 `build/desktop-usage-validation/`，本目录只引用其清单与结论，
   不复制私人数据或绝对个人路径。
 
+包含 2026-09-25 起九个提交的审查、归档统计、UI 改进及本轮验证见
+[2026-09-27 审查记录](review-2026-09-27.md)。
+
 应用图标、资源预览、Windows 图标嵌入与 LFS 迁移的实际结果见 [静态资源验证](static-assets.md)。
 最近两次提交的缺陷、修复、升级兼容与回归结果见 [M0/M1 审查](m0-m1-review.md)。
 M2 的 Codex 适配器验收见 [m2a-codex.md](m2a-codex.md)；pi/oh-my-pi/Claude/Gemini/Qwen

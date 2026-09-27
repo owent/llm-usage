@@ -14,9 +14,11 @@
     "dev:desktop": "npm --prefix desktop run tauri -- dev",
     "test:rust": "cargo test --manifest-path desktop/src-tauri/Cargo.toml --locked",
     "test:scripts": "node --test desktop/scripts/*.test.mjs",
-    "clippy": "cargo clippy --manifest-path desktop/src-tauri/Cargo.toml --locked -- -D warnings",
-    "fmt:check": "cargo fmt --manifest-path desktop/src-tauri/Cargo.toml --check",
-    "verify": "npm run lint:md && npm run assets:check && npm run test:scripts && npm run check && npm run fmt:check && npm run clippy && npm run test:rust && npm run build:web"
+    "test:ui": "node --experimental-strip-types --test desktop/tests/*.test.mjs",
+    "test:browser": "node desktop/tests/browser-smoke.mjs",
+    "clippy": "cargo clippy --manifest-path desktop/src-tauri/Cargo.toml --workspace --all-targets --locked -- -D warnings",
+    "fmt:check": "cargo fmt --manifest-path desktop/src-tauri/Cargo.toml --all --check",
+    "verify": "npm run lint:md && npm run assets:check && npm run test:scripts && npm run test:ui && npm run check && npm run fmt:check && npm run clippy && npm run test:rust && npm run build:web"
   },
   "devDependencies": {
     "markdownlint-cli2": "0.23.3"

@@ -3,6 +3,16 @@
  */
 import type { ChartSeriesRowDto, PeriodDto } from './api';
 
+/** A model can appear under several providers; a name-only pie combines them. */
+export function mergeNamedValues(rows: { name: string; value: number }[]) {
+  const sums = new Map<string, number>();
+  for (const row of rows) {
+    const name = row.name.toLowerCase();
+    sums.set(name, (sums.get(name) ?? 0) + row.value);
+  }
+  return [...sums].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+}
+
 export interface DurationStats {
   /** 每次调用平均耗时（毫秒）；无已知数据时 null。 */
   avgMs: number | null;
@@ -18,7 +28,7 @@ export function durationStatsOf(periods: PeriodDto[]): DurationStats {
   for (const p of periods) {
     if (p.sums.total_duration_ms !== null) {
       totalMs += Number(p.sums.total_duration_ms);
-      calls += p.sums.call_count;
+      calls += p.sums.duration_sample_count;
       known = true;
     }
   }
@@ -33,6 +43,9 @@ export interface ChartGroupCell {
   calls: number;
   input: number | null;
   cacheRead: number | null;
+  cacheWrite: number | null;
+  uncached: number | null;
+  cacheRatio: number | null;
   output: number | null;
   total: number | null;
 }
@@ -70,6 +83,9 @@ export function pivotChartSeries(rows: ChartSeriesRowDto[]): ChartGroupData {
         calls: r.calls,
         input: r.input === null ? null : Number(r.input),
         cacheRead: r.cache_read === null ? null : Number(r.cache_read),
+        cacheWrite: r.cache_write == null ? null : Number(r.cache_write),
+        uncached: r.uncached == null ? null : Number(r.uncached),
+        cacheRatio: r.cache_ratio ?? null,
         output: r.output === null ? null : Number(r.output),
         total: r.total === null ? null : Number(r.total),
       });

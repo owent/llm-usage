@@ -1,7 +1,7 @@
 # 平台、GitHub CI 与 WSL 验证
 
-状态：待实现。用户已确认 Windows 11 x64 首发，同时保留 macOS/Linux 的 GitHub CI。
-本文件规定将来必须建立的真实任务，本轮不创建 workflow、不启动构建或安装 WSL。
+状态：三平台 workflow 已建立，首次远端运行仍待推送后登记。用户已确认 Windows 11 x64 首发，
+同时保留 macOS/Linux 的 GitHub CI。本文件保留验收合同；实际执行情况见验证记录。
 用户已确认按本方案推进：runner/工具链/Linux 基线在 M0 固定，WSL/WSLg 可用性在 M0 探测；
 macOS/Linux 不承诺首发发行支持。这些属于实施核验，不再作为开工前待用户确认事项。
 
@@ -39,6 +39,13 @@ M0 在代码骨架具备后建立三平台作业；M1–M6 逐步加入实际测
 5. 独立 release 资源任务测包体和性能；通用托管 runner 时序只作回归信号，不能代替固定机器 P95。
 6. 构建依赖下载可以联网；统计运行和验收禁止出站访问用量/计费服务。fixtures 全部合成或脱敏，
    不上传个人数据库/原始会话。离线用例覆盖有遥测开关时的行为。
+
+2026-09-27 检查入口已补齐：`cargo fmt --all --check`、
+`cargo clippy --workspace --all-targets --locked -- -D warnings` 覆盖核心 crate 与测试目标；
+前端作业运行 TypeScript 纯逻辑测试和 Playwright 浏览器回归。后者使用合成 IPC 数据，
+覆盖主题、时区、快速筛选、用户隔离和刷新，不计为第 4 项原生桌面验收。
+本轮仅本机 Windows 执行，未触发远端 CI，见
+[本轮记录](../../validation/desktop-usage/review-2026-09-27.md)。
 
 矩阵使用 fail-fast=false 留下全部结果；每作业有超时，重跑只针对已定位的临时基础设施故障。
 缓存键包含 OS、架构、Rust/Node 版本和锁文件摘要，隔离不同 target，不缓存真实 Agent 数据。

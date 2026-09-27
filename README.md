@@ -1,6 +1,6 @@
 # llm-usage
 
-[![status](https://img.shields.io/badge/status-M0_%E8%BF%9B%E8%A1%8C%E4%B8%AD_%C2%B7_Pre--Alpha-orange)](Plan.md)
+[![status](https://img.shields.io/badge/status-Pre--Alpha-orange)](Plan.md)
 [![platform](https://img.shields.io/badge/platform-Windows_11_x64_%E9%A6%96%E5%8F%91-0078D6)](docs/design/desktop-usage/platform-ci.md)
 [![CI targets](https://img.shields.io/badge/CI-Windows_%C2%B7_macOS_%C2%B7_Linux-informational)](docs/design/desktop-usage/platform-ci.md)
 [![数据范围](https://img.shields.io/badge/%E7%BB%9F%E8%AE%A1%E8%8C%83%E5%9B%B4-%E4%BB%85%E6%9C%AC%E6%9C%BA_Agent_%E6%95%B0%E6%8D%AE-blue)](docs/design/desktop-usage/data-contract.md)
@@ -15,18 +15,18 @@
 [![SQLite](https://img.shields.io/badge/SQLite-rusqlite_0.40-003B57?logo=sqlite)](https://www.sqlite.org)
 [![ECharts](https://img.shields.io/badge/ECharts-6.1-AA344D?logo=apacheecharts)](https://echarts.apache.org)
 
-[![verify](https://img.shields.io/badge/npm_run_verify-%E9%80%9A%E8%BF%87_2026--09--24-brightgreen)](docs/validation/desktop-usage/)
+[![verify](https://img.shields.io/badge/npm_run_verify-%E9%80%9A%E8%BF%87_2026--09--27-brightgreen)](docs/validation/desktop-usage/review-2026-09-27.md)
 [![Git LFS](https://img.shields.io/badge/Git_LFS-%E9%9D%99%E6%80%81%E8%B5%84%E6%BA%90-blue?logo=git)](desktop/assets/README.md)
 [![repo size](https://img.shields.io/github/repo-size/owent/llm-usage)](https://github.com/owent/llm-usage)
 [![last commit](https://img.shields.io/github/last-commit/owent/llm-usage)](https://github.com/owent/llm-usage/commits)
 [![issues](https://img.shields.io/github/issues/owent/llm-usage)](https://github.com/owent/llm-usage/issues)
 [![languages](https://img.shields.io/github/languages/count/owent/llm-usage)](https://github.com/owent/llm-usage)
 
-本项目计划提供本地 AI Agent 用量桌面客户端，统计各模型的 token、请求和缓存使用。
-实施前的设计准备已完成；M0 进行中，桌面客户端尚未实现。
+本项目提供本地 AI Agent 用量桌面客户端，统计各模型的 token、请求和缓存使用。
+目前处于预发布阶段，已实现总览、趋势、详情、数据源和设置；支持范围及未完成验收见执行计划。
 
 已确认 Windows 11 x64 首发，GitHub CI 保留 macOS/Linux，本地可尝试 WSL 构建。
-所有 Agent 均保留本地支持计划，缺证 IDE 后移 F1；仅统计本机来源，支持计划中的界面定时提取配置。
+所有 Agent 均保留本地支持计划，缺证 IDE 后移 F1；仅统计本机来源，支持在界面配置定时提取。
 用户已允许实施时提取本机真实 Agent 数据验证。
 
 - [执行计划](Plan.md)：未完成任务与验收条件。
@@ -57,13 +57,18 @@ npm run dev:desktop     # 开发模式拉起 GUI（debug 构建 + 热重载，�
 npm run check           # 前端类型检查（svelte-check）
 npm run build:web       # 前端产物构建
 npm run test:rust       # Rust 测试
+npm run test:ui         # 前端纯逻辑回归
+npm run test:browser    # 五页浏览器回归（模拟 IPC；Windows 使用已安装的 Edge）
 npm run clippy          # Rust 静态检查（-D warnings）
 npm run fmt:check       # Rust 格式检查
 npm run build:desktop   # 桌面 release 构建（产出 NSIS/deb/AppImage/.app 按平台）
-npm run verify          # 以上检查与测试的一条龙（不含 build:desktop）
+npm run verify          # 文档、类型、脚本/前端单元测试、Rust 检查与测试、前端构建
 ```
 
-`npm run verify` 与 `npm run dev:desktop` 已于 2026-09-24 实测退出码 0、GUI 窗口正常出现；
+`test:browser` 单独执行，会启动并关闭临时 Vite 服务；截图写入 `build/browser-smoke/`。
+非 Windows 环境先在 `desktop` 中运行 `npx playwright install chromium`。
+浏览器检查模拟 IPC，不能替代原生桌面、系统任务和安装验收；本轮证据见
+[审查记录](docs/validation/desktop-usage/review-2026-09-27.md)。
 日常功能验证用 dev:desktop 即可，不必打包。业务命令与锁定版本以
 `desktop/package.json`、`desktop/src-tauri/Cargo.toml` 及各自锁文件为准。
 文档检查不代替业务验收；M0 实测证据见 [验证记录](docs/validation/desktop-usage/)。

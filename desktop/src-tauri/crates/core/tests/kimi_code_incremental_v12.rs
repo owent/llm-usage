@@ -90,7 +90,7 @@ fn append_continues_from_cursor_and_reconciliation_persists() {
         .join("main")
         .join("wire.jsonl");
     std::fs::create_dir_all(wire_path.parent().unwrap()).unwrap();
-    std::fs::write(&wire_path, &base_file()).unwrap();
+    std::fs::write(&wire_path, base_file()).unwrap();
     let root = dir.path().to_path_buf();
     let (_db, storage) = temp_storage("kimi-code-append");
 
@@ -173,7 +173,7 @@ fn truncation_triggers_rescan() {
         .join("main")
         .join("wire.jsonl");
     std::fs::create_dir_all(wire_path.parent().unwrap()).unwrap();
-    std::fs::write(&wire_path, &base_file()).unwrap();
+    std::fs::write(&wire_path, base_file()).unwrap();
     let root = dir.path().to_path_buf();
     let (_db, storage) = temp_storage("kimi-code-trunc");
 
@@ -246,7 +246,7 @@ fn rename_keeps_identity() {
         .join("session_syn-inc")
         .join("agents");
     std::fs::create_dir_all(agents.join("main")).unwrap();
-    std::fs::write(agents.join("main").join("wire.jsonl"), &base_file()).unwrap();
+    std::fs::write(agents.join("main").join("wire.jsonl"), base_file()).unwrap();
     let root = dir.path().to_path_buf();
     let (_db, storage) = temp_storage("kimi-code-rename");
 

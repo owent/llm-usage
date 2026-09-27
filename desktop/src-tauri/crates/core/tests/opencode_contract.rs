@@ -21,6 +21,29 @@ use std::path::{Path, PathBuf};
 
 const NOW: i64 = 1_800_000_000_000;
 
+#[test]
+fn archived_session_flag_does_not_hide_or_duplicate_calls() {
+    let dir = TempDir::new("opencode-archived");
+    let root = build_opencode_db_from_fixture(&dir, "synthetic-step-finish");
+    let source = rusqlite::Connection::open(root.join("opencode.db")).unwrap();
+    source
+        .execute("UPDATE session SET time_archived=?1", [NOW])
+        .unwrap();
+    let (_db, storage) = temp_storage("opencode-archived");
+    run_opencode(&storage, &root, NOW);
+    let before = summary(&storage, "2026-01-01", "2026-12-31").totals;
+    assert_eq!(before.call_count, 3);
+    source
+        .execute("UPDATE session SET time_archived=NULL", [])
+        .unwrap();
+    run_opencode(&storage, &root, NOW + 1);
+    source
+        .execute("UPDATE session SET time_archived=?1", [NOW + 2])
+        .unwrap();
+    run_opencode(&storage, &root, NOW + 2);
+    assert_eq!(summary(&storage, "2026-01-01", "2026-12-31").totals, before);
+}
+
 fn opencode_fixture(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests")

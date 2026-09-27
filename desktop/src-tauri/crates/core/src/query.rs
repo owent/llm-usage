@@ -9,7 +9,7 @@ use crate::metrics::Ratio;
 use crate::storage::Storage;
 use jiff::civil::Date;
 use jiff::Span;
-use rusqlite::params;
+use rusqlite::{params, OptionalExtension};
 use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -29,22 +29,26 @@ pub struct Filters {
     pub models: Vec<String>,
     pub quality_buckets: Vec<QualityBucket>,
     /// 来源实例白名单（多用户：app 层把当前用户的来源集合传入）；
-    /// 空 = 不过滤。事件表按 source_instance_id、汇总表按 instance_id 过滤。
-    pub instances: Vec<String>,
+    /// None = no restriction; Some([]) = no owned sources, therefore no rows.
+    pub instances: Option<Vec<String>>,
 }
 
 impl Filters {
     fn matches(&self, row: &DailyRow) -> bool {
         let any_match = |filter: &[String], value: &str| {
             filter.is_empty()
-                || filter
-                    .iter()
-                    .any(|f| f == value || (f == "unknown" && value.is_empty()))
+                || filter.iter().any(|f| {
+                    f.to_lowercase() == value.to_lowercase()
+                        || (f.eq_ignore_ascii_case("unknown") && value.is_empty())
+                })
         };
         any_match(&self.agents, &row.agent)
             && any_match(&self.providers, &row.provider_id)
             && any_match(&self.models, &row.model_raw)
-            && (self.instances.is_empty() || self.instances.iter().any(|i| i == &row.instance_id))
+            && self
+                .instances
+                .as_ref()
+                .map_or(true, |ids| ids.contains(&row.instance_id))
             && (self.quality_buckets.is_empty()
                 || self
                     .quality_buckets
@@ -76,6 +80,7 @@ pub struct MetricSums {
     pub avg_duration_ms: Option<i64>,
     /// 总耗时（毫秒）。
     pub total_duration_ms: Option<i64>,
+    pub duration_sample_count: i64,
     pub input_known_count: i64,
     pub input_unknown_count: i64,
     pub uncached_known: Option<i64>,
@@ -213,6 +218,9 @@ pub struct Summary {
     pub totals: MetricSums,
     /// 模型分组（含 unknown 独立行）；总计必须包含其已知 token。
     pub model_breakdown: Vec<ModelRow>,
+    pub agent_breakdown: Vec<AgentRow>,
+    pub distinct_sessions: Option<i64>,
+    pub active_days: Option<i64>,
     /// 范围内归属未核验/被排除的事件数（未计入 totals）。
     pub excluded_event_count: i64,
 }
@@ -226,8 +234,10 @@ struct DailyRow {
     agent: String,
     provider_id: String,
     model_raw: String,
+    call_category: String,
     quality_bucket: String,
     sealed: bool,
+    from_period: bool,
     event_count: i64,
     call_count: i64,
     attempt_count: i64,
@@ -285,301 +295,89 @@ fn period_key_of(
 /// 执行汇总查询。
 pub fn query_summary(storage: &Storage, request: &SummaryRequest) -> Result<Summary, CoreError> {
     if request.last_day < request.first_day {
-        return Err(CoreError::Query("last_day before first_day".to_string()));
+        return Err(CoreError::Query("last_day before first_day".into()));
     }
     let calendar = Calendar::new(&request.timezone)?;
-    // 所有 SELECT 共用 SQLite 读快照，修订号不能来自较晚的提交。
     let snapshot = storage.conn().unchecked_transaction()?;
     let revision = storage.data_revision()?;
-    let rows = if request.granularity == Granularity::Hour {
-        // 小时粒度：从 hourly_usage 读（按日+小时展开为"周期"行）。
-        load_hourly_as_daily(
-            storage,
-            &request.timezone,
-            request.first_day,
-            request.last_day,
-        )?
-    } else {
-        load_daily_rows(
-            storage,
-            &request.timezone,
-            request.first_day,
-            request.last_day,
-        )?
-    };
-    let rows: Vec<DailyRow> = rows
-        .into_iter()
-        .filter(|r| request.filters.matches(r))
-        .collect();
-
-    // 周期分组键。
-    let key_of = |day: Date, hour: Option<i64>| -> (String, Date, Date) {
-        period_key_of(
+    let rows = load_summary_rows(storage, request)?;
+    let (details, by_period) = detail_stats(storage, &calendar, request)?;
+    let mut groups: BTreeMap<(Date, String), (Date, Vec<&DailyRow>)> = BTreeMap::new();
+    let mut models: BTreeMap<(String, String), MetricSums> = BTreeMap::new();
+    let mut agents: BTreeMap<String, MetricSums> = BTreeMap::new();
+    let mut totals = MetricSums::default();
+    for row in &rows {
+        let (label, start, end) = period_key_of(
             &calendar,
             request.granularity,
             request.week_start,
-            day,
-            hour,
-        )
-    };
-
-    let mut groups: BTreeMap<(Date, String), (Date, Date, Vec<&DailyRow>)> = BTreeMap::new();
-    for row in &rows {
-        let (label, start, end) = key_of(row.local_day, row.hour);
+            row.local_day,
+            row.hour,
+        );
         groups
             .entry((start, label))
-            .or_insert_with(|| (start, end, Vec::new()))
-            .2
+            .or_insert_with(|| (end, Vec::new()))
+            .1
             .push(row);
+        totals.add_row(row)?;
+        models
+            .entry((row.provider_id.to_lowercase(), row.model_raw.to_lowercase()))
+            .or_default()
+            .add_row(row)?;
+        agents
+            .entry(row.agent.to_lowercase())
+            .or_default()
+            .add_row(row)?;
     }
-
     let mut periods = Vec::new();
-    let mut totals = MetricSums::default();
-    for ((start, label), (_, end, group_rows)) in &groups {
+    for ((start, label), (end, group)) in groups {
         let mut sums = MetricSums::default();
-        let mut any_sealed = false;
-        for row in group_rows {
+        for row in &group {
             sums.add_row(row)?;
-            any_sealed |= row.sealed;
         }
-        totals.add_row_merged(&sums)?;
-        let (utc_start_ms, utc_end_ms) = period_range_ms(&calendar, *start, *end)?;
-        let in_progress = request.today >= *start && request.today <= *end;
-        let mut partial_history = request
-            .retention_cutoff
-            .is_some_and(|cutoff| *start < cutoff);
-        // 封存日 = 明细已清理：distinct 会话等明细指标不可得。
-        let details_available = !any_sealed;
-        if any_sealed {
-            partial_history = true;
+        let sealed = group.iter().any(|r| r.sealed);
+        let stats = by_period.get(&label);
+        if !sealed {
+            set_duration(&mut sums, stats);
         }
-        let (distinct_sessions, active_days) = if details_available {
-            let (selected_start, selected_end) = period_range_ms(
-                &calendar,
-                (*start).max(request.first_day),
-                (*end).min(request.last_day),
-            )?;
-            let (s, d) = session_stats(
-                storage,
-                &calendar,
-                selected_start,
-                selected_end,
-                &request.filters,
-            )?;
-            (Some(s), Some(d))
-        } else {
-            (None, None)
-        };
+        let (utc_start_ms, utc_end_ms) = period_range_ms(&calendar, start, end)?;
         periods.push(PeriodRow {
-            label: label.clone(),
-            start_day: *start,
-            end_day: *end,
+            label,
+            start_day: start,
+            end_day: end,
             utc_start_ms,
             utc_end_ms,
-            in_progress,
-            partial_history,
+            in_progress: request.today >= start && request.today <= end,
+            partial_history: sealed
+                || request
+                    .retention_cutoff
+                    .is_some_and(|cutoff| start < cutoff),
+            distinct_sessions: (!sealed && !stats.is_some_and(|s| s.unknown_session))
+                .then(|| stats.map_or(0, |s| s.sessions.len() as i64)),
+            active_days: active_days(&group),
+            avg_duration_ms: sums.avg_duration_ms,
+            total_duration_ms: sums.total_duration_ms,
             sums,
-            distinct_sessions,
-            active_days,
-            avg_duration_ms: None,
-            total_duration_ms: None,
         });
     }
-
-    // 物化周期合并（分级归档）：日层保留期外的历史周/月来自 period_usage；
-    // 日层已覆盖的周期不重复计入（同一周期二选一，日层更新鲜含进行中状态）。
-    if matches!(request.granularity, Granularity::Week | Granularity::Month) {
-        let granularity_str = match request.granularity {
-            Granularity::Week => "week",
-            _ => "month",
-        };
-        let covered: BTreeSet<String> = periods.iter().map(|p| p.label.clone()).collect();
-        struct MatAgg {
-            start: String,
-            end: String,
-            sums: MetricSums,
-            active_days: i64,
-        }
-        let mut materialized: BTreeMap<String, MatAgg> = BTreeMap::new();
-        {
-            let mut stmt = storage.conn().prepare(
-                "SELECT period_key, period_start_day, period_end_day, instance_id, agent,
-                        provider_id, model_raw, event_count, call_count,
-                        input_known_sum, cache_read_known_sum, cache_write_known_sum,
-                        output_known_sum, total_known_sum, conflict_count, active_days
-                 FROM period_usage
-                 WHERE tz_version = ?1 AND granularity = ?2
-                   AND period_end_day >= ?3 AND period_start_day <= ?4",
-            )?;
-            let mat_rows = stmt.query_map(
-                params![
-                    request.timezone,
-                    granularity_str,
-                    request.first_day.to_string(),
-                    request.last_day.to_string()
-                ],
-                |r| {
-                    Ok((
-                        r.get::<_, String>(0)?,
-                        r.get::<_, String>(1)?,
-                        r.get::<_, String>(2)?,
-                        r.get::<_, String>(3)?,
-                        r.get::<_, String>(4)?,
-                        r.get::<_, String>(5)?,
-                        r.get::<_, String>(6)?,
-                        r.get::<_, i64>(7)?,
-                        r.get::<_, i64>(8)?,
-                        r.get::<_, Option<i64>>(9)?,
-                        r.get::<_, Option<i64>>(10)?,
-                        r.get::<_, Option<i64>>(11)?,
-                        r.get::<_, Option<i64>>(12)?,
-                        r.get::<_, Option<i64>>(13)?,
-                        r.get::<_, i64>(14)?,
-                        r.get::<_, i64>(15)?,
-                    ))
-                },
-            )?;
-            for row in mat_rows {
-                let (
-                    key,
-                    start,
-                    end,
-                    instance,
-                    agent,
-                    provider,
-                    model,
-                    event_count,
-                    call_count,
-                    input,
-                    cache_read,
-                    cache_write,
-                    output,
-                    total,
-                    conflict,
-                    active_days,
-                ) = row?;
-                let filter_row = DailyRow {
-                    local_day: parse_date(&start)
-                        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
-                    instance_id: instance,
-                    hour: None,
-                    agent,
-                    provider_id: provider,
-                    model_raw: model,
-                    quality_bucket: String::new(),
-                    sealed: true,
-                    event_count: 0,
-                    call_count: 0,
-                    attempt_count: 0,
-                    observation_count: 0,
-                    input_known_sum: input,
-                    input_known_count: 0,
-                    input_unknown_count: 0,
-                    uncached_known_sum: None,
-                    cache_read_known_sum: cache_read,
-                    cache_write_known_sum: cache_write,
-                    output_known_sum: output,
-                    output_known_count: 0,
-                    output_unknown_count: 0,
-                    total_known_sum: total,
-                    total_known_count: 0,
-                    total_unknown_count: 0,
-                    ratio_input_sum: None,
-                    ratio_cache_read_sum: None,
-                    ratio_sample_count: 0,
-                    conflict_count: conflict,
-                };
-                if !request.filters.matches(&filter_row) {
-                    continue;
-                }
-                let agg = materialized.entry(key.clone()).or_insert_with(|| MatAgg {
-                    start: start.clone(),
-                    end: end.clone(),
-                    sums: MetricSums::default(),
-                    active_days: 0,
-                });
-                agg.sums.event_count += event_count;
-                agg.sums.call_count += call_count;
-                agg.sums.conflict_count += conflict;
-                agg.sums.input_total_known = merge_opt(agg.sums.input_total_known, input);
-                agg.sums.cache_read_known = merge_opt(agg.sums.cache_read_known, cache_read);
-                agg.sums.cache_write_known = merge_opt(agg.sums.cache_write_known, cache_write);
-                agg.sums.output_total_known = merge_opt(agg.sums.output_total_known, output);
-                agg.sums.total_tokens_known = merge_opt(agg.sums.total_tokens_known, total);
-                agg.active_days = agg.active_days.max(active_days);
-            }
-        }
-        for (key, agg) in materialized {
-            if covered.contains(&key) {
-                continue;
-            }
-            let start_day = parse_date(&agg.start)
-                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
-            let end_day = parse_date(&agg.end)
-                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
-            let (utc_start_ms, utc_end_ms) = period_range_ms(&calendar, start_day, end_day)?;
-            totals.event_count += agg.sums.event_count;
-            totals.call_count += agg.sums.call_count;
-            totals.conflict_count += agg.sums.conflict_count;
-            totals.input_total_known =
-                merge_opt(totals.input_total_known, agg.sums.input_total_known);
-            totals.cache_read_known = merge_opt(totals.cache_read_known, agg.sums.cache_read_known);
-            totals.cache_write_known =
-                merge_opt(totals.cache_write_known, agg.sums.cache_write_known);
-            totals.output_total_known =
-                merge_opt(totals.output_total_known, agg.sums.output_total_known);
-            totals.total_tokens_known =
-                merge_opt(totals.total_tokens_known, agg.sums.total_tokens_known);
-            periods.push(PeriodRow {
-                label: key,
-                start_day,
-                end_day,
-                utc_start_ms,
-                utc_end_ms,
-                in_progress: false,
-                partial_history: true,
-                sums: agg.sums,
-                distinct_sessions: None,
-                active_days: Some(agg.active_days),
-                avg_duration_ms: None,
-                total_duration_ms: None,
-            });
-        }
-        periods.sort_by_key(|p| p.start_day);
+    let sealed = rows.iter().any(|r| r.sealed);
+    if !sealed {
+        set_duration(&mut totals, Some(&details));
     }
-
-    // 模型分组：unknown（空串）保留独立行；大小写不敏感合并（GLM-5.3 与
-    // glm-5.3 是同一模型）；provider/model 前缀变体在显示层统一。
-    let mut model_groups: BTreeMap<(String, String), MetricSums> = BTreeMap::new();
-    for row in &rows {
-        let key = (
-            row.provider_id.clone().to_lowercase(),
-            row.model_raw.clone().to_lowercase(),
-        );
-        model_groups.entry(key).or_default().add_row(row)?;
-    }
-    // 显示名：从原始行反查该小写键的首个原始变体。
-    let display_name = |lower: &str| -> Option<String> {
-        rows.iter()
-            .find(|r| r.model_raw.to_lowercase() == lower && !r.model_raw.is_empty())
-            .map(|r| r.model_raw.clone())
-    };
-    let model_breakdown = model_groups
+    let model_breakdown = models
         .into_iter()
         .map(|((provider, model), sums)| ModelRow {
-            provider_id: if provider.is_empty() {
-                None
-            } else {
-                display_name(&provider).or(Some(provider))
-            },
-            model_raw: if model.is_empty() { None } else { Some(model) },
+            provider_id: (!provider.is_empty()).then_some(provider),
+            model_raw: (!model.is_empty()).then_some(model),
             sums,
         })
         .collect();
-
+    let agent_breakdown = agents
+        .into_iter()
+        .map(|(agent, sums)| AgentRow { agent, sums })
+        .collect();
     let excluded_event_count = count_excluded(storage, &calendar, request)?;
     snapshot.commit()?;
-
     Ok(Summary {
         data_revision: revision,
         timezone: request.timezone.clone(),
@@ -587,58 +385,221 @@ pub fn query_summary(storage: &Storage, request: &SummaryRequest) -> Result<Summ
         periods,
         totals,
         model_breakdown,
+        agent_breakdown,
         excluded_event_count,
+        distinct_sessions: (!sealed && !details.unknown_session)
+            .then_some(details.sessions.len() as i64),
+        active_days: active_days(&rows.iter().collect::<Vec<_>>()),
     })
 }
 
-impl MetricSums {
-    fn add_row_merged(&mut self, other: &MetricSums) -> Result<(), CoreError> {
-        Self::checked_add_opt(
-            &mut self.input_total_known,
-            other.input_total_known,
-            "input_total",
-        )?;
-        Self::checked_add_opt(
-            &mut self.uncached_known,
-            other.uncached_known,
-            "input_uncached",
-        )?;
-        Self::checked_add_opt(
-            &mut self.cache_read_known,
-            other.cache_read_known,
-            "input_cache_read",
-        )?;
-        Self::checked_add_opt(
-            &mut self.cache_write_known,
-            other.cache_write_known,
-            "input_cache_write",
-        )?;
-        Self::checked_add_opt(
-            &mut self.output_total_known,
-            other.output_total_known,
-            "output_total",
-        )?;
-        Self::checked_add_opt(
-            &mut self.total_tokens_known,
-            other.total_tokens_known,
-            "total_tokens",
-        )?;
-        self.input_known_count += other.input_known_count;
-        self.input_unknown_count += other.input_unknown_count;
-        self.output_known_count += other.output_known_count;
-        self.output_unknown_count += other.output_unknown_count;
-        self.total_known_count += other.total_known_count;
-        self.total_unknown_count += other.total_unknown_count;
-        self.event_count += other.event_count;
-        self.call_count += other.call_count;
-        self.attempt_count += other.attempt_count;
-        self.observation_count += other.observation_count;
-        self.conflict_count += other.conflict_count;
-        self.ratio_input_sum += other.ratio_input_sum;
-        self.ratio_cache_read_sum += other.ratio_cache_read_sum;
-        self.ratio_sample_count += other.ratio_sample_count;
-        Ok(())
+#[derive(Default)]
+struct DetailStats {
+    sessions: BTreeSet<(String, String)>,
+    unknown_session: bool,
+    duration_sum: i64,
+    duration_count: i64,
+}
+
+fn active_days(rows: &[&DailyRow]) -> Option<i64> {
+    (!rows.iter().any(|r| r.from_period)).then(|| {
+        rows.iter()
+            .filter(|r| r.event_count > 0)
+            .map(|r| r.local_day)
+            .collect::<BTreeSet<_>>()
+            .len() as i64
+    })
+}
+
+fn set_duration(sums: &mut MetricSums, details: Option<&DetailStats>) {
+    if let Some(d) = details.filter(|d| d.duration_count > 0) {
+        sums.total_duration_ms = Some(d.duration_sum);
+        sums.avg_duration_ms = Some(d.duration_sum / d.duration_count);
+        sums.duration_sample_count = d.duration_count;
     }
+}
+
+/// Read retained details once, rather than once for every period/dimension.
+fn detail_stats(
+    storage: &Storage,
+    calendar: &Calendar,
+    request: &SummaryRequest,
+) -> Result<(DetailStats, BTreeMap<String, DetailStats>), CoreError> {
+    let (start, end) = period_range_ms(calendar, request.first_day, request.last_day)?;
+    let mut sql = String::from(
+        "SELECT source_instance_id, session_id, occurred_at_ms, duration_ms, record_kind
+         FROM usage_events WHERE occurred_at_ms >= ?1 AND occurred_at_ms < ?2
+         AND attribution_status = 'verified'
+         AND record_kind IN ('model_call', 'transport_attempt', 'usage_observation')",
+    );
+    let mut values = vec![start.into(), end.into()];
+    append_filters(
+        &mut sql,
+        &mut values,
+        &request.filters,
+        "source_instance_id",
+    );
+    let mut stmt = storage.conn().prepare(&sql)?;
+    let mut records = stmt.query(rusqlite::params_from_iter(values))?;
+    let mut total = DetailStats::default();
+    let mut groups: BTreeMap<String, DetailStats> = BTreeMap::new();
+    while let Some(r) = records.next()? {
+        let instance: String = r.get(0)?;
+        let session: Option<String> = r.get(1)?;
+        let ms: i64 = r.get(2)?;
+        let duration: Option<i64> = r.get(3)?;
+        let kind: String = r.get(4)?;
+        let day = calendar.local_day_of(ms)?;
+        let (label, _, _) = period_key_of(
+            calendar,
+            request.granularity,
+            request.week_start,
+            day,
+            Some(calendar.local_hour_of(ms)? as i64),
+        );
+        let group = groups.entry(label).or_default();
+        for stats in [&mut total, group] {
+            if let Some(id) = session.as_ref().filter(|id| !id.is_empty()) {
+                stats.sessions.insert((instance.clone(), id.clone()));
+            } else {
+                stats.unknown_session = true;
+            }
+            if let Some(duration) = duration.filter(|d| *d >= 0 && kind == "model_call") {
+                stats.duration_sum = stats
+                    .duration_sum
+                    .checked_add(duration)
+                    .ok_or(CoreError::Overflow("duration_ms"))?;
+                stats.duration_count += 1;
+            }
+        }
+    }
+    Ok((total, groups))
+}
+
+/// One coverage selection for totals, models, agents and chart series.
+/// A complete materialized partition replaces its matching daily dimensions;
+/// it never replaces another source, nor gets assigned to a clipped interval.
+fn load_summary_rows(
+    storage: &Storage,
+    request: &SummaryRequest,
+) -> Result<Vec<DailyRow>, CoreError> {
+    if request.granularity == Granularity::Hour {
+        return Ok(load_hourly_as_daily(
+            storage,
+            &request.timezone,
+            request.first_day,
+            request.last_day,
+        )?
+        .into_iter()
+        .filter(|r| request.filters.matches(r))
+        .collect());
+    }
+    let mut rows = load_daily_rows(
+        storage,
+        &request.timezone,
+        request.first_day,
+        request.last_day,
+    )?;
+    let granularity = match request.granularity {
+        Granularity::Week if request.week_start == WeekStart::Monday => Some("week"),
+        Granularity::Month => Some("month"),
+        _ => None,
+    };
+    if let Some(granularity) = granularity {
+        let mut stmt = storage.conn().prepare(
+            "SELECT p.period_start_day, p.period_end_day, p.instance_id, p.agent, p.provider_id,
+                    p.model_raw, p.call_category, p.quality_bucket, p.event_count, p.call_count,
+                    p.input_known_sum, p.cache_read_known_sum, p.cache_write_known_sum,
+                    p.output_known_sum, p.total_known_sum, p.conflict_count
+             FROM period_usage p WHERE p.tz_version = ?1 AND p.granularity = ?2
+               AND p.period_start_day >= ?3 AND p.period_end_day <= ?4
+               AND (p.period_start_day < COALESCE((SELECT value FROM settings
+                   WHERE key = 'daily_retention_floor:' || p.tz_version), '')
+                 OR NOT EXISTS (
+                   SELECT 1 FROM daily_usage d WHERE d.tz_version = p.tz_version
+                     AND d.instance_id = p.instance_id AND d.agent = p.agent
+                     AND d.provider_id = p.provider_id AND d.model_raw = p.model_raw
+                     AND d.call_category = p.call_category AND d.quality_bucket = p.quality_bucket
+                     AND d.local_day BETWEEN p.period_start_day AND p.period_end_day))
+               AND NOT EXISTS (
+                 SELECT 1 FROM daily_usage d WHERE d.tz_version = p.tz_version
+                   AND d.instance_id = p.instance_id AND d.agent = p.agent
+                   AND d.provider_id = p.provider_id AND d.model_raw = p.model_raw
+                   AND d.call_category = p.call_category AND d.quality_bucket = p.quality_bucket
+                   AND d.local_day BETWEEN p.period_start_day AND p.period_end_day
+                   AND d.data_revision > p.data_revision)",
+        )?;
+        let mut records = stmt.query(params![
+            request.timezone,
+            granularity,
+            request.first_day.to_string(),
+            request.last_day.to_string()
+        ])?;
+        let mut archived = Vec::new();
+        while let Some(r) = records.next()? {
+            let start = parse_date(&r.get::<_, String>(0)?)?;
+            let row = DailyRow {
+                local_day: start,
+                hour: None,
+                instance_id: r.get(2)?,
+                agent: r.get(3)?,
+                provider_id: r.get(4)?,
+                model_raw: r.get(5)?,
+                call_category: r.get(6)?,
+                quality_bucket: r.get(7)?,
+                sealed: true,
+                from_period: true,
+                event_count: r.get(8)?,
+                call_count: r.get(9)?,
+                attempt_count: 0,
+                observation_count: 0,
+                input_known_sum: r.get(10)?,
+                input_known_count: 0,
+                input_unknown_count: 0,
+                uncached_known_sum: None,
+                cache_read_known_sum: r.get(11)?,
+                cache_write_known_sum: r.get(12)?,
+                output_known_sum: r.get(13)?,
+                output_known_count: 0,
+                output_unknown_count: 0,
+                total_known_sum: r.get(14)?,
+                total_known_count: 0,
+                total_unknown_count: 0,
+                ratio_input_sum: None,
+                ratio_cache_read_sum: None,
+                ratio_sample_count: 0,
+                conflict_count: r.get(15)?,
+            };
+            archived.push(row);
+        }
+        let calendar = Calendar::new(&request.timezone)?;
+        let dimension_key = |r: &DailyRow, day| {
+            (
+                day,
+                r.instance_id.clone(),
+                r.agent.clone(),
+                r.provider_id.clone(),
+                r.model_raw.clone(),
+                r.call_category.clone(),
+                r.quality_bucket.clone(),
+            )
+        };
+        let replaced: BTreeSet<_> = archived
+            .iter()
+            .map(|r| dimension_key(r, r.local_day))
+            .collect();
+        rows.retain(|r| {
+            let start = if granularity == "week" {
+                calendar.week_start_of(r.local_day, WeekStart::Monday)
+            } else {
+                calendar.month_start_of(r.local_day)
+            };
+            !replaced.contains(&dimension_key(r, start))
+        });
+        rows.extend(archived);
+    }
+    rows.retain(|r| request.filters.matches(r));
+    Ok(rows)
 }
 
 fn load_daily_rows(
@@ -656,7 +617,7 @@ fn load_daily_rows(
                 cache_write_known_sum,
                 output_known_sum, output_known_count, output_unknown_count,
                 total_known_sum, total_known_count, total_unknown_count,
-                ratio_input_sum, ratio_cache_read_sum, ratio_sample_count, conflict_count
+                ratio_input_sum, ratio_cache_read_sum, ratio_sample_count, conflict_count, call_category
          FROM daily_usage
          WHERE tz_version = ?1 AND local_day >= ?2 AND local_day <= ?3
          ORDER BY local_day",
@@ -672,8 +633,10 @@ fn load_daily_rows(
                 agent: r.get(2)?,
                 provider_id: r.get(3)?,
                 model_raw: r.get(4)?,
+                call_category: r.get(27)?,
                 quality_bucket: r.get(5)?,
                 sealed: r.get::<_, i64>(6)? != 0,
+                from_period: false,
                 event_count: r.get(7)?,
                 call_count: r.get(8)?,
                 attempt_count: r.get(9)?,
@@ -704,57 +667,10 @@ fn load_daily_rows(
     Ok(out)
 }
 
-fn merge_opt(a: Option<i64>, b: Option<i64>) -> Option<i64> {
-    match (a, b) {
-        (Some(x), Some(y)) => Some(x + y),
-        (Some(x), None) | (None, Some(x)) => Some(x),
-        (None, None) => None,
-    }
-}
-
 fn period_range_ms(calendar: &Calendar, start: Date, end: Date) -> Result<(i64, i64), CoreError> {
     let (s, _) = calendar.day_range_ms(start)?;
     let (_, e) = calendar.day_range_ms(end)?;
     Ok((s, e))
-}
-
-/// 跨周期会话统计：DISTINCT（源实例+会话 ID）；活跃本地日数。
-/// 明细索引按需查询；会话 ID 仅用于关联。
-fn session_stats(
-    storage: &Storage,
-    calendar: &Calendar,
-    utc_start_ms: i64,
-    utc_end_ms: i64,
-    filters: &Filters,
-) -> Result<(i64, i64), CoreError> {
-    let mut sql = String::from(
-        "SELECT DISTINCT source_instance_id, session_id, occurred_at_ms FROM usage_events
-         WHERE occurred_at_ms >= ?1 AND occurred_at_ms < ?2
-           AND attribution_status = 'verified'",
-    );
-    let mut values: Vec<rusqlite::types::Value> = vec![
-        rusqlite::types::Value::Integer(utc_start_ms),
-        rusqlite::types::Value::Integer(utc_end_ms),
-    ];
-    append_filters(&mut sql, &mut values, filters, "source_instance_id");
-    let mut stmt = storage.conn().prepare(&sql)?;
-    let rows = stmt.query_map(rusqlite::params_from_iter(values), |r| {
-        Ok((
-            r.get::<_, String>(0)?,
-            r.get::<_, Option<String>>(1)?,
-            r.get::<_, i64>(2)?,
-        ))
-    })?;
-    let mut sessions: BTreeSet<(String, String)> = BTreeSet::new();
-    let mut days: BTreeSet<Date> = BTreeSet::new();
-    for row in rows {
-        let (instance, session, ms) = row?;
-        if let Some(session) = session {
-            sessions.insert((instance, session));
-        }
-        days.insert(calendar.local_day_of(ms)?);
-    }
-    Ok((sessions.len() as i64, days.len() as i64))
 }
 
 /// 归属未核验/被排除的事件数：不进入总计，可按排除原因列出。
@@ -822,13 +738,13 @@ fn append_filters(
             if i > 0 {
                 clause.push_str(" OR ");
             }
-            if item == "unknown" && column != "agent" {
+            if item.eq_ignore_ascii_case("unknown") && column != "agent" {
                 clause.push_str(&format!(
-                    "({column} IS NULL OR {column} = '' OR {column} = 'unknown')"
+                    "({column} IS NULL OR {column} = '' OR fold_name({column}) = 'unknown')"
                 ));
             } else {
-                clause.push_str(&format!("{column} = ?{}", values.len() + 1));
-                values.push(rusqlite::types::Value::Text(item.clone()));
+                clause.push_str(&format!("fold_name({column}) = ?{}", values.len() + 1));
+                values.push(rusqlite::types::Value::Text(item.to_lowercase()));
             }
         }
         clause.push(')');
@@ -837,9 +753,12 @@ fn append_filters(
     push_in(sql, values, "agent", &filters.agents);
     push_in(sql, values, "provider_id", &filters.providers);
     push_in(sql, values, "model_raw", &filters.models);
-    if !filters.instances.is_empty() {
+    if let Some(instances) = &filters.instances {
+        if instances.is_empty() {
+            sql.push_str(" AND 0");
+        }
         let mut clause = format!(" AND {instance_column} IN (");
-        for (i, item) in filters.instances.iter().enumerate() {
+        for (i, item) in instances.iter().enumerate() {
             if i > 0 {
                 clause.push(',');
             }
@@ -875,29 +794,12 @@ pub fn agent_breakdown(
     storage: &Storage,
     request: &SummaryRequest,
 ) -> Result<Vec<AgentRow>, CoreError> {
-    let rows = if request.granularity == Granularity::Hour {
-        // 小时粒度：从 hourly_usage 读（按日+小时展开为"周期"行）。
-        load_hourly_as_daily(
-            storage,
-            &request.timezone,
-            request.first_day,
-            request.last_day,
-        )?
-    } else {
-        load_daily_rows(
-            storage,
-            &request.timezone,
-            request.first_day,
-            request.last_day,
-        )?
-    };
     let mut groups: BTreeMap<String, MetricSums> = BTreeMap::new();
-    for row in rows {
-        if !request.filters.matches(&row) {
-            continue;
-        }
-        let sums = groups.entry(row.agent.clone()).or_default();
-        sums.add_row(&row)?;
+    for row in load_summary_rows(storage, request)? {
+        groups
+            .entry(row.agent.to_lowercase())
+            .or_default()
+            .add_row(&row)?;
     }
     Ok(groups
         .into_iter()
@@ -928,111 +830,48 @@ pub fn hourly_breakdown(
     day: Date,
     filters: &Filters,
 ) -> Result<Vec<HourBucket>, CoreError> {
-    // 分级归档：小时图读持久化小时表（明细删除后仍有 30 天数据）。
-    // 该表在每次提交时随受影响日同事务重算；筛选按维度列下推。
-    let mut sql = String::from(
-        "SELECT h.hour, h.event_count, h.call_count, h.input_known_sum, h.cache_read_known_sum,
-                h.output_known_sum, h.total_known_sum, h.agent, COALESCE(h.provider_id, ''),
-                COALESCE(h.model_raw, ''),
-                (SELECT COUNT(DISTINCT e.session_id) FROM usage_events e
-                 WHERE e.source_instance_id = h.instance_id
-                   AND e.occurred_at_ms >= ?3 AND e.occurred_at_ms < ?4
-                   AND e.session_id IS NOT NULL),
-                (SELECT CAST(AVG(e.duration_ms) AS INTEGER) FROM usage_events e
-                 WHERE e.source_instance_id = h.instance_id
-                   AND e.occurred_at_ms >= ?3 AND e.occurred_at_ms < ?4
-                   AND e.duration_ms IS NOT NULL)
-         FROM hourly_usage h WHERE h.tz_version = ?1 AND h.local_day = ?2",
-    );
-    let calendar = Calendar::new(timezone)?;
-    let (day_start_ms, day_end_ms) = calendar.day_range_ms(day)?;
-    let mut values: Vec<rusqlite::types::Value> = vec![
-        rusqlite::types::Value::Text(timezone.to_string()),
-        rusqlite::types::Value::Text(day.to_string()),
-        rusqlite::types::Value::Integer(day_start_ms),
-        rusqlite::types::Value::Integer(day_end_ms),
-    ];
-    if !filters.agents.is_empty()
-        || !filters.providers.is_empty()
-        || !filters.models.is_empty()
-        || !filters.instances.is_empty()
-    {
-        sql.push_str(" AND (");
-        let mut first = true;
-        let any_match =
-            |filter: &[String], column: &str, values: &mut Vec<rusqlite::types::Value>| {
-                if filter.is_empty() {
-                    return None;
-                }
-                let placeholders: Vec<String> = filter
-                    .iter()
-                    .map(|f| {
-                        values.push(rusqlite::types::Value::Text(f.clone()));
-                        format!("?{}", values.len())
-                    })
-                    .collect();
-                Some(format!("{column} IN ({})", placeholders.join(", ")))
-            };
-        for clause in [
-            any_match(&filters.agents, "agent", &mut values),
-            any_match(&filters.providers, "provider_id", &mut values),
-            any_match(&filters.models, "model_raw", &mut values),
-            any_match(&filters.instances, "instance_id", &mut values),
-        ]
+    let request = SummaryRequest {
+        timezone: timezone.into(),
+        first_day: day,
+        last_day: day,
+        today: day,
+        week_start: WeekStart::Monday,
+        granularity: Granularity::Hour,
+        filters: filters.clone(),
+        retention_cutoff: None,
+    };
+    let summary = query_summary(storage, &request)?;
+    Ok(summary
+        .periods
         .into_iter()
-        .flatten()
-        {
-            if !first {
-                sql.push_str(" AND ");
-            }
-            first = false;
-            sql.push_str(&clause);
-        }
-        sql.push(')');
-    }
-    let mut stmt = storage.conn().prepare(&sql)?;
-    let rows = stmt.query_map(rusqlite::params_from_iter(values), |r| {
-        Ok((
-            r.get::<_, i64>(0)?,
-            r.get::<_, i64>(1)?,
-            r.get::<_, i64>(2)?,
-            r.get::<_, Option<i64>>(3)?,
-            r.get::<_, Option<i64>>(4)?,
-            r.get::<_, Option<i64>>(5)?,
-            r.get::<_, Option<i64>>(6)?,
-            r.get::<_, Option<i64>>(10)?,
-            r.get::<_, Option<i64>>(11)?,
-        ))
-    })?;
-    let mut buckets: BTreeMap<u32, HourBucket> = BTreeMap::new();
-    for row in rows {
-        let (hour, event_count, call_count, input, cache_read, output, total, sessions, avg_dur) =
-            row?;
-        let hour = u32::try_from(hour).unwrap_or(0);
-        let bucket = buckets.entry(hour).or_insert_with(|| HourBucket {
-            hour,
-            ..Default::default()
-        });
-        bucket.event_count += event_count;
-        bucket.call_count += call_count;
-        bucket.input_total_known = merge_opt(bucket.input_total_known, input);
-        bucket.cache_read_known = merge_opt(bucket.cache_read_known, cache_read);
-        bucket.output_total_known = merge_opt(bucket.output_total_known, output);
-        bucket.total_tokens_known = merge_opt(bucket.total_tokens_known, total);
-        // 会话数取最大（各维度行的子查询各自独立，取代表值）；耗时取均值合并。
-        bucket.session_count = merge_opt(bucket.session_count, sessions).map(|v| v.max(0));
-        bucket.avg_duration_ms = merge_opt(bucket.avg_duration_ms, avg_dur);
-    }
-    Ok((0u32..24).filter_map(|h| buckets.remove(&h)).collect())
+        .map(|p| HourBucket {
+            hour: p
+                .label
+                .rsplit_once(' ')
+                .and_then(|(_, time)| time.split(':').next())
+                .and_then(|h| h.parse().ok())
+                .unwrap_or(0),
+            event_count: p.sums.event_count,
+            call_count: p.sums.call_count,
+            input_total_known: p.sums.input_total_known,
+            cache_read_known: p.sums.cache_read_known,
+            output_total_known: p.sums.output_total_known,
+            total_tokens_known: p.sums.total_tokens_known,
+            session_count: p.distinct_sessions,
+            avg_duration_ms: p.sums.avg_duration_ms,
+        })
+        .collect())
 }
 
-/// 热力图单元格：本地星期几（1=周一）× 小时的调用数与 token。
+/// 热力图单元格：一个本地日。日层已清理且无法再分配到日期的周期汇总标为不可用。
 #[derive(Debug, Clone, Default)]
 pub struct HeatCell {
+    pub day: String,
     pub weekday: u8,
-    pub hour: u32,
     pub call_count: i64,
     pub total_tokens_known: Option<i64>,
+    pub available: bool,
+    pub partial: bool,
 }
 
 pub fn heatmap_cells(
@@ -1042,54 +881,90 @@ pub fn heatmap_cells(
     last_day: Date,
     filters: &Filters,
 ) -> Result<Vec<HeatCell>, CoreError> {
+    if last_day < first_day {
+        return Err(CoreError::Query("last_day before first_day".into()));
+    }
     let calendar = Calendar::new(timezone)?;
-    let (start_ms, _) = calendar.day_range_ms(first_day)?;
-    let (_, end_ms) = calendar.day_range_ms(last_day)?;
-    let mut sql = String::from(
-        "SELECT occurred_at_ms, record_kind, total_tokens, quality_json
-         FROM usage_events
-         WHERE occurred_at_ms >= ?1 AND occurred_at_ms < ?2
-           AND attribution_status = 'verified'
-           AND record_kind IN ('model_call', 'transport_attempt', 'usage_observation')",
-    );
-    let mut values: Vec<rusqlite::types::Value> = vec![start_ms.into(), end_ms.into()];
-    append_filters(&mut sql, &mut values, filters, "source_instance_id");
-    let mut stmt = storage.conn().prepare(&sql)?;
-    let rows = stmt.query_map(rusqlite::params_from_iter(values), |r| {
-        Ok((
-            r.get::<_, i64>(0)?,
-            r.get::<_, String>(1)?,
-            r.get::<_, Option<i64>>(2)?,
-            r.get::<_, String>(3)?,
-        ))
-    })?;
-    let mut cells: BTreeMap<(u8, u32), HeatCell> = BTreeMap::new();
-    for row in rows {
-        let (ms, kind, total, quality_json) = row?;
-        let weekday = calendar.local_weekday_of(ms)?;
-        let hour = calendar.local_hour_of(ms)?;
-        let cell = cells.entry((weekday, hour)).or_default();
-        cell.weekday = weekday;
-        cell.hour = hour;
-        if kind == "model_call" {
-            cell.call_count += 1;
-        }
-        if kind != "transport_attempt" {
-            let known_total = serde_json::from_str::<serde_json::Value>(&quality_json)
-                .ok()
-                .and_then(|q| {
-                    q.get("total_tokens")
-                        .and_then(|v| v.as_str())
-                        .map(|s| s == "reported" || s == "derived")
-                })
-                .unwrap_or(false);
-            if known_total {
-                cell.total_tokens_known =
-                    Some(cell.total_tokens_known.unwrap_or(0) + total.unwrap_or(0));
-            }
+    let snapshot = storage.conn().unchecked_transaction()?;
+    let floor: Option<String> = storage
+        .conn()
+        .query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            [format!("daily_retention_floor:{timezone}")],
+            |r| r.get(0),
+        )
+        .optional()?;
+    let mut sums: BTreeMap<Date, MetricSums> = BTreeMap::new();
+    for row in load_daily_rows(storage, timezone, first_day, last_day)? {
+        if filters.matches(&row) {
+            sums.entry(row.local_day).or_default().add_row(&row)?;
         }
     }
-    Ok(cells.into_values().collect())
+    // A period-only import may not carry the local daily_retention_floor setting.
+    // Detect materialized partitions on their own; never assign their totals to a date.
+    let mut period_sql = String::from(
+        "SELECT p.period_start_day, p.period_end_day FROM period_usage p
+         WHERE p.tz_version = ?1 AND p.period_start_day <= ?2 AND p.period_end_day >= ?3
+           AND p.granularity IN ('week', 'month', 'year')
+           AND (p.period_start_day < COALESCE((SELECT value FROM settings
+                    WHERE key = 'daily_retention_floor:' || p.tz_version), '')
+             OR NOT EXISTS (SELECT 1 FROM daily_usage d WHERE d.tz_version = p.tz_version
+                    AND d.instance_id = p.instance_id AND d.agent = p.agent
+                    AND d.provider_id = p.provider_id AND d.model_raw = p.model_raw
+                    AND d.call_category = p.call_category AND d.quality_bucket = p.quality_bucket
+                    AND d.local_day BETWEEN p.period_start_day AND p.period_end_day))
+           AND NOT EXISTS (SELECT 1 FROM daily_usage d WHERE d.tz_version = p.tz_version
+                    AND d.instance_id = p.instance_id AND d.agent = p.agent
+                    AND d.provider_id = p.provider_id AND d.model_raw = p.model_raw
+                    AND d.call_category = p.call_category AND d.quality_bucket = p.quality_bucket
+                    AND d.local_day BETWEEN p.period_start_day AND p.period_end_day
+                    AND d.data_revision > p.data_revision)",
+    );
+    let mut period_values: Vec<rusqlite::types::Value> = vec![
+        timezone.to_string().into(),
+        last_day.to_string().into(),
+        first_day.to_string().into(),
+    ];
+    append_filters(&mut period_sql, &mut period_values, filters, "instance_id");
+    let mut archived_days = BTreeSet::new();
+    let mut stmt = storage.conn().prepare(&period_sql)?;
+    let periods = stmt.query_map(rusqlite::params_from_iter(period_values), |r| {
+        Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+    })?;
+    for period in periods {
+        let (start, end) = period?;
+        let mut covered = parse_date(&start)?.max(first_day);
+        let end = parse_date(&end)?.min(last_day);
+        while covered <= end {
+            archived_days.insert(covered);
+            covered = covered.checked_add(Span::new().days(1))?;
+        }
+    }
+    let mut cells = Vec::new();
+    let mut day = first_day;
+    loop {
+        let (start_ms, _) = calendar.day_range_ms(day)?;
+        let totals = sums.remove(&day);
+        let day_text = day.to_string();
+        let missing_daily =
+            floor.as_deref().is_some_and(|f| day_text.as_str() < f) || archived_days.contains(&day);
+        let partial = missing_daily && totals.is_some();
+        let available = !missing_daily || partial;
+        cells.push(HeatCell {
+            day: day_text,
+            weekday: calendar.local_weekday_of(start_ms)?,
+            call_count: totals.as_ref().map_or(0, |s| s.call_count),
+            total_tokens_known: totals.and_then(|s| s.total_tokens_known),
+            available,
+            partial,
+        });
+        if day == last_day {
+            break;
+        }
+        day = day.checked_add(Span::new().days(1))?;
+    }
+    snapshot.commit()?;
+    Ok(cells)
 }
 
 /// 明细行（详情页分页展示）。
@@ -1197,14 +1072,17 @@ fn load_hourly_as_daily(
         "SELECT local_day, hour, instance_id, agent, provider_id, model_raw,
                 call_category, quality_bucket,
                 event_count, call_count, 0 as attempt_count, 0 as observation_count,
-                input_known_sum, 1 as input_known_count, 0 as input_unknown_count,
+                input_known_sum, 0 as input_known_count, 0 as input_unknown_count,
                 NULL as uncached_known_sum, 0 as uncached_known_count,
                 cache_read_known_sum, 0 as cache_read_known_count,
                 cache_write_known_sum, 0 as cache_write_known_count,
                 output_known_sum, 0 as output_known_count, 0 as output_unknown_count,
                 total_known_sum, 0 as total_known_count, 0 as total_unknown_count,
                 NULL as ratio_input_sum, NULL as ratio_cache_read_sum, 0 as ratio_sample_count,
-                0 as conflict_count
+                conflict_count,
+                NOT EXISTS(SELECT 1 FROM daily_usage d WHERE d.tz_version = hourly_usage.tz_version
+                  AND d.local_day = hourly_usage.local_day AND d.instance_id = hourly_usage.instance_id
+                  AND d.sealed = 0) as sealed
          FROM hourly_usage
          WHERE tz_version = ?1 AND local_day >= ?2 AND local_day <= ?3
          ORDER BY local_day, hour",
@@ -1220,8 +1098,10 @@ fn load_hourly_as_daily(
                 agent: r.get(3)?,
                 provider_id: r.get(4)?,
                 model_raw: r.get(5)?,
+                call_category: r.get(6)?,
                 quality_bucket: r.get(7)?,
-                sealed: false,
+                sealed: r.get::<_, i64>(31)? != 0,
+                from_period: false,
                 event_count: r.get(8)?,
                 call_count: r.get(9)?,
                 attempt_count: r.get(10)?,
@@ -1249,7 +1129,102 @@ fn load_hourly_as_daily(
     for row in rows {
         out.push(row?);
     }
+    enrich_hourly_metadata(storage, tz, first_day, last_day, &mut out)?;
     Ok(out)
+}
+
+/// Hourly storage predates completeness counters. Recover them from retained
+/// records, without deriving unknown token fields by subtracting unlike samples.
+fn enrich_hourly_metadata(
+    storage: &Storage,
+    tz: &str,
+    first: Date,
+    last: Date,
+    rows: &mut [DailyRow],
+) -> Result<(), CoreError> {
+    let calendar = Calendar::new(tz)?;
+    let (start, end) = period_range_ms(&calendar, first, last)?;
+    let index: BTreeMap<_, _> = rows
+        .iter()
+        .enumerate()
+        .filter(|(_, r)| !r.sealed)
+        .map(|(i, r)| {
+            (
+                (
+                    r.local_day,
+                    r.hour,
+                    r.instance_id.clone(),
+                    r.agent.clone(),
+                    r.provider_id.clone(),
+                    r.model_raw.clone(),
+                    r.call_category.clone(),
+                    r.quality_bucket.clone(),
+                ),
+                i,
+            )
+        })
+        .collect();
+    if index.is_empty() {
+        return Ok(());
+    }
+    let mut stmt = storage.conn().prepare(
+        "SELECT occurred_at_ms,source_instance_id,agent,COALESCE(provider_id,''),COALESCE(model_raw,''),
+          COALESCE(call_category,''),quality_bucket,record_kind,
+          CASE WHEN json_extract(quality_json,'$.input_total') IN ('reported','derived') THEN input_total END,
+          CASE WHEN json_extract(quality_json,'$.output_total') IN ('reported','derived') THEN output_total END,
+          CASE WHEN json_extract(quality_json,'$.total_tokens') IN ('reported','derived') THEN total_tokens END,
+          CASE WHEN json_extract(quality_json,'$.input_uncached') IN ('reported','derived') THEN input_uncached END,
+          CASE WHEN json_extract(quality_json,'$.input_cache_read') IN ('reported','derived') THEN input_cache_read END
+         FROM usage_events WHERE occurred_at_ms >= ?1 AND occurred_at_ms < ?2 AND attribution_status='verified'
+          AND record_kind IN ('model_call','transport_attempt','usage_observation')")?;
+    let mut events = stmt.query(params![start, end])?;
+    while let Some(e) = events.next()? {
+        let ms = e.get(0)?;
+        let key = (
+            calendar.local_day_of(ms)?,
+            Some(calendar.local_hour_of(ms)? as i64),
+            e.get(1)?,
+            e.get(2)?,
+            e.get(3)?,
+            e.get(4)?,
+            e.get(5)?,
+            e.get(6)?,
+        );
+        let Some(&i) = index.get(&key) else {
+            continue;
+        };
+        let row = &mut rows[i];
+        let kind: String = e.get(7)?;
+        row.attempt_count += i64::from(kind == "transport_attempt");
+        row.observation_count += i64::from(kind == "usage_observation");
+        if kind == "transport_attempt" {
+            continue;
+        }
+        let input: Option<i64> = e.get(8)?;
+        let output: Option<i64> = e.get(9)?;
+        let total: Option<i64> = e.get(10)?;
+        row.input_known_count += i64::from(input.is_some());
+        row.input_unknown_count += i64::from(input.is_none());
+        row.output_known_count += i64::from(output.is_some());
+        row.output_unknown_count += i64::from(output.is_none());
+        row.total_known_count += i64::from(total.is_some());
+        row.total_unknown_count += i64::from(total.is_none());
+        MetricSums::checked_add_opt(&mut row.uncached_known_sum, e.get(11)?, "hourly_uncached")?;
+        if let (Some(input), Some(read)) = (input, e.get::<_, Option<i64>>(12)?) {
+            MetricSums::checked_add_opt(
+                &mut row.ratio_input_sum,
+                Some(input),
+                "hourly_ratio_input",
+            )?;
+            MetricSums::checked_add_opt(
+                &mut row.ratio_cache_read_sum,
+                Some(read),
+                "hourly_ratio_read",
+            )?;
+            row.ratio_sample_count += 1;
+        }
+    }
+    Ok(())
 }
 
 /// 图表维度分组模式。
@@ -1271,6 +1246,9 @@ pub struct ChartSeriesRow {
     pub call_count: i64,
     pub input_total: Option<i64>,
     pub cache_read: Option<i64>,
+    pub cache_write: Option<i64>,
+    pub uncached: Option<i64>,
+    pub cache_ratio: Option<f64>,
     pub output_total: Option<i64>,
     pub total_tokens: Option<i64>,
 }
@@ -1286,70 +1264,8 @@ pub fn chart_series(
     dimension: &ChartDimension,
 ) -> Result<Vec<ChartSeriesRow>, CoreError> {
     let calendar = Calendar::new(&request.timezone)?;
-    let rows = if request.granularity == Granularity::Hour {
-        load_hourly_as_daily(
-            storage,
-            &request.timezone,
-            request.first_day,
-            request.last_day,
-        )?
-    } else {
-        load_daily_rows(
-            storage,
-            &request.timezone,
-            request.first_day,
-            request.last_day,
-        )?
-    };
-
-    /// 组内累计：已知 token 语义同 SQL SUM（全部未知保持未知，不补零）。
-    #[derive(Default)]
-    struct SeriesAcc {
-        end_day: Option<Date>,
-        call_count: i64,
-        input_total: Option<i64>,
-        cache_read: Option<i64>,
-        output_total: Option<i64>,
-        total_tokens: Option<i64>,
-    }
-    impl SeriesAcc {
-        fn add_sums(
-            &mut self,
-            call_count: i64,
-            input: Option<i64>,
-            cache_read: Option<i64>,
-            output: Option<i64>,
-            total: Option<i64>,
-        ) {
-            self.call_count += call_count;
-            self.input_total = merge_opt(self.input_total, input);
-            self.cache_read = merge_opt(self.cache_read, cache_read);
-            self.output_total = merge_opt(self.output_total, output);
-            self.total_tokens = merge_opt(self.total_tokens, total);
-        }
-    }
-
-    // 维度系列名：模型空串归 "unknown"（与总用量视图的 unknown 行口径一致）。
-    let series_of = |agent: &str, model_raw: &str| -> String {
-        let model = || {
-            if model_raw.is_empty() {
-                "unknown".to_string()
-            } else {
-                model_raw.to_string()
-            }
-        };
-        match dimension {
-            ChartDimension::Total => "总量".to_string(),
-            ChartDimension::ByModel => model(),
-            ChartDimension::ByAgent => agent.to_string(),
-            ChartDimension::ByAgentModel => format!("{}/{}", agent, model()),
-        }
-    };
-
-    // 按（起始日, 标签, 系列）累计；BTreeMap 迭代即时间序（标签内含日/小时前缀）。
-    let mut groups: BTreeMap<(Date, String, String), SeriesAcc> = BTreeMap::new();
-    let mut covered: BTreeSet<String> = BTreeSet::new();
-    for row in rows.iter().filter(|r| request.filters.matches(r)) {
+    let mut groups: BTreeMap<(Date, String, String), (Date, MetricSums)> = BTreeMap::new();
+    for row in load_summary_rows(storage, request)? {
         let (label, start, end) = period_key_of(
             &calendar,
             request.granularity,
@@ -1357,121 +1273,39 @@ pub fn chart_series(
             row.local_day,
             row.hour,
         );
-        covered.insert(label.clone());
-        let acc = groups
-            .entry((start, label, series_of(&row.agent, &row.model_raw)))
-            .or_default();
-        acc.end_day = Some(end);
-        acc.add_sums(
-            row.call_count,
-            row.input_known_sum,
-            row.cache_read_known_sum,
-            row.output_known_sum,
-            row.total_known_sum,
-        );
-    }
-
-    // 周/月：并入 period_usage 物化周期（日层保留期外的历史），跳过已覆盖标签。
-    if matches!(request.granularity, Granularity::Week | Granularity::Month) {
-        let granularity_str = match request.granularity {
-            Granularity::Week => "week",
-            _ => "month",
+        let model = if row.model_raw.is_empty() {
+            "unknown".into()
+        } else {
+            row.model_raw.to_lowercase()
         };
-        let mut stmt = storage.conn().prepare(
-            "SELECT period_key, period_start_day, period_end_day, instance_id, agent,
-                    provider_id, model_raw, call_count,
-                    input_known_sum, cache_read_known_sum, output_known_sum, total_known_sum
-             FROM period_usage
-             WHERE tz_version = ?1 AND granularity = ?2
-               AND period_end_day >= ?3 AND period_start_day <= ?4",
-        )?;
-        let mat_rows = stmt.query_map(
-            params![
-                request.timezone,
-                granularity_str,
-                request.first_day.to_string(),
-                request.last_day.to_string()
-            ],
-            |r| {
-                Ok((
-                    r.get::<_, String>(0)?,
-                    r.get::<_, String>(1)?,
-                    r.get::<_, String>(2)?,
-                    r.get::<_, String>(3)?,
-                    r.get::<_, String>(4)?,
-                    r.get::<_, String>(5)?,
-                    r.get::<_, String>(6)?,
-                    r.get::<_, i64>(7)?,
-                    r.get::<_, Option<i64>>(8)?,
-                    r.get::<_, Option<i64>>(9)?,
-                    r.get::<_, Option<i64>>(10)?,
-                    r.get::<_, Option<i64>>(11)?,
-                ))
-            },
-        )?;
-        for row in mat_rows {
-            let (key, start, end, instance, agent, provider, model, call_count, input, cache_read, output, total) =
-                row?;
-            if covered.contains(&key) {
-                continue;
-            }
-            // 筛选与 query_summary 同一判定（借 DailyRow 形状；质量桶为空不过滤）。
-            let start_day = parse_date(&start)
-                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
-            let end_day = parse_date(&end)
-                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
-            let filter_row = DailyRow {
-                local_day: start_day,
-                instance_id: instance,
-                hour: None,
-                agent,
-                provider_id: provider,
-                model_raw: model,
-                quality_bucket: String::new(),
-                sealed: true,
-                event_count: 0,
-                call_count: 0,
-                attempt_count: 0,
-                observation_count: 0,
-                input_known_sum: None,
-                input_known_count: 0,
-                input_unknown_count: 0,
-                uncached_known_sum: None,
-                cache_read_known_sum: None,
-                cache_write_known_sum: None,
-                output_known_sum: None,
-                output_known_count: 0,
-                output_unknown_count: 0,
-                total_known_sum: None,
-                total_known_count: 0,
-                total_unknown_count: 0,
-                ratio_input_sum: None,
-                ratio_cache_read_sum: None,
-                ratio_sample_count: 0,
-                conflict_count: 0,
-            };
-            if !request.filters.matches(&filter_row) {
-                continue;
-            }
-            let series = series_of(&filter_row.agent, &filter_row.model_raw);
-            let acc = groups.entry((start_day, key, series)).or_default();
-            acc.end_day = Some(end_day);
-            acc.add_sums(call_count, input, cache_read, output, total);
-        }
+        let agent = row.agent.to_lowercase();
+        let series = match dimension {
+            ChartDimension::Total => "total".into(),
+            ChartDimension::ByModel => model,
+            ChartDimension::ByAgent => agent,
+            ChartDimension::ByAgentModel => format!("{agent}/{model}"),
+        };
+        groups
+            .entry((start, label, series))
+            .or_insert_with(|| (end, MetricSums::default()))
+            .1
+            .add_row(&row)?;
     }
-
     Ok(groups
         .into_iter()
-        .map(|((start, label, series), acc)| ChartSeriesRow {
+        .map(|((start, label, series), (end, sums))| ChartSeriesRow {
             label,
             start_day: start,
-            end_day: acc.end_day.unwrap_or(start),
+            end_day: end,
             series_name: series,
-            call_count: acc.call_count,
-            input_total: acc.input_total,
-            cache_read: acc.cache_read,
-            output_total: acc.output_total,
-            total_tokens: acc.total_tokens,
+            call_count: sums.call_count,
+            input_total: sums.input_total_known,
+            cache_read: sums.cache_read_known,
+            output_total: sums.output_total_known,
+            cache_write: sums.cache_write_known,
+            uncached: sums.uncached_known,
+            cache_ratio: sums.cache_input_ratio().map(|r| r.as_f64()),
+            total_tokens: sums.total_tokens_known,
         })
         .collect())
 }

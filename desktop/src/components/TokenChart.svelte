@@ -1,19 +1,6 @@
 <script lang="ts">
-  /**
-   * token 趋势图（任务 C5）：四个子图（tab 切换）——
-   * 总 token / 输入 token（缓存命中 + 未命中缓存堆叠面积）/ 输出 token / 缓存命中率%；
-   * token 相关子图全部为平滑曲线（任务：曲线替代柱状；输入为堆叠面积图）；
-   * y 轴 fmtSmart 缩放、tooltip 精确值（任务 B3）；
-   * 面板底部带平均耗时/总耗时文字摘要（任务 C6）。
-   * 分组维度（2026-09-26）：总用量/按模型/按Agent/按Agent+模型；分组数据经
-   * chart_series 命令从聚合表直读，各分组按子图分别渲染（输入=命中+未命中堆叠
-   * 面积、命中率=cache_read/input 折线），legend 显示分组名、tooltip 按系列显示；
-   * 维度选择为分段按钮组（DimensionPicker，非下拉）。
-   * 布局修复：grid.left ≥ 70 + containLabel 给 y 轴标签/轴名留位，legend 顶部
-   * 居中（top 0 + left center），不再与左上 y 轴名重叠。
-   */
   import { onMount } from 'svelte';
-  import { setupTooltipAutoHide } from '../lib/chart';
+  import { setChartOption, setupTooltipAutoHide, escapeHtml, CHART_PALETTE } from '../lib/chart';
   import * as echarts from 'echarts/core';
   import { LineChart } from 'echarts/charts';
   import type { LineSeriesOption } from 'echarts/charts';
@@ -50,6 +37,7 @@
   let dimension = $state<ChartDimension>('total');
   let grouped = $state<ChartGroupData | null>(null);
   let groupedError = $state('');
+  let groupedScope = '';
 
   let el: HTMLDivElement;
   let chart: echarts.ECharts | null = null;
@@ -63,21 +51,18 @@
 
   function applyOption(option: echarts.EChartsCoreOption, key: string): void {
     if (!chart) return;
-    if (key === lastRenderKey) chart.setOption(option);
-    else chart.setOption(option, { notMerge: true });
+    if (key === lastRenderKey) setChartOption(chart, isDark, option);
+    else setChartOption(chart, isDark, option, { notMerge: true });
     lastRenderKey = key;
   }
 
   const duration = $derived(durationStatsOf(periods));
 
   /** 主题感知色：全局文字（axis/legend 继承）与 y 轴分隔线。 */
-  const chartText = $derived(isDark ? '#aaa' : '#555');
-  const splitColor = $derived(isDark ? '#3a3b3f' : '#e0e0e0');
+  const chartText = $derived(isDark ? '#b0bfd4' : '#5b6a82');
+  const splitColor = $derived(isDark ? '#2c3a52' : '#e8edf5');
 
-  const PALETTE = [
-    '#1a56c4', '#3f8f5f', '#c9a227', '#b3601e', '#7a5fb0',
-    '#2f8f8f', '#c46a9a', '#8a8f36', '#5d6b9e', '#a05f46',
-  ];
+  const PALETTE = CHART_PALETTE;
 
   const subTabs = $derived.by(
     () =>
@@ -92,8 +77,11 @@
   // 分组数据：dimension/query 变化时经 chart_series 拉取；失败时保底显示错误文案。
   $effect(() => {
     const q = query;
+    void periods;
     void dimension;
-    grouped = null;
+    const scope = JSON.stringify([q, dimension]);
+    if (groupedScope !== scope) grouped = null;
+    groupedScope = scope;
     groupedError = '';
     if (dimension === 'total') return;
     const dim = dimension;
@@ -112,7 +100,8 @@
   });
 
   function renderTotal() {
-    if (!chart || !periods.length) return;
+    if (!chart) return;
+    if (!periods.length) { chart.clear(); lastRenderKey = ''; return; }
     const labels = periods.map((p) => {
       let label = p.label;
       if (p.in_progress) label += t('trend.inProgress');
@@ -138,6 +127,7 @@
             lines.push(
               `${t('cards.input')}: ${fmtPrecise(p.sums.input_total_known)}`,
               `${t('cards.cacheRead')}: ${fmtPrecise(p.sums.cache_read_known)}`,
+              `${t('cards.cacheWrite')}: ${fmtPrecise(p.sums.cache_write_known)}`,
               `${t('cards.cacheMiss')}: ${fmtPrecise(p.sums.uncached_known)}`
             );
           } else if (sub === 'output') {
@@ -200,30 +190,16 @@
             axisLabel: { formatter: (v: number) => fmtSmart(v) },
             splitLine: { lineStyle: { color: splitColor } },
           },
-          series: [
-            {
-              type: 'line',
-              name: t('cards.cacheRead'),
-              stack: 'input',
-              smooth: true,
-              symbol: 'none',
-              lineStyle: { width: 1.5 },
-              itemStyle: { color: '#7aa5e8' },
-              areaStyle: { opacity: 0.45 },
-              data: periods.map((p) => Number(p.sums.cache_read_known ?? 0)),
-            },
-            {
-              type: 'line',
-              name: t('cards.cacheMiss'),
-              stack: 'input',
-              smooth: true,
-              symbol: 'none',
-              lineStyle: { width: 1.5 },
-              itemStyle: { color: '#1a56c4' },
-              areaStyle: { opacity: 0.35 },
-              data: periods.map((p) => Number(p.sums.uncached_known ?? 0)),
-            },
-          ],
+          series: ([
+            ['cache_read_known', 'cards.cacheRead', '#21a590'],
+            ['cache_write_known', 'cards.cacheWrite', '#eda853'],
+            ['uncached_known', 'cards.cacheMiss', '#5470e8'],
+          ] as const).map(([field, label, color]) => ({
+            type: 'line', name: t(label), stack: 'input', smooth: true,
+            symbol: 'none', lineStyle: { width: 1.5 }, itemStyle: { color },
+            areaStyle: { opacity: 0.25 },
+            data: periods.map((p) => p.sums[field] === null ? null : Number(p.sums[field])),
+          })),
         },
         `total-${sub}|${i18n.locale}|${chartText}|${granularity}|${labels.join('\u0001')}`
       );
@@ -252,8 +228,8 @@
             itemStyle: { color: sub === 'output' ? '#3f8f5f' : '#1a56c4' },
             data: periods.map((p) =>
               metric === 'output'
-                ? Number(p.sums.output_total_known ?? 0)
-                : Number(p.sums.total_tokens_known ?? 0)
+                ? p.sums.output_total_known === null ? null : Number(p.sums.output_total_known)
+                : p.sums.total_tokens_known === null ? null : Number(p.sums.total_tokens_known)
             ),
           },
         ],
@@ -266,10 +242,10 @@
   function groupedTooltip(g: ChartGroupData) {
     return (params: { dataIndex: number; marker: string; seriesName?: string; value: number | null }[]) => {
       const label = g.labels[params[0]?.dataIndex ?? 0] ?? '';
-      const lines = [`<b>${label}</b>`];
+      const lines = [`<b>${escapeHtml(label)}</b>`];
       for (const p of params) {
         if (p.value !== null && p.value !== undefined && p.value !== 0) {
-          lines.push(`${p.marker}${p.seriesName}: ${fmtPrecise(p.value)}`);
+          lines.push(`${p.marker}${escapeHtml(p.seriesName)}: ${fmtPrecise(p.value)}`);
         }
       }
       return lines.join('<br/>');
@@ -315,8 +291,7 @@
               connectNulls: false,
               data: g.labels.map((label) => {
                 const c = g.cell(name, label);
-                if (!c || c.input === null || c.input <= 0 || c.cacheRead === null) return null;
-                return (c.cacheRead / c.input) * 100;
+                return c?.cacheRatio == null ? null : c.cacheRatio * 100;
               }),
             })
           ),
@@ -327,37 +302,19 @@
     }
 
     if (sub === 'input') {
-      // 每个分组两层堆叠面积：缓存命中（浅色，底）+ 未命中（input - cache_read，上）。
-      const series: LineSeriesOption[] = [];
-      g.names.forEach((name, i) => {
-        const color = PALETTE[i % PALETTE.length];
-        series.push({
-          type: 'line',
-          name: `${name} · ${t('cards.cacheRead')}`,
-          stack: `input-${name}`,
-          smooth: true,
-          symbol: 'none',
-          lineStyle: { width: 1.5 },
-          itemStyle: { color, opacity: 0.55 },
-          areaStyle: { color, opacity: 0.45 },
-          data: g.labels.map((label) => g.cell(name, label)?.cacheRead ?? 0),
-        });
-        series.push({
-          type: 'line',
-          name: `${name} · ${t('cards.cacheMiss')}`,
-          stack: `input-${name}`,
-          smooth: true,
-          symbol: 'none',
-          lineStyle: { width: 1.5 },
-          itemStyle: { color },
-          areaStyle: { color, opacity: 0.3 },
-          data: g.labels.map((label) => {
-            const c = g.cell(name, label);
-            if (!c || c.input === null) return 0;
-            return c.input - (c.cacheRead ?? 0);
-          }),
-        });
-      });
+      const series: LineSeriesOption[] = g.names.flatMap((name, i) =>
+        ([
+          ['cacheRead', 'cards.cacheRead', 0.45],
+          ['cacheWrite', 'cards.cacheWrite', 0.7],
+          ['uncached', 'cards.cacheMiss', 1],
+        ] as const).map(([field, label, opacity]) => ({
+          type: 'line', name: `${name} · ${t(label)}`, stack: `input-${name}`,
+          smooth: true, symbol: 'none', lineStyle: { width: 1.5 },
+          itemStyle: { color: PALETTE[i % PALETTE.length], opacity },
+          areaStyle: { opacity: 0.25 },
+          data: g.labels.map((label) => g.cell(name, label)?.[field] ?? null),
+        }))
+      );
       applyOption(
         {
           ...base,
@@ -395,7 +352,7 @@
             smooth: true,
             symbolSize: 3,
             lineStyle: { width: 1.5 },
-            data: g.labels.map((label) => (g.cell(name, label)?.[metric] as number | null) ?? 0),
+            data: g.labels.map((label) => (g.cell(name, label)?.[metric] as number | null) ?? null),
           })
         ),
       },
@@ -498,7 +455,7 @@
     gap: 10px;
     padding: 6px 0 0;
     flex-wrap: wrap;
-    font-size: 12.5px;
+    font-size: 13px;
   }
   .dim-error {
     color: var(--danger);
@@ -517,7 +474,7 @@
     border-radius: 6px;
     padding: 3px 12px;
     cursor: pointer;
-    font-size: 12.5px;
+    font-size: 13px;
     color: var(--text-secondary);
   }
   .token-tabs button.active {

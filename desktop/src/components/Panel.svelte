@@ -1,22 +1,4 @@
 <script lang="ts">
-  /**
-   * 统一面板卡片（任务 D9/E10/E11 + 尺寸调整）：
-   * - 卡片式容器（标题 + 内容 + 边框圆角阴影）；
-   * - 标题栏为拖拽手柄（Pointer Events 拖拽，父级按 index 交换 grid 位置）；
-   * - 右上角显示/隐藏切换（隐藏时折叠内容，仅保留标题栏可再展开）；
-   * - 编辑模式右下角 resize 把手：拖动时面板边缘实时跟踪指针（按网格实际
-   *   列宽换算目标 span 1–6，高度连续缩放 120–800px），pointerup 吸附最近
-   *   合法档位并经 onsize 回调持久化（2026-09-26 由档位步进改为边缘跟踪）。
-   * 隐藏用 CSS 折叠而非销毁 DOM，避免 ECharts 实例随 {#if} 重建失效。
-   *
-   * 拖拽实现说明（2026-09-26 修复）：Tauri WebView2 默认启用原生 drag-drop
-   * 拦截（tauri.conf.json app.dragDropEnabled 未配置 = true），页内 HTML5
-   * dragstart/dragover/drop 不会触发，导致“完全无法拖动”。因此改用
-   * Pointer Events：pointerdown 在此捕获，移动/抬起由父级在 window 上监听，
-   * elementsFromPoint 命中测试决定落点面板。编辑模式（editable）外手柄与
-   * 显隐按钮隐藏且不可拖。resize 把手同样用 pointer capture（事件固定派发
-   * 到把手元素），移动中本地预览（liveSpan/liveHeight），抬起才提交回调。
-   */
   import { t } from '../lib/i18n.svelte';
 
   /** 高度拖动范围（px；与 lib/panels.ts 持久化清洗范围一致）。 */
@@ -99,9 +81,6 @@
   const effSpan = $derived(liveSpan ?? span);
   const effHeight = $derived(liveHeight ?? height ?? null);
 
-  /** 拖动结束后的那次 click 要跳过（pointerup 已提交拖动结果）。 */
-  let suppressClick = false;
-
   function resizeDown(e: PointerEvent): void {
     if (!editable || !onsize) return;
     if (!e.isPrimary || e.button !== 0) return;
@@ -172,17 +151,17 @@
     resizeDrag = null;
     liveSpan = null;
     liveHeight = null;
-    suppressClick = moved;
-    onsize?.(nextSpan, nextHeight);
+    if (moved) onsize?.(nextSpan, nextHeight);
   }
 
-  /** 纯点击（含键盘触发）：跨列数在 1–6 间前进一步，高度保持现状。 */
-  function resizeClick(): void {
+  function resizeKey(e: KeyboardEvent): void {
     if (!editable || !onsize) return;
-    const skip = suppressClick;
-    suppressClick = false;
-    if (skip) return;
-    onsize?.((span % 6) + 1, height);
+    const horizontal = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+    const vertical = e.key === 'ArrowDown' ? 20 : e.key === 'ArrowUp' ? -20 : 0;
+    if (!horizontal && !vertical && e.key !== 'Home') return;
+    e.preventDefault();
+    onsize(Math.max(1, Math.min(6, span + horizontal)),
+      e.key === 'Home' ? undefined : vertical ? Math.max(HEIGHT_MIN, Math.min(HEIGHT_MAX, (height ?? 320) + vertical)) : height);
   }
 </script>
 
@@ -210,7 +189,7 @@
         aria-label={hidden ? t('panel.show') : t('panel.hide')}
         onclick={ontoggle}
       >
-        {hidden ? '🚫' : '👁'}
+        {hidden ? t('panel.show') : t('panel.hide')}
       </button>
     {/if}
   </header>
@@ -226,8 +205,8 @@
       onpointerdown={resizeDown}
       onpointermove={resizeMove}
       onpointerup={resizeUp}
-      onpointercancel={resizeUp}
-      onclick={resizeClick}
+      onpointercancel={() => { resizeDrag = null; liveSpan = null; liveHeight = null; }}
+      onkeydown={resizeKey}
     ></button>
   {/if}
 </section>
@@ -236,9 +215,9 @@
   .pcard {
     background: var(--bg-card);
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 16px;
     box-shadow: var(--shadow);
-    padding: 0 12px 10px;
+    padding: 0 20px 16px;
     min-width: 0;
     margin: 0;
     display: flex;
@@ -257,7 +236,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 8px 0 6px;
+    padding: 18px 0 14px;
     border-bottom: 1px solid var(--border-light);
     user-select: none;
   }
@@ -276,7 +255,8 @@
     line-height: 1;
   }
   .phead h3 {
-    font-size: 13px;
+    font-size: 14px;
+    font-weight: 650;
     margin: 0;
     color: var(--text-heading);
     flex: 1;
@@ -312,10 +292,10 @@
   /* 右下角 resize 把手（8×8 三角形视觉，14×14 命中区）；仅编辑模式渲染。 */
   .presize {
     position: absolute;
-    right: 0;
-    bottom: 0;
-    width: 14px;
-    height: 14px;
+    right: 3px;
+    bottom: 3px;
+    width: 24px;
+    height: 24px;
     padding: 0;
     border: none;
     background: transparent;
@@ -337,6 +317,7 @@
   .presize:hover::after {
     border-bottom-color: var(--accent);
   }
+  .pcard.hidden:not(.editable) { display: none; }
   .pcard.hidden {
     background: var(--bg-card-hover);
   }

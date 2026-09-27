@@ -12,13 +12,50 @@
  * - window blur：窗口失焦（切应用/点标题栏）。
  * 返回清理函数（组件卸载时调用）。
  */
-import type { ECharts } from 'echarts/core';
+import type { ECharts, EChartsCoreOption } from 'echarts/core';
+
+/** Source names are data, including inside ECharts' HTML tooltips. */
+export function escapeHtml(value: unknown): string {
+  return String(value ?? '').replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[c]!);
+}
+
+export const CHART_PALETTE = ['#5470e8', '#21a590', '#eda853', '#9270dc', '#dc7595', '#52a7ca', '#7b9561', '#ac8064'];
+
+/** ECharts axes and legends have their own defaults; global textStyle alone
+ * does not make them readable on a dark canvas. Keep one theme boundary. */
+export function setChartOption(chart: ECharts, dark: boolean, option: EChartsCoreOption, options: { notMerge?: boolean } = {}): void {
+  const color = dark ? '#b0bfd4' : '#5b6a82';
+  const border = dark ? '#34435d' : '#dfe6f0';
+  type Axis = { axisLabel?: object; nameTextStyle?: object; axisLine?: { lineStyle?: object } };
+  const paint = (axis: Axis) => ({ ...axis, axisLabel: { ...axis.axisLabel, color },
+    nameTextStyle: { ...axis.nameTextStyle, color },
+    axisLine: { ...axis.axisLine, lineStyle: { ...axis.axisLine?.lineStyle, color: border } } });
+  const axes = (value: Axis | Axis[] | undefined) => value === undefined ? undefined : Array.isArray(value) ? value.map(paint) : paint(value);
+  const legend = option.legend as { textStyle?: object } | undefined;
+  chart.setOption({ ...option,
+    animation: !window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    animationDurationUpdate: 180,
+    textStyle: { ...option.textStyle, color },
+    xAxis: axes(option.xAxis as Axis | Axis[] | undefined), yAxis: axes(option.yAxis as Axis | Axis[] | undefined),
+    legend: legend ? { ...legend, textStyle: { ...legend.textStyle, color }, inactiveColor: dark ? '#687b99' : '#a0acc0' } : undefined,
+    tooltip: option.tooltip ? { ...option.tooltip, backgroundColor: dark ? '#1c2940' : '#ffffff', borderColor: border, textStyle: { color }, confine: true } : undefined,
+  }, options);
+}
 
 export function setupTooltipAutoHide(chart: ECharts): () => void {
   const dom = chart.getDom();
+  let visible = false;
+  const shown = () => { visible = true; };
+  const hidden = () => { visible = false; };
   const hide = (): void => {
-    if (!chart.isDisposed()) chart.dispatchAction({ type: 'hideTip' });
+    if (!visible || chart.isDisposed()) return;
+    visible = false;
+    chart.dispatchAction({ type: 'hideTip' });
   };
+  chart.on('showTip', shown);
+  chart.on('hideTip', hidden);
   const onDocMouseMove = (e: MouseEvent): void => {
     // 事件目标在本图表容器（含 tooltip 子元素）内 = 仍在浏览本图表，不隐藏。
     if (e.target instanceof Node && dom.contains(e.target)) return;
@@ -33,6 +70,8 @@ export function setupTooltipAutoHide(chart: ECharts): () => void {
   window.addEventListener('blur', hide);
   return () => {
     chart.off('globalout', hide);
+    chart.off('showTip', shown);
+    chart.off('hideTip', hidden);
     document.removeEventListener('mousemove', onDocMouseMove);
     document.removeEventListener('mouseout', onDocMouseOut);
     window.removeEventListener('blur', hide);

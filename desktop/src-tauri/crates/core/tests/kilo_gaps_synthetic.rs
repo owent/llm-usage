@@ -392,7 +392,7 @@ fn core_data_layer_without_message_table_fails_closed() {
     );
 
     let (_db, storage) = temp_storage("kilo-core-layer");
-    let reports = run_kilo(&storage, &dir.path(), NOW);
+    let reports = run_kilo(&storage, dir.path(), NOW);
     assert_eq!(reports[0].files[0].status, "unknown_format");
     assert_eq!(reports[0].files[0].events, 0);
     let codes: i64 = storage

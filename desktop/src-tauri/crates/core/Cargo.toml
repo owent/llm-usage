@@ -8,7 +8,7 @@ license = "MIT"
 
 [dependencies]
 # backup：SQLite Online Backup API（源库一致暂存副本，kilo 只读合同）。
-rusqlite = { version = "=0.40.2", features = ["bundled", "backup"] }
+rusqlite = { version = "=0.40.2", features = ["bundled", "backup", "functions"] }
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = { version = "=1.0.151" }
 jiff = { version = "=0.2.37" }

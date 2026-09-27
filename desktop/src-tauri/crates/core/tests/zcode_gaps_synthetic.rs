@@ -253,6 +253,51 @@ fn future_version_uses_latest_fallback_with_compat_mark() {
 }
 
 #[test]
+fn future_version_keeps_valid_calls_but_flags_new_invalid_usage() {
+    let jsonl = reconstruct_jsonl_projection(
+        &zcode_fixture("synthetic-future-version").join("records.json"),
+    );
+    let dir = TempDir::new("zcode-fv-partial-src");
+    let root = zcode_root_with_file(&dir, "model-io-synthetic.jsonl", &jsonl);
+    let (_db, storage) = temp_storage("zcode-fv-partial");
+    run_zcode(&storage, &root, NOW);
+    assert_eq!(file_status(&storage), "active_compat");
+
+    let mut bad: serde_json::Value =
+        serde_json::from_str(String::from_utf8(jsonl).unwrap().lines().next().unwrap()).unwrap();
+    bad["requestId"] = serde_json::json!("syn-invalid-new-request");
+    bad["response"]["usage"]["inputTokens"] = serde_json::json!(-1);
+    let file = root.join("rollout/model-io-synthetic.jsonl");
+    let mut appended = serde_json::to_vec(&bad).unwrap();
+    appended.push(b'\n');
+    use std::io::Write;
+    std::fs::OpenOptions::new()
+        .append(true)
+        .open(file)
+        .unwrap()
+        .write_all(&appended)
+        .unwrap();
+
+    run_zcode(&storage, &root, NOW + 1);
+    assert_eq!(file_status(&storage), "degraded");
+    assert_eq!(diag_count(&storage, "usage_shape_deviation"), 1);
+    assert_eq!(event_count(&storage), 2, "validated calls remain counted");
+    let health: String = storage
+        .conn()
+        .query_row("SELECT health FROM source_instances", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(
+        health, "degraded",
+        "bad records must not hide behind compatibility status"
+    );
+    let format_status: String = storage
+        .conn()
+        .query_row("SELECT format_status FROM source_files", [], |r| r.get(0))
+        .unwrap();
+    assert!(format_status.contains("latest_fallback"));
+}
+
+#[test]
 fn missing_request_id_falls_back_to_session_line_identity() {
     let jsonl = reconstruct_jsonl_projection(
         &zcode_fixture("synthetic-missing-request-id").join("records.json"),

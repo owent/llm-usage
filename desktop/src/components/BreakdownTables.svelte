@@ -1,8 +1,4 @@
 <script lang="ts">
-  /**
-   * 模型/Agent 明细表。kind 支持单表（今日分区各自成面板）或双表（默认）。
-   * 输入列显示 input_total（含缓存命中）；缓存列显示"缓存命中"（任务 A1）。
-   */
   import type { MetricSumsDto } from '../lib/api';
   import { t, fmtNumber } from '../lib/i18n.svelte';
 
@@ -40,7 +36,7 @@
         <tbody>
           {#each models as m (`${m.provider ?? ''}/${m.model ?? ''}`)}
             <tr>
-              <td>{m.model ?? t('common.unknown')}</td>
+              <td><strong>{m.model ?? t('common.unknown')}</strong><small>{m.provider ?? t('common.unknown')}</small></td>
               <td class="num">{fmtNumber(m.sums.call_count)}</td>
               <td class="num">{fmtNumber(m.sums.input_total_known)}</td>
               <td class="num">{fmtNumber(m.sums.output_total_known)}</td>
@@ -85,6 +81,9 @@
 </div>
 
 <style>
+  section { min-width: 0; overflow-x: auto; }
+  td strong { font-weight: 550; }
+  td small { display: block; font-size: 11px; color: var(--text-muted); margin-top: 3px; }
   .tables {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -106,12 +105,12 @@
   table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 12.5px;
+    font-size: 13px;
   }
   th,
   td {
     text-align: left;
-    padding: 4px 6px;
+    padding: 12px 10px;
     border-bottom: 1px solid var(--border-light);
     white-space: nowrap;
   }

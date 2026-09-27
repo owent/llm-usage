@@ -62,17 +62,18 @@ impl crate::adapters::framework::SourceAdapter for CodexAdapter {
         }
         let mut out = Vec::new();
         for (root, basis) in roots {
-            let sessions = root.join("sessions");
-            if !sessions.is_dir() {
-                continue;
-            }
-            // sessions/<YYYY>/<MM>/<DD>/rollout-*.jsonl：深度 3，有界枚举。
-            let files = crate::adapters::framework::enumerate_files_bounded(&sessions, 3, &|p| {
-                p.file_name()
-                    .and_then(|n| n.to_str())
-                    .map(|n| n.starts_with("rollout-") && n.ends_with(".jsonl"))
-                    .unwrap_or(false)
-            });
+            // Archive/unarchive moves the same rollout. Keep the root instance
+            // and native response/session keys, even when both copies exist.
+            let files = ["sessions", "archived_sessions"]
+                .into_iter()
+                .flat_map(|dir| {
+                    crate::adapters::framework::enumerate_files_bounded(&root.join(dir), 3, &|p| {
+                        p.file_name()
+                            .and_then(|n| n.to_str())
+                            .is_some_and(|n| n.starts_with("rollout-") && n.ends_with(".jsonl"))
+                    })
+                })
+                .collect::<Vec<_>>();
             if !files.is_empty() {
                 out.push(DiscoveredRoot { root, basis, files });
             }
@@ -174,7 +175,7 @@ impl crate::adapters::framework::SourceAdapter for CodexAdapter {
                 "env_override": CODEX_ENV_HOME,
                 "manual_roots": true,
                 "bounded": true,
-                "pattern": "sessions/<YYYY>/<MM>/<DD>/rollout-*.jsonl",
+                "pattern": "sessions/<YYYY>/<MM>/<DD>/rollout-*.jsonl + archived_sessions/rollout-*.jsonl",
                 "profile": "无 profile 概念",
             }),
             detection: serde_json::json!({

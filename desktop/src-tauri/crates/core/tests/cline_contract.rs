@@ -9,7 +9,7 @@ mod common;
 use common::{summary, temp_storage};
 use llm_usage_core::adapters::cline::ClineAdapter;
 use llm_usage_core::adapters::framework::{
-    normalize_path, run_adapter_scan, DiscoverContext, RunConfig, ScanLimits, SourceAdapter,
+    run_adapter_scan, DiscoverContext, RunConfig, ScanLimits, SourceAdapter,
 };
 use llm_usage_core::jobs::TriggerKind;
 use llm_usage_core::storage::Storage;

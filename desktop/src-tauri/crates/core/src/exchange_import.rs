@@ -1,14 +1,12 @@
-//! 聚合交换包导入（M1a 合同的实施，2026-09-26 用户需求）：
-//! 同分区键修订比较——更高修订替换、同修订覆盖（重复导出导入不缺失）、更低修订冲突保留现存
-//! \+ 诊断；新键插入；不覆盖已有来源归属；导入主机登记为外部。
-//! 单事务；明细 records 导入随后续功能排期（聚合层已可完整重建历史趋势）。
-
+//! Aggregate exchange: validate first, then merge in one transaction.
+//! Equal revisions retain the selected overwrite contract; identical replay is a no-op.
+//! Imported days are sealed because request details are not restored.
 use crate::error::CoreError;
 use crate::exchange::{ExchangeExport, ExchangeHost, EXCHANGE_FORMAT_VERSION};
 use crate::storage::Storage;
 use rusqlite::{params, OptionalExtension, Transaction};
+use std::collections::BTreeMap;
 
-/// 聚合导入结果（计数供 UI 展示）。
 #[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize)]
 pub struct ImportAggregateOutcome {
     pub sources_registered: usize,
@@ -19,291 +17,346 @@ pub struct ImportAggregateOutcome {
     pub hourly_inserted: usize,
     pub hourly_replaced: usize,
     pub hourly_skipped: usize,
+    pub period_inserted: usize,
+    pub period_replaced: usize,
+    pub period_skipped: usize,
 }
 
-/// 导入聚合交换包。见模块头合同。
 pub fn import_aggregate(
     storage: &Storage,
     export: &ExchangeExport,
     now_ms: i64,
 ) -> Result<ImportAggregateOutcome, CoreError> {
     if export.format_version != EXCHANGE_FORMAT_VERSION {
-        return Err(CoreError::Validation(format!(
-            "unsupported exchange format {:?}; expected {EXCHANGE_FORMAT_VERSION}",
-            export.format_version
-        )));
+        return Err(CoreError::Validation("unsupported exchange format".into()));
     }
-    let mut outcome = ImportAggregateOutcome::default();
-    let conn = storage.conn();
-    let tx = conn.unchecked_transaction()?;
+    if matches!(&export.kind, crate::exchange::ExchangeKind::Incremental { deletions, .. } if !deletions.is_empty())
+    {
+        return Err(CoreError::Validation(
+            "record deletion imports are not supported".into(),
+        ));
+    }
+    if !export.records.is_empty()
+        && export.daily_partitions.is_empty()
+        && export.hourly_partitions.is_empty()
+        && export.period_partitions.is_empty()
+    {
+        return Err(CoreError::Validation("this package contains only request details; aggregate import requires aggregate partitions".into()));
+    }
+    crate::calendar::Calendar::new(&export.timezone)?;
+    if export.host.origin_host_id.is_empty() {
+        return Err(CoreError::Validation("missing origin host".into()));
+    }
+    let declared: BTreeMap<_, _> = export
+        .sources
+        .iter()
+        .map(|s| (s.source_instance_id.as_str(), s))
+        .collect();
+    if declared.len() != export.sources.len() {
+        return Err(CoreError::Validation(
+            "duplicate source declarations".into(),
+        ));
+    }
+    let tx = storage.conn().unchecked_transaction()?;
+    let mut out = ImportAggregateOutcome::default();
     register_host(&tx, &export.host, now_ms)?;
     for source in &export.sources {
-        // 已存在的来源不覆盖（本机采集的归属/启用状态优先）。
-        tx.execute(
-            "INSERT INTO source_instances (
-               instance_id, agent, host_application, locality_basis, attribution_status,
-               exclusion_reason, enabled, format, location_hint, parser_version,
-               capabilities, health, origin_host_id, user_id, created_at_ms, updated_at_ms
-             ) VALUES (?1, ?2, NULL, 'remote_sync', 'verified', NULL, 0, ?3, NULL, ?4, '{}', 'ok', ?5, 'default', ?6, ?6)
-             ON CONFLICT(instance_id) DO NOTHING",
-            params![
-                source.source_instance_id,
-                source.agent,
-                source.format,
-                source.parser_version,
-                export.host.origin_host_id,
-                now_ms
-            ],
+        if source.source_instance_id.is_empty() || source.attribution_status != "verified" {
+            return Err(CoreError::Validation(
+                "aggregate source attribution is unverified".into(),
+            ));
+        }
+        let host = source
+            .origin_host_id
+            .as_deref()
+            .unwrap_or(&export.host.origin_host_id);
+        if host.is_empty() {
+            return Err(CoreError::Validation("missing source origin host".into()));
+        }
+        register_host(
+            &tx,
+            &ExchangeHost {
+                origin_host_id: host.into(),
+                hostname_alias: None,
+            },
+            now_ms,
         )?;
-        outcome.sources_registered += 1;
+        let existing: Option<String> = tx
+            .query_row(
+                "SELECT origin_host_id FROM source_instances WHERE instance_id=?1",
+                [&source.source_instance_id],
+                |r| r.get(0),
+            )
+            .optional()?;
+        if existing
+            .as_deref()
+            .is_some_and(|id| id != host && id != "legacy_unknown")
+        {
+            return Err(CoreError::Validation(
+                "source identity belongs to a different host; cannot merge by path".into(),
+            ));
+        }
+        out.sources_registered += tx.execute(
+            "INSERT INTO source_instances(instance_id,agent,locality_basis,attribution_status,enabled,format,parser_version,capabilities,health,origin_host_id,user_id,created_at_ms,updated_at_ms)
+             VALUES (?1,?2,'remote_sync','verified',0,?3,?4,'{}','ok',?5,'default',?6,?6) ON CONFLICT(instance_id) DO NOTHING",
+            params![source.source_instance_id,source.agent,source.format,source.parser_version,host,now_ms])?;
     }
+    let mut max_revision = storage.data_revision()?;
     for p in &export.daily_partitions {
-        let existing_rev: Option<i64> = tx
-            .query_row(
-                "SELECT data_revision FROM daily_usage
-                 WHERE tz_version = ?1 AND local_day = ?2 AND instance_id = ?3
-                   AND agent = ?4 AND provider_id = ?5 AND model_raw = ?6
-                   AND call_category = ?7 AND quality_bucket = ?8",
-                params![
-                    p.tz_version,
-                    p.local_day,
-                    p.instance_id,
-                    p.agent,
-                    p.provider_id,
-                    p.model_raw,
-                    p.call_category,
-                    p.quality_bucket
-                ],
-                |r| r.get(0),
-            )
-            .optional()?;
-        match existing_rev {
-            None => {
-                tx.execute(
-                    "INSERT INTO daily_usage (
-                       tz_version, local_day, instance_id, agent, provider_id, model_raw,
-                       call_category, quality_bucket, event_count, call_count, attempt_count,
-                       observation_count, input_known_sum, input_known_count, input_unknown_count,
-                       uncached_known_sum, uncached_known_count,
-                       cache_read_known_sum, cache_read_known_count,
-                       cache_write_known_sum, cache_write_known_count,
-                       output_known_sum, output_known_count, output_unknown_count,
-                       total_known_sum, total_known_count, total_unknown_count,
-                       ratio_input_sum, ratio_cache_read_sum, ratio_sample_count,
-                       conflict_count, sealed, sealed_at_ms, seal_tz, seal_field_version,
-                       seal_source_version, data_revision
-                     ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 0, 0,
-                       ?11, CASE WHEN ?11 IS NULL THEN 0 ELSE 1 END, 0,
-                       NULL, 0, ?12, 0, ?13, 0, ?14, 0, 0,
-                       ?15, CASE WHEN ?15 IS NULL THEN 0 ELSE 1 END, 0,
-                       NULL, NULL, 0, ?16, ?17, NULL, NULL, NULL, NULL, ?18)",
-                    params![
-                        p.tz_version,
-                        p.local_day,
-                        p.instance_id,
-                        p.agent,
-                        p.provider_id,
-                        p.model_raw,
-                        p.call_category,
-                        p.quality_bucket,
-                        p.event_count,
-                        p.call_count,
-                        p.input_known_sum,
-                        p.cache_read_known_sum,
-                        p.cache_write_known_sum,
-                        p.output_known_sum,
-                        p.total_known_sum,
-                        p.conflict_count,
-                        if p.sealed { 1 } else { 0 },
-                        p.data_revision
-                    ],
-                )?;
-                outcome.daily_inserted += 1;
-            }
-            Some(existing_rev) if p.data_revision > existing_rev => {
-                tx.execute(
-                    "UPDATE daily_usage SET
-                       event_count = ?9, call_count = ?10,
-                       input_known_sum = ?11, cache_read_known_sum = ?12,
-                       cache_write_known_sum = ?13, output_known_sum = ?14,
-                       total_known_sum = ?15, conflict_count = ?16, data_revision = ?17
-                     WHERE tz_version = ?1 AND local_day = ?2 AND instance_id = ?3
-                       AND agent = ?4 AND provider_id = ?5 AND model_raw = ?6
-                       AND call_category = ?7 AND quality_bucket = ?8",
-                    params![
-                        p.tz_version,
-                        p.local_day,
-                        p.instance_id,
-                        p.agent,
-                        p.provider_id,
-                        p.model_raw,
-                        p.call_category,
-                        p.quality_bucket,
-                        p.event_count,
-                        p.call_count,
-                        p.input_known_sum,
-                        p.cache_read_known_sum,
-                        p.cache_write_known_sum,
-                        p.output_known_sum,
-                        p.total_known_sum,
-                        p.conflict_count,
-                        p.data_revision
-                    ],
-                )?;
-                outcome.daily_replaced += 1;
-            }
-            Some(existing_rev) if p.data_revision == existing_rev => {
-                // 同修订：覆盖（重复导出导入不缺失；内容相同时 SQL 层面幂等）。
-                tx.execute(
-                    "UPDATE daily_usage SET
-                       event_count = ?9, call_count = ?10,
-                       input_known_sum = ?11, cache_read_known_sum = ?12,
-                       cache_write_known_sum = ?13, output_known_sum = ?14,
-                       total_known_sum = ?15, conflict_count = ?16, data_revision = ?17
-                     WHERE tz_version = ?1 AND local_day = ?2 AND instance_id = ?3
-                       AND agent = ?4 AND provider_id = ?5 AND model_raw = ?6
-                       AND call_category = ?7 AND quality_bucket = ?8",
-                    params![
-                        p.tz_version,
-                        p.local_day,
-                        p.instance_id,
-                        p.agent,
-                        p.provider_id,
-                        p.model_raw,
-                        p.call_category,
-                        p.quality_bucket,
-                        p.event_count,
-                        p.call_count,
-                        p.input_known_sum,
-                        p.cache_read_known_sum,
-                        p.cache_write_known_sum,
-                        p.output_known_sum,
-                        p.total_known_sum,
-                        p.conflict_count,
-                        p.data_revision
-                    ],
-                )?;
-                outcome.daily_replaced += 1;
-            }
-            Some(_) => {
-                tx.execute(
-                    "INSERT INTO diagnostics (code, field, position, message, created_ms)
-                     VALUES ('import_revision_older', 'data_revision', ?1,
-                             'imported partition revision older than existing; kept existing', ?2)",
-                    params![p.local_day, now_ms],
-                )?;
-                outcome.daily_conflicts += 1;
+        let mut row = object(p)?;
+        row.remove("statistics");
+        let statistics = object(&p.statistics.clone().unwrap_or_default())?;
+        row.extend(statistics);
+        row.insert("sealed".into(), serde_json::json!(1));
+        validate_partition(&row, &declared)?;
+        max_revision = max_revision.max(p.data_revision);
+        match merge_partition(&tx, "daily_usage", DAILY_KEYS, &row)? {
+            Merge::Inserted => out.daily_inserted += 1,
+            Merge::Replaced => out.daily_replaced += 1,
+            Merge::Unchanged => out.daily_skipped += 1,
+            Merge::Older => {
+                out.daily_conflicts += 1;
+                older_diagnostic(&tx, now_ms)?;
             }
         }
     }
-    for h in &export.hourly_partitions {
-        let existing_rev: Option<i64> = tx
-            .query_row(
-                "SELECT data_revision FROM hourly_usage
-                 WHERE tz_version = ?1 AND local_day = ?2 AND hour = ?3 AND instance_id = ?4
-                   AND agent = ?5 AND provider_id = ?6 AND model_raw = ?7
-                   AND call_category = ?8 AND quality_bucket = ?9",
-                params![
-                    h.tz_version,
-                    h.local_day,
-                    h.hour,
-                    h.instance_id,
-                    h.agent,
-                    h.provider_id,
-                    h.model_raw,
-                    h.call_category,
-                    h.quality_bucket
-                ],
-                |r| r.get(0),
-            )
-            .optional()?;
-        match existing_rev {
-            None => {
-                tx.execute(
-                    "INSERT INTO hourly_usage (
-                       tz_version, local_day, hour, instance_id, agent, provider_id, model_raw,
-                       call_category, quality_bucket, event_count, call_count,
-                       input_known_sum, cache_read_known_sum, cache_write_known_sum,
-                       output_known_sum, total_known_sum, conflict_count, data_revision
-                     ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11,
-                               ?12, ?13, ?14, ?15, ?16, 0, ?17)",
-                    params![
-                        h.tz_version,
-                        h.local_day,
-                        h.hour,
-                        h.instance_id,
-                        h.agent,
-                        h.provider_id,
-                        h.model_raw,
-                        h.call_category,
-                        h.quality_bucket,
-                        h.event_count,
-                        h.call_count,
-                        h.input_known_sum,
-                        h.cache_read_known_sum,
-                        h.cache_write_known_sum,
-                        h.output_known_sum,
-                        h.total_known_sum,
-                        h.data_revision
-                    ],
-                )?;
-                outcome.hourly_inserted += 1;
+    for p in &export.hourly_partitions {
+        let row = object(p)?;
+        validate_partition(&row, &declared)?;
+        if !(0..24).contains(&p.hour) {
+            return Err(CoreError::Validation("invalid aggregate hour".into()));
+        }
+        max_revision = max_revision.max(p.data_revision);
+        match merge_partition(&tx, "hourly_usage", HOURLY_KEYS, &row)? {
+            Merge::Inserted => out.hourly_inserted += 1,
+            Merge::Replaced => out.hourly_replaced += 1,
+            Merge::Unchanged => out.hourly_skipped += 1,
+            Merge::Older => {
+                out.hourly_skipped += 1;
+                older_diagnostic(&tx, now_ms)?;
             }
-            Some(rev) if h.data_revision > rev => {
-                tx.execute(
-                    "UPDATE hourly_usage SET
-                       event_count = ?10, call_count = ?11, input_known_sum = ?12,
-                       cache_read_known_sum = ?13, cache_write_known_sum = ?14,
-                       output_known_sum = ?15, total_known_sum = ?16, data_revision = ?17
-                     WHERE tz_version = ?1 AND local_day = ?2 AND hour = ?3 AND instance_id = ?4
-                       AND agent = ?5 AND provider_id = ?6 AND model_raw = ?7
-                       AND call_category = ?8 AND quality_bucket = ?9",
-                    params![
-                        h.tz_version,
-                        h.local_day,
-                        h.hour,
-                        h.instance_id,
-                        h.agent,
-                        h.provider_id,
-                        h.model_raw,
-                        h.call_category,
-                        h.quality_bucket,
-                        h.event_count,
-                        h.call_count,
-                        h.input_known_sum,
-                        h.cache_read_known_sum,
-                        h.cache_write_known_sum,
-                        h.output_known_sum,
-                        h.total_known_sum,
-                        h.data_revision
-                    ],
-                )?;
-                outcome.hourly_replaced += 1;
-            }
-            Some(_) => outcome.hourly_skipped += 1,
         }
     }
-    let revision = Storage::bump_data_revision_tx(&tx, now_ms)?;
-    tx.execute(
-        "INSERT INTO diagnostics (code, message, created_ms)
-         VALUES ('import_completed', ?1, ?2)",
-        params![
-            format!(
-                "aggregate import rev={revision}: sources={} daily ins/repl/skip/conf={}/{}/{}/{} hourly ins/repl/skip={}/{}/{}",
-                outcome.sources_registered,
-                outcome.daily_inserted,
-                outcome.daily_replaced,
-                outcome.daily_skipped,
-                outcome.daily_conflicts,
-                outcome.hourly_inserted,
-                outcome.hourly_replaced,
-                outcome.hourly_skipped
-            ),
-            now_ms
-        ],
-    )?;
+    for p in &export.period_partitions {
+        let row = object(p)?;
+        validate_partition(&row, &declared)?;
+        if !["week", "month", "year"].contains(&p.granularity.as_str())
+            || p.period_key.is_empty()
+            || p.period_start_day > p.period_end_day
+        {
+            return Err(CoreError::Validation("invalid aggregate period".into()));
+        }
+        crate::calendar::parse_date(&p.period_start_day)?;
+        crate::calendar::parse_date(&p.period_end_day)?;
+        max_revision = max_revision.max(p.data_revision);
+        match merge_partition(&tx, "period_usage", PERIOD_KEYS, &row)? {
+            Merge::Inserted => out.period_inserted += 1,
+            Merge::Replaced => out.period_replaced += 1,
+            Merge::Unchanged => out.period_skipped += 1,
+            Merge::Older => {
+                out.period_skipped += 1;
+                older_diagnostic(&tx, now_ms)?;
+            }
+        }
+    }
+    let changed = out.daily_inserted
+        + out.daily_replaced
+        + out.hourly_inserted
+        + out.hourly_replaced
+        + out.period_inserted
+        + out.period_replaced;
+    if changed > 0 {
+        // Keep local materialization revisions newer than imported partition revisions.
+        tx.execute("INSERT INTO settings(key,value,schema_version,updated_at_ms) VALUES ('data_revision',?1,1,?2)
+            ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at_ms=excluded.updated_at_ms",
+            params![max_revision.to_string(),now_ms])?;
+        Storage::bump_data_revision_tx(&tx, now_ms)?;
+        tx.execute(
+            "INSERT INTO diagnostics(code,message,created_ms) VALUES ('import_completed',?1,?2)",
+            params![format!("aggregate partitions changed: {changed}"), now_ms],
+        )?;
+    }
     tx.commit()?;
-    Ok(outcome)
+    Ok(out)
+}
+
+type Object = serde_json::Map<String, serde_json::Value>;
+fn object(value: &impl serde::Serialize) -> Result<Object, CoreError> {
+    serde_json::to_value(value)?
+        .as_object()
+        .cloned()
+        .ok_or_else(|| CoreError::Validation("expected aggregate object".into()))
+}
+const DAILY_KEYS: &[&str] = &[
+    "tz_version",
+    "local_day",
+    "instance_id",
+    "agent",
+    "provider_id",
+    "model_raw",
+    "call_category",
+    "quality_bucket",
+];
+const HOURLY_KEYS: &[&str] = &[
+    "tz_version",
+    "local_day",
+    "hour",
+    "instance_id",
+    "agent",
+    "provider_id",
+    "model_raw",
+    "call_category",
+    "quality_bucket",
+];
+const PERIOD_KEYS: &[&str] = &[
+    "tz_version",
+    "granularity",
+    "period_key",
+    "instance_id",
+    "agent",
+    "provider_id",
+    "model_raw",
+    "call_category",
+    "quality_bucket",
+];
+
+fn validate_partition(
+    row: &Object,
+    sources: &BTreeMap<&str, &crate::exchange::ExchangeSource>,
+) -> Result<(), CoreError> {
+    let text = |field: &str| row.get(field).and_then(|v| v.as_str()).unwrap_or("");
+    let source = sources
+        .get(text("instance_id"))
+        .ok_or_else(|| CoreError::Validation("aggregate references an undeclared source".into()))?;
+    if source.agent.to_lowercase() != text("agent").to_lowercase() {
+        return Err(CoreError::Validation(
+            "aggregate agent differs from its source".into(),
+        ));
+    }
+    crate::calendar::Calendar::new(text("tz_version"))?;
+    if row.contains_key("local_day") {
+        crate::calendar::parse_date(text("local_day"))?;
+    }
+    for value in row.values() {
+        if value.as_i64().is_some_and(|n| n < 0) {
+            return Err(CoreError::Validation("negative aggregate value".into()));
+        }
+    }
+    let n = |key: &str| row.get(key).and_then(|v| v.as_i64()).unwrap_or(0);
+    if n("call_count") > n("event_count") || n("conflict_count") > n("event_count") {
+        return Err(CoreError::Validation(
+            "aggregate count exceeds event count".into(),
+        ));
+    }
+    Ok(())
+}
+enum Merge {
+    Inserted,
+    Replaced,
+    Unchanged,
+    Older,
+}
+fn sql_value(value: &serde_json::Value) -> Result<rusqlite::types::Value, CoreError> {
+    use rusqlite::types::Value;
+    match value {
+        serde_json::Value::Null => Ok(Value::Null),
+        serde_json::Value::String(v) => Ok(Value::Text(v.clone())),
+        serde_json::Value::Number(v) => v
+            .as_i64()
+            .map(Value::Integer)
+            .ok_or_else(|| CoreError::Validation("aggregate integer out of range".into())),
+        _ => Err(CoreError::Validation("invalid aggregate value".into())),
+    }
+}
+
+/// Column names come only from typed serializers above, never from input JSON.
+fn merge_partition(
+    tx: &Transaction<'_>,
+    table: &str,
+    keys: &[&str],
+    row: &Object,
+) -> Result<Merge, CoreError> {
+    let columns: Vec<_> = row.keys().map(String::as_str).collect();
+    let values: Vec<_> = row.values().map(sql_value).collect::<Result<_, _>>()?;
+    let predicate = keys
+        .iter()
+        .enumerate()
+        .map(|(i, k)| format!("{k}=?{}", i + 1))
+        .collect::<Vec<_>>()
+        .join(" AND ");
+    let key_values: Vec<_> = keys
+        .iter()
+        .map(|k| sql_value(&row[*k]))
+        .collect::<Result<_, _>>()?;
+    let sql = format!(
+        "SELECT {} FROM {table} WHERE {predicate}",
+        columns.join(",")
+    );
+    let existing = tx
+        .query_row(&sql, rusqlite::params_from_iter(key_values), |r| {
+            (0..columns.len())
+                .map(|i| r.get::<_, rusqlite::types::Value>(i))
+                .collect::<Result<Vec<_>, _>>()
+        })
+        .optional()?;
+    if let Some(old) = &existing {
+        if old == &values {
+            return Ok(Merge::Unchanged);
+        }
+        // Re-importing our own snapshot must not seal a live source/day and
+        // prevent its next requests from entering the aggregate.
+        if table == "daily_usage" {
+            let sealed = columns.iter().position(|k| *k == "sealed").unwrap();
+            if old[sealed] == rusqlite::types::Value::Integer(0)
+                && old
+                    .iter()
+                    .zip(&values)
+                    .enumerate()
+                    .all(|(i, (a, b))| i == sealed || a == b)
+            {
+                return Ok(Merge::Unchanged);
+            }
+        }
+        let revision = columns.iter().position(|k| *k == "data_revision").unwrap();
+        if let (rusqlite::types::Value::Integer(old), rusqlite::types::Value::Integer(new)) =
+            (&old[revision], &values[revision])
+        {
+            if old > new {
+                return Ok(Merge::Older);
+            }
+        }
+    }
+    if table == "daily_usage" || table == "hourly_usage" {
+        let calendar = crate::calendar::Calendar::new(row["tz_version"].as_str().unwrap())?;
+        let day = crate::calendar::parse_date(row["local_day"].as_str().unwrap())?;
+        let (start, end) = calendar.day_range_ms(day)?;
+        let live: bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM usage_events WHERE source_instance_id=?1 AND occurred_at_ms>=?2 AND occurred_at_ms<?3)",
+            params![row["instance_id"].as_str().unwrap(),start,end], |r| r.get(0))?;
+        if live {
+            return Err(CoreError::Validation("aggregate import overlaps retained local request details; live partitions cannot be replaced with a snapshot".into()));
+        }
+    }
+    let placeholders = (1..=columns.len())
+        .map(|i| format!("?{i}"))
+        .collect::<Vec<_>>()
+        .join(",");
+    let updates = columns
+        .iter()
+        .filter(|k| !keys.contains(k))
+        .map(|k| format!("{k}=excluded.{k}"))
+        .collect::<Vec<_>>()
+        .join(",");
+    tx.execute(&format!("INSERT INTO {table}({}) VALUES ({placeholders}) ON CONFLICT({}) DO UPDATE SET {updates}", columns.join(","),keys.join(",")),
+        rusqlite::params_from_iter(values))?;
+    Ok(if existing.is_some() {
+        Merge::Replaced
+    } else {
+        Merge::Inserted
+    })
+}
+fn older_diagnostic(tx: &Transaction<'_>, now: i64) -> Result<(), CoreError> {
+    tx.execute("INSERT INTO diagnostics(code,message,created_ms) VALUES ('import_revision_older','Imported partition is older; existing values were kept.',?1)", [now])?;
+    Ok(())
 }
 
 /// 注册导出包的主机（外部来源；本机身份不覆盖）。

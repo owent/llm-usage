@@ -45,9 +45,44 @@ impl crate::adapters::framework::SourceAdapter for QwenAdapter {
         &self,
         ctx: &crate::adapters::framework::DiscoverContext,
     ) -> Vec<crate::adapters::framework::DiscoveredRoot> {
-        use crate::adapters::framework::{DiscoveredRoot, RootBasis};
+        use crate::adapters::framework::{
+            enumerate_files_bounded, DiscoveredRoot, RootBasis, DISCOVER_MAX_DIRS,
+            DISCOVER_MAX_FILES,
+        };
         let mut roots: Vec<(std::path::PathBuf, RootBasis)> = Vec::new();
-        if let Some(home) = &ctx.home_dir {
+        // The runtime override is authoritative for this process. Keep manual roots
+        // separate so users can still scan a previous installation explicitly.
+        let runtime = ctx.env.get("QWEN_RUNTIME_DIR").filter(|s| !s.is_empty());
+        let qwen_home = ctx.env.get("QWEN_HOME").filter(|s| !s.is_empty());
+        if let Some(path) = runtime.or(qwen_home) {
+            // Qwen resolves relative overrides against its own working directory,
+            // which the desktop process does not know. Never guess that base.
+            let configured = std::path::PathBuf::from(path);
+            let resolved = if path == "~" {
+                ctx.home_dir.clone()
+            } else if let Some(suffix) =
+                path.strip_prefix("~/").or_else(|| path.strip_prefix("~\\"))
+            {
+                ctx.home_dir.as_ref().map(|home| home.join(suffix))
+            } else if configured.is_absolute() {
+                Some(configured)
+            } else {
+                None
+            };
+            if let Some(resolved) = resolved {
+                roots.push((
+                    resolved,
+                    RootBasis::EnvOverride(
+                        if runtime.is_some() {
+                            "QWEN_RUNTIME_DIR"
+                        } else {
+                            "QWEN_HOME"
+                        }
+                        .into(),
+                    ),
+                ));
+            }
+        } else if let Some(home) = &ctx.home_dir {
             roots.push((home.join(".qwen"), RootBasis::DefaultHome));
         }
         for manual in &ctx.manual_roots {
@@ -55,16 +90,53 @@ impl crate::adapters::framework::SourceAdapter for QwenAdapter {
         }
         let mut out = Vec::new();
         for (root, basis) in roots {
-            let tmp = root.join("tmp");
-            if !tmp.is_dir() {
-                continue;
+            let mut files = Vec::new();
+            // Inspect only the documented chats directories. Scanning every
+            // project sidecar can spend the directory budget before reaching
+            // archived sessions.
+            for base in ["projects", "tmp"] {
+                let dir = root.join(base);
+                let Ok(entries) = std::fs::read_dir(dir) else {
+                    continue;
+                };
+                let mut projects: Vec<_> = entries
+                    .flatten()
+                    .filter(|e| {
+                        e.file_type()
+                            .is_ok_and(|kind| kind.is_dir() && !kind.is_symlink())
+                    })
+                    .take(DISCOVER_MAX_DIRS)
+                    .map(|e| e.path())
+                    .collect();
+                projects.sort();
+                for project in projects {
+                    for chats in [project.join("chats"), project.join("chats/archive")] {
+                        files.extend(enumerate_files_bounded(&chats, 0, &|p| {
+                            p.extension().and_then(|e| e.to_str()) == Some("jsonl")
+                        }));
+                        if files.len() >= DISCOVER_MAX_FILES {
+                            break;
+                        }
+                    }
+                    if files.len() >= DISCOVER_MAX_FILES {
+                        break;
+                    }
+                }
+                if files.len() >= DISCOVER_MAX_FILES {
+                    break;
+                }
             }
-            // tmp/<project_id>/chats/<sessionId>.jsonl：深度 2，有界枚举。
-            let files = crate::adapters::framework::enumerate_files_bounded(&tmp, 2, &|p| {
-                p.file_name()
-                    .and_then(|n| n.to_str())
-                    .map(|n| n.ends_with(".jsonl"))
-                    .unwrap_or(false)
+            files.truncate(DISCOVER_MAX_FILES);
+            // A Qwen writer can recreate the active file after archiving. Read it
+            // first; shared native UUIDs in the archive remain idempotent.
+            files.sort_by_key(|p| {
+                (
+                    p.parent()
+                        .and_then(|d| d.file_name())
+                        .and_then(|n| n.to_str())
+                        == Some("archive"),
+                    p.clone(),
+                )
             });
             if !files.is_empty() {
                 out.push(DiscoveredRoot { root, basis, files });
@@ -175,10 +247,10 @@ impl crate::adapters::framework::SourceAdapter for QwenAdapter {
                 .collect(),
             discovery: serde_json::json!({
                 "default_roots": ["<home>/.qwen"],
-                "env_override": null,
+                "env_override": ["QWEN_RUNTIME_DIR", "QWEN_HOME"],
                 "manual_roots": true,
                 "bounded": true,
-                "pattern": "tmp/<project_id>/chats/<sessionId>.jsonl",
+                "pattern": "{projects,tmp}/<project_id>/chats/{<sessionId>.jsonl,archive/<sessionId>.jsonl}",
                 "profile": "无 profile 概念",
             }),
             detection: serde_json::json!({
@@ -208,13 +280,13 @@ impl crate::adapters::framework::SourceAdapter for QwenAdapter {
             dedup: serde_json::json!({
                 "primary": "qwen:{uuid}（实例命名空间）",
                 "fallback": "seq:{sessionId}:{行号}（缺 uuid，记诊断）",
-                "cross_source": "只读 chats JSONL；无其他本地用量存储接入",
+                "cross_source": "同一运行根的活动与 archive JSONL 共用原生 uuid；旧 tmp 与新 projects 路径同属一实例，不把副本按文件数叠加",
             }),
             integrity: serde_json::json!({
                 "success_only": "格式内无失败调用证据；只统计带 usageMetadata 的 assistant 记录",
                 "hidden_calls": "未观测；子 Agent 记录与主会话同文件按同口径计入",
                 "sampling": "未观测到采样；坏行逐条隔离记诊断",
-                "source_retention": "源端保留未知；可回填范围以现存文件为准",
+                "source_retention": "daemon archive 移动 JSONL 至 chats/archive；源端删除后的历史无法回采，可回填范围以现存文件为准",
                 "prompt_content": "只读白名单字段（uuid/sessionId/timestamp/type/subtype/version/model/agentId/isSidechain/goalContext/usageMetadata），prompt 日志侧写禁用，正文不提取",
             }),
             maintenance: serde_json::json!({
@@ -232,6 +304,7 @@ impl crate::adapters::framework::SourceAdapter for QwenAdapter {
                 "record.version 逐条存 schema_version 但不做版本白名单（格式锚点是固定源码 commit）".into(),
                 "缺 uuid 记录用 sessionId+行号身份，文件同位替换后可能形成新键".into(),
                 "本机无真实样本（not_found）；合同测试基于按固定源码构造的合成样本".into(),
+                "新版 Qwen 增加记录类型时仍由格式探测 fail closed；归档路径不代表新版本字段已验证".into(),
                 "符号链接/junction 不跟随；Windows 无稳定文件索引号，身份靠创建时间+首采样".into(),
             ],
         }

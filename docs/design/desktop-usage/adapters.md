@@ -1,7 +1,8 @@
 # Agent 接入调研与能力矩阵
 
-调研日期：2026-09-24。下表是实施候选和证据状态，不是已发布支持列表。
-本轮未安装或启动这些 Agent，未读取本机个人会话，也未用真实服务发起请求。
+初始调研日期：2026-09-24；2026-09-27 复核归档行为，见文末及
+[本轮验证](../../validation/desktop-usage/review-2026-09-27.md)。下表区分实施候选与证据状态。
+实施阶段已按授权只读核对部分本机数据，未启动 Agent 或发起模型请求。
 用户列出的 Codex 重复项合并，CLI/桌面/IDE 仍须分别标识产品表面。
 Harness Agent 按用户提供官网更正为 Hermes Agent。所有工具均保留本地支持计划；
 按用户最新决定，缺少本地格式证据的 IDE 后移 F1，当前不探测/实施。
@@ -32,7 +33,7 @@ Harness Agent 按用户提供官网更正为 Hermes Agent。所有工具均保�
 | Claude Code | projects 下会话/子 Agent JSONL；官方 OTel 的 input/output/cacheRead/cacheCreation、模型与请求事件 | 本地 JSONL 逐请求形态需 fixture；遥测需显式启用，防会话/辅助统计重叠 | M2/M5；本地候选/需启用，A01 |
 | Cline | 适配器已实现（M3，2026-09-25，文档级证据：固定源码 dcf8c3c；本机未安装 not_found，真实数据验收后置） | say 载体四桶互斥 + request 键；compaction 估算不入账；deleted_api_reqs/subagent_usage 聚合处理；不能每条 say 算请求；模型逐请求归属需真实样本核验；CLI SDK 单独探测 | M3 已实施（待真实验收），A03 |
 | CodeBuddy Code / IDE / 插件 | CodeBuddy Code 官方 OTel model_stream，输入/输出/总 token、模型和 TTFT；IDE 有积分用量页 | CLI 官方合同不能自动推广到 IDE/插件；model_request 与 model_stream 不双计；缓存字段尚需样本 | CLI M5；缺证 IDE/插件 F1，A04 |
-| Codex CLI / 桌面 / IDE | 原型读 CODEX_HOME 下 rollout 的 token_usage_record；官方 OTel 支持请求、响应完成 usage 和流事件 | 已验证版本（逐版本脱敏 fixture）：0.155.0-alpha.16.3（M0/M2-A）、0.154.0-alpha.6.1/6.2、0.153.0（M2-D），逐次/累计/turn_context 三类记录，compaction 重置累计快照；0.139–0.151 本机实测无 token_usage_record（仅 token_count 累计快照），按未知版本回退尝试并判不兼容，待专用旧版实现取证；未知新版本默认 latest_fallback 带兼容标记；原型固定默认路径需改为发现/配置；旧 token_count 与新记录必须分格式；模型从结构化上下文归属，缺 response ID 不碰撞 | M2/M5；本地候选/需启用，A02 + 原型 |
+| Codex CLI / 桌面 / IDE | 原型读 CODEX_HOME 下 rollout 的 token_usage_record；官方 OTel 支持请求、响应完成 usage 和流事件 | 已验证版本（逐版本脱敏 fixture）：0.155.0-alpha.16.3（M0/M2-A）、0.154.0-alpha.6.1/6.2、0.153.0（M2-D），逐次/累计/turn_context 三类记录，compaction 重置累计快照；0.139–0.151 已有 rollout_legacy 专用实现及 21 个精确版本映射，按 token_count 增量证据处理，边界见 m2d 记录；未知新版本默认 latest_fallback 带兼容标记；原型固定默认路径需改为发现/配置；旧 token_count 与新记录必须分格式；模型从结构化上下文归属，缺 response ID 不碰撞 | M2/M5；本地候选/需启用，A02 + 原型 |
 | GitHub Copilot CLI | 官方 OTel 的 chat span、token 统计，支持 JSONL file exporter；原型另有 assistant_usage_events SQLite | 优先官方文件/OTLP；本机 1.0.73 实测 events.jsonl 无逐次 token，session-store.db 的 assistant_usage_events 逐 turn 全字段（M0 fixture）；不能认定所有版本都有该库；premium request 独立；2026-09-25 盘点发现 ~/.copilot 用量存储全树消失（疑升级迁移），M5 实施前需重定位 | M5；需启用，A05 |
 | JetBrains 内置 AI Assistant / Junie | 后续探测 IDE 本地日志、插件数据、会话存储/本机导出 | A07 只证实企业远端分析，已排除；本地 token/cache schema 待证，当前不探测/开发 | F1；后续支持，A07 为范围排除依据 |
 | DeepSeek Harness（DSH） | 适配器已实现（M3，2026-09-25，文档级证据：token-meter README 46a7f68；本机未安装 not_found） | final 替换流式、retry 新开计费 attempt、边界定稿末样本（V03 数学样本语义）；pressure 估算不计账；occurred_at 用观察时间（无逐事件时间）；落盘行形状为合成假设待真实样本 | M3 已实施（待真实验收），A08 |
@@ -46,11 +47,11 @@ Harness Agent 按用户提供官网更正为 Hermes Agent。所有工具均保�
 | oh-my-pi | 官方 session 文档确认 ~/.omp/agent/sessions/...jsonl，assistant usage 与模型/provider | 本机 18.2.7 已取 3 个脱敏 fixture（2026-09-25，[M2-B/C 恢复记录](../../validation/desktop-usage/m2bc-resumed.md)）：assistant 全带 usage + duration/ttft 浮点毫秒；model_change 落盘为 `model`="provider/model" 组合字段（非 pi 分字段）；子 Agent 文件在 `<ts>_<父UUID>/` 目录按路径形状归父；~/.omp/logs 仅上下文估算 debug 行、无逐次用量，title-generator 无重叠证据；compaction/branch_summary 本机均无 usage（辅助载体合同已实现，待真实样本） | M2；本地候选，A15 |
 | pi | 固定源码 Usage 含 input/output/cacheRead/cacheWrite/reasoning；session 有 message、独立 usage、compaction/branch summary usage | 推理已含于 output；仅 assistant message 会漏辅助用量；分支继承不代表新调用；目录由该版本配置函数解析；本机 0.87.1 已取真实 fixture 并通过幂等核对（2026-09-25，[M2-B/C 恢复记录](../../validation/desktop-usage/m2bc-resumed.md)）；fork 复制条目带 fork 会话身份，仲裁为 conflict 保留先扫者，净效果不双计 | M2；本地候选，A16 |
 | OpenCode | 适配器已实现（M3，2026-09-25，文档级证据：固定源码 0027387；本机未安装 not_found） | 逐次数据可得：part 表 step-finish 部件 tokens{input(未缓存),output,reasoning,cache{read,write}}+cost；session.tokens_* 仅对账（matched）；message.data turn 聚合不读防双计；发现层按数据目录名收敛（kilo 目录同形库碰撞已修，负向测试覆盖） | M3 已实施（待真实验收），A17 |
-| Qwen Code | 固定 recording service 记录 usageMetadata/model，位于 ~/.qwen/tmp/<project_id>/chats；官方 OTel | 不把 Goal 累计 histogram sum 当总消耗；旧日志缺 spend 时零不等于实测零；显式禁用 prompt 日志 | M2/M5；本地候选/需启用，A18 |
+| Qwen Code | 固定 recording service 记录 usageMetadata/model；旧 tmp 与新 projects 的 chats/ 及 chats/archive/ 均需发现；官方 OTel | 不把 Goal 累计 histogram sum 当总消耗；活动/归档以同来源原生 uuid 去重；QWEN_RUNTIME_DIR 优先于 QWEN_HOME，手工根可补旧库；旧日志缺 spend 时零不等于实测零；显式禁用 prompt 日志 | M2/M5；本地候选/需启用，A18 |
 | Zoo Code | 适配器已实现（M3，2026-09-26，文档级证据：固定源码 f780647；本机未安装 not_found） | Roo 血统整写 ui_messages.json；LIFO 配对合并（finish 覆盖 start、无配对丢弃）；condense_context.cost 计上游 totalCost（辅助调用、token 未知）；tokensIn 含缓存（与 opencode 家族相反）；独立产品不能擅自改为 Roo Code；缺证 JetBrains 变体后移 | M3 已实施（待真实验收）；JetBrains 变体 F1，A19 |
 | TRAE / TraeCode 及插件 | 后续探测本地 IDE/CLI 日志、会话库、插件数据和本机会话导出 | A20 企业 API/控制台报表不纳入；当前整个产品家族后移，不推测通用目录/schema | F1；后续支持，A20 为范围排除依据 |
 | VS Code | 官方 Copilot Chat OTel 的逐 LLM chat span 有模型、输入/输出、可选缓存与推理、TTFT | VS Code 是宿主；与 Copilot/Claude/Codex 等底层 Agent 去重；不承诺读取所有扩展的 usage | M5；需启用，A06 |
-| ZCode | 适配器已实现（M4，2026-09-25）：model-io JSONL 双口径——AI SDK 五键为主（inputTokens 含缓存读）、anthropic snake_case 对照互斥校验（矛盾进诊断）；db.sqlite 只读对账（活库 418/438 matched，在途轮 mismatch 可见）；真实核对幂等 | 已验证 3.14.3（真实 fixture）；未收录版本 latest_fallback；`~/.zcode/v2` 布局与 `%APPDATA%/zcode` 桌面存储未接入（待证）；缺 requestId/traceId 时不得全部变成 zcode:None | M4 已实施；跨版本待证，A21 |
+| ZCode | 适配器已实现（M4，2026-09-25）：model-io JSONL 双口径——AI SDK 五键为主（inputTokens 含缓存读）、anthropic snake_case 对照互斥校验（矛盾进诊断）；db.sqlite model_usage 为自动采集主载体，turn_usage 只读对账（活库不一致轮可见）；真实核对幂等 | 已验证 3.14.3（真实 fixture）；未收录版本 latest_fallback；`~/.zcode/v2` 布局与 `%APPDATA%/zcode` 桌面存储未接入（待证）；缺 requestId/traceId 时不得全部变成 zcode:None | M4 已实施；跨版本待证，A21 |
 | WorkBuddy | 官方日志诊断入口作本地探测线索；核验安装/profile 对应的日志/缓存与本机会话导出 | 套餐/账号积分页不纳入；未证实本地逐请求 token/cache，不能把 CodeBuddy CLI OTel 直接套用 | M4；待证实，A22 |
 | Zed | 官方说明 hosted 服务有 token 计量，客户端 telemetry log 可查看；外部 Agent 有独立数据源 | 内置存储 schema 后续核验；外部 ACP Agent 仍按底层适配器读取原生日志，不计为 Zed 内置支持 | 内置 Agent F1；外部来源按原阶段，A23 |
 
@@ -135,24 +136,39 @@ A24 固定源码 `ef70b3661cbfcf57e583008ad91dd04d8ba46070` 确认以下内容�
 | Copilot/VS Code/CodeBuddy | chat/model_stream 与父 span 去重、file/OTLP 重传、cache 缺失、无 usage 的失败、SDK/宿主重叠 |
 | JetBrains/TRAE/其他本地待证源 | 本地日志/数据库真实样本、版本/插件差异、缺 usage、同区间重导入；远端同步/账号报表必须排除 |
 
-## 历史可回采性与滚动窗口风险（2026-09-27 取证）
+## 会话归档与历史可回采性（2026-09-27 复核）
 
-「清空全部数据重新采集」能否找回全部历史，取决于 Agent 是否删除/压实自己的
-源文件。逐源取证结论（本机实证见 m6 记录「清空重采数据丢失分析与 ZCode
-db 回填」节；通用防护：清空前自动备份 + 确认层预警 + 来源页失踪文件标记）：
+来源归档与本应用分级保留是两件事。发现来源时也检查已证实的归档载体；
+同一来源的活动/归档副本共用原生调用身份。没有共同调用 ID 的载体必须明确主来源，
+不能按时间接近、token 相同或会话 ID 相同猜测同一请求。
 
-| 来源 | 本机证据 | 可回采性结论 |
+| 来源 | 已核验入口与行为 | 实现和证据边界 |
 | --- | --- | --- |
-| zcode | 13 注册文件中 10 个被删（约 174MB）；2 个主文件压实（generation 128/139） | **滚动窗口**：cli/db/db.sqlite model_usage 完整，已实现 `zcode_db_backfill` 恢复 |
-| codex | 299 文件全在、零重写；config 无清理项；archived=0 | 文件即持久记录。logs_2 为纯日志；state_5 只有元数据与 threads.tokens_used 累计值；thread_history_1 为 UI 投影（无逐次 usage）——无逐次备用源 |
-| kilo | kilo.db 直读（本身即持久库）；0 压实会话；消息按月完整（2026-06 起） | 主存储持久；压实行为（time_compacting）当前未发生，发生后消息是否保留待取证 |
-| kimi-code / kimi-work | 13/69 文件全在、零重写；config 无清理项；telemetry 空、user-history 为命令历史 | 文件即持久记录，无逐次备用源 |
-| pi / oh-my-pi | 2/59 文件全在、零重写 | omp agent.db 的 usage_history 是额度窗口（与逐次调用分开，不作恢复源）、client_usage 空表、model_usage 为模型注册——无逐次备用源 |
-| cline/dsh/hermes/openclaw/opencode/mimo/zoo（本机未安装） | 无本机数据 | **未取证**：产品是否清理历史未知；通用防护（备份+预警+失踪标记）生效，真实验收后补充结论 |
+| Codex | CODEX_HOME 下 sessions 与 archived_sessions；官方 thread/archive 移动 JSONL，恢复时移回 | 两目录合并发现，只有归档目录也可采集；活动/归档副本与反复重扫去重。当前本机 306 个活动文件、无真实归档，归档行为由官方合同及合成移动/副本测试验证 |
+| Qwen Code | 旧 tmp 与新 projects 下各项目的 chats/archive 为独立归档目录；daemon 将活动 JSONL 移入或移出归档，异常情况下活动和归档副本可同时存在 | 扫描两种布局的 chats 与 archive，按同一来源内原生 uuid 去重；QWEN_RUNTIME_DIR、QWEN_HOME 与手工根按已证实路径选择，Agent 工作目录相对路径需配置绝对手工根；本机无真实 Qwen 数据，格式升级仍须逐版本核验 |
+| ZCode | cli/db/db.sqlite 的 model_usage 保留已完成调用，JSONL 可能删除/压实 | DB 为同一来源的主载体，按原生 id 及来源/日快照替换；从未有 DB 时才读 JSONL。使用过 DB 后丢失或损坏即报错并保留旧统计，不回退造成双计。旧 JSONL 未识别记录若无法与 DB 调用可靠对应，保留健康告警，不直接相加或抹除 |
+| Claude Code | projects 中主/子会话、orphaned JSONL 与 superseded 副本 | 现有递归发现覆盖这些路径，以请求/消息身份去重；已有合成 fixture，当前无真实本机归档可核对 |
+| Kilo / OpenCode | SQLite session.time_archived 是归档标记，调用仍在 message/part | 查询不排除归档会话；补充先归档、恢复、再归档全链路测试。Kilo 使用真实脱敏 fixture，OpenCode 为固定源码合同合成 fixture |
+| Gemini CLI / Kimi Code / Kimi Work / pi / oh-my-pi | 已知本地会话文件；Gemini 自动保存与手动 checkpoint 不同 | Gemini 自动清理默认约 30 天，是删除而非另一个归档目录；手动 checkpoint 可能复制会话，但没有已验证的独立逐次用量合同，不能叠加。其他来源现有目录按格式采集；omp usage_history 是额度窗口，不能当调用历史 |
+| Cline / Zoo / Hermes / DSH | 按各自已验证格式处理压缩、删除汇总或区间记录 | 沿用能力矩阵，不能把汇总反推出逐次明细；无本机真实档案的来源仍待验收 |
+| OpenClaw | 新运行时库与旧归档分离，缺少本项目已验证的条目 schema | 保持不计入和可见诊断，等待真实样本；不凭旧 JSONL 名称猜测兼容 |
 
-结论：已装来源中仅 zcode 存在滚动窗口行为；其余来源当前完整保留历史文件，
-但多数**没有逐次用量的备用存储**——本应用存档是唯一完整副本，清空前备份
-（backups/）是通用恢复路径。
+ZCode 安装包的 recordModelUsage 会按 started_at 清理约 30 天前的记录。
+DB 不是永久完整档案：边界日已有统计时不以可能不完整的快照覆盖；来源清掉的旧日保留
+在应用汇总中。新发现来源只能统计当前仍存在的数据，不能恢复从未采集且已被删除的记录。
+DB 没有逐行产品版本，结构校验通过后使用 latest_fallback 标记，不宣称逐版本验证。
+
+最新真实核对：8,225 次调用、2,398,950,011 Token；再次扫描新增为 0、修订不变。
+turn_usage 有 24 个轮级对账差异，仅作对照，不能与 model_usage 相加。
+会话文件目前存在不能证明产品永远不清理；清空应用统计前的备份仍有必要。
+
+依据：[Codex App Server](https://learn.chatgpt.com/docs/app-server)、
+[OpenCode Session 源码](https://github.com/anomalyco/opencode/blob/dev/packages/opencode/src/session/session.ts)、
+[Qwen Code 会话归档合同](https://github.com/QwenLM/qwen-code/issues/6057)、
+[Qwen Code 活动/归档副本问题](https://github.com/QwenLM/qwen-code/issues/9688)、
+[Qwen Code 环境路径](https://github.com/QwenLM/qwen-code/blob/main/docs/users/configuration/settings.md)、
+[Gemini CLI 会话管理](https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/session-management.md)；
+本机安装包指纹、只读 SQL、脱敏结果及测试入口见[审查记录](../../validation/desktop-usage/review-2026-09-27.md)。
 
 ## 暂未证实工具的推进方式
 

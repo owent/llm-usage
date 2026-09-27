@@ -12,7 +12,7 @@
     SummaryQuery,
     SystemTaskStatusDto,
   } from '../lib/api';
-  import { i18n, t, fmtBytes, fmtNumber } from '../lib/i18n.svelte';
+  import { i18n, t, fmtBytes, fmtNumber, LANGUAGE_OPTIONS } from '../lib/i18n.svelte';
 
   let {
     settings,
@@ -92,9 +92,6 @@
   let clearPreview = $state<ClearAllPreviewDto | null>(null);
 
   // zcode db 历史回填（滚动窗口源文件丢失的恢复路径）。
-  let backfillBusy = $state(false);
-  let backfillMessage = $state('');
-  let backfillError = $state('');
 
   // 聚合交换包导入。
   let importing = $state(false);
@@ -603,29 +600,6 @@
       .catch(() => (clearPreview = null));
   }
 
-  /** zcode db 回填：补回被 Agent 清理/压实的滚动窗口历史（与已入库事件去重）。 */
-  async function runZcodeBackfill() {
-    if (backfillBusy) return;
-    backfillBusy = true;
-    backfillMessage = '';
-    backfillError = '';
-    try {
-      const r = await api.zcodeDbBackfill();
-      backfillMessage = t('settings.zcodeBackfill.done', {
-        rows: r.db_rows,
-        matched: r.matched_existing,
-        added: r.added,
-        updated: r.updated,
-      });
-      await loadStats();
-      ondatachanged?.();
-    } catch (e) {
-      backfillError = t('cleanup.failed', { message: parseError(e) });
-    } finally {
-      backfillBusy = false;
-    }
-  }
-
   /** 清理全部数据 → 展示各表清除条目数 → 自动触发全量重采（进度见顶栏）。 */
   async function confirmClearAll() {
     clearAllBusy = true;
@@ -676,9 +650,10 @@
           <div class="frow">
             <span class="flabel">{t('settings.language')}</span>
             <div class="fvalue">
-              <select bind:value={draft.language}>
-                <option value="zh-CN">简体中文</option>
-                <option value="en">English</option>
+              <select bind:value={draft.language} aria-label={t('settings.language')} data-testid="language-select">
+                {#each LANGUAGE_OPTIONS as [code, label] (code)}
+                  <option value={code}>{label}</option>
+                {/each}
               </select>
             </div>
           </div>
@@ -853,16 +828,7 @@
           {#if clearAllMessage}<p class="ok">{clearAllMessage}</p>{/if}
           {#if clearAllError}<p class="bad">{clearAllError}</p>{/if}
         </section>
-        <section class="panel">
-          <div class="clear-all-row">
-            <button type="button" disabled={backfillBusy} onclick={() => void runZcodeBackfill()}>
-              {backfillBusy ? t('cleanup.running') : t('settings.zcodeBackfill')}
-            </button>
-            <span class="hint">{t('settings.zcodeBackfill.hint')}</span>
-          </div>
-          {#if backfillMessage}<p class="ok">{backfillMessage}</p>{/if}
-          {#if backfillError}<p class="bad">{backfillError}</p>{/if}
-        </section>
+        <p class="hint">{t('settings.archives.hint')}</p>
       {:else if sub === 'system'}
         <section class="panel">
           {#if taskLoading}
@@ -1098,7 +1064,10 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
-    padding: 8px 0;
+    padding: 16px 10px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
     border-right: 1px solid var(--border);
     position: sticky;
     top: 0;
@@ -1123,7 +1092,10 @@
   }
   .content {
     min-width: 0;
-    padding: 8px 0;
+    padding: 26px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
   }
   .panel {
     padding: 4px 0 10px;
@@ -1134,8 +1106,8 @@
     padding-top: 10px;
   }
   .panel h4 {
-    font-size: 13px;
-    margin: 2px 0 8px;
+    font-size: 16px;
+    margin: 2px 0 20px;
     color: var(--text-heading);
   }
   /* 紧凑表单行：行距 10px、标签 140px 右对齐。 */
@@ -1143,7 +1115,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-bottom: 10px;
+    margin-bottom: 18px;
     min-width: 0;
   }
   .frow.top {
@@ -1178,8 +1150,8 @@
   .flabel {
     flex: none;
     width: 140px;
-    text-align: right;
-    font-size: 12.5px;
+    text-align: left;
+    font-size: 13px;
     color: var(--text-secondary);
   }
   .fvalue {
@@ -1191,8 +1163,8 @@
     flex-wrap: wrap;
   }
   input, select, textarea {
-    padding: 4px 8px;
-    font-size: 12.5px;
+    padding: 8px 10px;
+    font-size: 13px;
     box-sizing: border-box;
   }
   .fvalue > input, .fvalue > select {
@@ -1213,7 +1185,7 @@
     color: var(--text-muted);
   }
   .name {
-    font-size: 12.5px;
+    font-size: 13px;
     color: var(--text);
   }
   .stats {
@@ -1296,7 +1268,7 @@
     display: grid;
     grid-template-columns: max-content 1fr;
     gap: 6px 12px;
-    font-size: 12.5px;
+    font-size: 13px;
     background: var(--bg-code);
     border-radius: 8px;
     padding: 10px 14px;
@@ -1322,7 +1294,7 @@
     gap: 8px;
     width: 100%;
     padding: 4px 8px;
-    font-size: 12.5px;
+    font-size: 13px;
     background: var(--bg-input);
     border: 1px solid var(--border);
     border-radius: 6px;
@@ -1409,7 +1381,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-size: 12.5px;
+    font-size: 13px;
     color: var(--text-secondary);
   }
   .logs-filter select {
@@ -1422,7 +1394,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-size: 12.5px;
+    font-size: 13px;
     color: var(--text-secondary);
     cursor: pointer;
   }
@@ -1487,7 +1459,7 @@
     margin-bottom: 4px;
   }
   .escope-title {
-    font-size: 12.5px;
+    font-size: 13px;
     color: var(--text);
     font-weight: 600;
   }
@@ -1517,7 +1489,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: 12.5px;
+    font-size: 13px;
     color: var(--text);
     cursor: pointer;
   }
@@ -1536,7 +1508,7 @@
   button {
     padding: 5px 14px;
     cursor: pointer;
-    font-size: 12.5px;
+    font-size: 13px;
   }
   button.primary {
     background: var(--accent);
@@ -1596,12 +1568,12 @@
   }
   /* 清空确认层：缺失源文件预警（危险色）与自动备份说明（弱化）。 */
   .dialog-warn {
-    font-size: 12.5px;
+    font-size: 13px;
     color: var(--danger);
     margin: 8px 0 0;
   }
   .dialog-note {
-    font-size: 12.5px;
+    font-size: 13px;
     color: var(--text-muted);
     margin: 8px 0 0;
   }
@@ -1619,11 +1591,11 @@
   }
   .ok {
     color: var(--success);
-    font-size: 12.5px;
+    font-size: 13px;
   }
   .bad {
     color: var(--danger);
-    font-size: 12.5px;
+    font-size: 13px;
   }
   .ok, .bad {
     overflow-wrap: anywhere;

@@ -149,7 +149,9 @@ fn summary_detail_metrics_use_the_selected_days_and_include_sessionless_activity
         r.granularity = granularity;
         let s = query_summary(&storage, &r).unwrap();
         assert_eq!(s.totals.input_total_known, Some(10));
-        assert_eq!(s.periods[0].distinct_sessions, Some(0));
+        // Missing session identifiers mean unknown coverage, not zero sessions.
+        assert_eq!(s.periods[0].distinct_sessions, None);
+        assert_eq!(s.distinct_sessions, None);
         assert_eq!(s.periods[0].active_days, Some(1));
     }
 }

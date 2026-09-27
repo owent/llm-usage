@@ -1,15 +1,6 @@
 <script lang="ts">
-  /**
-   * 今日按小时趋势（任务 D8 + 2026-09-26 增强）：
-   * - 总用量维度：双 y 轴——调用次数（柱）+ token（折线）；只渲染有数据的小时桶
-   *   （call_count>0 或 total_tokens 非空），无数据小时不补零、不占 x 轴；
-   * - 分组维度（按模型/Agent/Agent+模型）：经 chart_series 查询 first=last=今天
-   *   的分组数据。该命令按天聚合（单时间标签），故转置为“分组名 × 调用/token”
-   *   对比图；若后端未来返回多个时间标签则自动按时间轴渲染多系列折线；
-   * - y 轴 fmtSmart 缩放、tooltip 精确值并附输入/缓存/输出/会话明细。
-   */
   import { onMount } from 'svelte';
-  import { setupTooltipAutoHide } from '../lib/chart';
+  import { setChartOption, setupTooltipAutoHide, escapeHtml, CHART_PALETTE } from '../lib/chart';
   import * as echarts from 'echarts/core';
   import { BarChart, LineChart } from 'echarts/charts';
   import type { LineSeriesOption } from 'echarts/charts';
@@ -35,7 +26,7 @@
       input_total: string | null;
       cache_read: string | null;
       output_total: string | null;
-      sessions: number;
+      sessions: number | null;
       avg_duration_ms: string | null;
     }[];
     /** 今日查询（first=last=今天；分组维度的 chart_series 数据源）。 */
@@ -47,6 +38,7 @@
   let dimension = $state<ChartDimension>('total');
   let grouped = $state<ChartGroupData | null>(null);
   let groupedError = $state('');
+  let groupedScope = '';
 
   let el: HTMLDivElement;
   let chart: echarts.ECharts | null = null;
@@ -59,19 +51,16 @@
 
   function applyOption(option: echarts.EChartsCoreOption, key: string): void {
     if (!chart) return;
-    if (key === lastRenderKey) chart.setOption(option);
-    else chart.setOption(option, { notMerge: true });
+    if (key === lastRenderKey) setChartOption(chart, isDark, option);
+    else setChartOption(chart, isDark, option, { notMerge: true });
     lastRenderKey = key;
   }
 
   /** 主题感知色：全局文字（axis/legend 继承）与 y 轴分隔线。 */
-  const chartText = $derived(isDark ? '#aaa' : '#555');
-  const splitColor = $derived(isDark ? '#3a3b3f' : '#e0e0e0');
+  const chartText = $derived(isDark ? '#b0bfd4' : '#5b6a82');
+  const splitColor = $derived(isDark ? '#2c3a52' : '#e8edf5');
 
-  const PALETTE = [
-    '#1a56c4', '#3f8f5f', '#c9a227', '#b3601e', '#7a5fb0',
-    '#2f8f8f', '#c46a9a', '#8a8f36', '#5d6b9e', '#a05f46',
-  ];
+  const PALETTE = CHART_PALETTE;
 
   /** 有数据的小时桶（call_count>0 或 total_tokens 非空；无数据小时不补零）。 */
   const activeHours = $derived(
@@ -84,14 +73,17 @@
   // 分组数据：dimension/query 变化时经 chart_series 拉取；失败时保底显示错误文案。
   $effect(() => {
     const q = query;
+    void hourly;
     void dimension;
-    grouped = null;
+    const scope = JSON.stringify([q, dimension]);
+    if (groupedScope !== scope) grouped = null;
+    groupedScope = scope;
     groupedError = '';
     if (dimension === 'total') return;
     const dim = dimension;
     let cancelled = false;
     api
-      .chartSeries(q, dim)
+      .chartSeries({ ...q, granularity: 'hour' }, dim)
       .then((r) => {
         if (!cancelled) grouped = pivotChartSeries(r.rows);
       })
@@ -113,7 +105,7 @@
     }
     const labels = rows.map((h) => `${String(h.hour).padStart(2, '0')}:00`);
     const calls = rows.map((h) => h.calls);
-    const tokens = rows.map((h) => Number(h.total_tokens ?? 0));
+    const tokens = rows.map((h) => h.total_tokens === null ? null : Number(h.total_tokens));
     applyOption(
       {
         tooltip: {
@@ -188,10 +180,9 @@
             const name = g.names[params[0]?.dataIndex ?? 0];
             const c = name === undefined ? undefined : g.cell(name, label);
             if (!c) return '';
-            const miss =
-              c.input !== null && c.cacheRead !== null ? c.input - c.cacheRead : null;
+            const miss = c.uncached;
             return [
-              `<b>${name}</b> · ${label}`,
+              `<b>${escapeHtml(name)}</b> · ${escapeHtml(label)}`,
               `${t('trend.calls')}: ${fmtPrecise(c.calls)}`,
               `${t('cards.total')}: ${fmtPrecise(c.total)}`,
               `${t('cards.input')}: ${fmtPrecise(c.input)}`,
@@ -240,7 +231,7 @@
             symbolSize: 5,
             itemStyle: { color: '#3f8f5f' },
             lineStyle: { width: 2 },
-            data: g.names.map((n) => Number(g.cell(n, label)?.total ?? 0)),
+            data: g.names.map((n) => g.cell(n, label)?.total ?? null),
           },
         ],
       },
@@ -269,7 +260,7 @@
         symbolSize: 4,
         itemStyle: { color },
         lineStyle: { type: 'dashed', width: 1.5 },
-        data: g.labels.map((l) => Number(g.cell(name, l)?.total ?? 0)),
+        data: g.labels.map((l) => g.cell(name, l)?.total ?? null),
       });
     });
     applyOption(
@@ -279,10 +270,10 @@
           hideDelay: 0, transitionDuration: 0,
           formatter: (params: { dataIndex: number; marker: string; seriesName?: string; value: number | null }[]) => {
             const label = g.labels[params[0]?.dataIndex ?? 0] ?? '';
-            const lines = [`<b>${label}</b>`];
+            const lines = [`<b>${escapeHtml(label)}</b>`];
             for (const p of params) {
               if (p.value !== null && p.value !== undefined && p.value !== 0) {
-                lines.push(`${p.marker}${p.seriesName}: ${fmtPrecise(p.value)}`);
+                lines.push(`${p.marker}${escapeHtml(p.seriesName)}: ${fmtPrecise(p.value)}`);
               }
             }
             return lines.join('<br/>');
@@ -386,7 +377,7 @@
     gap: 10px;
     padding: 6px 0 0;
     flex-wrap: wrap;
-    font-size: 12.5px;
+    font-size: 13px;
   }
   .dim-error {
     color: var(--danger);
@@ -395,7 +386,7 @@
   }
   .muted {
     color: var(--text-muted);
-    font-size: 12.5px;
+    font-size: 13px;
     margin: 4px 0 0;
   }
   .hourly {

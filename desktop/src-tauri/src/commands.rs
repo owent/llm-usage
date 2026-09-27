@@ -6,28 +6,31 @@ use crate::app_state::{load_settings, save_settings, AppSettings, AppState};
 use crate::scanner::{now_ms, run_refresh};
 use llm_usage_core::calendar::{parse_date, WeekStart};
 use llm_usage_core::exchange::{
-    build_export, ExchangeKind, ExportRequest, EXCHANGE_FORMAT_VERSION,
+    build_aggregate_export, ExchangeKind, ExportRequest, EXCHANGE_FORMAT_VERSION,
 };
 use llm_usage_core::jobs::TriggerKind;
 use llm_usage_core::query::{
-    agent_breakdown, heatmap_cells, hourly_breakdown, query_summary, Filters, Granularity,
-    SummaryRequest,
+    heatmap_cells, hourly_breakdown, query_summary, Filters, Granularity, SummaryRequest,
 };
 use serde::Deserialize;
 use std::io::Write;
 use std::sync::Arc;
 use tauri::Manager;
 
-/// 当前用户的来源实例集合（多用户过滤：v6 合同；查询失败返回空=不过滤降级）。
-fn user_instances(storage: &llm_usage_core::storage::Storage, user_id: &str) -> Vec<String> {
-    storage
+/// Empty ownership must select no rows; it must never mean all users.
+fn user_instances(
+    storage: &llm_usage_core::storage::Storage,
+    user_id: &str,
+) -> Result<Vec<String>, String> {
+    let instances: Vec<String> = storage
         .conn()
         .prepare("SELECT instance_id FROM source_instances WHERE user_id = ?1")
         .and_then(|mut stmt| {
             let rows = stmt.query_map([user_id], |r| r.get(0))?;
             rows.collect::<Result<Vec<String>, _>>()
         })
-        .unwrap_or_default()
+        .map_err(|e| err("db", e.to_string()))?;
+    Ok(instances)
 }
 
 /// 写操作日志到诊断表（白名单 code，无正文）。
@@ -268,7 +271,7 @@ fn build_request(
             providers: q.providers.clone(),
             models: q.models.clone(),
             quality_buckets: Vec::new(),
-            instances,
+            instances: Some(instances),
         },
         today: {
             let cal = llm_usage_core::calendar::Calendar::new(&settings.timezone)
@@ -306,6 +309,7 @@ fn metric_sums_dto(s: &llm_usage_core::query::MetricSums) -> serde_json::Value {
         "cache_input_ratio": s.cache_input_ratio().map(|r| r.as_f64()),
         "avg_duration_ms": opt_num(s.avg_duration_ms),
         "total_duration_ms": opt_num(s.total_duration_ms),
+        "duration_sample_count": s.duration_sample_count,
     })
 }
 
@@ -319,23 +323,26 @@ pub fn summary(
     let request = build_request(&settings, &q, Vec::new())?;
     // 读路径：常驻只读连接（WAL 与后台扫描并发；失败回退写连接）。
     let storage = crate::app_state::read_conn(&state);
-    let instances = user_instances(&storage, &current_user);
+    let instances = user_instances(&storage, &current_user)?;
     let request = SummaryRequest {
         filters: Filters {
-            instances,
+            instances: Some(instances),
             ..request.filters
         },
         ..request
     };
     let s = query_summary(&storage, &request).map_err(|e| err("query", e.to_string()))?;
-    let agents = agent_breakdown(&storage, &request).map_err(|e| err("query", e.to_string()))?;
-    let today_hourly = hourly_breakdown(
-        &storage,
-        &settings.timezone,
-        request.today,
-        &request.filters,
-    )
-    .map_err(|e| err("query", e.to_string()))?;
+    let today_hourly = if request.first_day == request.today && request.last_day == request.today {
+        hourly_breakdown(
+            &storage,
+            &settings.timezone,
+            request.today,
+            &request.filters,
+        )
+        .map_err(|e| err("query", e.to_string()))?
+    } else {
+        Vec::new()
+    };
     drop(storage);
     Ok(serde_json::json!({
         "data_revision": s.data_revision,
@@ -351,12 +358,14 @@ pub fn summary(
             "active_days": p.active_days,
         })).collect::<Vec<_>>(),
         "totals": metric_sums_dto(&s.totals),
+        "distinct_sessions": s.distinct_sessions,
+        "active_days": s.active_days,
         "models": s.model_breakdown.iter().map(|m| serde_json::json!({
             "provider": m.provider_id,
             "model": m.model_raw,
             "sums": metric_sums_dto(&m.sums),
         })).collect::<Vec<_>>(),
-        "agents": agents.iter().map(|a| serde_json::json!({
+        "agents": s.agent_breakdown.iter().map(|a| serde_json::json!({
             "agent": a.agent,
             "sums": metric_sums_dto(&a.sums),
         })).collect::<Vec<_>>(),
@@ -383,7 +392,7 @@ pub fn heatmap(
     let current_user = state.current_user.lock().unwrap().clone();
     let mut request = build_request(&settings, &q, Vec::new())?;
     let storage = crate::app_state::read_conn(&state);
-    request.filters.instances = user_instances(&storage, &current_user);
+    request.filters.instances = Some(user_instances(&storage, &current_user)?);
     let cells = heatmap_cells(
         &storage,
         &settings.timezone,
@@ -395,10 +404,12 @@ pub fn heatmap(
     drop(storage);
     Ok(serde_json::json!({
         "cells": cells.iter().map(|c| serde_json::json!({
+            "day": c.day,
             "weekday": c.weekday,
-            "hour": c.hour,
             "calls": c.call_count,
             "total_tokens": opt_num(c.total_tokens_known),
+            "available": c.available,
+            "partial": c.partial,
         })).collect::<Vec<_>>(),
     }))
 }
@@ -418,6 +429,10 @@ pub fn list_sources(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_json
                     (SELECT COUNT(*) FROM source_files f WHERE f.instance_id = s.instance_id
                      AND f.status = 'active_compat') AS compat_files,
                     (SELECT COUNT(*) FROM source_files f WHERE f.instance_id = s.instance_id
+                     AND f.status = 'degraded') AS degraded_files,
+                    (SELECT COUNT(*) FROM source_files f WHERE f.instance_id = s.instance_id
+                     AND f.status = 'unsupported') AS unsupported_files,
+                    (SELECT COUNT(*) FROM source_files f WHERE f.instance_id = s.instance_id
                      AND f.status = 'incompatible') AS incompatible_files
              FROM source_instances s ORDER BY s.agent, s.instance_id",
         )
@@ -434,7 +449,9 @@ pub fn list_sources(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_json
                 "user_id": r.get::<_, String>(6)?,
                 "last_success_ms": r.get::<_, Option<i64>>(7)?,
                 "compat_files": r.get::<_, i64>(8)?,
-                "incompatible_files": r.get::<_, i64>(9)?,
+                "degraded_files": r.get::<_, i64>(9)?,
+                "unsupported_files": r.get::<_, i64>(10)?,
+                "incompatible_files": r.get::<_, i64>(11)?,
             }))
         })
         .map_err(|e| err("db", e.to_string()))?;
@@ -534,12 +551,12 @@ pub fn set_settings(
     }
     {
         let storage = state.storage.lock().unwrap();
-        save_settings(&storage, &settings)?;
         // 时区变更 ⇒ 在新时区重算日分区（事件仍在 ⇒ 推导；封存日跳过）。
         let old_tz = state.settings.lock().unwrap().timezone.clone();
         if old_tz != settings.timezone {
-            crate::app_state::repair_tz_partitions(&storage, &settings.timezone);
+            crate::app_state::repair_tz_partitions(&storage, &settings.timezone, true)?;
         }
+        save_settings(&storage, &settings)?;
     }
     {
         let storage = state.storage.lock().unwrap();
@@ -682,13 +699,13 @@ pub fn export_data(
                     })
                     .map_err(|e| err("db", e.to_string()))?
             };
-            let export = build_export(
+            let export = build_aggregate_export(
                 &storage,
                 &ExportRequest {
                     timezone: settings.timezone.clone(),
                     from_ms: 0,
                     to_ms: now_ms() + 86_400_000,
-                    instances,
+                    instances: Some(instances),
                     redact_hostnames: true,
                     kind: ExchangeKind::FullSnapshot,
                     batch_id: format!("export-{}", now_ms()),
@@ -754,23 +771,14 @@ pub fn create_user(
     name: String,
     switch: bool,
 ) -> Result<serde_json::Value, String> {
-    let user_id = format!(
-        "u-{}",
-        name.to_lowercase()
-            .replace(|c: char| !c.is_ascii_alphanumeric(), "-")
-    );
-    if user_id.is_empty() {
+    let name = name.trim();
+    if name.is_empty() {
         return Err(err("invalid_user", "name is empty"));
     }
+    let user_id;
     {
         let storage = state.storage.lock().unwrap();
-        storage
-            .conn()
-            .execute(
-                "INSERT INTO users (user_id, name, created_at_ms) VALUES (?1, ?2, ?3)",
-                rusqlite::params![user_id, name, crate::scanner::now_ms()],
-            )
-            .map_err(|e| err("db", e.to_string()))?;
+        user_id = insert_user(&storage, name, crate::scanner::now_ms())?;
         if switch {
             set_current_user_locked(&storage, &user_id)?;
         }
@@ -1046,54 +1054,6 @@ fn backup_before_clear(state: &Arc<AppState>) -> Result<Option<String>, String> 
     Ok(Some(backup.to_string_lossy().to_string()))
 }
 
-/// ZCode cli/db/db.sqlite 历史回填（2026-09-27 数据丢失恢复）：
-/// model-io JSONL 是滚动窗口，清空重采找不回被 Agent 清理的历史；
-/// db.model_usage 逐次行完整，与已入库事件行对行去重后补齐缺失。
-#[tauri::command]
-pub fn zcode_db_backfill(
-    state: tauri::State<'_, Arc<AppState>>,
-) -> Result<serde_json::Value, String> {
-    let settings = state.settings.lock().unwrap().clone();
-    let home = std::env::var("USERPROFILE")
-        .or_else(|_| std::env::var("HOME"))
-        .map_err(|_| err("env", "home directory unavailable"))?;
-    let root = std::path::PathBuf::from(home).join(".zcode").join("cli");
-    let db_path = root.join("db").join("db.sqlite");
-    if !db_path.exists() {
-        return Err(err(
-            "not_found",
-            format!("zcode db not found: {}", db_path.to_string_lossy()),
-        ));
-    }
-    let instance_id = format!(
-        "zcode@{}",
-        llm_usage_core::adapters::framework::normalize_path(&root)
-    );
-    let storage = state.storage.lock().unwrap();
-    let out = llm_usage_core::adapters::zcode::db_backfill::zcode_db_backfill(
-        &storage,
-        &db_path,
-        &instance_id,
-        &settings.timezone,
-        crate::scanner::now_ms(),
-    )
-    .map_err(|e| err("backfill", e.to_string()))?;
-    log_operation(
-        &storage,
-        "zcode_db_backfill",
-        &format!(
-            "db rows {} matched {} added {} updated {}",
-            out.db_rows, out.matched_existing, out.added, out.updated
-        ),
-    );
-    Ok(serde_json::json!({
-        "db_rows": out.db_rows,
-        "matched_existing": out.matched_existing,
-        "added": out.added,
-        "updated": out.updated,
-    }))
-}
-
 /// 清理全部数据（所有归档层+诊断+游标），下次刷新触发全量重新采集计算。
 /// 主机身份、用户、设置保留；source_files 状态重置为 new 使探测重新执行。
 /// 清空前自动备份（见 backup_before_clear）。
@@ -1127,6 +1087,13 @@ pub fn clear_all_data(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_js
     // 但状态重置为 new 让下一轮扫描重新判定。
     tx.execute("UPDATE source_files SET status = 'new'", [])
         .map_err(|e| err("db", e.to_string()))?;
+    tx.execute(
+        "DELETE FROM settings WHERE key='detail_retention_floor_ms'
+        OR key LIKE 'daily_retention_floor:%' OR key LIKE 'retention_applied:%'
+        OR key LIKE 'zcode_archive_day:%' OR key LIKE 'zcode_archive_authority:%'",
+        [],
+    )
+    .map_err(|e| err("db", e.to_string()))?;
     let revision =
         llm_usage_core::storage::Storage::bump_data_revision_tx(&tx, crate::scanner::now_ms())
             .map_err(|e| err("db", e.to_string()))?;
@@ -1153,7 +1120,7 @@ pub fn event_details(
     let settings = state.settings.lock().unwrap().clone();
     let current_user = state.current_user.lock().unwrap().clone();
     let storage = crate::app_state::read_conn(&state);
-    let instances = user_instances(&storage, &current_user);
+    let instances = user_instances(&storage, &current_user)?;
     let request = build_request(&settings, &q, instances)?;
     // 日期范围由请求给出（避免全量扫描；近 24h/当天时精确到小时）。
     let calendar = llm_usage_core::calendar::Calendar::new(&settings.timezone)
@@ -1255,7 +1222,7 @@ pub fn chart_series(
     let settings = state.settings.lock().unwrap().clone();
     let current_user = state.current_user.lock().unwrap().clone();
     let storage = crate::app_state::read_conn(&state);
-    let instances = user_instances(&storage, &current_user);
+    let instances = user_instances(&storage, &current_user)?;
     let request = build_request(&settings, &q, instances)?;
     let dim = match dimension.as_str() {
         "total" => llm_usage_core::query::ChartDimension::Total,
@@ -1278,6 +1245,9 @@ pub fn chart_series(
             "calls": r.call_count,
             "input": opt_num(r.input_total),
             "cache_read": opt_num(r.cache_read),
+            "cache_write": opt_num(r.cache_write),
+            "uncached": opt_num(r.uncached),
+            "cache_ratio": r.cache_ratio,
             "output": opt_num(r.output_total),
             "total": opt_num(r.total_tokens),
         })).collect::<Vec<_>>(),
@@ -1307,4 +1277,32 @@ pub fn diagnostic_logs(
             "message": r.message,
         })).collect::<Vec<_>>(),
     }))
+}
+
+fn insert_user(
+    storage: &llm_usage_core::storage::Storage,
+    name: &str,
+    now: i64,
+) -> Result<String, String> {
+    let name = name.trim();
+    if name.is_empty() {
+        return Err(err("invalid_user", "name is empty"));
+    }
+    storage.conn().query_row(
+        "INSERT INTO users(user_id,name,created_at_ms) VALUES ('u-' || lower(hex(randomblob(16))),?1,?2) RETURNING user_id",
+        rusqlite::params![name,now], |r| r.get(0),
+    ).map_err(|e| err("db", e.to_string()))
+}
+
+#[cfg(test)]
+mod user_tests {
+    #[test]
+    fn chinese_names_have_independent_ids_and_duplicate_names_are_rejected() {
+        let storage = llm_usage_core::storage::Storage::open_in_memory().unwrap();
+        let a = super::insert_user(&storage, "张三", 1).unwrap();
+        let b = super::insert_user(&storage, "李四", 1).unwrap();
+        assert_ne!(a, b);
+        assert!(super::insert_user(&storage, "张三", 1).is_err());
+        assert!(super::insert_user(&storage, "  ", 1).is_err());
+    }
 }

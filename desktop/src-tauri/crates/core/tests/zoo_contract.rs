@@ -69,7 +69,7 @@ fn contract_full_chain_matches_manual_expectations() {
 
     let conn = storage.conn();
     // 请求 1：started+finished 合并（finish 覆盖 start）。
-    let req1: (
+    type Req1Row = (
         String,
         Option<i64>,
         Option<i64>,
@@ -80,7 +80,8 @@ fn contract_full_chain_matches_manual_expectations() {
         Option<i64>,
         Option<i64>,
         Option<String>,
-    ) = conn
+    );
+    let req1: Req1Row = conn
         .query_row(
             "SELECT call_category, input_total, input_cache_read, input_cache_write, \
                     input_uncached, output_total, total_tokens, cost_amount_minor, \
@@ -115,7 +116,8 @@ fn contract_full_chain_matches_manual_expectations() {
     assert_eq!(req1.9, Some("source_start".to_string()));
 
     // 请求 2：第二对合并。
-    let req2: (Option<i64>, Option<i64>, Option<i64>) = conn
+    type Req2Row = (Option<i64>, Option<i64>, Option<i64>);
+    let req2: Req2Row = conn
         .query_row(
             "SELECT input_total, total_tokens, cost_amount_minor \
              FROM usage_events WHERE source_instance_id = ?1 AND source_record_key = ?2",
@@ -128,7 +130,7 @@ fn contract_full_chain_matches_manual_expectations() {
     assert_eq!(req2.2, Some(6_000));
 
     // condense_context：辅助调用，token 全未知、cost 映射。
-    let condense: (
+    type CondenseRow = (
         String,
         Option<i64>,
         Option<i64>,
@@ -136,7 +138,8 @@ fn contract_full_chain_matches_manual_expectations() {
         Option<i64>,
         Option<i64>,
         Option<String>,
-    ) = conn
+    );
+    let condense: CondenseRow = conn
         .query_row(
             "SELECT call_category, input_total, output_total, total_tokens, \
                     cost_amount_minor, source_revision, time_basis \

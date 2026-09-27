@@ -25,7 +25,14 @@ fn request(granularity: Granularity, first: Date, last: Date) -> SummaryRequest 
     }
 }
 
-fn insert_event(storage: &Storage, key: &str, occurred: &str, model: &str, input: i64, output: i64) {
+fn insert_event(
+    storage: &Storage,
+    key: &str,
+    occurred: &str,
+    model: &str,
+    input: i64,
+    output: i64,
+) {
     let mut e = with_tokens(evt("inst", key, ts(occurred)), input, output);
     e.model_raw = Some(model.to_string());
     commit_batch(
@@ -89,7 +96,11 @@ fn week_granularity_merges_days_into_calendar_weeks() {
     let summary_labels: Vec<&str> = summary.periods.iter().map(|p| p.label.as_str()).collect();
     let chart_labels: Vec<&str> = rows.iter().map(|r| r.label.as_str()).collect();
     assert_eq!(chart_labels, summary_labels);
-    assert_eq!(chart_labels.len(), 2, "two calendar weeks: {chart_labels:?}");
+    assert_eq!(
+        chart_labels.len(),
+        2,
+        "two calendar weeks: {chart_labels:?}"
+    );
 
     let first = &rows[0];
     assert_eq!(first.series_name, "m1");
@@ -127,7 +138,7 @@ fn filters_apply_to_grouped_series() {
 
     // 实例白名单：其他实例的数据不出现。
     r.filters = Filters {
-        instances: vec!["other-inst".into()],
+        instances: Some(vec!["other-inst".into()]),
         ..Default::default()
     };
     let rows = chart_series(&storage, &r, &ChartDimension::ByModel).unwrap();
@@ -164,27 +175,37 @@ fn week_merges_materialized_period_usage_and_skips_covered() {
     let r = request(Granularity::Week, ymd(2026, 8, 1), ymd(2026, 9, 30));
     let rows = chart_series(&storage, &r, &ChartDimension::ByModel).unwrap();
     let labels: Vec<&str> = rows.iter().map(|r| r.label.as_str()).collect();
-    assert_eq!(labels, vec![old_key.as_str(), cal.week_label(ymd(2026, 9, 21), WeekStart::Monday).as_str()]);
+    assert_eq!(
+        labels,
+        vec![
+            old_key.as_str(),
+            cal.week_label(ymd(2026, 9, 21), WeekStart::Monday).as_str()
+        ]
+    );
 
     let old = &rows[0];
-    assert_eq!((old.series_name.as_str(), old.call_count, old.input_total), ("m2", 5, Some(500)));
+    assert_eq!(
+        (old.series_name.as_str(), old.call_count, old.input_total),
+        ("m2", 5, Some(500))
+    );
     assert_eq!(old.start_day, old_week_start);
     assert_eq!(old.end_day, ymd(2026, 9, 6));
     // 日层已覆盖的那周不含物化实例的数据（covered 去重）。
     let covered = &rows[1];
     assert_eq!(covered.call_count, 1);
-    assert!(rows.iter().all(|r| r.series_name != "m2" || r.label == old_key));
+    assert!(rows
+        .iter()
+        .all(|r| r.series_name != "m2" || r.label == old_key));
 
     // 与总用量视图的周期集合一致。
     let summary = query_summary(&storage, &r).unwrap();
-    let summary_labels: Vec<&str> =
-        summary.periods.iter().map(|p| p.label.as_str()).collect();
+    let summary_labels: Vec<&str> = summary.periods.iter().map(|p| p.label.as_str()).collect();
     let chart_labels: Vec<&str> = rows.iter().map(|r| r.label.as_str()).collect();
     assert_eq!(chart_labels, summary_labels);
 
     // 实例白名单筛选同样作用于物化行。
     let mut r2 = r.clone();
-    r2.filters.instances = vec!["inst".into()];
+    r2.filters.instances = Some(vec!["inst".into()]);
     let rows = chart_series(&storage, &r2, &ChartDimension::ByModel).unwrap();
     assert!(rows.iter().all(|r| r.label != old_key));
 }

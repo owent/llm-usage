@@ -192,7 +192,10 @@ fn v14_expired_events_do_not_resurrect_and_sealed_day_not_appended() {
         .iter()
         .find(|p| p.label == "2026-09-24")
         .unwrap();
-    assert_eq!(fresh_period.distinct_sessions, Some(0));
+    assert_eq!(
+        fresh_period.distinct_sessions, None,
+        "fixture has no session identities"
+    );
     assert!(!fresh_period.partial_history);
 }
 

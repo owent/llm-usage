@@ -66,7 +66,7 @@ desired/applied 对账界面待接线）。用户已确定所有 Agent 均尝试
 - 系统任务按分钟级检查到期规则；所有具体来源与频率仍由应用配置决定。
   小于 1 分钟的规则在仅系统任务模式下显示受限，不声称达到前台刷新精度。
 - GUI、托盘与 headless 争用同一个按用户/应用数据目录隔离的跨进程所有权锁。
-  已有 GUI 持有时，headless 返回明确的 already-running 状态，由 GUI 调度已持久化规则；
+  已有 GUI 持有时，headless 写入一个合并的 pending_refresh 请求并退出，由 GUI 接收执行；
   不并发创建第二个数据库写者。异常退出由 OS 释放锁，重启核对未完成作业。
 - 用户选择关闭自动提取时同时关闭系统触发；只退出 UI 时保留用户已启用的系统任务并明确提示。
   保存采用 desired/applied 状态及幂等对账：注册失败、路径失效或禁用失败显示待修复，不能假报成功。
@@ -78,6 +78,12 @@ Windows 机制依据：[Task Scheduler](https://learn.microsoft.com/en-us/window
 [执行身份](https://learn.microsoft.com/en-us/windows/win32/taskschd/security-contexts-for-running-tasks)、
 [错过时点处理](https://learn.microsoft.com/en-us/windows/win32/taskschd/tasksettings-startwhenavailable)、
 [重复间隔](https://learn.microsoft.com/en-us/windows/win32/taskschd/repetitionpattern-interval)。
+2026-09-27 已实现按统计库隔离的 OS 文件锁、请求转交及异常退出释放；
+无窗口启动不展示删库弹窗，版本不兼容及采集失败返回非零退出码。
+文件锁使用 Rust 1.89 起提供的 [File.try_lock](https://doc.rust-lang.org/stable/std/fs/struct.File.html#method.try_lock)，
+桌面 crate 最低声明同步为 1.89，实际 CI 仍固定 1.98.0。
+间隔 0 关闭应用内定时扫描；手动和显式后台请求仍可执行。设置变化或手动采集完成后重排到期时间。
+
 具体设置和普通用户可用性以 V24 真实验收为准（注册命令已随 M6 实施：
 schtasks 每小时 `LLMUsageDataRefresh` 当前用户任务），不把 OS 自动补跑语义当作应用幂等保证。
 StartWhenAvailable 可能延迟启动，不能据此承诺唤醒后立即提取；实际下次执行状态须反馈给用户。

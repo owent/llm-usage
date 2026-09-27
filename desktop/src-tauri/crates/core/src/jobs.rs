@@ -164,6 +164,14 @@ pub fn finish_run(
             run_id
         ],
     )?;
+    storage.conn().execute(
+        "UPDATE source_instances SET health = CASE
+           WHEN ?2 = 'failed' THEN 'error'
+           WHEN ?2 != 'succeeded' OR EXISTS(SELECT 1 FROM source_files f
+             WHERE f.instance_id=source_instances.instance_id AND f.status IN ('degraded','unsupported','incompatible','line_too_long'))
+           THEN 'degraded' ELSE 'ok' END
+         WHERE instance_id=(SELECT instance_id FROM ingest_runs WHERE run_id=?1)",
+        params![run_id,status.as_str()])?;
     Ok(())
 }
 
