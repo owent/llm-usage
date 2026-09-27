@@ -403,7 +403,8 @@ pub fn heatmap(
     }))
 }
 
-/// 来源清单：实例注册 + 最近运行 + 兼容标记计数。
+/// 来源清单：实例注册 + 最近运行 + 兼容标记计数 + 失踪文件数
+/// （磁盘已不存在的注册文件：Agent 自行清理/压实产生，其历史只存于本应用）。
 #[tauri::command]
 pub fn list_sources(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_json::Value, String> {
     let storage = crate::app_state::read_conn(&state);
@@ -437,9 +438,27 @@ pub fn list_sources(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_json
             }))
         })
         .map_err(|e| err("db", e.to_string()))?;
-    let sources: Vec<_> = rows
+    let mut sources: Vec<serde_json::Value> = rows
         .collect::<Result<_, _>>()
         .map_err(|e| err("db", e.to_string()))?;
+    drop(stmt);
+    // 失踪文件计数（SQLite 无文件系统访问，磁盘检查逐实例做；只统计不改状态）。
+    for s in sources.iter_mut() {
+        let instance = s["instance_id"].as_str().unwrap_or("").to_string();
+        let mut stmt = storage
+            .conn()
+            .prepare("SELECT file_id FROM source_files WHERE instance_id = ?1")
+            .map_err(|e| err("db", e.to_string()))?;
+        let files = stmt
+            .query_map(rusqlite::params![instance], |r| r.get::<_, String>(0))
+            .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
+            .map_err(|e| err("db", e.to_string()))?;
+        let missing = files
+            .iter()
+            .filter(|f| !std::path::Path::new(f.as_str()).exists())
+            .count();
+        s["missing_files"] = serde_json::json!(missing);
+    }
     Ok(serde_json::json!({ "sources": sources }))
 }
 
@@ -924,10 +943,163 @@ pub fn pick_open_path(extension: String) -> Option<String> {
         .map(|p| p.to_string_lossy().to_string())
 }
 
+/// 清空预检（确认层展示）：事件总量 + 已注册但磁盘已不存在的源文件数
+/// （这些历史清空后无法从源重采，见 2026-09-27 zcode 数据丢失分析）。
+#[tauri::command]
+pub fn clear_all_preview(
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<serde_json::Value, String> {
+    let storage = crate::app_state::read_conn(&state);
+    let event_count: i64 = storage
+        .conn()
+        .query_row("SELECT COUNT(*) FROM usage_events", [], |r| r.get(0))
+        .unwrap_or(0);
+    let mut missing = 0i64;
+    let mut total = 0i64;
+    let mut stmt = storage
+        .conn()
+        .prepare("SELECT file_id FROM source_files")
+        .map_err(|e| err("db", e.to_string()))?;
+    let files = stmt
+        .query_map([], |r| r.get::<_, String>(0))
+        .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
+        .map_err(|e| err("db", e.to_string()))?;
+    for f in files {
+        total += 1;
+        if !std::path::Path::new(&f).exists() {
+            missing += 1;
+        }
+    }
+    Ok(
+        serde_json::json!({ "event_count": event_count, "missing_files": missing, "total_files": total }),
+    )
+}
+
+/// 秒级 epoch → (Y,M,D,H,Min,S)（备份文件名用；civil_from_days 算法）。
+fn time_datetime(secs: i64) -> (i32, u32, u32, u32, u32, u32) {
+    let days = secs.div_euclid(86_400);
+    let rem = secs.rem_euclid(86_400);
+    let (h, mi, s) = (
+        (rem / 3600) as u32,
+        ((rem % 3600) / 60) as u32,
+        (rem % 60) as u32,
+    );
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097);
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = if m <= 2 { y + 1 } else { y };
+    (y as i32, m as u32, d as u32, h, mi, s)
+}
+
+/// 清空前自动备份整库（VACUUM INTO 单文件快照；保留最近 3 份）。
+/// Agent 会清理/压实自己的源文件，清空后部分历史无法重采（2026-09-27
+/// zcode 数据丢失教训）；备份给恢复留一条路。无数据时不备份。
+fn backup_before_clear(state: &Arc<AppState>) -> Result<Option<String>, String> {
+    let storage = state.storage.lock().unwrap();
+    let event_count: i64 = storage
+        .conn()
+        .query_row("SELECT COUNT(*) FROM usage_events", [], |r| r.get(0))
+        .unwrap_or(0);
+    if event_count == 0 {
+        return Ok(None);
+    }
+    let backup_dir = state
+        .db_path
+        .parent()
+        .unwrap_or(std::path::Path::new("."))
+        .join("backups");
+    std::fs::create_dir_all(&backup_dir).map_err(|e| err("io", e.to_string()))?;
+    let (y, mo, d, h, mi, s) = time_datetime(crate::scanner::now_ms() / 1000);
+    let backup = backup_dir.join(format!(
+        "llm-usage-backup-{y:04}{mo:02}{d:02}-{h:02}{mi:02}{s:02}.sqlite"
+    ));
+    storage
+        .conn()
+        .execute(
+            "VACUUM INTO ?1",
+            rusqlite::params![backup.to_string_lossy()],
+        )
+        .map_err(|e| err("db", format!("backup failed: {e}")))?;
+    // 只保留最近 3 份（文件名含时间戳，字典序即时间序）。
+    let mut olds: Vec<_> = std::fs::read_dir(&backup_dir)
+        .map(|rd| {
+            rd.filter_map(|e| e.ok())
+                .filter(|e| {
+                    let n = e.file_name().to_string_lossy().to_string();
+                    n.starts_with("llm-usage-backup-") && n.ends_with(".sqlite")
+                })
+                .map(|e| e.path())
+                .collect()
+        })
+        .unwrap_or_default();
+    olds.sort();
+    while olds.len() > 3 {
+        let oldest = olds.remove(0);
+        let _ = std::fs::remove_file(oldest);
+    }
+    Ok(Some(backup.to_string_lossy().to_string()))
+}
+
+/// ZCode cli/db/db.sqlite 历史回填（2026-09-27 数据丢失恢复）：
+/// model-io JSONL 是滚动窗口，清空重采找不回被 Agent 清理的历史；
+/// db.model_usage 逐次行完整，与已入库事件行对行去重后补齐缺失。
+#[tauri::command]
+pub fn zcode_db_backfill(
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<serde_json::Value, String> {
+    let settings = state.settings.lock().unwrap().clone();
+    let home = std::env::var("USERPROFILE")
+        .or_else(|_| std::env::var("HOME"))
+        .map_err(|_| err("env", "home directory unavailable"))?;
+    let root = std::path::PathBuf::from(home).join(".zcode").join("cli");
+    let db_path = root.join("db").join("db.sqlite");
+    if !db_path.exists() {
+        return Err(err(
+            "not_found",
+            format!("zcode db not found: {}", db_path.to_string_lossy()),
+        ));
+    }
+    let instance_id = format!(
+        "zcode@{}",
+        llm_usage_core::adapters::framework::normalize_path(&root)
+    );
+    let storage = state.storage.lock().unwrap();
+    let out = llm_usage_core::adapters::zcode::db_backfill::zcode_db_backfill(
+        &storage,
+        &db_path,
+        &instance_id,
+        &settings.timezone,
+        crate::scanner::now_ms(),
+    )
+    .map_err(|e| err("backfill", e.to_string()))?;
+    log_operation(
+        &storage,
+        "zcode_db_backfill",
+        &format!(
+            "db rows {} matched {} added {} updated {}",
+            out.db_rows, out.matched_existing, out.added, out.updated
+        ),
+    );
+    Ok(serde_json::json!({
+        "db_rows": out.db_rows,
+        "matched_existing": out.matched_existing,
+        "added": out.added,
+        "updated": out.updated,
+    }))
+}
+
 /// 清理全部数据（所有归档层+诊断+游标），下次刷新触发全量重新采集计算。
 /// 主机身份、用户、设置保留；source_files 状态重置为 new 使探测重新执行。
+/// 清空前自动备份（见 backup_before_clear）。
 #[tauri::command]
 pub fn clear_all_data(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_json::Value, String> {
+    let backup_path = backup_before_clear(&state)?;
     let storage = state.storage.lock().unwrap();
     let tx = storage
         .conn()
@@ -964,7 +1136,11 @@ pub fn clear_all_data(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_js
         "clear_all_data",
         "all statistics cleared; full rescan will trigger",
     );
-    Ok(serde_json::json!({ "cleared": cleared, "data_revision": revision }))
+    Ok(serde_json::json!({
+        "cleared": cleared,
+        "data_revision": revision,
+        "backup": backup_path,
+    }))
 }
 
 #[tauri::command]

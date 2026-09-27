@@ -16,6 +16,7 @@
 //! `%APPDATA%/zcode` 为桌面端 session 小存储（未接入）。无文档化环境覆盖。
 
 pub mod common;
+pub mod db_backfill;
 pub mod detect;
 pub mod versions;
 
@@ -204,7 +205,7 @@ impl crate::adapters::framework::SourceAdapter for ZcodeAdapter {
                 "primary": "zcode:{requestId}:{attempt}（实例命名空间）",
                 "fallback": "seq:{sessionId}:{行号}（缺 requestId，已验证替代）",
                 "dual_caliber": "AI SDK 与 anthropic 双口径互斥取一，绝不相加；矛盾进诊断、主口径保留",
-                "cross_source": "cli/db/db.sqlite 的 model_usage/turn_usage 只读对照（db_reconciliation），不入库计量不与 JSONL 相加；agents/*/transcript.jsonl 正文类不计",
+                "cross_source": "cli/db/db.sqlite 的 model_usage/turn_usage 只读对照（db_reconciliation）不入库计量不与 JSONL 相加；另提供 db_backfill 恢复路径（model-io 滚动窗口丢史时按行对行去重回填 model_usage，2026-09-27）",
             }),
             integrity: serde_json::json!({
                 "success_only": false,
@@ -228,7 +229,12 @@ impl crate::adapters::framework::SourceAdapter for ZcodeAdapter {
                 "真实样本 cacheWriteTokens 全 0；cache_write⊆input 以合成样本与 AI SDK 语义为据"
                     .into(),
                 "双口径矛盾（dual_caliber_mismatch）保留 AI SDK 主口径，不自动择值".into(),
-                "cli/db/db.sqlite 只作只读对账（Σmodel_usage vs turn_usage），不入库计量".into(),
+                "cli/db/db.sqlite 常规采集只作只读对账（Σmodel_usage vs turn_usage），不入库计量；"
+                    .into(),
+                "model-io JSONL 为滚动窗口：子代理会话文件被 ZCode 即时删除、主文件反复压实丢旧记录；"
+                    .into(),
+                "清空重采找不回被清理的历史——恢复走 db_backfill（model_usage 行对行去重回填）"
+                    .into(),
                 "子 Agent 无父会话字段：parent_session_id 不猜测（保持 None）".into(),
                 "缺 requestId 记录用 sessionId+行号身份，文件同位替换后可能形成新键".into(),
                 "符号链接/junction 不跟随；Windows 无稳定文件索引号，身份靠创建时间+首采样".into(),

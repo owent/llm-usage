@@ -74,6 +74,9 @@
             {#if s.incompatible_files > 0}
               <span class="tag bad">{t('sources.incompatibleFiles', { count: s.incompatible_files })}</span>
             {/if}
+            {#if s.missing_files > 0}
+              <span class="tag bad" title={t('sources.missingFiles.hint')}>{t('sources.missingFiles', { count: s.missing_files })}</span>
+            {/if}
           </td>
           <td>
             <select

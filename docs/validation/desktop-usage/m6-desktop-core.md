@@ -302,6 +302,54 @@ core 新增公开 API：`Storage::open_readonly`、`ingest::recompute_days_in_tz
   饼图原地动画过渡而非重建）。换选时间点现在布局零跳动，汇总卡数值与
   饼图数据原地更新。
 
+## 清空重采数据丢失分析与 ZCode db 回填（2026-09-27 用户反馈）
+
+- **现象**：用户点击"清理全部数据"重新采集后，详情/图表中 25–26 日数据大幅
+  减少（主要是 zcode+GLM-5.3）。
+- **根因（真实库只读取证）**：zcode 的 model-io JSONL 是**滚动窗口**——
+  子代理会话文件（`model-io-sess_subagent_agent_*.jsonl`）会话结束后被
+  ZCode 删除（注册表 13 文件中 10 个磁盘已不存在）；主文件
+  `model-io-sess_6842*.jsonl` 被反复压实（generation=139），25 日记录已从
+  现存文件中消失（游标已到文件尾 19,853,928 = 全量消费，但只产出 26 日起
+  事件）。"清空 → 全量重采"只能采到磁盘上仍存在的文件内容，被 Agent
+  清理/压实的历史永久缺失。应用当前 zcode 仅 409 事件（26–27 日）；
+  zcode 自身 `cli/db/db.sqlite` model_usage 保留完整逐次行（8,031 行，
+  覆盖至 2026-08-29；25 日 2,633 次/592.8M token、26 日 2,734 次/1091.2M
+  token，全部 GLM-5.3，含已删子代理文件的部分）。
+- **映射实证（同调用行对行对照）**：db.input_tokens == 应用 input_total
+  （含缓存读）、db.output_tokens == output_total、input+output ==
+  computed_total；db.completed_at 比 JSONL 完成时间晚 3–32ms；407/409
+  已入库事件可按（session + |Δt|≤2s + input/output 相等）稳定匹配。
+- **恢复（新功能）**：`zcode_db_backfill`（core
+  `adapters/zcode/db_backfill.rs` + 命令 + 设置页按钮"从 ZCode 数据库回填
+  缺失历史"）——只读打开 db.sqlite，按上述规则与已入库事件行对行去重后
+  补齐缺失（身份 `zcodedb:{logical_request_id}:{attempt+1}`，与 JSONL
+  身份不同源不互撞；cancelled/error 行也回填并带 error_status；compact
+  等未证 querySource → unknown + 一次诊断；token 口径与 modelio_v1 AI SDK
+  主口径一致，input_uncached 派生）。重跑幂等（回填事件同样参与匹配）。
+  集成测试 `zcode_db_backfill.rs` 2 例（去重/幂等/容差边界/映射/诊断）。
+- **防复发**：
+  1. `clear_all_data` 清空前自动备份整库（VACUUM INTO
+     `backups/llm-usage-backup-<ts>.sqlite`，保留最近 3 份；结果消息带
+     备份路径）；
+  2. 新 `clear_all_preview` 命令：清空确认层展示"有 N 个源文件已被对应
+     Agent 清理，清空后这部分历史无法重采"预警与自动备份说明。
+- zcode 能力声明更新：db 常规采集仍只读对照不入库；恢复走 db_backfill；
+  limitations 增加 model-io 滚动窗口说明。
+- **跨来源同类风险排查（同日用户追问，全部只读取证）**：全实例失踪文件/
+  重写代数分析——仅 zcode 发生（10/13 删、gen 128/139）；codex 299 文件
+  全在零重写（config 无清理项；logs_2 纯日志、state_5 仅元数据+累计值、
+  thread_history 为 UI 投影无逐次 usage）；kilo 0 压实、消息 2026-06 起
+  完整；kimi-code/kimi-work/pi/omp 文件全在零重写（omp agent.db 的
+  usage_history 为额度窗口、client_usage 空表，均非逐次恢复源）。
+  结论记入 adapters.md「历史可回采性与滚动窗口风险」节；未安装产品
+  标未取证。**通用防护补强**：来源页每实例新增"源文件已被清理 N 个"
+  标记（list_sources 磁盘存在性检查 + tooltip 说明"历史只存于本应用，
+  清空后无法重采"），任何 Agent 开始删文件立即可见。
+- 验证：`npm run verify` 退出码 0。i18n 新增 7×2 键（cleanup.clearAll
+  Missing/Backup/BackupAt、settings.zcodeBackfill[.hint/.done]）+ 来源页
+  2×2 键（sources.missingFiles[.hint]）。
+
 ## Tooltip 离开隐藏加固（2026-09-27 用户反馈，三轮，浏览器复现定论）
 
 - 现象：鼠标移出图表后 tooltip 不消失（用户两次截图复现）。

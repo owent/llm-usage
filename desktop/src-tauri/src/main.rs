@@ -124,6 +124,8 @@ fn main() {
             commands::manual_cleanup,
             commands::pick_open_path,
             commands::clear_all_data,
+            commands::clear_all_preview,
+            commands::zcode_db_backfill,
             commands::event_details,
             commands::export_filter_options,
             commands::chart_series,

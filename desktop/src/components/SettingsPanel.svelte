@@ -3,6 +3,7 @@
   import type {
     AppSettings,
     ClearAllDataResultDto,
+    ClearAllPreviewDto,
     CleanupResultDto,
     DiagnosticLogRowDto,
     ExportFilterOptionsDto,
@@ -87,6 +88,13 @@
   let clearAllBusy = $state(false);
   let clearAllMessage = $state('');
   let clearAllError = $state('');
+  /** 清空预检（打开确认层时加载）：磁盘已不存在的源文件 = 清空后无法重采。 */
+  let clearPreview = $state<ClearAllPreviewDto | null>(null);
+
+  // zcode db 历史回填（滚动窗口源文件丢失的恢复路径）。
+  let backfillBusy = $state(false);
+  let backfillMessage = $state('');
+  let backfillError = $state('');
 
   // 聚合交换包导入。
   let importing = $state(false);
@@ -587,6 +595,35 @@
     clearAllMessage = '';
     clearAllError = '';
     clearAllOpen = true;
+    // 预检尽力而为：失败不阻塞确认层（此时不展示缺失文件预警）。
+    clearPreview = null;
+    void api
+      .clearAllPreview()
+      .then((p) => (clearPreview = p))
+      .catch(() => (clearPreview = null));
+  }
+
+  /** zcode db 回填：补回被 Agent 清理/压实的滚动窗口历史（与已入库事件去重）。 */
+  async function runZcodeBackfill() {
+    if (backfillBusy) return;
+    backfillBusy = true;
+    backfillMessage = '';
+    backfillError = '';
+    try {
+      const r = await api.zcodeDbBackfill();
+      backfillMessage = t('settings.zcodeBackfill.done', {
+        rows: r.db_rows,
+        matched: r.matched_existing,
+        added: r.added,
+        updated: r.updated,
+      });
+      await loadStats();
+      ondatachanged?.();
+    } catch (e) {
+      backfillError = t('cleanup.failed', { message: parseError(e) });
+    } finally {
+      backfillBusy = false;
+    }
   }
 
   /** 清理全部数据 → 展示各表清除条目数 → 自动触发全量重采（进度见顶栏）。 */
@@ -596,6 +633,9 @@
     try {
       const r: ClearAllDataResultDto = await api.clearAllData();
       clearAllMessage = t('cleanup.clearAllDone', { detail: clearAllDetail(r.cleared) });
+      if (r.backup) {
+        clearAllMessage = `${clearAllMessage} ${t('cleanup.clearAllBackupAt', { path: r.backup })}`;
+      }
       // 存储统计与界面数据立即反映清空结果。
       await loadStats();
       ondatachanged?.();
@@ -813,6 +853,16 @@
           {#if clearAllMessage}<p class="ok">{clearAllMessage}</p>{/if}
           {#if clearAllError}<p class="bad">{clearAllError}</p>{/if}
         </section>
+        <section class="panel">
+          <div class="clear-all-row">
+            <button type="button" disabled={backfillBusy} onclick={() => void runZcodeBackfill()}>
+              {backfillBusy ? t('cleanup.running') : t('settings.zcodeBackfill')}
+            </button>
+            <span class="hint">{t('settings.zcodeBackfill.hint')}</span>
+          </div>
+          {#if backfillMessage}<p class="ok">{backfillMessage}</p>{/if}
+          {#if backfillError}<p class="bad">{backfillError}</p>{/if}
+        </section>
       {:else if sub === 'system'}
         <section class="panel">
           {#if taskLoading}
@@ -1014,6 +1064,10 @@
     <div class="overlay">
       <div class="dialog" role="dialog" aria-modal="true" aria-label={t('cleanup.clearAll')}>
         <p class="dialog-text">{t('cleanup.clearAllConfirm')}</p>
+        {#if clearPreview && clearPreview.missing_files > 0}
+          <p class="dialog-warn">{t('cleanup.clearAllMissing', { n: clearPreview.missing_files })}</p>
+        {/if}
+        <p class="dialog-note">{t('cleanup.clearAllBackup')}</p>
         <div class="dialog-actions">
           <button
             type="button"
@@ -1539,6 +1593,17 @@
     font-size: 13px;
     color: var(--text);
     margin: 0;
+  }
+  /* 清空确认层：缺失源文件预警（危险色）与自动备份说明（弱化）。 */
+  .dialog-warn {
+    font-size: 12.5px;
+    color: var(--danger);
+    margin: 8px 0 0;
+  }
+  .dialog-note {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    margin: 8px 0 0;
   }
   .dialog-actions {
     display: flex;

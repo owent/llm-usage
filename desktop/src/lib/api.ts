@@ -114,6 +114,8 @@ export interface SourceDto {
   last_success_ms: number | null;
   compat_files: number;
   incompatible_files: number;
+  /** 注册过但磁盘已不存在（Agent 自行清理/压实）：其历史只存于本应用存档。 */
+  missing_files: number;
 }
 
 export interface RefreshStateDto {
@@ -191,10 +193,26 @@ export interface CleanupResultDto {
   materialized_period_rows: number;
 }
 
-/** 清理全部数据结果（各表清除条目数 + 新数据修订；下次刷新全量重采）。 */
+/** 清理全部数据结果（各表清除条目数 + 新数据修订 + 清空前备份路径）。 */
 export interface ClearAllDataResultDto {
   cleared: Record<string, number>;
   data_revision: number;
+  backup: string | null;
+}
+
+/** 清空预检：事件总量 + 已注册但磁盘不存在的源文件数（这些历史无法重采）。 */
+export interface ClearAllPreviewDto {
+  event_count: number;
+  missing_files: number;
+  total_files: number;
+}
+
+/** zcode db 回填结果计数。 */
+export interface ZcodeBackfillDto {
+  db_rows: number;
+  matched_existing: number;
+  added: number;
+  updated: number;
 }
 
 /** 用量明细分页行（event_details 命令）。token 为十进制字符串。 */
@@ -308,6 +326,8 @@ export const api = {
   storageStats: () => invoke<StorageStatsDto>('storage_stats'),
   manualCleanup: (daysBefore: number) => invoke<CleanupResultDto>('manual_cleanup', { daysBefore }),
   clearAllData: () => invoke<ClearAllDataResultDto>('clear_all_data'),
+  clearAllPreview: () => invoke<ClearAllPreviewDto>('clear_all_preview'),
+  zcodeDbBackfill: () => invoke<ZcodeBackfillDto>('zcode_db_backfill'),
   pickOpenPath: (extension: string) => invoke<string | null>('pick_open_path', { extension }),
 };
 

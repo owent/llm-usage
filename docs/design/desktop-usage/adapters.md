@@ -135,6 +135,25 @@ A24 固定源码 `ef70b3661cbfcf57e583008ad91dd04d8ba46070` 确认以下内容�
 | Copilot/VS Code/CodeBuddy | chat/model_stream 与父 span 去重、file/OTLP 重传、cache 缺失、无 usage 的失败、SDK/宿主重叠 |
 | JetBrains/TRAE/其他本地待证源 | 本地日志/数据库真实样本、版本/插件差异、缺 usage、同区间重导入；远端同步/账号报表必须排除 |
 
+## 历史可回采性与滚动窗口风险（2026-09-27 取证）
+
+「清空全部数据重新采集」能否找回全部历史，取决于 Agent 是否删除/压实自己的
+源文件。逐源取证结论（本机实证见 m6 记录「清空重采数据丢失分析与 ZCode
+db 回填」节；通用防护：清空前自动备份 + 确认层预警 + 来源页失踪文件标记）：
+
+| 来源 | 本机证据 | 可回采性结论 |
+| --- | --- | --- |
+| zcode | 13 注册文件中 10 个被删（约 174MB）；2 个主文件压实（generation 128/139） | **滚动窗口**：cli/db/db.sqlite model_usage 完整，已实现 `zcode_db_backfill` 恢复 |
+| codex | 299 文件全在、零重写；config 无清理项；archived=0 | 文件即持久记录。logs_2 为纯日志；state_5 只有元数据与 threads.tokens_used 累计值；thread_history_1 为 UI 投影（无逐次 usage）——无逐次备用源 |
+| kilo | kilo.db 直读（本身即持久库）；0 压实会话；消息按月完整（2026-06 起） | 主存储持久；压实行为（time_compacting）当前未发生，发生后消息是否保留待取证 |
+| kimi-code / kimi-work | 13/69 文件全在、零重写；config 无清理项；telemetry 空、user-history 为命令历史 | 文件即持久记录，无逐次备用源 |
+| pi / oh-my-pi | 2/59 文件全在、零重写 | omp agent.db 的 usage_history 是额度窗口（与逐次调用分开，不作恢复源）、client_usage 空表、model_usage 为模型注册——无逐次备用源 |
+| cline/dsh/hermes/openclaw/opencode/mimo/zoo（本机未安装） | 无本机数据 | **未取证**：产品是否清理历史未知；通用防护（备份+预警+失踪标记）生效，真实验收后补充结论 |
+
+结论：已装来源中仅 zcode 存在滚动窗口行为；其余来源当前完整保留历史文件，
+但多数**没有逐次用量的备用存储**——本应用存档是唯一完整副本，清空前备份
+（backups/）是通用恢复路径。
+
 ## 暂未证实工具的推进方式
 
 M4 保留新版 Kimi Code、Kimi Work、ZCode、WorkBuddy；JetBrains/TRAE、Zed 内置及
