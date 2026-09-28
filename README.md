@@ -52,7 +52,7 @@ npm ci                  # 恢复文档工具依赖（首次）
 npm --prefix desktop ci # 恢复桌面工具依赖（首次）
 npm run assets:check    # 检查资源格式、派生文件与 LFS 属性
 npm run lint:md         # Markdown 检查
-npm run dev:web         # 仅前端 Vite 热更新服务（http://127.0.0.1:1420，无后端）
+npm run dev:web         # 仅前端 Vite 热更新服务（http://127.0.0.1:1421，无后端）
 npm run dev:desktop     # 开发模式拉起 GUI（debug 构建 + 热重载，不打包）
 npm run check           # 前端类型检查（svelte-check）
 npm run build:web       # 前端产物构建
@@ -70,4 +70,4 @@ npm run verify          # 以上检查与测试的一条龙（不含 build:deskt
 
 图片（含 SVG）、字体、媒体及二进制文件使用 Git LFS；首次构建前须下载实际资源。
 重新生成图标：`npm run assets:generate`。资源预览页：
-`npm run dev:web` 后打开 `http://127.0.0.1:1420/asset-preview.html`。
+`npm run dev:web` 后打开 `http://127.0.0.1:1421/asset-preview.html`。
