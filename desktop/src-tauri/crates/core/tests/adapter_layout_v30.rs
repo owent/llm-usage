@@ -3,6 +3,28 @@
 //! 目录存在或编译通过不能代替版本兼容验收（兼容行为在各适配器 V17 测试中验证），
 //! 本测试只锁定目录合同本身，防止后续新增 Agent 又回到根级单文件。
 
+// M8 第二批（2026-09-29 文档级实施）同受目录合同约束：
+// gajae-code/continue 目录名与模块名分离（#[path] 映射），按目录检查。
+const M8_AGENTS: &[&str] = &[
+    "zed",
+    "aider",
+    "junie",
+    "xum",
+    "droid",
+    "amp",
+    "grok",
+    "roo",
+    "goose",
+    "crush",
+    "jcode",
+    "gajae-code",
+    "commandcode",
+    "continue",
+    "atomcode",
+    "kiro",
+    "antigravity",
+    "qoder",
+];
 const AGENTS: &[&str] = &["codex", "claude", "pi", "omp", "gemini", "qwen"];
 
 fn adapters_src() -> std::path::PathBuf {
@@ -14,7 +36,8 @@ fn adapters_src() -> std::path::PathBuf {
 #[test]
 fn every_implemented_agent_lives_in_its_own_directory() {
     let root = adapters_src();
-    for agent in AGENTS {
+    let all: Vec<&str> = AGENTS.iter().chain(M8_AGENTS.iter()).copied().collect();
+    for agent in all {
         let dir = root.join(agent);
         assert!(dir.is_dir(), "agent {agent} must have its own directory");
         assert!(
@@ -51,6 +74,10 @@ fn product_specific_mappings_left_root_usage_map() {
         !usage_map.contains("pub fn map_claude"),
         "claude product mapping must live in adapters/claude/"
     );
+    assert!(
+        !usage_map.contains("pub fn map_copilot"),
+        "copilot product mapping must live in adapters/copilot/ (M5 下沉)"
+    );
     // 允许保留的跨 Agent 共享映射确实存在（防止误删共享件）。
     assert!(usage_map.contains("pub fn map_pi_family"));
     assert!(usage_map.contains("pub fn map_genai_usage"));
@@ -60,7 +87,8 @@ fn product_specific_mappings_left_root_usage_map() {
 fn each_agent_registry_declares_verified_versions_and_latest() {
     // 注册表形状检查：每个 Agent 的 versions/mod.rs 登记已验证版本映射与
     // 最新实现常量（探测/扫描共用 select 的单一事实来源）。
-    for agent in AGENTS {
+    let all: Vec<&str> = AGENTS.iter().chain(M8_AGENTS.iter()).copied().collect();
+    for agent in all {
         let registry =
             std::fs::read_to_string(adapters_src().join(agent).join("versions").join("mod.rs"))
                 .unwrap();

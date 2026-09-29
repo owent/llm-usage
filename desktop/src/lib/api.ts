@@ -121,6 +121,14 @@ export interface SourceDto {
   incompatible_files: number;
   /** 注册过但磁盘已不存在（Agent 自行清理/压实）：其历史只存于本应用存档。 */
   missing_files: number;
+  /** 逐源提取计划（null = 继承全局间隔；M6 逐源定时）。 */
+  schedule?: {
+    kind: 'interval' | 'daily' | 'weekly';
+    intervalSeconds: number | null;
+    timeOfDay: string | null;
+    weekday: number | null;
+    nextDueMs?: number | null;
+  } | null;
 }
 
 export interface RefreshStateDto {
@@ -281,6 +289,13 @@ export const api = {
   summary: (q: SummaryQuery) => invoke<SummaryDto>('summary', { q }),
   heatmap: (q: SummaryQuery) => invoke<HeatmapDto>('heatmap', { q }),
   listSources: () => invoke<{ sources: SourceDto[] }>('list_sources'),
+  setSourceSchedule: (instanceId: string, rule: {
+    kind: 'interval' | 'daily' | 'weekly';
+    intervalSeconds?: number | null;
+    timeOfDay?: string | null;
+    weekday?: number | null;
+  } | null) =>
+    invoke<unknown>('set_source_schedule', { instanceId, rule }),
   setSourceEnabled: (instanceId: string, enabled: boolean) =>
     invoke<void>('set_source_enabled', { instanceId, enabled }),
   refreshSources: () =>

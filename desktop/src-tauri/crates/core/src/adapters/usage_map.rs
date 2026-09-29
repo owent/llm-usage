@@ -7,7 +7,6 @@
 //! （M3 下沉，map_kilo/KiloUsage 随迁），kimi → adapters/kimi_wire.rs
 //! （M4 下沉，Kimi Code / Kimi Work 家族共享模块，map_kimi_wire/KimiWireUsage
 //! 随迁）），本模块只保留跨 Agent 共享的类型与辅助逻辑，以及尚无适配器目录的
-//! 未来产品映射（copilot）：
 //! - pi/omp 共享 `map_pi_family`（固定源码证实两家族同口径）；
 //! - gemini/qwen 共享 `map_genai_usage`（usageMetadata 同形）。
 //!
@@ -16,7 +15,7 @@
 //!   （映射在 adapters/kimi_wire.rs）。
 //! - zcode：AI SDK `inputTokens` 含缓存读；anthropic `input_tokens` 不含缓存（双口径相反）
 //!   （映射在 adapters/zcode/common.rs）。
-//! - copilot：input = 未缓存 + read + write。
+//! - copilot：input = 未缓存 + read + write（映射在 adapters/copilot/common.rs）。
 //! - kilo：total = input+output+reasoning+cache.read+cache.write 全互斥
 //!   （映射在 adapters/kilo/common.rs）。
 //!
@@ -82,51 +81,6 @@ pub(crate) fn sub_checked(
 // kimi wire 四互斥映射已下沉到 adapters/kimi_wire.rs（M4 家族共享模块，
 // KimiCode/KimiWork 两产品共用）；zcode 双口径映射已下沉到
 // adapters/zcode/common.rs（M4）。口径证据见各文件头。
-
-/// copilot session-store.db assistant_usage_events：input = 未缓存 + read + write。
-/// request_multiplier 是付费倍率，不进入 token 统计。
-#[derive(Debug, Clone, Copy)]
-pub struct CopilotUsage {
-    pub input_tokens: i64,
-    pub cached_input_tokens: i64,
-    pub cache_creation_input_tokens: i64,
-    pub output_tokens: i64,
-}
-
-pub fn map_copilot(raw: &CopilotUsage) -> MappedUsage {
-    let mut diagnostics = Vec::new();
-    let cache_sum = raw
-        .cached_input_tokens
-        .saturating_add(raw.cache_creation_input_tokens);
-    let uncached = sub_checked(
-        "input_uncached",
-        raw.input_tokens,
-        cache_sum,
-        &mut diagnostics,
-    );
-    let total = raw.input_tokens.checked_add(raw.output_tokens);
-    let usage = TokenUsage {
-        input_uncached: uncached,
-        input_cache_read: Some(raw.cached_input_tokens),
-        input_cache_write: Some(raw.cache_creation_input_tokens),
-        input_total: Some(raw.input_tokens),
-        output_total: Some(raw.output_tokens),
-        output_reasoning: None,
-        total_tokens: total,
-        source_total: None,
-    };
-    let quality = TokenQuality {
-        input_uncached: Q::Derived,
-        input_cache_read: Q::Reported,
-        input_cache_write: Q::Reported,
-        input_total: Q::Reported,
-        output_total: Q::Reported,
-        output_reasoning: Q::Unknown,
-        total_tokens: Q::Derived,
-        source_total: Q::Unknown,
-    };
-    finish(usage, quality, diagnostics)
-}
 
 /// pi / oh-my-pi 共享 Usage 口径（adapters.md：两家族可共享部分 Usage 类型知识）。
 /// 证据（固定源码）：

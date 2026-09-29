@@ -2,9 +2,9 @@
 //! 缺失、零、异常负值、溢出必须可区分；矛盾进诊断，不用 max(0,…) 隐藏。
 
 use llm_usage_core::adapters::codex::{map_codex, CodexUsage};
+use llm_usage_core::adapters::copilot::{map_copilot as copilot_map, CopilotUsage};
 use llm_usage_core::adapters::kilo::{map_kilo, KiloUsage};
 use llm_usage_core::adapters::kimi_wire::{map_kimi_wire, KimiWireUsage};
-use llm_usage_core::adapters::usage_map::*;
 use llm_usage_core::adapters::zcode::{
     map_zcode_ai_sdk, map_zcode_anthropic, ZcodeAiSdkUsage, ZcodeAnthropicUsage,
 };
@@ -129,11 +129,12 @@ fn v01_zcode_dual_calibers_are_opposite() {
 
 #[test]
 fn v01_copilot_input_includes_cache_read_and_write() {
-    let m = map_copilot(&CopilotUsage {
-        input_tokens: 1000,
-        cached_input_tokens: 300,
-        cache_creation_input_tokens: 200,
-        output_tokens: 100,
+    let m = copilot_map(&CopilotUsage {
+        input_tokens: Some(1000),
+        cached_input_tokens: Some(300),
+        cache_creation_input_tokens: Some(200),
+        output_tokens: Some(100),
+        reasoning_tokens: None,
     });
     assert_eq!(m.usage.input_uncached, Some(500));
     assert_eq!(m.usage.input_cache_read, Some(300));

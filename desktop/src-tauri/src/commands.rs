@@ -424,6 +424,16 @@ pub fn list_sources(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_json
         .prepare(
             "SELECT s.instance_id, s.agent, s.format, s.health, s.enabled, s.origin_host_id,
                     s.user_id,
+                    (SELECT e.rule_kind FROM extraction_schedules e
+                     WHERE e.schedule_id = 'source:' || s.instance_id AND e.enabled = 1) AS sched_kind,
+                    (SELECT e.interval_seconds FROM extraction_schedules e
+                     WHERE e.schedule_id = 'source:' || s.instance_id AND e.enabled = 1) AS sched_interval,
+                    (SELECT e.time_of_day FROM extraction_schedules e
+                     WHERE e.schedule_id = 'source:' || s.instance_id AND e.enabled = 1) AS sched_time,
+                    (SELECT e.weekday FROM extraction_schedules e
+                     WHERE e.schedule_id = 'source:' || s.instance_id AND e.enabled = 1) AS sched_weekday,
+                    (SELECT e.next_due_at_ms FROM extraction_schedules e
+                     WHERE e.schedule_id = 'source:' || s.instance_id AND e.enabled = 1) AS sched_next_due,
                     (SELECT MAX(finished_ms) FROM ingest_runs r
                      WHERE r.instance_id = s.instance_id AND r.status = 'succeeded') AS last_ok_ms,
                     (SELECT COUNT(*) FROM source_files f WHERE f.instance_id = s.instance_id
@@ -447,11 +457,21 @@ pub fn list_sources(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_json
                 "enabled": r.get::<_, i64>(4)? != 0,
                 "origin_host_id": r.get::<_, String>(5)?,
                 "user_id": r.get::<_, String>(6)?,
-                "last_success_ms": r.get::<_, Option<i64>>(7)?,
-                "compat_files": r.get::<_, i64>(8)?,
-                "degraded_files": r.get::<_, i64>(9)?,
-                "unsupported_files": r.get::<_, i64>(10)?,
-                "incompatible_files": r.get::<_, i64>(11)?,
+                "last_success_ms": r.get::<_, Option<i64>>(13)?,
+                "compat_files": r.get::<_, i64>(14)?,
+                "degraded_files": r.get::<_, i64>(15)?,
+                "unsupported_files": r.get::<_, i64>(16)?,
+                "incompatible_files": r.get::<_, i64>(17)?,
+                "schedule": match r.get::<_, Option<String>>(7)? {
+                    Some(kind) => serde_json::json!({
+                        "kind": kind,
+                        "intervalSeconds": r.get::<_, Option<i64>>(8)?,
+                        "timeOfDay": r.get::<_, Option<String>>(9)?,
+                        "weekday": r.get::<_, Option<i64>>(10)?,
+                        "nextDueMs": r.get::<_, Option<i64>>(11)?,
+                    }),
+                    None => serde_json::Value::Null,
+                },
             }))
         })
         .map_err(|e| err("db", e.to_string()))?;
@@ -495,6 +515,69 @@ pub fn set_source_enabled(
         )
         .map_err(|e| err("db", e.to_string()))?;
     Ok(())
+}
+
+/// 设置逐源提取计划（rule=None 删除，恢复继承全局；M6 逐源定时接线）。
+/// 固定间隔 15s–24h / 每日 HH:MM / 每周 ISO weekday+HH:MM；时区继承统计时区。
+#[tauri::command]
+pub fn set_source_schedule(
+    state: tauri::State<'_, Arc<AppState>>,
+    instance_id: String,
+    rule: Option<serde_json::Value>,
+) -> Result<serde_json::Value, String> {
+    let (storage_lock, tz) = {
+        let settings = state.settings.lock().unwrap();
+        (state.storage.lock().unwrap(), settings.timezone.clone())
+    };
+    let now = now_ms();
+    match rule {
+        None => {
+            llm_usage_core::schedules::delete_source_schedule(&storage_lock, &instance_id)
+                .map_err(|e| err("db", e.to_string()))?;
+        }
+        Some(value) => {
+            let parsed = llm_usage_core::schedules::SourceScheduleRule {
+                instance_id: instance_id.clone(),
+                rule_kind: value
+                    .get("kind")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                interval_seconds: value.get("intervalSeconds").and_then(|v| v.as_i64()),
+                time_of_day: value
+                    .get("timeOfDay")
+                    .and_then(|v| v.as_str())
+                    .map(str::to_string),
+                weekday: value.get("weekday").and_then(|v| v.as_i64()),
+                tz: String::new(),
+                enabled: true,
+            };
+            llm_usage_core::schedules::upsert_source_schedule(&storage_lock, &parsed, now, &tz)
+                .map_err(|e| err("db", e.to_string()))?;
+        }
+    }
+    // 回读新状态（nextDue 供 UI 显示）。
+    let current = llm_usage_core::schedules::source_schedule(&storage_lock, &instance_id)
+        .map_err(|e| err("db", e.to_string()))?;
+    let next_due: Option<i64> = storage_lock
+        .conn()
+        .query_row(
+            "SELECT next_due_at_ms FROM extraction_schedules WHERE schedule_id = ?1",
+            [format!("source:{instance_id}")],
+            |r| r.get(0),
+        )
+        .unwrap_or(None);
+    Ok(serde_json::json!({
+        "instanceId": instance_id,
+        "schedule": current.as_ref().map(|r| serde_json::json!({
+            "kind": r.rule_kind,
+            "intervalSeconds": r.interval_seconds,
+            "timeOfDay": r.time_of_day,
+            "weekday": r.weekday,
+            "enabled": r.enabled,
+        })),
+        "nextDueMs": next_due,
+    }))
 }
 
 /// 触发一次手动刷新（已在执行时合并返回）。
@@ -983,29 +1066,7 @@ pub fn clear_all_preview(
     )
 }
 
-/// 秒级 epoch → (Y,M,D,H,Min,S)（备份文件名用；civil_from_days 算法）。
-fn time_datetime(secs: i64) -> (i32, u32, u32, u32, u32, u32) {
-    let days = secs.div_euclid(86_400);
-    let rem = secs.rem_euclid(86_400);
-    let (h, mi, s) = (
-        (rem / 3600) as u32,
-        ((rem % 3600) / 60) as u32,
-        (rem % 60) as u32,
-    );
-    let z = days + 719_468;
-    let era = z.div_euclid(146_097);
-    let doe = z.rem_euclid(146_097);
-    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
-    let y = yoe + era * 400;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let d = doy - (153 * mp + 2) / 5 + 1;
-    let m = if mp < 10 { mp + 3 } else { mp - 9 };
-    let y = if m <= 2 { y + 1 } else { y };
-    (y as i32, m as u32, d as u32, h, mi, s)
-}
-
-/// 清空前自动备份整库（VACUUM INTO 单文件快照；保留最近 3 份）。
+/// 清空前自动备份整库（共享助手：VACUUM INTO 一致快照 + 空间检查 + 保留 3 份）。
 /// Agent 会清理/压实自己的源文件，清空后部分历史无法重采（2026-09-27
 /// zcode 数据丢失教训）；备份给恢复留一条路。无数据时不备份。
 fn backup_before_clear(state: &Arc<AppState>) -> Result<Option<String>, String> {
@@ -1017,41 +1078,13 @@ fn backup_before_clear(state: &Arc<AppState>) -> Result<Option<String>, String> 
     if event_count == 0 {
         return Ok(None);
     }
-    let backup_dir = state
-        .db_path
-        .parent()
-        .unwrap_or(std::path::Path::new("."))
-        .join("backups");
-    std::fs::create_dir_all(&backup_dir).map_err(|e| err("io", e.to_string()))?;
-    let (y, mo, d, h, mi, s) = time_datetime(crate::scanner::now_ms() / 1000);
-    let backup = backup_dir.join(format!(
-        "llm-usage-backup-{y:04}{mo:02}{d:02}-{h:02}{mi:02}{s:02}.sqlite"
-    ));
-    storage
-        .conn()
-        .execute(
-            "VACUUM INTO ?1",
-            rusqlite::params![backup.to_string_lossy()],
-        )
-        .map_err(|e| err("db", format!("backup failed: {e}")))?;
-    // 只保留最近 3 份（文件名含时间戳，字典序即时间序）。
-    let mut olds: Vec<_> = std::fs::read_dir(&backup_dir)
-        .map(|rd| {
-            rd.filter_map(|e| e.ok())
-                .filter(|e| {
-                    let n = e.file_name().to_string_lossy().to_string();
-                    n.starts_with("llm-usage-backup-") && n.ends_with(".sqlite")
-                })
-                .map(|e| e.path())
-                .collect()
-        })
-        .unwrap_or_default();
-    olds.sort();
-    while olds.len() > 3 {
-        let oldest = olds.remove(0);
-        let _ = std::fs::remove_file(oldest);
-    }
-    Ok(Some(backup.to_string_lossy().to_string()))
+    crate::db_backup::consistent_backup(
+        storage.conn(),
+        &state.db_path,
+        "llm-usage-backup",
+        crate::scanner::now_ms(),
+    )
+    .map(|p| p.map(|path| path.to_string_lossy().to_string()))
 }
 
 /// 清理全部数据（所有归档层+诊断+游标），下次刷新触发全量重新采集计算。

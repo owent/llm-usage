@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { SourceDto, UserDto } from '../lib/api';
   import { api, parseError } from '../lib/api';
-  import { t, fmtRelative } from '../lib/i18n.svelte';
+  import { t, fmtRelative, fmtDurationShort, i18n } from '../lib/i18n.svelte';
   import Icon from './Icon.svelte';
   let { sources, users, onchanged }: {
     sources: SourceDto[]; users: UserDto[]; onchanged: () => void | Promise<void>;
@@ -19,6 +19,46 @@
     catch (e) { error = parseError(e); }
     finally { pending[s.instance_id] = false; }
   }
+
+  // ---- 逐源提取计划（M6：interval 预设 / 每日 / 每周；空=继承全局） ----
+  const INTERVAL_PRESETS = [15, 60, 300, 900, 1800, 3600, 10800, 21600, 43200, 86400];
+  /** 下拉值：'inherit' | 'sec:<n>' | 'daily' | 'weekly'。 */
+  function scheduleMode(s: SourceDto): string {
+    const rule = s.schedule;
+    if (!rule) return 'inherit';
+    if (rule.kind === 'interval') return 'sec:' + (rule.intervalSeconds ?? 3600);
+    return rule.kind;
+  }
+  function scheduleTime(s: SourceDto): string {
+    return s.schedule?.timeOfDay ?? '09:00';
+  }
+  function scheduleWeekday(s: SourceDto): number {
+    return s.schedule?.weekday ?? 1;
+  }
+  async function applySchedule(
+    s: SourceDto,
+    mode: string,
+    time: string,
+    weekday: number,
+  ) {
+    const rule =
+      mode === 'inherit'
+        ? null
+        : mode === 'daily'
+          ? { kind: 'daily' as const, timeOfDay: time }
+          : mode === 'weekly'
+            ? { kind: 'weekly' as const, timeOfDay: time, weekday }
+            : { kind: 'interval' as const, intervalSeconds: Number(mode.slice(4)) };
+    await change(s, () => api.setSourceSchedule(s.instance_id, rule));
+  }
+  // 周名按当前语言 Intl 生成（周一=1…周日=7，与后端 ISO 对齐；基准 2024-01-01）。
+  const weekdayNames = $derived(
+    Array.from({ length: 7 }, (_, i) =>
+      new Intl.DateTimeFormat(i18n.locale, { weekday: 'short' }).format(
+        new Date(Date.UTC(2024, 0, 1 + i)),
+      ),
+    ),
+  );
 </script>
 
 <div class="source-toolbar">
@@ -46,6 +86,48 @@
         {#if s.missing_files > 0}<span class="tag compat" title={t('sources.missingFiles.hint')}>{t('sources.missingFiles', { count: s.missing_files })}</span>{/if}
       </div>
       <div class="source-meta"><span>{t('sources.lastSuccess')}</span><strong>{fmtRelative(s.last_success_ms)}</strong></div>
+      <div class="schedule-row">
+        <label>{t('sources.schedule')}
+          <select data-testid="schedule-mode" disabled={pending[s.instance_id]}
+            aria-label={`${s.agent}: ${t('sources.schedule')}`}
+            onchange={(e) => {
+              const mode = e.currentTarget.value;
+              void applySchedule(s, mode, scheduleTime(s), scheduleWeekday(s));
+            }}>
+            <option value="inherit" selected={!s.schedule}>{t('sources.schedule.inherit')}</option>
+            {#each INTERVAL_PRESETS as secs (secs)}
+              <option value={'sec:' + secs} selected={scheduleMode(s) === 'sec:' + secs}>
+                {fmtDurationShort(secs * 1000)}
+              </option>
+            {/each}
+            <option value="daily" selected={scheduleMode(s) === 'daily'}>{t('sources.schedule.daily')}</option>
+            <option value="weekly" selected={scheduleMode(s) === 'weekly'}>{t('sources.schedule.weekly')}</option>
+          </select>
+        </label>
+        {#if scheduleMode(s) === 'daily' || scheduleMode(s) === 'weekly'}
+          <label>{t('sources.schedule.time')}
+            <input type="time" value={scheduleTime(s)} disabled={pending[s.instance_id]}
+              onchange={(e) => {
+                const value = e.currentTarget.value || '09:00';
+                void applySchedule(s, scheduleMode(s), value, scheduleWeekday(s));
+              }} />
+          </label>
+          {#if scheduleMode(s) === 'weekly'}
+            <select data-testid="schedule-weekday" disabled={pending[s.instance_id]}
+              onchange={(e) => {
+                const value = Number(e.currentTarget.value);
+                void applySchedule(s, scheduleMode(s), scheduleTime(s), value);
+              }}>
+              {#each weekdayNames as name, i (i)}
+                <option value={i + 1} selected={scheduleWeekday(s) === i + 1}>{name}</option>
+              {/each}
+            </select>
+          {/if}
+        {/if}
+        {#if s.schedule?.nextDueMs}
+          <span class="next-due">{t('sources.schedule.nextDue')} {fmtRelative(s.schedule.nextDueMs)}</span>
+        {/if}
+      </div>
       <div class="source-footer">
         <label>{t('sources.user')}
           <select value={s.user_id} disabled={pending[s.instance_id]} aria-label={`${s.agent}: ${t('sources.user')}`}
@@ -85,6 +167,9 @@
   .bad, .error { color: var(--danger); background: var(--danger-bg); }
   .source-meta { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); padding: 18px 0; }
   .source-meta strong { font-weight: 500; }
+  .schedule-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; border-top: 1px solid var(--border-light); padding-top: 12px; margin-top: 4px; font-size: 12px; color: var(--text-muted); }
+  .schedule-row input[type='time'] { font-size: 12px; }
+  .next-due { color: var(--text-secondary); }
   .source-footer { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-light); padding-top: 16px; font-size: 12px; color: var(--text-muted); gap: 12px; }
   label { display: flex; align-items: center; gap: 10px; }
   select { max-width: 150px; font-size: 12px; }

@@ -3,7 +3,10 @@
 本设计于 2026-09-24 编写，实施状态以 [执行计划](../../../Plan.md)及 [验证记录](../../validation/desktop-usage/) 为准。
 公开文档、固定版本源码和现有原型的静态检查是设计依据；已完成实施与未来合同分别记录。
 M1a 来源身份补强、M2 目录化与未知版本兼容、F2 价格调研、F3 i18n 调研均已交付；
-M3/M4 适配器与 M6 桌面主体已实施（验收缺口见各记录）。实施前决策见 [开工准备](implementation-readiness.md)。
+M3/M4 适配器与 M6 桌面主体已实施（验收缺口见各记录）。
+2026-09-29 完成第二批 Agent 覆盖扩展调研与 M8 文档级实施（证据 A25–A48、
+[扩展矩阵](adapters.md#扩展覆盖)、[M8 验证记录](../../validation/desktop-usage/m8-second-batch.md)；
+真实验收后置）。实施前决策见 [开工准备](implementation-readiness.md)。
 
 ## 产品目标与边界
 
@@ -105,14 +108,14 @@ JetBrains/TRAE、Zed 内置及其他缺证 IDE 变体保留在 F1 后续支持�
 | 界面多语言与本地化格式 | [多语言方案调研](execution.md#f3) | V31，F3 调研 + M6 实施 |
 | 当天刷新 | [采集流程](architecture.md#refresh) | V07–V12，M2/M6 |
 | 自动任务定时提取 | [调度与后台生命周期](scheduling.md) | V23/V24，M1/M6 |
-| 仅本地；全部 Agent 分期尝试提取 | 本文来源边界及 [矩阵](adapters.md) | V17/V25，M2–M5；缺证 IDE 留 F1 |
+| 仅本地；全部 Agent 分期尝试提取 | 本文来源边界及 [矩阵](adapters.md) | V17/V25，M2–M5/M8 逐适配器验收；缺证 IDE 留 F1 |
 | 实施可用本机真实数据；IDE 后移；平台方案确认 | [开工准备](implementation-readiness.md) | 许可与阶段明确；准备检查通过，实施结果另记 |
 | Windows 首发、三平台 CI、WSL 构建 | [平台与 CI](platform-ci.md) | V26/V27，M0/M7 |
 | 日/周/月汇总 | [时间合同](data-contract.md#time) | V04–V06 |
 | 其他有意义的统计 | 本文建议表，按字段能力分期 | V01–V06、V18 |
 | 保留和维度有界面配置 | [设置合同](data-contract.md#settings) | V13–V16，M6 |
 | 图表展示 | 本文页面合同 | V18，真实桌面检查 |
-| 国内外 Agent 扩展 | [全部指定工具矩阵](adapters.md) | M2–M5 逐适配器验收；F1 不参与首版必验 |
+| 国内外 Agent 扩展 | [全部指定工具矩阵](adapters.md)及[扩展覆盖矩阵](adapters.md#扩展覆盖) | M2–M5/M8 逐适配器验收；F1 不参与首版必验 |
 | 每个 Agent 一个目录，兼容的历史版本在其内部实现 | [目录与版本组织](architecture.md#adapter-layout)、[迁移步骤](execution.md#m2-layout) | V30，M2–M5；F1 开始实施时沿用 |
 | 未知版本先尝试最新解析器 | [兼容尝试合同](architecture.md#unknown-version) | V17/V30，M2–M5；F1 沿用 |
 | 小巧数据库 | [数据库决策](architecture.md#database) | V11/V15/V20 |

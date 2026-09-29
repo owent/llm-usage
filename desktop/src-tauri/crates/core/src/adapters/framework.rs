@@ -607,6 +607,43 @@ pub fn run_adapter_scan(
     ctx: &DiscoverContext,
     config: &RunConfig,
 ) -> Result<Vec<SourceRunReport>, CoreError> {
+    run_adapter_scan_filtered(storage, adapter, ctx, config, &InstanceFilter::default())
+}
+
+/// 实例过滤（逐源定时：自定义计划的来源只按自身节奏触发，
+/// 全局刷新排除它们；到期刷新只包含到期实例）。
+#[derive(Debug, Clone, Default)]
+pub struct InstanceFilter {
+    /// 仅这些实例参与（None = 不限）。
+    pub include: Option<BTreeSet<String>>,
+    /// 这些实例跳过（None = 不排除）。
+    pub exclude: Option<BTreeSet<String>>,
+}
+
+impl InstanceFilter {
+    fn allows(&self, instance_id: &str) -> bool {
+        if let Some(include) = &self.include {
+            if !include.contains(instance_id) {
+                return false;
+            }
+        }
+        if let Some(exclude) = &self.exclude {
+            if exclude.contains(instance_id) {
+                return false;
+            }
+        }
+        true
+    }
+}
+
+/// 带实例过滤的运行（run_adapter_scan 的过滤版；逐源定时接线用）。
+pub fn run_adapter_scan_filtered(
+    storage: &Storage,
+    adapter: &dyn SourceAdapter,
+    ctx: &DiscoverContext,
+    config: &RunConfig,
+    filter: &InstanceFilter,
+) -> Result<Vec<SourceRunReport>, CoreError> {
     let mut reports = Vec::new();
     let roots = adapter.discover(ctx);
     // 根去重（环境覆盖/默认/手工可能指向同一目录；Windows 大小写别名先归一）。
@@ -625,6 +662,9 @@ pub fn run_adapter_scan(
     let capability = adapter.capability();
     for (index, root) in roots.iter().enumerate() {
         let instance_id = adapter.instance_id(root);
+        if !filter.allows(&instance_id) {
+            continue;
+        }
         let mut report = SourceRunReport {
             instance_id: instance_id.clone(),
             run_id: None,

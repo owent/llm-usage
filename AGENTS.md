@@ -13,7 +13,10 @@
 Windows 11 x64 首发，GitHub CI 保留 macOS/Linux；WSL 构建不等于 Linux 桌面验收。
 定时任务只调度本地采集，按需读 [调度合同](docs/design/desktop-usage/scheduling.md)。
 用户已允许实施时只读提取本机真实 Agent 数据验证，按 [准备合同](docs/design/desktop-usage/implementation-readiness.md)
-限定字段与脱敏，无需重复询问这项许可。JetBrains/TRAE 等缺证 IDE 已后移 F1，当前不实施。
+限定字段与脱敏，无需重复询问这项许可。JetBrains/TRAE 等缺证 IDE 已后移 F1，当前不实施
+（2026-09-29 M8 第二批 18 个适配器已完成文档级实施并注册——Amazon Q/Codebuff
+经源码级取证证实本地无逐次 token 载体、iFlow 已停服，均不实施；Junie CLI 与
+Zed 内置凭本地载体证据在 M8；Cursor/Warp/TRAE 的远端用量路线按本机来源边界排除）。
 
 ## 规则入口与按需读取
 
@@ -41,8 +44,9 @@ git diff --check
 git status --short
 ```
 
-各命令的实际定义见根 package.json scripts；业务命令与锁定版本以
-desktop/package.json、desktop/src-tauri/Cargo.toml 及各自锁文件为准。
+各命令的实际定义见根 package.json scripts；业务命令与依赖版本范围以
+desktop/package.json、desktop/src-tauri/Cargo.toml 及各自锁文件为准
+（2026-09-29 起依赖使用 `^` 浮动最新范围，具体版本以锁文件为准）。
 文档检查不能代替业务验收。新文件未跟踪时另查其内容，不能只看 git diff。
 
 ## 工具与执行约定

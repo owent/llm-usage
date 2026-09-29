@@ -21,6 +21,7 @@ pub mod metrics;
 pub mod query;
 pub mod retention;
 pub mod retention_tiered;
+pub mod schedules;
 pub mod storage;
 
 pub use error::CoreError;

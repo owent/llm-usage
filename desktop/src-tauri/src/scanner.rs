@@ -5,9 +5,7 @@
 use crate::app_state::{summarize_reports, AppState, RefreshInstanceSummary};
 use llm_usage_core::adapters::claude::ClaudeAdapter;
 use llm_usage_core::adapters::codex::CodexAdapter;
-use llm_usage_core::adapters::framework::{
-    run_adapter_scan, DiscoverContext, RunConfig, ScanLimits, SourceAdapter,
-};
+use llm_usage_core::adapters::framework::{DiscoverContext, RunConfig, ScanLimits, SourceAdapter};
 use llm_usage_core::adapters::gemini::GeminiAdapter;
 use llm_usage_core::adapters::omp::OmpAdapter;
 use llm_usage_core::adapters::pi::PiAdapter;
@@ -38,6 +36,30 @@ pub fn built_in_adapters() -> Vec<Box<dyn SourceAdapter>> {
         Box::new(llm_usage_core::adapters::opencode::OpenCodeAdapter::new()),
         Box::new(llm_usage_core::adapters::mimo_code::MimoCodeAdapter::new()),
         Box::new(llm_usage_core::adapters::zoo::ZooAdapter::new()),
+        // M8 第二批（2026-09-29 调研 + 文档级实施；本机盘点均未安装，
+        // 仅 Zed 有空 threads.db（0 行）；真实样本出现后升级验证）。
+        Box::new(llm_usage_core::adapters::zed::ZedAdapter::new()),
+        Box::new(llm_usage_core::adapters::aider::AiderAdapter::new()),
+        Box::new(llm_usage_core::adapters::junie::JunieAdapter::new()),
+        Box::new(llm_usage_core::adapters::xum::XumAdapter::new()),
+        Box::new(llm_usage_core::adapters::droid::DroidAdapter::new()),
+        Box::new(llm_usage_core::adapters::amp::AmpAdapter::new()),
+        Box::new(llm_usage_core::adapters::grok::GrokAdapter::new()),
+        Box::new(llm_usage_core::adapters::roo::RooAdapter::new()),
+        Box::new(llm_usage_core::adapters::goose::GooseAdapter::new()),
+        Box::new(llm_usage_core::adapters::crush::CrushAdapter::new()),
+        Box::new(llm_usage_core::adapters::jcode::JcodeAdapter::new()),
+        Box::new(llm_usage_core::adapters::gajae_code::GajaeCodeAdapter::new()),
+        Box::new(llm_usage_core::adapters::commandcode::CommandCodeAdapter::new()),
+        Box::new(llm_usage_core::adapters::continuedev::ContinueAdapter::new()),
+        Box::new(llm_usage_core::adapters::atomcode::AtomCodeAdapter::new()),
+        Box::new(llm_usage_core::adapters::kiro::KiroAdapter::new()),
+        Box::new(llm_usage_core::adapters::antigravity::AntigravityAdapter::new()),
+        Box::new(llm_usage_core::adapters::qoder::QoderAdapter::new()),
+        // M5：Copilot CLI（本机真实数据核对 2026-09-29）。
+        Box::new(llm_usage_core::adapters::copilot::CopilotAdapter::new()),
+        // M5：OTel spans 载体（需启用 exporter/接收器；默认发现仅接收器输出目录）。
+        Box::new(llm_usage_core::adapters::otel::OtelAdapter::new()),
     ]
 }
 
@@ -64,6 +86,18 @@ fn discover_context(manual_roots: Vec<String>) -> DiscoverContext {
 
 /// 执行一次全源刷新（已启用来源）。已在执行时直接返回 false（合并触发，不并发）。
 pub fn run_refresh(state: &Arc<AppState>, trigger: TriggerKind) -> bool {
+    run_refresh_filtered(state, trigger, None)
+}
+
+/// 逐源定时接线的过滤版：
+/// - include（到期集合）非空：只运行这些实例（FixedTime/Interval 触发）；
+/// - include=None 的全局刷新：排除有自定义启用计划的实例（覆盖语义），
+///   运行结束后推进到期计划。
+fn run_refresh_filtered(
+    state: &Arc<AppState>,
+    trigger: TriggerKind,
+    include: Option<std::collections::BTreeSet<String>>,
+) -> bool {
     {
         let mut refresh = state.refresh.lock().unwrap();
         if refresh.running {
@@ -129,9 +163,30 @@ pub fn run_refresh(state: &Arc<AppState>, trigger: TriggerKind) -> bool {
             run_id_prefix: format!("scan-{now}-a{adapter_index}"),
             ..config.clone()
         };
+        let filter = {
+            let storage = state.storage.lock().unwrap();
+            let exclude = if include.is_none() {
+                Some(
+                    llm_usage_core::schedules::custom_scheduled_instances(&storage)
+                        .unwrap_or_default(),
+                )
+            } else {
+                None
+            };
+            llm_usage_core::adapters::framework::InstanceFilter {
+                include: include.clone(),
+                exclude,
+            }
+        };
         let result = {
             let storage = state.storage.lock().unwrap();
-            run_adapter_scan(&storage, adapter.as_ref(), &ctx, &config)
+            llm_usage_core::adapters::framework::run_adapter_scan_filtered(
+                &storage,
+                adapter.as_ref(),
+                &ctx,
+                &config,
+                &filter,
+            )
         };
         state
             .refresh
@@ -186,6 +241,27 @@ pub fn run_refresh(state: &Arc<AppState>, trigger: TriggerKind) -> bool {
                     events: 0,
                     diagnostics: 0,
                 });
+            }
+        }
+    }
+    {
+        // 逐源定时：本轮已实际运行的到期计划推进 next_due（成功语义；
+        // 未运行的不动，错过时点醒来后仍只补一次）。
+        if let Some(due) = &include {
+            let storage = state.storage.lock().unwrap();
+            let tz = {
+                let settings = state.settings.lock().unwrap();
+                settings.timezone.clone()
+            };
+            for instance_id in due {
+                let _ = llm_usage_core::schedules::mark_source_run(
+                    &storage,
+                    instance_id,
+                    now_ms(),
+                    true,
+                    &tz,
+                    None,
+                );
             }
         }
     }
@@ -247,6 +323,16 @@ pub fn spawn_scheduler(state: Arc<AppState>, stop: Arc<AtomicBool>) {
             };
             if requested || schedule.tick(now_ms(), interval, finished) {
                 run_refresh(&state, TriggerKind::Interval);
+            } else {
+                // 逐源定时：无全局刷新在跑时，触发到期实例（FixedTime 语义；
+                // 与手动/全局合并由 refresh 单飞保证，同源不并发）。
+                let due = {
+                    let storage = state.storage.lock().unwrap();
+                    llm_usage_core::schedules::due_instances(&storage, now_ms()).unwrap_or_default()
+                };
+                if !due.is_empty() && !state.refresh.lock().unwrap().running {
+                    run_refresh_filtered(&state, TriggerKind::FixedTime, Some(due));
+                }
             }
             std::thread::sleep(std::time::Duration::from_millis(500));
         }

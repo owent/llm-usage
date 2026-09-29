@@ -10,6 +10,7 @@
     "check": "npm --prefix desktop run check",
     "build:web": "npm --prefix desktop run build",
     "build:desktop": "npm --prefix desktop run tauri -- build",
+    "pack:desktop": "npm run assets:check && npm run check && npm run build:desktop",
     "dev:web": "npm --prefix desktop run dev",
     "dev:desktop": "npm --prefix desktop run tauri -- dev",
     "test:rust": "cargo test --manifest-path desktop/src-tauri/Cargo.toml --locked",
@@ -21,6 +22,6 @@
     "verify": "npm run lint:md && npm run assets:check && npm run test:scripts && npm run test:ui && npm run check && npm run fmt:check && npm run clippy && npm run test:rust && npm run build:web"
   },
   "devDependencies": {
-    "markdownlint-cli2": "0.23.3"
+    "markdownlint-cli2": "^0.23.3"
   }
 }

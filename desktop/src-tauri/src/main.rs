@@ -10,6 +10,8 @@ use tauri::Manager;
 
 mod app_state;
 mod commands;
+mod db_backup;
+mod otel_receiver;
 mod process_guard;
 mod scanner;
 
@@ -111,6 +113,29 @@ fn main() {
     let scheduler_state = Arc::clone(&state);
     scanner::spawn_scheduler(scheduler_state, stop);
 
+    // M5：本地 OTLP 接收器（按需启用；仅 127.0.0.1；线程随进程退出结束，
+    // 设置变化重启应用生效）。
+    {
+        let (enabled, port) = {
+            let settings = state.settings.lock().unwrap();
+            (settings.otel_receiver_enabled, settings.otel_receiver_port)
+        };
+        if enabled {
+            let out_dir = state
+                .db_path
+                .parent()
+                .map(|p| p.join("otel"))
+                .unwrap_or_else(|| std::path::PathBuf::from("."));
+            match otel_receiver::start(port, out_dir.clone()) {
+                Ok(()) => println!(
+                    "otel receiver listening on 127.0.0.1:{port} (spans -> {})",
+                    out_dir.join("spans.jsonl").display()
+                ),
+                Err(e) => eprintln!("otel receiver failed to start: {e}"),
+            }
+        }
+    }
+
     tauri::Builder::default()
         .setup(|app| {
             // 根据主显示器分辨率自适应窗口大小（60–85%，上限 1600×1000）。
@@ -136,6 +161,7 @@ fn main() {
             commands::heatmap,
             commands::list_sources,
             commands::set_source_enabled,
+            commands::set_source_schedule,
             commands::refresh_sources,
             commands::refresh_status,
             commands::get_settings,

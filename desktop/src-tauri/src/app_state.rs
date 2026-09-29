@@ -55,6 +55,15 @@ pub struct AppSettings {
     /// 本机来源身份显示名（仅辨认用途，不改 host_id 键）。
     #[serde(default)]
     pub hostname_alias: Option<String>,
+    /// 本地 OTLP 接收器（M5，按需启用；默认关闭。仅 127.0.0.1）。
+    #[serde(default)]
+    pub otel_receiver_enabled: bool,
+    #[serde(default = "default_otel_receiver_port")]
+    pub otel_receiver_port: u16,
+}
+
+fn default_otel_receiver_port() -> u16 {
+    4318
 }
 
 fn default_theme() -> String {
@@ -76,6 +85,8 @@ impl Default for AppSettings {
             theme: default_theme(),
             manual_roots: Vec::new(),
             hostname_alias: None,
+            otel_receiver_enabled: false,
+            otel_receiver_port: default_otel_receiver_port(),
         }
     }
 }
@@ -192,6 +203,15 @@ impl AppState {
                 if choice != rfd::MessageDialogResult::Yes {
                     return Err("__EXIT_SCHEMA_MISMATCH__".to_string());
                 }
+                // 重建前一致备份（M1/V15 合同：无备份不删除；空间不足也中止）。
+                crate::db_backup::consistent_backup_legacy(
+                    &db_path,
+                    "llm-usage-rebuild",
+                    crate::scanner::now_ms(),
+                )
+                .map_err(|e| {
+                    format!("abort rebuild: database kept untouched. backup failed: {e}")
+                })?;
                 for suffix in ["", "-wal", "-shm"] {
                     let p = std::path::PathBuf::from(format!("{}{}", db_path.display(), suffix));
                     let _ = std::fs::remove_file(&p);

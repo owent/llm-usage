@@ -1,11 +1,17 @@
 # Agent 接入调研与能力矩阵
 
 初始调研日期：2026-09-24；2026-09-27 复核归档行为，见文末及
-[本轮验证](../../validation/desktop-usage/review-2026-09-27.md)。下表区分实施候选与证据状态。
+[本轮验证](../../validation/desktop-usage/review-2026-09-27.md)。
+2026-09-29 完成国内外流行 Agent 覆盖扩展调研（A25–A48）并同日完成 M8 文档级
+实施（[M8 验证记录](../../validation/desktop-usage/m8-second-batch.md)）：
+18 个适配器（17 个解析 + Qoder 探针）已注册；Amazon Q/Codebuff/iFlow 经源码级取证
+证实本地无逐次 token 载体（或已停服），按边界排除。
+下表区分实施候选与证据状态。
 实施阶段已按授权只读核对部分本机数据，未启动 Agent 或发起模型请求。
 用户列出的 Codex 重复项合并，CLI/桌面/IDE 仍须分别标识产品表面。
 Harness Agent 按用户提供官网更正为 Hermes Agent。所有工具均保留本地支持计划；
-按用户最新决定，缺少本地格式证据的 IDE 后移 F1，当前不探测/实施。
+按用户最新决定，缺少本地格式证据的 IDE 后移 F1，当前不探测/实施
+（Junie CLI 与 Zed 内置已取得本地载体证据，转 M8；见扩展覆盖）。
 实施阶段可提取本机真实 Agent 数据验证，流程见 [开工准备](implementation-readiness.md)。
 不以企业 API、账号报表或远程日志替代本机来源。
 
@@ -31,11 +37,11 @@ Harness Agent 按用户提供官网更正为 Hermes Agent。所有工具均保�
 | 工具/变体 | 拟接入来源与可用信息 | 边界与下一步 | 阶段/证据 |
 | --- | --- | --- | --- |
 | Claude Code | projects 下会话/子 Agent JSONL；官方 OTel 的 input/output/cacheRead/cacheCreation、模型与请求事件 | 本地 JSONL 逐请求形态需 fixture；遥测需显式启用，防会话/辅助统计重叠 | M2/M5；本地候选/需启用，A01 |
-| Cline | 适配器已实现（M3，2026-09-25，文档级证据：固定源码 dcf8c3c；本机未安装 not_found，真实数据验收后置） | say 载体四桶互斥 + request 键；compaction 估算不入账；deleted_api_reqs/subagent_usage 聚合处理；不能每条 say 算请求；模型逐请求归属需真实样本核验；CLI SDK 单独探测 | M3 已实施（待真实验收），A03 |
-| CodeBuddy Code / IDE / 插件 | CodeBuddy Code 官方 OTel model_stream，输入/输出/总 token、模型和 TTFT；IDE 有积分用量页 | CLI 官方合同不能自动推广到 IDE/插件；model_request 与 model_stream 不双计；缓存字段尚需样本 | CLI M5；缺证 IDE/插件 F1，A04 |
+| Cline | 适配器已实现（M3，2026-09-25，文档级证据：固定源码 dcf8c3c；本机未安装 not_found，真实数据验收后置） | say 载体四桶互斥 + request 键；compaction 估算不入账；deleted_api_reqs/subagent_usage 聚合处理；不能每条 say 算请求；模型逐请求归属需真实样本核验；CLI SDK 单独探测；**2026-09-29 Roo 核验发现 Roo 血统 tokensIn 已含缓存（b867ec9 三重证据），与本适配器四桶互斥口径存在血统分歧，待真实样本复核** | M3 已实施（待真实验收），A03 |
+| CodeBuddy Code / IDE / 插件 | 官方 monitoring 文档（2026-09-29 逐字段核验）：`CODEBUDDY_CODE_ENABLE_TELEMETRY=1` + OTLP/HTTP **仅 protobuf**（无 file exporter）；model_stream span 属性无 gen_ai 前缀（usage.input/output/total_tokens、model_name、response.time_to_first_token）；model_request 官方不导出（防双计，原文依据） | 本地采集走本应用 OTLP 接收器（M5 已实现并 E2E）→ otel 适配器；需用户启用接收器与 CLI 遥测；IDE 积分页不纳入 | CLI M5 主体已实施（启用类载体待真实样本）；缺证 IDE/插件 F1，A04 |
 | Codex CLI / 桌面 / IDE | 原型读 CODEX_HOME 下 rollout 的 token_usage_record；官方 OTel 支持请求、响应完成 usage 和流事件 | 已验证版本（逐版本脱敏 fixture）：0.155.0-alpha.16.3（M0/M2-A）、0.154.0-alpha.6.1/6.2、0.153.0（M2-D），逐次/累计/turn_context 三类记录，compaction 重置累计快照；0.139–0.151 已有 rollout_legacy 专用实现及 21 个精确版本映射，按 token_count 增量证据处理，边界见 m2d 记录；未知新版本默认 latest_fallback 带兼容标记；原型固定默认路径需改为发现/配置；旧 token_count 与新记录必须分格式；模型从结构化上下文归属，缺 response ID 不碰撞 | M2/M5；本地候选/需启用，A02 + 原型 |
-| GitHub Copilot CLI | 官方 OTel 的 chat span、token 统计，支持 JSONL file exporter；原型另有 assistant_usage_events SQLite | 优先官方文件/OTLP；本机 1.0.73 实测 events.jsonl 无逐次 token，session-store.db 的 assistant_usage_events 逐 turn 全字段（M0 fixture）；不能认定所有版本都有该库；premium request 独立；2026-09-25 盘点发现 ~/.copilot 用量存储全树消失（疑升级迁移），M5 实施前需重定位 | M5；需启用，A05 |
-| JetBrains 内置 AI Assistant / Junie | 后续探测 IDE 本地日志、插件数据、会话存储/本机导出 | A07 只证实企业远端分析，已排除；本地 token/cache schema 待证，当前不探测/开发 | F1；后续支持，A07 为范围排除依据 |
+| GitHub Copilot CLI | **适配器已实现（真实数据核对 PASS，2026-09-29）**：session-store.db assistant_usage_events（schema_version=8，36 行真实 fixture+期望值）；OTel 路径：`COPILOT_OTEL_FILE_EXPORTER_PATH`（JSON-lines，行级 schema 未文档化）/OTLP（默认 http/json；chat span gen_ai.usage.* 含缓存细分、TTFT；invoke_agent 汇总 span 官方警告不得求和双计） | assistant_usage_events 为已验证主载体；OTel file exporter 行级 schema 待本机样本（otel 适配器同族容错）；premium 倍率/nano AIU 不入 token；2026-09-25 消失为升级迁移、已恢复 | 主载体 M5 已实施（真实核对）；OTel 载体 M5 已实施（文档级），A05 |
+| JetBrains 内置 AI Assistant / Junie | IDE 插件本地 schema 仍缺证留 F1；Junie CLI 已取得本地证据转 M8：`~/.junie/sessions/<id>/events.jsonl` 逐轮 modelUsage（input/output/cache/reasoning/cost/time/provider），timestampMs 为结束时刻 | A07 只证实企业远端分析，已排除；Junie CLI（A36）不再按缺证处理；AI Assistant IDE 插件本地 token/cache schema 待证，当前不探测/开发 | IDE 插件 F1；Junie CLI M8，A07/A36 |
 | DeepSeek Harness（DSH） | 适配器已实现（M3，2026-09-25，文档级证据：token-meter README 46a7f68；本机未安装 not_found） | final 替换流式、retry 新开计费 attempt、边界定稿末样本（V03 数学样本语义）；pressure 估算不计账；occurred_at 用观察时间（无逐事件时间）；落盘行形状为合成假设待真实样本 | M3 已实施（待真实验收），A08 |
 | Hermes Agent（原需求 Harness Agent） | 适配器已实现（M3，2026-09-25，文档级证据：固定源码 ef70b36；本机未安装 not_found） | session_model_usage 按合同映射区间汇总（不虚构逐请求/每日分桶）；api_call_count 不拆调用；跨日归属/辅助互斥/压缩继承按 A24；日志详单能力待真实样本 | M3 已实施（待真实验收），A24 |
 | OpenClaw | 适配器已实现（M3，2026-09-25，文档级证据；本机未安装 not_found） | 官方文档未给出表级/条目级 schema ⇒ 运行时库与旧归档均 fail closed（诊断注明待真实样本）；归档按迁移输入降级（doctor --fix 路径）；不沿用“只扫 JSONL”假设；远端 Gateway 不等于本机 | M3 已实施（fail-closed 占位，待真实样本扩展），A09 |
@@ -49,14 +55,53 @@ Harness Agent 按用户提供官网更正为 Hermes Agent。所有工具均保�
 | OpenCode | 适配器已实现（M3，2026-09-25，文档级证据：固定源码 0027387；本机未安装 not_found） | 逐次数据可得：part 表 step-finish 部件 tokens{input(未缓存),output,reasoning,cache{read,write}}+cost；session.tokens_* 仅对账（matched）；message.data turn 聚合不读防双计；发现层按数据目录名收敛（kilo 目录同形库碰撞已修，负向测试覆盖） | M3 已实施（待真实验收），A17 |
 | Qwen Code | 固定 recording service 记录 usageMetadata/model；旧 tmp 与新 projects 的 chats/ 及 chats/archive/ 均需发现；官方 OTel | 不把 Goal 累计 histogram sum 当总消耗；活动/归档以同来源原生 uuid 去重；QWEN_RUNTIME_DIR 优先于 QWEN_HOME，手工根可补旧库；旧日志缺 spend 时零不等于实测零；显式禁用 prompt 日志 | M2/M5；本地候选/需启用，A18 |
 | Zoo Code | 适配器已实现（M3，2026-09-26，文档级证据：固定源码 f780647；本机未安装 not_found） | Roo 血统整写 ui_messages.json；LIFO 配对合并（finish 覆盖 start、无配对丢弃）；condense_context.cost 计上游 totalCost（辅助调用、token 未知）；tokensIn 含缓存（与 opencode 家族相反）；独立产品不能擅自改为 Roo Code；缺证 JetBrains 变体后移 | M3 已实施（待真实验收）；JetBrains 变体 F1，A19 |
-| TRAE / TraeCode 及插件 | 后续探测本地 IDE/CLI 日志、会话库、插件数据和本机会话导出 | A20 企业 API/控制台报表不纳入；当前整个产品家族后移，不推测通用目录/schema | F1；后续支持，A20 为范围排除依据 |
-| VS Code | 官方 Copilot Chat OTel 的逐 LLM chat span 有模型、输入/输出、可选缓存与推理、TTFT | VS Code 是宿主；与 Copilot/Claude/Codex 等底层 Agent 去重；不承诺读取所有扩展的 usage | M5；需启用，A06 |
+| TRAE / TraeCode 及插件 | 后续探测本地 IDE/CLI 日志、会话库、插件数据和本机会话导出 | A20 企业 API/控制台报表不纳入；2026-09-29 复核：tokscale 的 TRAE 路线源自其远端 usage API 落盘缓存（dollar_float/extra_info 形态），同样不符合本机来源边界；本地逐次格式仍缺证，整个产品家族继续后移 | F1；后续支持，A20 为范围排除依据 |
+| VS Code | 官方 `github.copilot.chat.otel.*` 设置族（2026-09-29 文档核验 bdc5ebe）：exporterType file/otlp-http、outfile（NDJSON 非 OTLP、startTime [秒,纳秒]）；chat span 属性 gen_ai.usage.*（含缓存/推理细分）+ copilot_chat.time_to_first_token（ms）；本机 copilot-chat session-store.db 实测无 usage 表（本地默认无逐次用量） | otel 适配器（M5 已实现，文档级）读取 outfile（手工根添加）或经接收器；需用户启用；宿主与底层 Agent 去重；不承诺读取所有扩展 | M5 已实施（需启用载体），A06 |
 | ZCode | 适配器已实现（M4，2026-09-25）：model-io JSONL 双口径——AI SDK 五键为主（inputTokens 含缓存读）、anthropic snake_case 对照互斥校验（矛盾进诊断）；db.sqlite model_usage 为自动采集主载体，turn_usage 只读对账（活库不一致轮可见）；真实核对幂等 | 已验证 3.14.3（真实 fixture）；未收录版本 latest_fallback；`~/.zcode/v2` 布局与 `%APPDATA%/zcode` 桌面存储未接入（待证）；缺 requestId/traceId 时不得全部变成 zcode:None | M4 已实施；跨版本待证，A21 |
 | WorkBuddy | 官方日志诊断入口作本地探测线索；核验安装/profile 对应的日志/缓存与本机会话导出 | 套餐/账号积分页不纳入；未证实本地逐请求 token/cache，不能把 CodeBuddy CLI OTel 直接套用 | M4；待证实，A22 |
-| Zed | 官方说明 hosted 服务有 token 计量，客户端 telemetry log 可查看；外部 Agent 有独立数据源 | 内置存储 schema 后续核验；外部 ACP Agent 仍按底层适配器读取原生日志，不计为 Zed 内置支持 | 内置 Agent F1；外部来源按原阶段，A23 |
+| Zed | 内置 hosted Agent 已取得本地载体证据（A38 补充 A23）：threads.db threads 表 data blob（json 或 zstd）含 request_token_usage 逐次（input/output/cache_read/cache_creation）与 cumulative_token_usage、created_at/updated_at、folder_paths | 仅统计 provider=zed.dev 的 hosted 调用；imported 线程跳过；zstd 解压与体积上限防护；外部 ACP Agent 仍按底层适配器读取原生日志，不计为 Zed 内置支持 | 内置 M8 已实施（文档级+本机 schema 核验，2026-09-29）；外部来源按原阶段，A23/A38 |
 
 本轮没有将任何“未发现文档”写成“该产品不可能支持”。
 若不能取得可靠用量，仍可展示该工具状态与限制，但不占据有数值的总计行。
+
+<a id="扩展覆盖"></a>
+
+## 扩展覆盖（2026-09-29 第二批调研）
+
+下列产品为本轮补全的国内外流行 Agent，证据编号见 [调研索引](research.md#agents)
+（A25–A48）。2026-09-29 已完成 M8 文档级实施（[验证记录](../../validation/desktop-usage/m8-second-batch.md)）：
+各适配器独立目录 + 版本注册表 + V30 结构检查 + 合成 fixture 合同测试
+（tests/m8_contract.rs 19 项）；本机均无真实数据（Zed 空库），真实验收后置。
+闭源产品的字段证据来自第三方解析器或逆向分析，真实脱敏 fixture（许可已给）
+出现后升级验证；一切估算路径（Kiro Auto 补零、Grok 累计差额、Goose reasoning
+差额等）不采纳，仅采信原生计数。
+
+| 工具/变体 | 拟接入来源与可用信息 | 边界与下一步 | 阶段/证据 |
+| --- | --- | --- | --- |
+| Amp（Sourcegraph，闭源） | `~/.local/share/amp/threads/T-*.json`：messages[].usage（model、inputTokens/outputTokens、cacheRead/cacheCreation、credits）与 usageLedger.events（timestamp/model/credits/tokens 五桶）双载体 | ledger 与逐消息 usage 按 messageId+桶对账防双计；缺显式时间戳不得以 thread created+messageId 推造逐次时间；credits 是计费单位非美元；schema 随版本滚动需 fixture | M8 已实施（文档级 2026-09-29；ledger 为主、消息 usage 仅对账不推造时间；credits 不映射），A28 |
+| Goose（Block；仓库已迁 aaif-goose） | `sessions.db` sessions 表：会话级 total/input/output（单次与 accumulated_* 双列）、model_config_json、provider_name、created_at；GOOSE_PATH_ROOT 与 macOS/旧 Block 多根 | 仅会话级聚合（按 Hermes 区间语义展示，不虚构逐请求）；无缓存列；reasoning 差额推算不采纳；单双列语义随版本核验 | M8 已实施（文档级；官方 usage_ledger 逐请求 + 旧库 accumulated 兜底；estimated/carried_forward cost 不映射；reasoning 差额不采），A26 |
+| Crush（Charm） | `~/.local/share/crush/projects.json` 注册表映射每项目 data_dir 与 crush.db；sessions 表 prompt_tokens/completion_tokens/cost、messages 表 model/provider、父子会话树 | token 列与消息部件的关系按固定源码核验（第三方仅采信 cost）；只取根会话防父子双计；按项目库发现 | M8 已实施（cost-only：官方证实 token 列是上下文快照不采；根会话 cost 累计、子会话回卷已过滤），A27 |
+| Roo Code | VS Code globalStorage `rooveterinaryinc.roo-cline/tasks/<uuid>/`（ui_messages.json、api_conversation_history）及 .vscode-server 变体 | Cline 血统同构，解析组件可复用但删除/子 Agent/压缩行为分版本复测；与 Cline/Kilo 扩展目录区分；CLI 形态另证 | M8 已实施（文档级 b867ec9：完整 say/ask 枚举、api_req_deleted 备忘不计、condense 辅助；与 cline 的 tokensIn 口径分歧已登记），A29 |
+| Aider | 默认仅 .aider.chat.history.md/.aider.input.history 落盘（无逐次 usage）；`--analytics-log`/llm 历史日志可选本地 JSONL（message_send 含 token/cost） | 可选日志属需启用载体，不回填历史；字段与单位待 fixture；不走 tokenizer 估算 | M8 已实施（--analytics-log 需启用不回填；prompt 含 cache 写、无 cache 分项；cost=litellg 自算 Estimated；无默认路径仅手工根），A30 |
+| Continue（CLI/VS Code/JetBrains） | `~/.continue`（sessions、logs、index）目录由官方文档证实 | 会话载体逐次 token 字段未核验，先取证再实施；hub 账号数据不接入；JetBrains 插件载体另验 | M8 已实施（仅 CLI 会话顶层 usage：会话级聚合；GUI 无字段、devdata 估算不采），A31 |
+| Droid（Factory.ai，闭源） | `~/.factory/sessions/{uuid}.settings.json` tokenUsage（input/output/cacheRead/cacheCreation/thinking，累计）+ 同名 jsonl 转录 | 累计值保留区间语义，分摊到回合属估计不采纳为逐次；无费用字段；providerLock 与转录时间归属待样本 | M8 已实施（tokenUsage 累计快照→会话聚合；转录字节分摊不采），A32 |
+| Amazon Q Developer CLI | `~/.aws/amazonq/history/` 按时间戳 JSON 会话（第三方证据）；官方仓库开源 | history 内 usage/token 字段未核验，先源码级核验再实现；SSO 重登录可能丢历史，保留缺口可见 | 不实施 token 适配器（2026-09-29 源码级取证：API tokenUsage 在类型转换层被丢弃，conversations/history 均无 token 字段），A33 |
+| Grok Build（xAI，闭源） | `~/.grok/sessions/<workspace>/<session>/`（updates.jsonl、signals.json、summary.json、events.jsonl）与 `~/.grok/logs/unified.jsonl` | 仅取显式 usage 块五桶；累计 totalTokens 增量与压缩差额补偿是推断不采纳；PID 复用/子代理模型归属复杂，证据冲突归 unknown；GROK_HOME 覆盖 | M8 已实施（仅 updates.jsonl 显式 usage 块；累计差额/补偿/PID 归因不采），A34 |
+| Antigravity CLI/扩展（Google） | `~/.gemini/antigravity[-cli]/conversations/<uuid>.db`：gen_metadata protobuf 逐回合 usage（input=固定系统提示+新增、cacheRead、output、thinking、responseId） | protobuf 布局为逆向结论且 1.1.18 时间戳字段变更，须逐版本锚定；IDE 主体用量走 language server，另按需启用取证；与 Gemini CLI 目录同根不同子目录 | M8 已实施（逆向 protobuf：input=#1+#2、#9.#4 时间戳；1.1.18+ 无时间戳行 fail closed；IDE language server 载体未证不实施），A35 |
+| Junie CLI（JetBrains） | `~/.junie/sessions/<session-id>/events.jsonl`：LlmResponseMetadataEvent.modelUsage[] 逐轮（model、input/output、cache、reasoning、cost、time、provider） | timestampMs 是结束时刻，起始时间=结束−time 仅在两者齐备时计算；会话名时间戳仅作兜底；JetBrains AI Assistant IDE 插件仍 F1 | M8 已实施（modelUsage[] 多别名组；timestampMs=结束时刻、time→延迟；缺时间戳不入账），A36 |
+| Kiro（AWS，CLI+IDE） | 三载体：CLI `~/.kiro/sessions/cli/*.json(+jsonl)`；kiro-cli `~/.local/share/kiro-cli/data.sqlite3` conversations_v2；IDE globalStorage `kiro.kiroagent`（.chat 快照、execution、promptLogs） | Auto agent 常记 0：估算路径不采纳，仅采显式计数；execution 与 .chat 快照按 executionId 抑制重复；metering credit 独立计价单位；三载体交叉去重 | M8 已实施（CLI turns 真实计数 + kiro-cli SQLite request_metadata；Auto 零计数/估算不采；IDE 估算载体不实施；双载体重叠待真实样本对账），A37 |
+| Zed 内置（升级自 F1） | threads.db（见上表 Zed 行）：request_token_usage 逐次五桶 | 仅 zed.dev hosted；imported 线程跳过；zstd blob 解压上限；threads 表可选列容错 | M8 已实施（官方源码 bd74733 + 本机 schema 核验（0 行）；cumulative 权威、request 桶覆盖语义仅对账；仅 zed.dev；zstd 有界解压），A23/A38 |
+| Codebuff（原 Manicode） | `~/.config/manicode*/projects/*/chats/<chatId>/chat-messages.json`；CODEBUFF_DATA_DIR 覆盖 | usage 字段与分通道根（manicode/-dev/-staging）待 fixture | 不实施 token 适配器（2026-09-29 官方源码 caec5fc 证实本地仅 credits、无 token 字段；CODEBUFF_DATA_DIR 非官方变量），A39 |
+| Command Code | `~/.commandcode/projects/<slug>/*.jsonl` v3 树形（session/message/model_change；assistant usage 五桶+costUsd）；配置 config.json | rewind 孤儿分支不计；fork 复制按 id+时间戳去重；checkpoints 文件跳过；全零 usage 视为已报告零 | M8 已实施（npm 1.69.0 分发物证据：inputTokens 含 cache、当前路径口径、fork 按 id+时间戳跨文件去重、全零=已报告零），A40 |
+| jcode（jcode.sh，开源 Rust） | `~/.jcode/sessions/session_*.json` 快照 + `.journal.jsonl` 追加（journal 值权威覆盖快照）；五桶 token 字段 | OpenAI/Anthropic 缓存口径差异（cache_read 是否 input 子集）逐版本归一；回合计数防 journal 重放双计；JCODE_HOME 覆盖 | M8 已实施（快照+journal 合并、journal meta 权威；openai/anthropic 缓存口径分列；崩溃窗口按消息 id 兜底），A41 |
+| gajae-code（gjc） | `~/.gjc/agent/sessions/<slug>/*.jsonl`（pi 血统：session 头 + assistant model/provider/usage 五桶 + cost.total USD） | 深度 1/2 子代理重放按会话 id+消息 id 去重；GJC_CODING_AGENT_DIR/GJC_CONFIG_DIR/PI_CONFIG_DIR/XDG 多根；pi 家族复用须逐项测试 | M8 已实施（官方 7e54f9c：usage 已归一化互斥桶（pi 口径）；五桶齐全才统计；message.timestamp 毫秒优先），A42 |
+| Xum（Coder；原 mux） | `~/.mux/sessions/<workspaceId>/session-usage.json`：byModel 会话级聚合（input/cached/cacheCreate/output/reasoning 各含 tokens+cost_usd）+ lastRequest.timestamp | 仅会话级（区间语义）；模型 key 带 provider 前缀需拆分；产品更名需新旧双根发现 | M8 已实施（byModel 会话聚合；cost_usd 不映射（聚合层无 cost 载体）；mux 旧根保留），A43 |
+| iFlow CLI（阿里心流，闭源） | `~/.iflow`（settings.json、`tmp/<project_hash>/`）；`/chat save` 持久化 JSON 会话；OTel 事件含逐次 api_response 五桶 token（input/output/cached/thoughts/tool，与 Gemini CLI 同构） | chats 载体具体路径与 usageMetadata 字段待本机样本；Gemini 家族解析知识不得直接套用，须逐字段验证；IFLOW_* 环境层 | M8；本地候选（待样本），A46 |
+| Qoder CLI（阿里，前通义灵码） | CLI 设备流 `~/.qoder/`；IDE 为 Electron `%APPDATA%\com.qoder.app.stable*`；另有 globalStorage/`~/.local/share/qoder` 线索 | CLI 会话格式与 usage 字段未证：先本机取证再定实现；与灵码品牌演化记录在案；JetBrains 插件归 F1 | M8 探针级接入（路径已证、字段未证：只发现识别不解析，fail closed；待本机实测 `<session>.jsonl` 与 `state.json`），A47 |
+| AtomCode（AtomGit 生态） | CLI 形态国产 Agent（联合华为 InsCode AI IDE）；开源可源码核验 | 本地存储格式未证：先源码级核验（存储路径/usage 字段）再决定入 M8 或待证；InsCode IDE 归 F1 | M8 已实施（官方 e4215f7：.meta turn_stats 按模型会话聚合、round_count 合计作调用数；旧版单文件同构），A48 |
+| Warp | 本地仅账户级用量缓存（requestsUsed/spendCents/syncedAt，工作区级） | 无 token 明细且属账户额度数据：不入 token 统计，最多以状态行展示受限 | 暂缓（额度类），A44 |
+| Cursor（CLI/IDE） | CLI 转录 `~/.cursor/projects/<slug>/agent-transcripts/<uuid>/*.jsonl`（有会话、无逐次 token/模型字段）；IDE state.vscdb 载体待证 | 逐次用量仅存在于远端 dashboard（get-filtered-usage-events/CSV 导出），按本地边界排除；不以 tokenizer 从转录估算 | F1（缺证），A45 |
+| Windsurf（IDE+CLI） | IDE Cascade 与 2026 年确认存在的 windsurf CLI；本地 usage 存储未证 | 未取得本地逐次 token 证据前不探测/不实施；列入 F1 缺证 IDE 家族 | F1；后续支持 |
 
 ## Hermes Agent 本地合同
 
@@ -90,11 +135,18 @@ A24 固定源码 `ef70b3661cbfcf57e583008ad91dd04d8ba46070` 确认以下内容�
 基础读取器可以复用 JSONL、可变 JSON、只读 SQLite、OTLP 和 CSV。
 业务映射仅在字段与生命周期测试证明一致后复用：
 
-- pi/oh-my-pi 可共享部分 Usage 类型知识，辅助事件及分支恢复仍各测。
+- pi/oh-my-pi 可共享部分 Usage 类型知识，辅助事件及分支恢复仍各测；
+  gajae-code（gjc）为 pi 血统变体，复用同样逐项验证。
 - OpenCode/Kilo/MiMo 可共享结构探测工具，不共享未经验证的目录、表名或累计/增量假设。
-- Cline/Zoo/旧 Kilo 扩展的 API 记录可以共享解析组件，但子 Agent 汇总、删除与压缩记录逐项测试。
+- Cline/Zoo/旧 Kilo 扩展的 API 记录可以共享解析组件，但子 Agent 汇总、删除与压缩记录逐项测试；
+  Roo Code 扩展载体同构可复用组件，删除/子 Agent/压缩行为分版本复测。
 - VS Code/Copilot/宿主嵌入的 Claude/Codex 不按应用品牌重复计费，使用 origin 归属关系。
 - Kimi Work 和 Kimi Code 的数据根、实例身份和日志 revision 独立，重叠来源显式处理。
+- Amp 的 usageLedger 与逐消息 usage、Kiro 的 execution 与 .chat 快照属于同源双载体，
+  对账去重规则各自验证，不能按时间接近或数值相同猜测同一请求。
+- Goose/Xum/Droid 等会话级聚合来源按 Hermes 区间语义处理，不展开成伪造逐次事件。
+- Antigravity CLI 与 Gemini CLI 同根（~/.gemini）不同子目录，目录发现互不推断；
+  iFlow CLI 与 Gemini CLI 同构证据仅作线索，字段仍逐个核验。
 
 ## 每个适配器的交付合同
 
@@ -135,6 +187,10 @@ A24 固定源码 `ef70b3661cbfcf57e583008ad91dd04d8ba46070` 确认以下内容�
 | Kimi Code/Work/ZCode | 真实产品版本、每次调用稳定 ID 或序号、model/provider 字段、毫秒时间、缺 ID、目录迁移 |
 | Copilot/VS Code/CodeBuddy | chat/model_stream 与父 span 去重、file/OTLP 重传、cache 缺失、无 usage 的失败、SDK/宿主重叠 |
 | JetBrains/TRAE/其他本地待证源 | 本地日志/数据库真实样本、版本/插件差异、缺 usage、同区间重导入；远端同步/账号报表必须排除 |
+| M8 双载体/对账类（Amp/Kiro） | ledger 全量与部分覆盖、execution 覆盖快照、重复事件、缺 messageId、跨载体同一请求 |
+| M8 会话级聚合类（Goose/Xum/Droid） | accumulated 与单次列、跨日会话、快照+日志合并（jcode）、provider 前缀模型 key、累计下修 |
+| M8 逆向/闭源类（Antigravity/Grok/Junie/Qoder/iFlow） | protobuf 布局版本变更、累计与压缩差额、缺时间戳、结束时刻语义、品牌迁移双根 |
+| M8 开源同构类（Roo/gjc/Command/jcode/Codebuff/Continue/Crush/Aider/Amazon Q） | rewind/fork 分支、删除汇总、子代理重放、缓存口径差异、需启用日志、SSO 丢历史 |
 
 ## 会话归档与历史可回采性（2026-09-27 复核）
 
@@ -173,9 +229,14 @@ turn_usage 有 24 个轮级对账差异，仅作对照，不能与 model_usage �
 ## 暂未证实工具的推进方式
 
 M4 保留新版 Kimi Code、Kimi Work、ZCode、WorkBuddy；JetBrains/TRAE、Zed 内置及
-表中缺证 IDE 变体列入 F1，首版不探测/实施。各产品到其所属阶段后，按
+表中缺证 IDE 变体列入 F1，首版不探测/实施。2026-09-29 第二批调研后：
+Junie CLI 与 Zed 内置（threads.db）已取得本地载体证据，从 F1 转入 M8；
+Cursor、Windsurf、京东 JoyCode、智谱 CodeGeeX 插件、百度文心快码 Comate、
+华为 InsCode/CodeArts Snap 仍属缺证 IDE 家族留 F1；Warp 仅账户级额度缓存、
+Cursor/TRAE 的逐次用量在远端，均按本地边界排除且不以估算补齐。
+各产品到其所属阶段后，按
 “识别版本→本地存储/本机导出/本地遥测→最小脱敏样本→字段/生命周期测试”推进。
-不能因同属 IDE 后移有明确本地字段证据的 Cline 或已文档化的 VS Code 遥测。
+不能因同属 IDE 后移有明确本地字段证据的 Cline、Roo Code 或已文档化的 VS Code 遥测。
 每个工具留下核验版本、已查的官方本地入口/候选格式、授权范围、读取结果、缺失字段、
 失败原因和后续条件；没有本机版本/样本时记“未尝试/待样本”，不能写“已验证不支持”。
 只有套餐/账号额度页时显示本地用量暂不可提取；只有文本无可靠 usage 时不默认使用 tokenizer 估算。
@@ -184,5 +245,9 @@ M4 保留新版 Kimi Code、Kimi Work、ZCode、WorkBuddy；JetBrains/TRAE、Zed
 用户未来主动要求自定义 API 网关计量时另做设计；代理不能读取此前历史，
 也不一定覆盖官方订阅通道，因此不是当前通用回退方案。
 
-首批之后可按同一准入合同评估 Cursor、Roo Code、Continue、Windsurf 等工具。
-本轮未完成它们的格式核验，不将其列入已证实矩阵或首版必达数量。
+首批之后的准入合同评估与 M8 文档级实施均已完成（2026-09-29，[M8 验证记录]
+（../../validation/desktop-usage/m8-second-batch.md)）：18 个适配器注册
+（17 个解析 + Qoder 探针）；Amazon Q/Codebuff 经源码级取证证实本地无逐次 token 载体、
+iFlow 已停服（2026-04-17）且唯一载体是需启用的 OTel（归 M5），三者不实施
+token 适配器；Cursor/Windsurf 维持 F1。全部文档级实现的真实验收后置，
+不把文档级实施写成已验证支持。

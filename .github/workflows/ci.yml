@@ -1,7 +1,7 @@
 name: CI
 
 # 合同见 docs/design/desktop-usage/platform-ci.md：
-# 三平台真实构建、fail-fast=false、Actions 固定完整提交 SHA、PR 只读权限、
+# 三平台真实构建、fail-fast=false、Actions 使用 v 主版本号浮动引用、PR 只读权限、
 # 不做发布/签名；制品记录 revision、大小与校验和。M1 起逐步加入 fixture 与集成测试。
 
 on:
@@ -23,10 +23,10 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@v7
         with:
           lfs: true
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -41,10 +41,10 @@ jobs:
       run:
         working-directory: desktop
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@v7
         with:
           lfs: true
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -67,14 +67,14 @@ jobs:
       run:
         working-directory: desktop/src-tauri
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@v7
         with:
           lfs: true
-      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+      - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
           components: clippy, rustfmt
-      - uses: swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+      - uses: swatinem/rust-cache@v2
         with:
           key: ${{ runner.os }}-x64-rust-${{ env.RUST_TOOLCHAIN }}
           workspaces: desktop/src-tauri
@@ -102,18 +102,18 @@ jobs:
           - os: macos-15
             bundles: app
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@v7
         with:
           lfs: true
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: desktop/package-lock.json
-      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+      - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
-      - uses: swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+      - uses: swatinem/rust-cache@v2
         with:
           key: ${{ runner.os }}-${{ runner.arch }}-rust-${{ env.RUST_TOOLCHAIN }}
           workspaces: desktop/src-tauri
@@ -136,7 +136,7 @@ jobs:
       - name: 制品大小与校验和
         if: success()
         run: node desktop/scripts/bundle-report.mjs desktop/src-tauri/target/release/bundle
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+      - uses: actions/upload-artifact@v7
         if: success()
         with:
           name: llm-usage-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}

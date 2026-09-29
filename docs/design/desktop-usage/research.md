@@ -76,9 +76,9 @@ implementation trigger=对应阶段开始、产品升级、schema 改变或数�
 | A01 | [Claude 目录](https://code.claude.com/docs/en/claude-directory)、[监控](https://code.claude.com/docs/en/monitoring-usage) | 会话/子 Agent transcript 路径，官方 token 分类和 query_source；逐请求 JSONL schema 尚待 fixture |
 | A02 | [Codex 监控](https://learn.chatgpt.com/docs/agent-approvals-security) | 可选 OTel、请求/响应完成事件、提示词隐私配置；原型 token_usage_record 未获跨版本保证 |
 | A03 | [Cline metrics](https://github.com/cline/cline/blob/dcf8c3c33596e3d561a941202297c564a1cbcd49/apps/vscode/src/shared/getApiMetrics.ts)、[storage](https://github.com/cline/cline/blob/dcf8c3c33596e3d561a941202297c564a1cbcd49/apps/vscode/src/core/storage/disk.ts) | ui_messages.json 与 API/删除/子 Agent usage 汇总；模型逐请求及 CLI 格式未验证 |
-| A04 | [CodeBuddy monitoring](https://www.codebuddy.ai/docs/cli/monitoring) | OTel http/protobuf、model_stream/model_request 重叠、缺 usage 的情况及内容采集开关；IDE 另验 |
-| A05 | [Copilot CLI reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference) | OTLP JSON/protobuf 与 file JSONL、chat span；不依赖私有 SQLite schema 承诺 |
-| A06 | [VS Code monitoring](https://code.visualstudio.com/docs/agents/guides/monitoring-agents) | chat 与 invoke_agent 不同层级；可选缓存/推理与 TTFT 字段；只覆盖文档指定 Agent |
+| A04 | CodeBuddy monitoring 文档 codebuddy.ai/docs/cli/monitoring（2026-09-29 官方文档级核验：OTLP/HTTP 仅 protobuf、`CODEBUDDY_CODE_ENABLE_TELEMETRY=1`、model_stream 属性无 gen_ai 前缀、model_request 不导出防双计）原行 → [CodeBuddy monitoring](https://www.codebuddy.ai/docs/cli/monitoring) | OTel http/protobuf、model_stream/model_request 重叠、缺 usage 的情况及内容采集开关；IDE 另验 |
+| A05 | docs.github.com Copilot CLI OTel 文档（2026-09-29 核验：COPILOT_OTEL_FILE_EXPORTER_PATH JSON-lines、OTLP 默认 http/json、chat/invoke_agent 双层 span 与防双计警告；本地主载体 assistant_usage_events 已真实核对）原行 → [Copilot CLI reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference) | OTLP JSON/protobuf 与 file JSONL、chat span；不依赖私有 SQLite schema 承诺 |
+| A06 | microsoft/vscode extensions/copilot agent_monitoring.md bdc5ebe（2026-09-29 核验：`github.copilot.chat.otel.*` 设置族、file exporter NDJSON 非 OTLP、startTime [秒,纳秒]、chat span `gen_ai.usage.*` 属性表）原行 → [VS Code monitoring](https://code.visualstudio.com/docs/agents/guides/monitoring-agents) | chat 与 invoke_agent 不同层级；可选缓存/推理与 TTFT 字段；只覆盖文档指定 Agent |
 | A07 | [JetBrains API v2](https://www.jetbrains.com/help/jetbrains-console/analytics-api-v2.html)、[Session explorer](https://www.jetbrains.com/help/jetbrains-console/session-explorer.html) | 仅证实远端企业分析，按新决策排除；不证明本地 schema，本地提取后移 F1 |
 | A08 | [DSH token-meter](https://github.com/deepseek-ai/deepseek-harness/blob/46a7f68b0922371ce7144b668b90e377d8e799f4/packages/llm/token-meter/README.md) | 四类用量、final 替换、retry 边界；pressure/composition 非计账值 |
 | A09 | [OpenClaw store](https://docs.openclaw.ai/reference/session-management-compaction/store)、[token use](https://docs.openclaw.ai/reference/token-use) | 当前运行时 SQLite 与旧归档分离，usage/费用/上下文概念分离；具体表和兼容版本待验 |
@@ -97,6 +97,30 @@ implementation trigger=对应阶段开始、产品升级、schema 改变或数�
 | A22 | [WorkBuddy 用量](https://www.workbuddy.cn/docs/workbuddy/Usage) | 官方积分/套餐查询已读；未证实逐次 token/cache 的可提取合同 |
 | A23 | [Zed telemetry](https://zed.dev/docs/telemetry) | hosted 计量和本地遥测日志有区别；不能据服务端 token 计量推出本地完整字段 |
 | A24 | [Hermes 官网](https://hermes-agent.nousresearch.com/)、[存储文档](https://hermes-agent.nousresearch.com/docs/developer-guide/session-storage/)、[固定存储说明](https://github.com/NousResearch/hermes-agent/blob/ef70b3661cbfcf57e583008ad91dd04d8ba46070/website/docs/developer-guide/session-storage.md)、[usage](https://github.com/NousResearch/hermes-agent/blob/ef70b3661cbfcf57e583008ad91dd04d8ba46070/hermes_state_usage.py)、[schema](https://github.com/NousResearch/hermes-agent/blob/ef70b3661cbfcf57e583008ad91dd04d8ba46070/hermes_state_schema.py)、[response usage](https://github.com/NousResearch/hermes-agent/blob/ef70b3661cbfcf57e583008ad91dd04d8ba46070/agent/turn_usage.py) | 用户已明确产品；本地 state.db/profile、模型/task 累计、增量/absolute、辅助不写 sessions、历史回填已核对；逐次日志和 normalize_usage 完整语义仍待验 |
+| A25 | [tokscale](https://github.com/junhoyeo/tokscale)（固定 main `1d9a9395418efc6952944b794097935d7d6fa1e8`） | 第三方开源多 Agent 本地会话解析器（Rust）；本轮只读其 clients/scanner/sessions 源码提取路径与字段线索，未执行代码；其结论不替代逐产品官方核验与本机 fixture，估算/比价逻辑不沿用 |
+| A26 | [Goose](https://github.com/aaif-goose/goose)（block/goose 已迁移改名；官方核验 a701bb1，2026-09-29） | 迁移 15 起 `usage_ledger` 逐请求表（Unix 秒 + input/output/total/cache 两列 + cost + cost_source + is_compaction；tokscale 未见）；sessions 表 `accumulated_*` 会话累计（非 accumulated 列是最后快照）；时间列是文本 UTC；input 含 cache 读写；GOOSE_PATH_ROOT（绝对路径）/Windows %APPDATA%\Block\goose/旧 Block 根 |
+| A27 | [Crush](https://github.com/charmbracelet/crush)（固定 main `1f3827bcd2d20f38076b2d46123683271e6ed9ba`，官方核验 2026-09-29） | projects.json {projects:[{path,data_dir,last_accessed}]}（CRUSH_GLOBAL_DATA/XDG/LOCALAPPDATA）；每项目 `<data_dir>/crush.db`；__sessions.prompt/completion 是最近 step 上下文规模快照（非用量、摘要后重置）__；cost 累计且子会话回卷父行（取 parent_session_id IS NULL）；messages 无 token 列 |
+| A28 | [Amp 官网](https://ampcode.com/)（闭源 CLI；tokscale 1d9a939 sessions/amp.rs，2026-09-29 采信） | `~/.local/share/amp/threads/T-*.json`：messages[].usage（model、inputTokens/outputTokens、cacheRead/cacheCreation、credits）与 usageLedger.events（timestamp/model/credits/tokens）双载体，需对账防双计 |
+| A29 | [Roo Code](https://github.com/RooCodeInc/Roo-Code)（官方核验 b867ec9145750d0ae1ff7f02d35406e9bf2a0b16，仓库已归档 2026-05） | VS Code globalStorage `rooveterinaryinc.roo-cline/tasks/<uuid>/`（ui_messages.json 等）及 .vscode-server 变体；Cline 血统同构，删除/子 Agent/压缩行为分版本复测 |
+| A30 | [Aider](https://github.com/Aider-AI/aider)（固定 main `5dc9490bb35f9729ef2c95d00a19ccd30c26339c`，官方核验 2026-09-29） | 默认仅 .aider.chat.history.md/.aider.input.history（无逐次 usage）；`--analytics-log`/llm 历史日志为可选本地落盘（需启用、不回填）；逐次 token/cost 字段待 fixture |
+| A31 | [Continue](https://github.com/continuedev/continue)（官方核验 5522c6f44ca0ac3528b37b44818fbfa39b5af470，2026-09-29） | `~/.continue`（sessions、logs、index）目录已由官方文档证实；会话载体逐次 token 字段未核验；hub 账号数据不接入 |
+| A32 | [Droid](https://factory.ai/)（Factory.ai CLI） | `~/.factory/sessions/{uuid}.settings.json` 的 tokenUsage（input/output/cacheRead/cacheCreation/thinking，累计）+ 同名 jsonl 转录；无费用；累计分摊是估计仅作区间 |
+| A33 | [Amazon Q Developer CLI](https://github.com/aws/amazon-q-developer-cli)（官方核验 15cc8f3，2026-09-29） | `~/.aws/amazonq/history/` 按时间戳 JSON 会话（第三方证据）；repo 开源可源码核验；history 内 usage 字段未核验，SSO 重登录可能丢历史 |
+| A34 | Grok Build（xAI 闭源 CLI；[新闻报道](https://www.penligent.ai/)证实产品与版本线） | `~/.grok/sessions/<workspace>/<session>/{updates.jsonl,signals.json,summary.json,events.jsonl}` 与 `~/.grok/logs/unified.jsonl`；显式 usage 块五桶可用，累计 totalTokens 增量/压缩差额补偿为推断不采纳 |
+| A35 | [Google Antigravity](https://antigravity.google/) CLI/扩展 | `~/.gemini/antigravity[-cli]/conversations/<uuid>.db`：gen_metadata protobuf 逐回合 usage（input=固定提示+新增、cacheRead、output、thinking、responseId）；布局系逆向结论且 1.1.18 时间戳字段变更；IDE 主体用量经 language server，需另行取证 |
+| A36 | [Junie](https://junie.jetbrains.com/) CLI（JetBrains；tokscale 1d9a939 sessions/junie.rs，2026-09-29 采信） | `~/.junie/sessions/<session-id>/events.jsonl`：LlmResponseMetadataEvent.modelUsage[] 逐轮（model、input/output、cache、reasoning、cost、time、provider）；timestampMs 为结束时刻；IDE 插件本体仍缺证留 F1 |
+| A37 | [Kiro](https://kiro.dev/)（AWS；tokscale 1d9a939 sessions/kiro.rs，2026-09-29 采信） | 三载体：CLI `~/.kiro/sessions/cli/*.json(+jsonl)`、kiro-cli `~/.local/share/kiro-cli/data.sqlite3` conversations_v2、IDE globalStorage `kiro.kiroagent`（.chat/execution/promptLogs）；Auto agent 常记 0，估算路径不采纳；metering credit 为独立计价单位 |
+| A38 | [Zed threads 存储](https://github.com/zed-industries/zed)（官方核验 bd74733 + 本机 schema 只读核验 2026-09-29） | `~/.local/share/zed`、`~/Library/Application Support/Zed`、`%LOCALAPPDATA%\Zed` 下 threads/threads.db：threads 表 data blob（json 或 zstd）含 request_token_usage 逐次（input/output/cache_read/cache_creation）与 cumulative；仅 zed.dev hosted 计入，imported 线程跳过 |
+| A39 | [Codebuff](https://codebuff.com/)（原 Manicode；官方核验 caec5fc，2026-09-29） | `~/.config/manicode*/projects/*/chats/<chatId>/chat-messages.json`；CODEBUFF_DATA_DIR 覆盖；usage 字段待 fixture |
+| A40 | [Command Code](https://commandcode.ai/)、[仓库](https://github.com/CommandCodeAI/command-code)（仓库无源码；npm 分发物 command-code@1.69.0 dist/cli.mjs 逐行核验 2026-09-29） | `~/.commandcode/projects/<slug>/*.jsonl` v3 树形（session/message/model_change；assistant usage inputTokens/outputTokens/cacheRead/cacheWrite/costUsd）；rewind 孤儿分支不计、fork 复制按 id+时间戳去重 |
+| A41 | [jcode](https://jcode.sh/)（开源 Rust 终端 Agent；官方核验 1jehuang/jcode 4f6bf8e，2026-09-29） | `~/.jcode/sessions/session_*.json` 快照 + `.journal.jsonl` 追加日志（journal 覆盖快照）；input/output/cache_read/cache_creation/reasoning 五字段；OpenAI/Anthropic 缓存口径差异需归一 |
+| A42 | gajae-code（`gjc`；官方核验 Yeachan-Heo/gajae-code 7e54f9c + docs/session.md，2026-09-29） | `~/.gjc/agent/sessions/<slug>/*.jsonl`（pi 血统：session 头 + assistant model/provider/usage 五桶 + cost.total）；深度 1/2 子代理重放需去重；GJC_CONFIG_DIR/PI_CONFIG_DIR/XDG 覆盖 |
+| A43 | [Xum](https://github.com/coder/xum)（Coder；原 coder/mux） | `~/.mux/sessions/<workspaceId>/session-usage.json`：byModel 会话级聚合（input/cached/cacheCreate/output/reasoning + cost_usd）；仅会话级；产品更名需双根发现 |
+| A44 | [Warp](https://www.warp.dev/) | 本地仅见账户级用量缓存（requestsUsed/spendCents/syncedAt，工作区级），无 token 明细；属额度数据不入 token 统计 |
+| A45 | [Cursor CLI 文档](https://cursor.com/docs/cli/overview)、[CursorDump 转录分析](https://github.com/lpalbou/CursorDump) | CLI 转录 `~/.cursor/projects/<slug>/agent-transcripts/<uuid>/*.jsonl` 有会话但无 token/模型逐次字段；逐次用量仅远端 dashboard（get-filtered-usage-events）→ 按本地边界排除；IDE state.vscdb 待证 |
+| A46 | [iFlow CLI](https://github.com/iflow-ai/iflow-cli)（阿里心流，闭源；官方核验 4642808：__2026-04-17 停服__，2026-09-29） | `~/.iflow`（settings.json、`tmp/<project_hash>/`）官方文档证实；`/chat save` JSON 持久化；OTel 事件含逐次 api_response 五桶 token（与 Gemini CLI 同构）；chats 载体具体路径/usageMetadata 待本机样本 |
+| A47 | [Qoder](https://qoder.com/)（阿里；前通义灵码，2026-05 品牌升级；docs.qoder.com + npm @qoder-ai/qodercli 1.1.64 解包取证 2026-09-29） | CLI 设备流在 `~/.qoder/`，IDE 为 Electron `%APPDATA%\com.qoder.app.stable*`；CLI 会话格式与 usage 字段未证，需本机取证 |
+| A48 | AtomCode（AtomGit 生态，联合华为 InsCode AI IDE；官方核验 e4215f733eeba4cede553e28f9b559e6b3dc34ef（GitHub 镜像同 SHA），2026-09-29） | CLI 形态国产 Agent（GitHub 2100+ star、17.4 万下载，2026-06 报道）；本地存储格式未证，开源可后续源码核验 |
 
 固定源码提交通过 GitHub 公共 API 的 commits 结果再次核对；
 文件读取使用 raw.githubusercontent.com，未执行任何上游代码。
@@ -107,6 +131,24 @@ Hermes 固定 commit 通过 commits API 获取，定点只读核对存储文档�
 追加获取 agent/usage_pricing.py 时遇到 HTTP 429；停止该读取，不把外层 PowerShell 退出码 0
 当作此文件获取成功，不据响应字段名称推断缓存包含关系；此项留给 M3 的版本样本核验。
 
+## 2026-09-29 M8 实施轮深度调研（先于编码）
+
+在覆盖调研（上文）基础上，实施前逐产品核验格式证据（并行只读调研，产物锚点
+已并入上表 A25–A48 各行；字段级证据全文在各适配器源文件头与
+[M8 验证记录](../../validation/desktop-usage/m8-second-batch.md)）：
+
+- 官方源码核验（固定提交）：Roo b867ec9（已归档）、Goose a701bb1、Crush 1f3827b、
+  jcode 4f6bf8e、gajae 7e54f9c、Continue 5522c6f、AtomCode e4215f7、Zed bd74733、
+  Aider 5dc9490、Amazon Q 15cc8f3、Codebuff caec5fc、iFlow 4642808。
+- 官方分发物核验：Command Code npm 1.69.0 dist/cli.mjs（仓库无产品源码）、
+  Qoder npm 1.1.64（混淆 bundle，仅路径可信）。
+- 第三方解析器证据（闭源）：tokscale 1d9a939 的 Amp/Grok/Junie/Kiro/Droid/Xum/
+  Antigravity 实现逐行提取。
+- 重大结论：Goose 存在 tokscale 未覆盖的逐请求 usage_ledger；Crush token 列是
+  上下文快照非用量；Amazon Q/Codebuff 本地无逐次 token 载体（不实施）；
+  iFlow 已停服（2026-04-17）；Roo 与 cline 的 tokensIn 包含关系存在血统分歧
+  （各按锚点实现，待真实样本复核）。
+
 ## 研究限制与实施阶段核验
 
 - 本轮没有访问任何登录后台、计费 API 或组织数据；这些远端来源已排除在产品范围外。
@@ -115,6 +157,60 @@ Hermes 固定 commit 通过 commits API 获取，定点只读核对存储文档�
 - 未进行包体基准、数据库性能、跨平台测试或真实 LLM 验收；性能数字均是设计目标。
 - 平台和 Hermes 身份已由用户明确；WSL 可用性、三平台 CI、系统任务及真实适配器仍未执行。
 - 没有新建 Agent 专属配置或新 Skill；现有维护 Skill 保留触发方式，更新命令引用及受影响的维护合同。
+
+## 2026-09-29 Agent 覆盖扩展调研
+
+用户要求补全国内外流行 Agent 覆盖。本轮为纯调研与文档更新，未实施任何新适配器、
+未提取本机数据、未执行上游代码。新证据入上表 A25–A48，阶段划分见
+[接入矩阵](adapters.md#扩展覆盖)与 [执行计划 M8](execution.md#m8)。
+
+方法与证据层级：
+
+- 以第三方开源解析器 [tokscale](https://github.com/junhoyeo/tokscale)
+  （固定 main `1d9a9395418efc6952944b794097935d7d6fa1e8`）作为路径/字段线索层，
+  只读其 clients.rs、scanner.rs 与 sessions/ 解析器源码；其估算、比价与
+  聚合策略不沿用，仅取存储路径、字段名与生命周期线索。
+- 产品身份逐个经官方站点、官方仓库或多方报道核对：goose 仓库已由
+  block/goose 迁移为 aaif-goose/goose；coder/mux 更名 coder/xum；
+  Qoder 为通义灵码品牌升级（2026-05）；Grok Build 为 xAI 官方 CLI（新闻佐证）；
+  Command Code、jcode、gajae-code、Codebuff、AtomCode 均有官方站点或发布渠道。
+- 闭源产品（Amp、Grok Build、Junie CLI、Kiro、Droid、Xum、iFlow CLI、
+  Qoder CLI、Antigravity protobuf 布局）的字段证据来自第三方解析器或逆向分析，
+  一律标"本地候选（待 fixture）"，实施前须按已获许可取得本机脱敏样本。
+- 明确排除项：Cursor 逐次用量仅在远端 dashboard（get-filtered-usage-events）；
+  TRAE 的 tokscale 路线来自其 usage API（远端）；Warp 本地仅账户级
+  requests/spend 缓存。三者均不符合"只统计本机来源"边界，不入 token 统计。
+- 既有条目证据升级：Zed 内置（A23 补充 A38）发现 threads.db 本地逐次载体；
+  JetBrains（A07）补充 Junie CLI 本地 events.jsonl 证据；两者从 F1 缺证类
+  转入 M8 本地候选，JetBrains AI Assistant IDE 插件与 TRAE 仍在 F1。
+- 缺证 IDE 家族（F1 扩充，不探测/不实施）：Cursor IDE、Windsurf（IDE+CLI）、
+  京东 JoyCode、智谱 CodeGeeX 插件、百度文心快码 Comate、华为 InsCode/CodeArts Snap。
+  每项保留产品身份与"待本地格式证据"状态，不写"不支持"。
+
+本轮未访问登录后台、计费 API 或组织数据；未运行 npm/cargo 业务命令（文档轮）；
+检查命令与结果见下文本轮验证小节。
+
+<a id="verification-20260929"></a>
+
+### 本轮文档验证
+
+cwd 为仓库根；仅文档与链接检查，无业务实现变更：
+
+```powershell
+node node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs --no-globs Plan.md AGENTS.md 'docs/design/desktop-usage/*.md' '.agents/skills/ai-maintenance/references/maintenance.md'
+git diff --check
+git status --short
+# 一次性链接/锚点/空白检查（UTF-8）：python -X utf8 build/agent-coverage-2026-09-29/check_links.py
+```
+
+| 检查 | 退出码/结果 | 说明 |
+| --- | --- | --- |
+| markdownlint（15 个文件） | 0；0 问题 | 过程中修复 research.md 一处 MD012 连续空行与两处表格内裸竖线 |
+| 链接/锚点/空白检查 | 0；15 个文件无错误 | 一次性只读脚本（未跟踪 build/ 产物），显式锚点均可解析 |
+| git diff --check | 0 | LF→CRLF 提示非空白错误 |
+| git status --short | 13 项修改 | 本轮 7 个文档；另 6 个 desktop 版本号/Cargo 格式化改动属其他任务，保留不动 |
+
+本轮无业务代码、数据库、采集或依赖变更；未运行 npm/cargo 业务命令（M0 以来命令清单不变）。
 
 <a id="verification"></a>
 

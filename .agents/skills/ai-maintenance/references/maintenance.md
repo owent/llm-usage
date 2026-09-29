@@ -139,7 +139,8 @@ VS Code 的 prompt files 需要区分 Local 与 Agent Host：
 
 本项目未采用 OpenSpec 或 Superpowers。当前桌面客户端计划见
 [Plan.md](../../../../Plan.md)，统计合同、接入证据与阶段详情见
-[设计入口](../../../../docs/design/desktop-usage/README.md)；均尚未实施。
+[设计入口](../../../../docs/design/desktop-usage/README.md)；
+实施进度以 Plan.md 状态表为准，不以计划条目冒充已实现。
 后续工作更新这套合同，普通维护不套用额外审批门。
 本项目已确定仅统计本机 Agent 来源；平台/CI 与定时任务分别见设计入口引用的专项合同。
 核验新增适配器时逐项记录本地提取尝试及字段限制，不能以远端账单/API 代替；
@@ -147,6 +148,9 @@ VS Code 的 prompt files 需要区分 Local 与 Agent Host：
 用户已允许实施时提取本机真实 Agent 数据验证，按
 [准备合同](../../../../docs/design/desktop-usage/implementation-readiness.md)只读提取、脱敏，不重复询问同一许可。
 JetBrains/TRAE 等缺证 IDE 后移 F1，当前不探测/实施；不能仍用“全部 Agent 首版尝试”阻塞主线。
+2026-09-29 扩展调研与 M8 文档级实施已完成：18 个适配器注册（17 个解析 + Qoder 探针），
+Junie CLI 与 Zed 内置在 M8；Amazon Q/Codebuff/iFlow 按边界排除（本地无逐次
+token 载体/停服）；Cursor/Warp/TRAE 的远端用量路线按本机来源边界排除。
 安装或升级可选工具须有采用决定和现有授权；参考理念不叫实际执行工具。
 隔离工作区按风险选择，worktree 不隔离数据库及远程系统。
 
