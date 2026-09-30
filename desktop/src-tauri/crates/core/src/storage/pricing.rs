@@ -55,8 +55,8 @@ pub struct CostDayOutcome {
     pub source_cost_rows: usize,
 }
 
-/// 按当前价格模拟的结果：分币种行 + 未计价原因 + 明细受限标记。
-type CurrentSimOutcome = (Vec<CostCurrencyRow>, BTreeMap<String, i64>, bool);
+/// 按当前价格模拟的结果：分币种行 + 未计价原因。
+type CurrentSimOutcome = (Vec<CostCurrencyRow>, BTreeMap<String, i64>);
 
 impl Storage {
     /// 导入价格快照（同 ID 同内容幂等；同 ID 异内容报错——修正须换快照 ID）。
@@ -370,8 +370,19 @@ impl Storage {
         };
 
         // 2) 按当前价格模拟（即时，仅明细仍在的事件）。
-        let (current_sim_rows, sim_unpriced, detail_limited) =
+        let (current_sim_rows, sim_unpriced) =
             self.cost_summary_current_sim(range_start, range_end, request)?;
+        // 区间内只要有一个匹配筛选的日已封存，模拟就缺少该日明细。
+        // 不能仅在整个区间没有任何明细时提示，否则混合新旧日期会漏报。
+        let detail_limited: bool = self.conn().query_row(
+            &format!(
+                "SELECT EXISTS(SELECT 1 FROM daily_usage
+                 WHERE tz_version = ?1 AND local_day >= ?2 AND local_day <= ?3
+                   AND sealed = 1 AND call_count > 0{filter_sql})"
+            ),
+            rusqlite::params_from_iter(filter_params.iter()),
+            |r| r.get(0),
+        )?;
 
         let mut current_sim = CostModeSummary {
             rows: current_sim_rows,
@@ -451,22 +462,7 @@ impl Storage {
                 },
             );
         }
-        // 明细覆盖检查：区间内有日汇总行但无任何明细事件 ⇒ 模拟受限（历史明细已过期）。
-        let has_daily_rows: bool = self.conn().query_row(
-            "SELECT EXISTS(SELECT 1 FROM daily_usage WHERE tz_version = ?1 AND local_day >= ?2 AND local_day <= ?3)",
-            [&request.timezone, &request.first_day, &request.last_day],
-            |r| r.get(0),
-        )?;
-        let mut probe = self.conn().prepare(
-            "SELECT EXISTS(SELECT 1 FROM usage_events WHERE occurred_at_ms >= ?1 AND occurred_at_ms < ?2)",
-        )?;
-        let has_events: bool = probe.query_row([range_start, range_end], |r| r.get(0))?;
-        let detail_limited = has_daily_rows && !has_events;
-        Ok((
-            by_currency.into_values().collect(),
-            unpriced,
-            detail_limited,
-        ))
+        Ok((by_currency.into_values().collect(), unpriced))
     }
 }
 
@@ -511,7 +507,7 @@ pub(crate) fn import_price_snapshot_tx(
         )
         .optional()?;
     if let Some(hash) = existing {
-        if hash == format!("{:016x}", snapshot.content_hash) {
+        if hash == snapshot.content_hash_hex() && snapshot_provenance_matches(tx, snapshot)? {
             return Ok(SnapshotImportOutcome {
                 snapshot_id: snapshot.snapshot_id.clone(),
                 inserted_rows: 0,
@@ -594,6 +590,62 @@ pub(crate) fn import_price_snapshot_tx(
     })
 }
 
+/// 旧库中的内容哈希只覆盖价格字段；重复导入还须核对来源元数据和行注释，
+/// 否则同 ID 修改这些字段会被误判为幂等。保留旧哈希算法以兼容已导入快照。
+fn snapshot_provenance_matches(
+    tx: &Transaction<'_>,
+    snapshot: &PriceSnapshot,
+) -> Result<bool, CoreError> {
+    struct StoredProvenance {
+        source_type: String,
+        urls_json: String,
+        fetched_at_ms: i64,
+        verified_at_ms: Option<i64>,
+        license: Option<String>,
+        verified_by: Option<String>,
+        note: Option<String>,
+    }
+    let stored = tx.query_row(
+        "SELECT source_type, source_urls, fetched_at_ms, verified_at_ms,
+                license, verified_by, note
+         FROM price_snapshots WHERE snapshot_id = ?1",
+        [&snapshot.snapshot_id],
+        |r| {
+            Ok(StoredProvenance {
+                source_type: r.get(0)?,
+                urls_json: r.get(1)?,
+                fetched_at_ms: r.get(2)?,
+                verified_at_ms: r.get(3)?,
+                license: r.get(4)?,
+                verified_by: r.get(5)?,
+                note: r.get(6)?,
+            })
+        },
+    )?;
+    let urls: Vec<String> = serde_json::from_str(&stored.urls_json)
+        .map_err(|e| CoreError::Validation(format!("stored price source urls: {e}")))?;
+    if stored.source_type != snapshot.source_type
+        || urls != snapshot.source_urls
+        || stored.fetched_at_ms != snapshot.fetched_at_ms
+        || stored.verified_at_ms != snapshot.verified_at_ms
+        || stored.license != snapshot.license
+        || stored.verified_by != snapshot.verified_by
+        || stored.note != snapshot.note
+    {
+        return Ok(false);
+    }
+    let mut stmt =
+        tx.prepare("SELECT price_id, note FROM price_versions WHERE snapshot_id = ?1")?;
+    let notes: BTreeMap<String, Option<String>> = stmt
+        .query_map([&snapshot.snapshot_id], |r| Ok((r.get(0)?, r.get(1)?)))?
+        .collect::<Result<_, _>>()?;
+    Ok(notes.len() == snapshot.rows.len()
+        && snapshot
+            .rows
+            .iter()
+            .all(|row| notes.get(&row.price_id) == Some(&row.note)))
+}
+
 /// 维度筛选条件（SQL 片段）：casefold IN 白名单；筛选值含 "unknown" 时
 /// 空值/NULL 也命中（与 query::Filters 的 unknown 语义一致），否则不命中。
 /// 白名单由构建方（应用命令层）控制，单引号剔除防注入。
@@ -617,13 +669,20 @@ fn fold_filter_condition(column: &str, values: &[String]) -> String {
 
 fn load_price_book_conn(conn: &Connection) -> Result<PriceBook, CoreError> {
     let mut stmt = conn.prepare(
-        "SELECT price_id, snapshot_id, provider_id, model, region, channel, service_tier,
-                context_threshold_tokens, effective_from_ms, effective_to_ms,
-                input_per_mtok_hundredths, cache_read_per_mtok_hundredths,
-                cache_write_5m_per_mtok_hundredths, cache_write_1h_per_mtok_hundredths,
-                output_per_mtok_hundredths, cache_storage_per_mtok_hour_hundredths,
-                currency, note
-         FROM price_versions",
+        "SELECT v.price_id, v.snapshot_id, v.provider_id, v.model, v.region, v.channel,
+                v.service_tier, v.context_threshold_tokens, v.effective_from_ms,
+                v.effective_to_ms, v.input_per_mtok_hundredths,
+                v.cache_read_per_mtok_hundredths, v.cache_write_5m_per_mtok_hundredths,
+                v.cache_write_1h_per_mtok_hundredths, v.output_per_mtok_hundredths,
+                v.cache_storage_per_mtok_hour_hundredths, v.currency, v.note
+         FROM price_versions v
+         JOIN price_snapshots s ON s.snapshot_id = v.snapshot_id
+         ORDER BY CASE s.source_type
+                    WHEN 'manual' THEN 2
+                    WHEN 'seed' THEN 1
+                    ELSE 0 END DESC,
+                  s.fetched_at_ms DESC, s.created_at_ms DESC,
+                  v.effective_from_ms DESC, v.price_id",
     )?;
     let rows = stmt.query_map([], |r| {
         Ok(PriceRow {
@@ -842,6 +901,7 @@ pub(crate) fn recompute_cost_day_tx(
         total_amount: i64,
         priced_tokens: i64,
         known_tokens: i64,
+        unpriced_reasons: BTreeMap<String, i64>,
         price_basis: BTreeSet<String>,
     }
     impl Acc {
@@ -887,6 +947,7 @@ pub(crate) fn recompute_cost_day_tx(
                 total_amount: 0,
                 priced_tokens: 0,
                 known_tokens: 0,
+                unpriced_reasons: BTreeMap::new(),
                 price_basis: BTreeSet::new(),
             }
         }
@@ -911,8 +972,6 @@ pub(crate) fn recompute_cost_day_tx(
     }
 
     let mut accounts: Vec<Acc> = Vec::new();
-    let mut unpriced_reasons: BTreeMap<String, i64> = BTreeMap::new();
-
     let events = collect_events_for_pricing(tx, start_ms, end_ms, &CostFilters::default())?;
     for row in &events {
         // 1) 按发生时价估算。
@@ -961,7 +1020,17 @@ pub(crate) fn recompute_cost_day_tx(
                 }
             }
             EventEstimate::Unpriced(reason) => {
-                *unpriced_reasons
+                let acc = account_mut(
+                    &mut accounts,
+                    &row.instance,
+                    &row.agent,
+                    &row.provider,
+                    &row.model,
+                    "",
+                    KIND_ESTIMATE_AT_TIME,
+                );
+                acc.unpriced_events += 1;
+                *acc.unpriced_reasons
                     .entry(reason.as_str().to_string())
                     .or_insert(0) += 1;
             }
@@ -1010,8 +1079,10 @@ pub(crate) fn recompute_cost_day_tx(
         )?;
         for acc in &accounts {
             let is_estimate = acc.kind == KIND_ESTIMATE_AT_TIME;
-            let reasons_json = if is_estimate && acc.currency.is_empty() {
-                serde_json::to_string(&unpriced_reasons).ok()
+            let reasons_json = if is_estimate && !acc.unpriced_reasons.is_empty() {
+                Some(serde_json::to_string(&acc.unpriced_reasons).map_err(|e| {
+                    CoreError::Validation(format!("unpriced reasons serialization: {e}"))
+                })?)
             } else {
                 None
             };
@@ -1045,35 +1116,6 @@ pub(crate) fn recompute_cost_day_tx(
             } else {
                 source_cost_rows += 1;
             }
-        }
-        // 未计价事件计数行（currency=''，仅估算 kind）。
-        if !unpriced_reasons.is_empty() {
-            let total_unpriced: i64 = unpriced_reasons.values().sum();
-            insert.execute(rusqlite::params![
-                tz,
-                day_str,
-                "legacy_unknown",
-                "",
-                "",
-                "",
-                "",
-                KIND_ESTIMATE_AT_TIME,
-                0,
-                total_unpriced,
-                0,
-                0,
-                rusqlite::types::Null,
-                rusqlite::types::Null,
-                rusqlite::types::Null,
-                rusqlite::types::Null,
-                0,
-                0,
-                0,
-                serde_json::to_string(&unpriced_reasons).unwrap_or_else(|_| "{}".to_string()),
-                "[]",
-                data_revision,
-            ])?;
-            estimated_rows += 1;
         }
     }
     let _ = now_ms;

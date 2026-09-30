@@ -11,7 +11,8 @@ mod common;
 use common::{batch, evt, temp_storage, ts};
 use llm_usage_core::domain::{CostAmount, CostKind, FieldQuality};
 use llm_usage_core::ingest::commit_batch;
-use llm_usage_core::pricing::{parse_snapshot_json, EstimateOptions};
+use llm_usage_core::pricing::{parse_snapshot_json, EstimateOptions, EventEstimate, PricingEvent};
+use llm_usage_core::retention_tiered::{enforce_tiered_retention, TieredRetentionPolicy};
 use llm_usage_core::storage::pricing::{CostFilters, CostSummaryRequest};
 use llm_usage_core::storage::Storage;
 
@@ -520,6 +521,241 @@ fn v29_unconfigured_channel_leaves_events_unpriced() {
         summary.at_time.unpriced_reasons.get("channel_unknown"),
         Some(&1)
     );
+}
+
+#[test]
+fn v29_unpriced_reasons_follow_event_dimensions() {
+    let (_dir, storage) = temp_storage("v29-unpriced-filters");
+    let now = ts("2026-09-27T12:00:00Z");
+    let mut first = priced_evt(
+        "first",
+        "zhipuai",
+        "glm-5.3",
+        Some(1_000),
+        Some(0),
+        Some(0),
+        Some(100),
+    );
+    first.source_instance_id = "instance-a".into();
+    let mut second = priced_evt(
+        "second",
+        "moonshot",
+        "kimi-k3",
+        Some(1_000),
+        Some(0),
+        Some(0),
+        Some(100),
+    );
+    second.source_instance_id = "instance-b".into();
+    second.agent = "agent-b".into();
+    commit_batch(
+        &storage,
+        &batch("instance-a", "UTC", now, vec![first]),
+        None,
+    )
+    .unwrap();
+    commit_batch(
+        &storage,
+        &batch("instance-b", "UTC", now + 1, vec![second]),
+        None,
+    )
+    .unwrap();
+    storage
+        .recompute_unsealed_cost_days("UTC", now, &EstimateOptions::default())
+        .unwrap();
+
+    let summary = |filters| {
+        storage
+            .cost_summary(&CostSummaryRequest {
+                timezone: "UTC".into(),
+                first_day: "2026-09-26".into(),
+                last_day: "2026-09-26".into(),
+                filters,
+                now_ms: now,
+                options: EstimateOptions::default(),
+            })
+            .unwrap()
+    };
+    let all = summary(CostFilters::default());
+    assert_eq!(currency_row(&all, at_time, "").unpriced_event_count, 2);
+    assert_eq!(
+        all.at_time.unpriced_reasons.get("channel_unknown"),
+        Some(&2)
+    );
+
+    let only_a = summary(CostFilters {
+        agents: vec!["agent-a".into()],
+        providers: vec!["zhipuai".into()],
+        models: vec!["glm-5.3".into()],
+        instances: Some(vec!["instance-a".into()]),
+    });
+    assert_eq!(currency_row(&only_a, at_time, "").unpriced_event_count, 1);
+    assert_eq!(
+        only_a.at_time.unpriced_reasons.get("channel_unknown"),
+        Some(&1)
+    );
+    let other = summary(CostFilters {
+        agents: vec!["agent-b".into()],
+        providers: vec!["moonshot".into()],
+        models: vec!["kimi-k3".into()],
+        instances: Some(vec!["instance-b".into()]),
+    });
+    assert_eq!(currency_row(&other, at_time, "").unpriced_event_count, 1);
+    assert_eq!(
+        other.at_time.unpriced_reasons.get("channel_unknown"),
+        Some(&1)
+    );
+}
+
+#[test]
+fn v29_newer_manual_snapshot_overrides_matching_price_interval() {
+    let (_dir, storage) = temp_storage("v29-price-override");
+    storage
+        .import_price_snapshot(
+            &parse_snapshot_json(SNAPSHOT).unwrap(),
+            ts("2026-09-25T00:00:00Z"),
+        )
+        .unwrap();
+    let mut newer: serde_json::Value = serde_json::from_str(SNAPSHOT).unwrap();
+    newer["snapshot"]["id"] = serde_json::json!("v29-override");
+    newer["snapshot"]["fetched_at"] = serde_json::json!("2026-10-01");
+    let mut price = newer["rows"][0].clone();
+    price["price_id"] = serde_json::json!("P1-override");
+    price["effective_from"] = serde_json::json!("2026-10-01");
+    price["input"] = serde_json::json!(160000);
+    newer["rows"] = serde_json::json!([price]);
+    storage
+        .import_price_snapshot(
+            &parse_snapshot_json(&newer.to_string()).unwrap(),
+            ts("2026-10-01T00:00:00Z"),
+        )
+        .unwrap();
+
+    let book = storage.load_price_book().unwrap();
+    let mut event = PricingEvent {
+        provider_id: Some("zhipuai".into()),
+        model_raw: Some("glm-5.3".into()),
+        input_uncached: Some(1_000_000),
+        input_cache_read: Some(0),
+        input_cache_write: Some(0),
+        input_total: Some(1_000_000),
+        output_total: Some(0),
+        occurred_at_ms: ts("2026-09-27T12:00:00Z"),
+        ..Default::default()
+    };
+    match book.estimate_at_time(&event, &options()) {
+        EventEstimate::Priced(amounts) => {
+            assert_eq!(amounts.total_amount_minor, 800);
+            assert_eq!(amounts.matched_price_ids, ["P1"]);
+        }
+        other => panic!("expected original price, got {other:?}"),
+    }
+    event.occurred_at_ms = ts("2026-10-02T12:00:00Z");
+    match book.estimate_at_time(&event, &options()) {
+        EventEstimate::Priced(amounts) => {
+            assert_eq!(amounts.total_amount_minor, 1600);
+            assert_eq!(amounts.matched_price_ids, ["P1-override"]);
+        }
+        other => panic!("expected manual override, got {other:?}"),
+    }
+}
+
+#[test]
+fn v29_same_snapshot_id_rejects_provenance_changes() {
+    let (_dir, storage) = temp_storage("v29-provenance");
+    let original = parse_snapshot_json(SNAPSHOT).unwrap();
+    storage.import_price_snapshot(&original, 1).unwrap();
+    assert!(
+        storage
+            .import_price_snapshot(&original, 2)
+            .unwrap()
+            .already_present
+    );
+
+    let mut changed: serde_json::Value = serde_json::from_str(SNAPSHOT).unwrap();
+    changed["snapshot"]["note"] = serde_json::json!("new source note");
+    assert!(storage
+        .import_price_snapshot(&parse_snapshot_json(&changed.to_string()).unwrap(), 3)
+        .is_err());
+    changed["snapshot"].as_object_mut().unwrap().remove("note");
+    changed["rows"][0]["note"] = serde_json::json!("new row note");
+    assert!(storage
+        .import_price_snapshot(&parse_snapshot_json(&changed.to_string()).unwrap(), 4)
+        .is_err());
+    assert_eq!(storage.list_price_snapshots().unwrap()[0].row_count, 7);
+}
+
+#[test]
+fn v29_current_sim_marks_partial_detail_retention_by_filter() {
+    let (_dir, storage) = temp_storage("v29-partial-retention");
+    storage
+        .import_price_snapshot(
+            &parse_snapshot_json(SNAPSHOT).unwrap(),
+            ts("2026-09-25T00:00:00Z"),
+        )
+        .unwrap();
+    let now = ts("2026-09-27T12:00:00Z");
+    let mut old = priced_evt(
+        "old",
+        "zhipuai",
+        "glm-5.3",
+        Some(1_000_000),
+        Some(0),
+        Some(0),
+        Some(0),
+    );
+    old.occurred_at_ms = ts("2026-09-25T12:00:00Z");
+    let mut recent = priced_evt(
+        "recent",
+        "zhipuai",
+        "glm-5.3",
+        Some(1_000_000),
+        Some(0),
+        Some(0),
+        Some(0),
+    );
+    recent.agent = "agent-b".into();
+    commit_batch(&storage, &batch("inst", "UTC", now, vec![old]), None).unwrap();
+    commit_batch(&storage, &batch("inst", "UTC", now + 1, vec![recent]), None).unwrap();
+    storage
+        .recompute_unsealed_cost_days("UTC", now, &options())
+        .unwrap();
+    enforce_tiered_retention(
+        &storage,
+        "UTC",
+        now,
+        &TieredRetentionPolicy {
+            events_days: 2,
+            ..TieredRetentionPolicy::default()
+        },
+    )
+    .unwrap();
+
+    let summary = |filters| {
+        storage
+            .cost_summary(&CostSummaryRequest {
+                timezone: "UTC".into(),
+                first_day: "2026-09-25".into(),
+                last_day: "2026-09-26".into(),
+                filters,
+                now_ms: now,
+                options: options(),
+            })
+            .unwrap()
+    };
+    let all = summary(CostFilters::default());
+    assert!(all.current_sim.detail_limited);
+    assert_eq!(currency_row(&all, current_sim, "CNY").priced_event_count, 1);
+    let recent_only = summary(CostFilters {
+        agents: vec!["agent-b".into()],
+        ..CostFilters::default()
+    });
+    assert!(!recent_only.current_sim.detail_limited);
+    let old_only = summary(CostFilters {
+        agents: vec!["agent-a".into()],
+        ..CostFilters::default()
+    });
+    assert!(old_only.current_sim.detail_limited);
 }
 
 fn run_summary_channel_none(

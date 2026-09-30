@@ -1103,13 +1103,36 @@ pub fn clear_all_preview(
 /// 清空前自动备份整库（共享助手：VACUUM INTO 一致快照 + 空间检查 + 保留 3 份）。
 /// Agent 会清理/压实自己的源文件，清空后部分历史无法重采（2026-09-27
 /// zcode 数据丢失教训）；备份给恢复留一条路。无数据时不备份。
+const CLEAR_ALL_TABLES: &[&str] = &[
+    "usage_events",
+    "hourly_usage",
+    "daily_usage",
+    "daily_cost_usage",
+    "period_usage",
+    "diagnostics",
+    "ingestion_checkpoints",
+    "event_aliases",
+    "source_aggregates",
+    "ingest_runs",
+    "quota_snapshots",
+];
+
 fn backup_before_clear(state: &Arc<AppState>) -> Result<Option<String>, String> {
     let storage = state.storage.lock().unwrap();
-    let event_count: i64 = storage
-        .conn()
-        .query_row("SELECT COUNT(*) FROM usage_events", [], |r| r.get(0))
-        .unwrap_or(0);
-    if event_count == 0 {
+    let mut has_data = false;
+    for table in CLEAR_ALL_TABLES {
+        let present: bool = storage
+            .conn()
+            .query_row(&format!("SELECT EXISTS(SELECT 1 FROM {table})"), [], |r| {
+                r.get(0)
+            })
+            .map_err(|e| err("db", format!("inspect {table} before backup: {e}")))?;
+        if present {
+            has_data = true;
+            break;
+        }
+    }
+    if !has_data {
         return Ok(None);
     }
     crate::db_backup::consistent_backup(
@@ -1185,7 +1208,7 @@ fn run_clear_all_job(state: &Arc<AppState>, app: &tauri::AppHandle) -> Result<()
     );
     // 游标已重置，本轮刷新即全量重新采集；进度由 state.refresh 顶栏轮询展示。
     let _ = tauri_event(app, serde_json::json!({ "phase": "rescan" }));
-    let rescan_started = run_refresh(state, TriggerKind::Manual);
+    let rescan_started = crate::scanner::run_refresh_after_clear(state);
     let _ = tauri_event(
         app,
         serde_json::json!({ "phase": "done", "rescan_started": rescan_started }),
@@ -1203,18 +1226,7 @@ fn clear_all_tables(
         .unchecked_transaction()
         .map_err(|e| err("db", e.to_string()))?;
     let mut cleared = serde_json::Map::new();
-    for table in [
-        "usage_events",
-        "hourly_usage",
-        "daily_usage",
-        "period_usage",
-        "diagnostics",
-        "ingestion_checkpoints",
-        "event_aliases",
-        "source_aggregates",
-        "ingest_runs",
-        "quota_snapshots",
-    ] {
+    for table in CLEAR_ALL_TABLES {
         let n = tx
             .execute(&format!("DELETE FROM {table}"), [])
             .map_err(|e| err("db", format!("{table}: {e}")))?;
@@ -1572,6 +1584,9 @@ mod clear_all_tests {
             crate::app_state::AppState::init(db.clone(), "test-host", false).expect("init state"),
         );
         assert!(!state.clear_job_running.load(Ordering::SeqCst));
+        state.clear_job_running.store(true, Ordering::SeqCst);
+        assert!(!run_refresh(&state, TriggerKind::Manual));
+        state.clear_job_running.store(false, Ordering::SeqCst);
         {
             let storage = state.storage.lock().unwrap();
             storage
@@ -1597,9 +1612,37 @@ mod clear_all_tests {
                     [],
                 )
                 .unwrap();
+            storage
+                .conn()
+                .execute(
+                    "INSERT INTO daily_cost_usage (
+                       tz_version, local_day, instance_id, agent, provider_id, model_raw,
+                       currency, kind, priced_event_count, unpriced_event_count,
+                       partial_event_count, ttl_defaulted_events, total_amount_minor,
+                       priced_tokens, known_tokens, price_basis, data_revision
+                     ) VALUES ('UTC', '2026-09-26', 'inst', 'test', 'p', 'm',
+                       'USD', 'estimate_at_time', 1, 0, 0, 0, 123, 1, 1, '[]', 0)",
+                    [],
+                )
+                .unwrap();
+        }
+        // 明细已过期但日费用尚存时，清空前仍须保存一致备份。
+        let backup = backup_before_clear(&state)
+            .unwrap()
+            .expect("backup created");
+        {
+            let saved = rusqlite::Connection::open(&backup).unwrap();
+            let rows: i64 = saved
+                .query_row("SELECT COUNT(*) FROM daily_cost_usage", [], |r| r.get(0))
+                .unwrap();
+            assert_eq!(rows, 1);
         }
         let (cleared, revision) = clear_all_tables(&state).expect("clear tables");
         assert_eq!(cleared.get("diagnostics").and_then(|v| v.as_i64()), Some(1));
+        assert_eq!(
+            cleared.get("daily_cost_usage").and_then(|v| v.as_i64()),
+            Some(1)
+        );
         assert!(revision >= 0);
         let storage = state.storage.lock().unwrap();
         let status: String = storage
@@ -1617,8 +1660,14 @@ mod clear_all_tests {
             .query_row("SELECT COUNT(*) FROM diagnostics", [], |r| r.get(0))
             .unwrap();
         assert_eq!(n, 1);
+        let cost_rows: i64 = storage
+            .conn()
+            .query_row("SELECT COUNT(*) FROM daily_cost_usage", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(cost_rows, 0);
         drop(storage);
         drop(state);
+        let _ = std::fs::remove_file(backup);
         let _ = std::fs::remove_file(&db);
         let _ = std::fs::remove_file(db.with_extension("sqlite-wal"));
         let _ = std::fs::remove_file(db.with_extension("sqlite-shm"));

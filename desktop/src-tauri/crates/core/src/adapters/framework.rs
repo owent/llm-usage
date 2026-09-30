@@ -766,6 +766,8 @@ pub fn run_adapter_scan_filtered(
         }
         let active_run = report.run_id.clone().unwrap_or(run_id);
         if matches!(report.start, Some(RunStart::Merged(_))) {
+            // 本次未执行扫描；不能把合并请求报告为已成功完成。
+            report.finish = RunStatus::Running;
             reports.push(report);
             continue;
         }

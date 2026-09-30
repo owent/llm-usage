@@ -3,8 +3,10 @@
 //! 同一时刻仅一个刷新在执行（重复触发合并，V12/V23）。
 
 use crate::app_state::{summarize_reports, AppState, RefreshInstanceSummary};
-use llm_usage_core::adapters::framework::{DiscoverContext, RunConfig, ScanLimits, SourceAdapter};
-use llm_usage_core::jobs::TriggerKind;
+use llm_usage_core::adapters::framework::{
+    DiscoverContext, RunConfig, ScanLimits, SourceAdapter, SourceRunReport,
+};
+use llm_usage_core::jobs::{RunStart, RunStatus, TriggerKind};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
@@ -18,6 +20,10 @@ pub fn now_ms() -> i64 {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis() as i64)
         .unwrap_or(0)
+}
+
+fn completed_successfully(report: &SourceRunReport) -> bool {
+    matches!(report.start, Some(RunStart::Started(_))) && report.finish == RunStatus::Succeeded
 }
 
 fn discover_context(manual_roots: Vec<String>) -> DiscoverContext {
@@ -36,7 +42,13 @@ fn discover_context(manual_roots: Vec<String>) -> DiscoverContext {
 
 /// 执行一次全源刷新（已启用来源）。已在执行时直接返回 false（合并触发，不并发）。
 pub fn run_refresh(state: &Arc<AppState>, trigger: TriggerKind) -> bool {
-    run_refresh_filtered(state, trigger, None)
+    run_refresh_filtered(state, trigger, None, false)
+}
+
+/// 清空任务提交后执行的全源重采（含自定义计划来源）；
+/// 清空标志保持有效直到重采结束。
+pub fn run_refresh_after_clear(state: &Arc<AppState>) -> bool {
+    run_refresh_filtered(state, TriggerKind::Manual, None, true)
 }
 
 /// 逐源定时接线的过滤版：
@@ -47,10 +59,16 @@ fn run_refresh_filtered(
     state: &Arc<AppState>,
     trigger: TriggerKind,
     include: Option<std::collections::BTreeSet<String>>,
+    after_clear: bool,
 ) -> bool {
     {
         let mut refresh = state.refresh.lock().unwrap();
-        if refresh.running {
+        if refresh.running
+            || (state
+                .clear_job_running
+                .load(std::sync::atomic::Ordering::SeqCst)
+                && !after_clear)
+        {
             return false;
         }
         refresh.running = true;
@@ -96,7 +114,7 @@ fn run_refresh_filtered(
     // 全局刷新排除有自定义启用计划的实例（逐源节奏覆盖全局）。排除集
     // 加载失败时宁可本轮不扫（记失败摘要），也不能把自定义计划的来源
     // 卷进全局节奏——节奏合同优先于本轮覆盖。
-    let global_exclude = if include.is_none() {
+    let global_exclude = if include.is_none() && !after_clear {
         let storage = state.storage.lock().unwrap();
         match llm_usage_core::schedules::custom_scheduled_instances(&storage) {
             Ok(set) => Some(Some(set)),
@@ -177,10 +195,8 @@ fn run_refresh_filtered(
                 // 逐实例记录真实成败（RunStatus::Succeeded 才算成功）；
                 // 适配器级失败时本次到期实例保持无记录 ⇒ 下面按失败推进。
                 for report in &reports {
-                    instance_outcomes.insert(
-                        report.instance_id.clone(),
-                        matches!(report.finish, llm_usage_core::jobs::RunStatus::Succeeded),
-                    );
+                    instance_outcomes
+                        .insert(report.instance_id.clone(), completed_successfully(report));
                 }
                 summaries.extend(summarize_reports(&reports));
             }
@@ -370,7 +386,7 @@ pub fn spawn_scheduler(state: Arc<AppState>, stop: Arc<AtomicBool>) {
                     }
                 };
                 if !due.is_empty() && !state.refresh.lock().unwrap().running {
-                    run_refresh_filtered(&state, TriggerKind::FixedTime, Some(due));
+                    run_refresh_filtered(&state, TriggerKind::FixedTime, Some(due), false);
                 }
             }
             std::thread::sleep(std::time::Duration::from_millis(500));
@@ -409,6 +425,25 @@ impl IntervalSchedule {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn merged_run_does_not_complete_a_due_source_schedule() {
+        let mut report = SourceRunReport {
+            instance_id: "source".into(),
+            run_id: Some("existing".into()),
+            start: Some(RunStart::Merged("existing".into())),
+            outcome: None,
+            files: Vec::new(),
+            reconciliations: Vec::new(),
+            finish: RunStatus::Running,
+            error: None,
+        };
+        assert!(!completed_successfully(&report));
+        report.finish = RunStatus::Succeeded;
+        assert!(!completed_successfully(&report));
+        report.start = Some(RunStart::Started("existing".into()));
+        assert!(completed_successfully(&report));
+    }
 
     #[test]
     fn disabled_interval_never_scans_and_changes_take_effect() {

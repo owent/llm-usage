@@ -583,12 +583,15 @@ impl PriceBook {
         if candidates.is_empty() {
             return EventEstimate::Unpriced(UnpricedReason::NoPriceRow);
         }
-        // 上下文档：多档时必须能按已知输入规模选档，否则不猜。
-        if candidates.len() > 1 {
-            let input = match total_input {
-                Some(v) => v,
-                None => return EventEstimate::Unpriced(UnpricedReason::TierAmbiguous),
-            };
+        // 即使只有一个高档价格行，也必须验证输入达到该行阈值。
+        // 多档且输入规模未知时不能从价格簿顺序猜测档位。
+        let input_size = total_input.or_else(|| {
+            event
+                .input_uncached?
+                .checked_add(read?)?
+                .checked_add(write?)
+        });
+        if let Some(input) = input_size {
             candidates.retain(|r| r.context_threshold_tokens <= input);
             if candidates.is_empty() {
                 return EventEstimate::Unpriced(UnpricedReason::NoPriceRow);
@@ -599,7 +602,10 @@ impl PriceBook {
                 .max()
                 .expect("candidates non-empty");
             candidates.retain(|r| r.context_threshold_tokens == best);
+        } else if candidates.iter().any(|r| r.context_threshold_tokens != 0) {
+            return EventEstimate::Unpriced(UnpricedReason::TierAmbiguous);
         }
+        // 相同档位跨快照重复时，候选行已按快照优先级排序。
         self.price_with_row(event, options, candidates[0])
     }
 
@@ -934,6 +940,47 @@ mod tests {
         match book.estimate_at_time(&below, &base_options()) {
             EventEstimate::Priced(a) => assert_eq!(a.total_amount_minor, 22),
             other => panic!("expected priced, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn single_high_tier_requires_threshold_and_accepts_derived_input_size() {
+        let row = r#"{"price_id":"high","provider_id":"p","model":"m","region":"r","channel":"c",
+            "context_threshold_tokens":32768,"effective_from":"2026-01-01","currency":"USD",
+            "input":100000,"output":500000}"#;
+        let snapshot = parse_snapshot_json(&snapshot_json(vec![row.into()])).unwrap();
+        let book = PriceBook {
+            rows: snapshot.rows,
+        };
+        let base = PricingEvent {
+            provider_id: Some("p".into()),
+            model_raw: Some("m".into()),
+            occurred_at_ms: 1_800_000_000_000,
+            input_uncached: Some(32_767),
+            input_cache_read: Some(0),
+            input_cache_write: Some(0),
+            output_total: Some(0),
+            ..Default::default()
+        };
+        assert_eq!(
+            book.estimate_at_time(&base, &base_options()),
+            EventEstimate::Unpriced(UnpricedReason::NoPriceRow)
+        );
+        let unknown = PricingEvent {
+            input_cache_read: None,
+            ..base.clone()
+        };
+        assert_eq!(
+            book.estimate_at_time(&unknown, &base_options()),
+            EventEstimate::Unpriced(UnpricedReason::TierAmbiguous)
+        );
+        let at_threshold = PricingEvent {
+            input_uncached: Some(32_768),
+            ..base
+        };
+        match book.estimate_at_time(&at_threshold, &base_options()) {
+            EventEstimate::Priced(amounts) => assert_eq!(amounts.matched_price_ids, ["high"]),
+            other => panic!("expected high tier, got {other:?}"),
         }
     }
 
