@@ -120,14 +120,21 @@ fn backup_to_staging(
             }
             match backup.step(limits.pages_per_step) {
                 Ok(StepResult::Done) => break Ok(()),
-                Ok(_) => {
+                // More：实际拷贝了页，计入空间预算。
+                Ok(StepResult::More) => {
                     done_pages += i64::from(limits.pages_per_step);
                     if done_pages > max_pages {
                         break Err(rusqlite::Error::SqliteFailure(
                             rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_TOOBIG),
-                            Some("mimocode staging copy exceeded the space cap".to_string()),
+                            Some("mimocode staging copy exceeded the space cap staging copy exceeded the space cap".to_string()),
                         ));
                     }
+                    std::thread::sleep(Duration::from_millis(20));
+                }
+                // Busy/Locked（#[non_exhaustive] 其余）：无进展重试，只消耗时间预算。
+                // 2026-09-30 修复：此前重试也计入页数，与超时出口竞速产生
+                // 平台相关的 space cap 误报（CI Linux 页上限先于超时触发）。
+                Ok(_) => {
                     std::thread::sleep(Duration::from_millis(20));
                 }
                 Err(e) => break Err(e),

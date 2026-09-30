@@ -148,7 +148,7 @@ impl Default for StagingLimits {
             pages_per_step: 512,
             // 空间上限 2 GiB：更大的活库不强行暂存（busy/unsupported 保留旧结果）。
             max_bytes: 2 * 1024 * 1024 * 1024,
-            // 时间上限 2s：超限放弃暂存并按 busy 上抛（单源每轮 30s 预算之内）。
+            // 时间上限 30s：超限放弃暂存并按 busy 上抛（单源每轮 30s 预算之内）。
             max_time: Duration::from_secs(30),
         }
     }
@@ -201,14 +201,21 @@ fn backup_to_staging(
             match backup.step(limits.pages_per_step) {
                 Ok(StepResult::Done) => break Ok(()),
                 // Busy/Locked/More（StepResult 标记 #[non_exhaustive]）按可重试推进。
-                Ok(_) => {
+                // More：实际拷贝了页，计入空间预算。
+                Ok(StepResult::More) => {
                     done_pages += i64::from(limits.pages_per_step);
                     if done_pages > max_pages {
                         break Err(rusqlite::Error::SqliteFailure(
                             rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_TOOBIG),
-                            Some("kilo staging copy exceeded the space cap".to_string()),
+                            Some("kilo staging copy exceeded the space cap staging copy exceeded the space cap".to_string()),
                         ));
                     }
+                    std::thread::sleep(Duration::from_millis(20));
+                }
+                // Busy/Locked（#[non_exhaustive] 其余）：无进展重试，只消耗时间预算。
+                // 2026-09-30 修复：此前重试也计入页数，与超时出口竞速产生
+                // 平台相关的 space cap 误报（CI Linux 页上限先于超时触发）。
+                Ok(_) => {
                     std::thread::sleep(Duration::from_millis(20));
                 }
                 Err(e) => break Err(e),
