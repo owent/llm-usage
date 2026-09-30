@@ -33,6 +33,45 @@ impl Default for RetentionTiers {
     }
 }
 
+/// 供应商级费用估算默认（F2）：渠道不明不套价，用户显式选定后才参与匹配。
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ProviderPricingDefault {
+    pub provider_id: String,
+    pub region: String,
+    pub channel: String,
+    /// 缓存写默认 TTL 档（分钟；5/60 合法，None=未设，写分量不计价）。
+    #[serde(default)]
+    pub cache_ttl_minutes: Option<u32>,
+}
+
+/// 费用估算设置（数据合同：估算与预算默认关闭）。
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub struct PricingSettings {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default)]
+    pub provider_defaults: Vec<ProviderPricingDefault>,
+}
+
+impl PricingSettings {
+    /// 转核心估算选项（provider 键 casefold）。
+    pub fn estimate_options(&self) -> llm_usage_core::pricing::EstimateOptions {
+        use llm_usage_core::pricing::EstimateOptions;
+        let mut options = EstimateOptions::default();
+        for d in &self.provider_defaults {
+            let provider = d.provider_id.to_lowercase();
+            options.provider_channels.insert(
+                provider.clone(),
+                (d.region.to_lowercase(), d.channel.to_lowercase()),
+            );
+            if let Some(ttl) = d.cache_ttl_minutes {
+                options.cache_ttl_minutes.insert(provider, ttl);
+            }
+        }
+        options
+    }
+}
+
 /// 用户可见设置（settings 表持久化；语言初值 zh-CN，多语言实施随 F3 合同）。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppSettings {
@@ -60,6 +99,9 @@ pub struct AppSettings {
     pub otel_receiver_enabled: bool,
     #[serde(default = "default_otel_receiver_port")]
     pub otel_receiver_port: u16,
+    /// 费用估算（F2；默认关闭，启用前不展示费用面板）。
+    #[serde(default)]
+    pub pricing: PricingSettings,
 }
 
 fn default_otel_receiver_port() -> u16 {
@@ -87,6 +129,7 @@ impl Default for AppSettings {
             hostname_alias: None,
             otel_receiver_enabled: false,
             otel_receiver_port: default_otel_receiver_port(),
+            pricing: PricingSettings::default(),
         }
     }
 }
@@ -226,6 +269,10 @@ impl AppState {
         let host_id = storage
             .ensure_local_host(hostname, now)
             .map_err(|e| e.to_string())?;
+        // F2：幂等导入仓库种子价格快照（本地元数据；失败不阻塞采集，仅提示）。
+        if let Err(e) = storage.ensure_seed_price_snapshot(now) {
+            eprintln!("price seed snapshot import failed: {e}");
+        }
         let settings = load_settings(&storage);
         // 时区分区修复：老版本扫描以 UTC 写日分区而用户统计时区不同 ⇒
         // 在用户时区下重算事件覆盖范围（推导非猜测；2026-09-26 缺陷修复）。
@@ -314,6 +361,15 @@ pub fn repair_tz_partitions(storage: &Storage, timezone: &str, force: bool) -> R
         llm_usage_core::ingest::recompute_days_in_tz(storage, timezone, min_ms, max_ms, now_ms())
             .map_err(|e| format!("timezone partition rebuild failed: {e}"))?;
     }
+    // F2：其他时区分区已被本次重建取代——清理其未封存日成本行（封存的历史
+    // 金额保留；当前时区的行由后续扫描回填/显式重算重建）。
+    storage
+        .conn()
+        .execute(
+            "DELETE FROM daily_cost_usage WHERE sealed = 0 AND tz_version != ?1",
+            [timezone],
+        )
+        .map_err(|e| e.to_string())?;
     storage
         .conn()
         .execute(

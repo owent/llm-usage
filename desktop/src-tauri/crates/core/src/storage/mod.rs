@@ -1,6 +1,7 @@
 //! SQLite 持久化：单写者连接、WAL、synchronous=FULL、有界 busy_timeout、
 //! 显式版本迁移。数据库合同见 architecture.md#database 与数据合同「数据表」。
 
+pub mod pricing;
 pub mod schema;
 
 use crate::error::CoreError;

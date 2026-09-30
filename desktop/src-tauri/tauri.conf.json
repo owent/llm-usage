@@ -28,8 +28,11 @@
       "appimage",
       "app"
     ],
-    "resources": {
-      "../sample-data.txt": "sample-data.txt"
+    "windows": {
+      "nsis": {
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico"
+      }
     },
     "icon": [
       "icons/32x32.png",

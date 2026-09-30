@@ -116,5 +116,9 @@
 - `npm run fmt:check`、`npm run clippy`、`npm run test:rust` 退出码 0。
 - 未完成：CLI `projects` 载体本机仍无真实样本（文档级维持）；扩展
   usage 为请求级聚合，一次回合内的多次模型调用不可分；请求内多模型
-  归属、`lastTokens`/`credit` 语义待更多样本；`npm run verify` 全量门禁
-  未在本次改动后整体重跑（Rust 侧与 Markdown lint 已单独通过）。
+  归属、`lastTokens`/`credit` 语义待更多样本。
+- 门禁补跑（2026-09-30，仓库根）：`npm run verify` 退出码 0
+  （Markdown、资产、脚本/UI、Svelte、fmt、clippy、Rust 全量测试、
+  Web 构建全通过）；`npm run test:browser` 退出码 0
+  （日历热图、十语言、主题、时区、过期响应、用户隔离、成员、分页、
+  空闲轮询检查通过）。前述"全量门禁未重跑"缺口关闭。

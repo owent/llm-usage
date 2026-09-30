@@ -5,7 +5,7 @@
 //! calendar（IANA 时区日历）、storage（迁移与持久化）、identity（身份与去重）、
 //! ingest（原子批次与作业）、aggregates（来源原生区间汇总与额度）、
 //! query（日/周/月汇总查询）、retention（保留与封存）、
-//! exchange（M1a 来源身份交换合同）。
+//! exchange（M1a 来源身份交换合同）、pricing（F2 价格快照与费用估算）。
 
 pub mod adapters;
 pub mod aggregates;
@@ -18,6 +18,7 @@ pub mod identity;
 pub mod ingest;
 pub mod jobs;
 pub mod metrics;
+pub mod pricing;
 pub mod query;
 pub mod retention;
 pub mod retention_tiered;

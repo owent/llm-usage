@@ -1,8 +1,11 @@
 # 模型 API 按量价格获取与 token 费用估算方案
 
-状态：设计提案，F2 交付物（[执行详情](execution.md#f2)）。调研完成于 2026-09-25；
-价格获取、费用引擎与界面实施在本文之后拆分排期，本文不含实现。
-费用口径以 [数据合同](data-contract.md#pricing) 为权威，本文只补渠道证据与本地快照设计。
+状态：费用估算引擎已实施（2026-09-30，[验证记录](../../validation/desktop-usage/f2-cost-engine.md)）：
+schema v8 价格表 + 种子快照 + 估算引擎 + 日成本回填 + 汇总查询 + 命令与界面 +
+V29 合同测试。可选在线刷新（任务 5）与真实数据端到端估算（待用户配置渠道默认）
+后置，见验证记录缺口清单。
+调研完成于 2026-09-25；费用口径以 [数据合同](data-contract.md#pricing) 为权威，
+本文补渠道证据与本地快照设计。
 
 ## 调研范围与方法
 
@@ -157,24 +160,65 @@ Coding Plan 与按量价是两种计费体系：models.dev 的 `kimi-code-plan-*
 
 快照 = 元数据头 + 价格行数组。价格行粒度为
 "一个计费上下文"：供应商 × 模型 × 地区渠道 × 服务档 × 上下文档 × 生效区间。
-现有 `price_versions` 表（schema.rs）已含 provider_id、model_canonical、region、
-channel、effective_from/to、四个 `*_per_mtok_minor` 列、currency、price_version；
-相对本调研核验的计费维度，缺口与定案如下：
+实施落库（2026-09-30，schema v8）：`price_snapshots`（快照元数据）+
+`price_versions`（价格行，列含 region/channel 必填、service_tier、
+context_threshold_tokens、五档 `*_per_mtok_hundredths` 价格列与
+cache_storage 小时价），与下表定案一致。
 
-| 计费维度 | 现有 schema | 设计定案 |
+| 计费维度 | 调研期 schema | 实施定案 |
 | --- | --- | --- |
-| 缓存写 TTL 两档 | 仅一列 cache_write | 增 `cache_write_1h` 列（5m 用现列）；无该档的供应商置 NULL |
-| 服务档（batch/flex/fast） | 无 | 增 `service_tier` 列，默认 `standard`；档位价格单独成行 |
-| 长上下文阶梯 | 无 | 增 `context_threshold_tokens`（该行适用的最低输入 token，NULL=0）；事件按请求输入规模匹配 |
-| 缓存存储费 | 无 | 增 `cache_storage_per_mtok_hour` 列（Gemini/bigmodel 用；限时免费记 0 并附政策标注） |
-| 价格精度 | 整数最小单位/百万 token | 不足：官方价存在 $0.075/M、¥0.115/M 等非整分值；单位改为"最小货币单位的百分之一/百万 token"，i64 存储 |
-| 快照出处 | 仅 price_version 字符串 | 增快照元数据表（version、来源类型、URL 列表、fetched_at、content_hash、许可、核验人/方式） |
+| 缓存写 TTL 两档 | 仅一列 cache_write | `cache_write_5m` + `cache_write_1h` 两列；无该档的供应商置 NULL |
+| 服务档（batch/flex/fast） | 无 | `service_tier` 列，默认 `standard`；档位价格单独成行，估算只自动匹配 standard |
+| 长上下文阶梯 | 无 | `context_threshold_tokens`（该行适用的最低输入 token，NULL=0）；事件按请求输入规模匹配，多档且输入未知不猜档 |
+| 缓存存储费 | 无 | `cache_storage_hour` 列（Gemini/bigmodel 用；限时免费记 0 并附政策标注）；引擎暂不计价（存储时长无事件级证据） |
+| 价格精度 | 整数最小单位/百万 token | 官方价存在 $0.075/M、¥0.115/M 等非整分值；单位为"最小货币单位的百分之一/百万 token"（i64），如 $0.075/M = 750 |
+| 快照出处 | 仅 price_version 字符串 | `price_snapshots` 表（ID、来源类型、URL 列表、fetched_at、content_hash、许可、核验人/方式） |
 | 推理价 | 无列 | 不建：四家核验均无独立推理价（GLM 未明示按未核实处理），推理子集并入输出，禁止重复计价 |
 
-种子快照随仓库版本化（如 `desktop/src-tauri/crates/core/prices/seed/*.json`，
-路径实施时定），每条价格行必须携带 `source_url` 与 `verified_at`；
-用户导入的本地快照同格式，来源类型标 `manual`。
-金额与价格一律不用二进制浮点（沿用 [数据合同](data-contract.md#pricing)）。
+种子快照随仓库版本化：`desktop/src-tauri/crates/core/prices/seed-2026-09-25.json`
+（应用启动幂等导入）；用户在「设置 → 费用」导入的本地快照同格式（JSON），
+来源类型标 `manual`。金额与价格一律不用二进制浮点（沿用
+[数据合同](data-contract.md#pricing)）。
+
+**导入文件格式**（`llm-usage-price-snapshot/1`；日期为 ISO `YYYY-MM-DD`（UTC），
+区间半开 `[effective_from, effective_to)`，`null` = 开放；价格数字=
+最小货币单位百分之一/百万 token，`null` = 该维度无价不套用）：
+
+```json
+{
+  "format": "llm-usage-price-snapshot/1",
+  "snapshot": {
+    "id": "manual-2026-10-01",
+    "source_type": "manual",
+    "source_urls": ["https://example.com/pricing"],
+    "fetched_at": "2026-10-01"
+  },
+  "rows": [
+    {
+      "price_id": "my-openai-gpt-6-astra",
+      "provider_id": "openai",
+      "model": "gpt-6-astra",
+      "region": "global",
+      "channel": "api",
+      "service_tier": "standard",
+      "context_threshold_tokens": null,
+      "effective_from": "2026-10-01",
+      "effective_to": null,
+      "currency": "USD",
+      "input": 100000, "cache_read": 10000,
+      "cache_write_5m": 125000, "cache_write_1h": null,
+      "output": 500000, "cache_storage_hour": null,
+      "note": null
+    }
+  ]
+}
+```
+
+校验规则：币种枚举 USD/CNY、服务档枚举、价格非负、区间合法且同键
+（供应商/模型/地区/渠道/档/阈值）不重叠、行内 `price_id` 唯一且不与已导入
+行冲突；同快照 ID 重复导入按内容哈希幂等跳过，内容修正必须换快照 ID。
+导入的 `provider_id`/`region`/`channel` 需与「设置 → 费用」中配置的供应商
+默认一致才参与估算（大小写不敏感）。
 
 ### 生效区间与更新流程
 
@@ -249,7 +293,7 @@ P1 缓存写 NULL 表示该渠道无写价（限时免费政策另以元数据�
 | 用例 | 事件 token（未命中/读/写/输出） | 匹配价格行 | 期望金额 |
 | --- | --- | --- | --- |
 | E1 混合输入 | 1,234,567 / 500,000 / 200,000 / 345,678 | P1 | 988+100+968 = 2056 分（¥20.56）；缓存写分量未计价，覆盖标记注明 |
-| E2 全维度 | 1,000,000 / 200,000 / 100,000 / 250,000 | P2 | 1000+20+125+1250 = 2395 美分（$23.95） |
+| E2 全维度 | 1,000,000 / 200,000 / 100,000 / 250,000 | P2 | 1000+20+125+1250 = 2395 美分（$23.95）。**注（2026-09-30）**：该 token 量输入合计 1.3M ≥ 272K，按 P2/P3 档位语义（同 E4/E5）应命中 P3 长档；实施测试以两种取值覆盖——缩至 130K 命中 P2（100+2+13+125 = 240 美分）与原量值命中 P3（4165 美分），见 [验证记录](../../validation/desktop-usage/f2-cost-engine.md) |
 | E3 TTL 1h | 400,000 / 300,000 / 600,000（1h）/ 150,000 | P4 | 120+9+360+225 = 714 美分（$7.14） |
 | E4 阶梯上界 | 输入合计 272,000 / 0 / 0 / 8,000 | P3 | 544+60 = 604 美分 |
 | E5 阶梯下界 | 输入合计 271,999 / 0 / 0 / 8,000 | P2 | 272+40 = 312 美分 |
@@ -274,21 +318,24 @@ P1 缓存写 NULL 表示该渠道无写价（限时免费政策另以元数据�
 
 ## 后续实施任务清单
 
-以下任务不在本调研实施，逐项另行排期：
+实施进度（2026-09-30，[验证记录](../../validation/desktop-usage/f2-cost-engine.md)）：
 
-1. 价格 schema 演进：按 [版本化价格合同](#snapshot) 增列与服务档/阈值/快照
-   元数据表，含迁移与回滚测试（M1 一致备份合同）。
-2. 种子快照与校验工具：官方页/官方 .md 提取脚本（写入 build/<任务名>/ 临时产物，
-   种子文件入库）、schema 校验、区间重叠检查、与社区目录交叉核对脚本。
-3. 费用估算引擎：区间/渠道/档位/阈值匹配、逐项计价与舍入、未计价/部分计价
-   覆盖标记、参考估算标注、i128 中间量与溢出防护。
-4. 历史复现查询：按发生时价与按当前价模拟分列；估算引用
-   （data_revision, price_version）持久化与查询一致性。
-5. 可选在线刷新：默认关闭的设置项、GET-only 边界实现、失败回退与新鲜度展示。
-6. 界面：费用面板（默认关闭）、币种分组展示、价格管理页
-   （查看/导入/覆盖快照、快照年龄与来源）、预算提醒（仅提醒）。
-7. V29 验收执行：fixtures 化价格样本与异常场景、人工期望值测试、
-   真实数据只读核对（沿用已获允许），产出验证记录。
+1. **已实施**：价格 schema 演进（SCHEMA_VERSION 7→8：price_snapshots +
+   price_versions 重定义 + daily_cost_usage；预发布合同走备份重建路径）。
+2. **已实施**：种子快照（`crates/core/prices/seed-2026-09-25.json`）与校验
+   （币种/档位枚举、非负、区间重叠、幂等导入）；官方页提取脚本未做
+   （种子为人工制作，脚本属可选工具）。
+3. **已实施**：费用估算引擎（区间/渠道/档位/阈值匹配、逐项计价与舍入、
+   未计价/部分计价覆盖标记、i128 中间量与溢出防护；"参考估算"标注在界面层）。
+4. **已实施**：历史复现查询（按发生时价持久化、按当前价模拟即时分列；
+   估算引用 data_revision 与 price_basis 快照集合持久化）。
+5. **未实施（后置）**：可选在线刷新（默认关闭合同项；官方页缺机器可读接口，
+   实施需逐渠道解析器；A9 场景随该任务执行）。
+6. **已实施**：界面费用面板（默认关闭）、币种分组展示、价格管理
+   （快照查看/手工导入/显式重算）；预算提醒未做（提醒仅提示不阻止，
+   随后续版本排期）。
+7. **已执行**：V29 验收（fixtures 化 P1–P6 与 E/A 场景 + 人工期望测试；
+   真实数据只读核对待用户配置渠道默认）。
 
 ## 风险与限制
 

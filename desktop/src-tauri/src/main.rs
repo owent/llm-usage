@@ -187,6 +187,10 @@ fn main() {
             commands::export_filter_options,
             commands::chart_series,
             commands::diagnostic_logs,
+            commands::cost_summary,
+            commands::recompute_costs,
+            commands::list_price_snapshots,
+            commands::import_price_snapshot,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

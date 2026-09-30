@@ -38,6 +38,16 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
             format_version: Some(CLAUDE_FORMAT_VERSION.to_string()),
             basis: VersionBasis::KnownVersion,
         }),
+        // 2026-09-30 真实证据（Claude Code 2.1.197，WSL）：排队/附件/last-prompt
+        // 元数据记录可出现在文件首行；它们不是用量载体，探测放行，
+        // 逐行解析阶段仍按白名单处理（transcript_doc1）。
+        Some("queue-operation") | Some("attachment") | Some("last-prompt") => {
+            Ok(DetectOutcome::Supported {
+                format: CLAUDE_FORMAT.to_string(),
+                format_version: Some(CLAUDE_FORMAT_VERSION.to_string()),
+                basis: VersionBasis::KnownVersion,
+            })
+        }
         other => Ok(DetectOutcome::UnknownFormat {
             reason: format!("first record type {other:?} not in documented set"),
         }),

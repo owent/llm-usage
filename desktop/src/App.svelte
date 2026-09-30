@@ -21,6 +21,7 @@
   import TokenChart from './components/TokenChart.svelte';
   import TodayHourly from './components/TodayHourly.svelte';
   import UsageHeatmap from './components/UsageHeatmap.svelte';
+  import CostPanel from './components/CostPanel.svelte';
   import TodayOverview from './components/TodayOverview.svelte';
   import BreakdownTables from './components/BreakdownTables.svelte';
   import SourceList from './components/SourceList.svelte';
@@ -119,6 +120,7 @@
       ids: [
         'trend-tokens',
         'trend-calls',
+        'trend-costs',
         'trend-heatmap',
         'trend-weekday',
         'trend-model-pie',
@@ -157,6 +159,7 @@
     'history-tokens': 6,
     'trend-calls': 6,
     'trend-tokens': 6,
+    'trend-costs': 3,
     'trend-heatmap': 4,
     'trend-weekday': 2,
     'trend-model-pie': 3,
@@ -168,6 +171,13 @@
     const g = panelState[gk];
     savePanelGroup(def.page, def.group, { order: g.order, hidden: g.hidden, sizes: g.sizes });
   }
+
+  /** 趋势页面板顺序：费用估算未启用时隐藏费用面板（布局持久化不动）。 */
+  const trendPanelOrder = $derived(
+    panelState.trendMain.order.filter(
+      (id) => id !== 'trend-costs' || (settings?.pricing?.enabled ?? false),
+    ),
+  );
 
   function togglePanel(gk: PanelGroupKey, id: string): void {
     const g = panelState[gk];
@@ -464,6 +474,8 @@
         return t('trend.chart.tokens');
       case 'trend-heatmap':
         return t('heatmap.title');
+      case 'trend-costs':
+        return t('cost.title');
       case 'trend-weekday':
         return t('trend.weekday');
       case 'trend-model-pie':
@@ -731,6 +743,11 @@
     if (locale) setLocale(locale);
     // 时区/周起始影响统计口径但不改查询键，需强制重查。
     dataReloadKey += 1;
+    // F2：费用估算配置变化后既有明细尚未估过价——启用时自动触发一次后台重算
+    //（幂等；未启用则跳过，采集管线也不回填）。
+    if (next.pricing?.enabled) {
+      void api.recomputeCosts().catch(() => undefined);
+    }
   }
 
   const refreshLabel = $derived(
@@ -1090,7 +1107,7 @@
         </div>
       </div>
       <div class="panel-grid">
-        {#each panelState.trendMain.order as id, i (id)}
+        {#each trendPanelOrder as id, i (id)}
           <Panel
             title={panelTitle(id)}
             span={spanOf('trendMain', id)}
@@ -1109,6 +1126,8 @@
               <CallsChart periods={summary.periods} {query} {granularity} {isDark} />
             {:else if id === 'trend-tokens'}
               <TokenChart periods={summary.periods} {query} {granularity} {isDark} />
+            {:else if id === 'trend-costs'}
+              <CostPanel {query} refreshKey={dataReloadKey + (summary?.data_revision ?? 0)} />
             {:else if id === 'trend-heatmap'}
               <UsageHeatmap {query} reloadKey={dataReloadKey + (summary?.data_revision ?? 0)} oncells={(cells) => (heatmapCells = cells)} {isDark} />
             {:else if id === 'trend-weekday'}

@@ -276,3 +276,93 @@ fn capability_table_is_structured_and_complete() {
         serde_json::json!(["transcript-doc-1"])
     );
 }
+
+/// 真实 2.1.197 样本（WSL 脱敏提取）：queue-operation 开头 + attachment/
+/// last-prompt 元数据 + `<synthetic>` 占位 assistant——0 事件、
+/// synthetic 诊断、探测放行；重复扫描不增量。
+#[test]
+fn contract_real_2_1_197_queue_metadata_and_synthetic() {
+    let (_db, storage) = temp_storage("claude-real-217");
+    let root = claude_fixture("real-2.1.197-queue-metadata");
+    let reports = run_claude(&storage, &root, 1_800_000_000_000);
+
+    let report = &reports[0];
+    assert_eq!(report.files.len(), 1);
+    assert_eq!(report.files[0].status, "complete");
+    assert_eq!(report.files[0].lines_read, 8);
+    assert_eq!(report.files[0].records_seen, 8);
+    assert_eq!(
+        report.files[0].events, 0,
+        "synthetic placeholder is not a call"
+    );
+    // 空批次（0 事件）无提交结果；有也必须是零增量。
+    assert_eq!(
+        report
+            .outcome
+            .as_ref()
+            .map(|o| (o.added, o.updated, o.errors))
+            .unwrap_or((0, 0, 0)),
+        (0, 0, 0)
+    );
+    // synthetic 跳过以诊断留痕（不含正文）。
+    let diag: Vec<String> = storage
+        .conn()
+        .prepare("SELECT code FROM diagnostics ORDER BY code")
+        .unwrap()
+        .query_map([], |r| r.get(0))
+        .unwrap()
+        .filter_map(Result::ok)
+        .collect();
+    assert!(diag.contains(&"synthetic_assistant_skipped".to_string()));
+
+    // 重复扫描不增量。
+    let reports2 = run_claude(&storage, &root, 1_800_000_001_000);
+    assert_eq!(
+        reports2[0]
+            .outcome
+            .as_ref()
+            .map(|o| (o.added, o.updated, o.errors))
+            .unwrap_or((0, 0, 0)),
+        (0, 0, 0)
+    );
+    let events: i64 = storage
+        .conn()
+        .query_row("SELECT COUNT(*) FROM usage_events", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(events, 0);
+}
+
+/// queue-operation/attachment 携带 usage 字段 ⇒ 整文件 fail closed
+/// （非用量载体带 usage 是格式偏离，不用静默跳过掩盖）。
+#[test]
+fn contract_real_2_1_197_queue_metadata_rejects_usage_carriers() {
+    let (_db, storage) = temp_storage("claude-real-217-guard");
+    let dir = TempDir::new("claude-real-217-guard");
+    let root = claude_root_with_file(
+        &dir,
+        "proj/real-anon-sess-2.jsonl",
+        b"{\"type\":\"queue-operation\",\"timestamp\":\"2026-09-30T10:41:53.368Z\",\"sessionId\":\"s\",\"usage\":{\"input_tokens\":1}}\n",
+    );
+    let reports = run_claude(&storage, &root, 1_800_000_000_000);
+    let report = &reports[0];
+    // fail closed 合同：状态 pending（游标保持文件头等待受控重试），不产事件。
+    assert_eq!(report.files[0].status, "pending");
+    assert!(report.files[0]
+        .detail
+        .as_deref()
+        .unwrap_or_default()
+        .contains("usage_on_unexpected_record_type")
+        || storage
+            .conn()
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM diagnostics WHERE code='usage_on_unexpected_record_type')",
+                [],
+                |r| r.get::<_, bool>(0),
+            )
+            .unwrap_or(false));
+    let events: i64 = storage
+        .conn()
+        .query_row("SELECT COUNT(*) FROM usage_events", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(events, 0);
+}

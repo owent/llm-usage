@@ -7,7 +7,8 @@
 //! - 用户允许 ⇒ 删除整个数据库文件重新创建；不允许 ⇒ 退出应用。
 
 /// 本程序支持的最新 schema 版本（唯一有效值）。
-pub const SCHEMA_VERSION: u32 = 7;
+/// v8（2026-09-30，F2）：价格快照/价格行重定义 + 日成本回填表。
+pub const SCHEMA_VERSION: u32 = 8;
 
 /// 完整建库 SQL（新库一步到位；不做增量迁移）。
 pub const FULL_SCHEMA: &str = r#"
@@ -310,22 +311,84 @@ CREATE TABLE model_aliases (
   PRIMARY KEY (provider_id, model_raw, rule_version)
 );
 
-CREATE TABLE price_versions (
-  price_id TEXT PRIMARY KEY,
-  provider_id TEXT NOT NULL,
-  model_canonical TEXT NOT NULL,
-  region TEXT,
-  channel TEXT,
-  effective_from_ms INTEGER NOT NULL,
-  effective_to_ms INTEGER,
-  input_per_mtok_minor INTEGER,
-  cache_read_per_mtok_minor INTEGER,
-  cache_write_per_mtok_minor INTEGER,
-  output_per_mtok_minor INTEGER,
-  currency TEXT NOT NULL,
-  price_version TEXT NOT NULL,
+-- F2 版本化价格合同（pricing.md）：快照元数据 + 价格行。
+-- 价格数值单位：最小货币单位的百分之一 / 百万 token（i64；如 $0.075/M = 750）。
+CREATE TABLE price_snapshots (
+  snapshot_id TEXT PRIMARY KEY,
+  -- seed（仓库种子）/ manual（用户导入）/ community（社区目录，需标注）
+  source_type TEXT NOT NULL,
+  -- JSON 数组：来源 URL 列表
+  source_urls TEXT NOT NULL,
+  -- 证据检索/核验时间（UTC 毫秒；种子按检索日期零点）。
+  fetched_at_ms INTEGER NOT NULL,
+  verified_at_ms INTEGER,
+  content_hash TEXT NOT NULL,
+  license TEXT,
+  verified_by TEXT,
+  note TEXT,
   created_at_ms INTEGER NOT NULL
 );
+
+CREATE TABLE price_versions (
+  price_id TEXT PRIMARY KEY,
+  snapshot_id TEXT NOT NULL REFERENCES price_snapshots(snapshot_id),
+  provider_id TEXT NOT NULL,
+  model TEXT NOT NULL,
+  region TEXT NOT NULL,
+  channel TEXT NOT NULL,
+  -- standard / batch / flex / fast；估算只自动匹配 standard。
+  service_tier TEXT NOT NULL DEFAULT 'standard',
+  -- 该行适用的最低输入 token（NULL = 0；长上下文阶梯按事件输入规模匹配）。
+  context_threshold_tokens INTEGER,
+  -- 半开生效区间 [from, to)；NULL to = 仍有效。
+  effective_from_ms INTEGER NOT NULL,
+  effective_to_ms INTEGER,
+  input_per_mtok_hundredths INTEGER,
+  cache_read_per_mtok_hundredths INTEGER,
+  cache_write_5m_per_mtok_hundredths INTEGER,
+  cache_write_1h_per_mtok_hundredths INTEGER,
+  output_per_mtok_hundredths INTEGER,
+  -- 缓存存储费（按百万 token/小时；限时免费政策记 0 并在 note 标注）。
+  cache_storage_per_mtok_hour_hundredths INTEGER,
+  currency TEXT NOT NULL,
+  note TEXT,
+  created_at_ms INTEGER NOT NULL
+);
+CREATE INDEX idx_price_versions_match
+  ON price_versions(provider_id, model, effective_from_ms);
+
+-- 日成本回填（F2）：按 tz/日/来源/模型分币种滚动；estimate_at_time=按发生时价估算，
+-- reported/source_estimate=来源记录金额。未计价事件计数与原因记在 currency='' 行。
+-- 明细事件过期后本表保留历史（随日层保留期清理）。
+CREATE TABLE daily_cost_usage (
+  tz_version TEXT NOT NULL,
+  local_day TEXT NOT NULL,
+  instance_id TEXT NOT NULL DEFAULT 'legacy_unknown',
+  agent TEXT NOT NULL,
+  provider_id TEXT NOT NULL DEFAULT '',
+  model_raw TEXT NOT NULL DEFAULT '',
+  currency TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  priced_event_count INTEGER NOT NULL,
+  unpriced_event_count INTEGER NOT NULL,
+  partial_event_count INTEGER NOT NULL,
+  ttl_defaulted_events INTEGER NOT NULL,
+  input_amount_minor INTEGER,
+  cache_read_amount_minor INTEGER,
+  cache_write_amount_minor INTEGER,
+  output_amount_minor INTEGER,
+  total_amount_minor INTEGER NOT NULL,
+  priced_tokens INTEGER NOT NULL,
+  known_tokens INTEGER NOT NULL,
+  -- 未计价原因直方图（JSON：reason → count；仅 currency='' 行维护）。
+  unpriced_reasons TEXT,
+  -- 参与计价的价格快照 ID（JSON 数组；估算引用，不随后台更新改写）。
+  price_basis TEXT NOT NULL,
+  sealed INTEGER NOT NULL DEFAULT 0,
+  data_revision INTEGER NOT NULL,
+  PRIMARY KEY (tz_version, local_day, instance_id, agent, provider_id, model_raw, currency, kind)
+);
+CREATE INDEX idx_daily_cost_day ON daily_cost_usage(tz_version, local_day);
 
 CREATE TABLE extraction_schedules (
   schedule_id TEXT PRIMARY KEY,

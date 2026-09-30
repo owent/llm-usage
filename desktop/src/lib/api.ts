@@ -27,6 +27,65 @@ export interface AppSettings {
   manual_roots: string[];
   /** 本机来源身份显示名（仅辨认用途，不改 host_id 键）。 */
   hostname_alias: string | null;
+  /** F2 费用估算（默认关闭；旧设置 JSON 无此字段时视为关闭）。 */
+  pricing?: PricingSettings;
+}
+
+/** 供应商级估算默认（渠道不明不套价）。 */
+export interface ProviderPricingDefault {
+  provider_id: string;
+  region: string;
+  channel: string;
+  /** 缓存写默认 TTL 档（分钟；null = 未设，写分量不计价）。 */
+  cache_ttl_minutes: number | null;
+}
+
+export interface PricingSettings {
+  enabled: boolean;
+  provider_defaults: ProviderPricingDefault[];
+}
+
+/** 按币种分列的金额行（最小货币单位；不同币种不合并）。 */
+export interface CostCurrencyRowDto {
+  currency: string;
+  total_amount_minor: number;
+  input_amount_minor: number | null;
+  cache_read_amount_minor: number | null;
+  cache_write_amount_minor: number | null;
+  output_amount_minor: number | null;
+  priced_tokens: number;
+  known_tokens: number;
+  priced_event_count: number;
+  unpriced_event_count: number;
+  partial_event_count: number;
+  ttl_defaulted_events: number;
+}
+
+export interface CostModeSummaryDto {
+  rows: CostCurrencyRowDto[];
+  unpriced_reasons: Record<string, number>;
+  as_of_ms: number;
+  detail_limited: boolean;
+}
+
+export interface CostSummaryDto {
+  at_time: CostModeSummaryDto;
+  source_amounts: CostCurrencyRowDto[];
+  current_sim: CostModeSummaryDto;
+  price_basis: string[];
+  data_revision: number;
+}
+
+export interface PriceSnapshotInfoDto {
+  snapshot_id: string;
+  source_type: string;
+  source_urls: string[];
+  fetched_at_ms: number;
+  verified_at_ms: number | null;
+  license: string | null;
+  verified_by: string | null;
+  note: string | null;
+  row_count: number;
 }
 
 /** 系统任务状态（Windows：开机自启 + 每小时 headless 刷新任务）。 */
@@ -338,6 +397,15 @@ export const api = {
   diagnosticLogs: (limit: number, codeFilter: string | null = null) =>
     invoke<DiagnosticLogsDto>('diagnostic_logs', { limit, codeFilter }),
   exportFilterOptions: () => invoke<ExportFilterOptionsDto>('export_filter_options'),
+  /** F2 费用汇总（按发生时价 / 来源金额 / 按当前价格模拟分列）。 */
+  costSummary: (q: SummaryQuery) => invoke<CostSummaryDto>('cost_summary', { q }),
+  recomputeCosts: () => invoke<{ started: boolean }>('recompute_costs'),
+  listPriceSnapshots: () => invoke<PriceSnapshotInfoDto[]>('list_price_snapshots'),
+  importPriceSnapshot: (path: string) =>
+    invoke<{ snapshot_id: string; inserted_rows: number; already_present: boolean }>(
+      'import_price_snapshot',
+      { path },
+    ),
   pickSavePath: (defaultName: string) =>
     invoke<string | null>('pick_save_path', { defaultName }),
   systemTaskStatus: () => invoke<SystemTaskStatusDto>('system_task_status'),

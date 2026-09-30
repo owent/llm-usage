@@ -139,6 +139,8 @@ pub fn enforce_tiered_retention(
             "DELETE FROM diagnostics WHERE created_ms < ?1",
             params![cutoff_ms],
         )? as i64;
+        // F2：明细过期后日成本行封存（历史金额不再改写，仍可查询）。
+        crate::storage::pricing::seal_cost_days_tx(&tx, timezone, &cutoff_day.to_string())?;
     }
 
     // 2. 小时层。
@@ -185,6 +187,8 @@ pub fn enforce_tiered_retention(
             "DELETE FROM daily_usage WHERE tz_version = ?1 AND local_day < ?2",
             params![timezone, cutoff_day.to_string()],
         )? as i64;
+        // F2：日成本行随日层保留期同步清理（明细与估算历史均已到期）。
+        crate::storage::pricing::prune_cost_days_tx(&tx, timezone, &cutoff_day.to_string())?;
         tx.execute(
             "INSERT INTO settings(key, value, schema_version, updated_at_ms) VALUES (?1, ?2, 1, ?3)
              ON CONFLICT(key) DO UPDATE SET value = MAX(value, excluded.value), updated_at_ms = excluded.updated_at_ms",

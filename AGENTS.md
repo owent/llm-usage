@@ -12,6 +12,8 @@
 只统计本机 Agent 来源，不接入远端用量/账单 API 或跨设备账号报表；落盘文件仍须核验来源。
 Windows 11 x64 首发，GitHub CI 保留 macOS/Linux；WSL 构建不等于 Linux 桌面验收。
 定时任务只调度本地采集，按需读 [调度合同](docs/design/desktop-usage/scheduling.md)。
+费用估算与价格快照改动按需读 [价格合同](docs/design/desktop-usage/pricing.md)：
+默认关闭、渠道不明不套价、多币种不合并、估算不随后台价格更新改写。
 用户已允许实施时只读提取本机真实 Agent 数据验证，按 [准备合同](docs/design/desktop-usage/implementation-readiness.md)
 限定字段与脱敏，无需重复询问这项许可。JetBrains/TRAE 等缺证 IDE 已后移 F1，当前不实施
 （2026-09-29 M8 第二批 18 个适配器已完成文档级实施并注册——Amazon Q/Codebuff

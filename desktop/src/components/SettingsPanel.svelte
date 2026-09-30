@@ -8,6 +8,7 @@
     CleanupResultDto,
     DiagnosticLogRowDto,
     ExportFilterOptionsDto,
+    PriceSnapshotInfoDto,
     RetentionTiers,
     StorageStatsDto,
     SummaryQuery,
@@ -29,7 +30,7 @@
     collecting?: boolean;
   } = $props();
 
-  type SubTab = 'general' | 'retention' | 'system' | 'identity' | 'export' | 'logs';
+  type SubTab = 'general' | 'retention' | 'costs' | 'system' | 'identity' | 'export' | 'logs';
   type RetentionField = 'events' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly';
 
   let sub = $state<SubTab>('general');
@@ -40,6 +41,10 @@
     ...settings,
     manual_roots: [...settings.manual_roots],
     retention: { ...settings.retention },
+    pricing: {
+      enabled: settings.pricing?.enabled ?? false,
+      provider_defaults: (settings.pricing?.provider_defaults ?? []).map((d) => ({ ...d })),
+    },
   });
   // svelte-ignore state_referenced_locally
   // 文本输入统一走字符串草稿（年为空 = 终身），保存时再解析校验。
@@ -226,6 +231,7 @@
   const subTabs = $derived.by(() => [
     ['general', t('settings.tab.general')],
     ['retention', t('settings.tab.retention')],
+    ['costs', t('settings.tab.costs')],
     ['system', t('settings.tab.system')],
     ['identity', t('settings.tab.identity')],
     ['export', t('settings.tab.export')],
@@ -283,6 +289,71 @@
     }
   }
 
+  // ---- F2 费用估算：价格快照与供应商默认 ----
+  let snapshots = $state<PriceSnapshotInfoDto[]>([]);
+  let snapshotError = $state('');
+  let costMessage = $state('');
+  let costError = $state('');
+  let recomputeBusy = $state(false);
+
+  async function loadSnapshots() {
+    snapshotError = '';
+    try {
+      snapshots = await api.listPriceSnapshots();
+    } catch (e) {
+      snapshots = [];
+      snapshotError = parseError(e);
+    }
+  }
+
+  function addProviderDefault() {
+    if (!draft.pricing) draft.pricing = { enabled: false, provider_defaults: [] };
+    draft.pricing.provider_defaults = [
+      ...draft.pricing.provider_defaults,
+      { provider_id: '', region: '', channel: '', cache_ttl_minutes: null },
+    ];
+  }
+
+  function removeProviderDefault(index: number) {
+    if (!draft.pricing) return;
+    draft.pricing.provider_defaults = draft.pricing.provider_defaults.filter((_, i) => i !== index);
+  }
+
+  async function importSnapshot() {
+    costMessage = '';
+    costError = '';
+    try {
+      const path = await api.pickOpenPath('json');
+      if (!path) return;
+      const r = await api.importPriceSnapshot(path);
+      costMessage = r.already_present
+        ? `${r.snapshot_id} (${r.inserted_rows})`
+        : `${r.snapshot_id} → ${r.inserted_rows}`;
+      await loadSnapshots();
+    } catch (e) {
+      costError = parseError(e);
+    }
+  }
+
+  async function recomputeCosts() {
+    if (recomputeBusy) return;
+    recomputeBusy = true;
+    costMessage = '';
+    costError = '';
+    try {
+      await api.recomputeCosts();
+      costMessage = t('cost.settings.recomputeStarted');
+    } catch (e) {
+      costError = parseError(e);
+    } finally {
+      recomputeBusy = false;
+    }
+  }
+
+  function fmtSnapshotDate(ms: number): string {
+    return ms > 0 ? new Date(ms).toISOString().slice(0, 10) : '—';
+  }
+
   /** 导出过滤选项：默认勾选当前用户/当前主机（失败时多选框退化为仅当前值）。 */
   async function loadExportFilters() {
     try {
@@ -302,6 +373,7 @@
   loadTaskStatus();
   loadStats();
   loadExportFilters();
+  loadSnapshots();
 
   /** 解析单级保留天数：undefined = 非法；null = 留空（仅年允许 = 终身）。 */
   function tierValue(raw: string, allowEmpty: boolean): number | null | undefined {
@@ -873,6 +945,92 @@
           {#if clearAllError}<p class="bad">{clearAllError}</p>{/if}
         </section>
         <p class="hint">{t('settings.archives.hint')}</p>
+      {:else if sub === 'costs'}
+        <section class="panel">
+          <h4>{t('cost.title')}</h4>
+          <div class="frow">
+            <span class="flabel">{t('cost.settings.enabled')}</span>
+            <div class="fvalue">
+              <input
+                type="checkbox"
+                checked={draft.pricing?.enabled ?? false}
+                onchange={(e) => {
+                  if (!draft.pricing) draft.pricing = { enabled: false, provider_defaults: [] };
+                  draft.pricing.enabled = e.currentTarget.checked;
+                }}
+              />
+            </div>
+          </div>
+          <p class="note">{t('cost.settings.hint')}</p>
+        </section>
+        <section class="panel">
+          <h4>{t('cost.settings.snapshots')}</h4>
+          {#if snapshots.length === 0 && !snapshotError}
+            <p class="hint">{t('common.empty')}</p>
+          {:else}
+            <table class="snap-table">
+              <tbody>
+                {#each snapshots as s (s.snapshot_id)}
+                  <tr>
+                    <td>{s.snapshot_id}</td>
+                    <td>{s.source_type}</td>
+                    <td>{fmtSnapshotDate(s.fetched_at_ms)} · {s.row_count}</td>
+                    <td>{s.verified_by ?? '—'}</td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          {/if}
+          {#if snapshotError}<p class="bad">{snapshotError}</p>{/if}
+          <div class="frow">
+            <div class="fvalue">
+              <button type="button" class="mini" onclick={() => void importSnapshot()}>
+                {t('cost.settings.import')}
+              </button>
+              <button
+                type="button"
+                class="mini"
+                disabled={recomputeBusy}
+                onclick={() => void recomputeCosts()}
+              >
+                {t('cost.settings.recompute')}
+              </button>
+            </div>
+          </div>
+          {#if costMessage}<p class="ok">{costMessage}</p>{/if}
+          {#if costError}<p class="bad">{costError}</p>{/if}
+        </section>
+        <section class="panel">
+          <h4>{t('cost.settings.addProvider')}</h4>
+          {#each draft.pricing?.provider_defaults ?? [] as d, i}
+            <div class="tier">
+              <input placeholder={t('cost.settings.provider')} bind:value={d.provider_id} />
+              <input placeholder={t('cost.settings.region')} bind:value={d.region} />
+              <input placeholder={t('cost.settings.channel')} bind:value={d.channel} />
+              <select
+                value={d.cache_ttl_minutes === null || d.cache_ttl_minutes === undefined ? '' : String(d.cache_ttl_minutes)}
+                onchange={(e) => {
+                  const v = e.currentTarget.value;
+                  d.cache_ttl_minutes = v === '' ? null : Number(v);
+                }}
+              >
+                <option value="">—</option>
+                <option value="5">5m</option>
+                <option value="60">1h</option>
+              </select>
+              <button type="button" class="mini" onclick={() => removeProviderDefault(i)}>
+                {t('cost.settings.remove')}
+              </button>
+            </div>
+          {/each}
+          <div class="frow">
+            <div class="fvalue">
+              <button type="button" class="mini" onclick={addProviderDefault}>
+                {t('cost.settings.addProvider')}
+              </button>
+            </div>
+          </div>
+        </section>
       {:else if sub === 'system'}
         <section class="panel">
           {#if taskLoading}
@@ -1060,7 +1218,7 @@
         </section>
       {/if}
 
-      {#if sub === 'general' || sub === 'retention' || sub === 'identity'}
+      {#if sub === 'general' || sub === 'retention' || sub === 'costs' || sub === 'identity'}
         <div class="save-row">
           <button type="submit" class="primary" disabled={saving}>{t('settings.save')}</button>
           {#if message}<span class="ok">{message}</span>{/if}
@@ -1111,6 +1269,11 @@
 
 <style>
   /* Typora 风格：左侧竖向分类菜单 + 右侧内容表单。 */
+  .snap-table td {
+    padding: 4px 10px 4px 0;
+    border-bottom: 1px solid var(--line, rgba(128, 128, 128, 0.25));
+    text-align: left;
+  }
   .settings-layout {
     display: grid;
     grid-template-columns: 160px minmax(0, 1fr);

@@ -45,7 +45,7 @@ Harness Agent 指 Nous Research 的 Hermes Agent。只统计本机产生的数�
 | M7 | **部分完成**（[M7 记录](docs/validation/desktop-usage/m7-build-partial.md)；空闲内存复测 171 MB ≤ 180 目标、V20 双档初值已测（[第二轮记录](docs/validation/desktop-usage/m5-telemetry-remainders.md)）；余真实安装/首屏 P95/离线/系统任务/三平台 CI 验收） | 轻量化、三平台持续构建、安装与发布候选验收 | M2–M6 | 实机与三平台 CI 证据分列；性能/包体、离线、升级回滚通过 |
 | M8 | **文档级实施与 f6ede26 工作区复核已完成**（[验证记录](docs/validation/desktop-usage/m8-second-batch.md)；18 适配器（17 解析+Qoder 探针）注册与回归通过；真实样本验收后置；Amazon Q/Codebuff/iFlow 按边界排除） | 第二批本地适配器：Amp、Goose、Crush、Roo Code、Aider、Continue、Droid、Amazon Q CLI、Grok Build、Antigravity CLI、Junie CLI、Kiro、Zed 内置、Codebuff、Command Code、jcode、gajae-code、Xum、iFlow CLI、Qoder CLI、AtomCode | M1 框架与 M2 目录/版本合同；不在 M0–M7 关键路径 | 按矩阵分批交付；每适配器独立目录+版本注册表+V30；双载体对账不双计、会话级聚合不虚构逐次、估算路径一律不采信；Cursor/Warp/TRAE/Windsurf 按边界排除或留 F1 |
 | F1 | 未排期，未实施（缺证 IDE/插件：JetBrains AI Assistant、TRAE、Cursor、Windsurf、JoyCode、CodeGeeX、Comate、InsCode/CodeArts Snap；CodeBuddy IDE/插件已凭本机 CodeBuddyExtension 载体证据于 2026-09-30 实施并真实核对，移出 F1，见 [A04](docs/design/desktop-usage/adapters.md)） | 后续 IDE 支持 | 后续支持阶段 | 逐项取得本地格式证据；当前只保留计划，不探测/开发 |
-| F2 | **调研已完成**（[价格合同](docs/design/desktop-usage/pricing.md)），费用引擎实施待排期 | 模型 API 按量价格获取与 token 费用估算 | 数据合同 | 渠道比较、版本化价格合同、V29 样本设计交付 |
+| F2 | **主体已实施**（费用引擎+V29 合同测试完成，[验证记录](docs/validation/desktop-usage/f2-cost-engine.md)：schema v8 价格表、种子快照、估算引擎（渠道不明不套价/档位/TTL/覆盖标记）、日成本回填与汇总、命令+界面（默认关闭）+i18n ×10；余可选在线刷新（任务 5）、预算提醒、真实数据端到端估算（待用户配置渠道默认）后置） | 模型 API 按量价格获取与 token 费用估算 | 数据合同 | 渠道比较、版本化价格合同、V29 样本设计交付；费用引擎已实施（除上述后置项） |
 | F3 | **已完成**（[i18n 合同](docs/design/desktop-usage/i18n.md)，10 语言已随 M6 落地；V31 原生 GUI 验收随桌面验收） | 界面多语言方案调研与设计 | M6 前 | 已交付并实施 |
 
 M4/M5 的本地格式证据不足不阻止 M1/M2/M6，但对应工具必须保持“待验证/受限”，

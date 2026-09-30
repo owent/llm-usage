@@ -272,6 +272,17 @@ pub fn scan(
                     .get("message")
                     .and_then(|m| json_str(m, "model"))
                     .map(str::to_string);
+                // 2026-09-30 真实证据（Claude Code 2.1.197）：未登录/占位响应写
+                // model="<synthetic>" 且 usage 全 0——无模型调用证据，不产事件。
+                if model.as_deref() == Some("<synthetic>") {
+                    diagnostics.push(diag(
+                        "synthetic_assistant_skipped",
+                        Some("message.model"),
+                        raw.number,
+                        "assistant entry with <synthetic> model placeholder; no model invocation, no event",
+                    ));
+                    continue;
+                }
                 let mapped = map_claude_transcript(&usage);
                 for contradiction in &mapped.diagnostics {
                     diagnostics.push(diag(
@@ -325,7 +336,10 @@ pub fn scan(
                     cost: None,
                 });
             }
-            "user" | "system" => {
+            // 2026-09-30 真实证据（2.1.197）：queue-operation（排队元数据）、
+            // attachment（上下文附件）、last-prompt（会话指针）为非用量载体，
+            // 跳过；若携带 usage 字段仍按格式偏离 fail closed。
+            "user" | "system" | "queue-operation" | "attachment" | "last-prompt" => {
                 // 非 usage 载体记录携带 usage 字段：格式偏离，整文件 fail closed。
                 let carries_usage = line.get("usage").is_some()
                     || line.get("message").and_then(|m| m.get("usage")).is_some();

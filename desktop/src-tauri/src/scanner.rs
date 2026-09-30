@@ -3,66 +3,14 @@
 //! 同一时刻仅一个刷新在执行（重复触发合并，V12/V23）。
 
 use crate::app_state::{summarize_reports, AppState, RefreshInstanceSummary};
-use llm_usage_core::adapters::claude::ClaudeAdapter;
-use llm_usage_core::adapters::codex::CodexAdapter;
 use llm_usage_core::adapters::framework::{DiscoverContext, RunConfig, ScanLimits, SourceAdapter};
-use llm_usage_core::adapters::gemini::GeminiAdapter;
-use llm_usage_core::adapters::omp::OmpAdapter;
-use llm_usage_core::adapters::pi::PiAdapter;
-use llm_usage_core::adapters::qwen::QwenAdapter;
 use llm_usage_core::jobs::TriggerKind;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-/// 内置适配器注册表：新增适配器在此登记（目录合同见 architecture.md#adapter-layout）。
+/// 内置适配器注册表（与探针工具共用 core 实现）。
 pub fn built_in_adapters() -> Vec<Box<dyn SourceAdapter>> {
-    vec![
-        Box::new(CodexAdapter::new()),
-        Box::new(ClaudeAdapter::new()),
-        Box::new(PiAdapter::new()),
-        Box::new(OmpAdapter::new()),
-        Box::new(GeminiAdapter::new()),
-        Box::new(QwenAdapter::new()),
-        Box::new(llm_usage_core::adapters::kilo::KiloAdapter::new()),
-        Box::new(llm_usage_core::adapters::zcode::ZcodeAdapter::new()),
-        Box::new(llm_usage_core::adapters::kimi_code::KimiCodeAdapter::new()),
-        Box::new(llm_usage_core::adapters::kimi_work::KimiWorkAdapter::new()),
-        // 以下为本机未安装产品（2026-09-25 盘点 not_found）：文档级证据实现，
-        // discover 在本机返回空；真实数据出现后自动发现（真实验收后置）。
-        Box::new(llm_usage_core::adapters::cline::ClineAdapter::new()),
-        Box::new(llm_usage_core::adapters::dsh::DshAdapter::new()),
-        Box::new(llm_usage_core::adapters::hermes::HermesAdapter::new()),
-        Box::new(llm_usage_core::adapters::openclaw::OpenClawAdapter::new()),
-        Box::new(llm_usage_core::adapters::opencode::OpenCodeAdapter::new()),
-        Box::new(llm_usage_core::adapters::mimo_code::MimoCodeAdapter::new()),
-        Box::new(llm_usage_core::adapters::zoo::ZooAdapter::new()),
-        // M8 第二批（2026-09-29 调研 + 文档级实施；本机盘点均未安装，
-        // 仅 Zed 有空 threads.db（0 行）；真实样本出现后升级验证）。
-        Box::new(llm_usage_core::adapters::zed::ZedAdapter::new()),
-        Box::new(llm_usage_core::adapters::aider::AiderAdapter::new()),
-        Box::new(llm_usage_core::adapters::junie::JunieAdapter::new()),
-        Box::new(llm_usage_core::adapters::xum::XumAdapter::new()),
-        Box::new(llm_usage_core::adapters::droid::DroidAdapter::new()),
-        Box::new(llm_usage_core::adapters::amp::AmpAdapter::new()),
-        Box::new(llm_usage_core::adapters::grok::GrokAdapter::new()),
-        Box::new(llm_usage_core::adapters::roo::RooAdapter::new()),
-        Box::new(llm_usage_core::adapters::goose::GooseAdapter::new()),
-        Box::new(llm_usage_core::adapters::crush::CrushAdapter::new()),
-        Box::new(llm_usage_core::adapters::jcode::JcodeAdapter::new()),
-        Box::new(llm_usage_core::adapters::codebuddy::CodeBuddyAdapter::new()),
-        Box::new(llm_usage_core::adapters::workbuddy::WorkBuddyAdapter::new()),
-        Box::new(llm_usage_core::adapters::gajae_code::GajaeCodeAdapter::new()),
-        Box::new(llm_usage_core::adapters::commandcode::CommandCodeAdapter::new()),
-        Box::new(llm_usage_core::adapters::continuedev::ContinueAdapter::new()),
-        Box::new(llm_usage_core::adapters::atomcode::AtomCodeAdapter::new()),
-        Box::new(llm_usage_core::adapters::kiro::KiroAdapter::new()),
-        Box::new(llm_usage_core::adapters::antigravity::AntigravityAdapter::new()),
-        Box::new(llm_usage_core::adapters::qoder::QoderAdapter::new()),
-        // M5：Copilot CLI（本机真实数据核对 2026-09-29）。
-        Box::new(llm_usage_core::adapters::copilot::CopilotAdapter::new()),
-        // M5：OTel spans 载体（需启用 exporter/接收器；默认发现仅接收器输出目录）。
-        Box::new(llm_usage_core::adapters::otel::OtelAdapter::new()),
-    ]
+    llm_usage_core::adapters::built_in_adapters()
 }
 
 pub fn now_ms() -> i64 {
@@ -139,6 +87,12 @@ fn run_refresh_filtered(
     };
     let ctx = discover_context(manual_roots);
     let mut summaries: Vec<RefreshInstanceSummary> = Vec::new();
+    // F2：刷新前修订号——本轮采集重写的 daily_usage 行 revision 均大于它
+    // （retention 之后还会再 bump，不能用"当前 revision"等于过滤）。
+    let revision_before: i64 = {
+        let storage = state.storage.lock().unwrap();
+        storage.data_revision().unwrap_or(0)
+    };
     // 全局刷新排除有自定义启用计划的实例（逐源节奏覆盖全局）。排除集
     // 加载失败时宁可本轮不扫（记失败摘要），也不能把自定义计划的来源
     // 卷进全局节奏——节奏合同优先于本轮覆盖。
@@ -275,6 +229,34 @@ fn run_refresh_filtered(
                     events: 0,
                     diagnostics: 0,
                 });
+            }
+        }
+    }
+    {
+        // F2 费用回填：采集改写了当日事件（数据修订）⇒ 按当前价格设置重算
+        // 受影响未封存日的日成本行。估算未启用时跳过（显式重算仍可用）。
+        let (pricing_enabled, tz, options) = {
+            let settings = state.settings.lock().unwrap();
+            (
+                settings.pricing.enabled,
+                settings.timezone.clone(),
+                settings.pricing.estimate_options(),
+            )
+        };
+        if pricing_enabled {
+            let storage = state.storage.lock().unwrap();
+            let now = now_ms();
+            let days = storage
+                .cost_backfill_days_since(&tz, revision_before)
+                .unwrap_or_default();
+            for day in days {
+                if let Err(e) = storage.recompute_cost_day(&tz, &day, now, &options) {
+                    let _ = storage.conn().execute(
+                        "INSERT INTO diagnostics (code, message, created_ms)
+                         VALUES ('cost_recompute_failed', ?1, ?2)",
+                        rusqlite::params![format!("cost recompute failed for {day}: {e}"), now],
+                    );
+                }
             }
         }
     }

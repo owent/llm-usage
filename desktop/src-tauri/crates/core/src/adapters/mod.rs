@@ -54,3 +54,55 @@ pub mod xum;
 pub mod zcode;
 pub mod zed;
 pub mod zoo;
+
+/// 内置适配器注册表：新增适配器在此登记（目录合同见 architecture.md#adapter-layout）。
+/// 应用扫描器与探针工具共用同一注册表。
+pub fn built_in_adapters() -> Vec<Box<dyn framework::SourceAdapter>> {
+    vec![
+        Box::new(codex::CodexAdapter::new()),
+        Box::new(claude::ClaudeAdapter::new()),
+        Box::new(pi::PiAdapter::new()),
+        Box::new(omp::OmpAdapter::new()),
+        Box::new(gemini::GeminiAdapter::new()),
+        Box::new(qwen::QwenAdapter::new()),
+        Box::new(kilo::KiloAdapter::new()),
+        Box::new(zcode::ZcodeAdapter::new()),
+        Box::new(kimi_code::KimiCodeAdapter::new()),
+        Box::new(kimi_work::KimiWorkAdapter::new()),
+        // 以下为本机未安装产品（2026-09-25 盘点 not_found）：文档级证据实现，
+        // discover 在本机返回空；真实数据出现后自动发现（真实验收后置）。
+        Box::new(cline::ClineAdapter::new()),
+        Box::new(dsh::DshAdapter::new()),
+        Box::new(hermes::HermesAdapter::new()),
+        Box::new(openclaw::OpenClawAdapter::new()),
+        Box::new(opencode::OpenCodeAdapter::new()),
+        Box::new(mimo_code::MimoCodeAdapter::new()),
+        Box::new(zoo::ZooAdapter::new()),
+        // M8 第二批（2026-09-29 调研 + 文档级实施；本机盘点均未安装，
+        // 仅 Zed 有空 threads.db（0 行）；真实样本出现后升级验证）。
+        Box::new(zed::ZedAdapter::new()),
+        Box::new(aider::AiderAdapter::new()),
+        Box::new(junie::JunieAdapter::new()),
+        Box::new(xum::XumAdapter::new()),
+        Box::new(droid::DroidAdapter::new()),
+        Box::new(amp::AmpAdapter::new()),
+        Box::new(grok::GrokAdapter::new()),
+        Box::new(roo::RooAdapter::new()),
+        Box::new(goose::GooseAdapter::new()),
+        Box::new(crush::CrushAdapter::new()),
+        Box::new(jcode::JcodeAdapter::new()),
+        Box::new(codebuddy::CodeBuddyAdapter::new()),
+        Box::new(workbuddy::WorkBuddyAdapter::new()),
+        Box::new(gajae_code::GajaeCodeAdapter::new()),
+        Box::new(commandcode::CommandCodeAdapter::new()),
+        Box::new(continuedev::ContinueAdapter::new()),
+        Box::new(atomcode::AtomCodeAdapter::new()),
+        Box::new(kiro::KiroAdapter::new()),
+        Box::new(antigravity::AntigravityAdapter::new()),
+        Box::new(qoder::QoderAdapter::new()),
+        // M5：Copilot CLI（本机真实数据核对 2026-09-29）。
+        Box::new(copilot::CopilotAdapter::new()),
+        // M5：OTel spans 载体（需启用 exporter/接收器；默认发现仅接收器输出目录）。
+        Box::new(otel::OtelAdapter::new()),
+    ]
+}

@@ -1,3 +1,0 @@
-llm-usage M0 sample file.
-This fixed-relative-path text file is read by the read_sample_file Tauri command.
-本文件用于验证 Rust 后端只读固定路径文件并返回字节长度。

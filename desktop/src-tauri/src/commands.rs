@@ -641,6 +641,31 @@ pub fn set_settings(
             )
         })?;
     }
+    // F2 费用设置校验：供应商默认字段非空去空格；TTL 仅 5/60 分钟档。
+    for d in &settings.pricing.provider_defaults {
+        for (name, value) in [
+            ("provider_id", &d.provider_id),
+            ("region", &d.region),
+            ("channel", &d.channel),
+        ] {
+            if value.trim().is_empty() {
+                return Err(err(
+                    "invalid_pricing",
+                    format!("provider default {name} is empty"),
+                ));
+            }
+        }
+        if let Some(ttl) = d.cache_ttl_minutes {
+            if ttl != llm_usage_core::pricing::CACHE_TTL_5M_MINUTES
+                && ttl != llm_usage_core::pricing::CACHE_TTL_1H_MINUTES
+            {
+                return Err(err(
+                    "invalid_pricing",
+                    format!("cache TTL must be 5 or 60 minutes, got {ttl}"),
+                ));
+            }
+        }
+    }
     {
         let storage = state.storage.lock().unwrap();
         // 时区变更 ⇒ 在新时区重算日分区（事件仍在 ⇒ 推导；封存日跳过）。
@@ -1400,6 +1425,115 @@ fn insert_user(
         "INSERT INTO users(user_id,name,created_at_ms) VALUES ('u-' || lower(hex(randomblob(16))),?1,?2) RETURNING user_id",
         rusqlite::params![name,now], |r| r.get(0),
     ).map_err(|e| err("db", e.to_string()))
+}
+
+/// F2 费用汇总（按发生时价 / 来源金额 / 按当前价格模拟分列，多币种不合并）。
+#[tauri::command]
+pub fn cost_summary(
+    state: tauri::State<'_, Arc<AppState>>,
+    q: SummaryQuery,
+) -> Result<serde_json::Value, String> {
+    let settings = state.settings.lock().unwrap().clone();
+    let current_user = state.current_user.lock().unwrap().clone();
+    let storage = crate::app_state::read_conn(&state);
+    let instances = user_instances(&storage, &current_user)?;
+    let request = llm_usage_core::storage::pricing::CostSummaryRequest {
+        timezone: settings.timezone.clone(),
+        first_day: parse_date(&q.first_day)
+            .map_err(|e| err("invalid_date", format!("first_day: {e}")))?
+            .to_string(),
+        last_day: parse_date(&q.last_day)
+            .map_err(|e| err("invalid_date", format!("last_day: {e}")))?
+            .to_string(),
+        filters: llm_usage_core::storage::pricing::CostFilters {
+            agents: q.agents.clone(),
+            providers: q.providers.clone(),
+            models: q.models.clone(),
+            instances: Some(instances),
+        },
+        now_ms: now_ms(),
+        options: settings.pricing.estimate_options(),
+    };
+    let summary = storage
+        .cost_summary(&request)
+        .map_err(|e| err("cost_summary", e.to_string()))?;
+    serde_json::to_value(&summary).map_err(|e| err("serialize", e.to_string()))
+}
+
+/// F2 显式重算费用（后台线程执行；完成写操作日志，UI 稍后刷新查看）。
+#[tauri::command]
+pub fn recompute_costs(
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<serde_json::Value, String> {
+    let (timezone, options) = {
+        let settings = state.settings.lock().unwrap();
+        (
+            settings.timezone.clone(),
+            settings.pricing.estimate_options(),
+        )
+    };
+    let state = state.inner().clone();
+    std::thread::spawn(move || {
+        let now = crate::scanner::now_ms();
+        let result = {
+            let storage = state.storage.lock().unwrap();
+            storage
+                .recompute_unsealed_cost_days(&timezone, now, &options)
+                .map(|outcomes| {
+                    outcomes
+                        .iter()
+                        .filter(|o| o.rebuilt)
+                        .map(|o| o.day.clone())
+                        .collect::<Vec<_>>()
+                })
+        };
+        let message = match result {
+            Ok(days) => format!("cost recompute finished: {} days rebuilt", days.len()),
+            Err(e) => format!("cost recompute failed: {e}"),
+        };
+        let storage = state.storage.lock().unwrap();
+        log_operation(&storage, "cost_recompute", &message);
+    });
+    Ok(serde_json::json!({ "started": true }))
+}
+
+/// F2 价格快照列表（来源/新鲜度/行数）。
+#[tauri::command]
+pub fn list_price_snapshots(
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<Vec<llm_usage_core::storage::pricing::PriceSnapshotInfo>, String> {
+    let storage = crate::app_state::read_conn(&state);
+    storage
+        .list_price_snapshots()
+        .map_err(|e| err("list_price_snapshots", e.to_string()))
+}
+
+/// F2 手工导入本地价格快照 JSON（schema 校验 + 区间重叠检查 + 幂等）。
+#[tauri::command]
+pub fn import_price_snapshot(
+    state: tauri::State<'_, Arc<AppState>>,
+    path: String,
+) -> Result<serde_json::Value, String> {
+    let text = std::fs::read_to_string(&path).map_err(|e| err("read", e.to_string()))?;
+    let snapshot = llm_usage_core::pricing::parse_snapshot_json(&text)
+        .map_err(|e| err("invalid_snapshot", e.to_string()))?;
+    let storage = state.storage.lock().unwrap();
+    let outcome = storage
+        .import_price_snapshot(&snapshot, now_ms())
+        .map_err(|e| err("import", e.to_string()))?;
+    log_operation(
+        &storage,
+        "price_snapshot_import",
+        &format!(
+            "snapshot {} imported: {} rows (already present: {})",
+            outcome.snapshot_id, outcome.inserted_rows, outcome.already_present
+        ),
+    );
+    Ok(serde_json::json!({
+        "snapshot_id": outcome.snapshot_id,
+        "inserted_rows": outcome.inserted_rows,
+        "already_present": outcome.already_present,
+    }))
 }
 
 #[cfg(test)]
