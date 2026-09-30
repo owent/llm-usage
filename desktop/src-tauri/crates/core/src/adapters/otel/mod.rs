@@ -194,7 +194,10 @@ impl crate::adapters::framework::SourceAdapter for OtelAdapter {
                 .map(|(v, _)| v.to_string())
                 .collect(),
             discovery: serde_json::json!({
-                "default_roots": ["%APPDATA%/llm-usage-desktop/otel（本应用 OTLP 接收器输出）"],
+                "default_roots": [
+                    "%APPDATA%/llm-usage-desktop/otel（本应用 OTLP 接收器输出，Windows）",
+                    "$XDG_DATA_HOME|~/.local/share/llm-usage-desktop/otel（Linux/macOS）"
+                ],
                 "env_override": null,
                 "manual_roots": "VS Code outfile / COPILOT_OTEL_FILE_EXPORTER_PATH 的文件或目录（需用户启用 exporter）",
                 "bounded": true,

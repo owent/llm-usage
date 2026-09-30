@@ -35,11 +35,13 @@ pub fn scan(
     _now_ms: i64,
 ) -> Result<ScanOutcome, CoreError> {
     // fail closed：不解析、不入账；诊断说明取证缺口与取得途径。
+    // 游标取文件长度：内容未变化时走 framework 的 unchanged 短路，
+    // 不每轮重复推同一条诊断（文件增长由 generation 裁决仍会重探）。
     Ok(ScanOutcome {
         status: ScanStatus::Complete,
         cursor: Some(serde_json::to_value(ProbeCursor {
             generation: target.generation,
-            offset: 0,
+            offset: target.probe.len,
         })?),
         parse_context: None,
         events: Vec::new(),

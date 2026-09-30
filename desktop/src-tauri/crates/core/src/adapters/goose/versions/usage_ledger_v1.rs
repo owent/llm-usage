@@ -47,6 +47,9 @@ struct GooseCursor {
     generation: i64,
     /// 已处理的最大 ledger id（append-only 表；旧库兜底模式恒 0）。
     last_ledger_id: i64,
+    /// 旧库兜底模式已处理的最大 session id（字典序游标；缺省=从头）。
+    #[serde(default)]
+    last_session_id: String,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -144,23 +147,30 @@ pub fn scan(
         .as_ref()
         .and_then(|v| serde_json::from_value::<GooseParseContext>(v.clone()).ok())
         .unwrap_or_default();
-    if target.rescan || context.schema_fingerprint.as_deref() != Some(fingerprint.as_str()) {
+    // 指纹变化（列集变化 ⇒ 列义可能变化）：全量重读，旧游标作废。
+    let fingerprint_changed = context.schema_fingerprint.as_deref() != Some(fingerprint.as_str());
+    if target.rescan || fingerprint_changed {
         context = GooseParseContext::default();
         context.schema_fingerprint = Some(fingerprint.clone());
     }
     context.version_basis = Some(VersionBasis::KnownVersion);
-    let last_id =
-        if target.rescan || context.schema_fingerprint.as_deref() == Some(fingerprint.as_str()) {
-            stored
-                .cursor
-                .as_ref()
-                .and_then(|v| serde_json::from_value::<GooseCursor>(v.clone()).ok())
-                .filter(|c| c.generation == target.generation)
-                .map(|c| c.last_ledger_id)
-                .unwrap_or(0)
-        } else {
-            0
-        };
+    let stored_cursor = if target.rescan || fingerprint_changed {
+        None
+    } else {
+        stored
+            .cursor
+            .as_ref()
+            .and_then(|v| serde_json::from_value::<GooseCursor>(v.clone()).ok())
+            .filter(|c| c.generation == target.generation)
+    };
+    let last_id = stored_cursor
+        .as_ref()
+        .map(|c| c.last_ledger_id)
+        .unwrap_or(0);
+    let last_session_id = stored_cursor
+        .as_ref()
+        .map(|c| c.last_session_id.clone())
+        .unwrap_or_default();
 
     if has_ledger {
         let mut stmt = db.conn().prepare(
@@ -169,7 +179,7 @@ pub fn scan(
                     is_compaction
              FROM usage_ledger WHERE id > ?1 ORDER BY id LIMIT ?2",
         )?;
-        let rows = stmt.query_map([last_id, MAX_ROWS_PER_ROUND], |r| {
+        let rows = stmt.query_map([last_id, MAX_ROWS_PER_ROUND + 1], |r| {
             Ok((
                 r.get::<_, i64>(0)?,
                 r.get::<_, String>(1)?,
@@ -190,6 +200,7 @@ pub fn scan(
         let mut records_seen: u64 = 0;
         let mut max_id = last_id;
         for row in rows {
+            // 行级容错：单行类型错误不中止整轮（SQLite 动态类型）。
             let (
                 id,
                 session_id,
@@ -203,7 +214,18 @@ pub fn scan(
                 cost,
                 cost_source,
                 is_compaction,
-            ) = row?;
+            ) = match row {
+                Ok(r) => r,
+                Err(e) => {
+                    records_seen += 1;
+                    diagnostics.push(diag(
+                        "row_read_failed",
+                        "usage_ledger",
+                        &format!("row read failed: {e}; row skipped"),
+                    ));
+                    continue;
+                }
+            };
             records_seen += 1;
             max_id = max_id.max(id);
             let Some(occurred_ms) = created_s.and_then(seconds_to_ms) else {
@@ -221,12 +243,15 @@ pub fn scan(
                 cache_read_tokens: cache_read,
                 cache_write_tokens: cache_write,
             };
+            let cost_mapped = usd_cost(cost, cost_source.as_deref());
             if usage.input_tokens.is_none()
                 && usage.output_tokens.is_none()
                 && usage.total_tokens.is_none()
                 && usage.cache_read_tokens.is_none()
                 && usage.cache_write_tokens.is_none()
+                && cost_mapped.is_none()
             {
+                // token 全 NULL 且无有效 provider cost：无信息量行。
                 continue;
             }
             let mapped = map_goose_ledger(&usage);
@@ -267,10 +292,10 @@ pub fn scan(
                 ttft_ms: None,
                 attribution_status: AttributionStatus::Verified,
                 exclusion_reason: None,
-                cost: usd_cost(cost, cost_source.as_deref()),
+                cost: cost_mapped,
             });
         }
-        let hit_cap = records_seen as i64 >= MAX_ROWS_PER_ROUND;
+        let hit_cap = records_seen > MAX_ROWS_PER_ROUND as u64;
         Ok(ScanOutcome {
             status: if hit_cap {
                 ScanStatus::BudgetExhausted
@@ -280,6 +305,7 @@ pub fn scan(
             cursor: Some(serde_json::to_value(GooseCursor {
                 generation: target.generation,
                 last_ledger_id: max_id,
+                last_session_id: last_session_id.clone(),
             })?),
             parse_context: Some(serde_json::to_value(&context)?),
             events,
@@ -292,27 +318,48 @@ pub fn scan(
         })
     } else {
         // 旧库兜底：sessions.accumulated_* 会话级聚合（无逐请求表）。
+        // 超过单轮上限时用 session id 分页。读到末页后清空游标，
+        // 下一轮从头重读：旧库累计值会更新已有会话，不能永久跳过旧 id。
         let mut stmt = db.conn().prepare(
             "SELECT id, accumulated_total_tokens, accumulated_input_tokens,
                     accumulated_output_tokens, created_at, updated_at
-             FROM sessions LIMIT ?1",
+             FROM sessions WHERE id > ?1 ORDER BY id LIMIT ?2",
         )?;
-        let rows = stmt.query_map([MAX_ROWS_PER_ROUND], |r| {
-            Ok((
-                r.get::<_, String>(0)?,
-                r.get::<_, Option<i64>>(1)?,
-                r.get::<_, Option<i64>>(2)?,
-                r.get::<_, Option<i64>>(3)?,
-                r.get::<_, Option<String>>(4)?,
-                r.get::<_, Option<String>>(5)?,
-            ))
-        })?;
+        let rows = stmt.query_map(
+            rusqlite::params![&last_session_id, MAX_ROWS_PER_ROUND + 1],
+            |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, Option<i64>>(1)?,
+                    r.get::<_, Option<i64>>(2)?,
+                    r.get::<_, Option<i64>>(3)?,
+                    r.get::<_, Option<String>>(4)?,
+                    r.get::<_, Option<String>>(5)?,
+                ))
+            },
+        )?;
         let mut aggregates = Vec::new();
         let mut diagnostics = Vec::new();
         let mut records_seen: u64 = 0;
+        let mut max_session_id = last_session_id.clone();
         for row in rows {
-            let (id, total, input, output, created_at, updated_at) = row?;
+            // 行级容错：单行类型错误不中止整轮（SQLite 动态类型）。
+            let (id, total, input, output, created_at, updated_at) = match row {
+                Ok(r) => r,
+                Err(e) => {
+                    records_seen += 1;
+                    diagnostics.push(diag(
+                        "row_read_failed",
+                        "sessions",
+                        &format!("row read failed: {e}; row skipped"),
+                    ));
+                    continue;
+                }
+            };
             records_seen += 1;
+            if id.as_str() > max_session_id.as_str() {
+                max_session_id = id.clone();
+            }
             if input.is_none() && output.is_none() && total.is_none() {
                 continue;
             }
@@ -352,7 +399,7 @@ pub fn scan(
                 source_revision: Some(end_ms),
             });
         }
-        let hit_cap = records_seen as i64 >= MAX_ROWS_PER_ROUND;
+        let hit_cap = records_seen > MAX_ROWS_PER_ROUND as u64;
         Ok(ScanOutcome {
             status: if hit_cap {
                 ScanStatus::BudgetExhausted
@@ -362,6 +409,11 @@ pub fn scan(
             cursor: Some(serde_json::to_value(GooseCursor {
                 generation: target.generation,
                 last_ledger_id: 0,
+                last_session_id: if hit_cap {
+                    max_session_id
+                } else {
+                    String::new()
+                },
             })?),
             parse_context: Some(serde_json::to_value(&context)?),
             events: Vec::new(),

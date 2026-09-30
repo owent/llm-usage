@@ -6,7 +6,8 @@
 //! - 有自定义（enabled）计划的来源从全局刷新中排除，只按自身节奏触发；
 //! - 同源不并发（应用层 refresh 单飞合并）；禁用后无自动读取；
 //! - 错过时点（休眠/关机）醒来后只补扫一次（next_due 在运行后推进）；
-//! - 时区按规则 tz 计算；DST 歧义/无效时刻回退 +24h（保守，不丢触发）。
+//! - 时区按规则 tz 计算；DST 歧义/无效时刻由 jiff compatible 消歧
+//!   （歧义取较早时刻、无效时刻前移，不丢触发）。
 
 use crate::error::CoreError;
 use crate::storage::Storage;
@@ -75,10 +76,19 @@ pub fn validate_rule(rule: &SourceScheduleRule) -> Result<(), CoreError> {
         }
         other => return bad(&format!("unknown rule_kind {other:?}")),
     }
+    // tz 非空时必须可解析为 IANA 时区：否则 next_due_ms 静默返回 None，
+    // 计划永不触发且无任何报错（fail-closed 到 Validation，而非静默失效）。
+    let tz = rule.tz.trim();
+    if !tz.is_empty() && jiff::tz::TimeZone::get(tz).is_err() {
+        return bad(&format!("unknown IANA time zone {tz:?}"));
+    }
     Ok(())
 }
 
-/// 计算下一次到期毫秒（纯函数；tz 解析失败/时刻歧义回退 now+24h）。
+/// 计算下一次到期毫秒（纯函数）。
+/// None 只在：规则未启用、tz 名无法解析（validate_rule 已拦截非空 tz；
+/// 空 tz 继承的 fallback_tz 由设置层校验）、或 now 越出时间戳范围。
+/// daily/weekly 的 DST 歧义/无效时刻由 jiff compatible 消歧（不会走到失败分支）。
 pub fn next_due_ms(rule: &SourceScheduleRule, now_ms: i64, fallback_tz: &str) -> Option<i64> {
     if !rule.enabled {
         return None;
@@ -241,12 +251,18 @@ pub fn source_schedule(
     ))
 }
 
-/// 到期（且启用）的来源实例集合：next_due_at_ms <= now。
+/// 到期（计划启用且来源实例也启用）的实例集合：next_due_at_ms <= now。
+/// 联 source_instances.enabled：停用来源不被计划触发——否则到期实例每轮
+/// 被采集层跳过又按"无报告=失败"推进 next_due，error_summary 留误导性
+/// 失败记录（"禁用后无自动读取"合同）。INNER JOIN：无实例行的悬空计划
+/// 无从扫描，一并排除。
 pub fn due_instances(storage: &Storage, now_ms: i64) -> Result<BTreeSet<String>, CoreError> {
     let mut stmt = storage.conn().prepare(
-        "SELECT instance_id FROM extraction_schedules
-         WHERE scope='source' AND enabled=1 AND next_due_at_ms IS NOT NULL
-           AND next_due_at_ms <= ?1",
+        "SELECT e.instance_id FROM extraction_schedules e
+         JOIN source_instances s ON s.instance_id = e.instance_id
+         WHERE e.scope='source' AND e.enabled=1 AND s.enabled=1
+           AND e.next_due_at_ms IS NOT NULL
+           AND e.next_due_at_ms <= ?1",
     )?;
     let rows = stmt.query_map([now_ms], |r| r.get::<_, String>(0))?;
     let mut out = BTreeSet::new();
@@ -457,6 +473,14 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let storage = Storage::open(&dir.join("s.sqlite")).unwrap();
         let now = 1_800_000_000_000i64;
+        // due_instances 联 source_instances.enabled：先注册实例行（采集层 upsert）。
+        storage
+            .conn()
+            .execute(
+                "INSERT INTO source_instances(instance_id,agent,locality_basis,attribution_status,enabled,health,created_at_ms,updated_at_ms) VALUES ('inst-1','codex','local_filesystem','verified',1,'ok',?1,?1)",
+                [now],
+            )
+            .unwrap();
         upsert_source_schedule(
             &storage,
             &SourceScheduleRule {
@@ -489,5 +513,93 @@ mod tests {
         delete_source_schedule(&storage, "inst-1").unwrap();
         assert!(custom_scheduled_instances(&storage).unwrap().is_empty());
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn disabled_instance_not_due_and_reenable_recovers() {
+        let dir = std::env::temp_dir().join(format!(
+            "llm-usage-sched-dis-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let storage = Storage::open(&dir.join("s.sqlite")).unwrap();
+        let now = 1_800_000_000_000i64;
+        storage
+            .conn()
+            .execute(
+                "INSERT INTO source_instances(instance_id,agent,locality_basis,attribution_status,enabled,health,created_at_ms,updated_at_ms) VALUES ('inst-2','codex','local_filesystem','verified',1,'ok',?1,?1)",
+                [now],
+            )
+            .unwrap();
+        upsert_source_schedule(
+            &storage,
+            &SourceScheduleRule {
+                instance_id: "inst-2".into(),
+                rule_kind: "interval".into(),
+                interval_seconds: Some(60),
+                time_of_day: None,
+                weekday: None,
+                tz: String::new(),
+                enabled: true,
+            },
+            now,
+            "UTC",
+        )
+        .unwrap();
+        // 停用来源：到期也不返回（禁用后无自动读取）。
+        storage
+            .conn()
+            .execute(
+                "UPDATE source_instances SET enabled=0 WHERE instance_id='inst-2'",
+                [],
+            )
+            .unwrap();
+        assert!(due_instances(&storage, now + 120_000).unwrap().is_empty());
+        // 重新启用：计划恢复生效。
+        storage
+            .conn()
+            .execute(
+                "UPDATE source_instances SET enabled=1 WHERE instance_id='inst-2'",
+                [],
+            )
+            .unwrap();
+        assert_eq!(
+            due_instances(&storage, now + 120_000).unwrap(),
+            BTreeSet::from(["inst-2".to_string()])
+        );
+        // 停用计划本身（rule.enabled=false）同样不到期。
+        storage
+            .conn()
+            .execute(
+                "UPDATE extraction_schedules SET enabled=0 WHERE schedule_id='source:inst-2'",
+                [],
+            )
+            .unwrap();
+        assert!(due_instances(&storage, now + 120_000).unwrap().is_empty());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn invalid_tz_rejected_at_validation() {
+        let rule = SourceScheduleRule {
+            instance_id: "x".into(),
+            rule_kind: "daily".into(),
+            interval_seconds: None,
+            time_of_day: Some("09:00".into()),
+            weekday: None,
+            tz: "Not/AZone".into(),
+            enabled: true,
+        };
+        assert!(validate_rule(&rule).is_err());
+        // 合法 IANA 名通过。
+        let ok = SourceScheduleRule {
+            tz: "Asia/Shanghai".into(),
+            ..rule
+        };
+        assert!(validate_rule(&ok).is_ok());
     }
 }

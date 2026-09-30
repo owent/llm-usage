@@ -418,3 +418,40 @@ zoo/dsh/openclaw/hermes/codebuddy 未安装。
   前端：desktop/src/{App.svelte,lib/api.ts,lib/i18n.svelte.ts,components/*}；
 - core：query.rs（agent/hourly/heatmap）、calendar.rs；
 - 临时核对库：`C:\Users\owt50\AppData\Local\Temp\llm-appdata-test\`（系统临时目录，可清理）。
+
+## 2026-09-30 “清理全部数据并重新采集”改后台执行（不冻结 UI）+ 阶段进度
+
+### 问题与根因
+
+- 症状：点击“清理全部数据并重新采集”后 UI 冻结一段时间。
+- 根因：`clear_all_data`（清库前 VACUUM INTO 整库备份 + 10 表 DELETE 事务）与
+  随后 `refresh_sources`（整轮全量重采，清库后可达分钟级）都是同步 Tauri
+  命令，同步命令在主线程执行，阻塞 Windows 事件循环导致整个窗口冻结；
+  顶栏进度轮询同样无法刷新。
+
+### 实施
+
+- `clear_all_data` 改为后台线程任务（`AppState.clear_job_running` 原子标志
+  单例防重入；panic 经 catch_unwind 复位标志并发 failed 事件）：
+  等待进行中的采集结束（防清库与扫描并发回写"数据复活"）→ 备份 → 清库
+  （`clear_all_tables` 提取为独立函数）→ 触发全量重采，阶段经
+  `clear-all-progress` 事件推送（waiting/backup/clearing/cleared/rescan/done/failed）。
+- `refresh_sources` 同样改后台线程触发（手动刷新按钮不再阻塞 UI）；
+  重采百分比/ETA 继续由 `refresh_status` 顶栏轮询展示（采集中 3 秒间隔）。
+- 前端：`api.ts` 新增 `onClearAllProgress`（@tauri-apps/api/event listen）；
+  SettingsPanel 确认层实时显示阶段文案（10 语言新增
+  `cleanup.clearAllPhase.*`）+ 流动进度条（role=status/aria-live），
+  `cleared` 立即刷新统计、`done` 关闭确认层并展示各表清除汇总。
+
+### 验证
+
+- `cargo test --manifest-path desktop/src-tauri/Cargo.toml --locked -p llm-usage-desktop clear_all`：新增回归
+  `clear_all_tables_clears_resets_status_and_bumps_revision` 通过（清表、
+  source_files 状态重置 new、修订推进、操作日志补写）。
+- `npm run test:browser`：冒烟 mock 补 `transformCallback` 与
+  `plugin:event|listen`/`__TAURI_EVENT_PLUGIN_INTERNALS__`，新增清理流回归
+  （预警展示、waiting→clearing 阶段文案随事件推进、done 后确认层自动关闭、
+  已清理汇总出现）；全部通过。
+- `npm run verify` 退出码 0（Markdown/资产/脚本/UI/Svelte/fmt/clippy/Rust
+  测试/Web 构建）。真实桌面 GUI 上的长库清空体验（冻结消除）未在本轮
+  自动化覆盖内，属既有 M6 桌面验收范围。

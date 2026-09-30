@@ -72,11 +72,12 @@ impl crate::adapters::framework::SourceAdapter for CrushAdapter {
         use crate::adapters::framework::{DiscoveredRoot, RootBasis};
         // 注册表目录候选：CRUSH_GLOBAL_DATA → XDG → Windows LOCALAPPDATA。
         let mut registry_dirs: Vec<(std::path::PathBuf, RootBasis)> = Vec::new();
-        if let Some(dir) = ctx
-            .env
-            .get("CRUSH_GLOBAL_DATA")
-            .filter(|v| !v.trim().is_empty())
-        {
+        if let Some(dir) = ctx.env.get("CRUSH_GLOBAL_DATA").filter(|v| {
+            // 相对路径只能相对宿主进程 cwd 解析，采集侧无法复现：只接受绝对路径
+            // （与 GOOSE_PATH_ROOT 同口径）。
+            let t = v.trim();
+            !t.is_empty() && std::path::Path::new(t).is_absolute()
+        }) {
             registry_dirs.push((
                 std::path::PathBuf::from(dir.trim()),
                 RootBasis::EnvOverride("CRUSH_GLOBAL_DATA".to_string()),

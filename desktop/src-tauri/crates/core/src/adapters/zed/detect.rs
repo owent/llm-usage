@@ -34,15 +34,30 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     };
     let columns: Vec<String> = match conn.prepare("PRAGMA table_info(threads)") {
         Ok(mut stmt) => {
-            let mut rows = stmt.query([])?;
+            // 瞬态锁（产品进程持库）⇒ Pending 下轮重探，不固化为格式判定。
+            let mut rows = match stmt.query([]) {
+                Ok(rows) => rows,
+                Err(err) if common::is_busy_like(&err) => return Ok(DetectOutcome::Pending),
+                Err(err) => return Err(err.into()),
+            };
             let mut out = Vec::new();
-            while let Ok(Some(row)) = rows.next() {
-                if let Ok(name) = row.get::<_, String>(1) {
-                    out.push(name);
+            loop {
+                match rows.next() {
+                    Ok(Some(row)) => {
+                        if let Ok(name) = row.get::<_, String>(1) {
+                            out.push(name);
+                        }
+                    }
+                    Ok(None) => break,
+                    Err(err) if common::is_busy_like(&err) => {
+                        return Ok(DetectOutcome::Pending);
+                    }
+                    Err(err) => return Err(err.into()),
                 }
             }
             out
         }
+        Err(err) if common::is_busy_like(&err) => return Ok(DetectOutcome::Pending),
         Err(_) => Vec::new(),
     };
     if columns.is_empty() {

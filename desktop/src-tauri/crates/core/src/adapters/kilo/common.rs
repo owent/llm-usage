@@ -149,7 +149,7 @@ impl Default for StagingLimits {
             // 空间上限 2 GiB：更大的活库不强行暂存（busy/unsupported 保留旧结果）。
             max_bytes: 2 * 1024 * 1024 * 1024,
             // 时间上限 2s：超限放弃暂存并按 busy 上抛（单源每轮 30s 预算之内）。
-            max_time: Duration::from_secs(2),
+            max_time: Duration::from_secs(30),
         }
     }
 }

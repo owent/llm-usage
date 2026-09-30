@@ -33,16 +33,37 @@ pub fn map_copilot(raw: &CopilotUsage) -> MappedUsage {
         raw.cached_input_tokens,
         raw.cache_creation_input_tokens,
     ) {
-        (Some(total), Some(read), Some(write)) => sub_checked(
-            "input_uncached",
-            total,
-            read.saturating_add(write),
-            &mut diagnostics,
-        ),
+        (Some(total), Some(read), Some(write)) => {
+            // 缓存两桶相加溢出（各可达 MAX_TOKEN_VALUE）：派生中止记诊断，
+            // 不用 saturating 把失真值带进后续计算。
+            match read.checked_add(write) {
+                Some(sum) => sub_checked("input_uncached", total, sum, &mut diagnostics),
+                None => {
+                    diagnostics.push(crate::metrics::Contradiction {
+                        code: "negative_derived_field",
+                        field: "input_uncached",
+                        detail: format!(
+                            "cache buckets overflow: {read} + {write}; uncached not derived"
+                        ),
+                    });
+                    None
+                }
+            }
+        }
         _ => None,
     };
     let total = match (raw.input_tokens, raw.output_tokens) {
-        (Some(i), Some(o)) => i.checked_add(o),
+        (Some(i), Some(o)) => match i.checked_add(o) {
+            Some(t) if t <= crate::domain::MAX_TOKEN_VALUE => Some(t),
+            _ => {
+                diagnostics.push(crate::metrics::Contradiction {
+                    code: "token_shape_deviation",
+                    field: "total_tokens",
+                    detail: format!("derived total {i} + {o} out of range; kept unknown"),
+                });
+                None
+            }
+        },
         _ => None,
     };
     let usage = TokenUsage {
@@ -141,7 +162,7 @@ impl Default for StagingLimits {
         StagingLimits {
             pages_per_step: 512,
             max_bytes: 2 * 1024 * 1024 * 1024,
-            max_time: Duration::from_secs(2),
+            max_time: Duration::from_secs(30),
         }
     }
 }
@@ -262,3 +283,14 @@ pub(crate) const USAGE_EVENT_COLUMNS: &[&str] = &[
     "time_to_first_token_ms",
     "created_at",
 ];
+
+/// schema_version 表（单行 `version INTEGER`，本机实测 8）→ 注册表版本串。
+/// 探测与扫描共用：读不到（表缺失/查询失败）返回 None，按 LatestFallback 处理。
+pub(crate) fn read_schema_version(conn: &Connection) -> Option<String> {
+    let version: i64 = conn
+        .query_row("SELECT version FROM schema_version LIMIT 1", [], |r| {
+            r.get(0)
+        })
+        .ok()?;
+    Some(format!("assistant-usage-events-v{version}"))
+}

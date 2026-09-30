@@ -40,18 +40,54 @@ pub const JCODE_PARSER_VERSION: &str = "jcode-session-1";
 pub const JCODE_MAX_FILE_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_REASONABLE_TOKEN: i64 = crate::domain::MAX_TOKEN_VALUE;
 
-/// 游标：快照字节数 + journal 偏移（任一变化即全量重读，事件按消息 id 幂等）。
+/// journal 分页时保存位置及源文件指纹；读到末页后从头重读以处理
+/// 会话级 meta 更新。事件按消息 id upsert 幂等。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 struct JcodeCursor {
     generation: i64,
     snapshot_len: u64,
     journal_offset: u64,
+    #[serde(default = "first_journal_line")]
+    journal_line: u64,
+    #[serde(default)]
+    journal_probe: Option<JournalProbe>,
+}
+
+fn first_journal_line() -> u64 {
+    1
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+struct JournalProbe {
+    len: u64,
+    created_ms: Option<i64>,
+    head_hash: u64,
+    head_len: u64,
+    tail_hash: u64,
+}
+
+impl From<&crate::adapters::jsonl::FileProbe> for JournalProbe {
+    fn from(p: &crate::adapters::jsonl::FileProbe) -> Self {
+        Self {
+            len: p.len,
+            created_ms: p.created_ms,
+            head_hash: p.head_hash,
+            head_len: p.head_len,
+            tail_hash: p.tail_hash,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 struct JcodeParseContext {
     #[serde(default)]
     version_basis: Option<VersionBasis>,
+    #[serde(default)]
+    journal_provider_key: Option<String>,
+    #[serde(default)]
+    journal_model: Option<String>,
+    #[serde(default)]
+    journal_updated_at_ms: Option<i64>,
 }
 
 fn diag(code: &str, position: &str, message: &str) -> DiagnosticInput {
@@ -287,6 +323,47 @@ pub fn scan(
             });
         }
     };
+    let previous_cursor = if target.rescan {
+        None
+    } else {
+        stored
+            .cursor
+            .as_ref()
+            .and_then(|v| serde_json::from_value::<JcodeCursor>(v.clone()).ok())
+            .filter(|c| c.generation == target.generation && c.snapshot_len == bytes.len() as u64)
+    };
+    let journal_probe = if journal_path.is_file() {
+        Some(crate::adapters::jsonl::probe_file(&journal_path)?)
+    } else {
+        None
+    };
+    let resume = previous_cursor.filter(|c| {
+        c.journal_offset > 0
+            && journal_probe.as_ref().is_some_and(|now| {
+                c.journal_probe.is_some_and(|old| {
+                    matches!(
+                        crate::adapters::jsonl::decide_generation(
+                            &crate::adapters::jsonl::StoredFileState {
+                                generation: 0,
+                                len: old.len,
+                                created_ms: old.created_ms,
+                                head_hash: old.head_hash,
+                                head_len: old.head_len,
+                                tail_hash: old.tail_hash,
+                                cursor_offset: c.journal_offset,
+                            },
+                            now,
+                        ),
+                        crate::adapters::jsonl::GenerationDecision::Continue
+                    )
+                })
+            })
+    });
+    if resume.is_none() {
+        context.journal_provider_key = None;
+        context.journal_model = None;
+        context.journal_updated_at_ms = None;
+    }
     // 元数据：快照值 + journal 逐条覆盖（最后一条 journal 为准）。
     let mut provider_key = snapshot
         .get("provider_key")
@@ -296,6 +373,12 @@ pub fn scan(
         .get("model")
         .and_then(|v| v.as_str())
         .map(str::to_string);
+    let mut session_updated_at_ms = rfc3339_ms(snapshot.get("updated_at"));
+    if resume.is_some() {
+        provider_key = context.journal_provider_key.clone().or(provider_key);
+        model = context.journal_model.clone().or(model);
+        session_updated_at_ms = context.journal_updated_at_ms.or(session_updated_at_ms);
+    }
     let mut messages: Vec<MergedMessage> = snapshot
         .get("messages")
         .and_then(|v| v.as_array())
@@ -303,18 +386,28 @@ pub fn scan(
         .unwrap_or_default();
     let mut records_seen: u64 = messages.len() as u64;
     let mut diagnostics = Vec::new();
-    let mut journal_len: u64 = 0;
+    let mut next_journal_offset: u64 = 0;
+    let mut next_journal_line: u64 = 1;
+    let mut journal_stop: Option<crate::adapters::jsonl::StopReason> = None;
     if journal_path.is_file() {
         let read = crate::adapters::jsonl::read_jsonl(
             &journal_path,
-            0,
-            1,
+            resume.map(|c| c.journal_offset).unwrap_or(0),
+            resume.map(|c| c.journal_line).unwrap_or(1),
             &crate::adapters::jsonl::JsonlLimits {
                 max_lines: Some(100_000),
                 ..limits.jsonl.clone()
             },
         )?;
-        journal_len = read.next_offset;
+        next_journal_offset = read.next_offset;
+        next_journal_line = read.next_line_number;
+        for bad in &read.bad_lines {
+            diagnostics.push(diag(
+                bad.code,
+                &format!("journal:line:{}", bad.number),
+                "journal line not valid UTF-8; skipped",
+            ));
+        }
         for line in &read.lines {
             records_seen += 1;
             let Ok(value) = serde_json::from_str::<serde_json::Value>(&line.text) else {
@@ -332,6 +425,9 @@ pub fn scan(
                 if let Some(m) = meta.get("model").and_then(|v| v.as_str()) {
                     model = Some(m.to_string());
                 }
+                if let Some(updated_at_ms) = rfc3339_ms(meta.get("updated_at")) {
+                    session_updated_at_ms = Some(updated_at_ms);
+                }
             }
             if let Some(appended) = value.get("append_messages").and_then(|v| v.as_array()) {
                 for message in appended {
@@ -341,7 +437,22 @@ pub fn scan(
                 }
             }
         }
+        // journal 未读完（行数/时间预算或超限行）：尾部消息缺失，不能报
+        // Complete。分页游标从本轮末尾续读；读到末页后下一轮从头
+        // 重读，以便会话级 meta 更新能修订前页事件。
+        match read.stop {
+            crate::adapters::jsonl::StopReason::Eof => {
+                next_journal_offset = 0;
+                next_journal_line = 1;
+            }
+            stop => {
+                journal_stop = Some(stop);
+            }
+        }
     }
+    context.journal_provider_key = provider_key.clone();
+    context.journal_model = model.clone();
+    context.journal_updated_at_ms = session_updated_at_ms;
     // 崩溃窗口兜底：同 id 消息后者覆盖前者（journal 权威，persistence 同语义）。
     let mut events = Vec::new();
     let mut seen_ids: std::collections::BTreeMap<String, ()> = Default::default();
@@ -413,7 +524,9 @@ pub fn scan(
             usage: mapped.usage,
             quality: mapped.quality,
             lifecycle: Lifecycle::Final,
-            source_revision: None,
+            // journal meta.updated_at 是会话保存时间；消息完成时间不会随
+            // 后续同 id 更正必然变化。缺失修订依据时由 ingest 保留冲突。
+            source_revision: session_updated_at_ms,
             error_status: None,
             duration_ms: message.tool_duration_ms,
             ttft_ms: None,
@@ -422,12 +535,35 @@ pub fn scan(
             cost: None,
         });
     }
+    let status = match journal_stop {
+        None => ScanStatus::Complete,
+        Some(crate::adapters::jsonl::StopReason::Eof) => ScanStatus::Complete,
+        Some(crate::adapters::jsonl::StopReason::LineBudget)
+        | Some(crate::adapters::jsonl::StopReason::TimeBudget) => {
+            diagnostics.push(diag(
+                "journal_budget_exhausted",
+                &session_id,
+                "journal read stopped on budget; tail messages pending next round",
+            ));
+            ScanStatus::BudgetExhausted
+        }
+        Some(crate::adapters::jsonl::StopReason::LineTooLong { number, offset }) => {
+            diagnostics.push(diag(
+                "line_exceeds_cap",
+                &session_id,
+                &format!("journal line {number} at byte {offset} exceeds the cap; held for retry"),
+            ));
+            ScanStatus::LineTooLong
+        }
+    };
     Ok(ScanOutcome {
-        status: ScanStatus::Complete,
+        status,
         cursor: Some(serde_json::to_value(JcodeCursor {
             generation: target.generation,
             snapshot_len: bytes.len() as u64,
-            journal_offset: journal_len,
+            journal_offset: next_journal_offset,
+            journal_line: next_journal_line,
+            journal_probe: journal_probe.as_ref().map(JournalProbe::from),
         })?),
         parse_context: Some(serde_json::to_value(&context)?),
         events,

@@ -23,6 +23,8 @@ pub struct Selection {
 }
 
 /// 按格式版本选择实现；探测与扫描共用本函数（V30）。
+/// 注：analytics JSONL 无版本字段，detect 恒走文档级 KnownVersion 不调用
+/// 本函数；保留它是 V30 注册表合同的一部分（真实版本字段出现时接线）。
 pub fn select(found: Option<&str>) -> Selection {
     match found {
         Some(version) => {

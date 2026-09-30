@@ -41,21 +41,27 @@ impl crate::adapters::framework::SourceAdapter for AntigravityAdapter {
         use crate::adapters::framework::{DiscoveredRoot, RootBasis};
         let mut roots: Vec<(std::path::PathBuf, RootBasis)> = Vec::new();
         // gemini 根：GEMINI_CLI_HOME 覆盖（tokscale clients.rs:744-756）。
-        let gemini_root = ctx
+        // provenance 如实区分：env 覆盖命中记 EnvOverride，默认目录记 DefaultHome。
+        let env_hit = ctx
             .env
             .get("GEMINI_CLI_HOME")
-            .filter(|v| !v.trim().is_empty())
-            .map(|v| std::path::PathBuf::from(v.trim()))
-            .or_else(|| ctx.home_dir.as_ref().map(|h| h.join(".gemini")));
-        if let Some(root) = gemini_root {
+            .filter(|v| !v.trim().is_empty());
+        let gemini = match env_hit {
+            Some(v) => Some((
+                std::path::PathBuf::from(v.trim()),
+                RootBasis::EnvOverride("GEMINI_CLI_HOME".to_string()),
+            )),
+            None => ctx
+                .home_dir
+                .as_ref()
+                .map(|h| (h.join(".gemini"), RootBasis::DefaultHome)),
+        };
+        if let Some((root, basis)) = gemini {
             roots.push((
                 root.join("antigravity-cli").join("conversations"),
-                RootBasis::DefaultHome,
+                basis.clone(),
             ));
-            roots.push((
-                root.join("antigravity").join("conversations"),
-                RootBasis::DefaultHome,
-            ));
+            roots.push((root.join("antigravity").join("conversations"), basis));
         }
         for manual in &ctx.manual_roots {
             roots.push((manual.clone(), RootBasis::Manual));

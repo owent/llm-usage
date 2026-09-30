@@ -52,9 +52,10 @@
     await change(s, () => api.setSourceSchedule(s.instance_id, rule));
   }
   // 周名按当前语言 Intl 生成（周一=1…周日=7，与后端 ISO 对齐；基准 2024-01-01）。
+  // 渲染必须固定 UTC：本地时区渲染 UTC 零点会在负偏移时区错一天。
   const weekdayNames = $derived(
     Array.from({ length: 7 }, (_, i) =>
-      new Intl.DateTimeFormat(i18n.locale, { weekday: 'short' }).format(
+      new Intl.DateTimeFormat(i18n.locale, { weekday: 'short', timeZone: 'UTC' }).format(
         new Date(Date.UTC(2024, 0, 1 + i)),
       ),
     ),

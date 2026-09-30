@@ -25,6 +25,7 @@ const M8_AGENTS: &[&str] = &[
     "antigravity",
     "qoder",
 ];
+const M4_M5_BUDDY_AGENTS: &[&str] = &["codebuddy", "workbuddy"];
 const AGENTS: &[&str] = &["codex", "claude", "pi", "omp", "gemini", "qwen"];
 
 fn adapters_src() -> std::path::PathBuf {
@@ -36,7 +37,12 @@ fn adapters_src() -> std::path::PathBuf {
 #[test]
 fn every_implemented_agent_lives_in_its_own_directory() {
     let root = adapters_src();
-    let all: Vec<&str> = AGENTS.iter().chain(M8_AGENTS.iter()).copied().collect();
+    let all: Vec<&str> = AGENTS
+        .iter()
+        .chain(M8_AGENTS.iter())
+        .chain(M4_M5_BUDDY_AGENTS.iter())
+        .copied()
+        .collect();
     for agent in all {
         let dir = root.join(agent);
         assert!(dir.is_dir(), "agent {agent} must have its own directory");
@@ -87,7 +93,12 @@ fn product_specific_mappings_left_root_usage_map() {
 fn each_agent_registry_declares_verified_versions_and_latest() {
     // 注册表形状检查：每个 Agent 的 versions/mod.rs 登记已验证版本映射与
     // 最新实现常量（探测/扫描共用 select 的单一事实来源）。
-    let all: Vec<&str> = AGENTS.iter().chain(M8_AGENTS.iter()).copied().collect();
+    let all: Vec<&str> = AGENTS
+        .iter()
+        .chain(M8_AGENTS.iter())
+        .chain(M4_M5_BUDDY_AGENTS.iter())
+        .copied()
+        .collect();
     for agent in all {
         let registry =
             std::fs::read_to_string(adapters_src().join(agent).join("versions").join("mod.rs"))

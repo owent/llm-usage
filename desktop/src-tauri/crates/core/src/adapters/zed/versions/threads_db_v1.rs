@@ -22,9 +22,9 @@
 //! 如实标注）、桶合计作 Reconciliation 对照，不入账；逐次 usage 无时间戳
 //! （官方源码未见），区间用 created_at..updated_at，time_basis=Uncertain。
 //!
-//! 增量合同（SQLite 行）：游标 offset 恒 0（WAL 下字节长度不能作无变化
-//! 判定）；聚合按 scope_key upsert 幂等，source_revision = updated_at 毫秒
-//! （单调推进，旧值不覆盖新值）；单轮行数上限 50,000。
+//! 增量合同（SQLite 行）：线程 id 分页，末页后从头复查可变累计行；
+//! offset 恒 0（WAL 下字节长度不能作无变化判定）；聚合按 scope_key
+//! upsert 幂等，source_revision = updated_at 毫秒；单轮行数上限 50,000。
 
 use crate::adapters::framework::{
     ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -51,6 +51,8 @@ struct ZedCursor {
     generation: i64,
     #[allow(dead_code)]
     offset: u64,
+    #[serde(default)]
+    last_thread_id: String,
 }
 
 fn diag(code: &str, id_pos: &str, message: &str) -> DiagnosticInput {
@@ -73,9 +75,11 @@ fn rfc3339_ms(value: &str) -> Option<i64> {
 }
 
 /// 解压 zstd blob（有界：超上限返回 None，调用方记诊断跳行）。
+/// json 分支同样限长——64 MiB 上限约束的是"单 blob 解压后大小"，
+/// 与存储编码无关（能力表声明口径）。
 fn decode_blob(data_type: &str, data: &[u8]) -> Option<Vec<u8>> {
     if data_type.eq_ignore_ascii_case("json") {
-        return Some(data.to_vec());
+        return (data.len() <= MAX_BLOB_BYTES).then(|| data.to_vec());
     }
     if !data_type.eq_ignore_ascii_case("zstd") {
         return None;
@@ -131,22 +135,31 @@ fn request_usage_summary(value: Option<&serde_json::Value>) -> Option<(usize, i6
     let mut sum = 0i64;
     for bucket in &buckets {
         let usage = parse_token_usage(Some(bucket))?;
-        sum = sum.saturating_add(usage.total());
+        // checked 算术合同：溢出（桶值极大时）拒绝该线程，不饱和隐藏。
+        sum = sum.checked_add(usage.total()?)?;
     }
     Some((buckets.len(), sum))
 }
 
 type ThreadRow = (String, String, String, Vec<u8>, Option<String>);
 
-fn load_rows(db: &SourceDb, has_created_at: bool) -> Result<Vec<ThreadRow>, CoreError> {
+fn load_rows(
+    db: &SourceDb,
+    has_created_at: bool,
+    after_id: &str,
+    diagnostics: &mut Vec<DiagnosticInput>,
+) -> Result<Vec<ThreadRow>, CoreError> {
+    // 多取一行判定是否还有更多（恰好 MAX 行不误报 BudgetExhausted）。
     let sql = if has_created_at {
-        "SELECT id, updated_at, data_type, data, created_at FROM threads LIMIT ?1"
+        "SELECT id, updated_at, data_type, data, created_at FROM threads
+         WHERE id > ?1 ORDER BY id LIMIT ?2"
     } else {
-        "SELECT id, updated_at, data_type, data, NULL FROM threads LIMIT ?1"
+        "SELECT id, updated_at, data_type, data, NULL FROM threads
+         WHERE id > ?1 ORDER BY id LIMIT ?2"
     };
     let mut stmt = db.conn().prepare(sql).map_err(CoreError::Sqlite)?;
     let rows = stmt
-        .query_map([MAX_ROWS_PER_ROUND], |r| {
+        .query_map(rusqlite::params![after_id, MAX_ROWS_PER_ROUND + 1], |r| {
             Ok((
                 r.get::<_, String>(0)?,
                 r.get::<_, String>(1)?,
@@ -155,16 +168,26 @@ fn load_rows(db: &SourceDb, has_created_at: bool) -> Result<Vec<ThreadRow>, Core
                 r.get::<_, Option<String>>(4)?,
             ))
         })
-        .map_err(CoreError::Sqlite)?
-        .collect::<Result<Vec<_>, _>>()
         .map_err(CoreError::Sqlite)?;
-    Ok(rows)
+    // 行级容错：单行类型错误（SQLite 动态类型）跳行记诊断，不中止整轮。
+    let mut out = Vec::new();
+    for row in rows {
+        match row {
+            Ok(r) => out.push(r),
+            Err(e) => diagnostics.push(diag(
+                "row_read_failed",
+                "threads",
+                &format!("row read failed: {e}; row skipped"),
+            )),
+        }
+    }
+    Ok(out)
 }
 
 /// 增量扫描一个 threads.db（统一入口 `ZedAdapter::scan` 分派）。
 pub fn scan(
     target: &ScanTarget,
-    _stored: &StoredScanState,
+    stored: &StoredScanState,
     _limits: &ScanLimits,
     _now_ms: i64,
 ) -> Result<ScanOutcome, CoreError> {
@@ -183,14 +206,26 @@ pub fn scan(
         }
         found
     };
-    let rows = load_rows(&db, has_created_at)?;
-    let hit_cap = rows.len() as i64 >= MAX_ROWS_PER_ROUND;
     let mut aggregates = Vec::new();
     let mut diagnostics = Vec::new();
     let mut reconciliations = Vec::new();
     let mut external_reported = false;
     let mut imported_reported = false;
     let mut blob_failures: u64 = 0;
+    let after_id = if target.rescan {
+        String::new()
+    } else {
+        stored
+            .cursor
+            .as_ref()
+            .and_then(|v| serde_json::from_value::<ZedCursor>(v.clone()).ok())
+            .filter(|c| c.generation == target.generation)
+            .map(|c| c.last_thread_id)
+            .unwrap_or_default()
+    };
+    let rows = load_rows(&db, has_created_at, &after_id, &mut diagnostics)?;
+    let hit_cap = rows.len() as i64 > MAX_ROWS_PER_ROUND;
+    let last_thread_id = rows.last().map(|r| r.0.clone()).unwrap_or(after_id);
     for (thread_id, updated_at, data_type, data, created_at) in &rows {
         let position = format!("thread:{thread_id}");
         let Some(blob) = decode_blob(data_type, data) else {
@@ -257,6 +292,15 @@ pub fn scan(
             ));
             continue;
         };
+        let Some(cumulative_total) = cumulative.total() else {
+            blob_failures += 1;
+            diagnostics.push(diag(
+                "token_usage_overflow",
+                &position,
+                "cumulative token buckets overflow i64; thread skipped",
+            ));
+            continue;
+        };
         let Some((bucket_count, bucket_sum)) =
             request_usage_summary(document.get("request_token_usage"))
         else {
@@ -264,7 +308,7 @@ pub fn scan(
             diagnostics.push(diag(
                 "request_usage_shape_deviation",
                 &position,
-                "request_token_usage is neither an object nor an array; treated as unusable",
+                "request_token_usage is neither an object nor an array, or its bucket sum overflowed; treated as unusable",
             ));
             continue;
         };
@@ -299,10 +343,10 @@ pub fn scan(
             reconciliations.push(crate::adapters::framework::Reconciliation {
                 series: "request_token_usage_vs_cumulative".to_string(),
                 detail_sum: bucket_sum,
-                snapshot_final: Some(cumulative.total()),
+                snapshot_final: Some(cumulative_total),
                 carried_sum: 0,
-                difference: Some(bucket_sum - cumulative.total()),
-                verdict: if bucket_sum == cumulative.total() {
+                difference: Some(bucket_sum - cumulative_total),
+                verdict: if bucket_sum == cumulative_total {
                     "matched".to_string()
                 } else {
                     // 覆盖语义（官方 thread.rs:2893）下逐桶和可能小于累计值。
@@ -320,6 +364,11 @@ pub fn scan(
         cursor: Some(serde_json::to_value(ZedCursor {
             generation: target.generation,
             offset: 0,
+            last_thread_id: if hit_cap {
+                last_thread_id
+            } else {
+                String::new()
+            },
         })?),
         parse_context: None,
         events: Vec::new(),
@@ -351,7 +400,7 @@ mod tests {
     fn token_usage_defaults_to_reported_zero() {
         // 官方 skip_serializing_if 语义：字段缺失 = 已报告 0，不是未知。
         let usage = parse_token_usage(None).unwrap();
-        assert_eq!(usage.total(), 0);
+        assert_eq!(usage.total(), Some(0));
         let usage = parse_token_usage(Some(&serde_json::json!({
             "input_tokens": 120, "output_tokens": 34
         })))
@@ -359,6 +408,12 @@ mod tests {
         assert_eq!(usage.input_tokens, 120);
         assert_eq!(usage.cache_read_input_tokens, 0);
         assert!(parse_token_usage(Some(&serde_json::json!({"input_tokens": -1}))).is_none());
+        let overflowing = parse_token_usage(Some(&serde_json::json!({
+            "input_tokens": crate::domain::MAX_TOKEN_VALUE,
+            "output_tokens": crate::domain::MAX_TOKEN_VALUE
+        })))
+        .unwrap();
+        assert_eq!(overflowing.total(), None);
     }
 
     #[test]

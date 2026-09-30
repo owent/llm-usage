@@ -179,7 +179,7 @@ impl crate::adapters::framework::SourceAdapter for JunieAdapter {
                 "profile": "无",
             }),
             detection: serde_json::json!({
-                "magic": "文件头 64 KiB 含 LlmResponseMetadataEvent/modelUsage 指纹",
+                "magic": "事件指纹在头 64 KiB；已确认事件日志但无用量指纹时分块搜索至 4 MiB，仍无则 Pending 重探（不误报 UnknownFormat）",
                 "version_field": "无；文档级锚点 junie-events-doc-1（tokscale 证据）",
                 "registry": "adapters/junie/versions 注册表（唯一条目）",
                 "fail_closed": true,

@@ -73,7 +73,7 @@ impl Default for StagingLimits {
         StagingLimits {
             pages_per_step: 512,
             max_bytes: 2 * 1024 * 1024 * 1024,
-            max_time: Duration::from_secs(2),
+            max_time: Duration::from_secs(30),
         }
     }
 }

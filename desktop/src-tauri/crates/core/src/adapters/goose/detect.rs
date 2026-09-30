@@ -10,20 +10,21 @@ use super::versions;
 
 pub const GOOSE_FORMAT: &str = "goose-sessions-db";
 
-fn table_columns(conn: &rusqlite::Connection, table: &str) -> Vec<String> {
-    let Ok(mut stmt) = conn.prepare(&format!("PRAGMA table_info({table})")) else {
-        return Vec::new();
-    };
-    let Ok(mut rows) = stmt.query([]) else {
-        return Vec::new();
-    };
+/// 表列集探测：Ok(None)=表不存在；Ok(Some)=列集；Err=瞬态/查询错误
+/// （busy 类错误由调用方映射 Pending，不能吞成"表不存在"误判格式不明）。
+fn table_columns(
+    conn: &rusqlite::Connection,
+    table: &str,
+) -> Result<Option<Vec<String>>, rusqlite::Error> {
+    let mut stmt = conn.prepare(&format!("PRAGMA table_info({table})"))?;
+    let mut rows = stmt.query([])?;
     let mut out = Vec::new();
-    while let Ok(Some(row)) = rows.next() {
+    while let Some(row) = rows.next()? {
         if let Ok(name) = row.get::<_, String>(1) {
             out.push(name);
         }
     }
-    out
+    Ok(if out.is_empty() { None } else { Some(out) })
 }
 
 fn missing(columns: &[String], required: &[&'static str]) -> Vec<&'static str> {
@@ -44,7 +45,12 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
             });
         }
     };
-    let ledger = table_columns(&conn, "usage_ledger");
+    let ledger = match table_columns(&conn, "usage_ledger") {
+        Ok(cols) => cols.unwrap_or_default(),
+        // 瞬态锁（产品进程持库写入）⇒ Pending 下轮重探。
+        Err(err) if common::is_busy_like(&err) => return Ok(DetectOutcome::Pending),
+        Err(err) => return Err(err.into()),
+    };
     if !ledger.is_empty() {
         let missing = missing(&ledger, common::LEDGER_COLUMNS);
         if missing.is_empty() {
@@ -58,7 +64,11 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
             reason: format!("usage_ledger missing required columns: {missing:?}"),
         });
     }
-    let sessions = table_columns(&conn, "sessions");
+    let sessions = match table_columns(&conn, "sessions") {
+        Ok(cols) => cols.unwrap_or_default(),
+        Err(err) if common::is_busy_like(&err) => return Ok(DetectOutcome::Pending),
+        Err(err) => return Err(err.into()),
+    };
     if sessions.is_empty() {
         return Ok(DetectOutcome::UnknownFormat {
             reason: "no usage_ledger/sessions tables; not a Goose sessions database".to_string(),

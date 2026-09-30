@@ -28,6 +28,38 @@ pub const DEFAULT_SOURCE_TIME_BUDGET: std::time::Duration = std::time::Duration:
 pub const DISCOVER_MAX_FILES: usize = 20_000;
 pub const DISCOVER_MAX_DIRS: usize = 50_000;
 
+/// detect 入口的瞬态 IO 错误判定：杀软/产品进程短暂持锁
+/// （Windows 共享违例 → PermissionDenied）、超时、枚举后文件被清理。
+/// 瞬态错误必须 Pending 下轮重探，不能固化为扫描失败或 UnknownFormat。
+pub fn is_transient_io(err: &std::io::Error) -> bool {
+    matches!(
+        err.kind(),
+        std::io::ErrorKind::PermissionDenied
+            | std::io::ErrorKind::WouldBlock
+            | std::io::ErrorKind::TimedOut
+            | std::io::ErrorKind::Interrupted
+            | std::io::ErrorKind::NotFound
+    )
+}
+
+/// detect 文件头读取助手：`Ok(None)` = 瞬态不可读（调用方返回 Pending）；
+/// 硬错误上抛 CoreError。
+pub fn read_detect_head(path: &Path, head_bytes: usize) -> Result<Option<Vec<u8>>, CoreError> {
+    use std::io::Read as _;
+    let file = match std::fs::File::open(path) {
+        Ok(file) => file,
+        Err(err) if is_transient_io(&err) => return Ok(None),
+        Err(err) => return Err(err.into()),
+    };
+    let mut head = Vec::with_capacity(head_bytes);
+    match file.take(head_bytes as u64).read_to_end(&mut head) {
+        Ok(_) => {}
+        Err(err) if is_transient_io(&err) => return Ok(None),
+        Err(err) => return Err(err.into()),
+    }
+    Ok(Some(head))
+}
+
 /// 发现上下文。环境变量以显式 map 传入，便于测试且不依赖真实进程环境。
 #[derive(Debug, Clone, Default)]
 pub struct DiscoverContext {
@@ -637,6 +669,10 @@ impl InstanceFilter {
 }
 
 /// 带实例过滤的运行（run_adapter_scan 的过滤版；逐源定时接线用）。
+/// 停用实例（source_instances.enabled=0）在统一门控，任何触发路径
+/// （Interval/Startup/Manual/FixedTime）都不读取——"只读取用户启用的
+/// 本地来源"与 set_source_enabled"停用后不再读取该实例"的合同。
+/// 停用集加载失败时本适配器 fail-closed（宁可不扫，不越权读取）。
 pub fn run_adapter_scan_filtered(
     storage: &Storage,
     adapter: &dyn SourceAdapter,
@@ -644,6 +680,17 @@ pub fn run_adapter_scan_filtered(
     config: &RunConfig,
     filter: &InstanceFilter,
 ) -> Result<Vec<SourceRunReport>, CoreError> {
+    let disabled: BTreeSet<String> = {
+        let mut stmt = storage
+            .conn()
+            .prepare("SELECT instance_id FROM source_instances WHERE enabled=0")?;
+        let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
+        let mut set = BTreeSet::new();
+        for row in rows {
+            set.insert(row?);
+        }
+        set
+    };
     let mut reports = Vec::new();
     let roots = adapter.discover(ctx);
     // 根去重（环境覆盖/默认/手工可能指向同一目录；Windows 大小写别名先归一）。
@@ -662,7 +709,7 @@ pub fn run_adapter_scan_filtered(
     let capability = adapter.capability();
     for (index, root) in roots.iter().enumerate() {
         let instance_id = adapter.instance_id(root);
-        if !filter.allows(&instance_id) {
+        if disabled.contains(&instance_id) || !filter.allows(&instance_id) {
             continue;
         }
         let mut report = SourceRunReport {

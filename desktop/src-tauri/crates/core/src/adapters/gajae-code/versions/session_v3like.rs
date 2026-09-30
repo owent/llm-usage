@@ -149,7 +149,8 @@ pub fn scan(
     now_ms: i64,
 ) -> Result<ScanOutcome, CoreError> {
     let mut context = restore_context(stored, target.rescan);
-    context.version_basis = Some(VersionBasis::KnownVersion);
+    // version_basis 由会话头 version 字段确定（见 entry_type=="session" 分支）；
+    // 增量续扫时从 parse_context 恢复，不硬编码。
     let cursor = restore_cursor(stored, target.generation, target.rescan);
     let read = read_jsonl(
         &target.path,
@@ -188,6 +189,12 @@ pub fn scan(
         }
         if entry_type == "session" {
             context.session_id = value.get("id").and_then(|v| v.as_str()).map(str::to_string);
+            // 与 detect 同规则：version==5 为已验证版本；其他/缺失按
+            // LatestFallback 如实标注（不能虚标 KnownVersion）。
+            context.version_basis = Some(match value.get("version").and_then(|v| v.as_i64()) {
+                Some(5) => VersionBasis::KnownVersion,
+                _ => VersionBasis::LatestFallback,
+            });
             continue;
         }
         if entry_type != "message" {
@@ -275,7 +282,11 @@ pub fn scan(
             record_kind: RecordKind::ModelCall,
             schema_version: GJC_FORMAT_VERSION.to_string(),
             parser_version: GJC_PARSER_VERSION.to_string(),
-            parse_basis: Some(VersionBasis::KnownVersion),
+            parse_basis: Some(
+                context
+                    .version_basis
+                    .unwrap_or(VersionBasis::LatestFallback),
+            ),
             origin_call_id: message
                 .get("responseId")
                 .and_then(|v| v.as_str())

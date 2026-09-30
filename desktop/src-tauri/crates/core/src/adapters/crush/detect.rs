@@ -21,20 +21,36 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
         }
     };
     let columns: Vec<String> = {
-        let Ok(mut stmt) = conn.prepare("PRAGMA table_info(sessions)") else {
-            return Ok(DetectOutcome::UnknownFormat {
-                reason: "no sessions table; not a Crush database".to_string(),
-            });
+        let mut stmt = match conn.prepare("PRAGMA table_info(sessions)") {
+            Ok(stmt) => stmt,
+            // 瞬态锁（超过 busy_timeout 的持库）⇒ Pending，不误判格式不明。
+            Err(err) if common::is_busy_like(&err) => return Ok(DetectOutcome::Pending),
+            Err(_) => {
+                return Ok(DetectOutcome::UnknownFormat {
+                    reason: "no sessions table; not a Crush database".to_string(),
+                });
+            }
         };
-        let Ok(mut rows) = stmt.query([]) else {
-            return Ok(DetectOutcome::UnknownFormat {
-                reason: "sessions table probe failed".to_string(),
-            });
+        let mut rows = match stmt.query([]) {
+            Ok(rows) => rows,
+            Err(err) if common::is_busy_like(&err) => return Ok(DetectOutcome::Pending),
+            Err(_) => {
+                return Ok(DetectOutcome::UnknownFormat {
+                    reason: "sessions table probe failed".to_string(),
+                });
+            }
         };
         let mut out = Vec::new();
-        while let Ok(Some(row)) = rows.next() {
-            if let Ok(name) = row.get::<_, String>(1) {
-                out.push(name);
+        loop {
+            match rows.next() {
+                Ok(Some(row)) => {
+                    if let Ok(name) = row.get::<_, String>(1) {
+                        out.push(name);
+                    }
+                }
+                Ok(None) => break,
+                Err(err) if common::is_busy_like(&err) => return Ok(DetectOutcome::Pending),
+                Err(_) => break,
             }
         }
         out

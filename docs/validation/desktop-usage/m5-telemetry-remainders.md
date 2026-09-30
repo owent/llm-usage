@@ -19,6 +19,11 @@ V20 性能初值、M7 空闲内存复测。不提交、不推送、不部署。
   session_files/session_refs 表，**无 usage 表**（本机实测）——与 A06
   "本地无逐次用量、需启用遥测"结论一致。
 
+后续源码调查补充：上述 CodeBuddy 结论只针对**本轮本机目录状态和 OTel
+file exporter**。官方目录文档另确认 `~/.codebuddy/projects` 会话 JSONL，第三方
+源码确认其中的用量字段；WorkBuddy `.workbuddy/projects` 也有第三方源码证据。
+两者已按[本地会话记录](m4-buddy-local.md)文档级接入，本机仍无真实样本。
+
 ## M5 实施
 
 ### 1. Copilot CLI 适配器（真实数据核对 PASS）
@@ -128,9 +133,9 @@ release 构建（LLMUsage.exe）GUI 启动 + headless 扫描后空闲：
 | 项 | 状态 | 阻塞 |
 | --- | --- | --- |
 | M5 VS Code/Copilot CLI file exporter 真实样本 | 待用户启用 exporter | 载体需启用；行级 schema 待样本核验 |
-| M5 CodeBuddy 端到端（真实 CLI 打接收器） | 待用户启用接收器并使用 CodeBuddy | 接收器已实现并 E2E 验证（合成载荷） |
+| M5 CodeBuddy 端到端（真实 CLI 打接收器） | 待用户启用接收器并使用 CodeBuddy；本地会话另见 [记录](m4-buddy-local.md) | 接收器已实现并 E2E 验证（合成载荷）；双载体重叠待消解 |
 | M2 claude/gemini/qwen 真实 fixture | 无本机数据 | Claude 复查仅空目录 |
-| M4 WorkBuddy | 目录重现但为空 | 无数据无格式 |
+| M4 WorkBuddy | [本地会话适配器](m4-buddy-local.md)已注册，后续本机 8 文件/420 事件核对通过 | trace 与 session 关系及跨版本待核 |
 | M3/M4/M8 真实数据验收 | 后置 | 本机未安装/无数据 |
 | F2 费用引擎实施 | 调研完成，实施待排期 | 合同规定另行拆分排期（7 项任务+V29） |
 | M6 真实桌面逐操作验收 V13–V18/V23–V25、V24 系统任务真实验收 | 待实机操作 | 需 GUI 人工/GUI 自动化记录 |

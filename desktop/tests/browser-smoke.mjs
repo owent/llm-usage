@@ -33,9 +33,24 @@ await page.addInitScript(() => {
   let finished = 1790550000000;
   window.appCalls = [];
   window.detailTotal = 123;
-  window.__TAURI_INTERNALS__ = { invoke: async (cmd, args={}) => {
+  // 事件订阅（clear-all-progress 等）：transformCallback 注册回调，
+  // plugin:event|listen/unlisten 登记；emitLater 供 mock 命令推送阶段事件。
+  let cbSeq = 0;
+  const tauriCallbacks = new Map();
+  const eventListeners = {};
+  const emitLater = (event, payload, delay) => setTimeout(() => {
+    for (const id of eventListeners[event] ?? []) tauriCallbacks.get(id)?.({ event, id, payload });
+  }, delay);
+  window.__TAURI_INTERNALS__ = {
+    transformCallback: (callback) => { const id = ++cbSeq; tauriCallbacks.set(id, callback); return id; },
+  };
+  // @tauri-apps/api 2.12 的 listen/unlisten 需要的插件内部对象（冒烟环境无真实运行时）。
+  window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
+  window.__TAURI_INTERNALS__.invoke = async (cmd, args={}) => {
     window.appCalls.push({cmd,args});
     const q=args.q;
+    if(cmd==='plugin:event|listen') { (eventListeners[args.event] ??= []).push(args.handler); return; }
+    if(cmd==='plugin:event|unlisten') return;
     if(cmd==='get_settings') return settings;
     if(cmd==='set_settings') { settings=args.settings; return; }
     if(cmd==='list_users') return {users,current};
@@ -72,8 +87,19 @@ await page.addInitScript(() => {
     if(cmd==='diagnostic_logs') return {rows:[]};
     if(cmd==='assign_source_user') {owners[args.instanceId]=args.userId;return;}
     if(cmd==='set_source_enabled') return;
+    if(cmd==='clear_all_preview') return {event_count:42, missing_files:1, total_files:7};
+    if(cmd==='clear_all_data') {
+      // 后台任务阶段事件序列（fake clock 驱动）：waiting→backup→clearing→cleared→rescan→done。
+      emitLater('clear-all-progress', {phase:'waiting'}, 0);
+      emitLater('clear-all-progress', {phase:'backup'}, 200);
+      emitLater('clear-all-progress', {phase:'clearing'}, 600);
+      emitLater('clear-all-progress', {phase:'cleared', cleared:{usage_events:42, diagnostics:3}, data_revision:6, backup:null}, 1000);
+      emitLater('clear-all-progress', {phase:'rescan'}, 1100);
+      emitLater('clear-all-progress', {phase:'done', rescan_started:true}, 1700);
+      return {started:true};
+    }
     throw new Error(`Unhandled command ${cmd}`);
-  }};
+  };
 });
 await page.goto('http://127.0.0.1:1421');
 await page.waitForSelector('.today-cards .value');
@@ -167,6 +193,19 @@ for (const locale of ['zh-TW','ko','fr','de','pt-BR','ru','en','zh-CN']) {
     await page.setViewportSize({width:1440,height:1100});
   }
 }
+// 清理全部数据（后台任务事件驱动）：确认层展示缺失文件预警与阶段进度，
+// done 后自动关闭并给出已清理汇总。
+await page.getByRole('button', { name: '归档保留', exact: true }).click();
+await page.getByRole('button', { name: '清理全部数据并重新采集', exact: true }).click();
+await page.clock.runFor(300);
+assert.match(await page.locator('.dialog').textContent(), /无法重新采集/, 'preview warning is shown');
+await page.locator('.dialog').getByRole('button', { name: '清理全部数据并重新采集' }).click();
+assert.match(await page.locator('.dialog').getByRole('status').textContent(), /等待当前采集结束/, 'clear-all reports its background phase');
+await page.clock.runFor(700);
+assert.match(await page.locator('.dialog').getByRole('status').textContent(), /正在清理数据/, 'phase text advances from events');
+await page.clock.runFor(1200);
+assert.equal(await page.locator('.dialog').count(), 0, 'dialog closes when the background job finishes');
+assert.match(await page.locator('.ok').filter({ hasText: '已清理' }).first().textContent(), /已清理：/, 'cleared counts are summarized');
 await page.getByRole('navigation').first().getByRole('button',{name:'总览',exact:true}).click();
 await page.setViewportSize({width:760,height:1000});
 await page.screenshot({path:out+'overview-narrow.png',fullPage:true});

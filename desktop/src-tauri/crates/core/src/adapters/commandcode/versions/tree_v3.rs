@@ -357,7 +357,8 @@ pub fn scan(
     let mut on_path = vec![false; entries.len()];
     let mut cursor: Option<usize> = entries.len().checked_sub(1);
     let mut current_model: Option<String> = None;
-    // 预扫 model_change（链上归属：不晚于调用的最近 model_change/entry.model）。
+    // 末条目回溯 parentId 链标记 on_path（环保护）；model_change 归属在
+    // 下一步按文件顺序推进时完成。
     while let Some(index) = cursor {
         if on_path[index] {
             break; // 环保护。

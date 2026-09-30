@@ -17,7 +17,7 @@
 //!   在 turn 内多请求时后写覆盖前写（官方 thread.rs:2893 清零语义），
 //!   求和会漏计 ⇒ 线程总量以 cumulative_token_usage 为准，逐桶只作对账。
 
-use crate::adapters::usage_map::{finish, MappedUsage};
+use crate::adapters::usage_map::{finish_parallel, MappedUsage};
 use crate::domain::{FieldQuality as Q, TokenQuality, TokenUsage};
 
 /// threads.data blob 内 TokenUsage 四桶（缺省=0：官方 skip_serializing_if 语义）。
@@ -30,11 +30,13 @@ pub struct ZedUsage {
 }
 
 impl ZedUsage {
-    pub fn total(&self) -> i64 {
+    /// 四桶合计（派生值，checked 算术合同：任一桶可达 MAX_TOKEN_VALUE，
+    /// 四桶相加可溢出 i64 ⇒ None 表示溢出，调用方拒绝该线程而非饱和隐藏）。
+    pub fn total(&self) -> Option<i64> {
         self.input_tokens
-            .saturating_add(self.output_tokens)
-            .saturating_add(self.cache_read_input_tokens)
-            .saturating_add(self.cache_creation_input_tokens)
+            .checked_add(self.output_tokens)?
+            .checked_add(self.cache_read_input_tokens)?
+            .checked_add(self.cache_creation_input_tokens)
     }
 }
 
@@ -61,7 +63,7 @@ pub fn map_zed(raw: &ZedUsage) -> MappedUsage {
         total_tokens: Q::Unknown,
         source_total: Q::Unknown,
     };
-    finish(usage, quality, Vec::new())
+    finish_parallel(usage, quality, Vec::new())
 }
 
 // ---- 源库只读访问（复制自 adapters/hermes/common.rs，各目录独立合同）----
@@ -119,7 +121,7 @@ impl Default for StagingLimits {
         StagingLimits {
             pages_per_step: 512,
             max_bytes: 2 * 1024 * 1024 * 1024,
-            max_time: Duration::from_secs(2),
+            max_time: Duration::from_secs(30),
         }
     }
 }

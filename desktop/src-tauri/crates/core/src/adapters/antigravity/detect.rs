@@ -21,14 +21,28 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
             });
         }
     };
-    let has_table: bool = conn
-        .query_row(
-            "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name='gen_metadata'",
-            [],
-            |r| r.get::<_, i64>(0),
-        )
-        .map(|v| v > 0)
+    // 空库（0 字节新文件）：尚无内容可判定，Pending 下轮重探。
+    let is_empty = std::fs::metadata(path)
+        .map(|m| m.len() == 0)
         .unwrap_or(false);
+    if is_empty {
+        return Ok(DetectOutcome::Pending);
+    }
+    // busy 是瞬态（宿主写库中）：Pending 下轮重探，不误报 UnknownFormat。
+    if conn
+        .busy_timeout(std::time::Duration::from_millis(150))
+        .is_err()
+    {
+        return Ok(DetectOutcome::Pending);
+    }
+    let has_table: bool = match conn.query_row(
+        "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name='gen_metadata'",
+        [],
+        |r| r.get::<_, i64>(0),
+    ) {
+        Ok(v) => v > 0,
+        Err(_) => return Ok(DetectOutcome::Pending),
+    };
     if has_table {
         Ok(DetectOutcome::Supported {
             format: ANTIGRAVITY_FORMAT.to_string(),

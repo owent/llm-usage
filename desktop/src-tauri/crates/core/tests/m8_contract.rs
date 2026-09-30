@@ -878,17 +878,20 @@ fn atomcode_meta_turns_by_model() {
         DetectOutcome::Supported { .. }
     ));
     let outcome = scan(&adapter, &meta);
-    assert_eq!(outcome.aggregates.len(), 2, "两模型各一聚合");
+    // 两模型各一聚合 + 多模型 turn 的 round_count 单列 unattributed
+    // （t1 的 3 轮归属无证据，不能对 claude/gpt 各计一次虚增合计）。
+    assert_eq!(outcome.aggregates.len(), 3, "两模型各一聚合 + unattributed");
     let claude = outcome
         .aggregates
         .iter()
         .find(|a| a.scope_key.contains("claude-4"))
         .unwrap();
-    // 60+30=90 未缓存 + 40+10=50 缓存 ⇒ input_total=140；rounds=5。
+    // 60+30=90 未缓存 + 40+10=50 缓存 ⇒ input_total=140；
+    // 仅单模型 turn t2 的 2 轮归属 claude。
     assert_eq!(claude.usage.input_uncached, Some(90));
     assert_eq!(claude.usage.input_cache_read, Some(50));
     assert_eq!(claude.usage.input_total, Some(140));
-    assert_eq!(claude.reported_call_count, Some(5));
+    assert_eq!(claude.reported_call_count, Some(2));
     let gpt = outcome
         .aggregates
         .iter()
@@ -896,6 +899,20 @@ fn atomcode_meta_turns_by_model() {
         .unwrap();
     assert_eq!(gpt.usage.input_uncached, Some(14), "turn 10 + detached 4");
     assert_eq!(gpt.usage.input_total, Some(15));
+    assert_eq!(gpt.reported_call_count, None, "多模型 turn 的轮次不摊派");
+    let unattributed = outcome
+        .aggregates
+        .iter()
+        .find(|a| a.scope_key.ends_with(":unattributed"))
+        .unwrap();
+    assert_eq!(unattributed.reported_call_count, Some(3), "t1 的 3 轮单列");
+    // 调用数总计守恒：2 + 3 = 5 = 3(t1) + 2(t2)。
+    let total_calls: i64 = outcome
+        .aggregates
+        .iter()
+        .filter_map(|a| a.reported_call_count)
+        .sum();
+    assert_eq!(total_calls, 5);
 }
 
 // ---- kiro ----

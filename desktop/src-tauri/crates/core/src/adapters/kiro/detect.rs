@@ -3,7 +3,6 @@
 use crate::adapters::framework::DetectOutcome;
 use crate::domain::VersionBasis;
 use crate::error::CoreError;
-use std::io::Read;
 use std::path::Path;
 
 use super::versions;
@@ -15,10 +14,10 @@ const DETECT_HEAD_BYTES: usize = 64 * 1024;
 
 pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     // SQLite 载体：按头 16 字节 magic（"SQLite format 3\0"）。
-    let mut file = std::fs::File::open(path)?;
-    let mut head = vec![0u8; DETECT_HEAD_BYTES];
-    let n = file.read(&mut head)?;
-    head.truncate(n);
+    // 瞬态不可读（持锁/超时/枚举后被清理）⇒ Pending 下轮重探，不固化失败。
+    let Some(head) = crate::adapters::framework::read_detect_head(path, DETECT_HEAD_BYTES)? else {
+        return Ok(DetectOutcome::Pending);
+    };
     if head.starts_with(b"SQLite format 3\0") {
         let conn = match rusqlite::Connection::open_with_flags(
             path,
@@ -27,14 +26,21 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
             Ok(conn) => conn,
             Err(_) => return Ok(DetectOutcome::Pending),
         };
-        let has_table: bool = conn
-            .query_row(
-                "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name='conversations_v2'",
-                [],
-                |r| r.get::<_, i64>(0),
-            )
-            .map(|v| v > 0)
-            .unwrap_or(false);
+        // busy 是瞬态（kiro-cli 写库中）：Pending 下轮重探，不误报 UnknownFormat。
+        if conn
+            .busy_timeout(std::time::Duration::from_millis(150))
+            .is_err()
+        {
+            return Ok(DetectOutcome::Pending);
+        }
+        let has_table: bool = match conn.query_row(
+            "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name='conversations_v2'",
+            [],
+            |r| r.get::<_, i64>(0),
+        ) {
+            Ok(v) => v > 0,
+            Err(_) => return Ok(DetectOutcome::Pending),
+        };
         return if has_table {
             Ok(DetectOutcome::Supported {
                 format: KIRO_SQLITE_FORMAT.to_string(),
@@ -46,6 +52,9 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
                 reason: "no conversations_v2 table; not a kiro-cli database".to_string(),
             })
         };
+    }
+    if !head.is_empty() && b"SQLite format 3\0".starts_with(&head) {
+        return Ok(DetectOutcome::Pending);
     }
     // CLI 会话头 JSON。
     let text = String::from_utf8_lossy(&head);

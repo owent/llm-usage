@@ -1,7 +1,7 @@
 //! 对本机真实 GitHub Copilot CLI 数据（~/.copilot/session-store.db 的
 //! assistant_usage_events）做只读核对（2026-09-29 首次执行：36 行真实数据）。
 //! 只输出白名单聚合：根数、记录数、事件数、token 合计、诊断计数、
-//! 以及与独立 SQL 直查合的一致性；不打印路径/会话 ID/模型以外的记录内容。
+//! 以及重扫幂等性；不打印路径、会话 ID 或记录内容。
 //! 用法：cargo run -p llm-usage-core --example real_verify_copilot -- <copilot根或session-store.db> <work_dir>
 
 use llm_usage_core::adapters::copilot::CopilotAdapter;
@@ -41,9 +41,9 @@ fn main() {
     };
     let reports = run_adapter_scan(&storage, &adapter, &ctx, &config).expect("scan");
     for report in &reports {
+        // 不打印 instance_id（含本机根路径，见文件头白名单声明）。
         println!(
-            "instance={} files={} events={} diagnostics={}",
-            report.instance_id,
+            "files={} events={} diagnostics={}",
             report.files.len(),
             report.outcome.as_ref().map(|o| o.added).unwrap_or(0),
             report.files.iter().map(|f| f.diagnostics).sum::<u64>(),

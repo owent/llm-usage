@@ -114,7 +114,12 @@ fn attr_u64(record: &serde_json::Value, keys: &[&str]) -> Option<Option<i64>> {
                                     .map(|f| f as i64)
                             })
                         })?;
-                    return Some((0..=MAX_REASONABLE_TOKEN).contains(&n).then_some(n));
+                    // 越界（负/超上限）按格式偏离处理：返回 None 让调用方跳过
+                    // 整条记录，不能与"键缺失"（Some(None)）混同而静默丢桶。
+                    if !(0..=MAX_REASONABLE_TOKEN).contains(&n) {
+                        return None;
+                    }
+                    return Some(Some(n));
                 }
             }
         }
@@ -131,6 +136,26 @@ fn attr_str<'a>(record: &'a serde_json::Value, keys: &[&str]) -> Option<&'a str>
                 }
                 if let Some(s) = v.get("stringValue").and_then(|x| x.as_str()) {
                     return Some(s);
+                }
+            }
+        }
+    }
+    None
+}
+
+/// 浮点属性（TTFT 秒值可含小数；裸数或 {doubleValue}/{intValue} 形）。
+fn attr_f64(record: &serde_json::Value, keys: &[&str]) -> Option<f64> {
+    for map in attrs_of(record) {
+        for key in keys {
+            if let Some(v) = map.get(*key) {
+                let f = v
+                    .as_f64()
+                    .or_else(|| v.get("doubleValue").and_then(|x| x.as_f64()))
+                    .or_else(|| v.get("intValue").and_then(|x| x.as_i64()).map(|n| n as f64));
+                if let Some(f) = f {
+                    if f.is_finite() && f >= 0.0 && f <= MAX_REASONABLE_TOKEN as f64 {
+                        return Some(f);
+                    }
                 }
             }
         }
@@ -315,19 +340,42 @@ pub fn scan(
             ],
         )
         .map(str::to_string);
-        // TTFT：copilot_chat.*（ms）/ gen_ai.response.time_to_first_chunk（秒）/
-        // response.time_to_first_token（agentlens，单位未标——两种形态都接，
-        // 秒的量级 >1e4 视为毫秒，否则按秒折算，记录此容错）。
-        let ttft_ms = attr_u64(
-            &value,
-            &[
-                "copilot_chat.time_to_first_token",
-                "gen_ai.response.time_to_first_chunk",
-                "response.time_to_first_token",
-            ],
-        )
-        .unwrap_or(None)
-        .map(|v| if v > 10_000 { v } else { v * 1000 });
+        // TTFT 三键单位不同（文档证据）：copilot_chat.* 是毫秒、
+        // gen_ai.response.time_to_first_chunk 是秒（可含小数）、
+        // response.time_to_first_token（agentlens）单位未标。
+        // 已标单位的键按文档换算；量级启发（>1e4 视为毫秒）只用于未标单位的键。
+        let ttft_ms = {
+            let documented_ms =
+                attr_u64(&value, &["copilot_chat.time_to_first_token"]).unwrap_or(None);
+            let documented_s = attr_f64(&value, &["gen_ai.response.time_to_first_chunk"]);
+            let unmarked = attr_u64(&value, &["response.time_to_first_token"]).unwrap_or(None);
+            if let Some(ms) = documented_ms {
+                Some(ms)
+            } else if let Some(s) = documented_s {
+                Some((s * 1000.0).round() as i64)
+            } else {
+                unmarked.map(|v| {
+                    if v > 10_000 {
+                        v
+                    } else {
+                        v.saturating_mul(1000)
+                    }
+                })
+            }
+        };
+        // span status（OTel Status.code）：ERROR 不能把失败调用当成功入账；
+        // JSON 形 "STATUS_CODE_ERROR" 或枚举数值 2。
+        let error_status = match value.pointer("/status/code") {
+            Some(serde_json::Value::String(s))
+                if s == "STATUS_CODE_ERROR" || s.eq_ignore_ascii_case("error") =>
+            {
+                Some("error".to_string())
+            }
+            Some(serde_json::Value::Number(n)) if n.as_i64() == Some(2) => {
+                Some("error".to_string())
+            }
+            _ => None,
+        };
         let mapped = crate::adapters::usage_map::finish(
             crate::domain::TokenUsage {
                 input_uncached: None,
@@ -339,7 +387,16 @@ pub fn scan(
                 total_tokens: None,
                 source_total: None,
             },
-            crate::domain::TokenQuality::default(),
+            // 在场桶必须标 Reported：全 Unknown 会在 ingest 校验
+            // （domain.rs 值与质量一致性）被拒，事件无法入账。
+            crate::domain::TokenQuality {
+                input_cache_read: crate::domain::FieldQuality::Reported,
+                input_cache_write: crate::domain::FieldQuality::Reported,
+                input_total: crate::domain::FieldQuality::Reported,
+                output_total: crate::domain::FieldQuality::Reported,
+                output_reasoning: crate::domain::FieldQuality::Reported,
+                ..Default::default()
+            },
             Vec::new(),
         );
         events.push(EventInput {
@@ -378,7 +435,7 @@ pub fn scan(
             quality: mapped.quality,
             lifecycle: Lifecycle::Final,
             source_revision: None,
-            error_status: None,
+            error_status,
             duration_ms: None,
             ttft_ms,
             attribution_status: AttributionStatus::Verified,

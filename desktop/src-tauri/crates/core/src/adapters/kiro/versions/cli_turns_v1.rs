@@ -64,17 +64,19 @@ fn ts_to_ms(value: Option<&serde_json::Value>) -> Option<i64> {
     Some(ms.round() as i64)
 }
 
-fn count(obj: &serde_json::Map<String, serde_json::Value>, key: &str) -> Option<Option<i64>> {
+/// 计数取值：Ok(Some(v))=有效计数；Ok(None)=字段缺失（未知）；
+/// Err=形状偏离（区分非整数与越界，诊断归因用）。
+fn count(
+    obj: &serde_json::Map<String, serde_json::Value>,
+    key: &str,
+) -> Result<Option<i64>, &'static str> {
     match obj.get(key) {
-        None => Some(None),
-        Some(v) => {
-            let n = v.as_i64()?;
-            Some(
-                (0..=crate::domain::MAX_TOKEN_VALUE)
-                    .contains(&n)
-                    .then_some(n),
-            )
-        }
+        None => Ok(None),
+        Some(v) => match v.as_i64() {
+            Some(n) if (0..=crate::domain::MAX_TOKEN_VALUE).contains(&n) => Ok(Some(n)),
+            Some(_) => Err("out-of-range"),
+            None => Err("non-integer"),
+        },
     }
 }
 
@@ -131,10 +133,10 @@ pub fn scan(
             });
         }
     };
-    let session_id = document
-        .get("session_id")
-        .and_then(|v| v.as_str())
-        .unwrap_or("unknown");
+    let doc_session_id = document.get("session_id").and_then(|v| v.as_str());
+    // 缺 session_id 时去重键用文件身份兜底：多个缺 id 文件的键不能都塌缩成
+    // kiro:unknown:turn:N 而互相吞并；事件 session 维度不虚构，保持 None。
+    let session_key = doc_session_id.unwrap_or(target.file_identity.as_str());
     let model = document
         .pointer("/session_state/rts_model_state/model_info/model_id")
         .and_then(|v| v.as_str())
@@ -165,21 +167,39 @@ pub fn scan(
     for (index, turn) in turns.iter().enumerate() {
         records_seen += 1;
         let Some(obj) = turn.as_object() else {
-            continue;
-        };
-        let (Some(input), Some(output), Some(cache_read), Some(cache_write)) = (
-            count(obj, "input_token_count"),
-            count(obj, "output_token_count"),
-            count(obj, "cache_read_input_token_count"),
-            count(obj, "cache_write_input_token_count"),
-        ) else {
             diagnostics.push(diag(
-                "token_shape_deviation",
+                "record_shape_deviation",
                 &format!("turn:{index}"),
-                "a count field carries an out-of-range value; turn skipped",
+                "turn entry is not an object; turn skipped",
             ));
             continue;
         };
+        let fields = [
+            "input_token_count",
+            "output_token_count",
+            "cache_read_input_token_count",
+            "cache_write_input_token_count",
+        ];
+        let mut values = [None, None, None, None];
+        let mut deviation: Option<String> = None;
+        for (slot, key) in fields.iter().enumerate() {
+            match count(obj, key) {
+                Ok(v) => values[slot] = v,
+                Err(kind) => {
+                    deviation = Some(format!("field {key} carries a {kind} value"));
+                    break;
+                }
+            }
+        }
+        if let Some(reason) = deviation {
+            diagnostics.push(diag(
+                "token_shape_deviation",
+                &format!("turn:{index}"),
+                &format!("{reason}; turn skipped"),
+            ));
+            continue;
+        }
+        let [input, output, cache_read, cache_write] = values;
         // 全 0/缺失：Auto agent 常记 0（第三方证据），无真实计数 ⇒ 不采。
         if input.unwrap_or(0) == 0
             && output.unwrap_or(0) == 0
@@ -208,12 +228,20 @@ pub fn scan(
                 total_tokens: None,
                 source_total: None,
             },
-            crate::domain::TokenQuality::default(),
+            // 在场桶必须标 Reported：TokenQuality::default() 全 Unknown 会在
+            // ingest 校验（domain.rs:421 值与质量不一致）被拒，整批事件无法入账。
+            crate::domain::TokenQuality {
+                input_cache_read: crate::domain::FieldQuality::Reported,
+                input_cache_write: crate::domain::FieldQuality::Reported,
+                input_total: crate::domain::FieldQuality::Reported,
+                output_total: crate::domain::FieldQuality::Reported,
+                ..Default::default()
+            },
             Vec::new(),
         );
         events.push(EventInput {
             source_instance_id: target.instance_id.clone(),
-            source_record_key: format!("kiro:{session_id}:turn:{index}"),
+            source_record_key: format!("kiro:{session_key}:turn:{index}"),
             // 按 turn 聚合的真实计数（非逐请求）。
             record_kind: RecordKind::ModelCall,
             schema_version: KIRO_FORMAT_VERSION.to_string(),
@@ -221,7 +249,7 @@ pub fn scan(
             parse_basis: Some(VersionBasis::KnownVersion),
             origin_call_id: None,
             attempt_id: None,
-            session_id: Some(session_id.to_string()),
+            session_id: doc_session_id.map(str::to_string),
             parent_session_id: None,
             host_application: None,
             agent: "kiro".to_string(),
@@ -252,7 +280,7 @@ pub fn scan(
     if zero_turns > 0 {
         diagnostics.push(diag(
             "zero_count_turns_skipped",
-            session_id,
+            session_key,
             &format!("{zero_turns} turns carry only zero/absent counts (Auto agent default); not adopted as evidence"),
         ));
     }

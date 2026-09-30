@@ -18,7 +18,8 @@ pub struct Selection {
     pub basis: crate::domain::VersionBasis,
 }
 
-/// 按格式版本选择实现；探测与扫描共用本函数（V30）。
+/// 按格式版本选择实现（V30 注册表标准形）。Qoder 用量字段缺证、探针
+/// 不解析；本函数为取得本地 fixture 后的版本分派入口预留。
 pub fn select(found: Option<&str>) -> Selection {
     match found {
         Some(version) => {

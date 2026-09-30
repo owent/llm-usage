@@ -23,7 +23,7 @@
 //! reasoning 与 output）未随 normalize_usage 完整路径验证（adapters.md A24），
 //! 映射不推导互斥/子集，只按列报告。
 
-use crate::adapters::usage_map::{finish, MappedUsage};
+use crate::adapters::usage_map::{finish_parallel, MappedUsage};
 use crate::domain::{FieldQuality as Q, TokenQuality, TokenUsage};
 use crate::error::CoreError;
 use rusqlite::backup::{Backup, StepResult};
@@ -66,7 +66,7 @@ pub fn map_hermes(raw: &HermesUsage) -> MappedUsage {
         total_tokens: Q::Unknown,
         source_total: Q::Unknown,
     };
-    finish(usage, quality, Vec::new())
+    finish_parallel(usage, quality, Vec::new())
 }
 
 /// REAL epoch 秒 → UTC 毫秒。非有限/早于 2000-01-01（秒毫秒误判守卫）→ None。
@@ -159,7 +159,7 @@ impl Default for StagingLimits {
         StagingLimits {
             pages_per_step: 512,
             max_bytes: 2 * 1024 * 1024 * 1024,
-            max_time: Duration::from_secs(2),
+            max_time: Duration::from_secs(30),
         }
     }
 }

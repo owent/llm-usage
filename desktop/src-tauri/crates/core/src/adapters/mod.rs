@@ -10,6 +10,7 @@ pub mod antigravity;
 pub mod atomcode;
 pub mod claude;
 pub mod cline;
+pub mod codebuddy;
 pub mod codex;
 pub mod commandcode;
 #[path = "continue/mod.rs"]
@@ -46,7 +47,9 @@ pub mod pi;
 pub mod qoder;
 pub mod qwen;
 pub mod roo;
+pub mod tencent_buddy_wire;
 pub mod usage_map;
+pub mod workbuddy;
 pub mod xum;
 pub mod zcode;
 pub mod zed;

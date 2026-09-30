@@ -10,8 +10,8 @@
 //!   output:{...}, reasoning:{...} }`、`lastRequest{ model, timestamp }`
 //!   （timestamp 毫秒；缺失回退 mtime）（mux.rs:12-43）。
 //! - 语义：**会话级累计、按模型一行**（IntervalAggregate，不展开伪造逐次）；
-//!   cost_usd 之和为该模型会话成本（产品自报 ⇒ Reported，micro-USD）。
-//! - dedup `mux:<workspaceId>:<model_key>`（mux.rs:96-102）。
+//!   cost_usd 不映射（会话级累计成本与逐次成本单位不同，见能力表）。
+//! - dedup `xum:<workspaceId>:<model_key>`（mux.rs:96-102 同形）。
 //! - 五桶包含关系未知 ⇒ 并列报告不派生总量（hermes 同型）。
 
 use crate::adapters::framework::{

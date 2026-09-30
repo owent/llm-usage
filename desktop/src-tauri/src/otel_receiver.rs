@@ -329,6 +329,11 @@ fn normalize_span(
     if let Some(ms) = start_ms {
         record.insert("startTime".into(), serde_json::Value::from(ms));
     }
+    // span status 透传（span 级元数据，非属性，不在白名单范围）：
+    // ERROR 状态供 otel 适配器标 error_status，失败调用不能当成功入账。
+    if let Some(code) = span.pointer("/status/code") {
+        record.insert("status".into(), serde_json::json!({"code": code.clone()}));
+    }
     record.insert("kind".into(), span.get("kind").cloned().unwrap_or_default());
     record.insert("attributes".into(), serde_json::Value::Object(attrs));
     record.insert(
@@ -344,6 +349,10 @@ fn read_varint(data: &[u8]) -> Option<(u64, usize)> {
     let mut value: u64 = 0;
     let mut shift = 0u32;
     for (i, byte) in data.iter().enumerate().take(10) {
+        // 第 10 字节只允许 0/1（protobuf u64 编码规则）；更大值是损坏数据。
+        if i == 9 && byte > &1 {
+            return None;
+        }
         value |= u64::from(byte & 0x7f) << shift;
         if byte & 0x80 == 0 {
             return Some((value, i + 1));
@@ -491,6 +500,7 @@ fn protobuf_span(
     let mut name = String::new();
     let mut span_id: Option<String> = None;
     let mut start_ms: Option<i64> = None;
+    let mut status_code: Option<u64> = None;
     let mut attrs = serde_json::Map::new();
     iter_fields(span, |field, wire| {
         match (field, wire) {
@@ -508,6 +518,15 @@ fn protobuf_span(
                     }
                 }
             }
+            // Status 子消息：#2 code（枚举；2=ERROR）。
+            (15, Wire::Bytes(status)) => {
+                iter_fields(status, |f, w| {
+                    if let (2, Wire::Varint(c)) = (f, w) {
+                        status_code = Some(c);
+                    }
+                    Some(())
+                })?;
+            }
             _ => {}
         }
         Some(())
@@ -517,6 +536,9 @@ fn protobuf_span(
     record.insert("spanId".into(), serde_json::Value::String(span_id?));
     if let Some(ms) = start_ms {
         record.insert("startTime".into(), serde_json::Value::from(ms));
+    }
+    if let Some(code) = status_code {
+        record.insert("status".into(), serde_json::json!({"code": code}));
     }
     record.insert("attributes".into(), serde_json::Value::Object(attrs));
     record.insert(
@@ -687,5 +709,66 @@ mod tests {
         let mut out = Vec::new();
         decoder.read_to_end(&mut out).unwrap();
         assert_eq!(out, raw);
+    }
+
+    #[test]
+    fn json_status_passthrough() {
+        // span status.code 透传（ERROR 供适配器标 error_status）。
+        let body = br#"{"resourceSpans":[{"scopeSpans":[{"spans":[{"spanId":"s1","name":"chat","status":{"code":"STATUS_CODE_ERROR"}}]}]}]}"#;
+        let records = parse_otlp_json(body);
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0]["status"]["code"], "STATUS_CODE_ERROR");
+        // 无 status 的 span 不带该键。
+        let body =
+            br#"{"resourceSpans":[{"scopeSpans":[{"spans":[{"spanId":"s2","name":"chat"}]}]}]}"#;
+        let records = parse_otlp_json(body);
+        assert!(records[0].get("status").is_none());
+    }
+
+    #[test]
+    fn protobuf_status_passthrough() {
+        fn field_bytes(field: u64, payload: &[u8]) -> Vec<u8> {
+            let mut out = varint_test((field << 3) | 2);
+            out.extend(varint_test(payload.len() as u64));
+            out.extend_from_slice(payload);
+            out
+        }
+        fn varint_test(mut v: u64) -> Vec<u8> {
+            let mut out = Vec::new();
+            loop {
+                let mut b = (v & 0x7f) as u8;
+                v >>= 7;
+                if v != 0 {
+                    b |= 0x80;
+                }
+                out.push(b);
+                if v == 0 {
+                    break;
+                }
+            }
+            out
+        }
+        // Status{#2 code varint 2（ERROR）} → Span #15。
+        let status = {
+            let mut s = varint_test(2 << 3);
+            s.extend(varint_test(2));
+            field_bytes(15, &s)
+        };
+        let mut span = field_bytes(2, &[0xcd]);
+        span.extend(field_bytes(5, b"model_stream"));
+        span.extend(status);
+        let scope_spans = field_bytes(2, &span);
+        let rs = field_bytes(2, &scope_spans);
+        let body = field_bytes(1, &rs);
+        let records = parse_otlp_protobuf(&body);
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0]["status"]["code"], 2);
+    }
+
+    #[test]
+    fn varint_tenth_byte_guard() {
+        // 第 10 字节 > 1：拒绝（不静默截断高位）。
+        let bad = [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x02];
+        assert_eq!(read_varint(&bad), None);
     }
 }

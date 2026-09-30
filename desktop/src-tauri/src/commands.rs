@@ -457,11 +457,11 @@ pub fn list_sources(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_json
                 "enabled": r.get::<_, i64>(4)? != 0,
                 "origin_host_id": r.get::<_, String>(5)?,
                 "user_id": r.get::<_, String>(6)?,
-                "last_success_ms": r.get::<_, Option<i64>>(13)?,
-                "compat_files": r.get::<_, i64>(14)?,
-                "degraded_files": r.get::<_, i64>(15)?,
-                "unsupported_files": r.get::<_, i64>(16)?,
-                "incompatible_files": r.get::<_, i64>(17)?,
+                "last_success_ms": r.get::<_, Option<i64>>(12)?,
+                "compat_files": r.get::<_, i64>(13)?,
+                "degraded_files": r.get::<_, i64>(14)?,
+                "unsupported_files": r.get::<_, i64>(15)?,
+                "incompatible_files": r.get::<_, i64>(16)?,
                 "schedule": match r.get::<_, Option<String>>(7)? {
                     Some(kind) => serde_json::json!({
                         "kind": kind,
@@ -581,15 +581,24 @@ pub fn set_source_schedule(
 }
 
 /// 触发一次手动刷新（已在执行时合并返回）。
+/// 后台线程执行（同步命令会阻塞主线程冻结 UI；整轮扫描可达分钟级），
+/// 进度经 state.refresh 由顶栏轮询展示。
 #[tauri::command]
 pub fn refresh_sources(
     state: tauri::State<'_, Arc<AppState>>,
 ) -> Result<serde_json::Value, String> {
-    let started = run_refresh(&state, TriggerKind::Manual);
+    let already = state.refresh.lock().unwrap().running;
+    if !already {
+        let state = state.inner().clone();
+        std::thread::spawn(move || {
+            run_refresh(&state, TriggerKind::Manual);
+        });
+    }
     let refresh = state.refresh.lock().unwrap();
     Ok(serde_json::json!({
-        "started": started,
-        "running": refresh.running,
+        // 后台启动是乐观值：极小并发窗口内重复触发由 run_refresh 合并。
+        "started": !already,
+        "running": refresh.running || !already,
         "last_finished_ms": refresh.last_finished_ms,
     }))
 }
@@ -1087,12 +1096,82 @@ fn backup_before_clear(state: &Arc<AppState>) -> Result<Option<String>, String> 
     .map(|p| p.map(|path| path.to_string_lossy().to_string()))
 }
 
-/// 清理全部数据（所有归档层+诊断+游标），下次刷新触发全量重新采集计算。
+/// 清理全部数据（所有归档层+诊断+游标），并触发全量重新采集。
 /// 主机身份、用户、设置保留；source_files 状态重置为 new 使探测重新执行。
 /// 清空前自动备份（见 backup_before_clear）。
+///
+/// 后台执行（UI 不阻塞，同步命令会冻结主线程事件循环）：
+/// 阶段进度经 `clear-all-progress` 事件推送——
+/// waiting（等当前采集结束）→ backup → clearing → cleared（各表计数）
+/// → rescan → done；任一步失败发 failed（含 error）并终止。
+/// 重复触发直接返回 started=false（任务单例）。
 #[tauri::command]
-pub fn clear_all_data(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_json::Value, String> {
-    let backup_path = backup_before_clear(&state)?;
+pub fn clear_all_data(
+    state: tauri::State<'_, Arc<AppState>>,
+    app: tauri::AppHandle,
+) -> Result<serde_json::Value, String> {
+    use std::sync::atomic::Ordering;
+    if state.clear_job_running.swap(true, Ordering::SeqCst) {
+        return Ok(serde_json::json!({ "started": false }));
+    }
+    let state = state.inner().clone();
+    std::thread::spawn(move || {
+        // panic 也要复位标志并发失败事件，否则按钮会永久停留在忙碌态。
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            run_clear_all_job(&state, &app)
+        }))
+        .unwrap_or_else(|_| Err("clear job panicked".to_string()));
+        state.clear_job_running.store(false, Ordering::SeqCst);
+        if let Err(e) = result {
+            let _ = tauri_event(&app, serde_json::json!({ "phase": "failed", "error": e }));
+        }
+    });
+    Ok(serde_json::json!({ "started": true }))
+}
+
+fn tauri_event(app: &tauri::AppHandle, payload: serde_json::Value) -> Result<(), String> {
+    use tauri::Emitter as _;
+    app.emit("clear-all-progress", payload)
+        .map_err(|e| err("emit", e.to_string()))
+}
+
+/// 清理+重采后台任务主体；错误向上传递由调用方发 failed 事件。
+fn run_clear_all_job(state: &Arc<AppState>, app: &tauri::AppHandle) -> Result<(), String> {
+    // 清库与扫描并发会让进行中的采集把已清表回写（数据复活），
+    // 先等当前采集结束再清。
+    if state.refresh.lock().unwrap().running {
+        let _ = tauri_event(app, serde_json::json!({ "phase": "waiting" }));
+        while state.refresh.lock().unwrap().running {
+            std::thread::sleep(std::time::Duration::from_millis(200));
+        }
+    }
+    let _ = tauri_event(app, serde_json::json!({ "phase": "backup" }));
+    let backup_path = backup_before_clear(state)?;
+    let _ = tauri_event(app, serde_json::json!({ "phase": "clearing" }));
+    let (cleared, revision) = clear_all_tables(state)?;
+    let _ = tauri_event(
+        app,
+        serde_json::json!({
+            "phase": "cleared",
+            "cleared": cleared,
+            "data_revision": revision,
+            "backup": backup_path,
+        }),
+    );
+    // 游标已重置，本轮刷新即全量重新采集；进度由 state.refresh 顶栏轮询展示。
+    let _ = tauri_event(app, serde_json::json!({ "phase": "rescan" }));
+    let rescan_started = run_refresh(state, TriggerKind::Manual);
+    let _ = tauri_event(
+        app,
+        serde_json::json!({ "phase": "done", "rescan_started": rescan_started }),
+    );
+    Ok(())
+}
+
+/// 清库事务：各表 DELETE + source_files 状态重置 + 保留水位设置清除 + 修订号推进。
+fn clear_all_tables(
+    state: &Arc<AppState>,
+) -> Result<(serde_json::Map<String, serde_json::Value>, i64), String> {
     let storage = state.storage.lock().unwrap();
     let tx = storage
         .conn()
@@ -1136,11 +1215,7 @@ pub fn clear_all_data(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_js
         "clear_all_data",
         "all statistics cleared; full rescan will trigger",
     );
-    Ok(serde_json::json!({
-        "cleared": cleared,
-        "data_revision": revision,
-        "backup": backup_path,
-    }))
+    Ok((cleared, revision))
 }
 
 #[tauri::command]
@@ -1337,5 +1412,81 @@ mod user_tests {
         assert_ne!(a, b);
         assert!(super::insert_user(&storage, "张三", 1).is_err());
         assert!(super::insert_user(&storage, "  ", 1).is_err());
+    }
+}
+
+#[cfg(test)]
+mod clear_all_tests {
+    use super::*;
+    use std::sync::atomic::Ordering;
+    use std::sync::Arc;
+
+    /// 后台清理任务的清库事务：各表清空、source_files 状态重置为 new、
+    /// 修订号推进；操作日志补写一条 diagnostics。
+    #[test]
+    fn clear_all_tables_clears_resets_status_and_bumps_revision() {
+        let dir =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../build/clear-all-tests");
+        std::fs::create_dir_all(&dir).unwrap();
+        let db = dir.join(format!(
+            "clear-{}-{}.sqlite",
+            std::process::id(),
+            crate::scanner::now_ms()
+        ));
+        let _ = std::fs::remove_file(&db);
+        let state = Arc::new(
+            crate::app_state::AppState::init(db.clone(), "test-host", false).expect("init state"),
+        );
+        assert!(!state.clear_job_running.load(Ordering::SeqCst));
+        {
+            let storage = state.storage.lock().unwrap();
+            storage
+                .conn()
+                .execute(
+                    "INSERT INTO source_instances (instance_id, agent, locality_basis, attribution_status, enabled, format, parser_version, capabilities, health, origin_host_id, created_at_ms, updated_at_ms)
+                     VALUES ('inst', 'test', 'local_filesystem', 'verified', 1, 'test', 'p', '{}', 'ok', 'legacy_unknown', 1, 1)",
+                    [],
+                )
+                .unwrap();
+            storage
+                .conn()
+                .execute(
+                    "INSERT INTO source_files (file_id, instance_id, file_identity, generation, byte_size, mtime_ms, status, first_seen_ms, last_seen_ms)
+                     VALUES ('f', 'inst', 'file-1', 3, 10, 1, 'active', 1, 1)",
+                    [],
+                )
+                .unwrap();
+            storage
+                .conn()
+                .execute(
+                    "INSERT INTO diagnostics (code, message, created_ms) VALUES ('x', 'm', 1)",
+                    [],
+                )
+                .unwrap();
+        }
+        let (cleared, revision) = clear_all_tables(&state).expect("clear tables");
+        assert_eq!(cleared.get("diagnostics").and_then(|v| v.as_i64()), Some(1));
+        assert!(revision >= 0);
+        let storage = state.storage.lock().unwrap();
+        let status: String = storage
+            .conn()
+            .query_row(
+                "SELECT status FROM source_files WHERE file_id='f'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(status, "new");
+        // 操作日志补写一条；清空前的诊断已删除。
+        let n: i64 = storage
+            .conn()
+            .query_row("SELECT COUNT(*) FROM diagnostics", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(n, 1);
+        drop(storage);
+        drop(state);
+        let _ = std::fs::remove_file(&db);
+        let _ = std::fs::remove_file(db.with_extension("sqlite-wal"));
+        let _ = std::fs::remove_file(db.with_extension("sqlite-shm"));
     }
 }

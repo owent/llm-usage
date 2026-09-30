@@ -33,11 +33,13 @@ use super::CRUSH_FORMAT_VERSION;
 pub const CRUSH_PARSER_VERSION: &str = "crush-sessions-cost-1";
 pub const MAX_ROWS_PER_ROUND: i64 = 50_000;
 
-#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct CrushCursor {
     generation: i64,
     #[allow(dead_code)]
     offset: u64,
+    #[serde(default)]
+    last_session_id: String,
 }
 
 fn diag(code: &str, position: &str, message: &str) -> DiagnosticInput {
@@ -77,16 +79,29 @@ fn usd_cost(amount: f64) -> Option<CostAmount> {
 
 pub fn scan(
     target: &ScanTarget,
-    _stored: &StoredScanState,
+    stored: &StoredScanState,
     _limits: &ScanLimits,
     now_ms: i64,
 ) -> Result<ScanOutcome, CoreError> {
     let db = open_source_db(&target.path, short_probe, &StagingLimits::default())?;
+    let after_id = if target.rescan {
+        String::new()
+    } else {
+        stored
+            .cursor
+            .as_ref()
+            .and_then(|v| serde_json::from_value::<CrushCursor>(v.clone()).ok())
+            .filter(|c| c.generation == target.generation)
+            .map(|c| c.last_session_id)
+            .unwrap_or_default()
+    };
+    // 多取一行判定是否还有更多（恰好 MAX 行不误报 BudgetExhausted）。
     let mut stmt = db.conn().prepare(
         "SELECT id, title, cost, created_at, updated_at
-         FROM sessions WHERE parent_session_id IS NULL LIMIT ?1",
+         FROM sessions WHERE parent_session_id IS NULL AND id > ?1
+         ORDER BY id LIMIT ?2",
     )?;
-    let rows = stmt.query_map([MAX_ROWS_PER_ROUND], |r| {
+    let rows = stmt.query_map(rusqlite::params![&after_id, MAX_ROWS_PER_ROUND + 1], |r| {
         Ok((
             r.get::<_, String>(0)?,
             r.get::<_, Option<String>>(1)?,
@@ -98,9 +113,23 @@ pub fn scan(
     let mut events = Vec::new();
     let mut diagnostics = Vec::new();
     let mut records_seen: u64 = 0;
+    let mut last_session_id = after_id;
     for row in rows {
-        let (session_id, _title, cost, created_at, updated_at) = row?;
+        // 行级容错：单行类型错误不中止整轮（SQLite 动态类型）。
+        let (session_id, _title, cost, created_at, updated_at) = match row {
+            Ok(r) => r,
+            Err(e) => {
+                records_seen += 1;
+                diagnostics.push(diag(
+                    "row_read_failed",
+                    "sessions",
+                    &format!("row read failed: {e}; row skipped"),
+                ));
+                continue;
+            }
+        };
         records_seen += 1;
+        last_session_id = session_id.clone();
         let Some(cost) = cost.and_then(usd_cost) else {
             continue;
         };
@@ -141,7 +170,9 @@ pub fn scan(
             usage: crate::domain::TokenUsage::default(),
             quality: crate::domain::TokenQuality::default(),
             lifecycle: Lifecycle::Final,
-            source_revision: None,
+            // cost 是根会话的累计快照；updated_at 为同一 session 的
+            // 修订次序，否则第二次扫描的增长会与旧 Final 事件冲突。
+            source_revision: end_ms,
             error_status: None,
             duration_ms: None,
             ttft_ms: None,
@@ -150,7 +181,7 @@ pub fn scan(
             cost: Some(cost),
         });
     }
-    let hit_cap = records_seen as i64 >= MAX_ROWS_PER_ROUND;
+    let hit_cap = records_seen > MAX_ROWS_PER_ROUND as u64;
     Ok(ScanOutcome {
         status: if hit_cap {
             ScanStatus::BudgetExhausted
@@ -160,6 +191,11 @@ pub fn scan(
         cursor: Some(serde_json::to_value(CrushCursor {
             generation: target.generation,
             offset: 0,
+            last_session_id: if hit_cap {
+                last_session_id
+            } else {
+                String::new()
+            },
         })?),
         parse_context: None,
         events,

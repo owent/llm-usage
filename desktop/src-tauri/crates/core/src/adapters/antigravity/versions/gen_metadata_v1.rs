@@ -42,8 +42,8 @@ pub const MAX_ROWS_PER_ROUND: i64 = 50_000;
 #[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 struct AntigravityCursor {
     generation: i64,
-    #[allow(dead_code)]
-    offset: u64,
+    /// 已处理的最大 idx（行级游标；事件键含 responseId/idx，重读幂等）。
+    last_idx: i64,
 }
 
 fn diag(code: &str, position: &str, message: &str) -> DiagnosticInput {
@@ -118,6 +118,11 @@ fn read_varint(data: &[u8]) -> Option<(u64, usize)> {
     let mut value: u64 = 0;
     let mut shift = 0u32;
     for (i, byte) in data.iter().enumerate().take(10) {
+        // 第 10 字节只允许 0/1（protobuf u64 编码规则）；更大值是损坏数据，
+        // 不能静默截断高位后当合法 varint 收下。
+        if i == 9 && byte > &1 {
+            return None;
+        }
         value |= u64::from(byte & 0x7f) << shift;
         if byte & 0x80 == 0 {
             return Some((value, i + 1));
@@ -179,9 +184,16 @@ fn parse_gen_row(data: &[u8]) -> Option<GenRow> {
                                         Some(())
                                     })?;
                                     if let Some(secs) = seconds {
-                                        let ms = i64::try_from(secs).ok()?.checked_mul(1000)?;
-                                        if (crate::domain::MIN_PLAUSIBLE_MS..=4_102_444_800_000)
-                                            .contains(&ms)
+                                        // 秒值溢出/越域：按"无可信时间戳"处理
+                                        // （与 1.1.18+ 同路径），不是结构畸形。
+                                        if let Some(ms) = i64::try_from(secs)
+                                            .ok()
+                                            .and_then(|s| s.checked_mul(1000))
+                                            .filter(|ms| {
+                                                (crate::domain::MIN_PLAUSIBLE_MS
+                                                    ..=4_102_444_800_000)
+                                                    .contains(ms)
+                                            })
                                         {
                                             row.timestamp_ms = Some(ms);
                                         }
@@ -223,10 +235,24 @@ fn parse_gen_row(data: &[u8]) -> Option<GenRow> {
 
 pub fn scan(
     target: &ScanTarget,
-    _stored: &StoredScanState,
+    stored: &StoredScanState,
     _limits: &ScanLimits,
     now_ms: i64,
 ) -> Result<ScanOutcome, CoreError> {
+    // 行级游标：超过单轮上限时按 idx 续扫（旧实现游标恒 0，达到上限后
+    // 永远 BudgetExhausted 且超出部分不可见）。事件键含 responseId/idx，
+    // 游标推进前的重放行 upsert 幂等。
+    let last_idx = if target.rescan {
+        0
+    } else {
+        stored
+            .cursor
+            .as_ref()
+            .and_then(|v| serde_json::from_value::<AntigravityCursor>(v.clone()).ok())
+            .filter(|c| c.generation == target.generation)
+            .map(|c| c.last_idx)
+            .unwrap_or(0)
+    };
     let conn = rusqlite::Connection::open_with_flags(
         &target.path,
         rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
@@ -235,10 +261,10 @@ pub fn scan(
     conn.busy_timeout(std::time::Duration::from_millis(150))
         .map_err(CoreError::Sqlite)?;
     let mut stmt = conn
-        .prepare("SELECT idx, data FROM gen_metadata ORDER BY idx LIMIT ?1")
+        .prepare("SELECT idx, data FROM gen_metadata WHERE idx > ?1 ORDER BY idx LIMIT ?2")
         .map_err(CoreError::Sqlite)?;
     let rows = stmt
-        .query_map([MAX_ROWS_PER_ROUND], |r| {
+        .query_map(rusqlite::params![last_idx, MAX_ROWS_PER_ROUND + 1], |r| {
             Ok((r.get::<_, i64>(0)?, r.get::<_, Vec<u8>>(1)?))
         })
         .map_err(CoreError::Sqlite)?;
@@ -246,10 +272,24 @@ pub fn scan(
     let mut diagnostics = Vec::new();
     let mut records_seen: u64 = 0;
     let mut no_timestamp: u64 = 0;
+    let mut max_idx = last_idx;
     let mut seen_response_ids: std::collections::BTreeSet<String> = Default::default();
     for row in rows {
-        let (idx, data) = row?;
+        // 行级容错：单行类型错误不中止整轮（SQLite 动态类型）。
+        let (idx, data) = match row {
+            Ok(r) => r,
+            Err(e) => {
+                records_seen += 1;
+                diagnostics.push(diag(
+                    "row_read_failed",
+                    "gen_metadata",
+                    &format!("row read failed: {e}; row skipped"),
+                ));
+                continue;
+            }
+        };
         records_seen += 1;
+        max_idx = max_idx.max(idx);
         if data.len() > ANTIGRAVITY_MAX_BLOB_BYTES {
             diagnostics.push(diag(
                 "blob_exceeds_cap",
@@ -307,7 +347,15 @@ pub fn scan(
                 total_tokens: None,
                 source_total: None,
             },
-            crate::domain::TokenQuality::default(),
+            // 在场桶必须标 Reported：全 Unknown 会在 ingest 校验
+            // （domain.rs 值与质量一致性）被拒，事件无法入账。
+            crate::domain::TokenQuality {
+                input_cache_read: crate::domain::FieldQuality::Reported,
+                input_total: crate::domain::FieldQuality::Reported,
+                output_total: crate::domain::FieldQuality::Reported,
+                output_reasoning: crate::domain::FieldQuality::Reported,
+                ..Default::default()
+            },
             Vec::new(),
         );
         events.push(EventInput {
@@ -358,7 +406,7 @@ pub fn scan(
             ),
         ));
     }
-    let hit_cap = records_seen as i64 >= MAX_ROWS_PER_ROUND;
+    let hit_cap = records_seen > MAX_ROWS_PER_ROUND as u64;
     Ok(ScanOutcome {
         status: if hit_cap {
             ScanStatus::BudgetExhausted
@@ -367,7 +415,7 @@ pub fn scan(
         },
         cursor: Some(serde_json::to_value(AntigravityCursor {
             generation: target.generation,
-            offset: 0,
+            last_idx: max_idx,
         })?),
         parse_context: None,
         events,
@@ -446,5 +494,33 @@ mod tests {
     #[test]
     fn rejects_truncated() {
         assert!(parse_gen_row(&[0x0a, 0xff]).is_none());
+    }
+
+    #[test]
+    fn varint_tenth_byte_high_bits_rejected() {
+        // 10 字节全 continuation：拒绝。
+        assert_eq!(read_varint(&[0xff; 10]), None);
+        // 第 10 字节 > 1（u64 溢出路径）：必须拒绝而非静默截断高位。
+        let bad = [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x02];
+        assert_eq!(read_varint(&bad), None);
+        // 第 10 字节 = 1 是 u64::MAX 的合法编码。
+        let max = encode_varint(u64::MAX);
+        assert_eq!(read_varint(&max), Some((u64::MAX, 10)));
+        // 常规值不受影响。
+        assert_eq!(read_varint(&encode_varint(300)), Some((300, 2)));
+    }
+
+    #[test]
+    fn timestamp_seconds_overflow_is_no_timestamp_not_malformed() {
+        // 秒值使 ×1000 溢出：行走"无可信时间戳"路径（timestamp_ms=None），
+        // 不是 protobuf 畸形（parse 仍成功）。
+        let ts = field_varint(1, u64::MAX);
+        let ts_container = field_bytes(9, &field_bytes(4, &ts));
+        let chat_model = ts_container;
+        let usage = [field_varint(1, 10), field_varint(9, 20)].concat();
+        let row = [field_bytes(1, &chat_model), field_bytes(4, &usage)].concat();
+        let parsed = parse_gen_row(&row).expect("row structure is valid");
+        assert_eq!(parsed.timestamp_ms, None);
+        assert_eq!(parsed.output, Some(20));
     }
 }

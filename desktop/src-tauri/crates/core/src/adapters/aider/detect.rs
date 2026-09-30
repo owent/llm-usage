@@ -6,7 +6,6 @@
 use crate::adapters::framework::DetectOutcome;
 use crate::domain::VersionBasis;
 use crate::error::CoreError;
-use std::io::Read;
 use std::path::Path;
 
 use super::versions;
@@ -17,16 +16,22 @@ pub const AIDER_FORMAT: &str = "aider-analytics-jsonl";
 const DETECT_HEAD_BYTES: usize = 64 * 1024;
 
 pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
-    let mut file = std::fs::File::open(path)?;
-    let mut head = vec![0u8; DETECT_HEAD_BYTES];
-    let n = file.read(&mut head)?;
-    head.truncate(n);
+    // 瞬态不可读（持锁/超时/枚举后被清理）⇒ Pending 下轮重探，不固化失败。
+    let Some(head) = crate::adapters::framework::read_detect_head(path, DETECT_HEAD_BYTES)? else {
+        return Ok(DetectOutcome::Pending);
+    };
     let text = String::from_utf8_lossy(&head);
     let first_line = text.lines().next().unwrap_or("").trim();
     if first_line.is_empty() {
         return Ok(DetectOutcome::Pending);
     }
     let Ok(value) = serde_json::from_str::<serde_json::Value>(first_line) else {
+        // 窗口已满且未见换行 ⇒ 首行可能超窗被截断（半截 JSON 必然解析失败），
+        // 不能固化格式判定——Pending 下轮带完整行重探；窗口未满说明已读
+        // 完整文件，单行解析失败即真实的未知格式。
+        if head.len() == DETECT_HEAD_BYTES && !text.contains('\n') {
+            return Ok(DetectOutcome::Pending);
+        }
         return Ok(DetectOutcome::UnknownFormat {
             reason: "first line is not a JSON object (not an aider analytics log)".to_string(),
         });

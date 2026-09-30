@@ -73,6 +73,23 @@ struct ModelAccum {
     cached_input: i64,
     output: i64,
     rounds: i64,
+    /// 至少见到一个 tokens 桶（区分"报告了 0"与"无 token 数据"，未知不补零）。
+    tokens_seen: bool,
+}
+
+fn model_key(model: &serde_json::Value) -> (String, String) {
+    (
+        model
+            .get("provider_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
+        model
+            .get("model_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
+    )
 }
 
 pub fn scan(
@@ -152,6 +169,9 @@ pub fn scan(
     let mut records_seen: u64 = 0;
     // turn_stats[] + detached_model_usage[] → 按 (provider, model) 累计。
     let mut acc: std::collections::BTreeMap<(String, String), ModelAccum> = Default::default();
+    // 多模型 turn 与无 model_usage turn 的 round_count 无法归属单一模型
+    // （每模型是否真进行了 round_count 次往返无证据）：单列不误摊。
+    let mut unattributed_rounds: i64 = 0;
     if let Some(turns) = document.get("turn_stats").and_then(|v| v.as_array()) {
         for turn in turns {
             records_seen += 1;
@@ -161,21 +181,14 @@ pub fn scan(
                 .filter(|r| *r >= 0)
                 .unwrap_or(0);
             if let Some(models) = turn.get("model_usage").and_then(|v| v.as_array()) {
+                let single_model = models.len() == 1;
                 for model in models {
-                    let key = (
-                        model
-                            .get("provider_id")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("")
-                            .to_string(),
-                        model
-                            .get("model_id")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("")
-                            .to_string(),
-                    );
+                    let key = model_key(model);
                     let tokens = model.get("tokens");
                     let entry = acc.entry(key).or_default();
+                    if tokens.is_some() {
+                        entry.tokens_seen = true;
+                    }
                     if let Some(input) = bucket(tokens, "input") {
                         entry.input = entry.input.saturating_add(input);
                     }
@@ -185,8 +198,17 @@ pub fn scan(
                     if let Some(output) = bucket(tokens, "output") {
                         entry.output = entry.output.saturating_add(output);
                     }
-                    entry.rounds = entry.rounds.saturating_add(rounds);
+                    // 单模型 turn 的 round_count 才能归属该模型；多模型
+                    // turn 对每个模型各加一次会虚增跨模型合计调用数。
+                    if single_model {
+                        entry.rounds = entry.rounds.saturating_add(rounds);
+                    }
                 }
+                if !single_model {
+                    unattributed_rounds = unattributed_rounds.saturating_add(rounds);
+                }
+            } else {
+                unattributed_rounds = unattributed_rounds.saturating_add(rounds);
             }
         }
     }
@@ -196,20 +218,12 @@ pub fn scan(
     {
         for model in detached {
             records_seen += 1;
-            let key = (
-                model
-                    .get("provider_id")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .to_string(),
-                model
-                    .get("model_id")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .to_string(),
-            );
+            let key = model_key(model);
             let tokens = model.get("tokens");
             let entry = acc.entry(key).or_default();
+            if tokens.is_some() {
+                entry.tokens_seen = true;
+            }
             if let Some(input) = bucket(tokens, "input") {
                 entry.input = entry.input.saturating_add(input);
             }
@@ -221,7 +235,7 @@ pub fn scan(
             }
         }
     }
-    if acc.is_empty() {
+    if acc.is_empty() && unattributed_rounds == 0 {
         return Ok(ScanOutcome {
             status: ScanStatus::Complete,
             cursor: Some(serde_json::to_value(WholeFileCursor {
@@ -241,31 +255,39 @@ pub fn scan(
     }
     let mut aggregates = Vec::new();
     for ((provider, model), entry) in acc {
-        if entry.input == 0 && entry.cached_input == 0 && entry.output == 0 {
+        // 无 token 数据且无调用数的行无信息量；有 rounds 的行保留
+        // （调用数与 token 分开统计，token 全未知不补零）。
+        if !entry.tokens_seen && entry.rounds == 0 {
             continue;
         }
-        // 官方口径：input = prompt − cached、cached_input = min(cached, prompt)。
-        let usage = TokenUsage {
-            input_uncached: Some(entry.input),
-            input_cache_read: Some(entry.cached_input),
-            input_cache_write: None,
-            input_total: entry.input.checked_add(entry.cached_input),
-            output_total: Some(entry.output),
-            output_reasoning: None,
-            total_tokens: entry
-                .input
-                .checked_add(entry.cached_input)
-                .and_then(|i| i.checked_add(entry.output)),
-            source_total: None,
-        };
-        let quality = TokenQuality {
-            input_uncached: Q::Reported,
-            input_cache_read: Q::Reported,
-            input_cache_write: Q::Unknown,
-            input_total: Q::Derived,
-            output_total: Q::Reported,
-            total_tokens: Q::Derived,
-            ..Default::default()
+        let (usage, quality) = if entry.tokens_seen {
+            // 官方口径：input = prompt − cached、cached_input = min(cached, prompt)。
+            (
+                TokenUsage {
+                    input_uncached: Some(entry.input),
+                    input_cache_read: Some(entry.cached_input),
+                    input_cache_write: None,
+                    input_total: entry.input.checked_add(entry.cached_input),
+                    output_total: Some(entry.output),
+                    output_reasoning: None,
+                    total_tokens: entry
+                        .input
+                        .checked_add(entry.cached_input)
+                        .and_then(|i| i.checked_add(entry.output)),
+                    source_total: None,
+                },
+                TokenQuality {
+                    input_uncached: Q::Reported,
+                    input_cache_read: Q::Reported,
+                    input_cache_write: Q::Unknown,
+                    input_total: Q::Derived,
+                    output_total: Q::Reported,
+                    total_tokens: Q::Derived,
+                    ..Default::default()
+                },
+            )
+        } else {
+            (TokenUsage::default(), TokenQuality::default())
         };
         let scope_model = if model.is_empty() { "unknown" } else { &model };
         aggregates.push(SourceAggregateInput {
@@ -278,6 +300,24 @@ pub fn scan(
             usage,
             quality,
             reported_call_count: (entry.rounds > 0).then_some(entry.rounds),
+            coverage: Coverage::Exclusive,
+            duplicate_of: None,
+            time_basis: TimeBasis::Uncertain,
+            source_revision: Some(end_ms),
+        });
+    }
+    if unattributed_rounds > 0 {
+        // 多模型/无 model_usage turn 的调用数：真实发生但模型归属无证据，单列。
+        aggregates.push(SourceAggregateInput {
+            instance_id: target.instance_id.clone(),
+            scope: AggregateScope::Session,
+            scope_key: format!("atomcode:session:{session_id}:unattributed"),
+            interval_start_ms: start_ms,
+            interval_end_ms: end_ms,
+            interval_end_inclusive: false,
+            usage: TokenUsage::default(),
+            quality: TokenQuality::default(),
+            reported_call_count: Some(unattributed_rounds),
             coverage: Coverage::Exclusive,
             duplicate_of: None,
             time_basis: TimeBasis::Uncertain,

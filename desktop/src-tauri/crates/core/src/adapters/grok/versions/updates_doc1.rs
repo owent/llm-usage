@@ -93,7 +93,12 @@ fn alias_token(
             None => continue,
             Some(v) => {
                 let n = v.as_i64()?;
-                return Some((0..=MAX_REASONABLE_TOKEN).contains(&n).then_some(n));
+                // 越界按格式偏离返回 None（调用方跳过该行并记诊断），
+                // 不能与"键缺失"（Some(None)）混同而静默丢桶。
+                if !(0..=MAX_REASONABLE_TOKEN).contains(&n) {
+                    return None;
+                }
+                return Some(Some(n));
             }
         }
     }
@@ -268,7 +273,16 @@ pub fn scan(
                 total_tokens: None,
                 source_total: None,
             },
-            crate::domain::TokenQuality::default(),
+            // 在场桶必须标 Reported：全 Unknown 会在 ingest 校验
+            // （domain.rs 值与质量一致性）被拒，事件无法入账。
+            crate::domain::TokenQuality {
+                input_cache_read: crate::domain::FieldQuality::Reported,
+                input_cache_write: crate::domain::FieldQuality::Reported,
+                input_total: crate::domain::FieldQuality::Reported,
+                output_total: crate::domain::FieldQuality::Reported,
+                output_reasoning: crate::domain::FieldQuality::Reported,
+                ..Default::default()
+            },
             Vec::new(),
         );
         events.push(EventInput {

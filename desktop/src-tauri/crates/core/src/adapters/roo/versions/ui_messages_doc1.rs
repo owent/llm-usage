@@ -192,6 +192,9 @@ fn build_event(
     task_id: &str,
     say: &str,
     ts: i64,
+    // 同任务同毫秒可有多条同类事件（retry/子任务并行）：键含序号防 upsert 吞并。
+    // 整文件重扫序号确定，跨轮稳定（幂等）。
+    seq: usize,
     category: CallCategory,
     mapped: crate::adapters::usage_map::MappedUsage,
     cost: Option<CostAmount>,
@@ -199,7 +202,7 @@ fn build_event(
 ) -> EventInput {
     EventInput {
         source_instance_id: target.instance_id.clone(),
-        source_record_key: format!("{task_id}:{say}:{ts}"),
+        source_record_key: format!("{task_id}:{say}:{ts}:{seq}"),
         record_kind: RecordKind::ModelCall,
         schema_version: ROO_FORMAT_VERSION.to_string(),
         parser_version: ROO_PARSER_VERSION.to_string(),
@@ -565,7 +568,7 @@ pub fn scan(
         }
     }
 
-    for request in &requests {
+    for (req_seq, request) in requests.iter().enumerate() {
         let Some(text) = request.text.as_deref() else {
             continue;
         };
@@ -618,13 +621,14 @@ pub fn scan(
             &task_id,
             "api_req_started",
             ts,
+            req_seq,
             CallCategory::Primary,
             mapped,
             usd_cost(cost),
             now_ms,
         ));
     }
-    for (ts, cost) in &condenses {
+    for (condense_seq, (ts, cost)) in condenses.iter().enumerate() {
         let position = format!("{task_id}:condense_context");
         let Some(ts) = ts else {
             diagnostics.push(diag(
@@ -640,6 +644,7 @@ pub fn scan(
             &task_id,
             "condense_context",
             *ts,
+            condense_seq,
             CallCategory::Auxiliary,
             crate::adapters::usage_map::finish(
                 crate::domain::TokenUsage::default(),

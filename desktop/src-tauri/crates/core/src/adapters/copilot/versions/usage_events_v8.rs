@@ -17,7 +17,7 @@
 //! 事件键 copilot:usage:&lt;id&gt; upsert 幂等。
 
 use crate::adapters::copilot::common::{
-    map_copilot, open_source_db, short_probe, CopilotUsage, StagingLimits,
+    map_copilot, open_source_db, read_schema_version, short_probe, CopilotUsage, StagingLimits,
 };
 use crate::adapters::framework::{
     ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -68,8 +68,13 @@ fn iso_ms(value: Option<&str>) -> Option<i64> {
         .then_some(ms)
 }
 
-fn opt_col(value: Option<i64>) -> Option<i64> {
-    value.filter(|n| (0..=crate::domain::MAX_TOKEN_VALUE).contains(n))
+fn opt_col(value: Option<i64>) -> (Option<i64>, bool) {
+    match value {
+        Some(n) if (0..=crate::domain::MAX_TOKEN_VALUE).contains(&n) => (Some(n), false),
+        // 越界（负/超上限）：桶置未知并由调用方记诊断，不静默丢桶。
+        Some(_) => (None, true),
+        None => (None, false),
+    }
 }
 
 pub fn scan(
@@ -86,7 +91,6 @@ pub fn scan(
     if target.rescan {
         context = CopilotParseContext::default();
     }
-    context.version_basis = Some(VersionBasis::KnownVersion);
     let last_id = if target.rescan {
         0
     } else {
@@ -99,35 +103,83 @@ pub fn scan(
             .unwrap_or(0)
     };
     let db = open_source_db(&target.path, short_probe, &StagingLimits::default())?;
+    // 版本依据按库内 schema_version 表如实推导（与 detect 同规则，V30）：
+    // 不硬编码 KnownVersion——schema 变化后回退 LatestFallback 并让
+    // framework 的 latest_fallback 保护与 active_compat 标记生效。
+    let found_version = read_schema_version(db.conn());
+    context.version_basis = Some(super::select(found_version.as_deref()).basis);
+    let event_basis = context
+        .version_basis
+        .unwrap_or(VersionBasis::LatestFallback);
     let mut stmt = db.conn().prepare(
         "SELECT id, session_id, turn_index, model, input_tokens, output_tokens,
                 cache_read_tokens, cache_write_tokens, reasoning_tokens,
                 duration_ms, time_to_first_token_ms, created_at
          FROM assistant_usage_events WHERE id > ?1 ORDER BY id LIMIT ?2",
     )?;
-    let rows = stmt.query_map([last_id, MAX_ROWS_PER_ROUND], |r| {
-        Ok((
-            r.get::<_, i64>(0)?,
-            r.get::<_, Option<String>>(1)?,
-            r.get::<_, Option<i64>>(2)?,
-            r.get::<_, Option<String>>(3)?,
-            r.get::<_, Option<i64>>(4)?,
-            r.get::<_, Option<i64>>(5)?,
-            r.get::<_, Option<i64>>(6)?,
-            r.get::<_, Option<i64>>(7)?,
-            r.get::<_, Option<i64>>(8)?,
-            r.get::<_, Option<f64>>(9)?,
-            r.get::<_, Option<f64>>(10)?,
-            r.get::<_, Option<String>>(11)?,
-        ))
-    })?;
+    let mut rows = stmt.query([last_id, MAX_ROWS_PER_ROUND])?;
     let mut events = Vec::new();
     let mut diagnostics = Vec::new();
     let mut records_seen: u64 = 0;
     let mut max_id = last_id;
-    for row in rows {
-        let (
-            id,
+    loop {
+        // 行级错误跳过不中止整轮（单行损坏不拖垮本轮已处理数据）。
+        let Some(row) = (match rows.next() {
+            Ok(row) => row,
+            Err(_) => {
+                diagnostics.push(diag(
+                    "row_read_failed",
+                    &format!("usage:after:{max_id}"),
+                    "row iteration failed mid-scan; round kept partial results",
+                ));
+                break;
+            }
+        }) else {
+            break;
+        };
+        let id: i64 = match row.get(0) {
+            Ok(id) => id,
+            Err(_) => {
+                // 无法取得 id ⇒ 游标不能越过本行，下轮重试；保留本轮已处理结果。
+                diagnostics.push(diag(
+                    "row_read_failed",
+                    &format!("usage:after:{max_id}"),
+                    "row id unreadable; remaining rows held for next round",
+                ));
+                break;
+            }
+        };
+        records_seen += 1;
+        max_id = max_id.max(id);
+        type Row12 = (
+            Option<String>,
+            Option<i64>,
+            Option<String>,
+            Option<i64>,
+            Option<i64>,
+            Option<i64>,
+            Option<i64>,
+            Option<i64>,
+            Option<f64>,
+            Option<f64>,
+            Option<String>,
+        );
+        let cols = || -> rusqlite::Result<Row12> {
+            Ok((
+                row.get::<_, Option<String>>(1)?,
+                row.get::<_, Option<i64>>(2)?,
+                row.get::<_, Option<String>>(3)?,
+                row.get::<_, Option<i64>>(4)?,
+                row.get::<_, Option<i64>>(5)?,
+                row.get::<_, Option<i64>>(6)?,
+                row.get::<_, Option<i64>>(7)?,
+                row.get::<_, Option<i64>>(8)?,
+                row.get::<_, Option<f64>>(9)?,
+                row.get::<_, Option<f64>>(10)?,
+                row.get::<_, Option<String>>(11)?,
+            ))
+        };
+        let Ok((
             session_id,
             _turn_index,
             model,
@@ -139,15 +191,53 @@ pub fn scan(
             duration_ms,
             ttft_ms,
             created_at,
-        ) = row?;
-        records_seen += 1;
-        max_id = max_id.max(id);
+        )) = cols()
+        else {
+            // 列类型确定损坏（重试不会自愈）：跳过本行、游标越过并记诊断。
+            diagnostics.push(diag(
+                "row_read_failed",
+                &format!("usage:{id}"),
+                "row columns undecodable; row skipped",
+            ));
+            continue;
+        };
+        let (input, bad_input) = opt_col(input);
+        let (output, bad_output) = opt_col(output);
+        let (cache_read, bad_read) = opt_col(cache_read);
+        let (cache_write, bad_write) = opt_col(cache_write);
+        let (reasoning, bad_reasoning) = opt_col(reasoning);
+        let mut bad_fields = Vec::new();
+        if bad_input {
+            bad_fields.push("input_tokens");
+        }
+        if bad_output {
+            bad_fields.push("output_tokens");
+        }
+        if bad_read {
+            bad_fields.push("cache_read_tokens");
+        }
+        if bad_write {
+            bad_fields.push("cache_write_tokens");
+        }
+        if bad_reasoning {
+            bad_fields.push("reasoning_tokens");
+        }
+        if !bad_fields.is_empty() {
+            diagnostics.push(diag(
+                "token_shape_deviation",
+                &format!("usage:{id}"),
+                &format!(
+                    "columns {} out of range; kept unknown",
+                    bad_fields.join(",")
+                ),
+            ));
+        }
         let usage = CopilotUsage {
-            input_tokens: opt_col(input),
-            cached_input_tokens: opt_col(cache_read),
-            cache_creation_input_tokens: opt_col(cache_write),
-            output_tokens: opt_col(output),
-            reasoning_tokens: opt_col(reasoning),
+            input_tokens: input,
+            cached_input_tokens: cache_read,
+            cache_creation_input_tokens: cache_write,
+            output_tokens: output,
+            reasoning_tokens: reasoning,
         };
         if usage.input_tokens.is_none()
             && usage.output_tokens.is_none()
@@ -172,7 +262,7 @@ pub fn scan(
             record_kind: RecordKind::ModelCall,
             schema_version: super::COPILOT_FORMAT_VERSION.to_string(),
             parser_version: COPILOT_PARSER_VERSION.to_string(),
-            parse_basis: Some(VersionBasis::KnownVersion),
+            parse_basis: Some(event_basis),
             origin_call_id: None,
             attempt_id: None,
             session_id,

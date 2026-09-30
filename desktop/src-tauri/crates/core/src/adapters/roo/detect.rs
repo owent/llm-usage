@@ -3,7 +3,6 @@
 use crate::adapters::framework::DetectOutcome;
 use crate::domain::VersionBasis;
 use crate::error::CoreError;
-use std::io::Read;
 use std::path::Path;
 
 use super::versions;
@@ -19,10 +18,10 @@ fn strip_bom(bytes: &[u8]) -> &[u8] {
 }
 
 pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
-    let mut file = std::fs::File::open(path)?;
-    let mut head = vec![0u8; DETECT_HEAD_BYTES];
-    let n = file.read(&mut head)?;
-    head.truncate(n);
+    // 瞬态不可读（持锁/超时/枚举后被清理）⇒ Pending 下轮重探，不固化失败。
+    let Some(head) = crate::adapters::framework::read_detect_head(path, DETECT_HEAD_BYTES)? else {
+        return Ok(DetectOutcome::Pending);
+    };
     let text = String::from_utf8_lossy(strip_bom(&head));
     let trimmed = text.trim_start();
     if trimmed.is_empty() {

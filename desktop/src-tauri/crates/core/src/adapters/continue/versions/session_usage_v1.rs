@@ -174,14 +174,22 @@ pub fn scan(
         });
     };
     let details = usage.get("promptTokensDetails").and_then(|v| v.as_object());
-    let detail = |key: &str| {
-        details
-            .and_then(|d| d.get(key))
-            .and_then(|v| v.as_i64())
-            .filter(|n| (0..=crate::domain::MAX_TOKEN_VALUE).contains(n))
+    let mut detail_deviation = false;
+    let detail = |key: &str, deviation: &mut bool| {
+        match details.and_then(|d| d.get(key)) {
+            None => None,
+            Some(v) => match v.as_i64() {
+                Some(n) if (0..=crate::domain::MAX_TOKEN_VALUE).contains(&n) => Some(n),
+                // 子字段越界：与主字段同口径记诊断（不 fail closed，置未知）。
+                _ => {
+                    *deviation = true;
+                    None
+                }
+            },
+        }
     };
-    let cached = detail("cachedTokens");
-    let cache_write = detail("cacheWriteTokens");
+    let cached = detail("cachedTokens", &mut detail_deviation);
+    let cache_write = detail("cacheWriteTokens", &mut detail_deviation);
     if prompt.is_none() && completion.is_none() {
         return Ok(ScanOutcome {
             status: ScanStatus::Complete,
@@ -217,6 +225,18 @@ pub fn scan(
         output_total: completion.map(|_| Q::Reported).unwrap_or(Q::Unknown),
         ..Default::default()
     };
+    // mtime 作修订号前过 plausibility；interval_end_ms 保持原值由聚合层
+    // 校验（implausible 会被拒并记诊断，fail closed 方向）。
+    let mtime_ms = (crate::domain::MIN_PLAUSIBLE_MS..=4_102_444_800_000)
+        .contains(&target.probe.mtime_ms)
+        .then_some(target.probe.mtime_ms);
+    let mut diagnostics = Vec::new();
+    if detail_deviation {
+        diagnostics.push(diag(
+            "token_shape_deviation",
+            "promptTokensDetails sub-field out of range; kept unknown",
+        ));
+    }
     let aggregate = SourceAggregateInput {
         instance_id: target.instance_id.clone(),
         scope: AggregateScope::Session,
@@ -230,7 +250,7 @@ pub fn scan(
         coverage: Coverage::Exclusive,
         duplicate_of: None,
         time_basis: TimeBasis::Uncertain,
-        source_revision: Some(target.probe.mtime_ms),
+        source_revision: mtime_ms,
     };
     Ok(ScanOutcome {
         status: ScanStatus::Complete,
@@ -242,7 +262,7 @@ pub fn scan(
         parse_context: None,
         events: Vec::new(),
         aggregates: vec![aggregate],
-        diagnostics: Vec::new(),
+        diagnostics,
         lines_read: 1,
         records_seen: 1,
         reconciliations: Vec::new(),

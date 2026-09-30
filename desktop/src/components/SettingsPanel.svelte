@@ -1,8 +1,9 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { api, parseError } from '../lib/api';
   import type {
     AppSettings,
-    ClearAllDataResultDto,
+    ClearAllProgressDto,
     ClearAllPreviewDto,
     CleanupResultDto,
     DiagnosticLogRowDto,
@@ -83,13 +84,57 @@
   let cleanupMessage = $state('');
   let cleanupError = $state('');
 
-  // 清理全部数据并重新采集（确认层 + 结果/重采提示）。
+  // 清理全部数据并重新采集（确认层 + 后台阶段进度 + 结果/重采提示）。
   let clearAllOpen = $state(false);
   let clearAllBusy = $state(false);
   let clearAllMessage = $state('');
   let clearAllError = $state('');
+  /** 后台任务当前阶段（空 = 未运行）；文案键 cleanup.clearAllPhase.<phase>。 */
+  let clearAllPhase = $state('');
+  /** cleared 阶段送达的各表清除计数与备份路径（done 时汇总展示）。 */
+  let clearAllCleared = $state<Record<string, number> | null>(null);
+  let clearAllBackupPath = $state<string | null>(null);
   /** 清空预检（打开确认层时加载）：磁盘已不存在的源文件 = 清空后无法重采。 */
   let clearPreview = $state<ClearAllPreviewDto | null>(null);
+
+  onMount(() => {
+    let unlisten: (() => void) | null = null;
+    // 后台清理任务的阶段事件 → 确认层实时进度；done/failed 收尾。
+    const handleProgress = (p: ClearAllProgressDto) => {
+      if (p.phase === 'failed') {
+        clearAllPhase = '';
+        clearAllBusy = false;
+        clearAllError = t('cleanup.failed', { message: p.error ?? '' });
+        return;
+      }
+      if (p.phase === 'cleared') {
+        clearAllCleared = p.cleared ?? null;
+        clearAllBackupPath = p.backup ?? null;
+        // 清空结果立即反映到存储统计与界面（重采完成后 done 再刷新一次）。
+        void loadStats();
+        ondatachanged?.();
+      }
+      if (p.phase === 'done') {
+        clearAllPhase = '';
+        clearAllBusy = false;
+        clearAllMessage = t('cleanup.clearAllDone', {
+          detail: clearAllDetail(clearAllCleared ?? {}),
+        });
+        if (clearAllBackupPath) {
+          clearAllMessage = `${clearAllMessage} ${t('cleanup.clearAllBackupAt', { path: clearAllBackupPath })}`;
+        }
+        clearAllMessage = `${clearAllMessage} ${t('cleanup.clearAllTriggered')}`;
+        // 存储统计与界面数据反映清空+重采结果（父级轮询结束时还会再刷一次）。
+        void loadStats();
+        ondatachanged?.();
+        clearAllOpen = false;
+        return;
+      }
+      clearAllPhase = p.phase;
+    };
+    void api.onClearAllProgress(handleProgress).then((f) => (unlisten = f));
+    return () => unlisten?.();
+  });
 
   // zcode db 历史回填（滚动窗口源文件丢失的恢复路径）。
 
@@ -600,27 +645,26 @@
       .catch(() => (clearPreview = null));
   }
 
-  /** 清理全部数据 → 展示各表清除条目数 → 自动触发全量重采（进度见顶栏）。 */
+  /** 清理全部数据 → 后台执行（确认层实时显示阶段；完成展示各表清除条目数）。
+   * 命令立即返回，清库/备份/全量重采在后台线程进行（同步执行会冻结 UI）；
+   * 进度经 clear-all-progress 事件更新确认层，重采百分比另见顶栏。 */
   async function confirmClearAll() {
     clearAllBusy = true;
     clearAllError = '';
+    clearAllMessage = '';
+    clearAllCleared = null;
+    clearAllBackupPath = null;
+    clearAllPhase = 'waiting';
     try {
-      const r: ClearAllDataResultDto = await api.clearAllData();
-      clearAllMessage = t('cleanup.clearAllDone', { detail: clearAllDetail(r.cleared) });
-      if (r.backup) {
-        clearAllMessage = `${clearAllMessage} ${t('cleanup.clearAllBackupAt', { path: r.backup })}`;
+      const r = await api.clearAllData();
+      if (!r.started) {
+        // 已有任务在执行：留在确认层跟随其阶段事件。
+        return;
       }
-      // 存储统计与界面数据立即反映清空结果。
-      await loadStats();
-      ondatachanged?.();
-      // 游标已重置，本轮刷新即全量重新采集。
-      await api.refreshSources();
-      clearAllMessage = `${clearAllMessage} ${t('cleanup.clearAllTriggered')}`;
     } catch (e) {
-      clearAllError = t('cleanup.failed', { message: parseError(e) });
-    } finally {
+      clearAllPhase = '';
       clearAllBusy = false;
-      clearAllOpen = false;
+      clearAllError = t('cleanup.failed', { message: parseError(e) });
     }
   }
 </script>
@@ -1034,6 +1078,19 @@
           <p class="dialog-warn">{t('cleanup.clearAllMissing', { n: clearPreview.missing_files })}</p>
         {/if}
         <p class="dialog-note">{t('cleanup.clearAllBackup')}</p>
+        {#if clearAllBusy}
+          <p class="dialog-note" role="status" aria-live="polite">
+            {#if clearAllPhase}
+              {t(`cleanup.clearAllPhase.${clearAllPhase}`)}
+            {:else}
+              {t('cleanup.running')}
+            {/if}
+          </p>
+          <div class="dialog-progress" aria-hidden="true"></div>
+        {/if}
+        {#if clearAllError}
+          <p class="dialog-warn">{clearAllError}</p>
+        {/if}
         <div class="dialog-actions">
           <button
             type="button"
@@ -1576,6 +1633,32 @@
     font-size: 13px;
     color: var(--text-muted);
     margin: 8px 0 0;
+  }
+  /* 后台清理阶段的流动指示（不定进度；百分比语义见顶栏采集进度）。 */
+  .dialog-progress {
+    margin-top: 10px;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--border);
+    overflow: hidden;
+    position: relative;
+  }
+  .dialog-progress::after {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 35%;
+    border-radius: 2px;
+    background: var(--accent);
+    animation: dialog-progress-slide 1.2s ease-in-out infinite;
+  }
+  @keyframes dialog-progress-slide {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(320%);
+    }
   }
   .dialog-actions {
     display: flex;

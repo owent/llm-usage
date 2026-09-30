@@ -110,5 +110,45 @@ antigravity、qoder（探针）。全部注册进 `built_in_adapters()`。
    状态见矩阵；Cursor/Warp/TRAE/Windsurf 维持排除/F1。
 3. Kiro 双载体交叉对账、Roo vs Cline tokensIn 口径分歧、Antigravity 1.1.18+
    时间戳布局：均待真实样本。
-4. 浏览器回归与 Windows release 构建未随本轮重跑（本轮改动仅核心库与注册，
-   前端界面无变化；随下轮界面相关改动一并执行）。
+4. 初轮只修改核心库与注册，未重跑浏览器回归与 Windows release 构建；
+   后续工作区复核已补跑浏览器回归，记录如下。release 构建仍随 M7 验收。
+
+## f6ede266590b37c14f424070b048ffd773f3ae9c 工作区复核（2026-09-29）
+
+范围：审查该提交后的 74 个已暂存改动，并继续修复审查发现的问题；
+工作区改动未提交、未推送。环境：Windows 11 x64，Node.js v24.21.0，
+Cargo 1.98.0，仓库根执行 npm/Git，`desktop/src-tauri` 执行定向 Cargo 测试。
+
+已确认并修复的边界：
+
+- Zed 累计桶合计改为 checked 算术后，调用处仍按整数使用，导致核心库
+  无法编译；现在溢出时记录诊断并跳过该线程。
+- Goose 旧库会话累计会增长，完整页后的游标必须从头复查；
+  Crush 累计成本使用 `updated_at` 作为修订号，否则同 ID 的后续成本与
+  旧 Final 事件冲突。Zed、Kiro、Crush 超过 50,000 行时按页继续，
+  读到末页后复查可变行。
+- jcode journal 达到单轮行数上限时按持久偏移续读，末页后重读以应用
+  会话级元数据；原实现每轮从头读，尾部永久不可达。同 ID 消息的
+  `source_revision` 取快照/日志 `updated_at`，不把消息完成时间误当修订时间；
+  同毫秒且内容冲突仍交给导入层标记冲突。
+- Xum 版本只从完整 JSON 的顶层字段判定；截断头部按兼容回退。
+  Kiro 部分写入的 SQLite 魔数保持 Pending。共用文件头读取处理短读。
+- 停用实例的统一扫描门控、逐源计划到期过滤、实际扫描成败记录、
+  OTel 错误状态透传、SourceList 周名时区及来源列表字段索引按工作区差异核验。
+
+回归：`tests/m8_review_fixes.rs` 覆盖跨页读取、累计更新、journal 续读与
+同消息时间戳的更正、
+停用来源、版本依据、坏桶诊断及单行故障；补充 Zed 溢出单测。
+`npm run verify`（仓库根，退出码 0）通过文档 lint、资源检查、脚本/前端
+测试、Svelte 检查、Rust 格式/Clippy/全量测试及 Web 构建；
+`npm run test:browser`（仓库根，退出码 0）通过浏览器交互回归。
+默认沙箱启动 Node 子进程报 `spawnSync EPERM`，按受控提权路径重跑
+同一命令成功；该错误不作为产品失败证据。
+
+验收等级仍是文档级 + 合成数据：本轮没有新增 M8 产品的本机真实用量样本。
+本机默认 Copilot 数据库路径本轮探测为不存在，不能把此前 36 行真实数据
+核对结果当作本轮复测。前述真实样本、Kiro 双载体交叉对账、Roo/Cline
+口径分歧和 Antigravity 1.1.18+ 时间戳布局仍按原缺口保留。
+本轮还探测了 M2 默认目录：`%USERPROFILE%/.claude`、`.gemini`、`.qwen`
+均不存在；这只说明当前 shell 下默认路径无样本，不能替代环境变量或手工根检查，
+M2 真实 fixture 缺口仍保留。

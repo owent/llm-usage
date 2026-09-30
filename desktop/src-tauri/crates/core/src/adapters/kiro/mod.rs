@@ -113,19 +113,40 @@ impl crate::adapters::framework::SourceAdapter for KiroAdapter {
         now_ms: i64,
     ) -> Result<crate::adapters::framework::ScanOutcome, crate::error::CoreError> {
         // 按文件形态分派（探测结论已在 format_status；此处按内容判定，
-        // 与 detect 同一指纹规则）。
-        let mut magic = [0u8; 16];
-        let is_sqlite = std::fs::File::open(&target.path)
-            .and_then(|mut f| {
-                use std::io::Read;
-                f.read_exact(&mut magic)
-            })
-            .map(|_| magic.starts_with(b"SQLite format 3\0"))
-            .unwrap_or(false);
-        if is_sqlite {
-            versions::sqlite_v1::scan(target, stored, limits, now_ms)
-        } else {
-            versions::cli_turns_v1::scan(target, stored, limits, now_ms)
+        // 与 detect 同一指纹规则）。短文件可能是正在写入的 SQLite 魔数，
+        // 也可能是完整的短 JSON；只对前者 Pending。
+        let head = crate::adapters::framework::read_detect_head(&target.path, 16)?;
+        match head.as_deref() {
+            Some(head) if head.starts_with(b"SQLite format 3\0") => {
+                versions::sqlite_v1::scan(target, stored, limits, now_ms)
+            }
+            Some(head) if !head.is_empty() && b"SQLite format 3\0".starts_with(head) => {
+                Ok(crate::adapters::framework::ScanOutcome {
+                    status: crate::adapters::framework::ScanStatus::Pending,
+                    cursor: None,
+                    parse_context: None,
+                    events: Vec::new(),
+                    aggregates: Vec::new(),
+                    diagnostics: Vec::new(),
+                    lines_read: 0,
+                    records_seen: 0,
+                    reconciliations: Vec::new(),
+                    health: "active".to_string(),
+                })
+            }
+            Some(_) => versions::cli_turns_v1::scan(target, stored, limits, now_ms),
+            None => Ok(crate::adapters::framework::ScanOutcome {
+                status: crate::adapters::framework::ScanStatus::Pending,
+                cursor: None,
+                parse_context: None,
+                events: Vec::new(),
+                aggregates: Vec::new(),
+                diagnostics: Vec::new(),
+                lines_read: 0,
+                records_seen: 0,
+                reconciliations: Vec::new(),
+                health: "active".to_string(),
+            }),
         }
     }
 

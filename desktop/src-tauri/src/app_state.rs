@@ -169,6 +169,8 @@ pub struct AppState {
     pub db_path: PathBuf,
     /// 当前统计用户（v6 多用户合同；默认 "default"，存 settings 表）。
     pub current_user: Mutex<String>,
+    /// 「清理全部数据并重新采集」后台任务运行中（防重复触发；UI 不阻塞）。
+    pub clear_job_running: std::sync::atomic::AtomicBool,
 }
 
 impl AppState {
@@ -264,6 +266,7 @@ impl AppState {
             refresh: Mutex::new(RefreshState::default()),
             current_user: Mutex::new(current_user),
             db_path,
+            clear_job_running: std::sync::atomic::AtomicBool::new(false),
         })
     }
 }

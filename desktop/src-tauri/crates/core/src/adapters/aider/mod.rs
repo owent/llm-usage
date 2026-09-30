@@ -60,10 +60,16 @@ impl crate::adapters::framework::SourceAdapter for AiderAdapter {
             } else {
                 continue;
             };
-            let root = manual
-                .parent()
-                .map(|p| p.to_path_buf())
-                .unwrap_or_else(|| manual.clone());
+            // 文件手工根取父目录；目录手工根取自身——同父的多个目录根
+            // 不能合并成一个 root（后者文件会整体丢失）。
+            let root = if manual.is_dir() {
+                manual.clone()
+            } else {
+                manual
+                    .parent()
+                    .map(|p| p.to_path_buf())
+                    .unwrap_or_else(|| manual.clone())
+            };
             if !files.is_empty() && seen.insert(root.clone()) {
                 out.push(DiscoveredRoot {
                     root,

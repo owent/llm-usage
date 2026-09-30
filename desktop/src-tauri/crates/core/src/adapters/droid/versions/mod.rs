@@ -19,7 +19,8 @@ pub struct Selection {
     pub basis: crate::domain::VersionBasis,
 }
 
-/// 按格式版本选择实现；探测与扫描共用本函数（V30）。
+/// 按格式版本选择实现（V30 注册表标准形）。settings.json 当前无版本字段，
+/// 探测层固定文档锚点 KnownVersion；本函数为版本字段出现时的分派入口预留。
 pub fn select(found: Option<&str>) -> Selection {
     match found {
         Some(version) => {

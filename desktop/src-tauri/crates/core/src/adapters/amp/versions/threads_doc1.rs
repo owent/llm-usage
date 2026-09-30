@@ -64,6 +64,7 @@ fn thread_id_of(path: &std::path::Path) -> Option<String> {
         .to_str()?
         .strip_prefix("T-")?
         .strip_suffix(".json")
+        .filter(|s| !s.is_empty())
         .map(str::to_string)
 }
 
@@ -237,7 +238,15 @@ pub fn scan(
                     total_tokens: None,
                     source_total: None,
                 },
-                crate::domain::TokenQuality::default(),
+                // 在场桶必须标 Reported：全 Unknown 会在 ingest 校验
+                // （domain.rs 值与质量一致性）被拒，事件无法入账。
+                crate::domain::TokenQuality {
+                    input_cache_read: crate::domain::FieldQuality::Reported,
+                    input_cache_write: crate::domain::FieldQuality::Reported,
+                    input_total: crate::domain::FieldQuality::Reported,
+                    output_total: crate::domain::FieldQuality::Reported,
+                    ..Default::default()
+                },
                 Vec::new(),
             );
             events.push(EventInput {
@@ -360,6 +369,11 @@ mod tests {
             Some("abc123")
         );
         assert_eq!(thread_id_of(std::path::Path::new("/x/other.json")), None);
+        // 空前缀归 unknown（调用方兜底），不产空键。
+        assert_eq!(
+            thread_id_of(std::path::Path::new("/x/threads/T-.json")),
+            None
+        );
     }
 
     #[test]

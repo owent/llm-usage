@@ -58,27 +58,26 @@ impl crate::adapters::framework::SourceAdapter for GajaeCodeAdapter {
                     .map(|v| (v.trim().to_string(), *env))
             })
             .map(|(v, env)| (std::path::PathBuf::from(v), env.to_string()));
-        if let Some(home_dir) = ctx.home_dir.as_ref() {
-            if let Some((dir, env)) = config_name {
-                roots.push((
-                    dir.join("agent").join("sessions"),
-                    RootBasis::EnvOverride(env),
-                ));
-            } else {
-                roots.push((
-                    home_dir.join(".gjc").join("agent").join("sessions"),
-                    RootBasis::DefaultHome,
-                ));
-                // XDG（仅非 override 时；官方拍平 agent/ 段）。
-                if !cfg!(windows) {
-                    let xdg = ctx
-                        .env
-                        .get("XDG_DATA_HOME")
-                        .filter(|v| !v.trim().is_empty())
-                        .map(std::path::PathBuf::from)
-                        .unwrap_or_else(|| home_dir.join(".local").join("share"));
-                    roots.push((xdg.join("gjc").join("sessions"), RootBasis::DefaultHome));
-                }
+        // config_dir 覆盖是绝对路径、不依赖 home_dir：不能嵌在 home 判断里丢失。
+        if let Some((dir, env)) = config_name {
+            roots.push((
+                dir.join("agent").join("sessions"),
+                RootBasis::EnvOverride(env),
+            ));
+        } else if let Some(home_dir) = ctx.home_dir.as_ref() {
+            roots.push((
+                home_dir.join(".gjc").join("agent").join("sessions"),
+                RootBasis::DefaultHome,
+            ));
+            // XDG（仅非 override 时；官方拍平 agent/ 段）。
+            if !cfg!(windows) {
+                let xdg = ctx
+                    .env
+                    .get("XDG_DATA_HOME")
+                    .filter(|v| !v.trim().is_empty())
+                    .map(std::path::PathBuf::from)
+                    .unwrap_or_else(|| home_dir.join(".local").join("share"));
+                roots.push((xdg.join("gjc").join("sessions"), RootBasis::DefaultHome));
             }
         }
         for manual in &ctx.manual_roots {

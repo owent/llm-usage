@@ -18,8 +18,10 @@
 //!   occurred_at 取 timestampMs（SourceCompletion），duration=time。
 //! - 会话目录名 `session-<yyMMdd>-<HHmmss>` 仅作兜底（未采用：timestampMs
 //!   在场才入账，缺时间戳跳行记诊断）。
-//! - 对账键（junie.rs:100-108，字节级重放折叠）：junie:&lt;session&gt;:&lt;ts&gt;:&lt;model&gt;:
-//!   &lt;五桶值&gt;:&lt;cost12位&gt;:&lt;数组内索引&gt;。
+//! - 对账键：junie:&lt;session&gt;:&lt;ts&gt;:&lt;model&gt;:&lt;五桶值&gt;:&lt;cost12位&gt;
+//!   :&lt;行号&gt;:&lt;数组内索引&gt;（tokscale junie.rs:100-108 原键不含行号——
+//!   两条不同行的同毫秒同内容事件会折叠；本仓合同要求同毫秒重复记录都入账，
+//!   键含行号区分；JSONL 追加源行号稳定，rescan 重放行号一致，幂等性不变）。
 //! - 无 cache/token 包含关系证据 ⇒ hermes 同型并列报告，不派生总量。
 
 use crate::adapters::framework::{
@@ -95,16 +97,22 @@ fn session_id_of(path: &std::path::Path) -> String {
         .to_string()
 }
 
-/// 别名组取值：第一个在场的数值别名；负值/超限返回 None（调用方记诊断）。
+/// 别名组取值：第一个在场的有效数值别名；越界（负/超限）返回 None
+/// （调用方记诊断）；非整数别名不遮蔽同层后续有效别名（多版本兼容兜底
+/// 必须可达），全部别名非法才算形状偏离。
 fn alias_u64(
     obj: &serde_json::Map<String, serde_json::Value>,
     keys: &[&str],
 ) -> Option<Option<i64>> {
+    let mut type_deviation = false;
     for key in keys {
         match obj.get(*key) {
             None => continue,
             Some(v) => {
-                let n = v.as_i64()?;
+                let Some(n) = v.as_i64() else {
+                    type_deviation = true;
+                    continue;
+                };
                 if !(0..=MAX_REASONABLE_TOKEN).contains(&n) {
                     return None;
                 }
@@ -112,8 +120,13 @@ fn alias_u64(
             }
         }
     }
-    // 无一别名在场。
-    Some(None)
+    if type_deviation {
+        // 有别名在场但全非整数：形状偏离（调用方记诊断跳过该条目）。
+        None
+    } else {
+        // 无一别名在场。
+        Some(None)
+    }
 }
 
 fn usd_cost(value: Option<&serde_json::Value>) -> Option<CostAmount> {
@@ -270,7 +283,16 @@ pub fn scan(
                     total_tokens: None,
                     source_total: None,
                 },
-                crate::domain::TokenQuality::default(),
+                // 在场桶必须标 Reported：TokenQuality::default() 全 Unknown 会在
+                // ingest 校验（domain.rs:421 值与质量不一致）被拒，整批事件无法入账。
+                crate::domain::TokenQuality {
+                    input_cache_read: crate::domain::FieldQuality::Reported,
+                    input_cache_write: crate::domain::FieldQuality::Reported,
+                    input_total: crate::domain::FieldQuality::Reported,
+                    output_total: crate::domain::FieldQuality::Reported,
+                    output_reasoning: crate::domain::FieldQuality::Reported,
+                    ..Default::default()
+                },
                 Vec::new(),
             );
             let bucket_sig = format!(
@@ -289,7 +311,8 @@ pub fn scan(
             events.push(EventInput {
                 source_instance_id: target.instance_id.clone(),
                 source_record_key: format!(
-                    "junie:{session_id}:{timestamp_ms}:{model}:{bucket_sig}:{cost_sig}:{index}"
+                    "junie:{session_id}:{timestamp_ms}:{model}:{bucket_sig}:{cost_sig}:{}:{index}",
+                    line.number
                 ),
                 record_kind: RecordKind::ModelCall,
                 schema_version: JUNIE_FORMAT_VERSION.to_string(),
@@ -307,7 +330,11 @@ pub fn scan(
                 source_time: Some(timestamp_ms.to_string()),
                 // timestampMs 是响应结束时刻（第三方证据 junie.rs:113-119）。
                 time_basis: TimeBasis::SourceCompletion,
-                interval_start_ms: duration.and_then(|d| timestamp_ms.checked_sub(d)),
+                // duration 超过响应结束时刻 ⇒ 起点为负（数据矛盾）：
+                // 起点置未知不编负值，端点保持真实报告。
+                interval_start_ms: duration
+                    .and_then(|d| timestamp_ms.checked_sub(d))
+                    .filter(|s| *s >= 0),
                 interval_end_ms: Some(timestamp_ms),
                 provider_id: entry
                     .get("provider")

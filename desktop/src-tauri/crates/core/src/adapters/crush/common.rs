@@ -65,7 +65,7 @@ impl Default for StagingLimits {
         StagingLimits {
             pages_per_step: 512,
             max_bytes: 2 * 1024 * 1024 * 1024,
-            max_time: Duration::from_secs(2),
+            max_time: Duration::from_secs(30),
         }
     }
 }
@@ -170,8 +170,7 @@ pub(crate) fn short_probe(conn: &Connection) -> Result<(), rusqlite::Error> {
     conn.query_row("SELECT COUNT(*) FROM sqlite_master", [], |_| Ok(()))
 }
 
-/// threads 表必需列（固定源码建表 + 迁移列集；created_at 缺列时探测层降级）。
-/// sessions 表必需列（cost-only 载体）。
+/// sessions 表必需列（cost-only 载体；探测层全量必需，无降级）。
 pub(crate) const SESSIONS_COLUMNS: &[&str] = &[
     "id",
     "parent_session_id",

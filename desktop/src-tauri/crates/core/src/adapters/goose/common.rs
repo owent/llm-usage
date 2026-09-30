@@ -137,7 +137,7 @@ impl Default for StagingLimits {
         StagingLimits {
             pages_per_step: 512,
             max_bytes: 2 * 1024 * 1024 * 1024,
-            max_time: Duration::from_secs(2),
+            max_time: Duration::from_secs(30),
         }
     }
 }
@@ -267,3 +267,52 @@ pub(crate) const SESSIONS_FALLBACK_COLUMNS: &[&str] = &[
     "created_at",
     "updated_at",
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn uncached_derived_from_input_minus_cache() {
+        // input_tokens 含 cache 读/写：uncached = 100 - 30 - 10 = 60。
+        let mapped = map_goose_ledger(&GooseLedgerUsage {
+            input_tokens: Some(100),
+            output_tokens: Some(20),
+            total_tokens: Some(120),
+            cache_read_tokens: Some(30),
+            cache_write_tokens: Some(10),
+        });
+        assert_eq!(mapped.usage.input_total, Some(100));
+        assert_eq!(mapped.usage.input_uncached, Some(60));
+        assert_eq!(mapped.usage.total_tokens, Some(120));
+        assert_eq!(mapped.usage.source_total, Some(120));
+    }
+
+    #[test]
+    fn negative_derived_reports_contradiction_not_clamped() {
+        // cache 合计超过 input：uncached 置未知 + 矛盾诊断（不钳制为 0）。
+        let mapped = map_goose_ledger(&GooseLedgerUsage {
+            input_tokens: Some(10),
+            cache_read_tokens: Some(8),
+            cache_write_tokens: Some(8),
+            ..Default::default()
+        });
+        assert_eq!(mapped.usage.input_uncached, None);
+        assert!(mapped
+            .diagnostics
+            .iter()
+            .any(|d| d.code == "negative_derived_field"));
+    }
+
+    #[test]
+    fn missing_buckets_stay_unknown() {
+        // NULL 列不补零。
+        let mapped = map_goose_ledger(&GooseLedgerUsage {
+            input_tokens: Some(50),
+            ..Default::default()
+        });
+        assert_eq!(mapped.usage.output_total, None);
+        assert_eq!(mapped.usage.total_tokens, None);
+        assert_eq!(mapped.usage.input_uncached, None);
+    }
+}

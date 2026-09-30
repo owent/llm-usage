@@ -35,8 +35,28 @@ pub struct MappedUsage {
 
 pub(crate) fn finish(
     usage: TokenUsage,
+    quality: TokenQuality,
+    diagnostics: Vec<Contradiction>,
+) -> MappedUsage {
+    finish_impl(usage, quality, diagnostics, true)
+}
+
+/// 并列报告映射专用（zed/hermes 等"包含关系未验证 ⇒ 不推导互斥/子集"）：
+/// 子集类矛盾检测（cache ≤ input_total 等）以包含关系为前提，对并列口径
+/// 会假阳性（缓存重于输入是正常形态）；非负/上限仍由 domain 校验把关。
+pub(crate) fn finish_parallel(
+    usage: TokenUsage,
+    quality: TokenQuality,
+    diagnostics: Vec<Contradiction>,
+) -> MappedUsage {
+    finish_impl(usage, quality, diagnostics, false)
+}
+
+fn finish_impl(
+    usage: TokenUsage,
     mut quality: TokenQuality,
     mut diagnostics: Vec<Contradiction>,
+    check_subset: bool,
 ) -> MappedUsage {
     for (value, field) in [
         (usage.input_uncached, &mut quality.input_uncached),
@@ -52,7 +72,9 @@ pub(crate) fn finish(
             *field = Q::Unknown;
         }
     }
-    diagnostics.extend(detect_contradictions(&usage));
+    if check_subset {
+        diagnostics.extend(detect_contradictions(&usage));
+    }
     MappedUsage {
         usage,
         quality,

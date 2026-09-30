@@ -49,6 +49,8 @@ pub fn built_in_adapters() -> Vec<Box<dyn SourceAdapter>> {
         Box::new(llm_usage_core::adapters::goose::GooseAdapter::new()),
         Box::new(llm_usage_core::adapters::crush::CrushAdapter::new()),
         Box::new(llm_usage_core::adapters::jcode::JcodeAdapter::new()),
+        Box::new(llm_usage_core::adapters::codebuddy::CodeBuddyAdapter::new()),
+        Box::new(llm_usage_core::adapters::workbuddy::WorkBuddyAdapter::new()),
         Box::new(llm_usage_core::adapters::gajae_code::GajaeCodeAdapter::new()),
         Box::new(llm_usage_core::adapters::commandcode::CommandCodeAdapter::new()),
         Box::new(llm_usage_core::adapters::continuedev::ContinueAdapter::new()),
@@ -137,12 +139,45 @@ fn run_refresh_filtered(
     };
     let ctx = discover_context(manual_roots);
     let mut summaries: Vec<RefreshInstanceSummary> = Vec::new();
+    // 全局刷新排除有自定义启用计划的实例（逐源节奏覆盖全局）。排除集
+    // 加载失败时宁可本轮不扫（记失败摘要），也不能把自定义计划的来源
+    // 卷进全局节奏——节奏合同优先于本轮覆盖。
+    let global_exclude = if include.is_none() {
+        let storage = state.storage.lock().unwrap();
+        match llm_usage_core::schedules::custom_scheduled_instances(&storage) {
+            Ok(set) => Some(Some(set)),
+            Err(e) => {
+                summaries.push(RefreshInstanceSummary {
+                    instance_id: "scheduler".to_string(),
+                    agent: "app".to_string(),
+                    status: "failed".to_string(),
+                    error: Some(format!(
+                        "failed to load per-source schedules; global refresh skipped to respect per-source cadence: {e}"
+                    )),
+                    added: 0,
+                    updated: 0,
+                    files: 0,
+                    events: 0,
+                    diagnostics: 0,
+                });
+                None
+            }
+        }
+    } else {
+        Some(None)
+    };
+    // 逐源定时成败归属：实例 → 本轮实际运行结果（到期计划按真实结果推进）。
+    let mut instance_outcomes: std::collections::BTreeMap<String, bool> =
+        std::collections::BTreeMap::new();
     // 写锁按适配器分段获取（而非整个刷新持有）：查询走 WAL 只读连接不受影响，
     // 设置写入等其他写操作可在适配器之间交错；任意时刻仍只有一个写者。
     let adapters = built_in_adapters();
     let total_adapters = adapters.len();
     let scan_start = now_ms();
     for (adapter_index, adapter) in adapters.into_iter().enumerate() {
+        let Some(exclude) = global_exclude.clone() else {
+            break;
+        };
         // 进度：按适配器序号估算（完成后百分百精确；运行中含当前适配器的
         // 文件级进度由各适配器内部掌握，此处用粗粒度近似+ETA）。
         {
@@ -163,20 +198,9 @@ fn run_refresh_filtered(
             run_id_prefix: format!("scan-{now}-a{adapter_index}"),
             ..config.clone()
         };
-        let filter = {
-            let storage = state.storage.lock().unwrap();
-            let exclude = if include.is_none() {
-                Some(
-                    llm_usage_core::schedules::custom_scheduled_instances(&storage)
-                        .unwrap_or_default(),
-                )
-            } else {
-                None
-            };
-            llm_usage_core::adapters::framework::InstanceFilter {
-                include: include.clone(),
-                exclude,
-            }
+        let filter = llm_usage_core::adapters::framework::InstanceFilter {
+            include: include.clone(),
+            exclude,
         };
         let result = {
             let storage = state.storage.lock().unwrap();
@@ -195,7 +219,17 @@ fn run_refresh_filtered(
             .completed_adapters
             .push(adapter.agent().to_string());
         match result {
-            Ok(reports) => summaries.extend(summarize_reports(&reports)),
+            Ok(reports) => {
+                // 逐实例记录真实成败（RunStatus::Succeeded 才算成功）；
+                // 适配器级失败时本次到期实例保持无记录 ⇒ 下面按失败推进。
+                for report in &reports {
+                    instance_outcomes.insert(
+                        report.instance_id.clone(),
+                        matches!(report.finish, llm_usage_core::jobs::RunStatus::Succeeded),
+                    );
+                }
+                summaries.extend(summarize_reports(&reports));
+            }
             Err(e) => summaries.push(RefreshInstanceSummary {
                 instance_id: format!("{}@*", adapter.adapter_id()),
                 agent: adapter.agent().to_string(),
@@ -245,8 +279,9 @@ fn run_refresh_filtered(
         }
     }
     {
-        // 逐源定时：本轮已实际运行的到期计划推进 next_due（成功语义；
-        // 未运行的不动，错过时点醒来后仍只补一次）。
+        // 逐源定时：本轮已实际运行的到期计划按真实成败推进 next_due
+        // （失败记 running_error 留痕；未运行/无报告的实例记失败不冒认成功；
+        // 未到期的不动，错过时点醒来后仍只补一次）。
         if let Some(due) = &include {
             let storage = state.storage.lock().unwrap();
             let tz = {
@@ -254,14 +289,23 @@ fn run_refresh_filtered(
                 settings.timezone.clone()
             };
             for instance_id in due {
-                let _ = llm_usage_core::schedules::mark_source_run(
+                let success = instance_outcomes.get(instance_id).copied().unwrap_or(false);
+                if let Err(e) = llm_usage_core::schedules::mark_source_run(
                     &storage,
                     instance_id,
                     now_ms(),
-                    true,
+                    success,
                     &tz,
                     None,
-                );
+                ) {
+                    let _ = storage.conn().execute(
+                        "INSERT INTO diagnostics (code, message, created_ms) VALUES ('schedule_mark_failed', ?1, ?2)",
+                        rusqlite::params![
+                            format!("mark_source_run failed for {instance_id}: {e}"),
+                            now_ms()
+                        ],
+                    );
+                }
             }
         }
     }
@@ -326,9 +370,22 @@ pub fn spawn_scheduler(state: Arc<AppState>, stop: Arc<AtomicBool>) {
             } else {
                 // 逐源定时：无全局刷新在跑时，触发到期实例（FixedTime 语义；
                 // 与手动/全局合并由 refresh 单飞保证，同源不并发）。
+                // 到期探测失败不静默跳过：记诊断留痕，下轮重试。
                 let due = {
                     let storage = state.storage.lock().unwrap();
-                    llm_usage_core::schedules::due_instances(&storage, now_ms()).unwrap_or_default()
+                    match llm_usage_core::schedules::due_instances(&storage, now_ms()) {
+                        Ok(due) => due,
+                        Err(e) => {
+                            let _ = storage.conn().execute(
+                                "INSERT INTO diagnostics (code, message, created_ms) VALUES ('schedule_probe_failed', ?1, ?2)",
+                                rusqlite::params![
+                                    format!("due_instances probe failed: {e}"),
+                                    now_ms()
+                                ],
+                            );
+                            std::collections::BTreeSet::new()
+                        }
+                    }
                 };
                 if !due.is_empty() && !state.refresh.lock().unwrap().running {
                     run_refresh_filtered(&state, TriggerKind::FixedTime, Some(due));

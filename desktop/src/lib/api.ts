@@ -3,6 +3,7 @@
  * 图表缩放展示；精确值保留字符串）。
  */
 import { invoke } from '@tauri-apps/api/core';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
 /** 分级归档保留（天；yearly 为 null = 终身）。 */
 export interface RetentionTiers {
@@ -206,11 +207,22 @@ export interface CleanupResultDto {
   materialized_period_rows: number;
 }
 
-/** 清理全部数据结果（各表清除条目数 + 新数据修订 + 清空前备份路径）。 */
-export interface ClearAllDataResultDto {
-  cleared: Record<string, number>;
-  data_revision: number;
-  backup: string | null;
+/** 清理全部数据：后台任务启动结果（started=false 表示已有任务在执行）。 */
+export interface ClearAllStartDto {
+  started: boolean;
+}
+
+/** 清理全部数据后台任务阶段事件（clear-all-progress）。
+ * waiting=等当前采集结束；backup=备份数据库；clearing=清库事务；
+ * cleared=清库完成（含各表计数/备份路径）；rescan=全量重采已开始；
+ * done=重采结束；failed=失败终止（error 含原因）。 */
+export interface ClearAllProgressDto {
+  phase: 'waiting' | 'backup' | 'clearing' | 'cleared' | 'rescan' | 'done' | 'failed';
+  cleared?: Record<string, number>;
+  data_revision?: number;
+  backup?: string | null;
+  rescan_started?: boolean;
+  error?: string;
 }
 
 /** 清空预检：事件总量 + 已注册但磁盘不存在的源文件数（这些历史无法重采）。 */
@@ -340,7 +352,10 @@ export const api = {
   importExchange: (path: string) => invoke<ImportOutcomeDto>('import_exchange', { path }),
   storageStats: () => invoke<StorageStatsDto>('storage_stats'),
   manualCleanup: (daysBefore: number) => invoke<CleanupResultDto>('manual_cleanup', { daysBefore }),
-  clearAllData: () => invoke<ClearAllDataResultDto>('clear_all_data'),
+  clearAllData: () => invoke<ClearAllStartDto>('clear_all_data'),
+  /** 订阅清理全部数据后台任务的阶段进度；返回取消订阅函数。 */
+  onClearAllProgress: (handler: (p: ClearAllProgressDto) => void): Promise<UnlistenFn> =>
+    listen<ClearAllProgressDto>('clear-all-progress', (e) => handler(e.payload)),
   clearAllPreview: () => invoke<ClearAllPreviewDto>('clear_all_preview'),
   pickOpenPath: (extension: string) => invoke<string | null>('pick_open_path', { extension }),
 };

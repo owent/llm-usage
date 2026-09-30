@@ -99,16 +99,18 @@ impl crate::adapters::framework::SourceAdapter for GooseAdapter {
         let mut seen: std::collections::BTreeSet<std::path::PathBuf> =
             std::collections::BTreeSet::new();
         for (root, basis) in roots {
-            let db = if root.join("sessions.db").is_file() {
-                root.join("sessions.db")
+            // 文件形手工根：root 取文件本身——同目录下两个手工 db 文件的
+            // root 规范化后相同会被框架去重吞并其一（该库永不扫描）。
+            let (db, root_key) = if root.join("sessions.db").is_file() {
+                (root.join("sessions.db"), root.clone())
             } else if root.is_file() {
-                root.clone()
+                (root.clone(), root.clone())
             } else {
                 continue;
             };
             if seen.insert(db.clone()) {
                 out.push(DiscoveredRoot {
-                    root: db.parent().map(|p| p.to_path_buf()).unwrap_or(root),
+                    root: root_key,
                     basis,
                     files: vec![db],
                 });

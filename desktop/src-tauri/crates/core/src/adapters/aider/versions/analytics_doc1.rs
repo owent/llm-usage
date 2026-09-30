@@ -242,8 +242,13 @@ pub fn scan(
         );
         events.push(EventInput {
             source_instance_id: target.instance_id.clone(),
-            // 无消息 ID：追加式文件，整行内容哈希是稳定身份（重放幂等）。
-            source_record_key: format!("aider:{}", crate::identity::content_hash(&line.text)),
+            // 无消息 ID：追加式文件，行号+内容哈希是稳定身份（重放幂等；
+            // 完全相同的重复发送靠行号区分，不被哈希折叠）。
+            source_record_key: format!(
+                "aider:{}:{}",
+                line.number,
+                crate::identity::content_hash(&line.text)
+            ),
             record_kind: RecordKind::ModelCall,
             schema_version: AIDER_FORMAT_VERSION.to_string(),
             parser_version: AIDER_PARSER_VERSION.to_string(),
