@@ -90,6 +90,16 @@ npm 卸载 8 包（672 packages removed）+ `rm -rf ~/.local/npm-global ~/.bun`�
 **安装前已存在的目录（.cline/.omp/.copilot/kilo 数据等）一律未动。**
 逐项核验无残留。
 
+## 后续发现：CI 暴露的暂存备份竞速（已修复）
+
+本次推送后 CI（Linux）暴露既有缺陷：9 个 SQLite 暂存副本适配器把
+backup.step 的 Busy/Locked 无进展重试也计入 done_pages，使"空间上限"与
+"超时"两个出口竞速——Linux 上 20.5s 页上限先触发，busy 场景误报
+`space cap`（Windows 本地超时先触发故全绿，与 WSL UNC 超时同为暂存
+备份路径）。修复（cb28454，2026-09-30）：仅 `StepResult::More` 计入
+空间预算，Busy/Locked 只耗时间预算；Windows/WSL 双平台复测一致，
+CI 36709419197 全绿。登记见 [m0-ci](m0-ci.md)。
+
 ## 未完成/后续
 
 1. 全部产品无凭据未登录：用量事件为零（claude synthetic/opencode 空库），

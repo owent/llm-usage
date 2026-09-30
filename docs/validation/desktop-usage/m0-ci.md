@@ -44,7 +44,11 @@
 | 运行 | 触发/HEAD | 结论 | 证据 |
 | --- | --- | --- | --- |
 | [36444880100](https://github.com/owent/llm-usage/actions/runs/36444880100) | push `当前进度暂时完成`（7831f89，2026-09-28） | **success**（6/6 作业：windows-2022 / ubuntu-22.04 / macos-15 release 构建 + Markdown 文档检查 + Rust fmt/clippy/test + 前端类型检查与构建；5m18s） | `gh run view` 查询（2026-09-30） |
-| [36707037687](https://github.com/owent/llm-usage/actions/runs/36707037687) | push `F2 费用估算引擎…`（118c442，2026-09-30） | 结论见运行页（本记录首次写入时进行中） | `gh run list/view` |
+| [36707037687](https://github.com/owent/llm-usage/actions/runs/36707037687) | push `F2 费用估算引擎…`（118c442，2026-09-30） | **failure**（Rust 作业：kilo busy_writer 在 Linux 上暴露暂存备份 Busy 重试计入页数的既有竞速——20.5s 页上限先于 30s 超时触发误报 space cap；Windows 本地超时出口先触发故全绿。修复见 36709419197） | `gh run view --log-failed` + WSL Linux 复现 |
+| [36709419197](https://github.com/owent/llm-usage/actions/runs/36709419197) | push `修复暂存备份 Busy 重试计入页数的平台相关竞速`（cb28454） | **success**（6/6；Windows/WSL 双平台复测一致） | `gh run list/view` |
+| [36709463931](https://github.com/owent/llm-usage/actions/runs/36709463931) | push `移除误提交的调试用嵌入 worktree`（00b9643） | **success**（6/6） | `gh run list/view` |
 
 历史注记：2026-09-26/28 两次失败运行（36256404241、36378875396）早于
-36444880100，属修复过程中的中间态，不以失败运行冒充基线。
+36444880100，属修复过程中的中间态，不以失败运行冒充基线；
+36707037687 的失败暴露的是 438261d 引入的跨平台测试竞速（暂存备份限额
+注释与代码不一致，2s→30s 后两出口竞速），随 cb28454 修复并全绿。
