@@ -51,7 +51,7 @@
       enabled: settings.pricing?.enabled ?? false,
       provider_defaults: (settings.pricing?.provider_defaults ?? []).map((d) => ({ ...d })),
       online_refresh_enabled: settings.pricing?.online_refresh_enabled ?? false,
-      online_cache_ttl_days: settings.pricing?.online_cache_ttl_days ?? 7,
+      online_cache_ttl_days: settings.pricing?.online_cache_ttl_days ?? 3,
     },
   });
   // svelte-ignore state_referenced_locally
@@ -65,7 +65,7 @@
     monthly: String(settings.retention.monthly_days),
     yearly: settings.retention.yearly_days === null ? '' : String(settings.retention.yearly_days),
     alias: settings.hostname_alias ?? '',
-    refreshTtl: String(settings.pricing?.online_cache_ttl_days ?? 7),
+    refreshTtl: String(settings.pricing?.online_cache_ttl_days ?? 3),
   });
   // svelte-ignore state_referenced_locally
   let rootsText = $state(settings.manual_roots.join('\n'));

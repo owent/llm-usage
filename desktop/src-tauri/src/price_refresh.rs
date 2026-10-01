@@ -3,7 +3,7 @@
 //! 合同（docs/design/desktop-usage/pricing.md · 在线刷新设计）：
 //! - 默认关闭；启用后仅 HTTPS GET models.dev api.json，请求不携带任何本地用量、
 //!   主机/来源身份、会话内容或账户密钥；
-//! - 原始响应缓存于 `<数据库目录>/price-cache/`，TTL 默认 7 天（1–365 可配），
+//! - 原始响应缓存于 `<数据库目录>/price-cache/`，TTL 默认 3 天（1–365 可配），
 //!   新鲜期内不发网络请求；
 //! - 下载或校验失败回退到上一次成功下载的缓存；无缓存时报错并保留既有快照（A9）；
 //! - 校验失败的响应不覆盖缓存；导入幂等，不触发既有估算重算。
@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 /// 缓存 TTL 默认值（天）与合法范围。
-pub const DEFAULT_TTL_DAYS: u32 = 7;
+pub const DEFAULT_TTL_DAYS: u32 = 3;
 pub const MIN_TTL_DAYS: u32 = 1;
 pub const MAX_TTL_DAYS: u32 = 365;
 
@@ -442,7 +442,7 @@ mod tests {
     fn fresh_cache_skips_network() {
         let db = temp_db_path("fresh");
         let storage = Storage::open_in_memory().unwrap();
-        seed_cache(&db, MINI, NOW - DAY); // 1 天前 < 默认 7 天 TTL
+        seed_cache(&db, MINI, NOW - DAY); // 1 天前 < 默认 3 天 TTL
         let outcome = refresh_prices_with(&storage, &db, NOW, DEFAULT_TTL_DAYS, false, &|| {
             panic!("network must not be called within TTL")
         });

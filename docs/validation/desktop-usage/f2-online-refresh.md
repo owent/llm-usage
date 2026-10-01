@@ -35,7 +35,7 @@ A9 场景测试。不提交、不推送、不部署。
 ### 3. 抓取/缓存/失败回退（desktop `price_refresh.rs`）
 
 - 原始响应缓存于 `<数据库目录>/price-cache/models-dev-api.json` + `.meta.json`
-  （tmp+rename 原子写；meta 损坏以文件 mtime 重建）。TTL 默认 7 天（设置 1–365
+  （tmp+rename 原子写；meta 损坏以文件 mtime 重建）。TTL 默认 3 天（设置 1–365
   天），新鲜期内不发网络请求、直接以缓存幂等导入；手动「立即刷新」绕过 TTL。
 - 失败回退（A9）：下载或校验失败 ⇒ 回退上一次成功下载的缓存继续导入；无缓存
   时报错并保留既有快照；校验失败的响应不覆盖缓存。

@@ -15,7 +15,7 @@ Windows 11 x64 首发，GitHub CI 保留 macOS/Linux；WSL 构建不等于 Linux
 费用估算与价格快照改动按需读 [价格合同](docs/design/desktop-usage/pricing.md)：
 默认关闭、渠道不明不套价、多币种不合并、估算不随后台价格更新改写。
 在线刷新同样默认关闭：唯一内置来源 models.dev api.json（不携带本机数据），
-原始响应长缓存（默认 7 天，1–365 可配），下载/校验失败回退上一次成功缓存，
+原始响应长缓存（默认 3 天，1–365 可配），下载/校验失败回退上一次成功缓存，
 仅官方提供商按量条目入库（订阅/套餐占位排除），无精确价目时回退官方价并计
 fallback_event_count。
 用户已允许实施时只读提取本机真实 Agent 数据验证，按 [准备合同](docs/design/desktop-usage/implementation-readiness.md)
