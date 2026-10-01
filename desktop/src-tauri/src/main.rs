@@ -12,6 +12,7 @@ mod app_state;
 mod commands;
 mod db_backup;
 mod otel_receiver;
+mod price_refresh;
 mod process_guard;
 mod scanner;
 mod telemetry_setup;
@@ -192,6 +193,8 @@ fn main() {
             commands::recompute_costs,
             commands::list_price_snapshots,
             commands::import_price_snapshot,
+            commands::refresh_prices_online,
+            commands::price_refresh_status,
             commands::quota_summary,
             commands::quota_series,
             telemetry_setup::telemetry_check,

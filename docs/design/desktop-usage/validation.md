@@ -3,7 +3,8 @@
 本文是验收清单，实际进度以 [Plan.md](../../../Plan.md) 和 [验证记录](../../validation/desktop-usage/) 为准。
 V29 已随 F2 实施执行（固定价格样本 P1–P6 与 E/A 场景合同测试通过，E2 档位语义
 矛盾已加注，[记录](../../validation/desktop-usage/f2-cost-engine.md)）；A9
-（在线刷新回退）随未实施的可选在线刷新后置。
+（在线刷新回退）已随可选在线刷新实施执行（2026-10-01，
+[记录](../../validation/desktop-usage/f2-online-refresh.md)）。
 V31 已随 M6 实施双语（zh-CN/en），
 其 GUI 验收随真实桌面逐操作验收执行（[i18n 合同](i18n.md)、
 [m6 记录](../../validation/desktop-usage/m6-desktop-core.md)）。
@@ -69,7 +70,8 @@ V28 的来源持久化、迁移和合并判定样本由 M1a 验收，实际导�
 端到端测试随后续功能排期，不开放跨设备采集。
 V29 已随 F2 实施（2026-09-30，[记录](../../validation/desktop-usage/f2-cost-engine.md)）：
 固定价格样本 P1–P6、人工期望金额 E1–E8 与异常场景 A1–A8/A10 以合同测试执行通过；
-A9（在线刷新回退）随未实施的可选在线刷新后置；真实数据只读核对待用户配置
+A9（在线刷新失败回退）已随可选在线刷新实施执行（2026-10-01，
+[记录](../../validation/desktop-usage/f2-online-refresh.md)）；真实数据只读核对待用户配置
 供应商渠道默认。
 
 <a id="adapter-versions"></a>

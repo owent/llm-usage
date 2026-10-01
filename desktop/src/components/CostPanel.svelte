@@ -89,6 +89,7 @@
               <span class="meta">
                 {coverage(row.priced_tokens, row.known_tokens)}
                 {#if row.partial_event_count > 0} · {t('cost.partialCount', { count: row.partial_event_count })}{/if}
+                {#if row.fallback_event_count > 0} · {t('cost.fallbackCount', { count: row.fallback_event_count })}{/if}
               </span>
             </li>
           {/if}

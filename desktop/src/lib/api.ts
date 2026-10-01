@@ -67,6 +67,10 @@ export interface ProviderPricingDefault {
 export interface PricingSettings {
   enabled: boolean;
   provider_defaults: ProviderPricingDefault[];
+  /** F2 在线刷新（models.dev 社区目录；默认关闭；旧设置 JSON 无此字段时视为关闭）。 */
+  online_refresh_enabled?: boolean;
+  /** 在线刷新缓存 TTL（天，1–365，默认 7；缓存新鲜期内不发网络请求）。 */
+  online_cache_ttl_days?: number;
 }
 
 /** 按币种分列的金额行（最小货币单位；不同币种不合并）。 */
@@ -83,6 +87,8 @@ export interface CostCurrencyRowDto {
   unpriced_event_count: number;
   partial_event_count: number;
   ttl_defaulted_events: number;
+  /** 经官方提供商回退定价的事件数（provider 无精确价目时参考模型官方方按量价）。 */
+  fallback_event_count: number;
 }
 
 export interface CostModeSummaryDto {
@@ -110,6 +116,32 @@ export interface PriceSnapshotInfoDto {
   verified_by: string | null;
   note: string | null;
   row_count: number;
+}
+
+/** 在线刷新原始响应缓存信息（展示新鲜度）。 */
+export interface PriceCacheInfoDto {
+  fetched_at_ms: number;
+  bytes: number;
+  content_hash: string;
+  age_secs: number;
+}
+
+/** 一次在线刷新的结果。status: fetched / cache_fresh / fetch_failed_used_cache / fetch_failed_no_cache。 */
+export interface PriceRefreshOutcomeDto {
+  status: string;
+  snapshot_id: string | null;
+  inserted_rows: number;
+  already_present: boolean;
+  cache: PriceCacheInfoDto | null;
+  error: string | null;
+}
+
+export interface PriceRefreshStatusDto {
+  enabled: boolean;
+  ttl_days: number;
+  running: boolean;
+  cache: PriceCacheInfoDto | null;
+  last_outcome: PriceRefreshOutcomeDto | null;
 }
 
 /** 系统任务状态（Windows：开机自启 + 每小时 headless 刷新任务）。 */
@@ -462,6 +494,10 @@ export const api = {
       'import_price_snapshot',
       { path },
     ),
+  /** F2 在线刷新：后台抓取 models.dev 并导入（force=true 绕过缓存 TTL）。 */
+  refreshPricesOnline: (force: boolean) =>
+    invoke<{ started: boolean }>('refresh_prices_online', { force }),
+  priceRefreshStatus: () => invoke<PriceRefreshStatusDto>('price_refresh_status'),
   pickSavePath: (defaultName: string) =>
     invoke<string | null>('pick_save_path', { defaultName }),
   systemTaskStatus: () => invoke<SystemTaskStatusDto>('system_task_status'),

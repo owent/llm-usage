@@ -106,6 +106,11 @@ export const translatedKeys = [
   'cost.settings.provider', 'cost.settings.region', 'cost.settings.channel', 'cost.settings.ttl',
   'cost.settings.addProvider', 'cost.settings.remove',
   'cost.settings.snapshots', 'cost.settings.import', 'cost.settings.recompute', 'cost.settings.recomputeStarted',
+  'cost.refresh.title', 'cost.refresh.enable', 'cost.refresh.hint', 'cost.refresh.ttl',
+  'cost.refresh.now', 'cost.refresh.running', 'cost.refresh.cacheLine', 'cost.refresh.never',
+  'cost.refresh.result.fetched', 'cost.refresh.result.cacheFresh',
+  'cost.refresh.result.usedCache', 'cost.refresh.result.noCache',
+  'cost.fallbackCount',
 ] as const;
 
 type ExtraLocale = 'zh-TW' | 'ja' | 'ko' | 'es' | 'fr' | 'de' | 'pt-BR' | 'ru';
@@ -195,6 +200,11 @@ const phrases: Record<ExtraLocale, readonly string[]> = {
     '供應商', '地區', '渠道', '快取寫入檔',
     '新增供應商預設', '刪除',
     '價格快照', '匯入快照 JSON', '重算費用', '重算已開始，完成後重新整理查看',
+    '線上價格重新整理（models.dev）', '啟用線上重新整理', '僅從 models.dev 社群目錄下載公開按量價目（HTTPS GET，不攜帶本機資料）；快取在有效期內不重複下載，下載失敗時回退到上一次成功下載的結果。不含各類訂閱/Coding Plan 價格；無精確價目時回退參考該模型官方供應商的按量付費價。', '快取有效期（天）',
+    '立即重新整理', '正在重新整理…', '上次下載 {date}（{days} 天前）', '從未下載',
+    '已下載並匯入 {rows} 條價格（{id}）', '快取仍在有效期內（{date} 下載），未發起網路請求',
+    '下載失敗，已回退到 {date} 的快取匯入（{message}）', '下載失敗且無可用快取：{message}',
+    '{count} 條官方回退定價',
   ],
   ja: [
     'エージェント枠', 'Premium リクエスト', '使用済み', '残り {n}', 'スナップショット {time}', '消費トレンド', 'アカウント単位のリクエスト枠（トークンではなく、全デバイス/入口で共有）', '更新後にクォータを表示（ローカルキャッシュ）',
@@ -281,6 +291,11 @@ const phrases: Record<ExtraLocale, readonly string[]> = {
     'プロバイダー', '地域', 'チャネル', 'キャッシュ書き込み枠',
     'プロバイダー既定を追加', '削除',
     '価格スナップショット', 'スナップショット JSON を読み込む', '費用を再計算', '再計算を開始しました。後で更新して確認してください',
+    'オンライン価格更新（models.dev）', 'オンライン更新を有効化', 'models.dev コミュニティカタログから公開の従量課金価格表のみをダウンロードします（HTTPS GET、ローカルデータは送信しません）。キャッシュは有効期間内は再利用され、ダウンロード失敗時は前回成功したキャッシュにフォールバックします。サブスク/Coding Plan の価格は含みません。完全一致する価格がない場合、モデルの公式プロバイダーの従量課金価格を参照します。', 'キャッシュ有効期間（日）',
+    '今すぐ更新', '更新中…', '最終ダウンロード {date}（{days} 日前）', '未ダウンロード',
+    '{rows} 件の価格をダウンロードしてインポートしました（{id}）', 'キャッシュは有効期間内です（{date} にダウンロード）。ネットワーク要求は行いませんでした',
+    'ダウンロードに失敗したため、{date} のキャッシュからインポートしました（{message}）', 'ダウンロードに失敗し、利用可能なキャッシュもありません: {message}',
+    '{count} 件が公式フォールバック価格',
   ],
   ko: [
     '에이전트 할당량', 'Premium 요청', '사용됨', '{n} 남음', '스냅샷 {time}', '사용 추세', '계정 단위 요청 할당량(토큰 아님, 모든 기기/입구 공유)', '새로고침 후 할당량 표시(로컬 캐시)',
@@ -367,6 +382,11 @@ const phrases: Record<ExtraLocale, readonly string[]> = {
     '공급자', '지역', '채널', '캐시 쓰기 구분',
     '공급자 기본값 추가', '삭제',
     '가격 스냅샷', '스냅샷 JSON 가져오기', '비용 재계산', '재계산이 시작되었습니다. 잠시 후 새로 고침하세요',
+    '온라인 가격 새로 고침(models.dev)', '온라인 새로 고침 사용', 'models.dev 커뮤니티 카탈로그에서 공개 종량제 가격표만 다운로드합니다(HTTPS GET, 로컬 데이터 전송 없음). 캐시는 유효 기간 내에 재사용되고, 다운로드 실패 시 마지막으로 성공한 캐시로 대체합니다. 구독/Coding Plan 가격은 제외되며, 정확히 일치하는 가격이 없으면 모델 공식 공급자의 종량제 가격을 참고합니다.', '캐시 유효 기간(일)',
+    '지금 새로 고침', '새로 고치는 중…', '마지막 다운로드 {date}({days}일 전)', '다운로드 기록 없음',
+    '가격 {rows}건을 다운로드하여 가져왔습니다({id})', '캐시가 아직 유효합니다({date} 다운로드). 네트워크 요청을 하지 않았습니다',
+    '다운로드에 실패하여 {date} 캐시로 가져왔습니다({message})', '다운로드에 실패했고 사용 가능한 캐시도 없습니다: {message}',
+    '{count}건 공식 대체 가격 적용',
   ],
   es: [
     'Cuotas del agente', 'Solicitudes premium', 'usado', '{n} restantes', 'Instantánea {time}', 'Tendencia de uso', 'Cuota de solicitudes a nivel de cuenta (no tokens; compartida entre dispositivos/interfaces)', 'La cuota aparece tras actualizar (caché local)',
@@ -453,6 +473,11 @@ const phrases: Record<ExtraLocale, readonly string[]> = {
     'Proveedor', 'Región', 'Canal', 'Tramo de escritura de caché',
     'Añadir valor por defecto de proveedor', 'Eliminar',
     'Instantáneas de precios', 'Importar JSON de instantánea', 'Recalcular costes', 'Recálculo iniciado; actualiza más tarde para verlo',
+    'Actualización de precios en línea (models.dev)', 'Activar actualización en línea', 'Solo descarga listas públicas de precios de pago por uso del catálogo comunitario models.dev (HTTPS GET, sin enviar datos locales). La caché se reutiliza durante su vigencia; si la descarga falla, se usa la última copia correcta. No incluye precios de suscripciones/Coding Plan; si no hay un precio exacto, se usa el precio de pago por uso del proveedor oficial del modelo.', 'Vigencia de la caché (días)',
+    'Actualizar ahora', 'Actualizando…', 'Última descarga {date} (hace {days} d)', 'Nunca descargado',
+    'Se descargaron e importaron {rows} precios ({id})', 'La caché sigue vigente (descargada el {date}); no se hizo ninguna solicitud de red',
+    'La descarga falló; se importó la copia en caché del {date} ({message})', 'La descarga falló y no hay caché disponible: {message}',
+    '{count} con precio de respaldo oficial',
   ],
   fr: [
     'Quotas de l’agent', 'Requêtes premium', 'utilisé', '{n} restant', 'Instantané {time}', 'Tendance d’usage', 'Quota de requêtes au niveau du compte (pas des tokens ; partagé entre appareils/interfaces)', 'Le quota apparaît après actualisation (cache local)',
@@ -539,6 +564,11 @@ const phrases: Record<ExtraLocale, readonly string[]> = {
     'Fournisseur', 'Région', 'Canal', 'Palier d’écriture du cache',
     'Ajouter un fournisseur par défaut', 'Supprimer',
     'Instantanés de prix', 'Importer un JSON d’instantané', 'Recalculer les coûts', 'Recalcul lancé ; actualisez plus tard pour voir le résultat',
+    'Actualisation des prix en ligne (models.dev)', 'Activer l’actualisation en ligne', 'Télécharge uniquement les grilles tarifaires publiques à l’usage du catalogue communautaire models.dev (HTTPS GET, aucune donnée locale n’est envoyée). Le cache est réutilisé pendant sa validité ; en cas d’échec, la dernière copie réussie est utilisée. Les prix des abonnements/Coding Plan sont exclus ; sans tarif exact, le prix à l’usage du fournisseur officiel du modèle sert de repli.', 'Validité du cache (jours)',
+    'Actualiser maintenant', 'Actualisation…', 'Dernier téléchargement {date} (il y a {days} j)', 'Jamais téléchargé',
+    '{rows} tarifs téléchargés et importés ({id})', 'Le cache est encore valide (téléchargé le {date}) ; aucune requête réseau n’a été faite',
+    'Échec du téléchargement ; la copie en cache du {date} a été importée ({message})', 'Échec du téléchargement et aucun cache disponible : {message}',
+    '{count} tarifés via le tarif officiel de repli',
   ],
   de: [
     'Agent-Kontingente', 'Premium-Anfragen', 'genutzt', '{n} übrig', 'Momentaufnahme {time}', 'Nutzungsverlauf', 'Anfragekontingent auf Kontoebene (keine Tokens; geräte-/oberflächenübergreifend geteilt)', 'Kontingent erscheint nach Aktualisierung (lokaler Cache)',
@@ -625,6 +655,11 @@ const phrases: Record<ExtraLocale, readonly string[]> = {
     'Anbieter', 'Region', 'Kanal', 'Cache-Schreibstufe',
     'Anbieter-Standard hinzufügen', 'Entfernen',
     'Preisschnappschüsse', 'Schnappschuss-JSON importieren', 'Kosten neu berechnen', 'Neuberechnung gestartet; später aktualisieren, um das Ergebnis zu sehen',
+    'Online-Preisaktualisierung (models.dev)', 'Online-Aktualisierung aktivieren', 'Lädt nur öffentliche nutzungsbasierte Preislisten aus dem models.dev-Community-Katalog (HTTPS GET, keine lokalen Daten werden gesendet). Der Cache wird innerhalb seiner Gültigkeit wiederverwendet; bei einem Fehlschlag wird der letzte erfolgreiche Download genutzt. Abo-/Coding-Plan-Preise sind ausgeschlossen; ohne exakten Preis dient der nutzungsbasierte Preis des offiziellen Modellanbieters als Fallback.', 'Cache-Gültigkeit (Tage)',
+    'Jetzt aktualisieren', 'Aktualisierung läuft…', 'Letzter Download {date} (vor {days} T)', 'Noch nie heruntergeladen',
+    '{rows} Preiszeilen heruntergeladen und importiert ({id})', 'Der Cache ist noch gültig (heruntergeladen am {date}); es wurde keine Netzwerkanfrage gesendet',
+    'Download fehlgeschlagen; stattdessen die Cache-Kopie vom {date} importiert ({message})', 'Download fehlgeschlagen und kein Cache verfügbar: {message}',
+    '{count} mit offiziellem Fallback-Preis',
   ],
   'pt-BR': [
     'Cotas do agente', 'Solicitações premium', 'usado', '{n} restantes', 'Instantâneo {time}', 'Tendência de uso', 'Cota de solicitações no nível da conta (não são tokens; compartilhada entre dispositivos/interfaces)', 'A cota aparece após atualizar (cache local)',
@@ -711,6 +746,11 @@ const phrases: Record<ExtraLocale, readonly string[]> = {
     'Provedor', 'Região', 'Canal', 'Faixa de gravação em cache',
     'Adicionar padrão de provedor', 'Remover',
     'Instantâneos de preços', 'Importar JSON de instantâneo', 'Recalcular custos', 'Recálculo iniciado; atualize depois para ver o resultado',
+    'Atualização de preços online (models.dev)', 'Ativar atualização online', 'Baixa apenas listas públicas de preços sob demanda do catálogo comunitário models.dev (HTTPS GET, sem enviar dados locais). O cache é reutilizado durante sua validade; se o download falhar, usa-se a última cópia bem-sucedida. Preços de assinaturas/Coding Plan são excluídos; sem preço exato, o preço sob demanda do provedor oficial do modelo é usado como fallback.', 'Validade do cache (dias)',
+    'Atualizar agora', 'Atualizando…', 'Último download {date} (há {days} d)', 'Nunca baixado',
+    '{rows} preços baixados e importados ({id})', 'O cache ainda é válido (baixado em {date}); nenhuma requisição de rede foi feita',
+    'Falha no download; importada a cópia em cache de {date} ({message})', 'Falha no download e nenhum cache disponível: {message}',
+    '{count} com preço oficial de fallback',
   ],
   ru: [
     'Квоты агента', 'Premium-запросы', 'использовано', 'осталось {n}', 'Снимок {time}', 'Динамика расхода', 'Квота запросов на уровне аккаунта (не токены; общая для всех устройств/интерфейсов)', 'Квота появится после обновления (локальный кэш)',
@@ -797,6 +837,11 @@ const phrases: Record<ExtraLocale, readonly string[]> = {
     'Поставщик', 'Регион', 'Канал', 'Ступень записи кэша',
     'Добавить поставщика по умолчанию', 'Удалить',
     'Снимки цен', 'Импортировать JSON снимка', 'Пересчитать расходы', 'Пересчёт запущен; обновите позже, чтобы увидеть результат',
+    'Онлайн-обновление цен (models.dev)', 'Включить онлайн-обновление', 'Загружает только публичные тарифы с оплатой по факту из каталога сообщества models.dev (HTTPS GET, локальные данные не отправляются). Кэш используется повторно в течение срока действия; при сбое загрузки используется последняя успешная копия. Цены подписок/Coding Plan не учитываются; при отсутствии точной цены используется тариф официального поставщика модели с оплатой по факту.', 'Срок действия кэша (дней)',
+    'Обновить сейчас', 'Обновление…', 'Последняя загрузка {date} ({days} дн. назад)', 'Ни разу не загружалось',
+    'Загружено и импортировано цен: {rows} ({id})', 'Кэш ещё действителен (загружен {date}); сетевой запрос не выполнялся',
+    'Загрузка не удалась; импортирована кэшированная копия от {date} ({message})', 'Загрузка не удалась, и кэш недоступен: {message}',
+    '{count} по официальному резервному тарифу',
   ],
 };
 

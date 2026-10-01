@@ -19,6 +19,7 @@ pub mod identity;
 pub mod ingest;
 pub mod jobs;
 pub mod metrics;
+pub mod models_dev;
 pub mod pricing;
 pub mod query;
 pub mod quota_history;

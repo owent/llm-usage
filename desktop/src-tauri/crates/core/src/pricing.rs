@@ -88,6 +88,10 @@ pub struct PriceRowFile {
     pub output: Option<i64>,
     #[serde(default)]
     pub cache_storage_hour: Option<i64>,
+    /// 官方供应商按量价标记（v11；None = 按快照来源类型默认：seed/community
+    /// 为 true，manual 为 false）。
+    #[serde(default)]
+    pub official_vendor: Option<bool>,
     #[serde(default)]
     pub note: Option<String>,
 }
@@ -132,11 +136,13 @@ pub struct PriceRow {
     pub output_per_mtok_hundredths: Option<i64>,
     pub cache_storage_per_mtok_hour_hundredths: Option<i64>,
     pub currency: String,
+    /// 官方供应商按量价标记：无精确匹配时的回退候选池（pricing.md 在线刷新设计）。
+    pub official_vendor: bool,
     pub note: Option<String>,
 }
 
 /// ISO 日期（YYYY-MM-DD）→ UTC 零点毫秒。
-fn iso_date_to_ms(text: &str, what: &str) -> Result<i64, CoreError> {
+pub(crate) fn iso_date_to_ms(text: &str, what: &str) -> Result<i64, CoreError> {
     let date = Date::strptime("%Y-%m-%d", text).map_err(|e| {
         CoreError::Validation(format!(
             "price snapshot {what} {text:?}: not an ISO date: {e}"
@@ -150,7 +156,7 @@ fn iso_date_to_ms(text: &str, what: &str) -> Result<i64, CoreError> {
 }
 
 /// FNV-1a 内容哈希（跨版本稳定；用于同快照幂等导入判定）。
-fn fnv1a(bytes: &[u8]) -> u64 {
+pub(crate) fn fnv1a(bytes: &[u8]) -> u64 {
     let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
     for &b in bytes {
         hash ^= b as u64;
@@ -295,6 +301,7 @@ impl PriceSnapshot {
                 output_per_mtok_hundredths: r.output,
                 cache_storage_per_mtok_hour_hundredths: r.cache_storage_hour,
                 currency: r.currency.clone(),
+                official_vendor: r.official_vendor.unwrap_or(meta.source_type != "manual"),
                 note: r.note.clone(),
             });
         }
@@ -440,6 +447,9 @@ pub struct EventEstimateAmounts {
     pub has_unknown_components: bool,
     /// 缓存写 TTL 采用用户默认档（而非事件证据）。
     pub ttl_defaulted: bool,
+    /// 无精确 provider+模型匹配时采用了官方供应商按量价行（参考估算；
+    /// pricing.md 在线刷新设计）。
+    pub official_fallback: bool,
     /// 参与计价的价格行（追溯）。
     pub matched_price_ids: Vec<String>,
 }
@@ -567,21 +577,50 @@ impl PriceBook {
         }
 
         // 区间匹配：from ≤ at_ms < to（to NULL = 开放）。
+        let in_range = |r: &&PriceRow| {
+            r.model.to_lowercase() == model
+                && r.service_tier == "standard"
+                && r.effective_from_ms <= at_ms
+                && r.effective_to_ms.map_or(true, |to| at_ms < to)
+        };
         let mut candidates: Vec<&PriceRow> = self
             .rows
             .iter()
             .filter(|r| {
-                r.provider_id.to_lowercase() == provider
-                    && r.model.to_lowercase() == model
+                in_range(r)
+                    && r.provider_id.to_lowercase() == provider
                     && r.region.to_lowercase() == region
                     && r.channel.to_lowercase() == channel
-                    && r.service_tier == "standard"
-                    && r.effective_from_ms <= at_ms
-                    && r.effective_to_ms.map_or(true, |to| at_ms < to)
             })
             .collect();
+        // 官方供应商回退（2026-10-01 用户合同）：精确 provider+模型无适用行时，
+        // 在官方按量价行（official_vendor）中按同模型匹配；优先与所选
+        // region/channel 一致的行，其余保持价格簿优先级。供应商未配置渠道已在
+        // 上方返回 channel_unknown，不会走到这里；精确链已命中（含档位歧义）
+        // 时不回退。
+        let mut official_fallback = false;
         if candidates.is_empty() {
-            return EventEstimate::Unpriced(UnpricedReason::NoPriceRow);
+            let fallback: Vec<&PriceRow> = self
+                .rows
+                .iter()
+                .filter(|r| in_range(r) && r.official_vendor)
+                .collect();
+            if fallback.is_empty() {
+                return EventEstimate::Unpriced(UnpricedReason::NoPriceRow);
+            }
+            let preferred: Vec<&PriceRow> = fallback
+                .iter()
+                .copied()
+                .filter(|r| {
+                    r.region.to_lowercase() == region && r.channel.to_lowercase() == channel
+                })
+                .collect();
+            candidates = if preferred.is_empty() {
+                fallback
+            } else {
+                preferred
+            };
+            official_fallback = true;
         }
         // 即使只有一个高档价格行，也必须验证输入达到该行阈值。
         // 多档且输入规模未知时不能从价格簿顺序猜测档位。
@@ -606,7 +645,14 @@ impl PriceBook {
             return EventEstimate::Unpriced(UnpricedReason::TierAmbiguous);
         }
         // 相同档位跨快照重复时，候选行已按快照优先级排序。
-        self.price_with_row(event, options, candidates[0])
+        let estimate = self.price_with_row(event, options, candidates[0]);
+        match (official_fallback, estimate) {
+            (true, EventEstimate::Priced(mut amounts)) => {
+                amounts.official_fallback = true;
+                EventEstimate::Priced(amounts)
+            }
+            (_, other) => other,
+        }
     }
 
     /// 已选定价格行后的分量计价。
@@ -616,7 +662,12 @@ impl PriceBook {
         options: &EstimateOptions,
         row: &PriceRow,
     ) -> EventEstimate {
-        let provider = row.provider_id.to_lowercase();
+        // TTL 默认档按事件供应商的用户配置取（回退行 provider 与事件不同也适用）。
+        let provider = event
+            .provider_id
+            .as_deref()
+            .unwrap_or_default()
+            .to_lowercase();
         // 未缓存输入：优先显式值；否则 total − read − write（三者均已知时派生）。
         let uncached = event.input_uncached.or(
             match (
@@ -640,6 +691,7 @@ impl PriceBook {
             known_tokens: 0,
             has_unknown_components: uncached.is_none() || event.output_total.is_none(),
             ttl_defaulted: false,
+            official_fallback: false,
             matched_price_ids: vec![row.price_id.clone()],
         };
 
@@ -1084,6 +1136,200 @@ mod tests {
         assert_eq!(
             book.estimate_at_time(&event, &base_options()),
             EventEstimate::Unpriced(UnpricedReason::NoPriceRow)
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // 官方供应商回退匹配（2026-10-01 用户合同；pricing.md 在线刷新设计）
+    // ------------------------------------------------------------------
+
+    /// 带 official_vendor 标记的行 JSON（seed/community 默认 true；manual 默认 false）。
+    fn row_json_official(id: &str, provider: &str, model: &str, official: Option<bool>) -> String {
+        let flag = official
+            .map(|v| format!(",\"official_vendor\":{v}"))
+            .unwrap_or_default();
+        format!(
+            r#"{{"price_id":"{id}","provider_id":"{provider}","model":"{model}",
+                "region":"r","channel":"c","effective_from":"2026-01-01","currency":"USD",
+                "input":100000,"cache_read":10000,"cache_write_5m":null,"output":500000{flag}}}"#
+        )
+    }
+
+    fn fallback_book() -> PriceBook {
+        // 社区快照：官方提供商 vendorA 的 m-one（official 默认 true）。
+        let community = format!(
+            r#"{{"format":"llm-usage-price-snapshot/1",
+                "snapshot":{{"id":"comm-1","source_type":"community",
+                "source_urls":["https://models.dev/api.json"],"fetched_at":"2026-09-25"}},
+                "rows":[{}]}}"#,
+            row_json_official("md-vendorA-m-one", "vendorA", "m-one", None)
+        );
+        PriceBook {
+            rows: parse_snapshot_json(&community).unwrap().rows,
+        }
+    }
+
+    fn fallback_event(provider: &str) -> PricingEvent {
+        PricingEvent {
+            provider_id: Some(provider.into()),
+            model_raw: Some("m-one".into()),
+            occurred_at_ms: 1_800_000_000_000,
+            input_uncached: Some(1_000_000),
+            output_total: Some(1_000_000),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn official_fallback_prices_when_exact_match_missing() {
+        let book = fallback_book();
+        // 事件 provider「relay-x」无精确行；回退到官方 vendorA 行并标记。
+        let mut options = EstimateOptions::default();
+        options
+            .provider_channels
+            .insert("relay-x".into(), ("r".into(), "c".into()));
+        match book.estimate_at_time(&fallback_event("relay-x"), &options) {
+            EventEstimate::Priced(a) => {
+                assert!(a.official_fallback);
+                assert_eq!(a.total_amount_minor, 6000); // 1M×$10/M + 1M×$50/M = $60
+                assert_eq!(a.matched_price_ids, ["md-vendorA-m-one"]);
+            }
+            other => panic!("expected fallback priced, got {other:?}"),
+        }
+        // 精确链命中时不回退：provider=vendorA 精确命中同一行，无回退标记。
+        let mut options = EstimateOptions::default();
+        options
+            .provider_channels
+            .insert("vendora".into(), ("r".into(), "c".into()));
+        match book.estimate_at_time(&fallback_event("vendorA"), &options) {
+            EventEstimate::Priced(a) => assert!(!a.official_fallback),
+            other => panic!("expected exact priced, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn fallback_requires_configured_channel_and_official_rows() {
+        let book = fallback_book();
+        // 供应商未配置渠道 ⇒ channel_unknown，不回退（双渠道双币种不猜）。
+        assert_eq!(
+            book.estimate_at_time(&fallback_event("relay-x"), &EstimateOptions::default()),
+            EventEstimate::Unpriced(UnpricedReason::ChannelUnknown)
+        );
+        let mut options = EstimateOptions::default();
+        options
+            .provider_channels
+            .insert("relay-x".into(), ("r".into(), "c".into()));
+        // 模型无官方行 ⇒ no_price_row。
+        let unknown_model = PricingEvent {
+            model_raw: Some("no-such-model".into()),
+            ..fallback_event("relay-x")
+        };
+        assert_eq!(
+            book.estimate_at_time(&unknown_model, &options),
+            EventEstimate::Unpriced(UnpricedReason::NoPriceRow)
+        );
+        // 手工导入行默认非官方 ⇒ 不进回退候选池。
+        let manual_only = PriceBook {
+            rows: parse_snapshot_json(&snapshot_json(vec![row_json_official(
+                "manual-1", "vendorB", "m-two", None,
+            )]))
+            .unwrap()
+            .rows,
+        };
+        let event = PricingEvent {
+            model_raw: Some("m-two".into()),
+            ..fallback_event("relay-x")
+        };
+        assert_eq!(
+            manual_only.estimate_at_time(&event, &options),
+            EventEstimate::Unpriced(UnpricedReason::NoPriceRow)
+        );
+        // 手工行显式 official_vendor: true ⇒ 参与回退。
+        let manual_official = PriceBook {
+            rows: parse_snapshot_json(&snapshot_json(vec![row_json_official(
+                "manual-2",
+                "vendorB",
+                "m-two",
+                Some(true),
+            )]))
+            .unwrap()
+            .rows,
+        };
+        match manual_official.estimate_at_time(&event, &options) {
+            EventEstimate::Priced(a) => assert!(a.official_fallback),
+            other => panic!("expected manual official fallback, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn fallback_prefers_configured_region_channel_and_keeps_tier_rules() {
+        // 同一模型的两个官方行：region/channel 与配置一致者优先。
+        let rows = [
+            r#"{"price_id":"g","provider_id":"vendorA","model":"m","region":"global","channel":"api",
+                "official_vendor":true,"effective_from":"2026-01-01","currency":"USD",
+                "input":100000,"output":500000}"#,
+            r#"{"price_id":"c","provider_id":"vendorA","model":"m","region":"cn","channel":"api",
+                "official_vendor":true,"effective_from":"2026-01-01","currency":"CNY",
+                "input":80000,"output":280000}"#,
+        ]
+        .join(",");
+        let json = format!(
+            r#"{{"format":"llm-usage-price-snapshot/1",
+              "snapshot":{{"id":"s","source_type":"manual","source_urls":[],"fetched_at":"2026-09-25"}},
+              "rows":[{rows}]}}"#
+        );
+        let book = PriceBook {
+            rows: parse_snapshot_json(&json).unwrap().rows,
+        };
+        let mut options = EstimateOptions::default();
+        options
+            .provider_channels
+            .insert("relay".into(), ("cn".into(), "api".into()));
+        let event = PricingEvent {
+            provider_id: Some("relay".into()),
+            model_raw: Some("m".into()),
+            occurred_at_ms: 1_800_000_000_000,
+            input_uncached: Some(1_000_000),
+            output_total: Some(1_000_000),
+            ..Default::default()
+        };
+        match book.estimate_at_time(&event, &options) {
+            EventEstimate::Priced(a) => {
+                assert!(a.official_fallback);
+                assert_eq!(a.currency, "CNY");
+                assert_eq!(a.matched_price_ids, ["c"]);
+            }
+            other => panic!("expected cn-preferred fallback, got {other:?}"),
+        }
+        // 档位歧义在回退中同样不猜档：两个档位的官方行 + 输入规模未知。
+        let tiered = [
+            r#"{"price_id":"t0","provider_id":"vendorA","model":"tm","region":"global","channel":"api",
+                "official_vendor":true,"context_threshold_tokens":0,"effective_from":"2026-01-01",
+                "currency":"USD","input":100000,"output":500000}"#,
+            r#"{"price_id":"t1","provider_id":"vendorA","model":"tm","region":"global","channel":"api",
+                "official_vendor":true,"context_threshold_tokens":272000,"effective_from":"2026-01-01",
+                "currency":"USD","input":200000,"output":750000}"#,
+        ]
+        .join(",");
+        let json = format!(
+            r#"{{"format":"llm-usage-price-snapshot/1",
+              "snapshot":{{"id":"s2","source_type":"manual","source_urls":[],"fetched_at":"2026-09-25"}},
+              "rows":[{tiered}]}}"#
+        );
+        let book = PriceBook {
+            rows: parse_snapshot_json(&json).unwrap().rows,
+        };
+        let event = PricingEvent {
+            provider_id: Some("relay".into()),
+            model_raw: Some("tm".into()),
+            occurred_at_ms: 1_800_000_000_000,
+            input_uncached: None,
+            output_total: Some(1_000),
+            ..Default::default()
+        };
+        assert_eq!(
+            book.estimate_at_time(&event, &options),
+            EventEstimate::Unpriced(UnpricedReason::TierAmbiguous)
         );
     }
 }

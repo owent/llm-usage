@@ -51,6 +51,16 @@ pub struct PricingSettings {
     pub enabled: bool,
     #[serde(default)]
     pub provider_defaults: Vec<ProviderPricingDefault>,
+    /// models.dev 在线刷新（默认关闭；开启后仅 HTTPS GET 公开价格目录）。
+    #[serde(default)]
+    pub online_refresh_enabled: bool,
+    /// 原始响应缓存 TTL（天；默认 7，范围 1–365）。新鲜期内不发网络请求。
+    #[serde(default = "default_online_cache_ttl_days")]
+    pub online_cache_ttl_days: u32,
+}
+
+fn default_online_cache_ttl_days() -> u32 {
+    crate::price_refresh::DEFAULT_TTL_DAYS
 }
 
 impl PricingSettings {
@@ -214,6 +224,8 @@ pub struct AppState {
     pub current_user: Mutex<String>,
     /// 「清理全部数据并重新采集」后台任务运行中（防重复触发；UI 不阻塞）。
     pub clear_job_running: std::sync::atomic::AtomicBool,
+    /// F2 在线刷新（models.dev）状态：运行标记 + 最近一次结果（UI 轮询）。
+    pub price_refresh: Mutex<crate::price_refresh::PriceRefreshState>,
 }
 
 impl AppState {
@@ -314,6 +326,7 @@ impl AppState {
             current_user: Mutex::new(current_user),
             db_path,
             clear_job_running: std::sync::atomic::AtomicBool::new(false),
+            price_refresh: Mutex::new(crate::price_refresh::PriceRefreshState::default()),
         })
     }
 }

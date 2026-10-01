@@ -242,7 +242,8 @@ impl Storage {
                     SUM(cache_write_amount_minor), SUM(output_amount_minor),
                     SUM(total_amount_minor), SUM(priced_tokens), SUM(known_tokens),
                     SUM(priced_event_count), SUM(unpriced_event_count),
-                    SUM(partial_event_count), SUM(ttl_defaulted_events)
+                    SUM(partial_event_count), SUM(ttl_defaulted_events),
+                    SUM(fallback_event_count)
              FROM daily_cost_usage
              WHERE tz_version = ?1 AND local_day >= ?2 AND local_day <= ?3{filter_sql}
              GROUP BY currency, kind"
@@ -263,6 +264,7 @@ impl Storage {
                 r.get::<_, i64>(10)?,
                 r.get::<_, i64>(11)?,
                 r.get::<_, i64>(12)?,
+                r.get::<_, i64>(13)?,
             ))
         })?;
         let mut at_time: BTreeMap<String, CostCurrencyRow> = BTreeMap::new();
@@ -283,6 +285,7 @@ impl Storage {
                 unpriced_events,
                 partial_events,
                 ttl_defaulted,
+                fallback_events,
             ) = row?;
             let entry = CostCurrencyRow {
                 currency: currency.clone(),
@@ -297,6 +300,7 @@ impl Storage {
                 unpriced_event_count: unpriced_events,
                 partial_event_count: partial_events,
                 ttl_defaulted_events: ttl_defaulted,
+                fallback_event_count: fallback_events,
             };
             match kind.as_str() {
                 KIND_ESTIMATE_AT_TIME => {
@@ -320,6 +324,7 @@ impl Storage {
                                     unpriced_event_count: unpriced_events,
                                     partial_event_count: 0,
                                     ttl_defaulted_events: 0,
+                                    fallback_event_count: 0,
                                 },
                             );
                         }
@@ -483,6 +488,7 @@ fn merge_currency_row(map: &mut BTreeMap<String, CostCurrencyRow>, entry: CostCu
     row.unpriced_event_count += entry.unpriced_event_count;
     row.partial_event_count += entry.partial_event_count;
     row.ttl_defaulted_events += entry.ttl_defaulted_events;
+    row.fallback_event_count += entry.fallback_event_count;
 }
 
 fn sum_opt(a: Option<i64>, b: Option<i64>) -> Option<i64> {
@@ -545,9 +551,9 @@ pub(crate) fn import_price_snapshot_tx(
            input_per_mtok_hundredths, cache_read_per_mtok_hundredths,
            cache_write_5m_per_mtok_hundredths, cache_write_1h_per_mtok_hundredths,
            output_per_mtok_hundredths, cache_storage_per_mtok_hour_hundredths,
-           currency, note, created_at_ms
+           currency, official_vendor, note, created_at_ms
          ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10,
-                   ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
+                   ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)",
     )?;
     for row in &snapshot.rows {
         let exists: bool = tx.query_row(
@@ -579,6 +585,7 @@ pub(crate) fn import_price_snapshot_tx(
             row.output_per_mtok_hundredths,
             row.cache_storage_per_mtok_hour_hundredths,
             row.currency,
+            row.official_vendor,
             row.note,
             now_ms,
         ])?;
@@ -674,7 +681,7 @@ fn load_price_book_conn(conn: &Connection) -> Result<PriceBook, CoreError> {
                 v.effective_to_ms, v.input_per_mtok_hundredths,
                 v.cache_read_per_mtok_hundredths, v.cache_write_5m_per_mtok_hundredths,
                 v.cache_write_1h_per_mtok_hundredths, v.output_per_mtok_hundredths,
-                v.cache_storage_per_mtok_hour_hundredths, v.currency, v.note
+                v.cache_storage_per_mtok_hour_hundredths, v.currency, v.official_vendor, v.note
          FROM price_versions v
          JOIN price_snapshots s ON s.snapshot_id = v.snapshot_id
          ORDER BY CASE s.source_type
@@ -703,7 +710,8 @@ fn load_price_book_conn(conn: &Connection) -> Result<PriceBook, CoreError> {
             output_per_mtok_hundredths: r.get(14)?,
             cache_storage_per_mtok_hour_hundredths: r.get(15)?,
             currency: r.get(16)?,
-            note: r.get(17)?,
+            official_vendor: r.get(17)?,
+            note: r.get(18)?,
         })
     })?;
     let mut out = Vec::new();
@@ -894,6 +902,7 @@ pub(crate) fn recompute_cost_day_tx(
         unpriced_events: i64,
         partial_events: i64,
         ttl_defaulted: i64,
+        fallback_events: i64,
         input_amount: Option<i64>,
         cache_read_amount: Option<i64>,
         cache_write_amount: Option<i64>,
@@ -940,6 +949,7 @@ pub(crate) fn recompute_cost_day_tx(
                 unpriced_events: 0,
                 partial_events: 0,
                 ttl_defaulted: 0,
+                fallback_events: 0,
                 input_amount: None,
                 cache_read_amount: None,
                 cache_write_amount: None,
@@ -994,6 +1004,9 @@ pub(crate) fn recompute_cost_day_tx(
                 }
                 if amounts.ttl_defaulted {
                     acc.ttl_defaulted += 1;
+                }
+                if amounts.official_fallback {
+                    acc.fallback_events += 1;
                 }
                 acc.input_amount = sum_opt(acc.input_amount, amounts.input_amount_minor);
                 acc.cache_read_amount =
@@ -1070,12 +1083,12 @@ pub(crate) fn recompute_cost_day_tx(
             "INSERT INTO daily_cost_usage (
                tz_version, local_day, instance_id, agent, provider_id, model_raw,
                currency, kind, priced_event_count, unpriced_event_count,
-               partial_event_count, ttl_defaulted_events,
+               partial_event_count, ttl_defaulted_events, fallback_event_count,
                input_amount_minor, cache_read_amount_minor, cache_write_amount_minor,
                output_amount_minor, total_amount_minor, priced_tokens, known_tokens,
                unpriced_reasons, price_basis, sealed, data_revision
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12,
-                       ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, 0, ?22)",
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13,
+                       ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, 0, ?23)",
         )?;
         for acc in &accounts {
             let is_estimate = acc.kind == KIND_ESTIMATE_AT_TIME;
@@ -1099,6 +1112,7 @@ pub(crate) fn recompute_cost_day_tx(
                 acc.unpriced_events,
                 acc.partial_events,
                 acc.ttl_defaulted,
+                acc.fallback_events,
                 acc.input_amount,
                 acc.cache_read_amount,
                 acc.cache_write_amount,
@@ -1164,6 +1178,8 @@ pub struct CostCurrencyRow {
     pub unpriced_event_count: i64,
     pub partial_event_count: i64,
     pub ttl_defaulted_events: i64,
+    /// 官方提供商回退计价的事件数（无精确匹配时参考官方按量价）。
+    pub fallback_event_count: i64,
 }
 
 impl CostCurrencyRow {
@@ -1195,6 +1211,9 @@ fn accumulate_amounts(row: &mut CostCurrencyRow, amounts: &crate::pricing::Event
     }
     if amounts.ttl_defaulted {
         row.ttl_defaulted_events += 1;
+    }
+    if amounts.official_fallback {
+        row.fallback_event_count += 1;
     }
 }
 

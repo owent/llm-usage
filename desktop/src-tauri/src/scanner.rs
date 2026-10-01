@@ -313,6 +313,11 @@ fn run_refresh_filtered(
         }
     }
     {
+        // F2 在线刷新（models.dev）：启用且缓存过期时后台刷新一次；
+        // 失败仅记操作日志/诊断，不阻塞采集，不改写既有估算。
+        crate::price_refresh::maybe_auto_refresh(state, false);
+    }
+    {
         // 逐源定时：本轮已实际运行的到期计划按真实成败推进 next_due
         // （失败记 running_error 留痕；未运行/无报告的实例记失败不冒认成功；
         // 未到期的不动，错过时点醒来后仍只补一次）。

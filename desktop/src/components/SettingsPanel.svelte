@@ -10,6 +10,8 @@
     DiagnosticLogRowDto,
     ExportFilterOptionsDto,
     PriceSnapshotInfoDto,
+    PriceRefreshOutcomeDto,
+    PriceRefreshStatusDto,
     RetentionTiers,
     StorageStatsDto,
     SummaryQuery,
@@ -48,6 +50,8 @@
     pricing: {
       enabled: settings.pricing?.enabled ?? false,
       provider_defaults: (settings.pricing?.provider_defaults ?? []).map((d) => ({ ...d })),
+      online_refresh_enabled: settings.pricing?.online_refresh_enabled ?? false,
+      online_cache_ttl_days: settings.pricing?.online_cache_ttl_days ?? 7,
     },
   });
   // svelte-ignore state_referenced_locally
@@ -61,6 +65,7 @@
     monthly: String(settings.retention.monthly_days),
     yearly: settings.retention.yearly_days === null ? '' : String(settings.retention.yearly_days),
     alias: settings.hostname_alias ?? '',
+    refreshTtl: String(settings.pricing?.online_cache_ttl_days ?? 7),
   });
   // svelte-ignore state_referenced_locally
   let rootsText = $state(settings.manual_roots.join('\n'));
@@ -142,7 +147,10 @@
       clearAllPhase = p.phase;
     };
     void api.onClearAllProgress(handleProgress).then((f) => (unlisten = f));
-    return () => unlisten?.();
+    return () => {
+      unlisten?.();
+      stopRefreshPoll();
+    };
   });
 
   // zcode db 历史回填（滚动窗口源文件丢失的恢复路径）。
@@ -355,6 +363,79 @@
     }
   }
 
+  // ---- F2 在线刷新（models.dev）：状态轮询与手动刷新 ----
+  let refreshStatus = $state<PriceRefreshStatusDto | null>(null);
+  let refreshBusy = $state(false);
+  let refreshPoll: ReturnType<typeof setInterval> | null = null;
+
+  async function loadRefreshStatus() {
+    try {
+      refreshStatus = await api.priceRefreshStatus();
+    } catch {
+      refreshStatus = null;
+    }
+  }
+
+  function stopRefreshPoll() {
+    if (refreshPoll !== null) {
+      clearInterval(refreshPoll);
+      refreshPoll = null;
+    }
+  }
+
+  function refreshOutcomeText(o: PriceRefreshOutcomeDto): string {
+    const date = o.cache ? fmtSnapshotDate(o.cache.fetched_at_ms) : '—';
+    switch (o.status) {
+      case 'fetched':
+        return t('cost.refresh.result.fetched', { id: o.snapshot_id ?? '—', rows: o.inserted_rows });
+      case 'cache_fresh':
+        return t('cost.refresh.result.cacheFresh', { date });
+      case 'fetch_failed_used_cache':
+        return t('cost.refresh.result.usedCache', { date, message: o.error ?? '' });
+      default:
+        return t('cost.refresh.result.noCache', { message: o.error ?? '' });
+    }
+  }
+
+  async function refreshPricesNow() {
+    if (refreshBusy) return;
+    refreshBusy = true;
+    costMessage = '';
+    costError = '';
+    try {
+      await api.refreshPricesOnline(true);
+      stopRefreshPoll();
+      refreshPoll = setInterval(() => {
+        void (async () => {
+          await loadRefreshStatus();
+          if (refreshStatus && !refreshStatus.running) {
+            stopRefreshPoll();
+            refreshBusy = false;
+            if (refreshStatus.last_outcome) {
+              costMessage = refreshOutcomeText(refreshStatus.last_outcome);
+            }
+            await loadSnapshots();
+            ondatachanged?.();
+          }
+        })();
+      }, 1000);
+      await loadRefreshStatus();
+      if (refreshStatus && !refreshStatus.running) {
+        // 极快完成（或未能启动）：直接收尾，不依赖轮询。
+        stopRefreshPoll();
+        refreshBusy = false;
+        if (refreshStatus.last_outcome) {
+          costMessage = refreshOutcomeText(refreshStatus.last_outcome);
+        }
+        await loadSnapshots();
+        ondatachanged?.();
+      }
+    } catch (e) {
+      costError = parseError(e);
+      refreshBusy = false;
+    }
+  }
+
   function fmtSnapshotDate(ms: number): string {
     return ms > 0 ? new Date(ms).toISOString().slice(0, 10) : '—';
   }
@@ -379,6 +460,7 @@
   loadStats();
   loadExportFilters();
   loadSnapshots();
+  loadRefreshStatus();
 
   /** 解析单级保留天数：undefined = 非法；null = 留空（仅年允许 = 终身）。 */
   function tierValue(raw: string, allowEmpty: boolean): number | null | undefined {
@@ -460,6 +542,14 @@
       yearly_days: tiers.yearly ?? null,
     };
     const alias = inputs.alias.trim();
+    const refreshTtl = Number(inputs.refreshTtl.trim());
+    if (!Number.isInteger(refreshTtl) || refreshTtl < 1 || refreshTtl > 365) {
+      fail(t('settings.invalidNumber'));
+      return;
+    }
+    const pricing = draft.pricing
+      ? { ...draft.pricing, online_cache_ttl_days: refreshTtl }
+      : draft.pricing;
     const next: AppSettings = {
       ...draft,
       timezone,
@@ -468,6 +558,7 @@
       retention,
       manual_roots: rootsText.split('\n').map((l) => l.trim()).filter(Boolean),
       hostname_alias: alias === '' ? null : alias,
+      pricing,
     };
     try {
       await api.setSettings(next);
@@ -1006,6 +1097,52 @@
           </div>
           {#if costMessage}<p class="ok">{costMessage}</p>{/if}
           {#if costError}<p class="bad">{costError}</p>{/if}
+        </section>
+        <section class="panel">
+          <h4>{t('cost.refresh.title')}</h4>
+          <div class="frow">
+            <span class="flabel">{t('cost.refresh.enable')}</span>
+            <div class="fvalue">
+              <input
+                type="checkbox"
+                checked={draft.pricing?.online_refresh_enabled ?? false}
+                onchange={(e) => {
+                  if (!draft.pricing) draft.pricing = { enabled: false, provider_defaults: [] };
+                  draft.pricing.online_refresh_enabled = e.currentTarget.checked;
+                }}
+              />
+            </div>
+          </div>
+          <div class="frow">
+            <span class="flabel">{t('cost.refresh.ttl')}</span>
+            <div class="fvalue">
+              <input class="num" bind:value={inputs.refreshTtl} spellcheck="false" />
+            </div>
+          </div>
+          <div class="frow">
+            <div class="fvalue">
+              <button
+                type="button"
+                class="mini"
+                disabled={refreshBusy || (refreshStatus !== null && !refreshStatus.enabled)}
+                onclick={() => void refreshPricesNow()}
+              >
+                {refreshBusy ? t('cost.refresh.running') : t('cost.refresh.now')}
+              </button>
+            </div>
+          </div>
+          <p class="hint">
+            {refreshStatus?.cache
+              ? t('cost.refresh.cacheLine', {
+                  date: fmtSnapshotDate(refreshStatus.cache.fetched_at_ms),
+                  days: Math.floor(refreshStatus.cache.age_secs / 86400),
+                })
+              : t('cost.refresh.never')}
+            {#if refreshStatus?.last_outcome}
+              {' · '}{refreshOutcomeText(refreshStatus.last_outcome)}
+            {/if}
+          </p>
+          <p class="note">{t('cost.refresh.hint')}</p>
         </section>
         <section class="panel">
           <h4>{t('cost.settings.addProvider')}</h4>

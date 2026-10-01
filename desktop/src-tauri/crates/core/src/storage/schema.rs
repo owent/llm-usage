@@ -10,7 +10,9 @@
 /// v8（2026-09-30，F2）：价格快照/价格行重定义 + 日成本回填表。
 /// v10（2026-10-01）：额度时序及 Copilot IDE 统计修正；来源命名空间和调用
 /// 单位变化，旧试验库按预发布规则提示重建，避免保留旧 turn 调用贡献。
-pub const SCHEMA_VERSION: u32 = 10;
+/// v11（2026-10-01，F2 在线刷新）：price_versions 增 official_vendor（官方
+/// 提供商按量价标记，回退匹配候选池）；daily_cost_usage 增 fallback_event_count。
+pub const SCHEMA_VERSION: u32 = 11;
 
 /// 完整建库 SQL（新库一步到位；不做增量迁移）。
 pub const FULL_SCHEMA: &str = r#"
@@ -377,6 +379,9 @@ CREATE TABLE price_versions (
   -- 缓存存储费（按百万 token/小时；限时免费政策记 0 并在 note 标注）。
   cache_storage_per_mtok_hour_hundredths INTEGER,
   currency TEXT NOT NULL,
+  -- 官方供应商按量价标记（v11）：回退匹配候选池；seed/community 默认 1，
+  -- manual 默认 0（导入文件可逐行覆盖）。
+  official_vendor INTEGER NOT NULL DEFAULT 0,
   note TEXT,
   created_at_ms INTEGER NOT NULL
 );
@@ -399,6 +404,8 @@ CREATE TABLE daily_cost_usage (
   unpriced_event_count INTEGER NOT NULL,
   partial_event_count INTEGER NOT NULL,
   ttl_defaulted_events INTEGER NOT NULL,
+  -- 官方提供商回退计价的事件数（v11；无精确匹配时参考官方按量价）。
+  fallback_event_count INTEGER NOT NULL DEFAULT 0,
   input_amount_minor INTEGER,
   cache_read_amount_minor INTEGER,
   cache_write_amount_minor INTEGER,

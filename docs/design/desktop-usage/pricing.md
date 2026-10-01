@@ -2,8 +2,10 @@
 
 状态：费用估算引擎已实施（2026-09-30，[验证记录](../../validation/desktop-usage/f2-cost-engine.md)）：
 schema v8 价格表 + 种子快照 + 估算引擎 + 日成本回填 + 汇总查询 + 命令与界面 +
-V29 合同测试。可选在线刷新（任务 5）与真实数据端到端估算（待用户配置渠道默认）
-后置，见验证记录缺口清单。
+V29 合同测试。可选在线刷新（任务 5）已于 2026-10-01 实施（schema v11，
+models.dev 社区目录 + 长缓存 + 失败回退 + 官方提供商回退匹配，默认关闭），
+见 [在线刷新设计](#online-refresh) 与 [验证记录](../../validation/desktop-usage/f2-online-refresh.md)；
+真实数据端到端估算（待用户配置渠道默认）仍后置。
 调研完成于 2026-09-25；费用口径以 [数据合同](data-contract.md#pricing) 为权威，
 本文补渠道证据与本地快照设计。
 
@@ -70,6 +72,11 @@ Moonshot Kimi（kimi-code/kimi-for-coding/k3）、Anthropic 与 Google
 用于交叉核对与官方页面缺失时的候选来源，采纳时必须携带社区来源标注；
 OpenRouter 仅作参照，不作为快照来源（含聚合商自定费率）。
 可选在线刷新仅限拉取公开价格元数据（官方 .md、社区 JSON），默认关闭。
+
+实施定案（2026-10-01）：在线刷新以 models.dev `api.json` 为唯一内置来源
+（MIT、结构稳定、官方归属可数据驱动判定），带原始响应缓存、长 TTL 与
+失败回退，且只导入官方提供商的按量付费条目（订阅/套餐占位一律排除），
+详见 [在线刷新设计](#online-refresh)。手工导入与仓库种子不变。
 
 <a id="billing-dimensions"></a>
 
@@ -218,6 +225,10 @@ cache_storage 小时价），与下表定案一致。
 （供应商/模型/地区/渠道/档/阈值）不重叠、行内 `price_id` 唯一且不与已导入
 行冲突；同快照 ID 重复导入须同时匹配价格字段哈希、来源元数据与行注释
 才幂等跳过，内容修正必须换快照 ID。
+行级可选字段 `official_vendor`（bool；schema v11 起）：该行是否为模型官方
+供应商的按量价，用于「无精确匹配时回退到官方 provider 价格」的候选池。
+seed/community 行默认 true，manual 行默认 false（手工添加官方价时可逐行
+置 true）。
 导入的 `provider_id`/`region`/`channel` 需与「设置 → 费用」中配置的供应商
 默认一致才参与估算（大小写不敏感）。
 跨快照同一计费项允许覆盖：匹配日期与输入阈值后，手工快照优先于种子，
@@ -248,6 +259,77 @@ cache_storage 小时价），与下表定案一致。
    而是分列"按当前价格模拟"并标注；后台价格更新不触发既有估算重算，
    重算仅在用户显式请求或数据修订时进行并更新引用。查询范围内只要有符合
    当前筛选条件的已封存用量日，当前价模拟就标记明细受限。
+
+<a id="online-refresh"></a>
+
+## 在线刷新设计（models.dev 社区目录；2026-10-01 实施）
+
+任务 5 实施定案。默认关闭（设置 → 费用 → 在线刷新）；开启后仅 HTTPS GET
+`https://models.dev/api.json`（MIT 社区目录，S18/S19/S24），请求不携带任何
+本地用量、主机/来源身份、会话内容或账户密钥（仅 User-Agent 含应用名与版本）。
+离线时核心统计与既有估算不受影响；该功能不接远端用量/账单 API 的边界不变。
+
+### 缓存与失败回退（2026-10-01 用户合同）
+
+- 原始响应落盘缓存：`<数据库目录>/price-cache/models-dev-api.json` +
+  `.meta.json`（URL/抓取时间/内容哈希/字节数）；缓存随文件系统保留，
+  数据库重建不影响。
+- TTL 默认 7 天（设置可改 1–365 天），减少重复下载：缓存新鲜时不发网络
+  请求，直接以缓存内容幂等导入。手动「立即刷新」绕过 TTL。
+- 下载或校验失败：回退到上一次成功下载的缓存继续导入；无缓存时报错并保留
+  既有全部快照（A9）。校验失败的响应不覆盖缓存文件。
+- 每次成功下载按「抓取日期 + 内容哈希」生成快照 ID
+  （`models-dev-YYYYMMDD-hash8`），内容不变则幂等跳过；快照导入不触发
+  既有估算重算（更新流程第 6 条不变）。
+- 自动刷新接线：采集扫描结束时检查一次（启用且缓存过期才后台下载）；
+  失败只记操作日志与诊断，不阻塞采集。
+
+### 目录过滤（以官方按量价为准）
+
+api.json 实测（2026-10-01，S24）：225 个提供商、8339 个模型条目；
+tier 仅 `context` 类型；`cost` 字段集 = input/output/cache_read/cache_write/
+input_audio/output_audio/reasoning/tiers/context_over_200k；无币种字段
+（全目录为美元/百万 token 列表价）。
+
+- 官方提供商判定（数据驱动，不猜测）：提供商 ID 是至少一个模型
+  `canonical_model_id` 的前缀（目录自身的官方归属标注），或是其
+  `<id>-cn` 中国区变体；实测 23 + 3 个（openai/anthropic/google/zhipuai/
+  moonshotai/alibaba/deepseek/xai/mistral 等 + moonshotai-cn/minimax-cn/
+  alibaba-cn）。聚合商、网关与订阅占位渠道一律不导入。
+- 订阅/套餐条目排除：提供商 ID 含 `-plan`（coding-plan/token-plan/step-plan
+  等实测均 cost 全 0 占位）整体跳过；模型级 input 与 output 同时为 0 或缺失
+  也跳过——0 是订阅占位而非价格，禁止写入快照（沿用调研结论 S18）。
+- 分量 0 值处理：cache_read/cache_write 等分项为 0 时按 NULL（无价）导入，
+  不把目录占位零值当作免费价格；input 或 output 单分量为 0 同理置 NULL。
+- 维度映射：`cost.input/output/cache_read` → 同名列；`cost.cache_write` →
+  `cache_write_5m`（目录无 TTL 分档，`cache_write_1h` 置 NULL）；
+  `tiers[type=context]` → `context_threshold_tokens` 行；
+  `context_over_200k` 为 tiers 的重复表达不采用；
+  input_audio/output_audio/reasoning 不属本合同计费维度不导入
+  （reasoning 沿用「含在输出价、不重复计价」口径）。
+- 行属性：region = `cn`（-cn 变体）/ `global`；channel = `api`；
+  currency = USD（目录无人民币价；CN 渠道人民币价仍由种子/手工快照提供）；
+  service_tier = standard（`experimental.modes` 的 fast/ultrafast 等非标准档
+  不导入）；effective_from = 抓取日期（目录无价格生效区间，新鲜度以检索
+  时间度量）。
+- 单位折算：美元/百万 token ×10⁴ → 百分之一美分/百万 token，四舍五入；
+  极低分项（如 deepseek 缓存读 $0.003625/M）有 ≤0.5 单位舍入（<$0.00005/M），
+  可忽略并在 note 标注。
+- 规模实测：过滤后 26 提供商 / 408 模型 / 473 行每快照（S24）。
+
+### 官方提供商回退匹配（2026-10-01 用户合同）
+
+价格行新增 `official_vendor` 标记（schema v11）：seed/community 行默认 true，
+手工导入行默认 false（导入文件可逐行置 true）。估算匹配链在原链
+（provider → 用户选定 region/channel → model → standard → 区间 → 档位）
+无适用价格行（`no_price_row`）时追加一次回退：在 official_vendor 行中按同
+model、standard、区间匹配，优先与所选 region/channel 一致的行，其余按价格簿
+优先级（手工 > 种子 > 社区，同类取较新）；档位规则不变（输入规模未知且多档
+仍 `tier_ambiguous` 不猜档）。回退计价的事件在估算结果标记
+`official_fallback`，日成本行与汇总新增 `fallback_event_count`，界面以
+「官方回退」计数标注（参考估算语义不变：订阅实付不等于该值）。
+供应商未配置渠道时仍一律不套价（`channel_unknown`；双渠道双币种风险不猜）。
+回退仅在精确匹配缺失时触发；精确链已命中（含 tier_ambiguous）时不回退。
 
 ## 费用合同细则
 
@@ -288,8 +370,11 @@ V29 行见 [验证清单](validation.md)。样本分三部分：固定价格样�
 | P5 | glm-5.1 | bigmodel-cn / CNY | standard | 0 | 600 | NULL | NULL | NULL | 2400 |
 | P6 | glm-5.1 | bigmodel-cn / CNY | standard | 32768 | 800 | NULL | NULL | NULL | 2800 |
 
-单位：最小货币单位百分之一/百万 token（P1 输入 800 = ¥8/M；P2 输入 1000 = $10/M）。
-P1 缓存写 NULL 表示该渠道无写价（限时免费政策另以元数据标注，不写 0 价）。
+单位：最小货币单位/百万 token（分/美分每 Mtok；P1 输入 800 = ¥8/M；P2 输入
+1000 = $10/M）。落库与引擎存储单位为「最小货币单位的百分之一/百万 token」，
+即表值 ×100（如 P1 输入存 80000；2026-10-01 修正本节表头注记，此前误写为
+百分之一单位）。P1 缓存写 NULL 表示该渠道无写价（限时免费政策另以元数据
+标注，不写 0 价）。
 
 ### 人工期望金额
 
@@ -319,7 +404,7 @@ P1 缓存写 NULL 表示该渠道无写价（限时免费政策另以元数据�
 | A6 TTL 未知 | 缓存写 token 已知、无 TTL 证据、未设默认档 | 写分量未计价；设置默认档后按档计且标 estimated |
 | A7 历史复现 | 事件落在旧价格区间；对照事件落在区间外 | 按发生时价计；无历史价时"按当前价模拟"分列并标注，不混算 |
 | A8 异常 token | 负值、缓存大于已知总输入 | 拒绝进入费用计算，进诊断；不用 max(0,…) |
-| A9 刷新失败 | 在线刷新网络错误/校验失败 | 保留旧快照，显示新鲜度，既有金额不变 |
+| A9 刷新失败 | 在线刷新网络错误/校验失败 | 保留旧快照，显示新鲜度，既有金额不变（2026-10-01 起随在线刷新实施执行：失败回退上次成功缓存，无缓存时报错不动快照） |
 | A10 快照不可变 | 同版本快照重复导入 | 幂等跳过；价格修正走新 price_version 行 |
 
 ## 后续实施任务清单
@@ -335,8 +420,11 @@ P1 缓存写 NULL 表示该渠道无写价（限时免费政策另以元数据�
    未计价/部分计价覆盖标记、i128 中间量与溢出防护；"参考估算"标注在界面层）。
 4. **已实施**：历史复现查询（按发生时价持久化、按当前价模拟即时分列；
    估算引用 data_revision 与 price_basis 快照集合持久化）。
-5. **未实施（后置）**：可选在线刷新（默认关闭合同项；官方页缺机器可读接口，
-   实施需逐渠道解析器；A9 场景随该任务执行）。
+5. **已实施（2026-10-01）**：可选在线刷新（默认关闭）：models.dev api.json
+   唯一内置来源 + 原始响应缓存（TTL 默认 7 天）+ 失败回退上次成功下载 +
+   官方提供商过滤与回退匹配（schema v11）；A9 场景随本轮测试执行，见
+   [在线刷新设计](#online-refresh) 与
+   [验证记录](../../validation/desktop-usage/f2-online-refresh.md)。
 6. **已实施**：界面费用面板（默认关闭）、币种分组展示、价格管理
    （快照查看/手工导入/显式重算）；预算提醒未做（提醒仅提示不阻止，
    随后续版本排期）。
@@ -361,8 +449,13 @@ P1 缓存写 NULL 表示该渠道无写价（限时免费政策另以元数据�
   收录前需官方复核。
 - 本机未见 OpenAI/Anthropic/Gemini 真实用量（适配器 no_data/not_found），
   对应价格核验只到官方页面层级，未经过本机端到端对账。
-- 本调研未实施任何代码、未制作种子文件、未执行在线刷新；
-  调研完成不等于已获取实时价格或已具备费用计算能力，验收以 V29 执行记录为准。
+- 在线刷新（2026-10-01 实施）的固有限制：models.dev 为社区目录，与官方页
+  存在实测偏差风险（zhipuai 条目挂 z.ai 美元价）；`-cn` 变体为美元折算口径
+  （未核实是否人民币价折算）；目录结构调整时校验失败并回退缓存，不静默
+  导入；快照新鲜度仍以检索时间度量；社区快照只含 USD，CN 渠道人民币价
+  仍依赖种子/手工快照。
+- 调研期未实施代码的免责声明已过时：种子快照、费用引擎与在线刷新分别于
+  2026-09-30 / 2026-10-01 实施，验收以 V29 与各验证记录为准。
 
 ## 调研记录
 
@@ -395,6 +488,7 @@ status=研究证据，非运行验收。
 | S21 | [pydantic/genai-prices](https://github.com/pydantic/genai-prices)（MIT，推送 2026-09-25） | YAML 源 + v2 data.json/Schema、prices_checked、历史价/分层/按日变价、zhipuai 换算说明、zai/moonshotai 与官方一致 |
 | S22 | libgen 检索记录（2026-09-25） | 未找到名为 libgen 的 LLM 价格目录；仅命中 Library Genesis 等无关结果 |
 | S23 | publishPriceDocs 检索记录（2026-09-25） | 未检索到该名称的公开 Gemini 价格 JSON；官方机器可读价格文件未发现 |
+| S24 | models.dev `api.json` 复核（2026-10-01 抓取 5.28 MB，HTTP 200） | 结构实测：提供商 `{id,env,npm,name,doc,models}`；模型 `cost{input,output,cache_read,cache_write,tiers,context_over_200k,input_audio,output_audio,reasoning}`；`canonical_model_id` 官方归属（5274/8339 条目有）；tier 仅 context 类型（658 条）；无币种字段（全美元/百万 token）；官方判定（canonical 前缀 ∪ `-cn` 变体）得 26 提供商、过滤后 408 模型/473 行（poolside/sarvam 无按量价模型被跳过，入库行覆盖 24 提供商，探针测试实断）；coding-plan/token-plan 系 cost 全 0；gpt-6-astra $10/$50、moonshotai kimi-k3 $3/$15、zhipuai glm-5.3 $1.4/$4.4、anthropic claude-opus-5-5 $4/$20、google gemini-3.8-flash $0.75/$3.75 与官方页一致；zhipuai 与 zai 条目同价（docs.z.ai 来源） |
 
 未核实项：OpenAI GPT-6 长上下文阈值官方标注；OpenAI 1h 缓存档；
 Anthropic 页面版本标识；Gemini 3.1 Pro preview 阶梯口径；

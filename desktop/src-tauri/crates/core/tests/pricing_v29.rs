@@ -951,3 +951,83 @@ fn v29_dimension_filters_do_not_include_empty_values() {
         .expect("CNY row");
     assert_eq!(cny.total_amount_minor, 3600);
 }
+
+/// 官方供应商回退端到端（2026-10-01 用户合同）：事件 provider 无精确价格行时
+/// 参考官方 provider 按量价，日成本行与汇总记录 fallback_event_count；
+/// 未配置渠道的供应商仍不套价（channel_unknown）。
+#[test]
+fn v29_official_provider_fallback_end_to_end() {
+    let (_dir, storage) = temp_storage("v29fallback");
+    // 社区快照：官方 vendorA 的 m-one（official_vendor 默认 true；USD $10/$50）。
+    let community = parse_snapshot_json(
+        r#"{"format":"llm-usage-price-snapshot/1",
+            "snapshot":{"id":"models-dev-2026-09-25-test","source_type":"community",
+              "source_urls":["https://models.dev/api.json"],"fetched_at":"2026-09-25"},
+            "rows":[{"price_id":"md:m-one","provider_id":"vendorA","model":"m-one",
+              "region":"global","channel":"api","effective_from":"2026-09-25","currency":"USD",
+              "input":100000,"cache_read":10000,"cache_write_5m":null,"output":500000}]}"#,
+    )
+    .unwrap();
+    storage
+        .import_price_snapshot(&community, ts("2026-09-25T00:00:00Z"))
+        .unwrap();
+
+    let now = ts("2026-09-27T12:00:00Z");
+    let events = vec![
+        // relay-x 无精确行 → 回退 vendorA 官方行：1M×$10 + 1M×$50 = $60（6000 美分）。
+        priced_evt(
+            "fb1",
+            "relay-x",
+            "m-one",
+            Some(1_000_000),
+            Some(0),
+            Some(0),
+            Some(1_000_000),
+        ),
+        // 未配置渠道的供应商：channel_unknown，不回退。
+        priced_evt(
+            "fb2",
+            "relay-unconfigured",
+            "m-one",
+            Some(1_000_000),
+            Some(0),
+            Some(0),
+            Some(1_000_000),
+        ),
+    ];
+    commit_batch(&storage, &batch("inst", "UTC", now, events), None).unwrap();
+
+    let mut options = EstimateOptions::default();
+    options
+        .provider_channels
+        .insert("relay-x".into(), ("global".into(), "api".into()));
+    storage
+        .recompute_unsealed_cost_days("UTC", now, &options)
+        .unwrap();
+
+    let summary = storage
+        .cost_summary(&CostSummaryRequest {
+            timezone: "UTC".to_string(),
+            first_day: "2026-09-26".to_string(),
+            last_day: "2026-09-26".to_string(),
+            filters: CostFilters::default(),
+            now_ms: now,
+            options: options.clone(),
+        })
+        .unwrap();
+    let usd = currency_row(&summary, at_time, "USD");
+    assert_eq!(usd.total_amount_minor, 6000);
+    assert_eq!(usd.priced_event_count, 1);
+    assert_eq!(usd.fallback_event_count, 1);
+    assert!(summary
+        .price_basis
+        .contains(&"models-dev-2026-09-25-test".to_string()));
+    // 未计价事件：未配置渠道（channel_unknown）1 条。
+    assert_eq!(
+        summary.at_time.unpriced_reasons.get("channel_unknown"),
+        Some(&1)
+    );
+    // 按当前价格模拟同样走回退并计数。
+    let sim_usd = currency_row(&summary, current_sim, "USD");
+    assert_eq!(sim_usd.fallback_event_count, 1);
+}

@@ -34,7 +34,7 @@ fn user_instances(
 }
 
 /// 写操作日志到诊断表（白名单 code，无正文）。
-fn log_operation(storage: &llm_usage_core::storage::Storage, code: &str, message: &str) {
+pub(crate) fn log_operation(storage: &llm_usage_core::storage::Storage, code: &str, message: &str) {
     let _ = storage.conn().execute(
         "INSERT INTO diagnostics (code, message, created_ms) VALUES (?1, ?2, ?3)",
         rusqlite::params![code, message, crate::scanner::now_ms()],
@@ -665,6 +665,20 @@ pub fn set_settings(
                 ));
             }
         }
+    }
+    // F2 在线刷新：缓存 TTL 天数范围（1–365）。
+    if settings.pricing.online_cache_ttl_days < crate::price_refresh::MIN_TTL_DAYS
+        || settings.pricing.online_cache_ttl_days > crate::price_refresh::MAX_TTL_DAYS
+    {
+        return Err(err(
+            "invalid_pricing",
+            format!(
+                "online cache TTL must be {}–{} days, got {}",
+                crate::price_refresh::MIN_TTL_DAYS,
+                crate::price_refresh::MAX_TTL_DAYS,
+                settings.pricing.online_cache_ttl_days
+            ),
+        ));
     }
     {
         let storage = state.storage.lock().unwrap();
@@ -1602,6 +1616,50 @@ pub fn import_price_snapshot(
         "snapshot_id": outcome.snapshot_id,
         "inserted_rows": outcome.inserted_rows,
         "already_present": outcome.already_present,
+    }))
+}
+
+/// F2 在线刷新（models.dev）：手动触发（force 绕过 TTL）。需费用估算与
+/// 在线刷新均已启用；后台线程执行，结果经 price_refresh_status 轮询。
+#[tauri::command]
+pub fn refresh_prices_online(
+    state: tauri::State<'_, Arc<AppState>>,
+    force: Option<bool>,
+) -> Result<serde_json::Value, String> {
+    {
+        let settings = state.settings.lock().unwrap();
+        if !settings.pricing.enabled || !settings.pricing.online_refresh_enabled {
+            return Err(err(
+                "disabled",
+                "online price refresh is disabled (settings → costs)",
+            ));
+        }
+    }
+    let started = crate::price_refresh::maybe_auto_refresh(&state, force.unwrap_or(true));
+    Ok(serde_json::json!({ "started": started }))
+}
+
+/// F2 在线刷新状态：启用位、TTL、缓存新鲜度、运行标记与最近一次结果。
+#[tauri::command]
+pub fn price_refresh_status(
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<serde_json::Value, String> {
+    let (enabled, ttl_days) = {
+        let settings = state.settings.lock().unwrap();
+        (
+            settings.pricing.enabled && settings.pricing.online_refresh_enabled,
+            settings.pricing.online_cache_ttl_days,
+        )
+    };
+    let now = now_ms();
+    let cache = crate::price_refresh::cache_info_for_status(&state.db_path, now);
+    let refresh = state.price_refresh.lock().unwrap();
+    Ok(serde_json::json!({
+        "enabled": enabled,
+        "ttl_days": ttl_days,
+        "running": refresh.running,
+        "cache": cache,
+        "last_outcome": refresh.last_outcome,
     }))
 }
 

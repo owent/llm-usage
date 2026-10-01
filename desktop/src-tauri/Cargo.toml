@@ -32,6 +32,8 @@ flate2 = { version = "^1" }
 # Edit JSONC by value ranges; unrelated configuration and comments stay intact.
 jsonc-parser = { version = "^0.34", features = ["serde"] }
 toml_edit = { version = "^0.25", features = ["serde"] }
+# ureq：F2 在线刷新 HTTPS GET models.dev api.json（rustls、无本地数据外发；响应体有界）。
+ureq = "3.4.2"
 
 [profile.release]
 panic = "abort"
