@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calendarDay, offsetDay } from '../src/lib/calendar.ts';
+import { calendarDay, offsetDay, calendarYearRange } from '../src/lib/calendar.ts';
 import { loadPanelGroup, savePanelGroup, clearPanelPage } from '../src/lib/panels.ts';
 import { durationStatsOf, pivotChartSeries, mergeNamedValues } from '../src/lib/derive.ts';
 import { escapeHtml } from '../src/lib/chart.ts';
@@ -12,6 +12,13 @@ test('statistics dates follow the selected timezone across midnight and DST', ()
   assert.equal(offsetDay('2026-03-09', -2), '2026-03-07');
   assert.equal(offsetDay('2024-03-01', -1), '2024-02-29');
   assert.equal(offsetDay('2026-01-01', -1), '2025-12-31');
+});
+
+test('activity calendar uses an entire local calendar year including leap day', () => {
+  assert.deepEqual(calendarYearRange('2026-09-28'), { year: 2026, first_day: '2026-01-01', last_day: '2026-12-31' });
+  assert.deepEqual(calendarYearRange('2026-09-28', 2024), { year: 2024, first_day: '2024-01-01', last_day: '2024-12-31' });
+  const range = calendarYearRange('2024-03-01');
+  assert.equal((Date.parse(range.last_day)-Date.parse(range.first_day))/86400000+1, 366);
 });
 
 test('panel order survives restart; stale ids, duplicates and corrupt dimensions are removed', () => {

@@ -213,6 +213,42 @@ fn run_refresh_filtered(
             }),
         }
     }
+    // Copilot premium 请求额度（本机 copilot-user-cache.json；账户级请求配额，
+    // 非 token，独立展示）。采集失败只记摘要，不影响本轮其他来源。
+    if include.is_none() && global_exclude.is_some() {
+        let storage = state.storage.lock().unwrap();
+        match llm_usage_core::copilot_quota::collect(
+            &storage,
+            &ctx.env,
+            ctx.home_dir.as_deref(),
+            &timezone,
+            now_ms(),
+        ) {
+            Ok(n) if n > 0 => summaries.push(RefreshInstanceSummary {
+                instance_id: "copilot-quota".to_string(),
+                agent: "copilot".to_string(),
+                status: "succeeded".to_string(),
+                error: None,
+                added: n as i64,
+                updated: 0,
+                files: 1,
+                events: n,
+                diagnostics: 0,
+            }),
+            Ok(_) => {}
+            Err(e) => summaries.push(RefreshInstanceSummary {
+                instance_id: "copilot-quota".to_string(),
+                agent: "copilot".to_string(),
+                status: "failed".to_string(),
+                error: Some(format!("copilot quota collection failed: {e}")),
+                added: 0,
+                updated: 0,
+                files: 0,
+                events: 0,
+                diagnostics: 0,
+            }),
+        }
+    }
     {
         // 分级归档保留：采集后按设置执行（明细→小时→物化周期→日→周/月；单事务）。
         {

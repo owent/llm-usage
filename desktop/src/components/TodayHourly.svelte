@@ -184,7 +184,7 @@
             return [
               `<b>${escapeHtml(name)}</b> · ${escapeHtml(label)}`,
               `${t('trend.calls')}: ${fmtPrecise(c.calls)}`,
-              `${t('cards.total')}: ${fmtPrecise(c.total)}`,
+              `${t('cards.total')}: ${c.total === null ? t('common.unknown') : fmtPrecise(c.total)}`,
               `${t('cards.input')}: ${fmtPrecise(c.input)}`,
               `${t('cards.cacheRead')}: ${fmtPrecise(c.cacheRead)}`,
               `${t('cards.cacheMiss')}: ${fmtPrecise(miss)}`,
@@ -272,9 +272,15 @@
             const label = g.labels[params[0]?.dataIndex ?? 0] ?? '';
             const lines = [`<b>${escapeHtml(label)}</b>`];
             for (const p of params) {
-              if (p.value !== null && p.value !== undefined && p.value !== 0) {
+              if (p.value !== null && p.value !== undefined) {
                 lines.push(`${p.marker}${escapeHtml(p.seriesName)}: ${fmtPrecise(p.value)}`);
               }
+            }
+            const selected = (chart?.getOption().legend as { selected?: Record<string, boolean> }[] | undefined)?.[0]?.selected ?? {};
+            for (const name of g.names) {
+              const cell = g.cell(name, label);
+              if (!cell || cell.total !== null || (selected[`${name} · ${t('trend.calls')}`] === false && selected[`${name} · ${t('trend.tokens')}`] === false)) continue;
+              lines.push(`${escapeHtml(name)} · ${t('cards.total')}: ${t('common.unknown')} · ${t('cards.input')}: ${fmtPrecise(cell.input)} · ${t('cards.output')}: ${fmtPrecise(cell.output)}`);
             }
             return lines.join('<br/>');
           },

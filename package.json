@@ -4,6 +4,8 @@
   "private": true,
   "description": "Doc tooling and root command entry for the llm-usage repository; the desktop app keeps its own manifest under desktop/.",
   "scripts": {
+    "postinstall": "node -e \"process.env.CI || require('child_process').execSync('npm --prefix desktop install', { stdio: 'inherit' })\"",
+    "setup": "npm install && npm --prefix desktop install",
     "assets:generate": "node desktop/scripts/assets.mjs --generate",
     "assets:check": "node desktop/scripts/assets.mjs --check",
     "lint:md": "markdownlint-cli2",

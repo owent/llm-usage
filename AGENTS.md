@@ -18,7 +18,21 @@ Windows 11 x64 首发，GitHub CI 保留 macOS/Linux；WSL 构建不等于 Linux
 限定字段与脱敏，无需重复询问这项许可。JetBrains/TRAE 等缺证 IDE 已后移 F1，当前不实施
 （2026-09-29 M8 第二批 18 个适配器已完成文档级实施并注册——Amazon Q/Codebuff
 经源码级取证证实本地无逐次 token 载体、iFlow 已停服，均不实施；Junie CLI 与
-Zed 内置凭本地载体证据在 M8；Cursor/Warp/TRAE 的远端用量路线按本机来源边界排除）。
+Zed 内置凭本地载体证据在 M8；Cursor/Warp/TRAE 的远端用量路线按本机来源边界排除；
+JetBrains 的 GitHub Copilot 已源码级取证——默认本地仅 Nitrite 会话库 credit
+与 idea.log 无逐次 token，逐次载体为需启用的 OTel file 导出，经既有 otel
+适配器手工根接入，见 M9 JetBrains 分析记录；JetBrains 自家 AI Assistant 仍 F1）。
+Copilot 四面已定（2026-10-01 M9）：CLI 面走 assistant_usage_events（旧版）/chronicle
+fail-closed（最新版），VS Code 面走原生 `chatSessions/*.jsonl`（copilot_chat 适配器，
+本机真实验收），Visual Studio 面走 `%TEMP%\VSGitHubCopilotLogs\traces` OTLP 遥测
+（vs_copilot 适配器，本机真实验收；TEMP 载体不承诺完整历史），账户 premium 额度走
+copilot-user-cache.json → 通用 quota_history（额度与 token 分开，不折算）。
+M9 审查修正：VS Code turn/modelTotals 是用量 observation，toolCallRounds 才计已观测
+主循环调用；默认输入是末次调用下界，不与整轮输出派生完整总 token。额度保存来源
+快照时间与 milli_requests 小数单位，见 [审查记录](docs/validation/desktop-usage/m9-copilot-review.md)。
+维护本机遥测检查与配置入口时，读 [配置合同](docs/design/desktop-usage/copilot-otel.md)：
+后台检查只读，应用按用户层字段合并并保留现有输出目标；新增导出隔离用于核验，
+未完成跨载体权威选择前不得自动叠加到原生统计。
 
 ## 规则入口与按需读取
 

@@ -29,6 +29,9 @@ rfd = { version = "^0.17.2" }
 fs4 = { version = "^0.13" }
 # flate2：OTLP 接收器 gzip 解压（有界，V22 压缩炸弹防护）。
 flate2 = { version = "^1" }
+# Edit JSONC by value ranges; unrelated configuration and comments stay intact.
+jsonc-parser = { version = "^0.34", features = ["serde"] }
+toml_edit = { version = "^0.25", features = ["serde"] }
 
 [profile.release]
 panic = "abort"

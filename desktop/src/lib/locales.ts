@@ -1,5 +1,6 @@
 /** Complete locale catalogs; the ordered key list is shared by all eight added languages. */
 export const translatedKeys = [
+  'quota.sectionTitle', 'quota.premiumRequests', 'quota.usedLabel', 'quota.remaining', 'quota.snapshotAt', 'quota.trend', 'quota.note', 'quota.empty',
   'nav.overview', 'nav.trend', 'nav.sources', 'nav.settings', 'nav.details',
   'workspace.local', 'workspace.private',
   'action.refresh', 'action.refreshing',
@@ -110,6 +111,7 @@ export const translatedKeys = [
 type ExtraLocale = 'zh-TW' | 'ja' | 'ko' | 'es' | 'fr' | 'de' | 'pt-BR' | 'ru';
 const phrases: Record<ExtraLocale, readonly string[]> = {
   'zh-TW': [
+    'Agent 額度', 'Premium 請求', '已用', '剩餘 {n}', '快照 {time}', '消耗趨勢', '帳戶級請求配額（非 token；所有裝置/入口共用）', '重新整理後顯示額度（本機快取）',
     '總覽', '趨勢', '資料來源', '設定', '詳細資料',
     '本機用量工作台', '資料保存在本機',
     '採集並重新整理', '採集中…',
@@ -195,6 +197,7 @@ const phrases: Record<ExtraLocale, readonly string[]> = {
     '價格快照', '匯入快照 JSON', '重算費用', '重算已開始，完成後重新整理查看',
   ],
   ja: [
+    'エージェント枠', 'Premium リクエスト', '使用済み', '残り {n}', 'スナップショット {time}', '消費トレンド', 'アカウント単位のリクエスト枠（トークンではなく、全デバイス/入口で共有）', '更新後にクォータを表示（ローカルキャッシュ）',
     '概要', '推移', 'データソース', '設定', '詳細',
     'ローカル使用状況', 'データはこの端末に保存されます',
     '収集して更新', '収集中…',
@@ -280,6 +283,7 @@ const phrases: Record<ExtraLocale, readonly string[]> = {
     '価格スナップショット', 'スナップショット JSON を読み込む', '費用を再計算', '再計算を開始しました。後で更新して確認してください',
   ],
   ko: [
+    '에이전트 할당량', 'Premium 요청', '사용됨', '{n} 남음', '스냅샷 {time}', '사용 추세', '계정 단위 요청 할당량(토큰 아님, 모든 기기/입구 공유)', '새로고침 후 할당량 표시(로컬 캐시)',
     '개요', '추세', '데이터 소스', '설정', '상세',
     '로컬 사용량 작업 공간', '데이터는 이 기기에 저장됩니다',
     '수집 및 새로고침', '수집 중…',
@@ -365,6 +369,7 @@ const phrases: Record<ExtraLocale, readonly string[]> = {
     '가격 스냅샷', '스냅샷 JSON 가져오기', '비용 재계산', '재계산이 시작되었습니다. 잠시 후 새로 고침하세요',
   ],
   es: [
+    'Cuotas del agente', 'Solicitudes premium', 'usado', '{n} restantes', 'Instantánea {time}', 'Tendencia de uso', 'Cuota de solicitudes a nivel de cuenta (no tokens; compartida entre dispositivos/interfaces)', 'La cuota aparece tras actualizar (caché local)',
     'Resumen', 'Tendencias', 'Fuentes', 'Ajustes', 'Detalles',
     'Panel de uso local', 'Los datos permanecen en este dispositivo',
     'Recopilar y actualizar', 'Recopilando…',
@@ -450,6 +455,7 @@ const phrases: Record<ExtraLocale, readonly string[]> = {
     'Instantáneas de precios', 'Importar JSON de instantánea', 'Recalcular costes', 'Recálculo iniciado; actualiza más tarde para verlo',
   ],
   fr: [
+    'Quotas de l’agent', 'Requêtes premium', 'utilisé', '{n} restant', 'Instantané {time}', 'Tendance d’usage', 'Quota de requêtes au niveau du compte (pas des tokens ; partagé entre appareils/interfaces)', 'Le quota apparaît après actualisation (cache local)',
     'Vue d’ensemble', 'Tendances', 'Sources', 'Paramètres', 'Détails',
     'Tableau de bord local', 'Les données restent sur cet appareil',
     'Collecter et actualiser', 'Collecte en cours…',
@@ -535,6 +541,7 @@ const phrases: Record<ExtraLocale, readonly string[]> = {
     'Instantanés de prix', 'Importer un JSON d’instantané', 'Recalculer les coûts', 'Recalcul lancé ; actualisez plus tard pour voir le résultat',
   ],
   de: [
+    'Agent-Kontingente', 'Premium-Anfragen', 'genutzt', '{n} übrig', 'Momentaufnahme {time}', 'Nutzungsverlauf', 'Anfragekontingent auf Kontoebene (keine Tokens; geräte-/oberflächenübergreifend geteilt)', 'Kontingent erscheint nach Aktualisierung (lokaler Cache)',
     'Übersicht', 'Trends', 'Datenquellen', 'Einstellungen', 'Details',
     'Lokale Nutzungsübersicht', 'Daten bleiben auf diesem Gerät',
     'Erfassen und aktualisieren', 'Erfassung läuft…',
@@ -620,6 +627,7 @@ const phrases: Record<ExtraLocale, readonly string[]> = {
     'Preisschnappschüsse', 'Schnappschuss-JSON importieren', 'Kosten neu berechnen', 'Neuberechnung gestartet; später aktualisieren, um das Ergebnis zu sehen',
   ],
   'pt-BR': [
+    'Cotas do agente', 'Solicitações premium', 'usado', '{n} restantes', 'Instantâneo {time}', 'Tendência de uso', 'Cota de solicitações no nível da conta (não são tokens; compartilhada entre dispositivos/interfaces)', 'A cota aparece após atualizar (cache local)',
     'Visão geral', 'Tendências', 'Fontes', 'Configurações', 'Detalhes',
     'Painel de uso local', 'Os dados ficam neste dispositivo',
     'Coletar e atualizar', 'Coletando…',
@@ -705,6 +713,7 @@ const phrases: Record<ExtraLocale, readonly string[]> = {
     'Instantâneos de preços', 'Importar JSON de instantâneo', 'Recalcular custos', 'Recálculo iniciado; atualize depois para ver o resultado',
   ],
   ru: [
+    'Квоты агента', 'Premium-запросы', 'использовано', 'осталось {n}', 'Снимок {time}', 'Динамика расхода', 'Квота запросов на уровне аккаунта (не токены; общая для всех устройств/интерфейсов)', 'Квота появится после обновления (локальный кэш)',
     'Обзор', 'Тенденции', 'Источники', 'Настройки', 'Подробности',
     'Локальная статистика', 'Данные хранятся на этом устройстве',
     'Собрать и обновить', 'Сбор данных…',

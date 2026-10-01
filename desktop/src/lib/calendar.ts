@@ -13,3 +13,9 @@ export function offsetDay(day: string, days: number): string {
   date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
 }
+
+/** The activity calendar is a full calendar year, independently of chart range. */
+export function calendarYearRange(day: string, selectedYear?: number) {
+  const year = selectedYear ?? Number(day.slice(0, 4));
+  return { year, first_day: `${year}-01-01`, last_day: `${year}-12-31` };
+}

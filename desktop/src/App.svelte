@@ -5,7 +5,6 @@
   import type {
     AppSettings,
     ChartSeriesRowDto,
-    HeatmapDto,
     RefreshStateDto,
     SourceDto,
     SummaryDto,
@@ -23,6 +22,9 @@
   import UsageHeatmap from './components/UsageHeatmap.svelte';
   import CostPanel from './components/CostPanel.svelte';
   import TodayOverview from './components/TodayOverview.svelte';
+  import QuotaCard from './components/QuotaCard.svelte';
+  import TelemetrySetup from './components/TelemetrySetup.svelte';
+  import { checkTelemetry } from './lib/telemetry.svelte';
   import BreakdownTables from './components/BreakdownTables.svelte';
   import SourceList from './components/SourceList.svelte';
   import SettingsPanel from './components/SettingsPanel.svelte';
@@ -36,6 +38,7 @@
   type RangeKey = '2' | 'today' | '7' | '30' | '365';
 
   let tab = $state<Tab>('overview');
+  let settingsSection = $state<'general' | 'telemetry'>('general');
   let settings = $state<AppSettings | null>(null);
   let ready = $state(false);
   let clockNow = $state(new Date());
@@ -89,8 +92,6 @@
   let userBusy = $state(false);
   let userError = $state('');
 
-  // 热力图数据复用（周分布图）。
-  let heatmapCells = $state<HeatmapDto['cells']>([]);
   /** 用户切换/导入等不改变 query 的强制重查信号（传给子组件）。 */
   let dataReloadKey = $state(0);
 
@@ -160,7 +161,7 @@
     'trend-calls': 6,
     'trend-tokens': 6,
     'trend-costs': 3,
-    'trend-heatmap': 4,
+    'trend-heatmap': 6,
     'trend-weekday': 2,
     'trend-model-pie': 3,
     'trend-agent-pie': 3,
@@ -707,6 +708,7 @@
   }
 
   onMount(() => {
+    void checkTelemetry();
     let mounted = true;
     void (async () => {
       await Promise.all([loadSettings(), loadUsers(), loadSources(), pollRefresh()]);
@@ -774,7 +776,7 @@
     </a>
     <nav aria-label={t('app.subtitle')}>
       {#each ['overview', 'trend', 'sources', 'details', 'settings'] as id (id)}
-        <button class:active={tab === id} aria-current={tab === id ? 'page' : undefined} onclick={() => (tab = id as Tab)}>
+        <button class:active={tab === id} aria-current={tab === id ? 'page' : undefined} onclick={() => { if (id === 'settings') settingsSection = 'general'; tab = id as Tab; }}>
           <Icon name={id} /><span>{t('nav.' + id)}</span>
         </button>
       {/each}
@@ -925,7 +927,14 @@
   {/if}
 
   {#if tab === 'overview'}
+    <TelemetrySetup onDetails={() => { settingsSection = 'telemetry'; tab = 'settings'; }} />
     {#if summary}
+      <div class="section-head">
+        <h2>{t('quota.sectionTitle')}</h2>
+      </div>
+      <div class="quota-row">
+        <QuotaCard agent="copilot" timezone={settings?.timezone ?? 'UTC'} reloadKey={dataReloadKey + (summary?.data_revision ?? 0)} {isDark} />
+      </div>
       {#if summary.totals.call_count === 0 && summary.periods.length === 0 && !todaySummary?.periods.length}
         <p class="empty">{t('common.empty')}</p>
       {:else}
@@ -1090,6 +1099,12 @@
     {#if summary}
       <!-- 范围汇总面板（图表区上方固定位置）：7 张小卡片，取 summary.totals。 -->
       <UsageInsights {summary} />
+      <div class="section-head">
+        <h2>{t('quota.sectionTitle')}</h2>
+      </div>
+      <div class="quota-row">
+        <QuotaCard agent="copilot" timezone={settings?.timezone ?? 'UTC'} reloadKey={dataReloadKey + (summary?.data_revision ?? 0)} {isDark} />
+      </div>
       <div class="range-summary">
         <div class="section-head">
           <h2>{t('trend.summary')}</h2>
@@ -1129,9 +1144,9 @@
             {:else if id === 'trend-costs'}
               <CostPanel {query} refreshKey={dataReloadKey + (summary?.data_revision ?? 0)} />
             {:else if id === 'trend-heatmap'}
-              <UsageHeatmap {query} reloadKey={dataReloadKey + (summary?.data_revision ?? 0)} oncells={(cells) => (heatmapCells = cells)} {isDark} />
+              <UsageHeatmap {query} reloadKey={dataReloadKey + (summary?.data_revision ?? 0)} {isDark} />
             {:else if id === 'trend-weekday'}
-              <WeekdayBar cells={heatmapCells} {isDark} />
+              <WeekdayBar {query} reloadKey={dataReloadKey + (summary?.data_revision ?? 0)} {isDark} />
             {:else if id === 'trend-model-pie'}
               <SharePie data={trendModelPie} {isDark} />
             {:else if id === 'trend-agent-pie'}
@@ -1149,7 +1164,7 @@
     <SourceList {sources} users={userOptions} onchanged={reloadUserData} />
   {:else if tab === 'settings'}
     {#if settings}
-      <SettingsPanel settings={settings} collecting={!!refresh?.running} onsaved={onSettingsSaved} ondatachanged={() => void reloadUserData()} />
+      <SettingsPanel settings={settings} initialSection={settingsSection} collecting={!!refresh?.running} onsaved={onSettingsSaved} ondatachanged={() => void reloadUserData()} />
     {/if}
   {/if}
 </main>
@@ -1346,6 +1361,11 @@
     gap: 10px;
     margin: 28px 0 14px;
     flex-wrap: wrap;
+  }
+  .quota-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 300px));
+    gap: 12px;
   }
   .section-head h2 {
     font-size: 17px;

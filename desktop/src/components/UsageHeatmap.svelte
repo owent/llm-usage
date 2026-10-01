@@ -2,6 +2,7 @@
   import { api } from '../lib/api';
   import type { HeatmapDto, SummaryQuery } from '../lib/api';
   import { t, i18n, fmtPrecise } from '../lib/i18n.svelte';
+  import { calendarYearRange } from '../lib/calendar';
 
   type Cell = HeatmapDto['cells'][number];
   let {
@@ -15,13 +16,16 @@
   let cells = $state<Cell[]>([]);
   let failed = $state(false);
   let loadSequence = 0;
+  let selectedYear = $state<number | undefined>();
+  const yearRange = $derived(calendarYearRange(query.last_day, selectedYear));
+  const yearQuery = $derived({ ...query, ...yearRange, granularity: 'day' as const });
 
   // UTC calendar arithmetic preserves the backend's local date buckets across DST.
   const dayMs = (day: string) => Date.parse(day + 'T00:00:00Z');
   const gridStart = $derived(cells.length ? dayMs(cells[0].day) - (cells[0].weekday - 1) * 86_400_000 : 0);
   const weekOf = (day: string) => Math.floor((dayMs(day) - gridStart) / 604_800_000);
   const weekCount = $derived(cells.length ? weekOf(cells[cells.length - 1].day) + 1 : 0);
-  const maxCalls = $derived(Math.max(1, ...cells.map((c) => c.calls)));
+  const maxCalls = $derived(Math.max(1, ...cells.filter((c) => c.available).map((c) => c.calls)));
   const activity = $derived.by(() => {
     let activeDays = 0;
     let streak = 0;
@@ -74,7 +78,7 @@
       .format(new Date(cell.day + 'T12:00:00Z'));
     return cell.available
       ? date + ' · ' + t('trend.calls') + ': ' + fmtPrecise(cell.calls) + ' · ' + t('trend.tokens') + ': ' + fmtPrecise(cell.total_tokens) + (cell.partial ? ' · ' + t('heatmap.partial') : '')
-      : date + ' · ' + t('heatmap.unavailable');
+      : date + ' · ' + t(cell.day > query.last_day ? 'heatmap.future' : 'heatmap.unavailable');
   }
 
   function shortDate(day: string): string {
@@ -85,11 +89,12 @@
   async function load() {
     const sequence = ++loadSequence;
     try {
-      const result = await api.heatmap(query);
+      const result = await api.heatmap(yearQuery);
       if (sequence !== loadSequence) return;
-      cells = result.cells;
+      cells = result.cells.map((cell) => cell.day > query.last_day
+        ? { ...cell, available: false, partial: false } : cell);
       failed = false;
-      oncells?.(result.cells);
+      oncells?.(result.cells.filter((cell) => cell.day >= query.first_day && cell.day <= query.last_day));
     } catch {
       if (sequence !== loadSequence) return;
       cells = [];
@@ -99,7 +104,7 @@
   }
 
   $effect(() => {
-    void query;
+    void yearQuery;
     void reloadKey;
     ++loadSequence;
     const timer = setTimeout(() => void load(), 200);
@@ -108,6 +113,11 @@
 </script>
 
 <div class:dark={isDark} class="heatmap" aria-label={t('heatmap.title')}>
+  <div class="year-picker">
+    <button type="button" aria-label={t('heatmap.previousYear')} onclick={() => selectedYear = yearRange.year - 1}>‹</button>
+    <span>{yearRange.year}</span>
+    <button type="button" aria-label={t('heatmap.nextYear')} onclick={() => selectedYear = yearRange.year + 1}>›</button>
+  </div>
   {#if failed}
     <p class="muted">{t('heatmap.loadFailed')}</p>
   {:else if cells.length}
@@ -180,7 +190,9 @@
   .activity-stats strong { color: var(--text); font-size: 20px; line-height: 1.15; }
   .activity-stats small { color: var(--text-secondary); }
   .activity-stats .peak { grid-column: 1 / -1; }
-  .calendar-wrap { --size: 21px; --gap: 4px; width: max-content; }
+  .calendar-wrap { --size: 13px; --gap: 3px; width: max-content; }
+  .year-picker { display: flex; align-items: center; justify-content: flex-end; gap: 12px; font-size: 13px; }
+  .year-picker button { padding: 2px 10px; }
   .months, .days { display: grid; grid-template-columns: repeat(var(--weeks), var(--size)); gap: var(--gap); }
   .months { margin: 0 0 7px 48px; height: 18px; color: var(--text-muted); font-size: 11px; white-space: nowrap; }
   .months span { align-self: end; }
@@ -188,7 +200,7 @@
   .weekdays { display: grid; grid-template-rows: repeat(7, var(--size)); gap: var(--gap); width: 38px; flex: none; color: var(--text-muted); font-size: 11px; }
   .weekdays span { display: flex; align-items: center; }
   .days { grid-template-rows: repeat(7, var(--size)); }
-  .days span, .swatch { display: block; background: var(--empty); border: 1px solid var(--line); border-radius: 5px; box-sizing: border-box; }
+  .days span, .swatch { display: block; background: var(--empty); border: 1px solid var(--line); border-radius: 3px; box-sizing: border-box; }
   .days span { width: var(--size); height: var(--size); transition: transform .15s ease, box-shadow .15s ease; }
   .days span:hover { transform: scale(1.12); box-shadow: 0 2px 9px #0003; position: relative; z-index: 1; }
   .level1 { background: var(--level1) !important; }

@@ -525,10 +525,8 @@ pub fn set_source_schedule(
     instance_id: String,
     rule: Option<serde_json::Value>,
 ) -> Result<serde_json::Value, String> {
-    let (storage_lock, tz) = {
-        let settings = state.settings.lock().unwrap();
-        (state.storage.lock().unwrap(), settings.timezone.clone())
-    };
+    let tz = state.settings.lock().unwrap().timezone.clone();
+    let storage_lock = state.storage.lock().unwrap();
     let now = now_ms();
     match rule {
         None => {
@@ -617,8 +615,10 @@ pub fn get_settings(state: tauri::State<'_, Arc<AppState>>) -> Result<AppSetting
 #[tauri::command]
 pub fn set_settings(
     state: tauri::State<'_, Arc<AppState>>,
-    settings: AppSettings,
+    mut settings: AppSettings,
 ) -> Result<(), String> {
+    // Receiver lifecycle is owned by telemetry setup. A settings form opened earlier
+    // must not silently turn it back off when saving unrelated preferences.
     if let Some(w) = settings.week_start {
         week_start_of(w)?;
     }
@@ -668,18 +668,18 @@ pub fn set_settings(
     }
     {
         let storage = state.storage.lock().unwrap();
+        let mut live = state.settings.lock().unwrap();
+        settings.otel_receiver_enabled = live.otel_receiver_enabled;
+        settings.otel_receiver_port = live.otel_receiver_port;
         // 时区变更 ⇒ 在新时区重算日分区（事件仍在 ⇒ 推导；封存日跳过）。
-        let old_tz = state.settings.lock().unwrap().timezone.clone();
+        let old_tz = live.timezone.clone();
         if old_tz != settings.timezone {
             crate::app_state::repair_tz_partitions(&storage, &settings.timezone, true)?;
         }
         save_settings(&storage, &settings)?;
-    }
-    {
-        let storage = state.storage.lock().unwrap();
+        *live = settings;
         log_operation(&storage, "settings_changed", "user settings updated");
     }
-    *state.settings.lock().unwrap() = settings;
     Ok(())
 }
 
@@ -700,6 +700,62 @@ pub fn app_info(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_json::Va
         "host_id": state.host_id.lock().unwrap().clone(),
         "exchange_format_version": EXCHANGE_FORMAT_VERSION,
     }))
+}
+
+/// 额度总览（通用 quota_history 最新快照；agent=None 取全部）。
+/// 请求/额度计数，非 token，独立展示。
+#[tauri::command]
+pub fn quota_summary(
+    state: tauri::State<'_, Arc<AppState>>,
+    agent: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let storage = state.storage.lock().unwrap();
+    let latest = llm_usage_core::quota_history::latest(&storage, agent.as_deref())
+        .map_err(|e| err("db", e.to_string()))?;
+    let quotas: Vec<serde_json::Value> = latest
+        .iter()
+        .map(|q| {
+            serde_json::json!({
+                "agent": q.agent,
+                "quota_id": q.quota_id,
+                "kind": q.kind,
+                "unit": q.unit,
+                "limit_value": q.limit_value,
+                "used": q.used,
+                "remaining": q.remaining,
+                "percent_remaining": q.percent_remaining,
+                "locality_verified": q.locality_verified,
+                "observed_at_ms": q.observed_at_ms,
+            })
+        })
+        .collect();
+    Ok(serde_json::json!({ "quotas": quotas }))
+}
+
+/// 某 (agent, quota_id) 的每日额度趋势（used=已用请求/额度数）。
+#[tauri::command]
+pub fn quota_series(
+    state: tauri::State<'_, Arc<AppState>>,
+    agent: String,
+    quota_id: String,
+) -> Result<serde_json::Value, String> {
+    let timezone = state.settings.lock().unwrap().timezone.clone();
+    let storage = state.storage.lock().unwrap();
+    let series =
+        llm_usage_core::quota_history::daily_series(&storage, &agent, &quota_id, &timezone)
+            .map_err(|e| err("db", e.to_string()))?;
+    let points: Vec<serde_json::Value> = series
+        .iter()
+        .map(|p| {
+            serde_json::json!({
+                "local_day": p.local_day,
+                "used": p.used,
+                "remaining": p.remaining,
+                "limit_value": p.limit_value,
+            })
+        })
+        .collect();
+    Ok(serde_json::json!({ "agent": agent, "quota_id": quota_id, "points": points }))
 }
 
 /// 导出：summary-csv（展示用）或 exchange（无损交换 JSON，M1a 合同）。
@@ -1115,6 +1171,7 @@ const CLEAR_ALL_TABLES: &[&str] = &[
     "source_aggregates",
     "ingest_runs",
     "quota_snapshots",
+    "quota_history",
 ];
 
 fn backup_before_clear(state: &Arc<AppState>) -> Result<Option<String>, String> {

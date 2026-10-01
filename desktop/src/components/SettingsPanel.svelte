@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import TelemetrySetup from './TelemetrySetup.svelte';
   import { api, parseError } from '../lib/api';
   import type {
     AppSettings,
@@ -21,6 +22,7 @@
     onsaved,
     ondatachanged,
     collecting = false,
+    initialSection = 'general',
   }: {
     settings: AppSettings;
     onsaved: (next: AppSettings) => void;
@@ -28,12 +30,14 @@
     ondatachanged?: () => void;
     /** 采集进行中（父级轮询 refresh_status），期间禁用“清理全部数据”。 */
     collecting?: boolean;
+    initialSection?: 'general' | 'telemetry';
   } = $props();
 
-  type SubTab = 'general' | 'retention' | 'costs' | 'system' | 'identity' | 'export' | 'logs';
+  type SubTab = 'general' | 'telemetry' | 'retention' | 'costs' | 'system' | 'identity' | 'export' | 'logs';
   type RetentionField = 'events' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly';
 
   let sub = $state<SubTab>('general');
+  $effect(() => { sub = initialSection; });
 
   // svelte-ignore state_referenced_locally
   // 草稿编辑器刻意只捕获挂载时的设置初值；外部更新由父组件重新挂载本面板。
@@ -230,6 +234,7 @@
 
   const subTabs = $derived.by(() => [
     ['general', t('settings.tab.general')],
+    ['telemetry', t('telemetry.title')],
     ['retention', t('settings.tab.retention')],
     ['costs', t('settings.tab.costs')],
     ['system', t('settings.tab.system')],
@@ -756,7 +761,7 @@
   <div class="settings-layout">
     <nav class="sidebar">
       {#each subTabs as [id, label] (id)}
-        <button type="button" class:active={sub === id} onclick={() => (sub = id)}>{label}</button>
+        <button type="button" data-settings-section={id} class:active={sub === id} onclick={() => (sub = id)}>{label}</button>
       {/each}
     </nav>
 
@@ -879,6 +884,8 @@
           </div>
           <p class="note">{t('settings.note')}</p>
         </section>
+      {:else if sub === 'telemetry'}
+        <TelemetrySetup full />
       {:else if sub === 'retention'}
         <section class="panel">
           <h4>{t('cleanup.stats')}</h4>

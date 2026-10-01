@@ -16,6 +16,7 @@ pub mod commandcode;
 #[path = "continue/mod.rs"]
 pub mod continuedev;
 pub mod copilot;
+pub mod copilot_chat;
 pub mod crush;
 pub mod droid;
 pub mod dsh;
@@ -49,6 +50,7 @@ pub mod qwen;
 pub mod roo;
 pub mod tencent_buddy_wire;
 pub mod usage_map;
+pub mod vs_copilot;
 pub mod workbuddy;
 pub mod xum;
 pub mod zcode;
@@ -102,6 +104,10 @@ pub fn built_in_adapters() -> Vec<Box<dyn framework::SourceAdapter>> {
         Box::new(qoder::QoderAdapter::new()),
         // M5：Copilot CLI（本机真实数据核对 2026-09-29）。
         Box::new(copilot::CopilotAdapter::new()),
+        // M9：VS Code 内置 Copilot Chat 会话日志（本机真实数据核对 2026-10-01）。
+        Box::new(copilot_chat::CopilotChatAdapter::new()),
+        // M9：Visual Studio 内置 Copilot 遥测（本机真实数据核对 2026-10-01）。
+        Box::new(vs_copilot::VsCopilotAdapter::new()),
         // M5：OTel spans 载体（需启用 exporter/接收器；默认发现仅接收器输出目录）。
         Box::new(otel::OtelAdapter::new()),
     ]

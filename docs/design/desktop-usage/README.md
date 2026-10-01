@@ -7,6 +7,9 @@ M3/M4 适配器与 M6 桌面主体已实施（验收缺口见各记录）。
 2026-09-29 完成第二批 Agent 覆盖扩展调研与 M8 文档级实施（证据 A25–A48、
 [扩展矩阵](adapters.md#扩展覆盖)、[M8 验证记录](../../validation/desktop-usage/m8-second-batch.md)；
 真实验收后置）。实施前决策见 [开工准备](implementation-readiness.md)。
+Copilot 补充采集与 OTel 配置见 [配置合同](copilot-otel.md)；
+全年热力图、部分用量图表及异步合并配置入口已实施，见
+[验收记录](../../validation/desktop-usage/telemetry-setup-ui.md)。
 
 ## 产品目标与边界
 

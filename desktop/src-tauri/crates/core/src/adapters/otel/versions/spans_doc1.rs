@@ -164,10 +164,12 @@ fn attr_f64(record: &serde_json::Value, keys: &[&str]) -> Option<f64> {
 }
 
 /// service.name → 统计 agent 名（无则按 OTel 来源未知处理）。
+/// vs-copilot 与 vs_copilot 适配器（VS 自动遥测）同维度：两载体取其一防双计。
 fn agent_of(record: &serde_json::Value) -> &'static str {
     match attr_str(record, &["service.name", "service_name"]).unwrap_or("") {
         "github-copilot" | "copilot-cli" => "copilot-cli",
         "copilot-chat" | "vscode-copilot-chat" => "vscode-copilot-chat",
+        "vs-copilot" | "visualstudio-copilot" => "vs-copilot",
         "codebuddy" | "codebuddy-code" | "codebuddy_code" => "codebuddy",
         _ => "otel-unknown",
     }

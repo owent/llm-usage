@@ -177,6 +177,10 @@ pub fn enforce_retention(
             "DELETE FROM quota_snapshots WHERE observed_at_ms < ?1",
             params![hard_cutoff_ms],
         )? as i64;
+        deleted_quota_rows += tx.execute(
+            "DELETE FROM quota_history WHERE observed_at_ms < ?1",
+            params![hard_cutoff_ms],
+        )? as i64;
         // 原生区间不能按比例拆分；跨越截止或起点未知的汇总无法证明满足硬期限。
         tx.execute(
             "DELETE FROM source_aggregates WHERE interval_start_ms IS NULL OR interval_start_ms < ?1 OR interval_end_ms < ?1",

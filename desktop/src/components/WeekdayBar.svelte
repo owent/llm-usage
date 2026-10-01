@@ -6,20 +6,36 @@
   import { GridComponent, TooltipComponent } from 'echarts/components';
   import { CanvasRenderer } from 'echarts/renderers';
   import { t, i18n, fmtSmart, fmtPrecise } from '../lib/i18n.svelte';
+  import { api, type HeatmapDto, type SummaryQuery } from '../lib/api';
 
   echarts.use([BarChart, GridComponent, TooltipComponent, CanvasRenderer]);
 
   let {
-    cells,
+    cells = [], query, reloadKey = 0,
     isDark = false,
   }: {
-    cells: { weekday: number; calls: number; available?: boolean; partial?: boolean }[];
+    cells?: { weekday: number; calls: number; available?: boolean; partial?: boolean }[];
+    query?: SummaryQuery;
+    reloadKey?: number;
     /** 深色主题（父级传入；变化时重绘轴文字与分隔线）。 */
     isDark?: boolean;
   } = $props();
 
   let el: HTMLDivElement;
   let chart: echarts.ECharts | null = null;
+  let queriedCells = $state<HeatmapDto['cells']>([]);
+  const activeCells = $derived(query ? queriedCells : cells);
+  $effect(() => {
+    const q = query;
+    void reloadKey;
+    if (!q) return;
+    let cancelled = false;
+    queriedCells = [];
+    api.heatmap({ ...q, granularity: 'day' }).then((result) => {
+      if (!cancelled) queriedCells = result.cells;
+    }).catch(() => { if (!cancelled) queriedCells = []; });
+    return () => { cancelled = true; };
+  });
 
   /** 主题感知色：全局文字（axis 继承）与 y 轴分隔线。 */
   const chartText = $derived(isDark ? '#b0bfd4' : '#5b6a82');
@@ -29,17 +45,17 @@
   // 2024-01-01 是周一，作为周名基准日。
   const weekdayLabels = $derived(
     Array.from({ length: 7 }, (_, i) =>
-      new Intl.DateTimeFormat(i18n.locale, { weekday: 'short' }).format(
+      new Intl.DateTimeFormat(i18n.locale, { weekday: 'short', timeZone: 'UTC' }).format(
         new Date(Date.UTC(2024, 0, 1 + i))
       )
     )
   );
 
   const totals = $derived.by(() => {
-    const sums = Array.from({ length: 7 }, () => 0);
-    for (const c of cells) {
+    const sums: (number | null)[] = Array.from({ length: 7 }, () => null);
+    for (const c of activeCells) {
       const idx = c.weekday - 1;
-      if (idx >= 0 && idx < 7) sums[idx] += c.calls;
+      if (idx >= 0 && idx < 7 && c.available !== false) sums[idx] = (sums[idx] ?? 0) + c.calls;
     }
     return sums;
   });
@@ -107,7 +123,7 @@
 </script>
 
 <div bind:this={el} class="weekday"></div>
-{#if cells.some((cell) => cell.available === false || cell.partial)}
+{#if activeCells.some((cell) => cell.available === false || cell.partial)}
   <p class="coverage">{t('trend.weekdayCoverage')}</p>
 {/if}
 

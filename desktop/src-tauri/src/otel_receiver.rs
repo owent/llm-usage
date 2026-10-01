@@ -16,6 +16,49 @@ use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::path::PathBuf;
 
+/// Keep one app-owned listener; a port already used by another process is an error.
+pub fn ensure_started(port: u16, out_dir: PathBuf) -> Result<(), String> {
+    ensure_started_owned(port, out_dir).map(|_| ())
+}
+
+struct Running {
+    port: u16,
+    out_dir: PathBuf,
+    stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    thread: std::thread::JoinHandle<()>,
+}
+static LISTENER: std::sync::Mutex<Option<Running>> = std::sync::Mutex::new(None);
+
+/// Returns true only when this call starts a listener (for configuration failure rollback).
+pub fn ensure_started_owned(port: u16, out_dir: PathBuf) -> Result<bool, String> {
+    let mut current = LISTENER.lock().map_err(|_| "receiver_busy")?;
+    if let Some(active) = current.as_ref() {
+        return if active.port == port && active.out_dir == out_dir {
+            Ok(false)
+        } else {
+            Err("receiver_restart_required".into())
+        };
+    }
+    *current = Some(start_owned(port, out_dir).map_err(|_| "receiver_bind_failed")?);
+    Ok(true)
+}
+
+pub fn stop_owned(port: u16, out_dir: &std::path::Path) {
+    if let Ok(mut current) = LISTENER.lock() {
+        if current
+            .as_ref()
+            .is_some_and(|r| r.port == port && r.out_dir == out_dir)
+        {
+            if let Some(running) = current.take() {
+                running
+                    .stop
+                    .store(true, std::sync::atomic::Ordering::Relaxed);
+                let _ = running.thread.join();
+            }
+        }
+    }
+}
+
 /// body 上限。
 const MAX_BODY_BYTES: usize = 64 * 1024 * 1024;
 /// 头区上限。
@@ -46,33 +89,44 @@ const DENIED_ATTR_KEYS: &[&str] = &[
 const MAX_ATTR_STRING_BYTES: usize = 256;
 
 /// 启动接收器线程；绑定失败返回 Err（调用方展示）。线程随进程退出结束。
+#[cfg(test)]
 pub fn start(port: u16, out_dir: PathBuf) -> Result<(), String> {
+    start_owned(port, out_dir).map(|_| ())
+}
+
+fn start_owned(port: u16, out_dir: PathBuf) -> Result<Running, String> {
     let listener = TcpListener::bind(("127.0.0.1", port))
         .map_err(|e| format!("bind 127.0.0.1:{port}: {e}"))?;
-    {
-        std::thread::Builder::new()
-            .name("otel-receiver".to_string())
-            .spawn(move || {
-                let listener = listener;
-                listener.set_nonblocking(true).ok();
-                loop {
-                    match listener.accept() {
-                        Ok((stream, _)) => {
-                            let out = out_dir.clone();
-                            std::thread::spawn(move || {
-                                let _ = handle(stream, &out);
-                            });
-                        }
-                        Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                            std::thread::sleep(std::time::Duration::from_millis(200));
-                        }
-                        Err(_) => return,
+    let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let thread_stop = std::sync::Arc::clone(&stop);
+    let target = out_dir.clone();
+    let thread = std::thread::Builder::new()
+        .name("otel-receiver".to_string())
+        .spawn(move || {
+            let listener = listener;
+            listener.set_nonblocking(true).ok();
+            while !thread_stop.load(std::sync::atomic::Ordering::Relaxed) {
+                match listener.accept() {
+                    Ok((stream, _)) => {
+                        let out = target.clone();
+                        std::thread::spawn(move || {
+                            let _ = handle(stream, &out);
+                        });
                     }
+                    Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                        std::thread::sleep(std::time::Duration::from_millis(200));
+                    }
+                    Err(_) => return,
                 }
-            })
-            .map_err(|e| format!("spawn receiver: {e}"))?;
-    }
-    Ok(())
+            }
+        })
+        .map_err(|e| format!("spawn receiver: {e}"))?;
+    Ok(Running {
+        port,
+        out_dir,
+        stop,
+        thread,
+    })
 }
 
 const CRLF: &str = "\u{0d}\u{0a}";
@@ -106,6 +160,10 @@ fn handle(mut stream: std::net::TcpStream, out_dir: &std::path::Path) -> std::io
         buf.extend_from_slice(&chunk[..n]);
     };
     let head = String::from_utf8_lossy(&buf[..head_end]).to_string();
+    if head_end > MAX_HEAD_BYTES {
+        respond(&mut stream, 431, "headers too large")?;
+        return Ok(());
+    }
     let mut lines = head.split(CRLF);
     let request_line = lines.next().unwrap_or("");
     let mut parts = request_line.split_whitespace();
@@ -128,8 +186,8 @@ fn handle(mut stream: std::net::TcpStream, out_dir: &std::path::Path) -> std::io
             gzip = true;
         }
     }
-    if method != "POST" || path != "/v1/traces" {
-        respond(&mut stream, 404, "only POST /v1/traces")?;
+    if method != "POST" || !matches!(path, "/v1/traces" | "/v1/logs" | "/v1/traces/supplemental") {
+        respond(&mut stream, 404, "only POST /v1/traces or /v1/logs")?;
         return Ok(());
     }
     if content_length > MAX_BODY_BYTES {
@@ -148,6 +206,11 @@ fn handle(mut stream: std::net::TcpStream, out_dir: &std::path::Path) -> std::io
             return Ok(());
         }
     }
+    if body.len() < content_length {
+        respond(&mut stream, 400, "truncated body")?;
+        return Ok(());
+    }
+    body.truncate(content_length);
     if gzip {
         let decoder = flate2::read::GzDecoder::new(&body[..]);
         let mut out = Vec::new();
@@ -160,7 +223,19 @@ fn handle(mut stream: std::net::TcpStream, out_dir: &std::path::Path) -> std::io
         }
         body = out;
     }
-    let records = if content_type.contains("json") {
+    if content_type.contains("json") && serde_json::from_slice::<serde_json::Value>(&body).is_err()
+    {
+        respond(&mut stream, 400, "invalid JSON")?;
+        return Ok(());
+    }
+    let logs = path == "/v1/logs";
+    let records = if logs {
+        if content_type.contains("json") {
+            parse_logs_json(&body)
+        } else {
+            parse_logs_protobuf(&body)
+        }
+    } else if content_type.contains("json") {
         parse_otlp_json(&body)
     } else {
         // 默认按 protobuf（CodeBuddy 唯一形态）。
@@ -168,17 +243,39 @@ fn handle(mut stream: std::net::TcpStream, out_dir: &std::path::Path) -> std::io
     };
     let count = records.len();
     if count > 0 {
-        std::fs::create_dir_all(out_dir)?;
+        // Supplemental logs are not auto-scanned as spans or summed with native sessions.
+        let output = if logs {
+            out_dir
+                .parent()
+                .unwrap_or(out_dir)
+                .join("telemetry/otlp-logs.jsonl")
+        } else if path == "/v1/traces/supplemental" {
+            out_dir
+                .parent()
+                .unwrap_or(out_dir)
+                .join("telemetry/otlp-traces.jsonl")
+        } else {
+            out_dir.join("spans.jsonl")
+        };
+        std::fs::create_dir_all(output.parent().unwrap_or(out_dir))?;
+        static WRITE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+        let _lock = WRITE_LOCK
+            .lock()
+            .map_err(|_| std::io::Error::other("receiver busy"))?;
         let mut file = std::fs::OpenOptions::new()
             .create(true)
             .append(true)
-            .open(out_dir.join("spans.jsonl"))?;
+            .open(output)?;
         for record in records {
             file.write_all(record.to_string().as_bytes())?;
             file.write_all(b"\n")?;
         }
     }
-    let r = respond(&mut stream, 200, "");
+    let r = if content_type.contains("json") {
+        respond(&mut stream, 200, "")
+    } else {
+        write!(stream,"HTTP/1.1 200 OK{CRLF}Content-Type: application/x-protobuf{CRLF}Content-Length: 0{CRLF}Connection: close{CRLF}{CRLF}")
+    };
     r?;
     let _ = count;
     Ok(())
@@ -186,6 +283,183 @@ fn handle(mut stream: std::net::TcpStream, out_dir: &std::path::Path) -> std::io
 
 fn find_head_end(buf: &[u8]) -> Option<usize> {
     buf.windows(4).position(|w| w == [0x0d, 0x0a, 0x0d, 0x0a])
+}
+
+const LOG_KEYS: &[&str] = &[
+    "event.name",
+    "event_name",
+    "model",
+    "model_name",
+    "input_tokens",
+    "output_tokens",
+    "cache_read_tokens",
+    "cache_creation_tokens",
+    "cached_input_tokens",
+    "total_tokens",
+    "reasoning_output_tokens",
+    "duration_ms",
+    "success",
+    "status_code",
+    "gen_ai.usage.input_tokens",
+    "gen_ai.usage.output_tokens",
+    "gen_ai.request.model",
+];
+const LOG_EVENTS: &[&str] = &[
+    "claude_code.api_request",
+    "claude_code.api_error",
+    "api_request",
+    "api_error",
+    "codex.api_request",
+    "codex.sse_event",
+    "codex.websocket_event",
+    "codex.conversation_starts",
+];
+
+fn log_attributes(
+    list: Option<&Vec<serde_json::Value>>,
+) -> serde_json::Map<String, serde_json::Value> {
+    let mut out = serde_json::Map::new();
+    for attr in list.into_iter().flatten() {
+        let key = attr["key"].as_str().unwrap_or_default();
+        if LOG_KEYS.contains(&key) {
+            if let Some(value) = filtered_scalar(&attr["value"]) {
+                if !value.is_object() && !value.is_array() {
+                    out.insert(key.into(), value);
+                }
+            }
+        }
+    }
+    out
+}
+
+fn normalize_log(log: &serde_json::Value, service: Option<serde_json::Value>) -> serde_json::Value {
+    let attrs = log_attributes(log["attributes"].as_array());
+    let name = log["eventName"]
+        .as_str()
+        .or_else(|| attrs.get("event.name").and_then(|v| v.as_str()))
+        .or_else(|| attrs.get("event_name").and_then(|v| v.as_str()))
+        .or_else(|| log.pointer("/body/stringValue").and_then(|v| v.as_str()))
+        .filter(|name| LOG_EVENTS.contains(name))
+        .unwrap_or("unknown");
+    let time = log["timeUnixNano"]
+        .as_str()
+        .and_then(|s| s.parse::<u64>().ok())
+        .or_else(|| log["timeUnixNano"].as_u64());
+    serde_json::json!({"name":name,"time_unix_nano":time.map(|v|v.to_string()),"service":service,"attributes":attrs})
+}
+
+fn parse_logs_json(body: &[u8]) -> Vec<serde_json::Value> {
+    let Ok(doc) = serde_json::from_slice::<serde_json::Value>(body) else {
+        return vec![];
+    };
+    let mut out = Vec::new();
+    for resource in doc["resourceLogs"].as_array().into_iter().flatten() {
+        let service = resource
+            .pointer("/resource/attributes")
+            .and_then(|v| v.as_array())
+            .into_iter()
+            .flatten()
+            .find(|a| a["key"] == "service.name")
+            .and_then(|a| filtered_scalar(&a["value"]));
+        for scope in resource["scopeLogs"].as_array().into_iter().flatten() {
+            for log in scope["logRecords"].as_array().into_iter().flatten() {
+                out.push(normalize_log(log, service.clone()));
+            }
+        }
+    }
+    out
+}
+
+fn parse_logs_protobuf(body: &[u8]) -> Vec<serde_json::Value> {
+    let mut resources = Vec::new();
+    if iter_fields(body, |field, wire| {
+        if let (1, Wire::Bytes(bytes)) = (field, wire) {
+            resources.push(bytes);
+        }
+        Some(())
+    })
+    .is_none()
+    {
+        return vec![];
+    }
+    let mut out = Vec::new();
+    for resource in resources {
+        let mut service = None;
+        let mut scopes = Vec::new();
+        if iter_fields(resource, |field, wire| {
+            match (field, wire) {
+                (1, Wire::Bytes(bytes)) => {
+                    iter_fields(bytes, |f, w| {
+                        if let (1, Wire::Bytes(kv)) = (f, w) {
+                            if let Some((k, v)) = protobuf_keyvalue(kv) {
+                                if k == "service.name" {
+                                    service = filtered_scalar(&v);
+                                }
+                            }
+                        }
+                        Some(())
+                    })?;
+                }
+                (2, Wire::Bytes(bytes)) => scopes.push(bytes),
+                _ => {}
+            }
+            Some(())
+        })
+        .is_none()
+        {
+            continue;
+        }
+        for scope in scopes {
+            let mut records = Vec::new();
+            if iter_fields(scope, |f, w| {
+                if let (2, Wire::Bytes(b)) = (f, w) {
+                    records.push(b);
+                }
+                Some(())
+            })
+            .is_none()
+            {
+                continue;
+            }
+            for record in records {
+                let mut log = serde_json::json!({"attributes":[]});
+                let mut attrs = Vec::new();
+                let parsed = iter_fields(record, |f, w| {
+                    match (f, w) {
+                        (1, Wire::Fixed64(v)) => {
+                            log["timeUnixNano"] = serde_json::json!(v.to_string())
+                        }
+                        (12, Wire::Bytes(v)) => {
+                            log["eventName"] = serde_json::json!(String::from_utf8_lossy(v))
+                        }
+                        (6, Wire::Bytes(kv)) => {
+                            if let Some((k, v)) = protobuf_keyvalue(kv) {
+                                attrs.push(serde_json::json!({"key":k,"value":v}));
+                            }
+                        }
+                        (5, Wire::Bytes(any)) => {
+                            iter_fields(any, |af, aw| {
+                                if let (1, Wire::Bytes(v)) = (af, aw) {
+                                    let name = String::from_utf8_lossy(v);
+                                    if LOG_EVENTS.contains(&name.as_ref()) {
+                                        log["eventName"] = serde_json::json!(name);
+                                    }
+                                }
+                                Some(())
+                            })?;
+                        }
+                        _ => {}
+                    }
+                    Some(())
+                });
+                if parsed.is_some() {
+                    log["attributes"] = serde_json::json!(attrs);
+                    out.push(normalize_log(&log, service.clone()));
+                }
+            }
+        }
+    }
+    out
 }
 
 fn respond(stream: &mut std::net::TcpStream, status: u16, msg: &str) -> std::io::Result<()> {
@@ -219,6 +493,10 @@ fn allowed_attr(key: &str, value: &serde_json::Value) -> Option<serde_json::Valu
     if !keep {
         return None;
     }
+    filtered_scalar(value)
+}
+
+fn filtered_scalar(value: &serde_json::Value) -> Option<serde_json::Value> {
     // OTLP AnyValue 形 {stringValue/intValue/doubleValue/boolValue} → 标量。
     if let Some(obj) = value.as_object() {
         if let Some(v) = obj.get("stringValue").and_then(|v| v.as_str()) {
@@ -249,6 +527,9 @@ fn allowed_attr(key: &str, value: &serde_json::Value) -> Option<serde_json::Valu
         if v.len() > MAX_ATTR_STRING_BYTES {
             return None;
         }
+    }
+    if value.is_object() || value.is_array() {
+        return None;
     }
     Some(value.clone())
 }
@@ -430,13 +711,13 @@ fn protobuf_keyvalue(data: &[u8]) -> Option<(String, serde_json::Value)> {
                                 String::from_utf8_lossy(s).to_string(),
                             ));
                         }
-                        (2, Wire::Varint(v)) => {
-                            value = Some(serde_json::Value::from(v));
+                        (3, Wire::Varint(v)) => {
+                            value = Some(serde_json::Value::from(v as i64));
                         }
-                        (3, Wire::Fixed64(bits)) => {
+                        (4, Wire::Fixed64(bits)) => {
                             value = Some(serde_json::Value::from(f64::from_bits(bits)));
                         }
-                        (4, Wire::Varint(v)) => {
+                        (2, Wire::Varint(v)) => {
                             value = Some(serde_json::Value::from(v != 0));
                         }
                         _ => {}
@@ -552,6 +833,142 @@ fn protobuf_span(
 mod tests {
     use super::*;
 
+    fn bytes_field(field: u64, payload: &[u8]) -> Vec<u8> {
+        fn varint(mut n: u64) -> Vec<u8> {
+            let mut out = vec![];
+            loop {
+                let b = (n & 127) as u8;
+                n >>= 7;
+                out.push(b | if n > 0 { 128 } else { 0 });
+                if n == 0 {
+                    return out;
+                }
+            }
+        }
+        [
+            varint(field << 3 | 2),
+            varint(payload.len() as u64),
+            payload.to_vec(),
+        ]
+        .concat()
+    }
+
+    #[test]
+    fn protobuf_any_value_uses_standard_field_numbers() {
+        let kv = |any: &[u8]| [bytes_field(1, b"key"), bytes_field(2, any)].concat();
+        assert_eq!(
+            protobuf_keyvalue(&kv(&[3 << 3, 100])).unwrap().1,
+            serde_json::json!(100)
+        );
+        assert_eq!(
+            protobuf_keyvalue(&kv(&[2 << 3, 1])).unwrap().1,
+            serde_json::json!(true)
+        );
+        let double = [vec![4 << 3 | 1], 1.5f64.to_le_bytes().to_vec()].concat();
+        assert_eq!(
+            protobuf_keyvalue(&kv(&double)).unwrap().1,
+            serde_json::json!(1.5)
+        );
+    }
+
+    #[test]
+    fn owned_receiver_reuses_its_listener_but_never_claims_an_external_port() {
+        let external = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let port = external.local_addr().unwrap().port();
+        let out = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../build/telemetry-receiver-tests/lifecycle/otel");
+        assert_eq!(
+            ensure_started_owned(port, out.clone()).unwrap_err(),
+            "receiver_bind_failed"
+        );
+        drop(external);
+        assert!(ensure_started_owned(port, out.clone()).unwrap());
+        assert!(!ensure_started_owned(port, out.clone()).unwrap());
+        stop_owned(port, &out);
+        let _released = TcpListener::bind(("127.0.0.1", port)).unwrap();
+        assert!(!out.exists());
+    }
+
+    #[test]
+    fn supplemental_logs_keep_only_usage_fields_and_never_prompts_or_credentials() {
+        let body=br#"{"resourceLogs":[{"resource":{"attributes":[{"key":"service.name","value":{"stringValue":"claude-code"}},{"key":"api_key","value":{"stringValue":"SECRET"}}]},"scopeLogs":[{"logRecords":[{"timeUnixNano":"1790000000000000000","body":{"stringValue":"SECRET prompt"},"attributes":[{"key":"event.name","value":{"stringValue":"claude_code.api_request"}},{"key":"input_tokens","value":{"intValue":"123"}},{"key":"output_tokens","value":{"intValue":"0"}},{"key":"prompt","value":{"stringValue":"SECRET"}},{"key":"gen_ai.system_instructions","value":{"stringValue":"SECRET"}}]}]}]}]}"#;
+        let records = parse_logs_json(body);
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0]["name"], "claude_code.api_request");
+        assert_eq!(records[0]["attributes"]["input_tokens"], 123);
+        assert_eq!(records[0]["attributes"]["output_tokens"], 0);
+        assert!(!records[0].to_string().contains("SECRET"));
+        let arbitrary=br#"{"resourceLogs":[{"scopeLogs":[{"logRecords":[{"body":{"stringValue":"private content"}}]}]}]}"#;
+        assert_eq!(parse_logs_json(arbitrary)[0]["name"], "unknown");
+        assert!(!parse_logs_json(arbitrary)[0]
+            .to_string()
+            .contains("private content"));
+    }
+
+    fn logs_payload() -> Vec<u8> {
+        let attr = [
+            bytes_field(1, b"input_tokens"),
+            bytes_field(2, &[3 << 3, 100]),
+        ]
+        .concat();
+        let record = [
+            bytes_field(12, b"codex.sse_event"),
+            bytes_field(6, &attr),
+            bytes_field(5, &bytes_field(1, b"SECRET body")),
+        ]
+        .concat();
+        bytes_field(1, &bytes_field(2, &bytes_field(2, &record)))
+    }
+
+    #[test]
+    fn standard_protobuf_logs_are_normalized_without_body() {
+        let records = parse_logs_protobuf(&logs_payload());
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0]["name"], "codex.sse_event");
+        assert_eq!(records[0]["attributes"]["input_tokens"], 100);
+        assert!(!records[0].to_string().contains("SECRET"));
+    }
+
+    #[test]
+    fn http_logs_return_empty_protobuf_response_and_do_not_enter_span_statistics() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../build/telemetry-receiver-tests")
+            .join(format!(
+                "{}-{}",
+                std::process::id(),
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+            ));
+        let out_dir = root.join("otel");
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let address = listener.local_addr().unwrap();
+        let target = out_dir.clone();
+        let worker =
+            std::thread::spawn(move || handle(listener.accept().unwrap().0, &target).unwrap());
+        let payload = logs_payload();
+        let mut client = std::net::TcpStream::connect(address).unwrap();
+        client
+            .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+            .unwrap();
+        write!(client,"POST /v1/logs HTTP/1.1{CRLF}Content-Type: application/x-protobuf{CRLF}Content-Length: {}{CRLF}{CRLF}",payload.len()).unwrap();
+        client.write_all(&payload).unwrap();
+        let mut response = String::new();
+        client.read_to_string(&mut response).unwrap();
+        worker.join().unwrap();
+        assert!(response.contains("Content-Type: application/x-protobuf"));
+        assert!(response.contains("Content-Length: 0"));
+        assert!(response.ends_with(&format!("{CRLF}{CRLF}")));
+        assert!(!out_dir.join("spans.jsonl").exists());
+        assert!(
+            !std::fs::read_to_string(root.join("telemetry/otlp-logs.jsonl"))
+                .unwrap()
+                .contains("SECRET")
+        );
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
     #[test]
     fn json_end_to_end() {
         let body = br#"{"resourceSpans":[{"resource":{"attributes":[{"key":"service.name","value":{"stringValue":"codebuddy"}}]},"scopeSpans":[{"spans":[{"traceId":"aa","spanId":"bb","name":"model_stream","kind":1,"startTimeUnixNano":"1780000000500000000","attributes":[{"key":"usage.input_tokens","value":{"intValue":"100"}},{"key":"gen_ai.input.messages","value":{"stringValue":"SECRET"}}]}]}]}]}"#;
@@ -595,7 +1012,7 @@ mod tests {
         }
         // span{spanId=0xab, name="model_stream", start=fixed64, attrs=[usage.input_tokens=100]}
         let kv = [field_bytes(1, b"usage.input_tokens"), {
-            let mut any = read_varint_test(2 << 3); // field2 varint
+            let mut any = read_varint_test(3 << 3); // AnyValue.int_value = field 3
             any.extend(read_varint_test(100));
             field_bytes(2, &any)
         }]
@@ -615,13 +1032,17 @@ mod tests {
         ]
         .concat();
         let resource = field_bytes(1, &name_kv);
-        let rs = [resource, field_bytes(2, &scope_spans)].concat();
+        let rs = [field_bytes(1, &resource), field_bytes(2, &scope_spans)].concat();
         let body = field_bytes(1, &rs);
         let records = parse_otlp_protobuf(&body);
         assert_eq!(records.len(), 1);
         assert_eq!(records[0]["name"], "model_stream");
         assert_eq!(records[0]["spanId"], "ab");
         assert_eq!(records[0]["attributes"]["usage.input_tokens"], 100);
+        assert_eq!(
+            records[0]["resource"]["attributes"]["service.name"],
+            "codebuddy"
+        );
         assert_eq!(
             records[0]["startTime"],
             serde_json::json!(1_780_000_000_500i64)

@@ -182,7 +182,7 @@
             const label = g.labels[params[0]?.dataIndex ?? 0] ?? '';
             const lines = [`<b>${escapeHtml(label)}</b>`];
             for (const p of params) {
-              if (p.value) lines.push(`${p.marker}${escapeHtml(p.seriesName)}: ${fmtPrecise(p.value)}`);
+              if (p.value != null) lines.push(`${p.marker}${escapeHtml(p.seriesName)}: ${fmtPrecise(p.value)}`);
             }
             return lines.join('<br/>');
           },

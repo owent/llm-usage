@@ -194,12 +194,17 @@
             ['cache_read_known', 'cards.cacheRead', '#21a590'],
             ['cache_write_known', 'cards.cacheWrite', '#eda853'],
             ['uncached_known', 'cards.cacheMiss', '#5470e8'],
-          ] as const).map(([field, label, color]) => ({
+          ] as const).map(([field, label, color]): LineSeriesOption => ({
             type: 'line', name: t(label), stack: 'input', smooth: true,
             symbol: 'none', lineStyle: { width: 1.5 }, itemStyle: { color },
             areaStyle: { opacity: 0.25 },
             data: periods.map((p) => p.sums[field] === null ? null : Number(p.sums[field])),
-          })),
+          })).concat([{
+            type: 'line', name: t('cards.input'), smooth: true,
+            symbol: 'circle', symbolSize: 4, lineStyle: { width: 2, type: 'dashed' },
+            itemStyle: { color: '#5470e8' },
+            data: periods.map((p) => p.sums.input_total_known === null ? null : Number(p.sums.input_total_known)),
+          }]),
         },
         `total-${sub}|${i18n.locale}|${chartText}|${granularity}|${labels.join('\u0001')}`
       );
@@ -238,14 +243,22 @@
     );
   }
 
-  /** 分组模式通用 tooltip：按系列显示精确值（null 点不参与）。 */
+  /** Unknown totals remain visible alongside reported input/output; zero is a value. */
   function groupedTooltip(g: ChartGroupData) {
     return (params: { dataIndex: number; marker: string; seriesName?: string; value: number | null }[]) => {
       const label = g.labels[params[0]?.dataIndex ?? 0] ?? '';
       const lines = [`<b>${escapeHtml(label)}</b>`];
       for (const p of params) {
-        if (p.value !== null && p.value !== undefined && p.value !== 0) {
+        if (p.value !== null && p.value !== undefined) {
           lines.push(`${p.marker}${escapeHtml(p.seriesName)}: ${fmtPrecise(p.value)}`);
+        }
+      }
+      if (sub === 'total' || sub === 'output') {
+        const selected = (chart?.getOption().legend as { selected?: Record<string, boolean> }[] | undefined)?.[0]?.selected ?? {};
+        for (const name of g.names) {
+          const cell = g.cell(name, label);
+          if (!cell || selected[name] === false || cell[sub === 'total' ? 'total' : 'output'] !== null) continue;
+          lines.push(`${escapeHtml(name)}: ${t('common.unknown')} · ${t('cards.input')}: ${fmtPrecise(cell.input)} · ${t('cards.output')}: ${fmtPrecise(cell.output)}`);
         }
       }
       return lines.join('<br/>');
@@ -307,13 +320,18 @@
           ['cacheRead', 'cards.cacheRead', 0.45],
           ['cacheWrite', 'cards.cacheWrite', 0.7],
           ['uncached', 'cards.cacheMiss', 1],
-        ] as const).map(([field, label, opacity]) => ({
+        ] as const).map(([field, label, opacity]): LineSeriesOption => ({
           type: 'line', name: `${name} · ${t(label)}`, stack: `input-${name}`,
           smooth: true, symbol: 'none', lineStyle: { width: 1.5 },
           itemStyle: { color: PALETTE[i % PALETTE.length], opacity },
           areaStyle: { opacity: 0.25 },
           data: g.labels.map((label) => g.cell(name, label)?.[field] ?? null),
-        }))
+        })).concat([{
+          type: 'line', name: `${name} · ${t('cards.input')}`, smooth: true,
+          symbol: 'circle', symbolSize: 4, lineStyle: { width: 2, type: 'dashed' },
+          itemStyle: { color: PALETTE[i % PALETTE.length] },
+          data: g.labels.map((label) => g.cell(name, label)?.input ?? null),
+        }])
       );
       applyOption(
         {
@@ -345,15 +363,26 @@
           axisLabel: { formatter: (v: number) => fmtSmart(v) },
           splitLine: { lineStyle: { color: splitColor } },
         },
-        series: g.names.map(
-          (name): LineSeriesOption => ({
+        series: g.names.flatMap(
+          (name, i): LineSeriesOption[] => [{
             type: 'line',
             name,
             smooth: true,
             symbolSize: 3,
             lineStyle: { width: 1.5 },
+            itemStyle: { color: PALETTE[i % PALETTE.length] },
             data: g.labels.map((label) => (g.cell(name, label)?.[metric] as number | null) ?? null),
-          })
+          }, ...(metric === 'total' ? (['input', 'output'] as const).flatMap((field): LineSeriesOption[] => {
+            const data = g.labels.map((label) => {
+              const cell = g.cell(name, label);
+              return cell?.total === null ? cell[field] : null;
+            });
+            if (data.every((v) => v == null)) return [];
+            return [{ type: 'line', name: `${name} · ${t('cards.' + field)}`, data,
+              symbolSize: 4, connectNulls: false,
+              lineStyle: { width: 1.5, type: field === 'input' ? 'dashed' : 'dotted' },
+              itemStyle: { color: PALETTE[i % PALETTE.length] } }];
+          }) : [])]
         ),
       },
       `grp-${sub}|${dimension}|${i18n.locale}|${chartText}|${g.labels.join('\u0001')}|${g.names.join('\u0001')}`
@@ -440,6 +469,10 @@
   {/each}
 </div>
 <div bind:this={el} class="token-chart"></div>
+{#if dimension !== 'total' && grouped && sub === 'total'}
+  {@const missing = grouped.names.filter((name) => grouped?.labels.every((label) => grouped?.cell(name, label)?.total == null))}
+  {#if missing.length}<p class="dur-summary">{t('chart.unknownTotals', { names: missing.join(', ') })}</p>{/if}
+{/if}
 <p class="dur-summary">
   {t('panel.durationSummary', {
     avg: fmtDurationShort(duration.avgMs),

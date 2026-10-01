@@ -7,6 +7,7 @@
  * - 切换即时生效（runes 响应式，无需重启）。
  */
 import { translatedCatalogs } from './locales';
+import { telemetryCatalogs } from './telemetry-locales';
 
 export const LANGUAGE_OPTIONS = [
   ['zh-CN', '简体中文'],
@@ -23,6 +24,14 @@ export const LANGUAGE_OPTIONS = [
 export type Locale = (typeof LANGUAGE_OPTIONS)[number][0];
 
 const zhCN: Record<string, string> = {
+  'quota.sectionTitle': 'Agent 额度',
+  'quota.premiumRequests': 'Premium 请求',
+  'quota.usedLabel': '已用',
+  'quota.remaining': '剩余 {n}',
+  'quota.snapshotAt': '快照 {time}',
+  'quota.trend': '每日额度快照',
+  'quota.note': '账户级请求配额（非 token；所有设备/入口共享）',
+  'quota.empty': '刷新后显示额度（本机缓存）',
   'cards.cacheWrite': '缓存写入',
   'sources.localHint': '管理本机 Agent 的采集状态和用户归属。归档数据随刷新自动检查。',
   'sources.search': '搜索 Agent 或来源路径',
@@ -355,6 +364,14 @@ const zhCN: Record<string, string> = {
 };
 
 const en: Record<string, string> = {
+  'quota.sectionTitle': 'Agent quotas',
+  'quota.premiumRequests': 'Premium requests',
+  'quota.usedLabel': 'used',
+  'quota.remaining': '{n} left',
+  'quota.snapshotAt': 'Snapshot {time}',
+  'quota.trend': 'Daily quota snapshots',
+  'quota.note': 'Account-level request quota (not tokens; shared across devices/surfaces)',
+  'quota.empty': 'Quota appears after a refresh (local cache)',
   'cards.cacheWrite': 'Cache write',
   'sources.localHint': 'Manage local Agent collection and user assignments. Archives are checked during collection.',
   'sources.search': 'Search Agent or source path',
@@ -698,6 +715,10 @@ const catalogs: Record<Locale, Record<string, string>> = {
   'pt-BR': translatedCatalogs['pt-BR'],
   ru: translatedCatalogs.ru,
 };
+
+for (const [locale, catalog] of Object.entries(catalogs)) {
+  Object.assign(catalog, telemetryCatalogs[locale]);
+}
 
 export const DEFAULT_LOCALE: Locale = 'zh-CN';
 

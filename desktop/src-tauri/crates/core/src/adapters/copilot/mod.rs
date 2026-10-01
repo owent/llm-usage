@@ -42,6 +42,18 @@ impl crate::adapters::framework::SourceAdapter for CopilotAdapter {
     ) -> Vec<crate::adapters::framework::DiscoveredRoot> {
         use crate::adapters::framework::{DiscoveredRoot, RootBasis};
         let mut roots: Vec<(std::path::PathBuf, RootBasis)> = Vec::new();
+        // COPILOT_HOME 覆盖整个 ~/.copilot（官方 cli-config-dir-reference）。
+        if let Some(dir) = ctx
+            .env
+            .get("COPILOT_HOME")
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+        {
+            roots.push((
+                std::path::PathBuf::from(dir),
+                RootBasis::EnvOverride("COPILOT_HOME".to_string()),
+            ));
+        }
         if let Some(home) = &ctx.home_dir {
             roots.push((home.join(".copilot"), RootBasis::DefaultHome));
         }
@@ -153,7 +165,7 @@ impl crate::adapters::framework::SourceAdapter for CopilotAdapter {
                 .collect(),
             discovery: serde_json::json!({
                 "default_roots": ["~/.copilot/session-store.db"],
-                "env_override": null,
+                "env_override": "COPILOT_HOME（覆盖整个 ~/.copilot；官方 cli-config-dir-reference）",
                 "manual_roots": ".copilot 目录或 session-store.db 文件",
                 "bounded": true,
                 "pattern": "单库 assistant_usage_events（WAL；只读 + busy 暂存副本）；events.jsonl 无逐次 token 不采集",
@@ -169,7 +181,7 @@ impl crate::adapters::framework::SourceAdapter for CopilotAdapter {
             fields,
             lifecycle: serde_json::json!({
                 "per_turn": "append-only 事件表；premium 倍率与 nano AIU 不入 token 统计",
-                "storage_migration": "2026-09-25 曾全树消失（疑升级迁移）：来源消失时保留旧结果并告警，不回退双计",
+                "storage_migration": "2026-09-25 曾全树消失（疑升级迁移）：来源消失时保留旧结果并告警，不回退双计。2026-09-30 核验：最新 CLI 的 session-store.db 已改为 chronicle/search 索引（sessions/turns/checkpoints/search_index，无 assistant_usage_events）——detect 命中 chronicle 指纹记 UnsupportedVersion，不误报非 Copilot 库",
             }),
             incremental: serde_json::json!({
                 "cursor": "已处理最大 id（append-only）；单轮 50k 行",
@@ -179,7 +191,7 @@ impl crate::adapters::framework::SourceAdapter for CopilotAdapter {
             }),
             integrity: serde_json::json!({
                 "success_only": false,
-                "hidden_calls": "VS Code 侧 copilot-chat 库无 usage 表（本机实测）：VS Code 用量需遥测启用路径",
+                "hidden_calls": "VS Code 侧 copilot-chat 的 chronicle session-store.db 无 usage（turns 纯文本，本机实测）：VS Code 面用量经 copilot_chat 适配器读取 chatSessions/*.jsonl 接入",
             }),
             maintenance: serde_json::json!({
                 "parser_version": versions::usage_events_v8::COPILOT_PARSER_VERSION,
@@ -192,6 +204,7 @@ impl crate::adapters::framework::SourceAdapter for CopilotAdapter {
                 "OTel 路径（events.jsonl/OTLP 导出）为需启用补充载体：未启用前不可见".into(),
                 "reasoning 与 output 包含关系未证：并列报告不并入派生总量".into(),
                 "premium 倍率/nano AIU 是计量单位：不入 token 统计（额度类另行展示）".into(),
+                "最新版本变更（2026-09-30 核验 + 官方 cli-config-dir-reference）：session-store.db 已改为 chronicle/search 索引，assistant_usage_events 载体移除；session-state/<id>/events.jsonl 事件日志经同族 copilot-agent 转录核验无逐次 token 字段；copilot-user-cache.json 仅账户额度（premium_interactions）非逐次。最新版本本地无已验证逐次用量载体——待真实最新 CLI 样本或启用 OTel 后锚定".into(),
             ],
         }
     }

@@ -63,6 +63,45 @@ Hermes 等源可能报告 api_call_count 的区间累计：保留为“来源报
 核验含义后按原生区间显示，不伪造逐次 model_call，不与相同覆盖的逐次计数相加。
 quota_snapshot 仅在本地记录可证明属于本机使用时接入；账号套餐余额/积分总额属于排除范围。
 
+2026-10-01（属主决策，覆盖上一条排除范围）：为在总览/趋势看到 Copilot 用量，接入
+`copilot-user-cache.json` 的 `premium_interactions`（账户级 premium 请求配额），写入
+**通用额度时序 `quota_history`**（agent 无关；kind=rate_limit、unit=milli_requests）独立展示——
+按请求计数、**非 token**、`locality_verified=false`（跨设备/入口共享，不可证明属于本机）、
+不并入 token/request 总计。未来同形态 Agent（请求额度、积分余额等）复用 `quota_history`，
+不新增 agent 专用表。
+额度可含小数，以千分之一请求的整数存储，显示时除以 1000；精度超出该单位时
+保持未知，不取整或截零。使用 timestamp_utc 分日、去重；缺少来源时间不伪造新快照。
+同刻数值或元数据更正可更新，新时刻同值仍保存。额度清空与硬保留适用于此表。
+（同日更正：当时"VS Code Copilot Chat 本地不落盘逐次 token"的依据只覆盖 chronicle
+session-store.db；随后取证发现 VS Code 原生 `chatSessions/*.jsonl` 会话日志携带逐请求
+token 计数，逐次载体合同见下一段，额度记录继续独立保留。）
+
+2026-10-01（VS Code Copilot Chat 逐次载体，M9）：`workspaceStorage/<hash>/chatSessions/
+<sessionId>.jsonl`（chatSessionOperationLog storageSchema v3）按 user turn 落盘
+`promptTokens`/`completionTokens`/`copilotCredits`/`elapsedMs`/`modelTotals`
+（VSCode 源码 chatModel.toJSON 语义）。一个 turn = usage_observation；`promptTokens`
+是**末次模型调用的输入**（turn 输入下界，非逐调用输入和——VSCode 不落盘逐调用输入），
+`completionTokens` 是整 turn 跨调用累计输出；`modelTotals` 存在时为权威整轮逐模型
+input/cached/output 总量并优先采用。缓存细分默认未知不补零；thinking tokens 覆盖不全
+不入 output_reasoning；`copilotCredits` 是 credit 计量（nano AIU 折算）非 token，
+不入 token 统计（与上段额度时序同属独立展示）。流式计数器为周期采样快照：
+采集端每轮全量重放取终值，同键 upsert 幂等，不对更新序列求和。
+`toolCallRounds` 中有稳定 ID 和时间的主循环轮次独立计 model_call，逐轮 token
+保持未知，由 turn/逐模型 observation 贡献用量；没有轮次证据时不以 turn 数补调用。
+默认路径输入下界和整轮输出覆盖不同，不派生完整 total_tokens；modelTotals 出现时
+替换旧用量贡献，模型键不随数组换序变化。仅接入请求归属 github.copilot 命名空间
+的记录；同安装工作区与 globalStorage/emptyWindowChatSessions 共用来源避免迁移副本
+双计。半行/预算不足/损坏快照不覆盖既有用量。详见 [审查记录](../../validation/desktop-usage/m9-copilot-review.md)。
+
+2026-10-01（Visual Studio Copilot 逐次载体，M9）：`%TEMP%\VSGitHubCopilotLogs/
+traces\*.jsonl`（VS 自动写入的 OTLP JSON 遥测，无需配置）。一个 `chat <model>`
+CLIENT span = 一次模型调用（model_call，限已观测遥测范围）；无 usage 的失败调用
+保留 token 未知。每批次核对 service.name 和 trace/span 身份；`gen_ai.usage.input_tokens/output_tokens/cache_read.input_tokens`
+逐请求直报（OTLP intValue 字符串形），`invoke_agent` 整 turn 汇总 span 跳过防双计。
+token 桶并列报告不派生 uncached（input 与 cache_read 包含关系未由 VS 文档声明，
+与 otel 家族口径一致）；提示正文属性（gen_ai.input.messages 等）只读白名单键、
+不入库不输出。载体在 TEMP：清理/实例滚动丢失历史时保留既有结果不虚报覆盖。
+
 ## 标准化记录
 
 以下为逻辑模型，不是已经创建的 SQL schema。

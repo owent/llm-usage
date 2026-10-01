@@ -10,6 +10,7 @@
 pub mod adapters;
 pub mod aggregates;
 pub mod calendar;
+pub mod copilot_quota;
 pub mod domain;
 pub mod error;
 pub mod exchange;
@@ -20,6 +21,7 @@ pub mod jobs;
 pub mod metrics;
 pub mod pricing;
 pub mod query;
+pub mod quota_history;
 pub mod retention;
 pub mod retention_tiered;
 pub mod schedules;

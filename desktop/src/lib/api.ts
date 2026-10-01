@@ -29,6 +29,30 @@ export interface AppSettings {
   hostname_alias: string | null;
   /** F2 费用估算（默认关闭；旧设置 JSON 无此字段时视为关闭）。 */
   pricing?: PricingSettings;
+  otel_receiver_enabled?: boolean;
+  otel_receiver_port?: number;
+}
+
+export interface TelemetryTargetDto {
+  id: string;
+  name: string;
+  config_path: string;
+  output_path: string;
+  status: 'missing' | 'configured' | 'blocked';
+  reason: string;
+  configurable: boolean;
+  kind: 'jsonc' | 'toml' | 'launcher';
+  docs_url: string;
+}
+
+export interface TelemetryPreviewDto {
+  token: string;
+  target: TelemetryTargetDto;
+  keys: string[];
+  changes: [string, unknown][];
+  receiver: boolean;
+  sync_config_path?: string | null;
+  sync_changes?: [string, unknown][];
 }
 
 /** 供应商级估算默认（渠道不明不套价）。 */
@@ -356,7 +380,39 @@ export interface DiagnosticLogsDto {
   rows: DiagnosticLogRowDto[];
 }
 
+/** 通用额度快照（请求/额度计数，非 token）。 */
+export interface QuotaDto {
+  agent: string;
+  quota_id: string;
+  kind: string;
+  unit: string;
+  limit_value: number | null;
+  used: number | null;
+  remaining: number | null;
+  percent_remaining: number | null;
+  locality_verified: boolean;
+  observed_at_ms: number;
+}
+export interface QuotaSummaryDto {
+  quotas: QuotaDto[];
+}
+export interface QuotaPointDto {
+  local_day: string;
+  used: number | null;
+  remaining: number | null;
+  limit_value: number | null;
+}
+export interface QuotaSeriesDto {
+  agent: string;
+  quota_id: string;
+  points: QuotaPointDto[];
+}
+
 export const api = {
+  telemetryCheck: () => invoke<TelemetryTargetDto[]>('telemetry_check'),
+  telemetryPreview: (id: string) => invoke<TelemetryPreviewDto>('telemetry_preview', { id }),
+  telemetryApply: (token: string) => invoke<void>('telemetry_apply', { token }),
+  telemetryUndo: (token: string) => invoke<string[]>('telemetry_undo', { token }),
   summary: (q: SummaryQuery) => invoke<SummaryDto>('summary', { q }),
   heatmap: (q: SummaryQuery) => invoke<HeatmapDto>('heatmap', { q }),
   listSources: () => invoke<{ sources: SourceDto[] }>('list_sources'),
@@ -426,6 +482,12 @@ export const api = {
     listen<ClearAllProgressDto>('clear-all-progress', (e) => handler(e.payload)),
   clearAllPreview: () => invoke<ClearAllPreviewDto>('clear_all_preview'),
   pickOpenPath: (extension: string) => invoke<string | null>('pick_open_path', { extension }),
+  /** 通用额度总览（agent=null 取全部；请求/额度计数，非 token）。 */
+  quotaSummary: (agent: string | null = null) =>
+    invoke<QuotaSummaryDto>('quota_summary', { agent }),
+  /** 某 (agent, quota_id) 的每日额度趋势。 */
+  quotaSeries: (agent: string, quotaId: string) =>
+    invoke<QuotaSeriesDto>('quota_series', { agent, quotaId }),
 };
 
 /** 结构化错误解析（后端返回 JSON 字符串 code+message）。 */

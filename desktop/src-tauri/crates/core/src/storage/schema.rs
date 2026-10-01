@@ -8,7 +8,9 @@
 
 /// 本程序支持的最新 schema 版本（唯一有效值）。
 /// v8（2026-09-30，F2）：价格快照/价格行重定义 + 日成本回填表。
-pub const SCHEMA_VERSION: u32 = 8;
+/// v10（2026-10-01）：额度时序及 Copilot IDE 统计修正；来源命名空间和调用
+/// 单位变化，旧试验库按预发布规则提示重建，避免保留旧 turn 调用贡献。
+pub const SCHEMA_VERSION: u32 = 10;
 
 /// 完整建库 SQL（新库一步到位；不做增量迁移）。
 pub const FULL_SCHEMA: &str = r#"
@@ -242,6 +244,30 @@ CREATE TABLE quota_snapshots (
   detail_json TEXT,
   created_at_ms INTEGER NOT NULL
 );
+
+-- 通用额度时序（agent 无关；任何 Agent 的账户级/速率限额观测都写这里）。
+-- kind: rate_limit / credits / balance / subscription_window（data-contract）。
+-- unit: requests / credits / tokens / usd_minor …。请求/额度计数，非 token；
+-- 独立展示，不折算成 token。去重主键 (agent, quota_id, observed_at_ms)。
+CREATE TABLE quota_history (
+  agent TEXT NOT NULL,
+  quota_id TEXT NOT NULL,
+  observed_at_ms INTEGER NOT NULL,
+  local_day TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  unit TEXT NOT NULL,
+  limit_value INTEGER,
+  used INTEGER,
+  remaining INTEGER,
+  percent_remaining REAL,
+  window_start_ms INTEGER,
+  window_end_ms INTEGER,
+  locality_verified INTEGER NOT NULL DEFAULT 0,
+  detail_json TEXT,
+  created_at_ms INTEGER NOT NULL,
+  PRIMARY KEY (agent, quota_id, observed_at_ms)
+);
+CREATE INDEX idx_quota_history_day ON quota_history(agent, quota_id, local_day);
 
 CREATE TABLE daily_usage (
   tz_version TEXT NOT NULL,

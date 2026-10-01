@@ -1,8 +1,10 @@
 //! OTel spans JSONL 适配器（M5 遥测载体；独立目录合同）。覆盖：
 //! VS Code Copilot Chat file exporter（`github.copilot.chat.otel.*`，文档级）、
 //! Copilot CLI file exporter（`COPILOT_OTEL_FILE_EXPORTER_PATH`，行级 schema
-//! 未文档化——同族容错解析，待本机样本）、本应用 OTLP 接收器的归一化输出
-//! （CodeBuddy agentlens 经接收器落盘）。
+//! 未文档化——同族容错解析，待本机样本）、**JetBrains Copilot 插件 file 导出**
+//! （插件设置 otelExporterType/otelOutfile，同词汇同族；源码级取证见
+//! docs/validation/desktop-usage/m9-jb-copilot-analysis.md，2026-10-01）、
+//! 本应用 OTLP 接收器的归一化输出（CodeBuddy agentlens 经接收器落盘）。
 //! 汇总 span（invoke_agent/codebuddy_code.interaction）与 model_request
 //! 按官方防双计警告跳过。
 
@@ -187,7 +189,7 @@ impl crate::adapters::framework::SourceAdapter for OtelAdapter {
         );
         CapabilityTable {
             adapter_id: "otel".to_string(),
-            product: "OTel 遥测载体（VS Code Copilot Chat file exporter / Copilot CLI file exporter / OTLP 接收器输出）".to_string(),
+            product: "OTel 遥测载体（VS Code Copilot Chat file exporter / Copilot CLI file exporter / JetBrains Copilot file 导出 / OTLP 接收器输出）".to_string(),
             surfaces: vec!["telemetry".into()],
             supported_versions: versions::VERIFIED_VERSION_IMPLS
                 .iter()
@@ -199,7 +201,7 @@ impl crate::adapters::framework::SourceAdapter for OtelAdapter {
                     "$XDG_DATA_HOME|~/.local/share/llm-usage-desktop/otel（Linux/macOS）"
                 ],
                 "env_override": null,
-                "manual_roots": "VS Code outfile / COPILOT_OTEL_FILE_EXPORTER_PATH 的文件或目录（需用户启用 exporter）",
+                "manual_roots": "VS Code outfile / COPILOT_OTEL_FILE_EXPORTER_PATH / JetBrains 插件 otelOutfile（Settings → Tools → Copilot → Chat 启用 file 导出）的文件或目录（需用户启用 exporter）",
                 "bounded": true,
                 "pattern": "spans JSONL（深度 ≤2）；Agent 归属按 resource service.name",
                 "profile": "无",
@@ -229,14 +231,15 @@ impl crate::adapters::framework::SourceAdapter for OtelAdapter {
             }),
             maintenance: serde_json::json!({
                 "parser_version": versions::spans_doc1::OTEL_PARSER_VERSION,
-                "format_evidence": "VS Code agent_monitoring.md bdc5ebe（file exporter 行格式与 chat span 属性）+ Copilot CLI OTel 文档 + CodeBuddy monitoring 文档",
-                "evidence_level": "official-docs（需启用载体；Copilot CLI 行级 schema 待样本）",
+                "format_evidence": "VS Code agent_monitoring.md bdc5ebe（file exporter 行格式与 chat span 属性）+ Copilot CLI OTel 文档 + CodeBuddy monitoring 文档 + JetBrains 插件字节码取证（OTelSpanProvider 解析 gen_ai.usage 五桶，2026-10-01）",
+                "evidence_level": "official-docs + 插件字节码（需启用载体；Copilot CLI/JetBrains 行级 schema 待样本）",
                 "upgrade_policy": "本机启用 exporter 取得真实样本后逐字段核验",
             }),
             scheduling: serde_json::json!({ "entry": "统一 run_adapter_scan" }),
             limitations: vec![
                 "需启用载体：VS Code/Copilot CLI exporter 或本应用 OTLP 接收器（均默认关闭）".into(),
                 "Copilot CLI file exporter 行级 schema 未文档化：同族容错解析，待本机样本核验".into(),
+                "JetBrains 面同族（插件 1.18.0-261 源码级取证 2026-10-01）：默认本地仅 Nitrite 会话库的 turnCredits（credit 非 token）与 idea.log；逐次 token 需在插件设置启用 otelExporterType=file + otelOutfile 后把 outfile 加为手工根，行格式同族容错待真实样本锚定；otelCaptureContent 启用时 outfile 含提示正文，本应用只读白名单键".into(),
                 "trace/span ID 键名双拼写容错（文档未逐字给出）".into(),
                 "agentlens TTFT 单位未标：>1e4 视为毫秒否则按秒折算（容错已注明）".into(),
             ],

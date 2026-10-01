@@ -14,6 +14,7 @@ mod db_backup;
 mod otel_receiver;
 mod process_guard;
 mod scanner;
+mod telemetry_setup;
 
 use app_state::AppState;
 use std::sync::atomic::AtomicBool;
@@ -126,7 +127,7 @@ fn main() {
                 .parent()
                 .map(|p| p.join("otel"))
                 .unwrap_or_else(|| std::path::PathBuf::from("."));
-            match otel_receiver::start(port, out_dir.clone()) {
+            match otel_receiver::ensure_started(port, out_dir.clone()) {
                 Ok(()) => println!(
                     "otel receiver listening on 127.0.0.1:{port} (spans -> {})",
                     out_dir.join("spans.jsonl").display()
@@ -191,6 +192,12 @@ fn main() {
             commands::recompute_costs,
             commands::list_price_snapshots,
             commands::import_price_snapshot,
+            commands::quota_summary,
+            commands::quota_series,
+            telemetry_setup::telemetry_check,
+            telemetry_setup::telemetry_preview,
+            telemetry_setup::telemetry_apply,
+            telemetry_setup::telemetry_undo,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
