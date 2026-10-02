@@ -33,7 +33,7 @@ impl Default for RetentionTiers {
     }
 }
 
-/// 供应商级费用估算默认（F2）：渠道不明不套价，用户显式选定后才参与匹配。
+/// 供应商级费用估算偏好：精确渠道优先，未知渠道仅允许无歧义的同型号官方参考。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ProviderPricingDefault {
     pub provider_id: String,
@@ -54,7 +54,7 @@ pub struct PricingSettings {
     /// models.dev 在线刷新（默认关闭；开启后仅 HTTPS GET 公开价格目录）。
     #[serde(default)]
     pub online_refresh_enabled: bool,
-    /// 原始响应缓存 TTL（天；默认 7，范围 1–365）。新鲜期内不发网络请求。
+    /// 原始响应缓存 TTL（天；默认 3，范围 1–365）。新鲜期内不发网络请求。
     #[serde(default = "default_online_cache_ttl_days")]
     pub online_cache_ttl_days: u32,
 }

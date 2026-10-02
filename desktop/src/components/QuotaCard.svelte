@@ -14,12 +14,14 @@
     reloadKey = 0,
     isDark = false,
     timezone = 'UTC',
+    compact = false,
   }: {
     agent: string;
     quotaId?: string;
     reloadKey?: number;
     isDark?: boolean;
     timezone?: string;
+    compact?: boolean;
   } = $props();
 
   const AGENT_LABELS: Record<string, string> = { copilot: 'GitHub Copilot' };
@@ -91,7 +93,26 @@
   });
 </script>
 
-<div class="quota-card" class:dark={isDark}>
+{#snippet quotaDetails()}
+  {#if primary}
+    <div class="meta">
+      {#if primary.remaining != null}<span>{t('quota.remaining', { n: fmtQuota(primary.remaining) })}</span>{/if}
+      <span class="at">{t('quota.snapshotAt', { time: fmtTime(primary.observed_at_ms) })}</span>
+    </div>
+    {#if spark}
+      <div class="trend">
+        <span class="trend-title">{t('quota.trend')}</span>
+        <svg viewBox="0 0 100 32" preserveAspectRatio="none" class="spark" aria-hidden="true">
+          {#if spark.single}<circle cx={spark.last.split(',')[0]} cy={spark.last.split(',')[1]} r="2" class="dot" />
+          {:else}<polyline points={spark.pts} fill="none" class="line" />{/if}
+        </svg>
+      </div>
+    {/if}
+    <p class="note">{t('quota.note')}</p>
+  {/if}
+{/snippet}
+
+<div class="quota-card" class:dark={isDark} class:compact title={t('quota.note')}>
   <div class="head">
     <span class="agent">{agentLabel}</span>
     <span class="unit">{primary?.unit === 'requests' || primary?.unit === 'milli_requests' ? t('quota.premiumRequests') : quotaId}</span>
@@ -114,25 +135,9 @@
         <div class="fill" style={`width:${pct}%`}></div>
       </div>
     {/if}
-    <div class="meta">
-      {#if primary.remaining != null}<span>{t('quota.remaining', { n: fmtQuota(primary.remaining) })}</span>{/if}
-      <span class="at">{t('quota.snapshotAt', { time: fmtTime(primary.observed_at_ms) })}</span>
-    </div>
-
-    {#if spark}
-      <div class="trend">
-        <span class="trend-title">{t('quota.trend')}</span>
-        <svg viewBox="0 0 100 32" preserveAspectRatio="none" class="spark" aria-hidden="true">
-          {#if spark.single}
-            <circle cx={spark.last.split(',')[0]} cy={spark.last.split(',')[1]} r="2" class="dot" />
-          {:else}
-            <polyline points={spark.pts} fill="none" class="line" />
-          {/if}
-        </svg>
-      </div>
-    {/if}
-
-    <p class="note">{t('quota.note')}</p>
+    {#if compact}
+      <details class="quota-details"><summary>{t('quota.details')}</summary><div class="detail-content">{@render quotaDetails()}</div></details>
+    {:else}{@render quotaDetails()}{/if}
   {/if}
 </div>
 
@@ -145,8 +150,20 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    min-width: 220px;
+    min-width: 0;
   }
+  .quota-card.compact {display:grid;grid-template-columns:minmax(180px,1fr) auto minmax(100px,.6fr) auto;align-items:center;gap:12px 20px;padding:10px 14px;background:var(--bg-card);}
+  .compact .head {justify-content:start;flex-wrap:wrap;gap:4px 10px;}
+  .compact .agent {font-size:13px;}
+  .compact .used {font-size:20px;}
+  .compact .limit {font-size:13px;}
+  .compact .usedlabel {display:none;}
+  .compact .bar {height:6px;}
+  .quota-details {display:contents;font-size:12px;color:var(--text-secondary);}
+  .quota-details summary {cursor:pointer;color:var(--accent);white-space:nowrap;}
+  .detail-content {grid-column:1/-1;display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--border-light);padding-top:8px;}
+  .compact .meta {flex-wrap:wrap;}
+  @media(max-width:750px) {.quota-card.compact{grid-template-columns:minmax(0,1fr) auto;gap:8px 14px;}}
   .head {
     display: flex;
     align-items: baseline;

@@ -228,7 +228,7 @@ fn rename_keeps_identity_and_cursor() {
 // model_change/assistant(带 usage)/assistant(无 usage)/usage/compaction/
 // branch_summary/toolResult）：分段 4+4+100 行预算 ⇒ 事件 1+4+1；合计
 // call_count=6、input_total=1625（派生）、cache_read=10、cache_write=1005、
-// output=305、total=1930、input_unknown_count=1。
+// output=305、total=1930、input_unknown_count=0（syn-a2 无 usage 计调用不计未知字段）。
 #[test]
 fn budget_split_resumes_without_duplicates() {
     let dir = TempDir::new("omp-v12-budget");
@@ -269,8 +269,8 @@ fn budget_split_resumes_without_duplicates() {
     assert_eq!(summary.totals.output_total_known, Some(305));
     assert_eq!(summary.totals.total_tokens_known, Some(1_930));
     assert_eq!(
-        summary.totals.input_unknown_count, 1,
-        "无 usage 的 assistant 计一次未知输入"
+        summary.totals.input_unknown_count, 0,
+        "无 usage 的 assistant 计调用，但不算未知字段"
     );
     let _ = dir;
 }

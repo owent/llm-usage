@@ -58,7 +58,11 @@ fn auxiliary_carriers_classified_and_summed() {
     assert_eq!(summary.totals.cache_write_known, Some(1_005));
     assert_eq!(summary.totals.output_total_known, Some(305));
     assert_eq!(summary.totals.total_tokens_known, Some(1_930));
-    assert_eq!(summary.totals.input_unknown_count, 1, "syn-a2 无 usage");
+    // syn-a2 无 usage（quality_bucket=unknown）：计调用不算未知字段。
+    assert_eq!(
+        summary.totals.input_unknown_count, 0,
+        "syn-a2 无 usage 不计未知字段"
+    );
 
     let mut stmt = storage
         .conn()

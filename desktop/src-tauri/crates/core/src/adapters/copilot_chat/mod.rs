@@ -125,6 +125,10 @@ fn chat_session_roots_under(storage_root: &std::path::Path) -> Vec<std::path::Pa
 }
 
 impl crate::adapters::framework::SourceAdapter for CopilotChatAdapter {
+    fn should_scan_unchanged(&self, stored: &crate::adapters::framework::StoredScanState) -> bool {
+        versions::session_log_v3::should_scan_unchanged(stored)
+    }
+
     fn adapter_id(&self) -> &'static str {
         "copilot-chat"
     }

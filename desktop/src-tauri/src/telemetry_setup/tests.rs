@@ -1,5 +1,101 @@
 use super::*;
 
+#[test]
+fn jsonc_insertion_uses_one_newline_and_preserves_comments_and_crlf() {
+    for newline in ["\n", "\r\n"] {
+        let text = format!(
+            "{{{newline}  // retained{newline}  \"editor.fontSize\": 14{newline}}}{newline}"
+        );
+        let changes = vec![
+            change(&["github.copilot.chat.otel.enabled"], json!(true)),
+            change(&["github.copilot.chat.otel.exporterType"], json!("file")),
+            change(
+                &["github.copilot.chat.otel.outfile"],
+                json!("C:/local/events.jsonl"),
+            ),
+        ];
+        let output = edit::merge_json(&text, &changes).unwrap();
+        assert!(!output.contains(&format!("{newline}{newline}")));
+        assert!(output.contains(&format!("// retained{newline}")));
+        assert_eq!(edit::merge_json(&output, &changes).unwrap(), output);
+        assert_eq!(edit::json_value(&output).unwrap()["editor.fontSize"], 14);
+    }
+}
+
+#[test]
+fn exporter_evidence_is_automatic_cached_and_does_not_override_configuration() {
+    let f = Fixture::new();
+    f.copilot();
+    let config = f.ctx.config.join("Code/User/settings.json");
+    let output = f.root.join("native-export.jsonl");
+    f.write(
+        &config,
+        &json!({"github.copilot.chat.otel.enabled":true,
+        "github.copilot.chat.otel.exporterType":"file","github.copilot.chat.otel.outfile":output})
+        .to_string(),
+    );
+    let mut row = inspect(
+        discover(&f.ctx)
+            .into_iter()
+            .find(|r| r.dto.id == "copilot-vscode")
+            .unwrap(),
+    );
+    evidence::verify(&mut row);
+    assert_eq!(row.dto.verification, "waiting");
+    let span = json!({"name":"chat gpt-5.4","kind":2,"traceId":"synthetic-trace","spanId":"synthetic-span",
+        "startTime":[1790899200,0],"resource":{"attributes":{"service.name":"copilot-chat"}},
+        "attributes":{"copilot_chat.chat_session_id":"synthetic-session","gen_ai.request.model":"gpt-5.4","gen_ai.usage.input_tokens":100,"gen_ai.usage.output_tokens":20}});
+    f.write(&output, &format!("{span}\n"));
+    evidence::verify(&mut row);
+    assert_eq!(
+        (
+            &*row.dto.status,
+            &*row.dto.verification,
+            row.dto.verified_records
+        ),
+        ("configured", "verified", 1)
+    );
+    // Identical bytes use cached evidence; a changed file invalidates it.
+    evidence::verify(&mut row);
+    assert_eq!(row.dto.verified_records, 1);
+    f.write(&output, "{\"body\":\"unrelated log\"}\n");
+    row.dto.verified_records = 0;
+    evidence::verify(&mut row);
+    assert_eq!(row.dto.verification, "unrecognized");
+    f.write(&output, &format!("{span}\n"));
+    row.dto.status = "blocked".into();
+    row.dto.reason = "managed_policy".into();
+    evidence::verify(&mut row);
+    assert_eq!(
+        (&*row.dto.status, &*row.dto.verification),
+        ("blocked", "verified")
+    );
+}
+
+#[test]
+fn shared_output_does_not_prove_which_profile_is_exporting() {
+    let f = Fixture::new();
+    f.copilot();
+    let output = f.root.join("shared.jsonl");
+    let config = json!({"github.copilot.chat.otel.enabled":true,
+        "github.copilot.chat.otel.exporterType":"file","github.copilot.chat.otel.outfile":output})
+    .to_string();
+    f.write(&f.ctx.config.join("Code/User/settings.json"), &config);
+    f.write(
+        &f.ctx.config.join("Code/User/profiles/work/settings.json"),
+        &config,
+    );
+    let span = json!({"name":"chat gpt-5.4","kind":2,"traceId":"synthetic","spanId":"shared",
+        "startTime":[1790899200,0],"resource":{"attributes":{"service.name":"copilot-chat"}},
+        "attributes":{"copilot_chat.chat_session_id":"synthetic","gen_ai.usage.input_tokens":100}});
+    f.write(&output, &format!("{span}\n"));
+    let targets = evidence::verify_all(discover(&f.ctx).into_iter().map(inspect).collect());
+    assert_eq!(targets.len(), 2);
+    assert!(targets.iter().all(|row| row.dto.status == "configured"
+        && row.dto.verification == "external"
+        && row.dto.verified_records == 0));
+}
+
 struct Fixture {
     ctx: Context,
     root: PathBuf,
@@ -500,6 +596,24 @@ fn local_configuration_audit() {
 }
 
 #[test]
+#[ignore = "Read-only real export verification; print whitelisted state and counts only"]
+fn local_export_verification() {
+    let app = PathBuf::from(std::env::var_os("APPDATA").unwrap()).join("llm-usage-desktop");
+    let ctx = Context::current(app, 4318).unwrap();
+    for row in evidence::verify_all(discover(&ctx).into_iter().map(inspect).collect()) {
+        let client = if row.dto.id.contains("-profile-") {
+            "copilot-vscode profile"
+        } else {
+            row.dto.id.as_str()
+        };
+        println!(
+            "{} configuration={} reason={} evidence={} records={}",
+            client, row.dto.status, row.dto.reason, row.dto.verification, row.dto.verified_records
+        );
+    }
+}
+
+#[test]
 fn installed_cli_without_a_config_directory_still_has_a_setup_entry() {
     let f = Fixture::new();
     f.install("gemini");
@@ -635,6 +749,29 @@ fn disabled_existing_destination_is_preserved_and_outfile_alone_is_a_file_export
     let row = inspect(discover(&f.ctx).remove(0));
     assert_eq!(row.dto.status, "configured");
     assert!(!row.dto.configurable);
+}
+
+#[test]
+fn only_verified_app_owned_copilot_files_are_automatically_discovered() {
+    let f = Fixture::new();
+    for id in [
+        "copilot-vscode",
+        "copilot-vscode-insiders-profile-test-agent-host",
+        "gemini",
+        "copilot-cli",
+    ] {
+        f.write(
+            &f.ctx.app.join("telemetry").join(id).join("events.jsonl"),
+            "{}\n",
+        );
+    }
+    let roots = copilot_usage_roots(&f.ctx.app);
+    assert_eq!(roots.len(), 2);
+    assert!(roots.iter().all(|p| p
+        .file_name()
+        .unwrap()
+        .to_string_lossy()
+        .starts_with("copilot-vscode")));
 }
 
 #[cfg(unix)]

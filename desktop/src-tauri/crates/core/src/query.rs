@@ -44,7 +44,14 @@ impl Filters {
         };
         any_match(&self.agents, &row.agent)
             && any_match(&self.providers, &row.provider_id)
-            && any_match(&self.models, &row.model_raw)
+            && any_match(
+                &self
+                    .models
+                    .iter()
+                    .map(|m| crate::model_names::model_key(m))
+                    .collect::<Vec<_>>(),
+                &row.model_raw,
+            )
             && self
                 .instances
                 .as_ref()
@@ -294,14 +301,39 @@ fn period_key_of(
 
 /// 执行汇总查询。
 pub fn query_summary(storage: &Storage, request: &SummaryRequest) -> Result<Summary, CoreError> {
+    query_summary_selected(storage, request, None)
+}
+
+/// Select visible period labels, including local hours (both DST folds share a label).
+/// Date/user filters remain mandatory; no summing per-period session counts.
+pub fn query_summary_selected(
+    storage: &Storage,
+    request: &SummaryRequest,
+    selection: Option<(&str, &str)>,
+) -> Result<Summary, CoreError> {
+    if selection.is_some_and(|(first, last)| first.is_empty() || first > last || last.len() > 40) {
+        return Err(CoreError::Query("invalid period selection".into()));
+    }
     if request.last_day < request.first_day {
         return Err(CoreError::Query("last_day before first_day".into()));
     }
     let calendar = Calendar::new(&request.timezone)?;
     let snapshot = storage.conn().unchecked_transaction()?;
     let revision = storage.data_revision()?;
-    let rows = load_summary_rows(storage, request)?;
-    let (details, by_period) = detail_stats(storage, &calendar, request)?;
+    let mut rows = load_summary_rows(storage, request)?;
+    rows.retain(|row| {
+        let (label, _, _) = period_key_of(
+            &calendar,
+            request.granularity,
+            request.week_start,
+            row.local_day,
+            row.hour,
+        );
+        selection.map_or(true, |(first, last)| {
+            label.as_str() >= first && label.as_str() <= last
+        })
+    });
+    let (details, by_period) = detail_stats(storage, &calendar, request, selection)?;
     let mut groups: BTreeMap<(Date, String), (Date, Vec<&DailyRow>)> = BTreeMap::new();
     let mut models: BTreeMap<(String, String), MetricSums> = BTreeMap::new();
     let mut agents: BTreeMap<String, MetricSums> = BTreeMap::new();
@@ -349,6 +381,7 @@ pub fn query_summary(storage: &Storage, request: &SummaryRequest) -> Result<Summ
             utc_end_ms,
             in_progress: request.today >= start && request.today <= end,
             partial_history: sealed
+                || carrier_coverage_gap(storage, utc_start_ms, utc_end_ms, &request.filters)?
                 || request
                     .retention_cutoff
                     .is_some_and(|cutoff| start < cutoff),
@@ -376,7 +409,7 @@ pub fn query_summary(storage: &Storage, request: &SummaryRequest) -> Result<Summ
         .into_iter()
         .map(|(agent, sums)| AgentRow { agent, sums })
         .collect();
-    let excluded_event_count = count_excluded(storage, &calendar, request)?;
+    let excluded_event_count = count_excluded(storage, &calendar, request, selection)?;
     snapshot.commit()?;
     Ok(Summary {
         data_revision: revision,
@@ -424,6 +457,7 @@ fn detail_stats(
     storage: &Storage,
     calendar: &Calendar,
     request: &SummaryRequest,
+    selection: Option<(&str, &str)>,
 ) -> Result<(DetailStats, BTreeMap<String, DetailStats>), CoreError> {
     let (start, end) = period_range_ms(calendar, request.first_day, request.last_day)?;
     let mut sql = String::from(
@@ -457,6 +491,9 @@ fn detail_stats(
             day,
             Some(calendar.local_hour_of(ms)? as i64),
         );
+        if selection.is_some_and(|(first, last)| label.as_str() < first || label.as_str() > last) {
+            continue;
+        }
         let group = groups.entry(label).or_default();
         for stats in [&mut total, group] {
             if let Some(id) = session.as_ref().filter(|id| !id.is_empty()) {
@@ -489,6 +526,7 @@ fn load_summary_rows(
             &request.timezone,
             request.first_day,
             request.last_day,
+            &request.filters,
         )?
         .into_iter()
         .filter(|r| request.filters.matches(r))
@@ -499,6 +537,7 @@ fn load_summary_rows(
         &request.timezone,
         request.first_day,
         request.last_day,
+        &request.filters,
     )?;
     let granularity = match request.granularity {
         Granularity::Week if request.week_start == WeekStart::Monday => Some("week"),
@@ -544,7 +583,7 @@ fn load_summary_rows(
                 instance_id: r.get(2)?,
                 agent: r.get(3)?,
                 provider_id: r.get(4)?,
-                model_raw: r.get(5)?,
+                model_raw: crate::model_names::model_key(&r.get::<_, String>(5)?),
                 call_category: r.get(6)?,
                 quality_bucket: r.get(7)?,
                 sealed: true,
@@ -607,8 +646,9 @@ fn load_daily_rows(
     tz: &str,
     first_day: Date,
     last_day: Date,
+    filters: &Filters,
 ) -> Result<Vec<DailyRow>, CoreError> {
-    let mut stmt = storage.conn().prepare(
+    let mut sql = String::from(
         "SELECT local_day, instance_id, agent, provider_id, model_raw, quality_bucket, sealed,
                 event_count, call_count, attempt_count, observation_count,
                 input_known_sum, input_known_count, input_unknown_count,
@@ -619,47 +659,51 @@ fn load_daily_rows(
                 total_known_sum, total_known_count, total_unknown_count,
                 ratio_input_sum, ratio_cache_read_sum, ratio_sample_count, conflict_count, call_category
          FROM daily_usage
-         WHERE tz_version = ?1 AND local_day >= ?2 AND local_day <= ?3
-         ORDER BY local_day",
-    )?;
-    let rows = stmt.query_map(
-        params![tz, first_day.to_string(), last_day.to_string()],
-        |r| {
-            Ok(DailyRow {
-                local_day: parse_date(&r.get::<_, String>(0)?)
-                    .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
-                instance_id: r.get(1)?,
-                hour: None,
-                agent: r.get(2)?,
-                provider_id: r.get(3)?,
-                model_raw: r.get(4)?,
-                call_category: r.get(27)?,
-                quality_bucket: r.get(5)?,
-                sealed: r.get::<_, i64>(6)? != 0,
-                from_period: false,
-                event_count: r.get(7)?,
-                call_count: r.get(8)?,
-                attempt_count: r.get(9)?,
-                observation_count: r.get(10)?,
-                input_known_sum: r.get(11)?,
-                input_known_count: r.get(12)?,
-                input_unknown_count: r.get(13)?,
-                uncached_known_sum: r.get(14)?,
-                cache_read_known_sum: r.get(15)?,
-                cache_write_known_sum: r.get(16)?,
-                output_known_sum: r.get(17)?,
-                output_known_count: r.get(18)?,
-                output_unknown_count: r.get(19)?,
-                total_known_sum: r.get(20)?,
-                total_known_count: r.get(21)?,
-                total_unknown_count: r.get(22)?,
-                ratio_input_sum: r.get(23)?,
-                ratio_cache_read_sum: r.get(24)?,
-                ratio_sample_count: r.get(25)?,
-                conflict_count: r.get(26)?,
-            })
-        },
-    )?;
+         WHERE tz_version = ?1 AND local_day >= ?2 AND local_day <= ?3",
+    );
+    let mut values = vec![
+        tz.to_string().into(),
+        first_day.to_string().into(),
+        last_day.to_string().into(),
+    ];
+    append_filters(&mut sql, &mut values, filters, "instance_id");
+    sql.push_str(" ORDER BY local_day");
+    let mut stmt = storage.conn().prepare(&sql)?;
+    let rows = stmt.query_map(rusqlite::params_from_iter(values), |r| {
+        Ok(DailyRow {
+            local_day: parse_date(&r.get::<_, String>(0)?)
+                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
+            instance_id: r.get(1)?,
+            hour: None,
+            agent: r.get(2)?,
+            provider_id: r.get(3)?,
+            model_raw: crate::model_names::model_key(&r.get::<_, String>(4)?),
+            call_category: r.get(27)?,
+            quality_bucket: r.get(5)?,
+            sealed: r.get::<_, i64>(6)? != 0,
+            from_period: false,
+            event_count: r.get(7)?,
+            call_count: r.get(8)?,
+            attempt_count: r.get(9)?,
+            observation_count: r.get(10)?,
+            input_known_sum: r.get(11)?,
+            input_known_count: r.get(12)?,
+            input_unknown_count: r.get(13)?,
+            uncached_known_sum: r.get(14)?,
+            cache_read_known_sum: r.get(15)?,
+            cache_write_known_sum: r.get(16)?,
+            output_known_sum: r.get(17)?,
+            output_known_count: r.get(18)?,
+            output_unknown_count: r.get(19)?,
+            total_known_sum: r.get(20)?,
+            total_known_count: r.get(21)?,
+            total_unknown_count: r.get(22)?,
+            ratio_input_sum: r.get(23)?,
+            ratio_cache_read_sum: r.get(24)?,
+            ratio_sample_count: r.get(25)?,
+            conflict_count: r.get(26)?,
+        })
+    })?;
     let mut out = Vec::new();
     for row in rows {
         out.push(row?);
@@ -678,6 +722,7 @@ fn count_excluded(
     storage: &Storage,
     calendar: &Calendar,
     request: &SummaryRequest,
+    selection: Option<(&str, &str)>,
 ) -> Result<i64, CoreError> {
     let (start_ms, _) = calendar.day_range_ms(request.first_day)?;
     let (_, end_ms) = calendar.day_range_ms(request.last_day)?;
@@ -692,6 +737,26 @@ fn count_excluded(
         &request.filters,
         "source_instance_id",
     );
+    if let Some((first, last)) = selection {
+        let sql = sql.replace("SELECT COUNT(*)", "SELECT occurred_at_ms");
+        let mut stmt = storage.conn().prepare(&sql)?;
+        let mut records = stmt.query(rusqlite::params_from_iter(values))?;
+        let mut count = 0;
+        while let Some(record) = records.next()? {
+            let ms = record.get(0)?;
+            let (label, _, _) = period_key_of(
+                calendar,
+                request.granularity,
+                request.week_start,
+                calendar.local_day_of(ms)?,
+                Some(calendar.local_hour_of(ms)? as i64),
+            );
+            if label.as_str() >= first && label.as_str() <= last {
+                count += 1;
+            }
+        }
+        return Ok(count);
+    }
     let count: i64 = storage
         .conn()
         .query_row(&sql, rusqlite::params_from_iter(values), |r| r.get(0))?;
@@ -717,6 +782,22 @@ pub fn list_excluded(
         out.push(row?);
     }
     Ok(out)
+}
+
+fn carrier_coverage_gap(
+    storage: &Storage,
+    start: i64,
+    end: i64,
+    filters: &Filters,
+) -> Result<bool, CoreError> {
+    let mut sql = String::from("SELECT EXISTS(SELECT 1 FROM usage_events WHERE
+        exclusion_reason='copilot_otel_session_authority' AND occurred_at_ms>=?1 AND occurred_at_ms<?2");
+    let mut values = vec![start.into(), end.into()];
+    append_filters(&mut sql, &mut values, filters, "source_instance_id");
+    sql.push(')');
+    Ok(storage
+        .conn()
+        .query_row(&sql, rusqlite::params_from_iter(values), |r| r.get(0))?)
 }
 
 fn append_filters(
@@ -752,7 +833,8 @@ fn append_filters(
     };
     push_in(sql, values, "agent", &filters.agents);
     push_in(sql, values, "provider_id", &filters.providers);
-    push_in(sql, values, "model_raw", &filters.models);
+    push_in(sql, values, "CASE WHEN fold_name(model_raw) LIKE 'claude-%' THEN REPLACE(fold_name(model_raw),'.','-') ELSE model_raw END",
+        &filters.models.iter().map(|m|crate::model_names::model_key(m)).collect::<Vec<_>>());
     if let Some(instances) = &filters.instances {
         if instances.is_empty() {
             sql.push_str(" AND 0");
@@ -894,12 +976,34 @@ pub fn heatmap_cells(
             |r| r.get(0),
         )
         .optional()?;
-    let mut sums: BTreeMap<Date, MetricSums> = BTreeMap::new();
-    for row in load_daily_rows(storage, timezone, first_day, last_day)? {
-        if filters.matches(&row) {
-            sums.entry(row.local_day).or_default().add_row(&row)?;
-        }
+    // Only the heatmap's columns cross SQLite; push owner/model filters into
+    // the bounded daily query instead of materializing every dimensional row.
+    let mut sums: BTreeMap<Date, (i64, Option<i64>)> = BTreeMap::new();
+    let mut day_sql = String::from(
+        "SELECT local_day,SUM(call_count),
+        CASE WHEN SUM(total_known_count)>0 THEN SUM(total_known_sum) END FROM daily_usage
+        WHERE tz_version=?1 AND local_day>=?2 AND local_day<=?3",
+    );
+    let mut values: Vec<rusqlite::types::Value> = vec![
+        timezone.to_string().into(),
+        first_day.to_string().into(),
+        last_day.to_string().into(),
+    ];
+    append_filters(&mut day_sql, &mut values, filters, "instance_id");
+    day_sql.push_str(" GROUP BY local_day");
+    let mut stmt = storage.conn().prepare(&day_sql)?;
+    let rows = stmt.query_map(rusqlite::params_from_iter(values), |r| {
+        Ok((
+            r.get::<_, String>(0)?,
+            r.get::<_, i64>(1)?,
+            r.get::<_, Option<i64>>(2)?,
+        ))
+    })?;
+    for row in rows {
+        let (day, calls, total) = row?;
+        sums.insert(parse_date(&day)?, (calls, total));
     }
+    drop(stmt);
     // A period-only import may not carry the local daily_retention_floor setting.
     // Detect materialized partitions on their own; never assign their totals to a date.
     let mut period_sql = String::from(
@@ -953,8 +1057,8 @@ pub fn heatmap_cells(
         cells.push(HeatCell {
             day: day_text,
             weekday: calendar.local_weekday_of(start_ms)?,
-            call_count: totals.as_ref().map_or(0, |s| s.call_count),
-            total_tokens_known: totals.and_then(|s| s.total_tokens_known),
+            call_count: totals.as_ref().map_or(0, |s| s.0),
+            total_tokens_known: totals.and_then(|s| s.1),
             available,
             partial,
         });
@@ -1067,8 +1171,9 @@ fn load_hourly_as_daily(
     tz: &str,
     first_day: Date,
     last_day: Date,
+    filters: &Filters,
 ) -> Result<Vec<DailyRow>, CoreError> {
-    let mut stmt = storage.conn().prepare(
+    let mut sql = String::from(
         "SELECT local_day, hour, instance_id, agent, provider_id, model_raw,
                 call_category, quality_bucket,
                 event_count, call_count, 0 as attempt_count, 0 as observation_count,
@@ -1084,52 +1189,56 @@ fn load_hourly_as_daily(
                   AND d.local_day = hourly_usage.local_day AND d.instance_id = hourly_usage.instance_id
                   AND d.sealed = 0) as sealed
          FROM hourly_usage
-         WHERE tz_version = ?1 AND local_day >= ?2 AND local_day <= ?3
-         ORDER BY local_day, hour",
-    )?;
-    let rows = stmt.query_map(
-        params![tz, first_day.to_string(), last_day.to_string()],
-        |r| {
-            Ok(DailyRow {
-                local_day: parse_date(&r.get::<_, String>(0)?)
-                    .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
-                instance_id: r.get(2)?,
-                hour: Some(r.get(1)?),
-                agent: r.get(3)?,
-                provider_id: r.get(4)?,
-                model_raw: r.get(5)?,
-                call_category: r.get(6)?,
-                quality_bucket: r.get(7)?,
-                sealed: r.get::<_, i64>(31)? != 0,
-                from_period: false,
-                event_count: r.get(8)?,
-                call_count: r.get(9)?,
-                attempt_count: r.get(10)?,
-                observation_count: r.get(11)?,
-                input_known_sum: r.get(12)?,
-                input_known_count: r.get(13)?,
-                input_unknown_count: r.get(14)?,
-                uncached_known_sum: r.get(15)?,
-                cache_read_known_sum: r.get(17)?,
-                cache_write_known_sum: r.get(19)?,
-                output_known_sum: r.get(21)?,
-                output_known_count: r.get(22)?,
-                output_unknown_count: r.get(23)?,
-                total_known_sum: r.get(24)?,
-                total_known_count: r.get(25)?,
-                total_unknown_count: r.get(26)?,
-                ratio_input_sum: r.get(27)?,
-                ratio_cache_read_sum: r.get(28)?,
-                ratio_sample_count: r.get(29)?,
-                conflict_count: r.get(30)?,
-            })
-        },
-    )?;
+         WHERE tz_version = ?1 AND local_day >= ?2 AND local_day <= ?3",
+    );
+    let mut values = vec![
+        tz.to_string().into(),
+        first_day.to_string().into(),
+        last_day.to_string().into(),
+    ];
+    append_filters(&mut sql, &mut values, filters, "instance_id");
+    sql.push_str(" ORDER BY local_day, hour");
+    let mut stmt = storage.conn().prepare(&sql)?;
+    let rows = stmt.query_map(rusqlite::params_from_iter(values), |r| {
+        Ok(DailyRow {
+            local_day: parse_date(&r.get::<_, String>(0)?)
+                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
+            instance_id: r.get(2)?,
+            hour: Some(r.get(1)?),
+            agent: r.get(3)?,
+            provider_id: r.get(4)?,
+            model_raw: crate::model_names::model_key(&r.get::<_, String>(5)?),
+            call_category: r.get(6)?,
+            quality_bucket: r.get(7)?,
+            sealed: r.get::<_, i64>(31)? != 0,
+            from_period: false,
+            event_count: r.get(8)?,
+            call_count: r.get(9)?,
+            attempt_count: r.get(10)?,
+            observation_count: r.get(11)?,
+            input_known_sum: r.get(12)?,
+            input_known_count: r.get(13)?,
+            input_unknown_count: r.get(14)?,
+            uncached_known_sum: r.get(15)?,
+            cache_read_known_sum: r.get(17)?,
+            cache_write_known_sum: r.get(19)?,
+            output_known_sum: r.get(21)?,
+            output_known_count: r.get(22)?,
+            output_unknown_count: r.get(23)?,
+            total_known_sum: r.get(24)?,
+            total_known_count: r.get(25)?,
+            total_unknown_count: r.get(26)?,
+            ratio_input_sum: r.get(27)?,
+            ratio_cache_read_sum: r.get(28)?,
+            ratio_sample_count: r.get(29)?,
+            conflict_count: r.get(30)?,
+        })
+    })?;
     let mut out = Vec::new();
     for row in rows {
         out.push(row?);
     }
-    enrich_hourly_metadata(storage, tz, first_day, last_day, &mut out)?;
+    enrich_hourly_metadata(storage, tz, first_day, last_day, filters, &mut out)?;
     Ok(out)
 }
 
@@ -1140,6 +1249,7 @@ fn enrich_hourly_metadata(
     tz: &str,
     first: Date,
     last: Date,
+    filters: &Filters,
     rows: &mut [DailyRow],
 ) -> Result<(), CoreError> {
     let calendar = Calendar::new(tz)?;
@@ -1167,7 +1277,7 @@ fn enrich_hourly_metadata(
     if index.is_empty() {
         return Ok(());
     }
-    let mut stmt = storage.conn().prepare(
+    let mut sql = String::from(
         "SELECT occurred_at_ms,source_instance_id,agent,COALESCE(provider_id,''),COALESCE(model_raw,''),
           COALESCE(call_category,''),quality_bucket,record_kind,
           CASE WHEN json_extract(quality_json,'$.input_total') IN ('reported','derived') THEN input_total END,
@@ -1176,8 +1286,11 @@ fn enrich_hourly_metadata(
           CASE WHEN json_extract(quality_json,'$.input_uncached') IN ('reported','derived') THEN input_uncached END,
           CASE WHEN json_extract(quality_json,'$.input_cache_read') IN ('reported','derived') THEN input_cache_read END
          FROM usage_events WHERE occurred_at_ms >= ?1 AND occurred_at_ms < ?2 AND attribution_status='verified'
-          AND record_kind IN ('model_call','transport_attempt','usage_observation')")?;
-    let mut events = stmt.query(params![start, end])?;
+          AND record_kind IN ('model_call','transport_attempt','usage_observation')");
+    let mut values = vec![start.into(), end.into()];
+    append_filters(&mut sql, &mut values, filters, "source_instance_id");
+    let mut stmt = storage.conn().prepare(&sql)?;
+    let mut events = stmt.query(rusqlite::params_from_iter(values))?;
     while let Some(e) = events.next()? {
         let ms = e.get(0)?;
         let key = (
@@ -1186,7 +1299,7 @@ fn enrich_hourly_metadata(
             e.get(1)?,
             e.get(2)?,
             e.get(3)?,
-            e.get(4)?,
+            crate::model_names::model_key(&e.get::<_, String>(4)?),
             e.get(5)?,
             e.get(6)?,
         );
@@ -1203,12 +1316,15 @@ fn enrich_hourly_metadata(
         let input: Option<i64> = e.get(8)?;
         let output: Option<i64> = e.get(9)?;
         let total: Option<i64> = e.get(10)?;
+        // 与 recompute_day 一致：quality_bucket='unknown'（无任何已知 token 字段）的
+        // 记录是无用量的调用/观测，计 call/event 但不计作观测缺字段的未知字段。
+        let field_gap = row.quality_bucket != "unknown";
         row.input_known_count += i64::from(input.is_some());
-        row.input_unknown_count += i64::from(input.is_none());
+        row.input_unknown_count += i64::from(field_gap && input.is_none());
         row.output_known_count += i64::from(output.is_some());
-        row.output_unknown_count += i64::from(output.is_none());
+        row.output_unknown_count += i64::from(field_gap && output.is_none());
         row.total_known_count += i64::from(total.is_some());
-        row.total_unknown_count += i64::from(total.is_none());
+        row.total_unknown_count += i64::from(field_gap && total.is_none());
         MetricSums::checked_add_opt(&mut row.uncached_known_sum, e.get(11)?, "hourly_uncached")?;
         if let (Some(input), Some(read)) = (input, e.get::<_, Option<i64>>(12)?) {
             MetricSums::checked_add_opt(

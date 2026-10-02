@@ -15,13 +15,17 @@
     isDark = false,
     height = 280,
   }: {
-    data: { name: string; value: number }[];
+    data: { name: string; value: number | null; input?: number | null; output?: number | null }[];
     /** 深色主题（父级传入；变化时重绘 legend 文字）。 */
     isDark?: boolean;
     /** 画布高度（px；无数据时折叠为细条）。 */
     height?: number;
   } = $props();
-  const data = $derived(mergeNamedValues(rawData));
+  let metric = $state<'total' | 'input' | 'output'>('total');
+  const selectMetric = $derived(rawData.some((r) => r.input !== undefined || r.output !== undefined));
+  const values = $derived(rawData.map((r) => ({ name: r.name, value: metric === 'total' ? r.value : r[metric] ?? null })));
+  const data = $derived(mergeNamedValues(values.filter((r): r is {name: string; value: number} => r.value !== null && r.value > 0)));
+  const missing = $derived(values.filter((r) => r.value === null).map((r) => r.name));
 
   let el: HTMLDivElement;
   let chart: echarts.ECharts | null = null;
@@ -47,6 +51,7 @@
   }
 
   function pieOption(): echarts.EChartsCoreOption {
+    const radius = Math.max(12, Math.min(chart?.getWidth() ?? 280, height - 60) / 2 - 16);
     return {
       tooltip: {
         trigger: 'item',
@@ -56,19 +61,19 @@
       },
       legend: {
         type: 'scroll',
-        orient: 'vertical',
-        right: 0,
-        top: 'middle',
+        orient: 'horizontal',
+        left: 'center',
+        bottom: 0,
         itemWidth: 12,
         itemHeight: 8,
-        textStyle: { fontSize: 12, width: 140, overflow: 'truncate', color: chartText },
+        textStyle: { fontSize: 12, width: 120, overflow: 'truncate', color: chartText },
       },
       color: PALETTE,
       series: [
         {
           type: 'pie',
-          radius: ['44%', '68%'],
-          center: ['32%', '52%'],
+          radius: [radius * 0.65, radius],
+          center: ['50%', (height - 36) / 2],
           data,
           padAngle: 2,
           itemStyle: { borderRadius: 5 },
@@ -87,10 +92,10 @@
     const disposeTipHide = setupTooltipAutoHide(chart!);
     const disposeBlankHide = hideTooltipOnBlank(chart!);
     render();
-    const onResize = () => chart?.resize();
+    const onResize = () => { chart?.resize(); render(); };
     window.addEventListener('resize', onResize);
     // 面板显示/隐藏或网格变化时容器尺寸变化（含 display:none 恢复），自动重设画布。
-    const observer = new ResizeObserver(() => chart?.resize());
+    const observer = new ResizeObserver(onResize);
     observer.observe(el);
     return () => {
       disposeTipHide();
@@ -110,12 +115,23 @@
   });
 </script>
 
+{#if selectMetric}
+  <div class="metrics" aria-label={t('dashboard.shareMetric')}>
+    {#each ['total', 'input', 'output'] as id}
+      <button type="button" class:active={metric === id} onclick={() => metric = id as typeof metric}>{t('cards.' + id)}</button>
+    {/each}
+  </div>
+{/if}
+{#if missing.length}<p class="muted">{t('dashboard.shareUnknown', {names: missing.join(', ')})}</p>{/if}
 {#if data.length === 0}
   <p class="muted">{t('common.empty')}</p>
 {/if}
 <div bind:this={el} class="pie" style:height="{data.length === 0 ? 4 : height}px"></div>
 
 <style>
+  .metrics { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  button { cursor: pointer; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-input); color: var(--text-secondary); padding: 3px 8px; font-size: 12px; }
+  button.active { color: var(--accent); background: var(--accent-bg); border-color: var(--accent); }
   .pie {
     width: 100%;
   }

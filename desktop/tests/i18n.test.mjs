@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { translatedKeys, translatedCatalogs } from '../src/lib/locales.ts';
 import { telemetryCatalogs } from '../src/lib/telemetry-locales.ts';
+import { dashboardCatalogs } from '../src/lib/dashboard-locales.ts';
+import { polishCatalogs } from '../src/lib/polish-locales.ts';
+import { referenceCatalogs } from '../src/lib/reference-locales.ts';
 
 function baseCatalog(name) {
   const source = readFileSync(new URL('../src/lib/i18n.svelte.ts', import.meta.url), 'utf8');
@@ -25,14 +28,16 @@ test('base catalogs have matching keys and placeholders', () => {
 });
 
 test('telemetry and annual calendar messages cover all locales and preserve placeholders', () => {
-  assert.equal(Object.keys(telemetryCatalogs).length, 10);
-  const expected = Object.keys(telemetryCatalogs.en).sort();
-  for (const [locale, messages] of Object.entries(telemetryCatalogs)) {
+  for (const catalogs of [telemetryCatalogs, dashboardCatalogs, polishCatalogs, referenceCatalogs]) {
+  assert.equal(Object.keys(catalogs).length, 10);
+  const expected = Object.keys(catalogs.en).sort();
+  for (const [locale, messages] of Object.entries(catalogs)) {
     assert.deepEqual(Object.keys(messages).sort(), expected, locale);
     for (const key of expected) {
       assert.ok(messages[key].trim(), locale + ' ' + key);
-      assert.deepEqual(placeholders(messages[key]), placeholders(telemetryCatalogs.en[key]), locale + ' ' + key);
+      assert.deepEqual(placeholders(messages[key]), placeholders(catalogs.en[key]), locale + ' ' + key);
     }
+  }
   }
 });
 

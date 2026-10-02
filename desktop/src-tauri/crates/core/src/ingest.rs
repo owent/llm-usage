@@ -246,7 +246,17 @@ pub(crate) fn commit_batch_tx(
             .as_ref()
             .map(|(_, _, id, _, _)| id.clone())
             .unwrap_or(eid);
-        match arbitrate(existing.as_ref().map(|(m, _, _, _, _)| m), event, &hash) {
+        let arbitration = arbitrate(existing.as_ref().map(|(m, _, _, _, _)| m), event, &hash);
+        let arbitration = if arbitration == Arbitration::Conflict
+            && existing
+                .as_ref()
+                .is_some_and(|(meta, _, _, _, _)| vs_copilot_policy_upgrade(meta, event))
+        {
+            Arbitration::Replace
+        } else {
+            arbitration
+        };
+        match arbitration {
             Arbitration::Insert => {
                 insert_event(tx, event, &eid, &hash, batch.now_ms, parse_basis_column)?;
                 outcome.added += 1;
@@ -300,6 +310,8 @@ pub(crate) fn commit_batch_tx(
             ));
         }
     }
+    crate::copilot_carriers::upgrade_otel_identity(tx, batch, &calendar, &mut affected)?;
+    crate::copilot_carriers::select(tx, batch, &calendar, &mut affected)?;
     check_fault(fault, FaultPoint::AfterEvents)?;
 
     // 2. 游标与解析上下文（同事务；分两段以便故障点语义清晰）。
@@ -659,6 +671,10 @@ pub(crate) fn recompute_day(
     } else {
         "AND NOT EXISTS (SELECT 1 FROM daily_usage d WHERE d.tz_version=?1 AND d.local_day=?2 AND d.sealed=1)"
     };
+    // 未知字段计数（input/output/total_unknown_count）排除 quality_bucket='unknown'
+    // 的记录：没有任何已知 token 字段的记录是“无用量调用/观测”（失败调用、
+    // Copilot 工具循环 round 等计调用但用量由 turn observation 承载），计入
+    // call/event，但不算作观测缺字段的未知字段（数据合同「请求、消息与累计值」）。
     let sql = format!(
         "{insert_head}
            COALESCE(provider_id, ''), COALESCE(model_raw, ''),
@@ -669,7 +685,7 @@ pub(crate) fn recompute_day(
            SUM(CASE WHEN record_kind = 'usage_observation' THEN 1 ELSE 0 END),
            SUM(CASE WHEN record_kind != 'transport_attempt' THEN known_input END),
            SUM(CASE WHEN record_kind != 'transport_attempt' AND known_input IS NOT NULL THEN 1 ELSE 0 END),
-           SUM(CASE WHEN record_kind != 'transport_attempt' AND known_input IS NULL THEN 1 ELSE 0 END),
+           SUM(CASE WHEN record_kind != 'transport_attempt' AND quality_bucket != 'unknown' AND known_input IS NULL THEN 1 ELSE 0 END),
            SUM(CASE WHEN record_kind != 'transport_attempt' THEN known_uncached END),
            SUM(CASE WHEN record_kind != 'transport_attempt' AND known_uncached IS NOT NULL THEN 1 ELSE 0 END),
            SUM(CASE WHEN record_kind != 'transport_attempt' THEN known_read END),
@@ -678,10 +694,10 @@ pub(crate) fn recompute_day(
            SUM(CASE WHEN record_kind != 'transport_attempt' AND known_write IS NOT NULL THEN 1 ELSE 0 END),
            SUM(CASE WHEN record_kind != 'transport_attempt' THEN known_output END),
            SUM(CASE WHEN record_kind != 'transport_attempt' AND known_output IS NOT NULL THEN 1 ELSE 0 END),
-           SUM(CASE WHEN record_kind != 'transport_attempt' AND known_output IS NULL THEN 1 ELSE 0 END),
+           SUM(CASE WHEN record_kind != 'transport_attempt' AND quality_bucket != 'unknown' AND known_output IS NULL THEN 1 ELSE 0 END),
            SUM(CASE WHEN record_kind != 'transport_attempt' THEN known_total END),
            SUM(CASE WHEN record_kind != 'transport_attempt' AND known_total IS NOT NULL THEN 1 ELSE 0 END),
-           SUM(CASE WHEN record_kind != 'transport_attempt' AND known_total IS NULL THEN 1 ELSE 0 END),
+           SUM(CASE WHEN record_kind != 'transport_attempt' AND quality_bucket != 'unknown' AND known_total IS NULL THEN 1 ELSE 0 END),
            SUM(CASE WHEN record_kind != 'transport_attempt' AND known_input IS NOT NULL AND known_read IS NOT NULL THEN known_input END),
            SUM(CASE WHEN record_kind != 'transport_attempt' AND known_input IS NOT NULL AND known_read IS NOT NULL THEN known_read END),
            SUM(CASE WHEN record_kind != 'transport_attempt' AND known_input IS NOT NULL AND known_read IS NOT NULL THEN 1 ELSE 0 END),
@@ -707,6 +723,37 @@ pub(crate) fn recompute_day(
         params![calendar.tz_name(), day_str, data_revision, start_ms, end_ms],
     )?;
     Ok(())
+}
+
+/// Only the verified v1/v2 omission is repairable: every other source field must match.
+fn vs_copilot_policy_upgrade(existing: &crate::identity::ExistingMeta, event: &EventInput) -> bool {
+    let expected_total = event
+        .usage
+        .input_total
+        .zip(event.usage.output_total)
+        .and_then(|(i, o)| i.checked_add(o))
+        .filter(|v| *v <= crate::domain::MAX_TOKEN_VALUE);
+    let expected_quality = if expected_total.is_some() {
+        crate::domain::FieldQuality::Derived
+    } else {
+        crate::domain::FieldQuality::Unknown
+    };
+    if event.agent != "vs-copilot"
+        || event.parser_version != "vs-copilot-otlp-traces-3"
+        || event.quality.total_tokens != expected_quality
+        || event.usage.total_tokens != expected_total
+    {
+        return false;
+    }
+    let mut legacy = event.clone();
+    legacy.usage.total_tokens = None;
+    legacy.quality.total_tokens = crate::domain::FieldQuality::Unknown;
+    ["vs-copilot-otlp-traces-1", "vs-copilot-otlp-traces-2"]
+        .into_iter()
+        .any(|parser| {
+            legacy.parser_version = parser.into();
+            existing.content_hash == event_content_hash(&legacy)
+        })
 }
 
 /// 按目标时区重算 [from_ms, to_ms] 覆盖的本地日（维护/修复路径：时区分区修复）。

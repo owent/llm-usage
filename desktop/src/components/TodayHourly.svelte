@@ -168,7 +168,7 @@
     );
   }
 
-  /** 单时间标签（今天，chart_series 按天聚合）：x = 分组名，双指标（调用+token）。 */
+  /** 单时间标签：x 为 Agent/模型分组，图例保留实际分组名称。 */
   function renderGroupedSingleLabel(g: ChartGroupData) {
     const label = g.labels[0];
     applyOption(
@@ -205,41 +205,18 @@
             axisLabel: { formatter: (v: number) => fmtSmart(v) },
             splitLine: { lineStyle: { color: splitColor } },
           },
-          {
-            type: 'value',
-            name: t('trend.tokens'),
-            splitLine: { show: false },
-            axisLabel: { formatter: (v: number) => fmtSmart(v) },
-          },
         ],
         color: PALETTE,
-        series: [
-          {
-            type: 'line',
-            name: t('trend.calls'),
-            smooth: true,
-            symbolSize: 5,
-            itemStyle: { color: '#1a56c4' },
-            lineStyle: { width: 2 },
-            data: g.names.map((n) => g.cell(n, label)?.calls ?? 0),
-          },
-          {
-            type: 'line',
-            name: t('trend.tokens'),
-            yAxisIndex: 1,
-            smooth: true,
-            symbolSize: 5,
-            itemStyle: { color: '#3f8f5f' },
-            lineStyle: { width: 2 },
-            data: g.names.map((n) => g.cell(n, label)?.total ?? null),
-          },
-        ],
+        series: g.names.map((name, index) => ({
+          type: 'bar', name, barMaxWidth: 24, itemStyle: { color: PALETTE[index % PALETTE.length] },
+          data: g.names.map((n) => n === name ? g.cell(n, label)?.calls ?? 0 : null),
+        })),
       },
       `grp1|${dimension}|${i18n.locale}|${chartText}|${label}|${g.names.join('\u0001')}`
     );
   }
 
-  /** 多时间标签：每分组两条折线（调用=左轴实线，token=右轴虚线，同组同色）。 */
+  /** 多时间标签按 Agent 绘制调用；token 及未知覆盖保留在悬浮提示。 */
   function renderGroupedByTime(g: ChartGroupData) {
     const series: LineSeriesOption[] = [];
     g.names.forEach((name, i) => {
@@ -251,16 +228,6 @@
         symbolSize: 4,
         itemStyle: { color },
         data: g.labels.map((l) => g.cell(name, l)?.calls ?? 0),
-      });
-      series.push({
-        type: 'line',
-        name: `${name} · ${t('trend.tokens')}`,
-        yAxisIndex: 1,
-        smooth: true,
-        symbolSize: 4,
-        itemStyle: { color },
-        lineStyle: { type: 'dashed', width: 1.5 },
-        data: g.labels.map((l) => g.cell(name, l)?.total ?? null),
       });
     });
     applyOption(
@@ -279,7 +246,7 @@
             const selected = (chart?.getOption().legend as { selected?: Record<string, boolean> }[] | undefined)?.[0]?.selected ?? {};
             for (const name of g.names) {
               const cell = g.cell(name, label);
-              if (!cell || cell.total !== null || (selected[`${name} · ${t('trend.calls')}`] === false && selected[`${name} · ${t('trend.tokens')}`] === false)) continue;
+              if (!cell || cell.total !== null || selected[`${name} · ${t('trend.calls')}`] === false) continue;
               lines.push(`${escapeHtml(name)} · ${t('cards.total')}: ${t('common.unknown')} · ${t('cards.input')}: ${fmtPrecise(cell.input)} · ${t('cards.output')}: ${fmtPrecise(cell.output)}`);
             }
             return lines.join('<br/>');
@@ -297,12 +264,6 @@
             nameTextStyle: { align: 'left' },
             axisLabel: { formatter: (v: number) => fmtSmart(v) },
             splitLine: { lineStyle: { color: splitColor } },
-          },
-          {
-            type: 'value',
-            name: t('trend.tokens'),
-            splitLine: { show: false },
-            axisLabel: { formatter: (v: number) => fmtSmart(v) },
           },
         ],
         color: PALETTE,

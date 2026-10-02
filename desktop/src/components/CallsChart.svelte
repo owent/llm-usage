@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { setChartOption, setupTooltipAutoHide, escapeHtml, CHART_PALETTE } from '../lib/chart';
+  import { setChartOption, setupTooltipAutoHide, setupRangeSelection, escapeHtml, CHART_PALETTE } from '../lib/chart';
   import * as echarts from 'echarts/core';
   import { LineChart } from 'echarts/charts';
   import type { LineSeriesOption } from 'echarts/charts';
@@ -20,6 +20,7 @@
     granularity,
     isDark = false,
     onperiodclick,
+    onrangechange,
   }: {
     periods: PeriodDto[];
     /** 当前查询（chart_series 分组数据用；随筛选/范围变化重新拉取）。 */
@@ -29,6 +30,7 @@
     isDark?: boolean;
     /** 点击数据点回调（携带该点的时间轴标签；总用量/分组两模式均生效）。 */
     onperiodclick?: (label: string) => void;
+    onrangechange?: (first:string,last:string)=>void;
   } = $props();
 
   let dimension = $state<ChartDimension>('total');
@@ -121,7 +123,7 @@
         legend: { top: 0, left: 'center', type: 'scroll', itemWidth: 12, itemHeight: 8, textStyle: { fontSize: 11 } },
         textStyle: { color: chartText },
         grid: { left: 70, right: 80, top: 48, bottom: 44, containLabel: true },
-        xAxis: { type: 'category', data: labels },
+        xAxis: { type: 'category', data: labels, triggerEvent:true },
         yAxis: [
           {
             type: 'value',
@@ -190,7 +192,7 @@
         legend: { top: 0, left: 'center', type: 'scroll', itemWidth: 12, itemHeight: 8, textStyle: { fontSize: 11 } },
         textStyle: { color: chartText },
         grid: { left: 70, right: 80, top: 48, bottom: 44, containLabel: true },
-        xAxis: { type: 'category', data: g.labels },
+        xAxis: { type: 'category', data: g.labels, triggerEvent:true },
         yAxis: {
           type: 'value',
           name: t('trend.calls'),
@@ -238,25 +240,8 @@
     // 数据点/横轴任意位置点击：网格内像素 → 最近类目索引（不要求命中数据点，
     // 2026-09-26 用户需求）；zr 级事件覆盖整个画布，legend/坐标轴外区域被
     // containPixel('grid') 排除。
-    chart?.getZr().on('click', (e: { offsetX: number; offsetY: number }) => {
-      if (!onperiodclick || !chart) return;
-      const labels =
-        dimension === 'total' ? periods.map((p) => p.label) : (grouped?.labels ?? []);
-      if (!labels.length) return;
-      try {
-        if (!chart.containPixel('grid', [e.offsetX, e.offsetY])) return;
-        const raw = chart.convertFromPixel({ xAxisIndex: 0 }, e.offsetX);
-        if (typeof raw !== 'number' || !Number.isFinite(raw)) return;
-        const idx = Math.max(0, Math.min(labels.length - 1, Math.round(raw)));
-        if (labels[idx]) {
-          onperiodclick(labels[idx]);
-          // 点击即选点：汇总条展开使布局位移，tooltip 位置随即过期，主动隐藏。
-          chart.dispatchAction({ type: 'hideTip' });
-        }
-      } catch {
-        /* 选项未就绪/像素转换失败时忽略点击 */
-      }
-    });
+    const disposeSelection=setupRangeSelection(chart,()=>dimension==='total'?periods.map((p)=>p.label):grouped?.labels??[],
+      (label)=>onperiodclick?.(label),(first,last)=>onrangechange?.(first,last));
     render();
     const onResize = () => chart?.resize();
     window.addEventListener('resize', onResize);
@@ -265,6 +250,7 @@
     observer.observe(el);
     return () => {
       disposeTipHide();
+      disposeSelection();
       observer.disconnect();
       window.removeEventListener('resize', onResize);
       chart?.dispose();

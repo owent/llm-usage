@@ -68,6 +68,10 @@ impl crate::adapters::framework::SourceAdapter for VsCopilotAdapter {
         "vs-copilot"
     }
 
+    fn should_scan_unchanged(&self, stored: &crate::adapters::framework::StoredScanState) -> bool {
+        versions::traces_v1::should_scan_unchanged(stored)
+    }
+
     fn discover(
         &self,
         ctx: &crate::adapters::framework::DiscoverContext,

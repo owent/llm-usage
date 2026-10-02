@@ -29,7 +29,7 @@ use crate::ingest::DiagnosticInput;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-pub const VS_COPILOT_PARSER_VERSION: &str = "vs-copilot-otlp-traces-2";
+pub const VS_COPILOT_PARSER_VERSION: &str = "vs-copilot-otlp-traces-3";
 
 /// 单 span 时长合理上限（30 天毫秒）。
 const MAX_DURATION_MS: i64 = 30 * 24 * 3600 * 1000;
@@ -39,9 +39,20 @@ const PLAUSIBLE_MS: std::ops::RangeInclusive<i64> =
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 struct VsCopilotParseContext {
     #[serde(default)]
+    policy_version: u32,
+    #[serde(default)]
     skipped_names: Vec<String>,
     #[serde(default)]
     version_basis: Option<VersionBasis>,
+}
+
+pub fn should_scan_unchanged(stored: &StoredScanState) -> bool {
+    stored
+        .parse_context
+        .as_ref()
+        .and_then(|v| v.get("policy_version"))
+        .and_then(Value::as_u64)
+        != Some(1)
 }
 
 fn diag(code: &str, position: &str, message: &str) -> DiagnosticInput {
@@ -198,7 +209,7 @@ pub fn scan(
         context = VsCopilotParseContext::default();
     }
     context.version_basis = Some(VersionBasis::KnownVersion);
-    let cursor = if target.rescan {
+    let cursor = if target.rescan || context.policy_version != 1 {
         JsonlCursor {
             generation: target.generation,
             offset: 0,
@@ -392,10 +403,14 @@ pub fn scan(
                         input_total: input,
                         output_total: output,
                         output_reasoning: reasoning,
-                        total_tokens: None,
+                        total_tokens: input
+                            .zip(output)
+                            .and_then(|(i, o)| i.checked_add(o))
+                            .filter(|v| *v <= crate::domain::MAX_TOKEN_VALUE),
                         source_total: None,
                     };
                     let quality = TokenQuality {
+                        total_tokens: FieldQuality::Derived,
                         input_cache_read: cache_read
                             .map(|_| FieldQuality::Reported)
                             .unwrap_or(FieldQuality::Unknown),
@@ -469,6 +484,13 @@ pub fn scan(
             ScanStatus::LineTooLong
         }
     };
+    if matches!(status, ScanStatus::Complete)
+        && read.pending_bytes == 0
+        && read.bad_lines.is_empty()
+        && diagnostics.is_empty()
+    {
+        context.policy_version = 1;
+    }
     Ok(ScanOutcome {
         status,
         cursor: Some(serde_json::to_value(JsonlCursor {
@@ -565,6 +587,8 @@ mod tests {
         );
         assert_eq!(e.usage.input_total, Some(8697));
         assert_eq!(e.usage.output_total, Some(81));
+        assert_eq!(e.usage.total_tokens, Some(8778));
+        assert_eq!(e.quality.total_tokens, FieldQuality::Derived);
         assert_eq!(e.usage.input_cache_read, Some(4608));
         assert_eq!(e.model_raw.as_deref(), Some("gpt-5.3-codex"));
         assert_eq!(
@@ -610,6 +634,76 @@ mod tests {
         let out = run(&path);
         assert!(out.events.is_empty());
         assert!(out.diagnostics.iter().any(|d| d.code == "span_id_missing"));
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn old_eof_checkpoint_replays_complete_snapshot_and_preserves_missing_usage() {
+        let path = temp_log("old-eof", &[batch(&chat_span("span", "trace"))]);
+        let first = run(&path);
+        let old = StoredScanState {
+            cursor: first.cursor.clone(),
+            parse_context: Some(serde_json::json!({"policy_version":0})),
+        };
+        assert!(should_scan_unchanged(&old));
+        let replay = scan(
+            &target_for(&path),
+            &old,
+            &ScanLimits::default(),
+            1_800_000_000_000,
+        )
+        .unwrap();
+        assert_eq!(replay.events.len(), 1);
+        assert_eq!(replay.events[0].usage.total_tokens, Some(8778));
+        let updated = StoredScanState {
+            cursor: replay.cursor,
+            parse_context: replay.parse_context,
+        };
+        assert!(!should_scan_unchanged(&updated));
+        let mut span: Value = serde_json::from_str(&chat_span("span2", "trace")).unwrap();
+        span["attributes"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|a| a["key"] != "gen_ai.usage.output_tokens");
+        std::fs::write(&path, format!("{}\n", batch(&span.to_string()))).unwrap();
+        let missing = run(&path);
+        assert_eq!(missing.events[0].usage.total_tokens, None);
+        assert_eq!(
+            missing.events[0].quality.total_tokens,
+            FieldQuality::Unknown
+        );
+        span["attributes"][0]["value"]["intValue"] =
+            serde_json::json!(crate::domain::MAX_TOKEN_VALUE.to_string());
+        span["attributes"]
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({"key":"gen_ai.usage.output_tokens","value":{"intValue":"1"}}));
+        std::fs::write(&path, format!("{}\n", batch(&span.to_string()))).unwrap();
+        let capped = run(&path);
+        assert_eq!(capped.events[0].usage.total_tokens, None);
+        assert!(
+            capped.events[0].validate().is_ok(),
+            "oversize derived total must not discard known input/output or the call"
+        );
+        // Invalid and incomplete replay must keep the old policy eligible for retry.
+        std::fs::write(&path, "{broken}\n").unwrap();
+        let invalid = scan(
+            &target_for(&path),
+            &old,
+            &ScanLimits::default(),
+            1_800_000_000_000,
+        )
+        .unwrap();
+        assert_ne!(invalid.parse_context.unwrap()["policy_version"], 1);
+        std::fs::write(&path, batch(&span.to_string())).unwrap();
+        let partial = scan(
+            &target_for(&path),
+            &old,
+            &ScanLimits::default(),
+            1_800_000_000_000,
+        )
+        .unwrap();
+        assert_ne!(partial.parse_context.unwrap()["policy_version"], 1);
         let _ = std::fs::remove_file(path);
     }
 
@@ -693,7 +787,7 @@ mod tests {
             .iter()
             .any(|d| d.code == "invalid_json_line"));
         let cursor = outcome.cursor.unwrap();
-        // 增量：从游标续读无新内容 → 0 事件。
+        // A malformed legacy snapshot stays eligible for full policy replay.
         let stored = StoredScanState {
             cursor: Some(cursor),
             parse_context: outcome.parse_context.clone(),
@@ -714,7 +808,28 @@ mod tests {
             1_800_000_000_000,
         )
         .unwrap();
-        assert_eq!(outcome2.events.len(), 0);
+        assert_eq!(outcome2.events.len(), 1);
+        assert!(should_scan_unchanged(&StoredScanState {
+            cursor: outcome2.cursor,
+            parse_context: outcome2.parse_context
+        }));
+        // Once a complete valid snapshot is consumed, normal EOF resume emits nothing.
+        std::fs::write(&path, format!("{}\n", batch(&chat_span("s7", "t7")))).unwrap();
+        let valid = run(&path);
+        let stable = StoredScanState {
+            cursor: valid.cursor,
+            parse_context: valid.parse_context,
+        };
+        assert!(!should_scan_unchanged(&stable));
+        assert!(scan(
+            &target_for(&path),
+            &stable,
+            &ScanLimits::default(),
+            1_800_000_000_000
+        )
+        .unwrap()
+        .events
+        .is_empty());
         let _ = std::fs::remove_file(&path);
     }
 }

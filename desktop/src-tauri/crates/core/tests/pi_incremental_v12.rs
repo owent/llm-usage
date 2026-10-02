@@ -265,8 +265,8 @@ fn budget_split_resumes_without_duplicates() {
     assert_eq!(summary.totals.output_total_known, Some(355));
     assert_eq!(summary.totals.total_tokens_known, Some(3_270));
     assert_eq!(
-        summary.totals.input_unknown_count, 1,
-        "无 usage 的 assistant 计一次未知输入"
+        summary.totals.input_unknown_count, 0,
+        "无 usage 的 assistant 计调用，但不算未知字段"
     );
     let _ = dir;
 }

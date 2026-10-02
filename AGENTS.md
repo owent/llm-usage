@@ -13,7 +13,9 @@
 Windows 11 x64 首发，GitHub CI 保留 macOS/Linux；WSL 构建不等于 Linux 桌面验收。
 定时任务只调度本地采集，按需读 [调度合同](docs/design/desktop-usage/scheduling.md)。
 费用估算与价格快照改动按需读 [价格合同](docs/design/desktop-usage/pricing.md)：
-默认关闭、渠道不明不套价、多币种不合并、估算不随后台价格更新改写。
+默认关闭、多币种不合并、估算不随后台价格更新改写。实际渠道未知不推断账单；
+无精确价目时可按同型号已核验官方供应商价格展示 API 参考，渠道/币种有歧义仍不套价，
+型号不按系列猜测，见 [看板修正合同](docs/design/desktop-usage/dashboard-repair.md)。
 在线刷新同样默认关闭：唯一内置来源 models.dev api.json（不携带本机数据），
 原始响应长缓存（默认 3 天，1–365 可配），下载/校验失败回退上一次成功缓存，
 仅官方提供商按量条目入库（订阅/套餐占位排除），无精确价目时回退官方价并计
@@ -33,10 +35,17 @@ fail-closed（最新版），VS Code 面走原生 `chatSessions/*.jsonl`（copil
 copilot-user-cache.json → 通用 quota_history（额度与 token 分开，不折算）。
 M9 审查修正：VS Code turn/modelTotals 是用量 observation，toolCallRounds 才计已观测
 主循环调用；默认输入是末次调用下界，不与整轮输出派生完整总 token。额度保存来源
-快照时间与 milli_requests 小数单位，见 [审查记录](docs/validation/desktop-usage/m9-copilot-review.md)。
+快照时间与 milli_requests 小数单位。覆盖提示（turn_input_incomplete）不降级来源健康；
+无已知 token 字段的记录（quality_bucket=unknown，含 round 标记/失败调用）计调用不计未知字段，
+见 [审查记录](docs/validation/desktop-usage/m9-copilot-review.md)。
+修正 Copilot 统计/健康规则时须验收已消费且字节未变化的旧游标；重放保留单调修订和历史，
+仅完整有效快照标记规则已更新，不用清库恢复展示。质量分区须检查全部 token 字段。
 维护本机遥测检查与配置入口时，读 [配置合同](docs/design/desktop-usage/copilot-otel.md)：
-后台检查只读，应用按用户层字段合并并保留现有输出目标；新增导出隔离用于核验，
-未完成跨载体权威选择前不得自动叠加到原生统计。
+后台检查只读，应用按用户层字段合并并保留现有输出目标。已核验的 VS Code Copilot
+file 输出按主机/用户/会话/本地日择一；保留原生记录，不按时间/token 相等猜调用身份，
+不叠加封存分区，开启当日提示覆盖受限。其他新增导出未核验前仍隔离，不自动叠加。
+状态提示、模型费用明细、趋势布局或选区查询维护时，按需读
+[看板交互合同](docs/design/desktop-usage/dashboard-polish.md)。
 
 ## 规则入口与按需读取
 

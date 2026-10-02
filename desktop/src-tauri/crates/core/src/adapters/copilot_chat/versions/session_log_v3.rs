@@ -35,6 +35,19 @@ use serde_json::Value;
 
 pub const COPILOT_CHAT_PARSER_VERSION: &str = "vscode-copilot-chat-session-log-2";
 
+// 解析格式未变；旧游标需重放一次以修正健康状态和日汇总缺字段计数。
+// 保留既有 revision/tracked_events，不能清空上下文后退回低修订快照。
+const SCAN_POLICY_VERSION: u32 = 1;
+
+pub fn should_scan_unchanged(stored: &StoredScanState) -> bool {
+    stored
+        .parse_context
+        .as_ref()
+        .and_then(|v| v.get("scan_policy_version"))
+        .and_then(Value::as_u64)
+        != Some(u64::from(SCAN_POLICY_VERSION))
+}
+
 /// 单 turn 时长/TTFT 合理上限（30 天毫秒）：超出按损坏丢弃。
 const MAX_DURATION_MS: i64 = 30 * 24 * 3600 * 1000;
 
@@ -44,6 +57,8 @@ const PLAUSIBLE_MS: std::ops::RangeInclusive<i64> =
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 struct CopilotChatParseContext {
+    #[serde(default)]
+    scan_policy_version: u32,
     #[serde(default)]
     version_basis: Option<VersionBasis>,
     #[serde(default)]
@@ -523,6 +538,7 @@ pub fn scan(
         .as_ref()
         .and_then(|v| serde_json::from_value::<CopilotChatParseContext>(v.clone()).ok())
         .unwrap_or_default();
+    let policy_changed = context.scan_policy_version != SCAN_POLICY_VERSION;
     let read = match read_jsonl(&target.path, 0, 1, &limits.jsonl) {
         Ok(read) => read,
         Err(err) if crate::adapters::framework::is_transient_io(&err) => {
@@ -891,7 +907,7 @@ pub fn scan(
                 .map(crate::identity::event_content_hash)
                 .collect::<Vec<_>>(),
         );
-        if context.snapshot_hash != snapshot_hash {
+        if context.snapshot_hash != snapshot_hash || policy_changed {
             context.revision = context
                 .revision
                 .checked_add(1)
@@ -914,12 +930,19 @@ pub fn scan(
                     Some("replaced by complete Copilot session snapshot".to_string());
                 tombstone.source_revision = Some(context.revision);
                 events.push(tombstone);
+            } else if policy_changed && !current.contains(&old.source_record_key) {
+                // 来源已清理的历史仍保留。规则更新时重发既有白名单快照，
+                // 让这些旧事件所在日也重算；不恢复正文或已过期明细。
+                let mut retained = old.clone();
+                retained.observed_at_ms = Some(now_ms);
+                events.push(retained);
             }
         }
         for event in &mut events {
             event.source_revision = Some(context.revision);
         }
         context.snapshot_hash = snapshot_hash;
+        context.scan_policy_version = SCAN_POLICY_VERSION;
         let mut tracked: std::collections::BTreeMap<_, _> = context
             .tracked_events
             .into_iter()
@@ -939,7 +962,13 @@ pub fn scan(
     } else {
         events.clear();
     }
-    let health = if diagnostics.is_empty() {
+    // 输入覆盖提示（turn_input_incomplete）是该格式固有限制——promptTokens 只覆盖末次
+    // 调用，不代表坏记录或对账差异，不降级来源健康（architecture.md#unknown-version：
+    // 仅坏记录/对账差异提示需核对）。其余诊断（坏行、非法 token、重复键、缺失归属等）仍降级。
+    let health = if diagnostics
+        .iter()
+        .all(|d| d.code == "turn_input_incomplete")
+    {
         "active".to_string()
     } else {
         "degraded".to_string()
@@ -1332,5 +1361,112 @@ mod tests {
                 .any(|d| d.code == "token_shape_deviation"));
             let _ = std::fs::remove_file(path);
         }
+    }
+
+    #[test]
+    fn turn_input_incomplete_alone_keeps_source_active() {
+        // 默认路径 turn（无 modelTotals）：promptTokens 只覆盖末次调用，产出
+        // turn_input_incomplete 覆盖提示。该提示是格式固有限制、非坏记录或对账差异，
+        // 不降级来源健康（否则每个普通 Copilot 会话都会被误标“需核对”）。
+        let path = temp_log(
+            "coverage-hint-active",
+            &[header(
+                &serde_json::json!([{
+                    "requestId":"req_a","timestamp":1_790_783_284_143i64,
+                    "promptTokens":1000,"completionTokens":200,
+                    "modelState":{"value":1,"completedAt":1_790_783_862_030i64},
+                    "result":{"metadata":{"toolCallRounds":[
+                        {"id":"r1","modelId":"claude-opus-4.8","timestamp":1_790_783_284_143i64},
+                        {"id":"r2","modelId":"claude-opus-4.8","timestamp":1_790_783_284_200i64}
+                    ]}}
+                }])
+                .to_string(),
+            )],
+        );
+        let outcome = run(&path);
+        assert_eq!(outcome.status, ScanStatus::Complete);
+        assert!(!outcome.diagnostics.is_empty());
+        assert!(outcome
+            .diagnostics
+            .iter()
+            .all(|d| d.code == "turn_input_incomplete"));
+        assert_eq!(outcome.health, "active");
+        // 一条 turn observation 承载 token；两条 round 计 model_call、逐轮 token 未知。
+        let obs = outcome
+            .events
+            .iter()
+            .filter(|e| e.record_kind == RecordKind::UsageObservation)
+            .count();
+        let rounds: Vec<&EventInput> = outcome
+            .events
+            .iter()
+            .filter(|e| e.record_kind == RecordKind::ModelCall)
+            .collect();
+        assert_eq!((obs, rounds.len()), (1, 2));
+        assert!(rounds
+            .iter()
+            .all(|e| e.usage.input_total.is_none() && e.usage.output_total.is_none()));
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn legacy_policy_is_not_marked_repaired_until_valid_snapshot() {
+        let lines = [header(
+            r#"[{"requestId":"req_a","timestamp":1790783284143,"promptTokens":100,"completionTokens":20}]"#,
+        )];
+        let path = temp_log("policy-retry", &lines);
+        let complete_log = std::fs::read(&path).unwrap();
+        let initial = run(&path);
+        let mut context = initial.parse_context.unwrap();
+        context
+            .as_object_mut()
+            .unwrap()
+            .remove("scan_policy_version");
+        context["revision"] = serde_json::json!(7);
+        let legacy = StoredScanState {
+            cursor: initial.cursor,
+            parse_context: Some(context),
+        };
+        use std::io::Write;
+        std::fs::OpenOptions::new()
+            .append(true)
+            .open(&path)
+            .unwrap()
+            .write_all(b"bad json\n")
+            .unwrap();
+        let failed = scan(
+            &target_for(&path),
+            &legacy,
+            &ScanLimits::default(),
+            1_800_000_000_000,
+        )
+        .unwrap();
+        assert_eq!(failed.health, "degraded");
+        assert!(failed.events.is_empty());
+        let retry = StoredScanState {
+            cursor: failed.cursor,
+            parse_context: failed.parse_context,
+        };
+        assert!(
+            should_scan_unchanged(&retry),
+            "withheld snapshot still needs policy replay"
+        );
+        assert_eq!(retry.parse_context.as_ref().unwrap()["revision"], 7);
+        std::fs::write(&path, complete_log).unwrap();
+        let repaired = scan(
+            &target_for(&path),
+            &retry,
+            &ScanLimits::default(),
+            1_800_000_000_001,
+        )
+        .unwrap();
+        assert_eq!(repaired.health, "active");
+        assert_eq!(repaired.events.len(), 1);
+        assert_eq!(repaired.events[0].source_revision, Some(8));
+        assert!(!should_scan_unchanged(&StoredScanState {
+            cursor: repaired.cursor,
+            parse_context: repaired.parse_context
+        }));
+        let _ = std::fs::remove_file(path);
     }
 }

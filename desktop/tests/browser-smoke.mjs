@@ -32,7 +32,7 @@ page.on('console', (message) => { if (message.type() === 'error') browserConsole
 await page.clock.install({ time: new Date('2026-09-27T23:30:00Z') });
 await page.addInitScript(() => {
   const stats = (n=1) => ({ input_total_known: String(125000*n), uncached_known: String(25000*n), cache_read_known: String(100000*n), cache_write_known: '0', output_total_known: String(8000*n), total_tokens_known: String(133000*n), input_known_count: 40*n, input_unknown_count: 2*n, output_known_count: 42*n, output_unknown_count: 0, total_known_count: 40*n, total_unknown_count: 2*n, event_count: 42*n, call_count: 42*n, attempt_count: 0, conflict_count: 0, cache_input_ratio: .8, avg_duration_ms:'4250', total_duration_ms:String(170000*n), duration_sample_count: 40*n });
-  let settings = { timezone: 'Asia/Shanghai', week_start: 0, retention: { events_days: 7, hourly_days: 3, daily_days: 90, weekly_days: 1095, monthly_days: 3650, yearly_days: null }, refresh_interval_secs: 300, language: 'zh-CN', theme: 'light', manual_roots: [], hostname_alias: null };
+  let settings = { timezone: 'Asia/Shanghai', week_start: 0, retention: { events_days: 7, hourly_days: 3, daily_days: 90, weekly_days: 1095, monthly_days: 3650, yearly_days: null }, refresh_interval_secs: 300, language: 'zh-CN', theme: 'light', manual_roots: [], hostname_alias: null, pricing: {enabled:true,provider_defaults:[],online_refresh_enabled:false} };
   let current = 'default';
   const users = [{user_id:'default',name:'本机用户',created_at_ms:0},{user_id:'empty',name:'新用户',created_at_ms:0}];
   const owners = {};
@@ -76,22 +76,43 @@ await page.addInitScript(() => {
       const models = ['gpt-5.4','claude-sonnet-4.6','glm-5.3'];
       const selected = q.models?.[0];
       if(selected==='gpt-5.4') await new Promise(r=>setTimeout(r,900));
-      const n=empty?0: selected==='gpt-5.4'?1:selected==='glm-5.3'?3:owners['codex@C:/Users/local/.codex']==='empty'?11:12;
+      const n=empty?0:q.first_period?(q.first_period==='2026-09-19'?3:2):selected==='gpt-5.4'?1:selected==='glm-5.3'?3:owners['codex@C:/Users/local/.codex']==='empty'?11:12;
+      if (q.first_period && window.selectionDelay) await new Promise(r=>setTimeout(r,window.selectionDelay));
       return { data_revision:revision, timezone:settings.timezone, totals:stats(n), distinct_sessions:empty?0:27, active_days:empty?0:12,
-        periods:empty?[]:Array.from({length:q.first_day===q.last_day?1:14},(_,i)=>({label:q.first_day===q.last_day?q.last_day:`2026-09-${String(15+i).padStart(2,'0')}`,start_day:q.first_day,end_day:q.last_day,in_progress:i===13,partial_history:i<5,sums:stats(i%4+1),distinct_sessions:5+i,active_days:1})),
+        periods:empty?[]:Array.from({length:q.granularity==='hour'?12:q.first_day===q.last_day?1:14},(_,i)=>{
+          const day=q.first_day===q.last_day?q.last_day:`2026-09-${String(15+i).padStart(2,'0')}`;
+          return {label:q.granularity==='hour'?`${q.last_day} ${String(8+i).padStart(2,'0')}:00`:day,start_day:q.granularity==='hour'?q.last_day:day,end_day:q.granularity==='hour'?q.last_day:day,in_progress:i===13,partial_history:i<5,sums:stats(i%4+1),distinct_sessions:5+i,active_days:1};
+        }),
         models:empty?[]:models.filter(m=>!selected||selected===m).map((m,i)=>({model:m,provider:['openai','anthropic','zhipu'][i],sums:stats(6-i)})),
-        agents:empty?[]:['codex','claude','zcode'].filter(a=>!q.agents?.length||q.agents.includes(a)).map((agent,i)=>({agent,sums:stats(6-i)})),
+        agents:empty?[]:[...['codex','claude','zcode'].filter(a=>!q.agents?.length||q.agents.includes(a)).map((agent,i)=>({agent,sums:stats(6-i)})),
+          ...(!q.agents?.length||q.agents.includes('vscode-copilot-chat')?[{agent:'vscode-copilot-chat',sums:{...stats(1),call_count:0,total_tokens_known:null,input_total_known:'300000',output_total_known:'1234'}}]:[])],
         today_hourly:empty?[]:Array.from({length:12},(_,i)=>({hour:8+i,calls:12+i*3,total_tokens:String((i+1)*150000),input_total:String((i+1)*120000),cache_read:String(i*80000),output_total:String((i+1)*30000),sessions:5,avg_duration_ms:'4250'})),excluded_event_count:0 };
     }
     if(cmd==='list_sources') return {sources:['codex','claude','zcode','opencode','gemini','kimi-code'].map((agent,i)=>({instance_id:`${agent}@C:/Users/local/.${agent}`,agent,format:'local',health:i===5||i===2?'degraded':'ok',enabled:i!==4,origin_host_id:'local',user_id:owners[`${agent}@C:/Users/local/.${agent}`]??'default',last_success_ms:finished,compat_files:i===3?1:0,degraded_files:i===5?1:0,unsupported_files:i===2?1:0,incompatible_files:0,missing_files:i===0?2:0}))};
     if(cmd==='refresh_status') return {running:false,started_ms:finished-1000,last_finished_ms:finished,trigger:'manual',progress_percent:100,eta_seconds:null,completed_adapters:[],instances:[]};
     if(cmd==='refresh_sources') {revision++;finished++;return {started:true,running:false,last_finished_ms:finished};}
-    if(cmd==='chart_series') return {rows:Array.from({length:12},(_,i)=>{
+    if(cmd==='cost_summary') {
+      if(q.first_period && window.selectionDelay) await new Promise(resolve=>setTimeout(resolve,window.selectionDelay));
+      const row={currency:'USD',total_amount_minor:1234,priced_tokens:100000,known_tokens:200000,priced_event_count:10,unpriced_event_count:0,partial_event_count:2,ttl_defaulted_events:0,fallback_event_count:8};
+      const mode={rows:[row],unpriced_reasons:{},as_of_ms:finished,detail_limited:false};
+      const models=['gpt-5.4','claude-sonnet-4.6','glm-5.3'].map((model,i)=>({model,provider:['openai','anthropic','zhipu'][i],at_time:[{...row,total_amount_minor:[600,400,234][i],priced_event_count:[4,3,3][i]}],current_sim:[{...row,total_amount_minor:(q.first_period?[200,200,100]:[1200,800,468])[i],priced_event_count:[4,3,3][i]}],
+        unit_prices:i===2?[]:[{price_id:`mock-${i}`,snapshot_id:'Synthetic unit prices',provider_id:['openai','anthropic'][i],model,currency:'USD',region:'global',channel:'api',service_tier:'standard',context_threshold_tokens:i===1?200000:0,input_per_mtok_hundredths:30000,output_per_mtok_hundredths:150000,cache_read_per_mtok_hundredths:3000,cache_write_5m_per_mtok_hundredths:37500,cache_write_1h_per_mtok_hundredths:null}]}));
+      const day=(i)=>q.first_day===q.last_day?q.last_day:`2026-09-${15+i}`;
+      return {at_time:mode,current_sim:{...mode,rows:[{...row,total_amount_minor:q.first_period?500:2468}]},source_amounts:[],price_basis:['Synthetic official reference'],data_revision:revision,models,
+        daily:models.map((model,i)=>({day:day(i),provider:model.provider,model:model.model,sums:model.at_time[0]})),
+        daily_current:models.map((model,i)=>({day:day(i),provider:model.provider,model:model.model,sums:model.current_sim[0]}))};
+    }
+    if(cmd==='chart_series') return {rows:Array.from({length:window.singleChartPeriod?1:12},(_,i)=>{
       const label=q.granularity==='hour'?`${q.last_day} ${String(8+i).padStart(2,'0')}:00`:`2026-09-${String(15+i).padStart(2,'0')}`;
       return [{label,series:args.dimension==='agent'?'codex':'gpt-5.4',calls:10+i,input:String(100000*(i+1)),cache_read:String(80000*(i+1)),cache_write:'0',uncached:String(20000*(i+1)),cache_ratio:.8,output:'15000',total:String(115000*(i+1))},
         {label,series:'vscode-copilot-chat',calls:i===0?0:2,input:String(300000+i),cache_read:null,cache_write:null,uncached:null,cache_ratio:null,output:i===0?'0':'1234',total:null}];
     }).flat()};
-    if(cmd==='telemetry_check') return telemetryTargets.map(row=>row.status==='blocked'?row:{...row,status:telemetryConfigured.has(row.id)?'configured':'missing',configurable:!telemetryConfigured.has(row.id)});
+    if(cmd==='telemetry_check') return telemetryTargets.map(row=>{
+      const hasData = row.status==='blocked' ? window.telemetryBlockedHasData
+        : telemetryConfigured.has(row.id) && row.id==='copilot-vscode' && window.telemetryHasData;
+      return {...row, ...(row.status==='blocked'?{}:{status:telemetryConfigured.has(row.id)?'configured':'missing',configurable:!telemetryConfigured.has(row.id)}),
+        verification:hasData?'verified':'waiting',verified_records:hasData?30:0};
+    });
     if(cmd==='telemetry_preview') {
       if(args.id==='qwen'&&failQwenPreview) {failQwenPreview=false;throw 'config_changed';}
       const row=telemetryTargets.find(row=>row.id===args.id);
@@ -148,7 +169,10 @@ assert.equal(await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='telemetr
 const overviewTelemetry=page.locator('.telemetry-setup.compact');
 assert.equal(await overviewTelemetry.locator('button').count(),2,'overview contains only enable-all and details actions');
 assert.equal(await overviewTelemetry.locator('.target,.path,.preview').count(),0,'overview does not enumerate Agents or configuration details');
-assert.match(await overviewTelemetry.textContent(),/4 项本机 Agent 遥测配置待开启/);
+assert.match(await overviewTelemetry.textContent(),/3 待开启[\s\S]*2 暂无数据[\s\S]*0 已核验/);
+assert.doesNotMatch(await overviewTelemetry.textContent(),/配置受限/,'targets without verified data are reported as no data in the overview');
+assert.ok((await overviewTelemetry.boundingBox()).height < 70,'overview telemetry fits one compact row');
+assert.match(await overviewTelemetry.locator('h4').getAttribute('title'),/Copilot[\s\S]*CodeBuddy/,'exporter guidance is available without filling the overview');
 await overviewTelemetry.getByRole('button',{name:'一键开启全部',exact:true}).click();
 assert.equal(await overviewTelemetry.getByRole('button',{name:'一键开启全部',exact:true}).isDisabled(),true,'duplicate bulk clicks are blocked');
 await overviewTelemetry.getByRole('button',{name:'查看详情',exact:true}).click();
@@ -159,12 +183,18 @@ await page.waitForFunction(()=>typeof window.releaseTelemetryApply==='function')
 await page.evaluate(()=>{ window.holdTelemetryApply=false; window.releaseTelemetryApply(); });
 await page.clock.runFor(600);
 assert.equal(await page.locator('#telemetry-settings .target').count(),5,'details lists only the installed Agents returned by discovery');
+assert.equal(await page.locator('[data-telemetry-id="claude"] .status').textContent(),'配置受限','details retain the real policy restriction when there is no data');
+assert.match(await page.locator('[data-telemetry-id="claude"] .data-state').textContent(),/尚未收到导出数据/,'configuration and data states remain separate in details');
 assert.equal(await page.locator('[data-telemetry-id="codebuddy"]').count(),0,'uninstalled Agent templates are not shown');
-assert.match(await page.locator('#telemetry-settings').textContent(),/已保存 2 项，失败 1 项，需手工核对 1 项/,'partial batch outcomes remain visible after navigation');
+assert.match(await page.locator('#telemetry-settings').textContent(),/1 待开启[\s\S]*3 等待数据[\s\S]*0 已核验[\s\S]*1 配置受限/,'configured exports are waiting for data rather than pending setup');
+assert.ok(await page.locator('[data-telemetry-id="qwen"] .error').count(),'partial failure remains visible on its target');
 assert.equal(await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='telemetry_preview'&&['gemini','claude'].includes(c.args.id)).length),0,'configured outputs and managed Agents are skipped');
 await page.locator('#telemetry-settings').getByRole('button',{name:'一键开启全部',exact:true}).click();
 await page.clock.runFor(500);
-assert.match(await page.locator('#telemetry-settings').textContent(),/已保存 1 项，失败 0 项，需手工核对 1 项/,'settings bulk action retries only the remaining configurable item');
+assert.match(await page.locator('#telemetry-settings').textContent(),/0 待开启[\s\S]*4 等待数据[\s\S]*1 配置受限/,'retry clears pending configuration without pretending data exists');
+await page.evaluate(()=>window.telemetryHasData=true);
+await page.clock.runFor(30_500);
+assert.match(await page.locator('[data-telemetry-id="copilot-vscode"] .data-state').textContent(),/30/,'newly produced data is verified automatically');
 assert.deepEqual(await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='telemetry_apply').map(c=>c.args.token)),['mock-preview-copilot-vscode','mock-preview-codex','mock-preview-qwen']);
 await page.locator('[data-telemetry-id="copilot-vscode"]').getByRole('button',{name:'撤销本次配置',exact:true}).click();
 await page.clock.runFor(300);
@@ -185,6 +215,15 @@ await page.setViewportSize({width:1440,height:1100});
 await page.getByRole('navigation').first().getByRole('button',{name:'总览',exact:true}).click();
 await page.clock.runFor(300);
 assert.equal(await page.locator('.telemetry-setup.compact .target,.telemetry-setup.compact .path,.telemetry-setup.compact .preview').count(),0,'returning to overview keeps all details in settings');
+assert.match(await overviewTelemetry.textContent(),/1 待开启[\s\S]*4 暂无数据[\s\S]*0 已核验/);
+assert.doesNotMatch(await overviewTelemetry.textContent(),/配置受限/);
+await page.evaluate(()=>window.telemetryBlockedHasData=true);
+await page.clock.runFor(30_500);
+assert.match(await overviewTelemetry.textContent(),/3 暂无数据[\s\S]*1 已核验[\s\S]*1 配置受限/,'received data does not erase a genuine configuration restriction');
+await page.evaluate(()=>window.telemetryBlockedHasData=false);
+await page.clock.runFor(30_500);
+assert.match(await overviewTelemetry.textContent(),/4 暂无数据[\s\S]*0 已核验/,'automatic checks restore the no-data summary when no valid data is available');
+assert.doesNotMatch(await overviewTelemetry.textContent(),/配置受限/);
 const todayPanel=page.locator('[data-panel-group="overviewToday"]').filter({has:page.locator('.hourly')});
 await todayPanel.getByRole('button',{name:'按Agent',exact:true}).click();await page.clock.runFor(300);
 await page.evaluate(async () => {
@@ -192,6 +231,28 @@ await page.evaluate(async () => {
   echarts.getInstanceByDom(document.querySelector('[data-panel-group="overviewToday"] .hourly')).dispatchAction({type:'showTip',seriesIndex:0,dataIndex:0});
 });await page.clock.runFor(100);
 assert.match(await todayPanel.textContent(),/vscode-copilot-chat · 总 token: 未知[\s\S]*输入 token: 300,000[\s\S]*输出 token: 0/,'overview hover retains partial Copilot usage');
+assert.match(await page.locator('.cost-panel').textContent(),/API[\s\S]*参考/,'overview labels the API price reference');
+const overviewModels=page.locator('[data-panel-group="overviewToday"]').filter({has:page.getByRole('heading',{name:'今日模型明细',exact:true})});
+assert.match(await overviewModels.locator('tfoot').textContent(),/24\.68/,'model footer includes the current currency subtotal');
+assert.match(await overviewModels.locator('tbody tr').filter({hasText:'gpt-5.4'}).first().textContent(),/12\.00/,'each model includes its current API estimate');
+assert.equal(await overviewModels.locator('thead th').count(),7,'model table has one reference amount column');
+assert.match(await page.locator('.reference-summary').textContent(),/24\.68/,'today summary includes the same current estimate');
+assert.doesNotMatch(await page.locator('.cost-panel').textContent(),/按发生时价|按当前价格模拟|12\.34/,'only the current reference estimate is displayed');
+const priceRequests=await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='cost_summary').length);
+await page.locator('.unit-prices summary').click();
+assert.match(await page.locator('.unit-prices').textContent(),/gpt-5\.4[\s\S]*USD 3[\s\S]*USD 15[\s\S]*glm-5\.3[\s\S]*暂无适用单价/,'unit prices show actual model rates and unavailable rows');
+assert.equal(await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='cost_summary').length),priceRequests,'opening prices reuses the loaded reference');
+await page.locator('.unit-prices').screenshot({path:out+'unit-prices.png'});
+await page.locator('.unit-prices summary').click();
+assert.equal(await overviewModels.locator('section').evaluate(el=>el.scrollWidth>el.clientWidth),false,'full-width model table avoids desktop scrolling');
+assert.ok(await page.locator('.curve canvas').count(),'overview renders the cost curve');
+assert.match(await page.locator('tr').filter({hasText:'vscode-copilot-chat'}).first().textContent(),/—[\s\S]*300,000/,'token observations do not display an invented zero call count');
+const todayAgentPie=page.locator('[data-panel-group="overviewToday"]').filter({has:page.getByRole('heading',{name:'今日 Agent 用量',exact:true})});
+assert.match(await todayAgentPie.textContent(),/vscode-copilot-chat/,'unknown totals retain the Agent name beside the pie');
+await todayAgentPie.getByRole('button',{name:'输入 token',exact:true}).click();await page.clock.runFor(300);
+assert.ok(await todayAgentPie.locator('.pie').evaluate(async el=>{
+  const echarts=await import('/node_modules/.vite/deps/echarts_core.js');return echarts.getInstanceByDom(el).getOption().series[0].data.some(d=>d.name==='vscode-copilot-chat'&&d.value===300000);
+}),'known Copilot input appears in the input pie');
 assert.equal(await page.evaluate(()=>window.appCalls.find(c=>c.cmd==='summary').args.q.last_day),'2026-09-28');
 
 await page.screenshot({path:out+'overview-light.png',fullPage:true});
@@ -243,7 +304,7 @@ await trendTokens.getByRole('button',{name:'按Agent',exact:true}).click();await
 const tokenSelector='[data-panel-group="trendMain"] .token-chart';
 const unknownTotal=await getChartOptions(tokenSelector);
 assert.ok(unknownTotal.series.find(s=>s.name==='vscode-copilot-chat').data.every(v=>v===null),'unknown Copilot totals are preserved');
-assert.ok(unknownTotal.series.find(s=>s.name==='vscode-copilot-chat · 输入 token').data.some(v=>v!==null),'known input is visible even when total is unknown');
+assert.equal(unknownTotal.series.filter(s=>s.name.startsWith('vscode-copilot-chat')).length,1,'total usage renders exactly one Copilot series');
 await trendTokens.getByRole('button',{name:'输入 token',exact:true}).click();await page.clock.runFor(300);
 const inputOptions=await getChartOptions(tokenSelector);
 assert.equal(inputOptions.series.find(s=>s.name==='vscode-copilot-chat · 输入 token').data[0],300000,'unknown cache splits do not hide reported input');
@@ -254,8 +315,89 @@ await page.evaluate(async (sel) => {
   const chart=echarts.getInstanceByDom(document.querySelector(sel));
   chart.dispatchAction({type:'showTip',seriesIndex:0,dataIndex:0});
 },tokenSelector);await page.clock.runFor(100);
-assert.match(await trendTokens.textContent(),/vscode-copilot-chat: 未知[\s\S]*输入 token: 300,000[\s\S]*输出 token: 0/,'hover retains unknown total, known input and zero output');
+assert.match(await trendTokens.textContent(),/vscode-copilot-chat · 完整总 token 未提供[\s\S]*输入 token: 300,000[\s\S]*输出 token: 0/,'hover identifies the missing metric without an unknown Agent suffix');
+assert.match(await page.locator('.cost-panel').textContent(),/API[\s\S]*参考/,'trend labels the API price reference');
+const callsPanel=page.locator('[data-panel-group="trendMain"]').filter({has:page.locator('.calls-chart')});
+await callsPanel.getByRole('button',{name:'按Agent',exact:true}).click();await page.clock.runFor(300);
+const callsOptions=await getChartOptions('[data-panel-group="trendMain"] .calls-chart');
+assert.ok(callsOptions.series.some(s=>s.name==='vscode-copilot-chat'),'calls legend contains the Agent');
+assert.ok(callsOptions.series.every(s=>!/token/i.test(s.name)),'calls chart has no token series');
+const summaryLayout=await page.locator('.range-summary .summary-cards').evaluate(el=>({columns:getComputedStyle(el).gridTemplateColumns.split(' ').length,children:el.children.length}));
+assert.deepEqual(summaryLayout,{columns:7,children:7},'wide summaries keep seven compact metrics in one row');
+assert.ok((await page.locator('.summary-quota').boundingBox()).height < 80,'quota is a compact independent strip');
+await page.locator('.summary-quota summary').click();
+assert.match(await page.locator('.summary-quota .detail-content').textContent(),/快照|账户/,'quota details retain snapshot and account scope');
+await page.locator('.summary-quota summary').click();
+assert.match(await page.locator('.range-summary .reference-summary').textContent(),/24\.68/,'range summary includes the current full estimate');
+await page.setViewportSize({width:760,height:1000});await page.clock.runFor(100);
+assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'compact trend summaries fit a narrow window');
+await page.locator('.range-summary').screenshot({path:out+'trend-summary-narrow.png'});
+await page.setViewportSize({width:1440,height:1100});await page.clock.runFor(100);
+assert.ok((await trendTokens.boundingBox()).width > 900,'token and call charts have room across the page');
+const trendModels=page.locator('[data-panel-group="trendMain"]').filter({has:page.locator('tfoot')});
+assert.match(await trendModels.locator('tfoot').textContent(),/24\.68/,'trend model table also includes the current subtotal');
+const costOption=await getChartOptions('[data-panel-group="trendMain"] .curve');
+assert.deepEqual(costOption.series[0].data.slice(0,3),[1200,800,468],'cost curve uses current per-day amounts rather than historical prices');
+await page.locator('[data-panel-group="trendMain"] .curve').scrollIntoViewIfNeeded();
+await page.locator('[data-panel-group="trendMain"] .controls').getByRole('button',{name:'按模型',exact:true}).click();await page.clock.runFor(100);
+assert.equal((await getChartOptions('[data-panel-group="trendMain"] .curve')).series.length,3,'cost curve can compare individual models');
+await trendTokens.scrollIntoViewIfNeeded();
+const selectionPoint=await page.locator(tokenSelector).evaluate(async el=>{
+  const echarts=await import('/node_modules/.vite/deps/echarts_core.js');const chart=echarts.getInstanceByDom(el);
+  const bounds=el.getBoundingClientRect();const point=chart.convertToPixel({gridIndex:0},[1,100000]);
+  return {x:bounds.left+point[0],y:bounds.top+point[1]};
+});
+await page.mouse.click(selectionPoint.x,selectionPoint.y);await page.clock.runFor(400);
+assert.match(await page.locator('.range-caption').textContent(),/选定范围[：:]2026-09-16/,'clicking a curve point scopes the summary');
+assert.equal(await page.locator('.range-summary .scard').first().locator('.svalue').textContent(),'84','selected summary comes from the scoped backend query');
+assert.match(await page.locator('.range-summary .reference-summary').textContent(),/5\.00/,'selected reference uses the same scoped query');
+await page.evaluate(async sel=>{
+  const echarts=await import('/node_modules/.vite/deps/echarts_core.js');
+  echarts.getInstanceByDom(document.querySelector(sel)).dispatchAction({type:'dataZoom',startValue:2,endValue:4});
+},tokenSelector);await page.clock.runFor(400);
+assert.match(await page.locator('.range-caption').textContent(),/2026-09-17 ~ 2026-09-19/,'zooming selects the visible x-axis range');
+const selectionRequest=await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='summary'&&c.args.q.first_period).at(-1).args.q);
+assert.equal(selectionRequest.first_day,'2026-09-17');assert.equal(selectionRequest.last_day,'2026-09-19');
+await page.evaluate(async sel=>{
+  const echarts=await import('/node_modules/.vite/deps/echarts_core.js');
+  echarts.getInstanceByDom(document.querySelector(sel)).trigger('click',{componentType:'xAxis',value:'2026-09-18'});
+},tokenSelector);await page.clock.runFor(300);
+assert.match(await page.locator('.range-caption').textContent(),/选定范围[：:]2026-09-18/,'x-axis labels also select a period');
+await page.evaluate(async sel=>{
+  window.selectionDelay=900;
+  const echarts=await import('/node_modules/.vite/deps/echarts_core.js');
+  echarts.getInstanceByDom(document.querySelector(sel)).trigger('click',{componentType:'xAxis',value:'2026-09-19'});
+},tokenSelector);await page.clock.runFor(100);
+await page.evaluate(async sel=>{
+  window.selectionDelay=0;
+  const echarts=await import('/node_modules/.vite/deps/echarts_core.js');
+  echarts.getInstanceByDom(document.querySelector(sel)).trigger('click',{componentType:'xAxis',value:'2026-09-18'});
+},tokenSelector);await page.clock.runFor(1_000);
+assert.equal(await page.locator('.range-summary .scard').first().locator('.svalue').textContent(),'84','an older selection response cannot replace the current summary');
+assert.match(await page.locator('.range-summary .reference-summary').textContent(),/5\.00/,'an older cost response cannot replace the selected estimate');
+await page.locator('.range-reset').click();await page.clock.runFor(100);
+assert.equal(await page.locator('.range-summary .scard').first().locator('.svalue').textContent(),'504','reset restores the original query summary');
+assert.match(await page.locator('.range-summary .reference-summary').textContent(),/24\.68/,'reset restores the original current reference');
+const pieLayout=await getChartOptions('[data-panel-group="trendMain"] .pie');
+assert.equal(pieLayout.legend[0].orient,'horizontal','pie legends stay below the circle');
+await trendModels.screenshot({path:out+'model-cost-table.png'});
+await page.locator('[data-panel-group="trendMain"]').filter({has:page.locator('.curve')}).screenshot({path:out+'model-cost-curve.png'});
 await page.screenshot({path:out+'trend-light.png',fullPage:true});
+await page.locator('.filters select').first().selectOption('today');await page.clock.runFor(500);
+const hourlyCost=await getChartOptions('[data-panel-group="trendMain"] .curve');
+assert.equal(hourlyCost.xAxis[0].data.length,1,'hourly usage keeps costs on one daily axis');
+await page.evaluate(async sel=>{
+  const echarts=await import('/node_modules/.vite/deps/echarts_core.js');
+  const chart=echarts.getInstanceByDom(document.querySelector(sel));
+  chart.dispatchAction({type:'dataZoom',startValue:1,endValue:3});
+},tokenSelector);await page.clock.runFor(300);
+assert.match(await page.locator('.range-caption').textContent(),/09:00 ~ .*11:00/,'hour selection preserves the time bounds');
+const hourlySelection=await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='summary'&&c.args.q.first_period).at(-1).args.q);
+assert.equal(hourlySelection.first_period.slice(-5),'09:00');assert.equal(hourlySelection.last_period.slice(-5),'11:00');
+const hourlyPrice=await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='cost_summary'&&c.args.q.first_period).at(-1).args.q);
+assert.equal(hourlyPrice.first_period.slice(-5),'09:00');assert.equal(hourlyPrice.last_period.slice(-5),'11:00');
+await page.locator('.filters select').first().selectOption('30');await page.clock.runFor(500);
+assert.equal(await page.locator('.range-reset').count(),0,'changing the query clears the old selection');
 await page.getByRole('navigation').first().getByRole('button',{name:'数据源',exact:true}).click();
 assert.match(await page.locator('.source-card').filter({has:page.getByRole('heading',{name:'opencode',exact:true})}).textContent(),/已就绪[\s\S]*兼容读取 1 个文件/,'compatible parser is informational when the source is healthy');
 assert.match(await page.locator('.source-card').filter({has:page.getByRole('heading',{name:'zcode',exact:true})}).textContent(),/部分数据需核对[\s\S]*未识别 1 个文件/,'unrecognized usage carrier remains visible');
@@ -338,11 +480,20 @@ assert.equal(await page.locator('.dialog').count(), 0, 'dialog closes when the b
 assert.match(await page.locator('.ok').filter({ hasText: '已清理' }).first().textContent(), /已清理：/, 'cleared counts are summarized');
 await page.getByRole('navigation').first().getByRole('button',{name:'总览',exact:true}).click();
 await page.setViewportSize({width:760,height:1000});
+await page.evaluate(()=>{window.singleChartPeriod=true;});
+await page.getByRole('button',{name:'采集并刷新',exact:true}).click();await page.clock.runFor(800);
+const singlePanel=page.locator('[data-panel-group="overviewToday"]').filter({has:page.locator('.hourly')});
+await singlePanel.getByRole('button',{name:'按Agent',exact:true}).click();await page.clock.runFor(300);
+const singleCalls=await getChartOptions('[data-panel-group="overviewToday"] .hourly');
+assert.deepEqual(singleCalls.series.map(s=>s.name),['codex','vscode-copilot-chat'],'single-period call legend uses Agent names');
+assert.equal(singleCalls.yAxis.length,1,'call grouping contains a single call axis');
+await page.evaluate(async ()=>{const echarts=await import('/node_modules/.vite/deps/echarts_core.js');echarts.getInstanceByDom(document.querySelector('[data-panel-group="overviewToday"] .hourly')).dispatchAction({type:'showTip',seriesIndex:1,dataIndex:1});});await page.clock.runFor(100);
+assert.match(await singlePanel.textContent(),/vscode-copilot-chat[\s\S]*输入 token: 300,000/,'single-period hover keeps partial usage information');
 await page.screenshot({path:out+'overview-narrow.png',fullPage:true});
 assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth > innerWidth),false,'no horizontal page overflow');
 assert.deepEqual(errors,[]);
 await writeFile(out+'browser-results.json',JSON.stringify({errors,requests:await page.evaluate(()=>window.appCalls.length),checks:['five pages','full-year light/dark heatmap','year navigation and leap days','future/retained dates','Copilot input with unknown cache split','Copilot unknown total hover and zero output','async telemetry discovery','compact overview with two actions','details navigation and focus','batch partial failure and retry','existing/managed outputs preserved','cross-page progress and undo','installed Agents only','merge configuration preview/apply/undo','ten locale switches','narrow telemetry layout in Chinese/German/Russian','default panel order','source health and compatibility','statistics timezone','initial/idle query counts','stale filter responses','user isolation','source membership without revision','refresh preserves pagination','retention clamps pagination'],screenshots:11},null,2));
-console.log('Browser checks passed: compact overview, telemetry details navigation, batch setup/retry/undo, installed Agents, full-year heatmap, Copilot partial metrics, ten locales, themes, timezone, filters and pagination.');
+console.log('Browser checks passed: total-only series, Agent calls and single-period hover, partial share pies, overview/trend API references, filled summary layout, telemetry batch setup/retry/undo, ten locales, themes, timezone, filters and pagination.');
 } catch (error) {
   const snapshot = testPage ? await testPage.evaluate(() => ({ calls: window.appCalls ?? [], text: document.body.innerText })).catch(() => null) : null;
   await writeFile(out+'failure.json',JSON.stringify({error:String(error),errors,console:browserConsole,snapshot},null,2));

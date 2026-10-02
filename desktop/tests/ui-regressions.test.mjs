@@ -4,6 +4,7 @@ import { calendarDay, offsetDay, calendarYearRange } from '../src/lib/calendar.t
 import { loadPanelGroup, savePanelGroup, clearPanelPage } from '../src/lib/panels.ts';
 import { durationStatsOf, pivotChartSeries, mergeNamedValues } from '../src/lib/derive.ts';
 import { escapeHtml } from '../src/lib/chart.ts';
+import {formatUnitPrice} from '../src/lib/costs.ts';
 
 test('statistics dates follow the selected timezone across midnight and DST', () => {
   const time = new Date('2026-09-27T23:30:00Z');
@@ -52,4 +53,12 @@ test('name-only shares combine provider rows without splitting case', () => {
 
 test('source-controlled chart labels cannot inject tooltip HTML', () => {
   assert.equal(escapeHtml('<img src=x onerror="alert(1)">&'), '&lt;img src=x onerror=&quot;alert(1)&quot;&gt;&amp;');
+});
+
+test('unit rates preserve small prices, known zero and unavailable components',()=>{
+  assert.equal(formatUnitPrice('en','USD',750),'USD 0.075');
+  assert.equal(formatUnitPrice('en','USD',36),'USD 0.0036');
+  assert.equal(formatUnitPrice('en','CNY',80000),'CNY 8');
+  assert.equal(formatUnitPrice('en','USD',0),'USD 0');
+  assert.equal(formatUnitPrice('en','USD',null),'—');
 });

@@ -138,7 +138,7 @@ fn current_sim(
 }
 
 fn run_summary(storage: &Storage, now_ms: i64) -> llm_usage_core::storage::pricing::CostSummary {
-    storage
+    let summary = storage
         .cost_summary(&CostSummaryRequest {
             timezone: "UTC".to_string(),
             first_day: "2026-09-26".to_string(),
@@ -147,7 +147,150 @@ fn run_summary(storage: &Storage, now_ms: i64) -> llm_usage_core::storage::prici
             now_ms,
             options: options(),
         })
-        .unwrap()
+        .unwrap();
+    for mode in [&summary.at_time, &summary.current_sim] {
+        for total in &mode.rows {
+            let model_rows: Vec<_> = summary
+                .models
+                .iter()
+                .flat_map(|model| {
+                    if std::ptr::eq(mode, &summary.at_time) {
+                        &model.at_time
+                    } else {
+                        &model.current_sim
+                    }
+                })
+                .filter(|row| row.currency == total.currency)
+                .collect();
+            assert_eq!(
+                model_rows
+                    .iter()
+                    .map(|row| row.total_amount_minor)
+                    .sum::<i64>(),
+                total.total_amount_minor
+            );
+            assert_eq!(
+                model_rows
+                    .iter()
+                    .map(|row| row.priced_event_count)
+                    .sum::<i64>(),
+                total.priced_event_count
+            );
+            assert_eq!(
+                model_rows
+                    .iter()
+                    .map(|row| row.unpriced_event_count)
+                    .sum::<i64>(),
+                total.unpriced_event_count
+            );
+        }
+    }
+    for total in &summary.at_time.rows {
+        assert_eq!(
+            summary
+                .daily
+                .iter()
+                .filter(|row| row.sums.currency == total.currency)
+                .map(|row| row.sums.total_amount_minor)
+                .sum::<i64>(),
+            total.total_amount_minor
+        );
+    }
+    for total in &summary.current_sim.rows {
+        assert_eq!(
+            summary
+                .daily_current
+                .iter()
+                .filter(|r| r.sums.currency == total.currency)
+                .map(|r| r.sums.total_amount_minor)
+                .sum::<i64>(),
+            total.total_amount_minor
+        );
+    }
+    summary
+}
+
+#[test]
+fn current_reference_rates_curve_and_hour_selection_preserve_frozen_costs() {
+    let (_dir, storage) = temp_storage("reference-current");
+    storage
+        .import_price_snapshot(
+            &parse_snapshot_json(SNAPSHOT).unwrap(),
+            ts("2026-09-25T00:00:00Z"),
+        )
+        .unwrap();
+    let mut a = priced_evt(
+        "a",
+        "openai",
+        "gpt-6-astra",
+        Some(100000),
+        Some(0),
+        Some(0),
+        Some(10000),
+    );
+    let mut b = priced_evt(
+        "b",
+        "openai",
+        "gpt-6-astra",
+        Some(300000),
+        Some(0),
+        Some(0),
+        Some(10000),
+    );
+    a.occurred_at_ms = ts("2026-09-26T08:00:00Z");
+    b.occurred_at_ms = ts("2026-09-26T09:00:00Z");
+    commit_batch(
+        &storage,
+        &batch("inst", "UTC", ts("2026-09-26T12:00:00Z"), vec![a, b]),
+        None,
+    )
+    .unwrap();
+    storage
+        .recompute_cost_day("UTC", "2026-09-26", ts("2026-09-26T12:00:00Z"), &options())
+        .unwrap();
+    let newer = r#"{"format":"llm-usage-price-snapshot/1","snapshot":{"id":"new-current","source_type":"manual","source_urls":[],"fetched_at":"2026-10-02"},"rows":[
+      {"price_id":"new-base","provider_id":"openai","model":"gpt-6-astra","region":"global","channel":"api","currency":"USD","effective_from":"2026-10-02","input":300000,"output":1000000},
+      {"price_id":"new-long","provider_id":"openai","model":"gpt-6-astra","region":"global","channel":"api","currency":"USD","effective_from":"2026-10-02","context_threshold_tokens":272000,"input":400000,"output":1000000}] }"#;
+    storage
+        .import_price_snapshot(
+            &parse_snapshot_json(newer).unwrap(),
+            ts("2026-10-02T12:00:00Z"),
+        )
+        .unwrap();
+    let request = CostSummaryRequest {
+        timezone: "UTC".into(),
+        first_day: "2026-09-26".into(),
+        last_day: "2026-09-26".into(),
+        filters: CostFilters::default(),
+        now_ms: ts("2026-10-02T12:00:00Z"),
+        options: options(),
+    };
+    let full = storage.cost_summary(&request).unwrap();
+    assert_eq!(full.at_time.rows[0].total_amount_minor, 825);
+    assert_eq!(full.current_sim.rows[0].total_amount_minor, 1700);
+    assert_eq!(full.daily_current[0].sums.total_amount_minor, 1700);
+    assert_eq!(full.models[0].unit_prices.len(), 2);
+    assert_eq!(full.models[0].unit_prices[0].price_id, "new-base");
+    assert_eq!(
+        full.models[0].unit_prices[1].context_threshold_tokens,
+        272000
+    );
+    let hour = storage
+        .cost_summary_selected(&request, Some(("2026-09-26 08:00", "2026-09-26 08:00")))
+        .unwrap();
+    assert_eq!(hour.current_sim.rows[0].total_amount_minor, 400);
+    assert_eq!(hour.models[0].unit_prices.len(), 1);
+    assert_eq!(hour.daily_current[0].sums.total_amount_minor, 400);
+    assert_eq!(
+        hour.at_time.rows[0].total_amount_minor, 825,
+        "current-price query leaves frozen daily history intact"
+    );
+    assert!(storage
+        .cost_summary_selected(&request, Some(("2026-09-26 25:00", "2026-09-26 25:00")))
+        .is_err());
+    assert!(storage
+        .cost_summary_selected(&request, Some(("2026-09-26 é:00", "2026-09-26 é:00")))
+        .is_err());
 }
 
 /// E1/E3/E4–E7/E8 + A1–A8 全链路（导入→入库→回填→汇总）。
@@ -471,7 +614,7 @@ fn v29_contract_amounts_and_anomalies() {
     );
 }
 
-/// 渠道不明不套价（未配置供应商渠道 → 全部未计价，不写 0）。
+/// 未配置渠道且缺少官方价行时保留未计价，不把非官方手工价当参考。
 #[test]
 fn v29_unconfigured_channel_leaves_events_unpriced() {
     let (_dir, storage) = temp_storage("v29chan");
@@ -518,7 +661,7 @@ fn v29_unconfigured_channel_leaves_events_unpriced() {
         1
     );
     assert_eq!(
-        summary.at_time.unpriced_reasons.get("channel_unknown"),
+        summary.at_time.unpriced_reasons.get("no_price_row"),
         Some(&1)
     );
 }
@@ -578,10 +721,7 @@ fn v29_unpriced_reasons_follow_event_dimensions() {
     };
     let all = summary(CostFilters::default());
     assert_eq!(currency_row(&all, at_time, "").unpriced_event_count, 2);
-    assert_eq!(
-        all.at_time.unpriced_reasons.get("channel_unknown"),
-        Some(&2)
-    );
+    assert_eq!(all.at_time.unpriced_reasons.get("no_price_row"), Some(&2));
 
     let only_a = summary(CostFilters {
         agents: vec!["agent-a".into()],
@@ -591,7 +731,7 @@ fn v29_unpriced_reasons_follow_event_dimensions() {
     });
     assert_eq!(currency_row(&only_a, at_time, "").unpriced_event_count, 1);
     assert_eq!(
-        only_a.at_time.unpriced_reasons.get("channel_unknown"),
+        only_a.at_time.unpriced_reasons.get("no_price_row"),
         Some(&1)
     );
     let other = summary(CostFilters {
@@ -601,10 +741,7 @@ fn v29_unpriced_reasons_follow_event_dimensions() {
         instances: Some(vec!["instance-b".into()]),
     });
     assert_eq!(currency_row(&other, at_time, "").unpriced_event_count, 1);
-    assert_eq!(
-        other.at_time.unpriced_reasons.get("channel_unknown"),
-        Some(&1)
-    );
+    assert_eq!(other.at_time.unpriced_reasons.get("no_price_row"), Some(&1));
 }
 
 #[test]
@@ -837,9 +974,13 @@ fn v29_seed_snapshot_imports_idempotently() {
     assert!(out2.already_present);
     assert_eq!(out2.inserted_rows, 0);
     let snapshots = storage.list_price_snapshots().unwrap();
-    assert_eq!(snapshots.len(), 1);
-    assert_eq!(snapshots[0].snapshot_id, "seed-2026-09-25");
-    assert_eq!(snapshots[0].row_count as usize, out1.inserted_rows);
+    assert_eq!(snapshots.len(), 2);
+    let original = snapshots
+        .iter()
+        .find(|s| s.snapshot_id == "seed-2026-09-25")
+        .unwrap();
+    assert_eq!(original.row_count as usize, out1.inserted_rows);
+    assert_eq!(snapshots[0].row_count, 2);
 }
 
 /// 维度筛选语义：provider/model 筛选只命中所选值（空值事件不算入任何具体
@@ -934,7 +1075,7 @@ fn v29_dimension_filters_do_not_include_empty_values() {
         1
     );
     assert_eq!(
-        unknown_only.at_time.unpriced_reasons.get("no_provider"),
+        unknown_only.at_time.unpriced_reasons.get("no_price_row"),
         Some(&1)
     );
 
@@ -954,7 +1095,7 @@ fn v29_dimension_filters_do_not_include_empty_values() {
 
 /// 官方供应商回退端到端（2026-10-01 用户合同）：事件 provider 无精确价格行时
 /// 参考官方 provider 按量价，日成本行与汇总记录 fallback_event_count；
-/// 未配置渠道的供应商仍不套价（channel_unknown）。
+/// 未配置渠道同样可参考已标官方的同型号价格，实际渠道保持未知。
 #[test]
 fn v29_official_provider_fallback_end_to_end() {
     let (_dir, storage) = temp_storage("v29fallback");
@@ -984,7 +1125,7 @@ fn v29_official_provider_fallback_end_to_end() {
             Some(0),
             Some(1_000_000),
         ),
-        // 未配置渠道的供应商：channel_unknown，不回退。
+        // 未配置渠道同样可参考该型号已明确标记的官方价格。
         priced_evt(
             "fb2",
             "relay-unconfigured",
@@ -1016,18 +1157,14 @@ fn v29_official_provider_fallback_end_to_end() {
         })
         .unwrap();
     let usd = currency_row(&summary, at_time, "USD");
-    assert_eq!(usd.total_amount_minor, 6000);
-    assert_eq!(usd.priced_event_count, 1);
-    assert_eq!(usd.fallback_event_count, 1);
+    assert_eq!(usd.total_amount_minor, 12000);
+    assert_eq!(usd.priced_event_count, 2);
+    assert_eq!(usd.fallback_event_count, 2);
     assert!(summary
         .price_basis
         .contains(&"models-dev-2026-09-25-test".to_string()));
-    // 未计价事件：未配置渠道（channel_unknown）1 条。
-    assert_eq!(
-        summary.at_time.unpriced_reasons.get("channel_unknown"),
-        Some(&1)
-    );
+    assert!(summary.at_time.unpriced_reasons.is_empty());
     // 按当前价格模拟同样走回退并计数。
     let sim_usd = currency_row(&summary, current_sim, "USD");
-    assert_eq!(sim_usd.fallback_event_count, 1);
+    assert_eq!(sim_usd.fallback_event_count, 2);
 }

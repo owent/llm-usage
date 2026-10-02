@@ -92,3 +92,30 @@ export function hideTooltipOnBlank(chart: ECharts): () => void {
     if (!chart.isDisposed()) chart.getZr().off('mousemove', onMove);
   };
 }
+
+/** Point/axis selection and zoom ranges share the same period labels. */
+export function setupRangeSelection(chart:ECharts,labels:()=>string[],onpoint?:(label:string)=>void,onrange?:(first:string,last:string)=>void):()=>void {
+  const pick=(index:number)=>{const label=labels()[index];if(label){onpoint?.(label);chart.dispatchAction({type:'hideTip'});}};
+  const click=(event:{offsetX:number;offsetY:number})=>{
+    if(!chart.containPixel('grid',[event.offsetX,event.offsetY]))return;
+    const index=chart.convertFromPixel({xAxisIndex:0},event.offsetX);
+    if(typeof index==='number' && Number.isFinite(index))pick(Math.max(0,Math.min(labels().length-1,Math.round(index))));
+  };
+  const axis=(event:unknown)=>{const p=event as {componentType?:string;value?:string};if(p.componentType==='xAxis') {
+    const index=labels().findIndex((label)=>p.value===label || p.value?.startsWith(label));if(index>=0)pick(index);
+  }};
+  const zoom=(event:unknown)=>{
+    const e=event as {start?:number;end?:number;batch?:{start?:number;end?:number}[]};
+    const range=e.batch?.[0]??e;
+    const list=labels(); if(!list.length)return;
+    const option=chart.getOption() as {dataZoom?:{startValue?:number|string;endValue?:number|string}[]};
+    const current=option.dataZoom?.[0];
+    const indexOf=(value:number|string|undefined,percent:number)=>typeof value==='string' ? list.indexOf(value) : value??Math.round(percent*(list.length-1)/100);
+    const start=indexOf(current?.startValue,range.start??0);
+    const end=indexOf(current?.endValue,range.end??100);
+    const first=list[Math.max(0,Math.min(list.length-1,start))];const last=list[Math.max(0,Math.min(list.length-1,end))];
+    if(first && last)onrange?.(first,last);
+  };
+  chart.getZr().on('click',click);chart.on('click',axis);chart.on('datazoom',zoom);
+  return ()=>{if(!chart.isDisposed()){chart.getZr().off('click',click);chart.off('click',axis);chart.off('datazoom',zoom);}};
+}

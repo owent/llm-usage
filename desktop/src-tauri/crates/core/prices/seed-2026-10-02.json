@@ -1,0 +1,48 @@
+{
+  "format": "llm-usage-price-snapshot/1",
+  "snapshot": {
+    "id": "seed-2026-10-02-copilot-models",
+    "source_type": "seed",
+    "source_urls": [
+      "https://platform.claude.com/docs/en/about-claude/pricing",
+      "https://platform.claude.com/docs/en/models/opus-4-8/overview",
+      "https://developers.openai.com/api/docs/models/gpt-4o-mini"
+    ],
+    "fetched_at": "2026-10-02",
+    "verified_at": "2026-10-02",
+    "verified_by": "Official model and standard API pricing pages; dashboard-repair validation",
+    "note": "USD per million text tokens, encoded as hundredths of cents. Effective start is retrieval date; do not invent historical applicability. Standard tier only; cache TTL remains explicit."
+  },
+  "rows": [
+    {
+      "price_id": "anthropic-opus-4-8-global-standard-2026-10-02",
+      "provider_id": "anthropic",
+      "model": "claude-opus-4-8",
+      "region": "global",
+      "channel": "api",
+      "service_tier": "standard",
+      "effective_from": "2026-10-02",
+      "currency": "USD",
+      "input": 50000,
+      "output": 250000,
+      "cache_read": 5000,
+      "cache_write_5m": 62500,
+      "cache_write_1h": 100000,
+      "official_vendor": true
+    },
+    {
+      "price_id": "openai-gpt-4o-mini-2024-07-18-standard-2026-10-02",
+      "provider_id": "openai",
+      "model": "gpt-4o-mini-2024-07-18",
+      "region": "global",
+      "channel": "api",
+      "service_tier": "standard",
+      "effective_from": "2026-10-02",
+      "currency": "USD",
+      "input": 1500,
+      "cache_read": 750,
+      "output": 6000,
+      "official_vendor": true
+    }
+  ]
+}

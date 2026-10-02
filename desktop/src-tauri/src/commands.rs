@@ -239,6 +239,10 @@ pub struct SummaryQuery {
     pub providers: Vec<String>,
     #[serde(default)]
     pub models: Vec<String>,
+    #[serde(default)]
+    pub first_period: Option<String>,
+    #[serde(default)]
+    pub last_period: Option<String>,
 }
 
 fn build_request(
@@ -314,16 +318,30 @@ fn metric_sums_dto(s: &llm_usage_core::query::MetricSums) -> serde_json::Value {
 }
 
 #[tauri::command]
-pub fn summary(
+pub async fn summary(
     state: tauri::State<'_, Arc<AppState>>,
     q: SummaryQuery,
 ) -> Result<serde_json::Value, String> {
+    let state = Arc::clone(&state);
     let settings = state.settings.lock().unwrap().clone();
     let current_user = state.current_user.lock().unwrap().clone();
-    let request = build_request(&settings, &q, Vec::new())?;
+    tauri::async_runtime::spawn_blocking(move || {
+        summary_query(&state, &settings, &current_user, &q)
+    })
+    .await
+    .map_err(|_| err("query", "query worker failed"))?
+}
+
+fn summary_query(
+    state: &Arc<AppState>,
+    settings: &AppSettings,
+    current_user: &str,
+    q: &SummaryQuery,
+) -> Result<serde_json::Value, String> {
+    let request = build_request(settings, q, Vec::new())?;
     // 读路径：常驻只读连接（WAL 与后台扫描并发；失败回退写连接）。
-    let storage = crate::app_state::read_conn(&state);
-    let instances = user_instances(&storage, &current_user)?;
+    let storage = crate::app_state::read_conn(state);
+    let instances = user_instances(&storage, current_user)?;
     let request = SummaryRequest {
         filters: Filters {
             instances: Some(instances),
@@ -331,7 +349,13 @@ pub fn summary(
         },
         ..request
     };
-    let s = query_summary(&storage, &request).map_err(|e| err("query", e.to_string()))?;
+    let selection = match (q.first_period.as_deref(), q.last_period.as_deref()) {
+        (None, None) => None,
+        (Some(first), Some(last)) => Some((first, last)),
+        _ => return Err(err("query", "both period bounds are required")),
+    };
+    let s = llm_usage_core::query::query_summary_selected(&storage, &request, selection)
+        .map_err(|e| err("query", e.to_string()))?;
     let today_hourly = if request.first_day == request.today && request.last_day == request.today {
         hourly_breakdown(
             &storage,
@@ -384,15 +408,29 @@ pub fn summary(
 }
 
 #[tauri::command]
-pub fn heatmap(
+pub async fn heatmap(
     state: tauri::State<'_, Arc<AppState>>,
     q: SummaryQuery,
 ) -> Result<serde_json::Value, String> {
+    let state = Arc::clone(&state);
     let settings = state.settings.lock().unwrap().clone();
     let current_user = state.current_user.lock().unwrap().clone();
-    let mut request = build_request(&settings, &q, Vec::new())?;
-    let storage = crate::app_state::read_conn(&state);
-    request.filters.instances = Some(user_instances(&storage, &current_user)?);
+    tauri::async_runtime::spawn_blocking(move || {
+        heatmap_query(&state, &settings, &current_user, &q)
+    })
+    .await
+    .map_err(|_| err("query", "query worker failed"))?
+}
+
+fn heatmap_query(
+    state: &Arc<AppState>,
+    settings: &AppSettings,
+    current_user: &str,
+    q: &SummaryQuery,
+) -> Result<serde_json::Value, String> {
+    let mut request = build_request(settings, q, Vec::new())?;
+    let storage = crate::app_state::read_conn(state);
+    request.filters.instances = Some(user_instances(&storage, current_user)?);
     let cells = heatmap_cells(
         &storage,
         &settings.timezone,
@@ -1310,7 +1348,8 @@ fn clear_all_tables(
     tx.execute(
         "DELETE FROM settings WHERE key='detail_retention_floor_ms'
         OR key LIKE 'daily_retention_floor:%' OR key LIKE 'retention_applied:%'
-        OR key LIKE 'zcode_archive_day:%' OR key LIKE 'zcode_archive_authority:%'",
+        OR key LIKE 'zcode_archive_day:%' OR key LIKE 'zcode_archive_authority:%'
+        OR key='copilot_otel_scopes_v1' OR key LIKE 'cost_matching_policy:%'",
         [],
     )
     .map_err(|e| err("db", e.to_string()))?;
@@ -1510,16 +1549,30 @@ fn insert_user(
     ).map_err(|e| err("db", e.to_string()))
 }
 
-/// F2 费用汇总（按发生时价 / 来源金额 / 按当前价格模拟分列，多币种不合并）。
+/// Current API reference and optional selected hours; frozen daily history is preserved.
 #[tauri::command]
-pub fn cost_summary(
+pub async fn cost_summary(
     state: tauri::State<'_, Arc<AppState>>,
     q: SummaryQuery,
 ) -> Result<serde_json::Value, String> {
+    let state = Arc::clone(&state);
     let settings = state.settings.lock().unwrap().clone();
     let current_user = state.current_user.lock().unwrap().clone();
-    let storage = crate::app_state::read_conn(&state);
-    let instances = user_instances(&storage, &current_user)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        cost_summary_query(&state, &settings, &current_user, &q)
+    })
+    .await
+    .map_err(|_| err("cost_summary", "query worker failed"))?
+}
+
+fn cost_summary_query(
+    state: &Arc<AppState>,
+    settings: &AppSettings,
+    current_user: &str,
+    q: &SummaryQuery,
+) -> Result<serde_json::Value, String> {
+    let storage = crate::app_state::read_conn(state);
+    let instances = user_instances(&storage, current_user)?;
     let request = llm_usage_core::storage::pricing::CostSummaryRequest {
         timezone: settings.timezone.clone(),
         first_day: parse_date(&q.first_day)
@@ -1537,8 +1590,17 @@ pub fn cost_summary(
         now_ms: now_ms(),
         options: settings.pricing.estimate_options(),
     };
+    let hours = match (
+        q.first_period.as_deref(),
+        q.last_period.as_deref(),
+        q.granularity.as_str(),
+    ) {
+        (Some(first), Some(last), "hour") => Some((first, last)),
+        (None, None, _) | (Some(_), Some(_), _) => None,
+        _ => return Err(err("cost_summary", "incomplete period selection")),
+    };
     let summary = storage
-        .cost_summary(&request)
+        .cost_summary_selected(&request, hours)
         .map_err(|e| err("cost_summary", e.to_string()))?;
     serde_json::to_value(&summary).map_err(|e| err("serialize", e.to_string()))
 }
@@ -1704,6 +1766,8 @@ mod clear_all_tests {
         state.clear_job_running.store(false, Ordering::SeqCst);
         {
             let storage = state.storage.lock().unwrap();
+            storage.conn().execute_batch("INSERT INTO settings(key,value,schema_version,updated_at_ms) VALUES
+                ('copilot_otel_scopes_v1','[]',1,0),('cost_matching_policy:UTC','official-reference-2',1,0);").unwrap();
             storage
                 .conn()
                 .execute(
@@ -1780,6 +1844,11 @@ mod clear_all_tests {
             .query_row("SELECT COUNT(*) FROM daily_cost_usage", [], |r| r.get(0))
             .unwrap();
         assert_eq!(cost_rows, 0);
+        let markers:i64=storage.conn().query_row("SELECT COUNT(*) FROM settings WHERE key='copilot_otel_scopes_v1' OR key LIKE 'cost_matching_policy:%'",[],|r|r.get(0)).unwrap();
+        assert_eq!(
+            markers, 0,
+            "full data reset clears derived authority and matching markers"
+        );
         drop(storage);
         drop(state);
         let _ = std::fs::remove_file(backup);

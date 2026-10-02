@@ -1,6 +1,7 @@
-//! OTel spans JSONL 格式实现（`spans_doc1`，文档级 otel-spans-doc-1）。
+//! OTel spans JSONL 格式实现（`spans_doc1`；Copilot native file parser v2）。
 //!
-//! 格式证据（2026-09-29 官方文档核验，[研究存档]；无本机真实样本，需启用载体）：
+//! 格式证据：2026-09-29 官方文档、2026-10-02 VS Code 1.140.0 本机 30 个 CLIENT span
+//! （docs/validation/desktop-usage/dashboard-repair.md）；CLI/JetBrains 仍为独立待验版本。
 //! - **VS Code Copilot Chat file exporter**（microsoft/vscode
 //!   extensions/copilot/docs/monitoring/agent_monitoring.md @ bdc5ebe）：
 //!   `github.copilot.chat.otel.exporterType="file"` + `outfile`，或
@@ -26,12 +27,13 @@
 //!   仅 OTLP/protobuf 导出 ⇒ 由本应用 OTLP 接收器归一化为同形状 JSONL。
 //! - trace/span ID 键名文档未逐字给出 ⇒ 双拼写容错（spanId/span_id）；
 //!   不可用记录跳行记诊断（不猜）。
-//! - token 包含关系未证 ⇒ hermes 同型并列报告不派生总量。
+//! - 已核验 VS Code Copilot gen_ai input 含缓存、reasoning 为 output 子集；仅两桶均已知派生总量。
+//!   CLI/其他同型记录的包含关系不从 VS Code 推断，保持总量未知。
 
 use crate::adapters::framework::{
     ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
 };
-use crate::adapters::jsonl::{read_jsonl, JsonlCursor, StopReason};
+use crate::adapters::jsonl::{JsonlCursor, StopReason};
 use crate::domain::{
     AttributionStatus, CallCategory, EventInput, Lifecycle, ModelAttribution, RecordKind,
     TimeBasis, VersionBasis,
@@ -41,15 +43,26 @@ use crate::ingest::DiagnosticInput;
 
 use super::OTEL_FORMAT_VERSION;
 
-pub const OTEL_PARSER_VERSION: &str = "otel-spans-doc1";
+pub const OTEL_PARSER_VERSION: &str = "otel-spans-file-2";
 const MAX_REASONABLE_TOKEN: i64 = crate::domain::MAX_TOKEN_VALUE;
 
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 struct OtelParseContext {
     #[serde(default)]
+    policy_version: u32,
+    #[serde(default)]
     skipped_names: Vec<String>,
     #[serde(default)]
     version_basis: Option<VersionBasis>,
+}
+
+pub fn should_scan_unchanged(stored: &StoredScanState) -> bool {
+    stored
+        .parse_context
+        .as_ref()
+        .and_then(|v| v.get("policy_version"))
+        .and_then(serde_json::Value::as_u64)
+        != Some(3)
 }
 
 fn diag(code: &str, line: u64, message: &str) -> DiagnosticInput {
@@ -108,11 +121,9 @@ fn attr_u64(record: &serde_json::Value, keys: &[&str]) -> Option<Option<i64>> {
                         .as_i64()
                         .or_else(|| v.get("intValue").and_then(|x| x.as_i64()))
                         .or_else(|| {
-                            v.get("asInt").and_then(|x| x.as_i64()).or_else(|| {
-                                v.get("doubleValue")
-                                    .and_then(|x| x.as_f64())
-                                    .map(|f| f as i64)
-                            })
+                            v.get("asInt")
+                                .and_then(|x| x.as_i64())
+                                .or_else(|| v.get("doubleValue").and_then(|x| x.as_i64()))
                         })?;
                     // 越界（负/超上限）按格式偏离处理：返回 None 让调用方跳过
                     // 整条记录，不能与"键缺失"（Some(None)）混同而静默丢桶。
@@ -200,7 +211,19 @@ fn start_ms(record: &serde_json::Value) -> Option<i64> {
 /// 汇总 span（invoke_agent / codebuddy_code.interaction）与 model_request
 /// 跳过（官方防双计）。
 fn per_request(name: &str) -> bool {
-    matches!(name, "chat" | "model_stream")
+    matches!(name, "chat" | "model_stream") || name.starts_with("chat ")
+}
+
+fn span_identity(value: &serde_json::Value, span: &str) -> String {
+    match value
+        .get("traceId")
+        .or_else(|| value.get("trace_id"))
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+    {
+        Some(trace) => serde_json::to_string(&(trace, span)).expect("string tuple serialization"),
+        None => span.to_string(),
+    }
 }
 
 fn is_summary(name: &str) -> bool {
@@ -216,6 +239,17 @@ pub fn scan(
     limits: &ScanLimits,
     now_ms: i64,
 ) -> Result<ScanOutcome, CoreError> {
+    scan_with_byte_budget(target, stored, limits, now_ms, None)
+}
+
+/// A configuration check samples bounded file bytes without advancing stored state.
+pub fn scan_with_byte_budget(
+    target: &ScanTarget,
+    stored: &StoredScanState,
+    limits: &ScanLimits,
+    now_ms: i64,
+    max_bytes: Option<u64>,
+) -> Result<ScanOutcome, CoreError> {
     let mut context = stored
         .parse_context
         .as_ref()
@@ -225,12 +259,17 @@ pub fn scan(
         context = OtelParseContext::default();
     }
     context.version_basis = Some(VersionBasis::KnownVersion);
-    let cursor = restore_cursor(stored, target.generation, target.rescan);
-    let read = read_jsonl(
+    let cursor = restore_cursor(
+        stored,
+        target.generation,
+        target.rescan || context.policy_version != 3,
+    );
+    let read = crate::adapters::jsonl::read_jsonl_with_byte_budget(
         &target.path,
         cursor.offset,
         cursor.line_number,
         &limits.jsonl,
+        max_bytes,
     )?;
     let mut events = Vec::new();
     let mut diagnostics = Vec::new();
@@ -250,6 +289,17 @@ pub fn scan(
         }
         if !per_request(name) {
             continue; // 非用量 span（execute_tool/日志/指标行等）。
+        }
+        // The native file mixes spans, metrics and logs. CLIENT is numeric 2 in
+        // the SDK export (OTLP uses 3); reject explicitly non-CLIENT chat spans.
+        if name.starts_with("chat")
+            && value.get("kind").is_some_and(|k| {
+                k.as_i64() != Some(2)
+                    && k.as_str() != Some("CLIENT")
+                    && k.as_str() != Some("SPAN_KIND_CLIENT")
+            })
+        {
+            continue;
         }
         // token：gen_ai.*（Copilot/VS Code）或无前缀 usage.*（CodeBuddy）。
         let input = attr_u64(&value, &["gen_ai.usage.input_tokens", "usage.input_tokens"]);
@@ -275,6 +325,7 @@ pub fn scan(
             &value,
             &[
                 "gen_ai.usage.reasoning.output_tokens",
+                "gen_ai.usage.reasoning_tokens",
                 "usage.reasoning_tokens",
             ],
         );
@@ -302,14 +353,6 @@ pub fn scan(
             cache_write.unwrap(),
             reasoning.unwrap(),
         );
-        if input.is_none()
-            && output.is_none()
-            && cache_read.is_none()
-            && cache_write.is_none()
-            && reasoning.is_none()
-        {
-            continue; // 无 token 属性的 chat span（上游未返回 usage）：跳过。
-        }
         let Some(occurred_ms) = start_ms(&value) else {
             diagnostics.push(diag(
                 "timestamp_unparseable",
@@ -378,20 +421,37 @@ pub fn scan(
             }
             _ => None,
         };
+        let copilot = agent_of(&value) == "vscode-copilot-chat";
+        let total = if copilot {
+            input.zip(output).and_then(|(i, o)| i.checked_add(o))
+        } else {
+            None
+        };
+        let uncached = if copilot {
+            input
+                .zip(cache_read)
+                .zip(cache_write)
+                .and_then(|((i, r), w)| i.checked_sub(r)?.checked_sub(w))
+                .filter(|v| *v >= 0)
+        } else {
+            None
+        };
         let mapped = crate::adapters::usage_map::finish(
             crate::domain::TokenUsage {
-                input_uncached: None,
+                input_uncached: uncached,
                 input_cache_read: cache_read,
                 input_cache_write: cache_write,
                 input_total: input,
                 output_total: output,
                 output_reasoning: reasoning,
-                total_tokens: None,
+                total_tokens: total,
                 source_total: None,
             },
             // 在场桶必须标 Reported：全 Unknown 会在 ingest 校验
             // （domain.rs 值与质量一致性）被拒，事件无法入账。
             crate::domain::TokenQuality {
+                input_uncached: crate::domain::FieldQuality::Derived,
+                total_tokens: crate::domain::FieldQuality::Derived,
                 input_cache_read: crate::domain::FieldQuality::Reported,
                 input_cache_write: crate::domain::FieldQuality::Reported,
                 input_total: crate::domain::FieldQuality::Reported,
@@ -403,24 +463,27 @@ pub fn scan(
         );
         events.push(EventInput {
             source_instance_id: target.instance_id.clone(),
-            source_record_key: format!("otel:{span_id}"),
+            source_record_key: format!("otel:{}", span_identity(&value, span_id)),
             record_kind: RecordKind::ModelCall,
             schema_version: OTEL_FORMAT_VERSION.to_string(),
             parser_version: OTEL_PARSER_VERSION.to_string(),
             parse_basis: Some(VersionBasis::KnownVersion),
-            origin_call_id: Some(format!("otel-span:{span_id}")),
+            origin_call_id: Some(format!("otel-span:{}", span_identity(&value, span_id))),
             attempt_id: None,
             session_id: attr_str(
                 &value,
                 &[
+                    "copilot_chat.chat_session_id",
                     "gen_ai.conversation.id",
                     "copilot_chat.session_id",
                     "gen_ai.session.id",
                 ],
             )
             .map(str::to_string),
-            parent_session_id: None,
-            host_application: None,
+            parent_session_id: attr_str(&value, &["copilot_chat.parent_chat_session_id"])
+                .map(str::to_string),
+            host_application: (agent_of(&value) == "vscode-copilot-chat")
+                .then(|| "vscode".to_string()),
             agent: agent_of(&value).to_string(),
             call_category: CallCategory::Primary,
             occurred_at_ms: occurred_ms,
@@ -435,7 +498,7 @@ pub fn scan(
             model_attribution: ModelAttribution::RequestField,
             usage: mapped.usage,
             quality: mapped.quality,
-            lifecycle: Lifecycle::Final,
+            lifecycle: Lifecycle::Corrected,
             source_revision: None,
             error_status,
             duration_ms: None,
@@ -457,6 +520,9 @@ pub fn scan(
             ScanStatus::LineTooLong
         }
     };
+    if matches!(status, ScanStatus::Complete) && diagnostics.is_empty() {
+        context.policy_version = 3;
+    }
     Ok(ScanOutcome {
         status,
         cursor: Some(serde_json::to_value(JsonlCursor {

@@ -301,7 +301,8 @@ fn null_fields_propagate_through_storage_and_aggregation() {
     assert_eq!(sums.output_total_known, None);
     assert_eq!(sums.total_tokens_known, None);
     assert_eq!(sums.cache_input_ratio(), None);
-    assert_eq!(sums.input_unknown_count, 1);
+    // 全未知（quality_bucket=unknown）计调用不算未知字段。
+    assert_eq!(sums.input_unknown_count, 0);
 }
 
 #[test]

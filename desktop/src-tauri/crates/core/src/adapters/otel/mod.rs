@@ -1,5 +1,5 @@
 //! OTel spans JSONL 适配器（M5 遥测载体；独立目录合同）。覆盖：
-//! VS Code Copilot Chat file exporter（`github.copilot.chat.otel.*`，文档级）、
+//! VS Code Copilot Chat file exporter（`github.copilot.chat.otel.*`，2026-10-02 本机已验收）、
 //! Copilot CLI file exporter（`COPILOT_OTEL_FILE_EXPORTER_PATH`，行级 schema
 //! 未文档化——同族容错解析，待本机样本）、**JetBrains Copilot 插件 file 导出**
 //! （插件设置 otelExporterType/otelOutfile，同词汇同族；源码级取证见
@@ -84,9 +84,10 @@ impl crate::adapters::framework::SourceAdapter for OtelAdapter {
         let mut out = Vec::new();
         let mut seen: std::collections::BTreeSet<std::path::PathBuf> =
             std::collections::BTreeSet::new();
+        let mut seen_files = std::collections::BTreeSet::new();
         for (root, basis) in roots {
             // 手工根可为目录或 *.jsonl 文件本身。
-            let files = if root.is_file() {
+            let mut files = if root.is_file() {
                 vec![root.clone()]
             } else {
                 crate::adapters::framework::enumerate_files_bounded(&root, 2, &|p| {
@@ -95,6 +96,7 @@ impl crate::adapters::framework::SourceAdapter for OtelAdapter {
                         .is_some_and(|e| e.eq_ignore_ascii_case("jsonl"))
                 })
             };
+            files.retain(|p| seen_files.insert(crate::adapters::framework::normalize_path(p)));
             if !files.is_empty() && seen.insert(root.clone()) {
                 out.push(DiscoveredRoot { root, basis, files });
             }
@@ -126,16 +128,20 @@ impl crate::adapters::framework::SourceAdapter for OtelAdapter {
         versions::spans_doc1::scan(target, stored, limits, now_ms)
     }
 
+    fn should_scan_unchanged(&self, stored: &crate::adapters::framework::StoredScanState) -> bool {
+        versions::spans_doc1::should_scan_unchanged(stored)
+    }
+
     fn capability(&self) -> crate::adapters::framework::CapabilityTable {
         use crate::adapters::framework::{Availability, CapabilityTable};
-        let note = "官方文档证据（VS Code agent_monitoring.md bdc5ebe + Copilot CLI OTel 文档 + CodeBuddy agentlens 文档，2026-09-29）；需启用载体，本机无样本".to_string();
+        let note = "VS Code 1.140.0 file 本机 30 个 CLIENT span 已核验（2026-10-02）；CLI/JetBrains/CodeBuddy 分版本待真实验收，需启用载体".to_string();
         let mut fields = serde_json::Map::new();
         let field = |availability: Availability, detail: &str| serde_json::json!({ "availability": availability, "note": detail });
         fields.insert(
             "tokens".into(),
             field(
                 Availability::Partial(note.clone()),
-                "chat/model_stream span 的 gen_ai.usage.*（Copilot/VS Code）或无前缀 usage.*（CodeBuddy）；包含关系未证不派生总量",
+                "chat/model_stream 的 gen_ai.usage.* 或 usage.*；仅已核验 VS Code Copilot 输入/输出派生总量，其他包含关系未知",
             ),
         );
         fields.insert(

@@ -43,6 +43,8 @@ export interface TelemetryTargetDto {
   configurable: boolean;
   kind: 'jsonc' | 'toml' | 'launcher';
   docs_url: string;
+  verification?: 'waiting' | 'verified' | 'unrecognized' | 'unavailable' | 'external';
+  verified_records?: number;
 }
 
 export interface TelemetryPreviewDto {
@@ -55,7 +57,7 @@ export interface TelemetryPreviewDto {
   sync_changes?: [string, unknown][];
 }
 
-/** 供应商级估算默认（渠道不明不套价）。 */
+/** 供应商级估算偏好；未配置时仅允许同型号无歧义的官方 API 参考。 */
 export interface ProviderPricingDefault {
   provider_id: string;
   region: string;
@@ -104,6 +106,26 @@ export interface CostSummaryDto {
   current_sim: CostModeSummaryDto;
   price_basis: string[];
   data_revision: number;
+  models: {provider: string; model: string; at_time: CostCurrencyRowDto[]; current_sim: CostCurrencyRowDto[]; unit_prices: UnitPriceDto[]}[];
+  daily: {day: string; provider:string; model:string; sums: CostCurrencyRowDto}[];
+  daily_current: {day: string; provider:string; model:string; sums: CostCurrencyRowDto}[];
+}
+
+export interface UnitPriceDto {
+  price_id: string;
+  snapshot_id: string;
+  provider_id: string;
+  model: string;
+  currency: string;
+  region: string;
+  channel: string;
+  service_tier: string;
+  context_threshold_tokens: number;
+  input_per_mtok_hundredths: number | null;
+  output_per_mtok_hundredths: number | null;
+  cache_read_per_mtok_hundredths: number | null;
+  cache_write_5m_per_mtok_hundredths: number | null;
+  cache_write_1h_per_mtok_hundredths: number | null;
 }
 
 export interface PriceSnapshotInfoDto {
@@ -154,6 +176,8 @@ export interface SystemTaskStatusDto {
 }
 
 export interface SummaryQuery {
+  first_period?: string;
+  last_period?: string;
   first_day: string;
   last_day: string;
   granularity: 'hour' | 'day' | 'week' | 'month';
@@ -485,7 +509,7 @@ export const api = {
   diagnosticLogs: (limit: number, codeFilter: string | null = null) =>
     invoke<DiagnosticLogsDto>('diagnostic_logs', { limit, codeFilter }),
   exportFilterOptions: () => invoke<ExportFilterOptionsDto>('export_filter_options'),
-  /** F2 费用汇总（按发生时价 / 来源金额 / 按当前价格模拟分列）。 */
+  /** Current API reference, model unit rates and curve; frozen history remains in the response. */
   costSummary: (q: SummaryQuery) => invoke<CostSummaryDto>('cost_summary', { q }),
   recomputeCosts: () => invoke<{ started: boolean }>('recompute_costs'),
   listPriceSnapshots: () => invoke<PriceSnapshotInfoDto[]>('list_price_snapshots'),

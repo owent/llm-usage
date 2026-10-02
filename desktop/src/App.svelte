@@ -5,6 +5,7 @@
   import type {
     AppSettings,
     ChartSeriesRowDto,
+    CostSummaryDto,
     RefreshStateDto,
     SourceDto,
     SummaryDto,
@@ -21,6 +22,8 @@
   import TodayHourly from './components/TodayHourly.svelte';
   import UsageHeatmap from './components/UsageHeatmap.svelte';
   import CostPanel from './components/CostPanel.svelte';
+  import CostReferenceSummary from './components/CostReferenceSummary.svelte';
+  import CostChart from './components/CostChart.svelte';
   import TodayOverview from './components/TodayOverview.svelte';
   import QuotaCard from './components/QuotaCard.svelte';
   import TelemetrySetup from './components/TelemetrySetup.svelte';
@@ -104,6 +107,7 @@
       ids: [
         'today-cards',
         'today-hourly',
+        'today-costs',
         'today-model-pie',
         'today-agent-pie',
         'today-model-table',
@@ -126,6 +130,7 @@
         'trend-weekday',
         'trend-model-pie',
         'trend-agent-pie',
+        'trend-model-table',
       ],
     },
   };
@@ -152,19 +157,21 @@
   const PANEL_SPAN: Record<string, number> = {
     'today-cards': 6,
     'today-hourly': 6,
+    'today-costs': 6,
     'today-model-pie': 3,
     'today-agent-pie': 3,
-    'today-model-table': 3,
-    'today-agent-table': 3,
+    'today-model-table': 6,
+    'today-agent-table': 6,
     'history-calls': 6,
     'history-tokens': 6,
     'trend-calls': 6,
     'trend-tokens': 6,
-    'trend-costs': 3,
+    'trend-costs': 6,
     'trend-heatmap': 6,
-    'trend-weekday': 2,
+    'trend-weekday': 6,
     'trend-model-pie': 3,
     'trend-agent-pie': 3,
+    'trend-model-table': 6,
   };
 
   function persistGroup(gk: PanelGroupKey): void {
@@ -172,6 +179,10 @@
     const g = panelState[gk];
     savePanelGroup(def.page, def.group, { order: g.order, hidden: g.hidden, sizes: g.sizes });
   }
+
+  const todayPanelOrder = $derived(panelState.overviewToday.order.filter(
+    (id) => id !== 'today-costs' || (settings?.pricing?.enabled ?? false),
+  ));
 
   /** 趋势页面板顺序：费用估算未启用时隐藏费用面板（布局持久化不动）。 */
   const trendPanelOrder = $derived(
@@ -188,6 +199,7 @@
 
   /** 面板生效跨列数：编辑模式把手拖出的档位优先，其次面板默认值。 */
   function spanOf(gk: PanelGroupKey, id: string): number {
+    if (id.endsWith('model-table')) return 6;
     return panelState[gk].sizes[id]?.span ?? PANEL_SPAN[id] ?? 3;
   }
 
@@ -295,6 +307,87 @@
     first_day: todayDay, last_day: todayDay, granularity: 'day', ...filters,
   }));
 
+  // One cost query feeds the summary, model rows and curve on the active page.
+  let costs = $state<CostSummaryDto | null>(null);
+  let costsError = $state('');
+  $effect(() => {
+    const q = tab === 'overview' ? todayQuery : query;
+    const pricing = settings?.pricing;
+    void currentUser; void dataReloadKey; void summary?.data_revision;
+    void todaySummary?.data_revision; void settings?.timezone;
+    costs = null; costsError = '';
+    if (!ready || !pricing?.enabled || (tab !== 'overview' && tab !== 'trend')) return;
+    let cancelled = false;
+    api.costSummary(q).then((result) => { if (!cancelled) costs = result; })
+      .catch((e) => { if (!cancelled) costsError = parseError(e); });
+    return () => { cancelled = true; };
+  });
+
+  let trendSelection = $state<{first: string; last: string} | null>(null);
+  let selectionSummary = $state<SummaryDto | null>(null);
+  let selectionError = $state('');
+  let selectionCosts = $state<CostSummaryDto|null>(null);
+  let selectionCostsError = $state('');
+  const trendScopeCosts = $derived(trendSelection ? selectionCosts : costs);
+  const trendScopeSummary = $derived(trendSelection ? selectionSummary : summary);
+  const trendRangeCaption = $derived.by(() => {
+    if (!trendSelection) return t('dashboard.queryRange', {range: `${query.first_day} ~ ${query.last_day}`});
+    const {first,last} = trendSelection;
+    let range = first === last ? first : `${first} ~ ${last}`;
+    const periods = summary?.periods.filter((p) => p.label >= first && p.label <= last) ?? [];
+    if (periods.length && (granularity === 'week' || granularity === 'month')) {
+      const start = periods[0].start_day > query.first_day ? periods[0].start_day : query.first_day;
+      const end = periods[periods.length-1].end_day < query.last_day ? periods[periods.length-1].end_day : query.last_day;
+      range += ` · ${start} ~ ${end}`;
+    }
+    return t('dashboard.selectedRange', {range});
+  });
+  function onTrendRangeChange(first: string, last: string): void {
+    // Cost curves are daily when usage is hourly; include all visible hours of the day.
+    const labels = summary?.periods.map((p) => p.label) ?? [];
+    const firstLabel = labels.find((label) => label === first || label.startsWith(first + ' '));
+    const lastLabel = [...labels].reverse().find((label) => label === last || label.startsWith(last + ' '));
+    if (!firstLabel || !lastLabel) return;
+    if (trendSelection?.first === firstLabel && trendSelection?.last === lastLabel) return;
+    trendSelection = {first: firstLabel, last: lastLabel};
+  }
+  function onTrendPeriodClick(label: string): void { onTrendRangeChange(label, label); }
+  $effect(() => {
+    const selected = trendSelection;
+    const q = query;
+    void summary?.data_revision; void dataReloadKey; void currentUser;
+    void settings?.timezone; void settings?.week_start;
+    selectionSummary = null; selectionError = '';
+    if (!selected || tab !== 'trend') return;
+    const periods = summary?.periods.filter((p) => p.label >= selected.first && p.label <= selected.last) ?? [];
+    if (!periods.length) return;
+    const scoped = {...q,
+      first_day: periods[0].start_day > q.first_day ? periods[0].start_day : q.first_day,
+      last_day: periods[periods.length - 1].end_day < q.last_day ? periods[periods.length - 1].end_day : q.last_day,
+      first_period: selected.first, last_period: selected.last};
+    let cancelled = false;
+    api.summary(scoped).then((result) => {if (!cancelled) selectionSummary = result;})
+      .catch((e) => {if (!cancelled) selectionError = parseError(e);});
+    return () => {cancelled = true;};
+  });
+
+  $effect(() => {
+    const selected=trendSelection; const q=query;
+    void settings?.timezone; void settings?.week_start; void settings?.pricing;
+    void summary?.data_revision; void dataReloadKey; void currentUser;
+    selectionCosts=null; selectionCostsError='';
+    if(!selected || tab!=='trend' || !settings?.pricing?.enabled) return;
+    const periods=summary?.periods.filter((p)=>p.label>=selected.first && p.label<=selected.last)??[];
+    if(!periods.length) return;
+    const scoped={...q,first_day:periods[0].start_day>q.first_day?periods[0].start_day:q.first_day,
+      last_day:periods[periods.length-1].end_day<q.last_day?periods[periods.length-1].end_day:q.last_day,
+      first_period:selected.first,last_period:selected.last};
+    let cancelled=false;
+    api.costSummary(scoped).then((result)=>{if(!cancelled)selectionCosts=result;})
+      .catch((error)=>{if(!cancelled)selectionCostsError=parseError(error);});
+    return ()=>{cancelled=true;};
+  });
+
   // ---- 历史趋势选中时间点（点击图表数据点；切换粒度/范围/筛选后清空）。 ----
   let selectedPeriodLabel = $state<string | null>(null);
 
@@ -312,7 +405,7 @@
 
   // 选中时间点的模型/Agent 饼图：chart_series 按维度拉取后按标签过滤
   // （无新后端命令；total_tokens 占比，与趋势页饼图同口径）。
-  type PieDatum = { name: string; value: number };
+  type PieDatum = { name: string; value: number | null; input: number | null; output: number | null };
   let periodPies = $state<{ models: PieDatum[]; agents: PieDatum[] } | null>(null);
   let periodPiesError = $state('');
 
@@ -335,9 +428,10 @@
             .filter((r) => r.label === label)
             .map((r) => ({
               name: r.series === 'unknown' ? t('common.unknown') : r.series,
-              value: Number(r.total ?? 0),
-            }))
-            .filter((d) => d.value > 0);
+              value: r.total === null ? null : Number(r.total),
+              input: r.input === null ? null : Number(r.input),
+              output: r.output === null ? null : Number(r.output),
+            }));
         periodPies = { models: pie(m.rows), agents: pie(a.rows) };
       })
       .catch((e) => {
@@ -369,14 +463,16 @@
     (todaySummary?.models ?? [])
       .map((m) => ({
         name: m.model ?? t('common.unknown'),
-        value: Number(m.sums.total_tokens_known ?? 0),
+        value: m.sums.total_tokens_known === null ? null : Number(m.sums.total_tokens_known),
+        input: m.sums.input_total_known === null ? null : Number(m.sums.input_total_known),
+        output: m.sums.output_total_known === null ? null : Number(m.sums.output_total_known),
       }))
-      .filter((d) => d.value > 0)
   );
   const todayAgentPie = $derived(
     (todaySummary?.agents ?? [])
-      .map((a) => ({ name: a.agent, value: Number(a.sums.total_tokens_known ?? 0) }))
-      .filter((d) => d.value > 0)
+      .map((a) => ({ name: a.agent, value: a.sums.total_tokens_known === null ? null : Number(a.sums.total_tokens_known),
+        input: a.sums.input_total_known === null ? null : Number(a.sums.input_total_known),
+        output: a.sums.output_total_known === null ? null : Number(a.sums.output_total_known) }))
   );
 
   // 趋势页饼图数据：当前时间范围 summary 的模型/Agent total_tokens 占比。
@@ -384,23 +480,25 @@
     (summary?.models ?? [])
       .map((m) => ({
         name: m.model ?? t('common.unknown'),
-        value: Number(m.sums.total_tokens_known ?? 0),
+        value: m.sums.total_tokens_known === null ? null : Number(m.sums.total_tokens_known),
+        input: m.sums.input_total_known === null ? null : Number(m.sums.input_total_known),
+        output: m.sums.output_total_known === null ? null : Number(m.sums.output_total_known),
       }))
-      .filter((d) => d.value > 0)
   );
   const trendAgentPie = $derived(
     (summary?.agents ?? [])
-      .map((a) => ({ name: a.agent, value: Number(a.sums.total_tokens_known ?? 0) }))
-      .filter((d) => d.value > 0)
+      .map((a) => ({ name: a.agent, value: a.sums.total_tokens_known === null ? null : Number(a.sums.total_tokens_known),
+        input: a.sums.input_total_known === null ? null : Number(a.sums.input_total_known),
+        output: a.sums.output_total_known === null ? null : Number(a.sums.output_total_known) }))
   );
 
-  const trendSessions = $derived(summary?.distinct_sessions ?? null);
+  const trendSessions = $derived(trendScopeSummary?.distinct_sessions ?? null);
 
   const trendSummaryCards = $derived.by(() => {
-    const totals = summary?.totals;
+    const totals = trendScopeSummary?.totals ?? summary?.totals;
     if (!totals) return [];
     const avgMs = totals.avg_duration_ms === null ? null : Number(totals.avg_duration_ms);
-    return [
+    const cards = [
       { key: 'calls', label: t('trend.calls'), value: fmtSmart(totals.call_count) },
       {
         key: 'input',
@@ -418,6 +516,7 @@
       { key: 'sessions', label: t('trend.sessions'), value: fmtSmart(trendSessions) },
       { key: 'avg', label: t('cards.avgDuration'), value: fmtDurationShort(avgMs) },
     ];
+    return trendSelection && !selectionSummary ? cards.map((card) => ({...card,value: selectionError ? '—' : '…',sub: undefined})) : cards;
   });
 
   /** 今日分区日期标签。 */
@@ -459,6 +558,8 @@
         return t('overview.today');
       case 'today-hourly':
         return t('hourly.title');
+      case 'today-costs':
+        return t('cost.title');
       case 'today-model-pie':
         return t('overview.todayPie.model');
       case 'today-agent-pie':
@@ -483,6 +584,8 @@
         return t('trend.pie.model');
       case 'trend-agent-pie':
         return t('trend.pie.agent');
+      case 'trend-model-table':
+        return t('table.model');
       default:
         return id;
     }
@@ -637,7 +740,7 @@
         (wasRunning || lastFinishedMs !== r.last_finished_ms)
       ) {
         lastFinishedMs = r.last_finished_ms;
-        if (ready) await Promise.all([loadSummary(), loadSources()]);
+        if (ready) await Promise.all([loadSummary(), loadSources(), checkTelemetry(true)]);
       }
     } catch {
       /* 轮询失败下次再试 */
@@ -735,6 +838,7 @@
     ++summarySequence;
     pendingSummaryKey = '';
     selectedPeriodLabel = null;
+    trendSelection = null;
     const timer = setTimeout(() => void loadSummary(), 200);
     return () => clearTimeout(timer);
   });
@@ -944,7 +1048,8 @@
           <span class="section-date">{todayDateLabel}</span>
         </div>
         <div class="panel-grid">
-          {#each panelState.overviewToday.order as id, i (id)}
+          {#each todayPanelOrder as id (id)}
+            {@const i = panelState.overviewToday.order.indexOf(id)}
             <Panel
               title={panelTitle(id)}
               span={spanOf('overviewToday', id)}
@@ -961,18 +1066,21 @@
             >
               {#if id === 'today-cards'}
                 {#if todaySummary}
-                  <TodayOverview totals={todaySummary.totals} sessions={todaySummary.distinct_sessions} />
+                  <TodayOverview totals={todaySummary.totals} sessions={todaySummary.distinct_sessions} {costs} {costsError} pricing={settings?.pricing?.enabled ?? false} />
                 {:else}
                   <p class="muted">{t('common.loading')}</p>
                 {/if}
               {:else if id === 'today-hourly'}
                 <TodayHourly hourly={todaySummary?.today_hourly ?? []} query={todayQuery} {isDark} />
+              {:else if id === 'today-costs'}
+                <CostPanel summary={costs} error={costsError} />
+                <CostChart summary={costs} periods={todaySummary?.periods ?? []} {isDark} />
               {:else if id === 'today-model-pie'}
                 <SharePie data={todayModelPie} {isDark} />
               {:else if id === 'today-agent-pie'}
                 <SharePie data={todayAgentPie} {isDark} />
               {:else if id === 'today-model-table'}
-                <BreakdownTables models={todaySummary?.models ?? []} kind="model" />
+                <BreakdownTables models={todaySummary?.models ?? []} totals={todaySummary?.totals ?? null} {costs} pricing={settings?.pricing?.enabled ?? false} kind="model" />
               {:else if id === 'today-agent-table'}
                 <BreakdownTables agents={todaySummary?.agents ?? []} kind="agent" />
               {/if}
@@ -1099,30 +1207,31 @@
     {#if summary}
       <!-- 范围汇总面板（图表区上方固定位置）：7 张小卡片，取 summary.totals。 -->
       <UsageInsights {summary} />
-      <div class="section-head">
-        <h2>{t('quota.sectionTitle')}</h2>
-      </div>
-      <div class="quota-row">
-        <QuotaCard agent="copilot" timezone={settings?.timezone ?? 'UTC'} reloadKey={dataReloadKey + (summary?.data_revision ?? 0)} {isDark} />
-      </div>
       <div class="range-summary">
         <div class="section-head">
           <h2>{t('trend.summary')}</h2>
+          {#if trendSelection}<button class="range-reset" onclick={() => trendSelection = null}>{t('dashboard.resetRange')}</button>{/if}
         </div>
+        <p class="range-caption">{trendRangeCaption}{#if trendSelection && !selectionSummary && !selectionError} · {t('common.loading')}{/if}</p>
+        {#if selectionError}<p class="error">{selectionError}</p>{/if}
         <div class="summary-cards">
           {#each trendSummaryCards as c (c.key)}
-            <div class="scard" title={c.hint ?? ''}>
+            <div class="scard" title={[c.hint,c.sub].filter(Boolean).join(' · ')}>
               <div class="slabel">
-                {c.label}{#if c.hint}<span class="shint">{c.hint}</span>{/if}
+                {c.label}
               </div>
               <div class="svalue">{c.value}</div>
-              {#if c.sub}<div class="ssub">{c.sub}</div>{/if}
             </div>
           {/each}
         </div>
+        {#if settings?.pricing?.enabled}<CostReferenceSummary summary={trendScopeCosts} error={trendSelection ? selectionCostsError : costsError} />{/if}
+        <div class="summary-quota" aria-label={t('quota.sectionTitle')}>
+          <QuotaCard agent="copilot" compact timezone={settings?.timezone ?? 'UTC'} reloadKey={dataReloadKey + (summary?.data_revision ?? 0)} {isDark} />
+        </div>
       </div>
       <div class="panel-grid">
-        {#each trendPanelOrder as id, i (id)}
+        {#each trendPanelOrder as id (id)}
+          {@const i = panelState.trendMain.order.indexOf(id)}
           <Panel
             title={panelTitle(id)}
             span={spanOf('trendMain', id)}
@@ -1138,11 +1247,12 @@
             onsize={(span, height) => panelResize('trendMain', id, span, height)}
           >
             {#if id === 'trend-calls'}
-              <CallsChart periods={summary.periods} {query} {granularity} {isDark} />
+              <CallsChart periods={summary.periods} {query} {granularity} {isDark} onperiodclick={onTrendPeriodClick} onrangechange={onTrendRangeChange} />
             {:else if id === 'trend-tokens'}
-              <TokenChart periods={summary.periods} {query} {granularity} {isDark} />
+              <TokenChart periods={summary.periods} {query} {granularity} {isDark} onperiodclick={onTrendPeriodClick} onrangechange={onTrendRangeChange} />
             {:else if id === 'trend-costs'}
-              <CostPanel {query} refreshKey={dataReloadKey + (summary?.data_revision ?? 0)} />
+              <CostPanel summary={costs} error={costsError} />
+              <CostChart summary={costs} periods={summary.periods} {isDark} onperiodclick={onTrendPeriodClick} onrangechange={onTrendRangeChange} />
             {:else if id === 'trend-heatmap'}
               <UsageHeatmap {query} reloadKey={dataReloadKey + (summary?.data_revision ?? 0)} {isDark} />
             {:else if id === 'trend-weekday'}
@@ -1151,6 +1261,8 @@
               <SharePie data={trendModelPie} {isDark} />
             {:else if id === 'trend-agent-pie'}
               <SharePie data={trendAgentPie} {isDark} />
+            {:else if id === 'trend-model-table'}
+              <BreakdownTables models={summary.models} totals={summary.totals} {costs} pricing={settings?.pricing?.enabled ?? false} kind="model" />
             {/if}
           </Panel>
         {/each}
@@ -1171,6 +1283,8 @@
 </div>
 
 <style>
+  .range-caption {margin: 0 0 10px; font-size: 12px; color: var(--text-muted);}
+  .range-reset {border: 1px solid var(--border); background: var(--bg-input); color: var(--accent); border-radius: 6px; padding: 4px 10px; cursor: pointer;}
   .app-shell { min-height: 100vh; display: grid; grid-template-columns: 208px minmax(0, 1fr); }
   .sidebar { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; padding: 28px 16px 20px; border-right: 1px solid var(--border); background: var(--bg-card); box-sizing: border-box; }
   .brand { display: flex; gap: 12px; align-items: center; padding: 0 10px; text-decoration: none; color: var(--text-heading); }
@@ -1460,15 +1574,29 @@
   .panel-grid {
     display: grid;
     grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-auto-flow: row dense;
     gap: 20px;
     align-items: stretch;
   }
-  /* 趋势页范围汇总（图表区上方）：一行水平卡片组（7 张小卡片）。 */
+  /* Keep metric rows compact; account quota has an independent full-width strip. */
   .range-summary {
     margin-bottom: 4px;
   }
   .range-summary .section-head {
     margin: 4px 0 6px;
+  }
+  .range-summary .summary-cards {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+  .summary-quota { min-width: 0; margin:12px 0; }
+  .range-summary .scard {padding:12px 10px;border-radius:9px;}
+  .range-summary .svalue {font-size:22px;}
+  @media (max-width: 1200px) {
+    .range-summary .summary-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .range-summary .scard:last-child {grid-column:span 2;}
+  }
+  @media (max-width: 600px) {
+    .range-summary .summary-cards { grid-template-columns: repeat(2,minmax(0,1fr)); }
   }
   .summary-cards {
     display: grid;

@@ -29,7 +29,11 @@ fn write_log(path: &Path, requests: Vec<Value>) {
     )
     .unwrap();
 }
-fn run(storage: &Storage, root: &Path, now: i64) {
+fn run(
+    storage: &Storage,
+    root: &Path,
+    now: i64,
+) -> Vec<llm_usage_core::adapters::framework::SourceRunReport> {
     let reports = run_adapter_scan(
         storage,
         &CopilotChatAdapter::new(),
@@ -54,6 +58,7 @@ fn run(storage: &Storage, root: &Path, now: i64) {
         .iter()
         .filter_map(|r| r.outcome.as_ref())
         .all(|o| o.errors == 0 && o.conflicts == 0));
+    reports
 }
 fn totals(storage: &Storage) -> (i64, i64, i64) {
     storage
@@ -103,6 +108,250 @@ fn copilot_turns_count_observed_rounds_and_replace_authoritative_model_totals() 
             .unwrap(),
         4
     );
+}
+
+#[test]
+fn copilot_rounds_stay_active_and_do_not_inflate_unknown_fields() {
+    let (dir, storage) = common::temp_storage("copilot-ide-unknown");
+    let file = dir.path().join("chatSessions/s.jsonl");
+    // 默认路径 turn（promptTokens/completionTokens 已知）+ 两条 toolCallRounds。
+    write_log(&file, vec![turn("request-a")]);
+    run(&storage, &file, NOW);
+    // 唯一诊断是 turn_input_incomplete 覆盖提示：来源文件保持 active，不提示需核对。
+    let degraded: i64 = storage
+        .conn()
+        .query_row(
+            "SELECT COUNT(*) FROM source_files WHERE status='degraded'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(degraded, 0, "coverage hint keeps the file active");
+    // round model_call（quality_bucket='unknown'）计调用但不计未知字段。
+    let (iu, ou): (Option<i64>, Option<i64>) = storage
+        .conn()
+        .query_row(
+            "SELECT SUM(input_unknown_count),SUM(output_unknown_count) FROM daily_usage \
+             WHERE agent='vscode-copilot-chat'",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(
+        (iu.unwrap_or(0), ou.unwrap_or(0)),
+        (0, 0),
+        "round call markers do not add 未知字段"
+    );
+    // 调用数仍为 2（两条 round），token 由 turn observation 承载。
+    assert_eq!(totals(&storage), (2, 100, 30));
+}
+
+#[test]
+fn copilot_separate_round_model_keeps_calls_without_fabricating_token_values() {
+    use llm_usage_core::calendar::{Calendar, WeekStart};
+    use llm_usage_core::query::{query_summary, Filters, Granularity, SummaryRequest};
+    let (dir, storage) = common::temp_storage("copilot-model-fields");
+    let file = dir.path().join("chatSessions/s.jsonl");
+    let mut request = turn("request-a");
+    request.as_object_mut().unwrap().remove("completionTokens");
+    for round in request["result"]["metadata"]["toolCallRounds"]
+        .as_array_mut()
+        .unwrap()
+    {
+        round["modelId"] = json!("round-model");
+    }
+    write_log(&file, vec![request]);
+    run(&storage, &file, NOW);
+    let day = Calendar::new("UTC")
+        .unwrap()
+        .local_day_of(1_790_000_000_000)
+        .unwrap();
+    for granularity in [Granularity::Day, Granularity::Hour] {
+        let summary = query_summary(
+            &storage,
+            &SummaryRequest {
+                timezone: "UTC".into(),
+                week_start: WeekStart::Monday,
+                first_day: day,
+                last_day: day,
+                today: day,
+                granularity,
+                filters: Filters::default(),
+                retention_cutoff: None,
+            },
+        )
+        .unwrap();
+        assert_eq!(summary.model_breakdown.len(), 2);
+        let sums = &summary
+            .model_breakdown
+            .iter()
+            .find(|r| r.model_raw.as_deref() == Some("round-model"))
+            .unwrap()
+            .sums;
+        assert_eq!((sums.call_count, sums.observation_count), (2, 0));
+        assert_eq!(
+            (
+                sums.input_total_known,
+                sums.output_total_known,
+                sums.total_tokens_known
+            ),
+            (None, None, None)
+        );
+        assert_eq!(
+            (
+                sums.input_unknown_count,
+                sums.output_unknown_count,
+                sums.total_unknown_count
+            ),
+            (0, 0, 0)
+        );
+        let turn = &summary
+            .model_breakdown
+            .iter()
+            .find(|r| r.model_raw.as_deref() == Some("model-a"))
+            .unwrap()
+            .sums;
+        assert_eq!((turn.call_count, turn.observation_count), (0, 1));
+        assert_eq!(
+            (
+                turn.input_total_known,
+                turn.output_total_known,
+                turn.total_tokens_known
+            ),
+            (Some(100), None, None)
+        );
+        assert_eq!(
+            (
+                turn.input_unknown_count,
+                turn.output_unknown_count,
+                turn.total_unknown_count
+            ),
+            (0, 1, 1),
+            "real missing output remains visible"
+        );
+    }
+}
+
+#[test]
+fn copilot_unchanged_legacy_checkpoint_repairs_health_and_396_field_gaps() {
+    let (dir, storage) = common::temp_storage("copilot-legacy-policy");
+    let file = dir.path().join("chatSessions/s.jsonl");
+    let mut request = turn("request-a");
+    request["result"]["metadata"]["toolCallRounds"] = json!((0..198)
+        .map(|i| json!({"id":format!("round-{i}"),"modelId":"model-a",
+            "timestamp":1_790_000_000_000i64 + i}))
+        .collect::<Vec<_>>());
+    write_log(&file, vec![request]);
+    run(&storage, &file, NOW);
+    // 模拟旧版已完整消费的游标、单调修订及持久化展示；不改源文件字节。
+    storage
+        .conn()
+        .execute_batch(
+            "UPDATE ingestion_checkpoints SET parse_context=json_remove(
+            json_set(parse_context,'$.revision',7),'$.scan_policy_version');
+         UPDATE usage_events SET source_revision=7;
+         UPDATE source_files SET status='degraded';
+         UPDATE daily_usage SET input_unknown_count=call_count,
+            output_unknown_count=call_count,total_unknown_count=call_count
+            WHERE quality_bucket='unknown';",
+        )
+        .unwrap();
+    let legacy_gaps: i64 = storage
+        .conn()
+        .query_row(
+            "SELECT SUM(input_unknown_count+output_unknown_count) FROM daily_usage",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(legacy_gaps, 396);
+    let report = run(&storage, &file, NOW + 1);
+    assert_eq!(
+        report[0].files[0].status, "complete",
+        "replay unchanged legacy checkpoint once"
+    );
+    assert_eq!(report[0].outcome.as_ref().unwrap().added, 0);
+    let (status, revision): (String, i64) = storage.conn().query_row(
+        "SELECT f.status,json_extract(c.parse_context,'$.revision') FROM source_files f
+         JOIN ingestion_checkpoints c ON c.instance_id=f.instance_id AND c.scope_key=f.file_identity", [],
+        |r| Ok((r.get(0)?,r.get(1)?))
+    ).unwrap();
+    assert_eq!((status.as_str(), revision), ("active", 8));
+    assert_eq!(totals(&storage), (198, 100, 30));
+    let counts: (i64,i64,i64) = storage.conn().query_row(
+        "SELECT SUM(input_unknown_count),SUM(output_unknown_count),SUM(total_unknown_count) FROM daily_usage", [],
+        |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?))
+    ).unwrap();
+    assert_eq!(
+        counts,
+        (0, 0, 1),
+        "turn total remains unknown; rounds add no field gaps"
+    );
+    assert!(storage
+        .conn()
+        .query_row(
+            "SELECT total_tokens FROM usage_events WHERE record_kind='usage_observation'",
+            [],
+            |r| r.get::<_, Option<i64>>(0)
+        )
+        .unwrap()
+        .is_none());
+    let next = run(&storage, &file, NOW + 2);
+    assert_eq!(next[0].files[0].status, "unchanged");
+    assert!(
+        next[0].outcome.is_none(),
+        "successful policy replay is not repeated"
+    );
+    assert_eq!(totals(&storage), (198, 100, 30));
+}
+
+#[test]
+fn copilot_coverage_hint_does_not_hide_corruption_and_recovery() {
+    use std::io::Write;
+    let (dir, storage) = common::temp_storage("copilot-health-corruption");
+    let file = dir.path().join("chatSessions/s.jsonl");
+    write_log(&file, vec![turn("request-a")]);
+    run(&storage, &file, NOW);
+    std::fs::OpenOptions::new()
+        .append(true)
+        .open(&file)
+        .unwrap()
+        .write_all(b"not json\n")
+        .unwrap();
+    run(&storage, &file, NOW + 1);
+    let health = || {
+        storage
+            .conn()
+            .query_row("SELECT status FROM source_files", [], |r| {
+                r.get::<_, String>(0)
+            })
+            .unwrap()
+    };
+    assert_eq!(health(), "degraded");
+    assert_eq!(
+        totals(&storage),
+        (2, 100, 30),
+        "bad snapshot cannot overwrite retained usage"
+    );
+    for code in ["turn_input_incomplete", "line_json_invalid"] {
+        assert!(
+            storage
+                .conn()
+                .query_row(
+                    "SELECT COUNT(*) FROM diagnostics WHERE code=?1",
+                    [code],
+                    |r| r.get::<_, i64>(0)
+                )
+                .unwrap()
+                > 0
+        );
+    }
+    run(&storage, &file, NOW + 2);
+    assert_eq!(health(), "degraded", "unchanged corruption stays visible");
+    write_log(&file, vec![turn("request-a")]);
+    run(&storage, &file, NOW + 3);
+    assert_eq!(health(), "active");
+    assert_eq!(totals(&storage), (2, 100, 30));
 }
 
 #[test]
@@ -166,6 +415,41 @@ fn copilot_source_cleanup_preserves_observed_history() {
         (2, 100, 30),
         "removing history does not undo consumption"
     );
+}
+
+#[test]
+fn copilot_legacy_policy_repairs_retained_history_after_source_cleanup() {
+    let (dir, storage) = common::temp_storage("copilot-legacy-cleanup");
+    let file = dir.path().join("chatSessions/s.jsonl");
+    write_log(&file, vec![turn("request-a")]);
+    run(&storage, &file, NOW);
+    storage.conn().execute_batch(
+        "UPDATE ingestion_checkpoints SET parse_context=json_remove(parse_context,'$.scan_policy_version');
+         UPDATE daily_usage SET input_unknown_count=call_count,output_unknown_count=call_count,
+             total_unknown_count=call_count WHERE quality_bucket='unknown';"
+    ).unwrap();
+    write_log(&file, vec![]);
+    run(&storage, &file, NOW + 1);
+    assert_eq!(
+        totals(&storage),
+        (2, 100, 30),
+        "source cleanup preserves consumption"
+    );
+    let gaps: i64 = storage
+        .conn()
+        .query_row(
+            "SELECT SUM(input_unknown_count+output_unknown_count) FROM daily_usage",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(
+        gaps, 0,
+        "retained records also receive corrected field counts"
+    );
+    let repeat = run(&storage, &file, NOW + 2);
+    assert_eq!(repeat[0].files[0].status, "unchanged");
+    assert_eq!(totals(&storage), (2, 100, 30));
 }
 
 #[test]

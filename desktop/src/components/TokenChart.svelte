@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { setChartOption, setupTooltipAutoHide, escapeHtml, CHART_PALETTE } from '../lib/chart';
+  import { setChartOption, setupTooltipAutoHide, setupRangeSelection, escapeHtml, CHART_PALETTE } from '../lib/chart';
   import * as echarts from 'echarts/core';
   import { LineChart } from 'echarts/charts';
   import type { LineSeriesOption } from 'echarts/charts';
@@ -22,6 +22,7 @@
     granularity,
     isDark = false,
     onperiodclick,
+    onrangechange,
   }: {
     periods: PeriodDto[];
     /** 当前查询（chart_series 分组数据用；随筛选/范围变化重新拉取）。 */
@@ -31,6 +32,7 @@
     isDark?: boolean;
     /** 点击数据点回调（携带该点的时间轴标签；总用量/分组两模式均生效）。 */
     onperiodclick?: (label: string) => void;
+    onrangechange?: (first:string,last:string)=>void;
   } = $props();
 
   let sub = $state<TokenSub>('total');
@@ -140,7 +142,7 @@
       },
       grid: { left: 70, right: 80, top: 48, bottom: 44, containLabel: true },
       textStyle: { color: chartText },
-      xAxis: { type: 'category', data: labels },
+      xAxis: { type: 'category', data: labels, triggerEvent:true },
       dataZoom: granularity === 'hour' || granularity === 'day' ? [{ type: 'inside' }] : [],
     };
 
@@ -258,7 +260,8 @@
         for (const name of g.names) {
           const cell = g.cell(name, label);
           if (!cell || selected[name] === false || cell[sub === 'total' ? 'total' : 'output'] !== null) continue;
-          lines.push(`${escapeHtml(name)}: ${t('common.unknown')} · ${t('cards.input')}: ${fmtPrecise(cell.input)} · ${t('cards.output')}: ${fmtPrecise(cell.output)}`);
+          const missing = sub === 'total' ? t('chart.totalMissing') : `${t('cards.output')}: —`;
+          lines.push(`${escapeHtml(name)} · ${missing} · ${t('cards.input')}: ${fmtPrecise(cell.input)} · ${t('cards.output')}: ${fmtPrecise(cell.output)}`);
         }
       }
       return lines.join('<br/>');
@@ -278,7 +281,7 @@
       legend: { top: 0, left: 'center', type: 'scroll', itemWidth: 12, itemHeight: 8, textStyle: { fontSize: 11 } },
       textStyle: { color: chartText },
       grid: { left: 70, right: 80, top: 48, bottom: 44, containLabel: true },
-      xAxis: { type: 'category', data: g.labels },
+      xAxis: { type: 'category', data: g.labels, triggerEvent:true },
       dataZoom: [{ type: 'inside' }],
       color: PALETTE,
     };
@@ -372,17 +375,7 @@
             lineStyle: { width: 1.5 },
             itemStyle: { color: PALETTE[i % PALETTE.length] },
             data: g.labels.map((label) => (g.cell(name, label)?.[metric] as number | null) ?? null),
-          }, ...(metric === 'total' ? (['input', 'output'] as const).flatMap((field): LineSeriesOption[] => {
-            const data = g.labels.map((label) => {
-              const cell = g.cell(name, label);
-              return cell?.total === null ? cell[field] : null;
-            });
-            if (data.every((v) => v == null)) return [];
-            return [{ type: 'line', name: `${name} · ${t('cards.' + field)}`, data,
-              symbolSize: 4, connectNulls: false,
-              lineStyle: { width: 1.5, type: field === 'input' ? 'dashed' : 'dotted' },
-              itemStyle: { color: PALETTE[i % PALETTE.length] } }];
-          }) : [])]
+          }]
         ),
       },
       `grp-${sub}|${dimension}|${i18n.locale}|${chartText}|${g.labels.join('\u0001')}|${g.names.join('\u0001')}`
@@ -411,25 +404,8 @@
     // 数据点/横轴任意位置点击：网格内像素 → 最近类目索引（不要求命中数据点，
     // 2026-09-26 用户需求）；zr 级事件覆盖整个画布，legend/坐标轴外区域被
     // containPixel('grid') 排除。
-    chart?.getZr().on('click', (e: { offsetX: number; offsetY: number }) => {
-      if (!onperiodclick || !chart) return;
-      const labels =
-        dimension === 'total' ? periods.map((p) => p.label) : (grouped?.labels ?? []);
-      if (!labels.length) return;
-      try {
-        if (!chart.containPixel('grid', [e.offsetX, e.offsetY])) return;
-        const raw = chart.convertFromPixel({ xAxisIndex: 0 }, e.offsetX);
-        if (typeof raw !== 'number' || !Number.isFinite(raw)) return;
-        const idx = Math.max(0, Math.min(labels.length - 1, Math.round(raw)));
-        if (labels[idx]) {
-          onperiodclick(labels[idx]);
-          // 点击即选点：汇总条展开使布局位移，tooltip 位置随即过期，主动隐藏。
-          chart.dispatchAction({ type: 'hideTip' });
-        }
-      } catch {
-        /* 选项未就绪/像素转换失败时忽略点击 */
-      }
-    });
+    const disposeSelection=setupRangeSelection(chart,()=>dimension==='total'?periods.map((p)=>p.label):grouped?.labels??[],
+      (label)=>onperiodclick?.(label),(first,last)=>onrangechange?.(first,last));
     render();
     const onResize = () => chart?.resize();
     window.addEventListener('resize', onResize);
@@ -438,6 +414,7 @@
     observer.observe(el);
     return () => {
       disposeTipHide();
+      disposeSelection();
       observer.disconnect();
       window.removeEventListener('resize', onResize);
       chart?.dispose();

@@ -10,6 +10,7 @@
 pub mod adapters;
 pub mod aggregates;
 pub mod calendar;
+mod copilot_carriers;
 pub mod copilot_quota;
 pub mod domain;
 pub mod error;
@@ -19,6 +20,7 @@ pub mod identity;
 pub mod ingest;
 pub mod jobs;
 pub mod metrics;
+pub mod model_names;
 pub mod models_dev;
 pub mod pricing;
 pub mod query;

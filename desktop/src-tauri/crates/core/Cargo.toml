@@ -1,6 +1,6 @@
 [package]
 name = "llm-usage-core"
-version = "0.1.0-dev.1"
+version = "0.1.0-dev.2"
 description = "Statistics core and SQLite storage for the llm-usage desktop client (M1)"
 edition = "2021"
 rust-version = "1.77.2"

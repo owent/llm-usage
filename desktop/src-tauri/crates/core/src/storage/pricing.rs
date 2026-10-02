@@ -13,7 +13,7 @@ use crate::pricing::{
 };
 use crate::storage::Storage;
 use jiff::civil::Date;
-use rusqlite::{Connection, OptionalExtension, Transaction};
+use rusqlite::{params, Connection, OptionalExtension, Transaction};
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -55,8 +55,18 @@ pub struct CostDayOutcome {
     pub source_cost_rows: usize,
 }
 
-/// 按当前价格模拟的结果：分币种行 + 未计价原因。
-type CurrentSimOutcome = (Vec<CostCurrencyRow>, BTreeMap<String, i64>);
+type CurrencyCosts = BTreeMap<String, CostCurrencyRow>;
+type ModelCosts = BTreeMap<(String, String), (CurrencyCosts, CurrencyCosts)>;
+type DayCosts = BTreeMap<(String, String, String), CurrencyCosts>;
+type ModelRates = BTreeMap<(String, String), BTreeMap<String, PriceRow>>;
+
+#[derive(Default)]
+struct CurrentReference {
+    rows: Vec<CostCurrencyRow>,
+    unpriced: BTreeMap<String, i64>,
+    daily: DayCosts,
+    rates: ModelRates,
+}
 
 impl Storage {
     /// 导入价格快照（同 ID 同内容幂等；同 ID 异内容报错——修正须换快照 ID）。
@@ -77,7 +87,14 @@ impl Storage {
         now_ms: i64,
     ) -> Result<SnapshotImportOutcome, CoreError> {
         let snapshot = crate::pricing::parse_snapshot_json(SEED_SNAPSHOT_JSON)?;
-        self.import_price_snapshot(&snapshot, now_ms)
+        let supplement =
+            crate::pricing::parse_snapshot_json(crate::pricing::SUPPLEMENT_SNAPSHOT_JSON)?;
+        let tx = self.conn().unchecked_transaction()?;
+        let result = import_price_snapshot_tx(&tx, &snapshot, now_ms)?;
+        import_price_snapshot_tx(&tx, &supplement, now_ms)?;
+        tx.commit()?;
+        // Preserve the public return contract for the original seed snapshot.
+        Ok(result)
     }
 
     /// 载入全部价格行（估算用价格簿）。
@@ -136,6 +153,30 @@ impl Storage {
         Ok(out)
     }
 
+    /// One-time correction of retained, unsealed estimates after a matching-rule
+    /// fix. A price catalog refresh never changes this marker or historical costs.
+    pub fn ensure_cost_matching_policy(
+        &self,
+        timezone: &str,
+        now_ms: i64,
+        options: &EstimateOptions,
+    ) -> Result<(), CoreError> {
+        let key = format!("cost_matching_policy:{timezone}");
+        let policy: Option<String> = self
+            .conn()
+            .query_row("SELECT value FROM settings WHERE key=?1", [&key], |r| {
+                r.get(0)
+            })
+            .optional()?;
+        if policy.as_deref() == Some("official-reference-2") {
+            return Ok(());
+        }
+        self.recompute_unsealed_cost_days(timezone, now_ms, options)?;
+        self.conn().execute("INSERT INTO settings(key,value,schema_version,updated_at_ms) VALUES(?1,'official-reference-2',1,?2)
+            ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at_ms=excluded.updated_at_ms",params![key,now_ms])?;
+        Ok(())
+    }
+
     /// 回填单日成本（事件批次提交后/显式重算调用；只重写未封存日）。
     /// 该日无明细事件时不重建（历史行可能来自已过期的明细，保持不动）。
     pub fn recompute_cost_day(
@@ -187,6 +228,29 @@ impl Storage {
     /// 费用汇总：按发生时价估算与来源金额来自日成本行；按当前价格模拟即时
     /// 计算仍保留的明细事件（明细过期后无法模拟，标 detail_limited）。
     pub fn cost_summary(&self, request: &CostSummaryRequest) -> Result<CostSummary, CoreError> {
+        self.cost_summary_selected(request, None)
+    }
+
+    /// Current reference can select local hour labels; frozen daily history is preserved.
+    pub fn cost_summary_selected(
+        &self,
+        request: &CostSummaryRequest,
+        hours: Option<(&str, &str)>,
+    ) -> Result<CostSummary, CoreError> {
+        if let Some((first, last)) = hours {
+            let valid = |label: &str| {
+                label.split_once(' ').is_some_and(|(day, hour)| {
+                    parse_date(day).is_ok()
+                        && hour.len() == 5
+                        && hour
+                            .strip_suffix(":00")
+                            .is_some_and(|h| h.parse::<u32>().is_ok_and(|v| v < 24))
+                })
+            };
+            if !valid(first) || !valid(last) || first > last {
+                return Err(CoreError::Validation("invalid cost hour selection".into()));
+            }
+        }
         let calendar = Calendar::new(&request.timezone)?;
         let first_day = parse_date(&request.first_day)?;
         let last_day = parse_date(&request.last_day)?;
@@ -222,7 +286,7 @@ impl Storage {
         if !request.filters.models.is_empty() {
             filter_sql.push_str(&format!(
                 " AND {}",
-                fold_filter_condition("model_raw", &request.filters.models)
+                model_filter_condition(&request.filters.models)
             ));
         }
         if let Some(instances) = &request.filters.instances {
@@ -243,10 +307,10 @@ impl Storage {
                     SUM(total_amount_minor), SUM(priced_tokens), SUM(known_tokens),
                     SUM(priced_event_count), SUM(unpriced_event_count),
                     SUM(partial_event_count), SUM(ttl_defaulted_events),
-                    SUM(fallback_event_count)
+                    SUM(fallback_event_count), provider_id, model_raw, local_day
              FROM daily_cost_usage
              WHERE tz_version = ?1 AND local_day >= ?2 AND local_day <= ?3{filter_sql}
-             GROUP BY currency, kind"
+             GROUP BY currency, kind, provider_id, model_raw, local_day"
         );
         let mut stmt = self.conn().prepare(&sql)?;
         let rows = stmt.query_map(rusqlite::params_from_iter(filter_params.iter()), |r| {
@@ -265,11 +329,16 @@ impl Storage {
                 r.get::<_, i64>(11)?,
                 r.get::<_, i64>(12)?,
                 r.get::<_, i64>(13)?,
+                r.get::<_, String>(14)?,
+                r.get::<_, String>(15)?,
+                r.get::<_, String>(16)?,
             ))
         })?;
         let mut at_time: BTreeMap<String, CostCurrencyRow> = BTreeMap::new();
         let mut source_amounts: BTreeMap<String, CostCurrencyRow> = BTreeMap::new();
         let mut unpriced_reasons: BTreeMap<String, i64> = BTreeMap::new();
+        let mut models = ModelCosts::new();
+        let mut daily: BTreeMap<(String, String, String), CurrencyCosts> = BTreeMap::new();
         for row in rows {
             let (
                 currency,
@@ -286,6 +355,9 @@ impl Storage {
                 partial_events,
                 ttl_defaulted,
                 fallback_events,
+                provider,
+                model,
+                day,
             ) = row?;
             let entry = CostCurrencyRow {
                 currency: currency.clone(),
@@ -304,6 +376,18 @@ impl Storage {
             };
             match kind.as_str() {
                 KIND_ESTIMATE_AT_TIME => {
+                    let model_key = (
+                        provider.to_lowercase(),
+                        crate::model_names::model_key(&model),
+                    );
+                    merge_currency_row(
+                        &mut models.entry(model_key.clone()).or_default().0,
+                        entry.clone(),
+                    );
+                    merge_currency_row(
+                        daily.entry((day, model_key.0, model_key.1)).or_default(),
+                        entry.clone(),
+                    );
                     if currency.is_empty() {
                         // currency='' 行只携带未计价计数。
                         if let Some(row) = at_time.get_mut("") {
@@ -375,8 +459,8 @@ impl Storage {
         };
 
         // 2) 按当前价格模拟（即时，仅明细仍在的事件）。
-        let (current_sim_rows, sim_unpriced) =
-            self.cost_summary_current_sim(range_start, range_end, request)?;
+        let reference =
+            self.cost_summary_current_sim(range_start, range_end, request, &mut models, hours)?;
         // 区间内只要有一个匹配筛选的日已封存，模拟就缺少该日明细。
         // 不能仅在整个区间没有任何明细时提示，否则混合新旧日期会漏报。
         let detail_limited: bool = self.conn().query_row(
@@ -390,8 +474,8 @@ impl Storage {
         )?;
 
         let mut current_sim = CostModeSummary {
-            rows: current_sim_rows,
-            unpriced_reasons: sim_unpriced,
+            rows: reference.rows,
+            unpriced_reasons: reference.unpriced,
             ..Default::default()
         };
         current_sim.as_of_ms = request.now_ms;
@@ -427,6 +511,35 @@ impl Storage {
             current_sim,
             price_basis: price_basis.into_iter().collect(),
             data_revision,
+            models: models
+                .into_iter()
+                .map(|((provider, model), (at_time, current_sim))| {
+                    let unit_prices = reference
+                        .rates
+                        .get(&(provider.clone(), model.clone()))
+                        .map(|rates| rates.values().cloned().collect())
+                        .unwrap_or_default();
+                    CostModelRow {
+                        provider,
+                        model,
+                        at_time: at_time.into_values().collect(),
+                        current_sim: current_sim.into_values().collect(),
+                        unit_prices,
+                    }
+                })
+                .collect(),
+            daily: daily
+                .into_iter()
+                .flat_map(|((day, provider, model), currencies)| {
+                    currencies.into_values().map(move |sums| CostDayRow {
+                        day: day.clone(),
+                        provider: provider.clone(),
+                        model: model.clone(),
+                        sums,
+                    })
+                })
+                .collect(),
+            daily_current: cost_day_rows(reference.daily),
         })
     }
 
@@ -436,24 +549,89 @@ impl Storage {
         range_start: i64,
         range_end: i64,
         request: &CostSummaryRequest,
-    ) -> Result<CurrentSimOutcome, CoreError> {
+        models: &mut ModelCosts,
+        hours: Option<(&str, &str)>,
+    ) -> Result<CurrentReference, CoreError> {
         let book = self.load_price_book()?;
+        let calendar = Calendar::new(&request.timezone)?;
         let rows =
             collect_events_for_pricing(self.conn(), range_start, range_end, &request.filters)?;
         let mut by_currency: BTreeMap<String, CostCurrencyRow> = BTreeMap::new();
         let mut unpriced: BTreeMap<String, i64> = BTreeMap::new();
         let mut unpriced_events_total = 0i64;
+        let mut books: BTreeMap<String, PriceBook> = BTreeMap::new();
+        let mut daily = DayCosts::new();
+        let mut rates = ModelRates::new();
         for row in &rows {
+            let day = calendar.local_day_of(row.event.occurred_at_ms)?.to_string();
+            if let Some((first, last)) = hours {
+                let label = format!(
+                    "{} {:02}:00",
+                    day,
+                    calendar.local_hour_of(row.event.occurred_at_ms)?
+                );
+                if label.as_str() < first || label.as_str() > last {
+                    continue;
+                }
+            }
+            let key = crate::model_names::model_key(
+                row.event
+                    .model_canonical
+                    .as_deref()
+                    .filter(|m| !m.trim().is_empty())
+                    .or(row.event.model_raw.as_deref())
+                    .unwrap_or_default(),
+            );
+            let book = books
+                .entry(key)
+                .or_insert_with(|| book.for_model(&row.event));
+            let model_key = (
+                row.provider.to_lowercase(),
+                crate::model_names::model_key(&row.model),
+            );
+            let model = &mut models.entry(model_key.clone()).or_default().1;
             match book.estimate(&row.event, &request.options, request.now_ms) {
                 EventEstimate::Priced(amounts) => {
+                    let day_costs = daily
+                        .entry((day, model_key.0.clone(), model_key.1.clone()))
+                        .or_default();
+                    accumulate_amounts(
+                        day_costs
+                            .entry(amounts.currency.clone())
+                            .or_insert_with(|| CostCurrencyRow::empty(amounts.currency.clone())),
+                        &amounts,
+                    );
+                    let model_rates = rates.entry(model_key).or_default();
+                    for id in &amounts.matched_price_ids {
+                        if !model_rates.contains_key(id) {
+                            if let Some(price) =
+                                book.rows.iter().find(|price| &price.price_id == id)
+                            {
+                                model_rates.insert(id.clone(), price.clone());
+                            }
+                        }
+                    }
                     let entry = by_currency
                         .entry(amounts.currency.clone())
                         .or_insert_with(|| CostCurrencyRow::empty(amounts.currency.clone()));
                     accumulate_amounts(entry, &amounts);
+                    accumulate_amounts(
+                        model
+                            .entry(amounts.currency.clone())
+                            .or_insert_with(|| CostCurrencyRow::empty(amounts.currency.clone())),
+                        &amounts,
+                    );
                 }
                 EventEstimate::Unpriced(reason) => {
+                    daily
+                        .entry((day, model_key.0, model_key.1))
+                        .or_default()
+                        .entry(String::new())
+                        .or_default()
+                        .unpriced_event_count += 1;
                     unpriced_events_total += 1;
                     *unpriced.entry(reason.as_str().to_string()).or_insert(0) += 1;
+                    model.entry(String::new()).or_default().unpriced_event_count += 1;
                 }
             }
         }
@@ -467,8 +645,26 @@ impl Storage {
                 },
             );
         }
-        Ok((by_currency.into_values().collect(), unpriced))
+        Ok(CurrentReference {
+            rows: by_currency.into_values().collect(),
+            unpriced,
+            daily,
+            rates,
+        })
     }
+}
+
+fn cost_day_rows(days: DayCosts) -> Vec<CostDayRow> {
+    days.into_iter()
+        .flat_map(|((day, provider, model), currencies)| {
+            currencies.into_values().map(move |sums| CostDayRow {
+                day: day.clone(),
+                provider: provider.clone(),
+                model: model.clone(),
+                sums,
+            })
+        })
+        .collect()
 }
 
 fn merge_currency_row(map: &mut BTreeMap<String, CostCurrencyRow>, entry: CostCurrencyRow) {
@@ -656,6 +852,11 @@ fn snapshot_provenance_matches(
 /// 维度筛选条件（SQL 片段）：casefold IN 白名单；筛选值含 "unknown" 时
 /// 空值/NULL 也命中（与 query::Filters 的 unknown 语义一致），否则不命中。
 /// 白名单由构建方（应用命令层）控制，单引号剔除防注入。
+fn model_filter_condition(values: &[String]) -> String {
+    fold_filter_condition("CASE WHEN fold_name(model_raw) LIKE 'claude-%' THEN REPLACE(fold_name(model_raw),'.','-') ELSE model_raw END",
+        &values.iter().map(|m|crate::model_names::model_key(m)).collect::<Vec<_>>())
+}
+
 fn fold_filter_condition(column: &str, values: &[String]) -> String {
     let folded: Vec<String> = values
         .iter()
@@ -750,7 +951,7 @@ pub(crate) fn collect_events_for_pricing(
                 cost_amount_minor, cost_currency, cost_kind
          FROM usage_events
          WHERE occurred_at_ms >= ?1 AND occurred_at_ms < ?2
-           AND attribution_status = 'verified' AND record_kind = 'model_call'",
+           AND attribution_status = 'verified' AND record_kind IN ('model_call','usage_observation')",
     );
     if !filters.agents.is_empty() {
         sql.push_str(&format!(
@@ -765,10 +966,7 @@ pub(crate) fn collect_events_for_pricing(
         ));
     }
     if !filters.models.is_empty() {
-        sql.push_str(&format!(
-            " AND {}",
-            fold_filter_condition("model_raw", &filters.models)
-        ));
+        sql.push_str(&format!(" AND {}", model_filter_condition(&filters.models)));
     }
     if let Some(instances) = &filters.instances {
         if instances.is_empty() {
@@ -983,7 +1181,19 @@ pub(crate) fn recompute_cost_day_tx(
 
     let mut accounts: Vec<Acc> = Vec::new();
     let events = collect_events_for_pricing(tx, start_ms, end_ms, &CostFilters::default())?;
+    let mut books: BTreeMap<String, PriceBook> = BTreeMap::new();
     for row in &events {
+        let key = crate::model_names::model_key(
+            row.event
+                .model_canonical
+                .as_deref()
+                .filter(|m| !m.trim().is_empty())
+                .or(row.event.model_raw.as_deref())
+                .unwrap_or_default(),
+        );
+        let book = books
+            .entry(key)
+            .or_insert_with(|| book.for_model(&row.event));
         // 1) 按发生时价估算。
         match book.estimate_at_time(&row.event, options) {
             EventEstimate::Priced(amounts) => {
@@ -1240,6 +1450,25 @@ pub struct CostSummary {
     /// at_time 引用的价格快照。
     pub price_basis: Vec<String>,
     pub data_revision: i64,
+    pub models: Vec<CostModelRow>,
+    pub daily: Vec<CostDayRow>,
+    pub daily_current: Vec<CostDayRow>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CostModelRow {
+    pub provider: String,
+    pub model: String,
+    pub at_time: Vec<CostCurrencyRow>,
+    pub current_sim: Vec<CostCurrencyRow>,
+    pub unit_prices: Vec<PriceRow>,
+}
+#[derive(Debug, Clone, Serialize)]
+pub struct CostDayRow {
+    pub day: String,
+    pub provider: String,
+    pub model: String,
+    pub sums: CostCurrencyRow,
 }
 
 impl CostSummary {

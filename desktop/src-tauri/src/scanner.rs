@@ -103,7 +103,13 @@ fn run_refresh_filtered(
         run_id_prefix: format!("scan-{now}"),
         origin_host_id: Some(host_id),
     };
-    let ctx = discover_context(manual_roots);
+    let mut ctx = discover_context(manual_roots);
+    // Only the verified Copilot file targets produced by this app are promoted.
+    // Other supplemental exports retain their isolated validation boundary.
+    if let Some(app) = state.db_path.parent() {
+        ctx.manual_roots
+            .extend(crate::telemetry_setup::copilot_usage_roots(app));
+    }
     let mut summaries: Vec<RefreshInstanceSummary> = Vec::new();
     // F2：刷新前修订号——本轮采集重写的 daily_usage 行 revision 均大于它
     // （retention 之后还会再 bump，不能用"当前 revision"等于过滤）。
@@ -298,6 +304,10 @@ fn run_refresh_filtered(
         if pricing_enabled {
             let storage = state.storage.lock().unwrap();
             let now = now_ms();
+            if let Err(e) = storage.ensure_cost_matching_policy(&tz, now, &options) {
+                let _ = storage.conn().execute("INSERT INTO diagnostics(code,message,created_ms) VALUES('cost_policy_repair_failed',?1,?2)",
+                    rusqlite::params![e.to_string(),now]);
+            }
             let days = storage
                 .cost_backfill_days_since(&tz, revision_before)
                 .unwrap_or_default();

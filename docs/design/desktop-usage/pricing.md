@@ -150,7 +150,7 @@ FlashX $0.37/$0.075/$1.25；未见批处理与阶梯说明（未核实）。
 | 本机观测模型 | 来源 | 按量价存在性 | 处理 |
 | --- | --- | --- | --- |
 | gpt-6-astra / gpt-6-sol | Codex（ChatGPT 订阅通道） | 存在（S01） | 订阅用量套按量价，标"参考估算" |
-| GLM-5.3 / glm-5.3-flash | omp、pi、zcode | 存在，双渠道双币（S15、S17） | 按实际订阅/端点渠道选行；渠道不明时不套价 |
+| GLM-5.3 / glm-5.3-flash | omp、pi、zcode | 存在，双渠道双币（S15、S17） | 精确渠道优先；渠道未知仅按无歧义的官方 API 价参考，不推断实付 |
 | kimi-code / k3 | Kimi Code/Work、omp | k3 存在（S09、S10） | Coding Plan 用量套按量价，标"参考估算" |
 | kimi-for-coding | Kimi Code/Work | 不存在：官方说明其为订阅专属 K2.8 Preview，按量价目表无此 ID（S14） | 未计价；人工别名须另获证据 |
 | glm-5.2（合成样本） | kilo fixtures | 存在（S15、S17） | 同 GLM-5.3 双渠道 |
@@ -183,7 +183,9 @@ cache_storage 小时价），与下表定案一致。
 | 推理价 | 无列 | 不建：四家核验均无独立推理价（GLM 未明示按未核实处理），推理子集并入输出，禁止重复计价 |
 
 种子快照随仓库版本化：`desktop/src-tauri/crates/core/prices/seed-2026-09-25.json`
-（应用启动幂等导入）；用户在「设置 → 费用」导入的本地快照同格式（JSON），
+及 `seed-2026-10-02.json`（应用启动幂等导入）。后者补充 Opus 4.8 与
+GPT-4o mini 2024-07-18 标准价，核验当日开始有效，不倒填历史日期。
+用户在「设置 → 费用」导入的本地快照同格式（JSON），
 来源类型标 `manual`。金额与价格一律不用二进制浮点（沿用
 [数据合同](data-contract.md#pricing)）。
 
@@ -229,8 +231,8 @@ cache_storage 小时价），与下表定案一致。
 供应商的按量价，用于「无精确匹配时回退到官方 provider 价格」的候选池。
 seed/community 行默认 true，manual 行默认 false（手工添加官方价时可逐行
 置 true）。
-导入的 `provider_id`/`region`/`channel` 需与「设置 → 费用」中配置的供应商
-默认一致才参与估算（大小写不敏感）。
+精确估算行的 `provider_id`/`region`/`channel` 与用户供应商默认匹配（大小写不敏感）；
+2026-10-02 起，缺少精确项可使用下述同型号官方 API 参考，无需先猜测实际渠道。
 跨快照同一计费项允许覆盖：匹配日期与输入阈值后，手工快照优先于种子，
 种子优先于社区；同类快照先取较新的 `fetched_at`，再取较晚的导入时间。
 不足最低上下文阈值的事件不套该行；输入规模未知且存在高档行时不猜档。
@@ -255,8 +257,9 @@ seed/community 行默认 true，manual 行默认 false（手工添加官方价�
    刷新失败或校验失败保留已验证快照并显示其年龄（fetched_at/verified_at），
    不静默改写任何已产出金额。
 6. 历史可复现：估算结果引用用量 `data_revision` 与 `price_version`；
-   按发生时价格估算优先，事件时点无适用价格时不得用当前价冒充，
-   而是分列"按当前价格模拟"并标注；后台价格更新不触发既有估算重算，
+   历史发生时估算保留，不得用当前价冒充；2026-10-02 用户决定看板统一
+   展示“API按量付费价格参考”，按当前可用价目计算，不重复展示历史估算。
+   后台价格更新不触发既有估算重算，
    重算仅在用户显式请求或数据修订时进行并更新引用。查询范围内只要有符合
    当前筛选条件的已封存用量日，当前价模拟就标记明细受限。
 
@@ -328,7 +331,27 @@ model、standard、区间匹配，优先与所选 region/channel 一致的行，
 仍 `tier_ambiguous` 不猜档）。回退计价的事件在估算结果标记
 `official_fallback`，日成本行与汇总新增 `fallback_event_count`，界面以
 「官方回退」计数标注（参考估算语义不变：订阅实付不等于该值）。
-供应商未配置渠道时仍一律不套价（`channel_unknown`；双渠道双币种风险不猜）。
+2026-10-02 修正：provider 缺失或未配置渠道也进入官方参考候选，不先返回
+`no_provider`/`channel_unknown`。系列限定官方供应商，具体型号仍须精确匹配：
+GPT/o → OpenAI；Claude → Anthropic；Gemini → Google；Kimi/Moonshot → 月之暗面；
+GLM → 智谱/Z.ai；DeepSeek → DeepSeek，证据与目录 ID 见 [本轮合同](dashboard-repair.md)。
+先选用户渠道，次选 global 官方参考（api 标签优先，兼容以官方提供商命名的渠道）；
+剩余地区/渠道/币种有歧义仍未计价，不换汇、不虚构费率。
+官方 [Kimi Code 模型表](https://www.kimi.com/code/docs/en/kimi-code/models.html)确认
+`k3`/`k3-256k` 对应 K3；本机 `kimi-code/` profile 可参考 `kimi-k3`，
+只影响参考价格匹配，原始统计归属保留；精确 profile 渠道价格优先。
+官方参考缺少同型号行时为 `no_price_row`；未知系列且 provider 缺失才为 `no_provider`。
+保留真实 provider，不把参考价当实付。已知 usage_observation token 同样可部分估算，
+计价事件数不当调用次数。已有未封存且保留明细的估算按规则修正一次，之后后台价格更新
+不改发生时金额。总览/趋势均展示参考面板与覆盖范围，见 [验证记录](../../validation/desktop-usage/dashboard-repair.md)。
+2026-10-02 后续：费用查询保留历史响应，并增加当前价的各模型/币种小计、按日
+provider/model 金额和实际匹配 price_id 单价。看板统一显示当前 API 参考；
+模型表一列费用加底部汇总，曲线可切换币种和逐模型，单价详情可展开。
+今日及当前范围汇总复用相同价格参考，选中小时按本地小时限制保留明细，包含 DST
+重复小时，不使用整日成本代替选中小时。查询只读，不改变既有发生时估算和快照。
+用量为小时粒度时费用仍按日展示，不能将整日费用分摊到某个小时。
+缩小候选价目保留供应商、优先级、有效期和档位，不改估算规则或历史快照；见
+[交互合同](dashboard-polish.md) 与 [验证记录](../../validation/desktop-usage/dashboard-polish.md)。
 回退仅在精确匹配缺失时触发；精确链已命中（含 tier_ambiguous）时不回退。
 
 ## 费用合同细则
@@ -437,7 +460,7 @@ V29 行见 [验证清单](validation.md)。样本分三部分：固定价格样�
   价格静默调整风险由"社区目录交叉核对 + 用户可见快照年龄"缓解，不能消除。
 - 渠道/地区差异是主要正确性风险：GLM 与 Kimi 均为双渠道双币种且价差显著
   （kimi-k3 CN ¥20 与 global $3 输入价不可互换）；本机订阅通道的实际端点
-  需逐 Agent 核验后才能选定快照行，渠道不明时不套价。
+  需逐 Agent 核验；未知渠道只显示明确币种的同型号官方 API 参考，不推断实际端点。
 - 订阅专属模型（kimi-for-coding = K2.8 Preview）无按量价，长期未计价；
   若官方日后发布对应价目再行接入。
 - 社区目录与官方存在实测偏差（OpenRouter 聚合费率、models.dev 的 zhipuai

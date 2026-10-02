@@ -37,7 +37,7 @@ export async function configureTelemetryBatch(
   const targets = await operations.check();
   const ready = targets.filter((row) => row.status === 'missing' && row.configurable);
   const results: TelemetryResult[] = targets
-    .filter((row) => row.status !== 'configured' && !ready.includes(row))
+    .filter((row) => row.status === 'blocked' && !ready.includes(row))
     .map((target) => ({ target, status: 'manual' }));
   let completed = 0;
   const progress = () => onProgress({ completed, total: ready.length, results: [...results] });

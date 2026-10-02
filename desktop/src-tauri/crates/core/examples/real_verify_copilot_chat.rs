@@ -3,7 +3,8 @@
 //! （2026-10-01 首次执行：VS Code 1.140.0，10 请求）。
 //! 只输出白名单聚合：根数、事件数、token 合计、模型去重计数、诊断计数、
 //! 以及重扫幂等性；不打印路径、会话 ID 或记录内容。
-//! 用法：cargo run -p llm-usage-core --example real_verify_copilot_chat -- <chatSessions目录或单个.jsonl或workspaceStorage目录> <work_dir>
+//! 用法：cargo run -p llm-usage-core --example real_verify_copilot_chat -- <chatSessions目录或单个.jsonl或workspaceStorage目录> <work_dir> [--reuse] [--timezone=Asia/Shanghai]
+//! --reuse 仅用于 build 下的隔离核验库，保留旧游标以核验刷新修复；不传用户活库目录。
 
 use llm_usage_core::adapters::copilot_chat::CopilotChatAdapter;
 use llm_usage_core::adapters::framework::{
@@ -20,20 +21,38 @@ fn main() {
     let work = std::env::args()
         .nth(2)
         .expect("usage: <chat_sessions_root_or_file> <work_dir>");
+    let mut reuse = false;
+    let mut timezone = "UTC".to_string();
+    for arg in std::env::args().skip(3) {
+        if arg == "--reuse" {
+            reuse = true;
+        } else if let Some(value) = arg.strip_prefix("--timezone=") {
+            timezone = value.to_string();
+        } else {
+            panic!("unrecognized verification option");
+        }
+    }
     std::fs::create_dir_all(&work).expect("create work dir");
     let db_path = PathBuf::from(&work).join("real-check-copilot-chat.sqlite");
-    let _ = std::fs::remove_file(&db_path);
+    if reuse {
+        assert!(
+            db_path.is_file(),
+            "--reuse requires an existing isolated verification DB"
+        );
+    } else {
+        let _ = std::fs::remove_file(&db_path);
+    }
     let storage = Storage::open(&db_path).expect("open storage");
 
     let adapter = CopilotChatAdapter::new();
-    let now_ms = 1_800_000_000_000_i64;
+    let now_ms = jiff::Timestamp::now().as_millisecond();
     let ctx = DiscoverContext {
         home_dir: None,
         env: Default::default(),
         manual_roots: vec![PathBuf::from(root)],
     };
     let config = RunConfig {
-        timezone: "UTC".to_string(),
+        timezone,
         now_ms,
         limits: ScanLimits::default(),
         trigger: TriggerKind::Manual,

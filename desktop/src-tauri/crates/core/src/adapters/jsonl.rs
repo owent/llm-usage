@@ -65,7 +65,7 @@ pub enum StopReason {
     Eof,
     /// 某完整行超过单行上限：游标停在该行起点，可受控重试（提高上限）。
     LineTooLong { number: u64, offset: u64 },
-    /// 达到确定性行数预算。
+    /// 达到确定性行数或字节预算。
     LineBudget,
     /// 达到墙钟预算。
     TimeBudget,
@@ -91,6 +91,16 @@ pub fn read_jsonl(
     start_offset: u64,
     first_line_number: u64,
     limits: &JsonlLimits,
+) -> std::io::Result<ReadOutcome> {
+    read_jsonl_with_byte_budget(path, start_offset, first_line_number, limits, None)
+}
+
+pub fn read_jsonl_with_byte_budget(
+    path: &Path,
+    start_offset: u64,
+    first_line_number: u64,
+    limits: &JsonlLimits,
+    max_bytes: Option<u64>,
 ) -> std::io::Result<ReadOutcome> {
     let mut file = File::open(path)?;
     file.seek(SeekFrom::Start(start_offset))?;
@@ -131,7 +141,17 @@ pub fn read_jsonl(
                 break;
             }
         }
-        let n = file.read(&mut chunk)?;
+        let remaining = if let Some(budget) = max_bytes {
+            Some(budget.saturating_sub(file.stream_position()?.saturating_sub(start_offset)))
+        } else {
+            None
+        };
+        if remaining == Some(0) {
+            outcome.stop = StopReason::LineBudget;
+            break;
+        }
+        let take = remaining.map_or(chunk.len(), |n| chunk.len().min(n as usize));
+        let n = file.read(&mut chunk[..take])?;
         if n == 0 {
             // EOF：carry 中的残余是半行，留待下次。
             outcome.pending_bytes = carry.len() as u64;
@@ -199,7 +219,7 @@ pub fn read_jsonl(
         carry.drain(..consumed);
         carry_start = outcome.next_offset;
     }
-    Ok(outcome)
+    Ok(finish_carry(outcome, carry_start, &carry))
 }
 
 fn finish_carry(mut outcome: ReadOutcome, carry_start: u64, carry: &[u8]) -> ReadOutcome {

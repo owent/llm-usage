@@ -8,6 +8,9 @@
  */
 import { translatedCatalogs } from './locales';
 import { telemetryCatalogs } from './telemetry-locales';
+import { dashboardCatalogs } from './dashboard-locales';
+import { polishCatalogs } from './polish-locales';
+import { referenceCatalogs } from './reference-locales';
 
 export const LANGUAGE_OPTIONS = [
   ['zh-CN', '简体中文'],
@@ -744,6 +747,9 @@ const catalogs: Record<Locale, Record<string, string>> = {
 
 for (const [locale, catalog] of Object.entries(catalogs)) {
   Object.assign(catalog, telemetryCatalogs[locale]);
+  Object.assign(catalog, dashboardCatalogs[locale]);
+  Object.assign(catalog, polishCatalogs[locale]);
+  Object.assign(catalog, referenceCatalogs[locale]);
 }
 
 export const DEFAULT_LOCALE: Locale = 'zh-CN';

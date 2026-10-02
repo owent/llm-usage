@@ -1,13 +1,20 @@
 <script lang="ts">
-  import type { MetricSumsDto } from '../lib/api';
+  import type { MetricSumsDto, CostSummaryDto } from '../lib/api';
+  import CostReferenceSummary from './CostReferenceSummary.svelte';
   import { t, fmtSmart, fmtPercent, fmtDurationShort } from '../lib/i18n.svelte';
 
   let {
     totals,
     sessions,
+    costs=null,
+    pricing=false,
+    costsError='',
   }: {
     totals: MetricSumsDto;
     sessions: number | null;
+    costs?: CostSummaryDto|null;
+    pricing?: boolean;
+    costsError?: string;
   } = $props();
 
 
@@ -36,21 +43,21 @@
 
 <div class="today-cards">
   {#each cards as c (c.key)}
-    <div class="card" title={c.hint ?? ''}>
+    <div class="card" title={[c.hint,c.sub].filter(Boolean).join(' · ')}>
       <div class="label">
-        {t(c.key)}{#if c.hint}<span class="hint">{c.hint}</span>{/if}
+        {t(c.key)}
       </div>
       <div class="value">{c.value}</div>
-      {#if c.sub}<div class="sub">{c.sub}</div>{/if}
     </div>
   {/each}
 </div>
+{#if pricing}<CostReferenceSummary summary={costs} error={costsError} />{/if}
 
 <style>
   .today-cards {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 8px;
     padding: 8px 0 2px;
   }
   .card:first-child { background: var(--accent-bg); border-color: transparent; }
@@ -58,8 +65,8 @@
   .card {
     background: var(--bg-card-hover);
     border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 18px 14px;
+    border-radius: 9px;
+    padding: 12px 10px;
     min-width: 0;
   }
   .label {
@@ -67,22 +74,12 @@
     color: var(--text-secondary);
     white-space: normal;
   }
-  .label .hint {
-    color: var(--text-muted);
-    font-size: 12px;
-  }
   .value {
-    font-size: 26px;
+    font-size: 22px;
     font-weight: 650;
     margin-top: 4px;
     font-variant-numeric: tabular-nums;
   }
-  /* 输入分解小字：命中 X · 未命中 Y。 */
-  .sub {
-    margin-top: 2px;
-    font-size: 12px;
-    color: var(--text-muted);
-    font-variant-numeric: tabular-nums;
-    overflow-wrap: anywhere;
-  }
+  @media(max-width:1200px) {.today-cards{grid-template-columns:repeat(4,minmax(0,1fr));}.card:last-child{grid-column:span 2;}}
+  @media(max-width:600px) {.today-cards{grid-template-columns:repeat(2,minmax(0,1fr));}}
 </style>

@@ -4,6 +4,7 @@ import { configureTelemetryBatch, telemetryFailureKey, type TelemetryResult } fr
 /** Share async results and coalesce concurrent checks; opening details rechecks installation. */
 export const telemetry = $state({ rows: [] as TelemetryTargetDto[], checking: false, checked: false, error: '' });
 let pending: Promise<void> | undefined;
+let checkedAt = 0;
 
 /** Configuration and undo state survives navigating between overview and settings. */
 export const telemetrySetup = $state({
@@ -13,12 +14,13 @@ export const telemetrySetup = $state({
 });
 export function checkTelemetry(force = false): Promise<void> {
   if (pending) return pending;
-  if (telemetry.checked && !force) return Promise.resolve();
+  if (telemetry.checked && !force && Date.now() - checkedAt < 30_000) return Promise.resolve();
   telemetry.checking = true;
   telemetry.error = '';
   pending = api.telemetryCheck().then((rows) => {
     telemetry.rows = rows;
     telemetry.checked = true;
+    checkedAt = Date.now();
   }).catch(() => { telemetry.error = 'telemetry.checkFailed'; })
     .finally(() => { telemetry.checking = false; pending = undefined; });
   return pending;

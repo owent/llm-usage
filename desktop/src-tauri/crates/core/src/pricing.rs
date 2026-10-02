@@ -5,16 +5,17 @@
 //! 计费项金额 = round_half_up(token × 价格 / 100_000_000)，i128 中间量，四舍五入到
 //! 最小货币单位后累加；不用二进制浮点。
 //!
-//! 边界：渠道/地区不明的供应商不套价（需用户显式选定默认渠道行）；推理子集无独立
+//! 边界：实际渠道不明时仅展示同模型官方 API 价格参考，候选渠道/币种有歧义不套价；推理子集无独立
 //! 价格行、绝不与输出重复计价；未知 token 不补零；异常 token 拒绝进入费用计算。
 
 use crate::error::CoreError;
 use jiff::civil::Date;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 /// 仓库随版本维护的种子快照（种子导入幂等，见 [`crate::storage::pricing`]）。
 pub const SEED_SNAPSHOT_JSON: &str = include_str!("../prices/seed-2026-09-25.json");
+pub const SUPPLEMENT_SNAPSHOT_JSON: &str = include_str!("../prices/seed-2026-10-02.json");
 
 /// 币种枚举（种子与本程序当前核验范围；新币种需先取得证据再扩展）。
 pub const CURRENCIES: &[&str] = &["USD", "CNY"];
@@ -115,7 +116,7 @@ pub struct PriceSnapshot {
     pub rows: Vec<PriceRow>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct PriceRow {
     pub price_id: String,
     pub snapshot_id: String,
@@ -404,10 +405,10 @@ pub struct PricingEvent {
     pub output_total: Option<i64>,
 }
 
-/// 估算选项：用户显式配置（渠道不明不套价；TTL 未设默认档时写分量不计价）。
+/// 估算选项：精确渠道价优先；未知渠道仅允许无歧义的同型号官方参考。
 #[derive(Debug, Clone, Default)]
 pub struct EstimateOptions {
-    /// 供应商（casefold 键）→ 用户选定的 (region, channel)；未列出的供应商不套价。
+    /// 供应商（casefold 键）→ 用户选定的 (region, channel)。
     pub provider_channels: BTreeMap<String, (String, String)>,
     /// 供应商（casefold 键）→ 缓存写默认 TTL 档（5/60 分钟）。
     pub cache_ttl_minutes: BTreeMap<String, u32>,
@@ -458,7 +459,7 @@ pub struct EventEstimateAmounts {
 pub enum UnpricedReason {
     NoProvider,
     NoModel,
-    /// 供应商渠道/地区未由用户选定：不套价。
+    /// 官方参考渠道/地区/币种仍有歧义，或未知系列缺少渠道配置。
     ChannelUnknown,
     /// 无适用价格行（含事件早于快照生效起点）。
     NoPriceRow,
@@ -515,6 +516,30 @@ impl Slot {
 }
 
 impl PriceBook {
+    /// Narrow once per model, retaining all intervals, tiers and snapshot priority.
+    pub fn for_model(&self, event: &PricingEvent) -> PriceBook {
+        let model = crate::model_names::model_key(
+            event
+                .model_canonical
+                .as_deref()
+                .filter(|m| !m.trim().is_empty())
+                .or(event.model_raw.as_deref())
+                .unwrap_or_default(),
+        );
+        let reference = crate::model_names::reference_model_key(&model);
+        PriceBook {
+            rows: self
+                .rows
+                .iter()
+                .filter(|r| {
+                    let key = crate::model_names::model_key(&r.model);
+                    key == model || key == reference
+                })
+                .cloned()
+                .collect(),
+        }
+    }
+
     /// 按发生时价计价（权威估算：区间按事件 occurred_at 匹配）。
     pub fn estimate_at_time(
         &self,
@@ -531,24 +556,24 @@ impl PriceBook {
         options: &EstimateOptions,
         at_ms: i64,
     ) -> EventEstimate {
-        let provider = match event.provider_id.as_deref() {
-            Some(p) if !p.trim().is_empty() => p.to_lowercase(),
-            _ => return EventEstimate::Unpriced(UnpricedReason::NoProvider),
-        };
+        let provider = event
+            .provider_id
+            .as_deref()
+            .unwrap_or_default()
+            .trim()
+            .to_lowercase();
         let model = event
             .model_canonical
             .as_deref()
             .filter(|m| !m.trim().is_empty())
             .or(event.model_raw.as_deref())
-            .map(str::to_lowercase);
+            .map(crate::model_names::model_key);
         let model = match model {
             Some(m) if !m.is_empty() => m,
             _ => return EventEstimate::Unpriced(UnpricedReason::NoModel),
         };
-        let (region, channel) = match options.provider_channels.get(&provider) {
-            Some(rc) => (rc.0.to_lowercase(), rc.1.to_lowercase()),
-            None => return EventEstimate::Unpriced(UnpricedReason::ChannelUnknown),
-        };
+        let configured = options.provider_channels.get(&provider);
+        let reference_model = crate::model_names::reference_model_key(&model);
 
         // 异常 token：负值 / 缓存大于已知总输入（不用 max(0,…) 修饰）。
         let read = event.input_cache_read;
@@ -578,7 +603,8 @@ impl PriceBook {
 
         // 区间匹配：from ≤ at_ms < to（to NULL = 开放）。
         let in_range = |r: &&PriceRow| {
-            r.model.to_lowercase() == model
+            (crate::model_names::model_key(&r.model) == model
+                || crate::model_names::model_key(&r.model) == reference_model)
                 && r.service_tier == "standard"
                 && r.effective_from_ms <= at_ms
                 && r.effective_to_ms.map_or(true, |to| at_ms < to)
@@ -589,38 +615,100 @@ impl PriceBook {
             .filter(|r| {
                 in_range(r)
                     && r.provider_id.to_lowercase() == provider
-                    && r.region.to_lowercase() == region
-                    && r.channel.to_lowercase() == channel
+                    && configured.is_some_and(|(region, channel)| {
+                        r.region.eq_ignore_ascii_case(region)
+                            && r.channel.eq_ignore_ascii_case(channel)
+                    })
             })
             .collect();
-        // 官方供应商回退（2026-10-01 用户合同）：精确 provider+模型无适用行时，
-        // 在官方按量价行（official_vendor）中按同模型匹配；优先与所选
-        // region/channel 一致的行，其余保持价格簿优先级。供应商未配置渠道已在
-        // 上方返回 channel_unknown，不会走到这里；精确链已命中（含档位歧义）
-        // 时不回退。
+        if candidates
+            .iter()
+            .any(|r| crate::model_names::model_key(&r.model) == model)
+        {
+            candidates.retain(|r| crate::model_names::model_key(&r.model) == model);
+        }
+        // Reference pricing also works when the billing channel/provider is unknown.
+        // Vendor families restrict fallback; the model release must still match exactly.
         let mut official_fallback = false;
         if candidates.is_empty() {
             let fallback: Vec<&PriceRow> = self
                 .rows
                 .iter()
-                .filter(|r| in_range(r) && r.official_vendor)
+                .filter(|r| {
+                    in_range(r)
+                        && crate::model_names::model_key(&r.model) == reference_model
+                        && r.official_vendor
+                        && (crate::model_names::official_providers(&model).is_empty()
+                            || crate::model_names::official_providers(&model)
+                                .iter()
+                                .any(|p| r.provider_id.eq_ignore_ascii_case(p)))
+                })
                 .collect();
             if fallback.is_empty() {
-                return EventEstimate::Unpriced(UnpricedReason::NoPriceRow);
+                return EventEstimate::Unpriced(
+                    if !crate::model_names::official_providers(&model).is_empty() {
+                        UnpricedReason::NoPriceRow
+                    } else if provider.is_empty() {
+                        UnpricedReason::NoProvider
+                    } else if configured.is_none()
+                        && crate::model_names::official_providers(&model).is_empty()
+                    {
+                        UnpricedReason::ChannelUnknown
+                    } else {
+                        UnpricedReason::NoPriceRow
+                    },
+                );
             }
             let preferred: Vec<&PriceRow> = fallback
                 .iter()
                 .copied()
                 .filter(|r| {
-                    r.region.to_lowercase() == region && r.channel.to_lowercase() == channel
+                    configured.is_some_and(|(region, channel)| {
+                        r.region.eq_ignore_ascii_case(region)
+                            && r.channel.eq_ignore_ascii_case(channel)
+                    })
                 })
                 .collect();
             candidates = if preferred.is_empty() {
-                fallback
+                let global: Vec<_> = fallback
+                    .iter()
+                    .copied()
+                    .filter(|r| r.region.eq_ignore_ascii_case("global"))
+                    .collect();
+                if global.is_empty() {
+                    fallback
+                } else {
+                    let api: Vec<_> = global
+                        .iter()
+                        .copied()
+                        .filter(|r| r.channel.eq_ignore_ascii_case("api"))
+                        .collect();
+                    if api.is_empty() {
+                        global
+                    } else {
+                        api
+                    }
+                }
             } else {
                 preferred
             };
             official_fallback = true;
+            // Select one vendor/channel before choosing its context tier. Mixing rows
+            // across vendors/currencies can otherwise pick an unrelated high tier.
+            let first = candidates[0];
+            if candidates.iter().any(|r| {
+                r.currency != first.currency
+                    || !r.region.eq_ignore_ascii_case(&first.region)
+                    || !r.channel.eq_ignore_ascii_case(&first.channel)
+            }) {
+                return EventEstimate::Unpriced(UnpricedReason::ChannelUnknown);
+            }
+            candidates.retain(|r| {
+                r.provider_id == first.provider_id
+                    && r.region == first.region
+                    && r.channel == first.channel
+                    && r.currency == first.currency
+            });
         }
         // 即使只有一个高档价格行，也必须验证输入达到该行阈值。
         // 多档且输入规模未知时不能从价格簿顺序猜测档位。
@@ -1208,12 +1296,12 @@ mod tests {
     }
 
     #[test]
-    fn fallback_requires_configured_channel_and_official_rows() {
+    fn fallback_without_configured_channel_still_requires_official_rows() {
         let book = fallback_book();
-        // 供应商未配置渠道 ⇒ channel_unknown，不回退（双渠道双币种不猜）。
-        assert_eq!(
-            book.estimate_at_time(&fallback_event("relay-x"), &EstimateOptions::default()),
-            EventEstimate::Unpriced(UnpricedReason::ChannelUnknown)
+        // 无渠道配置也能展示唯一官方模型价，实付渠道仍不推断。
+        assert!(
+            matches!(book.estimate_at_time(&fallback_event("relay-x"), &EstimateOptions::default()),
+            EventEstimate::Priced(a) if a.official_fallback && a.total_amount_minor==6000)
         );
         let mut options = EstimateOptions::default();
         options

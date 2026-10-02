@@ -108,3 +108,93 @@ CLI chronicle 无逐次 token 的结论仅限已核验载体，未知新版不�
 数据库仍遵守既有预发布版本不匹配提示重建的规则，不实施逐版本迁移。
 本轮 parser/来源命名空间已变化，schema 更新至 10，旧试验库按既有流程提示重建。
 本轮以新隔离核验库对照，未改用户应用数据库；未运行真实 JetBrains 服务或生产环境。
+
+## 后续修正（2026-10-01）：健康状态与未知字段展示
+
+本机实测两处展示偏差并修复（真实载体独立核验，未改用户应用数据库）：
+
+- **来源“需核对 1 个文件”**：`turn_input_incomplete`（promptTokens 仅覆盖末次调用的
+  输入覆盖提示）此前被当作任意诊断降级来源健康。该提示是格式固有限制、非坏记录或
+  对账差异（见 [架构](../../design/desktop-usage/architecture.md#unknown-version)），
+  修正为仅在存在其它诊断（坏行、非法 token、重复键、缺归属等）时才 degraded；
+  仅覆盖提示保持 active。`session_log_v3` 健康判定据此改为“全部诊断均为
+  `turn_input_incomplete` ⇒ active”。
+- **“今日模型明细 未知字段 396”**：工具循环 round 以 `model_call`（`quality_bucket=unknown`、
+  逐轮 token 未知、用量由 turn observation 承载）计调用，此前每条 round 贡献
+  input/output 各一个“未知字段”。修正 `recompute_day` 与 `enrich_hourly_metadata`：
+  `quality_bucket='unknown'`（无任何已知 token 字段）的记录计入调用/事件，但不计
+  input/output/total 的未知字段数（与 `transport_attempt` 排除同理）。此为跨适配器
+  统一口径——失败/无用量调用经 `call_count` 可见，不再虚增“未知字段”。
+
+真实只读核验（`real_verify_copilot_chat` 对本机 workspaceStorage，4 日志）：
+修正前 `source_files` 为 active×2/degraded×1、`vscode-copilot-chat` 模型明细
+input_unknown+output_unknown=434（round 模型 `claude-opus-4.8` 独立行全未知）；
+修正后 active×4/degraded×0、未知字段合计=0，calls=222/observations=12、
+重扫新增 0。诊断仍记录 12 条 `turn_input_incomplete`（透明保留，不降级）。
+
+回归：新增 `session_log_v3` 单元 `turn_input_incomplete_alone_keeps_source_active`、
+集成 `copilot_rounds_stay_active_and_do_not_inflate_unknown_fields`；
+同步刷新无用量调用计数口径的既有用例（classification_v03/kilo/omp/pi/storage_jobs，
+syn-a2/失败调用由 `input_unknown_count=1` 改为 `0`，调用计数不变）。
+
+## 旧游标恢复与补充审查（2026-10-02）
+
+本轮保留上述未提交修复及其它任务差异，重新核对实现、字段质量、扫描框架和当前本机数据。
+再次读取上游 [IChatUsage / IChatUsageModelTotal](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/chat/common/chatService/chatService.ts)
+及 [ToolCallRound](https://github.com/microsoft/vscode-copilot-chat/blob/main/src/extension/prompt/common/toolCallRound.ts)：
+末次输入、整轮用量和仅含身份/时间的 round 不能互换。上游 main 只用于本轮交叉核对，
+本机载体实测 version=3；安装版本仍沿用此前证据，未推断新版本已验收。
+
+补充发现并修复：
+
+- 框架在文件已完整消费且字节未变化时跳过解析，导致仅改健康判定/缺字段 SQL 后，
+  旧 degraded 状态和日汇总缺字段数仍保留。Copilot parse_context 新增
+  scan_policy_version，缺少当前标记时允许一次完整重放；保留 revision/tracked_events，
+  推进原有单调修订以触发日/小时重算。坏快照不写成功标记，成功后恢复跳过。
+  不清游标上下文、不降修订、不删历史；schema 与 parser 格式版本不变。
+- QualityBucket::of 遗漏 output_reasoning/source_total，只有这些字段时被误分 unknown；
+  排除 unknown 的展示修复因此会隐藏真实缺字段。补齐这两个 token 字段；零值、
+  缓存细分、仅输入/仅输出仍属于有效部分用量，估算值仍不加入已报告合计。
+
+新增回归先复现失败：旧游标刷新返回 unchanged（期望 complete）；reasoning-only 在小时
+查询缺字段数为 0（期望输入/输出/总量各 1）。修复后新增六项测试覆盖：198 rounds 恢复
+“396”且修订 7→8、模型分行与真实缺输出、坏行降级/恢复、坏快照不标记更新成功，
+来源清理后旧历史也重算缺字段；以及日/小时/周/月、unknown 筛选、零值、
+缓存/推理/来源总量、估算和传输尝试。本轮共新增六项 Rust 单元/SQLite 集成回归。
+
+本机 Windows / PowerShell 7.6.6 / Node.js 24.21.0 / Cargo 1.98.1，只读当前应用库：
+5 份文件为 active×3/degraded×2；235 条 round、13 条 observation，输入下界
+3,832,423，输出累计 487,818，完整总量未知。日汇总的输入/输出缺字段合计为 470；
+当前样本已增长，396 由固定的 198-round 合成样本精确复现，不冒称为当前实测值。
+
+SQLite Online Backup 生成 build/copilot-review/current-app 隔离副本，在副本上执行
+原生 workspaceStorage 刷新（保留旧游标，Asia/Shanghai）：active×5/degraded×0、
+输入/输出缺字段 470→0；调用数、observation 数、输入/输出/未知总量不变。
+13 条 observation 的 total_unknown_count 仍为 13，未虚构完整总 token。
+独立 Python 重放原始 mutation log 得到相同调用及 token 合计，重扫新增 0。
+real_verify_copilot_chat 新增 --reuse 与 --timezone 参数用于该核验，仅传隔离库。
+未修改用户活库、IDE 设置或 OTel events.jsonl，未启动 Agent 或发起模型调用。
+
+本轮验证已完成，以下命令均从仓库根执行，退出码均为 0：
+
+- `cargo test --locked --manifest-path desktop/src-tauri/Cargo.toml -p llm-usage-core
+  --test copilot_ide_contract --test unknown_field_counts`：12 项集成测试通过。
+- `cargo test --locked --manifest-path desktop/src-tauri/Cargo.toml -p llm-usage-core
+  copilot -- --nocapture`：Copilot 定向单元及集成回归通过。
+- `python build/copilot-review/audit.py`：当前原始载体独立重放。
+- `cargo run --quiet --locked --manifest-path desktop/src-tauri/Cargo.toml -p llm-usage-core
+  --example real_verify_copilot_chat -- <workspaceStorage> build/copilot-review/current-app
+  --reuse --timezone=Asia/Shanghai`：旧游标真实恢复及重扫幂等 PASS。
+- `python build/copilot-review/compare_current.py`：原始载体、修复副本明细及日汇总一致，
+  无冲突、无 degraded 文件，PASS。
+- `npm run verify`：164 份 Markdown、资产、3 项脚本/13 项 UI 测试、Svelte
+  0 错误/0 警告、fmt、Clippy、775 项 Rust 测试、前端生产构建通过。
+  2 项既有忽略用例为 models.dev 实网 smoke 和本机配置审计，本轮未执行。
+- `npm run test:browser`：本机 Edge 浏览器交互回归通过。
+- `git diff --check`：通过；与开工补丁对比，其它 16 份未提交差异保持不变。
+
+日志保留在忽略目录 build/copilot-review：regression-before.log（两项失败断言）、
+regression-after.log、copilot-regression.log、current-raw-audit.log、current-app-replay.log、
+current-app-after.log、current-compare.log、verify-current.log、browser-current.log。
+补充文档与计划同步后另跑文档 lint；一致核验副本在验收后删除，仅保留脱敏汇总日志。
+本轮未安装或替换运行中的桌面程序；使用更新构建后刷新会自动恢复上述旧状态，无需清库。

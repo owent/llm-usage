@@ -488,7 +488,9 @@ impl QualityBucket {
             usage.input_cache_write,
             usage.input_total,
             usage.output_total,
+            usage.output_reasoning,
             usage.total_tokens,
+            usage.source_total,
         ]
         .iter()
         .any(Option::is_some);

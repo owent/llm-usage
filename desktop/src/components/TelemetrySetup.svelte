@@ -7,32 +7,44 @@
 
   let { full = false, onDetails }: { full?: boolean; onDetails?: () => void } = $props();
   let section = $state<HTMLElement>();
-  const pending = $derived(telemetry.rows.filter((row) => row.status !== 'configured'));
+  const pending = $derived(telemetry.rows.filter((row) => row.status === 'missing' && row.configurable));
   const ready = $derived(telemetry.rows.filter((row) => row.status === 'missing' && row.configurable));
   const results = $derived(new Map(telemetrySetup.results.map((r) => [r.target.id, r])));
   const summary = $derived.by(() => {
     if (telemetrySetup.busy) return telemetrySetup.batch ? t('telemetry.progress', {
       completed: telemetrySetup.completed, total: telemetrySetup.total,
     }) : t('common.loading');
-    if (telemetrySetup.results.length) return t('telemetry.result', {
-      success: telemetrySetup.results.filter((r) => r.status === 'applied').length,
-      failed: telemetrySetup.results.filter((r) => r.status === 'failed').length,
-      manual: telemetrySetup.results.filter((r) => r.status === 'manual').length,
+    if (!full) {
+      const verified = telemetry.rows.filter((row) => row.verification === 'verified');
+      const noData = telemetry.rows.filter((row) => row.verification !== 'verified'
+        && !(row.status === 'missing' && row.configurable));
+      const restricted = verified.filter((row) => row.status === 'blocked').length;
+      const counts = t('telemetry.compactStateCounts', {
+        pending: pending.length, noData: noData.length, verified: verified.length,
+      });
+      return restricted ? `${counts} · ${restricted} ${t('telemetry.status.blocked')}` : counts;
+    }
+    return t('telemetry.stateCounts', {
+      pending: pending.length,
+      waiting: telemetry.rows.filter((r) => r.status === 'configured' && r.verification !== 'verified').length,
+      verified: telemetry.rows.filter((r) => r.verification === 'verified').length,
+      blocked: telemetry.rows.filter((r) => r.status === 'blocked').length,
     });
-    return t('telemetry.brief', { count: pending.length });
   });
   onMount(() => {
     if (!telemetrySetup.busy) void checkTelemetry(full);
     if (full) { section?.focus(); section?.scrollIntoView({ block: 'start' }); }
+    const timer = setInterval(() => { if (!telemetrySetup.busy) void checkTelemetry(true); }, 30_000);
+    return () => clearInterval(timer);
   });
 </script>
 
-{#if full || pending.length || telemetrySetup.results.length || telemetrySetup.busy || telemetry.error || telemetrySetup.error}
+{#if full || telemetry.rows.length || telemetrySetup.busy || telemetry.error || telemetrySetup.error}
   <section bind:this={section} id={full ? 'telemetry-settings' : undefined} tabindex="-1"
     class="telemetry-setup" class:compact={!full} aria-label={t('telemetry.title')}>
     <div class="heading">
       <div>
-        <h4>{t('telemetry.title')}</h4>
+        <h4 title={!full ? t('dashboard.telemetryRequired') : undefined}>{t(full ? 'telemetry.title' : 'telemetry.compactTitle')}</h4>
         {#if !full}<p class="hint" role="status">{summary}</p>{/if}
       </div>
       <div class="actions">
@@ -49,6 +61,8 @@
     {#if telemetry.error}<p class="error" role="alert">{t(telemetry.error)}</p>{/if}
     {#if telemetrySetup.error}<p class="error" role="alert">{t(telemetrySetup.error)}</p>{/if}
     {#if full}
+      <p class="hint">{t('dashboard.telemetryRequired')}</p>
+      <p class="hint">{t('dashboard.copilotCoverage')}</p>
       <p class="hint">{t('telemetry.hint')}</p>
       <p class="hint">{t('telemetry.bulkHint')}</p>
       {#if telemetry.checking}<p role="status">{t('telemetry.checking')}</p>{/if}
@@ -59,6 +73,7 @@
         <div class="target" data-telemetry-id={row.id}>
           <div class="target-info">
             <strong>{row.name}</strong> <span class="status">{t('telemetry.status.' + row.status)}</span>
+            <p class="data-state" class:verified={row.verification === 'verified'}>{t('telemetry.data.' + (row.verification ?? 'waiting'), {count: row.verified_records ?? 0})}</p>
             <p class="path">{row.config_path}</p>
             {#if row.reason}<p class="hint">{t(telemetryReasonKey(row.reason))}</p>{/if}
             {#if result?.errorKey}<p class="error">{t(result.errorKey)}</p>{/if}
@@ -107,7 +122,12 @@
   .heading, .target { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .heading { flex-wrap: wrap; }
   h4 { margin: 0; }
-  .compact .hint { margin-bottom: 0; }
+  .compact { padding: 8px 12px; margin-bottom: 10px; }
+  .compact .heading > div:first-child { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+  .compact h4 { font-size: 12px; font-weight: 550; }
+  .compact .hint { margin: 0; }
+  .data-state { font-size: 12px; margin: 5px 0; color: var(--text-secondary); }
+  .data-state.verified { color: var(--success, #16846a); }
   .target { padding: 10px 0; border-top: 1px solid var(--border, #dde4ed); flex-wrap: wrap; }
   .target-info { min-width: 0; flex: 1 1 240px; }
   .status, .hint { font-size: 12px; color: var(--text-secondary, #63738c); }

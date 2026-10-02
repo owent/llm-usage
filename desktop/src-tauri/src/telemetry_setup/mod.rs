@@ -1,6 +1,7 @@
 //! User-level telemetry discovery and opt-in configuration. Checking never writes.
-//! Configuration output is kept outside auto-scanned OTel roots to avoid double counting.
+//! Copilot file outputs use explicit session/day carrier selection before statistics.
 mod edit;
+mod evidence;
 
 use crate::app_state::{save_settings, AppState};
 use edit::{lookup, Change};
@@ -13,6 +14,32 @@ use std::sync::{Arc, Mutex, OnceLock};
 const MAX_CONFIG: u64 = 2 * 1024 * 1024;
 const COPILOT_DOC: &str = "https://code.visualstudio.com/docs/agents/guides/monitoring-agents";
 
+/// Bounded discovery of app-owned, verified Copilot exporters. Never read arbitrary
+/// settings paths or promote other clients' supplemental logs to usage statistics.
+pub(crate) fn copilot_usage_roots(app: &Path) -> Vec<PathBuf> {
+    std::fs::read_dir(app.join("telemetry"))
+        .into_iter()
+        .flatten()
+        .filter_map(Result::ok)
+        .take(128)
+        .filter_map(|entry| {
+            let name = entry.file_name();
+            let name = name.to_str()?;
+            if !name.starts_with("copilot-vscode") && !name.starts_with("copilot-agent-host") {
+                return None;
+            }
+            let root = entry.path();
+            let metadata = std::fs::symlink_metadata(&root).ok()?;
+            let file = std::fs::symlink_metadata(root.join("events.jsonl")).ok()?;
+            (metadata.is_dir()
+                && !metadata.file_type().is_symlink()
+                && file.is_file()
+                && !file.file_type().is_symlink())
+            .then_some(root)
+        })
+        .collect()
+}
+
 #[derive(Clone, Serialize)]
 pub struct TargetDto {
     id: String,
@@ -24,6 +51,8 @@ pub struct TargetDto {
     configurable: bool,
     kind: String,
     docs_url: String,
+    verification: String,
+    verified_records: usize,
 }
 
 #[derive(Serialize)]
@@ -269,6 +298,8 @@ fn target(
             configurable: true,
             kind: format.into(),
             docs_url: docs.into(),
+            verification: "waiting".into(),
+            verified_records: 0,
         },
         path,
         changes,
@@ -742,12 +773,48 @@ fn inspect(mut target: Target) -> Target {
             let has_endpoint = value[format!("{prefix}otlpEndpoint")]
                 .as_str()
                 .is_some_and(|v| !v.trim().is_empty());
+            if has_file
+                && value[format!("{prefix}exporterType")]
+                    .as_str()
+                    .is_none_or(|s| s == "file")
+            {
+                target.dto.output_path = value[format!("{prefix}outfile")].as_str().unwrap().into();
+            } else if has_endpoint {
+                let endpoint = value[format!("{prefix}otlpEndpoint")].as_str().unwrap();
+                target.dto.verification = "external".into();
+                if endpoint.starts_with("http://127.0.0.1:")
+                    || endpoint.starts_with("http://localhost:")
+                {
+                    // Only an app-owned endpoint may be associated automatically.
+                    let desired = target
+                        .changes
+                        .iter()
+                        .find(|(p, _)| p == &[format!("{prefix}otlpEndpoint")])
+                        .and_then(|(_, v)| v.as_str());
+                    if desired == Some(endpoint) {
+                        target.dto.verification = "waiting".into();
+                    }
+                }
+            }
             if value[format!("{prefix}enabled")] != true && (has_file || has_endpoint) {
                 return Err("existing_destination".into());
             }
             value[format!("{prefix}enabled")] == true && (has_file || has_endpoint)
         } else if target.dto.id == "codex" {
             let exporter = value.pointer("/otel/exporter");
+            if let Some(exporter) = exporter {
+                let actual = exporter["otlp-http"]["endpoint"].as_str();
+                let desired = target
+                    .changes
+                    .iter()
+                    .find(|(p, _)| p == &["otel", "exporter"])
+                    .and_then(|(_, v)| v["otlp-http"]["endpoint"].as_str());
+                if actual.is_some_and(|endpoint| Some(endpoint) != desired)
+                    || exporter.get("otlp-grpc").is_some()
+                {
+                    target.dto.verification = "external".into();
+                }
+            }
             if exporter.is_some_and(|v| {
                 v.as_str().is_some_and(|s| s != "none") || (!v.is_object() && !v.is_string())
             }) {
@@ -813,6 +880,19 @@ fn inspect(mut target: Target) -> Target {
             let destination = [endpoint, "OTEL_EXPORTER_OTLP_ENDPOINT"]
                 .iter()
                 .any(|k| value["env"][k].as_str().is_some_and(|s| !s.is_empty()));
+            if let Some(actual) = [endpoint, "OTEL_EXPORTER_OTLP_ENDPOINT"]
+                .iter()
+                .find_map(|k| value["env"][k].as_str().filter(|s| !s.is_empty()))
+            {
+                let desired = target
+                    .changes
+                    .iter()
+                    .find(|(p, _)| p == &["env", endpoint])
+                    .and_then(|(_, v)| v.as_str());
+                if Some(actual) != desired {
+                    target.dto.verification = "external".into();
+                }
+            }
             if destination && !matches!(value["env"][enabled].as_str(), Some("1" | "true")) {
                 return Err("existing_destination".into());
             }
@@ -824,11 +904,26 @@ fn inspect(mut target: Target) -> Target {
                     .iter()
                     .any(|k| value["env"][k].as_str().is_some_and(|s| !s.is_empty()))
         } else {
+            if value["telemetry"]["outfile"]
+                .as_str()
+                .is_none_or(|s| s.is_empty())
+                && value["telemetry"]["otlpEndpoint"]
+                    .as_str()
+                    .is_some_and(|s| !s.is_empty())
+            {
+                target.dto.verification = "external".into();
+            }
             let destination = ["outfile", "otlpEndpoint"].iter().any(|k| {
                 value["telemetry"][k]
                     .as_str()
                     .is_some_and(|s| !s.is_empty())
             });
+            if let Some(path) = value["telemetry"]["outfile"]
+                .as_str()
+                .filter(|p| !p.trim().is_empty())
+            {
+                target.dto.output_path = path.into();
+            }
             if destination && value.pointer("/telemetry/enabled") != Some(&json!(true)) {
                 return Err("existing_destination".into());
             }
@@ -1022,11 +1117,12 @@ pub async fn telemetry_check(
     let state = Arc::clone(&state);
     tauri::async_runtime::spawn_blocking(move || {
         let ctx = context(&state)?;
-        Ok(discover(&ctx)
-            .into_iter()
-            .map(inspect)
-            .map(|t| t.dto)
-            .collect())
+        Ok(
+            evidence::verify_all(discover(&ctx).into_iter().map(inspect).collect())
+                .into_iter()
+                .map(|target| target.dto)
+                .collect(),
+        )
     })
     .await
     .map_err(|_| "setup_failed".to_string())?

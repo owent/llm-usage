@@ -576,6 +576,17 @@ fn parse_otlp_json(body: &[u8]) -> Vec<serde_json::Value> {
 }
 
 /// 单 span（OTLP JSON 形）→ 归一化记录（startTime 毫秒整数 + 扁平属性）。
+fn otlp_kind(kind: u64) -> &'static str {
+    match kind {
+        1 => "INTERNAL",
+        2 => "SERVER",
+        3 => "CLIENT",
+        4 => "PRODUCER",
+        5 => "CONSUMER",
+        _ => "UNSPECIFIED",
+    }
+}
+
 fn normalize_span(
     span: &serde_json::Value,
     resource_attrs: &serde_json::Map<String, serde_json::Value>,
@@ -615,7 +626,14 @@ fn normalize_span(
     if let Some(code) = span.pointer("/status/code") {
         record.insert("status".into(), serde_json::json!({"code": code.clone()}));
     }
-    record.insert("kind".into(), span.get("kind").cloned().unwrap_or_default());
+    if let Some(kind) = span.get("kind").filter(|v| !v.is_null()) {
+        record.insert(
+            "kind".into(),
+            kind.as_u64()
+                .map(|k| serde_json::json!(otlp_kind(k)))
+                .unwrap_or_else(|| kind.clone()),
+        );
+    }
     record.insert("attributes".into(), serde_json::Value::Object(attrs));
     record.insert(
         "resource".into(),
@@ -782,6 +800,7 @@ fn protobuf_span(
     let mut span_id: Option<String> = None;
     let mut start_ms: Option<i64> = None;
     let mut status_code: Option<u64> = None;
+    let mut kind: Option<u64> = None;
     let mut attrs = serde_json::Map::new();
     iter_fields(span, |field, wire| {
         match (field, wire) {
@@ -789,6 +808,7 @@ fn protobuf_span(
                 span_id = Some(id.iter().map(|b| format!("{b:02x}")).collect());
             }
             (5, Wire::Bytes(n)) => name = String::from_utf8_lossy(n).to_string(),
+            (6, Wire::Varint(k)) => kind = Some(k),
             (7, Wire::Fixed64(nanos)) => {
                 start_ms = Some((nanos / 1_000_000) as i64);
             }
@@ -815,6 +835,9 @@ fn protobuf_span(
     let mut record = serde_json::Map::new();
     record.insert("name".into(), serde_json::Value::String(name));
     record.insert("spanId".into(), serde_json::Value::String(span_id?));
+    if let Some(kind) = kind {
+        record.insert("kind".into(), serde_json::json!(otlp_kind(kind)));
+    }
     if let Some(ms) = start_ms {
         record.insert("startTime".into(), serde_json::Value::from(ms));
     }
@@ -976,6 +999,7 @@ mod tests {
         assert_eq!(records.len(), 1);
         let record = &records[0];
         assert_eq!(record["name"], "model_stream");
+        assert_eq!(record["kind"], "INTERNAL");
         assert_eq!(record["spanId"], "bb");
         assert_eq!(record["startTime"], serde_json::json!(1_780_000_000_500i64));
         // 白名单：usage.* 保留、正文与超长字符串丢弃。
@@ -1019,6 +1043,8 @@ mod tests {
         .concat();
         let mut span = field_bytes(2, &[0xab]);
         span.extend(field_bytes(5, b"model_stream"));
+        span.extend(read_varint_test(6 << 3));
+        span.extend(read_varint_test(3));
         let mut time_tag = read_varint_test(7 << 3 | 1);
         time_tag.extend_from_slice(&1_780_000_000_500_000_000u64.to_le_bytes());
         span.extend(time_tag);
@@ -1038,6 +1064,7 @@ mod tests {
         assert_eq!(records.len(), 1);
         assert_eq!(records[0]["name"], "model_stream");
         assert_eq!(records[0]["spanId"], "ab");
+        assert_eq!(records[0]["kind"], "CLIENT");
         assert_eq!(records[0]["attributes"]["usage.input_tokens"], 100);
         assert_eq!(
             records[0]["resource"]["attributes"]["service.name"],

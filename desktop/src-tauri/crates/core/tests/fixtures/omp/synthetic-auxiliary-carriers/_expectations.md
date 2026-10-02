@@ -22,6 +22,6 @@ toolResult.usage；本机 58 文件实读均未携带 usage）与「无 usage �
 - 汇总（2026-01-05 UTC）：call_count=6；
   input_total_known=1625（派生口径 115+1000+200+300+10）；
   uncached_known=610；cache_read_known=10；cache_write_known=1005；
-  output_total_known=305；total_tokens_known=1930；input_unknown_count=1（syn-a2）。
+  output_total_known=305；total_tokens_known=1930；input_unknown_count=0（syn-a2 无 usage 计调用不计未知字段）。
 - 延迟（omp 特有浮点毫秒四舍五入）：syn-a1 duration 200.4→200、ttft 60.6→61；
   syn-a2 duration 150.5→151、ttft 缺字段保持 None；辅助载体一律无延迟字段。

@@ -74,7 +74,8 @@ fn v03_failed_call_without_usage_counts_call_not_tokens() {
     let sums = &summary.periods[0].sums;
     assert_eq!(sums.call_count, 1);
     assert_eq!(sums.input_total_known, None);
-    assert_eq!(sums.input_unknown_count, 1);
+    // 无用量调用（quality_bucket=unknown）计入 call_count，但不算观测缺字段的未知字段。
+    assert_eq!(sums.input_unknown_count, 0);
     assert_eq!(sums.total_tokens_known, None);
 
     // 质量分区为 unknown（无任何已知 token 字段）。

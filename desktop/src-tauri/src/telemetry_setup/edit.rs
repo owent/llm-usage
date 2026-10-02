@@ -129,12 +129,19 @@ fn json_edit(text: &str, path: &[String], value: &Value) -> Result<String, Strin
                 nested = serde_json::json!({key: nested});
             }
             let nl = if text.contains("\r\n") { "\r\n" } else { "\n" };
-            let insert = format!(
-                "{nl}  {}: {nested}{nl}",
-                serde_json::to_string(key).unwrap()
-            );
+            let insert = format!("  {}: {nested}{nl}", serde_json::to_string(key).unwrap());
             let mut output = text.to_owned();
-            output.insert_str(object.range.end - 1, &insert);
+            let close = object.range.end - 1;
+            // Reuse the closing brace's newline instead of adding another one
+            // on every inserted property. Existing comments/blank lines stay.
+            let line_start = text[..close].rfind('\n').map_or(close, |p| p + 1);
+            if line_start < close && text[line_start..close].trim().is_empty() {
+                output.insert_str(line_start, &insert);
+            } else if text[..close].ends_with('\n') {
+                output.insert_str(close, &insert);
+            } else {
+                output.insert_str(close, &format!("{nl}{insert}"));
+            }
             if let Some(last) = object.properties.last() {
                 let end = last.value.range().end;
                 if significant(text, end).map(|(_, b)| b) != Some(b',') {

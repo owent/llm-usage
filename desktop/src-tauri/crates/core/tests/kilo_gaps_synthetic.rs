@@ -121,7 +121,8 @@ fn assistant_without_tokens_counts_call_with_unknown_usage() {
     assert_eq!(reports[0].files[0].diagnostics, 1, "usage_shape_deviation");
     let summary = summary(&storage, "2026-01-01", "2026-12-31");
     assert_eq!(summary.totals.call_count, 1);
-    assert_eq!(summary.totals.input_unknown_count, 1);
+    // 无用量 assistant 计一次调用，但零已知 token 字段（quality_bucket=unknown）不算未知字段。
+    assert_eq!(summary.totals.input_unknown_count, 0);
     assert_eq!(summary.totals.input_total_known, None);
     assert_eq!(summary.totals.total_tokens_known, None);
     let codes: Vec<String> = {

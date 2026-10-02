@@ -10,6 +10,10 @@ M3/M4 适配器与 M6 桌面主体已实施（验收缺口见各记录）。
 Copilot 补充采集与 OTel 配置见 [配置合同](copilot-otel.md)；
 全年热力图、部分用量图表及异步合并配置入口已实施，见
 [验收记录](../../validation/desktop-usage/telemetry-setup-ui.md)。
+2026-10-02 的紧凑配置状态、自动核验、模型费用/曲线、布局与选区查询，见
+[交互合同](dashboard-polish.md) 和 [验证记录](../../validation/desktop-usage/dashboard-polish.md)。
+当前 API 参考、模型单价展开、摘要金额与 VS 旧总量修复的后续核验见
+[价格参考验证](../../validation/desktop-usage/dashboard-reference.md)。
 
 ## 产品目标与边界
 

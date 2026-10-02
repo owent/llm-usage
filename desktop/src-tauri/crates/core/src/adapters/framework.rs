@@ -249,6 +249,11 @@ pub trait SourceAdapter {
         limits: &ScanLimits,
         now_ms: i64,
     ) -> Result<ScanOutcome, CoreError>;
+    /// 重新检查已消费且字节未变化的文件，同时保留游标上下文中的单调修订。
+    /// 默认继续跳过；快照适配器可用于一次性的统计/健康规则修正。
+    fn should_scan_unchanged(&self, _stored: &StoredScanState) -> bool {
+        false
+    }
     /// 结构化能力声明。
     fn capability(&self) -> CapabilityTable;
 
@@ -959,7 +964,11 @@ fn scan_one_file(
         row.generation += 1;
     }
     // 无变化短路：全部字节已消费且代数连续。
-    if !rescan && probe.len == cursor_offset && stored.cursor.is_some() {
+    if !rescan
+        && probe.len == cursor_offset
+        && stored.cursor.is_some()
+        && !adapter.should_scan_unchanged(&stored)
+    {
         row.len = probe.len;
         row.mtime_ms = probe.mtime_ms;
         upsert_source_file(storage, instance_id, &row, config.now_ms)?;

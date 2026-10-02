@@ -6,7 +6,7 @@
   import { GridComponent, TooltipComponent } from 'echarts/components';
   import { CanvasRenderer } from 'echarts/renderers';
   import { t, i18n, fmtSmart, fmtPrecise } from '../lib/i18n.svelte';
-  import { api, type HeatmapDto, type SummaryQuery } from '../lib/api';
+  import { api, parseError, type HeatmapDto, type SummaryQuery } from '../lib/api';
 
   echarts.use([BarChart, GridComponent, TooltipComponent, CanvasRenderer]);
 
@@ -24,6 +24,8 @@
   let el: HTMLDivElement;
   let chart: echarts.ECharts | null = null;
   let queriedCells = $state<HeatmapDto['cells']>([]);
+  let loading = $state(false);
+  let error = $state('');
   const activeCells = $derived(query ? queriedCells : cells);
   $effect(() => {
     const q = query;
@@ -31,9 +33,11 @@
     if (!q) return;
     let cancelled = false;
     queriedCells = [];
+    loading = true; error = '';
     api.heatmap({ ...q, granularity: 'day' }).then((result) => {
       if (!cancelled) queriedCells = result.cells;
-    }).catch(() => { if (!cancelled) queriedCells = []; });
+    }).catch((e) => { if (!cancelled) error = parseError(e); })
+      .finally(() => { if (!cancelled) loading = false; });
     return () => { cancelled = true; };
   });
 
@@ -123,6 +127,8 @@
 </script>
 
 <div bind:this={el} class="weekday"></div>
+{#if loading}<p class="coverage">{t('common.loading')}</p>{/if}
+{#if error}<p class="coverage" role="alert">{error}</p>{/if}
 {#if activeCells.some((cell) => cell.available === false || cell.partial)}
   <p class="coverage">{t('trend.weekdayCoverage')}</p>
 {/if}
