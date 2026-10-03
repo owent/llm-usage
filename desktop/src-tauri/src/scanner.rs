@@ -53,13 +53,23 @@ pub fn run_refresh_after_clear(state: &Arc<AppState>) -> bool {
 
 /// 逐源定时接线的过滤版：
 /// - include（到期集合）非空：只运行这些实例（FixedTime/Interval 触发）；
-/// - include=None 的全局刷新：排除有自定义启用计划的实例（覆盖语义），
+/// - include=None 的全局自动刷新：排除自定义计划尚未到期的实例，
 ///   运行结束后推进到期计划。
 fn run_refresh_filtered(
     state: &Arc<AppState>,
     trigger: TriggerKind,
     include: Option<std::collections::BTreeSet<String>>,
     after_clear: bool,
+) -> bool {
+    run_refresh_in_context(state, trigger, include, after_clear, None)
+}
+
+fn run_refresh_in_context(
+    state: &Arc<AppState>,
+    trigger: TriggerKind,
+    include: Option<std::collections::BTreeSet<String>>,
+    after_clear: bool,
+    context: Option<DiscoverContext>,
 ) -> bool {
     {
         let mut refresh = state.refresh.lock().unwrap();
@@ -69,6 +79,9 @@ fn run_refresh_filtered(
                 .load(std::sync::atomic::Ordering::SeqCst)
                 && !after_clear)
         {
+            if trigger == TriggerKind::Manual && !after_clear {
+                refresh.pending_manual = true;
+            }
             return false;
         }
         refresh.running = true;
@@ -103,7 +116,7 @@ fn run_refresh_filtered(
         run_id_prefix: format!("scan-{now}"),
         origin_host_id: Some(host_id),
     };
-    let ctx = discover_context(manual_roots);
+    let ctx = context.unwrap_or_else(|| discover_context(manual_roots));
     // Only the verified Copilot file targets produced by this app are promoted.
     // Other supplemental exports retain their isolated validation boundary.
     let copilot_roots = state
@@ -126,10 +139,16 @@ fn run_refresh_filtered(
     // 全局刷新排除有自定义启用计划的实例（逐源节奏覆盖全局）。排除集
     // 加载失败时宁可本轮不扫（记失败摘要），也不能把自定义计划的来源
     // 卷进全局节奏——节奏合同优先于本轮覆盖。
-    let global_exclude = if include.is_none() && !after_clear {
+    let scheduled_due = if include.is_none() && trigger == TriggerKind::Interval {
+        let storage = state.storage.lock().unwrap();
+        llm_usage_core::schedules::due_instances(&storage, now).unwrap_or_default()
+    } else {
+        include.clone().unwrap_or_default()
+    };
+    let global_exclude = if include.is_none() && !after_clear && trigger == TriggerKind::Interval {
         let storage = state.storage.lock().unwrap();
         match llm_usage_core::schedules::custom_scheduled_instances(&storage) {
-            Ok(set) => Some(Some(set)),
+            Ok(set) => Some(Some(set.difference(&scheduled_due).cloned().collect())),
             Err(e) => {
                 summaries.push(RefreshInstanceSummary {
                     instance_id: "scheduler".to_string(),
@@ -342,13 +361,13 @@ fn run_refresh_filtered(
         // 逐源定时：本轮已实际运行的到期计划按真实成败推进 next_due
         // （失败记 running_error 留痕；未运行/无报告的实例记失败不冒认成功；
         // 未到期的不动，错过时点醒来后仍只补一次）。
-        if let Some(due) = &include {
+        if !scheduled_due.is_empty() {
             let storage = state.storage.lock().unwrap();
             let tz = {
                 let settings = state.settings.lock().unwrap();
                 settings.timezone.clone()
             };
-            for instance_id in due {
+            for instance_id in &scheduled_due {
                 let success = instance_outcomes.get(instance_id).copied().unwrap_or(false);
                 if let Err(e) = llm_usage_core::schedules::mark_source_run(
                     &storage,
@@ -369,10 +388,32 @@ fn run_refresh_filtered(
             }
         }
     }
+    let completed = now_ms();
+    let full_run = include.is_none() && global_exclude.is_some();
+    if full_run {
+        let interval = state.settings.lock().unwrap().refresh_interval_secs;
+        let storage = state.storage.lock().unwrap();
+        if let Err(error) = crate::system_tasks::mark_global_run(&storage, completed, interval) {
+            summaries.push(RefreshInstanceSummary {
+                instance_id: "scheduler".into(),
+                agent: "app".into(),
+                status: "failed".into(),
+                error: Some(format!("could not persist global scan deadline: {error}")),
+                added: 0,
+                updated: 0,
+                files: 0,
+                events: 0,
+                diagnostics: 0,
+            });
+        }
+    }
     {
         let mut refresh = state.refresh.lock().unwrap();
         refresh.running = false;
-        refresh.last_finished_ms = now_ms();
+        refresh.last_finished_ms = completed;
+        if full_run {
+            refresh.last_global_finished_ms = completed;
+        }
         refresh.instances = summaries;
         refresh.progress_percent = 100;
         refresh.eta_seconds = None;
@@ -408,26 +449,80 @@ fn refresh_summary_events(state: &Arc<AppState>) -> u64 {
         .sum()
 }
 
+/// System triggers honor persisted consent and the same per-source deadlines.
+/// A leftover OS task is harmless after disabling the feature, even if deletion fails.
+pub fn run_background_refresh(state: &Arc<AppState>) -> Result<bool, String> {
+    run_background_refresh_in_context(state, None)
+}
+
+fn run_background_refresh_in_context(
+    state: &Arc<AppState>,
+    context: Option<DiscoverContext>,
+) -> Result<bool, String> {
+    let interval = state.settings.lock().unwrap().refresh_interval_secs;
+    let now = now_ms();
+    let (global_due, sources) = {
+        let storage = state.storage.lock().unwrap();
+        if !crate::system_tasks::desired(&storage)? || interval == 0 {
+            return Ok(false);
+        }
+        (
+            crate::system_tasks::global_due(&storage, now, interval)?,
+            llm_usage_core::schedules::due_instances(&storage, now).map_err(|e| e.to_string())?,
+        )
+    };
+    Ok(if global_due {
+        run_refresh_in_context(state, TriggerKind::Interval, None, false, context)
+    } else if !sources.is_empty() {
+        run_refresh_in_context(state, TriggerKind::FixedTime, Some(sources), false, context)
+    } else {
+        false
+    })
+}
+
 /// 间隔调度循环：按设置的全局间隔触发刷新；间隔 0 = 暂停自动提取。
 /// 错过时点（休眠）醒来后立即补一次扫描（V23 补扫合并语义：只补一次）。
 pub fn spawn_scheduler(state: Arc<AppState>, stop: Arc<AtomicBool>) {
     std::thread::spawn(move || {
         // 启动后先做一次回填扫描（Startup 触发）。
-        run_refresh(&state, TriggerKind::Startup);
+        if state.settings.lock().unwrap().refresh_interval_secs > 0 {
+            run_refresh(&state, TriggerKind::Startup);
+        }
         let mut schedule = IntervalSchedule::default();
+        let clock = std::time::Instant::now();
         loop {
             if stop.load(Ordering::Relaxed) {
                 break;
             }
             let interval = state.settings.lock().unwrap().refresh_interval_secs;
-            let finished = state.refresh.lock().unwrap().last_finished_ms;
+            let finished = state.refresh.lock().unwrap().last_global_finished_ms;
+            let manual = {
+                let mut refresh = state.refresh.lock().unwrap();
+                if !refresh.running && !state.clear_job_running.load(Ordering::SeqCst) {
+                    std::mem::take(&mut refresh.pending_manual)
+                } else {
+                    false
+                }
+            };
             let requested = {
                 let storage = state.storage.lock().unwrap();
                 crate::process_guard::take_refresh_request(&storage).unwrap_or(false)
             };
-            if requested || schedule.tick(now_ms(), interval, finished) {
+            let background_requested = {
+                let storage = state.storage.lock().unwrap();
+                crate::process_guard::take_background_refresh_request(&storage).unwrap_or(false)
+            };
+            if manual || requested {
+                run_refresh(&state, TriggerKind::Manual);
+            } else if background_requested {
+                let _ = run_background_refresh(&state);
+            } else if schedule.tick(
+                i64::try_from(clock.elapsed().as_millis()).unwrap_or(i64::MAX),
+                interval,
+                finished,
+            ) {
                 run_refresh(&state, TriggerKind::Interval);
-            } else {
+            } else if interval > 0 {
                 // 逐源定时：无全局刷新在跑时，触发到期实例（FixedTime 语义；
                 // 与手动/全局合并由 refresh 单飞保证，同源不并发）。
                 // 到期探测失败不静默跳过：记诊断留痕，下轮重试。
@@ -487,6 +582,193 @@ impl IntervalSchedule {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn manual_custom_schedule_and_disabled_background_use_real_registry_and_storage() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../build/plan-completion/scanner")
+            .join(format!("{}-{}", std::process::id(), now_ms()));
+        let home = root.join("home");
+        let sessions = home.join(".codex/sessions");
+        std::fs::create_dir_all(&sessions).unwrap();
+        let state =
+            Arc::new(AppState::init(root.join("llm-usage.sqlite"), "test-host", false).unwrap());
+        let context = DiscoverContext {
+            home_dir: None,
+            env: std::collections::BTreeMap::from([(
+                "CODEX_HOME".into(),
+                home.join(".codex").display().to_string(),
+            )]),
+            manual_roots: Vec::new(),
+        };
+        let record = |id: &str| {
+            let at = jiff::Timestamp::now().to_string();
+            format!(
+                "{}\n{}\n",
+                serde_json::json!({"timestamp":at,"type":"session_meta","payload":{"id":id,"session_id":id,"timestamp":at,"originator":"codex_vscode","cli_version":"0.999.0-synthetic","model_provider":"openai","source":"vscode"}}),
+                serde_json::json!({"timestamp":at,"type":"token_usage_record","payload":{"thread_id":id,"turn_id":id,"session_id":id,"response_id":id,"usage":{"input_tokens":10,"cached_input_tokens":0,"cache_write_input_tokens":0,"output_tokens":5,"reasoning_output_tokens":0,"total_tokens":15}}})
+            )
+        };
+        std::fs::write(sessions.join("rollout-first.jsonl"), record("first")).unwrap();
+        assert!(run_refresh_in_context(
+            &state,
+            TriggerKind::Manual,
+            None,
+            false,
+            Some(context.clone())
+        ));
+        let instance: String = {
+            let storage = state.storage.lock().unwrap();
+            assert_eq!(
+                storage
+                    .conn()
+                    .query_row("SELECT COUNT(*) FROM usage_events", [], |row| row
+                        .get::<_, i64>(0))
+                    .unwrap(),
+                1
+            );
+            storage
+                .conn()
+                .query_row(
+                    "SELECT instance_id FROM source_instances WHERE agent='codex'",
+                    [],
+                    |row| row.get(0),
+                )
+                .unwrap()
+        };
+        {
+            let storage = state.storage.lock().unwrap();
+            llm_usage_core::schedules::upsert_source_schedule(
+                &storage,
+                &llm_usage_core::schedules::SourceScheduleRule {
+                    instance_id: instance.clone(),
+                    rule_kind: "interval".into(),
+                    interval_seconds: Some(86400),
+                    time_of_day: None,
+                    weekday: None,
+                    tz: "UTC".into(),
+                    enabled: true,
+                },
+                now_ms(),
+                "UTC",
+            )
+            .unwrap();
+            storage.conn().execute("INSERT INTO settings(key,value,schema_version,updated_at_ms) VALUES ('background_task','{\"enabled\":true}',1,0)", []).unwrap();
+        }
+        std::fs::write(sessions.join("rollout-second.jsonl"), record("second")).unwrap();
+        state.settings.lock().unwrap().refresh_interval_secs = 0;
+        assert!(!run_background_refresh_in_context(&state, Some(context.clone())).unwrap());
+        assert!(run_refresh_in_context(
+            &state,
+            TriggerKind::Interval,
+            None,
+            false,
+            Some(context.clone())
+        ));
+        assert_eq!(
+            state
+                .storage
+                .lock()
+                .unwrap()
+                .conn()
+                .query_row("SELECT COUNT(*) FROM usage_events", [], |row| row
+                    .get::<_, i64>(0))
+                .unwrap(),
+            1,
+            "automatic interval excludes the not-yet-due custom source"
+        );
+        assert!(run_refresh_in_context(
+            &state,
+            TriggerKind::Manual,
+            None,
+            false,
+            Some(context.clone())
+        ));
+        assert_eq!(
+            state
+                .storage
+                .lock()
+                .unwrap()
+                .conn()
+                .query_row("SELECT COUNT(*) FROM usage_events", [], |row| row
+                    .get::<_, i64>(0))
+                .unwrap(),
+            2,
+            "manual collection includes custom schedules even when paused"
+        );
+        state.settings.lock().unwrap().refresh_interval_secs = 60;
+        assert!(run_refresh_in_context(
+            &state,
+            TriggerKind::Manual,
+            None,
+            false,
+            Some(context.clone())
+        ));
+        let global_finished = state.refresh.lock().unwrap().last_global_finished_ms;
+        let deadline: String = {
+            let storage = state.storage.lock().unwrap();
+            assert!(!crate::system_tasks::global_due(&storage, now_ms(), 60).unwrap());
+            storage
+                .conn()
+                .query_row(
+                    "SELECT value FROM settings WHERE key='background_global_deadline'",
+                    [],
+                    |row| row.get(0),
+                )
+                .unwrap()
+        };
+        assert!(
+            !run_background_refresh_in_context(&state, Some(context.clone())).unwrap(),
+            "GUI full scans also postpone system global ticks"
+        );
+        std::fs::write(sessions.join("rollout-third.jsonl"), record("third")).unwrap();
+        state
+            .storage
+            .lock()
+            .unwrap()
+            .conn()
+            .execute("UPDATE extraction_schedules SET next_due_at_ms=0", [])
+            .unwrap();
+        assert!(run_refresh_in_context(
+            &state,
+            TriggerKind::FixedTime,
+            Some(std::collections::BTreeSet::from([instance])),
+            false,
+            Some(context)
+        ));
+        assert_eq!(
+            state.refresh.lock().unwrap().last_global_finished_ms,
+            global_finished,
+            "frequent source-only completions must not reset the global timer"
+        );
+        let storage = state.storage.lock().unwrap();
+        assert_eq!(
+            storage
+                .conn()
+                .query_row("SELECT COUNT(*) FROM usage_events", [], |row| row
+                    .get::<_, i64>(0))
+                .unwrap(),
+            3
+        );
+        assert_eq!(
+            storage
+                .conn()
+                .query_row(
+                    "SELECT value FROM settings WHERE key='background_global_deadline'",
+                    [],
+                    |row| row.get::<_, String>(0)
+                )
+                .unwrap(),
+            deadline
+        );
+        drop(storage);
+        {
+            let mut refresh = state.refresh.lock().unwrap();
+            refresh.running = true;
+        }
+        assert!(!run_refresh(&state, TriggerKind::Manual));
+        assert!(state.refresh.lock().unwrap().pending_manual);
+    }
 
     #[test]
     fn merged_run_does_not_complete_a_due_source_schedule() {

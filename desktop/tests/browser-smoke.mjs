@@ -83,8 +83,8 @@ await page.addInitScript(() => {
           const day=q.first_day===q.last_day?q.last_day:`2026-09-${String(15+i).padStart(2,'0')}`;
           return {label:q.granularity==='hour'?`${q.last_day} ${String(8+i).padStart(2,'0')}:00`:day,start_day:q.granularity==='hour'?q.last_day:day,end_day:q.granularity==='hour'?q.last_day:day,in_progress:i===13,partial_history:i<5,sums:stats(i%4+1),distinct_sessions:5+i,active_days:1};
         }),
-        models:empty?[]:models.filter(m=>!selected||selected===m).map((m,i)=>({model:m,provider:['openai','anthropic','zhipu'][i],sums:stats(6-i)})),
-        agents:empty?[]:[...['codex','claude','zcode'].filter(a=>!q.agents?.length||q.agents.includes(a)).map((agent,i)=>({agent,sums:stats(6-i)})),
+        models:empty?[]:models.filter(m=>!selected||selected===m).map((m,i)=>({model:m,provider:['openai','anthropic','zhipu'][i],sums:stats(q.first_period?i+1:6-i)})),
+        agents:empty?[]:[...['codex','claude','zcode'].filter(a=>!q.agents?.length||q.agents.includes(a)).map((agent,i)=>({agent,sums:stats(q.first_period?i+1:6-i)})),
           ...(!q.agents?.length||q.agents.includes('vscode-copilot-chat')?[{agent:'vscode-copilot-chat',sums:{...stats(1),call_count:0,total_tokens_known:null,input_total_known:'300000',output_total_known:'1234'}}]:[])],
         today_hourly:empty?[]:Array.from({length:12},(_,i)=>({hour:8+i,calls:12+i*3,total_tokens:String((i+1)*150000),input_total:String((i+1)*120000),cache_read:String(i*80000),output_total:String((i+1)*30000),sessions:5,avg_duration_ms:'4250'})),excluded_event_count:0 };
     }
@@ -232,11 +232,32 @@ const getChartOptions = async (selector) => page.evaluate(async (sel) => {
   const echarts = await import('/node_modules/.vite/deps/echarts_core.js');
   return echarts.getInstanceByDom(document.querySelector(sel)).getOption();
 }, selector);
+const dragPeriods = async (selector, first, last) => {
+  await page.locator(selector).scrollIntoViewIfNeeded();
+  const points = await page.locator(selector).evaluate(async (el, [first,last]) => {
+    const echarts = await import('/node_modules/.vite/deps/echarts_core.js');
+    const chart = echarts.getInstanceByDom(el), box = el.getBoundingClientRect();
+    return {first:box.left+chart.convertToPixel({xAxisIndex:0},first),last:box.left+chart.convertToPixel({xAxisIndex:0},last),y:box.top+box.height/2};
+  }, [first,last]);
+  const before=await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='summary'&&c.args.q.first_period).length);
+  await page.mouse.move(points.first,points.y);await page.mouse.down();
+  await page.mouse.move(points.last,points.y,{steps:12});
+  assert.equal(await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='summary'&&c.args.q.first_period).length),before,'dragging waits for mouse release before querying');
+  await page.mouse.up();await page.clock.runFor(400);
+};
 const todayTotalTypes=await page.evaluate(async ()=>{
   const echarts=await import('/node_modules/.vite/deps/echarts_core.js');
   return echarts.getInstanceByDom(document.querySelector('[data-panel-group="overviewToday"] .hourly')).getOption().series.map(s=>s.type);
 });
 assert.deepEqual(todayTotalTypes,['line','line'],'today overview keeps a line (curve) chart for calls and tokens');
+await dragPeriods('[data-panel-group="overviewToday"] .hourly',0,2);
+assert.match(await page.locator('.today-range-caption').textContent(),/08:00 ~ .*10:00/,'today hourly chart also supports continuous selection');
+assert.equal(await page.locator('.today-cards .card').first().locator('.value').textContent(),'84');
+const todaySelectedQuery=await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='summary'&&c.args.q.first_period).at(-1).args.q);
+assert.equal(todaySelectedQuery.granularity,'hour');assert.equal(todaySelectedQuery.first_day,todaySelectedQuery.last_day);
+const todaySelectedPrice=await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='cost_summary'&&c.args.q.first_period).at(-1).args.q);
+assert.equal(todaySelectedPrice.first_period,todaySelectedQuery.first_period);assert.equal(todaySelectedPrice.last_period,todaySelectedQuery.last_period);
+await page.locator('.today-range-reset').click();await page.clock.runFor(100);
 for(const [index,dimension] of [[1,'model'],[3,'agent_model'],[2,'agent']]) {
   await todayPanel.locator('.dim-seg button').nth(index).click();await page.clock.runFor(300);
   const option=await getChartOptions('[data-panel-group="overviewToday"] .hourly');
@@ -285,7 +306,7 @@ assert.equal(await page.evaluate(()=>window.appCalls.find(c=>c.cmd==='summary').
 await page.screenshot({path:out+'overview-light.png',fullPage:true});
 const summaryCount = () => page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='summary').length);
 const initialRequests = await summaryCount();
-assert.equal(initialRequests,2,'initial load queries history and today once each');
+assert.equal(initialRequests,3,'history and today load once each, plus the explicit hourly selection');
 await page.clock.runFor(31_000);
 assert.equal(await summaryCount(),initialRequests,'idle status polling does not re-query charts');
 await page.getByLabel('模型',{exact:true}).selectOption('gpt-5.4');
@@ -304,9 +325,24 @@ assert.match(await page.locator('main > .empty').textContent(),/尚无数据/);
 await page.locator('.user-picker select').selectOption('default');
 await page.clock.runFor(500);
 assert.match(await page.locator('[data-panel-group="overviewHistory"] .phead h3').first().textContent(),/token 用量/,'overview defaults to tokens before calls');
+for (const selector of ['[data-panel-group="overviewHistory"] .token-chart','[data-panel-group="overviewHistory"] .calls-chart']) {
+  await dragPeriods(selector,1,3);
+  assert.match(await page.locator('.period-label').textContent(),/2026-09-16 ~ 2026-09-18/,'overview supports the same continuous range');
+  assert.equal(await page.locator('.period-summary .scard').first().locator('.svalue').textContent(),'84');
+  const selectedPie=await getChartOptions('.period-pies .pie');
+  assert.ok(selectedPie.series[0].data.some(row=>row.name==='gpt-5.4' && row.value===133000),'overview distribution comes from the scoped summary');
+  await page.locator('.period-clear').click();await page.clock.runFor(100);
+}
 await page.getByRole('navigation').first().getByRole('button',{name:'趋势',exact:true}).click();
 await page.clock.runFor(500);
 assert.match(await page.locator('[data-panel-group="trendMain"] .phead h3').first().textContent(),/token 用量/,'trend defaults to tokens before calls');
+const tailTitles=await page.locator('[data-panel-group="trendMain"] .phead h3').allTextContents();
+assert.match(tailTitles.at(-2),/活跃热力图/);assert.match(tailTitles.at(-1),/周分布/);
+await page.locator('.filters select').first().selectOption('2');await page.clock.runFor(500);
+assert.equal(await page.locator('.filters select').first().locator('option:checked').textContent(),'近 2 个自然日');
+const calendarPreset=await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='summary'&&c.args.q.granularity==='hour'&&!c.args.q.first_period&&c.args.q.first_day!==c.args.q.last_day).at(-1).args.q);
+assert.equal(calendarPreset.first_day,'2026-09-27');assert.equal(calendarPreset.last_day,'2026-09-28','two local calendar dates are distinct from a rolling 24-hour window');
+await page.locator('.filters select').first().selectOption('30');await page.clock.runFor(500);
 assert.equal(await page.locator('.heatmap .days [data-day]').count(),365,'heatmap includes the whole year even with a 30-day statistics filter');
 assert.equal(await page.locator('.heatmap .days [data-day="2026-01-01"].unavailable').count(),1,'pruned daily history is visibly different from zero calls');
 assert.equal(await page.locator('.heatmap .days .partial').count(),1,'partial daily coverage retains known calls but marks uncertainty');
@@ -405,21 +441,40 @@ const selectionPoint=await page.locator(tokenSelector).evaluate(async el=>{
   return {x:bounds.left+point[0],y:bounds.top+point[1]};
 });
 await page.mouse.click(selectionPoint.x,selectionPoint.y);await page.clock.runFor(400);
-assert.match(await page.locator('.range-caption').textContent(),/选定范围[：:]2026-09-16/,'clicking a curve point scopes the summary');
+assert.match(await page.locator('.range-summary .range-caption').textContent(),/选定范围[：:]2026-09-16/,'clicking a curve point scopes the summary');
 assert.equal(await page.locator('.range-summary .scard').first().locator('.svalue').textContent(),'84','selected summary comes from the scoped backend query');
 assert.match(await page.locator('.range-summary .cost-ref').textContent(),/5\.00/,'selected reference uses the same scoped query');
+assert.match(await trendModels.locator('tfoot').textContent(),/5\.00/,'model table uses selected costs');
+assert.ok((await getChartOptions('[data-panel-group="trendMain"] .pie')).series[0].data.some(row=>row.name==='gpt-5.4'&&row.value===133000),'model share uses the selected token totals');
+const heatmapBefore=await page.locator('.heatmap .days').innerHTML();
+for(const [selector,first,last] of [[tokenSelector,1,3],['[data-panel-group="trendMain"] .calls-chart',4,2],['[data-panel-group="trendMain"] .curve',0,2]]) {
+  await dragPeriods(selector,first,last);
+  const request=await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='summary'&&c.args.q.first_period).at(-1).args.q);
+  assert.equal(request.first_period,`2026-09-${String(15+Math.min(first,last)).padStart(2,'0')}`);
+  assert.equal(request.last_period,`2026-09-${String(15+Math.max(first,last)).padStart(2,'0')}`);
+  assert.match(await trendModels.locator('tfoot').textContent(),/5\.00/);
+  assert.ok((await getChartOptions('[data-panel-group="trendMain"] .pie')).series[0].data.some(row=>row.name==='gpt-5.4'&&row.value===133000));
+  assert.equal(await page.locator('.heatmap .days').innerHTML(),heatmapBefore,'range selection leaves the activity calendar unchanged');
+  if(selector===tokenSelector)await page.locator(selector).screenshot({path:out+'trend-drag-selection.png'});
+  await page.locator('.range-reset').click();await page.clock.runFor(100);
+  assert.equal(await page.locator(selector).evaluate(async el=>{
+    const echarts=await import('/node_modules/.vite/deps/echarts_core.js');
+    return echarts.getInstanceByDom(el).getModel().getComponent('brush').areas.length;
+  }),0,'reset clears the visible brush');
+}
+assert.ok((await getChartOptions('[data-panel-group="trendMain"] .pie')).series[0].data.some(row=>row.name==='gpt-5.4'&&row.value===798000),'reset restores full-query distributions');
 await page.evaluate(async sel=>{
   const echarts=await import('/node_modules/.vite/deps/echarts_core.js');
   echarts.getInstanceByDom(document.querySelector(sel)).dispatchAction({type:'dataZoom',startValue:2,endValue:4});
 },tokenSelector);await page.clock.runFor(400);
-assert.match(await page.locator('.range-caption').textContent(),/2026-09-17 ~ 2026-09-19/,'zooming selects the visible x-axis range');
+assert.match(await page.locator('.range-summary .range-caption').textContent(),/2026-09-17 ~ 2026-09-19/,'zooming selects the visible x-axis range');
 const selectionRequest=await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='summary'&&c.args.q.first_period).at(-1).args.q);
 assert.equal(selectionRequest.first_day,'2026-09-17');assert.equal(selectionRequest.last_day,'2026-09-19');
 await page.evaluate(async sel=>{
   const echarts=await import('/node_modules/.vite/deps/echarts_core.js');
   echarts.getInstanceByDom(document.querySelector(sel)).trigger('click',{componentType:'xAxis',value:'2026-09-18'});
 },tokenSelector);await page.clock.runFor(300);
-assert.match(await page.locator('.range-caption').textContent(),/选定范围[：:]2026-09-18/,'x-axis labels also select a period');
+assert.match(await page.locator('.range-summary .range-caption').textContent(),/选定范围[：:]2026-09-18/,'x-axis labels also select a period');
 await page.evaluate(async sel=>{
   window.selectionDelay=900;
   const echarts=await import('/node_modules/.vite/deps/echarts_core.js');
@@ -448,7 +503,7 @@ await page.evaluate(async sel=>{
   const chart=echarts.getInstanceByDom(document.querySelector(sel));
   chart.dispatchAction({type:'dataZoom',startValue:1,endValue:3});
 },tokenSelector);await page.clock.runFor(300);
-assert.match(await page.locator('.range-caption').textContent(),/09:00 ~ .*11:00/,'hour selection preserves the time bounds');
+assert.match(await page.locator('.range-summary .range-caption').textContent(),/09:00 ~ .*11:00/,'hour selection preserves the time bounds');
 const hourlySelection=await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='summary'&&c.args.q.first_period).at(-1).args.q);
 assert.equal(hourlySelection.first_period.slice(-5),'09:00');assert.equal(hourlySelection.last_period.slice(-5),'11:00');
 const hourlyPrice=await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='cost_summary'&&c.args.q.first_period).at(-1).args.q);

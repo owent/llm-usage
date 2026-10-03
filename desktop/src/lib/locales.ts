@@ -34,7 +34,7 @@ export const translatedKeys = [
   'insights.title', 'insights.activeDays', 'insights.knownUsage', 'insights.knownHint',
   'insights.durationSamples', 'insights.conflicts', 'insights.retained', 'insights.note',
   'cards.input.hint', 'cards.conflicts', 'cards.excluded', 'cards.revision', 'cards.totalDuration',
-  'filter.quick.24h', 'overview.historyFilterHint', 'trend.inProgress', 'trend.partial',
+  'filter.quick.2days', 'overview.historyFilterHint', 'trend.inProgress', 'trend.partial',
   'trend.metric.input', 'trend.metric.output', 'trend.metric.total', 'trend.metric.ratio',
   'chart.dimension.label', 'chart.dimension.total', 'chart.dimension.model',
   'chart.dimension.agent', 'chart.dimension.agentModel',

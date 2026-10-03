@@ -594,7 +594,7 @@
     systemMessage = '';
     systemError = '';
     try {
-      await api.setRefreshTask(!taskStatus.refresh_task);
+      await api.setRefreshTask(!(taskStatus.refresh_task_desired ?? taskStatus.refresh_task));
       systemMessage = t('system.applied');
     } catch (e) {
       systemError = t('system.actionFailed', { message: parseError(e) });
@@ -1211,10 +1211,22 @@
                 {#if taskStatus.refresh_task}
                   <span class="hint">{t('system.refreshTask.interval')}</span>
                 {/if}
+                <span class="hint">{t('system.refreshTask.desired')} · {(taskStatus.refresh_task_desired ?? taskStatus.refresh_task) ? t('system.state.on') : t('system.state.off')}</span>
+                {#if taskStatus.refresh_task_error}
+                  <span class="bad">{t('system.actionFailed', {message: parseError(taskStatus.refresh_task_error)})}</span>
+                {/if}
               </div>
               <button type="button" disabled={taskBusy} onclick={() => void toggleRefreshTask()}>
-                {taskStatus.refresh_task ? t('system.refreshTask.uninstall') : t('system.refreshTask.install')}
+                {(taskStatus.refresh_task_desired ?? taskStatus.refresh_task) ? t('system.refreshTask.uninstall') : t('system.refreshTask.install')}
               </button>
+              {#if taskStatus.refresh_task_error}
+                <button type="button" disabled={taskBusy} onclick={async () => {
+                  taskBusy = true;
+                  try { await api.setRefreshTask(taskStatus?.refresh_task_desired ?? false); }
+                  catch (e) { systemError = parseError(e); }
+                  finally { taskBusy = false; await loadTaskStatus(); }
+                }}>{t('system.refreshTask.repair')}</button>
+              {/if}
             </div>
           {/if}
           {#if systemMessage}<p class="ok">{systemMessage}</p>{/if}

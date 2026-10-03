@@ -49,7 +49,7 @@ use crate::error::CoreError;
 use crate::ingest::DiagnosticInput;
 use serde::{Deserialize, Serialize};
 
-pub const KILO_PARSER_VERSION: &str = "kilo-message-tokens-2";
+pub const KILO_PARSER_VERSION: &str = "kilo-message-tokens-4";
 const MAX_REASONABLE_TOKEN: i64 = crate::domain::MAX_TOKEN_VALUE;
 /// 水位回看窗（毫秒）：覆盖并发子会话的同毫秒乱序写。
 pub const WATERMARK_OVERLAP_MS: i64 = 60_000;
@@ -75,6 +75,9 @@ struct KiloParseContext {
     db_version: Option<String>,
     #[serde(default)]
     has_unverified_records: bool,
+    /// Record failures survive an incremental window until that row is reread successfully.
+    #[serde(default)]
+    record_errors: std::collections::BTreeSet<String>,
 }
 
 fn diag(code: &str, field: Option<&str>, id_pos: &str, message: &str) -> DiagnosticInput {
@@ -272,18 +275,24 @@ fn reconcile_session(
     conn: &rusqlite::Connection,
     session_id: &str,
 ) -> Result<Reconciliation, CoreError> {
-    let detail: i64 = conn
+    let (detail, incomplete): (i64, i64) = conn
         .query_row(
-            "SELECT COALESCE(SUM(json_extract(data,'$.tokens.input')),0) \
-               + COALESCE(SUM(json_extract(data,'$.tokens.output')),0) \
-               + COALESCE(SUM(json_extract(data,'$.tokens.reasoning')),0) \
-               + COALESCE(SUM(json_extract(data,'$.tokens.cache.read')),0) \
-               + COALESCE(SUM(json_extract(data,'$.tokens.cache.write')),0) \
-             FROM message \
-             WHERE session_id = ?1 AND json_valid(data) \
-               AND json_extract(data,'$.role') = 'assistant'",
-            [session_id],
-            |r| r.get(0),
+            "WITH records AS (SELECT CASE WHEN json_valid(data) THEN data ELSE '{}' END data \
+               FROM message WHERE session_id=?1), \
+             usage AS (SELECT json_extract(data,'$.role') role, \
+               json_extract(data,'$.tokens.input') i,json_extract(data,'$.tokens.output') o, \
+               json_extract(data,'$.tokens.reasoning') r,json_extract(data,'$.tokens.cache.read') cr, \
+               json_extract(data,'$.tokens.cache.write') cw, \
+               json_type(data,'$.tokens.input')='integer' AND json_type(data,'$.tokens.output')='integer' \
+               AND json_type(data,'$.tokens.reasoning')='integer' AND json_type(data,'$.tokens.cache.read')='integer' \
+               AND json_type(data,'$.tokens.cache.write')='integer' types_valid FROM records), \
+             checked AS (SELECT *,COALESCE(types_valid AND i BETWEEN 0 AND ?2 AND o BETWEEN 0 AND ?2 \
+               AND r BETWEEN 0 AND ?2 AND cr BETWEEN 0 AND ?2 AND cw BETWEEN 0 AND ?2,0) valid FROM usage) \
+             SELECT COALESCE(SUM(CASE WHEN role='assistant' AND valid THEN i+o+r+cr+cw ELSE 0 END),0), \
+               COALESCE(SUM(CASE WHEN role IS NULL OR (role='assistant' AND NOT valid) THEN 1 ELSE 0 END),0) \
+             FROM checked",
+            rusqlite::params![session_id, MAX_REASONABLE_TOKEN],
+            |r| Ok((r.get(0)?, r.get(1)?)),
         )
         .map_err(CoreError::Sqlite)?;
     let snapshot: Option<f64> = conn
@@ -302,6 +311,7 @@ fn reconcile_session(
         .map_err(CoreError::Sqlite)?;
     let snapshot_final = snapshot.map(|v| v.round() as i64);
     let (difference, verdict) = match snapshot_final {
+        _ if incomplete > 0 => (None, "detail_incomplete"),
         Some(snap) => {
             let diff = detail - snap;
             (Some(diff), if diff == 0 { "matched" } else { "mismatch" })
@@ -362,12 +372,27 @@ pub fn scan(
     let version = max_session_version(conn)?;
     let selection = super::select(version.as_deref());
     let mut has_unverified_records = !fingerprint_reset && context.has_unverified_records;
+    let mut record_errors = if watermark.is_none() {
+        std::collections::BTreeSet::new()
+    } else {
+        context.record_errors
+    };
+    // A mutable source may remove a previously invalid row; absent rows do not degrade it.
+    record_errors.retain(|id| {
+        conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM message WHERE id=?1)",
+            [id],
+            |r| r.get::<_, bool>(0),
+        )
+        .unwrap_or(true)
+    });
 
     let mut events: Vec<EventInput> = Vec::new();
     let mut diagnostics: Vec<DiagnosticInput> = Vec::new();
     let mut records_seen: u64 = 0;
     let mut touched_sessions: Vec<String> = Vec::new();
     for row in rows.iter_mut() {
+        record_errors.remove(&row.id);
         records_seen += 1;
         if !touched_sessions.iter().any(|s| s == &row.session_id) {
             touched_sessions.push(row.session_id.clone());
@@ -375,6 +400,7 @@ pub fn scan(
         let data: serde_json::Value = match serde_json::from_str(&row.data) {
             Ok(v) => v,
             Err(_) => {
+                record_errors.insert(row.id.clone());
                 diagnostics.push(diag(
                     "bad_data_json",
                     Some("data"),
@@ -388,6 +414,7 @@ pub fn scan(
         let role = data.get("role").and_then(|r| r.as_str()).unwrap_or("");
         if role != "assistant" {
             if role.is_empty() {
+                record_errors.insert(row.id.clone());
                 diagnostics.push(diag(
                     "missing_role",
                     Some("role"),
@@ -408,6 +435,7 @@ pub fn scan(
                     event.usage = mapped.usage;
                     event.quality = mapped.quality;
                     for contradiction in &mapped.diagnostics {
+                        record_errors.insert(row.id.clone());
                         diagnostics.push(diag(
                             contradiction.code,
                             Some(contradiction.field),
@@ -417,6 +445,7 @@ pub fn scan(
                     }
                 }
                 None => {
+                    record_errors.insert(row.id.clone());
                     diagnostics.push(diag(
                         "usage_shape_deviation",
                         Some("tokens"),
@@ -426,6 +455,7 @@ pub fn scan(
                 }
             },
             None => {
+                record_errors.insert(row.id.clone());
                 // 无 usage 的 assistant 消息仍是一次调用的证据：
                 // 计调用数，token 全未知（不补零）。
                 diagnostics.push(diag(
@@ -483,18 +513,16 @@ pub fn scan(
         offset: 0,
         watermark_ms: next_watermark,
     };
+    let degraded = !record_errors.is_empty();
     let new_context = KiloParseContext {
         schema_fingerprint: fingerprint,
         version_basis: Some(selection.basis),
         db_version: version,
         has_unverified_records,
+        record_errors,
     };
-    let degraded = diagnostics.iter().any(|d| {
-        matches!(
-            d.code.as_str(),
-            "bad_data_json" | "missing_role" | "usage_shape_deviation" | "reconcile_mismatch"
-        )
-    });
+    // Session columns are an independent cumulative snapshot, never usage event evidence.
+    // Its mismatch remains auditable without invalidating valid per-message usage.
     Ok(ScanOutcome {
         status,
         cursor: Some(serde_json::to_value(new_cursor)?),

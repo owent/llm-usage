@@ -1,8 +1,6 @@
-//! llm-usage 桌面客户端入口（M6）。
-//! GUI 模式：单窗口 + 后台间隔调度；headless 模式（--headless）：无 WebView，
-//! 执行一次全源采集后退出（供系统定时任务使用，V24 的无窗口提取路径）。
-//! M0 试验命令（sqlite_probe/read_sample_file）已被真实功能取代；
-//! 对应回归语义保留在 core 测试与 M0 验证记录中。
+//! 桌面客户端入口。GUI 使用单窗口与共享调度器；--headless 仅按已保存的
+//! 系统任务意图及到期规则采集；--scan-once 显式手动采集所有启用来源。
+//! 两种 CLI 模式均不创建 WebView 或本地遥测接收器。
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
@@ -15,6 +13,7 @@ mod otel_receiver;
 mod price_refresh;
 mod process_guard;
 mod scanner;
+mod system_tasks;
 mod telemetry_setup;
 
 use app_state::AppState;
@@ -27,38 +26,78 @@ fn hostname() -> String {
         .unwrap_or_else(|_| "unknown-host".to_string())
 }
 
-fn db_path() -> std::path::PathBuf {
+fn data_dir_arg(
+    args: impl IntoIterator<Item = String>,
+) -> Result<Option<std::path::PathBuf>, String> {
+    let mut args = args.into_iter();
+    while let Some(arg) = args.next() {
+        if arg == "--data-dir" {
+            let dir = args
+                .next()
+                .filter(|v| !v.is_empty())
+                .ok_or("--data-dir requires an absolute directory")?;
+            let path = std::path::PathBuf::from(dir);
+            if !path.is_absolute() {
+                return Err("--data-dir requires an absolute directory".into());
+            }
+            return Ok(Some(path));
+        }
+    }
+    Ok(None)
+}
+
+fn db_path() -> Result<std::path::PathBuf, String> {
+    if let Some(dir) = data_dir_arg(std::env::args())? {
+        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        return Ok(dir
+            .canonicalize()
+            .map_err(|e| e.to_string())?
+            .join("llm-usage.sqlite"));
+    }
     // 无 Tauri 句柄阶段（headless/启动前）：%APPDATA%/llm-usage-desktop/ 或
     // ~/.local/share/llm-usage-desktop/ 下的 llm-usage.sqlite；
     // 与 architecture.md「应用数据库放系统应用数据目录」一致。
     // 目录名避开 Roaming 下已存在的同名占位文件 llm-usage（第三方遗留，不改动它）。
     if let Ok(appdata) = std::env::var("APPDATA") {
-        return std::path::PathBuf::from(appdata)
+        return Ok(std::path::PathBuf::from(appdata)
             .join("llm-usage-desktop")
-            .join("llm-usage.sqlite");
+            .join("llm-usage.sqlite"));
     }
     if let Ok(home) = std::env::var("USERPROFILE").or_else(|_| std::env::var("HOME")) {
-        return std::path::PathBuf::from(home)
+        return Ok(std::path::PathBuf::from(home)
             .join(".local")
             .join("share")
             .join("llm-usage-desktop")
-            .join("llm-usage.sqlite");
+            .join("llm-usage.sqlite"));
     }
-    std::path::PathBuf::from("llm-usage.sqlite")
+    Ok(std::path::PathBuf::from("llm-usage.sqlite"))
 }
 
 fn main() {
     let headless = std::env::args().any(|a| a == "--headless" || a == "--scan-once");
-    let path = db_path();
+    let path = db_path().unwrap_or_else(|error| {
+        eprintln!("{error}");
+        std::process::exit(2);
+    });
     let _owner = match process_guard::acquire(&path) {
         Ok(Some(owner)) => owner,
         Ok(None) => {
             if headless {
-                if let Err(error) = process_guard::request_refresh(&path, scanner::now_ms()) {
-                    eprintln!("could not queue refresh: {error}");
-                    std::process::exit(1);
+                let request = if std::env::args().any(|arg| arg == "--scan-once") {
+                    process_guard::request_refresh(&path, scanner::now_ms())
+                        .map(|_| true)
+                        .map_err(|e| e.to_string())
+                } else {
+                    system_tasks::request_if_enabled(&path, scanner::now_ms())
+                };
+                match request {
+                    Ok(true) => println!("refresh queued for the running application"),
+                    Ok(false) => println!("background refresh skipped: task disabled"),
+                    Err(error) => {
+                        eprintln!("could not queue refresh: {error}");
+                        std::process::exit(1);
+                    }
                 }
-                println!("refresh queued for the running application");
             } else {
                 rfd::MessageDialog::new()
                     .set_title("LLM Usage")
@@ -88,7 +127,14 @@ fn main() {
 
     if headless {
         // 无 WebView headless 提取：一次采集后退出；不启动窗口/调度线程。
-        let started = scanner::run_refresh(&state, llm_usage_core::jobs::TriggerKind::Interval);
+        let started = if std::env::args().any(|arg| arg == "--scan-once") {
+            scanner::run_refresh(&state, llm_usage_core::jobs::TriggerKind::Manual)
+        } else {
+            scanner::run_background_refresh(&state).unwrap_or_else(|error| {
+                eprintln!("background scan failed: {error}");
+                std::process::exit(1);
+            })
+        };
         let refresh = state.refresh.lock().unwrap();
         for instance in &refresh.instances {
             if let Some(error) = &instance.error {

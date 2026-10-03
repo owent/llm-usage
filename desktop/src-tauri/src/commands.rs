@@ -15,7 +15,6 @@ use llm_usage_core::query::{
 use serde::Deserialize;
 use std::io::Write;
 use std::sync::Arc;
-use tauri::Manager;
 
 /// Empty ownership must select no rows; it must never mean all users.
 fn user_instances(
@@ -59,102 +58,145 @@ fn week_start_of(n: u8) -> Result<WeekStart, String> {
 #[cfg(target_family = "windows")]
 mod win_tasks {
     use super::err;
+    use windows::core::{w, HSTRING, PCWSTR};
+    use windows::Win32::Foundation::{ERROR_FILE_NOT_FOUND, ERROR_SUCCESS};
+    use windows::Win32::System::Registry::*;
 
-    const RUN_KEY: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run";
-    const TASK_NAME: &str = "LLMUsageDataRefresh";
+    const RUN_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
 
-    fn run_value() -> String {
-        format!(
+    fn run_value() -> Result<String, String> {
+        Ok(format!(
             "\"{}\"",
-            std::env::current_exe().unwrap_or_default().display()
-        )
+            std::env::current_exe()
+                .map_err(|e| err("executable", e.to_string()))?
+                .display()
+        ))
+    }
+
+    fn read_value(subkey: &str) -> Result<Option<String>, String> {
+        let subkey = HSTRING::from(subkey);
+        let mut bytes = 0;
+        unsafe {
+            let result = RegGetValueW(
+                HKEY_CURRENT_USER,
+                &subkey,
+                w!("LLMUsage"),
+                RRF_RT_REG_SZ,
+                None,
+                None,
+                Some(&mut bytes),
+            );
+            if result == ERROR_FILE_NOT_FOUND {
+                return Ok(None);
+            }
+            result.ok().map_err(|e| err("reg_query", e.to_string()))?;
+            if bytes > 65536 {
+                return Err(err("reg_query", "value too large"));
+            }
+            let mut data = vec![0u16; (bytes as usize).div_ceil(2).max(1)];
+            RegGetValueW(
+                HKEY_CURRENT_USER,
+                &subkey,
+                w!("LLMUsage"),
+                RRF_RT_REG_SZ,
+                None,
+                Some(data.as_mut_ptr().cast()),
+                Some(&mut bytes),
+            )
+            .ok()
+            .map_err(|e| err("reg_query", e.to_string()))?;
+            let end = data.iter().position(|v| *v == 0).unwrap_or(data.len());
+            String::from_utf16(&data[..end])
+                .map(Some)
+                .map_err(|e| err("reg_query", e.to_string()))
+        }
+    }
+
+    fn write_value(subkey: &str, value: Option<&str>) -> Result<(), String> {
+        let subkey = HSTRING::from(subkey);
+        unsafe {
+            if let Some(value) = value {
+                let mut key = HKEY::default();
+                RegCreateKeyExW(
+                    HKEY_CURRENT_USER,
+                    &subkey,
+                    None,
+                    PCWSTR::null(),
+                    REG_OPTION_NON_VOLATILE,
+                    KEY_SET_VALUE,
+                    None,
+                    &mut key,
+                    None,
+                )
+                .ok()
+                .map_err(|e| err("reg_write", e.to_string()))?;
+                struct Key(HKEY);
+                impl Drop for Key {
+                    fn drop(&mut self) {
+                        unsafe {
+                            let _ = RegCloseKey(self.0);
+                        }
+                    }
+                }
+                let key = Key(key);
+                let bytes: Vec<u8> = value
+                    .encode_utf16()
+                    .chain(Some(0))
+                    .flat_map(u16::to_le_bytes)
+                    .collect();
+                RegSetValueExW(key.0, w!("LLMUsage"), None, REG_SZ, Some(&bytes))
+                    .ok()
+                    .map_err(|e| err("reg_write", e.to_string()))?;
+            } else {
+                let result = RegDeleteKeyValueW(HKEY_CURRENT_USER, &subkey, w!("LLMUsage"));
+                if result != ERROR_SUCCESS && result != ERROR_FILE_NOT_FOUND {
+                    result.ok().map_err(|e| err("reg_write", e.to_string()))?;
+                }
+            }
+        }
+        Ok(())
     }
 
     pub fn auto_start_enabled() -> Result<bool, String> {
-        let out = std::process::Command::new("reg")
-            .args(["query", RUN_KEY, "/v", "LLMUsage"])
-            .output()
-            .map_err(|e| err("reg_query", e.to_string()))?;
-        Ok(out.status.success() && String::from_utf8_lossy(&out.stdout).contains("REG_SZ"))
+        let expected = run_value()?;
+        Ok(read_value(RUN_KEY)?.is_some_and(|value| value.eq_ignore_ascii_case(&expected)))
     }
 
     pub fn set_auto_start(enabled: bool) -> Result<(), String> {
-        let result = if enabled {
-            std::process::Command::new("reg")
-                .args([
-                    "add",
-                    RUN_KEY,
-                    "/v",
-                    "LLMUsage",
-                    "/t",
-                    "REG_SZ",
-                    "/d",
-                    &run_value(),
-                    "/f",
-                ])
-                .output()
-        } else {
-            std::process::Command::new("reg")
-                .args(["delete", RUN_KEY, "/v", "LLMUsage", "/f"])
-                .output()
-        }
-        .map_err(|e| err("reg_write", e.to_string()))?;
-        // 删除不存在的值也返回错误码（视为已关闭）。
-        if !result.status.success() && enabled {
-            return Err(err(
-                "reg_write",
-                String::from_utf8_lossy(&result.stderr).to_string(),
-            ));
-        }
-        Ok(())
+        let value = enabled.then(run_value).transpose()?;
+        write_value(RUN_KEY, value.as_deref())
     }
 
-    pub fn refresh_task_enabled() -> Result<bool, String> {
-        let out = std::process::Command::new("schtasks")
-            .args(["/Query", "/TN", TASK_NAME])
-            .output()
-            .map_err(|e| err("schtasks", e.to_string()))?;
-        Ok(out.status.success())
-    }
-
-    /// 安装每小时 headless 刷新任务（当前用户上下文，无需提权）。
-    /// 间隔与界面"刷新间隔"独立：系统任务保证应用未运行时也补采集。
-    pub fn install_refresh_task() -> Result<(), String> {
-        let exe = run_value();
-        let out = std::process::Command::new("schtasks")
-            .args([
-                "/Create",
-                "/TN",
-                TASK_NAME,
-                "/TR",
-                &format!("{exe} --headless"),
-                "/SC",
-                "HOURLY",
-                "/F",
-            ])
-            .output()
-            .map_err(|e| err("schtasks", e.to_string()))?;
-        if !out.status.success() {
-            return Err(err(
-                "schtasks_install",
-                String::from_utf8_lossy(&out.stderr).to_string(),
-            ));
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        #[test]
+        #[ignore = "writes only an isolated current-user test registry key; run explicitly"]
+        fn registry_roundtrip() {
+            let subkey = format!(
+                r"Software\LLMUsageAcceptance-{}-{}",
+                std::process::id(),
+                crate::scanner::now_ms()
+            );
+            struct Cleanup(String);
+            impl Drop for Cleanup {
+                fn drop(&mut self) {
+                    let _ = write_value(&self.0, None);
+                    unsafe {
+                        let _ = RegDeleteKeyW(HKEY_CURRENT_USER, &HSTRING::from(&self.0));
+                    }
+                }
+            }
+            let _cleanup = Cleanup(subkey.clone());
+            assert!(read_value(&subkey).unwrap().is_none());
+            let value = r#""D:\含空格 path\LLMUsage.exe""#;
+            write_value(&subkey, Some(value)).unwrap();
+            assert_eq!(read_value(&subkey).unwrap().as_deref(), Some(value));
+            write_value(&subkey, Some(value)).unwrap();
+            write_value(&subkey, None).unwrap();
+            assert!(read_value(&subkey).unwrap().is_none());
+            write_value(&subkey, None).unwrap();
         }
-        Ok(())
-    }
-
-    pub fn uninstall_refresh_task() -> Result<(), String> {
-        let out = std::process::Command::new("schtasks")
-            .args(["/Delete", "/TN", TASK_NAME, "/F"])
-            .output()
-            .map_err(|e| err("schtasks", e.to_string()))?;
-        if !out.status.success() {
-            return Err(err(
-                "schtasks_uninstall",
-                String::from_utf8_lossy(&out.stderr).to_string(),
-            ));
-        }
-        Ok(())
     }
 }
 
@@ -169,18 +211,19 @@ pub fn pick_save_path(default_name: String) -> Option<String> {
 }
 
 #[tauri::command]
-pub fn system_task_status() -> Result<serde_json::Value, String> {
+pub fn system_task_status(
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<serde_json::Value, String> {
     #[cfg(target_family = "windows")]
     {
-        Ok(serde_json::json!({
-            "platform": "windows",
-            "auto_start": win_tasks::auto_start_enabled()?,
-            "refresh_task": win_tasks::refresh_task_enabled()?,
-            "refresh_task_interval": "hourly",
-        }))
+        let mut status = crate::system_tasks::status(&state)?;
+        status["platform"] = "windows".into();
+        status["auto_start"] = win_tasks::auto_start_enabled()?.into();
+        Ok(status)
     }
     #[cfg(not(target_family = "windows"))]
     {
+        let _ = state;
         Ok(serde_json::json!({
             "platform": std::env::consts::OS,
             "auto_start": false,
@@ -207,18 +250,17 @@ pub fn set_auto_start(enabled: bool) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn set_refresh_task(install: bool) -> Result<(), String> {
+pub fn set_refresh_task(
+    state: tauri::State<'_, Arc<AppState>>,
+    install: bool,
+) -> Result<(), String> {
     #[cfg(target_family = "windows")]
     {
-        if install {
-            win_tasks::install_refresh_task()
-        } else {
-            win_tasks::uninstall_refresh_task()
-        }
+        crate::system_tasks::set_enabled(&state, install).map_err(|e| err("system_task", e))
     }
     #[cfg(not(target_family = "windows"))]
     {
-        let _ = install;
+        let _ = (state, install);
         Err(err(
             "unsupported_platform",
             "background task is Windows-only for now",
@@ -482,7 +524,9 @@ pub fn list_sources(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_json
                      AND f.status = 'unsupported') AS unsupported_files,
                     (SELECT COUNT(*) FROM source_files f WHERE f.instance_id = s.instance_id
                      AND f.status = 'incompatible') AS incompatible_files,
-                    s.location_hint
+                    s.location_hint,
+                    (SELECT e.tz FROM extraction_schedules e
+                     WHERE e.schedule_id = 'source:' || s.instance_id AND e.enabled = 1)
              FROM source_instances s WHERE s.health != 'not_applicable' ORDER BY s.agent, s.instance_id",
         )
         .map_err(|e| err("db", e.to_string()))?;
@@ -509,6 +553,7 @@ pub fn list_sources(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_json
                         "timeOfDay": r.get::<_, Option<String>>(9)?,
                         "weekday": r.get::<_, Option<i64>>(10)?,
                         "nextDueMs": r.get::<_, Option<i64>>(11)?,
+                        "timezone": r.get::<_, String>(18)?,
                     }),
                     None => serde_json::Value::Null,
                 },
@@ -519,6 +564,18 @@ pub fn list_sources(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_json
         .collect::<Result<_, _>>()
         .map_err(|e| err("db", e.to_string()))?;
     drop(stmt);
+    for source in &mut sources {
+        if !source["schedule"].is_null() {
+            let instance = source["instance_id"].as_str().unwrap_or_default();
+            if let Some(rule) = llm_usage_core::schedules::source_schedule(&storage, instance)
+                .map_err(|e| err("db", e.to_string()))?
+            {
+                source["schedule"]["previewMs"] = serde_json::json!(
+                    llm_usage_core::schedules::preview_due_ms(&rule, now_ms(), &rule.tz)
+                );
+            }
+        }
+    }
     // 失踪文件计数（SQLite 无文件系统访问，磁盘检查逐实例做；只统计不改状态）。
     for s in sources.iter_mut() {
         let instance = s["instance_id"].as_str().unwrap_or("").to_string();
@@ -558,7 +615,7 @@ pub fn set_source_enabled(
 }
 
 /// 设置逐源提取计划（rule=None 删除，恢复继承全局；M6 逐源定时接线）。
-/// 固定间隔 15s–24h / 每日 HH:MM / 每周 ISO weekday+HH:MM；时区继承统计时区。
+/// 固定间隔 15s–24h / 每日 HH:MM / 每周 ISO weekday+HH:MM；时区独立保存。
 #[tauri::command]
 pub fn set_source_schedule(
     state: tauri::State<'_, Arc<AppState>>,
@@ -574,6 +631,8 @@ pub fn set_source_schedule(
                 .map_err(|e| err("db", e.to_string()))?;
         }
         Some(value) => {
+            let previous = llm_usage_core::schedules::source_schedule(&storage_lock, &instance_id)
+                .map_err(|e| err("db", e.to_string()))?;
             let parsed = llm_usage_core::schedules::SourceScheduleRule {
                 instance_id: instance_id.clone(),
                 rule_kind: value
@@ -587,7 +646,13 @@ pub fn set_source_schedule(
                     .and_then(|v| v.as_str())
                     .map(str::to_string),
                 weekday: value.get("weekday").and_then(|v| v.as_i64()),
-                tz: String::new(),
+                tz: value
+                    .get("timezone")
+                    .and_then(|v| v.as_str())
+                    .filter(|v| !v.trim().is_empty())
+                    .map(str::to_string)
+                    .or_else(|| previous.map(|r| r.tz))
+                    .unwrap_or_else(|| tz.clone()),
                 enabled: true,
             };
             llm_usage_core::schedules::upsert_source_schedule(&storage_lock, &parsed, now, &tz)
@@ -613,6 +678,8 @@ pub fn set_source_schedule(
             "timeOfDay": r.time_of_day,
             "weekday": r.weekday,
             "enabled": r.enabled,
+            "timezone": r.tz,
+            "previewMs": llm_usage_core::schedules::preview_due_ms(r, now, &tz),
         })),
         "nextDueMs": next_due,
     }))
@@ -625,7 +692,13 @@ pub fn set_source_schedule(
 pub fn refresh_sources(
     state: tauri::State<'_, Arc<AppState>>,
 ) -> Result<serde_json::Value, String> {
-    let already = state.refresh.lock().unwrap().running;
+    let already = {
+        let mut refresh = state.refresh.lock().unwrap();
+        if refresh.running {
+            refresh.pending_manual = true;
+        }
+        refresh.running
+    };
     if !already {
         let state = state.inner().clone();
         std::thread::spawn(move || {
@@ -817,7 +890,6 @@ pub fn quota_series(
 /// CSV 防公式注入：以 = + - @ 开头的单元格加 `'` 前缀。
 #[tauri::command]
 pub fn export_data(
-    app: tauri::AppHandle,
     state: tauri::State<'_, Arc<AppState>>,
     kind: String,
     target_dir: Option<String>,
@@ -829,10 +901,10 @@ pub fn export_data(
     let request = build_request(&settings, &q, Vec::new())?;
     let dir = match target_dir {
         Some(d) => std::path::PathBuf::from(d),
-        None => app
-            .path()
-            .app_data_dir()
-            .map_err(|e| err("path", e.to_string()))?
+        None => state
+            .db_path
+            .parent()
+            .ok_or_else(|| err("path", "missing application data directory"))?
             .join("exports"),
     };
     std::fs::create_dir_all(&dir).map_err(|e| err("io", e.to_string()))?;

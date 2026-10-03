@@ -246,7 +246,7 @@ impl crate::adapters::framework::SourceAdapter for KiloAdapter {
                 "pause_cancel": "行级游标可停；busy 源转暂存副本或保留旧结果下轮重试",
             }),
             limitations: vec![
-                "session 行 tokens_* 列级语义随版本不稳定（7.4.8/7.4.9 错位、新版本一一对应）：仅五列合计参与对账".into(),
+                "session 行 tokens_* 列级语义随版本不稳定：仅五列合计参与对账，独立快照差异不降低逐消息健康；坏明细不认证完整对账".into(),
                 "仅解析 fixture 证实的 message/session 两表；新 core 数据层（session_message/part/event）未接入，切换后需专用实现".into(),
                 "缺证据的删除/压缩消息不推测：本表查不到的调用不计、不补零；实读有 1/276 会话快照与明细不吻合（mismatch 诊断可见）".into(),
                 "WAL 活库：主库文件字节身份（首采样含 change counter）会因 checkpoint 变化，导致框架层文件身份重建与一次全量重读（幂等，不双计）".into(),

@@ -38,13 +38,13 @@ build/feedback-round3/，浏览器截图位于 build/browser-smoke/，均为忽�
 | npm run test:browser | 退出 0；真实 Edge + mock IPC，三种分组各覆盖多小时/单小时曲线，校验实际 token 数据、零值和缺口 |
 | 提示与布局 | 提示宽度不超过 482 px，不重复长说明；双币种费用摘要卡低于 115 px，费用面板 478 px；760 px 窗口展开覆盖说明和单价后页面不横向溢出 |
 | npm run check | 最后布局调整后再次退出 0；Svelte 0 错误、0 警告 |
-| npm run build:desktop | 退出 0；Windows x64 release EXE 和 NSIS 0.1.2-dev 安装包生成，安装包约 3.59 MiB |
+| npm run build:desktop | 退出 0；Windows x64 release EXE 和 NSIS 0.2.0 安装包生成，安装包约 3.59 MiB |
 
 完整验证日志为 verify.log；最后布局调整后另由 browser-final.log 与桌面构建中的
 Web 构建验证。Junie 副本恢复日志为 probe.log。截图已目视核对：today-token-groups.png、
 token-tooltip-compact.png、cost-summary-compact.png、cost-panel-compact.png、cost-details-narrow.png。
 桌面构建日志为 build-desktop.log，安装包位于
-desktop/src-tauri/target/release/bundle/nsis/LLMUsage_0.1.2-dev_x64-setup.exe。
+desktop/src-tauri/target/release/bundle/nsis/LLMUsage_0.2.0_x64-setup.exe。
 
 浏览器回归不等于原生 GUI/IPC 验收；本轮不安装或启动新应用，不回写正式库。
 更新后正常采集自动恢复误登记，无需清库；没有提交、推送或部署。

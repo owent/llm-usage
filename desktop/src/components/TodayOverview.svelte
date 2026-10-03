@@ -9,12 +9,14 @@
     costs=null,
     pricing=false,
     costsError='',
+    pending = '',
   }: {
     totals: MetricSumsDto;
     sessions: number | null;
     costs?: CostSummaryDto|null;
     pricing?: boolean;
     costsError?: string;
+    pending?: '' | 'loading' | 'error';
   } = $props();
 
 
@@ -37,7 +39,7 @@
       { key: 'overview.today.sessions', value: fmtSmart(sessions) },
       { key: 'overview.today.avgDuration', value: fmtDurationShort(avgMs) },
     ];
-    return list;
+    return pending ? list.map((card)=>({...card,value:pending==='error'?'—':'…',sub:undefined})) : list;
   });
 </script>
 

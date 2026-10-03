@@ -14,6 +14,10 @@
 只统计本机 Agent 来源，不接入远端用量/账单 API 或跨设备账号报表；落盘文件仍须核验来源。
 Windows 11 x64 首发，GitHub CI 保留 macOS/Linux；WSL 构建不等于 Linux 桌面验收。
 定时任务只调度本地采集，按需读 [调度合同](docs/design/desktop-usage/scheduling.md)。
+自动暂停须覆盖启动、逐源及残留系统触发；手动刷新仍读取所有启用来源。
+系统任务保存意图并回查实际定义，不能凭任务存在报成功；只清理自有任务。
+定点规则时区独立保存，DST 和旧库迁移须回归；原生测试同时隔离来源环境，
+`--data-dir` 只隔离应用数据。模拟 IPC、无界面可执行文件和 GUI 证据分别报告。
 费用估算与价格快照改动按需读 [价格合同](docs/design/desktop-usage/pricing.md)：
 默认关闭、多币种不合并、估算不随后台价格更新改写。实际渠道未知不推断账单；
 人民币参考额/单价可按已核验的版本化汇率旁列约合美元，保留原值、日期和来源，
@@ -30,24 +34,29 @@ Windows 11 x64 首发，GitHub CI 保留 macOS/Linux；WSL 构建不等于 Linux
 fallback_event_count。
 用户已允许实施时只读提取本机真实 Agent 数据验证，按 [准备合同](docs/design/desktop-usage/implementation-readiness.md)
 限定字段与脱敏，无需重复询问这项许可。JetBrains/TRAE 等缺证 IDE 已后移 F1，当前不实施
-（2026-09-29 M8 第二批 18 个适配器已完成文档级实施并注册——Amazon Q/Codebuff
+（M8 第二批 18 个适配器已完成文档级实施并注册；Amazon Q/Codebuff
 经源码级取证证实本地无逐次 token 载体、iFlow 已停服，均不实施；Junie CLI 与
 Zed 内置凭本地载体证据在 M8；Cursor/Warp/TRAE 的远端用量路线按本机来源边界排除；
 JetBrains 的 GitHub Copilot 已源码级取证——默认本地仅 Nitrite 会话库 credit
 与 idea.log 无逐次 token，逐次载体为需启用的 OTel file 导出，经既有 otel
 适配器手工根接入，见 M9 JetBrains 分析记录；JetBrains 自家 AI Assistant 仍 F1）。
-Copilot 四面已定（2026-10-01 M9）：CLI 面走 assistant_usage_events（旧版）/chronicle
+Copilot 四面：CLI 面走 assistant_usage_events（旧版）/chronicle
 fail-closed（最新版），VS Code 面走原生 `chatSessions/*.jsonl`（copilot_chat 适配器，
 本机真实验收），Visual Studio 面走 `%TEMP%\VSGitHubCopilotLogs\traces` OTLP 遥测
 （vs_copilot 适配器，本机真实验收；TEMP 载体不承诺完整历史），账户 premium 额度走
 copilot-user-cache.json → 通用 quota_history（额度与 token 分开，不折算）。
-M9 审查修正：VS Code turn/modelTotals 是用量 observation，toolCallRounds 才计已观测
+VS Code turn/modelTotals 是用量 observation，toolCallRounds 才计已观测
 主循环调用；默认输入是末次调用下界，不与整轮输出派生完整总 token。额度保存来源
 快照时间与 milli_requests 小数单位。覆盖提示（turn_input_incomplete）不降级来源健康；
 无已知 token 字段的记录（quality_bucket=unknown，含 round 标记/失败调用）计调用不计未知字段，
 见 [审查记录](docs/validation/desktop-usage/m9-copilot-review.md)。
 修正 Copilot 统计/健康规则时须验收已消费且字节未变化的旧游标；重放保留单调修订和历史，
 仅完整有效快照标记规则已更新，不用清库恢复展示。质量分区须检查全部 token 字段。
+Kilo 独立累计快照差异只作对账；真实逐行错误与未知版本兼容分别保留，增量窗不能掩盖坏行。
+健康修正沿真实发现路径重评旧水位；坏类型不得中断其他有效消息入库，详见数据合同。
+修正解析器升级冲突时须比较完整旧事件摘要，只允许解析依据变化；token/质量/模型/
+归属等变化仍仲裁，同批次真实冲突不能被后续元数据更新清除。验收旧摘要、旧游标/
+水位、重复读取及事务回滚，保留诊断历史并同事务重算未封存汇总。
 维护本机遥测检查与配置入口时，读 [配置合同](docs/design/desktop-usage/copilot-otel.md)：
 后台检查只读，应用按用户层字段合并并保留现有输出目标。已核验的 VS Code Copilot
 file 输出按主机/用户/会话/本地日择一；保留原生记录，不按时间/token 相等猜调用身份，
@@ -67,7 +76,7 @@ file 输出按主机/用户/会话/本地日择一；保留原生记录，不按
 
 ## 开发、构建与验证
 
-在仓库根使用 Node.js 22+。根 package.json/package-lock.json 已于 M0 恢复，
+在仓库根使用 Node.js 22+。根 package.json/package-lock.json 为统一工具入口，
 文档与业务检查统一从根目录执行：
 
 ```powershell
@@ -77,13 +86,15 @@ npm run verify          # lint:md + svelte-check + cargo fmt/clippy/test + 前�
 npm run test:browser    # 浏览器交互回归；Windows 使用已安装 Edge
 npm run dev:desktop     # 开发模式拉起 GUI（debug 构建，不打包；dev:web 仅前端）
 npm run build:desktop   # Tauri release 构建
+npm run test:headless   # 真实可执行文件/SQLite，隔离合成来源；先构建
+npm run test:desktop    # Windows 原生 WebView2/IPC；须有可用 CDP，先构建
 git diff --check
 git status --short
 ```
 
 各命令的实际定义见根 package.json scripts；业务命令与依赖版本范围以
-desktop/package.json、desktop/src-tauri/Cargo.toml 及各自锁文件为准
-（2026-09-29 起依赖使用 `^` 浮动最新范围，具体版本以锁文件为准）。
+desktop/package.json、desktop/src-tauri/Cargo.toml 及各自锁文件为准。
+依赖使用 `^` 浮动范围，具体版本以锁文件为准。
 文档检查不能代替业务验收。新文件未跟踪时另查其内容，不能只看 git diff。
 
 ## 工具与执行约定

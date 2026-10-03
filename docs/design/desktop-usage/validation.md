@@ -1,19 +1,9 @@
 # 测试与验收计划
 
-本文是验收清单，实际进度以 [Plan.md](../../../Plan.md) 和 [验证记录](../../validation/desktop-usage/) 为准。
-V29 已随 F2 实施执行（固定价格样本 P1–P6 与 E/A 场景合同测试通过，E2 档位语义
-矛盾已加注，[记录](../../validation/desktop-usage/f2-cost-engine.md)）；A9
-（在线刷新回退）已随可选在线刷新实施执行（2026-10-01，
-[记录](../../validation/desktop-usage/f2-online-refresh.md)）。
-V31 已随 M6 实施双语（zh-CN/en），
-其 GUI 验收随真实桌面逐操作验收执行（[i18n 合同](i18n.md)、
-[m6 记录](../../validation/desktop-usage/m6-desktop-core.md)）。
-设计期文档验证另见 [调研记录](research.md#verification)。
-V17/V30 的未知版本回退与目录迁移已随 [m2d](../../validation/desktop-usage/m2d-layout-versions.md)
-实施并通过回归；V28 已随 [m1a](../../validation/desktop-usage/m1a-provenance.md)
-通过（合成样本验证合同；聚合层导入已实施，明细级导入/完整 Merge 端到端随后续功能排期）；
-V13–V18/V23–V25 的 GUI 部分待真实桌面逐操作验收（M6 主体功能见
-[m6 记录](../../validation/desktop-usage/m6-desktop-core.md)）。M3–M5/F1 新适配器沿用同一合同。
+本文保留验收条件，进度以 [Plan.md](../../../Plan.md) 和
+[最新验收](../../validation/desktop-usage/current-acceptance.md) 为准。
+适配器版本、价格及来源交换的专项证据见 [验证目录](../../validation/desktop-usage/)。
+已实现功能不能代替实际验收，GUI、原生平台及真实来源缺口仍独立登记。
 每项需要记录对应版本、数据集、命令、退出码和实际结果，不能仅勾选编号。
 
 ## 测试层级
@@ -25,8 +15,11 @@ V13–V18/V23–V25 的 GUI 部分待真实桌面逐操作验收（M6 主体功�
 5. 已授权真实来源核对：与 Agent 自身本机统计/本机会话导出比较，记录差额与覆盖区别。
 6. 性能及发行：release 制品、全进程资源、真实安装/升级/卸载/恢复。
 
-M0 才从实际文件确定测试框架及运行命令；可选 Rust cargo test、前端单元测试和桌面自动化，
-本轮不创建测试脚本或声称它们已存在。无需生成模型请求即可完成前四层的大部分验证。
+从根 package.json 选择实际命令：`verify` 执行静态及单元/合同检查，
+`test:browser` 使用模拟 IPC；`test:headless` 使用真实可执行文件和 SQLite，
+`test:desktop` 使用 Windows WebView2 的真实 IPC。后两者须先构建并隔离来源环境。
+系统任务 API 往返另以显式测试执行，不能据此声称 OS 已启动应用。
+无需生成模型请求即可完成前四层的大部分验证。
 
 ## 验收用例
 

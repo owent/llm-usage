@@ -40,6 +40,7 @@
     mode: string,
     time: string,
     weekday: number,
+    timezone = s.schedule?.timezone,
   ) {
     const rule =
       mode === 'inherit'
@@ -49,7 +50,7 @@
           : mode === 'weekly'
             ? { kind: 'weekly' as const, timeOfDay: time, weekday }
             : { kind: 'interval' as const, intervalSeconds: Number(mode.slice(4)) };
-    await change(s, () => api.setSourceSchedule(s.instance_id, rule));
+    await change(s, () => api.setSourceSchedule(s.instance_id, rule ? { ...rule, timezone } : null));
   }
   // 周名按当前语言 Intl 生成（周一=1…周日=7，与后端 ISO 对齐；基准 2024-01-01）。
   // 渲染必须固定 UTC：本地时区渲染 UTC 零点会在负偏移时区错一天。
@@ -107,6 +108,11 @@
           </select>
         </label>
         {#if scheduleMode(s) === 'daily' || scheduleMode(s) === 'weekly'}
+          <label>{t('settings.timezone')}
+            <input type="text" value={s.schedule?.timezone ?? ''} disabled={pending[s.instance_id]}
+              aria-label={`${s.agent}: ${t('settings.timezone')}`}
+              onchange={(event) => void applySchedule(s, scheduleMode(s), scheduleTime(s), scheduleWeekday(s), event.currentTarget.value)} />
+          </label>
           <label>{t('sources.schedule.time')}
             <input type="time" value={scheduleTime(s)} disabled={pending[s.instance_id]}
               onchange={(e) => {
@@ -128,6 +134,11 @@
         {/if}
         {#if s.schedule?.nextDueMs}
           <span class="next-due">{t('sources.schedule.nextDue')} {fmtRelative(s.schedule.nextDueMs)}</span>
+        {/if}
+        {#if s.schedule?.previewMs?.length}
+          <span class="next-due" data-testid="schedule-preview">{t('sources.schedule.preview')}
+            {s.schedule.previewMs.map((ms) => new Intl.DateTimeFormat(i18n.locale, { timeZone: s.schedule?.timezone || 'UTC', dateStyle: 'short', timeStyle: 'short' }).format(ms)).join(' · ')}
+          </span>
         {/if}
       </div>
       <div class="source-footer">

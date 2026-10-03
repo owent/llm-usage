@@ -326,10 +326,20 @@ fn partial_availability_isolates_bad_rows_and_counts_orphan_messages() {
         "session_cumulative_snapshot".to_string(),
         "no_snapshot".to_string()
     )));
-    // syn-sess-1 明细只有 good 行（bad 行 JSON 无效不入明细）：255 != 快照 286 ⇒ mismatch。
+    // 明细有无法归类的坏 JSON：255 是有效行小计，不能假定为完整总量来比较快照 286。
     assert!(reports[0].reconciliations.iter().any(|r| {
-        r.verdict == "mismatch" && r.detail_sum == 255 && r.snapshot_final == Some(286)
+        r.verdict == "detail_incomplete"
+            && r.detail_sum == 255
+            && r.snapshot_final == Some(286)
+            && r.difference.is_none()
     }));
+    let health: String = conn
+        .query_row("SELECT status FROM source_files", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(
+        health, "degraded",
+        "invalid JSON remains a real record error"
+    );
     let _ = dir;
 }
 

@@ -1,17 +1,17 @@
 <script lang="ts">
   import type { SummaryDto } from '../lib/api';
   import { t, fmtSmart, fmtPercent } from '../lib/i18n.svelte';
-  let { summary }: { summary: SummaryDto } = $props();
-  const samples = $derived(summary.totals.total_known_count + summary.totals.total_unknown_count);
-  const knownRatio = $derived(samples && samples === summary.totals.event_count - summary.totals.attempt_count ? summary.totals.total_known_count / samples : null);
+  let { summary }: { summary: SummaryDto | null } = $props();
+  const samples = $derived(summary ? summary.totals.total_known_count + summary.totals.total_unknown_count : 0);
+  const knownRatio = $derived(summary && samples && samples === summary.totals.event_count - summary.totals.attempt_count ? summary.totals.total_known_count / samples : null);
 </script>
 
 <div class="insights" aria-label={t('insights.title')}>
-  <div><span>{t('insights.activeDays')}</span><strong>{fmtSmart(summary.active_days)}</strong></div>
+  <div><span>{t('insights.activeDays')}</span><strong>{fmtSmart(summary?.active_days)}</strong></div>
   <div><span>{t('insights.knownUsage')}</span><strong>{fmtPercent(knownRatio)}</strong><small>{t('insights.knownHint')}</small></div>
-  <div><span>{t('insights.durationSamples')}</span><strong>{fmtSmart(summary.totals.duration_sample_count)}</strong></div>
-  <div class:attention={summary.totals.conflict_count > 0}><span>{t('insights.conflicts')}</span><strong>{fmtSmart(summary.totals.conflict_count)}</strong></div>
-  <p>{summary.periods.some((p) => p.partial_history) ? t('insights.retained') : t('insights.note')}</p>
+  <div><span>{t('insights.durationSamples')}</span><strong>{fmtSmart(summary?.totals.duration_sample_count)}</strong></div>
+  <div class:attention={(summary?.totals.conflict_count ?? 0) > 0}><span>{t('insights.conflicts')}</span><strong>{fmtSmart(summary?.totals.conflict_count)}</strong></div>
+  <p>{summary?.periods.some((p) => p.partial_history) ? t('insights.retained') : t('insights.note')}</p>
 </div>
 
 <style>

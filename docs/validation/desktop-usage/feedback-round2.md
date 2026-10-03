@@ -77,11 +77,11 @@ Opus 4.8 在全部保留明细范围内的 **5 条部分估算、1 条未计价*
 | cargo test 的 model_reference/source_routing/pricing_v29 | 退出 0；别名日期、歧义、档位优先、全部适配器路由、旧登记恢复、周期历史保留、快照幂等通过 |
 | 真实库副本两轮采集 | pi、oh-my-pi、原生 VS Code、OTel 各 1 个正常来源，全部无读取错误；第二轮四者新增均 0 |
 | 历史对照 | 8 个无用量的误登记退出展示；既有事件删除 0，修订倒退 0；四个来源不再有未识别文件 |
-| npm run build:desktop | 退出 0：Windows x64 release EXE 和 NSIS 0.1.2-dev 安装包生成，安装包约 3.59 MiB |
+| npm run build:desktop | 退出 0：Windows x64 release EXE 和 NSIS 0.2.0 安装包生成，安装包约 3.59 MiB |
 
 最终日志为 build/feedback-round2/verify-final.log、browser-final.log、build-desktop.log、
 probe.log、replay-comparison.json。开关明暗主题截图在 build/browser-smoke/，已目视核对。
-安装包位于 desktop/src-tauri/target/release/bundle/nsis/LLMUsage_0.1.2-dev_x64-setup.exe，
+安装包位于 desktop/src-tauri/target/release/bundle/nsis/LLMUsage_0.2.0_x64-setup.exe，
 独立程序位于 desktop/src-tauri/target/release/LLMUsage.exe。
 
 第一轮 oh-my-pi 相对备份新增 2 条，第二轮零新增；其他三个来源两轮均零新增。

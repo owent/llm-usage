@@ -4,7 +4,6 @@
   import { api, parseError } from './lib/api';
   import type {
     AppSettings,
-    ChartSeriesRowDto,
     CostSummaryDto,
     RefreshStateDto,
     SourceDto,
@@ -37,7 +36,7 @@
 
   type Tab = 'overview' | 'trend' | 'sources' | 'details' | 'settings';
   type Granularity = 'hour' | 'day' | 'week' | 'month';
-  /** 时间范围（任务 C7）：近 24 小时/当天自动切小时粒度。 */
+  /** 两个自然日/当天自动切小时粒度，以设置时区的日期为边界。 */
   type RangeKey = '2' | 'today' | '7' | '30' | '365';
 
   let tab = $state<Tab>('overview');
@@ -126,11 +125,11 @@
         'trend-tokens',
         'trend-calls',
         'trend-costs',
-        'trend-heatmap',
-        'trend-weekday',
         'trend-model-pie',
         'trend-agent-pie',
         'trend-model-table',
+        'trend-heatmap',
+        'trend-weekday',
       ],
     },
   };
@@ -188,7 +187,8 @@
   const trendPanelOrder = $derived(
     panelState.trendMain.order.filter(
       (id) => id !== 'trend-costs' || (settings?.pricing?.enabled ?? false),
-    ),
+    ).filter((id) => id !== 'trend-heatmap' && id !== 'trend-weekday')
+      .concat(panelState.trendMain.order.filter((id) => id === 'trend-heatmap' || id === 'trend-weekday')),
   );
 
   function togglePanel(gk: PanelGroupKey, id: string): void {
@@ -307,9 +307,51 @@
     first_day: todayDay, last_day: todayDay, granularity: 'day', ...filters,
   }));
 
+  let todaySelection = $state<{first:string;last:string}|null>(null);
+  let todaySelectionSummary = $state<SummaryDto|null>(null);
+  let todaySelectionError = $state('');
+  let todaySelectionCosts = $state<CostSummaryDto|null>(null);
+  let todaySelectionCostsError = $state('');
+  const todayScopeSummary = $derived(todaySelection ? todaySelectionSummary : todaySummary);
+  const todaySelectionQuery = $derived.by((): SummaryQuery|null => todaySelection ? {
+    ...todayQuery, granularity:'hour',first_period:todaySelection.first,last_period:todaySelection.last,
+  } : null);
+  function onTodayRangeChange(first:string,last:string): void {
+    const start=first===todayDay ? `${todayDay} 00:00` : first;
+    const end=last===todayDay ? `${todayDay} 23:00` : last;
+    if(!start.startsWith(todayDay+' ') || !end.startsWith(todayDay+' ')) return;
+    if(todaySelection?.first!==start || todaySelection.last!==end) todaySelection={first:start,last:end};
+  }
+  $effect(()=>{
+    void todayQuery;void currentUser;void settings?.timezone;void settings?.week_start;
+    todaySelection=null;
+  });
+  $effect(()=>{
+    const q=todaySelectionQuery;
+    void todaySummary?.data_revision;void dataReloadKey;void currentUser;void settings?.timezone;void settings?.week_start;
+    todaySelectionSummary=null;todaySelectionError='';
+    if(!q || tab!=='overview' || !ready) return;
+    let cancelled=false;
+    api.summary(q).then((result)=>{if(!cancelled)todaySelectionSummary=result;})
+      .catch((error)=>{if(!cancelled)todaySelectionError=parseError(error);});
+    return ()=>{cancelled=true;};
+  });
+  $effect(()=>{
+    const q=todaySelectionQuery;
+    void todaySummary?.data_revision;void dataReloadKey;void currentUser;void settings?.timezone;void settings?.week_start;void settings?.pricing;
+    todaySelectionCosts=null;todaySelectionCostsError='';
+    if(!q || tab!=='overview' || !ready || !settings?.pricing?.enabled) return;
+    let cancelled=false;
+    api.costSummary(q).then((result)=>{if(!cancelled)todaySelectionCosts=result;})
+      .catch((error)=>{if(!cancelled)todaySelectionCostsError=parseError(error);});
+    return ()=>{cancelled=true;};
+  });
+
   // One cost query feeds the summary, model rows and curve on the active page.
   let costs = $state<CostSummaryDto | null>(null);
   let costsError = $state('');
+  const todayScopeCosts = $derived(todaySelection ? todaySelectionCosts : costs);
+  const todayScopeCostsError = $derived(todaySelection ? todaySelectionCostsError : costsError);
   $effect(() => {
     const q = tab === 'overview' ? todayQuery : query;
     const pricing = settings?.pricing;
@@ -358,7 +400,7 @@
     void summary?.data_revision; void dataReloadKey; void currentUser;
     void settings?.timezone; void settings?.week_start;
     selectionSummary = null; selectionError = '';
-    if (!selected || tab !== 'trend') return;
+    if (!selected || (tab !== 'trend' && tab !== 'overview')) return;
     const periods = summary?.periods.filter((p) => p.label >= selected.first && p.label <= selected.last) ?? [];
     if (!periods.length) return;
     const scoped = {...q,
@@ -376,7 +418,7 @@
     void settings?.timezone; void settings?.week_start; void settings?.pricing;
     void summary?.data_revision; void dataReloadKey; void currentUser;
     selectionCosts=null; selectionCostsError='';
-    if(!selected || tab!=='trend' || !settings?.pricing?.enabled) return;
+    if(!selected || (tab!=='trend' && tab!=='overview') || !settings?.pricing?.enabled) return;
     const periods=summary?.periods.filter((p)=>p.label>=selected.first && p.label<=selected.last)??[];
     if(!periods.length) return;
     const scoped={...q,first_day:periods[0].start_day>q.first_day?periods[0].start_day:q.first_day,
@@ -388,59 +430,11 @@
     return ()=>{cancelled=true;};
   });
 
-  // ---- 历史趋势选中时间点（点击图表数据点；切换粒度/范围/筛选后清空）。 ----
-  let selectedPeriodLabel = $state<string | null>(null);
-
-  /** 选中时间点的周期行（按标签在 summary.periods 中回查；失配为 null）。 */
-  const selectedPeriod = $derived(
-    selectedPeriodLabel === null
-      ? null
-      : (summary?.periods.find((p) => p.label === selectedPeriodLabel) ?? null)
-  );
-
-  /** 点击历史趋势图数据点：选中该时间点；再次点击同一点取消。 */
+  /** 总览历史与趋势共用周期选区；总览再次点击同一点取消。 */
   function onHistoryPeriodClick(label: string): void {
-    selectedPeriodLabel = label === selectedPeriodLabel ? null : label;
+    if (trendSelection?.first === label && trendSelection.last === label) trendSelection = null;
+    else onTrendPeriodClick(label);
   }
-
-  // 选中时间点的模型/Agent 饼图：chart_series 按维度拉取后按标签过滤
-  // （无新后端命令；total_tokens 占比，与趋势页饼图同口径）。
-  type PieDatum = { name: string; value: number | null; input: number | null; output: number | null };
-  let periodPies = $state<{ models: PieDatum[]; agents: PieDatum[] } | null>(null);
-  let periodPiesError = $state('');
-
-  $effect(() => {
-    const p = selectedPeriod; // 依赖选中变化；summary 刷新时 periods 引用变化同样重拉。
-    const q = query;
-    periodPiesError = '';
-    if (!p) {
-      periodPies = null;
-      return;
-    }
-    const label = p.label;
-    let cancelled = false;
-    // 换选时间点时保留旧饼图直到新数据到达（原地替换，不塌缩成加载态）。
-    Promise.all([api.chartSeries(q, 'model'), api.chartSeries(q, 'agent')])
-      .then(([m, a]) => {
-        if (cancelled) return;
-        const pie = (rows: ChartSeriesRowDto[]): PieDatum[] =>
-          rows
-            .filter((r) => r.label === label)
-            .map((r) => ({
-              name: r.series === 'unknown' ? t('common.unknown') : r.series,
-              value: r.total === null ? null : Number(r.total),
-              input: r.input === null ? null : Number(r.input),
-              output: r.output === null ? null : Number(r.output),
-            }));
-        periodPies = { models: pie(m.rows), agents: pie(a.rows) };
-      })
-      .catch((e) => {
-        if (!cancelled) periodPiesError = parseError(e);
-      });
-    return () => {
-      cancelled = true;
-    };
-  });
 
   const agentsAvailable = $derived(
     Array.from(new Set((catalog?.agents ?? []).map((a) => a.agent))).sort()
@@ -460,7 +454,7 @@
 
   // 今日饼图数据：total_tokens 占比（unknown 归“未知”；0 值不参与）。
   const todayModelPie = $derived(
-    (todaySummary?.models ?? [])
+    (todayScopeSummary?.models ?? [])
       .map((m) => ({
         name: m.model ?? t('common.unknown'),
         value: m.sums.total_tokens_known === null ? null : Number(m.sums.total_tokens_known),
@@ -469,7 +463,7 @@
       }))
   );
   const todayAgentPie = $derived(
-    (todaySummary?.agents ?? [])
+    (todayScopeSummary?.agents ?? [])
       .map((a) => ({ name: a.agent, value: a.sums.total_tokens_known === null ? null : Number(a.sums.total_tokens_known),
         input: a.sums.input_total_known === null ? null : Number(a.sums.input_total_known),
         output: a.sums.output_total_known === null ? null : Number(a.sums.output_total_known) }))
@@ -477,7 +471,7 @@
 
   // 趋势页饼图数据：当前时间范围 summary 的模型/Agent total_tokens 占比。
   const trendModelPie = $derived(
-    (summary?.models ?? [])
+    (trendScopeSummary?.models ?? [])
       .map((m) => ({
         name: m.model ?? t('common.unknown'),
         value: m.sums.total_tokens_known === null ? null : Number(m.sums.total_tokens_known),
@@ -486,7 +480,7 @@
       }))
   );
   const trendAgentPie = $derived(
-    (summary?.agents ?? [])
+    (trendScopeSummary?.agents ?? [])
       .map((a) => ({ name: a.agent, value: a.sums.total_tokens_known === null ? null : Number(a.sums.total_tokens_known),
         input: a.sums.input_total_known === null ? null : Number(a.sums.input_total_known),
         output: a.sums.output_total_known === null ? null : Number(a.sums.output_total_known) }))
@@ -527,27 +521,9 @@
    * 输出、总 token、缓存命中率、会话数；周/月粒度附加活动天数。
    */
   const selectedPeriodCards = $derived.by(() => {
-    const p = selectedPeriod;
-    if (!p) return [];
-    const cards = [
-      { key: 'calls', label: t('trend.calls'), value: fmtSmart(p.sums.call_count) },
-      {
-        key: 'input',
-        label: t('cards.input'),
-        value: fmtSmart(p.sums.input_total_known),
-        hint: t('cards.input.hint'),
-        sub: t('overview.breakdown.input', {
-          hit: fmtSmart(p.sums.cache_read_known),
-          miss: fmtSmart(p.sums.uncached_known),
-        }),
-      },
-      { key: 'output', label: t('cards.output'), value: fmtSmart(p.sums.output_total_known) },
-      { key: 'total', label: t('cards.total'), value: fmtSmart(p.sums.total_tokens_known) },
-      { key: 'ratio', label: t('cards.cacheRatio'), value: fmtPercent(p.sums.cache_input_ratio) },
-      { key: 'sessions', label: t('trend.sessions'), value: fmtSmart(p.distinct_sessions) },
-    ];
+    const cards = [...trendSummaryCards];
     if (granularity === 'week' || granularity === 'month') {
-      cards.push({ key: 'activeDays', label: t('cards.activeDays'), value: fmtSmart(p.active_days) });
+      cards.push({ key: 'activeDays', label: t('cards.activeDays'), value: selectionSummary ? fmtSmart(selectionSummary.active_days) : selectionError ? '—' : '…' });
     }
     return cards;
   });
@@ -821,7 +797,7 @@
     return () => { mounted = false; ++summarySequence; clearInterval(timer); };
   });
 
-  // 近 24 小时/当天自动切到小时粒度（任务 C7）。
+  // 两个自然日/当天自动切到小时粒度。
   $effect(() => {
     if (rangeKey === '2' || rangeKey === 'today') granularity = 'hour';
     else if (granularity === 'hour') granularity = 'day';
@@ -837,7 +813,6 @@
     if (!ready) return;
     ++summarySequence;
     pendingSummaryKey = '';
-    selectedPeriodLabel = null;
     trendSelection = null;
     const timer = setTimeout(() => void loadSummary(), 200);
     return () => clearTimeout(timer);
@@ -969,7 +944,7 @@
       {#if tab === 'trend' || tab === 'details'}
         <label>{t('filter.range')}
           <select bind:value={rangeKey}>
-            <option value="2">{t('filter.quick.24h')}</option>
+            <option value="2">{t('filter.quick.2days')}</option>
             <option value="today">{t('filter.quick.today')}</option>
             <option value="7">{t('filter.quick.7')}</option>
             <option value="30">{t('filter.quick.30')}</option>
@@ -1042,11 +1017,16 @@
       {#if summary.totals.call_count === 0 && summary.periods.length === 0 && !todaySummary?.periods.length}
         <p class="empty">{t('common.empty')}</p>
       {:else}
-        {#if todaySummary}<UsageInsights summary={todaySummary} />{/if}
+        {#if todaySummary}<UsageInsights summary={todayScopeSummary} />{/if}
         <div class="section-head">
           <h2>{t('overview.todaySection')}</h2>
           <span class="section-date">{todayDateLabel}</span>
+          {#if todaySelection}<button class="today-range-reset range-reset" onclick={()=>todaySelection=null}>{t('dashboard.resetRange')}</button>{/if}
         </div>
+        {#if todaySelection}
+          <p class="range-caption today-range-caption">{t('dashboard.selectedRange',{range:todaySelection.first===todaySelection.last?todaySelection.first:`${todaySelection.first} ~ ${todaySelection.last}`})}</p>
+          {#if todaySelectionError}<p class="error">{todaySelectionError}</p>{/if}
+        {/if}
         <div class="panel-grid">
           {#each todayPanelOrder as id (id)}
             {@const i = panelState.overviewToday.order.indexOf(id)}
@@ -1066,23 +1046,24 @@
             >
               {#if id === 'today-cards'}
                 {#if todaySummary}
-                  <TodayOverview totals={todaySummary.totals} sessions={todaySummary.distinct_sessions} {costs} {costsError} pricing={settings?.pricing?.enabled ?? false} />
+                  <TodayOverview totals={todayScopeSummary?.totals ?? todaySummary.totals} sessions={todayScopeSummary?.distinct_sessions ?? null} costs={todayScopeCosts} costsError={todayScopeCostsError} pending={todaySelection && !todaySelectionSummary ? todaySelectionError ? 'error' : 'loading' : ''} pricing={settings?.pricing?.enabled ?? false} />
                 {:else}
                   <p class="muted">{t('common.loading')}</p>
                 {/if}
               {:else if id === 'today-hourly'}
-                <TodayHourly hourly={todaySummary?.today_hourly ?? []} query={todayQuery} {isDark} />
+                <p class="period-hint">{t('dashboard.dragHint')}</p>
+                <TodayHourly hourly={todaySummary?.today_hourly ?? []} query={todayQuery} {isDark} selectedRange={todaySelection} onrangechange={onTodayRangeChange} />
               {:else if id === 'today-costs'}
-                <CostPanel summary={costs} error={costsError} />
-                <CostChart summary={costs} periods={todaySummary?.periods ?? []} {isDark} />
+                <CostPanel summary={todayScopeCosts} error={todayScopeCostsError} />
+                <CostChart summary={costs} periods={todaySummary?.periods ?? []} {isDark} selectedRange={todaySelection} onperiodclick={(label)=>onTodayRangeChange(label,label)} onrangechange={onTodayRangeChange} />
               {:else if id === 'today-model-pie'}
                 <SharePie data={todayModelPie} {isDark} />
               {:else if id === 'today-agent-pie'}
                 <SharePie data={todayAgentPie} {isDark} />
               {:else if id === 'today-model-table'}
-                <BreakdownTables models={todaySummary?.models ?? []} totals={todaySummary?.totals ?? null} {costs} pricing={settings?.pricing?.enabled ?? false} kind="model" />
+                <BreakdownTables models={todayScopeSummary?.models ?? []} totals={todayScopeSummary?.totals ?? null} costs={todayScopeCosts} pricing={settings?.pricing?.enabled ?? false} kind="model" />
               {:else if id === 'today-agent-table'}
-                <BreakdownTables agents={todaySummary?.agents ?? []} kind="agent" />
+                <BreakdownTables agents={todayScopeSummary?.agents ?? []} kind="agent" />
               {/if}
             </Panel>
           {/each}
@@ -1094,7 +1075,7 @@
           <span class="section-controls" title={t('overview.historyFilterHint')}>
             <label>{t('filter.range')}
               <select bind:value={rangeKey}>
-                <option value="2">{t('filter.quick.24h')}</option>
+                <option value="2">{t('filter.quick.2days')}</option>
                 <option value="today">{t('filter.quick.today')}</option>
                 <option value="7">{t('filter.quick.7')}</option>
                 <option value="30">{t('filter.quick.30')}</option>
@@ -1112,27 +1093,21 @@
           </span>
         </div>
         <!-- 选中时间点汇总（点击任一历史趋势图的数据点出现；结构同今日汇总）。 -->
-        {#if selectedPeriod}
+        {#if trendSelection}
           <div class="period-summary">
             <div class="period-head">
               <span class="period-label">
-                {t('overview.periodSummary')}：
-                <b>{selectedPeriod.label}</b>
-                <span class="period-range">
-                  （{selectedPeriod.start_day === selectedPeriod.end_day
-                    ? selectedPeriod.start_day
-                    : `${selectedPeriod.start_day} ~ ${selectedPeriod.end_day}`}）
-                </span>
+                <b>{trendRangeCaption}</b>
               </span>
               <button
                 type="button"
                 class="period-clear"
-                onclick={() => (selectedPeriodLabel = null)}
+                onclick={() => (trendSelection = null)}
               >
                 × {t('overview.periodSummary.clear')}
               </button>
             </div>
-            <div class="summary-cards">
+            <div class="summary-cards" class:with-pricing={settings?.pricing?.enabled}>
               {#each selectedPeriodCards as c (c.key)}
                 <div class="scard" title={c.hint ?? ''}>
                   <div class="slabel">
@@ -1142,24 +1117,25 @@
                   {#if c.sub}<div class="ssub">{c.sub}</div>{/if}
                 </div>
               {/each}
+              {#if settings?.pricing?.enabled}<CostReferenceSummary summary={selectionCosts} error={selectionCostsError} />{/if}
             </div>
             <!-- 选中时间点的模型/Agent 占比饼图（chart_series 数据，同筛选口径）。
                  加载占位与饼图同高度、换选保留旧图原地换数据，避免布局跳动。 -->
-            {#if periodPiesError}
-              <p class="error">{t('chart.loadFailed', { message: periodPiesError })}</p>
+            {#if selectionError}
+              <p class="error">{t('chart.loadFailed', { message: selectionError })}</p>
             {/if}
-            {#if periodPies}
+            {#if selectionSummary}
               <div class="period-pies">
                 <div class="ppie">
                   <div class="ppie-title">{t('trend.pie.model')}</div>
-                  <SharePie data={periodPies.models} {isDark} height={190} />
+                  <SharePie data={trendModelPie} {isDark} height={190} />
                 </div>
                 <div class="ppie">
                   <div class="ppie-title">{t('trend.pie.agent')}</div>
-                  <SharePie data={periodPies.agents} {isDark} height={190} />
+                  <SharePie data={trendAgentPie} {isDark} height={190} />
                 </div>
               </div>
-            {:else if !periodPiesError}
+            {:else if !selectionError}
               <div class="period-pies" aria-busy="true">
                 <div class="ppie">
                   <div class="ppie-title">{t('trend.pie.model')}</div>
@@ -1192,9 +1168,9 @@
               onsize={(span, height) => panelResize('overviewHistory', id, span, height)}
             >
               {#if id === 'history-calls'}
-                <CallsChart periods={summary.periods} {query} {granularity} {isDark} onperiodclick={onHistoryPeriodClick} />
+                <CallsChart periods={summary.periods} {query} {granularity} {isDark} selectedRange={trendSelection} onperiodclick={onHistoryPeriodClick} onrangechange={onTrendRangeChange} />
               {:else if id === 'history-tokens'}
-                <TokenChart periods={summary.periods} {query} {granularity} {isDark} onperiodclick={onHistoryPeriodClick} />
+                <TokenChart periods={summary.periods} {query} {granularity} {isDark} selectedRange={trendSelection} onperiodclick={onHistoryPeriodClick} onrangechange={onTrendRangeChange} />
               {/if}
             </Panel>
           {/each}
@@ -1206,13 +1182,14 @@
   {:else if tab === 'trend'}
     {#if summary}
       <!-- 范围汇总面板（图表区上方固定位置）：7 张小卡片，取 summary.totals。 -->
-      <UsageInsights {summary} />
+      <UsageInsights summary={trendScopeSummary} />
       <div class="range-summary">
         <div class="section-head">
           <h2>{t('trend.summary')}</h2>
           {#if trendSelection}<button class="range-reset" onclick={() => trendSelection = null}>{t('dashboard.resetRange')}</button>{/if}
         </div>
         <p class="range-caption">{trendRangeCaption}{#if trendSelection && !selectionSummary && !selectionError} · {t('common.loading')}{/if}</p>
+        <p class="period-hint">{t('dashboard.dragHint')}</p>
         {#if selectionError}<p class="error">{selectionError}</p>{/if}
         <div class="summary-cards" class:with-pricing={settings?.pricing?.enabled}>
           {#each trendSummaryCards as c (c.key)}
@@ -1247,22 +1224,31 @@
             onsize={(span, height) => panelResize('trendMain', id, span, height)}
           >
             {#if id === 'trend-calls'}
-              <CallsChart periods={summary.periods} {query} {granularity} {isDark} onperiodclick={onTrendPeriodClick} onrangechange={onTrendRangeChange} />
+              <CallsChart periods={summary.periods} {query} {granularity} {isDark} selectedRange={trendSelection} onperiodclick={onTrendPeriodClick} onrangechange={onTrendRangeChange} />
             {:else if id === 'trend-tokens'}
-              <TokenChart periods={summary.periods} {query} {granularity} {isDark} onperiodclick={onTrendPeriodClick} onrangechange={onTrendRangeChange} />
+              <TokenChart periods={summary.periods} {query} {granularity} {isDark} selectedRange={trendSelection} onperiodclick={onTrendPeriodClick} onrangechange={onTrendRangeChange} />
             {:else if id === 'trend-costs'}
-              <CostPanel summary={costs} error={costsError} />
-              <CostChart summary={costs} periods={summary.periods} {isDark} onperiodclick={onTrendPeriodClick} onrangechange={onTrendRangeChange} />
+              <CostPanel summary={trendScopeCosts} error={trendSelection ? selectionCostsError : costsError} />
+              <CostChart summary={costs} periods={summary.periods} {isDark} selectedRange={trendSelection} onperiodclick={onTrendPeriodClick} onrangechange={onTrendRangeChange} />
             {:else if id === 'trend-heatmap'}
+              <p class="range-caption">{t('dashboard.fullRangePanel')}</p>
               <UsageHeatmap {query} reloadKey={dataReloadKey + (summary?.data_revision ?? 0)} {isDark} />
             {:else if id === 'trend-weekday'}
+              <p class="range-caption">{t('dashboard.fullRangePanel')}</p>
               <WeekdayBar {query} reloadKey={dataReloadKey + (summary?.data_revision ?? 0)} {isDark} />
             {:else if id === 'trend-model-pie'}
+              <p class="range-caption">{trendRangeCaption}</p>
+              {#if trendSelection && !selectionSummary}<p class="muted">{selectionError ? '—' : t('common.loading')}</p>{/if}
               <SharePie data={trendModelPie} {isDark} />
             {:else if id === 'trend-agent-pie'}
+              <p class="range-caption">{trendRangeCaption}</p>
+              {#if trendSelection && !selectionSummary}<p class="muted">{selectionError ? '—' : t('common.loading')}</p>{/if}
               <SharePie data={trendAgentPie} {isDark} />
             {:else if id === 'trend-model-table'}
-              <BreakdownTables models={summary.models} totals={summary.totals} {costs} pricing={settings?.pricing?.enabled ?? false} kind="model" />
+              <p class="range-caption">{trendRangeCaption}</p>
+              {#if trendScopeSummary}
+                <BreakdownTables models={trendScopeSummary.models} totals={trendScopeSummary.totals} costs={trendScopeCosts} pricing={settings?.pricing?.enabled ?? false} kind="model" />
+              {:else}<p class="muted">{selectionError ? '—' : t('common.loading')}</p>{/if}
             {/if}
           </Panel>
         {/each}
@@ -1519,10 +1505,6 @@
   }
   .period-head .period-label b {
     color: var(--text-heading);
-  }
-  .period-head .period-range {
-    color: var(--text-muted);
-    font-variant-numeric: tabular-nums;
   }
   .period-clear {
     margin-left: auto;

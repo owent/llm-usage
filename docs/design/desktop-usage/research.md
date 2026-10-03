@@ -1,19 +1,14 @@
-# 调研依据与本轮验证
+# 调研依据与验证入口
 
-核验日期：2026-09-24；工作区：D:/workspace/github/owent/llm-usage。
-首次设计轮开始时 HEAD 为 `8080a0534b58aaa49e5fb7e5c5e212b7c9f92b70`，
-唯一 `git status --short` 项为未跟踪的 previous-draft/。
-本轮读取其源代码和 README，未打开 usage.db 内容、未读取 data.json 的个人统计，未运行 collect.py。
+本文件保留设计的来源及适用版本。工作区为 D:/workspace/projs/github/owent/llm-usage；
+基础资料核验于 2026-09-24，扩展格式于 2026-09-29，调度与原生验收依据于 2026-10-03。
+原型只做静态核对，未执行 collect.py 或认证其运行合同。
 
 来源以官方正文、维护者固定源码和本地原型为层级，搜索摘要只用于定位。
 滚动文档不代表本机安装版本；源码字段存在不等于完整运行路径已验收。
-所有 Agent 的本机版本、真实输出和运行兼容性均未验证。
-
-本次完善按用户新决策：Windows 11 x64 首发、GitHub 三平台 CI、可选 WSL 构建；
-Harness Agent 明确为 Nous Research Hermes Agent；全部 Agent 尝试本地提取，支持定时任务，
-仅统计本机来源。原设计的企业 API/账号报表接入已移出范围，保留相关来源只解释排除原因。
-开工准备补充决定：实施时允许提取本机真实 Agent 数据验证；缺证 IDE 后移 F1，当前不实施；
-M0 固定平台基线并探测 WSL 的步骤已确认。设计准备完成，技术实现及运行证据仍待 M0–M7。
+各 Agent 当前实现与真实验收以 [接入矩阵](adapters.md) 为准。
+Windows 11 x64 首发，三平台 CI；本机真实数据验证已获允许，缺证 IDE 留 F1。
+仅统计本机来源，企业 API/账号报表资料只解释排除边界；Hermes 指 Nous Research 产品。
 
 <a id="prototype"></a>
 
@@ -59,9 +54,13 @@ M0 固定平台基线并探测 WSL 的步骤已确认。设计准备完成，技
 | T05 | [ECharts import](https://echarts.apache.org/handbook/en/basics/import/) | 可按需导入图表、组件与渲染器；本项目裁剪效果未测 |
 | T06 | [Tauri GitHub CI](https://v2.tauri.app/distribute/pipelines/github/)、[依赖](https://v2.tauri.app/start/prerequisites/) | 可分 OS 构建；Linux WebKitGTK/系统依赖、macOS/Windows 工具链分别配置；不照搬自动发布示例 |
 | T07 | [GitHub runners](https://docs.github.com/en/actions/reference/runners/github-hosted-runners) | 版本化标签/架构候选；windows-2022、ubuntu-22.04、macos-15；M0 复核可用性，runner 构建不是目标桌面验收 |
-| T08 | [Microsoft WSLg](https://learn.microsoft.com/en-us/windows/wsl/tutorials/gui-apps) | Linux GUI 需 WSL 2，WSLg 不等于完整 Linux 桌面；本机环境未探测 |
-| T09 | [Task Scheduler](https://learn.microsoft.com/en-us/windows/win32/taskschd/task-scheduler-start-page)、[身份](https://learn.microsoft.com/en-us/windows/win32/taskschd/security-contexts-for-running-tasks)、[错过时点](https://learn.microsoft.com/en-us/windows/win32/taskschd/tasksettings-startwhenavailable) | 系统触发/运行上下文有官方 API；选择普通当前用户的无窗口提取，注册权限及恢复需 M6 实测 |
+| T08 | [Microsoft WSLg](https://learn.microsoft.com/en-us/windows/wsl/tutorials/gui-apps) | Linux GUI 需 WSL 2，WSLg 不等于完整 Linux 桌面；已有环境/编译证据见验证目录，最新 revision 仍独立验收 |
+| T09 | [Task Scheduler](https://learn.microsoft.com/en-us/windows/win32/taskschd/task-scheduler-start-page)、[身份](https://learn.microsoft.com/en-us/windows/win32/taskschd/security-contexts-for-running-tasks)、[错过时点](https://learn.microsoft.com/en-us/windows/win32/taskschd/tasksettings-startwhenavailable) | 2026-10-03 复核正文；COM API 使用当前交互用户、LUA、分钟重复和不唤醒；普通用户注册/删除已实测，OS 实际启动另验 |
 | T10 | [Tauri WebDriver](https://v2.tauri.app/develop/tests/webdriver/) | 当前文档有嵌入式跨平台服务；直接 tauri-driver 仍区分 Windows/Linux 与 macOS；测试插件不得进入发行制品 |
+| T11 | [WebView2 调试](https://learn.microsoft.com/en-us/microsoft-edge/webview2/how-to/debug-visual-studio-code)、[Playwright WebView2](https://github.com/microsoft/playwright/blob/main/docs/src/webview2.md) | 2026-10-03 复核正文及源码；环境参数提供 CDP，测试从进程外连接真实 IPC，不在应用新增调试监听器 |
+| T12 | [libuv Windows spawn](https://github.com/libuv/libuv/blob/v1.x/src/win/process.c) | 2026-10-03 阅读 required_vars 并以 Node 24.21.0 实测；省略子 env 中 USERPROFILE 会补入父值，验收辅助函数须防此路径 |
+| T13 | [Tauri CLI 2.12.0](https://github.com/tauri-apps/tauri/blob/tauri-cli-v2.12.0/crates/tauri-cli/src/interface/rust.rs)、[资源代码](https://github.com/tauri-apps/tauri/blob/tauri-codegen-v2.7.0/crates/tauri-codegen/src/embedded_assets.rs) | 2026-10-03 正文与本机锁定源码交叉核验；CLI 自带 custom-protocol，资源缓存存在即复用；生成包不证明嵌入资源可解压/可显示 |
+| T14 | [RegGetValueW](https://learn.microsoft.com/en-us/windows/win32/api/winreg/nf-winreg-reggetvaluew)、[删除值](https://learn.microsoft.com/en-us/windows/win32/api/winreg/nf-winreg-regdeletekeyvaluew) | 2026-10-03 正文与 windows 0.62.2 签名核验；读取类型/长度及 Unicode 值，缺值与访问失败分开，原生查询无需 reg.exe |
 
 <a id="agents"></a>
 
@@ -131,11 +130,11 @@ Hermes 固定 commit 通过 commits API 获取，定点只读核对存储文档�
 追加获取 agent/usage_pricing.py 时遇到 HTTP 429；停止该读取，不把外层 PowerShell 退出码 0
 当作此文件获取成功，不据响应字段名称推断缓存包含关系；此项留给 M3 的版本样本核验。
 
-## 2026-09-29 M8 实施轮深度调研（先于编码）
+## M8 格式依据（核验于 2026-09-29）
 
-在覆盖调研（上文）基础上，实施前逐产品核验格式证据（并行只读调研，产物锚点
+在覆盖调研基础上，逐产品核验格式证据；产物锚点
 已并入上表 A25–A48 各行；字段级证据全文在各适配器源文件头与
-[M8 验证记录](../../validation/desktop-usage/m8-second-batch.md)）：
+[M8 验证记录](../../validation/desktop-usage/m8-second-batch.md)：
 
 - 官方源码核验（固定提交）：Roo b867ec9（已归档）、Goose a701bb1、Crush 1f3827b、
   jcode 4f6bf8e、gajae 7e54f9c、Continue 5522c6f、AtomCode e4215f7、Zed bd74733、
@@ -149,19 +148,15 @@ Hermes 固定 commit 通过 commits API 获取，定点只读核对存储文档�
   iFlow 已停服（2026-04-17）；Roo 与 cline 的 tokensIn 包含关系存在血统分歧
   （各按锚点实现，待真实样本复核）。
 
-## 研究限制与实施阶段核验
+## 研究边界
 
-- 本轮没有访问任何登录后台、计费 API 或组织数据；这些远端来源已排除在产品范围外。
-- 实施阶段提取真实数据验证已获允许；本轮未提取样本或打印真实对话，原型数据库尚未审计。
-- Kimi 新 wire、Kimi Work、ZCode、WorkBuddy 留 M4；JetBrains/TRAE、Zed 内置与缺证 IDE 变体后移 F1。
-- 未进行包体基准、数据库性能、跨平台测试或真实 LLM 验收；性能数字均是设计目标。
-- 平台和 Hermes 身份已由用户明确；WSL 可用性、三平台 CI、系统任务及真实适配器仍未执行。
-- 没有新建 Agent 专属配置或新 Skill；现有维护 Skill 保留触发方式，更新命令引用及受影响的维护合同。
+远端计费 API/组织数据不在范围内；真实来源仍按逐版本证据核验，缺失样本不推断。
+JetBrains 自家 AI Assistant/TRAE 等缺证 IDE 留 F1；Zed/Junie CLI 在 M8。
+包体、性能、平台和真实来源结果分别见验证记录，设计目标不作为测量值。
 
-## 2026-09-29 Agent 覆盖扩展调研
+## 扩展覆盖的证据层级
 
-用户要求补全国内外流行 Agent 覆盖。本轮为纯调研与文档更新，未实施任何新适配器、
-未提取本机数据、未执行上游代码。新证据入上表 A25–A48，阶段划分见
+扩展来源见上表 A25–A48；当前能力及阶段划分见
 [接入矩阵](adapters.md#扩展覆盖)与 [执行计划 M8](execution.md#m8)。
 
 方法与证据层级：
@@ -176,125 +171,26 @@ Hermes 固定 commit 通过 commits API 获取，定点只读核对存储文档�
   Command Code、jcode、gajae-code、Codebuff、AtomCode 均有官方站点或发布渠道。
 - 闭源产品（Amp、Grok Build、Junie CLI、Kiro、Droid、Xum、iFlow CLI、
   Qoder CLI、Antigravity protobuf 布局）的字段证据来自第三方解析器或逆向分析，
-  一律标"本地候选（待 fixture）"，实施前须按已获许可取得本机脱敏样本。
+  能力与真实验收按接入矩阵逐版本维护；合成回归不认证本机输出。
 - 明确排除项：Cursor 逐次用量仅在远端 dashboard（get-filtered-usage-events）；
   TRAE 的 tokscale 路线来自其 usage API（远端）；Warp 本地仅账户级
   requests/spend 缓存。三者均不符合"只统计本机来源"边界，不入 token 统计。
 - 既有条目证据升级：Zed 内置（A23 补充 A38）发现 threads.db 本地逐次载体；
   JetBrains（A07）补充 Junie CLI 本地 events.jsonl 证据；两者从 F1 缺证类
-  转入 M8 本地候选，JetBrains AI Assistant IDE 插件与 TRAE 仍在 F1。
+  已在 M8 注册；JetBrains AI Assistant IDE 插件与 TRAE 仍在 F1。
 - 缺证 IDE 家族（F1 扩充，不探测/不实施）：Cursor IDE、Windsurf（IDE+CLI）、
   京东 JoyCode、智谱 CodeGeeX 插件、百度文心快码 Comate、华为 InsCode/CodeArts Snap。
   每项保留产品身份与"待本地格式证据"状态，不写"不支持"。
 
-本轮未访问登录后台、计费 API 或组织数据；未运行 npm/cargo 业务命令（文档轮）；
-检查命令与结果见下文本轮验证小节。
+这些来源不授权访问登录后台、计费 API 或组织数据；实现与验证按当前合同执行。
 
 <a id="verification-20260929"></a>
-
-### 本轮文档验证
-
-cwd 为仓库根；仅文档与链接检查，无业务实现变更：
-
-```powershell
-node node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs --no-globs Plan.md AGENTS.md 'docs/design/desktop-usage/*.md' '.agents/skills/ai-maintenance/references/maintenance.md'
-git diff --check
-git status --short
-# 一次性链接/锚点/空白检查（UTF-8）：python -X utf8 build/agent-coverage-2026-09-29/check_links.py
-```
-
-| 检查 | 退出码/结果 | 说明 |
-| --- | --- | --- |
-| markdownlint（15 个文件） | 0；0 问题 | 过程中修复 research.md 一处 MD012 连续空行与两处表格内裸竖线 |
-| 链接/锚点/空白检查 | 0；15 个文件无错误 | 一次性只读脚本（未跟踪 build/ 产物），显式锚点均可解析 |
-| git diff --check | 0 | LF→CRLF 提示非空白错误 |
-| git status --short | 13 项修改 | 本轮 7 个文档；另 6 个 desktop 版本号/Cargo 格式化改动属其他任务，保留不动 |
-
-本轮无业务代码、数据库、采集或依赖变更；未运行 npm/cargo 业务命令（M0 以来命令清单不变）。
-
 <a id="verification"></a>
-
-## 首次设计轮文档验证
-
-环境：Windows、PowerShell 7.6.6、Node.js v24.21.0；已有 markdownlint-cli2 0.23.3。
-根 package.json 与 package-lock.json 实际缺失，git ls-files 也未列出；
-因此没有运行 npm ci 或 npm run lint:docs，没有安装依赖。
-初始普通 exec 启动失败 `CreateProcessAsUserW failed: 5`，经平台允许的权限重试恢复；
-该故障是执行基础设施问题，不是业务测试失败。
-
-以下命令 cwd 均为仓库根，仅执行文档检查：
-
-```powershell
-node node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs
-node node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs --no-globs Plan.md README.md AGENTS.md 'docs/design/desktop-usage/*.md' '.agents/skills/ai-maintenance/SKILL.md' '.agents/skills/ai-maintenance/references/maintenance.md' '.agents/skills/ai-maintenance/references/source-index.md'
-python -X utf8 C:/Users/owt50/.codex/skills/.system/skill-creator/scripts/quick_validate.py .agents/skills/ai-maintenance
-git diff --check
-git status --short
-```
-
-| 检查 | 退出码/结果 | 说明 |
-| --- | --- | --- |
-| 全仓 markdownlint | 1；22 个文件，最终剩 6 个问题 | 均在原有 previous-draft/README.md：2 个围栏语言、4 个表格空格；保留原型未修改 |
-| 本轮 markdownlint | 0；13 个文件，0 个问题 | 使用 --no-globs 显式给出本轮文件，保留根规则；没有修改全局 ignores 或关闭规则 |
-| 本地链接/锚点/空白检查 | 0；13 个文件、70 个本地链接、无错误 | 一次性 Python 只读检查，包含未跟踪文件；非业务测试 |
-| Skill quick_validate | 0；Skill is valid | 首次系统默认 GBK 解码失败，显式 -X utf8 后通过；未改变 Skill description 或发现策略 |
-| git diff --check | 0 | Git 的 LF→CRLF 提示不是空白错误；新增文件另查内容 |
-| 原型输入哈希复核 | 三个基准文件均一致 | store.py、collect.py、collectors/__init__.py 与前文摘要一致；本轮无原型写操作 |
-
-最初调用 markdownlint 的库模块没有产生检查输出；核对 package.json 的 bin 后改用上面的
-markdownlint-cli2-bin.mjs，库模块的退出码不计为验证。命令行单独传负 glob 也未排除原型，
-最终使用 --no-globs 显式文件清单，不把前一次退出码 1 记成通过。
-Skill 仅调整验证命令引用和已有表格格式，静态检查不代表真实模型触发或质量评估；后者未执行。
-
-业务实现、采集、数据库迁移、外部配置改动、真实服务测试、提交/推送/部署均未执行。
-
-## 决策完善轮验证
-
-2026-09-24 根据用户决策修改计划与受影响文档，新增 scheduling.md、platform-ci.md，
-同步根 AGENTS.md、README.md 和维护 Skill 的 maintenance.md 引用内容。
-没有修改 Skill 名称、描述、触发逻辑或脚本；本轮不重复运行真实模型评估。
-
-cwd 为仓库根，使用已有 Node/Python 文档工具，未安装依赖：
-
-```powershell
-node node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs --no-globs Plan.md README.md AGENTS.md 'docs/design/desktop-usage/*.md' '.agents/skills/ai-maintenance/references/maintenance.md'
-git diff --check
-git status --short
-```
-
-本轮 13 个文件 Markdown 检查退出码 0，0 个问题；一次性 Python UTF-8 只读检查
-73 个本地链接/锚点、末尾换行和行尾空白，退出码 0，无错误；三份原型输入 SHA-256 均未变化。
-git diff --check 通过，未跟踪设计文档另行读取核对；未改动 previous-draft。
-全仓 Markdown 的原型遗留问题仍参见前轮记录，不把本轮定向检查写成全仓通过。
-
-本轮仅公开资料研究和文档维护；未读取个人 Agent 数据，未创建 CI workflow、注册系统任务、
-启动 WSL、构建客户端、安装依赖、调用模型或接入远端用量 API。V01–V27 均为未来业务验收计划。
-
 <a id="readiness-verification"></a>
 
-## 开工准备轮检查
+## 当前验证入口
 
-2026-09-24 按用户最新决定明确实施阶段的本机数据验证许可，缺证 IDE 后移 F1，
-平台方案及 M0 核验时机已确认。增加 implementation-readiness.md，同步根计划、接入矩阵、
-执行详情、范围/验收说明、平台文档、根规则和维护 Skill 的参考文档；不修改 Skill 的触发方式。
-
-本轮复核实际仓库，仍未发现根 package.json/package-lock.json、Cargo.toml 或 Rust 工具链声明；
-构建/版本锁定留 M0。已有设计/规则修改及未跟踪原型均保留，未执行实现、安装、个人数据采集或 CI。
-外部产品技术事实未新增，本轮沿用前轮已核验来源，只调整用户决策与实施分期。
-
-验证 cwd 为仓库根，使用已有工具；以下检查均为文档准备证据：
-
-```powershell
-node node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs --no-globs Plan.md README.md AGENTS.md 'docs/design/desktop-usage/*.md' '.agents/skills/ai-maintenance/references/maintenance.md'
-git diff --check
-git status --short
-```
-
-- Markdown：14 个文件，退出码 0，0 个问题。
-- 一次性 Python UTF-8 只读检查：14 个文件、91 个本地链接/锚点，末尾换行及行尾空白无错误，退出码 0。
-- 阶段与验收编号：M0–M7/F1 齐全且不重复，V01–V27 共 27 项保留；后移 IDE 不再列入 M4/M5。
-- git diff --check：退出码 0；未跟踪文档单独检查，三个原型基准文件 SHA-256 与首次记录一致。
-- 原型 README 的既有全仓 lint 问题未修改；本轮定向检查不代表全仓或业务测试通过。
-
-准备结论：原待用户决策项已处理，开工前设计与文档检查完成。实施从 M0 开始；
-本轮没有提取个人 Agent 数据、安装依赖、执行构建、创建 CI、注册任务或更改外部配置。
+设计与计划只保留当前要求；实际命令、版本、环境、结果及缺口集中在
+[最新验收](../../validation/desktop-usage/current-acceptance.md)。专项格式依据见
+[验证目录](../../validation/desktop-usage/)，旧过程由 Git 保留。
+文档检查不能代替业务、真实来源或原生平台验收。

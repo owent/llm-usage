@@ -94,9 +94,44 @@ export function hideTooltipOnBlank(chart: ECharts): () => void {
   };
 }
 
-/** Point/axis selection and zoom ranges share the same period labels. */
+/** Select periods on release; dragging does not pan or replace the full chart. */
+export const RANGE_BRUSH = {
+  xAxisIndex: 0, brushType: 'lineX', brushMode: 'single', transformable: false,
+  toolbox: [], seriesIndex: [], removeOnClick: true,
+  brushStyle: { color: 'rgba(84,112,232,0.12)', borderColor: '#5470e8', borderWidth: 1 },
+};
+
+export function enableRangeBrush(chart: ECharts): void {
+  chart.dispatchAction({type: 'takeGlobalCursor', key: 'brush', brushOption: {brushType: 'lineX', brushMode: 'single'}});
+}
+
+export function showRangeSelection(chart: ECharts, labels: string[], selection: {first: string; last: string} | null): void {
+  const indexOf = (label: string) => labels.findIndex((value) => value === label || value === label.slice(0, 10));
+  const first = selection ? indexOf(selection.first) : -1;
+  const last = selection ? indexOf(selection.last) : -1;
+  chart.dispatchAction({type: 'brush', areas: first >= 0 && last >= 0
+    ? [{brushType: 'lineX', xAxisIndex: 0, coordRange: [first, last]}] : []});
+}
+
+/** Point/axis selection, horizontal brushing and zoom share period labels. */
 export function setupRangeSelection(chart:ECharts,labels:()=>string[],onpoint?:(label:string)=>void,onrange?:(first:string,last:string)=>void):()=>void {
-  const pick=(index:number)=>{const label=labels()[index];if(label){onpoint?.(label);chart.dispatchAction({type:'hideTip'});}};
+  let suppressClick = false;
+  let clickTimer: ReturnType<typeof setTimeout> | undefined;
+  const pick=(index:number)=>{const label=labels()[index];if(label && !suppressClick){onpoint?.(label);chart.dispatchAction({type:'hideTip'});}};
+  const brushEnd = (event: unknown) => {
+    const area = (event as {areas?: {coordRange?: number[]}[]}).areas?.[0];
+    if (!area?.coordRange || area.coordRange.length !== 2) return;
+    const list = labels();
+    const [low, high] = [...area.coordRange].sort((a, b) => a - b);
+    if (!Number.isFinite(low) || !Number.isFinite(high) || !list.length) return;
+    const first = list[Math.max(0, Math.min(list.length - 1, Math.round(low)))];
+    const last = list[Math.max(0, Math.min(list.length - 1, Math.round(high)))];
+    suppressClick = true;
+    clearTimeout(clickTimer);
+    clickTimer = setTimeout(() => { suppressClick = false; }, 0);
+    onrange?.(first, last);
+    chart.dispatchAction({type: 'hideTip'});
+  };
   const click=(event:{offsetX:number;offsetY:number})=>{
     if(!chart.containPixel('grid',[event.offsetX,event.offsetY]))return;
     const index=chart.convertFromPixel({xAxisIndex:0},event.offsetX);
@@ -117,6 +152,6 @@ export function setupRangeSelection(chart:ECharts,labels:()=>string[],onpoint?:(
     const first=list[Math.max(0,Math.min(list.length-1,start))];const last=list[Math.max(0,Math.min(list.length-1,end))];
     if(first && last)onrange?.(first,last);
   };
-  chart.getZr().on('click',click);chart.on('click',axis);chart.on('datazoom',zoom);
-  return ()=>{if(!chart.isDisposed()){chart.getZr().off('click',click);chart.off('click',axis);chart.off('datazoom',zoom);}};
+  chart.getZr().on('click',click);chart.on('click',axis);chart.on('datazoom',zoom);chart.on('brushend',brushEnd);
+  return ()=>{clearTimeout(clickTimer);if(!chart.isDisposed()){chart.getZr().off('click',click);chart.off('click',axis);chart.off('datazoom',zoom);chart.off('brushend',brushEnd);}};
 }

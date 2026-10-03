@@ -6,16 +6,16 @@
 [![数据范围](https://img.shields.io/badge/%E7%BB%9F%E8%AE%A1%E8%8C%83%E5%9B%B4-%E4%BB%85%E6%9C%AC%E6%9C%BA_Agent_%E6%95%B0%E6%8D%AE-blue)](docs/design/desktop-usage/data-contract.md)
 [![license](https://img.shields.io/badge/license-%E6%9C%AA%E6%8C%87%E5%AE%9A-lightgrey)](https://github.com/owent/llm-usage)
 
-[![Tauri](https://img.shields.io/badge/Tauri-2.11-FFC131?logo=tauri)](https://tauri.app)
+[![Tauri](https://img.shields.io/badge/Tauri-2.12-FFC131?logo=tauri)](https://tauri.app)
 [![Rust](https://img.shields.io/badge/Rust-1.98.x-DEA584?logo=rust)](https://www.rust-lang.org)
 [![Svelte](https://img.shields.io/badge/Svelte-5.57-FF3E00?logo=svelte)](https://svelte.dev)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript)](https://www.typescriptlang.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178C6?logo=typescript)](https://www.typescriptlang.org)
 [![Node.js](https://img.shields.io/badge/node.js-%E2%89%A522_%C2%B7_24-339933?logo=nodedotjs)](https://nodejs.org)
 [![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite)](https://vite.dev)
 [![SQLite](https://img.shields.io/badge/SQLite-rusqlite_0.40-003B57?logo=sqlite)](https://www.sqlite.org)
 [![ECharts](https://img.shields.io/badge/ECharts-6.1-AA344D?logo=apacheecharts)](https://echarts.apache.org)
 
-[![verify](https://img.shields.io/badge/npm_run_verify-%E9%80%9A%E8%BF%87_2026--09--27-brightgreen)](docs/validation/desktop-usage/review-2026-09-27.md)
+[![verify](https://img.shields.io/badge/npm_run_verify-%E9%80%9A%E8%BF%87_2026--10--03-brightgreen)](docs/validation/desktop-usage/current-acceptance.md)
 [![Git LFS](https://img.shields.io/badge/Git_LFS-%E9%9D%99%E6%80%81%E8%B5%84%E6%BA%90-blue?logo=git)](desktop/assets/README.md)
 [![repo size](https://img.shields.io/github/repo-size/owent/llm-usage)](https://github.com/owent/llm-usage)
 [![last commit](https://img.shields.io/github/last-commit/owent/llm-usage)](https://github.com/owent/llm-usage/commits)
@@ -62,16 +62,24 @@ npm run test:browser    # 五页浏览器回归（模拟 IPC；Windows 使用已
 npm run clippy          # Rust 静态检查（-D warnings）
 npm run fmt:check       # Rust 格式检查
 npm run build:desktop   # 桌面 release 构建（产出 NSIS/deb/AppImage/.app 按平台）
+npm run test:headless   # 真实可执行文件与 SQLite，隔离合成来源；先构建
+npm run test:desktop    # Windows 原生 WebView2/IPC，要求 CDP 可用；先构建
 npm run verify          # 文档、类型、脚本/前端单元测试、Rust 检查与测试、前端构建
 ```
 
 `test:browser` 单独执行，会启动并关闭临时 Vite 服务；截图写入 `build/browser-smoke/`。
 非 Windows 环境先在 `desktop` 中运行 `npx playwright install chromium`。
-浏览器检查模拟 IPC，不能替代原生桌面、系统任务和安装验收；本轮证据见
-[审查记录](docs/validation/desktop-usage/review-2026-09-27.md)。
+浏览器检查模拟 IPC，不能替代原生桌面、系统任务和安装验收；当前证据与缺口见
+[最新验收](docs/validation/desktop-usage/current-acceptance.md)。
+原生与无界面脚本的输入为隔离合成来源，输出写入根 `build/plan-completion/`。
+`test:desktop` 默认测 release；调试构建可用 `-- --dev --exe <debug 可执行文件>`。
 日常功能验证用 dev:desktop 即可，不必打包。业务命令与锁定版本以
 `desktop/package.json`、`desktop/src-tauri/Cargo.toml` 及各自锁文件为准。
 文档检查不代替业务验收；M0 实测证据见 [验证记录](docs/validation/desktop-usage/)。
+
+Windows 后台提取默认关闭，设置页可启用当前用户的分钟任务，并展示期望与实际状态。
+`LLMUsage.exe --headless` 只按已保存意图及到期规则采集；`--scan-once` 手动扫描全部
+启用来源。可用 `--data-dir <绝对目录>` 独立保存数据库和导出；它不改变来源发现范围。
 
 图片（含 SVG）、字体、媒体及二进制文件使用 Git LFS；首次构建前须下载实际资源。
 重新生成图标：`npm run assets:generate`。资源预览页：

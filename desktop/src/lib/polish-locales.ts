@@ -23,10 +23,38 @@ const compactStateCounts: Record<string, string> = {
   'pt-BR': '{pending} a ativar · {noData} sem dados · {verified} verificados',
   ru: '{pending} включить · {noData} пока без данных · {verified} проверены',
 };
+const rangePhrases: Record<string,string[]> = {
+  'zh-CN': ['近 2 个自然日','点击选取时段，或按住鼠标横向拖选连续范围；再次点击同一时段取消','展示完整日期范围，不受图表选区限制'],
+  'zh-TW': ['近 2 個日曆日','點擊時段或按住滑鼠橫向拖選連續範圍；再次點擊同一時段取消','顯示完整日期範圍，不受圖表選區限制'],
+  en: ['Last 2 calendar days','Click a period or drag horizontally to select a range; click the same period again to clear','Shows the full date range, independent of the chart selection'],
+  ja: ['直近 2 暦日','期間をクリックするか、横にドラッグして範囲を選択。同じ期間を再度クリックすると解除','グラフの選択に関係なく、日付範囲全体を表示'],
+  ko: ['최근 2일(달력 기준)','기간을 클릭하거나 가로로 드래그하여 범위를 선택하세요. 같은 기간을 다시 클릭하면 해제됩니다','차트 선택과 관계없이 전체 날짜 범위를 표시합니다'],
+  es: ['Últimos 2 días naturales','Haz clic en un período o arrastra horizontalmente para seleccionar un intervalo; vuelve a hacer clic para borrar','Muestra todo el intervalo de fechas, sin limitarse a la selección del gráfico'],
+  fr: ['2 derniers jours calendaires','Cliquez sur une période ou faites glisser horizontalement pour sélectionner une plage ; recliquez pour effacer','Affiche toute la plage de dates, indépendamment de la sélection du graphique'],
+  de: ['Letzte 2 Kalendertage','Zeitraum anklicken oder horizontal ziehen, um einen Bereich auszuwählen; erneut anklicken zum Aufheben','Zeigt den gesamten Datumsbereich unabhängig von der Diagrammauswahl'],
+  'pt-BR': ['Últimos 2 dias de calendário','Clique em um período ou arraste horizontalmente para selecionar um intervalo; clique novamente para limpar','Exibe todo o intervalo de datas, independentemente da seleção do gráfico'],
+  ru: ['Последние 2 календарных дня','Нажмите на период или перетащите по горизонтали для выбора диапазона; повторное нажатие отменяет выбор','Показывает весь диапазон дат независимо от выбора на графике'],
+};
+const dragHints: Record<string,string> = {
+  'zh-CN':'点击时段，或按住鼠标横向拖选连续范围',
+  'zh-TW':'點擊時段，或按住滑鼠橫向拖選連續範圍',
+  en:'Click a period or drag horizontally to select a range',
+  ja:'期間をクリックするか、横にドラッグして範囲を選択',
+  ko:'기간을 클릭하거나 가로로 드래그하여 범위를 선택하세요',
+  es:'Haz clic en un período o arrastra horizontalmente para seleccionar un intervalo',
+  fr:'Cliquez sur une période ou faites glisser horizontalement pour sélectionner une plage',
+  de:'Zeitraum anklicken oder horizontal ziehen, um einen Bereich auszuwählen',
+  'pt-BR':'Clique em um período ou arraste horizontalmente para selecionar um intervalo',
+  ru:'Нажмите на период или перетащите по горизонтали для выбора диапазона',
+};
 export const polishCatalogs=Object.fromEntries(Object.entries(phrases).map(([locale,values])=>{
   if(values.length!==keys.length) throw new Error('Incomplete polish translations: '+locale);
   return [locale,{
     ...Object.fromEntries(keys.map((key,index)=>[key,values[index]])),
     'telemetry.compactStateCounts': compactStateCounts[locale],
+    'filter.quick.2days': rangePhrases[locale][0],
+    'overview.periodSummary.hint': rangePhrases[locale][1],
+    'dashboard.fullRangePanel': rangePhrases[locale][2],
+    'dashboard.dragHint': dragHints[locale],
   }];
 }));

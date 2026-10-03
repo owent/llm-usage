@@ -166,11 +166,14 @@ export interface PriceRefreshStatusDto {
   last_outcome: PriceRefreshOutcomeDto | null;
 }
 
-/** 系统任务状态（Windows：开机自启 + 每小时 headless 刷新任务）。 */
+/** 系统任务期望与实际状态（Windows，每分钟检查到期来源）。 */
 export interface SystemTaskStatusDto {
   platform: string;
   auto_start: boolean;
   refresh_task: boolean;
+  refresh_task_desired?: boolean;
+  refresh_task_exists?: boolean;
+  refresh_task_error?: string | null;
   refresh_task_interval?: string;
   unsupported?: boolean;
 }
@@ -270,6 +273,8 @@ export interface SourceDto {
     timeOfDay: string | null;
     weekday: number | null;
     nextDueMs?: number | null;
+    timezone?: string;
+    previewMs?: number[];
   } | null;
 }
 
@@ -479,6 +484,7 @@ export const api = {
     intervalSeconds?: number | null;
     timeOfDay?: string | null;
     weekday?: number | null;
+    timezone?: string;
   } | null) =>
     invoke<unknown>('set_source_schedule', { instanceId, rule }),
   setSourceEnabled: (instanceId: string, enabled: boolean) =>

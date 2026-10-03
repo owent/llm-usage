@@ -15,7 +15,14 @@ use rusqlite::{params, OptionalExtension, Transaction};
 use std::collections::BTreeSet;
 
 /// usage_events 中已存在记录的去重判定视图。
-type ExistingRow = (ExistingMeta, i64, String, Option<i64>, Option<String>);
+type ExistingRow = (
+    ExistingMeta,
+    i64,
+    String,
+    Option<i64>,
+    Option<String>,
+    String,
+);
 
 /// 游标与版本化解析上下文更新（模型状态、累计基线、未完成请求）。
 #[derive(Debug, Clone)]
@@ -171,6 +178,7 @@ pub(crate) fn commit_batch_tx(
     };
     let mut affected: BTreeSet<Date> = BTreeSet::new();
     let mut pending_diagnostics: Vec<(Option<String>, DiagnosticInput)> = Vec::new();
+    let mut content_conflicts = BTreeSet::new();
 
     // 1. 事件 upsert。
     for event in &batch.events {
@@ -209,7 +217,7 @@ pub(crate) fn commit_batch_tx(
         let hash = event_content_hash(event);
         let mut existing: Option<ExistingRow> = tx
             .query_row(
-                "SELECT lifecycle, source_revision, content_hash, occurred_at_ms, event_id, observed_at_ms, source_time
+                "SELECT lifecycle, source_revision, content_hash, occurred_at_ms, event_id, observed_at_ms, source_time, parser_version
                  FROM usage_events WHERE source_instance_id = ?1 AND source_record_key = ?2",
                 params![event.source_instance_id, event.source_record_key],
                 |r| {
@@ -224,13 +232,14 @@ pub(crate) fn commit_batch_tx(
                         r.get::<_, String>(4)?,
                         r.get::<_, Option<i64>>(5)?,
                         r.get::<_, Option<String>>(6)?,
+                        r.get::<_, String>(7)?,
                     ))
                 },
             )
             .optional()?;
         // v1 的内容摘要包含 observed_at；仅观察时间改变仍视为同一内容。
         // 同键同内容的重复 final（仅发生/观察/源时间文本不同）是重报而非冲突，同样视为同一内容。
-        if let Some((meta, old_ms, _, observed, old_source_time)) = &mut existing {
+        if let Some((meta, old_ms, _, observed, old_source_time, _)) = &mut existing {
             let mut legacy = event.clone();
             legacy.observed_at_ms = *observed;
             if meta.content_hash == content_hash(&legacy) {
@@ -244,13 +253,57 @@ pub(crate) fn commit_batch_tx(
         }
         let eid = existing
             .as_ref()
-            .map(|(_, _, id, _, _)| id.clone())
+            .map(|(_, _, id, _, _, _)| id.clone())
             .unwrap_or(eid);
-        let arbitration = arbitrate(existing.as_ref().map(|(m, _, _, _, _)| m), event, &hash);
+        let arbitration = arbitrate(existing.as_ref().map(|(m, _, _, _, _, _)| m), event, &hash);
+        if arbitration == Arbitration::Conflict {
+            if let Some(old) = existing
+                .as_ref()
+                .filter(|old| parser_metadata_upgrade(old, event))
+            {
+                // 完整旧摘要只允许解析器依据变化；保留原时间、用量和源修订。
+                // 同批次已观测的实际冲突不能被后续的元数据更新清除。
+                let mut current = event.clone();
+                current.occurred_at_ms = old.1;
+                current.source_time = old.4.clone();
+                let new_hash = event_content_hash(&current);
+                let basis_sql = if parse_basis_column {
+                    ", parse_basis=?5"
+                } else {
+                    ""
+                };
+                let sql = format!(
+                    "UPDATE usage_events SET parser_version=?1,content_hash=?2,updated_at_ms=?3,
+                     conflict=CASE WHEN ?4 THEN conflict ELSE 0 END{basis_sql} WHERE event_id=?{}",
+                    if parse_basis_column { 6 } else { 5 }
+                );
+                let mut values = vec![
+                    rusqlite::types::Value::Text(event.parser_version.clone()),
+                    rusqlite::types::Value::Text(new_hash),
+                    rusqlite::types::Value::Integer(batch.now_ms),
+                    rusqlite::types::Value::Integer(i64::from(content_conflicts.contains(&eid))),
+                ];
+                if parse_basis_column {
+                    values.push(opt_text(&event.parse_basis.map(|b| b.as_str().to_string())));
+                }
+                values.push(rusqlite::types::Value::Text(eid.clone()));
+                tx.execute(&sql, rusqlite::params_from_iter(values))?;
+                outcome.updated += 1;
+                affected.insert(calendar.local_day_of(old.1)?);
+                pending_diagnostics.push((Some(eid), DiagnosticInput {
+                    event_id: None,
+                    code: "parser_metadata_updated".into(),
+                    field: Some("parser_version".into()),
+                    position: None,
+                    message: "full stored content matched after normalizing parser metadata; usage preserved".into(),
+                }));
+                continue;
+            }
+        }
         let arbitration = if arbitration == Arbitration::Conflict
             && existing
                 .as_ref()
-                .is_some_and(|(meta, _, _, _, _)| vs_copilot_policy_upgrade(meta, event))
+                .is_some_and(|(meta, _, _, _, _, _)| vs_copilot_policy_upgrade(meta, event))
         {
             Arbitration::Replace
         } else {
@@ -266,7 +319,7 @@ pub(crate) fn commit_batch_tx(
                 update_event(tx, event, &eid, &hash, batch.now_ms, parse_basis_column)?;
                 outcome.updated += 1;
                 affected.insert(calendar.local_day_of(event.occurred_at_ms)?);
-                if let Some((_, old_ms, _, _, _)) = existing {
+                if let Some((_, old_ms, _, _, _, _)) = existing {
                     affected.insert(calendar.local_day_of(old_ms)?);
                 }
             }
@@ -274,13 +327,14 @@ pub(crate) fn commit_batch_tx(
                 outcome.unchanged += 1;
             }
             Arbitration::Conflict => {
+                content_conflicts.insert(eid.clone());
                 // 不任意择大：保留现存，标 conflict 并记诊断；所在日重算以反映冲突计数。
                 tx.execute(
                     "UPDATE usage_events SET conflict = 1 WHERE event_id = ?1",
                     params![eid],
                 )?;
                 outcome.conflicts += 1;
-                if let Some((_, old_ms, _, _, _)) = existing {
+                if let Some((_, old_ms, _, _, _, _)) = existing {
                     affected.insert(calendar.local_day_of(old_ms)?);
                 }
                 pending_diagnostics.push((
@@ -393,6 +447,30 @@ pub(crate) fn commit_batch_tx(
     check_fault(fault, FaultPoint::BeforeCommit)?;
 
     Ok(outcome)
+}
+
+/// 比较完整旧事件摘要，不把解析器更名当作源修订或允许其他字段变化。
+fn parser_metadata_upgrade(old: &ExistingRow, event: &EventInput) -> bool {
+    if old.5 == event.parser_version {
+        return false;
+    }
+    let mut legacy = event.clone();
+    legacy.parser_version = old.5.clone();
+    // 同键重复 final 的时间兼容与普通仲裁一致；元数据更新仍保留原时间。
+    for preserve_time in [false, true] {
+        if preserve_time {
+            legacy.occurred_at_ms = old.1;
+            legacy.source_time = old.4.clone();
+        }
+        if event_content_hash(&legacy) == old.0.content_hash {
+            return true;
+        }
+        legacy.observed_at_ms = old.3;
+        if content_hash(&legacy) == old.0.content_hash {
+            return true;
+        }
+    }
+    false
 }
 
 fn insert_diagnostic(

@@ -35,7 +35,7 @@ use crate::adapters::jsonl::{read_jsonl, JsonlCursor, StopReason};
 use super::super::common::{map_codex_record, CodexRecordUsage};
 
 // 规则升级自动重放已消费文件；累计对照差异保留，逐次读取错误跨批次保留。
-pub const CODEX_PARSER_VERSION: &str = "codex-rollout-3";
+pub const CODEX_PARSER_VERSION: &str = "codex-rollout-4";
 const MAX_REASONABLE_TOKEN: i64 = crate::domain::MAX_TOKEN_VALUE;
 
 /// usage 六字段合计（累计/携带/快照对账用；i128 防溢出）。

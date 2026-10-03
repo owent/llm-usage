@@ -1,6 +1,6 @@
 {
   "name": "llm-usage",
-  "version": "0.1.2-dev",
+  "version": "0.2.0",
   "private": true,
   "description": "Doc tooling and root command entry for the llm-usage repository; the desktop app keeps its own manifest under desktop/.",
   "scripts": {
@@ -19,6 +19,8 @@
     "test:scripts": "node --test desktop/scripts/*.test.mjs",
     "test:ui": "node --experimental-strip-types --test desktop/tests/*.test.mjs",
     "test:browser": "node desktop/tests/browser-smoke.mjs",
+    "test:desktop": "node desktop/tests/native-smoke.mjs",
+    "test:headless": "node desktop/tests/headless-smoke.mjs",
     "clippy": "cargo clippy --manifest-path desktop/src-tauri/Cargo.toml --workspace --all-targets --locked -- -D warnings",
     "fmt:check": "cargo fmt --manifest-path desktop/src-tauri/Cargo.toml --all --check",
     "verify": "npm run lint:md && npm run assets:check && npm run test:scripts && npm run test:ui && npm run check && npm run fmt:check && npm run clippy && npm run test:rust && npm run build:web"

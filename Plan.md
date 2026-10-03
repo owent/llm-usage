@@ -1,148 +1,78 @@
 # 桌面用量客户端执行计划
 
-目标：在本地按 Agent、模型和时间汇总 token、模型请求及缓存使用，
-支持今日刷新、日/周/月图表、定时提取和界面配置，提供小体积桌面客户端。
+按本机 Agent、模型和时间汇总 token、已观测调用与缓存使用，提供今日刷新、
+日/周/月图表、定时提取、保留、导出和设置。Windows 11 x64 首发；
+macOS/Linux 保留 CI，WSL 构建不代替原生桌面验收。当前版本 0.2.0。
 
-Windows 11 x64 首发，GitHub CI 保留 Windows/macOS/Linux（WSL 构建不等于 Linux 桌面验收）。
-Harness Agent 指 Nous Research 的 Hermes Agent。只统计本机产生的数据，
-不接入云端账单、企业 API 或跨设备账号报表；落盘文件仍须核验来源。
-依赖策略（2026-09-29）：npm/Cargo 使用 `^` 浮动最新范围，可复现性由锁文件保证。
-设计基线日期：2026-09-24。
+只读本机来源，不接入远端用量/账单 API 或跨设备账号报表。未知用量不补零；
+调用、消息、累计值和额度分开。依赖使用浮动版本范围，锁文件保证可复现。
+本文件只保留当前进度、剩余工作和执行边界；行为以设计及源码为准。
 
-逐轮实施细节、命令与证据一律见 [验证记录](docs/validation/desktop-usage/)，
-本文件只维护当前状态与待办，不保留历史叙述。
-
-**请确保深度思考调研后再执行，禁止猜测。按需更新AI agent提示词、skills和各类文档。及时更新完成进度。**
+**请确保深度思考调研后再执行，禁止猜测。按需更新 AI agent 提示词、Skills 和相关文档，及时更新完成进度。**
 
 ## 设计入口
 
-- [范围、决策与需求映射](docs/design/desktop-usage/README.md)
-- [架构、数据库选择与资源目标](docs/design/desktop-usage/architecture.md)
-- [统计、存储、去重与保留合同](docs/design/desktop-usage/data-contract.md)
-- [Agent 接入调研与能力矩阵](docs/design/desktop-usage/adapters.md)
-- [任务详情、依赖与交付顺序](docs/design/desktop-usage/execution.md)
-- [定时提取与后台生命周期](docs/design/desktop-usage/scheduling.md)
-- [三平台 CI、Windows 首发与 WSL 验证](docs/design/desktop-usage/platform-ci.md)
-- [测试与验收计划](docs/design/desktop-usage/validation.md)
-- [源码、官方来源与调研限制](docs/design/desktop-usage/research.md)
-- [开工准备结论与真实数据验证范围](docs/design/desktop-usage/implementation-readiness.md)
-- [模型价格获取与费用估算调研](docs/design/desktop-usage/pricing.md)
+| 主题 | 最新设计 |
+| --- | --- |
+| 产品与工程 | [范围](docs/design/desktop-usage/README.md)、[架构](docs/design/desktop-usage/architecture.md)、[交付要求](docs/design/desktop-usage/execution.md) |
+| 采集与统计 | [数据规则](docs/design/desktop-usage/data-contract.md)、[接入矩阵](docs/design/desktop-usage/adapters.md)、[本机数据验证](docs/design/desktop-usage/implementation-readiness.md) |
+| 自动提取 | [调度与后台](docs/design/desktop-usage/scheduling.md)、[Copilot 遥测配置](docs/design/desktop-usage/copilot-otel.md) |
+| 看板与费用 | [交互](docs/design/desktop-usage/dashboard-polish.md)、[统计修正](docs/design/desktop-usage/dashboard-repair.md)、[价格](docs/design/desktop-usage/pricing.md)、[语言](docs/design/desktop-usage/i18n.md) |
+| 验收与来源 | [验收清单](docs/design/desktop-usage/validation.md)、[平台与 CI](docs/design/desktop-usage/platform-ci.md)、[研究依据](docs/design/desktop-usage/research.md) |
 
-## 待办与验收
+## 当前进度
 
-2026-10-03 第三轮反馈修复完成：今日三种分组（含单小时）统一 token 曲线，费用布局
-和图表提示收紧。Junie 为旧遥测根提升到父目录后遗留的空误登记，已按注册表真实发现
-路径恢复；本机副本两轮幂等，历史计数不变。verify（820 项 Rust、20 项前端、3 项脚本）、
-Edge 回归及 Windows 0.1.2-dev 构建通过；未安装、未启动新 GUI，见
-[第三轮反馈记录](docs/validation/desktop-usage/feedback-round3.md)。
+看板选区已完成：自然日文案明确；趋势三图、总览历史和今日小时图支持横向拖选，
+汇总、模型/Agent 分布及模型表按同范围联动，不联动的热力图与周分布置后。
+Kilo 独立快照差异只作对账，逐条错误与未知版本兼容分开；旧水位自动重评、
+真实统计库修复及幂等验证通过，用量和来源字节不变，见
+[选区与健康验收](docs/validation/desktop-usage/trend-range-kilo.md)。
+解析器升级须验证完整旧摘要，仅更新解析依据；真实冲突和历史保留，见
+[元数据合同验收](docs/validation/desktop-usage/parser-conflict-fix.md)。
 
-2026-10-03 第二轮反馈代码修复与验证完成：已复核 `ab647fd`、`de8727f` 与本机只读快照。
-管理根定向路由、旧误登记恢复、模型别名/缺价诊断、费用 NaN、Copilot 观测总量下界
-及开关交互已修复。真实副本今日未计价 199→197：余 178 条 NES、18 条未知实际型号的
-自动审查、1 条 K2.8 原厂缺价；不猜价或抹掉覆盖限制。完整 verify、Edge 回归与
-Windows 0.1.2-dev 构建通过；未安装、未启动新 GUI，详见
-[第二轮反馈记录](docs/validation/desktop-usage/feedback-round2.md)。
+本地任务已支持持久化意图/期限、单写者、暂停、独立来源规则、Windows 分钟任务
+及实际状态核对。定点时区独立，DST 缺失顺延、重复只执行首次。
+当前完整检查通过（Rust 838、前端 20、脚本 3）；Windows NSIS 3.62 MiB，
+真实无界面 11 项、原生 IPC/鼠标选区 10 项及分钟触发通过；20 次合成小数据首屏
+P95 742 ms，不代替百万事件性能目标。详细结果集中到
+[最新验收](docs/validation/desktop-usage/current-acceptance.md)。
 
-详情维护在对应设计文档；各阶段证据见 [验证记录](docs/validation/desktop-usage/)。
+| ID | 当前交付 | 剩余工作 |
+| --- | --- | --- |
+| M0 | 开发合同、版本样本及三平台 CI 基线已完成 | 持续 CI 归 M7 |
+| M1 | SQLite、事务/恢复、去重、统计、迁移前一致备份及空间检查已完成 | 无核心实现待办；性能/桌面证据见 M6/M7 |
+| M1a | 主机/来源身份、分区与版本化交换已完成；聚合交换可导入 | 明细级导入和完整 Merge 后置 |
+| M2 | Codex、Claude Code、pi、oh-my-pi、Gemini、Qwen 六源已实现 | Gemini/Qwen 非空真实用量样本 |
+| M3 | Cline、Kilo、OpenCode、MiMo、Zoo、DSH、OpenClaw、Hermes 已实现 | 接入矩阵中仍标文档级的产品补真实样本 |
+| M4 | Kimi Code/Work、ZCode、WorkBuddy 已实现并有本机核对 | trace/子 Agent 覆盖和跨版本核对 |
+| M5 | Copilot CLI、CodeBuddy、本机 OTel file 与 loopback traces/logs 接收已实现 | 新版 CLI 真实导出、其他隔离输出的统计关联、本地/OTLP 重叠及 V08/V22/V25 剩余场景 |
+| M6 | 五页界面、查询/图表、逐源计划、设置、保留、导出与语言已实现；本轮原生 IPC/离线/重启/导入/分钟任务通过 | 完整生命周期、清理取消、缩放/可访问性；其余差异见下表 |
+| M7 | 最新 Windows release/NSIS、20 次小数据首屏；WSL 编译和三平台 CI 基线已有证据 | 百万事件首屏、全进程资源、升级回滚、三平台持续验收；安装流程按既有指示跳过 |
+| M8 | 第二批 18 适配器（17 解析 + Qoder 探针）已注册并有合成回归 | 非空真实样本；不扩展缺证产品能力 |
+| M9 | CLI、VS Code、Visual Studio 用量与独立 premium 额度已接入 | JetBrains file/new CLI 真实验收、trace SQLite；同面原生与遥测择一 |
+| F1 | 缺证 IDE/插件未排期 | 当前不探测/实施；范围以接入矩阵为准 |
+| F2 | 默认关闭的费用引擎、价格快照、在线缓存/失败回退及官方 API 参考已实施 | 预算提醒后置 |
+| F3 | 十语言已实现 | 原生 GUI 语言/缩放/可访问性验收随 M6 |
 
-| ID | 状态 | 任务 | 依赖 | 完成条件 |
-| --- | --- | --- | --- | --- |
-| M0 | **已完成**（三平台 CI 首次成功运行已登记：[36444880100](https://github.com/owent/llm-usage/actions/runs/36444880100) 6/6 success，[m0-ci](docs/validation/desktop-usage/m0-ci.md)；空闲内存超标转 M6/M7） | 固定版本样本、开发合同和三平台 CI 基线 | 开始实施 | 按已确认平台方案固定版本（现为浮动最新），使用已获允许的本机数据取得脱敏 fixture；三平台构建、WSL 可行性、包体报告 |
-| M1 | **已完成**（V20 初值已测（[第二轮记录](docs/validation/desktop-usage/m5-telemetry-remainders.md)）；迁移/重建/清理前一致备份+空间检查已实施） | 统计合同、SQLite 存储、导入事务和迁移 | M0 | 已知/未知与完整性可区分；请求更新、去重、崩溃恢复、日周月数学用例通过 |
-| M1a | **已完成**（[验证记录](docs/validation/desktop-usage/m1a-provenance.md)；完整导入/Merge 另行排期） | [历史来源身份与存储分区](docs/design/desktop-usage/execution.md#m1a) | M1；在 M6 数据导出前完成 | 稳定主机 ID 与来源分区；V28 存储用例通过 |
-| M2 | **基本完成**（[M2-A](docs/validation/desktop-usage/m2a-codex.md)、[M2-B/C](docs/validation/desktop-usage/m2bc-resumed.md)、[M2-D](docs/validation/desktop-usage/m2d-layout-versions.md)；claude 已凭 2026-09-30 WSL 真实转录扩展 2.1.197 新记录类型（queue-operation/attachment/last-prompt/synthetic，[WSL 记录](docs/validation/desktop-usage/wsl-agent-installs.md)）；余 gemini/qwen 真实用量 fixture 待本机凭据） | 首批本地适配器及[目录化](docs/design/desktop-usage/execution.md#m2-layout)：Codex、Claude Code、pi、oh-my-pi、Gemini CLI、Qwen Code | M1 | 每 Agent 独立目录 + 版本注册表 + 未知版本兼容尝试；重复扫描不增量 |
-| M3 | **基本完成**（kilo 真实核对；2026-09-30 WSL kilo 7.6.2 真实库 latest_fallback 解析 1595 事件（[WSL 记录](docs/validation/desktop-usage/wsl-agent-installs.md)）；其余七产品文档级实施、合成测试通过、真实验收后置：[M3/M4 记录](docs/validation/desktop-usage/m34-kilo-zcode-kimi.md)、[文档级记录](docs/validation/desktop-usage/m3-doclevel-cmdh.md)） | 扩展本地适配器：Cline、Kilo Code、OpenCode、MiMo Code、Zoo Code、DSH、OpenClaw、Hermes Agent | M1 | 分产品/格式验收；流式更正、累计、迁移与聚合重叠通过 |
-| M4 | **基本完成**（kimi-code/kimi-work/zcode 真实核对；WorkBuddy `.workbuddy/projects` 真实 8 文件/420 事件、重扫幂等通过，[记录](docs/validation/desktop-usage/m4-buddy-local.md)；余 trace/子 Agent 覆盖与跨版本核对） | 新版 Kimi Code、Kimi Work、ZCode、WorkBuddy 本地格式核验 | M0/M1 | 有本地提取尝试记录；交付适配器或字段/版本限制 |
-| M5 | **主体已实施**（Copilot CLI 真实核对；CodeBuddy 扩展存储本机真实核对 PASS、CLI `.codebuddy/projects` 本地适配器已注册，[记录](docs/validation/desktop-usage/m4-buddy-local.md)；OTel spans + 本地 OTLP 接收器 E2E；余本地/OTLP 重叠消解、CLI 真实样本与 V08/V22/V25 场景验收） | 本机文件遥测及可选 loopback 接入：Copilot CLI、VS Code、CodeBuddy 等 | M1 | 本地 OTLP/file 协议、采样/重传、来源归属、敏感字段过滤通过；拒绝远端/账号范围数据 |
-| M6 | **主体功能已实现**（逐源定时已接线：核心规则+调度+命令+UI×10 语言，[记录](docs/validation/desktop-usage/m5-telemetry-remainders.md)；余真实桌面逐操作验收 V13–V18/V23–V25、V24 系统任务真实验收、文件监听（优化项）） | 桌面界面、真实刷新、定时任务、设置、保留和导出 | M1/M1a/M2；对接 M3–M5 | 图表联动、定时/休眠补扫/重启恢复、资源合同与可访问名称验收 |
-| M7 | **部分完成**（[M7 记录](docs/validation/desktop-usage/m7-build-partial.md)；空闲内存复测 171 MB ≤ 180 目标、V20 双档初值已测（[第二轮记录](docs/validation/desktop-usage/m5-telemetry-remainders.md)）；2026-09-30 安装包修正：移除 sample-data.txt、NSIS 安装器改嵌项目图标（installerIcon）；按用户指示跳过安装流程实机验收；余首屏 P95/离线/系统任务/三平台持续验收） | 轻量化、三平台持续构建、安装与发布候选验收 | M2–M6 | 实机与三平台 CI 证据分列；性能/包体、离线、升级回滚通过 |
-| M8 | **文档级实施与 f6ede26 工作区复核已完成**（[验证记录](docs/validation/desktop-usage/m8-second-batch.md)；18 适配器（17 解析+Qoder 探针）注册与回归通过；真实样本验收后置；Amazon Q/Codebuff/iFlow 按边界排除；2026-09-30 WSL 安装级取证：opencode 1.18.33 真实库探测通过、jcode/goose/crush/aider 官方渠道安装与目录骨架、npm 抢注名排除，[WSL 记录](docs/validation/desktop-usage/wsl-agent-installs.md)） | 第二批本地适配器：Amp、Goose、Crush、Roo Code、Aider、Continue、Droid、Amazon Q CLI、Grok Build、Antigravity CLI、Junie CLI、Kiro、Zed 内置、Codebuff、Command Code、jcode、gajae-code、Xum、iFlow CLI、Qoder CLI、AtomCode | M1 框架与 M2 目录/版本合同；不在 M0–M7 关键路径 | 按矩阵分批交付；每适配器独立目录+版本注册表+V30；双载体对账不双计、会话级聚合不虚构逐次、估算路径一律不采信；Cursor/Warp/TRAE/Windsurf 按边界排除或留 F1 |
-| M9 | **本轮审查与修复已完成**（2026-10-01：VS Code 217 条已观测主循环调用、10 条用量记录；VS 2 条调用，明细与日汇总均通过真实载体独立对照、重扫零新增。修复快照替换、来源过滤、失败调用与额度时间/小数/清理；后续修正来源健康（覆盖提示 turn_input_incomplete 不降级）与未知字段展示（无已知 token 字段的记录计调用不计未知字段），真实核验 degraded 1→0、未知字段 434→0；新增 15 项 Rust 回归。完整 verify 与浏览器回归通过，见 [审查记录](docs/validation/desktop-usage/m9-copilot-review.md)。JetBrains 仍文档级；同面原生与 OTel 择一） | Copilot 本地用量、请求统计与独立额度展示 | M1/M5 框架 | 真实载体独立对照；重扫、更正与副本不双计；未知字段/覆盖保留未知；同面 OTel 载体择一 |
-| F1 | 未排期，未实施（缺证 IDE/插件：JetBrains AI Assistant、TRAE、Cursor、Windsurf、JoyCode、CodeGeeX、Comate、InsCode/CodeArts Snap；CodeBuddy IDE/插件已凭本机 CodeBuddyExtension 载体证据于 2026-09-30 实施并真实核对，移出 F1，见 [A04](docs/design/desktop-usage/adapters.md)） | 后续 IDE 支持 | 后续支持阶段 | 逐项取得本地格式证据；当前只保留计划，不探测/开发 |
-| F2 | **主体已实施**（费用引擎+V29 合同测试完成，[验证记录](docs/validation/desktop-usage/f2-cost-engine.md)：schema v8 价格表、种子快照、估算引擎（渠道/档位/TTL/覆盖标记）、日成本回填与汇总、命令+界面（默认关闭）+i18n ×10；2026-10-01 可选在线刷新已实施：schema v11、models.dev 社区目录 + 长缓存 + 失败回退 + 官方提供商回退，[在线刷新记录](docs/validation/desktop-usage/f2-online-refresh.md)；2026-10-02 未知 provider/渠道的同型号官方 API 参考与真实库副本端到端估算已核验，[本轮记录](docs/validation/desktop-usage/dashboard-repair.md)；余预算提醒后置） | 模型 API 按量价格获取与 token 费用估算 | 数据合同 | 渠道比较、版本化价格合同、V29 样本设计交付；费用引擎已实施（除上述后置项） |
-| F3 | **已完成**（[i18n 合同](docs/design/desktop-usage/i18n.md)，10 语言已随 M6 落地；V31 原生 GUI 验收随桌面验收） | 界面多语言方案调研与设计 | M6 前 | 已交付并实施 |
+## 剩余任务与完成条件
 
-M4/M5 的本地格式证据不足不阻止 M1/M2/M6，但对应工具必须保持“待验证/受限”，
-不能为了宣布计划完成而从能力矩阵删除。F1 不计入首版必验适配器。
-F2 只调研公开价格元数据及本地估算，不接入远端用量/账单 API。
+| 优先级 / ID | 工作 | 完成条件与依赖 |
+| --- | --- | --- |
+| 后续 / M6/M7/V23/V24 | 生命周期失败分支、退出后采集、注销/升级/卸载 | 本轮已验暂停/到期/手动合并/GUI 竞争/分钟启动；补注册及删除失败注入、无 GUI 的系统触发与安装生命周期 |
+| 当前 / M6/M7/V13–V19/V21/V31 | 清理取消、缩放/可访问性、十语言原生布局及规模首屏 | 本轮已验真实 IPC、离线、重启、非空交换与中英保存；完整验收不得从小样本推断 |
+| 后续 / M5/M9/V08/V22/V25 | 遥测载体与来源边界 | 独立版本/本机依据；重传、采样、压缩上限、敏感字段、父子 span 和跨载体不双计；未核验新输出继续隔离 |
+| 后续 / M2–M4/M8 | 缺失真实样本 | 数据已存在且能安全只读时提取白名单，独立核对明细/汇总和重扫；不启动 Agent 制造样本 |
+| 后续 / M6 | 托盘退出、节能暂停、文件监听、单源时间/重试限制 | 先形成与现实现状一致的可审阅设计再实施；监听为优化项，轮询可先行 |
+| 后续 / M7/V19/V21/V26/V27 | 发布候选与平台 | 最新资源/包体、升级回滚及原生平台证据；CI 推送、发布/签名另需相应授权 |
+| 后置 / M1a/F2/F1 | 明细 Merge、预算、缺证 IDE | 不作为已完成主线的阻塞；仍须逐项依据和单独验收 |
 
-## 已确认的实施边界
+## 执行边界
 
-2026-10-03 复审用户反馈修复（8 项）：今日曲线、费用缓存默认 3 天、费用参考卡纳入
-今日/趋势八项指标网格、十语言短标题；原币种保留，CNY 旁列版本化 ECB 汇率折算美元。
-裸 k3/k3-256k 按精确证据映射 kimi-k3 参考价，计价规则标记升级一次修复未封存历史；
-未知用量和缺价分开、已知零用量不再误计为未计价。原快照 658 未计价修复后 622
-（564 个未知真实型号的 codex-auto-review + 58 个无 token 的 Copilot round），9 个
-Copilot 部分估算保留。Codex 旧游标自动重评、分批错误状态保留、合法 null info 不降级；
-隔离副本中原 38 个文件全部重评为正常读取，对账差异仍保留。Kilo 7.8.1 有真实 fixture，
-新 7.8.3 仅空会话不能认证；兼容提示说明自动检查与复核。消息版本依据按所属会话
-保留，库内最高版本不认证其他消息，混合兼容状态跨增量保留。测试和运行缺口详见
-[复审记录](docs/validation/desktop-usage/dashboard-fixes.md)。原始配置/数据库只读，
-更新后首次采集自动重评，无需清库；临时验证副本不写回正式库。
-
-2026-10-02 提示补充：总览可观测性将尚无已核验数据的项目显示为“暂无数据”，
-不显示零项配置限制；真实限制及原因保留详情，自动核验和写入边界不变，见
-[验证记录](docs/validation/desktop-usage/dashboard-polish.md)。
-
-2026-10-02 后续：看板统一当前“API按量付费价格参考”；模型实际匹配单价可展开，
-今日/趋势范围汇总及模型表/曲线共用当前价，选中小时精确限制保留明细。
-摘要指标压缩为等高网格、额度为独立紧凑行；VS Copilot 同调用 input/output 补齐总量，
-旧 EOF 游标和历史保留已通过真实库副本核验：3 次调用补齐 34,734 token，重扫不增加调用。
-旧 VS Code turn 覆盖不同，保留未知完整总量并明确提示。最终命令记录见
-[后续验证](docs/validation/desktop-usage/dashboard-reference.md)。
-完整 verify（Rust 796、前端 14、脚本 3）、Edge 回归、Windows release/NSIS 构建均通过；
-核验未安装或启动新 GUI，原始配置与数据库只读。
-
-2026-10-02：看板交互优化已实施：可观测性紧凑状态、只读自动数据核验、配置换行修复，
-模型 API 费用明细/分币种汇总/曲线，全宽趋势图和明细表、独立饼图图例、点选/选区汇总。
-真实库副本费用查询约 106–116 ms（原约 2 秒）；SQL 范围与索引核验未发现需补索引的依据。
-完整 verify（Rust 793、UI 13、脚本 3）、Edge 回归和 Windows release/NSIS 构建均通过；
-真实检查为 1 项缺配置、3 项等待数据、Copilot 主实例 30 条已核验，不保证全部历史完整。
-沿用未知字段、归档和价格快照边界，见 [合同](docs/design/desktop-usage/dashboard-polish.md)
-及 [验证记录](docs/validation/desktop-usage/dashboard-polish.md)。
-
-2026-10-02：总用量图、Copilot file 补充采集/载体选择、模型分组、调用图/占比、
-总览费用面板和趋势布局已修正。已核验本机 30 个 CLIENT span 与数据库副本重扫；
-新输出逐调用统计不叠加对应原生分区，开启前覆盖保留缺口；官方 API 参考不推断实付。
-完整 verify（Rust 787、UI 13、脚本 3）、Edge 回归和真实副本端到端均通过；
-费用回退计价 2,577 条，精确价格优先、未知型号/字段仍留缺口，保留历史与修订。
-CLI/JetBrains 新版本和 trace SQLite 仍保留原验收缺口，见 [本轮记录](docs/validation/desktop-usage/dashboard-repair.md)。
-
-2026-10-02：Copilot 来源健康与“未知字段 396”补充审查已完成：旧游标自动重放、
-历史清理后的统计恢复及全部 token 字段质量修正；新增六项回归、真实库副本核验、
-完整 verify 与浏览器回归通过，见 [审查记录](docs/validation/desktop-usage/m9-copilot-review.md)。
-
-2026-10-01：Copilot 补充采集与 OTel 配置调研及配置入口已实施，见
-[配置合同](docs/design/desktop-usage/copilot-otel.md)与
-[验收记录](docs/validation/desktop-usage/telemetry-setup-ui.md)。
-已完成全年活动热力图、Copilot 已知输入/未知总量及零值悬浮修复；
-总览/设置提供异步用户层检查、修改预览、按字段合并、备份与撤销。
-VS Code profile 同步排除项写入默认用户层；Codex 保留已有 exporter 选项及内联表。
-已核对扩展/Agent Host/CLI 的 file 设置及本地 trace SQLite 路线；
-当时 SQLite 适配和跨载体选择未实施；2026-10-02 VS Code file 选择已完成，SQLite 仍待实施。
-暂停采集不会撤回历史贡献，不能靠停用来源解决跨载体双计；开发未修改真实 IDE/Agent 配置。
-本轮 Windows 验收：`npm run verify`、Edge 浏览器回归、只读配置审计、98 个相对链接及
-`git diff --check` 通过；Rust 752/UI 10/脚本 3 通过，真实写入及新导出验收后置。
-后续 UI 调整已完成：总览只保留简要提示与批量/详情按钮，详情直达设置遥测面板；
-批量配置逐项合并并报告部分失败，跨页保留执行和撤销状态；安装检测排除仅有用户目录的候选。
-最终 `verify`（Rust 754/UI 13/脚本 3）、两次独立 Edge 回归、5 项本机只读配置候选、
-98 个相对链接及 diff 检查通过；新增导出、非 PATH CLI 与跨平台桌面验收缺口保留。
-
-- 实施阶段可只读提取本机真实 Agent 数据验证（已授权，无需重复确认）；脱敏 fixture 与核验记录见验证记录目录。
-- JetBrains/TRAE 等缺证 IDE 已后移 F1，当前不实施；Junie CLI 与 Zed 内置凭本地载体证据在 M8。
-  JetBrains 的 GitHub Copilot 已源码级取证（M9）：默认本地仅 credit 无逐次 token，
-  逐次载体为需启用的 OTel file 导出，经既有 otel 适配器手工根接入，
-  见 [分析记录](docs/validation/desktop-usage/m9-jb-copilot-analysis.md)；JetBrains 自家 AI Assistant 仍 F1。
-- GitHub runner、工具链及 Linux 基线已在 M0 固定；macOS/Linux 不承诺首发发行支持。
-- 包体和性能数字为验收目标；空闲内存超标项转 M6/M7 定位。
-
-## 执行约束
-
-优先方案为 Tauri 2 + Rust + SQLite + Svelte/TypeScript + 按需 ECharts。
-先实现有证据的核心，再扩展适配器；不打包 Python/Node 采集服务，不自动启动 Agent。
-M2–M5、M8 及后续 F1 的 Agent 适配器统一遵守[独立目录与版本组织合同](docs/design/desktop-usage/architecture.md#adapter-layout)。
-应用更新频率低于 Agent；[未知版本默认先尝试该 Agent 最新内置解析器](docs/design/desktop-usage/architecture.md#unknown-version)，
-不得仅因版本号未收录就停止采集。
-只读取用户启用的本地数据源；定时任务只运行本应用采集逻辑，不启动 Agent 或模型调用。
-额度、会话计数、累计快照与逐次模型调用保持不同统计单位；未知用量不补零。
-业务命令从实际文件建立，不把本文列出的未来任务当作已运行记录。
+- 本机真实数据开发验证已获允许；按准备文档只读、白名单和脱敏，不再次询问同一许可。
+- Tauri 2 + Rust + SQLite + Svelte/TypeScript + 按需 ECharts；不打包 Node/Python 服务。
+- 不自动启动 Agent、WSL/容器或模型调用，不修改真实 IDE 配置来制造样本。
+- 所有适配器独立目录及版本注册表；未知版本先兼容读取，依据按记录所属版本保留。
+- 应用管理的根定向路由；同一物理文件不重复登记；旧游标重评保留修订、历史和封存。
+- 费用默认关闭，多币种不合并；参考价不推断实付，缺价/型号/渠道仍保留未知。
+- 保留用户已有修改；临时产物放根 build/。不自动提交、推送、部署或发布。
+- 只在实际证据取得后更新验收状态；无数据、未执行和通过分别记录。

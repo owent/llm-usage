@@ -11,6 +11,7 @@ import { telemetryCatalogs } from './telemetry-locales';
 import { dashboardCatalogs } from './dashboard-locales';
 import { polishCatalogs } from './polish-locales';
 import { referenceCatalogs } from './reference-locales';
+import { schedulingCatalogs } from './scheduling-locales';
 
 export const LANGUAGE_OPTIONS = [
   ['zh-CN', '简体中文'],
@@ -96,7 +97,7 @@ const zhCN: Record<string, string> = {
   'filter.granularity.month': '月',
   'filter.agent': 'Agent',
   'filter.model': '模型',
-  'filter.quick.24h': '昨天和今天',
+  'filter.quick.2days': '近 2 个自然日',
   'filter.quick.today': '当天',
   'filter.quick.7': '近 7 天',
   'filter.quick.30': '近 30 天',
@@ -315,7 +316,7 @@ const zhCN: Record<string, string> = {
   'overview.historySection': '历史趋势',
   'overview.periodSummary': '选中时间点汇总',
   'overview.periodSummary.clear': '清除',
-  'overview.periodSummary.hint': '点击图表中的时间点可查看该时段汇总（再点一次取消）',
+  'overview.periodSummary.hint': '点击选取时段，或按住鼠标横向拖选连续范围；再次点击同一时段取消',
   'overview.today': '今日汇总',
   'overview.today.calls': '今日调用',
   'overview.today.input': '输入 token',
@@ -449,7 +450,7 @@ const en: Record<string, string> = {
   'filter.granularity.month': 'Month',
   'filter.agent': 'Agent',
   'filter.model': 'Model',
-  'filter.quick.24h': 'Yesterday & today',
+  'filter.quick.2days': 'Last 2 calendar days',
   'filter.quick.today': 'Today',
   'filter.quick.7': 'Last 7 days',
   'filter.quick.30': 'Last 30 days',
@@ -668,7 +669,7 @@ const en: Record<string, string> = {
   'overview.historySection': 'Historical trends',
   'overview.periodSummary': 'Selected period',
   'overview.periodSummary.clear': 'Clear',
-  'overview.periodSummary.hint': 'Click a chart point to inspect that period (click again to deselect)',
+  'overview.periodSummary.hint': 'Click a period or drag horizontally to select a range; click the same period again to clear',
   'overview.today': 'Today summary',
   'overview.today.calls': 'Calls today',
   'overview.today.input': 'Input tokens',
@@ -750,6 +751,7 @@ for (const [locale, catalog] of Object.entries(catalogs)) {
   Object.assign(catalog, dashboardCatalogs[locale]);
   Object.assign(catalog, polishCatalogs[locale]);
   Object.assign(catalog, referenceCatalogs[locale]);
+  Object.assign(catalog, schedulingCatalogs[locale]);
 }
 
 export const DEFAULT_LOCALE: Locale = 'zh-CN';

@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { setChartOption, setupTooltipAutoHide, escapeHtml, CHART_PALETTE } from '../lib/chart';
+  import { onMount, untrack } from 'svelte';
+  import { setChartOption, setupTooltipAutoHide, setupRangeSelection, showRangeSelection, enableRangeBrush, RANGE_BRUSH, escapeHtml, CHART_PALETTE } from '../lib/chart';
   import * as echarts from 'echarts/core';
   import { LineChart } from 'echarts/charts';
   import type { LineSeriesOption } from 'echarts/charts';
-  import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components';
+  import { BrushComponent, GridComponent, LegendComponent, TooltipComponent } from 'echarts/components';
   import { CanvasRenderer } from 'echarts/renderers';
   import { api, parseError } from '../lib/api';
   import type { ChartDimension, SummaryQuery } from '../lib/api';
@@ -12,12 +12,14 @@
   import { pivotChartSeries, tokenTotalLabel, type ChartGroupData } from '../lib/derive';
   import DimensionPicker from './DimensionPicker.svelte';
 
-  echarts.use([LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);
+  echarts.use([LineChart, GridComponent, LegendComponent, TooltipComponent, BrushComponent, CanvasRenderer]);
 
   let {
     hourly,
     query,
     isDark = false,
+    selectedRange = null,
+    onrangechange,
   }: {
     hourly: {
       hour: number;
@@ -33,6 +35,8 @@
     query: SummaryQuery;
     /** 深色主题（父级传入；变化时重绘轴/legend 文字与分隔线）。 */
     isDark?: boolean;
+    selectedRange?: {first:string;last:string} | null;
+    onrangechange?: (first:string,last:string)=>void;
   } = $props();
 
   let dimension = $state<ChartDimension>('total');
@@ -51,8 +55,11 @@
 
   function applyOption(option: echarts.EChartsCoreOption, key: string): void {
     if (!chart) return;
+    option = {...option, brush: RANGE_BRUSH, toolbox:{show:false}};
     if (key === lastRenderKey) setChartOption(chart, isDark, option);
     else setChartOption(chart, isDark, option, { notMerge: true });
+    enableRangeBrush(chart);
+    untrack(()=>showRangeSelection(chart!,selectionLabels(),selectedRange));
     lastRenderKey = key;
   }
 
@@ -103,7 +110,7 @@
       lastRenderKey = '';
       return;
     }
-    const labels = rows.map((h) => `${String(h.hour).padStart(2, '0')}:00`);
+    const labels = rows.map((h) => `${query.last_day} ${String(h.hour).padStart(2, '0')}:00`);
     const calls = rows.map((h) => h.calls);
     const tokens = rows.map((h) => h.total_tokens === null ? null : Number(h.total_tokens));
     applyOption(
@@ -128,7 +135,7 @@
         legend: { top: 0, left: 'center', type: 'scroll', itemWidth: 12, itemHeight: 8, textStyle: { fontSize: 11 } },
         textStyle: { color: chartText },
         grid: { left: 70, right: 80, top: 48, bottom: 28, containLabel: true },
-        xAxis: { type: 'category', data: labels },
+        xAxis: { type: 'category', data: labels, triggerEvent:true, axisLabel:{formatter:(label:string)=>label.slice(-5)} },
         yAxis: [
           {
             type: 'value',
@@ -211,7 +218,7 @@
         legend: { top: 0, left: 'center', type: 'scroll', itemWidth: 12, itemHeight: 8, textStyle: { fontSize: 11 } },
         textStyle: { color: chartText },
         grid: { left: 70, right: 80, top: 48, bottom: 28, containLabel: true },
-        xAxis: { type: 'category', data: g.labels, axisLabel:{formatter:(label:string)=>label.slice(-5)} },
+        xAxis: { type: 'category', data: g.labels, triggerEvent:true, axisLabel:{formatter:(label:string)=>label.slice(-5)} },
         yAxis: [
           {
             type: 'value',
@@ -249,11 +256,16 @@
     renderGroupedByTime(g);
   }
 
+  function selectionLabels(): string[] {
+    return dimension === 'total' ? activeHours.map((h)=>`${query.last_day} ${String(h.hour).padStart(2,'0')}:00`) : grouped?.labels ?? [];
+  }
+
   onMount(() => {
     chart = echarts.init(el, i18n.locale === 'zh-CN' ? 'ZH' : 'EN');
 
     // Tooltip：hideDelay 0（ECharts 6 手动 hideTip 也走 hideLater(hideDelay)，不可用大值）+ 离开画布/移出窗口/失焦即隐藏（统一封装）。
     const disposeTipHide = setupTooltipAutoHide(chart!);
+    const disposeSelection=setupRangeSelection(chart,selectionLabels,(label)=>onrangechange?.(label,label),(first,last)=>onrangechange?.(first,last));
     render();
     const onResize = () => chart?.resize();
     window.addEventListener('resize', onResize);
@@ -262,6 +274,7 @@
     observer.observe(el);
     return () => {
       disposeTipHide();
+      disposeSelection();
       observer.disconnect();
       window.removeEventListener('resize', onResize);
       chart?.dispose();
@@ -270,6 +283,7 @@
   });
 
   // 数据/维度/语言/主题变化时重绘。
+  $effect(()=>{const selected=selectedRange;if(chart)showRangeSelection(chart,selectionLabels(),selected);});
   $effect(() => {
     void hourly;
     void dimension;

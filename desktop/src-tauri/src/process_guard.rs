@@ -22,14 +22,34 @@ pub fn acquire(db_path: &Path) -> std::io::Result<Option<File>> {
 
 /// Do not call Storage::open here: only the lock owner may recover running jobs.
 pub fn request_refresh(db_path: &Path, now: i64) -> Result<(), rusqlite::Error> {
+    request(db_path, now, "pending_refresh")
+}
+
+pub fn request_background_refresh(db_path: &Path, now: i64) -> Result<(), rusqlite::Error> {
+    request(db_path, now, "pending_background_refresh")
+}
+
+fn request(db_path: &Path, now: i64, key: &str) -> Result<(), rusqlite::Error> {
     let conn = rusqlite::Connection::open_with_flags(
         db_path,
         rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE,
     )?;
     conn.busy_timeout(std::time::Duration::from_secs(5))?;
-    conn.execute("INSERT INTO settings(key,value,schema_version,updated_at_ms) VALUES ('pending_refresh','1',1,?1)
-        ON CONFLICT(key) DO UPDATE SET value='1',updated_at_ms=excluded.updated_at_ms", [now])?;
+    conn.execute(
+        "INSERT INTO settings(key,value,schema_version,updated_at_ms) VALUES (?1,'1',1,?2)
+        ON CONFLICT(key) DO UPDATE SET value='1',updated_at_ms=excluded.updated_at_ms",
+        rusqlite::params![key, now],
+    )?;
     Ok(())
+}
+
+pub fn take_background_refresh_request(
+    storage: &llm_usage_core::storage::Storage,
+) -> Result<bool, rusqlite::Error> {
+    Ok(storage.conn().execute(
+        "DELETE FROM settings WHERE key='pending_background_refresh'",
+        [],
+    )? > 0)
 }
 
 pub fn take_refresh_request(

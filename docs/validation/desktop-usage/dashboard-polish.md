@@ -107,7 +107,7 @@ Node.js 24.21.0、Rust/Cargo 1.98.1、已安装 Microsoft Edge；依赖版本以
 验证中发现字节预算停止未报告待续读半行，保留失败日志并修复后重跑。
 
 新应用在 desktop/src-tauri/target/release/LLMUsage.exe，安装包在同目录
-bundle/nsis/LLMUsage_0.1.2-dev_x64-setup.exe。构建成功不等于安装或真实 GUI/IPC
+bundle/nsis/LLMUsage_0.2.0_x64-setup.exe。构建成功不等于安装或真实 GUI/IPC
 验收；本轮未启动新 GUI、未替换正在运行的旧进程。
 
 不将未配置 Codex、等待导出的目标、CLI/JetBrains 新版本、其他未核验导出载体宣称为

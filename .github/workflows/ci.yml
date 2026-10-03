@@ -133,6 +133,9 @@ jobs:
       - name: Tauri release 构建
         working-directory: desktop
         run: npx tauri build --bundles ${{ matrix.bundles }}
+      - name: Windows 真实无界面采集回归
+        if: runner.os == 'Windows'
+        run: npm run test:headless
       - name: 制品大小与校验和
         if: success()
         run: node desktop/scripts/bundle-report.mjs desktop/src-tauri/target/release/bundle

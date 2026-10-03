@@ -3,11 +3,10 @@
 //! 合同（scheduling.md）：
 //! - 逐源频率覆盖全局：固定间隔 15 秒–24 小时，或每日/每周指定时间
 //!   （time_of_day "HH:MM"、weekday ISO 1–7 周一=1）；首版不开放任意 cron/shell；
-//! - 有自定义（enabled）计划的来源从全局刷新中排除，只按自身节奏触发；
+//! - 启用的自定义计划覆盖全局自动节奏；手动刷新仍包含全部启用来源；
 //! - 同源不并发（应用层 refresh 单飞合并）；禁用后无自动读取；
 //! - 错过时点（休眠/关机）醒来后只补扫一次（next_due 在运行后推进）；
-//! - 时区按规则 tz 计算；DST 歧义/无效时刻由 jiff compatible 消歧
-//!   （歧义取较早时刻、无效时刻前移，不丢触发）。
+//! - 时区固定保存；DST 重复时刻取第一次，缺失时刻取跳变后的首个有效时刻。
 
 use crate::error::CoreError;
 use crate::storage::Storage;
@@ -30,7 +29,7 @@ pub struct SourceScheduleRule {
     pub time_of_day: Option<String>,
     /// weekly 专用：ISO 1..=7（周一=1，周日=7）。
     pub weekday: Option<i64>,
-    /// 计划时区（IANA 名；空串 = 继承用户统计时区）。
+    /// 计划时区（IANA 名；空串在首次保存时固定为用户统计时区）。
     pub tz: String,
     pub enabled: bool,
 }
@@ -38,6 +37,9 @@ pub struct SourceScheduleRule {
 fn parse_hhmm(value: Option<&str>) -> Option<(u8, u8)> {
     let raw = value?.trim();
     let (h, m) = raw.split_once(':')?;
+    if h.len() != 2 || m.len() != 2 || !h.bytes().chain(m.bytes()).all(|b| b.is_ascii_digit()) {
+        return None;
+    }
     let h: u8 = h.parse().ok()?;
     let m: u8 = m.parse().ok()?;
     (h < 24 && m < 60).then_some((h, m))
@@ -88,7 +90,7 @@ pub fn validate_rule(rule: &SourceScheduleRule) -> Result<(), CoreError> {
 /// 计算下一次到期毫秒（纯函数）。
 /// None 只在：规则未启用、tz 名无法解析（validate_rule 已拦截非空 tz；
 /// 空 tz 继承的 fallback_tz 由设置层校验）、或 now 越出时间戳范围。
-/// daily/weekly 的 DST 歧义/无效时刻由 jiff compatible 消歧（不会走到失败分支）。
+/// daily/weekly 的重复时刻只取第一次；缺失时刻顺延到跳变后的首个有效时刻。
 pub fn next_due_ms(rule: &SourceScheduleRule, now_ms: i64, fallback_tz: &str) -> Option<i64> {
     if !rule.enabled {
         return None;
@@ -124,12 +126,20 @@ pub fn next_due_ms(rule: &SourceScheduleRule, now_ms: i64, fallback_tz: &str) ->
                     let iso = weekday.to_monday_zero_offset() as i64 + 1;
                     Some(iso) == rule.weekday
                 };
-                let candidate = candidate_date
-                    .at(hour as i8, minute as i8, 0, 0)
-                    .to_zoned(tz.clone());
-                if let (true, Ok(zoned)) = (matches_day, candidate) {
-                    if zoned.timestamp() > now {
-                        return Some(zoned.timestamp().as_millisecond());
+                let ambiguous =
+                    tz.to_ambiguous_timestamp(candidate_date.at(hour as i8, minute as i8, 0, 0));
+                let candidate = match ambiguous.offset() {
+                    jiff::tz::AmbiguousOffset::Gap { .. } => {
+                        let before = ambiguous.earlier().ok()?;
+                        tz.following(before)
+                            .next()
+                            .map(|transition| transition.timestamp())
+                    }
+                    _ => ambiguous.earlier().ok(),
+                };
+                if let (true, Some(timestamp)) = (matches_day, candidate) {
+                    if timestamp > now {
+                        return Some(timestamp.as_millisecond());
                     }
                 }
                 candidate_date = candidate_date.tomorrow().ok()?;
@@ -141,6 +151,32 @@ pub fn next_due_ms(rule: &SourceScheduleRule, now_ms: i64, fallback_tz: &str) ->
     }
 }
 
+/// Preview the next three planned instants; overdue execution is still merged by
+/// due_instances rather than replaying every missed occurrence.
+pub fn preview_due_ms(rule: &SourceScheduleRule, now_ms: i64, fallback_tz: &str) -> Vec<i64> {
+    let mut result = Vec::new();
+    let mut cursor = now_ms;
+    for _ in 0..3 {
+        let Some(next) = next_due_ms(rule, cursor, fallback_tz) else {
+            break;
+        };
+        result.push(next);
+        cursor = next;
+    }
+    result
+}
+
+/// Old rules inherited the statistics timezone dynamically. Pin their current
+/// effective timezone once, before users can change statistics settings again.
+pub fn pin_legacy_timezones(storage: &Storage, timezone: &str) -> Result<(), CoreError> {
+    jiff::tz::TimeZone::get(timezone).map_err(|e| CoreError::Validation(e.to_string()))?;
+    storage.conn().execute(
+        "UPDATE extraction_schedules SET tz=?1 WHERE scope='source' AND trim(tz)=''",
+        [timezone],
+    )?;
+    Ok(())
+}
+
 /// upsert 一条逐源计划（含 next_due 重算；config_version 递增）。
 pub fn upsert_source_schedule(
     storage: &Storage,
@@ -148,9 +184,17 @@ pub fn upsert_source_schedule(
     now_ms: i64,
     fallback_tz: &str,
 ) -> Result<(), CoreError> {
-    validate_rule(rule)?;
+    // Persist the initial fallback instead of following later statistics changes.
+    let mut rule = rule.clone();
+    rule.tz = if rule.tz.trim().is_empty() {
+        fallback_tz.trim()
+    } else {
+        rule.tz.trim()
+    }
+    .to_string();
+    validate_rule(&rule)?;
     let schedule_id = format!("source:{}", rule.instance_id);
-    let due = next_due_ms(rule, now_ms, fallback_tz);
+    let due = next_due_ms(&rule, now_ms, fallback_tz);
     let existing: Option<i64> = storage
         .conn()
         .query_row(
@@ -340,8 +384,81 @@ pub fn mark_source_run(
 mod tests {
     use super::*;
 
+    fn daily(tz: &str, time: &str) -> SourceScheduleRule {
+        SourceScheduleRule {
+            instance_id: "test".into(),
+            rule_kind: "daily".into(),
+            interval_seconds: None,
+            time_of_day: Some(time.into()),
+            weekday: None,
+            tz: tz.into(),
+            enabled: true,
+        }
+    }
+    fn ms(time: &str) -> i64 {
+        time.parse::<jiff::Timestamp>().unwrap().as_millisecond()
+    }
+
+    #[test]
+    fn dst_gap_runs_at_first_valid_instant_and_fold_only_once() {
+        let rule = daily("America/New_York", "02:30");
+        assert_eq!(
+            next_due_ms(&rule, ms("2026-03-08T06:00:00Z"), "UTC"),
+            Some(ms("2026-03-08T07:00:00Z"))
+        );
+        let rule = daily("America/New_York", "01:30");
+        assert_eq!(
+            next_due_ms(&rule, ms("2026-11-01T04:00:00Z"), "UTC"),
+            Some(ms("2026-11-01T05:30:00Z"))
+        );
+        assert_eq!(
+            next_due_ms(&rule, ms("2026-11-01T05:31:00Z"), "UTC"),
+            Some(ms("2026-11-02T06:30:00Z"))
+        );
+        // Lord Howe advances only 30 minutes; adding a fixed hour is incorrect.
+        let rule = daily("Australia/Lord_Howe", "02:15");
+        assert_eq!(
+            next_due_ms(&rule, ms("2026-10-03T14:00:00Z"), "UTC"),
+            Some(ms("2026-10-03T15:30:00Z"))
+        );
+    }
+
+    #[test]
+    fn timezone_is_persisted_and_preview_follows_calendar_days() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../../build/plan-completion");
+        std::fs::create_dir_all(&root).unwrap();
+        let storage =
+            Storage::open(&root.join(format!("schedule-timezone-{}.sqlite", std::process::id())))
+                .unwrap();
+        let now = ms("2026-10-03T00:00:00Z");
+        upsert_source_schedule(&storage, &daily("", "09:00"), now, "Asia/Shanghai").unwrap();
+        let rule = source_schedule(&storage, "test").unwrap().unwrap();
+        assert_eq!(rule.tz, "Asia/Shanghai");
+        assert_eq!(
+            preview_due_ms(&rule, now, "America/New_York"),
+            vec![
+                ms("2026-10-03T01:00:00Z"),
+                ms("2026-10-04T01:00:00Z"),
+                ms("2026-10-05T01:00:00Z")
+            ]
+        );
+        storage
+            .conn()
+            .execute("UPDATE extraction_schedules SET tz=''", [])
+            .unwrap();
+        pin_legacy_timezones(&storage, "UTC").unwrap();
+        pin_legacy_timezones(&storage, "Asia/Shanghai").unwrap();
+        assert_eq!(
+            source_schedule(&storage, "test").unwrap().unwrap().tz,
+            "UTC"
+        );
+    }
+
     #[test]
     fn rule_validation_bounds() {
+        assert!(validate_rule(&daily("UTC", "9:5")).is_err());
+        assert!(validate_rule(&daily("UTC", "+9:05")).is_err());
         assert!(validate_rule(&SourceScheduleRule {
             instance_id: "a@b".into(),
             rule_kind: "interval".into(),

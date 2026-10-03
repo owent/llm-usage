@@ -212,6 +212,12 @@ pub struct RefreshState {
     pub eta_seconds: Option<u64>,
     /// 已完成的适配器名（按序）。
     pub completed_adapters: Vec<String>,
+    /// A manual refresh received during a running scan is consumed once afterward.
+    #[serde(skip)]
+    pub pending_manual: bool,
+    /// Only full scans reset the inherited global cadence, never source-only runs.
+    #[serde(skip)]
+    pub last_global_finished_ms: i64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -299,6 +305,8 @@ impl AppState {
             eprintln!("price seed snapshot import failed: {e}");
         }
         let settings = load_settings(&storage);
+        llm_usage_core::schedules::pin_legacy_timezones(&storage, &settings.timezone)
+            .map_err(|e| e.to_string())?;
         // 时区分区修复：老版本扫描以 UTC 写日分区而用户统计时区不同 ⇒
         // 在用户时区下重算事件覆盖范围（推导非猜测；2026-09-26 缺陷修复）。
         repair_tz_partitions(&storage, &settings.timezone, false)?;

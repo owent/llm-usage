@@ -1,15 +1,15 @@
 <script lang="ts">
-  import {onMount} from 'svelte';
+  import {onMount,untrack} from 'svelte';
   import * as echarts from 'echarts/core';
   import {LineChart} from 'echarts/charts';
-  import {DataZoomComponent,GridComponent,LegendComponent,TooltipComponent} from 'echarts/components';
+  import {BrushComponent,DataZoomComponent,GridComponent,LegendComponent,TooltipComponent} from 'echarts/components';
   import {CanvasRenderer} from 'echarts/renderers';
-  import {setChartOption,setupTooltipAutoHide,setupRangeSelection,escapeHtml,CHART_PALETTE} from '../lib/chart';
+  import {setChartOption,setupTooltipAutoHide,setupRangeSelection,showRangeSelection,enableRangeBrush,RANGE_BRUSH,escapeHtml,CHART_PALETTE} from '../lib/chart';
   import {formatAmount} from '../lib/costs';
   import {i18n,t} from '../lib/i18n.svelte';
   import type {CostSummaryDto,PeriodDto} from '../lib/api';
-  echarts.use([LineChart,GridComponent,LegendComponent,TooltipComponent,DataZoomComponent,CanvasRenderer]);
-  let {summary,periods,isDark=false,onperiodclick,onrangechange}:{summary:CostSummaryDto|null;periods:PeriodDto[];isDark?:boolean;onperiodclick?:(label:string)=>void;onrangechange?:(first:string,last:string)=>void}=$props();
+  echarts.use([LineChart,GridComponent,LegendComponent,TooltipComponent,DataZoomComponent,BrushComponent,CanvasRenderer]);
+  let {summary,periods,isDark=false,onperiodclick,onrangechange,selectedRange=null}:{summary:CostSummaryDto|null;periods:PeriodDto[];isDark?:boolean;onperiodclick?:(label:string)=>void;onrangechange?:(first:string,last:string)=>void;selectedRange?:{first:string;last:string}|null}=$props();
   let el:HTMLDivElement;
   let chart:echarts.ECharts|null=null;
   let currency=$state('');
@@ -38,6 +38,7 @@
     if(!chart) return;
     if(!groups.length) {chart.clear();return;}
     setChartOption(chart,isDark,{
+      brush:RANGE_BRUSH, toolbox:{show:false},
       color:CHART_PALETTE,
       tooltip:{trigger:'axis',hideDelay:0,transitionDuration:0,formatter:(params:{seriesName:string;value:unknown;dataIndex:number}[])=>{
         const period=plotPeriods[params[0]?.dataIndex??0];
@@ -46,9 +47,11 @@
       legend:{type:'scroll',top:0},grid:{left:12,right:20,top:42,bottom:52,containLabel:true},
       xAxis:{type:'category',data:plotPeriods.map((p)=>p.label),triggerEvent:true},
       yAxis:{type:'value',name:selectedCurrency,axisLabel:{formatter:(v:number)=>(v/100).toLocaleString(i18n.locale)}},
-      dataZoom:[{type:'slider',bottom:0,height:20},{type:'inside'}],
+      dataZoom:[{type:'slider',bottom:0,height:20},{type:'inside',moveOnMouseMove:false}],
       series:groups.map((group)=>({name:group.name,type:'line',showSymbol:true,symbolSize:7,connectNulls:false,data:group.values})),
     },{notMerge:true});
+    enableRangeBrush(chart);
+    untrack(()=>showRangeSelection(chart!,plotPeriods.map((p)=>p.label),selectedRange));
   }
   onMount(()=>{
     chart=echarts.init(el);
@@ -58,6 +61,7 @@
     return ()=>{disposeTip();disposeSelection();observer.disconnect();chart?.dispose();chart=null;};
   });
   $effect(()=>{void groups;void i18n.locale;void isDark;render();});
+  $effect(()=>{const selected=selectedRange;if(chart)showRangeSelection(chart,plotPeriods.map((p)=>p.label),selected);});
 </script>
 <div class="controls">
   <strong title={t('dashboard.costCurveHint')}>{t('dashboard.costCurve')}</strong>

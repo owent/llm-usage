@@ -6,6 +6,7 @@ import { telemetryCatalogs } from '../src/lib/telemetry-locales.ts';
 import { dashboardCatalogs } from '../src/lib/dashboard-locales.ts';
 import { polishCatalogs } from '../src/lib/polish-locales.ts';
 import { referenceCatalogs } from '../src/lib/reference-locales.ts';
+import { schedulingCatalogs } from '../src/lib/scheduling-locales.ts';
 
 function baseCatalog(name) {
   const source = readFileSync(new URL('../src/lib/i18n.svelte.ts', import.meta.url), 'utf8');
@@ -28,7 +29,7 @@ test('base catalogs have matching keys and placeholders', () => {
 });
 
 test('telemetry and annual calendar messages cover all locales and preserve placeholders', () => {
-  for (const catalogs of [telemetryCatalogs, dashboardCatalogs, polishCatalogs, referenceCatalogs]) {
+  for (const catalogs of [telemetryCatalogs, dashboardCatalogs, polishCatalogs, referenceCatalogs, schedulingCatalogs]) {
   assert.equal(Object.keys(catalogs).length, 10);
   const expected = Object.keys(catalogs.en).sort();
   for (const [locale, messages] of Object.entries(catalogs)) {

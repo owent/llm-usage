@@ -26,8 +26,8 @@ GitHub Windows runner 的构建结果不等于 Windows 11 用户环境通过；m
 
 ## GitHub CI 合同
 
-M0 在代码骨架具备后建立三平台作业；M1–M6 逐步加入实际测试。M7 验收时三个 OS 的作业必须存在
-且运行，不只留下注释或矩阵占位。任务触发为 PR、主分支 push 和手动执行；本轮不推送触发它们。
+三平台作业已存在；M7 持续验收须有实际运行结果。任务触发为 PR、主分支 push
+和手动执行，维护本地文件不意味着获准推送或触发远端 CI。
 
 1. 公共检查：Markdown/本地链接、前端类型和单元测试、Rust fmt/clippy；命令从实际锁文件确定。
 2. OS 矩阵：在每个原生 runner 运行领域/适配器 fixture、真实临时 SQLite、调度器、路径和锁测试，
@@ -40,12 +40,13 @@ M0 在代码骨架具备后建立三平台作业；M1–M6 逐步加入实际测
 6. 构建依赖下载可以联网；统计运行和验收禁止出站访问用量/计费服务。fixtures 全部合成或脱敏，
    不上传个人数据库/原始会话。离线用例覆盖有遥测开关时的行为。
 
-2026-09-27 检查入口已补齐：`cargo fmt --all --check`、
+检查入口包括 `cargo fmt --all --check`、
 `cargo clippy --workspace --all-targets --locked -- -D warnings` 覆盖核心 crate 与测试目标；
 前端作业运行 TypeScript 纯逻辑测试和 Playwright 浏览器回归。后者使用合成 IPC 数据，
 覆盖主题、时区、快速筛选、用户隔离和刷新，不计为第 4 项原生桌面验收。
-本轮仅本机 Windows 执行，未触发远端 CI，见
-[本轮记录](../../validation/desktop-usage/review-2026-09-27.md)。
+Windows 构建后执行真实可执行文件的 `test:headless`，隔离合成来源并检查来源类别。
+本机 `test:desktop` 经 WebView2 CDP 检查真实 IPC，不在发布包增加监听代码。
+最新本机结果及远端 CI 缺口见 [最新验收](../../validation/desktop-usage/current-acceptance.md)。
 
 矩阵使用 fail-fast=false 留下全部结果；每作业有超时，重跑只针对已定位的临时基础设施故障。
 缓存键包含 OS、架构、Rust/Node 版本和锁文件摘要，隔离不同 target，不缓存真实 Agent 数据。

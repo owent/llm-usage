@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { setChartOption, setupTooltipAutoHide, setupRangeSelection, escapeHtml, CHART_PALETTE } from '../lib/chart';
+  import { onMount, untrack } from 'svelte';
+  import { setChartOption, setupTooltipAutoHide, setupRangeSelection, showRangeSelection, enableRangeBrush, RANGE_BRUSH, escapeHtml, CHART_PALETTE } from '../lib/chart';
   import * as echarts from 'echarts/core';
   import { LineChart } from 'echarts/charts';
   import type { LineSeriesOption } from 'echarts/charts';
-  import { DataZoomComponent, GridComponent, LegendComponent, TooltipComponent } from 'echarts/components';
+  import { BrushComponent, DataZoomComponent, GridComponent, LegendComponent, TooltipComponent } from 'echarts/components';
   import { CanvasRenderer } from 'echarts/renderers';
   import { api, parseError } from '../lib/api';
   import type { ChartDimension, PeriodDto, SummaryQuery } from '../lib/api';
@@ -12,7 +12,7 @@
   import { durationStatsOf, pivotChartSeries, type ChartGroupData } from '../lib/derive';
   import DimensionPicker from './DimensionPicker.svelte';
 
-  echarts.use([LineChart, GridComponent, LegendComponent, TooltipComponent, DataZoomComponent, CanvasRenderer]);
+  echarts.use([LineChart, GridComponent, LegendComponent, TooltipComponent, DataZoomComponent, BrushComponent, CanvasRenderer]);
 
   let {
     periods,
@@ -21,6 +21,7 @@
     isDark = false,
     onperiodclick,
     onrangechange,
+    selectedRange = null,
   }: {
     periods: PeriodDto[];
     /** 当前查询（chart_series 分组数据用；随筛选/范围变化重新拉取）。 */
@@ -31,6 +32,7 @@
     /** 点击数据点回调（携带该点的时间轴标签；总用量/分组两模式均生效）。 */
     onperiodclick?: (label: string) => void;
     onrangechange?: (first:string,last:string)=>void;
+    selectedRange?: {first:string;last:string} | null;
   } = $props();
 
   let dimension = $state<ChartDimension>('total');
@@ -50,8 +52,11 @@
 
   function applyOption(option: echarts.EChartsCoreOption, key: string): void {
     if (!chart) return;
+    option = {...option, brush: RANGE_BRUSH, toolbox: {show:false}};
     if (key === lastRenderKey) setChartOption(chart, isDark, option);
     else setChartOption(chart, isDark, option, { notMerge: true });
+    enableRangeBrush(chart);
+    untrack(() => showRangeSelection(chart!, dimension === 'total' ? periods.map((p) => p.label) : grouped?.labels ?? [], selectedRange));
     lastRenderKey = key;
   }
 
@@ -140,7 +145,7 @@
             axisLabel: { formatter: (v: number) => fmtSmart(v) },
           },
         ],
-        dataZoom: granularity === 'hour' || granularity === 'day' ? [{ type: 'inside' }] : [],
+        dataZoom: granularity === 'hour' || granularity === 'day' ? [{ type: 'inside', moveOnMouseMove:false }] : [],
         series: [
           {
             type: 'line',
@@ -201,7 +206,7 @@
           axisLabel: { formatter: (v: number) => fmtSmart(v) },
           splitLine: { lineStyle: { color: splitColor } },
         },
-        dataZoom: [{ type: 'inside' }],
+        dataZoom: [{ type: 'inside', moveOnMouseMove:false }],
         color: PALETTE,
         series: g.names.map(
           (name): LineSeriesOption => ({
@@ -266,6 +271,11 @@
     void i18n.locale;
     void isDark;
     render();
+  });
+
+  $effect(() => {
+    const selected = selectedRange;
+    if (chart) showRangeSelection(chart, dimension === 'total' ? periods.map((p) => p.label) : grouped?.labels ?? [], selected);
   });
 </script>
 
