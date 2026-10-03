@@ -383,7 +383,7 @@ impl crate::adapters::framework::SourceAdapter for CopilotChatAdapter {
                 "call_count 按已观测 toolCallRounds 的 ID 计数；token 由 usage_observation 贡献；输入下界不与整轮输出派生总 token".into(),
                 "thinking tokens（toolCallRounds[].thinking.tokens）覆盖不全（最终轮等）：不入 output_reasoning，不并入派生总量".into(),
                 "copilotCredits/sessionCopilotCredits 是 credit 计量（nano AIU 折算）：不入 token 统计；账户级额度经 copilot-user-cache.json → quota_history 独立展示".into(),
-                "与 otel 载体边界：用户启用 github.copilot.chat.otel file exporter 并手工添加根时会与本适配器重复计数（同一 agent 维度 vscode-copilot-chat）；两者取其一".into(),
+                "已核验的 Copilot file OTel 按主机/用户/会话/本地日替代原生贡献，保留原始记录；开启当天覆盖受限，其他未核验导出不自动叠加".into(),
                 "行流式计数器由周期 saveState 落盘：中途崩溃/强杀可能留下非终值，末次观测后不再变化即为止损终值".into(),
             ],
         }

@@ -481,8 +481,9 @@ pub fn list_sources(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_json
                     (SELECT COUNT(*) FROM source_files f WHERE f.instance_id = s.instance_id
                      AND f.status = 'unsupported') AS unsupported_files,
                     (SELECT COUNT(*) FROM source_files f WHERE f.instance_id = s.instance_id
-                     AND f.status = 'incompatible') AS incompatible_files
-             FROM source_instances s ORDER BY s.agent, s.instance_id",
+                     AND f.status = 'incompatible') AS incompatible_files,
+                    s.location_hint
+             FROM source_instances s WHERE s.health != 'not_applicable' ORDER BY s.agent, s.instance_id",
         )
         .map_err(|e| err("db", e.to_string()))?;
     let rows = stmt
@@ -500,6 +501,7 @@ pub fn list_sources(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_json
                 "degraded_files": r.get::<_, i64>(14)?,
                 "unsupported_files": r.get::<_, i64>(15)?,
                 "incompatible_files": r.get::<_, i64>(16)?,
+                "available": r.get::<_, Option<String>>(17)?.and_then(|path| std::path::Path::new(&path).try_exists().ok()),
                 "schedule": match r.get::<_, Option<String>>(7)? {
                     Some(kind) => serde_json::json!({
                         "kind": kind,

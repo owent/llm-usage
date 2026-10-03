@@ -2,10 +2,19 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { calendarDay, offsetDay, calendarYearRange } from '../src/lib/calendar.ts';
 import { loadPanelGroup, savePanelGroup, clearPanelPage } from '../src/lib/panels.ts';
-import { durationStatsOf, pivotChartSeries, mergeNamedValues } from '../src/lib/derive.ts';
+import { durationStatsOf, pivotChartSeries, mergeNamedValues, observedTokenTotal, tokenTotalLabel } from '../src/lib/derive.ts';
+import {modelKey} from '../src/lib/model-names.ts';
 import { escapeHtml } from '../src/lib/chart.ts';
-import {formatUnitPrice,unpricedReasonKey} from '../src/lib/costs.ts';
+import {formatAmount,formatUnitPrice,unpricedReasonKey} from '../src/lib/costs.ts';
 import {cnyToUsd,referenceFx} from '../src/lib/exchange-rates.ts';
+
+test('compact total labels distinguish complete, lower-bound and missing usage',()=>{
+  assert.equal(tokenTotalLabel('en-US',120,100,20),'120');
+  assert.equal(tokenTotalLabel('en-US',null,100,20),'≥ 120');
+  assert.equal(tokenTotalLabel('en-US',null,0,0),'≥ 0');
+  assert.equal(tokenTotalLabel('en-US',null,null,20),'—');
+  assert.equal(tokenTotalLabel('en-US','9007199254740993',null,null),'9,007,199,254,740,993');
+});
 
 test('statistics dates follow the selected timezone across midnight and DST', () => {
   const time = new Date('2026-09-27T23:30:00Z');
@@ -64,6 +73,14 @@ test('unit rates preserve small prices, known zero and unavailable components',(
   assert.equal(formatUnitPrice('en','USD',null),'—');
 });
 
+test('currency formatting distinguishes real zero from chart gaps and invalid values',()=>{
+  assert.equal(formatAmount('en','USD',0),'$0.00');
+  assert.equal(formatAmount('en','USD',123),'$1.23');
+  for(const value of [null,undefined,'-','',NaN,Infinity,'0']) {
+    assert.equal(formatAmount('en','USD',value),'—');
+  }
+});
+
 test('CNY reference conversion preserves units and uses same-day ECB cross rates',()=>{
   assert.equal(referenceFx.date,'2026-10-02');
   // EUR 1 = CNY 7.5259 = USD 1.1225, not the inverse conversion.
@@ -80,4 +97,20 @@ test('unpriced explanations distinguish missing usage from missing rates',()=>{
   assert.equal(unpricedReasonKey('no_known_usage'),'cost.reason.no_known_usage');
   assert.equal(unpricedReasonKey('no_price_row'),'cost.reason.no_price_row');
   assert.equal(unpricedReasonKey('future-reason'),'cost.reason.other');
+});
+
+test('observed total lower bounds preserve zeros, unknowns and integer precision',()=>{
+  assert.equal(observedTokenTotal('67162','14715'),'81877');
+  assert.equal(observedTokenTotal('0','0'),'0');
+  assert.equal(observedTokenTotal('9007199254740993','1'),'9007199254740994');
+  assert.equal(observedTokenTotal(null,'10'),null);
+  assert.equal(observedTokenTotal('10',null),null);
+  assert.equal(observedTokenTotal('-1','10'),null);
+});
+
+test('model lookup normalizes separators without guessing releases or suffixes',()=>{
+  assert.equal(modelKey(' Claude_Opus 4.8 '),'claude-opus-4-8');
+  assert.equal(modelKey('GPT_6.1_sol'),'gpt-6.1-sol');
+  assert.notEqual(modelKey('gpt-6-1-sol'),modelKey('gpt-6.1-sol'));
+  assert.equal(modelKey('hy4-preview-f'),'hy4-preview-f');
 });

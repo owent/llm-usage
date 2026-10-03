@@ -1,6 +1,6 @@
 [package]
 name = "llm-usage-desktop"
-version = "0.1.0-dev.2"
+version = "0.1.2-dev"
 description = "llm-usage desktop client"
 edition = "2021"
 rust-version = "1.89"

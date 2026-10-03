@@ -1,0 +1,26 @@
+{
+  "format": "llm-usage-price-snapshot/1",
+  "snapshot": {
+    "id": "seed-2026-10-03-hy4",
+    "source_type": "seed",
+    "source_urls": ["https://cloud.tencent.com/document/product/1823/130055"],
+    "fetched_at": "2026-10-03",
+    "verified_at": "2026-10-03",
+    "verified_by": "Tencent Cloud TokenHub official price table, updated 2026-09-24",
+    "note": "Hy4 preview standard postpaid, Guangzhou, CNY per million tokens. CodeBuddy model catalog identifies hy4-preview-f as Hy4 preview. API reference only, not CodeBuddy credits or subscription cost."
+  },
+  "rows": [{
+    "price_id": "tencent-hy4-preview-guangzhou-standard-2026-10-03",
+    "provider_id": "tencent",
+    "model": "hy4-preview",
+    "region": "cn-guangzhou",
+    "channel": "api",
+    "service_tier": "standard",
+    "effective_from": "2026-10-03",
+    "currency": "CNY",
+    "input": 60000,
+    "output": 180000,
+    "cache_read": 3000,
+    "official_vendor": true
+  }]
+}

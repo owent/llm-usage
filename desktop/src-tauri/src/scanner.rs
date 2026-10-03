@@ -103,18 +103,24 @@ fn run_refresh_filtered(
         run_id_prefix: format!("scan-{now}"),
         origin_host_id: Some(host_id),
     };
-    let mut ctx = discover_context(manual_roots);
+    let ctx = discover_context(manual_roots);
     // Only the verified Copilot file targets produced by this app are promoted.
     // Other supplemental exports retain their isolated validation boundary.
-    if let Some(app) = state.db_path.parent() {
-        ctx.manual_roots
-            .extend(crate::telemetry_setup::copilot_usage_roots(app));
-    }
+    let copilot_roots = state
+        .db_path
+        .parent()
+        .map(crate::telemetry_setup::copilot_usage_roots)
+        .unwrap_or_default();
     let mut summaries: Vec<RefreshInstanceSummary> = Vec::new();
     // F2：刷新前修订号——本轮采集重写的 daily_usage 行 revision 均大于它
     // （retention 之后还会再 bump，不能用"当前 revision"等于过滤）。
     let revision_before: i64 = {
         let storage = state.storage.lock().unwrap();
+        if let Err(e) =
+            llm_usage_core::adapters::routing::retire_misrouted_sources(&storage, &copilot_roots)
+        {
+            eprintln!("source routing repair failed: {e}");
+        }
         storage.data_revision().unwrap_or(0)
     };
     // 全局刷新排除有自定义启用计划的实例（逐源节奏覆盖全局）。排除集
@@ -182,10 +188,15 @@ fn run_refresh_filtered(
         };
         let result = {
             let storage = state.storage.lock().unwrap();
+            let adapter_ctx = llm_usage_core::adapters::routing::context_for_adapter(
+                &ctx,
+                adapter.adapter_id(),
+                &copilot_roots,
+            );
             llm_usage_core::adapters::framework::run_adapter_scan_filtered(
                 &storage,
                 adapter.as_ref(),
-                &ctx,
+                &adapter_ctx,
                 &config,
                 &filter,
             )

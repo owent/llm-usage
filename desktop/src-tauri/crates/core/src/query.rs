@@ -833,8 +833,16 @@ fn append_filters(
     };
     push_in(sql, values, "agent", &filters.agents);
     push_in(sql, values, "provider_id", &filters.providers);
-    push_in(sql, values, "CASE WHEN fold_name(model_raw) LIKE 'claude-%' THEN REPLACE(fold_name(model_raw),'.','-') ELSE model_raw END",
-        &filters.models.iter().map(|m|crate::model_names::model_key(m)).collect::<Vec<_>>());
+    push_in(
+        sql,
+        values,
+        "model_key(model_raw)",
+        &filters
+            .models
+            .iter()
+            .map(|m| crate::model_names::model_key(m))
+            .collect::<Vec<_>>(),
+    );
     if let Some(instances) = &filters.instances {
         if instances.is_empty() {
             sql.push_str(" AND 0");

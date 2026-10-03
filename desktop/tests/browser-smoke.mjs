@@ -88,7 +88,7 @@ await page.addInitScript(() => {
           ...(!q.agents?.length||q.agents.includes('vscode-copilot-chat')?[{agent:'vscode-copilot-chat',sums:{...stats(1),call_count:0,total_tokens_known:null,input_total_known:'300000',output_total_known:'1234'}}]:[])],
         today_hourly:empty?[]:Array.from({length:12},(_,i)=>({hour:8+i,calls:12+i*3,total_tokens:String((i+1)*150000),input_total:String((i+1)*120000),cache_read:String(i*80000),output_total:String((i+1)*30000),sessions:5,avg_duration_ms:'4250'})),excluded_event_count:0 };
     }
-    if(cmd==='list_sources') return {sources:['codex','claude','zcode','opencode','gemini','kimi-code'].map((agent,i)=>({instance_id:`${agent}@C:/Users/local/.${agent}`,agent,format:'local',health:i===5||i===2?'degraded':'ok',enabled:i!==4,origin_host_id:'local',user_id:owners[`${agent}@C:/Users/local/.${agent}`]??'default',last_success_ms:finished,compat_files:i===3?1:0,degraded_files:i===5?1:0,unsupported_files:i===2?1:0,incompatible_files:0,missing_files:i===0?2:0}))};
+    if(cmd==='list_sources') return {sources:['codex','claude','zcode','opencode','gemini','kimi-code'].map((agent,i)=>({instance_id:`${agent}@C:/Users/local/.${agent}`,agent,format:'local',health:i===4?'error':i===5||i===2?'degraded':'ok',available:i!==4,enabled:i!==4,origin_host_id:'local',user_id:owners[`${agent}@C:/Users/local/.${agent}`]??'default',last_success_ms:finished,compat_files:i===3?1:0,degraded_files:i===5?1:0,unsupported_files:i===2?1:0,incompatible_files:0,missing_files:i===0?2:0}))};
     if(cmd==='refresh_status') return {running:false,started_ms:finished-1000,last_finished_ms:finished,trigger:'manual',progress_percent:100,eta_seconds:null,completed_adapters:[],instances:[]};
     if(cmd==='refresh_sources') {revision++;finished++;return {started:true,running:false,last_finished_ms:finished};}
     if(cmd==='cost_summary') {
@@ -96,15 +96,16 @@ await page.addInitScript(() => {
       const row={currency:window.cnyReference?'CNY':'USD',total_amount_minor:window.cnyReference?12000:1234,priced_tokens:100000,known_tokens:200000,priced_event_count:10,unpriced_event_count:0,partial_event_count:2,ttl_defaulted_events:0,fallback_event_count:8};
       const mode={rows:[row],unpriced_reasons:window.cnyReference?{no_known_usage:2,no_price_row:3}:{},as_of_ms:finished,detail_limited:false};
       const models=['gpt-5.4','claude-sonnet-4.6','glm-5.3'].map((model,i)=>({model,provider:['openai','anthropic','zhipu'][i],at_time:[{...row,total_amount_minor:[600,400,234][i],priced_event_count:[4,3,3][i]}],current_sim:[{...row,total_amount_minor:(q.first_period?[200,200,100]:[1200,800,468])[i],priced_event_count:[4,3,3][i]}],
+        unpriced_reasons:i===2?{no_price_row:3}:{},reference_models:i===2?['synthetic-reference-model']:[model],
         unit_prices:i===2?[]:[{price_id:`mock-${i}`,snapshot_id:'Synthetic unit prices',provider_id:['openai','anthropic'][i],model,currency:row.currency,region:'global',channel:'api',service_tier:'standard',context_threshold_tokens:i===1?200000:0,input_per_mtok_hundredths:window.cnyReference?200000:30000,output_per_mtok_hundredths:150000,cache_read_per_mtok_hundredths:3000,cache_write_5m_per_mtok_hundredths:37500,cache_write_1h_per_mtok_hundredths:null}]}));
       const day=(i)=>q.first_day===q.last_day?q.last_day:`2026-09-${15+i}`;
-      return {at_time:mode,current_sim:{...mode,rows:[{...row,total_amount_minor:window.cnyReference?12000:q.first_period?500:2468}]},source_amounts:[],price_basis:['Synthetic official reference'],data_revision:revision,models,
+      return {at_time:mode,current_sim:{...mode,rows:[{...row,total_amount_minor:window.cnyReference?12000:q.first_period?500:2468},...(window.multiCurrency?[{...row,currency:'USD',total_amount_minor:2468,partial_event_count:5},{...row,currency:'',priced_event_count:0,unpriced_event_count:197}]:[])]},source_amounts:[],price_basis:['Synthetic official reference'],data_revision:revision,models,
         daily:models.map((model,i)=>({day:day(i),provider:model.provider,model:model.model,sums:model.at_time[0]})),
         daily_current:models.map((model,i)=>({day:day(i),provider:model.provider,model:model.model,sums:model.current_sim[0]}))};
     }
     if(cmd==='chart_series') return {rows:Array.from({length:window.singleChartPeriod?1:12},(_,i)=>{
       const label=q.granularity==='hour'?`${q.last_day} ${String(8+i).padStart(2,'0')}:00`:`2026-09-${String(15+i).padStart(2,'0')}`;
-      return [{label,series:args.dimension==='agent'?'codex':'gpt-5.4',calls:10+i,input:String(100000*(i+1)),cache_read:String(80000*(i+1)),cache_write:'0',uncached:String(20000*(i+1)),cache_ratio:.8,output:'15000',total:String(115000*(i+1))},
+      return [{label,series:args.dimension==='agent'?'codex':args.dimension==='agent_model'?'codex · gpt-5.4':'gpt-5.4',calls:10+i,input:String(100000*(i+1)),cache_read:String(80000*(i+1)),cache_write:'0',uncached:String(20000*(i+1)),cache_ratio:.8,output:'15000',total:i===1?'0':String(115000*(i+1))},
         {label,series:'vscode-copilot-chat',calls:i===0?0:2,input:String(300000+i),cache_read:null,cache_write:null,uncached:null,cache_ratio:null,output:i===0?'0':'1234',total:null}];
     }).flat()};
     if(cmd==='telemetry_check') return telemetryTargets.map(row=>{
@@ -227,17 +228,31 @@ await page.clock.runFor(30_500);
 assert.match(await overviewTelemetry.textContent(),/4 暂无数据[\s\S]*0 已核验/,'automatic checks restore the no-data summary when no valid data is available');
 assert.doesNotMatch(await overviewTelemetry.textContent(),/配置受限/);
 const todayPanel=page.locator('[data-panel-group="overviewToday"]').filter({has:page.locator('.hourly')});
+const getChartOptions = async (selector) => page.evaluate(async (sel) => {
+  const echarts = await import('/node_modules/.vite/deps/echarts_core.js');
+  return echarts.getInstanceByDom(document.querySelector(sel)).getOption();
+}, selector);
 const todayTotalTypes=await page.evaluate(async ()=>{
   const echarts=await import('/node_modules/.vite/deps/echarts_core.js');
   return echarts.getInstanceByDom(document.querySelector('[data-panel-group="overviewToday"] .hourly')).getOption().series.map(s=>s.type);
 });
 assert.deepEqual(todayTotalTypes,['line','line'],'today overview keeps a line (curve) chart for calls and tokens');
-await todayPanel.getByRole('button',{name:'按Agent',exact:true}).click();await page.clock.runFor(300);
+for(const [index,dimension] of [[1,'model'],[3,'agent_model'],[2,'agent']]) {
+  await todayPanel.locator('.dim-seg button').nth(index).click();await page.clock.runFor(300);
+  const option=await getChartOptions('[data-panel-group="overviewToday"] .hourly');
+  assert.ok(option.series.every(s=>s.type==='line'&&!s.name.includes('调用')),'hourly grouping uses token curves: '+dimension);
+  assert.deepEqual(option.series[0].data.slice(0,2),[115000,0],'plots token values, including true zero, rather than call counts');
+  assert.match(option.yAxis[0].name,/token/i);assert.equal(option.yAxis.length,1);
+  assert.ok(option.series[1].data.every(v=>v===null),'missing complete totals remain gaps');
+  const request=await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='chart_series').at(-1).args);
+  assert.equal(request.dimension,dimension);assert.equal(request.q.granularity,'hour');
+}
 await page.evaluate(async () => {
   const echarts=await import('/node_modules/.vite/deps/echarts_core.js');
   echarts.getInstanceByDom(document.querySelector('[data-panel-group="overviewToday"] .hourly')).dispatchAction({type:'showTip',seriesIndex:0,dataIndex:0});
 });await page.clock.runFor(100);
-assert.match(await todayPanel.textContent(),/vscode-copilot-chat · 总 token: 未知[\s\S]*输入 token: 300,000[\s\S]*输出 token: 0/,'overview hover retains partial Copilot usage');
+assert.match(await todayPanel.textContent(),/vscode-copilot-chat: ≥ 300,000/,'overview hover uses a compact observed total');
+await todayPanel.screenshot({path:out+'today-token-groups.png'});
 assert.match(await page.locator('.cost-panel').textContent(),/API[\s\S]*参考/,'overview labels the API price reference');
 const overviewModels=page.locator('[data-panel-group="overviewToday"]').filter({has:page.getByRole('heading',{name:'今日模型明细',exact:true})});
 assert.match(await overviewModels.locator('tfoot').textContent(),/24\.68/,'model footer includes the current currency subtotal');
@@ -251,12 +266,14 @@ assert.doesNotMatch(await page.locator('.cost-panel').textContent(),/按发生�
 const priceRequests=await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='cost_summary').length);
 await page.locator('.unit-prices summary').click();
 assert.match(await page.locator('.unit-prices').textContent(),/gpt-5\.4[\s\S]*USD 3[\s\S]*USD 15[\s\S]*glm-5\.3[\s\S]*暂无适用单价/,'unit prices show actual model rates and unavailable rows');
+assert.match(await page.locator('.unit-prices').textContent(),/→ synthetic-reference-model[\s\S]*×3/,'unpriced models show the resolved reference model and their own reason count');
 assert.equal(await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='cost_summary').length),priceRequests,'opening prices reuses the loaded reference');
 await page.locator('.unit-prices').screenshot({path:out+'unit-prices.png'});
 await page.locator('.unit-prices summary').click();
 assert.equal(await overviewModels.locator('section').evaluate(el=>el.scrollWidth>el.clientWidth),false,'full-width model table avoids desktop scrolling');
 assert.ok(await page.locator('.curve canvas').count(),'overview renders the cost curve');
 assert.match(await page.locator('tr').filter({hasText:'vscode-copilot-chat'}).first().textContent(),/—[\s\S]*300,000/,'token observations do not display an invented zero call count');
+assert.match(await page.locator('tr').filter({hasText:'vscode-copilot-chat'}).first().textContent(),/≥ 301,234/,'the table derives the observed token sum while retaining the lower-bound label');
 const todayAgentPie=page.locator('[data-panel-group="overviewToday"]').filter({has:page.getByRole('heading',{name:'今日 Agent 用量',exact:true})});
 assert.match(await todayAgentPie.textContent(),/vscode-copilot-chat/,'unknown totals retain the Agent name beside the pie');
 await todayAgentPie.getByRole('button',{name:'输入 token',exact:true}).click();await page.clock.runFor(300);
@@ -295,10 +312,6 @@ assert.equal(await page.locator('.heatmap .days [data-day="2026-01-01"].unavaila
 assert.equal(await page.locator('.heatmap .days .partial').count(),1,'partial daily coverage retains known calls but marks uncertainty');
 assert.match(await page.locator('.heatmap .days [data-day]').first().getAttribute('aria-label'),/无按日数据/);
 assert.match(await page.locator('.heatmap .days [data-day="2026-12-31"]').getAttribute('aria-label'),/尚未到来/,'future cells are not reported as measured zero usage');
-const getChartOptions = async (selector) => page.evaluate(async (sel) => {
-  const echarts = await import('/node_modules/.vite/deps/echarts_core.js');
-  return echarts.getInstanceByDom(document.querySelector(sel)).getOption();
-}, selector);
 const weekdayBefore=await getChartOptions('.weekday');
 assert.equal(weekdayBefore.xAxis[0].data[0],'周一','weekday labels follow calendar weekdays in the configured America/Los_Angeles zone');
 assert.ok(weekdayBefore.series[0].data.some(v=>v>0),'weekday distribution queries the statistics date range');
@@ -325,7 +338,15 @@ await page.evaluate(async (sel) => {
   const chart=echarts.getInstanceByDom(document.querySelector(sel));
   chart.dispatchAction({type:'showTip',seriesIndex:0,dataIndex:0});
 },tokenSelector);await page.clock.runFor(100);
-assert.match(await trendTokens.textContent(),/vscode-copilot-chat · 完整总 token 未提供[\s\S]*输入 token: 300,000[\s\S]*输出 token: 0/,'hover identifies the missing metric without an unknown Agent suffix');
+assert.match(await trendTokens.textContent(),/vscode-copilot-chat: ≥ 300,000/,'hover uses the same compact total format');
+const tipLayout=await page.locator(tokenSelector).evaluate(el=>{
+  const tip=[...el.children].find(child=>child.textContent.includes('vscode-copilot-chat: ≥'));
+  return {width:tip.getBoundingClientRect().width,text:tip.innerText};
+});
+assert.ok(tipLayout.width<=482,'tooltip width stays bounded');
+assert.doesNotMatch(tipLayout.text,/原生 Copilot|输入 token|输出 token|完整总 token/,'series rows do not repeat long coverage descriptions');
+assert.equal(tipLayout.text.match(/≥ 已观测下界/g)?.length,1,'one short lower-bound footnote per tooltip');
+await trendTokens.screenshot({path:out+'token-tooltip-compact.png'});
 assert.match(await page.locator('.cost-panel').textContent(),/API[\s\S]*参考/,'trend labels the API price reference');
 const callsPanel=page.locator('[data-panel-group="trendMain"]').filter({has:page.locator('.calls-chart')});
 await callsPanel.getByRole('button',{name:'按Agent',exact:true}).click();await page.clock.runFor(300);
@@ -367,6 +388,16 @@ assert.deepEqual(costOption.series[0].data.slice(0,3),[1200,800,468],'cost curve
 await page.locator('[data-panel-group="trendMain"] .curve').scrollIntoViewIfNeeded();
 await page.locator('[data-panel-group="trendMain"] .controls').getByRole('button',{name:'按模型',exact:true}).click();await page.clock.runFor(100);
 assert.equal((await getChartOptions('[data-panel-group="trendMain"] .curve')).series.length,3,'cost curve can compare individual models');
+const tooltipValues=await page.locator('[data-panel-group="trendMain"] .curve').evaluate(async el=>{
+  const echarts=await import('/node_modules/.vite/deps/echarts_core.js');const chart=echarts.getInstanceByDom(el);
+  chart.dispatchAction({type:'showTip',seriesIndex:0,dataIndex:0});
+  const formatter=chart.getOption().tooltip[0].formatter;
+  return ['-',null,0,100].map(value=>formatter([{value,axisValue:'2026-09-15',seriesName:'USD / sample',marker:''}]));
+});
+assert.ok(tooltipValues.every(value=>!value.includes('NaN')),'ECharts missing-point sentinels never format as NaN');
+assert.match(tooltipValues[0],/—/);assert.match(tooltipValues[1],/—/);
+assert.match(tooltipValues[2],/0\.00/,'known zero is a real zero, not missing');
+assert.match(tooltipValues[3],/1\.00/);
 await trendTokens.scrollIntoViewIfNeeded();
 const selectionPoint=await page.locator(tokenSelector).evaluate(async el=>{
   const echarts=await import('/node_modules/.vite/deps/echarts_core.js');const chart=echarts.getInstanceByDom(el);
@@ -429,6 +460,10 @@ assert.match(await page.locator('.source-card').filter({has:page.getByRole('head
 assert.match(await page.locator('.source-card').filter({has:page.getByRole('heading',{name:'opencode',exact:true})}).locator('.tag.compat').getAttribute('title'),/已自动检查[\s\S]*自动复核/,'compatibility status explains automatic checks and future re-evaluation');
 assert.match(await page.locator('.source-card').filter({has:page.getByRole('heading',{name:'zcode',exact:true})}).textContent(),/部分数据需核对[\s\S]*未识别 1 个文件/,'unrecognized usage carrier remains visible');
 assert.match(await page.locator('.source-card').filter({has:page.getByRole('heading',{name:'kimi-code',exact:true})}).textContent(),/部分数据需核对[\s\S]*需核对 1 个文件/,'degraded source shows a concrete file count');
+const absentSource=page.locator('.source-card').filter({has:page.getByRole('heading',{name:'gemini',exact:true})});
+assert.match(await absentSource.textContent(),/本机来源已不在，保留历史/);
+assert.doesNotMatch(await absentSource.textContent(),/读取失败/,'an absent source is not a read error');
+assert.ok(Number(await absentSource.evaluate(el=>getComputedStyle(el).opacity))<1,'absent sources are dimmed');
 await page.screenshot({path:out+'sources-light.png',fullPage:true});
 await page.getByLabel('codex: 归属用户',{exact:true}).selectOption('empty');
 await page.clock.runFor(500);
@@ -453,6 +488,19 @@ await page.getByRole('navigation').first().getByRole('button',{name:'设置',exa
 assert.equal(await page.locator('#telemetry-settings').count(),0,'normal settings navigation starts at general');
 await page.locator('[data-settings-section="costs"]').click();
 assert.equal(await page.locator('.frow').filter({hasText:'缓存有效期（天）'}).locator('input').inputValue(),'3','old settings without a TTL display the three-day default');
+const costSwitch=page.locator('#cost-enabled');
+assert.equal(await costSwitch.getAttribute('role'),'switch');
+assert.equal(await costSwitch.isChecked(),true);
+await costSwitch.focus();await page.keyboard.press('Space');
+assert.equal(await costSwitch.isChecked(),false,'switch supports keyboard toggling');
+await page.keyboard.press('Space');
+assert.equal(await costSwitch.isChecked(),true);
+assert.equal(await costSwitch.evaluate(el=>getComputedStyle(el).width),'40px');
+await page.locator('label[for="price-refresh-enabled"]').click();
+assert.equal(await page.locator('#price-refresh-enabled').isChecked(),true,'the entire label toggles its switch');
+await page.locator('label[for="price-refresh-enabled"]').click();
+assert.equal(await page.locator('#price-refresh-enabled').isChecked(),false);
+await page.screenshot({path:out+'settings-switches-light.png',fullPage:true});
 await page.locator('[data-settings-section="telemetry"]').click();
 assert.equal(await page.locator('[data-telemetry-id="copilot-vscode"]').count(),1,'settings provides the same merge-configuration entry');
 await page.locator('[data-settings-section="general"]').click();
@@ -466,6 +514,10 @@ await page.getByRole('navigation').first().getByRole('button',{name:'趋势',exa
 await page.clock.runFor(500);
 await page.screenshot({path:out+'trend-dark.png',fullPage:true});
 await page.getByRole('navigation').first().getByRole('button',{name:'设置',exact:true}).click();
+await page.locator('[data-settings-section="costs"]').click();
+assert.equal(await page.locator('#cost-enabled').isChecked(),true,'saved switch state survives navigation and a theme change');
+await page.screenshot({path:out+'settings-switches-dark.png',fullPage:true});
+await page.locator('[data-settings-section="general"]').click();
 await page.getByLabel('界面语言',{exact:true}).selectOption('ja');
 await page.getByRole('button',{name:'保存',exact:true}).click();
 assert.equal(await page.getByRole('navigation').first().getByRole('button',{name:'推移',exact:true}).count(),1,'Japanese navigation updates immediately');
@@ -514,23 +566,51 @@ await page.getByRole('button',{name:'采集并刷新',exact:true}).click();await
 const singlePanel=page.locator('[data-panel-group="overviewToday"]').filter({has:page.locator('.hourly')});
 await singlePanel.getByRole('button',{name:'按Agent',exact:true}).click();await page.clock.runFor(300);
 const singleCalls=await getChartOptions('[data-panel-group="overviewToday"] .hourly');
-assert.deepEqual(singleCalls.series.map(s=>s.name),['codex','vscode-copilot-chat'],'single-period call legend uses Agent names');
-assert.equal(singleCalls.yAxis.length,1,'call grouping contains a single call axis');
-await page.evaluate(async ()=>{const echarts=await import('/node_modules/.vite/deps/echarts_core.js');echarts.getInstanceByDom(document.querySelector('[data-panel-group="overviewToday"] .hourly')).dispatchAction({type:'showTip',seriesIndex:1,dataIndex:1});});await page.clock.runFor(100);
-assert.match(await singlePanel.textContent(),/vscode-copilot-chat[\s\S]*输入 token: 300,000/,'single-period hover keeps partial usage information');
+assert.deepEqual(singleCalls.series.map(s=>s.name),['codex','vscode-copilot-chat'],'single-hour legend uses Agent names');
+for(const index of [1,3,2]) {
+  await singlePanel.locator('.dim-seg button').nth(index).click();await page.clock.runFor(300);
+  const option=await getChartOptions('[data-panel-group="overviewToday"] .hourly');
+  assert.equal(option.xAxis[0].data.length,1);assert.match(option.xAxis[0].data[0],/08:00$/);
+  assert.ok(option.series.every(s=>s.type==='line'));
+  assert.deepEqual(option.series[0].data,[115000]);assert.deepEqual(option.series[1].data,[null]);
+  assert.match(option.yAxis[0].name,/token/i);
+}
+await page.evaluate(async ()=>{const echarts=await import('/node_modules/.vite/deps/echarts_core.js');echarts.getInstanceByDom(document.querySelector('[data-panel-group="overviewToday"] .hourly')).dispatchAction({type:'showTip',seriesIndex:0,dataIndex:0});});await page.clock.runFor(100);
+assert.match(await singlePanel.textContent(),/vscode-copilot-chat: ≥ 300,000/,'single-hour hover retains the observed lower bound');
 await page.screenshot({path:out+'overview-narrow.png',fullPage:true});
 assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth > innerWidth),false,'no horizontal page overflow');
 await page.evaluate(()=>{window.cnyReference=true;});
 await page.getByRole('button',{name:'采集并刷新',exact:true}).click();await page.clock.runFor(800);
 assert.match(await page.locator('.today-cards .cost-ref').textContent(),/CNY[\s\S]*120\.00[\s\S]*≈ USD[\s\S]*17\.90/,'CNY reference keeps its native value and shows a rounded USD equivalent');
+await page.locator('.coverage-details summary').click();
 assert.match(await page.locator('.cost-panel').textContent(),/来源未提供可计价 token[\s\S]*没有适用的模型价目/,'missing tokens and missing prices have distinct localized explanations');
 await page.locator('.unit-prices summary').click();
 assert.match(await page.locator('.unit-prices').textContent(),/2026-10-02[\s\S]*ECB[\s\S]*CNY 20[\s\S]*≈ USD 2\.983/,'unit-price conversion preserves the per-million unit and publishes the FX date');
 assert.equal(await page.locator('.unit-prices a').getAttribute('href'),'https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html');
 await page.screenshot({path:out+'overview-cny-narrow.png',fullPage:true});
+await page.evaluate(()=>{window.multiCurrency=true;});
+await page.setViewportSize({width:1440,height:1100});await page.clock.runFor(100);
+await page.getByRole('navigation').first().getByRole('button',{name:'趋势',exact:true}).click();await page.clock.runFor(500);
+const feeCard=page.locator('.range-summary .cost-ref');
+assert.match(await feeCard.textContent(),/CNY[\s\S]*USD/,'compact summary preserves both native currencies');
+assert.doesNotMatch(await feeCard.textContent(),/未计价|部分估算/,'summary card does not grow from repeated coverage counts');
+assert.match(await feeCard.getAttribute('title'),/197/,'coverage count remains accessible');
+assert.ok((await feeCard.boundingBox()).height<115,'two currencies and CNY conversion fit a compact summary card');
+const feePanel=page.locator('[data-panel-group="trendMain"]').filter({has:page.locator('.cost-panel')});
+assert.equal(await feePanel.locator('.coverage-details').getAttribute('open'),null,'coverage explanation is initially collapsed');
+await feePanel.screenshot({path:out+'cost-panel-compact.png'});
+const costLayout=await feePanel.evaluate(el=>Object.fromEntries(['.cost-panel','.curve','.pbody','.phead'].map(selector=>[selector,el.querySelector(selector)?.getBoundingClientRect().height]).concat([['height',el.getBoundingClientRect().height]])));
+await writeFile(out+'cost-layout.json',JSON.stringify(costLayout));
+assert.ok(costLayout.height<490,'price reference panel does not tower over the token panel: '+JSON.stringify(costLayout));
+await page.locator('.range-summary').screenshot({path:out+'cost-summary-compact.png'});
+await page.setViewportSize({width:760,height:1000});await page.clock.runFor(200);
+await feePanel.locator('.coverage-details summary').click();
+await feePanel.locator('.unit-prices summary').click();await page.clock.runFor(100);
+assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth > innerWidth),false,'expanded multi-currency details do not overflow a narrow window');
+await feePanel.screenshot({path:out+'cost-details-narrow.png'});
 assert.deepEqual(errors,[]);
-await writeFile(out+'browser-results.json',JSON.stringify({errors,requests:await page.evaluate(()=>window.appCalls.length),checks:['five pages','full-year light/dark heatmap','year navigation and leap days','future/retained dates','Copilot input with unknown cache split','Copilot unknown total hover and zero output','async telemetry discovery','compact overview with two actions','details navigation and focus','batch partial failure and retry','existing/managed outputs preserved','cross-page progress and undo','installed Agents only','merge configuration preview/apply/undo','ten locale switches','narrow telemetry layout in Chinese/German/Russian','default panel order','source health and compatibility','statistics timezone','initial/idle query counts','stale filter responses','user isolation','source membership without revision','refresh preserves pagination','retention clamps pagination'],screenshots:11},null,2));
-console.log('Browser checks passed: total-only series, Agent calls and single-period hover, partial share pies, overview/trend API references, filled summary layout, telemetry batch setup/retry/undo, ten locales, themes, timezone, filters and pagination.');
+await writeFile(out+'browser-results.json',JSON.stringify({errors,requests:await page.evaluate(()=>window.appCalls.length),checks:['five pages','hourly tokens across three dimensions and single-hour views','concise token tooltip with one lower-bound note','compact multi-currency summary and panel','expanded narrow price details without overflow','full-year light/dark heatmap','year navigation and leap days','future/retained dates','Copilot input with unknown cache split','Copilot unknown total hover and zero output','async telemetry discovery','compact overview with two actions','details navigation and focus','batch partial failure and retry','existing/managed outputs preserved','cross-page progress and undo','installed Agents only','merge configuration preview/apply/undo','ten locale switches','narrow telemetry layout in Chinese/German/Russian','default panel order','source health and compatibility','statistics timezone','initial/idle query counts','stale filter responses','user isolation','source membership without revision','refresh preserves pagination','retention clamps pagination']},null,2));
+console.log('Browser checks passed: hourly tokens in all three grouped dimensions and single-hour views, concise token tooltips, compact multi-currency reference cards/panels and expanded narrow details, total-only series, partial share pies, telemetry batch setup/retry/undo, ten locales, themes, timezone, filters and pagination.');
 } catch (error) {
   const snapshot = testPage ? await testPage.evaluate(() => ({ calls: window.appCalls ?? [], text: document.body.innerText })).catch(() => null) : null;
   await writeFile(out+'failure.json',JSON.stringify({error:String(error),errors,console:browserConsole,snapshot},null,2));

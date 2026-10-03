@@ -1047,9 +1047,12 @@
         <section class="panel">
           <h4>{t('cost.title')}</h4>
           <div class="frow">
-            <span class="flabel">{t('cost.settings.enabled')}</span>
+            <label class="flabel" for="cost-enabled">{t('cost.settings.enabled')}</label>
             <div class="fvalue">
               <input
+                id="cost-enabled"
+                class="switch"
+                role="switch"
                 type="checkbox"
                 checked={draft.pricing?.enabled ?? false}
                 onchange={(e) => {
@@ -1101,9 +1104,12 @@
         <section class="panel">
           <h4>{t('cost.refresh.title')}</h4>
           <div class="frow">
-            <span class="flabel">{t('cost.refresh.enable')}</span>
+            <label class="flabel" for="price-refresh-enabled">{t('cost.refresh.enable')}</label>
             <div class="fvalue">
               <input
+                id="price-refresh-enabled"
+                class="switch"
+                role="switch"
                 type="checkbox"
                 checked={draft.pricing?.online_refresh_enabled ?? false}
                 onchange={(e) => {
@@ -1621,12 +1627,6 @@
   .sysinfo .name {
     font-size: 13px;
     color: var(--text);
-  }
-  .switch {
-    width: 16px;
-    height: 16px;
-    accent-color: var(--accent);
-    cursor: pointer;
   }
   .meta {
     display: grid;

@@ -106,7 +106,7 @@ export interface CostSummaryDto {
   current_sim: CostModeSummaryDto;
   price_basis: string[];
   data_revision: number;
-  models: {provider: string; model: string; at_time: CostCurrencyRowDto[]; current_sim: CostCurrencyRowDto[]; unit_prices: UnitPriceDto[]}[];
+  models: {provider: string; model: string; at_time: CostCurrencyRowDto[]; current_sim: CostCurrencyRowDto[]; unit_prices: UnitPriceDto[]; unpriced_reasons?: Record<string,number>; reference_models?: string[]}[];
   daily: {day: string; provider:string; model:string; sums: CostCurrencyRowDto}[];
   daily_current: {day: string; provider:string; model:string; sums: CostCurrencyRowDto}[];
 }
@@ -247,6 +247,8 @@ export interface HeatmapDto {
 }
 
 export interface SourceDto {
+  /** null means presence could not be checked; do not hide a real read failure. */
+  available?: boolean | null;
   instance_id: string;
   agent: string;
   format: string | null;

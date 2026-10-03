@@ -3,6 +3,22 @@
  */
 import type { ChartSeriesRowDto, PeriodDto } from './api';
 
+/** Native Copilot turn input is a lower bound. This is a display value only;
+ * never substitute it for the canonical complete total in queries or exports. */
+export function observedTokenTotal(input:string|number|null,output:string|number|null):string|null {
+  if(input===null || output===null
+    || (typeof input==='number' && !Number.isSafeInteger(input))
+    || (typeof output==='number' && !Number.isSafeInteger(output))
+    || !/^\d+$/.test(String(input)) || !/^\d+$/.test(String(output))) return null;
+  return (BigInt(input)+BigInt(output)).toString();
+}
+
+/** Short display only: complete totals, observed lower bounds, and unknown stay distinct. */
+export function tokenTotalLabel(locale:string,total:string|number|null,input:string|number|null,output:string|number|null):string {
+  const value=total===null ? observedTokenTotal(input,output) : observedTokenTotal(total,0);
+  return value===null ? '—' : `${total===null ? '≥ ' : ''}${BigInt(value).toLocaleString(locale)}`;
+}
+
 /** A model can appear under several providers; a name-only pie combines them. */
 export function mergeNamedValues(rows: { name: string; value: number }[]) {
   const sums = new Map<string, number>();

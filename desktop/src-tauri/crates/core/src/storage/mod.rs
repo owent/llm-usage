@@ -21,6 +21,16 @@ fn register_functions(conn: &Connection) -> Result<(), rusqlite::Error> {
         1,
         FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
         |ctx| Ok(ctx.get::<Option<String>>(0)?.map(|s| s.to_lowercase())),
+    )?;
+    conn.create_scalar_function(
+        "model_key",
+        1,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        |ctx| {
+            Ok(ctx
+                .get::<Option<String>>(0)?
+                .map(|s| crate::model_names::model_key(&s)))
+        },
     )
 }
 

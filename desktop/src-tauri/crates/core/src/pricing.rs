@@ -465,6 +465,8 @@ pub enum UnpricedReason {
     ChannelUnknown,
     /// 无适用价格行（含事件早于快照生效起点）。
     NoPriceRow,
+    /// Separator normalization found distinct catalog IDs without an exact match.
+    ModelAmbiguous,
     /// 存在多个上下文档但事件输入规模未知：不猜测档位。
     TierAmbiguous,
     /// token 异常（负值或缓存大于已知总输入）：拒绝计价。
@@ -481,6 +483,7 @@ impl UnpricedReason {
             UnpricedReason::NoModel => "no_model",
             UnpricedReason::ChannelUnknown => "channel_unknown",
             UnpricedReason::NoPriceRow => "no_price_row",
+            UnpricedReason::ModelAmbiguous => "model_ambiguous",
             UnpricedReason::TierAmbiguous => "tier_ambiguous",
             UnpricedReason::TokenAnomaly => "token_anomaly",
             UnpricedReason::InternalOverflow => "internal_overflow",
@@ -529,7 +532,7 @@ impl PriceBook {
                 .or(event.model_raw.as_deref())
                 .unwrap_or_default(),
         );
-        let reference = crate::model_names::reference_model_key(&model);
+        let reference = crate::model_names::reference_model_key_at(&model, event.occurred_at_ms);
         PriceBook {
             rows: self
                 .rows
@@ -576,7 +579,8 @@ impl PriceBook {
             _ => return EventEstimate::Unpriced(UnpricedReason::NoModel),
         };
         let configured = options.provider_channels.get(&provider);
-        let reference_model = crate::model_names::reference_model_key(&model);
+        let reference_model =
+            crate::model_names::reference_model_key_at(&model, event.occurred_at_ms);
 
         // 异常 token：负值 / 缓存大于已知总输入（不用 max(0,…) 修饰）。
         let read = event.input_cache_read;
@@ -653,20 +657,20 @@ impl PriceBook {
                     in_range(r)
                         && crate::model_names::model_key(&r.model) == reference_model
                         && r.official_vendor
-                        && (crate::model_names::official_providers(&model).is_empty()
-                            || crate::model_names::official_providers(&model)
+                        && (crate::model_names::official_providers(&reference_model).is_empty()
+                            || crate::model_names::official_providers(&reference_model)
                                 .iter()
                                 .any(|p| r.provider_id.eq_ignore_ascii_case(p)))
                 })
                 .collect();
             if fallback.is_empty() {
                 return EventEstimate::Unpriced(
-                    if !crate::model_names::official_providers(&model).is_empty() {
+                    if !crate::model_names::official_providers(&reference_model).is_empty() {
                         UnpricedReason::NoPriceRow
                     } else if provider.is_empty() {
                         UnpricedReason::NoProvider
                     } else if configured.is_none()
-                        && crate::model_names::official_providers(&model).is_empty()
+                        && crate::model_names::official_providers(&reference_model).is_empty()
                     {
                         UnpricedReason::ChannelUnknown
                     } else {
@@ -724,6 +728,31 @@ impl PriceBook {
                     && r.channel == first.channel
                     && r.currency == first.currency
             });
+        }
+        // Resolve catalog spelling before context tiers: a different spelling's
+        // higher tier must never override an exact ID.
+        let raw_model = event
+            .model_canonical
+            .as_deref()
+            .filter(|m| !m.trim().is_empty())
+            .or(event.model_raw.as_deref())
+            .unwrap_or_default()
+            .trim();
+        if candidates
+            .iter()
+            .any(|r| r.model.eq_ignore_ascii_case(raw_model))
+        {
+            candidates.retain(|r| r.model.eq_ignore_ascii_case(raw_model));
+        } else if candidates
+            .iter()
+            .any(|r| r.model.eq_ignore_ascii_case(&reference_model))
+        {
+            candidates.retain(|r| r.model.eq_ignore_ascii_case(&reference_model));
+        } else if candidates
+            .iter()
+            .any(|r| !r.model.eq_ignore_ascii_case(&candidates[0].model))
+        {
+            return EventEstimate::Unpriced(UnpricedReason::ModelAmbiguous);
         }
         // 即使只有一个高档价格行，也必须验证输入达到该行阈值。
         // 多档且输入规模未知时不能从价格簿顺序猜测档位。

@@ -1,6 +1,9 @@
 <script lang="ts">
   import type { MetricSumsDto, CostSummaryDto } from '../lib/api';
   import CostAmounts from './CostAmounts.svelte';
+  import TokenTotal from './TokenTotal.svelte';
+  import {modelKey} from '../lib/model-names';
+  import {unpricedReasonKey} from '../lib/costs';
   import { t, fmtNumber } from '../lib/i18n.svelte';
 
   let {
@@ -23,7 +26,7 @@
     const unknown = sums.input_unknown_count + sums.output_unknown_count;
     return unknown > 0 ? t('table.unknownFields', { count: unknown }) : '';
   }
-  const key=(model:string|null)=>model?.toLowerCase().startsWith('claude-') ? model.toLowerCase().replaceAll('.','-') : (model??'').toLowerCase();
+  const key=modelKey;
   function costOf(provider:string|null,model:string|null) {
     return costs?.models?.find((r)=>r.provider.toLowerCase()===(provider??'').toLowerCase() && key(r.model)===key(model));
   }
@@ -52,10 +55,14 @@
               <td class="num" title={m.sums.call_count === 0 && m.sums.event_count > 0 ? t('dashboard.callsUnknown') : ''}>{fmtNumber(m.sums.call_count === 0 && m.sums.event_count > 0 ? null : m.sums.call_count)}</td>
               <td class="num">{fmtNumber(m.sums.input_total_known)}</td>
               <td class="num">{fmtNumber(m.sums.output_total_known)}</td>
-              <td class="num">{fmtNumber(m.sums.total_tokens_known)}</td>
+               <td class="num"><TokenTotal sums={m.sums} allowObserved={m.provider==='github-copilot'} /></td>
               <td class="num">{fmtNumber(m.sums.cache_read_known)}</td>
               {#if pricing}
-                <td class="num"><CostAmounts rows={costOf(m.provider,m.model)?.current_sim} /></td>
+                <td class="num"><CostAmounts rows={costOf(m.provider,m.model)?.current_sim} />
+                  {#each Object.entries(costOf(m.provider,m.model)?.unpriced_reasons??{}) as [reason,count]}
+                    <small>{t(unpricedReasonKey(reason))} ×{count}</small>
+                  {/each}
+                </td>
               {/if}
             </tr>
             {#if unknownNote(m.sums)}
@@ -95,7 +102,7 @@
               <td class="num" title={a.sums.call_count === 0 && a.sums.event_count > 0 ? t('dashboard.callsUnknown') : ''}>{fmtNumber(a.sums.call_count === 0 && a.sums.event_count > 0 ? null : a.sums.call_count)}</td>
               <td class="num">{fmtNumber(a.sums.input_total_known)}</td>
               <td class="num">{fmtNumber(a.sums.output_total_known)}</td>
-              <td class="num">{fmtNumber(a.sums.total_tokens_known)}</td>
+               <td class="num"><TokenTotal sums={a.sums} allowObserved={a.agent==='vscode-copilot-chat'} /></td>
             </tr>
           {/each}
         </tbody>

@@ -2,17 +2,17 @@
   import { onMount } from 'svelte';
   import { setChartOption, setupTooltipAutoHide, escapeHtml, CHART_PALETTE } from '../lib/chart';
   import * as echarts from 'echarts/core';
-  import { BarChart, LineChart } from 'echarts/charts';
+  import { LineChart } from 'echarts/charts';
   import type { LineSeriesOption } from 'echarts/charts';
   import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components';
   import { CanvasRenderer } from 'echarts/renderers';
   import { api, parseError } from '../lib/api';
   import type { ChartDimension, SummaryQuery } from '../lib/api';
   import { t, i18n, fmtSmart, fmtPrecise } from '../lib/i18n.svelte';
-  import { pivotChartSeries, type ChartGroupData } from '../lib/derive';
+  import { pivotChartSeries, tokenTotalLabel, type ChartGroupData } from '../lib/derive';
   import DimensionPicker from './DimensionPicker.svelte';
 
-  echarts.use([BarChart, LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);
+  echarts.use([LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);
 
   let {
     hourly,
@@ -169,66 +169,21 @@
     );
   }
 
-  /** 单时间标签：x 为 Agent/模型分组，图例保留实际分组名称。 */
-  function renderGroupedSingleLabel(g: ChartGroupData) {
-    const label = g.labels[0];
-    applyOption(
-      {
-        tooltip: {
-          trigger: 'axis',
-          hideDelay: 0, transitionDuration: 0,
-          formatter: (params: { dataIndex: number }[]) => {
-            const name = g.names[params[0]?.dataIndex ?? 0];
-            const c = name === undefined ? undefined : g.cell(name, label);
-            if (!c) return '';
-            const miss = c.uncached;
-            return [
-              `<b>${escapeHtml(name)}</b> · ${escapeHtml(label)}`,
-              `${t('trend.calls')}: ${fmtPrecise(c.calls)}`,
-              `${t('cards.total')}: ${c.total === null ? t('common.unknown') : fmtPrecise(c.total)}`,
-              `${t('cards.input')}: ${fmtPrecise(c.input)}`,
-              `${t('cards.cacheRead')}: ${fmtPrecise(c.cacheRead)}`,
-              `${t('cards.cacheMiss')}: ${fmtPrecise(miss)}`,
-              `${t('cards.output')}: ${fmtPrecise(c.output)}`,
-            ].join('<br/>');
-          },
-        },
-        legend: { top: 0, left: 'center', type: 'scroll', itemWidth: 12, itemHeight: 8, textStyle: { fontSize: 11 } },
-        textStyle: { color: chartText },
-        grid: { left: 70, right: 80, top: 48, bottom: 28, containLabel: true },
-        xAxis: { type: 'category', data: g.names },
-        yAxis: [
-          {
-            type: 'value',
-            name: t('trend.calls'),
-            nameGap: 14,
-            nameTextStyle: { align: 'left' },
-            axisLabel: { formatter: (v: number) => fmtSmart(v) },
-            splitLine: { lineStyle: { color: splitColor } },
-          },
-        ],
-        color: PALETTE,
-        series: g.names.map((name, index) => ({
-          type: 'bar', name, barMaxWidth: 24, itemStyle: { color: PALETTE[index % PALETTE.length] },
-          data: g.names.map((n) => n === name ? g.cell(n, label)?.calls ?? 0 : null),
-        })),
-      },
-      `grp1|${dimension}|${i18n.locale}|${chartText}|${label}|${g.names.join('\u0001')}`
-    );
-  }
 
-  /** 多时间标签按 Agent 绘制调用；token 及未知覆盖保留在悬浮提示。 */
+  /** Every grouped view uses the same hourly token metric, including one point. */
   function renderGroupedByTime(g: ChartGroupData) {
     const series: LineSeriesOption[] = [];
     g.names.forEach((name, i) => {
       const color = PALETTE[i % PALETTE.length];
       series.push({
         type: 'line',
-        name: `${name} · ${t('trend.calls')}`,
+        name,
         smooth: true,
-        symbolSize: 4,
+        symbolSize: 5,
+        showSymbol: true,
+        connectNulls: false,
         itemStyle: { color },
-        data: g.labels.map((l) => g.cell(name, l)?.calls ?? 0),
+        data: g.labels.map((l) => g.cell(name, l)?.total ?? null),
       });
     });
     applyOption(
@@ -239,28 +194,28 @@
           formatter: (params: { dataIndex: number; marker: string; seriesName?: string; value: number | null }[]) => {
             const label = g.labels[params[0]?.dataIndex ?? 0] ?? '';
             const lines = [`<b>${escapeHtml(label)}</b>`];
-            for (const p of params) {
-              if (p.value !== null && p.value !== undefined) {
-                lines.push(`${p.marker}${escapeHtml(p.seriesName)}: ${fmtPrecise(p.value)}`);
-              }
-            }
+            const markers=new Map(params.map(p=>[p.seriesName,p.marker]));
+            let hasLowerBound=false;
             const selected = (chart?.getOption().legend as { selected?: Record<string, boolean> }[] | undefined)?.[0]?.selected ?? {};
             for (const name of g.names) {
               const cell = g.cell(name, label);
-              if (!cell || cell.total !== null || selected[`${name} · ${t('trend.calls')}`] === false) continue;
-              lines.push(`${escapeHtml(name)} · ${t('cards.total')}: ${t('common.unknown')} · ${t('cards.input')}: ${fmtPrecise(cell.input)} · ${t('cards.output')}: ${fmtPrecise(cell.output)}`);
+              if (!cell || selected[name] === false) continue;
+              const total=tokenTotalLabel(i18n.locale,cell.total,cell.input,cell.output);
+              hasLowerBound ||= total.startsWith('≥');
+              lines.push(`${markers.get(name)??''}${escapeHtml(name)}: ${total}`);
             }
+            if(hasLowerBound) lines.push(`<small>${escapeHtml(t('tokens.lowerBound'))}</small>`);
             return lines.join('<br/>');
           },
         },
         legend: { top: 0, left: 'center', type: 'scroll', itemWidth: 12, itemHeight: 8, textStyle: { fontSize: 11 } },
         textStyle: { color: chartText },
         grid: { left: 70, right: 80, top: 48, bottom: 28, containLabel: true },
-        xAxis: { type: 'category', data: g.labels },
+        xAxis: { type: 'category', data: g.labels, axisLabel:{formatter:(label:string)=>label.slice(-5)} },
         yAxis: [
           {
             type: 'value',
-            name: t('trend.calls'),
+            name: t('trend.tokens'),
             nameGap: 14,
             nameTextStyle: { align: 'left' },
             axisLabel: { formatter: (v: number) => fmtSmart(v) },
@@ -291,8 +246,7 @@
       lastRenderKey = '';
       return;
     }
-    if (g.labels.length > 1) renderGroupedByTime(g);
-    else renderGroupedSingleLabel(g);
+    renderGroupedByTime(g);
   }
 
   onMount(() => {
@@ -332,12 +286,14 @@
     <span class="dim-error">{t('chart.loadFailed', { message: groupedError })}</span>
   {/if}
 </div>
+{#if dimension!=='total'}<p class="coverage-hint" title={t('tokens.observedTotalHint')}>{t('tokens.lowerBound')}</p>{/if}
 {#if dimension === 'total' && activeHours.length === 0}
   <p class="muted">{t('common.empty')}</p>
 {/if}
 <div bind:this={el} class="hourly"></div>
 
 <style>
+  .coverage-hint {font-size:11px;color:var(--text-muted);margin:2px 0 0;}
   /* 分组维度选择行（面板顶部；维度为分段按钮组，见 DimensionPicker）。 */
   .dim-row {
     display: flex;

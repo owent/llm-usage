@@ -69,16 +69,17 @@
 {#if error}<p class="error" role="alert">{error}</p>{/if}
 <div class="source-grid">
   {#each visible as s (s.instance_id)}
-    <section class="source-card" class:paused={!s.enabled}>
+    <section class="source-card" class:paused={!s.enabled || s.available===false}>
       <div class="source-head">
         <span class="source-icon"><Icon name="sources" size={22} /></span>
-        <div><h3>{s.agent}</h3><span class="health" class:attention={s.health !== 'ok'}>{t('sources.health.' + s.health)}</span></div>
+        <div><h3>{s.agent}</h3><span class="health" class:attention={s.available!==false && s.health !== 'ok'}>{t(s.available===false ? 'sources.notFound' : 'sources.health.' + s.health)}</span></div>
         <button class="toggle" class:on={s.enabled} role="switch" aria-checked={s.enabled}
           aria-label={`${s.agent}: ${t('sources.enabled')}`}
           disabled={pending[s.instance_id]}
           onclick={() => change(s, () => api.setSourceEnabled(s.instance_id, !s.enabled))}><span></span></button>
       </div>
       <p class="instance" title={s.instance_id}>{s.instance_id}</p>
+      {#if s.agent==='otel'}<p class="carrier-hint">{t('sources.otelHint')}</p>{/if}
       <div class="tags">
         {#if s.compat_files > 0}<span class="tag compat" title={t('sources.compatHint')}>{t('sources.compatFiles', { count: s.compat_files })}</span>{/if}
         {#if s.degraded_files > 0}<span class="tag bad">{t('sources.degradedFiles', { count: s.degraded_files })}</span>{/if}
@@ -152,6 +153,8 @@
   .source-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 20px; }
   .source-card { padding: 22px; border: 1px solid var(--border); border-radius: 16px; background: var(--bg-card); box-shadow: var(--shadow); min-width: 0; }
   .source-card.paused { background: var(--bg-card-hover); }
+  .source-card.paused { opacity: .7; }
+  .carrier-hint {font-size:12px;color:var(--text-muted);line-height:1.5;}
   .source-head { display: flex; align-items: center; gap: 12px; }
   .source-icon { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; background: var(--accent-bg); color: var(--accent); }
   h3 { font-size: 16px; margin: 0 0 3px; color: var(--text-heading); }

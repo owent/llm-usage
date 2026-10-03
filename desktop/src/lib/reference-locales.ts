@@ -52,3 +52,38 @@ const compatibilityHints:Record<string,string>={
 for(const [locale,catalog] of Object.entries(referenceCatalogs)) {
   catalog['sources.compatHint']=compatibilityHints[locale];
 }
+
+const repairKeys=['sources.notFound','sources.otelHint','tokens.observedTotalHint'];
+const repairPhrases:Record<string,string[]>={
+  'zh-CN':['本机来源已不在，保留历史','本机遥测文件。已核验的 Copilot 导出按会话和日期替代原生贡献，不重复相加。','已观测输入＋输出的下界；原生 Copilot 输入可能仅覆盖末次调用，不代表完整总量。'],
+  'zh-TW':['本機來源已不存在，保留歷史','本機遙測檔案。已核驗的 Copilot 匯出按工作階段與日期取代原生貢獻，不重複相加。','已觀測輸入＋輸出的下界；原生 Copilot 輸入可能僅涵蓋末次呼叫，不代表完整總量。'],
+  en:['Local source missing; history retained','Local telemetry files. Verified Copilot exports replace native contributions per session and day; they are not added twice.','Lower bound from observed input + output. Native Copilot input may cover only the last call, not the complete turn.'],
+  ja:['ローカルソースなし・履歴保持','ローカル遥測ファイル。検証済み Copilot 出力はセッション・日ごとに元の集計を置換し、二重加算しません。','観測済み入力＋出力の下限。Copilot の入力は最後の呼び出しのみの場合があり、完全な合計ではありません。'],
+  ko:['로컬 소스 없음 · 기록 유지','로컬 원격 측정 파일입니다. 검증된 Copilot 내보내기는 세션과 날짜별로 원본 집계를 대체하며 중복 합산하지 않습니다.','관측된 입력 + 출력의 하한입니다. Copilot 입력은 마지막 호출만 포함할 수 있으며 전체 합계가 아닙니다.'],
+  es:['Fuente local ausente; historial conservado','Archivos de telemetría local. La exportación Copilot verificada sustituye los datos nativos por sesión y día, sin duplicarlos.','Límite inferior de entrada + salida observadas. Copilot puede registrar solo la entrada de la última llamada, no el turno completo.'],
+  fr:['Source locale absente ; historique conservé','Fichiers de télémétrie locale. Les exports Copilot vérifiés remplacent les données natives par session et jour, sans double comptage.','Borne inférieure : entrée + sortie observées. L’entrée Copilot peut couvrir uniquement le dernier appel, pas le tour complet.'],
+  de:['Lokale Quelle fehlt; Verlauf bleibt erhalten','Lokale Telemetriedateien. Verifizierte Copilot-Exporte ersetzen native Beiträge je Sitzung und Tag ohne Doppelzählung.','Untergrenze aus beobachteter Eingabe + Ausgabe. Die Copilot-Eingabe kann nur den letzten Aufruf statt der gesamten Runde umfassen.'],
+  'pt-BR':['Fonte local ausente; histórico mantido','Arquivos de telemetria local. Exportações Copilot verificadas substituem os dados nativos por sessão e dia, sem duplicação.','Limite inferior de entrada + saída observadas. A entrada Copilot pode cobrir apenas a última chamada, não o turno completo.'],
+  ru:['Локальный источник отсутствует; история сохранена','Локальные файлы телеметрии. Проверенные экспорты Copilot заменяют исходные данные по сеансу и дню без двойного учёта.','Нижняя граница: наблюдаемый ввод + вывод. Ввод Copilot может охватывать только последний вызов, а не весь ход.'],
+};
+for(const [locale,catalog] of Object.entries(referenceCatalogs)) {
+  repairKeys.forEach((key,index)=>catalog[key]=repairPhrases[locale][index]);
+}
+const ambiguousModels:Record<string,string>={
+  'zh-CN':'模型拼写匹配到多个价目 ID，需核对','zh-TW':'模型拼寫符合多個價目 ID，需核對',en:'Model spelling matches multiple catalog IDs',
+  ja:'モデル表記が複数の料金 ID に一致',ko:'모델 표기가 여러 요금 ID와 일치',es:'El nombre coincide con varios ID de tarifas',
+  fr:'Le nom correspond à plusieurs identifiants de tarifs',de:'Modellschreibweise entspricht mehreren Preis-IDs',
+  'pt-BR':'O nome corresponde a vários IDs de tarifas',ru:'Название соответствует нескольким идентификаторам тарифов',
+};
+for(const [locale,catalog] of Object.entries(referenceCatalogs)) catalog['cost.reason.model_ambiguous']=ambiguousModels[locale];
+
+const compactChartPhrases:Record<string,[string,string]>={
+  'zh-CN':['≥ 已观测下界','覆盖与计价说明'],'zh-TW':['≥ 已觀測下界','涵蓋與計價說明'],
+  en:['≥ Observed lower bound','Coverage and pricing details'],ja:['≥ 観測済み下限','集計範囲と料金の詳細'],
+  ko:['≥ 관측된 하한','집계 범위 및 요금 설명'],es:['≥ Límite inferior observado','Cobertura y precios'],
+  fr:['≥ Borne inférieure observée','Couverture et tarifs'],de:['≥ Beobachtete Untergrenze','Abdeckung und Preisdetails'],
+  'pt-BR':['≥ Limite inferior observado','Cobertura e preços'],ru:['≥ Наблюдаемая нижняя граница','Охват и расчёт стоимости'],
+};
+for(const [locale,catalog] of Object.entries(referenceCatalogs)) {
+  [catalog['tokens.lowerBound'],catalog['cost.coverageDetails']]=compactChartPhrases[locale];
+}

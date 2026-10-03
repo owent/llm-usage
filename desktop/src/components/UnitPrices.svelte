@@ -3,6 +3,7 @@
   import UnitPriceValue from './UnitPriceValue.svelte';
   import {referenceFx} from '../lib/exchange-rates';
   import {i18n,t} from '../lib/i18n.svelte';
+  import {unpricedReasonKey} from '../lib/costs';
   let {summary}:{summary:CostSummaryDto}=$props();
 </script>
 <details class="unit-prices">
@@ -30,7 +31,11 @@
               <td><UnitPriceValue currency={price.currency} units={price.cache_write_1h_per_mtok_hundredths} /></td>
             </tr>
           {:else}
-            <tr><th class="model">{model.model || t('common.unknown')}</th><td colspan="5" class="missing">{t('cost.noUnitPrice')}</td></tr>
+            <tr><th class="model">{model.model || t('common.unknown')}
+              {#each model.reference_models??[] as reference}{#if reference!==model.model}<small>→ {reference}</small>{/if}{/each}
+            </th><td colspan="5" class="missing">{t('cost.noUnitPrice')}
+              {#each Object.entries(model.unpriced_reasons??{}) as [reason,count]}<small>{t(unpricedReasonKey(reason))} ×{count}</small>{/each}
+            </td></tr>
           {/each}
         {/each}
       </tbody>

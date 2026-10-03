@@ -48,6 +48,7 @@ pub mod pi;
 pub mod qoder;
 pub mod qwen;
 pub mod roo;
+pub mod routing;
 pub mod tencent_buddy_wire;
 pub mod usage_map;
 pub mod vs_copilot;

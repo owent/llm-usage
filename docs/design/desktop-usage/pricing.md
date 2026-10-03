@@ -152,7 +152,7 @@ FlashX $0.37/$0.075/$1.25；未见批处理与阶梯说明（未核实）。
 | gpt-6-astra / gpt-6-sol | Codex（ChatGPT 订阅通道） | 存在（S01） | 订阅用量套按量价，标"参考估算" |
 | GLM-5.3 / glm-5.3-flash | omp、pi、zcode | 存在，双渠道双币（S15、S17） | 精确渠道优先；渠道未知仅按无歧义的官方 API 价参考，不推断实付 |
 | kimi-code / k3 | Kimi Code/Work、omp | k3 存在（S09、S10） | Coding Plan 用量套按量价，标"参考估算" |
-| kimi-for-coding | Kimi Code/Work | 不存在：官方说明其为订阅专属 K2.8 Preview，按量价目表无此 ID（S14） | 未计价；人工别名须另获证据 |
+| kimi-for-coding | Kimi Code/Work | 官方说明 2026-09-11 起对应 K2.8 Preview，未核到原厂按量价（S14） | 已识别参考型号 kimi-k2.8-preview，但缺价；不套 K3/K2.7 或冒用第三方渠道价 |
 | glm-5.2（合成样本） | kilo fixtures | 存在（S15、S17） | 同 GLM-5.3 双渠道 |
 
 Coding Plan 与按量价是两种计费体系：models.dev 的 `kimi-code-plan-*`、
@@ -463,8 +463,10 @@ V29 行见 [验证清单](validation.md)。样本分三部分：固定价格样�
 - 渠道/地区差异是主要正确性风险：GLM 与 Kimi 均为双渠道双币种且价差显著
   （kimi-k3 CN ¥20 与 global $3 输入价不可互换）；本机订阅通道的实际端点
   需逐 Agent 核验；未知渠道只显示明确币种的同型号官方 API 参考，不推断实际端点。
-- 订阅专属模型（kimi-for-coding = K2.8 Preview）无按量价，长期未计价；
-  若官方日后发布对应价目再行接入。
+- kimi-for-coding 按使用日期解析参考型号，不能把今天的动态路由指向套用到早期记录。
+  K2.8 Preview 暂未核到 Moonshot 官方按量价；未来原厂价目入库后可自动匹配，
+  其他渠道价格需要独立标注和规则依据。拼写归一、版本别名与价格渠道规则见
+  [看板修正规范](dashboard-repair.md)。
 - 社区目录与官方存在实测偏差（OpenRouter 聚合费率、models.dev 的 zhipuai
   条目混用国际站价），采纳社区数据必须保留来源标注并可被用户识别。
 - 限时政策（GLM Flash 五折、GLM 缓存存储免费、Kimi 缓存写单列新政）

@@ -39,9 +39,9 @@
     if(!groups.length) {chart.clear();return;}
     setChartOption(chart,isDark,{
       color:CHART_PALETTE,
-      tooltip:{trigger:'axis',hideDelay:0,transitionDuration:0,formatter:(params:{seriesName:string;value:number|null;dataIndex:number}[])=>{
+      tooltip:{trigger:'axis',hideDelay:0,transitionDuration:0,formatter:(params:{seriesName:string;value:unknown;dataIndex:number}[])=>{
         const period=plotPeriods[params[0]?.dataIndex??0];
-        return [escapeHtml(period?.label??''),...params.map((p)=>`${escapeHtml(p.seriesName)}: ${p.value===null?'—':formatAmount(i18n.locale,selectedCurrency,p.value)}`)].join('<br/>');
+        return [escapeHtml(period?.label??''),...params.map((p)=>`${escapeHtml(p.seriesName)}: ${formatAmount(i18n.locale,selectedCurrency,p.value)}`)].join('<br/>');
       }},
       legend:{type:'scroll',top:0},grid:{left:12,right:20,top:42,bottom:52,containLabel:true},
       xAxis:{type:'category',data:plotPeriods.map((p)=>p.label),triggerEvent:true},
@@ -60,18 +60,17 @@
   $effect(()=>{void groups;void i18n.locale;void isDark;render();});
 </script>
 <div class="controls">
-  <strong>{t('dashboard.costCurve')}</strong>
+  <strong title={t('dashboard.costCurveHint')}>{t('dashboard.costCurve')}</strong>
   {#if dailyAxis}<span>{t('filter.granularity.day')}</span>{/if}
   {#each currencies as item}<button class:active={selectedCurrency===item} onclick={()=>currency=item}>{item}</button>{/each}
   <button class:active={modelMode} onclick={()=>modelMode=!modelMode}>{t('chart.dimension.model')}</button>
 </div>
-<div bind:this={el} class="curve" style:height={groups.length ? '280px' : '4px'} aria-label={t('dashboard.costCurve')}></div>
+<div bind:this={el} class="curve" style:height={groups.length ? '240px' : '4px'} aria-label={t('dashboard.costCurve')}></div>
 {#if !groups.length}<p class="hint">{t('cost.noData')}</p>{/if}
-<p class="hint">{t('dashboard.costCurveHint')}</p>
 <style>
   .controls {display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:12px 0 6px;font-size:12px;}
   button {padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg-input);color:var(--text-secondary);cursor:pointer;}
   button.active {background:var(--accent-bg);color:var(--accent);border-color:var(--accent);}
-  .curve {width:100%;height:280px;min-width:0;}
+  .curve {width:100%;height:240px;min-width:0;}
   .hint {font-size:12px;color:var(--text-muted);margin:4px 0;}
 </style>

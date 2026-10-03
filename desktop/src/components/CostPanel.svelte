@@ -8,7 +8,6 @@
   function tokens(n:number) {return new Intl.NumberFormat(i18n.locale,{notation:n>=100000?'compact':'standard'}).format(n);}
 </script>
 <div class="cost-panel">
-  <p class="meta">{t('dashboard.priceReference')}</p>
   {#if error}<p class="bad">{error}</p>
   {:else if !summary}<p class="meta">{t('common.loading')}</p>
   {:else}
@@ -27,12 +26,18 @@
         {#if row.unpriced_event_count}<li class="meta">{t('cost.unpricedCount',{count:row.unpriced_event_count})}</li>{/if}
       {:else}<li class="meta">{t('cost.noData')}</li>{/each}
     </ul>
-    {#if Object.keys(summary.current_sim.unpriced_reasons).length}
-      <p class="meta">{t('cost.unpricedReasons')}: {Object.entries(summary.current_sim.unpriced_reasons).map(([reason,count])=>`${t(unpricedReasonKey(reason))} ×${count}`).join(' · ')}</p>
-    {/if}
-    {#if summary.current_sim.rows.some(row=>row.partial_event_count>0)}<p class="meta">{t('cost.partialHint')}</p>{/if}
-    {#if summary.current_sim.detail_limited}<p class="meta">{t('cost.detailLimited')}</p>{/if}
+    <div class="details-row">
+    <details class="coverage-details">
+      <summary title={summary.current_sim.detail_limited?t('cost.detailLimited'):undefined}>{t('cost.coverageDetails')}</summary>
+      <p class="meta">{t('dashboard.priceReference')}</p>
+      {#if Object.keys(summary.current_sim.unpriced_reasons).length}
+        <p class="meta">{t('cost.unpricedReasons')}: {Object.entries(summary.current_sim.unpriced_reasons).map(([reason,count])=>`${t(unpricedReasonKey(reason))} ×${count}`).join(' · ')}</p>
+      {/if}
+      {#if summary.current_sim.rows.some(row=>row.partial_event_count>0)}<p class="meta">{t('cost.partialHint')}</p>{/if}
+      {#if summary.current_sim.detail_limited}<p class="meta">{t('cost.detailLimited')}</p>{/if}
+    </details>
     {#if summary.models.length}<UnitPrices {summary} />{/if}
+    </div>
   {/if}
 </div>
 <style>
@@ -42,4 +47,9 @@
   .amount {font-weight:650;font-size:20px;}
   .meta {font-size:12px;color:var(--text-muted);margin:0;}
   .bad {color:var(--danger);margin:0;}
+  .coverage-details {font-size:12px;color:var(--text-muted);}
+  .details-row {display:flex;align-items:baseline;flex-wrap:wrap;column-gap:18px;}
+  .details-row :global(details[open]) {flex-basis:100%;min-width:0;}
+  summary {cursor:pointer;color:var(--accent);padding:5px 0;width:fit-content;}
+  .coverage-details p {margin:4px 0;}
 </style>

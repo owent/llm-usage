@@ -9,7 +9,7 @@
   import { api, parseError } from '../lib/api';
   import type { ChartDimension, PeriodDto, SummaryQuery } from '../lib/api';
   import { t, i18n, fmtSmart, fmtPrecise, fmtPercent, fmtDurationShort } from '../lib/i18n.svelte';
-  import { durationStatsOf, pivotChartSeries, type ChartGroupData } from '../lib/derive';
+  import { durationStatsOf, pivotChartSeries, tokenTotalLabel, type ChartGroupData } from '../lib/derive';
   import DimensionPicker from './DimensionPicker.svelte';
 
   echarts.use([LineChart, GridComponent, LegendComponent, TooltipComponent, DataZoomComponent, CanvasRenderer]);
@@ -251,18 +251,21 @@
       const label = g.labels[params[0]?.dataIndex ?? 0] ?? '';
       const lines = [`<b>${escapeHtml(label)}</b>`];
       for (const p of params) {
-        if (p.value !== null && p.value !== undefined) {
+        if (typeof p.value === 'number' && Number.isFinite(p.value)) {
           lines.push(`${p.marker}${escapeHtml(p.seriesName)}: ${fmtPrecise(p.value)}`);
         }
       }
       if (sub === 'total' || sub === 'output') {
+        let hasLowerBound=false;
         const selected = (chart?.getOption().legend as { selected?: Record<string, boolean> }[] | undefined)?.[0]?.selected ?? {};
         for (const name of g.names) {
           const cell = g.cell(name, label);
           if (!cell || selected[name] === false || cell[sub === 'total' ? 'total' : 'output'] !== null) continue;
-          const missing = sub === 'total' ? t('chart.totalMissing') : `${t('cards.output')}: —`;
-          lines.push(`${escapeHtml(name)} · ${missing} · ${t('cards.input')}: ${fmtPrecise(cell.input)} · ${t('cards.output')}: ${fmtPrecise(cell.output)}`);
+          const value=sub==='total' ? tokenTotalLabel(i18n.locale,null,cell.input,cell.output) : '—';
+          hasLowerBound ||= value.startsWith('≥');
+          lines.push(`${escapeHtml(name)}: ${value}`);
         }
+        if(hasLowerBound) lines.push(`<small>${escapeHtml(t('tokens.lowerBound'))}</small>`);
       }
       return lines.join('<br/>');
     };
@@ -447,8 +450,7 @@
 </div>
 <div bind:this={el} class="token-chart"></div>
 {#if dimension !== 'total' && grouped && sub === 'total'}
-  {@const missing = grouped.names.filter((name) => grouped?.labels.every((label) => grouped?.cell(name, label)?.total == null))}
-  {#if missing.length}<p class="dur-summary">{t('chart.unknownTotals', { names: missing.join(', ') })}</p>{/if}
+  <p class="dur-summary" title={t('tokens.observedTotalHint')}>{t('tokens.lowerBound')}</p>
 {/if}
 <p class="dur-summary">
   {t('panel.durationSummary', {

@@ -712,11 +712,26 @@ pub fn run_adapter_scan_filtered(
         })
         .collect();
     let capability = adapter.capability();
-    for (index, root) in roots.iter().enumerate() {
-        let instance_id = adapter.instance_id(root);
+    for (index, discovered) in roots.iter().enumerate() {
+        let mut root = discovered.clone();
+        let instance_id = adapter.instance_id(&root);
         if disabled.contains(&instance_id) || !filter.allows(&instance_id) {
             continue;
         }
+        if root.basis == RootBasis::Manual {
+            let mut files = Vec::new();
+            for path in &root.files {
+                if super::routing::accepts_manual_file(storage, &instance_id, path)? {
+                    files.push(path.clone());
+                }
+            }
+            // Archive adapters use an empty file list and perform their own detection.
+            if !root.files.is_empty() && files.is_empty() {
+                continue;
+            }
+            root.files = files;
+        }
+        let root = &root;
         let mut report = SourceRunReport {
             instance_id: instance_id.clone(),
             run_id: None,
@@ -926,6 +941,20 @@ fn scan_one_file(
     reconciliations: &mut Vec<Reconciliation>,
 ) -> Result<(FileReport, bool), CoreError> {
     let file_id = normalize_path(path);
+    if !super::routing::claim_file(storage, adapter, instance_id, path)? {
+        return Ok((
+            FileReport {
+                file_id,
+                status: "owned_elsewhere".into(),
+                detail: Some("file already belongs to another source; not counted twice".into()),
+                lines_read: 0,
+                records_seen: 0,
+                events: 0,
+                diagnostics: 0,
+            },
+            false,
+        ));
+    }
     let probe = super::jsonl::probe_file(path)?;
     let identity = file_identity_of(&probe);
     // 注册/改名探测：路径未命中时按身份命中（同一内容流改名不算新文件）。

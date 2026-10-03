@@ -1,7 +1,14 @@
 //! Verified model spelling and vendor families; never alias different releases.
 
 pub fn model_key(model: &str) -> String {
-    let model = model.trim().to_lowercase();
+    // Separator spelling only: retain digits, decimal versions, suffixes and namespaces.
+    let model = model
+        .trim()
+        .to_lowercase()
+        .split(|c: char| c.is_whitespace() || c == '_' || c == '-')
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>()
+        .join("-");
     // Copilot uses both claude-opus-4.8 and Anthropic's claude-opus-4-8.
     if model.starts_with("claude-") {
         model.replace('.', "-")
@@ -12,13 +19,40 @@ pub fn model_key(model: &str) -> String {
 
 /// Vendor identity is separate from the Agent's billing channel.
 pub fn reference_model_key(model: &str) -> String {
-    match model_key(model).as_str() {
+    reference_model_key_at(model, i64::MAX)
+}
+
+/// Serving profiles can change releases in place. Resolve using the usage date,
+/// independently of whether prices are evaluated at that date or today.
+pub fn reference_model_key_at(model: &str, occurred_at_ms: i64) -> String {
+    let key = model_key(model);
+    let model = [
+        "openai/",
+        "anthropic/",
+        "google/",
+        "moonshotai/",
+        "moonshot/",
+        "kimi-code/",
+        "kimi-coding/",
+        "tencent/",
+        "codebuddy/",
+    ]
+    .iter()
+    .find_map(|prefix| key.strip_prefix(prefix))
+    .unwrap_or(&key);
+    let model = model_key(model);
+    match model.as_str() {
         // Official Kimi Code model table identifies these IDs as K3. Agents
         // report the serving id either bare (`k3` / `k3-256k`, e.g. Kilo Code /
         // oh-my-pi under a custom Kimi provider) or provider-prefixed. This is an
         // API reference alias only; statistics keep the serving profile.
-        "kimi-code/k3" | "kimi-code/k3-256k" | "k3" | "k3-256k" => "kimi-k3".into(),
-        _ => model_key(model),
+        "k3" | "k3-256k" => "kimi-k3".into(),
+        // Official Kimi Code release notes: upgraded in place on 2026-09-11.
+        // Older records remain unresolved; a future profile change must close this interval.
+        "kimi-for-coding" if occurred_at_ms >= 1_789_084_800_000 => "kimi-k2.8-preview".into(),
+        // Official CodeBuddy local model catalog (2026-10-03): id -> display name.
+        "hy4-preview-f" | "hy-4-preview" => "hy4-preview".into(),
+        _ => model,
     }
 }
 
@@ -44,7 +78,39 @@ pub fn official_providers(model: &str) -> &'static [&'static str] {
         &["zai", "zhipuai"]
     } else if model.starts_with("deepseek-") {
         &["deepseek"]
+    } else if model.starts_with("hy4-") {
+        &["tencent", "tencent-cloud"]
     } else {
         &[]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn spelling_and_verified_profiles_are_separate() {
+        assert_eq!(model_key(" Claude_Opus 4.8 "), "claude-opus-4-8");
+        assert_eq!(model_key("GPT_6.1_sol"), "gpt-6.1-sol");
+        assert_ne!(model_key("gpt-6.1-sol"), model_key("gpt-6-1-sol"));
+        assert_eq!(reference_model_key("HY 4 Preview"), "hy4-preview");
+        assert_eq!(reference_model_key("hy4-preview-f"), "hy4-preview");
+        assert_eq!(
+            reference_model_key("hy4-preview-unknown"),
+            "hy4-preview-unknown"
+        );
+        assert_eq!(reference_model_key("custom/k3"), "custom/k3");
+        assert_eq!(
+            reference_model_key("anthropic/Claude_Opus 4.8"),
+            "claude-opus-4-8"
+        );
+        assert_eq!(
+            reference_model_key_at("kimi-code/kimi-for-coding", 1_789_084_799_999),
+            "kimi-for-coding"
+        );
+        assert_eq!(
+            reference_model_key_at("kimi-code/kimi-for-coding", 1_789_084_800_000),
+            "kimi-k2.8-preview"
+        );
     }
 }

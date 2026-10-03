@@ -30,6 +30,19 @@ Harness Agent 指 Nous Research 的 Hermes Agent。只统计本机产生的数�
 
 ## 待办与验收
 
+2026-10-03 第三轮反馈修复完成：今日三种分组（含单小时）统一 token 曲线，费用布局
+和图表提示收紧。Junie 为旧遥测根提升到父目录后遗留的空误登记，已按注册表真实发现
+路径恢复；本机副本两轮幂等，历史计数不变。verify（820 项 Rust、20 项前端、3 项脚本）、
+Edge 回归及 Windows 0.1.2-dev 构建通过；未安装、未启动新 GUI，见
+[第三轮反馈记录](docs/validation/desktop-usage/feedback-round3.md)。
+
+2026-10-03 第二轮反馈代码修复与验证完成：已复核 `ab647fd`、`de8727f` 与本机只读快照。
+管理根定向路由、旧误登记恢复、模型别名/缺价诊断、费用 NaN、Copilot 观测总量下界
+及开关交互已修复。真实副本今日未计价 199→197：余 178 条 NES、18 条未知实际型号的
+自动审查、1 条 K2.8 原厂缺价；不猜价或抹掉覆盖限制。完整 verify、Edge 回归与
+Windows 0.1.2-dev 构建通过；未安装、未启动新 GUI，详见
+[第二轮反馈记录](docs/validation/desktop-usage/feedback-round2.md)。
+
 详情维护在对应设计文档；各阶段证据见 [验证记录](docs/validation/desktop-usage/)。
 
 | ID | 状态 | 任务 | 依赖 | 完成条件 |

@@ -613,7 +613,7 @@ fn old_cost_policy_is_repaired_for_bare_k3_once_without_touching_sealed_days() {
             |r| r.get(0),
         )
         .unwrap();
-    assert_eq!(marker, "official-reference-3");
+    assert_eq!(marker, "official-reference-4");
     storage
         .conn()
         .execute_batch("UPDATE daily_cost_usage SET sealed=1; UPDATE daily_usage SET sealed=1;")
@@ -745,7 +745,7 @@ fn kimi_profile_alias_and_official_global_named_channels_have_reference_prices()
     }
     assert_eq!(
         llm_usage_core::model_names::reference_model_key("kimi-code/kimi-for-coding"),
-        "kimi-code/kimi-for-coding"
+        "kimi-k2.8-preview"
     );
     // 真实场景（issue 5）：Kilo Code / oh-my-pi 以裸 model_raw `k3-256k` + 用户自定义
     // provider（如 kimi-code-owent）上报；别名仍应命中官方 moonshot kimi-k3 参考价。

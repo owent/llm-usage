@@ -974,13 +974,28 @@ fn v29_seed_snapshot_imports_idempotently() {
     assert!(out2.already_present);
     assert_eq!(out2.inserted_rows, 0);
     let snapshots = storage.list_price_snapshots().unwrap();
-    assert_eq!(snapshots.len(), 2);
+    assert_eq!(snapshots.len(), 3);
     let original = snapshots
         .iter()
         .find(|s| s.snapshot_id == "seed-2026-09-25")
         .unwrap();
     assert_eq!(original.row_count as usize, out1.inserted_rows);
-    assert_eq!(snapshots[0].row_count, 2);
+    assert_eq!(
+        snapshots
+            .iter()
+            .find(|s| s.snapshot_id == "seed-2026-10-02-copilot-models")
+            .unwrap()
+            .row_count,
+        2
+    );
+    assert_eq!(
+        snapshots
+            .iter()
+            .find(|s| s.snapshot_id == "seed-2026-10-03-hy4")
+            .unwrap()
+            .row_count,
+        1
+    );
 }
 
 /// 维度筛选语义：provider/model 筛选只命中所选值（空值事件不算入任何具体

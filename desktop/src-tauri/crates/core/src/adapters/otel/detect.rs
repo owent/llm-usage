@@ -27,7 +27,12 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     let has_span_shape = text.contains("\"spanId\"")
         || text.contains("\"span_id\"")
         || text.contains("\"startTime\"");
-    if has_genai || has_span_shape {
+    // File exporters mix metrics/logs and spans. An initial metrics-only batch
+    // still identifies this carrier; the parser skips non-call records.
+    let has_export_shape = text.contains("\"scopeMetrics\"")
+        || text.contains("\"resourceMetrics\"")
+        || text.contains("\"scopeLogs\"");
+    if has_genai || has_span_shape || has_export_shape {
         Ok(DetectOutcome::Supported {
             format: OTEL_FORMAT.to_string(),
             format_version: Some(versions::OTEL_FORMAT_VERSION.to_string()),
