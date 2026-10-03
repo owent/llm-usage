@@ -142,6 +142,8 @@ struct LegacyParseContext {
     turns_aborted: u64,
     #[serde(default)]
     unknown_types: Vec<String>,
+    #[serde(default)]
+    has_record_errors: bool,
     /// 版本选择依据（known_version / latest_fallback）。
     #[serde(default)]
     version_basis: Option<VersionBasis>,
@@ -463,6 +465,9 @@ pub fn scan(
                 let sub = payload.get("type").and_then(|t| t.as_str()).unwrap_or("");
                 match sub {
                     "token_count" => {
+                        if super::super::common::token_count_has_no_usage(&payload) {
+                            continue;
+                        }
                         let info = payload
                             .get("info")
                             .cloned()
@@ -641,17 +646,18 @@ pub fn scan(
         offset: outcome.next_offset,
         line_number: outcome.next_line_number,
     };
-    let degraded = !outcome.bad_lines.is_empty()
+    context.has_record_errors |= !outcome.bad_lines.is_empty()
         || diagnostics.iter().any(|d| {
+            // 旧载体依赖 total/last 一起识别调用，快照形状异常也可能丢失调用。
             matches!(
                 d.code.as_str(),
                 "bad_json_line"
                     | "usage_shape_deviation"
+                    | "timestamp_unparseable"
                     | "line_too_long"
-                    | "reconcile_mismatch"
-                    | "snapshot_regression"
             )
         });
+    let degraded = context.has_record_errors;
     Ok(ScanOutcome {
         status,
         cursor: Some(serde_json::to_value(new_cursor)?),

@@ -457,6 +457,8 @@ pub struct EventEstimateAmounts {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UnpricedReason {
+    /// 来源没有报告任何可用于计价的 token 分量。
+    NoKnownUsage,
     NoProvider,
     NoModel,
     /// 官方参考渠道/地区/币种仍有歧义，或未知系列缺少渠道配置。
@@ -474,6 +476,7 @@ pub enum UnpricedReason {
 impl UnpricedReason {
     pub fn as_str(self) -> &'static str {
         match self {
+            UnpricedReason::NoKnownUsage => "no_known_usage",
             UnpricedReason::NoProvider => "no_provider",
             UnpricedReason::NoModel => "no_model",
             UnpricedReason::ChannelUnknown => "channel_unknown",
@@ -579,6 +582,18 @@ impl PriceBook {
         let read = event.input_cache_read;
         let write = event.input_cache_write;
         let total_input = event.input_total;
+        if [
+            event.input_uncached,
+            read,
+            write,
+            total_input,
+            event.output_total,
+        ]
+        .iter()
+        .all(Option::is_none)
+        {
+            return EventEstimate::Unpriced(UnpricedReason::NoKnownUsage);
+        }
         if [
             event.input_uncached,
             read,
@@ -845,6 +860,11 @@ impl PriceBook {
                 .known_tokens
                 .checked_add(write)
                 .ok_or(CoreError::Overflow("cost known tokens"))?;
+            // 已知零写入无需猜测 TTL，也不会产生写入费用。
+            if write == 0 {
+                amounts.cache_write_amount_minor = Some(0);
+                return Ok(());
+            }
             let ttl = options.cache_ttl_minutes.get(&provider).copied();
             let price = ttl.and_then(|minutes| match minutes {
                 CACHE_TTL_1H_MINUTES => row.cache_write_1h_per_mtok_hundredths,
@@ -870,7 +890,15 @@ impl PriceBook {
         });
         match result {
             Ok(()) => {
-                if amounts.priced_tokens == 0 && amounts.total_amount_minor == 0 {
+                if [
+                    amounts.input_amount_minor,
+                    amounts.cache_read_amount_minor,
+                    amounts.cache_write_amount_minor,
+                    amounts.output_amount_minor,
+                ]
+                .iter()
+                .all(Option::is_none)
+                {
                     // 所有分量均未计价（价格列缺失或 token 未知）：整条未计价。
                     EventEstimate::Unpriced(UnpricedReason::NoPriceRow)
                 } else {

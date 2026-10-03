@@ -508,6 +508,135 @@ fn retained_observations_are_priced_once_and_future_catalog_updates_do_not_rewri
 }
 
 #[test]
+fn pricing_distinguishes_unknown_tokens_zero_usage_and_native_currency_units() {
+    let (_dir, storage) = temp_storage("pricing-token-coverage");
+    let now = ts("2026-10-03T12:00:00Z");
+    storage.ensure_seed_price_snapshot(now).unwrap();
+    let book = storage.load_price_book().unwrap();
+    let unknown = PricingEvent {
+        model_raw: Some("k3-256k".into()),
+        provider_id: Some("custom".into()),
+        occurred_at_ms: now,
+        ..Default::default()
+    };
+    assert_eq!(
+        book.estimate_at_time(&unknown, &EstimateOptions::default()),
+        EventEstimate::Unpriced(UnpricedReason::NoKnownUsage)
+    );
+    let mut zero = unknown.clone();
+    zero.input_total = Some(0);
+    zero.input_uncached = Some(0);
+    zero.input_cache_read = Some(0);
+    zero.input_cache_write = Some(0);
+    zero.output_total = Some(0);
+    let EventEstimate::Priced(amounts) = book.estimate_at_time(&zero, &EstimateOptions::default())
+    else {
+        panic!("known zero usage should be priced")
+    };
+    assert_eq!(amounts.total_amount_minor, 0);
+    assert!(!amounts.has_unknown_components);
+    assert!(!amounts.ttl_defaulted);
+    let mut event = zero.clone();
+    event.input_total = Some(1_000_000);
+    event.input_uncached = Some(1_000_000);
+    event.output_total = Some(1_000_000);
+    let EventEstimate::Priced(usd) = book.estimate_at_time(&event, &EstimateOptions::default())
+    else {
+        panic!("USD reference missing")
+    };
+    assert_eq!(
+        (usd.currency.as_str(), usd.total_amount_minor),
+        ("USD", 1800)
+    ); // $3 input + $15 output
+    let mut options = EstimateOptions::default();
+    options
+        .provider_channels
+        .insert("custom".into(), ("cn".into(), "api".into()));
+    let EventEstimate::Priced(cny) = book.estimate_at_time(&event, &options) else {
+        panic!("CNY reference missing")
+    };
+    assert_eq!(
+        (cny.currency.as_str(), cny.total_amount_minor),
+        ("CNY", 12000)
+    ); // ¥20 input + ¥100 output
+    event.input_uncached = None;
+    event.input_cache_read = None;
+    event.input_cache_write = None;
+    let EventEstimate::Priced(partial) = book.estimate_at_time(&event, &EstimateOptions::default())
+    else {
+        panic!("known output should be priced")
+    };
+    assert!(partial.has_unknown_components);
+    assert_eq!(partial.input_amount_minor, None);
+    assert_eq!(partial.total_amount_minor, 1500); // only known output; never guess the input split
+}
+
+#[test]
+fn old_cost_policy_is_repaired_for_bare_k3_once_without_touching_sealed_days() {
+    use llm_usage_core::storage::pricing::{CostFilters, CostSummaryRequest};
+    let (_dir, storage) = temp_storage("bare-k3-policy");
+    let now = ts("2026-10-03T12:00:00Z");
+    storage.ensure_seed_price_snapshot(now).unwrap();
+    let mut e = with_tokens(evt("source", "k3-call", now - 1000), 1000, 1000);
+    e.model_raw = Some("k3-256k".into());
+    e.provider_id = Some("kimi-code-custom".into());
+    commit_batch(&storage, &batch("source", "UTC", now, vec![e]), None).unwrap();
+    storage
+        .recompute_cost_day("UTC", "2026-10-03", now, &EstimateOptions::default())
+        .unwrap();
+    storage.conn().execute_batch("DELETE FROM daily_cost_usage WHERE currency='';
+        UPDATE daily_cost_usage SET currency='',priced_event_count=0,unpriced_event_count=1,total_amount_minor=0,unpriced_reasons='{\"no_price_row\":1}';
+        INSERT INTO settings(key,value,schema_version,updated_at_ms) VALUES('cost_matching_policy:UTC','official-reference-2',1,0);").unwrap();
+    let query = CostSummaryRequest {
+        timezone: "UTC".into(),
+        first_day: "2026-10-03".into(),
+        last_day: "2026-10-03".into(),
+        now_ms: now,
+        options: EstimateOptions::default(),
+        filters: CostFilters::default(),
+    };
+    assert_eq!(
+        storage.cost_summary(&query).unwrap().at_time.rows[0].unpriced_event_count,
+        1
+    );
+    storage
+        .ensure_cost_matching_policy("UTC", now, &query.options)
+        .unwrap();
+    let repaired = storage.cost_summary(&query).unwrap();
+    assert_eq!(repaired.at_time.rows[0].currency, "USD");
+    assert_eq!(repaired.at_time.rows[0].priced_event_count, 1);
+    let marker: String = storage
+        .conn()
+        .query_row(
+            "SELECT value FROM settings WHERE key='cost_matching_policy:UTC'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(marker, "official-reference-3");
+    storage
+        .conn()
+        .execute_batch("UPDATE daily_cost_usage SET sealed=1; UPDATE daily_usage SET sealed=1;")
+        .unwrap();
+    storage
+        .conn()
+        .execute(
+            "UPDATE settings SET value='official-reference-2' WHERE key='cost_matching_policy:UTC'",
+            [],
+        )
+        .unwrap();
+    storage
+        .ensure_cost_matching_policy("UTC", now + 1, &query.options)
+        .unwrap();
+    let sealed = storage.cost_summary(&query).unwrap();
+    assert_eq!(
+        sealed.at_time.rows[0].total_amount_minor,
+        repaired.at_time.rows[0].total_amount_minor
+    );
+    assert_eq!(sealed.at_time.rows[0].priced_event_count, 1);
+}
+
+#[test]
 fn trace_span_identity_replays_legacy_records_without_duplicate_contributions() {
     let (dir, storage) = temp_storage("otel-legacy-identity");
     let file = dir.path().join("events.jsonl");
@@ -617,6 +746,39 @@ fn kimi_profile_alias_and_official_global_named_channels_have_reference_prices()
     assert_eq!(
         llm_usage_core::model_names::reference_model_key("kimi-code/kimi-for-coding"),
         "kimi-code/kimi-for-coding"
+    );
+    // 真实场景（issue 5）：Kilo Code / oh-my-pi 以裸 model_raw `k3-256k` + 用户自定义
+    // provider（如 kimi-code-owent）上报；别名仍应命中官方 moonshot kimi-k3 参考价。
+    for provider in [
+        None,
+        Some("kimi-code-owent".to_string()),
+        Some("custom-relay".to_string()),
+    ] {
+        for model in ["k3-256k", "k3"] {
+            let e = PricingEvent {
+                provider_id: provider.clone(),
+                model_raw: Some(model.into()),
+                model_canonical: None,
+                occurred_at_ms: now,
+                input_uncached: Some(1000),
+                input_total: Some(1000),
+                input_cache_read: Some(0),
+                input_cache_write: Some(0),
+                output_total: Some(1000),
+            };
+            assert!(
+                matches!(book.estimate_at_time(&e, &EstimateOptions::default()), EventEstimate::Priced(a) if a.official_fallback && a.currency == "USD"),
+                "bare {model} / {provider:?}"
+            );
+        }
+    }
+    assert_eq!(
+        llm_usage_core::model_names::reference_model_key("k3-256k"),
+        "kimi-k3"
+    );
+    assert_eq!(
+        llm_usage_core::model_names::reference_model_key("k3"),
+        "kimi-k3"
     );
     let mut configured = book
         .rows

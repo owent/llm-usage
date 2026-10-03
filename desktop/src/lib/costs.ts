@@ -1,4 +1,8 @@
 import type { CostCurrencyRowDto } from './api';
+export function unpricedReasonKey(reason: string): string {
+  return ['no_known_usage','no_provider','no_model','channel_unknown','no_price_row','tier_ambiguous','token_anomaly','internal_overflow'].includes(reason)
+    ? `cost.reason.${reason}` : 'cost.reason.other';
+}
 export function formatAmount(locale:string,currency:string,minor:number):string {
   try { return new Intl.NumberFormat(locale,{style:'currency',currency,currencyDisplay:'narrowSymbol'}).format(minor/100); }
   catch { return `${(minor/100).toFixed(2)} ${currency}`; }

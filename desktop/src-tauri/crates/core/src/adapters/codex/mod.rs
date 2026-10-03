@@ -229,7 +229,7 @@ impl crate::adapters::framework::SourceAdapter for CodexAdapter {
                     .into(),
                 "符号链接/ junction 不跟随；Windows 无稳定文件索引号，身份靠创建时间+首采样".into(),
                 "无 response_id 记录用会话 UUID+行号身份，文件同位替换后可能形成新键".into(),
-                "latest_fallback 文件的解析器升级后不自动重扫已消费游标；显式重扫可重新尝试".into(),
+                "解析器规则升级后自动重扫已消费游标；未知格式仍保留兼容状态与诊断".into(),
             ],
         }
     }

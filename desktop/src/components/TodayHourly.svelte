@@ -147,9 +147,10 @@
         ],
         series: [
           {
-            type: 'bar',
+            type: 'line',
             name: t('trend.calls'),
-            barMaxWidth: 18,
+            smooth: true,
+            symbolSize: 4,
             itemStyle: { color: '#1a56c4' },
             data: calls,
           },

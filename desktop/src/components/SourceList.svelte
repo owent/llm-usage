@@ -80,7 +80,7 @@
       </div>
       <p class="instance" title={s.instance_id}>{s.instance_id}</p>
       <div class="tags">
-        {#if s.compat_files > 0}<span class="tag compat">{t('sources.compatFiles', { count: s.compat_files })}</span>{/if}
+        {#if s.compat_files > 0}<span class="tag compat" title={t('sources.compatHint')}>{t('sources.compatFiles', { count: s.compat_files })}</span>{/if}
         {#if s.degraded_files > 0}<span class="tag bad">{t('sources.degradedFiles', { count: s.degraded_files })}</span>{/if}
         {#if s.unsupported_files > 0}<span class="tag bad">{t('sources.unsupportedFiles', { count: s.unsupported_files })}</span>{/if}
         {#if s.incompatible_files > 0}<span class="tag bad">{t('sources.incompatibleFiles', { count: s.incompatible_files })}</span>{/if}

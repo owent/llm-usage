@@ -5,6 +5,20 @@ use crate::adapters::usage_map::{finish, sub_checked, MappedUsage};
 use crate::domain::{FieldQuality as Q, TokenQuality, TokenUsage};
 use crate::metrics::Contradiction;
 
+/// 累计快照仅作对照；文件健康由逐次载体的读取失败决定。
+pub(crate) fn is_record_error(diagnostic: &crate::ingest::DiagnosticInput) -> bool {
+    matches!(
+        diagnostic.code.as_str(),
+        "bad_json_line" | "usage_shape_deviation" | "timestamp_unparseable" | "line_too_long"
+    ) && diagnostic.field.as_deref() != Some("info.total_token_usage")
+}
+
+/// TokenCountEvent.info 是 Option<TokenUsageInfo>；仅额度更新可没有用量。
+/// 官方 rust-v0.144.0 protocol.rs 与本机 0.144.0-alpha.4 样本均已核验。
+pub(crate) fn token_count_has_no_usage(payload: &serde_json::Value) -> bool {
+    matches!(payload.get("info"), None | Some(serde_json::Value::Null))
+}
+
 /// codex rollout token_usage_record：input 含缓存读，无缓存创建字段；
 /// output 含 reasoning；total=input+output。
 /// `declares_no_cache_creation` 为格式级证据：该版本明确无缓存创建时，

@@ -364,11 +364,13 @@ provider/model 金额和实际匹配 price_id 单价。看板统一显示当前 
 2. 部分可计价：可计算分量（如输出已知、输入未知）计入小计，
    附覆盖标记：已计价 token 数 / 已知 token 数；总金额标"部分估算"。
 3. 精度与舍入：价格按"最小货币单位百分之一/百万 token"存储；
-   单条事件单个计费项金额 = token × 价格 ÷ 1,000,000，i128 中间量，
+   单条事件单个计费项金额（最小货币单位）= token × 存储价格 ÷ 100,000,000，i128 中间量，
    四舍五入到最小货币单位后累加；负值、缓存大于已知总输入等异常进入诊断，
    不参与费用计算。
-4. 多币种：按币种分组小计，不同币种不直接相加；用户手工设定汇率转换时
-   结果标 `estimated` 并记录汇率来源与时点；无汇率时只分列展示。
+4. 多币种：按币种分组小计，不同币种不直接相加。2026-10-03 按用户要求，
+   CNY 金额/单价保留原值，旁列约合 USD；采用 ECB 2026-10-02 已核验快照，
+   标约数、来源和日期，不联网刷新汇率、不改写存储，详见 [看板修正](dashboard-repair.md)。
+   用户另设汇率转换时结果标 `estimated` 并记录来源与时点；无适用汇率时只分列展示。
 5. 参考估算：本机订阅通道（ChatGPT/Coding Plan/GLM 套餐）用量套 API
    按量价一律标"参考估算"，展示时注明订阅实付不等于该值；
    缓存节省量同理不得称为实际返款。
@@ -512,6 +514,8 @@ status=研究证据，非运行验收。
 | S22 | libgen 检索记录（2026-09-25） | 未找到名为 libgen 的 LLM 价格目录；仅命中 Library Genesis 等无关结果 |
 | S23 | publishPriceDocs 检索记录（2026-09-25） | 未检索到该名称的公开 Gemini 价格 JSON；官方机器可读价格文件未发现 |
 | S24 | models.dev `api.json` 复核（2026-10-01 抓取 5.28 MB，HTTP 200） | 结构实测：提供商 `{id,env,npm,name,doc,models}`；模型 `cost{input,output,cache_read,cache_write,tiers,context_over_200k,input_audio,output_audio,reasoning}`；`canonical_model_id` 官方归属（5274/8339 条目有）；tier 仅 context 类型（658 条）；无币种字段（全美元/百万 token）；官方判定（canonical 前缀 ∪ `-cn` 变体）得 26 提供商、过滤后 408 模型/473 行（poolside/sarvam 无按量价模型被跳过，入库行覆盖 24 提供商，探针测试实断）；coding-plan/token-plan 系 cost 全 0；gpt-6-astra $10/$50、moonshotai kimi-k3 $3/$15、zhipuai glm-5.3 $1.4/$4.4、anthropic claude-opus-5-5 $4/$20、google gemini-3.8-flash $0.75/$3.75 与官方页一致；zhipuai 与 zai 条目同价（docs.z.ai 来源） |
+| S25 | [ECB 日参考汇率 XML](https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml)，2026-10-03 抓取、有效日期 2026-10-02 | 同日 EUR/USD=1.1225、EUR/CNY=7.5259，交叉得 CNY→USD=1.1225/7.5259；用于展示折算，非实际账单或交易汇率 |
+| S26 | [Kimi Code 模型表](https://www.kimi.com/code/docs/en/kimi-code/models.html)、[全球 API 定价](https://platform.kimi.ai/docs/pricing/chat)、[models.dev README](https://github.com/anomalyco/models.dev)，2026-10-03 重读 | k3/k3-256k 对应 K3；全球每百万 token 输入 USD 3、缓存读 0.30、输出 15，缓存写 5m/1h 为 3/6；models.dev cost 本身为 USD/百万 token，不能按 CN 提供商名称再换汇；裸 profile 用精确别名，统计不改名 |
 
 未核实项：OpenAI GPT-6 长上下文阈值官方标注；OpenAI 1h 缓存档；
 Anthropic 页面版本标识；Gemini 3.1 Pro preview 阶梯口径；

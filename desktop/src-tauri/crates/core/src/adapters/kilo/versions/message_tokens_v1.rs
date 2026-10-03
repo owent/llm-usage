@@ -49,7 +49,7 @@ use crate::error::CoreError;
 use crate::ingest::DiagnosticInput;
 use serde::{Deserialize, Serialize};
 
-pub const KILO_PARSER_VERSION: &str = "kilo-message-tokens-1";
+pub const KILO_PARSER_VERSION: &str = "kilo-message-tokens-2";
 const MAX_REASONABLE_TOKEN: i64 = crate::domain::MAX_TOKEN_VALUE;
 /// 水位回看窗（毫秒）：覆盖并发子会话的同毫秒乱序写。
 pub const WATERMARK_OVERLAP_MS: i64 = 60_000;
@@ -73,6 +73,8 @@ struct KiloParseContext {
     schema_fingerprint: Option<String>,
     version_basis: Option<VersionBasis>,
     db_version: Option<String>,
+    #[serde(default)]
+    has_unverified_records: bool,
 }
 
 fn diag(code: &str, field: Option<&str>, id_pos: &str, message: &str) -> DiagnosticInput {
@@ -359,6 +361,7 @@ pub fn scan(
     let hit_cap = rows.len() as i64 >= MAX_ROWS_PER_ROUND;
     let version = max_session_version(conn)?;
     let selection = super::select(version.as_deref());
+    let mut has_unverified_records = !fingerprint_reset && context.has_unverified_records;
 
     let mut events: Vec<EventInput> = Vec::new();
     let mut diagnostics: Vec<DiagnosticInput> = Vec::new();
@@ -394,7 +397,10 @@ pub fn scan(
             }
             continue;
         }
-        let mut event = build_event(target, row, &data, selection.basis, now_ms);
+        // 一个库可含多个版本；最高版本不能认证其他会话的消息。
+        let row_selection = super::select(row.session_version.as_deref());
+        has_unverified_records |= row_selection.basis == VersionBasis::LatestFallback;
+        let mut event = build_event(target, row, &data, row_selection.basis, now_ms);
         match data.get("tokens") {
             Some(tokens) => match parse_tokens(tokens) {
                 Some(usage) => {
@@ -481,6 +487,7 @@ pub fn scan(
         schema_fingerprint: fingerprint,
         version_basis: Some(selection.basis),
         db_version: version,
+        has_unverified_records,
     };
     let degraded = diagnostics.iter().any(|d| {
         matches!(
@@ -500,6 +507,8 @@ pub fn scan(
         reconciliations,
         health: if degraded {
             "degraded".to_string()
+        } else if has_unverified_records {
+            "active_compat".to_string()
         } else {
             "active".to_string()
         },

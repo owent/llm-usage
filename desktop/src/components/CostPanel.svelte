@@ -1,7 +1,8 @@
 <script lang="ts">
   import type {CostSummaryDto} from '../lib/api';
   import {i18n,t} from '../lib/i18n.svelte';
-  import {formatAmount} from '../lib/costs';
+  import {formatAmount,unpricedReasonKey} from '../lib/costs';
+  import {cnyToUsd,referenceFx} from '../lib/exchange-rates';
   import UnitPrices from './UnitPrices.svelte';
   let {summary=null,error=''}:{summary?:CostSummaryDto|null;error?:string}=$props();
   function tokens(n:number) {return new Intl.NumberFormat(i18n.locale,{notation:n>=100000?'compact':'standard'}).format(n);}
@@ -14,9 +15,11 @@
     <ul>
       {#each summary.current_sim.rows as row (row.currency)}
         {#if row.currency && row.priced_event_count}
+          {@const usd=cnyToUsd(row.currency,row.total_amount_minor)}
           <li><span class="amount">{row.currency} {formatAmount(i18n.locale,row.currency,row.total_amount_minor)}</span>
+            {#if usd!==null}<span class="meta" title={t('cost.fxHint',{date:referenceFx.date})}>≈ USD {formatAmount(i18n.locale,'USD',usd)} · ECB {referenceFx.date}</span>{/if}
             <span class="meta">{t('cost.coverage',{priced:tokens(row.priced_tokens),known:tokens(row.known_tokens)})}
-              {#if row.partial_event_count} · {t('cost.partialCount',{count:row.partial_event_count})}{/if}
+              {#if row.partial_event_count} · <span title={t('cost.partialHint')}>{t('cost.partialCount',{count:row.partial_event_count})}</span>{/if}
               {#if row.fallback_event_count} · {t('cost.fallbackCount',{count:row.fallback_event_count})}{/if}
             </span>
           </li>
@@ -25,8 +28,9 @@
       {:else}<li class="meta">{t('cost.noData')}</li>{/each}
     </ul>
     {#if Object.keys(summary.current_sim.unpriced_reasons).length}
-      <p class="meta">{t('cost.unpricedReasons')}: {Object.entries(summary.current_sim.unpriced_reasons).map(([reason,count])=>`${reason} ×${count}`).join(' · ')}</p>
+      <p class="meta">{t('cost.unpricedReasons')}: {Object.entries(summary.current_sim.unpriced_reasons).map(([reason,count])=>`${t(unpricedReasonKey(reason))} ×${count}`).join(' · ')}</p>
     {/if}
+    {#if summary.current_sim.rows.some(row=>row.partial_event_count>0)}<p class="meta">{t('cost.partialHint')}</p>{/if}
     {#if summary.current_sim.detail_limited}<p class="meta">{t('cost.detailLimited')}</p>{/if}
     {#if summary.models.length}<UnitPrices {summary} />{/if}
   {/if}

@@ -34,7 +34,8 @@ use crate::adapters::jsonl::{read_jsonl, JsonlCursor, StopReason};
 
 use super::super::common::{map_codex_record, CodexRecordUsage};
 
-pub const CODEX_PARSER_VERSION: &str = "codex-rollout-1";
+// 规则升级自动重放已消费文件；累计对照差异保留，逐次读取错误跨批次保留。
+pub const CODEX_PARSER_VERSION: &str = "codex-rollout-3";
 const MAX_REASONABLE_TOKEN: i64 = crate::domain::MAX_TOKEN_VALUE;
 
 /// usage 六字段合计（累计/携带/快照对账用；i128 防溢出）。
@@ -96,6 +97,8 @@ struct CodexParseContext {
     turns_aborted: u64,
     #[serde(default)]
     unknown_types: Vec<String>,
+    #[serde(default)]
+    has_record_errors: bool,
     /// 版本选择依据（known_version / latest_fallback）；旧解析上下文缺省为 None，
     /// 迁移不重建来源、不重置游标（V30）。
     #[serde(default)]
@@ -460,6 +463,9 @@ pub fn scan(
                 let sub = payload.get("type").and_then(|t| t.as_str()).unwrap_or("");
                 match sub {
                     "token_count" => {
+                        if super::super::common::token_count_has_no_usage(&payload) {
+                            continue;
+                        }
                         let Some(total) = payload
                             .get("info")
                             .and_then(|i| i.get("total_token_usage"))
@@ -475,7 +481,7 @@ pub fn scan(
                         };
                         let Some((observed_ms, _)) = parse_envelope_ts(&line) else {
                             diagnostics.push(diag(
-                                "timestamp_unparseable",
+                                "snapshot_timestamp_unparseable",
                                 Some("timestamp"),
                                 raw.number,
                                 "envelope timestamp missing or unparseable; snapshot skipped",
@@ -640,17 +646,11 @@ pub fn scan(
         offset: outcome.next_offset,
         line_number: outcome.next_line_number,
     };
-    let degraded = !outcome.bad_lines.is_empty()
-        || diagnostics.iter().any(|d| {
-            matches!(
-                d.code.as_str(),
-                "bad_json_line"
-                    | "usage_shape_deviation"
-                    | "line_too_long"
-                    | "reconcile_mismatch"
-                    | "snapshot_regression"
-            )
-        });
+    context.has_record_errors |= !outcome.bad_lines.is_empty()
+        || diagnostics
+            .iter()
+            .any(super::super::common::is_record_error);
+    let degraded = context.has_record_errors;
     Ok(ScanOutcome {
         status,
         cursor: Some(serde_json::to_value(new_cursor)?),

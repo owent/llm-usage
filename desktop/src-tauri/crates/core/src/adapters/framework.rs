@@ -1130,7 +1130,9 @@ fn scan_one_file(
         "incompatible".to_string()
     } else if outcome.health == "degraded" || outcome.status == ScanStatus::LineTooLong {
         "degraded".to_string()
-    } else if compat_basis == Some(crate::domain::VersionBasis::LatestFallback) {
+    } else if compat_basis == Some(crate::domain::VersionBasis::LatestFallback)
+        || outcome.health == "active_compat"
+    {
         "active_compat".to_string()
     } else {
         "active".to_string()

@@ -93,12 +93,12 @@ await page.addInitScript(() => {
     if(cmd==='refresh_sources') {revision++;finished++;return {started:true,running:false,last_finished_ms:finished};}
     if(cmd==='cost_summary') {
       if(q.first_period && window.selectionDelay) await new Promise(resolve=>setTimeout(resolve,window.selectionDelay));
-      const row={currency:'USD',total_amount_minor:1234,priced_tokens:100000,known_tokens:200000,priced_event_count:10,unpriced_event_count:0,partial_event_count:2,ttl_defaulted_events:0,fallback_event_count:8};
-      const mode={rows:[row],unpriced_reasons:{},as_of_ms:finished,detail_limited:false};
+      const row={currency:window.cnyReference?'CNY':'USD',total_amount_minor:window.cnyReference?12000:1234,priced_tokens:100000,known_tokens:200000,priced_event_count:10,unpriced_event_count:0,partial_event_count:2,ttl_defaulted_events:0,fallback_event_count:8};
+      const mode={rows:[row],unpriced_reasons:window.cnyReference?{no_known_usage:2,no_price_row:3}:{},as_of_ms:finished,detail_limited:false};
       const models=['gpt-5.4','claude-sonnet-4.6','glm-5.3'].map((model,i)=>({model,provider:['openai','anthropic','zhipu'][i],at_time:[{...row,total_amount_minor:[600,400,234][i],priced_event_count:[4,3,3][i]}],current_sim:[{...row,total_amount_minor:(q.first_period?[200,200,100]:[1200,800,468])[i],priced_event_count:[4,3,3][i]}],
-        unit_prices:i===2?[]:[{price_id:`mock-${i}`,snapshot_id:'Synthetic unit prices',provider_id:['openai','anthropic'][i],model,currency:'USD',region:'global',channel:'api',service_tier:'standard',context_threshold_tokens:i===1?200000:0,input_per_mtok_hundredths:30000,output_per_mtok_hundredths:150000,cache_read_per_mtok_hundredths:3000,cache_write_5m_per_mtok_hundredths:37500,cache_write_1h_per_mtok_hundredths:null}]}));
+        unit_prices:i===2?[]:[{price_id:`mock-${i}`,snapshot_id:'Synthetic unit prices',provider_id:['openai','anthropic'][i],model,currency:row.currency,region:'global',channel:'api',service_tier:'standard',context_threshold_tokens:i===1?200000:0,input_per_mtok_hundredths:window.cnyReference?200000:30000,output_per_mtok_hundredths:150000,cache_read_per_mtok_hundredths:3000,cache_write_5m_per_mtok_hundredths:37500,cache_write_1h_per_mtok_hundredths:null}]}));
       const day=(i)=>q.first_day===q.last_day?q.last_day:`2026-09-${15+i}`;
-      return {at_time:mode,current_sim:{...mode,rows:[{...row,total_amount_minor:q.first_period?500:2468}]},source_amounts:[],price_basis:['Synthetic official reference'],data_revision:revision,models,
+      return {at_time:mode,current_sim:{...mode,rows:[{...row,total_amount_minor:window.cnyReference?12000:q.first_period?500:2468}]},source_amounts:[],price_basis:['Synthetic official reference'],data_revision:revision,models,
         daily:models.map((model,i)=>({day:day(i),provider:model.provider,model:model.model,sums:model.at_time[0]})),
         daily_current:models.map((model,i)=>({day:day(i),provider:model.provider,model:model.model,sums:model.current_sim[0]}))};
     }
@@ -138,6 +138,8 @@ await page.addInitScript(() => {
     if(cmd==='app_info') return {schema_version:7,data_revision:revision,db_path:'local/usage.sqlite',host_id:'local',exchange_format_version:'llm-usage-exchange-1'};
     if(cmd==='system_task_status') return {platform:'windows',auto_start:false,refresh_task:false};
     if(cmd==='storage_stats') return {events:10000,hourly:300,daily:500,period:45,diagnostics:3,db_bytes:5800000,wal_bytes:0};
+    if(cmd==='list_price_snapshots') return [];
+    if(cmd==='price_refresh_status') return {running:false};
     if(cmd==='export_filter_options') return {users:[{user_id:'default',name:'本机用户',is_current:true}],hosts:[{host_id:'local',hostname:'Local',is_current:true}]};
     if(cmd==='diagnostic_logs') return {rows:[]};
     if(cmd==='quota_summary') return {quotas:[{agent:'copilot',quota_id:'premium_interactions',kind:'rate_limit',unit:'milli_requests',limit_value:100000,used:50000,remaining:50000,percent_remaining:50,locality_verified:false,observed_at_ms:1790550000000}]};
@@ -225,6 +227,11 @@ await page.clock.runFor(30_500);
 assert.match(await overviewTelemetry.textContent(),/4 暂无数据[\s\S]*0 已核验/,'automatic checks restore the no-data summary when no valid data is available');
 assert.doesNotMatch(await overviewTelemetry.textContent(),/配置受限/);
 const todayPanel=page.locator('[data-panel-group="overviewToday"]').filter({has:page.locator('.hourly')});
+const todayTotalTypes=await page.evaluate(async ()=>{
+  const echarts=await import('/node_modules/.vite/deps/echarts_core.js');
+  return echarts.getInstanceByDom(document.querySelector('[data-panel-group="overviewToday"] .hourly')).getOption().series.map(s=>s.type);
+});
+assert.deepEqual(todayTotalTypes,['line','line'],'today overview keeps a line (curve) chart for calls and tokens');
 await todayPanel.getByRole('button',{name:'按Agent',exact:true}).click();await page.clock.runFor(300);
 await page.evaluate(async () => {
   const echarts=await import('/node_modules/.vite/deps/echarts_core.js');
@@ -236,7 +243,10 @@ const overviewModels=page.locator('[data-panel-group="overviewToday"]').filter({
 assert.match(await overviewModels.locator('tfoot').textContent(),/24\.68/,'model footer includes the current currency subtotal');
 assert.match(await overviewModels.locator('tbody tr').filter({hasText:'gpt-5.4'}).first().textContent(),/12\.00/,'each model includes its current API estimate');
 assert.equal(await overviewModels.locator('thead th').count(),7,'model table has one reference amount column');
-assert.match(await page.locator('.reference-summary').textContent(),/24\.68/,'today summary includes the same current estimate');
+assert.match(await page.locator('.cost-ref').textContent(),/24\.68/,'today summary includes the same current estimate');
+assert.equal(await page.locator('.today-cards > .cost-ref').count(),1,'API reference is the eighth metric card in the same grid');
+assert.equal(await page.locator('.today-cards > *').count(),8);
+assert.equal(await page.locator('.today-cards .cost-ref .label').textContent(),'API 参考费用');
 assert.doesNotMatch(await page.locator('.cost-panel').textContent(),/按发生时价|按当前价格模拟|12\.34/,'only the current reference estimate is displayed');
 const priceRequests=await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='cost_summary').length);
 await page.locator('.unit-prices summary').click();
@@ -323,15 +333,31 @@ const callsOptions=await getChartOptions('[data-panel-group="trendMain"] .calls-
 assert.ok(callsOptions.series.some(s=>s.name==='vscode-copilot-chat'),'calls legend contains the Agent');
 assert.ok(callsOptions.series.every(s=>!/token/i.test(s.name)),'calls chart has no token series');
 const summaryLayout=await page.locator('.range-summary .summary-cards').evaluate(el=>({columns:getComputedStyle(el).gridTemplateColumns.split(' ').length,children:el.children.length}));
-assert.deepEqual(summaryLayout,{columns:7,children:7},'wide summaries keep seven compact metrics in one row');
+assert.equal(summaryLayout.children,8,'seven metrics and API reference share the grid');
+assert.ok([4,8].includes(summaryLayout.columns),'wide summaries have balanced rows');
+assert.equal(await page.locator('.range-summary .summary-cards > .cost-ref').count(),1);
 assert.ok((await page.locator('.summary-quota').boundingBox()).height < 80,'quota is a compact independent strip');
 await page.locator('.summary-quota summary').click();
 assert.match(await page.locator('.summary-quota .detail-content').textContent(),/快照|账户/,'quota details retain snapshot and account scope');
 await page.locator('.summary-quota summary').click();
-assert.match(await page.locator('.range-summary .reference-summary').textContent(),/24\.68/,'range summary includes the current full estimate');
+assert.match(await page.locator('.range-summary .cost-ref').textContent(),/24\.68/,'range summary includes the current full estimate');
 await page.setViewportSize({width:760,height:1000});await page.clock.runFor(100);
 assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'compact trend summaries fit a narrow window');
 await page.locator('.range-summary').screenshot({path:out+'trend-summary-narrow.png'});
+for(const width of [1920,1280,1024,760,480]) {
+  await page.setViewportSize({width,height:1000});await page.clock.runFor(100);
+  const layout=await page.locator('.range-summary .summary-cards').evaluate(el=>{
+    const fee=el.querySelector('.cost-ref'),metric=el.querySelector('.scard');
+    const label=fee.querySelector('.label');
+    return {children:el.children.length,feeWidth:fee.getBoundingClientRect().width,metricWidth:metric.getBoundingClientRect().width,labelFits:label.scrollWidth<=label.clientWidth+1,labelWhiteSpace:getComputedStyle(label).whiteSpace,border:getComputedStyle(fee).borderTopWidth,overflow:document.documentElement.scrollWidth>innerWidth};
+  });
+  assert.equal(layout.children,8);
+  assert.ok(Math.abs(layout.feeWidth-layout.metricWidth)<2,'reference card uses the same column width at '+width);
+  assert.equal(layout.labelWhiteSpace,'nowrap');
+  assert.equal(layout.labelFits,true,'short reference title fits one line at '+width);
+  assert.equal(layout.border,'1px');
+  assert.equal(layout.overflow,false,'summary fits '+width);
+}
 await page.setViewportSize({width:1440,height:1100});await page.clock.runFor(100);
 assert.ok((await trendTokens.boundingBox()).width > 900,'token and call charts have room across the page');
 const trendModels=page.locator('[data-panel-group="trendMain"]').filter({has:page.locator('tfoot')});
@@ -350,7 +376,7 @@ const selectionPoint=await page.locator(tokenSelector).evaluate(async el=>{
 await page.mouse.click(selectionPoint.x,selectionPoint.y);await page.clock.runFor(400);
 assert.match(await page.locator('.range-caption').textContent(),/选定范围[：:]2026-09-16/,'clicking a curve point scopes the summary');
 assert.equal(await page.locator('.range-summary .scard').first().locator('.svalue').textContent(),'84','selected summary comes from the scoped backend query');
-assert.match(await page.locator('.range-summary .reference-summary').textContent(),/5\.00/,'selected reference uses the same scoped query');
+assert.match(await page.locator('.range-summary .cost-ref').textContent(),/5\.00/,'selected reference uses the same scoped query');
 await page.evaluate(async sel=>{
   const echarts=await import('/node_modules/.vite/deps/echarts_core.js');
   echarts.getInstanceByDom(document.querySelector(sel)).dispatchAction({type:'dataZoom',startValue:2,endValue:4});
@@ -374,10 +400,10 @@ await page.evaluate(async sel=>{
   echarts.getInstanceByDom(document.querySelector(sel)).trigger('click',{componentType:'xAxis',value:'2026-09-18'});
 },tokenSelector);await page.clock.runFor(1_000);
 assert.equal(await page.locator('.range-summary .scard').first().locator('.svalue').textContent(),'84','an older selection response cannot replace the current summary');
-assert.match(await page.locator('.range-summary .reference-summary').textContent(),/5\.00/,'an older cost response cannot replace the selected estimate');
+assert.match(await page.locator('.range-summary .cost-ref').textContent(),/5\.00/,'an older cost response cannot replace the selected estimate');
 await page.locator('.range-reset').click();await page.clock.runFor(100);
 assert.equal(await page.locator('.range-summary .scard').first().locator('.svalue').textContent(),'504','reset restores the original query summary');
-assert.match(await page.locator('.range-summary .reference-summary').textContent(),/24\.68/,'reset restores the original current reference');
+assert.match(await page.locator('.range-summary .cost-ref').textContent(),/24\.68/,'reset restores the original current reference');
 const pieLayout=await getChartOptions('[data-panel-group="trendMain"] .pie');
 assert.equal(pieLayout.legend[0].orient,'horizontal','pie legends stay below the circle');
 await trendModels.screenshot({path:out+'model-cost-table.png'});
@@ -400,6 +426,7 @@ await page.locator('.filters select').first().selectOption('30');await page.cloc
 assert.equal(await page.locator('.range-reset').count(),0,'changing the query clears the old selection');
 await page.getByRole('navigation').first().getByRole('button',{name:'数据源',exact:true}).click();
 assert.match(await page.locator('.source-card').filter({has:page.getByRole('heading',{name:'opencode',exact:true})}).textContent(),/已就绪[\s\S]*兼容读取 1 个文件/,'compatible parser is informational when the source is healthy');
+assert.match(await page.locator('.source-card').filter({has:page.getByRole('heading',{name:'opencode',exact:true})}).locator('.tag.compat').getAttribute('title'),/已自动检查[\s\S]*自动复核/,'compatibility status explains automatic checks and future re-evaluation');
 assert.match(await page.locator('.source-card').filter({has:page.getByRole('heading',{name:'zcode',exact:true})}).textContent(),/部分数据需核对[\s\S]*未识别 1 个文件/,'unrecognized usage carrier remains visible');
 assert.match(await page.locator('.source-card').filter({has:page.getByRole('heading',{name:'kimi-code',exact:true})}).textContent(),/部分数据需核对[\s\S]*需核对 1 个文件/,'degraded source shows a concrete file count');
 await page.screenshot({path:out+'sources-light.png',fullPage:true});
@@ -424,6 +451,8 @@ assert.match(await page.locator('.page-info').textContent(),/第 1 \/ 1 页/,'re
 assert.equal(await page.locator('.details tbody tr').count(),12);
 await page.getByRole('navigation').first().getByRole('button',{name:'设置',exact:true}).click();
 assert.equal(await page.locator('#telemetry-settings').count(),0,'normal settings navigation starts at general');
+await page.locator('[data-settings-section="costs"]').click();
+assert.equal(await page.locator('.frow').filter({hasText:'缓存有效期（天）'}).locator('input').inputValue(),'3','old settings without a TTL display the three-day default');
 await page.locator('[data-settings-section="telemetry"]').click();
 assert.equal(await page.locator('[data-telemetry-id="copilot-vscode"]').count(),1,'settings provides the same merge-configuration entry');
 await page.locator('[data-settings-section="general"]').click();
@@ -491,6 +520,14 @@ await page.evaluate(async ()=>{const echarts=await import('/node_modules/.vite/d
 assert.match(await singlePanel.textContent(),/vscode-copilot-chat[\s\S]*输入 token: 300,000/,'single-period hover keeps partial usage information');
 await page.screenshot({path:out+'overview-narrow.png',fullPage:true});
 assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth > innerWidth),false,'no horizontal page overflow');
+await page.evaluate(()=>{window.cnyReference=true;});
+await page.getByRole('button',{name:'采集并刷新',exact:true}).click();await page.clock.runFor(800);
+assert.match(await page.locator('.today-cards .cost-ref').textContent(),/CNY[\s\S]*120\.00[\s\S]*≈ USD[\s\S]*17\.90/,'CNY reference keeps its native value and shows a rounded USD equivalent');
+assert.match(await page.locator('.cost-panel').textContent(),/来源未提供可计价 token[\s\S]*没有适用的模型价目/,'missing tokens and missing prices have distinct localized explanations');
+await page.locator('.unit-prices summary').click();
+assert.match(await page.locator('.unit-prices').textContent(),/2026-10-02[\s\S]*ECB[\s\S]*CNY 20[\s\S]*≈ USD 2\.983/,'unit-price conversion preserves the per-million unit and publishes the FX date');
+assert.equal(await page.locator('.unit-prices a').getAttribute('href'),'https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html');
+await page.screenshot({path:out+'overview-cny-narrow.png',fullPage:true});
 assert.deepEqual(errors,[]);
 await writeFile(out+'browser-results.json',JSON.stringify({errors,requests:await page.evaluate(()=>window.appCalls.length),checks:['five pages','full-year light/dark heatmap','year navigation and leap days','future/retained dates','Copilot input with unknown cache split','Copilot unknown total hover and zero output','async telemetry discovery','compact overview with two actions','details navigation and focus','batch partial failure and retry','existing/managed outputs preserved','cross-page progress and undo','installed Agents only','merge configuration preview/apply/undo','ten locale switches','narrow telemetry layout in Chinese/German/Russian','default panel order','source health and compatibility','statistics timezone','initial/idle query counts','stale filter responses','user isolation','source membership without revision','refresh preserves pagination','retention clamps pagination'],screenshots:11},null,2));
 console.log('Browser checks passed: total-only series, Agent calls and single-period hover, partial share pies, overview/trend API references, filled summary layout, telemetry batch setup/retry/undo, ten locales, themes, timezone, filters and pagination.');

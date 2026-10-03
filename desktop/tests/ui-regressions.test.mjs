@@ -4,7 +4,8 @@ import { calendarDay, offsetDay, calendarYearRange } from '../src/lib/calendar.t
 import { loadPanelGroup, savePanelGroup, clearPanelPage } from '../src/lib/panels.ts';
 import { durationStatsOf, pivotChartSeries, mergeNamedValues } from '../src/lib/derive.ts';
 import { escapeHtml } from '../src/lib/chart.ts';
-import {formatUnitPrice} from '../src/lib/costs.ts';
+import {formatUnitPrice,unpricedReasonKey} from '../src/lib/costs.ts';
+import {cnyToUsd,referenceFx} from '../src/lib/exchange-rates.ts';
 
 test('statistics dates follow the selected timezone across midnight and DST', () => {
   const time = new Date('2026-09-27T23:30:00Z');
@@ -61,4 +62,22 @@ test('unit rates preserve small prices, known zero and unavailable components',(
   assert.equal(formatUnitPrice('en','CNY',80000),'CNY 8');
   assert.equal(formatUnitPrice('en','USD',0),'USD 0');
   assert.equal(formatUnitPrice('en','USD',null),'—');
+});
+
+test('CNY reference conversion preserves units and uses same-day ECB cross rates',()=>{
+  assert.equal(referenceFx.date,'2026-10-02');
+  // EUR 1 = CNY 7.5259 = USD 1.1225, not the inverse conversion.
+  assert.equal(cnyToUsd('CNY',75259),11225);
+  assert.equal(cnyToUsd('CNY',200000),29830); // CNY 20/M → USD 2.9830/M
+  assert.equal(cnyToUsd('CNY',10000),1492); // CNY 100 → USD 14.92
+  assert.equal(cnyToUsd('CNY',0),0);
+  for(const value of [null,-1,1.5,Number.NaN,Number.POSITIVE_INFINITY,Number.MAX_SAFE_INTEGER+1]) assert.equal(cnyToUsd('CNY',value),null);
+  assert.equal(cnyToUsd('USD',10000),null);
+  assert.equal(cnyToUsd('EUR',10000),null);
+});
+
+test('unpriced explanations distinguish missing usage from missing rates',()=>{
+  assert.equal(unpricedReasonKey('no_known_usage'),'cost.reason.no_known_usage');
+  assert.equal(unpricedReasonKey('no_price_row'),'cost.reason.no_price_row');
+  assert.equal(unpricedReasonKey('future-reason'),'cost.reason.other');
 });

@@ -9,11 +9,15 @@
 维护用量采集与统计时，按需读 [数据合同](docs/design/desktop-usage/data-contract.md)
 和 [接入矩阵](docs/design/desktop-usage/adapters.md)。未知用量不补零；消息、调用、
 累计值和额度分开；共享内核或同名字段不能替代逐版本证据。
+混合版本载体按记录所属版本保留依据，库内最高版本不认证其他会话；
+空会话不能作为用量格式证据，兼容读取已经自动检查，支持更新后自动重评。
 只统计本机 Agent 来源，不接入远端用量/账单 API 或跨设备账号报表；落盘文件仍须核验来源。
 Windows 11 x64 首发，GitHub CI 保留 macOS/Linux；WSL 构建不等于 Linux 桌面验收。
 定时任务只调度本地采集，按需读 [调度合同](docs/design/desktop-usage/scheduling.md)。
 费用估算与价格快照改动按需读 [价格合同](docs/design/desktop-usage/pricing.md)：
 默认关闭、多币种不合并、估算不随后台价格更新改写。实际渠道未知不推断账单；
+人民币参考额/单价可按已核验的版本化汇率旁列约合美元，保留原值、日期和来源，
+不合并币种或改写历史，见看板修正合同。
 无精确价目时可按同型号已核验官方供应商价格展示 API 参考，渠道/币种有歧义仍不套价，
 型号不按系列猜测，见 [看板修正合同](docs/design/desktop-usage/dashboard-repair.md)。
 在线刷新同样默认关闭：唯一内置来源 models.dev api.json（不携带本机数据），

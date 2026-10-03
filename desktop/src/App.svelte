@@ -1214,17 +1214,17 @@
         </div>
         <p class="range-caption">{trendRangeCaption}{#if trendSelection && !selectionSummary && !selectionError} · {t('common.loading')}{/if}</p>
         {#if selectionError}<p class="error">{selectionError}</p>{/if}
-        <div class="summary-cards">
+        <div class="summary-cards" class:with-pricing={settings?.pricing?.enabled}>
           {#each trendSummaryCards as c (c.key)}
-            <div class="scard" title={[c.hint,c.sub].filter(Boolean).join(' · ')}>
+            <div class="scard" title={[c.label,c.hint,c.sub].filter(Boolean).join(' · ')}>
               <div class="slabel">
                 {c.label}
               </div>
               <div class="svalue">{c.value}</div>
             </div>
           {/each}
+          {#if settings?.pricing?.enabled}<CostReferenceSummary summary={trendScopeCosts} error={trendSelection ? selectionCostsError : costsError} />{/if}
         </div>
-        {#if settings?.pricing?.enabled}<CostReferenceSummary summary={trendScopeCosts} error={trendSelection ? selectionCostsError : costsError} />{/if}
         <div class="summary-quota" aria-label={t('quota.sectionTitle')}>
           <QuotaCard agent="copilot" compact timezone={settings?.timezone ?? 'UTC'} reloadKey={dataReloadKey + (summary?.data_revision ?? 0)} {isDark} />
         </div>
@@ -1581,23 +1581,25 @@
   /* Keep metric rows compact; account quota has an independent full-width strip. */
   .range-summary {
     margin-bottom: 4px;
+    container:metrics / inline-size;
   }
   .range-summary .section-head {
     margin: 4px 0 6px;
   }
   .range-summary .summary-cards {
-    grid-template-columns: repeat(7, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
   .summary-quota { min-width: 0; margin:12px 0; }
   .range-summary .scard {padding:12px 10px;border-radius:9px;}
   .range-summary .svalue {font-size:22px;}
-  @media (max-width: 1200px) {
-    .range-summary .summary-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-    .range-summary .scard:last-child {grid-column:span 2;}
+  @container metrics (min-width:1280px) {
+    .range-summary .summary-cards {grid-template-columns:repeat(7,minmax(0,1fr));}
+    .range-summary .summary-cards.with-pricing {grid-template-columns:repeat(8,minmax(0,1fr));}
   }
-  @media (max-width: 600px) {
+  @container metrics (max-width:640px) {
     .range-summary .summary-cards { grid-template-columns: repeat(2,minmax(0,1fr)); }
   }
+  @container metrics (max-width:320px) {.range-summary .summary-cards{grid-template-columns:minmax(0,1fr);}}
   .summary-cards {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -1614,7 +1616,9 @@
   .scard .slabel {
     font-size: 12px;
     color: var(--text-secondary);
-    white-space: normal;
+    white-space: nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
   }
   .scard .slabel .shint {
     color: var(--text-muted);

@@ -45,7 +45,7 @@ pub struct ProviderPricingDefault {
 }
 
 /// 费用估算设置（数据合同：估算与预算默认关闭）。
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PricingSettings {
     #[serde(default)]
     pub enabled: bool,
@@ -57,6 +57,19 @@ pub struct PricingSettings {
     /// 原始响应缓存 TTL（天；默认 3，范围 1–365）。新鲜期内不发网络请求。
     #[serde(default = "default_online_cache_ttl_days")]
     pub online_cache_ttl_days: u32,
+}
+
+/// 手动 Default：派生 Default 会把 online_cache_ttl_days 设为 u32::default()=0，
+/// 与合同「默认 3」矛盾，导致新装/缺 pricing 字段的配置界面显示 0。
+impl Default for PricingSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            provider_defaults: Vec::new(),
+            online_refresh_enabled: false,
+            online_cache_ttl_days: default_online_cache_ttl_days(),
+        }
+    }
 }
 
 fn default_online_cache_ttl_days() -> u32 {
@@ -431,8 +444,16 @@ pub fn load_settings(storage: &Storage) -> AppSettings {
             |r| r.get(0),
         )
         .ok();
-    raw.and_then(|v| serde_json::from_str(&v).ok())
-        .unwrap_or_default()
+    let mut settings: AppSettings = raw
+        .and_then(|v| serde_json::from_str(&v).ok())
+        .unwrap_or_default();
+    // 规整费用缓存 TTL：旧版派生 Default 会持久化 0（非法，合法范围 1–365）；
+    // 0 或越界回落默认值；保留合法的用户设置。
+    let ttl = settings.pricing.online_cache_ttl_days;
+    if !(crate::price_refresh::MIN_TTL_DAYS..=crate::price_refresh::MAX_TTL_DAYS).contains(&ttl) {
+        settings.pricing.online_cache_ttl_days = crate::price_refresh::DEFAULT_TTL_DAYS;
+    }
+    settings
 }
 
 pub fn save_settings(storage: &Storage, settings: &AppSettings) -> Result<(), String> {
@@ -474,6 +495,96 @@ pub fn summarize_reports(reports: &[SourceRunReport]) -> Vec<RefreshInstanceSumm
             diagnostics: r.files.iter().map(|f| f.diagnostics).sum(),
         })
         .collect()
+}
+
+#[cfg(test)]
+mod pricing_settings_tests {
+    use super::*;
+    use llm_usage_core::storage::Storage;
+
+    #[test]
+    fn default_cache_ttl_is_three_days() {
+        assert_eq!(
+            PricingSettings::default().online_cache_ttl_days,
+            crate::price_refresh::DEFAULT_TTL_DAYS
+        );
+        assert_eq!(
+            AppSettings::default().pricing.online_cache_ttl_days,
+            crate::price_refresh::DEFAULT_TTL_DAYS
+        );
+    }
+
+    #[test]
+    fn load_settings_normalizes_invalid_cache_ttl() {
+        let storage = Storage::open_in_memory().unwrap();
+        // 模拟旧版派生 Default 持久化的非法值 0：加载时应回落默认 3，保留其他字段。
+        let mut s = AppSettings::default();
+        s.pricing.enabled = true;
+        s.pricing.online_cache_ttl_days = 0;
+        save_settings(&storage, &s).unwrap();
+        let loaded = load_settings(&storage);
+        assert_eq!(
+            loaded.pricing.online_cache_ttl_days,
+            crate::price_refresh::DEFAULT_TTL_DAYS
+        );
+        assert!(loaded.pricing.enabled);
+    }
+
+    #[test]
+    fn load_settings_keeps_valid_cache_ttl() {
+        let storage = Storage::open_in_memory().unwrap();
+        let mut s = AppSettings::default();
+        s.pricing.online_cache_ttl_days = 30;
+        save_settings(&storage, &s).unwrap();
+        assert_eq!(load_settings(&storage).pricing.online_cache_ttl_days, 30);
+    }
+
+    #[test]
+    fn missing_pricing_and_ttl_fields_use_default_without_enabling_network() {
+        let storage = Storage::open_in_memory().unwrap();
+        for mode in 0..3 {
+            let mut value = serde_json::to_value(AppSettings::default()).unwrap();
+            if mode == 0 {
+                value.as_object_mut().unwrap().remove("pricing");
+            } else {
+                value["pricing"]
+                    .as_object_mut()
+                    .unwrap()
+                    .remove("online_cache_ttl_days");
+                value["pricing"]["enabled"] = serde_json::json!(mode == 2);
+            }
+            storage.conn().execute("INSERT OR REPLACE INTO settings(key,value,schema_version,updated_at_ms) VALUES(?1,?2,1,0)",rusqlite::params![SETTINGS_KEY,value.to_string()]).unwrap();
+            let loaded = load_settings(&storage);
+            assert_eq!(loaded.pricing.online_cache_ttl_days, 3);
+            assert!(!loaded.pricing.online_refresh_enabled);
+            assert_eq!(loaded.pricing.enabled, mode == 2);
+        }
+    }
+
+    #[test]
+    fn cache_ttl_boundaries_are_normalized_without_changing_other_settings() {
+        let storage = Storage::open_in_memory().unwrap();
+        for (ttl, expected) in [(0, 3), (1, 1), (365, 365), (366, 3), (u32::MAX, 3)] {
+            let mut settings = AppSettings::default();
+            settings.pricing.online_cache_ttl_days = ttl;
+            settings
+                .pricing
+                .provider_defaults
+                .push(ProviderPricingDefault {
+                    provider_id: "custom".into(),
+                    region: "cn".into(),
+                    channel: "api".into(),
+                    cache_ttl_minutes: None,
+                });
+            save_settings(&storage, &settings).unwrap();
+            let loaded = load_settings(&storage);
+            assert_eq!(loaded.pricing.online_cache_ttl_days, expected);
+            assert_eq!(
+                loaded.pricing.provider_defaults,
+                settings.pricing.provider_defaults
+            );
+        }
+    }
 }
 
 #[cfg(test)]

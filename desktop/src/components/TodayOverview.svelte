@@ -41,22 +41,25 @@
   });
 </script>
 
-<div class="today-cards">
+<div class="metric-region">
+<div class="today-cards" class:with-pricing={pricing}>
   {#each cards as c (c.key)}
-    <div class="card" title={[c.hint,c.sub].filter(Boolean).join(' · ')}>
+    <div class="card" title={[t(c.key),c.hint,c.sub].filter(Boolean).join(' · ')}>
       <div class="label">
         {t(c.key)}
       </div>
       <div class="value">{c.value}</div>
     </div>
   {/each}
+  {#if pricing}<CostReferenceSummary summary={costs} error={costsError} />{/if}
 </div>
-{#if pricing}<CostReferenceSummary summary={costs} error={costsError} />{/if}
+</div>
 
 <style>
+  .metric-region {container:metrics / inline-size;}
   .today-cards {
     display: grid;
-    grid-template-columns: repeat(7, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 8px;
     padding: 8px 0 2px;
   }
@@ -72,7 +75,9 @@
   .label {
     font-size: 12px;
     color: var(--text-secondary);
-    white-space: normal;
+    white-space: nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
   }
   .value {
     font-size: 22px;
@@ -80,6 +85,7 @@
     margin-top: 4px;
     font-variant-numeric: tabular-nums;
   }
-  @media(max-width:1200px) {.today-cards{grid-template-columns:repeat(4,minmax(0,1fr));}.card:last-child{grid-column:span 2;}}
-  @media(max-width:600px) {.today-cards{grid-template-columns:repeat(2,minmax(0,1fr));}}
+  @container metrics (min-width:1280px) {.today-cards{grid-template-columns:repeat(7,minmax(0,1fr));}.today-cards.with-pricing{grid-template-columns:repeat(8,minmax(0,1fr));}}
+  @container metrics (max-width:640px) {.today-cards{grid-template-columns:repeat(2,minmax(0,1fr));}}
+  @container metrics (max-width:320px) {.today-cards{grid-template-columns:minmax(0,1fr);}}
 </style>

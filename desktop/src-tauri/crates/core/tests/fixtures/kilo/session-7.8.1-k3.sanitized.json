@@ -1,0 +1,1109 @@
+{
+  "source": "real kilo.db session version=7.8.1, sanitized (ids/paths/free text removed; tokens/time/finish/model kept). Extraction: build/dashboard-fixes/extract_kilo_781.py",
+  "schema": {
+    "message_ddl": "CREATE TABLE `message` ( `id` text PRIMARY KEY, `session_id` text NOT NULL, `time_created` integer NOT NULL, `time_updated` integer NOT NULL, `data` text NOT NULL, CONSTRAINT `fk_message_session_id_session_id_fk` FOREIGN KEY (`session_id`) REFERENCES `session`(`id`) ON DELETE CASCADE )",
+    "session_ddl": "CREATE TABLE `session` ( `id` text PRIMARY KEY, `project_id` text NOT NULL, `parent_id` text, `slug` text NOT NULL, `directory` text NOT NULL, `title` text NOT NULL, `version` text NOT NULL, `share_url` text, `summary_additions` integer, `summary_deletions` integer, `summary_files` integer, `summary_diffs` text, `revert` text, `permission` text, `time_created` integer NOT NULL, `time_updated` integer NOT NULL, `time_compacting` integer, `time_archived` integer, `workspace_id` text, `path` text, `agent` text, `model` text, `cost` real DEFAULT 0 NOT NULL, `tokens_input` integer DEFAULT 0 NOT NULL, `tokens_output` integer DEFAULT 0 NOT NULL, `tokens_reasoning` integer DEFAULT 0 NOT NULL, `tokens_cache_read` integer DEFAULT 0 NOT NULL, `tokens_cache_write` integer DEFAULT 0 NOT NULL, `metadata` text, CONSTRAINT `fk_session_project_id_project_id_fk` FOREIGN KEY (`project_id`) REFERENCES `project`(`id`) ON DELETE CASCADE )"
+  },
+  "sessions": [
+    {
+      "id": "anon-1",
+      "project_id": "anon-proj",
+      "parent_id": null,
+      "slug": "session",
+      "directory": "/work",
+      "title": "REDACTED",
+      "version": "7.8.1",
+      "share_url": null,
+      "summary_additions": null,
+      "summary_deletions": null,
+      "summary_files": null,
+      "summary_diffs": null,
+      "revert": null,
+      "permission": null,
+      "time_created": 1790515320008,
+      "time_updated": 1790515320114,
+      "time_compacting": null,
+      "time_archived": null,
+      "workspace_id": null,
+      "path": null,
+      "agent": "code",
+      "model": null,
+      "cost": 0.0,
+      "tokens_input": 125298,
+      "tokens_output": 6637,
+      "tokens_reasoning": 37853,
+      "tokens_cache_read": 3019520,
+      "tokens_cache_write": 0,
+      "metadata": null
+    }
+  ],
+  "messages": [
+    {
+      "id": "anon-m1",
+      "session_id": "anon-1",
+      "time_created": 1790515320052,
+      "time_updated": 1790515320106,
+      "data": {
+        "role": "user",
+        "agent": "code",
+        "time": {
+          "created": 1790515320052
+        }
+      }
+    },
+    {
+      "id": "anon-m2",
+      "session_id": "anon-1",
+      "time_created": 1790515320146,
+      "time_updated": 1790515333282,
+      "data": {
+        "role": "assistant",
+        "agent": "code",
+        "time": {
+          "created": 1790515320146,
+          "completed": 1790515333282
+        },
+        "finish": "tool-calls",
+        "mode": "code",
+        "modelID": "k3-256k",
+        "providerID": "kimi-code-owent",
+        "variant": "max",
+        "cost": 0,
+        "tokens": {
+          "total": 29367,
+          "input": 25080,
+          "output": 180,
+          "reasoning": 11,
+          "cache": {
+            "write": 0,
+            "read": 4096
+          }
+        },
+        "parentID": "anon-m1"
+      }
+    },
+    {
+      "id": "anon-m3",
+      "session_id": "anon-1",
+      "time_created": 1790515333286,
+      "time_updated": 1790515345342,
+      "data": {
+        "role": "assistant",
+        "agent": "code",
+        "time": {
+          "created": 1790515333286,
+          "completed": 1790515345342
+        },
+        "finish": "tool-calls",
+        "mode": "code",
+        "modelID": "k3-256k",
+        "providerID": "kimi-code-owent",
+        "variant": "max",
+        "cost": 0,
+        "tokens": {
+          "total": 30012,
+          "input": 945,
+          "output": 139,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 28928
+          }
+        },
+        "parentID": "anon-m1"
+      }
+    },
+    {
+      "id": "anon-m4",
+      "session_id": "anon-1",
+      "time_created": 1790515345345,
+      "time_updated": 1790515356943,
+      "data": {
+        "role": "assistant",
+        "agent": "code",
+        "time": {
+          "created": 1790515345345,
+          "completed": 1790515356942
+        },
+        "finish": "tool-calls",
+        "mode": "code",
+        "modelID": "k3-256k",
+        "providerID": "kimi-code-owent",
+        "variant": "max",
+        "cost": 0,
+        "tokens": {
+          "total": 40764,
+          "input": 10840,
+          "output": 170,
+          "reasoning": 58,
+          "cache": {
+            "write": 0,
+            "read": 29696
+          }
+        },
+        "parentID": "anon-m1"
+      }
+    },
+    {
+      "id": "anon-m5",
+      "session_id": "anon-1",
+      "time_created": 1790515356947,
+      "time_updated": 1790515400297,
+      "data": {
+        "role": "assistant",
+        "agent": "code",
+        "time": {
+          "created": 1790515356947,
+          "completed": 1790515400296
+        },
+        "finish": "tool-calls",
+        "mode": "code",
+        "modelID": "k3-256k",
+        "providerID": "kimi-code-owent",
+        "variant": "max",
+        "cost": 0,
+        "tokens": {
+          "total": 45534,
+          "input": 3702,
+          "output": 179,
+          "reasoning": 1205,
+          "cache": {
+            "write": 0,
+            "read": 40448
+          }
+        },
+        "parentID": "anon-m1"
+      }
+    },
+    {
+      "id": "anon-m6",
+      "session_id": "anon-1",
+      "time_created": 1790515400301,
+      "time_updated": 1790515473764,
+      "data": {
+        "role": "assistant",
+        "agent": "code",
+        "time": {
+          "created": 1790515400301,
+          "completed": 1790515473763
+        },
+        "finish": "tool-calls",
+        "mode": "code",
+        "modelID": "k3-256k",
+        "providerID": "kimi-code-owent",
+        "variant": "max",
+        "cost": 0,
+        "tokens": {
+          "total": 50009,
+          "input": 3728,
+          "output": 153,
+          "reasoning": 2096,
+          "cache": {
+            "write": 0,
+            "read": 44032
+          }
+        },
+        "parentID": "anon-m1"
+      }
+    },
+    {
+      "id": "anon-m7",
+      "session_id": "anon-1",
+      "time_created": 1790515473766,
+      "time_updated": 1790515532085,
+      "data": {
+        "role": "assistant",
+        "agent": "code",
+        "time": {
+          "created": 1790515473766,
+          "completed": 1790515532084
+        },
+        "finish": "tool-calls",
+        "mode": "code",
+        "modelID": "k3-256k",
+        "providerID": "kimi-code-owent",
+        "variant": "max",
+        "cost": 0,
+        "tokens": {
+          "total": 60303,
+          "input": 10873,
+          "output": 189,
+          "reasoning": 1625,
+          "cache": {
+            "write": 0,
+            "read": 47616
+          }
+        },
+        "parentID": "anon-m1"
+      }
+    },
+    {
+      "id": "anon-m8",
+      "session_id": "anon-1",
+      "time_created": 1790515532092,
+      "time_updated": 1790515611816,
+      "data": {
+        "role": "assistant",
+        "agent": "code",
+        "time": {
+          "created": 1790515532092,
+          "completed": 1790515611816
+        },
+        "finish": "tool-calls",
+        "mode": "code",
+        "modelID": "k3-256k",
+        "providerID": "kimi-code-owent",
+        "variant": "max",
+        "cost": 0,
+        "tokens": {
+          "total": 65852,
+          "input": 4597,
+          "output": 184,
+          "reasoning": 2703,
+          "cache": {
+            "write": 0,
+            "read": 58368
+          }
+        },
+        "parentID": "anon-m1"
+      }
+    },
+    {
+      "id": "anon-m9",
+      "session_id": "anon-1",
+      "time_created": 1790515611822,
+      "time_updated": 1790515659117,
+      "data": {
+        "role": "assistant",
+        "agent": "code",
+        "time": {
+          "created": 1790515611822,
+          "completed": 1790515659116
+        },
+        "finish": "tool-calls",
+        "mode": "code",
+        "modelID": "k3-256k",
+        "providerID": "kimi-code-owent",
+        "variant": "max",
+        "cost": 0,
+        "tokens": {
+          "total": 70907,
+          "input": 6824,
+          "output": 122,
+          "reasoning": 1241,
+          "cache": {
+            "write": 0,
+            "read": 62720
+          }
+        },
+        "parentID": "anon-m1"
+      }
+    },
+    {
+      "id": "anon-m10",
+      "session_id": "anon-1",
+      "time_created": 1790515659128,
+      "time_updated": 1790515663862,
+      "data": {
+        "role": "assistant",
+        "agent": "code",
+        "time": {
+          "created": 1790515659128,
+          "completed": 1790515663862
+        },
+        "finish": "tool-calls",
+        "mode": "code",
+        "modelID": "k3-256k",
+        "providerID": "kimi-code-owent",
+        "variant": "max",
+        "cost": 0,
+        "tokens": {
+          "total": 71092,
+          "input": 1625,
+          "output": 91,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 69376
+          }
+        },
+        "parentID": "anon-m1"
+      }
+    },
+    {
+      "id": "anon-m11",
+      "session_id": "anon-1",
+      "time_created": 1790515663865,
+      "time_updated": 1790515678890,
+      "data": {
+        "role": "assistant",
+        "agent": "code",
+        "time": {
+          "created": 1790515663865,
+          "completed": 1790515678889
+        },
+        "finish": "tool-calls",
+        "mode": "code",
+        "modelID": "k3-256k",
+        "providerID": "kimi-code-owent",
+        "variant": "max",
+        "cost": 0,
+        "tokens": {
+          "total": 71487,
+          "input": 468,
+          "output": 107,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 70912
+          }
+        },
+        "parentID": "anon-m1"
+      }
+    },
+    {
+      "id": "anon-m12",
+      "session_id": "anon-1",
+      "time_created": 1790515678893,
+      "time_updated": 1790515787428,
+      "data": {
+        "role": "assistant",
+        "agent": "code",
+        "time": {
+          "created": 1790515678893,
+          "completed": 1790515787427
+        },
+        "finish": "tool-calls",
+        "mode": "code",
+        "modelID": "k3-256k",
+        "providerID": "kimi-code-owent",
+        "variant": "max",
+        "cost": 0,
+        "tokens": {
+          "total": 75023,
+          "input": 432,
+          "output": 158,
+          "reasoning": 3265,
+          "cache": {
+            "write": 0,
+            "read": 71168
+          }
+        },
+        "parentID": "anon-m1"
+      }
+    },
+    {
+      "id": "anon-m13",
+      "session_id": "anon-1",
+      "time_created": 1790515787431,
+      "time_updated": 1790515882148,
+      "data": {
+        "role": "assistant",
+        "agent": "code",
+        "time": {
+          "created": 1790515787431,
+          "completed": 1790515882148
+        },
+        "finish": "tool-calls",
+        "mode": "code",
+        "modelID": "k3-256k",
+        "providerID": "kimi-code-owent",
+        "variant": "max",
+        "cost": 0,
+        "tokens": {
+          "total": 81718,
+          "input": 7373,
+          "output": 195,
+          "reasoning": 2726,
+          "cache": {
+            "write": 0,
+            "read": 71424
+          }
+        },
+        "parentID": "anon-m1"
+      }
+    },
+    {
+      "id": "anon-m14",
+      "session_id": "anon-1",
+      "time_created": 1790515882152,
+      "time_updated": 1790515950881,
+      "data": {
+        "role": "assistant",
+        "agent": "code",
+        "time": {
+          "created": 1790515882152,
+          "completed": 1790515950881
+        },
+        "finish": "tool-calls",
+        "mode": "code",
+        "modelID": "k3-256k",
+        "providerID": "kimi-code-owent",
+        "variant": "max",
+        "cost": 0,
+        "tokens": {
+          "total": 86286,
+          "input": 5706,
+          "output": 122,
+          "reasoning": 1866,
+          "cache": {
+            "write": 0,
+            "read": 78592
+          }
+        },
+        "parentID": "anon-m1"
+      }
+    },
+    {
+      "id": "anon-m15",
+      "session_id": "anon-1",
+      "time_created": 1790515950892,
+      "time_updated": 1790516048567,
+      "data": {
+        "role": "assistant",
+        "agent": "code",
+        "time": {
+          "created": 1790515950892,
+          "completed": 1790516048566
+        },
+        "finish": "tool-calls",
+        "mode": "code",
+        "modelID": "k3-256k",
+        "providerID": "kimi-code-owent",
+        "variant": "max",
+        "cost": 0,
+        "tokens": {
+          "total": 90958,
+          "input": 3807,
+          "output": 153,
+          "reasoning": 2774,
+          "cache": {
+            "write": 0,
+            "read": 84224
+          }
+        },
+        "parentID": "anon-m1"
+      }
+    },
+    {
+      "id": "anon-m16",
+      "session_id": "anon-1",
+      "time_created": 1790516048571,
+      "time_updated": 1790516170805,
+      "data": {
+        "role": "assistant",
+        "agent": "code",
+        "time": {
+          "created": 1790516048571,
+          "completed": 1790516170804
+        },
+        "finish": "tool-calls",
+        "mode": "code",
+        "modelID": "k3-256k",
+        "providerID": "kimi-code-owent",
+        "variant": "max",
+        "cost": 0,
+        "tokens": {
+          "total": 99648,
+          "input": 8297,
+          "output": 228,
+          "reasoning": 3315,
+          "cache": {
+            "write": 0,
+            "read": 87808
+          }
+        },
+        "parentID": "anon-m1"
+      }
+    },
+    {
+      "id": "anon-m17",
+      "session_id": "anon-1",
+      "time_created": 1790516170809,
+      "time_updated": 1790516208673,
+      "data": {
+        "role": "assistant",
+        "agent": "code",
+        "time": {
+          "created": 1790516170809,
+          "completed": 1790516208673
+        },
+        "finish": "tool-calls",
+        "mode": "code",
+        "modelID": "k3-256k",
+        "providerID": "kimi-code-owent",
+        "variant": "max",
+        "cost": 0,
+        "tokens": {
+          "total": 100990,
+          "input": 4135,
+          "output": 375,
+          "reasoning": 480,
+          "cache": {
+            "write": 0,
+            "read": 96000
+          }
+        },
+        "parentID": "anon-m1"
+      }
+    },
+    {
+      "id": "anon-m18",
+      "session_id": "anon-1",
+      "time_created": 1790516208677,
+      "time_updated": 1790516302609,
+      "data": {
+        "role": "assistant",
+        "agent": "code",
+        "time": {
+          "created": 1790516208677,
+          "completed": 1790516302609
+        },
+        "finish": "tool-calls",
+        "mode": "code",
+        "modelID": "k3-256k",
+        "providerID": "kimi-code-owent",
+        "variant": "max",
+        "cost": 0,
+        "tokens": {
+          "total": 103819,
+          "input": 924,
+          "output": 106,
+          "reasoning": 2693,
+          "cache": {
+            "write": 0,
+            "read": 100096
+          }
+        },
+        "parentID": "anon-m1"
+      }
+    },
+    {
+      "id": "anon-m19",
+      "session_id": "anon-1",
+      "time_created": 1790516302614,
+      "time_updated": 1790516407464,
+      "data": {
+        "role": "assistant",
+        "agent": "code",
+        "time": {
+          "created": 1790516302614,
+          "completed": 1790516407463
+        },
+        "finish": "tool-calls",
+        "mode": "code",
+        "modelID": "k3-256k",
+        "providerID": "kimi-code-owent",
+        "variant": "max",
+        "cost": 0,
+        "tokens": {
+          "total": 107937,
+          "input": 4129,
+          "output": 106,
+          "reasoning": 2838,
+          "cache": {
+            "write": 0,
+            "read": 100864
+          }
+        },
+        "parentID": "anon-m1"
+      }
+    },
+    {
+      "id": "anon-m20",
+      "session_id": "anon-1",
+      "time_created": 1790516407468,
+      "time_updated": 1790516425027,
+      "data": {
+        "role": "assistant",
+        "agent": "code",
+        "time": {
+          "created": 1790516407468,
+          "completed": 1790516425027
+        },
+        "finish": "tool-calls",
+        "mode": "code",
+        "modelID": "k3-256k",
+        "providerID": "kimi-code-owent",
+        "variant": "max",
+        "cost": 0,
+        "tokens": {
+          "total": 108123,
+          "input": 3055,
+          "output": 108,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 104960
+          }
+        },
+        "parentID": "anon-m1"
+      }
+    },
+    {
+      "id": "anon-m21",
+      "session_id": "anon-1",
+      "time_created": 1790516425031,
+      "time_updated": 1790516473339,
+      "data": {
+        "role": "assistant",
+        "agent": "code",
+        "time": {
+          "created": 1790516425031,
+          "completed": 1790516473338
+        },
+        "finish": "tool-calls",
+        "mode": "code",
+        "modelID": "k3-256k",
+        "providerID": "kimi-code-owent",
+        "variant": "max",
+        "cost": 0,
+        "tokens": {
+          "total": 110007,
+          "input": 912,
+          "output": 83,
+          "reasoning": 1236,
+          "cache": {
+            "write": 0,
+            "read": 107776
+          }
+        },
+        "parentID": "anon-m1"
+      }
+    },
+    {
+      "id": "anon-m22",
+      "session_id": "anon-1",
+      "time_created": 1790516473352,
+      "time_updated": 1790516491939,
+      "data": {
+        "role": "assistant",
+        "agent": "code",
+        "time": {
+          "created": 1790516473352,
+          "completed": 1790516491938
+        },
+        "finish": "tool-calls",
+        "mode": "code",
+        "modelID": "k3-256k",
+        "providerID": "kimi-code-owent",
+        "variant": "max",
+        "cost": 0,
+        "tokens": {
+          "total": 112684,
+          "input": 4007,
+          "output": 107,
+          "reasoning": 26,
+          "cache": {
+            "write": 0,
+            "read": 108544
+          }
+        },
+        "parentID": "anon-m1"
+      }
+    },
+    {
+      "id": "anon-m23",
+      "session_id": "anon-1",
+      "time_created": 1790516491943,
+      "time_updated": 1790516524411,
+      "data": {
+        "role": "assistant",
+        "agent": "code",
+        "time": {
+          "created": 1790516491943,
+          "completed": 1790516524410
+        },
+        "finish": "tool-calls",
+        "mode": "code",
+        "modelID": "k3-256k",
+        "providerID": "kimi-code-owent",
+        "variant": "max",
+        "cost": 0,
+        "tokens": {
+          "total": 114240,
+          "input": 948,
+          "output": 176,
+          "reasoning": 732,
+          "cache": {
+            "write": 0,
+            "read": 112384
+          }
+        },
+        "parentID": "anon-m1"
+      }
+    },
+    {
+      "id": "anon-m24",
+      "session_id": "anon-1",
+      "time_created": 1790516524424,
+      "time_updated": 1790516603298,
+      "data": {
+        "role": "assistant",
+        "agent": "code",
+        "time": {
+          "created": 1790516524424,
+          "completed": 1790516603297
+        },
+        "finish": "tool-calls",
+        "mode": "code",
+        "modelID": "k3-256k",
+        "providerID": "kimi-code-owent",
+        "variant": "max",
+        "cost": 0,
+        "tokens": {
+          "total": 116450,
+          "input": 1255,
+          "output": 324,
+          "reasoning": 1719,
+          "cache": {
+            "write": 0,
+            "read": 113152
+          }
+        },
+        "parentID": "anon-m1"
+      }
+    },
+    {
+      "id": "anon-m25",
+      "session_id": "anon-1",
+      "time_created": 1790516603314,
+      "time_updated": 1790516673384,
+      "data": {
+        "role": "assistant",
+        "agent": "code",
+        "time": {
+          "created": 1790516603314,
+          "completed": 1790516673383
+        },
+        "finish": "tool-calls",
+        "mode": "code",
+        "modelID": "k3-256k",
+        "providerID": "kimi-code-owent",
+        "variant": "max",
+        "cost": 0,
+        "tokens": {
+          "total": 118656,
+          "input": 2304,
+          "output": 601,
+          "reasoning": 1575,
+          "cache": {
+            "write": 0,
+            "read": 114176
+          }
+        },
+        "parentID": "anon-m1"
+      }
+    },
+    {
+      "id": "anon-m26",
+      "session_id": "anon-1",
+      "time_created": 1790516673388,
+      "time_updated": 1790516694433,
+      "data": {
+        "role": "assistant",
+        "agent": "code",
+        "time": {
+          "created": 1790516673388,
+          "completed": 1790516694432
+        },
+        "finish": "tool-calls",
+        "mode": "code",
+        "modelID": "k3-256k",
+        "providerID": "kimi-code-owent",
+        "variant": "max",
+        "cost": 0,
+        "tokens": {
+          "total": 119336,
+          "input": 2207,
+          "output": 294,
+          "reasoning": 355,
+          "cache": {
+            "write": 0,
+            "read": 116480
+          }
+        },
+        "parentID": "anon-m1"
+      }
+    },
+    {
+      "id": "anon-m27",
+      "session_id": "anon-1",
+      "time_created": 1790516694437,
+      "time_updated": 1790516707244,
+      "data": {
+        "role": "assistant",
+        "agent": "code",
+        "time": {
+          "created": 1790516694437,
+          "completed": 1790516707244
+        },
+        "finish": "tool-calls",
+        "mode": "code",
+        "modelID": "k3-256k",
+        "providerID": "kimi-code-owent",
+        "variant": "max",
+        "cost": 0,
+        "tokens": {
+          "total": 119796,
+          "input": 837,
+          "output": 405,
+          "reasoning": 26,
+          "cache": {
+            "write": 0,
+            "read": 118528
+          }
+        },
+        "parentID": "anon-m1"
+      }
+    },
+    {
+      "id": "anon-m28",
+      "session_id": "anon-1",
+      "time_created": 1790516707259,
+      "time_updated": 1790516761236,
+      "data": {
+        "role": "assistant",
+        "agent": "code",
+        "time": {
+          "created": 1790516707259,
+          "completed": 1790516761236
+        },
+        "finish": "tool-calls",
+        "mode": "code",
+        "modelID": "k3-256k",
+        "providerID": "kimi-code-owent",
+        "variant": "max",
+        "cost": 0,
+        "tokens": {
+          "total": 120911,
+          "input": 530,
+          "output": 113,
+          "reasoning": 972,
+          "cache": {
+            "write": 0,
+            "read": 119296
+          }
+        },
+        "parentID": "anon-m1"
+      }
+    },
+    {
+      "id": "anon-m29",
+      "session_id": "anon-1",
+      "time_created": 1790516761241,
+      "time_updated": 1790516804573,
+      "data": {
+        "role": "assistant",
+        "agent": "code",
+        "time": {
+          "created": 1790516761241,
+          "completed": 1790516804572
+        },
+        "finish": "tool-calls",
+        "mode": "code",
+        "modelID": "k3-256k",
+        "providerID": "kimi-code-owent",
+        "variant": "max",
+        "cost": 0,
+        "tokens": {
+          "total": 122051,
+          "input": 1216,
+          "output": 148,
+          "reasoning": 879,
+          "cache": {
+            "write": 0,
+            "read": 119808
+          }
+        },
+        "parentID": "anon-m1"
+      }
+    },
+    {
+      "id": "anon-m30",
+      "session_id": "anon-1",
+      "time_created": 1790516804577,
+      "time_updated": 1790516849752,
+      "data": {
+        "role": "assistant",
+        "agent": "code",
+        "time": {
+          "created": 1790516804577,
+          "completed": 1790516849752
+        },
+        "finish": "tool-calls",
+        "mode": "code",
+        "modelID": "k3-256k",
+        "providerID": "kimi-code-owent",
+        "variant": "max",
+        "cost": 0,
+        "tokens": {
+          "total": 123524,
+          "input": 1416,
+          "output": 188,
+          "reasoning": 1088,
+          "cache": {
+            "write": 0,
+            "read": 120832
+          }
+        },
+        "parentID": "anon-m1"
+      }
+    },
+    {
+      "id": "anon-m31",
+      "session_id": "anon-1",
+      "time_created": 1790516849756,
+      "time_updated": 1790516860259,
+      "data": {
+        "role": "assistant",
+        "agent": "code",
+        "time": {
+          "created": 1790516849756,
+          "completed": 1790516860258
+        },
+        "finish": "tool-calls",
+        "mode": "code",
+        "modelID": "k3-256k",
+        "providerID": "kimi-code-owent",
+        "variant": "max",
+        "cost": 0,
+        "tokens": {
+          "total": 123761,
+          "input": 1480,
+          "output": 114,
+          "reasoning": 55,
+          "cache": {
+            "write": 0,
+            "read": 122112
+          }
+        },
+        "parentID": "anon-m1"
+      }
+    },
+    {
+      "id": "anon-m32",
+      "session_id": "anon-1",
+      "time_created": 1790516860264,
+      "time_updated": 1790516867130,
+      "data": {
+        "role": "assistant",
+        "agent": "code",
+        "time": {
+          "created": 1790516860264,
+          "completed": 1790516867129
+        },
+        "finish": "tool-calls",
+        "mode": "code",
+        "modelID": "k3-256k",
+        "providerID": "kimi-code-owent",
+        "variant": "max",
+        "cost": 0,
+        "tokens": {
+          "total": 123926,
+          "input": 403,
+          "output": 107,
+          "reasoning": 24,
+          "cache": {
+            "write": 0,
+            "read": 123392
+          }
+        },
+        "parentID": "anon-m1"
+      }
+    },
+    {
+      "id": "anon-m33",
+      "session_id": "anon-1",
+      "time_created": 1790516867134,
+      "time_updated": 1790516878035,
+      "data": {
+        "role": "assistant",
+        "agent": "code",
+        "time": {
+          "created": 1790516867134,
+          "completed": 1790516878034
+        },
+        "finish": "tool-calls",
+        "mode": "code",
+        "modelID": "k3-256k",
+        "providerID": "kimi-code-owent",
+        "variant": "max",
+        "cost": 0,
+        "tokens": {
+          "total": 124058,
+          "input": 309,
+          "output": 101,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 123648
+          }
+        },
+        "parentID": "anon-m1"
+      }
+    },
+    {
+      "id": "anon-m34",
+      "session_id": "anon-1",
+      "time_created": 1790516878039,
+      "time_updated": 1790516921295,
+      "data": {
+        "role": "assistant",
+        "agent": "code",
+        "time": {
+          "created": 1790516878039,
+          "completed": 1790516921294
+        },
+        "finish": "tool-calls",
+        "mode": "code",
+        "modelID": "k3-256k",
+        "providerID": "kimi-code-owent",
+        "variant": "max",
+        "cost": 0,
+        "tokens": {
+          "total": 124486,
+          "input": 332,
+          "output": 188,
+          "reasoning": 62,
+          "cache": {
+            "write": 0,
+            "read": 123904
+          }
+        },
+        "parentID": "anon-m1"
+      }
+    },
+    {
+      "id": "anon-m35",
+      "session_id": "anon-1",
+      "time_created": 1790516921299,
+      "time_updated": 1790516949933,
+      "data": {
+        "role": "assistant",
+        "agent": "code",
+        "time": {
+          "created": 1790516921299,
+          "completed": 1790516949932
+        },
+        "finish": "stop",
+        "mode": "code",
+        "modelID": "k3-256k",
+        "providerID": "kimi-code-owent",
+        "variant": "max",
+        "cost": 0,
+        "tokens": {
+          "total": 125593,
+          "input": 602,
+          "output": 623,
+          "reasoning": 208,
+          "cache": {
+            "write": 0,
+            "read": 124160
+          }
+        },
+        "parentID": "anon-m1"
+      }
+    }
+  ]
+}

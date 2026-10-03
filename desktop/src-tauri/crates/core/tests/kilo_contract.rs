@@ -285,6 +285,160 @@ fn contract_edges_fixture_error_messages_and_model_switch() {
 }
 
 #[test]
+fn contract_781_toplevel_model_fields_parse_and_reconcile() {
+    // 本机实读 7.8.1 会话脱敏：顶层 modelID/providerID（k3-256k / kimi-code-owent），
+    // 34 次调用、单会话对账 matched；登记为已验证版本后不再走 latest_fallback。
+    let dir = TempDir::new("kilo-781");
+    let root = build_kilo_db_from_fixture(&dir, "session-7.8.1-k3.sanitized.json");
+    let (_db, storage) = temp_storage("kilo-781");
+    let reports = run_kilo(&storage, &root, NOW);
+
+    let report = &reports[0];
+    assert_eq!(report.files[0].status, "complete");
+    assert_eq!(report.files[0].records_seen, 35, "34 assistant + 1 user");
+    assert_eq!(report.files[0].events, 34);
+
+    let summary = summary(&storage, "2026-01-01", "2026-12-31");
+    assert_eq!(summary.totals.call_count, 34);
+    assert_eq!(summary.totals.input_total_known, Some(3_144_818));
+    assert_eq!(summary.totals.output_total_known, Some(44_490));
+    assert_eq!(summary.totals.cache_read_known, Some(3_019_520));
+    assert_eq!(summary.totals.total_tokens_known, Some(3_189_308));
+
+    let conn = storage.conn();
+    let models: std::collections::BTreeMap<String, i64> = {
+        let mut stmt = conn
+            .prepare("SELECT model_raw, COUNT(*) FROM usage_events GROUP BY model_raw")
+            .unwrap();
+        stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect()
+    };
+    assert_eq!(
+        models,
+        std::collections::BTreeMap::from([("k3-256k".to_string(), 34)])
+    );
+    // 顶层 providerID 入库（7.8.1 已核验载体）。
+    let provider: String = conn
+        .query_row("SELECT DISTINCT provider_id FROM usage_events", [], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    assert_eq!(provider, "kimi-code-owent");
+
+    // 7.8.1 已登记：known_version ⇒ 文件状态 active（不标 active_compat/需核对）。
+    let file_status: String = conn
+        .query_row("SELECT DISTINCT status FROM source_files", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(file_status, "active");
+
+    // 单会话对账 matched。
+    assert_eq!(report.reconciliations.len(), 1);
+    assert_eq!(report.reconciliations[0].detail_sum, 3_189_308);
+    assert_eq!(report.reconciliations[0].verdict, "matched");
+    // 模拟旧版已消费游标；新增已验证版本须自动重评字节未变的库。
+    let before_revision = storage.data_revision().unwrap();
+    storage.conn().execute_batch("UPDATE source_instances SET capabilities=json_set(capabilities,'$.supported_versions',json('[\"7.4.8\",\"7.4.9\"]'));
+        UPDATE source_files SET status='active_compat';").unwrap();
+    let replay = run_kilo(&storage, &root, NOW + 1);
+    assert!(replay[0].files[0].records_seen > 0);
+    let status: String = storage
+        .conn()
+        .query_row("SELECT status FROM source_files", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(status, "active");
+    assert_eq!(
+        common::summary(&storage, "2026-01-01", "2026-12-31")
+            .totals
+            .call_count,
+        34
+    );
+    assert!(storage.data_revision().unwrap() >= before_revision);
+    let _ = dir;
+}
+
+#[test]
+fn empty_unverified_new_version_does_not_certify_the_source_or_change_known_usage() {
+    let dir = TempDir::new("kilo-empty-unverified");
+    let root = build_kilo_db_from_fixture(&dir, "session-7.8.1-k3.sanitized.json");
+    let source = rusqlite::Connection::open(root.join(".local/share/kilo/kilo.db")).unwrap();
+    source.execute_batch("PRAGMA foreign_keys=OFF").unwrap();
+    source.execute("INSERT INTO session(id,project_id,slug,directory,title,version,time_created,time_updated)
+        VALUES('synthetic-empty','anon-proj','stub','/work','SYNTHETIC','7.8.3',?1,?1)",[NOW]).unwrap();
+    let (_db, storage) = temp_storage("kilo-empty-unverified");
+    let reports = run_kilo(&storage, &root, NOW);
+    assert_eq!(reports[0].files[0].events, 34);
+    let (status, format): (String, String) = storage
+        .conn()
+        .query_row("SELECT status,format_status FROM source_files", [], |r| {
+            Ok((r.get(0)?, r.get(1)?))
+        })
+        .unwrap();
+    let format: serde_json::Value = serde_json::from_str(&format).unwrap();
+    assert_eq!(status, "active_compat");
+    assert_eq!(format["found_version"], "7.8.3");
+    assert_eq!(format["compat"], "unverified");
+    assert_eq!(
+        summary(&storage, "2026-01-01", "2026-12-31")
+            .totals
+            .total_tokens_known,
+        Some(3_189_308)
+    );
+    let basis: String = storage
+        .conn()
+        .query_row("SELECT DISTINCT parse_basis FROM usage_events", [], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    assert_eq!(
+        basis, "known_version",
+        "empty sessions do not downgrade independently verified records"
+    );
+}
+
+#[test]
+fn highest_verified_database_version_does_not_certify_older_unverified_messages() {
+    let dir = TempDir::new("kilo-mixed-versions");
+    let root = build_kilo_db_from_fixture(&dir, "session-7.8.1-k3.sanitized.json");
+    let source = rusqlite::Connection::open(root.join(".local/share/kilo/kilo.db")).unwrap();
+    source
+        .execute_batch(
+            "PRAGMA foreign_keys=OFF; UPDATE session SET version='7.4.7';
+        INSERT INTO session(id,project_id,slug,directory,title,version,time_created,time_updated)
+        VALUES('synthetic-empty','anon-proj','stub','/work','SYNTHETIC','7.8.1',0,0);",
+        )
+        .unwrap();
+    let (_db, storage) = temp_storage("kilo-mixed-versions");
+    run_kilo(&storage, &root, NOW);
+    let data = serde_json::json!({"role":"assistant","finish":"stop","modelID":"k3-256k","providerID":"kimi-code-owent",
+        "time":{"created":NOW,"completed":NOW},"tokens":{"input":1,"output":2,"reasoning":0,"cache":{"read":0,"write":0},"total":3}});
+    source.execute("INSERT INTO message(id,session_id,time_created,time_updated,data) VALUES('synthetic-known','synthetic-empty',?1,?1,?2)",rusqlite::params![NOW,data.to_string()]).unwrap();
+    source
+        .execute(
+            "UPDATE session SET tokens_input=1,tokens_output=2 WHERE id='synthetic-empty'",
+            [],
+        )
+        .unwrap();
+    for now in [NOW, NOW + 1] {
+        run_kilo(&storage, &root, now + 1);
+        let (status,basis):(String,String)=storage.conn().query_row(
+            "SELECT f.status,e.parse_basis FROM source_files f JOIN usage_events e ON e.source_instance_id=f.instance_id WHERE e.schema_version='7.4.7' LIMIT 1",
+            [],|r|Ok((r.get(0)?,r.get(1)?))).unwrap();
+        assert_eq!(status, "active_compat");
+        assert_eq!(basis, "latest_fallback");
+        let sums = summary(&storage, "2026-01-01", "2027-12-31").totals;
+        assert_eq!(sums.call_count, 35);
+        assert_eq!(sums.total_tokens_known, Some(3_189_311));
+    }
+    let known:i64=storage.conn().query_row("SELECT COUNT(*) FROM usage_events WHERE schema_version='7.8.1' AND parse_basis='known_version'",[],|r|r.get(0)).unwrap();
+    assert_eq!(
+        known, 1,
+        "verified messages keep their own evidence even in a mixed database"
+    );
+}
+
+#[test]
 fn capability_table_is_structured_and_complete() {
     use llm_usage_core::adapters::framework::SourceAdapter;
     let adapter = llm_usage_core::adapters::kilo::KiloAdapter::new();
@@ -293,7 +447,7 @@ fn capability_table_is_structured_and_complete() {
     assert_eq!(json["adapter_id"], "kilo");
     assert_eq!(
         json["supported_versions"],
-        serde_json::json!(["7.4.8", "7.4.9"])
+        serde_json::json!(["7.4.8", "7.4.9", "7.8.1"])
     );
     assert_eq!(json["discovery"]["env_override"], serde_json::Value::Null);
     for key in [

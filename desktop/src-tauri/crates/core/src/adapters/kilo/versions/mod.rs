@@ -7,9 +7,11 @@
 //! 已验证版本须有真实脱敏 fixture 与期望值证据：
 //!
 //! - 7.4.8（session-7.4.8-edges：错误消息 tokens 全零、缺 total、双模型切换）；
-//! - 7.4.9（session-7.4.9-family：父子会话家族，5 会话 51 调用全链路期望）。
+//! - 7.4.9（session-7.4.9-family：父子会话家族，5 会话 51 调用全链路期望）；
+//! - 7.8.1（session-7.8.1-k3：本机实读 7.8.1 会话脱敏，34 次 k3-256k 调用，
+//!   顶层 modelID/providerID、tokens 五字段，单会话对账 matched）。
 //!
-//! 两者 message.data.tokens 载体同形，共用 `message_tokens_v1`。
+//! 三者 message.data.tokens 载体同形，共用 `message_tokens_v1`。
 //!
 //! 选择规则：
 //! - 已收录版本 → `KnownVersion`，按映射分派；
@@ -30,6 +32,7 @@ pub const LATEST_IMPL_ID: &str = "message_tokens_v1";
 pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[
     ("7.4.8", "message_tokens_v1"),
     ("7.4.9", "message_tokens_v1"),
+    ("7.8.1", "message_tokens_v1"),
 ];
 
 /// 版本分派结论。
@@ -92,7 +95,7 @@ mod tests {
 
     #[test]
     fn verified_versions_dispatch_known() {
-        for v in ["7.4.8", "7.4.9"] {
+        for v in ["7.4.8", "7.4.9", "7.8.1"] {
             assert_eq!(
                 select(Some(v)),
                 Selection {

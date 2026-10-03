@@ -46,7 +46,7 @@ Harness Agent 按用户提供官网更正为 Hermes Agent。所有工具均保�
 | Hermes Agent（原需求 Harness Agent） | 适配器已实现（M3，2026-09-25，文档级证据：固定源码 ef70b36；本机未安装 not_found） | session_model_usage 按合同映射区间汇总（不虚构逐请求/每日分桶）；api_call_count 不拆调用；跨日归属/辅助互斥/压缩继承按 A24；日志详单能力待真实样本 | M3 已实施（待真实验收），A24 |
 | OpenClaw | 适配器已实现（M3，2026-09-25，文档级证据；本机未安装 not_found） | 官方文档未给出表级/条目级 schema ⇒ 运行时库与旧归档均 fail closed（诊断注明待真实样本）；归档按迁移输入降级（doctor --fix 路径）；不沿用“只扫 JSONL”假设；远端 Gateway 不等于本机 | M3 已实施（fail-closed 占位，待真实样本扩展），A09 |
 | Gemini CLI | 官方会话存储 ~/.gemini/tmp/<project_hash>/chats/ 含 token；OTel 提供 input/output/thought/cache/tool 和请求统计 | JSON/JSONL 具体版本探测；thought/cache/tool 字段的包含关系逐 provider 核验；Gemini 网页和 Code Assist 不冒充 CLI | M2/M5；本地候选/需启用，A10 |
-| Kilo Code CLI / 桌面 / IDE 扩展 | 适配器已实现（M3，2026-09-25）：SQLite 只读 + 暂存副本合同；message.data.tokens 逐次五互斥；水位增量；session 行 tokens 列仅作会话对账（275/276 matched，列级语义随版本不稳定不映射事件）；真实核对 13,342 调用/1.65B token 与独立求和一致、幂等 | 已验证 7.4.8/7.4.9（fixture）；库内 7.3.42–7.7.12 未收录走 latest_fallback；新 core 数据层（session_message，当前 0 行）切换后需专用实现取证；IDE 扩展后移 F1；不能拿 CLI 通过代表 IDE 通过 | CLI/桌面 M3 已实施；缺证 IDE 变体 F1，A11 |
+| Kilo Code CLI / 桌面 / IDE 扩展 | 适配器已实现（M3，2026-09-25）：SQLite 只读 + 暂存副本合同；message.data.tokens 逐次五互斥；水位增量；session 行 tokens 列仅作会话对账（275/276 matched，列级语义随版本不稳定不映射事件）；真实核对 13,342 调用/1.65B token 与独立求和一致、幂等 | 已验证 7.4.8/7.4.9/7.8.1（fixture）；库内其余 7.3.42–7.7.12 等未收录走 latest_fallback；7.8.1 为本机实读脱敏（顶层 modelID/providerID 载体，与 7.4.x 同形共用 message_tokens_v1）；新 core 数据层（session_message，当前 0 行）切换后需专用实现取证；IDE 扩展后移 F1；不能拿 CLI 通过代表 IDE 通过 | CLI/桌面 M3 已实施；缺证 IDE 变体 F1，A11 |
 | 新版 Kimi Code | 适配器已实现（M4，2026-09-25）：家族共享 kimi_wire.rs；注册表锚点 protocol_version=1.5；真实核对 13 文件 965 调用 total 116,428,813 与 jq 逐字段相等、幂等；打断步回声缺失以 echo_subset 可见 | usage.record 无稳定 ID ⇒ provider/逐次延迟不入账（如实 unavailable）；旧会话 1.4 走 latest_fallback；其他版本仍需各自 fixture | M4 已实施；跨版本待证，A12 |
 | Kimi Work | 适配器已实现（M4，2026-09-25）：独立目录（A13 不与 Kimi Code 合并）；conv-*/ctitle-* 布局（daimon 宿主）；锚点 1.4；真实核对 69 文件 1,337 调用 total 125,225,933 逐字段相等、69/69 对账 matched；跨文件同毫秒（swarm）事件键含 session:agent 身份段 | 官方默认布局/env 未见文档（迁移需手工加根）；subagent.completed 与缓存写>0 无本机真实样本；与 Kimi Code 共享 wire 解析但统计分列 | M4 已实施，A13 |
 | MiMo Code | 适配器已实现（M3，2026-09-25，文档级证据：固定源码 456678b；本机未安装 not_found） | part/step-finish 与 OpenCode 同形；message.agent_id 为互斥指纹锚点；session 无累计列（无对账目标，如实标注）；MIMOCODE_HOME/data 路径解析；不从 fork 关系推兼容（双向 fail closed 已测） | M3 已实施（待真实验收），A14 |
@@ -140,6 +140,9 @@ A24 固定源码 `ef70b3661cbfcf57e583008ad91dd04d8ba46070` 确认以下内容�
 - pi/oh-my-pi 可共享部分 Usage 类型知识，辅助事件及分支恢复仍各测；
   gajae-code（gjc）为 pi 血统变体，复用同样逐项验证。
 - OpenCode/Kilo/MiMo 可共享结构探测工具，不共享未经验证的目录、表名或累计/增量假设。
+  Kilo 的库内最高版本只用于格式探测；每条消息按所属 session.version 保留已验证/兼容
+  依据。混合库存在未验证消息时保留兼容提示，后续只有已验证增量不能覆盖该状态；
+  新版本空会话不能认证，也不降级已有消息的版本证据。支持证据/规则更新自动重评。
 - Cline/Zoo/旧 Kilo 扩展的 API 记录可以共享解析组件，但子 Agent 汇总、删除与压缩记录逐项测试；
   Roo Code 扩展载体同构可复用组件，删除/子 Agent/压缩行为分版本复测。
 - VS Code/Copilot/宿主嵌入的 Claude/Codex 不按应用品牌重复计费，使用 origin 归属关系。

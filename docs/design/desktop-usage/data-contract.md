@@ -95,7 +95,10 @@ input/cached/output 总量并优先采用。缓存细分默认未知不补零；
 保持未知，由 turn/逐模型 observation 贡献用量（这些 round 标记计调用但 quality_bucket=unknown，
 不计入“未知字段”展示）；没有轮次证据时不以 turn 数补调用。输入覆盖提示
 （turn_input_incomplete：promptTokens 仅覆盖末次调用）是该格式固有限制、非坏记录或对账差异，
-不降级来源健康（仅坏行/非法 token/重复键/缺归属等才标“需核对”）。
+不降级来源健康（仅坏行/非法 token/重复键/缺归属等才标“需核对”）。同理，Codex rollout
+对累计快照的交叉对账差异（reconcile_mismatch/snapshot_regression）保留原诊断和 mismatch
+结论，不单独降级读取健康；新版独立逐次记录不依赖累计快照，旧版调用识别所需的
+total/last 异常仍降级。info 缺失/null 不含用量，不计调用、不补零。
 既有 Copilot 游标在统计/健康规则更新后需对未变化文件重放一次；保留 revision 和历史
 快照，完整有效重放推进修订并重算受影响的未封存日。坏行、半行或预算不足不标记更新成功，
 下次仍可重试；完成后恢复未变化文件的跳过行为。保留 token 未知值，不要求清库或提高 schema。

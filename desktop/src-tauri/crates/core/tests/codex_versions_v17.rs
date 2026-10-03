@@ -187,7 +187,8 @@ fn legacy_carrier_fixtures_dispatch_rollout_legacy_and_match_expectations() {
         carried_sum: i64,
         difference: i64,
         verdict: &'static str,
-        /// source_files.status（reconcile_mismatch ⇒ degraded）。
+        /// source_files.status。reconcile/snapshot 对账差异只记诊断不降级，
+        /// 故 mismatch 场景仍为 active（真逐次解析问题才 degraded）。
         file_status: &'static str,
         call_category: &'static str,
         model: &'static str,
@@ -240,7 +241,8 @@ fn legacy_carrier_fixtures_dispatch_rollout_legacy_and_match_expectations() {
             carried_sum: 16_894,
             difference: 299_899,
             verdict: "mismatch",
-            file_status: "degraded",
+            // reconcile 差异记诊断/对账但不降级健康度（快照仅作对照）。
+            file_status: "active",
             call_category: "primary",
             model: "gpt-5.6-sol",
         },
