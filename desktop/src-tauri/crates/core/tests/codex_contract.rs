@@ -25,6 +25,45 @@ fn setup_fixture(tag: &str, fixture: &str) -> (TempDir, std::path::PathBuf) {
 }
 
 #[test]
+fn zero_source_budget_stops_before_usage_read_and_preserves_resumability() {
+    use llm_usage_core::adapters::framework::ScanLimits;
+    let (_source, root) = setup_fixture("codex-zero-budget", "rollout-single-call.sanitized.json");
+    let (_db, storage) = temp_storage("codex-zero-budget");
+    let mut limits = ScanLimits::default();
+    limits.jsonl.time_budget = Some(std::time::Duration::ZERO);
+    let reports = run_codex_with_limits(&storage, &root, 1_800_000_000_000, limits);
+    assert_eq!(
+        reports[0].finish,
+        llm_usage_core::jobs::RunStatus::Interrupted
+    );
+    assert!(reports[0].files.is_empty());
+    assert_eq!(
+        storage
+            .conn()
+            .query_row("SELECT COUNT(*) FROM usage_events", [], |r| r
+                .get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
+    assert_eq!(
+        storage
+            .conn()
+            .query_row("SELECT COUNT(*) FROM ingestion_checkpoints", [], |r| r
+                .get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
+    assert_eq!(
+        run_codex(&storage, &root, 1_800_000_001_000)[0]
+            .outcome
+            .as_ref()
+            .unwrap()
+            .added,
+        1
+    );
+}
+
+#[test]
 fn single_call_full_pipeline_matches_expectations() {
     let (dir, root) = setup_fixture("codex-single", "rollout-single-call.sanitized.json");
     let (_db, storage) = temp_storage("codex-single");
@@ -76,6 +115,120 @@ fn single_call_full_pipeline_matches_expectations() {
         .unwrap();
     assert_eq!(snap_total, Some(25_689));
     let _ = dir;
+}
+
+#[test]
+fn pause_after_a_transient_failure_does_not_retry_or_advance_the_cursor() {
+    use llm_usage_core::adapters::framework::*;
+    use llm_usage_core::error::CoreError;
+    use std::{
+        path::Path,
+        sync::atomic::{AtomicBool, AtomicUsize, Ordering},
+    };
+    struct Pausing<'a> {
+        inner: CodexAdapter,
+        allowed: &'a AtomicBool,
+        attempts: &'a AtomicUsize,
+    }
+    impl SourceAdapter for Pausing<'_> {
+        fn adapter_id(&self) -> &'static str {
+            self.inner.adapter_id()
+        }
+        fn agent(&self) -> &'static str {
+            self.inner.agent()
+        }
+        fn discover(&self, ctx: &DiscoverContext) -> Vec<DiscoveredRoot> {
+            self.inner.discover(ctx)
+        }
+        fn instance_id(&self, root: &DiscoveredRoot) -> String {
+            self.inner.instance_id(root)
+        }
+        fn detect(&self, path: &Path) -> Result<DetectOutcome, CoreError> {
+            self.inner.detect(path)
+        }
+        fn capability(&self) -> CapabilityTable {
+            self.inner.capability()
+        }
+        fn scan(
+            &self,
+            _target: &ScanTarget,
+            _stored: &StoredScanState,
+            _limits: &ScanLimits,
+            _now: i64,
+        ) -> Result<ScanOutcome, CoreError> {
+            self.attempts.fetch_add(1, Ordering::SeqCst);
+            self.allowed.store(false, Ordering::SeqCst);
+            Err(std::io::Error::from(std::io::ErrorKind::WouldBlock).into())
+        }
+    }
+    let (_source, root) = setup_fixture("codex-pause-retry", "rollout-single-call.sanitized.json");
+    let (_db, storage) = temp_storage("codex-pause-retry");
+    let allowed = AtomicBool::new(true);
+    let attempts = AtomicUsize::new(0);
+    let adapter = Pausing {
+        inner: CodexAdapter::new(),
+        allowed: &allowed,
+        attempts: &attempts,
+    };
+    let ctx = DiscoverContext {
+        home_dir: None,
+        env: Default::default(),
+        manual_roots: vec![root.clone()],
+    };
+    let config = RunConfig {
+        timezone: "UTC".into(),
+        now_ms: 1_800_000_000_000,
+        limits: ScanLimits::default(),
+        trigger: llm_usage_core::jobs::TriggerKind::Interval,
+        origin_host_id: None,
+        run_id_prefix: "paused-retry".into(),
+    };
+    let started = std::time::Instant::now();
+    let reports = run_adapter_scan_filtered_controlled(
+        &storage,
+        &adapter,
+        &ctx,
+        &config,
+        &InstanceFilter::default(),
+        &RunControl {
+            deadline: None,
+            allowed: &|| allowed.load(Ordering::SeqCst),
+        },
+    )
+    .unwrap();
+    assert!(
+        started.elapsed() < std::time::Duration::from_secs(2),
+        "pause must not wait for the five-second retry delay"
+    );
+    assert_eq!(attempts.load(Ordering::SeqCst), 1);
+    assert_eq!(
+        reports[0].finish,
+        llm_usage_core::jobs::RunStatus::Interrupted
+    );
+    assert_eq!(
+        storage
+            .conn()
+            .query_row("SELECT COUNT(*) FROM usage_events", [], |r| r
+                .get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
+    assert_eq!(
+        storage
+            .conn()
+            .query_row("SELECT COUNT(*) FROM ingestion_checkpoints", [], |r| r
+                .get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
+    assert_eq!(
+        run_codex(&storage, &root, 1_800_000_001_000)[0]
+            .outcome
+            .as_ref()
+            .unwrap()
+            .added,
+        1
+    );
 }
 
 #[test]

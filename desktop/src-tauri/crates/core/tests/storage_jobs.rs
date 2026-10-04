@@ -73,7 +73,7 @@ fn jobs_state_machine_and_restart_interruption() {
             .unwrap();
         assert_eq!(added, 1);
 
-        // 终态后不能再 finish。
+        // 进入结束状态后不能再 finish。
         finish_run(
             &storage,
             "run-1",
@@ -96,7 +96,7 @@ fn jobs_state_machine_and_restart_interruption() {
             now + 3
         )
         .is_err());
-        // finish 不接受非终态。
+        // finish 不接受未结束状态（running）。
         assert!(finish_run(
             &storage,
             "run-x",
@@ -117,7 +117,7 @@ fn jobs_state_machine_and_restart_interruption() {
             run_status(&storage, "run-orphan").unwrap(),
             Some(RunStatus::Interrupted)
         );
-        // 已终态的不受影响。
+        // 已结束的不受影响。
         assert_eq!(
             run_status(&storage, "run-1").unwrap(),
             Some(RunStatus::Succeeded)

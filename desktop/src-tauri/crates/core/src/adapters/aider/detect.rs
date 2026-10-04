@@ -25,7 +25,8 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     if first_line.is_empty() {
         return Ok(DetectOutcome::Pending);
     }
-    let Ok(value) = serde_json::from_str::<serde_json::Value>(first_line) else {
+    let Ok(value) = crate::adapters::run_policy::json_from_str::<serde_json::Value>(first_line)
+    else {
         // 窗口已满且未见换行 ⇒ 首行可能超窗被截断（半截 JSON 必然解析失败），
         // 不能固化格式判定——Pending 下轮带完整行重探；窗口未满说明已读
         // 完整文件，单行解析失败即真实的未知格式。

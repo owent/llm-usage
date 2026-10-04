@@ -439,7 +439,7 @@ pub(crate) fn scan_step_finish_parts(
             touched_sessions.push(row.session_id.clone());
         }
         let record_key = format!("{}:part:{}", product.ns, row.id);
-        let data: serde_json::Value = match serde_json::from_str(&row.data) {
+        let data: serde_json::Value = match crate::adapters::run_policy::json_from_str(&row.data) {
             Ok(v) => v,
             Err(_) => {
                 // json_valid 已在 SQL 层过滤；此处防御游标期间被改写的行。
@@ -524,7 +524,7 @@ pub(crate) fn scan_step_finish_parts(
             },
             usage,
             quality,
-            // 行级当前值即该 step 终值；后续改写经 time_updated 修订替换。
+            // 行级当前值即该 step 最终值；后续改写经 time_updated 修订替换。
             lifecycle: Lifecycle::Final,
             source_revision: Some(row.time_updated),
             error_status: None,

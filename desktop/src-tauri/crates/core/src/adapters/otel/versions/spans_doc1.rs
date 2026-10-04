@@ -276,7 +276,8 @@ pub fn scan_with_byte_budget(
     let mut records_seen: u64 = 0;
     for line in &read.lines {
         records_seen += 1;
-        let Ok(value) = serde_json::from_str::<serde_json::Value>(&line.text) else {
+        let Ok(value) = crate::adapters::run_policy::json_from_str::<serde_json::Value>(&line.text)
+        else {
             diagnostics.push(diag("invalid_json_line", line.number, "line is not JSON"));
             continue;
         };
@@ -548,16 +549,17 @@ mod tests {
     #[test]
     fn start_time_pair_and_epoch() {
         let record: serde_json::Value =
-            serde_json::from_str(r#"{"startTime": [1780000000, 500000000]}"#).unwrap();
+            crate::adapters::run_policy::json_from_str(r#"{"startTime": [1780000000, 500000000]}"#)
+                .unwrap();
         assert_eq!(start_ms(&record), Some(1_780_000_000_500));
         let record: serde_json::Value =
-            serde_json::from_str(r#"{"startTime": 1780000000500}"#).unwrap();
+            crate::adapters::run_policy::json_from_str(r#"{"startTime": 1780000000500}"#).unwrap();
         assert_eq!(start_ms(&record), Some(1_780_000_000_500));
     }
 
     #[test]
     fn attribute_shapes_bare_and_otlp() {
-        let record: serde_json::Value = serde_json::from_str(
+        let record: serde_json::Value = crate::adapters::run_policy::json_from_str(
             r#"{"name":"chat","spanId":"ab","attributes":{"gen_ai.usage.input_tokens":100,
                "gen_ai.usage.cache_read.input_tokens":{"intValue":40},
                "copilot_chat.time_to_first_token":7298}}"#,

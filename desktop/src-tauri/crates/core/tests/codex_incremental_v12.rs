@@ -216,6 +216,10 @@ fn budget_split_resumes_without_duplicates() {
 
     let first = run_codex_with_limits(&storage, &root, NOW, budgeted_limits(3));
     assert_eq!(first[0].files[0].status, "budget_exhausted");
+    assert_eq!(
+        first[0].finish,
+        llm_usage_core::jobs::RunStatus::Interrupted
+    );
     assert_eq!(first[0].files[0].lines_read, 3);
     assert_eq!(first[0].files[0].events, 0, "usage lines not reached yet");
 

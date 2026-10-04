@@ -219,7 +219,7 @@ pub fn scan(
     // 整文件读取（树重建需要全局 parentId 图；追加式文件无变化时框架短路）。
     let mut bytes = Vec::new();
     std::io::Read::take(
-        &mut std::fs::File::open(&target.path)?,
+        &mut crate::adapters::run_policy::checked_file(&target.path)?,
         CMD_MAX_FILE_BYTES + 1,
     )
     .read_to_end(&mut bytes)?;
@@ -246,12 +246,14 @@ pub fn scan(
     let mut session_id = String::new();
     let mut records_seen: u64 = 0;
     for (index, line) in text.lines().enumerate() {
+        crate::adapters::run_policy::check()?;
         let line = line.trim();
         if line.is_empty() {
             continue;
         }
         records_seen += 1;
-        let Ok(value) = serde_json::from_str::<serde_json::Value>(line) else {
+        let Ok(value) = crate::adapters::run_policy::json_from_str::<serde_json::Value>(line)
+        else {
             // crash 截断行：上游 safeParseRecord 计入 corrupted 不中断。
             diagnostics.push(diag(
                 "corrupted_line",
@@ -360,6 +362,7 @@ pub fn scan(
     // 末条目回溯 parentId 链标记 on_path（环保护）；model_change 归属在
     // 下一步按文件顺序推进时完成。
     while let Some(index) = cursor {
+        crate::adapters::run_policy::check()?;
         if on_path[index] {
             break; // 环保护。
         }
@@ -373,6 +376,7 @@ pub fn scan(
     // 按文件顺序输出链上 assistant usage 事件（模型状态沿文件顺序）。
     let mut events = Vec::new();
     for (index, entry) in entries.iter().enumerate() {
+        crate::adapters::run_policy::check()?;
         if entry.entry_type == "model_change" && on_path[index] {
             if let Some(model) = &entry.model {
                 current_model = Some(model.clone());

@@ -21,6 +21,9 @@ export interface AppSettings {
   week_start: number | null;
   retention: RetentionTiers;
   refresh_interval_secs: number;
+  pause_on_battery_saver?: boolean;
+  close_to_tray?: boolean;
+  file_watch_enabled?: boolean;
   language: string;
   /** 主题：system（跟随系统）/ light / dark。 */
   theme: string;
@@ -303,6 +306,7 @@ export interface RefreshStateDto {
 }
 
 export interface AppInfoDto {
+  scheduler_wakeups?: number;
   schema_version: number;
   data_revision: number;
   db_path: string;

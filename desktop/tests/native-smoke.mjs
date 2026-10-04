@@ -55,7 +55,7 @@ async function port() {
 async function launch() {
   const cdpPort = await port();
   const started = performance.now();
-  child = spawnIsolated(exe, ['--data-dir',data], {env:{...childEnv,WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS:`--remote-debugging-port=${cdpPort} --enable-logging --log-file="${join(root,'webview.log')}"`,WEBVIEW2_USER_DATA_FOLDER:join(root,'webview-profile')}, stdio:['ignore','pipe','pipe'], windowsHide:true});
+  child = spawnIsolated(exe, ['--data-dir',data], {env:{...childEnv,WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS:`--remote-debugging-port=${cdpPort} --force-renderer-accessibility --enable-logging --log-file="${join(root,'webview.log')}"`,WEBVIEW2_USER_DATA_FOLDER:join(root,'webview-profile')}, stdio:['ignore','pipe','pipe'], windowsHide:true});
   logs.push(`native pid=${child.pid}; requested CDP port=${cdpPort}`);
   child.stdout.on('data', chunk => logs.push(String(chunk)));
   child.stderr.on('data', chunk => logs.push(String(chunk)));
@@ -102,6 +102,16 @@ async function systemTrigger() {
   let output='';proc.stdout.on('data',chunk=>output+=chunk);proc.stderr.on('data',chunk=>output+=chunk);
   const timeout=setTimeout(()=>proc.kill(),90000);
   try {const [code]=await once(proc,'exit');assert.equal(code,0,output);return JSON.parse(output);}
+  finally {clearTimeout(timeout);}
+}
+async function nativeWindow(action='State') {
+  const script=await readFile(resolve('desktop/tests/native-window.ps1'),'utf8');
+  const proc=spawnIsolated(join(childEnv.SystemRoot,'System32/WindowsPowerShell/v1.0/powershell.exe'),
+    ['-NoProfile','-NonInteractive','-Command',`& {\n${script}\n} -RootPid ${child.pid} -Action ${action}`],
+    {env:childEnv,stdio:['ignore','pipe','pipe'],windowsHide:true});
+  let output='',error='';proc.stdout.on('data',chunk=>output+=chunk);proc.stderr.on('data',chunk=>error+=chunk);
+  const timeout=setTimeout(()=>proc.kill(),30000);
+  try {const [code]=await once(proc,'exit');assert.equal(code,0,error);return JSON.parse(output);}
   finally {clearTimeout(timeout);}
 }
 async function settled(previous) {
@@ -253,10 +263,11 @@ try {
     assert.equal((await invoke('summary',{q:query})).totals.total_tokens_known,'40');
   }
   checks.push('ten languages saved through real IPC, accessible settings names, 100–200% page zoom and stable totals');
-  settings=await invoke('get_settings');settings.refresh_interval_secs=86400;
+  settings=await invoke('get_settings');settings.refresh_interval_secs=15;
   await invoke('set_source_schedule',{instanceId:source.instance_id,rule:null});
   settings.manual_roots=[join(sourceHome,'.codex')];settings.manual_roots_only=true;
   await invoke('set_settings',{settings});
+  await refresh();
   await invoke('set_refresh_task',{install:true});
   await close();
   try {
@@ -278,10 +289,33 @@ try {
   await invoke('set_settings',{settings});
   assert.equal((await invoke('system_task_status')).refresh_task_exists,false);
   checks.push('real minute OS trigger with GUI exited imports a new local event; restart retains it and removes the owned task');
+  settings=await invoke('get_settings');
+  Object.assign(settings,{language:'en',refresh_interval_secs:86400,file_watch_enabled:true,close_to_tray:true,manual_roots_only:true,manual_roots:[join(sourceHome,'.codex')]});
+  await invoke('set_settings',{settings});await refresh();await pause(1500);
+  const previous=(await invoke('refresh_status')).last_finished_ms;
+  await writeFile(join(sessions,'rollout-native-watch.jsonl'),record('native-watch',30));
+  await settled(previous);
+  assert.equal((await invoke('summary',{q:query})).totals.total_tokens_known,'110');
+  checks.push('native directory notification imports a new event with global interval one day');
+  settings.refresh_interval_secs=0;await invoke('set_settings',{settings});await pause(1000);
+  await writeFile(join(sessions,'rollout-native-paused.jsonl'),record('native-paused',35));await pause(3000);
+  assert.equal((await invoke('summary',{q:query})).totals.total_tokens_known,'110','automatic pause covers directory notifications');
+  await refresh();assert.equal((await invoke('summary',{q:query})).totals.total_tokens_known,'150');
+  checks.push('paused watcher reads no new usage while manual collection still works');
+  await page.reload();await page.getByRole('button',{name:'Settings',exact:true}).waitFor();
+  const accessibility=await nativeWindow('Accessibility');
+  await writeFile(join(root,'accessibility.json'),JSON.stringify(accessibility,null,2));
+  assert.ok(accessibility.dpi>=96);assert.ok(accessibility.button_names.includes('Settings'),'Windows UI Automation exposes navigation button names');
+  checks.push(`Windows UI Automation with forced accessibility exposes navigation names; actual OS DPI ${accessibility.dpi}`);
+  await nativeWindow('Close');await pause(500);assert.equal(child.exitCode,null);
+  assert.equal((await nativeWindow()).visible,false,'close request hides an opted-in window');
+  settings.close_to_tray=false;await invoke('set_settings',{settings});await pause(500);
+  assert.equal((await nativeWindow()).visible,true,'disabling tray restores the hidden window');
+  checks.push('real WM_CLOSE hides to tray and disabling tray restores the native window');
   await close();
   for (let i=timings.length;i<runs;i++) { await launch(); await close(); }
   timings.sort((a,b)=>a-b);
-  const report={checks,mode:dev?'debug':'release',event_count:3,total_tokens:75,first_screen_ms:timings,p95_ms:timings[Math.ceil(timings.length*.95)-1],sample_count:timings.length,errors,outbound};
+  const report={checks,mode:dev?'debug':'release',event_count:5,total_tokens:150,os_dpi:accessibility.dpi,accessibility,first_screen_ms:timings,p95_ms:timings[Math.ceil(timings.length*.95)-1],sample_count:timings.length,errors,outbound};
   assert.deepEqual(errors,[]); assert.deepEqual(outbound,[]);
   await writeFile(join(root,'result.json'),JSON.stringify(report,null,2));
   console.log(JSON.stringify({root,checks:checks.length,samples:timings.length,p95_ms:report.p95_ms}));

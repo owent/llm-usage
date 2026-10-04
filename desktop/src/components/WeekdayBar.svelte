@@ -4,11 +4,11 @@
   import * as echarts from 'echarts/core';
   import { BarChart } from 'echarts/charts';
   import { GridComponent, TooltipComponent } from 'echarts/components';
-  import { CanvasRenderer } from 'echarts/renderers';
+  import { SVGRenderer } from 'echarts/renderers';
   import { t, i18n, fmtSmart, fmtPrecise } from '../lib/i18n.svelte';
   import { api, parseError, type HeatmapDto, type SummaryQuery } from '../lib/api';
 
-  echarts.use([BarChart, GridComponent, TooltipComponent, CanvasRenderer]);
+  echarts.use([BarChart, GridComponent, TooltipComponent, SVGRenderer]);
 
   let {
     cells = [], query, reloadKey = 0,
@@ -99,7 +99,7 @@
   }
 
   onMount(() => {
-    chart = echarts.init(el, i18n.locale === 'zh-CN' ? 'ZH' : 'EN');
+    chart = echarts.init(el, i18n.locale === 'zh-CN' ? 'ZH' : 'EN', { renderer: 'svg' });
 
     // Tooltip：hideDelay 0（ECharts 6 手动 hideTip 也走 hideLater(hideDelay)，不可用大值）+ 离开画布/移出窗口/失焦即隐藏（统一封装）。
     const disposeTipHide = setupTooltipAutoHide(chart!);

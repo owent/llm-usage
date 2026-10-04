@@ -76,6 +76,7 @@ pub(crate) fn open_readonly(path: &Path) -> Result<Connection, rusqlite::Error> 
             | OpenFlags::SQLITE_OPEN_URI,
     )?;
     conn.busy_timeout(Duration::from_millis(150))?;
+    crate::adapters::run_policy::install_sqlite_control(&conn)?;
     Ok(conn)
 }
 
@@ -106,6 +107,7 @@ fn backup_to_staging(
                     Some("openclaw staging backup timed out".to_string()),
                 ));
             }
+            crate::adapters::run_policy::check_sqlite()?;
             match backup.step(limits.pages_per_step) {
                 Ok(StepResult::Done) => break Ok(()),
                 // More：实际拷贝了页，计入空间限制。

@@ -32,6 +32,9 @@ const db=new DatabaseSync(join(data,'llm-usage.sqlite'));
 try {
   const settings=JSON.parse(db.prepare("SELECT value FROM settings WHERE key='app_settings'").get().value);
   Object.assign(settings,{manual_roots:[join(root,'source/.codex')],manual_roots_only:true,refresh_interval_secs:0,language:'en',theme:'dark'});
+  // The fixed 366-day baseline may have been created on an earlier local day.
+  // This test measures appends; retention has its own boundary regression suite.
+  Object.assign(settings.retention,{events_days:0,hourly_days:0,daily_days:0});
   db.prepare("UPDATE settings SET value=? WHERE key='app_settings'").run(JSON.stringify(settings));
 } finally {db.close();}
 const timestamp=new Date().toISOString(),day=timestamp.slice(0,10),file=join(sessions,'rollout-incremental.jsonl');

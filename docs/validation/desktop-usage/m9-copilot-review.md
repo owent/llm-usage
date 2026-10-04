@@ -53,7 +53,7 @@ promptTokens 下界合计 3,408,279，completionTokens 累计 320,141，样本�
 Visual Studio 为 2 个 chat span，input=17,470/output=219/cache_read=13,184；
 2 个 invoke_agent span 不纳入调用或用量。
 
-已补 SQLite 全链回归：多调用、终态降低更正、modelTotals 替换、模型换序、复制/迁移、
+已补 SQLite 全链回归：多调用、最终值降低更正、modelTotals 替换、模型换序、复制/迁移、
 其他扩展、单文件范围、半行续写、源历史清理、失败无 usage、额度硬保留；
 单元回归覆盖预算、null Set、非法 token、TTFT 数值形态与额度缺字段/时间/小数。
 浏览器回归检查额度单位显示及无 token 历史时仍可见。

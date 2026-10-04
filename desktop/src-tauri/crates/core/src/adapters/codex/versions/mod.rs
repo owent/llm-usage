@@ -133,7 +133,7 @@ fn first_line_cli_version(path: &std::path::Path) -> Option<String> {
     };
     let outcome = crate::adapters::jsonl::read_jsonl(path, 0, 1, &limits).ok()?;
     let first = outcome.lines.first()?;
-    let line = serde_json::from_str::<serde_json::Value>(&first.text).ok()?;
+    let line = crate::adapters::run_policy::json_from_str::<serde_json::Value>(&first.text).ok()?;
     if line.get("type").and_then(|t| t.as_str()) != Some("session_meta") {
         return None;
     }

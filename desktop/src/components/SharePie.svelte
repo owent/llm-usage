@@ -5,10 +5,10 @@
   import * as echarts from 'echarts/core';
   import { PieChart } from 'echarts/charts';
   import { LegendComponent, TooltipComponent } from 'echarts/components';
-  import { CanvasRenderer } from 'echarts/renderers';
+  import { SVGRenderer } from 'echarts/renderers';
   import { t, i18n, fmtPrecise } from '../lib/i18n.svelte';
 
-  echarts.use([PieChart, LegendComponent, TooltipComponent, CanvasRenderer]);
+  echarts.use([PieChart, LegendComponent, TooltipComponent, SVGRenderer]);
 
   let {
     data: rawData,
@@ -85,7 +85,7 @@
   }
 
   onMount(() => {
-    chart = echarts.init(el, i18n.locale === 'zh-CN' ? 'ZH' : 'EN');
+    chart = echarts.init(el, i18n.locale === 'zh-CN' ? 'ZH' : 'EN', { renderer: 'svg' });
 
     // Tooltip 持续显示（hideDelay 0；ECharts 6 的手动 hideTip 同样被 hideDelay 延迟，不可用大值）+ 离开画布/移出窗口/失焦即隐藏（统一封装）；
     // item 触发：图内空白处（无命中图形）也立即隐藏。

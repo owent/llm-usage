@@ -280,7 +280,7 @@ pub fn scan(
     }
     let mut bytes = Vec::new();
     std::io::Read::take(
-        &mut std::fs::File::open(&target.path)?,
+        &mut crate::adapters::run_policy::checked_file(&target.path)?,
         JCODE_MAX_FILE_BYTES + 1,
     )
     .read_to_end(&mut bytes)?;
@@ -302,7 +302,7 @@ pub fn scan(
             health: "degraded".to_string(),
         });
     }
-    let snapshot: serde_json::Value = match serde_json::from_slice(&bytes) {
+    let snapshot: serde_json::Value = match crate::adapters::run_policy::json_from_slice(&bytes) {
         Ok(v) => v,
         Err(_) => {
             return Ok(ScanOutcome {
@@ -410,7 +410,9 @@ pub fn scan(
         }
         for line in &read.lines {
             records_seen += 1;
-            let Ok(value) = serde_json::from_str::<serde_json::Value>(&line.text) else {
+            let Ok(value) =
+                crate::adapters::run_policy::json_from_str::<serde_json::Value>(&line.text)
+            else {
                 diagnostics.push(diag(
                     "invalid_journal_line",
                     &format!("journal:line:{}", line.number),
@@ -457,6 +459,7 @@ pub fn scan(
     let mut events = Vec::new();
     let mut seen_ids: std::collections::BTreeMap<String, ()> = Default::default();
     for message in messages.iter().rev() {
+        crate::adapters::run_policy::check()?;
         if message.role != "assistant" {
             continue;
         }

@@ -79,7 +79,7 @@ fn copilot_turns_count_observed_rounds_and_replace_authoritative_model_totals() 
     write_log(&file, vec![request.clone()]);
     run(&storage, &file, NOW);
     assert_eq!(totals(&storage), (2, 100, 30));
-    // 同键终态更正可降低计数，不能冲突留旧值，也不能取 MAX。
+    // 同键最终值更正可降低计数，不能冲突留旧值，也不能取 MAX。
     request["promptTokens"] = json!(80);
     request["completionTokens"] = json!(20);
     write_log(&file, vec![request.clone()]);

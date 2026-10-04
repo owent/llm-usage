@@ -30,7 +30,7 @@ fn project_dbs(registry_path: &std::path::Path) -> Vec<std::path::PathBuf> {
     let Ok(text) = std::fs::read_to_string(registry_path) else {
         return Vec::new();
     };
-    let Ok(value) = serde_json::from_str::<serde_json::Value>(&text) else {
+    let Ok(value) = crate::adapters::run_policy::json_from_str::<serde_json::Value>(&text) else {
         return Vec::new();
     };
     let Some(projects) = value.get("projects").and_then(|v| v.as_array()) else {

@@ -15,6 +15,7 @@
 Windows 11 x64 首发，GitHub CI 保留 macOS/Linux；WSL 构建不等于 Linux 桌面验收。
 定时任务只调度本地采集，按需读 [调度合同](docs/design/desktop-usage/scheduling.md)。
 自动暂停须覆盖启动、逐源及残留系统触发；手动刷新仍读取所有启用来源。
+两个来源实例槽共享单写者；指纹/代数与事件/游标同事务，中断/合并/未访问不推进来源期限。
 系统任务保存意图并回查实际定义，不能凭任务存在报成功；只清理自有任务。
 定点规则时区独立保存，DST 和旧库迁移须回归；原生测试同时隔离来源环境，
 `--data-dir` 只隔离应用数据。模拟 IPC、无界面可执行文件和 GUI 验证结果分别报告。
@@ -58,11 +59,14 @@ Kilo 独立累计快照差异只作对账；真实逐行错误与未知版本兼
 归属等变化仍仲裁，同批次真实冲突不能被后续元数据更新清除。验收旧摘要、旧游标/
 水位、重复读取及事务回滚，保留诊断历史并同事务重算未封存汇总。
 维护本机遥测检查与配置入口时，读 [配置合同](docs/design/desktop-usage/copilot-otel.md)：
-后台检查只读，应用按用户层字段合并并保留现有输出目标。已核验的 VS Code Copilot
+后台检查只读，应用按用户层字段合并并保留现有输出目标。HTTP 鉴权维护读
+[认证合同](docs/design/desktop-usage/receiver-auth.md)：逐源凭据进系统存储，预览/IPC 不返回秘密，失败及撤销回收自有令牌，不开放无保护接收。已核验的 VS Code Copilot
 file 输出按主机/用户/会话/本地日择一；保留原生记录，不按时间/token 相等猜调用身份，
 不叠加封存分区，开启当日提示覆盖受限。其他新增导出未核验前仍隔离，不自动叠加。
 状态提示、模型费用明细、趋势布局或选区查询维护时，按需读
 [看板交互合同](docs/design/desktop-usage/dashboard-polish.md)。
+维护日查询性能或派生缓存时，按需读 [查询加速](docs/design/desktop-usage/query-acceleration.md)，
+验收旧写者失效、回滚、未知值、DST、溢出与保留/清空后的身份清理。
 
 ## 规则入口与按需读取
 
@@ -87,7 +91,9 @@ npm run test:browser    # 浏览器交互回归；Windows 使用已安装 Edge
 npm run dev:desktop     # 开发模式拉起 GUI（debug 构建，不打包；dev:web 仅前端）
 npm run build:desktop   # Tauri release 构建
 npm run test:headless   # 真实可执行文件/SQLite，隔离合成来源；先构建
+npm run test:import     # Windows 百万首次 GUI 导入/全进程峰值；隔离合成来源，先构建
 npm run test:desktop    # Windows 原生 WebView2/IPC；须有可用 CDP，先构建
+npm run test:receiver   # Windows 真实 IPC/HTTP/凭据库；隔离合成配置，自有凭据回收，先构建
 git diff --check
 git status --short
 ```

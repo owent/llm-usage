@@ -24,6 +24,7 @@ pub mod model_names;
 pub mod models_dev;
 pub mod pricing;
 pub mod query;
+mod query_acceleration;
 pub mod quota_history;
 pub mod retention;
 pub mod retention_tiered;

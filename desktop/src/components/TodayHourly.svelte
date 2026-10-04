@@ -5,14 +5,14 @@
   import { LineChart } from 'echarts/charts';
   import type { LineSeriesOption } from 'echarts/charts';
   import { BrushComponent, GridComponent, LegendComponent, TooltipComponent } from 'echarts/components';
-  import { CanvasRenderer } from 'echarts/renderers';
+  import { SVGRenderer } from 'echarts/renderers';
   import { api, parseError } from '../lib/api';
   import type { ChartDimension, SummaryQuery } from '../lib/api';
   import { t, i18n, fmtSmart, fmtPrecise } from '../lib/i18n.svelte';
   import { pivotChartSeries, tokenTotalLabel, type ChartGroupData } from '../lib/derive';
   import DimensionPicker from './DimensionPicker.svelte';
 
-  echarts.use([LineChart, GridComponent, LegendComponent, TooltipComponent, BrushComponent, CanvasRenderer]);
+  echarts.use([LineChart, GridComponent, LegendComponent, TooltipComponent, BrushComponent, SVGRenderer]);
 
   let {
     hourly,
@@ -261,7 +261,7 @@
   }
 
   onMount(() => {
-    chart = echarts.init(el, i18n.locale === 'zh-CN' ? 'ZH' : 'EN');
+    chart = echarts.init(el, i18n.locale === 'zh-CN' ? 'ZH' : 'EN', { renderer: 'svg' });
 
     // Tooltip：hideDelay 0（ECharts 6 手动 hideTip 也走 hideLater(hideDelay)，不可用大值）+ 离开画布/移出窗口/失焦即隐藏（统一封装）。
     const disposeTipHide = setupTooltipAutoHide(chart!);

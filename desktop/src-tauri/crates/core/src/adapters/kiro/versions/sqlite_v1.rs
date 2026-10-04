@@ -115,6 +115,7 @@ pub fn scan(
         OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
     )
     .map_err(CoreError::Sqlite)?;
+    crate::adapters::run_policy::install_sqlite_control(&conn)?;
     conn.busy_timeout(Duration::from_millis(150))
         .map_err(CoreError::Sqlite)?;
     let columns: Vec<String> = {
@@ -131,6 +132,7 @@ pub fn scan(
         out
     };
     for required in ["key", "conversation_id", "value"] {
+        crate::adapters::run_policy::check()?;
         if !columns.iter().any(|c| c == required) {
             return Ok(ScanOutcome {
                 status: ScanStatus::Pending,
@@ -180,6 +182,7 @@ pub fn scan(
     let mut diagnostics = Vec::new();
     let mut records_seen: u64 = 0;
     for row in rows {
+        crate::adapters::run_policy::check()?;
         // 行级容错：单行类型错误不中止整轮（SQLite 动态类型）。
         let (conversation_id, value_json) = match row {
             Ok(r) => r,
@@ -194,7 +197,9 @@ pub fn scan(
             }
         };
         records_seen += 1;
-        let Ok(value) = serde_json::from_str::<serde_json::Value>(&value_json) else {
+        let Ok(value) =
+            crate::adapters::run_policy::json_from_str::<serde_json::Value>(&value_json)
+        else {
             diagnostics.push(diag(
                 "value_unparseable",
                 &conversation_id,

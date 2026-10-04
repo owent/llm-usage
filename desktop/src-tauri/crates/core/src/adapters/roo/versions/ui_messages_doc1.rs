@@ -250,7 +250,7 @@ fn parse_usage_text(
     position: &str,
     diagnostics: &mut Vec<DiagnosticInput>,
 ) -> Option<(RooUsageBuckets, Option<f64>, bool)> {
-    let value: serde_json::Value = serde_json::from_str(text).ok()?;
+    let value: serde_json::Value = crate::adapters::run_policy::json_from_str(text).ok()?;
     let obj = value.as_object()?;
     let get = |key: &str| -> Option<Option<i64>> {
         match obj.get(key) {
@@ -386,7 +386,7 @@ pub fn scan(
         });
     }
     let mut bytes = Vec::new();
-    std::fs::File::open(&target.path)?
+    crate::adapters::run_policy::checked_file(&target.path)?
         .take(ROO_MAX_FILE_BYTES + 1)
         .read_to_end(&mut bytes)?;
     if bytes.len() as u64 > ROO_MAX_FILE_BYTES {
@@ -407,7 +407,7 @@ pub fn scan(
             health: "degraded".to_string(),
         });
     }
-    let document: serde_json::Value = match serde_json::from_slice(&bytes) {
+    let document: serde_json::Value = match crate::adapters::run_policy::json_from_slice(&bytes) {
         Ok(v) => v,
         Err(_) => {
             return Ok(ScanOutcome {
@@ -458,6 +458,7 @@ pub fn scan(
     let mut condenses: Vec<(Option<i64>, Option<f64>)> = Vec::new();
     let mut records_seen: u64 = 0;
     for (index, message) in messages.iter().enumerate() {
+        crate::adapters::run_policy::check()?;
         records_seen += 1;
         let position = format!("messages[{index}]");
         let fail_closed = |diagnostics: &mut Vec<DiagnosticInput>,
@@ -543,9 +544,12 @@ pub fn scan(
                 if let Some(start_index) = open.pop() {
                     let parse_obj =
                         |text: Option<&str>| -> serde_json::Map<String, serde_json::Value> {
-                            text.and_then(|t| serde_json::from_str::<serde_json::Value>(t).ok())
-                                .and_then(|v| v.as_object().cloned())
-                                .unwrap_or_default()
+                            text.and_then(|t| {
+                                crate::adapters::run_policy::json_from_str::<serde_json::Value>(t)
+                                    .ok()
+                            })
+                            .and_then(|v| v.as_object().cloned())
+                            .unwrap_or_default()
                         };
                     let started = &mut requests[start_index];
                     let mut merged = parse_obj(started.text.as_deref());
@@ -569,6 +573,7 @@ pub fn scan(
     }
 
     for (req_seq, request) in requests.iter().enumerate() {
+        crate::adapters::run_policy::check()?;
         let Some(text) = request.text.as_deref() else {
             continue;
         };
@@ -629,6 +634,7 @@ pub fn scan(
         ));
     }
     for (condense_seq, (ts, cost)) in condenses.iter().enumerate() {
+        crate::adapters::run_policy::check()?;
         let position = format!("{task_id}:condense_context");
         let Some(ts) = ts else {
             diagnostics.push(diag(

@@ -89,7 +89,7 @@ impl RecordKind {
     }
 }
 
-/// 生命周期：流式部分值 / 终值 / 更正。
+/// 生命周期：流式部分值 / 最终值 / 更正。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Lifecycle {

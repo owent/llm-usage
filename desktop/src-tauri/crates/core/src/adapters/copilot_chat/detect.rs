@@ -19,7 +19,7 @@ const DETECT_MAX_FIRST_LINE: usize = crate::adapters::jsonl::DEFAULT_MAX_LINE_BY
 
 /// 读取首行（不含换行；超上限返回 None 表示不可判定）。
 fn read_first_line(path: &Path) -> std::io::Result<Option<Vec<u8>>> {
-    let file = std::fs::File::open(path)?;
+    let file = crate::adapters::run_policy::checked_file(path)?;
     let mut reader =
         BufReader::with_capacity(64 * 1024, file.take(DETECT_MAX_FIRST_LINE as u64 + 1));
     let mut buf = Vec::new();
@@ -55,7 +55,7 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     let Some(line) = line else {
         return Ok(DetectOutcome::Pending);
     };
-    let doc: serde_json::Value = match serde_json::from_slice(&line) {
+    let doc: serde_json::Value = match crate::adapters::run_policy::json_from_slice(&line) {
         Ok(doc) => doc,
         Err(_) => {
             return Ok(DetectOutcome::UnknownFormat {

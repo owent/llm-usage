@@ -80,6 +80,23 @@ fn main() {
     std::fs::create_dir_all(&work).unwrap();
     let db = PathBuf::from(&work).join("llm-usage.sqlite");
     let query_only = std::env::args().any(|arg| arg == "--query-only");
+    if query_only {
+        let guard = Storage::open_readonly(&db).expect("existing benchmark");
+        let foreign: i64 = guard.conn().query_row("SELECT COUNT(*) FROM source_instances WHERE format IS NOT 'synthetic' OR parser_version IS NOT 'bench'",[],|r| r.get(0)).unwrap();
+        assert_eq!(
+            foreign, 0,
+            "benchmark operations require synthetic/bench sources"
+        );
+        assert!(
+            guard
+                .conn()
+                .query_row("SELECT COUNT(*) FROM source_instances", [], |r| r
+                    .get::<_, i64>(0))
+                .unwrap()
+                > 0,
+            "nonempty synthetic sources required"
+        );
+    }
     if query_only && std::env::args().any(|arg| arg == "--prepare-indexes") {
         let at = Instant::now();
         drop(Storage::open(&db).expect("prepare current indexes"));
@@ -108,8 +125,26 @@ fn main() {
     let models: Vec<String> = (0..50).map(|i| format!("model-{i}")).collect();
     let now_ms = jiff::Timestamp::now().as_millisecond();
     let calendar = Calendar::new("UTC").unwrap();
-    let today = calendar.today(now_ms).unwrap();
-    let first_day = today.checked_sub(jiff::Span::new().days(365)).unwrap();
+    let (first_day, today) = if query_only {
+        let (first, last): (String, String) = storage
+            .conn()
+            .query_row(
+                "SELECT MIN(local_day),MAX(local_day) FROM daily_usage WHERE tz_version='UTC'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        (
+            llm_usage_core::calendar::parse_date(&first).unwrap(),
+            llm_usage_core::calendar::parse_date(&last).unwrap(),
+        )
+    } else {
+        let today = calendar.today(now_ms).unwrap();
+        (
+            today.checked_sub(jiff::Span::new().days(365)).unwrap(),
+            today,
+        )
+    };
     let (first_ms, _) = calendar.day_range_ms(first_day).unwrap();
     if !query_only {
         // Assign the same ownership and timezone metadata a native application uses.
@@ -211,6 +246,68 @@ fn main() {
         "cached dashboard query ms: p50={:.3} p95={:.3} max={:.3}",
         warm[9], warm[18], warm[19]
     );
+    if std::env::args().any(|arg| arg == "--filtered") {
+        for (name, filters, expected) in [
+            (
+                "model",
+                Filters {
+                    models: vec!["model-0".into()],
+                    ..Filters::default()
+                },
+                (0..total).filter(|i| i % 50 == 0).count(),
+            ),
+            (
+                "agent",
+                Filters {
+                    agents: vec!["agent-0".into()],
+                    ..Filters::default()
+                },
+                (0..total).filter(|i| (i / 50) % 20 == 0).count(),
+            ),
+            (
+                "provider",
+                Filters {
+                    providers: vec!["prov".into()],
+                    ..Filters::default()
+                },
+                total as usize,
+            ),
+            (
+                "model+agent",
+                Filters {
+                    models: vec!["model-0".into()],
+                    agents: vec!["agent-0".into()],
+                    ..Filters::default()
+                },
+                (0..total)
+                    .filter(|i| i % 50 == 0 && (i / 50) % 20 == 0)
+                    .count(),
+            ),
+        ] {
+            let filtered = SummaryRequest {
+                filters,
+                ..request.clone()
+            };
+            let mut timings = Vec::new();
+            for _ in 0..20 {
+                storage.clear_summary_cache();
+                let at = Instant::now();
+                assert_eq!(
+                    query_summary(&storage, &filtered)
+                        .unwrap()
+                        .totals
+                        .call_count,
+                    expected as i64
+                );
+                timings.push(at.elapsed().as_secs_f64() * 1000.0);
+            }
+            timings.sort_by(f64::total_cmp);
+            println!(
+                "filtered {name} query ms: p50={:.2} p95={:.2} max={:.2}",
+                timings[9], timings[18], timings[19]
+            );
+        }
+    }
     // 明细分页查询分位。
     let mut page_samples = Vec::new();
     for offset in (0..100).map(|i| i * 1000) {

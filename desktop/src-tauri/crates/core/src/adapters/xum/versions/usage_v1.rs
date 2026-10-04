@@ -108,10 +108,10 @@ pub fn scan(
         });
     }
     let mut bytes = Vec::new();
-    std::fs::File::open(&target.path)?
+    crate::adapters::run_policy::checked_file(&target.path)?
         .take(XUM_MAX_FILE_BYTES + 1)
         .read_to_end(&mut bytes)?;
-    let document: serde_json::Value = match serde_json::from_slice(&bytes) {
+    let document: serde_json::Value = match crate::adapters::run_policy::json_from_slice(&bytes) {
         Ok(v) => v,
         Err(_) => {
             // 半程写入：游标不推进，下轮确定性重试。
@@ -158,6 +158,7 @@ pub fn scan(
         .unwrap_or(target.probe.mtime_ms);
     let mut records_seen: u64 = 0;
     for (model_key, entry) in models {
+        crate::adapters::run_policy::check()?;
         records_seen += 1;
         let position = format!("byModel[{model_key}]");
         let (input, _input_cost) = match bucket(entry.get("input")) {

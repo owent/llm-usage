@@ -115,6 +115,7 @@ pub fn scan(
     let mut records_seen: u64 = 0;
     let mut last_session_id = after_id;
     for row in rows {
+        crate::adapters::run_policy::check()?;
         // 行级容错：单行类型错误不中止整轮（SQLite 动态类型）。
         let (session_id, _title, cost, created_at, updated_at) = match row {
             Ok(r) => r,

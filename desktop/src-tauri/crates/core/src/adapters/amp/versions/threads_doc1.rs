@@ -161,10 +161,10 @@ pub fn scan(
         });
     }
     let mut bytes = Vec::new();
-    std::fs::File::open(&target.path)?
+    crate::adapters::run_policy::checked_file(&target.path)?
         .take(AMP_MAX_FILE_BYTES + 1)
         .read_to_end(&mut bytes)?;
-    let document: serde_json::Value = match serde_json::from_slice(&bytes) {
+    let document: serde_json::Value = match crate::adapters::run_policy::json_from_slice(&bytes) {
         Ok(v) => v,
         Err(_) => {
             return Ok(ScanOutcome {
@@ -378,10 +378,11 @@ mod tests {
 
     #[test]
     fn buckets_optional_fields() {
-        let obj: serde_json::Map<String, serde_json::Value> = serde_json::from_str(
-            r#"{"tokens": {"input": 7, "output": 3, "cacheReadInputTokens": 5}}"#,
-        )
-        .unwrap();
+        let obj: serde_json::Map<String, serde_json::Value> =
+            crate::adapters::run_policy::json_from_str(
+                r#"{"tokens": {"input": 7, "output": 3, "cacheReadInputTokens": 5}}"#,
+            )
+            .unwrap();
         let buckets = ledger_tokens(&obj).unwrap();
         assert_eq!(buckets.input, Some(7));
         assert_eq!(buckets.cache_read, Some(5));

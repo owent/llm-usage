@@ -5,6 +5,7 @@
 use crate::app_state::{summarize_reports, AppState, RefreshInstanceSummary};
 use llm_usage_core::adapters::framework::{
     DiscoverContext, RunConfig, ScanLimits, SourceAdapter, SourceRunReport,
+    DEFAULT_SOURCE_TIME_BUDGET,
 };
 use llm_usage_core::jobs::{RunStart, RunStatus, TriggerKind};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -22,8 +23,39 @@ pub fn now_ms() -> i64 {
         .unwrap_or(0)
 }
 
-fn completed_successfully(report: &SourceRunReport) -> bool {
-    matches!(report.start, Some(RunStart::Started(_))) && report.finish == RunStatus::Succeeded
+fn schedule_outcome(report: &SourceRunReport) -> Option<bool> {
+    if !matches!(report.start, Some(RunStart::Started(_))) {
+        return None;
+    }
+    match report.finish {
+        RunStatus::Succeeded => Some(true),
+        RunStatus::Failed => Some(false),
+        _ => None,
+    }
+}
+
+fn controlled_post_operation<T>(
+    storage: &llm_usage_core::storage::Storage,
+    operation: impl FnOnce() -> Result<T, llm_usage_core::error::CoreError>,
+) -> Result<T, llm_usage_core::error::CoreError> {
+    use llm_usage_core::adapters::run_policy;
+    run_policy::check()?;
+    let _sql = run_policy::SqliteScope::new(storage.conn())?;
+    let result = operation();
+    run_policy::check()?;
+    result
+}
+
+fn automatic_allowed(state: &AppState) -> bool {
+    if state.automatic_pause_requests.load(Ordering::SeqCst) > 0 {
+        return false;
+    }
+    let settings = state.settings.lock().unwrap();
+    crate::power::automatic_allowed(
+        settings.refresh_interval_secs,
+        settings.pause_on_battery_saver,
+        crate::power::battery_saver(),
+    )
 }
 
 fn discover_context(manual_roots: Vec<String>, manual_only: bool) -> DiscoverContext {
@@ -81,6 +113,9 @@ fn run_refresh_in_context(
     after_clear: bool,
     context: Option<DiscoverContext>,
 ) -> bool {
+    if trigger != TriggerKind::Manual && !automatic_allowed(state) {
+        return false;
+    }
     {
         let mut refresh = state.refresh.lock().unwrap();
         if refresh.running
@@ -95,6 +130,7 @@ fn run_refresh_in_context(
             return false;
         }
         refresh.running = true;
+        state.disabled_during_scan.lock().unwrap().clear();
         refresh.progress_percent = 0;
         refresh.eta_seconds = None;
         refresh.completed_adapters.clear();
@@ -156,7 +192,12 @@ fn run_refresh_in_context(
     // 卷进全局节奏——节奏约定优先于本轮覆盖。
     let scheduled_due = if include.is_none() && trigger == TriggerKind::Interval {
         let storage = state.storage.lock().unwrap();
-        llm_usage_core::schedules::due_instances(&storage, now).unwrap_or_default()
+        state
+            .source_intervals
+            .lock()
+            .unwrap()
+            .due(&storage, now)
+            .unwrap_or_default()
     } else {
         include.clone().unwrap_or_default()
     };
@@ -187,12 +228,35 @@ fn run_refresh_in_context(
     // 逐源定时成败归属：实例 → 本轮实际运行结果（到期计划按真实结果推进）。
     let mut instance_outcomes: std::collections::BTreeMap<String, bool> =
         std::collections::BTreeMap::new();
-    // 写锁按适配器分段获取（而非整个刷新持有）：查询走 WAL 只读连接不受影响，
-    // 设置写入等其他写操作可在适配器之间交错；任意时刻仍只有一个写者。
+    // 两个解析槽在文件读取期间释放写锁；元数据、归档与提交仍用同一写者。
     let adapters = built_in_adapters();
     let total_adapters = adapters.len();
     let scan_start = now_ms();
-    for (adapter_index, adapter) in adapters.into_iter().enumerate() {
+    let scan_clock = std::time::Instant::now();
+    let mut interrupted = false;
+    for (pair_index, pair) in adapters.chunks(2).enumerate() {
+        let adapter_index = pair_index * 2;
+        if trigger != TriggerKind::Manual
+            && (!automatic_allowed(state)
+                || scan_clock.elapsed() >= std::time::Duration::from_secs(300))
+        {
+            interrupted = true;
+            summaries.push(RefreshInstanceSummary {
+                instance_id: "scheduler".into(),
+                agent: "app".into(),
+                status: "interrupted".into(),
+                error: Some(
+                    "automatic_scan_paused_or_time_budget_exhausted; unvisited sources remain due"
+                        .into(),
+                ),
+                added: 0,
+                updated: 0,
+                files: 0,
+                events: 0,
+                diagnostics: 0,
+            });
+            break;
+        }
         let Some(exclude) = global_exclude.clone() else {
             break;
         };
@@ -210,71 +274,117 @@ fn run_refresh_in_context(
                 refresh.eta_seconds = Some(remaining);
             }
         }
-        // run_id 全局唯一：核心按「前缀-实例序号」生成，前缀须每次调用唯一
-        //（ingest_runs.run_id 是主键；同前缀多适配器会撞键）。
-        let config = RunConfig {
-            run_id_prefix: format!("scan-{now}-a{adapter_index}"),
-            ..config.clone()
-        };
-        let filter = llm_usage_core::adapters::framework::InstanceFilter {
-            include: include.clone(),
-            exclude,
-        };
-        let result = {
-            let storage = state.storage.lock().unwrap();
-            let adapter_ctx = llm_usage_core::adapters::routing::context_for_adapter(
-                &ctx,
-                adapter.adapter_id(),
-                &copilot_roots,
-            );
-            llm_usage_core::adapters::framework::run_adapter_scan_filtered(
-                &storage,
-                adapter.as_ref(),
-                &adapter_ctx,
-                &config,
-                &filter,
-            )
-        };
-        state
-            .refresh
-            .lock()
-            .unwrap()
-            .completed_adapters
-            .push(adapter.agent().to_string());
-        match result {
-            Ok(reports) => {
-                // 逐实例记录真实成败（RunStatus::Succeeded 才算成功）；
-                // 适配器级失败时本次到期实例保持无记录 ⇒ 下面按失败推进。
-                for report in &reports {
-                    instance_outcomes
-                        .insert(report.instance_id.clone(), completed_successfully(report));
+        let requests: Vec<_> = pair
+            .iter()
+            .enumerate()
+            .map(|(offset, adapter)| {
+                let mut config = RunConfig {
+                    run_id_prefix: format!("scan-{now}-a{}", adapter_index + offset),
+                    ..config.clone()
+                };
+                if trigger != TriggerKind::Manual {
+                    let remaining =
+                        std::time::Duration::from_secs(300).saturating_sub(scan_clock.elapsed());
+                    config.limits.jsonl.time_budget =
+                        Some(DEFAULT_SOURCE_TIME_BUDGET.min(remaining));
                 }
-                summaries.extend(summarize_reports(&reports));
+                llm_usage_core::adapters::framework::ParallelScanRequest {
+                    adapter: adapter.as_ref(),
+                    context: llm_usage_core::adapters::routing::context_for_adapter(
+                        &ctx,
+                        adapter.adapter_id(),
+                        &copilot_roots,
+                    ),
+                    config,
+                    filter: llm_usage_core::adapters::framework::InstanceFilter {
+                        include: include.clone(),
+                        exclude: exclude.clone(),
+                    },
+                }
+            })
+            .collect();
+        let allowed_state = Arc::clone(state);
+        let source_state = Arc::clone(state);
+        let results = llm_usage_core::adapters::framework::run_adapter_scans_parallel(
+            &state.storage,
+            &requests,
+            (trigger != TriggerKind::Manual)
+                .then(|| scan_clock + std::time::Duration::from_secs(300)),
+            Arc::new(move || trigger == TriggerKind::Manual || automatic_allowed(&allowed_state)),
+            Some(Arc::new(move |instance| {
+                !source_state
+                    .disabled_during_scan
+                    .lock()
+                    .unwrap()
+                    .contains(instance)
+            })),
+        );
+        for (adapter, result) in pair.iter().zip(results) {
+            state
+                .refresh
+                .lock()
+                .unwrap()
+                .completed_adapters
+                .push(adapter.agent().to_string());
+            match result {
+                Ok(reports) => {
+                    interrupted |= reports
+                        .iter()
+                        .any(|report| report.finish == RunStatus::Interrupted);
+                    // 逐实例记录真实成败（RunStatus::Succeeded 才算成功）；
+                    // 适配器级失败时本次到期实例保持无记录 ⇒ 下面按失败推进。
+                    for report in &reports {
+                        if let Some(outcome) = schedule_outcome(report) {
+                            instance_outcomes.insert(report.instance_id.clone(), outcome);
+                        }
+                    }
+                    summaries.extend(summarize_reports(&reports));
+                }
+                Err(e) => summaries.push(RefreshInstanceSummary {
+                    instance_id: format!("{}@*", adapter.adapter_id()),
+                    agent: adapter.agent().to_string(),
+                    status: "failed".to_string(),
+                    error: Some(e.to_string()),
+                    added: 0,
+                    updated: 0,
+                    files: 0,
+                    events: 0,
+                    diagnostics: 0,
+                }),
             }
-            Err(e) => summaries.push(RefreshInstanceSummary {
-                instance_id: format!("{}@*", adapter.adapter_id()),
-                agent: adapter.agent().to_string(),
-                status: "failed".to_string(),
-                error: Some(e.to_string()),
-                added: 0,
-                updated: 0,
-                files: 0,
-                events: 0,
-                diagnostics: 0,
-            }),
         }
     }
+    if trigger != TriggerKind::Manual
+        && (!automatic_allowed(state)
+            || scan_clock.elapsed() >= std::time::Duration::from_secs(300))
+    {
+        interrupted = true;
+    }
+    let allowed_state = Arc::clone(state);
+    let _post_scope = llm_usage_core::adapters::run_policy::enter(
+        (trigger != TriggerKind::Manual).then(|| scan_clock + std::time::Duration::from_secs(300)),
+        Some(Arc::new(move || {
+            trigger == TriggerKind::Manual || automatic_allowed(&allowed_state)
+        })),
+    );
     // Copilot premium 请求额度（本机 copilot-user-cache.json；账户级请求配额，
     // 非 token，独立展示）。采集失败只记摘要，不影响本轮其他来源。
-    if !manual_only && include.is_none() && global_exclude.is_some() {
+    if !interrupted
+        && (trigger == TriggerKind::Manual || automatic_allowed(state))
+        && !manual_only
+        && include.is_none()
+        && global_exclude.is_some()
+    {
         let storage = state.storage.lock().unwrap();
-        match llm_usage_core::copilot_quota::collect(
-            &storage,
-            &ctx.env,
-            ctx.home_dir.as_deref(),
-            &timezone,
-            now_ms(),
-        ) {
+        match controlled_post_operation(&storage, || {
+            llm_usage_core::copilot_quota::collect(
+                &storage,
+                &ctx.env,
+                ctx.home_dir.as_deref(),
+                &timezone,
+                now_ms(),
+            )
+        }) {
             Ok(n) if n > 0 => summaries.push(RefreshInstanceSummary {
                 instance_id: "copilot-quota".to_string(),
                 agent: "copilot".to_string(),
@@ -300,7 +410,7 @@ fn run_refresh_in_context(
             }),
         }
     }
-    {
+    if !interrupted && llm_usage_core::adapters::run_policy::check().is_ok() {
         // 分级归档保留：采集后按设置执行（明细→小时→物化周期→日→周/月；单事务）。
         {
             let policy = llm_usage_core::retention_tiered::TieredRetentionPolicy {
@@ -313,18 +423,30 @@ fn run_refresh_in_context(
             };
             let outcome = {
                 let storage = state.storage.lock().unwrap();
-                llm_usage_core::retention_tiered::enforce_tiered_retention(
-                    &storage,
-                    &timezone,
-                    now_ms(),
-                    &policy,
-                )
+                (|| {
+                    llm_usage_core::adapters::run_policy::check()?;
+                    let _sql =
+                        llm_usage_core::adapters::run_policy::SqliteScope::new(storage.conn())?;
+                    llm_usage_core::retention_tiered::enforce_tiered_retention(
+                        &storage,
+                        &timezone,
+                        now_ms(),
+                        &policy,
+                    )
+                })()
+                .map_err(|error| {
+                    llm_usage_core::adapters::run_policy::check()
+                        .err()
+                        .unwrap_or(error)
+                })
             };
             if let Err(e) = outcome {
+                let stopped = matches!(e, llm_usage_core::error::CoreError::Interrupted(_));
+                interrupted |= stopped;
                 summaries.push(RefreshInstanceSummary {
                     instance_id: "retention".to_string(),
                     agent: "app".to_string(),
-                    status: "failed".to_string(),
+                    status: if stopped { "interrupted" } else { "failed" }.into(),
                     error: Some(format!("retention enforcement failed: {e}")),
                     added: 0,
                     updated: 0,
@@ -335,7 +457,7 @@ fn run_refresh_in_context(
             }
         }
     }
-    {
+    if !interrupted && llm_usage_core::adapters::run_policy::check().is_ok() {
         // F2 费用回填：采集改写了当日事件（数据修订）⇒ 按当前价格设置重算
         // 受影响未封存日的日成本行。估算未启用时跳过（显式重算仍可用）。
         let (pricing_enabled, tz, options) = {
@@ -348,26 +470,44 @@ fn run_refresh_in_context(
         };
         if pricing_enabled {
             let storage = state.storage.lock().unwrap();
-            let now = now_ms();
-            if let Err(e) = storage.ensure_cost_matching_policy(&tz, now, &options) {
-                let _ = storage.conn().execute("INSERT INTO diagnostics(code,message,created_ms) VALUES('cost_policy_repair_failed',?1,?2)",
-                    rusqlite::params![e.to_string(),now]);
-            }
-            let days = storage
-                .cost_backfill_days_since(&tz, revision_before)
-                .unwrap_or_default();
-            for day in days {
-                if let Err(e) = storage.recompute_cost_day(&tz, &day, now, &options) {
-                    let _ = storage.conn().execute(
-                        "INSERT INTO diagnostics (code, message, created_ms)
-                         VALUES ('cost_recompute_failed', ?1, ?2)",
-                        rusqlite::params![format!("cost recompute failed for {day}: {e}"), now],
-                    );
+            let result = controlled_post_operation(&storage, || {
+                let now = now_ms();
+                if let Err(e) = storage.ensure_cost_matching_policy(&tz, now, &options) {
+                    llm_usage_core::adapters::run_policy::check()?;
+                    let _ = storage.conn().execute("INSERT INTO diagnostics(code,message,created_ms) VALUES('cost_policy_repair_failed',?1,?2)",
+                        rusqlite::params![e.to_string(),now]);
                 }
+                let days = storage.cost_backfill_days_since(&tz, revision_before)?;
+                for day in days {
+                    llm_usage_core::adapters::run_policy::check()?;
+                    if let Err(e) = storage.recompute_cost_day(&tz, &day, now, &options) {
+                        llm_usage_core::adapters::run_policy::check()?;
+                        let _ = storage.conn().execute(
+                            "INSERT INTO diagnostics (code, message, created_ms) VALUES ('cost_recompute_failed', ?1, ?2)",
+                            rusqlite::params![format!("cost recompute failed for {day}: {e}"), now],
+                        );
+                    }
+                }
+                Ok(())
+            });
+            if let Err(error) = result {
+                let stopped = matches!(error, llm_usage_core::error::CoreError::Interrupted(_));
+                interrupted |= stopped;
+                summaries.push(RefreshInstanceSummary {
+                    instance_id: "cost".into(),
+                    agent: "app".into(),
+                    status: if stopped { "interrupted" } else { "failed" }.into(),
+                    error: Some(error.to_string()),
+                    added: 0,
+                    updated: 0,
+                    files: 0,
+                    events: 0,
+                    diagnostics: 0,
+                });
             }
         }
     }
-    {
+    if !interrupted && llm_usage_core::adapters::run_policy::check().is_ok() {
         // F2 在线刷新（models.dev）：启用且缓存过期时后台刷新一次；
         // 失败仅记操作日志/诊断，不阻塞采集，不改写既有估算。
         crate::price_refresh::maybe_auto_refresh(state, false);
@@ -383,7 +523,9 @@ fn run_refresh_in_context(
                 settings.timezone.clone()
             };
             for instance_id in &scheduled_due {
-                let success = instance_outcomes.get(instance_id).copied().unwrap_or(false);
+                let Some(success) = instance_outcomes.get(instance_id).copied() else {
+                    continue;
+                };
                 if let Err(e) = llm_usage_core::schedules::mark_source_run(
                     &storage,
                     instance_id,
@@ -403,8 +545,9 @@ fn run_refresh_in_context(
             }
         }
     }
+    interrupted |= llm_usage_core::adapters::run_policy::check().is_err();
     let completed = now_ms();
-    let full_run = include.is_none() && global_exclude.is_some();
+    let full_run = !interrupted && include.is_none() && global_exclude.is_some();
     if full_run {
         let interval = state.settings.lock().unwrap().refresh_interval_secs;
         let storage = state.storage.lock().unwrap();
@@ -478,12 +621,17 @@ fn run_background_refresh_in_context(
     let now = now_ms();
     let (global_due, sources) = {
         let storage = state.storage.lock().unwrap();
-        if !crate::system_tasks::desired(&storage)? || interval == 0 {
+        if !crate::system_tasks::desired(&storage)? || interval == 0 || !automatic_allowed(state) {
             return Ok(false);
         }
         (
             crate::system_tasks::global_due(&storage, now, interval)?,
-            llm_usage_core::schedules::due_instances(&storage, now).map_err(|e| e.to_string())?,
+            state
+                .source_intervals
+                .lock()
+                .unwrap()
+                .due(&storage, now)
+                .map_err(|e| e.to_string())?,
         )
     };
     Ok(if global_due {
@@ -499,17 +647,35 @@ fn run_background_refresh_in_context(
 /// 错过时点（休眠）醒来后立即补一次扫描（V23 补扫合并语义：只补一次）。
 pub fn spawn_scheduler(state: Arc<AppState>, stop: Arc<AtomicBool>) {
     std::thread::spawn(move || {
+        let mut was_allowed = automatic_allowed(&state);
         // 启动后先做一次回填扫描（Startup 触发）。
-        if state.settings.lock().unwrap().refresh_interval_secs > 0 {
+        if was_allowed {
             run_refresh(&state, TriggerKind::Startup);
         }
         let mut schedule = IntervalSchedule::default();
+        let mut file_watch = crate::file_watch::FileWatch::default();
         let clock = std::time::Instant::now();
         loop {
             if stop.load(Ordering::Relaxed) {
                 break;
             }
+            state.scheduler_wakeups.fetch_add(1, Ordering::Relaxed);
             let interval = state.settings.lock().unwrap().refresh_interval_secs;
+            let allowed = automatic_allowed(&state);
+            let watch_settings = state.settings.lock().unwrap().clone();
+            let watch_due = {
+                let storage = state.storage.lock().unwrap();
+                file_watch
+                    .tick(
+                        &storage,
+                        allowed && watch_settings.file_watch_enabled,
+                        watch_settings
+                            .manual_roots_only
+                            .then_some(watch_settings.manual_roots.as_slice()),
+                        i64::try_from(clock.elapsed().as_millis()).unwrap_or(i64::MAX),
+                    )
+                    .unwrap_or_default()
+            };
             let finished = state.refresh.lock().unwrap().last_global_finished_ms;
             let manual = {
                 let mut refresh = state.refresh.lock().unwrap();
@@ -529,21 +695,32 @@ pub fn spawn_scheduler(state: Arc<AppState>, stop: Arc<AtomicBool>) {
             };
             if manual || requested {
                 run_refresh(&state, TriggerKind::Manual);
+            } else if allowed && !was_allowed {
+                run_refresh(&state, TriggerKind::Startup);
+            } else if allowed && !watch_due.is_empty() {
+                run_refresh_filtered(&state, TriggerKind::FileWatch, Some(watch_due), false);
             } else if background_requested {
                 let _ = run_background_refresh(&state);
-            } else if schedule.tick(
-                i64::try_from(clock.elapsed().as_millis()).unwrap_or(i64::MAX),
-                interval,
-                finished,
-            ) {
+            } else if allowed
+                && schedule.tick(
+                    i64::try_from(clock.elapsed().as_millis()).unwrap_or(i64::MAX),
+                    interval,
+                    finished,
+                )
+            {
                 run_refresh(&state, TriggerKind::Interval);
-            } else if interval > 0 {
+            } else if allowed {
                 // 逐源定时：无全局刷新在跑时，触发到期实例（FixedTime 语义；
                 // 与手动/全局合并由 refresh 单飞保证，同源不并发）。
                 // 到期探测失败不静默跳过：记诊断留痕，下轮重试。
                 let due = {
                     let storage = state.storage.lock().unwrap();
-                    match llm_usage_core::schedules::due_instances(&storage, now_ms()) {
+                    match state
+                        .source_intervals
+                        .lock()
+                        .unwrap()
+                        .due(&storage, now_ms())
+                    {
                         Ok(due) => due,
                         Err(e) => {
                             let _ = storage.conn().execute(
@@ -561,6 +738,7 @@ pub fn spawn_scheduler(state: Arc<AppState>, stop: Arc<AtomicBool>) {
                     run_refresh_filtered(&state, TriggerKind::FixedTime, Some(due), false);
                 }
             }
+            was_allowed = allowed;
             std::thread::sleep(std::time::Duration::from_millis(500));
         }
     });
@@ -597,6 +775,32 @@ impl IntervalSchedule {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pending_pause_stops_automatic_reads_while_settings_wait_for_the_writer() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../build/plan-execution/pause-intent")
+            .join(format!("{}-{}", std::process::id(), now_ms()));
+        let state = AppState::init(root.join("test.sqlite"), "test", false).unwrap();
+        state.settings.lock().unwrap().refresh_interval_secs = 3600;
+        state.settings.lock().unwrap().pause_on_battery_saver = false;
+        let writer = state.storage.lock().unwrap();
+        assert!(automatic_allowed(&state));
+        let first = crate::power::PauseIntent::new(&state.automatic_pause_requests);
+        let second = crate::power::PauseIntent::new(&state.automatic_pause_requests);
+        assert!(!automatic_allowed(&state));
+        drop(first);
+        assert!(
+            !automatic_allowed(&state),
+            "another pending pause remains active"
+        );
+        drop(second);
+        assert!(
+            automatic_allowed(&state),
+            "failed/cancelled save restores persisted settings"
+        );
+        drop(writer);
+    }
 
     #[test]
     fn configured_roots_only_uses_real_registry_without_implicit_environment_sources() {
@@ -726,6 +930,17 @@ mod tests {
         std::fs::write(sessions.join("rollout-second.jsonl"), record("second")).unwrap();
         state.settings.lock().unwrap().refresh_interval_secs = 0;
         assert!(!run_background_refresh_in_context(&state, Some(context.clone())).unwrap());
+        for trigger in [
+            TriggerKind::Startup,
+            TriggerKind::Interval,
+            TriggerKind::FixedTime,
+        ] {
+            assert!(
+                !run_refresh_in_context(&state, trigger, None, false, Some(context.clone())),
+                "paused automatic entry points must not scan"
+            );
+        }
+        state.settings.lock().unwrap().refresh_interval_secs = 60;
         assert!(run_refresh_in_context(
             &state,
             TriggerKind::Interval,
@@ -745,6 +960,7 @@ mod tests {
             1,
             "automatic interval excludes the not-yet-due custom source"
         );
+        state.settings.lock().unwrap().refresh_interval_secs = 0;
         assert!(run_refresh_in_context(
             &state,
             TriggerKind::Manual,
@@ -800,9 +1016,9 @@ mod tests {
         assert!(run_refresh_in_context(
             &state,
             TriggerKind::FixedTime,
-            Some(std::collections::BTreeSet::from([instance])),
+            Some(std::collections::BTreeSet::from([instance.clone()])),
             false,
-            Some(context)
+            Some(context.clone())
         ));
         assert_eq!(
             state.refresh.lock().unwrap().last_global_finished_ms,
@@ -831,6 +1047,44 @@ mod tests {
         );
         drop(storage);
         {
+            // No discovered carrier is an unvisited source, not a completed failure.
+            for name in [
+                "rollout-first.jsonl",
+                "rollout-second.jsonl",
+                "rollout-third.jsonl",
+            ] {
+                std::fs::remove_file(sessions.join(name)).unwrap();
+            }
+            state
+                .storage
+                .lock()
+                .unwrap()
+                .conn()
+                .execute("UPDATE extraction_schedules SET next_due_at_ms=0", [])
+                .unwrap();
+            assert!(run_refresh_in_context(
+                &state,
+                TriggerKind::FixedTime,
+                Some(std::collections::BTreeSet::from([instance.clone()])),
+                false,
+                Some(context)
+            ));
+            assert_eq!(
+                state
+                    .storage
+                    .lock()
+                    .unwrap()
+                    .conn()
+                    .query_row(
+                        "SELECT next_due_at_ms FROM extraction_schedules WHERE instance_id=?1",
+                        [&instance],
+                        |r| r.get::<_, i64>(0)
+                    )
+                    .unwrap(),
+                0
+            );
+        }
+        {
             let mut refresh = state.refresh.lock().unwrap();
             refresh.running = true;
         }
@@ -850,11 +1104,15 @@ mod tests {
             finish: RunStatus::Running,
             error: None,
         };
-        assert!(!completed_successfully(&report));
+        assert_eq!(schedule_outcome(&report), None);
         report.finish = RunStatus::Succeeded;
-        assert!(!completed_successfully(&report));
+        assert_eq!(schedule_outcome(&report), None);
         report.start = Some(RunStart::Started("existing".into()));
-        assert!(completed_successfully(&report));
+        assert_eq!(schedule_outcome(&report), Some(true));
+        report.finish = RunStatus::Interrupted;
+        assert_eq!(schedule_outcome(&report), None);
+        report.finish = RunStatus::Failed;
+        assert_eq!(schedule_outcome(&report), Some(false));
     }
 
     #[test]

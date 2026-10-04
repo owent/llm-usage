@@ -7,11 +7,12 @@ import { resolve, join, relative, isAbsolute } from 'node:path';
 import { createServer } from 'node:net';
 import { once } from 'node:events';
 import assert from 'node:assert/strict';
+import { idleMemoryBudget } from './resource-budgets.mjs';
 
 const args=process.argv.slice(2);
 const option=(key,fallback)=>args.includes(key)?args[args.indexOf(key)+1]:fallback;
 if(args.includes('--help')){
-  console.log('node desktop/tests/native-scale.mjs [--data <synthetic bench_v20 directory under build/>] [--exe <release.exe>] [--runs 20] [--idle-seconds 600] [--ui-cancel]');
+  console.log('node desktop/tests/native-scale.mjs [--data <synthetic bench_v20 directory under build/>] [--exe <release.exe>] [--runs 20] [--idle-seconds 600] [--ui-cancel] [--software-rendering] [--blank-page] [--enforce-budget]');
   process.exit(0);
 }
 assert.equal(process.platform,'win32');
@@ -42,7 +43,7 @@ async function close(){if(browser){await browser.close();browser=undefined;}if(c
 async function launch(){
   const server=createServer();server.listen(0,'127.0.0.1');await once(server,'listening');const port=server.address().port;await new Promise(resolve=>server.close(resolve));
   const started=performance.now();
-  child=spawnIsolated(exe,['--data-dir',data],{env:{...env,WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS:`--remote-debugging-port=${port}`,WEBVIEW2_USER_DATA_FOLDER:join(root,'webview')},stdio:['ignore','pipe','pipe'],windowsHide:true});
+  child=spawnIsolated(exe,['--data-dir',data],{env:{...env,WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS:`--remote-debugging-port=${port}${args.includes('--software-rendering')?' --disable-gpu':''}`,WEBVIEW2_USER_DATA_FOLDER:join(root,'webview')},stdio:['ignore','pipe','pipe'],windowsHide:true});
   child.stdout.on('data',chunk=>logs.push(String(chunk)));child.stderr.on('data',chunk=>logs.push(String(chunk)));
   let endpoint;
   for(let n=0;n<300;n++){assert.equal(child.exitCode,null,'app remains running');try{endpoint=await(await fetch(`http://127.0.0.1:${port}/json/version`)).json();}catch{}if(endpoint?.webSocketDebuggerUrl)break;await pause(100);}
@@ -54,7 +55,7 @@ async function launch(){
   page.on('request',request=>{if(/^https?:/.test(request.url())&&!/\/\/(tauri\.localhost|ipc\.localhost|localhost|127\.0\.0\.1)([:/]|$)/.test(request.url()))outbound.push(request.url());});
   await page.locator('.today-cards').waitFor({state:'visible',timeout:30000});
   await page.waitForFunction(()=>{const v=document.querySelector('.today-cards .value')?.textContent;return v&&!['…','—'].includes(v);});
-  await page.locator('[data-panel-group="overviewHistory"] .token-chart canvas').waitFor({state:'visible'});
+  await page.locator('[data-panel-group="overviewHistory"] .token-chart svg').waitFor({state:'visible'});
   timings.push(performance.now()-started);
 }
 async function resources(){
@@ -104,11 +105,28 @@ try{
   }
   // Let prior maintenance UI work settle before ten-minute idle measurement.
   await pause(2000);
+  const idleBefore=await invoke('app_info');
+  const blankPage=args.includes('--blank-page');
+  if(blankPage){
+    // Diagnostic only: navigate the already warmed WebView, without changing product defaults.
+    await page.goto('about:blank');assert.equal(page.url(),'about:blank');
+    const session=await page.context().newCDPSession(page);
+    await session.send('HeapProfiler.collectGarbage');await session.detach();
+    await pause(2000);
+  }
   const idle=idleSeconds?await resources():null;
-  if(idle){assert.ok(idle.duration_seconds>=idleSeconds,'idle sampling covers the full requested duration');assert.ok(idle.samples.every(sample=>sample.process_count>0),'native root remains running throughout idle measurement');}
+  const idleAfter=blankPage?null:await invoke('app_info');
+  const schedulerWakeups=blankPage?null:idleAfter.scheduler_wakeups-idleBefore.scheduler_wakeups;
+  if(idle&&!blankPage)assert.ok(Number.isSafeInteger(schedulerWakeups)&&schedulerWakeups>0,'runtime timer iterations are observed');
+  if(idle){assert.ok(idle.duration_seconds>=idleSeconds,'idle sampling covers the full requested duration');assert.ok(idle.samples.every(sample=>sample.process_count>0),'native root remains running throughout idle measurement');assert.ok(idle.samples.every(sample=>Object.values(sample.private_bytes_by_role).reduce((a,b)=>a+b,0)===sample.private_bytes),'reported process roles cover all measured memory');}
   const sorted=[...timings].sort((a,b)=>a-b);
-  const report={event_count:stats.events,model_count:50,agent_count:20,first_screen_ms:timings,p95_ms:sorted[Math.ceil(sorted.length*.95)-1],samples:runs,idle,cancellation_checks:2,ui_cancellation:args.includes('--ui-cancel'),errors,outbound};
+  const memoryBudget=idleMemoryBudget(idle,{diagnostic:blankPage||args.includes('--software-rendering')});
+  const report={event_count:stats.events,model_count:50,agent_count:20,first_screen_ms:timings,p95_ms:sorted[Math.ceil(sorted.length*.95)-1],samples:runs,idle,memory_budget:memoryBudget,scheduler_wakeups:schedulerWakeups,cancellation_checks:2,ui_cancellation:args.includes('--ui-cancel'),software_rendering:args.includes('--software-rendering'),blank_page:blankPage,errors,outbound};
   assert.deepEqual(errors,[]);assert.deepEqual(outbound,[]);
   await writeFile(join(root,'result.json'),JSON.stringify(report,null,2));
   console.log(JSON.stringify({root,event_count:stats.events,samples:runs,p95_ms:report.p95_ms,idle}));
+  if(args.includes('--enforce-budget')){
+    assert.equal(memoryBudget.qualified,true,'budget requires a full 600-second product measurement with default GPU');
+    assert.equal(memoryBudget.within_budget,true,'idle all-process memory exceeds the mean or peak budget');
+  }
 }catch(error){if(page)await page.screenshot({path:join(root,'failure.png')}).catch(()=>{});await writeFile(join(root,'failure.json'),JSON.stringify({error:String(error),errors,logs},null,2));throw error;}finally{await close();}

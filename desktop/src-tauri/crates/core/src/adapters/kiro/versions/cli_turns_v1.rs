@@ -108,11 +108,11 @@ pub fn scan(
     }
     let mut bytes = Vec::new();
     std::io::Read::take(
-        &mut std::fs::File::open(&target.path)?,
+        &mut crate::adapters::run_policy::checked_file(&target.path)?,
         KIRO_MAX_FILE_BYTES + 1,
     )
     .read_to_end(&mut bytes)?;
-    let document: serde_json::Value = match serde_json::from_slice(&bytes) {
+    let document: serde_json::Value = match crate::adapters::run_policy::json_from_slice(&bytes) {
         Ok(v) => v,
         Err(_) => {
             return Ok(ScanOutcome {
@@ -165,6 +165,7 @@ pub fn scan(
     let mut records_seen: u64 = 0;
     let mut zero_turns: u64 = 0;
     for (index, turn) in turns.iter().enumerate() {
+        crate::adapters::run_policy::check()?;
         records_seen += 1;
         let Some(obj) = turn.as_object() else {
             diagnostics.push(diag(

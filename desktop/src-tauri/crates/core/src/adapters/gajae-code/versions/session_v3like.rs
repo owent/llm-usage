@@ -162,8 +162,10 @@ pub fn scan(
     let mut diagnostics = Vec::new();
     let mut records_seen: u64 = 0;
     for line in &read.lines {
+        crate::adapters::run_policy::check()?;
         records_seen += 1;
-        let Ok(value) = serde_json::from_str::<serde_json::Value>(&line.text) else {
+        let Ok(value) = crate::adapters::run_policy::json_from_str::<serde_json::Value>(&line.text)
+        else {
             diagnostics.push(diag("invalid_json_line", line.number, "line is not JSON"));
             continue;
         };
@@ -361,7 +363,7 @@ mod tests {
 
     #[test]
     fn dual_timestamp_precedence() {
-        let value: serde_json::Value = serde_json::from_str(
+        let value: serde_json::Value = crate::adapters::run_policy::json_from_str(
             r#"{"type":"message","id":"ab12","parentId":null,"timestamp":"2026-09-29T00:00:00Z",
                 "message":{"role":"assistant","provider":"anthropic","model":"m",
                 "timestamp":1790000000000,

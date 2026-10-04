@@ -107,6 +107,12 @@ pub struct AppSettings {
     /// 今日数据刷新提取间隔（秒）；0 = 关闭自动提取。默认每小时。
     #[serde(default = "default_refresh_interval")]
     pub refresh_interval_secs: u64,
+    #[serde(default = "default_pause_on_saver")]
+    pub pause_on_battery_saver: bool,
+    #[serde(default)]
+    pub close_to_tray: bool,
+    #[serde(default)]
+    pub file_watch_enabled: bool,
     pub language: String,
     /// 主题：system（跟随系统）/ light / dark。
     #[serde(default = "default_theme")]
@@ -142,6 +148,10 @@ fn default_refresh_interval() -> u64 {
     3600
 }
 
+fn default_pause_on_saver() -> bool {
+    true
+}
+
 impl Default for AppSettings {
     fn default() -> Self {
         AppSettings {
@@ -149,6 +159,9 @@ impl Default for AppSettings {
             week_start: None,
             retention: RetentionTiers::default(),
             refresh_interval_secs: default_refresh_interval(),
+            pause_on_battery_saver: true,
+            close_to_tray: false,
+            file_watch_enabled: false,
             language: "zh-CN".to_string(),
             theme: default_theme(),
             manual_roots: Vec::new(),
@@ -243,6 +256,10 @@ pub struct AppState {
     pub host_id: Mutex<String>,
     pub settings: Mutex<AppSettings>,
     pub refresh: Mutex<RefreshState>,
+    pub source_intervals: Mutex<crate::source_intervals::SourceIntervals>,
+    pub scheduler_wakeups: std::sync::atomic::AtomicU64,
+    pub automatic_pause_requests: std::sync::atomic::AtomicUsize,
+    pub disabled_during_scan: Mutex<std::collections::BTreeSet<String>>,
     pub db_path: PathBuf,
     /// 当前统计用户（v6 多用户约定；默认 "default"，存 settings 表）。
     pub current_user: Mutex<String>,
@@ -351,6 +368,10 @@ impl AppState {
             settings: Mutex::new(settings),
             readers: std::array::from_fn(|_| Mutex::new(None)),
             refresh: Mutex::new(RefreshState::default()),
+            source_intervals: Mutex::new(crate::source_intervals::SourceIntervals::default()),
+            scheduler_wakeups: std::sync::atomic::AtomicU64::new(0),
+            automatic_pause_requests: std::sync::atomic::AtomicUsize::new(0),
+            disabled_during_scan: Mutex::new(Default::default()),
             current_user: Mutex::new(current_user),
             db_path,
             clear_job_running: std::sync::atomic::AtomicBool::new(false),

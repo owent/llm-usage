@@ -237,7 +237,8 @@ pub fn scan(
     let mut diagnostics = Vec::new();
     let mut records_seen: u64 = 0;
     for line in &read.lines {
-        let Ok(doc) = serde_json::from_str::<Value>(&line.text) else {
+        crate::adapters::run_policy::check()?;
+        let Ok(doc) = crate::adapters::run_policy::json_from_str::<Value>(&line.text) else {
             diagnostics.push(diag(
                 "invalid_json_line",
                 &format!("line:{}", line.number),
@@ -617,7 +618,8 @@ mod tests {
 
     #[test]
     fn ttft_double_values_client_kind_and_missing_trace_are_checked() {
-        let mut span: Value = serde_json::from_str(&chat_span("span-a", "trace-a")).unwrap();
+        let mut span: Value =
+            crate::adapters::run_policy::json_from_str(&chat_span("span-a", "trace-a")).unwrap();
         span["attributes"]
             .as_array_mut()
             .unwrap()
@@ -660,7 +662,8 @@ mod tests {
             parse_context: replay.parse_context,
         };
         assert!(!should_scan_unchanged(&updated));
-        let mut span: Value = serde_json::from_str(&chat_span("span2", "trace")).unwrap();
+        let mut span: Value =
+            crate::adapters::run_policy::json_from_str(&chat_span("span2", "trace")).unwrap();
         span["attributes"]
             .as_array_mut()
             .unwrap()

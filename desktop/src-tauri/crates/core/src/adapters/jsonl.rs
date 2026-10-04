@@ -8,7 +8,6 @@
 //! - 坏行隔离：诊断只存错误码与位置（行号/字节偏移），不复制原始行内容；
 //! - 截断/同大小替换/改名时重探测；变更检测不限于文件长度。
 
-use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::Path;
 
@@ -102,9 +101,13 @@ pub fn read_jsonl_with_byte_budget(
     limits: &JsonlLimits,
     max_bytes: Option<u64>,
 ) -> std::io::Result<ReadOutcome> {
-    let mut file = File::open(path)?;
+    let mut file = super::run_policy::checked_file(path)?;
     file.seek(SeekFrom::Start(start_offset))?;
     let started = std::time::Instant::now();
+    let read_budget = limits.time_budget.map(|budget| budget / 2);
+    let max_bytes = max_bytes.or(Some(
+        (32 * 1024 * 1024).max(limits.max_line_bytes as u64 + 1),
+    ));
     let mut outcome = ReadOutcome {
         lines: Vec::new(),
         bad_lines: Vec::new(),
@@ -129,7 +132,7 @@ pub fn read_jsonl_with_byte_budget(
     let mut carry_start = absolute;
     let mut chunk = vec![0u8; limits.chunk_bytes.max(1)];
     loop {
-        if let Some(budget) = limits.time_budget {
+        if let Some(budget) = read_budget {
             if started.elapsed() >= budget {
                 outcome.stop = StopReason::TimeBudget;
                 break;
@@ -158,11 +161,13 @@ pub fn read_jsonl_with_byte_budget(
             outcome.stop = StopReason::Eof;
             break;
         }
+        let mut search_from = carry.len();
         carry.extend_from_slice(&chunk[..n]);
         // 逐条提取完整行；0x0A 不会出现在 UTF-8 多字节序列内，按字节切分安全。
         let mut consumed = 0usize;
-        while let Some(pos) = carry[consumed..].iter().position(|b| *b == b'\n') {
-            let line_end = consumed + pos + 1;
+        while let Some(pos) = carry[search_from..].iter().position(|b| *b == b'\n') {
+            super::run_policy::check_io()?;
+            let line_end = search_from + pos + 1;
             let line_bytes = &carry[consumed..line_end];
             let line_number = outcome.next_line_number;
             if line_bytes.len() > limits.max_line_bytes {
@@ -180,6 +185,7 @@ pub fn read_jsonl_with_byte_budget(
             let start = carry_start + consumed as u64;
             let end = carry_start + line_end as u64;
             consumed = line_end;
+            search_from = consumed;
             outcome.next_offset = end;
             outcome.next_line_number += 1;
             if text_bytes.is_empty() {
@@ -264,7 +270,7 @@ pub fn probe_file(path: &Path) -> std::io::Result<FileProbe> {
         .ok()
         .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
         .map(|d| d.as_millis() as i64);
-    let mut file = File::open(path)?;
+    let mut file = super::run_policy::checked_file(path)?;
     let mut head = vec![0u8; SAMPLE_BYTES.min(len as usize)];
     file.read_exact(&mut head)?;
     let head_len = head.len() as u64;

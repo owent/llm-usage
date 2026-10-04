@@ -421,7 +421,7 @@ fn core_data_layer_without_message_table_fails_closed() {
 #[test]
 fn busy_writer_keeps_old_results() {
     // 只读约定第 4 条：写者持独占锁（rollback journal）时无法一致读取 ⇒
-    // 暂存副本备份也拿不到锁 ⇒ busy 上抛，文件标 error，旧结果保留。
+    // 暂存副本备份也拿不到锁 ⇒ 源预算耗尽返回 interrupted，旧结果与游标保留。
     let dir = TempDir::new("kilo-busy");
     let root = build_kilo_db(
         &dir,
@@ -439,6 +439,14 @@ fn busy_writer_keeps_old_results() {
     let first = run_kilo(&storage, &root, NOW);
     assert_eq!(first[0].files[0].events, 1);
     let summary_before = summary(&storage, "2026-01-01", "2026-12-31");
+    let cursors_before: Vec<String> = storage
+        .conn()
+        .prepare("SELECT cursor_value FROM ingestion_checkpoints ORDER BY scope_key")
+        .unwrap()
+        .query_map([], |r| r.get(0))
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap();
 
     // 另一连接持有 EXCLUSIVE 事务：只读短查询与暂存备份都无法一致读取。
     let holder = rusqlite::Connection::open(
@@ -452,15 +460,33 @@ fn busy_writer_keeps_old_results() {
     holder.execute_batch("BEGIN EXCLUSIVE;").unwrap();
     let second = run_kilo(&storage, &root, NOW + 1_000);
     assert_eq!(
-        second[0].files[0].status, "error",
-        "busy 源标错误而非零成功"
+        second[0].finish,
+        llm_usage_core::jobs::RunStatus::Interrupted
     );
-    assert!(second[0].files[0].detail.as_deref().is_some_and(|d| {
-        let lower = d.to_lowercase();
-        lower.contains("busy")
-            || lower.contains("database is locked")
-            || lower.contains("timed out")
-    }));
+    assert!(second[0]
+        .error
+        .as_deref()
+        .is_some_and(|d| d.contains("budget_exhausted")));
+    assert_eq!(
+        storage
+            .conn()
+            .query_row(
+                "SELECT status FROM ingest_runs WHERE run_id=?1",
+                [second[0].run_id.as_ref().unwrap()],
+                |r| r.get::<_, String>(0)
+            )
+            .unwrap(),
+        "interrupted"
+    );
+    let cursors_after: Vec<String> = storage
+        .conn()
+        .prepare("SELECT cursor_value FROM ingestion_checkpoints ORDER BY scope_key")
+        .unwrap()
+        .query_map([], |r| r.get(0))
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap();
+    assert_eq!(cursors_before, cursors_after);
     // 旧结果保留：总数不变（不能伪装为零或丢历史）。
     let summary_after = summary(&storage, "2026-01-01", "2026-12-31");
     assert_eq!(

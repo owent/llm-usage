@@ -20,6 +20,8 @@
     "test:ui": "node --experimental-strip-types --test desktop/tests/*.test.mjs",
     "test:browser": "node desktop/tests/browser-smoke.mjs",
     "test:desktop": "node desktop/tests/native-smoke.mjs",
+    "test:receiver": "node desktop/tests/native-receiver-auth.mjs",
+    "test:import": "node desktop/tests/native-first-import.mjs",
     "test:headless": "node desktop/tests/headless-smoke.mjs",
     "clippy": "cargo clippy --manifest-path desktop/src-tauri/Cargo.toml --workspace --all-targets --locked -- -D warnings",
     "fmt:check": "cargo fmt --manifest-path desktop/src-tauri/Cargo.toml --all --check",

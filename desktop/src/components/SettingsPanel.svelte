@@ -499,6 +499,9 @@
     draft.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
     inputs.weekStart = '';
     draft.refresh_interval_secs = 3600;
+    draft.pause_on_battery_saver = true;
+    draft.close_to_tray = false;
+    draft.file_watch_enabled = false;
     errorMessage = '';
     message = t('settings.defaultsPending');
   }
@@ -987,6 +990,7 @@
             <div class="fvalue">
               <input type="number" min="0" max="86400" bind:value={draft.refresh_interval_secs} aria-label={t('settings.interval')} />
               <span class="hint">{t('settings.interval.hint')}</span>
+              <label><input type="checkbox" bind:checked={draft.pause_on_battery_saver} /> {t('settings.pauseOnSaver')}</label>
             </div>
           </div>
           <div class="frow">
@@ -1224,6 +1228,8 @@
           {:else if taskStatus.unsupported}
             <p class="hint">{t('system.unsupported')}</p>
           {:else}
+            <label><input type="checkbox" bind:checked={draft.close_to_tray} /> {t('settings.closeToTray')}</label>
+            <label><input type="checkbox" bind:checked={draft.file_watch_enabled} /> {t('settings.fileWatch')}</label>
             <div class="sysrow">
               <div class="sysinfo">
                 <span class="name">{t('system.autoStart')} · {taskStatus.auto_start ? t('system.state.on') : t('system.state.off')}</span>

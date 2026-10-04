@@ -433,7 +433,7 @@ impl<const WORK: bool> SourceAdapter for BuddyAdapter<WORK> {
             diagnostics.push(diag(bad.code, bad.number, "invalid UTF-8 line"));
         }
         for line in &read.lines {
-            match serde_json::from_str::<serde_json::Value>(&line.text) {
+            match crate::adapters::run_policy::json_from_str::<serde_json::Value>(&line.text) {
                 Ok(value) => match parse_event::<WORK>(&value, target, line.number, now_ms) {
                     Ok(Some(event)) => events.push(event),
                     Ok(None) => {}

@@ -21,7 +21,8 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     if first_line.is_empty() {
         return Ok(DetectOutcome::Pending);
     }
-    let Ok(value) = serde_json::from_str::<serde_json::Value>(first_line) else {
+    let Ok(value) = crate::adapters::run_policy::json_from_str::<serde_json::Value>(first_line)
+    else {
         return Ok(DetectOutcome::UnknownFormat {
             reason: "first line is not JSON (not a gjc session)".to_string(),
         });

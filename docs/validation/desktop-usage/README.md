@@ -2,6 +2,8 @@
 
 当前结论见 [最新验收](current-acceptance.md)，清理取消、原生语言/键盘/缩放、无 GUI
 任务、百万/千万查询及增量刷新见 [原生与规模验收](plan-finalization.md)。
+查询/筛选加速、Windows 后台控制、遥测限制及本轮资源复测见
+[剩余计划执行](plan-execution.md)。
 本目录保存各阶段实际执行记录，规则见 [execution.md](../../design/desktop-usage/execution.md)：
 
 - 只有完成实际检查并记录结果后才创建记录文件，不预填"通过"；模板见 [TEMPLATE.md](TEMPLATE.md)。

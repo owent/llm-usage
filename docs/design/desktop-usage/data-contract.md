@@ -88,7 +88,7 @@ VS Code Copilot Chat 载体（M9）：`workspaceStorage/<hash>/chatSessions/
 input/cached/output 总量并优先采用。缓存细分默认未知不补零；thinking tokens 覆盖不全
 不入 output_reasoning；`copilotCredits` 是 credit 计量（nano AIU 折算）非 token，
 不入 token 统计（与上段额度时序同属独立展示）。流式计数器为周期采样快照：
-采集端每轮全量重放取终值，同键 upsert 幂等，不对更新序列求和。
+采集端每轮全量重放取最终值，同键 upsert 幂等，不对更新序列求和。
 `toolCallRounds` 中有稳定 ID 和时间的主循环轮次独立计 model_call，逐轮 token
 保持未知，由 turn/逐模型 observation 贡献用量（这些 round 标记计调用但 quality_bucket=unknown，
 不计入“未知字段”展示）；没有轮次记录时不以 turn 数补调用。输入覆盖提示

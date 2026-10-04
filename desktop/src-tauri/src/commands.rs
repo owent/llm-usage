@@ -611,6 +611,12 @@ pub fn set_source_enabled(
             rusqlite::params![instance_id, enabled as i64, now_ms()],
         )
         .map_err(|e| err("db", e.to_string()))?;
+    let mut disabled = state.disabled_during_scan.lock().unwrap();
+    if enabled {
+        disabled.remove(&instance_id);
+    } else {
+        disabled.insert(instance_id);
+    }
     Ok(())
 }
 
@@ -726,8 +732,20 @@ pub fn get_settings(state: tauri::State<'_, Arc<AppState>>) -> Result<AppSetting
 }
 
 #[tauri::command]
-pub fn set_settings(
+pub async fn set_settings(
+    app: tauri::AppHandle,
     state: tauri::State<'_, Arc<AppState>>,
+    settings: AppSettings,
+) -> Result<(), String> {
+    let state = Arc::clone(&state);
+    tauri::async_runtime::spawn_blocking(move || apply_settings(&app, &state, settings))
+        .await
+        .map_err(|_| err("settings_save_failed", "settings worker failed"))?
+}
+
+fn apply_settings(
+    app: &tauri::AppHandle,
+    state: &AppState,
     mut settings: AppSettings,
 ) -> Result<(), String> {
     // Receiver lifecycle is owned by telemetry setup. A settings form opened earlier
@@ -793,6 +811,12 @@ pub fn set_settings(
             ),
         ));
     }
+    let _pause = (!crate::power::automatic_allowed(
+        settings.refresh_interval_secs,
+        settings.pause_on_battery_saver,
+        crate::power::battery_saver(),
+    ))
+    .then(|| crate::power::PauseIntent::new(&state.automatic_pause_requests));
     {
         let storage = state.storage.lock().unwrap();
         let mut live = state.settings.lock().unwrap();
@@ -804,9 +828,11 @@ pub fn set_settings(
             crate::app_state::repair_tz_partitions(&storage, &settings.timezone, true)?;
         }
         save_settings(&storage, &settings)?;
-        *live = settings;
+        *live = settings.clone();
         log_operation(&storage, "settings_changed", "user settings updated");
     }
+    crate::tray::apply(app, &settings)
+        .map_err(|error| err("tray_apply_failed", error.to_string()))?;
     Ok(())
 }
 
@@ -826,6 +852,7 @@ pub fn app_info(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_json::Va
         "db_path": state.db_path.to_string_lossy(),
         "host_id": state.host_id.lock().unwrap().clone(),
         "exchange_format_version": EXCHANGE_FORMAT_VERSION,
+        "scheduler_wakeups": state.scheduler_wakeups.load(std::sync::atomic::Ordering::Relaxed),
     }))
 }
 
@@ -1356,6 +1383,16 @@ const CLEAR_ALL_TABLES: &[&str] = &[
     "ingest_runs",
     "quota_snapshots",
     "quota_history",
+    "query_rollup_day",
+    "query_rollup_model",
+    "query_rollup_agent",
+    "query_session_days",
+    "query_accel_days",
+    "query_accel_timezones",
+    "query_accel_meta",
+    "query_rollup_provider_day",
+    "query_rollup_provider_agent",
+    "query_provider_session_days",
 ];
 
 fn backup_before_clear(state: &Arc<AppState>) -> Result<Option<String>, String> {

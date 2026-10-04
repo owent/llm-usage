@@ -51,7 +51,7 @@ pub fn parse_cache(text: &str) -> Option<CopilotUsageCache> {
         .filter(|line| !line.trim_start().starts_with("//"))
         .collect::<Vec<_>>()
         .join("\n");
-    let value: serde_json::Value = serde_json::from_str(&json).ok()?;
+    let value: serde_json::Value = crate::adapters::run_policy::json_from_str(&json).ok()?;
     let cache = value.get("copilotUserCache")?.as_object()?;
     // 取最新一条（按 retrievedAt 排序；缺失则任取其一，通常仅一条）。
     let entry = cache
@@ -187,7 +187,17 @@ pub fn read_from(
     home: Option<&std::path::Path>,
 ) -> Option<CopilotUsageCache> {
     let path = cache_path(env, home)?;
-    let text = std::fs::read_to_string(path).ok()?;
+    use std::io::Read as _;
+    const MAX_CACHE_BYTES: u64 = 8 * 1024 * 1024;
+    let mut text = String::new();
+    crate::adapters::run_policy::checked_file(&path)
+        .ok()?
+        .take(MAX_CACHE_BYTES + 1)
+        .read_to_string(&mut text)
+        .ok()?;
+    if text.len() as u64 > MAX_CACHE_BYTES {
+        return None;
+    }
     parse_cache(&text)
 }
 

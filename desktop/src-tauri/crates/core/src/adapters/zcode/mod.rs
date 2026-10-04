@@ -317,6 +317,7 @@ pub fn db_reconciliation(
         | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX
         | rusqlite::OpenFlags::SQLITE_OPEN_URI;
     let conn = Connection::open_with_flags(db_path, flags)?;
+    crate::adapters::run_policy::install_sqlite_control(&conn)?;
     conn.busy_timeout(std::time::Duration::from_secs(5))?;
     let snapshot = conn.unchecked_transaction()?;
     let (model_rows, model_computed_total_sum): (i64, i64) = conn.query_row(

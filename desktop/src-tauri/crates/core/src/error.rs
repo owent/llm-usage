@@ -29,6 +29,8 @@ pub enum CoreError {
     Query(String),
     /// 注入了故障（测试钩子）。
     FaultInjected(&'static str),
+    /// Cooperative collection stop; not a parser or source-health failure.
+    Interrupted(&'static str),
     /// JSON 序列化失败。
     Json(String),
 }
@@ -57,6 +59,7 @@ impl fmt::Display for CoreError {
             CoreError::JobState(msg) => write!(f, "job state: {msg}"),
             CoreError::Query(msg) => write!(f, "query: {msg}"),
             CoreError::FaultInjected(point) => write!(f, "fault injected at {point}"),
+            CoreError::Interrupted(reason) => write!(f, "interrupted: {reason}"),
             CoreError::Json(msg) => write!(f, "json: {msg}"),
         }
     }
@@ -72,6 +75,12 @@ impl From<rusqlite::Error> for CoreError {
 
 impl From<std::io::Error> for CoreError {
     fn from(e: std::io::Error) -> Self {
+        if let Some(interrupted) = e
+            .get_ref()
+            .and_then(|error| error.downcast_ref::<crate::adapters::run_policy::ReadInterrupted>())
+        {
+            return CoreError::Interrupted(interrupted.0);
+        }
         CoreError::Io(e)
     }
 }

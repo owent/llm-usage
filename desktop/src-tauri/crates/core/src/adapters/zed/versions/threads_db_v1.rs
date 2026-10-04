@@ -86,7 +86,7 @@ fn decode_blob(data_type: &str, data: &[u8]) -> Option<Vec<u8>> {
     }
     let decoder = zstd::stream::read::Decoder::new(data).ok()?;
     let mut out = Vec::new();
-    decoder
+    crate::adapters::run_policy::checked_reader(decoder)
         .take(MAX_BLOB_BYTES as u64 + 1)
         .read_to_end(&mut out)
         .ok()?;
@@ -227,6 +227,7 @@ pub fn scan(
     let hit_cap = rows.len() as i64 > MAX_ROWS_PER_ROUND;
     let last_thread_id = rows.last().map(|r| r.0.clone()).unwrap_or(after_id);
     for (thread_id, updated_at, data_type, data, created_at) in &rows {
+        crate::adapters::run_policy::check()?;
         let position = format!("thread:{thread_id}");
         let Some(blob) = decode_blob(data_type, data) else {
             blob_failures += 1;
@@ -237,7 +238,8 @@ pub fn scan(
             ));
             continue;
         };
-        let document: serde_json::Value = match serde_json::from_slice(&blob) {
+        let document: serde_json::Value = match crate::adapters::run_policy::json_from_slice(&blob)
+        {
             Ok(v) => v,
             Err(_) => {
                 blob_failures += 1;

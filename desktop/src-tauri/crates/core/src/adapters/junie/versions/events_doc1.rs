@@ -167,8 +167,10 @@ pub fn scan(
     let mut diagnostics = Vec::new();
     let mut records_seen: u64 = 0;
     for line in &read.lines {
+        crate::adapters::run_policy::check()?;
         records_seen += 1;
-        let Ok(value) = serde_json::from_str::<serde_json::Value>(&line.text) else {
+        let Ok(value) = crate::adapters::run_policy::json_from_str::<serde_json::Value>(&line.text)
+        else {
             diagnostics.push(diag("invalid_json_line", line.number, "line is not JSON"));
             continue;
         };
@@ -393,8 +395,10 @@ mod tests {
     #[test]
     fn alias_groups_pick_first_present() {
         let obj: serde_json::Map<String, serde_json::Value> =
-            serde_json::from_str(r#"{"inputTokens": 10, "cacheRead": 4, "reasoningTokens": 2}"#)
-                .unwrap();
+            crate::adapters::run_policy::json_from_str(
+                r#"{"inputTokens": 10, "cacheRead": 4, "reasoningTokens": 2}"#,
+            )
+            .unwrap();
         assert_eq!(alias_u64(&obj, &["inputTokens", "input"]), Some(Some(10)));
         assert_eq!(alias_u64(&obj, &["input"]), Some(None));
         assert_eq!(alias_u64(&obj, &["cacheRead"]), Some(Some(4)));
@@ -403,7 +407,7 @@ mod tests {
             Some(Some(2))
         );
         let bad: serde_json::Map<String, serde_json::Value> =
-            serde_json::from_str(r#"{"inputTokens": -5}"#).unwrap();
+            crate::adapters::run_policy::json_from_str(r#"{"inputTokens": -5}"#).unwrap();
         assert_eq!(alias_u64(&bad, &["inputTokens"]), None);
     }
 

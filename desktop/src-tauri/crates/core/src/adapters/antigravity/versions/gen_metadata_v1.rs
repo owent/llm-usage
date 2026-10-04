@@ -258,6 +258,7 @@ pub fn scan(
         rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
     )
     .map_err(CoreError::Sqlite)?;
+    crate::adapters::run_policy::install_sqlite_control(&conn)?;
     conn.busy_timeout(std::time::Duration::from_millis(150))
         .map_err(CoreError::Sqlite)?;
     let mut stmt = conn
@@ -275,6 +276,7 @@ pub fn scan(
     let mut max_idx = last_idx;
     let mut seen_response_ids: std::collections::BTreeSet<String> = Default::default();
     for row in rows {
+        crate::adapters::run_policy::check()?;
         // 行级容错：单行类型错误不中止整轮（SQLite 动态类型）。
         let (idx, data) = match row {
             Ok(r) => r,

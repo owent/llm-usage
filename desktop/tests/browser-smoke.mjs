@@ -299,7 +299,7 @@ assert.equal(await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='cost_sum
 await page.locator('.unit-prices').screenshot({path:out+'unit-prices.png'});
 await page.locator('.unit-prices summary').click();
 assert.equal(await overviewModels.locator('section').evaluate(el=>el.scrollWidth>el.clientWidth),false,'full-width model table avoids desktop scrolling');
-assert.ok(await page.locator('.curve canvas').count(),'overview renders the cost curve');
+assert.ok(await page.locator('.curve svg').count(),'overview renders the cost curve');
 assert.match(await page.locator('tr').filter({hasText:'vscode-copilot-chat'}).first().textContent(),/—[\s\S]*300,000/,'token observations do not display an invented zero call count');
 assert.match(await page.locator('tr').filter({hasText:'vscode-copilot-chat'}).first().textContent(),/≥ 301,234/,'the table derives the observed token sum while retaining the lower-bound label');
 const todayAgentPie=page.locator('[data-panel-group="overviewToday"]').filter({has:page.getByRole('heading',{name:'今日 Agent 用量',exact:true})});

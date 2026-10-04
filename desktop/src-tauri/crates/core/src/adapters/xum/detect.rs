@@ -26,7 +26,7 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
         // version 整数字段如实判定（V30）：参考解析器（tokscale mux.rs）覆盖
         // version=1/缺失的文档形态；其他整数值是未见形态 ⇒ LatestFallback
         // 兼容尝试，不能虚标 KnownVersion。
-        let basis = match serde_json::from_str::<serde_json::Value>(&text) {
+        let basis = match crate::adapters::run_policy::json_from_str::<serde_json::Value>(&text) {
             Ok(doc) if doc.is_object() => {
                 if !doc.get("byModel").is_some_and(|v| v.is_object())
                     || (doc.get("lastRequest").is_none() && doc.get("version").is_none())

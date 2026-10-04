@@ -186,13 +186,14 @@ fn message_models(
         let Ok(text) = std::fs::read_to_string(&path) else {
             continue;
         };
-        let Ok(value) = serde_json::from_str::<serde_json::Value>(&text) else {
+        let Ok(value) = crate::adapters::run_policy::json_from_str::<serde_json::Value>(&text)
+        else {
             continue;
         };
         let model = value
             .get("extra")
             .and_then(|v| v.as_str())
-            .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok())
+            .and_then(|s| crate::adapters::run_policy::json_from_str::<serde_json::Value>(s).ok())
             .and_then(|extra| {
                 extra
                     .get("modelId")
@@ -400,8 +401,17 @@ pub fn scan(
             health: "degraded".into(),
         });
     }
-    let text = std::fs::read_to_string(&target.path).map_err(CoreError::Io)?;
-    let value: serde_json::Value = serde_json::from_str(&text)
+    use std::io::Read as _;
+    let mut text = String::new();
+    crate::adapters::run_policy::checked_file(&target.path)?
+        .take(MAX_INDEX_BYTES + 1)
+        .read_to_string(&mut text)?;
+    if text.len() as u64 > MAX_INDEX_BYTES {
+        return Err(CoreError::Validation(
+            "conversation index exceeds the 8 MiB cap".into(),
+        ));
+    }
+    let value: serde_json::Value = crate::adapters::run_policy::json_from_str(&text)
         .map_err(|_| CoreError::Validation("conversation index is not JSON".into()))?;
     let requests = value
         .get("requests")
@@ -458,6 +468,7 @@ pub fn scan(
     let mut seen: BTreeSet<String> = BTreeSet::new();
     let mut records_seen = 0u64;
     for request in &requests {
+        crate::adapters::run_policy::check()?;
         records_seen += 1;
         match parse_request(
             request,

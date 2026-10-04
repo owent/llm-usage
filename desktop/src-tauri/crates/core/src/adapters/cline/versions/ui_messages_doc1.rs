@@ -138,7 +138,7 @@ fn parse_usage_text(
     position: &str,
     diagnostics: &mut Vec<DiagnosticInput>,
 ) -> Option<(ClineUsage, Option<f64>, bool)> {
-    let value: serde_json::Value = serde_json::from_str(text).ok()?;
+    let value: serde_json::Value = crate::adapters::run_policy::json_from_str(text).ok()?;
     let obj = value.as_object()?;
     let get = |key: &str| -> Option<Option<i64>> {
         match obj.get(key) {
@@ -255,7 +255,7 @@ pub fn scan(
         });
     }
     let mut bytes = Vec::new();
-    std::fs::File::open(&target.path)?
+    crate::adapters::run_policy::checked_file(&target.path)?
         .take(CLINE_MAX_FILE_BYTES + 1)
         .read_to_end(&mut bytes)?;
     if bytes.len() as u64 > CLINE_MAX_FILE_BYTES {
@@ -280,30 +280,30 @@ pub fn scan(
     }
     let consumed = bytes.len() as u64;
     // 半程写入：parse 失败不推进游标，下轮确定性重试（暂态，非降级）。
-    let document: serde_json::Value = match serde_json::from_slice(super::super::strip_bom(&bytes))
-    {
-        Ok(v) => v,
-        Err(_) => {
-            diagnostics.push(diag(
-                "ui_messages_unparseable",
-                None,
-                "document",
-                "ui_messages.json does not parse (mid-write or corrupt); cursor held for retry",
-            ));
-            return Ok(ScanOutcome {
-                status: ScanStatus::Pending,
-                cursor: None,
-                parse_context: None,
-                events,
-                aggregates: Vec::new(),
-                diagnostics,
-                lines_read: 1,
-                records_seen: 0,
-                reconciliations: Vec::new(),
-                health: "active".to_string(),
-            });
-        }
-    };
+    let document: serde_json::Value =
+        match crate::adapters::run_policy::json_from_slice(super::super::strip_bom(&bytes)) {
+            Ok(v) => v,
+            Err(_) => {
+                diagnostics.push(diag(
+                    "ui_messages_unparseable",
+                    None,
+                    "document",
+                    "ui_messages.json does not parse (mid-write or corrupt); cursor held for retry",
+                ));
+                return Ok(ScanOutcome {
+                    status: ScanStatus::Pending,
+                    cursor: None,
+                    parse_context: None,
+                    events,
+                    aggregates: Vec::new(),
+                    diagnostics,
+                    lines_read: 1,
+                    records_seen: 0,
+                    reconciliations: Vec::new(),
+                    health: "active".to_string(),
+                });
+            }
+        };
     let Some(messages) = document.as_array() else {
         diagnostics.push(diag(
             "session_schema_deviation",
@@ -327,6 +327,7 @@ pub fn scan(
     let mut records_seen: u64 = 0;
     let mut current_keys: Vec<String> = Vec::new();
     for (index, message) in messages.iter().enumerate() {
+        crate::adapters::run_policy::check()?;
         records_seen += 1;
         let position = format!("messages[{index}]");
         let fail_closed = |diagnostics: &mut Vec<DiagnosticInput>,
@@ -516,6 +517,7 @@ pub fn scan(
         context.tracked_keys.iter().cloned().collect();
     let current: std::collections::BTreeSet<String> = current_keys.iter().cloned().collect();
     for vanished in tracked.difference(&current) {
+        crate::adapters::run_policy::check()?;
         diagnostics.push(diag(
             "source_message_removed",
             None,

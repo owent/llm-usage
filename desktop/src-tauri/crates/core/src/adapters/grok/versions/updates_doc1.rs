@@ -153,8 +153,10 @@ pub fn scan(
     let mut diagnostics = Vec::new();
     let mut records_seen: u64 = 0;
     for line in &read.lines {
+        crate::adapters::run_policy::check()?;
         records_seen += 1;
-        let Ok(value) = serde_json::from_str::<serde_json::Value>(&line.text) else {
+        let Ok(value) = crate::adapters::run_policy::json_from_str::<serde_json::Value>(&line.text)
+        else {
             diagnostics.push(diag("invalid_json_line", line.number, "line is not JSON"));
             continue;
         };
@@ -373,8 +375,10 @@ mod tests {
     #[test]
     fn aliases() {
         let obj: serde_json::Map<String, serde_json::Value> =
-            serde_json::from_str(r#"{"inputTokens": 9, "cache_creation_input_tokens": 2}"#)
-                .unwrap();
+            crate::adapters::run_policy::json_from_str(
+                r#"{"inputTokens": 9, "cache_creation_input_tokens": 2}"#,
+            )
+            .unwrap();
         assert_eq!(alias_token(&obj, &["inputTokens", "input"]), Some(Some(9)));
         assert_eq!(
             alias_token(&obj, &["cachedWriteTokens", "cache_creation_input_tokens"]),

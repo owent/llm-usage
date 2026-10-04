@@ -136,7 +136,7 @@ fn parse_usage_text(
     position: &str,
     diagnostics: &mut Vec<DiagnosticInput>,
 ) -> Option<(ZooUsage, Option<f64>, bool)> {
-    let value: serde_json::Value = serde_json::from_str(text).ok()?;
+    let value: serde_json::Value = crate::adapters::run_policy::json_from_str(text).ok()?;
     let obj = value.as_object()?;
     let get = |key: &str| -> Option<Option<i64>> {
         match obj.get(key) {
@@ -287,7 +287,7 @@ pub fn scan(
         });
     }
     let mut bytes = Vec::new();
-    std::fs::File::open(&target.path)?
+    crate::adapters::run_policy::checked_file(&target.path)?
         .take(ZOO_MAX_FILE_BYTES + 1)
         .read_to_end(&mut bytes)?;
     if bytes.len() as u64 > ZOO_MAX_FILE_BYTES {
@@ -312,30 +312,30 @@ pub fn scan(
     }
     let consumed = bytes.len() as u64;
     // 半程写入：parse 失败不推进游标，下轮确定性重试（暂态，非降级）。
-    let document: serde_json::Value = match serde_json::from_slice(super::super::strip_bom(&bytes))
-    {
-        Ok(v) => v,
-        Err(_) => {
-            diagnostics.push(diag(
-                "ui_messages_unparseable",
-                None,
-                "document",
-                "ui_messages.json does not parse (mid-write or corrupt); cursor held for retry",
-            ));
-            return Ok(ScanOutcome {
-                status: ScanStatus::Pending,
-                cursor: None,
-                parse_context: None,
-                events,
-                aggregates: Vec::new(),
-                diagnostics,
-                lines_read: 1,
-                records_seen: 0,
-                reconciliations: Vec::new(),
-                health: "active".to_string(),
-            });
-        }
-    };
+    let document: serde_json::Value =
+        match crate::adapters::run_policy::json_from_slice(super::super::strip_bom(&bytes)) {
+            Ok(v) => v,
+            Err(_) => {
+                diagnostics.push(diag(
+                    "ui_messages_unparseable",
+                    None,
+                    "document",
+                    "ui_messages.json does not parse (mid-write or corrupt); cursor held for retry",
+                ));
+                return Ok(ScanOutcome {
+                    status: ScanStatus::Pending,
+                    cursor: None,
+                    parse_context: None,
+                    events,
+                    aggregates: Vec::new(),
+                    diagnostics,
+                    lines_read: 1,
+                    records_seen: 0,
+                    reconciliations: Vec::new(),
+                    health: "active".to_string(),
+                });
+            }
+        };
     let Some(messages) = document.as_array() else {
         diagnostics.push(diag(
             "session_schema_deviation",
@@ -365,6 +365,7 @@ pub fn scan(
     let mut open_started: Vec<usize> = Vec::new();
     let mut records_seen: u64 = 0;
     for (index, message) in messages.iter().enumerate() {
+        crate::adapters::run_policy::check()?;
         records_seen += 1;
         let position = format!("messages[{index}]");
         let fail_closed = |diagnostics: &mut Vec<DiagnosticInput>,
@@ -435,9 +436,14 @@ pub fn scan(
                         let started = &mut requests[start_index];
                         let parse_obj =
                             |text: Option<&str>| -> serde_json::Map<String, serde_json::Value> {
-                                text.and_then(|t| serde_json::from_str::<serde_json::Value>(t).ok())
-                                    .and_then(|v| v.as_object().cloned())
-                                    .unwrap_or_default()
+                                text.and_then(|t| {
+                                    crate::adapters::run_policy::json_from_str::<serde_json::Value>(
+                                        t,
+                                    )
+                                    .ok()
+                                })
+                                .and_then(|v| v.as_object().cloned())
+                                .unwrap_or_default()
                             };
                         let mut merged = parse_obj(started.text.as_deref());
                         for (key, value) in
@@ -476,6 +482,7 @@ pub fn scan(
 
     // ---- 第二遍：consolidateTokenUsage 计账语义 ----
     for request in &requests {
+        crate::adapters::run_policy::check()?;
         let Some(text) = request.text.as_deref() else {
             // usage 载体无 text：上游短路不读；未记录用量，不产事件。
             continue;
@@ -536,6 +543,7 @@ pub fn scan(
         ));
     }
     for (ts, cost) in &condenses {
+        crate::adapters::run_policy::check()?;
         let position = format!("{}:condense_context", task_id);
         let Some(ts) = ts else {
             diagnostics.push(diag(

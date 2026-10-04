@@ -146,6 +146,8 @@ impl Storage {
             CREATE INDEX IF NOT EXISTS idx_events_carrier_gap_time ON usage_events(occurred_at_ms) WHERE exclusion_reason='copilot_otel_session_authority';
             CREATE INDEX IF NOT EXISTS idx_events_summary_cover ON usage_events(occurred_at_ms,source_instance_id,session_id,duration_ms,record_kind) WHERE attribution_status='verified' AND record_kind IN ('model_call','transport_attempt','usage_observation');")?;
 
+        crate::query_acceleration::install(&conn)?;
+        crate::query_acceleration::repair(&conn)?;
         let storage = Storage {
             conn,
             path,

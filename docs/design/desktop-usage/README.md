@@ -5,6 +5,7 @@
 来源能力与限制见 [接入矩阵](adapters.md)，已授权只读范围见
 [实施与验证边界](implementation-readiness.md)。Copilot 配置、看板交互和价格参考
 分别见 [遥测配置](copilot-otel.md)、[看板交互](dashboard-polish.md)及[价格](pricing.md)。
+本机 HTTP 的来源认证、凭据与失败/撤销规则见 [接收认证](receiver-auth.md)。
 
 ## 产品目标与边界
 
@@ -24,7 +25,8 @@ SSH/远端 Gateway、网络共享、云端账单与企业/跨设备账号报表�
 本地可用 WSL 2 尝试 Linux 构建；WSLg 冒烟、CI 编译和真实桌面验收分别记录。
 Harness Agent 已确认是 [Hermes Agent](https://hermes-agent.nousresearch.com/)，接入依据见 A24。
 用户已允许实施阶段提取本机真实 Agent 数据验证；按最小字段、只读和脱敏流程进行。
-JetBrains/TRAE、Zed 内置及其他本地用量格式尚未核验的 IDE 变体保留在 F1 后续支持计划，当前不实施；
+JetBrains/TRAE 及其他本地用量格式尚未核验的 IDE 变体保留在 F1 后续支持计划，当前不实施；
+Zed 内置和 Junie CLI 已有本地字段依据，归 M8，非空真实用量另行验收；
 有本地字段依据的扩展/遥测继续按原阶段推进，详见接入矩阵。
 
 ## 主要决策

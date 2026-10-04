@@ -532,12 +532,13 @@ fn launcher_does_not_write_copilot_application_state_or_global_environment() {
 }
 
 #[test]
-fn codebuddy_uses_verified_env_keys_and_separate_trace_output() {
-    let f = Fixture::new();
+fn codebuddy_authentication_is_limited_to_its_documented_installed_version() {
+    let mut f = Fixture::new();
     f.install("codebuddy");
     std::fs::create_dir_all(f.ctx.home.join(".codebuddy")).unwrap();
     let row = inspect(discover(&f.ctx).remove(0));
-    assert!(row.dto.configurable);
+    assert!(!row.dto.configurable);
+    assert_eq!(row.dto.reason, "unsupported_version");
     assert!(row.receiver);
     let merged = edit::json_value(
         &merge(
@@ -555,6 +556,198 @@ fn codebuddy_uses_verified_env_keys_and_separate_trace_output() {
     );
     assert_eq!(merged["env"]["OTEL_LOG_TOOL_CONTENT"], "0");
     assert!(row.dto.output_path.contains("otlp-traces.jsonl"));
+    let manifest =
+        f.ctx.command_dirs[0].join("node_modules/@tencent-ai/codebuddy-code/package.json");
+    for version in ["2.97.0", "2.98.0", "2.99.0", "3.0.0"] {
+        f.write(
+            &manifest,
+            &json!({"name":"@tencent-ai/codebuddy-code","version":version}).to_string(),
+        );
+        let target = inspect(discover(&f.ctx).remove(0));
+        assert_eq!(target.dto.configurable, version == "2.98.0");
+        if version == "2.98.0" {
+            assert!(merge(&target, "{}")
+                .unwrap()
+                .contains("OTEL_EXPORTER_OTLP_HEADERS"));
+        }
+    }
+    // A manifest under a later PATH entry cannot certify the first launcher.
+    let first = f.root.join("different-install");
+    std::fs::create_dir_all(&first).unwrap();
+    f.write(
+        &first.join(if cfg!(windows) {
+            "codebuddy.cmd"
+        } else {
+            "codebuddy"
+        }),
+        "unused",
+    );
+    f.ctx.command_dirs.insert(0, first);
+    f.write(
+        &manifest,
+        &json!({"name":"@tencent-ai/codebuddy-code","version":"2.98.0"}).to_string(),
+    );
+    assert!(!codebuddy_auth_version(&f.ctx));
+    f.ctx.command_dirs.remove(0);
+    assert!(codebuddy_auth_version(&f.ctx));
+}
+
+#[test]
+fn codebuddy_generic_headers_encode_bearer_and_preserve_unrelated_keys_without_preview_leaks() {
+    let f = Fixture::new();
+    f.install("codebuddy");
+    f.write(
+        &f.ctx.command_dirs[0].join("node_modules/@tencent-ai/codebuddy-code/package.json"),
+        r#"{"name":"@tencent-ai/codebuddy-code","version":"2.98.0"}"#,
+    );
+    let path = f.ctx.home.join(".codebuddy/settings.json");
+    f.write(
+        &path,
+        r#"{"env":{"OTEL_EXPORTER_OTLP_HEADERS":"x-private=PRIVATE_SENTINEL"}}"#,
+    );
+    let mut target = inspect(discover(&f.ctx).remove(0));
+    assert!(target.dto.configurable);
+    let value = parse(&target, readable(&path).unwrap().as_deref()).unwrap();
+    assert!(!serde_json::to_string(&preview_changes(&target, &value))
+        .unwrap()
+        .contains("PRIVATE_SENTINEL"));
+    add_authentication(&mut target, &value, "Bearer synthetic-value").unwrap();
+    let output = merge(&target, &std::fs::read_to_string(&path).unwrap()).unwrap();
+    assert!(output.contains("x-private=PRIVATE_SENTINEL,Authorization=Bearer%20synthetic-value"));
+    let decoded = exporter_authorization(
+        &edit::json_value(&output).unwrap(),
+        "OTEL_EXPORTER_OTLP_HEADERS",
+    )
+    .unwrap();
+    assert_eq!(decoded.as_deref(), Some("Bearer synthetic-value"));
+    f.write(
+        &path,
+        r#"{"env":{"OTEL_EXPORTER_OTLP_TRACES_HEADERS":"x-private=not-verified-in-2.98"}}"#,
+    );
+    assert_eq!(
+        inspect(discover(&f.ctx).remove(0)).dto.reason,
+        "authentication_unverified"
+    );
+}
+
+#[test]
+fn http_preview_redacts_existing_headers_and_checking_never_creates_credentials() {
+    let f = Fixture::new();
+    f.install("claude");
+    let path = f.ctx.home.join(".claude/settings.json");
+    f.write(
+        &path,
+        r#"{"env":{"OTEL_EXPORTER_OTLP_LOGS_HEADERS":"x-api-key=SENSITIVE,x-tag=preserved"}}"#,
+    );
+    let target = inspect(discover(&f.ctx).remove(0));
+    assert!(target.dto.configurable);
+    let value = parse(&target, readable(&path).unwrap().as_deref()).unwrap();
+    let preview = serde_json::to_string(&preview_changes(&target, &value)).unwrap();
+    assert!(!preview.contains("SENSITIVE"));
+    assert!(preview.contains(crate::receiver_auth::PLACEHOLDER));
+    let prospective = merge(&target, &std::fs::read_to_string(&path).unwrap()).unwrap();
+    assert!(prospective.contains("x-api-key=SENSITIVE,x-tag=preserved,Authorization="));
+    assert_eq!(
+        readable(&path).unwrap().unwrap(),
+        std::fs::read(&path).unwrap()
+    );
+    // Static inspection remains usable on CI; the actual UI fails closed without a native vault.
+    if !crate::receiver_auth::available() {
+        let supported = inspect_supported(discover(&f.ctx).remove(0));
+        assert_eq!(supported.dto.reason, "credential_store_unavailable");
+        assert!(!supported.dto.configurable);
+    }
+}
+
+#[test]
+fn authenticated_configuration_failure_revokes_only_new_key_and_can_retry() {
+    use crate::receiver_auth::{self, tests::MemoryStore, Family};
+    let f = Fixture::new();
+    f.install("codex");
+    let path = f.ctx.home.join(".codex/config.toml");
+    f.write(&path, "[otel]\nexporter='none'\n");
+    let target = inspect(discover(&f.ctx).remove(0));
+    let before = readable(&path).unwrap();
+    let after = merge(
+        &target,
+        std::str::from_utf8(before.as_deref().unwrap()).unwrap(),
+    )
+    .unwrap()
+    .into_bytes();
+    let mut plan = Plan {
+        target,
+        before,
+        after,
+        created: std::time::Instant::now(),
+        applied: false,
+        sync: None,
+        credential: None,
+    };
+    let store = MemoryStore::default();
+    std::fs::create_dir_all(&f.ctx.app).unwrap();
+    let other = receiver_auth::issue(
+        &store,
+        &f.ctx.app,
+        &f.ctx.home.join("other/settings.json"),
+        Family::Claude,
+    )
+    .unwrap();
+    let occupied = f.ctx.app.join("occupied-backup");
+    f.write(&occupied, "occupied");
+    let original_after = plan.after.clone();
+    let original_changes = plan.target.changes.clone();
+    assert_eq!(
+        authenticated_commit(&mut plan, &f.ctx.app, &occupied, "failure", &store).unwrap_err(),
+        "backup_failed"
+    );
+    assert!(plan.credential.is_none());
+    assert_eq!(plan.after, original_after);
+    assert_eq!(plan.target.changes, original_changes);
+    assert_eq!(readable(&path).unwrap(), plan.before);
+    assert_eq!(store.values.lock().unwrap().len(), 1);
+    authenticated_commit(
+        &mut plan,
+        &f.ctx.app,
+        &f.ctx.app.join("auth-backups"),
+        "success",
+        &store,
+    )
+    .unwrap();
+    let header = plan.credential.as_ref().unwrap().header();
+    let saved = edit::toml_value(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    assert!(saved["otel"]["exporter"]["otlp-http"]["headers"]["Authorization"] == header);
+    assert!(
+        receiver_auth::authorize(&store, &f.ctx.app, &header, "/v1/logs") == Some(Family::Codex)
+    );
+    receiver_auth::revoke(&store, plan.credential.as_ref().unwrap()).unwrap();
+    assert!(receiver_auth::authorize(&store, &f.ctx.app, &header, "/v1/logs").is_none());
+    assert!(
+        receiver_auth::authorize(&store, &f.ctx.app, &other.header(), "/v1/logs")
+            == Some(Family::Claude)
+    );
+    receiver_auth::revoke(&store, &other).unwrap();
+    assert!(store.values.lock().unwrap().is_empty());
+}
+
+#[test]
+fn missing_vault_at_our_endpoint_requires_confirmation_and_remote_targets_keep_credentials() {
+    let f = Fixture::new();
+    f.install("claude");
+    let path = f.ctx.home.join(".claude/settings.json");
+    f.write(&path,r#"{"env":{"CLAUDE_CODE_ENABLE_TELEMETRY":"1","OTEL_LOGS_EXPORTER":"otlp","OTEL_EXPORTER_OTLP_LOGS_ENDPOINT":"http://127.0.0.1:4318/v1/logs"}}"#);
+    let target = inspect(discover(&f.ctx).remove(0));
+    assert_eq!(target.dto.status, "missing");
+    assert!(target.dto.configurable);
+    f.write(&path,r#"{"env":{"CLAUDE_CODE_ENABLE_TELEMETRY":"1","OTEL_LOGS_EXPORTER":"otlp","OTEL_EXPORTER_OTLP_LOGS_ENDPOINT":"https://example.invalid/v1/logs","OTEL_EXPORTER_OTLP_LOGS_HEADERS":"Authorization=FOREIGN"}}"#);
+    let original = std::fs::read(&path).unwrap();
+    let target = inspect(discover(&f.ctx).remove(0));
+    assert_eq!(target.dto.status, "configured");
+    assert_eq!(target.dto.verification, "external");
+    assert!(!target.dto.configurable);
+    assert_eq!(std::fs::read(&path).unwrap(), original);
+    assert!(!serde_json::to_string(&target.dto)
+        .unwrap()
+        .contains("FOREIGN"));
 }
 
 #[test]
@@ -680,6 +873,7 @@ fn profile_sync_exclusions_are_written_to_application_settings_in_a_transaction(
         created: std::time::Instant::now(),
         applied: false,
         sync,
+        credential: None,
     };
     commit_plan(&plan, &f.ctx.app.join("backups"), "profile-success").unwrap();
     let profile_value = edit::json_value(&std::fs::read_to_string(&profile).unwrap()).unwrap();
@@ -723,6 +917,7 @@ fn failed_profile_write_rolls_back_application_sync_edits() {
         created: std::time::Instant::now(),
         applied: false,
         sync,
+        credential: None,
     };
     assert_eq!(
         commit_plan(&plan, &f.ctx.app.join("backups"), "profile-failed").unwrap_err(),

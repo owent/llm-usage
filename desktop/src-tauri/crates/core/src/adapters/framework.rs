@@ -46,7 +46,7 @@ pub fn is_transient_io(err: &std::io::Error) -> bool {
 /// 硬错误上抛 CoreError。
 pub fn read_detect_head(path: &Path, head_bytes: usize) -> Result<Option<Vec<u8>>, CoreError> {
     use std::io::Read as _;
-    let file = match std::fs::File::open(path) {
+    let file = match super::run_policy::checked_file(path) {
         Ok(file) => file,
         Err(err) if is_transient_io(&err) => return Ok(None),
         Err(err) => return Err(err.into()),
@@ -231,7 +231,7 @@ pub struct ScanOutcome {
 }
 
 /// 适配器统一接口。
-pub trait SourceAdapter {
+pub trait SourceAdapter: Send + Sync {
     fn adapter_id(&self) -> &'static str;
     /// 统计归属的 Agent 名（事件 agent 字段）。
     fn agent(&self) -> &'static str;
@@ -286,6 +286,9 @@ pub fn enumerate_files_bounded(
     let mut dirs_visited = 0usize;
     let mut stack: Vec<(PathBuf, usize)> = vec![(root.to_path_buf(), 0)];
     while let Some((dir, depth)) = stack.pop() {
+        if super::run_policy::check().is_err() {
+            break;
+        }
         if dirs_visited >= DISCOVER_MAX_DIRS || files.len() >= DISCOVER_MAX_FILES {
             break;
         }
@@ -294,6 +297,9 @@ pub fn enumerate_files_bounded(
             continue;
         };
         for entry in entries.flatten() {
+            if super::run_policy::check().is_err() {
+                break;
+            }
             if files.len() >= DISCOVER_MAX_FILES {
                 break;
             }
@@ -685,7 +691,270 @@ pub fn run_adapter_scan_filtered(
     config: &RunConfig,
     filter: &InstanceFilter,
 ) -> Result<Vec<SourceRunReport>, CoreError> {
-    let disabled: BTreeSet<String> = {
+    run_adapter_scan_filtered_controlled(
+        storage,
+        adapter,
+        ctx,
+        config,
+        filter,
+        &RunControl {
+            deadline: None,
+            allowed: &|| true,
+        },
+    )
+}
+
+pub struct RunControl<'a> {
+    pub deadline: Option<std::time::Instant>,
+    pub allowed: &'a (dyn Fn() -> bool + Sync),
+}
+impl RunControl<'_> {
+    fn interrupted(&self) -> bool {
+        !(self.allowed)()
+            || self
+                .deadline
+                .is_some_and(|deadline| std::time::Instant::now() >= deadline)
+    }
+    fn check(&self) -> Result<(), CoreError> {
+        if self.interrupted() {
+            Err(CoreError::Interrupted(
+                "automatic_scan_paused_or_round_deadline",
+            ))
+        } else {
+            Ok(())
+        }
+    }
+    fn wait(&self, delay: std::time::Duration) -> Result<(), CoreError> {
+        let until = std::time::Instant::now() + delay;
+        loop {
+            self.check()?;
+            let remaining = until.saturating_duration_since(std::time::Instant::now());
+            if remaining.is_zero() {
+                return Ok(());
+            }
+            std::thread::sleep(remaining.min(std::time::Duration::from_millis(100)));
+        }
+    }
+}
+
+/// Keep source parsing outside the writer lock; metadata and commits use it.
+pub trait StorageAccess {
+    fn with_storage<T>(
+        &self,
+        operation: impl FnOnce(&Storage) -> Result<T, CoreError>,
+    ) -> Result<T, CoreError>;
+}
+
+pub struct ParallelScanRequest<'a> {
+    pub adapter: &'a dyn SourceAdapter,
+    pub context: DiscoverContext,
+    pub config: RunConfig,
+    pub filter: InstanceFilter,
+}
+
+struct RootAdapter<'a> {
+    adapter: &'a dyn SourceAdapter,
+    root: DiscoveredRoot,
+}
+impl SourceAdapter for RootAdapter<'_> {
+    fn adapter_id(&self) -> &'static str {
+        self.adapter.adapter_id()
+    }
+    fn agent(&self) -> &'static str {
+        self.adapter.agent()
+    }
+    fn discover(&self, _: &DiscoverContext) -> Vec<DiscoveredRoot> {
+        vec![self.root.clone()]
+    }
+    fn instance_id(&self, root: &DiscoveredRoot) -> String {
+        self.adapter.instance_id(root)
+    }
+    fn detect(&self, path: &Path) -> Result<DetectOutcome, CoreError> {
+        self.adapter.detect(path)
+    }
+    fn scan(
+        &self,
+        target: &ScanTarget,
+        stored: &StoredScanState,
+        limits: &ScanLimits,
+        now_ms: i64,
+    ) -> Result<ScanOutcome, CoreError> {
+        self.adapter.scan(target, stored, limits, now_ms)
+    }
+    fn should_scan_unchanged(&self, stored: &StoredScanState) -> bool {
+        self.adapter.should_scan_unchanged(stored)
+    }
+    fn capability(&self) -> CapabilityTable {
+        self.adapter.capability()
+    }
+    fn scan_archive(
+        &self,
+        storage: &Storage,
+        root: &DiscoveredRoot,
+        config: &RunConfig,
+    ) -> Result<Option<BatchOutcome>, CoreError> {
+        self.adapter.scan_archive(storage, root, config)
+    }
+}
+
+/// Two source-instance slots, one existing writer; results retain request/root order.
+pub fn run_adapter_scans_parallel<S: StorageAccess + Sync>(
+    access: &S,
+    requests: &[ParallelScanRequest<'_>],
+    deadline: Option<std::time::Instant>,
+    allowed: super::run_policy::Allowed,
+    instance_allowed: Option<super::run_policy::InstanceAllowed>,
+) -> Vec<Result<Vec<SourceRunReport>, CoreError>> {
+    let _discovery = super::run_policy::enter(deadline, Some(allowed.clone()));
+    let mut work = Vec::new();
+    for (index, request) in requests.iter().enumerate() {
+        if super::run_policy::check().is_err() {
+            break;
+        }
+        let mut seen = BTreeSet::new();
+        for (root_index, root) in request
+            .adapter
+            .discover(&request.context)
+            .into_iter()
+            .enumerate()
+        {
+            let path = normalize_path(&root.root);
+            let key = if cfg!(windows) {
+                path.to_lowercase()
+            } else {
+                path
+            };
+            if seen.insert(key) {
+                work.push((
+                    index,
+                    root_index,
+                    RootAdapter {
+                        adapter: request.adapter,
+                        root,
+                    },
+                ));
+            }
+        }
+    }
+    drop(_discovery);
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let mut completed = std::thread::scope(|scope| {
+        let handles: Vec<_> = (0..work.len().min(2))
+            .map(|_| {
+                let allowed = allowed.clone();
+                let instance_allowed = instance_allowed.clone();
+                let work = &work;
+                let next = &next;
+                std::thread::Builder::new()
+                    .name("usage-source".into())
+                    .spawn_scoped(scope, move || {
+                        let mut results = Vec::new();
+                        loop {
+                            let position = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                            let Some((index, root_index, adapter)) = work.get(position) else {
+                                break;
+                            };
+                            let request = &requests[*index];
+                            let _scope = super::run_policy::enter(deadline, Some(allowed.clone()));
+                            super::run_policy::enter_instances(instance_allowed.clone());
+                            let config = RunConfig {
+                                run_id_prefix: format!(
+                                    "{}-root{root_index}",
+                                    request.config.run_id_prefix
+                                ),
+                                ..request.config.clone()
+                            };
+                            let result = run_adapter_scan_filtered_access(
+                                access,
+                                adapter,
+                                &request.context,
+                                &config,
+                                &request.filter,
+                                &RunControl {
+                                    deadline,
+                                    allowed: allowed.as_ref(),
+                                },
+                            );
+                            results.push((*index, *root_index, result));
+                        }
+                        results
+                    })
+            })
+            .collect();
+        handles
+            .into_iter()
+            .map(|handle| match handle {
+                Ok(handle) => handle
+                    .join()
+                    .map_err(|_| CoreError::JobState("source_worker_panicked".into())),
+                Err(error) => Err(error.into()),
+            })
+            .collect::<Vec<_>>()
+    });
+    if completed.iter().any(Result::is_err) {
+        // A worker panic may leave a running job; normal Storage recovery handles it.
+        return requests
+            .iter()
+            .map(|_| Err(CoreError::JobState("source_worker_failed".into())))
+            .collect();
+    }
+    let mut completed: Vec<_> = completed.drain(..).flat_map(|r| r.unwrap()).collect();
+    completed.sort_by_key(|(index, root, _)| (*index, *root));
+    let mut results: Vec<Result<Vec<SourceRunReport>, CoreError>> =
+        requests.iter().map(|_| Ok(Vec::new())).collect();
+    for (index, _, result) in completed {
+        match result {
+            Ok(reports) => {
+                if let Ok(previous) = &mut results[index] {
+                    previous.extend(reports);
+                }
+            }
+            Err(error) => results[index] = Err(error),
+        }
+    }
+    results
+}
+impl StorageAccess for Storage {
+    fn with_storage<T>(
+        &self,
+        operation: impl FnOnce(&Storage) -> Result<T, CoreError>,
+    ) -> Result<T, CoreError> {
+        operation(self)
+    }
+}
+impl StorageAccess for std::sync::Mutex<Storage> {
+    fn with_storage<T>(
+        &self,
+        operation: impl FnOnce(&Storage) -> Result<T, CoreError>,
+    ) -> Result<T, CoreError> {
+        let storage = self
+            .lock()
+            .map_err(|_| CoreError::JobState("writer_lock_poisoned".into()))?;
+        operation(&storage)
+    }
+}
+
+pub fn run_adapter_scan_filtered_controlled(
+    storage: &Storage,
+    adapter: &dyn SourceAdapter,
+    ctx: &DiscoverContext,
+    config: &RunConfig,
+    filter: &InstanceFilter,
+    control: &RunControl<'_>,
+) -> Result<Vec<SourceRunReport>, CoreError> {
+    run_adapter_scan_filtered_access(storage, adapter, ctx, config, filter, control)
+}
+
+/// Metadata and commits share the existing writer; carrier parsing holds no lock.
+pub fn run_adapter_scan_filtered_access<S: StorageAccess>(
+    access: &S,
+    adapter: &dyn SourceAdapter,
+    ctx: &DiscoverContext,
+    config: &RunConfig,
+    filter: &InstanceFilter,
+    control: &RunControl<'_>,
+) -> Result<Vec<SourceRunReport>, CoreError> {
+    let disabled: BTreeSet<String> = access.with_storage(|storage| {
         let mut stmt = storage
             .conn()
             .prepare("SELECT instance_id FROM source_instances WHERE enabled=0")?;
@@ -694,8 +963,8 @@ pub fn run_adapter_scan_filtered(
         for row in rows {
             set.insert(row?);
         }
-        set
-    };
+        Ok(set)
+    })?;
     let mut reports = Vec::new();
     let roots = adapter.discover(ctx);
     // 根去重（环境覆盖/默认/手工可能指向同一目录；Windows 大小写别名先归一）。
@@ -721,7 +990,9 @@ pub fn run_adapter_scan_filtered(
         if root.basis == RootBasis::Manual {
             let mut files = Vec::new();
             for path in &root.files {
-                if super::routing::accepts_manual_file(storage, &instance_id, path)? {
+                if access.with_storage(|storage| {
+                    super::routing::accepts_manual_file(storage, &instance_id, path)
+                })? {
                     files.push(path.clone());
                 }
             }
@@ -742,35 +1013,53 @@ pub fn run_adapter_scan_filtered(
             finish: RunStatus::Succeeded,
             error: None,
         };
-        upsert_source_instance(
-            storage,
-            &SourceInstanceInput {
-                instance_id: instance_id.clone(),
-                agent: adapter.agent().to_string(),
-                host_application: None,
-                locality_basis: crate::domain::LocalityBasis::LocalFilesystem,
-                attribution_status: crate::domain::AttributionStatus::Verified,
-                exclusion_reason: None,
-                format: adapter.adapter_id().to_string(),
-                location_hint: Some(normalize_path(&root.root)),
-                parser_version: capability.maintenance["parser_version"]
-                    .as_str()
-                    .unwrap_or("unknown")
-                    .to_string(),
-                capabilities: serde_json::to_value(&capability)?,
-                health: "ok".to_string(),
-                origin_host_id: config.origin_host_id.clone(),
-            },
-            config.now_ms,
-        )?;
+        if control.interrupted() {
+            report.finish = RunStatus::Interrupted;
+            report.error = Some("automatic_scan_paused_or_round_deadline; source not read".into());
+            reports.push(report);
+            continue;
+        }
+        access.with_storage(|storage| {
+            upsert_source_instance(
+                storage,
+                &SourceInstanceInput {
+                    instance_id: instance_id.clone(),
+                    agent: adapter.agent().to_string(),
+                    host_application: None,
+                    locality_basis: crate::domain::LocalityBasis::LocalFilesystem,
+                    attribution_status: crate::domain::AttributionStatus::Verified,
+                    exclusion_reason: None,
+                    format: adapter.adapter_id().to_string(),
+                    location_hint: Some(normalize_path(&root.root)),
+                    parser_version: capability.maintenance["parser_version"]
+                        .as_str()
+                        .unwrap_or("unknown")
+                        .to_string(),
+                    capabilities: serde_json::to_value(&capability)?,
+                    health: storage
+                        .conn()
+                        .query_row(
+                            "SELECT health FROM source_instances WHERE instance_id=?1",
+                            [&instance_id],
+                            |r| r.get::<_, String>(0),
+                        )
+                        .optional()?
+                        .unwrap_or_else(|| "ok".into()),
+                    origin_host_id: config.origin_host_id.clone(),
+                },
+                config.now_ms,
+            )
+        })?;
         let run_id = format!("{}-{index}", config.run_id_prefix);
-        match jobs::start_run(
-            storage,
-            &run_id,
-            &instance_id,
-            config.trigger,
-            config.now_ms,
-        ) {
+        match access.with_storage(|storage| {
+            jobs::start_run(
+                storage,
+                &run_id,
+                &instance_id,
+                config.trigger,
+                config.now_ms,
+            )
+        }) {
             Ok(start) => {
                 report.run_id = Some(match &start {
                     RunStart::Started(id) | RunStart::Merged(id) => id.clone(),
@@ -791,8 +1080,65 @@ pub fn run_adapter_scan_filtered(
             reports.push(report);
             continue;
         }
-        match adapter.scan_archive(storage, root, config) {
+        let source_started = std::time::Instant::now();
+        let _source_scope = super::run_policy::enter_source(
+            &instance_id,
+            config
+                .limits
+                .jsonl
+                .time_budget
+                .map(|budget| source_started + budget),
+        );
+        if config
+            .limits
+            .jsonl
+            .time_budget
+            .is_some_and(|budget| budget.is_zero())
+        {
+            report.finish = RunStatus::Interrupted;
+            report.error = Some("source_time_budget_exhausted; source not read".into());
+            access.with_storage(|storage| {
+                jobs::finish_run(
+                    storage,
+                    &active_run,
+                    report.finish,
+                    RunStats::default(),
+                    report.error.as_deref(),
+                    config.now_ms,
+                )
+            })?;
+            reports.push(report);
+            continue;
+        }
+        let archive = access
+            .with_storage(|storage| {
+                super::run_policy::check()?;
+                let enabled = storage.conn().query_row(
+                    "SELECT enabled FROM source_instances WHERE instance_id=?1",
+                    [&instance_id],
+                    |r| r.get::<_, bool>(0),
+                )?;
+                if !enabled {
+                    return Err(CoreError::Interrupted("source_disabled"));
+                }
+                let _sql = super::run_policy::SqliteScope::new(storage.conn())?;
+                adapter.scan_archive(storage, root, config)
+            })
+            .map_err(|error| super::run_policy::check().err().unwrap_or(error));
+        match archive {
             Ok(Some(outcome)) => {
+                if control.interrupted()
+                    || config
+                        .limits
+                        .jsonl
+                        .time_budget
+                        .is_some_and(|budget| source_started.elapsed() >= budget)
+                {
+                    report.finish = RunStatus::Interrupted;
+                    report.error = Some(
+                        "source_or_round_time_budget_exhausted; confirmed archive retained".into(),
+                    );
+                }
                 let stats = RunStats {
                     added: outcome.added,
                     updated: outcome.updated,
@@ -801,28 +1147,36 @@ pub fn run_adapter_scan_filtered(
                     errors: outcome.errors,
                 };
                 report.outcome = Some(outcome);
-                jobs::finish_run(
-                    storage,
-                    &active_run,
-                    RunStatus::Succeeded,
-                    stats,
-                    None,
-                    config.now_ms,
-                )?;
+                access.with_storage(|storage| {
+                    jobs::finish_run(
+                        storage,
+                        &active_run,
+                        report.finish,
+                        stats,
+                        report.error.as_deref(),
+                        config.now_ms,
+                    )
+                })?;
                 reports.push(report);
                 continue;
             }
             Err(e) => {
-                report.finish = RunStatus::Failed;
+                report.finish = if matches!(e, CoreError::Interrupted(_)) {
+                    RunStatus::Interrupted
+                } else {
+                    RunStatus::Failed
+                };
                 report.error = Some(e.to_string());
-                jobs::finish_run(
-                    storage,
-                    &active_run,
-                    report.finish,
-                    RunStats::default(),
-                    report.error.as_deref(),
-                    config.now_ms,
-                )?;
+                access.with_storage(|storage| {
+                    jobs::finish_run(
+                        storage,
+                        &active_run,
+                        report.finish,
+                        RunStats::default(),
+                        report.error.as_deref(),
+                        config.now_ms,
+                    )
+                })?;
                 reports.push(report);
                 continue;
             }
@@ -840,22 +1194,94 @@ pub fn run_adapter_scan_filtered(
             retention_cutoff_ms: None,
         };
         let mut aggregates: Vec<crate::aggregates::SourceAggregateInput> = Vec::new();
+        let mut file_updates = Vec::new();
         let mut any_scanned = false;
         for path in &root.files {
+            let enabled = access.with_storage(|storage| {
+                Ok(storage.conn().query_row(
+                    "SELECT enabled FROM source_instances WHERE instance_id=?1",
+                    [&instance_id],
+                    |r| r.get::<_, bool>(0),
+                )?)
+            })?;
+            if !enabled {
+                report.finish = RunStatus::Interrupted;
+                report.error = Some("source_disabled; remaining files retained".into());
+                break;
+            }
+            if control.interrupted() {
+                report.finish = RunStatus::Interrupted;
+                report.error = Some(
+                    "automatic_scan_paused_or_round_deadline; remaining files retained".into(),
+                );
+                break;
+            }
+            let mut file_config = config.clone();
+            if let Some(budget) = config.limits.jsonl.time_budget {
+                let remaining = budget.saturating_sub(source_started.elapsed());
+                if remaining.is_zero() {
+                    report.finish = RunStatus::Interrupted;
+                    report.error = Some(
+                        "source_time_budget_exhausted; remaining files retained for the next scan"
+                            .into(),
+                    );
+                    break;
+                }
+                file_config.limits.jsonl.time_budget = Some(remaining);
+            }
+            if let Some(deadline) = control.deadline {
+                let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+                file_config.limits.jsonl.time_budget = Some(
+                    file_config
+                        .limits
+                        .jsonl
+                        .time_budget
+                        .map_or(remaining, |budget| budget.min(remaining)),
+                );
+            }
             let file_report = scan_one_file(
-                storage,
+                access,
                 adapter,
                 path,
                 &instance_id,
-                config,
+                &file_config,
                 &mut batch,
                 &mut aggregates,
                 &mut report.reconciliations,
+                &mut file_updates,
+                control,
             );
             match file_report {
                 Ok((fr, scanned)) => {
                     any_scanned |= scanned;
+                    let incomplete = fr.status == ScanStatus::BudgetExhausted.as_str();
                     report.files.push(fr);
+                    if incomplete {
+                        report.finish = RunStatus::Interrupted;
+                        report.error = Some(
+                            "source_window_budget_exhausted; complete lines retained for next scan"
+                                .into(),
+                        );
+                        break;
+                    }
+                    if config
+                        .limits
+                        .jsonl
+                        .time_budget
+                        .is_some_and(|budget| source_started.elapsed() >= budget)
+                    {
+                        report.finish = RunStatus::Interrupted;
+                        report.error = Some(
+                            "source_time_budget_exhausted; confirmed events and cursor retained"
+                                .into(),
+                        );
+                        break;
+                    }
+                }
+                Err(e @ CoreError::Interrupted(_)) => {
+                    report.finish = RunStatus::Interrupted;
+                    report.error = Some(e.to_string());
+                    break;
                 }
                 Err(e) => {
                     report.finish = RunStatus::Failed;
@@ -872,32 +1298,59 @@ pub fn run_adapter_scan_filtered(
                 }
             }
         }
+        if report.finish == RunStatus::Succeeded && control.interrupted() {
+            report.finish = RunStatus::Interrupted;
+            report.error =
+                Some("automatic_scan_paused_or_round_deadline; confirmed events retained".into());
+        }
         // 无任何文件变化时跳过提交（无变化扫描不推进修订号）。
         if any_scanned || !batch.events.is_empty() || !batch.checkpoints.is_empty() {
-            let committed = (|| {
+            let committed = access.with_storage(|storage| {
+                super::run_policy::check()?;
+                if !storage.conn().query_row(
+                    "SELECT enabled FROM source_instances WHERE instance_id=?1",
+                    [&instance_id],
+                    |r| r.get::<_, bool>(0),
+                )? {
+                    return Err(CoreError::Interrupted("source_disabled"));
+                }
+                let _sql = super::run_policy::SqliteScope::new(storage.conn())?;
                 let tx = storage.conn().unchecked_transaction()?;
+                for row in &file_updates {
+                    super::run_policy::check()?;
+                    upsert_source_file(storage, &instance_id, row, config.now_ms)?;
+                }
                 let mut outcome = ingest::commit_batch_tx(storage, &tx, &batch, None, false)?;
                 // 原生汇总与事件、游标一起提交；任一失败均可完整重放。
                 for aggregate in &aggregates {
+                    super::run_policy::check()?;
                     crate::aggregates::upsert_source_aggregate_tx(&tx, aggregate, config.now_ms)?;
                 }
                 outcome.data_revision = storage.data_revision()?;
+                super::run_policy::check()?;
                 tx.commit()?;
                 Ok::<_, CoreError>(outcome)
-            })();
+            });
             match committed {
                 Ok(outcome) => report.outcome = Some(outcome),
                 Err(e) => {
-                    report.finish = RunStatus::Failed;
+                    let e = super::run_policy::check().err().unwrap_or(e);
+                    report.finish = if matches!(e, CoreError::Interrupted(_)) {
+                        RunStatus::Interrupted
+                    } else {
+                        RunStatus::Failed
+                    };
                     report.error = Some(e.to_string());
-                    let _ = jobs::finish_run(
-                        storage,
-                        &active_run,
-                        RunStatus::Failed,
-                        RunStats::default(),
-                        Some(&e.to_string()),
-                        config.now_ms,
-                    );
+                    let _ = access.with_storage(|storage| {
+                        jobs::finish_run(
+                            storage,
+                            &active_run,
+                            report.finish,
+                            RunStats::default(),
+                            Some(&e.to_string()),
+                            config.now_ms,
+                        )
+                    });
                     reports.push(report);
                     continue;
                 }
@@ -914,24 +1367,37 @@ pub fn run_adapter_scan_filtered(
                 errors: o.errors,
             })
             .unwrap_or_default();
-        jobs::finish_run(
-            storage,
-            &active_run,
-            report.finish,
-            stats,
-            report.error.as_deref(),
-            config.now_ms,
-        )?;
+        access.with_storage(|storage| {
+            jobs::finish_run(
+                storage,
+                &active_run,
+                report.finish,
+                stats,
+                report.error.as_deref(),
+                config.now_ms,
+            )
+        })?;
         reports.push(report);
     }
     Ok(reports)
 }
 
+enum FilePreparation {
+    Skipped(FileReport, bool),
+    Read(Box<PreparedFile>),
+}
+struct PreparedFile {
+    target: ScanTarget,
+    stored: StoredScanState,
+    row: SourceFileRow,
+    detect_basis: Option<crate::domain::VersionBasis>,
+}
+
 /// 扫描单个文件：注册 → 代数裁决 → （必要时）探测 → 增量扫描 → 累积进批次。
 /// 返回（文件报告， 是否发生了实际读取）。
 #[allow(clippy::too_many_arguments)]
-fn scan_one_file(
-    storage: &Storage,
+fn scan_one_file<S: StorageAccess>(
+    access: &S,
     adapter: &dyn SourceAdapter,
     path: &Path,
     instance_id: &str,
@@ -939,10 +1405,22 @@ fn scan_one_file(
     batch: &mut IngestBatch,
     aggregates: &mut Vec<crate::aggregates::SourceAggregateInput>,
     reconciliations: &mut Vec<Reconciliation>,
+    file_updates: &mut Vec<SourceFileRow>,
+    control: &RunControl<'_>,
 ) -> Result<(FileReport, bool), CoreError> {
+    let file_started = std::time::Instant::now();
+    let _file_scope = super::run_policy::enter(
+        config
+            .limits
+            .jsonl
+            .time_budget
+            .map(|budget| file_started + budget),
+        None,
+    );
+    let prepared_result = access.with_storage(|storage| {
     let file_id = normalize_path(path);
     if !super::routing::claim_file(storage, adapter, instance_id, path)? {
-        return Ok((
+        return Ok(FilePreparation::Skipped(
             FileReport {
                 file_id,
                 status: "owned_elsewhere".into(),
@@ -1001,7 +1479,7 @@ fn scan_one_file(
         row.len = probe.len;
         row.mtime_ms = probe.mtime_ms;
         upsert_source_file(storage, instance_id, &row, config.now_ms)?;
-        return Ok((
+        return Ok(FilePreparation::Skipped(
             FileReport {
                 file_id,
                 status: "unchanged".to_string(),
@@ -1018,7 +1496,9 @@ fn scan_one_file(
     // 未知/缺失版本按该 Agent 注册表选择最新内置解析器并带兼容标记。
     let mut detect_basis: Option<crate::domain::VersionBasis> = None;
     if stored.cursor.is_none() || rescan {
-        match adapter.detect(path)? {
+            let detected = adapter.detect(path);
+            super::run_policy::check()?;
+            match detected? {
             DetectOutcome::Supported {
                 format,
                 format_version,
@@ -1046,7 +1526,7 @@ fn scan_one_file(
             DetectOutcome::Pending => {
                 row.status = "pending".to_string();
                 upsert_source_file(storage, instance_id, &row, config.now_ms)?;
-                return Ok((
+                return Ok(FilePreparation::Skipped(
                     FileReport {
                         file_id,
                         status: "pending".to_string(),
@@ -1072,7 +1552,7 @@ fn scan_one_file(
                         found.clone().unwrap_or_else(|| "missing".to_string())
                     ),
                 });
-                return Ok((
+                return Ok(FilePreparation::Skipped(
                     FileReport {
                         file_id,
                         status: "unsupported_version".to_string(),
@@ -1095,7 +1575,7 @@ fn scan_one_file(
                     position: Some(file_id.clone()),
                     message: format!("unknown format; fail closed: {reason}"),
                 });
-                return Ok((
+                return Ok(FilePreparation::Skipped(
                     FileReport {
                         file_id,
                         status: "unknown_format".to_string(),
@@ -1119,84 +1599,144 @@ fn scan_one_file(
         generation: row.generation,
         rescan,
     };
-    let outcome = adapter.scan(&target, &stored, &config.limits, config.now_ms)?;
-    // 未知版本兼容尝试的失败判定（V30）：读到记录、零事件且带结构诊断 ⇒ 判不兼容，
-    // 保留旧结果、不提交事件/游标/聚合；下轮解析器更新或显式重扫可重新尝试。
-    let compat_basis = detect_basis.or_else(|| {
-        row.format_status
-            .as_deref()
-            .and_then(|json| serde_json::from_str::<serde_json::Value>(json).ok())
-            .and_then(|value| value.get("basis")?.as_str().map(str::to_string))
-            .and_then(|basis| crate::domain::VersionBasis::parse(&basis).ok())
+    Ok(FilePreparation::Read(Box::new(PreparedFile { target, stored, row, detect_basis })))
     });
-    let fallback_failed = (stored.cursor.is_none() || rescan)
-        && compat_basis == Some(crate::domain::VersionBasis::LatestFallback)
-        && outcome.events.is_empty()
-        && outcome.records_seen > 0
-        && !outcome.diagnostics.is_empty();
-    batch.events.extend(outcome.events.iter().cloned());
-    batch
-        .diagnostics
-        .extend(outcome.diagnostics.iter().cloned());
-    if !fallback_failed && (outcome.cursor.is_some() || outcome.parse_context.is_some()) {
-        batch.checkpoints.push(CheckpointUpdate {
-            scope_key: row.file_identity.clone(),
-            cursor_value: outcome.cursor.clone(),
-            parse_context: outcome.parse_context.clone(),
-            source_revision: None,
-        });
-    }
-    if !fallback_failed {
-        aggregates.extend(outcome.aggregates);
-    }
-    reconciliations.extend(outcome.reconciliations.iter().cloned());
-    row.len = probe.len;
-    row.mtime_ms = probe.mtime_ms;
-    row.head_hash = probe.head_hash;
-    row.head_len = probe.head_len;
-    row.tail_hash = probe.tail_hash;
-    row.status = if fallback_failed {
-        "incompatible".to_string()
-    } else if outcome.health == "degraded" || outcome.status == ScanStatus::LineTooLong {
-        "degraded".to_string()
-    } else if compat_basis == Some(crate::domain::VersionBasis::LatestFallback)
-        || outcome.health == "active_compat"
-    {
-        "active_compat".to_string()
-    } else {
-        "active".to_string()
+    super::run_policy::check()?;
+    let prepared = prepared_result?;
+    let PreparedFile {
+        target,
+        stored,
+        mut row,
+        detect_basis,
+    } = match prepared {
+        FilePreparation::Skipped(report, scanned) => return Ok((report, scanned)),
+        FilePreparation::Read(prepared) => *prepared,
     };
-    upsert_source_file(storage, instance_id, &row, config.now_ms)?;
-    let report_detail = if fallback_failed {
-        Some("latest parser produced no validatable records; kept old results".to_string())
-    } else if compat_basis == Some(crate::domain::VersionBasis::LatestFallback) {
-        Some(format!(
-            "latest_fallback: version compatibility unverified (found: {})",
+    let file_id = target.file_id.clone();
+    let probe = &target.probe;
+    let mut retry = 0;
+    let outcome = loop {
+        control.check()?;
+        super::run_policy::check()?;
+        let mut limits = config.limits.clone();
+        limits.jsonl.time_budget = limits
+            .jsonl
+            .time_budget
+            .map(|budget| budget.saturating_sub(file_started.elapsed()));
+        if limits
+            .jsonl
+            .time_budget
+            .is_some_and(|budget| budget.is_zero())
+        {
+            return Err(CoreError::Interrupted("source_time_budget_exhausted"));
+        }
+        let scanned = adapter.scan(&target, &stored, &limits, config.now_ms);
+        // Carrier error isolation must not turn a control stop into bad data.
+        super::run_policy::check()?;
+        match scanned {
+            Ok(outcome) => break outcome,
+            Err(error) => {
+                control.check()?;
+                let Some(delay) = super::run_policy::retry_delay(
+                    &error,
+                    retry,
+                    file_started.elapsed(),
+                    config.limits.jsonl.time_budget,
+                ) else {
+                    return Err(error);
+                };
+                control.wait(delay)?;
+                retry += 1;
+            }
+        }
+    };
+    access.with_storage(|storage| {
+        super::run_policy::check()?;
+        if !storage.conn().query_row(
+            "SELECT enabled FROM source_instances WHERE instance_id=?1",
+            [instance_id],
+            |r| r.get::<_, bool>(0),
+        )? {
+            return Err(CoreError::Interrupted("source_disabled"));
+        }
+        // 未知版本兼容尝试的失败判定（V30）：读到记录、零事件且带结构诊断 ⇒ 判不兼容，
+        // 保留旧结果、不提交事件/游标/聚合；下轮解析器更新或显式重扫可重新尝试。
+        let compat_basis = detect_basis.or_else(|| {
             row.format_status
                 .as_deref()
-                .and_then(extract_found_version)
-                .unwrap_or_else(|| "missing".to_string())
+                .and_then(|json| serde_json::from_str::<serde_json::Value>(json).ok())
+                .and_then(|value| value.get("basis")?.as_str().map(str::to_string))
+                .and_then(|basis| crate::domain::VersionBasis::parse(&basis).ok())
+        });
+        let fallback_failed = (stored.cursor.is_none() || target.rescan)
+            && compat_basis == Some(crate::domain::VersionBasis::LatestFallback)
+            && outcome.events.is_empty()
+            && outcome.records_seen > 0
+            && !outcome.diagnostics.is_empty();
+        batch.events.extend(outcome.events.iter().cloned());
+        batch
+            .diagnostics
+            .extend(outcome.diagnostics.iter().cloned());
+        if !fallback_failed && (outcome.cursor.is_some() || outcome.parse_context.is_some()) {
+            batch.checkpoints.push(CheckpointUpdate {
+                scope_key: row.file_identity.clone(),
+                cursor_value: outcome.cursor.clone(),
+                parse_context: outcome.parse_context.clone(),
+                source_revision: None,
+            });
+        }
+        if !fallback_failed {
+            aggregates.extend(outcome.aggregates);
+        }
+        reconciliations.extend(outcome.reconciliations.iter().cloned());
+        row.len = probe.len;
+        row.mtime_ms = probe.mtime_ms;
+        row.head_hash = probe.head_hash;
+        row.head_len = probe.head_len;
+        row.tail_hash = probe.tail_hash;
+        row.status = if fallback_failed {
+            "incompatible".to_string()
+        } else if outcome.health == "degraded" || outcome.status == ScanStatus::LineTooLong {
+            "degraded".to_string()
+        } else if compat_basis == Some(crate::domain::VersionBasis::LatestFallback)
+            || outcome.health == "active_compat"
+        {
+            "active_compat".to_string()
+        } else {
+            "active".to_string()
+        };
+        file_updates.push(row.clone());
+        let report_detail = if fallback_failed {
+            Some("latest parser produced no validatable records; kept old results".to_string())
+        } else if compat_basis == Some(crate::domain::VersionBasis::LatestFallback) {
+            Some(format!(
+                "latest_fallback: version compatibility unverified (found: {})",
+                row.format_status
+                    .as_deref()
+                    .and_then(extract_found_version)
+                    .unwrap_or_else(|| "missing".to_string())
+            ))
+        } else {
+            None
+        };
+        let report_status = if fallback_failed {
+            "incompatible".to_string()
+        } else {
+            outcome.status.as_str().to_string()
+        };
+        Ok((
+            FileReport {
+                file_id,
+                status: report_status.to_string(),
+                detail: report_detail,
+                lines_read: outcome.lines_read,
+                records_seen: outcome.records_seen,
+                events: outcome.events.len() as u64,
+                diagnostics: outcome.diagnostics.len() as u64,
+            },
+            true,
         ))
-    } else {
-        None
-    };
-    let report_status = if fallback_failed {
-        "incompatible".to_string()
-    } else {
-        outcome.status.as_str().to_string()
-    };
-    Ok((
-        FileReport {
-            file_id,
-            status: report_status.to_string(),
-            detail: report_detail,
-            lines_read: outcome.lines_read,
-            records_seen: outcome.records_seen,
-            events: outcome.events.len() as u64,
-            diagnostics: outcome.diagnostics.len() as u64,
-        },
-        true,
-    ))
+    })
 }
 
 /// 探测结论 JSON（source_files.format_status，v3 列）：白名单字段，无正文。

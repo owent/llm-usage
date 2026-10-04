@@ -27,7 +27,8 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     let Some(first) = outcome.lines.first() else {
         return Ok(DetectOutcome::Pending);
     };
-    let Ok(line) = serde_json::from_str::<serde_json::Value>(&first.text) else {
+    let Ok(line) = crate::adapters::run_policy::json_from_str::<serde_json::Value>(&first.text)
+    else {
         return Ok(DetectOutcome::UnknownFormat {
             reason: "first line is not JSON".to_string(),
         });

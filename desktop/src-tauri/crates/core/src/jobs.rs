@@ -116,7 +116,7 @@ pub struct RunStats {
     pub errors: i64,
 }
 
-/// 结束作业为终态。running → succeeded/failed/cancelled；其他转移非法。
+/// 把 running 作业置为结束状态：succeeded/failed/cancelled/interrupted；其他转移非法。
 pub fn finish_run(
     storage: &Storage,
     run_id: &str,
@@ -126,7 +126,10 @@ pub fn finish_run(
     now_ms: i64,
 ) -> Result<(), CoreError> {
     match status {
-        RunStatus::Succeeded | RunStatus::Failed | RunStatus::Cancelled => {}
+        RunStatus::Succeeded
+        | RunStatus::Failed
+        | RunStatus::Cancelled
+        | RunStatus::Interrupted => {}
         other => {
             return Err(CoreError::JobState(format!(
                 "finish_run requires a terminal status, got {}",
@@ -167,9 +170,10 @@ pub fn finish_run(
     storage.conn().execute(
         "UPDATE source_instances SET health = CASE
            WHEN ?2 = 'failed' THEN 'error'
-           WHEN ?2 != 'succeeded' OR EXISTS(SELECT 1 FROM source_files f
+           WHEN EXISTS(SELECT 1 FROM source_files f
              WHERE f.instance_id=source_instances.instance_id AND f.status IN ('degraded','unsupported','incompatible','line_too_long'))
-           THEN 'degraded' ELSE 'ok' END
+           THEN 'degraded' WHEN ?2='interrupted' THEN health
+           WHEN ?2 != 'succeeded' THEN 'degraded' ELSE 'ok' END
          WHERE instance_id=(SELECT instance_id FROM ingest_runs WHERE run_id=?1)",
         params![run_id,status.as_str()])?;
     Ok(())

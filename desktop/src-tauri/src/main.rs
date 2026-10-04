@@ -9,12 +9,17 @@ use tauri::Manager;
 mod app_state;
 mod commands;
 mod db_backup;
+mod file_watch;
 mod otel_receiver;
+mod power;
 mod price_refresh;
 mod process_guard;
+mod receiver_auth;
 mod scanner;
+mod source_intervals;
 mod system_tasks;
 mod telemetry_setup;
+mod tray;
 
 use app_state::AppState;
 use std::sync::atomic::AtomicBool;
@@ -186,6 +191,10 @@ fn main() {
 
     tauri::Builder::default()
         .setup(|app| {
+            let state = app.state::<Arc<AppState>>();
+            if let Err(error) = crate::tray::apply(app.handle(), &state.settings.lock().unwrap()) {
+                eprintln!("tray setup failed: {error}");
+            }
             // 根据主显示器分辨率自适应窗口大小（60–85%，上限 1600×1000）。
             if let Some(window) = app.get_webview_window("main") {
                 if let Ok(Some(monitor)) = window.primary_monitor() {
@@ -204,6 +213,7 @@ fn main() {
             Ok(())
         })
         .manage(Arc::clone(&state))
+        .on_window_event(crate::tray::close_requested)
         .invoke_handler(tauri::generate_handler![
             commands::summary,
             commands::heatmap,

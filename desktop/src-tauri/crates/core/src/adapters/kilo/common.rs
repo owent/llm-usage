@@ -164,6 +164,7 @@ pub(crate) fn open_readonly(path: &Path) -> Result<Connection, rusqlite::Error> 
             | OpenFlags::SQLITE_OPEN_URI,
     )?;
     conn.busy_timeout(Duration::from_millis(150))?;
+    crate::adapters::run_policy::install_sqlite_control(&conn)?;
     Ok(conn)
 }
 
@@ -198,6 +199,7 @@ fn backup_to_staging(
                     Some("kilo staging backup timed out".to_string()),
                 ));
             }
+            crate::adapters::run_policy::check_sqlite()?;
             match backup.step(limits.pages_per_step) {
                 Ok(StepResult::Done) => break Ok(()),
                 // Busy/Locked/More（StepResult 标记 #[non_exhaustive]）按可重试推进。

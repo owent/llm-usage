@@ -300,6 +300,7 @@ pub fn scan(
         &limits.jsonl,
     )?;
     for bad in &outcome.bad_lines {
+        crate::adapters::run_policy::check()?;
         diagnostics.push(diag(
             bad.code,
             None,
@@ -308,8 +309,10 @@ pub fn scan(
         ));
     }
     for raw in &outcome.lines {
+        crate::adapters::run_policy::check()?;
         records_seen += 1;
-        let Ok(line) = serde_json::from_str::<serde_json::Value>(&raw.text) else {
+        let Ok(line) = crate::adapters::run_policy::json_from_str::<serde_json::Value>(&raw.text)
+        else {
             diagnostics.push(diag(
                 "bad_json_line",
                 None,

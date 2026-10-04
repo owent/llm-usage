@@ -340,7 +340,8 @@ pub fn query_summary_selected(
     let mut sealed = false;
     let mut from_period = false;
     let mut active = BTreeSet::new();
-    let mut consume = |row: DailyRow| -> Result<(), CoreError> {
+    let accelerated = crate::query_acceleration::usable(storage.conn(), request)?;
+    let mut consume = |axis: &str, row: DailyRow| -> Result<(), CoreError> {
         let (label, start, end) = period_key_of(
             &calendar,
             request.granularity,
@@ -349,6 +350,20 @@ pub fn query_summary_selected(
             row.hour,
         );
         if selection.is_some_and(|(first, last)| label.as_str() < first || label.as_str() > last) {
+            return Ok(());
+        }
+        if axis == "model" {
+            models
+                .entry((row.provider_id.to_lowercase(), row.model_raw.to_lowercase()))
+                .or_default()
+                .add_row(&row)?;
+            return Ok(());
+        }
+        if axis == "agent" {
+            agents
+                .entry(row.agent.to_lowercase())
+                .or_default()
+                .add_row(&row)?;
             return Ok(());
         }
         let group = groups
@@ -364,17 +379,51 @@ pub fn query_summary_selected(
             active.insert(row.local_day);
         }
         totals.add_row(&row)?;
-        models
-            .entry((row.provider_id.to_lowercase(), row.model_raw.to_lowercase()))
-            .or_default()
-            .add_row(&row)?;
-        agents
-            .entry(row.agent.to_lowercase())
-            .or_default()
-            .add_row(&row)?;
+        if axis == "all" {
+            models
+                .entry((row.provider_id.to_lowercase(), row.model_raw.to_lowercase()))
+                .or_default()
+                .add_row(&row)?;
+            agents
+                .entry(row.agent.to_lowercase())
+                .or_default()
+                .add_row(&row)?;
+        }
         Ok(())
     };
-    visit_summary_rows(storage, request, &mut consume)?;
+    if accelerated {
+        for (axis, table) in [
+            (
+                "day",
+                if request.filters.providers.is_empty() {
+                    "query_rollup_day"
+                } else {
+                    "query_rollup_provider_day"
+                },
+            ),
+            ("model", "query_rollup_model"),
+            (
+                "agent",
+                if request.filters.providers.is_empty() {
+                    "query_rollup_agent"
+                } else {
+                    "query_rollup_provider_agent"
+                },
+            ),
+        ] {
+            visit_daily_rows_from(
+                storage,
+                table,
+                &request.timezone,
+                request.first_day,
+                request.last_day,
+                &request.filters,
+                |row| consume(axis, row),
+            )?;
+        }
+    } else {
+        visit_summary_rows(storage, request, |row| consume("all", row))?;
+    }
     let (details, by_period) = detail_stats(storage, &calendar, request, selection)?;
     let mut periods = Vec::new();
     for ((start, label), group) in groups {
@@ -398,7 +447,7 @@ pub fn query_summary_selected(
                     .retention_cutoff
                     .is_some_and(|cutoff| start < cutoff),
             distinct_sessions: (!group.sealed && !stats.is_some_and(|s| s.unknown_session))
-                .then(|| stats.map_or(0, |s| s.sessions.len() as i64)),
+                .then(|| stats.map_or(0, DetailStats::session_count)),
             active_days: (!group.from_period).then_some(group.active.len() as i64),
             avg_duration_ms: sums.avg_duration_ms,
             total_duration_ms: sums.total_duration_ms,
@@ -431,8 +480,7 @@ pub fn query_summary_selected(
         model_breakdown,
         agent_breakdown,
         excluded_event_count,
-        distinct_sessions: (!sealed && !details.unknown_session)
-            .then_some(details.sessions.len() as i64),
+        distinct_sessions: (!sealed && !details.unknown_session).then_some(details.session_count()),
         active_days: (!from_period).then_some(active.len() as i64),
     };
     storage.summary_cache.borrow_mut().put(cache_key, &summary);
@@ -442,9 +490,16 @@ pub fn query_summary_selected(
 #[derive(Default)]
 struct DetailStats {
     sessions: BTreeSet<(String, String)>,
+    counted_sessions: Option<i64>,
     unknown_session: bool,
     duration_sum: i64,
     duration_count: i64,
+}
+
+impl DetailStats {
+    fn session_count(&self) -> i64 {
+        self.counted_sessions.unwrap_or(self.sessions.len() as i64)
+    }
 }
 
 struct PeriodSums {
@@ -547,6 +602,9 @@ fn detail_stats_days(
     request: &SummaryRequest,
     selection: Option<(&str, &str)>,
 ) -> Result<(DetailStats, BTreeMap<String, DetailStats>), CoreError> {
+    if crate::query_acceleration::usable(storage.conn(), request)? {
+        return detail_stats_projection(storage, calendar, request, selection);
+    }
     let mut sql = String::from(
         "SELECT source_instance_id, session_id,
         SUM(CASE WHEN record_kind='model_call' AND duration_ms>=0 THEN duration_ms ELSE 0 END),
@@ -604,6 +662,73 @@ fn detail_stats_days(
             break;
         }
         day = day.checked_add(jiff::Span::new().days(1))?;
+    }
+    Ok((total, groups))
+}
+
+fn detail_stats_projection(
+    storage: &Storage,
+    calendar: &Calendar,
+    request: &SummaryRequest,
+    selection: Option<(&str, &str)>,
+) -> Result<(DetailStats, BTreeMap<String, DetailStats>), CoreError> {
+    let table = if request.filters.providers.is_empty() {
+        "query_session_days"
+    } else {
+        "query_provider_session_days"
+    };
+    let mut from = format!(" FROM {table} WHERE tz_version=?1 AND local_day>=?2 AND local_day<=?3");
+    let mut values = vec![
+        request.timezone.clone().into(),
+        request.first_day.to_string().into(),
+        request.last_day.to_string().into(),
+    ];
+    if let Some((first, last)) = selection {
+        from.push_str(" AND local_day>=?4 AND local_day<=?5");
+        values.push(first.to_string().into());
+        values.push(last.to_string().into());
+    }
+    append_filters(&mut from, &mut values, &request.filters, "instance_id");
+    let one_provider = request.filters.providers.len() == 1
+        && !request.filters.providers[0].eq_ignore_ascii_case("unknown");
+    let sql = if request.filters.providers.is_empty() || one_provider {
+        format!("SELECT local_day,COUNT(CASE WHEN session_id<>'' THEN 1 END),MAX(session_id=''),SUM(duration_sum),SUM(duration_count){from} GROUP BY local_day")
+    } else {
+        format!("SELECT local_day,COUNT(CASE WHEN session_id<>'' THEN 1 END),MAX(session_id=''),SUM(duration_sum),SUM(duration_count) FROM
+            (SELECT local_day,instance_id,session_id,SUM(duration_sum) duration_sum,SUM(duration_count) duration_count{from} GROUP BY local_day,instance_id,session_id) GROUP BY local_day")
+    };
+    let mut stmt = storage.conn().prepare(&sql)?;
+    let mut rows = stmt.query(rusqlite::params_from_iter(values.iter()))?;
+    let session_count: i64 = storage.conn().query_row(&format!("SELECT COUNT(*) FROM (SELECT instance_id,session_id{from} AND session_id<>'' GROUP BY instance_id,session_id)"),rusqlite::params_from_iter(values.iter()),|r| r.get(0))?;
+    let mut total = DetailStats {
+        counted_sessions: Some(session_count),
+        ..Default::default()
+    };
+    let mut groups: BTreeMap<String, DetailStats> = BTreeMap::new();
+    while let Some(row) = rows.next()? {
+        let day = parse_date(&row.get::<_, String>(0)?)?;
+        let (label, _, _) =
+            period_key_of(calendar, request.granularity, request.week_start, day, None);
+        if selection.is_some_and(|(first, last)| label.as_str() < first || label.as_str() > last) {
+            continue;
+        }
+        let count_sessions: i64 = row.get(1)?;
+        let unknown: bool = row.get(2)?;
+        let sum: i64 = row.get(3)?;
+        let count: i64 = row.get(4)?;
+        let group = groups.entry(label).or_default();
+        group.counted_sessions = Some(count_sessions);
+        for stats in [&mut total, group] {
+            stats.unknown_session |= unknown;
+            stats.duration_sum = stats
+                .duration_sum
+                .checked_add(sum)
+                .ok_or(CoreError::Overflow("duration_ms"))?;
+            stats.duration_count = stats
+                .duration_count
+                .checked_add(count)
+                .ok_or(CoreError::Overflow("duration_count"))?;
+        }
     }
     Ok((total, groups))
 }
@@ -779,9 +904,29 @@ fn visit_daily_rows(
     first_day: Date,
     last_day: Date,
     filters: &Filters,
+    consume: impl FnMut(DailyRow) -> Result<(), CoreError>,
+) -> Result<(), CoreError> {
+    visit_daily_rows_from(
+        storage,
+        "daily_usage",
+        tz,
+        first_day,
+        last_day,
+        filters,
+        consume,
+    )
+}
+
+fn visit_daily_rows_from(
+    storage: &Storage,
+    table: &str,
+    tz: &str,
+    first_day: Date,
+    last_day: Date,
+    filters: &Filters,
     mut consume: impl FnMut(DailyRow) -> Result<(), CoreError>,
 ) -> Result<(), CoreError> {
-    let mut sql = String::from(
+    let mut sql = format!(
         "SELECT local_day, instance_id, agent, provider_id, model_raw, quality_bucket, sealed,
                 event_count, call_count, attempt_count, observation_count,
                 input_known_sum, input_known_count, input_unknown_count,
@@ -791,7 +936,7 @@ fn visit_daily_rows(
                 output_known_sum, output_known_count, output_unknown_count,
                 total_known_sum, total_known_count, total_unknown_count,
                 ratio_input_sum, ratio_cache_read_sum, ratio_sample_count, conflict_count, call_category
-         FROM daily_usage
+         FROM {table}
          WHERE tz_version = ?1 AND local_day >= ?2 AND local_day <= ?3",
     );
     let mut values = vec![

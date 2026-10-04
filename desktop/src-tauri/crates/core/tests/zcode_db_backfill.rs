@@ -34,6 +34,33 @@ fn totals(storage: &Storage, instance: &str) -> (i64, Option<i64>) {
     storage.conn().query_row("SELECT COALESCE(SUM(call_count),0),SUM(total_known_sum) FROM daily_usage WHERE instance_id=?1", [instance],
       |r| Ok((r.get(0)?,r.get(1)?))).unwrap()
 }
+
+#[test]
+fn interrupted_archive_preserves_authority_totals_and_recovers_from_the_same_snapshot() {
+    let (_dir, storage) = temp_storage("zcode-interrupted");
+    let source = TempDir::new("zcode-interrupted-source");
+    let path = database(&source);
+    let time = ts("2026-09-27T10:00:00Z");
+    add(&path, "native-a", time, Some(100));
+    zcode_db_backfill(&storage, &path, "zcode@test", "UTC", NOW).unwrap();
+    let revision = storage.data_revision().unwrap();
+    Connection::open(&path)
+        .unwrap()
+        .execute("UPDATE model_usage SET input_tokens=200", [])
+        .unwrap();
+    {
+        let _scope =
+            llm_usage_core::adapters::run_policy::enter(Some(std::time::Instant::now()), None);
+        assert!(zcode_db_backfill(&storage, &path, "zcode@test", "UTC", NOW + 1).is_err());
+    }
+    assert_eq!(totals(&storage, "zcode@test"), (1, Some(110)));
+    assert_eq!(storage.data_revision().unwrap(), revision);
+    zcode_db_backfill(&storage, &path, "zcode@test", "UTC", NOW + 2).unwrap();
+    assert_eq!(totals(&storage, "zcode@test"), (1, Some(210)));
+    let revision = storage.data_revision().unwrap();
+    zcode_db_backfill(&storage, &path, "zcode@test", "UTC", NOW + 3).unwrap();
+    assert_eq!(storage.data_revision().unwrap(), revision);
+}
 #[test]
 fn switches_carrier_atomically_without_heuristic_dedup_and_replay_is_stable() {
     let (_dir, storage) = temp_storage("zcode-snapshot");

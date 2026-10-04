@@ -76,6 +76,7 @@ struct Target {
     blocked: Option<&'static str>,
     sync_path: Option<PathBuf>,
     sync_changes: Vec<Change>,
+    auth_app: PathBuf,
 }
 
 struct Context {
@@ -308,6 +309,7 @@ fn target(
         blocked: None,
         sync_path: None,
         sync_changes: vec![],
+        auth_app: ctx.app.clone(),
     }
 }
 
@@ -469,6 +471,29 @@ fn installed_copilot_keys(ctx: &Context, channel: &str) -> Option<Vec<String>> {
         }
     }
     installed.then(|| keys.into_iter().collect())
+}
+
+fn codebuddy_auth_version(ctx: &Context) -> bool {
+    let suffixes: &[&str] = if cfg!(windows) {
+        &[".exe", ".cmd", ".ps1", ""]
+    } else {
+        &[""]
+    };
+    let Some(dir) = ctx.command_dirs.iter().find(|dir| {
+        suffixes
+            .iter()
+            .any(|suffix| dir.join(format!("codebuddy{suffix}")).is_file())
+    }) else {
+        return false;
+    };
+    let package = dir.join("node_modules/@tencent-ai/codebuddy-code/package.json");
+    readable(&package)
+        .ok()
+        .flatten()
+        .and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok())
+        .is_some_and(|manifest| {
+            manifest["name"] == "@tencent-ai/codebuddy-code" && manifest["version"] == "2.98.0"
+        })
 }
 
 fn discover(ctx: &Context) -> Vec<Target> {
@@ -711,6 +736,11 @@ fn discover(ctx: &Context) -> Vec<Target> {
             .join("telemetry/otlp-traces.jsonl")
             .display()
             .to_string();
+        // Exact documented release; neither an unknown binary nor a newer manifest
+        // inherits this evidence. Do not execute the CLI to manufacture verification.
+        if !codebuddy_auth_version(ctx) {
+            row.blocked = Some("unsupported_version");
+        }
         if codebuddy.join("managed-settings.json").exists() {
             row.blocked = Some("managed_policy");
         }
@@ -758,7 +788,7 @@ fn inspect(mut target: Target) -> Target {
             return Ok::<_, String>(());
         }
         let value = parse(&target, bytes.as_deref())?;
-        let configured = if target.dto.id.starts_with("copilot-vscode") {
+        let mut configured = if target.dto.id.starts_with("copilot-vscode") {
             if value["telemetry.telemetryLevel"] == "off" {
                 return Err("telemetry_disabled".into());
             }
@@ -934,6 +964,69 @@ fn inspect(mut target: Target) -> Target {
                         .is_some_and(|s| !s.is_empty())
                 })
         };
+        if target.receiver && crate::receiver_auth::Family::from_id(&target.dto.id).is_some() {
+            let family = crate::receiver_auth::Family::from_id(&target.dto.id).unwrap();
+            let codebuddy = target.dto.id == "codebuddy";
+            let local_endpoint = format!(
+                "http://127.0.0.1:{}{}",
+                target.auth_port(),
+                if codebuddy {
+                    "/v1/traces/supplemental"
+                } else {
+                    "/v1/logs"
+                }
+            );
+            if codebuddy
+                && value
+                    .pointer("/env/OTEL_EXPORTER_OTLP_TRACES_HEADERS")
+                    .is_some()
+            {
+                // The 2.98.0 release proves generic headers. Signal-specific headers
+                // in the rolling reference cannot certify this older installation.
+                return Err("authentication_unverified".into());
+            }
+            let (actual_endpoint, header) = if target.dto.id == "codex" {
+                (
+                    value
+                        .pointer("/otel/exporter/otlp-http/endpoint")
+                        .and_then(Value::as_str),
+                    value
+                        .pointer("/otel/exporter/otlp-http/headers/Authorization")
+                        .and_then(Value::as_str)
+                        .map(str::to_owned),
+                )
+            } else {
+                (
+                    value
+                        .pointer(if codebuddy {
+                            "/env/OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"
+                        } else {
+                            "/env/OTEL_EXPORTER_OTLP_LOGS_ENDPOINT"
+                        })
+                        .and_then(Value::as_str),
+                    exporter_authorization(
+                        &value,
+                        if codebuddy {
+                            "OTEL_EXPORTER_OTLP_HEADERS"
+                        } else {
+                            "OTEL_EXPORTER_OTLP_LOGS_HEADERS"
+                        },
+                    )?,
+                )
+            };
+            if !configured && header.is_some() && actual_endpoint != Some(local_endpoint.as_str()) {
+                return Err("existing_destination".into());
+            }
+            // Preserve existing destinations. Only our exact endpoint can offer credential repair.
+            if configured && actual_endpoint == Some(local_endpoint.as_str()) {
+                configured = header.as_deref().is_some_and(|h| {
+                    crate::receiver_auth::configured(&target.auth_app, &target.path, family, h)
+                });
+            }
+            if !configured {
+                add_authentication(&mut target, &value, crate::receiver_auth::PLACEHOLDER)?;
+            }
+        }
         if configured {
             target.dto.status = "configured".into();
             target.dto.configurable = false;
@@ -1020,6 +1113,134 @@ fn inspect(mut target: Target) -> Target {
     target
 }
 
+fn inspect_supported(target: Target) -> Target {
+    let mut target = inspect(target);
+    if target.receiver && !crate::receiver_auth::available() && target.dto.configurable {
+        target.dto.status = "blocked".into();
+        target.dto.reason = "credential_store_unavailable".into();
+        target.dto.configurable = false;
+    }
+    target
+}
+
+impl Target {
+    fn auth_port(&self) -> u16 {
+        self.changes
+            .iter()
+            .find_map(|(p, v)| {
+                let endpoint = if p == &["otel", "exporter"] {
+                    v["otlp-http"]["endpoint"].as_str()
+                } else if p.last().is_some_and(|p| {
+                    p == "endpoint"
+                        || p == "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT"
+                        || p == "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"
+                }) {
+                    v.as_str()
+                } else {
+                    None
+                }?;
+                endpoint
+                    .strip_prefix("http://127.0.0.1:")?
+                    .split('/')
+                    .next()?
+                    .parse()
+                    .ok()
+            })
+            .unwrap_or(0)
+    }
+}
+fn exporter_headers(value: &Value, key: &str) -> Result<Vec<(String, String)>, String> {
+    let Some(value) = value.get("env").and_then(|env| env.get(key)) else {
+        return Ok(vec![]);
+    };
+    let text = value.as_str().ok_or("invalid_config")?;
+    let mut entries = Vec::new();
+    let mut names = std::collections::BTreeSet::new();
+    for entry in text.split(',').filter(|s| !s.trim().is_empty()) {
+        let (key, val) = entry.split_once('=').ok_or("invalid_config")?;
+        let key = key.trim();
+        if key.is_empty()
+            || !names.insert(key.to_ascii_lowercase())
+            || key.contains(['\r', '\n'])
+            || val.contains(['\r', '\n'])
+        {
+            return Err("invalid_config".into());
+        }
+        entries.push((key.to_string(), val.trim().to_string()));
+    }
+    Ok(entries)
+}
+fn exporter_authorization(value: &Value, key: &str) -> Result<Option<String>, String> {
+    Ok(exporter_headers(value, key)?
+        .into_iter()
+        .find(|(k, _)| k.eq_ignore_ascii_case("authorization"))
+        .map(|(_, v)| v.replace("%20", " ")))
+}
+fn add_authentication(target: &mut Target, value: &Value, header: &str) -> Result<(), String> {
+    if target.dto.id == "codex" {
+        // When replacing 'none', insert the header in the newly created table.
+        if let Some((_, exporter)) = target
+            .changes
+            .iter_mut()
+            .find(|(p, _)| p == &["otel", "exporter"])
+        {
+            exporter["otlp-http"]["headers"] = json!({"Authorization":header});
+        } else {
+            let headers = value.pointer("/otel/exporter/otlp-http/headers");
+            if headers.is_some_and(|h| !h.is_object()) {
+                return Err("invalid_config".into());
+            }
+            if let Some(map) = headers.and_then(Value::as_object) {
+                if map
+                    .keys()
+                    .any(|k| k.eq_ignore_ascii_case("authorization") && k != "Authorization")
+                {
+                    return Err("invalid_config".into());
+                }
+            }
+            let path = vec![
+                "otel".into(),
+                "exporter".into(),
+                "otlp-http".into(),
+                "headers".into(),
+                "Authorization".into(),
+            ];
+            target.changes.retain(|(p, _)| p != &path);
+            target.changes.push((path, json!(header)));
+        }
+    } else if matches!(target.dto.id.as_str(), "claude" | "codebuddy") {
+        let codebuddy = target.dto.id == "codebuddy";
+        let key = if codebuddy {
+            "OTEL_EXPORTER_OTLP_HEADERS"
+        } else {
+            "OTEL_EXPORTER_OTLP_LOGS_HEADERS"
+        };
+        let mut entries = exporter_headers(value, key)?;
+        entries.retain(|(k, _)| !k.eq_ignore_ascii_case("authorization"));
+        entries.push((
+            "Authorization".into(),
+            if codebuddy {
+                header.replace(' ', "%20")
+            } else {
+                header.into()
+            },
+        ));
+        let path = vec!["env".into(), key.into()];
+        target.changes.retain(|(p, _)| p != &path);
+        target.changes.push((
+            path,
+            json!(entries
+                .into_iter()
+                .map(|(k, v)| format!("{k}={v}"))
+                .collect::<Vec<_>>()
+                .join(",")),
+        ));
+    } else {
+        return Err("authentication_unverified".into());
+    }
+    Ok(())
+}
+
 fn merge(target: &Target, text: &str) -> Result<String, String> {
     if target.format == "toml" {
         edit::merge_toml(text, &target.changes)
@@ -1044,6 +1265,7 @@ struct Plan {
     created: std::time::Instant,
     applied: bool,
     sync: Option<SyncEdit>,
+    credential: Option<crate::receiver_auth::Binding>,
 }
 
 struct SyncEdit {
@@ -1118,7 +1340,7 @@ pub async fn telemetry_check(
     tauri::async_runtime::spawn_blocking(move || {
         let ctx = context(&state)?;
         Ok(
-            evidence::verify_all(discover(&ctx).into_iter().map(inspect).collect())
+            evidence::verify_all(discover(&ctx).into_iter().map(inspect_supported).collect())
                 .into_iter()
                 .map(|target| target.dto)
                 .collect(),
@@ -1126,6 +1348,37 @@ pub async fn telemetry_check(
     })
     .await
     .map_err(|_| "setup_failed".to_string())?
+}
+
+fn preview_changes(target: &Target, value: &Value) -> Vec<(String, Value)> {
+    target
+        .changes
+        .iter()
+        .filter(|(p, v)| lookup(value, p) != Some(v))
+        .map(|(p, v)| {
+            (
+                p.join("."),
+                if target.receiver
+                    && (p
+                        .last()
+                        .is_some_and(|k| k.contains("HEADERS") || k == "Authorization")
+                        || p == &["otel", "exporter"])
+                {
+                    // Exporter tables/headers may retain user secrets; never serialize them into IPC.
+                    if p == &["otel", "exporter"] {
+                        let mut redacted = v.clone();
+                        redacted["otlp-http"]["headers"] =
+                            json!({"Authorization":crate::receiver_auth::PLACEHOLDER});
+                        redacted
+                    } else {
+                        json!(crate::receiver_auth::PLACEHOLDER)
+                    }
+                } else {
+                    v.clone()
+                },
+            )
+        })
+        .collect::<Vec<_>>()
 }
 
 #[tauri::command]
@@ -1136,7 +1389,7 @@ pub async fn telemetry_preview(
     let state = Arc::clone(&state);
     tauri::async_runtime::spawn_blocking(move || {
         let ctx = context(&state)?;
-        let target = inspect(
+        let target = inspect_supported(
             discover(&ctx)
                 .into_iter()
                 .find(|t| t.dto.id == id)
@@ -1169,12 +1422,7 @@ pub async fn telemetry_preview(
         } else {
             parse(&target, before.as_deref())?
         };
-        let changes = target
-            .changes
-            .iter()
-            .filter(|(p, v)| lookup(&value, p) != Some(v))
-            .map(|(p, v)| (p.join("."), v.clone()))
-            .collect::<Vec<_>>();
+        let changes = preview_changes(&target, &value);
         let keys = changes.iter().map(|(p, _)| p.clone()).collect();
         let token = nonce();
         let sync = prepare_sync(&target)?;
@@ -1209,6 +1457,7 @@ pub async fn telemetry_preview(
                 created: std::time::Instant::now(),
                 applied: false,
                 sync,
+                credential: None,
             },
         );
         Ok(result)
@@ -1330,6 +1579,48 @@ fn commit_plan(plan: &Plan, backup_root: &Path, token: &str) -> Result<(), Strin
     result
 }
 
+fn authenticated_commit(
+    plan: &mut Plan,
+    app: &Path,
+    backup_root: &Path,
+    token: &str,
+    store: &dyn crate::receiver_auth::Store,
+) -> Result<(), String> {
+    if !plan.target.receiver {
+        return commit_plan(plan, backup_root, token);
+    }
+    let family = crate::receiver_auth::Family::from_id(&plan.target.dto.id)
+        .ok_or("authentication_unverified")?;
+    let credential = crate::receiver_auth::issue(store, app, &plan.target.path, family)?;
+    let original_target = plan.target.clone();
+    let original_after = plan.after.clone();
+    let result = (|| {
+        let before = parse(&plan.target, plan.before.as_deref())?;
+        add_authentication(&mut plan.target, &before, &credential.header())?;
+        plan.after = merge(
+            &plan.target,
+            std::str::from_utf8(plan.before.as_deref().unwrap_or(
+                if plan.target.format == "toml" {
+                    b""
+                } else {
+                    b"{}"
+                },
+            ))
+            .map_err(|_| "invalid_config")?,
+        )?
+        .into_bytes();
+        commit_plan(plan, backup_root, token)
+    })();
+    if let Err(error) = result {
+        plan.target = original_target;
+        plan.after = original_after;
+        crate::receiver_auth::revoke(store, &credential)?;
+        return Err(error);
+    }
+    plan.credential = Some(credential);
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn telemetry_apply(
     state: tauri::State<'_, Arc<AppState>>,
@@ -1346,7 +1637,7 @@ pub async fn telemetry_apply(
         if plan.created.elapsed().as_secs() > 600 {
             return Err("preview_expired".into());
         }
-        let current = inspect(
+        let current = inspect_supported(
             discover(&ctx)
                 .into_iter()
                 .find(|t| t.dto.id == plan.target.dto.id)
@@ -1398,7 +1689,13 @@ pub async fn telemetry_apply(
                 }
             }
         }
-        if let Err(error) = commit_plan(plan, &ctx.app.join("telemetry-backups"), &token) {
+        if let Err(error) = authenticated_commit(
+            plan,
+            &ctx.app,
+            &ctx.app.join("telemetry-backups"),
+            &token,
+            &crate::receiver_auth::SystemStore,
+        ) {
             if plan.target.receiver {
                 let restored = receiver_setting(&state, previous_receiver);
                 if receiver_started {
@@ -1427,6 +1724,9 @@ pub async fn telemetry_undo(
         let plan = plans.get_mut(&token).ok_or("preview_expired")?;
         if !plan.applied {
             return Err("preview_expired".into());
+        }
+        if let Some(credential) = &plan.credential {
+            crate::receiver_auth::revoke(&crate::receiver_auth::SystemStore, credential)?;
         }
         let current = readable(&plan.target.path)?.ok_or("config_changed")?;
         let mut conflicts = if current == plan.after {

@@ -3,7 +3,9 @@
 日期：2026-10-04；版本 0.2.0；cwd：D:/workspace/projs/github/owent/llm-usage。
 Windows 11 Pro x64 10.0.26300；Ryzen 9 9950X3D（16 核/32 线程）、约 125 GiB RAM。
 Node 24.21.0、Rust 1.98、Tauri CLI 2.12.0、WebView2 154.0.4258.53。
-依赖以锁文件为准。本页仅记录当前结果；临时日志、程序与合成库均在根
+依赖以锁文件为准。本页保留该日较早批次的结果；后续查询加速、资源及并行采集
+结果见 [最新验收](current-acceptance.md) 和 [剩余计划执行](plan-execution.md)，
+当前任务状态以 [Plan.md](../../../Plan.md) 为准。临时日志、程序与合成库均在根
 build/query-next/、build/plan-finalization/ 或 build/plan-completion/，不复制私人来源正文。
 
 ## 当前实现

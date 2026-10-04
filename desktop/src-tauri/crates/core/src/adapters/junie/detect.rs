@@ -30,7 +30,7 @@ fn has_event_fingerprint(text: &str) -> bool {
 /// 而不是误报 UnknownFormat 让真实会话永远无法入账。
 pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     // 瞬态不可读（持锁/超时/枚举后被清理）⇒ Pending 下轮重探，不固化失败。
-    let mut file = match std::fs::File::open(path) {
+    let mut file = match crate::adapters::run_policy::checked_file(path) {
         Ok(file) => file,
         Err(err) if crate::adapters::framework::is_transient_io(&err) => {
             return Ok(DetectOutcome::Pending);

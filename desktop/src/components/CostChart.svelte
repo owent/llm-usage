@@ -3,12 +3,12 @@
   import * as echarts from 'echarts/core';
   import {LineChart} from 'echarts/charts';
   import {BrushComponent,DataZoomComponent,GridComponent,LegendComponent,TooltipComponent} from 'echarts/components';
-  import {CanvasRenderer} from 'echarts/renderers';
+  import {SVGRenderer} from 'echarts/renderers';
   import {setChartOption,setupTooltipAutoHide,setupRangeSelection,showRangeSelection,enableRangeBrush,RANGE_BRUSH,escapeHtml,CHART_PALETTE} from '../lib/chart';
   import {formatAmount} from '../lib/costs';
   import {i18n,t} from '../lib/i18n.svelte';
   import type {CostSummaryDto,PeriodDto} from '../lib/api';
-  echarts.use([LineChart,GridComponent,LegendComponent,TooltipComponent,DataZoomComponent,BrushComponent,CanvasRenderer]);
+  echarts.use([LineChart,GridComponent,LegendComponent,TooltipComponent,DataZoomComponent,BrushComponent,SVGRenderer]);
   let {summary,periods,isDark=false,onperiodclick,onrangechange,selectedRange=null}:{summary:CostSummaryDto|null;periods:PeriodDto[];isDark?:boolean;onperiodclick?:(label:string)=>void;onrangechange?:(first:string,last:string)=>void;selectedRange?:{first:string;last:string}|null}=$props();
   let el:HTMLDivElement;
   let chart:echarts.ECharts|null=null;
@@ -54,7 +54,7 @@
     untrack(()=>showRangeSelection(chart!,plotPeriods.map((p)=>p.label),selectedRange));
   }
   onMount(()=>{
-    chart=echarts.init(el);
+    chart=echarts.init(el, undefined, { renderer: 'svg' });
     const disposeTip=setupTooltipAutoHide(chart);
     const disposeSelection=setupRangeSelection(chart,()=>plotPeriods.map((p)=>p.label),(label)=>onperiodclick?.(label),(a,b)=>onrangechange?.(a,b));
     const observer=new ResizeObserver(()=>chart?.resize()); observer.observe(el);render();

@@ -41,6 +41,7 @@ pub fn zcode_db_backfill(
     let db = Connection::open_with_flags(zcode_db_path, flags)
         .map_err(|e| CoreError::Query(format!("open zcode db: {e}")))?;
 
+    crate::adapters::run_policy::install_sqlite_control(&db)?;
     db.busy_timeout(std::time::Duration::from_secs(5))?;
     let snapshot = db.unchecked_transaction()?;
 
@@ -88,6 +89,7 @@ pub fn zcode_db_backfill(
     let mut unmapped_reported = false;
 
     for row in rows {
+        crate::adapters::run_policy::check()?;
         let row = row?;
         outcome.db_rows += 1;
         if outcome.db_rows > 500_000 {
@@ -225,6 +227,7 @@ fn commit_snapshot(
     // Validate the complete snapshot before deleting any existing contribution.
     let mut days = BTreeMap::<jiff::civil::Date, Vec<_>>::new();
     for event in &batch.events {
+        crate::adapters::run_policy::check()?;
         event.validate()?;
         days.entry(calendar.local_day_of(event.occurred_at_ms)?)
             .or_default()
@@ -261,6 +264,7 @@ fn commit_snapshot(
     let mut skipped = 0;
     let mut changed_days = Vec::new();
     for (day, events) in days {
+        crate::adapters::run_policy::check()?;
         let day_text = day.to_string();
         if daily_floor.as_ref().is_some_and(|d| &day_text < d) {
             skipped += events.len() as i64;
@@ -339,6 +343,7 @@ fn commit_snapshot(
     }
     tx.execute("INSERT INTO settings(key,value,schema_version,updated_at_ms) VALUES (?1,'1',1,?2) ON CONFLICT(key) DO NOTHING",
         rusqlite::params![authority_key(&batch.instance_id),batch.now_ms])?;
+    crate::adapters::run_policy::check()?;
     tx.commit()?;
     Ok(result)
 }

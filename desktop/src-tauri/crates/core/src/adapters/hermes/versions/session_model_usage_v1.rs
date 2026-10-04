@@ -229,6 +229,7 @@ pub fn scan(
     let mut diagnostics: Vec<DiagnosticInput> = Vec::new();
     let mut records_seen: u64 = 0;
     for row in rows.iter_mut() {
+        crate::adapters::run_policy::check()?;
         records_seen += 1;
         let scope_key = row.scope_key();
         let Some(end_ms) = row.effective_end_ms() else {

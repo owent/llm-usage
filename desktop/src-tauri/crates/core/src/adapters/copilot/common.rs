@@ -176,6 +176,7 @@ pub(crate) fn open_readonly(path: &Path) -> Result<Connection, rusqlite::Error> 
             | OpenFlags::SQLITE_OPEN_URI,
     )?;
     conn.busy_timeout(Duration::from_millis(150))?;
+    crate::adapters::run_policy::install_sqlite_control(&conn)?;
     Ok(conn)
 }
 
@@ -207,6 +208,7 @@ fn backup_to_staging(
                     Some("copilot staging backup timed out".to_string()),
                 ));
             }
+            crate::adapters::run_policy::check_sqlite()?;
             match backup.step(limits.pages_per_step) {
                 Ok(StepResult::Done) => break Ok(()),
                 // More：实际拷贝了页，计入空间限制。
@@ -300,4 +302,44 @@ pub(crate) fn read_schema_version(conn: &Connection) -> Option<String> {
         })
         .ok()?;
     Some(format!("assistant-usage-events-v{version}"))
+}
+
+#[cfg(test)]
+mod control_tests {
+    use super::*;
+    #[test]
+    fn backup_checks_pause_between_pages_and_removes_partial_copy() {
+        use std::sync::{
+            atomic::{AtomicUsize, Ordering},
+            Arc,
+        };
+        let source = Connection::open_in_memory().unwrap();
+        source.execute_batch("CREATE TABLE chunks(value BLOB); WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<16) INSERT INTO chunks SELECT zeroblob(8192) FROM n").unwrap();
+        let calls = Arc::new(AtomicUsize::new(0));
+        let gate = calls.clone();
+        let _scope = crate::adapters::run_policy::enter(
+            None,
+            Some(Arc::new(move || gate.fetch_add(1, Ordering::SeqCst) == 0)),
+        );
+        let limits = StagingLimits {
+            pages_per_step: 1,
+            ..Default::default()
+        };
+        let error = backup_to_staging(&source, &limits).unwrap_err();
+        assert!(
+            matches!(error, rusqlite::Error::SqliteFailure(e, _) if e.code == rusqlite::ErrorCode::OperationInterrupted)
+        );
+        assert!(calls.load(Ordering::SeqCst) >= 2);
+        assert_eq!(
+            source
+                .query_row("SELECT COUNT(*) FROM chunks", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            16
+        );
+        let prefix = format!("llm-usage-copilot-staging-{}-", std::process::id());
+        assert!(!std::fs::read_dir(std::env::temp_dir())
+            .unwrap()
+            .flatten()
+            .any(|e| e.file_name().to_string_lossy().starts_with(&prefix)));
+    }
 }

@@ -188,7 +188,8 @@ pub(crate) fn read_metadata_head(path: &std::path::Path) -> Result<HeadProbe, Co
     let Some(first) = outcome.lines.first() else {
         return Ok(HeadProbe::Pending);
     };
-    let Ok(line) = serde_json::from_str::<serde_json::Value>(&first.text) else {
+    let Ok(line) = crate::adapters::run_policy::json_from_str::<serde_json::Value>(&first.text)
+    else {
         return Ok(HeadProbe::NotMetadata("first line is not JSON".to_string()));
     };
     if line.get("type").and_then(|t| t.as_str()) != Some("metadata") {
@@ -418,7 +419,8 @@ pub(crate) fn scan_wire(
     }
     for raw in &outcome.lines {
         records_seen += 1;
-        let Ok(line) = serde_json::from_str::<serde_json::Value>(&raw.text) else {
+        let Ok(line) = crate::adapters::run_policy::json_from_str::<serde_json::Value>(&raw.text)
+        else {
             diagnostics.push(diag(
                 "bad_json_line",
                 None,

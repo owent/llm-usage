@@ -356,7 +356,7 @@ impl crate::adapters::framework::SourceAdapter for CopilotChatAdapter {
             }),
             fields,
             lifecycle: serde_json::json!({
-                "per_turn": "kv 增量日志：流式计数器多次覆盖，取重放终值；modelState 1/2/3（Complete/Cancelled/Failed）封口为 Final，0/4（Pending/NeedsInput）为 Partial",
+                "per_turn": "kv 增量日志：流式计数器多次覆盖，取重放最终值；modelState 1/2/3（Complete/Cancelled/Failed）封口为 Final，0/4（Pending/NeedsInput）为 Partial",
                 "storage_migration": "objectMutationLog 超 1024 条整体重写为新初始行：framework 代数裁决触发重扫，事件按 (sessionId, requestId) 键幂等去重",
             }),
             incremental: serde_json::json!({
@@ -384,7 +384,7 @@ impl crate::adapters::framework::SourceAdapter for CopilotChatAdapter {
                 "thinking tokens（toolCallRounds[].thinking.tokens）覆盖不全（最终轮等）：不入 output_reasoning，不并入派生总量".into(),
                 "copilotCredits/sessionCopilotCredits 是 credit 计量（nano AIU 折算）：不入 token 统计；账户级额度经 copilot-user-cache.json → quota_history 独立展示".into(),
                 "已核验的 Copilot file OTel 按主机/用户/会话/本地日替代原生贡献，保留原始记录；开启当天覆盖受限，其他未核验导出不自动叠加".into(),
-                "行流式计数器由周期 saveState 落盘：中途崩溃/强杀可能留下非终值，末次观测后不再变化即为止损终值".into(),
+                "行流式计数器由周期 saveState 落盘：中途崩溃/强杀可能留下非最终值，末次观测后不再变化即为止损最终值".into(),
             ],
         }
     }

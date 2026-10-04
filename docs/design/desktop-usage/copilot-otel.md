@@ -32,6 +32,9 @@ CLI/JetBrains 新版本仍需独立真实验收，其他隔离导出不自动推
 首选本地 file：IDE/CLI 可以在本应用退出时继续写入，之后扫描。
 本机 OTLP/HTTP 适合实时接收，但本应用必须运行；支持 `/v1/traces`、`/v1/logs`
 的 JSON/protobuf，及隔离补充输出的 `/v1/traces/supplemental`。
+接收前须逐源认证；Windows 可自动配置 Claude/Codex logs，以及同路径 npm manifest
+确认的 CodeBuddy CLI 2.98.0 隔离 traces。协议解析/限流测试不代表其他发送端或版本
+已有可用认证配置，见 [认证合同](receiver-auth.md)。
 不支持 gRPC 或 metrics，不能称为通用 Collector。
 
 ## 已实施的用户配置入口
@@ -58,9 +61,9 @@ CLI/JetBrains 新版本仍需独立真实验收，其他隔离导出不自动推
 | Copilot CLI | 创建本应用目录内专用 PowerShell/sh 启动脚本；运行脚本才给进程配置官方 file 变量 | 不修改 config.json、settings.json、全局环境或 shell profile，不自动运行 |
 | Gemini CLI | 用户 settings.json：telemetry enabled/local/outfile，logPrompts=false | GEMINI_CLI_HOME 替换 home 后仍附加 .gemini；文件格式/新版本真实输出未验收 |
 | Qwen Code | 用户 settings.json：telemetry enabled/outfile，logPrompts 与敏感 span 关闭 | QWEN_HOME 为配置目录，QWEN_RUNTIME_DIR 不替代设置路径；文件格式真实输出未验收 |
-| Claude Code | 用户 env：启用 logs，独立 HTTP/JSON logs endpoint，提示词/回复内容关闭 | 白名单日志保存到 telemetry/otlp-logs.jsonl，不自动当成 span 或原生调用 |
-| Codex | 用户 TOML：仅合并 otel.exporter HTTP/JSON logs 与 log_user_prompt=false | 保留其他表、供应商配置及注释；新日志解析和统计关联未实施 |
-| CodeBuddy | 用户 env：官方 telemetry/traces、HTTP/protobuf、内容 opt-in 关闭 | 专用 supplemental endpoint 保存 telemetry/otlp-traces.jsonl，不混入原接收器统计 |
+| Claude Code | Windows 用户 env：logs 专用 HTTP/JSON endpoint 与认证头，内容关闭 | 白名单日志隔离；逐源凭据进当前用户系统存储，真实导出仍待验收 |
+| Codex | Windows 用户 TOML：HTTP/JSON logs、独立认证头与 log_user_prompt=false | 保留其他表、供应商配置/headers 及注释；日志不自动叠加原生用量 |
+| CodeBuddy | Windows 首个 PATH launcher 同目录 npm manifest 为 2.98.0 时配置 generic headers，Bearer 空格编码 %20，内容关闭 | 仅写隔离 supplemental traces；其他版本/无 manifest/已有 traces-specific headers 为手工项，本地 JSONL 独立 |
 
 Visual Studio 已有自动 traces 载体，不编造用户 exporter 设置；JetBrains 仍仅手工步骤。
 portable/custom user-data、其他 IDE 与远端宿主不自动写入，按官方步骤核对。
@@ -72,6 +75,8 @@ portable/custom user-data、其他 IDE 与远端宿主不自动写入，按官�
 JSONC 按 AST 值区间合并，TOML 使用保留格式的编辑器；检查 BOM、注释、重复键、
 大小上限、链接、只读和并发修改。先保存原始字节备份，再同目录临时文件替换。
 若接收器端口不能绑定则不写 Agent 配置；配置失败时恢复本次接收器启用状态。
+HTTP 应用时生成逐源令牌并回查系统存储，失败回收本次凭据；预览只显示占位符，
+不回传现有 headers 中的秘密。撤销先吊销凭据再条件恢复用户键，其他来源继续工作。
 profile 的同步排除项写在默认用户文件：预览列出两个文件，应用时均检查并发版本；
 profile 写入失败后条件回滚默认文件，不覆盖回滚期间的用户编辑。
 撤销仅恢复仍等于本功能写入值的键，保留后续用户编辑并报告冲突；
@@ -140,12 +145,13 @@ $env:OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT = 'false'
 
 ### HTTP 接收方案
 
-手工配置需先启用本应用接收器并重启；配置向导会先检查绑定并即时启用。
+Windows 的 Claude/Codex 和已核验 CodeBuddy 2.98.0 配置向导会先检查绑定并即时启用，
+生成本机实例独立认证；CodeBuddy 始终使用隔离补充输出。
 现有后端键为 `otel_receiver_enabled` 和 `otel_receiver_port`，默认关闭、端口 4318。
-扩展宿主使用 `github.copilot.chat.otel.exporterType="otlp-http"`、
-`github.copilot.chat.otel.otlpEndpoint="http://127.0.0.1:4318"`；
-Agent Host 使用 `chat.agentHost.otel.*` 对应键。端口以应用生效值为准。
-保持 captureContent 关闭，不配置认证头或远端 Collector。
+这两个键不绕过认证；现有未认证的本应用 HTTP 配置需重新预览/确认，不能自动续用。
+Copilot HTTP 的逐源配置入口仍待核验，当前按上方 file 方案接入；
+CodeBuddy 未核验版本不自动配置。
+不能只把 endpoint 指向本应用就认为接入成功；不配置远端 Collector。
 
 环境覆盖、企业策略和 VS Code telemetry 开关可能使设置失效；向导展示冲突原因，
 不覆盖策略。HTTP exporter 可能发送 metrics；当前不接收 metrics，logs 独立保存。

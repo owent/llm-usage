@@ -104,10 +104,10 @@ pub fn scan(
         });
     }
     let mut bytes = Vec::new();
-    std::fs::File::open(&target.path)?
+    crate::adapters::run_policy::checked_file(&target.path)?
         .take(DROID_MAX_FILE_BYTES + 1)
         .read_to_end(&mut bytes)?;
-    let document: serde_json::Value = match serde_json::from_slice(&bytes) {
+    let document: serde_json::Value = match crate::adapters::run_policy::json_from_slice(&bytes) {
         Ok(v) => v,
         Err(_) => {
             return Ok(ScanOutcome {
@@ -293,11 +293,11 @@ mod tests {
     #[test]
     fn optional_buckets() {
         let obj: serde_json::Map<String, serde_json::Value> =
-            serde_json::from_str(r#"{"inputTokens": 5}"#).unwrap();
+            crate::adapters::run_policy::json_from_str(r#"{"inputTokens": 5}"#).unwrap();
         assert_eq!(bucket(&obj, "inputTokens"), Some(Some(5)));
         assert_eq!(bucket(&obj, "outputTokens"), Some(None));
         let bad: serde_json::Map<String, serde_json::Value> =
-            serde_json::from_str(r#"{"inputTokens": -2}"#).unwrap();
+            crate::adapters::run_policy::json_from_str(r#"{"inputTokens": -2}"#).unwrap();
         assert_eq!(bucket(&bad, "inputTokens"), None);
     }
 }

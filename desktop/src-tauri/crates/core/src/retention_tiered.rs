@@ -137,6 +137,7 @@ pub fn enforce_tiered_retention(
     now_ms: i64,
     policy: &TieredRetentionPolicy,
 ) -> Result<TieredRetentionOutcome, CoreError> {
+    crate::adapters::run_policy::check()?;
     enforce_tiered_retention_controlled(storage, timezone, now_ms, policy, None)
 }
 
@@ -331,6 +332,7 @@ pub fn enforce_tiered_retention_controlled(
     if let Some(control) = control {
         control.enter_commit()?;
     }
+    crate::adapters::run_policy::check()?;
     tx.commit()?;
     Ok(outcome)
 }
@@ -394,6 +396,7 @@ pub(crate) fn materialize_periods(
     let mut periods: std::collections::BTreeMap<(String, String, [String; 6]), Agg> =
         std::collections::BTreeMap::new();
     for row in rows {
+        crate::adapters::run_policy::check()?;
         let (
             day_str,
             instance,
@@ -488,6 +491,7 @@ pub(crate) fn materialize_periods(
          ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, NULL, ?21, ?22)",
     )?;
     for ((granularity, key, _), agg) in periods {
+        crate::adapters::run_policy::check()?;
         if agg.end >= to {
             continue;
         }

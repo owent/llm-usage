@@ -78,11 +78,11 @@ pub fn scan(
     }
     let mut bytes = Vec::new();
     std::io::Read::take(
-        &mut std::fs::File::open(&target.path)?,
+        &mut crate::adapters::run_policy::checked_file(&target.path)?,
         CONTINUE_MAX_FILE_BYTES + 1,
     )
     .read_to_end(&mut bytes)?;
-    let document: serde_json::Value = match serde_json::from_slice(&bytes) {
+    let document: serde_json::Value = match crate::adapters::run_policy::json_from_slice(&bytes) {
         Ok(v) => v,
         Err(_) => {
             return Ok(ScanOutcome {

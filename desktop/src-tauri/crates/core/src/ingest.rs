@@ -182,6 +182,7 @@ pub(crate) fn commit_batch_tx(
 
     // 1. 事件 upsert。
     for event in &batch.events {
+        crate::adapters::run_policy::check()?;
         let eid = event_id(&event.source_instance_id, &event.source_record_key);
         if let Err(e) = event.validate() {
             outcome.errors += 1;
@@ -370,6 +371,7 @@ pub(crate) fn commit_batch_tx(
 
     // 2. 游标与解析上下文（同事务；分两段以便故障点语义清晰）。
     for checkpoint in &batch.checkpoints {
+        crate::adapters::run_policy::check()?;
         tx.execute(
             "INSERT INTO ingestion_checkpoints (instance_id, scope_key, cursor_value, source_revision, updated_at_ms)
              VALUES (?1, ?2, ?3, ?4, ?5)
@@ -415,6 +417,7 @@ pub(crate) fn commit_batch_tx(
     // 4. 受影响日按（时区, 日）分区重算；封存日不追加。小时分桶同事务持久化
     //    （分级归档：明细删除后小时层仍有数据）。
     for day in &affected {
+        crate::adapters::run_policy::check()?;
         recompute_day(tx, &calendar, *day, next_revision)?;
         persist_hourly_day(tx, &calendar, *day, next_revision)?;
     }
@@ -423,9 +426,11 @@ pub(crate) fn commit_batch_tx(
 
     // 5. 诊断（脱敏）。
     for (event_id, diag) in &pending_diagnostics {
+        crate::adapters::run_policy::check()?;
         insert_diagnostic(tx, batch, event_id.as_deref(), diag)?;
     }
     for diag in &batch.diagnostics {
+        crate::adapters::run_policy::check()?;
         insert_diagnostic(tx, batch, diag.event_id.as_deref(), diag)?;
     }
 
@@ -800,6 +805,7 @@ pub(crate) fn recompute_day(
         &sql,
         params![calendar.tz_name(), day_str, data_revision, start_ms, end_ms],
     )?;
+    crate::query_acceleration::rebuild_day(tx, calendar, day)?;
     Ok(())
 }
 

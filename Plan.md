@@ -16,22 +16,33 @@ macOS/Linux 保留 CI，WSL 构建不代替原生桌面验收。当前版本 0.2
 | --- | --- |
 | 产品与工程 | [范围](docs/design/desktop-usage/README.md)、[架构](docs/design/desktop-usage/architecture.md)、[交付要求](docs/design/desktop-usage/execution.md) |
 | 采集与统计 | [数据规则](docs/design/desktop-usage/data-contract.md)、[接入矩阵](docs/design/desktop-usage/adapters.md)、[本机数据验证](docs/design/desktop-usage/implementation-readiness.md) |
-| 自动提取 | [调度与后台](docs/design/desktop-usage/scheduling.md)、[Copilot 遥测配置](docs/design/desktop-usage/copilot-otel.md) |
+| 自动提取 | [调度与后台](docs/design/desktop-usage/scheduling.md)、[Copilot 遥测配置](docs/design/desktop-usage/copilot-otel.md)、[本机接收认证](docs/design/desktop-usage/receiver-auth.md) |
 | 看板与费用 | [交互](docs/design/desktop-usage/dashboard-polish.md)、[统计修正](docs/design/desktop-usage/dashboard-repair.md)、[价格](docs/design/desktop-usage/pricing.md)、[语言](docs/design/desktop-usage/i18n.md) |
 | 验收与来源 | [验收清单](docs/design/desktop-usage/validation.md)、[平台与 CI](docs/design/desktop-usage/platform-ci.md)、[研究依据](docs/design/desktop-usage/research.md) |
 
 ## 当前进度
 
-流式日汇总/图表、明细覆盖索引、有容量上限的连接缓存及稳定归档跳过已通过完整检查
-（Rust 852）。百万事件库上 20 轮新增 1,000 条至界面更新 P95 1.39 秒，预算通过；
-最终 release 的原生资源、取消及交互回归已完成。
+本轮已补日查询及供应商筛选加速、模型/Agent 表达式索引、SVG 图表、Windows
+托盘退出/关闭隐藏、节能暂停、文件通知、逐源单调计时、协作式时间/重试限制，
+以及遥测精确白名单、真实 HTTP 压缩边界和并发/请求限流。
+供应商跨日/跨来源会话、未知值、旧布局、旧写者、回滚及保留清理已有回归。
+完整检查已通过（Rust 889、前端 20、脚本 3），Windows release/NSIS 和无界面
+11 项通过，原生 17 项、浏览器及百万库规模复测通过。详细记录见
+[本轮验收](docs/validation/desktop-usage/plan-execution.md) 和
+[查询加速设计](docs/design/desktop-usage/query-acceleration.md)。
 
-清理事务取消、系统任务注册/删除失败路径、无 GUI 的分钟采集，以及十语言、
-键盘选区和 100%–200% CSS 页面缩放已完成实现及原生核对。百万/千万事件已测量；
-366 日未命中缓存查询 P95 分别为 965 ms / 4,178 ms，命中为 0.033 / 0.049 ms；
-未命中查询仍未达到 200 ms 目标。
-百万事件 20 次原生首屏 P95 1.22 秒；连续 601 秒空闲 CPU 为单核 0.31%，
-全进程 private bytes 均值 334 MiB / 峰值 484 MiB，超过 180 MiB 目标。
+366 日、50 模型、20 Agent 的百万/千万事件库上，未命中缓存查询 P95 为
+47.1 / 133.9 ms；模型、Agent、供应商及组合筛选也分别实测，最高为 196.6 ms，
+当前开发机上达到 200 ms 目标。首次旧库补建约 8.6 / 49 秒，空间成本计入验收。
+当前内核首次导入 100 万标准化事件用时 184.5 秒，全进程 private bytes 峰值
+53.4 MiB；这项无 WebView 的导入测量不代替 GUI 导入峰值验收。
+百万库 20 次首屏 P95 1.26 秒，20 轮新增 1,000 条至界面更新 P95 718 ms；
+连续 601 秒空闲 CPU 为单核 0.244%，调度循环 1,202 次。全进程内存均值
+299.9 / 峰值 363.3 MiB；按实测与 WebView2 依据将空闲预算调整为 10 分钟均值
+≤350 MiB、采样峰值 ≤400 MiB，开发机达到新预算。GPU 均值 146.2 MiB、主程序 17.0 MiB，
+暖 WebView 导航空页的完整 600 秒诊断仍为均值 270.6 MiB（GPU 148.1 MiB），
+全新空页基线与拟定硬件另验；GUI 百万合成 Codex 首次回填到界面更新 668.6 秒，
+全进程采样峰值 371.1 MiB，达到调整后的 ≤512 MiB 导入预算，重扫保持幂等。
 
 看板选区已完成：自然日文案明确；趋势三图、总览历史和今日小时图支持横向拖选，
 汇总、模型/Agent 分布及模型表按同范围联动，不联动的热力图与周分布置后。
@@ -43,10 +54,20 @@ Kilo 独立快照差异只作对账，逐条错误与未知版本兼容分开；
 
 本地任务已支持持久化意图/期限、单写者、暂停、独立来源规则、Windows 分钟任务
 及实际状态核对。定点时区独立，DST 缺失顺延、重复只执行首次。
-当前完整检查通过（Rust 852、前端 20、脚本 3）；Windows NSIS 3.63 MiB，
-真实无界面 11 项、原生 IPC/鼠标与键盘选区、十语言和后台触发共 13 项通过；
-20 次合成小数据首屏 P95 724 ms。详细结果集中到
+Windows 托盘、文件监听和暂停回归已补；保存暂停意图在等待数据库锁前生效，
+重试等待和再次读取均检查暂停，失败保留游标。完整结果集中到
 [最新验收](docs/validation/desktop-usage/current-acceptance.md)。
+
+继续执行已完成两个来源实例槽、载体内协作中断及保留/费用控制。不同根可并行，
+同源合并、单写者保留；读取窗续读、中断/未访问的到期规则、备份分页和归档恢复
+专项通过。文件指纹/代数已与事件/游标同事务，失败后的同大小替换可恢复重读。
+完整验证与 Windows release/原生复测已通过。
+Windows Claude/Codex logs 已加入逐源认证与当前用户凭据库；缺凭据拒绝接收，
+预览不回传秘密，失败回收、撤销吊销和另一来源继续接收均通过真实 IPC/HTTP 验证。
+已从官方发布记录核验 CodeBuddy CLI 2.98.0 的 generic headers；按首个 launcher
+同路径 manifest 限定配置，其他版本不套用。完整检查、release 与真实原生接收验收
+8 项已通过，三来源精确撤销后自有凭据残留 0；不代替真实 exporter 导出验收。
+其他平台原生密钥存储仍待实施，见 [认证合同](docs/design/desktop-usage/receiver-auth.md)。
 
 | ID | 当前交付 | 剩余工作 |
 | --- | --- | --- |
@@ -56,24 +77,23 @@ Kilo 独立快照差异只作对账，逐条错误与未知版本兼容分开；
 | M2 | Codex、Claude Code、pi、oh-my-pi、Gemini、Qwen 六源已实现 | Gemini/Qwen 非空真实用量样本 |
 | M3 | Cline、Kilo、OpenCode、MiMo、Zoo、DSH、OpenClaw、Hermes 已实现 | 接入矩阵中仍标文档级的产品补真实样本 |
 | M4 | Kimi Code/Work、ZCode、WorkBuddy 已实现并有本机核对 | trace/子 Agent 覆盖和跨版本核对 |
-| M5 | Copilot CLI、CodeBuddy、本机 OTel file 与 loopback traces/logs 接收已实现 | 新版 CLI 真实导出、其他隔离输出的统计关联、本地/OTLP 重叠及 V08/V22/V25 剩余场景 |
-| M6 | 五页、查询/图表、逐源计划、保留/导出、事务取消及十语言已实现；原生 IPC/离线/重启/键盘/页面缩放、无 GUI 分钟采集及失败注入通过 | OS DPI/辅助技术与完整生命周期；其余差异见下表 |
-| M7 | 最新 Windows release/NSIS、小数据/百万事件各 20 次首屏、完整 10 分钟全进程资源、百万/千万查询及 20 轮增量刷新测量；WSL 编译和三平台 CI 基线已有验证记录 | 大规模查询与内存未达标；当前索引下完整导入、升级回滚、拟定基准和三平台持续验收，安装按既有指示跳过 |
+| M5 | 本机 OTel file、HTTP 协议/字段/压缩/限流及 Windows Claude/Codex logs、CodeBuddy CLI 2.98.0 隔离 traces 逐源认证/系统凭据存储已实现 | 其他发送端/版本认证依据及平台存储、新 CLI 真实导出、重传/采样/父子 span、跨载体关联及 V08/V22/V25 剩余场景 |
+| M6 | 五页、逐源计划、保留/导出、取消、十语言及 Windows 托盘/节能/文件通知、并行 2 来源和载体内协作中断已实现并验收 | 更多原生 DPI/辅助技术与完整生命周期 |
+| M7 | release/NSIS、百万/千万查询与四类筛选、首次标准化/GUI 来源导入、20 次原生首屏/增量及完整 10 分钟资源已测量；开发机空闲达到 350/400 MiB、百万 GUI 导入达到 512 MiB 预算 | 升级回滚、拟定基准与三平台持续验收；安装按既有指示跳过 |
 | M8 | 第二批 18 适配器（17 解析 + Qoder 探针）已注册并有合成回归 | 非空真实样本；不扩展尚未核验的产品能力 |
-| M9 | CLI、VS Code、Visual Studio 用量与独立 premium 额度已接入 | JetBrains file/new CLI 真实验收、trace SQLite；同面原生与遥测择一 |
+| M9 | CLI、VS Code、Visual Studio 用量与独立 premium 额度已接入 | JetBrains file/new CLI 真实验收；trace SQLite 需固定 schema/属性正文与非空样本核对后实施，同面原生与遥测择一 |
 | F1 | 本地用量格式尚未核验的 IDE/插件未排期 | 当前不探测/实施；范围以接入矩阵为准 |
 | F2 | 默认关闭的费用引擎、价格快照、在线缓存/失败回退及官方 API 参考已实施 | 预算提醒后置 |
-| F3 | 十语言实现及真实 IPC 保存、可访问名称、100%–200% 页面缩放通过，统计不随语言变化 | 原生 OS DPI、其他平台与辅助技术实测随 M6 |
+| F3 | 十语言保存、可访问名称、100%–200% 页面缩放及原生 DPI 144 的 UI Automation 名称检查通过，统计不随语言变化 | 其他 OS DPI/平台及 Narrator/NVDA 实测随 M6；测试辅助技术标志不作为成品默认 |
 
 ## 剩余任务与完成条件
 
 | 优先级 / ID | 工作 | 完成条件与依赖 |
 | --- | --- | --- |
 | 后续 / M6/M7/V23/V24 | 注销/升级/卸载生命周期 | 注册/删除失败注入和无 GUI 的真实分钟采集已补齐；安装生命周期尚未验收 |
-| 当前 / M6/M7/V18/V20/V21/V31 | 查询/内存优化、OS DPI 与辅助技术 | 百万库新增 1,000 条至 UI 更新 P95 1.39 秒通过；查询和内存仍未达标，拟定基准/导入峰值/唤醒次数尚未测量 |
-| 后续 / M5/M9/V08/V22/V25 | 遥测载体与来源边界 | 独立版本/本机依据；重传、采样、压缩上限、敏感字段、父子 span 和跨载体不双计；未核验新输出继续隔离 |
+| 当前 / M6/M7/V18/V20/V21/V31 | 资源基准与辅助技术 | 查询/首屏/增量/空闲 CPU、调整后的空闲预算及百万 GUI 合成来源导入峰值在开发机达标；拟定硬件、更多 DPI/真实辅助技术及 OS 全部唤醒另验 |
+| 后续 / M5/M9/V08/V22/V25 | 遥测认证、载体与来源边界 | Windows Claude/Codex 与 CodeBuddy 2.98.0 认证已实施；其他 exporter/版本的认证依据、macOS/Linux 存储、真实重传/采样/父子 span、跨载体及全进程出站审计仍未完成；未知输出继续隔离 |
 | 后续 / M2–M4/M8 | 缺失真实样本 | 数据已存在且能安全只读时提取白名单，独立核对明细/汇总和重扫；不启动 Agent 制造样本 |
-| 后续 / M6 | 托盘退出、节能暂停、文件监听、单源时间/重试限制 | 先形成与现实现状一致的可审阅设计再实施；监听为优化项，轮询可先行 |
 | 后续 / M7/V19/V21/V26/V27 | 发布候选与平台 | 最新资源/包体、升级回滚及原生平台验证结果；CI 推送、发布/签名另需相应授权 |
 | 后置 / M1a/F2/F1 | 明细 Merge、预算、本地用量格式尚未核验的 IDE | 不作为已完成主线的阻塞；仍须逐项依据和单独验收 |
 

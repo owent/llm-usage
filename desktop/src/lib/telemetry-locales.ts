@@ -178,6 +178,25 @@ for (const [locale, catalog] of Object.entries(telemetryCatalogs)) {
 
 export function telemetryReasonKey(code: string): string {
   const known = ['environment_override', 'managed_policy', 'unsupported_version', 'unsafe_path', 'telemetry_disabled',
-    'sync_conflict', 'config_changed', 'read_only', 'receiver_bind_failed', 'receiver_restart_required', 'preview_expired', 'existing_destination'];
+    'sync_conflict', 'config_changed', 'read_only', 'receiver_bind_failed', 'receiver_restart_required', 'preview_expired', 'existing_destination', 'authentication_unverified', 'credential_store_unavailable'];
   return 'telemetry.reason.' + (known.includes(code) ? code : 'invalid_config');
+}
+
+const authenticationMessages: Record<string, [string, string, string]> = {
+  'zh-CN': ['此 Agent 的认证配置尚未核验，请手工核对；本机原生采集仍可使用。', '系统凭据存储不可用，HTTP 配置未写入；可使用已核验的本地文件输出。', '接收器会为此本机 Agent 创建独立认证令牌。预览不显示令牌；撤销时吊销。接收时请保持本应用运行。'],
+  'zh-TW': ['此 Agent 的驗證設定尚未核驗，請手動核對；本機原生採集仍可使用。', '系統認證儲存不可用，未寫入 HTTP 設定；可使用已核驗的本機檔案輸出。', '接收器會為此本機 Agent 建立獨立驗證權杖。預覽不顯示權杖，復原時撤銷。接收時請保持應用程式執行。'],
+  en: ['Authentication setup for this Agent is unverified. Review it manually; native local collection remains available.', 'System credential storage is unavailable. HTTP configuration was not written; use a verified local file exporter.', 'A separate authentication token will be created for this local Agent. The preview hides it; undo revokes it. Keep this app running to receive data.'],
+  ja: ['この Agent の認証設定は未検証です。手動で確認してください。既存のローカル収集は利用できます。', 'システム資格情報ストアが利用できません。HTTP 設定は書き込まれていません。検証済みのローカルファイル出力を利用してください。', 'このローカル Agent 専用の認証トークンを作成します。プレビューには表示せず、元に戻すと失効します。受信中はアプリを起動しておいてください。'],
+  ko: ['이 Agent의 인증 설정은 검증되지 않았습니다. 수동으로 확인하세요. 기존 로컬 수집은 사용할 수 있습니다.', '시스템 자격 증명 저장소를 사용할 수 없습니다. HTTP 설정은 쓰지 않았습니다. 검증된 로컬 파일 출력을 사용하세요.', '이 로컬 Agent 전용 인증 토큰을 만듭니다. 미리 보기에는 표시하지 않으며 실행 취소 시 폐기합니다. 수신 중에는 앱을 실행해 두세요.'],
+  es: ['La autenticación de este Agent no está verificada. Revísala manualmente; la recopilación local nativa sigue disponible.', 'El almacén de credenciales no está disponible. No se escribió la configuración HTTP; usa una salida local verificada.', 'Se creará un token propio para este Agent local. La vista previa lo oculta y deshacer lo revoca. Mantén esta aplicación abierta para recibir datos.'],
+  fr: ['L’authentification de cet Agent n’est pas vérifiée. Vérifiez manuellement ; la collecte locale native reste disponible.', 'Le stockage système des identifiants est indisponible. La configuration HTTP n’a pas été écrite ; utilisez une sortie locale vérifiée.', 'Un jeton propre à cet Agent local sera créé. L’aperçu le masque et l’annulation le révoque. Gardez cette application ouverte pendant la réception.'],
+  de: ['Die Authentifizierung dieses Agents ist nicht verifiziert. Manuell prüfen; die native lokale Erfassung bleibt verfügbar.', 'Der System-Anmeldeinformationsspeicher ist nicht verfügbar. HTTP wurde nicht eingerichtet; einen verifizierten lokalen Dateiexporter verwenden.', 'Für diesen lokalen Agent wird ein eigener Token erstellt. Die Vorschau verbirgt ihn; Rückgängigmachen widerruft ihn. Die App zum Empfang geöffnet lassen.'],
+  'pt-BR': ['A autenticação deste Agent não foi verificada. Revise manualmente; a coleta local nativa continua disponível.', 'O armazenamento de credenciais está indisponível. A configuração HTTP não foi escrita; use uma saída local verificada.', 'Será criado um token exclusivo para este Agent local. A prévia o oculta; desfazer o revoga. Mantenha este aplicativo aberto para receber dados.'],
+  ru: ['Аутентификация этого Agent не проверена. Проверьте вручную; нативный локальный сбор остаётся доступным.', 'Системное хранилище учётных данных недоступно. Настройки HTTP не записаны; используйте проверенный локальный файловый вывод.', 'Для этого локального Agent будет создан отдельный токен. Предпросмотр скрывает его, отмена отзывает. Оставьте приложение открытым для приёма данных.'],
+};
+for (const [locale, catalog] of Object.entries(telemetryCatalogs)) {
+  const [unverified, unavailable, hint] = authenticationMessages[locale];
+  catalog['telemetry.reason.authentication_unverified'] = unverified;
+  catalog['telemetry.reason.credential_store_unavailable'] = unavailable;
+  catalog['telemetry.receiverHint'] = hint;
 }

@@ -392,12 +392,13 @@ pub fn scan(
     let mut records_seen: u64 = 0;
     let mut touched_sessions: Vec<String> = Vec::new();
     for row in rows.iter_mut() {
+        crate::adapters::run_policy::check()?;
         record_errors.remove(&row.id);
         records_seen += 1;
         if !touched_sessions.iter().any(|s| s == &row.session_id) {
             touched_sessions.push(row.session_id.clone());
         }
-        let data: serde_json::Value = match serde_json::from_str(&row.data) {
+        let data: serde_json::Value = match crate::adapters::run_policy::json_from_str(&row.data) {
             Ok(v) => v,
             Err(_) => {
                 record_errors.insert(row.id.clone());

@@ -177,7 +177,7 @@ fn replay(
     for line in lines {
         let line_no = line.number;
         let text = line.text.as_str();
-        let doc: Value = match serde_json::from_str(text) {
+        let doc: Value = match crate::adapters::run_policy::json_from_str(text) {
             Ok(doc) => doc,
             Err(_) => {
                 diagnostics.push(diag(
@@ -278,7 +278,7 @@ fn replay(
     state
 }
 
-/// 请求终态的字段视图（只取白名单，不触碰消息正文）。
+/// 请求重放最终值的字段视图（只取白名单，不触碰消息正文）。
 struct RequestUsage {
     request_id: Option<String>,
     prompt_tokens: Option<i64>,
@@ -559,6 +559,7 @@ pub fn scan(
     };
     let mut diagnostics = Vec::new();
     for bad in &read.bad_lines {
+        crate::adapters::run_policy::check()?;
         diagnostics.push(diag(
             "line_json_invalid",
             &format!("line:{}", bad.number),
@@ -644,6 +645,7 @@ pub fn scan(
     let mut events = Vec::new();
     let mut replaced_turns = std::collections::BTreeSet::new();
     for (index, request) in requests.iter().enumerate() {
+        crate::adapters::run_policy::check()?;
         // chatSessions 是 VS Code 的通用会话库；其他扩展的轮次不能归为 Copilot。
         if !request
             .pointer("/agent/id")
@@ -1009,7 +1011,7 @@ mod tests {
         let lines: Vec<String> = lines
             .iter()
             .map(|line| {
-                let Ok(mut doc) = serde_json::from_str::<Value>(line) else {
+                let Ok(mut doc) = crate::adapters::run_policy::json_from_str::<Value>(line) else {
                     return line.clone();
                 };
                 let requests = if doc["kind"] == 0 {
@@ -1177,7 +1179,7 @@ mod tests {
                 header("[]"),
                 r#"{"kind":2,"k":["requests"],"v":[{"requestId":"request_a","timestamp":1790783284143}]}"#.to_string(),
                 r#"{"kind":1,"k":["requests",0,"completionTokens"],"v":10}"#.to_string(),
-                // 压缩重写：新初始行（状态里已含 request_a 终值）。
+                // 压缩重写：新初始行（状态里已含 request_a 最终值）。
                 header(
                     r#"[{"requestId":"request_a","timestamp":1790783284143,"completionTokens":10}]"#,
                 ),

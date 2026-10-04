@@ -117,11 +117,11 @@ pub fn scan(
     }
     let mut bytes = Vec::new();
     std::io::Read::take(
-        &mut std::fs::File::open(&target.path)?,
+        &mut crate::adapters::run_policy::checked_file(&target.path)?,
         ATOMCODE_MAX_FILE_BYTES + 1,
     )
     .read_to_end(&mut bytes)?;
-    let document: serde_json::Value = match serde_json::from_slice(&bytes) {
+    let document: serde_json::Value = match crate::adapters::run_policy::json_from_slice(&bytes) {
         Ok(v) => v,
         Err(_) => {
             return Ok(ScanOutcome {
@@ -255,6 +255,7 @@ pub fn scan(
     }
     let mut aggregates = Vec::new();
     for ((provider, model), entry) in acc {
+        crate::adapters::run_policy::check()?;
         // 无 token 数据且无调用数的行无信息量；有 rounds 的行保留
         // （调用数与 token 分开统计，token 全未知不补零）。
         if !entry.tokens_seen && entry.rounds == 0 {

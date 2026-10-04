@@ -136,7 +136,7 @@ pub fn scan(
         });
     }
     let mut bytes = Vec::new();
-    std::fs::File::open(&target.path)?
+    crate::adapters::run_policy::checked_file(&target.path)?
         .take(GEMINI_MAX_FILE_BYTES + 1)
         .read_to_end(&mut bytes)?;
     if bytes.len() as u64 > GEMINI_MAX_FILE_BYTES {
@@ -161,30 +161,30 @@ pub fn scan(
     }
     let consumed = bytes.len() as u64;
     // 半程写入：parse 失败不推进游标，下轮确定性重试（暂态，非降级）。
-    let document: serde_json::Value = match serde_json::from_slice(super::super::strip_bom(&bytes))
-    {
-        Ok(v) => v,
-        Err(_) => {
-            diagnostics.push(diag(
-                "session_json_unparseable",
-                None,
-                "document",
-                "session JSON does not parse (mid-write or corrupt); cursor held for retry",
-            ));
-            return Ok(ScanOutcome {
-                status: ScanStatus::Pending,
-                cursor: None,
-                parse_context: None,
-                events,
-                aggregates: Vec::new(),
-                diagnostics,
-                lines_read: 1,
-                records_seen: 0,
-                reconciliations: Vec::new(),
-                health: "active".to_string(),
-            });
-        }
-    };
+    let document: serde_json::Value =
+        match crate::adapters::run_policy::json_from_slice(super::super::strip_bom(&bytes)) {
+            Ok(v) => v,
+            Err(_) => {
+                diagnostics.push(diag(
+                    "session_json_unparseable",
+                    None,
+                    "document",
+                    "session JSON does not parse (mid-write or corrupt); cursor held for retry",
+                ));
+                return Ok(ScanOutcome {
+                    status: ScanStatus::Pending,
+                    cursor: None,
+                    parse_context: None,
+                    events,
+                    aggregates: Vec::new(),
+                    diagnostics,
+                    lines_read: 1,
+                    records_seen: 0,
+                    reconciliations: Vec::new(),
+                    health: "active".to_string(),
+                });
+            }
+        };
     // fail closed 出口：事件清空、游标不推进、degraded，下轮确定性再拒。
     let fail_closed = |events: &mut Vec<EventInput>,
                        diagnostics: &mut Vec<DiagnosticInput>,
@@ -228,6 +228,7 @@ pub fn scan(
     let mut records_seen: u64 = 0;
     let mut unmapped_keys_reported = false;
     for (index, message) in messages.iter().enumerate() {
+        crate::adapters::run_policy::check()?;
         records_seen += 1;
         let position = format!("messages[{index}]");
         let Some(message_obj) = message.as_object() else {

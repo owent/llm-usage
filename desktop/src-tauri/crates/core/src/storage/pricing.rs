@@ -196,6 +196,7 @@ impl Storage {
         let tx = self.conn().unchecked_transaction()?;
         let revision = crate::storage::data_revision(&tx)?;
         let outcome = recompute_cost_day_tx(&tx, &calendar, day, now_ms, options, revision)?;
+        crate::adapters::run_policy::check()?;
         tx.commit()?;
         Ok(outcome)
     }
@@ -221,11 +222,13 @@ impl Storage {
         let tx = conn.unchecked_transaction()?;
         let revision = crate::storage::data_revision(&tx)?;
         for day_str in days {
+            crate::adapters::run_policy::check()?;
             let day = parse_date(&day_str)?;
             out.push(recompute_cost_day_tx(
                 &tx, &calendar, day, now_ms, options, revision,
             )?);
         }
+        crate::adapters::run_policy::check()?;
         tx.commit()?;
         Ok(out)
     }
@@ -1222,6 +1225,7 @@ pub(crate) fn recompute_cost_day_tx(
     let events = collect_events_for_pricing(tx, start_ms, end_ms, &CostFilters::default())?;
     let mut books: BTreeMap<(String, String), PriceBook> = BTreeMap::new();
     for row in &events {
+        crate::adapters::run_policy::check()?;
         let key = crate::model_names::model_key(
             row.event
                 .model_canonical

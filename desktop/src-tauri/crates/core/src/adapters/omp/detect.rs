@@ -31,7 +31,9 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     let Some(first) = outcome.lines.first() else {
         return Ok(DetectOutcome::Pending);
     };
-    let Ok(first_line) = serde_json::from_str::<serde_json::Value>(&first.text) else {
+    let Ok(first_line) =
+        crate::adapters::run_policy::json_from_str::<serde_json::Value>(&first.text)
+    else {
         return Ok(DetectOutcome::UnknownFormat {
             reason: "first line is not JSON".to_string(),
         });
@@ -46,7 +48,8 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
         });
     }
     for raw in &outcome.lines {
-        let Ok(line) = serde_json::from_str::<serde_json::Value>(&raw.text) else {
+        let Ok(line) = crate::adapters::run_policy::json_from_str::<serde_json::Value>(&raw.text)
+        else {
             continue;
         };
         if line.get("type").and_then(|t| t.as_str()) != Some("session") {
