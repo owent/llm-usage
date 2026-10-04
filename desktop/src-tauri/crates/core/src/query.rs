@@ -234,6 +234,7 @@ pub struct Summary {
 
 #[derive(Debug, Clone)]
 struct DailyRow {
+    model_original: String,
     local_day: Date,
     instance_id: String,
     /// 小时粒度时的-hour 值（日粒度行恒 None；由 hourly_usage 加载）。
@@ -354,7 +355,10 @@ pub fn query_summary_selected(
         }
         if axis == "model" {
             models
-                .entry((row.provider_id.to_lowercase(), row.model_raw.to_lowercase()))
+                .entry((
+                    row.provider_id.trim().to_lowercase(),
+                    crate::model_names::model_key(&row.model_raw),
+                ))
                 .or_default()
                 .add_row(&row)?;
             return Ok(());
@@ -381,7 +385,10 @@ pub fn query_summary_selected(
         totals.add_row(&row)?;
         if axis == "all" {
             models
-                .entry((row.provider_id.to_lowercase(), row.model_raw.to_lowercase()))
+                .entry((
+                    row.provider_id.trim().to_lowercase(),
+                    crate::model_names::model_key(&row.model_raw),
+                ))
                 .or_default()
                 .add_row(&row)?;
             agents
@@ -798,6 +805,7 @@ fn load_summary_rows(
         while let Some(r) = records.next()? {
             let start = parse_date(&r.get::<_, String>(0)?)?;
             let row = DailyRow {
+                model_original: r.get(5)?,
                 local_day: start,
                 hour: None,
                 instance_id: r.get(2)?,
@@ -838,7 +846,7 @@ fn load_summary_rows(
                 r.instance_id.clone(),
                 r.agent.clone(),
                 r.provider_id.clone(),
-                r.model_raw.clone(),
+                r.model_original.clone(),
                 r.call_category.clone(),
                 r.quality_bucket.clone(),
             )
@@ -859,6 +867,94 @@ fn load_summary_rows(
     }
     rows.retain(|r| request.filters.matches(r));
     Ok(rows)
+}
+
+/// Current-price simulation reuses exactly the usage query's archive selection.
+pub(crate) struct ArchivedPricingRow {
+    pub event: crate::pricing::PricingEvent,
+    pub day: String,
+    pub hour: Option<i64>,
+    pub count: i64,
+    pub partial: bool,
+    pub from_period: bool,
+    pub instance: String,
+    pub agent: String,
+    pub category: String,
+    pub quality: String,
+    pub end_ms: i64,
+    pub known_tokens_floor: i64,
+    pub alias_stable: bool,
+}
+
+pub(crate) fn archived_pricing_rows(
+    storage: &Storage,
+    request: &SummaryRequest,
+) -> Result<Vec<ArchivedPricingRow>, CoreError> {
+    let calendar = Calendar::new(&request.timezone)?;
+    let mut out = Vec::new();
+    visit_summary_rows(storage, request, |row| {
+        if !row.sealed || row.event_count <= row.attempt_count {
+            return Ok(());
+        }
+        let start = calendar.day_range_ms(row.local_day)?.0;
+        let end_day = if row.from_period {
+            period_key_of(
+                &calendar,
+                request.granularity,
+                request.week_start,
+                row.local_day,
+                row.hour,
+            )
+            .2
+        } else {
+            row.local_day
+        };
+        // Aggregate fields can cover different samples. Preserve the saved split;
+        // subtracting independently known sums would invent uncached usage.
+        let known_tokens_floor = row
+            .input_known_sum
+            .unwrap_or(0)
+            .checked_add(row.output_known_sum.unwrap_or(0))
+            .ok_or(CoreError::Overflow("archive known tokens"))?
+            .max(row.total_known_sum.unwrap_or(0));
+        let end_ms = calendar.day_range_ms(end_day)?.1;
+        let alias = |at| {
+            crate::model_names::reference_model_key_for(
+                &row.model_original,
+                Some(&row.provider_id),
+                at,
+            )
+        };
+        let alias_stable = alias(start) == alias(end_ms - 1);
+        out.push(ArchivedPricingRow {
+            event: crate::pricing::PricingEvent {
+                provider_id: Some(row.provider_id),
+                model_raw: Some(row.model_original),
+                occurred_at_ms: start,
+                input_uncached: row.uncached_known_sum,
+                // Aggregate input is not a request size, nor necessarily the same sample set.
+                input_total: None,
+                input_cache_read: row.cache_read_known_sum,
+                input_cache_write: row.cache_write_known_sum,
+                output_total: row.output_known_sum,
+                ..Default::default()
+            },
+            day: row.local_day.to_string(),
+            hour: row.hour,
+            count: row.event_count - row.attempt_count,
+            partial: row.quality_bucket != "complete",
+            from_period: row.from_period,
+            instance: row.instance_id,
+            agent: row.agent,
+            category: row.call_category,
+            quality: row.quality_bucket,
+            end_ms,
+            known_tokens_floor,
+            alias_stable,
+        });
+        Ok(())
+    })?;
+    Ok(out)
 }
 
 fn visit_summary_rows(
@@ -965,6 +1061,7 @@ fn visit_daily_rows_from(
             .or_insert_with(|| crate::model_names::model_key(&raw))
             .clone();
         Ok(DailyRow {
+            model_original: raw,
             local_day,
             instance_id: r.get(1)?,
             hour: None,
@@ -1488,6 +1585,9 @@ fn load_hourly_as_daily(
                 conflict_count,
                 NOT EXISTS(SELECT 1 FROM daily_usage d WHERE d.tz_version = hourly_usage.tz_version
                   AND d.local_day = hourly_usage.local_day AND d.instance_id = hourly_usage.instance_id
+                   AND d.agent = hourly_usage.agent AND d.provider_id = hourly_usage.provider_id
+                   AND d.model_raw = hourly_usage.model_raw AND d.call_category = hourly_usage.call_category
+                   AND d.quality_bucket = hourly_usage.quality_bucket
                   AND d.sealed = 0) as sealed
          FROM hourly_usage
          WHERE tz_version = ?1 AND local_day >= ?2 AND local_day <= ?3",
@@ -1502,6 +1602,7 @@ fn load_hourly_as_daily(
     let mut stmt = storage.conn().prepare(&sql)?;
     let rows = stmt.query_map(rusqlite::params_from_iter(values), |r| {
         Ok(DailyRow {
+            model_original: r.get(5)?,
             local_day: parse_date(&r.get::<_, String>(0)?)
                 .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
             instance_id: r.get(2)?,

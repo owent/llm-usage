@@ -425,13 +425,17 @@ pub struct PriceBook {
 pub enum EventEstimate {
     /// 至少一个分量计价成功（其余分量可能未计价——见 known/priced token 与
     /// 分量 Option）。
-    Priced(EventEstimateAmounts),
+    Priced(Box<EventEstimateAmounts>),
     /// 整条事件未计价（金额空，不写 0）。
     Unpriced(UnpricedReason),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EventEstimateAmounts {
+    /// Exact token * rate numerators, retained until the reporting scope is summed.
+    pub component_numerators: [Option<i128>; 4],
+    /// Aggregate context tiers are unknown; this is the upper bound for priced components.
+    pub upper_numerators: Option<[Option<i128>; 4]>,
     pub currency: String,
     /// 分量金额（最小货币单位）；None = 该分量未计价（token 已知但价格缺）。
     pub input_amount_minor: Option<i64>,
@@ -451,6 +455,8 @@ pub struct EventEstimateAmounts {
     /// 无精确 provider+模型匹配时采用了官方供应商按量价行（参考估算；
     /// pricing.md 在线刷新设计）。
     pub official_fallback: bool,
+    /// Actual price model for an explicitly authorized cross-model reference.
+    pub substitute_model: Option<String>,
     /// 参与计价的价格行（追溯）。
     pub matched_price_ids: Vec<String>,
 }
@@ -512,6 +518,13 @@ enum Slot {
 }
 
 impl Slot {
+    fn index(self) -> usize {
+        match self {
+            Self::Input => 0,
+            Self::CacheRead => 1,
+            Self::Output => 3,
+        }
+    }
     fn set_amount(self, a: &mut EventEstimateAmounts, amount: i64) {
         match self {
             Slot::Input => a.input_amount_minor = Some(amount),
@@ -532,14 +545,21 @@ impl PriceBook {
                 .or(event.model_raw.as_deref())
                 .unwrap_or_default(),
         );
-        let reference = crate::model_names::reference_model_key_at(&model, event.occurred_at_ms);
+        let reference = crate::model_names::reference_model_key_for(
+            &model,
+            event.provider_id.as_deref(),
+            event.occurred_at_ms,
+        );
         PriceBook {
             rows: self
                 .rows
                 .iter()
                 .filter(|r| {
                     let key = crate::model_names::model_key(&r.model);
-                    key == model || key == reference
+                    key == model
+                        || key == reference
+                        || crate::model_names::reference_price_substitute(&reference)
+                            == Some(key.as_str())
                 })
                 .cloned()
                 .collect(),
@@ -552,7 +572,7 @@ impl PriceBook {
         event: &PricingEvent,
         options: &EstimateOptions,
     ) -> EventEstimate {
-        self.estimate(event, options, event.occurred_at_ms)
+        self.estimate_inner(event, options, event.occurred_at_ms, false, false)
     }
 
     /// 按指定参考时点计价：`at_ms` 传入评估时点（now）即为"按当前价格模拟"。
@@ -561,6 +581,28 @@ impl PriceBook {
         event: &PricingEvent,
         options: &EstimateOptions,
         at_ms: i64,
+    ) -> EventEstimate {
+        self.estimate_inner(event, options, at_ms, false, true)
+    }
+
+    /// Archived token sums cannot identify a request's context tier. Return
+    /// component-wise bounds over a single selected tariff, never tier by day sum.
+    pub fn estimate_aggregate(
+        &self,
+        event: &PricingEvent,
+        options: &EstimateOptions,
+        at_ms: i64,
+    ) -> EventEstimate {
+        self.estimate_inner(event, options, at_ms, true, true)
+    }
+
+    fn estimate_inner(
+        &self,
+        event: &PricingEvent,
+        options: &EstimateOptions,
+        at_ms: i64,
+        aggregate: bool,
+        allow_substitute: bool,
     ) -> EventEstimate {
         let provider = event
             .provider_id
@@ -579,8 +621,11 @@ impl PriceBook {
             _ => return EventEstimate::Unpriced(UnpricedReason::NoModel),
         };
         let configured = options.provider_channels.get(&provider);
-        let reference_model =
-            crate::model_names::reference_model_key_at(&model, event.occurred_at_ms);
+        let reference_model = crate::model_names::reference_model_key_for(
+            &model,
+            event.provider_id.as_deref(),
+            event.occurred_at_ms,
+        );
 
         // 异常 token：负值 / 缓存大于已知总输入（不用 max(0,…) 修饰）。
         let read = event.input_cache_read;
@@ -664,6 +709,42 @@ impl PriceBook {
                 })
                 .collect();
             if fallback.is_empty() {
+                if allow_substitute {
+                    if let Some(substitute) =
+                        crate::model_names::reference_price_substitute(&reference_model)
+                    {
+                        // Reuse channel/currency/tier validation, but only official
+                        // rows of this explicitly allowed substitute can participate.
+                        let substitute_book = PriceBook {
+                            rows: self
+                                .rows
+                                .iter()
+                                .filter(|r| {
+                                    r.official_vendor
+                                        && crate::model_names::model_key(&r.model) == substitute
+                                        && crate::model_names::official_providers(substitute)
+                                            .iter()
+                                            .any(|p| r.provider_id.eq_ignore_ascii_case(p))
+                                })
+                                .cloned()
+                                .collect(),
+                        };
+                        let mut reference_event = event.clone();
+                        reference_event.model_canonical = Some(substitute.into());
+                        let mut result = substitute_book.estimate_inner(
+                            &reference_event,
+                            options,
+                            at_ms,
+                            aggregate,
+                            false,
+                        );
+                        if let EventEstimate::Priced(amounts) = &mut result {
+                            amounts.substitute_model = Some(substitute.into());
+                            amounts.official_fallback = true;
+                        }
+                        return result;
+                    }
+                }
                 return EventEstimate::Unpriced(
                     if !crate::model_names::official_providers(&reference_model).is_empty() {
                         UnpricedReason::NoPriceRow
@@ -754,6 +835,43 @@ impl PriceBook {
         {
             return EventEstimate::Unpriced(UnpricedReason::ModelAmbiguous);
         }
+        // A tariff's tiers must come from one prioritized snapshot. Combining a
+        // newer base rate with an older long-context rate creates a fictitious tariff.
+        let snapshot = candidates[0].snapshot_id.clone();
+        candidates.retain(|r| r.snapshot_id == snapshot);
+        if aggregate {
+            if !candidates.iter().any(|r| r.context_threshold_tokens == 0) {
+                return EventEstimate::Unpriced(UnpricedReason::TierAmbiguous);
+            }
+            let mut low = candidates[0].clone();
+            let mut high = low.clone();
+            macro_rules! bounds {
+                ($field:ident) => {{
+                    let values: Option<Vec<i64>> = candidates.iter().map(|r| r.$field).collect();
+                    low.$field = values.as_ref().and_then(|v| v.iter().min().copied());
+                    high.$field = values.as_ref().and_then(|v| v.iter().max().copied());
+                }};
+            }
+            bounds!(input_per_mtok_hundredths);
+            bounds!(cache_read_per_mtok_hundredths);
+            bounds!(cache_write_5m_per_mtok_hundredths);
+            bounds!(cache_write_1h_per_mtok_hundredths);
+            bounds!(output_per_mtok_hundredths);
+            return match (
+                self.price_with_row(event, options, &low),
+                self.price_with_row(event, options, &high),
+            ) {
+                (EventEstimate::Priced(mut a), EventEstimate::Priced(b)) => {
+                    if a.component_numerators != b.component_numerators {
+                        a.upper_numerators = Some(b.component_numerators);
+                    }
+                    a.official_fallback = official_fallback;
+                    a.matched_price_ids = candidates.iter().map(|r| r.price_id.clone()).collect();
+                    EventEstimate::Priced(a)
+                }
+                (other, _) => other,
+            };
+        }
         // 即使只有一个高档价格行，也必须验证输入达到该行阈值。
         // 多档且输入规模未知时不能从价格簿顺序猜测档位。
         let input_size = total_input.or_else(|| {
@@ -813,6 +931,8 @@ impl PriceBook {
         );
 
         let mut amounts = EventEstimateAmounts {
+            component_numerators: [None; 4],
+            upper_numerators: None,
             currency: row.currency.clone(),
             input_amount_minor: None,
             cache_read_amount_minor: None,
@@ -824,6 +944,7 @@ impl PriceBook {
             has_unknown_components: uncached.is_none() || event.output_total.is_none(),
             ttl_defaulted: false,
             official_fallback: false,
+            substitute_model: None,
             matched_price_ids: vec![row.price_id.clone()],
         };
 
@@ -845,6 +966,7 @@ impl PriceBook {
                 None => return Ok(()), // 分量未计价：价格列缺失
             };
             let amount = component_amount_minor(tok, p)?;
+            amounts.component_numerators[slot.index()] = Some(i128::from(tok) * i128::from(p));
             amounts.total_amount_minor = amounts
                 .total_amount_minor
                 .checked_add(amount)
@@ -891,6 +1013,7 @@ impl PriceBook {
                 .ok_or(CoreError::Overflow("cost known tokens"))?;
             // 已知零写入无需猜测 TTL，也不会产生写入费用。
             if write == 0 {
+                amounts.component_numerators[2] = Some(0);
                 amounts.cache_write_amount_minor = Some(0);
                 return Ok(());
             }
@@ -901,6 +1024,7 @@ impl PriceBook {
             });
             match price {
                 Some(p) => {
+                    amounts.component_numerators[2] = Some(i128::from(write) * i128::from(p));
                     let amount = component_amount_minor(write, p)?;
                     amounts.total_amount_minor = amounts
                         .total_amount_minor
@@ -931,7 +1055,7 @@ impl PriceBook {
                     // 所有分量均未计价（价格列缺失或 token 未知）：整条未计价。
                     EventEstimate::Unpriced(UnpricedReason::NoPriceRow)
                 } else {
-                    EventEstimate::Priced(amounts)
+                    EventEstimate::Priced(Box::new(amounts))
                 }
             }
             Err(CoreError::Overflow(_)) => {

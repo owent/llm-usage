@@ -522,10 +522,11 @@ fn v29_contract_amounts_and_anomalies() {
 
     // E1（P1/CNY）：2056 分；E6/E7/E5 档位、A2 部分计价、A5 与 src2 见下。
     let cny = currency_row(&summary, at_time, "CNY");
-    // E1 2056 + E6 29 + E7 22 + A2 800 + A5 29 + src2 估算 4 = 2940 分。
+    // GLM-5.3 未缓存输入先累计 987.6536+800+0.8=1788.4536 → 1788 分，
+    // 避免分别舍入产生 988+800+1。GLM-5.1 输入 72 分，CNY 合计 2939 分。
     // A5：read 100,000 使输入合计 132,767 ≥ 32,768 → P6 档（读价 NULL 未计价）。
-    assert_eq!(cny.total_amount_minor, 2056 + 29 + 22 + 800 + 29 + 4);
-    assert_eq!(cny.input_amount_minor, Some(988 + 26 + 20 + 800 + 26 + 1));
+    assert_eq!(cny.total_amount_minor, 2939);
+    assert_eq!(cny.input_amount_minor, Some(1788 + 72));
     // E1 的 200,000 写 token 与 A5 的 100,000 读 token 未计价 → known > priced。
     assert!(cny.known_tokens > cny.priced_tokens);
     // 部分：E1（写未计价）、A2（输出未知）、A5（读未计价）。
@@ -882,7 +883,15 @@ fn v29_current_sim_marks_partial_detail_retention_by_filter() {
     };
     let all = summary(CostFilters::default());
     assert!(all.current_sim.detail_limited);
-    assert_eq!(currency_row(&all, current_sim, "CNY").priced_event_count, 1);
+    assert_eq!(currency_row(&all, current_sim, "CNY").priced_event_count, 2);
+    assert_eq!(
+        currency_row(&all, current_sim, "CNY").aggregate_event_count,
+        1
+    );
+    assert_eq!(
+        currency_row(&all, current_sim, "CNY").total_amount_minor,
+        1600
+    );
     let recent_only = summary(CostFilters {
         agents: vec!["agent-b".into()],
         ..CostFilters::default()
@@ -974,7 +983,7 @@ fn v29_seed_snapshot_imports_idempotently() {
     assert!(out2.already_present);
     assert_eq!(out2.inserted_rows, 0);
     let snapshots = storage.list_price_snapshots().unwrap();
-    assert_eq!(snapshots.len(), 3);
+    assert_eq!(snapshots.len(), 4);
     let original = snapshots
         .iter()
         .find(|s| s.snapshot_id == "seed-2026-09-25")

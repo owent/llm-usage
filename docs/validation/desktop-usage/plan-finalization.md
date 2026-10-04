@@ -1,6 +1,6 @@
 # 原生交互、归档增量与规模验收
 
-日期：2026-10-04；版本 0.2.0；cwd：D:/workspace/projs/github/owent/llm-usage。
+日期：2026-10-04；版本 0.2.1；cwd：D:/workspace/projs/github/owent/llm-usage。
 Windows 11 Pro x64 10.0.26300；Ryzen 9 9950X3D（16 核/32 线程）、约 125 GiB RAM。
 Node 24.21.0、Rust 1.98、Tauri CLI 2.12.0、WebView2 154.0.4258.53。
 依赖以锁文件为准。本页保留该日较早批次的结果；后续查询加速、资源及并行采集

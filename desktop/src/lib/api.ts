@@ -81,6 +81,9 @@ export interface PricingSettings {
 
 /** 按币种分列的金额行（最小货币单位；不同币种不合并）。 */
 export interface CostCurrencyRowDto {
+  substitute_models?: string[];
+  upper_amount_minor?: number | null;
+  aggregate_event_count?: number;
   currency: string;
   total_amount_minor: number;
   input_amount_minor: number | null;

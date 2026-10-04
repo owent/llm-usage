@@ -1,7 +1,7 @@
 # 选区联动与 Kilo 来源健康验收
 
 2026-10-03–04；Windows 11 Pro x64、Node 24.21.0、Rust 1.98、Edge/WebView2
-154.0.4258.53。版本 0.2.0；依赖以锁文件为准，环境见 [最新验收](current-acceptance.md)。
+154.0.4258.53。版本 0.2.1；依赖以锁文件为准，环境见 [最新验收](current-acceptance.md)。
 
 ## 当前行为
 

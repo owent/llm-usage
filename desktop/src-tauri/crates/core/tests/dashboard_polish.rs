@@ -167,7 +167,7 @@ fn repeated_dst_hour_matches_the_single_displayed_label() {
         "both DST folds match the selected local hour"
     );
     assert_eq!(
-        cost.current_sim.rows[0].total_amount_minor, 0,
-        "per-event rounding preserves a known zero amount for these small outputs"
+        cost.current_sim.rows[0].total_amount_minor, 1,
+        "both DST folds accumulate before rounding the selected day/model"
     );
 }

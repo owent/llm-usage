@@ -62,6 +62,7 @@ type ModelRates = BTreeMap<(String, String), BTreeMap<String, PriceRow>>;
 
 #[derive(Default)]
 struct CurrentReference {
+    detail_limited: bool,
     rows: Vec<CostCurrencyRow>,
     unpriced: BTreeMap<String, i64>,
     daily: DayCosts,
@@ -97,6 +98,9 @@ impl Storage {
         let hy4 =
             crate::pricing::parse_snapshot_json(include_str!("../../prices/seed-2026-10-03.json"))?;
         import_price_snapshot_tx(&tx, &hy4, now_ms)?;
+        let current =
+            crate::pricing::parse_snapshot_json(include_str!("../../prices/seed-2026-10-05.json"))?;
+        import_price_snapshot_tx(&tx, &current, now_ms)?;
         tx.commit()?;
         // Preserve the public return contract for the original seed snapshot.
         Ok(result)
@@ -173,11 +177,11 @@ impl Storage {
                 r.get(0)
             })
             .optional()?;
-        if policy.as_deref() == Some("official-reference-4") {
+        if policy.as_deref() == Some("official-reference-5") {
             return Ok(());
         }
         self.recompute_unsealed_cost_days(timezone, now_ms, options)?;
-        self.conn().execute("INSERT INTO settings(key,value,schema_version,updated_at_ms) VALUES(?1,'official-reference-4',1,?2)
+        self.conn().execute("INSERT INTO settings(key,value,schema_version,updated_at_ms) VALUES(?1,'official-reference-5',1,?2)
             ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at_ms=excluded.updated_at_ms",params![key,now_ms])?;
         Ok(())
     }
@@ -245,6 +249,25 @@ impl Storage {
         request: &CostSummaryRequest,
         hours: Option<(&str, &str)>,
     ) -> Result<CostSummary, CoreError> {
+        self.cost_summary_for_view(
+            request,
+            hours,
+            if hours.is_some() {
+                crate::query::Granularity::Hour
+            } else {
+                crate::query::Granularity::Day
+            },
+            crate::calendar::WeekStart::Monday,
+        )
+    }
+
+    pub fn cost_summary_for_view(
+        &self,
+        request: &CostSummaryRequest,
+        hours: Option<(&str, &str)>,
+        granularity: crate::query::Granularity,
+        week_start: crate::calendar::WeekStart,
+    ) -> Result<CostSummary, CoreError> {
         if let Some((first, last)) = hours {
             let valid = |label: &str| {
                 label.split_once(' ').is_some_and(|(day, hour)| {
@@ -272,6 +295,7 @@ impl Storage {
             calendar.day_range_ms(last_day)?.1,
         );
 
+        let snapshot = self.conn().unchecked_transaction()?;
         // 1) 日成本行（按发生时价 + 来源金额）。
         let mut filter_sql = String::new();
         let filter_params: Vec<rusqlite::types::Value> = vec![
@@ -381,21 +405,22 @@ impl Storage {
                 partial_event_count: partial_events,
                 ttl_defaulted_events: ttl_defaulted,
                 fallback_event_count: fallback_events,
+                ..Default::default()
             };
             match kind.as_str() {
                 KIND_ESTIMATE_AT_TIME => {
                     let model_key = (
-                        provider.to_lowercase(),
+                        provider.trim().to_lowercase(),
                         crate::model_names::model_key(&model),
                     );
                     merge_currency_row(
                         &mut models.entry(model_key.clone()).or_default().0,
                         entry.clone(),
-                    );
+                    )?;
                     merge_currency_row(
                         daily.entry((day, model_key.0, model_key.1)).or_default(),
                         entry.clone(),
-                    );
+                    )?;
                     if currency.is_empty() {
                         // currency='' 行只携带未计价计数。
                         if let Some(row) = at_time.get_mut("") {
@@ -417,15 +442,16 @@ impl Storage {
                                     partial_event_count: 0,
                                     ttl_defaulted_events: 0,
                                     fallback_event_count: 0,
+                                    ..Default::default()
                                 },
                             );
                         }
                     } else {
-                        merge_currency_row(&mut at_time, entry);
+                        merge_currency_row(&mut at_time, entry)?;
                     }
                 }
                 KIND_SOURCE_REPORTED | KIND_SOURCE_ESTIMATE => {
-                    merge_currency_row(&mut source_amounts, entry);
+                    merge_currency_row(&mut source_amounts, entry)?;
                 }
                 _ => {}
             }
@@ -466,28 +492,22 @@ impl Storage {
             .unwrap_or(0)
         };
 
-        // 2) 按当前价格模拟（即时，仅明细仍在的事件）。
-        let mut reference =
-            self.cost_summary_current_sim(range_start, range_end, request, &mut models, hours)?;
-        // 区间内只要有一个匹配筛选的日已封存，模拟就缺少该日明细。
-        // 不能仅在整个区间没有任何明细时提示，否则混合新旧日期会漏报。
-        let detail_limited: bool = self.conn().query_row(
-            &format!(
-                "SELECT EXISTS(SELECT 1 FROM daily_usage
-                 WHERE tz_version = ?1 AND local_day >= ?2 AND local_day <= ?3
-                   AND sealed = 1 AND call_count > 0{filter_sql})"
-            ),
-            rusqlite::params_from_iter(filter_params.iter()),
-            |r| r.get(0),
+        // 2) 按当前价格模拟，覆盖相同视图的明细与归档。
+        let mut reference = self.cost_summary_current_sim(
+            range_start,
+            range_end,
+            request,
+            &mut models,
+            hours,
+            (granularity, week_start),
         )?;
-
         let mut current_sim = CostModeSummary {
             rows: reference.rows,
             unpriced_reasons: reference.unpriced,
             ..Default::default()
         };
         current_sim.as_of_ms = request.now_ms;
-        current_sim.detail_limited = detail_limited;
+        current_sim.detail_limited = reference.detail_limited;
 
         let mut price_basis = BTreeSet::new();
         {
@@ -509,7 +529,7 @@ impl Storage {
             }
         }
 
-        Ok(CostSummary {
+        let result = CostSummary {
             at_time: CostModeSummary {
                 rows: at_time.into_values().collect(),
                 unpriced_reasons,
@@ -558,10 +578,12 @@ impl Storage {
                 })
                 .collect(),
             daily_current: cost_day_rows(reference.daily),
-        })
+        };
+        snapshot.commit()?;
+        Ok(result)
     }
 
-    /// 按当前价格模拟：遍历区间内仍保留的 model_call 事件即时计价。
+    /// 按当前价格模拟：明细与用量查询选中的封存汇总互斥计价。
     fn cost_summary_current_sim(
         &self,
         range_start: i64,
@@ -569,68 +591,175 @@ impl Storage {
         request: &CostSummaryRequest,
         models: &mut ModelCosts,
         hours: Option<(&str, &str)>,
+        view: (crate::query::Granularity, crate::calendar::WeekStart),
     ) -> Result<CurrentReference, CoreError> {
         let book = self.load_price_book()?;
         let calendar = Calendar::new(&request.timezone)?;
         let rows =
             collect_events_for_pricing(self.conn(), range_start, range_end, &request.filters)?;
+        let archives = crate::query::archived_pricing_rows(
+            self,
+            &crate::query::SummaryRequest {
+                timezone: request.timezone.clone(),
+                first_day: parse_date(&request.first_day)?,
+                last_day: parse_date(&request.last_day)?,
+                today: calendar.local_day_of(request.now_ms)?,
+                granularity: view.0,
+                week_start: view.1,
+                retention_cutoff: None,
+                filters: crate::query::Filters {
+                    agents: request.filters.agents.clone(),
+                    providers: request.filters.providers.clone(),
+                    models: request.filters.models.clone(),
+                    instances: request.filters.instances.clone(),
+                    ..Default::default()
+                },
+            },
+        )?;
+        // The same retained detail may coexist with an imported/sealed aggregate.
+        // Match the full source partition; only one representation contributes.
+        let mut sealed_partitions: BTreeMap<_, Vec<_>> = BTreeMap::new();
+        for a in &archives {
+            sealed_partitions
+                .entry((
+                    a.instance.clone(),
+                    a.agent.clone(),
+                    a.event.provider_id.clone().unwrap_or_default(),
+                    a.event.model_raw.clone().unwrap_or_default(),
+                    a.category.clone(),
+                    a.quality.clone(),
+                ))
+                .or_default()
+                .push((a.event.occurred_at_ms, a.end_ms, a.hour));
+        }
+        let mut inputs = Vec::new();
+        for r in rows {
+            let hour = calendar.local_hour_of(r.event.occurred_at_ms)?;
+            let sealed = sealed_partitions
+                .get(&(
+                    r.instance.clone(),
+                    r.agent.clone(),
+                    r.provider.clone(),
+                    r.model.clone(),
+                    r.category.clone(),
+                    r.quality.clone(),
+                ))
+                .is_some_and(|ranges| {
+                    ranges.iter().any(|(start, end, h)| {
+                        *start <= r.event.occurred_at_ms
+                            && r.event.occurred_at_ms < *end
+                            && h.map_or(true, |h| h == i64::from(hour))
+                    })
+                });
+            if !sealed {
+                inputs.push((
+                    calendar.local_day_of(r.event.occurred_at_ms)?.to_string(),
+                    Some(i64::from(hour)),
+                    r.event,
+                    1,
+                    false,
+                    false,
+                    false,
+                    0,
+                    true,
+                ));
+            }
+        }
+        for a in archives {
+            inputs.push((
+                a.day,
+                a.hour,
+                a.event,
+                a.count,
+                true,
+                a.partial,
+                a.from_period,
+                a.known_tokens_floor,
+                a.alias_stable,
+            ));
+        }
         let mut by_currency: BTreeMap<String, CostCurrencyRow> = BTreeMap::new();
         let mut unpriced: BTreeMap<String, i64> = BTreeMap::new();
         let mut unpriced_events_total = 0i64;
         let mut books: BTreeMap<(String, String), PriceBook> = BTreeMap::new();
         let mut daily = DayCosts::new();
+        let mut coarse = DayCosts::new();
         let mut rates = ModelRates::new();
         let mut model_reasons: BTreeMap<(String, String), BTreeMap<String, i64>> = BTreeMap::new();
         let mut reference_models: BTreeMap<(String, String), BTreeSet<String>> = BTreeMap::new();
-        for row in &rows {
-            let day = calendar.local_day_of(row.event.occurred_at_ms)?.to_string();
+        let mut detail_limited = false;
+        for (day, hour, event, count, aggregate, partial, from_period, known_floor, alias_stable) in
+            inputs
+        {
             if let Some((first, last)) = hours {
-                let label = format!(
-                    "{} {:02}:00",
-                    day,
-                    calendar.local_hour_of(row.event.occurred_at_ms)?
-                );
+                let label = format!("{} {:02}:00", day, hour.unwrap_or(-1));
                 if label.as_str() < first || label.as_str() > last {
                     continue;
                 }
             }
+            detail_limited |= aggregate;
             let key = crate::model_names::model_key(
-                row.event
+                event
                     .model_canonical
                     .as_deref()
                     .filter(|m| !m.trim().is_empty())
-                    .or(row.event.model_raw.as_deref())
+                    .or(event.model_raw.as_deref())
                     .unwrap_or_default(),
             );
             let book = books
                 .entry((
                     key.clone(),
-                    crate::model_names::reference_model_key_at(&key, row.event.occurred_at_ms),
+                    crate::model_names::reference_model_key_for(
+                        &key,
+                        event.provider_id.as_deref(),
+                        event.occurred_at_ms,
+                    ),
                 ))
-                .or_insert_with(|| book.for_model(&row.event));
+                .or_insert_with(|| book.for_model(&event));
             let model_key = (
-                row.provider.to_lowercase(),
-                crate::model_names::model_key(&row.model),
+                event
+                    .provider_id
+                    .as_deref()
+                    .unwrap_or_default()
+                    .trim()
+                    .to_lowercase(),
+                crate::model_names::model_key(event.model_raw.as_deref().unwrap_or_default()),
             );
             let model = &mut models.entry(model_key.clone()).or_default().1;
             reference_models
                 .entry(model_key.clone())
                 .or_default()
-                .insert(crate::model_names::reference_model_key_at(
-                    &row.model,
-                    row.event.occurred_at_ms,
+                .insert(crate::model_names::reference_model_key_for(
+                    event.model_raw.as_deref().unwrap_or_default(),
+                    event.provider_id.as_deref(),
+                    event.occurred_at_ms,
                 ));
-            match book.estimate(&row.event, &request.options, request.now_ms) {
-                EventEstimate::Priced(amounts) => {
-                    let day_costs = daily
-                        .entry((day, model_key.0.clone(), model_key.1.clone()))
-                        .or_default();
-                    accumulate_amounts(
-                        day_costs
-                            .entry(amounts.currency.clone())
-                            .or_insert_with(|| CostCurrencyRow::empty(amounts.currency.clone())),
-                        &amounts,
-                    );
+            let estimate = if !alias_stable {
+                EventEstimate::Unpriced(crate::pricing::UnpricedReason::ModelAmbiguous)
+            } else if aggregate {
+                book.estimate_aggregate(&event, &request.options, request.now_ms)
+            } else {
+                book.estimate(&event, &request.options, request.now_ms)
+            };
+            match estimate {
+                EventEstimate::Priced(mut amounts) => {
+                    amounts.has_unknown_components |= partial;
+                    amounts.known_tokens = amounts.known_tokens.max(known_floor);
+                    {
+                        let day_costs = (if from_period { &mut coarse } else { &mut daily })
+                            .entry((day, model_key.0.clone(), model_key.1.clone()))
+                            .or_default();
+                        accumulate_amounts(
+                            day_costs
+                                .entry(amounts.currency.clone())
+                                .or_insert_with(|| {
+                                    CostCurrencyRow::empty(amounts.currency.clone())
+                                }),
+                            &amounts,
+                            count,
+                            aggregate,
+                        )?;
+                    }
                     let model_rates = rates.entry(model_key).or_default();
                     for id in &amounts.matched_price_ids {
                         if !model_rates.contains_key(id) {
@@ -641,33 +770,39 @@ impl Storage {
                             }
                         }
                     }
-                    let entry = by_currency
-                        .entry(amounts.currency.clone())
-                        .or_insert_with(|| CostCurrencyRow::empty(amounts.currency.clone()));
-                    accumulate_amounts(entry, &amounts);
-                    accumulate_amounts(
-                        model
-                            .entry(amounts.currency.clone())
-                            .or_insert_with(|| CostCurrencyRow::empty(amounts.currency.clone())),
-                        &amounts,
-                    );
                 }
                 EventEstimate::Unpriced(reason) => {
                     *model_reasons
                         .entry(model_key.clone())
                         .or_default()
                         .entry(reason.as_str().into())
-                        .or_default() += 1;
-                    daily
-                        .entry((day, model_key.0, model_key.1))
-                        .or_default()
-                        .entry(String::new())
-                        .or_default()
-                        .unpriced_event_count += 1;
-                    unpriced_events_total += 1;
-                    *unpriced.entry(reason.as_str().to_string()).or_insert(0) += 1;
-                    model.entry(String::new()).or_default().unpriced_event_count += 1;
+                        .or_default() += count;
+                    if !from_period {
+                        daily
+                            .entry((day, model_key.0, model_key.1))
+                            .or_default()
+                            .entry(String::new())
+                            .or_default()
+                            .unpriced_event_count += count;
+                    }
+                    unpriced_events_total += count;
+                    *unpriced.entry(reason.as_str().to_string()).or_insert(0) += count;
+                    model.entry(String::new()).or_default().unpriced_event_count += count;
                 }
+            }
+        }
+        // Round once per displayed day/model/currency (or indivisible archive
+        // period), then roll up those amounts so the table and totals reconcile.
+        for ((_, provider, model), currencies) in daily.iter().chain(coarse.iter()) {
+            for entry in currencies.values().filter(|e| !e.currency.is_empty()) {
+                merge_currency_row(&mut by_currency, entry.clone())?;
+                merge_currency_row(
+                    &mut models
+                        .entry((provider.clone(), model.clone()))
+                        .or_default()
+                        .1,
+                    entry.clone(),
+                )?;
             }
         }
         if unpriced_events_total > 0 {
@@ -681,6 +816,7 @@ impl Storage {
             );
         }
         Ok(CurrentReference {
+            detail_limited,
             rows: by_currency.into_values().collect(),
             unpriced,
             daily,
@@ -704,32 +840,63 @@ fn cost_day_rows(days: DayCosts) -> Vec<CostDayRow> {
         .collect()
 }
 
-fn merge_currency_row(map: &mut BTreeMap<String, CostCurrencyRow>, entry: CostCurrencyRow) {
+fn merge_currency_row(
+    map: &mut BTreeMap<String, CostCurrencyRow>,
+    entry: CostCurrencyRow,
+) -> Result<(), CoreError> {
     let row = map
         .entry(entry.currency.clone())
         .or_insert_with(|| CostCurrencyRow::empty(entry.currency.clone()));
-    row.total_amount_minor += entry.total_amount_minor;
-    row.input_amount_minor = sum_opt(row.input_amount_minor, entry.input_amount_minor);
+    for model in entry.substitute_models {
+        if !row.substitute_models.contains(&model) {
+            row.substitute_models.push(model);
+        }
+    }
+    row.substitute_models.sort();
+    if row.upper_amount_minor.is_some() || entry.upper_amount_minor.is_some() {
+        row.upper_amount_minor = Some(
+            row.upper_amount_minor
+                .unwrap_or(row.total_amount_minor)
+                .checked_add(entry.upper_amount_minor.unwrap_or(entry.total_amount_minor))
+                .ok_or(CoreError::Overflow("cost upper total"))?,
+        );
+    }
+    row.total_amount_minor = row
+        .total_amount_minor
+        .checked_add(entry.total_amount_minor)
+        .ok_or(CoreError::Overflow("cost total"))?;
+    row.input_amount_minor = sum_opt(row.input_amount_minor, entry.input_amount_minor)?;
     row.cache_read_amount_minor =
-        sum_opt(row.cache_read_amount_minor, entry.cache_read_amount_minor);
+        sum_opt(row.cache_read_amount_minor, entry.cache_read_amount_minor)?;
     row.cache_write_amount_minor =
-        sum_opt(row.cache_write_amount_minor, entry.cache_write_amount_minor);
-    row.output_amount_minor = sum_opt(row.output_amount_minor, entry.output_amount_minor);
-    row.priced_tokens += entry.priced_tokens;
-    row.known_tokens += entry.known_tokens;
-    row.priced_event_count += entry.priced_event_count;
-    row.unpriced_event_count += entry.unpriced_event_count;
-    row.partial_event_count += entry.partial_event_count;
-    row.ttl_defaulted_events += entry.ttl_defaulted_events;
-    row.fallback_event_count += entry.fallback_event_count;
+        sum_opt(row.cache_write_amount_minor, entry.cache_write_amount_minor)?;
+    row.output_amount_minor = sum_opt(row.output_amount_minor, entry.output_amount_minor)?;
+    for (target, value) in [
+        (&mut row.priced_tokens, entry.priced_tokens),
+        (&mut row.known_tokens, entry.known_tokens),
+        (&mut row.priced_event_count, entry.priced_event_count),
+        (&mut row.unpriced_event_count, entry.unpriced_event_count),
+        (&mut row.partial_event_count, entry.partial_event_count),
+        (&mut row.ttl_defaulted_events, entry.ttl_defaulted_events),
+        (&mut row.fallback_event_count, entry.fallback_event_count),
+        (&mut row.aggregate_event_count, entry.aggregate_event_count),
+    ] {
+        *target = target
+            .checked_add(value)
+            .ok_or(CoreError::Overflow("cost coverage total"))?;
+    }
+    Ok(())
 }
 
-fn sum_opt(a: Option<i64>, b: Option<i64>) -> Option<i64> {
-    match (a, b) {
+fn sum_opt(a: Option<i64>, b: Option<i64>) -> Result<Option<i64>, CoreError> {
+    Ok(match (a, b) {
         (None, None) => None,
         (Some(v), None) | (None, Some(v)) => Some(v),
-        (Some(x), Some(y)) => x.checked_add(y),
-    }
+        (Some(x), Some(y)) => Some(
+            x.checked_add(y)
+                .ok_or(CoreError::Overflow("cost component sum"))?,
+        ),
+    })
 }
 
 /// 事务内导入快照（幂等：同 ID 同内容跳过；同 ID 异内容拒绝）。
@@ -967,6 +1134,8 @@ fn load_price_book_conn(conn: &Connection) -> Result<PriceBook, CoreError> {
 /// 参与计价的事件（verified model_call，区间内，按筛选）及其维度。
 /// quality 非 known（reported/derived）的字段置 None。
 pub(crate) struct EventWithDims {
+    pub category: String,
+    pub quality: String,
     pub event: crate::pricing::PricingEvent,
     pub instance: String,
     pub agent: String,
@@ -990,7 +1159,7 @@ pub(crate) fn collect_events_for_pricing(
                 input_total, output_total, quality_json,
                 source_instance_id, agent,
                 COALESCE(provider_id, ''), COALESCE(model_raw, ''),
-                cost_amount_minor, cost_currency, cost_kind
+                cost_amount_minor, cost_currency, cost_kind, call_category, quality_bucket
          FROM usage_events
          WHERE occurred_at_ms >= ?1 AND occurred_at_ms < ?2
            AND attribution_status = 'verified' AND record_kind IN ('model_call','usage_observation')",
@@ -1041,6 +1210,8 @@ pub(crate) fn collect_events_for_pricing(
             r.get::<_, Option<i64>>(14)?,
             r.get::<_, Option<String>>(15)?,
             r.get::<_, Option<String>>(16)?,
+            r.get::<_, String>(17)?,
+            r.get::<_, String>(18)?,
         ))
     })?;
     let mut out = Vec::new();
@@ -1063,10 +1234,12 @@ pub(crate) fn collect_events_for_pricing(
             source_amount_minor,
             source_currency,
             source_kind,
+            category,
+            quality,
         ) = row?;
-        let quality: Option<serde_json::Value> = serde_json::from_str(&quality_json).ok();
+        let token_quality: Option<serde_json::Value> = serde_json::from_str(&quality_json).ok();
         let known = |field: &str, value: Option<i64>| -> Option<i64> {
-            let status = quality
+            let status = token_quality
                 .as_ref()
                 .and_then(|q| q.get(field))
                 .and_then(|v| v.as_str());
@@ -1076,6 +1249,8 @@ pub(crate) fn collect_events_for_pricing(
             }
         };
         out.push(EventWithDims {
+            category,
+            quality,
             event: crate::pricing::PricingEvent {
                 provider_id,
                 model_canonical,
@@ -1132,6 +1307,7 @@ pub(crate) fn recompute_cost_day_tx(
     let book = load_price_book_conn(tx)?;
     // 累计键：instance/agent/provider/model/currency/kind。
     struct Acc {
+        exact_cost: CostCurrencyRow,
         instance: String,
         agent: String,
         provider: String,
@@ -1179,6 +1355,7 @@ pub(crate) fn recompute_cost_day_tx(
             kind: &str,
         ) -> Acc {
             Acc {
+                exact_cost: CostCurrencyRow::default(),
                 instance: instance.to_string(),
                 agent: agent.to_string(),
                 provider: provider.to_string(),
@@ -1237,7 +1414,11 @@ pub(crate) fn recompute_cost_day_tx(
         let book = books
             .entry((
                 key.clone(),
-                crate::model_names::reference_model_key_at(&key, row.event.occurred_at_ms),
+                crate::model_names::reference_model_key_for(
+                    &key,
+                    row.event.provider_id.as_deref(),
+                    row.event.occurred_at_ms,
+                ),
             ))
             .or_insert_with(|| book.for_model(&row.event));
         // 1) 按发生时价估算。
@@ -1264,16 +1445,12 @@ pub(crate) fn recompute_cost_day_tx(
                 if amounts.official_fallback {
                     acc.fallback_events += 1;
                 }
-                acc.input_amount = sum_opt(acc.input_amount, amounts.input_amount_minor);
-                acc.cache_read_amount =
-                    sum_opt(acc.cache_read_amount, amounts.cache_read_amount_minor);
-                acc.cache_write_amount =
-                    sum_opt(acc.cache_write_amount, amounts.cache_write_amount_minor);
-                acc.output_amount = sum_opt(acc.output_amount, amounts.output_amount_minor);
-                acc.total_amount = acc
-                    .total_amount
-                    .checked_add(amounts.total_amount_minor)
-                    .ok_or(CoreError::Overflow("daily cost total"))?;
+                accumulate_amounts(&mut acc.exact_cost, &amounts, 1, false)?;
+                acc.input_amount = acc.exact_cost.input_amount_minor;
+                acc.cache_read_amount = acc.exact_cost.cache_read_amount_minor;
+                acc.cache_write_amount = acc.exact_cost.cache_write_amount_minor;
+                acc.output_amount = acc.exact_cost.output_amount_minor;
+                acc.total_amount = acc.exact_cost.total_amount_minor;
                 acc.priced_tokens = acc
                     .priced_tokens
                     .checked_add(amounts.priced_tokens)
@@ -1422,6 +1599,14 @@ pub struct CostSummaryRequest {
 /// 按币种分列的金额行（不同币种不合并；E8）。
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct CostCurrencyRow {
+    pub substitute_models: Vec<String>,
+    /// Bound on the same priced components, when archived request tiers are unknown.
+    pub upper_amount_minor: Option<i64>,
+    pub aggregate_event_count: i64,
+    #[serde(skip)]
+    exact: [Option<i128>; 4],
+    #[serde(skip)]
+    exact_upper: [Option<i128>; 4],
     pub currency: String,
     pub total_amount_minor: i64,
     pub input_amount_minor: Option<i64>,
@@ -1447,30 +1632,94 @@ impl CostCurrencyRow {
     }
 }
 
-fn accumulate_amounts(row: &mut CostCurrencyRow, amounts: &crate::pricing::EventEstimateAmounts) {
-    row.total_amount_minor = row
-        .total_amount_minor
-        .saturating_add(amounts.total_amount_minor);
-    row.input_amount_minor = sum_opt(row.input_amount_minor, amounts.input_amount_minor);
-    row.cache_read_amount_minor =
-        sum_opt(row.cache_read_amount_minor, amounts.cache_read_amount_minor);
-    row.cache_write_amount_minor = sum_opt(
+fn accumulate_amounts(
+    row: &mut CostCurrencyRow,
+    amounts: &crate::pricing::EventEstimateAmounts,
+    count: i64,
+    aggregate: bool,
+) -> Result<(), CoreError> {
+    if let Some(model) = &amounts.substitute_model {
+        if !row.substitute_models.contains(model) {
+            row.substitute_models.push(model.clone());
+            row.substitute_models.sort();
+        }
+    }
+    fn add(target: &mut [Option<i128>; 4], value: [Option<i128>; 4]) -> Result<(), CoreError> {
+        for (target, value) in target.iter_mut().zip(value) {
+            if let Some(value) = value {
+                *target = Some(
+                    target
+                        .unwrap_or(0)
+                        .checked_add(value)
+                        .ok_or(CoreError::Overflow("cost numerator sum"))?,
+                );
+            }
+        }
+        Ok(())
+    }
+    fn rounded(values: [Option<i128>; 4]) -> Result<([Option<i64>; 4], i64), CoreError> {
+        let mut out = [None; 4];
+        let mut total = 0i64;
+        for (slot, value) in out.iter_mut().zip(values) {
+            if let Some(value) = value {
+                let v = i64::try_from(
+                    value
+                        .checked_add(50_000_000)
+                        .ok_or(CoreError::Overflow("cost rounding"))?
+                        / 100_000_000,
+                )
+                .map_err(|_| CoreError::Overflow("cost amount"))?;
+                *slot = Some(v);
+                total = total
+                    .checked_add(v)
+                    .ok_or(CoreError::Overflow("cost total"))?;
+            }
+        }
+        Ok((out, total))
+    }
+    add(&mut row.exact, amounts.component_numerators)?;
+    add(
+        &mut row.exact_upper,
+        amounts
+            .upper_numerators
+            .unwrap_or(amounts.component_numerators),
+    )?;
+    let (components, total) = rounded(row.exact)?;
+    [
+        row.input_amount_minor,
+        row.cache_read_amount_minor,
         row.cache_write_amount_minor,
-        amounts.cache_write_amount_minor,
-    );
-    row.output_amount_minor = sum_opt(row.output_amount_minor, amounts.output_amount_minor);
-    row.priced_tokens = row.priced_tokens.saturating_add(amounts.priced_tokens);
-    row.known_tokens = row.known_tokens.saturating_add(amounts.known_tokens);
-    row.priced_event_count += 1;
+        row.output_amount_minor,
+    ] = components;
+    row.total_amount_minor = total;
+    if amounts.upper_numerators.is_some() || row.upper_amount_minor.is_some() {
+        row.upper_amount_minor = Some(rounded(row.exact_upper)?.1);
+    }
+    row.priced_tokens = row
+        .priced_tokens
+        .checked_add(amounts.priced_tokens)
+        .ok_or(CoreError::Overflow("priced tokens"))?;
+    row.known_tokens = row
+        .known_tokens
+        .checked_add(amounts.known_tokens)
+        .ok_or(CoreError::Overflow("known tokens"))?;
+    row.priced_event_count = row
+        .priced_event_count
+        .checked_add(count)
+        .ok_or(CoreError::Overflow("priced events"))?;
+    if aggregate {
+        row.aggregate_event_count += count;
+    }
     if amounts.priced_tokens < amounts.known_tokens || amounts.has_unknown_components {
-        row.partial_event_count += 1;
+        row.partial_event_count += count;
     }
     if amounts.ttl_defaulted {
-        row.ttl_defaulted_events += 1;
+        row.ttl_defaulted_events += count;
     }
     if amounts.official_fallback {
-        row.fallback_event_count += 1;
+        row.fallback_event_count += count;
     }
+    Ok(())
 }
 
 /// 单一估算模式的汇总（按币种行 + 未计价原因）。
@@ -1491,7 +1740,7 @@ pub struct CostSummary {
     pub at_time: CostModeSummary,
     /// 来源记录金额（reported + 来源自身估算，分列币种）。
     pub source_amounts: Vec<CostCurrencyRow>,
-    /// 按当前价格模拟（即时计算，明细保留范围内）。
+    /// 按当前价格模拟（互斥使用明细或归档中的已知用量）。
     pub current_sim: CostModeSummary,
     /// at_time 引用的价格快照。
     pub price_basis: Vec<String>,

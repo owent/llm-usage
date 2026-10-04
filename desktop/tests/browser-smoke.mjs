@@ -74,7 +74,7 @@ await page.addInitScript(() => {
     if(cmd==='set_current_user') {current=args.userId;return;}
     if(cmd==='summary') {
       const empty = current==='empty';
-      const models = ['gpt-5.4','claude-sonnet-4.6','glm-5.3'];
+      const models = [window.substitutePricing?'k28-agent-preview':'gpt-5.4','claude-sonnet-4.6','glm-5.3'];
       const selected = q.models?.[0];
       if(selected==='gpt-5.4') await new Promise(r=>setTimeout(r,900));
       const n=empty?0:q.first_period?(q.first_period==='2026-09-19'?3:2):selected==='gpt-5.4'?1:selected==='glm-5.3'?3:owners['codex@C:/Users/local/.codex']==='empty'?11:12;
@@ -105,8 +105,21 @@ await page.addInitScript(() => {
       const models=['gpt-5.4','claude-sonnet-4.6','glm-5.3'].map((model,i)=>({model,provider:['openai','anthropic','zhipu'][i],at_time:[{...row,total_amount_minor:[600,400,234][i],priced_event_count:[4,3,3][i]}],current_sim:[{...row,total_amount_minor:(q.first_period?[200,200,100]:[1200,800,468])[i],priced_event_count:[4,3,3][i]}],
         unpriced_reasons:i===2?{no_price_row:3}:{},reference_models:i===2?['synthetic-reference-model']:[model],
         unit_prices:i===2?[]:[{price_id:`mock-${i}`,snapshot_id:'Synthetic unit prices',provider_id:['openai','anthropic'][i],model,currency:row.currency,region:'global',channel:'api',service_tier:'standard',context_threshold_tokens:i===1?200000:0,input_per_mtok_hundredths:window.cnyReference?200000:30000,output_per_mtok_hundredths:150000,cache_read_per_mtok_hundredths:3000,cache_write_5m_per_mtok_hundredths:37500,cache_write_1h_per_mtok_hundredths:null}]}));
+      models[0].unit_prices.push({...models[0].unit_prices[0],price_id:'mock-long',context_threshold_tokens:272001,input_per_mtok_hundredths:60000});
+      const currentRows=[{...row,total_amount_minor:window.cnyReference?12000:q.first_period?500:2468},...(window.multiCurrency?[{...row,currency:'USD',total_amount_minor:2468,partial_event_count:5},{...row,currency:'',priced_event_count:0,unpriced_event_count:197}]:[])];
+      if(window.archivePricing) {
+        mode.detail_limited=true;
+        for(const value of [...currentRows,...models.flatMap(model=>model.current_sim)].filter(value=>value.priced_event_count>0)) {value.upper_amount_minor=value.total_amount_minor*2;value.aggregate_event_count=3;}
+      }
+      if(window.substitutePricing) {
+        models[0].model='k28-agent-preview';
+        models[0].reference_models=['kimi-k2.8-preview'];
+        models[0].current_sim[0].substitute_models=['kimi-k2.7-code'];
+        models[0].unit_prices=[{...models[0].unit_prices[0],model:'kimi-k2.7-code',provider_id:'moonshot',input_per_mtok_hundredths:9500,cache_read_per_mtok_hundredths:1900,output_per_mtok_hundredths:40000,cache_write_5m_per_mtok_hundredths:null}];
+        currentRows[0].substitute_models=['kimi-k2.7-code'];
+      }
       const day=(i)=>q.first_day===q.last_day?q.last_day:`2026-09-${15+i}`;
-      return {at_time:mode,current_sim:{...mode,rows:[{...row,total_amount_minor:window.cnyReference?12000:q.first_period?500:2468},...(window.multiCurrency?[{...row,currency:'USD',total_amount_minor:2468,partial_event_count:5},{...row,currency:'',priced_event_count:0,unpriced_event_count:197}]:[])]},source_amounts:[],price_basis:['Synthetic official reference'],data_revision:revision,models,
+      return {at_time:mode,current_sim:{...mode,rows:currentRows},source_amounts:[],price_basis:['Synthetic official reference'],data_revision:revision,models,
         daily:models.map((model,i)=>({day:day(i),provider:model.provider,model:model.model,sums:model.at_time[0]})),
         daily_current:models.map((model,i)=>({day:day(i),provider:model.provider,model:model.model,sums:model.current_sim[0]}))};
     }
@@ -292,12 +305,14 @@ assert.equal(await page.locator('.today-cards > *').count(),8);
 assert.equal(await page.locator('.today-cards .cost-ref .label').textContent(),'API 参考费用');
 assert.doesNotMatch(await page.locator('.cost-panel').textContent(),/按发生时价|按当前价格模拟|12\.34/,'only the current reference estimate is displayed');
 const priceRequests=await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='cost_summary').length);
-await page.locator('.unit-prices summary').click();
+await page.locator('.unit-prices > summary').click();
+assert.equal(await page.locator('[data-price-model="openai/gpt-5.4"]').count(),1,'multiple tariffs stay in one provider/model row');
+assert.equal(await page.locator('[data-price-model="openai/gpt-5.4"] td').first().locator('.rate').count(),2,'both context tiers remain visible');
 assert.match(await page.locator('.unit-prices').textContent(),/gpt-5\.4[\s\S]*USD 3[\s\S]*USD 15[\s\S]*glm-5\.3[\s\S]*暂无适用单价/,'unit prices show actual model rates and unavailable rows');
 assert.match(await page.locator('.unit-prices').textContent(),/→ synthetic-reference-model[\s\S]*×3/,'unpriced models show the resolved reference model and their own reason count');
 assert.equal(await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='cost_summary').length),priceRequests,'opening prices reuses the loaded reference');
 await page.locator('.unit-prices').screenshot({path:out+'unit-prices.png'});
-await page.locator('.unit-prices summary').click();
+await page.locator('.unit-prices > summary').click();
 assert.equal(await overviewModels.locator('section').evaluate(el=>el.scrollWidth>el.clientWidth),false,'full-width model table avoids desktop scrolling');
 assert.ok(await page.locator('.curve svg').count(),'overview renders the cost curve');
 assert.match(await page.locator('tr').filter({hasText:'vscode-copilot-chat'}).first().textContent(),/—[\s\S]*300,000/,'token observations do not display an invented zero call count');
@@ -662,7 +677,7 @@ await page.getByRole('button',{name:'采集并刷新',exact:true}).click();await
 assert.match(await page.locator('.today-cards .cost-ref').textContent(),/CNY[\s\S]*120\.00[\s\S]*≈ USD[\s\S]*17\.90/,'CNY reference keeps its native value and shows a rounded USD equivalent');
 await page.locator('.coverage-details summary').click();
 assert.match(await page.locator('.cost-panel').textContent(),/来源未提供可计价 token[\s\S]*没有适用的模型价目/,'missing tokens and missing prices have distinct localized explanations');
-await page.locator('.unit-prices summary').click();
+await page.locator('.unit-prices > summary').click();
 assert.match(await page.locator('.unit-prices').textContent(),/2026-10-02[\s\S]*ECB[\s\S]*CNY 20[\s\S]*≈ USD 2\.983/,'unit-price conversion preserves the per-million unit and publishes the FX date');
 assert.equal(await page.locator('.unit-prices a').getAttribute('href'),'https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html');
 await page.screenshot({path:out+'overview-cny-narrow.png',fullPage:true});
@@ -683,9 +698,25 @@ assert.ok(costLayout.height<490,'price reference panel does not tower over the t
 await page.locator('.range-summary').screenshot({path:out+'cost-summary-compact.png'});
 await page.setViewportSize({width:760,height:1000});await page.clock.runFor(200);
 await feePanel.locator('.coverage-details summary').click();
-await feePanel.locator('.unit-prices summary').click();await page.clock.runFor(100);
+await feePanel.locator('.unit-prices > summary').click();await page.clock.runFor(100);
 assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth > innerWidth),false,'expanded multi-currency details do not overflow a narrow window');
 await feePanel.screenshot({path:out+'cost-details-narrow.png'});
+await page.evaluate(()=>{window.archivePricing=true;});
+await page.getByRole('button',{name:'采集并刷新',exact:true}).click();await page.clock.runFor(800);
+assert.match(await page.locator('.tables').textContent(),/上下文档位未知[\s\S]*封存记录/,'archived price ranges and coverage are visible in model details');
+assert.match(await feeCard.textContent(),/–/,'compact total preserves the tariff range');
+const rangeChart=await getChartOptions('.curve');
+assert.ok(rangeChart.series.some(series=>series.name.includes('上界')),'cost curve includes the upper tariff bound');
+assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth > innerWidth),false,'archived ranges do not overflow narrow layouts');
+await feePanel.screenshot({path:out+'cost-archive-range-narrow.png'});
+await page.locator('.tables').screenshot({path:out+'model-archive-range-narrow.png'});
+await page.evaluate(()=>{window.substitutePricing=true;});
+await page.getByRole('button',{name:'采集并刷新',exact:true}).click();await page.clock.runFor(800);
+assert.match(await feeCard.textContent(),/替代参考/,'compact total labels cross-model substitute pricing');
+assert.match(await page.locator('.tables').textContent(),/k28-agent-preview[\s\S]*kimi-k2\.7-code/,'model costs preserve the original ID and explain the substitute');
+assert.match(await feePanel.locator('.unit-prices').textContent(),/kimi-k2\.8-preview[\s\S]*kimi-k2\.7-code/,'unit prices keep identity distinct from price substitution');
+assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth > innerWidth),false,'substitute labels do not overflow narrow layouts');
+await feePanel.screenshot({path:out+'cost-substitute-narrow.png'});
 assert.deepEqual(errors,[]);
 await writeFile(out+'browser-results.json',JSON.stringify({errors,requests:await page.evaluate(()=>window.appCalls.length),checks:['five pages','hourly tokens across three dimensions and single-hour views','concise token tooltip with one lower-bound note','compact multi-currency summary and panel','expanded narrow price details without overflow','full-year light/dark heatmap','year navigation and leap days','future/retained dates','Copilot input with unknown cache split','Copilot unknown total hover and zero output','async telemetry discovery','compact overview with two actions','details navigation and focus','batch partial failure and retry','existing/managed outputs preserved','cross-page progress and undo','installed Agents only','merge configuration preview/apply/undo','ten locale switches','narrow telemetry layout in Chinese/German/Russian','default panel order','source health and compatibility','statistics timezone','initial/idle query counts','stale filter responses','user isolation','source membership without revision','refresh preserves pagination','retention clamps pagination']},null,2));
 console.log('Browser checks passed: hourly tokens in all three grouped dimensions and single-hour views, concise token tooltips, compact multi-currency reference cards/panels and expanded narrow details, total-only series, partial share pies, telemetry batch setup/retry/undo, ten locales, themes, timezone, filters and pagination.');

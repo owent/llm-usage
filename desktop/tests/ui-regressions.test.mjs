@@ -5,7 +5,7 @@ import { loadPanelGroup, savePanelGroup, clearPanelPage } from '../src/lib/panel
 import { durationStatsOf, pivotChartSeries, mergeNamedValues, observedTokenTotal, tokenTotalLabel } from '../src/lib/derive.ts';
 import {modelKey} from '../src/lib/model-names.ts';
 import { escapeHtml } from '../src/lib/chart.ts';
-import {formatAmount,formatUnitPrice,unpricedReasonKey} from '../src/lib/costs.ts';
+import {formatAmount,formatCostRange,formatUnitPrice,unpricedReasonKey} from '../src/lib/costs.ts';
 import {cnyToUsd,referenceFx} from '../src/lib/exchange-rates.ts';
 
 test('compact total labels distinguish complete, lower-bound and missing usage',()=>{
@@ -79,6 +79,12 @@ test('currency formatting distinguishes real zero from chart gaps and invalid va
   for(const value of [null,undefined,'-','',NaN,Infinity,'0']) {
     assert.equal(formatAmount('en','USD',value),'—');
   }
+});
+
+test('archived tariff bounds remain a range including zero and partial amounts',()=>{
+  assert.equal(formatCostRange('en',{currency:'USD',total_amount_minor:1200,upper_amount_minor:1900}),'$12.00 – $19.00');
+  assert.equal(formatCostRange('en',{currency:'USD',total_amount_minor:0,upper_amount_minor:0}),'$0.00 – $0.00');
+  assert.equal(formatCostRange('en',{currency:'USD',total_amount_minor:30,upper_amount_minor:null}),'$0.30');
 });
 
 test('CNY reference conversion preserves units and uses same-day ECB cross rates',()=>{

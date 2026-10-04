@@ -70,10 +70,10 @@ for(const [locale,catalog] of Object.entries(referenceCatalogs)) {
   repairKeys.forEach((key,index)=>catalog[key]=repairPhrases[locale][index]);
 }
 const ambiguousModels:Record<string,string>={
-  'zh-CN':'模型拼写匹配到多个价目 ID，需核对','zh-TW':'模型拼寫符合多個價目 ID，需核對',en:'Model spelling matches multiple catalog IDs',
-  ja:'モデル表記が複数の料金 ID に一致',ko:'모델 표기가 여러 요금 ID와 일치',es:'El nombre coincide con varios ID de tarifas',
-  fr:'Le nom correspond à plusieurs identifiants de tarifs',de:'Modellschreibweise entspricht mehreren Preis-IDs',
-  'pt-BR':'O nome corresponde a vários IDs de tarifas',ru:'Название соответствует нескольким идентификаторам тарифов',
+  'zh-CN':'无法确定唯一的参考型号，需核对','zh-TW':'無法確定唯一的參考型號，需核對',en:'A unique reference model cannot be determined',
+  ja:'参照モデルを一意に特定できません',ko:'참조 모델을 하나로 확인할 수 없습니다',es:'No se puede determinar un modelo de referencia único',
+  fr:'Impossible de déterminer un modèle de référence unique',de:'Kein eindeutiges Referenzmodell bestimmbar',
+  'pt-BR':'Não é possível determinar um único modelo de referência',ru:'Невозможно однозначно определить эталонную модель',
 };
 for(const [locale,catalog] of Object.entries(referenceCatalogs)) catalog['cost.reason.model_ambiguous']=ambiguousModels[locale];
 
@@ -86,4 +86,38 @@ const compactChartPhrases:Record<string,[string,string]>={
 };
 for(const [locale,catalog] of Object.entries(referenceCatalogs)) {
   [catalog['tokens.lowerBound'],catalog['cost.coverageDetails']]=compactChartPhrases[locale];
+}
+
+const archiveCosts:Record<string,[string,string,string,string]>={
+  'zh-CN':['含封存汇总；缺失分项保持未知，逐次档位缺失时显示费用区间。周/月归档不分摊到每日曲线。','含 {count} 条封存记录','上下文档位未知，显示已计价部分的上下界','价格依据'],
+  'zh-TW':['含封存彙總；缺失分項維持未知，逐次級距缺失時顯示費用區間。週/月歸檔不分攤至每日曲線。','含 {count} 條封存記錄','上下文級距未知，顯示已計價部分的上下界','價格依據'],
+  en:['Includes archives; missing components stay unknown. Unknown request tiers produce a price range. Weekly/monthly archives are not spread over daily curves.','Includes {count} archived records','Unknown context tiers: bounds for priced components','Price basis'],
+  ja:['アーカイブ集計を含みます。不明な項目は不明のまま、呼び出し区分が不明なら金額範囲を表示します。週・月集計は日別曲線に配分しません。','保存済み記録 {count} 件を含む','コンテキスト区分不明：計算済み項目の上下限','料金の根拠'],
+  ko:['보관 집계를 포함합니다. 누락 항목은 미상이며 요청 구간이 없으면 비용 범위를 표시합니다. 주·월 집계는 일별 곡선에 배분하지 않습니다.','보관 기록 {count}개 포함','컨텍스트 구간 미상: 계산된 항목의 상·하한','가격 근거'],
+  es:['Incluye archivos; los componentes ausentes siguen desconocidos. Los tramos desconocidos generan un intervalo. Los archivos semanales/mensuales no se reparten por día.','Incluye {count} registros archivados','Tramos desconocidos: límites de los componentes calculados','Base del precio'],
+  fr:['Archives incluses ; les composantes absentes restent inconnues. Les seuils inconnus donnent une fourchette. Les archives hebdomadaires/mensuelles ne sont pas réparties par jour.','Inclut {count} enregistrements archivés','Seuils inconnus : bornes des composantes chiffrées','Base tarifaire'],
+  de:['Archive enthalten; fehlende Bestandteile bleiben unbekannt. Unbekannte Kontextstufen ergeben eine Preisspanne. Wochen-/Monatsarchive werden nicht auf Tage verteilt.','Enthält {count} archivierte Einträge','Unbekannte Kontextstufen: Grenzen der berechneten Anteile','Preisgrundlage'],
+  'pt-BR':['Inclui arquivos; componentes ausentes permanecem desconhecidos. Faixas desconhecidas geram um intervalo. Arquivos semanais/mensais não são distribuídos por dia.','Inclui {count} registros arquivados','Faixas desconhecidas: limites dos componentes calculados','Base do preço'],
+  ru:['Включены архивы; отсутствующие компоненты остаются неизвестными. Неизвестные пороги дают диапазон цены. Недельные/месячные архивы не распределяются по дням.','Включено архивных записей: {count}','Пороги неизвестны: границы рассчитанных компонентов','Основание цены'],
+};
+for(const [locale,catalog] of Object.entries(referenceCatalogs)) {
+  [catalog['cost.detailLimited'],catalog['cost.aggregateCount'],catalog['cost.tierRange'],catalog['cost.priceBasis']]=archiveCosts[locale];
+}
+const upperBounds:Record<string,string>={'zh-CN':'上界','zh-TW':'上界',en:'Upper bound',ja:'上限',ko:'상한',es:'Límite superior',fr:'Borne supérieure',de:'Obergrenze','pt-BR':'Limite superior',ru:'Верхняя граница'};
+for(const [locale,catalog] of Object.entries(referenceCatalogs)) catalog['cost.upperBound']=upperBounds[locale];
+
+const substitutePrices:Record<string,[string,string]>={
+  'zh-CN':['替代参考','缺少本型号价目，按 {models} 替代参考'],
+  'zh-TW':['替代參考','缺少本型號價目，按 {models} 替代參考'],
+  en:['Substitute rate','Model rate unavailable; using {models} as a substitute reference'],
+  ja:['代替料金','このモデルの料金がないため、{models} の料金を参考に使用'],
+  ko:['대체 요금','모델 요금 없음: {models} 요금을 대체 참고로 사용'],
+  es:['Tarifa sustituta','Sin tarifa del modelo; se usa {models} como referencia sustituta'],
+  fr:['Tarif de substitution','Tarif du modèle indisponible ; référence de substitution : {models}'],
+  de:['Ersatzpreis','Modellpreis fehlt; {models} dient als Ersatzreferenz'],
+  'pt-BR':['Tarifa substituta','Sem tarifa do modelo; usando {models} como referência substituta'],
+  ru:['Замещающий тариф','Тариф модели отсутствует; используется справочный тариф {models}'],
+};
+for(const [locale,catalog] of Object.entries(referenceCatalogs)) {
+  [catalog['cost.substituteShort'],catalog['cost.substituteHint']]=substitutePrices[locale];
 }

@@ -14,6 +14,12 @@ export function pricedAmounts(rows:CostCurrencyRowDto[]):CostCurrencyRowDto[] {
   return rows.filter((r)=>r.currency && r.priced_event_count>0);
 }
 
+export function formatCostRange(locale:string,row:Pick<CostCurrencyRowDto,'currency'|'total_amount_minor'|'upper_amount_minor'>):string {
+  const lower=formatAmount(locale,row.currency,row.total_amount_minor);
+  return typeof row.upper_amount_minor==='number' && Number.isFinite(row.upper_amount_minor)
+    ? `${lower} – ${formatAmount(locale,row.currency,row.upper_amount_minor)}` : lower;
+}
+
 /** Hundredths of a minor currency unit per million tokens; preserve small rates. */
 export function formatUnitPrice(locale:string,currency:string,hundredths:number|null):string {
   if(hundredths===null) return '—';

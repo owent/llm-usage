@@ -20,7 +20,7 @@
   const dailyAxis=$derived(periods.some((p)=>/^\d{4}-\d{2}-\d{2} \d{2}:00$/.test(p.label)));
   const plotPeriods=$derived(dailyAxis ? [...new Map(periods.map((p)=>[p.start_day,{...p,label:p.start_day,end_day:p.start_day}])).values()] : periods);
   const groups=$derived.by(()=>{
-    const map=new Map<string,(number|null)[]>();
+    const map=new Map<string,{values:(number|null)[];upper:(number|null)[];bounded:boolean}>();
     for(const row of summary?.daily_current??[]) {
       if(row.sums.currency!==selectedCurrency || !row.sums.priced_event_count) continue;
       let low=0, high=plotPeriods.length;
@@ -28,11 +28,16 @@
       const index=low-1;
       if(index<0 || row.day>plotPeriods[index].end_day) continue;
       const name=modelMode ? row.model||t('common.unknown') : selectedCurrency;
-      const values=map.get(name)??plotPeriods.map(()=>null);
-      values[index]=(values[index]??0)+row.sums.total_amount_minor;
-      map.set(name,values);
+      const group=map.get(name)??{values:plotPeriods.map(()=>null),upper:plotPeriods.map(()=>null),bounded:false};
+      group.values[index]=(group.values[index]??0)+row.sums.total_amount_minor;
+      group.upper[index]=(group.upper[index]??0)+(row.sums.upper_amount_minor??row.sums.total_amount_minor);
+      group.bounded ||= row.sums.upper_amount_minor!=null;
+      map.set(name,group);
     }
-    return [...map].map(([name,values])=>({name,values}));
+    return [...map].flatMap(([name,group])=>[
+      {name,values:group.values,upper:false},
+      ...(group.bounded?[{name:`${name} · ${t('cost.upperBound')}`,values:group.upper,upper:true}]:[]),
+    ]);
   });
   function render() {
     if(!chart) return;
@@ -48,7 +53,7 @@
       xAxis:{type:'category',data:plotPeriods.map((p)=>p.label),triggerEvent:true},
       yAxis:{type:'value',name:selectedCurrency,axisLabel:{formatter:(v:number)=>(v/100).toLocaleString(i18n.locale)}},
       dataZoom:[{type:'slider',bottom:0,height:20},{type:'inside',moveOnMouseMove:false}],
-      series:groups.map((group)=>({name:group.name,type:'line',showSymbol:true,symbolSize:7,connectNulls:false,data:group.values})),
+      series:groups.map((group)=>({name:group.name,type:'line',lineStyle:{type:group.upper?'dashed':'solid'},showSymbol:true,symbolSize:7,connectNulls:false,data:group.values})),
     },{notMerge:true});
     enableRangeBrush(chart);
     untrack(()=>showRangeSelection(chart!,plotPeriods.map((p)=>p.label),selectedRange));
@@ -71,6 +76,7 @@
 </div>
 <div bind:this={el} class="curve" style:height={groups.length ? '240px' : '4px'} role="group" aria-label={`${t('dashboard.costCurve')}. ${t('dashboard.keyboardHint')}`}></div>
 {#if !groups.length}<p class="hint">{t('cost.noData')}</p>{/if}
+{#if groups.some(group=>group.upper)}<p class="hint">{t('cost.tierRange')}</p>{/if}
 <style>
   .controls {display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:12px 0 6px;font-size:12px;}
   button {padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg-input);color:var(--text-secondary);cursor:pointer;}

@@ -1,0 +1,21 @@
+{
+  "format": "llm-usage-price-snapshot/1",
+  "snapshot": {
+    "id": "seed-2026-10-05",
+    "source_type": "seed",
+    "source_urls": [
+      "https://developers.openai.com/api/docs/models/gpt-5.5",
+      "https://developers.openai.com/api/docs/models/gpt-6-sol"
+    ],
+    "fetched_at": "2026-10-05",
+    "verified_at": "2026-10-05",
+    "verified_by": "official model pages",
+    "note": "Standard global API reference; long context begins above 272000 input tokens. Snapshot identity gpt-5.5-2026-04-23 is documented on the GPT-5.5 model page."
+  },
+  "rows": [
+    {"price_id":"openai-gpt-5.5-20261005-short","provider_id":"openai","model":"gpt-5.5","region":"global","channel":"api","effective_from":"2026-10-05","currency":"USD","input":50000,"cache_read":5000,"output":300000,"official_vendor":true},
+    {"price_id":"openai-gpt-5.5-20261005-long","provider_id":"openai","model":"gpt-5.5","region":"global","channel":"api","effective_from":"2026-10-05","currency":"USD","context_threshold_tokens":272001,"input":100000,"cache_read":10000,"output":450000,"official_vendor":true},
+    {"price_id":"openai-gpt-6-sol-20261005-short","provider_id":"openai","model":"gpt-6-sol","region":"global","channel":"api","effective_from":"2026-10-05","currency":"USD","input":20000,"cache_read":2000,"cache_write_5m":25000,"output":100000,"official_vendor":true},
+    {"price_id":"openai-gpt-6-sol-20261005-long","provider_id":"openai","model":"gpt-6-sol","region":"global","channel":"api","effective_from":"2026-10-05","currency":"USD","context_threshold_tokens":272001,"input":40000,"cache_read":4000,"cache_write_5m":50000,"output":150000,"official_vendor":true}
+  ]
+}

@@ -1,7 +1,7 @@
 <script lang="ts">
   import type {CostSummaryDto} from '../lib/api';
   import {i18n,t} from '../lib/i18n.svelte';
-  import {formatAmount,unpricedReasonKey} from '../lib/costs';
+  import {formatCostRange,unpricedReasonKey} from '../lib/costs';
   import {cnyToUsd,referenceFx} from '../lib/exchange-rates';
   import UnitPrices from './UnitPrices.svelte';
   let {summary=null,error=''}:{summary?:CostSummaryDto|null;error?:string}=$props();
@@ -15,11 +15,14 @@
       {#each summary.current_sim.rows as row (row.currency)}
         {#if row.currency && row.priced_event_count}
           {@const usd=cnyToUsd(row.currency,row.total_amount_minor)}
-          <li><span class="amount">{row.currency} {formatAmount(i18n.locale,row.currency,row.total_amount_minor)}</span>
-            {#if usd!==null}<span class="meta" title={t('cost.fxHint',{date:referenceFx.date})}>≈ USD {formatAmount(i18n.locale,'USD',usd)} · ECB {referenceFx.date}</span>{/if}
+          <li><span class="amount">{row.currency} {formatCostRange(i18n.locale,row)}</span>
+            {#if usd!==null}<span class="meta" title={t('cost.fxHint',{date:referenceFx.date})}>≈ USD {formatCostRange(i18n.locale,{currency:'USD',total_amount_minor:usd,upper_amount_minor:row.upper_amount_minor==null?null:cnyToUsd(row.currency,row.upper_amount_minor)})} · ECB {referenceFx.date}</span>{/if}
             <span class="meta">{t('cost.coverage',{priced:tokens(row.priced_tokens),known:tokens(row.known_tokens)})}
               {#if row.partial_event_count} · <span title={t('cost.partialHint')}>{t('cost.partialCount',{count:row.partial_event_count})}</span>{/if}
               {#if row.fallback_event_count} · {t('cost.fallbackCount',{count:row.fallback_event_count})}{/if}
+              {#if row.aggregate_event_count} · {t('cost.aggregateCount',{count:row.aggregate_event_count})}{/if}
+              {#if row.upper_amount_minor!=null} · {t('cost.tierRange')}{/if}
+              {#if row.substitute_models?.length} · {t('cost.substituteHint',{models:row.substitute_models.join(', ')})}{/if}
             </span>
           </li>
         {/if}

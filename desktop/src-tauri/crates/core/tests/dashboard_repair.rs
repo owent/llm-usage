@@ -613,7 +613,7 @@ fn old_cost_policy_is_repaired_for_bare_k3_once_without_touching_sealed_days() {
             |r| r.get(0),
         )
         .unwrap();
-    assert_eq!(marker, "official-reference-4");
+    assert_eq!(marker, "official-reference-5");
     storage
         .conn()
         .execute_batch("UPDATE daily_cost_usage SET sealed=1; UPDATE daily_usage SET sealed=1;")

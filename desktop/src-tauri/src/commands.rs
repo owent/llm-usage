@@ -1766,6 +1766,7 @@ fn cost_summary_query(
 ) -> Result<serde_json::Value, String> {
     let storage = crate::app_state::read_conn(state);
     let instances = user_instances(&storage, current_user)?;
+    let usage_request = build_request(settings, q, instances.clone())?;
     let request = llm_usage_core::storage::pricing::CostSummaryRequest {
         timezone: settings.timezone.clone(),
         first_day: parse_date(&q.first_day)
@@ -1793,7 +1794,12 @@ fn cost_summary_query(
         _ => return Err(err("cost_summary", "incomplete period selection")),
     };
     let summary = storage
-        .cost_summary_selected(&request, hours)
+        .cost_summary_for_view(
+            &request,
+            hours,
+            usage_request.granularity,
+            usage_request.week_start,
+        )
         .map_err(|e| err("cost_summary", e.to_string()))?;
     serde_json::to_value(&summary).map_err(|e| err("serialize", e.to_string()))
 }
