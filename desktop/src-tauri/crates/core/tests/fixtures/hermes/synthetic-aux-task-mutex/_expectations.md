@@ -3,7 +3,7 @@
 场景：同一会话同一模型，主累计行（task=''，input=100，api=3）与独立任务
 辅助累计行（task='background_review'，input=20，api=1）。
 
-固定源码证据：record_auxiliary_usage 只写任务键行、不进主会话总量；
+固定版本源码依据：record_auxiliary_usage 只写任务键行、不进主会话总量；
 两行分属六列组合键，累计互斥。
 
 期望（人工核算，V03 固定数学样本）：

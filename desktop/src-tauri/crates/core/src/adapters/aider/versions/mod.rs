@@ -1,4 +1,4 @@
-//! Aider 版本注册表（V30 目录合同）。
+//! Aider 版本注册表（V30 目录约定）。
 //!
 //! analytics JSONL 无格式版本字段：注册表锚点是文档级格式版本
 //! aider-analytics-doc-1（官方源码 5dc9490 的 analytics.py 事件形状），
@@ -9,7 +9,7 @@ pub mod analytics_doc1;
 /// 当前格式实现标识（"最新内置解析器"由本常量明确指定）。
 pub const LATEST_IMPL_ID: &str = "analytics_doc1";
 
-/// 文档级格式版本：官方源码 5dc9490 analytics 事件口径。
+/// 文档级格式版本：按官方源码 5dc9490 的 analytics 事件定义实现。
 pub const AIDER_FORMAT_VERSION: &str = "aider-analytics-doc-1";
 
 /// 已验证支持的格式版本 → 格式实现。
@@ -24,7 +24,7 @@ pub struct Selection {
 
 /// 按格式版本选择实现；探测与扫描共用本函数（V30）。
 /// 注：analytics JSONL 无版本字段，detect 恒走文档级 KnownVersion 不调用
-/// 本函数；保留它是 V30 注册表合同的一部分（真实版本字段出现时接线）。
+/// 本函数；保留它是 V30 注册表约定的一部分（真实版本字段出现时接线）。
 pub fn select(found: Option<&str>) -> Selection {
     match found {
         Some(version) => {

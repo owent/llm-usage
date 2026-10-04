@@ -21,7 +21,7 @@
 | 1 | `npm run verify`（仓库根） | 0 | lint:md 110 文件 0 问题、svelte-check 0 错 0 警、fmt/clippy、cargo test 283+2、vite build **650.86 kB / gzip 220.32 kB**（预算 gzip ≤ 1 MiB 内） |
 | 2 | `cargo run -p llm-usage-m0 -- --headless`（desktop/src-tauri，APPDATA 指向临时目录） | 0 | 三源全 succeeded：codex 2,597 + pi 37 + omp 8,767 = **11,401 事件**；跨源合计 input 1,322,967,993 = pi 2,805,788 + omp 1,021,931,700 + codex 298,230,505（与 m2bc/m2d 基线一致） |
 | 3 | 同上（复扫） | 0 | **幂等**：added=0，总数仍 11,401（不兼容旧版文件的重复诊断为既有设计行为） |
-| 4 | WSL `cargo check -p llm-usage-core` / `-p llm-usage-m0` | 0 | core 与 app 在 Linux 编译通过（V27 分项证据） |
+| 4 | WSL `cargo check -p llm-usage-core` / `-p llm-usage-m0` | 0 | core 与 app 在 Linux 编译通过（V27 分项验证结果） |
 | 5 | WSL `cargo test -p llm-usage-core` | 0 | 36 个测试二进制全绿（Linux 侧） |
 
 ## 实现清单
@@ -81,7 +81,7 @@ core 新增公开 API：`Storage::open_readonly`、`ingest::recompute_days_in_tz
 ### 追加加固（2026-09-26 用户复验后）
 
 用户实机 dev 模式复验：查询间歇性报
-`db_readonly: ... disk I/O error`（截图证据；同一会话内亦有成功查询——修订号
+`db_readonly: ... disk I/O error`（截图记录；同一会话内亦有成功查询——修订号
 芯片与错误横幅同现）。单测/探针对库文件与 API 均无法复现（含带 stale WAL/SHM
 副本），判断为打开瞬间的环境性冲突（杀软实时扫描/热文件句柄等）：
 
@@ -149,13 +149,13 @@ core 新增公开 API：`Storage::open_readonly`、`ingest::recompute_days_in_tz
 
 ### Codex 0.139–0.151 旧版支持（M2-D 遗留清零）
 
-- **取证**：全量 238 文件 13,481 条 token_count 逐条分桶
+- **核验**：全量 238 文件 13,481 条 token_count 逐条分桶
   （build/codex-legacy-forensics/）。语义判据（total 增量法）：
   delta>0 ⇒ 新调用（last=最新一次）；delta==0 且 last 未变 ⇒ 重复上报去重；
   delta==0 且 last 变化 ⇒ 85/85 紧随 compacted（压缩回声，carried 口径）；
   delta<0 ⇒ 源端回退（诊断+基线重定）。
 - `rollout_legacy.rs`：21 个版本注册 → 不兼容 238→**0**；
-  真实核对 codex 事件 2,578→**15,955**（legacy 13,358 与 Python 取证一致）；
+  真实核对 codex 事件 2,578→**15,955**（legacy 13,358 与 Python 核验一致）；
   对账 262 matched/37 mismatch（均已解释类别）。
 - **端到端**：全新空库 headless 采集 40,472 事件 → 7 天明细层即时清理
   （合同行为）→ 聚合层保留完整历史：codex 日汇总 1,835,125,364
@@ -313,7 +313,7 @@ core 新增公开 API：`Storage::open_readonly`、`ingest::recompute_days_in_tz
 
 - **现象**：用户点击"清理全部数据"重新采集后，详情/图表中 25–26 日数据大幅
   减少（主要是 zcode+GLM-5.3）。
-- **根因（真实库只读取证）**：zcode 的 model-io JSONL 是**滚动窗口**——
+- **根因（真实库只读核验）**：zcode 的 model-io JSONL 是**滚动窗口**——
   子代理会话文件（`model-io-sess_subagent_agent_*.jsonl`）会话结束后被
   ZCode 删除（注册表 13 文件中 10 个磁盘已不存在）；主文件
   `model-io-sess_6842*.jsonl` 被反复压实（generation=139），25 日记录已从
@@ -332,7 +332,7 @@ core 新增公开 API：`Storage::open_readonly`、`ingest::recompute_days_in_tz
   缺失历史"）——只读打开 db.sqlite，按上述规则与已入库事件行对行去重后
   补齐缺失（身份 `zcodedb:{logical_request_id}:{attempt+1}`，与 JSONL
   身份不同源不互撞；cancelled/error 行也回填并带 error_status；compact
-  等未证 querySource → unknown + 一次诊断；token 口径与 modelio_v1 AI SDK
+  等尚未核验 querySource → unknown + 一次诊断；token 口径与 modelio_v1 AI SDK
   主口径一致，input_uncached 派生）。重跑幂等（回填事件同样参与匹配）。
   集成测试 `zcode_db_backfill.rs` 2 例（去重/幂等/容差边界/映射/诊断）。
 - **防复发**：
@@ -343,14 +343,14 @@ core 新增公开 API：`Storage::open_readonly`、`ingest::recompute_days_in_tz
      Agent 清理，清空后这部分历史无法重采"预警与自动备份说明。
 - zcode 能力声明更新：db 常规采集仍只读对照不入库；恢复走 db_backfill；
   limitations 增加 model-io 滚动窗口说明。
-- **跨来源同类风险排查（同日用户追问，全部只读取证）**：全实例失踪文件/
+- **跨来源同类风险排查（同日用户追问，全部只读核验）**：全实例失踪文件/
   重写代数分析——仅 zcode 发生（10/13 删、gen 128/139）；codex 299 文件
   全在零重写（config 无清理项；logs_2 纯日志、state_5 仅元数据+累计值、
   thread_history 为 UI 投影无逐次 usage）；kilo 0 压实、消息 2026-06 起
   完整；kimi-code/kimi-work/pi/omp 文件全在零重写（omp agent.db 的
   usage_history 为额度窗口、client_usage 空表，均非逐次恢复源）。
   结论记入 adapters.md「历史可回采性与滚动窗口风险」节；未安装产品
-  标未取证。**通用防护补强**：来源页每实例新增"源文件已被清理 N 个"
+  标未核验。**通用防护补强**：来源页每实例新增"源文件已被清理 N 个"
   标记（list_sources 磁盘存在性检查 + tooltip 说明"历史只存于本应用，
   清空后无法重采"），任何 Agent 开始删文件立即可见。
 - 验证：`npm run verify` 退出码 0。i18n 新增 7×2 键（cleanup.clearAll
@@ -412,7 +412,9 @@ kimi-code 18.2 MB、**kimi-work 31.5 MB（首次证实真实数据，路径已�
 Copilot CLI 用量存储一日内消失（疑升级迁移，需重定位）；cline/opencode/mimo/
 zoo/dsh/openclaw/hermes/codebuddy 未安装。
 
-## 证据文件
+<a id="证据文件"></a>
+
+## 验证产物
 
 - 后端：desktop/src-tauri/src/{app_state,scanner,commands,main}.rs；
   前端：desktop/src/{App.svelte,lib/api.ts,lib/i18n.svelte.ts,components/*}；

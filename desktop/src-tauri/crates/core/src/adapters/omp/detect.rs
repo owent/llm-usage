@@ -2,7 +2,7 @@
 //! 或 `type:"session"`，session 头在前 4 行内定位）后按 [`super::versions`]
 //! 注册表选择格式实现。
 //!
-//! 合同（architecture.md#unknown-version，首行闸口四态语义不变）：
+//! 约定（architecture.md#unknown-version，首行闸口四态语义不变）：
 //! - 首行不是 JSON / 首行类型既非 title 也非 session ⇒ 未知格式，fail closed；
 //! - 有 title 但前 4 行内无 session 头 ⇒ Pending（可能仍在首次写入中）；
 //! - session 头 version 已收录 ⇒ KnownVersion；未收录或缺失 ⇒ LatestFallback
@@ -53,7 +53,7 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
             continue;
         }
         // Agent 身份/输入类型已确认，按注册表分派；未收录/缺失版本回退最新
-        // 内置解析器并带兼容标记（V30；omp 旧版格式未取证，不直接拒绝）。
+        // 内置解析器并带兼容标记（V30；omp 旧版格式尚未核验，不直接拒绝）。
         let found = line.get("version").and_then(|v| v.as_i64());
         let selection = versions::select(found);
         return Ok(DetectOutcome::Supported {

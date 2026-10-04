@@ -1,7 +1,7 @@
 //! Claude Code transcript JSONL 格式实现（`transcript_doc1`，V30 目录迁移自
 //! 根级 claude.rs 单文件，拒绝语义不变）。
 //!
-//! 格式证据（官方文档，A01，文档级证据待真实样本）：
+//! 格式依据（官方文档，A01，按文档或源码实现，待真实样本核验）：
 //! - 路径：`$CLAUDE_CONFIG_DIR/projects/<project>/<session>.jsonl`（默认
 //!   `~/.claude/projects/...`）；子 Agent transcript 在
 //!   `projects/<project>/<session>/subagents/`；被替换的旧 transcript 以
@@ -12,7 +12,7 @@
 //!   transcript entry per content block"（同一响应多条目、usage 重复，按 requestId
 //!   去重）；`query_source` ∈ {main, subagent, auxiliary}（OTel 侧，未接入）。
 //! - 官方明示 "transcript entry format is internal ... not a stable contract"：
-//!   条目形状按 Anthropic API usage 块口径（input_tokens/output_tokens/
+//!   条目结构按 Anthropic API usage 块定义（input_tokens/output_tokens/
 //!   cache_read_input_tokens/cache_creation_input_tokens）实现，标注待真实样本。
 //!
 //! fail closed（V17）：未文档化记录 type、或非 usage 载体记录携带 usage 字段，
@@ -194,7 +194,7 @@ pub fn scan(
             "assistant" => {
                 let usage_value = line.get("message").and_then(|m| m.get("usage"));
                 let Some(usage_value) = usage_value else {
-                    // assistant 条目无 usage：无用量证据，不产事件（每文件一次性诊断）。
+                    // assistant 条目无 usage：未记录用量，不产事件（每文件一次性诊断）。
                     if !context.assistant_without_usage_reported {
                         context.assistant_without_usage_reported = true;
                         diagnostics.push(diag(
@@ -272,8 +272,8 @@ pub fn scan(
                     .get("message")
                     .and_then(|m| json_str(m, "model"))
                     .map(str::to_string);
-                // 2026-09-30 真实证据（Claude Code 2.1.197）：未登录/占位响应写
-                // model="<synthetic>" 且 usage 全 0——无模型调用证据，不产事件。
+                // 2026-09-30 真实样本核验结果（Claude Code 2.1.197）：未登录/占位响应写
+                // model="<synthetic>" 且 usage 全 0——未观测到模型调用，不产事件。
                 if model.as_deref() == Some("<synthetic>") {
                     diagnostics.push(diag(
                         "synthetic_assistant_skipped",
@@ -336,7 +336,7 @@ pub fn scan(
                     cost: None,
                 });
             }
-            // 2026-09-30 真实证据（2.1.197）：queue-operation（排队元数据）、
+            // 2026-09-30 真实样本核验结果（2.1.197）：queue-operation（排队元数据）、
             // attachment（上下文附件）、last-prompt（会话指针）为非用量载体，
             // 跳过；若携带 usage 字段仍按格式偏离 fail closed。
             "user" | "system" | "queue-operation" | "attachment" | "last-prompt" => {

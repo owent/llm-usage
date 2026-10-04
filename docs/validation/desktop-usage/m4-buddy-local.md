@@ -1,6 +1,8 @@
 # WorkBuddy / CodeBuddy Code 本地会话接入（2026-09-29）
 
-## 证据与边界
+<a id="证据与边界"></a>
+
+## 核验结果与边界
 
 - [CodeBuddy 官方目录文档](https://www.codebuddy.ai/docs/cli/codebuddy-dir)
   确认 `~/.codebuddy/projects/` 保存会话 JSONL；
@@ -18,10 +20,10 @@
   指出 CodeBuddy 的 `message.usage.input_tokens` 已含缓存读，另有
   `providerData.rawUsage` 的 cache hit/miss，直接沿用 Claude Code
   加法会重复计数。
-- 后两项是第三方源码/测试证据，并非产品官方格式合同。
+- 后两项是第三方源码与测试结果，并非产品官方格式合同。
   初查未发现 WorkBuddy 会话目录，随后复查发现本机 `.workbuddy/projects`；
   `.codebuddy/projects` 仍不存在。WorkBuddy 已补真实会话只读核对，
-  CodeBuddy 仍仅有文档级与合成证据。
+  CodeBuddy 仍仅有文档依据与合成测试结果。
 
 ## 实施
 
@@ -54,11 +56,13 @@
   后续以定点 Rust 测试、clippy、Markdown lint 和格式检查补验改动。
 - 后续取得 CodeBuddy 本机真实样本；WorkBuddy 仍需核对更广版本、
   子 Agent/trace 覆盖关系以及会话删除/压实后的历史保留。
-- CodeBuddy 的 OTLP 与本地 JSONL 可能覆盖同一次调用，当前尚无跨来源去重证据或代码；同时启用会有重复计数风险。验收前择一本地会话或 OTLP 来源使用；既有历史重叠须另做来源级消解，不以简单求和宣称完整覆盖。
+- CodeBuddy 的 OTLP 与本地 JSONL 可能覆盖同一次调用，当前尚无跨来源去重依据或代码；同时启用会有重复计数风险。验收前择一本地会话或 OTLP 来源使用；既有历史重叠须另做来源级消解，不以简单求和宣称完整覆盖。
 
 ## 2026-09-30 CodeBuddy IDE/插件（CodeBuddyExtension）本机核验与实施
 
-### 扩展存储证据与边界
+<a id="扩展存储证据与边界"></a>
+
+### 扩展存储核验结果与边界
 
 - 用户报告 CodeBuddy 用量提取为 0。只读排查：本机 `~/.codebuddy` 只有
   插件市场/设置/日志（`cli-memwatch-*` 证明 CLI 运行时存在），没有
@@ -73,7 +77,7 @@
   的 `requests[]`，每项 `{id,type,messages,state,startedAt,usage}`；
   `usage` 为请求级聚合（`inputTokens = cacheTokens + cachedMissTokens`、
   `totalTokens = inputTokens + outputTokens`，另有 `cachedWriteTokens`、
-  `lastTokens` 语义未证、`credit` 平台积分非货币）。上层 session 级
+  `lastTokens` 语义尚未核验、`credit` 平台积分非货币）。上层 session 级
   `index.json` 只有 `conversations[]/current` 注册表，不含用量。
   消息体 `messages/<id>.json` 的 `extra`（字符串内嵌 JSON）携带
   `modelId/modelName/requestId/isHelperMessage`。按准备合同只提取
@@ -99,7 +103,7 @@
   `codebuddy:request:<请求id>`（UUID），同请求跨树复制在单实例内幂等
   upsert 不双计；`session_id` 取 conversation id，`host_application` 取
   host 组件（VSCode/CodeBuddyIDE）；模型按 requests[].messages 引用做
-  有界消息文件读取，取最后一条有模型信息的消息（请求内多模型未证）；
+  有界消息文件读取，取最后一条有模型信息的消息（请求内多模型尚未核验）；
   `credit`/`lastTokens` 不映射。游标 offset 记录文件长度供无变化短路，
   改写触发整文件重扫后按键幂等。
 - 版本注册表新增 `codebuddy-extension-requests-doc1`（本机核验锚点）。

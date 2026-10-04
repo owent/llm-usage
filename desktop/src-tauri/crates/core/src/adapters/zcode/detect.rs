@@ -1,7 +1,7 @@
 //! ZCode 探测与版本分派：有界读取首行，确认 Agent 身份（`type=model_io` 的
 //! model-io JSONL、sessionId 必填）后按 [`super::versions`] 注册表选择格式实现。
 //!
-//! 合同（architecture.md#unknown-version）：
+//! 约定（architecture.md#unknown-version）：
 //! - 首行不是 JSON / 不是 model_io / 缺 sessionId 身份字段 ⇒ 未知格式，
 //!   fail closed，不把任意未知文件交给猜测逻辑；
 //! - 版本锚点 `request.headers["x-zcode-app-version"]` 已收录 ⇒ KnownVersion；

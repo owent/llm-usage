@@ -66,7 +66,9 @@
 | 完整导入/Merge 写入路径 | 未实施（按计划） | 随导入功能排期；判定与格式已就绪 |
 | 多主机历史导出（按 host 分包） | 未实施 | build_export 当前导出本库 local host 视角 |
 
-## 证据文件
+<a id="证据文件"></a>
+
+## 验证产物
 
 - `storage/schema.rs`（v4）、`storage/mod.rs`、`ingest.rs`（recompute_day 分区）、
   `adapters/framework.rs`（origin_host_id）、`exchange.rs`、

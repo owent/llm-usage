@@ -752,7 +752,7 @@ pub(crate) fn recompute_day(
     // 未知字段计数（input/output/total_unknown_count）排除 quality_bucket='unknown'
     // 的记录：没有任何已知 token 字段的记录是“无用量调用/观测”（失败调用、
     // Copilot 工具循环 round 等计调用但用量由 turn observation 承载），计入
-    // call/event，但不算作观测缺字段的未知字段（数据合同「请求、消息与累计值」）。
+    // call/event，但不算作观测缺字段的未知字段（数据规范「请求、消息与累计值」）。
     let sql = format!(
         "{insert_head}
            COALESCE(provider_id, ''), COALESCE(model_raw, ''),

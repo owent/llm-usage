@@ -1,4 +1,4 @@
-//! Codex 产品特有的 usage 字段映射（从根级 usage_map.rs 下沉，V30 目录合同）。
+//! Codex 产品特有的 usage 字段映射（从根级 usage_map.rs 下沉，V30 目录约定）。
 //! 共享的 MappedUsage/finish/sub_checked/矛盾检测仍留在跨 Agent 的 usage_map.rs。
 
 use crate::adapters::usage_map::{finish, sub_checked, MappedUsage};
@@ -21,7 +21,7 @@ pub(crate) fn token_count_has_no_usage(payload: &serde_json::Value) -> bool {
 
 /// codex rollout token_usage_record：input 含缓存读，无缓存创建字段；
 /// output 含 reasoning；total=input+output。
-/// `declares_no_cache_creation` 为格式级证据：该版本明确无缓存创建时，
+/// `declares_no_cache_creation` 按已核验格式声明：该版本明确无缓存创建时，
 /// 未缓存输入才可证明为 input-cached，缓存写记 0（derived）。
 #[derive(Debug, Clone, Copy)]
 pub struct CodexUsage {
@@ -35,7 +35,7 @@ pub struct CodexUsage {
 
 /// codex 0.155.0-alpha.16.3 完整 usage 记录（token_usage_record.payload.usage
 /// 与 token_count 的 total/last_token_usage 同形）：六字段全部存在。
-/// 口径：`cached ⊆ input`（真实样本 319/319 成立）、`reasoning ⊆ output`、
+/// 字段语义：`cached ⊆ input`（真实样本 319/319 成立）、`reasoning ⊆ output`、
 /// `total = input + output`；`cache_write ⊆ input` 是该版本 schema 的映射假设
 /// （真实样本仅覆盖 cache_write=0），矛盾进诊断，不用 max(0, …) 隐藏。
 #[derive(Debug, Clone, Copy)]

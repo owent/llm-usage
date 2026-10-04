@@ -1,6 +1,6 @@
 name: CI
 
-# 合同见 docs/design/desktop-usage/platform-ci.md：
+# 约定见 docs/design/desktop-usage/platform-ci.md：
 # 三平台真实构建、fail-fast=false、Actions 使用 v 主版本号浮动引用、PR 只读权限、
 # 不做发布/签名；制品记录 revision、大小与校验和。M1 起逐步加入 fixture 与集成测试。
 

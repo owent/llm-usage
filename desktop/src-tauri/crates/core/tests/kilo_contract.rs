@@ -1,7 +1,7 @@
-//! Kilo Code CLI 适配器合同测试：真实脱敏 fixture（session-7.4.9-family /
+//! Kilo Code CLI 适配器约定测试：真实脱敏 fixture（session-7.4.9-family /
 //! session-7.4.8-edges，前一会话实读提取 + _expectations.md 人工核算）经
-//! 读取→解析→标准化→commit_batch→查询 全链路。数值全部对照
-//! tests/fixtures/kilo/*._expectations.md 的独立核算，不改口径。
+//! 读取→解析→标准化→commit_batch→查询。数值全部对照
+//! tests/fixtures/kilo/*._expectations.md 的独立核算，不改计算规则。
 
 mod common;
 
@@ -11,7 +11,7 @@ use common::*;
 // - 7.4.9-family：5 会话（1 主 + 4 子）58 行消息（51 assistant + 7 user）。
 //   逐次五字段合计：input=121774 output=8876 reasoning=45302
 //   cache_read=2137472 cache_write=0；derived_total=2313424。
-//   canonical 口径：input_total = input+cr+cw = 2259246；
+//   canonical 计算规则：input_total = input+cr+cw = 2259246；
 //   output_total = output+reasoning = 54178；total_tokens = 2313424。
 //   逐会话对账 detail_sum：1984963/39997/167085/61589/59790，全部 matched；
 //   missing_total_msgs=1（未完成消息，无 tokens.total）。

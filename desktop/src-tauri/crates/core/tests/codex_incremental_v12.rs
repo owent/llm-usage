@@ -1,5 +1,5 @@
 //! V12：增量与刷新语义 —— 重复扫描不增量、追加续读、半行跨轮、截断/同长替换/
-//! 改名重探测、预算分片恢复、矛盾重复 final 冲突标记。
+//! 改名重探测、达到读取上限后分批恢复、矛盾重复 final 冲突标记。
 
 mod common;
 
@@ -248,7 +248,7 @@ fn conflicting_duplicate_final_marks_conflict_and_keeps_existing() {
     let (_db, storage) = temp_storage("v12-conflict");
     run_codex(&storage, &root, NOW);
 
-    // 追加同 response_id 但数值不同的重复 final（无先后权威证据 → conflict）。
+    // 追加同 response_id 但数值不同的重复 final（无法确认哪条修订更新 → conflict）。
     let conflict_line = "{\"timestamp\":\"2026-01-05T10:00:10.000Z\",\"type\":\"token_usage_record\",\"payload\":{\"thread_id\":\"syn-sess-dup\",\"turn_id\":\"syn-turn-1\",\"session_id\":\"syn-sess-dup\",\"response_id\":\"syn-resp-1\",\"usage\":{\"input_tokens\":1500,\"cached_input_tokens\":400,\"cache_write_input_tokens\":0,\"output_tokens\":50,\"reasoning_output_tokens\":10,\"total_tokens\":1550}}}\n";
     let mut appended = jsonl.clone();
     appended.extend_from_slice(conflict_line.as_bytes());

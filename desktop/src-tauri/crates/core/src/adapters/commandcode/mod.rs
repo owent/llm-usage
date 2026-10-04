@@ -1,6 +1,6 @@
-//! Command Code 适配器（独立目录合同）。载体：
-//! `~/.commandcode/projects/<slug>/*.jsonl` v3 树形（当前路径口径；fork 复制
-//! 按 entry id+timestamp 跨文件去重）。证据来自官方 npm 分发物 1.69.0。
+//! Command Code 适配器（独立目录约定）。载体：
+//! `~/.commandcode/projects/<slug>/*.jsonl` v3 树形（当前路径规则；fork 复制
+//! 按 entry id+timestamp 跨文件去重）。已核对官方 npm 分发物 1.69.0。
 
 pub mod detect;
 pub mod versions;

@@ -1,4 +1,4 @@
-//! OpenClaw 适配器合同测试：合成 fixture（文档级证据，A09；本机未安装，
+//! OpenClaw 适配器约定测试：合成 fixture（依据 A09；本机未安装，
 //! 2026-09-25 盘点 not_found）。官方文档只给出存储位置形状，未文档化表级/
 //! 条目级 schema ⇒ 运行时库与旧归档均 fail closed（_expectations.md）：
 //! 不读表、不猜字段、不产零值；发现形状与幂等仍可验证。

@@ -1,6 +1,6 @@
 //! 有界 JSONL 读取器（V07）。
 //!
-//! 合同（architecture.md「各输入的增量策略」）：
+//! 约定（architecture.md「各输入的增量策略」）：
 //! - 游标 = 文件身份 + generation + 完整行字节偏移 + 解析上下文；
 //! - 默认单行上限 8 MiB、单块 4 MiB（允许跨块组装行）；超限不静默丢弃，
 //!   状态显示位置与原因，允许受控重试；
@@ -20,8 +20,8 @@ pub const DEFAULT_CHUNK_BYTES: usize = 4 * 1024 * 1024;
 const SAMPLE_BYTES: usize = 4096;
 const UTF8_BOM: &[u8] = b"\xEF\xBB\xBF";
 
-/// 读取限制。`max_lines` 是确定性预算（测试与受控重试用）；
-/// `time_budget` 是墙钟预算（单源每轮 30 秒初值）。
+/// 读取限制。`max_lines` 是确定性行数上限（测试与受控重试用）；
+/// `time_budget` 是墙钟超时（单源每轮 30 秒初值）。
 #[derive(Debug, Clone)]
 pub struct JsonlLimits {
     pub chunk_bytes: usize,
@@ -65,9 +65,9 @@ pub enum StopReason {
     Eof,
     /// 某完整行超过单行上限：游标停在该行起点，可受控重试（提高上限）。
     LineTooLong { number: u64, offset: u64 },
-    /// 达到确定性行数或字节预算。
+    /// 达到确定性行数或字节上限。
     LineBudget,
-    /// 达到墙钟预算。
+    /// 达到墙钟超时时间。
     TimeBudget,
 }
 

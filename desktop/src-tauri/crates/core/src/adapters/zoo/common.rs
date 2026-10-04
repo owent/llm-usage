@@ -1,16 +1,16 @@
 //! Zoo Code 产品特有的 usage 字段映射（固定源码 f7806475331fcae5f4e8b5558d04415eeb5da88c，
-//! A19，文档级证据待真实样本；本机 not_found）。
+//! A19，按文档或源码实现，待真实样本核验；本机 not_found）。
 //!
-//! 证据（packages/core/src/message-utils/consolidateTokenUsage.ts）：
+//! 依据（packages/core/src/message-utils/consolidateTokenUsage.ts）：
 //! - `api_req_started` 消息 `text` JSON 的 tokensIn/tokensOut/cacheWrites/
 //!   cacheReads/cost 逐字段可选（typeof number 检查）；
 //! - **tokensIn 存的是总输入 token（含缓存 token）**（固定源码注释原文：
 //!   "Since tokensIn now stores TOTAL input tokens (including cache tokens),
 //!   we no longer need to add cacheWrites and cacheReads separately.
 //!   This applies to both Anthropic and OpenAI protocols."）⇒ 与 Cline 的
-//!   四桶互斥口径相反：input_total = tokensIn 直报（reported），
+//!   四桶互斥关系相反：input_total = tokensIn 直报（reported），
 //!   cacheReads/cacheWrites 是其子集（方向已证），input_uncached 不推导；
-//! - per-request 总量口径：上游 contextTokens = tokensIn + tokensOut
+//! - per-request 总量计算：上游 contextTokens = tokensIn + tokensOut
 //!   （对最后一条请求；同文件算术）⇒ total_tokens 按同式派生（derived）；
 //! - cost 是扩展自算值（合并 finished 后写入 text）⇒ estimated micro-USD
 //!   （与 cline 同规则）。
@@ -40,8 +40,8 @@ impl ZooUsage {
 }
 
 pub fn map_zoo_usage(raw: &ZooUsage) -> MappedUsage {
-    // tokensIn 已含缓存（两协议同口径，固定源码注释）：直报 input_total；
-    // 未缓存输入不可拆（精确包含集合未证），input_uncached 保持未知。
+    // tokensIn 已含缓存（两协议规则相同，固定源码注释）：直报 input_total；
+    // 未缓存输入不可拆（精确包含集合尚未验证），input_uncached 保持未知。
     let total = raw
         .tokens_in
         .and_then(|i| raw.tokens_out.and_then(|o| i.checked_add(o)));
@@ -72,8 +72,8 @@ pub fn map_zoo_usage(raw: &ZooUsage) -> MappedUsage {
     finish(usage, quality, Vec::new())
 }
 
-/// cost 浮点美元 → micro-USD（estimated；上游自算口径，与 cline 同规则）。
-/// 溢出/负值/非有限返回 None（调用方保持未知，不钳制）。
+/// cost 浮点美元 → micro-USD（estimated；上游自行估算，与 cline 规则相同）。
+/// 溢出/负值/非有限返回 None（调用方保持未知，不截断数值）。
 pub fn map_zoo_cost(total: Option<f64>) -> Option<CostAmount> {
     let total = total?;
     if !total.is_finite() || total < 0.0 {

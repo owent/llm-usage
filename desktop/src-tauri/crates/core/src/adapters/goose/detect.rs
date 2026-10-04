@@ -76,7 +76,7 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     }
     let missing = missing(&sessions, common::SESSIONS_FALLBACK_COLUMNS);
     if missing.is_empty() {
-        // 旧库（schema < 15）：无逐请求表，按 sessions.accumulated_* 聚合兜底。
+        // 旧库（schema < 15）：无逐请求表，按 sessions.accumulated_* 聚合回退。
         return Ok(DetectOutcome::Supported {
             format: GOOSE_FORMAT.to_string(),
             format_version: Some(versions::GOOSE_FORMAT_VERSION.to_string()),

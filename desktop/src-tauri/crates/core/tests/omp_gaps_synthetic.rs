@@ -147,7 +147,7 @@ fn auxiliary_carriers_classified_and_summed() {
             Some(300)
         )
     );
-    // toolResult 的 usage 是工具执行自身消耗：辅助调用，无模型证据。
+    // toolResult 的 usage 是工具执行自身消耗：辅助调用，所属模型未知。
     let t1 = row_for("omp:toolresult:syn-t1:syn-b1:2026-01-05T10:00:10.000Z");
     assert_eq!(
         t1,
@@ -527,7 +527,7 @@ fn detect_pending_on_empty_file() {
 
 // 手工核算值（synthetic-unsupported-version，目录名为历史样本组织，V30 起行为
 // 已变）：未收录数值版本（version=4）与缺失 version（legacy 形状）都按
-// LatestFallback 回退 session_v3 尝试（omp 旧版落盘格式未取证，无证据不兼容，
+// LatestFallback 回退 session_v3 尝试（omp 旧版落盘格式尚未核验，尚未确认不兼容，
 // 不直接拒绝——与 pi 的 evidenced-incompatible 分支不同）。两文件各 1 事件
 // （100/10/0/0/110）：合计 call_count=2、input_total=200（派生）、output=20、
 // total=220；事件 parse_basis=latest_fallback；文件 active_compat；

@@ -1,4 +1,4 @@
-//! Crush 适配器（Charm；独立目录合同）。载体：全局 projects.json 注册表 →
+//! Crush 适配器（Charm；独立目录约定）。载体：全局 projects.json 注册表 →
 //! 每项目 `.crush/crush.db` 的根会话 cost 累计（token 列是上下文快照不采）。
 
 pub mod common;
@@ -74,7 +74,7 @@ impl crate::adapters::framework::SourceAdapter for CrushAdapter {
         let mut registry_dirs: Vec<(std::path::PathBuf, RootBasis)> = Vec::new();
         if let Some(dir) = ctx.env.get("CRUSH_GLOBAL_DATA").filter(|v| {
             // 相对路径只能相对宿主进程 cwd 解析，采集侧无法复现：只接受绝对路径
-            // （与 GOOSE_PATH_ROOT 同口径）。
+            // （与 GOOSE_PATH_ROOT 规则相同）。
             let t = v.trim();
             !t.is_empty() && std::path::Path::new(t).is_absolute()
         }) {

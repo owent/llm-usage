@@ -1,4 +1,4 @@
-//! ATOMCODE 版本注册表（V30 目录合同）。锚点为文档级 atomcode-meta-turns-1。
+//! ATOMCODE 版本注册表（V30 目录约定）。锚点为文档级 atomcode-meta-turns-1。
 
 pub mod meta_turns_v1;
 

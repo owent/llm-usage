@@ -1,6 +1,6 @@
 //! SQLite schema（预发布阶段：不做逐版本迁移，只建当前 schema）。
 //!
-//! 合同（2026-09-26 用户决策）：
+//! 约定（当前设计）：
 //! - 未发布过，不记录每个版本的数据库迁移历史；
 //! - 打开时发现 user_version != SCHEMA_VERSION ⇒ 返回 SchemaTooNew/SchemaTooOld；
 //! - 由应用层提示用户"数据库版本不兼容，是否全量删除重建"；

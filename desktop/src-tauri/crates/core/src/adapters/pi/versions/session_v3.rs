@@ -1,6 +1,6 @@
 //! pi session JSONL 格式实现（`session_v3`，version 3）。
 //!
-//! 格式证据（固定源码 pi-mono b45597504eeaba1f11a9920a1d1048c361ed4b8e，本阶段联网只读核对；
+//! 格式依据（固定源码 pi-mono b45597504eeaba1f11a9920a1d1048c361ed4b8e，本阶段联网只读核对；
 //! 真实核对以本机 fixture 为准，合成 fixture 均标注）：
 //! - `packages/ai/src/types.ts`：`Usage{input,output,cacheRead,cacheWrite,cacheWrite1h?(⊆cacheWrite),
 //!   reasoning?(⊆output),totalTokens,cost}`；anthropic-messages/openai-completions 均把
@@ -16,13 +16,13 @@
 //!   不变，新 header 记 `parentSession`），继承条目不是新调用：事件键用条目四元组
 //!   （type+id+parentId+timestamp），复制件在实例内 upsert 幂等去重。
 //! - `packages/coding-agent/src/core/agent-session.ts` `getSessionStats`：对文件内全部条目求和
-//!   （含被压缩/放弃分支，因为调用均已计费）——适配器同口径。
+//!   （含被压缩/放弃分支，因为调用均已计费）——适配器规则相同。
 //! - `packages/coding-agent/src/config.ts`：目录由 `PI_CODING_AGENT_DIR`（agent 根）/
 //!   `PI_CODING_AGENT_SESSION_DIR`（sessions 直指定）解析，默认 `~/.pi/agent/sessions`。
 //!
 //! 版本策略（architecture.md#unknown-version，V30）：session 头经
 //! [`super::select`]（探测/扫描同一注册表）分派；未收录数值用本实现（当前最新）
-//! 兼容尝试，事件带 `parse_basis` 标记；有证据不兼容的版本（v1/v2/缺失 version）
+//! 兼容尝试，事件带 `parse_basis` 标记；已确认不兼容的版本（v1/v2/缺失 version）
 //! 才跳过并记诊断。
 //!
 //! V30 目录迁移：本实现自根级 adapters/pi.rs 整体迁入（已验收行为保持原样）；
@@ -372,7 +372,7 @@ pub fn scan(
                 }
                 // 版本分派（探测/扫描共用同一注册表，V30）：KnownVersion/LatestFallback
                 // 都继续解析（未知版本数据照常入库，事件带 parse_basis 标记）；
-                // 有证据不兼容（v1/v2/缺失 version）才跳过并记诊断。
+                // 已确认不兼容（v1/v2/缺失 version）才跳过并记诊断。
                 let header_version = entry.get("version").and_then(|v| v.as_i64());
                 match super::select(header_version) {
                     Ok(selection) => {
@@ -459,7 +459,7 @@ pub fn scan(
                                 ));
                             }
                             None => {
-                                // 无 usage 的 assistant 消息仍是一次调用的证据：
+                                // 无 usage 的 assistant 消息仍表明发生过一次调用：
                                 // 计调用数，token 全未知（不补零）。
                                 diagnostics.push(diag(
                                     "usage_shape_deviation",
@@ -575,7 +575,7 @@ pub fn scan(
             }
             "compaction" | "branch_summary" => {
                 // 总结/分支总结调用（usage 可选）：无模型字段，按不晚于它的
-                // model_change 归属（结构化变更证据），无证据 unknown。
+                // 按 model_change 记录模型变更，无法确认所属模型时保持 unknown。
                 let Some(usage_json) = entry.get("usage").cloned() else {
                     continue;
                 };

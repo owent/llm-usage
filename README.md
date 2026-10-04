@@ -26,7 +26,7 @@
 目前处于预发布阶段，已实现总览、趋势、详情、数据源和设置；支持范围及未完成验收见执行计划。
 
 已确认 Windows 11 x64 首发，GitHub CI 保留 macOS/Linux，本地可尝试 WSL 构建。
-所有 Agent 均保留本地支持计划，缺证 IDE 后移 F1；仅统计本机来源，支持在界面配置定时提取。
+所有 Agent 均保留本地支持计划，本地用量格式尚未核验的 IDE 后移 F1；仅统计本机来源，支持在界面配置定时提取。
 用户已允许实施时提取本机真实 Agent 数据验证。
 
 - [执行计划](Plan.md)：未完成任务与验收条件。
@@ -34,7 +34,7 @@
 - [详细设计](docs/design/desktop-usage/README.md)：架构、统计合同、Agent 接入、配置与测试。
 - [调研依据](docs/design/desktop-usage/research.md)：官方资料、固定源码和原型静态核对。
 - [定时提取](docs/design/desktop-usage/scheduling.md)与 [平台/CI](docs/design/desktop-usage/platform-ci.md)：后台任务和跨平台验收合同。
-- [验证记录](docs/validation/desktop-usage/)：M0 起的实际执行证据，随证据产生逐条登记。
+- [验证记录](docs/validation/desktop-usage/)：M0 起的实际执行记录，随检查完成逐条登记。
 - [应用图标与静态资源](desktop/assets/README.md)：Usage U 设计、预览、重新生成与 Git LFS 约定。
 - 已有 [previous-draft](previous-draft/README.md) 作为参考，未进行运行验收。
 
@@ -69,13 +69,13 @@ npm run verify          # 文档、类型、脚本/前端单元测试、Rust 检
 
 `test:browser` 单独执行，会启动并关闭临时 Vite 服务；截图写入 `build/browser-smoke/`。
 非 Windows 环境先在 `desktop` 中运行 `npx playwright install chromium`。
-浏览器检查模拟 IPC，不能替代原生桌面、系统任务和安装验收；当前证据与缺口见
+浏览器检查模拟 IPC，不能替代原生桌面、系统任务和安装验收；当前验证结果与未完成项见
 [最新验收](docs/validation/desktop-usage/current-acceptance.md)。
 原生与无界面脚本的输入为隔离合成来源，输出写入根 `build/plan-completion/`。
 `test:desktop` 默认测 release；调试构建可用 `-- --dev --exe <debug 可执行文件>`。
 日常功能验证用 dev:desktop 即可，不必打包。业务命令与锁定版本以
 `desktop/package.json`、`desktop/src-tauri/Cargo.toml` 及各自锁文件为准。
-文档检查不代替业务验收；M0 实测证据见 [验证记录](docs/validation/desktop-usage/)。
+文档检查不代替业务验收；M0 实测结果见 [验证记录](docs/validation/desktop-usage/)。
 
 Windows 后台提取默认关闭，设置页可启用当前用户的分钟任务，并展示期望与实际状态。
 `LLMUsage.exe --headless` 只按已保存意图及到期规则采集；`--scan-once` 手动扫描全部

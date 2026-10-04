@@ -1,5 +1,5 @@
-//! Goose 适配器（Block→aaif-goose；独立目录合同）。载体：sessions.db 的
-//! usage_ledger 逐请求表（迁移 15+）；旧库按 sessions.accumulated_* 聚合兜底。
+//! Goose 适配器（Block→aaif-goose；独立目录约定）。载体：sessions.db 的
+//! usage_ledger 逐请求表（迁移 15+）；旧库按 sessions.accumulated_* 聚合回退。
 
 pub mod common;
 pub mod detect;

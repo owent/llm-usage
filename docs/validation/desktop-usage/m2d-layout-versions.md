@@ -41,7 +41,7 @@
 ## 未知版本兼容尝试（V17 新语义）
 
 - `DetectOutcome::Supported` 增加 `basis: VersionBasis`（known_version / latest_fallback）
-  与可空 `format_version`；`UnsupportedVersion` 仅保留给有证据的不兼容版本
+  与可空 `format_version`；`UnsupportedVersion` 仅保留给已确认的不兼容版本
   （pi v1/v2 与缺失 version：固定源码证实落盘格式不同，不尝试回退）。
 - 兼容标记持久化（schema v3 迁移，`parse_basis` 不参与内容哈希）：
   - `usage_events.parse_basis`：逐事件选择依据；
@@ -55,7 +55,7 @@
 - 测试改写：原“未知版本一律拒绝”用例改为——未收录版本回退成功带标记
   （codex/pi/omp）、版本缺失但 Agent 可识别回退（codex）、仅新增可选字段容忍
   （codex）、结构破坏判不兼容保留旧结果（codex）、部分可用（codex）、
-  pi 有证据不兼容版本仍拒绝。
+  pi 已确认不兼容版本仍拒绝。
 
 ## Codex 逐版本 fixture（M2-A 遗留项）
 
@@ -74,7 +74,7 @@ cwd→`<PATH>`）、jq 口径独立核算期望值；泄漏核查无 UUID/路径
 （仅 `event_msg/token_count` 累计快照，如 0.142.5 一个 74 次 token_count 的会话仅
 1 条逐次记录都没有）——与 rollout_v1 的逐次载体不同。这些版本按 LatestFallback
 尝试后判 incompatible（可见诊断、不伪造数据、游标不推进），
-专用旧版实现（需先取证 `last_token_usage` 逐次回声的稳定身份语义）留作后续任务，
+专用旧版实现（需先核验 `last_token_usage` 逐次回声的稳定身份语义）留作后续任务，
 未登记为已验证。测试 `codex_versions_v17.rs::legacy_carrier_versions_stay_fallback_*`
 锁定该行为。
 
@@ -97,12 +97,14 @@ pi/omp 逐位一致的迁移前后数值另证）。
 
 | 项 | 状态 | 后续 |
 | --- | --- | --- |
-| Codex 0.139–0.151 专用旧版解析器（token_count/last_token_usage 载体） | 未实施 | 需先取证逐次回声的稳定记录身份与调用边界语义；取证后按目录合同在 codex/versions/ 新增实现并逐版本 fixture |
+| Codex 0.139–0.151 专用旧版解析器（token_count/last_token_usage 载体） | 未实施 | 需先核验逐次回声的稳定记录身份与调用边界语义；核验后按目录合同在 codex/versions/ 新增实现并逐版本 fixture |
 | claude/gemini/qwen 真实 fixture | 本机无数据 | 本机出现数据后按脱敏流程补取复验 |
 | fallback 文件在解析器升级后自动重扫 | 未实施 | 已记各适配器 limitations；需显式重扫或后续按 parser_version 变化触发 |
 | M6 数据源页展示兼容状态 | 未实现 | M6 |
 
-## 证据文件
+<a id="证据文件"></a>
+
+## 验证产物
 
 - 适配器目录：`adapters/{codex,claude,pi,omp,gemini,qwen}/`；框架：
   `adapters/framework.rs`；存储：`storage/schema.rs`（v3）、`ingest.rs`。

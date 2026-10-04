@@ -1,7 +1,7 @@
-//! Junie CLI 适配器（JetBrains，独立目录合同）。载体：
+//! Junie CLI 适配器（JetBrains，独立目录约定）。载体：
 //! `~/.junie/sessions/<session-id>/events.jsonl` 的
 //! LlmResponseMetadataEvent.modelUsage[]（逐轮、含 cost/延迟/provider）。
-//! JetBrains AI Assistant IDE 插件本体仍缺证留 F1，本适配器只覆盖 CLI。
+//! JetBrains AI Assistant IDE 插件本体的本地用量格式尚未核验，留在 F1；本适配器只覆盖 CLI。
 
 pub mod detect;
 pub mod versions;

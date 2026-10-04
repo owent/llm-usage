@@ -1,9 +1,9 @@
-//! OpenClaw 产品特有的公共部分（独立目录合同）：
-//! - 源库只读合同小工具复制自 `adapters/kilo/common.rs`（各 Agent 目录保持
+//! OpenClaw 产品特有的公共部分（独立目录约定）：
+//! - 源库只读约定小工具复制自 `adapters/kilo/common.rs`（各 Agent 目录保持
 //!   独立不共享模块；仅前缀/注释不同）；
-//! - 运行时库结构枚举（只读表名投影，不含数据）。
+//! - 运行时库结构枚举（只读表名集合，不含数据）。
 //!
-//! 证据级别（A09，官方文档 docs.openclaw.ai，2026-09-24 核验）：
+//! 实现依据与核验范围（A09，官方文档 docs.openclaw.ai，2026-09-24 核验）：
 //! - store 参考：每 Agent 一个 `~/.openclaw/agents/<agentId>/agent/openclaw-agent.sqlite`
 //!   （会话行 + 追加式 transcript 两个持久层）；旧 `sessions/` 目录与
 //!   `sessions/sessions.json` 为迁移/归档输入，Gateway 启动不导入。
@@ -40,7 +40,7 @@ impl Drop for StagingGuard {
     }
 }
 
-/// busy/锁/CANTOPEN 判定（无法一致读取的证据）。
+/// busy/锁/CANTOPEN 判定（这些错误表示无法一致读取）。
 pub(crate) fn is_busy_like(err: &rusqlite::Error) -> bool {
     matches!(
         err.sqlite_error_code(),
@@ -50,7 +50,7 @@ pub(crate) fn is_busy_like(err: &rusqlite::Error) -> bool {
     )
 }
 
-/// 暂存副本参数（同 kilo/hermes 合同）。
+/// 暂存副本参数（同 kilo/hermes 约定）。
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct StagingLimits {
     pub pages_per_step: i32,
@@ -108,7 +108,7 @@ fn backup_to_staging(
             }
             match backup.step(limits.pages_per_step) {
                 Ok(StepResult::Done) => break Ok(()),
-                // More：实际拷贝了页，计入空间预算。
+                // More：实际拷贝了页，计入空间限制。
                 Ok(StepResult::More) => {
                     done_pages += i64::from(limits.pages_per_step);
                     if done_pages > max_pages {
@@ -119,7 +119,7 @@ fn backup_to_staging(
                     }
                     std::thread::sleep(Duration::from_millis(20));
                 }
-                // Busy/Locked（#[non_exhaustive] 其余）：无进展重试，只消耗时间预算。
+                // Busy/Locked（#[non_exhaustive] 其余）：无进展重试，仍计入超时时间。
                 // 2026-09-30 修复：此前重试也计入页数，与超时出口竞速产生
                 // 平台相关的 space cap 误报（CI Linux 页上限先于超时触发）。
                 Ok(_) => {
@@ -170,8 +170,8 @@ pub(crate) fn short_probe(conn: &Connection) -> Result<(), rusqlite::Error> {
     conn.query_row("SELECT COUNT(*) FROM sqlite_master", [], |_| Ok(()))
 }
 
-/// 运行时库结构投影：用户表数量（只计 type='table' 且非 sqlite_ 内部表）。
-/// 文档级证据不含表名，因此这里也只聚合计数，不持久化任何表名/列名。
+/// 运行时库结构摘要：用户表数量（只计 type='table' 且非 sqlite_ 内部表）。
+/// 已核对文档不含表名，因此这里也只聚合计数，不持久化任何表名/列名。
 pub(crate) fn user_table_count(conn: &Connection) -> Result<i64, CoreError> {
     let count: i64 = conn
         .query_row(

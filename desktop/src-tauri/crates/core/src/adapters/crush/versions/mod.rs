@@ -1,4 +1,4 @@
-//! CRUSH 版本注册表（V30 目录合同）。锚点为文档级 crush-sessions-cost-1。
+//! CRUSH 版本注册表（V30 目录约定）。锚点为文档级 crush-sessions-cost-1。
 
 pub mod sessions_cost_v1;
 

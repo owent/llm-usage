@@ -1,4 +1,4 @@
-//! Aider 适配器（独立目录合同 architecture.md#adapter-layout）：
+//! Aider 适配器（独立目录约定 architecture.md#adapter-layout）：
 //! - 载体是 `--analytics-log <file>` 的本地 JSONL（需启用，不回填历史）；
 //! - 默认**无固定路径**（args.py 无 default）：发现只走手工根——
 //!   用户把 analytics 日志文件本身或其所在目录加为手工根；

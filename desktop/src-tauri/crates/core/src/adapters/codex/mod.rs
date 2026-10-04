@@ -1,10 +1,10 @@
-//! Codex 适配器（独立目录合同 architecture.md#adapter-layout）：
+//! Codex 适配器（独立目录约定 architecture.md#adapter-layout）：
 //! - 本模块是该 Agent 的稳定入口（统一接口实现与再导出）；
 //! - [`detect`]：产品/格式探测与版本分派；
 //! - [`versions`]：已验证格式实现的注册与映射，未知版本默认回退最新内置解析器；
 //! - 历史版本的格式实现一律保留在本目录内，不再回到根级单文件。
 //!
-//! 原始格式证据见各版本模块文件头；M2-A/M2-D 验证记录。
+//! 原始格式依据见各版本模块文件头；M2-A/M2-D 验证记录。
 
 pub mod common;
 pub mod detect;

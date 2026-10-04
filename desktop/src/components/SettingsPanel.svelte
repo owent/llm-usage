@@ -544,7 +544,7 @@
       }
       tiers[field] = v;
     }
-    // 校验通过后各级必有值；?? 兜底仅满足类型（yearly null = 终身）。
+    // 校验通过后各级必有值；?? 默认值仅满足类型要求（yearly null = 终身）。
     const retention: RetentionTiers = {
       events_days: tiers.events ?? 0,
       hourly_days: tiers.hourly ?? 0,

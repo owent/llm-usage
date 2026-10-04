@@ -1,14 +1,14 @@
 //! Hermes 探测与版本分派：state.db schema 指纹（真实列 + 主键形状，
 //! 不只看 schema_version 整数）+ 注册表。
 //!
-//! 合同（architecture.md#unknown-version / adapters.md Hermes 本地合同）：
+//! 约定（architecture.md#unknown-version / adapters.md Hermes 本地约定）：
 //! - sessions/session_model_usage 两表或关键列缺失 ⇒ 未知格式 fail closed；
-//! - 关键列齐全但主键不含 task（pre-v22 形状）⇒ fail closed 待取证
+//! - 关键列齐全但主键不含 task（pre-v22 形状）⇒ fail closed 待核验
 //!   （固定源码 _migrate_v22_session_model_usage 会在上游打开时重建，
 //!   本采集器绝不代跑迁移/修复）；
 //! - 两表皆空（新装未用）⇒ Pending，下轮重探；
 //! - schema_version 已收录（真实 fixture 核验）⇒ KnownVersion；当前注册表
-//!   为空（仅固定源码/文档级证据，待真实样本），一律 LatestFallback 带兼容标记。
+//!   为空（仅固定源码/按文档或源码实现，待真实样本核验），一律 LatestFallback 带兼容标记。
 
 use crate::adapters::framework::DetectOutcome;
 use crate::adapters::hermes::common::{

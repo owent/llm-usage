@@ -21,7 +21,7 @@
 
 ## 本机产品矩阵（实测）
 
-| 产品 | 版本（证据来源） | 本地格式状态 | 样本 |
+| 产品 | 版本（核验来源） | 本地格式状态 | 样本 |
 | --- | --- | --- | --- |
 | Codex（VS Code 扩展宿主） | cli 0.155.0-alpha.16.3（rollout session_meta）；openai.chatgpt 扩展 26.917.62051 | rollout JSONL：token_usage_record 逐次 + token_count 累计 + turn_context；另有 6 个 sqlite | extracted（3 个会话，最多 49 调用/1457 行） |
 | 新版 Kimi Code | desktop 1.0.3；wire protocol_version=1.5 | `sessions/<wd>/session_*/agents/*/wire.jsonl`；camelCase usage.record{inputOther,output,inputCacheRead,inputCacheCreation}，epoch 毫秒 | extracted（主线 + 子代理对账样本） |
@@ -58,7 +58,9 @@
 | kimi wire 活文件 | 时间点快照 | 采样期间 394→515 行；期望值已注明快照时点 |
 | .omp 数据库内容、WSL/容器实例、F1 产品 | 未执行 | 合同限制或不在本阶段范围 |
 
-## 证据文件
+<a id="证据文件"></a>
+
+## 验证产物
 
 `build/desktop-usage-validation/`（gitignored）：agent-inventory.md、fixtures/（codex、kimi-code、zcode、
 copilot-cli、kilo 共 5 源）、tools/（extract-jsonl.mjs、sqlite-probe.py、kilo-sample.py、leak-check.py）。

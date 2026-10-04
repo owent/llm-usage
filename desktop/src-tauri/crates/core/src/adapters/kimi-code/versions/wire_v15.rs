@@ -1,6 +1,6 @@
 //! kimi-code wire JSONL 格式实现（`wire_v15`，protocol_version 1.5）。
 //!
-//! 格式证据（本机实读 2026-09-24/25，Kimi Code desktop 1.0.3；
+//! 格式依据（本机实读 2026-09-24/25，Kimi Code desktop 1.0.3；
 //! 真实脱敏 fixture：tests/fixtures/kimi-code/{session-main,subagent-agent-0}）：
 //! - 路径：`KIMI_CODE_HOME/sessions/<wd_hash>/session_<uuid>/agents/<agent>/wire.jsonl`
 //!   （默认 `~/.kimi-code`）；首行 `metadata{protocol_version:"1.5", created_at}`；

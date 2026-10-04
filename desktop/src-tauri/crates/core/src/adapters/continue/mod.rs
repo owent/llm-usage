@@ -1,4 +1,4 @@
-//! Continue 适配器（continuedev/continue；独立目录合同）。载体：
+//! Continue 适配器（continuedev/continue；独立目录约定）。载体：
 //! `~/.continue/sessions/<uuid>.json` 顶层 `usage`（**仅 CLI 写入**的会话累计
 //! 真实 API 值；GUI 会话无此字段；devdata.sqlite 是估算不采纳）。
 

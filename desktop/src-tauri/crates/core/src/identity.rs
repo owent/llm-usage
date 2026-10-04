@@ -1,7 +1,7 @@
 //! 身份与去重：event_id 命名空间（源实例+源记录键）、内容哈希（仅变更检测）、
 //! 同请求流式/最终/更正的 upsert 仲裁。
 //!
-//! 合同：有源修订号按修订号排序；否则按生命周期裁决（partial < final < corrected）。
+//! 约定：有源修订号按修订号排序；否则按生命周期裁决（partial < final < corrected）。
 //! 不能确定先后权威关系时标记 conflict，保留诊断，不取 MAX。
 
 use crate::domain::{EventInput, Lifecycle};

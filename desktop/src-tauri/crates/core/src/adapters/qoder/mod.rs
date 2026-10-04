@@ -1,6 +1,6 @@
-//! Qoder 适配器（阿里，前通义灵码；独立目录合同）。**前置取证阶段**：
+//! Qoder 适配器（阿里，前通义灵码；独立目录约定）。**实现前格式核验阶段**：
 //! 路径已证（`~/.qoder/projects/...`，QODER_CONFIG_DIR 重定向），用量落盘
-//! 字段仍缺证（bundle schema 线索不作数；计量是云端 Credits）⇒ 只发现与
+//! 字段仍待真实样本核验（bundle schema 线索不能确认落盘格式；计量是云端 Credits）⇒ 只发现与
 //! 识别，不解析（fail closed）。JetBrains 插件归 F1。
 
 pub mod detect;

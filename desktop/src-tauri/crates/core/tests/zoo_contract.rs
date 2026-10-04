@@ -1,8 +1,8 @@
-//! Zoo Code 适配器合同测试：合成 fixture（文档级证据，A19 固定源码 f780647；
+//! Zoo Code 适配器约定测试：合成 fixture（依据 A19 固定源码 f780647；
 //! 本机 not_found，2026-09-25 盘点）经
 //! 读取→合并（consolidateApiRequests LIFO）→计账（consolidateTokenUsage 语义）
-//! →commit→查询 全链路。数值对照 tests/fixtures/zoo/*/_expectations.md 的
-//! 人工核算，不改口径。辅助函数写在本文件内（不改共享 common）。
+//! →commit→查询。数值对照 tests/fixtures/zoo/*/_expectations.md 的
+//! 人工核算，不改计算规则。辅助函数写在本文件内（不改共享 common）。
 
 mod common;
 
@@ -244,7 +244,7 @@ fn not_array_detects_unknown_format() {
         .join("ui_messages.json");
     let outcome = adapter.detect(&file).unwrap();
     assert!(matches!(outcome, DetectOutcome::UnknownFormat { .. }));
-    // 全链路：detect 拒绝 ⇒ 文件 unsupported，0 事件。
+    // 全过程：detect 拒绝 ⇒ 文件 unsupported，0 事件。
     let reports = run_zoo(&storage, &root, NOW);
     assert_eq!(reports[0].files[0].status, "unknown_format");
     assert_eq!(reports[0].files[0].events, 0);

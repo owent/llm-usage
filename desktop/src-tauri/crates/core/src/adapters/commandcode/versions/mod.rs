@@ -1,4 +1,4 @@
-//! COMMANDCODE 版本注册表（V30 目录合同）。锚点为文档级 commandcode-tree-v3。
+//! COMMANDCODE 版本注册表（V30 目录约定）。锚点为文档级 commandcode-tree-v3。
 
 pub mod tree_v3;
 

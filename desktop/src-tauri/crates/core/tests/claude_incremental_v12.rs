@@ -1,5 +1,5 @@
 //! V12：Claude Code 适配器增量与刷新语义 —— 重复扫描不增量、追加续读、半行跨轮、
-//! 截断/同长替换/改名重探测、预算分片恢复、矛盾重复（同 requestId 不同 usage）
+//! 截断/同长替换/改名重探测、达到读取上限后分批恢复、矛盾重复（同 requestId 不同 usage）
 //! 冲突标记。内容均为合成（syn- 前缀 ID），期望值逐条人工核算。
 
 mod common;
@@ -377,7 +377,7 @@ fn conflicting_duplicate_marks_conflict_and_keeps_existing() {
     let (_db, storage) = temp_storage("claude-v12-conflict");
     run_claude(&storage, &root, NOW);
 
-    // 追加同 requestId 但 usage 不同的重报（无先后权威证据 → conflict）。
+    // 追加同 requestId 但 usage 不同的重报（无法确认哪条修订更新 → conflict）。
     let conflict = file
         + &assistant_line(
             "syn-req-c1",

@@ -1,7 +1,7 @@
-//! OpenCode 适配器合同测试：合成 fixture（文档级证据，A17 固定源码 0027387；
+//! OpenCode 适配器约定测试：合成 fixture（依据 A17 固定源码 0027387；
 //! 本机 not_found，2026-09-25 盘点）经
-//! 读取→解析→逐次事件→commit→查询 全链路。数值对照
-//! tests/fixtures/opencode/*/_expectations.md 的人工核算，不改口径。
+//! 读取→解析→逐次事件→commit→查询。数值对照
+//! tests/fixtures/opencode/*/_expectations.md 的人工核算，不改计算规则。
 //!
 //! 辅助函数从 tests/common/mod.rs 与 tests/hermes_contract.rs 复制（按任务
 //! 约束不改共享 common，避免并行冲突）。
@@ -87,7 +87,7 @@ fn insert_rows(conn: &rusqlite::Connection, table: &str, rows: &[serde_json::Val
     }
 }
 
-/// 按投影（{schema:{session_ddl,message_ddl,part_ddl},sessions,messages,parts}）
+/// 按脱敏数据（{schema:{session_ddl,message_ddl,part_ddl},sessions,messages,parts}）
 /// 在 <dir>/opencode-home/opencode.db 重建 SQLite 库，返回数据目录
 ///（可作为手工根传入 discover）。
 fn build_opencode_db(dir: &TempDir, projection: &serde_json::Value) -> PathBuf {
@@ -140,7 +140,7 @@ fn opencode_instance(root: &Path) -> String {
     format!("opencode@{}", normalize_path(root))
 }
 
-/// 事件白名单投影（一行一条逐次事件）。
+/// 事件仅保留白名单字段的数据（一行一条逐次事件）。
 type EventRow = (
     String,
     String,
@@ -273,7 +273,7 @@ fn contract_full_chain_matches_manual_expectations() {
         .iter()
         .all(|r| r.verdict == "matched"));
 
-    // 文档级证据：注册表为空 ⇒ latest_fallback 标记。
+    // 尚未用真实样本核验：注册表为空 ⇒ latest_fallback 标记。
     let fallback: i64 = storage
         .conn()
         .query_row(
@@ -351,7 +351,7 @@ fn unknown_format_fail_closed_for_bogus_sqlite_and_missing_tables() {
     let outcome = OpenCodeAdapter::new().detect(&empty_db).unwrap();
     assert!(matches!(outcome, DetectOutcome::UnknownFormat { .. }));
 
-    // 仅新 core 投影层（session_message）而无 part 表 ⇒ 拒绝并注明待取证。
+    // 仅新 core 派生视图层（session_message）而无 part 表 ⇒ 拒绝并注明待核验。
     let core_db = home.join("core-only.db");
     {
         let conn = rusqlite::Connection::open(&core_db).unwrap();
@@ -494,7 +494,7 @@ fn discover_respects_xdg_data_home_and_manual_parent_root() {
     assert_eq!(roots.len(), 1);
     assert_eq!(normalize_path(&roots[0].root), normalize_path(&xdg_home));
 
-    // 手工根语义按数据目录名收敛：不按文件名递归——grandparent 目录
+    // 手工根语义按数据目录名限定：不按文件名递归——grandparent 目录
     //（无名为 opencode 的数据目录形状）不产出根，防止误触同血统产品的
     // opencode-rc.db（kilo 目录实测存在同名前缀库）。
     let ctx = DiscoverContext {

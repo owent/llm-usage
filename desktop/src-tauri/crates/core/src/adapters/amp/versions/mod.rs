@@ -1,4 +1,4 @@
-//! AMP 版本注册表（V30 目录合同）。锚点为文档级 amp-threads-doc-1。
+//! AMP 版本注册表（V30 目录约定）。锚点为文档级 amp-threads-doc-1。
 
 pub mod threads_doc1;
 

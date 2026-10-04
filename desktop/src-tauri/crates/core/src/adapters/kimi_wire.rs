@@ -25,7 +25,7 @@
 //!   跨文件同毫秒的 usage.record（swarm 并行子代理与主线同毫秒完成 2 对），
 //!   键必须含身份段；同文件同毫秒重复时追加序号并记诊断，确定性且重扫稳定。
 //!
-//! 差异（各自 fixture 独立证据，见 tests/fixtures/kimi-code|kimi-work）：
+//! 差异（分别用各自 fixture 核验，见 tests/fixtures/kimi-code|kimi-work）：
 //! - Kimi Code 1.5：usage.record 带 `agentId`；目录 `sessions/<wd>/session_<uuid>/`；
 //!   model 为 `alias/model` 组合串。本机 desktop 1.0.3。
 //! - Kimi Work 1.4：usage.record **无** agentId（身份来自 agents/<id>/ 目录）；
@@ -151,7 +151,7 @@ pub(crate) const KNOWN_IGNORED_TYPES: &[&str] = &[
     "tools.update_store",
     "tools.set_active_tools",
     "tools.register_user_tool",
-    // token_counting 是上下文估算/累计表（非逐次 usage），计入即口径错误
+    // token_counting 是上下文估算/累计表（非逐次 usage），计入会造成计算错误
     "token_counting.measured",
     "token_counting.rebased",
     "token_counting.truncated",
@@ -316,7 +316,7 @@ pub(crate) fn identity_from_path(path: &std::path::Path) -> (Option<String>, Opt
     (session, agent)
 }
 
-/// 构造一条 usage.record 事件（家族共享；身份/口径证据见模块头）。
+/// 构造一条 usage.record 事件（家族共享；身份与计算规则的依据见模块头）。
 #[allow(clippy::too_many_arguments)]
 fn build_usage_event(
     target: &ScanTarget,

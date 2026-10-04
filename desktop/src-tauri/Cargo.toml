@@ -25,7 +25,7 @@ rusqlite = { version = "^0.40.2", features = ["bundled"] }
 llm-usage-core = { path = "crates/core" }
 jiff = { version = "^0.2.37" }
 rfd = { version = "^0.17.2" }
-# fs4：备份前磁盘剩余空间检查（V15 迁移/清理前一致备份合同）。
+# fs4：备份前磁盘剩余空间检查（V15 迁移/清理前一致备份约定）。
 fs4 = { version = "^0.13" }
 # flate2：OTLP 接收器 gzip 解压（有界，V22 压缩炸弹防护）。
 flate2 = { version = "^1" }

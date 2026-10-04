@@ -1,13 +1,13 @@
 //! DSH 产品特有的 usage 字段映射（固定 token-meter README 46a7f68，A08，
-//! 文档级证据待真实样本；本机 not_found 无真实样本）。
+//! 按文档或源码实现，待真实样本核验；本机 not_found 无真实样本）。
 //!
-//! 证据（packages/llm/token-meter/README.md @ 46a7f68）：
+//! 依据（packages/llm/token-meter/README.md @ 46a7f68）：
 //! - "tokenUsage carries the complete durable log's `uncachedInputTokens`,
 //!   `outputTokens`, `cacheReadTokens`, and `cacheWriteTokens`"——四字段
 //!   各自可选（"each corresponding aggregate appears only when every
 //!   participating attempt reports its optional cache, reasoning, or route
 //!   value"：cache 是 attempt 可选值，缺失 = 未知不补零）；
-//! - 字段名自证口径：uncachedInputTokens 是未缓存输入桶；
+//! - 字段含义：uncachedInputTokens 是未缓存输入桶；
 //!   input_total = uncached + cacheRead + cacheWrite（派生）、
 //!   total_tokens = input_total + output（派生）。
 //!
@@ -27,7 +27,7 @@ pub struct DshUsage {
 }
 
 impl DshUsage {
-    /// 四字段是否全部缺失（无 usage 证据的消息）。
+    /// 四字段是否全部缺失（消息未记录 usage）。
     pub fn is_empty(&self) -> bool {
         self.uncached_input_tokens.is_none()
             && self.output_tokens.is_none()

@@ -1,5 +1,5 @@
-//! DSH（DeepSeek Harness）适配器合同测试：合成 fixture（文档级证据，A08
-//! 固定源码 token-meter；本机未安装，2026-09-25 盘点 not_found）全链路。
+//! DSH（DeepSeek Harness）适配器约定测试：合成 fixture（依据 A08
+//! 固定源码 token-meter；本机未安装，2026-09-25 盘点 not_found）全过程。
 //! 折叠规则（pinned README）：final 样本替换同 attempt 流式值；
 //! retry-started 结束替换范围并新开一个计费 attempt；attempt/step 边界
 //! 对最后一个样本定稿。occurred_at 用观察时间（README 无逐事件时间）。

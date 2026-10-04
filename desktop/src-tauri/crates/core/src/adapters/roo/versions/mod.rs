@@ -1,4 +1,4 @@
-//! ROO 版本注册表（V30 目录合同）。锚点为文档级 roo-ui-messages-doc-1。
+//! ROO 版本注册表（V30 目录约定）。锚点为文档级 roo-ui-messages-doc-1。
 
 pub mod ui_messages_doc1;
 

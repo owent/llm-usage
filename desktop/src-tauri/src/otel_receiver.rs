@@ -3,7 +3,7 @@
 //! Copilot CLI/VS Code 默认 JSON），gzip 有界解压，把逐请求 span 归一化为
 //! otel 适配器可读的 JSONL（%APPDATA%/llm-usage-desktop/otel/spans.jsonl）。
 //!
-//! 合同（execution.md M5 / V22 / V25）：
+//! 约定（execution.md M5 / V22 / V25）：
 //! - 默认关闭（settings.otel_receiver_enabled）；启用 = 用户显式授权本机实例；
 //! - 仅 127.0.0.1（loopback 转发按 V25 判定：经本接收器到达的数据 = 本机实例，
 //!   与直接读取外部 exporter 文件分列来源）；
@@ -77,7 +77,7 @@ const ALLOWED_ATTR_PREFIXES: &[&str] = &[
     "server.address",
 ];
 const ALLOWED_RESOURCE_KEYS: &[&str] = &["service.name"];
-/// 正文/内容属性：即使命中前缀也拒绝落盘（V22 白名单合同）。
+/// 正文/内容属性：即使命中前缀也拒绝落盘（V22 白名单约定）。
 const DENIED_ATTR_KEYS: &[&str] = &[
     "gen_ai.input.messages",
     "gen_ai.output.messages",

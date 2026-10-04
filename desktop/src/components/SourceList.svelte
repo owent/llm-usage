@@ -52,7 +52,7 @@
             : { kind: 'interval' as const, intervalSeconds: Number(mode.slice(4)) };
     await change(s, () => api.setSourceSchedule(s.instance_id, rule ? { ...rule, timezone } : null));
   }
-  // 周名按当前语言 Intl 生成（周一=1…周日=7，与后端 ISO 对齐；基准 2024-01-01）。
+  // 周名按当前语言 Intl 生成（周一=1…周日=7，与后端 ISO 编号一致；基准 2024-01-01）。
   // 渲染必须固定 UTC：本地时区渲染 UTC 零点会在负偏移时区错一天。
   const weekdayNames = $derived(
     Array.from({ length: 7 }, (_, i) =>

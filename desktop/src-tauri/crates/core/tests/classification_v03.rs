@@ -1,5 +1,5 @@
 //! V03：调用/尝试/消息/累计值分类。失败无 usage 计调用不计 token；
-//! 未知 token 不补零；无证据不产生 request 数。
+//! 未知 token 不补零；未观测到调用时不产生 request 数。
 
 mod common;
 

@@ -3,13 +3,13 @@
 范围：在 WSL Debian（用户 owent，Node 20.19.2/npm 10.9.9/Python 3.13.5，
 网络可用，无免密 sudo——全部用户级安装）安装 M2/M3/M8 缺真实样本产品中
 可无头安装的 CLI，做安装级/真实数据验证后全部卸载并清理。
-目的：为"真实 fixture 待本机数据"缺口取得真实证据；不产生模型调用
+目的：为"真实 fixture 待本机数据"缺口取得真实核验结果；不产生模型调用
 （无凭据，不登录）。Windows 侧对 WSL 数据经
 `\\wsl.localhost\Debian\home\owent`（UNC）只读访问。
 
 ## 安装与首跑（全部官方渠道，npm 包名经 registry 身份核验）
 
-| 产品 | 渠道/版本证据 | 首跑产物（真实落盘） |
+| 产品 | 渠道/版本核验依据 | 首跑产物（真实落盘） |
 | --- | --- | --- |
 | Claude Code | npm `@anthropic-ai/claude-code`（官方 repo 核对）；`claude -p hi` 未登录退出 | **真实转录** `~/.claude/projects/<cwd-slug>/*.jsonl`（8 行）+ `~/.claude.json` + backups/sessions |
 | Gemini CLI | npm `@google/gemini-cli` 0.62.0 | `~/.gemini/projects.json.*.tmp`（首跑写临时文件后未留存主体） |
@@ -17,7 +17,7 @@
 | OpenCode | npm `opencode-ai` 1.18.33；`opencode run` | **真实 SQLite** `~/.local/share/opencode/opencode.db`（session/message/part 表族 + 7 行 event）+ snapshot/log |
 | Command Code | npm `command-code` 1.72.4（bin 自报 0.52.5） | --version/--help 无配置目录 |
 | gajae-code | npm `gajae-code` 0.18.1（Yeachan-Heo 官方）+ bun 1.4.2 | `gjc --version` 可运行；无数据目录 |
-| OpenClaw | npm `openclaw`（openclaw/openclaw 官方） | **包损坏**：package.json bin 指向不存在的 openclaw.mjs，bin 未链接——安装级证据记录，未运行 |
+| OpenClaw | npm `openclaw`（openclaw/openclaw 官方） | **包损坏**：package.json bin 指向不存在的 openclaw.mjs，bin 未链接——安装核验结果记录，未运行 |
 | goose | 官方 release v1.52.0 二进制（download_cli.sh 网络失败，改 gh api 取 latest release 直装） | `goose session list` 真实响应"无会话"；未建配置目录 |
 | crush | npm `@charmland/crush` v0.97.1（charm README 官方渠道） | `crush agent list` 需 TTY 配置，无配置目录 |
 | jcode | 官方 `curl jcode.sh/install` v0.89.3 | `~/.jcode`（builds/logs/migrations/telemetry；**无 sessions**——须实际会话） |
@@ -35,7 +35,7 @@
 - `~/.copilot`：仅 config/ide/logs，无 session-store.db；
 - `~/.cline/data/db/*.db`：**Cline CLI 新产品面**（sessions/schedules 表，0 行）——
   与我们已实施的 VS Code 扩展形态（ui_messages JSONL）不同源，矩阵未覆盖，
-  记为证据缺口（无用量行，不实施）。
+  记为待核验项（无用量行，不实施）。
 
 ## 真实验证结果（probe_home 只读探针，内存库不落盘）
 
@@ -55,7 +55,9 @@
 指向 WSL 路径会遇到；错误如实报出（fail closed），未损坏数据。
 本地一致性快照路径验证通过。
 
-## Claude Code 2.1.197 真实格式适配（本次新证据驱动的修复）
+<a id="claude-code-21197-真实格式适配本次新证据驱动的修复"></a>
+
+## Claude Code 2.1.197 真实格式适配（根据本次真实样本修复）
 
 真实转录固化的格式事实：文件可以 `queue-operation`（enqueue/dequeue）开头；
 `attachment`/`last-prompt` 为非用量元数据记录；未登录占位 assistant 为
@@ -105,7 +107,7 @@ CI 36709419197 全绿。登记见 [m0-ci](m0-ci.md)。
 1. 全部产品无凭据未登录：用量事件为零（claude synthetic/opencode 空库），
    真实用量 fixture 仍待有凭据环境产生；
 2. goose/crush/command-code/gajae 的数据目录须实际会话才生成，本轮未获载体；
-3. Cline CLI（`~/.cline/data/db`）新形态：0 行无证据，未实施，入矩阵缺口；
+3. Cline CLI（`~/.cline/data/db`）新形态：0 行，缺少真实用量样本，未实施，入矩阵缺口；
 4. SQLite over UNC 的 staging backup 超时：如后续支持 WSL 手工根，需对 9p
    路径改用流式快照或文档化限制；
-5. 安装级证据（版本/目录骨架/npm 命名陷阱）已入本记录，供 adapters 矩阵引用。
+5. 安装核验结果（版本/目录骨架/npm 命名陷阱）已入本记录，供 adapters 矩阵引用。

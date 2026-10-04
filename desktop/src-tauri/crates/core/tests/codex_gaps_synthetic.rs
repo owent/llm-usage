@@ -407,7 +407,7 @@ fn map_codex_record_full_field_contract() {
     assert_eq!(mapped.usage.source_total, Some(1050));
     assert!(mapped.diagnostics.is_empty());
 
-    // 矛盾不钳制：cached + write > input → uncached 保持未知并进诊断。
+    // 矛盾不截断数值：cached + write > input → uncached 保持未知并进诊断。
     let contradiction = map_codex_record(&CodexRecordUsage {
         input_tokens: 100,
         cached_input_tokens: 90,

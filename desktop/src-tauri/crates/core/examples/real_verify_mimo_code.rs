@@ -3,7 +3,7 @@
 //!（not_found，2026-09-25 盘点）时期望 discovered_roots=0。只输出白名单聚合：
 //! 发现根数、文件数、记录数、事件数、token 合计、诊断计数；不打印路径、
 //! 会话 ID、消息 ID、模型以外的任何记录内容。源库只读（必要时 Online Backup
-//! 暂存副本，用完清理），绝不写源库。适配器为文档级证据实现，真实数据出现后
+//! 暂存副本，用完清理），绝不写源库。适配器为按已核对的文档或源码实现，真实数据出现后
 //! 按本入口复验。
 //! 用法：cargo run -p llm-usage-core --example real_verify_mimo_code -- <mimo根或其父目录或用户home> <work_dir>
 

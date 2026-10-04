@@ -1,10 +1,10 @@
 //! kimi-code 版本注册表：wire protocol_version → 格式实现的映射与未知版本回退
 //! （architecture.md#adapter-layout / #unknown-version，V30）。
 //!
-//! 版本策略证据（本机实读 + fixture，非官方协议文档）：
+//! 版本选择依据（本机实读 + fixture，非官方协议文档）：
 //! - 已验证：仅 `1.5`（本机 Kimi Code desktop 1.0.3，M0 fixture +
 //!   tests/fixtures/kimi-code 真实脱敏样本）→ `wire_v15`，KnownVersion；
-//! - 未收录/缺失 protocol_version：无证据不兼容 ⇒ 默认回退最新内置解析器
+//! - 未收录/缺失 protocol_version：尚未确认不兼容 ⇒ 默认回退最新内置解析器
 //!   （LatestFallback，带兼容标记），不因版本号未收录直接拒绝；
 //!   注意 1.4 是 Kimi Work 侧的已验证锚点，在**本产品**注册表中同样走
 //!   latest_fallback（两产品注册表独立，A12/A13）。
@@ -31,7 +31,7 @@ pub struct Selection {
 }
 
 /// 按来源 wire protocol_version 选择格式实现；探测与扫描共用（V30）。
-/// kimi-code 无有证据的不兼容版本：未收录/缺失一律 latest_fallback。
+/// kimi-code 尚无已确认不兼容的版本：未收录/缺失一律 latest_fallback。
 pub fn select(found: Option<&str>) -> Selection {
     match found.and_then(|v| VERIFIED_VERSION_IMPLS.iter().find(|(known, _)| *known == v)) {
         Some((_, impl_id)) => Selection {
@@ -63,7 +63,7 @@ mod tests {
 
     #[test]
     fn unrecorded_and_missing_versions_fall_back_to_latest() {
-        // 无证据不兼容的未收录/缺失版本：兼容尝试（V30），不直接拒绝。
+        // 尚未确认不兼容的未收录/缺失版本：兼容尝试（V30），不直接拒绝。
         // 1.4 现已注册（本机 active_compat 文件证实同构 wire_v15）。
         for found in [Some("9.9"), None] {
             assert_eq!(

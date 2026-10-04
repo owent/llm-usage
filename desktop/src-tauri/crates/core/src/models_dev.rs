@@ -1,5 +1,5 @@
 //! models.dev 社区目录（`api.json`）→ 价格快照转换（F2 在线刷新，
-//! [价格合同 · 在线刷新设计](../../../docs/design/desktop-usage/pricing.md)）。
+//! [价格规范 · 在线刷新设计](../../../docs/design/desktop-usage/pricing.md)）。
 //!
 //! 实测结构（2026-10-01，S24）：顶层为 `{ provider_id: { id, name, doc, env,
 //! npm, models: { model_id: ModelEntry } } }`；`ModelEntry.cost` 字段集为
@@ -7,7 +7,7 @@
 //! tiers/context_over_200k（美元/百万 token，无币种字段）；`canonical_model_id`
 //! 形如 `"openai/gpt-6-astra"`，是目录自身的官方归属标注。
 //!
-//! 过滤合同（以官方按量价为准）：
+//! 过滤约定（以官方按量价为准）：
 //! - 官方提供商 = 至少一个模型 `canonical_model_id` 前缀对应的提供商 ID，
 //!   或其 `<id>-cn` 中国区变体；ID 含 `-plan`（coding-plan/token-plan 等订阅
 //!   占位，实测 cost 全 0）整体排除；
@@ -15,7 +15,7 @@
 //! - 分量 0 值 ⇒ NULL（无价），不把目录占位零值当免费价格；
 //! - `cache_write` → `cache_write_5m`（目录无 TTL 分档）；`tiers[type=context]`
 //!   → `context_threshold_tokens` 行；`context_over_200k` 为重复表达不采用；
-//!   audio/reasoning 维度不导入（reasoning 含在输出价口径不变）；
+//!   audio/reasoning 价格项不导入（reasoning 仍含在输出价格中）；
 //! - 行属性：region = cn（-cn 变体）/ global，channel = api，currency = USD，
 //!   service_tier = standard，official_vendor = true；
 //! - 单位折算：美元/百万 token ×10⁴ → 百分之一美分/百万 token，四舍五入。
@@ -435,7 +435,7 @@ mod tests {
         assert_eq!(a.source_type, "community");
         assert_eq!(a.source_urls, [MODELS_DEV_API_URL]);
         assert_eq!(a.license.as_deref(), Some("MIT"));
-        // 内容变化 ⇒ 快照 ID 变化（修正须换 ID 的合同前提）。
+        // 内容变化 ⇒ 快照 ID 变化（修正须换 ID 的约定前提）。
         let changed = MINI.replace("\"input\": 10", "\"input\": 11");
         let other = snapshot_from_models_dev(
             &changed,

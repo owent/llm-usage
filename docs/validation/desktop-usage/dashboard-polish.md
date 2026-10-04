@@ -7,11 +7,11 @@
 
 ## 实施结果
 
-| 用户问题 | 修复与证据 |
+| 用户问题 | 修复与验证结果 |
 | --- | --- |
 | 总览提示太大 | 一行状态和两个操作；必要导出说明放标题提示及详情。Edge 1440 宽下高度小于 70 px |
 | 一键配置后仍报 5 项待开启 | 只计 missing 且 configurable；已配置待数据、有效数据、配置冲突分开，不用过往批次文案盖掉实时状态 |
-| 详情需手工核对 | 只读核验实际输出路径；已有有效调用自动核验，尚无输出等待数据，非有效样本继续自动检查。策略冲突与数据证据独立 |
+| 详情需手工核对 | 只读核验实际输出路径；已有有效调用自动核验，尚无输出等待数据，非有效样本继续自动检查。策略冲突与数据核验结果独立 |
 | 配置多空行 | JSONC 插入复用已有换行，保留注释/BOM/LF/CRLF，重复合并幂等；不重写用户已有空白 |
 | 费用缺少明细 | 单次查询提供各 provider/model 发生时估算与当前价模拟、币种小计、日金额；不合并货币，不改历史金额 |
 | 模型表过窄 | 今日和趋势模型表全宽，逐模型两列费用、底部统计与币种汇总，表头可换行；桌面截图/scrollWidth 核验无横向滚动 |
@@ -20,13 +20,15 @@
 | 曲线/饼图拥挤 | 默认用量/调用/周分布全宽，两饼图各半宽；圆环按尺寸计算、滚动图例独立置底；无金额时曲线折叠 |
 | 点击后汇总不变 | 曲线点、x 轴标签、dataZoom 范围更新顶部汇总；真实日期/本地小时筛选，跨周期会话去重，过期响应丢弃，可恢复全部范围 |
 
-## 本机只读证据
+<a id="本机只读证据"></a>
+
+## 本机只读核验结果
 
 检查未修改真实 IDE 配置、原始 Agent 输出或用户数据库，未产生模型调用。
 探测脚本、脱敏计数、SQL 查询计划和性能日志放忽略目录 build/dashboard-polish/；
 统计查询使用第一轮隔离数据库副本，真实原始数据不进版本库。
 
-| 本机目标（Profile 身份不输出） | 配置状态 | 数据证据 |
+| 本机目标（Profile 身份不输出） | 配置状态 | 数据核验结果 |
 | --- | --- | --- |
 | Copilot · VS Code 主实例 | configured | verified，30 条有效记录 |
 | Copilot · Agent Host | configured | waiting，0 条 |
@@ -43,13 +45,13 @@
 主导出文件约 14.1 MB，有效调用在前段而尾段只有其他日志。尾部无匹配时兼查前部，
 避免误报“无有效数据”；每样本最多 2,000 行，尾 2 MiB/前 8 MiB、单行 256 KiB、
 读取时间预算 200 ms。只读真实检查整体约 0.72–1.50 秒（并发构建时较慢），在后台线程执行。
-未变化文件的证据缓存有上限，文件追加使其失效；页面每 30 秒自动检查。
+未变化文件的核验结果缓存有上限，文件追加使其失效；页面每 30 秒自动检查。
 
 ## 性能与查询计划
 
 同一副本：usage_events 3,369 行，daily_usage 22、hourly_usage 60、period_usage 4、
 daily_cost_usage 20；查询 Asia/Shanghai，2026-09-03 至 2026-10-02。
-Rust debug，同一示例各执行三次；数字为本机证据，不作其他规模或 release P95 承诺。
+Rust debug，同一示例各执行三次；数字为本机核验结果，不作其他规模或 release P95 承诺。
 
 | 查询 | 修复前 | 修复后 |
 | --- | --- | --- |
@@ -89,7 +91,7 @@ Node.js 24.21.0、Rust/Cargo 1.98.1、已安装 Microsoft Edge；依赖版本以
 | --- | --- |
 | cargo test --manifest-path desktop/src-tauri/Cargo.toml -p llm-usage-core --test dashboard_polish | 退出 0；3 项：小时范围/去重/字段未知、DST 重复小时、字节预算/半行续读 |
 | cargo test --manifest-path desktop/src-tauri/Cargo.toml -p llm-usage-core --test pricing_v29 | 退出 0；10 项，追加各模型/日金额与币种汇总一致性断言，包含多币种/筛选/归档/官方回退 |
-| cargo test --manifest-path desktop/src-tauri/Cargo.toml -p llm-usage-desktop telemetry_setup | 退出 0；37 项、2 忽略，新增换行、证据/缓存失效/配置冲突和共享 Profile 测试 |
+| cargo test --manifest-path desktop/src-tauri/Cargo.toml -p llm-usage-desktop telemetry_setup | 退出 0；37 项、2 忽略，新增换行、数据核验/缓存失效/配置冲突和共享 Profile 测试 |
 | cargo test --manifest-path desktop/src-tauri/Cargo.toml -p llm-usage-desktop local_export_verification -- --ignored --nocapture | 退出 0；只读真实输出 5 项状态及 30 条有效记录 |
 | cargo run --manifest-path desktop/src-tauri/Cargo.toml -p llm-usage-core --example benchmark_dashboard | 退出 0；只读真实副本三次计时 |
 | python build/dashboard-polish/query_plans.py | 退出 0；只读计划和表行数 |
@@ -118,7 +120,7 @@ bundle/nsis/LLMUsage_0.2.0_x64-setup.exe。构建成功不等于安装或真实 
 按用户追加要求，总览单独统计“待开启 / 暂无数据 / 已核验”。缺配置且可自动配置的
 项目保留待开启；其余尚无已核验有效数据的项目显示暂无数据，包括配置暂受限制的项目。
 总览不固定显示零项“配置受限”；已有有效数据但仍有配置限制时保留限制提示。
-详情继续分别展示配置状态、原因和数据证据，批量配置仍跳过受限项目。
+详情继续分别展示配置状态、原因和数据核验结果，批量配置仍跳过受限项目。
 同步十种语言及交互规范；本次仅修改前端展示，未改变采集、只读核验、数据库或用户配置。
 
 Windows 11 x64，同前述 Node.js、Edge 和锁文件环境；日志放 build/telemetry-no-data/。
@@ -134,4 +136,4 @@ Windows 11 x64，同前述 Node.js、Edge 和锁文件环境；日志放 build/t
 
 浏览器断言覆盖总览的受限无数据项目显示“暂无数据”、详情保留策略限制、有效数据
 自动变为已核验且不消除真实限制，以及后续无有效数据恢复暂无数据。未重建桌面安装包，
-未启动原生 GUI；浏览器证据不代替真实 IDE 生效或完整历史验收。
+未启动原生 GUI；浏览器验证结果不代替真实 IDE 生效或完整历史验收。

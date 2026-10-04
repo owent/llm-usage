@@ -1,7 +1,7 @@
 //! Claude Code 探测：有界读取首行，按文档化记录类型集合确认 Agent 身份。
 //!
 //! claude transcript 无 CLI 版本字段可读：格式锚点是文档级格式版本
-//! transcript-doc-1（A01 文档口径），detect 成功即 KnownVersion，
+//! transcript-doc-1（按 A01 文档定义），detect 成功即 KnownVersion，
 //! 不存在"未知版本"状态；未文档化记录类型 ⇒ 未知格式，fail closed，
 //! 不把任意未知文件交给猜测逻辑（V17）。
 
@@ -38,7 +38,7 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
             format_version: Some(CLAUDE_FORMAT_VERSION.to_string()),
             basis: VersionBasis::KnownVersion,
         }),
-        // 2026-09-30 真实证据（Claude Code 2.1.197，WSL）：排队/附件/last-prompt
+        // 2026-09-30 真实样本核验结果（Claude Code 2.1.197，WSL）：排队/附件/last-prompt
         // 元数据记录可出现在文件首行；它们不是用量载体，探测放行，
         // 逐行解析阶段仍按白名单处理（transcript_doc1）。
         Some("queue-operation") | Some("attachment") | Some("last-prompt") => {

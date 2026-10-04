@@ -1,10 +1,10 @@
-//! Kilo Code CLI 适配器（独立目录合同 architecture.md#adapter-layout）：
+//! Kilo Code CLI 适配器（独立目录约定 architecture.md#adapter-layout）：
 //! - 本模块是该 Agent 的稳定入口（统一接口实现与再导出）；
 //! - [`detect`]：kilo.db schema 指纹探测与版本分派；
 //! - [`versions`]：已验证格式实现的注册与映射，未知版本默认回退最新内置解析器；
-//! - [`common`]：产品特有 usage 映射（全互斥口径）+ 源库只读/暂存副本合同。
+//! - [`common`]：产品特有 usage 映射（全互斥关系）+ 源库只读/暂存副本约定。
 //!
-//! 原始格式证据见各模块文件头（真实脱敏 fixture session-7.4.8-edges /
+//! 原始格式依据见各模块文件头（真实脱敏 fixture session-7.4.8-edges /
 //! session-7.4.9-family + 2026-09-25 本机只读 SELECT 探查）；kilo 是 opencode
 //! 派生（A11），仅按本目录证实的 message/session 两表解析，不共享 OpenCode 的
 //! 目录、表名或累计假设。

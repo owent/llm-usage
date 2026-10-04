@@ -1,6 +1,6 @@
 //! oh-my-pi（omp）session JSONL 格式实现（`session_v3`）。
 //!
-//! 格式证据（本机真实数据，18.2.7 scoop 安装，58 个会话文件 2026-08-21 至 2026-09-24，
+//! 格式依据（本机真实数据，18.2.7 scoop 安装，58 个会话文件 2026-08-21 至 2026-09-24，
 //! 逐类型白名单实读核验；另有固定源码 oh-my-pi 62bc57b 与 omp.exe 二进制字符串佐证）：
 //! - 布局：`~/.omp/agent/sessions/<encoded-cwd>/<ts>_<uuid>.jsonl`（主会话）；
 //!   子 Agent 文件在 `<ts>_<父uuid>/<Name>.jsonl`，嵌套子 Agent 再深一层
@@ -8,7 +8,7 @@
 //!   （不读）。全部 58 个文件首行均为 `type:"title"`（{v:1,title,updatedAt,pad,...}，
 //!   标题正文不读），session 头在其后。
 //! - session 头 `version`=3（58/58）；无 fork（parentSession 字段本机未出现，
-//!   仍按 pi 同口径支持）；条目基座 {type,id,parentId,timestamp}。
+//!   仍按与 pi 相同的规则支持）；条目基础字段 {type,id,parentId,timestamp}。
 //! - model_change 落盘为组合字段 `model`="provider/model"（3 个脱敏 fixture 一致），
 //!   非 pi 的分字段 modelId/provider（分字段形状作后备解析，omp 本机未观测）。
 //! - assistant 条目（8752 条实读）：model/provider/stopReason/responseId 自带；
@@ -20,12 +20,12 @@
 //! - 其他已观测类型（忽略）：title/title_change/credential_pin/session_init/
 //!   ttsr_injection/service_tier_change/custom(tool_execution_start 等)/custom_message。
 //! - 日志侧写：~/.omp/logs/omp.*.log 仅见上下文估算 debug 行，无逐次用量；
-//!   title-generator 调用在本机日志未观测，不存在与会话记录的重叠证据。
+//!   title-generator 调用在本机日志未观测，尚未确认与会话记录重叠。
 //!
 //! 版本策略（architecture.md#unknown-version，V30）：session 头经
 //! [`super::super::versions::select`] 分派；已收录版本（3）按映射用本实现
 //! （KnownVersion），未收录/缺失版本用本实现（当前最新）兼容尝试并带
-//! `parse_basis` 标记，不因版本号未收录直接拒绝（omp 旧版落盘格式未取证，
+//! `parse_basis` 标记，不因版本号未收录直接拒绝（omp 旧版落盘格式尚未核验，
 //! 与 pi 不同，无 evidenced-incompatible 分支）。
 //!
 //! V30 目录迁移自根级 adapters/omp.rs，扫描行为不变，不重建来源、不重置游标。
@@ -250,7 +250,7 @@ pub fn scan(
                 }
                 // 版本分派（探测/扫描同一注册表）：已收录按映射；未收录/缺失回退
                 // 本实现（当前最新）继续解析并带兼容标记，不直接拒绝（V30；
-                // omp 旧版落盘格式未取证，与 pi 的 fail closed 分支不同）。
+                // omp 旧版落盘格式尚未核验，与 pi 的 fail closed 分支不同）。
                 let found = entry.get("version").and_then(|v| v.as_i64());
                 let selection = super::super::versions::select(found);
                 context.version_basis = Some(selection.basis);
@@ -367,7 +367,7 @@ pub fn scan(
                                 ));
                             }
                             None => {
-                                // 无 usage 的 assistant 消息仍是一次调用的证据：
+                                // 无 usage 的 assistant 消息仍表明发生过一次调用：
                                 // 计调用数，token 全未知（不补零）。本机 8752 条均带 usage。
                                 diagnostics.push(diag(
                                     "usage_shape_deviation",
@@ -445,7 +445,7 @@ pub fn scan(
             }
             "usage" => {
                 // 独立 usage 条目（kind 如 cache_warm）：辅助调用，provider/model 自有字段。
-                // 本机未出现，与 pi 同口径支持。
+                // 本机未出现，仍按与 pi 相同的规则支持。
                 let usage_json = entry
                     .get("usage")
                     .cloned()

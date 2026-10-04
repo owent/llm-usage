@@ -1,6 +1,6 @@
-//! Claude Code 适配器合同测试：合成固定样本即合同样本（synthetic，本机
-//! not_found 无真实样本；结构按 A01 文档口径，逐文件证据见各目录
-//! _expectations.md）。经 读取→解析→标准化→commit_batch→查询 全链路。
+//! Claude Code 适配器约定测试：合成固定样本即约定样本（synthetic，本机
+//! not_found 无真实样本；结构按 A01 文档定义，逐文件核验说明见各目录
+//! _expectations.md）。经 读取→解析→标准化→commit_batch→查询。
 //!
 //! 手工核算值（fixture synthetic-contract，逐条核算并用 jq 验算，与
 //! _expectations.md 互核）：
@@ -345,7 +345,7 @@ fn contract_real_2_1_197_queue_metadata_rejects_usage_carriers() {
     );
     let reports = run_claude(&storage, &root, 1_800_000_000_000);
     let report = &reports[0];
-    // fail closed 合同：状态 pending（游标保持文件头等待受控重试），不产事件。
+    // fail closed 约定：状态 pending（游标保持文件头等待受控重试），不产事件。
     assert_eq!(report.files[0].status, "pending");
     assert!(report.files[0]
         .detail

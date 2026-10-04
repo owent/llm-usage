@@ -5,9 +5,9 @@
 数字/布尔/null 保留、字符串默认 REDACTED、ID 稳定映射 anon-N（31 个）、cwd → `<PATH>`。
 泄漏核查：无 UUID/路径/正文残留；保留字符串仅为记录类型、枚举、版本与模型名。
 
-本文件是 0.139–0.151 旧载体系列（无 `token_usage_record`，逐次证据 =
+本文件是 0.139–0.151 旧载体系列（无 `token_usage_record`，逐次用量依据 =
 `event_msg/token_count` 的 `info.last_token_usage`）的代表样本；判据与
-全量取证见 `adapters/codex/versions/rollout_legacy.rs` 文件头。
+全量核验见 `adapters/codex/versions/rollout_legacy.rs` 文件头。
 
 ## 结构期望（JS 独立核算）
 

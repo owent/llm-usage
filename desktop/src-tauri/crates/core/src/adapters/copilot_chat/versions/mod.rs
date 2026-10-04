@@ -1,4 +1,4 @@
-//! VS Code Copilot Chat 会话日志版本注册表（V30 目录合同）。
+//! VS Code Copilot Chat 会话日志版本注册表（V30 目录约定）。
 //!
 //! 锚点：chatSessionOperationLog.ts storageSchema 固定 `version: 3`
 //! （microsoft/vscode 源码）+ 本机 VS Code 1.140.0 真实数据核对

@@ -1,15 +1,15 @@
 //! Codex 版本注册表：发布版本 → 格式实现的映射与未知版本回退选择
 //! （architecture.md#adapter-layout / #unknown-version）。
 //!
-//! 已验证版本须有真实证据（fixture 或本机全量实读取证 + 期望值核算）；
+//! 已验证版本须经真实样本核验（fixture 或本机全量实读 + 期望值核算）；
 //! 注册表扩展只增加条目，不删除历史实现。
 //! 格式实现：
 //! - `rollout_v1`：0.153+ 逐次载体 `token_usage_record`（0.155.0-alpha.16.3
-//!   真实 fixture 全链路核验；0.153/0.154 逐版本 fixture 同形共用）；
+//!   真实 fixture 核验读取、解析、入库与查询；0.153/0.154 逐版本 fixture 同形共用）；
 //! - `rollout_legacy`：0.139–0.151 无逐次载体，以 `event_msg/token_count` 的
-//!   `last_token_usage` 回声为逐次证据（2026-09-26 本机全量 238 文件实读取证：
+//!   `last_token_usage` 回声提供逐次用量（2026-09-26 本机全量 238 文件实读核验：
 //!   21 版本零 token_usage_record；13,481 条 token_count 按 total 增量法分桶；
-//!   222/238 对账 matched；取证与判据详见 rollout_legacy.rs 文件头）。
+//!   222/238 对账 matched；核验方法与判据详见 rollout_legacy.rs 文件头）。
 //!
 //! 选择规则：
 //! - 已收录版本 → `KnownVersion`，按映射分派；
@@ -25,21 +25,21 @@ pub mod rollout_v1;
 pub const LATEST_IMPL_ID: &str = "rollout_v1";
 
 /// 已验证支持的发布版本 → 格式实现。
-/// 每个版本都有固定格式样本证据；同形版本共用实现，分派仍逐版本登记。
-/// 0.139–0.151 系列（rollout_legacy）：本机全量实读取证（每版本全文件
+/// 每个版本都有固定格式样本并已核验；同形版本共用实现，分派仍逐版本登记。
+/// 0.139–0.151 系列（rollout_legacy）：本机全量实读核验（每版本全文件
 /// total 增量法分桶 + Σ逐次 vs 最终快照核算，222/238 matched、16 mismatch
 /// 均属已解释类别），代表 fixture 0.139.0 / 0.142.5 / 0.146.0-alpha.3
-/// 入库全链路验证；证据详见 rollout_legacy.rs 文件头与 m2d 验证记录。
+/// 读取、解析、入库与查询均已验证；详情见 rollout_legacy.rs 文件头与 m2d 验证记录。
 pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[
-    // M2-A 真实 fixture（3 会话，49 调用全链路期望）。
+    // M2-A 真实 fixture（3 会话，49 调用读取、解析、入库与查询的期望值）。
     ("0.155.0-alpha.16.3", "rollout_v1"),
     // M2-D 逐版本脱敏 fixture（rollout-v*.sanitized.json + _expectations.md
     // jq 独立核算；token_usage_record 逐次载体与 0.155 同形，共用 rollout_v1）。
     ("0.154.0-alpha.6.2", "rollout_v1"),
     ("0.154.0-alpha.6.1", "rollout_v1"),
     ("0.153.0", "rollout_v1"),
-    // 旧载体系列（token_count/last_token_usage）：本机 238 文件实读取证 +
-    // rollout-legacy-*.sanitized.json fixture 全链路验证（2026-09-26）。
+    // 旧载体系列（token_count/last_token_usage）：本机 238 文件实读核验 +
+    // rollout-legacy-*.sanitized.json fixture 验证读取、解析、入库与查询（2026-09-26）。
     ("0.151.0-alpha.7.1", "rollout_legacy"),
     ("0.149.0-alpha.4.1", "rollout_legacy"),
     ("0.148.0-alpha.9", "rollout_legacy"),
@@ -182,7 +182,7 @@ mod tests {
                 }
             );
         }
-        // 0.139–0.151 系列已取证登记为 rollout_legacy（fixture + 全量实读）。
+        // 0.139–0.151 系列已核验并登记为 rollout_legacy（fixture + 全量实读）。
         for v in [
             "0.139.0",
             "0.140.0-alpha.2",
@@ -215,7 +215,7 @@ mod tests {
                 "version {v}"
             );
         }
-        // 未取证版本（如 0.141.0、未来版本）仍按未知版本回退 rollout_v1。
+        // 未核验版本（如 0.141.0、未来版本）仍按未知版本回退 rollout_v1。
         assert_eq!(select(Some("0.141.0")).basis, VersionBasis::LatestFallback);
         assert_eq!(
             select(Some("0.142.5-x")).basis,

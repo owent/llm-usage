@@ -48,7 +48,7 @@ reported 只代表来源报告，不承诺它等于最终账单；估算值默�
 
 | 类型 | 统计行为 |
 | --- | --- |
-| model_call | 有证据的一次模型调用/尝试；是 request 指标的基本单位 |
+| model_call | 有明确记录依据的一次模型调用/尝试；是 request 指标的基本单位 |
 | transport_attempt | HTTP/WebSocket 重连或重试；独立计数，除非证明就是新的模型调用，不能直接增加 model_call |
 | usage_observation | 一条 usage 记录；与调用可能一对多或多对一，不能默认 COUNT(*) 为 request |
 | cumulative_snapshot | 会话/进程累计快照；根据身份、版本和重置边界求差，不能逐条求和 |
@@ -66,9 +66,9 @@ reported 只代表来源报告，不承诺它等于最终账单；估算值默�
 仅有 token 累计值时调用数显示未知，不能通过非零 delta 数目推测请求次数。
 Hermes 等源可能报告 api_call_count 的区间累计：保留为“来源报告调用汇总”，
 核验含义后按原生区间显示，不伪造逐次 model_call，不与相同覆盖的逐次计数相加。
-quota_snapshot 仅在本地记录可证明属于本机使用时接入；账号套餐余额/积分总额属于排除范围。
+quota_snapshot 仅在本地记录可证明属于本机使用时接入；账户级额度采用下述独立展示规则。
 
-2026-10-01（属主决策，覆盖上一条排除范围）：为在总览/趋势看到 Copilot 用量，接入
+总览/趋势接入
 `copilot-user-cache.json` 的 `premium_interactions`（账户级 premium 请求配额），写入
 **通用额度时序 `quota_history`**（agent 无关；kind=rate_limit、unit=milli_requests）独立展示——
 按请求计数、**非 token**、`locality_verified=false`（跨设备/入口共享，不可证明属于本机）、
@@ -77,11 +77,9 @@ quota_snapshot 仅在本地记录可证明属于本机使用时接入；账号�
 额度可含小数，以千分之一请求的整数存储，显示时除以 1000；精度超出该单位时
 保持未知，不取整或截零。使用 timestamp_utc 分日、去重；缺少来源时间不伪造新快照。
 同刻数值或元数据更正可更新，新时刻同值仍保存。额度清空与硬保留适用于此表。
-（同日更正：当时"VS Code Copilot Chat 本地不落盘逐次 token"的依据只覆盖 chronicle
-session-store.db；随后取证发现 VS Code 原生 `chatSessions/*.jsonl` 会话日志携带逐请求
-token 计数，逐次载体合同见下一段，额度记录继续独立保留。）
+VS Code 原生会话用量与账户额度分别采集和验证，额度记录独立保留。
 
-2026-10-01（VS Code Copilot Chat 逐次载体，M9）：`workspaceStorage/<hash>/chatSessions/
+VS Code Copilot Chat 载体（M9）：`workspaceStorage/<hash>/chatSessions/
 <sessionId>.jsonl`（chatSessionOperationLog storageSchema v3）按 user turn 落盘
 `promptTokens`/`completionTokens`/`copilotCredits`/`elapsedMs`/`modelTotals`
 （VSCode 源码 chatModel.toJSON 语义）。一个 turn = usage_observation；`promptTokens`
@@ -93,7 +91,7 @@ input/cached/output 总量并优先采用。缓存细分默认未知不补零；
 采集端每轮全量重放取终值，同键 upsert 幂等，不对更新序列求和。
 `toolCallRounds` 中有稳定 ID 和时间的主循环轮次独立计 model_call，逐轮 token
 保持未知，由 turn/逐模型 observation 贡献用量（这些 round 标记计调用但 quality_bucket=unknown，
-不计入“未知字段”展示）；没有轮次证据时不以 turn 数补调用。输入覆盖提示
+不计入“未知字段”展示）；没有轮次记录时不以 turn 数补调用。输入覆盖提示
 （turn_input_incomplete：promptTokens 仅覆盖末次调用）是该格式固有限制、非坏记录或对账差异，
 不降级来源健康（仅坏行/非法 token/重复键/缺归属等才标“需核对”）。同理，Codex rollout
 对累计快照的交叉对账差异（reconcile_mismatch/snapshot_regression）保留原诊断和 mismatch
@@ -107,7 +105,7 @@ total/last 异常仍降级。info 缺失/null 不含用量，不计调用、不�
 的记录；同安装工作区与 globalStorage/emptyWindowChatSessions 共用来源避免迁移副本
 双计。半行/预算不足/损坏快照不覆盖既有用量。详见 [审查记录](../../validation/desktop-usage/m9-copilot-review.md)。
 
-2026-10-02（VS Code Copilot file）：已核验的 SDK CLIENT `chat <model>` 逐调用入库，
+VS Code Copilot file：已核验的 SDK CLIENT `chat <model>` 逐调用入库，
 input 包含缓存，reasoning 属于 output 子集，不额外相加。只在输入/输出均已知时派生 total；
 缓存拆分缺失保持未知。没有共同调用 ID 时按已核验主机/用户/会话/本地日择一，
 OTel 替代该范围原生贡献，保留原生记录与修订；原生重扫仍应用选择，封存分区不叠加。
@@ -115,13 +113,13 @@ OTel 替代该范围原生贡献，保留原生记录与修订；原生重扫仍
 Claude 版本小数/破折号拼写统一用于分组与价格匹配，原始模型字段保留。
 见 [本轮合同](dashboard-repair.md)；CLI/JetBrains 新版本的同名属性不能替代真实载体验收。
 
-2026-10-02（Visual Studio 总量修正）：同一 CLIENT chat span 的 input/output
+Visual Studio 总量计算：同一 CLIENT chat span 的 input/output
 均已知时派生 total_tokens，缓存桶不再额外相加；缺项/溢出保留未知。已消费且字节
 不变的旧游标重放一次，只有完整有效快照标记规则完成。对旧 v1/v2 载体，入库只
 允许旧完整字段哈希与新事件撤回 total 后完全一致的补齐，不将其他字段冲突当成升级。
 修复保持调用身份与记录数量、推进数据修订，不清库；原始来源缺失不能恢复未知总量。
 
-2026-10-01（Visual Studio Copilot 逐次载体，M9）：`%TEMP%\VSGitHubCopilotLogs/
+Visual Studio Copilot 逐次载体（M9）：`%TEMP%\VSGitHubCopilotLogs/
 traces\*.jsonl`（VS 自动写入的 OTLP JSON 遥测，无需配置）。一个 `chat <model>`
 CLIENT span = 一次模型调用（model_call，限已观测遥测范围）；无 usage 的失败调用
 保留 token 未知。每批次核对 service.name 和 trace/span 身份；`gen_ai.usage.input_tokens/output_tokens/cache_read.input_tokens`
@@ -153,7 +151,7 @@ token 在数据库用非负有符号 64 位整数并检查上限，聚合前防�
 
 模型以 `(provider_id, model_raw)` 保存；显示别名和模型家族由版本化规则派生。
 同名自定义模型跨供应商默认不合并。模型只有会话当前值时不能归给所有历史调用；
-只使用不晚于调用的结构化模型变更或请求自身字段，无证据则 unknown。
+只使用不晚于调用的结构化模型变更或请求自身字段，无模型归属依据则 unknown。
 不得从整行正则读到提示词中的 `"model"` 字样就当作调用模型。
 
 IDE 是 host_application，实际调用方是 agent：例如 VS Code + Copilot，Zed + Codex。
@@ -195,7 +193,7 @@ Codex/Kilo 升级通过既有解析器版本机制重放旧游标，完成后恢
 来源身份随导出和重新导入保持不变；导入机不能把原始主机改成自己。
 恢复或复制应用数据库到另一台机器时，保留已有历史来源，并显式区分新的本机采集身份；
 来源注册冲突进入映射/确认流程，不能静默把两台机器的新数据记成同一来源。
-主机名及来源 ID 是去重依据，不构成本机归属或真实性证明，仍需 locality_basis 等准入证据。
+主机名及来源 ID 是去重依据，不构成本机归属或真实性证明，仍需 locality_basis 等纳入统计的依据。
 
 后续导入/Merge 按下列规则确定行为（聚合层导入已实施：同分区键按修订比较，
 更高修订替换、同修订也替换（覆盖语义，重复导出/导入不缺失，内容相同时幂等）、
@@ -204,7 +202,7 @@ Codex/Kilo 升级通过既有解析器版本机制重放旧游标，完成后恢
 | 场景 | 处理合同 |
 | --- | --- |
 | 同一原始来源、记录键和同一修订 | 内容一致时幂等跳过；同修订内容不同标记冲突，重复导出/导入不增加用量 |
-| 同一原始来源、记录键且有更权威修订 | 撤销旧贡献后替换；缺少修订顺序证据时保留 conflict，不按金额/token 大小裁决 |
+| 同一原始来源、记录键且有更权威修订 | 撤销旧贡献后替换；缺少修订顺序依据时保留 conflict，不按金额/token 大小裁决 |
 | 已证实不同来源或不同记录且覆盖互斥 | 新增独立贡献；复制文件、宿主镜像仍按跨源去重合同处理，不能只因来源 ID 不同就相加 |
 | 同来源的完整日/区间快照 | 在相同来源分区、时间/时区、维度及合同版本下校验修订和完整性后原子替换；增量或部分快照不能覆盖整段历史 |
 | 归属未知、来源冲突或汇总覆盖无法拆分 | 保留旧结果及诊断，预览待映射范围；不能凭主机名相同自动替换或把重叠用量直接相加 |
@@ -214,7 +212,7 @@ Codex/Kilo 升级通过既有解析器版本机制重放旧游标，完成后恢
 同一范围未出现于增量包不表示删除；删除或整段替换语义须由交换合同明确声明。
 展示用 CSV/图表可不满足交换合同，但不得被当作无损回导文件。
 
-迁移旧数据只使用可证明的来源映射；缺少主机证据的历史保留独立、稳定的 `legacy_unknown` 命名空间，
+迁移旧数据只使用可证明的来源映射；缺少主机归属依据的历史保留独立、稳定的 `legacy_unknown` 命名空间，
 并记录其旧库/来源关联，不能都塞入同一个全局 unknown 键，也不能补写为当前导入主机。
 已丢明细的混合来源汇总保留原值和未知归属，不虚构每台主机的分量；重复迁移仍须幂等。
 主机名属于可识别信息，导出允许别名化或省略名称，仍保留稳定的不透明来源键。
@@ -239,7 +237,7 @@ Codex/Kilo 升级通过既有解析器版本机制重放旧游标，完成后恢
 
 优先级是按“范围 + 指标”的选择，不是全局“所有日志优于所有遥测”。
 例如日志承担历史 token、未来 OTLP 承担错误与延迟，切换点明确保存。
-重叠时缺少关联证据就分开展示；不能靠相近时间、模型和 token 相同做模糊去重。
+重叠时缺少关联依据就分开展示；不能靠相近时间、模型和 token 相同做模糊去重。
 云端账单和账号总额不导入应用，也不作为本机逐请求用量的替代来源。
 
 父会话汇总、子 Agent 请求和辅助调用需要明确覆盖集合。
@@ -259,7 +257,7 @@ message.data.tokens 不一致时保存 reconcile_mismatch，不降低有效逐�
 
 累计 metric series 身份包含资源、instrument、属性、进程实例和 start_time。
 相同 series/start/end 的重复数据只处理一次；delta 也必须去重。
-累计值下降需区分明确重置和来源更正；缺少重置证据时不按零重新累加。
+累计值下降需区分明确重置和来源更正；缺少重置依据时不按零重新累加。
 首次看到累计值可保存为源原生区间总量；若区间跨日且无中间采样，不把全部 token 记入今天，
 也不按时长平均摊分。明细趋势显示覆盖缺口，总计和趋势的差异有解释。
 
@@ -337,7 +335,9 @@ Agent、模型、供应商按统一 Unicode 小写规则分组和筛选，原始
 
 <a id="settings"></a>
 
-## 分级归档保留（2026-09-26 用户合同）
+## 分级归档保留
+
+<a id="分级归档保留2026-09-26-用户合同"></a>
 
 明细→小时→日→周/月/年逐级更长保留，默认 7/3/90/1095/3650 天/终身：
 
@@ -352,7 +352,9 @@ Agent、模型、供应商按统一 Unicode 小写规则分组和筛选，原始
 明细层无层级约束：可比小时层长，只是冗余不丢数据。
 粗层不得短于细层（策略校验要求 hourly ≤ daily ≤ weekly ≤ monthly ≤ yearly）。
 
-## 多用户（v6，2026-09-26 用户合同）
+## 多用户（v6）
+
+<a id="多用户v62026-09-26-用户合同"></a>
 
 - `users(user_id, name)`；新用户采用随机内部 ID，显示名去掉首尾空格且不能为空或重复。
   默认用户 user_id=`default`（迁移自动创建并归属全部既有来源），
@@ -362,7 +364,7 @@ Agent、模型、供应商按统一 Unicode 小写规则分组和筛选，原始
   Agent 数据可归不同统计用户）。
 - 查询按"当前用户的来源集合"过滤（`Filters.instances`，app 层解析；
   core 不感知 user 概念，保持统计内核解耦）。空集合=该用户暂无来源。
-- 导入的来源默认归 default 用户、启用状态关闭（remote_sync 归属证据），
+- 导入的来源默认归 default 用户、启用状态关闭（remote_sync 归属依据），
   由用户在数据源页重新分配归属与启用。
 
 - **进行中周期保护**：日层下限不得越过当前周/月/年起点（否则未完成周期
@@ -464,7 +466,7 @@ SQLite 逻辑删除不保证物理擦除，UI 不作安全擦除承诺；用户�
 精度和舍入沿用本合同的确定精度要求；费用引擎已实施（F2，[验证记录](../../validation/desktop-usage/f2-cost-engine.md)），
 可选在线刷新已实施（默认关闭：models.dev 社区目录 + 原始响应长缓存 + 失败回退上次成功下载，
 并支持官方提供商回退匹配，[验证记录](../../validation/desktop-usage/f2-online-refresh.md)）；
-2026-10-02 起精确 provider/模型/渠道行优先；缺精确行或 provider/渠道未知时，
+精确 provider/模型/渠道行优先；缺精确行或 provider/渠道未知时，
 可回退同型号已核验官方供应商按量行并明确展示 API 价格参考（非实际账单）。
 系列只用于限定官方方，不能给未知版本或订阅专属别名猜价格；未知桶不能补零。
 优先用户渠道，其次官方 global API；剩余地区/渠道/币种有歧义不套价。

@@ -1,4 +1,4 @@
-//! VS Copilot 遥测版本注册表（V30 目录合同）。
+//! VS Copilot 遥测版本注册表（V30 目录约定）。
 //!
 //! 锚点：本机 VS 18 Community 真实数据（2026-10-01）——OTLP JSON 信封
 //! （行=resourceSpans 批次）、service.name=vs-copilot、chat span 携带

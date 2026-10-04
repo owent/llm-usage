@@ -1,10 +1,10 @@
 //! Amp threads/T-*.json 格式实现（`threads_doc1`，文档级 amp-threads-doc-1）。
 //!
-//! 格式证据（第三方解析器 tokscale 固定提交
+//! 格式依据（第三方解析器 tokscale 固定提交
 //! 1d9a9395418efc6952944b794097935d7d6fa1e8 sessions/amp.rs；闭源产品
 //! Sourcegraph，本机未安装、无真实样本）：
 //! - 路径 `~/.local/share/amp/threads/T-*.json`（clients.rs:463-472，
-//!   PathRoot::XdgData；Windows 真实布局未见证据，%LOCALAPPDATA%\amp\threads
+//!   PathRoot::XdgData；Windows 实际目录布局尚未核验，%LOCALAPPDATA%\amp\threads
 //!   作为候选根探测，指纹过滤）。
 //! - 每线程一个 JSON：`id`、`created`（Unix **毫秒**）、`messages[]`、
 //!   `usageLedger`（amp.rs:64-71）。
@@ -16,7 +16,7 @@
 //!   `usage{ model, inputTokens, outputTokens, cacheReadInputTokens,
 //!   cacheCreationInputTokens, credits }`——**无时间戳**。
 //!
-//! 对账合同（M8 双载体边界）：ledger 与逐消息 usage 按 toMessageId==messageId
+//! 对账约定（M8 双载体边界）：ledger 与逐消息 usage 按 toMessageId==messageId
 //! 对账防双计；ledger 事件有显式时间戳 ⇒ 主入账载体；无 ledger 对应的消息
 //! usage 无时间戳（tokscale 以 thread.created + messageId×1000 推造时间，
 //! **不采纳**——矩阵明令禁止）⇒ 跳过并记诊断 + Reconciliation 对照。
@@ -369,7 +369,7 @@ mod tests {
             Some("abc123")
         );
         assert_eq!(thread_id_of(std::path::Path::new("/x/other.json")), None);
-        // 空前缀归 unknown（调用方兜底），不产空键。
+        // 空前缀归 unknown（调用方提供默认值），不产空键。
         assert_eq!(
             thread_id_of(std::path::Path::new("/x/threads/T-.json")),
             None

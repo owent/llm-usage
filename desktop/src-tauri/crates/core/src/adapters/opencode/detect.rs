@@ -1,13 +1,13 @@
 //! OpenCode 探测与版本分派：opencode.db schema 指纹（真实列，产品互斥）+
 //! `session.version` 注册表。
 //!
-//! 合同（architecture.md#unknown-version / adapters.md A17）：
+//! 约定（architecture.md#unknown-version / adapters.md A17）：
 //! - part/session/message 三表或关键列缺失 ⇒ 未知格式 fail closed；
-//!   仅存新 core 投影层（session_message 表）而无 part 表的库同样拒绝，
-//!   待专用实现取证（A17：新 core 与旧 message 层不能通用解析）；
+//!   仅存新 core 派生视图层（session_message 表）而无 part 表的库同样拒绝，
+//!   待核验格式并编写专用实现（A17：新 core 与旧 message 层不能通用解析）；
 //! - 库尚无会话（session/part 均空）⇒ Pending，下轮重探；
 //! - 版本标记取库内数值最大 session.version：已收录 ⇒ KnownVersion；
-//!   未收录/缺失 ⇒ LatestFallback（带兼容标记；当前注册表为空：文档级证据）。
+//!   未收录/缺失 ⇒ LatestFallback（带兼容标记；当前注册表为空：文档或源码依据）。
 
 use crate::adapters::framework::DetectOutcome;
 use crate::adapters::opencode::common::{

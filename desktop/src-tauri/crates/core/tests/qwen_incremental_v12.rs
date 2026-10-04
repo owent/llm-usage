@@ -1,5 +1,5 @@
 //! Qwen Code V12：增量与刷新语义 —— 重复扫描不增量、追加续读、半行跨轮、截断/
-//! 同长替换/改名重探测、预算分段恢复、矛盾重复冲突标记（同 uuid 不同 usageMetadata）。
+//! 同长替换/改名重探测、达到读取上限后分批恢复、矛盾重复冲突标记（同 uuid 不同 usageMetadata）。
 
 mod common;
 
@@ -264,7 +264,7 @@ fn conflicting_duplicate_marks_conflict_and_keeps_existing() {
     let (_db, storage) = temp_storage("qwen-conflict");
     run_qwen(&storage, &root, NOW);
 
-    // 追加同 uuid 但 usageMetadata 数值不同的记录（无先后权威证据 → conflict）。
+    // 追加同 uuid 但 usageMetadata 数值不同的记录（无法确认哪条修订更新 → conflict）。
     let conflict_line = rec_assistant("syn-c-1", "2026-01-05T10:00:10.000Z", 1500, 60, 1560);
     let mut appended = format!("{}\n", lines.join("\n")).into_bytes();
     appended.extend_from_slice(conflict_line.as_bytes());

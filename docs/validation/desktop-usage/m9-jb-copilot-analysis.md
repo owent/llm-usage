@@ -1,4 +1,6 @@
-# GitHub Copilot for JetBrains 插件取证（2026-10-01）
+# GitHub Copilot for JetBrains 插件核验（2026-10-01）
+
+<a id="github-copilot-for-jetbrains-插件取证2026-10-01"></a>
 
 ## 背景与方法
 
@@ -6,7 +8,7 @@
   本机未安装 JetBrains IDE（无 `%APPDATA%\JetBrains`），按"文档级证据先行"
   流程：从 JetBrains 市场下载 Windows x64 插件包（github-copilot-intellij
   1.18.0-261，updateId 1173985）解包，对 Kotlin/Java 字节码做常量池字符串
-  取证（产物在已忽略的 build/jb-copilot-analysis/），并核对 GitHub 官方
+  核验（产物在已忽略的 build/jb-copilot-analysis/），并核对 GitHub 官方
   故障排查文档。不做运行时探测（不启动 IDE/不产生付费用量）。
 
 ## 载体结论
@@ -31,7 +33,7 @@
     copilot-language-server；
   - 官方文档（viewing-logs）：JetBrains 侧有可选 **Agent debug File Logging**
     （Settings → Tools → Copilot → Chat），即上述 file 导出；
-  - **五桶 token 解析证据**：插件自身 Agent Debug Panel 的
+  - **五桶 token 解析依据**：插件自身 Agent Debug Panel 的
     `OTelSpanProvider$getEventRows$2` 常量包含 `gen_ai.response.model`、
     `gen_ai.usage.input_tokens`、`gen_ai.usage.output_tokens`、
     `gen_ai.usage.cache_read.input_tokens`、`gen_ai.usage.cache_creation.input_tokens`；
@@ -55,7 +57,9 @@
 - 双计边界：JetBrains outfile（手工根）与本应用 OTLP 接收器不重叠；
   与 JetBrains 自身 Debug Panel 仅读取不冲突（同文件多方只读）。
 
-## 证据清单
+<a id="证据清单"></a>
+
+## 核验资料清单
 
 - 插件包：JetBrains 市场 updateId 1173985（1.18.0-261 windows-x64）。
 - 字节码常量：`NitriteAgentSessionPersistenceService`（db 文件名）、
@@ -67,4 +71,4 @@
 - 官方文档：[Viewing logs for GitHub Copilot in your environment](https://docs.github.com/copilot/troubleshooting-github-copilot/viewing-logs-for-github-copilot-in-your-environment)
   （JetBrains → idea.log；Agent Debug Panel/Agent debug File Logging 可选）。
 - 未完成：无 JetBrains 真实环境，outfile 行格式、默认 otelServiceName、
-  Nitrite db 精确路径未锚定——真实样本出现后补验证并升级证据等级。
+  Nitrite db 精确路径未锚定——真实样本出现后补充本地核验结果。

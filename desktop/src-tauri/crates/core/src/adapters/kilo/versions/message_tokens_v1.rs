@@ -1,6 +1,6 @@
 //! kilo.db `message` 表逐次 usage 格式实现（`message_tokens_v1`）。
 //!
-//! 格式证据（真实脱敏 fixture + 本机只读 SELECT 探查，2026-09-25）：
+//! 格式依据（真实脱敏 fixture + 本机只读 SELECT 探查，2026-09-25）：
 //! - 库布局：`<kilo home>/kilo.db`（本机 `~/.local/share/kilo/kilo.db`，WAL 模式，
 //!   另有 kilo.db-wal/-shm；上游另有 opencode-rc.db 不在范围）。
 //! - 表：`message(id, session_id, time_created, time_updated, data)`，
@@ -20,20 +20,20 @@
 //!   列名一一对应——列级语义随版本不稳定，五列合计稳定）。快照列绝不映射为
 //!   request 事件（A11：session 累计表不混入 request 计数）。
 //! - 新 core 数据层（session_message 表）当前 0 行；仅存 session_message 而无
-//!   message 表的库按未知格式 fail closed，待专用实现取证。
+//!   message 表的库按未知格式 fail closed，待核验格式并编写专用实现。
 //!
-//! 增量合同（architecture.md「各输入的增量策略」SQLite 行）：
-//! - schema 指纹（表/关键列存在性）持久化于解析上下文；指纹变化 ⇒ 水位重置
+//! 增量约定（architecture.md「各输入的增量策略」SQLite 行）：
+//! - schema 指纹（表/关键列存在性）持久化于解析上下文；指纹变化 ⇒ 已处理位置重置
 //!   全量重读（id 键 upsert 幂等，不双计）；
 //! - 稳定键 = message.id，更新序号 = message.time_updated（事件 source_revision）；
-//! - 水位 + 60s 有界重叠窗（并发会话同毫秒写放大兜底，重复行按
+//! - 已处理时间 + 60s 有界重叠窗（覆盖并发会话同毫秒写入，重复行按
 //!   同键同内容幂等）；
 //! - message 表同时有 time_created/time_updated，无需 created_at-only 有界重扫；
-//! - 每轮行数上限 50,000：触顶 ⇒ BudgetExhausted，水位停在最后一个完整毫秒；
+//! - 每轮行数上限 50,000：触顶 ⇒ BudgetExhausted，已处理位置停在最后一个完整毫秒；
 //! - 游标 `offset` 恒为 0：WAL 下主库文件长度不变不代表内容未变，
 //!   字节长度不能作为无变化短路依据（框架短路与代数裁决仍生效）。
 //!   in-place 页重写会改变文件头（change counter）触发框架 Rescan 标记，
-//!   本实现不因 rescan 重置水位（同一逻辑库的 id/更新序号仍有效）。
+//!   本实现不因 rescan 重置已处理位置（同一逻辑库的 id/更新序号仍有效）。
 
 use crate::adapters::framework::{
     Reconciliation, ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -51,7 +51,7 @@ use serde::{Deserialize, Serialize};
 
 pub const KILO_PARSER_VERSION: &str = "kilo-message-tokens-4";
 const MAX_REASONABLE_TOKEN: i64 = crate::domain::MAX_TOKEN_VALUE;
-/// 水位回看窗（毫秒）：覆盖并发子会话的同毫秒乱序写。
+/// 已处理时间的回看窗（毫秒）：覆盖并发子会话的同毫秒乱序写。
 pub const WATERMARK_OVERLAP_MS: i64 = 60_000;
 /// 单轮行数上限：触顶停在该毫秒边界，下轮续读。
 pub const MAX_ROWS_PER_ROUND: i64 = 50_000;
@@ -63,7 +63,7 @@ struct KiloCursor {
     /// 恒为 0：DB 不用字节偏移做无变化判定（WAL 见模块头）。
     #[allow(dead_code)]
     offset: u64,
-    /// 已处理到的 message.time_updated 水位（含）；None = 从头全量。
+    /// 已处理到的 message.time_updated（含该值）；None = 从头全量。
     watermark_ms: Option<i64>,
 }
 
@@ -336,7 +336,7 @@ pub fn scan(
     now_ms: i64,
 ) -> Result<ScanOutcome, CoreError> {
     // 游标不做 generation 过滤：同一逻辑库的 in-place 重写会让框架标 Rescan，
-    // 但 id/更新序号水位仍有效；换了逻辑库（身份变化）时 stored 为空自然全量。
+    // 但 id/更新序号记录的已处理位置仍有效；换了逻辑库（身份变化）时 stored 为空自然全量。
     let cursor: KiloCursor = stored
         .cursor
         .as_ref()
@@ -355,7 +355,7 @@ pub fn scan(
     let source = open_source_db(&target.path, short_probe, &StagingLimits::default())?;
     let conn = source.conn();
     let fingerprint = schema_fingerprint(conn)?;
-    // schema 指纹变化 ⇒ 旧水位不可信，全量重读（id 幂等，不双计）。
+    // schema 指纹变化 ⇒ 旧的已处理位置不可信，全量重读（id 幂等，不双计）。
     let fingerprint_reset =
         context.schema_fingerprint.is_some() && context.schema_fingerprint != fingerprint;
     let watermark = if fingerprint_reset {
@@ -456,7 +456,7 @@ pub fn scan(
             },
             None => {
                 record_errors.insert(row.id.clone());
-                // 无 usage 的 assistant 消息仍是一次调用的证据：
+                // 无 usage 的 assistant 消息仍表明发生过一次调用：
                 // 计调用数，token 全未知（不补零）。
                 diagnostics.push(diag(
                     "usage_shape_deviation",
@@ -469,7 +469,7 @@ pub fn scan(
         events.push(event);
     }
 
-    // 水位推进：触顶时停在最后一个完整毫秒（该毫秒下轮重读，幂等）。
+    // 更新已处理位置：触顶时停在最后一个完整毫秒（该毫秒下轮重读，幂等）。
     let new_watermark = if hit_cap {
         rows.last().map(|r| r.time_updated - 1)
     } else {
@@ -548,7 +548,7 @@ fn short_probe(conn: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
     conn.query_row("SELECT COUNT(*) FROM sqlite_master", [], |_| Ok(()))
 }
 
-/// 供测试/示例使用的只读打开（同合同：busy 时暂存副本）。
+/// 供测试/示例使用的只读打开（同约定：busy 时暂存副本）。
 pub fn open_readonly_source(path: &std::path::Path) -> Result<SourceDb, CoreError> {
     open_source_db(path, short_probe, &StagingLimits::default())
 }
@@ -576,7 +576,7 @@ mod tests {
             Some(0),
             "explicit zero is a reported value"
         );
-        // 缺 cache 子对象或任一必需字段 ⇒ 无法按全互斥口径映射。
+        // 缺 cache 子对象或任一必需字段 ⇒ 无法按全互斥关系映射。
         assert!(parse_tokens(&serde_json::json!({"input": 1, "output": 2})).is_none());
         assert!(parse_tokens(&serde_json::json!({
             "input": 1, "output": 2, "cache": {"read": 0}

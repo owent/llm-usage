@@ -1,4 +1,4 @@
-//! AtomCode 适配器（AtomGit 生态 CLI；独立目录合同）。载体：
+//! AtomCode 适配器（AtomGit 生态 CLI；独立目录约定）。载体：
 //! `$ATOMCODE_HOME`（默认 ~/.atomcode）/sessions/<project_hash>/<id>.meta 的
 //! turn_stats 按模型累计（TurnStat 无时间戳 ⇒ 会话区间聚合；round_count 合计
 //! 作调用数）。旧版单文件 <id>.json 同构。

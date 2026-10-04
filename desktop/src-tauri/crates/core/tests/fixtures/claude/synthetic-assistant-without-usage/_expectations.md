@@ -1,7 +1,7 @@
 # synthetic-assistant-without-usage._expectations.md（SYNTHETIC）
 
 **本目录全部为合成样本（synthetic），不是真实会话提取。** assistant 条目无
-`message.usage`：无用量证据，不产事件（未知不补零），记
+`message.usage`：未提供用量字段，不产事件（未知不补零），记
 `assistant_without_usage` 诊断，**每文件一次**（解析上下文持久化去重）。
 
 ## 场景与期望（人工核算）

@@ -44,11 +44,11 @@ impl FieldQuality {
     }
 }
 
-/// 记录类型。统计行为见数据合同「请求、消息与累计值」。
+/// 记录类型。统计行为见数据规范「请求、消息与累计值」。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RecordKind {
-    /// 有证据的一次模型调用/尝试；request 指标的基本单位。
+    /// 已观测到的一次模型调用/尝试；request 指标的基本单位。
     ModelCall,
     /// HTTP/WebSocket 重连或重试；独立计数，不直接增加 model_call。
     TransportAttempt,
@@ -150,7 +150,7 @@ impl CallCategory {
     }
 }
 
-/// 模型归属证据。没有不晚于调用的结构化证据时保持 unknown。
+/// 模型归属依据。没有不晚于调用的结构化记录时保持 unknown。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ModelAttribution {
@@ -223,7 +223,7 @@ impl TimeBasis {
     }
 }
 
-/// 版本选择依据（architecture.md 未知版本兼容合同）：
+/// 版本选择依据（architecture.md 未知版本兼容约定）：
 /// 已知版本按注册表映射分派；未知/缺失版本先尝试该 Agent 最新内置解析器，
 /// 结果带兼容标记，兼容状态与 token 字段质量分别记录。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

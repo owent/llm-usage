@@ -5,9 +5,9 @@
 //! hermes_state_common.py SCHEMA_VERSION=30；探测时另验真实列与主键形状，
 //! 不只看整数）。
 //!
-//! 已验证版本须有真实脱敏 fixture 与期望值证据。当前**没有**任何本机真实
+//! 已验证版本须有真实脱敏 fixture 与期望值核验结果。当前**没有**任何本机真实
 //! 样本（2026-09-25 盘点 not_found，m0-agent-fixtures.md），仅有固定源码/
-//! 官方文档级证据，因此注册表为空：一切版本走 `LatestFallback`
+//! 官方文档依据，因此注册表为空：一切版本走 `LatestFallback`
 //! （带兼容标记，数据照常入库，compat=unverified）。取得真实 fixture 后
 //! 逐版本升级为 KnownVersion。
 //!
@@ -15,7 +15,7 @@
 //! - 已收录版本 → `KnownVersion`（当前为空集）；
 //! - 未收录/缺失版本（含 schema_version 表缺失）→ `LatestFallback`，
 //!   先尝试最新内置解析器（`session_model_usage_v1`）；
-//! - 有证据的不兼容形状（缺表/缺列/pre-v22 主键）在探测层 fail closed，
+//! - 已确认不兼容的形状（缺表/缺列/pre-v22 主键）在探测层 fail closed，
 //!   不进入回退。
 
 pub mod session_model_usage_v1;
@@ -24,7 +24,7 @@ pub mod session_model_usage_v1;
 pub const LATEST_IMPL_ID: &str = "session_model_usage_v1";
 
 /// 已验证支持的 schema_version → 格式实现。
-/// 空集：文档级证据阶段（见模块头），真实样本核验前不登记任何版本。
+/// 空集：尚未用真实样本核验（见模块头），核验完成前不登记任何版本。
 pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[];
 
 /// 版本分派结论。
@@ -68,7 +68,7 @@ mod tests {
 
     #[test]
     fn registry_is_empty_so_everything_is_latest_fallback() {
-        // 文档级证据阶段：固定源码 schema_version=30 也未升为已验证。
+        // 尚未用真实样本核验：固定源码 schema_version=30 也未升为已验证。
         assert!(VERIFIED_VERSION_IMPLS.is_empty());
         assert_eq!(
             select(Some("30")),

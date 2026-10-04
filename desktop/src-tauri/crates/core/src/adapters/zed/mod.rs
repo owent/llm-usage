@@ -1,10 +1,10 @@
-//! Zed 内置 Agent 适配器（独立目录合同 architecture.md#adapter-layout）：
+//! Zed 内置 Agent 适配器（独立目录约定 architecture.md#adapter-layout）：
 //! - 本模块是该 Agent 的稳定入口（统一接口实现与再导出）；
 //! - [`detect`]：threads.db 表/列指纹；
 //! - [`versions`]：格式注册表（唯一条目：文档级 zed-threads-db-1）；
 //! - 产品特有映射与源库只读访问在 [`common`]。
 //!
-//! 格式证据（Zed 官方源码 bd747337d7be138834e20972b9e203c7b239cc47，A38；
+//! 格式依据（Zed 官方源码 bd747337d7be138834e20972b9e203c7b239cc47，A38；
 //! 本机 2026-09-29 只读核验 `%LOCALAPPDATA%/Zed/threads/threads.db` threads 表
 //! schema 一致、0 行）：
 //! - 库布局 `<data_dir>/threads/threads.db`；data_dir 三平台默认见 common；

@@ -1,8 +1,8 @@
 //! Zoo ui_messages.json 格式实现（`ui_messages_doc1`，文档级
 //! zoo-ui-messages-doc-1）。
 //!
-//! 格式证据（固定源码 f7806475331fcae5f4e8b5558d04415eeb5da88c，A19，
-//! 文档级证据待真实样本；本机 not_found）：
+//! 格式依据（固定源码 f7806475331fcae5f4e8b5558d04415eeb5da88c，A19，
+//! 按文档或源码实现，待真实样本核验；本机 not_found）：
 //! - 路径：宿主 globalStorage 下 `tasks/<taskId>/ui_messages.json`
 //!   （src/shared/globalFileNames.ts uiMessages；packages/core/src/
 //!   task-persistence/taskMessages.ts：整文件 JSON **数组**，非 JSONL，
@@ -17,24 +17,24 @@
 //!   {anthropic, openai}），cost 仅在 consolidateApiRequests 把对应
 //!   api_req_finished 的 text 合并进来后在场（LIFO 配对：finished 弹出最近
 //!   未合并的 started，`{...startData, ...finishData}` finish 覆盖；无配对
-//!   的 finished 被丢弃）；**tokensIn 存总输入（含缓存）**（两协议同口径，
+//!   的 finished 被丢弃）；**tokensIn 存总输入（含缓存）**（两协议规则相同，
 //!   固定源码注释），contextTokens = tokensIn + tokensOut 是上游自算的
 //!   per-request 总量算术。
 //! - condense_context：`contextCondense.cost` 计入上游 totalCost（固定源码）；
 //!   无 token 字段（contextTokens 换用 newContextTokens 属上下文规模，
 //!   不是用量）⇒ 按辅助调用入账（有 cost 映射 cost，token 全未知）。
-//! - `ts` 是消息唯一证据的身份字段（epoch 毫秒数字）；数组下标会因删除
+//! - `ts` 是消息中唯一已确认的身份字段（epoch 毫秒数字）；数组下标会因删除
 //!   移位，不进身份。
 //!
 //! fail closed（V17）：非 say 记录类型、未文档化 say 种类 ⇒ 整文件拒绝
 //! （游标不推进、下轮确定性再拒）。真实文件中的 ask / say=text 等非用量
 //! 消息未在固定源码中枚举，按未文档化处理，待真实样本扩展
-//! （与 cline 适配器同一保守合同）。
+//! （与 cline 适配器同一保守约定）。
 //!
 //! 增量语义（整写 JSON）：全量有界读取（32 MiB 初值）；游标存已消费字节数
 //! 复用框架无变化短路；改写/截断走 generation 重扫，事件按稳定身份 upsert
 //! 幂等；半程写入（parse 失败）不推进游标，下轮确定性重试。消息删除流程
-//! 未在固定源码文档化：已入账事件保持，待真实样本取证（无墓碑推导）。
+//! 未在固定源码文档化：已入账事件保持，待真实样本核验（无墓碑推导）。
 
 use crate::adapters::framework::{
     ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -477,7 +477,7 @@ pub fn scan(
     // ---- 第二遍：consolidateTokenUsage 计账语义 ----
     for request in &requests {
         let Some(text) = request.text.as_deref() else {
-            // usage 载体无 text：上游短路不读；无用量证据，不产事件。
+            // usage 载体无 text：上游短路不读；未记录用量，不产事件。
             continue;
         };
         let position = format!("{}:api_req_started", task_id);
@@ -510,7 +510,7 @@ pub fn scan(
             continue;
         };
         if usage.is_empty() {
-            // 未配对 finished 的 started：载体无 usage 数字 ⇒ 无 token 证据
+            // 未配对 finished 的 started：载体无 usage 数字 ⇒ 未记录 token
             // 不产事件（一次性诊断；cost 单独无 token 不入账，保持同源）。
             if !context.without_numbers_reported {
                 context.without_numbers_reported = true;
@@ -546,7 +546,7 @@ pub fn scan(
             ));
             continue;
         };
-        // condense（上下文压缩摘要）是一次辅助调用的证据：计调用、token 全
+        // condense（上下文压缩摘要）表明发生过一次辅助调用：计调用、token 全
         // 未知（固定源码只有 cost 贡献），cost 有则映射（estimated）。
         events.push(build_event(
             target,

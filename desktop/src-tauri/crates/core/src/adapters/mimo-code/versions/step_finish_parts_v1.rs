@@ -1,7 +1,7 @@
 //! mimocode.db `part` 表逐 step usage 格式实现（`step_finish_parts_v1`）。
 //!
-//! 格式证据（A14 固定源码 456678b6a5afb0eef3fe2754575637218cfb3c84，
-//! 文档级证据待真实样本；本机 not_found）：
+//! 格式依据（A14 固定源码 456678b6a5afb0eef3fe2754575637218cfb3c84，
+//! 按文档或源码实现，待真实样本核验；本机 not_found）：
 //! - 逐次 usage 载体：`part` 行 `data.type="step-finish"`（message-v2.ts
 //!   `StepFinishPart` zod：tokens{total?, input, output, reasoning,
 //!   cache{read, write}} + cost）；

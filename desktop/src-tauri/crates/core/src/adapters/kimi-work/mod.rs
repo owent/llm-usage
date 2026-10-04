@@ -1,4 +1,4 @@
-//! Kimi Work 适配器（独立目录合同 architecture.md#adapter-layout，M4/A13）：
+//! Kimi Work 适配器（独立目录约定 architecture.md#adapter-layout，M4/A13）：
 //! - 本模块是该 Agent 的稳定入口（统一接口实现与再导出）；
 //! - [`detect`]：产品/格式探测与版本分派（首行 metadata 头 + protocol_version，
 //!   注册表锚点 1.4）；
@@ -7,7 +7,7 @@
 //! - wire 解析逻辑在家族共享模块 [`crate::adapters::kimi_wire`]；数据根、实例
 //!   身份、注册表锚点与统计分列独立（adapters.md：不因内核同名合并）。
 //!
-//! 产品身份证据：内嵌 kimi-code home 位于 daimon 宿主目录
+//! 产品身份识别依据：内嵌 kimi-code home 位于 daimon 宿主目录
 //! （state.json createdBy=daimon-kernel-adapter），与独立 Kimi Code 的
 //! `~/.kimi-code` 数据根不重叠。
 

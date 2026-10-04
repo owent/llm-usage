@@ -42,7 +42,7 @@ build/query-next/、build/plan-finalization/ 或 build/plan-completion/，不复
 
 ## 工程与原生检查
 
-| 命令/方法 | 退出码与结果 | 证据范围 |
+| 命令/方法 | 退出码与结果 | 核验范围 |
 | --- | --- | --- |
 | npm run verify | 0；Rust 852、前端 20、脚本 3；默认忽略 5 项显式/环境测试 | 177 Markdown、资源、类型 0 错误/告警、fmt、Clippy -D warnings、合同/集成测试及前端构建 |
 | npm run build:desktop | 0；NSIS 3,810,444 字节（3.63 MiB） | 最终 release 与嵌入前端；未安装 |
@@ -151,6 +151,6 @@ links-final.json、skill-final.log、diff-final.log、residue-final.json。
 
 未命中查询和全进程内存仍未达标；拟定硬件基准、当前索引下完整导入峰值、
 唤醒次数、OS DPI/辅助技术、macOS/Linux 原生 GUI 与持续 CI 尚未验收。
-安装按既有指示跳过，升级/卸载/注销/回滚缺证。Gemini/Qwen 默认本机载体目录
+安装按既有指示跳过，升级/卸载/注销/回滚尚未验收。Gemini/Qwen 默认本机载体目录
 未发现，不启动 Agent 制造样本；其余来源版本/遥测覆盖、托盘、节能、文件监听及
 应用内时间预算/重试仍见 [Plan.md](../../../Plan.md)，本页通过不代表全部计划完成。

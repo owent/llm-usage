@@ -1,10 +1,10 @@
 //! Codex rollout JSONL 旧版格式实现（`rollout_legacy`，0.139–0.151 系列）。
 //!
-//! 格式证据（2026-09-26 本机 ~/.codex/sessions 全量 238 个 0.139–0.151 文件实读，
-//! 21 个版本、13,481 条 token_count 事件逐条分桶；取证脚本输出存
+//! 格式依据（2026-09-26 本机 ~/.codex/sessions 全量 238 个 0.139–0.151 文件实读，
+//! 21 个版本、13,481 条 token_count 事件逐条分桶；核验脚本输出存
 //! build/codex-legacy-forensics/，gitignored）：
 //! - 全部 238 个文件 **零 `token_usage_record`**（逐次载体缺失）——与 rollout_v1 的
-//!   载体不同，故本实现以 `event_msg/token_count` 为逐次证据源。
+//!   载体不同，故本实现从 `event_msg/token_count` 读取逐次用量。
 //! - `token_count.info.total_token_usage`：累计快照，六字段同形；`last_token_usage`：
 //!   最近一次调用的回声，六字段同形（input/cached/cache_write/output/reasoning/total）。
 //!   envelope timestamp 为 ISO8601 毫秒 UTC（13,481/13,481）。
@@ -20,7 +20,7 @@
 //!     退化为 (0,0,0,0,0,N>0)：压缩摘要调用回声，源端自身将其排除出累计 total
 //!     （total 跨 compaction 不变，例 0.146.0-alpha.3 rollout-…-019f9496….jsonl
 //!     L335–L339：total=9,823,579 → compacted → total=9,823,579、last=16,894）。
-//!     记为 carried 事件并对账排除（与 rollout_v1 的携带口径同式：
+//!     记为 carried 事件并对账排除（与 rollout_v1 的携带量处理规则相同：
 //!     Σ逐次 == 最终快照 + Σ携带）。
 //!   * delta < 0（4 条）⇒ 源端计数回退/重置（0.142.3 L338 3,015,122→407,209、
 //!     L456 →258400==context_window 且 last 全 0；0.146.0-alpha.3 L434/L441 微降
@@ -238,7 +238,7 @@ fn diag(code: &str, field: Option<&str>, line: u64, message: &str) -> Diagnostic
     }
 }
 
-/// last_token_usage 语义判定结论（文件头取证依据的分类）。
+/// last_token_usage 语义判定结论（文件头核验依据的分类）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum LastVerdict {
     /// 新调用（delta>0，或首条有效，或回归基线上的真实回声变化）。
@@ -247,11 +247,11 @@ enum LastVerdict {
     CompactionEcho,
     /// 同一调用的重复上报（delta==0 且 last 未变）：去重跳过。
     DuplicateReport,
-    /// 无逐次证据（last 缺失/全零）：跳过，残差由对账暴露。
+    /// 无逐次用量（last 缺失/全零）：跳过，残差由对账报告。
     NoPerCallEvidence,
 }
 
-/// 按取证判据分类一条 token_count 的 last 回声。
+/// 按核验判据分类一条 token_count 的 last 回声。
 fn classify_last(
     prev_total: Option<i64>,
     cur_total: i64,
@@ -272,7 +272,7 @@ fn classify_last(
         Some(prev) => {
             let delta = cur_total - prev;
             if delta > 0 {
-                // 区间内 ≥1 次调用；last 是最新一次（取证：13,032/13,032 伴随 last 变化）。
+                // 区间内 ≥1 次调用；last 是最新一次（核验：13,032/13,032 伴随 last 变化）。
                 if last_valid {
                     LastVerdict::NewCall
                 } else {
@@ -553,7 +553,7 @@ pub fn scan(
                     _ => {}
                 }
             }
-            // 旧系列已知结构类型：内容不含 usage 证据，静默忽略。
+            // 旧系列已知结构类型：内容不含 usage，静默忽略。
             "response_item" | "world_state" | "inter_agent_communication_metadata" => {}
             other => {
                 if !context.unknown_types.iter().any(|t| t == other) {
@@ -721,7 +721,7 @@ mod tests {
             classify_last(Some(0), 100, Some(last), Some(last), false),
             LastVerdict::NewCall
         );
-        // last 缺失时无逐次证据可发。
+        // last 缺失时无法生成逐次用量事件。
         assert_eq!(
             classify_last(Some(0), 100, Some(last), None, false),
             LastVerdict::NoPerCallEvidence
@@ -768,7 +768,7 @@ mod tests {
             ),
             LastVerdict::NewCall
         );
-        // 回退且 last 全零（0.142.3 L456 实读形状）⇒ 无逐次证据。
+        // 回退且 last 全零（0.142.3 L456 实读形状）⇒ 无逐次用量。
         assert_eq!(
             classify_last(
                 Some(568_759),

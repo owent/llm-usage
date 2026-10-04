@@ -1,10 +1,10 @@
 //! V12：kilo 适配器增量与刷新语义（SQLite 源，schema 指纹 + message.id
-//! 稳定键 + time_updated 水位；对照 codex/pi 的 JSONL 版本）：
-//! - 重复扫描不增量（水位窗内重复行按同键同修订幂等）；
+//! 稳定键 + time_updated 已处理位置；对照 codex/pi 的 JSONL 版本）：
+//! - 重复扫描不增量（已处理时间窗口内重复行按同键同修订幂等）；
 //! - 新增消息只增量入账（不重放全库）；
 //! - 行更新（time_updated 提升、tokens 变化）按 source_revision 替换，不冲突；
 //! - 未完成消息完成（partial → final）同键替换；
-//! - schema 指纹变化 ⇒ 水位重置全量重读（幂等）；
+//! - schema 指纹变化 ⇒ 已处理位置重置全量重读（幂等）；
 //! - 库文件重建（新文件身份）⇒ 全量重扫幂等，历史不丢。
 //!
 //! 场景数据为合成（schema 同真实 fixture DDL），数值人工核算。
@@ -167,8 +167,8 @@ fn repeat_scan_does_not_double_count() {
     assert_eq!(first[0].outcome.as_ref().unwrap().added, 2);
     let revision_after_first = storage.data_revision().unwrap();
 
-    // 无变化：水位窗（60s 重叠）内两行重读，但同键同内容同修订 ⇒ unchanged，
-    // 不新增、不双计（SQLite 源不做字节长度短路，见适配器 incremental 合同）。
+    // 无变化：已处理时间窗口（60s 重叠）内两行重读，但同键同内容同修订 ⇒ unchanged，
+    // 不新增、不双计（SQLite 源不做字节长度短路，见适配器 incremental 约定）。
     let second = run_kilo(&storage, &root, NOW + 1_000);
     let outcome = second[0].outcome.as_ref().unwrap();
     assert_eq!(
@@ -208,7 +208,7 @@ fn appended_message_is_ingested_incrementally() {
     let first = run_kilo(&storage, &root, NOW);
     assert_eq!(first[0].files[0].events, 1);
 
-    // 追加一条（超出重叠窗）：只读水位之后的新行。
+    // 追加一条（超出重叠窗）：只读已处理位置之后的新行。
     insert_message(
         &dir,
         "syn-m2",
@@ -373,7 +373,7 @@ fn schema_fingerprint_change_resets_watermark_idempotently() {
     let (_db, storage) = temp_storage("kilo-v12-schema");
     run_kilo(&storage, &root, NOW);
 
-    // 模拟 schema 演进：篡改持久化的 schema 指纹 ⇒ 下轮水位重置全量重读。
+    // 模拟 schema 演进：篡改持久化的 schema 指纹 ⇒ 下轮已处理位置重置全量重读。
     storage
         .conn()
         .execute(

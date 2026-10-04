@@ -1,5 +1,5 @@
 //! 统计数学：互斥输入分类求和、缓存占比、聚合与矛盾诊断。
-//! 合同：input_total = 三类互斥之和；total_tokens = input_total + output_total；
+//! 约定：input_total = 三类互斥之和；total_tokens = input_total + output_total；
 //! cache_input_ratio = SUM(cache_read) / SUM(input_total)（两字段均已知的记录集合）。
 
 use crate::domain::{FieldQuality, TokenQuality, TokenUsage};

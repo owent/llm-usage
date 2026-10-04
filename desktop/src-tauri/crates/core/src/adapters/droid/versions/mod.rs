@@ -1,4 +1,4 @@
-//! Droid 版本注册表（V30 目录合同）。settings.json 无版本字段；
+//! Droid 版本注册表（V30 目录约定）。settings.json 无版本字段；
 //! 锚点为文档级 droid-settings-doc-1（第三方解析器 tokscale 1d9a939）。
 
 pub mod settings_doc1;

@@ -1,9 +1,9 @@
-//! VS Code 内置 GitHub Copilot Chat 会话用量适配器（独立目录合同）。载体：
+//! VS Code 内置 GitHub Copilot Chat 会话用量适配器（独立目录约定）。载体：
 //! VS Code 原生聊天会话日志 `workspaceStorage/<hash>/chatSessions/<sessionId>.jsonl`
 //! （chatSessionOperationLog storageSchema **version 3**；本机 VS Code 1.140.0
 //! 真实数据核验 2026-10-01）。
 //!
-//! 载体证据链（microsoft/vscode 源码 + 本机实读，2026-10-01）：
+//! 载体识别依据（microsoft/vscode 源码 + 本机实读，2026-10-01）：
 //! - 落盘位置：`chatSessionStore.ts` → `workspaceStorageHome/<workspaceId>/
 //!   chatSessions`（无工作区窗口为 `no-workspace/chatSessions`）；
 //! - 行格式：`objectMutationLog.ts` Entry——kind 0 首行完整初始对象、
@@ -20,7 +20,7 @@
 //!   `usage.prompt_tokens` / `completion_tokens` /
 //!   `prompt_tokens_details.cached_tokens`。
 //!
-//! 口径边界（data-contract「请求、消息与累计值」）：
+//! 统计范围（data-contract「请求、消息与累计值」）：
 //! - 一个 user turn = usage_observation；toolCallRounds 带 ID 的调用
 //!   才计为 model_call。turn 内多次模型调用无逐次 token，
 //!   `toolCallRounds` 仅含逐轮模型/思考 token 与时间戳；

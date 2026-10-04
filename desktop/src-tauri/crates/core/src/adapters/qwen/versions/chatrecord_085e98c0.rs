@@ -1,6 +1,6 @@
-//! Qwen Code ChatRecord JSONL 格式实现（`chatrecord_085e98c0`，固定源码证据 A18）。
+//! Qwen Code ChatRecord JSONL 格式实现（`chatrecord_085e98c0`，固定源码依据 A18）。
 //!
-//! 格式证据（qwen-code 源码固定 commit 085e98c00cac2f8dd29eb39c760409bc6da889a9）：
+//! 格式依据（qwen-code 源码固定 commit 085e98c00cac2f8dd29eb39c760409bc6da889a9）：
 //! - 路径：`~/.qwen/tmp/<project_id>/chats/<sessionId>.jsonl`（append-only JSONL；
 //!   无文档化环境覆盖）。
 //! - `ChatRecord{uuid, parentUuid, sessionId, timestamp(ISO), type:
@@ -23,7 +23,7 @@
 //! 版本策略（architecture.md#adapter-layout）：格式锚点是固定源码 commit，不做
 //! 版本白名单——`record.version`（CLI 版本）逐条存 schema_version，不参与分派；
 //! 注册表（[`super::versions`]）为与其他 Agent 统一的结构而设。
-//! 本实现自根级单文件 qwen.rs 目录化平移（M2 目录化迁移，V30），行为合同不变。
+//! 本实现自根级单文件 qwen.rs 目录化平移（M2 目录化迁移，V30），行为约定不变。
 
 use crate::domain::{
     AttributionStatus, CallCategory, EventInput, Lifecycle, ModelAttribution, RecordKind,

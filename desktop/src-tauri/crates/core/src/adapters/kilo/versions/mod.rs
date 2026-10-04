@@ -4,10 +4,10 @@
 //! 版本标记是 kilo.db `session.version` 列（写消息时的 CLI 版本，逐会话固定）；
 //! 一个库可混存多版本会话，探测取数值最大者作为该库的格式标记。
 //!
-//! 已验证版本须有真实脱敏 fixture 与期望值证据：
+//! 已验证版本须有真实脱敏 fixture 与期望值核验结果：
 //!
 //! - 7.4.8（session-7.4.8-edges：错误消息 tokens 全零、缺 total、双模型切换）；
-//! - 7.4.9（session-7.4.9-family：父子会话家族，5 会话 51 调用全链路期望）；
+//! - 7.4.9（session-7.4.9-family：父子会话家族，5 会话 51 调用读取、解析、入库与查询的期望值）；
 //! - 7.8.1（session-7.8.1-k3：本机实读 7.8.1 会话脱敏，34 次 k3-256k 调用，
 //!   顶层 modelID/providerID、tokens 五字段，单会话对账 matched）。
 //!
@@ -17,7 +17,7 @@
 //! - 已收录版本 → `KnownVersion`，按映射分派；
 //! - 未收录/缺失版本 → `LatestFallback`，先尝试最新内置解析器，
 //!   通过校验的数据带兼容标记入库（本机实读库观测 7.3.42–7.7.12，
-//!   仅 7.4.8/7.4.9 有 fixture 证据，其余均走 LatestFallback）；
+//!   仅 7.4.8/7.4.9 有已核验 fixture，其余均走 LatestFallback）；
 //! - kilo 无已证实不兼容的版本；schema 偏离在探测层 fail closed，
 //!   结构不兼容在扫描层按 V30 判定并保留旧结果。
 
@@ -108,7 +108,7 @@ mod tests {
 
     #[test]
     fn unrecorded_version_falls_back_to_latest() {
-        // 本机实读库观测到但无 fixture 证据的版本：latest_fallback，不拒绝。
+        // 本机实读库中观测到但尚无已核验 fixture 的版本：latest_fallback，不拒绝。
         for v in ["7.3.42", "7.4.20", "7.7.12", "9.0.0"] {
             assert_eq!(select(Some(v)).basis, VersionBasis::LatestFallback);
         }

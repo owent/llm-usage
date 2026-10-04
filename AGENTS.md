@@ -8,16 +8,16 @@
 
 维护用量采集与统计时，按需读 [数据合同](docs/design/desktop-usage/data-contract.md)
 和 [接入矩阵](docs/design/desktop-usage/adapters.md)。未知用量不补零；消息、调用、
-累计值和额度分开；共享内核或同名字段不能替代逐版本证据。
+累计值和额度分开；共享内核或同名字段不能替代逐版本核验依据。
 混合版本载体按记录所属版本保留依据，库内最高版本不认证其他会话；
-空会话不能作为用量格式证据，兼容读取已经自动检查，支持更新后自动重评。
+空会话不能作为用量格式核验依据，兼容读取已经自动检查，支持更新后自动重评。
 只统计本机 Agent 来源，不接入远端用量/账单 API 或跨设备账号报表；落盘文件仍须核验来源。
 Windows 11 x64 首发，GitHub CI 保留 macOS/Linux；WSL 构建不等于 Linux 桌面验收。
 定时任务只调度本地采集，按需读 [调度合同](docs/design/desktop-usage/scheduling.md)。
 自动暂停须覆盖启动、逐源及残留系统触发；手动刷新仍读取所有启用来源。
 系统任务保存意图并回查实际定义，不能凭任务存在报成功；只清理自有任务。
 定点规则时区独立保存，DST 和旧库迁移须回归；原生测试同时隔离来源环境，
-`--data-dir` 只隔离应用数据。模拟 IPC、无界面可执行文件和 GUI 证据分别报告。
+`--data-dir` 只隔离应用数据。模拟 IPC、无界面可执行文件和 GUI 验证结果分别报告。
 费用估算与价格快照改动按需读 [价格合同](docs/design/desktop-usage/pricing.md)：
 默认关闭、多币种不合并、估算不随后台价格更新改写。实际渠道未知不推断账单；
 人民币参考额/单价可按已核验的版本化汇率旁列约合美元，保留原值、日期和来源，
@@ -33,11 +33,11 @@ Windows 11 x64 首发，GitHub CI 保留 macOS/Linux；WSL 构建不等于 Linux
 仅官方提供商按量条目入库（订阅/套餐占位排除），无精确价目时回退官方价并计
 fallback_event_count。
 用户已允许实施时只读提取本机真实 Agent 数据验证，按 [准备合同](docs/design/desktop-usage/implementation-readiness.md)
-限定字段与脱敏，无需重复询问这项许可。JetBrains/TRAE 等缺证 IDE 已后移 F1，当前不实施
+限定字段与脱敏，无需重复询问这项许可。JetBrains/TRAE 等本地用量格式尚未核验的 IDE 已后移 F1，当前不实施
 （M8 第二批 18 个适配器已完成文档级实施并注册；Amazon Q/Codebuff
-经源码级取证证实本地无逐次 token 载体、iFlow 已停服，均不实施；Junie CLI 与
-Zed 内置凭本地载体证据在 M8；Cursor/Warp/TRAE 的远端用量路线按本机来源边界排除；
-JetBrains 的 GitHub Copilot 已源码级取证——默认本地仅 Nitrite 会话库 credit
+经源码核验确认本地无逐次 token 载体、iFlow 已停服，均不实施；Junie CLI 与
+Zed 内置已确认本地用量载体，归入 M8；Cursor/Warp/TRAE 的远端用量路线按本机来源边界排除；
+JetBrains 的 GitHub Copilot 已经过源码核验——默认本地仅 Nitrite 会话库 credit
 与 idea.log 无逐次 token，逐次载体为需启用的 OTel file 导出，经既有 otel
 适配器手工根接入，见 M9 JetBrains 分析记录；JetBrains 自家 AI Assistant 仍 F1）。
 Copilot 四面：CLI 面走 assistant_usage_events（旧版）/chronicle
@@ -117,4 +117,4 @@ Windows 优先 PowerShell 7、UTF-8；路径、退出码、超时和临时文件
 ## 完成与同步检查
 
 按风险验证实际结果，只同步受影响的规则、Skills、来源及现有计划。
-记录命令、环境、退出码、结果和缺口；区分静态、本地、真实服务与生产证据。
+记录命令、环境、退出码、结果和缺口；区分静态、本地、真实服务与生产验证结果。

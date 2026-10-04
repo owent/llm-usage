@@ -7,7 +7,7 @@ macOS/Linux 不承诺首发发行支持。这些属于实施核验，不再作�
 
 ## 平台与制品矩阵
 
-| 平台 | 首发定位 | CI 初始目标 | 交付和证据 |
+| 平台 | 首发定位 | CI 初始目标 | 交付和验证结果 |
 | --- | --- | --- | --- |
 | Windows 11 x64 | 正式首发目标 | windows-2022；x86_64-pc-windows-msvc | NSIS 安装包候选、无界面采集、原生 IPC/安装/任务验证；另需真实 Windows 11 验收 |
 | Linux x64 | 持续兼容构建 | ubuntu-22.04；x86_64-unknown-linux-gnu | release 编译、Debian 包及 AppImage 候选；原生/虚拟显示测试与打包分别记录 |

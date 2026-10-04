@@ -1,10 +1,14 @@
-# Hermes Agent 合成 fixtures（文档级证据、待真实样本）
+# Hermes Agent 合成 fixtures（基于源码、待真实样本）
+
+<a id="hermes-agent-合成-fixtures文档级证据待真实样本"></a>
 
 全部场景为**合成数据**（syn- 前缀、常量占位），不是任何真实会话脱敏产物。
 本机 2026-09-25 盘点未安装 Hermes Agent（not_found，m0-agent-fixtures.md），
-按用户指示以固定源码/官方文档级证据实现，真实数据验收后置。
+按用户指示以固定版本源码或官方文档依据实现，真实数据验收后置。
 
-## 源码级证据（A24，固定 commit `ef70b3661cbfcf57e583008ad91dd04d8ba46070`）
+<a id="源码级证据a24固定-commit-ef70b3661cbfcf57e583008ad91dd04d8ba46070"></a>
+
+## 源码依据（A24，固定 commit `ef70b3661cbfcf57e583008ad91dd04d8ba46070`）
 
 - SCHEMA_SQL（sessions / session_model_usage 18 列与六列主键）：
   <https://github.com/NousResearch/hermes-agent/blob/ef70b3661cbfcf57e583008ad91dd04d8ba46070/hermes_state_common.py>

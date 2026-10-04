@@ -1,11 +1,11 @@
-//! Claude Code 适配器（独立目录合同 architecture.md#adapter-layout，V30 目录迁移）：
+//! Claude Code 适配器（独立目录约定 architecture.md#adapter-layout，V30 目录迁移）：
 //! - 本模块是该 Agent 的稳定入口（统一接口实现与再导出）；
 //! - [`detect`]：格式探测（首行记录类型集合）；
 //! - [`versions`]：已验证格式实现的注册与映射；claude transcript 无 CLI 版本字段，
 //!   格式锚点是文档级格式版本 transcript-doc-1，不存在"未知版本"状态；
 //! - 历史版本的格式实现一律保留在本目录内，不再回到根级单文件。
 //!
-//! 原始格式证据见各版本模块文件头；目录迁移不改已验收的拒绝语义
+//! 原始格式依据见各版本模块文件头；目录迁移不改已验收的拒绝语义
 //! （未文档化记录 type / 载体外 usage 字段 ⇒ 整文件 fail closed，V17）。
 
 pub mod common;

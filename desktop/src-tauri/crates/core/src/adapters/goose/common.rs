@@ -1,16 +1,16 @@
-//! Goose 产品特有的公共部分（独立目录合同）：
-//! - 源库只读合同（复制自 adapters/zed/common.rs 的 hermes/kilo 同款实现）；
+//! Goose 产品特有的公共部分（独立目录约定）：
+//! - 源库只读约定（复制自 adapters/zed/common.rs 的 hermes/kilo 同款实现）；
 //! - 逐请求 usage_ledger 行映射（官方源码 a701bb1，A26）。
 //!
-//! 固定源码证据（aaif-goose/goose a701bb1756f0c6a49a7dbc10ac8a90f94dd24bd1）：
+//! 固定源码依据（aaif-goose/goose a701bb1756f0c6a49a7dbc10ac8a90f94dd24bd1）：
 //! - usage_ledger（迁移 15，session_manager.rs:1083-1097）：每 provider 响应
 //!   一行 INSERT（:913），created_timestamp 为 Unix **秒**；cost_source ∈
 //!   {provider_reported, estimated, carried_forward}；is_compaction 标记压缩调用。
-//! - Usage 口径（goose-provider-types token_usage.rs:93-101）：input_tokens
+//! - Usage 字段语义（goose-provider-types token_usage.rs:93-101）：input_tokens
 //!   为全部 prompt tokens，**包含** cache 读/写（子集）⇒ input_uncached 由
 //!   减法派生（sub_checked 防负）。
 //! - sessions.accumulated_* 是会话累计（非 accumulated 列是最后快照，不用）；
-//!   仅在旧库（schema < 15，无 usage_ledger）时按 session 聚合兜底。
+//!   仅在旧库（schema < 15，无 usage_ledger）时按 session 聚合回退。
 
 use crate::adapters::usage_map::{finish, sub_checked, MappedUsage};
 use crate::domain::{FieldQuality as Q, TokenQuality, TokenUsage};
@@ -25,7 +25,7 @@ pub struct GooseLedgerUsage {
     pub cache_write_tokens: Option<i64>,
 }
 
-/// input_tokens 含 cache 读/写（官方口径）⇒ uncached 派生；total 直报对照。
+/// input_tokens 含 cache 读/写（官方字段语义）⇒ uncached 派生；total 直报对照。
 pub fn map_goose_ledger(raw: &GooseLedgerUsage) -> MappedUsage {
     let mut diagnostics = Vec::new();
     let uncached = match (
@@ -82,7 +82,7 @@ pub fn map_goose_ledger(raw: &GooseLedgerUsage) -> MappedUsage {
     finish(usage, quality, diagnostics)
 }
 
-// ---- 源库只读访问（复制自 adapters/hermes/common.rs，各目录独立合同）----
+// ---- 源库只读访问（复制自 adapters/hermes/common.rs，各目录独立约定）----
 
 use crate::error::CoreError;
 use rusqlite::backup::{Backup, StepResult};
@@ -114,7 +114,7 @@ impl Drop for StagingGuard {
     }
 }
 
-/// busy/锁/CANTOPEN 判定（无法一致读取的证据）。
+/// busy/锁/CANTOPEN 判定（这些错误表示无法一致读取）。
 pub(crate) fn is_busy_like(err: &rusqlite::Error) -> bool {
     matches!(
         err.sqlite_error_code(),
@@ -184,7 +184,7 @@ fn backup_to_staging(
             }
             match backup.step(limits.pages_per_step) {
                 Ok(StepResult::Done) => break Ok(()),
-                // More：实际拷贝了页，计入空间预算。
+                // More：实际拷贝了页，计入空间限制。
                 Ok(StepResult::More) => {
                     done_pages += i64::from(limits.pages_per_step);
                     if done_pages > max_pages {
@@ -195,7 +195,7 @@ fn backup_to_staging(
                     }
                     std::thread::sleep(Duration::from_millis(20));
                 }
-                // Busy/Locked（#[non_exhaustive] 其余）：无进展重试，只消耗时间预算。
+                // Busy/Locked（#[non_exhaustive] 其余）：无进展重试，仍计入超时时间。
                 // 2026-09-30 修复：此前重试也计入页数，与超时出口竞速产生
                 // 平台相关的 space cap 误报（CI Linux 页上限先于超时触发）。
                 Ok(_) => {
@@ -244,7 +244,7 @@ where
     }
 }
 
-/// 短查询事务探测（kilo 同合同）。
+/// 短查询事务探测（与 kilo 遵守同一规则）。
 pub(crate) fn short_probe(conn: &Connection) -> Result<(), rusqlite::Error> {
     conn.query_row("SELECT COUNT(*) FROM sqlite_master", [], |_| Ok(()))
 }
@@ -297,7 +297,7 @@ mod tests {
 
     #[test]
     fn negative_derived_reports_contradiction_not_clamped() {
-        // cache 合计超过 input：uncached 置未知 + 矛盾诊断（不钳制为 0）。
+        // cache 合计超过 input：uncached 置未知 + 矛盾诊断（不改成 0）。
         let mapped = map_goose_ledger(&GooseLedgerUsage {
             input_tokens: Some(10),
             cache_read_tokens: Some(8),

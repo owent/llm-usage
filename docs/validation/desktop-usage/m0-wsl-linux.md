@@ -54,7 +54,9 @@ sysroot 内 WebKit helper 内置路径指向系统 `/usr/lib/...`（本机未装
 | 裸 `npx tauri build` 跨平台产物 | 已修复 | `tauri.conf.json` targets 改为 `["nsis","deb","appimage","app"]`，CI 另按 OS 显式 `--bundles`；Windows NSIS 重建通过（1,751,735 B，退出码 0） |
 | 原生 Linux 桌面验收 | 未执行 | WSL/WSLg 不替代原生验收（合同既有约束） |
 
-## 证据文件
+<a id="证据文件"></a>
+
+## 验证产物
 
 `build/m0-wsl-linux/`（gitignored）：REPORT.md、smoke-wslg.png、21 个执行脚本。
 WSL 内保留供复核：`~/llm-usage-m0/`、`~/.local/m0-sysroot`、`~/.local/node-v24.21.0`、`~/.cache/tauri/`；

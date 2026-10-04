@@ -1,6 +1,6 @@
 //! Aider 探测：`--analytics-log` JSONL 的文档级指纹。
 //!
-//! 合同（V17 fail closed）：首行 JSON 不含 event/properties/time 结构 ⇒ 未知格式；
+//! 约定（V17 fail closed）：首行 JSON 不含 event/properties/time 结构 ⇒ 未知格式；
 //! 空文件 ⇒ Pending 下轮重探。无版本字段：文档级锚点恒为 KnownVersion。
 
 use crate::adapters::framework::DetectOutcome;

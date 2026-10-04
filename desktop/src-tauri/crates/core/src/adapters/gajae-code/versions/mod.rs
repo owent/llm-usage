@@ -1,4 +1,4 @@
-//! GJC 版本注册表（V30 目录合同）。锚点为文档级 gjc-session-doc-1。
+//! GJC 版本注册表（V30 目录约定）。锚点为文档级 gjc-session-doc-1。
 
 pub mod session_v3like;
 

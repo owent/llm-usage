@@ -110,7 +110,7 @@ pub fn zcode_db_backfill(
             });
         }
         // input_uncached = input − (cache_read + cache_write)；部分和超过总量时
-        // 置 None（未知不补零，与 AI SDK 口径同规则）。
+        // 置 None（未知不补零，与 AI SDK 的规则相同）。
         let uncached = row
             .cache_read
             .zip(row.cache_write)

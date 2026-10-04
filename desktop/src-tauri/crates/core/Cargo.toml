@@ -7,7 +7,7 @@ rust-version = "1.77.2"
 license = "MIT"
 
 [dependencies]
-# backup：SQLite Online Backup API（源库一致暂存副本，kilo 只读合同）。
+# backup：SQLite Online Backup API（源库一致暂存副本，kilo 只读约定）。
 rusqlite = { version = "^0.40.2", features = [
   "bundled",
   "backup",

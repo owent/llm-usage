@@ -93,16 +93,16 @@ VS Code 原始模型字段出现两种标识表示，本轮保留来源值，不
 
 日志保留在忽略目录 `build/copilot-review/verify-final.log`、
 `build/copilot-review/browser-final.log` 与 `build/copilot-review/real-compare.log`。
-这些结果为本机静态、测试及真实落盘数据证据，不代替三平台或真实 IDE 操作验收。
+这些结果为本机静态、测试及真实落盘数据核验结果，不代替三平台或真实 IDE 操作验收。
 
 ## 保留的边界
 
 同面原生载体与 OTel file/接收器同时启用仍需在数据源界面择一；共享 agent 名称
-不会自动去重，没有跨载体调用关联证据时禁止相加。这是现有来源选择边界，
+不会自动去重，没有跨载体调用关联依据时禁止相加。这是现有来源选择边界，
 本轮不宣称已完成自动跨载体去重。VS 的 TEMP 载体不承诺完整历史。
 后续 [配置设计](../../design/desktop-usage/copilot-otel.md)进一步确认：暂停只停止扫描，
 不排除历史贡献；引入 OTel 前需统计主来源选择，不能仅停用原生源后混合总计。
-JetBrains 仅有插件静态取证，没有真实 IDE/outfile 样本，仍为文档级。
+JetBrains 仅有插件静态核验，没有真实 IDE/outfile 样本，仍为文档级。
 CLI chronicle 无逐次 token 的结论仅限已核验载体，未知新版不猜字段。
 
 数据库仍遵守既有预发布版本不匹配提示重建的规则，不实施逐版本迁移。
@@ -143,7 +143,7 @@ syn-a2/失败调用由 `input_unknown_count=1` 改为 `0`，调用计数不变�
 再次读取上游 [IChatUsage / IChatUsageModelTotal](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/chat/common/chatService/chatService.ts)
 及 [ToolCallRound](https://github.com/microsoft/vscode-copilot-chat/blob/main/src/extension/prompt/common/toolCallRound.ts)：
 末次输入、整轮用量和仅含身份/时间的 round 不能互换。上游 main 只用于本轮交叉核对，
-本机载体实测 version=3；安装版本仍沿用此前证据，未推断新版本已验收。
+本机载体实测 version=3；安装版本仍沿用此前的核验记录，未推断新版本已验收。
 
 补充发现并修复：
 

@@ -14,7 +14,7 @@ last-prompt ×1）。
    非用量载体记录；
 3. 未登录时的占位 assistant 响应 `message.model == "<synthetic>"`，
    `usage` 全 0（含 `server_tool_use`、`cache_creation` 扩展键）——
-   无模型调用证据；
+   无模型调用记录；
 4. user 记录携带 `promptSource: "sdk"`、`entrypoint`、`permissionMode`。
 
 ## 期望（人工核算）

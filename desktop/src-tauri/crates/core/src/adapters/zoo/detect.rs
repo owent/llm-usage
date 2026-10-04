@@ -4,7 +4,7 @@
 //! JSON.parse 且要求顶层数组），格式版本恒为文档级
 //! [`super::versions::ZOO_FORMAT_VERSION`]；不做版本分派、不存在未知版本回退。
 //!
-//! 合同（V17 fail closed）：
+//! 约定（V17 fail closed）：
 //! - 文件头 64 KiB（剥 UTF-8 BOM）不以 JSON 数组开头 ⇒ 未知格式；
 //! - 无 say 消息指纹 ⇒ 未知格式；
 //! - 空内容 ⇒ Pending，下轮重探；

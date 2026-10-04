@@ -1,6 +1,6 @@
 //! Command Code v3 树形会话 JSONL 格式实现（`tree_v3`，commandcode-tree-v3）。
 //!
-//! 格式证据（官方 npm 分发物 command-code@1.69.0 dist/cli.mjs 逐行核对；
+//! 格式依据（官方 npm 分发物 command-code@1.69.0 dist/cli.mjs 逐行核对；
 //! 仓库无产品源码（仅 readme），闭源；本机未安装、无真实样本）：
 //! - 路径：`~/.commandcode/projects/<slug>/*.jsonl`（slug=@sindresorhus/slugify(cwd)；
 //!   **HOME 优先于 USERPROFILE**——与采集器取根顺序可能不同，同用户目录时一致）；
@@ -14,7 +14,7 @@
 //!   `?? 0` 归一化 ⇒ **全零=已报告零**；缺 usage 字段=未完成/中断，未知）。
 //!   **inputTokens 含 cache 读/写**（官方成本公式 max(0,input−cacheR−cacheW)
 //!   证实子集关系）；costUsd 为本地费率估算（费率缺失时不写字段）。
-//! - 有效路径口径（官方 buildSessionPath/getTree）：从**文件最后一条 entry**
+//! - 有效路径规则（官方 buildSessionPath/getTree）：从**文件最后一条 entry**
 //!   回溯 parentId 链至根；rewind 只把 head 指回旧 entry，被弃分支留在文件中
 //!   （append-only）⇒ **孤儿分支不计**。compaction 折叠不剔除真实调用：
 //!   链上条目（含压缩前）全计。
@@ -381,7 +381,7 @@ pub fn scan(
         if !entry.is_assistant || !on_path[index] {
             continue;
         }
-        // usage 字段缺失 = 未完成/中断（官方未知口径）：不入账。
+        // usage 字段缺失 = 未完成/中断（官方按未知用量处理）：不入账。
         if entry.usage_input.is_none()
             && entry.usage_output.is_none()
             && entry.usage_cache_read.is_none()
@@ -408,7 +408,7 @@ pub fn scan(
         );
         events.push(EventInput {
             source_instance_id: target.instance_id.clone(),
-            // fork 复制保留 id+timestamp ⇒ 跨文件折叠键（官方口径）。
+            // fork 复制保留 id+timestamp ⇒ 跨文件折叠键（按官方实现）。
             source_record_key: format!("cmd:{}:{}", entry.id, occurred_ms),
             record_kind: RecordKind::ModelCall,
             schema_version: COMMANDCODE_FORMAT_VERSION.to_string(),

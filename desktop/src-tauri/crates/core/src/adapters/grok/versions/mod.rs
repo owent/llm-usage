@@ -1,4 +1,4 @@
-//! GROK 版本注册表（V30 目录合同）。锚点为文档级 grok-updates-doc-1。
+//! GROK 版本注册表（V30 目录约定）。锚点为文档级 grok-updates-doc-1。
 
 pub mod updates_doc1;
 

@@ -1,10 +1,10 @@
-//! Gemini CLI 适配器（独立目录合同 architecture.md#adapter-layout）：
+//! Gemini CLI 适配器（独立目录约定 architecture.md#adapter-layout）：
 //! - 本模块是该 Agent 的稳定入口（统一接口实现与再导出）；
 //! - [`detect`]：产品/格式探测（文档级指纹；gemini 无版本字段，不做版本分派）；
 //! - [`versions`]：统一形状的格式注册表（唯一条目：文档级 session-doc-1）；
 //! - map_genai_usage 是 gemini/qwen 跨 Agent 共享映射，留在根级 usage_map.rs。
 //!
-//! 原始格式证据见 [`versions::session_doc1`] 文件头；
+//! 原始格式依据见 [`versions::session_doc1`] 文件头；
 //! M2 目录化迁移（V30）自根级 gemini.rs 原样迁入，拒绝语义不变：
 //! 未文档化消息 type 或载体外 tokens ⇒ 整文件拒绝（fail closed）。
 

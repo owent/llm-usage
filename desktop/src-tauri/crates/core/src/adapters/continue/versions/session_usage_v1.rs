@@ -1,6 +1,6 @@
 //! Continue 会话文件格式实现（`session_usage_v1`，continue-session-usage-1）。
 //!
-//! 格式证据（continuedev/continue 固定源码 5522c6f44ca0ac3528b37244818fbfa39b5af470；
+//! 格式依据（continuedev/continue 固定源码 5522c6f44ca0ac3528b37244818fbfa39b5af470；
 //! 官方源码核验；本机未安装、无真实样本）：
 //! - 路径：`$CONTINUE_GLOBAL_DIR`（默认 ~/.continue）/sessions/&lt;uuidv4&gt;.json；
 //!   整写 JSON 对象 `{sessionId, title, workspaceDirectory, history[], usage?}`。
@@ -180,7 +180,7 @@ pub fn scan(
             None => None,
             Some(v) => match v.as_i64() {
                 Some(n) if (0..=crate::domain::MAX_TOKEN_VALUE).contains(&n) => Some(n),
-                // 子字段越界：与主字段同口径记诊断（不 fail closed，置未知）。
+                // 子字段越界：按主字段的规则记诊断（不 fail closed，置未知）。
                 _ => {
                     *deviation = true;
                     None

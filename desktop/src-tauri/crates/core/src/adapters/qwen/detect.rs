@@ -2,14 +2,14 @@
 //! 固定源码四值枚举且 uuid/sessionId/timestamp 必填齐全）后按
 //! [`super::versions`] 注册表选择格式实现。
 //!
-//! 合同（architecture.md#unknown-version / V17）：
+//! 约定（architecture.md#unknown-version / V17）：
 //! - 首行不是 JSON / type 超出固定源码四值 / 身份字段缺失 ⇒ 未知格式，
 //!   fail closed，不把任意未知文件交给猜测逻辑；
 //! - 格式版本 = 固定源码 commit 锚点（已收录 ⇒ KnownVersion）；
 //!   `record.version`（CLI 版本）逐条存 schema_version，不做版本白名单，
 //!   不参与探测分派。
 //!
-//! 本目录化迁移自根级单文件 qwen.rs（M2 目录化迁移，V30），行为合同不变。
+//! 本目录化迁移自根级单文件 qwen.rs（M2 目录化迁移，V30），行为约定不变。
 
 use crate::error::CoreError;
 use std::path::Path;

@@ -1,8 +1,8 @@
-//! GitHub Copilot CLI 产品特有的公共部分（独立目录合同）：
+//! GitHub Copilot CLI 产品特有的公共部分（独立目录约定）：
 //! - usage 映射（自根级 usage_map.rs 下沉，V30：产品映射随适配器目录）；
-//! - 源库只读合同（复制自 adapters/goose/common.rs 的 hermes/kilo 同款实现）。
+//! - 源库只读约定（复制自 adapters/goose/common.rs 的 hermes/kilo 同款实现）。
 //!
-//! 字段证据（M0 m0-agent-fixtures.md 实读结论 + 2026-09-29 本机真实数据复核：
+//! 字段依据（M0 m0-agent-fixtures.md 实读结论 + 2026-09-29 本机真实数据复核：
 //! ~/.copilot/session-store.db schema_version=8，36/36 行满足）：
 //! - `assistant_usage_events`：input_tokens = **未缓存 + cache_read + cache_write**
 //!   ⇒ input_uncached 由减法派生；output_tokens 直报；reasoning_tokens 独立列，
@@ -72,7 +72,7 @@ pub fn map_copilot(raw: &CopilotUsage) -> MappedUsage {
         input_cache_write: raw.cache_creation_input_tokens,
         input_total: raw.input_tokens,
         output_total: raw.output_tokens,
-        // reasoning 与 output 包含关系未证：并列报告，不并入派生总量。
+        // reasoning 与 output 包含关系尚未验证：并列报告，不并入派生总量。
         output_reasoning: raw.reasoning_tokens,
         total_tokens: total,
         source_total: None,
@@ -107,7 +107,7 @@ pub fn map_copilot(raw: &CopilotUsage) -> MappedUsage {
     finish(usage, quality, diagnostics)
 }
 
-// ---- 源库只读访问（复制自 adapters/hermes/common.rs，各目录独立合同）----
+// ---- 源库只读访问（复制自 adapters/hermes/common.rs，各目录独立约定）----
 
 use crate::error::CoreError;
 use rusqlite::backup::{Backup, StepResult};
@@ -139,7 +139,7 @@ impl Drop for StagingGuard {
     }
 }
 
-/// busy/锁/CANTOPEN 判定（无法一致读取的证据）。
+/// busy/锁/CANTOPEN 判定（这些错误表示无法一致读取）。
 pub(crate) fn is_busy_like(err: &rusqlite::Error) -> bool {
     matches!(
         err.sqlite_error_code(),
@@ -209,7 +209,7 @@ fn backup_to_staging(
             }
             match backup.step(limits.pages_per_step) {
                 Ok(StepResult::Done) => break Ok(()),
-                // More：实际拷贝了页，计入空间预算。
+                // More：实际拷贝了页，计入空间限制。
                 Ok(StepResult::More) => {
                     done_pages += i64::from(limits.pages_per_step);
                     if done_pages > max_pages {
@@ -220,7 +220,7 @@ fn backup_to_staging(
                     }
                     std::thread::sleep(Duration::from_millis(20));
                 }
-                // Busy/Locked（#[non_exhaustive] 其余）：无进展重试，只消耗时间预算。
+                // Busy/Locked（#[non_exhaustive] 其余）：无进展重试，仍计入超时时间。
                 // 2026-09-30 修复：此前重试也计入页数，与超时出口竞速产生
                 // 平台相关的 space cap 误报（CI Linux 页上限先于超时触发）。
                 Ok(_) => {
@@ -269,13 +269,13 @@ where
     }
 }
 
-/// 短查询事务探测（kilo 同合同）。
+/// 短查询事务探测（与 kilo 遵守同一规则）。
 pub(crate) fn short_probe(conn: &Connection) -> Result<(), rusqlite::Error> {
     conn.query_row("SELECT COUNT(*) FROM sqlite_master", [], |_| Ok(()))
 }
 
 /// threads 表必需列（固定源码建表 + 迁移列集；created_at 缺列时探测层降级）。
-/// assistant_usage_events 必需列（本机 schema_version=8 实测 + M0 1.0.73 取证）。
+/// assistant_usage_events 必需列（本机 schema_version=8 实测 + M0 1.0.73 核验）。
 pub(crate) const USAGE_EVENT_COLUMNS: &[&str] = &[
     "id",
     "session_id",

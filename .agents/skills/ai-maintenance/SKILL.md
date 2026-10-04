@@ -21,4 +21,4 @@ metadata:
 | 核验客户端入口与加载差异 | [客户端记录](references/clients.md) |
 | 修改易变事实或核对官方依据 | [来源索引](references/source-index.md) |
 | 实质修改 Skill 描述或流程 | [触发与质量评估](references/skill-evaluation.md) |
-| 恢复初始化或审查交付证据 | [覆盖表](references/records/initialization-coverage.md)、[验证记录](references/records/validation.md) |
+| 恢复初始化或审查交付记录 | [覆盖表](references/records/initialization-coverage.md)、[验证记录](references/records/validation.md) |

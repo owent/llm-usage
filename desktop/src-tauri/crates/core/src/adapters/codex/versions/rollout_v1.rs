@@ -1,7 +1,7 @@
 //! Codex rollout JSONL 格式实现（`rollout_v1`）。
 //!
-//! 格式证据（build/desktop-usage-validation M0 fixtures，本机实读）：
-//! - `token_usage_record`：逐次 model_call 证据；`payload.usage` 六字段
+//! 格式依据（build/desktop-usage-validation M0 fixtures，本机实读）：
+//! - `token_usage_record`：记录逐次 model_call；`payload.usage` 六字段
 //!   （input/cached/cache_write/output/reasoning/total），cached⊆input、reasoning⊆output、
 //!   total=input+output（319/319 成立）；response_id 为稳定身份。
 //! - `event_msg/token_count`：`info.total_token_usage` 是累计快照，只能取最终值或对
@@ -10,7 +10,7 @@
 //! - `event_msg/token_count` 的 `info.last_token_usage` 是逐次回声，忽略防双计。
 //! - `compacted`：`payload.latest_token_usage_record` 是被压缩排除的边界记录副本，
 //!   正常与逐次流中记录同 response_id（去重），不计入快照。
-//! - usage 无 model 字段：按不晚于调用的 `turn_context` 位置归属；无证据则 unknown。
+//! - usage 无 model 字段：按不晚于调用的 `turn_context` 位置归属；无法确认则 unknown。
 //! - `session_meta`：版本探测（payload.cli_version）；parent_thread_id 存在 ⇒ 子 Agent 会话。
 //!
 //! 版本策略（architecture.md#unknown-version）：session_meta 经

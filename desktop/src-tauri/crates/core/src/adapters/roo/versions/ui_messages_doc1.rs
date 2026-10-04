@@ -1,7 +1,7 @@
 //! Roo Code ui_messages.json 格式实现（`ui_messages_doc1`，文档级
 //! roo-ui-messages-doc-1）。
 //!
-//! 格式证据（RooCodeInc/Roo-Code 固定源码 b867ec9145750d0ae1ff7f02d35406e9bf2a0b16，
+//! 格式依据（RooCodeInc/Roo-Code 固定源码 b867ec9145750d0ae1ff7f02d35406e9bf2a0b16，
 //! 官方源码核验；仓库已归档 2026-05-15，末版 v3.54.0；本机未安装、无真实样本）：
 //! - 路径：VS Code globalStorage `RooVeterinaryInc.roo-cline/tasks/<taskId>/
 //!   ui_messages.json`（src/package.json publisher.name；storage.ts:53-57）；
@@ -13,16 +13,16 @@
 //! - **api_req_started 的 text 为 JSON**（ClineApiReqInfo，vscode-extension-host.ts:
 //!   780-790）：`tokensIn/tokensOut/cacheWrites/cacheReads/cost` 逐字段可选 +
 //!   `request`/`cancelReason`/`streamingFailedMessage`/`apiProtocol`。
-//!   **tokensIn 恒为含缓存的总输入**（三重源码证据：Task.ts:2662
+//!   **tokensIn 恒为含缓存的总输入**（三处源码核对结果：Task.ts:2662
 //!   tokensIn=totalInputTokens；cost.ts:64-79/91-111 两协议注释；
 //!   consolidateTokenUsage.ts:81-92 "no longer need to add cache separately"）——
 //!   cacheReads/cacheWrites 是其子集，**不得再相加**（与 cline 适配器的
-//!   四桶互斥口径不同血统分歧，见 adapters.md）。
+//!   四桶互斥关系不同血统分歧，见 adapters.md）。
 //! - api_req_started/api_req_finished LIFO 配对（consolidateApiRequests.ts:50-85，
 //!   finish 覆盖同名字段）；当前版本后端不再写 finished（Task.ts:2615-2621，
 //!   legacy）。**api_req_deleted**（checkpoint 恢复时写入，checkpoints/index.ts:
 //!   234-289）与旧 Cline **deleted_api_reqs** 是已扣除量备忘：**不计入**
-//!   （consolidateTokenUsage 不统计，上游口径自动扣除）。
+//!   （consolidateTokenUsage 不统计，上游计算时自动扣除）。
 //! - condense_context：`contextCondense.cost` 是压缩摘要独立调用的总成本
 //!   （condense/index.ts:215），不走请求循环 ⇒ 按辅助调用入账（token 未知）；
 //!   sliding_window_truncation 只有 token 计数无 cost，不入账。
@@ -289,7 +289,7 @@ fn parse_usage_text(
     ))
 }
 
-/// Roo 口径：tokensIn 含缓存 ⇒ input_uncached = tokensIn − writes − reads（派生）。
+/// Roo 字段语义：tokensIn 含缓存 ⇒ input_uncached = tokensIn − writes − reads（派生）。
 fn map_roo_usage(
     tokens_in: Option<i64>,
     tokens_out: Option<i64>,
@@ -514,7 +514,7 @@ pub fn scan(
             ));
         }
         if MEMO_KINDS.contains(&kind) {
-            // 已扣除量备忘：上游不统计，本适配器同口径不计入。
+            // 已扣除量备忘：上游不统计，本适配器也按该规则排除。
             if !context.memo_reported {
                 context.memo_reported = true;
                 diagnostics.push(diag(

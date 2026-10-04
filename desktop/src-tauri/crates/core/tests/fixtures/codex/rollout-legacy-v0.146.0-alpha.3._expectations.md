@@ -5,7 +5,7 @@
 数字/布尔/null 保留、字符串默认 REDACTED、ID 稳定映射 anon-N（675 个）、cwd → `<PATH>`。
 泄漏核查：无 UUID/路径/正文残留；保留字符串仅为记录类型、枚举、版本与模型名。
 
-本样本覆盖旧载体系列的三个已取证异常类别，是行为最丰富的代表：
+本样本覆盖旧载体系列的三个已核验异常类别，是行为最丰富的代表：
 压缩摘要回声（carried）、源端计数回退（regression）、多次调用区间（delta > last）。
 
 ## 结构期望（JS 独立核算）
@@ -34,14 +34,14 @@
 | carried total_tokens 合计 | 16,894 |
 
 包含关系（85/85 常规逐条成立）：total=input+output；cached⊆input；reasoning⊆output。
-carried 回声天然 total != input+output（取证形状）⇒ 1 条 source_total_mismatch
+carried 回声天然 total != input+output（已核验的记录形状）⇒ 1 条 source_total_mismatch
 矛盾诊断（可见、不隐藏）。
 
 ## 快照对账期望
 
 - 最终快照 total = 10,911,604；detail_sum = 11,228,397（regular + carried）；
   carried_sum = 16,894；difference = +299,899 ⇒ **mismatch**（进诊断，不伪造数据）。
-- 差异来源（取证）：源端两次计数回退重定基线后、回退伴随的真实调用按
+- 差异来源（核验）：源端两次计数回退重定基线后、回退伴随的真实调用按
   宁多勿漏发出（超出快照），以及 delta > last 的多次调用区间只回声最新一次
   （该方向本应少计）；两类残差一并在对账差异中显形。
 

@@ -2,7 +2,7 @@
 
 M3 首个适配器（kilo）与 M4 三个产品（zcode/kimi-code/kimi-work）实施完成。
 本机未安装的 M3 其余工具（cline/opencode/mimo/zoo/dsh/openclaw/hermes）
-按用户指示另行以文档级证据实施，真实验收后置。
+按用户指示另行基于文档或源码实施，真实验收后置。
 
 ## 元信息
 
@@ -23,7 +23,9 @@ M3 首个适配器（kilo）与 M4 三个产品（zcode/kimi-code/kimi-work）�
 | 3 | `npm run verify`（仓库根） | 0 | 49 个测试二进制全绿；lint 0；vite 构建不变 |
 | 4 | `APPDATA=<临时> cargo run -p llm-usage-m0 -- --headless` | 0 | **7 实例全部 succeeded，27,311 事件**；复扫幂等（仅 zcode 活文件 +3） |
 
-## 适配器结论（详细证据在各 real_verify 输出与 fixture 期望文档）
+<a id="适配器结论详细证据在各-real_verify-输出与-fixture-期望文档"></a>
+
+## 适配器结论（详细核验结果在各 real_verify 输出与 fixture 期望文档）
 
 ### Kilo Code CLI（M3，A11）
 
@@ -49,7 +51,7 @@ M3 首个适配器（kilo）与 M4 三个产品（zcode/kimi-code/kimi-work）�
 - db.sqlite 只读对账：活库 418/438 matched（在途/取消轮 mismatch 可见；
   M0 静止样本 16/16）。
 - 真实核对：3 文件 8 事件幂等；`~/.zcode/v2` 布局与 `%APPDATA%/zcode`
-  桌面存储未接入（待证）。
+  桌面存储未接入（待核验）。
 
 ### Kimi Code（M4，A12）与 Kimi Work（M4，A13）
 
@@ -84,14 +86,16 @@ M3 首个适配器（kilo）与 M4 三个产品（zcode/kimi-code/kimi-work）�
 
 | 项 | 状态 | 后续 |
 | --- | --- | --- |
-| kilo 新 core 数据层（session_message，当前 0 行） | 未接入 | kilo 切换后取证专用实现 |
-| zcode v2 布局、桌面 session 存储 | 未接入 | 待证 |
+| kilo 新 core 数据层（session_message，当前 0 行） | 未接入 | kilo 切换后核验专用实现 |
+| zcode v2 布局、桌面 session 存储 | 未接入 | 待核验 |
 | kimi usage.record 无稳定 ID ⇒ provider/逐次延迟不入账 | 如实标注 unavailable | 上游补充关联键后接入 |
 | Kimi Work 缓存写>0、subagent.completed 真实样本 | 无本机样本 | 合成已覆盖路径；样本出现后补取 |
 | Kimi Work 官方默认布局/env | 未见文档 | 安装位迁移需手工加根 |
-| M3 其余工具（cline/opencode/mimo/zoo/dsh/openclaw/hermes） | 未实施 | 按用户指示以文档级证据实施，真实验收后置 |
+| M3 其余工具（cline/opencode/mimo/zoo/dsh/openclaw/hermes） | 未实施 | 按用户指示基于文档或源码实施，真实验收后置 |
 
-## 证据文件
+<a id="证据文件"></a>
+
+## 验证产物
 
 - 适配器：`adapters/{kilo,zcode,kimi-code,kimi-work}/`、`adapters/kimi_wire.rs`；
   产品映射下沉：kilo/zcode common.rs、kimi_wire.rs（usage_map.rs 已清理）。

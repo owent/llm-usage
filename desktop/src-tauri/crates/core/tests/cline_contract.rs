@@ -1,6 +1,6 @@
-//! Cline 适配器合同测试：合成 fixture（文档级证据，A03 固定源码；本机未安装，
-//! 2026-09-25 盘点 not_found）经读取→解析→commit→查询全链路。
-//! 数值为 fixture 人工核算（见各目录数据），口径：四桶互斥
+//! Cline 适配器约定测试：合成 fixture（依据 A03 固定源码；本机未安装，
+//! 2026-09-25 盘点 not_found）经读取→解析→commit→查询。
+//! 数值为 fixture 人工核算（见各目录数据），字段语义：四桶互斥
 //! （tokensIn/tokensOut/cacheWrites/cacheReads），input_total = in+cw+cr 派生，
 //! total = 四桶之和（common.rs 文件头）。
 

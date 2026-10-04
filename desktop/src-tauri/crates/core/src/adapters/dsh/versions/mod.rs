@@ -1,8 +1,8 @@
 //! DSH 版本注册表：格式版本 → 格式实现的映射与回退选择
-//! （architecture.md#adapter-layout / #unknown-version，V30 目录合同）。
+//! （architecture.md#adapter-layout / #unknown-version，V30 目录约定）。
 //!
 //! 持久会话日志无版本字段：注册表锚点是文档级格式版本 session-log-doc-1
-//! （固定 token-meter README 46a7f68 口径），因此不存在"未知版本"状态——
+//! （按固定 token-meter README 46a7f68 定义），因此不存在"未知版本"状态——
 //! detect 不读版本号，成功即 KnownVersion；格式偏离（未文档化事件 type）
 //! 在扫描层 fail closed，不走版本回退。
 //!
@@ -15,7 +15,7 @@ pub mod session_log_doc1;
 /// 当前格式实现标识（"最新内置解析器"由本常量明确指定，不联网获取）。
 pub const LATEST_IMPL_ID: &str = "session_log_doc1";
 
-/// 文档级格式版本（非产品版本）：固定 README 46a7f68 的事件词汇与替换语义口径，
+/// 文档级格式版本（非产品版本）：按固定 README 46a7f68 的事件与替换语义实现，
 /// 待真实样本核验。
 pub const DSH_FORMAT_VERSION: &str = "session-log-doc-1";
 

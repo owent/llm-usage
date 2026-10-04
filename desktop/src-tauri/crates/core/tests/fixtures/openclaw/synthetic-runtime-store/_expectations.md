@@ -7,7 +7,7 @@ synthetic_table_events——文档未给出真实表名）。
 
 - 发现：默认根 `<home>/.openclaw` 下定位到该文件，实例根为
   `agents/main`（每 Agent 一个实例）。
-- 探测：Agent 身份由文档路径形状确认，但表级 schema 无文档证据 ⇒
+- 探测：Agent 身份由文档路径形状确认，但表级 schema 缺少文档说明 ⇒
   `unknown_format` fail closed（诊断 reason 说明"docs do not name any
   table/column; pending a real sample"），库结构可读（2 张用户表计入 reason）。
 - `usage_events` / `source_aggregates` 0 条：不读表、不猜字段、不产零值。

@@ -1,7 +1,7 @@
 # synthetic-subagent._expectations.md（SYNTHETIC）
 
 **本目录全部为合成样本（synthetic），不是真实会话提取。** 覆盖子 Agent 两种
-证据：主文件内 `isSidechain=true` 条目，与
+关联依据：主文件内 `isSidechain=true` 条目，与
 `projects/<proj>/<session>/subagents/` 路径下的独立子 Agent transcript。
 
 ## 场景与期望（人工核算）

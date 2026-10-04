@@ -1,7 +1,7 @@
 //! Cline ui_messages.json 格式实现（`ui_messages_doc1`，文档级 ui-messages-doc-1）。
 //!
-//! 格式证据（固定源码 dcf8c3c33596e3d561a941202297c564a1cbcd49，A03，文档级
-//! 证据待真实样本；本机 not_found）：
+//! 格式依据（固定源码 dcf8c3c33596e3d561a941202297c564a1cbcd49，A03，文档级
+//! 依据，待真实样本核验；本机 not_found）：
 //! - 路径：宿主（VS Code 扩展 saoudrizwan.claude-dev）globalStorage 下
 //!   `tasks/<taskId>/ui_messages.json`（disk.ts：ensureTaskDirectoryExists =
 //!   getGlobalStorageDir("tasks", taskId)，GlobalFileNames.uiMessages）；
@@ -12,7 +12,7 @@
 //!   可选；api_req_started 已与对应 api_req_finished 合并（不能每条 say 算请求，
 //!   也无流式中间值落盘）。say="compaction" 的 tokensBefore/tokensAfter 是
 //!   SDK 估算（chars/4 级），不进入用量。
-//! - `ts` 是固定源码示例中唯一证据的消息身份字段（epoch 毫秒数字）；
+//! - `ts` 是固定源码示例中唯一已确认的消息身份字段（epoch 毫秒数字）；
 //!   数组下标会因删除移位，不进身份。
 //!
 //! 增量语义（整写 JSON）：全量有界读取（32 MiB 初值）；游标存已消费字节数复用
@@ -177,7 +177,7 @@ fn parse_usage_text(
     Some((usage, cost, unknown))
 }
 
-/// cost 浮点美元 → micro-USD（estimated；来源口径未证实，按扩展自算估算入账，
+/// cost 浮点美元 → micro-USD（estimated；费用来源尚未确认，按扩展自算估算入账，
 /// 与 pi 适配器 map_cost 同规则）。溢出记诊断留空。
 fn map_cost(
     cost: Option<f64>,
@@ -395,7 +395,7 @@ pub fn scan(
             continue;
         }
         let Some(text) = message_obj.get("text").and_then(|t| t.as_str()) else {
-            // usage 载体无 text：上游短路不读；无用量证据，不产事件。
+            // usage 载体无 text：上游短路不读；未记录用量，不产事件。
             continue;
         };
         let Some((usage, cost, unknown_keys)) = parse_usage_text(text, &position, &mut diagnostics)
@@ -411,7 +411,7 @@ pub fn scan(
         };
         if usage.is_empty() {
             // api_req_started 无 finished 等场景：载体无 usage 数字（可能只有
-            // request/cost 描述）⇒ 无 token 证据不产事件；其余记录继续入账
+            // request/cost 描述）⇒ 未记录 token，不产事件；其余记录继续入账
             // （部分可用，一次性诊断）。cost 单独无 token 不入账，保持同源。
             if !context.without_numbers_reported {
                 context.without_numbers_reported = true;

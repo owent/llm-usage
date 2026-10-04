@@ -1,9 +1,9 @@
 //! V30 结构检查：每个已实现 Agent 独立目录（mod/detect/versions），根级不再有
 //! 该 Agent 的单文件实现；产品特有映射不留在根级 usage_map.rs。
 //! 目录存在或编译通过不能代替版本兼容验收（兼容行为在各适配器 V17 测试中验证），
-//! 本测试只锁定目录合同本身，防止后续新增 Agent 又回到根级单文件。
+//! 本测试只锁定目录约定本身，防止后续新增 Agent 又回到根级单文件。
 
-// M8 第二批（2026-09-29 文档级实施）同受目录合同约束：
+// M8 第二批（2026-09-29 文档级实施）同受目录约定约束：
 // gajae-code/continue 目录名与模块名分离（#[path] 映射），按目录检查。
 const M8_AGENTS: &[&str] = &[
     "zed",
@@ -70,7 +70,7 @@ fn every_implemented_agent_lives_in_its_own_directory() {
 fn product_specific_mappings_left_root_usage_map() {
     // V30：产品特有映射不留在根级单文件。codex/claude 映射已下沉；
     // pi/omp（map_pi_family）与 gemini/qwen（map_genai_usage）是固定源码证实的
-    // 跨 Agent 共享口径，允许留在根级（usage_map.rs 文件头有登记）。
+    // 跨 Agent 共享字段语义，允许留在根级（usage_map.rs 文件头有登记）。
     let usage_map = std::fs::read_to_string(adapters_src().join("usage_map.rs")).unwrap();
     assert!(
         !usage_map.contains("pub fn map_codex"),

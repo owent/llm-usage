@@ -49,7 +49,7 @@ currency='' 行；sealed 语义与 daily_usage 一致）。
 （多档且输入规模未知 ⇒ tier_ambiguous 不猜档；已知则取最大满足档）。
 
 分量计价：未缓存输入（显式值，否则 total−read−write 三者已知时派生）、
-缓存读、缓存写（TTL 档由用户默认选定——事件无 TTL 证据，未设默认档则写分量
+缓存读、缓存写（TTL 档由用户默认选定——事件无 TTL 记录，未设默认档则写分量
 不计价，A6）、输出。金额 = round_half_up(token × 价格 / 1e8)，i128 中间量，
 逐分量四舍五入到最小货币单位后累加。推理子集无价格行、绝不重复计价（A3）。
 异常 token（负值、缓存读写合计大于已知总输入）整条拒绝（A8，不用 max(0,…)）。
@@ -102,7 +102,7 @@ currency='' 行；sealed 语义与 daily_usage 一致）。
 | 命令 | 退出码 | 结果 |
 | --- | --- | --- |
 | `cargo test -p llm-usage-core --lib pricing` | 0 | 9 项通过 |
-| `cargo test -p llm-usage-core --test pricing_v29` | 0 | 5 项通过（含维度筛选语义与选日修订号门槛） |
+| `cargo test -p llm-usage-core --test pricing_v29` | 0 | 5 项通过（含维度筛选语义与选日修订号限制） |
 | `cargo test -p llm-usage-core` | 0 | 全量 66 个测试目标全绿 |
 | `cargo test -p llm-usage-desktop` | 0 | 15 项通过（含时区分区重建） |
 | `cargo clippy --workspace --all-targets -- -D warnings` | 0 | 通过 |
@@ -120,9 +120,9 @@ currency='' 行；sealed 语义与 daily_usage 一致）。
 2. **快照新鲜度展示有限**：面板显示 price_basis 快照 ID；fetched_at 在设置页
    快照列表可见，趋势面板未显示日期。
 3. **真实数据端到端估算未发生**：需用户配置供应商渠道默认（设置 → 费用）；
-   GLM 系本机事件 provider_id 拼写与 bigmodel/z.ai 渠道归属未逐 Agent 取证。
+   GLM 系本机事件 provider_id 拼写与 bigmodel/z.ai 渠道归属未逐 Agent 核验。
 4. **估算行不含缓存存储费**（cache_storage 小时价列已建、引擎未计价）：
-   存储时长无事件级证据，计费需要存储时间序列，后置。
+   事件未提供存储时长，计费需要存储时间序列，后置。
 5. usage_observation（Hermes 形态区间汇总）不参与计价：区间汇总无输入拆分，
    仅 total 不能套价（数据合同），如实排除。
 6. schema v8 升级会使既有 v7 本机库走"备份→重建→重扫"提示路径（预发布合同）。

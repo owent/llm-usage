@@ -1,5 +1,5 @@
-//! Codex 适配器合同测试：M0 真实脱敏 fixture（本机 0.155.0-alpha.16.3）
-//! 经 读取→解析→标准化→commit_batch→查询 全链路，期望与
+//! Codex 适配器约定测试：M0 真实脱敏 fixture（本机 0.155.0-alpha.16.3）
+//! 经 读取→解析→标准化→commit_batch→查询，期望与
 //! tests/fixtures/codex/*._expectations.md 的人工核算值一致（含本文件顶部注释中
 //! 从 fixture 手工核算的分模型/分段数值）。
 
@@ -196,7 +196,7 @@ fn capability_table_is_structured_and_complete() {
     let json = serde_json::to_value(&cap).unwrap();
     assert_eq!(json["adapter_id"], "codex");
     // supported_versions 由版本注册表生成（M2-D 逐版本 fixture + 2026-09-26
-    // 0.139–0.151 旧载体取证登记）。
+    // 0.139–0.151 旧载体核验后登记）。
     assert_eq!(
         json["supported_versions"],
         serde_json::json!([

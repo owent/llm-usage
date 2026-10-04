@@ -1,7 +1,7 @@
-//! oh-my-pi（omp）适配器合同测试：M2-B/C 恢复阶段真实脱敏 fixture（本机 omp 18.2.7，
+//! oh-my-pi（omp）适配器约定测试：M2-B/C 恢复阶段真实脱敏 fixture（本机 omp 18.2.7，
 //! glm-reasoning 主会话 / k3-cache-abort 主会话 / CommunityResearch 子 Agent）。
-//! 经 读取→解析→标准化→commit_batch→查询 全链路，期望与各 _expectations.md
-//! 的人工核算一致（jq 逐条验算；input_total 为派生口径 input+cacheRead+cacheWrite）。
+//! 经 读取→解析→标准化→commit_batch→查询，期望与各 _expectations.md
+//! 的人工核算一致（jq 逐条验算；input_total 由 input+cacheRead+cacheWrite 派生）。
 
 mod common;
 

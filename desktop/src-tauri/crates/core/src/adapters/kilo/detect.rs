@@ -1,10 +1,10 @@
 //! Kilo 探测与版本分派：kilo.db schema 指纹（表存在性/关键列）+
 //! `session.version` 注册表。kilo 无官方 env 覆盖（A11），发现层不做 env 项。
 //!
-//! 合同（architecture.md#unknown-version）：
+//! 约定（architecture.md#unknown-version）：
 //! - message/session 两表或关键列缺失 ⇒ 未知格式 fail closed；
 //!   仅存新 core 数据层（session_message）而无 message 表的库同样拒绝，
-//!   待专用实现取证（adapters.md：新版与旧 message 表不保证兼容）；
+//!   待核验格式并编写专用实现（adapters.md：新版与旧 message 表不保证兼容）；
 //! - 库尚无会话（session 空表）⇒ Pending，下轮重探；
 //! - 版本标记取库内数值最大 session.version：已收录 ⇒ KnownVersion；
 //!   未收录/缺失 ⇒ LatestFallback（带兼容标记，不因版本号未收录直接拒绝）。

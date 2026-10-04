@@ -2,9 +2,9 @@
 //! 格式实现映射与未知版本回退选择（architecture.md#adapter-layout /
 //! #unknown-version）。
 //!
-//! 已验证版本须有真实脱敏 fixture 与期望值证据。当前**没有**任何本机真实
+//! 已验证版本须有真实脱敏 fixture 与期望值核验结果。当前**没有**任何本机真实
 //! 样本（2026-09-25 盘点 not_found，m0-agent-fixtures.md），仅有固定源码
-//! （0027387dc5c59793c12dfc531abc78f825ed6868）文档级证据，因此注册表为空：
+//! （0027387dc5c59793c12dfc531abc78f825ed6868）文档或源码依据，因此注册表为空：
 //! 一切版本走 `LatestFallback`（带兼容标记，数据照常入库，compat=unverified）。
 //! 取得真实 fixture 后逐版本升级为 KnownVersion。
 //!
@@ -12,7 +12,7 @@
 //! - 已收录版本 → `KnownVersion`（当前为空集）；
 //! - 未收录/缺失版本 → `LatestFallback`，先尝试最新内置解析器
 //!   （`step_finish_parts_v1`）；
-//! - 有证据的不兼容形状（三表缺失/关键列缺失/仅新 core 投影层）在探测层
+//! - 已确认不兼容的形状（三表缺失/关键列缺失/仅新 core 派生视图层）在探测层
 //!   fail closed，不进入回退。
 
 pub mod step_finish_parts_v1;
@@ -21,7 +21,7 @@ pub mod step_finish_parts_v1;
 pub const LATEST_IMPL_ID: &str = "step_finish_parts_v1";
 
 /// 已验证支持的 session.version → 格式实现。
-/// 空集：文档级证据阶段（见模块头），真实样本核验前不登记任何版本。
+/// 空集：尚未用真实样本核验（见模块头），核验完成前不登记任何版本。
 pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[];
 
 /// 版本分派结论。

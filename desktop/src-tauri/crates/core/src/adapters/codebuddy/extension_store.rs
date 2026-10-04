@@ -5,7 +5,7 @@
 //!   含 `requests[]`，每项 `{id, type, messages, state, startedAt, usage}`；
 //!   `usage` 为该请求聚合：`inputTokens = cacheTokens(读命中) +
 //!   cachedMissTokens(未缓存)`，`totalTokens = inputTokens + outputTokens`，
-//!   另有 `cachedWriteTokens`、`lastTokens`（语义未证，不映射）与 `credit`
+//!   另有 `cachedWriteTokens`、`lastTokens`（语义尚未验证，不映射）与 `credit`
 //!   （平台积分，非货币，不映射）。
 //! - 上层 `history/<session>/index.json` 只有 `conversations[]/current`
 //!   注册表，不含用量，不作为扫描目标。
@@ -263,7 +263,7 @@ fn parse_request(
     }
     let occurred_ms = started_at_ms(value).ok_or("missing or implausible startedAt")?;
     // inputTokens 含缓存读：miss + read 可核对时 uncached 取 miss；
-    // 分桶不可核对时保留 input_total 口径，uncached 置未知。
+    // 分桶不可核对时保留 input_total，uncached 置未知。
     let uncached = match (cache_miss, input, cache_read) {
         (Some(miss), Some(total), Some(hit)) if miss + hit == total => Some(miss),
         (None, Some(_), None) => None,
@@ -510,7 +510,7 @@ mod tests {
     use crate::adapters::tencent_buddy_wire::BuddyAdapter;
     use std::path::PathBuf;
 
-    /// 夹具：<base>/<name>-pid 充当 LOCALAPPDATA，其下建 CodeBuddyExtension/Data。
+    /// 测试目录：<base>/<name>-pid 充当 LOCALAPPDATA，其下建 CodeBuddyExtension/Data。
     fn store_base(name: &str) -> PathBuf {
         let base = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../../../build/codebuddy-ext-tests")

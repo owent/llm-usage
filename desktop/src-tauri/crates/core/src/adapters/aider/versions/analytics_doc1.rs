@@ -1,7 +1,7 @@
 //! Aider `--analytics-log` JSONL 格式实现（`analytics_doc1`，文档级
 //! aider-analytics-doc-1）。
 //!
-//! 格式证据（Aider-AI/aider 固定源码 5dc9490bb35f9729ef2c95d00a19ccd30c26339c，
+//! 格式依据（Aider-AI/aider 固定源码 5dc9490bb35f9729ef2c95d00a19ccd30c26339c，
 //! A30；本机未安装，无真实样本）：
 //! - 启用：`--analytics-log <file>`（args.py:575-579，默认不开启）；即使遥测
 //!   未 opt-in，只要设置 logfile 本地照写（analytics.py:213-214 event() 守卫）。
@@ -18,7 +18,7 @@
 //! - 模型名可能被 `_redact_model_name` 脱敏（models.db 未知且含 `/` 的只留
 //!   provider 前缀 + "/REDACTED"，analytics.py:190-199）：按原文入账。
 //!
-//! 映射：input_total=prompt_tokens（含 cache 写，官方口径），cache 两桶 Unknown，
+//! 映射：input_total=prompt_tokens（含 cache 写，官方字段语义），cache 两桶 Unknown，
 //! output_total=completion_tokens，total_tokens=total_tokens（直报）。
 //! 事件键 = 整行内容哈希（无消息 ID；追加式文件，重放幂等）。
 
@@ -110,7 +110,7 @@ fn usd_cost(value: Option<&serde_json::Value>) -> Option<CostAmount> {
     if !amount.is_finite() || amount < 0.0 {
         return None;
     }
-    // 与全库约定一致：amount_minor 存 micro-USD（zoo/pi/opencode/cline 同口径）。
+    // 与全库约定一致：amount_minor 存 micro-USD（zoo/pi/opencode/cline 规则相同）。
     let micros = amount * 1_000_000.0;
     if micros > i64::MAX as f64 {
         return None;

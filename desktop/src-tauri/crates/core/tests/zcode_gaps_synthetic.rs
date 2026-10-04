@@ -3,14 +3,14 @@
 //!
 //! 手工核算（AI SDK 五键 {in, out, total, cr, cw}；anthropic {in, out, cr, cw?}）：
 //! - cache-write：{2000,100,2100,800,200} + anthropic{1000,100,800,200}；
-//!   1000+800+200=2000 ✓ 双口径一致，0 诊断；uncached=2000-800-200=1000；
+//!   1000+800+200=2000 ✓ 两个 usage 视图的结果一致，0 诊断；uncached=2000-800-200=1000；
 //!   汇总 input=2000 out=100 cr=800 cw=Some(200) total=2100。
 //! - dual-fallback：rec1 usage 缺席、anthropic{200,50,800,100} 在场 ⇒ 互斥回退
-//!   对照口径（input_total=1100 derived、uncached=200 reported、source_total=None）；
-//!   rec2 AI SDK{1000,100,1100,400,0} 无对照视图 ⇒ 主口径；
+//!   对照视图（input_total=1100 derived、uncached=200 reported、source_total=None）；
+//!   rec2 AI SDK{1000,100,1100,400,0} 无对照视图 ⇒ 主视图；
 //!   汇总 input=2100 out=150 cr=1200 cw=Some(100) total=2250；1 条 ai_sdk_usage_missing。
 //! - dual-mismatch：AI SDK in=1000 vs anthropic 999+400+0=1399 ≠ 1000 ⇒ 1 条
-//!   dual_caliber_mismatch；AI SDK 主口径保留（input=1000 total=1100 source=1100）。
+//!   dual_caliber_mismatch；AI SDK 主视图保留（input=1000 total=1100 source=1100）。
 //! - epoch-timestamps：completedAt 数字 1800000000000（毫秒）与 1800000000（<1e11
 //!   折算秒）⇒ 两事件 occurred_at_ms 均 1,800,000,000,000（2027-01-15 UTC）；
 //!   汇总 input=1500 out=150 cr=400 cw=Some(0) total=1650。
@@ -71,7 +71,7 @@ fn file_status(storage: &Storage) -> String {
 #[test]
 fn cache_write_positive_with_consistent_dual_calibers() {
     // 真实样本全 cw=0；本合成场景 cw=200 且 anthropic cache_creation=200 在场，
-    // 双口径一致（1000+800+200=2000），0 诊断。
+    // 两个 usage 视图的结果一致（1000+800+200=2000），0 诊断。
     let jsonl =
         reconstruct_jsonl_projection(&zcode_fixture("synthetic-cache-write").join("records.json"));
     let dir = TempDir::new("zcode-cw-src");
@@ -121,8 +121,8 @@ fn dual_caliber_exclusive_fallback_never_sums() {
     assert_eq!(reports[0].files[0].events, 2);
     assert_eq!(diag_count(&storage, "ai_sdk_usage_missing"), 1);
 
-    // rec1（回退 anthropic 对照口径）：input_total=1100（derived）、
-    // uncached=200（reported）、source_total=None（对照口径无 totalTokens）。
+    // rec1（回退 anthropic 对照视图）：input_total=1100（derived）、
+    // uncached=200（reported）、source_total=None（对照视图无 totalTokens）。
     let (input_total, uncached, source_total, cache_write): (i64, i64, Option<i64>, i64) = storage
         .conn()
         .query_row(
@@ -137,7 +137,7 @@ fn dual_caliber_exclusive_fallback_never_sums() {
     assert_eq!(source_total, None);
     assert_eq!(cache_write, 100);
 
-    // rec2（AI SDK 主口径无对照视图）：source_total=1100。
+    // rec2（AI SDK 主视图无对照视图）：source_total=1100。
     let source2: Option<i64> = storage
         .conn()
         .query_row(

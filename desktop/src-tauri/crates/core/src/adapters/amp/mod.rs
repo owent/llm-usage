@@ -1,4 +1,4 @@
-//! Amp 适配器（Sourcegraph，闭源；独立目录合同）。载体：
+//! Amp 适配器（Sourcegraph，闭源；独立目录约定）。载体：
 //! `~/.local/share/amp/threads/T-*.json` 的 usageLedger.events（主，有显式
 //! 时间戳）+ messages[].usage（对照，无时间戳不入账）。credits 是计费
 //! 单位非美元，不映射 cost（额度类）。
@@ -50,7 +50,7 @@ impl crate::adapters::framework::SourceAdapter for AmpAdapter {
                 .unwrap_or_else(|| home.join(".local").join("share"));
             roots.push((xdg.join("amp").join("threads"), RootBasis::DefaultHome));
             if cfg!(windows) {
-                // Windows 真实布局未见证据：LOCALAPPDATA 候选根，指纹过滤。
+                // Windows 实际目录布局尚未核验：LOCALAPPDATA 作为候选根，按指纹过滤。
                 if let Some(appdata) = ctx.env.get("LOCALAPPDATA") {
                     roots.push((
                         std::path::PathBuf::from(appdata)

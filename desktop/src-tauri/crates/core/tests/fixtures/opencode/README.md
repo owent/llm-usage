@@ -1,10 +1,14 @@
-# OpenCode 合成 fixtures（文档级证据、待真实样本）
+# OpenCode 合成 fixtures（基于源码、待真实样本）
+
+<a id="opencode-合成-fixtures文档级证据待真实样本"></a>
 
 全部场景为**合成数据**（syn- 前缀、常量占位），不是任何真实会话脱敏产物。
 本机 2026-09-25 盘点未安装 OpenCode（not_found，m0-agent-fixtures.md），
-按用户指示以固定源码证据实现，真实数据验收后置。
+按用户指示以固定版本源码依据实现，真实数据验收后置。
 
-## 源码级证据（A17，固定 commit `0027387dc5c59793c12dfc531abc78f825ed6868`）
+<a id="源码级证据a17固定-commit-0027387dc5c59793c12dfc531abc78f825ed6868"></a>
+
+## 源码依据（A17，固定 commit `0027387dc5c59793c12dfc531abc78f825ed6868`）
 
 - session/message/part 三表 DDL（tokens_* 累计列、parent_id、data JSON）：
   <https://github.com/anomalyco/opencode/blob/0027387dc5c59793c12dfc531abc78f825ed6868/packages/core/src/session/sql.ts>

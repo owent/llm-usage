@@ -2,7 +2,7 @@
 //! （architecture.md#adapter-layout / #unknown-version）。
 //!
 //! ui_messages.json 无 CLI 版本字段：注册表锚点是文档级格式版本
-//! zoo-ui-messages-doc-1（固定源码 f780647 口径），因此不存在"未知版本"状态
+//! zoo-ui-messages-doc-1（按固定源码 f780647 定义），因此不存在"未知版本"状态
 //! ——detect 不读版本号，成功即 KnownVersion；格式偏离（未文档化 say 种类、
 //! 非 say 记录类型）在扫描层 fail closed，不走版本回退。
 //! 注册表与 Cline 目录独立（adapters.md A19：独立产品，不能擅自改为 Roo Code）。
@@ -12,7 +12,7 @@ pub mod ui_messages_doc1;
 /// 当前格式实现标识（"最新内置解析器"由本常量明确指定，不联网获取）。
 pub const LATEST_IMPL_ID: &str = "ui_messages_doc1";
 
-/// 文档级格式版本（非 CLI 版本）：固定源码 f780647 的消息形状口径，
+/// 文档级格式版本（非 CLI 版本）：按固定源码 f780647 的消息结构实现，
 /// 待真实样本核验。
 pub const ZOO_FORMAT_VERSION: &str = "zoo-ui-messages-doc-1";
 

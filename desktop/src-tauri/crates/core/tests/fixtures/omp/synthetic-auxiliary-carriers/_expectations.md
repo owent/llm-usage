@@ -15,7 +15,7 @@ toolResult.usage；本机 58 文件实读均未携带 usage）与「无 usage �
 - 分类：syn-a1/syn-a2 primary；syn-u1/syn-c1/syn-b1/syn-t1 auxiliary。
 - 归属：syn-a1 请求字段自带（request_field）；syn-u1 条目自有 provider/model
   （request_field）；syn-c1/syn-b1 无模型字段，按 model_change 组合字段归属
-  （structured_change ⇒ syn-model-a / syn-provider）；syn-t1 无模型证据（unknown）。
+  （structured_change ⇒ syn-model-a / syn-provider）；syn-t1 无模型归属依据（unknown）。
 - 逐事件 usage（input/output/cacheRead/cacheWrite/totalTokens）：
   syn-a1=100/50/10/5/165；syn-u1=0/0/0/1000/1000；syn-c1=200/100/0/0/300；
   syn-b1=300/150/0/0/450；syn-t1=10/5/0/0/15。逐条 total=四桶之和成立。

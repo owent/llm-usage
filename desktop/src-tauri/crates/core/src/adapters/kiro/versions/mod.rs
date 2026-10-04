@@ -1,11 +1,11 @@
-//! Kiro 版本注册表（V30 目录合同）：两个输入类型各自登记。
-//! 证据（第三方解析器 tokscale 1d9a939；闭源产品 AWS，本机未安装）：
+//! Kiro 版本注册表（V30 目录约定）：两个输入类型各自登记。
+//! 依据（第三方解析器 tokscale 1d9a939；闭源产品 AWS，本机未安装）：
 //! - CLI `~/.kiro/sessions/cli/*.json` 会话头 user_turn_metadatas（按 turn 真实
 //!   计数；Auto agent 常记 0 ⇒ 只采显式非零计数，估算路径不采纳）。
 //! - kiro-cli `~/.local/share/kiro-cli/data.sqlite3` conversations_v2 的
 //!   request_metadata（毫秒时间戳 + 五桶真实计数）。
 //!
-//! IDE session.json/messages.jsonl 载体在第三方证据中为纯估算：不实施。
+//! IDE session.json/messages.jsonl 载体在第三方解析器中按估算处理：不实施。
 
 pub mod cli_turns_v1;
 pub mod sqlite_v1;

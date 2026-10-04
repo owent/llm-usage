@@ -1,7 +1,7 @@
-//! Roo Code 适配器（VS Code 扩展 + CLI；独立目录合同）。载体：
+//! Roo Code 适配器（VS Code 扩展 + CLI；独立目录约定）。载体：
 //! globalStorage `RooVeterinaryInc.roo-cline/tasks/<taskId>/ui_messages.json`。
 //! 官方源码已归档（b867ec9，2026-05）；tokensIn 含缓存（与 cline 四桶互斥
-//! 口径的血统分歧已在 adapters.md 登记）。
+//! 字段语义的产品间差异已在 adapters.md 登记）。
 
 pub mod detect;
 pub mod versions;

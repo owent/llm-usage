@@ -1,6 +1,6 @@
 //! 应用状态：单写者存储句柄、本机来源主机身份、设置与刷新作业状态。
-//! M6 合同：GUI/headless 共享配置与采集队列；查询与写入共用一个 Storage，
-//! 通过 Mutex 串行化（单写者合同），后台扫描期间查询等待有界。
+//! M6 约定：GUI/headless 共享配置与采集队列；查询与写入共用一个 Storage，
+//! 通过 Mutex 串行化（单写者约定），后台扫描期间查询等待有界。
 
 use llm_usage_core::adapters::framework::SourceRunReport;
 use llm_usage_core::storage::Storage;
@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 /// 分级归档保留（天；年 None=终身）。默认：明细 7/小时 3/日 90/周 3 年/
-/// 月 10 年/年终身（2026-09-26 用户合同，二轮调整为降低聚合消耗）。
+/// 月 10 年/年终身（当前规则，二轮调整为降低聚合消耗）。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RetentionTiers {
     pub events_days: u32,
@@ -44,7 +44,7 @@ pub struct ProviderPricingDefault {
     pub cache_ttl_minutes: Option<u32>,
 }
 
-/// 费用估算设置（数据合同：估算与预算默认关闭）。
+/// 费用估算设置（数据规范：估算与预算默认关闭）。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PricingSettings {
     #[serde(default)]
@@ -60,7 +60,7 @@ pub struct PricingSettings {
 }
 
 /// 手动 Default：派生 Default 会把 online_cache_ttl_days 设为 u32::default()=0，
-/// 与合同「默认 3」矛盾，导致新装/缺 pricing 字段的配置界面显示 0。
+/// 与约定「默认 3」矛盾，导致新装/缺 pricing 字段的配置界面显示 0。
 impl Default for PricingSettings {
     fn default() -> Self {
         Self {
@@ -95,7 +95,7 @@ impl PricingSettings {
     }
 }
 
-/// 用户可见设置（settings 表持久化；语言初值 zh-CN，多语言实施随 F3 合同）。
+/// 用户可见设置（settings 表持久化；语言初值 zh-CN，多语言实施随 F3 约定）。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppSettings {
     pub timezone: String,
@@ -244,7 +244,7 @@ pub struct AppState {
     pub settings: Mutex<AppSettings>,
     pub refresh: Mutex<RefreshState>,
     pub db_path: PathBuf,
-    /// 当前统计用户（v6 多用户合同；默认 "default"，存 settings 表）。
+    /// 当前统计用户（v6 多用户约定；默认 "default"，存 settings 表）。
     pub current_user: Mutex<String>,
     /// 「清理全部数据并重新采集」后台任务运行中（防重复触发；UI 不阻塞）。
     pub clear_job_running: std::sync::atomic::AtomicBool,
@@ -285,7 +285,7 @@ impl AppState {
                 if choice != rfd::MessageDialogResult::Yes {
                     return Err("__EXIT_SCHEMA_MISMATCH__".to_string());
                 }
-                // 重建前一致备份（M1/V15 合同：无备份不删除；空间不足也中止）。
+                // 重建前一致备份（M1/V15 约定：无备份不删除；空间不足也中止）。
                 crate::db_backup::consistent_backup_legacy(
                     &db_path,
                     "llm-usage-rebuild",

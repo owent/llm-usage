@@ -27,7 +27,7 @@ update_trigger = 升级、弃用、安全公告、加载失败、实际行为变
 | S10 | Mike Farah yq 的实现身份及 YAML 查询 | [维护者 README](https://github.com/mikefarah/yq)，master/rolling | 正文、yq --version；4.53.6；实际解析另记 | terminal-tools |
 | S11 | PowerShell 原生参数模式、引号及 --% 边界 | [解析](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_parsing?view=powershell-7.5)，7.5 文档 | 正文；本机 7.6.6/Windows 参数模式；不宣称全选项兼容实测 | terminal-tools |
 | S12 | PowerShell 编码默认因版本和命令不同 | [编码](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_character_encoding?view=powershell-7.5)，7.5 文档 | 正文；本机 7.6.6；新文件显式 UTF-8 | terminal-tools |
-| S13 | Claude 原生读取的版本/会话门槛、导入四跳、路径规则与加载检查 | [Memory](https://code.claude.com/docs/en/memory)，rolling | 打开正文；PATH 无客户端；文档已核验，运行未验证 | maintenance、clients |
+| S13 | Claude 原生读取的版本/会话要求、导入四跳、路径规则与加载检查 | [Memory](https://code.claude.com/docs/en/memory)，rolling | 打开正文；PATH 无客户端；文档已核验，运行未验证 | maintenance、clients |
 | S14 | VS Code Local/Agent Host 的 prompt files 支持不同，Agent Host 迁移到 Skills | [Prompt files](https://code.visualstudio.com/docs/agent-customization/prompt-files)，rolling | 打开正文；VS Code 1.139.0，实际会话类型未确认 | maintenance、clients |
 
 根及 desktop 的依赖清单与锁文件均已恢复；实际版本与命令以当前文件为准，
@@ -57,7 +57,7 @@ OpenSpec、Superpowers、MCP、ClawHub 未采用，不复制原模板中的 late
   [GitHub Actions 安全](https://docs.github.com/en/actions/reference/security/secure-use)、
   [AWS 幂等重试](https://aws.amazon.com/builders-library/making-retries-safe-with-idempotent-APIs/)。
 
-以上候选链接本轮未逐页核验，不能作为已完成接入、安全认证或生产验收证据。
+以上候选链接本轮未逐页核验，不能作为已完成接入、安全认证或生产验收的依据。
 
 ## 本地写作参考
 

@@ -1,6 +1,6 @@
-//! Kimi Work（A13，M4）合同测试：真实脱敏 fixture（conv-main + agent-44-subagent，
+//! Kimi Work（A13，M4）约定测试：真实脱敏 fixture（conv-main + agent-44-subagent，
 //! 本机内嵌 kimi-code home / wire protocol_version=1.4，2026-09-25 提取）经
-//! 读取→解析→标准化→commit_batch→查询 全链路。期望值为人工核算，
+//! 读取→解析→标准化→commit_batch→查询。期望值为人工核算，
 //! 见 tests/fixtures/kimi-work/*.sanitized.json 同名 _expectations.md。
 //! 与 Kimi Code（1.5）的实读差异在断言中逐项固定：目录布局 conv-*、
 //! usage.record 无 agentId、model 为裸 id、注册表锚点 1.4。

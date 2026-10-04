@@ -27,4 +27,4 @@ assistant ×5。assistant 条目：
   total_tokens 为 derived；provider_id="anthropic"、call_category="primary"、
   schema_version="transcript-doc-1"、parser_version="claude-transcript-doc1"、
   model_attribution="request_field"、origin_call_id=requestId；
-  output_reasoning/source_total/cost/error_status 均无证据保持 NULL。
+  output_reasoning/source_total/cost/error_status 均缺少字段依据，保持 NULL。

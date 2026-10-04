@@ -18,4 +18,4 @@
 - 压缩继承不双计：sum input_total=500+300=**800**（不是把父汇总复制给子）。
 - `usage_events` 0 条；coverage 均 exclusive。
 - 注意：回填行不证明历史调用使用 legacy-model（v20 语义），api_call_count
-  种子值未逐字取证，按列面值 0 处理。
+  种子值未逐字核验，按列面值 0 处理。

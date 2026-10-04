@@ -1,13 +1,13 @@
-//! Zoo Code 适配器（独立目录合同 architecture.md#adapter-layout）：
+//! Zoo Code 适配器（独立目录约定 architecture.md#adapter-layout）：
 //! - 本模块是该 Agent 的稳定入口（统一接口实现与再导出）；
 //! - [`detect`]：产品/格式探测（文档级指纹；ui_messages.json 无版本字段，
 //!   不做版本分派）；
 //! - [`versions`]：统一形状的格式注册表（唯一条目：文档级
 //!   zoo-ui-messages-doc-1，与 Cline 目录独立）；
-//! - 产品特有映射在 [`common`]（tokensIn 含缓存口径 + cost）。
+//! - 产品特有映射在 [`common`]（tokensIn 含缓存的计算规则 + cost）。
 //!
-//! 原始格式证据（固定源码 f7806475331fcae5f4e8b5558d04415eeb5da88c，A19，
-//! 文档级证据待真实样本；本机 2026-09-25 盘点 not_found）：
+//! 原始格式依据（固定源码 f7806475331fcae5f4e8b5558d04415eeb5da88c，A19，
+//! 按文档或源码实现，待真实样本核验；本机 2026-09-25 盘点 not_found）：
 //! - `packages/core/src/message-utils/consolidateTokenUsage.ts`：usage 载体
 //!   type="say" say="api_req_started"，text JSON 字段 tokensIn/tokensOut/
 //!   cacheWrites/cacheReads/cost 逐字段可选 + apiProtocol；
@@ -22,7 +22,7 @@
 //! - 宿主：VS Code 扩展 `ZooCodeOrganization.zoo-code`（src/package.json）；
 //!   CLI 缺省 `~/.vscode-mock/global-storage`（apps/cli + vscode-shim）。
 //!
-//! 独立产品（Roo 血统）：不能擅自按 Roo Code 的目录/口径处理（A19）。
+//! 独立产品（Roo 血统）：不能擅自按 Roo Code 的目录/字段语义处理（A19）。
 
 pub mod common;
 pub mod detect;

@@ -1,4 +1,4 @@
-//! Droid 适配器（Factory.ai，闭源；独立目录合同）。载体：
+//! Droid 适配器（Factory.ai，闭源；独立目录约定）。载体：
 //! `~/.factory/sessions/<uuid>.settings.json` 的 tokenUsage 会话级累计快照
 //! （IntervalAggregate；转录按字节分摊属估计不采纳）。
 

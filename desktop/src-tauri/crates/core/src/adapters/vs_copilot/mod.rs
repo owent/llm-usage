@@ -1,8 +1,8 @@
-//! Visual Studio 内置 GitHub Copilot 遥测适配器（独立目录合同）。载体：
+//! Visual Studio 内置 GitHub Copilot 遥测适配器（独立目录约定）。载体：
 //! `%TEMP%\VSGitHubCopilotLogs\traces\<hex>_VSGitHubCopilot_traces.jsonl`——
 //! VS 自动写入的 OTLP JSON 遥测（每行一个 resourceSpans 批次），**无需任何配置**。
 //!
-//! 载体证据（2026-10-01 本机只读取证：VS 18 Community 18.10.1197+4b9e241b86，
+//! 载体识别依据（2026-10-01 本机只读核验：VS 18 Community 18.10.1197+4b9e241b86，
 //! DevHub/.NET 10.0.12 运行时）：
 //! - resource.attributes：`service.name=vs-copilot`、`service.namespace=visualstudio`、
 //!   `service.version`、`process.runtime.name=DevHub`；
@@ -16,7 +16,7 @@
 //! - `invoke_agent GitHub Copilot` 根 span 是整 turn 汇总（无 usage 属性）——
 //!   与官方 OTel 防双计警告同族：**只采 chat span，跳过汇总 span**；
 //! - `gen_ai.input.messages`/`gen_ai.output.messages`/`gen_ai.tool.definitions`
-//!   内嵌提示/响应正文：解析只读白名单键，正文不入库不输出（隐私合同）。
+//!   内嵌提示/响应正文：解析只读白名单键，正文不入库不输出（隐私约定）。
 //!
 //! 边界：TEMP 目录会被系统/用户清理，历史遥测随 VS 实例滚动保留——来源消失时
 //! 保留既有结果（framework 代数/消失语义），不虚报覆盖。

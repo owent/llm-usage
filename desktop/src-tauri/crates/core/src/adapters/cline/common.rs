@@ -1,7 +1,7 @@
 //! Cline 产品特有的 usage 字段映射（getApiMetrics.ts 固定源码 dcf8c3c，A03，
-//! 文档级证据待真实样本；本机 not_found 无真实样本）。
+//! 按文档或源码实现，待真实样本核验；本机 not_found 无真实样本）。
 //!
-//! 证据（apps/vscode/src/shared/getApiMetrics.ts）：
+//! 依据（apps/vscode/src/shared/getApiMetrics.ts）：
 //! - usage 载体 `text` JSON 的 tokensIn/tokensOut/cacheWrites/cacheReads 逐字段
 //!   可选（上游 `typeof === "number"` 检查，缺失不补零）；
 //! - 四桶互斥：getLastApiReqTotalTokens 的 total =

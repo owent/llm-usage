@@ -22,7 +22,9 @@ createdBy=daimon-kernel-adapter 佐证产品身份）。
 
 回声 Σ 与记录 Σ 完全相等（38=38，此会话无中断步）。
 
-## 与 Kimi Code（1.5）的实测差异（独立 fixture 证据，不因内核同名合并）
+<a id="与-kimi-code15的实测差异独立-fixture-证据不因内核同名合并"></a>
+
+## 与 Kimi Code（1.5）的实测差异（独立 fixture 核验结果，不因内核同名合并）
 
 - 目录布局：`conv-<hexid>`（而非 `session_<uuid>`）；本会话无子代理目录。
 - usage.record 无 agentId（1.5 主线带）；模型为裸 id（非 alias/model 组合）。

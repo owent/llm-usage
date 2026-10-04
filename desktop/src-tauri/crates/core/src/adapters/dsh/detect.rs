@@ -4,7 +4,7 @@
 //! [`super::versions::DSH_FORMAT_VERSION`]（固定 token-meter README 46a7f68）；
 //! 不做版本分派、不存在未知版本回退。
 //!
-//! 合同（V17 fail closed）：
+//! 约定（V17 fail closed）：
 //! - 首行不是 JSON ⇒ 未知格式；
 //! - 首行 type 缺失或不在 README 枚举的六事件集合 ⇒ 未知格式；
 //! - 空文件 ⇒ Pending，下轮重探；

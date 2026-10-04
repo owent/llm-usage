@@ -1,25 +1,25 @@
-//! V01：来源口径的 token 字段映射（跨 Agent 共享部分）。
+//! V01：来源字段语义的 token 字段映射（跨 Agent 共享部分）。
 //!
-//! 目录合同（architecture.md#adapter-layout）：产品特有映射已下沉到各 Agent 目录
+//! 目录约定（architecture.md#adapter-layout）：产品特有映射已下沉到各 Agent 目录
 //! （codex → adapters/codex/common.rs，claude → adapters/claude/，
-//! zcode → adapters/zcode/common.rs（M4 下沉，双口径映射
+//! zcode → adapters/zcode/common.rs（M4 下沉，两种字段语义映射
 //! map_zcode_ai_sdk / map_zcode_anthropic 随迁），kilo → adapters/kilo/common.rs
 //! （M3 下沉，map_kilo/KiloUsage 随迁），kimi → adapters/kimi_wire.rs
 //! （M4 下沉，Kimi Code / Kimi Work 家族共享模块，map_kimi_wire/KimiWireUsage
 //! 随迁）），本模块只保留跨 Agent 共享的类型与辅助逻辑，以及尚无适配器目录的
-//! - pi/omp 共享 `map_pi_family`（固定源码证实两家族同口径）；
+//! - pi/omp 共享 `map_pi_family`（固定源码证实两家族规则相同）；
 //! - gemini/qwen 共享 `map_genai_usage`（usageMetadata 同形）。
 //!
 //! 实读核验结论（m0-agent-fixtures.md）：
 //! - kimi wire：inputOther/inputCacheRead/inputCacheCreation/output 四字段互斥，无 total
 //!   （映射在 adapters/kimi_wire.rs）。
-//! - zcode：AI SDK `inputTokens` 含缓存读；anthropic `input_tokens` 不含缓存（双口径相反）
+//! - zcode：AI SDK `inputTokens` 含缓存读；anthropic `input_tokens` 不含缓存（两种字段语义相反）
 //!   （映射在 adapters/zcode/common.rs）。
 //! - copilot：input = 未缓存 + read + write（映射在 adapters/copilot/common.rs）。
 //! - kilo：total = input+output+reasoning+cache.read+cache.write 全互斥
 //!   （映射在 adapters/kilo/common.rs）。
 //!
-//! 所有映射只填有证据的字段；缺失保持 None（unknown），不补零。
+//! 所有映射只填已确认的字段；缺失保持 None（unknown），不补零。
 //! 矛盾（如缓存读 > 总输入）返回诊断，不用 max(0, …) 隐藏。
 
 use crate::domain::{FieldQuality as Q, TokenQuality, TokenUsage};
@@ -42,7 +42,7 @@ pub(crate) fn finish(
 }
 
 /// 并列报告映射专用（zed/hermes 等"包含关系未验证 ⇒ 不推导互斥/子集"）：
-/// 子集类矛盾检测（cache ≤ input_total 等）以包含关系为前提，对并列口径
+/// 子集类矛盾检测（cache ≤ input_total 等）以包含关系为前提，对并列报告的字段
 /// 会假阳性（缓存重于输入是正常形态）；非负/上限仍由 domain 校验把关。
 pub(crate) fn finish_parallel(
     usage: TokenUsage,
@@ -101,11 +101,11 @@ pub(crate) fn sub_checked(
     }
 }
 // kimi wire 四互斥映射已下沉到 adapters/kimi_wire.rs（M4 家族共享模块，
-// KimiCode/KimiWork 两产品共用）；zcode 双口径映射已下沉到
-// adapters/zcode/common.rs（M4）。口径证据见各文件头。
+// KimiCode/KimiWork 两产品共用）；zcode 两种字段语义映射已下沉到
+// adapters/zcode/common.rs（M4）。计算规则依据见各文件头。
 
-/// pi / oh-my-pi 共享 Usage 口径（adapters.md：两家族可共享部分 Usage 类型知识）。
-/// 证据（固定源码）：
+/// pi / oh-my-pi 共享 Usage 字段语义（adapters.md：两家族可共享部分 Usage 类型知识）。
+/// 依据（固定源码）：
 /// - pi-mono b4559750 packages/ai/src/types.ts：`Usage{input,output,cacheRead,cacheWrite,
 ///   cacheWrite1h?(⊆cacheWrite),reasoning?(⊆output),totalTokens,cost}`；
 ///   anthropic-messages.ts 与 openai-completions.ts 均把 input 规范化为未缓存桶
@@ -116,7 +116,7 @@ pub(crate) fn sub_checked(
 ///   （若有）；`reasoningTokens`⊆`output`；`cttl` 细分⊆`cacheWrite`。
 ///
 /// 因此 input/cacheRead/cacheWrite 互斥；reasoning 不再加；totalTokens 与派生总量
-/// 不一致（如 omp orchestration 附加）记诊断，不钳制。
+/// 不一致（如 omp orchestration 附加）记诊断，不截断数值。
 #[derive(Debug, Clone, Copy)]
 pub struct PiFamilyUsage {
     pub input: i64,
@@ -195,7 +195,7 @@ pub fn map_pi_family(raw: &PiFamilyUsage) -> MappedUsage {
 /// genai usageMetadata 六分类（Gemini CLI 会话 JSON 的 tokens 对象、Qwen Code
 /// 固定源码 ChatRecord.usageMetadata 同形）：
 /// prompt(input)/candidates(output)/cached/thoughts/tool/total，逐字段可选。
-/// 证据只确认字段存在与分类；cached/thoughts/tool 与 input/output 的包含关系
+/// 已核对资料只确认字段存在与分类；cached/thoughts/tool 与 input/output 的包含关系
 /// 逐 provider 未核验（未知不补零、不猜），因此：
 /// - input_uncached / output_reasoning 保持 None（不能断言互斥/子集关系）；
 /// - total_tokens 只取来源直报的 total；缺失时不由拆分相加伪造

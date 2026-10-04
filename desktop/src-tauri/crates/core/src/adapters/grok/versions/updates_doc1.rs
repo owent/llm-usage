@@ -1,6 +1,6 @@
 //! Grok updates.jsonl 格式实现（`updates_doc1`，文档级 grok-updates-doc-1）。
 //!
-//! 格式证据（第三方解析器 tokscale 固定提交
+//! 格式依据（第三方解析器 tokscale 固定提交
 //! 1d9a9395418efc6952944b794097935d7d6fa1e8 sessions/grok.rs；闭源产品 xAI，
 //! 本机未安装、无真实样本）：
 //! - 路径 `$GROK_HOME`（默认 `~/.grok`）下
@@ -19,7 +19,7 @@
 //! - **不采纳**（估算/推断路径）：累计 totalTokens 回退（_meta.totalTokens 等
 //!   差值增量）、signals.json 压缩差额补偿、unified.jsonl 子代理 PID 归因、
 //!   events.jsonl/summary.json 汇总。
-//! - 包含关系：第三方证据称 inputTokens 含 cachedRead、outputTokens 含
+//! - 包含关系：第三方解析器认为 inputTokens 含 cachedRead、outputTokens 含
 //!   reasoning（减法拆桶不采用）⇒ hermes 同型并列报告，不派生总量，无双计。
 //! - dedup：`params._meta.eventId` 不唯一（Grok 会复用）⇒ 键含文件内行号
 //!   （tokscale grok:&lt;session&gt;:usage:&lt;index&gt;:&lt;eventId&gt; 同款）。

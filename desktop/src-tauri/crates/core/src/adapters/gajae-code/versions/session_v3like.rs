@@ -1,7 +1,7 @@
 //! gajae-code（gjc）会话 JSONL 格式实现（`session_v3like`，文档级
 //! gjc-session-doc-1）。
 //!
-//! 格式证据（Yeachan-Heo/gajae-code 固定源码 7e54f9cbcf712cfa7f633d3c8da58a6d89f7f301，
+//! 格式依据（Yeachan-Heo/gajae-code 固定源码 7e54f9cbcf712cfa7f633d3c8da58a6d89f7f301，
 //! 官方源码核验 + docs/session.md；pi 血统（共同祖先 v3，非现行 pi 子集）；
 //! 本机未安装、无真实样本）：
 //! - 布局：`<agentDir>/sessions/<scope>/<ISO-ts-dashes>_<uuid7>.jsonl`；
@@ -15,8 +15,8 @@
 //!   `input`（非缓存）/`output`（含 thinking）/`cacheRead`/`cacheWrite`/
 //!   `totalTokens`（四桶之和）；`reasoningTokens?`⊆output；
 //!   `cost{input,output,cacheRead,cacheWrite,total}`（USD，费率自算 ⇒
-//!   Estimated）。与 pi 家族 map_pi_family 口径一致（官方归一化证据）。
-//! - 官方 stats 口径（parser.ts:71-77,176-199）：只统计 role==assistant、
+//!   Estimated）。与 pi 家族 map_pi_family 的计算规则一致（按官方归一化实现核验）。
+//! - 官方 stats 计算规则（parser.ts:71-77,176-199）：只统计 role==assistant、
 //!   五桶齐全（非负有限数）且 model/provider/api 非空的行；缺桶/缺 id 行
 //!   跳过不造数（同本方"未知不补零"）。
 //! - 会话头 timestamp 与条目 timestamp 为 ISO；message.timestamp 为毫秒
@@ -209,7 +209,7 @@ pub fn scan(
         if message.get("role").and_then(|v| v.as_str()) != Some("assistant") {
             continue;
         }
-        // 官方 stats 口径：model/provider 非空才统计。
+        // 官方 stats 规则：model/provider 非空才统计。
         let model = message.get("model").and_then(|v| v.as_str()).unwrap_or("");
         let provider = message
             .get("provider")
@@ -221,7 +221,7 @@ pub fn scan(
         let Some(usage) = message.get("usage").and_then(|v| v.as_object()) else {
             continue;
         };
-        // 五桶齐全（官方 parser 同口径）；缺桶跳过不补零。
+        // 五桶齐全（官方 parser 规则相同）；缺桶跳过不补零。
         let (Some(input), Some(output), Some(cache_read), Some(cache_write), Some(total)) = (
             bounded(usage.get("input")),
             bounded(usage.get("output")),

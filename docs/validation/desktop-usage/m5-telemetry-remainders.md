@@ -21,7 +21,7 @@ V20 性能初值、M7 空闲内存复测。不提交、不推送、不部署。
 
 后续源码调查补充：上述 CodeBuddy 结论只针对**本轮本机目录状态和 OTel
 file exporter**。官方目录文档另确认 `~/.codebuddy/projects` 会话 JSONL，第三方
-源码确认其中的用量字段；WorkBuddy `.workbuddy/projects` 也有第三方源码证据。
+源码确认其中的用量字段；WorkBuddy `.workbuddy/projects` 也有第三方源码依据。
 两者已按[本地会话记录](m4-buddy-local.md)文档级接入，本机仍无真实样本。
 
 ## M5 实施

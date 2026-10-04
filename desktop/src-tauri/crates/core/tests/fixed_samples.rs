@@ -77,7 +77,7 @@ fn sample3_weighted_ratio_not_average() {
     let merged = merged.unwrap();
     assert_eq!((merged.numerator, merged.denominator), (180, 1000));
     assert!((merged.as_f64() - 0.18).abs() < 1e-12);
-    // 分记录：甲 90%，乙 10%；算术平均会是 50% —— 合同禁止。
+    // 分记录：甲 90%，乙 10%；算术平均会是 50% —— 约定禁止。
     let (a, _) = cache_input_ratio(&[(Some(100), Some(90))]);
     let (b, _) = cache_input_ratio(&[(Some(900), Some(90))]);
     assert!((a.unwrap().as_f64() - 0.90).abs() < 1e-12);
@@ -278,10 +278,10 @@ fn sample8_cumulative_deltas_and_reset() {
     assert_eq!(out2, CumulativeOutcome::Delta { amount: 50 });
     let (state, out3) = observe_cumulative("series-1", Some(&state), 150, t3, false);
     assert_eq!(out3, CumulativeOutcome::Delta { amount: 0 });
-    // 明确新进程证据：重置为新基线 20（新区间量 20）。
+    // 已确认是新进程：重置为新基线 20（新区间量 20）。
     let (_state, out4) = observe_cumulative("series-1", Some(&state), 20, t4, true);
     assert_eq!(out4, CumulativeOutcome::Reset { new_baseline: 20 });
-    // 无重置证据的下降：不按零重新累加。
+    // 无法确认发生重置的下降：不按零重新累加。
     let (state_x, _) = observe_cumulative("series-x", None, 100, t1, false);
     let (_s, out_y) = observe_cumulative("series-x", Some(&state_x), 30, t2, false);
     assert_eq!(

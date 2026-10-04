@@ -1,6 +1,6 @@
-//! V29：价格快照、费用估算引擎与汇总的合同测试。
+//! V29：价格快照、费用估算引擎与汇总的约定测试。
 //!
-//! 价格样本取自 [价格合同](../../../docs/design/desktop-usage/pricing.md) V29 固定样本
+//! 价格样本取自 [价格规范](../../../docs/design/desktop-usage/pricing.md) V29 固定样本
 //! （P1–P6，单位换算为"最小货币单位百分之一/百万 token"，即表值 ×100）；
 //! 期望金额为人工核算值。E2 说明：原样本 token 量（输入合计 1.3M）按上下文档
 //! 阈值语义应命中 P3 长档而非 P2（与 E4/E5 语义一致），测试同时覆盖
@@ -293,7 +293,7 @@ fn current_reference_rates_curve_and_hour_selection_preserve_frozen_costs() {
         .is_err());
 }
 
-/// E1/E3/E4–E7/E8 + A1–A8 全链路（导入→入库→回填→汇总）。
+/// E1/E3/E4–E7/E8 + A1–A8 全过程（导入→入库→回填→汇总）。
 #[test]
 fn v29_contract_amounts_and_anomalies() {
     let (_dir, storage) = temp_storage("v29");
@@ -1108,7 +1108,7 @@ fn v29_dimension_filters_do_not_include_empty_values() {
     assert_eq!(cny.total_amount_minor, 3600);
 }
 
-/// 官方供应商回退端到端（2026-10-01 用户合同）：事件 provider 无精确价格行时
+/// 官方供应商回退端到端（当前规则）：事件 provider 无精确价格行时
 /// 参考官方 provider 按量价，日成本行与汇总记录 fallback_event_count；
 /// 未配置渠道同样可参考已标官方的同型号价格，实际渠道保持未知。
 #[test]

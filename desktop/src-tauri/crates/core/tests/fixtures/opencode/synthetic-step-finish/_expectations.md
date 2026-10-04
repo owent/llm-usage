@@ -29,5 +29,5 @@ session.tokens_* 五列按 projector applyUsage 语义 = Σ 当前部件（对�
   - ses_syn_main：部件五字段合计 9750+9580=19330 = 五列合计
     1500+280+50+17000+500=19330；
   - ses_syn_sub：1350 = 200+40+10+1000+100=1350。
-- 诊断恰 1 条 latest_fallback（注册表为空，文档级证据）。
+- 诊断恰 1 条 latest_fallback（注册表为空，仅按文档或源码实现）。
 - 二次扫描幂等：call_count 仍 3（同键同修订 unchanged）。

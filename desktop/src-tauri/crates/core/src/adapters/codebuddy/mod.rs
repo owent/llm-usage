@@ -76,7 +76,7 @@ impl SourceAdapter for CodeBuddyAdapter {
 
     fn capability(&self) -> CapabilityTable {
         let mut table = self.cli.capability();
-        // 复合能力：登记扩展存储的发现根、格式锚点与限制（证据为本机只读核验）。
+        // 复合能力：登记扩展存储的发现根、格式锚点与限制（已在本机只读核验）。
         if let Some(default_roots) = table
             .discovery
             .get_mut("default_roots")

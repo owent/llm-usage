@@ -16,6 +16,6 @@ reasoning=5，first_seen=1781337600.5 last_seen=1781341200.5（epoch 秒）。
   - reported_call_count=3。
 - `usage_events` 0 条：api_call_count 不拆成 model_call；
   2026-06-10 日汇总 call_count=0、token 全未知（不落单日）。
-- 诊断恰 1 条 latest_fallback（注册表为空，文档级证据）。
+- 诊断恰 1 条 latest_fallback（注册表为空，仅按文档或源码实现）。
 - sum_exclusive_aggregates：input_total=100、cache_read=50、cache_write=10、
   output=40、reasoning=5、reported_call_count=3、exclusive_rows=1。

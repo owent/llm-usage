@@ -1,12 +1,12 @@
-//! pi（pi-coding-agent）适配器（独立目录合同 architecture.md#adapter-layout，
+//! pi（pi-coding-agent）适配器（独立目录约定 architecture.md#adapter-layout，
 //! V30 自根级 adapters/pi.rs 目录化迁移）：
 //! - 本模块是该 Agent 的稳定入口（统一接口实现与再导出）；
 //! - [`detect`]：产品/格式探测与版本分派；
 //! - [`versions`]：已验证格式实现的注册与映射，未收录数值默认回退最新内置解析器，
-//!   有固定源码证据不兼容的版本（v1/v2/缺失 version）才 fail closed；
+//!   固定源码已确认不兼容的版本（v1/v2/缺失 version）才 fail closed；
 //! - 历史版本的格式实现一律保留在本目录内，不再回到根级单文件。
 //!
-//! 原始格式证据见 [`versions::session_v3`] 文件头（固定源码 pi-mono b4559750 +
+//! 原始格式依据见 [`versions::session_v3`] 文件头（固定源码 pi-mono b4559750 +
 //! 本机 fixture）；pi/omp 家族共享的 usage 解析与事件构造随扫描实现放在
 //! [`versions::session_v3`] 并在此再导出（`map_pi_family` 仍留在跨 Agent 的
 //! 根级 usage_map.rs，勿动）。
@@ -128,7 +128,7 @@ impl crate::adapters::framework::SourceAdapter for PiAdapter {
         now_ms: i64,
     ) -> Result<crate::adapters::framework::ScanOutcome, crate::error::CoreError> {
         // 当前所有可尝试版本共用 session_v3（session 头内部按注册表分派，
-        // 有证据不兼容版本跳过并记诊断）；注册表扩展多实现后在此按选择分派。
+        // 已确认不兼容的版本跳过并记诊断）；注册表扩展多实现后在此按选择分派。
         versions::session_v3::scan(target, stored, limits, now_ms)
     }
 

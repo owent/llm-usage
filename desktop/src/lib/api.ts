@@ -1,5 +1,5 @@
 /**
- * 后端 IPC 类型与封装。token 大数值按合同以十进制字符串传输（number 转换仅用于
+ * 后端 IPC 类型与封装。token 大数值按约定以十进制字符串传输（number 转换仅用于
  * 图表缩放展示；精确值保留字符串）。
  */
 import { invoke } from '@tauri-apps/api/core';
@@ -333,7 +333,7 @@ export interface StorageStatsDto {
   wal_bytes: number;
 }
 
-/** 聚合交换包导入计数（M1a 合同）。 */
+/** 聚合交换包导入计数（M1a 约定）。 */
 export interface ImportOutcomeDto {
   sources_registered: number;
   daily_inserted: number;

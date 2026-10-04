@@ -1,7 +1,7 @@
 //! opencode.db `part` 表逐 step usage 格式实现（`step_finish_parts_v1`）。
 //!
-//! 格式证据（A17 固定源码 0027387dc5c59793c12dfc531abc78f825ed6868，
-//! 文档级证据待真实样本；本机 not_found）：
+//! 格式依据（A17 固定源码 0027387dc5c59793c12dfc531abc78f825ed6868，
+//! 按文档或源码实现，待真实样本核验；本机 not_found）：
 //! - 逐次 usage 载体：`part` 行 `data.type="step-finish"` 且 `cost`+`tokens`
 //!   在场（projector.ts `usage()` 提取规则），`tokens{input, output,
 //!   reasoning, cache{read, write}}`（vendored client 类型含可选 `total`）；

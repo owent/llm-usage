@@ -9,8 +9,8 @@ usage 形状占位：input_tokens/output_tokens 与 prompt_tokens/completion_tok
 - 发现：两个文件都定位到（实例根 `agents/main`）。
 - 探测：JSONL 归档按**迁移/离线维护输入降级处理**（官方文档：Gateway
   启动不导入，须经 `openclaw doctor --fix` 迁移；entry 级 schema 未文档化）
-  ⇒ `unknown_format` fail closed，reason 标注待证；
+  ⇒ `unknown_format` fail closed，reason 标注待核验；
   sessions.json 同为迁移输入 ⇒ `unknown_format`，reason 指向 doctor 迁移。
 - `usage_events` / `source_aggregates` 0 条：合成的 1200+300/60+15 等
-  数值**不入账**（载体 schema 待证，不猜字段、不产零值）。
+  数值**不入账**（载体 schema 待核验，不猜字段、不产零值）。
 - 跨轮重扫幂等。

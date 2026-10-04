@@ -1,4 +1,4 @@
-//! QODER 版本注册表（V30 目录合同）。锚点为文档级 qoder-pending-evidence。
+//! QODER 版本注册表（V30 目录约定）。锚点为文档级 qoder-pending-evidence。
 
 pub mod probe_only;
 
@@ -18,7 +18,7 @@ pub struct Selection {
     pub basis: crate::domain::VersionBasis,
 }
 
-/// 按格式版本选择实现（V30 注册表标准形）。Qoder 用量字段缺证、探针
+/// 按格式版本选择实现（V30 注册表标准形）。Qoder 用量字段尚未核验、探针
 /// 不解析；本函数为取得本地 fixture 后的版本分派入口预留。
 pub fn select(found: Option<&str>) -> Selection {
     match found {

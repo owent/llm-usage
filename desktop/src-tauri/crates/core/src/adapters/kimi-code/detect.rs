@@ -1,11 +1,11 @@
 //! kimi-code 探测与版本分派：有界读取首行 metadata 头（家族共享指纹），
 //! 按 [`super::versions`] 注册表选择格式实现。
 //!
-//! 合同（architecture.md#unknown-version，V17/V30）：
+//! 约定（architecture.md#unknown-version，V17/V30）：
 //! - 首行不是 JSON / 不是 metadata 头 ⇒ 未知格式，fail closed；
 //! - protocol_version 已收录（"1.5"）⇒ KnownVersion；
 //! - 未收录/缺失 ⇒ LatestFallback（兼容尝试带标记，不直接拒绝）；
-//!   kimi-code 无有证据的不兼容版本（与 pi 的 v1/v2 证据分支不同）。
+//!   kimi-code 尚无已确认不兼容的版本（与 pi 的 v1/v2 拒绝分支不同）。
 
 use crate::adapters::framework::DetectOutcome;
 use crate::adapters::kimi_wire::{read_metadata_head, HeadProbe};

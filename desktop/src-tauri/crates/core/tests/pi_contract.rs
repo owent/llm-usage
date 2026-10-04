@@ -1,5 +1,5 @@
-//! pi 适配器合同测试：M2-B/C 恢复阶段真实脱敏 fixture（本机 pi 0.87.1，
-//! session-error-zero-usage）。经 读取→解析→标准化→commit_batch→查询 全链路，
+//! pi 适配器约定测试：M2-B/C 恢复阶段真实脱敏 fixture（本机 pi 0.87.1，
+//! session-error-zero-usage）。经 读取→解析→标准化→commit_batch→查询，
 //! 期望与 tests/fixtures/pi/session-error-zero-usage._expectations.md 的人工核算一致。
 
 mod common;

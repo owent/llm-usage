@@ -1,13 +1,13 @@
 # 模型 API 按量价格获取与 token 费用估算方案
 
-状态：费用估算引擎已实施（2026-09-30，[验证记录](../../validation/desktop-usage/f2-cost-engine.md)）：
+状态：费用估算引擎已实施（[验证记录](../../validation/desktop-usage/f2-cost-engine.md)）：
 schema v8 价格表 + 种子快照 + 估算引擎 + 日成本回填 + 汇总查询 + 命令与界面 +
-V29 合同测试。可选在线刷新（任务 5）已于 2026-10-01 实施（schema v11，
+V29 合同测试。可选在线刷新（任务 5）已实施（schema v11，
 models.dev 社区目录 + 长缓存 + 失败回退 + 官方提供商回退匹配，默认关闭），
 见 [在线刷新设计](#online-refresh) 与 [验证记录](../../validation/desktop-usage/f2-online-refresh.md)；
 真实数据端到端估算（待用户配置渠道默认）仍后置。
 调研完成于 2026-09-25；费用口径以 [数据合同](data-contract.md#pricing) 为权威，
-本文补渠道证据与本地快照设计。
+本文补渠道依据与本地快照设计。
 
 ## 调研范围与方法
 
@@ -16,7 +16,7 @@ models.dev 社区目录 + 长缓存 + 失败回退 + 官方提供商回退匹配
 Moonshot Kimi（kimi-code/kimi-for-coding/k3）、Anthropic 与 Google
 （本机暂无数据，但属合同覆盖的接入目标，一并核验）。
 渠道比较分三类：官方机器可读接口、官方定价页面、第三方社区目录；另评估手工维护快照。
-外部来源检索日期均为 2026-09-25，清单见文末；查不到证据的项目写明"未核实"。
+外部来源检索日期均为 2026-09-25，清单见文末；缺少可核验资料的项目写明"未核实"。
 官方页面正文与可 curl 的公开 JSON 是事实来源，搜索摘要只用于定位。
 多数官方页无版本号或日期，快照标识以 URL、检索日期与页面可见的
 更新标记为准（如 Gemini 页脚 "Last updated"）；社区目录以数据文件内容
@@ -30,7 +30,7 @@ Moonshot Kimi（kimi-code/kimi-for-coding/k3）、Anthropic 与 Google
 仅 Moonshot 因文档平台（Mintlify）提供与 HTML 同源的 `.md` 与 `llms.txt`
 索引，构成官方机器可读价格来源。未发现任何一家提供免鉴权价格 JSON/YAML API。
 
-| 供应商 | 模型列表 API | 响应含价格 | 公开价格机器可读文件 | 证据 |
+| 供应商 | 模型列表 API | 响应含价格 | 公开价格机器可读文件 | 来源依据 |
 | --- | --- | --- | --- | --- |
 | OpenAI | `GET /v1/models` 需 `Authorization: Bearer` | 否；字段仅 id/created/object/owned_by/shutdown_date | 未发现；定价为文档站 HTML（platform.openai.com 已 301 迁移至 developers.openai.com） | S01、S02 |
 | Anthropic | `GET /v1/models` 需 `X-Api-Key` | 否；字段仅 id/display_name/created_at/max_tokens 等 | 未发现；定价为文档站 HTML | S03、S04 |
@@ -46,7 +46,7 @@ Moonshot Kimi（kimi-code/kimi-for-coding/k3）、Anthropic 与 Google
 
 ### 社区目录
 
-| 目录 | 数据与许可 | 结构要点 | 与官方核对结果（2026-09-25） | 证据 |
+| 目录 | 数据与许可 | 结构要点 | 与官方核对结果（2026-09-25） | 来源依据 |
 | --- | --- | --- | --- | --- |
 | models.dev | MIT；仓库 anomalyco/models.dev（自 sst 迁移），推送 2026-09-25；`api.json` 约 4.9 MiB、200+ 提供商 | 按提供商分组；`cost.input/output/cache_read/cache_write`（美元/百万 token）+ `tiers`（按 context size 分档）+ reasoning/tool 能力；含大量 `*-coding-plan` 订阅渠道条目 | gpt-6-astra（10/50/1/12.5、272K 档 20/75）与官方页一致；zai 条目 glm-5.3（1.4/4.4/0.26）与 docs.z.ai 一致；但 zhipuai 条目（bigmodel API 端点）挂的是 z.ai 文档与美元价，缺 CN 人民币价；coding-plan 条目 cost 全 0，是"订阅非按量"占位而非真实价格 | S18、S19 |
 | OpenRouter | `GET /api/v1/models` 匿名 200，460 个模型；单位为美元/token 字符串小数；数据许可未核实 | `pricing.prompt/completion/input_cache_read/input_cache_write`，`overrides` 按 `min_prompt_tokens` 表达长上下文档，`:batch` 独立 SKU | gpt-6-astra 与 moonshotai/kimi-k3、z-ai/glm-5.3 与官方一致；z-ai/glm-5.3-flash（0.045/0.14）低于官方 z.ai 价（0.15/0.50），moonshotai/kimi-k2.7-code（0.6562/3.3）低于官方（0.95/4.0）——聚合商自定费率，不能当官方价 | S20 |
@@ -73,7 +73,7 @@ Moonshot Kimi（kimi-code/kimi-for-coding/k3）、Anthropic 与 Google
 OpenRouter 仅作参照，不作为快照来源（含聚合商自定费率）。
 可选在线刷新仅限拉取公开价格元数据（官方 .md、社区 JSON），默认关闭。
 
-实施定案（2026-10-01）：在线刷新以 models.dev `api.json` 为唯一内置来源
+在线刷新以 models.dev `api.json` 为唯一内置来源
 （MIT、结构稳定、官方归属可数据驱动判定），带原始响应缓存、长 TTL 与
 失败回退，且只导入官方提供商的按量付费条目（订阅/套餐占位一律排除），
 详见 [在线刷新设计](#online-refresh)。手工导入与仓库种子不变。
@@ -82,7 +82,7 @@ OpenRouter 仅作参照，不作为快照来源（含聚合商自定费率）。
 
 ## 计费维度核验
 
-四家各以本机在用或合同目标模型的价格页为证据；金额单位为每百万 token。
+四家各以本机在用或合同目标模型的价格页为依据；金额单位为每百万 token。
 "未核实"表示官方页面未给出该维度说明，不用推测补齐。
 
 ### 矩阵总览
@@ -103,7 +103,7 @@ OpenRouter 仅作参照，不作为快照来源（含聚合商自定费率）。
 
 ### 各家要点与本机在用模型价目
 
-OpenAI（证据 S01，页面无日期；gpt-6-astra/gpt-6-sol 为本机 Codex 观测模型）：
+OpenAI（来源 S01，页面无日期；gpt-6-astra/gpt-6-sol 为本机 Codex 观测模型）：
 短上下文 astra 输入 $10、缓存读 $1、缓存写 $12.50、输出 $50；
 sol $2/$0.20/$2.50/$10；长上下文档翻倍（astra $20/$2/$25/$75）。
 页面未标注 GPT-6 长/短档阈值（旧系列标注 272K）；models.dev 与 OpenRouter
@@ -112,21 +112,21 @@ Fast 档（原 Priority，2026-07-30 更名）2 倍；FedRAMP/数据驻留端点
 （2026-03-05 后发布模型）。推理 token 页面无单独费率：
 "Tokens are billed at the chosen model's input and output rates"。
 
-Anthropic（证据 S03；本机 Claude 暂无数据，为合同覆盖目标）：
+Anthropic（来源 S03；本机 Claude 暂无数据，为合同覆盖目标）：
 Opus 5.5 $4/$20（缓存写 $5/$8、读 $0.20，读为 0.05x）、Sonnet 5 $2/$10、
 Haiku 4.5 $1/$5；Sonnet 5 的 $2/$10 促销价已转正（原定 2026-09-01 上调取消）。
 Batch 一律五折且与缓存折扣叠加（S06）；thinking token 按输出计费，
 `usage.output_tokens_details.thinking_tokens` 是"已计费输出中内部推理"的拆示（S05）；
 多轮保留的历史 thinking 块按输入计费（Opus 4.5/4.6+）。
 
-Gemini（证据 S07，页脚 "Last updated 2026-09-24 UTC"）：
+Gemini（来源 S07，页脚 "Last updated 2026-09-24 UTC"）：
 3.8 Flash 标准档输入 $0.75（公示 2026-12-31 前价，2027-01-01 起 $1.50）、
 输出 $3.75（含 thinking token）、缓存读 $0.075、缓存存储 $0.50/百万 token/小时；
 Batch/Flex 五折；2.5 Pro 有 >200K 阶梯（输入 $1.25/$2.50、输出 $10/$15）。
 3.1 Pro（preview）两次抓取（英文与机器翻译版本）对 >200K 档的呈现不一致，
 正式收录前需复核（S07 附注）。
 
-Kimi（证据 S09–S13；本机 Kimi Code/Work 观测 kimi-code/kimi-for-coding，wire 字段
+Kimi（来源 S09–S13；本机 Kimi Code/Work 观测 kimi-code/kimi-for-coding，wire 字段
 inputOther/inputCacheRead/inputCacheCreation 与计费维度对齐）：
 kimi-k3 CN 站 ¥2（命中）/¥20（未命中）/¥100（输出），global 站 $0.30/$3.00/$15.00
 （不含税）；kimi-k2.7-code CN ¥1.30/¥6.50/¥27、global $0.19/$0.95/$4.00。
@@ -134,7 +134,7 @@ kimi-k3 CN 站 ¥2（命中）/¥20（未命中）/¥100（输出），global �
 命中续期；CN 站未见对应分项价（未核实）。BatchJob 六折（S13，非五折）。
 `reasoning_content` 计入输入/输出 token 配额（S11）。
 
-GLM（证据 S15、S17；本机 omp/pi/zcode 观测 glm-5.3-flash/GLM-5.3）：
+GLM（来源 S15、S17；本机 omp/pi/zcode 观测 glm-5.3-flash/GLM-5.3）：
 bigmodel CN：GLM-5.3 输入 ¥8/缓存命中 ¥2/输出 ¥28（1M 上下文）；
 GLM-5.3-Flash 限时五折 ¥0.4/¥0.115/¥1.4（标准 ¥0.8/¥0.23/¥2.8）；
 GLM-5.2 同 5.3；GLM-5.1 有 [0,32K)/[32K+) 阶梯；Batch 五折；
@@ -177,7 +177,7 @@ cache_storage 小时价），与下表定案一致。
 | 缓存写 TTL 两档 | 仅一列 cache_write | `cache_write_5m` + `cache_write_1h` 两列；无该档的供应商置 NULL |
 | 服务档（batch/flex/fast） | 无 | `service_tier` 列，默认 `standard`；档位价格单独成行，估算只自动匹配 standard |
 | 长上下文阶梯 | 无 | `context_threshold_tokens`（该行适用的最低输入 token，NULL=0）；事件按请求输入规模匹配，多档且输入未知不猜档 |
-| 缓存存储费 | 无 | `cache_storage_hour` 列（Gemini/bigmodel 用；限时免费记 0 并附政策标注）；引擎暂不计价（存储时长无事件级证据） |
+| 缓存存储费 | 无 | `cache_storage_hour` 列（Gemini/bigmodel 用；限时免费记 0 并附政策标注）；引擎暂不计价（事件未提供存储时长） |
 | 价格精度 | 整数最小单位/百万 token | 官方价存在 $0.075/M、¥0.115/M 等非整分值；单位为"最小货币单位的百分之一/百万 token"（i64），如 $0.075/M = 750 |
 | 快照出处 | 仅 price_version 字符串 | `price_snapshots` 表（ID、来源类型、URL 列表、fetched_at、content_hash、许可、核验人/方式） |
 | 推理价 | 无列 | 不建：四家核验均无独立推理价（GLM 未明示按未核实处理），推理子集并入输出，禁止重复计价 |
@@ -232,7 +232,7 @@ GPT-4o mini 2024-07-18 标准价，核验当日开始有效，不倒填历史日
 seed/community 行默认 true，manual 行默认 false（手工添加官方价时可逐行
 置 true）。
 精确估算行的 `provider_id`/`region`/`channel` 与用户供应商默认匹配（大小写不敏感）；
-2026-10-02 起，缺少精确项可使用下述同型号官方 API 参考，无需先猜测实际渠道。
+缺少精确项可使用下述同型号官方 API 参考，无需先猜测实际渠道。
 跨快照同一计费项允许覆盖：匹配日期与输入阈值后，手工快照优先于种子，
 种子优先于社区；同类快照先取较新的 `fetched_at`，再取较晚的导入时间。
 不足最低上下文阈值的事件不套该行；输入规模未知且存在高档行时不猜档。
@@ -257,7 +257,7 @@ seed/community 行默认 true，manual 行默认 false（手工添加官方价�
    刷新失败或校验失败保留已验证快照并显示其年龄（fetched_at/verified_at），
    不静默改写任何已产出金额。
 6. 历史可复现：估算结果引用用量 `data_revision` 与 `price_version`；
-   历史发生时估算保留，不得用当前价冒充；2026-10-02 用户决定看板统一
+   历史发生时估算保留，不得用当前价冒充；看板统一
    展示“API按量付费价格参考”，按当前可用价目计算，不重复展示历史估算。
    后台价格更新不触发既有估算重算，
    重算仅在用户显式请求或数据修订时进行并更新引用。查询范围内只要有符合
@@ -265,14 +265,18 @@ seed/community 行默认 true，manual 行默认 false（手工添加官方价�
 
 <a id="online-refresh"></a>
 
-## 在线刷新设计（models.dev 社区目录；2026-10-01 实施）
+## 在线刷新设计（models.dev 社区目录）
+
+<a id="在线刷新设计modelsdev-社区目录2026-10-01-实施"></a>
 
 任务 5 实施定案。默认关闭（设置 → 费用 → 在线刷新）；开启后仅 HTTPS GET
 `https://models.dev/api.json`（MIT 社区目录，S18/S19/S24），请求不携带任何
 本地用量、主机/来源身份、会话内容或账户密钥（仅 User-Agent 含应用名与版本）。
 离线时核心统计与既有估算不受影响；该功能不接远端用量/账单 API 的边界不变。
 
-### 缓存与失败回退（2026-10-01 用户合同）
+### 缓存与失败回退
+
+<a id="缓存与失败回退2026-10-01-用户合同"></a>
 
 - 原始响应落盘缓存：`<数据库目录>/price-cache/models-dev-api.json` +
   `.meta.json`（URL/抓取时间/内容哈希/字节数）；缓存随文件系统保留，
@@ -320,7 +324,9 @@ input_audio/output_audio/reasoning/tiers/context_over_200k；无币种字段
   可忽略并在 note 标注。
 - 规模实测：过滤后 26 提供商 / 408 模型 / 473 行每快照（S24）。
 
-### 官方提供商回退匹配（2026-10-01 用户合同）
+### 官方提供商回退匹配
+
+<a id="官方提供商回退匹配2026-10-01-用户合同"></a>
 
 价格行新增 `official_vendor` 标记（schema v11）：seed/community 行默认 true，
 手工导入行默认 false（导入文件可逐行置 true）。估算匹配链在原链
@@ -331,10 +337,10 @@ model、standard、区间匹配，优先与所选 region/channel 一致的行，
 仍 `tier_ambiguous` 不猜档）。回退计价的事件在估算结果标记
 `official_fallback`，日成本行与汇总新增 `fallback_event_count`，界面以
 「官方回退」计数标注（参考估算语义不变：订阅实付不等于该值）。
-2026-10-02 修正：provider 缺失或未配置渠道也进入官方参考候选，不先返回
+provider 缺失或未配置渠道也进入官方参考候选，不先返回
 `no_provider`/`channel_unknown`。系列限定官方供应商，具体型号仍须精确匹配：
 GPT/o → OpenAI；Claude → Anthropic；Gemini → Google；Kimi/Moonshot → 月之暗面；
-GLM → 智谱/Z.ai；DeepSeek → DeepSeek，证据与目录 ID 见 [本轮合同](dashboard-repair.md)。
+GLM → 智谱/Z.ai；DeepSeek → DeepSeek，来源依据与目录 ID 见 [本轮合同](dashboard-repair.md)。
 先选用户渠道，次选 global 官方参考（api 标签优先，兼容以官方提供商命名的渠道）；
 剩余地区/渠道/币种有歧义仍未计价，不换汇、不虚构费率。
 官方 [Kimi Code 模型表](https://www.kimi.com/code/docs/en/kimi-code/models.html)确认
@@ -344,7 +350,7 @@ GLM → 智谱/Z.ai；DeepSeek → DeepSeek，证据与目录 ID 见 [本轮合�
 保留真实 provider，不把参考价当实付。已知 usage_observation token 同样可部分估算，
 计价事件数不当调用次数。已有未封存且保留明细的估算按规则修正一次，之后后台价格更新
 不改发生时金额。总览/趋势均展示参考面板与覆盖范围，见 [验证记录](../../validation/desktop-usage/dashboard-repair.md)。
-2026-10-02 后续：费用查询保留历史响应，并增加当前价的各模型/币种小计、按日
+费用查询保留历史响应，并提供当前价的各模型/币种小计、按日
 provider/model 金额和实际匹配 price_id 单价。看板统一显示当前 API 参考；
 模型表一列费用加底部汇总，曲线可切换币种和逐模型，单价详情可展开。
 今日及当前范围汇总复用相同价格参考，选中小时按本地小时限制保留明细，包含 DST
@@ -367,21 +373,21 @@ provider/model 金额和实际匹配 price_id 单价。看板统一显示当前 
    单条事件单个计费项金额（最小货币单位）= token × 存储价格 ÷ 100,000,000，i128 中间量，
    四舍五入到最小货币单位后累加；负值、缓存大于已知总输入等异常进入诊断，
    不参与费用计算。
-4. 多币种：按币种分组小计，不同币种不直接相加。2026-10-03 按用户要求，
+4. 多币种：按币种分组小计，不同币种不直接相加。
    CNY 金额/单价保留原值，旁列约合 USD；采用 ECB 2026-10-02 已核验快照，
    标约数、来源和日期，不联网刷新汇率、不改写存储，详见 [看板修正](dashboard-repair.md)。
    用户另设汇率转换时结果标 `estimated` 并记录来源与时点；无适用汇率时只分列展示。
 5. 参考估算：本机订阅通道（ChatGPT/Coding Plan/GLM 套餐）用量套 API
    按量价一律标"参考估算"，展示时注明订阅实付不等于该值；
    缓存节省量同理不得称为实际返款。
-6. TTL 未知默认：事件有缓存写 token 但无 TTL 证据（本机 Kimi wire 的
+6. TTL 未知默认：事件有缓存写 token 但无 TTL 记录（本机 Kimi wire 的
    inputCacheCreation 无 TTL 字段）时默认未计价；用户可为供应商设置默认
    TTL 档（如 5m），设置后按该档计价并标 `estimated`。
 
 ## V29 验收样本设计
 
 V29 行见 [验证清单](validation.md)。样本分三部分：固定价格样本（快照）、
-人工期望金额、异常场景。价格取自 2026-09-25 官方页证据（S01、S09–S13、S15），
+人工期望金额、异常场景。价格取自 2026-09-25 官方页面（S01、S09–S13、S15），
 仅为验收用固定值，不代表持续有效；实施时随种子快照一起版本化。
 
 ### 固定价格样本
@@ -397,8 +403,7 @@ V29 行见 [验证清单](validation.md)。样本分三部分：固定价格样�
 
 单位：最小货币单位/百万 token（分/美分每 Mtok；P1 输入 800 = ¥8/M；P2 输入
 1000 = $10/M）。落库与引擎存储单位为「最小货币单位的百分之一/百万 token」，
-即表值 ×100（如 P1 输入存 80000；2026-10-01 修正本节表头注记，此前误写为
-百分之一单位）。P1 缓存写 NULL 表示该渠道无写价（限时免费政策另以元数据
+即表值 ×100（如 P1 输入存 80000）。P1 缓存写 NULL 表示该渠道无写价（限时免费政策另以元数据
 标注，不写 0 价）。
 
 ### 人工期望金额
@@ -426,10 +431,10 @@ V29 行见 [验证清单](validation.md)。样本分三部分：固定价格样�
 | A3 推理不重复计价 | output_reasoning 50,000 ⊂ output_total 200,000 | 仅按 output_total 计一次 |
 | A4 档位不串用 | 普通实时调用 | 不匹配 batch 行（service_tier 不一致时不套用） |
 | A5 缓存读价缺失 | 缓存读 token 已知、价格行该列 NULL | 该分量未计价，其余照计，覆盖标记 |
-| A6 TTL 未知 | 缓存写 token 已知、无 TTL 证据、未设默认档 | 写分量未计价；设置默认档后按档计且标 estimated |
+| A6 TTL 未知 | 缓存写 token 已知、无 TTL 记录、未设默认档 | 写分量未计价；设置默认档后按档计且标 estimated |
 | A7 历史复现 | 事件落在旧价格区间；对照事件落在区间外 | 按发生时价计；无历史价时"按当前价模拟"分列并标注，不混算 |
 | A8 异常 token | 负值、缓存大于已知总输入 | 拒绝进入费用计算，进诊断；不用 max(0,…) |
-| A9 刷新失败 | 在线刷新网络错误/校验失败 | 保留旧快照，显示新鲜度，既有金额不变（2026-10-01 起随在线刷新实施执行：失败回退上次成功缓存，无缓存时报错不动快照） |
+| A9 刷新失败 | 在线刷新网络错误/校验失败 | 保留旧快照，显示新鲜度，既有金额不变；失败回退上次成功缓存，无缓存时报错不动快照 |
 | A10 快照不可变 | 同版本快照重复导入 | 幂等跳过；价格修正走新 price_version 行 |
 
 ## 后续实施任务清单
@@ -445,7 +450,7 @@ V29 行见 [验证清单](validation.md)。样本分三部分：固定价格样�
    未计价/部分计价覆盖标记、i128 中间量与溢出防护；"参考估算"标注在界面层）。
 4. **已实施**：历史复现查询（按发生时价持久化、按当前价模拟即时分列；
    估算引用 data_revision 与 price_basis 快照集合持久化）。
-5. **已实施（2026-10-01）**：可选在线刷新（默认关闭）：models.dev api.json
+5. **已实施**：可选在线刷新（默认关闭）：models.dev api.json
    唯一内置来源 + 原始响应缓存（TTL 默认 3 天）+ 失败回退上次成功下载 +
    官方提供商过滤与回退匹配（schema v11）；A9 场景随本轮测试执行，见
    [在线刷新设计](#online-refresh) 与
@@ -472,23 +477,22 @@ V29 行见 [验证清单](validation.md)。样本分三部分：固定价格样�
 - 限时政策（GLM Flash 五折、GLM 缓存存储免费、Kimi 缓存写单列新政）
   随时可能到期；生效区间行能表达切换，但到期检测依赖人工或刷新。
 - OpenAI GPT-6 长上下文阈值、GLM 思考 token 计费、Kimi CN 站缓存写分项、
-  z.ai 批处理折扣、Gemini 3.1 Pro preview 阶梯呈现均为未核实或证据不一致项，
+  z.ai 批处理折扣、Gemini 3.1 Pro preview 阶梯呈现均为未核实或资料不一致项，
   收录前需官方复核。
 - 本机未见 OpenAI/Anthropic/Gemini 真实用量（适配器 no_data/not_found），
   对应价格核验只到官方页面层级，未经过本机端到端对账。
-- 在线刷新（2026-10-01 实施）的固有限制：models.dev 为社区目录，与官方页
+- 在线刷新的固有限制：models.dev 为社区目录，与官方页
   存在实测偏差风险（zhipuai 条目挂 z.ai 美元价）；`-cn` 变体为美元折算口径
   （未核实是否人民币价折算）；目录结构调整时校验失败并回退缓存，不静默
   导入；快照新鲜度仍以检索时间度量；社区快照只含 USD，CN 渠道人民币价
   仍依赖种子/手工快照。
-- 调研期未实施代码的免责声明已过时：种子快照、费用引擎与在线刷新分别于
-  2026-09-30 / 2026-10-01 实施，验收以 V29 与各验证记录为准。
+- 种子快照、费用引擎与在线刷新均已实施，验收以 V29 与各验证记录为准。
 
 ## 调研记录
 
 环境：Windows 11 x64、Git Bash、curl/jq 直接抓取公开 JSON 与 Markdown、
 WebFetch/web reader 抓取官方页面正文。检索日期均为 2026-09-25；
-status=研究证据，非运行验收。
+status=调研依据，非运行验收。
 
 | ID | 来源 | 采用的事实 |
 | --- | --- | --- |

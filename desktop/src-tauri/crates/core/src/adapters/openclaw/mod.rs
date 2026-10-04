@@ -1,15 +1,15 @@
-//! OpenClaw 适配器（独立目录合同 architecture.md#adapter-layout）：
+//! OpenClaw 适配器（独立目录约定 architecture.md#adapter-layout）：
 //! - 本模块是该 Agent 的稳定入口（统一接口实现与再导出）；
 //! - [`detect`]：文档形状分类 + fail closed（见 detect 模块头）；
 //! - [`versions`]：注册表（空集，待真实样本）与运行时库解析占位；
-//! - [`common`]：源库只读/暂存副本合同（复制自 kilo，目录独立）。
+//! - [`common`]：源库只读/暂存副本约定（复制自 kilo，目录独立）。
 //!
-//! 证据级别（A09 官方文档，2026-09-24 核验）：每 Agent 一个
+//! 实现依据与核验范围（A09 官方文档，2026-09-24 核验）：每 Agent 一个
 //! `~/.openclaw/agents/<agentId>/agent/openclaw-agent.sqlite`（会话行 +
 //! 追加式 transcript）；旧 `sessions/` 目录为迁移/归档输入。
 //! **本机未安装（2026-09-25 盘点 not_found），文档未给出表级 schema**：
 //! 本适配器交付发现/身份/诚实 fail closed 与能力声明，不猜字段、不产零值；
-//! 真实样本取证后在 versions/runtime_store 实现读取映射。
+//! 真实样本核验后在 versions/runtime_store 实现读取映射。
 
 pub mod common;
 pub mod detect;

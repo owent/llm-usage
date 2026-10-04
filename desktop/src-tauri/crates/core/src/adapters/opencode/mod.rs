@@ -1,12 +1,12 @@
-//! OpenCode 适配器（独立目录合同 architecture.md#adapter-layout）：
+//! OpenCode 适配器（独立目录约定 architecture.md#adapter-layout）：
 //! - 本模块是该 Agent 的稳定入口（统一接口实现与再导出）；
 //! - [`detect`]：opencode.db schema 指纹（产品互斥）+ session.version 注册表；
-//! - [`versions`]：格式注册表（当前空：文档级证据，全部 latest_fallback）；
-//! - [`common`]：产品互斥 schema 指纹 + 源库只读/暂存副本合同；
+//! - [`versions`]：格式注册表（当前空：文档或源码依据，全部 latest_fallback）；
+//! - [`common`]：产品互斥 schema 指纹 + 源库只读/暂存副本约定；
 //! - wire 解析核心在家族共享模块 [`crate::adapters::opencode_family`]。
 //!
-//! 格式证据（A17 固定源码 0027387dc5c59793c12dfc531abc78f825ed6868，
-//! 文档级证据待真实样本；本机 2026-09-25 盘点 not_found）：
+//! 格式依据（A17 固定源码 0027387dc5c59793c12dfc531abc78f825ed6868，
+//! 按文档或源码实现，待真实样本核验；本机 2026-09-25 盘点 not_found）：
 //! - 路径：xdg-basedir 的 opencode 数据目录（`$XDG_DATA_HOME/opencode`，
 //!   缺省 `~/.local/share/opencode`；Windows 布局未经真实样本核验）下
 //!   `opencode.db`（安装通道变体 `opencode-<channel>.db`），WAL；
@@ -72,7 +72,7 @@ impl crate::adapters::framework::SourceAdapter for OpenCodeAdapter {
         for manual in &ctx.manual_roots {
             roots.push((manual.clone(), RootBasis::Manual));
         }
-        // 发现范围按**数据目录名**收敛（不按文件名全盘递归）：opencode*.db 只在
+        // 发现范围按**数据目录名**限定（不按文件名全盘递归）：opencode*.db 只在
         // 名为 opencode 的数据目录内接受。手工根兼容三种形状：数据目录本身、
         // <root>/opencode、<root>/.local/share/opencode——防止把 kilo 等同血统
         // 产品目录里的 opencode-rc.db（同名前缀、schema 同形）误认为本产品。

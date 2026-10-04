@@ -1,6 +1,6 @@
 //! Gemini 会话 JSON 格式实现（`session_doc1`，文档级 session-doc-1）。
 //!
-//! 格式证据（官方文档，A10）：
+//! 格式依据（官方文档，A10）：
 //! - 路径：`~/.gemini/tmp/<project_hash>/chats/session-<date>T<time>-<hash>.json`
 //!   （单文件 JSON，非 JSONL；无文档化环境覆盖）。
 //! - 顶层 `{sessionId, projectHash, startTime, lastUpdated, messages[]}`；
@@ -266,7 +266,7 @@ pub fn scan(
             continue;
         }
         let Some(tokens_value) = tokens_value else {
-            // gemini 消息无 tokens：无用量证据，不产事件。
+            // gemini 消息无 tokens：未记录用量，不产事件。
             continue;
         };
         let Some((usage, unknown_keys)) = parse_tokens(tokens_value) else {

@@ -1,7 +1,7 @@
 //! kimi-work 探测与版本分派：有界读取首行 metadata 头（家族共享指纹），
 //! 按 [`super::versions`] 注册表（锚点 1.4）选择格式实现。
 //!
-//! 合同（architecture.md#unknown-version，V17/V30）：
+//! 约定（architecture.md#unknown-version，V17/V30）：
 //! - 首行不是 JSON / 不是 metadata 头 ⇒ 未知格式，fail closed；
 //! - protocol_version 已收录（"1.4"）⇒ KnownVersion；
 //! - 未收录（含 "1.5"——kimi-code 的锚点在本注册表不算已验证）/缺失 ⇒

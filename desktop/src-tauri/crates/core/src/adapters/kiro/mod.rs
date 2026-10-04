@@ -1,4 +1,4 @@
-//! Kiro 适配器（AWS，闭源；独立目录合同）。双载体：
+//! Kiro 适配器（AWS，闭源；独立目录约定）。双载体：
 //! ① CLI `~/.kiro/sessions/cli/*.json` user_turn_metadatas（按 turn 真实计数）；
 //! ② kiro-cli `~/.local/share/kiro-cli/data.sqlite3` conversations_v2
 //! request_metadata（逐请求毫秒时间戳）。IDE 载体（session.json/messages.jsonl）

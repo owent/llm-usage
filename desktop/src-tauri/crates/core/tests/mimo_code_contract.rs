@@ -1,7 +1,7 @@
-//! MiMo Code 适配器合同测试：合成 fixture（文档级证据，A14 固定源码 456678b；
+//! MiMo Code 适配器约定测试：合成 fixture（依据 A14 固定源码 456678b；
 //! 本机 not_found，2026-09-25 盘点）经
-//! 读取→解析→逐次事件→commit→查询 全链路。数值对照
-//! tests/fixtures/mimo-code/*/_expectations.md 的人工核算，不改口径。
+//! 读取→解析→逐次事件→commit→查询。数值对照
+//! tests/fixtures/mimo-code/*/_expectations.md 的人工核算，不改计算规则。
 //!
 //! 辅助函数从 tests/common/mod.rs 与 tests/hermes_contract.rs 复制（按任务
 //! 约束不改共享 common，避免并行冲突）。
@@ -63,7 +63,7 @@ fn insert_rows(conn: &rusqlite::Connection, table: &str, rows: &[serde_json::Val
     }
 }
 
-/// 按投影在 <dir>/mimo-home/data/mimocode.db 重建 SQLite 库（MIMOCODE_HOME
+/// 按脱敏数据在 <dir>/mimo-home/data/mimocode.db 重建 SQLite 库（MIMOCODE_HOME
 /// 语义：<home>/data 下库文件），返回 data 目录。
 fn build_mimo_db(dir: &TempDir, projection: &serde_json::Value) -> PathBuf {
     let home = dir.path().join("mimo-home").join("data");
@@ -215,7 +215,7 @@ fn contract_full_chain_matches_manual_expectations() {
     assert_eq!(s.totals.output_total_known, Some(380));
     assert_eq!(s.totals.total_tokens_known, Some(20680));
 
-    // 文档级证据：latest_fallback 标记。
+    // 尚未用真实样本核验：latest_fallback 标记。
     let fallback: i64 = conn
         .query_row(
             "SELECT COUNT(*) FROM diagnostics WHERE code = 'latest_fallback'",

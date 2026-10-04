@@ -1,6 +1,6 @@
-//! Qwen Code 适配器合同测试：合成固定样本（本机 not_found，全部 fixture 合成，
+//! Qwen Code 适配器约定测试：合成固定样本（本机 not_found，全部 fixture 合成，
 //! 数值为人工核算，见 tests/fixtures/qwen/synthetic-contract/_expectations.md 与
-//! 本文件头部注释）经 读取→解析→标准化→commit_batch→查询 全链路。
+//! 本文件头部注释）经 读取→解析→标准化→commit_batch→查询。
 
 mod common;
 

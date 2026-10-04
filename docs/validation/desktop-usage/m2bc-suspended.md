@@ -35,7 +35,7 @@
 - **`build/desktop-usage-validation/`**：真实核对的原始产物被 gitignore，不随 git 转移；
   其结论已固化在 m2a-codex.md / m0-agent-fixtures.md（会随 git 转移）。需要原始产物时手动复制该目录。
 - **本机真实数据探测结论**：claude/gemini/qwen 本机 not_found、pi sessions 为空（no_data）
-  是**这台机器**的证据。新机器可能装有这些 Agent、存在真实数据——既是新证据机会，
+  是**这台机器**的核验结果。新机器可能装有这些 Agent、存在真实数据——可以补充真实样本，
   也意味着恢复后必须按新机器实际重新探测，不得沿用旧机结论。
 
 ### 第一步：把工作树固化并转移（三选一）
@@ -81,10 +81,10 @@ npm run verify         # 基线：core 143 + app 2 = 145 passed，lint/clippy/fm
 
 ## 半成品清单（全部保留在工作树，未提交）
 
-| 文件 | 状态 | 内容与证据等级 |
+| 文件 | 状态 | 内容与核验范围 |
 | --- | --- | --- |
-| `desktop/src-tauri/crates/core/src/adapters/pi.rs` | 未跟踪，985 行，3 单测 | pi session JSONL v3；固定源码证据 pi-mono b4559750（联网只读核对）；本机 pi 0.87.1 sessions 为空，真实核对状态 no_data |
-| `desktop/src-tauri/crates/core/src/adapters/claude.rs` | 未跟踪，680 行，3 单测 | 仅文档级证据（A01），文件头自标「待真实样本」；本机 not_found |
+| `desktop/src-tauri/crates/core/src/adapters/pi.rs` | 未跟踪，985 行，3 单测 | pi session JSONL v3；固定版本源码依据 pi-mono b4559750（联网只读核对）；本机 pi 0.87.1 sessions 为空，真实核对状态 no_data |
+| `desktop/src-tauri/crates/core/src/adapters/claude.rs` | 未跟踪，680 行，3 单测 | 仅有文档依据（A01），文件头自标「待真实样本」；本机 not_found |
 | `desktop/src-tauri/crates/core/src/adapters/gemini.rs` | 未跟踪，658 行，2 单测 | 同上量级，未核实真实样本 |
 | `desktop/src-tauri/crates/core/src/adapters/qwen.rs` | 未跟踪，705 行，2 单测 | 同上量级，未核实真实样本 |
 | `desktop/src-tauri/crates/core/src/adapters/usage_map.rs` | 未暂存改动 +195 行 | `PiFamilyUsage`/`map_pi_family`（pi-mono b4559750 与 oh-my-pi 62bc57b 固定源码口径）、`ClaudeTranscriptUsage` 等共享映射 |
@@ -108,13 +108,15 @@ oh-my-pi 适配器未见独立文件（仅共享 `map_pi_family` 口径）；M2-
 | 项 | 状态 | 原因 | 后续条件 |
 | --- | --- | --- | --- |
 | 合同级集成测试（对照 Codex 的 contract/gaps/incremental 测试组） | **已完成**（2026-09-25） | 五源 15 个集成测试文件 103 用例全绿；oh-my-pi 定案为独立适配器 omp.rs | — |
-| 合成/真实 fixture | **已完成**（2026-09-25） | pi 真实 1 + 合成 7；omp 真实 3 + 合成 9；claude/gemini/qwen 合成各 8（本机无真实数据，no_data/not_found 证据在恢复记录） | 三源真实样本待本机出现数据后按 m0 脱敏流程补取 |
+| 合成/真实 fixture | **已完成**（2026-09-25） | pi 真实 1 + 合成 7；omp 真实 3 + 合成 9；claude/gemini/qwen 合成各 8（本机无真实数据，no_data/not_found 核验结果在恢复记录） | 三源真实样本待本机出现数据后按 m0 脱敏流程补取 |
 | 本机真实只读核对（对照 `real_verify_codex` example） | **已完成**（2026-09-25） | examples ×6 齐备；pi/omp 真实核对通过（幂等、不变量成立）；claude/gemini/qwen 记录 no_data/not_found | — |
 | 重复扫描不增量、主/辅助/子 Agent 覆盖可见（M2 完成条件） | **已验收**（2026-09-25） | V12 增量套件五源全绿；omp 真实核对类别计数 primary/sub_agent 分列 | — |
-| Codex 旧版本 fail closed 逐版本 fixture | **部分完成**（2026-09-25，[m2d](m2d-layout-versions.md)） | 0.153.0/0.154.0-alpha.6.1/6.2 已验证；0.139–0.151 实测无逐次载体，待专用实现取证 | 按 m2d 记录后续条件执行 |
+| Codex 旧版本 fail closed 逐版本 fixture | **部分完成**（2026-09-25，[m2d](m2d-layout-versions.md)） | 0.153.0/0.154.0-alpha.6.1/6.2 已验证；0.139–0.151 实测无逐次载体，待专用实现核验 | 按 m2d 记录后续条件执行 |
 | 适配器目录化迁移与未知版本兼容尝试（execution.md#m2-layout） | **已完成**（2026-09-25，[m2d](m2d-layout-versions.md)） | 六源目录化 + 注册表分派 + 兼容标记持久化回归全绿 | — |
 
-## 证据文件
+<a id="证据文件"></a>
 
-- 适配器内联证据：四个 `adapters/*.rs` 文件头注释（固定源码 commit 与文档出处逐条在列）。
+## 验证产物
+
+- 适配器内联依据：四个 `adapters/*.rs` 文件头注释（固定源码 commit 与文档出处逐条在列）。
 - 本记录命令输出以工作树复跑为准；无新增脱敏产物写入 `build/desktop-usage-validation/`。

@@ -1,6 +1,6 @@
 //! jcode 会话存储格式实现（`session_v1`，jcode-session-1）。
 //!
-//! 格式证据（1jehuang/jcode 固定源码 4f6bf8e044bc175d5d4659ed54583f5512320235
+//! 格式依据（1jehuang/jcode 固定源码 4f6bf8e044bc175d5d4659ed54583f5512320235
 //! （master，2026-09-29）；官方源码核验；本机未安装、无真实样本）：
 //! - 路径：`$JCODE_HOME`（默认 ~/.jcode）/sessions/session_*.json 快照 +
 //!   同 stem `.journal.jsonl` 追加（storage_paths.rs:7-30）。
@@ -9,17 +9,17 @@
 //!   journal 为准）；`append_messages` 追加。checkpoint 时整写快照并**删除**
 //!   journal（512 KiB 上限，session.rs:264）⇒ 两载体消息互斥；崩溃窗口
 //!   （写快照后删 journal 前）重放会重复 extend，源码无 id 去重 ⇒
-//!   适配器按消息 id upsert 幂等兜底（本方防御，如实标注）。
+//!   适配器按消息 id upsert 保持幂等（本方防御，如实标注）。
 //! - StoredMessage（session-types lib.rs:229-272）：`id`/`role`/`timestamp`
 //!   （RFC3339，消息完成时刻）/`tool_duration_ms?`/
 //!   `token_usage?{input_tokens(必),output_tokens(必),
 //!   cache_read_input_tokens?,cache_creation_input_tokens?}`；
 //!   `prompt_tokens` 是上下文规模非计费桶，**不采**；无 cost/reasoning 落盘。
-//! - **缓存口径按 provider 原样保留**（官方注释，OpenAI stream.rs:988-1018）：
+//! - **缓存字段语义按 provider 原样保留**（官方注释，OpenAI stream.rs:988-1018）：
 //!   provider_key=="openai" ⇒ input_tokens 是总量，cache 读/写是其**子集**；
 //!   =="anthropic" ⇒ 三列分立互斥（API 原生）；其他/未知 ⇒ 包含关系未知，
 //!   hermes 同型并列不派生。`ResponseStats` 官方注释 "Missing telemetry is
-//!   unknown, not zero" 同口径。
+//!   unknown, not zero" 规则相同。
 //! - 回合计数库 model-usage-v1.sqlite3 只记计数不记 token，不读。
 
 use crate::adapters::framework::{
@@ -119,7 +119,7 @@ fn opt_token(value: Option<&serde_json::Value>) -> Option<Option<i64>> {
     }
 }
 
-/// jcode 缓存口径（provider 原样保留）：
+/// jcode 缓存字段语义（provider 原样保留）：
 /// - openai：input 是总量，cache 读/写为子集 ⇒ uncached 减法派生；
 /// - anthropic：三列互斥 ⇒ uncached=input，input_total=三列之和（派生）；
 /// - 其他/未知：包含关系未知 ⇒ 并列报告不派生。
@@ -437,7 +437,7 @@ pub fn scan(
                 }
             }
         }
-        // journal 未读完（行数/时间预算或超限行）：尾部消息缺失，不能报
+        // journal 未读完（行数/超时时间或超限行）：尾部消息缺失，不能报
         // Complete。分页游标从本轮末尾续读；读到末页后下一轮从头
         // 重读，以便会话级 meta 更新能修订前页事件。
         match read.stop {
@@ -453,7 +453,7 @@ pub fn scan(
     context.journal_provider_key = provider_key.clone();
     context.journal_model = model.clone();
     context.journal_updated_at_ms = session_updated_at_ms;
-    // 崩溃窗口兜底：同 id 消息后者覆盖前者（journal 权威，persistence 同语义）。
+    // 处理崩溃窗口：同 id 消息后者覆盖前者（journal 权威，persistence 同语义）。
     let mut events = Vec::new();
     let mut seen_ids: std::collections::BTreeMap<String, ()> = Default::default();
     for message in messages.iter().rev() {
@@ -461,7 +461,7 @@ pub fn scan(
             continue;
         }
         let Some(usage) = &message.usage else {
-            continue; // 无 token_usage 的 assistant 消息：官方"未知非零"口径。
+            continue; // 无 token_usage 的 assistant 消息：按官方规则保持未知，不补零。
         };
         // StoredMessage.id 是必填字段（官方类型）：缺失按格式偏离跳过记诊断。
         let Some(message_id) = &message.id else {

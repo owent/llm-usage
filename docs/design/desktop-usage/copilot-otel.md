@@ -1,17 +1,17 @@
 # Copilot 补充采集与 OTel 配置设计
 
-2026-10-02：状态提示按缺配置、已配置等待数据、样本已核验和配置冲突分开。
+状态提示按缺配置、已配置等待数据、样本已核验和配置冲突分开。
 总览使用紧凑摘要；详情每 30 秒只读自动检查实际输出，多个无法区分的 Profile 共享
 同一输出时不冒认各自生效，数据存在也不消除策略冲突或保证历史完整。
 JSONC 合并不重复插入空行，保留用户原格式；见
 [交互合同](dashboard-polish.md) 和 [验证记录](../../validation/desktop-usage/dashboard-polish.md)。
 
-2026-10-01：异步用户配置检查、总览提示和设置页合并配置入口已实施。
-当时新导出独立保存供验证；trace SQLite 适配尚未实施。开发验收未修改本机 IDE/Agent 配置，见
+异步用户配置检查、总览提示和设置页合并配置入口已实施。
+trace SQLite 适配尚未实施。配置入口的开发验收范围见
 [实施记录](../../validation/desktop-usage/telemetry-setup-ui.md)。
 已有原生载体验收见 [M9 审查记录](../../validation/desktop-usage/m9-copilot-review.md)。
 
-2026-10-02：本应用配置的 VS Code Copilot file 输出自动采集已实施并完成真实副本核验，
+本应用配置的 VS Code Copilot file 输出自动采集已实施并完成真实副本核验，
 见 [看板修正合同](dashboard-repair.md)与[验证记录](../../validation/desktop-usage/dashboard-repair.md)。
 `chat <model>` CLIENT span 逐调用入库；同主机/用户/会话/本地日以 OTel 替代原生贡献，
 原生记录保留且重扫不重新叠加，封存分区保持原生并排除重叠新 span。
@@ -20,14 +20,14 @@ CLI/JetBrains 新版本仍需独立真实验收，其他隔离导出不自动推
 
 ## 补充路线与取舍
 
-| 路线 | 可以补充什么 | 当前证据与限制 |
+| 路线 | 可以补充什么 | 当前核验结果与限制 |
 | --- | --- | --- |
 | VS Code Copilot Chat OTel file | 逐调用输入、输出、缓存及推理桶；子 Agent 调用 | 固定源码与本机 30 个 CLIENT span 已验收；本应用输出自动发现，未返回字段仍未知 |
 | VS Code Agent Host OTel file | 原生 runtime 的逐调用记录 | 独立配置命名空间；SDK 的 service.name 不能单独证明它是独立 CLI |
-| VS Code 本地 trace SQLite | IDE 留存的 span，可导出已有历史 | 官方文档和表结构证据；当前无此数据库适配器；需启用，历史受 IDE 保留期限限制 |
+| VS Code 本地 trace SQLite | IDE 留存的 span，可导出已有历史 | 官方文档和表结构核验结果；当前无此数据库适配器；需启用，历史受 IDE 保留期限限制 |
 | Copilot CLI OTel file | 最新 chronicle 库缺失的未来逐调用 token | 官方 CLI 配置明确；行级格式仍须真实样本核验，不能从旧库恢复已丢失 token |
 | Visual Studio 自动 traces | 当前已接入逐调用和缓存读 | 本机真实验收；提高采集频率减少 TEMP 清理前漏采；未找到可核验的用户自定义 exporter 配置，不猜变量 |
-| JetBrains Copilot debug File Logging | 插件提供的 OTel outfile | 1.18.0-261 静态证据；手工配置，无真实 IDE 验收，不直接改插件 XML |
+| JetBrains Copilot debug File Logging | 插件提供的 OTel outfile | 1.18.0-261 静态核验结果；手工配置，无真实 IDE 验收，不直接改插件 XML |
 
 首选本地 file：IDE/CLI 可以在本应用退出时继续写入，之后扫描。
 本机 OTLP/HTTP 适合实时接收，但本应用必须运行；支持 `/v1/traces`、`/v1/logs`
@@ -166,7 +166,7 @@ Agent Host 使用 `chat.agentHost.otel.*` 对应键。端口以应用生效值�
 已实施范围以上表为准，首发验收 Windows；macOS/Linux 仅保留代码与合成回归。
 只改用户配置，不写项目 `.vscode/settings.json`；合并同步排除项，不启用 Settings Sync。
 JetBrains 保留手工步骤，Visual Studio 使用已有载体。
-2026-10-02 已完成应用管理的 VS Code Copilot file 自动接入、会话范围载体选择与
+已完成应用管理的 VS Code Copilot file 自动接入、会话范围载体选择与
 本机已导出数据验证，见 [看板修正记录](../../validation/desktop-usage/dashboard-repair.md)。
 CLI/JetBrains 的新版真实导出、trace SQLite 适配和跨重启持久化配置撤销仍待完成。
 
@@ -181,7 +181,7 @@ CLI/JetBrains 的新版真实导出、trace SQLite 适配和跨重启持久化�
 文件首行允许 metrics/logs，仍只采集已核验调用 span，不能把 metrics 当逐次用量。
 
 `set_source_enabled` 只停止扫描，`load_daily_rows` 不按 enabled 排除历史贡献。
-“停用原生源，再加 OTel”不能撤回已入库重叠用量。2026-10-02 起 VS Code file parser
+“停用原生源，再加 OTel”不能撤回已入库重叠用量。VS Code file parser
 使用 trace+span 联合身份；跨文件/接收器副本在相同原主机和用户范围只采一次贡献。
 原生 turn 与 OTel 调用没有共同调用 ID，不能按时间接近或 token 相等配对。
 接收器混合多个 Agent 时，也不能为切换 Copilot 而停掉整个 OTel 来源。
@@ -193,10 +193,10 @@ CLI/JetBrains 的新版真实导出、trace SQLite 适配和跨重启持久化�
 会话身份缺失不替代原生，不按 turn 时间截断跨切换点的整轮消费。
 
 本轮已补无 usage 的 chat 调用计数、trace+span 联合身份与 token 整数严格校验；
-混合 logs/metrics 跳过，SDK CLIENT 数值与 OTLP 枚举区分。VS Code 嵌入宿主有本机证据，
+混合 logs/metrics 跳过，SDK CLIENT 数值与 OTLP 枚举区分。VS Code 嵌入宿主有本机核验结果，
 子 Agent 及其他 runtime 的分类与真实载体关系仍须独立核验。
 service.name 可配置，不是宿主身份证明。file、接收器与 SQLite 同源优先用明确
-身份关联，缺证时仍选择权威载体。
+身份关联，缺少可核验的关联依据时仍选择权威载体。
 
 ## 验收与回滚
 
@@ -205,7 +205,7 @@ service.name 可配置，不是宿主身份证明。file、接收器与 SQLite �
 接入对照独立预期、明细和汇总，覆盖失败无 token、混合 Agent、父子 span、重传、
 file/HTTP/SQLite 同源、来源切换及清理后的归档贡献。
 portable/custom user-data 自动发现未实施。本轮只读核验用户此前一键配置产生的
-真实 VS Code file；没有再次写用户配置、重载宿主或发起模型调用，写入/重载操作不作为本轮证据。
+真实 VS Code file；没有再次写用户配置、重载宿主或发起模型调用，写入/重载操作不作为本轮核验结果。
 真实验收应记录写入、重载与用户正常调用产生载体的结果；合成样本不冒充真实调用。
 
 trace SQLite 后续只读连接或使用 IDE 自带导出，尊重 WAL；不复制裸 `.db` 丢失
@@ -226,7 +226,7 @@ C01 的 VS Code file 本机数据验证日期更新为 2026-10-02，其他产品
 | C03 独立 Agent Host、file/DB、启动绑定 | [固定源码说明](https://github.com/microsoft/vscode/blob/dc546cc3c9979a19adafccd439889d7b64298def/src/vs/platform/agentHost/OTEL.md) | 固定提交正文；影响宿主选择，main 快照不等同安装版本 |
 | C04 file 与 SQLite 形状 | [fileExporters](https://github.com/microsoft/vscode/blob/dc546cc3c9979a19adafccd439889d7b64298def/extensions/copilot/src/platform/otel/node/fileExporters.ts)、[otelSqliteStore](https://github.com/microsoft/vscode/blob/dc546cc3c9979a19adafccd439889d7b64298def/extensions/copilot/src/platform/otel/node/sqlite/otelSqliteStore.ts) | 固定源码；file 一行一 span，DB 有 schema_version/spans/span_attributes；后续适配依据 |
 | C05 策略/环境与 telemetry 开关 | [otelConfig](https://github.com/microsoft/vscode/blob/dc546cc3c9979a19adafccd439889d7b64298def/extensions/copilot/src/platform/otel/common/otelConfig.ts)、[官方策略](https://code.visualstudio.com/docs/enterprise/manage-ai-settings#configure-telemetry-export-with-opentelemetry) | 优先级表述有差异，实现按安装版本判断；不强行覆盖 |
-| C06 JetBrains 1.18.0-261 | [现有取证](../../validation/desktop-usage/m9-jb-copilot-analysis.md) | 静态证据；真实环境缺失，手工步骤限定版本 |
+| C06 JetBrains 1.18.0-261 | [现有分析](../../validation/desktop-usage/m9-jb-copilot-analysis.md) | 静态核验结果；真实环境缺失，手工步骤限定版本 |
 
 公开源码快照及 SHA256 在忽略目录 `build/copilot-otel-setup/`。
 前一轮文档阶段从仓库根执行 `npm run lint:md`（162 文件）、

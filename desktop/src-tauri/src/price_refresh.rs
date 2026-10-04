@@ -1,6 +1,6 @@
 //! F2 在线刷新（models.dev 社区目录）：抓取、原始响应缓存、失败回退与幂等导入。
 //!
-//! 合同（docs/design/desktop-usage/pricing.md · 在线刷新设计）：
+//! 约定（docs/design/desktop-usage/pricing.md · 在线刷新设计）：
 //! - 默认关闭；启用后仅 HTTPS GET models.dev api.json，请求不携带任何本地用量、
 //!   主机/来源身份、会话内容或账户密钥；
 //! - 原始响应缓存于 `<数据库目录>/price-cache/`，TTL 默认 3 天（1–365 可配），
@@ -357,7 +357,7 @@ mod tests {
     /// 最小合法 api.json：官方 vendorA（canonical 前缀）一个按量价模型。
     const MINI: &str = r#"{"vendorA":{"id":"vendorA","models":{"m-one":{"id":"m-one","canonical_model_id":"vendorA/m-one","cost":{"input":10,"output":50,"cache_read":1}}}}}"#;
 
-    /// 真实 HTTPS 抓取冒烟：ureq/rustls 链路 + 响应体上限 + 实载转换。
+    /// 真实 HTTPS 抓取冒烟：ureq/rustls 调用过程 + 响应体上限 + 实载转换。
     /// 需网络；CI 不运行（`cargo test -p llm-usage-desktop http_fetch_live -- --ignored`）。
     #[test]
     #[ignore = "hits the live models.dev endpoint; maintainer-run smoke"]

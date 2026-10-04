@@ -1,6 +1,6 @@
 //! 来源原生区间汇总（source_aggregates）、累计快照求差与额度快照。
 //!
-//! 合同要点：
+//! 规则要点：
 //! - interval_aggregate 保留原生范围、字段和单位，不伪装成逐次请求；
 //! - cumulative_snapshot 按身份/版本/重置边界求差；首次值保留为源原生区间总量，
 //!   区间跨日且无中间采样时不把全部 token 记入某一天，也不按时长摊分；
@@ -367,9 +367,9 @@ pub enum CumulativeOutcome {
     FirstObservation { native_total: i64 },
     /// 区间增量（含 0）。
     Delta { amount: i64 },
-    /// 明确重置证据（新进程）：新基线即新区间量。
+    /// 已确认发生重置（新进程）：新基线即新区间量。
     Reset { new_baseline: i64 },
-    /// 累计值下降但缺少重置证据：不按零重新累加，记冲突诊断。
+    /// 累计值下降但无法确认发生重置：不按零重新累加，记冲突诊断。
     Regression { previous: i64, observed: i64 },
 }
 

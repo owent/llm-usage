@@ -1,4 +1,4 @@
-//! ANTIGRAVITY 版本注册表（V30 目录合同）。锚点为文档级 antigravity-gen-metadata-1。
+//! ANTIGRAVITY 版本注册表（V30 目录约定）。锚点为文档级 antigravity-gen-metadata-1。
 
 pub mod gen_metadata_v1;
 

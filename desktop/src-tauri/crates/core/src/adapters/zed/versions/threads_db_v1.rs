@@ -1,6 +1,6 @@
 //! Zed threads.db 格式实现（`threads_db_v1`，文档级 zed-threads-db-1）。
 //!
-//! 格式证据（Zed 官方源码 bd747337d7be138834e20972b9e203c7b239cc47，A38；
+//! 格式依据（Zed 官方源码 bd747337d7be138834e20972b9e203c7b239cc47，A38；
 //! 本机 2026-09-29 只读核对 threads 表 schema 一致、0 行）：
 //! - 库布局：`<data_dir>/threads/threads.db`；data_dir = Windows
 //!   `%LOCALAPPDATA%\Zed`、macOS `~/Library/Application Support/Zed`、
@@ -16,13 +16,13 @@
 //! - 仅 provider=="zed.dev" 的 hosted 调用计入；分享导入线程（SharedThread
 //!   version "1.0.0"，db.rs:156-174）用量置零，非 zed.dev/导入线程跳过。
 //!
-//! 映射合同（M8 会话级聚合边界）：每线程一条 `SourceAggregateInput`
+//! 映射约定（M8 会话级聚合边界）：每线程一条 `SourceAggregateInput`
 //! （scope=Session，总量以 cumulative_token_usage 为准，不展开伪造逐次事件）；
 //! request_token_usage 桶数作 `reported_call_count`（=turn 数下界，覆盖语义
 //! 如实标注）、桶合计作 Reconciliation 对照，不入账；逐次 usage 无时间戳
 //! （官方源码未见），区间用 created_at..updated_at，time_basis=Uncertain。
 //!
-//! 增量合同（SQLite 行）：线程 id 分页，末页后从头复查可变累计行；
+//! 增量约定（SQLite 行）：线程 id 分页，末页后从头复查可变累计行；
 //! offset 恒 0（WAL 下字节长度不能作无变化判定）；聚合按 scope_key
 //! upsert 幂等，source_revision = updated_at 毫秒；单轮行数上限 50,000。
 
@@ -76,7 +76,7 @@ fn rfc3339_ms(value: &str) -> Option<i64> {
 
 /// 解压 zstd blob（有界：超上限返回 None，调用方记诊断跳行）。
 /// json 分支同样限长——64 MiB 上限约束的是"单 blob 解压后大小"，
-/// 与存储编码无关（能力表声明口径）。
+/// 与存储编码无关（字段语义以能力表声明为准）。
 fn decode_blob(data_type: &str, data: &[u8]) -> Option<Vec<u8>> {
     if data_type.eq_ignore_ascii_case("json") {
         return (data.len() <= MAX_BLOB_BYTES).then(|| data.to_vec());
@@ -135,7 +135,7 @@ fn request_usage_summary(value: Option<&serde_json::Value>) -> Option<(usize, i6
     let mut sum = 0i64;
     for bucket in &buckets {
         let usage = parse_token_usage(Some(bucket))?;
-        // checked 算术合同：溢出（桶值极大时）拒绝该线程，不饱和隐藏。
+        // checked 算术约定：溢出（桶值极大时）拒绝该线程，不饱和隐藏。
         sum = sum.checked_add(usage.total()?)?;
     }
     Some((buckets.len(), sum))

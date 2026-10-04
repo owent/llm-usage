@@ -1,6 +1,6 @@
-//! Copilot CLI 版本注册表（V30 目录合同）。
+//! Copilot CLI 版本注册表（V30 目录约定）。
 //!
-//! 锚点：session-store.db `schema_version` 表（本机实测 8）+ M0 取证 1.0.73
+//! 锚点：session-store.db `schema_version` 表（本机实测 8）+ M0 核验 1.0.73
 //! 逐 turn 字段。schema_version=8 → KnownVersion；其他/缺失 → LatestFallback
 //! 兼容尝试（列集在探测层校验）。
 

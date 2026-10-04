@@ -1,4 +1,4 @@
-//! JCODE 版本注册表（V30 目录合同）。锚点为文档级 jcode-session-1。
+//! JCODE 版本注册表（V30 目录约定）。锚点为文档级 jcode-session-1。
 
 pub mod session_v1;
 

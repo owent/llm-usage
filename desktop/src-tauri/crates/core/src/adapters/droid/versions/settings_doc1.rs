@@ -1,7 +1,7 @@
 //! Droid `<uuid>.settings.json` 格式实现（`settings_doc1`，文档级
 //! droid-settings-doc-1）。
 //!
-//! 格式证据（第三方解析器 tokscale 固定提交
+//! 格式依据（第三方解析器 tokscale 固定提交
 //! 1d9a9395418efc6952944b794097935d7d6fa1e8 sessions/droid.rs:16-39；
 //! 闭源产品 Factory.ai，本机未安装、无真实样本）：
 //! - 路径 `~/.factory/sessions/<uuid>.settings.json`（clients.rs:473-482）；

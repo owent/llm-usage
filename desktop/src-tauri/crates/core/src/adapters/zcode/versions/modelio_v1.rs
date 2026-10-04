@@ -1,23 +1,23 @@
 //! ZCode model-io JSONL 格式实现（`modelio_v1`）。
 //!
-//! 格式证据（M0 fixtures + tests/fixtures/zcode/real-*，本机 ZCode 3.14.3 实读）：
+//! 格式依据（M0 fixtures + tests/fixtures/zcode/real-*，本机 ZCode 3.14.3 实读）：
 //! - 路径：`~/.zcode/cli/rollout/model-io-<sessionId>.jsonl`（append-only JSONL，
 //!   每次模型调用一条记录；无文档化环境覆盖）。
 //! - 每条：`type="model_io"`、`attempt`、`sessionId`、`requestId`、`turnId`、`traceId`、
 //!   `querySource ∈ {main_turn, subagent, session_title}`（db.model_usage 实读另证
 //!   session_title 来源）、`model{modelId,providerId}`、`startedAt/completedAt`
 //!   ISO8601 UTC 毫秒字符串、`durationMs`、`request.headers["x-zcode-app-version"]`。
-//! - **双口径**（同一记录两个 usage 视图，互斥不混算）：
-//!   - 主口径 AI SDK camelCase `response.usage` 五键：`inputTokens`（含缓存读）、
+//! - **两种字段语义**（同一记录两个 usage 视图，互斥不混算）：
+//!   - 主视图 AI SDK camelCase `response.usage` 五键：`inputTokens`（含缓存读）、
 //!     `outputTokens`、`totalTokens`、`cacheReadTokens`、`cacheWriteTokens`；
-//!   - 对照口径 anthropic snake_case `response.providerMetadata.anthropic.usage`：
+//!   - 对照视图 anthropic snake_case `response.providerMetadata.anthropic.usage`：
 //!     `input_tokens`（不含缓存）、`output_tokens`、`cache_read_input_tokens`、
 //!     `cache_creation_input_tokens?`；缓存创建亦见 camel
 //!     `providerMetadata.anthropic.cacheCreationInputTokens`（null 表示未报）。
 //!
 //! 两视图同时在场时做一致性校验（in+cr+cw 与 out 逐条对比），矛盾记
-//! `dual_caliber_mismatch` 诊断并保留 AI SDK 主口径；AI SDK 视图缺席而
-//! anthropic 在场时回退对照口径（记诊断），绝不相加。
+//! `dual_caliber_mismatch` 诊断并保留 AI SDK 主视图；AI SDK 视图缺席而
+//! anthropic 在场时回退对照视图（记诊断），绝不相加。
 //! - 在途尾部：`response.finishReason=null` 且无 usage/providerMetadata 属正常形状，
 //!   不产事件、不失败。
 //! - 缺 requestId：回退身份 `seq:{sessionId}:{行号}` 并记诊断（不得全部变成
@@ -50,7 +50,7 @@ use crate::adapters::zcode::common::{
 
 pub const ZCODE_PARSER_VERSION: &str = "zcode-modelio-1";
 const MAX_REASONABLE_TOKEN: i64 = crate::domain::MAX_TOKEN_VALUE;
-/// epoch 数值折算阈值：小于该值视为秒（synthetic-epoch-timestamps 防御合同）。
+/// epoch 数值折算阈值：小于该值视为秒（synthetic-epoch-timestamps 防御约定）。
 const EPOCH_SECONDS_THRESHOLD: i64 = 100_000_000_000;
 
 /// 已证实的 querySource → 调用分类（db.model_usage 实读值域：
@@ -170,7 +170,7 @@ fn parse_anthropic_usage(
     })
 }
 
-/// 时间戳：实读为 ISO8601 毫秒字符串；数值按防御合同折算毫秒（<1e11 视为秒）。
+/// 时间戳：实读为 ISO8601 毫秒字符串；数值按防御约定折算毫秒（<1e11 视为秒）。
 /// 返回 (ms, 原始白名单字符串)。
 fn parse_ts(value: &serde_json::Value) -> Option<(i64, String)> {
     match value {
@@ -255,7 +255,7 @@ pub fn scan(
             let selection = super::super::versions::select(anchor);
             context.version_basis = Some(selection.basis);
         }
-        // 双口径视图解析。
+        // 解析两个 usage 视图。
         let response = line
             .get("response")
             .cloned()
@@ -288,7 +288,7 @@ pub fn scan(
                 continue;
             }
         };
-        // usage 解析 + 口径选择（互斥取一，绝不相加）。
+        // usage 解析 + 视图选择（互斥取一，绝不相加）。
         let mapped = match ai_sdk_value {
             Some(value) => {
                 let Some(sdk) = parse_ai_sdk_usage(value) else {
@@ -300,7 +300,7 @@ pub fn scan(
                     ));
                     continue;
                 };
-                // 双口径一致性校验（对照视图在场时）：矛盾进诊断，主口径保留。
+                // 两个 usage 视图的一致性校验（对照视图在场时）：矛盾进诊断，主视图保留。
                 if let Some(anth_usage) =
                     anthropic_value.and_then(|v| parse_anthropic_usage(v, &anthropic_parent))
                 {
@@ -325,7 +325,7 @@ pub fn scan(
                 map_zcode_ai_sdk(&sdk)
             }
             None => {
-                // AI SDK 视图缺席、anthropic 在场：回退对照口径并记诊断。
+                // AI SDK 视图缺席、anthropic 在场：回退对照视图并记诊断。
                 let anth_usage =
                     anthropic_value.and_then(|v| parse_anthropic_usage(v, &anthropic_parent));
                 let Some(anth) = anth_usage else {

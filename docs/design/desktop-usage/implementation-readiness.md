@@ -8,10 +8,10 @@
 
 仅统计本机 Agent 实例的数据；Windows 11 x64 首发，macOS/Linux 保留 CI。
 Tauri 2/Rust、SQLite、Svelte/TypeScript、按需 ECharts；依赖及具体版本由实际
-manifest 与锁文件确定。所有支持能力须有逐版本字段证据，未知不补零。
+manifest 与锁文件确定。所有支持能力须有逐版本字段核验依据，未知不补零。
 
 当前适配器和真实验收标签以 [接入矩阵](adapters.md) 为准。
-M2–M5/M8 有证据的本地来源可实施，缺证 IDE 留 F1；Junie CLI/Zed 内置在 M8，
+M2–M5/M8 已有可核验资料的本地来源可实施，本地用量格式尚未核验的 IDE 留 F1；Junie CLI/Zed 内置在 M8，
 JetBrains Copilot 的手工 OTel file 路线在 M9，JetBrains 自家 AI Assistant 仍 F1。
 宿主运行受支持外部 Agent 时按底层来源统计，不推断宿主内置 Agent 能力。
 遥测、调度、价格和平台分别按专项设计；缺少真实样本不阻塞独立核心功能。
@@ -61,5 +61,5 @@ USERPROFILE；测试辅助函数仅在同步 spawn 调用期间移除该父进�
 ## 实施与交付检查
 
 先读 Git 现状、源码、配置、测试和版本依据；保留用户修改，按影响同步规则、
-Skill、设计与 Plan.md。未实现行为明确标记，不把结构检查当运行证据。
+Skill、设计与 Plan.md。未实现行为明确标记，不把结构检查当实际运行记录。
 完成后记录实际命令、环境、退出码、测试数量、结果和缺口；不自动提交、推送或发布。

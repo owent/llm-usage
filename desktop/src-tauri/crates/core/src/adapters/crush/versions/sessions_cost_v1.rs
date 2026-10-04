@@ -1,16 +1,16 @@
 //! Crush crush.db 格式实现（`sessions_cost_v1`，crush-sessions-cost-1）。
 //!
-//! 格式证据（charmbracelet/crush 固定源码
+//! 格式依据（charmbracelet/crush 固定源码
 //! 1f3827bcd2d20f38076b2d46123683271e6ed9ba；本机未安装、无真实样本）：
 //! - 每项目一库 `<data_dir>/crush.db`（WAL）；sessions 表
 //!   id/parent_session_id/title/message_count/prompt_tokens/completion_tokens/
 //!   cost/updated_at/created_at（Unix 秒）。
 //! - **token 列不是用量**（官方 agent.go:2060-2086：最近 step 上下文规模快照，
 //!   SET 覆盖、摘要后重置、标题请求会额外加一次）⇒ 一律不采
-//!   （求和即虚增；官方 stats.sql 的 SUM 属上游近似口径，不沿用）。
+//!   （求和即虚增；官方 stats.sql 的 SUM 是上游的近似计算方式，不沿用）。
 //! - **cost 是累计**（agent.go:2065），子会话结束回卷父行
 //!   （coordinator.go:1742-1758）⇒ 只取 parent_session_id IS NULL 根行
-//!   防双计（官方统计查询同口径）。
+//!   防双计（官方统计查询规则相同）。
 //! - 交付形态：每根会话一条 UsageObservation 事件（cost-only；token 全
 //!   Unknown）。cost 由模型费率自算（含 OpenRouter 覆盖价、FlatRate=0、
 //!   估算 usage 时 0）⇒ CostKind::Estimated（micro-USD）。

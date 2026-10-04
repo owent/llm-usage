@@ -1,10 +1,10 @@
-//! Hermes Agent 适配器（独立目录合同 architecture.md#adapter-layout）：
+//! Hermes Agent 适配器（独立目录约定 architecture.md#adapter-layout）：
 //! - 本模块是该 Agent 的稳定入口（统一接口实现与再导出）；
 //! - [`detect`]：state.db schema 指纹（真实列 + v22 主键形状）探测与版本分派；
 //! - [`versions`]：格式实现注册与映射（`session_model_usage_v1` 区间汇总）；
-//! - [`common`]：产品特有 usage 映射 + base_url 内存规范化 + 源库只读/暂存副本合同。
+//! - [`common`]：产品特有 usage 映射 + base_url 内存规范化 + 源库只读/暂存副本约定。
 //!
-//! 证据级别（A24）：固定源码 commit ef70b3661cbfcf57e583008ad91dd04d8ba46070
+//! 实现依据与核验范围（A24）：固定源码 commit ef70b3661cbfcf57e583008ad91dd04d8ba46070
 //! （hermes_state_common.py SCHEMA_SQL / hermes_state_usage.py / agent/turn_usage.py）
 //! 与官方存储文档；**本机未安装（2026-09-25 盘点 not_found），无真实样本**，
 //! 能力声明与合成 fixtures 均标注"文档级证据、待真实样本"。

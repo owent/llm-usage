@@ -1,6 +1,6 @@
 //! Kiro kiro-cli data.sqlite3 格式实现（`sqlite_v1`，kiro-cli-sqlite-1）。
 //!
-//! 格式证据（tokscale 1d9a939 sessions/kiro.rs:1491,1777-1805；闭源，本机未安装）：
+//! 格式依据（tokscale 1d9a939 sessions/kiro.rs:1491,1777-1805；闭源，本机未安装）：
 //! - `~/.local/share/kiro-cli/data.sqlite3`（macOS 备选
 //!   ~/Library/Application Support/kiro-cli/data.sqlite3）`conversations_v2`
 //!   表：`SELECT key, conversation_id, value FROM conversations_v2`（key=cwd）。
@@ -14,10 +14,10 @@
 //!   reasoning_token_count|thinking_tokens`、request_count=`request_count|
 //!   user_turn_request_count|total_request_count`（嵌套 token_usage|usage
 //!   同形，平铺优先）。
-//! - 无模型字段（第三方证据未见）⇒ 模型维度 Unknown，如实标注。
+//! - 模型字段未确认（第三方解析器未见）⇒ 模型未知，标注 Unknown。
 //! - 会话级 `user_turn_metadata.usage_info[]{value,unit:"credit"}` 是计价
 //!   单位：不映射。
-//! - 与 CLI 载体（~/.kiro/sessions/cli）的交叉重叠无证据 ⇒ 两实例分列 +
+//! - 与 CLI 载体（~/.kiro/sessions/cli）的重叠关系尚未核验 ⇒ 两实例分列 +
 //!   限制标注（真实样本后补对账）。
 
 use crate::adapters::framework::{
@@ -60,7 +60,7 @@ fn ms_field(value: Option<&serde_json::Value>) -> Option<i64> {
 /// 别名组取值（平铺层优先；嵌套 token_usage|usage 同形回退）。
 /// 返回语义：Some(Some(v))=命中有效值；Some(None)=全部别名缺失；
 /// None=命中别名但值类型错误/越界（格式偏离，调用方跳过该条目）。
-/// 类型不符的别名不遮蔽同层后续有效别名（多版本兼容兜底必须可达）。
+/// 类型不符的别名不遮蔽同层后续有效别名（多版本兼容分支必须可达）。
 fn alias(obj: &serde_json::Map<String, serde_json::Value>, keys: &[&str]) -> Option<Option<i64>> {
     let pick = |source: &serde_json::Map<String, serde_json::Value>| -> Option<Option<i64>> {
         let mut type_deviation = false;
@@ -109,7 +109,7 @@ pub fn scan(
     now_ms: i64,
 ) -> Result<ScanOutcome, CoreError> {
     // 只读连接（小库；busy 时短暂重试由 busy_timeout 覆盖，不做暂存副本——
-    // kiro-cli 库写频低，证据未显示 WAL 高竞争；失败保留旧结果由框架处理）。
+    // kiro-cli 库写频低，尚未观测到 WAL 高竞争；失败保留旧结果由框架处理）。
     let conn = Connection::open_with_flags(
         &target.path,
         OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
@@ -277,7 +277,7 @@ pub fn scan(
                 ));
                 continue;
             };
-            // 区间端点先后校验：倒置不报区间（时间证据自相矛盾）。
+            // 区间端点先后校验：倒置不报区间（起止时间自相矛盾）。
             let (interval_start_ms, interval_end_ms) = {
                 let s = ms_field(meta.get("request_start_timestamp_ms"));
                 let e = ms_field(meta.get("stream_end_timestamp_ms"));

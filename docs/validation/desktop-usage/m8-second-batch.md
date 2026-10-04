@@ -9,17 +9,19 @@
 - Windows 11 x64；Node 22+；cwd 仓库根；全量命令 `npm run verify`。
 - 本机盘点（2026-09-29，只读探测 home/APPDATA/LOCALAPPDATA）：M8 产品均未安装；
   仅 `%LOCALAPPDATA%/Zed/threads/threads.db` 存在（threads 表 schema 与官方
-  迁移 SQL 一致、**0 行**——schema 级证据，无真实用量样本）。
-- 结论：全部按 M3 未安装产品先例交付**文档级证据实现**（固定源码/官方分发物/
+  迁移 SQL 一致、**0 行**——schema 核验结果，无真实用量样本）。
+- 结论：全部按 M3 未安装产品先例交付**基于文档或源码的实现**（固定源码/官方分发物/
   第三方解析器锚点 + 合成 fixture），discover 在本机返回空（Zed 发现空库），
   真实样本出现后升级验证。
 
-## 深度调研（先于实施，逐产品证据核验）
+<a id="深度调研先于实施逐产品证据核验"></a>
 
-并行调研只读核验以下锚点（详细字段证据入
+## 深度调研（先于实施，逐产品资料核验）
+
+并行调研只读核验以下锚点（详细字段依据入
 [research.md](../../design/desktop-usage/research.md#agents) 与各适配器文件头）：
 
-| 产品 | 证据锚点 | 等级 |
+| 产品 | 核验来源 | 等级 |
 | --- | --- | --- |
 | Roo Code | RooCodeInc/Roo-Code b867ec9（已归档 2026-05） | official-source |
 | Goose | aaif-goose/goose a701bb1 | official-source |
@@ -44,7 +46,7 @@
 - **Crush token 列不是用量**：官方源码证实 `prompt_tokens/completion_tokens` 是
   最近 step 上下文规模快照（SET 覆盖、摘要后重置）；仅根会话 `cost` 累计
   （子会话回卷 ⇒ `parent_session_id IS NULL` 过滤）⇒ cost-only 实施。
-- **Roo tokensIn 含缓存**（官方三重证据），与既有 cline 适配器（dcf8c3c 四桶
+- **Roo tokensIn 含缓存**（官方三处核验依据），与既有 cline 适配器（dcf8c3c 四桶
   互斥）存在血统分歧：两适配器各按自己的锚点实现，分歧在 adapters.md 登记，
   待双方真实样本复核。
 - **jcode 缓存口径按 provider 原样**：openai input 含 cache（uncached 派生）、
@@ -62,7 +64,7 @@
   tokenUsage 在类型转换层被丢弃；Codebuff 本地仅 credits）⇒ 不实施 token
   适配器，按边界排除（与 Warp/Cursor 同类）。
 - **iFlow 已停服**且唯一用量载体是需启用的 OTel（归 M5 OTLP 合同），无适配器。
-- **Qoder 字段仍缺证**（bundle schema 线索不作数）⇒ 探针级 fail-closed 接入。
+- **Qoder 字段仍缺少可核验的资料**（bundle schema 线索不作数）⇒ 探针级 fail-closed 接入。
 
 ## 实施（18 个适配器，全部独立目录 + 版本注册表 + V30）
 
@@ -76,7 +78,7 @@ antigravity、qoder（探针）。全部注册进 `built_in_adapters()`。
 - 估算路径全部不采纳：Kiro Auto 零计数/字节折算/窗口差额、Goose reasoning 差额、
   Droid 转录分摊、Grok 累计差额/补偿、Continue devdata、Crush token 快照。
 - 双载体：Amp ledger（有 timestamp）为主、消息 usage 仅对账不推造时间；
-  Kiro CLI turns 与 kiro-cli SQLite 分列（交叉重叠无证据，如实标注）。
+  Kiro CLI turns 与 kiro-cli SQLite 分列（交叉重叠尚未核实，如实标注）。
 - 会话级聚合（不虚构逐次）：Zed（cumulative 权威 + request 桶对账）、Xum、
   Droid、Continue、AtomCode（round_count 合计作调用数）、Goose 旧库兜底。
 - 新依赖：`zstd ^0.13`（Zed threads.db zstd blob 有界解压，64 MiB 上限）。
@@ -92,9 +94,11 @@ antigravity、qoder（探针）。全部注册进 `built_in_adapters()`。
   （-D warnings）通过、Rust 全部测试通过、vite 8.3.1 构建成功。
 - `git diff --check` 通过；`git status --short` 无临时产物（build/ 已 ignore）。
 
-## 证据等级与剩余缺口
+<a id="证据等级与剩余缺口"></a>
 
-| 证据等级 | 适配器 |
+## 核验范围与剩余缺口
+
+| 核验范围 | 适配器 |
 | --- | --- |
 | official-source（含分发物）+ 本机 schema | zed |
 | official-source / official-distribution | roo、goose、crush、jcode、gajae、commandcode、continue、atomcode、aider |
@@ -143,7 +147,7 @@ Cargo 1.98.0，仓库根执行 npm/Git，`desktop/src-tauri` 执行定向 Cargo 
 测试、Svelte 检查、Rust 格式/Clippy/全量测试及 Web 构建；
 `npm run test:browser`（仓库根，退出码 0）通过浏览器交互回归。
 默认沙箱启动 Node 子进程报 `spawnSync EPERM`，按受控提权路径重跑
-同一命令成功；该错误不作为产品失败证据。
+同一命令成功；该错误不作为产品失败的依据。
 
 验收等级仍是文档级 + 合成数据：本轮没有新增 M8 产品的本机真实用量样本。
 本机默认 Copilot 数据库路径本轮探测为不存在，不能把此前 36 行真实数据

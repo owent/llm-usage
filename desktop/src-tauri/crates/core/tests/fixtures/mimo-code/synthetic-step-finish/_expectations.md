@@ -20,5 +20,5 @@
 - 日汇总（2026-06-13，UTC）：call_count=3、input_total=20300、
   cache_read=18000、cache_write=600、output=380、total_tokens=20680。
 - reconciliations 为空（无累计列对账目标）。
-- 诊断恰 1 条 latest_fallback（注册表为空，文档级证据）。
+- 诊断恰 1 条 latest_fallback（注册表为空，仅按文档或源码实现）。
 - 二次扫描幂等：call_count 仍 3。

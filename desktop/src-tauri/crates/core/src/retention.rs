@@ -10,7 +10,7 @@ use rusqlite::{params, OptionalExtension};
 use std::collections::BTreeSet;
 use std::path::Path;
 
-/// 封存字段合同版本（字段/口径变化时递增，封存行记录当时版本）。
+/// 封存字段约定版本（字段或其语义变化时递增，封存行记录当时版本）。
 pub const SEAL_FIELD_VERSION: &str = "m1-fields-1";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -1,4 +1,4 @@
-//! v6 多用户（users 表/来源归属/按用户过滤查询）与聚合导入闭环
+//! v6 多用户（users 表/来源归属/按用户过滤查询）与聚合导入与查询验证
 //!（导出 → 导入 → 数据不缺失/幂等/修订合并）的回归测试。
 
 mod common;
@@ -316,7 +316,7 @@ fn aggregate_export_import_roundtrip_restores_history() {
     let (_dir_b, storage_b) = temp_storage("import-b");
     let outcome = import_aggregate(&storage_b, &parsed, 3_000).unwrap();
     assert_eq!(outcome.sources_registered, export.sources.len());
-    // 重复导入覆盖（同修订也替换——用户合同"覆盖"语义；内容相同 SQL 幂等）。
+    // 重复导入覆盖（同修订也替换——用户约定"覆盖"语义；内容相同 SQL 幂等）。
     let again = import_aggregate(&storage_b, &parsed, 3_100).unwrap();
     assert_eq!(again.daily_inserted, 0, "同键不重复插入");
     assert_eq!(again.daily_replaced, 0);
@@ -423,7 +423,7 @@ fn import_newer_revision_replaces_and_older_conflicts() {
 
 #[test]
 fn old_version_database_rejected() {
-    // 预发布合同：任何版本不匹配都拒绝（不做迁移）。
+    // 预发布约定：任何版本不匹配都拒绝（不做迁移）。
     let dir = TempDir::new("v6-old");
     {
         let storage = Storage::open(&dir.db_path()).unwrap();

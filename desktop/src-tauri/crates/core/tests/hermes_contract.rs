@@ -1,7 +1,7 @@
-//! Hermes Agent 适配器合同测试：合成 fixture（文档级证据，目录标 synthetic，
+//! Hermes Agent 适配器约定测试：合成 fixture（尚未用真实样本核验，目录标 synthetic，
 //! A24 固定源码 ef70b3661cbfcf57e583008ad91dd04d8ba46070）经
-//! 读取→解析→区间汇总→commit→查询 全链路。数值对照
-//! tests/fixtures/hermes/*/_expectations.md 的人工核算，不改口径。
+//! 读取→解析→区间汇总→commit→查询。数值对照
+//! tests/fixtures/hermes/*/_expectations.md 的人工核算，不改计算规则。
 //!
 //! 辅助函数从 tests/common/mod.rs 复制（按任务约束不改共享 common，
 //! 避免并行冲突）；本机未安装 Hermes（2026-09-25 盘点 not_found）。
@@ -63,7 +63,7 @@ fn insert_rows(conn: &rusqlite::Connection, table: &str, rows: &[serde_json::Val
     }
 }
 
-/// 按投影（{schema:{schema_version,sessions_ddl,session_model_usage_ddl},
+/// 按脱敏数据（{schema:{schema_version,sessions_ddl,session_model_usage_ddl},
 /// sessions,session_model_usage}）在 <dir>/hermes-home/state.db 重建 SQLite 库，
 /// 返回 hermes home（可作为手工根传入 discover）。
 fn build_hermes_db(dir: &TempDir, projection: &serde_json::Value) -> PathBuf {
@@ -132,7 +132,7 @@ fn hermes_instance(root: &Path) -> String {
     format!("hermes@{}", normalize_path(root))
 }
 
-/// 一条区间汇总的白名单投影。
+/// 一条区间汇总的仅保留白名单字段的数据。
 type AggRow = (
     String,
     Option<i64>,
@@ -300,7 +300,7 @@ fn contract_basic_cumulative_row_maps_to_interval_aggregate() {
     assert_eq!(totals.exclusive_rows, 1);
     assert_eq!(totals.duplicate_rows, 0);
 
-    // 文档级证据：注册表为空 ⇒ latest_fallback 标记（compat=unverified）。
+    // 尚未用真实样本核验：注册表为空 ⇒ latest_fallback 标记（compat=unverified）。
     let fallback: i64 = storage
         .conn()
         .query_row(

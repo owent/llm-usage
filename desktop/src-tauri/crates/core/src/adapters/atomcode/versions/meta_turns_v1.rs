@@ -1,6 +1,6 @@
 //! AtomCode 会话元数据格式实现（`meta_turns_v1`，atomcode-meta-turns-1）。
 //!
-//! 格式证据（AtomGit atomgit_atomcode/atomcode 固定源码
+//! 格式依据（AtomGit atomgit_atomcode/atomcode 固定源码
 //! e4215f733eeba4cede553e28f9b559e6b3dc34ef（GitHub 镜像同 SHA 核验）；
 //! 本机未安装、无真实样本）：
 //! - 路径：`$ATOMCODE_HOME`（默认 ~/.atomcode）/sessions/&lt;project_hash&gt;/
@@ -170,7 +170,7 @@ pub fn scan(
     // turn_stats[] + detached_model_usage[] → 按 (provider, model) 累计。
     let mut acc: std::collections::BTreeMap<(String, String), ModelAccum> = Default::default();
     // 多模型 turn 与无 model_usage turn 的 round_count 无法归属单一模型
-    // （每模型是否真进行了 round_count 次往返无证据）：单列不误摊。
+    // （尚未确认每个模型是否都进行了 round_count 次往返）：单列，不分摊。
     let mut unattributed_rounds: i64 = 0;
     if let Some(turns) = document.get("turn_stats").and_then(|v| v.as_array()) {
         for turn in turns {
@@ -261,7 +261,7 @@ pub fn scan(
             continue;
         }
         let (usage, quality) = if entry.tokens_seen {
-            // 官方口径：input = prompt − cached、cached_input = min(cached, prompt)。
+            // 官方计算规则：input = prompt − cached、cached_input = min(cached, prompt)。
             (
                 TokenUsage {
                     input_uncached: Some(entry.input),
@@ -307,7 +307,7 @@ pub fn scan(
         });
     }
     if unattributed_rounds > 0 {
-        // 多模型/无 model_usage turn 的调用数：真实发生但模型归属无证据，单列。
+        // 多模型/无 model_usage turn 的调用数：调用已发生，但无法确认所属模型，单列。
         aggregates.push(SourceAggregateInput {
             instance_id: target.instance_id.clone(),
             scope: AggregateScope::Session,

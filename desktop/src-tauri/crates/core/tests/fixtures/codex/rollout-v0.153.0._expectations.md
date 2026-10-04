@@ -10,7 +10,7 @@
 - 276 行全部可解析（parseErrors=0）。
 - 记录类型计数：session_meta ×1、event_msg ×149、response_item ×75、
   world_state ×1、turn_context ×25、token_usage_record ×25。
-- session_meta.cli_version = `0.153.0`（本 fixture 的版本证据）。
+- session_meta.cli_version = `0.153.0`（本 fixture 的版本核验依据）。
 
 ## usage 数值期望（按 response_id 首次出现求和）
 
@@ -29,6 +29,6 @@
 
 ## 分派期望（V30）
 
-- 版本 `0.153.0` 在注册表登记为已验证（本 fixture 证据）⇒ detect 返回
+- 版本 `0.153.0` 在注册表登记为已验证（本 fixture 核验结果）⇒ detect 返回
   Supported { format_version: Some("0.153.0"), basis: KnownVersion }；
   事件 parse_basis = known_version，文件状态 active（非 active_compat）。

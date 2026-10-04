@@ -1,6 +1,6 @@
 //! kimi-work wire JSONL 格式实现（`wire_v14`，protocol_version 1.4）。
 //!
-//! 格式证据（本机 Kimi Work 内嵌 kimi-code home 实读 2026-09-25；
+//! 格式依据（本机 Kimi Work 内嵌 kimi-code home 实读 2026-09-25；
 //! 真实脱敏 fixture：tests/fixtures/kimi-work/{conv-main,agent-44-subagent}）：
 //! - 路径：`…/Kimi/share/daimon-share/daimon/runtime/kimi-code/home/sessions/
 //!   <wd_hash>/<conv-<hexid>|ctitle-<uuid>>/agents/<agent>/wire.jsonl`
@@ -8,7 +8,7 @@
 //! - `usage.record{model, usage{inputOther,output,inputCacheRead,
 //!   inputCacheCreation}, usageScope: turn|session, time}`——与 1.5 的差异：
 //!   **无 agentId 字段**（代理身份来自 agents/<id>/ 目录）、model 为裸 id；
-//! - 其余家族合同（回声去重、subagent 快照、毫秒时间、四互斥字段）与 1.5
+//! - 其余家族约定（回声去重、subagent 快照、毫秒时间、四互斥字段）与 1.5
 //!   实读一致 ⇒ 解析逻辑在 [`crate::adapters::kimi_wire`] 共享；
 //!   1.4 特有记录类型（tools.register_user_tool、permission.
 //!   record_approval_result、micro_compaction.apply 等）在共享忽略清单内。

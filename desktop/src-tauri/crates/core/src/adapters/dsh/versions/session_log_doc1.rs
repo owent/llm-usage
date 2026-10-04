@@ -1,8 +1,8 @@
 //! DSH 持久会话日志 JSONL 格式实现（`session_log_doc1`，文档级
 //! session-log-doc-1）。
 //!
-//! 格式证据（固定 token-meter README 46a7f68b0922371ce7144b668b90e377d8e799f4，
-//! A08，文档级证据待真实样本；本机 not_found）：
+//! 格式依据（固定 token-meter README 46a7f68b0922371ce7144b668b90e377d8e799f4，
+//! A08，按文档或源码实现，待真实样本核验；本机 not_found）：
 //! - 事件词汇（README 枚举）：`step/start`、`assistant/message`、
 //!   `llm/retry-started`、`request/context`、`request/header`、`image/offload`；
 //!   usage 样本挂在 assistant/message 上，字段
@@ -26,13 +26,13 @@
 //!   撤销旧贡献（V03 样本 7 语义），重扫重放不产生同级内容冲突；
 //! - attempt 边界（llm/retry-started / step/start）到达时对最后一个样本补发
 //!   Final（更高修订号 Replace 收口）；日志尾部未闭合 attempt 保持 Partial
-//!   （值正确，生命周期证据缺失）；
+//!   （值正确，尚未确认生命周期状态）；
 //! - 重扫后消失的 attempt 键发射 Corrected/Excluded 墓碑（防截断改写双计）；
 //!   revision_floor 与 attempt 键集跨重扫保留，折叠计数器重置。
 //!
 //! fail closed（V17）：未文档化事件 type ⇒ 整文件拒绝（游标不推进、下轮
 //! 确定性再拒）。usage 四字段值违例（负/非整数/超限）逐条跳过记诊断（部分可用）。
-//! pinned README 未记载逐事件时间字段：occurred_at 用观察时间（observed_at 口径）。
+//! pinned README 未记载逐事件时间字段：occurred_at 用观察时间（observed_at）。
 
 use crate::adapters::framework::{
     ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -248,7 +248,7 @@ pub fn scan(
             host_application: None,
             agent: "deepseek-harness".to_string(),
             call_category: CallCategory::Primary,
-            // pinned README 未记载逐事件时间字段：观察时间口径，日归属受限。
+            // pinned README 未记载逐事件时间字段：使用观察时间，日归属受限。
             occurred_at_ms: now_ms,
             observed_at_ms: Some(now_ms),
             source_time: None,
@@ -343,7 +343,7 @@ pub fn scan(
             "assistant/message" => {
                 let usage_value = line.get("usage");
                 let Some(usage_value) = usage_value else {
-                    // 无 usage 的 assistant/message：无用量证据，不产事件
+                    // 无 usage 的 assistant/message：未记录用量，不产事件
                     // （一次性诊断；部分可用）。
                     if !context.without_usage_reported {
                         context.without_usage_reported = true;
@@ -407,7 +407,7 @@ pub fn scan(
             }
             "request/context" => {
                 // contextPressure（pressureTokens/projectedTokens/contextWindow）
-                // 是估算/投影，不进入用量（一次性诊断可见）。
+                // 是估算/预测，不进入用量（一次性诊断可见）。
                 if !context.estimate_excluded_reported {
                     context.estimate_excluded_reported = true;
                     diagnostics.push(diag(
@@ -445,7 +445,7 @@ pub fn scan(
     };
     // 消失 attempt 墓碑（重扫差分）：上一轮入账、本轮折叠结果中不存在的
     // attempt 键 ⇒ Corrected/Excluded 撤销旧贡献，防截断改写双计。
-    // 仅在完整读到文件尾时更新差分基（预算中断不做差分判断）。
+    // 仅在完整读到文件尾时更新差分基（达到读取上限而中断不做差分判断）。
     let mut tracked_update = None;
     if status == ScanStatus::Complete {
         let tracked: std::collections::BTreeSet<String> =

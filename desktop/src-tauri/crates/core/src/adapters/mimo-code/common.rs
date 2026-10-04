@@ -1,11 +1,11 @@
-//! MiMo Code 产品特有的公共部分（独立目录合同 architecture.md#adapter-layout）：
+//! MiMo Code 产品特有的公共部分（独立目录约定 architecture.md#adapter-layout）：
 //! - schema 指纹（产品互斥：message 须含 `agent_id` 列、session 无 tokens_*
 //!   累计列——与 OpenCode 正好相反，不能把 OpenCode 库当 MiMo 解析）；
-//! - state 库只读合同落地（只读连接 + Online Backup 暂存副本）：
+//! - state 库只读访问实现（只读连接 + Online Backup 暂存副本）：
 //!   小工具函数复制自 `adapters/kilo/common.rs`（各 Agent 目录保持独立，
 //!   不共享模块；kilo 版本为 M3 已验收实现，语义一致仅前缀/注释不同）。
 //!
-//! 固定源码证据（A14，commit 456678b6a5afb0eef3fe2754575637218cfb3c84）：
+//! 固定源码依据（A14，commit 456678b6a5afb0eef3fe2754575637218cfb3c84）：
 //! - `packages/shared/src/global.ts` `resolveMimocodeHome`：MIMOCODE_HOME
 //!   （须绝对路径）→ `<home>/{data,cache,config,state}`；否则 XDG 默认
 //!   `$XDG_DATA_HOME/mimocode`（缺省 ~/.local/share/mimocode）；
@@ -23,7 +23,7 @@ use rusqlite::{Connection, OpenFlags};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-// ---- 源库只读访问（复制自 adapters/kilo/common.rs，各目录独立合同）----
+// ---- 源库只读访问（复制自 adapters/kilo/common.rs，各目录独立约定）----
 
 /// 一次只读访问：成功时直接用源库连接；busy/锁时自动切换到暂存副本。
 /// `guard` 持有暂存副本路径，drop 时清理（即使查询中途失败）。
@@ -50,7 +50,7 @@ impl Drop for StagingGuard {
     }
 }
 
-/// busy/锁/CANTOPEN 判定（无法一致读取的证据）。
+/// busy/锁/CANTOPEN 判定（这些错误表示无法一致读取）。
 pub(crate) fn is_busy_like(err: &rusqlite::Error) -> bool {
     matches!(
         err.sqlite_error_code(),
@@ -120,7 +120,7 @@ fn backup_to_staging(
             }
             match backup.step(limits.pages_per_step) {
                 Ok(StepResult::Done) => break Ok(()),
-                // More：实际拷贝了页，计入空间预算。
+                // More：实际拷贝了页，计入空间限制。
                 Ok(StepResult::More) => {
                     done_pages += i64::from(limits.pages_per_step);
                     if done_pages > max_pages {
@@ -131,7 +131,7 @@ fn backup_to_staging(
                     }
                     std::thread::sleep(Duration::from_millis(20));
                 }
-                // Busy/Locked（#[non_exhaustive] 其余）：无进展重试，只消耗时间预算。
+                // Busy/Locked（#[non_exhaustive] 其余）：无进展重试，仍计入超时时间。
                 // 2026-09-30 修复：此前重试也计入页数，与超时出口竞速产生
                 // 平台相关的 space cap 误报（CI Linux 页上限先于超时触发）。
                 Ok(_) => {
@@ -180,12 +180,12 @@ where
     }
 }
 
-/// 短查询事务探测（kilo 同合同）。
+/// 短查询事务探测（与 kilo 遵守同一规则）。
 pub(crate) fn short_probe(conn: &Connection) -> Result<(), rusqlite::Error> {
     conn.query_row("SELECT COUNT(*) FROM sqlite_master", [], |_| Ok(()))
 }
 
-// ---- schema 指纹（固定源码 session.sql.ts 投影；只含表/列名）----
+// ---- schema 指纹（固定源码 session.sql.ts 表/列名摘要；只含表/列名）----
 
 /// part 表关键列（逐次 usage 载体；session.sql.ts PartTable 逐字列名）。
 pub(crate) const REQUIRED_PART_COLUMNS: &[&str] = &[

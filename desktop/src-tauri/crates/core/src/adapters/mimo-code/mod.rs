@@ -1,13 +1,13 @@
-//! MiMo Code 适配器（独立目录合同 architecture.md#adapter-layout）：
+//! MiMo Code 适配器（独立目录约定 architecture.md#adapter-layout）：
 //! - 本模块是该 Agent 的稳定入口（统一接口实现与再导出）；
 //! - [`detect`]：mimocode.db schema 指纹（message.agent_id 产品互斥锚点，
 //!   不从 OpenCode 派生关系推兼容）+ session.version 注册表；
-//! - [`versions`]：格式注册表（当前空：文档级证据，全部 latest_fallback）；
-//! - [`common`]：产品互斥 schema 指纹 + 源库只读/暂存副本合同；
+//! - [`versions`]：格式注册表（当前空：文档或源码依据，全部 latest_fallback）；
+//! - [`common`]：产品互斥 schema 指纹 + 源库只读/暂存副本约定；
 //! - wire 解析核心在家族共享模块 [`crate::adapters::opencode_family`]。
 //!
-//! 格式证据（A14 固定源码 456678b6a5afb0eef3fe2754575637218cfb3c84，
-//! 文档级证据待真实样本；本机 2026-09-25 盘点 not_found）：
+//! 格式依据（A14 固定源码 456678b6a5afb0eef3fe2754575637218cfb3c84，
+//! 按文档或源码实现，待真实样本核验；本机 2026-09-25 盘点 not_found）：
 //! - 路径：`resolveMimocodeHome()`（MIMOCODE_HOME 绝对路径 → `<home>/data`；
 //!   否则 XDG `$XDG_DATA_HOME/mimocode`，缺省 ~/.local/share/mimocode）下
 //!   `mimocode.db`（通道变体 `mimocode-<channel>.db`），WAL；
@@ -83,7 +83,7 @@ impl crate::adapters::framework::SourceAdapter for MimoCodeAdapter {
         for manual in &ctx.manual_roots {
             roots.push((manual.clone(), RootBasis::Manual));
         }
-        // 发现范围按**数据目录名**收敛（不按文件名递归全盘）：mimocode*.db 只在
+        // 发现范围按**数据目录名**限定（不按文件名递归全盘）：mimocode*.db 只在
         // mimocode 数据目录或 MIMOCODE_HOME/data 内接受。手工根兼容四种形状：
         // 数据目录本身、<root>/data（MIMOCODE_HOME 形状）、<root>/mimocode、
         // <root>/.local/share/mimocode——防止把同血统产品目录里的同名前缀库

@@ -22,7 +22,7 @@ real_verify examples ×5、本机真实只读核对。
 | 3 | `npm run verify`（仓库根） | 0 | lint:md 89 文件 0 问题、assets:check、test:scripts、svelte-check、fmt --check、clippy、cargo test（core 249 + app 2 = **251**）、vite build 全绿 |
 | 4 | `cargo run -p llm-usage-core --example real_verify_pi -- ~/.pi/agent build/desktop-usage-validation/real-check-pi` | 0 | 本机真实只读核对，白名单聚合见下 |
 | 5 | `cargo run -p llm-usage-core --example real_verify_omp -- ~/.omp/agent build/desktop-usage-validation/real-check-omp` | 0 | 同上 |
-| 6 | real_verify_claude / real_verify_gemini / real_verify_qwen | 0 | 均 discovered 0 根（no_data / not_found 证据见下） |
+| 6 | real_verify_claude / real_verify_gemini / real_verify_qwen | 0 | 均 discovered 0 根（no_data / not_found 核验结果见下） |
 
 ## 冷启动简报问题②定案：oh-my-pi 需要独立适配器（已完成）
 
@@ -72,7 +72,7 @@ pub(crate) 解析件（parse_usage/map_cost/事件构造等）。与 pi 的真�
 | 重复扫描 | rescan_added=0（幂等） |
 | 汇总（UTC） | calls=37；input_total 2,805,788；cache_read 2,592,768；output 58,631；total 2,864,419 |
 
-说明：中断记录写「pi sessions 为空（no_data）」是 2026-09-24 上午的旧证据；
+说明：中断记录写「pi sessions 为空（no_data）」是 2026-09-24 上午的旧核验结果；
 当日 16:37 起本机开始产生 pi 会话（首个脱敏 fixture 即取自该会话），
 本次核对时已有 2 个文件。不变量核验：input_total+output = total（2,805,788+58,631=2,864,419）成立。
 
@@ -90,13 +90,13 @@ pub(crate) 解析件（parse_usage/map_cost/事件构造等）。与 pi 的真�
 
 ### Claude Code / Gemini CLI / Qwen Code
 
-| 源 | 本机证据（2026-09-25 复探） | 结论 |
+| 源 | 本机核验结果（2026-09-25 复探） | 结论 |
 | --- | --- | --- |
 | claude | `~/.claude` 存在（backups/ide/sessions/skills），无 `projects/` 目录；real_verify_claude discovered_roots=0 | no_data |
 | gemini | `~/.gemini` 不存在；real_verify_gemini 0 根 | not_found |
 | qwen | `~/.qwen` 不存在；real_verify_qwen 0 根 | not_found |
 
-三源适配器与测试基于文档级/固定源码证据（文件头逐条标注），真实 fixture
+三源适配器与测试基于文档级/固定版本源码依据（文件头逐条标注），真实 fixture
 待本机出现数据后按 m0-agent-fixtures 脱敏流程补取。
 
 ## fork 已知偏差（pi/omp 同一定案）
@@ -123,13 +123,15 @@ conflict 而非 Keep。pi.rs/omp.rs 的 capability dedup.fork_copies 文本与
 
 | 项 | 状态 | 后续 |
 | --- | --- | --- |
-| Codex 旧版本逐版本 fixture | **部分完成**（2026-09-25，[m2d](m2d-layout-versions.md)：0.153.0/0.154.0-alpha.6.1/6.2 已验证；0.139–0.151 实测无逐次载体，待专用实现取证） | 按 m2d 记录后续条件执行 |
+| Codex 旧版本逐版本 fixture | **部分完成**（2026-09-25，[m2d](m2d-layout-versions.md)：0.153.0/0.154.0-alpha.6.1/6.2 已验证；0.139–0.151 实测无逐次载体，待专用实现核验） | 按 m2d 记录后续条件执行 |
 | 适配器目录化迁移与未知版本兼容尝试（execution.md#m2-layout） | **已完成**（2026-09-25，[m2d](m2d-layout-versions.md)） | — |
 | OMP_PROFILE 命名 profile 目录规则 | 未核验 | 仅支持默认 ~/.omp，已记 omp.rs limitations |
 | claude/gemini/qwen 真实 fixture | 本机无数据 | 本机出现数据后按脱敏流程补取复验 |
 | OTel 遥测 | 未实现 | M5 |
 
-## 证据文件
+<a id="证据文件"></a>
+
+## 验证产物
 
 - 适配器：`adapters/{pi,omp,claude,gemini,qwen,usage_map}.rs`；测试：`tests/{pi,omp,claude,gemini,qwen}_*.rs`、`tests/common/mod.rs`、`tests/fixtures/{pi,omp,claude,gemini,qwen}/`。
 - examples：`real_verify_{codex,pi,omp,claude,gemini,qwen}.rs`。

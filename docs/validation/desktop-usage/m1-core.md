@@ -76,7 +76,9 @@
 | 定时器/防抖/系统任务 | 未实现（仅表结构与作业语义） | M6 |
 | import_manifests 旧库导入逻辑 | 仅状态存储 | M2 |
 
-## 证据文件
+<a id="证据文件"></a>
+
+## 验证产物
 
 - `desktop/src-tauri/crates/core/`：核心库源码与测试（tests/ 下 10 个集成测试文件）。
 - `desktop/src-tauri/Cargo.lock`：含 jiff 与 llm-usage-core 条目。

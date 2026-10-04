@@ -1,5 +1,5 @@
 //! ZCode V12 增量语义：重复扫描不增量、追加续读、半行跨轮、截断重扫、
-//! 改名保身份、预算分片恢复。样本为真实脱敏 fixture（real-main-session，
+//! 改名保身份、达到读取上限后分批恢复。样本为真实脱敏 fixture（real-main-session，
 //! 4 条记录，人工核算见 _expectations.md：input 合计 1,567,484、total 1,568,658）。
 
 mod common;

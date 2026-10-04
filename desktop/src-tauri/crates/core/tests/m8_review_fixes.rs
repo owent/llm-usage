@@ -266,7 +266,7 @@ fn jcode_fixture(dir: &Path, journal_lines: usize) -> (PathBuf, PathBuf) {
 fn jcode_journal_budget_exhaustion_reported() {
     use llm_usage_core::adapters::jcode::JcodeAdapter;
     let dir = temp_dir("jcode-budget");
-    // 超过硬编码 100k 行预算：旧实现静默报 Complete，尾部消息永久漏计。
+    // 超过硬编码的 100k 行数上限：旧实现静默报 Complete，尾部消息永久漏计。
     let (snapshot, journal) = jcode_fixture(&dir, 100_500);
     let mut file = std::fs::OpenOptions::new()
         .append(true)
@@ -551,7 +551,7 @@ fn goose_schema_fingerprint_change_resets_cursor() {
         cursor: first.cursor.clone(),
         parse_context: first.parse_context.clone(),
     };
-    // schema 变化（列集投影进指纹）⇒ 旧游标作废全量重读（upsert 幂等）。
+    // schema 变化（列集纳入指纹）⇒ 旧游标作废全量重读（upsert 幂等）。
     {
         let conn = rusqlite::Connection::open(&db).unwrap();
         conn.execute_batch("ALTER TABLE usage_ledger ADD COLUMN extra TEXT;")

@@ -1,6 +1,6 @@
-//! M8 第二批适配器合同测试：17 个适配器的合成 fixture（文档级证据，
+//! M8 第二批适配器约定测试：17 个适配器的合成 fixture（尚未用真实样本核验，
 //! 2026-09-29 调研锚点；本机盘点均未安装，仅 Zed 有空库）经 探测→扫描→
-//! 断言 全链路。期望值为本文件各用例内的人工核算，不改口径。
+//! 各步骤的断言。期望值为本文件各用例内的人工核算，不改计算规则。
 //!
 //! 手工核算摘要（fixture 数值）：
 //! - zed：cumulative{in=120,out=34}（cr/cc 缺省=已报告 0）⇒ 聚合
@@ -24,12 +24,12 @@
 //!   Estimated）；子会话行排除。
 //! - jcode：openai input=100 cr=30 cw=10 ⇒ uncached=60；anthropic in=60
 //!   cr=30 cw=10 ⇒ input_total=100；崩溃窗口同 id 取 journal 版。
-//! - gajae：五桶 {1,2,3,4,10} ⇒ pi 口径 totalTokens=10 与四桶和一致；
+//! - gajae：五桶 {1,2,3,4,10} ⇒ 按 pi 的计算规则，totalTokens=10 与四桶和一致；
 //!   缺桶行跳过。
 //! - commandcode：链上 2 条 assistant usage；孤儿分支 1 条不计。
 //! - continue：CLI usage ⇒ 1 聚合（prompt/completion/cached）；
 //!   GUI 会话（无 usage）0 产出。
-//! - atomcode：两模型累计 ⇒ 2 聚合；rounds 合计 5；input=prompt−cached 口径。
+//! - atomcode：两模型累计 ⇒ 2 聚合；rounds 合计 5；计算规则 input=prompt−cached。
 //! - kiro：CLI 1 个非零 turn 入账、1 个全零 turn（Auto）跳过；
 //!   sqlite request_metadata 1 事件（毫秒时间戳）。
 //! - antigravity：protobuf 行 #1+#2 input、#9.#4 时间戳 ⇒ 事件；无时间戳行
@@ -735,7 +735,7 @@ fn gajae_five_bucket_gate_and_pi_mapping() {
         DetectOutcome::Supported { .. }
     ));
     let outcome = scan(&adapter, &session);
-    // 五桶齐全 1 条入账；缺桶行跳过（官方 parser 同口径）。
+    // 五桶齐全 1 条入账；缺桶行跳过（官方 parser 规则相同）。
     assert_eq!(outcome.events.len(), 1);
     let event = &outcome.events[0];
     assert_eq!(event.usage.input_uncached, Some(1));
@@ -879,7 +879,7 @@ fn atomcode_meta_turns_by_model() {
     ));
     let outcome = scan(&adapter, &meta);
     // 两模型各一聚合 + 多模型 turn 的 round_count 单列 unattributed
-    // （t1 的 3 轮归属无证据，不能对 claude/gpt 各计一次虚增合计）。
+    // （t1 的 3 轮调用无法确认所属模型，不能对 claude/gpt 各计一次虚增合计）。
     assert_eq!(outcome.aggregates.len(), 3, "两模型各一聚合 + unattributed");
     let claude = outcome
         .aggregates
@@ -1114,7 +1114,7 @@ fn qoder_probe_fail_closed() {
         .any(|d| d.code == "usage_fields_unverified"));
 }
 
-// ---- 结构合同：V30 注册表形状（M8 全目录）----
+// ---- 结构约定：V30 注册表形状（M8 全目录）----
 
 #[test]
 fn m8_adapter_directories_and_registries() {

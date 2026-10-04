@@ -1,11 +1,11 @@
 //! 适配器框架：discover → detect → scan → map → capability 统一接口，
 //! 以及把扫描结果接入 M1 `commit_batch` 管线的运行器（V12：重复扫描不增量）。
 //!
-//! 合同要点：
+//! 规则要点：
 //! - discover：候选路径 + 环境覆盖 + 手工根，有界枚举，不全盘扫描；
 //! - detect：文件 magic/记录类型/schema 指纹 + Agent 目录版本注册表分派；
 //!   未知/缺失版本默认尝试该 Agent 最新内置解析器并带兼容标记（V17/V30），
-//!   有证据的不兼容版本与未知格式 fail closed 返回受限；
+//!   已确认不兼容的版本与未知格式 fail closed 返回受限；
 //! - scan：增量游标读取（JSONL 游标 = 文件身份 + generation + 完整行字节偏移 + 解析上下文）；
 //! - capability：每源字段能力声明，供未来数据源页使用；
 //! - 诊断只存字段名/错误码/位置，不复制原始内容。
@@ -22,7 +22,7 @@ use std::path::{Path, PathBuf};
 
 use super::jsonl::{FileProbe, JsonlLimits, StoredFileState};
 
-/// 单源每轮墙钟预算初值（architecture.md：30 秒）。
+/// 单源每轮墙钟超时初值（architecture.md：30 秒）。
 pub const DEFAULT_SOURCE_TIME_BUDGET: std::time::Duration = std::time::Duration::from_secs(30);
 /// 发现阶段的文件/目录上界（有界探测）。
 pub const DISCOVER_MAX_FILES: usize = 20_000;
@@ -88,7 +88,7 @@ pub struct DiscoveredRoot {
     pub files: Vec<PathBuf>,
 }
 
-/// 格式探测结果（architecture.md 未知版本兼容合同）：
+/// 格式探测结果（architecture.md 未知版本兼容约定）：
 /// - Supported：Agent 身份与输入类型已确认。已知版本按注册表映射分派（KnownVersion）；
 ///   未知/缺失版本默认选择该 Agent 最新内置解析器（LatestFallback），结果须带兼容标记。
 /// - UnsupportedVersion：有证据判定不兼容的版本（如固定源码证实格式不同），不尝试回退。
@@ -178,7 +178,7 @@ pub struct ScanLimits {
 pub enum ScanStatus {
     /// 读到当前文件尾。
     Complete,
-    /// 达到预算，游标停在完整行边界，下轮继续。
+    /// 达到读取上限或超时，游标停在完整行边界，下轮继续。
     BudgetExhausted,
     /// 某行超过单行上限：受限，游标停在该行起点，允许受控重试。
     LineTooLong,
@@ -202,11 +202,11 @@ impl ScanStatus {
 pub struct Reconciliation {
     /// 系列标签（如 "session_cumulative_snapshot"），不含 ID/路径。
     pub series: String,
-    /// 逐次明细合计（total_tokens 口径）。
+    /// 逐次明细的 total_tokens 合计。
     pub detail_sum: i64,
     /// 最终累计快照值。
     pub snapshot_final: Option<i64>,
-    /// 有证据排除的边界记录合计（如 compaction 携带记录）。
+    /// 按已核验规则排除的边界记录合计（如 compaction 携带记录）。
     pub carried_sum: i64,
     /// detail_sum - (snapshot_final + carried_sum)。
     pub difference: Option<i64>,
@@ -338,7 +338,7 @@ pub struct SourceInstanceInput {
     pub origin_host_id: Option<String>,
 }
 
-/// 迁移前的历史来源命名空间（v4 前无主机证据）。
+/// 迁移前的历史来源命名空间（v4 前未记录主机身份）。
 pub const LEGACY_UNKNOWN_HOST: &str = "legacy_unknown";
 
 pub fn upsert_source_instance(
@@ -676,7 +676,7 @@ impl InstanceFilter {
 /// 带实例过滤的运行（run_adapter_scan 的过滤版；逐源定时接线用）。
 /// 停用实例（source_instances.enabled=0）在统一门控，任何触发路径
 /// （Interval/Startup/Manual/FixedTime）都不读取——"只读取用户启用的
-/// 本地来源"与 set_source_enabled"停用后不再读取该实例"的合同。
+/// 本地来源"与 set_source_enabled"停用后不再读取该实例"的约定。
 /// 停用集加载失败时本适配器 fail-closed（宁可不扫，不越权读取）。
 pub fn run_adapter_scan_filtered(
     storage: &Storage,
@@ -1014,7 +1014,7 @@ fn scan_one_file(
             false,
         ));
     }
-    // 首次或重扫时重新探测格式；有证据的不兼容版本与未知格式 fail closed（V17），
+    // 首次或重扫时重新探测格式；已确认不兼容的版本与未知格式 fail closed（V17），
     // 未知/缺失版本按该 Agent 注册表选择最新内置解析器并带兼容标记。
     let mut detect_basis: Option<crate::domain::VersionBasis> = None;
     if stored.cursor.is_none() || rescan {

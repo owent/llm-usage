@@ -1,6 +1,6 @@
-//! Kimi Code（A12，M4）合同测试：真实脱敏 fixture（session-main + subagent-agent-0，
+//! Kimi Code（A12，M4）约定测试：真实脱敏 fixture（session-main + subagent-agent-0，
 //! 本机 desktop 1.0.3 / wire protocol_version=1.5，2026-09-25 提取）经
-//! 读取→解析→标准化→commit_batch→查询 全链路。期望值为人工核算，
+//! 读取→解析→标准化→commit_batch→查询。期望值为人工核算，
 //! 见 tests/fixtures/kimi-code/*.sanitized.json 同名 _expectations.md。
 
 mod common;

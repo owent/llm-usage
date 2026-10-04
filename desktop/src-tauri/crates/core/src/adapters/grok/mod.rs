@@ -1,4 +1,4 @@
-//! Grok Build 适配器（xAI，闭源；独立目录合同）。载体：
+//! Grok Build 适配器（xAI，闭源；独立目录约定）。载体：
 //! `$GROK_HOME`（默认 ~/.grok）下 sessions/&lt;workspace&gt;/&lt;session&gt;/updates.jsonl
 //! 的显式 usage 块；累计差额/压缩补偿/子代理 PID 归因等推断路径不采纳。
 

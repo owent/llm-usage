@@ -1,6 +1,6 @@
 //! Kiro CLI 会话头格式实现（`cli_turns_v1`，kiro-cli-turns-1）。
 //!
-//! 格式证据（tokscale 1d9a939 sessions/kiro.rs:48-113；闭源，本机未安装）：
+//! 格式依据（tokscale 1d9a939 sessions/kiro.rs:48-113；闭源，本机未安装）：
 //! - `~/.kiro/sessions/cli/*.json` 会话头：`session_id`、`cwd`、
 //!   `session_state.rts_model_state.model_info.{model_id, context_window_tokens}`、
 //!   `session_state.conversation_metadata.user_turn_metadatas[]`。
@@ -10,7 +10,7 @@
 //! - **估算不采纳**（模块头 "ESTIMATED, not measured"）：Auto agent 常记 0、
 //!   字节/4 折算与 context_window 差额路径全部跳过 ⇒ 只采至少一个计数
 //!   字段在场的 turn（全缺失/全 0 跳过记诊断）。
-//! - `end_timestamp` 单位第三方证据未标明：按量级判别（≥1e11 视为毫秒，
+//! - `end_timestamp` 单位在第三方解析器中未标明：按量级判别（≥1e11 视为毫秒，
 //!   否则秒×1000；与 tokscale crush 同型判别），越域拒绝。
 //! - metering credit 是计价单位（0.04 USD/credit 为第三方换算，不采信）⇒
 //!   不映射 cost。
@@ -134,7 +134,7 @@ pub fn scan(
         }
     };
     let doc_session_id = document.get("session_id").and_then(|v| v.as_str());
-    // 缺 session_id 时去重键用文件身份兜底：多个缺 id 文件的键不能都塌缩成
+    // 缺 session_id 时去重键改用文件身份：多个缺 id 文件的键不能都塌缩成
     // kiro:unknown:turn:N 而互相吞并；事件 session 维度不虚构，保持 None。
     let session_key = doc_session_id.unwrap_or(target.file_identity.as_str());
     let model = document
@@ -200,7 +200,7 @@ pub fn scan(
             continue;
         }
         let [input, output, cache_read, cache_write] = values;
-        // 全 0/缺失：Auto agent 常记 0（第三方证据），无真实计数 ⇒ 不采。
+        // 全 0/缺失：Auto agent 常记 0（第三方解析器说明），无真实计数 ⇒ 不采。
         if input.unwrap_or(0) == 0
             && output.unwrap_or(0) == 0
             && cache_read.unwrap_or(0) == 0

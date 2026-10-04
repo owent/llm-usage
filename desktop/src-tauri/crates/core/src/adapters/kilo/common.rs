@@ -1,6 +1,6 @@
-//! Kilo Code CLI 产品特有的公共部分（从根级 usage_map.rs 下沉，V30 目录合同）：
-//! - usage 映射（`map_kilo`/`KiloUsage`，全互斥口径）；
-//! - 源 SQLite 只读合同落地（architecture.md#database 末五条）：
+//! Kilo Code CLI 产品特有的公共部分（从根级 usage_map.rs 下沉，V30 目录约定）：
+//! - usage 映射（`map_kilo`/`KiloUsage`，全互斥关系）；
+//! - 源 SQLite 只读访问实现（architecture.md#database 末五条）：
 //!   只读连接 + 短查询；busy/锁时经 Online Backup API 生成系统临时目录暂存副本，
 //!   带页/时间/空间上限并清理；仍无法一致读取时把 busy 上抛，由框架保留旧结果；
 //!   绝不写源库（不 checkpoint、不改 journal/schema、不新建源端 sidecar）。
@@ -19,7 +19,7 @@ use std::time::{Duration, Instant};
 /// kilo（opencode 派生）message.data.tokens：
 /// total = input+output+reasoning+cache.read+cache.write 全互斥（与其他源相反，
 /// m0-agent-fixtures.md 实读结论）。因此 canonical output_total 须把 reasoning
-/// 并入（derived），才能满足统一合同 total_tokens = input_total + output_total。
+/// 并入（derived），才能满足统一约定 total_tokens = input_total + output_total。
 ///
 /// `total` 为 `Option`：未完成/出错消息可缺 `total` 字段（7.4.8/7.4.9 真实 fixture
 /// 各有 2/1 条；本机实读库 13,342 条 assistant 中 42 条缺失）——缺失时 source_total
@@ -121,7 +121,7 @@ impl Drop for StagingGuard {
     }
 }
 
-/// busy/锁/CANTOPEN 判定（无法一致读取的证据）。
+/// busy/锁/CANTOPEN 判定（这些错误表示无法一致读取）。
 pub(crate) fn is_busy_like(err: &rusqlite::Error) -> bool {
     matches!(
         err.sqlite_error_code(),
@@ -148,7 +148,7 @@ impl Default for StagingLimits {
             pages_per_step: 512,
             // 空间上限 2 GiB：更大的活库不强行暂存（busy/unsupported 保留旧结果）。
             max_bytes: 2 * 1024 * 1024 * 1024,
-            // 时间上限 30s：超限放弃暂存并按 busy 上抛（单源每轮 30s 预算之内）。
+            // 时间上限 30s：超限放弃暂存并按 busy 上抛（单源每轮 30s 超时时间之内）。
             max_time: Duration::from_secs(30),
         }
     }
@@ -201,7 +201,7 @@ fn backup_to_staging(
             match backup.step(limits.pages_per_step) {
                 Ok(StepResult::Done) => break Ok(()),
                 // Busy/Locked/More（StepResult 标记 #[non_exhaustive]）按可重试推进。
-                // More：实际拷贝了页，计入空间预算。
+                // More：实际拷贝了页，计入空间限制。
                 Ok(StepResult::More) => {
                     done_pages += i64::from(limits.pages_per_step);
                     if done_pages > max_pages {
@@ -212,7 +212,7 @@ fn backup_to_staging(
                     }
                     std::thread::sleep(Duration::from_millis(20));
                 }
-                // Busy/Locked（#[non_exhaustive] 其余）：无进展重试，只消耗时间预算。
+                // Busy/Locked（#[non_exhaustive] 其余）：无进展重试，仍计入超时时间。
                 // 2026-09-30 修复：此前重试也计入页数，与超时出口竞速产生
                 // 平台相关的 space cap 误报（CI Linux 页上限先于超时触发）。
                 Ok(_) => {
@@ -268,7 +268,7 @@ where
     }
 }
 
-/// kilo.db schema 指纹：表与关键列的存在性投影（不含数据、不含正文）。
+/// kilo.db schema 指纹：表与关键列的存在情况（不含数据、不含正文）。
 /// message 五列 + session 九列（usage 对账需要 tokens_* 五列）。
 pub(crate) const REQUIRED_MESSAGE_COLUMNS: &[&str] =
     &["id", "session_id", "time_created", "time_updated", "data"];
@@ -364,7 +364,7 @@ mod tests {
         assert_eq!(missing.quality.source_total, Q::Unknown);
         assert_eq!(missing.usage.total_tokens, Some(17));
 
-        // 直报 total 与派生不一致进诊断（派生口径成立才有可比性）。
+        // 直报 total 与派生值不一致时记诊断（包含关系成立才有可比性）。
         let bad = map_kilo(&KiloUsage {
             input: 10,
             output: 5,
@@ -391,7 +391,7 @@ mod tests {
             cache_write: 0,
             total: None,
         });
-        // 溢出的派生字段保持 None（未知），不 panic、不钳制。
+        // 溢出的派生字段保持 None（未知），不 panic、不截断数值。
         assert_eq!(m.usage.input_total, None);
         assert_eq!(m.usage.total_tokens, None);
     }

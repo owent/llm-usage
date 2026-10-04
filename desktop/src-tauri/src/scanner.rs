@@ -1,5 +1,5 @@
 //! 采集运行器：内置适配器注册表 + 全源刷新 + 间隔调度循环（M6）。
-//! 合同：只读取用户启用的本地来源；定时任务只运行本应用采集逻辑；
+//! 约定：只读取用户启用的本地来源；定时任务只运行本应用采集逻辑；
 //! 同一时刻仅一个刷新在执行（重复触发合并，V12/V23）。
 
 use crate::app_state::{summarize_reports, AppState, RefreshInstanceSummary};
@@ -153,7 +153,7 @@ fn run_refresh_in_context(
     };
     // 全局刷新排除有自定义启用计划的实例（逐源节奏覆盖全局）。排除集
     // 加载失败时宁可本轮不扫（记失败摘要），也不能把自定义计划的来源
-    // 卷进全局节奏——节奏合同优先于本轮覆盖。
+    // 卷进全局节奏——节奏约定优先于本轮覆盖。
     let scheduled_due = if include.is_none() && trigger == TriggerKind::Interval {
         let storage = state.storage.lock().unwrap();
         llm_usage_core::schedules::due_instances(&storage, now).unwrap_or_default()

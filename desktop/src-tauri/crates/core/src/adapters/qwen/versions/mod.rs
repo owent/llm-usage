@@ -4,7 +4,7 @@
 //! Qwen 的格式锚点是固定源码 commit（085e98c0 前缀），不是发布版本白名单：
 //! `record.version`（CLI 版本）逐条存 schema_version，不参与分派；本注册表为
 //! 与其他 Agent 统一的结构而设，当前仅一个格式实现 `chatrecord_085e98c0`
-//! （A18 固定源码证据）。重固定新 commit 后增加条目并扩展枚举。
+//! （A18 固定源码依据）。重固定新 commit 后增加条目并扩展枚举。
 //!
 //! 选择规则（与其他 Agent 同形）：
 //! - 已收录格式版本 → `KnownVersion`，按映射分派；
@@ -23,7 +23,7 @@ pub const QWEN_FORMAT_VERSION: &str = "chatrecord-085e98c0";
 /// 键是固定源码 commit 锚点，不是 CLI 版本白名单（`record.version` 逐条存
 /// schema_version，不做白名单）；注册表为统一结构而设。
 pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[
-    // A18 固定源码证据（qwen-code commit 085e98c00cac2f8dd29eb39c760409bc6da889a9）。
+    // A18 固定源码依据（qwen-code commit 085e98c00cac2f8dd29eb39c760409bc6da889a9）。
     ("chatrecord-085e98c0", "chatrecord_085e98c0"),
 ];
 

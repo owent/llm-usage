@@ -100,7 +100,7 @@ fn echo_and_micro_compaction_never_double_count() {
         .any(|r| r.series == "kimi_wire_step_end_echo" && r.verdict == "matched"));
 }
 
-/// 坏形状隔离：同家族口径——负值/未知 scope/秒级时间各记诊断跳过；
+/// 坏形状隔离：沿用同家族处理规则——负值/未知 scope/秒级时间各记诊断跳过；
 /// 唯一正常记录 {200,60,800,10} 入账。
 #[test]
 fn bad_shapes_skip_without_guessing() {

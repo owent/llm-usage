@@ -41,7 +41,7 @@
 
 ## 三平台首次登记运行（2026-09-30）
 
-| 运行 | 触发/HEAD | 结论 | 证据 |
+| 运行 | 触发/HEAD | 结论 | 运行记录 |
 | --- | --- | --- | --- |
 | [36444880100](https://github.com/owent/llm-usage/actions/runs/36444880100) | push `当前进度暂时完成`（7831f89，2026-09-28） | **success**（6/6 作业：windows-2022 / ubuntu-22.04 / macos-15 release 构建 + Markdown 文档检查 + Rust fmt/clippy/test + 前端类型检查与构建；5m18s） | `gh run view` 查询（2026-09-30） |
 | [36707037687](https://github.com/owent/llm-usage/actions/runs/36707037687) | push `F2 费用估算引擎…`（118c442，2026-09-30） | **failure**（Rust 作业：kilo busy_writer 在 Linux 上暴露暂存备份 Busy 重试计入页数的既有竞速——20.5s 页上限先于 30s 超时触发误报 space cap；Windows 本地超时出口先触发故全绿。修复见 36709419197） | `gh run view --log-failed` + WSL Linux 复现 |

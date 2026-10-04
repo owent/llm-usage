@@ -1,4 +1,4 @@
-//! jcode 适配器（jcode.sh，开源 Rust 终端 Agent；独立目录合同）。载体：
+//! jcode 适配器（jcode.sh，开源 Rust 终端 Agent；独立目录约定）。载体：
 //! `$JCODE_HOME`（默认 ~/.jcode）/sessions/session_*.json 快照 +
 //! 同 stem `.journal.jsonl`（journal 权威覆盖快照；按消息 id upsert 幂等）。
 

@@ -1,13 +1,13 @@
-//! 新版 Kimi Code 适配器（独立目录合同 architecture.md#adapter-layout，M4/A12）：
+//! 新版 Kimi Code 适配器（独立目录约定 architecture.md#adapter-layout，M4/A12）：
 //! - 本模块是该 Agent 的稳定入口（统一接口实现与再导出）；
 //! - [`detect`]：产品/格式探测与版本分派（首行 metadata 头 + protocol_version）；
 //! - [`versions`]：已验证格式实现的注册与映射；未收录/缺失版本默认回退最新
-//!   内置解析器（无有证据不兼容版本）；
+//!   内置解析器（尚无已确认不兼容的版本）；
 //! - wire 解析逻辑在家族共享模块 [`crate::adapters::kimi_wire`]（与 Kimi Work
 //!   经真实数据测试证明一致的部分）；数据根、实例身份、注册表锚点与统计分列
 //!   独立（adapters.md：不因内核同名合并）。
 //!
-//! 格式证据：本机 desktop 1.0.3、wire protocol_version=1.5（M0 fixture +
+//! 格式依据：本机 desktop 1.0.3、wire protocol_version=1.5（M0 fixture +
 //! tests/fixtures/kimi-code 真实脱敏样本，2026-09-25）。
 
 pub mod detect;

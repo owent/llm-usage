@@ -6,12 +6,12 @@ V30 起 omp 未知版本策略改为 latest_fallback 兼容回退，本文件与
 
 ## 场景与期望（V30：未收录/缺失 version 都回退最新内置解析器尝试）
 
-omp 旧版落盘格式未取证（无证据表明不同），与 pi 不同：pi 的 v1/v2 有固定源码
-不兼容证据仍 fail closed，omp 没有——未收录数值版本与 `version` 字段缺失都按
+omp 旧版落盘格式未核验（尚未确认格式差异），与 pi 不同：pi 的 v1/v2 已由固定源码
+确认不兼容，仍 fail closed；omp 尚未确认不兼容，未收录数值版本与 `version` 字段缺失都按
 `LatestFallback` 回退 `session_v3` 尝试，不直接拒绝；结构不兼容由扫描层 V30
 判定（读到记录、零事件且带结构诊断 ⇒ 保留旧结果）。
 
-- `...d020.jsonl`（3 行）：session 头 `version=4`（本机证据仅收录 3）⇒ detect
+- `...d020.jsonl`（3 行）：session 头 `version=4`（本机仅核验过 3）⇒ detect
   `Supported{format=omp-session-jsonl, format_version=Some("4"),
   basis=latest_fallback}`。
 - `...d021.jsonl`（3 行）：session 头无 `version` 字段（legacy 形状；条目 id 为

@@ -1,4 +1,4 @@
-//! Qoder 探测：会话 JSONL/state.json 指纹（识别但不解析——用量字段缺证）。
+//! Qoder 探测：会话 JSONL/state.json 指纹（识别但不解析——用量字段尚未核验）。
 
 use crate::adapters::framework::DetectOutcome;
 use crate::domain::VersionBasis;

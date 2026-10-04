@@ -1,9 +1,9 @@
 /**
- * 多语言消息目录（F3 合同：docs/design/desktop-usage/i18n.md）。
+ * 多语言消息目录（F3 约定：docs/design/desktop-usage/i18n.md）。
  * - 语言协商：用户设置 → 系统语言 → 默认；
  * - 缺失键回退默认语言并 console.warn（开发可诊断）；
  * - 键名点分命名空间，{name} 插值；复数按 key.one/key.other（zh 只有 other）；
- * - 数字/日期/百分比用 Intl（ECMA-402）；统计口径（时区/周起始）不随语言改变；
+ * - 数字/日期/百分比用 Intl（ECMA-402）；统计时间规则（时区/周起始）不随语言改变；
  * - 切换即时生效（runes 响应式，无需重启）。
  */
 import { translatedCatalogs } from './locales';

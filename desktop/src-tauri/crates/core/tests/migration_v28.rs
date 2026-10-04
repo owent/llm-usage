@@ -1,6 +1,6 @@
 //! V28（M1a）：历史来源身份与存储分区。
 //! 主机身份稳定（改名不重复计数、同名不同主机不键冲突）、v3→v4 迁移
-//! （legacy_unknown 命名空间、封存保留、认领与分区重算）、交换合同
+//! （legacy_unknown 命名空间、封存保留、认领与分区重算）、交换约定
 //! （格式版本/来源注册/字段完整性/修订/快照-增量性质）与合并判定
 //! （幂等跳过/权威替换/互斥新增/冲突保留）用脱敏固定样本验证。
 
@@ -237,7 +237,7 @@ fn legacy_instances_claimed_only_by_verified_local_scan() {
 
 #[test]
 fn old_version_database_rejected_not_migrated() {
-    // 预发布合同：旧版本库直接拒绝打开（应用层提示重建），不做迁移。
+    // 预发布约定：旧版本库直接拒绝打开（应用层提示重建），不做迁移。
     let dir = TempDir::new("v28-old-version");
     {
         let storage = Storage::open(&dir.db_path()).unwrap();
@@ -456,7 +456,7 @@ fn merge_decisions_follow_contract_table() {
         llm_usage_core::exchange::MergeDecision::ReplaceAfterRevoke
     );
 
-    // 修订同级更正但修订号相同：缺少更高修订顺序证据，内容不同 → 冲突可见
+    // 修订同级更正但修订号相同：无法确认哪条修订更新，内容不同 → 冲突可见
     //（与 ingest 仲裁一致：修订号相等只比内容；更正要替换须携带更高修订号）。
     assert_eq!(
         decide_record_merge(&base, &hash_b, Lifecycle::Corrected, Some(&existing)),
@@ -568,7 +568,7 @@ fn tz_partition_repair_makes_history_visible_in_user_timezone() {
 
 #[test]
 fn readonly_queries_do_not_block_behind_writer_transaction() {
-    // WAL 合同：一个后台写者 + 只读连接并发。写事务未提交期间，
+    // WAL 约定：一个后台写者 + 只读连接并发。写事务未提交期间，
     // open_readonly 的查询照常进行（M6 修复：UI 查询不再被长扫描阻塞）。
     let (_dir, storage) = temp_storage("wal-concurrent");
     commit_batch(

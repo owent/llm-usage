@@ -1,16 +1,16 @@
-//! Crush 产品特有的公共部分（独立目录合同）：
-//! 源库只读合同（复制自 adapters/goose/common.rs 的 hermes/kilo 同款实现）。
+//! Crush 产品特有的公共部分（独立目录约定）：
+//! 源库只读约定（复制自 adapters/goose/common.rs 的 hermes/kilo 同款实现）。
 //!
-//! 固定源码证据（charmbracelet/crush 1f3827bcd2d20f38076b2d46123683271e6ed9ba）：
+//! 固定源码依据（charmbracelet/crush 1f3827bcd2d20f38076b2d46123683271e6ed9ba）：
 //! - sessions.prompt_tokens/completion_tokens 是**最近一个非零 step 的上下文
 //!   规模快照**（agent.go:2060-2086 SET 覆盖；摘要后重置；标题请求另加一次），
 //!   **不是用量累计** ⇒ 不作 token 统计（求和会虚增）。
 //! - sessions.cost 是累计（agent.go:2065），且子会话结束回卷进父行
 //!   （coordinator.go:1742-1758）⇒ 只取 parent_session_id IS NULL 的根行
-//!   （官方 stats.sql 同口径）防双计。
+//!   （官方 stats.sql 规则相同）防双计。
 //! - messages 表无 token 列（model/provider 仅 assistant 消息携带）。
 
-// ---- 源库只读访问（复制自 adapters/hermes/common.rs，各目录独立合同）----
+// ---- 源库只读访问（复制自 adapters/hermes/common.rs，各目录独立约定）----
 
 use crate::error::CoreError;
 use rusqlite::backup::{Backup, StepResult};
@@ -42,7 +42,7 @@ impl Drop for StagingGuard {
     }
 }
 
-/// busy/锁/CANTOPEN 判定（无法一致读取的证据）。
+/// busy/锁/CANTOPEN 判定（这些错误表示无法一致读取）。
 pub(crate) fn is_busy_like(err: &rusqlite::Error) -> bool {
     matches!(
         err.sqlite_error_code(),
@@ -112,7 +112,7 @@ fn backup_to_staging(
             }
             match backup.step(limits.pages_per_step) {
                 Ok(StepResult::Done) => break Ok(()),
-                // More：实际拷贝了页，计入空间预算。
+                // More：实际拷贝了页，计入空间限制。
                 Ok(StepResult::More) => {
                     done_pages += i64::from(limits.pages_per_step);
                     if done_pages > max_pages {
@@ -123,7 +123,7 @@ fn backup_to_staging(
                     }
                     std::thread::sleep(Duration::from_millis(20));
                 }
-                // Busy/Locked（#[non_exhaustive] 其余）：无进展重试，只消耗时间预算。
+                // Busy/Locked（#[non_exhaustive] 其余）：无进展重试，仍计入超时时间。
                 // 2026-09-30 修复：此前重试也计入页数，与超时出口竞速产生
                 // 平台相关的 space cap 误报（CI Linux 页上限先于超时触发）。
                 Ok(_) => {
@@ -172,7 +172,7 @@ where
     }
 }
 
-/// 短查询事务探测（kilo 同合同）。
+/// 短查询事务探测（与 kilo 遵守同一规则）。
 pub(crate) fn short_probe(conn: &Connection) -> Result<(), rusqlite::Error> {
     conn.query_row("SELECT COUNT(*) FROM sqlite_master", [], |_| Ok(()))
 }

@@ -1,6 +1,6 @@
 //! 逐源提取计划（extraction_schedules/schedule_state 接线，M6 余项）。
 //!
-//! 合同（scheduling.md）：
+//! 约定（scheduling.md）：
 //! - 逐源频率覆盖全局：固定间隔 15 秒–24 小时，或每日/每周指定时间
 //!   （time_of_day "HH:MM"、weekday ISO 1–7 周一=1）；首版不开放任意 cron/shell；
 //! - 启用的自定义计划覆盖全局自动节奏；手动刷新仍包含全部启用来源；
@@ -298,7 +298,7 @@ pub fn source_schedule(
 /// 到期（计划启用且来源实例也启用）的实例集合：next_due_at_ms <= now。
 /// 联 source_instances.enabled：停用来源不被计划触发——否则到期实例每轮
 /// 被采集层跳过又按"无报告=失败"推进 next_due，error_summary 留误导性
-/// 失败记录（"禁用后无自动读取"合同）。INNER JOIN：无实例行的悬空计划
+/// 失败记录（"禁用后无自动读取"约定）。INNER JOIN：无实例行的悬空计划
 /// 无从扫描，一并排除。
 pub fn due_instances(storage: &Storage, now_ms: i64) -> Result<BTreeSet<String>, CoreError> {
     let mut stmt = storage.conn().prepare(

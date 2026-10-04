@@ -23,7 +23,7 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     let has_by_model = text.contains("\"byModel\"");
     let has_anchor = text.contains("\"lastRequest\"") || text.contains("\"version\"");
     if has_by_model && has_anchor {
-        // version 整数字段如实判定（V30）：证据解析器（tokscale mux.rs）覆盖
+        // version 整数字段如实判定（V30）：参考解析器（tokscale mux.rs）覆盖
         // version=1/缺失的文档形态；其他整数值是未见形态 ⇒ LatestFallback
         // 兼容尝试，不能虚标 KnownVersion。
         let basis = match serde_json::from_str::<serde_json::Value>(&text) {

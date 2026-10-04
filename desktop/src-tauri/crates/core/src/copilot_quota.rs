@@ -1,13 +1,13 @@
 //! GitHub Copilot 本机额度记录提取（`copilot-user-cache.json`）。
 //!
-//! 载体证据（2026-10-01 本机核验 + 官方 cli-config-dir-reference「cache 目录」）：
+//! 载体识别依据（2026-10-01 本机核验 + 官方 cli-config-dir-reference「cache 目录」）：
 //! VS Code Copilot Chat 与 Copilot CLI 共享的账户额度缓存文件
 //! `copilot-user-cache.json`，Windows 位于 `%LOCALAPPDATA%/copilot/`，
 //! macOS `~/Library/Caches/copilot/`，Linux `$XDG_CACHE_HOME/copilot` 或
 //! `~/.cache/copilot/`。文件以 `//` 注释行开头，随后为 JSON：
 //! `copilotUserCache.<hash>.response.quota_snapshots.<quota_id>`。
 //!
-//! **口径边界**：这是账户级「premium 请求额度」（所有设备/入口共享同一 1500
+//! **统计范围**：这是账户级「premium 请求额度」（所有设备/入口共享同一 1500
 //! 额度），是请求配额而非逐次 token；按额度快照独立展示，绝不折算成 token。
 //! `timestamp_utc` 为服务端快照时刻。（2026-10-01 更正：chronicle session-store.db
 //! 无逐次 token 的结论只覆盖该库；VS Code 原生 `chatSessions/*.jsonl` 会话日志

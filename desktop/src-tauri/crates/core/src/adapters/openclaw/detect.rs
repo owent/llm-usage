@@ -1,4 +1,4 @@
-//! OpenClaw 探测与版本分派（文档级证据，A09）。
+//! OpenClaw 探测与版本分派（文档或源码依据，A09）。
 //!
 //! 输入三形（官方 store 参考给出的磁盘位置，`~/.openclaw/agents/<agentId>/...`）：
 //! 1. 运行时库 `agent/openclaw-agent.sqlite`：Agent 身份由文档路径形状确认；
@@ -7,7 +7,7 @@
 //! 2. 旧归档 `sessions/*.jsonl`（legacy/archive transcript artifacts）：
 //!    文档明确为迁移/离线维护输入（Gateway 启动不导入，须经
 //!    `openclaw doctor --fix` 迁移）；条目级 schema 未在文档给出 ⇒
-//!    按迁移输入降级处理，fail closed 并标注待证；
+//!    按迁移输入降级处理，fail closed 并标注待核验；
 //! 3. 旧会话行 `sessions/sessions.json`（legacy row migration input）：
 //!    同为迁移输入，非 usage 详单 ⇒ fail closed。
 //!

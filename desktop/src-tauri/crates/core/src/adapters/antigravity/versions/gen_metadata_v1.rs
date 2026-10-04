@@ -1,7 +1,7 @@
 //! Antigravity conversations/&lt;uuid&gt;.db 格式实现（`gen_metadata_v1`，
 //! antigravity-gen-metadata-1）。
 //!
-//! 格式证据（第三方逆向证据：tokscale 固定提交 1d9a939
+//! 格式依据（第三方逆向分析结果：tokscale 固定提交 1d9a939
 //! sessions/antigravity_cli.rs:20-60,313-321,466-556；闭源产品 Google，
 //! 本机未安装、无真实样本；**protobuf 布局为逆向结论**）：
 //! - 路径：CLI `~/.gemini/antigravity-cli/conversations/<uuid>.db`（env
@@ -20,7 +20,7 @@
 //!   **不采纳**；steps 表回退路径复杂亦不采纳）⇒ 无 #9.#4 时间戳的行
 //!   **跳过记诊断**（fail closed，不推造时间）。
 //! - 路由标签 `gemini-default` 不是模型 id：不采为模型。
-//! - cache_write 无证据 ⇒ Unknown；cost 无证据 ⇒ None。
+//! - cache_write 字段未确认 ⇒ Unknown；cost 字段未确认 ⇒ None。
 
 use crate::adapters::framework::{
     ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -326,7 +326,7 @@ pub fn scan(
             .response_id
             .clone()
             .unwrap_or_else(|| format!("idx-{idx}"));
-        // responseId 文件内去重（第三方证据同款）。
+        // responseId 文件内去重（与第三方解析器的实现一致）。
         if parsed.response_id.is_some()
             && !seen_response_ids.insert(parsed.response_id.clone().unwrap())
         {

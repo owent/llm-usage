@@ -1,6 +1,6 @@
 //! Goose sessions.db 格式实现（`usage_ledger_v1`，goose-usage-ledger-1）。
 //!
-//! 格式证据（aaif-goose/goose 固定源码 a701bb1756f0c6a49a7dbc10ac8a90f94dd24bd1，
+//! 格式依据（aaif-goose/goose 固定源码 a701bb1756f0c6a49a7dbc10ac8a90f94dd24bd1，
 //! 官方源码核验；本机未安装、无真实样本）：
 //! - `usage_ledger`（迁移 15）：每 provider 响应一行 INSERT（append-only，
 //!   AUTOINCREMENT id 单调）；`created_timestamp` Unix **秒**；列
@@ -10,15 +10,15 @@
 //!   与 `carried_forward`（补账差额行）⇒ cost 不映射（估算/混合来源不采信）；
 //!   carried_forward 行的 **token 计入**（它是产品自己的累计补账，非推断）。
 //! - `is_compaction=1` ⇒ Auxiliary（auto-compaction 后的 retained-context
-//!   基线调用）；`input_tokens` 含 cache 读/写（官方 token_usage.rs 口径）⇒
+//!   基线调用）；`input_tokens` 含 cache 读/写（官方 token_usage.rs 字段语义）⇒
 //!   input_uncached 减法派生。
 //! - 旧库（schema &lt; 15）无 usage_ledger：按 `sessions.accumulated_*` 会话级
-//!   聚合兜底（IntervalAggregate；非 accumulated 单次列是最后快照，不用）；
+//!   聚合回退（IntervalAggregate；非 accumulated 单次列是最后快照，不用）；
 //!   created_at/updated_at 为 SQLite 文本 UTC（`YYYY-MM-DD HH:MM:SS`）。
 //!   两载体互斥：有 ledger 的库不再读 accumulated（防双计）。
-//! - fork/copy 不复制用量；subagent 会话独立行，全表求和不双计（官方口径）。
+//! - fork/copy 不复制用量；subagent 会话独立行，全表求和不双计（官方字段语义）。
 //!
-//! 增量合同（append-only 表）：游标 = 已处理最大 ledger id（行只 INSERT 不
+//! 增量约定（append-only 表）：游标 = 已处理最大 ledger id（行只 INSERT 不
 //! UPDATE，无重叠窗需求）；schema 指纹变化 ⇒ 重置全量重读（事件键
 //! goose:ledger:&lt;id&gt; upsert 幂等）；单轮 50,000 行上限。
 
@@ -45,16 +45,16 @@ pub const MAX_ROWS_PER_ROUND: i64 = 50_000;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 struct GooseCursor {
     generation: i64,
-    /// 已处理的最大 ledger id（append-only 表；旧库兜底模式恒 0）。
+    /// 已处理的最大 ledger id（append-only 表；旧库聚合模式恒 0）。
     last_ledger_id: i64,
-    /// 旧库兜底模式已处理的最大 session id（字典序游标；缺省=从头）。
+    /// 旧库聚合模式已处理的最大 session id（字典序游标；缺省=从头）。
     #[serde(default)]
     last_session_id: String,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 struct GooseParseContext {
-    /// schema 指纹（表集合投影；变化 ⇒ 框架按 parser_version 逻辑重扫）。
+    /// schema 指纹（表名集合；变化 ⇒ 框架按 parser_version 逻辑重扫）。
     schema_fingerprint: Option<String>,
     #[serde(default)]
     version_basis: Option<VersionBasis>,
@@ -317,7 +317,7 @@ pub fn scan(
             health: "active".to_string(),
         })
     } else {
-        // 旧库兜底：sessions.accumulated_* 会话级聚合（无逐请求表）。
+        // 旧库聚合回退：sessions.accumulated_* 会话级聚合（无逐请求表）。
         // 超过单轮上限时用 session id 分页。读到末页后清空游标，
         // 下一轮从头重读：旧库累计值会更新已有会话，不能永久跳过旧 id。
         let mut stmt = db.conn().prepare(

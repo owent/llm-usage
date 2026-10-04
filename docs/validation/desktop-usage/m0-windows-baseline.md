@@ -69,7 +69,9 @@ Svelte 对照：纯 TS 版同一柱图 gzip 160.4 KiB，Svelte 增量 gzip +10.3
 | 截图隐私事故 | 已处置 | 首次 CopyFromScreen 拍到遮挡窗口，文件已删 | 截图统一用 PrintWindow 只含本应用窗口 |
 | GitHub CI 实际运行 | 未执行 | 本轮不推送触发 | 推送后按运行结果登记 |
 
-## 证据文件
+<a id="证据文件"></a>
+
+## 验证产物
 
 - `desktop/`：最小应用源码与锁文件（package-lock.json、Cargo.lock）。
 - `build/m0-release-trial/`（gitignored）：summary.md、process-list.txt、app-window.png、许可证 TSV、测量脚本。

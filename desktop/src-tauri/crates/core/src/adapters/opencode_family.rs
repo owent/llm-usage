@@ -7,15 +7,15 @@
 //!
 //! - `part` 表逐 step usage：`data.type="step-finish"` 且 `cost`+`tokens`
 //!   在场时携带 `tokens{input, output, reasoning, cache{read, write}}`
-//!   （+可选 `total`）。证据：OpenCode pinned 0027387
+//!   （+可选 `total`）。依据：OpenCode pinned 0027387
 //!   `packages/core/src/session/projector.ts` 的 `usage()` 提取规则与
 //!   `applyUsage` 计数维护、迁移 `20260510033149_session_usage.ts` 的
-//!   json_extract 口径、以及 pinned 仓库内 vendored client
+//!   json_extract 查询规则、以及 pinned 仓库内 vendored client
 //!   `packages/app/vendor/opencode-ai-client-1.17.13-v2.tgz` 的
 //!   `StepFinishPart`/`AssistantMessage` 类型（tokens 同形，`total` 可选）；
 //!   MiMo pinned 456678b `packages/opencode/src/session/message-v2.ts` 的
 //!   `StepFinishPart` zod schema（total 可选、五数字段必需）。
-//! - **字段语义（pinned 证据，不跨产品移植）**：OpenCode
+//! - **字段语义（固定源码依据，不跨产品移植）**：OpenCode
 //!   `packages/core/src/session/runner/publish-llm-event.ts` 的 `tokens()`
 //!   逐字映射：`input = usage.nonCachedInputTokens`（未缓存输入，不含缓存）、
 //!   `output = usage.visibleOutputTokens`、`reasoning/cache{read,write}` 独立；
@@ -25,7 +25,7 @@
 //!   undefined→safe()=0）；`packages/llm/src/protocols/shared.ts` totalTokens
 //!   政策 = `inputTokens + outputTokens`（无 provider total 时）。⇒
 //!   input_total = input+cache.read+cache.write（派生，上游自算 inclusive
-//!   口径）、output_total = output+reasoning（派生，两种 provider 模式均
+//!   字段语义）、output_total = output+reasoning（派生，两种 provider 模式均
 //!   成立：anthropic reasoning=0 已含于 output；拆分 provider 为补和）、
 //!   total = 五字段之和（与 kilo 同血统实读结论一致）；`total` 在场时按
 //!   source_total 对照，不一致记诊断。
@@ -36,7 +36,7 @@
 //!   `message` 另有 `agent_id` 列、`session` 无 tokens_* 累计列，OpenCode
 //!   相反——探测指纹因此互斥，见各产品 common.rs。
 //!
-//! 家族合同（adapters.md A14/A17）：
+//! 家族约定（adapters.md A14/A17）：
 //! - **step 与 message 汇总不双计**：assistant `message.data.tokens` 是 turn 级
 //!   聚合（OpenCode 迁移把 message.data 逐字段 SUM 进 session 累计列），本实现
 //!   只读 `part`（step-finish）逐次入账；message 仅取 `modelID`/`providerID`
@@ -46,7 +46,7 @@
 //!   该五列，不对账；
 //! - 模型归属：`message.data.modelID/providerID`（request_field；vendored
 //!   client AssistantMessage + MiMo zod 均为必需字段）；**逐调用的精确时间
-//!   仍待上游 event 层**（A17：part 行时间是投影写入时刻，非逐调用完成时间），
+//!   仍待上游 event 层**（A17：part 行时间是派生视图写入时刻，非逐调用完成时间），
 //!   时间依据如实标 observed_at；
 //! - step-finish 部件无独立调用 ID：事件键 = `part.id`（两产品均为主键）。
 //!
@@ -68,15 +68,15 @@ use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 
 const MAX_REASONABLE_TOKEN: i64 = crate::domain::MAX_TOKEN_VALUE;
-/// 水位回看窗（毫秒）：覆盖并发会话的同毫秒乱序写（同 kilo/kimi 合同）。
+/// 已处理时间的回看窗（毫秒）：覆盖并发会话的同毫秒乱序写（同 kilo/kimi 约定）。
 pub(crate) const WATERMARK_OVERLAP_MS: i64 = 60_000;
 /// 单轮行数上限：触顶停在该毫秒边界，下轮续读。
 pub(crate) const MAX_ROWS_PER_ROUND: i64 = 50_000;
 
 /// opencode 家族 step-finish `tokens` 五数字段 + 可选 `total`。
-/// 语义（pinned 证据，见模块头）：input 是**未缓存**输入（不含缓存），
+/// 语义（固定源码依据，见模块头）：input 是**未缓存**输入（不含缓存），
 /// cache 独立桶；reasoning 与 output 拆分与否随 provider（anthropic 不拆分
-/// ⇒ reasoning=0 已含于 output）。派生口径：input_total = input+cr+cw、
+/// ⇒ reasoning=0 已含于 output）。派生计算：input_total = input+cr+cw、
 /// output_total = output+reasoning、total = 五字段之和；`total` 在场时按
 /// source_total 对照（不一致记诊断）。
 #[derive(Debug, Clone, Copy)]
@@ -90,8 +90,8 @@ pub(crate) struct OpencodeFamilyUsage {
     pub total: Option<i64>,
 }
 
-/// 桶间包含关系按 pinned 证据推导（上游自算 inclusive 口径）；溢出字段
-/// 保持 None（未知），不 panic、不钳制。与 kilo 同血统同口径。
+/// 桶间包含关系按固定源码推导（上游自算 inclusive 输入）；溢出字段
+/// 保持 None（未知），不 panic、不截断数值。与 kilo 源码同源，计算规则相同。
 pub(crate) fn map_opencode_family_usage(raw: &OpencodeFamilyUsage) -> MappedUsage {
     let mut diagnostics = Vec::new();
     let input_total = raw
@@ -148,7 +148,7 @@ pub(crate) fn map_opencode_family_usage(raw: &OpencodeFamilyUsage) -> MappedUsag
     finish(usage, quality, diagnostics)
 }
 
-/// cost 浮点美元 → micro-USD（estimated；上游自算口径，同 cline/zoo 规则）。
+/// cost 浮点美元 → micro-USD（estimated；上游自行估算，与 cline/zoo 规则相同）。
 pub(crate) fn map_family_cost(cost: Option<f64>) -> Option<CostAmount> {
     let total = cost?;
     if !total.is_finite() || total < 0.0 {
@@ -213,10 +213,10 @@ pub(crate) struct PartProduct {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct PartCursor {
     pub generation: i64,
-    /// 恒为 0：WAL 活库不用字节偏移做无变化判定（同 kilo 合同）。
+    /// 恒为 0：WAL 活库不用字节偏移做无变化判定（同 kilo 约定）。
     #[allow(dead_code)]
     pub offset: u64,
-    /// 已处理到的 part.time_updated 水位（含）；None = 从头全量。
+    /// 已处理到的 part.time_updated（含该值）；None = 从头全量。
     pub watermark_ms: Option<i64>,
 }
 
@@ -253,7 +253,7 @@ pub(crate) struct PartRow {
     pub provider_id: Option<String>,
 }
 
-/// 水位窗口查询（两产品同形：part LEFT JOIN session/message；
+/// 按已处理时间窗口查询（两产品同形：part LEFT JOIN session/message；
 /// message.data 经 json_valid 守卫后取 modelID/providerID，消息正文不入内存）。
 fn load_window(conn: &Connection, since_ms: i64) -> Result<Vec<PartRow>, CoreError> {
     let mut stmt = conn
@@ -303,7 +303,7 @@ pub(crate) fn max_session_version(conn: &Connection) -> Result<Option<String>, C
         .map_err(CoreError::Sqlite)?
         .collect::<Result<Vec<_>, _>>()
         .map_err(CoreError::Sqlite)?;
-    // 语义最大按数值序比较（同 kilo version_max 合同）。
+    // 语义最大按数值序比较（同 kilo version_max 约定）。
     Ok(versions
         .into_iter()
         .reduce(|a, b| version_max(&a, &b).to_string()))
@@ -374,9 +374,9 @@ fn reconcile_session_counters(
     })
 }
 
-/// 家族共享扫描核心：step-finish 部件 → 逐次 model_call 事件 + 水位游标。
+/// 家族共享扫描核心：step-finish 部件 → 逐次 model_call 事件 + 已处理位置游标。
 /// 调用方（各产品 versions 实现）负责打开只读连接、计算 schema 指纹与版本
-/// 分派结论后传入；本函数完成游标/指纹重置/窗口/事件/对账/水位推进。
+/// 分派结论后传入；本函数完成游标/指纹重置/窗口/事件/对账/更新已处理位置。
 /// 扫描上下文：探测/分派结论（产品身份、schema 指纹、原始版本与选择依据）。
 pub(crate) struct PartScanContext {
     pub product: PartProduct,
@@ -399,7 +399,7 @@ pub(crate) fn scan_step_finish_parts(
         basis,
     } = ctx;
     // 游标不做 generation 过滤：同一逻辑库 in-place 重写让框架标 Rescan，
-    // 但 part.id/更新序号水位仍有效（同 kilo 合同）。
+    // 但 part.id/更新序号记录的已处理位置仍有效（同 kilo 约定）。
     let cursor: PartCursor = stored
         .cursor
         .as_ref()
@@ -414,7 +414,7 @@ pub(crate) fn scan_step_finish_parts(
         .as_ref()
         .and_then(|v| serde_json::from_value(v.clone()).ok())
         .unwrap_or_default();
-    // schema 指纹变化 ⇒ 旧水位不可信，全量重读（id 键 upsert 幂等）。
+    // schema 指纹变化 ⇒ 旧的已处理位置不可信，全量重读（id 键 upsert 幂等）。
     let fingerprint_reset = context.schema_fingerprint.is_some()
         && context.schema_fingerprint.as_deref() != Some(fingerprint.as_str());
     let watermark = if fingerprint_reset {
@@ -452,7 +452,7 @@ pub(crate) fn scan_step_finish_parts(
                 continue;
             }
         };
-        // 行时间是投影写入时刻：不可信（早于 2000）时跳过不猜。
+        // 行时间是派生视图写入时刻：不可信（早于 2000）时跳过不猜。
         if row.time_created < crate::domain::MIN_PLAUSIBLE_MS {
             diagnostics.push(diag(
                 "timestamp_implausible",
@@ -472,7 +472,7 @@ pub(crate) fn scan_step_finish_parts(
                 )
             }
             None => {
-                // step-finish 在场即该 step 已运行的证据：计调用、token 未知。
+                // step-finish 在场即表明该 step 已运行：计调用、token 未知。
                 diagnostics.push(diag(
                     "usage_shape_deviation",
                     Some("tokens"),
@@ -536,7 +536,7 @@ pub(crate) fn scan_step_finish_parts(
         });
     }
 
-    // 水位推进：触顶时停在最后一个完整毫秒（该毫秒下轮重读，幂等）。
+    // 更新已处理位置：触顶时停在最后一个完整毫秒（该毫秒下轮重读，幂等）。
     let new_watermark = if hit_cap {
         rows.last().map(|r| r.time_updated - 1)
     } else {
@@ -638,7 +638,7 @@ mod tests {
                        "cache": {"read": 0, "write": 0}}
         }))
         .is_none());
-        // 五数字段缺一/越界 ⇒ None（MiMo zod required 口径）。
+        // 五数字段缺一/越界 ⇒ None（按 MiMo zod required 定义）。
         assert!(parse_step_finish(&serde_json::json!({
             "type": "step-finish", "cost": 0.1,
             "tokens": {"input": 1, "output": 1, "reasoning": 0,
@@ -687,7 +687,7 @@ mod tests {
         assert_eq!(missing.usage.source_total, None);
         assert_eq!(missing.usage.total_tokens, Some(17));
 
-        // 直报 total 与派生不一致进诊断（派生口径成立才有可比性）。
+        // 直报 total 与派生值不一致时记诊断（包含关系成立才有可比性）。
         let bad = map_opencode_family_usage(&OpencodeFamilyUsage {
             input: 10,
             output: 5,
@@ -714,7 +714,7 @@ mod tests {
             cache_write: 0,
             total: None,
         });
-        // 溢出的派生字段保持 None（未知），不 panic、不钳制。
+        // 溢出的派生字段保持 None（未知），不 panic、不截断数值。
         assert_eq!(m.usage.input_total, None);
         assert_eq!(m.usage.total_tokens, None);
     }

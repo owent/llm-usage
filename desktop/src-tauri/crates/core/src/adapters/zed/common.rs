@@ -1,9 +1,9 @@
-//! Zed 产品特有的公共部分（独立目录合同 architecture.md#adapter-layout）：
-//! - usage 映射（`map_zed`/`ZedUsage`，字段证据为 Zed 官方源码 bd74733，A38）；
-//! - threads.db 源库只读合同落地（复制自 `adapters/hermes/common.rs` 的
+//! Zed 产品特有的公共部分（独立目录约定 architecture.md#adapter-layout）：
+//! - usage 映射（`map_zed`/`ZedUsage`，字段依据为 Zed 官方源码 bd74733，A38）；
+//! - threads.db 源库只读访问实现（复制自 `adapters/hermes/common.rs` 的
 //!   kilo 同款实现：只读连接 + Online Backup 暂存副本，各 Agent 目录独立）。
 //!
-//! 固定源码证据（zed-industries/zed bd747337d7be138834e20972b9e203c7b239cc47）：
+//! 固定源码依据（zed-industries/zed bd747337d7be138834e20972b9e203c7b239cc47）：
 //! - `crates/agent/src/db.rs:451-483`：threads 表（id/summary/updated_at/
 //!   data_type/data + 迁移列 parent_id/folder_paths/folder_paths_order/created_at）；
 //!   data_type ∈ {json, zstd}（db.rs:363-385），当前写入固定 zstd（db.rs:536）。
@@ -30,7 +30,7 @@ pub struct ZedUsage {
 }
 
 impl ZedUsage {
-    /// 四桶合计（派生值，checked 算术合同：任一桶可达 MAX_TOKEN_VALUE，
+    /// 四桶合计（派生值，checked 算术约定：任一桶可达 MAX_TOKEN_VALUE，
     /// 四桶相加可溢出 i64 ⇒ None 表示溢出，调用方拒绝该线程而非饱和隐藏）。
     pub fn total(&self) -> Option<i64> {
         self.input_tokens
@@ -40,7 +40,7 @@ impl ZedUsage {
     }
 }
 
-/// 包含关系未验证 ⇒ input_uncached/派生总量保持 None（不猜互斥口径），
+/// 包含关系未验证 ⇒ input_uncached/派生总量保持 None（不猜互斥关系），
 /// 四桶并列直报（与 map_hermes 同型）。
 pub fn map_zed(raw: &ZedUsage) -> MappedUsage {
     let usage = TokenUsage {
@@ -66,7 +66,7 @@ pub fn map_zed(raw: &ZedUsage) -> MappedUsage {
     finish_parallel(usage, quality, Vec::new())
 }
 
-// ---- 源库只读访问（复制自 adapters/hermes/common.rs，各目录独立合同）----
+// ---- 源库只读访问（复制自 adapters/hermes/common.rs，各目录独立约定）----
 
 use crate::error::CoreError;
 use rusqlite::backup::{Backup, StepResult};
@@ -98,7 +98,7 @@ impl Drop for StagingGuard {
     }
 }
 
-/// busy/锁/CANTOPEN 判定（无法一致读取的证据）。
+/// busy/锁/CANTOPEN 判定（这些错误表示无法一致读取）。
 pub(crate) fn is_busy_like(err: &rusqlite::Error) -> bool {
     matches!(
         err.sqlite_error_code(),
@@ -168,7 +168,7 @@ fn backup_to_staging(
             }
             match backup.step(limits.pages_per_step) {
                 Ok(StepResult::Done) => break Ok(()),
-                // More：实际拷贝了页，计入空间预算。
+                // More：实际拷贝了页，计入空间限制。
                 Ok(StepResult::More) => {
                     done_pages += i64::from(limits.pages_per_step);
                     if done_pages > max_pages {
@@ -179,7 +179,7 @@ fn backup_to_staging(
                     }
                     std::thread::sleep(Duration::from_millis(20));
                 }
-                // Busy/Locked（#[non_exhaustive] 其余）：无进展重试，只消耗时间预算。
+                // Busy/Locked（#[non_exhaustive] 其余）：无进展重试，仍计入超时时间。
                 // 2026-09-30 修复：此前重试也计入页数，与超时出口竞速产生
                 // 平台相关的 space cap 误报（CI Linux 页上限先于超时触发）。
                 Ok(_) => {
@@ -228,7 +228,7 @@ where
     }
 }
 
-/// 短查询事务探测（kilo 同合同）。
+/// 短查询事务探测（与 kilo 遵守同一规则）。
 pub(crate) fn short_probe(conn: &Connection) -> Result<(), rusqlite::Error> {
     conn.query_row("SELECT COUNT(*) FROM sqlite_master", [], |_| Ok(()))
 }

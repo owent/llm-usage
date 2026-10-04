@@ -1,5 +1,5 @@
 //! V12：pi 适配器增量与刷新语义 —— 重复扫描不增量、追加续读、半行跨轮、
-//! 截断/同长替换/改名重探测、预算分片恢复、矛盾重复条目冲突标记。
+//! 截断/同长替换/改名重探测、达到读取上限后分批恢复、矛盾重复条目冲突标记。
 //! 场景对照 codex_incremental_v12.rs；基础内容取真实脱敏 fixture
 //! session-error-zero-usage（7 行，唯一事件在 L7）。
 
@@ -222,7 +222,7 @@ fn rename_keeps_identity_and_cursor() {
 
 // 手工核算值（synthetic-auxiliary-carriers，8 行 6 事件，行序：session/model_change/
 // assistant(带 usage)/assistant(无 usage)/usage/compaction/branch_summary/toolResult）：
-// 分段 3+4+100 行预算 ⇒ 事件 1+4+1；合计 call_count=6、input_total=2915、
+// 各批行数上限 3+4+100 ⇒ 事件 1+4+1；合计 call_count=6、input_total=2915、
 // cache_read=1190、cache_write=110、output=355、total=3270。
 #[test]
 fn budget_split_resumes_without_duplicates() {
@@ -272,7 +272,7 @@ fn budget_split_resumes_without_duplicates() {
 }
 
 // 手工核算值：syn-cf-1 首轮 input=1000/cacheRead=400 ⇒ input_total=1400、total=1450；
-// 追加同四元组不同 usage（input=1500）⇒ 无先后权威证据 → conflict，已存值保持。
+// 追加同四元组不同 usage（input=1500）⇒ 无法确认哪条修订更新 → conflict，已存值保持。
 #[test]
 fn conflicting_duplicate_entry_marks_conflict_and_keeps_existing() {
     let dir = TempDir::new("pi-v12-conflict");

@@ -88,7 +88,7 @@ fn v01_kimi_wire_four_mutually_exclusive_fields() {
 
 #[test]
 fn v01_zcode_dual_calibers_are_opposite() {
-    // 同一逻辑用量（未缓存 200、缓存读 800、输出 100）在两种口径下的原始字段不同。
+    // 同一逻辑用量（未缓存 200、缓存读 800、输出 100）在两种字段语义下的原始字段不同。
     let sdk = map_zcode_ai_sdk(&ZcodeAiSdkUsage {
         input_tokens: 1000, // 含缓存读
         cached_input_tokens: Some(800),
@@ -112,7 +112,7 @@ fn v01_zcode_dual_calibers_are_opposite() {
     assert_eq!(anthropic.usage.input_uncached, Some(200));
     assert_eq!(anthropic.usage.input_total, Some(1000));
     assert_eq!(anthropic.quality.input_total, FieldQuality::Derived);
-    // 两种口径映射后规范化数值一致（质量标记不同是合法的：直报 vs 推导）。
+    // 两种语义映射后规范化数值一致（质量标记不同是合法的：直报 vs 推导）。
     assert_eq!(
         input_total(&sdk.usage, &sdk.quality).map(|(v, _)| v),
         input_total(&anthropic.usage, &anthropic.quality).map(|(v, _)| v)

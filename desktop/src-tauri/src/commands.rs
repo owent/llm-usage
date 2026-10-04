@@ -1,5 +1,5 @@
 //! Tauri IPC 命令：查询/来源/刷新/设置/导出。
-//! DTO 合同（architecture.md）：token 等大数值用十进制字符串传输，
+//! DTO 约定（architecture.md）：token 等大数值用十进制字符串传输，
 //! 避免前端浮点舍入；错误返回结构化 code+message，不回传内部 SQL/游标。
 
 use crate::app_state::{load_settings, save_settings, AppSettings, AppState};
@@ -201,7 +201,7 @@ mod win_tasks {
 }
 
 /// 系统保存对话框：用户选定导出位置（返回 None = 取消）。
-/// 后端只把文件写到该路径（architecture.md 导出合同）。
+/// 后端只把文件写到该路径（architecture.md 导出约定）。
 #[tauri::command]
 pub fn pick_save_path(default_name: String) -> Option<String> {
     rfd::FileDialog::new()
@@ -885,7 +885,7 @@ pub fn quota_series(
     Ok(serde_json::json!({ "agent": agent, "quota_id": quota_id, "points": points }))
 }
 
-/// 导出：summary-csv（展示用）或 exchange（无损交换 JSON，M1a 合同）。
+/// 导出：summary-csv（展示用）或 exchange（无损交换 JSON，M1a 约定）。
 /// target_dir 为空时写应用数据目录 exports/ 下；返回写入的完整路径。
 /// CSV 防公式注入：以 = + - @ 开头的单元格加 `'` 前缀。
 #[tauri::command]
@@ -1147,7 +1147,7 @@ pub fn assign_source_user(
     Ok(())
 }
 
-/// 导入聚合交换包（导出 → 导入闭环；M1a 合并规则）。
+/// 导入聚合交换包（导出 → 导入与查询验证；M1a 合并规则）。
 #[tauri::command]
 pub fn import_exchange(
     state: tauri::State<'_, Arc<AppState>>,
@@ -1470,7 +1470,7 @@ fn run_clear_all_job(state: &Arc<AppState>, app: &tauri::AppHandle) -> Result<()
     Ok(())
 }
 
-/// 清库事务：各表 DELETE + source_files 状态重置 + 保留水位设置清除 + 修订号推进。
+/// 清库事务：各表 DELETE + source_files 状态重置 + 保留已处理位置设置清除 + 修订号推进。
 fn clear_all_tables(
     state: &Arc<AppState>,
 ) -> Result<(serde_json::Map<String, serde_json::Value>, i64), String> {

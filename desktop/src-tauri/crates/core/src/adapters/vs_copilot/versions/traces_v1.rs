@@ -1,6 +1,6 @@
 //! VS Copilot OTLP 遥测格式实现（`traces_v1`，vs-copilot-otlp-traces-v1）。
 //!
-//! 格式证据（2026-10-01 本机 VS 18 Community 真实数据只读取证）：
+//! 格式依据（2026-10-01 本机 VS 18 Community 真实数据只读核验）：
 //! - 行 = OTLP JSON 批次 `{"resourceSpans":[{"resource":{"attributes":[…]},
 //!   "scopeSpans":[{"spans":[…]}]}]}`；
 //! - span 字段：name/traceId/spanId/parentSpanId/kind、
@@ -13,7 +13,7 @@
 //! - `invoke_agent …` 根 span 为整 turn 汇总（无 usage）：跳过防双计
 //!   （官方 OTel 防双计警告同族规则）。
 //!
-//! 增量合同：批次行追加写——标准 JSONL 字节偏移游标；事件键
+//! 增量约定：批次行追加写——标准 JSONL 字节偏移游标；事件键
 //! `vs-copilot:span:<traceId>:<spanId>` 幂等。
 
 use crate::adapters::framework::{
@@ -124,7 +124,7 @@ fn attr_str(attrs: &[Value], key: &str) -> Option<String> {
                     .map(str::to_string)
             })
             .or_else(|| {
-                // 数值键的字符串化兜底（模型名等不会走到，防御性）。
+                // 数值键的缺值时转为字符串（模型名等不会走到，防御性）。
                 value_i64(value).map(|n| n.to_string())
             });
     }

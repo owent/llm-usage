@@ -171,9 +171,9 @@ fn per_version_fixtures_dispatch_known_and_match_expectations() {
 
 #[test]
 fn legacy_carrier_fixtures_dispatch_rollout_legacy_and_match_expectations() {
-    // 0.139–0.151 旧载体：无 token_usage_record，逐次证据 = token_count 的
+    // 0.139–0.151 旧载体：无 token_usage_record，逐次用量 = token_count 的
     // last_token_usage（total 增量法判据）。期望值来自
-    // rollout-legacy-v*._expectations.md（build 工具 JS 口径独立核算 + 人工核对）。
+    // rollout-legacy-v*._expectations.md（build 工具 JS 独立核算 + 人工核对）。
     struct LegacyExpectations {
         fixture: &'static str,
         version: &'static str,
@@ -405,7 +405,7 @@ fn legacy_carrier_fixtures_dispatch_rollout_legacy_and_match_expectations() {
 
 #[test]
 fn legacy_carrier_versions_stay_fallback_not_pretend_verified() {
-    // 未取证登记的旧系列版本（如 0.141.0，本机无样本）仍按未知版本回退
+    // 未核验登记的旧系列版本（如 0.141.0，本机无样本）仍按未知版本回退
     // （LatestFallback → rollout_v1）：无逐次载体 ⇒ 0 事件 + 结构诊断
     // （reconcile_mismatch：0 逐次 vs 非空快照）⇒ incompatible，
     // 可见诊断、不伪造数据、游标不推进。

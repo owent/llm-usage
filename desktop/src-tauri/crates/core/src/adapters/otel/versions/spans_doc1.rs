@@ -1,6 +1,6 @@
 //! OTel spans JSONL 格式实现（`spans_doc1`；Copilot native file parser v2）。
 //!
-//! 格式证据：2026-09-29 官方文档、2026-10-02 VS Code 1.140.0 本机 30 个 CLIENT span
+//! 格式依据：2026-09-29 官方文档、2026-10-02 VS Code 1.140.0 本机 30 个 CLIENT span
 //! （docs/validation/desktop-usage/dashboard-repair.md）；CLI/JetBrains 仍为独立待验版本。
 //! - **VS Code Copilot Chat file exporter**（microsoft/vscode
 //!   extensions/copilot/docs/monitoring/agent_monitoring.md @ bdc5ebe）：
@@ -385,7 +385,7 @@ pub fn scan_with_byte_budget(
             ],
         )
         .map(str::to_string);
-        // TTFT 三键单位不同（文档证据）：copilot_chat.* 是毫秒、
+        // TTFT 三键单位不同（文档说明）：copilot_chat.* 是毫秒、
         // gen_ai.response.time_to_first_chunk 是秒（可含小数）、
         // response.time_to_first_token（agentlens）单位未标。
         // 已标单位的键按文档换算；量级启发（>1e4 视为毫秒）只用于未标单位的键。

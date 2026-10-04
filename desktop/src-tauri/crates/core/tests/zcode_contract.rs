@@ -1,11 +1,11 @@
-//! ZCode 适配器合同测试：真实脱敏 fixture（本机 ZCode 3.14.3 只读提取，
+//! ZCode 适配器约定测试：真实脱敏 fixture（本机 ZCode 3.14.3 只读提取，
 //! 2026-09-25，tests/fixtures/zcode/real-main-session 与 real-subagent）
-//! 经 读取→探测→解析→标准化→commit_batch→查询 全链路，对 _expectations.md
+//! 经 读取→探测→解析→标准化→commit_batch→查询，对 _expectations.md
 //! 的人工核算值逐项断言。
 //!
-//! 双口径合同（同记录两个 usage 视图，互斥不混算）：
-//! - AI SDK `response.usage`（camelCase 五键，**主口径**）：inputTokens 含缓存读；
-//! - anthropic `response.providerMetadata.anthropic.usage`（snake_case，**对照口径**）：
+//! 两个 usage 视图的处理规则（同记录两个 usage 视图，互斥不混算）：
+//! - AI SDK `response.usage`（camelCase 五键，**主视图**）：inputTokens 含缓存读；
+//! - anthropic `response.providerMetadata.anthropic.usage`（snake_case，**对照视图**）：
 //!   input_tokens 不含缓存；一致性校验 in+cr+cw == inputTokens、out == outputTokens。
 //!
 //! 手工核算（real-main-session，4 条全 main_turn）：
@@ -257,7 +257,7 @@ fn contract_merged_roots_match_combined_expectations() {
         .unwrap();
     assert_eq!((primary, sub), (4, 4));
 
-    // input_uncached 合计 10,825：与 anthropic 侧互斥口径一致（不相加、不双计）。
+    // input_uncached 合计 10,825：与 anthropic 侧互斥关系一致（不相加、不双计）。
     let uncached_sum: i64 = conn
         .query_row(
             "SELECT COALESCE(SUM(input_uncached), 0) FROM usage_events",

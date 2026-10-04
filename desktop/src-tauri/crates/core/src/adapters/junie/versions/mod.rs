@@ -1,7 +1,7 @@
-//! Junie 版本注册表（V30 目录合同）。
+//! Junie 版本注册表（V30 目录约定）。
 //!
 //! events.jsonl 无格式版本字段：注册表锚点是文档级格式版本
-//! junie-events-doc-1（第三方解析器 tokscale 固定提交 1d9a939 的字段证据，
+//! junie-events-doc-1（第三方解析器 tokscale 固定提交 1d9a939 的字段依据，
 //! 闭源产品官方源码不可得），格式偏离在扫描层 fail closed。
 
 pub mod events_doc1;
@@ -9,7 +9,7 @@ pub mod events_doc1;
 /// 当前格式实现标识。
 pub const LATEST_IMPL_ID: &str = "events_doc1";
 
-/// 文档级格式版本（第三方解析器证据）。
+/// 文档级格式版本（依据第三方解析器实现）。
 pub const JUNIE_FORMAT_VERSION: &str = "junie-events-doc-1";
 
 /// 已验证支持的格式版本 → 格式实现。

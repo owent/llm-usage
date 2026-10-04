@@ -1,7 +1,7 @@
 //! state.db `session_model_usage` 模型/任务累计行 → 来源原生区间汇总
 //! （`session_model_usage_v1`）。
 //!
-//! 格式证据（A24 固定源码 ef70b3661cbfcf57e583008ad91dd04d8ba46070，
+//! 格式依据（A24 固定源码 ef70b3661cbfcf57e583008ad91dd04d8ba46070，
 //! hermes_state_common.py SCHEMA_SQL / hermes_state_usage.py / agent/turn_usage.py；
 //! 官方存储文档 website/docs/developer-guide/session-storage.md）：
 //! - 库布局：`get_hermes_home()/state.db`（HERMES_HOME → Windows
@@ -18,7 +18,7 @@
 //!   FROM sessions）；v22 重建表把 task 纳入主键。回填行不证明历史全部
 //!   调用使用该模型。
 //!
-//! 映射合同（adapters.md「Hermes Agent 本地合同」/ V03 固定数学样本）：
+//! 映射约定（adapters.md「Hermes Agent 本地约定」/ V03 固定数学样本）：
 //! - 每行 → 一条 `SourceAggregateInput`（interval_aggregate，保留原生区间），
 //!   **不**产生 model_call/usage_observation 事件：api_call_count 只作为
 //!   `reported_call_count` 汇总，绝不拆成伪造调用事件；
@@ -27,15 +27,15 @@
 //! - 主模型行与 task 辅助行互斥（源 upsert 键互斥、辅助不进主总量），
 //!   coverage=Exclusive：100 + 20 = 120，不是 220；
 //! - 主/辅助行归属同一来源表，不读 sessions 累计列（避免 absolute 覆盖与
-//!   v20 回填口径叠加双计）；子 Agent/压缩子会话是独立 session 行、各有
+//!   v20 回填值叠加而双计）；子 Agent/压缩子会话是独立 session 行、各有
 //!   自己的模型行，无跨行继承双计；未解释残差保持未知，不强归当前模型。
 //! - billing_base_url 只在内存规范化（scheme/host[:port] 或本地摘要），
 //!   不持久化完整 URL/查询参数；scope_key 用六键摘要。
 //!
-//! 增量合同（SQLite 行）：
-//! - schema 指纹持久化于解析上下文；指纹变化 ⇒ 水位重置全量重读
+//! 增量约定（SQLite 行）：
+//! - schema 指纹持久化于解析上下文；指纹变化 ⇒ 已处理位置重置全量重读
 //!   （scope_key upsert 幂等）；
-//! - 水位 = 行的有效结束毫秒（last_seen，回退 session ended_at → started_at
+//! - 已处理位置 = 行的有效结束毫秒（last_seen，回退 session ended_at → started_at
 //!   → first_seen）+ 60s 有界重叠窗；source_revision = 有效结束毫秒
 //!   （last_seen 单调推进）；
 //! - 单轮行数上限 50,000：触顶 BudgetExhausted；
@@ -55,7 +55,7 @@ use crate::ingest::DiagnosticInput;
 use serde::{Deserialize, Serialize};
 
 pub const HERMES_PARSER_VERSION: &str = "hermes-session-model-usage-1";
-/// 水位回看窗（毫秒）：覆盖同秒乱序的聚合写入。
+/// 已处理时间的回看窗（毫秒）：覆盖同秒乱序的聚合写入。
 pub const WATERMARK_OVERLAP_MS: i64 = 60_000;
 /// 单轮行数上限。
 pub const MAX_ROWS_PER_ROUND: i64 = 50_000;
@@ -68,10 +68,10 @@ const EFFECTIVE_END_S: &str =
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 struct HermesCursor {
     generation: i64,
-    /// 恒为 0：DB 不用字节偏移做无变化判定（WAL，同 kilo 合同）。
+    /// 恒为 0：DB 不用字节偏移做无变化判定（WAL，同 kilo 约定）。
     #[allow(dead_code)]
     offset: u64,
-    /// 已处理到的有效结束毫秒水位（含）；None = 从头全量。
+    /// 已处理到的有效结束时间（毫秒，含该值）；None = 从头全量。
     watermark_ms: Option<i64>,
 }
 
@@ -209,7 +209,7 @@ pub fn scan(
             "hermes state.db schema fingerprint no longer matches; fail closed".to_string(),
         ));
     };
-    // schema 指纹变化 ⇒ 旧水位不可信，全量重读（scope_key 幂等，不双计）。
+    // schema 指纹变化 ⇒ 旧的已处理位置不可信，全量重读（scope_key 幂等，不双计）。
     let fingerprint_reset = context.schema_fingerprint.is_some()
         && context.schema_fingerprint.as_deref() != Some(fingerprint.as_str());
     let watermark = if fingerprint_reset {
@@ -299,7 +299,7 @@ pub fn scan(
         });
     }
 
-    // 水位推进：触顶停在最后一个完整毫秒（重叠窗下轮重读，幂等）。
+    // 更新已处理位置：触顶停在最后一个完整毫秒（重叠窗下轮重读，幂等）。
     let last_end = rows.last().and_then(|r| r.effective_end_ms());
     let new_watermark = if hit_cap {
         last_end.map(|w| w - 1)

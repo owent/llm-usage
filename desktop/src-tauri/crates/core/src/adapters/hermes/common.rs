@@ -1,15 +1,15 @@
-//! Hermes Agent 产品特有的公共部分（独立目录合同 architecture.md#adapter-layout）：
-//! - usage 映射（`map_hermes`/`HermesUsage`，列级证据为固定源码，见下）；
+//! Hermes Agent 产品特有的公共部分（独立目录约定 architecture.md#adapter-layout）：
+//! - usage 映射（`map_hermes`/`HermesUsage`，列定义依据为固定源码，见下）；
 //! - `billing_base_url` 内存规范化（无凭据 provider 标识或本地摘要，不持久化原文）；
-//! - state.db 源库只读合同落地（只读连接 + Online Backup 暂存副本）：
+//! - state.db 源库只读访问实现（只读连接 + Online Backup 暂存副本）：
 //!   小工具函数复制自 `adapters/kilo/common.rs`（各 Agent 目录保持独立，
 //!   不共享模块；kilo 版本为 M3 已验收实现，语义一致仅前缀/注释不同）。
 //!
-//! 固定源码证据（A24，commit ef70b3661cbfcf57e583008ad91dd04d8ba46070）：
+//! 固定源码依据（A24，commit ef70b3661cbfcf57e583008ad91dd04d8ba46070）：
 //! - `hermes_state_common.py` SCHEMA_SQL：`session_model_usage` 18 列，
 //!   PRIMARY KEY (session_id, model, billing_provider, billing_base_url,
 //!   billing_mode, task)；`sessions` 含 id/source/parent_session_id/started_at/
-//!   ended_at/end_reason 与累计五列等（本适配器只读时间兜底列）。
+//!   ended_at/end_reason 与累计五列等（本适配器只读时间回退列）。
 //! - `hermes_state_usage.py`：计数器按组合键 ADD 式累计（增量路径），
 //!   absolute 路径只覆盖 sessions 总量且不写模型行；`record_auxiliary_usage`
 //!   只写 task 键行、不进主会话总量；first_seen 仅插入时写入，last_seen
@@ -42,9 +42,9 @@ pub struct HermesUsage {
 }
 
 /// 五列各自独立报告；包含关系未验证 ⇒
-/// - input_uncached / total_tokens / source_total 保持 None（不猜互斥口径）；
+/// - input_uncached / total_tokens / source_total 保持 None（不猜互斥关系）；
 /// - input_total = input_tokens、output_total = output_tokens 直报，
-///   cache/reasoning 并列报告（与 map_genai_usage 的未证包含关系处理同型）。
+///   cache/reasoning 并列报告（与 map_genai_usage 的尚未验证的包含关系处理同型）。
 pub fn map_hermes(raw: &HermesUsage) -> MappedUsage {
     let usage = TokenUsage {
         input_uncached: None,
@@ -82,7 +82,7 @@ pub(crate) fn seconds_to_ms(v: f64) -> Option<i64> {
     }
 }
 
-/// billing_base_url 内存规范化（adapters.md Hermes 合同：只在内存规范化成
+/// billing_base_url 内存规范化（adapters.md Hermes 约定：只在内存规范化成
 /// 无凭据的 provider 标识或本机摘要，不持久化完整 URL/查询参数）：
 /// URL 形 → `scheme/host[:port]`（去 userinfo/path/query/fragment）；
 /// 非 URL 形 → 不可逆本地摘要（FNV-1a，identity::content_hash），不落原文。
@@ -109,7 +109,7 @@ pub(crate) fn normalize_base_url(raw: &str) -> String {
     )
 }
 
-// ---- 源库只读访问（复制自 adapters/kilo/common.rs，各目录独立合同）----
+// ---- 源库只读访问（复制自 adapters/kilo/common.rs，各目录独立约定）----
 
 /// 一次只读访问：成功时直接用源库连接；busy/锁时自动切换到暂存副本。
 /// `guard` 持有暂存副本路径，drop 时清理（即使查询中途失败）。
@@ -136,7 +136,7 @@ impl Drop for StagingGuard {
     }
 }
 
-/// busy/锁/CANTOPEN 判定（无法一致读取的证据）。
+/// busy/锁/CANTOPEN 判定（这些错误表示无法一致读取）。
 pub(crate) fn is_busy_like(err: &rusqlite::Error) -> bool {
     matches!(
         err.sqlite_error_code(),
@@ -206,7 +206,7 @@ fn backup_to_staging(
             }
             match backup.step(limits.pages_per_step) {
                 Ok(StepResult::Done) => break Ok(()),
-                // More：实际拷贝了页，计入空间预算。
+                // More：实际拷贝了页，计入空间限制。
                 Ok(StepResult::More) => {
                     done_pages += i64::from(limits.pages_per_step);
                     if done_pages > max_pages {
@@ -217,7 +217,7 @@ fn backup_to_staging(
                     }
                     std::thread::sleep(Duration::from_millis(20));
                 }
-                // Busy/Locked（#[non_exhaustive] 其余）：无进展重试，只消耗时间预算。
+                // Busy/Locked（#[non_exhaustive] 其余）：无进展重试，仍计入超时时间。
                 // 2026-09-30 修复：此前重试也计入页数，与超时出口竞速产生
                 // 平台相关的 space cap 误报（CI Linux 页上限先于超时触发）。
                 Ok(_) => {
@@ -266,14 +266,14 @@ where
     }
 }
 
-/// 短查询事务探测（kilo 同合同）。
+/// 短查询事务探测（与 kilo 遵守同一规则）。
 pub(crate) fn short_probe(conn: &Connection) -> Result<(), rusqlite::Error> {
     conn.query_row("SELECT COUNT(*) FROM sqlite_master", [], |_| Ok(()))
 }
 
-// ---- schema 指纹（固定源码 DDL 投影；只含表/列名，可安全持久化）----
+// ---- schema 指纹（固定源码 DDL 表/列名摘要；只含表/列名，可安全持久化）----
 
-/// sessions 只读列（本适配器仅用身份与时间兜底列；完整列集见固定源码）。
+/// sessions 只读列（本适配器仅用身份与时间回退列；完整列集见固定源码）。
 pub(crate) const REQUIRED_SESSIONS_COLUMNS: &[&str] = &["id", "started_at", "ended_at"];
 /// session_model_usage 全部 18 列（固定源码 SCHEMA_SQL 逐字列名）。
 pub(crate) const REQUIRED_SMU_COLUMNS: &[&str] = &[

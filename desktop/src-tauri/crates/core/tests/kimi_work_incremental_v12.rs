@@ -1,5 +1,5 @@
 //! Kimi Work（A13，M4）V12 增量语义 —— 重复扫描不增量、追加续读、半行跨轮、
-//! 截断重扫（已入库历史不消失）、预算分段恢复。
+//! 截断重扫（已入库历史不消失）、达到读取上限后分批恢复。
 
 mod common;
 
@@ -149,7 +149,7 @@ fn truncation_triggers_rescan_keeps_history() {
     assert_eq!(second[0].outcome.as_ref().unwrap().added, 1, "仅新键事件");
     assert_eq!(generation(&storage), 1);
 
-    // 已入库历史不因源截断而消失（V12 同 codex 口径）。
+    // 已入库历史不因源截断而消失（V12 与 codex 规则相同）。
     let summary = summary(&storage, "2026-01-01", "2026-01-02");
     assert_eq!(summary.totals.call_count, 3);
     assert_eq!(summary.totals.total_tokens_known, Some(550 + 1_060 + 580));

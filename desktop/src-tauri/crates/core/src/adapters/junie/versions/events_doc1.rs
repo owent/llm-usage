@@ -1,6 +1,6 @@
 //! Junie CLI events.jsonl 格式实现（`events_doc1`，文档级 junie-events-doc-1）。
 //!
-//! 格式证据（第三方开源解析器 tokscale 固定提交
+//! 格式依据（第三方开源解析器 tokscale 固定提交
 //! 1d9a9395418efc6952944b794097935d7d6fa1e8 sessions/junie.rs；闭源产品，
 //! 本机未安装、无真实样本）：
 //! - 路径 `~/.junie/sessions/<session-id>/events.jsonl`（clients.rs:757-766）；
@@ -16,13 +16,13 @@
 //!   `provider`（junie.rs:224-245）。
 //! - 起始时间 = timestampMs − time（仅当 time 在场，junie.rs:126-130）⇒
 //!   occurred_at 取 timestampMs（SourceCompletion），duration=time。
-//! - 会话目录名 `session-<yyMMdd>-<HHmmss>` 仅作兜底（未采用：timestampMs
+//! - 会话目录名 `session-<yyMMdd>-<HHmmss>` 仅作备用时间来源（未采用：timestampMs
 //!   在场才入账，缺时间戳跳行记诊断）。
 //! - 对账键：junie:&lt;session&gt;:&lt;ts&gt;:&lt;model&gt;:&lt;五桶值&gt;:&lt;cost12位&gt;
 //!   :&lt;行号&gt;:&lt;数组内索引&gt;（tokscale junie.rs:100-108 原键不含行号——
-//!   两条不同行的同毫秒同内容事件会折叠；本仓合同要求同毫秒重复记录都入账，
+//!   两条不同行的同毫秒同内容事件会折叠；本仓约定要求同毫秒重复记录都入账，
 //!   键含行号区分；JSONL 追加源行号稳定，rescan 重放行号一致，幂等性不变）。
-//! - 无 cache/token 包含关系证据 ⇒ hermes 同型并列报告，不派生总量。
+//! - cache/token 包含关系尚未验证 ⇒ 与 hermes 一样并列报告，不派生总量。
 
 use crate::adapters::framework::{
     ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -98,7 +98,7 @@ fn session_id_of(path: &std::path::Path) -> String {
 }
 
 /// 别名组取值：第一个在场的有效数值别名；越界（负/超限）返回 None
-/// （调用方记诊断）；非整数别名不遮蔽同层后续有效别名（多版本兼容兜底
+/// （调用方记诊断）；非整数别名不遮蔽同层后续有效别名（多版本兼容分支
 /// 必须可达），全部别名非法才算形状偏离。
 fn alias_u64(
     obj: &serde_json::Map<String, serde_json::Value>,
@@ -328,7 +328,7 @@ pub fn scan(
                 occurred_at_ms: timestamp_ms,
                 observed_at_ms: Some(now_ms),
                 source_time: Some(timestamp_ms.to_string()),
-                // timestampMs 是响应结束时刻（第三方证据 junie.rs:113-119）。
+                // timestampMs 是响应结束时刻（依据第三方解析器 junie.rs:113-119）。
                 time_basis: TimeBasis::SourceCompletion,
                 // duration 超过响应结束时刻 ⇒ 起点为负（数据矛盾）：
                 // 起点置未知不编负值，端点保持真实报告。

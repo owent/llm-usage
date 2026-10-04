@@ -7,7 +7,7 @@
 来源以官方正文、维护者固定源码和本地原型为层级，搜索摘要只用于定位。
 滚动文档不代表本机安装版本；源码字段存在不等于完整运行路径已验收。
 各 Agent 当前实现与真实验收以 [接入矩阵](adapters.md) 为准。
-Windows 11 x64 首发，三平台 CI；本机真实数据验证已获允许，缺证 IDE 留 F1。
+Windows 11 x64 首发，三平台 CI；本机真实数据验证已获允许，本地用量格式尚未核验的 IDE 留 F1。
 仅统计本机来源，企业 API/账号报表资料只解释排除边界；Hermes 指 Nous Research 产品。
 
 <a id="prototype"></a>
@@ -27,7 +27,7 @@ Windows 11 x64 首发，三平台 CI；本机真实数据验证已获允许，�
 | collect.py / Store | 事件写与聚合分开 commit；不同源共用连接，失败源 state 可能被后来提交 | 每源批次原子性和可重放；禁止保存失败批次游标 |
 | kilo_code.py / copilot.py | 分别复制运行中的 db、wal、shm 再读 | SQLite 只读短事务或一致备份，不能把连续文件复制称为一致快照 |
 | copilot.py | 窗口外条件只有 pass；仍遍历所有行；request_id 含数据库路径和变化数值 | 源键及修订分离；去重多个库副本，不能声称现有 cursor 已实现有效增量 |
-| codex.py | 任意带 model 的非 usage 行用正则；找不到早先模型时回填第一条；缺 response ID 易碰撞 | 只使用结构化模型上下文；无证据保持 unknown；缺 ID 使用已验证替代身份 |
+| codex.py | 任意带 model 的非 usage 行用正则；找不到早先模型时回填第一条；缺 response ID 易碰撞 | 只使用结构化模型上下文；无模型归属依据时保持 unknown；缺 ID 使用已验证替代身份 |
 | kimi_code.py / kimi_work.py | 新 wire 候选字段明确，但版本来自注释；Work 固定机器 D 盘路径 | 官方确认路径后仍需 schema fixture；不复制机器路径作为默认值 |
 | zcode.py | requestId 和 traceId 都缺失时身份变成 zcode:None | 缺失稳定 ID 单独处理，不能合并所有记录 |
 | oh_my_pi.py | assistant usage + title-generator success 日志 | 检验重叠，补充压缩/分支/独立 usage 类别的覆盖 |
@@ -54,7 +54,7 @@ Windows 11 x64 首发，三平台 CI；本机真实数据验证已获允许，�
 | T05 | [ECharts import](https://echarts.apache.org/handbook/en/basics/import/) | 可按需导入图表、组件与渲染器；本项目裁剪效果未测 |
 | T06 | [Tauri GitHub CI](https://v2.tauri.app/distribute/pipelines/github/)、[依赖](https://v2.tauri.app/start/prerequisites/) | 可分 OS 构建；Linux WebKitGTK/系统依赖、macOS/Windows 工具链分别配置；不照搬自动发布示例 |
 | T07 | [GitHub runners](https://docs.github.com/en/actions/reference/runners/github-hosted-runners) | 版本化标签/架构候选；windows-2022、ubuntu-22.04、macos-15；M0 复核可用性，runner 构建不是目标桌面验收 |
-| T08 | [Microsoft WSLg](https://learn.microsoft.com/en-us/windows/wsl/tutorials/gui-apps) | Linux GUI 需 WSL 2，WSLg 不等于完整 Linux 桌面；已有环境/编译证据见验证目录，最新 revision 仍独立验收 |
+| T08 | [Microsoft WSLg](https://learn.microsoft.com/en-us/windows/wsl/tutorials/gui-apps) | Linux GUI 需 WSL 2，WSLg 不等于完整 Linux 桌面；已有环境/编译结果见验证目录，最新 revision 仍独立验收 |
 | T09 | [Task Scheduler](https://learn.microsoft.com/en-us/windows/win32/taskschd/task-scheduler-start-page)、[身份](https://learn.microsoft.com/en-us/windows/win32/taskschd/security-contexts-for-running-tasks)、[错过时点](https://learn.microsoft.com/en-us/windows/win32/taskschd/tasksettings-startwhenavailable) | 2026-10-03 复核正文；COM API 使用当前交互用户、LUA、分钟重复和不唤醒；普通用户注册/删除已实测，OS 实际启动另验 |
 | T10 | [Tauri WebDriver](https://v2.tauri.app/develop/tests/webdriver/) | 当前文档有嵌入式跨平台服务；直接 tauri-driver 仍区分 Windows/Linux 与 macOS；测试插件不得进入发行制品 |
 | T11 | [WebView2 调试](https://learn.microsoft.com/en-us/microsoft-edge/webview2/how-to/debug-visual-studio-code)、[Playwright WebView2](https://github.com/microsoft/playwright/blob/main/docs/src/webview2.md) | 2026-10-03 复核正文及源码；环境参数提供 CDP，测试从进程外连接真实 IPC，不在应用新增调试监听器 |
@@ -67,7 +67,7 @@ Windows 11 x64 首发，三平台 CI；本机真实数据验证已获允许，�
 ## Agent 官方与源码索引
 
 下表共用字段：verified_at=2026-09-24；method=打开官方正文或下载固定源码只读核对；
-installed_version=未探测；owner=本项目维护者；status=研究证据，非运行验收。
+installed_version=未探测；owner=本项目维护者；status=调研依据，非运行验收。
 implementation trigger=对应阶段开始、产品升级、schema 改变或数值不符时复核；不自动升级工具。
 
 | ID | 官方来源 / 固定源码 | 使用结论及限制 |
@@ -104,10 +104,10 @@ implementation trigger=对应阶段开始、产品升级、schema 改变或数�
 | A30 | [Aider](https://github.com/Aider-AI/aider)（固定 main `5dc9490bb35f9729ef2c95d00a19ccd30c26339c`，官方核验 2026-09-29） | 默认仅 .aider.chat.history.md/.aider.input.history（无逐次 usage）；`--analytics-log`/llm 历史日志为可选本地落盘（需启用、不回填）；逐次 token/cost 字段待 fixture |
 | A31 | [Continue](https://github.com/continuedev/continue)（官方核验 5522c6f44ca0ac3528b37b44818fbfa39b5af470，2026-09-29） | `~/.continue`（sessions、logs、index）目录已由官方文档证实；会话载体逐次 token 字段未核验；hub 账号数据不接入 |
 | A32 | [Droid](https://factory.ai/)（Factory.ai CLI） | `~/.factory/sessions/{uuid}.settings.json` 的 tokenUsage（input/output/cacheRead/cacheCreation/thinking，累计）+ 同名 jsonl 转录；无费用；累计分摊是估计仅作区间 |
-| A33 | [Amazon Q Developer CLI](https://github.com/aws/amazon-q-developer-cli)（官方核验 15cc8f3，2026-09-29） | `~/.aws/amazonq/history/` 按时间戳 JSON 会话（第三方证据）；repo 开源可源码核验；history 内 usage 字段未核验，SSO 重登录可能丢历史 |
+| A33 | [Amazon Q Developer CLI](https://github.com/aws/amazon-q-developer-cli)（官方核验 15cc8f3，2026-09-29） | `~/.aws/amazonq/history/` 按时间戳 JSON 会话（第三方资料）；repo 开源可源码核验；history 内 usage 字段未核验，SSO 重登录可能丢历史 |
 | A34 | Grok Build（xAI 闭源 CLI；[新闻报道](https://www.penligent.ai/)证实产品与版本线） | `~/.grok/sessions/<workspace>/<session>/{updates.jsonl,signals.json,summary.json,events.jsonl}` 与 `~/.grok/logs/unified.jsonl`；显式 usage 块五桶可用，累计 totalTokens 增量/压缩差额补偿为推断不采纳 |
-| A35 | [Google Antigravity](https://antigravity.google/) CLI/扩展 | `~/.gemini/antigravity[-cli]/conversations/<uuid>.db`：gen_metadata protobuf 逐回合 usage（input=固定提示+新增、cacheRead、output、thinking、responseId）；布局系逆向结论且 1.1.18 时间戳字段变更；IDE 主体用量经 language server，需另行取证 |
-| A36 | [Junie](https://junie.jetbrains.com/) CLI（JetBrains；tokscale 1d9a939 sessions/junie.rs，2026-09-29 采信） | `~/.junie/sessions/<session-id>/events.jsonl`：LlmResponseMetadataEvent.modelUsage[] 逐轮（model、input/output、cache、reasoning、cost、time、provider）；timestampMs 为结束时刻；IDE 插件本体仍缺证留 F1 |
+| A35 | [Google Antigravity](https://antigravity.google/) CLI/扩展 | `~/.gemini/antigravity[-cli]/conversations/<uuid>.db`：gen_metadata protobuf 逐回合 usage（input=固定提示+新增、cacheRead、output、thinking、responseId）；布局系逆向结论且 1.1.18 时间戳字段变更；IDE 主体用量经 language server，需另行核验 |
+| A36 | [Junie](https://junie.jetbrains.com/) CLI（JetBrains；tokscale 1d9a939 sessions/junie.rs，2026-09-29 采信） | `~/.junie/sessions/<session-id>/events.jsonl`：LlmResponseMetadataEvent.modelUsage[] 逐轮（model、input/output、cache、reasoning、cost、time、provider）；timestampMs 为结束时刻；IDE 插件本体的本地格式仍待核验，保留在 F1 |
 | A37 | [Kiro](https://kiro.dev/)（AWS；tokscale 1d9a939 sessions/kiro.rs，2026-09-29 采信） | 三载体：CLI `~/.kiro/sessions/cli/*.json(+jsonl)`、kiro-cli `~/.local/share/kiro-cli/data.sqlite3` conversations_v2、IDE globalStorage `kiro.kiroagent`（.chat/execution/promptLogs）；Auto agent 常记 0，估算路径不采纳；metering credit 为独立计价单位 |
 | A38 | [Zed threads 存储](https://github.com/zed-industries/zed)（官方核验 bd74733 + 本机 schema 只读核验 2026-09-29） | `~/.local/share/zed`、`~/Library/Application Support/Zed`、`%LOCALAPPDATA%\Zed` 下 threads/threads.db：threads 表 data blob（json 或 zstd）含 request_token_usage 逐次（input/output/cache_read/cache_creation）与 cumulative；仅 zed.dev hosted 计入，imported 线程跳过 |
 | A39 | [Codebuff](https://codebuff.com/)（原 Manicode；官方核验 caec5fc，2026-09-29） | `~/.config/manicode*/projects/*/chats/<chatId>/chat-messages.json`；CODEBUFF_DATA_DIR 覆盖；usage 字段待 fixture |
@@ -116,24 +116,24 @@ implementation trigger=对应阶段开始、产品升级、schema 改变或数�
 | A42 | gajae-code（`gjc`；官方核验 Yeachan-Heo/gajae-code 7e54f9c + docs/session.md，2026-09-29） | `~/.gjc/agent/sessions/<slug>/*.jsonl`（pi 血统：session 头 + assistant model/provider/usage 五桶 + cost.total）；深度 1/2 子代理重放需去重；GJC_CONFIG_DIR/PI_CONFIG_DIR/XDG 覆盖 |
 | A43 | [Xum](https://github.com/coder/xum)（Coder；原 coder/mux） | `~/.mux/sessions/<workspaceId>/session-usage.json`：byModel 会话级聚合（input/cached/cacheCreate/output/reasoning + cost_usd）；仅会话级；产品更名需双根发现 |
 | A44 | [Warp](https://www.warp.dev/) | 本地仅见账户级用量缓存（requestsUsed/spendCents/syncedAt，工作区级），无 token 明细；属额度数据不入 token 统计 |
-| A45 | [Cursor CLI 文档](https://cursor.com/docs/cli/overview)、[CursorDump 转录分析](https://github.com/lpalbou/CursorDump) | CLI 转录 `~/.cursor/projects/<slug>/agent-transcripts/<uuid>/*.jsonl` 有会话但无 token/模型逐次字段；逐次用量仅远端 dashboard（get-filtered-usage-events）→ 按本地边界排除；IDE state.vscdb 待证 |
+| A45 | [Cursor CLI 文档](https://cursor.com/docs/cli/overview)、[CursorDump 转录分析](https://github.com/lpalbou/CursorDump) | CLI 转录 `~/.cursor/projects/<slug>/agent-transcripts/<uuid>/*.jsonl` 有会话但无 token/模型逐次字段；逐次用量仅远端 dashboard（get-filtered-usage-events）→ 按本地边界排除；IDE state.vscdb 待核验 |
 | A46 | [iFlow CLI](https://github.com/iflow-ai/iflow-cli)（阿里心流，闭源；官方核验 4642808：__2026-04-17 停服__，2026-09-29） | `~/.iflow`（settings.json、`tmp/<project_hash>/`）官方文档证实；`/chat save` JSON 持久化；OTel 事件含逐次 api_response 五桶 token（与 Gemini CLI 同构）；chats 载体具体路径/usageMetadata 待本机样本 |
-| A47 | [Qoder](https://qoder.com/)（阿里；前通义灵码，2026-05 品牌升级；docs.qoder.com + npm @qoder-ai/qodercli 1.1.64 解包取证 2026-09-29） | CLI 设备流在 `~/.qoder/`，IDE 为 Electron `%APPDATA%\com.qoder.app.stable*`；CLI 会话格式与 usage 字段未证，需本机取证 |
-| A48 | AtomCode（AtomGit 生态，联合华为 InsCode AI IDE；官方核验 e4215f733eeba4cede553e28f9b559e6b3dc34ef（GitHub 镜像同 SHA），2026-09-29） | CLI 形态国产 Agent（GitHub 2100+ star、17.4 万下载，2026-06 报道）；本地存储格式未证，开源可后续源码核验 |
+| A47 | [Qoder](https://qoder.com/)（阿里；前通义灵码，2026-05 品牌升级；docs.qoder.com + npm @qoder-ai/qodercli 1.1.64 解包核验 2026-09-29） | CLI 设备流在 `~/.qoder/`，IDE 为 Electron `%APPDATA%\com.qoder.app.stable*`；CLI 会话格式与 usage 字段尚未核验，需本机核验 |
+| A48 | AtomCode（AtomGit 生态，联合华为 InsCode AI IDE；官方核验 e4215f733eeba4cede553e28f9b559e6b3dc34ef（GitHub 镜像同 SHA），2026-09-29） | CLI 形态国产 Agent（GitHub 2100+ star、17.4 万下载，2026-06 报道）；本地存储格式尚未核验，开源可后续源码核验 |
 
 固定源码提交通过 GitHub 公共 API 的 commits 结果再次核对；
 文件读取使用 raw.githubusercontent.com，未执行任何上游代码。
 滚动页面没有与本机发行版做对应验证，接入时必须补版本清单及样本。
 CodeBuddy 页面在浏览工具返回 502，改用 PowerShell 只读获取官方 HTML 后核验正文；
-没有把失败页面当作证据。WorkBuddy 和 ZCode 正文也通过该方式核对。
+没有把失败页面当作事实依据。WorkBuddy 和 ZCode 正文也通过该方式核对。
 Hermes 固定 commit 通过 commits API 获取，定点只读核对存储文档、schema 与 usage 相关片段。
 追加获取 agent/usage_pricing.py 时遇到 HTTP 429；停止该读取，不把外层 PowerShell 退出码 0
 当作此文件获取成功，不据响应字段名称推断缓存包含关系；此项留给 M3 的版本样本核验。
 
 ## M8 格式依据（核验于 2026-09-29）
 
-在覆盖调研基础上，逐产品核验格式证据；产物锚点
-已并入上表 A25–A48 各行；字段级证据全文在各适配器源文件头与
+在覆盖调研基础上，逐产品核验格式依据；产物锚点
+已并入上表 A25–A48 各行；字段级核验说明全文在各适配器源文件头与
 [M8 验证记录](../../validation/desktop-usage/m8-second-batch.md)：
 
 - 官方源码核验（固定提交）：Roo b867ec9（已归档）、Goose a701bb1、Crush 1f3827b、
@@ -141,7 +141,7 @@ Hermes 固定 commit 通过 commits API 获取，定点只读核对存储文档�
   Aider 5dc9490、Amazon Q 15cc8f3、Codebuff caec5fc、iFlow 4642808。
 - 官方分发物核验：Command Code npm 1.69.0 dist/cli.mjs（仓库无产品源码）、
   Qoder npm 1.1.64（混淆 bundle，仅路径可信）。
-- 第三方解析器证据（闭源）：tokscale 1d9a939 的 Amp/Grok/Junie/Kiro/Droid/Xum/
+- 第三方解析器依据（闭源）：tokscale 1d9a939 的 Amp/Grok/Junie/Kiro/Droid/Xum/
   Antigravity 实现逐行提取。
 - 重大结论：Goose 存在 tokscale 未覆盖的逐请求 usage_ledger；Crush token 列是
   上下文快照非用量；Amazon Q/Codebuff 本地无逐次 token 载体（不实施）；
@@ -150,16 +150,18 @@ Hermes 固定 commit 通过 commits API 获取，定点只读核对存储文档�
 
 ## 研究边界
 
-远端计费 API/组织数据不在范围内；真实来源仍按逐版本证据核验，缺失样本不推断。
-JetBrains 自家 AI Assistant/TRAE 等缺证 IDE 留 F1；Zed/Junie CLI 在 M8。
+远端计费 API/组织数据不在范围内；真实来源仍须逐版本核对格式依据，缺失样本不推断。
+JetBrains 自家 AI Assistant/TRAE 等本地用量格式尚未核验的 IDE 留 F1；Zed/Junie CLI 在 M8。
 包体、性能、平台和真实来源结果分别见验证记录，设计目标不作为测量值。
 
-## 扩展覆盖的证据层级
+<a id="扩展覆盖的证据层级"></a>
+
+## 扩展覆盖的来源类型与核验范围
 
 扩展来源见上表 A25–A48；当前能力及阶段划分见
 [接入矩阵](adapters.md#扩展覆盖)与 [执行计划 M8](execution.md#m8)。
 
-方法与证据层级：
+核验方法、来源类型及适用范围：
 
 - 以第三方开源解析器 [tokscale](https://github.com/junhoyeo/tokscale)
   （固定 main `1d9a9395418efc6952944b794097935d7d6fa1e8`）作为路径/字段线索层，
@@ -170,17 +172,17 @@ JetBrains 自家 AI Assistant/TRAE 等缺证 IDE 留 F1；Zed/Junie CLI 在 M8�
   Qoder 为通义灵码品牌升级（2026-05）；Grok Build 为 xAI 官方 CLI（新闻佐证）；
   Command Code、jcode、gajae-code、Codebuff、AtomCode 均有官方站点或发布渠道。
 - 闭源产品（Amp、Grok Build、Junie CLI、Kiro、Droid、Xum、iFlow CLI、
-  Qoder CLI、Antigravity protobuf 布局）的字段证据来自第三方解析器或逆向分析，
+  Qoder CLI、Antigravity protobuf 布局）的字段依据来自第三方解析器或逆向分析，
   能力与真实验收按接入矩阵逐版本维护；合成回归不认证本机输出。
 - 明确排除项：Cursor 逐次用量仅在远端 dashboard（get-filtered-usage-events）；
   TRAE 的 tokscale 路线来自其 usage API（远端）；Warp 本地仅账户级
   requests/spend 缓存。三者均不符合"只统计本机来源"边界，不入 token 统计。
-- 既有条目证据升级：Zed 内置（A23 补充 A38）发现 threads.db 本地逐次载体；
-  JetBrains（A07）补充 Junie CLI 本地 events.jsonl 证据；两者从 F1 缺证类
+- 既有条目补充核验依据：Zed 内置（A23 补充 A38）发现 threads.db 本地逐次载体；
+  JetBrains（A07）补充 Junie CLI 本地 events.jsonl 格式依据；两者从 F1 待核验类别
   已在 M8 注册；JetBrains AI Assistant IDE 插件与 TRAE 仍在 F1。
-- 缺证 IDE 家族（F1 扩充，不探测/不实施）：Cursor IDE、Windsurf（IDE+CLI）、
+- 本地用量格式尚未核验的 IDE 家族（F1 扩充，不探测/不实施）：Cursor IDE、Windsurf（IDE+CLI）、
   京东 JoyCode、智谱 CodeGeeX 插件、百度文心快码 Comate、华为 InsCode/CodeArts Snap。
-  每项保留产品身份与"待本地格式证据"状态，不写"不支持"。
+  每项保留产品身份与"本地格式待核验"状态，不写"不支持"。
 
 这些来源不授权访问登录后台、计费 API 或组织数据；实现与验证按当前合同执行。
 

@@ -1,12 +1,12 @@
-//! Cline 适配器（独立目录合同 architecture.md#adapter-layout）：
+//! Cline 适配器（独立目录约定 architecture.md#adapter-layout）：
 //! - 本模块是该 Agent 的稳定入口（统一接口实现与再导出）；
 //! - [`detect`]：产品/格式探测（文档级指纹；ui_messages.json 无版本字段，
 //!   不做版本分派）；
 //! - [`versions`]：统一形状的格式注册表（唯一条目：文档级 ui-messages-doc-1）；
 //! - 产品特有映射在 [`common`]（四互斥桶 + cost）。
 //!
-//! 原始格式证据（固定源码 dcf8c3c33596e3d561a941202297c564a1cbcd49，A03，
-//! 文档级证据待真实样本；本机 2026-09-25 盘点 not_found）：
+//! 原始格式依据（固定源码 dcf8c3c33596e3d561a941202297c564a1cbcd49，A03，
+//! 按文档或源码实现，待真实样本核验；本机 2026-09-25 盘点 not_found）：
 //! - `apps/vscode/src/shared/getApiMetrics.ts`：usage 载体是 type="say" 且
 //!   say ∈ {api_req_started, deleted_api_reqs, subagent_usage} 的消息，
 //!   `text` 为 JSON 字符串，字段 tokensIn/tokensOut/cacheWrites/cacheReads/cost

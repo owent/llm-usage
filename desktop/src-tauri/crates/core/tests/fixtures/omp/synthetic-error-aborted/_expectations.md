@@ -1,7 +1,7 @@
 # synthetic-error-aborted._expectations.md（SYNTHETIC）
 
 **本目录全部为合成样本（synthetic），不是真实会话提取。** stopReason=error/aborted
-映射 error_status。本机真实证据：147 条 error/aborted 全带 usage；aborted 条目
+映射 error_status。本机真实核验结果：147 条 error/aborted 全带 usage；aborted 条目
 无 duration/ttft 字段（k3 真实 fixture 同形状）。
 
 ## 场景与期望

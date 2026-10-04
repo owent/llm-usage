@@ -1,4 +1,4 @@
-//! Xum 适配器（Coder，原 mux；独立目录合同）。载体：
+//! Xum 适配器（Coder，原 mux；独立目录约定）。载体：
 //! `~/.mux/sessions/<workspaceId>/session-usage.json` 的 byModel 会话级
 //! 按模型累计（IntervalAggregate；产品更名保留 mux 旧根）。
 
@@ -39,7 +39,7 @@ impl crate::adapters::framework::SourceAdapter for XumAdapter {
     ) -> Vec<crate::adapters::framework::DiscoveredRoot> {
         use crate::adapters::framework::{DiscoveredRoot, RootBasis};
         let mut roots: Vec<(std::path::PathBuf, RootBasis)> = Vec::new();
-        // 旧品牌 mux 根保留（产品更名；第三方证据路径即 ~/.mux）。
+        // 旧品牌 mux 根保留（产品更名；第三方解析器读取的路径即 ~/.mux）。
         if let Some(home) = &ctx.home_dir {
             roots.push((home.join(".mux").join("sessions"), RootBasis::DefaultHome));
             roots.push((home.join(".xum").join("sessions"), RootBasis::DefaultHome));

@@ -26,7 +26,7 @@
   8 MiB 单行上限受限报错、BOM、坏行隔离无正文、同长替换/截断/改名 generation 重探测）。
 - `adapters/codex.rs`：Codex 0.155.0-alpha.16.3 适配器。token_usage_record 逐次（model_call，
   resp:{response_id} 身份，缺 ID 回退 seq:{session}:行号）、token_count 累计快照分格式不混算、
-  compaction 携带记录去重与对账、turn_context 模型归属（无证据 unknown）、
+  compaction 携带记录去重与对账、turn_context 模型归属（无模型归属依据时为 unknown）、
   codex_vscode→host_application=vscode、子 Agent 类别映射。能力声明落库 source_instances。
 - 重复 final 语义修正（ingest.rs）：同键同内容仅时间不同的重报按"同一内容"幂等（Keep），
   不误标 conflict；真正的同修订内容分歧仍保留 conflict 诊断。
@@ -66,11 +66,13 @@ M2-A 子代理因额度中断，以下由其代码基础上修复后验收：能
 
 | 项 | 状态 | 后续 |
 | --- | --- | --- |
-| Codex 其他版本（0.146–0.155 系） | 部分完成（[m2d](m2d-layout-versions.md)：0.153.0/0.154.0-alpha.6.1/6.2 已验证；0.139–0.151 无逐次载体待专用实现；未收录版本按 latest_fallback 尝试） | 0.139–0.151 取证 token_count/last_token_usage 身份语义后扩展 |
+| Codex 其他版本（0.146–0.155 系） | 部分完成（[m2d](m2d-layout-versions.md)：0.153.0/0.154.0-alpha.6.1/6.2 已验证；0.139–0.151 无逐次载体待专用实现；未收录版本按 latest_fallback 尝试） | 0.139–0.151 核验 token_count/last_token_usage 身份语义后扩展 |
 | OTel 遥测接入 | 未实现 | M5 |
 | 真实 GUI 数据源页 | 未实现 | M6 |
 
-## 证据文件
+<a id="证据文件"></a>
+
+## 验证产物
 
 - `desktop/src-tauri/crates/core/src/adapters/`（framework/jsonl/codex）、`tests/`（codex_*、jsonl_v07、review_regressions、fixtures/codex/）。
 - `build/desktop-usage-validation/real-check/`（gitignored）：real-check.sqlite 临时核对库。

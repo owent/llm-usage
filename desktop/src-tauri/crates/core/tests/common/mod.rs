@@ -125,7 +125,7 @@ use llm_usage_core::adapters::framework::{
 use llm_usage_core::jobs::TriggerKind;
 
 /// 把 M0 脱敏 fixture（sanitized projection）还原为 rollout JSONL 字节流。
-/// 投影保留了每行的 timestamp/type/payload 白名单结构，正文为常量占位；
+/// 脱敏数据保留了每行的 timestamp/type/payload 白名单结构，正文为常量占位；
 /// 去掉提取器附加的 `line` 键后逐行序列化即得原始形状的 JSONL。
 pub fn reconstruct_codex_jsonl(sanitized_path: &Path) -> Vec<u8> {
     let text = std::fs::read_to_string(sanitized_path).unwrap();
@@ -349,7 +349,7 @@ pub fn run_gemini(storage: &Storage, root: &Path, now_ms: i64) -> Vec<SourceRunR
 use llm_usage_core::adapters::omp::OmpAdapter;
 use llm_usage_core::adapters::pi::PiAdapter;
 
-/// 通用：把脱敏投影（{records:[{line, ...条目}]}）还原为 JSONL 字节流。
+/// 通用：把脱敏数据（{records:[{line, ...条目}]}）还原为 JSONL 字节流。
 /// 与 reconstruct_codex_jsonl 同逻辑，命名不绑定具体 Agent。
 pub fn reconstruct_jsonl_projection(sanitized_path: &Path) -> Vec<u8> {
     let text = std::fs::read_to_string(sanitized_path).unwrap();
@@ -491,8 +491,8 @@ pub fn kilo_fixture(name: &str) -> PathBuf {
         .join(name)
 }
 
-/// serde_json 值 → SQLite 值（投影数字保持整/浮形态；嵌套结构序列化为文本，
-/// 与实读投影里 time_created 持 JSON 字符串等异形一致）。
+/// serde_json 值 → SQLite 值（脱敏数据中的数字保持整/浮形态；嵌套结构序列化为文本，
+/// 与实读脱敏数据里 time_created 持 JSON 字符串等异形一致）。
 fn json_to_sql(value: &serde_json::Value) -> rusqlite::types::Value {
     use rusqlite::types::Value as Sql;
     match value {
@@ -508,16 +508,16 @@ fn json_to_sql(value: &serde_json::Value) -> rusqlite::types::Value {
     }
 }
 
-/// 按脱敏投影（{schema:{message_ddl,session_ddl}, sessions, messages}）在
-/// <dir>/.local/share/kilo/kilo.db 重建真实 SQLite 库（原始 DDL + 投影值），
+/// 按脱敏数据（{schema:{message_ddl,session_ddl}, sessions, messages}）在
+/// <dir>/.local/share/kilo/kilo.db 重建真实 SQLite 库（原始 DDL + 脱敏值），
 /// 返回可作为手工根传入 discover 的目录（默认 home 形状）。
-/// 投影可以是仓库 fixture 文件解析结果，也可以是测试内联构造的合成 JSON。
+/// 脱敏数据可以是仓库 fixture 文件解析结果，也可以是测试内联构造的合成 JSON。
 pub fn build_kilo_db(dir: &TempDir, projection: &serde_json::Value) -> PathBuf {
     let kilo_home = dir.path().join(".local").join("share").join("kilo");
     std::fs::create_dir_all(&kilo_home).unwrap();
     let db_path = kilo_home.join("kilo.db");
     let conn = Connection::open(&db_path).unwrap();
-    // bundled SQLite 默认开外键；投影只重建 message/session 两表，
+    // bundled SQLite 默认开外键；脱敏数据只重建 message/session 两表，
     // 显式关闭以允许 FK 指向未重建的 project 表（源库行为不受影响）。
     conn.execute_batch("PRAGMA foreign_keys = OFF;").unwrap();
     conn.execute_batch(projection["schema"]["message_ddl"].as_str().unwrap())
@@ -533,7 +533,7 @@ pub fn build_kilo_db(dir: &TempDir, projection: &serde_json::Value) -> PathBuf {
             columns.join(", "),
             placeholders.join(", ")
         );
-        // 投影里 session.time_created 在源端是异形值（脱敏后为 null / 权限数组
+        // 脱敏数据里 session.time_created 在源端是异形值（脱敏后为 null / 权限数组
         // 字符串）；DDL NOT NULL 下 null 以 0 占位（适配器从不读该列）。
         let values: Vec<rusqlite::types::Value> = obj
             .iter()
@@ -590,7 +590,7 @@ NOT NULL, `tokens_cache_read` integer DEFAULT 0 NOT NULL, `tokens_cache_write` i
 DEFAULT 0 NOT NULL, `metadata` text, CONSTRAINT `fk_session_project_id_project_id_fk` \
 FOREIGN KEY (`project_id`) REFERENCES `project`(`id`) ON DELETE CASCADE )";
 
-/// 用测试提供的 sessions/messages 构造合成投影（schema 同真实 fixture DDL）。
+/// 用测试提供的 sessions/messages 构造合成数据（schema 同真实 fixture DDL）。
 pub fn synthetic_kilo_projection(
     sessions: serde_json::Value,
     messages: serde_json::Value,
@@ -637,7 +637,7 @@ pub fn kimi_root_with_file(dir: &TempDir, rel: &str, contents: &[u8]) -> PathBuf
     dir.path().to_path_buf()
 }
 
-/// 把 M4 脱敏投影（{records:[{line, ...条目}]}）还原为 wire JSONL 字节流。
+/// 把 M4 脱敏数据（{records:[{line, ...条目}]}）还原为 wire JSONL 字节流。
 /// 重建时保持提取器保留的行序（原始行号不要求连续，JSONL 语义不受影响）。
 pub fn reconstruct_kimi_wire(sanitized_path: &Path) -> Vec<u8> {
     reconstruct_jsonl_projection(sanitized_path)

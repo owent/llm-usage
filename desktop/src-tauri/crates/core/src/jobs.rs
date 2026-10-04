@@ -1,4 +1,4 @@
-//! 采集作业合同：ingest_runs 状态机（running/interrupted/succeeded/failed/cancelled）。
+//! 采集作业约定：ingest_runs 状态机（running/interrupted/succeeded/failed/cancelled）。
 //! 同源最多一个运行作业；重叠触发合并进既有作业（M6 才接调度并发控制，这里
 //! 只提供结构与存储语义）。进程重启由 Storage::open 把 running 标记为 interrupted。
 
@@ -187,7 +187,7 @@ pub fn run_status(storage: &Storage, run_id: &str) -> Result<Option<RunStatus>, 
     row.map(|s| RunStatus::parse(&s)).transpose()
 }
 
-/// 批次内更新作业计数（与事件/游标/聚合同事务提交进度）。
+/// 批次内更新作业计数（与事件/游标/聚约定事务提交进度）。
 pub(crate) fn merge_run_stats_tx(
     tx: &rusqlite::Transaction<'_>,
     run_id: &str,
@@ -212,7 +212,7 @@ pub(crate) fn merge_run_stats_tx(
     Ok(())
 }
 
-/// 无法获得单调时钟时的兜底时间戳（打开/迁移路径）。
+/// 无法获得单调时钟时的回退时间戳（打开/迁移路径）。
 pub(crate) fn now_ms_fallback() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)

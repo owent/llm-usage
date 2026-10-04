@@ -1,5 +1,5 @@
 //! Kimi Code（A12，M4）V12 增量语义 —— 重复扫描不增量、追加续读（对账累计跨轮
-//! 持久）、半行跨轮、截断重扫、预算分段恢复、改名重探测。
+//! 持久）、半行跨轮、截断重扫、达到读取上限后分批恢复、改名重探测。
 
 mod common;
 
@@ -202,7 +202,7 @@ fn truncation_triggers_rescan() {
     assert_eq!(summary.totals.total_tokens_known, Some(550 + 1_060 + 580));
 }
 
-/// 行数预算分段：预算耗尽停在完整行边界，下轮续读；游标推进按行消费。
+/// 按行数上限分批：达到上限停在完整行边界，下轮续读；游标推进按行消费。
 #[test]
 fn line_budget_resumes() {
     let dir = TempDir::new("kimi-code-budget");
@@ -213,14 +213,14 @@ fn line_budget_resumes() {
     );
     let (_db, storage) = temp_storage("kimi-code-budget");
 
-    // 预算 2 行：metadata + 第一条记录；状态 budget_exhausted。
+    // 本轮上限 2 行：metadata + 第一条记录；状态 budget_exhausted。
     let first = run_kimi_code_with_limits(&storage, &root, NOW, budgeted_limits(2));
     assert_eq!(first[0].files[0].status, "budget_exhausted");
     assert_eq!(first[0].outcome.as_ref().unwrap().added, 1);
     // 对账只应在读到文件尾时进行：本轮不产生 matched 行。
     assert!(first[0].reconciliations.is_empty());
 
-    // 下轮无预算：续读剩余 1 行并完结。
+    // 下轮无行数限制：续读剩余 1 行并完结。
     let second = run_kimi_code(&storage, &root, NOW + 1000);
     assert_eq!(second[0].files[0].status, "complete");
     assert_eq!(second[0].outcome.as_ref().unwrap().added, 1);

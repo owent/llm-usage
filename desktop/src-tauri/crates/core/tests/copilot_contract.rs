@@ -1,4 +1,4 @@
-//! Copilot CLI 适配器合同测试：真实脱敏 fixture（本机 schema_version=8，
+//! Copilot CLI 适配器约定测试：真实脱敏 fixture（本机 schema_version=8，
 //! 2026-09-29 提取，36 行）重建 SQLite → discover/detect/scan → commit →
 //! 查询全链。期望值对照 tests/fixtures/copilot/_expectations.md 的人工核算。
 

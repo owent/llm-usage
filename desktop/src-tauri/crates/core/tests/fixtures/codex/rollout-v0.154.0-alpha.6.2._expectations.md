@@ -11,7 +11,7 @@
 - 36 行全部可解析（parseErrors=0）。
 - 记录类型计数：session_meta ×1、event_msg ×12、response_item ×16、
   world_state ×1、turn_context ×1、token_usage_record ×5。
-- session_meta.cli_version = `0.154.0-alpha.6.2`（本 fixture 的版本证据）。
+- session_meta.cli_version = `0.154.0-alpha.6.2`（本 fixture 的版本核验依据）。
 
 ## usage 数值期望（按 response_id 首次出现求和）
 
@@ -30,7 +30,7 @@
 
 ## 分派期望（V30）
 
-- 版本 `0.154.0-alpha.6.2` 在注册表登记为已验证（本 fixture 证据）⇒ detect 返回
+- 版本 `0.154.0-alpha.6.2` 在注册表登记为已验证（本 fixture 核验结果）⇒ detect 返回
   Supported { format_version: Some("0.154.0-alpha.6.2"), basis: KnownVersion }；
   事件 parse_basis = known_version，文件状态 active（非 active_compat）。
 - 本版本在本机数据量最大（46 个文件），是 fallback 收益的主要对象之一。

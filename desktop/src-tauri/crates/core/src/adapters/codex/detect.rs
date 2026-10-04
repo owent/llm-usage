@@ -1,7 +1,7 @@
 //! Codex 探测与版本分派：有界读取首行，确认 Agent 身份（`type=session_meta`
 //! rollout JSONL）后按 [`super::versions`] 注册表选择格式实现。
 //!
-//! 合同（architecture.md#unknown-version）：
+//! 约定（architecture.md#unknown-version）：
 //! - 首行不是 JSON / 不是 session_meta / payload 缺 id 与 cli_version ⇒ 未知格式，
 //!   fail closed，不把任意未知文件交给猜测逻辑；
 //! - cli_version 已收录 ⇒ KnownVersion；未收录或缺失 ⇒ LatestFallback（带兼容标记）。

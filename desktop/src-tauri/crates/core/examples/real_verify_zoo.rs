@@ -3,7 +3,7 @@
 //! 做只读核对。本机未安装（not_found，2026-09-25 盘点）时期望 discovered_roots=0。
 //! 只输出白名单聚合：发现根数、文件数、记录数、事件数、token 合计、诊断计数；
 //! 不打印路径、任务 ID、模型以外的任何记录内容。
-//! 适配器为文档级证据实现，真实数据出现后按本入口复验。
+//! 适配器为按已核对的文档或源码实现，真实数据出现后按本入口复验。
 //! 用法：cargo run -p llm-usage-core --example real_verify_zoo -- <zoo根或其父目录或用户home> <work_dir>
 
 use llm_usage_core::adapters::framework::{

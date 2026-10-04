@@ -1,15 +1,15 @@
-//! ZCode 适配器（独立目录合同 architecture.md#adapter-layout）：
+//! ZCode 适配器（独立目录约定 architecture.md#adapter-layout）：
 //! - 本模块是该 Agent 的稳定入口（统一接口实现与再导出）；
 //! - [`detect`]：产品/格式探测与版本分派；
 //! - [`versions`]：已验证格式实现的注册与映射（版本锚点
 //!   `request.headers["x-zcode-app-version"]`；已验证 3.14.3，未知版本
 //!   latest_fallback 兼容尝试）；
-//! - [`common`]：双口径 usage 映射（AI SDK 主口径 + anthropic 对照口径，
+//! - [`common`]：两类 usage 字段映射（AI SDK 主视图 + anthropic 对照视图，
 //!   从根级 usage_map.rs 下沉）；
 //! - [`db_backfill`]：数据库逐次记录为主来源，按来源/日原子替换；
 //! - [`db_reconciliation`]：轮级累计只用于对账，不与逐次记录相加。
 //!
-//! 发现依据（m345-inventory-2026-09-25 路径证据，本机实读）：
+//! 发现依据（m345-inventory-2026-09-25 目录核验结果，本机实读）：
 //! 数据根 `<home>/.zcode/cli`；用量逐次记录在 `rollout/model-io-*.jsonl`；
 //! `db/db.sqlite` 的 model_usage 用于采集，turn_usage 用于对照；
 //! `agents/*/transcript.jsonl` 为正文类（不计量）；`~/.zcode/v2` 无 rollout；
@@ -289,7 +289,7 @@ impl crate::adapters::framework::SourceAdapter for ZcodeAdapter {
 
 /// cli/db/db.sqlite 只读对账结果（白名单数值，无 ID/路径/正文）。
 ///
-/// 证据（本机 3.14.3 只读探测）：`model_usage` 逐次行（4169 行）、
+/// 依据（本机 3.14.3 只读探测）：`model_usage` 逐次行（4169 行）、
 /// `turn_usage` 逐轮聚合（438 行），computed_total_tokens 可对账；
 /// M0 样本 16/16 轮相等；活库快照上少量在途/取消轮存在差异，
 /// 对账只报告 matched/mismatch，不做修正、不入库计量。

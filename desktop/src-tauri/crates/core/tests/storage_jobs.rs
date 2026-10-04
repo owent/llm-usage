@@ -467,7 +467,7 @@ fn token_usage_default_is_all_unknown() {
     assert_eq!(llm_usage_core::metrics::cache_input_ratio(&[]), (None, 0));
 }
 
-/// 调度合同存储：全局/逐源规则、时区、下次计划时间、desired/applied 状态。
+/// 调度规则存储：全局/逐源规则、时区、下次计划时间、desired/applied 状态。
 /// （M1 只建结构与存储语义；定时器与并发控制在 M6 接。）
 #[test]
 fn schedule_tables_roundtrip() {

@@ -1,8 +1,8 @@
 //! Cline 版本注册表：格式版本 → 格式实现的映射与回退选择
-//! （architecture.md#adapter-layout / #unknown-version，V30 目录合同）。
+//! （architecture.md#adapter-layout / #unknown-version，V30 目录约定）。
 //!
 //! ui_messages.json 无 CLI 版本字段：注册表锚点是文档级格式版本
-//! ui-messages-doc-1（固定源码 dcf8c3c 口径），因此不存在"未知版本"状态——
+//! ui-messages-doc-1（按固定源码 dcf8c3c 定义），因此不存在"未知版本"状态——
 //! detect 不读版本号，成功即 KnownVersion；格式偏离（未文档化 say 种类、
 //! 非 say 记录类型）在扫描层 fail closed，不走版本回退。
 //!
@@ -16,7 +16,7 @@ pub mod ui_messages_doc1;
 /// 当前格式实现标识（"最新内置解析器"由本常量明确指定，不联网获取）。
 pub const LATEST_IMPL_ID: &str = "ui_messages_doc1";
 
-/// 文档级格式版本（非 CLI 版本）：固定源码 dcf8c3c 的消息形状口径，
+/// 文档级格式版本（非 CLI 版本）：按固定源码 dcf8c3c 的消息结构实现，
 /// 待真实样本核验。
 pub const CLINE_FORMAT_VERSION: &str = "ui-messages-doc-1";
 

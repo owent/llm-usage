@@ -1,9 +1,11 @@
-# M3：Cline、DSH、Hermes、OpenClaw、OpenCode 家族文档级证据适配器
+# M3：基于文档或源码实现的 Cline、DSH、Hermes、OpenClaw、OpenCode 家族适配器
+
+<a id="m3clinedshhermesopenclawopencode-家族文档级证据适配器"></a>
 
 本机未安装四个产品（2026-09-25 盘点 not_found，`~/.cline` 等候选路径不存在；
-real_verify 四例 discovered_roots=0 为证据）。按用户指示以固定源码/官方文档
-级证据实现，合成测试通过；**真实数据验收后置**（安装后经 discover 自动发现，
-real_verify 入口复验）。适配器与 fixtures 均明确标注文档级证据。
+real_verify 四例 discovered_roots=0 的结果为依据）。按用户指示以固定源码/官方文档
+级依据实现，合成测试通过；**真实数据验收后置**（安装后经 discover 自动发现，
+real_verify 入口复验）。适配器与 fixtures 均明确标注所用文档或源码依据。
 
 ## 元信息
 
@@ -15,7 +17,9 @@ real_verify 入口复验）。适配器与 fixtures 均明确标注文档级证�
 | 依据合同 | adapters.md（A03/A08/A24/A09 固定源码锚点）；V03/V07/V12/V17/V30 |
 | 执行方式 | 三个并行子代理因 API 限额中断（2026-09-25 21:33），适配器目录已完整（5 文件/个）且编译通过；主会话补齐测试、examples、内联缺陷修复并集成 |
 
-## 实现与证据
+<a id="实现与证据"></a>
+
+## 实现与依据
 
 ### Cline（A03，固定源码 dcf8c3c）
 
@@ -62,7 +66,7 @@ real_verify 入口复验）。适配器与 fixtures 均明确标注文档级证�
 | # | 命令（cwd） | 退出码 | 结果摘要 |
 | --- | --- | --- | --- |
 | 1 | `cargo test -p llm-usage-core` | 0 | 全绿（新增 cline 3 + dsh 4 + openclaw 3 + hermes 8 + 内联若干；verify 53 个测试二进制） |
-| 2 | `cargo run --example real_verify_{cline,dsh,hermes,openclaw}` | 0 | 四例 discovered_roots=0（not_found 证据；无数据目录） |
+| 2 | `cargo run --example real_verify_{cline,dsh,hermes,openclaw}` | 0 | 四例 discovered_roots=0（not_found 核验结果；无数据目录） |
 | 3 | `npm run verify` | 0 | lint 0、clippy/fmt 干净、前端构建不变 |
 | 4 | `APPDATA=<临时> cargo run -p llm-usage-m0 -- --headless` | 0 | 14 适配器注册；7 实例 27,158 事件（与上批一致量级，活文件微增） |
 
@@ -99,7 +103,9 @@ real_verify 入口复验）。适配器与 fixtures 均明确标注文档级证�
 | --- | --- | --- |
 | 七产品真实数据验收 | 后置（本机 not_found） | 安装后 real_verify 复验 + 脱敏 fixture 补取；逐 session.version 升 known_version |
 
-## 证据文件
+<a id="证据文件"></a>
+
+## 验证产物
 
 - 适配器：`adapters/{cline,dsh,hermes,openclaw}/`；
 - 测试：`tests/{cline,dsh,openclaw,opencode,mimo_code,zoo}_contract.rs`、`tests/hermes_contract.rs`；

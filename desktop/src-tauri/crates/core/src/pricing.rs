@@ -1,5 +1,5 @@
-//! F2 价格快照与费用估算（[价格合同](../../../docs/design/desktop-usage/pricing.md)、
-//! [费用合同](../../../docs/design/desktop-usage/data-contract.md#pricing)）。
+//! F2 价格快照与费用估算（[价格规范](../../../docs/design/desktop-usage/pricing.md)、
+//! [费用计算规则](../../../docs/design/desktop-usage/data-contract.md#pricing)）。
 //!
 //! 单位约定：价格 = 最小货币单位的百分之一 / 百万 token（i64，如 $0.075/M = 750）；
 //! 计费项金额 = round_half_up(token × 价格 / 100_000_000)，i128 中间量，四舍五入到
@@ -17,7 +17,7 @@ use std::collections::BTreeMap;
 pub const SEED_SNAPSHOT_JSON: &str = include_str!("../prices/seed-2026-09-25.json");
 pub const SUPPLEMENT_SNAPSHOT_JSON: &str = include_str!("../prices/seed-2026-10-02.json");
 
-/// 币种枚举（种子与本程序当前核验范围；新币种需先取得证据再扩展）。
+/// 币种枚举（种子与本程序当前核验范围；新币种需先核验对应价格资料再扩展）。
 pub const CURRENCIES: &[&str] = &["USD", "CNY"];
 
 /// 服务档位（估算只自动匹配 standard；batch/flex/fast 行不串用）。
@@ -446,7 +446,7 @@ pub struct EventEstimateAmounts {
     pub known_tokens: i64,
     /// 存在未知 token 分量（输出或未缓存输入未知）：金额只能部分估算（A2）。
     pub has_unknown_components: bool,
-    /// 缓存写 TTL 采用用户默认档（而非事件证据）。
+    /// 缓存写 TTL 采用用户默认档（事件未提供该值）。
     pub ttl_defaulted: bool,
     /// 无精确 provider+模型匹配时采用了官方供应商按量价行（参考估算；
     /// pricing.md 在线刷新设计）。
@@ -880,7 +880,7 @@ impl PriceBook {
             )
         })
         .and_then(|()| {
-            // 缓存写：TTL 档由用户默认选定（事件无 TTL 证据）；未设默认档不计价。
+            // 缓存写：TTL 档由用户默认选定（事件未提供 TTL）；未设默认档不计价。
             let write = match event.input_cache_write {
                 Some(w) => w,
                 None => return Ok(()),
@@ -1285,7 +1285,7 @@ mod tests {
     }
 
     // ------------------------------------------------------------------
-    // 官方供应商回退匹配（2026-10-01 用户合同；pricing.md 在线刷新设计）
+    // 官方供应商回退匹配（当前规则；pricing.md 在线刷新设计）
     // ------------------------------------------------------------------
 
     /// 带 official_vendor 标记的行 JSON（seed/community 默认 true；manual 默认 false）。

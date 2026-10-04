@@ -1,10 +1,10 @@
 //! kimi-work 版本注册表：wire protocol_version → 格式实现的映射与未知版本回退
 //! （architecture.md#adapter-layout / #unknown-version，V30）。
 //!
-//! 版本策略证据（本机实读 + fixture，非官方协议文档）：
+//! 版本选择依据（本机实读 + fixture，非官方协议文档）：
 //! - 已验证：仅 `1.4`（本机 Kimi Work 内嵌 kimi-code home，2026-09-25 盘点 +
 //!   tests/fixtures/kimi-work 真实脱敏样本）→ `wire_v14`，KnownVersion；
-//! - 未收录/缺失 protocol_version：无证据不兼容 ⇒ LatestFallback 兼容尝试；
+//! - 未收录/缺失 protocol_version：尚未确认不兼容 ⇒ LatestFallback 兼容尝试；
 //!   注意 `1.5` 是 Kimi Code 侧的已验证锚点，在**本产品**注册表同样走
 //!   latest_fallback（两产品注册表独立，A12/A13；同一 wire 家族不共享验证态）。
 //!
@@ -30,7 +30,7 @@ pub struct Selection {
 }
 
 /// 按来源 wire protocol_version 选择格式实现；探测与扫描共用（V30）。
-/// kimi-work 无有证据的不兼容版本：未收录/缺失一律 latest_fallback。
+/// kimi-work 尚无已确认不兼容的版本：未收录/缺失一律 latest_fallback。
 pub fn select(found: Option<&str>) -> Selection {
     match found.and_then(|v| VERIFIED_VERSION_IMPLS.iter().find(|(known, _)| *known == v)) {
         Some((_, impl_id)) => Selection {

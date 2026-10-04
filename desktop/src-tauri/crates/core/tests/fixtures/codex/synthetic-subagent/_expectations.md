@@ -1,7 +1,7 @@
 # synthetic-subagent._expectations.md（SYNTHETIC）
 
 **本目录全部为合成样本（synthetic），不是真实会话提取。** 覆盖子 Agent 会话类别
-与宿主映射。结构仿 codex 0.155.0-alpha.16.3 rollout JSONL（真实证据：
+与宿主映射。结构仿 codex 0.155.0-alpha.16.3 rollout JSONL（真实核验结果：
 rollout-single-call / rollout-49calls 的 auto-review 会话均带 parent_thread_id）。
 
 ## 场景与期望

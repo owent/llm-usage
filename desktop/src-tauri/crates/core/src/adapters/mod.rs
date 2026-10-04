@@ -1,7 +1,7 @@
-//! 来源接入：字段口径映射（V01）、有界 JSONL 读取器（V07）、适配器框架
+//! 来源接入：字段语义映射（V01）、有界 JSONL 读取器（V07）、适配器框架
 //! （discover/detect/scan/capability + V12 运行管线）与各 Agent 适配器。
 //!
-//! 口径依据 docs/validation/desktop-usage/m0-agent-fixtures.md 的实读核验结论，
+//! 计算规则依据 docs/validation/desktop-usage/m0-agent-fixtures.md 的实读核验结论，
 //! 按来源与版本固定，不能由 UI 猜测缺失字段。
 
 pub mod aider;
@@ -58,7 +58,7 @@ pub mod zcode;
 pub mod zed;
 pub mod zoo;
 
-/// 内置适配器注册表：新增适配器在此登记（目录合同见 architecture.md#adapter-layout）。
+/// 内置适配器注册表：新增适配器在此登记（目录约定见 architecture.md#adapter-layout）。
 /// 应用扫描器与探针工具共用同一注册表。
 pub fn built_in_adapters() -> Vec<Box<dyn framework::SourceAdapter>> {
     vec![
@@ -72,7 +72,7 @@ pub fn built_in_adapters() -> Vec<Box<dyn framework::SourceAdapter>> {
         Box::new(zcode::ZcodeAdapter::new()),
         Box::new(kimi_code::KimiCodeAdapter::new()),
         Box::new(kimi_work::KimiWorkAdapter::new()),
-        // 以下为本机未安装产品（2026-09-25 盘点 not_found）：文档级证据实现，
+        // 以下为本机未安装产品（2026-09-25 盘点 not_found）：按已核对的文档或源码实现，
         // discover 在本机返回空；真实数据出现后自动发现（真实验收后置）。
         Box::new(cline::ClineAdapter::new()),
         Box::new(dsh::DshAdapter::new()),

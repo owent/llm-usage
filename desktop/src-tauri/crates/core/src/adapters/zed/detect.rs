@@ -1,12 +1,12 @@
 //! Zed 探测：threads.db 的表/列指纹（官方源码 bd74733 建表 + 迁移列集）。
 //!
 //! 本机核验（2026-09-29 只读 `%LOCALAPPDATA%/Zed/threads/threads.db`）：
-//! threads 表实际存在且列集与官方迁移 SQL 一致（0 行，schema 级证据）。
+//! threads 表实际存在且列集与官方迁移 SQL 一致（0 行，仅核验 schema）。
 //!
-//! 合同（V17 fail closed）：
+//! 约定（V17 fail closed）：
 //! - 非 SQLite/无 threads 表/缺必需列 ⇒ 未知格式，不交给猜测逻辑；
 //! - threads 表存在（空库）⇒ Supported（Pending 场景由框架空文件路径处理）；
-//! - 无产品版本可读：格式锚点是文档级 zed-threads-db-1（官方源码口径）。
+//! - 无产品版本可读：格式锚点是文档级 zed-threads-db-1（按官方源码定义）。
 
 use crate::adapters::framework::DetectOutcome;
 use crate::domain::VersionBasis;

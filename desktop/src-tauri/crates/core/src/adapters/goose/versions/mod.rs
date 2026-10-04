@@ -1,4 +1,4 @@
-//! GOOSE 版本注册表（V30 目录合同）。锚点为文档级 goose-usage-ledger-1。
+//! GOOSE 版本注册表（V30 目录约定）。锚点为文档级 goose-usage-ledger-1。
 
 pub mod usage_ledger_v1;
 

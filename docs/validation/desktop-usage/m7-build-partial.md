@@ -1,4 +1,6 @@
-# M7（部分）：release 构建与包体证据
+# M7（部分）：release 构建与包体测量
+
+<a id="m7部分release-构建与包体证据"></a>
 
 M7 的安装/资源/调度/三平台完整验收（V19–V27）未开始；本记录仅登记
 Windows release 构建与包体实测，以及 WSL Linux 编译/测试分项（V27 部分）。

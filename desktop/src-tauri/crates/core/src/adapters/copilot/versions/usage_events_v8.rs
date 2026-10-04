@@ -1,19 +1,19 @@
 //! Copilot CLI assistant_usage_events 格式实现（`usage_events_v8`，
 //! assistant-usage-events-v8）。
 //!
-//! 格式证据（M0 m0-agent-fixtures.md 1.0.73 实读取证 + 2026-09-29 本机
+//! 格式依据（M0 m0-agent-fixtures.md 1.0.73 实读核验 + 2026-09-29 本机
 //! schema_version=8 真实数据复核，36/36 行语义核验通过）：
 //! - 库：`~/.copilot/session-store.db`（WAL）；`assistant_usage_events`
 //!   id INTEGER PK（append-only）、session_id、turn_index、model、
 //!   input/output/cache_read/cache_write/reasoning_tokens、duration_ms、
 //!   time_to_first_token_ms（REAL ms）、created_at（ISO8601 字符串）。
 //! - **input_tokens = 未缓存 + cache_read + cache_write** ⇒ uncached 派生
-//!   （真实数据 0 违例）；reasoning 与 output 包含关系未证 ⇒ 并列报告。
+//!   （真实数据 0 违例）；reasoning 与 output 包含关系尚未验证 ⇒ 并列报告。
 //! - request_multiplier（实测恒 27.0）是 premium 付费倍率、total_nano_aiu 是
 //!   nano AIU 计量：均非 token，不入账。
 //! - events.jsonl 事件流无逐次 token（M0）：不采集。
 //!
-//! 增量合同（append-only 表）：游标 = 已处理最大 id；单轮 50,000 行；
+//! 增量约定（append-only 表）：游标 = 已处理最大 id；单轮 50,000 行；
 //! 事件键 copilot:usage:&lt;id&gt; upsert 幂等。
 
 use crate::adapters::copilot::common::{

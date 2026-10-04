@@ -1,7 +1,7 @@
 # synthetic-unknown-version._expectations.md（SYNTHETIC）
 
 **本目录全部为合成样本（synthetic），不是真实会话提取。** 覆盖 V30 未知 session
-版本策略：未收录数值默认回退最新内置解析器（latest_fallback），有固定源码证据
+版本策略：未收录数值默认回退最新内置解析器（latest_fallback），有固定版本源码依据
 不兼容的形态才 fail closed。结构仿 pi session JSONL（固定源码
 CURRENT_SESSION_VERSION=3；v1 无 version 字段）。
 
@@ -19,6 +19,6 @@ CURRENT_SESSION_VERSION=3；v1 无 version 字段）。
   事件 parse_basis=latest_fallback、schema_version="4"；文件状态 active_compat；
   diagnostics 出现 latest_fallback ×1；重复扫描不增量（另见
   synthetic-version-fallback 的专项用例）。
-- legacy 文件：有证据不兼容，整文件跳过（0 事件），status=unsupported_version；
+- legacy 文件：已确认不兼容，整文件跳过（0 事件），status=unsupported_version；
   diagnostics 出现 unsupported_version ×1。
 - 显式拒绝落诊断，不是静默的「成功 0 条」。

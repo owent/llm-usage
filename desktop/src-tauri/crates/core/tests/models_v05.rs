@@ -25,7 +25,7 @@ fn summarize(storage: &llm_usage_core::storage::Storage) -> llm_usage_core::quer
     .unwrap()
 }
 
-/// 模型切换：按不晚于调用的结构化证据归属；历史调用不被后来的会话当前值改写。
+/// 模型切换：按不晚于调用的结构化记录归属；历史调用不被后来的会话当前值改写。
 #[test]
 fn v05_model_switch_keeps_historical_attribution() {
     let (_dir, storage) = temp_storage("v05switch");
@@ -127,7 +127,7 @@ fn v05_unknown_model_in_totals_with_own_row() {
     assert_eq!(unknown_row.sums.input_total_known, Some(50));
     assert_eq!(summary.totals.input_total_known, Some(150));
 
-    // 筛选某个模型时 unknown 不消失于总计口径之外——筛选只影响展示行。
+    // 筛选某个模型时 unknown 不消失于总计规则之外——筛选只影响展示行。
     let filtered = query_summary(
         &storage,
         &SummaryRequest {

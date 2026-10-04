@@ -1,9 +1,9 @@
 //! ZCode 版本注册表：发布版本 → 格式实现的映射与未知版本回退选择
 //! （architecture.md#adapter-layout / #unknown-version）。
 //!
-//! 已验证版本须有真实脱敏 fixture 与期望值证据（M0/M4 验证记录）；注册表扩展
+//! 已验证版本须有真实脱敏 fixture 与期望值核验结果（M0/M4 验证记录）；注册表扩展
 //! 只增加条目，不删除历史实现。当前仅一个格式实现 `modelio_v1`
-//! （3.14.3 真实 fixture 全链路核验：main-session + subagent 双文件）。
+//! （3.14.3 真实 fixture 核验读取、解析、入库与查询：main-session + subagent 双文件）。
 //!
 //! 版本锚点：每条 `model_io` 记录的 `request.headers["x-zcode-app-version"]`
 //!（本机 3.14.3 实读证实；同机日日志另有 `context.schemaVersion=1`、
@@ -22,10 +22,10 @@ pub mod modelio_v1;
 pub const LATEST_IMPL_ID: &str = "modelio_v1";
 
 /// 已验证支持的发布版本 → 格式实现。
-/// 每个版本都有固定格式样本证据；同形版本共用实现，分派仍逐版本登记。
+/// 每个版本都有固定格式样本并已核验；同形版本共用实现，分派仍逐版本登记。
 pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[
-    // M0/M4 真实 fixture（2026-09-25 本机只读提取，8 条记录双口径人工核算；
-    // adapters.md ZCode 行：本机 3.14.3 已证、跨版本待证）。
+    // M0/M4 真实 fixture（2026-09-25 本机只读提取，8 条记录按两种字段语义人工核算；
+    // adapters.md ZCode 行：本机 3.14.3 已核验、跨版本待核验）。
     ("3.14.3", "modelio_v1"),
 ];
 

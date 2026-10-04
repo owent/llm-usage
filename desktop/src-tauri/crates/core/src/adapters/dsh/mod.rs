@@ -1,11 +1,11 @@
-//! DeepSeek Harness（DSH）适配器（独立目录合同 architecture.md#adapter-layout）：
+//! DeepSeek Harness（DSH）适配器（独立目录约定 architecture.md#adapter-layout）：
 //! - 本模块是该 Agent 的稳定入口（统一接口实现与再导出）；
 //! - [`detect`]：持久会话日志事件流的文档级指纹（无版本字段，不做版本分派）；
 //! - [`versions`]：统一形状的格式注册表（唯一条目：文档级 session-log-doc-1）；
 //! - 产品特有映射在 [`common`]（tokenUsage 四可选字段）。
 //!
-//! 原始格式证据（固定 token-meter README 46a7f68b0922371ce7144b668b90e377d8e799f4，
-//! A08，文档级证据待真实样本；本机 2026-09-25 盘点 not_found）：
+//! 原始格式依据（固定 token-meter README 46a7f68b0922371ce7144b668b90e377d8e799f4，
+//! A08，按文档或源码实现，待真实样本核验；本机 2026-09-25 盘点 not_found）：
 //! - `tokenUsage` 折叠持久日志的 `uncachedInputTokens`/`outputTokens`/
 //!   `cacheReadTokens`/`cacheWriteTokens`；
 //! - "A final assistant-message sample replaces streaming usage from the same

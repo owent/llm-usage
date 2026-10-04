@@ -3,12 +3,14 @@
 同日 [审查修正](m9-copilot-review.md) 补充每批服务归属检查、无 usage 失败调用计数、
 完整 trace/span 身份、TTFT doubleValue 解析与单文件根范围。下文保留首次核验结果。
 
-## 背景与证据链
+<a id="背景与证据链"></a>
+
+## 背景与核验过程
 
 - 用户确认 Visual Studio 中已有 Copilot 调用，要求接入并验证。此前核查
   （同日上午）：VS 18 Community 已装内置 Copilot 扩展，
   `VSGitHubCopilot\copilot-chat\<hash>\sessions` 当时为空。
-- 用户使用后重新只读取证（按准备合同白名单提取、不输出正文）：
+- 用户使用后重新只读核验（按准备合同白名单提取、不输出正文）：
   - **会话文件** `…\VSGitHubCopilot\copilot-chat\<hash>\sessions\<uuid>`
     （MessagePack 流：版本标量 + 会话头 + 请求/响应对）：响应含
     `ReasoningTokenCount`/`ThinkingElapsedMs`（样本为 None）、模型目录

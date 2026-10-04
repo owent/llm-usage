@@ -1,7 +1,7 @@
-//! Antigravity 适配器（Google，闭源；独立目录合同）。载体：
+//! Antigravity 适配器（Google，闭源；独立目录约定）。载体：
 //! `~/.gemini/antigravity[-cli]/conversations/<uuid>.db` 的 gen_metadata
-//! protobuf（逆向证据；无 #9.#4 时间戳的行 fail closed 不推造时间）。
-//! IDE 主体用量走 language server：无本地载体证据，不实施。
+//! protobuf（逆向分析结果；无 #9.#4 时间戳的行 fail closed 不推造时间）。
+//! IDE 主体用量走 language server：本地用量载体尚未核验，不实施。
 
 pub mod detect;
 pub mod versions;

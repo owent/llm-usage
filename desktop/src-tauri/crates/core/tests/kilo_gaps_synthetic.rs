@@ -4,7 +4,7 @@
 //! 覆盖：无 usage 的 assistant 消息、未知 session.version 回退（latest_fallback）、
 //! 部分可用（坏 JSON 行 / 孤儿会话消息）、直报 total 与派生不一致、
 //! 仅新 core 数据层（session_message 无 message）fail closed、
-//! busy 写者下保留旧结果（只读合同第 4 条）。
+//! busy 写者下保留旧结果（只读约定第 4 条）。
 
 mod common;
 
@@ -213,7 +213,7 @@ fn partial_availability_isolates_bad_rows_and_counts_orphan_messages() {
             }),
         ),
     ];
-    // syn-bad 的 data 直接写成非法 JSON 文本：绕过投影的 JSON 序列化。
+    // syn-bad 的 data 直接写成非法 JSON 文本：绕过脱敏数据的 JSON 序列化。
     let root = {
         let projection = synthetic_kilo_projection(
             serde_json::json!([session("syn-sess-1", None, "7.4.9", [230, 21, 5, 30, 0])]),
@@ -345,7 +345,7 @@ fn partial_availability_isolates_bad_rows_and_counts_orphan_messages() {
 
 #[test]
 fn reported_total_mismatch_is_diagnosed_not_hidden() {
-    // 直报 total=999 与派生 255 不一致 ⇒ 诊断 source_total_mismatch，不钳制。
+    // 直报 total=999 与派生 255 不一致 ⇒ 诊断 source_total_mismatch，不截断数值。
     let dir = TempDir::new("kilo-mismatch");
     let root = build_kilo_db(
         &dir,
@@ -420,7 +420,7 @@ fn core_data_layer_without_message_table_fails_closed() {
 
 #[test]
 fn busy_writer_keeps_old_results() {
-    // 只读合同第 4 条：写者持独占锁（rollback journal）时无法一致读取 ⇒
+    // 只读约定第 4 条：写者持独占锁（rollback journal）时无法一致读取 ⇒
     // 暂存副本备份也拿不到锁 ⇒ busy 上抛，文件标 error，旧结果保留。
     let dir = TempDir::new("kilo-busy");
     let root = build_kilo_db(
@@ -476,7 +476,7 @@ fn busy_writer_keeps_old_results() {
     // 锁释放后下一轮恢复采集。
     let third = run_kilo(&storage, &root, NOW + 2_000);
     assert_eq!(third[0].files[0].status, "complete");
-    // 只读合同：暂存副本用完清理，系统临时目录无本进程残留。
+    // 只读约定：暂存副本用完清理，系统临时目录无本进程残留。
     let prefix = format!("llm-usage-kilo-staging-{}-", std::process::id());
     let leftovers: Vec<_> = std::fs::read_dir(std::env::temp_dir())
         .map(|entries| {

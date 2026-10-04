@@ -1,6 +1,6 @@
-//! Xum 版本注册表（V30 目录合同）。session-usage.json 无版本演化证据
+//! Xum 版本注册表（V30 目录约定）。session-usage.json 的版本演化尚未核验
 //! （version 字段为整数内容版本）；锚点为文档级 xum-session-usage-doc-1
-//! （第三方解析器 tokscale 1d9a939 字段证据 + 官方开源仓库线索）。
+//! （第三方解析器 tokscale 1d9a939 字段依据 + 官方开源仓库线索）。
 
 pub mod usage_v1;
 

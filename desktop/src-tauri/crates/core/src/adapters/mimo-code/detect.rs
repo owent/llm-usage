@@ -2,11 +2,11 @@
 //! message 须含 `agent_id` 列 ⇒ OpenCode 库不能过本指纹，不从 fork 关系推兼容）+
 //! `session.version` 注册表。
 //!
-//! 合同（architecture.md#unknown-version / adapters.md A14）：
+//! 约定（architecture.md#unknown-version / adapters.md A14）：
 //! - part/session/message 三表或关键列缺失 ⇒ 未知格式 fail closed；
 //! - 库尚无会话（session/part 均空）⇒ Pending，下轮重探；
 //! - 版本标记取库内数值最大 session.version：已收录 ⇒ KnownVersion；
-//!   未收录/缺失 ⇒ LatestFallback（带兼容标记；当前注册表为空：文档级证据）。
+//!   未收录/缺失 ⇒ LatestFallback（带兼容标记；当前注册表为空：文档或源码依据）。
 
 use crate::adapters::framework::DetectOutcome;
 use crate::adapters::mimo_code::common::{

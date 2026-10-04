@@ -97,7 +97,9 @@ Kilo 7.8.1 fixture 的 34 调用与独立合计 3,189,308 token 对账 matched�
 均已修正。最终成功日志在 build/review-feedback/verify-final.log 与 browser.log。
 未执行 release 打包、默认忽略的远端 models.dev smoke 与遥测实机配置写入检查。
 
-## 证据文件
+<a id="证据文件"></a>
+
+## 验证产物
 
 - 本轮只读一致快照、探测脚本、隔离核对库和日志：`build/review-feedback/`（gitignore）；
   SQLite 用 mode=ro + Online Backup，不用 immutable 跳过 WAL。

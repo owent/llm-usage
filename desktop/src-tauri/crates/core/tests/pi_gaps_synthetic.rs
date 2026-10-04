@@ -1,6 +1,6 @@
 //! pi 适配器缺口场景：合成样本（目录/文件头均标 synthetic）与 V17/V30 拒绝/回退。
 //! 覆盖真实样本缺失的场景：四类辅助 usage 载体、无 usage 的 assistant、fork 继承
-//! 去重、stopReason=error/aborted、cost 映射边界、未知版本策略（有证据不兼容拒绝、
+//! 去重、stopReason=error/aborted、cost 映射边界、未知版本策略（已确认不兼容则拒绝、
 //! 未收录数值 latest_fallback 回退）、未知格式 fail closed、未知条目类型诊断。
 //! 期望值均由 fixture 手工核算（jq 验算，见各 _expectations.md）。
 
@@ -140,7 +140,7 @@ fn auxiliary_carriers_classified_and_summed() {
             Some(800)
         )
     );
-    // toolResult 的 usage 是工具执行自身消耗：辅助调用，无模型证据。
+    // toolResult 的 usage 是工具执行自身消耗：辅助调用，所属模型未知。
     let t1 = row_for("pi:toolresult:syn-t-1:syn-b-1:2026-01-05T10:00:07.000Z");
     assert_eq!(
         t1,
@@ -203,7 +203,7 @@ fn fork_inherited_entries_dedup_across_files() {
 
     let summary = summary(&storage, "2026-01-05", "2026-01-05");
     assert_eq!(summary.totals.call_count, 3, "复制件不双计");
-    // input_total 为派生口径 input+cacheRead+cacheWrite：(100+0+0)+(200+40+0)+(10+0+0)=350。
+    // input_total 由 input+cacheRead+cacheWrite 派生：(100+0+0)+(200+40+0)+(10+0+0)=350。
     assert_eq!(summary.totals.input_total_known, Some(350));
     assert_eq!(summary.totals.cache_read_known, Some(40));
     assert_eq!(summary.totals.output_total_known, Some(115));
@@ -315,14 +315,14 @@ fn cost_total_positive_maps_estimated_zero_stays_unknown() {
 
     let summary = summary(&storage, "2026-01-05", "2026-01-05");
     assert_eq!(summary.totals.call_count, 2);
-    // input_total 为派生口径 input+cacheRead+cacheWrite：(100+0+0)+(5+0+0)=105。
+    // input_total 由 input+cacheRead+cacheWrite 派生：(100+0+0)+(5+0+0)=105。
     assert_eq!(summary.totals.input_total_known, Some(105));
     assert_eq!(summary.totals.total_tokens_known, Some(160));
 }
 
 // V30 新语义（synthetic-unknown-version）：未收录数值（version=4）默认回退最新内置
 // 解析器，数据带兼容标记入库；缺失 version 的 legacy 形状（固定源码证实 v1/v2 时代
-// 不写该字段，落盘无 id/parentId）有证据不兼容，仍 fail closed 拒绝。
+// 不写该字段，落盘无 id/parentId）已确认不兼容，仍 fail closed 拒绝。
 #[test]
 fn v17_unknown_version_fallback_or_evidenced_reject() {
     let adapter = PiAdapter::new();
@@ -377,7 +377,7 @@ fn v17_unknown_version_fallback_or_evidenced_reject() {
         v4_file.detail.as_deref(),
         Some("latest_fallback: version compatibility unverified (found: 4)")
     );
-    // legacy：有证据不兼容，显式拒绝（不是静默的「成功 0 条」）。
+    // legacy：已确认不兼容，显式拒绝（不是静默的「成功 0 条」）。
     let legacy_file = file_for("syn-sess-legacy");
     assert_eq!(legacy_file.status, "unsupported_version");
     assert_eq!(legacy_file.events, 0);
@@ -433,7 +433,7 @@ fn unrecorded_version_falls_back_with_compat_marks() {
 
     let summary = summary(&storage, "2026-01-05", "2026-01-05");
     assert_eq!(summary.totals.call_count, 2);
-    // input_total 为派生口径 input+cacheRead+cacheWrite：10+20。
+    // input_total 由 input+cacheRead+cacheWrite 派生：10+20。
     assert_eq!(summary.totals.input_total_known, Some(30));
     assert_eq!(summary.totals.output_total_known, Some(15));
     assert_eq!(summary.totals.total_tokens_known, Some(45));

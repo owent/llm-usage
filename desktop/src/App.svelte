@@ -829,7 +829,7 @@
     settings = next;
     const locale = normalizeLocale(next.language);
     if (locale) setLocale(locale);
-    // 时区/周起始影响统计口径但不改查询键，需强制重查。
+    // 时区/周起始影响统计范围但不改查询键，需强制重查。
     dataReloadKey += 1;
     // F2：费用估算配置变化后既有明细尚未估过价——启用时自动触发一次后台重算
     //（幂等；未启用则跳过，采集管线也不回填）。
@@ -1126,7 +1126,7 @@
               {/each}
               {#if settings?.pricing?.enabled}<CostReferenceSummary summary={selectionCosts} error={selectionCostsError} />{/if}
             </div>
-            <!-- 选中时间点的模型/Agent 占比饼图（chart_series 数据，同筛选口径）。
+            <!-- 选中时间点的模型/Agent 占比饼图（chart_series 数据，采用相同筛选条件）。
                  加载占位与饼图同高度、换选保留旧图原地换数据，避免布局跳动。 -->
             {#if selectionError}
               <p class="error">{t('chart.loadFailed', { message: selectionError })}</p>

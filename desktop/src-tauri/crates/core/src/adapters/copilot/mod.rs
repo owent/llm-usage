@@ -1,4 +1,4 @@
-//! GitHub Copilot CLI 适配器（独立目录合同）。载体：
+//! GitHub Copilot CLI 适配器（独立目录约定）。载体：
 //! `~/.copilot/session-store.db` 的 `assistant_usage_events`（逐 turn 全字段；
 //! schema_version=8 真实数据核对 2026-09-29）。OTel 路径（events.jsonl/OTLP）
 //! 是需启用的补充载体，见能力表边界。

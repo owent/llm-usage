@@ -25,14 +25,16 @@
   字段编号及旧测试编码，protobuf 成功响应为空 protobuf；增加 logs 的严格属性白名单。
   logs/supplemental traces 独立存放，防止加入已有原生统计。
 
-## 证据
+<a id="证据"></a>
+
+## 核验依据
 
 共同字段：verified_at=2026-10-01，owner=仓库维护者；相关配置任务、客户端更新或
 格式/策略变化时复核。rolling 文档证明配置方式，不等于安装版本真实导出验收。
 
 | ID / scope | source_url / source_version | method / status / impact |
 | --- | --- | --- |
-| T01 Copilot file 与 Agent Host | [既有固定源码证据](../../design/desktop-usage/copilot-otel.md#依据与本轮验证)，dc546cc3c9979a19adafccd439889d7b64298def | 源码与本机 manifest 只读核验；扩展 0.68.0 声明、app 1.140.0 基线；新导出未启用 |
+| T01 Copilot file 与 Agent Host | [既有固定版本源码依据](../../design/desktop-usage/copilot-otel.md#依据与本轮验证)，dc546cc3c9979a19adafccd439889d7b64298def | 源码与本机 manifest 只读核验；扩展 0.68.0 声明、app 1.140.0 基线；新导出未启用 |
 | T02 Sync 作用域 | [userDataSync.ts](https://github.com/microsoft/vscode/blob/dc546cc3c9979a19adafccd439889d7b64298def/src/vs/platform/userDataSync/common/userDataSync.ts) | 固定源码确认 ignoredSettings 是 APPLICATION，默认空列表；profile 必须另改默认用户文件 |
 | T03 Gemini outfile/home | [官方遥测](https://geminicli.com/docs/cli/telemetry/)、[Storage](https://github.com/google-gemini/gemini-cli/blob/main/packages/core/src/config/storage.ts)、[paths](https://github.com/google-gemini/gemini-cli/blob/main/packages/core/src/utils/paths.ts)，rolling | 官方文档/源码；HOME 替换后附加 .gemini；仅合成写入验证 |
 | T04 Qwen 配置与内容开关 | [官方设置](https://github.com/QwenLM/qwen-code/blob/main/docs/users/configuration/settings.md)、[遥测](https://github.com/QwenLM/qwen-code/blob/main/docs/developers/development/telemetry.md)，rolling | 官方正文；QWEN_HOME 与 runtime 不同，敏感日志/span 开关关闭；仅合成验证 |
@@ -42,7 +44,7 @@
 | T08 CLI 用户状态 | [官方配置目录](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference)，rolling | config.json 为自动管理状态、settings.json 为用户设置；未证实用户 telemetry 键，故仅创建 launcher |
 | T09 OTLP 编码 | [common.proto](https://github.com/open-telemetry/opentelemetry-proto/blob/main/opentelemetry/proto/common/v1/common.proto)、[logs.proto](https://github.com/open-telemetry/opentelemetry-proto/blob/main/opentelemetry/proto/logs/v1/logs.proto)，rolling | 官方 proto 核对字段及独立标准样本；旧整数/布尔/双精度编号错误已修复 |
 
-公开取证保存在忽略目录 `build/telemetry-setup-evidence/`。
+公开资料核验结果保存在忽略目录 `build/telemetry-setup-evidence/`。
 固定 Sync 源码 SHA256：`bdff135f2943761075df3e238a6bc190c1dd5289e033585acbfebfa3835bf329`。
 
 ## 本机只读检查

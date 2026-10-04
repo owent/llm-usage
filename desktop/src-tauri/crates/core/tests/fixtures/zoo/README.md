@@ -1,10 +1,14 @@
-# Zoo Code 合成 fixtures（文档级证据、待真实样本）
+# Zoo Code 合成 fixtures（基于源码、待真实样本）
+
+<a id="zoo-code-合成-fixtures文档级证据待真实样本"></a>
 
 全部场景为**合成数据**（syn- 前缀、常量占位），不是任何真实会话脱敏产物。
 本机 2026-09-25 盘点未安装 Zoo Code（not_found，m0-agent-fixtures.md），
-按用户指示以固定源码证据实现，真实数据验收后置。
+按用户指示以固定版本源码依据实现，真实数据验收后置。
 
-## 源码级证据（A19，固定 commit `f7806475331fcae5f4e8b5558d04415eeb5da88c`）
+<a id="源码级证据a19固定-commit-f7806475331fcae5f4e8b5558d04415eeb5da88c"></a>
+
+## 源码依据（A19，固定 commit `f7806475331fcae5f4e8b5558d04415eeb5da88c`）
 
 - usage 载体与合并语义（api_req_started text 五字段 + cost、condense_context
   的 contextCondense.cost、tokensIn 含缓存、contextTokens=in+out）：

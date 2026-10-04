@@ -1,14 +1,14 @@
 //! pi 版本注册表：session version → 格式实现的映射与未知版本回退选择
 //! （architecture.md#adapter-layout / #unknown-version）。
 //!
-//! 版本策略证据（固定源码 pi-mono b45597504eeaba1f11a9920a1d1048c361ed4b8e +
-//! 本机真实 fixture，原始格式证据见 [`session_v3`] 文件头）：
+//! 版本选择依据（固定源码 pi-mono b45597504eeaba1f11a9920a1d1048c361ed4b8e +
+//! 本机真实 fixture，原始格式依据见 [`session_v3`] 文件头）：
 //! - 已验证：仅 session version 3（固定源码 `CURRENT_SESSION_VERSION=3` +
-//!   本机真实 fixture 证据）→ `session_v3`，KnownVersion；
-//! - 有证据不兼容：version 1、2（固定源码证实 v1/v2 落盘格式不同——条目无
+//!   本机真实 fixture 已核验）→ `session_v3`，KnownVersion；
+//! - 已确认不兼容：version 1、2（固定源码证实 v1/v2 落盘格式不同——条目无
 //!   id/parentId 字段），取得逐版本 fixture 前不尝试，返回不兼容原因；
-//! - version 字段缺失：固定源码证据表明 v1/v2 时代不写 version 字段，按 legacy
-//!   形态处理，同样有证据不兼容（found: None）；
+//! - version 字段缺失：固定源码表明 v1/v2 时代不写 version 字段，按 legacy
+//!   形态处理，同样已确认不兼容（found: None）；
 //! - 其余未收录数值（如 4）：默认回退最新内置解析器（LatestFallback），带兼容
 //!   标记，不因版本号未收录直接拒绝。
 //!
@@ -21,13 +21,13 @@ pub mod session_v3;
 pub const LATEST_IMPL_ID: &str = "session_v3";
 
 /// 已验证支持的 session version → 格式实现。
-/// 每个版本都有固定源码与 fixture 证据；同形版本共用实现，分派仍逐版本登记。
+/// 每个版本都有固定源码与 fixture 核验结果；同形版本共用实现，分派仍逐版本登记。
 pub const VERIFIED_VERSION_IMPLS: &[(i64, &str)] = &[
     // 固定源码 CURRENT_SESSION_VERSION=3 + 本机真实 fixture（session-error-zero-usage）。
     (3, "session_v3"),
 ];
 
-/// 有固定源码证据判定不兼容的 session version（v1/v2 落盘格式不同：无 id/parentId）。
+/// 已按固定源码确认不兼容的 session version（v1/v2 落盘格式不同：无 id/parentId）。
 pub const EVIDENCED_INCOMPATIBLE_VERSIONS: &[i64] = &[1, 2];
 
 /// v1/v2 不兼容原因（取得逐版本 fixture 前不尝试回退）。
@@ -48,7 +48,7 @@ pub struct Selection {
 }
 
 /// 按来源原始 session version 选择格式实现；探测与扫描共用本函数保证同一策略（V30）。
-/// `Err` 为有证据的不兼容原因（调用方 fail closed 并记诊断）。
+/// `Err` 为已确认的不兼容原因（调用方 fail closed 并记诊断）。
 pub fn select(found: Option<i64>) -> Result<Selection, &'static str> {
     match found {
         Some(version) => {
@@ -93,7 +93,7 @@ mod tests {
         for version in [1, 2] {
             assert_eq!(select(Some(version)), Err(REASON_V1_V2_INCOMPATIBLE));
         }
-        // version 字段缺失：v1/v2 时代 legacy 形态，同样有证据不兼容。
+        // version 字段缺失：v1/v2 时代 legacy 形态，同样已确认不兼容。
         assert_eq!(select(None), Err(REASON_LEGACY_MISSING));
     }
 

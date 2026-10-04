@@ -1,8 +1,8 @@
-//! OTel spans JSONL 适配器（M5 遥测载体；独立目录合同）。覆盖：
+//! OTel spans JSONL 适配器（M5 遥测载体；独立目录约定）。覆盖：
 //! VS Code Copilot Chat file exporter（`github.copilot.chat.otel.*`，2026-10-02 本机已验收）、
 //! Copilot CLI file exporter（`COPILOT_OTEL_FILE_EXPORTER_PATH`，行级 schema
 //! 未文档化——同族容错解析，待本机样本）、**JetBrains Copilot 插件 file 导出**
-//! （插件设置 otelExporterType/otelOutfile，同词汇同族；源码级取证见
+//! （插件设置 otelExporterType/otelOutfile，同词汇同族；源码核验见
 //! docs/validation/desktop-usage/m9-jb-copilot-analysis.md，2026-10-01）、
 //! 本应用 OTLP 接收器的归一化输出（CodeBuddy agentlens 经接收器落盘）。
 //! 汇总 span（invoke_agent/codebuddy_code.interaction）与 model_request

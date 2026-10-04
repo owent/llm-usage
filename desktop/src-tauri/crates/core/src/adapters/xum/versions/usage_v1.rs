@@ -1,7 +1,7 @@
 //! Xum session-usage.json 格式实现（`usage_v1`，文档级
 //! xum-session-usage-doc-1）。
 //!
-//! 格式证据（第三方解析器 tokscale 固定提交 1d9a9395418efc6952944b794097935d7d6fa1e8
+//! 格式依据（第三方解析器 tokscale 固定提交 1d9a9395418efc6952944b794097935d7d6fa1e8
 //! sessions/mux.rs；产品开源仓库 coder/xum；本机未安装、无真实样本）：
 //! - 路径 `~/.mux/sessions/<workspaceId>/session-usage.json`（clients.rs:543-552）；
 //!   源码未见环境覆盖；产品更名（mux→Xum）需保留旧根发现。

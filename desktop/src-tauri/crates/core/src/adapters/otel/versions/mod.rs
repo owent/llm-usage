@@ -1,4 +1,4 @@
-//! OTel spans JSONL 版本注册表（V30 目录合同）。锚点 otel-spans-doc-1
+//! OTel spans JSONL 版本注册表（V30 目录约定）。锚点 otel-spans-doc-1
 //! （VS Code agent_monitoring.md bdc5ebe 文档格式 + CodeBuddy agentlens 属性，
 //! 2026-09-29 官方文档核验；无本机真实样本）。
 

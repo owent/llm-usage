@@ -1019,7 +1019,7 @@ fn append_filters(
     }
 }
 
-/// Agent 分组行（与 ModelRow 同构；总计口径一致）。
+/// Agent 分组行（与 ModelRow 同构；总计规则一致）。
 #[derive(Debug, Clone)]
 pub struct AgentRow {
     pub agent: String,
@@ -1526,7 +1526,7 @@ pub struct ChartSeriesRow {
 }
 
 /// 按维度分组查询时间序列（趋势图表数据源；不触 usage_events 明细——降低图表
-/// 数据源计算量，2026-09-26 用户合同）。数据源与 query_summary 一致：小时粒度读
+/// 数据源计算量，当前规则）。数据源与 query_summary 一致：小时粒度读
 /// hourly_usage，日/周/月读 daily_usage；周/月再并入 period_usage 物化周期
 /// （日层已覆盖的周期不重复计入）；筛选（Agent/provider/model/实例）同样生效。
 /// 标签经共享 period_key_of 生成，与总用量视图时间轴一致。

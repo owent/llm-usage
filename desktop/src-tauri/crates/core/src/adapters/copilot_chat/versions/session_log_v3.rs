@@ -1,7 +1,7 @@
 //! VS Code Copilot Chat 会话日志格式实现（`session_log_v3`，
 //! vscode-chat-session-log-v3）。
 //!
-//! 格式证据（microsoft/vscode 源码 + 本机 VS Code 1.140.0 真实数据核对
+//! 格式依据（microsoft/vscode 源码 + 本机 VS Code 1.140.0 真实数据核对
 //! 2026-10-01，10 请求 5.25MB/最大行 837KB 全字段核验）：
 //! - 文件：`workspaceStorage/<hash>/chatSessions/<sessionId>.jsonl`，
 //!   objectMutationLog Entry 逐行 JSON：
@@ -15,7 +15,7 @@
 //!   `modelState{value,completedAt}`（0 Pending/1 Complete/2 Cancelled/
 //!   3 Failed/4 NeedsInput）。
 //!
-//! 增量合同：kv 更新是周期采样快照，不能按行增量拼接——每轮**全量重放**
+//! 增量约定：kv 更新是周期采样快照，不能按行增量拼接——每轮**全量重放**
 //! （文件经 1024 条压缩有界），事件按 `vscode-chat:<sessionId>:<requestId>`
 //! 键 upsert 幂等（同内容 unchanged，流式计数器增长走 Replace）。
 
@@ -531,7 +531,7 @@ pub fn scan(
     limits: &ScanLimits,
     now_ms: i64,
 ) -> Result<ScanOutcome, CoreError> {
-    // 全量重放合同：不消费旧游标（kv 采样快照不可增量拼接）；游标仅记录
+    // 全量重放约定：不消费旧游标（kv 采样快照不可增量拼接）；游标仅记录
     // 已读字节供 framework 的无变化短路使用。
     let mut context = stored
         .parse_context
@@ -889,7 +889,7 @@ pub fn scan(
         }
     }
     // 只对白名单事件视图求修订。正文变化不改变修订；完整重放后的更正
-    // 可降低计数。断行/预算/坏行均不能撤销或覆盖旧快照。
+    // 可降低计数。断行、达到读取上限或坏行均不能撤销或覆盖旧快照。
     if !diagnostics.iter().any(|d| {
         matches!(
             d.code.as_str(),

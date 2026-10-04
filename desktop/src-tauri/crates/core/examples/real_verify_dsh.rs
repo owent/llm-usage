@@ -1,7 +1,7 @@
 //! 对 DeepSeek Harness（DSH）持久日志做只读核对。本机未安装（not_found）时期望 0 个发现根。
 //! 只输出白名单聚合：文件数、记录数、事件数、模型调用、token 合计、诊断计数；
 //! 不打印路径、会话 ID、模型以外的任何记录内容。
-//! 适配器为文档级证据实现，真实数据出现后按本入口复验。
+//! 适配器为按已核对的文档或源码实现，真实数据出现后按本入口复验。
 //! 用法：cargo run -p llm-usage-core --example real_verify_dsh -- <dsh_root> <work_dir>
 
 use llm_usage_core::adapters::dsh::DshAdapter;

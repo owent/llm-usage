@@ -1,5 +1,5 @@
 //! SQLite 持久化：单写者连接、WAL、synchronous=FULL、有界 busy_timeout、
-//! 显式版本迁移。数据库合同见 architecture.md#database 与数据合同「数据表」。
+//! 显式版本迁移。数据库约定见 architecture.md#database 与数据规范「数据表」。
 
 pub mod pricing;
 pub mod schema;
@@ -105,7 +105,7 @@ impl Storage {
         conn.busy_timeout(options.busy_timeout)?;
         let found_version: u32 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
 
-        // 预发布阶段合同（2026-09-26 用户决策）：不做逐版本迁移。
+        // 预发布阶段约定（当前设计）：不做逐版本迁移。
         // 版本不匹配 ⇒ 报错让应用层提示"删除重建或退出"。
         // user_version == 0 且文件为空/新建 ⇒ 建全量 schema。
         if found_version == 0 {

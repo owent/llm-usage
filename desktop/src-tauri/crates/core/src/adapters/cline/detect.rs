@@ -4,7 +4,7 @@
 //! [`super::versions::CLINE_FORMAT_VERSION`]（固定源码 dcf8c3c）；不做版本分派、
 //! 不存在未知版本回退（区别于 codex 的注册表分派）。
 //!
-//! 合同（V17 fail closed）：
+//! 约定（V17 fail closed）：
 //! - 文件头 64 KiB（剥 UTF-8 BOM）不以 JSON 数组开头 ⇒ 未知格式，
 //!   不把任意未知文件交给猜测逻辑；
 //! - 无 say 消息指纹 ⇒ 未知格式；
