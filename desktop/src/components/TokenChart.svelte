@@ -458,7 +458,7 @@
     <button type="button" class:active={sub === id} onclick={() => (sub = id)}>{label}</button>
   {/each}
 </div>
-<div bind:this={el} class="token-chart"></div>
+<div bind:this={el} class="token-chart" role="group" aria-label={`${t('trend.chart.tokens')}. ${t('dashboard.keyboardHint')}`}></div>
 {#if dimension !== 'total' && grouped && sub === 'total'}
   <p class="dur-summary" title={t('tokens.observedTotalHint')}>{t('tokens.lowerBound')}</p>
 {/if}

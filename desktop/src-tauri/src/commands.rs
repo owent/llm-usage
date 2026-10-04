@@ -1200,17 +1200,73 @@ pub fn storage_stats(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_jso
 
 /// 手动清理：按"days_before 天之前"执行一次分层保留（各层 cutoff = min(设置, days_before)）。
 #[tauri::command]
-pub fn manual_cleanup(
+pub async fn manual_cleanup(
     state: tauri::State<'_, Arc<AppState>>,
     days_before: u32,
 ) -> Result<serde_json::Value, String> {
     if days_before < 1 {
         return Err(err("invalid_days", "days_before must be >= 1"));
     }
-    // 各层统一按 days_before 截断（用户"清理多久之前"语义；进行中周期保护仍生效）。
+    if !state.cleanup_control.begin() {
+        return Err(err(
+            "cleanup_busy",
+            "a cleanup operation is already running",
+        ));
+    }
+    state
+        .clear_job_running
+        .store(true, std::sync::atomic::Ordering::SeqCst);
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let _run = CleanupRun(&state);
+        let result = run_manual_cleanup(&state, days_before);
+        if state.cleanup_control.is_cancelled() {
+            Err(err("operation_cancelled", "cleanup cancelled"))
+        } else {
+            result
+        }
+    })
+    .await
+    .map_err(|e| err("cleanup", e.to_string()))?
+}
+
+/// This command never waits for the database mutex held by a cleanup operation.
+#[tauri::command]
+pub fn cancel_cleanup(state: tauri::State<'_, Arc<AppState>>) -> bool {
+    state.cleanup_control.cancel()
+}
+
+struct CleanupRun<'a>(&'a AppState);
+impl Drop for CleanupRun<'_> {
+    fn drop(&mut self) {
+        self.0
+            .clear_job_running
+            .store(false, std::sync::atomic::Ordering::SeqCst);
+        self.0.cleanup_control.finish();
+    }
+}
+
+fn run_manual_cleanup(
+    state: &Arc<AppState>,
+    days_before: u32,
+) -> Result<serde_json::Value, String> {
     let timezone = state.settings.lock().unwrap().timezone.clone();
     let storage = state.storage.lock().unwrap();
-    let outcome = llm_usage_core::retention_tiered::enforce_tiered_retention(
+    let sql = state
+        .cleanup_control
+        .install(storage.conn())
+        .map_err(|e| err("cleanup", e.to_string()))?;
+    state
+        .cleanup_control
+        .check()
+        .map_err(|e| err("operation_cancelled", e.to_string()))?;
+    crate::db_backup::consistent_backup(
+        storage.conn(),
+        &state.db_path,
+        "llm-usage-backup",
+        now_ms(),
+    )?;
+    let outcome = llm_usage_core::retention_tiered::enforce_tiered_retention_controlled(
         &storage,
         &timezone,
         crate::scanner::now_ms(),
@@ -1222,8 +1278,10 @@ pub fn manual_cleanup(
             monthly_days: days_before,
             yearly_days: Some(days_before),
         },
+        Some(&state.cleanup_control),
     )
     .map_err(|e| err("cleanup", e.to_string()))?;
+    drop(sql);
     log_operation(
         &storage,
         "manual_cleanup",
@@ -1302,6 +1360,11 @@ const CLEAR_ALL_TABLES: &[&str] = &[
 
 fn backup_before_clear(state: &Arc<AppState>) -> Result<Option<String>, String> {
     let storage = state.storage.lock().unwrap();
+    let _sql = state
+        .cleanup_control
+        .install(storage.conn())
+        .map_err(|e| err("backup", e.to_string()))?;
+    state.cleanup_control.check().map_err(|e| e.to_string())?;
     let mut has_data = false;
     for table in CLEAR_ALL_TABLES {
         let present: bool = storage
@@ -1342,19 +1405,25 @@ pub fn clear_all_data(
     app: tauri::AppHandle,
 ) -> Result<serde_json::Value, String> {
     use std::sync::atomic::Ordering;
-    if state.clear_job_running.swap(true, Ordering::SeqCst) {
+    if !state.cleanup_control.begin() {
         return Ok(serde_json::json!({ "started": false }));
     }
+    state.clear_job_running.store(true, Ordering::SeqCst);
     let state = state.inner().clone();
     std::thread::spawn(move || {
+        let _run = CleanupRun(&state);
         // panic 也要复位标志并发失败事件，否则按钮会永久停留在忙碌态。
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             run_clear_all_job(&state, &app)
         }))
         .unwrap_or_else(|_| Err("clear job panicked".to_string()));
-        state.clear_job_running.store(false, Ordering::SeqCst);
         if let Err(e) = result {
-            let _ = tauri_event(&app, serde_json::json!({ "phase": "failed", "error": e }));
+            let phase = if state.cleanup_control.is_cancelled() {
+                "cancelled"
+            } else {
+                "failed"
+            };
+            let _ = tauri_event(&app, serde_json::json!({ "phase": phase, "error": e }));
         }
     });
     Ok(serde_json::json!({ "started": true }))
@@ -1373,11 +1442,13 @@ fn run_clear_all_job(state: &Arc<AppState>, app: &tauri::AppHandle) -> Result<()
     if state.refresh.lock().unwrap().running {
         let _ = tauri_event(app, serde_json::json!({ "phase": "waiting" }));
         while state.refresh.lock().unwrap().running {
+            state.cleanup_control.check().map_err(|e| e.to_string())?;
             std::thread::sleep(std::time::Duration::from_millis(200));
         }
     }
     let _ = tauri_event(app, serde_json::json!({ "phase": "backup" }));
     let backup_path = backup_before_clear(state)?;
+    state.cleanup_control.check().map_err(|e| e.to_string())?;
     let _ = tauri_event(app, serde_json::json!({ "phase": "clearing" }));
     let (cleared, revision) = clear_all_tables(state)?;
     let _ = tauri_event(
@@ -1404,12 +1475,18 @@ fn clear_all_tables(
     state: &Arc<AppState>,
 ) -> Result<(serde_json::Map<String, serde_json::Value>, i64), String> {
     let storage = state.storage.lock().unwrap();
+    let _sql = state
+        .cleanup_control
+        .install(storage.conn())
+        .map_err(|e| err("cleanup", e.to_string()))?;
+    state.cleanup_control.check().map_err(|e| e.to_string())?;
     let tx = storage
         .conn()
         .unchecked_transaction()
         .map_err(|e| err("db", e.to_string()))?;
     let mut cleared = serde_json::Map::new();
     for table in CLEAR_ALL_TABLES {
+        state.cleanup_control.check().map_err(|e| e.to_string())?;
         let n = tx
             .execute(&format!("DELETE FROM {table}"), [])
             .map_err(|e| err("db", format!("{table}: {e}")))?;
@@ -1422,6 +1499,7 @@ fn clear_all_tables(
     tx.execute(
         "DELETE FROM settings WHERE key='detail_retention_floor_ms'
         OR key LIKE 'daily_retention_floor:%' OR key LIKE 'retention_applied:%'
+        OR key LIKE 'retention_materialization:%'
         OR key LIKE 'zcode_archive_day:%' OR key LIKE 'zcode_archive_authority:%'
         OR key='copilot_otel_scopes_v1' OR key LIKE 'cost_matching_policy:%'",
         [],
@@ -1430,6 +1508,10 @@ fn clear_all_tables(
     let revision =
         llm_usage_core::storage::Storage::bump_data_revision_tx(&tx, crate::scanner::now_ms())
             .map_err(|e| err("db", e.to_string()))?;
+    state
+        .cleanup_control
+        .enter_commit()
+        .map_err(|e| e.to_string())?;
     tx.commit().map_err(|e| err("db", e.to_string()))?;
     log_operation(
         &storage,
@@ -1841,7 +1923,8 @@ mod clear_all_tests {
         {
             let storage = state.storage.lock().unwrap();
             storage.conn().execute_batch("INSERT INTO settings(key,value,schema_version,updated_at_ms) VALUES
-                ('copilot_otel_scopes_v1','[]',1,0),('cost_matching_policy:UTC','official-reference-2',1,0);").unwrap();
+                ('copilot_otel_scopes_v1','[]',1,0),('cost_matching_policy:UTC','official-reference-2',1,0),
+                ('retention_materialization:UTC','test-marker',1,0);").unwrap();
             storage
                 .conn()
                 .execute(
@@ -1890,7 +1973,13 @@ mod clear_all_tests {
                 .unwrap();
             assert_eq!(rows, 1);
         }
+        assert!(state.cleanup_control.begin());
         let (cleared, revision) = clear_all_tables(&state).expect("clear tables");
+        assert!(
+            !state.cleanup_control.cancel(),
+            "committed cleanup cannot be cancelled"
+        );
+        state.cleanup_control.finish();
         assert_eq!(cleared.get("diagnostics").and_then(|v| v.as_i64()), Some(1));
         assert_eq!(
             cleared.get("daily_cost_usage").and_then(|v| v.as_i64()),
@@ -1918,7 +2007,7 @@ mod clear_all_tests {
             .query_row("SELECT COUNT(*) FROM daily_cost_usage", [], |r| r.get(0))
             .unwrap();
         assert_eq!(cost_rows, 0);
-        let markers:i64=storage.conn().query_row("SELECT COUNT(*) FROM settings WHERE key='copilot_otel_scopes_v1' OR key LIKE 'cost_matching_policy:%'",[],|r|r.get(0)).unwrap();
+        let markers:i64=storage.conn().query_row("SELECT COUNT(*) FROM settings WHERE key='copilot_otel_scopes_v1' OR key LIKE 'cost_matching_policy:%' OR key LIKE 'retention_materialization:%'",[],|r|r.get(0)).unwrap();
         assert_eq!(
             markers, 0,
             "full data reset clears derived authority and matching markers"

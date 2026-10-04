@@ -77,6 +77,58 @@ pub struct TieredRetentionOutcome {
     pub data_revision: i64,
 }
 
+#[derive(serde::Serialize, serde::Deserialize)]
+struct MaterializationMemo {
+    version: u8,
+    scope: String,
+    revision: i64,
+    daily_rows: i64,
+    period_rows: i64,
+}
+
+struct PartitionCount {
+    rows: i64,
+    revision: i64,
+}
+
+// A day can belong to an incomplete week and a completed month/year. Use the
+// latest boundary so every day affecting any completed period is considered.
+fn completed_before(calendar: &Calendar, today: Date) -> Result<Date, CoreError> {
+    Ok(calendar
+        .week_start_of(today, crate::calendar::WeekStart::Monday)
+        .max(calendar.month_start_of(today))
+        .max(Date::new(today.year(), 1, 1)?))
+}
+
+fn materialization_counts(
+    tx: &Transaction<'_>,
+    timezone: &str,
+    before: Date,
+) -> Result<(PartitionCount, PartitionCount), CoreError> {
+    let daily = tx.query_row(
+        "SELECT COUNT(*),COALESCE(MAX(data_revision),0) FROM daily_usage
+         WHERE tz_version=?1 AND local_day<?2",
+        params![timezone, before.to_string()],
+        |r| {
+            Ok(PartitionCount {
+                rows: r.get(0)?,
+                revision: r.get(1)?,
+            })
+        },
+    )?;
+    let periods = tx.query_row(
+        "SELECT COUNT(*),COALESCE(MAX(data_revision),0) FROM period_usage WHERE tz_version=?1",
+        [timezone],
+        |r| {
+            Ok(PartitionCount {
+                rows: r.get(0)?,
+                revision: r.get(1)?,
+            })
+        },
+    )?;
+    Ok((daily, periods))
+}
+
 /// 执行分级保留：明细 → 小时 → 物化周/月/年 → 日 → 周/月（年按策略）。
 /// 全程单事务；明细下限沿用 floor 机制防止过期重扫复活（V14）。
 pub fn enforce_tiered_retention(
@@ -85,6 +137,19 @@ pub fn enforce_tiered_retention(
     now_ms: i64,
     policy: &TieredRetentionPolicy,
 ) -> Result<TieredRetentionOutcome, CoreError> {
+    enforce_tiered_retention_controlled(storage, timezone, now_ms, policy, None)
+}
+
+pub fn enforce_tiered_retention_controlled(
+    storage: &Storage,
+    timezone: &str,
+    now_ms: i64,
+    policy: &TieredRetentionPolicy,
+    control: Option<&crate::cancellation::OperationControl>,
+) -> Result<TieredRetentionOutcome, CoreError> {
+    if let Some(control) = control {
+        control.check()?;
+    }
     policy.validate()?;
     let calendar = Calendar::new(timezone)?;
     let today = calendar.today(now_ms)?;
@@ -94,6 +159,9 @@ pub fn enforce_tiered_retention(
     let memo_key = format!("retention_applied:{timezone}");
     let revision_before = crate::storage::data_revision(&tx)?;
     let signature = |revision| format!("{today}|{policy:?}|{revision}");
+    let materialization_key = format!("retention_materialization:{timezone}");
+    let materialization_scope = format!("{today}|{policy:?}");
+    let complete_before = completed_before(&calendar, today)?;
     let last: Option<String> = tx
         .query_row(
             "SELECT value FROM settings WHERE key=?1",
@@ -102,6 +170,9 @@ pub fn enforce_tiered_retention(
         )
         .optional()?;
     if last.as_deref() == Some(signature(revision_before).as_str()) {
+        if let Some(control) = control {
+            control.enter_commit()?;
+        }
         outcome.data_revision = revision_before;
         return Ok(outcome);
     }
@@ -152,8 +223,28 @@ pub fn enforce_tiered_retention(
         )? as i64;
     }
 
-    // 3. 物化周/月/年：覆盖现存日汇总的全部历史（完成的周期；幂等 replace）。
+    // 3. Completed history is stable when only open periods change. Row counts
+    // detect removed partitions; revisions detect equal-sized replacements and
+    // late corrections. Imported future revisions conservatively force rebuild.
     {
+        let raw: Option<String> = tx
+            .query_row(
+                "SELECT value FROM settings WHERE key=?1",
+                [&materialization_key],
+                |r| r.get(0),
+            )
+            .optional()?;
+        let memo = raw.and_then(|raw| serde_json::from_str::<MaterializationMemo>(&raw).ok());
+        let (daily, periods) = materialization_counts(&tx, timezone, complete_before)?;
+        let unchanged = memo.is_some_and(|memo| {
+            memo.version == 1
+                && memo.scope == materialization_scope
+                && memo.revision <= revision_before
+                && memo.daily_rows == daily.rows
+                && daily.revision <= memo.revision
+                && memo.period_rows == periods.rows
+                && periods.revision <= memo.revision
+        });
         let oldest: Option<String> = tx
             .query_row(
                 "SELECT MIN(local_day) FROM daily_usage WHERE tz_version = ?1",
@@ -162,7 +253,7 @@ pub fn enforce_tiered_retention(
             )
             .ok()
             .flatten();
-        if let Some(oldest) = oldest {
+        if let Some(oldest) = oldest.filter(|_| !unchanged) {
             let from = crate::calendar::parse_date(&oldest)?;
             outcome.materialized_period_rows =
                 materialize_periods(&tx, &calendar, from, today, now_ms, revision)?;
@@ -215,11 +306,31 @@ pub fn enforce_tiered_retention(
     }
 
     outcome.data_revision = revision;
+    let (daily, periods) = materialization_counts(&tx, timezone, complete_before)?;
+    let materialization = MaterializationMemo {
+        version: 1,
+        scope: materialization_scope,
+        revision,
+        daily_rows: daily.rows,
+        period_rows: periods.rows,
+    };
+    tx.execute(
+        "INSERT INTO settings(key,value,schema_version,updated_at_ms) VALUES (?1,?2,1,?3)
+         ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at_ms=excluded.updated_at_ms",
+        params![
+            materialization_key,
+            serde_json::to_string(&materialization)?,
+            now_ms
+        ],
+    )?;
     tx.execute(
         "INSERT INTO settings(key,value,schema_version,updated_at_ms) VALUES (?1,?2,1,?3)
         ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at_ms=excluded.updated_at_ms",
         params![memo_key, signature(revision), now_ms],
     )?;
+    if let Some(control) = control {
+        control.enter_commit()?;
+    }
     tx.commit()?;
     Ok(outcome)
 }

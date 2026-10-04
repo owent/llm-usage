@@ -285,7 +285,7 @@
     <span class="dim-error">{t('chart.loadFailed', { message: groupedError })}</span>
   {/if}
 </div>
-<div bind:this={el} class="calls-chart"></div>
+<div bind:this={el} class="calls-chart" role="group" aria-label={`${t('trend.chart.calls')}. ${t('dashboard.keyboardHint')}`}></div>
 <p class="dur-summary">
   {t('panel.durationSummary', {
     avg: fmtDurationShort(duration.avgMs),

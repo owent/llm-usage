@@ -45,6 +45,9 @@ JetBrains Copilot 的手工 OTel file 路线在 M9，JetBrains 自家 AI Assista
 注册表包含不依赖用户路径的已观测 Kimi Work 候选及 TEMP 下的 Visual Studio
 遥测根。合成验收不提供 HOME/USERPROFILE，使用显式 CODEX_HOME 与独立
 APPDATA/LOCALAPPDATA/TEMP/TMP；同时断言来源仅包含指定合成 Agent。
+OS 任务不继承这些测试环境变量。无窗口任务验收须保存手工合成根、启用
+`manual_roots_only`，并在 GUI 启动前用独立只读连接断言非空事件和 token；
+不能用随后 GUI 的启动采集证明 OS 已采集。
 Windows [libuv](https://github.com/libuv/libuv/blob/v1.x/src/win/process.c) 会补入父进程
 USERPROFILE；测试辅助函数仅在同步 spawn 调用期间移除该父进程变量，随后恢复，
 不能只从传入的 env map 省略它便声称隔离完成。

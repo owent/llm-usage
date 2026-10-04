@@ -228,6 +228,7 @@ fn main() {
             commands::import_exchange,
             commands::storage_stats,
             commands::manual_cleanup,
+            commands::cancel_cleanup,
             commands::pick_open_path,
             commands::clear_all_data,
             commands::clear_all_preview,

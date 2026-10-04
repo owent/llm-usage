@@ -69,7 +69,7 @@
   {#each currencies as item}<button class:active={selectedCurrency===item} onclick={()=>currency=item}>{item}</button>{/each}
   <button class:active={modelMode} onclick={()=>modelMode=!modelMode}>{t('chart.dimension.model')}</button>
 </div>
-<div bind:this={el} class="curve" style:height={groups.length ? '240px' : '4px'} aria-label={t('dashboard.costCurve')}></div>
+<div bind:this={el} class="curve" style:height={groups.length ? '240px' : '4px'} role="group" aria-label={`${t('dashboard.costCurve')}. ${t('dashboard.keyboardHint')}`}></div>
 {#if !groups.length}<p class="hint">{t('cost.noData')}</p>{/if}
 <style>
   .controls {display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:12px 0 6px;font-size:12px;}

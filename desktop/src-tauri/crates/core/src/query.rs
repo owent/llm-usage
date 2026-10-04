@@ -320,25 +320,27 @@ pub fn query_summary_selected(
     let calendar = Calendar::new(&request.timezone)?;
     let snapshot = storage.conn().unchecked_transaction()?;
     let revision = storage.data_revision()?;
-    let mut rows = load_summary_rows(storage, request)?;
-    rows.retain(|row| {
-        let (label, _, _) = period_key_of(
-            &calendar,
-            request.granularity,
-            request.week_start,
-            row.local_day,
-            row.hour,
-        );
-        selection.map_or(true, |(first, last)| {
-            label.as_str() >= first && label.as_str() <= last
-        })
-    });
-    let (details, by_period) = detail_stats(storage, &calendar, request, selection)?;
-    let mut groups: BTreeMap<(Date, String), (Date, Vec<&DailyRow>)> = BTreeMap::new();
+    let stamp = crate::summary_cache::Stamp {
+        revision,
+        data_version: storage
+            .conn()
+            .pragma_query_value(None, "data_version", |row| row.get(0))?,
+        total_changes: storage.conn().total_changes(),
+    };
+    let cache_key = format!("{request:?}; selection={selection:?}");
+    let cached = storage.summary_cache.borrow_mut().get(stamp, &cache_key);
+    if let Some(cached) = cached {
+        snapshot.commit()?;
+        return Ok(cached);
+    }
+    let mut groups: BTreeMap<(Date, String), PeriodSums> = BTreeMap::new();
     let mut models: BTreeMap<(String, String), MetricSums> = BTreeMap::new();
     let mut agents: BTreeMap<String, MetricSums> = BTreeMap::new();
     let mut totals = MetricSums::default();
-    for row in &rows {
+    let mut sealed = false;
+    let mut from_period = false;
+    let mut active = BTreeSet::new();
+    let mut consume = |row: DailyRow| -> Result<(), CoreError> {
         let (label, start, end) = period_key_of(
             &calendar,
             request.granularity,
@@ -346,30 +348,40 @@ pub fn query_summary_selected(
             row.local_day,
             row.hour,
         );
-        groups
+        if selection.is_some_and(|(first, last)| label.as_str() < first || label.as_str() > last) {
+            return Ok(());
+        }
+        let group = groups
             .entry((start, label))
-            .or_insert_with(|| (end, Vec::new()))
-            .1
-            .push(row);
-        totals.add_row(row)?;
+            .or_insert_with(|| PeriodSums::new(end));
+        group.sums.add_row(&row)?;
+        group.sealed |= row.sealed;
+        group.from_period |= row.from_period;
+        sealed |= row.sealed;
+        from_period |= row.from_period;
+        if row.event_count > 0 {
+            group.active.insert(row.local_day);
+            active.insert(row.local_day);
+        }
+        totals.add_row(&row)?;
         models
             .entry((row.provider_id.to_lowercase(), row.model_raw.to_lowercase()))
             .or_default()
-            .add_row(row)?;
+            .add_row(&row)?;
         agents
             .entry(row.agent.to_lowercase())
             .or_default()
-            .add_row(row)?;
-    }
+            .add_row(&row)?;
+        Ok(())
+    };
+    visit_summary_rows(storage, request, &mut consume)?;
+    let (details, by_period) = detail_stats(storage, &calendar, request, selection)?;
     let mut periods = Vec::new();
-    for ((start, label), (end, group)) in groups {
-        let mut sums = MetricSums::default();
-        for row in &group {
-            sums.add_row(row)?;
-        }
-        let sealed = group.iter().any(|r| r.sealed);
+    for ((start, label), group) in groups {
+        let end = group.end;
+        let mut sums = group.sums;
         let stats = by_period.get(&label);
-        if !sealed {
+        if !group.sealed {
             set_duration(&mut sums, stats);
         }
         let (utc_start_ms, utc_end_ms) = period_range_ms(&calendar, start, end)?;
@@ -380,20 +392,19 @@ pub fn query_summary_selected(
             utc_start_ms,
             utc_end_ms,
             in_progress: request.today >= start && request.today <= end,
-            partial_history: sealed
+            partial_history: group.sealed
                 || carrier_coverage_gap(storage, utc_start_ms, utc_end_ms, &request.filters)?
                 || request
                     .retention_cutoff
                     .is_some_and(|cutoff| start < cutoff),
-            distinct_sessions: (!sealed && !stats.is_some_and(|s| s.unknown_session))
+            distinct_sessions: (!group.sealed && !stats.is_some_and(|s| s.unknown_session))
                 .then(|| stats.map_or(0, |s| s.sessions.len() as i64)),
-            active_days: active_days(&group),
+            active_days: (!group.from_period).then_some(group.active.len() as i64),
             avg_duration_ms: sums.avg_duration_ms,
             total_duration_ms: sums.total_duration_ms,
             sums,
         });
     }
-    let sealed = rows.iter().any(|r| r.sealed);
     if !sealed {
         set_duration(&mut totals, Some(&details));
     }
@@ -411,7 +422,7 @@ pub fn query_summary_selected(
         .collect();
     let excluded_event_count = count_excluded(storage, &calendar, request, selection)?;
     snapshot.commit()?;
-    Ok(Summary {
+    let summary = Summary {
         data_revision: revision,
         timezone: request.timezone.clone(),
         week_start: request.week_start,
@@ -422,8 +433,10 @@ pub fn query_summary_selected(
         excluded_event_count,
         distinct_sessions: (!sealed && !details.unknown_session)
             .then_some(details.sessions.len() as i64),
-        active_days: active_days(&rows.iter().collect::<Vec<_>>()),
-    })
+        active_days: (!from_period).then_some(active.len() as i64),
+    };
+    storage.summary_cache.borrow_mut().put(cache_key, &summary);
+    Ok(summary)
 }
 
 #[derive(Default)]
@@ -434,14 +447,23 @@ struct DetailStats {
     duration_count: i64,
 }
 
-fn active_days(rows: &[&DailyRow]) -> Option<i64> {
-    (!rows.iter().any(|r| r.from_period)).then(|| {
-        rows.iter()
-            .filter(|r| r.event_count > 0)
-            .map(|r| r.local_day)
-            .collect::<BTreeSet<_>>()
-            .len() as i64
-    })
+struct PeriodSums {
+    end: Date,
+    sums: MetricSums,
+    sealed: bool,
+    from_period: bool,
+    active: BTreeSet<Date>,
+}
+impl PeriodSums {
+    fn new(end: Date) -> Self {
+        Self {
+            end,
+            sums: MetricSums::default(),
+            sealed: false,
+            from_period: false,
+            active: BTreeSet::new(),
+        }
+    }
 }
 
 fn set_duration(sums: &mut MetricSums, details: Option<&DetailStats>) {
@@ -459,6 +481,9 @@ fn detail_stats(
     request: &SummaryRequest,
     selection: Option<(&str, &str)>,
 ) -> Result<(DetailStats, BTreeMap<String, DetailStats>), CoreError> {
+    if request.granularity != Granularity::Hour {
+        return detail_stats_days(storage, calendar, request, selection);
+    }
     let (start, end) = period_range_ms(calendar, request.first_day, request.last_day)?;
     let mut sql = String::from(
         "SELECT source_instance_id, session_id, occurred_at_ms, duration_ms, record_kind
@@ -509,6 +534,76 @@ fn detail_stats(
                 stats.duration_count += 1;
             }
         }
+    }
+    Ok((total, groups))
+}
+
+/// Aggregate retained details in SQLite before transferring them to Rust. Exact
+/// calendar boundaries preserve DST and historical offsets; session sets still
+/// span days and are never replaced with sums of per-day DISTINCT counts.
+fn detail_stats_days(
+    storage: &Storage,
+    calendar: &Calendar,
+    request: &SummaryRequest,
+    selection: Option<(&str, &str)>,
+) -> Result<(DetailStats, BTreeMap<String, DetailStats>), CoreError> {
+    let mut sql = String::from(
+        "SELECT source_instance_id, session_id,
+        SUM(CASE WHEN record_kind='model_call' AND duration_ms>=0 THEN duration_ms ELSE 0 END),
+        COUNT(CASE WHEN record_kind='model_call' AND duration_ms>=0 THEN 1 END)
+        FROM usage_events WHERE occurred_at_ms>=?1 AND occurred_at_ms<?2
+        AND attribution_status='verified'
+        AND record_kind IN ('model_call','transport_attempt','usage_observation')",
+    );
+    let mut values = vec![0.into(), 0.into()];
+    append_filters(
+        &mut sql,
+        &mut values,
+        &request.filters,
+        "source_instance_id",
+    );
+    sql.push_str(" GROUP BY source_instance_id, session_id");
+    let mut stmt = storage.conn().prepare(&sql)?;
+    let mut total = DetailStats::default();
+    let mut groups: BTreeMap<String, DetailStats> = BTreeMap::new();
+    let mut day = request.first_day;
+    loop {
+        let (label, _, _) =
+            period_key_of(calendar, request.granularity, request.week_start, day, None);
+        if selection.map_or(true, |(first, last)| {
+            label.as_str() >= first && label.as_str() <= last
+        }) {
+            let (start, end) = calendar.day_range_ms(day)?;
+            values[0] = start.into();
+            values[1] = end.into();
+            let mut records = stmt.query(rusqlite::params_from_iter(values.iter()))?;
+            while let Some(row) = records.next()? {
+                let instance: String = row.get(0)?;
+                let session: Option<String> = row.get(1)?;
+                let sum: i64 = row.get(2)?;
+                let count: i64 = row.get(3)?;
+                let group = groups.entry(label.clone()).or_default();
+                for stats in [&mut total, group] {
+                    if let Some(id) = session.as_ref().filter(|id| !id.is_empty()) {
+                        stats.sessions.insert((instance.clone(), id.clone()));
+                    } else {
+                        stats.unknown_session = true;
+                    }
+                    stats.duration_sum = stats
+                        .duration_sum
+                        .checked_add(sum)
+                        .ok_or(CoreError::Overflow("duration_ms"))?;
+                    stats.duration_count = stats
+                        .duration_count
+                        .checked_add(count)
+                        .ok_or(CoreError::Overflow("duration_count"))?;
+                }
+            }
+        }
+        if day >= request.last_day {
+            break;
+        }
+        day = day.checked_add(jiff::Span::new().days(1))?;
     }
     Ok((total, groups))
 }
@@ -641,6 +736,28 @@ fn load_summary_rows(
     Ok(rows)
 }
 
+fn visit_summary_rows(
+    storage: &Storage,
+    request: &SummaryRequest,
+    mut consume: impl FnMut(DailyRow) -> Result<(), CoreError>,
+) -> Result<(), CoreError> {
+    if request.granularity == Granularity::Day {
+        visit_daily_rows(
+            storage,
+            &request.timezone,
+            request.first_day,
+            request.last_day,
+            &request.filters,
+            consume,
+        )
+    } else {
+        for row in load_summary_rows(storage, request)? {
+            consume(row)?;
+        }
+        Ok(())
+    }
+}
+
 fn load_daily_rows(
     storage: &Storage,
     tz: &str,
@@ -648,6 +765,22 @@ fn load_daily_rows(
     last_day: Date,
     filters: &Filters,
 ) -> Result<Vec<DailyRow>, CoreError> {
+    let mut rows = Vec::new();
+    visit_daily_rows(storage, tz, first_day, last_day, filters, |row| {
+        rows.push(row);
+        Ok(())
+    })?;
+    Ok(rows)
+}
+
+fn visit_daily_rows(
+    storage: &Storage,
+    tz: &str,
+    first_day: Date,
+    last_day: Date,
+    filters: &Filters,
+    mut consume: impl FnMut(DailyRow) -> Result<(), CoreError>,
+) -> Result<(), CoreError> {
     let mut sql = String::from(
         "SELECT local_day, instance_id, agent, provider_id, model_raw, quality_bucket, sealed,
                 event_count, call_count, attempt_count, observation_count,
@@ -669,15 +802,30 @@ fn load_daily_rows(
     append_filters(&mut sql, &mut values, filters, "instance_id");
     sql.push_str(" ORDER BY local_day");
     let mut stmt = storage.conn().prepare(&sql)?;
+    let mut days = BTreeMap::new();
+    let mut names = BTreeMap::new();
     let rows = stmt.query_map(rusqlite::params_from_iter(values), |r| {
+        let day: String = r.get(0)?;
+        let local_day = if let Some(value) = days.get(&day) {
+            *value
+        } else {
+            let value = parse_date(&day)
+                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+            days.insert(day, value);
+            value
+        };
+        let raw: String = r.get(4)?;
+        let model_raw = names
+            .entry(raw.clone())
+            .or_insert_with(|| crate::model_names::model_key(&raw))
+            .clone();
         Ok(DailyRow {
-            local_day: parse_date(&r.get::<_, String>(0)?)
-                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
+            local_day,
             instance_id: r.get(1)?,
             hour: None,
             agent: r.get(2)?,
             provider_id: r.get(3)?,
-            model_raw: crate::model_names::model_key(&r.get::<_, String>(4)?),
+            model_raw,
             call_category: r.get(27)?,
             quality_bucket: r.get(5)?,
             sealed: r.get::<_, i64>(6)? != 0,
@@ -704,11 +852,10 @@ fn load_daily_rows(
             conflict_count: r.get(26)?,
         })
     })?;
-    let mut out = Vec::new();
     for row in rows {
-        out.push(row?);
+        consume(row?)?;
     }
-    Ok(out)
+    Ok(())
 }
 
 fn period_range_ms(calendar: &Calendar, start: Date, end: Date) -> Result<(i64, i64), CoreError> {
@@ -885,12 +1032,13 @@ pub fn agent_breakdown(
     request: &SummaryRequest,
 ) -> Result<Vec<AgentRow>, CoreError> {
     let mut groups: BTreeMap<String, MetricSums> = BTreeMap::new();
-    for row in load_summary_rows(storage, request)? {
+    visit_summary_rows(storage, request, |row| {
         groups
             .entry(row.agent.to_lowercase())
             .or_default()
             .add_row(&row)?;
-    }
+        Ok(())
+    })?;
     Ok(groups
         .into_iter()
         .map(|(agent, sums)| AgentRow { agent, sums })
@@ -1389,7 +1537,7 @@ pub fn chart_series(
 ) -> Result<Vec<ChartSeriesRow>, CoreError> {
     let calendar = Calendar::new(&request.timezone)?;
     let mut groups: BTreeMap<(Date, String, String), (Date, MetricSums)> = BTreeMap::new();
-    for row in load_summary_rows(storage, request)? {
+    visit_summary_rows(storage, request, |row| {
         let (label, start, end) = period_key_of(
             &calendar,
             request.granularity,
@@ -1414,7 +1562,8 @@ pub fn chart_series(
             .or_insert_with(|| (end, MetricSums::default()))
             .1
             .add_row(&row)?;
-    }
+        Ok(())
+    })?;
     Ok(groups
         .into_iter()
         .map(|((start, label, series), (end, sums))| ChartSeriesRow {

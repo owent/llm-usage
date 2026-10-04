@@ -361,6 +361,16 @@ pub fn set_enabled(
     state: &std::sync::Arc<crate::app_state::AppState>,
     enabled: bool,
 ) -> Result<(), String> {
+    set_enabled_with(state, enabled, native::apply, native::status)
+}
+
+#[cfg(windows)]
+fn set_enabled_with(
+    state: &std::sync::Arc<crate::app_state::AppState>,
+    enabled: bool,
+    apply: impl FnOnce(&Path, bool) -> Result<(), String>,
+    inspect: impl FnOnce(&Path) -> Result<native::Actual, String>,
+) -> Result<(), String> {
     static MUTATION: std::sync::Mutex<()> = std::sync::Mutex::new(());
     let _mutation = MUTATION.lock().map_err(|_| "task_state_busy")?;
     {
@@ -374,8 +384,8 @@ pub fn set_enabled(
             },
         )?;
     }
-    let result = native::apply(&state.db_path, enabled).and_then(|_| {
-        let actual = native::status(&state.db_path)?;
+    let result = apply(&state.db_path, enabled).and_then(|_| {
+        let actual = inspect(&state.db_path)?;
         if (enabled && actual.enabled && actual.matches) || (!enabled && !actual.exists) {
             Ok(())
         } else {
@@ -543,4 +553,85 @@ mod tests {
         assert!(!native::status(&path).unwrap().exists);
         native::apply(&path, false).unwrap();
     }
+}
+#[cfg(windows)]
+#[test]
+fn failed_registration_and_deletion_persist_intent_before_os_mutation() {
+    let root =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../build/plan-finalization/task-failures");
+    std::fs::create_dir_all(&root).unwrap();
+    let state = std::sync::Arc::new(
+        crate::app_state::AppState::init(
+            root.join(format!(
+                "{}-{}.sqlite",
+                std::process::id(),
+                crate::scanner::now_ms()
+            )),
+            "test",
+            false,
+        )
+        .unwrap(),
+    );
+    let result = set_enabled_with(
+        &state,
+        true,
+        |path, enabled| {
+            assert!(enabled);
+            assert!(desired(&Storage::open_readonly(path).unwrap()).unwrap());
+            Err("registration_denied".into())
+        },
+        |_| panic!("failed registration must not claim verification"),
+    );
+    assert_eq!(result.unwrap_err(), "registration_denied");
+    assert_eq!(
+        intent(&state.storage.lock().unwrap())
+            .unwrap()
+            .error
+            .as_deref(),
+        Some("registration_denied")
+    );
+    set_enabled_with(
+        &state,
+        true,
+        |_, _| Ok(()),
+        |_| {
+            Ok(native::Actual {
+                exists: true,
+                enabled: true,
+                matches: true,
+            })
+        },
+    )
+    .unwrap();
+    let result = set_enabled_with(
+        &state,
+        false,
+        |path, enabled| {
+            assert!(!enabled);
+            assert!(!desired(&Storage::open_readonly(path).unwrap()).unwrap());
+            Err("deletion_denied".into())
+        },
+        |_| panic!("failed deletion must not claim removal"),
+    );
+    assert_eq!(result.unwrap_err(), "deletion_denied");
+    assert_eq!(
+        intent(&state.storage.lock().unwrap())
+            .unwrap()
+            .error
+            .as_deref(),
+        Some("deletion_denied")
+    );
+    assert!(!request_if_enabled(&state.db_path, 1).unwrap());
+    assert!(!crate::scanner::run_background_refresh(&state).unwrap());
+    set_enabled_with(
+        &state,
+        false,
+        |_, _| Ok(()),
+        |_| Ok(native::Actual::default()),
+    )
+    .unwrap();
+    assert!(intent(&state.storage.lock().unwrap())
+        .unwrap()
+        .error
+        .is_none());
 }

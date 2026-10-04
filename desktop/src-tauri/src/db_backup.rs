@@ -121,11 +121,16 @@ pub fn consistent_backup(
         suffix += 1;
         backup = dir.join(format!("{stamp}-{suffix}.sqlite"));
     }
-    conn.execute(
+    if backup.exists() {
+        return Err("backup failed: no unused snapshot filename".to_string());
+    }
+    if let Err(e) = conn.execute(
         "VACUUM INTO ?1",
         rusqlite::params![backup.to_string_lossy()],
-    )
-    .map_err(|e| format!("backup failed: {e}"))?;
+    ) {
+        let _ = std::fs::remove_file(&backup);
+        return Err(format!("backup failed: {e}"));
+    }
     prune_old_backups(&dir, prefix);
     Ok(Some(backup))
 }
@@ -147,6 +152,69 @@ pub fn consistent_backup_legacy(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn interrupted_backup_removes_only_its_partial_destination() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../build/plan-finalization/backup-cancel")
+            .join(format!(
+                "{}-{}",
+                std::process::id(),
+                crate::scanner::now_ms()
+            ));
+        std::fs::create_dir_all(&root).unwrap();
+        let db = root.join("app.sqlite");
+        let conn = Connection::open(&db).unwrap();
+        conn.execute_batch("CREATE TABLE t(x); WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<10000) INSERT INTO t SELECT x FROM n;").unwrap();
+        let dir = backup_dir(&db);
+        std::fs::create_dir_all(&dir).unwrap();
+        let existing = dir.join("cancel-00000001.sqlite");
+        std::fs::write(&existing, b"existing snapshot").unwrap();
+        conn.progress_handler(1000, Some(|| true)).unwrap();
+        assert!(consistent_backup(&conn, &db, "cancel", 1000).is_err());
+        conn.progress_handler(0, None::<fn() -> bool>).unwrap();
+        assert_eq!(std::fs::read(&existing).unwrap(), b"existing snapshot");
+        assert!(!dir.join("cancel-00000001-1.sqlite").exists());
+        assert_eq!(
+            conn.query_row("SELECT COUNT(*) FROM t", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            10000
+        );
+    }
+
+    #[test]
+    fn exhausted_snapshot_names_preserve_every_existing_file() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../build/plan-finalization/backup-collision")
+            .join(format!(
+                "{}-{}",
+                std::process::id(),
+                crate::scanner::now_ms()
+            ));
+        std::fs::create_dir_all(&root).unwrap();
+        let db = root.join("app.sqlite");
+        let conn = Connection::open(&db).unwrap();
+        conn.execute_batch("CREATE TABLE t(x); INSERT INTO t VALUES(42)")
+            .unwrap();
+        let dir = backup_dir(&db);
+        std::fs::create_dir_all(&dir).unwrap();
+        for suffix in 0..=1000 {
+            let name = if suffix == 0 {
+                "collision-00000001.sqlite".to_string()
+            } else {
+                format!("collision-00000001-{suffix}.sqlite")
+            };
+            std::fs::write(dir.join(name), b"existing snapshot").unwrap();
+        }
+        assert!(consistent_backup(&conn, &db, "collision", 1000)
+            .unwrap_err()
+            .contains("no unused snapshot filename"));
+        assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1001);
+        assert_eq!(
+            std::fs::read(dir.join("collision-00000001-1000.sqlite")).unwrap(),
+            b"existing snapshot"
+        );
+    }
 
     #[test]
     fn space_decision() {

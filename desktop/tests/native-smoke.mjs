@@ -8,6 +8,7 @@ import { resolve, join } from 'node:path';
 import { createServer } from 'node:net';
 import { once } from 'node:events';
 import assert from 'node:assert/strict';
+import { DatabaseSync } from 'node:sqlite';
 
 assert.equal(process.platform, 'win32', 'native acceptance currently requires Windows');
 const args = process.argv.slice(2);
@@ -84,6 +85,7 @@ async function close() {
   if (browser) { await browser.close(); browser=undefined; }
   if (child && child.exitCode === null) { child.kill(); await once(child,'exit'); }
   child=undefined;
+  page=undefined;
 }
 async function headless(mode='--headless') {
   const proc = spawnIsolated(exe,[mode,'--data-dir',data],{env:childEnv,stdio:['ignore','pipe','pipe'],windowsHide:true});
@@ -128,7 +130,7 @@ try {
   const original = await invoke('summary',{q:{...query,first_day:initialDay,last_day:initialDay}});
   assert.equal(original.totals.call_count,1); assert.equal(original.totals.total_tokens_known,'15');
   checks.push('real discovery → IPC summary (1 call, 15 tokens)');
-  const settings=await invoke('get_settings');
+  let settings=await invoke('get_settings');
   settings.timezone='Asia/Shanghai'; settings.refresh_interval_secs=0; settings.language='en'; settings.theme='dark';
   await invoke('set_settings',{settings});
   let sources=(await invoke('list_sources')).sources;
@@ -174,6 +176,12 @@ try {
   await page.locator('.today-range-reset').click();
   await page.waitForFunction(()=>document.querySelector('.today-cards .card .value')?.textContent==='2');
   checks.push('real WebView2 mouse drag/point/reset → scoped IPC → SQLite usage across two hours');
+  await hourly.focus();await page.keyboard.press('Home');await page.keyboard.press('Shift+End');
+  assert.equal(await page.locator('.today-range-caption').count(),0,'keyboard movement waits for Enter');
+  await page.keyboard.press('Enter');await page.locator('.today-range-caption').waitFor({state:'visible'});
+  assert.equal((await invoke('summary',{q:await selectionQuery()})).totals.call_count,2);
+  await page.locator('.today-range-reset').click();
+  checks.push('real keyboard range selection uses the same scoped IPC and applies on Enter');
   const details=await invoke('event_details',{q:query,page:0,pageSize:20});
   assert.equal(details.total_count ?? details.total,2);
   const exported=await invoke('export_data',{kind:'exchange',targetDir:join(root,'exports'),q:query,userFilter:null,hostFilter:null});
@@ -226,10 +234,54 @@ try {
   await page.getByRole('button',{name:'Save',exact:true}).click();
   await page.getByRole('button',{name:'数据源',exact:true}).waitFor({state:'visible'});
   checks.push('real DOM schedule preview and language save through IPC');
+  const locales=['zh-CN','zh-TW','en','ja','ko','es','fr','de','pt-BR','ru'];
+  for (const locale of locales) {
+    await page.locator('[data-testid="language-select"]').selectOption(locale);
+    await page.locator('button[type="submit"]').click();
+    await page.waitForFunction(locale=>document.documentElement.lang===locale,locale);
+    assert.equal((await invoke('get_settings')).language,locale);
+    const unnamed=await page.locator('input:not([type="hidden"]),select,textarea').evaluateAll(els=>els.filter(el=>el.offsetWidth && !el.getAttribute('aria-label') && !el.labels?.length).map(el=>el.tagName+':'+el.className));
+    assert.deepEqual(unnamed,[],`visible settings controls have accessible names in ${locale}`);
+    for(const zoom of [1,1.25,1.5,2]) {
+      await page.evaluate(zoom=>{document.documentElement.style.zoom=String(zoom);},zoom);
+      await pause(50);
+      const width=await page.evaluate(()=>({client:document.documentElement.clientWidth,scroll:document.documentElement.scrollWidth}));
+      assert.ok(width.scroll<=width.client+2,`${locale} zoom ${zoom}: no document overflow`);
+      assert.ok(await page.locator('button[type="submit"]').isVisible());
+    }
+    await page.evaluate(()=>{document.documentElement.style.zoom='';});
+    assert.equal((await invoke('summary',{q:query})).totals.total_tokens_known,'40');
+  }
+  checks.push('ten languages saved through real IPC, accessible settings names, 100–200% page zoom and stable totals');
+  settings=await invoke('get_settings');settings.refresh_interval_secs=86400;
+  await invoke('set_source_schedule',{instanceId:source.instance_id,rule:null});
+  settings.manual_roots=[join(sourceHome,'.codex')];settings.manual_roots_only=true;
+  await invoke('set_settings',{settings});
+  await invoke('set_refresh_task',{install:true});
+  await close();
+  try {
+    await writeFile(join(sessions,'rollout-native-background.jsonl'),record('native-background',30));
+    assert.equal((await systemTrigger()).completed,true);
+    const scanDb=new DatabaseSync(join(data,'llm-usage.sqlite'),{readOnly:true});
+    try {
+      assert.equal(scanDb.prepare('SELECT COUNT(*) AS count FROM usage_events').get().count,3,'OS task imported before GUI startup');
+      assert.equal(scanDb.prepare('SELECT SUM(total_tokens) AS tokens FROM usage_events').get().tokens,75);
+      assert.deepEqual(scanDb.prepare('SELECT DISTINCT agent FROM source_instances').all().map(row=>row.agent),['codex'],'OS source scope stays isolated');
+    } finally {scanDb.close();}
+    await launch();
+    assert.equal((await invoke('summary',{q:query})).totals.total_tokens_known,'75');
+  } finally {
+    if(!page) await launch();
+    await invoke('set_refresh_task',{install:false});
+  }
+  settings=await invoke('get_settings');settings.refresh_interval_secs=0;
+  await invoke('set_settings',{settings});
+  assert.equal((await invoke('system_task_status')).refresh_task_exists,false);
+  checks.push('real minute OS trigger with GUI exited imports a new local event; restart retains it and removes the owned task');
   await close();
   for (let i=timings.length;i<runs;i++) { await launch(); await close(); }
   timings.sort((a,b)=>a-b);
-  const report={checks,mode:dev?'debug':'release',event_count:2,total_tokens:40,first_screen_ms:timings,p95_ms:timings[Math.ceil(timings.length*.95)-1],sample_count:timings.length,errors,outbound};
+  const report={checks,mode:dev?'debug':'release',event_count:3,total_tokens:75,first_screen_ms:timings,p95_ms:timings[Math.ceil(timings.length*.95)-1],sample_count:timings.length,errors,outbound};
   assert.deepEqual(errors,[]); assert.deepEqual(outbound,[]);
   await writeFile(join(root,'result.json'),JSON.stringify(report,null,2));
   console.log(JSON.stringify({root,checks:checks.length,samples:timings.length,p95_ms:report.p95_ms}));

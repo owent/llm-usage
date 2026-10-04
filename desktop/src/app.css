@@ -30,3 +30,7 @@ button, select, input { max-width: 100%; }
 svg { flex-shrink: 0; }
 ::selection { background: var(--accent-bg); color: var(--accent); }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; scroll-behavior: auto !important; } }
+.token-chart:focus-visible, .calls-chart:focus-visible, .curve:focus-visible, .hourly:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

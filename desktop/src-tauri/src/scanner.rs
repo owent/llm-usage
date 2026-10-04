@@ -26,7 +26,17 @@ fn completed_successfully(report: &SourceRunReport) -> bool {
     matches!(report.start, Some(RunStart::Started(_))) && report.finish == RunStatus::Succeeded
 }
 
-fn discover_context(manual_roots: Vec<String>) -> DiscoverContext {
+fn discover_context(manual_roots: Vec<String>, manual_only: bool) -> DiscoverContext {
+    if manual_only {
+        return DiscoverContext {
+            home_dir: None,
+            env: Default::default(),
+            manual_roots: manual_roots
+                .into_iter()
+                .map(std::path::PathBuf::from)
+                .collect(),
+        };
+    }
     DiscoverContext {
         home_dir: std::env::var("USERPROFILE")
             .or_else(|_| std::env::var("HOME"))
@@ -89,12 +99,13 @@ fn run_refresh_in_context(
         refresh.eta_seconds = None;
         refresh.completed_adapters.clear();
     }
-    let (host_id, manual_roots, retention, timezone) = {
+    let (host_id, manual_roots, manual_only, retention, timezone) = {
         let settings = state.settings.lock().unwrap();
         let host = state.host_id.lock().unwrap().clone();
         (
             host,
             settings.manual_roots.clone(),
+            settings.manual_roots_only,
             settings.retention.clone(),
             settings.timezone.clone(),
         )
@@ -116,14 +127,18 @@ fn run_refresh_in_context(
         run_id_prefix: format!("scan-{now}"),
         origin_host_id: Some(host_id),
     };
-    let ctx = context.unwrap_or_else(|| discover_context(manual_roots));
+    let ctx = context.unwrap_or_else(|| discover_context(manual_roots, manual_only));
     // Only the verified Copilot file targets produced by this app are promoted.
     // Other supplemental exports retain their isolated validation boundary.
-    let copilot_roots = state
-        .db_path
-        .parent()
-        .map(crate::telemetry_setup::copilot_usage_roots)
-        .unwrap_or_default();
+    let copilot_roots = if manual_only {
+        Vec::new()
+    } else {
+        state
+            .db_path
+            .parent()
+            .map(crate::telemetry_setup::copilot_usage_roots)
+            .unwrap_or_default()
+    };
     let mut summaries: Vec<RefreshInstanceSummary> = Vec::new();
     // F2：刷新前修订号——本轮采集重写的 daily_usage 行 revision 均大于它
     // （retention 之后还会再 bump，不能用"当前 revision"等于过滤）。
@@ -251,7 +266,7 @@ fn run_refresh_in_context(
     }
     // Copilot premium 请求额度（本机 copilot-user-cache.json；账户级请求配额，
     // 非 token，独立展示）。采集失败只记摘要，不影响本轮其他来源。
-    if include.is_none() && global_exclude.is_some() {
+    if !manual_only && include.is_none() && global_exclude.is_some() {
         let storage = state.storage.lock().unwrap();
         match llm_usage_core::copilot_quota::collect(
             &storage,
@@ -582,6 +597,59 @@ impl IntervalSchedule {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn configured_roots_only_uses_real_registry_without_implicit_environment_sources() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../build/plan-finalization/manual-only")
+            .join(format!("{}-{}", std::process::id(), now_ms()));
+        let source = root.join("source/.codex");
+        std::fs::create_dir_all(source.join("sessions")).unwrap();
+        let at = jiff::Timestamp::now().to_string();
+        let lines = format!(
+            "{}\n{}\n",
+            serde_json::json!({"timestamp":at,"type":"session_meta","payload":{"id":"isolated","session_id":"isolated","timestamp":at,"originator":"codex_vscode","cli_version":"0.999.0-synthetic","model_provider":"openai","source":"vscode"}}),
+            serde_json::json!({"timestamp":at,"type":"token_usage_record","payload":{"thread_id":"isolated","turn_id":"turn","session_id":"isolated","response_id":"response","usage":{"input_tokens":10,"cached_input_tokens":0,"cache_write_input_tokens":0,"output_tokens":5,"reasoning_output_tokens":0,"total_tokens":15}}})
+        );
+        std::fs::write(source.join("sessions/rollout-only.jsonl"), lines).unwrap();
+        let state = Arc::new(AppState::init(root.join("llm-usage.sqlite"), "test", false).unwrap());
+        {
+            let mut settings = state.settings.lock().unwrap();
+            settings.manual_roots_only = true;
+            settings.manual_roots = vec![source.to_string_lossy().into_owned()];
+            settings.refresh_interval_secs = 0;
+        }
+        let context = discover_context(vec![source.to_string_lossy().into_owned()], true);
+        assert!(context.env.is_empty());
+        assert!(context.home_dir.is_none());
+        assert!(run_refresh(&state, TriggerKind::Manual));
+        let storage = state.storage.lock().unwrap();
+        let agents: Vec<String> = storage
+            .conn()
+            .prepare("SELECT DISTINCT agent FROM source_instances")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(agents, vec!["codex"]);
+        assert_eq!(
+            storage
+                .conn()
+                .query_row("SELECT SUM(total_tokens) FROM usage_events", [], |r| r
+                    .get::<_, i64>(0))
+                .unwrap(),
+            15
+        );
+        assert_eq!(
+            storage
+                .conn()
+                .query_row("SELECT COUNT(*) FROM quota_history", [], |r| r
+                    .get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
+    }
 
     #[test]
     fn manual_custom_schedule_and_disabled_background_use_real_registry_and_storage() {

@@ -15,7 +15,7 @@
 [![SQLite](https://img.shields.io/badge/SQLite-rusqlite_0.40-003B57?logo=sqlite)](https://www.sqlite.org)
 [![ECharts](https://img.shields.io/badge/ECharts-6.1-AA344D?logo=apacheecharts)](https://echarts.apache.org)
 
-[![verify](https://img.shields.io/badge/npm_run_verify-%E9%80%9A%E8%BF%87_2026--10--03-brightgreen)](docs/validation/desktop-usage/current-acceptance.md)
+[![verify](https://img.shields.io/badge/npm_run_verify-%E9%80%9A%E8%BF%87_2026--10--04-brightgreen)](docs/validation/desktop-usage/current-acceptance.md)
 [![Git LFS](https://img.shields.io/badge/Git_LFS-%E9%9D%99%E6%80%81%E8%B5%84%E6%BA%90-blue?logo=git)](desktop/assets/README.md)
 [![repo size](https://img.shields.io/github/repo-size/owent/llm-usage)](https://github.com/owent/llm-usage)
 [![last commit](https://img.shields.io/github/last-commit/owent/llm-usage)](https://github.com/owent/llm-usage/commits)
@@ -80,6 +80,7 @@ npm run verify          # 文档、类型、脚本/前端单元测试、Rust 检
 Windows 后台提取默认关闭，设置页可启用当前用户的分钟任务，并展示期望与实际状态。
 `LLMUsage.exe --headless` 只按已保存意图及到期规则采集；`--scan-once` 手动扫描全部
 启用来源。可用 `--data-dir <绝对目录>` 独立保存数据库和导出；它不改变来源发现范围。
+需限定采集范围时，在设置中启用“仅扫描手工目录”；保存的规则同时约束 GUI 和后台任务。
 
 图片（含 SVG）、字体、媒体及二进制文件使用 Git LFS；首次构建前须下载实际资源。
 重新生成图标：`npm run assets:generate`。资源预览页：

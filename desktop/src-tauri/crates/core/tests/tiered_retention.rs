@@ -9,6 +9,81 @@ use llm_usage_core::ingest::commit_batch;
 use llm_usage_core::query::{heatmap_cells, query_summary, Filters, Granularity, SummaryRequest};
 use llm_usage_core::retention_tiered::{enforce_tiered_retention, TieredRetentionPolicy};
 
+#[test]
+fn cancellation_after_delete_rolls_back_events_aggregates_revision_and_floors() {
+    use llm_usage_core::cancellation::OperationControl;
+    use llm_usage_core::retention_tiered::enforce_tiered_retention_controlled;
+    use std::sync::Arc;
+    let (_dir, storage) = temp_storage("retention-cancel");
+    commit_batch(
+        &storage,
+        &batch(
+            "codex@a",
+            "UTC",
+            ts("2026-09-20T10:00:00Z"),
+            vec![with_tokens(
+                evt("codex@a", "one", ts("2026-09-20T10:00:00Z")),
+                100,
+                10,
+            )],
+        ),
+        None,
+    )
+    .unwrap();
+    let before = query_summary(
+        &storage,
+        &request("2026-09-01", "2026-09-26", Granularity::Day),
+    )
+    .unwrap();
+    let control = Arc::new(OperationControl::default());
+    assert!(control.begin());
+    let cancelled = Arc::clone(&control);
+    storage
+        .conn()
+        .create_scalar_function(
+            "cancel_cleanup_test",
+            0,
+            rusqlite::functions::FunctionFlags::SQLITE_UTF8,
+            move |_| {
+                cancelled.cancel();
+                Ok(0)
+            },
+        )
+        .unwrap();
+    storage.conn().execute_batch("CREATE TEMP TRIGGER cancel_delete AFTER DELETE ON usage_events BEGIN SELECT cancel_cleanup_test(); END;").unwrap();
+    let guard = control.install(storage.conn()).unwrap();
+    let result = enforce_tiered_retention_controlled(
+        &storage,
+        "UTC",
+        ts("2026-09-26T12:00:00Z"),
+        &TieredRetentionPolicy {
+            events_days: 1,
+            ..TieredRetentionPolicy::default()
+        },
+        Some(&control),
+    );
+    assert!(result.is_err());
+    assert!(control.is_cancelled());
+    drop(guard);
+    let after = query_summary(
+        &storage,
+        &request("2026-09-01", "2026-09-26", Granularity::Day),
+    )
+    .unwrap();
+    assert_eq!(before.totals, after.totals);
+    assert_eq!(before.data_revision, after.data_revision);
+    assert_eq!(storage.conn().query_row("SELECT COUNT(*) FROM settings WHERE key='detail_retention_floor_ms' OR key LIKE 'retention_applied:%'",[],|r|r.get::<_,i64>(0)).unwrap(),0);
+    assert_eq!(
+        storage
+            .conn()
+            .query_row("SELECT COUNT(*) FROM usage_events", [], |r| r
+                .get::<_, i64>(0))
+            .unwrap(),
+        1
+    );
+    control.finish();
+}
+
 fn request(first: &str, last: &str, granularity: Granularity) -> SummaryRequest {
     SummaryRequest {
         timezone: "UTC".to_string(),
@@ -20,6 +95,203 @@ fn request(first: &str, last: &str, granularity: Granularity) -> SummaryRequest 
         today: llm_usage_core::calendar::parse_date("2026-09-26").unwrap(),
         retention_cutoff: None,
     }
+}
+
+fn long_policy() -> TieredRetentionPolicy {
+    TieredRetentionPolicy {
+        events_days: 366,
+        hourly_days: 366,
+        daily_days: 366,
+        weekly_days: 1095,
+        monthly_days: 3650,
+        yearly_days: None,
+    }
+}
+
+fn archive_fixture(storage: &llm_usage_core::storage::Storage) -> i64 {
+    // September is complete; its last day still belongs to the current ISO week.
+    let now = ts("2026-10-03T12:00:00Z");
+    for (source, key, date, input) in [
+        ("a", "old-a", "2026-09-30T12:00:00Z", 100),
+        ("b", "old-b", "2026-09-30T12:00:00Z", 200),
+        ("a", "today-a", "2026-10-03T12:00:00Z", 10),
+    ] {
+        commit_batch(
+            storage,
+            &batch(
+                source,
+                "UTC",
+                ts(date),
+                vec![with_tokens(evt(source, key, ts(date)), input, input / 10)],
+            ),
+            None,
+        )
+        .unwrap();
+    }
+    assert_eq!(
+        enforce_tiered_retention(storage, "UTC", now, &long_policy())
+            .unwrap()
+            .materialized_period_rows,
+        2
+    );
+    now
+}
+
+#[test]
+fn today_increment_keeps_completed_month_values_and_publication_unchanged() {
+    let (_dir, storage) = temp_storage("retention-open-period");
+    let now = archive_fixture(&storage);
+    let snapshot = || {
+        storage.conn().prepare("SELECT instance_id,call_count,total_known_sum,materialized_at_ms,data_revision FROM period_usage WHERE granularity='month' ORDER BY instance_id").unwrap()
+        .query_map([],|r|Ok((r.get::<_,String>(0)?,r.get::<_,i64>(1)?,r.get::<_,Option<i64>>(2)?,r.get::<_,i64>(3)?,r.get::<_,i64>(4)?))).unwrap()
+        .collect::<Result<Vec<_>,_>>().unwrap()
+    };
+    let before = snapshot();
+    assert_eq!(before.iter().map(|row| row.2.unwrap()).sum::<i64>(), 330);
+    commit_batch(
+        &storage,
+        &batch(
+            "a",
+            "UTC",
+            now + 1000,
+            vec![with_tokens(evt("a", "today-b", now + 1000), 20, 2)],
+        ),
+        None,
+    )
+    .unwrap();
+    let outcome = enforce_tiered_retention(&storage, "UTC", now + 2000, &long_policy()).unwrap();
+    assert_eq!(outcome.materialized_period_rows, 0);
+    assert_eq!(snapshot(), before);
+    assert_eq!(
+        query_summary(
+            &storage,
+            &request("2026-10-03", "2026-10-03", Granularity::Day)
+        )
+        .unwrap()
+        .totals
+        .total_tokens_known,
+        Some(33)
+    );
+    let changed_policy = TieredRetentionPolicy {
+        weekly_days: 1096,
+        ..long_policy()
+    };
+    assert_eq!(
+        enforce_tiered_retention(&storage, "UTC", now + 3000, &changed_policy)
+            .unwrap()
+            .materialized_period_rows,
+        2
+    );
+    assert_eq!(
+        enforce_tiered_retention(&storage, "UTC", ts("2026-10-05T12:00:00Z"), &changed_policy)
+            .unwrap()
+            .materialized_period_rows,
+        4
+    );
+    let closed_week: i64 = storage
+        .conn()
+        .query_row(
+            "SELECT SUM(total_known_sum) FROM period_usage WHERE granularity='week'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(closed_week, 363);
+}
+
+#[test]
+fn completed_month_rebuilds_for_late_data_deletions_missing_rows_and_unknown_watermarks() {
+    let (_dir, storage) = temp_storage("retention-dirty-period");
+    let now = archive_fixture(&storage);
+    let old = ts("2026-09-30T12:00:00Z");
+    let month_total = || {
+        storage
+            .conn()
+            .query_row(
+                "SELECT SUM(total_known_sum) FROM period_usage WHERE granularity='month'",
+                [],
+                |r| r.get::<_, i64>(0),
+            )
+            .unwrap()
+    };
+    // Equal daily cardinality, higher revision, completed month in an open week.
+    commit_batch(
+        &storage,
+        &batch(
+            "a",
+            "UTC",
+            now + 1,
+            vec![with_tokens(evt("a", "late", old), 300, 30)],
+        ),
+        None,
+    )
+    .unwrap();
+    assert_eq!(
+        enforce_tiered_retention(&storage, "UTC", now + 2, &long_policy())
+            .unwrap()
+            .materialized_period_rows,
+        2
+    );
+    assert_eq!(month_total(), 660);
+    storage
+        .conn()
+        .execute("DELETE FROM usage_events WHERE source_instance_id='b'", [])
+        .unwrap();
+    llm_usage_core::ingest::recompute_days_in_tz(&storage, "UTC", old, old, now + 3).unwrap();
+    assert_eq!(
+        enforce_tiered_retention(&storage, "UTC", now + 4, &long_policy())
+            .unwrap()
+            .materialized_period_rows,
+        1
+    );
+    assert_eq!(month_total(), 440);
+    let bump = || {
+        let tx = storage.conn().unchecked_transaction().unwrap();
+        llm_usage_core::storage::Storage::bump_data_revision_tx(&tx, now).unwrap();
+        tx.commit().unwrap();
+    };
+    storage
+        .conn()
+        .execute("DELETE FROM period_usage WHERE granularity='month'", [])
+        .unwrap();
+    bump();
+    assert_eq!(
+        enforce_tiered_retention(&storage, "UTC", now + 5, &long_policy())
+            .unwrap()
+            .materialized_period_rows,
+        1
+    );
+    assert_eq!(month_total(), 440);
+    storage
+        .conn()
+        .execute(
+            "UPDATE settings SET value='invalid' WHERE key='retention_materialization:UTC'",
+            [],
+        )
+        .unwrap();
+    bump();
+    assert_eq!(
+        enforce_tiered_retention(&storage, "UTC", now + 6, &long_policy())
+            .unwrap()
+            .materialized_period_rows,
+        1
+    );
+    // Imported future revisions cannot be certified by the local watermark.
+    storage
+        .conn()
+        .execute(
+            "UPDATE daily_usage SET data_revision=1000000 WHERE local_day='2026-09-30'",
+            [],
+        )
+        .unwrap();
+    bump();
+    assert_eq!(
+        enforce_tiered_retention(&storage, "UTC", now + 7, &long_policy())
+            .unwrap()
+            .materialized_period_rows,
+        1
+    );
+    assert_eq!(month_total(), 440);
 }
 
 #[test]

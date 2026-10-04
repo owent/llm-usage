@@ -53,6 +53,7 @@ impl Default for OpenOptions {
 pub struct Storage {
     conn: Connection,
     path: PathBuf,
+    pub(crate) summary_cache: std::cell::RefCell<crate::summary_cache::SummaryCache>,
 }
 
 impl std::fmt::Debug for Storage {
@@ -92,6 +93,7 @@ impl Storage {
         Ok(Storage {
             conn,
             path: path.to_path_buf(),
+            summary_cache: Default::default(),
         })
     }
 
@@ -138,13 +140,28 @@ impl Storage {
         conn.pragma_update(None, "synchronous", "FULL")?;
         conn.busy_timeout(options.busy_timeout)?;
 
-        let storage = Storage { conn, path };
+        // Optional acceleration only: old schema-11 databases remain compatible.
+        // Partial indexes avoid repeatedly scanning all valid events for rare gaps.
+        conn.execute_batch("CREATE INDEX IF NOT EXISTS idx_events_unverified_time ON usage_events(occurred_at_ms) WHERE attribution_status!='verified';
+            CREATE INDEX IF NOT EXISTS idx_events_carrier_gap_time ON usage_events(occurred_at_ms) WHERE exclusion_reason='copilot_otel_session_authority';
+            CREATE INDEX IF NOT EXISTS idx_events_summary_cover ON usage_events(occurred_at_ms,source_instance_id,session_id,duration_ms,record_kind) WHERE attribution_status='verified' AND record_kind IN ('model_call','transport_attempt','usage_observation');")?;
+
+        let storage = Storage {
+            conn,
+            path,
+            summary_cache: Default::default(),
+        };
         storage.mark_running_jobs_interrupted(crate::jobs::now_ms_fallback())?;
         Ok(storage)
     }
 
     pub fn conn(&self) -> &Connection {
         &self.conn
+    }
+
+    /// Drop only the optional query cache, for explicit uncached measurements.
+    pub fn clear_summary_cache(&self) {
+        self.summary_cache.borrow_mut().clear();
     }
 
     pub fn path(&self) -> &Path {

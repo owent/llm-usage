@@ -47,6 +47,42 @@ const dragHints: Record<string,string> = {
   'pt-BR':'Clique em um período ou arraste horizontalmente para selecionar um intervalo',
   ru:'Нажмите на период или перетащите по горизонтали для выбора диапазона',
 };
+const cleanupPhrases: Record<string,string[]> = {
+  'zh-CN':['取消清理','清理已取消，数据保持不变。','清理已结束或进入提交阶段，无法取消。'],
+  'zh-TW':['取消清理','清理已取消，資料保持不變。','清理已結束或進入提交階段，無法取消。'],
+  en:['Cancel cleanup','Cleanup cancelled. Data is unchanged.','Cleanup has finished or entered commit and can no longer be cancelled.'],
+  ja:['クリーンアップを中止','クリーンアップを中止しました。データは変更されていません。','クリーンアップが終了したか、コミットが開始されたため中止できません。'],
+  ko:['정리 취소','정리가 취소되었습니다. 데이터는 변경되지 않았습니다.','정리가 끝났거나 커밋이 시작되어 취소할 수 없습니다.'],
+  es:['Cancelar limpieza','Limpieza cancelada. Los datos no han cambiado.','La limpieza terminó o comenzó a confirmar cambios y ya no puede cancelarse.'],
+  fr:['Annuler le nettoyage','Nettoyage annulé. Les données sont inchangées.','Le nettoyage est terminé ou la validation a commencé ; il ne peut plus être annulé.'],
+  de:['Bereinigung abbrechen','Bereinigung abgebrochen. Die Daten sind unverändert.','Die Bereinigung ist beendet oder bestätigt bereits Änderungen. Ein Abbruch ist nicht mehr möglich.'],
+  'pt-BR':['Cancelar limpeza','Limpeza cancelada. Os dados não foram alterados.','A limpeza terminou ou começou a confirmar alterações e não pode mais ser cancelada.'],
+  ru:['Отменить очистку','Очистка отменена. Данные не изменены.','Очистка завершена или началась фиксация изменений. Отмена больше невозможна.'],
+};
+const keyboardHints: Record<string,string> = {
+  'zh-CN':'方向键移动，Shift 扩展范围，Enter 确认；Home/End 到首末时段。',
+  'zh-TW':'方向鍵移動，Shift 擴展範圍，Enter 確認；Home/End 到首末時段。',
+  en:'Arrow keys move, Shift extends the range, Enter applies; Home/End jump to the first/last period.',
+  ja:'矢印キーで移動、Shift で範囲を拡張、Enter で確定。Home/End で最初/最後へ。',
+  ko:'방향키로 이동, Shift로 범위 확장, Enter로 적용합니다. Home/End로 처음/끝으로 이동합니다.',
+  es:'Flechas para mover, Shift para ampliar, Enter para aplicar; Home/End al primer/último período.',
+  fr:'Flèches pour déplacer, Maj pour étendre, Entrée pour appliquer ; Début/Fin au premier/dernier intervalle.',
+  de:'Pfeiltasten bewegen, Umschalt erweitert, Eingabe übernimmt; Pos1/Ende zum ersten/letzten Zeitraum.',
+  'pt-BR':'Setas movem, Shift amplia, Enter aplica; Home/End vão ao primeiro/último período.',
+  ru:'Стрелки перемещают, Shift расширяет диапазон, Enter применяет; Home/End к первому/последнему периоду.',
+};
+const manualOnly: Record<string,string> = {
+  'zh-CN':'仅采集以上手工目录（不发现默认来源或账户额度）',
+  'zh-TW':'僅採集以上手動目錄（不探索預設來源或帳戶額度）',
+  en:'Collect only these manual roots (skip default sources and account quotas)',
+  ja:'手動指定したディレクトリのみ収集（既定のソースとアカウント枠は除外）',
+  ko:'위 수동 경로에서만 수집 (기본 소스와 계정 할당량 제외)',
+  es:'Recopilar solo estas carpetas manuales (omitir fuentes predeterminadas y cuotas de cuenta)',
+  fr:'Collecter uniquement ces dossiers manuels (ignorer les sources par défaut et les quotas du compte)',
+  de:'Nur diese manuellen Verzeichnisse erfassen (Standardquellen und Kontingente überspringen)',
+  'pt-BR':'Coletar apenas estas pastas manuais (ignorar fontes padrão e cotas da conta)',
+  ru:'Собирать только из этих каталогов (без стандартных источников и квот аккаунта)',
+};
 export const polishCatalogs=Object.fromEntries(Object.entries(phrases).map(([locale,values])=>{
   if(values.length!==keys.length) throw new Error('Incomplete polish translations: '+locale);
   return [locale,{
@@ -56,5 +92,10 @@ export const polishCatalogs=Object.fromEntries(Object.entries(phrases).map(([loc
     'overview.periodSummary.hint': rangePhrases[locale][1],
     'dashboard.fullRangePanel': rangePhrases[locale][2],
     'dashboard.dragHint': dragHints[locale],
+    'cleanup.cancel': cleanupPhrases[locale][0],
+    'cleanup.cancelled': cleanupPhrases[locale][1],
+    'cleanup.committed': cleanupPhrases[locale][2],
+    'dashboard.keyboardHint': keyboardHints[locale],
+    'settings.manualRootsOnly': manualOnly[locale],
   }];
 }));

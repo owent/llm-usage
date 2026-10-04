@@ -80,6 +80,7 @@
   const isDark = $derived(theme === 'dark' || (theme === 'system' && systemDark));
 
   // system = 移除 data-theme（themes.css 的 prefers-color-scheme 媒体查询接管）。
+  $effect(() => { document.documentElement.lang = i18n.locale; });
   $effect(() => {
     if (theme === 'system') delete document.documentElement.dataset.theme;
     else document.documentElement.dataset.theme = theme;
@@ -703,6 +704,8 @@
    * 不触发查询与图表重建（修复总览页周期性闪烁）。
    */
   let polling = false;
+  // An accepted request may not have set the worker's running flag yet.
+  let pendingManualFinish = $state<number | null>(null);
   async function pollRefresh() {
     if (polling) return;
     polling = true;
@@ -710,6 +713,9 @@
       const wasRunning = refresh?.running ?? false;
       const r = await api.refreshStatus();
       refresh = r;
+      if (pendingManualFinish !== null && (r.running || r.last_finished_ms !== pendingManualFinish)) {
+        pendingManualFinish = null;
+      }
       if (
         !r.running &&
         r.last_finished_ms > 0 &&
@@ -726,13 +732,13 @@
   }
 
   /**
-   * 状态轮询间隔自适应：采集中 3 秒（进度条/ETA 平滑），空闲 10 秒
+   * 状态轮询间隔自适应：采集中 500 ms，空闲 10 秒
    * （仅探测系统任务/调度器启动的采集；状态查询本身不重绘图表）。
    */
-  const collecting = $derived(refresh?.running ?? false);
+  const collecting = $derived((refresh?.running ?? false) || pendingManualFinish !== null);
   $effect(() => {
     void collecting;
-    const timer = setInterval(() => void pollRefresh(), collecting ? 3_000 : 10_000);
+    const timer = setInterval(() => void pollRefresh(), collecting ? 500 : 10_000);
     return () => clearInterval(timer);
   });
 
@@ -777,7 +783,8 @@
   async function manualRefresh() {
     refreshing = true;
     try {
-      await api.refreshSources();
+      const requested = await api.refreshSources();
+      if (requested.running) pendingManualFinish = requested.last_finished_ms;
     } catch (e) {
       loadError = parseError(e);
     } finally {
@@ -832,7 +839,7 @@
   }
 
   const refreshLabel = $derived(
-    refresh?.running
+    collecting
       ? t('action.refreshing')
       : refresh && refresh.last_finished_ms > 0
         ? t('refresh.status.done', {
@@ -919,8 +926,8 @@
         {/each}
       </select>
     </label>
-    <button class="primary collect-button" title={refreshLabel} disabled={refreshing || refresh?.running} onclick={manualRefresh}>
-      <Icon name="refresh" size={17} />{refresh?.running ? t('action.refreshing') : t('action.refresh')}
+    <button class="primary collect-button" title={refreshLabel} disabled={refreshing || collecting} onclick={manualRefresh}>
+      <Icon name="refresh" size={17} />{collecting ? t('action.refreshing') : t('action.refresh')}
     </button>
   </header>
   <div class="workspace-status" role="status">
@@ -1281,7 +1288,7 @@
   nav button:hover { background: var(--bg-hover); }
   nav button.active { background: var(--accent-bg); color: var(--accent); font-weight: 650; }
   .sidebar-foot { margin-top: auto; padding: 16px 8px 0; display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted); border-top: 1px solid var(--border-light); }
-  main { min-width: 0; padding: 30px 32px 48px; max-width: 2000px; }
+  main { min-width: 0; padding: 30px 32px 48px; max-width: 2000px; container-type: inline-size; }
   .workspace-header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
   .page-heading p { color: var(--text-muted); font-size: 10px; font-weight: 650; letter-spacing: 1.8px; margin: 0 0 8px; }
   h1 { margin: 0; font-size: 28px; letter-spacing: -0.8px; font-weight: 700; color: var(--text-heading); }

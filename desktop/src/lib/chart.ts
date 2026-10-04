@@ -115,6 +115,23 @@ export function showRangeSelection(chart: ECharts, labels: string[], selection: 
 
 /** Point/axis selection, horizontal brushing and zoom share period labels. */
 export function setupRangeSelection(chart:ECharts,labels:()=>string[],onpoint?:(label:string)=>void,onrange?:(first:string,last:string)=>void):()=>void {
+  const dom = chart.getDom();
+  dom.tabIndex = 0;
+  let cursor = 0, anchor = 0;
+  const keyboard = (event: KeyboardEvent) => {
+    const list = labels();
+    if (!list.length || !['ArrowLeft','ArrowRight','Home','End','Enter'].includes(event.key)) return;
+    event.preventDefault();
+    if (event.key === 'Enter') {
+      const first = list[Math.min(anchor,cursor)], last = list[Math.max(anchor,cursor)];
+      if (first === last) onpoint?.(first); else onrange?.(first,last);
+      return;
+    }
+    cursor = event.key === 'Home' ? 0 : event.key === 'End' ? list.length-1 : Math.max(0,Math.min(list.length-1,cursor+(event.key === 'ArrowRight' ? 1 : -1)));
+    if (!event.shiftKey) anchor = cursor;
+    showRangeSelection(chart,list,{first:list[Math.min(anchor,cursor)],last:list[Math.max(anchor,cursor)]});
+  };
+  dom.addEventListener('keydown',keyboard);
   let suppressClick = false;
   let clickTimer: ReturnType<typeof setTimeout> | undefined;
   const pick=(index:number)=>{const label=labels()[index];if(label && !suppressClick){onpoint?.(label);chart.dispatchAction({type:'hideTip'});}};
@@ -153,5 +170,5 @@ export function setupRangeSelection(chart:ECharts,labels:()=>string[],onpoint?:(
     if(first && last)onrange?.(first,last);
   };
   chart.getZr().on('click',click);chart.on('click',axis);chart.on('datazoom',zoom);chart.on('brushend',brushEnd);
-  return ()=>{clearTimeout(clickTimer);if(!chart.isDisposed()){chart.getZr().off('click',click);chart.off('click',axis);chart.off('datazoom',zoom);chart.off('brushend',brushEnd);}};
+  return ()=>{dom.removeEventListener('keydown',keyboard);clearTimeout(clickTimer);if(!chart.isDisposed()){chart.getZr().off('click',click);chart.off('click',axis);chart.off('datazoom',zoom);chart.off('brushend',brushEnd);}};
 }

@@ -304,7 +304,7 @@
 {#if dimension === 'total' && activeHours.length === 0}
   <p class="muted">{t('common.empty')}</p>
 {/if}
-<div bind:this={el} class="hourly"></div>
+<div bind:this={el} class="hourly" role="group" aria-label={`${t('hourly.title')}. ${t('dashboard.keyboardHint')}`}></div>
 
 <style>
   .coverage-hint {font-size:11px;color:var(--text-muted);margin:2px 0 0;}

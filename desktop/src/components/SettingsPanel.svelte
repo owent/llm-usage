@@ -97,6 +97,7 @@
   let cleaning = $state(false);
   let cleanupMessage = $state('');
   let cleanupError = $state('');
+  let cancelPending = $state(false);
 
   // 清理全部数据并重新采集（确认层 + 后台阶段进度 + 结果/重采提示）。
   let clearAllOpen = $state(false);
@@ -111,10 +112,21 @@
   /** 清空预检（打开确认层时加载）：磁盘已不存在的源文件 = 清空后无法重采。 */
   let clearPreview = $state<ClearAllPreviewDto | null>(null);
 
+  $effect(() => {
+    if (!cleaning && !clearAllBusy) cancelPending = false;
+  });
+
   onMount(() => {
     let unlisten: (() => void) | null = null;
     // 后台清理任务的阶段事件 → 确认层实时进度；done/failed 收尾。
     const handleProgress = (p: ClearAllProgressDto) => {
+      if (p.phase === 'cancelled') {
+        clearAllPhase = '';
+        clearAllBusy = false;
+        clearAllOpen = false;
+        clearAllMessage = t('cleanup.cancelled');
+        return;
+      }
       if (p.phase === 'failed') {
         clearAllPhase = '';
         clearAllBusy = false;
@@ -776,9 +788,26 @@
       });
       await loadStats();
     } catch (e) {
-      cleanupError = t('cleanup.failed', { message: parseError(e) });
+      if (String(e).includes('operation_cancelled')) cleanupMessage = t('cleanup.cancelled');
+      else cleanupError = t('cleanup.failed', { message: parseError(e) });
     } finally {
       cleaning = false;
+    }
+  }
+
+  async function cancelCleanup() {
+    cancelPending = true;
+    try {
+      const accepted = await api.cancelCleanup();
+      if (!accepted) {
+        if (clearAllBusy) clearAllError = t('cleanup.committed');
+        else cleanupMessage = t('cleanup.committed');
+        cancelPending = false;
+      }
+    } catch (e) {
+      if (clearAllBusy) clearAllError = t('cleanup.failed', { message: parseError(e) });
+      else cleanupError = t('cleanup.failed', { message: parseError(e) });
+      cancelPending = false;
     }
   }
 
@@ -906,6 +935,7 @@
                     <input
                       class="tz-search"
                       placeholder={t('settings.timezone.search')}
+                      aria-label={t('settings.timezone.search')}
                       bind:value={tzFilter}
                       spellcheck="false"
                       use:focusInput
@@ -940,7 +970,7 @@
           <div class="frow">
             <span class="flabel">{t('settings.weekStart')}</span>
             <div class="fvalue">
-              <select bind:value={inputs.weekStart}>
+              <select bind:value={inputs.weekStart} aria-label={t('settings.weekStart')}>
                 <option value="">{t('settings.weekStart.auto')}</option>
                 <option value="0">{t('settings.weekStart.monday')}</option>
                 <option value="6">{t('settings.weekStart.sunday')}</option>
@@ -955,7 +985,7 @@
           <div class="frow">
             <span class="flabel">{t('settings.interval')}</span>
             <div class="fvalue">
-              <input type="number" min="0" max="86400" bind:value={draft.refresh_interval_secs} />
+              <input type="number" min="0" max="86400" bind:value={draft.refresh_interval_secs} aria-label={t('settings.interval')} />
               <span class="hint">{t('settings.interval.hint')}</span>
             </div>
           </div>
@@ -970,7 +1000,8 @@
           <div class="frow top">
             <span class="flabel">{t('settings.manualRoots')}</span>
             <div class="fvalue">
-              <textarea bind:value={rootsText} rows="3" spellcheck="false"></textarea>
+              <textarea bind:value={rootsText} rows="3" spellcheck="false" aria-label={t('settings.manualRoots')}></textarea>
+              <label><input type="checkbox" bind:checked={draft.manual_roots_only} /> {t('settings.manualRootsOnly')}</label>
             </div>
           </div>
           <p class="note">{t('settings.note')}</p>
@@ -998,7 +1029,7 @@
             <div class="tier">
               <span class="name">{row.label}</span>
               <span class="hint">{row.hint}</span>
-              <input inputmode="numeric" placeholder="—" bind:value={inputs[row.field]} />
+              <input inputmode="numeric" placeholder="—" bind:value={inputs[row.field]} aria-label={row.label} />
               <span class="unit">{t('settings.retention.days')}</span>
             </div>
           {/each}
@@ -1017,11 +1048,14 @@
           <div class="frow">
             <span class="flabel">{t('cleanup.daysBefore')}</span>
             <div class="fvalue">
-              <input class="days" inputmode="numeric" bind:value={cleanupDays} />
+              <input class="days" inputmode="numeric" bind:value={cleanupDays} aria-label={t('cleanup.daysBefore')} />
               <span class="unit">{t('cleanup.daysUnit')}</span>
               <button type="button" class="danger" disabled={cleaning} onclick={() => void runCleanup()}>
                 {cleaning ? t('cleanup.running') : t('cleanup.run')}
               </button>
+              {#if cleaning}
+                <button type="button" disabled={cancelPending} onclick={() => void cancelCleanup()}>{t('cleanup.cancel')}</button>
+              {/if}
             </div>
           </div>
           {#if cleanupMessage}<p class="ok">{cleanupMessage}</p>{/if}
@@ -1122,7 +1156,7 @@
           <div class="frow">
             <span class="flabel">{t('cost.refresh.ttl')}</span>
             <div class="fvalue">
-              <input class="num" bind:value={inputs.refreshTtl} spellcheck="false" />
+              <input class="num" bind:value={inputs.refreshTtl} spellcheck="false" aria-label={t('cost.refresh.ttl')} />
             </div>
           </div>
           <div class="frow">
@@ -1420,8 +1454,9 @@
           >
             {clearAllBusy ? t('cleanup.running') : t('cleanup.clearAll')}
           </button>
-          <button type="button" disabled={clearAllBusy} onclick={() => (clearAllOpen = false)}>
-            {t('users.createCancel')}
+          <button type="button" disabled={cancelPending || (clearAllBusy && ['cleared','rescan'].includes(clearAllPhase))}
+            onclick={() => clearAllBusy ? void cancelCleanup() : (clearAllOpen = false)}>
+            {clearAllBusy ? t('cleanup.cancel') : t('users.createCancel')}
           </button>
         </div>
       </div>
@@ -2002,7 +2037,7 @@
   .ok, .bad {
     overflow-wrap: anywhere;
   }
-  @media (max-width: 700px) {
+  @container (max-width: 700px) {
     .settings-layout {
       grid-template-columns: 1fr;
     }
@@ -2032,5 +2067,11 @@
     .note {
       margin-left: 0;
     }
+    .fvalue { flex-basis: 100%; }
+    .fvalue > textarea { min-width: 0; width: 100%; }
+    .content { padding: 16px; }
+    .sidebar { position: static; }
+    .sidebar button { overflow-wrap: anywhere; }
+    .theme-seg { flex-wrap: wrap; }
   }
 </style>

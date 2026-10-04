@@ -114,6 +114,9 @@ pub struct AppSettings {
     /// 手工添加的数据源根目录。
     #[serde(default)]
     pub manual_roots: Vec<String>,
+    /// Explicitly restrict discovery to configured roots, including OS launches.
+    #[serde(default)]
+    pub manual_roots_only: bool,
     /// 本机来源身份显示名（仅辨认用途，不改 host_id 键）。
     #[serde(default)]
     pub hostname_alias: Option<String>,
@@ -149,6 +152,7 @@ impl Default for AppSettings {
             language: "zh-CN".to_string(),
             theme: default_theme(),
             manual_roots: Vec::new(),
+            manual_roots_only: false,
             hostname_alias: None,
             otel_receiver_enabled: false,
             otel_receiver_port: default_otel_receiver_port(),
@@ -235,6 +239,7 @@ pub struct RefreshInstanceSummary {
 
 pub struct AppState {
     pub storage: Mutex<Storage>,
+    readers: [Mutex<Option<Storage>>; 2],
     pub host_id: Mutex<String>,
     pub settings: Mutex<AppSettings>,
     pub refresh: Mutex<RefreshState>,
@@ -243,6 +248,7 @@ pub struct AppState {
     pub current_user: Mutex<String>,
     /// 「清理全部数据并重新采集」后台任务运行中（防重复触发；UI 不阻塞）。
     pub clear_job_running: std::sync::atomic::AtomicBool,
+    pub cleanup_control: std::sync::Arc<llm_usage_core::cancellation::OperationControl>,
     /// F2 在线刷新（models.dev）状态：运行标记 + 最近一次结果（UI 轮询）。
     pub price_refresh: Mutex<crate::price_refresh::PriceRefreshState>,
 }
@@ -343,10 +349,12 @@ impl AppState {
             storage: Mutex::new(storage),
             host_id: Mutex::new(host_id),
             settings: Mutex::new(settings),
+            readers: std::array::from_fn(|_| Mutex::new(None)),
             refresh: Mutex::new(RefreshState::default()),
             current_user: Mutex::new(current_user),
             db_path,
             clear_job_running: std::sync::atomic::AtomicBool::new(false),
+            cleanup_control: std::sync::Arc::default(),
             price_refresh: Mutex::new(crate::price_refresh::PriceRefreshState::default()),
         })
     }
@@ -418,7 +426,8 @@ pub fn repair_tz_partitions(storage: &Storage, timezone: &str, force: bool) -> R
 /// 查询连接：只读连接（带短重试——观察到的间歇性 disk I/O error 发生在
 /// 打开瞬间）；仍失败时回退写连接互斥锁，UI 查询宁可短暂排队也不硬错。
 pub enum ReadConn<'a> {
-    Ro(Storage),
+    Ro(Box<Storage>),
+    Pooled(std::sync::MutexGuard<'a, Option<Storage>>),
     Writer(std::sync::MutexGuard<'a, Storage>),
 }
 
@@ -427,15 +436,32 @@ impl std::ops::Deref for ReadConn<'_> {
     fn deref(&self) -> &Storage {
         match self {
             ReadConn::Ro(s) => s,
+            ReadConn::Pooled(slot) => slot.as_ref().expect("initialized read connection"),
             ReadConn::Writer(guard) => guard,
         }
     }
 }
 
 pub fn read_conn(state: &AppState) -> ReadConn<'_> {
+    for reader in &state.readers {
+        if let Ok(mut slot) = reader.try_lock() {
+            if slot.is_none() {
+                for _ in 0..3 {
+                    if let Ok(storage) = Storage::open_readonly(&state.db_path) {
+                        *slot = Some(storage);
+                        break;
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(40));
+                }
+            }
+            if slot.is_some() {
+                return ReadConn::Pooled(slot);
+            }
+        }
+    }
     for _ in 0..3 {
         if let Ok(s) = Storage::open_readonly(&state.db_path) {
-            return ReadConn::Ro(s);
+            return ReadConn::Ro(Box::new(s));
         }
         std::thread::sleep(std::time::Duration::from_millis(40));
     }
@@ -597,6 +623,82 @@ mod pricing_settings_tests {
 
 #[cfg(test)]
 mod partition_tests {
+    #[test]
+    fn pooled_readers_release_snapshots_and_observe_external_commits() {
+        use llm_usage_core::calendar::{ymd, WeekStart};
+        use llm_usage_core::query::{query_summary, Filters, Granularity, SummaryRequest};
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../build/query-readers")
+            .join(format!("{}-{}", std::process::id(), super::now_ms()));
+        std::fs::create_dir_all(&dir).unwrap();
+        struct Cleanup(std::path::PathBuf);
+        impl Drop for Cleanup {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_dir_all(&self.0);
+            }
+        }
+        let _cleanup = Cleanup(dir.clone());
+        let state = super::AppState::init(dir.join("reader.sqlite"), "test", false).unwrap();
+        let request = SummaryRequest {
+            timezone: "UTC".into(),
+            week_start: WeekStart::Monday,
+            first_day: ymd(2026, 10, 1),
+            last_day: ymd(2026, 10, 1),
+            today: ymd(2026, 10, 1),
+            granularity: Granularity::Day,
+            filters: Filters::default(),
+            retention_cutoff: None,
+        };
+        let first = super::read_conn(&state);
+        let second = super::read_conn(&state);
+        let overflow = super::read_conn(&state);
+        assert!(matches!(first, super::ReadConn::Pooled(_)));
+        assert!(matches!(second, super::ReadConn::Pooled(_)));
+        assert!(matches!(overflow, super::ReadConn::Ro(_)));
+        for reader in [&first, &second, &overflow] {
+            for _ in 0..2 {
+                assert_eq!(
+                    query_summary(reader, &request).unwrap().totals.call_count,
+                    0
+                );
+                assert!(
+                    reader.conn().is_autocommit(),
+                    "queries retain no WAL snapshot"
+                );
+            }
+        }
+        {
+            let writer = state.storage.lock().unwrap();
+            let at = "2026-10-01T12:00:00Z"
+                .parse::<jiff::Timestamp>()
+                .unwrap()
+                .as_millisecond();
+            for key in ["one", "two", "three"] {
+                writer.conn().execute(
+                    "INSERT INTO usage_events(event_id,source_instance_id,source_record_key,record_kind,schema_version,parser_version,agent,occurred_at_ms,time_basis,quality_json,quality_bucket,lifecycle,content_hash,created_at_ms,updated_at_ms)
+                     VALUES (?1,'source',?1,'model_call','1','test','example',?2,'source_completion','{}','unknown','final',?1,?2,?2)",
+                    rusqlite::params![key, at],
+                ).unwrap();
+            }
+            llm_usage_core::ingest::recompute_days_in_tz(&writer, "UTC", at, at, at).unwrap();
+        }
+        for reader in [&first, &second] {
+            assert_eq!(
+                query_summary(reader, &request).unwrap().totals.call_count,
+                3
+            );
+            assert!(reader.conn().is_autocommit());
+        }
+        drop(first);
+        let reused = super::read_conn(&state);
+        assert!(matches!(reused, super::ReadConn::Pooled(_)));
+        assert_eq!(
+            query_summary(&reused, &request).unwrap().totals.call_count,
+            3
+        );
+        assert!(reused.conn().is_autocommit());
+    }
+
     #[test]
     fn returning_to_a_previous_timezone_rebuilds_new_details_and_hours() {
         let storage = llm_usage_core::storage::Storage::open_in_memory().unwrap();

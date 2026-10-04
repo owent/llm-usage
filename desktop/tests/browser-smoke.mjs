@@ -38,6 +38,7 @@ await page.addInitScript(() => {
   const owners = {};
   let revision = 5;
   let finished = 1790550000000;
+  let shortRefreshEndsAt = null;
   window.appCalls = [];
   window.detailTotal = 123;
   const telemetryTarget = {id:'copilot-vscode',name:'Copilot · Code',config_path:'C:/Users/local/Code/User/settings.json',output_path:'C:/Users/local/telemetry/events.jsonl',status:'missing',reason:'',configurable:true,kind:'jsonc',docs_url:'https://code.visualstudio.com/docs/agents/guides/monitoring-agents'};
@@ -89,8 +90,14 @@ await page.addInitScript(() => {
         today_hourly:empty?[]:Array.from({length:12},(_,i)=>({hour:8+i,calls:12+i*3,total_tokens:String((i+1)*150000),input_total:String((i+1)*120000),cache_read:String(i*80000),output_total:String((i+1)*30000),sessions:5,avg_duration_ms:'4250'})),excluded_event_count:0 };
     }
     if(cmd==='list_sources') return {sources:['codex','claude','zcode','opencode','gemini','kimi-code'].map((agent,i)=>({instance_id:`${agent}@C:/Users/local/.${agent}`,agent,format:'local',health:i===4?'error':i===5||i===2?'degraded':'ok',available:i!==4,enabled:i!==4,origin_host_id:'local',user_id:owners[`${agent}@C:/Users/local/.${agent}`]??'default',last_success_ms:finished,compat_files:i===3?1:0,degraded_files:i===5?1:0,unsupported_files:i===2?1:0,incompatible_files:0,missing_files:i===0?2:0}))};
-    if(cmd==='refresh_status') return {running:false,started_ms:finished-1000,last_finished_ms:finished,trigger:'manual',progress_percent:100,eta_seconds:null,completed_adapters:[],instances:[]};
-    if(cmd==='refresh_sources') {revision++;finished++;return {started:true,running:false,last_finished_ms:finished};}
+    if(cmd==='refresh_status') {
+      if(shortRefreshEndsAt!==null&&Date.now()>=shortRefreshEndsAt) {revision++;finished++;shortRefreshEndsAt=null;}
+      return {running:false,started_ms:finished-1000,last_finished_ms:finished,trigger:'manual',progress_percent:100,eta_seconds:null,completed_adapters:[],instances:[]};
+    }
+    if(cmd==='refresh_sources') {
+      if(window.shortRefreshGap) {shortRefreshEndsAt=Date.now()+window.shortRefreshGap;return {started:true,running:true,last_finished_ms:finished};}
+      revision++;finished++;return {started:true,running:false,last_finished_ms:finished};
+    }
     if(cmd==='cost_summary') {
       if(q.first_period && window.selectionDelay) await new Promise(resolve=>setTimeout(resolve,window.selectionDelay));
       const row={currency:window.cnyReference?'CNY':'USD',total_amount_minor:window.cnyReference?12000:1234,priced_tokens:100000,known_tokens:200000,priced_event_count:10,unpriced_event_count:0,partial_event_count:2,ttl_defaulted_events:0,fallback_event_count:8};
@@ -309,6 +316,22 @@ const initialRequests = await summaryCount();
 assert.equal(initialRequests,3,'history and today load once each, plus the explicit hourly selection');
 await page.clock.runFor(31_000);
 assert.equal(await summaryCount(),initialRequests,'idle status polling does not re-query charts');
+// Accepted before the worker starts; a short scan finishes between status polls.
+await page.evaluate(()=>window.shortRefreshGap=450);
+const beforeShortRefresh=await summaryCount();
+await page.locator('.collect-button').click();
+await page.clock.runFor(100);
+assert.equal(await page.locator('.collect-button').isDisabled(),true,'accepted handoff remains busy even when running is not yet observed');
+assert.equal(await summaryCount(),beforeShortRefresh,'handoff does not reload stale results');
+await page.clock.runFor(1000);
+assert.equal(await page.locator('.collect-button').isDisabled(),false,'short completed scan leaves the busy state');
+assert.equal(await summaryCount(),beforeShortRefresh+2,'short completed scan reloads both history and today without waiting ten seconds');
+await page.evaluate(()=>window.shortRefreshGap=0);
+const idleStatusBefore=await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='refresh_status').length);
+const idleSummaryBefore=await summaryCount();
+await page.clock.runFor(10000);
+assert.equal(await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='refresh_status').length),idleStatusBefore+1,'completed handoff returns to ten-second idle polling');
+assert.equal(await summaryCount(),idleSummaryBefore,'idle polling after completion does not reload unchanged charts');
 await page.getByLabel('模型',{exact:true}).selectOption('gpt-5.4');
 await page.clock.runFor(250);
 await page.getByLabel('模型',{exact:true}).selectOption('glm-5.3');

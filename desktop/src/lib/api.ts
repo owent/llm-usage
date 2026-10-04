@@ -25,6 +25,7 @@ export interface AppSettings {
   /** 主题：system（跟随系统）/ light / dark。 */
   theme: string;
   manual_roots: string[];
+  manual_roots_only?: boolean;
   /** 本机来源身份显示名（仅辨认用途，不改 host_id 键）。 */
   hostname_alias: string | null;
   /** F2 费用估算（默认关闭；旧设置 JSON 无此字段时视为关闭）。 */
@@ -363,7 +364,7 @@ export interface ClearAllStartDto {
  * cleared=清库完成（含各表计数/备份路径）；rescan=全量重采已开始；
  * done=重采结束；failed=失败终止（error 含原因）。 */
 export interface ClearAllProgressDto {
-  phase: 'waiting' | 'backup' | 'clearing' | 'cleared' | 'rescan' | 'done' | 'failed';
+  phase: 'waiting' | 'backup' | 'clearing' | 'cleared' | 'rescan' | 'done' | 'failed' | 'cancelled';
   cleared?: Record<string, number>;
   data_revision?: number;
   backup?: string | null;
@@ -544,6 +545,7 @@ export const api = {
   importExchange: (path: string) => invoke<ImportOutcomeDto>('import_exchange', { path }),
   storageStats: () => invoke<StorageStatsDto>('storage_stats'),
   manualCleanup: (daysBefore: number) => invoke<CleanupResultDto>('manual_cleanup', { daysBefore }),
+  cancelCleanup: () => invoke<boolean>('cancel_cleanup'),
   clearAllData: () => invoke<ClearAllStartDto>('clear_all_data'),
   /** 订阅清理全部数据后台任务的阶段进度；返回取消订阅函数。 */
   onClearAllProgress: (handler: (p: ClearAllProgressDto) => void): Promise<UnlistenFn> =>

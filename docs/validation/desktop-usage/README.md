@@ -1,6 +1,8 @@
 # 桌面客户端验证记录
 
-本目录保存 M0–M7 的实际执行证据。规则见 [execution.md](../../design/desktop-usage/execution.md)：
+当前结论见 [最新验收](current-acceptance.md)，清理取消、原生语言/键盘/缩放、无 GUI
+任务、百万/千万查询及增量刷新见 [原生与规模验收](plan-finalization.md)。
+本目录保存各阶段实际执行证据，规则见 [execution.md](../../design/desktop-usage/execution.md)：
 
 - 只有产生实际证据后才创建记录文件，不预填"通过"；模板见 [TEMPLATE.md](TEMPLATE.md)。
 - 每条记录包含命令、cwd、OS/运行时、锁定版本、退出码、测试数量、实际结果、失败及未执行项。
