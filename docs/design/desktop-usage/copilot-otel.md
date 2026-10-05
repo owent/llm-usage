@@ -32,7 +32,7 @@ CLI/JetBrains 新版本仍需独立真实验收，其他隔离导出不自动推
 首选本地 file：IDE/CLI 可以在本应用退出时继续写入，之后扫描。
 本机 OTLP/HTTP 适合实时接收，但本应用必须运行；支持 `/v1/traces`、`/v1/logs`
 的 JSON/protobuf，及隔离补充输出的 `/v1/traces/supplemental`。
-接收前须逐源认证；Windows 可自动配置 Claude/Codex logs，以及同路径 npm manifest
+接收前须逐源认证；原生凭据存储可用时可自动配置 Claude/Codex logs，以及同路径 npm manifest
 确认的 CodeBuddy CLI 2.98.0 隔离 traces。协议解析/限流测试不代表其他发送端或版本
 已有可用认证配置，见 [认证合同](receiver-auth.md)。
 不支持 gRPC 或 metrics，不能称为通用 Collector。
@@ -60,10 +60,10 @@ CLI/JetBrains 新版本仍需独立真实验收，其他隔离导出不自动推
 | VS Code Agent Host | 安装的 app manifest 为已核验 1.140.0 时提供独立 chat.agentHost.otel 入口 | 各 profile 独立文件；其他版本待核验，不能从扩展键推断宿主支持 |
 | Copilot CLI | 创建本应用目录内专用 PowerShell/sh 启动脚本；运行脚本才给进程配置官方 file 变量 | 不修改 config.json、settings.json、全局环境或 shell profile，不自动运行 |
 | Gemini CLI | 用户 settings.json：telemetry enabled/local/outfile，logPrompts=false | GEMINI_CLI_HOME 替换 home 后仍附加 .gemini；文件格式/新版本真实输出未验收 |
-| Qwen Code | 用户 settings.json：telemetry enabled/outfile，logPrompts 与敏感 span 关闭 | QWEN_HOME 为配置目录，QWEN_RUNTIME_DIR 不替代设置路径；文件格式真实输出未验收 |
-| Claude Code | Windows 用户 env：logs 专用 HTTP/JSON endpoint 与认证头，内容关闭 | 白名单日志隔离；逐源凭据进当前用户系统存储，真实导出仍待验收 |
-| Codex | Windows 用户 TOML：HTTP/JSON logs、独立认证头与 log_user_prompt=false | 保留其他表、供应商配置/headers 及注释；日志不自动叠加原生用量 |
-| CodeBuddy | Windows 首个 PATH launcher 同目录 npm manifest 为 2.98.0 时配置 generic headers，Bearer 空格编码 %20，内容关闭 | 仅写隔离 supplemental traces；其他版本/无 manifest/已有 traces-specific headers 为手工项，本地 JSONL 独立 |
+| Qwen Code | 用户 settings.json：telemetry enabled/outfile，logPrompts 与敏感 span 关闭 | QWEN_HOME 为配置目录，QWEN_RUNTIME_DIR 不替代设置路径；0.25.0 实际本地导出为连续多行 SDK JSON，含主/后台调用，当前 OTel JSONL parser 不覆盖，见容器来源记录 |
+| Claude Code | 用户 env：logs 专用 HTTP/JSON endpoint 与认证头，内容关闭 | 白名单日志隔离；逐源凭据进当前用户系统存储，真实导出仍待验收 |
+| Codex | 用户 TOML：HTTP/JSON logs、独立认证头与 log_user_prompt=false | 保留其他表、供应商配置/headers 及注释；日志不自动叠加原生用量 |
+| CodeBuddy | 首个 PATH launcher 同目录 npm manifest 为 2.98.0 时配置 generic headers，Bearer 空格编码 %20，内容关闭 | 仅写隔离 supplemental traces；其他版本/无 manifest/已有 traces-specific headers 为手工项，本地 JSONL 独立 |
 
 Visual Studio 已有自动 traces 载体，不编造用户 exporter 设置；JetBrains 仍仅手工步骤。
 portable/custom user-data、其他 IDE 与远端宿主不自动写入，按官方步骤核对。
@@ -145,7 +145,7 @@ $env:OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT = 'false'
 
 ### HTTP 接收方案
 
-Windows 的 Claude/Codex 和已核验 CodeBuddy 2.98.0 配置向导会先检查绑定并即时启用，
+Claude/Codex 和已核验 CodeBuddy 2.98.0 配置向导会先检查原生凭据存储及绑定并即时启用，
 生成本机实例独立认证；CodeBuddy 始终使用隔离补充输出。
 现有后端键为 `otel_receiver_enabled` 和 `otel_receiver_port`，默认关闭、端口 4318。
 这两个键不绕过认证；现有未认证的本应用 HTTP 配置需重新预览/确认，不能自动续用。
@@ -169,7 +169,8 @@ CodeBuddy 未核验版本不自动配置。
 5. 撤销只恢复本功能改过且仍等于写入值的键；保留用户后改的键并报告冲突。
    备份仅本机保存，不进日志/导出；不自动重启 IDE 或产生模型调用。
 
-已实施范围以上表为准，首发验收 Windows；macOS/Linux 仅保留代码与合成回归。
+已实施范围以上表为准，首发验收 Windows；Linux 原生凭据/HTTP 已在 WSL 隔离验证，
+macOS 凭据模块仅交叉类型检查通过，两平台真实桌面/exporter 验收仍独立保留。
 只改用户配置，不写项目 `.vscode/settings.json`；合并同步排除项，不启用 Settings Sync。
 JetBrains 保留手工步骤，Visual Studio 使用已有载体。
 已完成应用管理的 VS Code Copilot file 自动接入、会话范围载体选择与

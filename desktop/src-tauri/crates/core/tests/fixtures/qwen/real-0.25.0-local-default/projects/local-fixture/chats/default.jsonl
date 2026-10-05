@@ -1,0 +1,1 @@
+{"type":"assistant","uuid":"anon-qwen-default-main","sessionId":"anon-qwen-default-session","timestamp":"2026-10-05T11:00:00.000Z","version":"0.25.0","model":"qwen2.5-0.5b-local","usageMetadata":{"promptTokenCount":10226,"candidatesTokenCount":2,"thoughtsTokenCount":0,"totalTokenCount":10228,"cachedContentTokenCount":0}}

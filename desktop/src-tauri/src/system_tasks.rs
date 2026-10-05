@@ -330,6 +330,107 @@ pub mod native {
         })
     }
 
+    /// Enumerate only the task root used by apply. Foreign names, users, executables
+    /// or altered arguments remain untouched. Hold database owner locks until done.
+    pub fn remove_installation_tasks() -> Result<(), String> {
+        let executable = std::env::current_exe().map_err(|e| e.to_string())?;
+        let user_sid = crate::installation::current_user_sid()?;
+        let candidates = com(move |_, folder| unsafe {
+            let collection = folder.GetTasks(TASK_ENUM_HIDDEN.0)?;
+            let mut candidates = Vec::new();
+            for index in 1..=collection.Count()? {
+                let task = collection.get_Item(&VARIANT::from(index))?;
+                let name = task.Name()?.to_string();
+                if !name.starts_with("LLMUsageDataRefresh-") {
+                    continue;
+                }
+                let definition = task.Definition()?;
+                let actions = definition.Actions()?;
+                let mut count = 0;
+                actions.Count(&mut count)?;
+                if count != 1 {
+                    continue;
+                }
+                let Ok(action) = actions.get_Item(1)?.cast::<IExecAction>() else {
+                    continue;
+                };
+                let mut path = BSTR::new();
+                let mut args = BSTR::new();
+                let mut description = BSTR::new();
+                action.Path(&mut path)?;
+                action.Arguments(&mut args)?;
+                definition
+                    .RegistrationInfo()?
+                    .Description(&mut description)?;
+                let principal = definition.Principal()?;
+                let mut sid = BSTR::new();
+                let mut logon = TASK_LOGON_NONE;
+                let mut level = TASK_RUNLEVEL_LUA;
+                principal.UserId(&mut sid)?;
+                principal.LogonType(&mut logon)?;
+                principal.RunLevel(&mut level)?;
+                if logon != TASK_LOGON_INTERACTIVE_TOKEN || level != TASK_RUNLEVEL_LUA {
+                    continue;
+                }
+                if let Some(database) = crate::installation::task_database(
+                    &name,
+                    &description.to_string(),
+                    &path.to_string(),
+                    &args.to_string(),
+                    &executable.to_string_lossy(),
+                ) {
+                    if crate::installation::principal_matches_sid(&sid.to_string(), &user_sid)? {
+                        candidates.push((name, database, task.Xml()?.to_string()));
+                    }
+                }
+            }
+            Ok(candidates)
+        })?;
+        let mut owners = Vec::new();
+        for (_, database, _) in &candidates {
+            owners.push(crate::installation::disable_existing_intent(database)?);
+        }
+        com(move |_, folder| unsafe {
+            // Validate every definition again before any deletion; changed ownership
+            // must abort uninstall rather than remove a replacement task.
+            for (name, _, xml) in &candidates {
+                match folder.GetTask(&BSTR::from(name)) {
+                    Ok(task) if task.Xml()? == xml.as_str() => {}
+                    Err(error) if error.code().0 as u32 == 0x80070002 => {}
+                    _ => {
+                        return Err(windows::core::Error::from_hresult(windows::core::HRESULT(
+                            0x80070005u32 as i32,
+                        )))
+                    }
+                }
+            }
+            for (name, _, xml) in &candidates {
+                match folder.GetTask(&BSTR::from(name)) {
+                    Ok(task) if task.Xml()? == xml.as_str() => {
+                        folder.DeleteTask(&BSTR::from(name), 0)?;
+                    }
+                    Ok(_) => {
+                        return Err(windows::core::Error::from_hresult(windows::core::HRESULT(
+                            0x80070005u32 as i32,
+                        )))
+                    }
+                    Err(error) if error.code().0 as u32 == 0x80070002 => {}
+                    Err(error) => return Err(error),
+                }
+                match folder.GetTask(&BSTR::from(name)) {
+                    Err(error) if error.code().0 as u32 == 0x80070002 => {}
+                    Err(error) => return Err(error),
+                    Ok(_) => {
+                        return Err(windows::core::Error::from_hresult(windows::core::HRESULT(
+                            0x80070005u32 as i32,
+                        )))
+                    }
+                }
+            }
+            Ok(())
+        })
+    }
+
     #[cfg(test)]
     pub(super) fn change_test_cadence(path: &Path) -> Result<(), String> {
         let path = canonical_task_path(path)?;

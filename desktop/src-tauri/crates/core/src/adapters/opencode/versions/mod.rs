@@ -2,11 +2,11 @@
 //! 格式实现映射与未知版本回退选择（architecture.md#adapter-layout /
 //! #unknown-version）。
 //!
-//! 已验证版本须有真实脱敏 fixture 与期望值核验结果。当前**没有**任何本机真实
-//! 样本（2026-09-25 盘点 not_found，m0-agent-fixtures.md），仅有固定源码
-//! （0027387dc5c59793c12dfc531abc78f825ed6868）文档或源码依据，因此注册表为空：
-//! 一切版本走 `LatestFallback`（带兼容标记，数据照常入库，compat=unverified）。
-//! 取得真实 fixture 后逐版本升级为 KnownVersion。
+//! 已验证版本须有真实脱敏 fixture 与期望值核验结果。1.18.34 官方 CLI / 本地
+//! 模型真实主循环及缓存读已核对，但当前文件探测与扫描仍以库内最高版本选择依据；
+//! 逐记录归属、混合版本、空会话及未变化旧游标升级尚未验收，因此注册表仍为空。
+//! 一切版本走 `LatestFallback`（带兼容标记，数据照常入库，compat=unverified），
+//! 不能仅凭一条真实会话认证同库其他记录。
 //!
 //! 选择规则：
 //! - 已收录版本 → `KnownVersion`（当前为空集）；
@@ -21,7 +21,7 @@ pub mod step_finish_parts_v1;
 pub const LATEST_IMPL_ID: &str = "step_finish_parts_v1";
 
 /// 已验证支持的 session.version → 格式实现。
-/// 空集：尚未用真实样本核验（见模块头），核验完成前不登记任何版本。
+/// 空集：真实兼容样本通过；逐记录版本及旧游标升级验收前不登记任何版本。
 pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[];
 
 /// 版本分派结论。

@@ -72,11 +72,10 @@ pub trait Store: Send + Sync {
 
 pub struct SystemStore;
 pub fn available() -> bool {
-    // Read-only capability probe. ERROR_NOT_FOUND is a usable store, not a failure.
-    cfg!(windows)
-        && SystemStore
-            .read("llm-usage/otel/v1/capability-check")
-            .is_ok()
+    // Read-only capability probe. Missing entries are distinct from an unavailable vault.
+    SystemStore
+        .read("llm-usage/otel/v1/capability-check")
+        .is_ok()
 }
 fn app_identity(app: &Path) -> Result<String, String> {
     app.canonicalize()
@@ -128,12 +127,23 @@ pub fn issue(
         return Err("credential_store_unavailable".into());
     }
     let bytes = serde_json::to_vec(&binding).map_err(|_| "credential_store_unavailable")?;
-    store.write(&name, &bytes)?;
+    if let Err(error) = store.write(&name, &bytes) {
+        // A service can persist a write before its reply fails. Reclaim only
+        // the exact entry we attempted, never a replaced or ambiguous value.
+        if store.read(&name)?.as_deref() == Some(bytes.as_slice()) {
+            store.delete(&name)?;
+        }
+        return Err(error);
+    }
     // Verify persistence before any exporter is configured. Roll back our entry on failure.
     match store.read(&name) {
         Ok(Some(saved)) if saved == bytes => Ok(binding),
         _ => {
-            store.delete(&name)?;
+            // A failed verification may mean another writer replaced this
+            // target. Re-read and only reclaim our exact payload.
+            if store.read(&name)?.as_deref() == Some(bytes.as_slice()) {
+                store.delete(&name)?;
+            }
             Err("credential_store_unavailable".into())
         }
     }
@@ -260,7 +270,19 @@ impl Store for SystemStore {
         }
     }
 }
-#[cfg(not(windows))]
+#[cfg(target_os = "linux")]
+#[path = "receiver_auth/linux.rs"]
+mod linux;
+#[cfg(target_os = "macos")]
+#[path = "receiver_auth/macos.rs"]
+mod macos;
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+fn system_random(bytes: &mut [u8]) -> Result<(), String> {
+    getrandom::fill(bytes).map_err(|_| "credential_store_unavailable".into())
+}
+
+#[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
 impl Store for SystemStore {
     fn random(&self, _: &mut [u8]) -> Result<(), String> {
         Err("credential_store_unavailable".into())

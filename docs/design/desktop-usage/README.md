@@ -112,6 +112,7 @@ Zed 内置和 Junie CLI 已有本地字段依据，归 M8，非空真实用量�
 | 仅本地；全部 Agent 分期尝试提取 | 本文来源边界及 [矩阵](adapters.md) | V17/V25，M2–M5/M8 逐适配器验收；本地用量格式尚未核验的 IDE 留 F1 |
 | 实施可用本机真实数据；IDE 后移；平台方案确认 | [开工准备](implementation-readiness.md) | 许可与阶段明确；准备检查通过，实施结果另记 |
 | Windows 首发、三平台 CI、WSL 构建 | [平台与 CI](platform-ci.md) | V26/V27，M0/M7 |
+| Windows 本机与 Linux Podman 安装生命周期；取消 macOS 桌面及特定硬件要求 | [安装合同](installation-lifecycle.md)、[真实来源准备](implementation-readiness.md) | [安装验收](../../validation/desktop-usage/installation-lifecycle.md)、[容器来源](../../validation/desktop-usage/container-sources.md)；宿主系统集成另验 |
 | 日/周/月汇总 | [时间合同](data-contract.md#time) | V04–V06 |
 | 其他有意义的统计 | 本文建议表，按字段能力分期 | V01–V06、V18 |
 | 保留和维度有界面配置 | [设置合同](data-contract.md#settings) | V13–V16，M6 |
@@ -121,7 +122,7 @@ Zed 内置和 Junie CLI 已有本地字段依据，归 M8，非空真实用量�
 | 未知版本先尝试最新解析器 | [兼容尝试合同](architecture.md#unknown-version) | V17/V30，M2–M5；F1 沿用 |
 | 小巧数据库 | [数据库决策](architecture.md#database) | V11/V15/V20 |
 | 轻量客户端 | [资源目标](architecture.md#budgets) | V19–V21，实际 release 制品 |
-| 只写计划、不执行 | [本轮核验结果与限制](research.md#verification) | 无业务代码、采集或安装变更 |
+| 初始设计后继续实施 | [Plan.md](../../../Plan.md)、[实施边界](implementation-readiness.md) | 当前交付与剩余条件见计划，原始设计调研保留历史范围 |
 
 ## 文档职责
 

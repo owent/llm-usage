@@ -1,0 +1,98 @@
+{
+  "synthetic": false,
+  "source": {
+    "product": "OpenCode CLI",
+    "version": "1.18.34",
+    "pin": "aec0b9a6d8898f68f923aaf08b7306d931fd9d76",
+    "mode": "default",
+    "method": "official client and CPU local model; API usage only proxy; offline isolated rootless container; anonymous identity/path/title/time fields"
+  },
+  "schema": {
+    "session_ddl": "CREATE TABLE `session` (\n          `id` text PRIMARY KEY,\n          `project_id` text NOT NULL,\n          `workspace_id` text,\n          `parent_id` text,\n          `slug` text NOT NULL,\n          `directory` text NOT NULL,\n          `path` text,\n          `title` text NOT NULL,\n          `version` text NOT NULL,\n          `share_url` text,\n          `summary_additions` integer,\n          `summary_deletions` integer,\n          `summary_files` integer,\n          `summary_diffs` text,\n          `metadata` text,\n          `cost` real DEFAULT 0 NOT NULL,\n          `tokens_input` integer DEFAULT 0 NOT NULL,\n          `tokens_output` integer DEFAULT 0 NOT NULL,\n          `tokens_reasoning` integer DEFAULT 0 NOT NULL,\n          `tokens_cache_read` integer DEFAULT 0 NOT NULL,\n          `tokens_cache_write` integer DEFAULT 0 NOT NULL,\n          `revert` text,\n          `permission` text,\n          `agent` text,\n          `model` text,\n          `time_created` integer NOT NULL,\n          `time_updated` integer NOT NULL,\n          `time_compacting` integer,\n          `time_archived` integer,\n          CONSTRAINT `fk_session_project_id_project_id_fk` FOREIGN KEY (`project_id`) REFERENCES `project`(`id`) ON DELETE CASCADE\n        )",
+    "message_ddl": "CREATE TABLE `message` (\n          `id` text PRIMARY KEY,\n          `session_id` text NOT NULL,\n          `time_created` integer NOT NULL,\n          `time_updated` integer NOT NULL,\n          `data` text NOT NULL,\n          CONSTRAINT `fk_message_session_id_session_id_fk` FOREIGN KEY (`session_id`) REFERENCES `session`(`id`) ON DELETE CASCADE\n        )",
+    "part_ddl": "CREATE TABLE `part` (\n          `id` text PRIMARY KEY,\n          `message_id` text NOT NULL,\n          `session_id` text NOT NULL,\n          `time_created` integer NOT NULL,\n          `time_updated` integer NOT NULL,\n          `data` text NOT NULL,\n          CONSTRAINT `fk_part_message_id_message_id_fk` FOREIGN KEY (`message_id`) REFERENCES `message`(`id`) ON DELETE CASCADE\n        )"
+  },
+  "sessions": [
+    {
+      "id": "ses_real_local",
+      "parent_id": null,
+      "version": "1.18.34",
+      "tokens_input": 295,
+      "tokens_output": 1,
+      "tokens_reasoning": 0,
+      "tokens_cache_read": 3,
+      "tokens_cache_write": 0,
+      "project_id": "prj_local_anonymous",
+      "slug": "local-anonymous",
+      "directory": "/anonymous/project",
+      "title": "anonymous local-model session",
+      "time_created": 1791158400000,
+      "time_updated": 1791158401510
+    }
+  ],
+  "messages": [
+    {
+      "id": "msg_real_local_1",
+      "session_id": "ses_real_local",
+      "data": {
+        "role": "user",
+        "time": {
+          "created": 1791158400041
+        }
+      },
+      "time_created": 1791158400041,
+      "time_updated": 1791158400569
+    },
+    {
+      "id": "msg_real_local_2",
+      "session_id": "ses_real_local",
+      "data": {
+        "role": "assistant",
+        "modelID": "qwen2.5-0.5b-local",
+        "providerID": "llama.cpp",
+        "cost": 0,
+        "tokens": {
+          "total": 299,
+          "input": 295,
+          "output": 1,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 3
+          }
+        },
+        "time": {
+          "created": 1791158400531,
+          "completed": 1791158401497
+        },
+        "finish": "stop"
+      },
+      "time_created": 1791158400531,
+      "time_updated": 1791158401497
+    }
+  ],
+  "parts": [
+    {
+      "id": "part_real_local_1",
+      "message_id": "msg_real_local_2",
+      "session_id": "ses_real_local",
+      "time_created": 1791158401493,
+      "time_updated": 1791158401494,
+      "data": {
+        "type": "step-finish",
+        "reason": "stop",
+        "cost": 0,
+        "tokens": {
+          "total": 299,
+          "input": 295,
+          "output": 1,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 3
+          }
+        }
+      }
+    }
+  ]
+}

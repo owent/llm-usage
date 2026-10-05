@@ -1,10 +1,20 @@
 # 本机 HTTP 接收鉴权
 
-实施范围为 Windows 11 当前用户、用户明确应用配置的 Claude Code/Codex 和
+实施范围为当前用户、用户明确应用配置的 Claude Code/Codex 和
 有同一路径 manifest 依据的 CodeBuddy CLI 2.98.0 本机实例。
 接收器仍默认关闭，只绑定 127.0.0.1；file 导出不需要此令牌。
 CodeBuddy CLI 2.98.0 官方发布记录已确认 OTLP 认证头，按该版本 manifest 限定接入；
-旧版、新版、无 manifest 或非标准安装仍为手工核对。其他平台的原生密钥存储另验。
+旧版、新版、无 manifest 或非标准安装仍为手工核对。
+
+跨平台存储沿用相同来源标识、绑定及撤销合同。Linux 使用当前用户的
+Secret Service 默认持久集合与 DH 加密会话；不回退到 session 集合、明文文件或
+内存凭据。默认别名也不能指向 session；检查不创建集合、不解锁。
+服务缺失、默认集合缺失/锁定、匹配项重复
+均拒绝接入。每次存储操作限定 3 秒，后台读取不显示解锁提示。
+macOS 使用当前用户 Keychain generic password，明确禁用 iCloud 同步，
+逐次查询禁止认证 UI；锁定、拒绝访问或无可用存储均拒绝接入。
+两平台的随机秘密使用系统随机源，错误只返回稳定代码，不格式化库错误或凭据。
+跨平台实现、原生存储往返和桌面实际 exporter 验收分别登记。
 
 每次应用配置生成独立的 128 位来源标识和 256 位随机秘密；Windows 使用
 BCrypt 系统随机源，Generic Credential 按当前用户保存，持久化限定本机。
@@ -29,7 +39,7 @@ rolling 文档新增的 traces-specific headers 不用于认证旧版支持，�
 只有仍指向本应用的目标才提供重新确认配置，不自动改用户文件。
 撤销句柄仍是当前进程内合同；重启后的持久撤销与完整安装生命周期另验。
 
-依据核验日期 2026-10-04：
+依据核验日期：exporter/Windows 为 2026-10-04，跨平台存储为 2026-10-05。
 
 - [Claude Code monitoring](https://code.claude.com/docs/en/monitoring-usage)：logs headers、用户 env 与认证。
 - [Codex sample configuration](https://developers.openai.com/codex/config-sample/)：otlp-http headers 表。
@@ -39,3 +49,7 @@ rolling 文档新增的 traces-specific headers 不用于认证旧版支持，�
 - [CredWriteW](https://learn.microsoft.com/en-us/windows/win32/api/wincred/nf-wincred-credwritew)、[CredReadW](https://learn.microsoft.com/en-us/windows/win32/api/wincred/nf-wincred-credreadw)、[CredDeleteW](https://learn.microsoft.com/en-us/windows/win32/api/wincred/nf-wincred-creddeletew)：用户范围、持久化和精确回收。
 
 合成 HTTP、失败恢复与真实 Windows 凭据库测试分别记录，不能替代产品实际导出验收。
+Linux 原生存储/HTTP 和 macOS 交叉类型检查见
+[跨平台记录](../../validation/desktop-usage/platform-auth-continuation.md)，真实桌面与
+exporter 验收仍独立保留。Windows 一次并行存储失败后留下的自有项已回收，
+失败后回收可靠性尚未验收完成；诊断未复现不作为已修复依据。

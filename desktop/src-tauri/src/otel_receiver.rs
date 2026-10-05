@@ -5,7 +5,7 @@
 //!
 //! 约定（execution.md M5 / V22 / V25）：
 //! - 默认关闭（settings.otel_receiver_enabled）；启用 = 用户显式授权本机实例；
-//! - 仅 127.0.0.1；逐源 Bearer 令牌由 Windows 当前用户凭据库核验；
+//! - 仅 127.0.0.1；逐源 Bearer 令牌由当前用户的原生凭据库核验；
 //! - 请求头 ≤ 64 KiB、body ≤ 64 MiB、gzip 解压上限 64 MiB（压缩炸弹防护）；
 //! - 字段白名单：只保留 span 名/ID/kind/时间及逐项列出的用量、模型、会话属性；
 //!   不接受任意属性前缀，正文/凭据不落盘；
@@ -1081,7 +1081,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(not(windows))]
+    #[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
     fn receiver_without_verified_native_vault_never_opens_an_unprotected_port() {
         let out = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../build/plan-continuation/unavailable-vault/otel");

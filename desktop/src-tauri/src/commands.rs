@@ -167,6 +167,21 @@ mod win_tasks {
         write_value(RUN_KEY, value.as_deref())
     }
 
+    pub fn remove_owned_auto_start() -> Result<(), String> {
+        let expected = run_value()?;
+        if let Some(value) = read_value(RUN_KEY)? {
+            if crate::installation::same_executable(&value, &expected) {
+                write_value(RUN_KEY, None)?;
+                if read_value(RUN_KEY)?
+                    .is_some_and(|actual| crate::installation::same_executable(&actual, &expected))
+                {
+                    return Err(err("reg_write", "owned autostart removal not applied"));
+                }
+            }
+        }
+        Ok(())
+    }
+
     #[cfg(test)]
     mod tests {
         use super::*;
@@ -198,6 +213,11 @@ mod win_tasks {
             write_value(&subkey, None).unwrap();
         }
     }
+}
+
+#[cfg(windows)]
+pub(crate) fn remove_owned_auto_start() -> Result<(), String> {
+    win_tasks::remove_owned_auto_start()
 }
 
 /// 系统保存对话框：用户选定导出位置（返回 None = 取消）。

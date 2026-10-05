@@ -66,9 +66,19 @@ mod tests {
     #[test]
     fn second_owner_is_blocked_and_requests_merge_without_interrupting_jobs() {
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../build/review-2026-09-27/process-guard");
-        std::fs::create_dir_all(&root).unwrap();
-        let path = root.join(format!("{}.sqlite", std::process::id()));
+            .join("../../build/review-2026-09-27/process-guard")
+            .join(format!(
+                "{}-{}",
+                std::process::id(),
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+            ));
+        std::fs::create_dir_all(root.parent().unwrap()).unwrap();
+        // Reused process IDs must not reopen old ingest_runs fixtures.
+        std::fs::create_dir(&root).unwrap();
+        let path = root.join("test.sqlite");
         let guard = super::acquire(&path).unwrap().unwrap();
         let storage = llm_usage_core::storage::Storage::open(&path).unwrap();
         storage.conn().execute("INSERT INTO ingest_runs(run_id,instance_id,trigger_kind,status,started_ms) VALUES ('active','source','manual','running',1)", []).unwrap();
@@ -84,5 +94,6 @@ mod tests {
         drop(storage);
         drop(guard);
         assert!(super::acquire(&path).unwrap().is_some());
+        std::fs::remove_dir_all(root).unwrap();
     }
 }

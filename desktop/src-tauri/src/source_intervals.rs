@@ -95,8 +95,17 @@ mod tests {
     fn wall_clock_jumps_do_not_fire_intervals_and_completion_rearms() {
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../build/plan-execution/source-intervals")
-            .join(format!("{}", std::process::id()));
-        std::fs::create_dir_all(&root).unwrap();
+            .join(format!(
+                "{}-{}",
+                std::process::id(),
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+            ));
+        std::fs::create_dir_all(root.parent().unwrap()).unwrap();
+        // PID reuse must not reopen a previous run's disabled schedule.
+        std::fs::create_dir(&root).unwrap();
         let storage = Storage::open(&root.join("test.sqlite")).unwrap();
         storage.conn().execute("INSERT OR IGNORE INTO source_instances(instance_id,agent,locality_basis,attribution_status,enabled,health,created_at_ms,updated_at_ms) VALUES('a','codex','local_filesystem','verified',1,'ok',0,0)",[]).unwrap();
         let rule = llm_usage_core::schedules::SourceScheduleRule {
@@ -130,5 +139,7 @@ mod tests {
             .unwrap();
         assert!(clock.due_at(&storage, 200000, 200000).unwrap().is_empty());
         assert!(clock.deadlines.is_empty());
+        drop(storage);
+        std::fs::remove_dir_all(root).unwrap();
     }
 }

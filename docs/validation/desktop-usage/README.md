@@ -4,6 +4,10 @@
 任务、百万/千万查询及增量刷新见 [原生与规模验收](plan-finalization.md)。
 查询/筛选加速、Windows 后台控制、遥测限制及本轮资源复测见
 [剩余计划执行](plan-execution.md)。
+Linux/macOS 凭据实现、Windows/Linux 原生验证及 Linux 制品见
+[跨平台继续执行](platform-auth-continuation.md)。
+Windows NSIS 与 Debian Podman 真实 GUI/包生命周期见 [安装验收](installation-lifecycle.md)；
+官方 Qwen 0.25.0 与本地模型实际 token/后台覆盖边界见 [容器来源](container-sources.md)。
 本目录保存各阶段实际执行记录，规则见 [execution.md](../../design/desktop-usage/execution.md)：
 
 - 只有完成实际检查并记录结果后才创建记录文件，不预填"通过"；模板见 [TEMPLATE.md](TEMPLATE.md)。

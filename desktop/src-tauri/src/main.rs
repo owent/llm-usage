@@ -10,6 +10,8 @@ mod app_state;
 mod commands;
 mod db_backup;
 mod file_watch;
+#[cfg(windows)]
+mod installation;
 mod otel_receiver;
 mod power;
 mod price_refresh;
@@ -79,6 +81,15 @@ fn db_path() -> Result<std::path::PathBuf, String> {
 }
 
 fn main() {
+    if std::env::args().any(|arg| arg == "--uninstall-cleanup") {
+        #[cfg(windows)]
+        if let Err(error) = installation::cleanup() {
+            eprintln!("uninstall cleanup failed: {error}");
+            std::process::exit(1);
+        }
+        // This branch precedes db_path, migrations, collection and GUI startup.
+        return;
+    }
     let headless = std::env::args().any(|a| a == "--headless" || a == "--scan-once");
     let path = db_path().unwrap_or_else(|error| {
         eprintln!("{error}");

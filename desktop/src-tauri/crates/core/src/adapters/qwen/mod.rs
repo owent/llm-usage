@@ -206,7 +206,7 @@ impl crate::adapters::framework::SourceAdapter for QwenAdapter {
             "per_request_calls".into(),
             field(
                 Availability::Available,
-                "recordAssistantTurn 每次模型调用一条 assistant 记录（uuid 身份）",
+                "仅计已落盘且带 usageMetadata 的 assistant 记录（uuid 身份）；不代表客户端全部请求",
             ),
         );
         fields.insert(
@@ -284,7 +284,7 @@ impl crate::adapters::framework::SourceAdapter for QwenAdapter {
             }),
             integrity: serde_json::json!({
                 "success_only": "格式内无失败调用证据；只统计带 usageMetadata 的 assistant 记录",
-                "hidden_calls": "未观测；子 Agent 记录与主会话同文件按同口径计入",
+                "hidden_calls": "0.25.0 本地模型实测：默认 managed-auto-memory-extractor 另有调用，未进入会话逐次载体；不按 CLI 累计量补造事件",
                 "sampling": "未观测到采样；坏行逐条隔离记诊断",
                 "source_retention": "daemon archive 移动 JSONL 至 chats/archive；源端删除后的历史无法回采，可回填范围以现存文件为准",
                 "prompt_content": "只读白名单字段（uuid/sessionId/timestamp/type/subtype/version/model/agentId/isSidechain/goalContext/usageMetadata），prompt 日志侧写禁用，正文不提取",
@@ -303,7 +303,8 @@ impl crate::adapters::framework::SourceAdapter for QwenAdapter {
                 "usageMetadata 六分类的包含关系（cached/thoughts/tool 是否子集）逐 provider 未核验：total 只取直报，thoughts/tool 不并入任何字段".into(),
                 "record.version 逐条存 schema_version 但不做版本白名单（格式锚点是固定源码 commit）".into(),
                 "缺 uuid 记录用 sessionId+行号身份，文件同位替换后可能形成新键".into(),
-                "本机无真实样本（not_found）；合同测试基于按固定源码构造的合成样本".into(),
+                "0.25.0 本地兼容 provider 主循环已用真实模型/载体/CLI/SQLite 核对；云端、其他版本、缓存命中及真实归档仍另验".into(),
+                "0.25.0 默认自动记忆调用未进入 ChatRecord，会话用量覆盖受限；关闭后台记忆的对照仅证明该场景完整一致".into(),
                 "新版 Qwen 增加记录类型时仍由格式探测 fail closed；归档路径不代表新版本字段已验证".into(),
                 "符号链接/junction 不跟随；Windows 无稳定文件索引号，身份靠创建时间+首采样".into(),
             ],

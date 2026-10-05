@@ -105,10 +105,168 @@ fn family_filter_cannot_claim_other_client_logs() {
     assert!(!Family::Claude.accepts_record(&serde_json::json!({"name":"codex.api_request"})));
     assert!(!Family::Codex.accepts_record(&serde_json::json!({"name":"unknown"})));
 }
-#[cfg(windows)]
+
 #[test]
-#[ignore = "native Windows credential store; run explicitly, creates and deletes one owned random entry"]
-fn windows_credential_store_roundtrip() {
+fn credential_write_and_readback_failures_reclaim_only_the_exact_owned_value() {
+    struct FailedReply {
+        inner: MemoryStore,
+        replace: bool,
+        failed_reply: bool,
+    }
+    impl Store for FailedReply {
+        fn random(&self, bytes: &mut [u8]) -> Result<(), String> {
+            self.inner.random(bytes)
+        }
+        fn read(&self, name: &str) -> Result<Option<Vec<u8>>, String> {
+            self.inner.read(name)
+        }
+        fn delete(&self, name: &str) -> Result<(), String> {
+            self.inner.delete(name)
+        }
+        fn write(&self, name: &str, bytes: &[u8]) -> Result<(), String> {
+            self.inner.write(
+                name,
+                if self.replace {
+                    b"external-replacement"
+                } else {
+                    bytes
+                },
+            )?;
+            if self.failed_reply {
+                Err("credential_store_unavailable".into())
+            } else {
+                Ok(())
+            }
+        }
+    }
+    let app = root("lost-write-reply");
+    for (replace, failed_reply) in [(false, true), (true, true), (true, false)] {
+        let store = FailedReply {
+            inner: MemoryStore::default(),
+            replace,
+            failed_reply,
+        };
+        assert!(issue(&store, &app, &app.join("config.json"), Family::Claude).is_err());
+        assert_eq!(
+            store.inner.values.lock().unwrap().len(),
+            usize::from(replace)
+        );
+    }
+    std::fs::remove_dir_all(app).unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+#[ignore = "requires isolated D-Bus/keyring; use npm run test:credentials:linux"]
+fn native_linux_vault_unavailable() {
+    assert!(!available());
+    assert!(SystemStore
+        .read("llm-usage/otel/v1/capability-check")
+        .is_err());
+    assert!(SystemStore
+        .write("llm-usage/otel/v1/unavailable-fixture", b"synthetic")
+        .is_err());
+    let app = root("unavailable-vault");
+    let probe = std::net::TcpListener::bind(("127.0.0.1", 0)).unwrap();
+    let port = probe.local_addr().unwrap().port();
+    drop(probe);
+    assert_eq!(
+        crate::otel_receiver::ensure_started_owned(port, app.join("otel")).unwrap_err(),
+        "credential_store_unavailable"
+    );
+    let _unbound = std::net::TcpListener::bind(("127.0.0.1", port)).unwrap();
+    assert!(!app.join("otel").exists());
+    std::fs::remove_dir_all(app).unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+#[ignore = "locks only a disposable keyring; use npm run test:credentials:linux"]
+fn native_linux_locked_vault() {
+    assert_eq!(
+        std::env::var("LLM_USAGE_ISOLATED_VAULT").as_deref(),
+        Ok("1")
+    );
+    super::linux::run(async {
+        let service =
+            secret_service::SecretService::connect(secret_service::EncryptionType::Dh).await?;
+        service.get_default_collection().await?.lock().await
+    })
+    .unwrap();
+    assert!(!available());
+    assert!(SystemStore
+        .read("llm-usage/otel/v1/capability-check")
+        .is_err());
+    assert!(SystemStore
+        .write("llm-usage/otel/v1/locked-fixture", b"synthetic")
+        .is_err());
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+#[ignore = "creates duplicate owned items in a disposable keyring; use npm run test:credentials:linux"]
+fn native_linux_ambiguous_vault() {
+    assert_eq!(
+        std::env::var("LLM_USAGE_ISOLATED_VAULT").as_deref(),
+        Ok("1")
+    );
+    super::linux::run(async {
+        let service =
+            secret_service::SecretService::connect(secret_service::EncryptionType::Dh).await?;
+        let collection = service.get_default_collection().await?;
+        let name = "llm-usage/otel/v1/duplicate-fixture";
+        let attributes = || {
+            std::collections::HashMap::from([
+                ("application", "org.owent.llm-usage.otel.v1"),
+                ("target", name),
+            ])
+        };
+        let a = collection
+            .create_item(
+                "owned synthetic duplicate",
+                attributes(),
+                b"one",
+                false,
+                "text/plain",
+            )
+            .await?;
+        let b = collection
+            .create_item(
+                "owned synthetic duplicate",
+                attributes(),
+                b"two",
+                false,
+                "text/plain",
+            )
+            .await?;
+        assert!(SystemStore.read(name).is_err());
+        assert!(SystemStore.delete(name).is_err());
+        assert_eq!(service.search_items(attributes()).await?.unlocked.len(), 2);
+        a.delete().await?;
+        b.delete().await?;
+        assert!(SystemStore.read(name).unwrap().is_none());
+        // A unique session-only copy is also unusable: it would disappear on
+        // logout and must not silently satisfy a persisted exporter binding.
+        let session = service.get_collection_by_alias("session").await?;
+        let transient = session
+            .create_item(
+                "owned transient fixture",
+                attributes(),
+                b"temporary",
+                false,
+                "text/plain",
+            )
+            .await?;
+        assert!(SystemStore.read(name).is_err());
+        transient.delete().await?;
+        Ok(())
+    })
+    .unwrap();
+}
+#[cfg(any(windows, target_os = "linux", target_os = "macos"))]
+#[test]
+#[ignore = "native credential store; run explicitly, creates and precisely deletes owned random entries"]
+fn native_credential_store_roundtrip() {
     let app = root("native-vault");
     let binding = issue(
         &SystemStore,
@@ -124,15 +282,136 @@ fn windows_credential_store_roundtrip() {
         }
     }
     let cleanup = Cleanup(binding);
-    // A new store value reads the persisted credential; no in-memory listener cache is involved.
+    let other =
+        Cleanup(issue(&SystemStore, &app, &app.join("other.json"), Family::Claude).unwrap());
     assert!(authorize(&SystemStore, &app, &cleanup.0.header(), "/v1/logs") == Some(Family::Codex));
     assert!(authorize(&SystemStore, &app, &cleanup.0.header(), "/v1/traces").is_none());
-    revoke(&SystemStore, &cleanup.0).unwrap();
+    // A separate process must read and revoke the persisted entry. Transfer the
+    // synthetic credential only over stdin, never argv, environment or a file.
+    use std::io::Write;
+    let mut child = std::process::Command::new(std::env::current_exe().unwrap())
+        .args([
+            "--exact",
+            "receiver_auth::tests::native_credential_child",
+            "--ignored",
+        ])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(&serde_json::to_vec(&cleanup.0).unwrap())
+        .unwrap();
+    let result = child.wait_with_output().unwrap();
+    assert!(result.status.success(), "native credential child failed");
+    assert!(authorize(&SystemStore, &app, &other.0.header(), "/v1/logs") == Some(Family::Claude));
     assert!(authorize(&SystemStore, &app, &cleanup.0.header(), "/v1/logs").is_none());
     assert!(SystemStore
         .read(&format!("{PREFIX}{}", cleanup.0.id))
         .unwrap()
         .is_none());
     drop(cleanup);
+    revoke(&SystemStore, &other.0).unwrap();
+    drop(other);
     std::fs::remove_dir_all(app).unwrap();
+}
+
+#[cfg(any(windows, target_os = "linux", target_os = "macos"))]
+#[test]
+#[ignore = "native vault and real loopback HTTP; creates and precisely reclaims owned credentials"]
+fn native_credential_http_revocation() {
+    use std::io::{Read, Write};
+    let app = root("native-http");
+    let out = app.join("otel");
+    struct Cleanup {
+        port: Option<u16>,
+        out: std::path::PathBuf,
+        bindings: Vec<Binding>,
+    }
+    impl Drop for Cleanup {
+        fn drop(&mut self) {
+            if let Some(port) = self.port {
+                crate::otel_receiver::stop_owned(port, &self.out);
+            }
+            for binding in &self.bindings {
+                let _ = revoke(&SystemStore, binding);
+            }
+        }
+    }
+    // Arm cleanup before the first write, including a later issue/bind failure.
+    let mut cleanup = Cleanup {
+        port: None,
+        out: out.clone(),
+        bindings: Vec::new(),
+    };
+    cleanup
+        .bindings
+        .push(issue(&SystemStore, &app, &app.join("a.json"), Family::Claude).unwrap());
+    cleanup
+        .bindings
+        .push(issue(&SystemStore, &app, &app.join("b.json"), Family::Claude).unwrap());
+    let probe = std::net::TcpListener::bind(("127.0.0.1", 0)).unwrap();
+    let port = probe.local_addr().unwrap().port();
+    drop(probe);
+    cleanup.port = Some(port);
+    assert!(crate::otel_receiver::ensure_started_owned(port, out).unwrap());
+    let request = |header: &str, body: &[u8]| {
+        let mut stream = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap();
+        stream
+            .set_read_timeout(Some(std::time::Duration::from_secs(6)))
+            .unwrap();
+        write!(stream,"POST /v1/logs HTTP/1.1\r\nAuthorization: {header}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n",body.len()).unwrap();
+        stream.write_all(body).unwrap();
+        let mut response = Vec::new();
+        while !response.ends_with(b"\r\n\r\n") {
+            let mut byte = [0];
+            stream.read_exact(&mut byte).unwrap();
+            response.push(byte[0]);
+        }
+        response
+    };
+    assert!(request("", b"").starts_with(b"HTTP/1.1 401"));
+    let payload=br#"{"resourceLogs":[{"scopeLogs":[{"logRecords":[{"eventName":"claude_code.api_request","attributes":[{"key":"input_tokens","value":{"intValue":"42"}}]}]}]}]}"#;
+    assert!(request(&cleanup.bindings[0].header(), payload).starts_with(b"HTTP/1.1 200"));
+    let file = app.join("telemetry/otlp-logs.jsonl");
+    let before = std::fs::read_to_string(&file).unwrap();
+    assert_eq!(before.lines().count(), 1);
+    revoke(&SystemStore, &cleanup.bindings[0]).unwrap();
+    assert!(request(&cleanup.bindings[0].header(), payload).starts_with(b"HTTP/1.1 401"));
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), before);
+    assert!(request(&cleanup.bindings[1].header(), payload).starts_with(b"HTTP/1.1 200"));
+    assert_eq!(std::fs::read_to_string(&file).unwrap().lines().count(), 2);
+    drop(cleanup);
+    let _unbound = std::net::TcpListener::bind(("127.0.0.1", port)).unwrap();
+    std::fs::remove_dir_all(app).unwrap();
+}
+
+#[cfg(any(windows, target_os = "linux", target_os = "macos"))]
+#[test]
+#[ignore = "helper for native_credential_store_roundtrip; synthetic binding arrives only on stdin"]
+fn native_credential_child() {
+    use std::io::Read;
+    let mut bytes = Vec::new();
+    std::io::stdin()
+        .take(16_384)
+        .read_to_end(&mut bytes)
+        .unwrap();
+    // Direct explicit --ignored runs have no parent input and need no vault writes.
+    if bytes.is_empty() {
+        return;
+    }
+    let binding: Binding = serde_json::from_slice(&bytes).unwrap();
+    assert!(
+        authorize(
+            &SystemStore,
+            Path::new(&binding.app),
+            &binding.header(),
+            "/v1/logs"
+        ) == Some(binding.family)
+    );
+    revoke(&SystemStore, &binding).unwrap();
 }

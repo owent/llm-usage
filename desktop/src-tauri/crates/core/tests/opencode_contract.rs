@@ -1,5 +1,5 @@
-//! OpenCode 适配器约定测试：合成 fixture（依据 A17 固定源码 0027387；
-//! 本机 not_found，2026-09-25 盘点）经
+//! OpenCode 适配器约定测试：A17 固定源码 0027387 的合成 fixture 与
+//! 1.18.34 官方 CLI / 本地模型的真实脱敏 fixture 经
 //! 读取→解析→逐次事件→commit→查询。数值对照
 //! tests/fixtures/opencode/*/_expectations.md 的人工核算，不改计算规则。
 //!
@@ -140,6 +140,104 @@ fn opencode_instance(root: &Path) -> String {
     format!("opencode@{}", normalize_path(root))
 }
 
+#[test]
+fn real_local_model_steps_match_api_usage_and_remain_idempotent() {
+    for (scenario, uncached, cache_read) in [
+        ("real-1.18.34-local-default", 295, 3),
+        ("real-1.18.34-local-controlled", 298, 0),
+    ] {
+        let tag = format!(
+            "{scenario}-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        );
+        let dir = TempDir::new(&tag);
+        let root = build_opencode_db_from_fixture(&dir, scenario);
+        let (_db, storage) = temp_storage(&tag);
+        let reports = run_opencode(&storage, &root, NOW);
+        assert_eq!(reports[0].files[0].events, 1);
+        assert_eq!(reports[0].reconciliations.len(), 1);
+        assert_eq!(reports[0].reconciliations[0].verdict, "matched");
+        let instance = opencode_instance(&root);
+        let before = event_rows(&storage, &instance);
+        assert_eq!(
+            before.len(),
+            1,
+            "标题调用不在 step-finish 载体内，不补造事件"
+        );
+        let row = &before[0];
+        assert_eq!(row.0, "opencode:part:part_real_local_1");
+        assert_eq!(row.2, "primary");
+        assert_eq!(row.4, Some(uncached));
+        assert_eq!(row.5, Some(cache_read));
+        assert_eq!(row.6, Some(0));
+        assert_eq!(row.7, Some(298), "API 直报含缓存输入");
+        assert_eq!(row.8, Some(1));
+        assert_eq!(row.9, Some(0));
+        assert_eq!(row.10, Some(299));
+        assert_eq!(row.11, Some(299));
+        assert_eq!(row.13, "observed_at");
+        assert_eq!(row.15.as_deref(), Some("qwen2.5-0.5b-local"));
+        assert_eq!(row.16.as_deref(), Some("llama.cpp"));
+        assert_eq!(row.17.as_deref(), Some("latest_fallback"));
+        let version: String = storage
+            .conn()
+            .query_row("SELECT schema_version FROM usage_events", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(version, "1.18.34");
+        let totals = summary(&storage, "2026-10-05", "2026-10-05").totals;
+        assert_eq!(totals.call_count, 1);
+        assert_eq!(totals.input_total_known, Some(298));
+        assert_eq!(totals.cache_read_known, Some(cache_read));
+        assert_eq!(totals.total_tokens_known, Some(299));
+        run_opencode(&storage, &root, NOW + 1_000);
+        let after = event_rows(&storage, &instance);
+        assert_eq!(after.len(), before.len());
+        // 大元组不实现 PartialEq；分成互斥两组核对全部白名单字段。
+        for (actual, expected) in after.iter().zip(&before) {
+            assert_eq!(
+                (
+                    &actual.0, &actual.1, &actual.2, actual.3, actual.4, actual.5, actual.6,
+                    actual.7, actual.8, actual.9
+                ),
+                (
+                    &expected.0,
+                    &expected.1,
+                    &expected.2,
+                    expected.3,
+                    expected.4,
+                    expected.5,
+                    expected.6,
+                    expected.7,
+                    expected.8,
+                    expected.9
+                ),
+            );
+            assert_eq!(
+                (
+                    actual.10, actual.11, actual.12, &actual.13, &actual.14, &actual.15,
+                    &actual.16, &actual.17, actual.18
+                ),
+                (
+                    expected.10,
+                    expected.11,
+                    expected.12,
+                    &expected.13,
+                    &expected.14,
+                    &expected.15,
+                    &expected.16,
+                    &expected.17,
+                    expected.18
+                ),
+                "重叠扫描不改变事件或修订",
+            );
+        }
+        assert_eq!(summary(&storage, "2026-10-05", "2026-10-05").totals, totals);
+    }
+}
+
 /// 事件仅保留白名单字段的数据（一行一条逐次事件）。
 type EventRow = (
     String,
@@ -273,7 +371,7 @@ fn contract_full_chain_matches_manual_expectations() {
         .iter()
         .all(|r| r.verdict == "matched"));
 
-    // 尚未用真实样本核验：注册表为空 ⇒ latest_fallback 标记。
+    // 合成样本的旧版本未获真实认证；注册表仍为空 ⇒ latest_fallback 标记。
     let fallback: i64 = storage
         .conn()
         .query_row(
@@ -519,7 +617,7 @@ fn discover_respects_xdg_data_home_and_manual_parent_root() {
 }
 
 #[test]
-fn capability_table_is_structured_and_doc_level() {
+fn capability_table_keeps_real_sample_scope_and_compatibility_limits() {
     let adapter = OpenCodeAdapter::new();
     let cap = adapter.capability();
     let json = serde_json::to_value(&cap).unwrap();
@@ -527,14 +625,14 @@ fn capability_table_is_structured_and_doc_level() {
     assert_eq!(
         json["supported_versions"],
         serde_json::json!([]),
-        "注册表为空：文档级证据，待真实样本"
+        "注册表为空：真实样本通过不替代混合版本及旧游标升级验收"
     );
     assert_eq!(
         json["maintenance"]["evidence_level"]
             .as_str()
-            .map(|s| s.starts_with("doc-level")),
+            .map(|s| s.starts_with("real-local")),
         Some(true),
-        "能力声明标注文档级证据",
+        "能力声明限定真实本地版本样本",
     );
     for key in [
         "tokens",
@@ -570,5 +668,9 @@ fn capability_table_is_structured_and_doc_level() {
         assert!(json.get(section).is_some(), "capability missing {section}");
     }
     assert!(!cap.limitations.is_empty());
-    assert!(cap.limitations.iter().any(|l| l.contains("not_found")));
+    assert!(cap.limitations.iter().any(|l| l.contains("标题")));
+    assert!(cap
+        .limitations
+        .iter()
+        .any(|l| l.contains("latest_fallback")));
 }

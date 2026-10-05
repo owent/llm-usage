@@ -1,14 +1,15 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 import { reportBundles } from './bundle-report.mjs';
 
 async function workspace(t) {
-  const directory = await mkdtemp(join(tmpdir(), 'llm-usage-bundle-test-'));
+  const base = resolve('build/bundle-report-tests');
+  await mkdir(base, { recursive: true });
+  const directory = await mkdtemp(join(base, 'case-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
   return directory;
 }
@@ -44,4 +45,16 @@ test('macOS app directory becomes a nonempty archive and repeated reports do not
   const contents = spawnSync('tar', ['-tzf', report.bundles[0].path], { cwd: root, encoding: 'utf8', windowsHide: true });
   assert.equal(contents.status, 0, contents.stderr);
   assert.match(contents.stdout, /Test App\.app\/Contents\/MacOS\/test/);
+});
+
+test('Linux release report excludes Debian staging tarballs', async (t) => {
+  const root = await workspace(t);
+  const staging = join(root, 'deb', 'Test_0.2.1_amd64');
+  await mkdir(staging, { recursive: true });
+  await mkdir(join(root, 'appimage'));
+  await writeFile(join(root, 'deb', 'Test_0.2.1_amd64.deb'), 'deb-installer');
+  await writeFile(join(root, 'appimage', 'Test_0.2.1_amd64.AppImage'), 'appimage-installer');
+  for (const file of ['control.tar.gz', 'data.tar.gz']) await writeFile(join(staging, file), 'staging');
+  const report = await reportBundles(root, 'linux-revision');
+  assert.deepEqual(report.bundles.map(item => item.path), ['appimage/Test_0.2.1_amd64.AppImage', 'deb/Test_0.2.1_amd64.deb']);
 });

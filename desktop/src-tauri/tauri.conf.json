@@ -31,7 +31,9 @@
     "windows": {
       "nsis": {
         "installerIcon": "icons/icon.ico",
-        "uninstallerIcon": "icons/icon.ico"
+        "uninstallerIcon": "icons/icon.ico",
+        "template": "installer/windows.nsi",
+        "installerHooks": "installer/hooks.nsh"
       }
     },
     "icon": [

@@ -1,6 +1,5 @@
-//! Qwen Code 适配器约定测试：合成固定样本（本机 not_found，全部 fixture 合成，
-//! 数值为人工核算，见 tests/fixtures/qwen/synthetic-contract/_expectations.md 与
-//! 本文件头部注释）经 读取→解析→标准化→commit_batch→查询。
+//! Qwen Code 合同：合成边界及 0.25.0 本地模型调用的脱敏字段投影，
+//! 经读取→解析→标准化→commit_batch→查询。各 fixture 标明真实/合成依据。
 
 mod common;
 
@@ -18,6 +17,51 @@ use llm_usage_core::adapters::qwen::QwenAdapter;
 // 跨 turn 累计表，明确忽略；chat_compression/session_model 不产事件。
 
 const NOW: i64 = 1_800_000_000_000;
+
+#[test]
+fn real_025_local_main_usage_matches_native_records_without_inventing_background_calls() {
+    for (fixture, input, total) in [
+        ("real-0.25.0-local-default", 10_226i64, 10_228i64),
+        ("real-0.25.0-local-controlled", 8_903, 8_905),
+    ] {
+        let (_db, storage) = temp_storage(fixture);
+        let root = qwen_fixture(fixture);
+        let reports = run_qwen(&storage, &root, NOW);
+        let outcome = reports[0].outcome.as_ref().unwrap();
+        assert_eq!((outcome.added, outcome.updated, outcome.errors), (1, 0, 0));
+        let totals = summary(&storage, "2026-10-05", "2026-10-05").totals;
+        assert_eq!(totals.call_count, 1);
+        assert_eq!(totals.input_total_known, Some(input));
+        assert_eq!(totals.output_total_known, Some(2));
+        assert_eq!(totals.cache_read_known, Some(0));
+        assert_eq!(totals.total_tokens_known, Some(total));
+        assert_eq!(totals.cache_write_known, None);
+        let identity: (String, String, Option<String>, Option<String>) = storage
+            .conn()
+            .query_row(
+                "SELECT schema_version, model_raw, model_canonical, provider_id FROM usage_events",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+            )
+            .unwrap();
+        assert_eq!(
+            identity,
+            ("0.25.0".into(), "qwen2.5-0.5b-local".into(), None, None)
+        );
+        // 默认模式的 CLI stats 另有后台记忆调用；ChatRecord 投影不能补造该事件。
+        let revision = storage.data_revision().unwrap();
+        let repeated = run_qwen(&storage, &root, NOW + 1000);
+        assert_eq!(repeated[0].files[0].status, "unchanged");
+        assert!(repeated[0].outcome.is_none());
+        assert_eq!(storage.data_revision().unwrap(), revision);
+        assert_eq!(
+            summary(&storage, "2026-10-05", "2026-10-05")
+                .totals
+                .total_tokens_known,
+            Some(total)
+        );
+    }
+}
 
 #[test]
 fn contract_full_pipeline_matches_expectations() {

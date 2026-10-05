@@ -13,6 +13,9 @@
 空会话不能作为用量格式核验依据，兼容读取已经自动检查，支持更新后自动重评。
 只统计本机 Agent 来源，不接入远端用量/账单 API 或跨设备账号报表；落盘文件仍须核验来源。
 Windows 11 x64 首发，GitHub CI 保留 macOS/Linux；WSL 构建不等于 Linux 桌面验收。
+本轮不要求 macOS 桌面或特定硬件；Linux 实际 GUI/包生命周期可在独立 Podman 验收，
+安装与容器来源测试按 [生命周期合同](docs/design/desktop-usage/installation-lifecycle.md)
+和准备合同执行，不能以安装软件或空会话认证真实用量。
 定时任务只调度本地采集，按需读 [调度合同](docs/design/desktop-usage/scheduling.md)。
 自动暂停须覆盖启动、逐源及残留系统触发；手动刷新仍读取所有启用来源。
 两个来源实例槽共享单写者；指纹/代数与事件/游标同事务，中断/合并/未访问不推进来源期限。
@@ -68,6 +71,9 @@ Kilo 独立累计快照差异只作对账；真实逐行错误与未知版本兼
 [认证合同](docs/design/desktop-usage/receiver-auth.md)：逐源凭据进系统存储，预览/IPC 不返回秘密，失败及撤销回收自有令牌，不开放无保护接收。已核验的 VS Code Copilot
 file 输出按主机/用户/会话/本地日择一；保留原生记录，不按时间/token 相等猜调用身份，
 不叠加封存分区，开启当日提示覆盖受限。其他新增导出未核验前仍隔离，不自动叠加。
+Linux 凭据仅用 Secret Service 默认持久集合，拒绝锁定、重复、临时及其他集合；
+macOS Keychain 禁用云同步与认证 UI。系统存储不可用时拒绝接入，
+原生往返、交叉编译和真实 exporter 验收分别报告；Linux 测试用独立 D-Bus/一次性 keyring。
 状态提示、模型费用明细、趋势布局或选区查询维护时，按需读
 [看板交互合同](docs/design/desktop-usage/dashboard-polish.md)。
 维护日查询性能或派生缓存时，按需读 [查询加速](docs/design/desktop-usage/query-acceleration.md)，
@@ -99,6 +105,9 @@ npm run test:headless   # 真实可执行文件/SQLite，隔离合成来源；�
 npm run test:import     # Windows 百万首次 GUI 导入/全进程峰值；隔离合成来源，先构建
 npm run test:desktop    # Windows 原生 WebView2/IPC；须有可用 CDP，先构建
 npm run test:receiver   # Windows 真实 IPC/HTTP/凭据库；隔离合成配置，自有凭据回收，先构建
+npm run test:install:windows -- --help # 真实 NSIS 生命周期；需旧/新包，当前用户无已有安装
+npm run test:install:linux -- --help   # Linux rootless Podman，真实 deb/AppImage 与 GTK/WebKit
+npm run test:credentials:linux # Linux 独立 D-Bus/系统凭据往返；需 gnome-keyring/dbus-x11
 git diff --check
 git status --short
 ```
@@ -118,6 +127,7 @@ Windows 优先 PowerShell 7、UTF-8；路径、退出码、超时和临时文件
 任务执行的一次性/临时产物（脚本、日志、探测输出、核对库、提取结果）一律写入
 仓库根 `build/<任务名>/`，该目录已被 gitignore；命令落盘用仓库根绝对/相对路径，
 不在业务子目录新建临时目录；提交前 `git status --short` 不得出现临时产物。
+重复验收的测试库须每次独立，避免 PID 复用重开旧库。
 
 ## 边界与变更流程
 

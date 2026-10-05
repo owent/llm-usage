@@ -5,8 +5,9 @@
 //! - [`common`]：产品互斥 schema 指纹 + 源库只读/暂存副本约定；
 //! - wire 解析核心在家族共享模块 [`crate::adapters::opencode_family`]。
 //!
-//! 格式依据（A17 固定源码 0027387dc5c59793c12dfc531abc78f825ed6868，
-//! 按文档或源码实现，待真实样本核验；本机 2026-09-25 盘点 not_found）：
+//! 格式依据：A17 固定源码 0027387dc5c59793c12dfc531abc78f825ed6868；
+//! 1.18.34（aec0b9a6）的官方 CLI / 本地模型真实样本已核对主循环及缓存读。
+//! 真实样本通过不代表整个库版本已认证，仍走 latest_fallback：
 //! - 路径：xdg-basedir 的 opencode 数据目录（`$XDG_DATA_HOME/opencode`，
 //!   缺省 `~/.local/share/opencode`；Windows 布局未经真实样本核验）下
 //!   `opencode.db`（安装通道变体 `opencode-<channel>.db`），WAL；
@@ -150,9 +151,7 @@ impl crate::adapters::framework::SourceAdapter for OpenCodeAdapter {
 
     fn capability(&self) -> crate::adapters::framework::CapabilityTable {
         use crate::adapters::framework::{Availability, CapabilityTable};
-        let awaiting =
-            "文档级证据（A17 固定源码 0027387）；本机 not_found（2026-09-25 盘点），待真实样本核验"
-                .to_string();
+        let awaiting = "1.18.34 官方 CLI / 本地模型的真实主循环及缓存读已核对（2026-10-05）；仍为 latest_fallback，其他版本/云端及混合版本升级另验".to_string();
         let mut fields = serde_json::Map::new();
         let field = |availability: Availability, note: &str| {
             serde_json::json!({
@@ -185,7 +184,7 @@ impl crate::adapters::framework::SourceAdapter for OpenCodeAdapter {
             "per_request_calls".into(),
             field(
                 Availability::Partial(awaiting.clone()),
-                "每条 step-finish 部件 = 一次 step 的模型调用（part.id 稳定身份，time_updated 修订序号）；调研备注'精确逐请求映射尚未实现'经 pinned 源码核验修正（projector 计数即由部件推导）",
+                "每条 step-finish 部件 = 一次已观测主循环 step（part.id 稳定身份，time_updated 修订序号）；1.18.34 默认标题生成另有真实 API 调用，未进入该载体，不补造事件",
             ),
         );
         fields.insert(
@@ -237,7 +236,7 @@ impl crate::adapters::framework::SourceAdapter for OpenCodeAdapter {
             detection: serde_json::json!({
                 "magic": "SQLite + part/session/message 三表关键列（schema 指纹；session 须含 tokens_* 五累计列 ⇒ 与 MiMo 库互斥）",
                 "version_field": "session.version（库内数值最大者）",
-                "registry": "adapters/opencode/versions 注册表分派（当前空：文档级证据）",
+                "registry": "adapters/opencode/versions 注册表当前为空；1.18.34 真实兼容样本已核对，混合版本与旧游标升级验收后再登记",
                 "fail_closed": true,
                 "unknown_version": "未收录/缺失版本一律 latest_fallback（带兼容标记）；仅新 core session_message 投影层 fail closed 待取证",
             }),
@@ -263,15 +262,15 @@ impl crate::adapters::framework::SourceAdapter for OpenCodeAdapter {
             }),
             integrity: serde_json::json!({
                 "success_only": false,
-                "hidden_calls": "被删部件/未完成 step 缺证据不计、不补零；session 计数与部件合计的残差经对账 mismatch 可见",
+                "hidden_calls": "1.18.34 默认标题生成未进入 step-finish 与会话累计，matched 不证明全部 API 调用被覆盖；被删部件/未完成 step 缺证据不计、不补零",
                 "sampling": "未观测到采样；坏 data 行逐条隔离记诊断",
                 "source_retention": "源端保留未知；可回填范围以现存行时间为准",
             }),
             maintenance: serde_json::json!({
                 "parser_version": versions::step_finish_parts_v1::PARSER_VERSION,
-                "format_evidence": "固定源码 0027387（session/sql.ts、projector.ts、迁移 20260510033149、vendored client StepFinishPart/AssistantMessage 类型）+ 家族共享模块证据链；合成 fixtures 标注待真实样本",
-                "evidence_level": "doc-level（无本机真实样本；2026-09-25 盘点 not_found）",
-                "upgrade_policy": "取得真实脱敏 fixture 后逐 session.version 升为已验证；未收录版本 latest_fallback",
+                "format_evidence": "固定源码 0027387 + 1.18.34/aec0b9a6 的 sql/projector/processor/prompt 与真实脱敏 fixtures；API usage/CLI/原生库/应用独立核对",
+                "evidence_level": "real-local（1.18.34 主循环/缓存读，2026-10-05；默认标题调用覆盖缺口保留）",
+                "upgrade_policy": "逐记录按 session.version 认证，并验收混合版本、空会话及未变化旧游标重评后再注册；库内最高版本不能认证其他会话",
             }),
             scheduling: serde_json::json!({
                 "entry": "统一 run_adapter_scan；手动/间隔/监听触发按源合并",
@@ -279,8 +278,9 @@ impl crate::adapters::framework::SourceAdapter for OpenCodeAdapter {
                 "pause_cancel": "行级游标可停；busy 源转暂存副本或保留旧结果下轮重试",
             }),
             limitations: vec![
-                "文档级证据实现：本机未安装（2026-09-25 盘点 not_found），全部版本 latest_fallback，待真实样本核验后升级".into(),
-                "tokens 语义取自 pinned 源码（input=nonCachedInputTokens、inclusive inputTokens=in+cr+cw、total=in+out+reason+cr+cw）：直报 total 与派生不一致时记诊断，真实样本复验前数值口径未落地".into(),
+                "1.18.34 Linux CLI 的真实主循环及缓存读通过；全部版本仍为 latest_fallback，混合版本与旧游标升级待独立验收".into(),
+                "默认标题生成未进入 step-finish：真实 API 2 次/848 token，原生载体及应用仅 1 次/299 token；明确标题的对照为 1 次/299 token，不能替代默认覆盖结论".into(),
+                "tokens 五互斥口径已在 1.18.34 本地模型核对（未缓存 295 + 缓存读 3 = API 输入 298）；其他 provider/版本、缓存写及非零 reasoning 尚待真实核验".into(),
                 "逐调用精确时间与模型切换序待上游 event 层（A17）：part 行时间标 observed_at，模型归属经 message join".into(),
                 "仅解析 part/session/message 三表；仅存新 core session_message 投影层的库 fail closed 待专用实现".into(),
                 "Windows 默认目录（xdg-basedir 语义）与通道变体库文件名未经真实样本核验".into(),
