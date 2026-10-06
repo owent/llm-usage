@@ -26,10 +26,9 @@
 //! - `ts` 是消息中唯一已确认的身份字段（epoch 毫秒数字）；数组下标会因删除
 //!   移位，不进身份。
 //!
-//! fail closed（V17）：非 say 记录类型、未文档化 say 种类 ⇒ 整文件拒绝
-//! （游标不推进、下轮确定性再拒）。真实文件中的 ask / say=text 等非用量
-//! 消息未在固定源码中枚举，按未文档化处理，待真实样本扩展
-//! （与 cline 适配器同一保守约定）。
+//! 3.86.0 官方 VSIX 与固定提交 6aa9d017 的真实样本已核对。
+//! 完整 ask/say 枚举按 packages/types/src/message.ts；非用量消息跳过，
+//! 未知类型仍整文件拒绝、不推进游标。四桶/费用默认零保持未知。
 //!
 //! 增量语义（整写 JSON）：全量有界读取（32 MiB 初值）；游标存已消费字节数
 //! 复用框架无变化短路；改写/截断走 generation 重扫，事件按稳定身份 upsert
@@ -51,13 +50,56 @@ use std::path::Path;
 use super::super::common::{map_zoo_cost, map_zoo_usage, ZooUsage};
 use super::ZOO_FORMAT_VERSION;
 
-pub const ZOO_PARSER_VERSION: &str = "zoo-ui-messages-doc1";
+pub const ZOO_PARSER_VERSION: &str = "zoo-ui-messages-doc2";
 /// 单文件有界读取上限（初值 32 MiB）。
 pub const ZOO_MAX_FILE_BYTES: u64 = 32 * 1024 * 1024;
 const MAX_REASONABLE_TOKEN: i64 = crate::domain::MAX_TOKEN_VALUE;
 
-/// 固定源码文档化的 say 种类（两个 usage 载体 + 配对合并的 finished）。
-const DOCUMENTED_SAY_KINDS: &[&str] = &["api_req_started", "api_req_finished", "condense_context"];
+/// 3.86.0 固定源码完整枚举；Zoo 的 task 不能由 Roo 枚举替代。
+const DOCUMENTED_SAY_KINDS: &[&str] = &[
+    "error",
+    "api_req_started",
+    "api_req_finished",
+    "api_req_retried",
+    "api_req_retry_delayed",
+    "api_req_rate_limit_wait",
+    "api_req_deleted",
+    "text",
+    "task",
+    "image",
+    "reasoning",
+    "completion_result",
+    "user_feedback",
+    "user_feedback_diff",
+    "command_output",
+    "shell_integration_warning",
+    "mcp_server_request_started",
+    "mcp_server_response",
+    "subtask_result",
+    "checkpoint_saved",
+    "rooignore_error",
+    "diff_error",
+    "condense_context",
+    "condense_context_error",
+    "sliding_window_truncation",
+    "codebase_search_result",
+    "user_edit_todos",
+    "too_many_tools_warning",
+    "tool",
+];
+const DOCUMENTED_ASK_KINDS: &[&str] = &[
+    "followup",
+    "command",
+    "command_output",
+    "completion_result",
+    "tool",
+    "api_req_failed",
+    "resume_task",
+    "resume_completed_task",
+    "mistake_limit_reached",
+    "use_mcp_server",
+    "auto_approval_max_req_reached",
+];
 /// text JSON 的已文档化键（@example 的 request + ParsedApiReqStartedTextType 全键）。
 const DOCUMENTED_TEXT_KEYS: &[&str] = &[
     "request",
@@ -67,12 +109,16 @@ const DOCUMENTED_TEXT_KEYS: &[&str] = &[
     "cacheReads",
     "cost",
     "apiProtocol",
+    "cancelReason",
+    "streamingFailedMessage",
 ];
 
 /// 持久化解析上下文：一次性诊断标志（重扫时重置）+ 版本选择依据。
 /// Zoo 无 cline 的 deleted_api_reqs 文档化删除流程：不维护墓碑差分基。
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 struct ZooParseContext {
+    #[serde(default)]
+    parser_policy_version: Option<String>,
     #[serde(default)]
     without_numbers_reported: bool,
     #[serde(default)]
@@ -101,11 +147,12 @@ fn restore_context(stored: &StoredScanState, rescan: bool) -> ZooParseContext {
         .as_ref()
         .and_then(|v| serde_json::from_value::<ZooParseContext>(v.clone()).ok())
         .unwrap_or_default();
-    if rescan {
+    if rescan || ctx.parser_policy_version.as_deref() != Some(ZOO_PARSER_VERSION) {
         ctx.without_numbers_reported = false;
         ctx.unpaired_finished_reported = false;
         ctx.unmapped_keys_reported = false;
     }
+    ctx.parser_policy_version = Some(ZOO_PARSER_VERSION.into());
     ctx
 }
 
@@ -398,12 +445,25 @@ pub fn scan(
             .get("type")
             .and_then(|t| t.as_str())
             .unwrap_or("");
+        if record_type == "ask" {
+            let kind = message_obj
+                .get("ask")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            if !DOCUMENTED_ASK_KINDS.contains(&kind) {
+                return Ok(fail_closed(
+                    &mut diagnostics,
+                    "undocumented_ask_kind",
+                    format!("ask kind {kind:?} not in documented set"),
+                ));
+            }
+            continue;
+        }
         if record_type != "say" {
-            // 固定源码只处理 type="say"；其余记录类型未文档化 ⇒ fail closed。
             let outcome = fail_closed(
                 &mut diagnostics,
                 "undocumented_record_type",
-                format!("record type {record_type:?} not in documented set (say)"),
+                format!("record type {record_type:?} not in documented set (ask, say)"),
             );
             return Ok(outcome);
         }
@@ -476,7 +536,7 @@ pub fn scan(
                     .filter(|c| c.is_finite() && *c >= 0.0);
                 condenses.push((message_ts(message_obj), cost));
             }
-            _ => unreachable!("say kind 已在文档化集合内校验"),
+            _ => {} // 已验证的普通消息、请求删除备忘、子任务摘要不重复计用量。
         }
     }
 

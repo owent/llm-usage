@@ -9,7 +9,8 @@
 期望（人工核算，V03 固定数学样本）：
 
 - 2 条 `source_aggregates` 行，coverage 均 exclusive，duplicate_rows=0。
-- sum_exclusive_aggregates：input_total=100+20=**120**（不是 220——
+- sum_exclusive_aggregates：input_uncached=100+20=**120**（不是 220——
   辅助行不折算进主会话总量再计一次）、reported_call_count=3+1=4、
   exclusive_rows=2、overlap_unknown_rows=0。
+- 默认缓存零未知，input_total/total_tokens 不补全。
 - `usage_events` 0 条。

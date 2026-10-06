@@ -1,10 +1,11 @@
 //! Xum session-usage.json 格式实现（`usage_v1`，文档级
 //! xum-session-usage-doc-1）。
 //!
-//! 格式依据（第三方解析器 tokscale 固定提交 1d9a9395418efc6952944b794097935d7d6fa1e8
-//! sessions/mux.rs；产品开源仓库 coder/xum；本机未安装、无真实样本）：
+//! 格式依据：官方 npm 0.30.0 与对应 coder/xum 提交
+//! 81b0b744db6e27a4416f3596d70bf88529171caf；默认/网关对照真实本地模型样本。
+//! 原始文档依据：tokscale 固定提交 1d9a939 sessions/mux.rs。
 //! - 路径 `~/.mux/sessions/<workspaceId>/session-usage.json`（clients.rs:543-552）；
-//!   源码未见环境覆盖；产品更名（mux→Xum）需保留旧根发现。
+//!   新根 ~/.xum/sessions；XUM_ROOT/MUX_ROOT 与 RUN_SESSION_ROOT 支持 sessions 发现。
 //! - JSON：`version`（u32）、`byModel`（map，键 `"provider:model"`，splitn(2,':')）、
 //!   每模型 `{ input:{tokens,cost_usd}, cached:{...}, cacheCreate:{...},
 //!   output:{...}, reasoning:{...} }`、`lastRequest{ model, timestamp }`
@@ -12,7 +13,8 @@
 //! - 语义：**会话级累计、按模型一行**（IntervalAggregate，不展开伪造逐次）；
 //!   cost_usd 不映射（会话级累计成本与逐次成本单位不同，见能力表）。
 //! - dedup `xum:<workspaceId>:<model_key>`（mux.rs:96-102 同形）。
-//! - 五桶包含关系未知 ⇒ 并列报告不派生总量（hermes 同型）。
+//! - displayUsage.ts 将 input 归一为未缓存输入、output 排除推理，缺字段默认零。
+//!   正文本输出加已知推理；推理未知时为下界。总输入/完整总量不派生。
 
 use crate::adapters::framework::{
     ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -23,10 +25,81 @@ use crate::error::CoreError;
 use crate::ingest::DiagnosticInput;
 use std::io::Read;
 
-pub const XUM_PARSER_VERSION: &str = "xum-session-usage-1";
+pub const XUM_PARSER_VERSION: &str = "xum-session-usage-2";
 /// 单文件有界读取上限。
 pub const XUM_MAX_FILE_BYTES: u64 = 16 * 1024 * 1024;
 const MAX_REASONABLE_TOKEN: i64 = crate::domain::MAX_TOKEN_VALUE;
+
+/// Reconstruct only the old parser's misplaced input, zero defaults and text-only output.
+/// Every candidate hashes the complete aggregate, keeping revision and other fields fixed.
+pub(crate) fn prior_display_hashes(input: &SourceAggregateInput) -> Vec<String> {
+    if input.scope != AggregateScope::Session
+        || !input.scope_key.starts_with("xum:")
+        || input.usage.input_total.is_some()
+        || input.quality.input_total != Q::Unknown
+    {
+        return Vec::new();
+    }
+    let mut prior = input.clone();
+    prior.usage.input_total = input.usage.input_uncached;
+    prior.quality.input_total = input.quality.input_uncached;
+    prior.usage.input_uncached = None;
+    prior.quality.input_uncached = Q::Unknown;
+    if input.quality.output_total == Q::Derived {
+        let Some(text) = input
+            .usage
+            .output_total
+            .zip(input.usage.output_reasoning)
+            .and_then(|(total, reasoning)| total.checked_sub(reasoning))
+            .filter(|n| *n > 0)
+        else {
+            return Vec::new();
+        };
+        prior.usage.output_total = Some(text);
+        prior.quality.output_total = Q::Reported;
+    }
+    let mut hashes = std::collections::BTreeSet::new();
+    for mask in 0..32 {
+        let mut candidate = prior.clone();
+        let fields = [
+            (
+                &mut candidate.usage.input_total,
+                &mut candidate.quality.input_total,
+            ),
+            (
+                &mut candidate.usage.input_cache_read,
+                &mut candidate.quality.input_cache_read,
+            ),
+            (
+                &mut candidate.usage.input_cache_write,
+                &mut candidate.quality.input_cache_write,
+            ),
+            (
+                &mut candidate.usage.output_total,
+                &mut candidate.quality.output_total,
+            ),
+            (
+                &mut candidate.usage.output_reasoning,
+                &mut candidate.quality.output_reasoning,
+            ),
+        ];
+        let mut valid = true;
+        for (bit, (value, quality)) in fields.into_iter().enumerate() {
+            if mask & (1 << bit) != 0 {
+                if value.is_some() || *quality != Q::Unknown {
+                    valid = false;
+                    break;
+                }
+                *value = Some(0);
+                *quality = Q::Reported;
+            }
+        }
+        if valid {
+            hashes.insert(crate::identity::content_hash(&candidate));
+        }
+    }
+    hashes.into_iter().collect()
+}
 
 #[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 struct WholeFileCursor {
@@ -224,21 +297,48 @@ pub fn scan(
         {
             continue;
         }
+        // The display carrier loses whether a zero was reported or initialized.
+        let input = input.filter(|n| *n > 0);
+        let cached = cached.filter(|n| *n > 0);
+        let cache_create = cache_create.filter(|n| *n > 0);
+        let output = output.filter(|n| *n > 0);
+        let reasoning = reasoning.filter(|n| *n > 0);
+        let (output_total, output_quality) = match (output, reasoning) {
+            (Some(text), Some(reasoning)) => {
+                let total = text
+                    .checked_add(reasoning)
+                    .filter(|n| *n <= MAX_REASONABLE_TOKEN);
+                if total.is_none() {
+                    diagnostics.push(diag(
+                        "token_shape_deviation",
+                        &position,
+                        "text plus reasoning exceeds token cap; output total kept unknown",
+                    ));
+                }
+                (total, total.map(|_| Q::Derived).unwrap_or(Q::Unknown))
+            }
+            (Some(text), None) => {
+                diagnostics.push(diag("xum_output_incomplete", &position,
+                    "positive text output is a lower bound; reasoning zero/missing cannot certify complete output"));
+                (Some(text), Q::Reported)
+            }
+            (None, _) => (None, Q::Unknown),
+        };
         let usage = TokenUsage {
-            input_uncached: None,
+            input_uncached: input,
             input_cache_read: cached,
             input_cache_write: cache_create,
-            input_total: input,
-            output_total: output,
+            input_total: None,
+            output_total,
             output_reasoning: reasoning,
             total_tokens: None,
             source_total: None,
         };
         let quality = TokenQuality {
+            input_uncached: input.map(|_| Q::Reported).unwrap_or(Q::Unknown),
             input_cache_read: cached.map(|_| Q::Reported).unwrap_or(Q::Unknown),
             input_cache_write: cache_create.map(|_| Q::Reported).unwrap_or(Q::Unknown),
-            input_total: input.map(|_| Q::Reported).unwrap_or(Q::Unknown),
-            output_total: output.map(|_| Q::Reported).unwrap_or(Q::Unknown),
+            output_total: output_quality,
             output_reasoning: reasoning.map(|_| Q::Reported).unwrap_or(Q::Unknown),
             ..Default::default()
         };
@@ -258,7 +358,10 @@ pub fn scan(
             source_revision: Some(end_ms),
         });
     }
-    let health = if diagnostics.is_empty() {
+    let health = if diagnostics
+        .iter()
+        .all(|d| d.code == "xum_output_incomplete")
+    {
         "active".to_string()
     } else {
         "degraded".to_string()

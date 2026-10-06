@@ -2,7 +2,7 @@
 //!
 //! 格式依据（AtomGit atomgit_atomcode/atomcode 固定源码
 //! e4215f733eeba4cede553e28f9b559e6b3dc34ef（GitHub 镜像同 SHA 核验）；
-//! 本机未安装、无真实样本）：
+//! 及官方 npm 5.2.1 真实本地模型 .meta/API/CLI 核对）：
 //! - 路径：`$ATOMCODE_HOME`（默认 ~/.atomcode）/sessions/&lt;project_hash&gt;/
 //!   &lt;id&gt;.meta（SessionMeta JSON）；旧版单文件 &lt;id&gt;.json（messages +
 //!   turn_stats，LegacyCatalogMeta）同构读取。
@@ -31,8 +31,78 @@ use crate::error::CoreError;
 use crate::ingest::DiagnosticInput;
 use std::io::Read as _;
 
-pub const ATOMCODE_PARSER_VERSION: &str = "atomcode-meta-turns-1";
+pub const ATOMCODE_PARSER_VERSION: &str = "atomcode-meta-turns-2";
 pub const ATOMCODE_MAX_FILE_BYTES: u64 = 16 * 1024 * 1024;
+
+/// Restore only the previous parser's default-zero buckets and their exact sums.
+/// Full aggregate hashes keep identity, revision, interval, calls and coverage fixed.
+pub(crate) fn prior_default_hashes(input: &SourceAggregateInput) -> Vec<String> {
+    if input.scope != AggregateScope::Session || !input.scope_key.starts_with("atomcode:session:") {
+        return Vec::new();
+    }
+    let mut hashes = std::collections::BTreeSet::new();
+    for mask in 1..32 {
+        let mut prior = input.clone();
+        if mask & 1 != 0 {
+            if input.usage.input_cache_read.is_some()
+                || input.quality.input_cache_read != Q::Unknown
+            {
+                continue;
+            }
+            prior.usage.input_cache_read = Some(0);
+            prior.quality.input_cache_read = Q::Reported;
+        }
+        if mask & 2 != 0 {
+            if input.usage.input_uncached.is_some() || input.quality.input_uncached != Q::Unknown {
+                continue;
+            }
+            prior.usage.input_uncached = input
+                .usage
+                .input_total
+                .and_then(|n| n.checked_sub(prior.usage.input_cache_read.unwrap_or(0)))
+                .or(Some(0))
+                .filter(|n| *n >= 0);
+            prior.quality.input_uncached = Q::Reported;
+        }
+        if mask & 4 != 0 {
+            if input.usage.input_total.is_some() || input.quality.input_total != Q::Unknown {
+                continue;
+            }
+            prior.usage.input_total = prior
+                .usage
+                .input_uncached
+                .zip(prior.usage.input_cache_read)
+                .and_then(|(i, c)| i.checked_add(c));
+            if prior.usage.input_total.is_none() {
+                continue;
+            }
+            prior.quality.input_total = Q::Derived;
+        }
+        if mask & 8 != 0 {
+            if input.usage.output_total.is_some() || input.quality.output_total != Q::Unknown {
+                continue;
+            }
+            prior.usage.output_total = Some(0);
+            prior.quality.output_total = Q::Reported;
+        }
+        if mask & 16 != 0 {
+            if input.usage.total_tokens.is_some() || input.quality.total_tokens != Q::Unknown {
+                continue;
+            }
+            prior.usage.total_tokens = prior
+                .usage
+                .input_total
+                .zip(prior.usage.output_total)
+                .and_then(|(i, o)| i.checked_add(o));
+            if prior.usage.total_tokens.is_none() {
+                continue;
+            }
+            prior.quality.total_tokens = Q::Derived;
+        }
+        hashes.insert(crate::identity::content_hash(&prior));
+    }
+    hashes.into_iter().collect()
+}
 
 #[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 struct WholeFileCursor {
@@ -67,14 +137,120 @@ fn bucket(value: Option<&serde_json::Value>, key: &str) -> Option<i64> {
 }
 
 /// 按模型累计桶与调用数。
+#[derive(Clone, Copy)]
+struct BucketAccum {
+    sum: i64,
+    complete: bool,
+}
+
+impl Default for BucketAccum {
+    fn default() -> Self {
+        Self {
+            sum: 0,
+            complete: true,
+        }
+    }
+}
+
+impl BucketAccum {
+    fn add(&mut self, value: Option<i64>) -> bool {
+        let Some(value) = value else {
+            self.complete = false;
+            return false;
+        };
+        let Some(sum) = self
+            .sum
+            .checked_add(value)
+            .filter(|n| *n <= crate::domain::MAX_TOKEN_VALUE)
+        else {
+            self.complete = false;
+            return true;
+        };
+        self.sum = sum;
+        false
+    }
+
+    fn positive(self) -> Option<i64> {
+        (self.complete && self.sum > 0).then_some(self.sum)
+    }
+}
+
 #[derive(Default, Clone, Copy)]
 struct ModelAccum {
-    input: i64,
-    cached_input: i64,
-    output: i64,
+    input: BucketAccum,
+    cached_input: BucketAccum,
+    output: BucketAccum,
     rounds: i64,
-    /// 至少见到一个 tokens 桶（区分"报告了 0"与"无 token 数据"，未知不补零）。
+    /// 至少存在一个 tokens 载体；默认零仍不能证明 API 报告过该字段。
     tokens_seen: bool,
+}
+
+impl ModelAccum {
+    fn add_tokens(
+        &mut self,
+        tokens: Option<&serde_json::Value>,
+        diagnostics: &mut Vec<DiagnosticInput>,
+    ) {
+        self.tokens_seen |= tokens.is_some();
+        if tokens.is_some_and(|v| !v.is_object()) {
+            diagnostics.push(diag(
+                "token_shape_deviation",
+                "native tokens carrier is not an object; kept unknown",
+            ));
+        }
+        for (key, accum) in [
+            ("input", &mut self.input),
+            ("cached_input", &mut self.cached_input),
+            ("output", &mut self.output),
+        ] {
+            let value = bucket(tokens, key);
+            if tokens.and_then(|v| v.get(key)).is_some() && value.is_none() {
+                diagnostics.push(diag(
+                    "token_shape_deviation",
+                    "native token bucket has an invalid type or range; kept unknown",
+                ));
+            }
+            if accum.add(value) {
+                diagnostics.push(diag(
+                    "token_sum_overflow",
+                    "native token sum exceeds the supported range; kept unknown",
+                ));
+            }
+        }
+    }
+
+    fn usage(self) -> (TokenUsage, TokenQuality) {
+        let input_total = (self.input.complete && self.cached_input.complete)
+            .then(|| self.input.sum.checked_add(self.cached_input.sum))
+            .flatten()
+            .filter(|n| (1..=crate::domain::MAX_TOKEN_VALUE).contains(n));
+        let input_cache_read = self.cached_input.positive();
+        let input_uncached =
+            (input_total.is_some() && input_cache_read.is_some()).then_some(self.input.sum);
+        let output_total = self.output.positive();
+        let total_tokens = input_total
+            .zip(output_total)
+            .and_then(|(i, o)| i.checked_add(o))
+            .filter(|n| *n <= crate::domain::MAX_TOKEN_VALUE);
+        (
+            TokenUsage {
+                input_uncached,
+                input_cache_read,
+                input_total,
+                output_total,
+                total_tokens,
+                ..Default::default()
+            },
+            TokenQuality {
+                input_uncached: input_uncached.map(|_| Q::Reported).unwrap_or(Q::Unknown),
+                input_cache_read: input_cache_read.map(|_| Q::Reported).unwrap_or(Q::Unknown),
+                input_total: input_total.map(|_| Q::Derived).unwrap_or(Q::Unknown),
+                output_total: output_total.map(|_| Q::Reported).unwrap_or(Q::Unknown),
+                total_tokens: total_tokens.map(|_| Q::Derived).unwrap_or(Q::Unknown),
+                ..Default::default()
+            },
+        )
+    }
 }
 
 fn model_key(model: &serde_json::Value) -> (String, String) {
@@ -148,7 +324,7 @@ pub fn scan(
         .unwrap_or_else(|| "unknown".to_string());
     let start_ms = ms_field(document.get("created_at"));
     let end_ms = ms_field(document.get("updated_at")).or(start_ms);
-    let diagnostics = Vec::new();
+    let mut diagnostics = Vec::new();
     let Some(end_ms) = end_ms else {
         return Ok(ScanOutcome {
             status: ScanStatus::Pending,
@@ -186,18 +362,7 @@ pub fn scan(
                     let key = model_key(model);
                     let tokens = model.get("tokens");
                     let entry = acc.entry(key).or_default();
-                    if tokens.is_some() {
-                        entry.tokens_seen = true;
-                    }
-                    if let Some(input) = bucket(tokens, "input") {
-                        entry.input = entry.input.saturating_add(input);
-                    }
-                    if let Some(cached) = bucket(tokens, "cached_input") {
-                        entry.cached_input = entry.cached_input.saturating_add(cached);
-                    }
-                    if let Some(output) = bucket(tokens, "output") {
-                        entry.output = entry.output.saturating_add(output);
-                    }
+                    entry.add_tokens(tokens, &mut diagnostics);
                     // 单模型 turn 的 round_count 才能归属该模型；多模型
                     // turn 对每个模型各加一次会虚增跨模型合计调用数。
                     if single_model {
@@ -221,18 +386,7 @@ pub fn scan(
             let key = model_key(model);
             let tokens = model.get("tokens");
             let entry = acc.entry(key).or_default();
-            if tokens.is_some() {
-                entry.tokens_seen = true;
-            }
-            if let Some(input) = bucket(tokens, "input") {
-                entry.input = entry.input.saturating_add(input);
-            }
-            if let Some(cached) = bucket(tokens, "cached_input") {
-                entry.cached_input = entry.cached_input.saturating_add(cached);
-            }
-            if let Some(output) = bucket(tokens, "output") {
-                entry.output = entry.output.saturating_add(output);
-            }
+            entry.add_tokens(tokens, &mut diagnostics);
         }
     }
     if acc.is_empty() && unattributed_rounds == 0 {
@@ -261,35 +415,22 @@ pub fn scan(
         if !entry.tokens_seen && entry.rounds == 0 {
             continue;
         }
-        let (usage, quality) = if entry.tokens_seen {
-            // 官方计算规则：input = prompt − cached、cached_input = min(cached, prompt)。
-            (
-                TokenUsage {
-                    input_uncached: Some(entry.input),
-                    input_cache_read: Some(entry.cached_input),
-                    input_cache_write: None,
-                    input_total: entry.input.checked_add(entry.cached_input),
-                    output_total: Some(entry.output),
-                    output_reasoning: None,
-                    total_tokens: entry
-                        .input
-                        .checked_add(entry.cached_input)
-                        .and_then(|i| i.checked_add(entry.output)),
-                    source_total: None,
-                },
-                TokenQuality {
-                    input_uncached: Q::Reported,
-                    input_cache_read: Q::Reported,
-                    input_cache_write: Q::Unknown,
-                    input_total: Q::Derived,
-                    output_total: Q::Reported,
-                    total_tokens: Q::Derived,
-                    ..Default::default()
-                },
-            )
-        } else {
-            (TokenUsage::default(), TokenQuality::default())
-        };
+        if entry.input.complete
+            && entry.cached_input.complete
+            && entry.output.complete
+            && entry
+                .input
+                .sum
+                .checked_add(entry.cached_input.sum)
+                .and_then(|i| i.checked_add(entry.output.sum))
+                .map_or(true, |n| n > crate::domain::MAX_TOKEN_VALUE)
+        {
+            diagnostics.push(diag(
+                "token_sum_overflow",
+                "native derived token sum exceeds the supported range; kept unknown",
+            ));
+        }
+        let (usage, quality) = entry.usage();
         let scope_model = if model.is_empty() { "unknown" } else { &model };
         aggregates.push(SourceAggregateInput {
             instance_id: target.instance_id.clone(),

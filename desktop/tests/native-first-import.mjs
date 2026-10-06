@@ -4,7 +4,7 @@ import { chromium } from 'playwright';
 import { spawnIsolated } from './isolated-child.mjs';
 import { mkdir, readFile, writeFile, access } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
-import { createServer } from 'node:net';
+import { freeHttpPort } from './http-test-port.mjs';
 import { once } from 'node:events';
 import assert from 'node:assert/strict';
 import { importPeakBudgetBytes } from './resource-budgets.mjs';
@@ -39,8 +39,7 @@ async function waitIdle(previous){
   }
 }
 try{
-  const server=createServer();server.listen(0,'127.0.0.1');await once(server,'listening');
-  const port=server.address().port;await new Promise(r=>server.close(r));
+  const port=await freeHttpPort();
   child=spawnIsolated(resolve('desktop/src-tauri/target/release/LLMUsage.exe'),['--data-dir',data],{env:{...env,WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS:`--remote-debugging-port=${port}`,WEBVIEW2_USER_DATA_FOLDER:join(root,'webview')},stdio:'ignore',windowsHide:true});
   let endpoint;
   for(let n=0;n<300;n++){assert.equal(child.exitCode,null);try{endpoint=await(await fetch(`http://127.0.0.1:${port}/json/version`)).json();}catch{}if(endpoint?.webSocketDebuggerUrl)break;await pause(100);}

@@ -215,6 +215,14 @@ fn detect_dispatches_by_own_anchor() {
 fn discover_uses_observed_candidate_and_manual_roots() {
     let adapter = KimiWorkAdapter::new();
     let dir = TempDir::new("kimi-work-disc");
+    let isolated = llm_usage_core::adapters::framework::DiscoverContext {
+        home_dir: Some(dir.path().join("isolated-home")),
+        ..Default::default()
+    };
+    assert!(
+        adapter.discover(&isolated).is_empty(),
+        "isolated home must not discover the fixed personal installation"
+    );
     let home_root = kimi_root_with_file(
         &dir,
         "wd_syn/conv_syn-1/agents/main/wire.jsonl",

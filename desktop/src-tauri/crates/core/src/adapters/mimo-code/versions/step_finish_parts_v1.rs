@@ -20,7 +20,7 @@ use crate::adapters::mimo_code::common::{
 use crate::adapters::opencode_family::{scan_step_finish_parts, PartProduct};
 use crate::error::CoreError;
 
-pub const PARSER_VERSION: &str = "mimo-code-step-finish-parts-1";
+pub const PARSER_VERSION: &str = "mimo-code-step-finish-parts-2";
 
 /// 本实现的产品绑定（事件键命名空间 / Agent 名 / 对账开关）。
 pub(crate) const PRODUCT: PartProduct = PartProduct {
@@ -29,17 +29,19 @@ pub(crate) const PRODUCT: PartProduct = PartProduct {
     parser_version: PARSER_VERSION,
     // MiMo session 表无 tokens_* 累计列（session.sql.ts）：无对账目标。
     reconcile_session_counters: false,
+    default_zero_unknown: true,
 };
 
 /// 增量扫描一个 mimocode.db（统一入口 `MimoCodeAdapter::scan` 分派到本实现）。
 pub fn scan(
     target: &ScanTarget,
     stored: &StoredScanState,
-    _limits: &ScanLimits,
+    limits: &ScanLimits,
     now_ms: i64,
 ) -> Result<ScanOutcome, CoreError> {
     let source = open_source_db(&target.path, short_probe, &StagingLimits::default())?;
     let conn = source.conn();
+    let _sql = crate::adapters::run_policy::SqliteScope::new(conn)?;
     let fingerprint = schema_fingerprint(conn)?;
     // 探测层保证不会走到这里；游标期间库被换掉时按未知格式拒绝，保留旧结果。
     let Some(fingerprint) = fingerprint else {
@@ -59,6 +61,13 @@ pub fn scan(
             fingerprint,
             db_version,
             basis: selection.basis,
+            record_basis: |version| super::select(version).basis,
+            row_limit: limits
+                .jsonl
+                .max_lines
+                .unwrap_or(crate::adapters::opencode_family::MAX_ROWS_PER_ROUND as u64)
+                .min(crate::adapters::opencode_family::MAX_ROWS_PER_ROUND as u64)
+                as i64,
         },
     )
 }

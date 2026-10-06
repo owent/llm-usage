@@ -88,10 +88,10 @@ fn insert_rows(conn: &rusqlite::Connection, table: &str, rows: &[serde_json::Val
 }
 
 /// 按脱敏数据（{schema:{session_ddl,message_ddl,part_ddl},sessions,messages,parts}）
-/// 在 <dir>/opencode-home/opencode.db 重建 SQLite 库，返回数据目录
+/// 在 <dir>/opencode/opencode.db 重建 SQLite 库，返回数据目录
 ///（可作为手工根传入 discover）。
 fn build_opencode_db(dir: &TempDir, projection: &serde_json::Value) -> PathBuf {
-    let home = dir.path().join("opencode-home");
+    let home = dir.path().join("opencode");
     std::fs::create_dir_all(&home).unwrap();
     let db_path = home.join("opencode.db");
     let conn = rusqlite::Connection::open(&db_path).unwrap();
@@ -118,26 +118,378 @@ fn build_opencode_db_from_fixture(dir: &TempDir, scenario: &str) -> PathBuf {
 
 fn run_opencode(storage: &Storage, root: &Path, now_ms: i64) -> Vec<SourceRunReport> {
     let adapter = OpenCodeAdapter::new();
+    run_with(storage, root, now_ms, &adapter, None)
+}
+
+fn run_with(
+    storage: &Storage,
+    root: &Path,
+    now_ms: i64,
+    adapter: &dyn SourceAdapter,
+    row_limit: Option<u64>,
+) -> Vec<SourceRunReport> {
     let ctx = DiscoverContext {
         home_dir: None,
         env: Default::default(),
-        manual_roots: vec![root.to_path_buf()],
+        manual_roots: vec![root.parent().unwrap().to_path_buf()],
     };
     let config = RunConfig {
         timezone: "UTC".to_string(),
         now_ms,
-        limits: ScanLimits::default(),
+        limits: ScanLimits {
+            jsonl: llm_usage_core::adapters::jsonl::JsonlLimits {
+                max_lines: row_limit,
+                ..Default::default()
+            },
+        },
         trigger: TriggerKind::Manual,
         origin_host_id: None,
         run_id_prefix: format!("run-{now_ms}"),
     };
-    let reports = run_adapter_scan(storage, &adapter, &ctx, &config).unwrap();
+    let reports = run_adapter_scan(storage, adapter, &ctx, &config).unwrap();
     assert_eq!(reports.len(), 1, "expected exactly one discovered root");
     reports
 }
 
 fn opencode_instance(root: &Path) -> String {
     format!("opencode@{}", normalize_path(root))
+}
+
+/// The former parser's full event and checkpoint contract, not a modified hash field.
+struct LegacyOpenCode(std::sync::Mutex<Vec<llm_usage_core::domain::EventInput>>);
+impl SourceAdapter for LegacyOpenCode {
+    fn adapter_id(&self) -> &'static str {
+        "opencode"
+    }
+    fn agent(&self) -> &'static str {
+        "opencode"
+    }
+    fn discover(
+        &self,
+        ctx: &DiscoverContext,
+    ) -> Vec<llm_usage_core::adapters::framework::DiscoveredRoot> {
+        OpenCodeAdapter::new().discover(ctx)
+    }
+    fn instance_id(&self, root: &llm_usage_core::adapters::framework::DiscoveredRoot) -> String {
+        OpenCodeAdapter::new().instance_id(root)
+    }
+    fn detect(&self, path: &Path) -> Result<DetectOutcome, llm_usage_core::error::CoreError> {
+        let mut result = OpenCodeAdapter::new().detect(path)?;
+        if let DetectOutcome::Supported { basis, .. } = &mut result {
+            *basis = llm_usage_core::domain::VersionBasis::LatestFallback;
+        }
+        Ok(result)
+    }
+    fn scan(
+        &self,
+        target: &llm_usage_core::adapters::framework::ScanTarget,
+        stored: &llm_usage_core::adapters::framework::StoredScanState,
+        limits: &ScanLimits,
+        now: i64,
+    ) -> Result<llm_usage_core::adapters::framework::ScanOutcome, llm_usage_core::error::CoreError>
+    {
+        let mut result = OpenCodeAdapter::new().scan(target, stored, limits, now)?;
+        for event in &mut result.events {
+            event.parser_version = "opencode-step-finish-parts-1".into();
+            event.parse_basis = Some(llm_usage_core::domain::VersionBasis::LatestFallback);
+        }
+        result.parse_context = Some(
+            serde_json::json!({"schema_fingerprint": result.parse_context.as_ref().unwrap()["schema_fingerprint"], "version_basis":"latest_fallback", "db_version":"1.18.34"}),
+        );
+        result
+            .cursor
+            .as_mut()
+            .unwrap()
+            .as_object_mut()
+            .unwrap()
+            .remove("continuation");
+        result
+            .cursor
+            .as_mut()
+            .unwrap()
+            .as_object_mut()
+            .unwrap()
+            .remove("window_start_ms");
+        *self.0.lock().unwrap() = result.events.clone();
+        Ok(result)
+    }
+    fn capability(&self) -> llm_usage_core::adapters::framework::CapabilityTable {
+        let mut capability = OpenCodeAdapter::new().capability();
+        capability.supported_versions.clear();
+        capability.maintenance["parser_version"] = "opencode-step-finish-parts-1".into();
+        capability
+    }
+}
+
+fn projection() -> serde_json::Value {
+    serde_json::from_str(
+        &std::fs::read_to_string(opencode_fixture(
+            "real-1.18.34-local-controlled/projection.json",
+        ))
+        .unwrap(),
+    )
+    .unwrap()
+}
+
+#[test]
+fn unchanged_old_library_upgrades_full_digests_and_preserves_history() {
+    for legacy_hash in [false, true] {
+        let dir = TempDir::new("opencode-policy-upgrade");
+        let mut sample = projection();
+        let mut later = sample["parts"][0].clone();
+        later["id"] = "synthetic-later-control".into();
+        for field in ["time_created", "time_updated"] {
+            later[field] = (later[field].as_i64().unwrap() + 120_000).into();
+        }
+        sample["parts"].as_array_mut().unwrap().push(later);
+        // Synthetic continuation of the genuine wire shape, with matching session counters.
+        for field in ["tokens_input", "tokens_output"] {
+            sample["sessions"][0][field] =
+                (sample["sessions"][0][field].as_i64().unwrap() * 2).into();
+        }
+        let root = build_opencode_db(&dir, &sample);
+        let (_db, storage) = temp_storage("opencode-policy-upgrade");
+        let old = LegacyOpenCode(Default::default());
+        run_with(&storage, &root, NOW, &old, None);
+        let old_events = old.0.lock().unwrap().clone();
+        for event in &old_events {
+            let digest = if legacy_hash {
+                llm_usage_core::identity::content_hash(event)
+            } else {
+                llm_usage_core::identity::event_content_hash(event)
+            };
+            storage
+                .conn()
+                .execute(
+                    "UPDATE usage_events SET content_hash=?1 WHERE source_record_key=?2",
+                    rusqlite::params![digest, event.source_record_key],
+                )
+                .unwrap();
+        }
+        storage.conn().execute("INSERT INTO diagnostics(instance_id,code,message,created_ms) VALUES(?1,'retained_audit','synthetic audit',?2)", rusqlite::params![opencode_instance(&root), NOW]).unwrap();
+        let before = summary(&storage, "2026-01-01", "2026-12-31").totals;
+        let source_before = std::fs::read(root.join("opencode.db")).unwrap();
+        let report = run_opencode(&storage, &root, NOW + 1);
+        assert_eq!(report[0].outcome.as_ref().unwrap().added, 0);
+        assert_eq!(
+            report[0].outcome.as_ref().unwrap().updated,
+            2,
+            "report: {report:?}"
+        );
+        assert_eq!(summary(&storage, "2026-01-01", "2026-12-31").totals, before);
+        assert_eq!(
+            std::fs::read(root.join("opencode.db")).unwrap(),
+            source_before
+        );
+        let known: i64 = storage.conn().query_row("SELECT COUNT(*) FROM usage_events WHERE parse_basis='known_version' AND parser_version='opencode-step-finish-parts-2' AND conflict=0", [], |r|r.get(0)).unwrap();
+        assert_eq!(known, 2);
+        assert_eq!(
+            storage
+                .conn()
+                .query_row(
+                    "SELECT COUNT(*) FROM diagnostics WHERE code='retained_audit'",
+                    [],
+                    |r| r.get::<_, i64>(0)
+                )
+                .unwrap(),
+            1
+        );
+        let repeat = run_opencode(&storage, &root, NOW + 2);
+        assert_eq!(repeat[0].outcome.as_ref().unwrap().updated, 0);
+        assert_eq!(summary(&storage, "2026-01-01", "2026-12-31").totals, before);
+    }
+}
+
+#[test]
+fn mixed_versions_empty_sessions_and_dense_pages_keep_each_records_basis() {
+    let dir = TempDir::new("opencode-mixed-pages");
+    let mut sample = projection();
+    let mut unknown = sample["sessions"][0].clone();
+    unknown["id"] = "synthetic-unknown-session".into();
+    unknown["version"] = "0.999.0".into();
+    let mut empty = unknown.clone();
+    empty["id"] = "synthetic-empty-session".into();
+    empty["version"] = "99.99.99".into();
+    for field in ["tokens_input", "tokens_output"] {
+        empty[field] = 0.into();
+    }
+    sample["sessions"]
+        .as_array_mut()
+        .unwrap()
+        .extend([unknown, empty]);
+    let mut part = sample["parts"][0].clone();
+    part["id"] = "synthetic-unknown-part".into();
+    part["session_id"] = "synthetic-unknown-session".into();
+    sample["parts"].as_array_mut().unwrap().push(part);
+    let root = build_opencode_db(&dir, &sample);
+    let (_db, storage) = temp_storage("opencode-mixed-pages");
+    let adapter = OpenCodeAdapter::new();
+    assert!(matches!(
+        adapter.detect(&root.join("opencode.db")).unwrap(),
+        DetectOutcome::Supported {
+            basis: llm_usage_core::domain::VersionBasis::LatestFallback,
+            ..
+        }
+    ));
+    let first = run_with(&storage, &root, NOW, &adapter, Some(1));
+    assert_eq!(first[0].files[0].status, "budget_exhausted");
+    let context: String = storage
+        .conn()
+        .query_row("SELECT parse_context FROM ingestion_checkpoints", [], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    assert!(
+        serde_json::from_str::<serde_json::Value>(&context).unwrap()["scan_policy_version"]
+            .is_null()
+    );
+    let cursor_before: String = storage
+        .conn()
+        .query_row("SELECT cursor_value FROM ingestion_checkpoints", [], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    storage.conn().execute_batch("CREATE TRIGGER abort_opencode_checkpoint BEFORE INSERT ON ingestion_checkpoints BEGIN SELECT RAISE(ABORT,'synthetic transaction failure'); END;").unwrap();
+    let failed = run_with(&storage, &root, NOW + 1, &adapter, Some(1));
+    assert!(failed[0].error.is_some());
+    assert_eq!(
+        storage
+            .conn()
+            .query_row("SELECT cursor_value FROM ingestion_checkpoints", [], |r| {
+                r.get::<_, String>(0)
+            })
+            .unwrap(),
+        cursor_before
+    );
+    assert_eq!(
+        storage
+            .conn()
+            .query_row("SELECT COUNT(*) FROM usage_events", [], |r| r
+                .get::<_, i64>(0))
+            .unwrap(),
+        1
+    );
+    storage
+        .conn()
+        .execute_batch("DROP TRIGGER abort_opencode_checkpoint;")
+        .unwrap();
+    let second = run_with(&storage, &root, NOW + 2, &adapter, Some(1));
+    assert_eq!(second[0].files[0].status, "complete");
+    let rows = event_rows(&storage, &opencode_instance(&root));
+    assert_eq!(rows.len(), 2);
+    assert_eq!(
+        rows.iter()
+            .filter(|e| e.17.as_deref() == Some("known_version"))
+            .count(),
+        1
+    );
+    assert_eq!(
+        rows.iter()
+            .filter(|e| e.17.as_deref() == Some("latest_fallback"))
+            .count(),
+        1
+    );
+    let status: String = storage
+        .conn()
+        .query_row("SELECT format_status FROM source_files", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&status).unwrap()["basis"],
+        "latest_fallback"
+    );
+    // A new known-only window must not erase the older unknown record's compatibility.
+    let conn = rusqlite::Connection::open(root.join("opencode.db")).unwrap();
+    conn.execute(
+        "UPDATE part SET time_updated=time_updated+120000 WHERE id <> 'synthetic-unknown-part'",
+        [],
+    )
+    .unwrap();
+    run_opencode(&storage, &root, NOW + 3);
+    assert_eq!(
+        storage
+            .conn()
+            .query_row("SELECT COUNT(*) FROM usage_events", [], |r| r
+                .get::<_, i64>(0))
+            .unwrap(),
+        2
+    );
+    let status: String = storage
+        .conn()
+        .query_row("SELECT status FROM source_files", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(status, "active_compat");
+}
+
+#[test]
+fn empty_session_never_certifies_usage_and_invalid_snapshot_retries() {
+    let dir = TempDir::new("opencode-empty-and-bad");
+    let mut sample = projection();
+    sample["parts"] = serde_json::json!([]);
+    let root = build_opencode_db(&dir, &sample);
+    let adapter = OpenCodeAdapter::new();
+    assert_eq!(
+        adapter.detect(&root.join("opencode.db")).unwrap(),
+        DetectOutcome::Pending
+    );
+    let conn = rusqlite::Connection::open(root.join("opencode.db")).unwrap();
+    let mut bad = projection()["parts"][0].clone();
+    bad["data"] = "{bad".into();
+    insert_rows(&conn, "part", &[bad]);
+    let (_db, storage) = temp_storage("opencode-empty-and-bad");
+    run_opencode(&storage, &root, NOW);
+    assert_eq!(
+        storage
+            .conn()
+            .query_row("SELECT COUNT(*) FROM usage_events", [], |r| r
+                .get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
+    let context: String = storage
+        .conn()
+        .query_row("SELECT parse_context FROM ingestion_checkpoints", [], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    assert!(
+        serde_json::from_str::<serde_json::Value>(&context).unwrap()["scan_policy_version"]
+            .is_null()
+    );
+    conn.execute(
+        "UPDATE part SET data=?1",
+        [projection()["parts"][0]["data"].to_string()],
+    )
+    .unwrap();
+    run_opencode(&storage, &root, NOW + 1);
+    assert_eq!(
+        storage
+            .conn()
+            .query_row("SELECT COUNT(*) FROM usage_events", [], |r| r
+                .get::<_, i64>(0))
+            .unwrap(),
+        1
+    );
+    let context: String = storage
+        .conn()
+        .query_row("SELECT parse_context FROM ingestion_checkpoints", [], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&context).unwrap()["scan_policy_version"],
+        "opencode-step-finish-parts-2"
+    );
+    assert!(
+        storage
+            .conn()
+            .query_row(
+                "SELECT COUNT(*) FROM diagnostics WHERE code='bad_data_json'",
+                [],
+                |r| r.get::<_, i64>(0)
+            )
+            .unwrap()
+            > 0
+    );
 }
 
 #[test]
@@ -181,7 +533,7 @@ fn real_local_model_steps_match_api_usage_and_remain_idempotent() {
         assert_eq!(row.13, "observed_at");
         assert_eq!(row.15.as_deref(), Some("qwen2.5-0.5b-local"));
         assert_eq!(row.16.as_deref(), Some("llama.cpp"));
-        assert_eq!(row.17.as_deref(), Some("latest_fallback"));
+        assert_eq!(row.17.as_deref(), Some("known_version"));
         let version: String = storage
             .conn()
             .query_row("SELECT schema_version FROM usage_events", [], |r| r.get(0))
@@ -371,7 +723,7 @@ fn contract_full_chain_matches_manual_expectations() {
         .iter()
         .all(|r| r.verdict == "matched"));
 
-    // 合成样本的旧版本未获真实认证；注册表仍为空 ⇒ latest_fallback 标记。
+    // 合成样本的旧版本未获真实认证，仍保留 latest_fallback 标记。
     let fallback: i64 = storage
         .conn()
         .query_row(
@@ -553,7 +905,7 @@ fn discover_respects_xdg_data_home_and_manual_parent_root() {
     let xdg_home = xdg_base.join("opencode");
     std::fs::create_dir_all(&xdg_home).unwrap();
     std::fs::copy(
-        src.path().join("opencode-home").join("opencode.db"),
+        src.path().join("opencode").join("opencode.db"),
         xdg_home.join("opencode.db"),
     )
     .unwrap();
@@ -624,8 +976,8 @@ fn capability_table_keeps_real_sample_scope_and_compatibility_limits() {
     assert_eq!(json["adapter_id"], "opencode");
     assert_eq!(
         json["supported_versions"],
-        serde_json::json!([]),
-        "注册表为空：真实样本通过不替代混合版本及旧游标升级验收"
+        serde_json::json!(["1.18.34"]),
+        "仅认证真实样本覆盖的版本"
     );
     assert_eq!(
         json["maintenance"]["evidence_level"]

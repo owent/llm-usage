@@ -1,0 +1,15 @@
+{
+  "sessionId": "11111111-2222-4333-8444-555555555555",
+  "title": "REDACTED",
+  "workspaceDirectory": "REDACTED",
+  "history": [],
+  "usage": {
+    "totalCost": 0.001475,
+    "promptTokens": 1471,
+    "completionTokens": 2,
+    "promptTokensDetails": {
+      "cachedTokens": 0,
+      "cacheWriteTokens": 0
+    }
+  }
+}

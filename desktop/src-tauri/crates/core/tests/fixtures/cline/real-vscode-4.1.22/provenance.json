@@ -1,0 +1,31 @@
+{
+  "fixture_kind": "real-whitelisted-native-session",
+  "sample_date": "2026-10-06",
+  "client_surface": "vscode-extension",
+  "client_version": "4.1.22",
+  "source_commit": "f58bc118bdeef1bd2813cd08e00d98bdcda96475",
+  "official_vsix_sha256": "134b54af94e1e4cc6cd07224a61f6873c40c845d9fba1f9e6aa510dd6e2c5382",
+  "native_messages_sha256": "c1aaa3d3170f1c33a57ea99e98de840c380313689d4be03c916cf86524e5e53f",
+  "run_exit_code": 0,
+  "native_schema": 1,
+  "origin_version_scope": "mutable session metadata; not per-message client version",
+  "model_alias": "qwen3.5-0.8b-local",
+  "model_gguf_sha256": "9a7bed4041b7975e0f71fa34670d1e9025213bc92905ac0db75d36c4fa3fa623",
+  "model_server_context": 64000,
+  "model_server_max_output": 16,
+  "transport": "offline loopback OpenAI-compatible; public lmstudio provider; transparent usage-only response ledger",
+  "native_observations": 3,
+  "api_requests": 3,
+  "expected": {
+    "input_total": 8922,
+    "output_total": 48,
+    "total_tokens": 8970,
+    "known_cache_read": 5881,
+    "cache_write": null,
+    "input_uncached": null,
+    "call_count": null,
+    "cost": null
+  },
+  "redaction": "Stable session/message IDs replaced; content/system_prompt/manifest paths/settings/secrets/DB omitted; role/ts/modelInfo/metrics retained unchanged",
+  "coverage": "GUI official extension activated and public startNewTask invoked; test host exited after observed metrics, task completion not claimed; retry/run aggregation, migrated history, other providers/surfaces remain separate"
+}

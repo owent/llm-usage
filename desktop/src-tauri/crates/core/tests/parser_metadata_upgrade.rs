@@ -52,6 +52,80 @@ fn upgraded(old: &EventInput) -> EventInput {
     event
 }
 
+#[test]
+fn version_certification_updates_full_legacy_basis_with_and_without_parser_changes() {
+    use llm_usage_core::domain::VersionBasis;
+    for legacy_hash in [false, true] {
+        for change_parser in [false, true] {
+            let (_dir, storage) = temp_storage("basis-certification");
+            let mut old = with_tokens(evt("inst", "call", ts("2026-09-24T10:00:00Z")), 100, 20);
+            old.parser_version = "parser-1".into();
+            old.parse_basis = Some(VersionBasis::LatestFallback);
+            old.source_revision = Some(10);
+            commit_batch(
+                &storage,
+                &batch("inst", "UTC", old.occurred_at_ms, vec![old.clone()]),
+                None,
+            )
+            .unwrap();
+            storage
+                .conn()
+                .execute(
+                    "UPDATE usage_events SET content_hash=?1",
+                    [if legacy_hash {
+                        content_hash(&old)
+                    } else {
+                        event_content_hash(&old)
+                    }],
+                )
+                .unwrap();
+            let mut new = old.clone();
+            new.parse_basis = Some(VersionBasis::KnownVersion);
+            if change_parser {
+                new.parser_version = "parser-2".into();
+            }
+            let before = summary(&storage, DAY, DAY).totals;
+            let result = commit_batch(
+                &storage,
+                &batch("inst", "UTC", old.occurred_at_ms + 1, vec![new.clone()]),
+                None,
+            )
+            .unwrap();
+            assert_eq!((result.updated, result.conflicts), (1, 0));
+            assert_eq!(summary(&storage, DAY, DAY).totals, before);
+            assert_eq!(
+                storage
+                    .conn()
+                    .query_row("SELECT parse_basis FROM usage_events", [], |r| r
+                        .get::<_, String>(0))
+                    .unwrap(),
+                "known_version"
+            );
+            assert_eq!(
+                commit_batch(
+                    &storage,
+                    &batch("inst", "UTC", old.occurred_at_ms + 2, vec![new.clone()]),
+                    None
+                )
+                .unwrap()
+                .updated,
+                0
+            );
+            new.usage.input_total = Some(101);
+            assert_eq!(
+                commit_batch(
+                    &storage,
+                    &batch("inst", "UTC", old.occurred_at_ms + 3, vec![new]),
+                    None
+                )
+                .unwrap()
+                .conflicts,
+                1
+            );
+        }
+    }
+}
+
 fn flags(storage: &Storage) -> (i64, i64, i64) {
     (
         storage

@@ -36,5 +36,9 @@ manager_pid=$!
 WebKitWebDriver --host=127.0.0.1 --port=4444 >"$task_root/webkit-driver.log" 2>&1 &
 driver_pid=$!
 trap '\''kill "$driver_pid" "$manager_pid" 2>/dev/null || true'\'' EXIT
-python3 "$task_root/linux-install-desktop.py"
+if test "${LLM_USAGE_SCREEN_READER:-0}" = 1; then
+    bash "$task_root/linux-screen-reader-session.sh"
+else
+    python3 "$task_root/linux-install-desktop.py"
+fi
 '

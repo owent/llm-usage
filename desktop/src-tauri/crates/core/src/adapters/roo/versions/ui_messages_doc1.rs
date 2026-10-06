@@ -2,7 +2,8 @@
 //! roo-ui-messages-doc-1）。
 //!
 //! 格式依据（RooCodeInc/Roo-Code 固定源码 b867ec9145750d0ae1ff7f02d35406e9bf2a0b16，
-//! 官方源码核验；仓库已归档 2026-05-15，末版 v3.54.0；本机未安装、无真实样本）：
+//! 官方源码核验；另有末版 v3.54.0/27001b2b 官方 VSIX 的真实 extension-host/API
+//! 默认与单调用对照，2026-10-06）：
 //! - 路径：VS Code globalStorage `RooVeterinaryInc.roo-cline/tasks/<taskId>/
 //!   ui_messages.json`（src/package.json publisher.name；storage.ts:53-57）；
 //!   CLI `~/.vscode-mock/global-storage/tasks/`（vscode-shim paths）；
@@ -31,6 +32,9 @@
 //! - 完整 say/ask 集合已在固定源码枚举（message.ts:27-40/144-172）：
 //!   未列出的记录类型 fail closed（V17）。
 //!
+//! 四桶先初始化零；OpenAI-compatible 忽略 prompt_tokens_details.cached_tokens。
+//! 因此零桶未知，只有正缓存子集均已知才推导未缓存；默认零费用亦未知。
+//! 取消可能删除最后占位，默认实测 API 三次、原生两次，不补缺失调用。
 //! 映射：input_total=tokensIn（含缓存）、cache 子集并列、input_uncached=
 //! tokensIn−cacheWrites−cacheReads（派生，sub_checked 防负）、output=tokensOut、
 //! total=tokensIn+tokensOut（派生）；cost=扩展自算（estimated micro-USD）。
@@ -51,7 +55,7 @@ use std::io::Read;
 
 use super::ROO_FORMAT_VERSION;
 
-pub const ROO_PARSER_VERSION: &str = "roo-ui-messages-doc1";
+pub const ROO_PARSER_VERSION: &str = "roo-ui-messages-doc2";
 pub const ROO_MAX_FILE_BYTES: u64 = 32 * 1024 * 1024;
 const MAX_REASONABLE_TOKEN: i64 = crate::domain::MAX_TOKEN_VALUE;
 
@@ -169,7 +173,7 @@ fn task_id_of(path: &std::path::Path) -> String {
 
 fn usd_cost(value: Option<f64>) -> Option<CostAmount> {
     let amount = value?;
-    if !amount.is_finite() || amount < 0.0 {
+    if !amount.is_finite() || amount <= 0.0 {
         return None;
     }
     let micros = amount * 1_000_000.0;
@@ -620,7 +624,13 @@ pub fn scan(
             }
             continue;
         }
-        let mapped = map_roo_usage(tokens_in, tokens_out, cache_writes, cache_reads);
+        let positive = |value: Option<i64>| value.filter(|v| *v > 0);
+        let mapped = map_roo_usage(
+            positive(tokens_in),
+            positive(tokens_out),
+            positive(cache_writes),
+            positive(cache_reads),
+        );
         events.push(build_event(
             target,
             &task_id,

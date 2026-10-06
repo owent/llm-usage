@@ -140,6 +140,16 @@ pub(crate) fn upsert_source_aggregate_tx(
     input: &SourceAggregateInput,
     now_ms: i64,
 ) -> Result<bool, CoreError> {
+    upsert_source_aggregate_with_prior_hashes_tx(tx, input, now_ms, &[])
+}
+
+/// Explicit parser corrections compare the complete prior input, never only token fields.
+pub(crate) fn upsert_source_aggregate_with_prior_hashes_tx(
+    tx: &rusqlite::Transaction<'_>,
+    input: &SourceAggregateInput,
+    now_ms: i64,
+    prior_hashes: &[String],
+) -> Result<bool, CoreError> {
     input.validate()?;
     if let Some(floor) = crate::retention::hard_retention_floor(tx)? {
         if input.interval_start_ms.map_or(true, |start| start < floor)
@@ -172,9 +182,16 @@ pub(crate) fn upsert_source_aggregate_tx(
                 return Ok(false);
             }
         }
-        if !matches!((input.source_revision, *old_rev), (Some(new), Some(old)) if new > old) {
+        let parser_correction = matches!((input.source_revision, *old_rev), (Some(new), Some(old)) if new == old)
+            && prior_hashes.contains(old_hash);
+        if !matches!((input.source_revision, *old_rev), (Some(new), Some(old)) if new > old)
+            && !parser_correction
+        {
             tx.execute("INSERT INTO diagnostics (instance_id, code, message, created_ms) VALUES (?1, 'aggregate_conflict', 'ambiguous aggregate revision; kept existing value', ?2)", params![input.instance_id, now_ms])?;
             return Ok(false);
+        }
+        if parser_correction {
+            tx.execute("INSERT INTO diagnostics (instance_id, code, message, created_ms) VALUES (?1, 'aggregate_parser_policy_upgrade', 'complete prior aggregate matches explicit parser correction; source revision retained', ?2)", params![input.instance_id, now_ms])?;
         }
     }
     for c in detect_contradictions(&input.usage) {

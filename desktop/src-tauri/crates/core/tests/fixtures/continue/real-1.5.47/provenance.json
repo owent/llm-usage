@@ -1,0 +1,31 @@
+{
+  "product": "Continue CLI",
+  "product_version": "1.5.47",
+  "capture_date": "2026-10-06",
+  "official_package": "@continuedev/cli@1.5.47",
+  "npm_integrity": "sha512-gtpewV3RoIOD9dyTtKIBi1SY0VOHRu3Ehe7C/mmnswm+j34MPyrcQhQaWj/m+jdfGO4fNIKdrgGIlLso1ULDFw==",
+  "image_id": "ec002ed485dbcc28879a695c09da7f33ef3a334dc97bcdfb01aefd13897e4dde",
+  "raw_sha256": "eb93d5dba3db44af18952e9e2a5dadf80d223a53ddec3e9575bc4c01e7fa023f",
+  "raw_mtime_ms": 1791266584000,
+  "runtime": "Rootless Podman; no external network or host mounts; ordinary acceptance user",
+  "model": "qwen2.5-0.5b-local; genuine streaming llama.cpp inference; include_usage=true supplied by client",
+  "source_fields": [
+    "sessionId",
+    "usage",
+    "file mtime"
+  ],
+  "redaction": "Session UUID replaced; title/workspace redacted and history removed; numeric usage and mtime preserved.",
+  "version_basis": "JSON has no client version; runtime version is provenance, not per-record version certification.",
+  "independent_check": {
+    "api_calls": 1,
+    "prompt_tokens": 1471,
+    "completion_tokens": 2,
+    "total_tokens": 1473
+  },
+  "limitations": [
+    "Source only keeps session cumulative input/output, not API total or per-call identity/model. No inferred call count or total.",
+    "cachedTokens/cacheWriteTokens are initialized to zero; absent and reported-zero API fields are indistinguishable in carrier. Zero cache remains unknown.",
+    "totalCost is a client estimate and is not ingested as provider cost.",
+    "Only one readonly CLI local-model call; no GUI, cloud, multiple providers, fork/resume or other-version acceptance."
+  ]
+}

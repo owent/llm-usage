@@ -1,0 +1,45 @@
+[
+  {
+    "ts": 1791279149374,
+    "type": "say",
+    "say": "text",
+    "text": "[redacted]"
+  },
+  {
+    "ts": 1791279149388,
+    "type": "say",
+    "say": "api_req_started",
+    "text": "{\"tokensIn\":6772,\"tokensOut\":2,\"cacheReads\":0,\"cacheWrites\":0,\"cost\":0,\"apiProtocol\":\"openai\"}"
+  },
+  {
+    "ts": 1791279156761,
+    "type": "say",
+    "say": "text",
+    "partial": false,
+    "text": "[redacted]"
+  },
+  {
+    "ts": 1791279157096,
+    "type": "say",
+    "say": "api_req_started",
+    "text": "{\"tokensIn\":7095,\"tokensOut\":2,\"cacheReads\":0,\"cacheWrites\":0,\"cost\":0,\"apiProtocol\":\"openai\"}"
+  },
+  {
+    "ts": 1791279157824,
+    "type": "say",
+    "say": "text",
+    "partial": false,
+    "text": "[redacted]"
+  },
+  {
+    "ts": 1791279158156,
+    "type": "say",
+    "say": "error",
+    "text": "[redacted]"
+  },
+  {
+    "ts": 1791279158470,
+    "type": "ask",
+    "ask": "resume_task"
+  }
+]

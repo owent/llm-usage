@@ -126,23 +126,30 @@ impl crate::adapters::framework::SourceAdapter for GajaeCodeAdapter {
 
     fn capability(&self) -> crate::adapters::framework::CapabilityTable {
         use crate::adapters::framework::{Availability, CapabilityTable};
-        let note = "官方源码证据（Yeachan-Heo/gajae-code 7e54f9c + docs/session.md）；本机未安装，待真实样本核验".to_string();
+        let note =
+            "官方源码及 gajae-code 0.18.7 单轮真实本地模型；其他 API/版本与场景待核验".to_string();
         let mut fields = serde_json::Map::new();
         let field = |availability: Availability, detail: &str| serde_json::json!({ "availability": availability, "note": detail });
         fields.insert(
             "tokens".into(),
             field(
                 Availability::Partial(note.clone()),
-                "usage 已归一化互斥桶（input 非缓存/output 含 thinking/cacheRead/cacheWrite/totalTokens=四桶和）；与 pi 家族同口径",
+                "归一化输入/输出；OpenAI-completions 零缓存与零用量保持未知，无法确认缓存桶时不展示未缓存输入",
             ),
         );
         fields.insert(
             "cache_read".into(),
-            field(Availability::Partial(note.clone()), "cacheRead"),
+            field(
+                Availability::Partial(note.clone()),
+                "cacheRead；OpenAI-completions 零值可能是缺字段回退，保持未知",
+            ),
         );
         fields.insert(
             "cache_write".into(),
-            field(Availability::Partial(note.clone()), "cacheWrite"),
+            field(
+                Availability::Partial(note.clone()),
+                "cacheWrite；OpenAI-completions 零值可能是缺字段回退，保持未知",
+            ),
         );
         fields.insert(
             "per_request_calls".into(),
@@ -162,7 +169,7 @@ impl crate::adapters::framework::SourceAdapter for GajaeCodeAdapter {
             "time".into(),
             field(
                 Availability::Partial(note.clone()),
-                "message.timestamp（Unix 毫秒）优先；缺则条目 ISO（两种单位并存）",
+                "message.timestamp 毫秒优先；已核验 OpenAI-completions 为请求开始，缺则条目 ISO",
             ),
         );
         fields.insert(
@@ -223,14 +230,14 @@ impl crate::adapters::framework::SourceAdapter for GajaeCodeAdapter {
             maintenance: serde_json::json!({
                 "parser_version": versions::session_v3like::GJC_PARSER_VERSION,
                 "format_evidence": "Yeachan-Heo/gajae-code 7e54f9c（docs/session.md + packages/ai types.ts + packages/utils dirs.ts + packages/stats）",
-                "evidence_level": "official-source（无本机样本）",
-                "upgrade_policy": "真实样本后核验五桶/双时间戳单位",
+                "evidence_level": "real-local（0.18.7/session v5 单次 OpenAI-completions：API/CLI/载体 412/2/414；未知缓存、未缓存、推理保留；其他 API/场景未验收）",
+                "upgrade_policy": "完整旧 gjc-session-1 摘要仅纠正零回退/未缓存与时间依据；其余字段继续仲裁，旧游标自动重评",
             }),
             scheduling: serde_json::json!({ "entry": "统一 run_adapter_scan" }),
             limitations: vec![
                 "pi 家族复用但逐项验证：map_pi_family 的互斥口径以 gjc 官方归一化证据为准（现行 pi 已分叉 v4 头）".into(),
                 "message.timestamp 毫秒与条目 ISO 并存：实现以 message.timestamp 优先".into(),
-                "本机未安装：文档级实现".into(),
+                "仅核验 0.18.7 一次本地调用；云端、分支/重绕、子 Agent、多模型和其他版本未验收".into(),
             ],
         }
     }

@@ -386,7 +386,7 @@ fn discover_respects_mimocode_home_env_and_xdg_defaults() {
 }
 
 #[test]
-fn capability_table_is_structured_and_doc_level() {
+fn capability_table_retains_scoped_real_evidence_and_independent_registry() {
     let adapter = MimoCodeAdapter::new();
     let cap = adapter.capability();
     let json = serde_json::to_value(&cap).unwrap();
@@ -394,14 +394,14 @@ fn capability_table_is_structured_and_doc_level() {
     assert_eq!(
         json["supported_versions"],
         serde_json::json!([]),
-        "注册表为空：文档级证据，待真实样本"
+        "单一路线不认证整个客户端版本"
     );
     assert_eq!(
         json["maintenance"]["evidence_level"]
             .as_str()
-            .map(|s| s.starts_with("doc-level")),
+            .map(|s| s.starts_with("real-container")),
         Some(true),
-        "能力声明标注文档级证据",
+        "能力声明限定真实验收路线",
     );
     for key in [
         "tokens",
@@ -428,7 +428,8 @@ fn capability_table_is_structured_and_doc_level() {
         .get("unavailable")
         .is_some());
     assert!(!cap.limitations.is_empty());
-    assert!(cap.limitations.iter().any(|l| l.contains("not_found")));
+    assert!(cap.limitations.iter().any(|l| l.contains("仅 0.1.15")));
+    assert!(cap.limitations.iter().any(|l| l.contains("length")));
     // 独立产品语义：不与 opencode 合并统计。
     assert_eq!(
         json["detection"]["magic"],

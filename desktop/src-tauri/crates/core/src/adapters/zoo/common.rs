@@ -1,5 +1,5 @@
 //! Zoo Code 产品特有的 usage 字段映射（固定源码 f7806475331fcae5f4e8b5558d04415eeb5da88c，
-//! A19，按文档或源码实现，待真实样本核验；本机 not_found）。
+//! A19；另经 3.86.0 官方 VSIX / API / 原生文件真实核对）。
 //!
 //! 依据（packages/core/src/message-utils/consolidateTokenUsage.ts）：
 //! - `api_req_started` 消息 `text` JSON 的 tokensIn/tokensOut/cacheWrites/
@@ -40,27 +40,31 @@ impl ZooUsage {
 }
 
 pub fn map_zoo_usage(raw: &ZooUsage) -> MappedUsage {
+    // Task 初始化为零；OpenAI-compatible 未读嵌套 cached_tokens。
+    // 原生零无法区分没有用量与未取得用量，不能认证报告零。
+    let input = raw.tokens_in.filter(|v| *v > 0);
+    let output = raw.tokens_out.filter(|v| *v > 0);
+    let read = raw.cache_reads.filter(|v| *v > 0);
+    let write = raw.cache_writes.filter(|v| *v > 0);
     // tokensIn 已含缓存（两协议规则相同，固定源码注释）：直报 input_total；
     // 未缓存输入不可拆（精确包含集合尚未验证），input_uncached 保持未知。
-    let total = raw
-        .tokens_in
-        .and_then(|i| raw.tokens_out.and_then(|o| i.checked_add(o)));
+    let total = input.and_then(|i| output.and_then(|o| i.checked_add(o)));
     let usage = TokenUsage {
         input_uncached: None,
-        input_cache_read: raw.cache_reads,
-        input_cache_write: raw.cache_writes,
-        input_total: raw.tokens_in,
-        output_total: raw.tokens_out,
+        input_cache_read: read,
+        input_cache_write: write,
+        input_total: input,
+        output_total: output,
         output_reasoning: None,
         total_tokens: total,
         source_total: None,
     };
     let quality = TokenQuality {
         input_uncached: Q::Unknown,
-        input_cache_read: raw.cache_reads.map(|_| Q::Reported).unwrap_or(Q::Unknown),
-        input_cache_write: raw.cache_writes.map(|_| Q::Reported).unwrap_or(Q::Unknown),
-        input_total: raw.tokens_in.map(|_| Q::Reported).unwrap_or(Q::Unknown),
-        output_total: raw.tokens_out.map(|_| Q::Reported).unwrap_or(Q::Unknown),
+        input_cache_read: read.map(|_| Q::Reported).unwrap_or(Q::Unknown),
+        input_cache_write: write.map(|_| Q::Reported).unwrap_or(Q::Unknown),
+        input_total: input.map(|_| Q::Reported).unwrap_or(Q::Unknown),
+        output_total: output.map(|_| Q::Reported).unwrap_or(Q::Unknown),
         output_reasoning: Q::Unknown,
         total_tokens: if total.is_some() {
             Q::Derived
@@ -76,7 +80,7 @@ pub fn map_zoo_usage(raw: &ZooUsage) -> MappedUsage {
 /// 溢出/负值/非有限返回 None（调用方保持未知，不截断数值）。
 pub fn map_zoo_cost(total: Option<f64>) -> Option<CostAmount> {
     let total = total?;
-    if !total.is_finite() || total < 0.0 {
+    if !total.is_finite() || total <= 0.0 {
         return None;
     }
     let micros = total * 1_000_000.0;

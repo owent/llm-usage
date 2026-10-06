@@ -54,7 +54,64 @@ use crate::error::CoreError;
 use crate::ingest::DiagnosticInput;
 use serde::{Deserialize, Serialize};
 
-pub const HERMES_PARSER_VERSION: &str = "hermes-session-model-usage-1";
+pub const HERMES_PARSER_VERSION: &str = "hermes-session-model-usage-2";
+
+/// Reconstruct the complete old mapping. No arbitrary zero masks or token changes.
+pub(crate) fn prior_usage_hashes(input: &SourceAggregateInput) -> Vec<String> {
+    use crate::domain::FieldQuality as Q;
+    if input.scope != AggregateScope::Session || !input.scope_key.starts_with("smu:") {
+        return Vec::new();
+    }
+    let allowed_derived = |value: Option<i64>, quality| {
+        matches!((value, quality), (Some(_), Q::Derived) | (None, Q::Unknown))
+    };
+    if !allowed_derived(input.usage.input_total, input.quality.input_total)
+        || !allowed_derived(input.usage.total_tokens, input.quality.total_tokens)
+        || input.usage.source_total.is_some()
+        || input.quality.source_total != Q::Unknown
+    {
+        return Vec::new();
+    }
+    let old_bucket = |value, quality| match (value, quality) {
+        (Some(v), Q::Reported) if v > 0 => Some(v),
+        (None, Q::Unknown) => Some(0),
+        _ => None,
+    };
+    let Some(old_input) = old_bucket(input.usage.input_uncached, input.quality.input_uncached)
+    else {
+        return Vec::new();
+    };
+    let mut old = input.clone();
+    old.usage.input_uncached = None;
+    old.quality.input_uncached = Q::Unknown;
+    old.usage.input_total = Some(old_input);
+    old.quality.input_total = Q::Reported;
+    old.usage.total_tokens = None;
+    old.quality.total_tokens = Q::Unknown;
+    for (value, quality) in [
+        (
+            &mut old.usage.input_cache_read,
+            &mut old.quality.input_cache_read,
+        ),
+        (
+            &mut old.usage.input_cache_write,
+            &mut old.quality.input_cache_write,
+        ),
+        (&mut old.usage.output_total, &mut old.quality.output_total),
+        (
+            &mut old.usage.output_reasoning,
+            &mut old.quality.output_reasoning,
+        ),
+    ] {
+        let Some(prior) = old_bucket(*value, *quality) else {
+            return Vec::new();
+        };
+        *value = Some(prior);
+        *quality = Q::Reported;
+    }
+    old.reported_call_count = Some(input.reported_call_count.unwrap_or(0));
+    vec![crate::identity::content_hash(&old)]
+}
 /// 已处理时间的回看窗（毫秒）：覆盖同秒乱序的聚合写入。
 pub const WATERMARK_OVERLAP_MS: i64 = 60_000;
 /// 单轮行数上限。
@@ -134,7 +191,10 @@ impl SmuRow {
     }
 }
 
-fn load_window(conn: &rusqlite::Connection, since_s: f64) -> Result<Vec<SmuRow>, CoreError> {
+fn load_window(
+    conn: &rusqlite::Connection,
+    since_s: f64,
+) -> Result<Vec<Result<SmuRow, rusqlite::Error>>, CoreError> {
     let mut stmt = conn
         .prepare(&format!(
             "SELECT u.session_id, u.model, u.billing_provider, u.billing_base_url, \
@@ -173,8 +233,7 @@ fn load_window(conn: &rusqlite::Connection, since_s: f64) -> Result<Vec<SmuRow>,
             })
         })
         .map_err(CoreError::Sqlite)?;
-    rows.collect::<Result<Vec<_>, _>>()
-        .map_err(CoreError::Sqlite)
+    Ok(rows.collect())
 }
 
 /// 增量扫描一个 state.db（统一入口 `HermesAdapter::scan` 分派到本实现）。
@@ -231,6 +290,18 @@ pub fn scan(
     for row in rows.iter_mut() {
         crate::adapters::run_policy::check()?;
         records_seen += 1;
+        let row = match row {
+            Ok(row) => row,
+            Err(error) => {
+                diagnostics.push(diag(
+                    "invalid_row_type",
+                    None,
+                    "session-model-usage-row",
+                    &error.to_string(),
+                ));
+                continue;
+            }
+        };
         let scope_key = row.scope_key();
         let Some(end_ms) = row.effective_end_ms() else {
             diagnostics.push(diag(
@@ -290,7 +361,7 @@ pub fn scan(
             usage: mapped.usage,
             quality: mapped.quality,
             // 来源报告调用汇总；不伪造逐次 model_call。
-            reported_call_count: Some(row.api_call_count),
+            reported_call_count: (row.api_call_count != 0).then_some(row.api_call_count),
             // 源组合键互斥（主/task 辅助行分别累计，辅助不进主总量）。
             coverage: Coverage::Exclusive,
             duplicate_of: None,
@@ -301,7 +372,10 @@ pub fn scan(
     }
 
     // 更新已处理位置：触顶停在最后一个完整毫秒（重叠窗下轮重读，幂等）。
-    let last_end = rows.last().and_then(|r| r.effective_end_ms());
+    let last_end = rows
+        .last()
+        .and_then(|r| r.as_ref().ok())
+        .and_then(|r| r.effective_end_ms());
     let new_watermark = if hit_cap {
         last_end.map(|w| w - 1)
     } else {

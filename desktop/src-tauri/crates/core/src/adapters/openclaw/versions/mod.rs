@@ -1,16 +1,13 @@
 //! OpenClaw 版本注册表（形状约定与 kilo/hermes 一致）。
 //!
-//! A09 官方文档只给出持久层概念（会话行 + 追加式 transcript）与磁盘路径，
-//! 未给出任何表名/列名/版本标记；本机 2026-09-25 盘点 not_found，无真实样本。
-//! 因此注册表为空、无内置解析器：探测层对全部输入 fail closed（标注待核验），
-//! 取得真实脱敏 fixture 后在此登记版本 → 实现映射。
+//! Official 2026.9.8 native schema 24 and two real local CLI turns are verified.
+//! Mutable schema_meta.app_version cannot certify historical client versions.
 
 pub mod runtime_store;
 
-/// 当前格式实现标识：占位（无内置解析器；真实样本前 detect 不返回 Supported）。
-pub const LATEST_IMPL_ID: &str = "awaiting_real_sample";
+pub const LATEST_IMPL_ID: &str = "runtime_store_schema24";
 
-/// 已验证支持的版本 → 格式实现。空集：尚未用真实样本核验（见模块头）。
+/// No immutable per-record client version is available.
 pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[];
 
 /// 版本分派结论。

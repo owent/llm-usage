@@ -1,7 +1,8 @@
 //! Roo Code 适配器（VS Code 扩展 + CLI；独立目录约定）。载体：
 //! globalStorage `RooVeterinaryInc.roo-cline/tasks/<taskId>/ui_messages.json`。
 //! 官方源码已归档（b867ec9，2026-05）；tokensIn 含缓存（与 cline 四桶互斥
-//! 字段语义的产品间差异已在 adapters.md 登记）。
+//! 字段语义的产品间差异已在 adapters.md 登记）。3.54.0 官方 VSIX 另有
+//! 真实 extension-host/API 样本：默认零未知，取消及缓存详情覆盖缺口保留。
 
 pub mod detect;
 pub mod versions;
@@ -57,6 +58,18 @@ impl crate::adapters::framework::SourceAdapter for RooAdapter {
     ) -> Vec<crate::adapters::framework::DiscoveredRoot> {
         use crate::adapters::framework::{DiscoveredRoot, RootBasis};
         let mut roots: Vec<(std::path::PathBuf, RootBasis)> = Vec::new();
+        // APPDATA is an independent Windows default; isolated callers can omit
+        // home without disabling this root or visiting unrelated fixed homes.
+        if let Some(appdata) = ctx.env.get("APPDATA") {
+            roots.push((
+                std::path::PathBuf::from(appdata)
+                    .join("Code")
+                    .join("User")
+                    .join("globalStorage")
+                    .join(ROO_EXT_GLOBAL_STORAGE),
+                RootBasis::DefaultHome,
+            ));
+        }
         if let Some(home) = &ctx.home_dir {
             // CLI（vscode-shim 固定 globalStorage，无 publisher 层）。
             roots.push((
@@ -65,16 +78,6 @@ impl crate::adapters::framework::SourceAdapter for RooAdapter {
             ));
             // VS Code 扩展 globalStorage 三平台默认 + .vscode-server 远端变体
             //（远端在 WSL/SSH 侧，本机探测通常为空，保留候选）。
-            if let Some(appdata) = ctx.env.get("APPDATA") {
-                roots.push((
-                    std::path::PathBuf::from(appdata)
-                        .join("Code")
-                        .join("User")
-                        .join("globalStorage")
-                        .join(ROO_EXT_GLOBAL_STORAGE),
-                    RootBasis::DefaultHome,
-                ));
-            }
             roots.push((
                 home.join("Library")
                     .join("Application Support")
@@ -159,7 +162,7 @@ impl crate::adapters::framework::SourceAdapter for RooAdapter {
 
     fn capability(&self) -> crate::adapters::framework::CapabilityTable {
         use crate::adapters::framework::{Availability, CapabilityTable};
-        let note = "官方源码证据（Roo-Code b867ec9，已归档 2026-05）；本机未安装，待真实样本核验"
+        let note = "官方源码/VSIX 3.54.0（27001b2b）与独立容器真实 VS Code/API 对照已核验；仅该 OpenAI-compatible 样本范围"
             .to_string();
         let mut fields = serde_json::Map::new();
         let field = |availability: Availability, detail: &str| serde_json::json!({ "availability": availability, "note": detail });
@@ -167,21 +170,21 @@ impl crate::adapters::framework::SourceAdapter for RooAdapter {
             "tokens".into(),
             field(
                 Availability::Partial(note.clone()),
-                "api_req_started text 四字段；**tokensIn 含缓存**（官方三重证据），cacheReads/cacheWrites 为子集",
+                "api_req_started 正 tokensIn 含缓存、正 tokensOut 输出；四桶默认零未知；正总输入/输出可派生 total，两缓存均已知才推导未缓存",
             ),
         );
         fields.insert(
             "cache_read".into(),
             field(
                 Availability::Partial(note.clone()),
-                "cacheReads（tokensIn 子集）",
+                "正 cacheReads 为 tokensIn 子集；默认零未知，OpenAI-compatible 未读取 prompt_tokens_details.cached_tokens 的真实覆盖缺口保留",
             ),
         );
         fields.insert(
             "cache_write".into(),
             field(
                 Availability::Partial(note.clone()),
-                "cacheWrites（tokensIn 子集）",
+                "正 cacheWrites 为 tokensIn 子集，默认零未知",
             ),
         );
         fields.insert(
@@ -204,7 +207,7 @@ impl crate::adapters::framework::SourceAdapter for RooAdapter {
         );
         fields.insert(
             "cost".into(),
-            field(Availability::Partial(note.clone()), "cost（扩展按费率自算 ⇒ estimated micro-USD）；condense_context.contextCondense.cost 同口径"),
+            field(Availability::Partial(note.clone()), "正 cost 为扩展按费率自算的 estimated micro-USD；缺价目默认零未知；condense_context.contextCondense.cost 同口径"),
         );
         fields.insert(
             "latency".into(),
@@ -247,10 +250,10 @@ impl crate::adapters::framework::SourceAdapter for RooAdapter {
                 "subtask": "子任务独立目录独立计费；父任务 subtask_result 仅文本摘要",
             }),
             incremental: serde_json::json!({
-                "cursor": "整写 JSON 32 MiB 上限：字节游标 + generation 重扫；事件键 {task}:{say}:{ts} upsert 幂等",
+                "cursor": "整写 JSON 32 MiB 上限：字节游标 + generation 重扫；事件键 {task}:{say}:{ts}:{seq} upsert 幂等；doc1→2 触发未变化游标重评",
             }),
             dedup: serde_json::json!({
-                "primary": "{taskId}:api_req_started:{ts} / {taskId}:condense_context:{ts}",
+                "primary": "{taskId}:api_req_started:{ts}:{seq} / {taskId}:condense_context:{ts}:{seq}",
                 "cross_source": "与 cline/zoo 数据根不重叠；customStoragePath 根需手工添加避免漏采",
             }),
             integrity: serde_json::json!({
@@ -259,16 +262,17 @@ impl crate::adapters::framework::SourceAdapter for RooAdapter {
             }),
             maintenance: serde_json::json!({
                 "parser_version": versions::ui_messages_doc1::ROO_PARSER_VERSION,
-                "format_evidence": "Roo-Code 固定源码 b867ec9（message.ts/vscode-extension-host.ts/Task.ts/consolidateTokenUsage.ts/consolidateApiRequests.ts/checkpoints）",
-                "evidence_level": "official-source（已归档仓库；无本机样本）",
-                "upgrade_policy": "仓库已归档：格式冻结风险低；真实样本后验证",
+                "format_evidence": "Roo-Code b867ec9 结构锚点；3.54.0/27001b2b Task.ts/cost.ts/OpenAI provider 与官方 VSIX 两组真实载体/API",
+                "evidence_level": "official-source + official-distribution + real-local-model（VS Code extension host）",
+                "upgrade_policy": "未变化旧游标重评；只有完整旧摘要匹配已核验零默认/派生修正，保留首次观察、诊断与真实冲突",
             }),
             scheduling: serde_json::json!({ "entry": "统一 run_adapter_scan" }),
             limitations: vec![
-                "tokensIn 含缓存口径来自官方三重证据：与 cline 适配器（dcf8c3c 四桶互斥）的血统分歧已在 adapters.md 登记，待双方真实样本复核".into(),
+                "tokensIn 含缓存口径由官方源码及真实 API/原生对照核验；不替代 Cline 独立版本验证".into(),
                 "无逐请求模型字段（XML 标签提取启发式不采用）".into(),
                 "customStoragePath/远端 .vscode-server 根需手工添加".into(),
-                "本机未安装：文档级实现".into(),
+                "默认取消场景 API 三次、原生两次，缺失调用不补造；OpenAI-compatible 缓存详情丢失，不将零当无缓存".into(),
+                "仅 3.54.0 官方 VSIX 的本地 provider 样本；任务未成功完成，CLI、其他 provider/版本及子代理/工具场景待验".into(),
             ],
         }
     }

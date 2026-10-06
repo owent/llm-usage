@@ -75,3 +75,12 @@ fusermount 完成挂载，不使用 privileged 或关闭 WebKit 沙箱。核对�
 用户命名空间及容器权限。sudo 可用于安装缺失组件，但不自动改宿主全局配置。
 
 当前包与实际结果见 [安装验收](../../validation/desktop-usage/installation-lifecycle.md)。
+
+`--screen-reader` 为当前包重装后的独立 GUI 轮次增加真实 Orca 检查；构建镜像时安装
+Orca、Speech Dispatcher/espeak-ng、pyatspi 与 xdotool，复用镜像时回查这些包的版本。
+独立 D-Bus 和临时用户设置只在容器内启用辅助技术；使用原生 Tab/Enter，等待实际
+语音输出并核对十语言各五页切换；语言通过真实设置表单保存，每次按键只读取随后
+新增的 AT-SPI 焦点和语音日志，记录调试日志和结果，见
+[十语言验收](../../validation/desktop-usage/orca-multilang.md)。测试 launcher 仅对安装版 Orca 的
+调试文件设置行缓冲，正文变化须重新核验；事件处理和语音行为不改。ALSA null 不依赖音频硬件，不认证
+语言发音、物理可听性或其余页面控件；退出有界关闭并 wait 自有屏幕阅读器/语音进程，容器仍无网络。

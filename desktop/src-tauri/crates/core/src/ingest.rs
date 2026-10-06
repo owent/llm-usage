@@ -22,6 +22,7 @@ type ExistingRow = (
     Option<i64>,
     Option<String>,
     String,
+    Option<crate::domain::VersionBasis>,
 );
 
 /// 游标与版本化解析上下文更新（模型状态、累计基线、未完成请求）。
@@ -218,8 +219,8 @@ pub(crate) fn commit_batch_tx(
         let hash = event_content_hash(event);
         let mut existing: Option<ExistingRow> = tx
             .query_row(
-                "SELECT lifecycle, source_revision, content_hash, occurred_at_ms, event_id, observed_at_ms, source_time, parser_version
-                 FROM usage_events WHERE source_instance_id = ?1 AND source_record_key = ?2",
+                &format!("SELECT lifecycle, source_revision, content_hash, occurred_at_ms, event_id, observed_at_ms, source_time, parser_version, {}
+                 FROM usage_events WHERE source_instance_id = ?1 AND source_record_key = ?2", if parse_basis_column { "parse_basis" } else { "NULL" }),
                 params![event.source_instance_id, event.source_record_key],
                 |r| {
                     Ok((
@@ -234,13 +235,14 @@ pub(crate) fn commit_batch_tx(
                         r.get::<_, Option<i64>>(5)?,
                         r.get::<_, Option<String>>(6)?,
                         r.get::<_, String>(7)?,
+                        r.get::<_, Option<String>>(8)?.map(|s|crate::domain::VersionBasis::parse(&s)).transpose().map_err(|e|rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
                     ))
                 },
             )
             .optional()?;
         // v1 的内容摘要包含 observed_at；仅观察时间改变仍视为同一内容。
         // 同键同内容的重复 final（仅发生/观察/源时间文本不同）是重报而非冲突，同样视为同一内容。
-        if let Some((meta, old_ms, _, observed, old_source_time, _)) = &mut existing {
+        if let Some((meta, old_ms, _, observed, old_source_time, _, _)) = &mut existing {
             let mut legacy = event.clone();
             legacy.observed_at_ms = *observed;
             if meta.content_hash == content_hash(&legacy) {
@@ -254,10 +256,14 @@ pub(crate) fn commit_batch_tx(
         }
         let eid = existing
             .as_ref()
-            .map(|(_, _, id, _, _, _)| id.clone())
+            .map(|(_, _, id, _, _, _, _)| id.clone())
             .unwrap_or(eid);
-        let arbitration = arbitrate(existing.as_ref().map(|(m, _, _, _, _, _)| m), event, &hash);
-        if arbitration == Arbitration::Conflict {
+        let arbitration = arbitrate(
+            existing.as_ref().map(|(m, _, _, _, _, _, _)| m),
+            event,
+            &hash,
+        );
+        if matches!(arbitration, Arbitration::Conflict | Arbitration::Keep) {
             if let Some(old) = existing
                 .as_ref()
                 .filter(|old| parser_metadata_upgrade(old, event))
@@ -301,10 +307,53 @@ pub(crate) fn commit_batch_tx(
                 continue;
             }
         }
+        if arbitration == Arbitration::Conflict {
+            if let Some(old) = existing.as_ref().filter(|old| {
+                gajae_policy_upgrade(old, event)
+                    || junie_policy_upgrade(old, event)
+                    || ui_message_policy_upgrade(old, event)
+                    || mimo_policy_upgrade(old, event)
+            }) {
+                // Explicit source policies compare the full old
+                // digest. Preserve first observation, real conflict flags and all
+                // audit history while correcting only the verified derived fields.
+                let conflict: i64 = tx.query_row(
+                    "SELECT conflict FROM usage_events WHERE event_id=?1",
+                    [&eid],
+                    |r| r.get(0),
+                )?;
+                let mut current = event.clone();
+                current.observed_at_ms = old.3;
+                update_event(
+                    tx,
+                    &current,
+                    &eid,
+                    &event_content_hash(&current),
+                    batch.now_ms,
+                    parse_basis_column,
+                )?;
+                if conflict != 0 || content_conflicts.contains(&eid) {
+                    tx.execute(
+                        "UPDATE usage_events SET conflict=1 WHERE event_id=?1",
+                        [&eid],
+                    )?;
+                }
+                outcome.updated += 1;
+                affected.insert(calendar.local_day_of(old.1)?);
+                pending_diagnostics.push((Some(eid), DiagnosticInput {
+                    event_id: None,
+                    code: "parser_policy_updated".into(),
+                    field: Some("parser_version".into()),
+                    position: None,
+                    message: format!("full prior {} digest matched verified source policy correction; revision and audit preserved", old.5),
+                }));
+                continue;
+            }
+        }
         let arbitration = if arbitration == Arbitration::Conflict
             && existing
                 .as_ref()
-                .is_some_and(|(meta, _, _, _, _, _)| vs_copilot_policy_upgrade(meta, event))
+                .is_some_and(|(meta, _, _, _, _, _, _)| vs_copilot_policy_upgrade(meta, event))
         {
             Arbitration::Replace
         } else {
@@ -320,7 +369,7 @@ pub(crate) fn commit_batch_tx(
                 update_event(tx, event, &eid, &hash, batch.now_ms, parse_basis_column)?;
                 outcome.updated += 1;
                 affected.insert(calendar.local_day_of(event.occurred_at_ms)?);
-                if let Some((_, old_ms, _, _, _, _)) = existing {
+                if let Some((_, old_ms, _, _, _, _, _)) = existing {
                     affected.insert(calendar.local_day_of(old_ms)?);
                 }
             }
@@ -335,7 +384,7 @@ pub(crate) fn commit_batch_tx(
                     params![eid],
                 )?;
                 outcome.conflicts += 1;
-                if let Some((_, old_ms, _, _, _, _)) = existing {
+                if let Some((_, old_ms, _, _, _, _, _)) = existing {
                     affected.insert(calendar.local_day_of(old_ms)?);
                 }
                 pending_diagnostics.push((
@@ -367,6 +416,7 @@ pub(crate) fn commit_batch_tx(
     }
     crate::copilot_carriers::upgrade_otel_identity(tx, batch, &calendar, &mut affected)?;
     crate::copilot_carriers::select(tx, batch, &calendar, &mut affected)?;
+    crate::qwen_carriers::select(tx, batch, &calendar, &mut affected)?;
     check_fault(fault, FaultPoint::AfterEvents)?;
 
     // 2. 游标与解析上下文（同事务；分两段以便故障点语义清晰）。
@@ -456,11 +506,12 @@ pub(crate) fn commit_batch_tx(
 
 /// 比较完整旧事件摘要，不把解析器更名当作源修订或允许其他字段变化。
 fn parser_metadata_upgrade(old: &ExistingRow, event: &EventInput) -> bool {
-    if old.5 == event.parser_version {
+    if old.5 == event.parser_version && old.6 == event.parse_basis {
         return false;
     }
     let mut legacy = event.clone();
     legacy.parser_version = old.5.clone();
+    legacy.parse_basis = old.6;
     // 同键重复 final 的时间兼容与普通仲裁一致；元数据更新仍保留原时间。
     for preserve_time in [false, true] {
         if preserve_time {
@@ -472,6 +523,398 @@ fn parser_metadata_upgrade(old: &ExistingRow, event: &EventInput) -> bool {
         }
         legacy.observed_at_ms = old.3;
         if content_hash(&legacy) == old.0.content_hash {
+            return true;
+        }
+    }
+    false
+}
+
+/// Only the known gajae v5/OpenAI-completions policy can produce these v2
+/// unknown buckets/start basis. Reconstruct every old field before comparing
+/// canonical or legacy full hashes; unrelated content changes still arbitrate.
+fn gajae_policy_upgrade(old: &ExistingRow, event: &EventInput) -> bool {
+    use crate::domain::{FieldQuality as Q, TimeBasis, VersionBasis};
+    if event.agent != "gajae-code"
+        || event.schema_version != "gjc-session-doc-1"
+        || event.parser_version != "gjc-session-2"
+        || old.5 != "gjc-session-1"
+        || event.parse_basis != Some(VersionBasis::KnownVersion)
+        || old.0.source_revision != event.source_revision
+    {
+        return false;
+    }
+    let mut legacy = event.clone();
+    legacy.parser_version = old.5.clone();
+    legacy.parse_basis = old.6;
+    legacy.observed_at_ms = old.3;
+    let mut changed = false;
+    for (value, quality, old_quality) in [
+        (
+            &mut legacy.usage.input_cache_read,
+            &mut legacy.quality.input_cache_read,
+            Q::Reported,
+        ),
+        (
+            &mut legacy.usage.input_cache_write,
+            &mut legacy.quality.input_cache_write,
+            Q::Reported,
+        ),
+        (
+            &mut legacy.usage.input_total,
+            &mut legacy.quality.input_total,
+            Q::Derived,
+        ),
+        (
+            &mut legacy.usage.output_total,
+            &mut legacy.quality.output_total,
+            Q::Reported,
+        ),
+        (
+            &mut legacy.usage.source_total,
+            &mut legacy.quality.source_total,
+            Q::Reported,
+        ),
+    ] {
+        if value.is_none() && *quality == Q::Unknown {
+            *value = Some(0);
+            *quality = old_quality;
+            changed = true;
+        }
+    }
+    if legacy.usage.input_uncached.is_none() && legacy.quality.input_uncached == Q::Unknown {
+        let Some(uncached) = legacy
+            .usage
+            .input_total
+            .zip(legacy.usage.input_cache_read)
+            .zip(legacy.usage.input_cache_write)
+            .and_then(|((i, r), w)| i.checked_sub(r)?.checked_sub(w))
+            .filter(|v| *v >= 0)
+        else {
+            return false;
+        };
+        legacy.usage.input_uncached = Some(uncached);
+        legacy.quality.input_uncached = Q::Reported;
+        changed = true;
+    }
+    if legacy.usage.total_tokens.is_none() && legacy.quality.total_tokens == Q::Unknown {
+        legacy.usage.total_tokens = legacy
+            .usage
+            .input_total
+            .zip(legacy.usage.output_total)
+            .and_then(|(i, o)| i.checked_add(o))
+            .filter(|v| *v <= crate::domain::MAX_TOKEN_VALUE);
+        legacy.quality.total_tokens = if legacy.usage.total_tokens.is_some() {
+            Q::Derived
+        } else {
+            Q::Unknown
+        };
+        changed = true;
+    }
+    if legacy.time_basis == TimeBasis::SourceStart {
+        legacy.time_basis = TimeBasis::SourceCompletion;
+        changed = true;
+    }
+    changed
+        && (event_content_hash(&legacy) == old.0.content_hash
+            || content_hash(&legacy) == old.0.content_hash)
+}
+
+/// Official Junie normalized input and zero defaults. A maximum of 128
+/// candidates restores only missing/default-zero fields of the old parser;
+/// every other field must match its full canonical or legacy digest.
+fn junie_policy_upgrade(old: &ExistingRow, event: &EventInput) -> bool {
+    use crate::domain::{CostAmount, CostKind, FieldQuality as Q, VersionBasis};
+    if event.agent != "junie"
+        || event.schema_version != "junie-events-doc-1"
+        || event.parser_version != "junie-events-doc2"
+        || old.5 != "junie-events-doc1"
+        || event.parse_basis != Some(VersionBasis::KnownVersion)
+        || old.0.source_revision != event.source_revision
+        || event.usage.input_total.is_some()
+        || event.quality.input_total != Q::Unknown
+    {
+        return false;
+    }
+    for mask in 0u8..128 {
+        let mut legacy = event.clone();
+        legacy.parser_version = old.5.clone();
+        legacy.parse_basis = old.6;
+        legacy.observed_at_ms = old.3;
+        legacy.usage.input_total = legacy.usage.input_uncached.take();
+        legacy.quality.input_total = legacy.quality.input_uncached;
+        legacy.quality.input_uncached = Q::Unknown;
+        if let Some(cost) = &mut legacy.cost {
+            if cost.kind == CostKind::Estimated {
+                cost.kind = CostKind::Reported;
+            }
+        }
+        for (bit, value, quality) in [
+            (
+                0,
+                &mut legacy.usage.input_total,
+                &mut legacy.quality.input_total,
+            ),
+            (
+                1,
+                &mut legacy.usage.output_total,
+                &mut legacy.quality.output_total,
+            ),
+            (
+                2,
+                &mut legacy.usage.input_cache_read,
+                &mut legacy.quality.input_cache_read,
+            ),
+            (
+                3,
+                &mut legacy.usage.input_cache_write,
+                &mut legacy.quality.input_cache_write,
+            ),
+            (
+                4,
+                &mut legacy.usage.output_reasoning,
+                &mut legacy.quality.output_reasoning,
+            ),
+        ] {
+            if mask & (1 << bit) != 0 && value.is_none() && *quality == Q::Unknown {
+                *value = Some(0);
+                *quality = Q::Reported;
+            }
+        }
+        if mask & 32 != 0 && legacy.cost.is_none() {
+            legacy.cost = Some(CostAmount {
+                amount_minor: 0,
+                currency: "USD".into(),
+                kind: CostKind::Reported,
+                price_version: None,
+                billing_scope: None,
+            });
+        }
+        if mask & 64 != 0 && legacy.duration_ms.is_none() && legacy.interval_start_ms.is_none() {
+            legacy.duration_ms = Some(0);
+            legacy.interval_start_ms = Some(legacy.occurred_at_ms);
+        }
+        if event_content_hash(&legacy) == old.0.content_hash
+            || content_hash(&legacy) == old.0.content_hash
+        {
+            return true;
+        }
+    }
+    false
+}
+
+/// MiMo's required raw counters and client price default to zero. Restore only those
+/// absent/default fields and their old derived values; the full prior digest
+/// still protects identity, every positive value, quality and attribution.
+fn mimo_policy_upgrade(old: &ExistingRow, event: &EventInput) -> bool {
+    use crate::domain::{CostAmount, CostKind, FieldQuality as Q};
+    if event.agent != "mimo-code"
+        || event.parser_version != "mimo-code-step-finish-parts-2"
+        || old.5 != "mimo-code-step-finish-parts-1"
+        || event.parse_basis != Some(crate::domain::VersionBasis::LatestFallback)
+        || old.6 == Some(crate::domain::VersionBasis::KnownVersion)
+        || old.0.source_revision != event.source_revision
+    {
+        return false;
+    }
+    let Some(output) = event
+        .usage
+        .output_total
+        .unwrap_or(0)
+        .checked_sub(event.usage.output_reasoning.unwrap_or(0))
+        .filter(|v| *v >= 0)
+    else {
+        return false;
+    };
+    let expected = crate::adapters::opencode_family::map_mimo_usage(
+        &crate::adapters::opencode_family::OpencodeFamilyUsage {
+            input: event.usage.input_uncached.unwrap_or(0),
+            output,
+            reasoning: event.usage.output_reasoning.unwrap_or(0),
+            cache_read: event.usage.input_cache_read.unwrap_or(0),
+            cache_write: event.usage.input_cache_write.unwrap_or(0),
+            total: event.usage.source_total,
+        },
+    );
+    if expected.usage != event.usage || expected.quality != event.quality {
+        return false;
+    }
+    // Five raw counters were required by the old parser. Reconstruct its full
+    // summary; never authorize a correction merely from an unchanged part ID.
+    for mask in 0u8..4 {
+        let mut legacy = event.clone();
+        legacy.parser_version = old.5.clone();
+        legacy.parse_basis = old.6;
+        legacy.observed_at_ms = old.3;
+        for (value, quality) in [
+            (
+                &mut legacy.usage.input_uncached,
+                &mut legacy.quality.input_uncached,
+            ),
+            (
+                &mut legacy.usage.input_cache_read,
+                &mut legacy.quality.input_cache_read,
+            ),
+            (
+                &mut legacy.usage.input_cache_write,
+                &mut legacy.quality.input_cache_write,
+            ),
+            (
+                &mut legacy.usage.output_reasoning,
+                &mut legacy.quality.output_reasoning,
+            ),
+        ] {
+            if value.is_none() && *quality == Q::Unknown {
+                *value = Some(0);
+                *quality = Q::Reported;
+            }
+        }
+        legacy.usage.input_total = legacy
+            .usage
+            .input_uncached
+            .zip(legacy.usage.input_cache_read)
+            .zip(legacy.usage.input_cache_write)
+            .and_then(|((i, r), w)| i.checked_add(r)?.checked_add(w));
+        legacy.quality.input_total = if legacy.usage.input_total.is_some() {
+            Q::Derived
+        } else {
+            Q::Unknown
+        };
+        if legacy.usage.output_total.is_none() && legacy.quality.output_total == Q::Unknown {
+            legacy.usage.output_total = Some(0);
+            legacy.quality.output_total = Q::Derived;
+        }
+        if mask & 1 != 0
+            && legacy.usage.source_total.is_none()
+            && legacy.quality.source_total == Q::Unknown
+        {
+            legacy.usage.source_total = Some(0);
+            legacy.quality.source_total = Q::Reported;
+        }
+        let derived = legacy
+            .usage
+            .input_total
+            .zip(legacy.usage.output_total)
+            .and_then(|(i, o)| i.checked_add(o));
+        legacy.usage.total_tokens = derived.or(legacy.usage.source_total);
+        legacy.quality.total_tokens = if derived.is_some() {
+            Q::Derived
+        } else if legacy.usage.source_total.is_some() {
+            Q::Reported
+        } else {
+            Q::Unknown
+        };
+        if mask & 2 != 0 && legacy.cost.is_none() {
+            legacy.cost = Some(CostAmount {
+                amount_minor: 0,
+                currency: "USD".into(),
+                kind: CostKind::Estimated,
+                price_version: None,
+                billing_scope: None,
+            });
+        }
+        if event_content_hash(&legacy) == old.0.content_hash
+            || content_hash(&legacy) == old.0.content_hash
+        {
+            return true;
+        }
+    }
+    false
+}
+
+fn ui_message_policy_upgrade(old: &ExistingRow, event: &EventInput) -> bool {
+    use crate::domain::{CostAmount, CostKind, FieldQuality as Q, VersionBasis};
+    let (schema, current, prior, derive_uncached) = match event.agent.as_str() {
+        "roo-code" => (
+            "roo-ui-messages-doc-1",
+            "roo-ui-messages-doc2",
+            "roo-ui-messages-doc1",
+            true,
+        ),
+        "zoo-code" => (
+            "zoo-ui-messages-doc-1",
+            "zoo-ui-messages-doc2",
+            "zoo-ui-messages-doc1",
+            false,
+        ),
+        _ => return false,
+    };
+    if event.schema_version != schema
+        || event.parser_version != current
+        || old.5 != prior
+        || event.parse_basis != Some(VersionBasis::KnownVersion)
+        || old.0.source_revision != event.source_revision
+    {
+        return false;
+    }
+    for mask in 0u8..32 {
+        let mut legacy = event.clone();
+        legacy.parser_version = old.5.clone();
+        legacy.parse_basis = old.6;
+        legacy.observed_at_ms = old.3;
+        for (bit, value, quality) in [
+            (
+                0,
+                &mut legacy.usage.input_total,
+                &mut legacy.quality.input_total,
+            ),
+            (
+                1,
+                &mut legacy.usage.output_total,
+                &mut legacy.quality.output_total,
+            ),
+            (
+                2,
+                &mut legacy.usage.input_cache_read,
+                &mut legacy.quality.input_cache_read,
+            ),
+            (
+                3,
+                &mut legacy.usage.input_cache_write,
+                &mut legacy.quality.input_cache_write,
+            ),
+        ] {
+            if mask & (1 << bit) != 0 && value.is_none() && *quality == Q::Unknown {
+                *value = Some(0);
+                *quality = Q::Reported;
+            }
+        }
+        if derive_uncached
+            && legacy.usage.input_uncached.is_none()
+            && legacy.quality.input_uncached == Q::Unknown
+        {
+            legacy.usage.input_uncached = legacy
+                .usage
+                .input_total
+                .zip(legacy.usage.input_cache_read)
+                .zip(legacy.usage.input_cache_write)
+                .and_then(|((i, r), w)| i.checked_sub(r)?.checked_sub(w))
+                .filter(|v| *v >= 0);
+            if legacy.usage.input_uncached.is_some() {
+                legacy.quality.input_uncached = Q::Derived;
+            }
+        }
+        if legacy.usage.total_tokens.is_none() && legacy.quality.total_tokens == Q::Unknown {
+            legacy.usage.total_tokens = legacy
+                .usage
+                .input_total
+                .zip(legacy.usage.output_total)
+                .and_then(|(i, o)| i.checked_add(o));
+            if legacy.usage.total_tokens.is_some() {
+                legacy.quality.total_tokens = Q::Derived;
+            }
+        }
+        if mask & 16 != 0 && legacy.cost.is_none() {
+            legacy.cost = Some(CostAmount {
+                amount_minor: 0,
+                currency: "USD".into(),
+                kind: CostKind::Estimated,
+                price_version: None,
+                billing_scope: None,
+            });
+        }
+        if event_content_hash(&legacy) == old.0.content_hash
+            || content_hash(&legacy) == old.0.content_hash
+        {
             return true;
         }
     }

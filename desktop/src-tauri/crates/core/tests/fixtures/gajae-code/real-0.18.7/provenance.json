@@ -1,0 +1,44 @@
+{
+  "captured_at": "2026-10-06",
+  "client": "gajae-code",
+  "client_version": "0.18.7",
+  "binary_version": "gjc/0.18.7",
+  "release": "https://github.com/Yeachan-Heo/gajae-code/releases/tag/v0.18.7",
+  "asset_sha256": "c7d745845ac975a500a836c2e362e74791e6f430cffd760c0d186bc5e1cb8486",
+  "source_file_sha256": "be9f3e72bc71e3d58a81ef23fd7cf68e0c41fe30d0fb5a1c812ed1dfb002affb",
+  "source_fields": {
+    "entry": [
+      "type",
+      "version",
+      "id",
+      "parentId",
+      "timestamp",
+      "provider",
+      "modelId",
+      "model",
+      "api",
+      "thinkingLevel",
+      "customType",
+      "role",
+      "entries",
+      "origin",
+      "explicitHead",
+      "cleared"
+    ],
+    "message": [
+      "role",
+      "api",
+      "provider",
+      "model",
+      "usage",
+      "timestamp",
+      "responseId",
+      "stopReason",
+      "duration",
+      "ttft"
+    ]
+  },
+  "anonymization": "session/entry/response identities replaced consistently; prompts, content, cwd, attribution, promptPrefix and arbitrary custom payload omitted; usage numbers, types, parent relationships and timestamps preserved",
+  "inference": "genuine llama.cpp Qwen 2.5 0.5B; offline rootless Podman ordinary user; custom local-model auth none; no tools/lsp/mcp/rules/title; thinking off; isolated GJC_CODING_AGENT_DIR",
+  "limits": "one successful OpenAI-completions call; normalized zero cache can mean missing upstream field and is unknown; uncached unknown; positive reconstructed input 412/output 2/total 414; source timestamp initialized before request; session format version 5 is not product version; other APIs, versions, branches and agents not certified"
+}

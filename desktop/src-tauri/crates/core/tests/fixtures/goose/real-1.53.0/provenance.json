@@ -1,0 +1,30 @@
+{
+  "product": "Goose",
+  "product_version": "1.53.0",
+  "capture_date": "2026-10-06",
+  "official_release": "https://github.com/aaif-goose/goose/releases/tag/v1.53.0",
+  "official_asset": "goose-x86_64-unknown-linux-gnu.tar.gz",
+  "asset_sha256": "deb2191a6b75acc0a20232fc5c52655ea2f9cc8fa2f5dffc8622e8d378a915dc",
+  "raw_database_sha256": "f1c1d714b195aa1795c50ed2db1795613d868a07340cbf0b1a563384fdfebdcf",
+  "runtime": "Rootless Podman; no external network or host mounts; ordinary acceptance user",
+  "model": "qwen2.5-0.5b-local; real llama.cpp inference",
+  "source_fields": [
+    "sqlite_master sessions/usage_ledger schemas",
+    "sessions id/created_at/updated_at/provider_name/model_config_json/accumulated_* token/cache/cost",
+    "usage_ledger all columns"
+  ],
+  "redaction": "Session identity replaced consistently; message bodies, working directory and other session values omitted. Schemas and numeric/time/model fields retained.",
+  "version_basis": "Product version is capture provenance; carrier schema has no per-row product version, so goose-usage-ledger-1 remains a format anchor.",
+  "independent_check": {
+    "api_calls": 1,
+    "prompt_tokens": 320,
+    "completion_tokens": 2,
+    "total_tokens": 322,
+    "cache_read_tokens": 0
+  },
+  "limitations": [
+    "One CLI response without extensions or compaction only. No desktop, subagents, rewind/fork, old schema or other-version real acceptance.",
+    "Cache write, cost and reasoning remain unknown; missing fields do not become zero.",
+    "Provider identity is not guessed from the session provider or model name."
+  ]
+}

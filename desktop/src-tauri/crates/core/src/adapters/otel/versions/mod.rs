@@ -2,6 +2,7 @@
 //! （VS Code agent_monitoring.md bdc5ebe 文档格式 + CodeBuddy agentlens 属性，
 //! 2026-09-29 官方文档核验；无本机真实样本）。
 
+pub mod qwen_sdk_025;
 pub mod spans_doc1;
 
 /// 当前格式实现标识。
@@ -11,7 +12,10 @@ pub const LATEST_IMPL_ID: &str = "spans_doc1";
 pub const OTEL_FORMAT_VERSION: &str = "otel-spans-doc-1";
 
 /// 已验证支持的格式版本 → 格式实现。
-pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[("otel-spans-doc-1", "spans_doc1")];
+pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[
+    ("otel-spans-doc-1", "spans_doc1"),
+    ("qwen-code-sdk-file-0.25.0", "qwen_sdk_025"),
+];
 
 /// 版本分派结论。
 #[derive(Debug, Clone, PartialEq, Eq)]

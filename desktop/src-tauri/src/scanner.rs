@@ -164,7 +164,7 @@ fn run_refresh_in_context(
         origin_host_id: Some(host_id),
     };
     let ctx = context.unwrap_or_else(|| discover_context(manual_roots, manual_only));
-    // Only the verified Copilot file targets produced by this app are promoted.
+    // Only the verified Copilot/Qwen file targets produced by this app are promoted.
     // Other supplemental exports retain their isolated validation boundary.
     let copilot_roots = if manual_only {
         Vec::new()
@@ -172,7 +172,7 @@ fn run_refresh_in_context(
         state
             .db_path
             .parent()
-            .map(crate::telemetry_setup::copilot_usage_roots)
+            .map(crate::telemetry_setup::verified_usage_roots)
             .unwrap_or_default()
     };
     let mut summaries: Vec<RefreshInstanceSummary> = Vec::new();
@@ -184,6 +184,11 @@ fn run_refresh_in_context(
             llm_usage_core::adapters::routing::retire_misrouted_sources(&storage, &copilot_roots)
         {
             eprintln!("source routing repair failed: {e}");
+        }
+        if let Err(e) =
+            llm_usage_core::adapters::routing::retire_misrouted_qwen_sources(&storage, &ctx)
+        {
+            eprintln!("Qwen source routing repair failed: {e}");
         }
         storage.data_revision().unwrap_or(0)
     };

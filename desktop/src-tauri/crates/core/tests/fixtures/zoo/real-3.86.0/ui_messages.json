@@ -1,0 +1,30 @@
+[
+  {
+    "type": "say",
+    "say": "text",
+    "ts": 1791290965774
+  },
+  {
+    "type": "say",
+    "say": "api_req_started",
+    "ts": 1791290965787,
+    "text": "{\"apiProtocol\":\"openai\",\"tokensIn\":6118,\"tokensOut\":53,\"cacheWrites\":0,\"cacheReads\":0,\"cost\":0}"
+  },
+  {
+    "type": "say",
+    "say": "reasoning",
+    "ts": 1791290971441,
+    "partial": false
+  },
+  {
+    "type": "say",
+    "say": "text",
+    "ts": 1791290973022,
+    "partial": true
+  },
+  {
+    "type": "ask",
+    "ask": "resume_task",
+    "ts": 1791290973139
+  }
+]

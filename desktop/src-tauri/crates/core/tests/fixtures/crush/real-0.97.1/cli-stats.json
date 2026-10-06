@@ -1,0 +1,13 @@
+{
+  "total": {
+    "total_sessions": 1,
+    "total_prompt_tokens": 4899,
+    "total_completion_tokens": 2,
+    "total_tokens": 4901,
+    "total_cost": 0.005059,
+    "total_messages": 2,
+    "avg_tokens_per_session": 4901,
+    "avg_messages_per_session": 2
+  },
+  "tool_usage": null
+}

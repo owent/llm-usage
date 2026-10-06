@@ -10,7 +10,13 @@
 和 [接入矩阵](docs/design/desktop-usage/adapters.md)。未知用量不补零；消息、调用、
 累计值和额度分开；共享内核或同名字段不能替代逐版本核验依据。
 混合版本载体按记录所属版本保留依据，库内最高版本不认证其他会话；
+OpenClaw 按 [schema 24 合同](docs/design/desktop-usage/openclaw-runtime.md)读取已核验本地
+hot transcript；整库 app_version 不认证历史，其他 transport/冷归档保持明确边界。
 空会话不能作为用量格式核验依据，兼容读取已经自动检查，支持更新后自动重评。
+OpenCode 按实际 step-finish 所属会话核验版本；旧处理位置升级须覆盖同毫秒分页与完整旧摘要，
+只有完整有效扫描才标记规则已更新。Qwen 0.25.0 SDK file 为连续多行 JSON，
+按完整对象有界续读；逐次 span 与原生按主机/用户/会话/本地日择一，封存分区保留，
+日志/指标不叠加，其他版本与未知归属隔离，详见数据合同与遥测配置合同。
 只统计本机 Agent 来源，不接入远端用量/账单 API 或跨设备账号报表；落盘文件仍须核验来源。
 Windows 11 x64 首发，GitHub CI 保留 macOS/Linux；WSL 构建不等于 Linux 桌面验收。
 本轮不要求 macOS 桌面或特定硬件；Linux 实际 GUI/包生命周期可在独立 Podman 验收，
@@ -19,6 +25,13 @@ Windows 11 x64 首发，GitHub CI 保留 macOS/Linux；WSL 构建不等于 Linux
 定时任务只调度本地采集，按需读 [调度合同](docs/design/desktop-usage/scheduling.md)。
 自动暂停须覆盖启动、逐源及残留系统触发；手动刷新仍读取所有启用来源。
 两个来源实例槽共享单写者；指纹/代数与事件/游标同事务，中断/合并/未访问不推进来源期限。
+容器真实客户端样本与产品版本分别记录，载体无版本不能以安装版本认证其他记录。
+Continue CLI 缓存默认零须保留未知；仅完整旧聚合摘要的该项规则纠正可保留同修订更新，
+其他字段仍仲裁，不伪造累计的调用/模型/日归属，见 [M8 样本](docs/validation/desktop-usage/m8-container-samples.md)。
+AtomCode 原生三桶默认零/坏桶同样不认证用量；仅配对且已核验形状的辅助状态排除，
+完整旧聚合摘要、同源修订和事务规则见数据合同，不能按后缀隐藏手工文件错误。
+gajae-code OpenAI-completions 的默认零与请求开始时间按数据合同处理；
+显式旧规则纠正须匹配完整旧事件摘要，保留冲突/历史，其他 API 不套用该结论。
 系统任务保存意图并回查实际定义，不能凭任务存在报成功；只清理自有任务。
 定点规则时区独立保存，DST 和旧库迁移须回归；原生测试同时隔离来源环境，
 `--data-dir` 只隔离应用数据。模拟 IPC、无界面可执行文件和 GUI 验证结果分别报告。
@@ -62,10 +75,31 @@ VS Code turn/modelTotals 是用量 observation，toolCallRounds 才计已观测
 修正 Copilot 统计/健康规则时须验收已消费且字节未变化的旧游标；重放保留单调修订和历史，
 仅完整有效快照标记规则已更新，不用清库恢复展示。质量分区须检查全部 token 字段。
 Kilo 独立累计快照差异只作对账；真实逐行错误与未知版本兼容分别保留，增量窗不能掩盖坏行。
-健康修正沿真实发现路径重评旧水位；坏类型不得中断其他有效消息入库，详见数据合同。
+健康修正沿真实发现路径重评旧处理位置；坏类型不得中断其他有效消息入库，详见数据合同。
+Xum 0.30.0 display input 为非缓存输入，默认零未知；正文本输出加已知推理，
+推理未知时仅作下界且完整总量未知。默认 CLI 临时载体与 custom provider 的流式
+usage 缺口、网关仅请求真实 usage 的对照分别记录；旧库修正须比较完整聚合摘要。
+Roo 3.54.0 四桶/估价默认零未知；OpenAI-compatible 未读嵌套缓存详情，不能按零
+推导未缓存。取消可删除最后请求载体，缺失调用不补造；旧完整摘要/未变游标重评
+保留首次观察、诊断及真实冲突，公开扩展 API 样本不认证 CLI/其他产品。
+Junie 26.9.22 的 inputTokens 为非缓存输入，原生零分项/费用/耗时不能认证报告零；
+正费用为客户端估算，失败任务已写入的调用仍计数。旧规则纠正保留原始键，完整旧
+摘要仅允许已核验字段差异，不能清库或按模型名推断 API/总输入，见数据合同与 M8 样本。
 修正解析器升级冲突时须比较完整旧事件摘要，只允许解析依据变化；token/质量/模型/
 归属等变化仍仲裁，同批次真实冲突不能被后续元数据更新清除。验收旧摘要、旧游标/
-水位、重复读取及事务回滚，保留诊断历史并同事务重算未封存汇总。
+处理位置、重复读取及事务回滚，保留诊断历史并同事务重算未封存汇总。
+Hermes 原生 input_tokens 为未缓存桶，reasoning 是输出子集；缺有效性标记的默认零
+保持未知，整库 schema_version 不认证逐行客户端版本。累计规则修正比较完整旧摘要，
+重放已消费的旧处理位置；有效 exclusive 累计行可兼容读取，duplicate/overlap_unknown
+对账快照不认证格式，见 [Hermes 实样记录](docs/validation/desktop-usage/hermes-container-sample.md)。
+Cline 4.1.22 VS Code SDK 与旧 UI 文件独立读取；SDK inputTokens 含缓存、默认零未知，
+metrics 可能合并 run/重试，记 usage_observation 不推导底层调用数。会话 origin.version
+可重写，不认证全部历史消息；只读原生 messages，不叠加 manifest/DB 累计，
+CLI/其他 SDK 面和迁移真实验收另证，见 [Cline 记录](docs/validation/desktop-usage/cline-container-sample.md)。
+维护 MiMo/Zoo/DSH 时读 [真实载体合同](docs/design/desktop-usage/m3-runtime-samples.md)：
+MiMo SDK 归一桶与 OpenCode 独立，Zoo 完整 ask/say 枚举及默认零保持未知；
+DSH v4 JSONL/zstd 按 settlement/retry/继承边界读取，自算 total 不认证源总量。
+旧摘要/未变游标重评和全注册表归属恢复须保留真实冲突、诊断及其他坏文件。
 维护本机遥测检查与配置入口时，读 [配置合同](docs/design/desktop-usage/copilot-otel.md)：
 后台检查只读，应用按用户层字段合并并保留现有输出目标。HTTP 鉴权维护读
 [认证合同](docs/design/desktop-usage/receiver-auth.md)：逐源凭据进系统存储，预览/IPC 不返回秘密，失败及撤销回收自有令牌，不开放无保护接收。已核验的 VS Code Copilot
@@ -74,6 +108,9 @@ file 输出按主机/用户/会话/本地日择一；保留原生记录，不按
 Linux 凭据仅用 Secret Service 默认持久集合，拒绝锁定、重复、临时及其他集合；
 macOS Keychain 禁用云同步与认证 UI。系统存储不可用时拒绝接入，
 原生往返、交叉编译和真实 exporter 验收分别报告；Linux 测试用独立 D-Bus/一次性 keyring。
+Windows 写入成功后的缺失回读可有界等待；认证读取不等待，内容不符/读取错误立即拒绝，
+回收仍只比较完整自有内容；撤销也须重评缺失并确认删除，超限报告失败。
+并行与跨进程的首次失败须保留，后续通过不替代原因核验。
 状态提示、模型费用明细、趋势布局或选区查询维护时，按需读
 [看板交互合同](docs/design/desktop-usage/dashboard-polish.md)。
 维护日查询性能或派生缓存时，按需读 [查询加速](docs/design/desktop-usage/query-acceleration.md)，
@@ -106,7 +143,7 @@ npm run test:import     # Windows 百万首次 GUI 导入/全进程峰值；隔�
 npm run test:desktop    # Windows 原生 WebView2/IPC；须有可用 CDP，先构建
 npm run test:receiver   # Windows 真实 IPC/HTTP/凭据库；隔离合成配置，自有凭据回收，先构建
 npm run test:install:windows -- --help # 真实 NSIS 生命周期；需旧/新包，当前用户无已有安装
-npm run test:install:linux -- --help   # Linux rootless Podman，真实 deb/AppImage 与 GTK/WebKit
+npm run test:install:linux -- --help   # Linux rootless Podman，真实 deb/AppImage 与 GTK/WebKit；--screen-reader 验 Orca 十语言五页导航
 npm run test:credentials:linux # Linux 独立 D-Bus/系统凭据往返；需 gnome-keyring/dbus-x11
 git diff --check
 git status --short

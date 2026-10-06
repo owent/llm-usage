@@ -1,5 +1,11 @@
 # M8 第二批适配器实施验证记录（2026-09-29）
 
+2026-10-06 Aider 0.86.2、Goose 1.53.0、Continue CLI 1.5.47、jcode 0.91.0 与
+gajae-code 0.18.7、AtomCode 5.2.1、Crush 0.97.1、Junie 26.9.22、Xum 0.30.0 与 Roo 3.54.0 已补官方容器/本地模型
+非空真实样本、独立核对与回归（Crush 仅成本；Junie 任务失败但已有七次调用；
+Xum 默认流缺用量，网关上游请求选项对照单列；Roo 缓存及取消尾调用覆盖缺口保留），
+见 [M8 容器样本](m8-container-samples.md)。以下保留当时的文档级实施证据。
+
 范围：M8 扩展 Agent 覆盖（[调研 A25–A48](../../design/desktop-usage/research.md#agents)、
 [扩展矩阵](../../design/desktop-usage/adapters.md#扩展覆盖)）的文档级实施。
 18 个新适配器目录（17 个解析 + Qoder 探针）+ 注册 + 合同测试；不提交、不推送、不部署。

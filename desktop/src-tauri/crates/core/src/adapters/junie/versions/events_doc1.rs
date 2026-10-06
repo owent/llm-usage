@@ -2,9 +2,9 @@
 //!
 //! 格式依据（第三方开源解析器 tokscale 固定提交
 //! 1d9a9395418efc6952944b794097935d7d6fa1e8 sessions/junie.rs；闭源产品，
-//! 本机未安装、无真实样本）：
+//! 以及官方 26.9.22（3419.29）发行包与真实本地 OpenAICompletion 样本）：
 //! - 路径 `~/.junie/sessions/<session-id>/events.jsonl`（clients.rs:757-766）；
-//!   源码未见环境覆盖。
+//!   官方 JUNIE_HOME 覆盖已实际核验。
 //! - 用量事件判定 `event.agentEvent.kind == "LlmResponseMetadataEvent"`
 //!   （junie.rs:54-57）；顶层 `timestampMs`（int 毫秒，**响应结束时刻**，
 //!   junie.rs:113-119）；`event.agentEvent.modelUsage[]` 逐轮：
@@ -12,7 +12,7 @@
 //!   cache_read=`cacheInputTokens|cacheReadInputTokens|cacheRead`、
 //!   cache_write=`cacheCreateTokens|cacheCreationInputTokens|cacheWrite`、
 //!   reasoning=`reasoningTokens|reasoningOutputTokens|thinkingTokens`、
-//!   `cost`（f64 USD，在场即 provider-reported）、`time`（该调用延迟 ms）、
+//!   `cost`（正值为客户端 Estimated USD；付费渠道未验收）、`time`（正调用延迟 ms）、
 //!   `provider`（junie.rs:224-245）。
 //! - 起始时间 = timestampMs − time（仅当 time 在场，junie.rs:126-130）⇒
 //!   occurred_at 取 timestampMs（SourceCompletion），duration=time。
@@ -22,7 +22,9 @@
 //!   :&lt;行号&gt;:&lt;数组内索引&gt;（tokscale junie.rs:100-108 原键不含行号——
 //!   两条不同行的同毫秒同内容事件会折叠；本仓约定要求同毫秒重复记录都入账，
 //!   键含行号区分；JSONL 追加源行号稳定，rescan 重放行号一致，幂等性不变）。
-//! - cache/token 包含关系尚未验证 ⇒ 与 hermes 一样并列报告，不派生总量。
+//! - 官方 UsageTokens/inputTokens 是非缓存输入；缺字段默认零会进入
+//!   ModelUsage，五桶、费用及耗时的零不能认证报告零。正桶独立保留，
+//!   无 API 类型/产品版本及完整桶依据，不派生总输入/总 token。
 
 use crate::adapters::framework::{
     ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -37,7 +39,7 @@ use crate::ingest::DiagnosticInput;
 
 use super::JUNIE_FORMAT_VERSION;
 
-pub const JUNIE_PARSER_VERSION: &str = "junie-events-doc1";
+pub const JUNIE_PARSER_VERSION: &str = "junie-events-doc2";
 const MAX_REASONABLE_TOKEN: i64 = crate::domain::MAX_TOKEN_VALUE;
 
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
@@ -131,7 +133,7 @@ fn alias_u64(
 
 fn usd_cost(value: Option<&serde_json::Value>) -> Option<CostAmount> {
     let amount = value?.as_f64()?;
-    if !amount.is_finite() || amount < 0.0 {
+    if !amount.is_finite() || amount <= 0.0 {
         return None;
     }
     let micros = amount * 1_000_000.0;
@@ -141,7 +143,7 @@ fn usd_cost(value: Option<&serde_json::Value>) -> Option<CostAmount> {
     Some(CostAmount {
         amount_minor: micros.round() as i64,
         currency: "USD".to_string(),
-        kind: CostKind::Reported,
+        kind: CostKind::Estimated,
         price_version: None,
         billing_scope: None,
     })
@@ -272,16 +274,16 @@ pub fn scan(
                 cache_write.unwrap(),
                 reasoning.unwrap(),
             );
-            let duration = obj.get("time").and_then(|v| v.as_i64()).filter(|d| *d >= 0);
+            let duration = obj.get("time").and_then(|v| v.as_i64()).filter(|d| *d > 0);
             let cost_micros = usd_cost(obj.get("cost"));
             let mapped = crate::adapters::usage_map::finish(
                 crate::domain::TokenUsage {
-                    input_uncached: None,
-                    input_cache_read: cache_read,
-                    input_cache_write: cache_write,
-                    input_total: input,
-                    output_total: output,
-                    output_reasoning: reasoning,
+                    input_uncached: input.filter(|v| *v > 0),
+                    input_cache_read: cache_read.filter(|v| *v > 0),
+                    input_cache_write: cache_write.filter(|v| *v > 0),
+                    input_total: None,
+                    output_total: output.filter(|v| *v > 0),
+                    output_reasoning: reasoning.filter(|v| *v > 0),
                     total_tokens: None,
                     source_total: None,
                 },
@@ -290,7 +292,7 @@ pub fn scan(
                 crate::domain::TokenQuality {
                     input_cache_read: crate::domain::FieldQuality::Reported,
                     input_cache_write: crate::domain::FieldQuality::Reported,
-                    input_total: crate::domain::FieldQuality::Reported,
+                    input_uncached: crate::domain::FieldQuality::Reported,
                     output_total: crate::domain::FieldQuality::Reported,
                     output_reasoning: crate::domain::FieldQuality::Reported,
                     ..Default::default()

@@ -6,7 +6,7 @@ import { once } from 'node:events';
 import { DatabaseSync } from 'node:sqlite';
 import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
-import { createServer } from 'node:net';
+import { freeHttpPort } from './http-test-port.mjs';
 import { spawnIsolated } from './isolated-child.mjs';
 const args=process.argv.slice(2);
 if(args.includes('--help')) {
@@ -53,7 +53,7 @@ async function scan() {
 }
 const pause=ms=>new Promise(r=>setTimeout(r,ms));
 async function launch() {
- const server=createServer();server.listen(0,'127.0.0.1');await once(server,'listening');const port=server.address().port;await new Promise(r=>server.close(r));
+ const port=await freeHttpPort();
  child=spawnIsolated(exe,['--data-dir',data],{env:{...appEnv,WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS:`--remote-debugging-port=${port}`,WEBVIEW2_USER_DATA_FOLDER:join(root,'webview')},windowsHide:true,stdio:'ignore'});
  let endpoint;
  for(let n=0;n<300;n++){assert.equal(child.exitCode,null);try{endpoint=await(await fetch(`http://127.0.0.1:${port}/json/version`)).json();}catch{}if(endpoint?.webSocketDebuggerUrl)break;await pause(100);}

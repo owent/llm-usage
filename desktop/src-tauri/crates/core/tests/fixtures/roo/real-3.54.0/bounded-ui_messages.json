@@ -1,0 +1,32 @@
+[
+  {
+    "ts": 1791279269323,
+    "type": "say",
+    "say": "text",
+    "text": "[redacted]"
+  },
+  {
+    "ts": 1791279269342,
+    "type": "say",
+    "say": "api_req_started",
+    "text": "{\"tokensIn\":6772,\"tokensOut\":2,\"cacheReads\":0,\"cacheWrites\":0,\"cost\":0,\"apiProtocol\":\"openai\"}"
+  },
+  {
+    "ts": 1791279276816,
+    "type": "say",
+    "say": "text",
+    "partial": false,
+    "text": "[redacted]"
+  },
+  {
+    "ts": 1791279277288,
+    "type": "ask",
+    "ask": "auto_approval_max_req_reached",
+    "text": "[redacted]"
+  },
+  {
+    "ts": 1791279281480,
+    "type": "ask",
+    "ask": "resume_task"
+  }
+]

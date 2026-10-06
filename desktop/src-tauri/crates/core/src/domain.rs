@@ -367,7 +367,7 @@ impl TokenUsage {
 }
 
 /// 逐字段质量，与 [`TokenUsage`] 同形。unknown 字段不允许有值。
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TokenQuality {
     pub input_uncached: FieldQuality,
     pub input_cache_read: FieldQuality,

@@ -1,0 +1,11 @@
+{
+  "session_id": "session_anonymous_1791268016638_1111111111111111",
+  "provider": "local-model",
+  "model": "qwen2.5-0.5b-local",
+  "usage": {
+    "input_tokens": 460,
+    "output_tokens": 2,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": null
+  }
+}

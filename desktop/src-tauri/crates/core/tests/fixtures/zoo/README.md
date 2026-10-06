@@ -1,10 +1,11 @@
-# Zoo Code 合成 fixtures（基于源码、待真实样本）
+# Zoo Code fixtures
 
 <a id="zoo-code-合成-fixtures文档级证据待真实样本"></a>
 
-全部场景为**合成数据**（syn- 前缀、常量占位），不是任何真实会话脱敏产物。
-本机 2026-09-25 盘点未安装 Zoo Code（not_found，m0-agent-fixtures.md），
-按用户指示以固定版本源码依据实现，真实数据验收后置。
+`synthetic-*` 保留文档级回归；`real-3.86.0` 来自官方 VSIX 的真实 VS Code
+扩展/公开 API/本地模型，原生输入 6,118、输出 53 与 API/扩展回调一致。
+正文、原始身份和配置已按白名单剔除；固定分发物及源文件摘要见 provenance。
+当前完整消息枚举和默认零规则来自 3.86.0 提交 `6aa9d0174a9ecae155c6c5db9134bead4b67197d`。
 
 <a id="源码级证据a19固定-commit-f7806475331fcae5f4e8b5558d04415eeb5da88c"></a>
 
@@ -28,8 +29,10 @@
 | 目录 | 覆盖 |
 | --- | --- |
 | synthetic-contract | 正常：两对 started/finished 合并 + condense_context 辅助 + 未配对 started 不入账 |
-| synthetic-undocumented-say | 未文档化 say 种类（text）⇒ 扫描层 fail closed 整文件拒绝 |
+| synthetic-undocumented-say | future_undocumented_kind ⇒ 扫描层 fail closed 整文件拒绝；已证实 text 不再拒绝 |
 | synthetic-not-array | 顶层非 JSON 数组 ⇒ detect 直接 UnknownFormat |
+| real-3.86.0 | 内联 started、text/reasoning/resume 消息；默认零未知，不补缓存/模型/费用 |
 
 期望值见各目录 `_expectations.md`（人工核算）。
-取得真实脱敏 fixture 后按实际消息形状扩展文档化集合并升为已验证。
+旧摘要/未变化游标、并行/回滚和冲突保留见 `zoo_real_contract.rs`。
+只认证本次扩展 OpenAI-compatible 场景，CLI/其他协议/压缩仍待真实验收。

@@ -82,8 +82,8 @@ pub fn built_in_adapters() -> Vec<Box<dyn framework::SourceAdapter>> {
         Box::new(opencode::OpenCodeAdapter::new()),
         Box::new(mimo_code::MimoCodeAdapter::new()),
         Box::new(zoo::ZooAdapter::new()),
-        // M8 第二批（2026-09-29 调研 + 文档级实施；本机盘点均未安装，
-        // 仅 Zed 有空 threads.db（0 行）；真实样本出现后升级验证）。
+        // M8 第二批：最初按 2026-09-29 源码实施；后续隔离容器真实样本
+        // 仅提升对应产品/场景的依据，当前范围见各适配器 capability。
         Box::new(zed::ZedAdapter::new()),
         Box::new(aider::AiderAdapter::new()),
         Box::new(junie::JunieAdapter::new()),

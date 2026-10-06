@@ -1,0 +1,39 @@
+{
+  "product": "Junie CLI",
+  "capture_version": "26.9.22 (3419.29)",
+  "official_release": "https://github.com/JetBrains/junie/releases/tag/3419.29",
+  "asset_sha256": "7ac5d675d90305c65207f9ddaf4219a1bf78c34630b8e39423833d2716ce7b5e",
+  "raw_events_sha256": "529330c708ec839b3c840e54503ba6cc7bf158c0f6150e762eed45d9df061580",
+  "runtime": "official stable binary; rootless Podman ordinary UID 1000; no external network or host mounts; documented unauthenticated custom OpenAICompletion to real local Qwen 2.5 0.5B; no personal account; update/statistics/default MCP/skills/agents/config disabled",
+  "configuration": "documented extraBody max_tokens=16; genuine model responses preserved, no fabricated protocol or usage",
+  "task_exit_code": 1,
+  "task_result": "model output did not satisfy Junie structured response format; final AgentFailureEvent preserved; actual prior calls remain usage",
+  "source_fields": [
+    "all 43 native row positions and usage timestamps",
+    "event.agentEvent.kind",
+    "modelUsage model/cost/inputTokens/cacheInputTokens/cacheCreateTokens/outputTokens/time",
+    "API usage",
+    "CLI final usage totals"
+  ],
+  "redaction": "non-usage payloads, environment, paths, prompts and responses omitted; all 43 line positions and numeric usage retained; session directory anonymized in tests",
+  "primary_distribution_evidence": [
+    "LlmMetadata.onLlmEvent constructs ModelUsage from AIAnswer.usage",
+    "UsageTokens constructor and deserialization default absent numeric fields to zero",
+    "OpenAIChatRequest normalizes prompt_tokens minus cached_tokens; cache creation defaults zero",
+    "OpenAIResponsesRequest, AnthropicChatRequest, GoogleLlmRequest and GeminiInteractionsRequest also use disjoint normalized input",
+    "AIAnswer.time constructor defaults zero",
+    "AIAnswer.Companion.calcTokenCost sums disjoint buckets times ModelCapabilities prices per million; native positive fee is Estimated, custom model without rates yields zero"
+  ],
+  "independent_check": {
+    "api_calls": 7,
+    "input_uncached": 10972,
+    "cache_read": 53102,
+    "output": 98,
+    "api_full_input": 64074,
+    "api_full_total": 64172,
+    "source_cache_write": 0,
+    "source_cost": 0,
+    "source_time": 0
+  },
+  "boundary": "failed task, not successful task certification; native record contains no product version/API/provider. Zero defaults, full input/total, cache write, reasoning, fees and duration remain unknown. USD unit relies on older document evidence; positive fees marked Estimated, no paid runtime certification. No other product versions, streaming, cloud or IDE certification."
+}

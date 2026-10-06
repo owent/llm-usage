@@ -27,6 +27,9 @@ const DETECT_HEAD_BYTES: usize = 64 * 1024;
 /// 探测一个任务 ui_messages.json 文件。
 /// 无版本字段可分派：指纹成立即返回固定文档级格式版本（恒为 KnownVersion）。
 pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
+    if versions::sdk_messages_v1::is_sdk_file(path) {
+        return versions::sdk_messages_v1::detect(path);
+    }
     // 瞬态不可读（持锁/超时/枚举后被清理）⇒ Pending 下轮重探，不固化失败。
     let Some(head) = crate::adapters::framework::read_detect_head(path, DETECT_HEAD_BYTES)? else {
         return Ok(DetectOutcome::Pending);

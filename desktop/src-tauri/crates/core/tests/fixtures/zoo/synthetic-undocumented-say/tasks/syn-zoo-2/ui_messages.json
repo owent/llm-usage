@@ -1,8 +1,8 @@
 [
   {
     "type": "say",
-    "say": "text",
+    "say": "future_undocumented_kind",
     "ts": 1781337600000,
-    "text": "synthetic streaming text message (undocumented say kind)"
+    "text": "synthetic message outside the verified enum"
   }
 ]

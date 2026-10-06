@@ -26,6 +26,7 @@ pub mod pricing;
 pub mod query;
 mod query_acceleration;
 pub mod quota_history;
+mod qwen_carriers;
 pub mod retention;
 pub mod retention_tiered;
 pub mod schedules;

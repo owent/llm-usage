@@ -1,9 +1,10 @@
-# OpenClaw 合成 fixtures（基于官方文档、待真实样本）
+# OpenClaw fixtures
 
 <a id="openclaw-合成-fixtures文档级证据待真实样本"></a>
 
-全部场景为**合成数据**（syn- 前缀、常量占位），不是任何真实会话脱敏产物。
-本机 2026-09-25 盘点未安装 OpenClaw（not_found，m0-agent-fixtures.md）。
+synthetic-* 保留原合成数据（syn- 前缀、常量占位），只验证未知 schema 与旧迁移
+输入仍 fail closed。real-2026.9.8 为 2026-10-06 官方 npm 客户端在独立无网络
+容器内公开 CLI/续会话两次调用真实本地模型的白名单脱敏产物。
 
 <a id="官方文档级证据a092026-09-24-核验"></a>
 
@@ -16,8 +17,7 @@
   别名归一、total 回退 input+output、usage.cost）：
   <https://docs.openclaw.ai/reference/token-use>
 
-**文档未给出任何表名/列名**（research.md A09：具体表和兼容版本待验），
-因此 fixtures 里的表名/条目字段是**占位发明**（`synthetic-table-*` 与
+此前 synthetic fixtures 的表名/条目字段是**占位发明**（`synthetic-table-*` 与
 `syn-*` 字段），仅用于验证发现形状与 fail-closed 行为，不代表真实 schema。
 
 ## 场景
@@ -26,6 +26,10 @@
 | --- | --- |
 | synthetic-runtime-store | agents/main/agent/openclaw-agent.sqlite（占位表）⇒ 身份确认但表级 schema 待核验，fail closed |
 | synthetic-legacy-archive | agents/main/sessions/ 旧 JSONL 归档 + sessions.json ⇒ 迁移输入降级，fail closed |
+| real-2026.9.8 | schema_meta、session_windows、transcript_events 精确字段投影及独立 API 用量；非缓存输入 6,157/输出 154/缓存读 6,101，默认零未知 |
 
-期望值见各目录 `_expectations.md`。取得真实脱敏样本（运行时库 + 旧归档）
-后在 versions/runtime_store 实现读取映射并替换。
+期望值见各目录 `_expectations.md` 与 real-2026.9.8/provenance.json。真实投影剥离
+提示词、响应、配置和私有路径，身份替换为稳定占位。重建 SQLite 使用最小所需
+结构，坏类型/压缩/外部来源等变体为定向合成边界，不认证对应真实产品场景。
+完整原始样本仅存根 build/，schema/时间/默认零语义见
+[读取合同](../../../../../../../docs/design/desktop-usage/openclaw-runtime.md)。

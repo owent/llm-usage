@@ -118,7 +118,7 @@ core 新增公开 API：`Storage::open_readonly`、`ingest::recompute_days_in_tz
   由用户选定——满足 architecture.md 导出合同）。
 - **导出改造**：交换包改为**聚合数据**（来源注册 + 全部日分区 + 周期分区
   \+ 小时层，不含 session 明细；重导入可重建历史趋势）。
-- 增量读取既有方案（文档化）：JSONL 字节偏移游标 + SQLite 水位
+- 增量读取既有方案（文档化）：JSONL 字节偏移游标 + SQLite 处理位置
   （kilo/opencode part.id 更新序）+ 文件身份/代数（改名/截断/同长替换重扫）。
 - 回归：tests/tiered_retention.rs 4 用例（分层清理/物化/查询合并/小时存活
   /策略校验）；全套 57 个测试二进制绿。

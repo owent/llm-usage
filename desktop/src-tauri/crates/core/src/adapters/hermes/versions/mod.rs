@@ -5,11 +5,9 @@
 //! hermes_state_common.py SCHEMA_VERSION=30；探测时另验真实列与主键形状，
 //! 不只看整数）。
 //!
-//! 已验证版本须有真实脱敏 fixture 与期望值核验结果。当前**没有**任何本机真实
-//! 样本（2026-09-25 盘点 not_found，m0-agent-fixtures.md），仅有固定源码/
-//! 官方文档依据，因此注册表为空：一切版本走 `LatestFallback`
-//! （带兼容标记，数据照常入库，compat=unverified）。取得真实 fixture 后
-//! 逐版本升级为 KnownVersion。
+//! 0.21.5 官方镜像真实 CLI/续会话已有脱敏 fixture 与独立用量核对。
+//! 整库 schema 整数仅描述迁移，缺少逐行客户端版本，不能认证混合历史会话。
+//! 因而注册表保持空：一切版本走 `LatestFallback`（带兼容标记，正常读取）。
 //!
 //! 选择规则：
 //! - 已收录版本 → `KnownVersion`（当前为空集）；
@@ -24,7 +22,7 @@ pub mod session_model_usage_v1;
 pub const LATEST_IMPL_ID: &str = "session_model_usage_v1";
 
 /// 已验证支持的 schema_version → 格式实现。
-/// 空集：尚未用真实样本核验（见模块头），核验完成前不登记任何版本。
+/// 空集：整库 schema 整数不认证逐行客户端版本，不能仅凭单个真实样本登记。
 pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[];
 
 /// 版本分派结论。
@@ -68,7 +66,7 @@ mod tests {
 
     #[test]
     fn registry_is_empty_so_everything_is_latest_fallback() {
-        // 尚未用真实样本核验：固定源码 schema_version=30 也未升为已验证。
+        // 真实样本 schema_version=30 仍不认证混合历史行的客户端版本。
         assert!(VERIFIED_VERSION_IMPLS.is_empty());
         assert_eq!(
             select(Some("30")),

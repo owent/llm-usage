@@ -9,6 +9,8 @@
 //! 按官方防双计警告跳过。
 
 pub mod detect;
+use versions::qwen_sdk_025 as qwen_sdk;
+mod sdk_json;
 pub mod versions;
 
 pub use detect::OTEL_FORMAT;
@@ -91,9 +93,9 @@ impl crate::adapters::framework::SourceAdapter for OtelAdapter {
                 vec![root.clone()]
             } else {
                 crate::adapters::framework::enumerate_files_bounded(&root, 2, &|p| {
-                    p.extension()
-                        .and_then(|e| e.to_str())
-                        .is_some_and(|e| e.eq_ignore_ascii_case("jsonl"))
+                    p.extension().and_then(|e| e.to_str()).is_some_and(|e| {
+                        e.eq_ignore_ascii_case("jsonl") || e.eq_ignore_ascii_case("json")
+                    })
                 })
             };
             files.retain(|p| seen_files.insert(crate::adapters::framework::normalize_path(p)));
@@ -125,30 +127,47 @@ impl crate::adapters::framework::SourceAdapter for OtelAdapter {
         limits: &crate::adapters::framework::ScanLimits,
         now_ms: i64,
     ) -> Result<crate::adapters::framework::ScanOutcome, crate::error::CoreError> {
+        let qwen_sdk = (!target.rescan
+            && stored
+                .parse_context
+                .as_ref()
+                .is_some_and(|v| v["qwen_sdk_file"] == true))
+            || crate::adapters::framework::read_detect_head(&target.path, 64 * 1024)?
+                .is_some_and(|head| qwen_sdk::detect_head(&head).is_some());
+        if qwen_sdk {
+            return qwen_sdk::scan(target, stored, limits, now_ms);
+        }
         versions::spans_doc1::scan(target, stored, limits, now_ms)
     }
 
     fn should_scan_unchanged(&self, stored: &crate::adapters::framework::StoredScanState) -> bool {
+        if let Some(context) = stored
+            .parse_context
+            .as_ref()
+            .filter(|v| v["qwen_sdk_file"] == true)
+        {
+            return context["policy_version"] != 1;
+        }
         versions::spans_doc1::should_scan_unchanged(stored)
     }
 
     fn capability(&self) -> crate::adapters::framework::CapabilityTable {
         use crate::adapters::framework::{Availability, CapabilityTable};
-        let note = "VS Code 1.140.0 file 本机 30 个 CLIENT span 已核验（2026-10-02）；CLI/JetBrains/CodeBuddy 分版本待真实验收，需启用载体".to_string();
+        let note = "VS Code 1.140.0 file 本机 30 个 CLIENT span 已核验（2026-10-02）；Qwen 0.25.0 SDK file 主/后台 2 次/16,423 token 已核对；CLI/JetBrains/CodeBuddy 分版本另验".to_string();
         let mut fields = serde_json::Map::new();
         let field = |availability: Availability, detail: &str| serde_json::json!({ "availability": availability, "note": detail });
         fields.insert(
             "tokens".into(),
             field(
                 Availability::Partial(note.clone()),
-                "chat/model_stream 的 gen_ai.usage.* 或 usage.*；仅已核验 VS Code Copilot 输入/输出派生总量，其他包含关系未知",
+                "chat/model_stream 的 gen_ai.usage.* 或 usage.*；Qwen 0.25.0 SDK 按固定 input/output/reasoning 属性，reasoning 为 0 时派生总量；其他包含关系未知",
             ),
         );
         fields.insert(
             "cache_read".into(),
             field(
                 Availability::Partial(note.clone()),
-                "gen_ai.usage.cache_read.input_tokens / usage.cache_read_input_tokens",
+                "gen_ai.usage.cache_read.input_tokens / usage.cache_read_input_tokens；Qwen SDK 为 gen_ai.usage.cached_input_tokens",
             ),
         );
         fields.insert(
@@ -162,7 +181,7 @@ impl crate::adapters::framework::SourceAdapter for OtelAdapter {
             "per_request_calls".into(),
             field(
                 Availability::Partial(note.clone()),
-                "每 chat/model_stream span 一次（汇总 span 与 model_request 按官方防双计跳过）",
+                "每已核验 chat/model_stream/Qwen llm_request span 一次；日志、HTTP span、指标与汇总 span 不叠加",
             ),
         );
         fields.insert(
@@ -195,7 +214,7 @@ impl crate::adapters::framework::SourceAdapter for OtelAdapter {
         );
         CapabilityTable {
             adapter_id: "otel".to_string(),
-            product: "OTel 遥测载体（VS Code Copilot Chat file exporter / Copilot CLI file exporter / JetBrains Copilot file 导出 / OTLP 接收器输出）".to_string(),
+            product: "OTel 遥测载体（VS Code/Copilot CLI/JetBrains file 导出、Qwen Code SDK file、OTLP 接收器输出）".to_string(),
             surfaces: vec!["telemetry".into()],
             supported_versions: versions::VERIFIED_VERSION_IMPLS
                 .iter()
@@ -207,29 +226,29 @@ impl crate::adapters::framework::SourceAdapter for OtelAdapter {
                     "$XDG_DATA_HOME|~/.local/share/llm-usage-desktop/otel（Linux/macOS）"
                 ],
                 "env_override": null,
-                "manual_roots": "VS Code outfile / COPILOT_OTEL_FILE_EXPORTER_PATH / JetBrains 插件 otelOutfile（Settings → Tools → Copilot → Chat 启用 file 导出）的文件或目录（需用户启用 exporter）",
+                "manual_roots": "VS Code outfile / COPILOT_OTEL_FILE_EXPORTER_PATH / JetBrains otelOutfile / Qwen telemetry.outfile；本应用管理的已核验 Qwen 输出自动定向发现",
                 "bounded": true,
-                "pattern": "spans JSONL（深度 ≤2）；Agent 归属按 resource service.name",
+                "pattern": "spans JSONL 或 Qwen SDK 连续 JSON（深度 ≤2）；Agent 归属按 resource service.name/version",
                 "profile": "无",
             }),
             detection: serde_json::json!({
-                "magic": "gen_ai.* 命名空间或 span 记录形状（spanId/startTime）",
-                "version_field": "无；文档级锚点 otel-spans-doc-1",
-                "registry": "adapters/otel/versions 注册表（唯一条目）",
+                "magic": "gen_ai.* span 或 resource._rawAttributes 的 qwen-code SDK 对象",
+                "version_field": "通用文档锚点 otel-spans-doc-1；Qwen SDK service.version 逐对象限定 0.25.0",
+                "registry": "adapters/otel/versions 的通用文档与 Qwen SDK 0.25.0 独立条目",
                 "fail_closed": true,
                 "unknown_version": "不可用记录跳行诊断（键名双拼写容错已注明）",
             }),
             fields,
             lifecycle: serde_json::json!({
                 "no_double_count": "invoke_agent（全 turn 汇总）与 codebuddy_code.interaction/model_request 跳过——官方防双计警告",
-                "per_request": "仅 chat（Copilot/VS Code）与 model_stream（CodeBuddy）入账",
+                "per_request": "chat（Copilot/VS Code）、model_stream（CodeBuddy）或已核验 Qwen 0.25.0 SDK INTERNAL llm_request；其他 Qwen 版本隔离",
             }),
             incremental: serde_json::json!({
-                "cursor": "JSONL 字节偏移；事件键 otel:<spanId>",
+                "cursor": "JSONL 字节偏移；Qwen SDK 文件按完整 JSON 对象边界，半对象/上限保持续读位置",
             }),
             dedup: serde_json::json!({
-                "primary": "otel:<spanId>",
-                "cross_file": "同一 span 经接收器与外部文件双载体时按 spanId upsert 幂等",
+                "primary": "通用 otel:<spanId>；Qwen SDK 按 trace+span 元组",
+                "cross_file": "已核验 trace+span 在相同主机/用户内择一；Qwen SDK 与原生按会话/本地日择一，保留原生与封存分区",
             }),
             integrity: serde_json::json!({
                 "success_only": false,
@@ -237,8 +256,9 @@ impl crate::adapters::framework::SourceAdapter for OtelAdapter {
             }),
             maintenance: serde_json::json!({
                 "parser_version": versions::spans_doc1::OTEL_PARSER_VERSION,
+                "sdk_parser_version": qwen_sdk::PARSER,
                 "format_evidence": "VS Code agent_monitoring.md bdc5ebe（file exporter 行格式与 chat span 属性）+ Copilot CLI OTel 文档 + CodeBuddy monitoring 文档 + JetBrains 插件字节码取证（OTelSpanProvider 解析 gen_ai.usage 五桶，2026-10-01）",
-                "evidence_level": "official-docs + 插件字节码（需启用载体；Copilot CLI/JetBrains 行级 schema 待样本）",
+                "evidence_level": "VS Code 本机真实 file、Qwen 0.25.0 官方固定源码与真实主/后台 SDK file；Copilot CLI/JetBrains 行级 schema 待样本",
                 "upgrade_policy": "本机启用 exporter 取得真实样本后逐字段核验",
             }),
             scheduling: serde_json::json!({ "entry": "统一 run_adapter_scan" }),

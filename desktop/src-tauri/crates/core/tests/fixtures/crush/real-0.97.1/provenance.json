@@ -1,0 +1,26 @@
+{
+  "product": "Crush",
+  "capture_version": "v0.97.1",
+  "release": "https://github.com/charmbracelet/crush/releases/tag/v0.97.1",
+  "asset_sha256": "1b7cbe0600a3797538a74dc00dd8c4bac54ac4b8f4455ba5ff2312b29c7bd598",
+  "raw_database_sha256": "443b94f91fa1995f70af99123807c660d3b4088113d5f8d3f4519c4dd4ccc911",
+  "runtime": "official binary; rootless Podman ordinary UID 1000; no external network or host mounts; all 29 built-in tool names explicitly denied; provider auto-update and metrics disabled; real local Qwen 2.5 0.5B",
+  "test_rates": "Explicit artificial acceptance rates: input/output USD 1 per million, cache creation/read 0. Cost is a client estimate, not an actual model price or bill.",
+  "source_fields": [
+    "actual sessions/messages sqlite_master schemas",
+    "sessions numeric/time fields, nullable relationships and channel",
+    "messages identity/role/model/provider/time; no parts/body",
+    "API response usage",
+    "CLI generated stats total/tool_usage"
+  ],
+  "redaction": "session/message IDs replaced consistently; title REDACTED; message parts omitted; native schemas, numeric usage, cost and timestamps preserved; project paths omitted",
+  "independent_check": {
+    "api_calls": 2,
+    "api_total_tokens": 5063,
+    "api_cache_read": 4,
+    "source_context_snapshot": 4901,
+    "native_and_cli_cost_usd": 0.005059,
+    "tool_calls": 0
+  },
+  "boundary": "main response plus automatic title; native token columns are current context snapshots, not cumulative usage; application keeps tokens/calls/model unknown and accepts only cumulative root-session Estimated cost. No cloud, branch/subagent, compaction, other versions or complete token coverage certification."
+}

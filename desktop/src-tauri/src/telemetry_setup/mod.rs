@@ -14,9 +14,9 @@ use std::sync::{Arc, Mutex, OnceLock};
 const MAX_CONFIG: u64 = 2 * 1024 * 1024;
 const COPILOT_DOC: &str = "https://code.visualstudio.com/docs/agents/guides/monitoring-agents";
 
-/// Bounded discovery of app-owned, verified Copilot exporters. Never read arbitrary
+/// Bounded discovery of app-owned, verified Copilot/Qwen exporters. Never read arbitrary
 /// settings paths or promote other clients' supplemental logs to usage statistics.
-pub(crate) fn copilot_usage_roots(app: &Path) -> Vec<PathBuf> {
+pub(crate) fn verified_usage_roots(app: &Path) -> Vec<PathBuf> {
     std::fs::read_dir(app.join("telemetry"))
         .into_iter()
         .flatten()
@@ -25,7 +25,10 @@ pub(crate) fn copilot_usage_roots(app: &Path) -> Vec<PathBuf> {
         .filter_map(|entry| {
             let name = entry.file_name();
             let name = name.to_str()?;
-            if !name.starts_with("copilot-vscode") && !name.starts_with("copilot-agent-host") {
+            if !name.starts_with("copilot-vscode")
+                && !name.starts_with("copilot-agent-host")
+                && name != "qwen"
+            {
                 return None;
             }
             let root = entry.path();

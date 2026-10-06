@@ -856,13 +856,13 @@
 
 <div class="app-shell">
   <aside class="sidebar">
-    <a class="brand" href="#overview" onclick={() => (tab = 'overview')}>
+    <a class="brand" href="#overview" aria-label={t('app.title')} onclick={() => (tab = 'overview')}>
       <img src="/brand/app-icon.svg" width="36" height="36" alt="" />
       <span><strong>{t('app.title')}</strong><small>Usage / Desktop</small></span>
     </a>
     <nav aria-label={t('app.subtitle')}>
       {#each ['overview', 'trend', 'sources', 'details', 'settings'] as id (id)}
-        <button class:active={tab === id} aria-current={tab === id ? 'page' : undefined} onclick={() => { if (id === 'settings') settingsSection = 'general'; tab = id as Tab; }}>
+        <button class:active={tab === id} aria-label={t('nav.' + id)} aria-current={tab === id ? 'page' : undefined} onclick={() => { if (id === 'settings') settingsSection = 'general'; tab = id as Tab; }}>
           <Icon name={id} /><span>{t('nav.' + id)}</span>
         </button>
       {/each}

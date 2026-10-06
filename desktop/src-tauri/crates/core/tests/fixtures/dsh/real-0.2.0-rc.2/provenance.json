@@ -1,0 +1,11 @@
+{
+  "product_version": "0.2.0-rc.2",
+  "physical_format": 4,
+  "raw_sha256": "bfe960a2d99eb2726c08d839a261dbe3ce645801e10b69af205e07159d20fee7",
+  "raw_bytes": 17575,
+  "decoded_bytes": 51114,
+  "event_rows": 27,
+  "settlement_samples": 2,
+  "projection": "explicit per-type whitelist; content/config/request/reasoning text and original identifiers omitted",
+  "coverage_gap": "title API usage has no persisted settlement"
+}

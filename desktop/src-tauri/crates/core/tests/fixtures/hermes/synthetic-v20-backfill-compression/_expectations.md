@@ -12,10 +12,11 @@
 - 2 条 `source_aggregates` 行：
   - 回填行：interval_start_ms=NULL（first_seen 未知）、
     interval_end_ms=1789905600000（回退 session ended_at 时间窗）、
-    reported_call_count=0、input_total=500；
+    reported_call_count=NULL（默认零未知）、input_uncached=500；
   - 子会话实时行：interval 1789905660500..1789916000000、
-    input_total=300、cache_read=20、reported_call_count=2。
-- 压缩继承不双计：sum input_total=500+300=**800**（不是把父汇总复制给子）。
+    input_uncached=300、cache_read=20、reported_call_count=2。
+- 压缩继承不双计：sum input_uncached=500+300=**800**（不是把父汇总复制给子）。
+- 默认缓存零未知，input_total/total_tokens 不补全；已知来源调用小计 2，不宣称完整调用数。
 - `usage_events` 0 条；coverage 均 exclusive。
 - 注意：回填行不证明历史调用使用 legacy-model（v20 语义），api_call_count
-  种子值未逐字核验，按列面值 0 处理。
+  缺有效性标记的零调用数不作为已知零。

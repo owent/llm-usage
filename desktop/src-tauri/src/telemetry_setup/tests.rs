@@ -947,12 +947,13 @@ fn disabled_existing_destination_is_preserved_and_outfile_alone_is_a_file_export
 }
 
 #[test]
-fn only_verified_app_owned_copilot_files_are_automatically_discovered() {
+fn only_verified_app_owned_exporter_families_are_automatically_discovered() {
     let f = Fixture::new();
     for id in [
         "copilot-vscode",
         "copilot-vscode-insiders-profile-test-agent-host",
         "gemini",
+        "qwen",
         "copilot-cli",
     ] {
         f.write(
@@ -960,13 +961,43 @@ fn only_verified_app_owned_copilot_files_are_automatically_discovered() {
             "{}\n",
         );
     }
-    let roots = copilot_usage_roots(&f.ctx.app);
-    assert_eq!(roots.len(), 2);
+    let roots = verified_usage_roots(&f.ctx.app);
+    assert_eq!(roots.len(), 3);
     assert!(roots.iter().all(|p| p
         .file_name()
         .unwrap()
         .to_string_lossy()
-        .starts_with("copilot-vscode")));
+        .starts_with("copilot-vscode")
+        || p.file_name().unwrap() == "qwen"));
+}
+
+#[test]
+fn genuine_qwen_sdk_file_is_checked_read_only_and_unknown_version_is_not_certified() {
+    let f = Fixture::new();
+    f.install("qwen");
+    let path = f.ctx.home.join(".qwen/settings.json");
+    f.write(&path, "{}");
+    let raw =
+        include_str!("../../crates/core/tests/fixtures/otel/real-qwen-0.25.0-sdk/telemetry.json");
+    let output = f.ctx.output("qwen");
+    f.write(&output, raw);
+    let before = std::fs::read(&path).unwrap();
+    let rows = evidence::verify_all(discover(&f.ctx).into_iter().map(inspect).collect());
+    let row = rows.iter().find(|t| t.dto.id == "qwen").unwrap();
+    assert_eq!(row.dto.verification, "verified");
+    assert_eq!(row.dto.verified_records, 2);
+    assert_eq!(std::fs::read(&path).unwrap(), before);
+    assert_eq!(std::fs::read_to_string(&output).unwrap(), raw);
+    f.write(&output, &raw.replace("0.25.0", "0.999.0"));
+    let rows = evidence::verify_all(discover(&f.ctx).into_iter().map(inspect).collect());
+    assert_ne!(
+        rows.iter()
+            .find(|t| t.dto.id == "qwen")
+            .unwrap()
+            .dto
+            .verification,
+        "verified"
+    );
 }
 
 #[cfg(unix)]

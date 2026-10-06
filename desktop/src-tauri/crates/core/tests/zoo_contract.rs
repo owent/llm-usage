@@ -320,7 +320,7 @@ fn discover_cli_default_and_vscode_global_storage_and_manual() {
 }
 
 #[test]
-fn capability_table_is_structured_and_doc_level() {
+fn capability_table_separates_real_sample_from_other_paths() {
     let adapter = ZooAdapter::new();
     let cap = adapter.capability();
     let json = serde_json::to_value(&cap).unwrap();
@@ -333,9 +333,9 @@ fn capability_table_is_structured_and_doc_level() {
     assert_eq!(
         json["maintenance"]["evidence_level"]
             .as_str()
-            .map(|s| s.starts_with("doc-level")),
+            .map(|s| s.starts_with("real-container")),
         Some(true),
-        "能力声明标注文档级证据",
+        "真实容器样本与其余文档级路径分开声明",
     );
     for key in [
         "tokens",
@@ -356,7 +356,11 @@ fn capability_table_is_structured_and_doc_level() {
         .get("unavailable")
         .is_some());
     assert!(!cap.limitations.is_empty());
-    assert!(cap.limitations.iter().any(|l| l.contains("not_found")));
+    assert!(cap.limitations.iter().any(|l| l.contains("仅 3.86.0")));
+    assert!(cap
+        .limitations
+        .iter()
+        .any(|l| l.contains("CLI") && l.contains("未实测")));
     // 独立产品：不能擅自按 Roo Code 处理（A19）。
     assert!(json["product"]
         .as_str()

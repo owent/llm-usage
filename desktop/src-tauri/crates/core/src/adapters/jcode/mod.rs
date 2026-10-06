@@ -99,7 +99,7 @@ impl crate::adapters::framework::SourceAdapter for JcodeAdapter {
 
     fn capability(&self) -> crate::adapters::framework::CapabilityTable {
         use crate::adapters::framework::{Availability, CapabilityTable};
-        let note = "官方源码证据（1jehuang/jcode 4f6bf8e）；本机未安装，待真实样本核验".to_string();
+        let note = "官方源码及 jcode 0.91.0 离线真实本地模型单次 run；自定义 provider 包含关系、其他场景仍待核验".to_string();
         let mut fields = serde_json::Map::new();
         let field = |availability: Availability, detail: &str| serde_json::json!({ "availability": availability, "note": detail });
         fields.insert(
@@ -176,7 +176,7 @@ impl crate::adapters::framework::SourceAdapter for JcodeAdapter {
             }),
             detection: serde_json::json!({
                 "magic": "JSON 含 id + messages（token_usage 可选）",
-                "version_field": "无；文档级锚点 jcode-session-1",
+                "version_field": "会话无格式标号；env_snapshots.jcode_version 记录采样客户端，不认证所有消息；格式锚点 jcode-session-1",
                 "registry": "adapters/jcode/versions 注册表（唯一条目）",
                 "fail_closed": true,
                 "unknown_version": "格式偏离 fail closed",
@@ -201,7 +201,7 @@ impl crate::adapters::framework::SourceAdapter for JcodeAdapter {
             maintenance: serde_json::json!({
                 "parser_version": versions::session_v1::JCODE_PARSER_VERSION,
                 "format_evidence": "1jehuang/jcode 4f6bf8e（jcode-storage/jcode-base session 持久化 + provider openai/anthropic 流）",
-                "evidence_level": "official-source（无本机样本）",
+                "evidence_level": "real-local（0.91.0 单次无工具 run，API/CLI/快照 input/output/cache-read 一致；总量、缓存写、成本/推理未知；journal/跨版本等未验收）",
                 "upgrade_policy": "上游 ^ 浮动依赖（锁文件版）：真实样本后复核字段",
             }),
             scheduling: serde_json::json!({ "entry": "统一 run_adapter_scan" }),

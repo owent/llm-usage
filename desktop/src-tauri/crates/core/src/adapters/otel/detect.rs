@@ -20,6 +20,9 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     if text.trim().is_empty() {
         return Ok(DetectOutcome::Pending);
     }
+    if let Some(detected) = super::versions::qwen_sdk_025::detect_head(&head) {
+        return Ok(detected);
+    }
     // 指纹：gen_ai / agentlens 命名空间或 span 记录形状。
     // （"name":"chat" 之类对空白敏感的窄指纹不采用：合法 JSON 序列化
     //   允许键值间空白，spanId/startTime 已足够判定形状。）

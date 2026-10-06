@@ -1,7 +1,8 @@
 //! jcode 会话存储格式实现（`session_v1`，jcode-session-1）。
 //!
 //! 格式依据（1jehuang/jcode 固定源码 4f6bf8e044bc175d5d4659ed54583f5512320235
-//! （master，2026-09-29）；官方源码核验；本机未安装、无真实样本）：
+//! （master，2026-09-29）；0.91.0 官方发布包及真实本地模型单次 run 已核对；
+//! 脱敏快照/API/CLI 见 fixtures/jcode/real-0.91.0，其他场景保留未验证）：
 //! - 路径：`$JCODE_HOME`（默认 ~/.jcode）/sessions/session_*.json 快照 +
 //!   同 stem `.journal.jsonl` 追加（storage_paths.rs:7-30）。
 //! - 加载语义（persistence.rs:269-341）：快照 + 逐条 journal 回放；

@@ -1,0 +1,40 @@
+{
+  "product": "Xum",
+  "npm_version": "0.30.0",
+  "native_version": "v0.30.0-dirty (81b0b744d)",
+  "git_head": "81b0b744db6e27a4416f3596d70bf88529171caf",
+  "npm_integrity": "sha512-dPdpIxj8o0gZw+Kt5xWe93QMMIZhKC3DKDzqW7JDLEUs/n67lGuNnkexNFQwjz9xejsBhzuGyt/ZexwyhleSRQ==",
+  "runtime": "rootless Podman; network none; UID 1000; no host mounts; telemetry disabled; genuine llama.cpp Qwen2.5-0.5B",
+  "default": {
+    "exit_code": 1,
+    "reason": "Plan mode: assistant never proposed a plan",
+    "api_calls": 1,
+    "api_usage": null,
+    "native_sha256": "bbbbe31cfa7d2216f441a9dc74d7bf31a0b03f0974d68a30ade4fcd4eaf69af6",
+    "native_bytes": 788
+  },
+  "controlled": {
+    "exit_code": 0,
+    "api_calls": 1,
+    "input": 13721,
+    "output": 2,
+    "total": 13723,
+    "api_cache_read": 0,
+    "native_sha256": "b5adf0dac5bf304a2852c0f13b5817b2502825e534e7f91ff8538fc234a094f1",
+    "native_bytes": 796,
+    "gateway": "Only adds upstream stream_options.include_usage=true; actual streamed response forwarded unchanged; official client unmodified; no fake credentials",
+    "cli": {
+      "type": "run-complete",
+      "usage": {
+        "inputTokens": 13721,
+        "outputTokens": 2,
+        "cachedTokens": 0,
+        "cacheCreateTokens": 0,
+        "reasoningTokens": 0
+      },
+      "cost_usd": 0,
+      "goal": null
+    }
+  },
+  "privacy": "Native usage carrier unchanged: contains only model/tokens/timestamp/schema. API ledger whitelist only; no prompt/response text, credentials, personal path or original workspace ID."
+}

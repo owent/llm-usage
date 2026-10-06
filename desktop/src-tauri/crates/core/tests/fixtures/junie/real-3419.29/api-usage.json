@@ -1,0 +1,114 @@
+[
+  {
+    "model": "qwen2.5-0.5b-local",
+    "status": 200,
+    "stream": false,
+    "stream_options": {
+      "include_usage": true
+    },
+    "usage": {
+      "completion_tokens": 2,
+      "prompt_tokens": 70,
+      "total_tokens": 72,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      }
+    }
+  },
+  {
+    "model": "qwen2.5-0.5b-local",
+    "status": 200,
+    "stream": false,
+    "stream_options": {
+      "include_usage": true
+    },
+    "usage": {
+      "completion_tokens": 16,
+      "prompt_tokens": 10374,
+      "total_tokens": 10390,
+      "prompt_tokens_details": {
+        "cached_tokens": 3
+      }
+    }
+  },
+  {
+    "model": "qwen2.5-0.5b-local",
+    "status": 200,
+    "stream": false,
+    "stream_options": {
+      "include_usage": true
+    },
+    "usage": {
+      "completion_tokens": 16,
+      "prompt_tokens": 10472,
+      "total_tokens": 10488,
+      "prompt_tokens_details": {
+        "cached_tokens": 10389
+      }
+    }
+  },
+  {
+    "model": "qwen2.5-0.5b-local",
+    "status": 200,
+    "stream": false,
+    "stream_options": {
+      "include_usage": true
+    },
+    "usage": {
+      "completion_tokens": 16,
+      "prompt_tokens": 10599,
+      "total_tokens": 10615,
+      "prompt_tokens_details": {
+        "cached_tokens": 10487
+      }
+    }
+  },
+  {
+    "model": "qwen2.5-0.5b-local",
+    "status": 200,
+    "stream": false,
+    "stream_options": {
+      "include_usage": true
+    },
+    "usage": {
+      "completion_tokens": 16,
+      "prompt_tokens": 10726,
+      "total_tokens": 10742,
+      "prompt_tokens_details": {
+        "cached_tokens": 10614
+      }
+    }
+  },
+  {
+    "model": "qwen2.5-0.5b-local",
+    "status": 200,
+    "stream": false,
+    "stream_options": {
+      "include_usage": true
+    },
+    "usage": {
+      "completion_tokens": 16,
+      "prompt_tokens": 10853,
+      "total_tokens": 10869,
+      "prompt_tokens_details": {
+        "cached_tokens": 10741
+      }
+    }
+  },
+  {
+    "model": "qwen2.5-0.5b-local",
+    "status": 200,
+    "stream": false,
+    "stream_options": {
+      "include_usage": true
+    },
+    "usage": {
+      "completion_tokens": 16,
+      "prompt_tokens": 10980,
+      "total_tokens": 10996,
+      "prompt_tokens_details": {
+        "cached_tokens": 10868
+      }
+    }
+  }
+]

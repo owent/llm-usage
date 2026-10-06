@@ -13,6 +13,57 @@ pub use versions::{ATOMCODE_FORMAT_VERSION, LATEST_IMPL_ID, VERIFIED_VERSION_IMP
 /// AtomCode 适配器（无状态）。
 pub struct AtomCodeAdapter;
 
+/// Only a complete, recognized native sidecar paired with its real meta is excluded.
+/// Explicit manual files and malformed/unrecognized JSON retain format diagnostics.
+fn native_companion(path: &std::path::Path, root: &std::path::Path) -> bool {
+    if path == root {
+        return false;
+    }
+    let Some(name) = path.file_name().and_then(|v| v.to_str()) else {
+        return false;
+    };
+    let (id, suffix) = if let Some(id) = name.strip_suffix(".ui.json") {
+        (id, "ui")
+    } else if let Some(id) = name.strip_suffix(".rewind.json") {
+        (id, "rewind")
+    } else {
+        return false;
+    };
+    let Some(parent) = path.parent() else {
+        return false;
+    };
+    let meta_path = parent.join(format!("{id}.meta"));
+    let read = |candidate: &std::path::Path| -> Option<serde_json::Value> {
+        let bytes = crate::adapters::framework::read_detect_head(candidate, 64 * 1024).ok()??;
+        serde_json::from_slice(&bytes).ok()
+    };
+    let Some(meta) = read(&meta_path) else {
+        return false;
+    };
+    if meta.get("id").and_then(|v| v.as_str()) != Some(id)
+        || !meta.get("turn_stats").is_some_and(|v| v.is_array())
+    {
+        return false;
+    }
+    let Some(value) = read(path) else {
+        return false;
+    };
+    if value.get("id").is_some() || value.get("turn_stats").is_some() {
+        return false;
+    }
+    match suffix {
+        "ui" => {
+            value.get("v").and_then(|v| v.as_i64()) == Some(1)
+                && value.get("entries").is_some_and(|v| v.is_array())
+        }
+        "rewind" => {
+            value.get("version").and_then(|v| v.as_i64()) == Some(2)
+                && value.get("points").is_some_and(|v| v.is_array())
+        }
+        _ => false,
+    }
+}
+
 impl Default for AtomCodeAdapter {
     fn default() -> Self {
         Self::new()
@@ -69,6 +120,7 @@ impl crate::adapters::framework::SourceAdapter for AtomCodeAdapter {
                 p.extension()
                     .and_then(|e| e.to_str())
                     .is_some_and(|e| e == "meta" || e == "json")
+                    && !native_companion(p, &root)
             });
             if !files.is_empty() && seen.insert(root.clone()) {
                 out.push(DiscoveredRoot { root, basis, files });
@@ -104,7 +156,7 @@ impl crate::adapters::framework::SourceAdapter for AtomCodeAdapter {
     fn capability(&self) -> crate::adapters::framework::CapabilityTable {
         use crate::adapters::framework::{Availability, CapabilityTable};
         let note =
-            "官方源码证据（atomgit e4215f7，GitHub 镜像同 SHA 核验）；本机未安装，待真实样本核验"
+            "官方源码 e4215f7/45e05cb 与官方 npm 5.2.1 真实本地模型单轮 .meta/API/CLI；其他场景待核验"
                 .to_string();
         let mut fields = serde_json::Map::new();
         let field = |availability: Availability, detail: &str| serde_json::json!({ "availability": availability, "note": detail });
@@ -112,12 +164,15 @@ impl crate::adapters::framework::SourceAdapter for AtomCodeAdapter {
             "tokens".into(),
             field(
                 Availability::Partial(note.clone()),
-                "TokenBreakdown 三桶（input=prompt−cached 非缓存、cached_input=缓存命中、output）；按模型跨 turn 累计",
+                "TokenBreakdown 三桶归一后按模型累计；默认零未知，完整有效三桶可恢复正总输入，坏桶不补零",
             ),
         );
         fields.insert(
             "cache_read".into(),
-            field(Availability::Partial(note.clone()), "cached_input"),
+            field(
+                Availability::Partial(note.clone()),
+                "cached_input 正数累计；产品默认零未知，缓存未知时不认证 uncached",
+            ),
         );
         fields.insert(
             "cache_write".into(),
@@ -204,17 +259,24 @@ impl crate::adapters::framework::SourceAdapter for AtomCodeAdapter {
             }),
             maintenance: serde_json::json!({
                 "parser_version": versions::meta_turns_v1::ATOMCODE_PARSER_VERSION,
-                "format_evidence": "atomgit.com/atomgit_atomcode/atomcode e4215f7（crates/atomcode-capabilities session/manager.rs + usage_provider.rs + atomcode-config distribution.rs）",
-                "evidence_level": "official-source（无本机样本）",
-                "upgrade_policy": "真实样本后核验 meta.v 各版本形状",
+                "format_evidence": "官方源码 e4215f7/45e05cb 与官方 npm 5.2.1；真实单轮 API/CLI/.meta 输入 6176、输出 2 一致，v=1",
+                "evidence_level": "real-local（5.2.1 headless/no-tools、本地真实 SSE；默认零未知）",
+                "upgrade_policy": "产品版本不认证混合会话；完整旧聚合摘要仅允许默认零/旧派生桶纠正，同源修订且历史/仲裁保留",
             }),
             scheduling: serde_json::json!({ "entry": "统一 run_adapter_scan" }),
             limitations: vec![
                 "会话级聚合：turn 无时间戳，不虚构逐次/延迟".into(),
                 "无 cache 写桶（kernel 三列）".into(),
                 "detached_unattributed_tokens（无模型归属）不计入任何模型行".into(),
-                "本机未安装：文档级实现；InsCode IDE 归 F1".into(),
+                "真实样本仅一次 5.2.1 CLI 成功本地调用；其他版本/云端/分支/子 Agent/缓存命中未验，InsCode IDE 归 F1".into(),
             ],
         }
+    }
+
+    fn prior_aggregate_hashes(
+        &self,
+        input: &crate::aggregates::SourceAggregateInput,
+    ) -> Vec<String> {
+        versions::meta_turns_v1::prior_default_hashes(input)
     }
 }

@@ -278,3 +278,213 @@ fn legacy_registry_discovery_recovers_transformed_roots_without_retiring_real_so
         );
     }
 }
+
+fn qwen_native(root: &Path) -> std::path::PathBuf {
+    let chats = root.join("projects/local/chats");
+    std::fs::create_dir_all(&chats).unwrap();
+    let path = chats.join("native.jsonl");
+    std::fs::write(
+        &path,
+        include_str!("fixtures/otel/real-qwen-0.25.0-sdk/native.jsonl"),
+    )
+    .unwrap();
+    path
+}
+
+#[test]
+fn genuine_qwen_manual_root_recovers_a_consumed_wrong_claude_owner_through_registry() {
+    use llm_usage_core::adapters::{claude::ClaudeAdapter, routing::retire_misrouted_qwen_sources};
+    let (dir, s) = temp_storage("qwen-manual-owner");
+    let root = dir.path().join(".qwen");
+    let file = qwen_native(&root);
+    let ctx = DiscoverContext {
+        manual_roots: vec![root.clone()],
+        ..Default::default()
+    };
+    // Reproduce the actual old type-only detector and consumed, unchanged cursor.
+    run_adapter_scan(&s, &ClaudeAdapter::new(), &ctx, &config("old-claude")).unwrap();
+    assert_eq!(count(&s, "usage_events"), 0);
+    assert_eq!(count(&s, "ingestion_checkpoints"), 1);
+    let wrong: String = s
+        .conn()
+        .query_row(
+            "SELECT instance_id FROM source_files WHERE file_id=?1",
+            [normalize_path(&file)],
+            |r| r.get(0),
+        )
+        .unwrap();
+    s.conn().execute("INSERT INTO diagnostics(instance_id,code,message,created_ms) VALUES(?1,'old-routing','historical evidence',0)",[&wrong]).unwrap();
+    s.conn()
+        .execute(
+            "UPDATE source_instances SET enabled=0 WHERE instance_id=?1",
+            [&wrong],
+        )
+        .unwrap();
+    let before = std::fs::read(&file).unwrap();
+    for pass in 0..2 {
+        retire_misrouted_qwen_sources(&s, &ctx).unwrap();
+        for adapter in built_in_adapters() {
+            let routed = context_for_adapter(&ctx, adapter.adapter_id(), &[]);
+            let reports = run_adapter_scan(
+                &s,
+                adapter.as_ref(),
+                &routed,
+                &config(&format!("qwen-{pass}-{}", adapter.adapter_id())),
+            )
+            .unwrap();
+            if adapter.adapter_id() != "qwen" {
+                assert!(reports.is_empty(), "{}", adapter.adapter_id());
+            }
+            assert!(reports.iter().all(|r| r.error.is_none()));
+        }
+        let values: (i64, i64) = s
+            .conn()
+            .query_row(
+                "SELECT COUNT(*),SUM(total_tokens) FROM usage_events",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(values, (1, 10228));
+        assert_eq!(count(&s, "source_files"), 1);
+        assert_eq!(count(&s, "source_instances"), 2);
+        assert_eq!(count(&s, "ingestion_checkpoints"), 1);
+        let old: (bool, String) = s
+            .conn()
+            .query_row(
+                "SELECT enabled,health FROM source_instances WHERE instance_id=?1",
+                [&wrong],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(old, (false, "not_applicable".into()));
+        assert_eq!(
+            s.conn()
+                .query_row(
+                    "SELECT COUNT(*) FROM diagnostics WHERE code='old-routing'",
+                    [],
+                    |r| r.get::<_, i64>(0)
+                )
+                .unwrap(),
+            1
+        );
+        assert_eq!(std::fs::read(&file).unwrap(), before);
+    }
+}
+
+#[test]
+fn qwen_routing_preserves_retained_history_and_reports_real_bad_lines() {
+    use llm_usage_core::adapters::{
+        claude::ClaudeAdapter, qwen::QwenAdapter, routing::retire_misrouted_qwen_sources,
+    };
+    for retained in [false, true] {
+        let (dir, s) = temp_storage("qwen-routing-boundary");
+        let root = dir.path().join(".qwen");
+        let file = qwen_native(&root);
+        let ctx = DiscoverContext {
+            manual_roots: vec![root.clone()],
+            ..Default::default()
+        };
+        if retained {
+            run_adapter_scan(&s, &ClaudeAdapter::new(), &ctx, &config("retained-claude")).unwrap();
+            let id: String = s
+                .conn()
+                .query_row("SELECT instance_id FROM source_files", [], |r| r.get(0))
+                .unwrap();
+            s.conn().execute("INSERT INTO period_usage(tz_version,granularity,period_key,period_start_day,period_end_day,instance_id,agent,call_category,quality_bucket,event_count,call_count,conflict_count,active_days,materialized_at_ms,data_revision) VALUES('UTC','month','2026-09','2026-09-01','2026-09-30',?1,'claude-code','primary','reported',1,1,0,1,0,1)",[&id]).unwrap();
+            retire_misrouted_qwen_sources(&s, &ctx).unwrap();
+            run_adapter_scan(&s, &QwenAdapter::new(), &ctx, &config("retained-qwen")).unwrap();
+            assert_eq!(count(&s, "usage_events"), 0);
+            assert_eq!(count(&s, "period_usage"), 1);
+            assert_eq!(
+                s.conn()
+                    .query_row("SELECT instance_id FROM source_files", [], |r| r
+                        .get::<_, String>(0))
+                    .unwrap(),
+                id
+            );
+        } else {
+            use std::io::Write;
+            std::fs::OpenOptions::new()
+                .append(true)
+                .open(&file)
+                .unwrap()
+                .write_all(b"{broken}\n")
+                .unwrap();
+            let routed = context_for_adapter(&ctx, "qwen", &[]);
+            let reports =
+                run_adapter_scan(&s, &QwenAdapter::new(), &routed, &config("broken-qwen")).unwrap();
+            assert_eq!(reports.len(), 1);
+            assert!(count(&s, "diagnostics") > 0);
+            assert!(
+                s.conn()
+                    .query_row(
+                        "SELECT health FROM source_instances WHERE agent='qwen-code'",
+                        [],
+                        |r| r.get::<_, String>(0)
+                    )
+                    .unwrap()
+                    != "ok"
+            );
+            assert_eq!(
+                context_for_adapter(&ctx, "claude", &[]).manual_roots.len(),
+                0
+            );
+        }
+    }
+}
+
+#[test]
+fn a_dot_qwen_directory_name_and_shared_type_do_not_prove_qwen_format() {
+    let (dir, _s) = temp_storage("qwen-name-only");
+    let root = dir.path().join(".qwen");
+    let chats = root.join("projects/local/chats");
+    std::fs::create_dir_all(&chats).unwrap();
+    let record = json!({"type":"user","uuid":"u","sessionId":"s","timestamp":"2026-10-05T00:00:00Z","message":{"role":"user","content":[]}});
+    std::fs::write(chats.join("claude.jsonl"), format!("{record}\n")).unwrap();
+    let ctx = DiscoverContext {
+        manual_roots: vec![root],
+        ..Default::default()
+    };
+    assert_eq!(
+        context_for_adapter(&ctx, "claude", &[]).manual_roots,
+        ctx.manual_roots
+    );
+}
+
+#[test]
+fn a_non_sqlite_sdk_manual_file_is_diagnosed_then_claimed_by_otel() {
+    use llm_usage_core::adapters::goose::GooseAdapter;
+    let (dir, s) = temp_storage("sdk-manual-file");
+    let file = dir.path().join("telemetry.json");
+    std::fs::write(
+        &file,
+        include_str!("fixtures/otel/real-qwen-0.25.0-sdk/telemetry.json"),
+    )
+    .unwrap();
+    let ctx = DiscoverContext {
+        manual_roots: vec![file],
+        ..Default::default()
+    };
+    let report = run_adapter_scan(&s, &GooseAdapter::new(), &ctx, &config("not-goose")).unwrap();
+    assert!(report.iter().all(|r| r.error.is_none()));
+    assert!(count(&s, "diagnostics") > 0);
+    run_adapter_scan(&s, &OtelAdapter::new(), &ctx, &config("sdk-owner")).unwrap();
+    assert_eq!(count(&s, "usage_events"), 2);
+    assert_eq!(count(&s, "source_files"), 1);
+    let owner: String = s
+        .conn()
+        .query_row(
+            "SELECT i.format FROM source_files f JOIN source_instances i USING(instance_id)",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(owner, "otel");
+    assert_eq!(count(&s, "ingestion_checkpoints"), 1);
+    assert!(
+        run_adapter_scan(&s, &GooseAdapter::new(), &ctx, &config("owned-sdk"))
+            .unwrap()
+            .is_empty()
+    );
+}

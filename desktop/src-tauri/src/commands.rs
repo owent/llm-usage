@@ -1558,7 +1558,7 @@ fn clear_all_tables(
         OR key LIKE 'daily_retention_floor:%' OR key LIKE 'retention_applied:%'
         OR key LIKE 'retention_materialization:%'
         OR key LIKE 'zcode_archive_day:%' OR key LIKE 'zcode_archive_authority:%'
-        OR key='copilot_otel_scopes_v1' OR key LIKE 'cost_matching_policy:%'",
+        OR key IN ('copilot_otel_scopes_v1','qwen_sdk_scopes_v1') OR key LIKE 'cost_matching_policy:%'",
         [],
     )
     .map_err(|e| err("db", e.to_string()))?;
@@ -1986,7 +1986,7 @@ mod clear_all_tests {
         {
             let storage = state.storage.lock().unwrap();
             storage.conn().execute_batch("INSERT INTO settings(key,value,schema_version,updated_at_ms) VALUES
-                ('copilot_otel_scopes_v1','[]',1,0),('cost_matching_policy:UTC','official-reference-2',1,0),
+                ('copilot_otel_scopes_v1','[]',1,0),('qwen_sdk_scopes_v1','[]',1,0),('cost_matching_policy:UTC','official-reference-2',1,0),
                 ('retention_materialization:UTC','test-marker',1,0);").unwrap();
             storage
                 .conn()
@@ -2070,7 +2070,7 @@ mod clear_all_tests {
             .query_row("SELECT COUNT(*) FROM daily_cost_usage", [], |r| r.get(0))
             .unwrap();
         assert_eq!(cost_rows, 0);
-        let markers:i64=storage.conn().query_row("SELECT COUNT(*) FROM settings WHERE key='copilot_otel_scopes_v1' OR key LIKE 'cost_matching_policy:%' OR key LIKE 'retention_materialization:%'",[],|r|r.get(0)).unwrap();
+        let markers:i64=storage.conn().query_row("SELECT COUNT(*) FROM settings WHERE key IN ('copilot_otel_scopes_v1','qwen_sdk_scopes_v1') OR key LIKE 'cost_matching_policy:%' OR key LIKE 'retention_materialization:%'",[],|r|r.get(0)).unwrap();
         assert_eq!(
             markers, 0,
             "full data reset clears derived authority and matching markers"

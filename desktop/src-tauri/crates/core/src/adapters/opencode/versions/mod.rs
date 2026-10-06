@@ -3,13 +3,11 @@
 //! #unknown-version）。
 //!
 //! 已验证版本须有真实脱敏 fixture 与期望值核验结果。1.18.34 官方 CLI / 本地
-//! 模型真实主循环及缓存读已核对，但当前文件探测与扫描仍以库内最高版本选择依据；
-//! 逐记录归属、混合版本、空会话及未变化旧游标升级尚未验收，因此注册表仍为空。
-//! 一切版本走 `LatestFallback`（带兼容标记，数据照常入库，compat=unverified），
-//! 不能仅凭一条真实会话认证同库其他记录。
+//! 模型真实主循环及缓存读已核对；逐记录选择依据，空会话不认证其他记录。
+//! 支持更新通过稳定部件键重评旧处理位置，不追加相同用量。
 //!
 //! 选择规则：
-//! - 已收录版本 → `KnownVersion`（当前为空集）；
+//! - 已收录版本 → `KnownVersion`；
 //! - 未收录/缺失版本 → `LatestFallback`，先尝试最新内置解析器
 //!   （`step_finish_parts_v1`）；
 //! - 已确认不兼容的形状（三表缺失/关键列缺失/仅新 core 派生视图层）在探测层
@@ -21,8 +19,8 @@ pub mod step_finish_parts_v1;
 pub const LATEST_IMPL_ID: &str = "step_finish_parts_v1";
 
 /// 已验证支持的 session.version → 格式实现。
-/// 空集：真实兼容样本通过；逐记录版本及旧游标升级验收前不登记任何版本。
-pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[];
+/// 真实脱敏 fixture 与逐记录升级合同共同限定支持范围。
+pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[("1.18.34", LATEST_IMPL_ID)];
 
 /// 版本分派结论。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -65,8 +63,8 @@ mod tests {
     use crate::domain::VersionBasis;
 
     #[test]
-    fn registry_is_empty_so_everything_is_latest_fallback() {
-        assert!(VERIFIED_VERSION_IMPLS.is_empty());
+    fn registry_only_certifies_the_verified_version() {
+        assert_eq!(select(Some("1.18.34")).basis, VersionBasis::KnownVersion);
         assert_eq!(select(Some("1.17.13")).basis, VersionBasis::LatestFallback);
         assert_eq!(select(None).basis, VersionBasis::LatestFallback);
     }

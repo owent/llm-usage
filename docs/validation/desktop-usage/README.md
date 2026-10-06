@@ -1,33 +1,21 @@
 # 桌面客户端验证记录
 
-当前结论见 [最新验收](current-acceptance.md)，清理取消、原生语言/键盘/缩放、无 GUI
-任务、百万/千万查询及增量刷新见 [原生与规模验收](plan-finalization.md)。
-查询/筛选加速、Windows 后台控制、遥测限制及本轮资源复测见
-[剩余计划执行](plan-execution.md)。
-Linux/macOS 凭据实现、Windows/Linux 原生验证及 Linux 制品见
-[跨平台继续执行](platform-auth-continuation.md)。
-Windows NSIS 与 Debian Podman 真实 GUI/包生命周期见 [安装验收](installation-lifecycle.md)；
-官方 Qwen 0.25.0 与本地模型实际 token/后台覆盖边界见 [容器来源](container-sources.md)。
-本目录保存各阶段实际执行记录，规则见 [execution.md](../../design/desktop-usage/execution.md)：
+[最新验收](current-acceptance.md)汇总受测版本、平台结果及来源记录；
+[Plan.md](../../../Plan.md)统一维护未完成任务与条件，
+[V01–V31](../../design/desktop-usage/validation.md)保留验收标准。
+本目录按阶段保存当时的执行记录，旧记录中的待办不代表当前状态。
 
-- 只有完成实际检查并记录结果后才创建记录文件，不预填"通过"；模板见 [TEMPLATE.md](TEMPLATE.md)。
-- 每条记录包含命令、cwd、OS/运行时、锁定版本、退出码、测试数量、实际结果、失败及未执行项。
-- 区分静态检查、本机真实测量、CI/WSL 与真实桌面验收结果，不互相替代。
-- 脱敏 fixture 的中间产物放已忽略的 `build/desktop-usage-validation/`，本目录只引用其清单与结论，
-  不复制私人数据或绝对个人路径。
+| 记录类别 | 入口 |
+| --- | --- |
+| 本批三平台 CI 与下载制品 | [CI 作业、受测提交、包摘要及首次失败](ci-plan-validation.md) |
+| Windows/Linux 安装与实际 GUI | [NSIS/deb/AppImage/FUSE 生命周期](installation-lifecycle.md)、[Orca 十语言](orca-multilang.md) |
+| 系统凭据、原生交互及规模 | [跨平台凭据](platform-auth-continuation.md)、[原生/取消/增量](plan-finalization.md)、[查询与资源](plan-execution.md) |
+| 真实来源与字段修正 | [最新来源索引](current-acceptance.md#来源与功能记录)、[Qwen/OpenCode](container-sources.md)、[M8 十源](m8-container-samples.md)、[MiMo/Zoo/DSH](m3-container-samples.md) |
+| 设计审查与资源 | [初期审查](review-2026-09-27.md)、[M0/M1 审查](m0-m1-review.md)、[静态资源](static-assets.md) |
 
-包含 2026-09-25 起九个提交的审查、归档统计、UI 改进及本轮验证见
-[2026-09-27 审查记录](review-2026-09-27.md)。
+记录规则见 [交付要求](../../design/desktop-usage/execution.md)，模板见 [TEMPLATE.md](TEMPLATE.md)：
 
-应用图标、资源预览、Windows 图标嵌入与 LFS 迁移的实际结果见 [静态资源验证](static-assets.md)。
-最近两次提交的缺陷、修复、升级兼容与回归结果见 [M0/M1 审查](m0-m1-review.md)。
-M2 的 Codex 适配器验收见 [m2a-codex.md](m2a-codex.md)；pi/oh-my-pi/Claude/Gemini/Qwen
-五源恢复验收见 [m2bc-resumed.md](m2bc-resumed.md)（中断经过见
-[m2bc-suspended.md](m2bc-suspended.md)）；适配器目录化迁移、未知版本兼容尝试与
-Codex 逐版本 fixture 见 [m2d-layout-versions.md](m2d-layout-versions.md)。
-M3/M4 的 kilo/zcode/kimi 双源适配器见 [m34-kilo-zcode-kimi.md](m34-kilo-zcode-kimi.md)；
-cline/dsh/hermes/openclaw 基于文档或源码实现的适配器见 [m3-doclevel-cmdh.md](m3-doclevel-cmdh.md)。
-M7 部分的 release 构建与包体测量见 [m7-build-partial.md](m7-build-partial.md)。
-M1a 来源身份与存储分区见 [m1a-provenance.md](m1a-provenance.md)；
-M6 主体功能（界面/刷新/调度/导出/headless/i18n）见 [m6-desktop-core.md](m6-desktop-core.md)，
-其中记录了 Roaming 占位文件事故与 kilo/zcode 适配器中断状态。
+- 完成实际检查并记录结果后才写通过；保留 cwd、命令、版本、环境、退出码、数量、首次失败、恢复及未执行项。
+- 静态、合成、真实来源、浏览器模拟 IPC、原生桌面、WSL/容器与 CI 分项报告，不相互认证。
+- 原始私人数据、核对库、提取脚本和日志只放根 build/；公开记录及测试数据须脱敏，不复制正文、凭据或私人路径。
+- 已完成细节归专项记录；活动计划保留稳定 ID、当前状态、剩余条件和记录链接，不重复累计测试数字或逐轮历史。

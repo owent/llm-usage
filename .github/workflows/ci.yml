@@ -101,6 +101,11 @@ jobs:
           sudo apt-get install -y gnome-keyring dbus-x11
           npm run test:credentials:linux
         working-directory: .
+      - name: macOS 原生凭据与 HTTP 撤销
+        if: runner.os == 'macOS'
+        run: |
+          cargo test --locked receiver_auth::tests::native_credential_store_roundtrip -- --exact --ignored --nocapture
+          cargo test --locked receiver_auth::tests::native_credential_http_revocation -- --exact --ignored --nocapture
 
   build:
     name: ${{ matrix.os }} release 构建

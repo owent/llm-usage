@@ -1,0 +1,6 @@
+{"event":"launched","properties":{},"user_id":"anonymous-container-user","time":1791265652}
+{"event":"no-repo","properties":{},"user_id":"anonymous-container-user","time":1791265653}
+{"event":"auto_commits","properties":{},"user_id":"anonymous-container-user","time":1791265653}
+{"event":"message_send_starting","properties":{},"user_id":"anonymous-container-user","time":1791265653}
+{"event":"message_send","properties":{"main_model":"openai/qwen2.5-0.5b-local","prompt_tokens":95,"completion_tokens":3,"total_tokens":98,"cost":0,"total_cost":0},"user_id":"anonymous-container-user","time":1791265654}
+{"event":"exit","properties":{},"user_id":"anonymous-container-user","time":1791265654}

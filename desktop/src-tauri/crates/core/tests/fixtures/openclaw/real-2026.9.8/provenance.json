@@ -1,0 +1,19 @@
+{
+  "client": "openclaw",
+  "npm_version": "2026.9.8",
+  "cli_revision": "fc23bc8",
+  "npm_provenance_commit": "aa6008ad198ef99c43f9d89dbd01694708712974",
+  "declared_source_read_not_signature_verified": true,
+  "runtime_image": "4ba2f82099166a8ac7bcf60b4c60c1488786bf1961b063f86957ec04e84b9bcb",
+  "source_database_sha256": "446b41b0eb2bbb105e553a5b0670c757f0d9ce8f86fa70af5e25afe94070b42e",
+  "source_database_bytes": 733184,
+  "client_exit_codes": [
+    0,
+    0
+  ],
+  "network": "none",
+  "mounted_host_paths": false,
+  "raw_provider_ledger_matches_positive_native_fields": true,
+  "redaction": "stable IDs replaced; retain only schema/provenance/usage/model/time/status; remove content, prompts, config and private paths",
+  "scope": "two CLI turns in one local owned session; excludes failed first attempt; no cold archives/Gateway/import certification"
+}

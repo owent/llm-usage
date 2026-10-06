@@ -1,0 +1,32 @@
+{
+  "captured_at": "2026-10-06",
+  "client": "jcode",
+  "client_version": "0.91.0",
+  "binary_version": "jcode v0.91.0 (439a243bb)",
+  "release": "https://github.com/1jehuang/jcode/releases/tag/v0.91.0",
+  "asset_sha256": "74e9426b0a8e26c5fcff7803d6a5716f8294d1158fa63feb1b429450ac3f705e",
+  "source_file_sha256": "9b80f14e29be44cb94cd2b5355bfabaaa5acc2c15b40e80e4a08a945581de8c7",
+  "source_fields": {
+    "session": [
+      "id",
+      "parent_id",
+      "created_at",
+      "updated_at",
+      "provider_key",
+      "model",
+      "messages",
+      "env_snapshots"
+    ],
+    "message": [
+      "id",
+      "role",
+      "timestamp",
+      "token_usage",
+      "tool_duration_ms"
+    ],
+    "environment_snapshot": ["captured_at", "reason", "session_id", "provider", "model", "jcode_version", "jcode_git_hash", "jcode_git_dirty"]
+  },
+  "anonymization": "session/message identities replaced consistently; prompts, content, title, working directory, PID, OS and other environment details omitted; numeric token_usage and capture version preserved",
+  "inference": "genuine llama.cpp Qwen 2.5 0.5B; offline rootless Podman ordinary user; local-model profile auth none; tool profile none; no update; telemetry disabled",
+  "limits": "one successful custom OpenAI-compatible run; cache write/reasoning/cost unknown; custom provider cache containment not inferred; startup environment snapshot records client version without certifying every message in other mixed sessions, registry format anchor retained; no journal, multi-model, branches, failures or other versions validated"
+}

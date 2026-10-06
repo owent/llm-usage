@@ -1,0 +1,42 @@
+{
+  "kind": "hermes-state-db-real-projection",
+  "synthetic": false,
+  "redaction": "Native DDL and whitelisted counters/timestamps retained; session identity redacted; messages, prompts, responses, configuration, paths and credentials excluded.",
+  "schema": {
+    "schema_version": 30,
+    "sessions_ddl": "CREATE TABLE sessions (\n    id TEXT PRIMARY KEY,\n    source TEXT NOT NULL,\n    user_id TEXT,\n    session_key TEXT,\n    chat_id TEXT,\n    chat_type TEXT,\n    thread_id TEXT,\n    display_name TEXT,\n    origin_json TEXT,\n    expiry_finalized INTEGER DEFAULT 0,\n    model TEXT,\n    model_config TEXT,\n    system_prompt TEXT,\n    system_prompt_hash TEXT,\n    parent_session_id TEXT,\n    started_at REAL NOT NULL,\n    ended_at REAL,\n    end_reason TEXT,\n    message_count INTEGER DEFAULT 0,\n    tool_call_count INTEGER DEFAULT 0,\n    input_tokens INTEGER DEFAULT 0,\n    output_tokens INTEGER DEFAULT 0,\n    cache_read_tokens INTEGER DEFAULT 0,\n    cache_write_tokens INTEGER DEFAULT 0,\n    reasoning_tokens INTEGER DEFAULT 0,\n    cwd TEXT,\n    git_branch TEXT,\n    git_repo_root TEXT,\n    git_metadata_generation INTEGER NOT NULL DEFAULT 0,\n    billing_provider TEXT,\n    billing_base_url TEXT,\n    billing_mode TEXT,\n    estimated_cost_usd REAL,\n    actual_cost_usd REAL,\n    cost_status TEXT,\n    cost_source TEXT,\n    pricing_version TEXT,\n    title TEXT,\n    title_source TEXT,\n    last_activity_at REAL,\n    last_activity_description TEXT,\n    last_activity_provenance TEXT,\n    api_call_count INTEGER DEFAULT 0,\n    handoff_state TEXT,\n    handoff_platform TEXT,\n    handoff_error TEXT,\n    compression_failure_cooldown_until REAL,\n    compression_failure_error TEXT,\n    compression_fallback_streak INTEGER NOT NULL DEFAULT 0,\n    compression_ineffective_count INTEGER NOT NULL DEFAULT 0,\n    compression_recovery_deadline REAL,\n    profile_name TEXT,\n    transport_profile TEXT,\n    rewind_count INTEGER NOT NULL DEFAULT 0,\n    archived INTEGER NOT NULL DEFAULT 0,\n    pinned INTEGER NOT NULL DEFAULT 0,\n    hidden INTEGER NOT NULL DEFAULT 0,\n    last_read_at REAL,\n    tool_names TEXT,\n    FOREIGN KEY (parent_session_id) REFERENCES sessions(id),\n    FOREIGN KEY (system_prompt_hash) REFERENCES system_prompts(hash)\n)",
+    "session_model_usage_ddl": "CREATE TABLE session_model_usage (\n    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,\n    model TEXT NOT NULL,\n    billing_provider TEXT NOT NULL DEFAULT '',\n    billing_base_url TEXT NOT NULL DEFAULT '',\n    billing_mode TEXT NOT NULL DEFAULT '',\n    task TEXT NOT NULL DEFAULT '',\n    api_call_count INTEGER NOT NULL DEFAULT 0,\n    input_tokens INTEGER NOT NULL DEFAULT 0,\n    output_tokens INTEGER NOT NULL DEFAULT 0,\n    cache_read_tokens INTEGER NOT NULL DEFAULT 0,\n    cache_write_tokens INTEGER NOT NULL DEFAULT 0,\n    reasoning_tokens INTEGER NOT NULL DEFAULT 0,\n    estimated_cost_usd REAL NOT NULL DEFAULT 0,\n    actual_cost_usd REAL NOT NULL DEFAULT 0,\n    cost_status TEXT,\n    cost_source TEXT,\n    first_seen REAL,\n    last_seen REAL,\n    PRIMARY KEY (session_id, model, billing_provider, billing_base_url, billing_mode, task)\n)"
+  },
+  "sessions": [
+    {
+      "id": "redacted-hermes-session",
+      "source": "oneshot",
+      "parent_session_id": null,
+      "started_at": 1791281501.6222959,
+      "ended_at": 1791281505.3645785,
+      "end_reason": "agent_close"
+    }
+  ],
+  "session_model_usage": [
+    {
+      "session_id": "redacted-hermes-session",
+      "model": "qwen3.5-0.8b-local",
+      "billing_provider": "custom",
+      "billing_base_url": "http://127.0.0.1:9000/v1",
+      "billing_mode": "",
+      "task": "",
+      "api_call_count": 2,
+      "input_tokens": 849,
+      "output_tokens": 4,
+      "cache_read_tokens": 812,
+      "cache_write_tokens": 0,
+      "reasoning_tokens": 0,
+      "estimated_cost_usd": 0.0,
+      "actual_cost_usd": 0.0,
+      "cost_status": "unknown",
+      "cost_source": "none",
+      "first_seen": 1791281502.5680463,
+      "last_seen": 1791281505.302139
+    }
+  ]
+}

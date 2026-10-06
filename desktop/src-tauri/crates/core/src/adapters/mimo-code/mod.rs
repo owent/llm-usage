@@ -6,8 +6,8 @@
 //! - [`common`]：产品互斥 schema 指纹 + 源库只读/暂存副本约定；
 //! - wire 解析核心在家族共享模块 [`crate::adapters::opencode_family`]。
 //!
-//! 格式依据（A14 固定源码 456678b6a5afb0eef3fe2754575637218cfb3c84，
-//! 按文档或源码实现，待真实样本核验；本机 2026-09-25 盘点 not_found）：
+//! 格式依据：0.1.15 官方分发物与提交 14dfe68a，真实容器/API/原生 SQLite
+//! 已核对；其他路径和版本保留限制，见 m3-runtime-samples.md。
 //! - 路径：`resolveMimocodeHome()`（MIMOCODE_HOME 绝对路径 → `<home>/data`；
 //!   否则 XDG `$XDG_DATA_HOME/mimocode`，缺省 ~/.local/share/mimocode）下
 //!   `mimocode.db`（通道变体 `mimocode-<channel>.db`），WAL；
@@ -56,29 +56,48 @@ impl crate::adapters::framework::SourceAdapter for MimoCodeAdapter {
     ) -> Vec<crate::adapters::framework::DiscoveredRoot> {
         use crate::adapters::framework::{DiscoveredRoot, RootBasis};
         let mut roots: Vec<(std::path::PathBuf, RootBasis)> = Vec::new();
-        // MIMOCODE_HOME → <home>/data（resolveMimocodeHome mimocode_home 模式）。
-        if let Some(home) = ctx.env.get(MIMOCODE_ENV_HOME) {
-            if !home.trim().is_empty() {
-                roots.push((
-                    std::path::PathBuf::from(home.trim()).join("data"),
-                    RootBasis::EnvOverride(MIMOCODE_ENV_HOME.to_string()),
-                ));
+        // Upstream uses one mode; a nonempty invalid HOME throws, it does not
+        // silently fall through to an unrelated XDG/default source.
+        let override_home = ctx.env.get(MIMOCODE_ENV_HOME).filter(|v| !v.is_empty());
+        let data = if let Some(home) = override_home {
+            std::path::Path::new(home).is_absolute().then(|| {
+                (
+                    std::path::PathBuf::from(home).join("data"),
+                    RootBasis::EnvOverride(MIMOCODE_ENV_HOME.into()),
+                )
+            })
+        } else if let Some(xdg) = ctx
+            .env
+            .get("XDG_DATA_HOME")
+            .filter(|v| !v.is_empty() && std::path::Path::new(v).is_absolute())
+        {
+            Some((
+                std::path::PathBuf::from(xdg).join("mimocode"),
+                RootBasis::EnvOverride("XDG_DATA_HOME".into()),
+            ))
+        } else {
+            ctx.home_dir
+                .as_ref()
+                .map(|home| (home.join(".local/share/mimocode"), RootBasis::DefaultHome))
+        };
+        // storage/db.ts: absolute DB overrides data; relative DB is under data.
+        // :memory: has no persisted source. An invalid HOME remains invalid.
+        if override_home.is_none() || data.is_some() {
+            if let Some(db) = ctx.env.get("MIMOCODE_DB").filter(|v| !v.is_empty()) {
+                if db != ":memory:" {
+                    let path = std::path::PathBuf::from(db);
+                    if path.is_absolute() {
+                        roots.push((path, RootBasis::EnvOverride("MIMOCODE_DB".into())));
+                    } else if let Some((data, _)) = &data {
+                        roots.push((
+                            data.join(path),
+                            RootBasis::EnvOverride("MIMOCODE_DB".into()),
+                        ));
+                    }
+                }
+            } else if let Some(data) = data {
+                roots.push(data);
             }
-        }
-        // XDG 默认（xdg 模式：$XDG_DATA_HOME/mimocode，缺省 ~/.local/share/mimocode）。
-        if let Some(xdg) = ctx.env.get("XDG_DATA_HOME") {
-            if !xdg.trim().is_empty() {
-                roots.push((
-                    std::path::PathBuf::from(xdg.trim()).join("mimocode"),
-                    RootBasis::EnvOverride("XDG_DATA_HOME".to_string()),
-                ));
-            }
-        }
-        if let Some(home) = &ctx.home_dir {
-            roots.push((
-                home.join(".local").join("share").join("mimocode"),
-                RootBasis::DefaultHome,
-            ));
         }
         for manual in &ctx.manual_roots {
             roots.push((manual.clone(), RootBasis::Manual));
@@ -98,9 +117,21 @@ impl crate::adapters::framework::SourceAdapter for MimoCodeAdapter {
             !crate::adapters::framework::enumerate_files_bounded(dir, 0, &is_db_name).is_empty()
         };
         let mut out: Vec<DiscoveredRoot> = Vec::new();
-        let mut seen: std::collections::BTreeSet<std::path::PathBuf> =
-            std::collections::BTreeSet::new();
+        let mut seen: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
         for (root, basis) in roots {
+            if root.is_file() {
+                let Some(parent) = root.parent() else {
+                    continue;
+                };
+                if seen.insert(crate::adapters::framework::normalize_path(&root)) {
+                    out.push(DiscoveredRoot {
+                        root: parent.to_path_buf(),
+                        basis,
+                        files: vec![root.clone()],
+                    });
+                }
+                continue;
+            }
             if !root.is_dir() {
                 continue;
             }
@@ -121,11 +152,11 @@ impl crate::adapters::framework::SourceAdapter for MimoCodeAdapter {
                 }
             }
             for data_dir in data_dirs {
-                if !seen.insert(data_dir.clone()) {
-                    continue;
-                }
                 let files =
-                    crate::adapters::framework::enumerate_files_bounded(&data_dir, 0, &is_db_name);
+                    crate::adapters::framework::enumerate_files_bounded(&data_dir, 0, &is_db_name)
+                        .into_iter()
+                        .filter(|p| seen.insert(crate::adapters::framework::normalize_path(p)))
+                        .collect::<Vec<_>>();
                 if files.is_empty() {
                     continue;
                 }
@@ -167,7 +198,7 @@ impl crate::adapters::framework::SourceAdapter for MimoCodeAdapter {
     fn capability(&self) -> crate::adapters::framework::CapabilityTable {
         use crate::adapters::framework::{Availability, CapabilityTable};
         let awaiting =
-            "文档级证据（A14 固定源码 456678b）；本机 not_found（2026-09-25 盘点），待真实样本核验"
+            "real-container 0.1.15（固定源码 14dfe68a），仅 CLI/续会话 OpenAI-compatible 本地模型"
                 .to_string();
         let mut fields = serde_json::Map::new();
         let field = |availability: Availability, note: &str| {
@@ -180,7 +211,7 @@ impl crate::adapters::framework::SourceAdapter for MimoCodeAdapter {
             "tokens".into(),
             field(
                 Availability::Partial(awaiting.clone()),
-                "part.data.tokens 五字段（input/output/reasoning/cache.read/cache.write；家族共享 pinned 语义：input=未缓存输入）：input_total=in+cr+cw、output_total=out+reasoning 派生、total=五字段之和（与直报 total 对照）",
+                "0.1.15 自身 SDK 归一：input=SDK 输入减缓存、output=SDK 输出减 reasoning；加回同份分项恢复正 SDK 总量，默认零子桶未知；只读 part，与正 SDK total 对照",
             ),
         );
         fields.insert(
@@ -222,7 +253,7 @@ impl crate::adapters::framework::SourceAdapter for MimoCodeAdapter {
             "cost".into(),
             field(
                 Availability::Partial(awaiting.clone()),
-                "step-finish 部件 cost（上游自算，estimated micro-USD）；口径未经真实样本核验",
+                "step-finish 正 cost 为上游自算 estimated micro-USD；默认零未知，真实本地模型无正费用，不认证账单",
             ),
         );
         fields.insert(
@@ -242,16 +273,16 @@ impl crate::adapters::framework::SourceAdapter for MimoCodeAdapter {
                 .collect(),
             discovery: serde_json::json!({
                 "default_roots": ["MIMOCODE_HOME/data", "$XDG_DATA_HOME/mimocode", "~/.local/share/mimocode"],
-                "env_override": ["MIMOCODE_HOME（须绝对路径；非绝对上游抛错，发现层跳过）", "XDG_DATA_HOME"],
-                "manual_roots": "数据目录本身 / <root>/data（MIMOCODE_HOME 形状）/ <root>/mimocode / <root>/.local/share/mimocode；不按文件名递归全盘",
+                "env_override": ["MIMOCODE_HOME（非空最高优先，须绝对路径；无效不回退默认目录）", "XDG_DATA_HOME", "MIMOCODE_DB（绝对或相对 data 的任意文件名；:memory: 无落盘）"],
+                "manual_roots": "直接库文件 / 数据目录 / <root>/data / <root>/mimocode / <root>/.local/share/mimocode；物理文件别名去重",
                 "bounded": true,
                 "pattern": "<data>/mimocode*.db（通道变体 mimocode-<channel>.db；-wal/-shm 排除）",
                 "profile": "无 profile 概念（固定源码未见）",
             }),
             detection: serde_json::json!({
                 "magic": "SQLite + part/session/message 关键列（schema 指纹；message 须含 agent_id 列 ⇒ 与 OpenCode 库互斥，不从 fork 关系推兼容）",
-                "version_field": "session.version（库内数值最大者）",
-                "registry": "adapters/mimo-code/versions 注册表分派（当前空：文档级证据；与 opencode 注册表独立）",
+                "version_field": "事件所属 session.version；库内最大值不认证其他会话",
+                "registry": "与 opencode 独立；当前全部 latest_fallback，不从单一路线样本认证整版本",
                 "fail_closed": true,
                 "unknown_version": "未收录/缺失版本一律 latest_fallback（带兼容标记）",
             }),
@@ -263,11 +294,11 @@ impl crate::adapters::framework::SourceAdapter for MimoCodeAdapter {
                 "subagent": "session.parent_id 非空 ⇒ sub_agent；message.agent_id（默认 main）为产品特有列，语义未证实不用于分类",
             }),
             incremental: serde_json::json!({
-                "cursor": "schema 指纹 + part.id 稳定键 + time_updated 水位（+60s 有界重叠窗）",
+                "cursor": "schema 指纹 + part.id 稳定键 + time_updated 处理位置（+60s 有界重叠窗）",
                 "row_cap": "单轮 50,000 行；触顶停在最后一个完整毫秒",
-                "schema_evolution": "指纹变化 ⇒ 水位重置全量重读（id 键 upsert 幂等）",
-                "no_change_detection": "WAL 活库：游标 offset 恒 0，每轮执行水位查询而非字节短路",
-                "rescan_note": "in-place 页重写触发框架 Rescan 标记；水位不重置（同一逻辑库）",
+                "schema_evolution": "指纹变化 ⇒ 处理位置重置全量重读（id 键 upsert 幂等）",
+                "no_change_detection": "WAL 活库：游标 offset 恒 0，每轮执行处理位置查询而非字节短路",
+                "rescan_note": "in-place 页重写触发框架 Rescan 标记；处理位置不重置（同一逻辑库）",
             }),
             dedup: serde_json::json!({
                 "primary": "mimo-code:part:{part.id}（实例命名空间，与 opencode 分列）",
@@ -282,21 +313,21 @@ impl crate::adapters::framework::SourceAdapter for MimoCodeAdapter {
             }),
             maintenance: serde_json::json!({
                 "parser_version": versions::step_finish_parts_v1::PARSER_VERSION,
-                "format_evidence": "固定源码 456678b（session/session.sql.ts、session/message-v2.ts StepFinishPart、shared/global.ts resolveMimocodeHome、storage/db.ts）+ 家族共享模块证据链；合成 fixtures 标注待真实样本",
-                "evidence_level": "doc-level（无本机真实样本；2026-09-25 盘点 not_found）",
-                "upgrade_policy": "取得真实脱敏 fixture 后逐 session.version 升为已验证；未收录版本 latest_fallback",
+                "format_evidence": "官方 0.1.15/14dfe68a 自身 session getUsage、SQLite DDL、路径/DB 覆盖与八次真实 API/part 白名单对照",
+                "evidence_level": "real-container 0.1.15 CLI/resume，本地 OpenAI-compatible；其他版本/协议未验证",
+                "upgrade_policy": "旧处理位置重评；完整旧摘要限定默认零/解析依据修正，修订/身份/真实冲突与诊断历史保留",
             }),
             scheduling: serde_json::json!({
                 "entry": "统一 run_adapter_scan；手动/间隔/监听触发按源合并",
-                "incremental_cost": "time_updated 水位查询；每轮固定一次探测查询",
+                "incremental_cost": "time_updated 处理位置查询；每轮固定一次探测查询",
                 "pause_cancel": "行级游标可停；busy 源转暂存副本或保留旧结果下轮重试",
             }),
             limitations: vec![
-                "文档级证据实现：本机未安装（2026-09-25 盘点 not_found），全部版本 latest_fallback，待真实样本核验后升级".into(),
-                "tokens 语义沿用家族 pinned 证据（input=nonCachedInputTokens 等）：OpenCode 侧源码证实，MiMo 侧仅证 shape 同形，数值口径待真实样本复验".into(),
+                "仅 0.1.15 CLI/续会话 OpenAI-compatible 路线真实核对；其他版本、协议及非 main 角色待验，全部 latest_fallback".into(),
+                "八次 finish reason 为 length，CLI 退出 0 不认证任务完成；默认缓存/推理/费用零未知".into(),
                 "session 表无累计列：无会话级对账，逐次合计与上游总量的残差不可见（不虚构对账目标）".into(),
                 "message.agent_id 语义（'main' 之外取值）未经真实样本证实，不用于调用分类".into(),
-                "MIMOCODE_HOME 非绝对路径时上游抛错：发现层跳过该候选，其余候选继续".into(),
+                "MIMOCODE_HOME 非绝对路径时上游抛错：默认发现不回退 XDG/HOME，显式手工根仍可接入".into(),
                 "step 与 message 汇总不双计：只读 part；turn 级聚合不重复入账".into(),
             ],
         }

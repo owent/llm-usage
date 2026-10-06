@@ -1,7 +1,7 @@
 //! Continue 会话文件格式实现（`session_usage_v1`，continue-session-usage-1）。
 //!
 //! 格式依据（continuedev/continue 固定源码 5522c6f44ca0ac3528b37244818fbfa39b5af470；
-//! 官方源码核验；本机未安装、无真实样本）：
+//! 官方源码核验；另有官方 CLI 1.5.47 的真实本地模型样本）：
 //! - 路径：`$CONTINUE_GLOBAL_DIR`（默认 ~/.continue）/sessions/&lt;uuidv4&gt;.json；
 //!   整写 JSON 对象 `{sessionId, title, workspaceDirectory, history[], usage?}`。
 //! - **顶层 `usage` 仅 CLI 写入**（extensions/cli session.ts:149-178
@@ -14,6 +14,7 @@
 //!   IntervalAggregate（Session 级），不展开伪造逐次。
 //! - 缓存包含关系混合 provider（OpenAI cached ⊆ prompt；Anthropic 分立）：
 //!   来源不区分 ⇒ hermes 同型并列报告，不派生总量。
+//!   缓存两桶由 CLI 预填 0 且仅非零才累加，零无法证明已报告，保持 Unknown。
 //! - 会话无内嵌时间戳（sessions.json 索引有 dateCreated 但格式随端而变：
 //!   core 写毫秒字符串、CLI 写 ISO）⇒ 区间端点用文件 mtime（Uncertain），
 //!   不读 sessions.json（避免解析不稳定索引）。
@@ -28,8 +29,40 @@ use crate::error::CoreError;
 use crate::ingest::DiagnosticInput;
 use std::io::Read as _;
 
-pub const CONTINUE_PARSER_VERSION: &str = "continue-session-usage-1";
+pub const CONTINUE_PARSER_VERSION: &str = "continue-session-usage-2";
 pub const CONTINUE_MAX_FILE_BYTES: u64 = 64 * 1024 * 1024;
+
+/// Only the old parser's initialized cache zeroes may be replaced by unknown.
+/// The hash covers identity, every token/quality, interval, coverage and revision.
+pub(crate) fn prior_cache_hashes(input: &SourceAggregateInput) -> Vec<String> {
+    if input.scope != AggregateScope::Session || !input.scope_key.starts_with("continue:session:") {
+        return Vec::new();
+    }
+    let mut hashes = Vec::new();
+    for mask in 1..=3 {
+        let mut prior = input.clone();
+        if mask & 1 != 0 {
+            if input.usage.input_cache_read.is_some()
+                || input.quality.input_cache_read != Q::Unknown
+            {
+                continue;
+            }
+            prior.usage.input_cache_read = Some(0);
+            prior.quality.input_cache_read = Q::Reported;
+        }
+        if mask & 2 != 0 {
+            if input.usage.input_cache_write.is_some()
+                || input.quality.input_cache_write != Q::Unknown
+            {
+                continue;
+            }
+            prior.usage.input_cache_write = Some(0);
+            prior.quality.input_cache_write = Q::Reported;
+        }
+        hashes.push(crate::identity::content_hash(&prior));
+    }
+    hashes
+}
 
 #[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 struct WholeFileCursor {
@@ -179,7 +212,10 @@ pub fn scan(
         match details.and_then(|d| d.get(key)) {
             None => None,
             Some(v) => match v.as_i64() {
-                Some(n) if (0..=crate::domain::MAX_TOKEN_VALUE).contains(&n) => Some(n),
+                // CLI initializes both cache fields to zero and only adds nonzero
+                // provider values: zero cannot certify that the provider reported it.
+                Some(0) => None,
+                Some(n) if (1..=crate::domain::MAX_TOKEN_VALUE).contains(&n) => Some(n),
                 // 子字段越界：按主字段的规则记诊断（不 fail closed，置未知）。
                 _ => {
                     *deviation = true;

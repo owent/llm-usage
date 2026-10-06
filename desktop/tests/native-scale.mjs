@@ -4,7 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { spawnIsolated } from './isolated-child.mjs';
 import { mkdir, readFile, writeFile, realpath } from 'node:fs/promises';
 import { resolve, join, relative, isAbsolute } from 'node:path';
-import { createServer } from 'node:net';
+import { freeHttpPort } from './http-test-port.mjs';
 import { once } from 'node:events';
 import assert from 'node:assert/strict';
 import { idleMemoryBudget } from './resource-budgets.mjs';
@@ -41,7 +41,7 @@ const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function invoke(cmd,args={}){return page.evaluate(({cmd,args})=>window.__TAURI_INTERNALS__.invoke(cmd,args),{cmd,args});}
 async function close(){if(browser){await browser.close();browser=undefined;}if(child&&child.exitCode===null){child.kill();await once(child,'exit');}child=undefined;page=undefined;}
 async function launch(){
-  const server=createServer();server.listen(0,'127.0.0.1');await once(server,'listening');const port=server.address().port;await new Promise(resolve=>server.close(resolve));
+  const port=await freeHttpPort();
   const started=performance.now();
   child=spawnIsolated(exe,['--data-dir',data],{env:{...env,WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS:`--remote-debugging-port=${port}${args.includes('--software-rendering')?' --disable-gpu':''}`,WEBVIEW2_USER_DATA_FOLDER:join(root,'webview')},stdio:['ignore','pipe','pipe'],windowsHide:true});
   child.stdout.on('data',chunk=>logs.push(String(chunk)));child.stderr.on('data',chunk=>logs.push(String(chunk)));

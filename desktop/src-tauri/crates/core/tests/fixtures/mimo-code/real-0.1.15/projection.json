@@ -1,0 +1,394 @@
+{
+  "synthetic": false,
+  "schema": {
+    "session_ddl": "CREATE TABLE `session` ( `id` text PRIMARY KEY, `project_id` text NOT NULL, `parent_id` text, `context_from` text, `slug` text NOT NULL, `directory` text NOT NULL, `title` text NOT NULL, `version` text NOT NULL, `time_created` integer NOT NULL, `time_updated` integer NOT NULL )",
+    "message_ddl": "CREATE TABLE `message` ( `id` text PRIMARY KEY, `session_id` text NOT NULL, `agent_id` text NOT NULL DEFAULT 'main', `time_created` integer NOT NULL, `time_updated` integer NOT NULL, `data` text NOT NULL )",
+    "part_ddl": "CREATE TABLE `part` ( `id` text PRIMARY KEY, `message_id` text NOT NULL, `session_id` text NOT NULL, `time_created` integer NOT NULL, `time_updated` integer NOT NULL, `data` text NOT NULL )"
+  },
+  "sessions": [
+    {
+      "id": "anonymous-session-1",
+      "project_id": "anonymous-project",
+      "parent_id": null,
+      "context_from": null,
+      "slug": "anonymous-session",
+      "directory": "/anonymous/workspace",
+      "title": "[omitted]",
+      "version": "0.1.15",
+      "time_created": 1791291199976,
+      "time_updated": 1791291244602
+    }
+  ],
+  "messages": [
+    {
+      "id": "anonymous-message-1",
+      "session_id": "anonymous-session-1",
+      "agent_id": "main",
+      "time_created": 1791291200222,
+      "time_updated": 1791291209398,
+      "data": {
+        "role": "assistant",
+        "modelID": "qwen3.5-0.8b-local",
+        "providerID": "local-llama",
+        "tokens": {
+          "total": 2941,
+          "input": 2813,
+          "output": 128,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "cost": 0,
+        "finish": "length"
+      }
+    },
+    {
+      "id": "anonymous-message-2",
+      "session_id": "anonymous-session-1",
+      "agent_id": "main",
+      "time_created": 1791291209410,
+      "time_updated": 1791291215659,
+      "data": {
+        "role": "assistant",
+        "modelID": "qwen3.5-0.8b-local",
+        "providerID": "local-llama",
+        "tokens": {
+          "total": 3027,
+          "input": 258,
+          "output": 128,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 2641
+          }
+        },
+        "cost": 0,
+        "finish": "length"
+      }
+    },
+    {
+      "id": "anonymous-message-3",
+      "session_id": "anonymous-session-1",
+      "agent_id": "main",
+      "time_created": 1791291215673,
+      "time_updated": 1791291221737,
+      "data": {
+        "role": "assistant",
+        "modelID": "qwen3.5-0.8b-local",
+        "providerID": "local-llama",
+        "tokens": {
+          "total": 3165,
+          "input": 310,
+          "output": 128,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 2727
+          }
+        },
+        "cost": 0,
+        "finish": "length"
+      }
+    },
+    {
+      "id": "anonymous-message-4",
+      "session_id": "anonymous-session-1",
+      "agent_id": "main",
+      "time_created": 1791291221741,
+      "time_updated": 1791291226041,
+      "data": {
+        "role": "assistant",
+        "modelID": "qwen3.5-0.8b-local",
+        "providerID": "local-llama",
+        "tokens": {
+          "total": 3306,
+          "input": 313,
+          "output": 128,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 2865
+          }
+        },
+        "cost": 0,
+        "finish": "length"
+      }
+    },
+    {
+      "id": "anonymous-message-5",
+      "session_id": "anonymous-session-1",
+      "agent_id": "main",
+      "time_created": 1791291227603,
+      "time_updated": 1791291231776,
+      "data": {
+        "role": "assistant",
+        "modelID": "qwen3.5-0.8b-local",
+        "providerID": "local-llama",
+        "tokens": {
+          "total": 3331,
+          "input": 197,
+          "output": 128,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 3006
+          }
+        },
+        "cost": 0,
+        "finish": "length"
+      }
+    },
+    {
+      "id": "anonymous-message-6",
+      "session_id": "anonymous-session-1",
+      "agent_id": "main",
+      "time_created": 1791291231782,
+      "time_updated": 1791291235952,
+      "data": {
+        "role": "assistant",
+        "modelID": "qwen3.5-0.8b-local",
+        "providerID": "local-llama",
+        "tokens": {
+          "total": 3442,
+          "input": 283,
+          "output": 128,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 3031
+          }
+        },
+        "cost": 0,
+        "finish": "length"
+      }
+    },
+    {
+      "id": "anonymous-message-7",
+      "session_id": "anonymous-session-1",
+      "agent_id": "main",
+      "time_created": 1791291235956,
+      "time_updated": 1791291240258,
+      "data": {
+        "role": "assistant",
+        "modelID": "qwen3.5-0.8b-local",
+        "providerID": "local-llama",
+        "tokens": {
+          "total": 3621,
+          "input": 351,
+          "output": 128,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 3142
+          }
+        },
+        "cost": 0,
+        "finish": "length"
+      }
+    },
+    {
+      "id": "anonymous-message-8",
+      "session_id": "anonymous-session-1",
+      "agent_id": "main",
+      "time_created": 1791291240263,
+      "time_updated": 1791291244586,
+      "data": {
+        "role": "assistant",
+        "modelID": "qwen3.5-0.8b-local",
+        "providerID": "local-llama",
+        "tokens": {
+          "total": 3779,
+          "input": 330,
+          "output": 128,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 3321
+          }
+        },
+        "cost": 0,
+        "finish": "length"
+      }
+    }
+  ],
+  "parts": [
+    {
+      "id": "anonymous-part-1",
+      "message_id": "anonymous-message-1",
+      "session_id": "anonymous-session-1",
+      "time_created": 1791291209393,
+      "time_updated": 1791291209393,
+      "data": {
+        "type": "step-finish",
+        "reason": "length",
+        "tokens": {
+          "total": 2941,
+          "input": 2813,
+          "output": 128,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "cost": 0
+      }
+    },
+    {
+      "id": "anonymous-part-2",
+      "message_id": "anonymous-message-2",
+      "session_id": "anonymous-session-1",
+      "time_created": 1791291215650,
+      "time_updated": 1791291215651,
+      "data": {
+        "type": "step-finish",
+        "reason": "length",
+        "tokens": {
+          "total": 3027,
+          "input": 258,
+          "output": 128,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 2641
+          }
+        },
+        "cost": 0
+      }
+    },
+    {
+      "id": "anonymous-part-3",
+      "message_id": "anonymous-message-3",
+      "session_id": "anonymous-session-1",
+      "time_created": 1791291221734,
+      "time_updated": 1791291221734,
+      "data": {
+        "type": "step-finish",
+        "reason": "length",
+        "tokens": {
+          "total": 3165,
+          "input": 310,
+          "output": 128,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 2727
+          }
+        },
+        "cost": 0
+      }
+    },
+    {
+      "id": "anonymous-part-4",
+      "message_id": "anonymous-message-4",
+      "session_id": "anonymous-session-1",
+      "time_created": 1791291226036,
+      "time_updated": 1791291226037,
+      "data": {
+        "type": "step-finish",
+        "reason": "length",
+        "tokens": {
+          "total": 3306,
+          "input": 313,
+          "output": 128,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 2865
+          }
+        },
+        "cost": 0
+      }
+    },
+    {
+      "id": "anonymous-part-5",
+      "message_id": "anonymous-message-5",
+      "session_id": "anonymous-session-1",
+      "time_created": 1791291231772,
+      "time_updated": 1791291231773,
+      "data": {
+        "type": "step-finish",
+        "reason": "length",
+        "tokens": {
+          "total": 3331,
+          "input": 197,
+          "output": 128,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 3006
+          }
+        },
+        "cost": 0
+      }
+    },
+    {
+      "id": "anonymous-part-6",
+      "message_id": "anonymous-message-6",
+      "session_id": "anonymous-session-1",
+      "time_created": 1791291235949,
+      "time_updated": 1791291235949,
+      "data": {
+        "type": "step-finish",
+        "reason": "length",
+        "tokens": {
+          "total": 3442,
+          "input": 283,
+          "output": 128,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 3031
+          }
+        },
+        "cost": 0
+      }
+    },
+    {
+      "id": "anonymous-part-7",
+      "message_id": "anonymous-message-7",
+      "session_id": "anonymous-session-1",
+      "time_created": 1791291240255,
+      "time_updated": 1791291240255,
+      "data": {
+        "type": "step-finish",
+        "reason": "length",
+        "tokens": {
+          "total": 3621,
+          "input": 351,
+          "output": 128,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 3142
+          }
+        },
+        "cost": 0
+      }
+    },
+    {
+      "id": "anonymous-part-8",
+      "message_id": "anonymous-message-8",
+      "session_id": "anonymous-session-1",
+      "time_created": 1791291244581,
+      "time_updated": 1791291244581,
+      "data": {
+        "type": "step-finish",
+        "reason": "length",
+        "tokens": {
+          "total": 3779,
+          "input": 330,
+          "output": 128,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 3321
+          }
+        },
+        "cost": 0
+      }
+    }
+  ]
+}

@@ -155,6 +155,130 @@ fn credential_write_and_readback_failures_reclaim_only_the_exact_owned_value() {
     std::fs::remove_dir_all(app).unwrap();
 }
 
+#[test]
+fn post_write_visibility_wait_is_bounded_and_never_retries_errors_or_replacements() {
+    let mut calls = 0;
+    let value = read_visible_after_write(|| {
+        calls += 1;
+        Ok((calls == 3).then(|| b"owned".to_vec()))
+    })
+    .unwrap();
+    assert_eq!(value.as_deref(), Some(b"owned".as_slice()));
+    assert_eq!(calls, 3);
+    calls = 0;
+    assert!(read_visible_after_write(|| {
+        calls += 1;
+        Ok(None)
+    })
+    .unwrap()
+    .is_none());
+    assert_eq!(calls, 6);
+    for replacement in [false, true] {
+        calls = 0;
+        let value = read_visible_after_write(|| {
+            calls += 1;
+            if replacement {
+                Ok(Some(b"foreign".to_vec()))
+            } else {
+                Err("credential_store_unavailable".into())
+            }
+        });
+        assert_eq!(calls, 1);
+        if replacement {
+            assert_eq!(value.unwrap().as_deref(), Some(b"foreign".as_slice()));
+        } else {
+            assert!(value.is_err());
+        }
+    }
+}
+
+#[test]
+fn revocation_rechecks_missing_values_and_confirms_delete_without_removing_replacements() {
+    struct Delayed {
+        inner: MemoryStore,
+        missing: AtomicUsize,
+        deletes: AtomicUsize,
+    }
+    impl Store for Delayed {
+        fn random(&self, bytes: &mut [u8]) -> Result<(), String> {
+            self.inner.random(bytes)
+        }
+        fn read(&self, name: &str) -> Result<Option<Vec<u8>>, String> {
+            if self
+                .missing
+                .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_sub(1))
+                .is_ok()
+            {
+                Ok(None)
+            } else {
+                self.inner.read(name)
+            }
+        }
+        fn read_for_mutation(&self, name: &str) -> Result<Option<Vec<u8>>, String> {
+            read_visible_after_write(|| self.read(name))
+        }
+        fn write(&self, name: &str, bytes: &[u8]) -> Result<(), String> {
+            self.inner.write(name, bytes)
+        }
+        fn delete(&self, name: &str) -> Result<(), String> {
+            self.deletes.fetch_add(1, Ordering::SeqCst);
+            self.inner.delete(name)
+        }
+    }
+    let store = Delayed {
+        inner: MemoryStore::default(),
+        missing: AtomicUsize::new(0),
+        deletes: AtomicUsize::new(0),
+    };
+    let app = root("revoke-visible");
+    let binding = issue(&store, &app, &app.join("config.json"), Family::Claude).unwrap();
+    store.missing.store(2, Ordering::SeqCst);
+    revoke(&store, &binding).unwrap();
+    assert!(store.inner.values.lock().unwrap().is_empty());
+    assert_eq!(store.deletes.load(Ordering::SeqCst), 1);
+    let foreign = issue(&store, &app, &app.join("other.json"), Family::Claude).unwrap();
+    store.inner.values.lock().unwrap().insert(
+        format!("{PREFIX}{}", foreign.id),
+        b"external-replacement".to_vec(),
+    );
+    assert!(revoke(&store, &foreign).is_err());
+    assert_eq!(store.deletes.load(Ordering::SeqCst), 1);
+    let mut reads = 0;
+    assert!(read_absent_after_delete(
+        || {
+            reads += 1;
+            Ok((reads < 3).then(|| b"owned".to_vec()))
+        },
+        b"owned"
+    )
+    .unwrap());
+    assert_eq!(reads, 3);
+    reads = 0;
+    assert!(!read_absent_after_delete(
+        || {
+            reads += 1;
+            Ok(Some(b"owned".to_vec()))
+        },
+        b"owned"
+    )
+    .unwrap());
+    assert_eq!(reads, 6);
+    reads = 0;
+    assert!(!read_absent_after_delete(
+        || {
+            reads += 1;
+            Ok(Some(b"foreign".to_vec()))
+        },
+        b"owned"
+    )
+    .unwrap());
+    assert_eq!(reads, 1);
+    assert!(
+        read_absent_after_delete(|| Err("credential_store_unavailable".into()), b"owned").is_err()
+    );
+    std::fs::remove_dir_all(app).unwrap();
+}
+
 #[cfg(target_os = "linux")]
 #[test]
 #[ignore = "requires isolated D-Bus/keyring; use npm run test:credentials:linux"]
@@ -294,6 +418,7 @@ fn native_credential_store_roundtrip() {
             "--exact",
             "receiver_auth::tests::native_credential_child",
             "--ignored",
+            "--nocapture",
         ])
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
@@ -308,6 +433,25 @@ fn native_credential_store_roundtrip() {
         .unwrap();
     let result = child.wait_with_output().unwrap();
     assert!(result.status.success(), "native credential child failed");
+    assert!(
+        String::from_utf8_lossy(&result.stdout)
+            .contains("native credential child processed binding"),
+        "native credential child did not process its binding"
+    );
+    if authorize(&SystemStore, &app, &cleanup.0.header(), "/v1/logs").is_some() {
+        eprintln!(
+            "native child diagnostics: {}",
+            String::from_utf8_lossy(&result.stderr)
+        );
+        for delay in [10, 50, 100] {
+            std::thread::sleep(std::time::Duration::from_millis(delay));
+            eprintln!(
+                "native credential revoke probe: delay_ms={delay}; present={}",
+                authorize(&SystemStore, &app, &cleanup.0.header(), "/v1/logs").is_some()
+            );
+        }
+        panic!("credential remains after cross-process revocation");
+    }
     assert!(authorize(&SystemStore, &app, &other.0.header(), "/v1/logs") == Some(Family::Claude));
     assert!(authorize(&SystemStore, &app, &cleanup.0.header(), "/v1/logs").is_none());
     assert!(SystemStore
@@ -414,4 +558,5 @@ fn native_credential_child() {
         ) == Some(binding.family)
     );
     revoke(&SystemStore, &binding).unwrap();
+    println!("native credential child processed binding");
 }

@@ -1,0 +1,74 @@
+{
+  "source": "official Hermes Agent container and two real local model requests through public CLI/--resume latest",
+  "release": "v2026.9.24",
+  "version": "0.21.5",
+  "commit": "f97608f178d1ffeca59860195ab7da295f7c8e5f",
+  "release_url": "https://github.com/NousResearch/hermes-agent/releases/tag/v2026.9.24",
+  "image_digest": "sha256:2fd023efbb8d3d2b0ce1a73d028b07370cff34f567cfe0e999553e8c327ea283",
+  "image_id": "0ba99c713250dbc2e80a5806cd3eb6b3e6c39ee2f251627efaecce384da436fc",
+  "schema_version": 30,
+  "raw_state_db_bytes": 270336,
+  "raw_state_db_sha256": "cfc28012eb3ff398b865a6337d5eadb814f0d5f321cd0a5fd7b6dafd9ae8d32d",
+  "model": {
+    "repository": "ggml-org/Qwen3.5-0.8B-GGUF",
+    "revision": "8fea620810c4afa23dd6443f999a48574c1611a3",
+    "filename": "Qwen3.5-0.8B-BF16.gguf",
+    "size": 1557662496,
+    "sha256": "9a7bed4041b7975e0f71fa34670d1e9025213bc92905ac0db75d36c4fa3fa623",
+    "original_repository": "Qwen/Qwen3.5-0.8B",
+    "original_revision": "2fc06364715b967f1860aea9cf38778875588b17",
+    "native_context": 262144
+  },
+  "server_context": 64000,
+  "api_calls": 2,
+  "api_prompt_total": 1661,
+  "api_output": 4,
+  "api_total": 1665,
+  "api_cache_read": 812,
+  "native_uncached_input": 849,
+  "native_output": 4,
+  "native_cache_read": 812,
+  "native_reported_calls": 2,
+  "unknown_defaults": [
+    "zero cache write",
+    "zero reasoning",
+    "zero input/output/cache read when present",
+    "zero reported call count",
+    "zero estimated/actual cost"
+  ],
+  "fixtures": {
+    "projection.json": {
+      "bytes": 4096,
+      "sha256": "e2dffc62b0618352ce7016dd399decc9e3ea3d1109e3106030dbeb52befcd237"
+    },
+    "api-usage.json": {
+      "bytes": 637,
+      "sha256": "d6bfbbd02dad7bd9913ccc46f6376eea50ddac7af415a4ad1da4817e3bc33fa7"
+    },
+    "cli-usage.json": {
+      "bytes": 980,
+      "sha256": "285c9186f4ae251310aca7fae1ca7a96b8ac87ce19596d255057677387203981"
+    }
+  },
+  "runtime_boundary": {
+    "official_client_unmodified": true,
+    "request_response_passthrough": true,
+    "network_namespace": "two owned containers share loopback of a network=none model container",
+    "host_mounts": false,
+    "runtime_uid": 10000,
+    "effective_capabilities": 0,
+    "seccomp": 2,
+    "account_credentials_supplied": false,
+    "platform_toolsets_cli": [],
+    "compression": false,
+    "memory": false,
+    "title_generation": false
+  },
+  "limits": [
+    "interval aggregate, not individual calls or day totals",
+    "schema migration version does not identify client version for every historical row",
+    "gateway/auxiliary/compression/delegation/mixed models and versions unverified",
+    "no model/cost dimension in source_aggregates",
+    "first 32K model rejected before HTTP; evidence retained separately"
+  ]
+}

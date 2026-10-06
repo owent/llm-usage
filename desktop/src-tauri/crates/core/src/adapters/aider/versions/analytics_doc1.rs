@@ -2,7 +2,7 @@
 //! aider-analytics-doc-1）。
 //!
 //! 格式依据（Aider-AI/aider 固定源码 5dc9490bb35f9729ef2c95d00a19ccd30c26339c，
-//! A30；本机未安装，无真实样本）：
+//! A30；另有官方镜像 0.86.2 的真实本地模型 analytics 样本）：
 //! - 启用：`--analytics-log <file>`（args.py:575-579，默认不开启）；即使遥测
 //!   未 opt-in，只要设置 logfile 本地照写（analytics.py:213-214 event() 守卫）。
 //!   **不回填历史**（写入仅发生在事件时刻），文件路径由用户指定。
@@ -20,7 +20,7 @@
 //!
 //! 映射：input_total=prompt_tokens（含 cache 写，官方字段语义），cache 两桶 Unknown，
 //! output_total=completion_tokens，total_tokens=total_tokens（直报）。
-//! 事件键 = 整行内容哈希（无消息 ID；追加式文件，重放幂等）。
+//! 事件键 = 行号 + 整行内容哈希（无消息 ID；追加式文件，重放幂等）。
 
 use crate::adapters::framework::{
     ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,

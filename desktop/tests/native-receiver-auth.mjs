@@ -5,6 +5,7 @@ import { spawnIsolated } from './isolated-child.mjs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve, join, delimiter } from 'node:path';
 import { createServer } from 'node:net';
+import { freeHttpPort } from './http-test-port.mjs';
 import { once } from 'node:events';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
@@ -23,7 +24,7 @@ Object.assign(env,{PATH:bin+delimiter+env.PATH,HOME:home,CODEX_HOME:join(home,'.
 let child,browser,page,occupied,step='startup';
 const plans=[],headers={},checks=[],errors=[],outbound=[];
 const pause=ms=>new Promise(r=>setTimeout(r,ms));
-async function freePort(){const s=createServer();s.listen(0,'127.0.0.1');await once(s,'listening');const port=s.address().port;await new Promise(r=>s.close(r));return port;}
+async function freePort(){return freeHttpPort();}
 async function invoke(cmd,args={}){return page.evaluate(({cmd,args})=>window.__TAURI_INTERNALS__.invoke(cmd,args),{cmd,args});}
 let receiverPort;
 async function close(){if(browser){await browser.close();browser=undefined;}if(child&&child.exitCode===null){child.kill();await once(child,'exit');}child=undefined;page=undefined;}

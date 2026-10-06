@@ -1,6 +1,9 @@
 # 平台、GitHub CI 与 WSL 验证
 
-状态：三平台 workflow 已建立，首次远端运行仍待推送后登记。用户已确认 Windows 11 x64 首发，
+状态：2026-10-06 已按用户授权提交并推送独立测试分支，两轮三平台 Rust/release 及
+公共检查各八作业成功；macOS 两项显式原生凭据通过。三份归档/四个包的下载摘要及
+源码 revision 已核对，结果见 [本批 CI](../../validation/desktop-usage/ci-plan-validation.md)。
+用户已确认 Windows 11 x64 首发，
 同时保留 macOS/Linux 的 GitHub CI。本文件保留验收合同；实际执行情况见验证记录。
 用户已确认按本方案推进：runner/工具链/Linux 基线在 M0 固定，WSL/WSLg 可用性在 M0 探测；
 macOS/Linux 不承诺首发发行支持。这些属于实施核验，不再作为开工前待用户确认事项。
@@ -51,8 +54,9 @@ GitHub Windows runner 的构建结果不等于 Windows 11 用户环境通过；m
 Windows 构建后执行真实可执行文件的 `test:headless`，隔离合成来源并检查来源类别。
 Rust fmt/Clippy/test 作业分别在三个原生 runner 执行，平台存储实现纳入各自编译。
 Linux 另运行 `test:credentials:linux`，使用独立 D-Bus 与一次性加密 keyring；
-凭据只在 stdin 传给测试子进程。Windows/macOS 原生凭据测试仍显式执行，
-不能把跨平台构建或默认忽略项当作系统存储已验收。
+凭据只在 stdin 传给测试子进程。macOS Rust 作业另显式运行系统凭据跨进程往返与
+真实 loopback HTTP 撤销，仅创建并精确回收随机自有项，不启用同步或认证 UI。
+Windows 原生凭据在本机显式执行，默认忽略项不能当作系统存储已验收。
 本机 `test:desktop` 经 WebView2 CDP 检查真实 IPC，不在发布包增加监听代码。
 最新本机结果及远端 CI 缺口见 [最新验收](../../validation/desktop-usage/current-acceptance.md)。
 

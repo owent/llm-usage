@@ -5,8 +5,8 @@
 
 ## 桌面方案
 
-选择 Tauri 2 + Rust，前端暂定 Svelte + TypeScript + Vite；ECharts 按需加载柱图、折线、
-热力图和一个渲染器。Node 仅用于构建，不随成品分发；Python 原型不作为 sidecar。
+采用 Tauri 2 + Rust、Svelte + TypeScript + Vite；ECharts 按需加载图表/组件，
+六类图表使用 SVG 渲染。Node 仅用于构建，不随成品分发；Python 原型不作为 sidecar。
 
 Tauri 的 Windows/macOS/Linux 分别使用 WebView2/WKWebView/WebKitGTK。
 这支持减少应用自带运行时的选择，但不证明总内存必然低于其他方案。

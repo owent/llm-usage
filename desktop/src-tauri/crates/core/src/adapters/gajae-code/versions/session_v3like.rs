@@ -3,7 +3,7 @@
 //!
 //! 格式依据（Yeachan-Heo/gajae-code 固定源码 7e54f9cbcf712cfa7f633d3c8da58a6d89f7f301，
 //! 官方源码核验 + docs/session.md；pi 血统（共同祖先 v3，非现行 pi 子集）；
-//! 本机未安装、无真实样本）：
+//! 0.18.7 官方二进制/固定版本源码及真实本地模型样本已核对）：
 //! - 布局：`<agentDir>/sessions/<scope>/<ISO-ts-dashes>_<uuid7>.jsonl`；
 //!   子代理文件在父会话同名目录（去 .jsonl）下任意嵌套（官方 stats
 //!   parser.ts:105-118 按路径深度推断角色；去重键 = 会话文件 + 条目 id）。
@@ -16,6 +16,8 @@
 //!   `totalTokens`（四桶之和）；`reasoningTokens?`⊆output；
 //!   `cost{input,output,cacheRead,cacheWrite,total}`（USD，费率自算 ⇒
 //!   Estimated）。与 pi 家族 map_pi_family 的计算规则一致（按官方归一化实现核验）。
+//!   0.18.7 OpenAI-completions 的缺字段零回退须进一步保留 Unknown；
+//!   不改其他 API 的已核验映射，见 gajae_contract 和数据合同。
 //! - 官方 stats 计算规则（parser.ts:71-77,176-199）：只统计 role==assistant、
 //!   五桶齐全（非负有限数）且 model/provider/api 非空的行；缺桶/缺 id 行
 //!   跳过不造数（同本方"未知不补零"）。
@@ -36,7 +38,7 @@ use crate::ingest::DiagnosticInput;
 
 use super::GJC_FORMAT_VERSION;
 
-pub const GJC_PARSER_VERSION: &str = "gjc-session-1";
+pub const GJC_PARSER_VERSION: &str = "gjc-session-2";
 const MAX_REASONABLE_TOKEN: i64 = crate::domain::MAX_TOKEN_VALUE;
 
 /// 固定源码 + docs/session.md 枚举的条目类型；未列出 ⇒ fail closed（V17）。
@@ -58,6 +60,7 @@ const DOCUMENTED_ENTRY_TYPES: &[&str] = &[
     "discovered_builtin_tool_selection",
     "header_patch",
     "entry_patch",
+    "configured_model_chain",
 ];
 
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
@@ -265,7 +268,7 @@ pub fn scan(
             .clone()
             .unwrap_or_else(|| "unknown-session".to_string());
         let reasoning = bounded(usage.get("reasoningTokens"));
-        let mapped = map_pi_family(&PiFamilyUsage {
+        let mut mapped = map_pi_family(&PiFamilyUsage {
             input,
             output,
             cache_read,
@@ -273,6 +276,49 @@ pub fn scan(
             total_tokens: total,
             reasoning,
         });
+        let openai_completions =
+            message.get("api").and_then(|v| v.as_str()) == Some("openai-completions");
+        if openai_completions {
+            // 0.18.7 parseChunkUsage uses missing-field zero fallbacks. Its inverse
+            // recovers total prompt tokens, but zero cache buckets cannot certify
+            // uncached input. Other APIs retain their separately verified mapping.
+            use crate::domain::FieldQuality::{Derived, Unknown};
+            if cache_read == 0 {
+                mapped.usage.input_cache_read = None;
+                mapped.quality.input_cache_read = Unknown;
+            }
+            if cache_write == 0 {
+                mapped.usage.input_cache_write = None;
+                mapped.quality.input_cache_write = Unknown;
+            }
+            if input == 0 || cache_read == 0 || cache_write == 0 {
+                mapped.usage.input_uncached = None;
+                mapped.quality.input_uncached = Unknown;
+            }
+            if mapped.usage.input_total == Some(0) {
+                mapped.usage.input_total = None;
+                mapped.quality.input_total = Unknown;
+            }
+            if output == 0 {
+                mapped.usage.output_total = None;
+                mapped.quality.output_total = Unknown;
+            }
+            if total == 0 {
+                mapped.usage.source_total = None;
+                mapped.quality.source_total = Unknown;
+            }
+            mapped.usage.total_tokens = mapped
+                .usage
+                .input_total
+                .zip(mapped.usage.output_total)
+                .and_then(|(i, o)| i.checked_add(o))
+                .filter(|v| *v <= MAX_REASONABLE_TOKEN);
+            mapped.quality.total_tokens = if mapped.usage.total_tokens.is_some() {
+                Derived
+            } else {
+                Unknown
+            };
+        }
         let cost_total = usage
             .get("cost")
             .and_then(|c| c.get("total"))
@@ -302,7 +348,15 @@ pub fn scan(
             occurred_at_ms: occurred_ms,
             observed_at_ms: Some(now_ms),
             source_time: Some(occurred_ms.to_string()),
-            time_basis: TimeBasis::SourceCompletion,
+            time_basis: if openai_completions
+                && message.get("timestamp").and_then(|v| v.as_i64()) == Some(occurred_ms)
+            {
+                // createInitialResponsesAssistantMessage initializes timestamp
+                // before connecting the request; it is not response completion.
+                TimeBasis::SourceStart
+            } else {
+                TimeBasis::SourceCompletion
+            },
             interval_start_ms: None,
             interval_end_ms: None,
             provider_id: Some(provider.to_string()),

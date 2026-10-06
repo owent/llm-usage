@@ -5,6 +5,10 @@
 `0c5d63c19151e7d6f72a33c513f7ac9ddc0e2ad5` 的未提交工作树验证，未提交/推送/发布。
 依据：[认证合同](../../design/desktop-usage/receiver-auth.md)、
 [平台合同](../../design/desktop-usage/platform-ci.md)、[计划](../../../Plan.md)。
+本页保留该轮历史结果；2026-10-06 Windows 写后缺失观察、有界回查修正、
+跨进程处理确认后的 200 轮并行与旧撤销异常边界见
+[来源规则升级](source-policy-upgrades.md)。后续最终安装包与接收器复验见
+[M8 容器样本](m8-container-samples.md)，本页旧包摘要不作为最新制品。
 
 ## 实现与核验依据
 
@@ -101,7 +105,8 @@ Windows Gemini/Qwen、Junie 及其余缺样本来源未发现；Zed 一个库的
 不能认证用量格式。Debian 当前默认发现无可用来源，未启动 Agent/模型请求制造数据。
 已有 Codex/pi/omp/Kilo/ZCode/Kimi/Copilot 等发现结果不重复当作新来源验收。
 
-仍待真实样本、macOS 原生存储/桌面、Linux 原生 GUI、拟定硬件/DPI/真实辅助技术、
-完整升级回滚/注销/卸载、其他 exporter/版本认证、重传/采样/父子 span/跨载体以及
-全进程出站审计。远端 CI 未触发，三平台 workflow 修改不代表远端通过；安装按
-既有指示跳过。F1、明细 Merge 与预算提醒继续按计划后置。
+本记录时点未触发远端 CI，也未执行安装验收。后续 Windows 安装往返、Debian
+Podman GTK/WebKit/FUSE/Orca 和新增来源实际样本结果见 [最新验收](current-acceptance.md)；
+macOS 原生 Keychain/HTTP 两项显式测试结果见 [本批 CI](ci-plan-validation.md)。
+macOS 桌面和特定硬件已取消本轮要求。其余来源版本、遥测、DPI/辅助技术、
+宿主注销/登录、出站审计，以及后置 F1/明细 Merge/预算条件统一见 [Plan.md](../../../Plan.md)。

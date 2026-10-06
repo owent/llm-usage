@@ -1,35 +1,16 @@
-//! OpenClaw 适配器（独立目录约定 architecture.md#adapter-layout）：
-//! - 本模块是该 Agent 的稳定入口（统一接口实现与再导出）；
-//! - [`detect`]：文档形状分类 + fail closed（见 detect 模块头）；
-//! - [`versions`]：注册表（空集，待真实样本）与运行时库解析占位；
-//! - [`common`]：源库只读/暂存副本约定（复制自 kilo，目录独立）。
-//!
-//! 实现依据与核验范围（A09 官方文档，2026-09-24 核验）：每 Agent 一个
-//! `~/.openclaw/agents/<agentId>/agent/openclaw-agent.sqlite`（会话行 +
-//! 追加式 transcript）；旧 `sessions/` 目录为迁移/归档输入。
-//! **本机未安装（2026-09-25 盘点 not_found），文档未给出表级 schema**：
-//! 本适配器交付发现/身份/诚实 fail closed 与能力声明，不猜字段、不产零值；
-//! 真实样本核验后在 versions/runtime_store 实现读取映射。
-
+//! Native schema 24 reader; official distribution and real CLI evidence are kept
+//! separate from mutable whole-database client version metadata.
 pub mod common;
 pub mod detect;
 pub mod versions;
-
 pub use detect::OPENCLAW_FORMAT;
 pub use versions::{runtime_store, LATEST_IMPL_ID, VERIFIED_VERSION_IMPLS};
 
-/// OpenClaw 适配器（无状态）。
+#[derive(Default)]
 pub struct OpenClawAdapter;
-
-impl Default for OpenClawAdapter {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl OpenClawAdapter {
     pub fn new() -> Self {
-        OpenClawAdapter
+        Self
     }
 }
 
@@ -37,105 +18,117 @@ impl crate::adapters::framework::SourceAdapter for OpenClawAdapter {
     fn adapter_id(&self) -> &'static str {
         "openclaw"
     }
-
     fn agent(&self) -> &'static str {
         "openclaw"
     }
-
     fn discover(
         &self,
         ctx: &crate::adapters::framework::DiscoverContext,
     ) -> Vec<crate::adapters::framework::DiscoveredRoot> {
-        use crate::adapters::framework::{enumerate_files_bounded, DiscoveredRoot, RootBasis};
-        let mut roots: Vec<(std::path::PathBuf, RootBasis)> = Vec::new();
-        // 官方文档只给出 ~/.openclaw 默认根；无已证实的环境覆盖（不猜 env 名）。
-        if let Some(home) = &ctx.home_dir {
-            roots.push((home.join(".openclaw"), RootBasis::DefaultHome));
+        use crate::adapters::framework::{
+            enumerate_files_bounded, normalize_path, DiscoveredRoot, RootBasis,
+        };
+        use std::path::PathBuf;
+        let home = ctx
+            .env
+            .get("OPENCLAW_HOME")
+            .filter(|v| !v.trim().is_empty())
+            .map(|v| PathBuf::from(v.trim()))
+            .or_else(|| ctx.home_dir.clone());
+        let expand = |value: &str| {
+            let value = value.trim();
+            if value == "~" {
+                return home.clone().unwrap_or_else(|| PathBuf::from(value));
+            }
+            if value.starts_with("~/") || value.starts_with("~\\") {
+                if let Some(home) = &home {
+                    return home.join(&value[2..]);
+                }
+            }
+            PathBuf::from(value)
+        };
+        let mut roots = Vec::new();
+        if let Some(value) = ctx
+            .env
+            .get("OPENCLAW_STATE_DIR")
+            .filter(|v| !v.trim().is_empty())
+        {
+            roots.push((
+                expand(value),
+                RootBasis::EnvOverride("OPENCLAW_STATE_DIR".into()),
+            ));
+        } else if let Some(home) = home {
+            let root = if home.join(".openclaw").exists() || !home.join(".clawdbot").exists() {
+                home.join(".openclaw")
+            } else {
+                home.join(".clawdbot")
+            };
+            let basis = if ctx
+                .env
+                .get("OPENCLAW_HOME")
+                .is_some_and(|v| !v.trim().is_empty())
+            {
+                RootBasis::EnvOverride("OPENCLAW_HOME".into())
+            } else {
+                RootBasis::DefaultHome
+            };
+            roots.push((root, basis));
         }
-        for manual in &ctx.manual_roots {
-            roots.push((manual.clone(), RootBasis::Manual));
-        }
-        let mut out: Vec<DiscoveredRoot> = Vec::new();
-        let mut seen: std::collections::BTreeSet<std::path::PathBuf> =
-            std::collections::BTreeSet::new();
+        roots.extend(
+            ctx.manual_roots
+                .iter()
+                .cloned()
+                .map(|root| (root, RootBasis::Manual)),
+        );
+        let mut grouped = std::collections::BTreeMap::<String, DiscoveredRoot>::new();
         for (root, basis) in roots {
-            if !root.is_dir() {
-                continue;
-            }
-            // 手工根语义宽松：接受 ~/.openclaw 根、agents/、单个 agent 目录或
-            // 其父目录（有界深度 3 按文档形状定位，不递归整盘）。
-            let files = enumerate_files_bounded(&root, 3, &|p| {
-                let name = p.file_name().and_then(|n| n.to_str()).unwrap_or_default();
-                name == "openclaw-agent.sqlite"
-                    || name == "sessions.json"
-                    || name.ends_with(".jsonl")
-            });
-            // 按文档路径形状过滤并归组到 agents/<agentId> 实例根。
-            let mut by_agent: std::collections::BTreeMap<
-                std::path::PathBuf,
-                Vec<std::path::PathBuf>,
-            > = std::collections::BTreeMap::new();
+            let accept =
+                |path: &std::path::Path| detect::classify(path) != detect::InputKind::Other;
+            let files = if root.is_file() && accept(&root) {
+                vec![root]
+            } else {
+                enumerate_files_bounded(&root, 4, &accept)
+            };
             for file in files {
-                fn os_to_str(c: &std::ffi::OsStr) -> Option<&str> {
-                    c.to_str()
-                }
-                let components: Vec<&std::ffi::OsStr> =
-                    file.components().map(|c| c.as_os_str()).collect();
-                // 找 "agents" 段：其后第一段是 agentId，第二段须为 agent/ 或 sessions/。
-                let mut agent_dir: Option<std::path::PathBuf> = None;
-                'outer: for start in 0..components.len() {
-                    if os_to_str(components[start]) != Some("agents") {
-                        continue;
-                    }
-                    if let (Some(_id), Some(layer)) =
-                        (components.get(start + 1), components.get(start + 2))
+                if let Some(agent) = detect::agent_dir(&file) {
+                    let entry =
+                        grouped
+                            .entry(normalize_path(&agent))
+                            .or_insert_with(|| DiscoveredRoot {
+                                root: agent,
+                                basis: basis.clone(),
+                                files: Vec::new(),
+                            });
+                    if !entry
+                        .files
+                        .iter()
+                        .any(|p| normalize_path(p) == normalize_path(&file))
                     {
-                        match os_to_str(layer) {
-                            Some("agent") | Some("sessions") => {
-                                agent_dir = Some(
-                                    file.components()
-                                        .take(start + 2)
-                                        .collect::<std::path::PathBuf>(),
-                                );
-                                break 'outer;
-                            }
-                            _ => {}
-                        }
+                        entry.files.push(file);
                     }
                 }
-                if let Some(agent) = agent_dir {
-                    by_agent.entry(agent).or_default().push(file);
-                }
-            }
-            for (agent_dir, mut files) in by_agent {
-                if !seen.insert(agent_dir.clone()) {
-                    continue;
-                }
-                files.sort();
-                out.push(DiscoveredRoot {
-                    root: agent_dir,
-                    basis: basis.clone(),
-                    files,
-                });
             }
         }
-        out
+        grouped
+            .into_values()
+            .map(|mut root| {
+                root.files.sort();
+                root
+            })
+            .collect()
     }
-
     fn instance_id(&self, root: &crate::adapters::framework::DiscoveredRoot) -> String {
         format!(
             "openclaw@{}",
             crate::adapters::framework::normalize_path(&root.root)
         )
     }
-
     fn detect(
         &self,
         path: &std::path::Path,
     ) -> Result<crate::adapters::framework::DetectOutcome, crate::error::CoreError> {
         detect::detect(path)
     }
-
     fn scan(
         &self,
         target: &crate::adapters::framework::ScanTarget,
@@ -143,116 +136,74 @@ impl crate::adapters::framework::SourceAdapter for OpenClawAdapter {
         limits: &crate::adapters::framework::ScanLimits,
         now_ms: i64,
     ) -> Result<crate::adapters::framework::ScanOutcome, crate::error::CoreError> {
-        versions::runtime_store::scan(target, stored, limits, now_ms)
+        runtime_store::scan(target, stored, limits, now_ms)
     }
-
+    fn should_scan_unchanged(&self, _: &crate::adapters::framework::StoredScanState) -> bool {
+        true
+    }
     fn capability(&self) -> crate::adapters::framework::CapabilityTable {
         use crate::adapters::framework::{Availability, CapabilityTable};
-        let awaiting = Availability::Unavailable(
-            "官方文档未给出表级 schema（A09 具体表待验）；本机 not_found（2026-09-25 盘点）；\
-             fail closed 待真实样本"
-                .into(),
+        let partial = Availability::Partial(
+            "已核验 openai-completions 正桶；默认零未知，其他 transport 待验".into(),
         );
+        let unavailable = Availability::Unavailable("待逐条来源依据核验".into());
         let mut fields = serde_json::Map::new();
-        let field = |availability: Availability, note: &str| {
-            serde_json::json!({
-                "availability": availability,
-                "note": note,
-            })
-        };
-        fields.insert(
-            "tokens".into(),
-            field(
-                awaiting.clone(),
-                "文档证实会话行有 token counters、transcript 条目持久化规范化 usage；表/列名未文档化",
+        for (key, availability, note) in [
+            (
+                "tokens",
+                partial.clone(),
+                "input=非缓存输入；output=总输出；计算 totalTokens 不认证完整总量",
             ),
-        );
-        fields.insert(
-            "cache_read".into(),
-            field(awaiting.clone(), "同上（未文档化）"),
-        );
-        fields.insert(
-            "cache_write".into(),
-            field(awaiting.clone(), "同上（未文档化）"),
-        );
-        fields.insert(
-            "per_request_calls".into(),
-            field(
-                awaiting.clone(),
-                "文档证实追加式 transcript 含 usage 测量；条目级 schema 未文档化",
+            (
+                "cache_read",
+                partial.clone(),
+                "有效正桶；缺字段与默认零未知",
             ),
-        );
-        fields.insert("model".into(), field(awaiting.clone(), "未文档化"));
-        fields.insert("time".into(), field(awaiting.clone(), "未文档化"));
-        fields.insert(
-            "cost".into(),
-            field(
-                awaiting.clone(),
-                "文档证实 usage.cost（记录金额或本地估算）；载体 schema 未文档化",
+            ("cache_write", partial, "有效正桶；缺字段与默认零未知"),
+            (
+                "per_request_calls",
+                unavailable.clone(),
+                "assistant usage observation，不将条目数推导为底层调用数",
             ),
-        );
-        fields.insert("latency".into(), field(awaiting.clone(), "未文档化"));
+            (
+                "model",
+                Availability::Available,
+                "仅记录自身 provider/model；不继承会话最新模型",
+            ),
+            (
+                "time",
+                Availability::Partial("当前 OpenAI transport timestamp 为请求开始".into()),
+                "message.timestamp；不使用落库时刻补造完成时间",
+            ),
+            ("cost", unavailable.clone(), "本地默认估价零不认证账单"),
+            ("latency", unavailable, "无已核验逐次耗时字段"),
+        ] {
+            fields.insert(
+                key.into(),
+                serde_json::json!({"availability": availability, "note":note}),
+            );
+        }
         CapabilityTable {
-            adapter_id: "openclaw".to_string(),
-            product: "OpenClaw".to_string(),
-            surfaces: vec!["gateway".into(), "cli".into()],
-            supported_versions: versions::VERIFIED_VERSION_IMPLS
-                .iter()
-                .map(|(v, _)| v.to_string())
-                .collect(),
-            discovery: serde_json::json!({
-                "default_roots": ["<home>/.openclaw"],
-                "env_override": null,
-                "manual_roots": true,
-                "bounded": true,
-                "pattern": "agents/<agentId>/agent/openclaw-agent.sqlite（运行时）与 agents/<agentId>/sessions/（旧归档/迁移输入）",
-                "per_agent": "每 Agent 一个库（官方 store 参考）",
-            }),
-            detection: serde_json::json!({
-                "magic": "文档路径形状（agents/<agentId>/agent|sessions/...）+ SQLite 结构",
-                "version_field": null,
-                "registry": "adapters/openclaw/versions（空集，待真实样本）",
-                "fail_closed": true,
-                "unknown_version": "全部输入 fail closed：运行时库表级 schema 未文档化；旧归档按迁移输入降级（gateway 启动不导入，openclaw doctor --fix 迁移）",
-            }),
+            adapter_id: "openclaw".into(),
+            product: "OpenClaw".into(),
+            surfaces: vec!["cli".into(), "gateway".into()],
+            supported_versions: vec![],
             fields,
-            lifecycle: serde_json::json!({
-                "runtime_store": "会话行为可变运行态（token counters）、transcript 为追加式树（id+parentId）；具体生命周期待表级取证",
-                "legacy_archive": "旧 JSONL/sessions.json 为迁移/离线维护输入，不按运行态解析",
-            }),
-            incremental: serde_json::json!({
-                "cursor": "待实现（当前无解析器）",
-                "row_cap": "待实现",
-                "note": "fail closed 输入不保存游标；重复扫描只重复诊断，不产生数据",
-            }),
-            dedup: serde_json::json!({
-                "primary": "待实现（无解析器）",
-                "cross_source": "外部 CLI 镜像（bound imports 保留本地 import owner）与多 agent 库分开实例；远端 Gateway 主机上的存储不属于本机（不采集）",
-                "rescan": "无数据产出，无重扫双计风险",
-            }),
-            integrity: serde_json::json!({
-                "success_only": false,
-                "hidden_calls": "fail closed 不读内容；不产零值记录",
-                "sampling": "未知",
-                "source_retention": "未知（store 维护/保留策略见官方 store maintenance 文档，未核验数值）",
-            }),
-            maintenance: serde_json::json!({
-                "parser_version": versions::runtime_store::OPENCLAW_PARSER_VERSION,
-                "format_evidence": "官方文档 store/token-use（A09，2026-09-24 核验）；无表级 schema、无本机样本",
-                "evidence_level": "doc-level（本机 not_found 2026-09-25 盘点；待真实样本）",
-                "upgrade_policy": "取得真实脱敏 fixture（openclaw-agent.sqlite + 旧归档样本）后在 versions/runtime_store 实现并登记版本",
-            }),
-            scheduling: serde_json::json!({
-                "entry": "统一 run_adapter_scan；手动/间隔/监听触发按源合并",
-                "incremental_cost": "发现层有界枚举 + 结构探测；无行级读取",
-                "pause_cancel": "fail closed 输入即时返回，无长事务",
-            }),
+            discovery: serde_json::json!({"default_roots":["<home>/.openclaw"],"legacy_home":"仅默认新根不存在时 .clawdbot","env_override":["OPENCLAW_STATE_DIR","OPENCLAW_HOME"],"manual_roots":true,"bounded":true,"pattern":"agents/<agentId>/agent/openclaw-agent.sqlite；旧 sessions 仅诊断"}),
+            detection: serde_json::json!({"magic":"schema 24、所需表列、schema_meta.role/agent_id 与路径一致","version_field":"整库 app_version 不认证历史行","registry":"adapters/openclaw/versions","fail_closed":true,"unknown_version":"schema 24 latest_fallback；其他 schema/迁移输入拒绝"}),
+            lifecycle: serde_json::json!({"runtime_store":"hot transcript 正文独立读取；会话可变累计不叠加","legacy_archive":"迁移输入不读用量","cold_archive":"待非空真实样本；存在时显式覆盖缺口，保留既有历史"}),
+            incremental: serde_json::json!({"cursor":"session_id/seq 分页，末页重查历史，offset=0","row_cap":runtime_store::MAX_ROWS_PER_ROUND,"body_cap":runtime_store::MAX_BODY_BYTES,"snapshot":"只读 SQLite；schema/来源/冷归档/正文同一快照"}),
+            dedup: serde_json::json!({"primary":"session_id+entry id","rescan":"统一事件身份幂等；消失条目不删除已有历史","cross_source":"provenance=1，排除 ACP/plugin/hook/其他 harness 与迁移镜像"}),
+            integrity: serde_json::json!({"success_only":false,"hidden_calls":"未落盘调用不补造；其他 transport/辅助路径待验","sampling":"未知","source_retention":"冷归档缺口可见"}),
+            maintenance: serde_json::json!({"parser_version":runtime_store::OPENCLAW_PARSER_VERSION,"format_evidence":"官方 npm 2026.9.8 实装、schema 24、真实 CLI/续会话与独立 API","evidence_level":"real-local-cli","upgrade_policy":"每个 transport/历史版本与冷归档单独核验"}),
+            scheduling: serde_json::json!({"entry":"统一 run_adapter_scan","incremental_cost":"有界分页/复查","pause_cancel":"SQLite VM、逐行与 zstd 解码协作检查"}),
             limitations: vec![
-                "文档级证据实现：官方文档未给出任何表名/列名（A09 具体表待验），运行时库与旧归档均 fail closed，不猜字段、不产零值".into(),
-                "本机未安装（2026-09-25 盘点 not_found）：无真实样本，能力声明按文档级标注".into(),
-                "旧 sessions/ 目录是迁移/归档输入：Gateway 启动不导入（须 openclaw doctor --fix），本适配器按降级输入处理并标注待证".into(),
-                "远端 Gateway 主机上的 ~/.openclaw 不属于本机来源，不在采集范围；外部 CLI 镜像去重待真实样本验证".into(),
-                "usage 归一形状（input/output 别名、total 回退、usage.cost）已有文档证据，待表级 schema 取证后接入".into(),
+                "CLI 两次真实调用不认证 Gateway、辅助/嵌套/导入与所有历史版本".into(),
+                "默认零和计算总量保持未知；调用数与费用不补造".into(),
+                "冷归档与旧迁移输入仍待真实取证；其他 schema fail closed".into(),
+                "npm provenance 源码与实际编译代码不同，按实装字段核验；整库版本不认证历史行"
+                    .into(),
+                "远端 Gateway 数据不属于本机来源".into(),
             ],
         }
     }

@@ -144,6 +144,7 @@ impl Storage {
         // Partial indexes avoid repeatedly scanning all valid events for rare gaps.
         conn.execute_batch("CREATE INDEX IF NOT EXISTS idx_events_unverified_time ON usage_events(occurred_at_ms) WHERE attribution_status!='verified';
             CREATE INDEX IF NOT EXISTS idx_events_carrier_gap_time ON usage_events(occurred_at_ms) WHERE exclusion_reason='copilot_otel_session_authority';
+            CREATE INDEX IF NOT EXISTS idx_events_qwen_carrier_gap_time ON usage_events(occurred_at_ms) WHERE exclusion_reason='qwen_sdk_session_authority';
             CREATE INDEX IF NOT EXISTS idx_events_summary_cover ON usage_events(occurred_at_ms,source_instance_id,session_id,duration_ms,record_kind) WHERE attribution_status='verified' AND record_kind IN ('model_call','transport_attempt','usage_observation');")?;
 
         crate::query_acceleration::install(&conn)?;

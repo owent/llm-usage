@@ -256,14 +256,15 @@ fn junie_model_usage_events() {
     let outcome = scan(&adapter, &session);
     assert_eq!(outcome.events.len(), 2, "modelUsage 每元素一事件");
     let first = &outcome.events[0];
-    assert_eq!(first.usage.input_total, Some(100));
+    assert_eq!(first.usage.input_uncached, Some(100));
+    assert_eq!(first.usage.input_total, None);
     assert_eq!(first.usage.input_cache_read, Some(30));
     assert_eq!(first.usage.output_reasoning, Some(5));
     assert_eq!(first.duration_ms, Some(1500));
     assert_eq!(first.interval_start_ms, Some(ts - 1500));
     assert_eq!(first.cost.as_ref().unwrap().amount_minor, 10_000);
     let second = &outcome.events[1];
-    assert_eq!(second.usage.input_total, Some(50), "别名组 input");
+    assert_eq!(second.usage.input_uncached, Some(50), "别名组 input");
     assert_eq!(second.usage.input_cache_read, None);
 }
 
@@ -304,7 +305,13 @@ fn xum_session_usage_by_model() {
         .iter()
         .find(|a| a.scope_key.contains("anthropic"))
         .unwrap();
-    assert_eq!(primary.usage.input_total, Some(100));
+    assert_eq!(primary.usage.input_uncached, Some(100));
+    assert_eq!(primary.usage.input_total, None);
+    assert_eq!(primary.usage.output_total, Some(25));
+    assert_eq!(
+        primary.quality.output_total,
+        llm_usage_core::domain::FieldQuality::Derived
+    );
     assert_eq!(primary.usage.input_cache_read, Some(40));
     assert_eq!(primary.usage.input_cache_write, Some(10));
     assert_eq!(primary.interval_end_ms, 1_790_000_000_000);

@@ -1,0 +1,9 @@
+{
+  "synthetic": false,
+  "source_version": "0.25.0",
+  "source_pin": "6788c035698a0ada471c958d1e789e96c6cddd9b",
+  "raw_sha256": "5d0abf2ac630aaf64c13a7f870eb7c264d5ebc91e5b3dc534de7ba10925a4ef5",
+  "objects": 25,
+  "llm_spans": 2,
+  "redaction": "whitelist; shared session and trace/span equality preserved with fixed identifiers; resource SDK pair shape retained; metrics dimensions omitted"
+}

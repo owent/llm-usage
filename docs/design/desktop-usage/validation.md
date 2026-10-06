@@ -61,11 +61,10 @@ V28 的来源持久化、迁移和合并判定样本由 M1a 验收，实际导�
 （交换包为聚合层：来源注册 + 日分区 + 周期分区 + 小时层，明细不导出）；
 聚合层导入已按 M1a 判定实施（同分区键修订比较），明细级导入与完整 Merge 的
 端到端测试随后续功能排期，不开放跨设备采集。
-V29 已随 F2 实施（2026-09-30，[记录](../../validation/desktop-usage/f2-cost-engine.md)）：
-固定价格样本 P1–P6、人工期望金额 E1–E8 与异常场景 A1–A8/A10 以合同测试执行通过；
-A9（在线刷新失败回退）已随可选在线刷新实施执行（2026-10-01，
-[记录](../../validation/desktop-usage/f2-online-refresh.md)）；真实数据只读核对待用户配置
-供应商渠道默认。
+V29 使用固定价格样本 P1–P6、人工期望 E1–E8、异常场景 A1–A10；
+测试与在线失败回退结果见 [费用引擎](../../validation/desktop-usage/f2-cost-engine.md)、
+[在线刷新](../../validation/desktop-usage/f2-online-refresh.md)。当前 API 参考与发生时
+估算分别核对，后者须有明确供应商渠道；预算提醒验收随后置功能，不作为已完成能力。
 
 <a id="adapter-versions"></a>
 

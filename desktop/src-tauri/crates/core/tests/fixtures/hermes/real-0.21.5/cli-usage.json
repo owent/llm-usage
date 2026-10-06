@@ -1,0 +1,40 @@
+[
+  {
+    "estimated_cost_usd": 0.0,
+    "cost_status": "unknown",
+    "cost_source": "none",
+    "input_tokens": 816,
+    "output_tokens": 2,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "reasoning_tokens": 0,
+    "total_tokens": 818,
+    "api_calls": 1,
+    "model": "qwen3.5-0.8b-local",
+    "provider": "custom",
+    "completed": true,
+    "partial": false,
+    "interrupted": false,
+    "turn_exit_reason": "text_response(finish_reason=stop)",
+    "failed": false
+  },
+  {
+    "estimated_cost_usd": 0.0,
+    "cost_status": "unknown",
+    "cost_source": "none",
+    "input_tokens": 33,
+    "output_tokens": 2,
+    "cache_read_tokens": 812,
+    "cache_write_tokens": 0,
+    "reasoning_tokens": 0,
+    "total_tokens": 847,
+    "api_calls": 1,
+    "model": "qwen3.5-0.8b-local",
+    "provider": "custom",
+    "completed": true,
+    "partial": false,
+    "interrupted": false,
+    "turn_exit_reason": "text_response(finish_reason=stop)",
+    "failed": false
+  }
+]

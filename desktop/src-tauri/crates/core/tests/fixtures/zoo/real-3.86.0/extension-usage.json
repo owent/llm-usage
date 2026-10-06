@@ -1,0 +1,13 @@
+{
+  "version": "3.86.0",
+  "usage": {
+    "totalTokensIn": 6118,
+    "totalTokensOut": 53,
+    "totalCacheWrites": 0,
+    "totalCacheReads": 0,
+    "totalCost": 0,
+    "contextTokens": 6171
+  },
+  "tools": {},
+  "cancelled": true
+}

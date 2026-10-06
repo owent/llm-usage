@@ -65,6 +65,12 @@ impl Binding {
 
 pub trait Store: Send + Sync {
     fn read(&self, name: &str) -> Result<Option<Vec<u8>>, String>;
+    fn read_for_mutation(&self, name: &str) -> Result<Option<Vec<u8>>, String> {
+        self.read(name)
+    }
+    fn confirm_deleted(&self, name: &str, _expected: &[u8]) -> Result<bool, String> {
+        Ok(self.read(name)?.is_none())
+    }
     fn write(&self, name: &str, bytes: &[u8]) -> Result<(), String>;
     fn delete(&self, name: &str) -> Result<(), String>;
     fn random(&self, bytes: &mut [u8]) -> Result<(), String>;
@@ -124,29 +130,82 @@ pub fn issue(
     };
     let name = format!("{PREFIX}{}", binding.id);
     if store.read(&name)?.is_some() {
+        #[cfg(test)]
+        eprintln!("native credential issue failure: random target already exists");
         return Err("credential_store_unavailable".into());
     }
     let bytes = serde_json::to_vec(&binding).map_err(|_| "credential_store_unavailable")?;
     if let Err(error) = store.write(&name, &bytes) {
         // A service can persist a write before its reply fails. Reclaim only
         // the exact entry we attempted, never a replaced or ambiguous value.
-        if store.read(&name)?.as_deref() == Some(bytes.as_slice()) {
+        if store.read_for_mutation(&name)?.as_deref() == Some(bytes.as_slice()) {
             store.delete(&name)?;
+            if !store.confirm_deleted(&name, &bytes)? {
+                return Err("credential_store_unavailable".into());
+            }
         }
         return Err(error);
     }
     // Verify persistence before any exporter is configured. Roll back our entry on failure.
-    match store.read(&name) {
+    let verification = store.read_for_mutation(&name);
+    match verification {
         Ok(Some(saved)) if saved == bytes => Ok(binding),
-        _ => {
+        other => {
+            #[cfg(test)]
+            eprintln!(
+                "native credential issue failure: persistence verification state={}",
+                match other {
+                    Ok(None) => "absent",
+                    Ok(Some(_)) => "different",
+                    Err(_) => "read_failed",
+                }
+            );
+            #[cfg(not(test))]
+            let _ = other;
             // A failed verification may mean another writer replaced this
             // target. Re-read and only reclaim our exact payload.
-            if store.read(&name)?.as_deref() == Some(bytes.as_slice()) {
+            if store.read_for_mutation(&name)?.as_deref() == Some(bytes.as_slice()) {
                 store.delete(&name)?;
+                if !store.confirm_deleted(&name, &bytes)? {
+                    return Err("credential_store_unavailable".into());
+                }
             }
             Err("credential_store_unavailable".into())
         }
     }
+}
+
+#[cfg(any(windows, test))]
+fn read_visible_after_write(
+    mut read: impl FnMut() -> Result<Option<Vec<u8>>, String>,
+) -> Result<Option<Vec<u8>>, String> {
+    // Native Windows tests observed a successful write followed by NOT_FOUND,
+    // then the exact payload 10 ms later. Only missing post-write reads wait;
+    // errors and replacement values are returned immediately. Never re-write.
+    for attempt in 0..=5 {
+        let value = read()?;
+        if value.is_some() || attempt == 5 {
+            return Ok(value);
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    unreachable!()
+}
+
+#[cfg(any(windows, test))]
+fn read_absent_after_delete(
+    mut read: impl FnMut() -> Result<Option<Vec<u8>>, String>,
+    expected: &[u8],
+) -> Result<bool, String> {
+    for attempt in 0..=5 {
+        match read()? {
+            None => return Ok(true),
+            Some(saved) if saved != expected => return Ok(false),
+            Some(_) if attempt == 5 => return Ok(false),
+            Some(_) => std::thread::sleep(std::time::Duration::from_millis(10)),
+        }
+    }
+    unreachable!()
 }
 pub fn authenticated(store: &dyn Store, app: &Path, header: &str) -> Option<Binding> {
     let (id, secret) = split_header(header)?;
@@ -170,25 +229,51 @@ pub fn authorize(store: &dyn Store, app: &Path, header: &str, path: &str) -> Opt
 pub fn revoke(store: &dyn Store, binding: &Binding) -> Result<(), String> {
     let name = format!("{PREFIX}{}", binding.id);
     // Only remove exactly our credential, even if an external writer changed this target.
-    if let Some(bytes) = store.read(&name)? {
+    if let Some(bytes) = store.read_for_mutation(&name)? {
         let expected = serde_json::to_vec(binding).map_err(|_| "credential_store_unavailable")?;
         if bytes != expected {
             return Err("credential_store_unavailable".into());
         }
         store.delete(&name)?;
+        if !store.confirm_deleted(&name, &expected)? {
+            return Err("credential_store_unavailable".into());
+        }
+        #[cfg(test)]
+        eprintln!("native credential revoke: delete completed");
+    } else {
+        #[cfg(test)]
+        eprintln!("native credential revoke: initial read absent");
     }
     Ok(())
 }
 
 #[cfg(windows)]
+fn windows_store_error(operation: &'static str, error: windows::core::Error) -> String {
+    #[cfg(test)]
+    eprintln!(
+        "native credential failure: operation={operation}; HRESULT=0x{:08x}",
+        error.code().0 as u32
+    );
+    #[cfg(not(test))]
+    let _ = (operation, error);
+    "credential_store_unavailable".into()
+}
+
+#[cfg(windows)]
 impl Store for SystemStore {
+    fn read_for_mutation(&self, name: &str) -> Result<Option<Vec<u8>>, String> {
+        read_visible_after_write(|| self.read(name))
+    }
+    fn confirm_deleted(&self, name: &str, expected: &[u8]) -> Result<bool, String> {
+        read_absent_after_delete(|| self.read(name), expected)
+    }
     fn random(&self, bytes: &mut [u8]) -> Result<(), String> {
         use windows::Win32::Security::Cryptography::{
             BCryptGenRandom, BCRYPT_USE_SYSTEM_PREFERRED_RNG,
         };
         unsafe { BCryptGenRandom(None, bytes, BCRYPT_USE_SYSTEM_PREFERRED_RNG) }
             .ok()
-            .map_err(|_| "credential_store_unavailable".into())
+            .map_err(|error| windows_store_error("BCryptGenRandom", error))
     }
     fn read(&self, name: &str) -> Result<Option<Vec<u8>>, String> {
         use windows::Win32::Foundation::ERROR_NOT_FOUND;
@@ -206,7 +291,7 @@ impl Store for SystemStore {
             Err(e) if e.code() == windows::core::HRESULT::from_win32(ERROR_NOT_FOUND.0) => {
                 return Ok(None)
             }
-            Err(_) => return Err("credential_store_unavailable".into()),
+            Err(error) => return Err(windows_store_error("CredReadW", error)),
             Ok(()) => {}
         }
         // CredRead returns one allocation; free it even when the payload is invalid.
@@ -251,7 +336,8 @@ impl Store for SystemStore {
             Persist: CRED_PERSIST_LOCAL_MACHINE,
             ..Default::default()
         };
-        unsafe { CredWriteW(&credential, 0) }.map_err(|_| "credential_store_unavailable".into())
+        unsafe { CredWriteW(&credential, 0) }
+            .map_err(|error| windows_store_error("CredWriteW", error))
     }
     fn delete(&self, name: &str) -> Result<(), String> {
         use windows::Win32::Foundation::ERROR_NOT_FOUND;
@@ -266,7 +352,7 @@ impl Store for SystemStore {
         } {
             Ok(()) => Ok(()),
             Err(e) if e.code() == windows::core::HRESULT::from_win32(ERROR_NOT_FOUND.0) => Ok(()),
-            Err(_) => Err("credential_store_unavailable".into()),
+            Err(error) => Err(windows_store_error("CredDeleteW", error)),
         }
     }
 }

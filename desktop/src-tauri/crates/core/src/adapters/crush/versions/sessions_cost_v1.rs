@@ -1,7 +1,9 @@
 //! Crush crush.db 格式实现（`sessions_cost_v1`，crush-sessions-cost-1）。
 //!
 //! 格式依据（charmbracelet/crush 固定源码
-//! 1f3827bcd2d20f38076b2d46123683271e6ed9ba；本机未安装、无真实样本）：
+//! 1f3827bcd2d20f38076b2d46123683271e6ed9ba 及 v0.97.1；真实 API/CLI/SQLite
+//! 核对主循环+自动标题 cost=0.005059（明确人工测试费率），上下文快照 4901
+//! 不代替 API 合计 5063；其他场景/版本未认证）：
 //! - 每项目一库 `<data_dir>/crush.db`（WAL）；sessions 表
 //!   id/parent_session_id/title/message_count/prompt_tokens/completion_tokens/
 //!   cost/updated_at/created_at（Unix 秒）。

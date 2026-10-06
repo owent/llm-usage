@@ -1,7 +1,5 @@
-//! OpenClaw 适配器约定测试：合成 fixture（依据 A09；本机未安装，
-//! 2026-09-25 盘点 not_found）。官方文档只给出存储位置形状，未文档化表级/
-//! 条目级 schema ⇒ 运行时库与旧归档均 fail closed（_expectations.md）：
-//! 不读表、不猜字段、不产零值；发现形状与幂等仍可验证。
+//! Old invented-schema and legacy fixtures must remain closed after the genuine
+//! schema 24 reader is added; runtime acceptance is in openclaw_runtime_contract.
 
 mod common;
 
@@ -85,7 +83,7 @@ fn run_openclaw(storage: &Storage, root: &Path, now_ms: i64) -> usize {
 }
 
 #[test]
-fn runtime_store_fails_closed_without_documented_schema() {
+fn invented_runtime_schema_still_fails_closed() {
     let (_dir, storage) = temp_storage("openclaw-runtime");
     let (dir, root) = rebuild_from_fixture("synthetic-runtime-store");
     let files = run_openclaw(&storage, &root, NOW);
@@ -129,11 +127,16 @@ fn legacy_archive_is_migration_input_not_usage_source() {
 }
 
 #[test]
-fn capability_is_doc_level_and_honest() {
+fn capability_records_real_cli_scope_and_unverified_boundaries() {
     let cap = OpenClawAdapter::new().capability();
     let json = serde_json::to_value(&cap).unwrap();
     assert_eq!(json["adapter_id"], "openclaw");
     let text = serde_json::to_string(&json).unwrap();
     assert!(text.contains("待证") || text.contains("fail closed") || text.contains("文档"));
     assert!(!cap.limitations.is_empty());
+    assert_eq!(json["maintenance"]["evidence_level"], "real-local-cli");
+    assert!(
+        cap.supported_versions.is_empty(),
+        "whole-db app version cannot certify historical rows"
+    );
 }

@@ -1,0 +1,36 @@
+{
+  "product": "Aider",
+  "product_version": "0.86.2",
+  "capture_date": "2026-10-06",
+  "official_image": "docker.io/paulgauthier/aider@sha256:764924922f1f9a47e1185ebaa72e6435027af657deaff3febf0f20a176403c1e",
+  "image_id": "4596c7c132b3d8f9594e81324c46cbc588b95847929325478d60b37d6d63b647",
+  "raw_sha256": "93fa009a0c7e92544d54cb15a5488245c69c398018c24fa007d6e6c4c3e2924c",
+  "projection_sha256": "b229cb48defe621fe4b3ce8dbf89a0f9e568d21ebaede58422360e9d8cad414f",
+  "carrier": "--analytics-log analytics.jsonl; --no-analytics; ask mode; --no-stream",
+  "runtime": "Podman rootless; both client and model have no external network; ordinary UID 1000; no host mounts",
+  "model": "qwen2.5-0.5b-local; real llama.cpp inference, no synthetic responses",
+  "source_fields": [
+    "event",
+    "time",
+    "properties.main_model",
+    "properties.prompt_tokens",
+    "properties.completion_tokens",
+    "properties.total_tokens",
+    "properties.cost",
+    "properties.total_cost"
+  ],
+  "redaction": "All unrelated properties omitted; user_id replaced; event order and numeric/time/model fields preserved.",
+  "version_basis": "The JSONL has no product version field. Runtime version is capture provenance, not a per-record product-version registry entry.",
+  "independent_check": {
+    "api_calls": 1,
+    "prompt_tokens": 95,
+    "completion_tokens": 3,
+    "total_tokens": 98,
+    "cli": "Tokens: 95 sent, 3 received."
+  },
+  "limitations": [
+    "No independent cache or reasoning fields in analytics carrier; API cached_tokens=0 is not copied into the carrier.",
+    "Cost zero comes from explicit local-model metadata and remains Estimated. No cloud price or actual bill is inferred.",
+    "One ask-mode successful local-model call only; no cloud, edits, retries, multi-send, fork or other product-version acceptance."
+  ]
+}

@@ -1,13 +1,13 @@
 //! OpenCode 适配器（独立目录约定 architecture.md#adapter-layout）：
 //! - 本模块是该 Agent 的稳定入口（统一接口实现与再导出）；
 //! - [`detect`]：opencode.db schema 指纹（产品互斥）+ session.version 注册表；
-//! - [`versions`]：格式注册表（当前空：文档或源码依据，全部 latest_fallback）；
+//! - [`versions`]：按逐记录版本选择已验证实现或 latest_fallback；
 //! - [`common`]：产品互斥 schema 指纹 + 源库只读/暂存副本约定；
 //! - wire 解析核心在家族共享模块 [`crate::adapters::opencode_family`]。
 //!
 //! 格式依据：A17 固定源码 0027387dc5c59793c12dfc531abc78f825ed6868；
 //! 1.18.34（aec0b9a6）的官方 CLI / 本地模型真实样本已核对主循环及缓存读。
-//! 真实样本通过不代表整个库版本已认证，仍走 latest_fallback：
+//! 真实样本通过不代表同库其他版本或所有调用已认证：
 //! - 路径：xdg-basedir 的 opencode 数据目录（`$XDG_DATA_HOME/opencode`，
 //!   缺省 `~/.local/share/opencode`；Windows 布局未经真实样本核验）下
 //!   `opencode.db`（安装通道变体 `opencode-<channel>.db`），WAL；
@@ -149,9 +149,26 @@ impl crate::adapters::framework::SourceAdapter for OpenCodeAdapter {
         versions::step_finish_parts_v1::scan(target, stored, limits, now_ms)
     }
 
+    fn scan_format(
+        &self,
+        outcome: &crate::adapters::framework::ScanOutcome,
+    ) -> Option<crate::adapters::framework::DetectOutcome> {
+        let context = outcome.parse_context.as_ref()?;
+        let basis = if context["has_unverified_records"].as_bool().unwrap_or(true) {
+            crate::domain::VersionBasis::LatestFallback
+        } else {
+            serde_json::from_value(context["version_basis"].clone()).ok()?
+        };
+        Some(crate::adapters::framework::DetectOutcome::Supported {
+            format: OPENCODE_FORMAT.into(),
+            format_version: context["db_version"].as_str().map(str::to_string),
+            basis,
+        })
+    }
+
     fn capability(&self) -> crate::adapters::framework::CapabilityTable {
         use crate::adapters::framework::{Availability, CapabilityTable};
-        let awaiting = "1.18.34 官方 CLI / 本地模型的真实主循环及缓存读已核对（2026-10-05）；仍为 latest_fallback，其他版本/云端及混合版本升级另验".to_string();
+        let awaiting = "1.18.34 官方 CLI / 本地模型的真实主循环及缓存读已核对；逐记录认证，其他版本/云端及未落盘辅助调用另验".to_string();
         let mut fields = serde_json::Map::new();
         let field = |availability: Availability, note: &str| {
             serde_json::json!({
@@ -235,8 +252,8 @@ impl crate::adapters::framework::SourceAdapter for OpenCodeAdapter {
             }),
             detection: serde_json::json!({
                 "magic": "SQLite + part/session/message 三表关键列（schema 指纹；session 须含 tokens_* 五累计列 ⇒ 与 MiMo 库互斥）",
-                "version_field": "session.version（库内数值最大者）",
-                "registry": "adapters/opencode/versions 注册表当前为空；1.18.34 真实兼容样本已核对，混合版本与旧游标升级验收后再登记",
+                "version_field": "step-finish 所属 session.version（空会话不参与）",
+                "registry": "adapters/opencode/versions 仅登记 1.18.34；按 step-finish 所属会话选择，混合版本/空会话/旧游标升级已回归，其他版本继续 latest_fallback",
                 "fail_closed": true,
                 "unknown_version": "未收录/缺失版本一律 latest_fallback（带兼容标记）；仅新 core session_message 投影层 fail closed 待取证",
             }),
@@ -249,11 +266,11 @@ impl crate::adapters::framework::SourceAdapter for OpenCodeAdapter {
                 "part_removal": "上游 PartRemoved/MessageRemoved 会扣减 session 计数（-sign 路径）；被删部件行消失后不再入账，靠对账 mismatch 可见",
             }),
             incremental: serde_json::json!({
-                "cursor": "schema 指纹 + part.id 稳定键 + time_updated 水位（+60s 有界重叠窗）",
-                "row_cap": "单轮 50,000 行；触顶停在最后一个完整毫秒",
-                "schema_evolution": "指纹变化 ⇒ 水位重置全量重读（id 键 upsert 幂等）",
-                "no_change_detection": "WAL 下主库文件长度不变不代表内容未变：游标 offset 恒 0，每轮执行水位查询而非字节短路",
-                "rescan_note": "in-place 页重写触发框架 Rescan 标记；水位不重置（同一逻辑库）",
+                "cursor": "schema 指纹 + part.id 稳定键 + time_updated 处理位置（60s 有界重叠窗）；未完成分页保留原窗口起点",
+                "row_cap": "单轮最多 50,000 行，并遵守 max_lines；以 time_updated/part.id 元组续扫，完成窗口后恢复重叠",
+                "schema_evolution": "指纹变化 ⇒ 处理位置重置全量重读（id 键 upsert 幂等）",
+                "no_change_detection": "WAL 下主库文件长度不变不代表内容未变：游标 offset 恒 0，每轮执行处理位置查询而非字节短路",
+                "rescan_note": "in-place 页重写触发框架 Rescan 标记；处理位置不重置（同一逻辑库）",
             }),
             dedup: serde_json::json!({
                 "primary": "opencode:part:{part.id}（实例命名空间）",
@@ -270,15 +287,15 @@ impl crate::adapters::framework::SourceAdapter for OpenCodeAdapter {
                 "parser_version": versions::step_finish_parts_v1::PARSER_VERSION,
                 "format_evidence": "固定源码 0027387 + 1.18.34/aec0b9a6 的 sql/projector/processor/prompt 与真实脱敏 fixtures；API usage/CLI/原生库/应用独立核对",
                 "evidence_level": "real-local（1.18.34 主循环/缓存读，2026-10-05；默认标题调用覆盖缺口保留）",
-                "upgrade_policy": "逐记录按 session.version 认证，并验收混合版本、空会话及未变化旧游标重评后再注册；库内最高版本不能认证其他会话",
+                "upgrade_policy": "逐记录按 session.version 认证；支持或规则升级重评未变化的旧处理位置，完整有效重评标记完成；空会话及库内最高版本不认证其他记录",
             }),
             scheduling: serde_json::json!({
                 "entry": "统一 run_adapter_scan；手动/间隔/监听触发按源合并",
-                "incremental_cost": "time_updated 水位查询；每轮固定一次探测查询",
+                "incremental_cost": "time_updated 处理位置查询；每轮固定一次探测查询",
                 "pause_cancel": "行级游标可停；busy 源转暂存副本或保留旧结果下轮重试",
             }),
             limitations: vec![
-                "1.18.34 Linux CLI 的真实主循环及缓存读通过；全部版本仍为 latest_fallback，混合版本与旧游标升级待独立验收".into(),
+                "仅 1.18.34 Linux CLI 主循环及缓存读有真实样本；其他版本仍 latest_fallback，混合库按各自会话保留依据".into(),
                 "默认标题生成未进入 step-finish：真实 API 2 次/848 token，原生载体及应用仅 1 次/299 token；明确标题的对照为 1 次/299 token，不能替代默认覆盖结论".into(),
                 "tokens 五互斥口径已在 1.18.34 本地模型核对（未缓存 295 + 缓存读 3 = API 输入 298）；其他 provider/版本、缓存写及非零 reasoning 尚待真实核验".into(),
                 "逐调用精确时间与模型切换序待上游 event 层（A17）：part 行时间标 observed_at，模型归属经 message join".into(),

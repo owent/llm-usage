@@ -24,6 +24,8 @@ fn cache() -> &'static EvidenceCache {
 fn expected_agent(id: &str) -> &str {
     if id.starts_with("copilot-vscode") {
         "vscode-copilot-chat"
+    } else if id == "qwen" {
+        "qwen-code"
     } else {
         id
     }
@@ -92,6 +94,9 @@ pub(super) fn verify(target: &mut Target) {
     }
     // Inspect the newest 2 MiB at a complete line boundary; bounded time/rows.
     let mut offset = probe.len.saturating_sub(2 * 1024 * 1024);
+    if target.dto.id == "qwen" {
+        offset = 0;
+    }
     if offset > 0 {
         let Ok(mut file) = std::fs::File::open(path) else {
             return;
@@ -139,18 +144,41 @@ pub(super) fn verify(target: &mut Target) {
         parse_context: Some(json!({"policy_version":3})),
     };
     let expected = expected_agent(&target.dto.id);
-    if let Ok(outcome) = spans_doc1::scan_with_byte_budget(
-        &scan_target,
-        &stored,
-        &limits,
-        jiff::Timestamp::now().as_millisecond(),
-        Some(2 * 1024 * 1024),
-    ) {
-        target.dto.verified_records = outcome
-            .events
-            .iter()
-            .filter(|e| e.agent == expected)
-            .count();
+    if expected == "qwen-code" {
+        if let Ok(outcome) =
+            llm_usage_core::adapters::otel::versions::qwen_sdk_025::scan_with_byte_budget(
+                &scan_target,
+                &StoredScanState::default(),
+                &limits,
+                jiff::Timestamp::now().as_millisecond(),
+                2 * 1024 * 1024,
+            )
+        {
+            target.dto.verified_records = outcome
+                .events
+                .iter()
+                .filter(|e| {
+                    e.agent == expected
+                        && e.parse_basis == Some(llm_usage_core::domain::VersionBasis::KnownVersion)
+                        && (e.usage.input_total.is_some() || e.usage.output_total.is_some())
+                })
+                .count();
+        }
+    }
+    if expected != "qwen-code" {
+        if let Ok(outcome) = spans_doc1::scan_with_byte_budget(
+            &scan_target,
+            &stored,
+            &limits,
+            jiff::Timestamp::now().as_millisecond(),
+            Some(2 * 1024 * 1024),
+        ) {
+            target.dto.verified_records = outcome
+                .events
+                .iter()
+                .filter(|e| e.agent == expected)
+                .count();
+        }
     }
     if target.dto.verified_records == 0 && offset > 0 {
         let stored = StoredScanState {

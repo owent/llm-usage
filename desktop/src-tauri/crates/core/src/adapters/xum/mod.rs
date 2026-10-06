@@ -39,6 +39,28 @@ impl crate::adapters::framework::SourceAdapter for XumAdapter {
     ) -> Vec<crate::adapters::framework::DiscoveredRoot> {
         use crate::adapters::framework::{DiscoveredRoot, RootBasis};
         let mut roots: Vec<(std::path::PathBuf, RootBasis)> = Vec::new();
+        for (canonical, legacy) in [
+            ("XUM_ROOT", "MUX_ROOT"),
+            ("XUM_RUN_SESSION_ROOT", "MUX_RUN_SESSION_ROOT"),
+        ] {
+            if let Some(value) = ctx
+                .env
+                .get(canonical)
+                .or_else(|| ctx.env.get(legacy))
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+            {
+                let name = if ctx.env.contains_key(canonical) {
+                    canonical
+                } else {
+                    legacy
+                };
+                roots.push((
+                    std::path::PathBuf::from(value).join("sessions"),
+                    RootBasis::EnvOverride(name.into()),
+                ));
+            }
+        }
         // 旧品牌 mux 根保留（产品更名；第三方解析器读取的路径即 ~/.mux）。
         if let Some(home) = &ctx.home_dir {
             roots.push((home.join(".mux").join("sessions"), RootBasis::DefaultHome));
@@ -91,7 +113,7 @@ impl crate::adapters::framework::SourceAdapter for XumAdapter {
     fn capability(&self) -> crate::adapters::framework::CapabilityTable {
         use crate::adapters::framework::{Availability, CapabilityTable};
         let note =
-            "第三方解析器证据（tokscale 1d9a939）+ 官方开源仓库线索；本机未安装，待真实样本核验"
+            "官方 npm 0.30.0 / coder/xum 81b0b744 与默认/网关对照真实本地模型载体；其他场景待核验"
                 .to_string();
         let mut fields = serde_json::Map::new();
         let field = |availability: Availability, detail: &str| serde_json::json!({ "availability": availability, "note": detail });
@@ -99,16 +121,22 @@ impl crate::adapters::framework::SourceAdapter for XumAdapter {
             "tokens".into(),
             field(
                 Availability::Partial(note.clone()),
-                "byModel 五桶（input/cached/cacheCreate/output/reasoning 各含 tokens）会话级累计",
+                "byModel 累计：正 input 为未缓存输入；零桶未知；文本输出加已知推理，推理未知时是下界；完整输入/总量未知",
             ),
         );
         fields.insert(
             "cache_read".into(),
-            field(Availability::Partial(note.clone()), "cached.tokens"),
+            field(
+                Availability::Partial(note.clone()),
+                "正 cached.tokens；默认零未知",
+            ),
         );
         fields.insert(
             "cache_write".into(),
-            field(Availability::Partial(note.clone()), "cacheCreate.tokens"),
+            field(
+                Availability::Partial(note.clone()),
+                "正 cacheCreate.tokens；默认零未知",
+            ),
         );
         fields.insert(
             "per_request_calls".into(),
@@ -154,8 +182,8 @@ impl crate::adapters::framework::SourceAdapter for XumAdapter {
                 .map(|(v, _)| v.to_string())
                 .collect(),
             discovery: serde_json::json!({
-                "default_roots": ["~/.mux/sessions（旧品牌根，证据路径）", "~/.xum/sessions（新名候选，待真实样本确认）"],
-                "env_override": null,
+                "default_roots": ["~/.mux/sessions（旧品牌根）", "~/.xum/sessions（官方新根）"],
+                "env_override": "XUM_ROOT/MUX_ROOT、XUM_RUN_SESSION_ROOT/MUX_RUN_SESSION_ROOT 下的 sessions；CLI 默认临时目录退出删除",
                 "manual_roots": "sessions 目录或 workspace 目录",
                 "bounded": true,
                 "pattern": "sessions/<workspaceId>/session-usage.json（深度 2）",
@@ -184,17 +212,26 @@ impl crate::adapters::framework::SourceAdapter for XumAdapter {
             }),
             maintenance: serde_json::json!({
                 "parser_version": versions::usage_v1::XUM_PARSER_VERSION,
-                "format_evidence": "tokscale 固定提交 1d9a939 sessions/mux.rs + coder/xum 开源仓库",
-                "evidence_level": "third-party-parser（无本机样本）",
-                "upgrade_policy": "真实样本后核验 byModel 实际形状",
+                "format_evidence": "官方 npm 0.30.0 与对应提交 81b0b744 的 sessionUsageService/displayUsage；两次真实本地模型载体",
+                "evidence_level": "real-local（默认缺 usage 的失败任务与网关仅请求真实 usage 的成功对照分别保留）",
+                "upgrade_policy": "完整旧摘要仅允许 input 桶纠正、默认零和已知推理归并；旧游标自动重评，不认证其他产品版本",
             }),
             scheduling: serde_json::json!({ "entry": "统一 run_adapter_scan" }),
             limitations: vec![
                 "会话级聚合：无逐请求数据/延迟；区间起始未知（end=lastRequest.timestamp/mtime）"
                     .into(),
                 "cost_usd 不映射（聚合层无 cost 载体；与 hermes 同型限制）".into(),
-                "~/.xum 新名根为候选：真实样本确认前的保守双根发现".into(),
+                "默认 custom OpenAI-compatible 不请求流式 usage，真实缺 usage 写入五零；网关对照仅请求实际模型 usage，响应原样转发，不认证默认覆盖".into(),
+                "零桶不能区分默认值；正文本输出在推理未知时只作下界，完整输入/总 token 未知".into(),
+                "CLI 默认删除临时会话；须保留 RUN_SESSION_ROOT 或手工根才能采集该次原生载体".into(),
             ],
         }
+    }
+
+    fn prior_aggregate_hashes(
+        &self,
+        input: &crate::aggregates::SourceAggregateInput,
+    ) -> Vec<String> {
+        versions::usage_v1::prior_display_hashes(input)
     }
 }

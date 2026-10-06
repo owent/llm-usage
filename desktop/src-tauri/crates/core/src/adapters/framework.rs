@@ -254,8 +254,21 @@ pub trait SourceAdapter: Send + Sync {
     fn should_scan_unchanged(&self, _stored: &StoredScanState) -> bool {
         false
     }
+    /// 可变载体按本轮逐记录证据更新文件级兼容状态，与事件和游标一起提交。
+    fn scan_format(&self, _outcome: &ScanOutcome) -> Option<DetectOutcome> {
+        None
+    }
     /// 结构化能力声明。
     fn capability(&self) -> CapabilityTable;
+
+    /// Complete prior digests for explicitly evidenced parser corrections only.
+    /// Same source revision remains mandatory; unrelated field changes still conflict.
+    fn prior_aggregate_hashes(
+        &self,
+        _input: &crate::aggregates::SourceAggregateInput,
+    ) -> Vec<String> {
+        Vec::new()
+    }
 
     /// A verified authoritative archive can replace file scanning for this root.
     /// Errors must remain visible; never silently add a second carrier's counts.
@@ -784,8 +797,17 @@ impl SourceAdapter for RootAdapter<'_> {
     fn should_scan_unchanged(&self, stored: &StoredScanState) -> bool {
         self.adapter.should_scan_unchanged(stored)
     }
+    fn scan_format(&self, outcome: &ScanOutcome) -> Option<DetectOutcome> {
+        self.adapter.scan_format(outcome)
+    }
     fn capability(&self) -> CapabilityTable {
         self.adapter.capability()
+    }
+    fn prior_aggregate_hashes(
+        &self,
+        input: &crate::aggregates::SourceAggregateInput,
+    ) -> Vec<String> {
+        self.adapter.prior_aggregate_hashes(input)
     }
     fn scan_archive(
         &self,
@@ -1324,7 +1346,12 @@ pub fn run_adapter_scan_filtered_access<S: StorageAccess>(
                 // 原生汇总与事件、游标一起提交；任一失败均可完整重放。
                 for aggregate in &aggregates {
                     super::run_policy::check()?;
-                    crate::aggregates::upsert_source_aggregate_tx(&tx, aggregate, config.now_ms)?;
+                    crate::aggregates::upsert_source_aggregate_with_prior_hashes_tx(
+                        &tx,
+                        aggregate,
+                        config.now_ms,
+                        &adapter.prior_aggregate_hashes(aggregate),
+                    )?;
                 }
                 outcome.data_revision = storage.data_revision()?;
                 super::run_policy::check()?;
@@ -1607,7 +1634,7 @@ fn scan_one_file<S: StorageAccess>(
         target,
         stored,
         mut row,
-        detect_basis,
+        mut detect_basis,
     } = match prepared {
         FilePreparation::Skipped(report, scanned) => return Ok((report, scanned)),
         FilePreparation::Read(prepared) => *prepared,
@@ -1659,8 +1686,22 @@ fn scan_one_file<S: StorageAccess>(
         )? {
             return Err(CoreError::Interrupted("source_disabled"));
         }
-        // 未知版本兼容尝试的失败判定（V30）：读到记录、零事件且带结构诊断 ⇒ 判不兼容，
+        // 未知版本兼容尝试（V30）：无事件或独立有效累计行且带结构诊断 ⇒ 不兼容。
+        // Duplicate/OverlapUnknown 对账快照不能替代有效载体（如旧 Codex 无逐次记录）。
         // 保留旧结果、不提交事件/游标/聚合；下轮解析器更新或显式重扫可重新尝试。
+        if let Some(DetectOutcome::Supported {
+            format,
+            format_version,
+            basis,
+        }) = adapter.scan_format(&outcome)
+        {
+            row.format_status = Some(format_status_json(
+                &format,
+                format_version.as_deref(),
+                basis,
+            ));
+            detect_basis = Some(basis);
+        }
         let compat_basis = detect_basis.or_else(|| {
             row.format_status
                 .as_deref()
@@ -1671,6 +1712,10 @@ fn scan_one_file<S: StorageAccess>(
         let fallback_failed = (stored.cursor.is_none() || target.rescan)
             && compat_basis == Some(crate::domain::VersionBasis::LatestFallback)
             && outcome.events.is_empty()
+            && !outcome.aggregates.iter().any(|aggregate| {
+                aggregate.coverage == crate::aggregates::Coverage::Exclusive
+                    && aggregate.validate().is_ok()
+            })
             && outcome.records_seen > 0
             && !outcome.diagnostics.is_empty();
         batch.events.extend(outcome.events.iter().cloned());

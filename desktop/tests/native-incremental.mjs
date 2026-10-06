@@ -4,7 +4,7 @@ import { chromium } from 'playwright';
 import { DatabaseSync, backup } from 'node:sqlite';
 import { mkdir, appendFile, writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
-import { createServer } from 'node:net';
+import { freeHttpPort } from './http-test-port.mjs';
 import { once } from 'node:events';
 import assert from 'node:assert/strict';
 import { spawnIsolated } from './isolated-child.mjs';
@@ -58,7 +58,7 @@ async function refreshAndWait() {
   throw new Error('refresh did not finish');
 }
 try {
-  const server=createServer();server.listen(0,'127.0.0.1');await once(server,'listening');const port=server.address().port;await new Promise(resolve=>server.close(resolve));
+  const port=await freeHttpPort();
   child=spawnIsolated(resolve(option('--exe','desktop/src-tauri/target/release/LLMUsage.exe')),['--data-dir',data],{env:{...env,WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS:`--remote-debugging-port=${port}`,WEBVIEW2_USER_DATA_FOLDER:join(root,'webview')},stdio:['ignore','pipe','pipe'],windowsHide:true});
   child.stdout.on('data',chunk=>logs.push(String(chunk)));child.stderr.on('data',chunk=>logs.push(String(chunk)));
   let endpoint;

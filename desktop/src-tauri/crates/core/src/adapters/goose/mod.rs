@@ -146,7 +146,8 @@ impl crate::adapters::framework::SourceAdapter for GooseAdapter {
     fn capability(&self) -> crate::adapters::framework::CapabilityTable {
         use crate::adapters::framework::{Availability, CapabilityTable};
         let note =
-            "官方源码证据（aaif-goose/goose a701bb1）；本机未安装，待真实样本核验".to_string();
+            "官方源码（a701bb1）与官方 1.53.0 CLI 本地模型真实 usage_ledger；更多场景仍待核验"
+                .to_string();
         let mut fields = serde_json::Map::new();
         let field = |availability: Availability, detail: &str| serde_json::json!({ "availability": availability, "note": detail });
         fields.insert(
@@ -243,13 +244,13 @@ impl crate::adapters::framework::SourceAdapter for GooseAdapter {
             }),
             maintenance: serde_json::json!({
                 "parser_version": versions::usage_ledger_v1::GOOSE_PARSER_VERSION,
-                "format_evidence": "aaif-goose/goose a701bb1（session_manager.rs 迁移/建表/record_usage_metrics/token_usage.rs）",
-                "evidence_level": "official-source（无本机样本）",
-                "upgrade_policy": "真实样本后核验列形状与 cost_source 取值",
+                "format_evidence": "aaif-goose/goose a701bb1 + v1.53.0 固定官方发布包；usage_ledger 1 次/322 token 与真实本地模型 API 及应用一致",
+                "evidence_level": "real-local（1.53.0 CLI、无扩展本地模型；缓存写/cost 为 NULL，更多场景未验收）",
+                "upgrade_policy": "保留 goose-usage-ledger-1 格式锚点；采样客户端版本不认证其他记录/版本，继续核验 schema 与 cost_source",
             }),
             scheduling: serde_json::json!({ "entry": "统一 run_adapter_scan" }),
             limitations: vec![
-                "本机未安装：文档级实现".into(),
+                "真实验收仅 1.53.0 CLI 一次本地模型响应；桌面、旧库、fork/子 Agent/compaction 和其他版本仍待核验".into(),
                 "estimated/carried_forward 成本不映射；reasoning 差额不推算".into(),
                 "旧库兜底只到会话级（无逐请求）".into(),
             ],

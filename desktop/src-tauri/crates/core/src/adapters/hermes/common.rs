@@ -19,11 +19,11 @@
 //!   命名 profile 为 `<root>/profiles/<name>` 独立 state.db。
 //!
 //! 时间列（first_seen/last_seen/started_at/ended_at）为 REAL Unix epoch 秒
-//!（Python time.time()），本模块统一换算毫秒。字段包含关系（input 与 cache、
-//! reasoning 与 output）未随 normalize_usage 完整路径验证（adapters.md A24），
-//! 映射不推导互斥/子集，只按列报告。
+//!（Python time.time()），本模块统一换算毫秒。A24 与 0.21.5 固定源码的
+//! normalize_usage 确认 input_tokens 为非缓存输入、reasoning 是输出子集。
+//! 真实请求/续会话核对通过；来源初始化/缺字段均归零，零值保持未知。
 
-use crate::adapters::usage_map::{finish_parallel, MappedUsage};
+use crate::adapters::usage_map::{finish, MappedUsage};
 use crate::domain::{FieldQuality as Q, TokenQuality, TokenUsage};
 use crate::error::CoreError;
 use rusqlite::backup::{Backup, StepResult};
@@ -41,32 +41,43 @@ pub struct HermesUsage {
     pub reasoning_tokens: i64,
 }
 
-/// 五列各自独立报告；包含关系未验证 ⇒
-/// - input_uncached / total_tokens / source_total 保持 None（不猜互斥关系）；
-/// - input_total = input_tokens、output_total = output_tokens 直报，
-///   cache/reasoning 并列报告（与 map_genai_usage 的尚未验证的包含关系处理同型）。
+/// 正数按原生归一桶报告；默认零无法区分缺字段，保持未知。
+/// 只有全部必需桶已知时才派生输入/完整总量，不用默认零补全。
 pub fn map_hermes(raw: &HermesUsage) -> MappedUsage {
+    let known = |v| (v != 0).then_some(v);
+    let input_uncached = known(raw.input_tokens);
+    let input_cache_read = known(raw.cache_read_tokens);
+    let input_cache_write = known(raw.cache_write_tokens);
+    let output_total = known(raw.output_tokens);
+    let output_reasoning = known(raw.reasoning_tokens);
+    let input_total = input_uncached
+        .zip(input_cache_read)
+        .zip(input_cache_write)
+        .and_then(|((input, read), write)| input.checked_add(read)?.checked_add(write));
+    let total_tokens = input_total
+        .zip(output_total)
+        .and_then(|(input, output)| input.checked_add(output));
     let usage = TokenUsage {
-        input_uncached: None,
-        input_cache_read: Some(raw.cache_read_tokens),
-        input_cache_write: Some(raw.cache_write_tokens),
-        input_total: Some(raw.input_tokens),
-        output_total: Some(raw.output_tokens),
-        output_reasoning: Some(raw.reasoning_tokens),
-        total_tokens: None,
+        input_uncached,
+        input_cache_read,
+        input_cache_write,
+        input_total,
+        output_total,
+        output_reasoning,
+        total_tokens,
         source_total: None,
     };
     let quality = TokenQuality {
-        input_uncached: Q::Unknown,
+        input_uncached: Q::Reported,
         input_cache_read: Q::Reported,
         input_cache_write: Q::Reported,
-        input_total: Q::Reported,
+        input_total: Q::Derived,
         output_total: Q::Reported,
         output_reasoning: Q::Reported,
-        total_tokens: Q::Unknown,
+        total_tokens: Q::Derived,
         source_total: Q::Unknown,
     };
-    finish_parallel(usage, quality, Vec::new())
+    finish(usage, quality, Vec::new())
 }
 
 /// REAL epoch 秒 → UTC 毫秒。非有限/早于 2000-01-01（秒毫秒误判守卫）→ None。
@@ -401,7 +412,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn map_hermes_reports_columns_without_inclusion_claims() {
+    fn map_hermes_uses_verified_disjoint_input_buckets_and_reasoning_subset() {
         let m = map_hermes(&HermesUsage {
             input_tokens: 100,
             output_tokens: 40,
@@ -409,15 +420,58 @@ mod tests {
             cache_write_tokens: 10,
             reasoning_tokens: 5,
         });
-        assert_eq!(m.usage.input_total, Some(100));
+        assert_eq!(m.usage.input_total, Some(160));
         assert_eq!(m.usage.input_cache_read, Some(50));
         assert_eq!(m.usage.input_cache_write, Some(10));
-        assert_eq!(m.usage.input_uncached, None, "包含关系未验证不推导");
+        assert_eq!(m.usage.input_uncached, Some(100));
         assert_eq!(m.usage.output_total, Some(40));
         assert_eq!(m.usage.output_reasoning, Some(5));
-        assert_eq!(m.usage.total_tokens, None, "无 total 列，不伪造派生总量");
-        assert_eq!(m.quality.input_total, Q::Reported);
-        assert_eq!(m.quality.total_tokens, Q::Unknown);
+        assert_eq!(
+            m.usage.total_tokens,
+            Some(200),
+            "reasoning 为输出子集，不重加"
+        );
+        assert_eq!(m.quality.input_uncached, Q::Reported);
+        assert_eq!(m.quality.input_total, Q::Derived);
+        assert_eq!(m.quality.total_tokens, Q::Derived);
+        assert!(m.diagnostics.is_empty());
+    }
+
+    #[test]
+    fn default_zero_does_not_complete_totals_and_overflow_is_unknown() {
+        let zero = HermesUsage {
+            input_tokens: 0,
+            output_tokens: 0,
+            cache_read_tokens: 0,
+            cache_write_tokens: 0,
+            reasoning_tokens: 0,
+        };
+        let mapped = map_hermes(&zero);
+        assert_eq!(mapped.usage, TokenUsage::default());
+        assert!([
+            mapped.quality.input_uncached,
+            mapped.quality.input_cache_read,
+            mapped.quality.input_cache_write,
+            mapped.quality.input_total,
+            mapped.quality.output_total,
+            mapped.quality.output_reasoning,
+            mapped.quality.total_tokens,
+            mapped.quality.source_total,
+        ]
+        .into_iter()
+        .all(|q| q == Q::Unknown));
+        let mapped = map_hermes(&HermesUsage {
+            input_tokens: i64::MAX,
+            cache_read_tokens: 1,
+            cache_write_tokens: 1,
+            output_tokens: 1,
+            reasoning_tokens: 0,
+        });
+        assert_eq!(mapped.usage.input_uncached, Some(i64::MAX));
+        assert_eq!(mapped.usage.input_total, None);
+        assert_eq!(mapped.usage.total_tokens, None);
+        assert_eq!(mapped.quality.input_total, Q::Unknown);
+        assert_eq!(mapped.quality.total_tokens, Q::Unknown);
     }
 
     #[test]

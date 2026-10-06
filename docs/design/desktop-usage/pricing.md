@@ -1,11 +1,10 @@
 # 模型 API 按量价格获取与 token 费用估算方案
 
-状态：费用估算引擎已实施（[验证记录](../../validation/desktop-usage/f2-cost-engine.md)）：
-schema v8 价格表 + 种子快照 + 估算引擎 + 日成本回填 + 汇总查询 + 命令与界面 +
-V29 合同测试。可选在线刷新（任务 5）已实施（schema v11，
-models.dev 社区目录 + 长缓存 + 失败回退 + 官方提供商回退匹配，默认关闭），
-见 [在线刷新设计](#online-refresh) 与 [验证记录](../../validation/desktop-usage/f2-online-refresh.md)；
-真实数据端到端估算（待用户配置渠道默认）仍后置。
+费用引擎及可选 models.dev 在线刷新已实施，均默认关闭；设计见
+[在线刷新](#online-refresh)，结果见 [费用引擎](../../validation/desktop-usage/f2-cost-engine.md)、
+[刷新](../../validation/desktop-usage/f2-online-refresh.md)及[当前 API 参考](../../validation/desktop-usage/dashboard-reference.md)。
+真实数据的发生时估算仍需核验并配置供应商渠道；当前参考核对不认证实际账单。
+后置项统一见 [Plan.md](../../../Plan.md)。
 调研完成于 2026-09-25；费用口径以 [数据合同](data-contract.md#pricing) 为权威，
 本文补渠道依据与本地快照设计。
 
@@ -471,7 +470,7 @@ V29 行见 [验证清单](validation.md)。样本分三部分：固定价格样�
    （快照查看/手工导入/显式重算）；预算提醒未做（提醒仅提示不阻止，
    随后续版本排期）。
 7. **已执行**：V29 验收（fixtures 化 P1–P6 与 E/A 场景 + 人工期望测试；
-   真实数据只读核对待用户配置渠道默认）。
+   真实数据发生时估算待核验并配置渠道；当前 API 参考核对另记）。
 
 ## 风险与限制
 

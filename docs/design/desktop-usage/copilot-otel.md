@@ -60,7 +60,7 @@ CLI/JetBrains 新版本仍需独立真实验收，其他隔离导出不自动推
 | VS Code Agent Host | 安装的 app manifest 为已核验 1.140.0 时提供独立 chat.agentHost.otel 入口 | 各 profile 独立文件；其他版本待核验，不能从扩展键推断宿主支持 |
 | Copilot CLI | 创建本应用目录内专用 PowerShell/sh 启动脚本；运行脚本才给进程配置官方 file 变量 | 不修改 config.json、settings.json、全局环境或 shell profile，不自动运行 |
 | Gemini CLI | 用户 settings.json：telemetry enabled/local/outfile，logPrompts=false | GEMINI_CLI_HOME 替换 home 后仍附加 .gemini；文件格式/新版本真实输出未验收 |
-| Qwen Code | 用户 settings.json：telemetry enabled/outfile，logPrompts 与敏感 span 关闭 | QWEN_HOME 为配置目录，QWEN_RUNTIME_DIR 不替代设置路径；0.25.0 实际本地导出为连续多行 SDK JSON，含主/后台调用，当前 OTel JSONL parser 不覆盖，见容器来源记录 |
+| Qwen Code | 用户 settings.json：telemetry enabled/outfile，logPrompts 与敏感 span 关闭 | QWEN_HOME 为配置目录，QWEN_RUNTIME_DIR 不替代设置路径；0.25.0 连续多行 SDK JSON 已接入逐调用与原生分区择一；应用管理输出自动发现、只读核验，其他版本隔离；见来源升级记录 |
 | Claude Code | 用户 env：logs 专用 HTTP/JSON endpoint 与认证头，内容关闭 | 白名单日志隔离；逐源凭据进当前用户系统存储，真实导出仍待验收 |
 | Codex | 用户 TOML：HTTP/JSON logs、独立认证头与 log_user_prompt=false | 保留其他表、供应商配置/headers 及注释；日志不自动叠加原生用量 |
 | CodeBuddy | 首个 PATH launcher 同目录 npm manifest 为 2.98.0 时配置 generic headers，Bearer 空格编码 %20，内容关闭 | 仅写隔离 supplemental traces；其他版本/无 manifest/已有 traces-specific headers 为手工项，本地 JSONL 独立 |

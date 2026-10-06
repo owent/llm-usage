@@ -1,27 +1,26 @@
 //! DSH 版本注册表：格式版本 → 格式实现的映射与回退选择
 //! （architecture.md#adapter-layout / #unknown-version，V30 目录约定）。
 //!
-//! 持久会话日志无版本字段：注册表锚点是文档级格式版本 session-log-doc-1
-//! （按固定 token-meter README 46a7f68 定义），因此不存在"未知版本"状态——
-//! detect 不读版本号，成功即 KnownVersion；格式偏离（未文档化事件 type）
-//! 在扫描层 fail closed，不走版本回退。
-//!
-//! 选择规则（与 claude/gemini/cline 相同的 select 函数形状，便于 V30 结构
-//! 检查统一断言）：文档级锚点 → KnownVersion；None/其他值 → LatestFallback
-//! 形状返回（对 dsh 实际不可达，仅为注册表形状统一保留）。
+//! rc.2 原生格式 4 已有非空真实样本；旧 session-log-doc-1 仍为独立文档锚点。
+//! KnownVersion 只认证载体格式，不认证全部客户端版本或继承历史。
+//! select 保留统一回退形状；实际 detect 拒绝未知明示格式版本。
 
 pub mod session_log_doc1;
+pub mod session_v4;
 
 /// 当前格式实现标识（"最新内置解析器"由本常量明确指定，不联网获取）。
-pub const LATEST_IMPL_ID: &str = "session_log_doc1";
+pub const LATEST_IMPL_ID: &str = "session_v4";
 
 /// 文档级格式版本（非产品版本）：按固定 README 46a7f68 的事件与替换语义实现，
 /// 待真实样本核验。
 pub const DSH_FORMAT_VERSION: &str = "session-log-doc-1";
 
 /// 已验证支持的格式版本 → 格式实现。
-/// dsh 无逐产品版本登记：唯一锚点是文档级格式版本 session-log-doc-1。
-pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[("session-log-doc-1", "session_log_doc1")];
+/// 无逐产品版本登记；原生格式 4 与旧文档锚点分别保存。
+pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[
+    ("session-log-doc-1", "session_log_doc1"),
+    ("4", "session_v4"),
+];
 
 /// 版本分派结论。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -43,14 +42,14 @@ pub fn select(found: Option<&str>) -> Selection {
                     impl_id,
                     basis: crate::domain::VersionBasis::KnownVersion,
                 },
-                // 对 dsh 不可达：detect 固定传文档级锚点，无其他版本可查。
+                // 实际 detect 已拒绝未知明示格式；保留统一选择接口。
                 None => Selection {
                     impl_id: LATEST_IMPL_ID,
                     basis: crate::domain::VersionBasis::LatestFallback,
                 },
             }
         }
-        // 对 dsh 不可达：detect 不读版本号，缺失分支保持统一形状。
+        // 实际 detect 要求原生 header 或旧指纹，缺失分支保持统一形状。
         None => Selection {
             impl_id: LATEST_IMPL_ID,
             basis: crate::domain::VersionBasis::LatestFallback,

@@ -7,8 +7,8 @@
 //! - store 参考：每 Agent 一个 `~/.openclaw/agents/<agentId>/agent/openclaw-agent.sqlite`
 //!   （会话行 + 追加式 transcript 两个持久层）；旧 `sessions/` 目录与
 //!   `sessions/sessions.json` 为迁移/归档输入，Gateway 启动不导入。
-//! - **文档未给出任何表名/列名**（research.md A09：具体表和兼容版本待验），
-//!   本目录一切读取按 fail closed 待真实样本处理，不猜字段。
+//! - schema 24/官方 2026.9.8 实装及真实 CLI 样本已核对；完整合同见
+//!   docs/design/desktop-usage/openclaw-runtime.md。
 
 use crate::error::CoreError;
 use rusqlite::backup::{Backup, StepResult};
@@ -172,16 +172,59 @@ pub(crate) fn short_probe(conn: &Connection) -> Result<(), rusqlite::Error> {
     conn.query_row("SELECT COUNT(*) FROM sqlite_master", [], |_| Ok(()))
 }
 
-/// 运行时库结构摘要：用户表数量（只计 type='table' 且非 sqlite_ 内部表）。
-/// 已核对文档不含表名，因此这里也只聚合计数，不持久化任何表名/列名。
-pub(crate) fn user_table_count(conn: &Connection) -> Result<i64, CoreError> {
-    let count: i64 = conn
+/// Structural evidence only; never certify a historical row's client version.
+pub(crate) fn schema_probe(conn: &Connection, agent: &str) -> Result<Option<i64>, CoreError> {
+    use rusqlite::OptionalExtension;
+    for (table, required) in [
+        (
+            "schema_meta",
+            &["meta_key", "role", "schema_version", "agent_id"][..],
+        ),
+        (
+            "session_windows",
+            &[
+                "session_id",
+                "session_key",
+                "session_entry_provenance",
+                "acp_owned",
+                "plugin_owner_id",
+                "hook_external_content_source",
+                "agent_harness_id",
+            ][..],
+        ),
+        (
+            "transcript_events",
+            &[
+                "session_id",
+                "seq",
+                "event_json",
+                "created_at",
+                "event_zstd",
+                "event_utf8_bytes",
+                "navigation_json",
+            ][..],
+        ),
+        ("session_transcript_cold_archives", &["session_id"][..]),
+    ] {
+        let mut statement = conn.prepare(&format!("PRAGMA table_info({table})"))?;
+        let columns: std::collections::BTreeSet<String> = statement
+            .query_map([], |row| row.get(1))?
+            .collect::<Result<_, _>>()?;
+        if !required.iter().all(|name| columns.contains(*name)) {
+            return Ok(None);
+        }
+    }
+    let metadata: Option<(String, i64, Option<String>)> = conn
         .query_row(
-            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' \
-             AND name NOT LIKE 'sqlite_%'",
+            "SELECT role,schema_version,agent_id FROM schema_meta WHERE meta_key='primary'",
             [],
-            |r| r.get(0),
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
         )
-        .map_err(CoreError::Sqlite)?;
-    Ok(count)
+        .optional()?;
+    let version: i64 = conn.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+    Ok(metadata
+        .filter(|(role, schema, owner)| {
+            role == "agent" && *schema == version && owner.as_deref() == Some(agent)
+        })
+        .map(|(_, schema, _)| schema))
 }

@@ -1,0 +1,38 @@
+[
+  {
+    "model": "qwen3.5-0.8b-local",
+    "usage": {
+      "completion_tokens": 64,
+      "prompt_tokens": 141,
+      "total_tokens": 205,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      }
+    },
+    "status": 200
+  },
+  {
+    "model": "qwen3.5-0.8b-local",
+    "usage": {
+      "completion_tokens": 64,
+      "prompt_tokens": 5572,
+      "total_tokens": 5636,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      }
+    },
+    "status": 200
+  },
+  {
+    "model": "qwen3.5-0.8b-local",
+    "usage": {
+      "completion_tokens": 41,
+      "prompt_tokens": 5602,
+      "total_tokens": 5643,
+      "prompt_tokens_details": {
+        "cached_tokens": 5568
+      }
+    },
+    "status": 200
+  }
+]

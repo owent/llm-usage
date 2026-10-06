@@ -107,7 +107,7 @@ impl crate::adapters::framework::SourceAdapter for AiderAdapter {
 
     fn capability(&self) -> crate::adapters::framework::CapabilityTable {
         use crate::adapters::framework::{Availability, CapabilityTable};
-        let note = "官方源码证据（5dc9490）；本机未安装（2026-09-29 盘点），且需用户显式启用 --analytics-log，待真实样本核验".to_string();
+        let note = "官方源码（5dc9490）与官方镜像 Aider 0.86.2 的隔离本地模型真实样本；须显式启用 --analytics-log，其他场景仍待核验".to_string();
         let mut fields = serde_json::Map::new();
         let field = |availability: Availability, detail: &str| serde_json::json!({ "availability": availability, "note": detail });
         fields.insert(
@@ -195,11 +195,11 @@ impl crate::adapters::framework::SourceAdapter for AiderAdapter {
                 "other_events": "launched/exit/command_* 等事件无 usage，跳过",
             }),
             incremental: serde_json::json!({
-                "cursor": "JSONL 字节偏移（追加式）；事件键 = 整行内容哈希，重放幂等",
+                "cursor": "JSONL 字节偏移（追加式）；事件键 = 行号 + 整行内容哈希，重放幂等",
             }),
             dedup: serde_json::json!({
-                "primary": "aider:<整行内容哈希>",
-                "same_file": "同秒多条 message_send 靠内容哈希区分（无消息 ID）",
+                "primary": "aider:<行号>:<整行内容哈希>",
+                "same_file": "无消息 ID；同秒内容相同的不同物理行仍分别计数，副本跨文件关联未核验",
             }),
             integrity: serde_json::json!({
                 "success_only": false,
@@ -207,9 +207,9 @@ impl crate::adapters::framework::SourceAdapter for AiderAdapter {
             }),
             maintenance: serde_json::json!({
                 "parser_version": versions::analytics_doc1::AIDER_PARSER_VERSION,
-                "format_evidence": "Aider-AI/aider 固定源码 5dc9490（args.py/analytics.py/base_coder.py/io.py）+ 官方样本 sample-analytics.jsonl",
-                "evidence_level": "official-source（无本机真实样本）",
-                "upgrade_policy": "真实样本出现后按实际事件字段升级验证",
+                "format_evidence": "Aider-AI/aider 固定源码 5dc9490 + 官方镜像 0.86.2（sha256:7649249）analytics.jsonl；1 次/98 token 与真实本地模型 API、CLI 及应用一致",
+                "evidence_level": "real-local（0.86.2、ask 模式、非流式本地模型；无云端/缓存分项验收）",
+                "upgrade_policy": "日志无产品版本字段，注册表仍为格式锚点 aider-analytics-doc-1；采样版本不认证其他记录或场景",
             }),
             scheduling: serde_json::json!({
                 "entry": "统一 run_adapter_scan",
@@ -219,7 +219,7 @@ impl crate::adapters::framework::SourceAdapter for AiderAdapter {
                 "需启用载体：默认不开启 --analytics-log，启用前无任何数据（不回填）".into(),
                 "无 cache 读写分项（prompt_tokens 含 cache 写；cache_hit 不上报）".into(),
                 "模型名可能被上游脱敏（provider/REDACTED），按原文入账不还原".into(),
-                "本机未安装：discover 仅在手工根下生效".into(),
+                "无默认 analytics 路径：discover 仅在手工根下生效".into(),
             ],
         }
     }

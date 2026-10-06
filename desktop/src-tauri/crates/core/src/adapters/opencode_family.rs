@@ -50,8 +50,8 @@
 //!   时间依据如实标 observed_at；
 //! - step-finish 部件无独立调用 ID：事件键 = `part.id`（两产品均为主键）。
 //!
-//! 两产品本机均未安装（2026-09-25 盘点 not_found），全部版本 latest_fallback，
-//! 能力声明与合成 fixtures 均标注"文档级证据、待真实样本"。
+//! OpenCode 1.18.34 已有官方 CLI / 本地模型真实 fixture；MiMo 仍为文档级依据。
+//! 版本认证由各产品自己的逐记录选择器提供，不相互推定。
 
 use crate::adapters::framework::{
     Reconciliation, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -148,6 +148,58 @@ pub(crate) fn map_opencode_family_usage(raw: &OpencodeFamilyUsage) -> MappedUsag
     finish(usage, quality, diagnostics)
 }
 
+/// MiMo 0.1.15 getUsage subtracts the same normalized cache/reasoning
+/// counters that it persists. Adding those counters back reconstructs positive
+/// SDK totals even when a subcounter was defaulted. The subcounter zero itself
+/// does not prove a reported zero. This policy is independent of OpenCode.
+pub(crate) fn map_mimo_usage(raw: &OpencodeFamilyUsage) -> MappedUsage {
+    let mut mapped = map_opencode_family_usage(raw);
+    for (value, quality) in [
+        (
+            &mut mapped.usage.input_uncached,
+            &mut mapped.quality.input_uncached,
+        ),
+        (
+            &mut mapped.usage.input_cache_read,
+            &mut mapped.quality.input_cache_read,
+        ),
+        (
+            &mut mapped.usage.input_cache_write,
+            &mut mapped.quality.input_cache_write,
+        ),
+        (
+            &mut mapped.usage.output_reasoning,
+            &mut mapped.quality.output_reasoning,
+        ),
+        (
+            &mut mapped.usage.input_total,
+            &mut mapped.quality.input_total,
+        ),
+        (
+            &mut mapped.usage.output_total,
+            &mut mapped.quality.output_total,
+        ),
+        (
+            &mut mapped.usage.source_total,
+            &mut mapped.quality.source_total,
+        ),
+    ] {
+        if *value == Some(0) {
+            *value = None;
+            *quality = Q::Unknown;
+        }
+    }
+    if mapped.usage.input_total.is_none() || mapped.usage.output_total.is_none() {
+        mapped.usage.total_tokens = mapped.usage.source_total;
+        mapped.quality.total_tokens = if mapped.usage.source_total.is_some() {
+            Q::Reported
+        } else {
+            Q::Unknown
+        };
+    }
+    finish(mapped.usage, mapped.quality, mapped.diagnostics)
+}
+
 /// cost 浮点美元 → micro-USD（estimated；上游自行估算，与 cline/zoo 规则相同）。
 pub(crate) fn map_family_cost(cost: Option<f64>) -> Option<CostAmount> {
     let total = cost?;
@@ -207,6 +259,8 @@ pub(crate) struct PartProduct {
     pub parser_version: &'static str,
     /// OpenCode：session.tokens_* 五列对账；MiMo 无累计列不对账。
     pub reconcile_session_counters: bool,
+    /// Each product explicitly selects its independently verified zero policy.
+    pub default_zero_unknown: bool,
 }
 
 /// 游标（持久化在 ingestion_checkpoints.cursor_value）。
@@ -218,6 +272,10 @@ pub(crate) struct PartCursor {
     pub offset: u64,
     /// 已处理到的 part.time_updated（含该值）；None = 从头全量。
     pub watermark_ms: Option<i64>,
+    #[serde(default)]
+    pub continuation: Option<(i64, String)>,
+    #[serde(default)]
+    pub window_start_ms: Option<i64>,
 }
 
 /// 解析上下文：schema 指纹 + 版本分派结论快照。
@@ -226,6 +284,14 @@ pub(crate) struct PartParseContext {
     pub schema_fingerprint: Option<String>,
     pub version_basis: Option<VersionBasis>,
     pub db_version: Option<String>,
+    #[serde(default)]
+    pub scan_policy_version: Option<String>,
+    #[serde(default)]
+    pub replay_policy_version: Option<String>,
+    #[serde(default)]
+    pub has_unverified_records: bool,
+    #[serde(default)]
+    pub record_errors: std::collections::BTreeSet<String>,
 }
 
 fn diag(code: &str, field: Option<&str>, id_pos: &str, message: &str) -> DiagnosticInput {
@@ -255,39 +321,53 @@ pub(crate) struct PartRow {
 
 /// 按已处理时间窗口查询（两产品同形：part LEFT JOIN session/message；
 /// message.data 经 json_valid 守卫后取 modelID/providerID，消息正文不入内存）。
-fn load_window(conn: &Connection, since_ms: i64) -> Result<Vec<PartRow>, CoreError> {
+fn load_window(
+    conn: &Connection,
+    since_ms: i64,
+    after: Option<&(i64, String)>,
+    limit: i64,
+) -> Result<Vec<PartRow>, CoreError> {
     let mut stmt = conn
         .prepare(
             "SELECT p.id, p.message_id, p.session_id, p.time_created, p.time_updated, p.data, \
-                 s.parent_id, s.version, \
+                  s.parent_id, CASE WHEN typeof(s.version)='text' THEN s.version END, \
                  CASE WHEN m.data IS NOT NULL AND json_valid(m.data) \
-                      THEN json_extract(m.data, '$.modelID') END, \
+                       THEN CASE WHEN json_type(m.data, '$.modelID')='text' THEN json_extract(m.data, '$.modelID') END END, \
                  CASE WHEN m.data IS NOT NULL AND json_valid(m.data) \
-                      THEN json_extract(m.data, '$.providerID') END \
+                       THEN CASE WHEN json_type(m.data, '$.providerID')='text' THEN json_extract(m.data, '$.providerID') END END \
              FROM part p \
              LEFT JOIN session s ON s.id = p.session_id \
              LEFT JOIN message m ON m.id = p.message_id \
-             WHERE p.time_updated >= ?1 AND json_valid(p.data) \
-               AND json_extract(p.data, '$.type') = 'step-finish' \
+              WHERE p.time_updated >= ?1 \
+                AND (?3 IS NULL OR p.time_updated > ?3 OR (p.time_updated = ?3 AND p.id > ?4)) \
+                AND CASE WHEN json_valid(p.data) THEN json_extract(p.data, '$.type') = 'step-finish' ELSE 1 END \
              ORDER BY p.time_updated, p.id \
              LIMIT ?2",
         )
         .map_err(CoreError::Sqlite)?;
     let rows = stmt
-        .query_map(rusqlite::params![since_ms, MAX_ROWS_PER_ROUND], |r| {
-            Ok(PartRow {
-                id: r.get(0)?,
-                message_id: r.get(1)?,
-                session_id: r.get(2)?,
-                time_created: r.get(3)?,
-                time_updated: r.get(4)?,
-                data: r.get(5)?,
-                parent_id: r.get(6)?,
-                session_version: r.get(7)?,
-                model_id: r.get(8)?,
-                provider_id: r.get(9)?,
-            })
-        })
+        .query_map(
+            rusqlite::params![
+                since_ms,
+                limit,
+                after.map(|a| a.0),
+                after.map(|a| a.1.as_str())
+            ],
+            |r| {
+                Ok(PartRow {
+                    id: r.get(0)?,
+                    message_id: r.get(1)?,
+                    session_id: r.get(2)?,
+                    time_created: r.get(3)?,
+                    time_updated: r.get(4)?,
+                    data: r.get(5)?,
+                    parent_id: r.get(6)?,
+                    session_version: r.get(7)?,
+                    model_id: r.get(8)?,
+                    provider_id: r.get(9)?,
+                })
+            },
+        )
         .map_err(CoreError::Sqlite)?;
     rows.collect::<Result<Vec<_>, _>>()
         .map_err(CoreError::Sqlite)
@@ -383,6 +463,8 @@ pub(crate) struct PartScanContext {
     pub fingerprint: String,
     pub db_version: Option<String>,
     pub basis: VersionBasis,
+    pub record_basis: fn(Option<&str>) -> VersionBasis,
+    pub row_limit: i64,
 }
 
 pub(crate) fn scan_step_finish_parts(
@@ -397,6 +479,8 @@ pub(crate) fn scan_step_finish_parts(
         fingerprint,
         db_version,
         basis,
+        record_basis,
+        row_limit,
     } = ctx;
     // 游标不做 generation 过滤：同一逻辑库 in-place 重写让框架标 Rescan，
     // 但 part.id/更新序号记录的已处理位置仍有效（同 kilo 约定）。
@@ -408,6 +492,8 @@ pub(crate) fn scan_step_finish_parts(
             generation: target.generation,
             offset: 0,
             watermark_ms: None,
+            continuation: None,
+            window_start_ms: None,
         });
     let context: PartParseContext = stored
         .parse_context
@@ -417,28 +503,43 @@ pub(crate) fn scan_step_finish_parts(
     // schema 指纹变化 ⇒ 旧的已处理位置不可信，全量重读（id 键 upsert 幂等）。
     let fingerprint_reset = context.schema_fingerprint.is_some()
         && context.schema_fingerprint.as_deref() != Some(fingerprint.as_str());
-    let watermark = if fingerprint_reset {
+    let policy_reset = context.scan_policy_version.as_deref() != Some(product.parser_version)
+        && context.replay_policy_version.as_deref() != Some(product.parser_version);
+    let reset = fingerprint_reset || policy_reset;
+    let watermark = if reset { None } else { cursor.watermark_ms };
+    let continuation = if reset {
         None
     } else {
-        cursor.watermark_ms
+        cursor.continuation.as_ref()
     };
-    let since_ms = watermark
-        .map(|w| w.saturating_sub(WATERMARK_OVERLAP_MS))
-        .unwrap_or(i64::MIN);
+    let since_ms = continuation.and(cursor.window_start_ms).unwrap_or_else(|| {
+        watermark
+            .map(|w| w.saturating_sub(WATERMARK_OVERLAP_MS))
+            .unwrap_or(i64::MIN)
+    });
 
-    let rows = load_window(conn, since_ms)?;
-    let hit_cap = rows.len() as i64 >= MAX_ROWS_PER_ROUND;
+    let mut rows = load_window(conn, since_ms, continuation, row_limit + 1)?;
+    let hit_cap = rows.len() as i64 > row_limit;
+    rows.truncate(row_limit as usize);
+    let mut record_errors = if reset {
+        Default::default()
+    } else {
+        context.record_errors.clone()
+    };
+    let mut has_unverified_records = !reset && context.has_unverified_records;
 
     let mut events: Vec<EventInput> = Vec::new();
     let mut diagnostics: Vec<DiagnosticInput> = Vec::new();
     let mut records_seen: u64 = 0;
     let mut touched_sessions: Vec<String> = Vec::new();
     for row in rows.iter() {
+        crate::adapters::run_policy::check()?;
         records_seen += 1;
         if !touched_sessions.iter().any(|s| s == &row.session_id) {
             touched_sessions.push(row.session_id.clone());
         }
         let record_key = format!("{}:part:{}", product.ns, row.id);
+        record_errors.remove(&record_key);
         let data: serde_json::Value = match crate::adapters::run_policy::json_from_str(&row.data) {
             Ok(v) => v,
             Err(_) => {
@@ -449,6 +550,7 @@ pub(crate) fn scan_step_finish_parts(
                     &record_key,
                     "part.data is not valid JSON; row isolated, content not stored",
                 ));
+                record_errors.insert(record_key);
                 continue;
             }
         };
@@ -460,15 +562,33 @@ pub(crate) fn scan_step_finish_parts(
                 &record_key,
                 "part.time_created before 2000-01-01; row skipped, not zero-filled",
             ));
+            record_errors.insert(record_key);
             continue;
         }
         let (usage, quality, cost) = match parse_step_finish(&data) {
             Some(raw) => {
-                let mapped = map_opencode_family_usage(&raw);
+                let mapped = if product.default_zero_unknown {
+                    map_mimo_usage(&raw)
+                } else {
+                    map_opencode_family_usage(&raw)
+                };
+                for problem in &mapped.diagnostics {
+                    diagnostics.push(diag(
+                        problem.code,
+                        Some(problem.field),
+                        &record_key,
+                        &problem.detail,
+                    ));
+                    record_errors.insert(record_key.clone());
+                }
                 (
                     mapped.usage,
                     mapped.quality,
-                    map_family_cost(data.get("cost").and_then(|c| c.as_f64())),
+                    map_family_cost(
+                        data.get("cost")
+                            .and_then(|c| c.as_f64())
+                            .filter(|v| !product.default_zero_unknown || *v > 0.0),
+                    ),
                 )
             }
             None => {
@@ -479,13 +599,20 @@ pub(crate) fn scan_step_finish_parts(
                     &record_key,
                     "step-finish part without usable cost/tokens numbers; call counted, tokens unknown",
                 ));
+                record_errors.insert(record_key.clone());
                 (
                     TokenUsage::default(),
                     TokenQuality::default(),
-                    map_family_cost(data.get("cost").and_then(|c| c.as_f64())),
+                    map_family_cost(
+                        data.get("cost")
+                            .and_then(|c| c.as_f64())
+                            .filter(|v| !product.default_zero_unknown || *v > 0.0),
+                    ),
                 )
             }
         };
+        let row_basis = record_basis(row.session_version.as_deref());
+        has_unverified_records |= row_basis == VersionBasis::LatestFallback;
         events.push(EventInput {
             source_instance_id: target.instance_id.clone(),
             source_record_key: record_key,
@@ -495,7 +622,7 @@ pub(crate) fn scan_step_finish_parts(
                 .clone()
                 .unwrap_or_else(|| "unknown".to_string()),
             parser_version: product.parser_version.to_string(),
-            parse_basis: Some(basis),
+            parse_basis: Some(row_basis),
             origin_call_id: Some(row.message_id.clone()),
             attempt_id: None,
             session_id: Some(row.session_id.clone()),
@@ -536,12 +663,8 @@ pub(crate) fn scan_step_finish_parts(
         });
     }
 
-    // 更新已处理位置：触顶时停在最后一个完整毫秒（该毫秒下轮重读，幂等）。
-    let new_watermark = if hit_cap {
-        rows.last().map(|r| r.time_updated - 1)
-    } else {
-        rows.last().map(|r| r.time_updated)
-    };
+    // 触顶按时间与稳定键续扫；同毫秒及高密度重叠窗不会反复读取首页。
+    let new_watermark = rows.last().map(|r| r.time_updated);
     let next_watermark = match (watermark, new_watermark) {
         (_, Some(w)) => Some(w.max(watermark.unwrap_or(i64::MIN))),
         (None, None) => None,
@@ -579,18 +702,37 @@ pub(crate) fn scan_step_finish_parts(
         generation: target.generation,
         offset: 0,
         watermark_ms: next_watermark,
+        continuation: if hit_cap {
+            rows.last().map(|r| (r.time_updated, r.id.clone()))
+        } else {
+            None
+        },
+        window_start_ms: hit_cap.then_some(since_ms),
     };
     let new_context = PartParseContext {
         schema_fingerprint: Some(fingerprint),
         version_basis: Some(basis),
         db_version,
+        scan_policy_version: if status == ScanStatus::Complete && record_errors.is_empty() {
+            Some(product.parser_version.to_string())
+        } else {
+            context.scan_policy_version
+        },
+        replay_policy_version: if status == ScanStatus::BudgetExhausted {
+            Some(product.parser_version.to_string())
+        } else {
+            None
+        },
+        has_unverified_records,
+        record_errors,
     };
-    let degraded = diagnostics.iter().any(|d| {
-        matches!(
-            d.code.as_str(),
-            "bad_data_json" | "usage_shape_deviation" | "reconcile_mismatch"
-        )
-    });
+    let degraded = !new_context.record_errors.is_empty()
+        || diagnostics.iter().any(|d| {
+            matches!(
+                d.code.as_str(),
+                "bad_data_json" | "usage_shape_deviation" | "reconcile_mismatch"
+            )
+        });
     Ok(ScanOutcome {
         status,
         cursor: Some(serde_json::to_value(new_cursor)?),
@@ -603,6 +745,8 @@ pub(crate) fn scan_step_finish_parts(
         reconciliations,
         health: if degraded {
             "degraded".to_string()
+        } else if has_unverified_records || basis == VersionBasis::LatestFallback {
+            "active_compat".to_string()
         } else {
             "active".to_string()
         },

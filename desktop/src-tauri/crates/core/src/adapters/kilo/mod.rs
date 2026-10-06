@@ -217,11 +217,11 @@ impl crate::adapters::framework::SourceAdapter for KiloAdapter {
                 "subagent": "session.parent_id 非空 ⇒ sub_agent；子会话是独立 session 行，与主会话同库无跨表双计",
             }),
             incremental: serde_json::json!({
-                "cursor": "schema 指纹 + message.id 稳定键 + time_updated 水位（+60s 有界重叠窗）",
+                "cursor": "schema 指纹 + message.id 稳定键 + time_updated 处理位置（+60s 有界重叠窗）",
                 "row_cap": "单轮 50,000 行；触顶停在最后一个完整毫秒",
-                "schema_evolution": "指纹变化 ⇒ 水位重置全量重读（id 键 upsert 幂等）",
-                "no_change_detection": "WAL 下主库文件长度不变不代表内容未变：游标 offset 恒 0，每轮执行水位查询而非字节短路",
-                "rescan_note": "in-place 页重写改变文件头触发框架 Rescan 标记；水位不重置（同一逻辑库）",
+                "schema_evolution": "指纹变化 ⇒ 处理位置重置全量重读（id 键 upsert 幂等）",
+                "no_change_detection": "WAL 下主库文件长度不变不代表内容未变：游标 offset 恒 0，每轮执行处理位置查询而非字节短路",
+                "rescan_note": "in-place 页重写改变文件头触发框架 Rescan 标记；处理位置不重置（同一逻辑库）",
             }),
             dedup: serde_json::json!({
                 "primary": "kilo:msg:{message.id}（实例命名空间）",
@@ -242,7 +242,7 @@ impl crate::adapters::framework::SourceAdapter for KiloAdapter {
             }),
             scheduling: serde_json::json!({
                 "entry": "统一 run_adapter_scan；手动/间隔/监听触发按源合并",
-                "incremental_cost": "time_updated 水位查询（无索引时全表扫行头）；每轮固定一次探测查询",
+                "incremental_cost": "time_updated 处理位置查询（无索引时全表扫行头）；每轮固定一次探测查询",
                 "pause_cancel": "行级游标可停；busy 源转暂存副本或保留旧结果下轮重试",
             }),
             limitations: vec![
@@ -250,7 +250,7 @@ impl crate::adapters::framework::SourceAdapter for KiloAdapter {
                 "仅解析 fixture 证实的 message/session 两表；新 core 数据层（session_message/part/event）未接入，切换后需专用实现".into(),
                 "缺证据的删除/压缩消息不推测：本表查不到的调用不计、不补零；实读有 1/276 会话快照与明细不吻合（mismatch 诊断可见）".into(),
                 "WAL 活库：主库文件字节身份（首采样含 change counter）会因 checkpoint 变化，导致框架层文件身份重建与一次全量重读（幂等，不双计）".into(),
-                "无 message 行索引 time_updated 时水位查询走全表行头扫描；超大库首轮全量读受单轮 50,000 行与 30s 预算约束".into(),
+                "无 message 行索引 time_updated 时处理位置查询走全表行头扫描；超大库首轮全量读受单轮 50,000 行与 30s 预算约束".into(),
                 "IDE 扩展变体缺独立证据（F1 后移），本适配器仅覆盖 CLI/桌面落盘的 kilo.db".into(),
             ],
         }

@@ -13,5 +13,6 @@ token=1000/api_call_count=3，只有 first_seen/last_seen。
   不按时长摊分。
 - reported_call_count=3；`usage_events` 0 条（不产生 3 条 model_call）。
 - 2026-09-23/24/25 任一日的日汇总 call_count=0、token 全未知（无详单）。
-- sum_exclusive_aggregates：input_total=1000、output_total=200、
+- sum_exclusive_aggregates：input_uncached=1000、output_total=200、
   reported_call_count=3、exclusive_rows=1。
+- 默认缓存零未知，input_total/total_tokens 不补全。

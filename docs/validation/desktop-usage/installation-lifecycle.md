@@ -4,6 +4,11 @@
 [安装生命周期](../../design/desktop-usage/installation-lifecycle.md)。
 Windows cwd 为仓库根；Linux cwd 为 WSL Debian 本任务独立工作副本。
 用户已取消 macOS 桌面与特定硬件要求，允许 Windows 本机及 Linux Podman 安装验收。
+本文保留 2026-10-05 的制品与结果；2026-10-06 来源规则修复及实际 Orca
+检查见 [来源规则升级](source-policy-upgrades.md)，最终 M8 后续包的 Windows 12 项、
+Linux deb/FUSE/GTK/Orca 9 组、47 项及准确制品摘要见
+[M8 容器样本](m8-container-samples.md)，不能混用各阶段包摘要。
+同一当前包的十语言 Orca 导航扩展及完整生命周期复验见 [专项结果](orca-multilang.md)。
 
 ## 环境与制品
 

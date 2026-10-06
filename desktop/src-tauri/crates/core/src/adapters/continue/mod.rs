@@ -102,7 +102,8 @@ impl crate::adapters::framework::SourceAdapter for ContinueAdapter {
 
     fn capability(&self) -> crate::adapters::framework::CapabilityTable {
         use crate::adapters::framework::{Availability, CapabilityTable};
-        let note = "官方源码证据（continuedev/continue 5522c6f）；CLI 会话 usage 载体；本机未安装，待真实样本核验".to_string();
+        let note = "官方源码（5522c6f）与官方 CLI 1.5.47 的真实流式本地模型会话；其他场景仍待核验"
+            .to_string();
         let mut fields = serde_json::Map::new();
         let field = |availability: Availability, detail: &str| serde_json::json!({ "availability": availability, "note": detail });
         fields.insert(
@@ -116,14 +117,14 @@ impl crate::adapters::framework::SourceAdapter for ContinueAdapter {
             "cache_read".into(),
             field(
                 Availability::Partial(note.clone()),
-                "promptTokensDetails.cachedTokens",
+                "promptTokensDetails.cachedTokens；产品默认零不能证明已报告，零保留 unknown，正数采信",
             ),
         );
         fields.insert(
             "cache_write".into(),
             field(
                 Availability::Partial(note.clone()),
-                "promptTokensDetails.cacheWriteTokens",
+                "promptTokensDetails.cacheWriteTokens；产品默认零不能证明已报告，零保留 unknown，正数采信",
             ),
         );
         fields.insert(
@@ -202,9 +203,9 @@ impl crate::adapters::framework::SourceAdapter for ContinueAdapter {
             }),
             maintenance: serde_json::json!({
                 "parser_version": versions::session_usage_v1::CONTINUE_PARSER_VERSION,
-                "format_evidence": "continuedev/continue 5522c6f（core/util/paths.ts、core/util/history.ts、extensions/cli session.ts/streamChatResponse.helpers.ts、core/data/devdataSqlite.ts）",
-                "evidence_level": "official-source（无本机样本）",
-                "upgrade_policy": "真实样本后核验 usage 字段形状",
+                "format_evidence": "continuedev/continue 5522c6f + @continuedev/cli 1.5.47 固定官方包；真实本地模型/API/会话输入 1471、输出 2 一致",
+                "evidence_level": "real-local（1.5.47 CLI readonly、本地流式响应；产品初始化缓存零保留 unknown）",
+                "upgrade_policy": "产品版本不在会话文件，仍用格式锚点；完整旧摘要仅允许缓存默认零改未知，保留源修订与其他字段仲裁",
             }),
             scheduling: serde_json::json!({ "entry": "统一 run_adapter_scan" }),
             limitations: vec![
@@ -213,5 +214,12 @@ impl crate::adapters::framework::SourceAdapter for ContinueAdapter {
                 "Hub/远程会话已移除（官方 'Hub integration removed'）：本地文件即全集".into(),
             ],
         }
+    }
+
+    fn prior_aggregate_hashes(
+        &self,
+        input: &crate::aggregates::SourceAggregateInput,
+    ) -> Vec<String> {
+        versions::session_usage_v1::prior_cache_hashes(input)
     }
 }

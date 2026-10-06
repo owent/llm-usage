@@ -6,8 +6,8 @@
 //!
 //! 实现依据与核验范围（A24）：固定源码 commit ef70b3661cbfcf57e583008ad91dd04d8ba46070
 //! （hermes_state_common.py SCHEMA_SQL / hermes_state_usage.py / agent/turn_usage.py）
-//! 与官方存储文档；**本机未安装（2026-09-25 盘点 not_found），无真实样本**，
-//! 能力声明与合成 fixtures 均标注"文档级证据、待真实样本"。
+//! 与 0.21.5 官方镜像 f97608f178d1ffeca59860195ab7da295f7c8e5f；
+//! 隔离本地模型的真实 CLI/续会话样本核验归一桶，其他覆盖仍保留待验边界。
 //! 首个可交付能力 = 本机按模型/任务的原生区间统计；逐次请求（agent 日志详单）
 //! 与精确日统计独立标注，不在本实现范围。
 
@@ -194,8 +194,7 @@ impl crate::adapters::framework::SourceAdapter for HermesAdapter {
     fn capability(&self) -> crate::adapters::framework::CapabilityTable {
         use crate::adapters::framework::{Availability, CapabilityTable};
         let awaiting =
-            "文档级证据（A24 固定源码）；本机 not_found（2026-09-25 盘点），待真实样本核验"
-                .to_string();
+            "0.21.5 CLI/续会话真实样本；默认零缺少字段有效性，其他调用路径待验".to_string();
         let mut fields = serde_json::Map::new();
         let field = |availability: Availability, note: &str| {
             serde_json::json!({
@@ -207,7 +206,7 @@ impl crate::adapters::framework::SourceAdapter for HermesAdapter {
             "tokens".into(),
             field(
                 Availability::Partial(awaiting.clone()),
-                "session_model_usage 五计数列（input/output/cache_read/cache_write/reasoning）逐列报告；包含关系未随 normalize_usage 验证，不推导互斥/总量",
+                "input_tokens 为未缓存输入，reasoning 为输出子集；正数报告、默认零未知；全部必需桶已知才派生输入/完整总量",
             ),
         );
         fields.insert(
@@ -290,7 +289,7 @@ impl crate::adapters::framework::SourceAdapter for HermesAdapter {
             detection: serde_json::json!({
                 "magic": "SQLite + sessions/session_model_usage 真实列 + v22 六列主键（不只看 schema_version 整数）",
                 "version_field": "schema_version 表单行整数（固定源码 SCHEMA_VERSION=30）",
-                "registry": "adapters/hermes/versions 注册表分派（当前空：文档级证据）",
+                "registry": "adapters/hermes/versions 注册表仍为空：整库 schema_version 无法认证混合历史行的客户端版本",
                 "fail_closed": true,
                 "unknown_version": "未收录/缺失版本一律 latest_fallback（带兼容标记）；pre-v22 主键/缺表缺列 fail closed",
             }),
@@ -304,11 +303,11 @@ impl crate::adapters::framework::SourceAdapter for HermesAdapter {
                 "residuals": "未解释残差保持未知，不强归 session 当前模型",
             }),
             incremental: serde_json::json!({
-                "cursor": "schema 指纹 + 六键 scope_key + 有效结束毫秒水位（+60s 有界重叠窗）",
+                "cursor": "schema 指纹 + 六键 scope_key + 有效结束毫秒处理位置（+60s 有界重叠窗）",
                 "row_cap": "单轮 50,000 行；触顶停在最后一个完整毫秒",
-                "schema_evolution": "指纹变化 ⇒ 水位重置全量重读（scope_key upsert 幂等）",
+                "schema_evolution": "指纹变化 ⇒ 处理位置重置全量重读（scope_key upsert 幂等）",
                 "no_change_detection": "WAL 活库不做字节长度短路；同键同内容聚合 upsert 无变更",
-                "rescan_note": "in-place 页重写触发框架 Rescan 标记；水位不重置（同一逻辑库）",
+                "rescan_note": "in-place 页重写触发框架 Rescan 标记；处理位置不重置（同一逻辑库）",
             }),
             dedup: serde_json::json!({
                 "primary": "source_aggregates (instance, session scope, smu:<六键摘要>)；base_url 内存规范化不落原文",
@@ -323,23 +322,30 @@ impl crate::adapters::framework::SourceAdapter for HermesAdapter {
             }),
             maintenance: serde_json::json!({
                 "parser_version": versions::session_model_usage_v1::HERMES_PARSER_VERSION,
-                "format_evidence": "固定源码 ef70b3661cbfcf57e583008ad91dd04d8ba46070（SCHEMA_SQL/usage/turn_usage）+ 官方存储文档；合成 fixtures 标注待真实样本",
-                "evidence_level": "doc-level（无本机真实样本；2026-09-25 盘点 not_found）",
-                "upgrade_policy": "取得真实脱敏 fixture 后逐 schema_version 升为已验证；未收录版本 latest_fallback",
+                "format_evidence": "A24 ef70b3661cbfcf57e583008ad91dd04d8ba46070 与 0.21.5 f97608f178d1ffeca59860195ab7da295f7c8e5f 的 normalize_usage/turn_usage/存储路径；真实双调用累计未缓存 849、缓存读 812、输出 4",
+                "evidence_level": "real-local（0.21.5 官方镜像 CLI/公开 resume、本地真实流式模型、只读原生 DB；其他覆盖路径待验）",
+                "upgrade_policy": "整库 schema 整数不认证逐行客户端版本，仍 latest_fallback；完整旧摘要允许输入归一桶及默认零修正，其他字段继续仲裁；解析器升级重放旧处理位置",
             }),
             scheduling: serde_json::json!({
                 "entry": "统一 run_adapter_scan；手动/间隔/监听触发按源合并",
-                "incremental_cost": "水位窗口查询（有界行数）；每轮固定一次探测查询",
+                "incremental_cost": "处理位置窗口查询（有界行数）；每轮固定一次探测查询",
                 "pause_cancel": "行级游标可停；busy 源转暂存副本或保留旧结果下轮重试",
             }),
             limitations: vec![
-                "文档级证据实现：本机未安装（2026-09-25 盘点 not_found），全部版本 latest_fallback，待真实样本核验后升级".into(),
+                "0.21.5 CLI/公开续会话真实核验；整库 schema_version 不认证混合历史行客户端版本，全部版本仍 latest_fallback".into(),
                 "session_model_usage 是累计表：无逐次请求、无精确每日趋势；api_call_count 不拆成 model_call".into(),
-                "input/cache、reasoning/output 包含关系未随 normalize_usage 完整路径验证：不推导互斥桶与总量，仅逐列报告".into(),
+                "原生缺字段归零，零 token/调用数保持未知；输入/完整总量仅在所有必需桶已知时派生，不借 API 样本补全后续载体".into(),
                 "区间汇总层（source_aggregates）无模型/费用维度列：按模型统计与成本映射待数据层扩展；不读 Hermes Portal/account_usage".into(),
-                "pre-v22 主键或缺表缺列 fail closed；v20 回填行语义（api_call_count 种子值）未逐字取证，按列面值处理".into(),
+                "pre-v22 主键或缺表缺列 fail closed；v20 回填/绝对写入、辅助、gateway 覆盖未获真实样本核验".into(),
                 "压缩继承/子 Agent/MoA/外部 Codex 镜像的覆盖集合未验证（待真实样本）；残差不强归当前模型".into(),
             ],
         }
+    }
+
+    fn prior_aggregate_hashes(
+        &self,
+        input: &crate::aggregates::SourceAggregateInput,
+    ) -> Vec<String> {
+        versions::session_model_usage_v1::prior_usage_hashes(input)
     }
 }

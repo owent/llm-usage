@@ -18,6 +18,12 @@ macOS 使用当前用户 Keychain generic password，明确禁用 iCloud 同步�
 
 每次应用配置生成独立的 128 位来源标识和 256 位随机秘密；Windows 使用
 BCrypt 系统随机源，Generic Credential 按当前用户保存，持久化限定本机。
+Windows 原生并行测试已复现写入成功、立即回读缺失、10 ms 后读取到相同内容；
+建立凭据、失败回收及撤销的变更前读取，只对缺失回读额外等待最多 5 次、每次 10 ms。
+内容不符与读取错误立即拒绝，不重复写入。认证请求仍使用一次读取，缺失时拒绝；
+这项本机观察不推广为所有 Windows 环境的 API 一致性保证。
+删除后须回查缺失才报成功；Windows 仍读到完全相同的自有内容时，最多等待同样的
+50 ms，不再次删除。外部替换、读取错误或超限均报告失败，保留其他来源。
 凭据同时保存应用数据目录、客户端、配置路径。请求按来源标识读取对应凭据，
 常数工作量比较秘密，并检查应用目录与允许的 HTTP 路径；重启不放宽认证。
 没有凭据、存储不可用、认证头缺失/重复/无效一律拒绝，先鉴权再读正文及解压。
@@ -50,6 +56,8 @@ rolling 文档新增的 traces-specific headers 不用于认证旧版支持，�
 
 合成 HTTP、失败恢复与真实 Windows 凭据库测试分别记录，不能替代产品实际导出验收。
 Linux 原生存储/HTTP 和 macOS 交叉类型检查见
-[跨平台记录](../../validation/desktop-usage/platform-auth-continuation.md)，真实桌面与
-exporter 验收仍独立保留。Windows 一次并行存储失败后留下的自有项已回收，
-失败后回收可靠性尚未验收完成；诊断未复现不作为已修复依据。
+[跨平台记录](../../validation/desktop-usage/platform-auth-continuation.md)；macOS 原生 Keychain
+跨进程往返与真实 HTTP 撤销见 [本批 CI](../../validation/desktop-usage/ci-plan-validation.md)。真实桌面与
+exporter 验收仍独立保留。Windows 并行存储失败已复现写后短暂缺失，并增加有界
+变更回读与删除确认；首次失败、跨进程撤销异常及最终复测集中到
+[来源规则继续验收](../../validation/desktop-usage/source-policy-upgrades.md)。

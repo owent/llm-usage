@@ -1,0 +1,49 @@
+{
+  "models": {
+    "qwen2.5-0.5b-local": {
+      "api": {
+        "totalRequests": 2,
+        "totalErrors": 0,
+        "totalLatencyMs": 28055
+      },
+      "tokens": {
+        "prompt": 15865,
+        "candidates": 558,
+        "total": 16423,
+        "cached": 3,
+        "thoughts": 0
+      },
+      "bySource": {
+        "main": {
+          "api": {
+            "totalRequests": 1,
+            "totalErrors": 0,
+            "totalLatencyMs": 14684
+          },
+          "tokens": {
+            "prompt": 10226,
+            "candidates": 2,
+            "total": 10228,
+            "cached": 0,
+            "thoughts": 0
+          }
+        },
+        "managed-auto-memory-extractor": {
+          "api": {
+            "totalRequests": 1,
+            "totalErrors": 0,
+            "totalLatencyMs": 13371
+          },
+          "tokens": {
+            "prompt": 5639,
+            "candidates": 556,
+            "total": 6195,
+            "cached": 3,
+            "thoughts": 0
+          }
+        }
+      }
+    }
+  },
+  "tool_total_calls": 0
+}

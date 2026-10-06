@@ -505,7 +505,7 @@ fn recreated_database_rescans_idempotently() {
     assert_eq!(
         (outcome.added, outcome.unchanged),
         (0, 1),
-        "重扫同键幂等（新身份全量重读或同身份水位重读都收敛于此）"
+        "重扫同键幂等（新身份全量重读或同身份处理位置重读都收敛于此）"
     );
     // 文件身份 = 创建时间 + 首采样指纹：创建时间不可得（None）且内容同形的
     // 重建库会命中旧身份（框架按身份改名探测语义复用行），不产生新实例数据。

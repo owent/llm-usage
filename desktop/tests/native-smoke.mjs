@@ -5,7 +5,7 @@ import { spawn } from 'node:child_process';
 import { spawnIsolated } from './isolated-child.mjs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
-import { createServer } from 'node:net';
+import { freeHttpPort } from './http-test-port.mjs';
 import { once } from 'node:events';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
@@ -48,9 +48,7 @@ async function invoke(cmd, args={}) {
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 const query = {first_day:day,last_day:day,granularity:'day',agents:[],providers:[],models:[]};
 async function port() {
-  const server = createServer();
-  server.listen(0, '127.0.0.1'); await once(server, 'listening');
-  const result = server.address().port; await new Promise(resolve => server.close(resolve)); return result;
+  return freeHttpPort();
 }
 async function launch() {
   const cdpPort = await port();

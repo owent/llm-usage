@@ -1,0 +1,34 @@
+[
+  {
+    "model": "qwen2.5-0.5b-local",
+    "status": 200,
+    "stream": true,
+    "stream_options": {
+      "include_usage": true
+    },
+    "usage": {
+      "completion_tokens": 2,
+      "prompt_tokens": 160,
+      "total_tokens": 162,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      }
+    }
+  },
+  {
+    "model": "qwen2.5-0.5b-local",
+    "status": 200,
+    "stream": true,
+    "stream_options": {
+      "include_usage": true
+    },
+    "usage": {
+      "completion_tokens": 2,
+      "prompt_tokens": 4899,
+      "total_tokens": 4901,
+      "prompt_tokens_details": {
+        "cached_tokens": 4
+      }
+    }
+  }
+]

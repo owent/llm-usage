@@ -11,6 +11,7 @@
 //! - None / 其他值 → `LatestFallback` 形状返回；对 cline 实际不可达
 //!   （detect 不读版本号，固定传文档级锚点），仅为注册表形状统一保留。
 
+pub mod sdk_messages_v1;
 pub mod ui_messages_doc1;
 
 /// 当前格式实现标识（"最新内置解析器"由本常量明确指定，不联网获取）。

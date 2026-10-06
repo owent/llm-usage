@@ -1,0 +1,116 @@
+{
+  "schema_meta": {
+    "meta_key": "primary",
+    "role": "agent",
+    "schema_version": 24,
+    "agent_id": "main",
+    "app_version": "2026.9.8"
+  },
+  "user_version": 24,
+  "session_windows": [
+    {
+      "session_id": "session-redacted",
+      "session_key": "agent:main:explicit:session-redacted",
+      "session_entry_provenance": 1,
+      "acp_owned": 0,
+      "plugin_owner_id": null,
+      "hook_external_content_source": null,
+      "agent_harness_id": "openclaw"
+    }
+  ],
+  "transcript_events": [
+    {
+      "session_id": "session-redacted",
+      "seq": 4,
+      "event": {
+        "type": "message",
+        "id": "entry-4",
+        "parentId": "entry-3",
+        "timestamp": "2026-10-06T12:05:19.818Z",
+        "message": {
+          "role": "user",
+          "timestamp": 1791288318948
+        }
+      }
+    },
+    {
+      "session_id": "session-redacted",
+      "seq": 5,
+      "event": {
+        "type": "message",
+        "id": "entry-5",
+        "parentId": "entry-4",
+        "timestamp": "2026-10-06T12:05:27.243Z",
+        "message": {
+          "role": "assistant",
+          "api": "openai-completions",
+          "provider": "local-llama",
+          "model": "qwen3.5-0.8b-local",
+          "usage": {
+            "input": 6105,
+            "output": 47,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "totalTokens": 6152,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "stopReason": "stop",
+          "timestamp": 1791288319826
+        }
+      }
+    },
+    {
+      "session_id": "session-redacted",
+      "seq": 7,
+      "event": {
+        "type": "message",
+        "id": "entry-7",
+        "parentId": "entry-6",
+        "timestamp": "2026-10-06T12:05:33.153Z",
+        "message": {
+          "role": "user",
+          "timestamp": 1791288332138
+        }
+      }
+    },
+    {
+      "session_id": "session-redacted",
+      "seq": 8,
+      "event": {
+        "type": "message",
+        "id": "entry-8",
+        "parentId": "entry-7",
+        "timestamp": "2026-10-06T12:05:36.889Z",
+        "message": {
+          "role": "assistant",
+          "api": "openai-completions",
+          "provider": "local-llama",
+          "model": "qwen3.5-0.8b-local",
+          "usage": {
+            "input": 52,
+            "output": 107,
+            "cacheRead": 6101,
+            "cacheWrite": 0,
+            "totalTokens": 6260,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "stopReason": "stop",
+          "timestamp": 1791288333163
+        }
+      }
+    }
+  ],
+  "cold_archive_count": 0
+}

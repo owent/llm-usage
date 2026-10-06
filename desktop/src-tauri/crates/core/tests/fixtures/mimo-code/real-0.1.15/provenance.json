@@ -1,0 +1,15 @@
+{
+  "client_version": "0.1.15",
+  "commit": "14dfe68a1c121f859544ba810b3c308e8501bfb2",
+  "native_sha256": "0a60be4932cb9b3cd543479a713885ca9ad9045fc16991f488b26681299641cd",
+  "schema_projection": "minimal required columns; original tables inspected independently",
+  "task_success": false,
+  "finish_reason": "length",
+  "api_calls": 8,
+  "totals": {
+    "prompt_tokens": 25588,
+    "completion_tokens": 1024,
+    "total_tokens": 26612
+  },
+  "positive_native_cache_read": 20733
+}

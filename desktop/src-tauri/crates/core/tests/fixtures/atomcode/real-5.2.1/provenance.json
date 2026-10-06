@@ -1,0 +1,11 @@
+{
+  "product": "AtomCode",
+  "capture_version": "5.2.1 (unknown)",
+  "carrier_schema": 1,
+  "package_integrity": "sha512-ncC/rqORQeDLMPH39NpjchZEoFCBmC4uosaWaKe8spbRv3Ek51/HvRQuJMMaC6amPrkRdfjSRZYRxP8ktz2oTg==",
+  "source_commit": "45e05cb14775f070f3867539e1f21c9849b3484b",
+  "raw_sha256": "3e5db1220bad2e44993054bb4257ea70c6580cfdec99f3aedf8d674c58e2f0d7",
+  "mode": "official npm platform binary; rootless Podman uid 1000, no external network or host mounts; headless no-tools/dev/no-telemetry; real local Qwen 2.5 0.5B SSE",
+  "redaction": "only native schema, times, counts and model_usage retained; id anonymized; working_dir removed; names, ownership, origin, import/fork metadata and conversation bodies omitted; numeric usage and times unchanged",
+  "boundary": "one successful local turn; CLI product version and native schema version are separate; source commit version matches package but binary build id is unknown; no cloud/cache hit/branch/subagent/other version certification"
+}

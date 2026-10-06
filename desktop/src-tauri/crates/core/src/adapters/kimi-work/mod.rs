@@ -59,7 +59,20 @@ impl crate::adapters::framework::SourceAdapter for KimiWorkAdapter {
         // home_dir 上下文时探测；无 home 上下文（测试/隔离运行）只用手工根。
         // 无官方文档化的环境覆盖 ⇒ 不读 env（与 kimi-code 的 KIMI_CODE_HOME 不同）。
         let mut candidates: Vec<(std::path::PathBuf, RootBasis)> = Vec::new();
-        if ctx.home_dir.is_some() {
+        // This custom absolute installation belongs to the current process user.
+        // A caller supplying an isolated home must never discover personal sources.
+        let process_home = std::env::var_os("USERPROFILE").or_else(|| std::env::var_os("HOME"));
+        if cfg!(windows)
+            && ctx
+                .home_dir
+                .as_ref()
+                .zip(process_home.as_ref())
+                .is_some_and(|(home, real)| {
+                    crate::adapters::framework::normalize_path(home).eq_ignore_ascii_case(
+                        &crate::adapters::framework::normalize_path(std::path::Path::new(real)),
+                    )
+                })
+        {
             candidates.push((
                 std::path::PathBuf::from(KIMI_WORK_OBSERVED_HOME).join("sessions"),
                 RootBasis::DefaultHome,

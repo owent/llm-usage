@@ -130,6 +130,12 @@ try:
     checks.append('all five pages render through real WebKit')
     assert ipc('system_task_status')['value']['unsupported']
     checks.append('Linux reports unsupported Windows-only scheduling integration')
+    if os.environ.get('LLM_USAGE_SCREEN_READER') == '1':
+        from importlib.util import module_from_spec, spec_from_file_location
+        reader_spec = spec_from_file_location('screen_reader', root / 'linux-screen-reader.py')
+        reader = module_from_spec(reader_spec)
+        reader_spec.loader.exec_module(reader)
+        checks.append(reader.verify(root, script, ipc))
     screenshot=request('GET',f'/session/{session}/screenshot')
     (root/'linux-desktop.png').write_bytes(base64.b64decode(screenshot))
     print(json.dumps({'checks':checks,'events':count,'synthetic_tokens':tokens,'pages':controls},ensure_ascii=False))

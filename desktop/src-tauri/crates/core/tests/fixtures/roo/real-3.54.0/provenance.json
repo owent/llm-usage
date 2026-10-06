@@ -1,0 +1,54 @@
+{
+  "product": "Roo Code VS Code extension",
+  "version": "3.54.0",
+  "extensionId": "RooVeterinaryInc.roo-cline",
+  "source_commit": "27001b2b5aa47b65e8a6ba1914e0f4216be0ebb0",
+  "official_release_url": "https://github.com/RooCodeInc/Roo-Code/releases/tag/v3.54.0",
+  "vsix_sha256": "615b7e30ab456c51fe2e1f413a6e05fe4bd370f2350e14de574ec92e25366b4b",
+  "vsix_bytes": 30837353,
+  "vscode_version": "1.140.0",
+  "vscode_sha256": "d32031e9e213d59532af3cf32fcb8b357a1cdd10417967b4f5b5ba30436dc0dc",
+  "vscode_bytes": 348920118,
+  "image_id": "6ed04799198831354cad3bde113717d908f3f93c3420b0ff89f1bba9f6377ddd",
+  "provider": "public openai-compatible settings; no API key supplied by acceptance",
+  "model": "qwen2.5-0.5b-local",
+  "isolation": "rootless Podman; UID1000; network none; no host mounts; Xvfb native extension host",
+  "client_modified": false,
+  "response_usage_fabricated": false,
+  "task_success_certified": false,
+  "scope": "only actual native requests; default cancellation third API request absent; cache detail lost by official provider; no model field inferred; default zero cost/cache unknown",
+  "cases": [
+    {
+      "case": "default",
+      "run_root": "roo-real-1791279141",
+      "original_ui_sha256": "b9c8ca855050f224281ec50038efa5f5aa4674e0726cce9a98b8c09204862238",
+      "original_bytes": 767,
+      "projected_ui_sha256": "8b5d2cc792ed0def8aadb1f6fda476986196486c7db975d3f8fbf803a34e3074",
+      "native_calls": 2,
+      "api_calls": 3,
+      "task_result": "cancelled; model did not emit completion tool",
+      "cache_detail_gap": true,
+      "redacted": [
+        "text bodies",
+        "request bodies",
+        "task IDs and user paths"
+      ]
+    },
+    {
+      "case": "bounded",
+      "run_root": "roo-real-1791279262",
+      "original_ui_sha256": "f5fa87fcc6bd6bccdcc529aec41a737d35f5ae81252aff08d81c124eedb5e2cc",
+      "original_bytes": 556,
+      "projected_ui_sha256": "1bc05fbcf05fb3cb8494a2ca4f87751f0627fd711333c7b3bebd33c5f8de4c31",
+      "native_calls": 1,
+      "api_calls": 1,
+      "task_result": "cancelled; model did not emit completion tool",
+      "cache_detail_gap": true,
+      "redacted": [
+        "text bodies",
+        "request bodies",
+        "task IDs and user paths"
+      ]
+    }
+  ]
+}

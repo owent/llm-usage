@@ -1,5 +1,12 @@
 # 容器内官方客户端与真实本地模型样本
 
+2026-10-06：Qwen 0.25.0 SDK 连续 JSON、逐次 span 与原生分区择一已实施，
+真实合计 2 次/16,423 token；OpenCode 1.18.34 已按实际记录版本注册并验收旧处理位置升级。
+真实首记录的 Qwen 手工根路由也已修正。最新实现/包回读与剩余边界见
+[来源规则升级](source-policy-upgrades.md)；八个 M8 客户端的后续真实样本及成品复验见
+[M8 容器样本](m8-container-samples.md)；MiMo/Zoo/DSH 后续原始载体和最新包结果见
+[三源验收](m3-container-samples.md)。下文保留 2026-10-05 原始核验与当时旧包结果。
+
 日期 2026-10-05；cwd 为 WSL Debian 的本任务独立仓库；准备边界见
 [真实数据验证](../../design/desktop-usage/implementation-readiness.md)。
 用户允许 Podman 测试环境；按本地模型方式执行，未登录个人账户、读取个人密钥
@@ -148,9 +155,10 @@ Windows / Debian 的 OpenCode 合同各 8 项退出 0，逐字段、累计对账
 ## 仍待验证
 
 此次证明 0.25.0 本地兼容 provider 的主循环，不能认证 Qwen 云端、其他版本、
-真实归档、主循环缓存命中或后台载体完整接入；无需为已有合法记录降级来源健康。
+真实归档或主循环缓存命中；SDK 后台载体已在 2026-10-06 接入，无需为已有合法记录降级来源健康。
 Gemini 官方 [认证合同](https://geminicli.com/docs/get-started/authentication/)
 仍列 Google 登录/API key/Vertex 路线，本轮未取得官方离线 provider 的已核验合同，
 没有现成非空载体；不拿第三方 fork、模拟 Gemini API 或 Qwen 样本代替其真实版本认证。
 OpenCode 其他版本、Windows 布局、非零费用、缓存写、reasoning 与标题独立载体及
-逐记录版本升级仍待验收。Windows Zed 本机库仍为空；其他产品的真实样本条件保留在 Plan.md。
+跨版本载体仍待验收；1.18.34 的逐记录版本与旧游标升级已通过。
+Windows Zed 本机库仍为空；其他产品的真实样本条件保留在 Plan.md。

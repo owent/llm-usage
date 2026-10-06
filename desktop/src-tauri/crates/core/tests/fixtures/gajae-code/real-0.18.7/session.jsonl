@@ -1,0 +1,10 @@
+{"type": "session", "version": 5, "id": "11111111-2222-4333-8444-555555555555", "timestamp": "2026-10-06T06:36:01.464Z"}
+{"type": "model_change", "id": "00000001", "parentId": null, "timestamp": "2026-10-06T06:36:01.825Z", "model": "local-model/qwen2.5-0.5b-local"}
+{"type": "thinking_level_change", "id": "00000002", "parentId": "00000001", "timestamp": "2026-10-06T06:36:01.825Z", "thinkingLevel": "off"}
+{"type": "mcp_tool_selection", "id": "00000003", "parentId": "00000002", "timestamp": "2026-10-06T06:36:01.830Z"}
+{"type": "discovered_builtin_tool_selection", "id": "00000004", "parentId": "00000003", "timestamp": "2026-10-06T06:36:01.831Z"}
+{"type": "model_change", "id": "00000005", "parentId": "00000004", "timestamp": "2026-10-06T06:36:01.888Z", "model": "local-model/qwen2.5-0.5b-local", "role": "default"}
+{"type": "configured_model_chain", "id": "00000006", "parentId": "00000005", "timestamp": "2026-10-06T06:36:01.890Z", "role": "default", "entries": ["local-model/qwen2.5-0.5b-local"], "origin": "startup-override", "explicitHead": true, "cleared": false}
+{"type": "custom", "id": "00000007", "parentId": "00000006", "timestamp": "2026-10-06T06:36:02.098Z", "customType": "workflow-intent-diff"}
+{"type": "message", "id": "00000008", "parentId": "00000007", "timestamp": "2026-10-06T06:36:02.121Z", "message": {"role": "user", "timestamp": 1791268562098}}
+{"type": "message", "id": "00000009", "parentId": "00000008", "timestamp": "2026-10-06T06:36:02.415Z", "message": {"role": "assistant", "api": "openai-completions", "provider": "local-model", "model": "qwen2.5-0.5b-local", "usage": {"input": 412, "output": 2, "cacheRead": 0, "cacheWrite": 0, "totalTokens": 414, "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0, "total": 0}}, "timestamp": 1791268562127, "responseId": "chatcmpl-local-anonymous", "stopReason": "stop", "duration": 285, "ttft": 276}}

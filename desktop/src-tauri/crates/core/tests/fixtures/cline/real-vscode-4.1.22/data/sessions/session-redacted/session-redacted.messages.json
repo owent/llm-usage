@@ -1,0 +1,88 @@
+{
+  "version": 1,
+  "updated_at": "2026-10-06T10:52:09.040Z",
+  "agent": "lead",
+  "sessionId": "session-redacted",
+  "origin": {
+    "source": "vscode",
+    "mode": "user",
+    "version": "4.1.22",
+    "sessionId": "session-redacted"
+  },
+  "messages": [
+    {
+      "id": "message-redacted-1",
+      "role": "user",
+      "ts": 1791283924731
+    },
+    {
+      "id": "message-redacted-2",
+      "role": "assistant",
+      "ts": 1791283927767,
+      "modelInfo": {
+        "id": "qwen3.5-0.8b-local",
+        "provider": "lmstudio"
+      },
+      "metrics": {
+        "inputTokens": 2915,
+        "outputTokens": 16,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0
+      }
+    },
+    {
+      "id": "message-redacted-3",
+      "role": "user",
+      "ts": 1791283927769,
+      "metadata": {
+        "userRunSpan": 0
+      }
+    },
+    {
+      "id": "message-redacted-4",
+      "role": "assistant",
+      "ts": 1791283928396,
+      "modelInfo": {
+        "id": "qwen3.5-0.8b-local",
+        "provider": "lmstudio"
+      },
+      "metrics": {
+        "inputTokens": 2974,
+        "outputTokens": 16,
+        "cacheReadTokens": 2911,
+        "cacheWriteTokens": 0
+      }
+    },
+    {
+      "id": "message-redacted-5",
+      "role": "user",
+      "ts": 1791283928397,
+      "metadata": {
+        "userRunSpan": 0
+      }
+    },
+    {
+      "id": "message-redacted-6",
+      "role": "assistant",
+      "ts": 1791283929039,
+      "modelInfo": {
+        "id": "qwen3.5-0.8b-local",
+        "provider": "lmstudio"
+      },
+      "metrics": {
+        "inputTokens": 3033,
+        "outputTokens": 16,
+        "cacheReadTokens": 2970,
+        "cacheWriteTokens": 0
+      }
+    },
+    {
+      "id": "message-redacted-7",
+      "role": "user",
+      "ts": 1791283929040,
+      "metadata": {
+        "userRunSpan": 0
+      }
+    }
+  ]
+}

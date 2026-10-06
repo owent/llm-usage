@@ -37,24 +37,24 @@ Harness Agent 按用户提供官网更正为 Hermes Agent。所有工具均保�
 | 工具/变体 | 拟接入来源与可用信息 | 边界与下一步 | 阶段/依据 |
 | --- | --- | --- | --- |
 | Claude Code | projects 下会话/子 Agent JSONL；官方 OTel 的 input/output/cacheRead/cacheCreation、模型与请求事件 | 本地 JSONL 逐请求形态需 fixture；遥测需显式启用，防会话/辅助统计重叠。**2026-09-30 真实样本（2.1.197，WSL 未登录首跑）：queue-operation/attachment/last-prompt 元数据记录已放行、`<synthetic>` 占位 assistant 不计调用（[WSL 记录](../../validation/desktop-usage/wsl-agent-installs.md)）；真实用量样本仍待有凭据环境** | M2/M5；本地候选/需启用，A01 |
-| Cline | 适配器已实现（M3，2026-09-25，源码依据：固定版本源码 dcf8c3c；本机未安装 not_found，真实数据验收后置） | say 载体四桶互斥 + request 键；compaction 估算不入账；deleted_api_reqs/subagent_usage 聚合处理；不能每条 say 算请求；模型逐请求归属需真实样本核验；**2026-09-30 WSL 发现 Cline CLI 新产品面 `~/.cline/data/db/*.db`（sessions/schedules 等表，0 行）——与已实施的 VS Code 扩展形态不同源，尚无用量样本，未实施（[WSL 记录](../../validation/desktop-usage/wsl-agent-installs.md)）**；**2026-09-29 Roo 核验发现 Roo 血统 tokensIn 已含缓存（b867ec9 三处核验依据），与本适配器四桶互斥口径存在血统分歧，待真实样本复核** | M3 已实施（待真实验收），A03 |
+| Cline | 旧 UI 文档级适配器 + 独立 VS Code SDK schema 1；4.1.22 官方 VSIX/真实 GUI 与本地 API 三条原生 metrics 已核对，成品复验见 [记录](../../validation/desktop-usage/cline-container-sample.md) | SDK inputTokens 含缓存、正桶 reported/默认零未知、消息自身 modelInfo/ts；metrics 可合并 run/重试，记 observation，调用数未知；origin.version 可重写，仍 latest_fallback；只读原生 messages，不叠加 manifest/DB。旧 UI 四桶/删除/子 Agent/compaction 合同独立保留，尚无真实样本；CLI/desktop SDK 面、迁移、其他 provider 待验，不以空 registry DB 认证 | M3 已实施；SDK 实样通过、其他面另验，A03 |
 | CodeBuddy Code / IDE / 插件 | **扩展存储适配器已实施（本机真实核对 PASS，2026-09-30）**：`%LOCALAPPDATA%\CodeBuddyExtension\Data\...\history\<session>\<conversation>\index.json` 的 `requests[].usage` 请求级聚合（`inputTokens=cacheTokens+cachedMissTokens`），消息 `extra.modelId` 归属模型，见 [M4/M5 记录](../../validation/desktop-usage/m4-buddy-local.md)。CLI 载体：官方目录文档确认 `~/.codebuddy/projects` 会话 JSONL；第三方解析器与测试证实 `message.usage` / `providerData.rawUsage` 可读逐次 token，`input_tokens` 已含缓存读。官方 monitoring 文档另提供需启用的 OTLP/HTTP protobuf `model_stream` | 扩展 usage 为请求级聚合（非逐 LLM 调用）；全零请求无模型调用不入账；`credit` 积分与 `lastTokens` 语义尚未核验不映射；同请求跨 profile/workspace 树复制按请求 id 键幂并不双计；CLI JSONL 本机仍无真实样本（文档级）；OTLP 与本地载体同时启用可能重复计数，应择一使用 | 扩展存储 M5 已实施（真实核对）；CLI 本地文档级适配器已注册，真实样本待完成，A04 |
 | Codex CLI / 桌面 / IDE | 原型读 CODEX_HOME 下 rollout 的 token_usage_record；官方 OTel 支持请求、响应完成 usage 和流事件 | 已验证版本（逐版本脱敏 fixture）：0.155.0-alpha.16.3（M0/M2-A）、0.154.0-alpha.6.1/6.2、0.153.0（M2-D），逐次/累计/turn_context 三类记录，compaction 重置累计快照；0.139–0.151 已有 rollout_legacy 专用实现及 21 个精确版本映射，按 token_count 增量记录处理，边界见 m2d 记录；未知新版本默认 latest_fallback 带兼容标记；原型固定默认路径需改为发现/配置；旧 token_count 与新记录必须分格式；模型从结构化上下文归属，缺 response ID 不碰撞 | M2/M5；本地候选/需启用，A02 + 原型 |
 | GitHub Copilot CLI | **适配器已实现（真实数据核对 PASS，2026-09-29）**：session-store.db assistant_usage_events（schema_version=8，36 行真实 fixture+期望值）；OTel 路径：`COPILOT_OTEL_FILE_EXPORTER_PATH`（JSON-lines，行级 schema 未文档化）/OTLP（默认 http/json；chat span gen_ai.usage.* 含缓存细分、TTFT；invoke_agent 汇总 span 官方警告不得求和双计）。**2026-09-30 复核：最新 CLI 的 `~/.copilot/session-store.db` 已改为 chronicle/search 索引（sessions/turns/checkpoints/search_index，无 assistant_usage_events），逐次用量载体外移；discover 增补 `COPILOT_HOME` 覆盖，detect 命中 chronicle 指纹记 UnsupportedVersion（不误报非 Copilot 库）。VS Code 扩展面 globalStorage 的同族 chronicle 库亦无 usage（turns 为纯文本）——VS Code 面用量经 copilot-chat 适配器（A06 行）接入，与 CLI 载体互不重复** | assistant_usage_events 为已验证主载体（旧版）；**最新版本已移除该表：`session-state/<id>/events.jsonl` 事件日志经同族 copilot-agent 转录核验无逐次 token 字段，`copilot-user-cache.json` 仅账户额度（premium_interactions）非逐次——最新 CLI 本地无已验证逐次用量，待真实最新 CLI 样本或启用 OTel 后锚定**；OTel file exporter 行级 schema 待本机样本（otel 适配器同族容错）；premium 倍率/nano AIU 不入 token；2026-09-25 消失为升级迁移、已恢复 | 主载体 M5 已实施（真实核对，旧版 schema=8）；最新版布局变更已识别（fail-closed），真实样本/OTel 后置；OTel 载体 M5 已实施（文档级），A05 |
 | JetBrains 内置 AI Assistant / Junie | IDE 插件本地 schema 尚未核验，保留在 F1；Junie CLI 已取得本地格式依据，转入 M8：`~/.junie/sessions/<id>/events.jsonl` 逐轮 modelUsage（input/output/cache/reasoning/cost/time/provider），timestampMs 为结束时刻 | A07 只证实企业远端分析，已排除；Junie CLI（A36）不再列为待核验；AI Assistant IDE 插件本地 token/cache schema 待核验，当前不探测/开发 | IDE 插件 F1；Junie CLI M8，A07/A36 |
-| DeepSeek Harness（DSH） | 适配器已实现（M3，2026-09-25，文档依据：token-meter README 46a7f68；本机未安装 not_found） | final 替换流式、retry 新开计费 attempt、边界定稿末样本（V03 数学样本语义）；pressure 估算不计账；occurred_at 用观察时间（无逐事件时间）；落盘行形状为合成假设待真实样本 | M3 已实施（待真实验收），A08 |
-| Hermes Agent（原需求 Harness Agent） | 适配器已实现（M3，2026-09-25，源码依据：固定版本源码 ef70b36；本机未安装 not_found） | session_model_usage 按合同映射区间汇总（不虚构逐请求/每日分桶）；api_call_count 不拆调用；跨日归属/辅助互斥/压缩继承按 A24；日志详单能力待真实样本 | M3 已实施（待真实验收），A24 |
-| OpenClaw | 适配器已实现（M3，2026-09-25，文档依据；本机未安装 not_found） | 官方文档未给出表级/条目级 schema ⇒ 运行时库与旧归档均 fail closed（诊断注明待真实样本）；归档按迁移输入降级（doctor --fix 路径）；不沿用“只扫 JSONL”假设；远端 Gateway 不等于本机 | M3 已实施（fail-closed 占位，待真实样本扩展），A09 |
+| DeepSeek Harness（DSH） | 官方 npm 0.2.0-rc.2 两轮本地 CLI/续会话、原生 v4 JSONL/zstd 与 API 已核对，Windows/Linux 新包回读通过 | 正非缓存输入；仅本行 pi-ai openai-completions/version 2 正输入反变换含缓存总输入；output 已含推理，自算 total 不作源总量；settlement/stream 择一、retry 新身份、继承前缀排除；时间用原生行时间并标观察依据；标题 205 token 未落盘不补造，旧 doc1 独立保留 | M3 当前主循环完成；其他协议/真实 seed/retry/fail 另验，[合同](m3-runtime-samples.md)，A08 |
+| Hermes Agent（原需求 Harness Agent） | M3 已实现；0.21.5/v2026.9.24 官方镜像的真实本地请求/续会话已核对，schema 30 不认证其他历史版本 | session_model_usage 为非缓存输入/缓存读写/输出/推理区间累计；默认零未知，api_call_count 不拆调用；完整旧摘要/旧处理位置重评；模型/费用维度与日志详单另验 | M3 本地样本已核对，A24 |
+| OpenClaw | schema 24 只读读取已实现（M3，2026-10-06；官方 npm 2026.9.8 CLI/续会话真实本地模型样本） | transcript_events TEXT/zstd 正文；本地已核验 provenance，外部/迁移输入隔离；input 为非缓存，默认零、计算总量/费用及底层调用未知，整库版本不认证历史行；冷归档显式覆盖缺口，其他协议/schema 不套用 | M3 真实 CLI 专项 11 项、原库升级与 Windows 成品双读通过，A09；[读取合同](openclaw-runtime.md)、[真实验收](../../validation/desktop-usage/openclaw-container-sample.md) |
 | Gemini CLI | 官方会话存储 ~/.gemini/tmp/<project_hash>/chats/ 含 token；OTel 提供 input/output/thought/cache/tool 和请求统计 | JSON/JSONL 具体版本探测；thought/cache/tool 字段的包含关系逐 provider 核验；Gemini 网页和 Code Assist 不冒充 CLI | M2/M5；本地候选/需启用，A10 |
-| Kilo Code CLI / 桌面 / IDE 扩展 | 适配器已实现（M3，2026-09-25）：SQLite 只读 + 暂存副本合同；message.data.tokens 逐次五互斥；水位增量；session 行 tokens 列仅作会话对账（275/276 matched，列级语义随版本不稳定不映射事件）；真实核对 13,342 调用/1.65B token 与独立求和一致、幂等 | 已验证 7.4.8/7.4.9/7.8.1（fixture）；库内其余 7.3.42–7.7.12 等未收录走 latest_fallback；7.8.1 为本机实读脱敏（顶层 modelID/providerID 载体，与 7.4.x 同形共用 message_tokens_v1）；新 core 数据层（session_message，当前 0 行）切换后需专用实现核验；IDE 扩展后移 F1；不能拿 CLI 通过代表 IDE 通过 | CLI/桌面 M3 已实施；本地用量格式尚未核验的 IDE 变体 F1，A11 |
+| Kilo Code CLI / 桌面 / IDE 扩展 | 适配器已实现（M3，2026-09-25）：SQLite 只读 + 暂存副本合同；message.data.tokens 逐次五互斥；按处理位置增量；session 行 tokens 列仅作会话对账（275/276 matched，列级语义随版本不稳定不映射事件）；真实核对 13,342 调用/1.65B token 与独立求和一致、幂等 | 已验证 7.4.8/7.4.9/7.8.1（fixture）；库内其余 7.3.42–7.7.12 等未收录走 latest_fallback；7.8.1 为本机实读脱敏（顶层 modelID/providerID 载体，与 7.4.x 同形共用 message_tokens_v1）；新 core 数据层（session_message，当前 0 行）切换后需专用实现核验；IDE 扩展后移 F1；不能拿 CLI 通过代表 IDE 通过 | CLI/桌面 M3 已实施；本地用量格式尚未核验的 IDE 变体 F1，A11 |
 | 新版 Kimi Code | 适配器已实现（M4，2026-09-25）：家族共享 kimi_wire.rs；注册表锚点 protocol_version=1.5；真实核对 13 文件 965 调用 total 116,428,813 与 jq 逐字段相等、幂等；打断步回声缺失以 echo_subset 可见 | usage.record 无稳定 ID ⇒ provider/逐次延迟不入账（如实 unavailable）；旧会话 1.4 走 latest_fallback；其他版本仍需各自 fixture | M4 已实施；跨版本待核验，A12 |
 | Kimi Work | 适配器已实现（M4，2026-09-25）：独立目录（A13 不与 Kimi Code 合并）；conv-*/ctitle-* 布局（daimon 宿主）；锚点 1.4；真实核对 69 文件 1,337 调用 total 125,225,933 逐字段相等、69/69 对账 matched；跨文件同毫秒（swarm）事件键含 session:agent 身份段 | 官方默认布局/env 未见文档（迁移需手工加根）；subagent.completed 与缓存写>0 无本机真实样本；与 Kimi Code 共享 wire 解析但统计分列 | M4 已实施，A13 |
-| MiMo Code | 适配器已实现（M3，2026-09-25，源码依据：固定版本源码 456678b；本机未安装 not_found） | part/step-finish 与 OpenCode 同形；message.agent_id 为互斥指纹锚点；session 无累计列（无对账目标，如实标注）；MIMOCODE_HOME/data 路径解析；不从 fork 关系推兼容（双向 fail closed 已测） | M3 已实施（待真实验收），A14 |
+| MiMo Code | 官方 0.1.15 CLI/续会话八条 step-finish 与 API 已逐条核对，Windows/Linux 原始 SQLite/WAL 新包升级通过 | 自身 SDK 归一 input/output 与缓存/推理反变换；零缓存/推理/费用未知，不叠加 message 副本；所属会话版本逐记录 latest_fallback；MIMOCODE_HOME/data 与 MIMOCODE_DB 优先级独立核验；八次 length 不认证任务成功 | M3 当前主循环完成；其他版本/协议/非截断任务另验，[合同](m3-runtime-samples.md)，A14 |
 | oh-my-pi | 官方 session 文档确认 ~/.omp/agent/sessions/...jsonl，assistant usage 与模型/provider | 本机 18.2.7 已取 3 个脱敏 fixture（2026-09-25，[M2-B/C 恢复记录](../../validation/desktop-usage/m2bc-resumed.md)）：assistant 全带 usage + duration/ttft 浮点毫秒；model_change 落盘为 `model`="provider/model" 组合字段（非 pi 分字段）；子 Agent 文件在 `<ts>_<父UUID>/` 目录按路径形状归父；~/.omp/logs 仅上下文估算 debug 行、无逐次用量，title-generator 尚无重叠依据；compaction/branch_summary 本机均无 usage（辅助载体合同已实现，待真实样本） | M2；本地候选，A15 |
 | pi | 固定源码 Usage 含 input/output/cacheRead/cacheWrite/reasoning；session 有 message、独立 usage、compaction/branch summary usage | 推理已含于 output；仅 assistant message 会漏辅助用量；分支继承不代表新调用；目录由该版本配置函数解析；本机 0.87.1 已取真实 fixture 并通过幂等核对（2026-09-25，[M2-B/C 恢复记录](../../validation/desktop-usage/m2bc-resumed.md)）；fork 复制条目带 fork 会话身份，仲裁为 conflict 保留先扫者，净效果不双计 | M2；本地候选，A16 |
-| OpenCode | 适配器已实现；1.18.34（固定源码 aec0b9a6）在独立 Podman 真实主循环及缓存读与 API/CLI/原生库/应用一致，重扫幂等；仍标 latest_fallback，逐记录版本升级另验 | part 的 input 为未缓存桶；session.tokens_* 仅对账、message 聚合不叠加；默认标题另有 549 token API 调用，未进入主循环 part/累计，matched 不证明全覆盖；明确标题对照 1 次/299 token。不由一条真实会话认证同库其他版本/空会话或旧游标 | M3 主循环真实兼容验收；其他版本/云端/标题载体/逐记录升级另验；[容器记录](../../validation/desktop-usage/container-sources.md)，A17 |
+| OpenCode | 适配器已实现；1.18.34（固定源码 aec0b9a6）在独立 Podman 真实主循环及缓存读与 API/CLI/原生库/应用一致，重扫幂等；1.18.34 已逐记录认证，混合版本与旧处理位置升级回归通过 | part 的 input 为未缓存桶；session.tokens_* 仅对账、message 聚合不叠加；默认标题另有 549 token API 调用，未进入主循环 part/累计，matched 不证明全覆盖；明确标题对照 1 次/299 token。不由一条真实会话认证同库其他版本/空会话或旧游标 | M3 主循环真实兼容验收；其他版本/云端/未落盘标题载体另验；[容器记录](../../validation/desktop-usage/container-sources.md)，A17 |
 | Qwen Code | recording service 记录 usageMetadata/model；0.25.0 独立 Podman 真实主循环与 CLI/模型服务/SQLite 一致、重扫幂等；真实 file 导出已核对主循环与后台两条 API 日志/LLM span，含后台缓存读 | 默认自动记忆调用未进入会话逐次载体，不从累计量补造事件；file 为连续多行 SDK JSON，现有 OTel JSONL 未接入，权威分区另验；Goal 不叠加，活动/归档按 uuid 去重；未知本地模型名不套价；云端、其他版本/主循环缓存命中待验 | M2 主循环真实验收，M5 file 样本已取、解析/分区待实施；[容器记录](../../validation/desktop-usage/container-sources.md)，A18 |
-| Zoo Code | 适配器已实现（M3，2026-09-26，源码依据：固定版本源码 f780647；本机未安装 not_found） | Roo 血统整写 ui_messages.json；LIFO 配对合并（finish 覆盖 start、无配对丢弃）；condense_context.cost 计上游 totalCost（辅助调用、token 未知）；tokensIn 含缓存（与 opencode 家族相反）；独立产品不能擅自改为 Roo Code；本地用量格式尚未核验的 JetBrains 变体后移 | M3 已实施（待真实验收）；JetBrains 变体 F1，A19 |
+| Zoo Code | 官方 VSIX 3.86.0 在独立 VS Code GUI/公开 API 调用本地模型，原生数组/回调/API 与 Windows/Linux 新包回读一致 | 完整 ask/say 枚举；正 tokensIn 含缓存，默认零桶/费用未知；缓存未齐不派生未缓存；模型/客户端版本不从全局配置补造；旧 finished LIFO/condense 文档路径保留；真实任务主动取消，不声明完成 | M3 当前扩展主调用完成；CLI/删除/压缩/其他版本另验，JetBrains 变体 F1，[合同](m3-runtime-samples.md)，A19 |
 | TRAE / TraeCode 及插件 | 后续探测本地 IDE/CLI 日志、会话库、插件数据和本机会话导出 | A20 企业 API/控制台报表不纳入；2026-09-29 复核：tokscale 的 TRAE 路线源自其远端 usage API 落盘缓存（dollar_float/extra_info 形态），同样不符合本机来源边界；本地逐次格式仍缺少可核验的资料，整个产品家族继续后移 | F1；后续支持，A20 为范围排除依据 |
 | VS Code | 原生 chatSessions v3：promptTokens 为末次调用输入下界、completionTokens 为整轮累计；modelTotals 提供整轮逐模型总量；toolCallRounds 带 ID/时间戳的主循环轮次计调用；仅接入请求 agent.id 为 github.copilot 命名空间的记录。workspaceStorage 与 globalStorage/emptyWindowChatSessions 共用安装来源；本机 10 turn/217 round，输入下界 3,408,279、输出 320,141，见 [审查记录](../../validation/desktop-usage/m9-copilot-review.md)。2026-10-02：一键配置 file 导出本机 30 个 CLIENT chat span 已验收，见 [补充记录](../../validation/desktop-usage/dashboard-repair.md) | copilot-chat 全量重放完整快照；turn/逐模型汇总计 usage_observation，round 计 model_call，逐轮 token 未知；modelTotals 替换旧贡献、模型换序/副本/流式更新不重复累计。末次输入和整轮输出不派生完整总 token；缓存默认未知。应用管理的 OTel file 自动发现，同原主机/用户/会话/本地日择 OTel，保留原生历史及开启前覆盖缺口；trace+span 同源副本去重 | M9 原生和 VS Code file 均有本机真实验收；CLI/JetBrains OTel 仍文档级需独立验收，A06 |
 | GitHub Copilot for Visual Studio | **VS 自动遥测（2026-10-01 本机真实验收）**：`%TEMP%\VSGitHubCopilotLogs\traces\<hex>_VSGitHubCopilot_traces.jsonl`——OTLP JSON（行=resourceSpans 批次、service.name=vs-copilot），`chat <model>` span 每 LLM 请求一个：`gen_ai.usage.input_tokens/output_tokens/cache_read.input_tokens`（intValue 字符串形）、模型/会话 id/纳秒时间戳；无需任何配置，见 [M9 记录](../../validation/desktop-usage/m9-vs-copilot-local.md)（2 span input=17,470/output=219/cache_read=13,184 与独立提取一致、重扫幂等）。会话文件（`VSGitHubCopilot\copilot-chat\…\sessions`，MessagePack）无逐次 token（响应正文 EncryptedContent、模型目录 InputTokens=上下文上限、Quotas 无 Usage），不接入 | vs-copilot 适配器（M9 已实现）：invoke_agent 整 turn 汇总 span 跳过（官方 OTel 防双计同族规则）；TEMP 载体随清理/实例滚动——不承诺完整历史；与 otel 接收器捕获的同源 span 同 agent 维度（vs-copilot）择一；token 桶并列报告不派生 uncached（包含关系未由 VS 文档声明）；`gen_ai.input.messages` 提示正文只读白名单键不入库 | M9 已实施（本机真实验收），A06 同族扩展 |
@@ -75,7 +75,8 @@ Harness Agent 按用户提供官网更正为 Hermes Agent。所有工具均保�
 下列产品为本轮补全的国内外流行 Agent，来源编号见 [调研索引](research.md#agents)
 （A25–A48）。已完成 M8 文档级实施（[验证记录](../../validation/desktop-usage/m8-second-batch.md)）：
 各适配器独立目录 + 版本注册表 + V30 结构检查 + 合成 fixture 合同测试
-（tests/m8_contract.rs 19 项）；本机均无真实数据（Zed 空库），真实验收后置。
+（tests/m8_contract.rs 19 项）；后续真实容器样本和产品专项见
+[M8 容器样本](../../validation/desktop-usage/m8-container-samples.md)，其余产品仍待核验。
 闭源产品的字段依据来自第三方解析器或逆向分析，真实脱敏 fixture（许可已给）
 出现后升级验证；一切估算路径（Kiro Auto 补零、Grok 累计差额、Goose reasoning
 差额等）不采纳，仅采信原生计数。
@@ -83,34 +84,35 @@ Harness Agent 按用户提供官网更正为 Hermes Agent。所有工具均保�
 | 工具/变体 | 拟接入来源与可用信息 | 边界与下一步 | 阶段/依据 |
 | --- | --- | --- | --- |
 | Amp（Sourcegraph，闭源） | `~/.local/share/amp/threads/T-*.json`：messages[].usage（model、inputTokens/outputTokens、cacheRead/cacheCreation、credits）与 usageLedger.events（timestamp/model/credits/tokens 五桶）双载体 | ledger 与逐消息 usage 按 messageId+桶对账防双计；缺显式时间戳不得以 thread created+messageId 推造逐次时间；credits 是计费单位非美元；schema 随版本滚动需 fixture | M8 已实施（文档级 2026-09-29；ledger 为主、消息 usage 仅对账不推造时间；credits 不映射），A28 |
-| Goose（Block；仓库已迁 aaif-goose） | `sessions.db` sessions 表：会话级 total/input/output（单次与 accumulated_* 双列）、model_config_json、provider_name、created_at；GOOSE_PATH_ROOT 与 macOS/旧 Block 多根 | 仅会话级聚合（按 Hermes 区间语义展示，不虚构逐请求）；无缓存列；reasoning 差额推算不采纳；单双列语义随版本核验 | M8 已实施（文档级；官方 usage_ledger 逐请求 + 旧库 accumulated 兜底；estimated/carried_forward cost 不映射；reasoning 差额不采），A26 |
-| Crush（Charm） | `~/.local/share/crush/projects.json` 注册表映射每项目 data_dir 与 crush.db；sessions 表 prompt_tokens/completion_tokens/cost、messages 表 model/provider、父子会话树 | token 列与消息部件的关系按固定源码核验（第三方仅采信 cost）；只取根会话防父子双计；按项目库发现 | M8 已实施（cost-only：官方证实 token 列是上下文快照不采；根会话 cost 累计、子会话回卷已过滤），A27 |
-| Roo Code | VS Code globalStorage `rooveterinaryinc.roo-cline/tasks/<uuid>/`（ui_messages.json、api_conversation_history）及 .vscode-server 变体 | Cline 血统同构，解析组件可复用但删除/子 Agent/压缩行为分版本复测；与 Cline/Kilo 扩展目录区分；CLI 形态另证 | M8 已实施（文档级 b867ec9：完整 say/ask 枚举、api_req_deleted 备忘不计、condense 辅助；与 cline 的 tokensIn 口径分歧已登记），A29 |
-| Aider | 默认仅 .aider.chat.history.md/.aider.input.history 落盘（无逐次 usage）；`--analytics-log`/llm 历史日志可选本地 JSONL（message_send 含 token/cost） | 可选日志属需启用载体，不回填历史；字段与单位待 fixture；不走 tokenizer 估算 | M8 已实施（--analytics-log 需启用不回填；prompt 含 cache 写、无 cache 分项；cost=litellg 自算 Estimated；无默认路径仅手工根），A30 |
-| Continue（CLI/VS Code/JetBrains） | `~/.continue`（sessions、logs、index）目录由官方文档证实 | 会话载体逐次 token 字段未核验，先核验再实施；hub 账号数据不接入；JetBrains 插件载体另验 | M8 已实施（仅 CLI 会话顶层 usage：会话级聚合；GUI 无字段、devdata 估算不采），A31 |
+| Goose（Block；仓库已迁 aaif-goose） | `sessions.db` 的 usage_ledger 逐请求五桶；旧 sessions accumulated_* 聚合兜底；GOOSE_PATH_ROOT 与平台多根 | 两载体互斥；NULL 不用累计默认 0 覆盖；reasoning 差额不采；1.53.0 CLI 本地模型 API/库/应用真实一致 | M8 已实施；estimated/carried_forward cost 不映射，格式锚点不认证产品版本；更多场景见 [真实样本](../../validation/desktop-usage/m8-container-samples.md)，A26 |
+| Crush（Charm） | `~/.local/share/crush/projects.json` 注册表映射每项目 data_dir 与 crush.db；根会话 cost 累计，token 列是上下文快照 | 0.97.1 真实主循环/标题两次 API 与原生/CLI Estimated 成本一致；人工验收费率不认证模型价格/账单；token/调用/模型仍未知 | M8 cost-only 已实施；根会话过滤避免子成本重复，真实样本及成品状态见 [M8 容器样本](../../validation/desktop-usage/m8-container-samples.md)，A27 |
+| Roo Code | VS Code globalStorage `rooveterinaryinc.roo-cline/tasks/<uuid>/ui_messages.json`；3.54.0 官方 VSIX/真实 VS Code extension-host 与本地 API 已核对 | 正 tokensIn 含缓存，四桶/估价默认零未知；OpenAI-compatible 缓存详情丢失，不按零推导未缓存；取消场景 API 三次/原生两次缺口保留，单调用对照单列；无逐次模型不推断 | M8 已实施；完整旧摘要/未变游标修正范围见数据合同，成品状态见 [M8 容器样本](../../validation/desktop-usage/m8-container-samples.md)；CLI/其他 provider/子代理另证，A29 |
+| Aider | 默认历史无逐次 usage；显式 `--analytics-log` 本地 JSONL 的 message_send 含 token/cost | 需启用、不回填；0.86.2 本地模型真实 API/CLI/应用一致；无缓存/推理分项，不走 tokenizer 估算 | M8 已实施；cost=litellm 自算 Estimated；手工根；格式锚点不认证产品版本，见 [真实样本](../../validation/desktop-usage/m8-container-samples.md)，A30 |
+| Continue（CLI/VS Code/JetBrains） | `~/.continue/sessions` 的 CLI 顶层 usage 会话累计；索引/估算日志不采 | 1.5.47 真实流式本地模型输入/输出与 API 一致；缓存默认零保持未知；无调用数、模型/完整总量或区间起点，不伪造日归属 | M8 已实施；旧完整摘要仅纠正缓存默认零，保留其他仲裁/历史；GUI 无用量字段，见 [真实样本](../../validation/desktop-usage/m8-container-samples.md)，A31 |
 | Droid（Factory.ai，闭源） | `~/.factory/sessions/{uuid}.settings.json` tokenUsage（input/output/cacheRead/cacheCreation/thinking，累计）+ 同名 jsonl 转录 | 累计值保留区间语义，分摊到回合属估计不采纳为逐次；无费用字段；providerLock 与转录时间归属待样本 | M8 已实施（tokenUsage 累计快照→会话聚合；转录字节分摊不采），A32 |
 | Amazon Q Developer CLI | `~/.aws/amazonq/history/` 按时间戳 JSON 会话（第三方资料）；官方仓库开源 | history 内 usage/token 字段未核验，先源码级核验再实现；SSO 重登录可能丢历史，保留缺口可见 | 不实施 token 适配器（2026-09-29 源码核验：API tokenUsage 在类型转换层被丢弃，conversations/history 均无 token 字段），A33 |
 | Grok Build（xAI，闭源） | `~/.grok/sessions/<workspace>/<session>/`（updates.jsonl、signals.json、summary.json、events.jsonl）与 `~/.grok/logs/unified.jsonl` | 仅取显式 usage 块五桶；累计 totalTokens 增量与压缩差额补偿是推断不采纳；PID 复用/子代理模型归属复杂，归属依据冲突时保持 unknown；GROK_HOME 覆盖 | M8 已实施（仅 updates.jsonl 显式 usage 块；累计差额/补偿/PID 归因不采），A34 |
 | Antigravity CLI/扩展（Google） | `~/.gemini/antigravity[-cli]/conversations/<uuid>.db`：gen_metadata protobuf 逐回合 usage（input=固定系统提示+新增、cacheRead、output、thinking、responseId） | protobuf 布局为逆向结论且 1.1.18 时间戳字段变更，须逐版本锚定；IDE 主体用量走 language server，另按需启用核验；与 Gemini CLI 目录同根不同子目录 | M8 已实施（逆向 protobuf：input=#1+#2、#9.#4 时间戳；1.1.18+ 无时间戳行 fail closed；IDE language server 载体尚未核验不实施），A35 |
-| Junie CLI（JetBrains） | `~/.junie/sessions/<session-id>/events.jsonl`：LlmResponseMetadataEvent.modelUsage[] 逐轮（model、input/output、cache、reasoning、cost、time、provider） | timestampMs 是结束时刻，起始时间=结束−time 仅在两者齐备时计算；会话名时间戳仅作兜底；JetBrains AI Assistant IDE 插件仍 F1 | M8 已实施（modelUsage[] 多别名组；timestampMs=结束时刻、time→延迟；缺时间戳不入账），A36 |
+| Junie CLI（JetBrains） | `JUNIE_HOME/sessions` 或 `~/.junie/sessions/<session-id>/events.jsonl`，逐次 modelUsage；26.9.22 官方发行包/七次真实失败任务与 API/CLI 已核对 | inputTokens 为非缓存输入，默认零/费用/耗时保持未知；正费用 Estimated；无 API/provider/产品版本，完整总量不推造；timestampMs 完成时刻，正 time 才补起点 | M8 已实施；doc1→2 完整旧摘要/未变游标修正、事务/冲突保留通过，成品状态见 [M8 容器样本](../../validation/desktop-usage/m8-container-samples.md)，A36 |
 | Kiro（AWS，CLI+IDE） | 三载体：CLI `~/.kiro/sessions/cli/*.json(+jsonl)`；kiro-cli `~/.local/share/kiro-cli/data.sqlite3` conversations_v2；IDE globalStorage `kiro.kiroagent`（.chat 快照、execution、promptLogs） | Auto agent 常记 0：估算路径不采纳，仅采显式计数；execution 与 .chat 快照按 executionId 抑制重复；metering credit 独立计价单位；三载体交叉去重 | M8 已实施（CLI turns 真实计数 + kiro-cli SQLite request_metadata；Auto 零计数/估算不采；IDE 估算载体不实施；双载体重叠待真实样本对账），A37 |
 | Zed 内置（升级自 F1） | threads.db（见上表 Zed 行）：request_token_usage 逐次五桶 | 仅 zed.dev hosted；imported 线程跳过；zstd blob 解压上限；threads 表可选列容错 | M8 已实施（官方源码 bd74733 + 本机 schema 核验（0 行）；cumulative 权威、request 桶覆盖语义仅对账；仅 zed.dev；zstd 有界解压），A23/A38 |
 | Codebuff（原 Manicode） | `~/.config/manicode*/projects/*/chats/<chatId>/chat-messages.json`；CODEBUFF_DATA_DIR 覆盖 | usage 字段与分通道根（manicode/-dev/-staging）待 fixture | 不实施 token 适配器（2026-09-29 官方源码 caec5fc 证实本地仅 credits、无 token 字段；CODEBUFF_DATA_DIR 非官方变量），A39 |
 | Command Code | `~/.commandcode/projects/<slug>/*.jsonl` v3 树形（session/message/model_change；assistant usage 五桶+costUsd）；配置 config.json | rewind 孤儿分支不计；fork 复制按 id+时间戳去重；checkpoints 文件跳过；全零 usage 视为已报告零 | M8 已实施（npm 1.69.0 分发物核验依据：inputTokens 含 cache、当前路径口径、fork 按 id+时间戳跨文件去重、全零=已报告零），A40 |
-| jcode（jcode.sh，开源 Rust） | `~/.jcode/sessions/session_*.json` 快照 + `.journal.jsonl` 追加（journal 值权威覆盖快照）；五桶 token 字段 | OpenAI/Anthropic 缓存口径差异（cache_read 是否 input 子集）逐版本归一；回合计数防 journal 重放双计；JCODE_HOME 覆盖 | M8 已实施（快照+journal 合并、journal meta 权威；openai/anthropic 缓存口径分列；崩溃窗口按消息 id 兜底），A41 |
-| gajae-code（gjc） | `~/.gjc/agent/sessions/<slug>/*.jsonl`（pi 血统：session 头 + assistant model/provider/usage 五桶 + cost.total USD） | 深度 1/2 子代理重放按会话 id+消息 id 去重；GJC_CODING_AGENT_DIR/GJC_CONFIG_DIR/PI_CONFIG_DIR/XDG 多根；pi 家族复用须逐项测试 | M8 已实施（官方 7e54f9c：usage 已归一化互斥桶（pi 口径）；五桶齐全才统计；message.timestamp 毫秒优先），A42 |
-| Xum（Coder；原 mux） | `~/.mux/sessions/<workspaceId>/session-usage.json`：byModel 会话级聚合（input/cached/cacheCreate/output/reasoning 各含 tokens+cost_usd）+ lastRequest.timestamp | 仅会话级（区间语义）；模型 key 带 provider 前缀需拆分；产品更名需新旧双根发现 | M8 已实施（byModel 会话聚合；cost_usd 不映射（聚合层无 cost 载体）；mux 旧根保留），A43 |
-| iFlow CLI（阿里心流，闭源） | `~/.iflow`（settings.json、`tmp/<project_hash>/`）；`/chat save` 持久化 JSON 会话；OTel 事件含逐次 api_response 五桶 token（input/output/cached/thoughts/tool，与 Gemini CLI 同构） | chats 载体具体路径与 usageMetadata 字段待本机样本；Gemini 家族解析知识不得直接套用，须逐字段验证；IFLOW_* 环境层 | M8；本地候选（待样本），A46 |
+| jcode（jcode.sh，开源 Rust） | `~/.jcode/sessions/session_*.json` 快照 + `.journal.jsonl` 追加（journal 值权威覆盖快照）；token_usage 输入/输出与可选缓存 | OpenAI/Anthropic 缓存口径差异逐版本归一；JCODE_HOME 覆盖；环境快照版本不认证所有消息 | M8 已实施；0.91.0 真实离线单次 run 的 API/CLI/快照输入 460、输出 2、缓存读 0 一致；自定义 provider 未推断缓存关系、完整总量/成本/推理未知，journal/其他场景待验，见 [真实样本](../../validation/desktop-usage/m8-container-samples.md)，A41 |
+| gajae-code（gjc） | `~/.gjc/agent/sessions/<slug>/*.jsonl`：session v5 头、assistant model/provider/usage 与 Estimated 成本 | GJC_CODING_AGENT_DIR 等覆盖；OpenAI-completions 缺字段零回退不能认证缓存/零用量；message.timestamp 为请求开始 | M8 已实施；0.18.7 真实 API/CLI/载体 412/2/414 一致，补配置链非用量类型、未知缓存/未缓存与旧完整摘要/游标升级；其他 API/版本/分支待验，见 [真实样本](../../validation/desktop-usage/m8-container-samples.md)，A42 |
+| Xum（Coder；原 mux） | `.xum/.mux/sessions`、XUM_ROOT/MUX_ROOT 或 RUN_SESSION_ROOT 下的 `session-usage.json` v1；0.30.0 官方源码与两次真实本地调用已核对 | input 为未缓存输入；默认零未知；正文本输出加已知推理，推理未知时为下界；完整输入/总量未知。默认 CLI 临时会话删除且 custom provider 未请求流式 usage，网关对照单独记录 | M8 已实施；成本/逐次调用不虚构；完整旧摘要/游标与回滚/冲突专项通过，成品状态见 [M8 容器样本](../../validation/desktop-usage/m8-container-samples.md)，A43 |
+| iFlow CLI（阿里心流，闭源） | 官方固定提交 4642808 已公告 2026-04-17 停服；本地默认逐次用量载体未核验，需启用的 OTel 按 M5 合同另行核验 | 不套用 Gemini 家族格式；不作为现行 M8 本地候选 | 不实施；与 AGENTS/M8 边界一致，A46 |
 | Qoder CLI（阿里，前通义灵码） | CLI 设备流 `~/.qoder/`；IDE 为 Electron `%APPDATA%\com.qoder.app.stable*`；另有 globalStorage/`~/.local/share/qoder` 线索 | CLI 会话格式与 usage 字段尚未核验：先本机核验再定实现；与灵码品牌演化记录在案；JetBrains 插件归 F1 | M8 探针级接入（路径已核验、字段尚未核验：只发现识别不解析，fail closed；待本机实测 `<session>.jsonl` 与 `state.json`），A47 |
-| AtomCode（AtomGit 生态） | CLI 形态国产 Agent（联合华为 InsCode AI IDE）；开源可源码核验 | 本地存储格式尚未核验：先源码级核验（存储路径/usage 字段）再决定入 M8 或待核验；InsCode IDE 归 F1 | M8 已实施（官方 e4215f7：.meta turn_stats 按模型会话聚合、round_count 合计作调用数；旧版单文件同构），A48 |
+| AtomCode（AtomGit 生态） | `.meta` turn_stats/model_usage 按模型会话聚合；round_count 来源报告调用汇总；旧单文件同构 | 5.2.1 真实 API/CLI/.meta 为 6,176 输入/2 输出；缓存默认零与坏桶保持未知，未缓存不猜测；有界排除完整配对的 UI v1/rewind v2，其他仍诊断 | M8 已实施；官方 e4215f7/45e05cb 与真实样本、旧完整摘要/游标及并行/回滚通过；产品版本不认证其他记录，InsCode IDE 归 F1，见 [真实样本](../../validation/desktop-usage/m8-container-samples.md)，A48 |
 | Warp | 本地仅账户级用量缓存（requestsUsed/spendCents/syncedAt，工作区级） | 无 token 明细且属账户额度数据：不入 token 统计，最多以状态行展示受限 | 暂缓（额度类），A44 |
 | Cursor（CLI/IDE） | CLI 转录 `~/.cursor/projects/<slug>/agent-transcripts/<uuid>/*.jsonl`（有会话、无逐次 token/模型字段）；IDE state.vscdb 载体待核验 | 逐次用量仅存在于远端 dashboard（get-filtered-usage-events/CSV 导出），按本地边界排除；不以 tokenizer 从转录估算 | F1（本地用量格式待核验），A45 |
 | Windsurf（IDE+CLI） | IDE Cascade 与 2026 年确认存在的 windsurf CLI；本地 usage 存储尚未核验 | 本地逐次 token 格式尚未核验时不探测/不实施；列入 F1 后续支持计划 | F1；后续支持 |
 
 ## Hermes Agent 本地合同
 
-A24 固定源码 `ef70b3661cbfcf57e583008ad91dd04d8ba46070` 确认以下内容；
-未与本机发行版对应，不能写成已经支持：
+A24 固定源码 `ef70b3661cbfcf57e583008ad91dd04d8ba46070` 与官方 0.21.5 发布
+`f97608f178d1ffeca59860195ab7da295f7c8e5f` 确认以下内容；当前真实样本限本地 CLI
+主循环与一次续会话，其他版本/历史记录及 gateway 不扩大认证：
 
 - 路径遵循 get_hermes_home：上下文覆盖、HERMES_HOME、平台默认值；当前 Windows 默认
   `%LOCALAPPDATA%/hermes`，macOS/Linux 默认 `~/.hermes`。命名 profile 有独立目录/state.db。
@@ -127,7 +129,9 @@ A24 固定源码 `ef70b3661cbfcf57e583008ad91dd04d8ba46070` 确认以下内容�
   无详单不能生成精确每日趋势。api_call_count 先作为来源汇总，不能展开成伪造调用事件。
 - agent/turn_usage.py 有响应 usage 和带 model/provider/id 等信息的日志路径；
   实际日志文件、轮转、时区、稳定关联 ID、失败覆盖和缓存缺省语义尚待 fixture。
-  input/cache/reasoning 的最终包含关系还需 normalize_usage 完整路径验证，不凭列名推导。
+  两份固定源码的 normalize_usage 已完整核验，input_tokens 为非缓存、输出含 reasoning；
+  默认零不能证明响应字段存在。正桶保留、零未知，仅全部必需桶已知才派生总量。
+  整库 schema_version 不证明每行历史的客户端版本，仍保留 latest_fallback。
 - 父子/压缩继承、辅助任务、MoA 聚合及外部 Codex 镜像必须验证覆盖集合；
   不读取 messages/FTS 正文计数来补请求数。源 DB 只读，不能调用其可能迁移/修复的初始化 API。
 
@@ -145,6 +149,10 @@ A24 固定源码 `ef70b3661cbfcf57e583008ad91dd04d8ba46070` 确认以下内容�
   Kilo 的库内最高版本只用于格式探测；每条消息按所属 session.version 保留已验证/兼容
   依据。混合库存在未验证消息时保留兼容提示，后续只有已验证增量不能覆盖该状态；
   新版本空会话不能认证，也不降级已有消息的版本核验依据。支持依据/规则更新自动重评。
+  OpenCode 同样按产生 step-finish 的所属会话选择依据；无用量的会话不参与认证。
+  版本支持或解析规则变化时从头重评旧处理位置；分页以 `(time_updated, part.id)`
+  续扫，完成窗口后恢复 60 秒重叠，不能因同毫秒或重叠窗口停滞。只有完整有效重评
+  标记规则完成，坏记录与未验证记录跨增量保留；事件、续扫位置与规则进度同事务提交。
 - Cline/Zoo/旧 Kilo 扩展的 API 记录可以共享解析组件，但子 Agent 汇总、删除与压缩记录逐项测试；
   Roo Code 扩展载体同构可复用组件，删除/子 Agent/压缩行为分版本复测。
 - VS Code/Copilot/宿主嵌入的 Claude/Codex 不按应用品牌重复计费，使用 origin 归属关系。
@@ -216,7 +224,7 @@ A24 固定源码 `ef70b3661cbfcf57e583008ad91dd04d8ba46070` 确认以下内容�
 | Kilo / OpenCode | SQLite session.time_archived 是归档标记，调用仍在 message/part | 查询不排除归档会话；补充先归档、恢复、再归档全链路测试。Kilo 使用真实脱敏 fixture，OpenCode 为固定源码合同合成 fixture |
 | Gemini CLI / Kimi Code / Kimi Work / pi / oh-my-pi | 已知本地会话文件；Gemini 自动保存与手动 checkpoint 不同 | Gemini 自动清理默认约 30 天，是删除而非另一个归档目录；手动 checkpoint 可能复制会话，但没有已验证的独立逐次用量合同，不能叠加。其他来源现有目录按格式采集；omp usage_history 是额度窗口，不能当调用历史 |
 | Cline / Zoo / Hermes / DSH | 按各自已验证格式处理压缩、删除汇总或区间记录 | 沿用能力矩阵，不能把汇总反推出逐次明细；无本机真实档案的来源仍待验收 |
-| OpenClaw | 新运行时库与旧归档分离，缺少本项目已验证的条目 schema | 保持不计入和可见诊断，等待真实样本；不凭旧 JSONL 名称猜测兼容 |
+| OpenClaw | 已核验 schema 24 hot transcript 与旧迁移/冷归档分离 | 已核验正桶入账；默认零、底层调用与完整总量保持未知；冷归档缺口可见，旧 JSONL 不叠加，其他协议/版本单独核验 |
 
 ZCode 安装包的 recordModelUsage 会按 started_at 清理约 30 天前的记录。
 DB 不是永久完整档案：边界日已有统计时不以可能不完整的快照覆盖；来源清掉的旧日保留
@@ -254,9 +262,9 @@ Cursor/TRAE 的逐次用量在远端，均按本地边界排除且不以估算�
 用户未来主动要求自定义 API 网关计量时另做设计；代理不能读取此前历史，
 也不一定覆盖官方订阅通道，因此不是当前通用回退方案。
 
-首批之后的准入合同评估与 M8 文档级实施均已完成（2026-09-29，[M8 验证记录]
-（../../validation/desktop-usage/m8-second-batch.md)）：18 个适配器注册
+M8 注册范围见 [第二批实施记录](../../validation/desktop-usage/m8-second-batch.md)：18 个适配器
 （17 个解析 + Qoder 探针）；Amazon Q/Codebuff 经源码核验确认本地无逐次 token 载体、
 iFlow 已停服（2026-04-17）且唯一载体是需启用的 OTel（归 M5），三者不实施
-token 适配器；Cursor/Windsurf 维持 F1。全部文档级实现的真实验收后置，
-不把文档级实施写成已验证支持。
+token 适配器；Cursor/Windsurf 维持 F1。十源已取得真实本地模型样本，其余八源及更多
+路径的条件见 [容器样本](../../validation/desktop-usage/m8-container-samples.md)，
+当前待办统一见 Plan.md；文档级实现不认证未核验的版本或载体。

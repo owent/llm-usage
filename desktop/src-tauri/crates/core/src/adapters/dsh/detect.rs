@@ -1,14 +1,7 @@
-//! DSH 探测：持久会话日志 JSONL 首行事件指纹。
-//!
-//! 持久日志无版本字段，格式版本恒为文档级
-//! [`super::versions::DSH_FORMAT_VERSION`]（固定 token-meter README 46a7f68）；
-//! 不做版本分派、不存在未知版本回退。
-//!
-//! 约定（V17 fail closed）：
-//! - 首行不是 JSON ⇒ 未知格式；
-//! - 首行 type 缺失或不在 README 枚举的六事件集合 ⇒ 未知格式；
-//! - 空文件 ⇒ Pending，下轮重探；
-//! - 指纹成立 ⇒ Supported（恒为 KnownVersion）。
+//! DSH 探测：rc.2 原生 v4 header 与旧文档级 JSONL 分别识别。
+//! 原生生成文件及 zstd 委托有界 v4 探测；其他明示格式版本拒绝。
+//! 六类旧事件只使用 session-log-doc-1 锚点，不认证原生产品版本。
+//! 空文件 Pending，坏 JSON/未知首行类型保持格式诊断。
 
 use crate::adapters::framework::DetectOutcome;
 use crate::domain::VersionBasis;
@@ -20,8 +13,11 @@ use super::versions;
 pub const DSH_FORMAT: &str = "dsh-session-log-jsonl";
 
 /// 探测一个持久会话日志文件。
-/// 无版本字段可分派：指纹成立即返回固定文档级格式版本（恒为 KnownVersion）。
+/// 原生格式版本与旧文档锚点分别分派，不从安装版本认证历史记录。
 pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
+    if versions::session_v4::is_native_path(path) {
+        return versions::session_v4::detect(path);
+    }
     let limits = super::super::jsonl::JsonlLimits {
         chunk_bytes: 64 * 1024,
         max_line_bytes: super::super::jsonl::DEFAULT_MAX_LINE_BYTES,
@@ -39,6 +35,7 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
         });
     };
     match line.get("type").and_then(|t| t.as_str()) {
+        Some("session") => versions::session_v4::detect(path),
         Some(event_type)
             if versions::session_log_doc1::DOCUMENTED_EVENT_TYPES.contains(&event_type) =>
         {

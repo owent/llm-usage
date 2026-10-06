@@ -1180,7 +1180,7 @@ fn carrier_coverage_gap(
     filters: &Filters,
 ) -> Result<bool, CoreError> {
     let mut sql = String::from("SELECT EXISTS(SELECT 1 FROM usage_events WHERE
-        exclusion_reason='copilot_otel_session_authority' AND occurred_at_ms>=?1 AND occurred_at_ms<?2");
+        exclusion_reason IN ('copilot_otel_session_authority','qwen_sdk_session_authority','qwen_native_partition_sealed','qwen_sdk_partition_sealed') AND occurred_at_ms>=?1 AND occurred_at_ms<?2");
     let mut values = vec![start.into(), end.into()];
     append_filters(&mut sql, &mut values, filters, "source_instance_id");
     sql.push(')');

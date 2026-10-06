@@ -1,0 +1,18 @@
+[
+  {
+    "model": "qwen3.5-0.8b-local",
+    "status": 200,
+    "stream": true,
+    "stream_options": {
+      "include_usage": true
+    },
+    "usage": {
+      "completion_tokens": 53,
+      "prompt_tokens": 6118,
+      "total_tokens": 6171,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      }
+    }
+  }
+]

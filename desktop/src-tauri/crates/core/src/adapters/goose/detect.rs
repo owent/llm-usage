@@ -36,6 +36,17 @@ fn missing(columns: &[String], required: &[&'static str]) -> Vec<&'static str> {
 }
 
 pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
+    use std::io::Read;
+    let mut header = [0; 16];
+    let sqlite = std::fs::File::open(path)
+        .and_then(|mut file| file.read_exact(&mut header))
+        .is_ok()
+        && &header == b"SQLite format 3\0";
+    if !sqlite {
+        return Ok(DetectOutcome::UnknownFormat {
+            reason: "not a SQLite carrier (header mismatch)".into(),
+        });
+    }
     let conn = match common::open_readonly(path) {
         Ok(conn) => conn,
         Err(err) if common::is_busy_like(&err) => return Ok(DetectOutcome::Pending),

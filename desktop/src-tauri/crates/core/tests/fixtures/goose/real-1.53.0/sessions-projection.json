@@ -1,0 +1,37 @@
+{
+  "schemas": {
+    "sessions": "CREATE TABLE sessions (\n                id TEXT PRIMARY KEY,\n                name TEXT NOT NULL DEFAULT '',\n                description TEXT NOT NULL DEFAULT '',\n                user_set_name BOOLEAN DEFAULT FALSE,\n                session_type TEXT NOT NULL DEFAULT 'user',\n                working_dir TEXT NOT NULL,\n                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n                extension_data TEXT DEFAULT '{}',\n                total_tokens INTEGER,\n                input_tokens INTEGER,\n                output_tokens INTEGER,\n                cache_read_tokens INTEGER,\n                cache_write_tokens INTEGER,\n                accumulated_total_tokens INTEGER,\n                accumulated_input_tokens INTEGER,\n                accumulated_output_tokens INTEGER,\n                accumulated_cache_read_tokens INTEGER,\n                accumulated_cache_write_tokens INTEGER,\n                accumulated_cost REAL,\n                schedule_id TEXT,\n                recipe_json TEXT,\n                user_recipe_values_json TEXT,\n                provider_name TEXT,\n                model_config_json TEXT,\n                goose_mode TEXT NOT NULL DEFAULT 'auto',\n                archived_at TIMESTAMP,\n                project_id TEXT,\n                parent_session_id TEXT\n            )",
+    "usage_ledger": "CREATE TABLE usage_ledger (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,\n                created_timestamp INTEGER NOT NULL,\n                model TEXT,\n                input_tokens INTEGER,\n                output_tokens INTEGER,\n                total_tokens INTEGER,\n                cache_read_tokens INTEGER,\n                cache_write_tokens INTEGER,\n                cost REAL,\n                cost_source TEXT,\n                is_compaction INTEGER DEFAULT 0\n            )"
+  },
+  "sessions": [
+    {
+      "id": "anonymous-session",
+      "created_at": "2026-10-06 05:56:50",
+      "updated_at": "2026-10-06 05:56:51",
+      "provider_name": "custom_local",
+      "model_config_json": "{\"model_name\":\"qwen2.5-0.5b-local\",\"temperature\":null,\"max_tokens\":null,\"toolshim\":false,\"toolshim_model\":null}",
+      "accumulated_input_tokens": 320,
+      "accumulated_output_tokens": 2,
+      "accumulated_total_tokens": 322,
+      "accumulated_cache_read_tokens": 0,
+      "accumulated_cache_write_tokens": 0,
+      "accumulated_cost": null
+    }
+  ],
+  "ledger": [
+    {
+      "id": 1,
+      "session_id": "anonymous-session",
+      "created_timestamp": 1791266211,
+      "model": "qwen2.5-0.5b-local",
+      "input_tokens": 320,
+      "output_tokens": 2,
+      "total_tokens": 322,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": null,
+      "cost": null,
+      "cost_source": null,
+      "is_compaction": 0
+    }
+  ]
+}

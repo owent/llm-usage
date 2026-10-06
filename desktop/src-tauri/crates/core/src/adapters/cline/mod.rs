@@ -1,11 +1,13 @@
 //! Cline 适配器（独立目录约定 architecture.md#adapter-layout）：
 //! - 本模块是该 Agent 的稳定入口（统一接口实现与再导出）；
-//! - [`detect`]：产品/格式探测（文档级指纹；ui_messages.json 无版本字段，
-//!   不做版本分派）；
-//! - [`versions`]：统一形状的格式注册表（唯一条目：文档级 ui-messages-doc-1）；
+//! - [`detect`]：旧 UI 数组与 SDK VS Code 原生会话分别探测；
+//! - [`versions`]：旧文档级锚点与独立 SDK schema 1 实现；
 //! - 产品特有映射在 [`common`]（四互斥桶 + cost）。
 //!
-//! 原始格式依据（固定源码 dcf8c3c33596e3d561a941202297c564a1cbcd49，A03，
+//! SDK 依据：4.1.22 固定提交 f58bc118，真实 GUI/API/原生样本已核对。
+//! origin.version 是可重写会话 metadata，SDK 保持 latest_fallback。
+//! metrics 可合并整次 run 或重试，记 observation，不推导底层调用数。
+//! 旧格式依据（固定源码 dcf8c3c33596e3d561a941202297c564a1cbcd49，A03，
 //! 按文档或源码实现，待真实样本核验；本机 2026-09-25 盘点 not_found）：
 //! - `apps/vscode/src/shared/getApiMetrics.ts`：usage 载体是 type="say" 且
 //!   say ∈ {api_req_started, deleted_api_reqs, subagent_usage} 的消息，
@@ -69,6 +71,27 @@ fn cline_tasks_dir(root: &std::path::Path) -> Option<std::path::PathBuf> {
     None
 }
 
+fn sdk_files(root: &std::path::Path) -> Vec<std::path::PathBuf> {
+    use versions::sdk_messages_v1::is_sdk_file;
+    if root.is_file() {
+        return if is_sdk_file(root) {
+            vec![root.to_path_buf()]
+        } else {
+            vec![]
+        };
+    }
+    let directory = [
+        root.join("data").join("sessions"),
+        root.join("sessions"),
+        root.to_path_buf(),
+    ]
+    .into_iter()
+    .find(|p| p.is_dir());
+    directory
+        .map(|p| crate::adapters::framework::enumerate_files_bounded(&p, 2, &is_sdk_file))
+        .unwrap_or_default()
+}
+
 impl crate::adapters::framework::SourceAdapter for ClineAdapter {
     fn adapter_id(&self) -> &'static str {
         "cline"
@@ -84,6 +107,28 @@ impl crate::adapters::framework::SourceAdapter for ClineAdapter {
     ) -> Vec<crate::adapters::framework::DiscoveredRoot> {
         use crate::adapters::framework::{DiscoveredRoot, RootBasis};
         let mut roots: Vec<(std::path::PathBuf, RootBasis)> = Vec::new();
+        let env_path = |name: &str| {
+            ctx.env
+                .get(name)
+                .filter(|v| !v.trim().is_empty())
+                .map(|v| std::path::PathBuf::from(v.trim()))
+        };
+        let sdk_root = env_path("CLINE_SESSION_DATA_DIR")
+            .or_else(|| env_path("CLINE_DATA_DIR").map(|p| p.join("sessions")))
+            .or_else(|| env_path("CLINE_DIR").map(|p| p.join("data").join("sessions")))
+            .or_else(|| {
+                ctx.home_dir
+                    .as_ref()
+                    .map(|p| p.join(".cline").join("data").join("sessions"))
+            });
+        if let Some(root) = sdk_root {
+            let basis = ["CLINE_SESSION_DATA_DIR", "CLINE_DATA_DIR", "CLINE_DIR"]
+                .iter()
+                .find(|key| env_path(key).is_some())
+                .map(|key| RootBasis::EnvOverride((*key).into()))
+                .unwrap_or(RootBasis::DefaultHome);
+            roots.push((root, basis));
+        }
         // VS Code 默认 globalStorage（Windows %APPDATA%/Code、unix XDG、macOS
         // ~/Library/Application Support/Code）；APPDATA/XDG_CONFIG_HOME 只用于
         // 解析平台默认位置，不是 Cline 自己的环境覆盖。
@@ -127,16 +172,22 @@ impl crate::adapters::framework::SourceAdapter for ClineAdapter {
         let mut out = Vec::new();
         for (root, basis) in roots {
             // 手工根可能是 tasks/ 本身；默认根必须含 tasks/ 子目录。
-            let Some(tasks) = cline_tasks_dir(&root) else {
-                continue;
-            };
+            let mut files = sdk_files(&root);
             // tasks/<taskId>/ui_messages.json：深度 2，有界枚举。
-            let files = crate::adapters::framework::enumerate_files_bounded(&tasks, 2, &|p| {
-                p.file_name()
-                    .and_then(|n| n.to_str())
-                    .map(|n| n == "ui_messages.json")
-                    .unwrap_or(false)
-            });
+            if let Some(tasks) = cline_tasks_dir(&root) {
+                files.extend(crate::adapters::framework::enumerate_files_bounded(
+                    &tasks,
+                    2,
+                    &|p| {
+                        p.file_name()
+                            .and_then(|n| n.to_str())
+                            .map(|n| n == "ui_messages.json")
+                            .unwrap_or(false)
+                    },
+                ));
+            }
+            files.sort();
+            files.dedup();
             if !files.is_empty() {
                 out.push(DiscoveredRoot { root, basis, files });
             }
@@ -165,8 +216,9 @@ impl crate::adapters::framework::SourceAdapter for ClineAdapter {
         limits: &crate::adapters::framework::ScanLimits,
         now_ms: i64,
     ) -> Result<crate::adapters::framework::ScanOutcome, crate::error::CoreError> {
-        // 唯一格式实现；ui_messages.json 无版本字段，detect 不按版本分派。
-        // 注册表扩展多实现后在此按 detect 结论分派。
+        if versions::sdk_messages_v1::is_sdk_file(&target.path) {
+            return versions::sdk_messages_v1::scan(target, stored, limits, now_ms);
+        }
         versions::ui_messages_doc1::scan(target, stored, limits, now_ms)
     }
 
@@ -183,30 +235,34 @@ impl crate::adapters::framework::SourceAdapter for ClineAdapter {
             "tokens".into(),
             field(
                 Availability::Partial(
-                    "文档级证据（固定源码 dcf8c3c），待真实样本：四互斥桶各自可选，total 派生".into(),
+                    "SDK VS Code 4.1.22 真实核对：inputTokens 含缓存，正值 reported、默认零 unknown；旧 UI 四桶仍文档级证据".into(),
                 ),
-                "say(api_req_started|deleted_api_reqs|subagent_usage).text: tokensIn/tokensOut/cacheWrites/cacheReads",
+                "SDK assistant.metrics 输入/输出/缓存；旧 UI say.text 四互斥桶独立映射",
             ),
         );
         fields.insert(
             "cache_read".into(),
             field(
-                Availability::Partial("文档级证据，待真实样本".into()),
-                "cacheReads reported（可选字段）",
+                Availability::Partial(
+                    "SDK 正缓存读已与真实 API 核对；默认零未知；旧 UI 文档级证据".into(),
+                ),
+                "SDK cacheReadTokens；旧 UI cacheReads",
             ),
         );
         fields.insert(
             "cache_write".into(),
             field(
-                Availability::Partial("文档级证据，待真实样本".into()),
-                "cacheWrites reported（可选字段）",
+                Availability::Partial(
+                    "SDK 默认零未知，正缓存写待真实核对；旧 UI 文档级证据".into(),
+                ),
+                "SDK cacheWriteTokens；旧 UI cacheWrites",
             ),
         );
         fields.insert(
             "per_request_calls".into(),
             field(
                 Availability::Partial(
-                    "文档级证据，待真实样本：api_req_started 逐请求（已合并 finished）；聚合记录按 1 条计不是底层请求数".into(),
+                    "SDK metrics 是 usage_observation：可能合并 run/重试，不推导调用数；旧 UI 逐请求/聚合仍文档级证据".into(),
                 ),
                 "只有三类 usage 载体 say 计数；compaction/无 usage 的 say 不算请求",
             ),
@@ -214,24 +270,24 @@ impl crate::adapters::framework::SourceAdapter for ClineAdapter {
         fields.insert(
             "model".into(),
             field(
-                Availability::Unavailable(
-                    "固定源码未证实逐请求模型字段；逐请求模型归属需核验（adapters.md A03）".into(),
+                Availability::Partial(
+                    "SDK 真实消息自身 modelInfo；旧 UI 无逐请求模型，不猜归属".into(),
                 ),
-                "无",
+                "SDK modelInfo.id/provider；不从 manifest 当前模型回填",
             ),
         );
         fields.insert(
             "time".into(),
             field(
-                Availability::Partial("文档级证据，待真实样本".into()),
-                "消息 ts（epoch 毫秒）：api_req_started 为 source_start，聚合记录 uncertain",
+                Availability::Partial("SDK 原生毫秒 ts 已核对，uncertain；旧 UI 文档级证据".into()),
+                "消息 ts；SDK 不把消息时间认证为底层请求完成时间",
             ),
         );
         fields.insert(
             "cost".into(),
             field(
                 Availability::Partial(
-                    "文档级证据，待真实样本：micro-USD 记账；来源口径（扩展自算价目 or 供应商账单）未证实，按估算入账".into(),
+                    "SDK 未采到成本，保持 unknown；旧 UI 成本来源文档级证据，estimated".into(),
                 ),
                 "text.cost 浮点美元 → micro-USD（estimated）",
             ),
@@ -255,23 +311,25 @@ impl crate::adapters::framework::SourceAdapter for ClineAdapter {
                 "default_roots": [
                     "%APPDATA%/Code/User/globalStorage/saoudrizwan.claude-dev (Windows)",
                     "~/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev (macOS)",
-                    "${XDG_CONFIG_HOME:-~/.config}/Code/User/globalStorage/saoudrizwan.claude-dev (Linux)"
+                    "${XDG_CONFIG_HOME:-~/.config}/Code/User/globalStorage/saoudrizwan.claude-dev (Linux)",
+                    "~/.cline/data/sessions (SDK)"
                 ],
-                "env_override": null,
+                "env_override": ["CLINE_SESSION_DATA_DIR", "CLINE_DATA_DIR", "CLINE_DIR"],
                 "manual_roots": true,
                 "bounded": true,
-                "pattern": "tasks/<taskId>/ui_messages.json",
-                "profile": "无 profile 概念（宿主 VS Code 按用户目录）；CLI SDK 单独探测，未接入",
+                "pattern": "tasks/<taskId>/ui_messages.json 或 SDK sessions/<session>/<session>.messages.json",
+                "profile": "SDK 只接已核对的 vscode/user/lead；CLI/其他 SDK 面不接入",
             }),
             detection: serde_json::json!({
-                "magic": "文件头 64 KiB 指纹：JSON 数组且含 say 消息（剥 UTF-8 BOM）",
-                "version_field": "无版本字段；格式版本为文档级 ui-messages-doc-1（固定源码 dcf8c3c）",
+                "magic": "旧 UI：数组 type/say；SDK：schema 1、vscode/user/lead、两处 sessionId 一致、assistant metrics",
+                "version_field": "旧 UI 文档级 ui-messages-doc-1；SDK origin.version 为可重写 metadata，保持 latest_fallback",
                 "fail_closed": true,
                 "unknown_version": "未文档化 say 种类或非 say 记录类型：整文件拒绝，不猜格式",
             }),
             fields,
             lifecycle: serde_json::json!({
                 "model_call": "api_req_started（已与 api_req_finished 合并，final，task+say+ts 身份）",
+                "sdk": "assistant metrics => usage_observation；默认零未知，可能合并 run/重试；源快照消失不撤销已观测用量",
                 "aggregates": "deleted_api_reqs = 删除消息的用量聚合重述；subagent_usage = 子 Agent 批次聚合快照；各按 1 条 model_call 计（无法分解底层请求数）",
                 "deleted_flow": "消息删除触发整写重写：消失的已入账键以 Corrected/Excluded 墓碑撤销旧贡献，防止与 deleted_api_reqs 聚合双计",
                 "compaction": "say=compaction 的 tokensBefore/tokensAfter 是 SDK 估算，不进入用量（一次性诊断可见）",
@@ -288,7 +346,8 @@ impl crate::adapters::framework::SourceAdapter for ClineAdapter {
                 "primary": "{taskId}:{say}:{ts}（实例命名空间；ts 是固定源码示例中唯一证据的消息身份字段）",
                 "fallback": "无（缺 ts 记录跳过并记诊断，不用数组下标——删除流程会移位）",
                 "deleted_flow": "消失键墓碑（Corrected/Excluded）；已墓碑键再现时 Corrected 优先，保持排除（记录限制）",
-                "cross_source": "CLI SDK / api_conversation_history.json 未接入，不与 ui_messages.json 相加",
+                "sdk_identity": "sessionId + message.id，JSON tuple 编码；只读原生 messages，不读 manifest/DB/hook 的第二份累计值",
+                "cross_source": "CLI SDK / api_conversation_history.json 未接入；固定 VS Code 迁移转换不复制旧 UI metrics，迁移真实场景仍待验收",
             }),
             integrity: serde_json::json!({
                 "success_only": "只统计带 usage 数字的载体；无 usage 的 api_req_started（未完成请求）无事件、部分可用，其余记录继续入账",
@@ -298,8 +357,8 @@ impl crate::adapters::framework::SourceAdapter for ClineAdapter {
                 "prompt_content": "只读白名单字段（type/say/ts/text 内 tokensIn/tokensOut/cacheWrites/cacheReads/cost），正文不提取",
             }),
             maintenance: serde_json::json!({
-                "parser_version": CLINE_PARSER_VERSION,
-                "format_evidence": "固定源码 dcf8c3c（getApiMetrics.ts/disk.ts，A03）；文档级证据，本机无真实样本（not_found）",
+                "parser_version": "cline-ui-doc1+sdk-v1",
+                "format_evidence": "SDK VS Code 4.1.22 固定 f58bc118 真实 GUI/API/原生三条核对；旧 UI 固定 dcf8c3c 文档级证据，待真实样本",
                 "upgrade_policy": "say 种类/记录类型/字段形状偏离 fail closed；取得真实样本后扩展接受集与逐请求模型归属",
             }),
             scheduling: serde_json::json!({
@@ -308,12 +367,13 @@ impl crate::adapters::framework::SourceAdapter for ClineAdapter {
                 "pause_cancel": "文件间可停；单文件读取有界",
             }),
             limitations: vec![
-                "全部字段口径为文档级证据（固定源码 dcf8c3c，A03），本机无真实样本（not_found）；首份真实 fixture 到达后逐字段核验".into(),
+                "真实核对仅覆盖 VS Code 4.1.22 LM Studio 配置路线/本地兼容 API 的 SDK 主会话；其他 provider、迁移、辅助和重试路径未真实核对".into(),
+                "SDK origin.version 不认证消息所属版本；默认零未知，metrics 可合并 run/重试，调用数保持 unknown".into(),
                 "ui_messages.json 实际消息词汇（ask、say=text/tool 等非用量种类）未在固定源码中枚举：按未文档化处理 fail closed，待真实样本扩展接受集".into(),
                 "deleted_api_reqs/subagent_usage 聚合无法分解底层请求数：call_count 按聚合记录计（下限），token 值为聚合真值".into(),
                 "subagent_usage 聚合与其明细任务文件（若存在）无共享 ID 证据，跨文件不去重，真实样本需核验是否双源".into(),
                 "cost 来源口径（扩展自算价目 or 供应商账单）未证实：按 micro-USD estimated 入账，不与远端账单相加".into(),
-                "逐请求模型字段未证实：model 保持 unknown，不猜归属".into(),
+                "旧 UI 逐请求模型字段未证实：model 保持 unknown；SDK 只用自身 modelInfo".into(),
                 "消息删除后再次原样恢复的键已被墓碑排除，重新出现时保持排除（Corrected 优先）".into(),
                 "整写 JSON 每次变化全量重读（32 MiB 有界），成本随文件大小线性；靠 upsert 幂等保证不双计".into(),
                 "符号链接/junction 不跟随；Windows 无稳定文件索引号，身份靠创建时间+首采样".into(),

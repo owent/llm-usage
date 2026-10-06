@@ -6,8 +6,9 @@
 //!   zoo-ui-messages-doc-1，与 Cline 目录独立）；
 //! - 产品特有映射在 [`common`]（tokensIn 含缓存的计算规则 + cost）。
 //!
-//! 原始格式依据（固定源码 f7806475331fcae5f4e8b5558d04415eeb5da88c，A19，
-//! 按文档或源码实现，待真实样本核验；本机 2026-09-25 盘点 not_found）：
+//! 当前依据：官方 VSIX 3.86.0 / 6aa9d0174a9ecae155c6c5db9134bead4b67197d，
+//! 2026-10-06 独立 VS Code 容器非空样本已与公开 API/模型服务核对（A19）。
+//! 旧 f780647 的 finished/condense 文档路径独立保留，未作真实场景认证。
 //! - `packages/core/src/message-utils/consolidateTokenUsage.ts`：usage 载体
 //!   type="say" say="api_req_started"，text JSON 字段 tokensIn/tokensOut/
 //!   cacheWrites/cacheReads/cost 逐字段可选 + apiProtocol；
@@ -89,6 +90,18 @@ impl crate::adapters::framework::SourceAdapter for ZooAdapter {
     ) -> Vec<crate::adapters::framework::DiscoveredRoot> {
         use crate::adapters::framework::{DiscoveredRoot, RootBasis};
         let mut roots: Vec<(std::path::PathBuf, RootBasis)> = Vec::new();
+        // APPDATA is an independent Windows default, including isolated callers
+        // that deliberately omit HOME/USERPROFILE.
+        if let Some(appdata) = ctx.env.get("APPDATA") {
+            roots.push((
+                std::path::PathBuf::from(appdata)
+                    .join("Code")
+                    .join("User")
+                    .join("globalStorage")
+                    .join(ZOO_EXT_GLOBAL_STORAGE),
+                RootBasis::DefaultHome,
+            ));
+        }
         // CLI 缺省任务存储（固定源码 apps/cli + vscode-shim：~/.vscode-mock/
         // global-storage，与用户 home 同级）。
         if let Some(home) = &ctx.home_dir {
@@ -99,16 +112,6 @@ impl crate::adapters::framework::SourceAdapter for ZooAdapter {
             // VS Code 扩展 globalStorage（Windows %APPDATA%/Code、macOS
             // ~/Library/Application Support/Code、unix XDG ~/.config/Code；
             // APPDATA/XDG_CONFIG_HOME 只用于解析平台默认位置）。
-            if let Some(appdata) = ctx.env.get("APPDATA") {
-                roots.push((
-                    std::path::PathBuf::from(appdata)
-                        .join("Code")
-                        .join("User")
-                        .join("globalStorage")
-                        .join(ZOO_EXT_GLOBAL_STORAGE),
-                    RootBasis::DefaultHome,
-                ));
-            }
             roots.push((
                 home.join("Library")
                     .join("Application Support")
@@ -187,9 +190,7 @@ impl crate::adapters::framework::SourceAdapter for ZooAdapter {
 
     fn capability(&self) -> crate::adapters::framework::CapabilityTable {
         use crate::adapters::framework::{Availability, CapabilityTable};
-        let awaiting =
-            "文档级证据（A19 固定源码 f780647）；本机 not_found（2026-09-25 盘点），待真实样本核验"
-                .to_string();
+        let awaiting = "官方 VSIX/固定源码 3.86.0（6aa9d017）与独立容器 VS Code/API/原生文件已核对；仅该 OpenAI-compatible 样本范围".to_string();
         let mut fields = serde_json::Map::new();
         let field = |availability: Availability, note: &str| {
             serde_json::json!({
@@ -208,14 +209,14 @@ impl crate::adapters::framework::SourceAdapter for ZooAdapter {
             "cache_read".into(),
             field(
                 Availability::Partial(awaiting.clone()),
-                "cacheReads reported（tokensIn 子集）",
+                "正 cacheReads reported（tokensIn 子集）；默认零未知；OpenAI-compatible 未读嵌套 cached_tokens",
             ),
         );
         fields.insert(
             "cache_write".into(),
             field(
                 Availability::Partial(awaiting.clone()),
-                "cacheWrites reported（tokensIn 子集）",
+                "正 cacheWrites reported（tokensIn 子集）；默认零未知",
             ),
         );
         fields.insert(
@@ -245,7 +246,7 @@ impl crate::adapters::framework::SourceAdapter for ZooAdapter {
             "cost".into(),
             field(
                 Availability::Partial(awaiting.clone()),
-                "cost 仅在 finished 合并后在场（扩展自算，estimated micro-USD）；condense_context.contextCondense.cost 同口径",
+                "正 cost 为扩展估价；当前版本内联更新 started，旧 finished 合并仍支持；默认零未知；condense_context 同口径",
             ),
         );
         fields.insert(
@@ -281,7 +282,7 @@ impl crate::adapters::framework::SourceAdapter for ZooAdapter {
                 "version_field": "无版本字段（整写 JSON 数组）；文档级锚点 zoo-ui-messages-doc-1",
                 "registry": "adapters/zoo/versions 注册表（唯一条目：文档级锚点；与 cline 目录独立）",
                 "fail_closed": true,
-                "unknown_version": "不存在未知版本状态；格式偏离（未文档化 say/非 say 类型）扫描层 fail closed",
+                "unknown_version": "无逐请求客户端版本；格式锚点不认证其他版本；未知 ask/say/类型扫描层 fail closed",
             }),
             fields,
             lifecycle: serde_json::json!({
@@ -309,9 +310,9 @@ impl crate::adapters::framework::SourceAdapter for ZooAdapter {
             }),
             maintenance: serde_json::json!({
                 "parser_version": versions::ui_messages_doc1::ZOO_PARSER_VERSION,
-                "format_evidence": "固定源码 f780647（consolidateTokenUsage/consolidateApiRequests/taskMessages/globalFileNames/task-history/cli config）+ src/package.json 扩展身份；合成 fixtures 标注待真实样本",
-                "evidence_level": "doc-level（无本机真实样本；2026-09-25 盘点 not_found）",
-                "upgrade_policy": "取得真实脱敏 fixture 后按实际消息形状扩展文档化集合并升为已验证；fail closed 拒绝不猜",
+                "format_evidence": "A19 f780647 + 3.86.0/6aa9d017 完整类型枚举、Task 内联 writer 与 OpenAI codec；官方 VSIX/真实 API/原生文件对照",
+                "evidence_level": "real-container（3.86.0 VS Code OpenAI-compatible；其他路径保留文档级证据）",
+                "upgrade_policy": "完整旧摘要/旧游标重评默认零，保留真实冲突、观察时间与历史；未知类型 fail closed",
             }),
             scheduling: serde_json::json!({
                 "entry": "统一 run_adapter_scan；手动/间隔/监听触发按源合并",
@@ -319,8 +320,9 @@ impl crate::adapters::framework::SourceAdapter for ZooAdapter {
                 "pause_cancel": "文件间可停；单文件解析有界",
             }),
             limitations: vec![
-                "文档级证据实现：本机未安装（2026-09-25 盘点 not_found），待真实样本核验".into(),
-                "未文档化 say 种类（如 text/ask 等真实消息）按 fail closed 整文件拒绝，待真实样本扩展文档化集合（与 cline 同保守合同）".into(),
+                "真实样本仅 3.86.0 VS Code OpenAI-compatible 一次请求；CLI、其他协议、压缩/删除等路径未实测".into(),
+                "已验证非用量 ask/say 跳过；未知枚举仍整文件拒绝、不推进游标".into(),
+                "默认零缓存/费用未知；OpenAI-compatible 忽略嵌套 cached_tokens；未落盘或删除调用不补造".into(),
                 "tokensIn 含缓存的口径来自固定源码注释：cacheReads/cacheWrites 报告为子集，input_uncached 与互斥分解不做".into(),
                 "无逐请求模型字段（ParsedApiReqStartedTextType 无 model）：模型维度不可用".into(),
                 "消息删除流程未文档化：无墓碑推导，已入账事件在源文件改写后保持（删除重述语义待真实样本）".into(),

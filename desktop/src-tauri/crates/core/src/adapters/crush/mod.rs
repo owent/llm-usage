@@ -180,8 +180,7 @@ impl crate::adapters::framework::SourceAdapter for CrushAdapter {
 
     fn capability(&self) -> crate::adapters::framework::CapabilityTable {
         use crate::adapters::framework::{Availability, CapabilityTable};
-        let note =
-            "官方源码证据（charmbracelet/crush 1f3827b）；本机未安装，待真实样本核验".to_string();
+        let note = "官方源码 1f3827b/v0.97.1 与真实离线本地模型样本核对；主循环和自动标题的累计 Estimated cost 一致，token 列仍是上下文快照".to_string();
         let token_unavailable = "sessions.prompt_tokens/completion_tokens 是最近 step 上下文规模快照（SET 覆盖、摘要后重置、标题请求另加）——不是用量，一律不采（官方源码 agent.go:2060-2086）";
         let mut fields = serde_json::Map::new();
         let field = |availability: Availability, detail: &str| serde_json::json!({ "availability": availability, "note": detail });
@@ -287,8 +286,8 @@ impl crate::adapters::framework::SourceAdapter for CrushAdapter {
             }),
             maintenance: serde_json::json!({
                 "parser_version": versions::sessions_cost_v1::CRUSH_PARSER_VERSION,
-                "format_evidence": "charmbracelet/crush 1f3827b（agent.go/coordinator.go/internal/db sql/config/load.go）",
-                "evidence_level": "official-source（无本机样本）",
+                "format_evidence": "charmbracelet/crush 1f3827b/v0.97.1（agent.go/coordinator.go/internal/db sql/config/load.go）与真实 SQLite/CLI/API；产品版本不认证其他记录",
+                "evidence_level": "real-local（0.97.1 成功主循环+自动标题；纯测试费率 Estimated cost；仅 cost、不扩展 token/调用支持）",
                 "upgrade_policy": "上游若新增逐请求用量表再扩展",
             }),
             scheduling: serde_json::json!({ "entry": "统一 run_adapter_scan" }),
@@ -296,7 +295,7 @@ impl crate::adapters::framework::SourceAdapter for CrushAdapter {
                 "token 统计不可用：sessions token 列是上下文规模快照（官方证据），不采不推算"
                     .into(),
                 "仅 cost：费率自算 Estimated；子会话回卷已过滤".into(),
-                "本机未安装：文档级实现".into(),
+                "仅真实 0.97.1 本地单轮/自动标题；人工测试费率不代表真实价格，云端/子会话/压缩/其他版本未验收".into(),
             ],
         }
     }

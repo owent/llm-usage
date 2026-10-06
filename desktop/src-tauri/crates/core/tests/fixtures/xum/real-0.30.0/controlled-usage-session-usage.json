@@ -1,0 +1,45 @@
+{
+  "byModel": {
+    "local-model:qwen2.5-0.5b-local": {
+      "input": {
+        "tokens": 13721
+      },
+      "cached": {
+        "tokens": 0
+      },
+      "cacheCreate": {
+        "tokens": 0
+      },
+      "output": {
+        "tokens": 2
+      },
+      "reasoning": {
+        "tokens": 0
+      },
+      "model": "local-model:qwen2.5-0.5b-local"
+    }
+  },
+  "version": 1,
+  "lastRequest": {
+    "model": "local-model:qwen2.5-0.5b-local",
+    "usage": {
+      "input": {
+        "tokens": 13721
+      },
+      "cached": {
+        "tokens": 0
+      },
+      "cacheCreate": {
+        "tokens": 0
+      },
+      "output": {
+        "tokens": 2
+      },
+      "reasoning": {
+        "tokens": 0
+      },
+      "model": "local-model:qwen2.5-0.5b-local"
+    },
+    "timestamp": 1791276947596
+  }
+}

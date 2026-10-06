@@ -4,6 +4,43 @@
 适配器必须声明如何映射，不能由 UI 猜测缺失字段；新增来源身份与价格获取要求分别在 M1a/F2 跟踪。
 来源仅限本机 Agent 产生的数据，具体准入见 [设计范围](README.md)；远端报表即使落盘也不纳入。
 
+OpenClaw schema 24 的本地 hot transcript 按
+[专项合同](openclaw-runtime.md)读取：正非缓存输入/输出/缓存桶保留，默认零与计算
+总量保持未知；整库版本、会话最新模型不认证历史行。外部/迁移来源隔离，冷归档
+缺口可见，事件及分页位置随统一批次同事务保存。
+
+## Cline SDK 会话读取
+
+2026-10-06 已核对官方 VS Code 4.1.22、固定提交
+`f58bc118bdeef1bd2813cd08e00d98bdcda96475` 的原生 writer 和隔离真实样本。
+新增独立 `cline-sdk-messages-v1` 实现；旧 `ui_messages.json` 文档级实现保持独立。
+默认读取 `~/.cline/data/sessions/<session>/<session>.messages.json`，按官方
+`CLINE_DIR`、`CLINE_DATA_DIR`、`CLINE_SESSION_DATA_DIR` 的优先级解析；
+手工根可为 Cline 根、data、sessions、单会话目录或原生文件。
+不读取 registry DB、manifest 累计 token、hooks 或正文作为第二份用量。
+
+仅接受 schema 1、`agent=lead`、`origin.source=vscode`、`origin.mode=user`，
+两处 sessionId 必须一致；其他 SDK 产品面、导入与子代理待独立核验。
+`origin.version` 来自会话 metadata，可能在恢复时重写，不能认证全部历史消息；
+SDK 保持 `latest_fallback`，空会话不认证。旧格式锚点不用于 SDK 版本分派。
+
+只消费非 displayOnly 的 assistant `metrics`，身份为 sessionId + message.id；
+正文、工具消息和没有 metrics 的 assistant 不生成用量。writer 可把整次 run 用量
+回填到末条消息，重试中间件也可合并多个请求，因此保存 `usage_observation`，
+不从一条 metrics 推导一次底层调用。只使用消息自身 `modelInfo` 与 `ts`，
+时间标记 uncertain，不从当前 manifest 补模型或会话开始时间。
+
+`inputTokens` 已含缓存；正 input/output/cache 字段分别 reported。
+writer/codec 的默认零和缺项都保留 unknown；完整总量只由已知 input + output
+派生，未缓存输入只在总输入及两个缓存桶都已知时相减。缓存超过输入须诊断，
+不截断。成本、推理输出与延迟尚无真实字段依据，保持 unknown。
+真实样本三个 observation：输入 8,922、输出 48、完整总量 8,970、已知缓存读
+5,881；缓存写和未缓存拆分未知，调用数未知。
+
+整写 JSON 采用 32 MiB 上限、协作取消、完整解析后推进游标；半写、未知 schema
+不推进。坏数值逐条诊断，其他有效消息继续入库。重扫与文件内重复 ID 幂等，
+同 ID 不同内容仍仲裁；历史消息从源快照消失不撤销已观测用量。
+
 <a id="metrics"></a>
 
 ## token 与请求的定义
@@ -44,6 +81,99 @@ cache_input_ratio = SUM(input_cache_read) / SUM(input_total)
 reported 只代表来源报告，不承诺它等于最终账单；估算值默认不进入“已知用量”总计。
 负值、溢出、缓存大于已知总输入等异常进入受限诊断，不能用 `max(0, …)` 隐藏矛盾。
 
+Continue CLI 会话累计的缓存两桶由产品初始化为 0、仅收到非零值才增加；
+固定官方源码及 1.5.47 真实本地模型证明，零值不能区分“未报告”和“报告零”。
+该载体的缓存零值保留 unknown；正数仍采信原生累计，不从混合 provider 的缓存桶
+派生完整总量。产品填入的默认值不能替代 API 字段缺失依据，详见
+[真实样本](../../validation/desktop-usage/m8-container-samples.md)。
+解析规则更新须自动重读未变化的旧游标；仅在完整旧聚合摘要与新摘要的差异
+恰为缓存 0/reported→NULL/unknown、源修订完全相同时允许更新。其他 token、
+质量、归属、时间和覆盖变化继续原仲裁；诊断历史保留，聚合与游标同事务，
+保留清理下限及已封存历史不绕过。
+
+gajae-code 0.18.7 的 session v5/OpenAI-completions 实际载体及固定源码证明：
+缓存零由缺字段回退产生；初始化的输入/输出/总量零也不能认证为 API 已报告零。
+正数按该已核验的归一函数采信，总输入由其反变换恢复；缓存零保持 unknown，
+不能确认两缓存桶时未缓存输入保持 unknown，输入/输出任一未知不派生完整总量。
+非零源总量独立保留；成本仍是客户端 Estimated。message.timestamp 在请求前初始化，
+按 source_start 记录，条目时间与产品版本不替代逐次时间/格式依据。
+配置链 configured_model_chain 已由固定 session-manager 源码证明为非用量条目，
+只允许跳过这一类型，其他未知条目仍停读。其他 API 不套用上述缺字段回退结论。
+gjc-session-1→2 的旧事件更新只允许上述零值/未缓存桶与时间依据纠正：
+完整旧 canonical/legacy 摘要匹配，源修订、身份、模型、非零量、费用和其余质量均不变；
+保留原观察时间与冲突标记/诊断，事件/汇总/指纹/游标同事务，旧封存与保留下限继续生效。
+
+AtomCode 官方 5.2.1 的 OpenAI 映射和 TokenBreakdown 都会将缺字段回退为零，
+真实 `.meta`/API/CLI 已核对。缓存累计零保持 unknown；没有可靠缓存桶时不认证
+未缓存输入。原生归一三桶齐全且输入和为正时可恢复总输入，正输出采信；
+输入/输出任一未知不派生完整总量。缺少或坏类型的桶不能补零，累计溢出保留未知与
+受限诊断，其他有效模型继续入库。turn_stats 的 total_tokens 是末次请求快照，
+不与 model_usage 相加；round_count 保留独立来源汇总，turn 无时间戳不展开逐次。
+atomcode-meta-turns-1→2 自动重读旧游标；旧聚合仅能通过完整摘要证明为上述
+默认零/旧派生桶时纠正，其他已知量、模型、区间、调用数、覆盖和源修订不变。
+未知派生量的旧候选只从默认零与仍可信的原生桶重构，不能任意消除真实冲突；
+使用同修订聚合升级合同，诊断/历史和事务、保留/封存边界保持不变。
+真实目录的 `.ui.json` v1 与 `.rewind.json` version 2 是已核验辅助状态；
+仅在完整 JSON/明确形状、同名合法 `.meta` 与身份匹配时排除（探测上限 64 KiB）。
+未知版本、坏形状、无配对以及带真实 id/turn_stats 的手工 JSON 仍走格式诊断/读取，
+不以文件后缀隐藏用户错误；其他辅助格式未验证前不按同类猜测。
+
+Junie 官方 26.9.22（3419.29）发行包与七次真实 OpenAICompletion 调用已核验：
+`inputTokens` 是归一后的非缓存输入，不能作总输入；缓存与输出是独立分项。
+官方 OpenAI/Responses、Anthropic、Google 转换与 ModelUsage 构造均已静态检查；
+UsageTokens 的缺字段默认零会进入事件，零桶保持 unknown，正桶保留报告值。
+载体无 API 类型及产品版本，不能从模型名认证总输入或总 token；这些总量保持未知。
+`time=0` 也可能是默认值，保持未知；`cost=0` 不认证免费或已报告零费用。
+官方 OpenAI calcTokenCost 按客户端 ModelCapabilities 价目估算，缺价不能认证免费；
+正费用标 Estimated，USD 单位沿用原文档依据；真实付费渠道/单位尚未验收。
+任务失败前已写入的 LlmResponseMetadataEvent 仍按逐次调用统计。
+junie-events-doc1→2 自动重读未变化的旧游标；仅允许完整旧 canonical/legacy
+摘要证明的输入桶纠正、默认零/时间消除和费用质量纠正，保持原始键、修订及其他字段。
+旧候选有界枚举缺失/默认零，不恢复任意正数；保留观察时间、冲突和诊断历史，
+事件/汇总/游标同事务，封存及保留下限继续生效。JUNIE_HOME 为已核验发现入口。
+详见 [真实样本](../../validation/desktop-usage/m8-container-samples.md)。
+
+Roo 官方 VSIX 3.54.0、固定提交 27001b2b 与真实 VS Code extension-host 已核验：
+`api_req_started` 的 tokensIn 为含缓存总输入，正 tokensOut 为输出；四桶先初始化零，
+provider 缺 usage/缓存字段仍写零，因此零保持 unknown。OpenAI-compatible 路线只读
+顶层 cache_read_input_tokens，不读 prompt_tokens_details.cached_tokens；实际缓存命中
+仍可能在原生桶中为零，不能按零相减推导未缓存输入。只有两个缓存子集均已知才派生
+input_uncached；正总输入/输出可相加得 total_tokens。cost 按客户端模型费率算，
+正值为 Estimated；缺价目的默认零未知，不认证免费账单。纯占位未携数字不产事件，
+显式数字（即使为默认零）的请求记录保留一次已观测调用及 unknown 字段。
+取消可删除未完成 api_req_started：无上限实测 API 3 次、原生 2 次，缺失一次不补造。
+公开请求上限为 2 的单调用对照单列；不以归档公告断言历史本地 provider 不可运行。
+roo-ui-messages-doc1→2 重评未变化的旧游标；完整旧 canonical/legacy 摘要仅允许零桶/
+零估价及其派生字段纠正，键、时间、非零用量、质量、模型/归属和真实冲突保持保护。
+事件/汇总/游标同事务，诊断与首次观察保留；不认证其他版本、CLI 或工具/子代理覆盖。
+
+Xum 官方 npm 0.30.0、对应提交 81b0b744 与两次真实本地调用已核验：
+`session-usage.json` v1 的 `input` 是互斥未缓存输入，`output` 已排除推理；
+五桶缺字段会在产品归一/累计时变成零。零桶保持 unknown，正输入映射未缓存输入；
+完整输入与总 token 保持未知，不把混合历史的 display 桶认证为完整供应商总量。
+正文本输出与已知正推理相加，质量记 derived；推理未知时保留正文本输出下界及
+`xum_output_incomplete` 覆盖提示，不降级来源健康，不派生完整总 token。
+费用不采纳客户端 CLI 的未知价零；byModel 不展开逐次调用。
+默认 custom OpenAI-compatible 不请求流式 usage，真实缺 usage 场景写入五零，不能认证
+已报告零。独立对照仅由本地网关向真实模型请求 include_usage，响应原样传递；
+不将该网关设置当成客户端默认能力。CLI 默认删除临时会话，保留原生载体须使用
+已核验的 XUM_RUN_SESSION_ROOT/MUX_RUN_SESSION_ROOT；配置根支持 XUM_ROOT/MUX_ROOT。
+xum-session-usage-1→2 自动重读旧游标，仅允许完整旧聚合摘要证明的输入桶纠正、
+默认零消除及已知推理归并；其他 token/质量、修订、身份、区间、调用与覆盖不变，
+保留旧诊断、冲突仲裁和事务、保留/封存边界。格式 v1 不认证所有产品版本。
+详见 [真实样本](../../validation/desktop-usage/m8-container-samples.md)。
+
+MiMo 0.1.15、Zoo 3.86.0 和 DSH 0.2.0-rc.2 的真实载体与独立 API 已核验，
+具体 writer/codec、默认零、分项恢复和读取上限见 [三源合同](m3-runtime-samples.md)。
+Zoo 的正 tokensIn 含缓存，默认零子桶未知，不派生未缓存输入；MiMo 仅按自身 SDK
+归一函数恢复正 input/output 总量，零缓存/推理仍未知，不叠加 message 副本。
+DSH 原生 input 为非缓存桶，只有记录自身证明 pi-ai openai-completions/version 2
+且正 input 未被钳零时，才反变换恢复总输入；output 已含推理，自算 total 不计 source_total。
+settlement/stream 择一，同 step 替换可下修，retry 新开尝试，继承前缀不计本机调用；
+未落盘标题用量只提示缺口。完整快照回退或变更来源身份保留原值及游标。
+MiMo/Zoo 旧规则纠正要求完整旧 canonical/legacy 摘要、相同修订及保护字段相符，
+同批真实冲突保留；已消费的旧处理位置必须重评，事件/汇总/游标同事务。
+
 ### 请求、消息与累计值
 
 | 类型 | 统计行为 |
@@ -66,6 +196,15 @@ reported 只代表来源报告，不承诺它等于最终账单；估算值默�
 仅有 token 累计值时调用数显示未知，不能通过非零 delta 数目推测请求次数。
 Hermes 等源可能报告 api_call_count 的区间累计：保留为“来源报告调用汇总”，
 核验含义后按原生区间显示，不伪造逐次 model_call，不与相同覆盖的逐次计数相加。
+Hermes 0.21.5（v2026.9.24）官方镜像的两次本地请求/续会话已核对：原生
+session_model_usage.input_tokens 为 normalize_usage 后的非缓存输入，不能当输入总量。
+固定发布源码与 A24 原固定源码一致，未报告/非法桶会归零、SQL 累计也有默认零；
+因此五个 token 桶及 api_call_count 的零保留未知，正数按报告保留。仅非缓存、缓存读/
+写和输出均已知时按检查溢出的和推导输入/完整总量，不用零默认补全；reasoning 为输出子集。
+累计行保留原生区间、调用汇总与六键身份；schema_version 是整库迁移状态，不能认证
+混合历史记录所属客户端版本，继续保留兼容读取。旧规则升级须完整旧聚合摘要匹配，
+只允许原 input_total 移至 input_uncached、默认零改未知及明确派生字段更新；其他计数/
+质量/范围/覆盖/修订仍仲裁，历史诊断保留，已消费的旧处理位置须全量重评并与游标同事务。
 quota_snapshot 仅在本地记录可证明属于本机使用时接入；账户级额度采用下述独立展示规则。
 
 总览/趋势接入
@@ -112,6 +251,25 @@ OTel 替代该范围原生贡献，保留原生记录与修订；原生重扫仍
 导出开启前覆盖不能追补，明确标为部分历史；未消费、拒绝或过期记录不能声明权威范围。
 Claude 版本小数/破折号拼写统一用于分组与价格匹配，原始模型字段保留。
 见 [本轮合同](dashboard-repair.md)；CLI/JetBrains 新版本的同名属性不能替代真实载体验收。
+
+手工 `.qwen` 根只有在文档布局的 chats 首记录具有完整 ChatRecord 身份，且出现
+Qwen `message.parts` 或 `usageMetadata` 时才定向给 Qwen；共享的 type 不证明 Claude 格式。
+坏行仍由 Qwen 报告。旧误认领只有整个来源无事件、日/周期/原生汇总时才恢复，
+释放该文件的错误检查点，保留历史诊断和配置；存在历史贡献时保留原归属。
+
+Qwen Code 0.25.0 的本地 SDK file 是连续多行 JSON 对象；只将
+`qwen-code.llm_request` INTERNAL span 作为逐调用载体，log、HTTP span、父 interaction
+及 metrics 不相加。按资源中的产品/版本和 trace+span 身份核验；输入含缓存读，
+输出和 thoughts 并列保留；真实样本 thoughts=0 时可由已知输入/输出派生总量，
+其他 reasoning/供应商包含关系未核验前不合成总量，不补缓存写或调用父子关系。
+SDK 与 ChatRecord 没有共同调用 ID，因此同已核验主机/用户/会话/本地日以已接收的
+0.25.0 SDK span 替代原生贡献，原生记录保留、重扫不叠加、封存分区优先。
+原生或 SDK 的来源/日已封存且逐次身份不可恢复时，同主机/用户/本地日的新 SDK
+输出不能证明与封存分区不重叠，保留排除原因及覆盖提示，不向该分区追加；
+实际保留清理后的重启与迟到原生/SDK 副本仍须回归，不仅模拟删除明细。
+同 trace+span 的导出副本择一；其他版本隔离，缺来源身份不声明权威。
+导出可能晚于会话开始，不承诺该分区完整历史；半对象、预算/对象上限和坏对象
+保持未完成状态及可恢复对象边界，不将 SDK 私有字段视为稳定 OTLP 合同。
 
 Visual Studio 总量计算：同一 CLIENT chat span 的 input/output
 均已知时派生 total_tokens，缓存桶不再额外相加；缺项/溢出保留未知。已消费且字节
@@ -252,7 +410,7 @@ message.data.tokens 不一致时保存 reconcile_mismatch，不降低有效逐�
 不完整或坏类型的明细标记 detail_incomplete，不由 SQLite 隐式转换成零或浮点合计，
 也不让对账中断有效消息入库。坏 JSON、缺角色、用量结构错误和单条 token 矛盾仍须提示核对；
 增量窗外的坏行状态保留，同一行重读成功或已从源库删除时恢复。
-健康规则变更提高解析器版本，真实发现路径重放旧水位，不清库或清除诊断历史；
+健康规则变更提高解析器版本，真实发现路径重放旧处理位置，不清库或清除诊断历史；
 未知消息所属版本继续标为兼容读取，不能因对账可读而认证版本。
 
 累计 metric series 身份包含资源、instrument、属性、进程实例和 start_time。
@@ -375,9 +533,9 @@ Agent、模型、供应商按统一 Unicode 小写规则分组和筛选，原始
   不把完整月份的值放进只选一天的查询。后续仅余部分日数据时不得覆盖完整周期。
 - 同一天、同策略、同修订的重复保留任务不再重新物化或推进修订。
 - 同日同策略下，只有进行中周期发生增量时，可跳过完整周期物化。跳过必须同时
-  核对完成周期范围内的日行数量/最高修订、周期行数量/最高修订与已提交水位；
-  迟到修正、删除、缺失周期、日期/策略变化、外来未来修订或缺失/损坏水位均回退完整重建。
-  水位与保留事务一起提交，失败/取消不保存；清空用量时一并重置。
+  核对完成周期范围内的日行数量/最高修订、周期行数量/最高修订与已提交处理位置；
+  迟到修正、删除、缺失周期、日期/策略变化、外来未来修订或缺失/损坏处理位置均回退完整重建。
+  处理位置与保留事务一起提交，失败/取消不保存；清空用量时一并重置。
 - 导出"聚合交换包"= 来源注册 + 全部日分区 + 周期分区 + 小时层，不含 session
   明细；重导入可重建历史趋势（明细指标按缺口展示）。
   日分区附带全部已知/未知计数与比例样本，小时/周期带冲突信息，来源保留原主机身份。
@@ -422,7 +580,7 @@ Agent、模型、供应商按统一 Unicode 小写规则分组和筛选，原始
 缩短保留期先预览影响行数、日期与备份，确认后才清理应用数据库。
 手动清理与清空重采共用一个后台维护任务，避免同步 IPC 阻塞窗口。
 提交前可取消：等待采集、备份及 SQL 删除期间检查取消，取消后事务整体回滚，
-修订号、保留水位、游标与汇总保持原值，不触发重采。备份只作为恢复文件，不计成功清理。
+修订号、保留处理位置、游标与汇总保持原值，不触发重采。备份只作为恢复文件，不计成功清理。
 提交入口与取消请求原子裁决；进入提交后取消返回未接受，界面明确显示已提交，
 不宣称可以撤销已完成删除。清空重采的取消范围不包含提交后的重新采集。
 已接受取消后按钮保持禁用直到结束；未接受时区分操作已结束或开始提交，不声称已经撤销。

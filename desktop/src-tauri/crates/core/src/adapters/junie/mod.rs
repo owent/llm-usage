@@ -1,6 +1,6 @@
 //! Junie CLI 适配器（JetBrains，独立目录约定）。载体：
 //! `~/.junie/sessions/<session-id>/events.jsonl` 的
-//! LlmResponseMetadataEvent.modelUsage[]（逐轮、含 cost/延迟/provider）。
+//! LlmResponseMetadataEvent.modelUsage[]（逐轮；零默认保留未知）。
 //! JetBrains AI Assistant IDE 插件本体的本地用量格式尚未核验，留在 F1；本适配器只覆盖 CLI。
 
 pub mod detect;
@@ -40,6 +40,12 @@ impl crate::adapters::framework::SourceAdapter for JunieAdapter {
     ) -> Vec<crate::adapters::framework::DiscoveredRoot> {
         use crate::adapters::framework::{DiscoveredRoot, RootBasis};
         let mut roots: Vec<(std::path::PathBuf, RootBasis)> = Vec::new();
+        if let Some(home) = ctx.env.get("JUNIE_HOME").filter(|v| !v.trim().is_empty()) {
+            roots.push((
+                std::path::PathBuf::from(home.trim()).join("sessions"),
+                RootBasis::EnvOverride("JUNIE_HOME".to_string()),
+            ));
+        }
         if let Some(home) = &ctx.home_dir {
             roots.push((home.join(".junie").join("sessions"), RootBasis::DefaultHome));
         }
@@ -103,28 +109,28 @@ impl crate::adapters::framework::SourceAdapter for JunieAdapter {
 
     fn capability(&self) -> crate::adapters::framework::CapabilityTable {
         use crate::adapters::framework::{Availability, CapabilityTable};
-        let note = "第三方解析器证据（tokscale 1d9a939）；闭源 + 本机未安装（2026-09-29 盘点），待真实样本核验".to_string();
+        let note = "官方 26.9.22（3419.29）发行包字节码及隔离真实 OpenAICompletion/CLI/事件七次调用已核对；任务最终失败，其他版本/API 运行未验收".to_string();
         let mut fields = serde_json::Map::new();
         let field = |availability: Availability, detail: &str| serde_json::json!({ "availability": availability, "note": detail });
         fields.insert(
             "tokens".into(),
             field(
                 Availability::Partial(note.clone()),
-                "modelUsage[] 五桶（多别名组：inputTokens|input 等）；包含关系未知不派生总量",
+                "inputTokens 为非缓存输入，正分项保留；默认零未知，无 API/版本字段不派生完整总量",
             ),
         );
         fields.insert(
             "cache_read".into(),
             field(
                 Availability::Partial(note.clone()),
-                "cacheInputTokens|cacheReadInputTokens|cacheRead",
+                "cacheInputTokens|cacheReadInputTokens|cacheRead；零可能是客户端默认值，保留未知",
             ),
         );
         fields.insert(
             "cache_write".into(),
             field(
                 Availability::Partial(note.clone()),
-                "cacheCreateTokens|cacheCreationInputTokens|cacheWrite",
+                "cacheCreateTokens|cacheCreationInputTokens|cacheWrite；实际 OpenAICompletion 不报告缓存写，默认零未知",
             ),
         );
         fields.insert(
@@ -138,28 +144,28 @@ impl crate::adapters::framework::SourceAdapter for JunieAdapter {
             "model".into(),
             field(
                 Availability::Partial(note.clone()),
-                "modelUsage[].model + provider",
+                "modelUsage[].model；真实载体未报告 provider，不按模型名推断",
             ),
         );
         fields.insert(
             "time".into(),
             field(
                 Availability::Partial(note.clone()),
-                "timestampMs 是响应结束时刻；time 字段为延迟 ms（在场时补 interval_start = 结束−延迟）",
+                "timestampMs 是响应结束时刻；正 time 补 interval_start = 结束−延迟，默认零不认证耗时",
             ),
         );
         fields.insert(
             "cost".into(),
             field(
                 Availability::Partial(note.clone()),
-                "cost（f64 USD，在场即 provider-reported，micro-USD 存储）",
+                "正 cost 为客户端 Estimated（micro-USD；USD 沿用文档证据）；calcTokenCost 依赖客户端价目，零未知，付费渠道未验收",
             ),
         );
         fields.insert(
             "latency".into(),
             field(
                 Availability::Partial(note.clone()),
-                "time 字段（ms）→ duration_ms",
+                "正 time（ms）→ duration_ms；零为未知",
             ),
         );
         CapabilityTable {
@@ -172,7 +178,7 @@ impl crate::adapters::framework::SourceAdapter for JunieAdapter {
                 .collect(),
             discovery: serde_json::json!({
                 "default_roots": ["~/.junie/sessions"],
-                "env_override": null,
+                "env_override": "JUNIE_HOME/sessions（官方配置及实际运行核验）",
                 "manual_roots": "sessions 目录、会话目录或 events.jsonl 所在目录",
                 "bounded": true,
                 "pattern": "sessions/<session-id>/events.jsonl（深度 2）",
@@ -180,7 +186,7 @@ impl crate::adapters::framework::SourceAdapter for JunieAdapter {
             }),
             detection: serde_json::json!({
                 "magic": "事件指纹在头 64 KiB；已确认事件日志但无用量指纹时分块搜索至 4 MiB，仍无则 Pending 重探（不误报 UnknownFormat）",
-                "version_field": "无；文档级锚点 junie-events-doc-1（tokscale 证据）",
+                "version_field": "无；格式锚点 junie-events-doc-1，26.9.22 实际载体/发行包核验；不认证同目录其他版本",
                 "registry": "adapters/junie/versions 注册表（唯一条目）",
                 "fail_closed": true,
                 "unknown_version": "格式偏离 fail closed，不走版本回退",
@@ -194,7 +200,7 @@ impl crate::adapters::framework::SourceAdapter for JunieAdapter {
                 "cursor": "JSONL 字节偏移；事件键含数组索引与桶值（字节级重放折叠，tokscale 同款）",
             }),
             dedup: serde_json::json!({
-                "primary": "junie:<session>:<ts>:<model>:<五桶>:<cost>:<index>",
+                "primary": "junie:<session>:<ts>:<model>:<原始五桶>:<原始cost>:<行号>:<index>；修正规则不改变原键",
             }),
             integrity: serde_json::json!({
                 "success_only": false,
@@ -202,17 +208,17 @@ impl crate::adapters::framework::SourceAdapter for JunieAdapter {
             }),
             maintenance: serde_json::json!({
                 "parser_version": versions::events_doc1::JUNIE_PARSER_VERSION,
-                "format_evidence": "tokscale 固定提交 1d9a939 sessions/junie.rs（闭源产品第三方逆向证据）",
-                "evidence_level": "third-party-parser（无官方源码、无本机样本）",
-                "upgrade_policy": "真实样本出现后按实际字段核验并升级证据等级",
+                "format_evidence": "官方 3419.29 发行包 LlmMetadata/UsageTokens/API 转换/calcTokenCost + API/CLI/events.jsonl 真实七次调用；旧别名沿用 tokscale 1d9a939",
+                "evidence_level": "real-local（失败任务的真实非空调用；无付费渠道验收）",
+                "upgrade_policy": "doc1→2 完整旧 canonical/legacy 摘要允许归一输入/零默认/时间/费用质量纠正；原键/修订不变，冲突历史保留，事件/汇总/游标同事务",
             }),
             scheduling: serde_json::json!({
                 "entry": "统一 run_adapter_scan",
                 "incremental_cost": "追加式字节偏移增量",
             }),
             limitations: vec![
-                "闭源 + 本机未安装：文档级实现，待真实脱敏 fixture 核验".into(),
-                "字段证据来自第三方解析器：别名组按证据全收，包含关系未知不推导".into(),
+                "真实任务最终因小模型结构化响应失败；已发生的七次调用已核验，不认证任务成功、其他版本/API 或完整调用覆盖".into(),
+                "原生字段无产品版本/API/provider；正分项保留，零默认及完整总量未知，旧别名仍为文档证据".into(),
                 "缺 timestampMs 的行不入账（会话目录名兜底时间未采用，避免推造时间）".into(),
                 "JetBrains AI Assistant IDE 插件仍留 F1".into(),
             ],
