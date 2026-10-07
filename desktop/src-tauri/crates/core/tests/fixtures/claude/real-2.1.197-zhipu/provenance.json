@@ -1,0 +1,25 @@
+{
+  "date": "2026-10-07",
+  "product": "Claude Code",
+  "version": "2.1.197",
+  "provider": "Zhipu Coding Plan",
+  "endpoint": "https://open.bigmodel.cn/api/anthropic",
+  "models": [
+    "glm-5.3-flash",
+    "glm-5.3"
+  ],
+  "carrier_summaries": [
+    {
+      "file": "glm-5.3-flash.jsonl",
+      "rows": 6,
+      "source_sha256": "f2551dee4f1cc5c30ddf506a6b223cf6144b0685cbfac09977556fa583e947e0"
+    },
+    {
+      "file": "glm-5.3.jsonl",
+      "rows": 6,
+      "source_sha256": "47887673f6d3772ddb4f5bea281b9b531dc724c64c739cd23dcaf77ea0ef3153"
+    }
+  ],
+  "binary_sha256": "f54e69cbc89b2da61a415700af7ff52a147e862517d4f1b0eecf768448cf7f83",
+  "extraction": "Native statistical whitelist, stable hashed identities, no content, no credentials; original carrier SHA256 retained."
+}

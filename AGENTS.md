@@ -55,13 +55,19 @@ gajae-code OpenAI-completions 的默认零与请求开始时间按数据合同�
 仅官方提供商按量条目入库（订阅/套餐占位排除），无精确价目时回退官方价并计
 fallback_event_count。
 用户已允许实施时只读提取本机真实 Agent 数据验证，按 [准备合同](docs/design/desktop-usage/implementation-readiness.md)
-限定字段与脱敏，无需重复询问这项许可。JetBrains/TRAE 等本地用量格式尚未核验的 IDE 已后移 F1，当前不实施
+限定字段与脱敏，无需重复询问这项许可。2026-10-07 另已授权指定 Provider 最小请求、
+本机 Zed 配置/测试及 F1 核查；缺安装/本地载体的 IDE 移出本轮，限制保留
 （M8 第二批 18 个适配器已完成文档级实施并注册；Amazon Q/Codebuff
 经源码核验确认本地无逐次 token 载体、iFlow 已停服，均不实施；Junie CLI 与
-Zed 内置已确认本地用量载体，归入 M8；Cursor/Warp/TRAE 的远端用量路线按本机来源边界排除；
+Zed 内置归 M8，1.22.0 的 llm-usage-zhipu/DbThread 0.3.0 已有原生样本：
+OpenAI chat input 为非缓存桶，默认零未知，累计不伪造逐次/模型归属；其他 Provider 不认证；
+Cursor/Warp/TRAE 的远端用量路线按本机来源边界排除；
 JetBrains 的 GitHub Copilot 已经过源码核验——默认本地仅 Nitrite 会话库 credit
 与 idea.log 无逐次 token，逐次载体为需启用的 OTel file 导出，经既有 otel
 适配器手工根接入，见 M9 JetBrains 分析记录；JetBrains 自家 AI Assistant 仍 F1）。
+Claude Code 2.1.197 原生逐条 version 与默认零规则按数据合同读取；多内容块按
+message.id 去重，载体无渠道时 provider/费用保持未知，不能按协议或模型名推断。
+旧完整摘要/未变处理位置纠正须保留冲突和历史，见 [Claude 实样](docs/validation/desktop-usage/claude-container-sample.md)。
 Copilot 四面：CLI 面走 assistant_usage_events（旧版）/chronicle
 fail-closed（最新版），VS Code 面走原生 `chatSessions/*.jsonl`（copilot_chat 适配器，
 本机真实验收），Visual Studio 面走 `%TEMP%\VSGitHubCopilotLogs\traces` OTLP 遥测

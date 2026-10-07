@@ -134,6 +134,8 @@ pub struct AppSettings {
     /// 费用估算（F2；默认关闭，启用前不展示费用面板）。
     #[serde(default)]
     pub pricing: PricingSettings,
+    #[serde(default)]
+    pub budget: llm_usage_core::budgets::BudgetSettings,
 }
 
 fn default_otel_receiver_port() -> u16 {
@@ -170,6 +172,7 @@ impl Default for AppSettings {
             otel_receiver_enabled: false,
             otel_receiver_port: default_otel_receiver_port(),
             pricing: PricingSettings::default(),
+            budget: llm_usage_core::budgets::BudgetSettings::default(),
         }
     }
 }

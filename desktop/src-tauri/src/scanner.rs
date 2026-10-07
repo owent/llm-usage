@@ -190,6 +190,11 @@ fn run_refresh_in_context(
         {
             eprintln!("Qwen source routing repair failed: {e}");
         }
+        if let Err(e) =
+            llm_usage_core::adapters::routing::retire_misrouted_zed_sources(&storage, &ctx)
+        {
+            eprintln!("Zed source routing repair failed: {e}");
+        }
         storage.data_revision().unwrap_or(0)
     };
     // 全局刷新排除有自定义启用计划的实例（逐源节奏覆盖全局）。排除集

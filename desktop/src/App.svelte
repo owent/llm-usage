@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import BudgetReminder from './components/BudgetReminder.svelte';
   import { calendarDay, offsetDay } from './lib/calendar';
   import { api, parseError } from './lib/api';
   import type {
@@ -930,6 +931,7 @@
       <Icon name="refresh" size={17} />{collecting ? t('action.refreshing') : t('action.refresh')}
     </button>
   </header>
+  <BudgetReminder {settings} user={currentUser} />
   <div class="workspace-status" role="status">
     <span class="status-dot" class:busy={collecting || summaryLoading}></span>
     {#if refresh?.last_finished_ms}

@@ -1,4 +1,7 @@
 //! Zed 产品特有的公共部分（独立目录约定 architecture.md#adapter-layout）：
+//! 本轮 1.22.0 / 76659a55 的 OpenAI-compatible mapper 扣除缓存后保存 input；
+//! llm-usage-zhipu 的正桶为报告值，默认零/缺项未知，不派生完整总量。
+//! 下列 bd74733 依据与缺省零规则仅描述原有 hosted 映射。
 //! - usage 映射（`map_zed`/`ZedUsage`，字段依据为 Zed 官方源码 bd74733，A38）；
 //! - threads.db 源库只读访问实现（复制自 `adapters/hermes/common.rs` 的
 //!   kilo 同款实现：只读连接 + Online Backup 暂存副本，各 Agent 目录独立）。
@@ -62,6 +65,34 @@ pub fn map_zed(raw: &ZedUsage) -> MappedUsage {
         output_reasoning: Q::Unknown,
         total_tokens: Q::Unknown,
         source_total: Q::Unknown,
+    };
+    finish_parallel(usage, quality, Vec::new())
+}
+
+/// Zed 1.22.0 OpenAI chat mapper subtracts cache reads from prompt_tokens.
+/// Its serialized default zeroes carry no provider validity bit.
+pub fn map_verified_openai(raw: &ZedUsage) -> MappedUsage {
+    let positive = |n: i64| (n > 0).then_some(n);
+    let usage = TokenUsage {
+        input_uncached: positive(raw.input_tokens),
+        input_cache_read: positive(raw.cache_read_input_tokens),
+        input_cache_write: positive(raw.cache_creation_input_tokens),
+        output_total: positive(raw.output_tokens),
+        ..Default::default()
+    };
+    let q = |value: Option<i64>| {
+        if value.is_some() {
+            Q::Reported
+        } else {
+            Q::Unknown
+        }
+    };
+    let quality = TokenQuality {
+        input_uncached: q(usage.input_uncached),
+        input_cache_read: q(usage.input_cache_read),
+        input_cache_write: q(usage.input_cache_write),
+        output_total: q(usage.output_total),
+        ..Default::default()
     };
     finish_parallel(usage, quality, Vec::new())
 }

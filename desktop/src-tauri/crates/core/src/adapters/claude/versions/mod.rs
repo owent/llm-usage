@@ -1,15 +1,8 @@
 //! Claude 版本注册表：格式版本 → 格式实现的映射与回退选择
 //! （architecture.md#adapter-layout / #unknown-version，V30 目录约定）。
 //!
-//! claude transcript 无 CLI 版本字段：注册表锚点是文档级格式版本
-//! transcript-doc-1（按 A01 文档定义），因此不存在"未知版本"状态——
-//! detect 不读版本号，成功即 KnownVersion；格式偏离（未文档化记录 type、
-//! 载体外 usage 字段）在扫描层 fail closed，不走版本回退。
-//!
-//! 选择规则（保持与 codex 相同的 select 函数形状，便于 V30 结构检查统一断言）：
-//! - 文档级锚点 → `KnownVersion`，按映射分派；
-//! - None / 其他值 → `LatestFallback` 形状返回；对 claude 实际不可达
-//!   （detect 不读版本号，固定传文档级锚点），仅为注册表形状统一保留。
+//! 原生 2.1.197 每条 assistant 自带 version；逐条绑定，不以文件首行
+//! 或安装版本认证历史。无版本的旧文档锚点单独保留，其他版本兼容读取。
 
 pub mod transcript_doc1;
 
@@ -17,12 +10,15 @@ pub mod transcript_doc1;
 pub const LATEST_IMPL_ID: &str = "transcript_doc1";
 
 /// 文档级格式版本（非 CLI 版本）：transcript 条目格式官方明示不稳定，
-/// 本适配器按 A01 文档定义实现，待真实样本核验。
+/// 旧实现按 A01 文档定义；该锚点不等于 CLI 版本核验。
 pub const CLAUDE_FORMAT_VERSION: &str = "transcript-doc-1";
 
 /// 已验证支持的格式版本 → 格式实现。
-/// claude 无逐 CLI 版本登记：唯一锚点是文档级格式版本 transcript-doc-1。
-pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[("transcript-doc-1", "transcript_doc1")];
+/// 保留旧文档锚点，原生版本只登记已核验的 2.1.197。
+pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[
+    ("transcript-doc-1", "transcript_doc1"),
+    ("2.1.197", "transcript_doc1"),
+];
 
 /// 版本分派结论。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -44,14 +40,14 @@ pub fn select(found: Option<&str>) -> Selection {
                     impl_id,
                     basis: crate::domain::VersionBasis::KnownVersion,
                 },
-                // 对 claude 不可达：detect 固定传文档级锚点，无其他版本可查。
+                // 未核验原生版本仅兼容读取。
                 None => Selection {
                     impl_id: LATEST_IMPL_ID,
                     basis: crate::domain::VersionBasis::LatestFallback,
                 },
             }
         }
-        // 对 claude 不可达：detect 不读版本号，缺失分支保持统一形状。
+        // 未给定选择依据时保持兼容标记。
         None => Selection {
             impl_id: LATEST_IMPL_ID,
             basis: crate::domain::VersionBasis::LatestFallback,
@@ -76,9 +72,8 @@ mod tests {
     }
 
     #[test]
-    fn unreachable_branches_keep_unified_shape() {
-        // None/其他值分支对 claude 实际不可达（detect 不读版本号）；
-        // 仅保持与其他 Agent 注册表相同的 LatestFallback 形状（V30 结构检查）。
+    fn unknown_branches_keep_unified_shape() {
+        // 未登记原生版本不升级为真实支持。
         assert_eq!(
             select(None),
             Selection {

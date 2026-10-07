@@ -1,4 +1,6 @@
-//! Zed threads.db 格式实现（`threads_db_v1`，文档级 zed-threads-db-1）。
+//! Zed threads.db 格式实现（`threads_db_v1`，文档级 zed-threads-db-1 / 2）。
+//! 1.22.0 / 76659a55 实样另支持 llm-usage-zhipu + DbThread 0.3.0：
+//! input 为非缓存桶，正桶报告，默认零未知。以下旧依据描述 hosted 路径。
 //!
 //! 格式依据（Zed 官方源码 bd747337d7be138834e20972b9e203c7b239cc47，A38；
 //! 本机 2026-09-29 只读核对 threads 表 schema 一致、0 行）：
@@ -39,7 +41,7 @@ use crate::ingest::DiagnosticInput;
 use serde::{Deserialize, Serialize};
 use std::io::Read;
 
-pub const ZED_PARSER_VERSION: &str = "zed-threads-db-1";
+pub const ZED_PARSER_VERSION: &str = "zed-threads-db-2";
 /// 单轮行数上限。
 pub const MAX_ROWS_PER_ROUND: i64 = 50_000;
 /// 单线程 data blob 解压上限（64 MiB；超限跳过该行并记诊断）。
@@ -255,7 +257,9 @@ pub fn scan(
             .pointer("/model/provider")
             .and_then(|v| v.as_str())
             .unwrap_or("");
-        if provider != "zed.dev" {
+        let verified_external = provider == "llm-usage-zhipu"
+            && document.get("version").and_then(|v| v.as_str()) == Some("0.3.0");
+        if provider != "zed.dev" && !verified_external {
             if !external_reported {
                 external_reported = true;
                 diagnostics.push(diag(
@@ -325,7 +329,14 @@ pub fn scan(
             ));
             continue;
         };
-        let mapped = map_zed(&cumulative);
+        let mapped = if verified_external {
+            crate::adapters::zed::common::map_verified_openai(&cumulative)
+        } else {
+            map_zed(&cumulative)
+        };
+        if verified_external && cumulative_total == 0 {
+            continue;
+        }
         aggregates.push(SourceAggregateInput {
             instance_id: target.instance_id.clone(),
             scope: AggregateScope::Session,

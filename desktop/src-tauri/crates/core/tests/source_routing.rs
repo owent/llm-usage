@@ -25,6 +25,107 @@ fn config(id: &str) -> RunConfig {
         origin_host_id: None,
     }
 }
+
+#[test]
+fn verified_zed_file_routes_registry_and_retires_empty_legacy_parent_instances() {
+    use llm_usage_core::adapters::routing::retire_misrouted_zed_sources;
+    let (dir, s) = temp_storage("zed-registry-routing");
+    let file = dir.path().join("threads.db");
+    let conn = rusqlite::Connection::open(&file).unwrap();
+    conn.execute("CREATE TABLE threads(id TEXT PRIMARY KEY,summary TEXT,updated_at TEXT,data_type TEXT,data BLOB,created_at TEXT)", []).unwrap();
+    let fixture: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/zed/native-1.22.0.json")).unwrap();
+    for row in fixture["threads"].as_array().unwrap() {
+        conn.execute(
+            "INSERT INTO threads VALUES(?1,'synthetic',?2,'json',?3,'2026-10-07T03:38:00Z')",
+            params![
+                row["id"].as_str().unwrap(),
+                row["updated_at"].as_str().unwrap(),
+                serde_json::to_vec(row).unwrap()
+            ],
+        )
+        .unwrap();
+    }
+    drop(conn);
+    let ctx = DiscoverContext {
+        manual_roots: vec![file.clone()],
+        ..Default::default()
+    };
+    let mut legacy = 0;
+    for adapter in built_in_adapters() {
+        if adapter.adapter_id() == "zed" {
+            continue;
+        }
+        for root in adapter.discover(&ctx) {
+            register(
+                &s,
+                &adapter.instance_id(&root),
+                adapter.adapter_id(),
+                &root.root,
+            );
+            legacy += 1;
+        }
+    }
+    assert!(legacy >= 2, "exercise real DSH and MiMo parent discovery");
+    register(
+        &s,
+        "unrelated-error",
+        "mimo-code",
+        &dir.path().join("other"),
+    );
+    s.conn().execute("INSERT INTO diagnostics(instance_id,code,message,created_ms) VALUES('unrelated-error','bad_file','retained evidence',0)",[]).unwrap();
+    for pass in 0..2 {
+        retire_misrouted_zed_sources(&s, &ctx).unwrap();
+        for adapter in built_in_adapters() {
+            let routed = context_for_adapter(&ctx, adapter.adapter_id(), &[]);
+            let reports = run_adapter_scan(
+                &s,
+                adapter.as_ref(),
+                &routed,
+                &config(&format!("zed-route-{pass}")),
+            )
+            .unwrap();
+            if adapter.adapter_id() != "zed" {
+                assert!(reports.is_empty(), "{}", adapter.adapter_id());
+            }
+        }
+        assert_eq!(count(&s, "source_files"), 1);
+        assert_eq!(count(&s, "usage_events"), 0);
+        assert_eq!(count(&s, "source_aggregates"), 2);
+        assert_eq!(
+            s.conn()
+                .query_row(
+                    "SELECT COUNT(*) FROM source_instances WHERE health='not_applicable'",
+                    [],
+                    |r| r.get::<_, i64>(0)
+                )
+                .unwrap(),
+            legacy
+        );
+        assert_eq!(
+            s.conn()
+                .query_row(
+                    "SELECT health FROM source_instances WHERE instance_id='unrelated-error'",
+                    [],
+                    |r| r.get::<_, String>(0)
+                )
+                .unwrap(),
+            "error"
+        );
+        assert_eq!(count(&s, "diagnostics"), 1);
+    }
+    let bad = dir.path().join("bad/threads.db");
+    std::fs::create_dir_all(bad.parent().unwrap()).unwrap();
+    std::fs::write(&bad, b"not sqlite").unwrap();
+    let ctx = DiscoverContext {
+        manual_roots: vec![bad.clone()],
+        ..Default::default()
+    };
+    assert_eq!(
+        context_for_adapter(&ctx, "mimo-code", &[]).manual_roots,
+        vec![bad]
+    );
+}
 fn telemetry(root: &Path) {
     std::fs::create_dir_all(root).unwrap();
     let span = json!({"name":"chat claude-opus-4.8","kind":2,"spanId":"span","traceId":"trace",

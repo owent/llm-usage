@@ -247,6 +247,8 @@ fn main() {
             commands::set_current_user,
             commands::assign_source_user,
             commands::import_exchange,
+            commands::preview_exchange,
+            commands::budget_status,
             commands::storage_stats,
             commands::manual_cleanup,
             commands::cancel_cleanup,

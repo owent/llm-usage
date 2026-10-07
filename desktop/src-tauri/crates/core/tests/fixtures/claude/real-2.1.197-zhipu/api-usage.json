@@ -1,0 +1,58 @@
+[
+  {
+    "run": "glm-5.3-flash",
+    "path": "/v1/messages?beta=true",
+    "model": "glm-5.3-flash",
+    "stream": true,
+    "usage": [
+      {
+        "type": "message_start",
+        "usage": {
+          "input_tokens": 0,
+          "output_tokens": 0
+        }
+      },
+      {
+        "type": "message_delta",
+        "usage": {
+          "input_tokens": 1339,
+          "output_tokens": 33,
+          "cache_read_input_tokens": 0,
+          "server_tool_use": {
+            "web_search_requests": 0
+          },
+          "service_tier": "standard"
+        }
+      }
+    ],
+    "status": 200
+  },
+  {
+    "run": "glm-5.3",
+    "path": "/v1/messages?beta=true",
+    "model": "glm-5.3",
+    "stream": true,
+    "usage": [
+      {
+        "type": "message_start",
+        "usage": {
+          "input_tokens": 0,
+          "output_tokens": 0
+        }
+      },
+      {
+        "type": "message_delta",
+        "usage": {
+          "input_tokens": 1338,
+          "output_tokens": 23,
+          "cache_read_input_tokens": 0,
+          "server_tool_use": {
+            "web_search_requests": 0
+          },
+          "service_tier": "standard"
+        }
+      }
+    ],
+    "status": 200
+  }
+]

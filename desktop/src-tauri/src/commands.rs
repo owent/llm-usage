@@ -768,6 +768,10 @@ fn apply_settings(
     state: &AppState,
     mut settings: AppSettings,
 ) -> Result<(), String> {
+    settings
+        .budget
+        .validate()
+        .map_err(|e| err("invalid_budget", e.to_string()))?;
     // Receiver lifecycle is owned by telemetry setup. A settings form opened earlier
     // must not silently turn it back off when saving unrelated preferences.
     if let Some(w) = settings.week_start {
@@ -1021,7 +1025,7 @@ pub fn export_data(
             }
             Ok(serde_json::json!({ "path": path.to_string_lossy(), "kind": kind }))
         }
-        "exchange" => {
+        "exchange" | "details" => {
             let storage = crate::app_state::read_conn(&state);
             // 按用户/主机过滤导出范围（默认当前用户+当前主机）。
             let instances: Vec<String> = {
@@ -1045,27 +1049,34 @@ pub fn export_data(
                     })
                     .map_err(|e| err("db", e.to_string()))?
             };
-            let export = build_aggregate_export(
-                &storage,
-                &ExportRequest {
-                    timezone: settings.timezone.clone(),
-                    from_ms: 0,
-                    to_ms: now_ms() + 86_400_000,
-                    instances: Some(instances),
-                    redact_hostnames: true,
-                    kind: ExchangeKind::FullSnapshot,
-                    batch_id: format!("export-{}", now_ms()),
-                },
-                now_ms(),
-            )
-            .map_err(|e| err("export", e.to_string()))?;
+            let export_request = ExportRequest {
+                timezone: settings.timezone.clone(),
+                from_ms: 0,
+                to_ms: now_ms() + 86_400_000,
+                instances: Some(instances),
+                redact_hostnames: true,
+                kind: ExchangeKind::FullSnapshot,
+                batch_id: format!("export-{}", now_ms()),
+            };
+            let bytes = if kind == "details" {
+                let export = llm_usage_core::detail_exchange::build_details(
+                    &storage,
+                    &export_request,
+                    now_ms(),
+                )
+                .map_err(|e| err("export", e.to_string()))?;
+                serde_json::to_vec_pretty(&export).map_err(|e| err("serialize", e.to_string()))?
+            } else {
+                let export = build_aggregate_export(&storage, &export_request, now_ms())
+                    .map_err(|e| err("export", e.to_string()))?;
+                serde_json::to_vec_pretty(&export).map_err(|e| err("serialize", e.to_string()))?
+            };
             drop(storage);
-            let path = dir.join(format!("exchange-{}.json", now_ms()));
-            std::fs::write(
-                &path,
-                serde_json::to_vec_pretty(&export).map_err(|e| err("serialize", e.to_string()))?,
-            )
-            .map_err(|e| err("io", e.to_string()))?;
+            if bytes.len() > 64 * 1024 * 1024 {
+                return Err(err("export", "exchange file exceeds 64 MiB"));
+            }
+            let path = dir.join(format!("{kind}-{}.json", now_ms()));
+            std::fs::write(&path, bytes).map_err(|e| err("io", e.to_string()))?;
             Ok(serde_json::json!({ "path": path.to_string_lossy(), "kind": kind }))
         }
         other => Err(err(
@@ -1200,10 +1211,26 @@ pub fn import_exchange(
     state: tauri::State<'_, Arc<AppState>>,
     path: String,
 ) -> Result<serde_json::Value, String> {
-    let bytes = std::fs::read(&path).map_err(|e| err("io", format!("{path:?}: {e}")))?;
-    let export: llm_usage_core::exchange::ExchangeExport =
+    let bytes = read_exchange(&path)?;
+    let pricing = state.settings.lock().unwrap().pricing.clone();
+    let value: serde_json::Value =
         serde_json::from_slice(&bytes).map_err(|e| err("parse", e.to_string()))?;
     let storage = state.storage.lock().unwrap();
+    if value.get("format_version").and_then(|v| v.as_str())
+        == Some(llm_usage_core::detail_exchange::FORMAT)
+    {
+        let package = serde_json::from_value(value).map_err(|e| err("parse", e.to_string()))?;
+        let options = pricing.estimate_options();
+        let outcome = llm_usage_core::detail_exchange::import_details_with_pricing(
+            &storage,
+            &package,
+            now_ms(),
+            pricing.enabled.then_some(&options),
+        )
+        .map_err(|e| err("import", e.to_string()))?;
+        return serde_json::to_value(outcome).map_err(|e| err("serialize", e.to_string()));
+    }
+    let export = serde_json::from_value(value).map_err(|e| err("parse", e.to_string()))?;
     let outcome = llm_usage_core::exchange_import::import_aggregate(
         &storage,
         &export,
@@ -1211,6 +1238,85 @@ pub fn import_exchange(
     )
     .map_err(|e| err("import", e.to_string()))?;
     serde_json::to_value(&outcome).map_err(|e| err("serialize", e.to_string()))
+}
+
+fn read_exchange(path: &str) -> Result<Vec<u8>, String> {
+    use std::io::Read;
+    let file = std::fs::File::open(path).map_err(|e| err("io", e.to_string()))?;
+    let mut bytes = Vec::new();
+    file.take(64 * 1024 * 1024 + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|e| err("io", e.to_string()))?;
+    if bytes.len() > 64 * 1024 * 1024 {
+        return Err(err("import", "exchange package exceeds 64 MiB"));
+    }
+    Ok(bytes)
+}
+
+#[tauri::command]
+pub fn preview_exchange(path: String) -> Result<serde_json::Value, String> {
+    let value: serde_json::Value =
+        serde_json::from_slice(&read_exchange(&path)?).map_err(|e| err("parse", e.to_string()))?;
+    let (archive, details, cumulative) = if value.get("format_version").and_then(|v| v.as_str())
+        == Some(llm_usage_core::detail_exchange::FORMAT)
+    {
+        let package: llm_usage_core::detail_exchange::DetailExchange =
+            serde_json::from_value(value).map_err(|e| err("parse", e.to_string()))?;
+        (
+            package.archive,
+            package.details.len(),
+            package.cumulative.len(),
+        )
+    } else {
+        let package: llm_usage_core::exchange::ExchangeExport =
+            serde_json::from_value(value).map_err(|e| err("parse", e.to_string()))?;
+        (package, 0, 0)
+    };
+    if archive.format_version != EXCHANGE_FORMAT_VERSION {
+        return Err(err("import", "unsupported exchange format"));
+    }
+    Ok(
+        serde_json::json!({"sources":archive.sources.len(),"details":details,"cumulative":cumulative,"daily":archive.daily_partitions.len(),"timezone":archive.timezone}),
+    )
+}
+
+#[tauri::command]
+pub async fn budget_status(
+    state: tauri::State<'_, Arc<AppState>>,
+    claim: bool,
+    expected_user: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let state = Arc::clone(&state);
+    let settings = state.settings.lock().unwrap().clone();
+    let user = state.current_user.lock().unwrap().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let storage = state.storage.lock().unwrap();
+        if expected_user
+            .as_ref()
+            .is_some_and(|expected| expected != &user)
+            || *state.current_user.lock().unwrap() != user
+        {
+            return Err(err("budget", "current user changed; retry"));
+        }
+        let request = llm_usage_core::budgets::BudgetRequest {
+            settings: &settings.budget,
+            timezone: &settings.timezone,
+            user_id: &user,
+            instances: user_instances(&storage, &user)?,
+            now_ms: now_ms(),
+            pricing_enabled: settings.pricing.enabled,
+            price_options: settings.pricing.estimate_options(),
+        };
+        let status = if claim {
+            llm_usage_core::budgets::claim(&storage, &request)
+        } else {
+            llm_usage_core::budgets::evaluate(&storage, &request)
+        }
+        .map_err(|e| err("budget", e.to_string()))?;
+        serde_json::to_value(status).map_err(|e| err("serialize", e.to_string()))
+    })
+    .await
+    .map_err(|_| err("budget", "budget worker failed"))?
 }
 
 /// 各归档层条目数 + 库文件占用（含 WAL）。

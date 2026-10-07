@@ -313,6 +313,7 @@ pub(crate) fn commit_batch_tx(
                     || junie_policy_upgrade(old, event)
                     || ui_message_policy_upgrade(old, event)
                     || mimo_policy_upgrade(old, event)
+                    || claude_native_policy_upgrade(old, event)
             }) {
                 // Explicit source policies compare the full old
                 // digest. Preserve first observation, real conflict flags and all
@@ -324,6 +325,10 @@ pub(crate) fn commit_batch_tx(
                 )?;
                 let mut current = event.clone();
                 current.observed_at_ms = old.3;
+                if event.agent == "claude-code" {
+                    current.occurred_at_ms = old.1;
+                    current.source_time = old.4.clone();
+                }
                 update_event(
                     tx,
                     &current,
@@ -523,6 +528,57 @@ fn parser_metadata_upgrade(old: &ExistingRow, event: &EventInput) -> bool {
         }
         legacy.observed_at_ms = old.3;
         if content_hash(&legacy) == old.0.content_hash {
+            return true;
+        }
+    }
+    false
+}
+
+/// Reconstruct the complete doc1 event for the verified native writer only.
+/// All positive counters, identity and attribution must still match the old digest.
+fn claude_native_policy_upgrade(old: &ExistingRow, event: &EventInput) -> bool {
+    use crate::adapters::claude::{
+        common::map_claude_native, map_claude_transcript, ClaudeTranscriptUsage,
+    };
+    if event.agent != "claude-code"
+        || event.schema_version != "2.1.197"
+        || event.parser_version != "claude-transcript-doc2"
+        || event.parse_basis != Some(crate::domain::VersionBasis::KnownVersion)
+        || old.5 != "claude-transcript-doc1"
+        || old.0.source_revision != event.source_revision
+    {
+        return false;
+    }
+    let raw = ClaudeTranscriptUsage {
+        input_tokens: event.usage.input_uncached.unwrap_or(0),
+        output_tokens: event.usage.output_total.unwrap_or(0),
+        cache_read_input_tokens: event.usage.input_cache_read.unwrap_or(0),
+        cache_creation_input_tokens: event.usage.input_cache_write.unwrap_or(0),
+    };
+    let expected = map_claude_native(&raw);
+    if event.usage != expected.usage
+        || event.quality != expected.quality
+        || event.provider_id.is_some()
+    {
+        return false;
+    }
+    let mapped = map_claude_transcript(&raw);
+    let mut legacy = event.clone();
+    legacy.schema_version = "transcript-doc-1".into();
+    legacy.parser_version = old.5.clone();
+    legacy.parse_basis = Some(crate::domain::VersionBasis::KnownVersion);
+    legacy.provider_id = Some("anthropic".into());
+    legacy.usage = mapped.usage;
+    legacy.quality = mapped.quality;
+    legacy.observed_at_ms = old.3;
+    for preserve_time in [false, true] {
+        if preserve_time {
+            legacy.occurred_at_ms = old.1;
+            legacy.source_time = old.4.clone();
+        }
+        if event_content_hash(&legacy) == old.0.content_hash
+            || content_hash(&legacy) == old.0.content_hash
+        {
             return true;
         }
     }

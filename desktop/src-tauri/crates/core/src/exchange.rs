@@ -279,6 +279,25 @@ fn build_export_inner(
     include_records: bool,
 ) -> Result<ExchangeExport, CoreError> {
     let snapshot = storage.conn().unchecked_transaction()?;
+    let export = build_export_tx(storage, request, now_ms, include_records)?;
+    snapshot.commit()?;
+    Ok(export)
+}
+
+pub(crate) fn build_aggregate_export_tx(
+    storage: &Storage,
+    request: &ExportRequest,
+    now_ms: i64,
+) -> Result<ExchangeExport, CoreError> {
+    build_export_tx(storage, request, now_ms, false)
+}
+
+fn build_export_tx(
+    storage: &Storage,
+    request: &ExportRequest,
+    now_ms: i64,
+    include_records: bool,
+) -> Result<ExchangeExport, CoreError> {
     let local_host = storage.local_host_id()?;
     // 包主机取本机身份；每个来源另存原始主机，避免再导出改写历史归属。
     let Some(host_id) = local_host else {
@@ -560,7 +579,6 @@ fn build_export_inner(
             }
         }
     }
-    snapshot.commit()?;
     Ok(ExchangeExport {
         format_version: EXCHANGE_FORMAT_VERSION.to_string(),
         kind: request.kind.clone(),

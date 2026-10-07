@@ -1,8 +1,7 @@
 //! Claude Code 适配器（独立目录约定 architecture.md#adapter-layout，V30 目录迁移）：
 //! - 本模块是该 Agent 的稳定入口（统一接口实现与再导出）；
 //! - [`detect`]：格式探测（首行记录类型集合）；
-//! - [`versions`]：已验证格式实现的注册与映射；claude transcript 无 CLI 版本字段，
-//!   格式锚点是文档级格式版本 transcript-doc-1，不存在"未知版本"状态；
+//! - [`versions`]：旧文档锚点与逐条 2.1.197 原生版本独立绑定；
 //! - 历史版本的格式实现一律保留在本目录内，不再回到根级单文件。
 //!
 //! 原始格式依据见各版本模块文件头；目录迁移不改已验收的拒绝语义
@@ -120,44 +119,42 @@ impl crate::adapters::framework::SourceAdapter for ClaudeAdapter {
         fields.insert(
             "tokens".into(),
             field(
-                Availability::Partial(
-                    "文档级证据，待真实样本：四字段互斥口径派生 input_total/total".into(),
-                ),
+                Availability::Partial("2.1.197 原生实样：正桶报告值；默认零与完整总量未知".into()),
                 "message.usage 四字段 input/output/cache_read/cache_creation（全必填）",
             ),
         );
         fields.insert(
             "cache_read".into(),
             field(
-                Availability::Partial("文档级证据，待真实样本".into()),
-                "cache_read_input_tokens reported",
+                Availability::Partial("2.1.197 已核对；其他版本/协议未核验".into()),
+                "原生正 cache_read_input_tokens 为 reported；零未知，本次无正缓存实样",
             ),
         );
         fields.insert(
             "cache_write".into(),
             field(
-                Availability::Partial("文档级证据，待真实样本".into()),
-                "cache_creation_input_tokens reported",
+                Availability::Partial("2.1.197 已核对；其他版本/协议未核验".into()),
+                "原生正 cache_creation_input_tokens 为 reported；零未知，本次无正缓存实样",
             ),
         );
         fields.insert(
             "per_request_calls".into(),
             field(
                 Availability::Available,
-                "同一 API 响应按内容块持久化为多条目（官方文档）；按 requestId 去重后每条是一次调用",
+                "2.1.197 两次 HTTP 请求生成四条内容块；按 requestId 或 message.id 去重计两次调用",
             ),
         );
         fields.insert(
             "model".into(),
             field(
-                Availability::Partial("文档级证据，待真实样本".into()),
+                Availability::Partial("2.1.197 已核对；其他版本/协议未核验".into()),
                 "message.model 记录自带字段（request_field）",
             ),
         );
         fields.insert(
             "time".into(),
             field(
-                Availability::Partial("文档级证据，待真实样本".into()),
+                Availability::Partial("2.1.197 已核对；其他版本/协议未核验".into()),
                 "条目 ISO8601 时间戳，source_completion 口径",
             ),
         );
@@ -196,13 +193,13 @@ impl crate::adapters::framework::SourceAdapter for ClaudeAdapter {
             }),
             detection: serde_json::json!({
                 "magic": "首行 JSONL type ∈ {user, assistant, system}",
-                "version_field": "无版本字段；格式版本为文档级 transcript-doc-1；注册表形状与其他 Agent 统一",
+                "version_field": "assistant.version 逐条绑定；2.1.197 原生已核对；无版本旧文档锚点独立保留",
                 "fail_closed": true,
                 "unknown_version": "未文档化记录 type 或载体外 usage 字段：整文件拒绝，不猜格式",
             }),
             fields,
             lifecycle: serde_json::json!({
-                "model_call": "assistant 条目 message.usage（final，requestId 身份）",
+                "model_call": "assistant 条目 message.usage（final，requestId 或 message.id 身份）",
                 "one_response_many_entries": "一个 API 响应按内容块持久化为多条目（官方文档）；usage 重复，按 requestId upsert 去重",
                 "cumulative_snapshot": "transcript 无累计快照；goal/账单侧写不接入",
                 "aborted": "格式内无证据；未观测",
@@ -226,11 +223,11 @@ impl crate::adapters::framework::SourceAdapter for ClaudeAdapter {
                 "hidden_calls": "auxiliary（compact 等）请求若写入 transcript 则按同口径计入；OTel 侧未接入",
                 "sampling": "未观测到采样；坏行逐条隔离记诊断",
                 "source_retention": "cleanupPeriodDays 清扫（默认 30 天）；可回填范围以现存文件为准",
-                "prompt_content": "只读白名单字段（type/timestamp/sessionId/requestId/uuid/isSidechain/message.{id,model,usage}），正文不提取",
+                "prompt_content": "只读白名单字段（type/timestamp/version/sessionId/requestId/uuid/isSidechain/message.{id,model,usage}），正文不提取",
             }),
             maintenance: serde_json::json!({
-                "parser_version": versions::transcript_doc1::CLAUDE_PARSER_VERSION,
-                "format_evidence": "官方文档 A01（transcript 路径与变体、requestId、一条响应多条目、usage 四分类）；条目形状为 Anthropic API usage 口径，待真实样本",
+                "parser_version": versions::transcript_doc1::NATIVE_PARSER_VERSION,
+                "format_evidence": "A01 文档与 2.1.197 原生 GLM 两模型；API/CLI/原生日志的正输入/输出独立相符",
                 "upgrade_policy": "transcript 条目格式官方明示不稳定；偏离（未知 type、载体外 usage）fail closed，取得真实样本后扩展",
             }),
             scheduling: serde_json::json!({
@@ -239,13 +236,22 @@ impl crate::adapters::framework::SourceAdapter for ClaudeAdapter {
                 "pause_cancel": "文件间可停；单轮预算有界",
             }),
             limitations: vec![
-                "全部字段口径为文档级证据（A01），本机无真实样本（not_found）；首份真实 fixture 到达后逐字段核验".into(),
+                "2.1.197 智谱兼容端点主循环实样已核对；Anthropic 原生、重试、辅助及子 Agent 尚未实测".into(),
                 "transcript 条目格式官方明示非稳定合同，任何偏离 fail closed 而非猜测".into(),
-                "usage 四字段缺一不可（缺失是未知不补零）；input_total/total 由互斥拆分派生".into(),
+                "原生版本四桶仍校验完整形状；默认零未知，缺桶不补零；本地没有渠道字段，provider 未知".into(),
                 "OTel telemetry（query_source 分类、duration_ms）不接入，不与 transcript 相加".into(),
                 "无 requestId/message.id/uuid 记录用 sessionId+行号身份，文件同位替换后可能形成新键".into(),
                 "符号链接/junction 不跟随；Windows 无稳定文件索引号，身份靠创建时间+首采样".into(),
             ],
         }
+    }
+
+    fn should_scan_unchanged(&self, stored: &crate::adapters::framework::StoredScanState) -> bool {
+        stored
+            .parse_context
+            .as_ref()
+            .and_then(|c| c.get("native_rules_version"))
+            .and_then(serde_json::Value::as_u64)
+            != Some(1)
     }
 }

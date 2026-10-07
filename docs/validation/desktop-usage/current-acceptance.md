@@ -1,7 +1,7 @@
 # 最新实施与验收
 
-最近业务验收：2026-10-06，版本 0.2.1。本文为结果索引；
-当前未完成任务及执行条件统一见 [Plan.md](../../../Plan.md)，验收条件见
+最近业务验收：2026-10-07，版本 0.2.1。本文为结果索引；
+当前范围及移出条件统一见 [Plan.md](../../../Plan.md)，验收条件见
 [V01–V31](../../design/desktop-usage/validation.md)。专项记录保留完整命令、数量、环境、
 首次失败和恢复过程，本页不重复逐轮实施历史。
 
@@ -13,8 +13,8 @@ Linux 使用 WSL/Debian 独立 rootless Podman；CI runner 与受测提交另见
 
 | 检查 | 已核对结果 | 记录与适用范围 |
 | --- | --- | --- |
-| 本机统一检查及浏览器 | verify 退出 0：Rust 1,007、前端 21、脚本 4，类型无错误/告警；Edge 浏览器回归通过 | [三源阶段](m3-container-samples.md)及 [M8 成品](m8-container-samples.md)；浏览器使用模拟 IPC |
-| Windows 成品 | 无界面 11 项；原生 WebView2/IPC 17 项及 20 次首屏检查；接收器 8 项通过，自有凭据残留 0 | [三源阶段](m3-container-samples.md)；真实 IPC/SQLite/HTTP 与来源环境隔离，exporter 配置载体为合成数据 |
+| 本机统一检查及浏览器 | verify 退出 0：Rust 1,024、前端 22、脚本 4，8 项平台条件测试忽略，类型无错误/告警；另 Claude 专项六项通过（与统一检查重叠）；此前 Edge 预算显示/去重回归保留 | [本轮](plan-20261007.md)、[Claude](claude-container-sample.md)；本次未重跑浏览器，既有模拟 IPC、[三源](m3-container-samples.md)/[M8](m8-container-samples.md) 结果保留 |
+| Windows 成品 | 最新 release/无界面 11 项、Claude 新库/旧库自动纠正通过；此前原生 WebView2/IPC 19 项（含明细 Merge/预算）、20 次首屏及接收器 8 项保留 | [Claude](claude-container-sample.md)、[本轮](plan-20261007.md)、[三源](m3-container-samples.md)；本次未重跑 GUI/IPC；SQLite 与来源环境隔离 |
 | Windows 安装 | NSIS 12 项升级/回滚/卸载/重装与失败中止通过 | [生命周期](installation-lifecycle.md)；仅自有任务/启动项，其他值保留 |
 | Linux 成品与安装 | Debian workspace 1,004 项；deb 生命周期、实际 AppImage FUSE/GTK/Orca 共 9 组/47 项通过；此前 GTK 缩放 1/2 各 40 项独立保留 | [三源阶段](m3-container-samples.md)、[生命周期](installation-lifecycle.md)、[Orca 十语言](orca-multilang.md)；真实只读挂载及退出释放已核对 |
 | 原生凭据 | Windows 处理确认后的两组各 100 轮并行、Linux 独立 D-Bus/keyring 六项及 macOS CI Keychain/HTTP 两项通过 | [跨平台凭据](platform-auth-continuation.md)、[CI](ci-plan-validation.md)；旧 Windows 撤销异常原因仍未确认，首次失败及残留检查保留 |
@@ -22,18 +22,21 @@ Linux 使用 WSL/Debian 独立 rootless Podman；CI runner 与受测提交另见
 | 规模与资源 | 百万/千万未命中查询 P95 47.05/133.86 ms；百万 GUI 导入峰值 371.09 MiB；十分钟空闲均值/峰值 299.90/363.30 MiB，达到调整后的预算 | [规模测量](plan-execution.md)、[增量与原生检查](plan-finalization.md)；开发机、合成来源、全进程 private bytes，原测量与预算调整保留 |
 
 本机 Windows/Linux 包与 CI 下载包分别核对；本机安装结果不由 CI 归档摘要推导。
-文档同步提交不等于另有一次远端 CI。制品未执行发行签名、公证或 Release 发布。
+文档与本轮代码不等于另有一次远端 CI。用户说明主分支合并、发行签名/公证及
+Release 已完成，已移出活动计划；本轮未另行发布或重新核验外部发行结果。
 
 ## 来源与功能记录
 
 | 范围 | 当前记录 |
 | --- | --- |
 | 核心存储、来源身份/聚合交换 | [M1](m1-core.md)、[M1a](m1a-provenance.md) |
+| 完整标准化明细 Merge、预算、Zed 外部 Provider | [本轮](plan-20261007.md)；事务仲裁/重扫、单币种/未知/去重及 Zed 1.22.0 两模型非空实样分列；指定端点为 Coding Plan |
 | Codex、pi/oh-my-pi、Claude/Gemini/Qwen 初始读取及版本分派 | [Codex](m2a-codex.md)、[M2 恢复](m2bc-resumed.md)、[版本目录](m2d-layout-versions.md)、[CLI 安装边界](wsl-agent-installs.md)；初始记录保留当时样本状态 |
+| Claude Code 2.1.197 | [国内下载与原生实样](claude-container-sample.md)；智谱两模型主循环、逐条版本、多块去重、默认零未知及旧库回读；Anthropic 自家模型和其他场景另验 |
 | Qwen 0.25.0 原生/SDK、OpenCode 1.18.34 | [容器来源](container-sources.md)；逐次/原生/封存分区择一，标题与后台覆盖分列 |
 | Cline SDK、Hermes、OpenClaw schema 24、MiMo/Zoo/DSH | [Cline](cline-container-sample.md)、[Hermes](hermes-container-sample.md)、[OpenClaw](openclaw-container-sample.md)、[三源](m3-container-samples.md)；真实非空载体与当前成品升级/重扫已核对 |
 | Kilo、Kimi、ZCode、CodeBuddy/WorkBuddy | [M3/M4](m34-kilo-zcode-kimi.md)、[Buddy 本机](m4-buddy-local.md)、[Kilo 健康/选区](trend-range-kilo.md)；CLI/扩展、独立对账与 trace 覆盖分列 |
-| M8 第二批 | [18 个适配器](m8-second-batch.md)、[十源真实本地模型及成品回读](m8-container-samples.md)；其余八源条件见采样路线表，Qoder 仅探针 |
+| M8 第二批 | [18 个适配器](m8-second-batch.md)、[历史十源](m8-container-samples.md)、[Zed 实样及当前容器限制](plan-20261007.md)；没有账户/协议/发行物的样本项移出当前计划，Qoder 仅探针 |
 | Copilot 四面、额度与遥测 | [规则审查](m9-copilot-review.md)、[VS Code](m9-copilot-chat-local.md)、[Visual Studio](m9-vs-copilot-local.md)、[JetBrains 静态分析](m9-jb-copilot-analysis.md)、[配置入口](telemetry-setup-ui.md) |
 | 看板、调度、取消、并行及旧规则恢复 | [原生与规模](plan-finalization.md)、[查询与后台](plan-execution.md)、[完整旧摘要](parser-conflict-fix.md)、[来源规则升级](source-policy-upgrades.md) |
 | 费用引擎、在线刷新、当前 API 参考及归档修正 | [引擎](f2-cost-engine.md)、[刷新](f2-online-refresh.md)、[当前参考](dashboard-reference.md)、[归档](pricing-archive-repair.md)；真实数据发生时估算仍有渠道前置条件 |
@@ -46,6 +49,8 @@ Linux 使用 WSL/Debian 独立 rootless Podman；CI runner 与受测提交另见
 - macOS 原生凭据与构建 CI 已通过；macOS 桌面、特定硬件不在本轮要求内。
 - 合成规模库与百万 GUI 导入不认证其他真实来源；应用调度循环不等于 OS 唤醒，暖空页不等于全新 WebView 最低开销，协作式中断不能强制取消 OS 阻塞读取。
 - 已观测 WebView 请求无外部 HTTP 不等于全进程出站审计；接收器/凭据测试不认证其他真实 exporter。
+- 更多 DPI、完整读屏、宿主登录/注销及 OS 唤醒按用户要求移出；当前环境不能执行的来源扩展、F1 与系统调查条件见本轮记录，移出不等于通过。
 
 临时日志、核对库和原始载体均位于仓库根已忽略的 build/ 各任务目录；
-公开记录保留最小脱敏结果，自有凭据、keyring 与守护进程按各次验收回收。
+公开记录保留最小脱敏结果，接收器自有凭据、一次性 keyring 与守护进程按各次验收回收；
+用户要求配置的 Zed Provider 密钥留在 Windows 凭据库，普通 settings.json 不含密钥。

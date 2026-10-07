@@ -1,7 +1,7 @@
 //! Claude Code transcript JSONL 格式实现（`transcript_doc1`，V30 目录迁移自
 //! 根级 claude.rs 单文件，拒绝语义不变）。
 //!
-//! 格式依据（官方文档，A01，按文档或源码实现，待真实样本核验）：
+//! 旧文档锚点依据（A01）；原生 2.1.197 独立按下述真实样本规则读取：
 //! - 路径：`$CLAUDE_CONFIG_DIR/projects/<project>/<session>.jsonl`（默认
 //!   `~/.claude/projects/...`）；子 Agent transcript 在
 //!   `projects/<project>/<session>/subagents/`；被替换的旧 transcript 以
@@ -13,13 +13,13 @@
 //!   去重）；`query_source` ∈ {main, subagent, auxiliary}（OTel 侧，未接入）。
 //! - 官方明示 "transcript entry format is internal ... not a stable contract"：
 //!   条目结构按 Anthropic API usage 块定义（input_tokens/output_tokens/
-//!   cache_read_input_tokens/cache_creation_input_tokens）实现，标注待真实样本。
+//!   cache_read_input_tokens/cache_creation_input_tokens）实现，不能认证原生默认零。
 //!
 //! fail closed（V17）：未文档化记录 type、或非 usage 载体记录携带 usage 字段，
 //! 整文件拒绝（游标不推进、下轮确定性再拒），不猜格式。
 //!
-//! 版本策略：无 CLI 版本字段可读，格式锚点是文档级 transcript-doc-1，
-//! 事件 `parse_basis` 固定 KnownVersion，不存在"未知版本"兼容尝试路径。
+//! 2.1.197 原生逐条 version、正用量与默认零规则见 Claude 容器实样记录。
+//! 无版本旧文档锚点独立保留；其他 version 只作兼容，不认证真实支持。
 
 use crate::domain::{
     AttributionStatus, CallCategory, EventInput, Lifecycle, ModelAttribution, RecordKind,
@@ -35,10 +35,11 @@ use crate::adapters::framework::{
 };
 use crate::adapters::jsonl::{read_jsonl, JsonlCursor, StopReason};
 
-use super::super::common::{map_claude_transcript, ClaudeTranscriptUsage};
+use super::super::common::{map_claude_native, map_claude_transcript, ClaudeTranscriptUsage};
 use super::CLAUDE_FORMAT_VERSION;
 
 pub const CLAUDE_PARSER_VERSION: &str = "claude-transcript-doc1";
+pub const NATIVE_PARSER_VERSION: &str = "claude-transcript-doc2";
 const MAX_REASONABLE_TOKEN: i64 = crate::domain::MAX_TOKEN_VALUE;
 
 /// 持久化解析上下文（跨增量轮次的"每文件一次性"诊断标志 + 版本选择依据）。
@@ -49,9 +50,15 @@ struct ClaudeParseContext {
     #[serde(default)]
     assistant_without_usage_reported: bool,
     /// 版本选择依据（known_version / latest_fallback）；旧解析上下文缺省为 None，
-    /// 迁移不重建来源、不重置游标（V30）。claude 固定为 KnownVersion。
+    /// 迁移不重建来源；事件依据由每条 assistant 的版本确定。
     #[serde(default)]
     version_basis: Option<VersionBasis>,
+    #[serde(default)]
+    native_rules_version: Option<u8>,
+    #[serde(default)]
+    native_rules_in_progress: bool,
+    #[serde(default)]
+    native_rules_invalid: bool,
 }
 
 /// 从存储的游标 JSON 还原；重扫或无效时回到文件头。
@@ -155,9 +162,22 @@ pub fn scan(
     limits: &ScanLimits,
     now_ms: i64,
 ) -> Result<ScanOutcome, CoreError> {
-    let cursor = restore_cursor(stored, target.generation, target.rescan);
-    let mut context = restore_context(stored, target.rescan);
-    // 无版本字段可读：格式锚点是文档级 transcript-doc-1，固定 KnownVersion。
+    let replay = stored.cursor.is_some()
+        && stored
+            .parse_context
+            .as_ref()
+            .and_then(|c| c.get("native_rules_version"))
+            .and_then(serde_json::Value::as_u64)
+            != Some(1)
+        && !stored
+            .parse_context
+            .as_ref()
+            .and_then(|c| c.get("native_rules_in_progress"))
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(false);
+    let cursor = restore_cursor(stored, target.generation, target.rescan || replay);
+    let mut context = restore_context(stored, target.rescan || replay);
+    // 文件格式门禁独立于每条事件的客户端版本。
     context.version_basis = Some(VersionBasis::KnownVersion);
     let mut events: Vec<EventInput> = Vec::new();
     let mut diagnostics: Vec<DiagnosticInput> = Vec::new();
@@ -286,7 +306,26 @@ pub fn scan(
                     ));
                     continue;
                 }
-                let mapped = map_claude_transcript(&usage);
+                let source_version = line.get("version").map(|v| {
+                    v.as_str()
+                        .filter(|s| s.len() <= 128)
+                        .unwrap_or("unverified-version")
+                });
+                let schema_version = source_version.unwrap_or(CLAUDE_FORMAT_VERSION);
+                let selection = super::select(Some(schema_version));
+                let mapped = if source_version.is_some() {
+                    map_claude_native(&usage)
+                } else {
+                    map_claude_transcript(&usage)
+                };
+                if selection.basis == VersionBasis::LatestFallback {
+                    diagnostics.push(diag(
+                        "latest_fallback",
+                        Some("version"),
+                        raw.number,
+                        "record version unverified; conservative native mapping retained",
+                    ));
+                }
                 for contradiction in &mapped.diagnostics {
                     diagnostics.push(diag(
                         contradiction.code,
@@ -299,9 +338,14 @@ pub fn scan(
                     source_instance_id: target.instance_id.clone(),
                     source_record_key,
                     record_kind: RecordKind::ModelCall,
-                    schema_version: CLAUDE_FORMAT_VERSION.to_string(),
-                    parser_version: CLAUDE_PARSER_VERSION.to_string(),
-                    parse_basis: Some(VersionBasis::KnownVersion),
+                    schema_version: schema_version.to_string(),
+                    parser_version: if source_version.is_some() {
+                        NATIVE_PARSER_VERSION
+                    } else {
+                        CLAUDE_PARSER_VERSION
+                    }
+                    .to_string(),
+                    parse_basis: Some(selection.basis),
                     origin_call_id,
                     attempt_id: None,
                     session_id: Some(session_id.to_string()),
@@ -319,7 +363,7 @@ pub fn scan(
                     time_basis: TimeBasis::SourceCompletion,
                     interval_start_ms: None,
                     interval_end_ms: None,
-                    provider_id: Some("anthropic".to_string()),
+                    provider_id: source_version.is_none().then(|| "anthropic".to_string()),
                     model_raw: model.clone(),
                     model_canonical: None,
                     model_attribution: if model.is_some() {
@@ -391,6 +435,11 @@ pub fn scan(
             )
         });
     // fail closed：本轮事件清空、游标不推进（不提交 checkpoint），下轮确定性再拒。
+    context.native_rules_invalid |= health_degraded;
+    context.native_rules_in_progress = status == ScanStatus::BudgetExhausted;
+    if status == ScanStatus::Complete && !context.native_rules_invalid && fail_closed.is_none() {
+        context.native_rules_version = Some(1);
+    }
     let (cursor_out, context_out) = if let Some((line_no, detail, code)) = fail_closed {
         diagnostics.push(diag(code, Some("type"), line_no, &detail));
         events.clear();

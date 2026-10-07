@@ -193,7 +193,7 @@ fn capability_table_is_structured_and_complete() {
     assert_eq!(json["adapter_id"], "claude");
     assert_eq!(
         json["supported_versions"],
-        serde_json::json!(["transcript-doc-1"])
+        serde_json::json!(["transcript-doc-1", "2.1.197"])
     );
     // 字段能力八项齐全。
     for key in [
@@ -273,7 +273,7 @@ fn capability_table_is_structured_and_complete() {
     assert_eq!(stored["detection"]["fail_closed"], true);
     assert_eq!(
         stored["supported_versions"],
-        serde_json::json!(["transcript-doc-1"])
+        serde_json::json!(["transcript-doc-1", "2.1.197"])
     );
 }
 

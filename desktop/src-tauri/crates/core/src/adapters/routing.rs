@@ -13,6 +13,9 @@ pub fn context_for_adapter(
     if adapter_id != "qwen" {
         ctx.manual_roots.retain(|root| !qwen_native_root(root));
     }
+    if adapter_id != "zed" {
+        ctx.manual_roots.retain(|root| !zed_native_file(root));
+    }
     if adapter_id == "otel" {
         ctx.manual_roots.extend_from_slice(copilot_otel_roots);
     }
@@ -36,6 +39,29 @@ pub fn retire_misrouted_qwen_sources(
         .cloned()
         .collect();
     retire_other_sources(storage, &roots, "qwen")
+}
+
+pub fn retire_misrouted_zed_sources(
+    storage: &Storage,
+    ctx: &DiscoverContext,
+) -> Result<(), CoreError> {
+    let roots: Vec<_> = ctx
+        .manual_roots
+        .iter()
+        .filter(|root| zed_native_file(root))
+        .cloned()
+        .collect();
+    retire_other_sources(storage, &roots, "zed")
+}
+
+fn zed_native_file(path: &Path) -> bool {
+    // A filename alone never hides a manually selected corrupt database.
+    path.is_file()
+        && path.file_name().and_then(|s| s.to_str()) == Some("threads.db")
+        && matches!(
+            super::zed::detect::detect(path),
+            Ok(DetectOutcome::Supported { .. })
+        )
 }
 
 fn retire_other_sources(storage: &Storage, roots: &[PathBuf], keep: &str) -> Result<(), CoreError> {

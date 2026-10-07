@@ -12,6 +12,7 @@ import { dashboardCatalogs } from './dashboard-locales';
 import { polishCatalogs } from './polish-locales';
 import { referenceCatalogs } from './reference-locales';
 import { schedulingCatalogs } from './scheduling-locales';
+import { completionCatalogs } from './completion-locales';
 
 export const LANGUAGE_OPTIONS = [
   ['zh-CN', '简体中文'],
@@ -752,6 +753,7 @@ for (const [locale, catalog] of Object.entries(catalogs)) {
   Object.assign(catalog, polishCatalogs[locale]);
   Object.assign(catalog, referenceCatalogs[locale]);
   Object.assign(catalog, schedulingCatalogs[locale]);
+  Object.assign(catalog, completionCatalogs[locale]);
 }
 
 export const DEFAULT_LOCALE: Locale = 'zh-CN';

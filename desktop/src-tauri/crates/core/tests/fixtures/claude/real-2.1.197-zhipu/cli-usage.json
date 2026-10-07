@@ -1,0 +1,90 @@
+[
+  {
+    "run": "glm-5.3-flash",
+    "exit_code": 0,
+    "seconds": 2.39,
+    "stderr": "",
+    "report": {
+      "subtype": "success",
+      "is_error": false,
+      "usage": {
+        "input_tokens": 1339,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 33,
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 0,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "",
+        "iterations": [],
+        "speed": "standard"
+      },
+      "modelUsage": {
+        "glm-5.3-flash": {
+          "inputTokens": 1339,
+          "outputTokens": 33,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0,
+          "webSearchRequests": 0,
+          "costUSD": 0.00752,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000
+        }
+      },
+      "num_turns": 1,
+      "duration_ms": 2081,
+      "duration_api_ms": 2063,
+      "total_cost_usd": 0.00752
+    }
+  },
+  {
+    "run": "glm-5.3",
+    "exit_code": 0,
+    "seconds": 5.95,
+    "stderr": "",
+    "report": {
+      "subtype": "success",
+      "is_error": false,
+      "usage": {
+        "input_tokens": 1338,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 23,
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 0,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "",
+        "iterations": [],
+        "speed": "standard"
+      },
+      "modelUsage": {
+        "glm-5.3": {
+          "inputTokens": 1338,
+          "outputTokens": 23,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0,
+          "webSearchRequests": 0,
+          "costUSD": 0.007265,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000
+        }
+      },
+      "num_turns": 1,
+      "duration_ms": 5674,
+      "duration_api_ms": 5654,
+      "total_cost_usd": 0.007265
+    }
+  }
+]

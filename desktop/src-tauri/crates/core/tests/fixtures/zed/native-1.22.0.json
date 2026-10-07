@@ -1,0 +1,24 @@
+{
+  "evidence": "Windows Zed 1.22.0 revision 76659a55, 2026-10-07, native built-in Agent with configured OpenAI chat provider; synthetic OK prompts, statistics whitelist only",
+  "threads": [
+    {
+      "id": "flash-thread",
+      "version": "0.3.0",
+      "model": {"provider": "llm-usage-zhipu", "model": "glm-5.3-flash"},
+      "updated_at": "2026-10-07T03:40:26.803545300Z",
+      "cumulative_token_usage": {"input_tokens": 10874, "output_tokens": 58, "cache_read_input_tokens": 10816},
+      "request_token_usage": {
+        "first-turn": {"input_tokens": 10824, "output_tokens": 27},
+        "second-turn": {"input_tokens": 50, "output_tokens": 31, "cache_read_input_tokens": 10816}
+      }
+    },
+    {
+      "id": "glm-thread",
+      "version": "0.3.0",
+      "model": {"provider": "llm-usage-zhipu", "model": "glm-5.3"},
+      "updated_at": "2026-10-07T03:41:14.916710500Z",
+      "cumulative_token_usage": {"input_tokens": 10822, "output_tokens": 3},
+      "request_token_usage": {"first-turn": {"input_tokens": 10822, "output_tokens": 3}}
+    }
+  ]
+}

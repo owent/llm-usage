@@ -4,7 +4,8 @@
 [在线刷新](#online-refresh)，结果见 [费用引擎](../../validation/desktop-usage/f2-cost-engine.md)、
 [刷新](../../validation/desktop-usage/f2-online-refresh.md)及[当前 API 参考](../../validation/desktop-usage/dashboard-reference.md)。
 真实数据的发生时估算仍需核验并配置供应商渠道；当前参考核对不认证实际账单。
-后置项统一见 [Plan.md](../../../Plan.md)。
+[预算提醒](budget-reminders.md) 已实施且默认关闭；按用户日/月和单币种发生时估算判断，
+未知量不补零。本轮指定 Coding Plan 不认证按量实付，其他范围见 [Plan.md](../../../Plan.md)。
 调研完成于 2026-09-25；费用口径以 [数据合同](data-contract.md#pricing) 为权威，
 本文补渠道依据与本地快照设计。
 

@@ -1,9 +1,7 @@
 //! Claude Code 探测：有界读取首行，按文档化记录类型集合确认 Agent 身份。
 //!
-//! claude transcript 无 CLI 版本字段可读：格式锚点是文档级格式版本
-//! transcript-doc-1（按 A01 文档定义），detect 成功即 KnownVersion，
-//! 不存在"未知版本"状态；未文档化记录类型 ⇒ 未知格式，fail closed，
-//! 不把任意未知文件交给猜测逻辑（V17）。
+//! 文件首行仅作格式门禁，不认证其他行的客户端版本；扫描按每条 assistant
+//! 自带 version 选择规则，队列元数据或安装版本不能认证历史用量。
 
 use crate::error::CoreError;
 use std::path::Path;

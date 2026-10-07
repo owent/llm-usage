@@ -63,7 +63,8 @@ Windows 原生凭据在本机显式执行，默认忽略项不能当作系统存
 矩阵使用 fail-fast=false 留下全部结果；每作业有超时，重跑只针对已定位的临时基础设施故障。
 缓存键包含 OS、架构、Rust/Node 版本和锁文件摘要，隔离不同 target，不缓存真实 Agent 数据。
 Actions 使用 v 主版本号浮动引用而非固定提交 SHA，PR 使用只读权限，无发布/签名密钥；不在特权 pull_request_target 中执行 PR 代码。
-CI artifact 与 GitHub Release 发布分开，发布/签名/公证待相应授权，不复制官方示例中的自动发版步骤。
+CI artifact 与 GitHub Release 分开；用户已说明发布/签名/公证完成，本轮不再列待办，
+不把本轮本机验证当作新的远端 CI 或 Release 核验。
 上传仅包含安装包、macOS `.app.tar.gz` 与大小/校验和报告；Debian 的
 `control.tar.gz`/`data.tar.gz`、AppDir 和其他打包暂存目录不计为发布制品。
 

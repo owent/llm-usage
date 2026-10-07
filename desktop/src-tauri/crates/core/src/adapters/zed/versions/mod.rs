@@ -2,7 +2,7 @@
 //! （architecture.md#adapter-layout / #unknown-version，V30 目录约定）。
 //!
 //! threads.db 无产品版本字段：注册表锚点是文档级格式版本
-//! zed-threads-db-1（官方源码 bd74733 建表/迁移 SQL 与 data blob 结构），
+//! zed-threads-db-1 / 2（bd74733 结构与 76659a55 外部 Provider 实样），
 //! schema 偏离在探测/扫描层 fail closed，不走版本回退。
 
 pub mod threads_db_v1;
@@ -10,11 +10,14 @@ pub mod threads_db_v1;
 /// 当前格式实现标识（"最新内置解析器"由本常量明确指定）。
 pub const LATEST_IMPL_ID: &str = "threads_db_v1";
 
-/// 文档级格式版本：按官方源码 bd74733 的 threads 表 + DbThread data blob 定义实现。
-pub const ZED_FORMAT_VERSION: &str = "zed-threads-db-1";
+/// 文档级格式版本：包含 1.22.0 的已核验外部 Provider 映射，不认证全部客户端历史。
+pub const ZED_FORMAT_VERSION: &str = "zed-threads-db-2";
 
 /// 已验证支持的格式版本 → 格式实现。
-pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[("zed-threads-db-1", "threads_db_v1")];
+pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[
+    ("zed-threads-db-1", "threads_db_v1"),
+    ("zed-threads-db-2", "threads_db_v1"),
+];
 
 /// 版本分派结论。
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -7,11 +7,12 @@
 18 个适配器（17 个解析 + Qoder 探针）已注册；Amazon Q/Codebuff/iFlow 经源码核验
 证实本地无逐次 token 载体（或已停服），按边界排除。
 下表区分实施候选与核验状态。
-实施阶段已按授权只读核对部分本机数据，未启动 Agent 或发起模型请求。
+初始实施阶段只读核对本机数据；此后真实请求及容器验收按各专项授权执行。
 用户列出的 Codex 重复项合并，CLI/桌面/IDE 仍须分别标识产品表面。
 Harness Agent 按用户提供官网更正为 Hermes Agent。所有工具均保留本地支持计划；
-按用户最新决定，缺少本地格式依据的 IDE 后移 F1，当前不探测/实施
-（Junie CLI 与 Zed 内置已取得本地载体依据，转 M8；见扩展覆盖）。
+缺少本地格式依据的 IDE 保留 F1 标签；2026-10-07 已按授权核查候选本机安装，
+没有可测试安装/载体的项移出本轮。Junie CLI 与 Zed 内置已转 M8；
+Zed 外部 Provider 实样见 [本轮记录](../../validation/desktop-usage/plan-20261007.md)。
 实施阶段可提取本机真实 Agent 数据验证，流程见 [开工准备](implementation-readiness.md)。
 不以企业 API、账号报表或远程日志替代本机来源。
 
@@ -36,7 +37,7 @@ Harness Agent 按用户提供官网更正为 Hermes Agent。所有工具均保�
 
 | 工具/变体 | 拟接入来源与可用信息 | 边界与下一步 | 阶段/依据 |
 | --- | --- | --- | --- |
-| Claude Code | projects 下会话/子 Agent JSONL；官方 OTel 的 input/output/cacheRead/cacheCreation、模型与请求事件 | 本地 JSONL 逐请求形态需 fixture；遥测需显式启用，防会话/辅助统计重叠。**2026-09-30 真实样本（2.1.197，WSL 未登录首跑）：queue-operation/attachment/last-prompt 元数据记录已放行、`<synthetic>` 占位 assistant 不计调用（[WSL 记录](../../validation/desktop-usage/wsl-agent-installs.md)）；真实用量样本仍待有凭据环境** | M2/M5；本地候选/需启用，A01 |
+| Claude Code | projects 原生 JSONL：2.1.197 国内镜像/官方 integrity 核对，Debian/Podman 使用智谱两模型的两次真实主循环，API/CLI/原生正输入/输出相符；[真实记录](../../validation/desktop-usage/claude-container-sample.md) | 四内容块按 message.id 去重为两调用；逐行 version 绑定，默认零缓存/完整总量未知；载体无渠道，provider/费用不推断。旧完整摘要与未变化处理位置自动纠正。Anthropic 自家模型、正缓存、辅助/子 Agent/重试与其他版本仍另验；OTel 不叠加 | M2/M5 已实施，2.1.197 兼容端点实样通过，A01 |
 | Cline | 旧 UI 文档级适配器 + 独立 VS Code SDK schema 1；4.1.22 官方 VSIX/真实 GUI 与本地 API 三条原生 metrics 已核对，成品复验见 [记录](../../validation/desktop-usage/cline-container-sample.md) | SDK inputTokens 含缓存、正桶 reported/默认零未知、消息自身 modelInfo/ts；metrics 可合并 run/重试，记 observation，调用数未知；origin.version 可重写，仍 latest_fallback；只读原生 messages，不叠加 manifest/DB。旧 UI 四桶/删除/子 Agent/compaction 合同独立保留，尚无真实样本；CLI/desktop SDK 面、迁移、其他 provider 待验，不以空 registry DB 认证 | M3 已实施；SDK 实样通过、其他面另验，A03 |
 | CodeBuddy Code / IDE / 插件 | **扩展存储适配器已实施（本机真实核对 PASS，2026-09-30）**：`%LOCALAPPDATA%\CodeBuddyExtension\Data\...\history\<session>\<conversation>\index.json` 的 `requests[].usage` 请求级聚合（`inputTokens=cacheTokens+cachedMissTokens`），消息 `extra.modelId` 归属模型，见 [M4/M5 记录](../../validation/desktop-usage/m4-buddy-local.md)。CLI 载体：官方目录文档确认 `~/.codebuddy/projects` 会话 JSONL；第三方解析器与测试证实 `message.usage` / `providerData.rawUsage` 可读逐次 token，`input_tokens` 已含缓存读。官方 monitoring 文档另提供需启用的 OTLP/HTTP protobuf `model_stream` | 扩展 usage 为请求级聚合（非逐 LLM 调用）；全零请求无模型调用不入账；`credit` 积分与 `lastTokens` 语义尚未核验不映射；同请求跨 profile/workspace 树复制按请求 id 键幂并不双计；CLI JSONL 本机仍无真实样本（文档级）；OTLP 与本地载体同时启用可能重复计数，应择一使用 | 扩展存储 M5 已实施（真实核对）；CLI 本地文档级适配器已注册，真实样本待完成，A04 |
 | Codex CLI / 桌面 / IDE | 原型读 CODEX_HOME 下 rollout 的 token_usage_record；官方 OTel 支持请求、响应完成 usage 和流事件 | 已验证版本（逐版本脱敏 fixture）：0.155.0-alpha.16.3（M0/M2-A）、0.154.0-alpha.6.1/6.2、0.153.0（M2-D），逐次/累计/turn_context 三类记录，compaction 重置累计快照；0.139–0.151 已有 rollout_legacy 专用实现及 21 个精确版本映射，按 token_count 增量记录处理，边界见 m2d 记录；未知新版本默认 latest_fallback 带兼容标记；原型固定默认路径需改为发现/配置；旧 token_count 与新记录必须分格式；模型从结构化上下文归属，缺 response ID 不碰撞 | M2/M5；本地候选/需启用，A02 + 原型 |
@@ -61,7 +62,7 @@ Harness Agent 按用户提供官网更正为 Hermes Agent。所有工具均保�
 | GitHub Copilot for JetBrains | **源码核验（2026-10-01 插件 1.18.0-261 解包，[M9 分析记录](../../validation/desktop-usage/m9-jb-copilot-analysis.md)）**：默认本地数据无逐次 token——会话库为嵌入式 Nitrite `copilot-agent-sessions-nitrite.db`（NtAgentSession：turns/模型/**turnCreditsJson=RestoredTurnCredits(messageId,credits)**，credit 非 token 不折算）、日志走 idea.log、App Insights 为远程（排除）；**逐次 token 载体=需启用的 OTel 导出**：插件设置 `otelEnabled`/`otelExporterType(file/otlp-http/otlp-grpc/console)`/`otelOutfile`/`otelServiceName`/`otelCaptureContent`（=官方文档 Agent debug File Logging），与 VS Code `github.copilot.chat.otel.*` 同族同词汇；插件自身 Debug Panel 即从 outfile 解析 `gen_ai.usage.{input,output,cache_read,cache_creation}*` 五桶（OTelSpanProvider 字节码核验依据） | 不新增默认载体适配器（默认仅 credit，违背逐次 token 诉求）；接入路径=既有 otel 适配器（M5）：用户在 Settings → Tools → Copilot → Chat 启用 file 导出后把 otelOutfile 加为手工根；行格式同族容错、本机无 JetBrains 待真实样本锚定；otelCaptureContent 含提示正文——本应用只读白名单键 | 经 otel 适配器接入（需启用载体，文档级），A06 同族扩展 |
 | ZCode | 适配器已实现（M4，2026-09-25）：model-io JSONL 双口径——AI SDK 五键为主（inputTokens 含缓存读）、anthropic snake_case 对照互斥校验（矛盾进诊断）；db.sqlite model_usage 为自动采集主载体，turn_usage 只读对账（活库不一致轮可见）；真实核对幂等 | 已验证 3.14.3（真实 fixture）；未收录版本 latest_fallback；`~/.zcode/v2` 布局与 `%APPDATA%/zcode` 桌面存储未接入（待核验）；缺 requestId/traceId 时不得全部变成 zcode:None | M4 已实施；跨版本待核验，A21 |
 | WorkBuddy | 第三方开源解析器证实 `~/.workbuddy/projects/**/*.jsonl` 会话逐次用量字段；本机 8 文件/420 事件真实只读核对、重扫幂等通过（[记录](../../validation/desktop-usage/m4-buddy-local.md)） | 独立来源，未套用 CodeBuddy CLI OTLP；`traces/` 的总量与会话明细重叠关系未核，暂不叠加；套餐/账号积分页不纳入 | M4 已实施并核对当前本机格式；跨版本/trace 待核验，A22 |
-| Zed | 内置 hosted Agent 已取得本地载体依据（A38 补充 A23）：threads.db threads 表 data blob（json 或 zstd）含 request_token_usage 逐次（input/output/cache_read/cache_creation）与 cumulative_token_usage、created_at/updated_at、folder_paths | 仅统计 provider=zed.dev 的 hosted 调用；imported 线程跳过；zstd 解压与体积上限防护；外部 ACP Agent 仍按底层适配器读取原生日志，不计为 Zed 内置支持 | 内置 M8 已实施（文档级+本机 schema 核验，2026-09-29）；外部来源按原阶段，A23/A38 |
+| Zed | threads.db 的 json/zstd DbThread；cumulative_token_usage 为线程累计，request_token_usage 是 turn 末次请求桶，仅作对账 | 1.22.0 / DbThread 0.3.0 的 llm-usage-zhipu 两模型已真实请求：input 为非缓存桶，正桶报告、默认零未知，不派生总量或底层调用/模型明细；原 hosted 映射独立，imported 跳过，ACP 按底层来源读取 | M8 新增本机非空实样与成品回读；旧 hosted 仍仅源码/schema 依据；[记录](../../validation/desktop-usage/plan-20261007.md)，A23/A38 |
 
 本轮没有将任何“未发现文档”写成“该产品不可能支持”。
 若不能取得可靠用量，仍可展示该工具状态与限制，但不占据有数值的总计行。
@@ -95,7 +96,7 @@ Harness Agent 按用户提供官网更正为 Hermes Agent。所有工具均保�
 | Antigravity CLI/扩展（Google） | `~/.gemini/antigravity[-cli]/conversations/<uuid>.db`：gen_metadata protobuf 逐回合 usage（input=固定系统提示+新增、cacheRead、output、thinking、responseId） | protobuf 布局为逆向结论且 1.1.18 时间戳字段变更，须逐版本锚定；IDE 主体用量走 language server，另按需启用核验；与 Gemini CLI 目录同根不同子目录 | M8 已实施（逆向 protobuf：input=#1+#2、#9.#4 时间戳；1.1.18+ 无时间戳行 fail closed；IDE language server 载体尚未核验不实施），A35 |
 | Junie CLI（JetBrains） | `JUNIE_HOME/sessions` 或 `~/.junie/sessions/<session-id>/events.jsonl`，逐次 modelUsage；26.9.22 官方发行包/七次真实失败任务与 API/CLI 已核对 | inputTokens 为非缓存输入，默认零/费用/耗时保持未知；正费用 Estimated；无 API/provider/产品版本，完整总量不推造；timestampMs 完成时刻，正 time 才补起点 | M8 已实施；doc1→2 完整旧摘要/未变游标修正、事务/冲突保留通过，成品状态见 [M8 容器样本](../../validation/desktop-usage/m8-container-samples.md)，A36 |
 | Kiro（AWS，CLI+IDE） | 三载体：CLI `~/.kiro/sessions/cli/*.json(+jsonl)`；kiro-cli `~/.local/share/kiro-cli/data.sqlite3` conversations_v2；IDE globalStorage `kiro.kiroagent`（.chat 快照、execution、promptLogs） | Auto agent 常记 0：估算路径不采纳，仅采显式计数；execution 与 .chat 快照按 executionId 抑制重复；metering credit 独立计价单位；三载体交叉去重 | M8 已实施（CLI turns 真实计数 + kiro-cli SQLite request_metadata；Auto 零计数/估算不采；IDE 估算载体不实施；双载体重叠待真实样本对账），A37 |
-| Zed 内置（升级自 F1） | threads.db（见上表 Zed 行）：request_token_usage 逐次五桶 | 仅 zed.dev hosted；imported 线程跳过；zstd blob 解压上限；threads 表可选列容错 | M8 已实施（官方源码 bd74733 + 本机 schema 核验（0 行）；cumulative 权威、request 桶覆盖语义仅对账；仅 zed.dev；zstd 有界解压），A23/A38 |
+| Zed 内置（升级自 F1） | threads.db 的线程累计四桶；turn 桶不认证逐次完整请求 | zed.dev 沿用原源码合同；新增 llm-usage-zhipu + DbThread 0.3.0 已核验正值/默认零与缓存语义；imported/其他 Provider 不认证，有界解压 | M8：1.22.0 / 76659a55、glm-5.3 与 glm-5.3-flash 三 turn 非空实样；累计 21,696 非缓存输入/10,816 缓存读/61 输出，写缓存及总量未知；[记录](../../validation/desktop-usage/plan-20261007.md)，A23/A38 |
 | Codebuff（原 Manicode） | `~/.config/manicode*/projects/*/chats/<chatId>/chat-messages.json`；CODEBUFF_DATA_DIR 覆盖 | usage 字段与分通道根（manicode/-dev/-staging）待 fixture | 不实施 token 适配器（2026-09-29 官方源码 caec5fc 证实本地仅 credits、无 token 字段；CODEBUFF_DATA_DIR 非官方变量），A39 |
 | Command Code | `~/.commandcode/projects/<slug>/*.jsonl` v3 树形（session/message/model_change；assistant usage 五桶+costUsd）；配置 config.json | rewind 孤儿分支不计；fork 复制按 id+时间戳去重；checkpoints 文件跳过；全零 usage 视为已报告零 | M8 已实施（npm 1.69.0 分发物核验依据：inputTokens 含 cache、当前路径口径、fork 按 id+时间戳跨文件去重、全零=已报告零），A40 |
 | jcode（jcode.sh，开源 Rust） | `~/.jcode/sessions/session_*.json` 快照 + `.journal.jsonl` 追加（journal 值权威覆盖快照）；token_usage 输入/输出与可选缓存 | OpenAI/Anthropic 缓存口径差异逐版本归一；JCODE_HOME 覆盖；环境快照版本不认证所有消息 | M8 已实施；0.91.0 真实离线单次 run 的 API/CLI/快照输入 460、输出 2、缓存读 0 一致；自定义 provider 未推断缓存关系、完整总量/成本/推理未知，journal/其他场景待验，见 [真实样本](../../validation/desktop-usage/m8-container-samples.md)，A41 |
@@ -245,8 +246,8 @@ turn_usage 有 24 个轮级对账差异，仅作对照，不能与 model_usage �
 
 ## 暂未证实工具的推进方式
 
-M4 保留新版 Kimi Code、Kimi Work、ZCode、WorkBuddy；JetBrains/TRAE、Zed 内置及
-表中本地用量格式尚未核验的 IDE 变体列入 F1，首版不探测/实施。2026-09-29 第二批调研后：
+M4 保留新版 Kimi Code、Kimi Work、ZCode、WorkBuddy；初始范围将 JetBrains/TRAE、Zed 内置及
+未核验 IDE 变体后移 F1。2026-09-29 第二批调研后：
 Junie CLI 与 Zed 内置（threads.db）已取得本地载体依据，从 F1 转入 M8；
 Cursor、Windsurf、京东 JoyCode、智谱 CodeGeeX 插件、百度文心快码 Comate、
 华为 InsCode/CodeArts Snap 本地用量格式仍待核验，保留在 F1；Warp 仅账户级额度缓存、
@@ -265,6 +266,7 @@ Cursor/TRAE 的逐次用量在远端，均按本地边界排除且不以估算�
 M8 注册范围见 [第二批实施记录](../../validation/desktop-usage/m8-second-batch.md)：18 个适配器
 （17 个解析 + Qoder 探针）；Amazon Q/Codebuff 经源码核验确认本地无逐次 token 载体、
 iFlow 已停服（2026-04-17）且唯一载体是需启用的 OTel（归 M5），三者不实施
-token 适配器；Cursor/Windsurf 维持 F1。十源已取得真实本地模型样本，其余八源及更多
-路径的条件见 [容器样本](../../validation/desktop-usage/m8-container-samples.md)，
-当前待办统一见 Plan.md；文档级实现不认证未核验的版本或载体。
+token 适配器；Cursor/Windsurf 维持 F1。历史十源样本见
+[容器样本](../../validation/desktop-usage/m8-container-samples.md)；本轮另取得 Zed 实样，
+容器账户/协议限制与 F1 本机核查见 [本轮记录](../../validation/desktop-usage/plan-20261007.md)。
+当前环境未取得样本的项移出 Plan.md 活动待办；文档级实现不认证未核验的版本或载体。

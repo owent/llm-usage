@@ -40,6 +40,7 @@ await page.addInitScript(() => {
   let finished = 1790550000000;
   let shortRefreshEndsAt = null;
   window.appCalls = [];
+  const budgetClaims=new Set();
   window.detailTotal = 123;
   const telemetryTarget = {id:'copilot-vscode',name:'Copilot · Code',config_path:'C:/Users/local/Code/User/settings.json',output_path:'C:/Users/local/telemetry/events.jsonl',status:'missing',reason:'',configurable:true,kind:'jsonc',docs_url:'https://code.visualstudio.com/docs/agents/guides/monitoring-agents'};
   const telemetryTargets = [telemetryTarget,
@@ -70,6 +71,14 @@ await page.addInitScript(() => {
     if(cmd==='plugin:event|unlisten') return;
     if(cmd==='get_settings') return settings;
     if(cmd==='set_settings') { settings=args.settings; return; }
+    if(cmd==='budget_status') {
+      const cfg=settings.budget??{enabled:false,metric:'total_tokens',period:'month',threshold:'1000000',currency:'USD'};
+      const key=JSON.stringify([current,cfg]);
+      const exceeded=cfg.enabled && BigInt(cfg.threshold)<=100n;
+      const newly=Boolean(args.claim && exceeded && !budgetClaims.has(key));
+      if(newly) budgetClaims.add(key);
+      return {enabled:cfg.enabled,current:'100',threshold:cfg.threshold,metric:cfg.metric,currency:cfg.currency,first_day:'2026-10-01',last_day:'2026-10-07',coverage_limited:true,exceeded,newly_triggered:newly};
+    }
     if(cmd==='list_users') return {users,current};
     if(cmd==='set_current_user') {current=args.userId;return;}
     if(cmd==='summary') {
@@ -717,6 +726,19 @@ assert.match(await page.locator('.tables').textContent(),/k28-agent-preview[\s\S
 assert.match(await feePanel.locator('.unit-prices').textContent(),/kimi-k2\.8-preview[\s\S]*kimi-k2\.7-code/,'unit prices keep identity distinct from price substitution');
 assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth > innerWidth),false,'substitute labels do not overflow narrow layouts');
 await feePanel.screenshot({path:out+'cost-substitute-narrow.png'});
+await page.getByRole('navigation').first().getByRole('button',{name:'设置',exact:true}).click();
+await page.locator('[data-settings-section="costs"]').click();
+await page.getByRole('switch',{name:'启用提醒',exact:true}).check();
+await page.getByLabel('阈值',{exact:true}).fill('10');
+await page.getByRole('button',{name:'保存',exact:true}).click();
+await page.clock.runFor(500);
+const reminder=page.locator('.budget-reminder');
+await reminder.waitFor({state:'visible'});
+assert.match(await reminder.textContent(),/100 \/ 10 token/);
+assert.match(await reminder.textContent(),/未知用量/);
+await reminder.getByRole('button').click();
+await page.clock.runFor(11000);
+assert.equal(await reminder.count(),0,'a dismissed claimed threshold does not reappear');
 assert.deepEqual(errors,[]);
 await writeFile(out+'browser-results.json',JSON.stringify({errors,requests:await page.evaluate(()=>window.appCalls.length),checks:['five pages','hourly tokens across three dimensions and single-hour views','concise token tooltip with one lower-bound note','compact multi-currency summary and panel','expanded narrow price details without overflow','full-year light/dark heatmap','year navigation and leap days','future/retained dates','Copilot input with unknown cache split','Copilot unknown total hover and zero output','async telemetry discovery','compact overview with two actions','details navigation and focus','batch partial failure and retry','existing/managed outputs preserved','cross-page progress and undo','installed Agents only','merge configuration preview/apply/undo','ten locale switches','narrow telemetry layout in Chinese/German/Russian','default panel order','source health and compatibility','statistics timezone','initial/idle query counts','stale filter responses','user isolation','source membership without revision','refresh preserves pagination','retention clamps pagination']},null,2));
 console.log('Browser checks passed: hourly tokens in all three grouped dimensions and single-hour views, concise token tooltips, compact multi-currency reference cards/panels and expanded narrow details, total-only series, partial share pies, telemetry batch setup/retry/undo, ten locales, themes, timezone, filters and pagination.');

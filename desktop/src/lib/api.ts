@@ -33,8 +33,30 @@ export interface AppSettings {
   hostname_alias: string | null;
   /** F2 费用估算（默认关闭；旧设置 JSON 无此字段时视为关闭）。 */
   pricing?: PricingSettings;
+  budget?: BudgetSettings;
   otel_receiver_enabled?: boolean;
   otel_receiver_port?: number;
+}
+
+export interface BudgetSettings {
+  enabled: boolean;
+  metric: 'total_tokens' | 'estimated_cost';
+  period: 'day' | 'month';
+  threshold: string;
+  currency: string;
+}
+
+export interface BudgetStatusDto {
+  enabled: boolean;
+  current: string | null;
+  threshold: string;
+  metric: BudgetSettings['metric'];
+  currency: string;
+  first_day: string;
+  last_day: string;
+  coverage_limited: boolean;
+  exceeded: boolean;
+  newly_triggered: boolean;
 }
 
 export interface TelemetryTargetDto {
@@ -342,6 +364,12 @@ export interface StorageStatsDto {
 
 /** 聚合交换包导入计数（M1a 约定）。 */
 export interface ImportOutcomeDto {
+  details_added?: number;
+  details_updated?: number;
+  details_unchanged?: number;
+  details_skipped?: number;
+  details_conflicts?: number;
+  cumulative_changed?: number;
   sources_registered: number;
   daily_inserted: number;
   daily_replaced: number;
@@ -504,7 +532,7 @@ export const api = {
   setSettings: (settings: AppSettings) => invoke<void>('set_settings', { settings }),
   appInfo: () => invoke<AppInfoDto>('app_info'),
   exportData: (
-    kind: 'summary-csv' | 'exchange',
+    kind: 'summary-csv' | 'exchange' | 'details',
     targetDir: string | null,
     q: SummaryQuery,
     userFilter: string | null = null,
@@ -550,6 +578,8 @@ export const api = {
   assignSourceUser: (instanceId: string, userId: string) =>
     invoke<void>('assign_source_user', { instanceId, userId }),
   importExchange: (path: string) => invoke<ImportOutcomeDto>('import_exchange', { path }),
+  previewExchange: (path: string) => invoke<{ sources: number; details: number; cumulative: number; daily: number; timezone: string }>('preview_exchange', { path }),
+  budgetStatus: (claim = false, expectedUser: string | null = null) => invoke<BudgetStatusDto>('budget_status', { claim, expectedUser }),
   storageStats: () => invoke<StorageStatsDto>('storage_stats'),
   manualCleanup: (daysBefore: number) => invoke<CleanupResultDto>('manual_cleanup', { daysBefore }),
   cancelCleanup: () => invoke<boolean>('cancel_cleanup'),

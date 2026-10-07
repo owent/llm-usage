@@ -9,9 +9,11 @@
 
 pub mod adapters;
 pub mod aggregates;
+pub mod budgets;
 pub mod calendar;
 mod copilot_carriers;
 pub mod copilot_quota;
+pub mod detail_exchange;
 pub mod domain;
 pub mod error;
 pub mod exchange;

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import TelemetrySetup from './TelemetrySetup.svelte';
+  import BudgetSettings from './BudgetSettings.svelte';
   import { api, parseError } from '../lib/api';
   import type {
     AppSettings,
@@ -45,6 +46,7 @@
   // 草稿编辑器刻意只捕获挂载时的设置初值；外部更新由父组件重新挂载本面板。
   let draft = $state<AppSettings>({
     ...settings,
+    budget: { enabled: false, metric: 'total_tokens', period: 'month', threshold: '1000000', currency: 'USD', ...settings.budget },
     manual_roots: [...settings.manual_roots],
     retention: { ...settings.retention },
     pricing: {
@@ -645,13 +647,13 @@
     if (filterOptions) selectedHosts = filterOptions.hosts.map((h) => h.host_id);
   }
 
-  async function exportData(kind: 'summary-csv' | 'exchange') {
+  async function exportData(kind: 'summary-csv' | 'exchange' | 'details') {
     exportMessage = '';
     exportError = '';
     const defaultName =
       kind === 'summary-csv'
         ? `usage-${exportQuery.first_day}-${exportQuery.last_day}.csv`
-        : 'exchange.json';
+        : `${kind}.json`;
     let picked: string | null;
     try {
       picked = await api.pickSavePath(defaultName);
@@ -676,7 +678,7 @@
       const paths: string[] = [];
       for (const u of userScopes) {
         for (const h of hostScopes) {
-          const r = await api.exportData('exchange', parentDir(picked), exportQuery, u, h);
+          const r = await api.exportData(kind, parentDir(picked), exportQuery, u, h);
           paths.push(r.path);
           // 交换包文件名含毫秒时间戳，错开 2ms 防止同毫秒覆盖。
           await new Promise((res) => setTimeout(res, 2));
@@ -710,6 +712,11 @@
     }
     importing = true;
     try {
+      const preview=await api.previewExchange(picked);
+      if (!window.confirm(t('import.preview',{sources:preview.sources,details:preview.details,cumulative:preview.cumulative,daily:preview.daily,timezone:preview.timezone}))) {
+        importMessage=t('import.cancelled');
+        return;
+      }
       const r = await api.importExchange(picked);
       importMessage = t('import.done', {
         sources: r.sources_registered,
@@ -721,6 +728,7 @@
         hourlyReplaced: r.hourly_replaced,
         hourlySkipped: r.hourly_skipped,
       });
+      if (r.details_added !== undefined) importMessage += ' ' + t('import.detailsDone',{added:r.details_added,updated:r.details_updated ?? 0,unchanged:r.details_unchanged ?? 0,skipped:r.details_skipped ?? 0,conflicts:r.details_conflicts ?? 0,cumulative:r.cumulative_changed ?? 0});
       ondatachanged?.();
     } catch (e) {
       importError = t('import.failed', { message: parseError(e) });
@@ -1083,6 +1091,9 @@
         <p class="hint">{t('settings.archives.hint')}</p>
       {:else if sub === 'costs'}
         <section class="panel">
+          {#if draft.budget}<BudgetSettings bind:value={draft.budget} pricingEnabled={draft.pricing?.enabled ?? false} />{/if}
+        </section>
+        <section class="panel">
           <h4>{t('cost.title')}</h4>
           <div class="frow">
             <label class="flabel" for="cost-enabled">{t('cost.settings.enabled')}</label>
@@ -1335,6 +1346,7 @@
           <div class="export">
             <button type="button" disabled={!canExport} onclick={() => void exportData('summary-csv')}>{t('export.csv')}</button>
             <button type="button" disabled={!canExport} onclick={() => void exportData('exchange')}>{t('export.exchange')}</button>
+            <button type="button" disabled={!canExport} onclick={() => void exportData('details')}>{t('export.details')}</button>
           </div>
           {#if filterOptions && !canExport}<p class="bad">{t('export.noneSelected')}</p>{/if}
           {#if exportMessage}<p class="ok">{exportMessage}</p>{/if}

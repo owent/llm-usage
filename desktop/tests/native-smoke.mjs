@@ -197,6 +197,31 @@ try {
   assert.ok(exchange.daily_partitions.length>0,'exchange has nonempty daily partitions');
   await invoke('import_exchange',{path:exported.path});
   await invoke('import_exchange',{path:exported.path});
+  const detailExport=await invoke('export_data',{kind:'details',targetDir:join(root,'exports'),q:query,userFilter:null,hostFilter:null});
+  const detailPackage=JSON.parse(await readFile(detailExport.path,'utf8'));
+  assert.equal(detailPackage.format_version,'llm-usage-details-1');
+  assert.ok(detailPackage.details.length>0,'native details export must be nonempty');
+  assert.equal(detailPackage.archive.daily_partitions.length,0,'live days have one detail contribution');
+  const preview=await invoke('preview_exchange',{path:detailExport.path});
+  assert.equal(preview.details,detailPackage.details.length);
+  const detailRevision=(await invoke('summary',{q:query})).data_revision;
+  for(let replay=0;replay<2;replay++) {
+    const merged=await invoke('import_exchange',{path:detailExport.path});
+    assert.equal(merged.details_unchanged,detailPackage.details.length);
+    assert.equal((await invoke('summary',{q:query})).data_revision,detailRevision);
+  }
+  checks.push('native nonempty detail export, preview and repeated Merge preserve statistics and revision');
+  settings=await invoke('get_settings');
+  assert.equal(settings.budget.enabled,false);
+  settings.budget={enabled:true,metric:'total_tokens',period:'day',threshold:'1',currency:'USD'};
+  await invoke('set_settings',{settings});
+  const budget=await invoke('budget_status',{claim:true});
+  assert.equal(budget.exceeded,true);
+  assert.equal(budget.newly_triggered,true);
+  assert.equal((await invoke('budget_status',{claim:true})).newly_triggered,false);
+  settings.budget.enabled=false;
+  await invoke('set_settings',{settings});
+  checks.push('native opt-in budget threshold and persistent reminder deduplication');
   assert.equal((await invoke('summary',{q:query})).totals.total_tokens_known,'40');
   checks.push('nonempty exchange export and repeated same-source import retain totals');
   const manualBefore=(await invoke('refresh_status')).last_finished_ms;

@@ -175,7 +175,8 @@ macOS 凭据模块仅交叉类型检查通过，两平台真实桌面/exporter �
 JetBrains 保留手工步骤，Visual Studio 使用已有载体。
 已完成应用管理的 VS Code Copilot file 自动接入、会话范围载体选择与
 本机已导出数据验证，见 [看板修正记录](../../validation/desktop-usage/dashboard-repair.md)。
-CLI/JetBrains 的新版真实导出、trace SQLite 适配和跨重启持久化配置撤销仍待完成。
+CLI/JetBrains 的新版真实导出、trace SQLite 和更多真实撤销场景尚未认证；
+缺当前安装/载体的扩展已移出本轮计划，限制保留，不用 session-store 代替 trace DB。
 
 ## 统计选择前置条件
 

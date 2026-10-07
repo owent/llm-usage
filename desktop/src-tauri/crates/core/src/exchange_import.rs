@@ -27,6 +27,18 @@ pub fn import_aggregate(
     export: &ExchangeExport,
     now_ms: i64,
 ) -> Result<ImportAggregateOutcome, CoreError> {
+    let tx = storage.conn().unchecked_transaction()?;
+    let outcome = import_aggregate_tx(storage, &tx, export, now_ms)?;
+    tx.commit()?;
+    Ok(outcome)
+}
+
+pub(crate) fn import_aggregate_tx(
+    storage: &Storage,
+    tx: &Transaction<'_>,
+    export: &ExchangeExport,
+    now_ms: i64,
+) -> Result<ImportAggregateOutcome, CoreError> {
     if export.format_version != EXCHANGE_FORMAT_VERSION {
         return Err(CoreError::Validation("unsupported exchange format".into()));
     }
@@ -57,9 +69,8 @@ pub fn import_aggregate(
             "duplicate source declarations".into(),
         ));
     }
-    let tx = storage.conn().unchecked_transaction()?;
     let mut out = ImportAggregateOutcome::default();
-    register_host(&tx, &export.host, now_ms)?;
+    register_host(tx, &export.host, now_ms)?;
     for source in &export.sources {
         if source.source_instance_id.is_empty() || source.attribution_status != "verified" {
             return Err(CoreError::Validation(
@@ -74,7 +85,7 @@ pub fn import_aggregate(
             return Err(CoreError::Validation("missing source origin host".into()));
         }
         register_host(
-            &tx,
+            tx,
             &ExchangeHost {
                 origin_host_id: host.into(),
                 hostname_alias: None,
@@ -110,13 +121,13 @@ pub fn import_aggregate(
         row.insert("sealed".into(), serde_json::json!(1));
         validate_partition(&row, &declared)?;
         max_revision = max_revision.max(p.data_revision);
-        match merge_partition(&tx, "daily_usage", DAILY_KEYS, &row)? {
+        match merge_partition(tx, "daily_usage", DAILY_KEYS, &row)? {
             Merge::Inserted => out.daily_inserted += 1,
             Merge::Replaced => out.daily_replaced += 1,
             Merge::Unchanged => out.daily_skipped += 1,
             Merge::Older => {
                 out.daily_conflicts += 1;
-                older_diagnostic(&tx, now_ms)?;
+                older_diagnostic(tx, now_ms)?;
             }
         }
     }
@@ -127,13 +138,13 @@ pub fn import_aggregate(
             return Err(CoreError::Validation("invalid aggregate hour".into()));
         }
         max_revision = max_revision.max(p.data_revision);
-        match merge_partition(&tx, "hourly_usage", HOURLY_KEYS, &row)? {
+        match merge_partition(tx, "hourly_usage", HOURLY_KEYS, &row)? {
             Merge::Inserted => out.hourly_inserted += 1,
             Merge::Replaced => out.hourly_replaced += 1,
             Merge::Unchanged => out.hourly_skipped += 1,
             Merge::Older => {
                 out.hourly_skipped += 1;
-                older_diagnostic(&tx, now_ms)?;
+                older_diagnostic(tx, now_ms)?;
             }
         }
     }
@@ -149,13 +160,13 @@ pub fn import_aggregate(
         crate::calendar::parse_date(&p.period_start_day)?;
         crate::calendar::parse_date(&p.period_end_day)?;
         max_revision = max_revision.max(p.data_revision);
-        match merge_partition(&tx, "period_usage", PERIOD_KEYS, &row)? {
+        match merge_partition(tx, "period_usage", PERIOD_KEYS, &row)? {
             Merge::Inserted => out.period_inserted += 1,
             Merge::Replaced => out.period_replaced += 1,
             Merge::Unchanged => out.period_skipped += 1,
             Merge::Older => {
                 out.period_skipped += 1;
-                older_diagnostic(&tx, now_ms)?;
+                older_diagnostic(tx, now_ms)?;
             }
         }
     }
@@ -170,13 +181,12 @@ pub fn import_aggregate(
         tx.execute("INSERT INTO settings(key,value,schema_version,updated_at_ms) VALUES ('data_revision',?1,1,?2)
             ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at_ms=excluded.updated_at_ms",
             params![max_revision.to_string(),now_ms])?;
-        Storage::bump_data_revision_tx(&tx, now_ms)?;
+        Storage::bump_data_revision_tx(tx, now_ms)?;
         tx.execute(
             "INSERT INTO diagnostics(code,message,created_ms) VALUES ('import_completed',?1,?2)",
             params![format!("aggregate partitions changed: {changed}"), now_ms],
         )?;
     }
-    tx.commit()?;
     Ok(out)
 }
 

@@ -15,7 +15,7 @@
 [![SQLite](https://img.shields.io/badge/SQLite-rusqlite_0.40-003B57?logo=sqlite)](https://www.sqlite.org)
 [![ECharts](https://img.shields.io/badge/ECharts-6.1-AA344D?logo=apacheecharts)](https://echarts.apache.org)
 
-[![verify](https://img.shields.io/badge/npm_run_verify-%E9%80%9A%E8%BF%87_2026--10--04-brightgreen)](docs/validation/desktop-usage/current-acceptance.md)
+[![verify](https://img.shields.io/badge/npm_run_verify-%E9%80%9A%E8%BF%87_2026--10--07-brightgreen)](docs/validation/desktop-usage/current-acceptance.md)
 [![Git LFS](https://img.shields.io/badge/Git_LFS-%E9%9D%99%E6%80%81%E8%B5%84%E6%BA%90-blue?logo=git)](desktop/assets/README.md)
 [![repo size](https://img.shields.io/github/repo-size/owent/llm-usage)](https://github.com/owent/llm-usage)
 [![last commit](https://img.shields.io/github/last-commit/owent/llm-usage)](https://github.com/owent/llm-usage/commits)
@@ -23,13 +23,14 @@
 [![languages](https://img.shields.io/github/languages/count/owent/llm-usage)](https://github.com/owent/llm-usage)
 
 本项目提供本地 AI Agent 用量桌面客户端，统计各模型的 token、请求和缓存使用。
-目前处于预发布阶段，已实现总览、趋势、详情、数据源和设置；支持范围及未完成验收见执行计划。
+目前处于预发布阶段，已实现总览、趋势、详情、数据源和设置；支持范围及本轮结果见执行计划。
+支持完整标准化明细导入/Merge，以及默认关闭的日/月 token 或单币种估算预算提醒。
 
 已确认 Windows 11 x64 首发，GitHub CI 保留 macOS/Linux，本地可尝试 WSL 构建。
-所有 Agent 均保留本地支持计划，本地用量格式尚未核验的 IDE 后移 F1；仅统计本机来源，支持在界面配置定时提取。
+来源能力与环境受限条件保留在接入矩阵，缺安装/载体的 F1 IDE 已移出本轮；仅统计本机来源，支持在界面配置定时提取。
 用户已允许实施时提取本机真实 Agent 数据验证。
 
-- [执行计划](Plan.md)：未完成任务与验收条件。
+- [执行计划](Plan.md)：当前结果、执行范围与移出条件。
 - [开工准备](docs/design/desktop-usage/implementation-readiness.md)：已确认范围、真实数据验证流程与检查结论。
 - [详细设计](docs/design/desktop-usage/README.md)：架构、统计合同、Agent 接入、配置与测试。
 - [调研依据](docs/design/desktop-usage/research.md)：官方资料、固定源码和原型静态核对。
