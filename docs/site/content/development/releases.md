@@ -27,13 +27,26 @@ consistent when changing a version. Restore locks and actual LFS assets. Read th
 
 ## Publication boundaries
 
+Pushing a tag triggers the application CI and publishes a draft Release after every check
+and platform build succeeds. The draft contains the Windows x64 NSIS installer, Linux x64
+Debian/AppImage packages, macOS arm64 `.app.tar.gz` and a size/SHA-256 report per platform.
+Package reports must match the tagged source revision. The release job verifies uploaded
+sizes and digests, using
+[xresloader/upload-to-github-release](https://github.com/xresloader/upload-to-github-release)
+at a fixed commit with `overwrite: true`.
+
+Recreating a tag or rerunning its workflow updates the same draft's name, body and target
+commit, replacing same-name assets. Publication is serialized per tag, and an older build
+is rejected when the tag has moved. The Release remains a draft; review it before making
+it public. These packages do not establish signing, notarization or installation acceptance.
+
 Authorization to build and to publish is separate. A design plan is not authorization to push,
 deploy, sign or change external credentials. Complete a reviewable artifact, tests,
 identity checks and rollback plan before a required final approval.
 
 The current documentation publication has explicit user authorization and a dedicated
 workflow. It publishes the static site to `gh-pages` and completes Pages deployment;
-application release jobs do not inherit that publication authorization or its write permissions.
+application draft publication has its own explicit authorization and tag-only write permissions.
 PR checks remain read-only. See [documentation maintenance](/development/documentation/).
 
 Record the tested full revision, actual jobs and artifact hashes. A later documentation-only

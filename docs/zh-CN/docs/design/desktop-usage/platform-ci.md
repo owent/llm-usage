@@ -43,8 +43,9 @@ GitHub Windows runner 的构建结果不等于 Windows 11 用户环境通过；m
 
 ## GitHub CI 要求
 
-三平台作业已存在；M7 持续验收须有实际运行结果。任务触发为 PR、主分支 push
-和手动执行，维护本地文件不意味着获准推送或触发远端 CI。
+三平台作业已存在；M7 持续验收须有实际运行结果。任务触发为 PR、主分支 push、
+tag push 和手动执行。用户已授权自动发布 Draft Release，并删除后重建 v0.2.1
+验证发布；其他远端写入仍需相应授权。
 
 1. 公共检查：Markdown/本地链接、前端类型和单元测试、Rust fmt/clippy；命令从实际锁文件确定。
 2. OS 矩阵：在每个原生 runner 运行领域/适配器 fixture、真实临时 SQLite、调度器、路径和锁测试，
@@ -72,9 +73,16 @@ Windows 原生凭据在本机显式执行，默认忽略项不能当作系统存
 
 矩阵使用 fail-fast=false 留下全部结果；每作业有超时，重跑只针对已定位的临时基础设施故障。
 缓存键包含 OS、架构、Rust/Node 版本和锁文件摘要，隔离不同 target，不缓存真实 Agent 数据。
-应用 CI 的 Actions 使用 v 主版本号浮动引用而非固定提交 SHA，PR 使用只读权限，无发布/签名密钥；不在特权 pull_request_target 中执行 PR 代码。
-CI artifact 与 GitHub Release 分开；用户已说明发布/签名/公证完成，本轮不再列待办，
-不把本轮本机验证当作新的远端 CI 或 Release 核验。
+既有应用检查使用 Action 主版本号浮动引用，发行步骤固定完整提交 SHA；PR 保持只读权限。
+仅 tag push 的发行作业在公共检查和全部平台构建成功后，通过 GitHub 短期 token
+取得 contents: write 权限；不在特权 pull_request_target 中执行 PR 代码。
+CI artifact 与 GitHub Release 分开。tag push 按 tag_name 创建或更新同一个草稿，覆盖
+名称、正文和目标提交；同一 tag 的发布串行执行。更新前核对远端 tag 的当前提交，
+防止旧构建覆盖重建的 tag；查找草稿时读取全部 Release 分页。
+[上传 Action](https://github.com/xresloader/upload-to-github-release) 使用明确的 release ID
+和 overwrite: true 替换同名附件，重复运行覆盖同一草稿的元数据和附件。
+平台报告使用不同附件名，发布前核对包的 revision、大小和 SHA-256，上传后再次核对附件。
+此流水线不建立签名、公证或桌面安装验收结论。
 上传仅包含安装包、macOS `.app.tar.gz` 与大小/校验和报告；Debian 的
 `control.tar.gz`/`data.tar.gz`、AppDir 和其他打包暂存目录不计为发布制品。
 

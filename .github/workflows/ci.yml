@@ -1,13 +1,14 @@
 name: CI
 
 # Platform checks: docs/design/desktop-usage/platform-ci.md.
-# Build on all three platforms; fail-fast=false, floating Actions major versions and read-only PR permissions.
-# No publication/signing; artifacts record revision, size and digest. Add test data/integration checks incrementally from M1.
+# Build all three platforms with fail-fast=false and read-only PR permissions.
+# Tag pushes update a draft Release after all checks; artifacts record revision, size and digest.
 
 on:
   pull_request:
   push:
     branches: [main]
+    tags: ['*']
   workflow_dispatch:
 
 permissions:
@@ -173,3 +174,116 @@ jobs:
             desktop/src-tauri/target/release/bundle/bundle-report.json
           if-no-files-found: error
           retention-days: 14
+
+  release:
+    name: Draft Release
+    needs: [docs, frontend, rust, build]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && !github.event.deleted
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    concurrency:
+      group: github-release-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          pattern: llm-usage-*-${{ github.sha }}
+          path: build/github-release/artifacts
+      - name: Verify packages and update draft metadata
+        id: draft
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        with:
+          script: |
+            const fs = require('node:fs/promises');
+            const { createReadStream } = require('node:fs');
+            const { createHash } = require('node:crypto');
+            const path = require('node:path');
+            const tag = context.ref.slice('refs/tags/'.length);
+            const platforms = ['Windows-X64', 'Linux-X64', 'macOS-ARM64'];
+            const assets = 'build/github-release/assets';
+            await fs.mkdir(assets, { recursive: true });
+            const names = new Set();
+            for (const platform of platforms) {
+              const root = path.resolve('build/github-release/artifacts', `llm-usage-${platform}-${context.sha}`);
+              const reportPath = path.join(root, 'bundle-report.json');
+              const report = JSON.parse(await fs.readFile(reportPath, 'utf8'));
+              if (report.revision !== context.sha || !report.bundles?.length) {
+                throw new Error(`Missing packages or wrong revision: ${platform}`);
+              }
+              for (const bundle of report.bundles) {
+                const source = path.resolve(root, bundle.path);
+                const name = path.basename(source);
+                const relative = path.relative(root, source);
+                if (relative.startsWith('..') || path.isAbsolute(relative) ||
+                    !/\.(exe|msi|deb|AppImage|dmg|app\.tar\.gz)$/.test(name) || names.has(name.toLowerCase())) {
+                  throw new Error(`Invalid or duplicate release package: ${bundle.path}`);
+                }
+                const hash = createHash('sha256');
+                for await (const chunk of createReadStream(source)) hash.update(chunk);
+                const bytes = (await fs.stat(source)).size;
+                if (bytes <= 0 || bytes !== bundle.bytes || hash.digest('hex') !== bundle.sha256) {
+                  throw new Error(`Package size or digest mismatch: ${name}`);
+                }
+                names.add(name.toLowerCase());
+                await fs.copyFile(source, path.join(assets, name));
+              }
+              await fs.copyFile(reportPath, path.join(assets, `bundle-report-${platform}.json`));
+            }
+            let { data: ref } = await github.rest.git.getRef({ ...context.repo, ref: `tags/${tag}` });
+            let object = ref.object;
+            while (object.type === 'tag') {
+              const { data } = await github.rest.git.getTag({ ...context.repo, tag_sha: object.sha });
+              object = data.object;
+            }
+            if (object.type !== 'commit' || object.sha !== context.sha) {
+              throw new Error('Tag changed while building; refusing to upload an older revision');
+            }
+            const body = `Automated draft for ${tag}.\n\nSource commit: ${context.sha}\n` +
+              `Build: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n\n` +
+              'Windows x64 NSIS, Linux x64 Debian/AppImage and macOS arm64 app archive.\n' +
+              'Platform bundle reports contain package sizes and SHA-256 digests.\n' +
+              'These CI packages do not establish signing, notarization or desktop installation acceptance.';
+            const releases = await github.paginate(github.rest.repos.listReleases, { ...context.repo, per_page: 100 });
+            const matches = releases.filter(release => release.tag_name === tag);
+            if (matches.length > 1) throw new Error(`Multiple releases exist for ${tag}`);
+            const metadata = { ...context.repo, tag_name: tag, target_commitish: context.sha,
+              name: tag, body, draft: true, prerelease: false };
+            const { data: release } = matches.length
+              ? await github.rest.repos.updateRelease({ ...metadata, release_id: matches[0].id })
+              : await github.rest.repos.createRelease(metadata);
+            core.setOutput('release_id', release.id);
+      - name: Upload all platform packages
+        uses: xresloader/upload-to-github-release@7c5757a90c0bcf0c0e1741da8f2abd7b85e675d0 # v1
+        with:
+          file: build/github-release/assets/*
+          release_id: ${{ steps.draft.outputs.release_id }}
+          tag_name: ${{ github.ref_name }}
+          tags: true
+          draft: true
+          overwrite: true
+      - name: Verify uploaded assets
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        env:
+          RELEASE_ID: ${{ steps.draft.outputs.release_id }}
+        with:
+          script: |
+            const fs = require('node:fs/promises');
+            const { createHash } = require('node:crypto');
+            const release_id = Number(process.env.RELEASE_ID);
+            const { data: release } = await github.rest.repos.getRelease({ ...context.repo, release_id });
+            if (!release.draft || release.tag_name !== context.ref.slice('refs/tags/'.length) ||
+                release.target_commitish !== context.sha) throw new Error('Release metadata mismatch');
+            const assets = await github.paginate(github.rest.repos.listReleaseAssets, { ...context.repo, release_id, per_page: 100 });
+            for (const name of await fs.readdir('build/github-release/assets')) {
+              const data = await fs.readFile(`build/github-release/assets/${name}`);
+              const matches = assets.filter(asset => asset.name === name);
+              const digest = `sha256:${createHash('sha256').update(data).digest('hex')}`;
+              if (matches.length !== 1 || matches[0].state !== 'uploaded' ||
+                  matches[0].size !== data.length || matches[0].digest !== digest) {
+                throw new Error(`Uploaded asset missing or mismatched: ${name}`);
+              }
+            }
+            core.notice(`Verified draft Release: ${release.html_url}`);

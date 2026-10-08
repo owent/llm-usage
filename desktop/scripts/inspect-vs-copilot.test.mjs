@@ -32,7 +32,10 @@ if ($args -contains '-find') { return }
 Get-Content -LiteralPath $env:LLM_USAGE_VS_TEST_INVENTORY -Raw
 `);
     const result = spawnSync('pwsh', ['-NoProfile', '-File', path.join(root, 'desktop/scripts/inspect-vs-copilot.ps1'), '-VsWherePath', mock], {
-      encoding: 'utf8', windowsHide: true, env: { ...process.env, LLM_USAGE_VS_TEST_INVENTORY: inventory },
+      encoding: 'utf8', windowsHide: true, env: {
+        ...process.env, TMP: dir, TEMP: dir, TMPDIR: dir, XDG_DATA_HOME: dir,
+        LLM_USAGE_VS_TEST_INVENTORY: inventory,
+      },
     });
     assert.equal(result.status, 0, result.stderr);
     const report = JSON.parse(result.stdout);
@@ -40,6 +43,11 @@ Get-Content -LiteralPath $env:LLM_USAGE_VS_TEST_INVENTORY -Raw
     assert.deepEqual(report.instances.map(i => [i.product_id, i.installation_version, i.installation_path]),
       instances.map(i => [i.productId, i.installationVersion, i.installationPath]));
     assert.deepEqual(report.warnings, []);
+    const emptyCarrier = report.local_carriers.find(carrier =>
+      carrier.traces_directory === path.join(dir, 'VSGitHubCopilotLogs', 'traces'));
+    assert.equal(emptyCarrier.inspection_status, 'inspected');
+    assert.equal(emptyCarrier.jsonl_files_up_to_1024, 0);
+    assert.equal(emptyCarrier.bytes, 0);
     assert.ok(report.instances.every(i => i.copilot_components.length === 0));
   } finally {
     rmSync(dir, { recursive: true, force: true });

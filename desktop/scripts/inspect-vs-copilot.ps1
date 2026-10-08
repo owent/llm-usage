@@ -124,7 +124,7 @@ $carriers = @(
             if (Test-Path -LiteralPath $traces -PathType Container) {
                 $files = @(Get-ChildItem -LiteralPath $traces -File -Filter '*.jsonl' | Select-Object -First 1024)
             }
-            $bytes = ($files | Measure-Object -Property Length -Sum).Sum
+            $bytes = if ($files.Count -gt 0) { ($files | Measure-Object -Property Length -Sum).Sum } else { 0 }
             $last = $files | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
             [pscustomobject]@{
                 traces_directory = $traces

@@ -28,7 +28,7 @@
       ]
     },
     ".github/workflows/ci.yml": {
-      "codeHash": "6fe9f89543b1fa09f5ec319c793de70d1cbae0915689b139f5d42fc9c411c5cc",
+      "codeHash": "b841ecdf6a1d9b6b005ea0e14c05a58702f4851aa73efa1823df701770c6c7fa",
       "comments": [
         {
           "id": "de393e7c2ad7dd27",
@@ -38,18 +38,53 @@
           "zh": "# 平台检查：docs/design/desktop-usage/platform-ci.md。"
         },
         {
-          "id": "0edf987858d6537f",
+          "id": "6d27f188b0d169d5",
           "line": 4,
           "kind": "line",
-          "en": "# Build on all three platforms; fail-fast=false, floating Actions major versions and read-only PR permissions.",
-          "zh": "# 三平台真实构建、fail-fast=false、Actions 使用 v 主版本号浮动引用、PR 只读权限、"
+          "en": "# Build all three platforms with fail-fast=false and read-only PR permissions.",
+          "zh": "# 三平台构建使用 fail-fast=false，PR 保持只读权限。"
         },
         {
-          "id": "f477819fd137ee3d",
+          "id": "2f197c9354249a73",
           "line": 5,
           "kind": "line",
-          "en": "# No publication/signing; artifacts record revision, size and digest. Add test data/integration checks incrementally from M1.",
-          "zh": "# 不发布或签名；产物记录修订、大小与摘要，从 M1 逐步增加测试数据和集成检查。"
+          "en": "# Tag pushes update a draft Release after all checks; artifacts record revision, size and digest.",
+          "zh": "# tag 推送在全部检查通过后更新 Draft Release；制品记录 revision、大小和摘要。"
+        },
+        {
+          "id": "5c4aea539de1cf92",
+          "line": 190,
+          "kind": "line",
+          "en": "# v7",
+          "zh": "# v7 固定提交"
+        },
+        {
+          "id": "8d354d8f03723bbc",
+          "line": 191,
+          "kind": "line",
+          "en": "# v8",
+          "zh": "# v8 固定提交"
+        },
+        {
+          "id": "8cb924b747b0c458",
+          "line": 197,
+          "kind": "line",
+          "en": "# v8",
+          "zh": "# v8 固定提交"
+        },
+        {
+          "id": "ed6a6dd5b2894d23",
+          "line": 259,
+          "kind": "line",
+          "en": "# v1",
+          "zh": "# v1 固定提交"
+        },
+        {
+          "id": "71617036ab2341ca",
+          "line": 268,
+          "kind": "line",
+          "en": "# v8",
+          "zh": "# v8 固定提交"
         }
       ]
     },
@@ -200,7 +235,7 @@
       ]
     },
     "desktop/scripts/inspect-vs-copilot.ps1": {
-      "codeHash": "ac6665f51f0bff026c08319a73682072c5eccbd1569dfa25c06a7749e281d772",
+      "codeHash": "2a421419f0823fc18e8357498405823524009e4e1c5f4a088ed962b128361cb0",
       "comments": [
         {
           "id": "71749fe6e4a2feb3",

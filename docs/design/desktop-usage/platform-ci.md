@@ -51,8 +51,9 @@ for every Linux environment.
 ## GitHub application CI requirements
 
 Three-platform jobs exist; ongoing M7 acceptance needs actual runs. Triggers are PRs,
-main-branch pushes and manual dispatch. Maintaining local files alone does not authorize
-pushing or triggering remote CI.
+main-branch pushes, tag pushes and manual dispatch. The user authorized automatic draft
+Release publication and deletion/recreation of v0.2.1 to validate it. Other remote writes
+still need authorization.
 
 1. Shared checks: Markdown/local links, frontend types/unit tests and Rust fmt/clippy;
    determine commands from actual lockfiles.
@@ -91,11 +92,20 @@ for local results and remote CI gaps.
 Use fail-fast=false to retain all matrix results and timeouts per job. Retry only diagnosed
 temporary infrastructure failures. Cache keys include OS, architecture, Rust/Node versions
 and lockfile digests; separate targets and never cache real Agent data.
-Application Actions use floating major-version tags, PR permissions are read-only, and no
-publication/signing keys are present. Privileged pull_request_target cannot execute PR code.
-CI artifacts and GitHub Releases are separate. The user reported publication/signing/notarization
-complete, so they are no longer active tasks this round; local validation is not new remote
-CI/Release verification. Upload only installers, macOS .app.tar.gz and size/digest reports.
+Existing application checks use floating Action major-version tags; release Actions use
+fixed commit SHAs. PR permissions remain read-only. Only the tag-push release job receives
+contents: write through GitHub's short-lived token, after all shared checks and platform
+builds succeed. Privileged pull_request_target cannot execute PR code.
+CI artifacts and GitHub Releases are separate. Tag pushes create or update one draft by
+tag_name, including its name, body and target commit. Publication is serialized per tag;
+the job checks the current tag commit before updating a draft, so an older build cannot
+overwrite a recreated tag. Draft lookup covers all release pages. The
+[upload Action](https://github.com/xresloader/upload-to-github-release) receives the exact
+release ID and overwrite: true to replace same-name assets. Repeated runs replace the
+metadata and assets of the same draft. Platform reports have distinct asset names;
+package revisions, sizes and SHA-256 digests are checked before publication and uploaded
+assets are checked afterward. This workflow does not establish signing/notarization or
+desktop installation acceptance. Upload only installers, macOS .app.tar.gz and size/digest reports.
 Debian control.tar.gz/data.tar.gz, AppDir and packaging staging directories are not release artifacts.
 
 Desktop source: [Tauri WebDriver](https://v2.tauri.app/develop/tests/webdriver/).
