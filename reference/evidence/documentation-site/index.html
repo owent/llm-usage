@@ -76,8 +76,8 @@
 <p><a id="文档站实施记录"></a></p>
 <p>Started: 2026-10-07. Review date: 2026-10-08. Status: all document and source-comment pairs
 have been reviewed and local checks passed. Screenshot publication, automatic CI and public-domain
-HTTPS are verified for the navigation/layout update. The theme redesign has passed local
-checks; its new publication is pending. <a href="https://github.com/owent/llm-usage/blob/main/Plan.md">Plan.md</a> owns active status;
+HTTPS are verified, including navigation/layout and theme updates. The theme redesign has
+passed local checks, automatic publication and public-domain checks. <a href="https://github.com/owent/llm-usage/blob/main/Plan.md">Plan.md</a> owns active status;
 the <a href="/reference/design/documentation-site/">documentation requirements</a> define behavior.</p>
 <p><a id="环境与范围"></a></p>
 <h2 id="environment-and-scope">Environment and scope</h2>
@@ -290,7 +290,7 @@ and native screenshot capture below precede these documentation-only changes.</p
 </tr>
 <tr>
 <td>npm run build:docs</td>
-<td>Local theme build: 1363 pages / 2853 files; required sidebar links, links/fragments, language roots, local search, domain markers and screenshot digests/dimensions checked. Earlier clean 16c77e3 build also passed in CI</td>
+<td>Theme source 6025b075: 1363 pages / 2853 files passed locally and in CI; required sidebar links, links/fragments, language roots, local search, domain markers and screenshot digests/dimensions checked</td>
 </tr>
 <tr>
 <td>npm run test:docs:browser</td>
@@ -438,6 +438,18 @@ Preserve live-layout-after.log and live-layout-first-failure.json alongside the 
 live-layout-after-retry.log/live-after.json, layout-remote-publication.json and layout-remote-ci.log.
 These checks establish documentation publication and interactions, not new application/native
 acceptance. Subsequent publication-record edits do not change the verified site implementation.</p>
+<p>Theme source 6025b0750f852686f9e874ea6f9a1b97f70887dd passed automatic run 37722735785:
+31 unit tests, 30 browser checks, content/types/Markdown, production build and publication.
+gh-pages revision d8a473b9f63fe9624e9200408844d6d5f6fc75b1 reached built; its earlier generic
+Page build failed entry remains, with the cause unverified. All 20 remote PNG Git blobs
+match the original captures. Public HTTPS checks verified the exact source marker and
+actual light/dark colors, sparse decorations, card icons and localized images in both
+languages. All seven menu groups operated with pointer/keyboard; download and mobile source
+navigation passed. Guide bodies remain 1760px at 2560px, with no mobile overflow or JavaScript
+errors. The live home/guide screenshots were reviewed. Reports/logs are
+theme/live-6025b075/report.json, remote-37722735785-publication.json, theme-remote-ci.log and
+theme-live-implementation.log under build/documentation-site/. Later record-only changes
+do not change the tested theme styles, homepage icons or browser implementation.</p>
 <p>An optional offline translation environment was proposed under ignored build/ using pinned
 CTranslate2/SentencePiece/PyYAML and official OPUS-MT weights, with local inference and no
 repository text sent to a translation service. Automatic approval review rejected its
