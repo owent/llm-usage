@@ -4,8 +4,8 @@
 
 Started: 2026-10-07. Review date: 2026-10-08. Status: all document and source-comment pairs
 have been reviewed and local checks passed. Screenshot publication, automatic CI and public-domain
-HTTPS are verified for the navigation/layout update. The theme redesign has passed local
-checks; its new publication is pending. [Plan.md](../../../Plan.md) owns active status;
+HTTPS are verified, including navigation/layout and theme updates. The theme redesign has
+passed local checks, automatic publication and public-domain checks. [Plan.md](../../../Plan.md) owns active status;
 the [documentation requirements](../../design/documentation-site.md) define behavior.
 
 <a id="环境与范围"></a>
@@ -239,7 +239,7 @@ and native screenshot capture below precede these documentation-only changes.
 | npm run verify | Passed with the complete corpus: 1032 Rust tests passed, 8 remained ignored; 22 UI and 5 script tests passed; Markdown, Svelte, fmt, clippy and frontend build passed |
 | npm run test:docs | 31 tests passed; sidebar source inventory/order/nested versions, precise administrator branch configuration/read-back, localized index IDs and screenshot links, NSIS template preservation, comment references, document scope, language selection, links/anchors, source parsing and publication integrity |
 | npm run check:docs | All 199 repository pairs, 21 guide pairs and source comments synchronized; Astro checked 32 files with zero errors, warnings or hints |
-| npm run build:docs | Local theme build: 1363 pages / 2853 files; required sidebar links, links/fragments, language roots, local search, domain markers and screenshot digests/dimensions checked. Earlier clean 16c77e3 build also passed in CI |
+| npm run build:docs | Theme source 6025b075: 1363 pages / 2853 files passed locally and in CI; required sidebar links, links/fragments, language roots, local search, domain markers and screenshot digests/dimensions checked |
 | npm run test:docs:browser | 30 checks passed on installed Edge; rendered text/focus contrast, hovered actions, theme persistence, icons, forced colors/printing, sidebar navigation, titles/downloads, 320–2560px layouts, bilingual/theme-matched screenshots, original-image links, search, language choices, storage denial, no-JavaScript fallback and keyboard access; zero JS errors/outbound requests in the local build |
 | npm run docs:screenshots | 20 real native captures; correct language/theme, 240 isolated calls and declared pixel dimensions |
 | npm run lint:md | 451 files, zero issues, including this record |
@@ -376,6 +376,19 @@ Preserve live-layout-after.log and live-layout-first-failure.json alongside the 
 live-layout-after-retry.log/live-after.json, layout-remote-publication.json and layout-remote-ci.log.
 These checks establish documentation publication and interactions, not new application/native
 acceptance. Subsequent publication-record edits do not change the verified site implementation.
+
+Theme source 6025b0750f852686f9e874ea6f9a1b97f70887dd passed automatic run 37722735785:
+31 unit tests, 30 browser checks, content/types/Markdown, production build and publication.
+gh-pages revision d8a473b9f63fe9624e9200408844d6d5f6fc75b1 reached built; its earlier generic
+Page build failed entry remains, with the cause unverified. All 20 remote PNG Git blobs
+match the original captures. Public HTTPS checks verified the exact source marker and
+actual light/dark colors, sparse decorations, card icons and localized images in both
+languages. All seven menu groups operated with pointer/keyboard; download and mobile source
+navigation passed. Guide bodies remain 1760px at 2560px, with no mobile overflow or JavaScript
+errors. The live home/guide screenshots were reviewed. Reports/logs are
+theme/live-6025b075/report.json, remote-37722735785-publication.json, theme-remote-ci.log and
+theme-live-implementation.log under build/documentation-site/. Later record-only changes
+do not change the tested theme styles, homepage icons or browser implementation.
 
 An optional offline translation environment was proposed under ignored build/ using pinned
 CTranslate2/SentencePiece/PyYAML and official OPUS-MT weights, with local inference and no

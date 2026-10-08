@@ -3,8 +3,8 @@
 <a id="documentation-site-implementation-record"></a>
 
 开始日期：2026-10-07；审阅日期：2026-10-08。全部文档与源码注释配对已完成审阅；
-本地检查通过；导航与布局修改的截图发布、自动 CI 和自定义域名 HTTPS 已核验。
-新主题设计已通过本地检查，尚待核验本次发布。
+本地检查通过；截图发布、自动 CI 和自定义域名 HTTPS 已核验，包括导航、布局和主题修改。
+新主题设计已通过本地检查、自动发布与公开域名检查。
 [Plan.md](../../../Plan.md)维护活动状态，[文档要求](../../design/documentation-site.md)维护行为。
 
 <a id="environment-and-scope"></a>
@@ -195,7 +195,7 @@ chart/shield-check 名称，analytics/padlock 则包含实际 SVG 路径。两�
 | npm run verify | 完整语料上通过：1032 项 Rust 测试通过、8 项按原设置跳过；22 项界面测试、5 项脚本测试通过；Markdown、Svelte、fmt、clippy 和前端构建通过 |
 | npm run test:docs | 31 项通过，覆盖侧栏原件清单/顺序/嵌套版本、精确管理员分支配置及读回、语言首页 index ID、截图链接、NSIS 模板保留、注释对照、文档范围、语言选择、链接/章节标识、源码解析及发布完整性 |
 | npm run check:docs | 199 组仓库文档、21 组指南及全部源码注释同步；Astro 检查 32 个文件，零错误、警告及提示 |
-| npm run build:docs | 新主题本地构建 1363 页、2853 文件；检查必需侧栏链接、链接/片段、语言入口、本地搜索、域名标记及截图摘要/尺寸。此前干净 16c77e3 提交也已通过 CI |
+| npm run build:docs | 主题源码 6025b075 在本地及 CI 均构建 1363 页、2853 文件并通过；检查必需侧栏链接、链接/片段、语言入口、本地搜索、域名标记及截图摘要/尺寸 |
 | npm run test:docs:browser | 已安装 Edge 的 30 项通过；实际文字/焦点对比度、悬停按钮、主题保存、图标、强制颜色/打印、侧栏导航、标题/下载、320–2560 像素布局、双语亮暗截图、原图链接、搜索、语言选择、存储拒绝、无 JavaScript 回退及键盘访问；本地构建零 JS 错误/出站请求 |
 | npm run docs:screenshots | 20 张真实原生截图，语言/主题正确，240 次隔离调用，像素尺寸符合声明 |
 | npm run lint:md | 451 个文件，零问题，包括本记录 |
@@ -304,6 +304,18 @@ gh-pages 版本 4e31c8c1eba6911469da27fe16d215798dab812d 达到 built；历史�
 live-layout-after-retry.log、live-after.json、layout-remote-publication.json 和
 layout-remote-ci.log。这些结果验证文档发布与交互，不代表重新验收应用或原生功能。
 后续发布记录修改不改变已核验的站点实现。
+
+主题源码 6025b0750f852686f9e874ea6f9a1b97f70887dd 的自动运行 37722735785 通过
+31 项单元测试、30 项浏览器检查、内容/类型/Markdown、生产构建和发布。
+gh-pages 版本 d8a473b9f63fe9624e9200408844d6d5f6fc75b1 达到 built；此前通用
+Page build failed 结果仍保留，原因尚未核验。远端 20 张 PNG 的 Git blob 均与原图一致。
+公开 HTTPS 检查确认准确源码标记、两种语言的实际亮暗配色、稀疏装饰、卡片图标及
+对应语言图片。七个菜单分组均可用鼠标及键盘操作；下载和手机数据源跳转通过。
+2560 像素视口的指南正文仍为 1760 像素，没有手机溢出或 JavaScript 错误。
+已审阅线上首页与指南截图。报告及日志位于 build/documentation-site/ 下的
+theme/live-6025b075/report.json、remote-37722735785-publication.json、theme-remote-ci.log
+和 theme-live-implementation.log。后续仅修改记录，不改变已测试的主题样式、首页图标
+或浏览器实现。
 
 曾提议在已忽略 build/ 下建立可选离线翻译环境，使用固定版本 CTranslate2/
 SentencePiece/PyYAML 和官方 OPUS-MT 权重，本机推理，不把仓库文本发送到翻译服务。
