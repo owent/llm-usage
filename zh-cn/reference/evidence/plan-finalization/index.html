@@ -1,0 +1,304 @@
+<!DOCTYPE html><html lang="zh-CN" dir="ltr" data-theme="dark" data-has-toc data-has-sidebar class="astro-i2f5rvhd"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>原生交互、归档增量与规模验收 | LLM Usage</title><link rel="canonical" href="https://llm-usage.atframe.work/zh-cn/reference/evidence/plan-finalization/"/><link rel="alternate" hreflang="en" href="https://llm-usage.atframe.work/reference/evidence/plan-finalization/"/><link rel="alternate" hreflang="zh-CN" href="https://llm-usage.atframe.work/zh-cn/reference/evidence/plan-finalization/"/><link rel="alternate" hreflang="x-default" href="https://llm-usage.atframe.work/reference/evidence/plan-finalization/"/><link rel="sitemap" href="/sitemap-index.xml"/><link rel="shortcut icon" href="/favicon.svg" type="image/svg+xml"/><meta name="generator" content="Astro v7.3.6"/><meta name="generator" content="Starlight v0.42.5"/><meta property="og:title" content="原生交互、归档增量与规模验收"/><meta property="og:type" content="article"/><meta property="og:url" content="https://llm-usage.atframe.work/zh-cn/reference/evidence/plan-finalization/"/><meta property="og:locale" content="zh-CN"/><meta property="og:description" content="Understand the AI usage recorded on your computer."/><meta property="og:site_name" content="LLM Usage"/><meta name="twitter:card" content="summary_large_image"/><meta name="description" content="Understand the AI usage recorded on your computer."/><meta name="color-scheme" content="light dark"><script type="module" src="/_astro/Head.astro_astro_type_script_index_0_lang.CRxMF9Ma.js"></script><script>
+  (() => {
+    const scheme = matchMedia('(prefers-color-scheme: dark)');
+    let choice = 'auto';
+    try {
+      const saved = localStorage.getItem('starlight-theme');
+      if (saved === 'light' || saved === 'dark') choice = saved;
+    } catch { /* System theme remains available without browser storage. */ }
+    function updatePickers() {
+      document.querySelectorAll('starlight-theme-select').forEach(picker => {
+        const select = picker.querySelector('select');
+        if (select) select.value = choice;
+        const icon = document.querySelector('#docs-theme-icons')?.content.querySelector('.' + choice);
+        const target = picker.querySelector('svg.label-icon');
+        if (icon && target) target.replaceChildren(...icon.cloneNode(true).childNodes);
+      });
+    }
+    function apply(theme, persist = false) {
+      choice = theme === 'light' || theme === 'dark' ? theme : 'auto';
+      document.documentElement.dataset.theme = choice === 'auto' ? scheme.matches ? 'dark' : 'light' : choice;
+      updatePickers();
+      if (persist) {
+        try { localStorage.setItem('starlight-theme', choice === 'auto' ? '' : choice); }
+        catch { /* The current page still changes theme. */ }
+      }
+    }
+    window.LLMUsageDocsTheme = { apply, updatePickers };
+    scheme.addEventListener('change', () => { if (choice === 'auto') apply('auto'); });
+    apply(choice);
+  })();
+</script><template id="docs-theme-icons"><svg aria-hidden="true" class="light astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg><svg aria-hidden="true" class="dark astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="auto astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg></template><link rel="stylesheet" href="/_astro/print.ehPL0gv-.css" media="print"><link rel="stylesheet" href="/_astro/common.CLGr15ze.css"><style>@layer starlight.components{.card:where(.astro-eiplrasj){--sl-card-border:var(--sl-color-purple);--sl-card-bg:var(--sl-color-purple-low);border:1px solid var(--sl-color-gray-5);background-color:var(--sl-color-black);flex-direction:column;gap:clamp(.5rem,.125rem + 1vw,1rem);padding:clamp(1rem,.125rem + 3vw,2.5rem)}.card:where(.astro-eiplrasj):nth-child(4n+1){--sl-card-border:var(--sl-color-orange);--sl-card-bg:var(--sl-color-orange-low)}.card:where(.astro-eiplrasj):nth-child(4n+3){--sl-card-border:var(--sl-color-green);--sl-card-bg:var(--sl-color-green-low)}.card:where(.astro-eiplrasj):nth-child(4n+4){--sl-card-border:var(--sl-color-red);--sl-card-bg:var(--sl-color-red-low)}.card:where(.astro-eiplrasj):nth-child(4n+5){--sl-card-border:var(--sl-color-blue);--sl-card-bg:var(--sl-color-blue-low)}.title:where(.astro-eiplrasj){font-weight:600;font-size:var(--sl-text-h4);color:var(--sl-color-white);line-height:var(--sl-line-height-headings);align-items:center;gap:1rem}.card:where(.astro-eiplrasj) .icon:where(.astro-eiplrasj){border:1px solid var(--sl-card-border);background-color:var(--sl-card-bg);border-radius:.25rem;flex-shrink:0;padding:.2em}.card:where(.astro-eiplrasj) .body:where(.astro-eiplrasj){font-size:clamp(var(--sl-text-sm), calc(.5rem + 1vw), var(--sl-text-body));margin:0}.card-grid:where(.astro-t7b7g7fk){grid-template-columns:100%;gap:1rem;display:grid}.card-grid:where(.astro-t7b7g7fk)>*{margin-top:0!important}@media (width>=50rem){.card-grid:where(.astro-t7b7g7fk){grid-template-columns:1fr 1fr;gap:1.5rem}.stagger:where(.astro-t7b7g7fk){--stagger-height:5rem;padding-bottom:var(--stagger-height)}.stagger:where(.astro-t7b7g7fk)>:nth-child(2n){transform:translateY(var(--stagger-height))}}.sl-link-card:where(.astro-6ghwbfyk){border:1px solid var(--sl-color-gray-5);box-shadow:var(--sl-shadow-sm);border-radius:.5rem;grid-template-columns:1fr auto;gap:.5rem;padding:1rem;display:grid;position:relative}a:where(.astro-6ghwbfyk){line-height:var(--sl-line-height-headings);text-decoration:none}a:where(.astro-6ghwbfyk):before{content:"";position:absolute;inset:0}.stack:where(.astro-6ghwbfyk){flex-direction:column;gap:.5rem}.title:where(.astro-6ghwbfyk){color:var(--sl-color-white);font-weight:600;font-size:var(--sl-text-lg)}.description:where(.astro-6ghwbfyk){color:var(--sl-color-gray-3);line-height:1.5}.icon:where(.astro-6ghwbfyk){color:var(--sl-color-gray-3)}.sl-link-card:where(.astro-6ghwbfyk):hover{background:var(--sl-color-gray-7,var(--sl-color-gray-6));border-color:var(--sl-color-gray-2)}.sl-link-card:where(.astro-6ghwbfyk):hover .icon:where(.astro-6ghwbfyk){color:var(--sl-color-white)}}.app-screenshot:where(.astro-ofe7zldm){margin:1.5rem 0 2.5rem}.screenshot-frame:where(.astro-ofe7zldm){border:1px solid var(--sl-color-gray-5);background:var(--sl-color-bg);border-radius:1rem;box-shadow:0 16px 48px #00000018}.screenshot-frame:where(.astro-ofe7zldm) a:where(.astro-ofe7zldm){border-radius:inherit;display:block}.screenshot-frame:where(.astro-ofe7zldm) img:where(.astro-ofe7zldm){border-radius:inherit;width:100%;height:auto;box-shadow:none;border:0;margin:0;display:block}.screenshot-frame:where(.astro-ofe7zldm) .screenshot-dark:where(.astro-ofe7zldm),:root[data-theme=dark] .screenshot-light:where(.astro-ofe7zldm){display:none}:root[data-theme=dark] .screenshot-dark:where(.astro-ofe7zldm){display:block}figcaption:where(.astro-ofe7zldm){color:var(--sl-color-gray-2);flex-wrap:wrap;justify-content:space-between;gap:.25rem 1rem;margin-top:.75rem;font-size:.875rem;line-height:1.6;display:flex}.screenshot-hint:where(.astro-ofe7zldm){color:var(--sl-color-text-accent)}
+@layer starlight.components{svg:where(.astro-iwaxdyvu){color:var(--sl-icon-color);font-size:var(--sl-icon-size,1em);width:1em;height:1em}}
+</style><script type="module" src="/_astro/page.Dwipeu-R.js"></script></head><body class="astro-i2f5rvhd"><a class="sl-skip-link astro-af3xnx6k" href="#_top">跳转到内容</a><div class="page sl-flex astro-7ol3m3p7"><header class="header astro-7ol3m3p7"><div class="header astro-qqelxyz2"><div class="title-wrapper sl-flex astro-qqelxyz2"><a href="/zh-cn/" class="site-title sl-flex astro-pm7u5y3t"><img class="astro-pm7u5y3t" alt src="/_astro/brand.BEXAYDnz.svg" width="1024" height="1024"><span class="astro-pm7u5y3t" translate="no">LLM Usage</span></a></div><div class="sl-flex print:hidden astro-qqelxyz2"><site-search class="astro-qqelxyz2 astro-veqdxac2" data-translations="{&quot;placeholder&quot;:&quot;搜索&quot;}"><button data-open-modal disabled aria-label="搜索" aria-keyshortcuts="Control+K" class="astro-veqdxac2"><svg aria-hidden="true" class="astro-veqdxac2 astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg><span class="sl-hidden md:sl-block astro-veqdxac2" aria-hidden="true">搜索</span><kbd class="sl-hidden md:sl-flex astro-veqdxac2" style="display: none;"><kbd class="astro-veqdxac2">Ctrl</kbd><kbd class="astro-veqdxac2">K</kbd></kbd></button><dialog style="padding:0" aria-label="搜索" class="astro-veqdxac2"><div class="dialog-frame sl-flex astro-veqdxac2"><button data-close-modal class="sl-flex md:sl-hidden astro-veqdxac2">取消</button><div class="search-container astro-veqdxac2"><div id="starlight__search" class="astro-veqdxac2"></div></div></div></dialog></site-search><script>
+	(() => {
+		const openBtn = document.querySelector('button[data-open-modal]');
+		const shortcut = openBtn?.querySelector('kbd');
+		if (!openBtn || !(shortcut instanceof HTMLElement)) return;
+		const platformKey = shortcut.querySelector('kbd');
+		if (platformKey && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
+			platformKey.textContent = '⌘';
+			openBtn.setAttribute('aria-keyshortcuts', 'Meta+K');
+		}
+		shortcut.style.display = '';
+	})();
+</script><script type="module" src="/_astro/Search.astro_astro_type_script_index_0_lang.Bumivpjo.js"></script></div><div class="sl-hidden md:sl-flex print:hidden right-group astro-qqelxyz2"><div class="sl-flex social-icons astro-qqelxyz2"><a href="https://github.com/owent/llm-usage" rel="me" class="sl-flex astro-csqdcj5u"><span class="sr-only astro-csqdcj5u">GitHub</span><svg aria-hidden="true" class="astro-csqdcj5u astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a></div><starlight-theme-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">选择主题</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="light" class="astro-btilxiwo">浅色</option><option value="dark" class="astro-btilxiwo">深色</option><option value="auto" selected class="astro-btilxiwo">自动</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-theme-select><script>window.LLMUsageDocsTheme.updatePickers();</script><script type="module">document.addEventListener(`change`,e=>{let t=e.target;if(!(t instanceof HTMLSelectElement)||!t.closest(`starlight-theme-select`))return;let n=t.value===`light`||t.value===`dark`?t.value:`auto`;window.LLMUsageDocsTheme.apply(n,!0)});</script><starlight-lang-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">选择语言</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path fill-rule="evenodd" d="M8.516 3a.94.94 0 0 0-.941.94v1.15H2.94a.94.94 0 1 0 0 1.882h7.362a7.422 7.422 0 0 1-1.787 3.958 7.42 7.42 0 0 1-1.422-2.425.94.94 0 1 0-1.774.627 9.303 9.303 0 0 0 1.785 3.043 7.422 7.422 0 0 1-4.164 1.278.94.94 0 1 0 0 1.881 9.303 9.303 0 0 0 5.575-1.855 9.303 9.303 0 0 0 4.11 1.74l-.763 1.525a.968.968 0 0 0-.016.034l-1.385 2.77a.94.94 0 1 0 1.683.841l1.133-2.267h5.806l1.134 2.267a.94.94 0 0 0 1.683-.841l-1.385-2.769a.95.95 0 0 0-.018-.036l-3.476-6.951a.94.94 0 0 0-1.682 0l-1.82 3.639a7.423 7.423 0 0 1-3.593-1.256 9.303 9.303 0 0 0 2.27-5.203h1.894a.94.94 0 0 0 0-1.881H9.456V3.94A.94.94 0 0 0 8.516 3Zm6.426 11.794a1.068 1.068 0 0 1-.02.039l-.703 1.407h3.924l-1.962-3.924-1.24 2.478Z" clip-rule="evenodd"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="/reference/evidence/plan-finalization/" class="astro-btilxiwo">English</option><option value="/zh-cn/reference/evidence/plan-finalization/" selected class="astro-btilxiwo">简体中文</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-lang-select><script type="module">var e=class extends HTMLElement{constructor(){super();let e=this.querySelector(`select`);e&&(e.addEventListener(`change`,e=>{e.currentTarget instanceof HTMLSelectElement&&(window.location.pathname=e.currentTarget.value)}),window.addEventListener(`pageshow`,t=>{if(!t.persisted)return;let n=e.querySelector(`option[selected]`)?.index;n!==e.selectedIndex&&(e.selectedIndex=n??0)}))}};customElements.define(`starlight-lang-select`,e);</script><script type="module" src="/_astro/LanguageSelect.astro_astro_type_script_index_0_lang.DH65a7yi.js"></script></div></div></header><nav class="sidebar print:hidden astro-7ol3m3p7" aria-label="主要"><button popovertarget="starlight__sidebar" class="sl-menu-button sl-flex md:sl-hidden print:hidden astro-dcnpphyu"><svg aria-hidden="true" class="open-menu astro-dcnpphyu astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"/></svg><svg aria-hidden="true" class="close-menu astro-dcnpphyu astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"/></svg><span class="sr-only astro-dcnpphyu">菜单</span></button><script type="module">var e=class extends HTMLElement{constructor(){super();let e=matchMedia(`(min-width: 50em)`),t=()=>{this.popover=e.matches?null:`auto`};t(),e.addEventListener(`change`,()=>t()),this.addEventListener(`toggle`,({newState:e})=>this.trapFocus(e===`open`))}trapFocus(e){document.querySelectorAll(`.main-frame, .sl-skip-link`).forEach(t=>{t.toggleAttribute(`inert`,e)})}};customElements.define(`sl-sidebar-pane`,e);</script><sl-sidebar-pane popover id="starlight__sidebar" class="sidebar-pane astro-7ol3m3p7"><div class="sidebar-content sl-flex astro-7ol3m3p7"><sl-sidebar-state-persist data-hash="0llvynh" class="astro-lsvsit3p"><script aria-hidden="true">
+		(() => {
+			try {
+				if (!matchMedia('(min-width: 50em)').matches) return;
+				/** @type {HTMLElement | null} */
+				const target = document.querySelector('sl-sidebar-state-persist');
+				const state = JSON.parse(sessionStorage.getItem('sl-sidebar-state') || '0');
+				if (!target || !state || target.dataset.hash !== state.hash) return;
+				window._starlightScrollRestore = state.scroll;
+				customElements.define(
+					'sl-sidebar-restore',
+					class SidebarRestore extends HTMLElement {
+						connectedCallback() {
+							try {
+								const idx = parseInt(this.dataset.index || '');
+								const details = this.closest('details');
+								if (details && typeof state.open[idx] === 'boolean') details.open = state.open[idx];
+							} catch {}
+						}
+					}
+				);
+			} catch {}
+		})();
+	</script><ul class="top-level astro-ykcsoi7s"><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">开始使用</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="0"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">用户指南</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="1"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">开发指南</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="2"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">设计说明</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="3"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">开发验证记录</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="4"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">项目说明</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="5"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">测试数据说明</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="6"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li></ul><script aria-hidden="true">
+		(() => {
+			const scroller = document.getElementById('starlight__sidebar');
+			if (!window._starlightScrollRestore || !scroller) return;
+			scroller.scrollTop = window._starlightScrollRestore;
+			delete window._starlightScrollRestore;
+		})();
+	</script></sl-sidebar-state-persist><div class="md:sl-hidden"><div class="mobile-preferences sl-flex astro-lsc3yx5w"><div class="social-icons astro-lsc3yx5w"><a href="https://github.com/owent/llm-usage" rel="me" class="sl-flex astro-csqdcj5u"><span class="sr-only astro-csqdcj5u">GitHub</span><svg aria-hidden="true" class="astro-csqdcj5u astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a></div><starlight-theme-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">选择主题</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="light" class="astro-btilxiwo">浅色</option><option value="dark" class="astro-btilxiwo">深色</option><option value="auto" selected class="astro-btilxiwo">自动</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-theme-select><script>window.LLMUsageDocsTheme.updatePickers();</script><starlight-lang-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">选择语言</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path fill-rule="evenodd" d="M8.516 3a.94.94 0 0 0-.941.94v1.15H2.94a.94.94 0 1 0 0 1.882h7.362a7.422 7.422 0 0 1-1.787 3.958 7.42 7.42 0 0 1-1.422-2.425.94.94 0 1 0-1.774.627 9.303 9.303 0 0 0 1.785 3.043 7.422 7.422 0 0 1-4.164 1.278.94.94 0 1 0 0 1.881 9.303 9.303 0 0 0 5.575-1.855 9.303 9.303 0 0 0 4.11 1.74l-.763 1.525a.968.968 0 0 0-.016.034l-1.385 2.77a.94.94 0 1 0 1.683.841l1.133-2.267h5.806l1.134 2.267a.94.94 0 0 0 1.683-.841l-1.385-2.769a.95.95 0 0 0-.018-.036l-3.476-6.951a.94.94 0 0 0-1.682 0l-1.82 3.639a7.423 7.423 0 0 1-3.593-1.256 9.303 9.303 0 0 0 2.27-5.203h1.894a.94.94 0 0 0 0-1.881H9.456V3.94A.94.94 0 0 0 8.516 3Zm6.426 11.794a1.068 1.068 0 0 1-.02.039l-.703 1.407h3.924l-1.962-3.924-1.24 2.478Z" clip-rule="evenodd"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="/reference/evidence/plan-finalization/" class="astro-btilxiwo">English</option><option value="/zh-cn/reference/evidence/plan-finalization/" selected class="astro-btilxiwo">简体中文</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-lang-select></div></div></div></sl-sidebar-pane></nav><div class="main-frame astro-7ol3m3p7"><script type="module">var e=document.getElementById(`starlight__sidebar`),t=e?.querySelector(`sl-sidebar-state-persist`),n=`sl-sidebar-state`,r=()=>{let r=[],i=t?.dataset.hash||``;try{let e=sessionStorage.getItem(n),t=JSON.parse(e||`{}`);Array.isArray(t.open)&&t.hash===i&&(r=t.open)}catch{}return{hash:i,open:r,scroll:e?.scrollTop||0}},i=e=>{try{sessionStorage.setItem(n,JSON.stringify(e))}catch{}},a=()=>i(r()),o=(e,t)=>{let n=r();n.open[t]=e,i(n)};t?.addEventListener(`click`,e=>{if(!(e.target instanceof Element))return;let t=e.target.closest(`summary`)?.closest(`details`);if(!t)return;let n=t.querySelector(`sl-sidebar-restore`),r=parseInt(n?.dataset.index||``);isNaN(r)||o(!t.open,r)}),addEventListener(`visibilitychange`,()=>{document.visibilityState===`hidden`&&a()});</script><div class="lg:sl-flex astro-rcl3dmqm"><aside class="right-sidebar-container print:hidden astro-rcl3dmqm"><div class="right-sidebar astro-rcl3dmqm"><div class="lg:sl-hidden astro-fjp5q7r4"><mobile-starlight-toc data-min-h="2" data-max-h="3" class="astro-6exeh6u7"><nav aria-labelledby="starlight__on-this-page--mobile" class="astro-6exeh6u7"><details id="starlight__mobile-toc" class="astro-6exeh6u7"><summary id="starlight__on-this-page--mobile" class="sl-flex astro-6exeh6u7"><span class="toggle sl-flex astro-6exeh6u7">本页内容<svg aria-hidden="true" class="caret astro-6exeh6u7 astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></span><span class="display-current astro-6exeh6u7"></span></summary><div class="dropdown astro-6exeh6u7"><ul class="isMobile astro-g6ctc22k" style="--depth: 0;"><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#_top" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">概述</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#当前实现" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">当前实现</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#工程与原生检查" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">工程与原生检查</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#完整查询" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">完整查询</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#原生首屏与资源" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">原生首屏与资源</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#百万库增量刷新" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">百万库增量刷新</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#最终文档与剩余条件" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">最终文档与剩余条件</span></a></li></ul></div></details></nav></mobile-starlight-toc><script type="module" src="/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.C3fM4Kra.js"></script></div><div class="right-sidebar-panel sl-hidden lg:sl-block astro-fjp5q7r4"><div class="sl-container astro-fjp5q7r4"><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">本页内容</h2><ul class="astro-g6ctc22k" style="--depth: 0;"><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#_top" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">概述</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#当前实现" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">当前实现</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#工程与原生检查" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">工程与原生检查</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#完整查询" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">完整查询</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#原生首屏与资源" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">原生首屏与资源</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#百万库增量刷新" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">百万库增量刷新</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#最终文档与剩余条件" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">最终文档与剩余条件</span></a></li></ul></nav></starlight-toc><script type="module" src="/_astro/TableOfContents.astro_astro_type_script_index_0_lang.BpJaGz7G.js"></script></div></div></div></aside><div class="main-pane astro-rcl3dmqm"><main data-pagefind-body class="astro-i2f5rvhd" lang="zh-CN" dir="ltr"><div class="content-panel astro-ptfq3z6k"><div class="sl-container astro-ptfq3z6k"><h1 id="_top" class="astro-5fsxzwfk">原生交互、归档增量与规模验收</h1></div></div><div class="content-panel astro-ptfq3z6k"><div class="sl-container astro-ptfq3z6k"><div class="sl-markdown-content"><p><a id="原生交互归档增量与规模验收"></a></p>
+<p><a id="native-interactions-incremental-archives-and-scale-acceptance"></a></p>
+<p>日期：2026-10-04；版本 0.2.1；cwd：D:/workspace/projs/github/owent/llm-usage。
+Windows 11 Pro x64 10.0.26300；Ryzen 9 9950X3D（16 核/32 线程）、约 125 GiB RAM。
+Node 24.21.0、Rust 1.98、Tauri CLI 2.12.0、WebView2 154.0.4258.53。
+依赖以锁文件为准。本页保留该日较早批次的结果；后续查询加速、资源及并行采集
+结果见 <a href="/zh-cn/reference/evidence/current-acceptance/">最新验收</a> 和 <a href="/zh-cn/reference/evidence/plan-execution/">剩余计划执行</a>，
+当前任务状态以 <a href="https://github.com/owent/llm-usage/blob/main/Plan.md">Plan.md</a> 为准。临时日志、程序与合成库均在根
+build/query-next/、build/plan-finalization/ 或 build/plan-completion/，不复制私人来源正文。</p>
+<p><a id="implemented-behavior"></a></p>
+<h2 id="当前实现">当前实现</h2>
+<ul>
+<li>清理与清空共用后台维护任务，提交前可取消；原子状态决定取消或提交谁成功。
+SQLite 进度回调中断耗时 SQL，事务整体回滚，事件、修订、保留处理位置及汇总不变，
+取消不重扫。提交开始后明确拒绝取消；已接受取消的按钮禁用至任务结束。
+不完整备份只删除自身文件，命名冲突耗尽时保留已有快照并提前失败。</li>
+<li>系统任务失败测试仅在 OS 调用边界注入错误，实际 AppState/SQLite 核对调用前
+意图已持久化、错误可查询、关闭后的残留触发不采集及重试恢复。
+“仅扫描手工目录”默认关闭，开启后同时限制 GUI/后台的默认来源和额度发现。</li>
+<li>图表方向键、Home/End 移动，Shift 连续预选，Enter 查询；沿用鼠标的范围、
+模型/Agent/费用联动。十语言实际保存，HTML lang 随之更新，设置控件具可访问名称，
+表单按容器宽度换行。CSS 页面缩放不能代替 OS DPI 或辅助技术实测。</li>
+<li>日汇总、Agent 分布及日粒度图表逐行合并，仅保留结果分组与活动日集合。
+会话/耗时先按准确本地日边界在 SQLite 分组，跨日继续合并完整来源/会话身份，
+不叠加每日 DISTINCT；小时/DST、未知字段、保留归档分区及其覆盖规则保持不变。</li>
+<li>schema 11 不变；旧库首次打开补建归属排除、来源覆盖及明细覆盖索引，
+不清库、不重建汇总、不改数据修订。覆盖索引增加空间和写入成本；最终查询与首屏
+使用已建索引的库，不把该首屏结果当成旧库首次补建索引的耗时。</li>
+<li>每连接汇总缓存最多 4 项、字符串/向量保留容量上限 2 MiB；这不等于进程内存上限。
+键包含完整筛选、选区、时区、日期、粒度、今天和保留边界；同一读事务内核对修订、
+data_version 和 total_changes，同连接写入或其他连接提交后失效，失败/超限不缓存。
+两个只读连接互斥复用，忙时使用短命备用；查询结束不留下读事务。</li>
+<li>仅今天增量使全局修订推进时，不再重复物化稳定历史。事务内保存日期/策略、
+已完成分区的修订和行数；覆盖已完成周/月/年的日边界取三者最新边界。
+迟到数据、删除、缺失归档、日期/策略变化、无效标记或异常未来修订均走完整重建。
+清空同步移除标记，取消回滚标记和统计，不据来源最高版本或未变条数猜测兼容。</li>
+<li>采集期间每 500 ms 核对状态，空闲恢复 10 秒检查。已接受但尚未运行的任务保留
+完成等待；两次检查间完成的短采集也刷新界面，避免掉回空闲间隔后延迟通知。</li>
+</ul>
+<p>缓存依据见 <a href="https://www.sqlite.org/pragma.html#pragma_data_version">SQLite data_version</a>
+及 <a href="https://docs.rs/rusqlite/0.40.2/rusqlite/struct.Connection.html#method.total_changes">rusqlite 0.40.2 total_changes</a>。
+跨连接 WAL 小库探测另核对：持有读快照期间 data_version 与旧快照一致，结束后
+下一次读可见外部提交；同连接/外部无修订号写入的缓存失效另有 Rust 回归。</p>
+<p><a id="engineering-and-native-checks"></a></p>
+<h2 id="工程与原生检查">工程与原生检查</h2>
+<table>
+<thead>
+<tr>
+<th>命令/方法</th>
+<th>退出码与结果</th>
+<th>核验范围</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>npm run verify</td>
+<td>0；Rust 852、前端 20、脚本 3；默认忽略 5 项显式/环境测试</td>
+<td>177 Markdown、资源、类型 0 错误/告警、fmt、Clippy -D warnings、设计要求及集成测试及前端构建</td>
+</tr>
+<tr>
+<td>npm run build:desktop</td>
+<td>0；NSIS 3,810,444 字节（3.63 MiB）</td>
+<td>最终 release 与嵌入前端；未安装</td>
+</tr>
+<tr>
+<td>npm run test:headless</td>
+<td>0；11 项，最终 3 事件 / 75 token</td>
+<td>实际 release、SQLite、隔离非空合成文件与持久化规则</td>
+</tr>
+<tr>
+<td>npm run test:desktop – –runs 20</td>
+<td>0；13 项，小数据 20 次首屏 P95 724.3 ms</td>
+<td>实际 WebView2/Tauri IPC、鼠标/键盘、离线、重启、交换、十语言及系统分钟任务</td>
+</tr>
+<tr>
+<td>npm run test:browser</td>
+<td>0</td>
+<td>Edge 模拟 IPC，五页/选区/联动、十语言、主题、筛选、分页、短采集交接及空闲轮询</td>
+</tr>
+<tr>
+<td>Windows 显式测试</td>
+<td>0；COM 任务、HKCU 测试键各 1 项</td>
+<td>测试命名空间的注册/查询/漂移修复/幂等删除；不替代真实权限拒绝</td>
+</tr>
+<tr>
+<td>ai-maintenance quick_validate.py</td>
+<td>0；Skill is valid</td>
+<td>静态格式；description 未改，不声称模型触发或质量评估通过</td>
+</tr>
+</tbody>
+</table>
+<p>日志：build/query-next/verify-final.log、desktop-build-final.log、browser.log、
+headless-final.log、native-final.log；最后两项结果分别在
+build/plan-completion/headless/1791056946337/ 与 native/1791056947059/result.json。
+前端产物 JS 1,065.74 kB / gzip 357.03 kB，CSS 51.73 / 9.50 kB。
+Windows 显式测试在当前版本分别执行 native_task_roundtrip 和 registry_roundtrip
+（cargo test –offline，–ignored），日志为 windows-task-final.log / windows-registry-final.log；
+Skill 校验使用 python -X utf8，避免 Windows 系统默认编码误读中文。</p>
+<p>13 项原生回归包含十语言逐项真实保存及 CSS 缩放 1 / 1.25 / 1.5 / 2，核对
+无水平溢出、保存按钮可见、可见设置表单可访问名称及统计不随语言改变。
+无 GUI 场景注册当前用户的分钟任务，关闭界面后新增第三条合成事件；观察 OS
+执行时间、Ready/退出 0，再在重开界面前只读 SQLite，核对 3 事件 / 75 token。
+重启保留结果，测试结束删除自身任务。普通用户实际触发与失败注入分别记录结果。</p>
+<p><a id="complete-queries"></a></p>
+<h2 id="完整查询">完整查询</h2>
+<p>bench_v20 的既有合成库经实际 EventPipeline、事务和日/小时聚合入库，50,000 条一批；
+覆盖 366 日、50 模型、20 Agent、20 来源实例。会话跨日重复，20% 事件在每来源复用
+两个大规模会话键，跨来源仍独立；多 Agent 合成实例只作维度压力测试。
+最终程序只读既有库，实际 query_summary 包括指标、会话、耗时、覆盖、模型/Agent
+分布，断言全部调用数及维度数，不是单独 SUM/COUNT 的计时。</p>
+<p>每组先清除连接缓存测 20 次完整查询，再测 20 次命中；明细测 100 次每页 200 条。
+完整查询 P95 取排序后第 19 项，明细 P95 取第 95 项；OS 文件缓存未主动清空，
+未命中指应用汇总缓存。
+从仓库根执行，均退出 0：</p>
+<div class="expressive-code"><link rel="stylesheet" href="/_astro/ec.w36nc.css"><script type="module" src="/_astro/ec.0vx5m.js"></script><figure class="frame is-terminal not-content"><figcaption class="header"><span class="title"></span><span class="sr-only">Terminal window</span></figcaption><pre data-language="powershell"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">cargo build </span><span style="--0:#C792EA;--1:#8844AE">--</span><span style="--0:#D6DEEB;--1:#403F53">offline </span><span style="--0:#C792EA;--1:#8844AE">--</span><span style="--0:#D6DEEB;--1:#403F53">manifest</span><span style="--0:#C792EA;--1:#8844AE">-</span><span style="--0:#D6DEEB;--1:#403F53">path desktop</span><span style="--0:#C792EA;--1:#8844AE">/</span><span style="--0:#D6DEEB;--1:#403F53">src</span><span style="--0:#C792EA;--1:#8844AE">-</span><span style="--0:#D6DEEB;--1:#403F53">tauri</span><span style="--0:#C792EA;--1:#8844AE">/</span><span style="--0:#D6DEEB;--1:#403F53">Cargo.toml </span><span style="--0:#C792EA;--1:#8844AE">-</span><span style="--0:#D6DEEB;--1:#403F53">p llm</span><span style="--0:#C792EA;--1:#8844AE">-</span><span style="--0:#D6DEEB;--1:#403F53">usage</span><span style="--0:#C792EA;--1:#8844AE">-</span><span style="--0:#D6DEEB;--1:#403F53">core </span><span style="--0:#C792EA;--1:#8844AE">--</span><span style="--0:#D6DEEB;--1:#403F53">release </span><span style="--0:#C792EA;--1:#8844AE">--</span><span style="--0:#D6DEEB;--1:#403F53">example bench_v20</span></div></div><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">desktop</span><span style="--0:#C792EA;--1:#8844AE">/</span><span style="--0:#D6DEEB;--1:#403F53">src</span><span style="--0:#C792EA;--1:#8844AE">-</span><span style="--0:#D6DEEB;--1:#403F53">tauri</span><span style="--0:#C792EA;--1:#8844AE">/</span><span style="--0:#D6DEEB;--1:#403F53">target</span><span style="--0:#C792EA;--1:#8844AE">/</span><span style="--0:#D6DEEB;--1:#403F53">release</span><span style="--0:#C792EA;--1:#8844AE">/</span><span style="--0:#D6DEEB;--1:#403F53">examples</span><span style="--0:#C792EA;--1:#8844AE">/</span><span style="--0:#7FDBCA;--1:#096E72">bench_v20.exe</span><span style="--0:#D6DEEB;--1:#403F53"> build</span><span style="--0:#C792EA;--1:#8844AE">/</span><span style="--0:#D6DEEB;--1:#403F53">plan</span><span style="--0:#C792EA;--1:#8844AE">-</span><span style="--0:#D6DEEB;--1:#403F53">finalization</span><span style="--0:#C792EA;--1:#8844AE">/</span><span style="--0:#D6DEEB;--1:#403F53">million</span><span style="--0:#C792EA;--1:#8844AE">-</span><span style="--0:#F78C6C;--1:#AA0982">1</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#F78C6C;--1:#AA0982">1000000</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#C792EA;--1:#8844AE">--</span><span style="--0:#D6DEEB;--1:#403F53">query</span><span style="--0:#C792EA;--1:#8844AE">-</span><span style="--0:#D6DEEB;--1:#403F53">only</span></div></div><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">desktop</span><span style="--0:#C792EA;--1:#8844AE">/</span><span style="--0:#D6DEEB;--1:#403F53">src</span><span style="--0:#C792EA;--1:#8844AE">-</span><span style="--0:#D6DEEB;--1:#403F53">tauri</span><span style="--0:#C792EA;--1:#8844AE">/</span><span style="--0:#D6DEEB;--1:#403F53">target</span><span style="--0:#C792EA;--1:#8844AE">/</span><span style="--0:#D6DEEB;--1:#403F53">release</span><span style="--0:#C792EA;--1:#8844AE">/</span><span style="--0:#D6DEEB;--1:#403F53">examples</span><span style="--0:#C792EA;--1:#8844AE">/</span><span style="--0:#7FDBCA;--1:#096E72">bench_v20.exe</span><span style="--0:#D6DEEB;--1:#403F53"> build</span><span style="--0:#C792EA;--1:#8844AE">/</span><span style="--0:#D6DEEB;--1:#403F53">plan</span><span style="--0:#C792EA;--1:#8844AE">-</span><span style="--0:#D6DEEB;--1:#403F53">finalization</span><span style="--0:#C792EA;--1:#8844AE">/</span><span style="--0:#D6DEEB;--1:#403F53">ten</span><span style="--0:#C792EA;--1:#8844AE">-</span><span style="--0:#D6DEEB;--1:#403F53">million </span><span style="--0:#F78C6C;--1:#AA0982">10000000</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#C792EA;--1:#8844AE">--</span><span style="--0:#D6DEEB;--1:#403F53">query</span><span style="--0:#C792EA;--1:#8844AE">-</span><span style="--0:#D6DEEB;--1:#403F53">only</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="cargo build --offline --manifest-path desktop/src-tauri/Cargo.toml -p llm-usage-core --release --example bench_v20desktop/src-tauri/target/release/examples/bench_v20.exe build/plan-finalization/million-1 1000000 --query-onlydesktop/src-tauri/target/release/examples/bench_v20.exe build/plan-finalization/ten-million 10000000 --query-only"><div></div></button></div></figure></div>
+<table>
+<thead>
+<tr>
+<th>事件数</th>
+<th>主库 / WAL MiB</th>
+<th>未命中 P50 / P95 ms</th>
+<th>命中 P95 ms</th>
+<th>明细 P95 ms</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1,000,000</td>
+<td>906.3 / 0.3</td>
+<td>926.5 / 964.6</td>
+<td>0.033</td>
+<td>1.29</td>
+</tr>
+<tr>
+<td>10,000,000</td>
+<td>8,034.1 / 0.0</td>
+<td>4,093.8 / 4,177.5</td>
+<td>0.049</td>
+<td>1.23</td>
+</tr>
+</tbody>
+</table>
+<p>结果日志：build/query-next/million-final.log 与 ten-million-final.log。
+在自身合成库首次补建当前索引时，Storage::open 分别耗时 904.4 / 15,245.0 ms；
+此过程含打开检查，不是原生首屏。未重测当前索引下从空库完整入库的吞吐和内存，
+不沿用旧索引阶段的入库数字。未命中仍超出 <a href="/zh-cn/reference/design/architecture/#budgets">200 ms 目标</a>，
+缓存命中结果不能确认该目标已达成。</p>
+<p><a id="native-startup-and-resources"></a></p>
+<h2 id="原生首屏与资源">原生首屏与资源</h2>
+<p><code>node desktop/tests/native-scale.mjs --runs 20 --idle-seconds 600 --ui-cancel</code> 退出 0；
+最终 release，结果 build/plan-finalization/native-scale/1791056317247/result.json，
+日志 build/query-next/native-scale-final.log。
+规模脚本启动前只读核验真实路径在根 build/ 内、100 万事件及 20 个 synthetic/bench
+来源，拒绝将维护 IPC 指向真实 Agent 库；–help 不启动 GUI。
+帮助、非法目录拒绝及合法库 1 次原生/取消回归均通过（native-scale-guard.log）；
+该检查不替代下表独立 20 次首屏与完整十分钟资源测量。</p>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>实际测量</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>百万事件首屏</td>
+<td>20 次，P95 1,223.1 ms；进程启动至总览有值且历史图已渲染，含 CDP 等待</td>
+</tr>
+<tr>
+<td>取消</td>
+<td>手动清理/清空各 1 项实际 IPC，加设置页取消按钮；事件/修订不变，取消不重扫</td>
+</tr>
+<tr>
+<td>空闲</td>
+<td>连续 601.4 秒、118 次采样，根进程始终存活；页面静止，自动采集暂停</td>
+</tr>
+<tr>
+<td>进程范围</td>
+<td>根应用及全部后代 WebView，最多 7 进程，约每 5 秒采样；包含退出进程最后可见 CPU 累计值</td>
+</tr>
+<tr>
+<td>Private bytes</td>
+<td>均值 333.6 MiB、峰值 483.9 MiB；180 MiB 目标未达标</td>
+</tr>
+<tr>
+<td>Working set</td>
+<td>峰值 524.4 MiB，单独报告，不替代 private bytes</td>
+</tr>
+<tr>
+<td>空闲 CPU</td>
+<td>单个逻辑核 0.309%，本机低于 1% 目标，不除以 32 线程数</td>
+</tr>
+</tbody>
+</table>
+<p>首屏使用已建索引的百万库，首次和后续 OS 缓存混合。空闲在两项 IPC 与一次 UI
+取消后、同一应用的总览测量，CDP 已启用；不代表全新启动、托盘或 headless 状态。
+这台开发机不是拟定 4 核/16 GiB 基准，不能核验后者。5 秒资源样本不是分配器瞬时峰值。
+已连接 WebView 的已观测请求无外部 HTTP、无脚本异常，不扩大为全进程网络审计。</p>
+<p><a id="incremental-refresh-on-the-million-event-db"></a></p>
+<h2 id="百万库增量刷新">百万库增量刷新</h2>
+<p><code>node desktop/tests/native-incremental.mjs --runs 20 --enforce-budget</code> 退出 0；
+结果 build/query-next/native-incremental/1791056283753/result.json，日志 incremental-final.log。
+使用 <a href="https://nodejs.org/api/sqlite.html#sqlitebackupsource-db-path-options">Node SQLite 在线备份</a>
+（API 最低 Node 22.16）从只读百万库复制到新建隔离目录，先断言全部来源为 synthetic/bench；
+不修改基线库或真实 Agent 文件。本机实际运行 Node 24.21.0。</p>
+<p>先发现并消费一条合成 Codex 文件记录，再连续 20 轮每轮追加 1,000 条；计时从实际
+采集按钮点击到今日卡片可见新值，包含来源读取、解析、提交、日聚合、分级保留、
+状态轮询、真实 IPC 和界面更新。每轮另核对精确调用 +1,000、token +15,000、
+修订推进及数据库事件数；最后重扫不新增用量。合成版本不能核验真实 Agent 新版本。</p>
+<ul>
+<li>P95 1,386.7 ms，最大 1,406.3 ms；2 秒时间限制检查通过，最终 1,020,001 条事件。</li>
+<li>可见卡片没有替换 IPC 或注入查询结果；已观测请求无外部 HTTP、无脚本异常。</li>
+<li>稳定归档跳过另有迟到数据、删除、缺失归档、日期/策略/异常修订回归。
+隔离归档探测完整物化耗时 1,770.7 ms；稳定历史下仅推进全局修订的两次检查
+为 147.5 / 147.7 ms、物化 0 行。它不是完整增量刷新耗时的替代。</li>
+<li>ingest_runs 的起止字段使用任务统一时间，不能由其差值声称解析/聚合分阶段耗时。</li>
+</ul>
+<p><a id="final-documentation-and-remaining-conditions"></a></p>
+<h2 id="最终文档与剩余条件">最终文档与剩余条件</h2>
+<p>最终检查均退出 0：177 Markdown 无问题；12 份变更文档的 95 个本地引用及锚点无错误；
+Skill 静态格式通过；git diff –check 通过。只读残留核对：测试任务、应用进程、测试
+开机项均为 0，临时文件不进入 Git 状态。结果在 build/query-next/ 的 docs-final.log、
+links-final.json、skill-final.log、diff-final.log、residue-final.json。
+不以工程测试代替链接检查，不把模拟 IPC 当作原生验收。</p>
+<p>未命中查询和全进程内存仍未达标；拟定硬件基准、当前索引下完整导入峰值、
+唤醒次数、OS DPI/辅助技术、macOS/Linux 原生 GUI 与持续 CI 尚未验收。
+安装按既有指示跳过，升级/卸载/注销/回滚尚未验收。Gemini/Qwen 默认本机记录目录
+未发现，不启动 Agent 制造样本；其余来源版本/遥测覆盖、托盘、节能、文件监听及
+应用内时间限制/重试仍见 <a href="https://github.com/owent/llm-usage/blob/main/Plan.md">Plan.md</a>，本页通过不代表全部计划完成。</p>
+</div><footer class="sl-flex astro-q3cosrfy"><div class="meta sl-flex astro-q3cosrfy"><a href="https://github.com/owent/llm-usage/edit/main/docs/zh-CN/docs/validation/desktop-usage/plan-finalization.md" class="sl-flex print:hidden astro-okj6rzri"><svg aria-hidden="true" class="astro-okj6rzri astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.2em;"><path d="M22 7.24a1 1 0 0 0-.29-.71l-4.24-4.24a1 1 0 0 0-1.1-.22 1 1 0 0 0-.32.22l-2.83 2.83L2.29 16.05a1 1 0 0 0-.29.71V21a1 1 0 0 0 1 1h4.24a1 1 0 0 0 .76-.29l10.87-10.93L21.71 8c.1-.1.17-.2.22-.33a1 1 0 0 0 0-.24v-.14l.07-.05ZM6.83 20H4v-2.83l9.93-9.93 2.83 2.83L6.83 20ZM18.17 8.66l-2.83-2.83 1.42-1.41 2.82 2.82-1.41 1.42Z"/></svg>编辑此页</a></div><div class="pagination-links print:hidden astro-vd7os7a3" dir="ltr"></div></footer></div></div></main></div></div></div></div></body></html>

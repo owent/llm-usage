@@ -1,0 +1,602 @@
+<!DOCTYPE html><html lang="en" dir="ltr" data-theme="dark" data-has-toc data-has-sidebar class="astro-i2f5rvhd"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>Research references and validation entry points | LLM Usage</title><link rel="canonical" href="https://llm-usage.atframe.work/reference/design/research/"/><link rel="alternate" hreflang="en" href="https://llm-usage.atframe.work/reference/design/research/"/><link rel="alternate" hreflang="zh-CN" href="https://llm-usage.atframe.work/zh-cn/reference/design/research/"/><link rel="alternate" hreflang="x-default" href="https://llm-usage.atframe.work/reference/design/research/"/><link rel="sitemap" href="/sitemap-index.xml"/><link rel="shortcut icon" href="/favicon.svg" type="image/svg+xml"/><meta name="generator" content="Astro v7.3.6"/><meta name="generator" content="Starlight v0.42.5"/><meta property="og:title" content="Research references and validation entry points"/><meta property="og:type" content="article"/><meta property="og:url" content="https://llm-usage.atframe.work/reference/design/research/"/><meta property="og:locale" content="en"/><meta property="og:description" content="Understand the AI usage recorded on your computer."/><meta property="og:site_name" content="LLM Usage"/><meta name="twitter:card" content="summary_large_image"/><meta name="description" content="Understand the AI usage recorded on your computer."/><meta name="color-scheme" content="light dark"><script type="module" src="/_astro/Head.astro_astro_type_script_index_0_lang.CRxMF9Ma.js"></script><script>
+  (() => {
+    const scheme = matchMedia('(prefers-color-scheme: dark)');
+    let choice = 'auto';
+    try {
+      const saved = localStorage.getItem('starlight-theme');
+      if (saved === 'light' || saved === 'dark') choice = saved;
+    } catch { /* System theme remains available without browser storage. */ }
+    function updatePickers() {
+      document.querySelectorAll('starlight-theme-select').forEach(picker => {
+        const select = picker.querySelector('select');
+        if (select) select.value = choice;
+        const icon = document.querySelector('#docs-theme-icons')?.content.querySelector('.' + choice);
+        const target = picker.querySelector('svg.label-icon');
+        if (icon && target) target.replaceChildren(...icon.cloneNode(true).childNodes);
+      });
+    }
+    function apply(theme, persist = false) {
+      choice = theme === 'light' || theme === 'dark' ? theme : 'auto';
+      document.documentElement.dataset.theme = choice === 'auto' ? scheme.matches ? 'dark' : 'light' : choice;
+      updatePickers();
+      if (persist) {
+        try { localStorage.setItem('starlight-theme', choice === 'auto' ? '' : choice); }
+        catch { /* The current page still changes theme. */ }
+      }
+    }
+    window.LLMUsageDocsTheme = { apply, updatePickers };
+    scheme.addEventListener('change', () => { if (choice === 'auto') apply('auto'); });
+    apply(choice);
+  })();
+</script><template id="docs-theme-icons"><svg aria-hidden="true" class="light astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg><svg aria-hidden="true" class="dark astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="auto astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg></template><link rel="stylesheet" href="/_astro/print.ehPL0gv-.css" media="print"><link rel="stylesheet" href="/_astro/common.CLGr15ze.css"><style>@layer starlight.components{.card:where(.astro-eiplrasj){--sl-card-border:var(--sl-color-purple);--sl-card-bg:var(--sl-color-purple-low);border:1px solid var(--sl-color-gray-5);background-color:var(--sl-color-black);flex-direction:column;gap:clamp(.5rem,.125rem + 1vw,1rem);padding:clamp(1rem,.125rem + 3vw,2.5rem)}.card:where(.astro-eiplrasj):nth-child(4n+1){--sl-card-border:var(--sl-color-orange);--sl-card-bg:var(--sl-color-orange-low)}.card:where(.astro-eiplrasj):nth-child(4n+3){--sl-card-border:var(--sl-color-green);--sl-card-bg:var(--sl-color-green-low)}.card:where(.astro-eiplrasj):nth-child(4n+4){--sl-card-border:var(--sl-color-red);--sl-card-bg:var(--sl-color-red-low)}.card:where(.astro-eiplrasj):nth-child(4n+5){--sl-card-border:var(--sl-color-blue);--sl-card-bg:var(--sl-color-blue-low)}.title:where(.astro-eiplrasj){font-weight:600;font-size:var(--sl-text-h4);color:var(--sl-color-white);line-height:var(--sl-line-height-headings);align-items:center;gap:1rem}.card:where(.astro-eiplrasj) .icon:where(.astro-eiplrasj){border:1px solid var(--sl-card-border);background-color:var(--sl-card-bg);border-radius:.25rem;flex-shrink:0;padding:.2em}.card:where(.astro-eiplrasj) .body:where(.astro-eiplrasj){font-size:clamp(var(--sl-text-sm), calc(.5rem + 1vw), var(--sl-text-body));margin:0}.card-grid:where(.astro-t7b7g7fk){grid-template-columns:100%;gap:1rem;display:grid}.card-grid:where(.astro-t7b7g7fk)>*{margin-top:0!important}@media (width>=50rem){.card-grid:where(.astro-t7b7g7fk){grid-template-columns:1fr 1fr;gap:1.5rem}.stagger:where(.astro-t7b7g7fk){--stagger-height:5rem;padding-bottom:var(--stagger-height)}.stagger:where(.astro-t7b7g7fk)>:nth-child(2n){transform:translateY(var(--stagger-height))}}.sl-link-card:where(.astro-6ghwbfyk){border:1px solid var(--sl-color-gray-5);box-shadow:var(--sl-shadow-sm);border-radius:.5rem;grid-template-columns:1fr auto;gap:.5rem;padding:1rem;display:grid;position:relative}a:where(.astro-6ghwbfyk){line-height:var(--sl-line-height-headings);text-decoration:none}a:where(.astro-6ghwbfyk):before{content:"";position:absolute;inset:0}.stack:where(.astro-6ghwbfyk){flex-direction:column;gap:.5rem}.title:where(.astro-6ghwbfyk){color:var(--sl-color-white);font-weight:600;font-size:var(--sl-text-lg)}.description:where(.astro-6ghwbfyk){color:var(--sl-color-gray-3);line-height:1.5}.icon:where(.astro-6ghwbfyk){color:var(--sl-color-gray-3)}.sl-link-card:where(.astro-6ghwbfyk):hover{background:var(--sl-color-gray-7,var(--sl-color-gray-6));border-color:var(--sl-color-gray-2)}.sl-link-card:where(.astro-6ghwbfyk):hover .icon:where(.astro-6ghwbfyk){color:var(--sl-color-white)}}.app-screenshot:where(.astro-ofe7zldm){margin:1.5rem 0 2.5rem}.screenshot-frame:where(.astro-ofe7zldm){border:1px solid var(--sl-color-gray-5);background:var(--sl-color-bg);border-radius:1rem;box-shadow:0 16px 48px #00000018}.screenshot-frame:where(.astro-ofe7zldm) a:where(.astro-ofe7zldm){border-radius:inherit;display:block}.screenshot-frame:where(.astro-ofe7zldm) img:where(.astro-ofe7zldm){border-radius:inherit;width:100%;height:auto;box-shadow:none;border:0;margin:0;display:block}.screenshot-frame:where(.astro-ofe7zldm) .screenshot-dark:where(.astro-ofe7zldm),:root[data-theme=dark] .screenshot-light:where(.astro-ofe7zldm){display:none}:root[data-theme=dark] .screenshot-dark:where(.astro-ofe7zldm){display:block}figcaption:where(.astro-ofe7zldm){color:var(--sl-color-gray-2);flex-wrap:wrap;justify-content:space-between;gap:.25rem 1rem;margin-top:.75rem;font-size:.875rem;line-height:1.6;display:flex}.screenshot-hint:where(.astro-ofe7zldm){color:var(--sl-color-text-accent)}
+@layer starlight.components{svg:where(.astro-iwaxdyvu){color:var(--sl-icon-color);font-size:var(--sl-icon-size,1em);width:1em;height:1em}}
+</style><script type="module" src="/_astro/page.Dwipeu-R.js"></script></head><body class="astro-i2f5rvhd"><a class="sl-skip-link astro-af3xnx6k" href="#_top">Skip to content</a><div class="page sl-flex astro-7ol3m3p7"><header class="header astro-7ol3m3p7"><div class="header astro-qqelxyz2"><div class="title-wrapper sl-flex astro-qqelxyz2"><a href="/" class="site-title sl-flex astro-pm7u5y3t"><img class="astro-pm7u5y3t" alt src="/_astro/brand.BEXAYDnz.svg" width="1024" height="1024"><span class="astro-pm7u5y3t" translate="no">LLM Usage</span></a></div><div class="sl-flex print:hidden astro-qqelxyz2"><site-search class="astro-qqelxyz2 astro-veqdxac2" data-translations="{&quot;placeholder&quot;:&quot;Search&quot;}"><button data-open-modal disabled aria-label="Search" aria-keyshortcuts="Control+K" class="astro-veqdxac2"><svg aria-hidden="true" class="astro-veqdxac2 astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg><span class="sl-hidden md:sl-block astro-veqdxac2" aria-hidden="true">Search</span><kbd class="sl-hidden md:sl-flex astro-veqdxac2" style="display: none;"><kbd class="astro-veqdxac2">Ctrl</kbd><kbd class="astro-veqdxac2">K</kbd></kbd></button><dialog style="padding:0" aria-label="Search" class="astro-veqdxac2"><div class="dialog-frame sl-flex astro-veqdxac2"><button data-close-modal class="sl-flex md:sl-hidden astro-veqdxac2">Cancel</button><div class="search-container astro-veqdxac2"><div id="starlight__search" class="astro-veqdxac2"></div></div></div></dialog></site-search><script>
+	(() => {
+		const openBtn = document.querySelector('button[data-open-modal]');
+		const shortcut = openBtn?.querySelector('kbd');
+		if (!openBtn || !(shortcut instanceof HTMLElement)) return;
+		const platformKey = shortcut.querySelector('kbd');
+		if (platformKey && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
+			platformKey.textContent = '⌘';
+			openBtn.setAttribute('aria-keyshortcuts', 'Meta+K');
+		}
+		shortcut.style.display = '';
+	})();
+</script><script type="module" src="/_astro/Search.astro_astro_type_script_index_0_lang.Bumivpjo.js"></script></div><div class="sl-hidden md:sl-flex print:hidden right-group astro-qqelxyz2"><div class="sl-flex social-icons astro-qqelxyz2"><a href="https://github.com/owent/llm-usage" rel="me" class="sl-flex astro-csqdcj5u"><span class="sr-only astro-csqdcj5u">GitHub</span><svg aria-hidden="true" class="astro-csqdcj5u astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a></div><starlight-theme-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">Select theme</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="light" class="astro-btilxiwo">Light</option><option value="dark" class="astro-btilxiwo">Dark</option><option value="auto" selected class="astro-btilxiwo">Auto</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-theme-select><script>window.LLMUsageDocsTheme.updatePickers();</script><script type="module">document.addEventListener(`change`,e=>{let t=e.target;if(!(t instanceof HTMLSelectElement)||!t.closest(`starlight-theme-select`))return;let n=t.value===`light`||t.value===`dark`?t.value:`auto`;window.LLMUsageDocsTheme.apply(n,!0)});</script><starlight-lang-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">Select language</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path fill-rule="evenodd" d="M8.516 3a.94.94 0 0 0-.941.94v1.15H2.94a.94.94 0 1 0 0 1.882h7.362a7.422 7.422 0 0 1-1.787 3.958 7.42 7.42 0 0 1-1.422-2.425.94.94 0 1 0-1.774.627 9.303 9.303 0 0 0 1.785 3.043 7.422 7.422 0 0 1-4.164 1.278.94.94 0 1 0 0 1.881 9.303 9.303 0 0 0 5.575-1.855 9.303 9.303 0 0 0 4.11 1.74l-.763 1.525a.968.968 0 0 0-.016.034l-1.385 2.77a.94.94 0 1 0 1.683.841l1.133-2.267h5.806l1.134 2.267a.94.94 0 0 0 1.683-.841l-1.385-2.769a.95.95 0 0 0-.018-.036l-3.476-6.951a.94.94 0 0 0-1.682 0l-1.82 3.639a7.423 7.423 0 0 1-3.593-1.256 9.303 9.303 0 0 0 2.27-5.203h1.894a.94.94 0 0 0 0-1.881H9.456V3.94A.94.94 0 0 0 8.516 3Zm6.426 11.794a1.068 1.068 0 0 1-.02.039l-.703 1.407h3.924l-1.962-3.924-1.24 2.478Z" clip-rule="evenodd"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="/reference/design/research/" class="astro-btilxiwo">English</option><option value="/zh-cn/reference/design/research/" class="astro-btilxiwo">简体中文</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-lang-select><script type="module">var e=class extends HTMLElement{constructor(){super();let e=this.querySelector(`select`);e&&(e.addEventListener(`change`,e=>{e.currentTarget instanceof HTMLSelectElement&&(window.location.pathname=e.currentTarget.value)}),window.addEventListener(`pageshow`,t=>{if(!t.persisted)return;let n=e.querySelector(`option[selected]`)?.index;n!==e.selectedIndex&&(e.selectedIndex=n??0)}))}};customElements.define(`starlight-lang-select`,e);</script><script type="module" src="/_astro/LanguageSelect.astro_astro_type_script_index_0_lang.DH65a7yi.js"></script></div></div></header><nav class="sidebar print:hidden astro-7ol3m3p7" aria-label="Main"><button popovertarget="starlight__sidebar" class="sl-menu-button sl-flex md:sl-hidden print:hidden astro-dcnpphyu"><svg aria-hidden="true" class="open-menu astro-dcnpphyu astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"/></svg><svg aria-hidden="true" class="close-menu astro-dcnpphyu astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"/></svg><span class="sr-only astro-dcnpphyu">Menu</span></button><script type="module">var e=class extends HTMLElement{constructor(){super();let e=matchMedia(`(min-width: 50em)`),t=()=>{this.popover=e.matches?null:`auto`};t(),e.addEventListener(`change`,()=>t()),this.addEventListener(`toggle`,({newState:e})=>this.trapFocus(e===`open`))}trapFocus(e){document.querySelectorAll(`.main-frame, .sl-skip-link`).forEach(t=>{t.toggleAttribute(`inert`,e)})}};customElements.define(`sl-sidebar-pane`,e);</script><sl-sidebar-pane popover id="starlight__sidebar" class="sidebar-pane astro-7ol3m3p7"><div class="sidebar-content sl-flex astro-7ol3m3p7"><sl-sidebar-state-persist data-hash="1ekcnao" class="astro-lsvsit3p"><script aria-hidden="true">
+		(() => {
+			try {
+				if (!matchMedia('(min-width: 50em)').matches) return;
+				/** @type {HTMLElement | null} */
+				const target = document.querySelector('sl-sidebar-state-persist');
+				const state = JSON.parse(sessionStorage.getItem('sl-sidebar-state') || '0');
+				if (!target || !state || target.dataset.hash !== state.hash) return;
+				window._starlightScrollRestore = state.scroll;
+				customElements.define(
+					'sl-sidebar-restore',
+					class SidebarRestore extends HTMLElement {
+						connectedCallback() {
+							try {
+								const idx = parseInt(this.dataset.index || '');
+								const details = this.closest('details');
+								if (details && typeof state.open[idx] === 'boolean') details.open = state.open[idx];
+							} catch {}
+						}
+					}
+				);
+			} catch {}
+		})();
+	</script><ul class="top-level astro-ykcsoi7s"><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Start here</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="0"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">User guide</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="1"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Developer guide</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="2"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Design specifications</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="3"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Development records</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="4"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Project reference</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="5"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Test data</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="6"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li></ul><script aria-hidden="true">
+		(() => {
+			const scroller = document.getElementById('starlight__sidebar');
+			if (!window._starlightScrollRestore || !scroller) return;
+			scroller.scrollTop = window._starlightScrollRestore;
+			delete window._starlightScrollRestore;
+		})();
+	</script></sl-sidebar-state-persist><div class="md:sl-hidden"><div class="mobile-preferences sl-flex astro-lsc3yx5w"><div class="social-icons astro-lsc3yx5w"><a href="https://github.com/owent/llm-usage" rel="me" class="sl-flex astro-csqdcj5u"><span class="sr-only astro-csqdcj5u">GitHub</span><svg aria-hidden="true" class="astro-csqdcj5u astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a></div><starlight-theme-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">Select theme</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="light" class="astro-btilxiwo">Light</option><option value="dark" class="astro-btilxiwo">Dark</option><option value="auto" selected class="astro-btilxiwo">Auto</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-theme-select><script>window.LLMUsageDocsTheme.updatePickers();</script><starlight-lang-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">Select language</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path fill-rule="evenodd" d="M8.516 3a.94.94 0 0 0-.941.94v1.15H2.94a.94.94 0 1 0 0 1.882h7.362a7.422 7.422 0 0 1-1.787 3.958 7.42 7.42 0 0 1-1.422-2.425.94.94 0 1 0-1.774.627 9.303 9.303 0 0 0 1.785 3.043 7.422 7.422 0 0 1-4.164 1.278.94.94 0 1 0 0 1.881 9.303 9.303 0 0 0 5.575-1.855 9.303 9.303 0 0 0 4.11 1.74l-.763 1.525a.968.968 0 0 0-.016.034l-1.385 2.77a.94.94 0 1 0 1.683.841l1.133-2.267h5.806l1.134 2.267a.94.94 0 0 0 1.683-.841l-1.385-2.769a.95.95 0 0 0-.018-.036l-3.476-6.951a.94.94 0 0 0-1.682 0l-1.82 3.639a7.423 7.423 0 0 1-3.593-1.256 9.303 9.303 0 0 0 2.27-5.203h1.894a.94.94 0 0 0 0-1.881H9.456V3.94A.94.94 0 0 0 8.516 3Zm6.426 11.794a1.068 1.068 0 0 1-.02.039l-.703 1.407h3.924l-1.962-3.924-1.24 2.478Z" clip-rule="evenodd"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="/reference/design/research/" class="astro-btilxiwo">English</option><option value="/zh-cn/reference/design/research/" class="astro-btilxiwo">简体中文</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-lang-select></div></div></div></sl-sidebar-pane></nav><div class="main-frame astro-7ol3m3p7"><script type="module">var e=document.getElementById(`starlight__sidebar`),t=e?.querySelector(`sl-sidebar-state-persist`),n=`sl-sidebar-state`,r=()=>{let r=[],i=t?.dataset.hash||``;try{let e=sessionStorage.getItem(n),t=JSON.parse(e||`{}`);Array.isArray(t.open)&&t.hash===i&&(r=t.open)}catch{}return{hash:i,open:r,scroll:e?.scrollTop||0}},i=e=>{try{sessionStorage.setItem(n,JSON.stringify(e))}catch{}},a=()=>i(r()),o=(e,t)=>{let n=r();n.open[t]=e,i(n)};t?.addEventListener(`click`,e=>{if(!(e.target instanceof Element))return;let t=e.target.closest(`summary`)?.closest(`details`);if(!t)return;let n=t.querySelector(`sl-sidebar-restore`),r=parseInt(n?.dataset.index||``);isNaN(r)||o(!t.open,r)}),addEventListener(`visibilitychange`,()=>{document.visibilityState===`hidden`&&a()});</script><div class="lg:sl-flex astro-rcl3dmqm"><aside class="right-sidebar-container print:hidden astro-rcl3dmqm"><div class="right-sidebar astro-rcl3dmqm"><div class="lg:sl-hidden astro-fjp5q7r4"><mobile-starlight-toc data-min-h="2" data-max-h="3" class="astro-6exeh6u7"><nav aria-labelledby="starlight__on-this-page--mobile" class="astro-6exeh6u7"><details id="starlight__mobile-toc" class="astro-6exeh6u7"><summary id="starlight__on-this-page--mobile" class="sl-flex astro-6exeh6u7"><span class="toggle sl-flex astro-6exeh6u7">On this page<svg aria-hidden="true" class="caret astro-6exeh6u7 astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></span><span class="display-current astro-6exeh6u7"></span></summary><div class="dropdown astro-6exeh6u7"><ul class="isMobile astro-g6ctc22k" style="--depth: 0;"><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#_top" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Overview</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#static-prototype-review" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Static prototype review</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#technology-selection-references" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Technology-selection references</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#official-agent-documentation-and-source-index" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Official Agent documentation and source index</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#m8-format-references-checked-2026-09-29" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">M8 format references checked 2026-09-29</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#research-limits" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Research limits</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#extended-source-types-and-verification-scope" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Extended source types and verification scope</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#current-validation-entry-points" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Current validation entry points</span></a></li></ul></div></details></nav></mobile-starlight-toc><script type="module" src="/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.C3fM4Kra.js"></script></div><div class="right-sidebar-panel sl-hidden lg:sl-block astro-fjp5q7r4"><div class="sl-container astro-fjp5q7r4"><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">On this page</h2><ul class="astro-g6ctc22k" style="--depth: 0;"><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#_top" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Overview</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#static-prototype-review" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Static prototype review</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#technology-selection-references" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Technology-selection references</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#official-agent-documentation-and-source-index" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Official Agent documentation and source index</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#m8-format-references-checked-2026-09-29" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">M8 format references checked 2026-09-29</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#research-limits" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Research limits</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#extended-source-types-and-verification-scope" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Extended source types and verification scope</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#current-validation-entry-points" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Current validation entry points</span></a></li></ul></nav></starlight-toc><script type="module" src="/_astro/TableOfContents.astro_astro_type_script_index_0_lang.BpJaGz7G.js"></script></div></div></div></aside><div class="main-pane astro-rcl3dmqm"><main data-pagefind-body class="astro-i2f5rvhd" lang="en" dir="ltr"><div class="content-panel astro-ptfq3z6k"><div class="sl-container astro-ptfq3z6k"><h1 id="_top" class="astro-5fsxzwfk">Research references and validation entry points</h1></div></div><div class="content-panel astro-ptfq3z6k"><div class="sl-container astro-ptfq3z6k"><div class="sl-markdown-content"><p><a id="research-references-and-validation-entry-points"></a></p>
+<p><a id="调研依据与验证入口"></a></p>
+<p>This file retains design sources/applicable versions. Workspace D:/workspace/projs/github/owent/llm-usage.
+Base references checked 2026-09-24, extended formats2026-09-29, scheduling/native references 2026-10-03;
+individual rows record later updates. Prototype reviewed statically without running collect.py
+or verifying runtime behavior. Prefer official bodies/fixed maintainer source/local prototype;
+search summaries locate references only. Rolling docs do not identify installed versions;
+source fields alone do not verify complete runtime paths. Current product implementation and native
+acceptance follows the <a href="/reference/design/adapters/">adapter matrix</a>. Windows 11 x64 first release, three-platform CI.
+Local real-data extraction authorized; IDEs with unverified local formats remain F1. Local sources
+only; enterprise APIs/account reports explain exclusions. Hermes means Nous Research’s product.</p>
+<p><a id="prototype"></a></p>
+<p><a id="原型的静态核对"></a></p>
+<h2 id="static-prototype-review">Static prototype review</h2>
+<p><a href="/reference/repository/previous-draft/readme/">previous-draft</a>: entry/storage/registry/seven collectors/
+dashboard/index.html inspected; no business dependency declarations/test requirements found.</p>
+<table>
+<thead>
+<tr>
+<th>Location</th>
+<th>Observed behavior</th>
+<th>New design</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>collect.py</td>
+<td>Loads seven collectors, materializes full lists before import, exports day/week/month/today-hour</td>
+<td>Bounded batches/backend UI refresh; retain dimensions without making Python the desktop runtime</td>
+</tr>
+<tr>
+<td>dashboard/index.html</td>
+<td>Refresh fetches data.json only; errors/mismatches display SAMPLE</td>
+<td>Real collection; retain old results/status on failure without substituting demos</td>
+</tr>
+<tr>
+<td>store.py/dashboard</td>
+<td>input+cache_read total excludes cache_write</td>
+<td>Normalize three exclusive inputs per adapter; distinguish unknown/zero denominator</td>
+</tr>
+<tr>
+<td>store.py</td>
+<td>Globally unique request_id/INSERT OR IGNORE; daily no provider</td>
+<td>Stable identity namespaces/corrections/provider; rows do not all imply calls</td>
+</tr>
+<tr>
+<td>collectors/<strong>init</strong>.py</td>
+<td>iter_new_lines state_set precedes parse; truncation by size only</td>
+<td>Atomic cursor/context/events/aggregates; detect same-size replacement/rename/generations</td>
+</tr>
+<tr>
+<td>collect.py/Store</td>
+<td>Separate event/aggregate commits; shared connection can later commit failed-source state</td>
+<td>Per-source atomic replay; never persist failed-batch cursor</td>
+</tr>
+<tr>
+<td>kilo_code.py/copilot.py</td>
+<td>Sequential copies of running DB/WAL/SHM</td>
+<td>Read-only short transactions/consistent backup; consecutive file copies are not consistent snapshots</td>
+</tr>
+<tr>
+<td>copilot.py</td>
+<td>Outside-window condition only pass, traverses all rows; request_id includes DB path/changing values</td>
+<td>Separate source identity/revision; deduplicate DB copies; old cursor does not establish effective incrementality</td>
+</tr>
+<tr>
+<td>codex.py</td>
+<td>Regex arbitrary model-bearing nonusage lines; backfills first model if earlier context absent; missing response IDs collide</td>
+<td>Structured model context only; unknown ownership stays unknown; verified fallback IDs</td>
+</tr>
+<tr>
+<td>kimi_code.py/kimi_work.py</td>
+<td>New wire candidates but versions from comments; Work fixed machine D-drive path</td>
+<td>Official paths still need schema samples; no machine paths as defaults</td>
+</tr>
+<tr>
+<td>zcode.py</td>
+<td>Missing requestId/traceId becomes zcode:None</td>
+<td>Handle absent stable IDs without merging every record</td>
+</tr>
+<tr>
+<td>oh_my_pi.py</td>
+<td>assistant usage plus title-generator success logs</td>
+<td>Check overlap; compaction/branch/independent usage coverage</td>
+</tr>
+<tr>
+<td>store.py</td>
+<td>Fixed 366days/machine timezone/date cutoff</td>
+<td>Configurable explicit included days/fixed timezone; coordinated cleanup/replay/sealed totals</td>
+</tr>
+</tbody>
+</table>
+<p>These describe static paths/failure conditions, rather than reproduced production errors;
+the prototype is not directly repaired. SHA-256 identifies original research inputs, before
+later comment-language migration:</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>SHA-256</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>previous-draft/store.py</td>
+<td>81a6bb9e3a7f7943b40438ed642823ab3969f073e68164ce7eb26133cdc7d6d4</td>
+</tr>
+<tr>
+<td>previous-draft/collect.py</td>
+<td>aa8a406329afd21b4e49ba230fe150ffeeaf173247409d9f70992a8e256cf945</td>
+</tr>
+<tr>
+<td>previous-draft/collectors/<strong>init</strong>.py</td>
+<td>c4412b8fef0b7220e93c82901414e3833a681c57ed11480311f15d81cb2c0daa</td>
+</tr>
+</tbody>
+</table>
+<p><a id="技术选型依据"></a></p>
+<h2 id="technology-selection-references">Technology-selection references</h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Verified reference</th>
+<th>Facts and limits used</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>T01</td>
+<td><a href="https://v2.tauri.app/reference/webview-versions/">Tauri WebView</a>, <a href="https://v2.tauri.app/distribute/windows-installer/">Windows installer</a></td>
+<td>OS WebViews differ; Windows runtime distribution affects size. Official examples do not measure this app’s package.</td>
+</tr>
+<tr>
+<td>T02</td>
+<td><a href="https://sqlite.org/wal.html">SQLite WAL</a>, <a href="https://sqlite.org/backup.html">Online backup</a></td>
+<td>WAL concurrency/read-only conditions/checkpoints/consistent backups; verify WAL-reset fixes by SQLite version.</td>
+</tr>
+<tr>
+<td>T03</td>
+<td><a href="https://www.electronjs.org/docs/latest/tutorial/process-model">Electron process model</a></td>
+<td>Chromium process/main-renderer boundaries; do not cite unmeasured memory differences.</td>
+</tr>
+<tr>
+<td>T04</td>
+<td><a href="https://duckdb.org/docs/lts/connect/concurrency">DuckDB concurrency</a></td>
+<td>Many small transactions are not DuckDB’s primary goal; this app needs incremental writes/corrections first.</td>
+</tr>
+<tr>
+<td>T05</td>
+<td><a href="https://echarts.apache.org/handbook/en/basics/import/">ECharts import</a></td>
+<td>On-demand chart/component/renderer imports; this project’s trimming effect was unmeasured at research time.</td>
+</tr>
+<tr>
+<td>T06</td>
+<td><a href="https://v2.tauri.app/distribute/pipelines/github/">Tauri GitHub CI</a>, <a href="https://v2.tauri.app/start/prerequisites/">Prerequisites</a></td>
+<td>Build separately per OS; Linux WebKitGTK/system dependencies and macOS/Windows toolchains differ. Do not copy automatic-publication examples blindly.</td>
+</tr>
+<tr>
+<td>T07</td>
+<td><a href="https://docs.github.com/en/actions/reference/runners/github-hosted-runners">GitHub runners</a></td>
+<td>Versioned runner/architecture candidates windows-2022/ubuntu-22.04/macos-15; M0 rechecks availability. Runner builds do not verify target desktops.</td>
+</tr>
+<tr>
+<td>T08</td>
+<td><a href="https://learn.microsoft.com/en-us/windows/wsl/tutorials/gui-apps">Microsoft WSLg</a></td>
+<td>Linux GUI requires WSL2; WSLg is not a complete Linux desktop. Prior environments/builds are recorded; each newer revision needs separate acceptance.</td>
+</tr>
+<tr>
+<td>T09</td>
+<td><a href="https://learn.microsoft.com/en-us/windows/win32/taskschd/task-scheduler-start-page">Task Scheduler</a>, <a href="https://learn.microsoft.com/en-us/windows/win32/taskschd/security-contexts-for-running-tasks">Task identity</a>, <a href="https://learn.microsoft.com/en-us/windows/win32/taskschd/tasksettings-startwhenavailable">Missed start times</a></td>
+<td>Bodies rechecked 2026-10-03. COM uses current interactive user/LUA/minute repetition/no wake. Ordinary-user registration/deletion tested; actual OS launch checked separately.</td>
+</tr>
+<tr>
+<td>T10</td>
+<td><a href="https://v2.tauri.app/develop/tests/webdriver/">Tauri WebDriver</a></td>
+<td>Current documentation includes embedded cross-platform services; direct tauri-driver retains Windows/Linux/macOS distinctions. Test plugins must not enter releases.</td>
+</tr>
+<tr>
+<td>T11</td>
+<td><a href="https://learn.microsoft.com/en-us/microsoft-edge/webview2/how-to/debug-visual-studio-code">WebView2 debugging</a>, <a href="https://github.com/microsoft/playwright/blob/main/docs/src/webview2.md">Playwright WebView2</a></td>
+<td>Docs/source rechecked 2026-10-03. Environment flags provide CDP; external tests connect to real IPC without app-added debug listeners.</td>
+</tr>
+<tr>
+<td>T12</td>
+<td><a href="https://github.com/libuv/libuv/blob/v1.x/src/win/process.c">libuv Windows spawn</a></td>
+<td>required_vars read2026-10-03 and tested with Node 24.21.0: omitted child USERPROFILE is copied from parent; isolation helpers must prevent that path.</td>
+</tr>
+<tr>
+<td>T13</td>
+<td><a href="https://github.com/tauri-apps/tauri/blob/tauri-cli-v2.12.0/crates/tauri-cli/src/interface/rust.rs">Tauri CLI 2.12.0</a>, <a href="https://github.com/tauri-apps/tauri/blob/tauri-codegen-v2.7.0/crates/tauri-codegen/src/embedded_assets.rs">Asset code</a></td>
+<td>Docs/locked local source cross-checked 2026-10-03. CLI includes custom-protocol; existing asset caches are reused. A built package does not prove embedded assets decompress/render.</td>
+</tr>
+<tr>
+<td>T14</td>
+<td><a href="https://learn.microsoft.com/en-us/windows/win32/api/winreg/nf-winreg-reggetvaluew">RegGetValueW</a>, <a href="https://learn.microsoft.com/en-us/windows/win32/api/winreg/nf-winreg-regdeletekeyvaluew">Delete value</a></td>
+<td>Docs/windows0.62.2 signatures checked 2026-10-03: value type/length/Unicode, distinguish absent values/access errors; native reads require no reg.exe.</td>
+</tr>
+</tbody>
+</table>
+<p><a id="agents"></a></p>
+<p><a id="agent-官方与源码索引"></a></p>
+<h2 id="official-agent-documentation-and-source-index">Official Agent documentation and source index</h2>
+<p>Shared initial metadata: verified_at=2026-09-24; method official page/fixed source/read-only;
+installed_version not probed; owner project maintainer; status research, not runtime acceptance.
+Later dated rows state their own scope. Recheck at implementation stage/upgrades/schema changes/
+numerical mismatches; no automatic tool upgrades. Original Cursor A45 remains; later VS discovery
+uses distinct A49, correcting the former duplicate identifier.</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Official reference / fixed source</th>
+<th>Findings and limits</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A01</td>
+<td><a href="https://code.claude.com/docs/en/claude-directory">Claude directories</a>, <a href="https://code.claude.com/docs/en/monitoring-usage">Monitoring</a></td>
+<td>Session/sub-Agent transcript paths/token classes/query_source; native Zhipu main-loop calls checked for2.1.197, <a href="/reference/evidence/claude-container-sample/">sample</a>; other interfaces separate.</td>
+</tr>
+<tr>
+<td>A02</td>
+<td><a href="https://learn.chatgpt.com/docs/agent-approvals-security">Codex monitoring</a></td>
+<td>Optional OTel/request-response completion/prompt privacy; prototype token_usage_record lacks cross-version guarantees.</td>
+</tr>
+<tr>
+<td>A03</td>
+<td><a href="https://github.com/cline/cline/blob/dcf8c3c33596e3d561a941202297c564a1cbcd49/apps/vscode/src/shared/getApiMetrics.ts">Legacy Cline metrics</a>, <a href="https://github.com/cline/cline/blob/dcf8c3c33596e3d561a941202297c564a1cbcd49/apps/vscode/src/core/storage/disk.ts">Legacy storage</a>, <a href="https://github.com/cline/cline/blob/f58bc118bdeef1bd2813cd08e00d98bdcda96475/sdk/packages/core/src/services/session-data.ts">4.1.22 SDK writer</a>, <a href="https://github.com/cline/cline/blob/f58bc118bdeef1bd2813cd08e00d98bdcda96475/sdk/packages/core/src/runtime/config/agent-message-codec.ts">codec</a></td>
+<td>2026-10-06 official VSIX/real VS Code GUI-API/three native SDK records: input includes cache, default zero unknown, metrics merge runs/retries as observations; origin.version can change, SDK latest_fallback. Legacy UI documentation-only; CLI/migration/other paths separate; <a href="/reference/evidence/cline-container-sample/">results</a>.</td>
+</tr>
+<tr>
+<td>A04</td>
+<td><a href="https://www.codebuddy.ai/docs/cli/monitoring">CodeBuddy monitoring</a>, <a href="https://www.codebuddy.ai/docs/cli/codebuddy-dir">Official directories</a>, <a href="https://github.com/juliantanx/aiusage/blob/main/CHANGELOG.md">aiusage v1.5.8</a></td>
+<td>Third-party-source integration of CLI ~/.codebuddy/projects JSONL. message.usage.input_tokens includes cache read; prefer rawUsage buckets. Optional OTLP-HTTP protobuf overlaps native files without established deduplication; IDE statsSnapshot fields/local samples unverified.</td>
+</tr>
+<tr>
+<td>A05</td>
+<td><a href="https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference">Copilot CLI reference</a> Copilot CLI OTel checked 2026-09-29: COPILOT_OTEL_FILE_EXPORTER_PATH JSON-lines, default OTLP http/json, nested chat/invoke_agent spans/double-count warning; native assistant_usage_events checked.</td>
+<td>OTLP JSON/protobuf/file JSONL/chat spans. Checked native assistant_usage_events; do not promise a stable private SQLite schema.</td>
+</tr>
+<tr>
+<td>A06</td>
+<td><a href="https://code.visualstudio.com/docs/agents/guides/monitoring-agents">VS Code monitoring</a> microsoft/vscode extensions/copilot agent_monitoring.md bdc5ebe,2026-09-29: github.copilot.chat.otel.<em>, exporterNDJSON rather than OTLP, startTime[seconds,nanoseconds], chat gen_ai.usage.</em>.</td>
+<td>chat/invoke_agent represent different levels; optional cache/reasoning/TTFT; only documented Agents covered.</td>
+</tr>
+<tr>
+<td>A07</td>
+<td><a href="https://www.jetbrains.com/help/jetbrains-console/analytics-api-v2.html">JetBrains API v2</a>, <a href="https://www.jetbrains.com/help/jetbrains-console/session-explorer.html">Session explorer</a></td>
+<td>Verifies remote enterprise analytics only, excluded by local-source policy. Local schema remains unverified/F1.</td>
+</tr>
+<tr>
+<td>A08</td>
+<td><a href="https://registry.npmjs.org/@deepseek-ai%2fdsh/0.2.0-rc.2">DSH npm rc.2</a>, <a href="https://github.com/deepseek-ai/deepseek-harness/blob/46a7f68b0922371ce7144b668b90e377d8e799f4/packages/llm/token-meter/README.md">Legacy token-meter documentation</a></td>
+<td>2026-10-06 installed locked modules/real v4 JSONL-zstd: settlement/retry/seed/pi-ai input reversal/computed totals/title gap. Old doc1 does not verify rc.2; fields/package hashes in <a href="/reference/evidence/m3-container-samples/">three-source acceptance</a>.</td>
+</tr>
+<tr>
+<td>A09</td>
+<td><a href="https://docs.openclaw.ai/reference/session-management-compaction/store">OpenClaw store</a>, <a href="https://docs.openclaw.ai/reference/token-use">token use</a>, <a href="https://registry.npmjs.org/-/npm/v1/attestations/openclaw@2026.9.8">npm provenance</a>, <a href="https://github.com/openclaw/openclaw/blob/aa6008ad198ef99c43f9d89dbd01694708712974/src/state/openclaw-agent-schema.sql">Declared-commit schema</a>, <a href="https://github.com/openclaw/openclaw/tree/fc23bc864e4553c2d215e479eeec47b67a0bf943">CLI-reported commit</a></td>
+<td>2026-10-06 npm 2026.9.8 provenance declares aa6008ad; CLI reports fc23bc8. Installed normalization lacks declared-commit contextUsage additions: use installed/native rules. Public declarations/hashes checked, signatures not independently verified. Schema 24 TEXT-zstd hot transcripts implemented/native CLI-resume-API positive buckets agree. schema_meta cannot identify historical row versions; cold archives/other protocols-interfaces need real acceptance.</td>
+</tr>
+<tr>
+<td>A10</td>
+<td><a href="https://geminicli.com/docs/cli/session-management/">Gemini sessions</a>, <a href="https://geminicli.com/docs/cli/telemetry/">telemetry</a></td>
+<td>Local sessions retain tokens; official requests/token categories/latency metrics; concrete mapping requires further checks.</td>
+</tr>
+<tr>
+<td>A11</td>
+<td><a href="https://github.com/Kilo-Org/kilocode/blob/9e3f350767477864f7504fab3e01bf6c4d2a7644/packages/core/src/session/schema.ts">Kilo core schema</a>, <a href="https://github.com/Kilo-Org/kilocode/blob/9e3f350767477864f7504fab3e01bf6c4d2a7644/packages/core/src/database/migration/20260907102000_kilocode_model_usage_index.ts">Usage-index migration</a></td>
+<td>Checked source tree/core paths; prototype old message table is inapplicable. Full usage-index SQL not audited.</td>
+</tr>
+<tr>
+<td>A12</td>
+<td><a href="https://www.kimi.com/code/docs/en/kimi-code-cli/guides/sessions">Kimi sessions</a>, <a href="https://github.com/MoonshotAI/kimi-cli/blob/9ab1286b8fe4e6bcd116949a27ce5e0ac3389c82/src/kimi_cli/wire/types.py">Legacy source types</a></td>
+<td>Official new paths read; fixed Python types do not establish prototype camelCase usage.record. Fields remain unverified.</td>
+</tr>
+<tr>
+<td>A13</td>
+<td><a href="https://github.com/owent/llm-usage/blob/main/previous-draft/collectors/kimi_work.py">Prototype kimi_work.py</a></td>
+<td>Local clue only, without official newer stable storage rules/real samples.</td>
+</tr>
+<tr>
+<td>A14</td>
+<td><a href="https://github.com/XiaomiMiMo/MiMo-Code/releases/tag/v0.1.15">MiMo 0.1.15</a>, <a href="https://github.com/XiaomiMiMo/MiMo-Code/blob/14dfe68a1c121f859544ba810b3c308e8501bfb2/packages/opencode/src/session/session.ts">Release getUsage</a>, <a href="https://github.com/XiaomiMiMo/MiMo-Code/blob/14dfe68a1c121f859544ba810b3c308e8501bfb2/packages/shared/src/global.ts">Independent paths</a></td>
+<td>2026-10-06 official ELF/real SQLite-WAL, eight part-API calls; SDK default zeros/positive-total reversal, per-session versions/MIMOCODE_HOME/DB. Shared forks/highest DB version do not verify historical rows.</td>
+</tr>
+<tr>
+<td>A15</td>
+<td><a href="https://github.com/can1357/oh-my-pi/blob/62bc57be1b03ef0802a33cf7f5f530e534527531/docs/session.md">oh-my-pi session</a></td>
+<td>Session paths/entry model/persistence/branches; auxiliary logs require versioned samples.</td>
+</tr>
+<tr>
+<td>A16</td>
+<td><a href="https://github.com/badlogic/pi-mono/blob/b45597504eeaba1f11a9920a1d1048c361ed4b8e/packages/ai/src/types.ts">pi Usage</a>, <a href="https://github.com/badlogic/pi-mono/blob/b45597504eeaba1f11a9920a1d1048c361ed4b8e/packages/coding-agent/src/core/session-manager.ts">session manager</a></td>
+<td>Reasoning is an output subset; standalone usage/compaction/branch summaries carry usage.</td>
+</tr>
+<tr>
+<td>A17</td>
+<td><a href="https://github.com/anomalyco/opencode/blob/0027387dc5c59793c12dfc531abc78f825ed6868/packages/core/src/session/sql.ts">OpenCode SQL</a>, <a href="https://github.com/anomalyco/opencode/blob/aec0b9a6d8898f68f923aaf08b7306d931fd9d76/packages/opencode/src/session/processor.ts">1.18.34 processor</a>, <a href="https://github.com/anomalyco/opencode/blob/aec0b9a6d8898f68f923aaf08b7306d931fd9d76/packages/opencode/src/session/prompt.ts">Title generation</a></td>
+<td>step-finish parts count observed main-loop calls; session totals reconcile only.2026-10-05 official CLI/local-model input/cache-read/repeat checks pass; title API absent from parts/totals. <a href="/reference/evidence/container-sources/">Container results</a> and <a href="/reference/evidence/source-policy-upgrades/">later per-record upgrade</a> distinguish historical/current checks.</td>
+</tr>
+<tr>
+<td>A18</td>
+<td><a href="https://github.com/QwenLM/qwen-code/blob/085e98c00cac2f8dd29eb39c760409bc6da889a9/packages/core/src/services/chatRecordingService.ts">Qwen recording</a>, <a href="https://qwenlm.github.io/qwen-code-docs/en/developers/development/telemetry/">telemetry</a></td>
+<td>usageMetadata/model/session paths; cumulative Goal observations cannot be summed directly; disable prompt logging.</td>
+</tr>
+<tr>
+<td>A19</td>
+<td><a href="https://github.com/Zoo-Code-Org/Zoo-Code/releases/tag/v3.86.0">Zoo 3.86.0</a>, <a href="https://github.com/Zoo-Code-Org/Zoo-Code/blob/6aa9d0174a9ecae155c6c5db9134bead4b67197d/packages/types/src/message.ts">Release message enumeration</a>, <a href="https://github.com/Zoo-Code-Org/Zoo-Code/blob/f7806475331fcae5f4e8b5558d04415eeb5da88c/packages/core/src/message-utils/consolidateTokenUsage.ts">Earlier aggregation reference</a></td>
+<td>2026-10-06 official VSIX/real extension API/native-UI callbacks/model API: cache-inclusive tokensIn, default-zero unknown, full ask/say enumeration. CLI/condense/deletion separate.</td>
+</tr>
+<tr>
+<td>A20</td>
+<td><a href="https://docs.trae.cn/enterprise_query-usage-details-by-session-id">TRAE session API</a>, <a href="https://docs.trae.cn/enterprise_check-individual-usage">Enterprise individual usage</a></td>
+<td>Remote enterprise interfaces/reports excluded; do not infer local formats, which remain F1.</td>
+</tr>
+<tr>
+<td>A21</td>
+<td><a href="https://zcode.z.ai/cn/docs/usage-stats">ZCode usage</a>, <a href="https://github.com/owent/llm-usage/blob/main/previous-draft/collectors/zcode.py">Prototype zcode.py</a></td>
+<td>Official docs distinguish local sessions/remote Coding Plan; model-io schema was initially a prototype clue. Later versioned checks remain in adapter/validation records.</td>
+</tr>
+<tr>
+<td>A22</td>
+<td><a href="https://www.workbuddy.cn/docs/workbuddy/Usage">WorkBuddy usage</a>, <a href="https://github.com/jazzenchen/agent-hud-open/blob/main/docs/providers.md">AgentHUD provider requirements</a>, <a href="https://docs.rs/tokmesh-core/latest/src/tokmesh_core/sessions/tencent_buddy.rs.html">tokmesh-core parser</a></td>
+<td>Official pages describe points/plans only. Third-party source verifies .workbuddy/projects JSONL; later local eight-file/420-event comparison passed. Trace/session overlap/version scope remain unverified.</td>
+</tr>
+<tr>
+<td>A23</td>
+<td><a href="https://zed.dev/docs/telemetry">Zed telemetry</a></td>
+<td>Hosted accounting differs from local telemetry; server-side token accounting does not establish complete local fields.</td>
+</tr>
+<tr>
+<td>A24</td>
+<td><a href="https://hermes-agent.nousresearch.com/">Hermes site</a>, <a href="https://hermes-agent.nousresearch.com/docs/developer-guide/session-storage/">Storage documentation</a>, <a href="https://github.com/NousResearch/hermes-agent/blob/ef70b3661cbfcf57e583008ad91dd04d8ba46070/hermes_state_usage.py">usage</a>, <a href="https://github.com/NousResearch/hermes-agent/blob/ef70b3661cbfcf57e583008ad91dd04d8ba46070/hermes_state_schema.py">schema</a>, <a href="https://github.com/NousResearch/hermes-agent/releases/tag/v2026.9.24">0.21.5 release</a>, <a href="https://github.com/NousResearch/hermes-agent/blob/f97608f178d1ffeca59860195ab7da295f7c8e5f/agent/usage_pricing.py">Fixed normalization source</a></td>
+<td>Official 0.21.5 image/real CLI/public resume: uncached 849/cache read 812/output 4. A24/release normalization agree; default zero unknown, reasoning output subset. Whole-DB schema cannot identify row client versions; compatible fallback remains. Gateway/auxiliary/backfill/mixed models/per-call logs not accepted; <a href="/reference/evidence/hermes-container-sample/">Hermes record</a>.</td>
+</tr>
+<tr>
+<td>A25</td>
+<td><a href="https://github.com/junhoyeo/tokscale">tokscale</a> Fixed main 1d9a9395418efc6952944b794097935d7d6fa1e8.</td>
+<td>Third-party open-source Rust local-session parsers. Read-only clients/scanner/sessions supply path/field clues; no execution. They do not replace official per-product checks/local test samples; estimation/price-comparison logic excluded.</td>
+</tr>
+<tr>
+<td>A26</td>
+<td><a href="https://github.com/aaif-goose/goose">Goose</a> Migrated block/goose=&gt;aaif-goose/goose; official a701bb1 checked 2026-09-29; native CLI 1.53.0 checked 2026-10-06.</td>
+<td>usage_ledger per request since migration 15. Real call320/2/322, cache read 0/write/cost NULL; never add session totals or substitute prefilled cumulative zeros for unknowns. Other versions/GUI separate; <a href="/reference/evidence/m8-container-samples/">M8 samples</a>.</td>
+</tr>
+<tr>
+<td>A27</td>
+<td><a href="https://github.com/charmbracelet/crush">Crush</a> Fixed main 1f3827bcd2d20f38076b2d46123683271e6ed9ba,2026-09-29.</td>
+<td>projects.json {projects:[{path,data_dir,last_accessed}]} via CRUSH_GLOBAL_DATA/XDG/LOCALAPPDATA; per-project &lt;data_dir&gt;/crush.db. sessions.prompt/completion snapshot latest-step context, reset after compaction, not usage. Cumulative cost rolls children into parents: root parent_session_id IS NULL only. No message token columns.</td>
+</tr>
+<tr>
+<td>A28</td>
+<td><a href="https://ampcode.com/">Amp site</a> Closed-source CLI; tokscale 1d9a939 sessions/amp.rs,2026-09-29.</td>
+<td>~/.local/share/amp/threads/T-*.json: messages[].usage model/inputTokens/outputTokens/cacheRead/cacheCreation/credits and usageLedger.events timestamp/model/credits/tokens. Compare both to avoid double-counting.</td>
+</tr>
+<tr>
+<td>A29</td>
+<td><a href="https://github.com/RooCodeInc/Roo-Code/releases/tag/v3.54.0">Official Roo 3.54.0 release</a>, <a href="https://github.com/RooCodeInc/Roo-Code/tree/27001b2b5aa47b65e8a6ba1914e0f4216be0ebb0">Fixed commit</a>, <a href="https://roocodeinc.github.io/Roo-Code/">Archive announcement</a> 2026-10-06 VSIX hash/real extension-host-API; earlier structure b867ec9.</td>
+<td>globalStorage/tasks/ui_messages.json: four Task buckets initialize zero; OpenAI omits nested cache details; missing price cost defaults zero, all unknown. Cancellation three API calls/two native records separate from one-call request-limit comparison. Public API needs no acceptance-injected key; <a href="/reference/evidence/m8-container-samples/">old-summary/package checks</a>. Does not verify CLI/other versions/forks.</td>
+</tr>
+<tr>
+<td>A30</td>
+<td><a href="https://github.com/Aider-AI/aider">Aider</a> Fixed main 5dc9490bb35f9729ef2c95d00a19ccd30c26339c,2026-09-29; native 0.86.2,2026-10-06.</td>
+<td>Opt-in local –analytics-log. Real ask message_send 95/3/98, locally estimated cost/cache-reasoning unknown. No default historical backfill; other cases separate; <a href="/reference/evidence/m8-container-samples/">M8</a>.</td>
+</tr>
+<tr>
+<td>A31</td>
+<td><a href="https://github.com/continuedev/continue">Continue</a> Official 5522c6f44ca0ac3528b37b44818fbfa39b5af470,2026-09-29; native CLI 1.5.47,2026-10-06.</td>
+<td>Isolated CONTINUE_GLOBAL_DIR sessions usage accumulates by session; real input/output 1,471/2. Prefilled cache zero does not establish API-reported zero. Unknown calls/model/interval start do not invent day attribution; hub account data excluded; <a href="/reference/evidence/m8-container-samples/">M8</a>.</td>
+</tr>
+<tr>
+<td>A32</td>
+<td><a href="https://factory.ai/">Droid</a> Factory.ai CLI.</td>
+<td>~/.factory/sessions/{uuid}.settings.json cumulative tokenUsage input/output/cacheRead/cacheCreation/thinking plus same-name JSONL transcripts; no cost. Cumulative allocation is interval estimation only.</td>
+</tr>
+<tr>
+<td>A33</td>
+<td><a href="https://github.com/aws/amazon-q-developer-cli">Amazon Q Developer CLI</a> Official 15cc8f3,2026-09-29.</td>
+<td>Third-party timestamped JSON history path ~/.aws/amazonq/history/. Open source permits inspection; history usage fields unverified, SSO relogin may lose history.</td>
+</tr>
+<tr>
+<td>A34</td>
+<td><a href="https://www.penligent.ai/">News report</a> Grok Build,xAI closed-source CLI; news supports product/version.</td>
+<td>~/.grok/sessions/&lt;workspace&gt;/&lt;session&gt;/{updates.jsonl,signals.json,summary.json,events.jsonl} and ~/.grok/logs/unified.jsonl. Explicit five-bucket usage usable; cumulative totalTokens increments/compaction-difference compensation are inference and excluded.</td>
+</tr>
+<tr>
+<td>A35</td>
+<td><a href="https://antigravity.google/">Google Antigravity</a></td>
+<td>~/.gemini/antigravity[-cli]/conversations/&lt;uuid&gt;.db gen_metadata protobuf turn usage: fixed-plus-new input/cacheRead/output/thinking/responseId. Reverse-engineered layout; timestamp changed1.1.18. IDE usage via language server needs separate checks.</td>
+</tr>
+<tr>
+<td>A36</td>
+<td><a href="https://junie.jetbrains.com/docs/custom-llm-models.html">Junie custom models</a>, <a href="https://github.com/JetBrains/junie/releases/tag/3419.29">Official release 3419.29</a> Actual 26.9.22,distribution hash/bytecode/seven calls checked 2026-10-06; earlier tokscale 1d9a939.</td>
+<td>JUNIE_HOME/sessions or .junie modelUsage.inputTokens is uncached input; default missing-field zeros unknown. Positive cost client Estimated; zero cost/duration unknown. Missing API/provider/product version cannot derive complete input-total usage; written calls count despite failed tasks. <a href="/reference/evidence/m8-container-samples/">Old-summary/cursor/transaction/package results</a>; IDE remainsF1.</td>
+</tr>
+<tr>
+<td>A37</td>
+<td><a href="https://kiro.dev/">Kiro</a> AWS;tokscale reference1d9a939 sessions/kiro.rs,2026-09-29.</td>
+<td>Three formats: CLI ~/.kiro/sessions/cli/*.json(+jsonl), kiro-cli ~/.local/share/kiro-cli/data.sqlite3 conversations_v2, IDE globalStorage kiro.kiroagent .chat/execution/promptLogs. Auto agent often0; inferred usage excluded. Metering credits remain separate.</td>
+</tr>
+<tr>
+<td>A38</td>
+<td><a href="https://github.com/zed-industries/zed">Zed thread storage</a> Official bd74733/local read-only schema,2026-09-29.</td>
+<td>Historical bd74733 paths ~/.local/share/zed, ~/Library/Application Support/Zed, %LOCALAPPDATA%/Zed; threads/threads.db data JSON-zstd with request_token_usage input/output/cache_read/cache_creation and cumulative. Then checked hosted-only/imported exclusion; later Zed 1.22.0/DbThread 0.3.0 specified external provider is separately verified, <a href="/reference/evidence/plan-20261007/">native results</a>. Do not treat old hosted-only scope as current universal behavior.</td>
+</tr>
+<tr>
+<td>A39</td>
+<td><a href="https://codebuff.com/">Codebuff</a> Former Manicode; official caec5fc,2026-09-29.</td>
+<td>~/.config/manicode*/projects/*/chats/&lt;chatId&gt;/chat-messages.json, CODEBUFF_DATA_DIR override; usage fields require samples.</td>
+</tr>
+<tr>
+<td>A40</td>
+<td><a href="https://commandcode.ai/">Command Code</a>, <a href="https://github.com/CommandCodeAI/command-code">Repository</a> Repository lacks product source; npm command-code@1.69.0 dist/cli.mjs read line-by-line,2026-09-29.</td>
+<td>~/.commandcode/projects/&lt;slug&gt;/*.jsonl v3 tree session/message/model_change; assistant inputTokens/outputTokens/cacheRead/cacheWrite/costUsd. Exclude rewind orphan branches; deduplicate fork copies by ID/time.</td>
+</tr>
+<tr>
+<td>A41</td>
+<td><a href="https://jcode.sh/">jcode</a> Official 1jehuang/jcode 4f6bf8e,2026-09-29; native 0.91.0,2026-10-06.</td>
+<td>Snapshots/journal token_usage input/output/optional cache, no independent reasoning/cost. Real custom endpoint460/2 matches API-CLI-snapshot; unknown components remain unknown. Environment snapshot versions do not identify every message; <a href="/reference/evidence/m8-container-samples/">M8</a>.</td>
+</tr>
+<tr>
+<td>A42</td>
+<td><a href="https://github.com/Yeachan-Heo/gajae-code">gajae-code</a> Official 7e54f9c,2026-09-29; native 0.18.7,2026-10-06.</td>
+<td>Real sessionv5 API-CLI-native 412/2/414. Fixed source distinguishes configuration chains from usage, OpenAI-completions zero fallback/message initialization timestamps. Cache/uncached unknown; time request start. Other API/version scope separate; <a href="/reference/evidence/m8-container-samples/">M8</a>.</td>
+</tr>
+<tr>
+<td>A43</td>
+<td><a href="https://github.com/coder/xum/tree/81b0b744db6e27a4416f3596d70bf88529171caf">Fixed Xum commit</a>, <a href="https://xum.coder.com/reference/cli">Official CLI</a>, <a href="https://xum.coder.com/config/providers">provider</a> Official npm 0.30.0/integrity/fixed commit/two calls checked 2026-10-06; former coder/mux.</td>
+<td>sessionUsageService v1 cumulative byModel; displayUsage uncached input/output excluding reasoning/default zeros. Native XUM_ROOT/MUX_ROOT/RUN_SESSION_ROOT retention paths. Default custom streaming provider omits usage requests; retain real five-zero and usage-only gateway comparisons separately. <a href="/reference/evidence/m8-container-samples/">Parser/complete-old-summary/package results</a>.</td>
+</tr>
+<tr>
+<td>A44</td>
+<td><a href="https://www.warp.dev/">Warp</a></td>
+<td>Only local account/workspace usage caches requestsUsed/spendCents/syncedAt found, without token details; quota data excluded from token statistics.</td>
+</tr>
+<tr>
+<td>A45</td>
+<td><a href="https://cursor.com/docs/cli/overview">Cursor CLI documentation</a>, <a href="https://github.com/lpalbou/CursorDump">CursorDump transcript analysis</a></td>
+<td>CLI ~/.cursor/projects/&lt;slug&gt;/agent-transcripts/&lt;uuid&gt;/*.jsonl has conversations without per-call token/model fields. Per-call usage only remote dashboard get-filtered-usage-events, excluded; IDE state.vscdb unverified.</td>
+</tr>
+<tr>
+<td>A46</td>
+<td><a href="https://github.com/iflow-ai/iflow-cli">iFlow CLI</a> Alibaba iFlow,closed-source; official 4642808/discontinued2026-04-17,checked 2026-09-29.</td>
+<td>Official ~/.iflow settings.json/tmp/&lt;project_hash&gt;; /chat save JSON. OTel api_response five buckets resemble Gemini; actual chats paths/usageMetadata need local samples. Service discontinued2026-04-17; no implementation.</td>
+</tr>
+<tr>
+<td>A47</td>
+<td><a href="https://qoder.com/">Qoder</a> Alibaba/former Tongyi Lingma,brand change 2026-05; docs.qoder.com/npm @qoder-ai/qodercli1.1.64 unpacked2026-09-29.</td>
+<td>CLI device flow ~/.qoder/; Electron IDE %APPDATA%/com.qoder.app.stable*. CLI session/usage fields unverified; local checks required.</td>
+</tr>
+<tr>
+<td>A48</td>
+<td><a href="https://atomcode.atomgit.com/docs/en/index.html">AtomCode</a> Official e4215f733eeba4cede553e28f9b559e6b3dc34ef/45e05cb14775f070f3867539e1f21c9849b3484b;npm 5.2.1,2026-10-06.</td>
+<td>Real .meta v1/CLI-API one turn input 6,176/output 2. Model turn_stats accumulates separately from round_count; never add last total_tokens. Default zero unknown; exclude completely matched UIv1/rewindv2 only. Binary buildID unknown; sampled version cannot identify other sessions; <a href="/reference/evidence/m8-container-samples/">M8</a>.</td>
+</tr>
+<tr>
+<td>A49</td>
+<td><a href="https://learn.microsoft.com/en-us/visualstudio/extensibility/locating-visual-studio?view=visualstudio">Visual Studio discovery API</a>, <a href="https://github.com/microsoft/vswhere">vswhere</a>, <a href="https://learn.microsoft.com/en-us/visualstudio/extensibility/vsix-extension-schema-2-0-reference?view=visualstudio">SKU inheritance</a>, <a href="https://learn.microsoft.com/en-us/visualstudio/ide/visual-studio-github-copilot-install-and-states?view=vs-2022">Copilot installation</a> Official bodies/local Setup-PE/official VS 2022 VSIX checked 2026-10-07.</td>
+<td>No Community/year directory guessing. VS 18 writer uses Path.GetTempPath; check TMP/TEMP. Inspected 17.14.1713.63837 has no such JSONL exporter; other versions retain limits. <a href="/reference/evidence/m9-vs-copilot-discovery/">Catalog integrity/per-package/two-version results</a>.</td>
+</tr>
+</tbody>
+</table>
+<p>Fixed commits rechecked via public GitHub commits API; files read from raw.githubusercontent.com,
+no upstream code execution. Rolling pages were not matched to local releases; integrations need
+version inventories/samples. CodeBuddy browser fetch 502 was followed by read-only PowerShell
+official HTML-body checks, also used for WorkBuddy/ZCode; failed pages supplied no facts.
+Hermes fixed commit came from commits API with targeted storage/schema/usage reads. Later
+agent/usage_pricing.py fetch 429 stopped that read; outer PowerShell exit 0 did not count as file
+retrieval. Field names did not establish cache containment; M3 version samples checked it later.</p>
+<p><a id="m8-格式依据核验于-2026-09-29"></a></p>
+<h2 id="m8-format-references-checked-2026-09-29">M8 format references checked 2026-09-29</h2>
+<p>Per-product format research follows extended coverage. A25–A48 identify original references;
+full field descriptions live in adapter headers/<a href="/reference/evidence/m8-second-batch/">M8 results</a>.</p>
+<ul>
+<li>Official fixed source: archived Roo b867ec9, Goose a701bb1,Crush 1f3827b,jcode 4f6bf8e,gajae 7e54f9c,
+Continue 5522c6f,AtomCode e4215f7,Zed bd74733,Aider 5dc9490,Amazon Q15cc8f3,Codebuff caec5fc,iFlow 4642808.</li>
+<li>Official distributions: Command Code npm 1.69.0 dist/cli.mjs without repository product source;
+Qoder1.1.64 obfuscated bundle verifies paths only.</li>
+<li>Closed-source third-party parser references: tokscale 1d9a939 Amp/Grok/Junie/Kiro/Droid/Xum/
+Antigravity read line-by-line.</li>
+<li>Key findings: Goose usage_ledger absent from tokscale; Crush context snapshots not usage;
+no verified local per-call token records for Amazon Q/Codebuff, excluded; iFlow discontinued
+2026-04-17. Roo/legacy Cline UI tokensIn definitions differ; each uses its own fixed source,
+with later native checks recorded separately.</li>
+</ul>
+<p><a id="研究边界"></a></p>
+<h2 id="research-limits">Research limits</h2>
+<p>Remote billing/organization APIs excluded; real local formats need per-version checks without
+inventing absent samples. JetBrains AI Assistant/TRAE and other unverified IDEs remain F1;
+Zed/Junie CLI belong to M8. Packages/performance/platform/native results stay separate from targets.</p>
+<p><a id="扩展覆盖的证据层级"></a></p>
+<p><a id="扩展覆盖的来源类型与核验范围"></a></p>
+<h2 id="extended-source-types-and-verification-scope">Extended source types and verification scope</h2>
+<p>A25–A48 identify extensions; <a href="/reference/design/adapters/#%E6%89%A9%E5%B1%95%E8%A6%86%E7%9B%96">matrix</a>/<a href="https://github.com/owent/llm-usage/blob/main/docs/design/desktop-usage/execution.md#m8">M8 execution</a>
+maintain capabilities/stages.</p>
+<ul>
+<li>Read-only third-party <a href="https://github.com/junhoyeo/tokscale">tokscale</a>, fixed main
+1d9a9395418efc6952944b794097935d7d6fa1e8, clients.rs/scanner.rs/sessions gives paths/fields/
+lifecycle clues. Estimation/price comparison/aggregation rules are not adopted.</li>
+<li>Product identities checked individually against official sites/repos/multiple reports:
+block/goose=&gt;aaif-goose/goose,coder/mux=&gt;coder/xum,Qoder brand change 2026-05,Grok Build xAI CLI
+reported in news; Command Code/jcode/gajae/Codebuff/AtomCode have official sites/releases.</li>
+<li>Amp/Grok Build/Junie CLI/Kiro/Droid/Xum/iFlow/Qoder/Antigravity protobuf references include
+third-party/reverse-engineered formats. Matrix records product-version capability/native
+acceptance; synthetic regressions do not verify actual local output.</li>
+<li>Exclude Cursor remote get-filtered-usage-events/TRAE tokscale remote usage API/Warp account
+requests-spend caches from token statistics under local-source policy.</li>
+<li>Added Zed A38 supplements telemetry A23 with threads.db local usage; Junie CLI supplements
+JetBrains A07 with local events.jsonl. Both registered in M8; JetBrains AI Assistant IDE/TRAE
+remain F1. Later Zed external-provider acceptance is limited to the separately verified format.</li>
+<li>F1 unverified IDE families, no probes/implementation: Cursor IDE,Windsurf IDE-CLI,JD JoyCode,
+Zhipu CodeGeeX,Baidu Comate,Huawei InsCode/CodeArts Snap. Keep product identity/unverified
+local-format status instead of unsupported claims.</li>
+</ul>
+<p>These references authorize no signed-in backends/billing APIs/organization access. Current
+requirements govern implementation/validation.</p>
+<p><a id="verification-20260929"></a>
+<a id="verification"></a>
+<a id="readiness-verification"></a></p>
+<p><a id="当前验证入口"></a></p>
+<h2 id="current-validation-entry-points">Current validation entry points</h2>
+<p>Design/plans maintain current requirements; actual commands/versions/environments/results/
+remaining gaps are in <a href="/reference/evidence/current-acceptance/">current acceptance</a>.
+Specific formats: <a href="/reference/evidence/readme/">validation directory</a>; Git retains older
+process history. Document checks cannot replace product/real-source/native-platform acceptance.</p>
+</div><footer class="sl-flex astro-q3cosrfy"><div class="meta sl-flex astro-q3cosrfy"><a href="https://github.com/owent/llm-usage/edit/main/docs/design/desktop-usage/research.md" class="sl-flex print:hidden astro-okj6rzri"><svg aria-hidden="true" class="astro-okj6rzri astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.2em;"><path d="M22 7.24a1 1 0 0 0-.29-.71l-4.24-4.24a1 1 0 0 0-1.1-.22 1 1 0 0 0-.32.22l-2.83 2.83L2.29 16.05a1 1 0 0 0-.29.71V21a1 1 0 0 0 1 1h4.24a1 1 0 0 0 .76-.29l10.87-10.93L21.71 8c.1-.1.17-.2.22-.33a1 1 0 0 0 0-.24v-.14l.07-.05ZM6.83 20H4v-2.83l9.93-9.93 2.83 2.83L6.83 20ZM18.17 8.66l-2.83-2.83 1.42-1.41 2.82 2.82-1.41 1.42Z"/></svg>Edit page</a></div><div class="pagination-links print:hidden astro-vd7os7a3" dir="ltr"></div></footer></div></div></main></div></div></div></div></body></html>

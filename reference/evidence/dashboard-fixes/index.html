@@ -1,0 +1,365 @@
+<!DOCTYPE html><html lang="en" dir="ltr" data-theme="dark" data-has-toc data-has-sidebar class="astro-i2f5rvhd"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>Dashboard feedback repairs and uncommitted-code review, 2026-10-03 | LLM Usage</title><link rel="canonical" href="https://llm-usage.atframe.work/reference/evidence/dashboard-fixes/"/><link rel="alternate" hreflang="en" href="https://llm-usage.atframe.work/reference/evidence/dashboard-fixes/"/><link rel="alternate" hreflang="zh-CN" href="https://llm-usage.atframe.work/zh-cn/reference/evidence/dashboard-fixes/"/><link rel="alternate" hreflang="x-default" href="https://llm-usage.atframe.work/reference/evidence/dashboard-fixes/"/><link rel="sitemap" href="/sitemap-index.xml"/><link rel="shortcut icon" href="/favicon.svg" type="image/svg+xml"/><meta name="generator" content="Astro v7.3.6"/><meta name="generator" content="Starlight v0.42.5"/><meta property="og:title" content="Dashboard feedback repairs and uncommitted-code review, 2026-10-03"/><meta property="og:type" content="article"/><meta property="og:url" content="https://llm-usage.atframe.work/reference/evidence/dashboard-fixes/"/><meta property="og:locale" content="en"/><meta property="og:description" content="Understand the AI usage recorded on your computer."/><meta property="og:site_name" content="LLM Usage"/><meta name="twitter:card" content="summary_large_image"/><meta name="description" content="Understand the AI usage recorded on your computer."/><meta name="color-scheme" content="light dark"><script type="module" src="/_astro/Head.astro_astro_type_script_index_0_lang.CRxMF9Ma.js"></script><script>
+  (() => {
+    const scheme = matchMedia('(prefers-color-scheme: dark)');
+    let choice = 'auto';
+    try {
+      const saved = localStorage.getItem('starlight-theme');
+      if (saved === 'light' || saved === 'dark') choice = saved;
+    } catch { /* System theme remains available without browser storage. */ }
+    function updatePickers() {
+      document.querySelectorAll('starlight-theme-select').forEach(picker => {
+        const select = picker.querySelector('select');
+        if (select) select.value = choice;
+        const icon = document.querySelector('#docs-theme-icons')?.content.querySelector('.' + choice);
+        const target = picker.querySelector('svg.label-icon');
+        if (icon && target) target.replaceChildren(...icon.cloneNode(true).childNodes);
+      });
+    }
+    function apply(theme, persist = false) {
+      choice = theme === 'light' || theme === 'dark' ? theme : 'auto';
+      document.documentElement.dataset.theme = choice === 'auto' ? scheme.matches ? 'dark' : 'light' : choice;
+      updatePickers();
+      if (persist) {
+        try { localStorage.setItem('starlight-theme', choice === 'auto' ? '' : choice); }
+        catch { /* The current page still changes theme. */ }
+      }
+    }
+    window.LLMUsageDocsTheme = { apply, updatePickers };
+    scheme.addEventListener('change', () => { if (choice === 'auto') apply('auto'); });
+    apply(choice);
+  })();
+</script><template id="docs-theme-icons"><svg aria-hidden="true" class="light astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg><svg aria-hidden="true" class="dark astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="auto astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg></template><link rel="stylesheet" href="/_astro/print.ehPL0gv-.css" media="print"><link rel="stylesheet" href="/_astro/common.CLGr15ze.css"><style>@layer starlight.components{.card:where(.astro-eiplrasj){--sl-card-border:var(--sl-color-purple);--sl-card-bg:var(--sl-color-purple-low);border:1px solid var(--sl-color-gray-5);background-color:var(--sl-color-black);flex-direction:column;gap:clamp(.5rem,.125rem + 1vw,1rem);padding:clamp(1rem,.125rem + 3vw,2.5rem)}.card:where(.astro-eiplrasj):nth-child(4n+1){--sl-card-border:var(--sl-color-orange);--sl-card-bg:var(--sl-color-orange-low)}.card:where(.astro-eiplrasj):nth-child(4n+3){--sl-card-border:var(--sl-color-green);--sl-card-bg:var(--sl-color-green-low)}.card:where(.astro-eiplrasj):nth-child(4n+4){--sl-card-border:var(--sl-color-red);--sl-card-bg:var(--sl-color-red-low)}.card:where(.astro-eiplrasj):nth-child(4n+5){--sl-card-border:var(--sl-color-blue);--sl-card-bg:var(--sl-color-blue-low)}.title:where(.astro-eiplrasj){font-weight:600;font-size:var(--sl-text-h4);color:var(--sl-color-white);line-height:var(--sl-line-height-headings);align-items:center;gap:1rem}.card:where(.astro-eiplrasj) .icon:where(.astro-eiplrasj){border:1px solid var(--sl-card-border);background-color:var(--sl-card-bg);border-radius:.25rem;flex-shrink:0;padding:.2em}.card:where(.astro-eiplrasj) .body:where(.astro-eiplrasj){font-size:clamp(var(--sl-text-sm), calc(.5rem + 1vw), var(--sl-text-body));margin:0}.card-grid:where(.astro-t7b7g7fk){grid-template-columns:100%;gap:1rem;display:grid}.card-grid:where(.astro-t7b7g7fk)>*{margin-top:0!important}@media (width>=50rem){.card-grid:where(.astro-t7b7g7fk){grid-template-columns:1fr 1fr;gap:1.5rem}.stagger:where(.astro-t7b7g7fk){--stagger-height:5rem;padding-bottom:var(--stagger-height)}.stagger:where(.astro-t7b7g7fk)>:nth-child(2n){transform:translateY(var(--stagger-height))}}.sl-link-card:where(.astro-6ghwbfyk){border:1px solid var(--sl-color-gray-5);box-shadow:var(--sl-shadow-sm);border-radius:.5rem;grid-template-columns:1fr auto;gap:.5rem;padding:1rem;display:grid;position:relative}a:where(.astro-6ghwbfyk){line-height:var(--sl-line-height-headings);text-decoration:none}a:where(.astro-6ghwbfyk):before{content:"";position:absolute;inset:0}.stack:where(.astro-6ghwbfyk){flex-direction:column;gap:.5rem}.title:where(.astro-6ghwbfyk){color:var(--sl-color-white);font-weight:600;font-size:var(--sl-text-lg)}.description:where(.astro-6ghwbfyk){color:var(--sl-color-gray-3);line-height:1.5}.icon:where(.astro-6ghwbfyk){color:var(--sl-color-gray-3)}.sl-link-card:where(.astro-6ghwbfyk):hover{background:var(--sl-color-gray-7,var(--sl-color-gray-6));border-color:var(--sl-color-gray-2)}.sl-link-card:where(.astro-6ghwbfyk):hover .icon:where(.astro-6ghwbfyk){color:var(--sl-color-white)}}.app-screenshot:where(.astro-ofe7zldm){margin:1.5rem 0 2.5rem}.screenshot-frame:where(.astro-ofe7zldm){border:1px solid var(--sl-color-gray-5);background:var(--sl-color-bg);border-radius:1rem;box-shadow:0 16px 48px #00000018}.screenshot-frame:where(.astro-ofe7zldm) a:where(.astro-ofe7zldm){border-radius:inherit;display:block}.screenshot-frame:where(.astro-ofe7zldm) img:where(.astro-ofe7zldm){border-radius:inherit;width:100%;height:auto;box-shadow:none;border:0;margin:0;display:block}.screenshot-frame:where(.astro-ofe7zldm) .screenshot-dark:where(.astro-ofe7zldm),:root[data-theme=dark] .screenshot-light:where(.astro-ofe7zldm){display:none}:root[data-theme=dark] .screenshot-dark:where(.astro-ofe7zldm){display:block}figcaption:where(.astro-ofe7zldm){color:var(--sl-color-gray-2);flex-wrap:wrap;justify-content:space-between;gap:.25rem 1rem;margin-top:.75rem;font-size:.875rem;line-height:1.6;display:flex}.screenshot-hint:where(.astro-ofe7zldm){color:var(--sl-color-text-accent)}
+@layer starlight.components{svg:where(.astro-iwaxdyvu){color:var(--sl-icon-color);font-size:var(--sl-icon-size,1em);width:1em;height:1em}}
+</style><script type="module" src="/_astro/page.Dwipeu-R.js"></script></head><body class="astro-i2f5rvhd"><a class="sl-skip-link astro-af3xnx6k" href="#_top">Skip to content</a><div class="page sl-flex astro-7ol3m3p7"><header class="header astro-7ol3m3p7"><div class="header astro-qqelxyz2"><div class="title-wrapper sl-flex astro-qqelxyz2"><a href="/" class="site-title sl-flex astro-pm7u5y3t"><img class="astro-pm7u5y3t" alt src="/_astro/brand.BEXAYDnz.svg" width="1024" height="1024"><span class="astro-pm7u5y3t" translate="no">LLM Usage</span></a></div><div class="sl-flex print:hidden astro-qqelxyz2"><site-search class="astro-qqelxyz2 astro-veqdxac2" data-translations="{&quot;placeholder&quot;:&quot;Search&quot;}"><button data-open-modal disabled aria-label="Search" aria-keyshortcuts="Control+K" class="astro-veqdxac2"><svg aria-hidden="true" class="astro-veqdxac2 astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg><span class="sl-hidden md:sl-block astro-veqdxac2" aria-hidden="true">Search</span><kbd class="sl-hidden md:sl-flex astro-veqdxac2" style="display: none;"><kbd class="astro-veqdxac2">Ctrl</kbd><kbd class="astro-veqdxac2">K</kbd></kbd></button><dialog style="padding:0" aria-label="Search" class="astro-veqdxac2"><div class="dialog-frame sl-flex astro-veqdxac2"><button data-close-modal class="sl-flex md:sl-hidden astro-veqdxac2">Cancel</button><div class="search-container astro-veqdxac2"><div id="starlight__search" class="astro-veqdxac2"></div></div></div></dialog></site-search><script>
+	(() => {
+		const openBtn = document.querySelector('button[data-open-modal]');
+		const shortcut = openBtn?.querySelector('kbd');
+		if (!openBtn || !(shortcut instanceof HTMLElement)) return;
+		const platformKey = shortcut.querySelector('kbd');
+		if (platformKey && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
+			platformKey.textContent = '⌘';
+			openBtn.setAttribute('aria-keyshortcuts', 'Meta+K');
+		}
+		shortcut.style.display = '';
+	})();
+</script><script type="module" src="/_astro/Search.astro_astro_type_script_index_0_lang.Bumivpjo.js"></script></div><div class="sl-hidden md:sl-flex print:hidden right-group astro-qqelxyz2"><div class="sl-flex social-icons astro-qqelxyz2"><a href="https://github.com/owent/llm-usage" rel="me" class="sl-flex astro-csqdcj5u"><span class="sr-only astro-csqdcj5u">GitHub</span><svg aria-hidden="true" class="astro-csqdcj5u astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a></div><starlight-theme-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">Select theme</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="light" class="astro-btilxiwo">Light</option><option value="dark" class="astro-btilxiwo">Dark</option><option value="auto" selected class="astro-btilxiwo">Auto</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-theme-select><script>window.LLMUsageDocsTheme.updatePickers();</script><script type="module">document.addEventListener(`change`,e=>{let t=e.target;if(!(t instanceof HTMLSelectElement)||!t.closest(`starlight-theme-select`))return;let n=t.value===`light`||t.value===`dark`?t.value:`auto`;window.LLMUsageDocsTheme.apply(n,!0)});</script><starlight-lang-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">Select language</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path fill-rule="evenodd" d="M8.516 3a.94.94 0 0 0-.941.94v1.15H2.94a.94.94 0 1 0 0 1.882h7.362a7.422 7.422 0 0 1-1.787 3.958 7.42 7.42 0 0 1-1.422-2.425.94.94 0 1 0-1.774.627 9.303 9.303 0 0 0 1.785 3.043 7.422 7.422 0 0 1-4.164 1.278.94.94 0 1 0 0 1.881 9.303 9.303 0 0 0 5.575-1.855 9.303 9.303 0 0 0 4.11 1.74l-.763 1.525a.968.968 0 0 0-.016.034l-1.385 2.77a.94.94 0 1 0 1.683.841l1.133-2.267h5.806l1.134 2.267a.94.94 0 0 0 1.683-.841l-1.385-2.769a.95.95 0 0 0-.018-.036l-3.476-6.951a.94.94 0 0 0-1.682 0l-1.82 3.639a7.423 7.423 0 0 1-3.593-1.256 9.303 9.303 0 0 0 2.27-5.203h1.894a.94.94 0 0 0 0-1.881H9.456V3.94A.94.94 0 0 0 8.516 3Zm6.426 11.794a1.068 1.068 0 0 1-.02.039l-.703 1.407h3.924l-1.962-3.924-1.24 2.478Z" clip-rule="evenodd"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="/reference/evidence/dashboard-fixes/" class="astro-btilxiwo">English</option><option value="/zh-cn/reference/evidence/dashboard-fixes/" class="astro-btilxiwo">简体中文</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-lang-select><script type="module">var e=class extends HTMLElement{constructor(){super();let e=this.querySelector(`select`);e&&(e.addEventListener(`change`,e=>{e.currentTarget instanceof HTMLSelectElement&&(window.location.pathname=e.currentTarget.value)}),window.addEventListener(`pageshow`,t=>{if(!t.persisted)return;let n=e.querySelector(`option[selected]`)?.index;n!==e.selectedIndex&&(e.selectedIndex=n??0)}))}};customElements.define(`starlight-lang-select`,e);</script><script type="module" src="/_astro/LanguageSelect.astro_astro_type_script_index_0_lang.DH65a7yi.js"></script></div></div></header><nav class="sidebar print:hidden astro-7ol3m3p7" aria-label="Main"><button popovertarget="starlight__sidebar" class="sl-menu-button sl-flex md:sl-hidden print:hidden astro-dcnpphyu"><svg aria-hidden="true" class="open-menu astro-dcnpphyu astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"/></svg><svg aria-hidden="true" class="close-menu astro-dcnpphyu astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"/></svg><span class="sr-only astro-dcnpphyu">Menu</span></button><script type="module">var e=class extends HTMLElement{constructor(){super();let e=matchMedia(`(min-width: 50em)`),t=()=>{this.popover=e.matches?null:`auto`};t(),e.addEventListener(`change`,()=>t()),this.addEventListener(`toggle`,({newState:e})=>this.trapFocus(e===`open`))}trapFocus(e){document.querySelectorAll(`.main-frame, .sl-skip-link`).forEach(t=>{t.toggleAttribute(`inert`,e)})}};customElements.define(`sl-sidebar-pane`,e);</script><sl-sidebar-pane popover id="starlight__sidebar" class="sidebar-pane astro-7ol3m3p7"><div class="sidebar-content sl-flex astro-7ol3m3p7"><sl-sidebar-state-persist data-hash="1ekcnao" class="astro-lsvsit3p"><script aria-hidden="true">
+		(() => {
+			try {
+				if (!matchMedia('(min-width: 50em)').matches) return;
+				/** @type {HTMLElement | null} */
+				const target = document.querySelector('sl-sidebar-state-persist');
+				const state = JSON.parse(sessionStorage.getItem('sl-sidebar-state') || '0');
+				if (!target || !state || target.dataset.hash !== state.hash) return;
+				window._starlightScrollRestore = state.scroll;
+				customElements.define(
+					'sl-sidebar-restore',
+					class SidebarRestore extends HTMLElement {
+						connectedCallback() {
+							try {
+								const idx = parseInt(this.dataset.index || '');
+								const details = this.closest('details');
+								if (details && typeof state.open[idx] === 'boolean') details.open = state.open[idx];
+							} catch {}
+						}
+					}
+				);
+			} catch {}
+		})();
+	</script><ul class="top-level astro-ykcsoi7s"><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Start here</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="0"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">User guide</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="1"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Developer guide</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="2"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Design specifications</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="3"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Development records</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="4"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Project reference</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="5"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Test data</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="6"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li></ul><script aria-hidden="true">
+		(() => {
+			const scroller = document.getElementById('starlight__sidebar');
+			if (!window._starlightScrollRestore || !scroller) return;
+			scroller.scrollTop = window._starlightScrollRestore;
+			delete window._starlightScrollRestore;
+		})();
+	</script></sl-sidebar-state-persist><div class="md:sl-hidden"><div class="mobile-preferences sl-flex astro-lsc3yx5w"><div class="social-icons astro-lsc3yx5w"><a href="https://github.com/owent/llm-usage" rel="me" class="sl-flex astro-csqdcj5u"><span class="sr-only astro-csqdcj5u">GitHub</span><svg aria-hidden="true" class="astro-csqdcj5u astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a></div><starlight-theme-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">Select theme</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="light" class="astro-btilxiwo">Light</option><option value="dark" class="astro-btilxiwo">Dark</option><option value="auto" selected class="astro-btilxiwo">Auto</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-theme-select><script>window.LLMUsageDocsTheme.updatePickers();</script><starlight-lang-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">Select language</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path fill-rule="evenodd" d="M8.516 3a.94.94 0 0 0-.941.94v1.15H2.94a.94.94 0 1 0 0 1.882h7.362a7.422 7.422 0 0 1-1.787 3.958 7.42 7.42 0 0 1-1.422-2.425.94.94 0 1 0-1.774.627 9.303 9.303 0 0 0 1.785 3.043 7.422 7.422 0 0 1-4.164 1.278.94.94 0 1 0 0 1.881 9.303 9.303 0 0 0 5.575-1.855 9.303 9.303 0 0 0 4.11 1.74l-.763 1.525a.968.968 0 0 0-.016.034l-1.385 2.77a.94.94 0 1 0 1.683.841l1.133-2.267h5.806l1.134 2.267a.94.94 0 0 0 1.683-.841l-1.385-2.769a.95.95 0 0 0-.018-.036l-3.476-6.951a.94.94 0 0 0-1.682 0l-1.82 3.639a7.423 7.423 0 0 1-3.593-1.256 9.303 9.303 0 0 0 2.27-5.203h1.894a.94.94 0 0 0 0-1.881H9.456V3.94A.94.94 0 0 0 8.516 3Zm6.426 11.794a1.068 1.068 0 0 1-.02.039l-.703 1.407h3.924l-1.962-3.924-1.24 2.478Z" clip-rule="evenodd"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="/reference/evidence/dashboard-fixes/" class="astro-btilxiwo">English</option><option value="/zh-cn/reference/evidence/dashboard-fixes/" class="astro-btilxiwo">简体中文</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-lang-select></div></div></div></sl-sidebar-pane></nav><div class="main-frame astro-7ol3m3p7"><script type="module">var e=document.getElementById(`starlight__sidebar`),t=e?.querySelector(`sl-sidebar-state-persist`),n=`sl-sidebar-state`,r=()=>{let r=[],i=t?.dataset.hash||``;try{let e=sessionStorage.getItem(n),t=JSON.parse(e||`{}`);Array.isArray(t.open)&&t.hash===i&&(r=t.open)}catch{}return{hash:i,open:r,scroll:e?.scrollTop||0}},i=e=>{try{sessionStorage.setItem(n,JSON.stringify(e))}catch{}},a=()=>i(r()),o=(e,t)=>{let n=r();n.open[t]=e,i(n)};t?.addEventListener(`click`,e=>{if(!(e.target instanceof Element))return;let t=e.target.closest(`summary`)?.closest(`details`);if(!t)return;let n=t.querySelector(`sl-sidebar-restore`),r=parseInt(n?.dataset.index||``);isNaN(r)||o(!t.open,r)}),addEventListener(`visibilitychange`,()=>{document.visibilityState===`hidden`&&a()});</script><div class="lg:sl-flex astro-rcl3dmqm"><aside class="right-sidebar-container print:hidden astro-rcl3dmqm"><div class="right-sidebar astro-rcl3dmqm"><div class="lg:sl-hidden astro-fjp5q7r4"><mobile-starlight-toc data-min-h="2" data-max-h="3" class="astro-6exeh6u7"><nav aria-labelledby="starlight__on-this-page--mobile" class="astro-6exeh6u7"><details id="starlight__mobile-toc" class="astro-6exeh6u7"><summary id="starlight__on-this-page--mobile" class="sl-flex astro-6exeh6u7"><span class="toggle sl-flex astro-6exeh6u7">On this page<svg aria-hidden="true" class="caret astro-6exeh6u7 astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></span><span class="display-current astro-6exeh6u7"></span></summary><div class="dropdown astro-6exeh6u7"><ul class="isMobile astro-g6ctc22k" style="--depth: 0;"><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#_top" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Overview</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#run-information" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Run information</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#problems-and-repairs" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Problems and repairs</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#accurate-explanation-of-658-and-9" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Accurate explanation of 658 and 9</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#official-references-and-automatic-check-limits" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Official references and automatic-check limits</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#commands-and-results" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Commands and results</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#failures-and-unexecuted-checks" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Failures and unexecuted checks</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#validation-files" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Validation files</span></a></li></ul></div></details></nav></mobile-starlight-toc><script type="module" src="/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.C3fM4Kra.js"></script></div><div class="right-sidebar-panel sl-hidden lg:sl-block astro-fjp5q7r4"><div class="sl-container astro-fjp5q7r4"><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">On this page</h2><ul class="astro-g6ctc22k" style="--depth: 0;"><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#_top" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Overview</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#run-information" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Run information</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#problems-and-repairs" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Problems and repairs</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#accurate-explanation-of-658-and-9" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Accurate explanation of 658 and 9</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#official-references-and-automatic-check-limits" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Official references and automatic-check limits</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#commands-and-results" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Commands and results</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#failures-and-unexecuted-checks" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Failures and unexecuted checks</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#validation-files" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Validation files</span></a></li></ul></nav></starlight-toc><script type="module" src="/_astro/TableOfContents.astro_astro_type_script_index_0_lang.BpJaGz7G.js"></script></div></div></div></aside><div class="main-pane astro-rcl3dmqm"><main data-pagefind-body class="astro-i2f5rvhd" lang="en" dir="ltr"><div class="content-panel astro-ptfq3z6k"><div class="sl-container astro-ptfq3z6k"><h1 id="_top" class="astro-5fsxzwfk">Dashboard feedback repairs and uncommitted-code review, 2026-10-03</h1></div></div><div class="content-panel astro-ptfq3z6k"><div class="sl-container astro-ptfq3z6k"><div class="sl-markdown-content"><p><a id="dashboard-feedback-repairs-and-uncommitted-code-review-2026-10-03"></a></p>
+<p><a id="看板用户反馈修复与未提交代码复审2026-10-03"></a></p>
+<p>Reviewed eight fixes in the 2026-10-02 tree against source/tests/official protocols/native data.
+Corrected earlier claims about no currency conversion, the 658-count composition and whole
+Kilo database readiness. Production database/settings read-only; write isolated copies only.
+No commit/push/deployment this round.</p>
+<p><a id="元信息"></a></p>
+<h2 id="run-information">Run information</h2>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Date</td>
+<td>2026-10-03</td>
+</tr>
+<tr>
+<td>Environment</td>
+<td>Windows 11 x64; Node 24.21.0; Rust 1.98.1; headless Edge. Desktop dependencies restored from lockfile: Tauri API/CLI 2.12.0, Svelte 5.57.1, TypeScript 6.0.3, Vite 8.3.1</td>
+</tr>
+<tr>
+<td>Revision</td>
+<td>Uncommitted frontend charts/settings/cost cards and core pricing/adapters/health changes</td>
+</tr>
+<tr>
+<td>Design references</td>
+<td><a href="/reference/design/dashboard-polish/">Interactions</a>, <a href="/reference/design/dashboard-repair/">repairs</a>, <a href="/reference/design/pricing/">pricing</a>, <a href="/reference/design/data-contract/">data rules</a>, <a href="/reference/design/adapters/">adapters</a>, <a href="/reference/design/architecture/">architecture</a></td>
+</tr>
+</tbody>
+</table>
+<p><a id="问题与修复"></a></p>
+<h2 id="problems-and-repairs">Problems and repairs</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Feedback</th>
+<th>Cause</th>
+<th>Repair</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Today chart became bars</td>
+<td>TodayHourly.renderTotal() calls series type:bar</td>
+<td>Calls/tokens both smooth lines; agent comparison within one hour retains bars</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Cache lifetime days shows 0</td>
+<td>Derived PricingSettings Default sets online_cache_ttl_days=0; 0 ?? 3 stays 0</td>
+<td>Manual default=3, DEFAULT_TTL_DAYS; load_settings resets zero/out-of-range to 3</td>
+</tr>
+<tr>
+<td>3</td>
+<td>API reference is text only</td>
+<td>Previous repair left it outside metric grid</td>
+<td>Eighth bordered today/trend card; short ten-language API reference cost heading, full hover explanation. Eight/four/two/one columns, quota separate. Widths 1920/1280/1024/760/480: no overflow, equal-width columns, one-line headings</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Are all currencies USD; is conversion needed?</td>
+<td>models.dev and native CNY rates differ</td>
+<td>models.dev USD/million tokens; native snapshots USD/CNY. Rates stored in hundredths of a cent/million tokens; 1M input+1M output regressions yield USD 18/CNY 120. CNY amounts/rates show approximate USD alongside, with ECB date/source; currencies/history retained</td>
+</tr>
+<tr>
+<td>5</td>
+<td>k3-256k has no applicable rate</td>
+<td>Native provider=kimi-code-owent, bare model_raw=k3-256k; reference_model_key only knew prefixed kimi-code/k3-256k</td>
+<td>reference_model_key/official_providers also map bare k3/k3-256k to kimi-k3/moonshot, using official USD reference</td>
+</tr>
+<tr>
+<td>6</td>
+<td>658 unpriced/9 partial estimates</td>
+<td>Earlier explanation mixed current reference/occurrence-time prices and treated known-zero usage as unpriced</td>
+<td>Distinguish no tokens/missing price/partial coverage; known zero prices as zero with applicable rate. Original snapshot after repair: 622 unpriced/9 partial, detailed below</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Source needs 38 file checks</td>
+<td>Cumulative mismatch treated as read failure; valid null info treated as invalid fields</td>
+<td>codex-rollout-3 replays old cursors automatically; mismatch/regression retained without independently worsening read health. New individual records and legacy required total/last fields handled separately. Invalid rows/times survive batches. Copy’s 38 files all reevaluated active</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Kilo reads one file compatibly</td>
+<td>7.8.1 unregistered; highest DB version incorrectly applied to every message</td>
+<td>Native 34-call sample registers 7.8.1 and reevaluates old version metadata/cursors. kilo-message-tokens-2 uses each message’s session.version, preserving mixed-DB compatibility across incremental reads. Empty 7.8.3 session cannot verify format; notice explains automatic checks/review</td>
+</tr>
+</tbody>
+</table>
+<p><a id="658-与-9-的准确解释"></a></p>
+<h2 id="accurate-explanation-of-658-and-9">Accurate explanation of 658 and 9</h2>
+<p>Counts refer to <strong>current API reference</strong> in the original application snapshot, without
+substituting occurrence-time price history.</p>
+<ul>
+<li>564 codex-auto-review records: route name is not a known actual model; no guessed GPT-series price.</li>
+<li>34 k3-256k records: missing bare profile alias, fixed; all priced with official USD reference.</li>
+<li>58 Copilot round markers: no token usage, retain calls without zeros/invented amounts.</li>
+<li>Two GLM known-zero records: old condition misclassified zero amounts as no priceable components, fixed.</li>
+</ul>
+<p>Read-only native route files contain turn_context codex-auto-review plus individual call
+identity/usage, without underlying model fields. Token counts/quota models cannot establish
+the actual model. Same snapshot after repair: 622 unpriced, 564+58. Nine partial estimates
+are five VS Code usage observations and four Visual Studio calls: output/some cache known,
+without complete uncached-input split. Whole-turn input_total cannot use uncached rates
+directly. Unknowns remain unknown; newly collected records can change these counts.</p>
+<p><a id="官方来源与自动核对边界"></a></p>
+<h2 id="official-references-and-automatic-check-limits">Official references and automatic-check limits</h2>
+<p>Sources reread on 2026-10-03:</p>
+<table>
+<thead>
+<tr>
+<th>Reference</th>
+<th>Applied fact</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://www.kimi.com/code/docs/en/kimi-code/models.html">Kimi Code models</a>, <a href="https://platform.kimi.ai/docs/pricing/chat">global prices</a></td>
+<td>k3/k3-256k are K3 profiles; per million input USD 3/cache read 0.30/output 15/cache writes 5m 3, 1h 6, tax excluded; membership quota is not API rate</td>
+</tr>
+<tr>
+<td><a href="https://github.com/anomalyco/models.dev">models.dev maintainers</a></td>
+<td>cost is USD/million tokens; a provider’s CN name does not justify converting again</td>
+</tr>
+<tr>
+<td><a href="https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml">ECB daily XML</a></td>
+<td>Effective 2026-10-02, EUR/USD=1.1225, EUR/CNY=7.5259; CNY→USD=1.1225/7.5259</td>
+</tr>
+<tr>
+<td><a href="https://github.com/openai/codex/blob/rust-v0.144.0/codex-rs/protocol/src/protocol.rs">Codex 0.144 official protocol</a>, <a href="https://github.com/openai/codex/issues/14489">quota-event issue</a></td>
+<td>TokenCountEvent.info is Option; local 0.144.0-alpha.4 info:null/rate_limits:object valid. token_count can repeat during quota refresh, without another call</td>
+</tr>
+</tbody>
+</table>
+<p>Exchange rates are code-versioned reference snapshots, without automatic network requests.
+Amounts/unit prices use their integer units and same-date cross rates/rounding; original
+value/approximation/date/source shown. Historical values/original-currency subtotals unchanged.
+Historical pricing rule official-reference-3 corrects only retained, unarchived dates.</p>
+<p>Original 38 Codex files all reevaluated active; mismatch retained. Healthy reading does not
+establish complete source coverage. New 0.159.0-alpha.12.1 still latest-compatible, without
+verification based on same-shaped fields. Five regressions cover consumed unchanged bytes,
+monotonic revisions/history, reads split by byte limits, null info and invalid records.</p>
+<p>Kilo 7.8.1 native sample’s 34 calls independently match 3,189,308 tokens; automatic replay
+does not double count. Live DB includes empty 7.8.3 session without assistant usage. Full
+check of 256 message-containing sessions still has one historical cumulative mismatch,
+retaining diagnostics/degraded health. Whole database readiness is not established.
+Empty/mixed-version tests ensure highest version does not verify other sessions or replace
+the basis of already verified messages.</p>
+<p><a id="命令与结果"></a></p>
+<h2 id="commands-and-results">Commands and results</h2>
+<p>Repository-root cwd unless specified:</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Command</th>
+<th>Exit</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>npm –prefix desktop ci –ignore-scripts</td>
+<td>0</td>
+<td>Restore locked dependencies, no lockfile changes</td>
+</tr>
+<tr>
+<td>2</td>
+<td>npm run verify</td>
+<td>0</td>
+<td>Documents/assets/scripts/UI/Svelte/fmt/Clippy/Rust/frontend build all pass</td>
+</tr>
+<tr>
+<td>3</td>
+<td>npm run test:rust within verify</td>
+<td>0</td>
+<td>71 test binaries; 811 pass/0 fail/3 ignored; dashboard_repair 14, Codex replay 5, Kilo 8, pricing settings 5</td>
+</tr>
+<tr>
+<td>4</td>
+<td>npm run check, svelte-check</td>
+<td>0</td>
+<td>Zero errors/warnings</td>
+</tr>
+<tr>
+<td>5</td>
+<td>npm run build:web</td>
+<td>0</td>
+<td>Frontend builds</td>
+</tr>
+<tr>
+<td>6</td>
+<td>npm run test:ui</td>
+<td>0</td>
+<td>16 pass; ten languages, exchange units/rounding, coverage reasons</td>
+</tr>
+<tr>
+<td>7</td>
+<td>npm run test:browser, Edge</td>
+<td>0</td>
+<td>Curves/cost cards/resolutions/TTL=3/CNY amount-rate/reasons/compatibility/existing regressions</td>
+</tr>
+<tr>
+<td>8</td>
+<td>npm run fmt:check / npm run clippy</td>
+<td>0/0</td>
+<td>Formatting/lint pass</td>
+</tr>
+<tr>
+<td>9</td>
+<td>npm run lint:md</td>
+<td>0</td>
+<td>171 files/0 issues</td>
+</tr>
+<tr>
+<td>10</td>
+<td>python -X utf8 build/review-feedback/run_live_probe.py</td>
+<td>0</td>
+<td>Native read-only sources into isolated DB; 38 files reevaluated, 34 K3 calls priced, version/history diagnostics retained</td>
+</tr>
+<tr>
+<td>11</td>
+<td>python -X utf8 build/review-feedback/audit_summary.py</td>
+<td>0</td>
+<td>Permitted-field redaction passes; 34 native backup records and sample have equal independent five-component totals</td>
+</tr>
+<tr>
+<td>12</td>
+<td>git diff –check</td>
+<td>0</td>
+<td>Final tree; untracked code/test data inspected separately</td>
+</tr>
+</tbody>
+</table>
+<p><a id="失败与未执行项"></a></p>
+<h2 id="failures-and-unexecuted-checks">Failures and unexecuted checks</h2>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Status</th>
+<th>Reason</th>
+<th>Next condition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>codex-auto-review pricing</td>
+<td>Unexecuted</td>
+<td>Route has no public rate, actual model unknown</td>
+<td>User mapping/configuration can enable pricing; no guessing</td>
+</tr>
+<tr>
+<td>Production degraded/compatible file replay</td>
+<td>Isolated copy verified, production unchanged</td>
+<td>Original configuration/DB read-only</td>
+<td>First collection after update automatically replays, no clearing required</td>
+</tr>
+<tr>
+<td>New native GUI acceptance</td>
+<td>Unexecuted</td>
+<td>New GUI not launched here</td>
+<td>Desktop checks alongside build:desktop</td>
+</tr>
+</tbody>
+</table>
+<p>Initial assets check failed installed Tauri 2.11.5 versus lockfile. Restoring dependencies
+passed 67 derived assets/82-file checks, without regenerating/editing icons. Node sandbox
+child-process EPERM retried through authorized execution. fmt found missing –all; Clippy
+found new syntax incompatible with repository MSRV; both fixed. Final logs:
+build/review-feedback/verify-final.log and browser.log. No release bundling, default-ignored
+remote models.dev smoke or actual telemetry-configuration write checks.</p>
+<p><a id="验证产物"></a></p>
+<p><a id="证据文件"></a></p>
+<h2 id="validation-files">Validation files</h2>
+<ul>
+<li>Read-only consistent snapshots/scripts/isolated DBs/logs in ignored build/review-feedback/.
+SQLite mode=ro plus Online Backup, without immutable skipping WAL.</li>
+<li>New desktop/src-tauri/crates/core/tests/fixtures/kilo/session-7.8.1-k3.sanitized.json:
+IDs/paths/message text removed; tokens/time/finish/modelID/providerID fields preserved.
+session-7.8.1-k3._expectations.md contains independent calculations.</li>
+</ul>
+</div><footer class="sl-flex astro-q3cosrfy"><div class="meta sl-flex astro-q3cosrfy"><a href="https://github.com/owent/llm-usage/edit/main/docs/validation/desktop-usage/dashboard-fixes.md" class="sl-flex print:hidden astro-okj6rzri"><svg aria-hidden="true" class="astro-okj6rzri astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.2em;"><path d="M22 7.24a1 1 0 0 0-.29-.71l-4.24-4.24a1 1 0 0 0-1.1-.22 1 1 0 0 0-.32.22l-2.83 2.83L2.29 16.05a1 1 0 0 0-.29.71V21a1 1 0 0 0 1 1h4.24a1 1 0 0 0 .76-.29l10.87-10.93L21.71 8c.1-.1.17-.2.22-.33a1 1 0 0 0 0-.24v-.14l.07-.05ZM6.83 20H4v-2.83l9.93-9.93 2.83 2.83L6.83 20ZM18.17 8.66l-2.83-2.83 1.42-1.41 2.82 2.82-1.41 1.42Z"/></svg>Edit page</a></div><div class="pagination-links print:hidden astro-vd7os7a3" dir="ltr"></div></footer></div></div></main></div></div></div></div></body></html>

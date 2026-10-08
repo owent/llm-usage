@@ -1,0 +1,391 @@
+<!DOCTYPE html><html lang="zh-CN" dir="ltr" data-theme="dark" data-has-toc data-has-sidebar class="astro-i2f5rvhd"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>测试与验收要求 | LLM Usage</title><link rel="canonical" href="https://llm-usage.atframe.work/zh-cn/reference/design/validation/"/><link rel="alternate" hreflang="en" href="https://llm-usage.atframe.work/reference/design/validation/"/><link rel="alternate" hreflang="zh-CN" href="https://llm-usage.atframe.work/zh-cn/reference/design/validation/"/><link rel="alternate" hreflang="x-default" href="https://llm-usage.atframe.work/reference/design/validation/"/><link rel="sitemap" href="/sitemap-index.xml"/><link rel="shortcut icon" href="/favicon.svg" type="image/svg+xml"/><meta name="generator" content="Astro v7.3.6"/><meta name="generator" content="Starlight v0.42.5"/><meta property="og:title" content="测试与验收要求"/><meta property="og:type" content="article"/><meta property="og:url" content="https://llm-usage.atframe.work/zh-cn/reference/design/validation/"/><meta property="og:locale" content="zh-CN"/><meta property="og:description" content="Understand the AI usage recorded on your computer."/><meta property="og:site_name" content="LLM Usage"/><meta name="twitter:card" content="summary_large_image"/><meta name="description" content="Understand the AI usage recorded on your computer."/><meta name="color-scheme" content="light dark"><script type="module" src="/_astro/Head.astro_astro_type_script_index_0_lang.CRxMF9Ma.js"></script><script>
+  (() => {
+    const scheme = matchMedia('(prefers-color-scheme: dark)');
+    let choice = 'auto';
+    try {
+      const saved = localStorage.getItem('starlight-theme');
+      if (saved === 'light' || saved === 'dark') choice = saved;
+    } catch { /* System theme remains available without browser storage. */ }
+    function updatePickers() {
+      document.querySelectorAll('starlight-theme-select').forEach(picker => {
+        const select = picker.querySelector('select');
+        if (select) select.value = choice;
+        const icon = document.querySelector('#docs-theme-icons')?.content.querySelector('.' + choice);
+        const target = picker.querySelector('svg.label-icon');
+        if (icon && target) target.replaceChildren(...icon.cloneNode(true).childNodes);
+      });
+    }
+    function apply(theme, persist = false) {
+      choice = theme === 'light' || theme === 'dark' ? theme : 'auto';
+      document.documentElement.dataset.theme = choice === 'auto' ? scheme.matches ? 'dark' : 'light' : choice;
+      updatePickers();
+      if (persist) {
+        try { localStorage.setItem('starlight-theme', choice === 'auto' ? '' : choice); }
+        catch { /* The current page still changes theme. */ }
+      }
+    }
+    window.LLMUsageDocsTheme = { apply, updatePickers };
+    scheme.addEventListener('change', () => { if (choice === 'auto') apply('auto'); });
+    apply(choice);
+  })();
+</script><template id="docs-theme-icons"><svg aria-hidden="true" class="light astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg><svg aria-hidden="true" class="dark astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="auto astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg></template><link rel="stylesheet" href="/_astro/print.ehPL0gv-.css" media="print"><link rel="stylesheet" href="/_astro/common.CLGr15ze.css"><style>@layer starlight.components{.card:where(.astro-eiplrasj){--sl-card-border:var(--sl-color-purple);--sl-card-bg:var(--sl-color-purple-low);border:1px solid var(--sl-color-gray-5);background-color:var(--sl-color-black);flex-direction:column;gap:clamp(.5rem,.125rem + 1vw,1rem);padding:clamp(1rem,.125rem + 3vw,2.5rem)}.card:where(.astro-eiplrasj):nth-child(4n+1){--sl-card-border:var(--sl-color-orange);--sl-card-bg:var(--sl-color-orange-low)}.card:where(.astro-eiplrasj):nth-child(4n+3){--sl-card-border:var(--sl-color-green);--sl-card-bg:var(--sl-color-green-low)}.card:where(.astro-eiplrasj):nth-child(4n+4){--sl-card-border:var(--sl-color-red);--sl-card-bg:var(--sl-color-red-low)}.card:where(.astro-eiplrasj):nth-child(4n+5){--sl-card-border:var(--sl-color-blue);--sl-card-bg:var(--sl-color-blue-low)}.title:where(.astro-eiplrasj){font-weight:600;font-size:var(--sl-text-h4);color:var(--sl-color-white);line-height:var(--sl-line-height-headings);align-items:center;gap:1rem}.card:where(.astro-eiplrasj) .icon:where(.astro-eiplrasj){border:1px solid var(--sl-card-border);background-color:var(--sl-card-bg);border-radius:.25rem;flex-shrink:0;padding:.2em}.card:where(.astro-eiplrasj) .body:where(.astro-eiplrasj){font-size:clamp(var(--sl-text-sm), calc(.5rem + 1vw), var(--sl-text-body));margin:0}.card-grid:where(.astro-t7b7g7fk){grid-template-columns:100%;gap:1rem;display:grid}.card-grid:where(.astro-t7b7g7fk)>*{margin-top:0!important}@media (width>=50rem){.card-grid:where(.astro-t7b7g7fk){grid-template-columns:1fr 1fr;gap:1.5rem}.stagger:where(.astro-t7b7g7fk){--stagger-height:5rem;padding-bottom:var(--stagger-height)}.stagger:where(.astro-t7b7g7fk)>:nth-child(2n){transform:translateY(var(--stagger-height))}}.sl-link-card:where(.astro-6ghwbfyk){border:1px solid var(--sl-color-gray-5);box-shadow:var(--sl-shadow-sm);border-radius:.5rem;grid-template-columns:1fr auto;gap:.5rem;padding:1rem;display:grid;position:relative}a:where(.astro-6ghwbfyk){line-height:var(--sl-line-height-headings);text-decoration:none}a:where(.astro-6ghwbfyk):before{content:"";position:absolute;inset:0}.stack:where(.astro-6ghwbfyk){flex-direction:column;gap:.5rem}.title:where(.astro-6ghwbfyk){color:var(--sl-color-white);font-weight:600;font-size:var(--sl-text-lg)}.description:where(.astro-6ghwbfyk){color:var(--sl-color-gray-3);line-height:1.5}.icon:where(.astro-6ghwbfyk){color:var(--sl-color-gray-3)}.sl-link-card:where(.astro-6ghwbfyk):hover{background:var(--sl-color-gray-7,var(--sl-color-gray-6));border-color:var(--sl-color-gray-2)}.sl-link-card:where(.astro-6ghwbfyk):hover .icon:where(.astro-6ghwbfyk){color:var(--sl-color-white)}}.app-screenshot:where(.astro-ofe7zldm){margin:1.5rem 0 2.5rem}.screenshot-frame:where(.astro-ofe7zldm){border:1px solid var(--sl-color-gray-5);background:var(--sl-color-bg);border-radius:1rem;box-shadow:0 16px 48px #00000018}.screenshot-frame:where(.astro-ofe7zldm) a:where(.astro-ofe7zldm){border-radius:inherit;display:block}.screenshot-frame:where(.astro-ofe7zldm) img:where(.astro-ofe7zldm){border-radius:inherit;width:100%;height:auto;box-shadow:none;border:0;margin:0;display:block}.screenshot-frame:where(.astro-ofe7zldm) .screenshot-dark:where(.astro-ofe7zldm),:root[data-theme=dark] .screenshot-light:where(.astro-ofe7zldm){display:none}:root[data-theme=dark] .screenshot-dark:where(.astro-ofe7zldm){display:block}figcaption:where(.astro-ofe7zldm){color:var(--sl-color-gray-2);flex-wrap:wrap;justify-content:space-between;gap:.25rem 1rem;margin-top:.75rem;font-size:.875rem;line-height:1.6;display:flex}.screenshot-hint:where(.astro-ofe7zldm){color:var(--sl-color-text-accent)}
+@layer starlight.components{svg:where(.astro-iwaxdyvu){color:var(--sl-icon-color);font-size:var(--sl-icon-size,1em);width:1em;height:1em}}
+</style><script type="module" src="/_astro/page.Dwipeu-R.js"></script></head><body class="astro-i2f5rvhd"><a class="sl-skip-link astro-af3xnx6k" href="#_top">跳转到内容</a><div class="page sl-flex astro-7ol3m3p7"><header class="header astro-7ol3m3p7"><div class="header astro-qqelxyz2"><div class="title-wrapper sl-flex astro-qqelxyz2"><a href="/zh-cn/" class="site-title sl-flex astro-pm7u5y3t"><img class="astro-pm7u5y3t" alt src="/_astro/brand.BEXAYDnz.svg" width="1024" height="1024"><span class="astro-pm7u5y3t" translate="no">LLM Usage</span></a></div><div class="sl-flex print:hidden astro-qqelxyz2"><site-search class="astro-qqelxyz2 astro-veqdxac2" data-translations="{&quot;placeholder&quot;:&quot;搜索&quot;}"><button data-open-modal disabled aria-label="搜索" aria-keyshortcuts="Control+K" class="astro-veqdxac2"><svg aria-hidden="true" class="astro-veqdxac2 astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg><span class="sl-hidden md:sl-block astro-veqdxac2" aria-hidden="true">搜索</span><kbd class="sl-hidden md:sl-flex astro-veqdxac2" style="display: none;"><kbd class="astro-veqdxac2">Ctrl</kbd><kbd class="astro-veqdxac2">K</kbd></kbd></button><dialog style="padding:0" aria-label="搜索" class="astro-veqdxac2"><div class="dialog-frame sl-flex astro-veqdxac2"><button data-close-modal class="sl-flex md:sl-hidden astro-veqdxac2">取消</button><div class="search-container astro-veqdxac2"><div id="starlight__search" class="astro-veqdxac2"></div></div></div></dialog></site-search><script>
+	(() => {
+		const openBtn = document.querySelector('button[data-open-modal]');
+		const shortcut = openBtn?.querySelector('kbd');
+		if (!openBtn || !(shortcut instanceof HTMLElement)) return;
+		const platformKey = shortcut.querySelector('kbd');
+		if (platformKey && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
+			platformKey.textContent = '⌘';
+			openBtn.setAttribute('aria-keyshortcuts', 'Meta+K');
+		}
+		shortcut.style.display = '';
+	})();
+</script><script type="module" src="/_astro/Search.astro_astro_type_script_index_0_lang.Bumivpjo.js"></script></div><div class="sl-hidden md:sl-flex print:hidden right-group astro-qqelxyz2"><div class="sl-flex social-icons astro-qqelxyz2"><a href="https://github.com/owent/llm-usage" rel="me" class="sl-flex astro-csqdcj5u"><span class="sr-only astro-csqdcj5u">GitHub</span><svg aria-hidden="true" class="astro-csqdcj5u astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a></div><starlight-theme-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">选择主题</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="light" class="astro-btilxiwo">浅色</option><option value="dark" class="astro-btilxiwo">深色</option><option value="auto" selected class="astro-btilxiwo">自动</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-theme-select><script>window.LLMUsageDocsTheme.updatePickers();</script><script type="module">document.addEventListener(`change`,e=>{let t=e.target;if(!(t instanceof HTMLSelectElement)||!t.closest(`starlight-theme-select`))return;let n=t.value===`light`||t.value===`dark`?t.value:`auto`;window.LLMUsageDocsTheme.apply(n,!0)});</script><starlight-lang-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">选择语言</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path fill-rule="evenodd" d="M8.516 3a.94.94 0 0 0-.941.94v1.15H2.94a.94.94 0 1 0 0 1.882h7.362a7.422 7.422 0 0 1-1.787 3.958 7.42 7.42 0 0 1-1.422-2.425.94.94 0 1 0-1.774.627 9.303 9.303 0 0 0 1.785 3.043 7.422 7.422 0 0 1-4.164 1.278.94.94 0 1 0 0 1.881 9.303 9.303 0 0 0 5.575-1.855 9.303 9.303 0 0 0 4.11 1.74l-.763 1.525a.968.968 0 0 0-.016.034l-1.385 2.77a.94.94 0 1 0 1.683.841l1.133-2.267h5.806l1.134 2.267a.94.94 0 0 0 1.683-.841l-1.385-2.769a.95.95 0 0 0-.018-.036l-3.476-6.951a.94.94 0 0 0-1.682 0l-1.82 3.639a7.423 7.423 0 0 1-3.593-1.256 9.303 9.303 0 0 0 2.27-5.203h1.894a.94.94 0 0 0 0-1.881H9.456V3.94A.94.94 0 0 0 8.516 3Zm6.426 11.794a1.068 1.068 0 0 1-.02.039l-.703 1.407h3.924l-1.962-3.924-1.24 2.478Z" clip-rule="evenodd"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="/reference/design/validation/" class="astro-btilxiwo">English</option><option value="/zh-cn/reference/design/validation/" selected class="astro-btilxiwo">简体中文</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-lang-select><script type="module">var e=class extends HTMLElement{constructor(){super();let e=this.querySelector(`select`);e&&(e.addEventListener(`change`,e=>{e.currentTarget instanceof HTMLSelectElement&&(window.location.pathname=e.currentTarget.value)}),window.addEventListener(`pageshow`,t=>{if(!t.persisted)return;let n=e.querySelector(`option[selected]`)?.index;n!==e.selectedIndex&&(e.selectedIndex=n??0)}))}};customElements.define(`starlight-lang-select`,e);</script><script type="module" src="/_astro/LanguageSelect.astro_astro_type_script_index_0_lang.DH65a7yi.js"></script></div></div></header><nav class="sidebar print:hidden astro-7ol3m3p7" aria-label="主要"><button popovertarget="starlight__sidebar" class="sl-menu-button sl-flex md:sl-hidden print:hidden astro-dcnpphyu"><svg aria-hidden="true" class="open-menu astro-dcnpphyu astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"/></svg><svg aria-hidden="true" class="close-menu astro-dcnpphyu astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"/></svg><span class="sr-only astro-dcnpphyu">菜单</span></button><script type="module">var e=class extends HTMLElement{constructor(){super();let e=matchMedia(`(min-width: 50em)`),t=()=>{this.popover=e.matches?null:`auto`};t(),e.addEventListener(`change`,()=>t()),this.addEventListener(`toggle`,({newState:e})=>this.trapFocus(e===`open`))}trapFocus(e){document.querySelectorAll(`.main-frame, .sl-skip-link`).forEach(t=>{t.toggleAttribute(`inert`,e)})}};customElements.define(`sl-sidebar-pane`,e);</script><sl-sidebar-pane popover id="starlight__sidebar" class="sidebar-pane astro-7ol3m3p7"><div class="sidebar-content sl-flex astro-7ol3m3p7"><sl-sidebar-state-persist data-hash="0llvynh" class="astro-lsvsit3p"><script aria-hidden="true">
+		(() => {
+			try {
+				if (!matchMedia('(min-width: 50em)').matches) return;
+				/** @type {HTMLElement | null} */
+				const target = document.querySelector('sl-sidebar-state-persist');
+				const state = JSON.parse(sessionStorage.getItem('sl-sidebar-state') || '0');
+				if (!target || !state || target.dataset.hash !== state.hash) return;
+				window._starlightScrollRestore = state.scroll;
+				customElements.define(
+					'sl-sidebar-restore',
+					class SidebarRestore extends HTMLElement {
+						connectedCallback() {
+							try {
+								const idx = parseInt(this.dataset.index || '');
+								const details = this.closest('details');
+								if (details && typeof state.open[idx] === 'boolean') details.open = state.open[idx];
+							} catch {}
+						}
+					}
+				);
+			} catch {}
+		})();
+	</script><ul class="top-level astro-ykcsoi7s"><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">开始使用</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="0"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">用户指南</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="1"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">开发指南</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="2"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">设计说明</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="3"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">开发验证记录</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="4"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">项目说明</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="5"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">测试数据说明</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="6"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li></ul><script aria-hidden="true">
+		(() => {
+			const scroller = document.getElementById('starlight__sidebar');
+			if (!window._starlightScrollRestore || !scroller) return;
+			scroller.scrollTop = window._starlightScrollRestore;
+			delete window._starlightScrollRestore;
+		})();
+	</script></sl-sidebar-state-persist><div class="md:sl-hidden"><div class="mobile-preferences sl-flex astro-lsc3yx5w"><div class="social-icons astro-lsc3yx5w"><a href="https://github.com/owent/llm-usage" rel="me" class="sl-flex astro-csqdcj5u"><span class="sr-only astro-csqdcj5u">GitHub</span><svg aria-hidden="true" class="astro-csqdcj5u astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a></div><starlight-theme-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">选择主题</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="light" class="astro-btilxiwo">浅色</option><option value="dark" class="astro-btilxiwo">深色</option><option value="auto" selected class="astro-btilxiwo">自动</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-theme-select><script>window.LLMUsageDocsTheme.updatePickers();</script><starlight-lang-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">选择语言</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path fill-rule="evenodd" d="M8.516 3a.94.94 0 0 0-.941.94v1.15H2.94a.94.94 0 1 0 0 1.882h7.362a7.422 7.422 0 0 1-1.787 3.958 7.42 7.42 0 0 1-1.422-2.425.94.94 0 1 0-1.774.627 9.303 9.303 0 0 0 1.785 3.043 7.422 7.422 0 0 1-4.164 1.278.94.94 0 1 0 0 1.881 9.303 9.303 0 0 0 5.575-1.855 9.303 9.303 0 0 0 4.11 1.74l-.763 1.525a.968.968 0 0 0-.016.034l-1.385 2.77a.94.94 0 1 0 1.683.841l1.133-2.267h5.806l1.134 2.267a.94.94 0 0 0 1.683-.841l-1.385-2.769a.95.95 0 0 0-.018-.036l-3.476-6.951a.94.94 0 0 0-1.682 0l-1.82 3.639a7.423 7.423 0 0 1-3.593-1.256 9.303 9.303 0 0 0 2.27-5.203h1.894a.94.94 0 0 0 0-1.881H9.456V3.94A.94.94 0 0 0 8.516 3Zm6.426 11.794a1.068 1.068 0 0 1-.02.039l-.703 1.407h3.924l-1.962-3.924-1.24 2.478Z" clip-rule="evenodd"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="/reference/design/validation/" class="astro-btilxiwo">English</option><option value="/zh-cn/reference/design/validation/" selected class="astro-btilxiwo">简体中文</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-lang-select></div></div></div></sl-sidebar-pane></nav><div class="main-frame astro-7ol3m3p7"><script type="module">var e=document.getElementById(`starlight__sidebar`),t=e?.querySelector(`sl-sidebar-state-persist`),n=`sl-sidebar-state`,r=()=>{let r=[],i=t?.dataset.hash||``;try{let e=sessionStorage.getItem(n),t=JSON.parse(e||`{}`);Array.isArray(t.open)&&t.hash===i&&(r=t.open)}catch{}return{hash:i,open:r,scroll:e?.scrollTop||0}},i=e=>{try{sessionStorage.setItem(n,JSON.stringify(e))}catch{}},a=()=>i(r()),o=(e,t)=>{let n=r();n.open[t]=e,i(n)};t?.addEventListener(`click`,e=>{if(!(e.target instanceof Element))return;let t=e.target.closest(`summary`)?.closest(`details`);if(!t)return;let n=t.querySelector(`sl-sidebar-restore`),r=parseInt(n?.dataset.index||``);isNaN(r)||o(!t.open,r)}),addEventListener(`visibilitychange`,()=>{document.visibilityState===`hidden`&&a()});</script><div class="lg:sl-flex astro-rcl3dmqm"><aside class="right-sidebar-container print:hidden astro-rcl3dmqm"><div class="right-sidebar astro-rcl3dmqm"><div class="lg:sl-hidden astro-fjp5q7r4"><mobile-starlight-toc data-min-h="2" data-max-h="3" class="astro-6exeh6u7"><nav aria-labelledby="starlight__on-this-page--mobile" class="astro-6exeh6u7"><details id="starlight__mobile-toc" class="astro-6exeh6u7"><summary id="starlight__on-this-page--mobile" class="sl-flex astro-6exeh6u7"><span class="toggle sl-flex astro-6exeh6u7">本页内容<svg aria-hidden="true" class="caret astro-6exeh6u7 astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></span><span class="display-current astro-6exeh6u7"></span></summary><div class="dropdown astro-6exeh6u7"><ul class="isMobile astro-g6ctc22k" style="--depth: 0;"><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#_top" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">概述</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#测试层级" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">测试层级</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#验收用例" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">验收用例</span></a><ul class="isMobile astro-g6ctc22k" style="--depth: 1;"><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#v30适配器目录与历史版本回归" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">V30：适配器目录与历史版本回归</span></a></li></ul></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#固定数学样本" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">固定数学样本</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#适配器真实核对" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">适配器真实核对</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#调度与平台补充验收" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">调度与平台补充验收</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#不作为通过依据" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">不作为通过依据</span></a></li></ul></div></details></nav></mobile-starlight-toc><script type="module" src="/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.C3fM4Kra.js"></script></div><div class="right-sidebar-panel sl-hidden lg:sl-block astro-fjp5q7r4"><div class="sl-container astro-fjp5q7r4"><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">本页内容</h2><ul class="astro-g6ctc22k" style="--depth: 0;"><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#_top" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">概述</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#测试层级" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">测试层级</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#验收用例" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">验收用例</span></a><ul class="astro-g6ctc22k" style="--depth: 1;"><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#v30适配器目录与历史版本回归" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">V30：适配器目录与历史版本回归</span></a></li></ul></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#固定数学样本" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">固定数学样本</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#适配器真实核对" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">适配器真实核对</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#调度与平台补充验收" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">调度与平台补充验收</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#不作为通过依据" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">不作为通过依据</span></a></li></ul></nav></starlight-toc><script type="module" src="/_astro/TableOfContents.astro_astro_type_script_index_0_lang.BpJaGz7G.js"></script></div></div></div></aside><div class="main-pane astro-rcl3dmqm"><main data-pagefind-body class="astro-i2f5rvhd" lang="zh-CN" dir="ltr"><div class="content-panel astro-ptfq3z6k"><div class="sl-container astro-ptfq3z6k"><h1 id="_top" class="astro-5fsxzwfk">测试与验收要求</h1></div></div><div class="content-panel astro-ptfq3z6k"><div class="sl-container astro-ptfq3z6k"><div class="sl-markdown-content"><p><a id="测试与验收要求"></a></p>
+<p><a id="tests-and-acceptance-requirements"></a></p>
+<p><a id="测试与验收计划"></a></p>
+<p>本文保留验收条件，进度以 <a href="https://github.com/owent/llm-usage/blob/main/Plan.md">Plan.md</a> 和
+<a href="/zh-cn/reference/evidence/current-acceptance/">最新验收</a> 为准。
+适配器版本、价格及来源交换的专项验证结果见 <a href="/zh-cn/reference/evidence/readme/">验证目录</a>。
+已实现功能不能代替实际验收，GUI、原生平台及真实来源缺口仍独立登记。
+每项需要记录对应版本、数据集、命令、退出码和实际结果，不能仅勾选编号。</p>
+<p><a id="test-levels"></a></p>
+<h2 id="测试层级">测试层级</h2>
+<ol>
+<li>纯函数单元测试：字段映射、数学、时间、身份及生命周期，使用独立人工期望。</li>
+<li>适配器格式测试：固定版本脱敏测试数据，经实际读取→解析→标准化→查询完整流程。</li>
+<li>本地集成测试：真实临时 SQLite、文件增量/重写、WAL、事务中断和迁移，不只 mock 数据库。</li>
+<li>桌面验收：真实 Tauri IPC、WebView、配置和刷新；组件测试不能代替原生桌面验收。</li>
+<li>已授权真实来源核对：与 Agent 自身本机统计/本机会话导出比较，记录差额与覆盖区别。</li>
+<li>性能及发行：release 制品、全进程资源、真实安装/升级/卸载/恢复。</li>
+</ol>
+<p>从根 package.json 选择实际命令：<code>verify</code> 执行静态及单元/格式检查，
+<code>test:browser</code> 使用模拟 IPC；<code>test:headless</code> 使用真实可执行文件和 SQLite，
+<code>test:desktop</code> 使用 Windows WebView2 的真实 IPC。后两者须先构建并隔离来源环境。
+系统任务 API 往返另以显式测试执行，不能据此声称 OS 已启动应用。
+无需生成模型请求即可完成前四层的大部分验证。</p>
+<p><a id="acceptance-cases"></a></p>
+<h2 id="验收用例">验收用例</h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>场景</th>
+<th>必须观察的结果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>V01</td>
+<td>各 provider 的缓存包含关系、reasoning 子集、cache TTL 子集</td>
+<td>人工计算等式正确；无重复 token；缺失、零、异常负值、溢出可区分</td>
+</tr>
+<tr>
+<td>V02</td>
+<td>两次合法请求恰好拥有相同 token/模型/时间；同请求重复 final</td>
+<td>前者计两次，后者计一次；更正更新旧贡献，顺序乱序不静默覆盖</td>
+</tr>
+<tr>
+<td>V03</td>
+<td>成功、失败、取消、transport retry、无 usage、用户/工具消息、累计值</td>
+<td>调用/尝试/消息分别统计，未知 token 不补零，无法确认调用时不产生 request 数</td>
+</tr>
+<tr>
+<td>V04</td>
+<td>跨午夜、闰日、ISO 跨年周、周日起始、DST 23/25 小时</td>
+<td>半开区间、周所属年和本地日期正确；重复小时可分辨</td>
+</tr>
+<tr>
+<td>V05</td>
+<td>模型切换、同名不同 provider、unknown、别名变更</td>
+<td>不从未来设置推历史模型；unknown 进入总计；别名不篡改原始记录</td>
+</tr>
+<tr>
+<td>V06</td>
+<td>日→周/月、加权比例、distinct 会话、部分周期、分位数</td>
+<td>不平均百分比/P95，不叠加每日 distinct；样本范围和缺口可见</td>
+</tr>
+<tr>
+<td>V07</td>
+<td>JSONL 半行、跨块 UTF-8、超长行、BOM、坏行、新目录、文件轮转/同长替换</td>
+<td>不丢完整事件；半行不前移游标；变更检测不限于长度；错误无正文泄露</td>
+</tr>
+<tr>
+<td>V08</td>
+<td>file/OTLP 同数据重传，累计 metric 重置，token histogram 双类型，采样</td>
+<td>重复读取不增加贡献，正确区分 sum/count；跨日未知区间不摊分；采样总计标记不完整</td>
+</tr>
+<tr>
+<td>V09</td>
+<td>在读后/事件写后/游标写后/聚合前/commit 后各点终止进程</td>
+<td>重启重放结果相同；没有只提交游标丢数据或只提交事件翻倍</td>
+</tr>
+<tr>
+<td>V10</td>
+<td>父子会话、fork 继承、宿主镜像、两个源库重复、辅助调用</td>
+<td>覆盖集合可解释；有明确关联依据才合并；无关联时主来源选择避免双计</td>
+</tr>
+<tr>
+<td>V11</td>
+<td>真实 SQLite 并发写入、busy、WAL 未 checkpoint、只读权限、schema 变化</td>
+<td>一致读取；不修改源库及源 journal；无法安全读取时保留旧结果</td>
+</tr>
+<tr>
+<td>V12</td>
+<td>今日刷新、新增/更正昨天数据、双击刷新、一个源失败、休眠恢复</td>
+<td>真正触发采集；日周月更新同一修订；失败源有状态，其他源继续，无样例回退</td>
+</tr>
+<tr>
+<td>V13</td>
+<td>改时区/周起始、明细已清理、项目采集开关、只隐藏列</td>
+<td>预览可重建范围；旧汇总不虚构新维度；展示设置与数据删除分离</td>
+</tr>
+<tr>
+<td>V14</td>
+<td>缩短/延长保留、有限/无限切换、清理取消、日期边界、再次全扫</td>
+<td>恰好保留指定本地日；过期数据不复活，源日志不变；封存日不重复累加</td>
+</tr>
+<tr>
+<td>V15</td>
+<td>清理后磁盘空间、长读者阻塞 checkpoint、磁盘满、备份过期</td>
+<td>统计主库/WAL/备份；有界退避和提示；备份不绕过最长保留，无无声数据丢失</td>
+</tr>
+<tr>
+<td>V16</td>
+<td>旧库重复导入、范围重叠、更正、取消、迁移失败、旧程序开新 schema</td>
+<td>重复导入不新增贡献，失败可回滚；legacy 标签保留；迁移失败可恢复；旧程序拒绝写入</td>
+</tr>
+<tr>
+<td>V17</td>
+<td>已验证版本、未知/缺失版本但结构兼容、新增可选字段、结构/语义破坏及部分可用</td>
+<td>已知版本按映射解析；未知版本先尝试该 Agent 最新内置解析器，通过校验的数据可统计且带兼容标记；不兼容有诊断，失败不伪装“成功 0 条”</td>
+</tr>
+<tr>
+<td>V18</td>
+<td>表格与图表筛选一致、键盘/缩放/深浅色、无数据/部分数据、用量提醒/费用</td>
+<td>图表数值与查询相同；单位明确；币种和费用类别不混加；提醒不因重启重发</td>
+</tr>
+<tr>
+<td>V19</td>
+<td>真实安装、运行时缺失、离线、应用重启、后台/托盘关闭</td>
+<td>核心功能无网络可用；缺 WebView 提示清晰；无隐藏常驻进程；设置正确恢复</td>
+</tr>
+<tr>
+<td>V20</td>
+<td>100 万/1,000 万事件、366 日/多模型/多源、少数超大会话</td>
+<td>按资源要求核对 GUI 空闲 10 分钟均值/峰值及百万首次导入峰值；全进程、headless、working set 分别报告；吞吐、查询分位数、数据库/WAL 大小记录，无全文件无界载入</td>
+</tr>
+<tr>
+<td>V21</td>
+<td>release 包体、启动、刷新、空闲 CPU、卸载/升级</td>
+<td>达到 architecture.md 的目标或记录未达原因；包含 WebView 子进程与运行时说明</td>
+</tr>
+<tr>
+<td>V22</td>
+<td>OTLP 认证/限流/压缩炸弹、CSV 注入、路径逃逸、恶意源字符串、本地导入失败</td>
+<td>不执行外部文字、不持久化正文/凭据、不访问未授权范围；本地导入中断可恢复</td>
+</tr>
+<tr>
+<td>V23</td>
+<td>全局/逐源间隔与定点、禁用/恢复、手动/监听/定时重叠、时钟回拨、DST、休眠</td>
+<td>同源不并发，合并待处理触发；禁用后无自动读取；错过时点每源只补扫一次，下次执行正确</td>
+</tr>
+<tr>
+<td>V24</td>
+<td>Windows 系统任务注册失败/禁用失败、普通用户、GUI/headless 竞争、退出/注销/升级/卸载</td>
+<td>实际生效状态可见；无密码或提权需求；单写者，无 WebView/Agent 启动；关闭配置后残留触发也不采集，只清理自有任务</td>
+</tr>
+<tr>
+<td>V25</td>
+<td>本机 WSL/容器、远端同步文件、保存为文件的云账单、账号报表、loopback 转发/伪造 host</td>
+<td>本机实例显式授权且去重；远端/未知来源排除并给原因；无远端用量/API 出站请求，不隐式启动环境</td>
+</tr>
+<tr>
+<td>V26</td>
+<td>GitHub Windows/macOS/Linux 矩阵、锁文件、release 制品、测试插桩和权限</td>
+<td>三 OS 实际构建测试并保留分项状态；Windows 11 实机另验；制品无测试监听器/个人数据，不自动发版</td>
+</tr>
+<tr>
+<td>V27</td>
+<td>本地 WSL 2 Linux 构建、工作副本、缺依赖、AppImage、WSLg 有/无</td>
+<td>revision/未提交差异和环境可追溯；编译/测试/打包/GUI 分项；库不跨系统共用，不将 WSL 等同原生桌面通过</td>
+</tr>
+<tr>
+<td>V28</td>
+<td>主机改名、同名不同主机、目录迁移、复制数据库、清理明细、旧库来源缺失、导出重入、同源修订/部分快照/来源冲突</td>
+<td>稳定来源参与唯一约束与历史分区；导出保留原始来源，导入机不覆盖归属；重复导入不新增贡献，已接受修订替换旧贡献，互斥来源新增；旧混合汇总不虚构拆分，失败保留旧结果</td>
+</tr>
+<tr>
+<td>V29</td>
+<td>价格渠道依据、模型别名/版本、缓存 TTL、推理包含关系、阶梯/档位/批处理、价格生效边界、多币种、缺价、离线/更新失败</td>
+<td>价格出处与适用范围可复核；固定 token/单价样本有人工期望；未知不补零、部分计价有覆盖、确定精度舍入；历史估算可复现，无用量上传，不冒充订阅实付</td>
+</tr>
+<tr>
+<td>V30</td>
+<td>Agent 目录迁移、历史版本并存、新旧/未知版本混合目录、最新解析器回退、格式冲突、共用逻辑变更及旧游标恢复</td>
+<td>每 Agent 独立目录，版本实现留在该目录内；已知分派与未知回退正确，兼容状态可追溯；既有已验证版本重构前后身份、用量及恢复结果一致，重复扫描不增长；历史回归保留</td>
+</tr>
+<tr>
+<td>V31</td>
+<td>界面语言切换、缺失键回退、语言协商、数字/日期/单位本地化、导出格式分列</td>
+<td>切换行为符合 F3 语言规则；缺失键回退默认语言且可诊断；统计口径不随语言改变；CSV 导出格式与界面格式分列说明</td>
+</tr>
+</tbody>
+</table>
+<p>V28 的来源持久化、迁移和合并判定样本由 M1a 验收，实际导出由 M6 验收
+（聚合包为来源注册 + 日/周期/小时层；<a href="/zh-cn/reference/design/detail-merge/">明细包</a> 另含完整事件和累计）；
+聚合与明细导入均已实施，事务、修订、未知、完整日、封存及原生往返分别验收，
+不开放跨设备采集。
+V29 使用固定价格样本 P1–P6、人工期望 E1–E8、异常场景 A1–A10；
+测试与在线失败回退结果见 <a href="/zh-cn/reference/evidence/f2-cost-engine/">费用引擎</a>、
+<a href="/zh-cn/reference/evidence/f2-online-refresh/">在线刷新</a>。当前 API 参考与发生时
+估算分别核对，后者须有明确供应商渠道；<a href="/zh-cn/reference/design/budget-reminders/">用量和费用提醒</a> 已实施，
+验收默认关闭、用户/周期隔离、精确金额、未知覆盖及重启去重。</p>
+<p><a id="adapter-versions"></a></p>
+<p><a id="v30-adapter-directories-and-historical-versions"></a></p>
+<h3 id="v30适配器目录与历史版本回归">V30：适配器目录与历史版本回归</h3>
+<p>M2 负责现有单文件迁移；M3–M5 及后续 F1 的新适配器沿用 <a href="/zh-cn/reference/design/architecture/#adapter-layout">目录约定</a>。
+按以下场景分别记录结果，目录存在或编译通过不能代替版本兼容验收：</p>
+<ul>
+<li>检查每个 Agent 的独立目录、统一入口、版本分派和内部实现，产品特有映射不留在根级单文件。</li>
+<li>用迁移前已验证版本的固定样本及已提交游标/解析上下文核对迁移后的身份、事件、汇总和增量结果；
+移动实现不生成新来源、不重复计数，旧公开入口、examples 和测试仍可用。</li>
+<li>对每个实际支持的发布版本验证正确分派；同一根目录的新旧历史文件分别进入匹配实现。
+未知或缺失版本先进入该 Agent 对应输入类型的最新内置实现，不因未收录的版本号直接拒绝。</li>
+<li>用未收录版本号但结构不变、版本缺失但 Agent 可识别、仅新增可选字段的样本验证默认回退成功；
+经实际探测→扫描→入库→查询过程确认 token 与人工期望一致，并显示未验证兼容状态。
+版本探测、扫描及能力声明使用同一策略，不允许仅在探测阶段放行。</li>
+<li>分别注入必需字段类型错误、token 包含关系矛盾、无法识别的计量记录及格式匹配冲突；
+可独立校验的部分数据保留并标注覆盖，依赖未知累计基线的计算停止；失败批次不推进游标或覆盖旧结果。
+错误文件不影响独立的已知格式文件，不能仅跳过错误行后宣称完整成功或“成功 0 条”。</li>
+<li>重启后兼容标记仍可查询，日汇总/封存和导出不丢失解析依据；同一数据重复扫描不增长。
+更新解析器、来源变化或显式重扫可重新尝试，后续专用实现替换旧贡献而非再次追加。</li>
+<li>新增版本后执行全部已支持历史版本的固定回归；共享组件改动覆盖全部实际使用者。
+支持矩阵、样本说明和 parser_version 可追溯；不删除旧样本以掩盖新版本回归。</li>
+</ul>
+<p>当前仅有一个已证实版本的 Agent 先验目录迁移与现有行为；尚未核验的历史版本保留待验证，
+合成的版本分派测试只能证明分派逻辑，不能替代对该 Agent 真实格式样本的核验。</p>
+<p><a id="fixed-mathematical-cases"></a></p>
+<h2 id="固定数学样本">固定数学样本</h2>
+<p>下列数值进入单元与端到端测试数据，期望写死于测试数据说明，不调用实现自身生成期望。</p>
+<table>
+<thead>
+<tr>
+<th>输入</th>
+<th>期望</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>未缓存输入 100，缓存读 800，缓存写 100，输出 100</td>
+<td>总输入 1000，总 token 1100，缓存输入占比 80%</td>
+</tr>
+<tr>
+<td>总输入 1000（缓存读 800 已包含），输出 100（推理 40 已包含）</td>
+<td>总 token 1100，不再加缓存或推理；未缓存输入在可证明无缓存创建时为 200</td>
+</tr>
+<tr>
+<td>甲输入 100/缓存 90，乙输入 900/缓存 90</td>
+<td>合并比例 18%，不是 50%；甲 90%，乙 10%</td>
+</tr>
+<tr>
+<td>输入 100、输出未知</td>
+<td>已知输入 100；输出及完整总量未知；不能产生完整总 token=100</td>
+</tr>
+<tr>
+<td>同请求 usage 从 100 改成 80</td>
+<td>当前值 80，调用数 1；不是 180 或取 MAX=100</td>
+</tr>
+<tr>
+<td>两个稳定 ID 的请求 usage 都为 100</td>
+<td>总量 200，调用数 2；内容相同不能去重</td>
+</tr>
+<tr>
+<td>DSH 同 attempt 流式 80→final 100，retry final 40</td>
+<td>两个已确认尝试的 token 合计 140；具体 model_call 身份随适配器核验依据</td>
+</tr>
+<tr>
+<td>累计 100→150→150，明确新进程 20</td>
+<td>区间增量 50、0 与新进程 20；首次 100 保留原始区间，不硬塞进今天</td>
+</tr>
+<tr>
+<td>跨两天同一个 session，各日都活动</td>
+<td>周/月 DISTINCT session=1；活跃天数=2</td>
+</tr>
+<tr>
+<td>Hermes 两日累计行 token=1000、api_call_count=3，只有 first_seen/last_seen</td>
+<td>保存来源区间汇总；不产生三条 model_call，不把 1000 全放最后一天；重复扫描不增加</td>
+</tr>
+<tr>
+<td>Hermes 主模型累计 100，独立 task 辅助累计 20，sessions 主循环也是 100</td>
+<td>已证明覆盖互斥时总量 120，不是 220；session 与模型表不双计，辅助任务不遗漏</td>
+</tr>
+</tbody>
+</table>
+<p>另外覆盖接近 i64 上限、大于 JS 安全整数、毫秒/秒误判、夏令时重复小时和 null 字段传播。</p>
+<p><a id="real-adapter-comparisons"></a></p>
+<h2 id="适配器真实核对">适配器真实核对</h2>
+<p>实施阶段提取本机真实 Agent 数据验证已获用户允许，按 <a href="/zh-cn/reference/design/implementation-readiness/">最小提取流程</a> 执行。
+M0 可先只读提取必要字段生成脱敏 fixture，解析器通过后再做真实来源的端到端比较。
+F1 本轮已授权核查；无安装/本机文件或数据库的项移出活动计划，限制及未实施状态保留在矩阵。
+本轮更多 DPI、完整读屏、宿主登录/注销及 OS 唤醒已取消，活动验收以 Plan.md 为准。</p>
+<p>每个发布适配器至少固定一个实际版本；多版本支持必须各有 schema 样本。
+来源样本包括单次调用、工具循环、模型切换、子 Agent、失败/取消、重启恢复和辅助请求。
+不具备某个场景的产品标记缺口，不能用别的产品数据替代。</p>
+<p>与 Agent 本机统计核对时固定时区、时间范围、本机实例、模型和统计单位。
+差额先检查源端写入延迟、日志保留、隐藏辅助请求及源界面是否混入了跨设备数据。
+token 相符不自动证明 request/cache 相符；每个字段独立验收。
+已有本地历史核对优先，不为了验收自动发起付费调用或改为接入账号 API。</p>
+<p><a id="scheduling-and-platform-checks"></a></p>
+<h2 id="调度与平台补充验收">调度与平台补充验收</h2>
+<p>V23 的时钟/DST 用可控时钟，V24 使用实际 Windows 11 普通用户测试任务，
+不能用 mock 注册成功证明系统任务可用。任务测试只操作本应用测试命名空间，结束复核无残留。
+V25 合成明确的本机、跨设备和未知归属测试数据，出站审计覆盖运行/手动/定时/导入路径；
+构建依赖下载与统计运行网络行为分开，不把 Agent 自身访问云端模型误判为采集器出站。
+V26 至少有三平台原生构建、Rust/格式/SQLite/调度测试结果，GUI 自动化不足单列，
+Windows 安装、系统任务和资源目标仍需真实 Windows 11 验收。
+2026-10-05 用户取消 macOS 桌面及特定硬件要求，Linux GUI/包生命周期接受独立
+WSL/Debian Podman 的实际 GTK/WebKit/IPC 验收；宿主登录/注销、托盘/通知和其他
+发行版仍分开记录，FUSE 不可挂载时不能以提取运行报 FUSE 通过。
+V27 是可选本地补充；环境不可用记录未执行，不能删掉 Linux CI 或声称其已通过。</p>
+<p><a id="insufficient-acceptance-results"></a></p>
+<h2 id="不作为通过依据">不作为通过依据</h2>
+<ul>
+<li>编译成功、schema 存在、目录被发现，不能证明用量正确。</li>
+<li>原型 README、第三方统计工具的映射和搜索摘要，不能替代上游格式依据。</li>
+<li>本地固定样本不证明所有发行版本、所有 IDE、真实服务或生产覆盖。</li>
+<li>空壳 Tauri 的包体数字不能代替包含图表、数据库、采集和遥测后的成品。</li>
+<li>Markdown lint 通过只说明文档格式，不证明任意业务验收完成。</li>
+</ul>
+</div><footer class="sl-flex astro-q3cosrfy"><div class="meta sl-flex astro-q3cosrfy"><a href="https://github.com/owent/llm-usage/edit/main/docs/zh-CN/docs/design/desktop-usage/validation.md" class="sl-flex print:hidden astro-okj6rzri"><svg aria-hidden="true" class="astro-okj6rzri astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.2em;"><path d="M22 7.24a1 1 0 0 0-.29-.71l-4.24-4.24a1 1 0 0 0-1.1-.22 1 1 0 0 0-.32.22l-2.83 2.83L2.29 16.05a1 1 0 0 0-.29.71V21a1 1 0 0 0 1 1h4.24a1 1 0 0 0 .76-.29l10.87-10.93L21.71 8c.1-.1.17-.2.22-.33a1 1 0 0 0 0-.24v-.14l.07-.05ZM6.83 20H4v-2.83l9.93-9.93 2.83 2.83L6.83 20ZM18.17 8.66l-2.83-2.83 1.42-1.41 2.82 2.82-1.41 1.42Z"/></svg>编辑此页</a></div><div class="pagination-links print:hidden astro-vd7os7a3" dir="ltr"></div></footer></div></div></main></div></div></div></div></body></html>

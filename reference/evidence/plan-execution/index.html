@@ -1,0 +1,407 @@
+<!DOCTYPE html><html lang="en" dir="ltr" data-theme="dark" data-has-toc data-has-sidebar class="astro-i2f5rvhd"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>Implementation and acceptance results for remaining work | LLM Usage</title><link rel="canonical" href="https://llm-usage.atframe.work/reference/evidence/plan-execution/"/><link rel="alternate" hreflang="en" href="https://llm-usage.atframe.work/reference/evidence/plan-execution/"/><link rel="alternate" hreflang="zh-CN" href="https://llm-usage.atframe.work/zh-cn/reference/evidence/plan-execution/"/><link rel="alternate" hreflang="x-default" href="https://llm-usage.atframe.work/reference/evidence/plan-execution/"/><link rel="sitemap" href="/sitemap-index.xml"/><link rel="shortcut icon" href="/favicon.svg" type="image/svg+xml"/><meta name="generator" content="Astro v7.3.6"/><meta name="generator" content="Starlight v0.42.5"/><meta property="og:title" content="Implementation and acceptance results for remaining work"/><meta property="og:type" content="article"/><meta property="og:url" content="https://llm-usage.atframe.work/reference/evidence/plan-execution/"/><meta property="og:locale" content="en"/><meta property="og:description" content="Understand the AI usage recorded on your computer."/><meta property="og:site_name" content="LLM Usage"/><meta name="twitter:card" content="summary_large_image"/><meta name="description" content="Understand the AI usage recorded on your computer."/><meta name="color-scheme" content="light dark"><script type="module" src="/_astro/Head.astro_astro_type_script_index_0_lang.CRxMF9Ma.js"></script><script>
+  (() => {
+    const scheme = matchMedia('(prefers-color-scheme: dark)');
+    let choice = 'auto';
+    try {
+      const saved = localStorage.getItem('starlight-theme');
+      if (saved === 'light' || saved === 'dark') choice = saved;
+    } catch { /* System theme remains available without browser storage. */ }
+    function updatePickers() {
+      document.querySelectorAll('starlight-theme-select').forEach(picker => {
+        const select = picker.querySelector('select');
+        if (select) select.value = choice;
+        const icon = document.querySelector('#docs-theme-icons')?.content.querySelector('.' + choice);
+        const target = picker.querySelector('svg.label-icon');
+        if (icon && target) target.replaceChildren(...icon.cloneNode(true).childNodes);
+      });
+    }
+    function apply(theme, persist = false) {
+      choice = theme === 'light' || theme === 'dark' ? theme : 'auto';
+      document.documentElement.dataset.theme = choice === 'auto' ? scheme.matches ? 'dark' : 'light' : choice;
+      updatePickers();
+      if (persist) {
+        try { localStorage.setItem('starlight-theme', choice === 'auto' ? '' : choice); }
+        catch { /* The current page still changes theme. */ }
+      }
+    }
+    window.LLMUsageDocsTheme = { apply, updatePickers };
+    scheme.addEventListener('change', () => { if (choice === 'auto') apply('auto'); });
+    apply(choice);
+  })();
+</script><template id="docs-theme-icons"><svg aria-hidden="true" class="light astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg><svg aria-hidden="true" class="dark astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="auto astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg></template><link rel="stylesheet" href="/_astro/print.ehPL0gv-.css" media="print"><link rel="stylesheet" href="/_astro/common.CLGr15ze.css"><style>@layer starlight.components{.card:where(.astro-eiplrasj){--sl-card-border:var(--sl-color-purple);--sl-card-bg:var(--sl-color-purple-low);border:1px solid var(--sl-color-gray-5);background-color:var(--sl-color-black);flex-direction:column;gap:clamp(.5rem,.125rem + 1vw,1rem);padding:clamp(1rem,.125rem + 3vw,2.5rem)}.card:where(.astro-eiplrasj):nth-child(4n+1){--sl-card-border:var(--sl-color-orange);--sl-card-bg:var(--sl-color-orange-low)}.card:where(.astro-eiplrasj):nth-child(4n+3){--sl-card-border:var(--sl-color-green);--sl-card-bg:var(--sl-color-green-low)}.card:where(.astro-eiplrasj):nth-child(4n+4){--sl-card-border:var(--sl-color-red);--sl-card-bg:var(--sl-color-red-low)}.card:where(.astro-eiplrasj):nth-child(4n+5){--sl-card-border:var(--sl-color-blue);--sl-card-bg:var(--sl-color-blue-low)}.title:where(.astro-eiplrasj){font-weight:600;font-size:var(--sl-text-h4);color:var(--sl-color-white);line-height:var(--sl-line-height-headings);align-items:center;gap:1rem}.card:where(.astro-eiplrasj) .icon:where(.astro-eiplrasj){border:1px solid var(--sl-card-border);background-color:var(--sl-card-bg);border-radius:.25rem;flex-shrink:0;padding:.2em}.card:where(.astro-eiplrasj) .body:where(.astro-eiplrasj){font-size:clamp(var(--sl-text-sm), calc(.5rem + 1vw), var(--sl-text-body));margin:0}.card-grid:where(.astro-t7b7g7fk){grid-template-columns:100%;gap:1rem;display:grid}.card-grid:where(.astro-t7b7g7fk)>*{margin-top:0!important}@media (width>=50rem){.card-grid:where(.astro-t7b7g7fk){grid-template-columns:1fr 1fr;gap:1.5rem}.stagger:where(.astro-t7b7g7fk){--stagger-height:5rem;padding-bottom:var(--stagger-height)}.stagger:where(.astro-t7b7g7fk)>:nth-child(2n){transform:translateY(var(--stagger-height))}}.sl-link-card:where(.astro-6ghwbfyk){border:1px solid var(--sl-color-gray-5);box-shadow:var(--sl-shadow-sm);border-radius:.5rem;grid-template-columns:1fr auto;gap:.5rem;padding:1rem;display:grid;position:relative}a:where(.astro-6ghwbfyk){line-height:var(--sl-line-height-headings);text-decoration:none}a:where(.astro-6ghwbfyk):before{content:"";position:absolute;inset:0}.stack:where(.astro-6ghwbfyk){flex-direction:column;gap:.5rem}.title:where(.astro-6ghwbfyk){color:var(--sl-color-white);font-weight:600;font-size:var(--sl-text-lg)}.description:where(.astro-6ghwbfyk){color:var(--sl-color-gray-3);line-height:1.5}.icon:where(.astro-6ghwbfyk){color:var(--sl-color-gray-3)}.sl-link-card:where(.astro-6ghwbfyk):hover{background:var(--sl-color-gray-7,var(--sl-color-gray-6));border-color:var(--sl-color-gray-2)}.sl-link-card:where(.astro-6ghwbfyk):hover .icon:where(.astro-6ghwbfyk){color:var(--sl-color-white)}}.app-screenshot:where(.astro-ofe7zldm){margin:1.5rem 0 2.5rem}.screenshot-frame:where(.astro-ofe7zldm){border:1px solid var(--sl-color-gray-5);background:var(--sl-color-bg);border-radius:1rem;box-shadow:0 16px 48px #00000018}.screenshot-frame:where(.astro-ofe7zldm) a:where(.astro-ofe7zldm){border-radius:inherit;display:block}.screenshot-frame:where(.astro-ofe7zldm) img:where(.astro-ofe7zldm){border-radius:inherit;width:100%;height:auto;box-shadow:none;border:0;margin:0;display:block}.screenshot-frame:where(.astro-ofe7zldm) .screenshot-dark:where(.astro-ofe7zldm),:root[data-theme=dark] .screenshot-light:where(.astro-ofe7zldm){display:none}:root[data-theme=dark] .screenshot-dark:where(.astro-ofe7zldm){display:block}figcaption:where(.astro-ofe7zldm){color:var(--sl-color-gray-2);flex-wrap:wrap;justify-content:space-between;gap:.25rem 1rem;margin-top:.75rem;font-size:.875rem;line-height:1.6;display:flex}.screenshot-hint:where(.astro-ofe7zldm){color:var(--sl-color-text-accent)}
+@layer starlight.components{svg:where(.astro-iwaxdyvu){color:var(--sl-icon-color);font-size:var(--sl-icon-size,1em);width:1em;height:1em}}
+</style><script type="module" src="/_astro/page.Dwipeu-R.js"></script></head><body class="astro-i2f5rvhd"><a class="sl-skip-link astro-af3xnx6k" href="#_top">Skip to content</a><div class="page sl-flex astro-7ol3m3p7"><header class="header astro-7ol3m3p7"><div class="header astro-qqelxyz2"><div class="title-wrapper sl-flex astro-qqelxyz2"><a href="/" class="site-title sl-flex astro-pm7u5y3t"><img class="astro-pm7u5y3t" alt src="/_astro/brand.BEXAYDnz.svg" width="1024" height="1024"><span class="astro-pm7u5y3t" translate="no">LLM Usage</span></a></div><div class="sl-flex print:hidden astro-qqelxyz2"><site-search class="astro-qqelxyz2 astro-veqdxac2" data-translations="{&quot;placeholder&quot;:&quot;Search&quot;}"><button data-open-modal disabled aria-label="Search" aria-keyshortcuts="Control+K" class="astro-veqdxac2"><svg aria-hidden="true" class="astro-veqdxac2 astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg><span class="sl-hidden md:sl-block astro-veqdxac2" aria-hidden="true">Search</span><kbd class="sl-hidden md:sl-flex astro-veqdxac2" style="display: none;"><kbd class="astro-veqdxac2">Ctrl</kbd><kbd class="astro-veqdxac2">K</kbd></kbd></button><dialog style="padding:0" aria-label="Search" class="astro-veqdxac2"><div class="dialog-frame sl-flex astro-veqdxac2"><button data-close-modal class="sl-flex md:sl-hidden astro-veqdxac2">Cancel</button><div class="search-container astro-veqdxac2"><div id="starlight__search" class="astro-veqdxac2"></div></div></div></dialog></site-search><script>
+	(() => {
+		const openBtn = document.querySelector('button[data-open-modal]');
+		const shortcut = openBtn?.querySelector('kbd');
+		if (!openBtn || !(shortcut instanceof HTMLElement)) return;
+		const platformKey = shortcut.querySelector('kbd');
+		if (platformKey && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
+			platformKey.textContent = '⌘';
+			openBtn.setAttribute('aria-keyshortcuts', 'Meta+K');
+		}
+		shortcut.style.display = '';
+	})();
+</script><script type="module" src="/_astro/Search.astro_astro_type_script_index_0_lang.Bumivpjo.js"></script></div><div class="sl-hidden md:sl-flex print:hidden right-group astro-qqelxyz2"><div class="sl-flex social-icons astro-qqelxyz2"><a href="https://github.com/owent/llm-usage" rel="me" class="sl-flex astro-csqdcj5u"><span class="sr-only astro-csqdcj5u">GitHub</span><svg aria-hidden="true" class="astro-csqdcj5u astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a></div><starlight-theme-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">Select theme</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="light" class="astro-btilxiwo">Light</option><option value="dark" class="astro-btilxiwo">Dark</option><option value="auto" selected class="astro-btilxiwo">Auto</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-theme-select><script>window.LLMUsageDocsTheme.updatePickers();</script><script type="module">document.addEventListener(`change`,e=>{let t=e.target;if(!(t instanceof HTMLSelectElement)||!t.closest(`starlight-theme-select`))return;let n=t.value===`light`||t.value===`dark`?t.value:`auto`;window.LLMUsageDocsTheme.apply(n,!0)});</script><starlight-lang-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">Select language</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path fill-rule="evenodd" d="M8.516 3a.94.94 0 0 0-.941.94v1.15H2.94a.94.94 0 1 0 0 1.882h7.362a7.422 7.422 0 0 1-1.787 3.958 7.42 7.42 0 0 1-1.422-2.425.94.94 0 1 0-1.774.627 9.303 9.303 0 0 0 1.785 3.043 7.422 7.422 0 0 1-4.164 1.278.94.94 0 1 0 0 1.881 9.303 9.303 0 0 0 5.575-1.855 9.303 9.303 0 0 0 4.11 1.74l-.763 1.525a.968.968 0 0 0-.016.034l-1.385 2.77a.94.94 0 1 0 1.683.841l1.133-2.267h5.806l1.134 2.267a.94.94 0 0 0 1.683-.841l-1.385-2.769a.95.95 0 0 0-.018-.036l-3.476-6.951a.94.94 0 0 0-1.682 0l-1.82 3.639a7.423 7.423 0 0 1-3.593-1.256 9.303 9.303 0 0 0 2.27-5.203h1.894a.94.94 0 0 0 0-1.881H9.456V3.94A.94.94 0 0 0 8.516 3Zm6.426 11.794a1.068 1.068 0 0 1-.02.039l-.703 1.407h3.924l-1.962-3.924-1.24 2.478Z" clip-rule="evenodd"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="/reference/evidence/plan-execution/" class="astro-btilxiwo">English</option><option value="/zh-cn/reference/evidence/plan-execution/" class="astro-btilxiwo">简体中文</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-lang-select><script type="module">var e=class extends HTMLElement{constructor(){super();let e=this.querySelector(`select`);e&&(e.addEventListener(`change`,e=>{e.currentTarget instanceof HTMLSelectElement&&(window.location.pathname=e.currentTarget.value)}),window.addEventListener(`pageshow`,t=>{if(!t.persisted)return;let n=e.querySelector(`option[selected]`)?.index;n!==e.selectedIndex&&(e.selectedIndex=n??0)}))}};customElements.define(`starlight-lang-select`,e);</script><script type="module" src="/_astro/LanguageSelect.astro_astro_type_script_index_0_lang.DH65a7yi.js"></script></div></div></header><nav class="sidebar print:hidden astro-7ol3m3p7" aria-label="Main"><button popovertarget="starlight__sidebar" class="sl-menu-button sl-flex md:sl-hidden print:hidden astro-dcnpphyu"><svg aria-hidden="true" class="open-menu astro-dcnpphyu astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"/></svg><svg aria-hidden="true" class="close-menu astro-dcnpphyu astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"/></svg><span class="sr-only astro-dcnpphyu">Menu</span></button><script type="module">var e=class extends HTMLElement{constructor(){super();let e=matchMedia(`(min-width: 50em)`),t=()=>{this.popover=e.matches?null:`auto`};t(),e.addEventListener(`change`,()=>t()),this.addEventListener(`toggle`,({newState:e})=>this.trapFocus(e===`open`))}trapFocus(e){document.querySelectorAll(`.main-frame, .sl-skip-link`).forEach(t=>{t.toggleAttribute(`inert`,e)})}};customElements.define(`sl-sidebar-pane`,e);</script><sl-sidebar-pane popover id="starlight__sidebar" class="sidebar-pane astro-7ol3m3p7"><div class="sidebar-content sl-flex astro-7ol3m3p7"><sl-sidebar-state-persist data-hash="1ekcnao" class="astro-lsvsit3p"><script aria-hidden="true">
+		(() => {
+			try {
+				if (!matchMedia('(min-width: 50em)').matches) return;
+				/** @type {HTMLElement | null} */
+				const target = document.querySelector('sl-sidebar-state-persist');
+				const state = JSON.parse(sessionStorage.getItem('sl-sidebar-state') || '0');
+				if (!target || !state || target.dataset.hash !== state.hash) return;
+				window._starlightScrollRestore = state.scroll;
+				customElements.define(
+					'sl-sidebar-restore',
+					class SidebarRestore extends HTMLElement {
+						connectedCallback() {
+							try {
+								const idx = parseInt(this.dataset.index || '');
+								const details = this.closest('details');
+								if (details && typeof state.open[idx] === 'boolean') details.open = state.open[idx];
+							} catch {}
+						}
+					}
+				);
+			} catch {}
+		})();
+	</script><ul class="top-level astro-ykcsoi7s"><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Start here</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="0"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">User guide</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="1"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Developer guide</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="2"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Design specifications</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="3"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Development records</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="4"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Project reference</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="5"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Test data</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="6"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li></ul><script aria-hidden="true">
+		(() => {
+			const scroller = document.getElementById('starlight__sidebar');
+			if (!window._starlightScrollRestore || !scroller) return;
+			scroller.scrollTop = window._starlightScrollRestore;
+			delete window._starlightScrollRestore;
+		})();
+	</script></sl-sidebar-state-persist><div class="md:sl-hidden"><div class="mobile-preferences sl-flex astro-lsc3yx5w"><div class="social-icons astro-lsc3yx5w"><a href="https://github.com/owent/llm-usage" rel="me" class="sl-flex astro-csqdcj5u"><span class="sr-only astro-csqdcj5u">GitHub</span><svg aria-hidden="true" class="astro-csqdcj5u astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a></div><starlight-theme-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">Select theme</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="light" class="astro-btilxiwo">Light</option><option value="dark" class="astro-btilxiwo">Dark</option><option value="auto" selected class="astro-btilxiwo">Auto</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-theme-select><script>window.LLMUsageDocsTheme.updatePickers();</script><starlight-lang-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">Select language</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path fill-rule="evenodd" d="M8.516 3a.94.94 0 0 0-.941.94v1.15H2.94a.94.94 0 1 0 0 1.882h7.362a7.422 7.422 0 0 1-1.787 3.958 7.42 7.42 0 0 1-1.422-2.425.94.94 0 1 0-1.774.627 9.303 9.303 0 0 0 1.785 3.043 7.422 7.422 0 0 1-4.164 1.278.94.94 0 1 0 0 1.881 9.303 9.303 0 0 0 5.575-1.855 9.303 9.303 0 0 0 4.11 1.74l-.763 1.525a.968.968 0 0 0-.016.034l-1.385 2.77a.94.94 0 1 0 1.683.841l1.133-2.267h5.806l1.134 2.267a.94.94 0 0 0 1.683-.841l-1.385-2.769a.95.95 0 0 0-.018-.036l-3.476-6.951a.94.94 0 0 0-1.682 0l-1.82 3.639a7.423 7.423 0 0 1-3.593-1.256 9.303 9.303 0 0 0 2.27-5.203h1.894a.94.94 0 0 0 0-1.881H9.456V3.94A.94.94 0 0 0 8.516 3Zm6.426 11.794a1.068 1.068 0 0 1-.02.039l-.703 1.407h3.924l-1.962-3.924-1.24 2.478Z" clip-rule="evenodd"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="/reference/evidence/plan-execution/" class="astro-btilxiwo">English</option><option value="/zh-cn/reference/evidence/plan-execution/" class="astro-btilxiwo">简体中文</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-lang-select></div></div></div></sl-sidebar-pane></nav><div class="main-frame astro-7ol3m3p7"><script type="module">var e=document.getElementById(`starlight__sidebar`),t=e?.querySelector(`sl-sidebar-state-persist`),n=`sl-sidebar-state`,r=()=>{let r=[],i=t?.dataset.hash||``;try{let e=sessionStorage.getItem(n),t=JSON.parse(e||`{}`);Array.isArray(t.open)&&t.hash===i&&(r=t.open)}catch{}return{hash:i,open:r,scroll:e?.scrollTop||0}},i=e=>{try{sessionStorage.setItem(n,JSON.stringify(e))}catch{}},a=()=>i(r()),o=(e,t)=>{let n=r();n.open[t]=e,i(n)};t?.addEventListener(`click`,e=>{if(!(e.target instanceof Element))return;let t=e.target.closest(`summary`)?.closest(`details`);if(!t)return;let n=t.querySelector(`sl-sidebar-restore`),r=parseInt(n?.dataset.index||``);isNaN(r)||o(!t.open,r)}),addEventListener(`visibilitychange`,()=>{document.visibilityState===`hidden`&&a()});</script><div class="lg:sl-flex astro-rcl3dmqm"><aside class="right-sidebar-container print:hidden astro-rcl3dmqm"><div class="right-sidebar astro-rcl3dmqm"><div class="lg:sl-hidden astro-fjp5q7r4"><mobile-starlight-toc data-min-h="2" data-max-h="3" class="astro-6exeh6u7"><nav aria-labelledby="starlight__on-this-page--mobile" class="astro-6exeh6u7"><details id="starlight__mobile-toc" class="astro-6exeh6u7"><summary id="starlight__on-this-page--mobile" class="sl-flex astro-6exeh6u7"><span class="toggle sl-flex astro-6exeh6u7">On this page<svg aria-hidden="true" class="caret astro-6exeh6u7 astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></span><span class="display-current astro-6exeh6u7"></span></summary><div class="dropdown astro-6exeh6u7"><ul class="isMobile astro-g6ctc22k" style="--depth: 0;"><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#_top" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Overview</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#implementation-and-requirements" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Implementation and requirements</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#checks-executed" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Checks executed</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#queries-and-import" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Queries and import</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#native-resources-and-memory-targets" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Native resources and memory targets</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#local-source-conditions" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Local source conditions</span></a></li></ul></div></details></nav></mobile-starlight-toc><script type="module" src="/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.C3fM4Kra.js"></script></div><div class="right-sidebar-panel sl-hidden lg:sl-block astro-fjp5q7r4"><div class="sl-container astro-fjp5q7r4"><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">On this page</h2><ul class="astro-g6ctc22k" style="--depth: 0;"><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#_top" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Overview</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#implementation-and-requirements" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Implementation and requirements</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#checks-executed" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Checks executed</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#queries-and-import" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Queries and import</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#native-resources-and-memory-targets" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Native resources and memory targets</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#local-source-conditions" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Local source conditions</span></a></li></ul></nav></starlight-toc><script type="module" src="/_astro/TableOfContents.astro_astro_type_script_index_0_lang.BpJaGz7G.js"></script></div></div></div></aside><div class="main-pane astro-rcl3dmqm"><main data-pagefind-body class="astro-i2f5rvhd" lang="en" dir="ltr"><div class="content-panel astro-ptfq3z6k"><div class="sl-container astro-ptfq3z6k"><h1 id="_top" class="astro-5fsxzwfk">Implementation and acceptance results for remaining work</h1></div></div><div class="content-panel astro-ptfq3z6k"><div class="sl-container astro-ptfq3z6k"><div class="sl-markdown-content"><p><a id="implementation-and-acceptance-results-for-remaining-work"></a></p>
+<p><a id="剩余计划执行与验收"></a></p>
+<p>Date: 2026-10-04; version 0.2.1, schema 11; cwd repository root. Windows 11 Pro x64
+10.0.26300; Ryzen 9 9950X3D (16 cores/32 threads), about 125 GiB RAM; Node 24.21.0,
+Rust 1.98, Tauri CLI 2.12.0, WebView2 154.0.4258.53. Development-machine results do
+not verify the proposed four-core/16 GiB baseline. This is a completed development
+validation record; <a href="https://github.com/owent/llm-usage/blob/main/Plan.md">Plan.md</a> maintains the active execution plan.</p>
+<p><a id="实施内容与要求"></a></p>
+<p><a id="实施与合同"></a></p>
+<h2 id="implementation-and-requirements">Implementation and requirements</h2>
+<ul>
+<li>Daily queries add rebuildable derived tables. Read-only connections use them only for valid
+partitions or partitions established empty by authoritative tables. Provider filters merge
+identical source/session identities before DISTINCT; model/Agent filters use expression
+indexes. Original events/revisions/cursors/unknown fields remain. Older writers invalidate
+derived data and remove derived identities. Regressions cover old-layout preparation,
+cross-connection writes, rollback, DST, retention/clearing and optional-SUM overflow.
+See <a href="/reference/design/query-acceleration/">query design</a>.</li>
+<li>Six chart types use SVG; features/themes/selections retain actual query results.</li>
+<li>Windows optional close-to-tray, explicit exit, power-saving pause and directory notifications
+are implemented. Watch at most 32 directories; coalesce after two quiet seconds; pause releases
+handles. Fixed daily/weekly sources are excluded. Failures retain interval polling.</li>
+<li>GUI per-source intervals use a monotonic clock while UTC deadlines remain persisted. Global
+pause covers startup, every source and residual system triggers. Resume performs one catch-up
+scan; manual collection still reads every enabled source.</li>
+<li>Cooperative time limits default to 30 seconds per source and 300 seconds per automatic round.
+Transient I/O/SQLite locks retry at most three times; waits of 5/15/30 seconds run only when
+remaining time permits. Interrupted final state can persist and later resume from the cursor.
+Pause takes effect before settings wait for a write lock; saves run asynchronously. Retry waits
+and subsequent reads check pause/deadlines. Two source-instance slots run concurrently, including
+distinct roots of one Agent. Jobs for the same instance merge before parsing; parsing occurs
+outside the database lock and short writes remain serial. Bounded JSON/JSONL reading/parsing,
+SQLite VM/backup pagination, authoritative archives, retention and cost transactions cooperate;
+blocking OS calls cannot be forcibly interrupted. Default file window: 32 MiB; complete lines
+may commit before continuation. Interrupted/unvisited/merged jobs do not advance deadlines.
+Fingerprints/generations and events/cursors share a transaction; same-size replacements after
+failure are detected again. Prior results/revisions remain.
+See <a href="/reference/design/scheduling/">scheduling rules</a>.</li>
+<li>Telemetry retains explicit attribute keys only. Real HTTP checks verify bad gzip returns 400,
+oversized bodies/decompression bombs 413, global 120 requests/minute/four active connections,
+overflow 429; rejected requests are not persisted. Windows Claude/Codex logs and isolated
+CodeBuddy CLI 2.98.0 traces use per-source tokens/current-user system credentials. CodeBuddy
+requires the npm manifest beside the first PATH launcher and fixed-release generic headers
+with %20 encoding; other versions receive no inferred support. Previews show placeholders;
+background checks are read-only. Authentication precedes continued body reading; duplicate
+headers/wrong paths/Origin/forwarding headers are rejected. Failure cleanup, revocation,
+source isolation and reading system storage after restart are implemented. Real exporters,
+other platform stores, sampling and cross-format association remain incomplete; V22/V25
+are unfinished. See <a href="/reference/design/receiver-auth/">authentication requirements</a>.</li>
+</ul>
+<p><a id="已执行检查"></a></p>
+<h2 id="checks-executed">Checks executed</h2>
+<p>Query-specific cargo test –offline –manifest-path desktop/src-tauri/Cargo.toml
+-p llm-usage-core –test query_cache exited 0: seven checks. Receiver-specific
+cargo test –offline –manifest-path desktop/src-tauri/Cargo.toml -p llm-usage-desktop
+otel_receiver::tests passed with the full suite: 17 checks, including real HTTP limits,
+compression and authentication. Pause checks: seven Codex regression cases and one pause-intent
+case, exit 0. Pause after transient failure avoids the next retry wait and adds no usage/cursor;
+resume reads that source successfully. Multiple pending pause-save requests take effect
+independently while a database write lock is held; failure/cancellation releases only its request.</p>
+<p>Nine focused checks cover parallelism, bounded reads/SQLite/maintenance rollback and same-size
+replacement recovery after failure. Full regressions also cover interrupted paginated backup,
+ZCode authoritative-archive recovery, Codex continuation and Kilo lock-wait deadlines.
+npm run test:receiver exited 0: eight checks using actual release/IPC/HTTP/Windows credentials.
+Port conflicts retain original configuration/intent; three independent credentials apply and
+authenticate. CodeBuddy protobuf reaches isolated traces only, excluding logs/main spans.
+Revoking one leaves others usable; after revoking all, old tokens fail and original configuration
+returns. Owned credential remnants: zero. Installation/exporter inputs are synthetic; no Agents
+or model calls were started and real user configuration was untouched. This does not verify
+real product export. cargo test … -p llm-usage-desktop windows_credential_store_roundtrip
+– –ignored exited 0: one native system-store create/read/path-restriction/exact-delete check.
+Preview redaction/failure cleanup and HTTP missing/duplicate headers/wrong routes/forwarding/
+revocation checks also passed.</p>
+<p>Full npm run verify exited 0: Rust 889, frontend 20, scripts three, no type errors/warnings,
+fmt, Clippy -D warnings and frontend build passed. Six explicit/environment tests remain ignored
+by default. npm run build:desktop and npm run test:headless exited 0; headless: 11 checks,
+three events/75 tokens. npm run test:browser exited 0: Edge with simulated IPC checked grouped
+hour charts/tooltips/currency cards/narrow details/partial-data pie/configuration batch apply,
+retry/revoke/ten languages/themes/timezones/filters/pagination. Final NSIS: 3,901,754 bytes
+(3.72 MiB); executable: 9,856,000 bytes; frontend JS/CSS gzip: 363.77/9.50 kB. Built, not installed.</p>
+<p>npm run test:desktop – –runs 20 exited 0: 17 actual WebView2/IPC checks; small-database
+first-screen P95 over 20 runs: 770.09 ms. Windows UI Automation checked control names at native
+DPI 144 (150%); native WM_CLOSE verified tray hiding and disabling the option restored the
+window. The script’s –force-renderer-accessibility flag is not a product default and does not
+verify Narrator/NVDA. Real file notifications imported appended records despite a global one-day
+interval; pause prevented automatic collection while manual refresh still read them. An ordinary-user
+OS minute task independently verified new usage before GUI startup.</p>
+<p>node desktop/tests/native-incremental.mjs –runs 20 exited 0: append 1,000 records per round
+to a million-row database until visible card update; 20-round P95 717.98 ms, final 1,020,001
+events. Token totals/cache invalidation/no new usage on repeat passed. An isolated copy disabled
+retention to prevent day rollover cleanup changing fixed benchmark counts; the original million-row
+baseline was untouched.</p>
+<p><a id="查询与导入"></a></p>
+<h2 id="queries-and-import">Queries and import</h2>
+<p>Run release bench_v20 &lt;synthetic-directory&gt; &lt;1000000/10000000&gt; –query-only –filtered from
+the root. Add –prepare-indexes for old databases; this mode verifies a nonempty synthetic/bench
+source before writing and rejects real databases. Benchmark: 366 days, 50 models, 20 Agents;
+20 runs per query clear application-connection caches, without clearing OS file cache. Final
+measurements ran serially after full checks/build.</p>
+<table>
+<thead>
+<tr>
+<th>Query P95 / rows</th>
+<th style="text-align: right">One million</th>
+<th style="text-align: right">Ten million</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>No dimension filter</td>
+<td style="text-align: right">47.05 ms</td>
+<td style="text-align: right">133.86 ms</td>
+</tr>
+<tr>
+<td>Model</td>
+<td style="text-align: right">35.83 ms</td>
+<td style="text-align: right">87.95 ms</td>
+</tr>
+<tr>
+<td>Agent</td>
+<td style="text-align: right">50.02 ms</td>
+<td style="text-align: right">196.62 ms</td>
+</tr>
+<tr>
+<td>Provider</td>
+<td style="text-align: right">52.83 ms</td>
+<td style="text-align: right">163.33 ms</td>
+</tr>
+<tr>
+<td>Model + Agent</td>
+<td style="text-align: right">24.60 ms</td>
+<td style="text-align: right">145.96 ms</td>
+</tr>
+<tr>
+<td>Application-cache hit</td>
+<td style="text-align: right">0.024 ms</td>
+<td style="text-align: right">0.026 ms</td>
+</tr>
+<tr>
+<td>200-row detail page</td>
+<td style="text-align: right">1.15 ms</td>
+<td style="text-align: right">1.16 ms</td>
+</tr>
+</tbody>
+</table>
+<p>These queries meet 200 ms on this development machine; the ten-million-row Agent case has
+little margin. They do not verify every filter combination/hour/week/month/proposed hardware.
+Initial old-database preparation took about 8.56/49.00 seconds including indexes/derived tables;
+subsequent preparation/planning checks: 286/2,269 ms. Database sizes 1,079.4/9,461.8 MiB, WAL
+zero; increases of 173.1/1,427.7 MiB over 906.3/8,034.1 MiB retain the indexing cost. Initial
+upgrade preparation is excluded from repeated native startup measurements on prepared databases.</p>
+<p>node desktop/tests/bench-import.mjs exited 0. Current release core commit_batch imported
+1,000,000 normalized events in 50,000-row batches: 184.5 seconds, 5,421 rows/second. All child
+processes sampled every 500 ms: private-bytes peak 53.45 MiB, working set 62.96 MiB. No WebView
+was started; bounded normalized writes do not verify all native formats or full GUI import peaks.</p>
+<p>Full concurrent regression found early Winsock closure could lose rejected-connection responses.
+The fix sends the closing sequence, then discards remaining input within cumulative 100 ms/64 KiB,
+without parsing/persisting it. JSON responses consistently use CRLF/Content-Length. Closure
+reference: <a href="https://learn.microsoft.com/en-us/windows/win32/winsock/graceful-shutdown-linger-options-and-socket-closure-2">Microsoft Winsock</a>.</p>
+<p><a id="原生资源与内存目标"></a></p>
+<h2 id="native-resources-and-memory-targets">Native resources and memory targets</h2>
+<p>node desktop/tests/native-scale.mjs –runs 20 –idle-seconds 600 –ui-cancel exited 0.
+Prepared million-event database: 20-run first-screen P95 1,260.72 ms. Two actual IPC cancellations
+and settings-button cancellation preserve events/revisions/cursors. Default GPU rendering sampled
+601.19 seconds, 118 samples, at most seven processes including the executable and all application
+WebView children.</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th style="text-align: right">Measured</th>
+<th>Target status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Whole-process private bytes, mean / peak</td>
+<td style="text-align: right">299.90 / 363.30 MiB</td>
+<td>Old 180 MiB unmet; new mean 350 / peak 400 MiB limits met on development machine</td>
+</tr>
+<tr>
+<td>Whole-process working-set peak</td>
+<td style="text-align: right">525.79 MiB</td>
+<td>Separate metric; does not replace private bytes</td>
+</tr>
+<tr>
+<td>Idle CPU, one logical core</td>
+<td style="text-align: right">0.244%</td>
+<td>Below 1%</td>
+</tr>
+<tr>
+<td>First-screen P95</td>
+<td style="text-align: right">1,260.72 ms</td>
+<td>Below two seconds; excludes initial old-database preparation</td>
+</tr>
+<tr>
+<td>Application scheduling-loop count</td>
+<td style="text-align: right">1,202</td>
+<td>About twice/second; not all OS wakes</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Process role</th>
+<th style="text-align: right">Mean private bytes</th>
+<th style="text-align: right">Role peak</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Executable</td>
+<td style="text-align: right">17.01 MiB</td>
+<td style="text-align: right">17.49 MiB</td>
+</tr>
+<tr>
+<td>WebView browser</td>
+<td style="text-align: right">43.38 MiB</td>
+<td style="text-align: right">45.38 MiB</td>
+</tr>
+<tr>
+<td>WebView GPU</td>
+<td style="text-align: right">146.24 MiB</td>
+<td style="text-align: right">187.21 MiB</td>
+</tr>
+<tr>
+<td>WebView renderer</td>
+<td style="text-align: right">71.13 MiB</td>
+<td style="text-align: right">92.04 MiB</td>
+</tr>
+<tr>
+<td>WebView utility</td>
+<td style="text-align: right">19.21 MiB</td>
+<td style="text-align: right">19.79 MiB</td>
+</tr>
+<tr>
+<td>Other WebView</td>
+<td style="text-align: right">2.93 MiB</td>
+<td style="text-align: right">3.37 MiB</td>
+</tr>
+</tbody>
+</table>
+<p>Role peaks may occur in different samples and cannot be added into a whole-process peak.
+Each sample asserts role sum equals whole-process usage; raw command lines/paths are not saved.
+GPU accounts for about 48.8% of mean usage, the largest role locally. This measurement cannot
+separate runtime/driver overhead from page overhead. An earlier –disable-gpu diagnostic had
+one startup/31 seconds, mean 183.48/peak 185.54 MiB, still above target; it does not replace
+default configuration/20 startups/full-duration acceptance.
+<a href="https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/webview-features-flags">Microsoft WebView2</a>
+documents these flags for testing/debugging, without justifying product-default changes.</p>
+<p>On 2026-10-04 the user authorized adjusting resource limits using current features/measurements.
+The application has one window, full overview, SVG charts, SQLite and bounded query caches;
+no concurrent multiple WebViews or bundled Node/Python services. Forty-one adapters/postprocessing
+do not imply loading every source into idle memory. The executable uses about 17 MiB; GPU/browser/
+renderer dominate. A hard 180 MiB limit does not fit the current Windows GUI.
+<a href="https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/performance">Microsoft performance guidance</a>
+describes multiprocess/GPU-driver/buffer/content overhead and recommends retaining hardware
+acceleration, without setting a universal minimum. The local GPU footprint cannot all be labeled
+unoptimizable fixed overhead. Revised engineering limits: ten continuous minutes of whole-process
+private bytes mean &lt;=350 MiB, sampled peak &lt;=400 MiB, allowing about 17%/10% above measured values;
+the current machine meets them. Initial GUI import has a separate &lt;=512 MiB peak. Working set,
+headless and tray-background results stay separate. Original measurements/old-target failures
+are retained. native-scale.mjs –enforce-budget checks mean/peak/full duration; software rendering
+or warmed blank pages do not verify product limits. Proposed four-core/16 GiB hardware, fixed
+runtime/driver/DPI, sustained growth and other platforms need rechecks. Relaxed limits do not
+waive leak/unbounded-loading investigation. The same raw samples show first-120-second mean
+309.06 MiB and last-120-second mean 299.93 MiB: no sustained growth observed in ten minutes,
+without proving long-term absence of leaks. New assessment: build/plan-continuation/memory-budget.json;
+original samples remain unchanged.</p>
+<p>The million-row first GUI import separately uses npm run test:import: empty database, 100
+isolated Codex roots, 10,000 nonempty synthetic events per root, default product retention,
+real button through visible cards/charts, independent 500 ms process sampling. The initial
+600-second limit expired at 950,000 committed rows/97 registered sources while work was still
+running; exit 1, not accepted as a peak check. Failure:
+build/plan-continuation/native-first-import/1791123652310/failure.json. After confirming ongoing
+commits, the complete observation window was extended to 900 seconds. This changes observation
+duration, preserving product per-source time limits/two-second incremental target/512 MiB peak.
+Script initialization also fixed retention parameters, Windows inline sampling, reloading UI
+language after backend save, and waiting for the empty-database refresh button. A Chinese number
+abbreviation misread after one million commits was a test-script failure, not product usage
+failure; its record remains.</p>
+<p>Final npm run test:import exited 0: empty database to visible cards/charts in 668.55 seconds.
+Independent expectations of 1,000,000 calls/15,000,000 tokens match actual summary; repeat scan
+still one million rows. Continuous sampling: 669.86 seconds/1,031 samples/configured 500 ms
+interval including overhead/at most eight application processes. Private bytes mean 303.42/peak
+371.09 MiB meet the 512 MiB import limit; working-set peak 586.97 MiB is separate. Executable
+private-bytes peak 72.57 MiB, GPU 165.85 MiB, renderer 80.96 MiB; role peaks are not added.
+No script exceptions or observed external page HTTP; this does not establish OS-wide process
+outbound behavior. Result: build/plan-continuation/native-first-import/1791125560874/result.json.
+Synthetic Codex JSONL with 100 input roots/default retention does not bypass parsing like
+normalized bulk writes. Their throughput is not directly comparable and does not verify other
+real Agents/versions/very large native files.</p>
+<p>node desktop/tests/native-scale.mjs –runs 1 –idle-seconds 600 –blank-page also exited 0.
+After warming the full page on the same million-row database, it navigated to about:blank and
+requested GC with default GPU. Sampling 600.36 seconds/118 samples/at most seven processes:
+private bytes mean 270.63/peak 283.63 MiB; GPU mean 148.12, renderer 41.81, executable 16.26 MiB;
+idle CPU 0.083% of one core. Application scheduling counts cannot be read after navigation and
+are explicitly null. Usage still exceeds 180 MiB, showing a high warm-WebView GPU footprint;
+it does not establish minimum cold blank-page overhead or proposed hardware performance, and
+blank pages do not count as product acceptance. Fresh minimal pages/proposed-machine native
+rechecks remain needed. Result: build/plan-finalization/native-scale/1791121549201/result.json.</p>
+<p>Native/browser checks observed no external page HTTP/script exceptions. Only observed WebView
+requests are covered; these are not whole-process outbound audits. Final results:
+build/plan-finalization/native-scale/1791109899513/result.json; other native/incremental results:
+build/plan-completion/native/1791123291549/ and build/query-next/native-incremental/1791121379123/.
+Final build/full-check logs: build/plan-continuation/build-final.log, verify-final.log; receiver
+authentication: build/plan-continuation/native-receiver/1791123187714/result.json.</p>
+<p><a id="本机来源条件"></a></p>
+<h2 id="local-source-conditions">Local source conditions</h2>
+<p>Read-only actual discover through 41 built-in adapters used known roots, outputting file counts
+and bounded format/version references without paths/session identities/bodies. Read-only Zed
+SQLite COUNT found zero threads; an empty DB does not verify usage. Thirty absent default roots:
+claude, gemini, qwen, cline, dsh, hermes, openclaw, opencode, mimo-code, zoo, aider, junie, xum,
+droid, amp, grok, roo, goose, crush, jcode, workbuddy, gajae-code, commandcode, continue, atomcode,
+kiro, antigravity, qoder, copilot, otel. Existing real manual WorkBuddy checks remain valid;
+this probe describes discovery/read conditions. Highest database versions, readable formats
+and directories do not verify per-call usage.</p>
+<p>No Agents/model requests/WSL/containers were started; real IDE settings were not changed to
+manufacture samples. Nonempty real samples, other native platforms, proposed hardware baseline,
+installation/upgrade/uninstall/signing/publication remain unverified. Installation was skipped
+under earlier instructions; no push/deployment/publication ran. F1/full detail Merge/spending
+reminders remain deferred. Trace SQLite still needs fixed full schema/attributes and nonempty
+samples. Fixed GitHub/raw pages could not be retrieved; independent curl timed out at 30 seconds.
+Table names did not justify attribute/incremental/source-selection inference; earlier C04
+documentation references do not establish complete implementation/real acceptance here.</p>
+<p>Closing checks: npm run lint:md exited 0, 180 Markdown files; 180 local paths/anchors in 19
+changed documents had zero errors. python -X utf8 …/quick_validate.py .agents/skills/ai-maintenance
+exited 0, Skill is valid. Description unchanged; no model-routing evaluation claimed.
+git diff –check exited 0. Read-only inspection of owned build namespaces found zero application/
+WebView processes/scheduled tasks. User objects were untouched; git status had no temporary
+artifacts; other tasks’ wording edits were preserved.</p>
+</div><footer class="sl-flex astro-q3cosrfy"><div class="meta sl-flex astro-q3cosrfy"><a href="https://github.com/owent/llm-usage/edit/main/docs/validation/desktop-usage/plan-execution.md" class="sl-flex print:hidden astro-okj6rzri"><svg aria-hidden="true" class="astro-okj6rzri astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.2em;"><path d="M22 7.24a1 1 0 0 0-.29-.71l-4.24-4.24a1 1 0 0 0-1.1-.22 1 1 0 0 0-.32.22l-2.83 2.83L2.29 16.05a1 1 0 0 0-.29.71V21a1 1 0 0 0 1 1h4.24a1 1 0 0 0 .76-.29l10.87-10.93L21.71 8c.1-.1.17-.2.22-.33a1 1 0 0 0 0-.24v-.14l.07-.05ZM6.83 20H4v-2.83l9.93-9.93 2.83 2.83L6.83 20ZM18.17 8.66l-2.83-2.83 1.42-1.41 2.82 2.82-1.41 1.42Z"/></svg>Edit page</a></div><div class="pagination-links print:hidden astro-vd7os7a3" dir="ltr"></div></footer></div></div></main></div></div></div></div></body></html>

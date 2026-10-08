@@ -1,0 +1,405 @@
+<!DOCTYPE html><html lang="en" dir="ltr" data-theme="dark" data-has-toc data-has-sidebar class="astro-i2f5rvhd"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>Copilot supplemental collection and OTel configuration | LLM Usage</title><link rel="canonical" href="https://llm-usage.atframe.work/reference/design/copilot-otel/"/><link rel="alternate" hreflang="en" href="https://llm-usage.atframe.work/reference/design/copilot-otel/"/><link rel="alternate" hreflang="zh-CN" href="https://llm-usage.atframe.work/zh-cn/reference/design/copilot-otel/"/><link rel="alternate" hreflang="x-default" href="https://llm-usage.atframe.work/reference/design/copilot-otel/"/><link rel="sitemap" href="/sitemap-index.xml"/><link rel="shortcut icon" href="/favicon.svg" type="image/svg+xml"/><meta name="generator" content="Astro v7.3.6"/><meta name="generator" content="Starlight v0.42.5"/><meta property="og:title" content="Copilot supplemental collection and OTel configuration"/><meta property="og:type" content="article"/><meta property="og:url" content="https://llm-usage.atframe.work/reference/design/copilot-otel/"/><meta property="og:locale" content="en"/><meta property="og:description" content="Understand the AI usage recorded on your computer."/><meta property="og:site_name" content="LLM Usage"/><meta name="twitter:card" content="summary_large_image"/><meta name="description" content="Understand the AI usage recorded on your computer."/><meta name="color-scheme" content="light dark"><script type="module" src="/_astro/Head.astro_astro_type_script_index_0_lang.CRxMF9Ma.js"></script><script>
+  (() => {
+    const scheme = matchMedia('(prefers-color-scheme: dark)');
+    let choice = 'auto';
+    try {
+      const saved = localStorage.getItem('starlight-theme');
+      if (saved === 'light' || saved === 'dark') choice = saved;
+    } catch { /* System theme remains available without browser storage. */ }
+    function updatePickers() {
+      document.querySelectorAll('starlight-theme-select').forEach(picker => {
+        const select = picker.querySelector('select');
+        if (select) select.value = choice;
+        const icon = document.querySelector('#docs-theme-icons')?.content.querySelector('.' + choice);
+        const target = picker.querySelector('svg.label-icon');
+        if (icon && target) target.replaceChildren(...icon.cloneNode(true).childNodes);
+      });
+    }
+    function apply(theme, persist = false) {
+      choice = theme === 'light' || theme === 'dark' ? theme : 'auto';
+      document.documentElement.dataset.theme = choice === 'auto' ? scheme.matches ? 'dark' : 'light' : choice;
+      updatePickers();
+      if (persist) {
+        try { localStorage.setItem('starlight-theme', choice === 'auto' ? '' : choice); }
+        catch { /* The current page still changes theme. */ }
+      }
+    }
+    window.LLMUsageDocsTheme = { apply, updatePickers };
+    scheme.addEventListener('change', () => { if (choice === 'auto') apply('auto'); });
+    apply(choice);
+  })();
+</script><template id="docs-theme-icons"><svg aria-hidden="true" class="light astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg><svg aria-hidden="true" class="dark astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="auto astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg></template><link rel="stylesheet" href="/_astro/print.ehPL0gv-.css" media="print"><link rel="stylesheet" href="/_astro/common.CLGr15ze.css"><style>@layer starlight.components{.card:where(.astro-eiplrasj){--sl-card-border:var(--sl-color-purple);--sl-card-bg:var(--sl-color-purple-low);border:1px solid var(--sl-color-gray-5);background-color:var(--sl-color-black);flex-direction:column;gap:clamp(.5rem,.125rem + 1vw,1rem);padding:clamp(1rem,.125rem + 3vw,2.5rem)}.card:where(.astro-eiplrasj):nth-child(4n+1){--sl-card-border:var(--sl-color-orange);--sl-card-bg:var(--sl-color-orange-low)}.card:where(.astro-eiplrasj):nth-child(4n+3){--sl-card-border:var(--sl-color-green);--sl-card-bg:var(--sl-color-green-low)}.card:where(.astro-eiplrasj):nth-child(4n+4){--sl-card-border:var(--sl-color-red);--sl-card-bg:var(--sl-color-red-low)}.card:where(.astro-eiplrasj):nth-child(4n+5){--sl-card-border:var(--sl-color-blue);--sl-card-bg:var(--sl-color-blue-low)}.title:where(.astro-eiplrasj){font-weight:600;font-size:var(--sl-text-h4);color:var(--sl-color-white);line-height:var(--sl-line-height-headings);align-items:center;gap:1rem}.card:where(.astro-eiplrasj) .icon:where(.astro-eiplrasj){border:1px solid var(--sl-card-border);background-color:var(--sl-card-bg);border-radius:.25rem;flex-shrink:0;padding:.2em}.card:where(.astro-eiplrasj) .body:where(.astro-eiplrasj){font-size:clamp(var(--sl-text-sm), calc(.5rem + 1vw), var(--sl-text-body));margin:0}.card-grid:where(.astro-t7b7g7fk){grid-template-columns:100%;gap:1rem;display:grid}.card-grid:where(.astro-t7b7g7fk)>*{margin-top:0!important}@media (width>=50rem){.card-grid:where(.astro-t7b7g7fk){grid-template-columns:1fr 1fr;gap:1.5rem}.stagger:where(.astro-t7b7g7fk){--stagger-height:5rem;padding-bottom:var(--stagger-height)}.stagger:where(.astro-t7b7g7fk)>:nth-child(2n){transform:translateY(var(--stagger-height))}}.sl-link-card:where(.astro-6ghwbfyk){border:1px solid var(--sl-color-gray-5);box-shadow:var(--sl-shadow-sm);border-radius:.5rem;grid-template-columns:1fr auto;gap:.5rem;padding:1rem;display:grid;position:relative}a:where(.astro-6ghwbfyk){line-height:var(--sl-line-height-headings);text-decoration:none}a:where(.astro-6ghwbfyk):before{content:"";position:absolute;inset:0}.stack:where(.astro-6ghwbfyk){flex-direction:column;gap:.5rem}.title:where(.astro-6ghwbfyk){color:var(--sl-color-white);font-weight:600;font-size:var(--sl-text-lg)}.description:where(.astro-6ghwbfyk){color:var(--sl-color-gray-3);line-height:1.5}.icon:where(.astro-6ghwbfyk){color:var(--sl-color-gray-3)}.sl-link-card:where(.astro-6ghwbfyk):hover{background:var(--sl-color-gray-7,var(--sl-color-gray-6));border-color:var(--sl-color-gray-2)}.sl-link-card:where(.astro-6ghwbfyk):hover .icon:where(.astro-6ghwbfyk){color:var(--sl-color-white)}}.app-screenshot:where(.astro-ofe7zldm){margin:1.5rem 0 2.5rem}.screenshot-frame:where(.astro-ofe7zldm){border:1px solid var(--sl-color-gray-5);background:var(--sl-color-bg);border-radius:1rem;box-shadow:0 16px 48px #00000018}.screenshot-frame:where(.astro-ofe7zldm) a:where(.astro-ofe7zldm){border-radius:inherit;display:block}.screenshot-frame:where(.astro-ofe7zldm) img:where(.astro-ofe7zldm){border-radius:inherit;width:100%;height:auto;box-shadow:none;border:0;margin:0;display:block}.screenshot-frame:where(.astro-ofe7zldm) .screenshot-dark:where(.astro-ofe7zldm),:root[data-theme=dark] .screenshot-light:where(.astro-ofe7zldm){display:none}:root[data-theme=dark] .screenshot-dark:where(.astro-ofe7zldm){display:block}figcaption:where(.astro-ofe7zldm){color:var(--sl-color-gray-2);flex-wrap:wrap;justify-content:space-between;gap:.25rem 1rem;margin-top:.75rem;font-size:.875rem;line-height:1.6;display:flex}.screenshot-hint:where(.astro-ofe7zldm){color:var(--sl-color-text-accent)}
+@layer starlight.components{svg:where(.astro-iwaxdyvu){color:var(--sl-icon-color);font-size:var(--sl-icon-size,1em);width:1em;height:1em}}
+</style><script type="module" src="/_astro/page.Dwipeu-R.js"></script></head><body class="astro-i2f5rvhd"><a class="sl-skip-link astro-af3xnx6k" href="#_top">Skip to content</a><div class="page sl-flex astro-7ol3m3p7"><header class="header astro-7ol3m3p7"><div class="header astro-qqelxyz2"><div class="title-wrapper sl-flex astro-qqelxyz2"><a href="/" class="site-title sl-flex astro-pm7u5y3t"><img class="astro-pm7u5y3t" alt src="/_astro/brand.BEXAYDnz.svg" width="1024" height="1024"><span class="astro-pm7u5y3t" translate="no">LLM Usage</span></a></div><div class="sl-flex print:hidden astro-qqelxyz2"><site-search class="astro-qqelxyz2 astro-veqdxac2" data-translations="{&quot;placeholder&quot;:&quot;Search&quot;}"><button data-open-modal disabled aria-label="Search" aria-keyshortcuts="Control+K" class="astro-veqdxac2"><svg aria-hidden="true" class="astro-veqdxac2 astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg><span class="sl-hidden md:sl-block astro-veqdxac2" aria-hidden="true">Search</span><kbd class="sl-hidden md:sl-flex astro-veqdxac2" style="display: none;"><kbd class="astro-veqdxac2">Ctrl</kbd><kbd class="astro-veqdxac2">K</kbd></kbd></button><dialog style="padding:0" aria-label="Search" class="astro-veqdxac2"><div class="dialog-frame sl-flex astro-veqdxac2"><button data-close-modal class="sl-flex md:sl-hidden astro-veqdxac2">Cancel</button><div class="search-container astro-veqdxac2"><div id="starlight__search" class="astro-veqdxac2"></div></div></div></dialog></site-search><script>
+	(() => {
+		const openBtn = document.querySelector('button[data-open-modal]');
+		const shortcut = openBtn?.querySelector('kbd');
+		if (!openBtn || !(shortcut instanceof HTMLElement)) return;
+		const platformKey = shortcut.querySelector('kbd');
+		if (platformKey && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
+			platformKey.textContent = '⌘';
+			openBtn.setAttribute('aria-keyshortcuts', 'Meta+K');
+		}
+		shortcut.style.display = '';
+	})();
+</script><script type="module" src="/_astro/Search.astro_astro_type_script_index_0_lang.Bumivpjo.js"></script></div><div class="sl-hidden md:sl-flex print:hidden right-group astro-qqelxyz2"><div class="sl-flex social-icons astro-qqelxyz2"><a href="https://github.com/owent/llm-usage" rel="me" class="sl-flex astro-csqdcj5u"><span class="sr-only astro-csqdcj5u">GitHub</span><svg aria-hidden="true" class="astro-csqdcj5u astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a></div><starlight-theme-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">Select theme</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="light" class="astro-btilxiwo">Light</option><option value="dark" class="astro-btilxiwo">Dark</option><option value="auto" selected class="astro-btilxiwo">Auto</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-theme-select><script>window.LLMUsageDocsTheme.updatePickers();</script><script type="module">document.addEventListener(`change`,e=>{let t=e.target;if(!(t instanceof HTMLSelectElement)||!t.closest(`starlight-theme-select`))return;let n=t.value===`light`||t.value===`dark`?t.value:`auto`;window.LLMUsageDocsTheme.apply(n,!0)});</script><starlight-lang-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">Select language</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path fill-rule="evenodd" d="M8.516 3a.94.94 0 0 0-.941.94v1.15H2.94a.94.94 0 1 0 0 1.882h7.362a7.422 7.422 0 0 1-1.787 3.958 7.42 7.42 0 0 1-1.422-2.425.94.94 0 1 0-1.774.627 9.303 9.303 0 0 0 1.785 3.043 7.422 7.422 0 0 1-4.164 1.278.94.94 0 1 0 0 1.881 9.303 9.303 0 0 0 5.575-1.855 9.303 9.303 0 0 0 4.11 1.74l-.763 1.525a.968.968 0 0 0-.016.034l-1.385 2.77a.94.94 0 1 0 1.683.841l1.133-2.267h5.806l1.134 2.267a.94.94 0 0 0 1.683-.841l-1.385-2.769a.95.95 0 0 0-.018-.036l-3.476-6.951a.94.94 0 0 0-1.682 0l-1.82 3.639a7.423 7.423 0 0 1-3.593-1.256 9.303 9.303 0 0 0 2.27-5.203h1.894a.94.94 0 0 0 0-1.881H9.456V3.94A.94.94 0 0 0 8.516 3Zm6.426 11.794a1.068 1.068 0 0 1-.02.039l-.703 1.407h3.924l-1.962-3.924-1.24 2.478Z" clip-rule="evenodd"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="/reference/design/copilot-otel/" class="astro-btilxiwo">English</option><option value="/zh-cn/reference/design/copilot-otel/" class="astro-btilxiwo">简体中文</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-lang-select><script type="module">var e=class extends HTMLElement{constructor(){super();let e=this.querySelector(`select`);e&&(e.addEventListener(`change`,e=>{e.currentTarget instanceof HTMLSelectElement&&(window.location.pathname=e.currentTarget.value)}),window.addEventListener(`pageshow`,t=>{if(!t.persisted)return;let n=e.querySelector(`option[selected]`)?.index;n!==e.selectedIndex&&(e.selectedIndex=n??0)}))}};customElements.define(`starlight-lang-select`,e);</script><script type="module" src="/_astro/LanguageSelect.astro_astro_type_script_index_0_lang.DH65a7yi.js"></script></div></div></header><nav class="sidebar print:hidden astro-7ol3m3p7" aria-label="Main"><button popovertarget="starlight__sidebar" class="sl-menu-button sl-flex md:sl-hidden print:hidden astro-dcnpphyu"><svg aria-hidden="true" class="open-menu astro-dcnpphyu astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"/></svg><svg aria-hidden="true" class="close-menu astro-dcnpphyu astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"/></svg><span class="sr-only astro-dcnpphyu">Menu</span></button><script type="module">var e=class extends HTMLElement{constructor(){super();let e=matchMedia(`(min-width: 50em)`),t=()=>{this.popover=e.matches?null:`auto`};t(),e.addEventListener(`change`,()=>t()),this.addEventListener(`toggle`,({newState:e})=>this.trapFocus(e===`open`))}trapFocus(e){document.querySelectorAll(`.main-frame, .sl-skip-link`).forEach(t=>{t.toggleAttribute(`inert`,e)})}};customElements.define(`sl-sidebar-pane`,e);</script><sl-sidebar-pane popover id="starlight__sidebar" class="sidebar-pane astro-7ol3m3p7"><div class="sidebar-content sl-flex astro-7ol3m3p7"><sl-sidebar-state-persist data-hash="1ekcnao" class="astro-lsvsit3p"><script aria-hidden="true">
+		(() => {
+			try {
+				if (!matchMedia('(min-width: 50em)').matches) return;
+				/** @type {HTMLElement | null} */
+				const target = document.querySelector('sl-sidebar-state-persist');
+				const state = JSON.parse(sessionStorage.getItem('sl-sidebar-state') || '0');
+				if (!target || !state || target.dataset.hash !== state.hash) return;
+				window._starlightScrollRestore = state.scroll;
+				customElements.define(
+					'sl-sidebar-restore',
+					class SidebarRestore extends HTMLElement {
+						connectedCallback() {
+							try {
+								const idx = parseInt(this.dataset.index || '');
+								const details = this.closest('details');
+								if (details && typeof state.open[idx] === 'boolean') details.open = state.open[idx];
+							} catch {}
+						}
+					}
+				);
+			} catch {}
+		})();
+	</script><ul class="top-level astro-ykcsoi7s"><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Start here</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="0"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">User guide</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="1"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Developer guide</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="2"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Design specifications</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="3"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Development records</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="4"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Project reference</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="5"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Test data</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="6"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li></ul><script aria-hidden="true">
+		(() => {
+			const scroller = document.getElementById('starlight__sidebar');
+			if (!window._starlightScrollRestore || !scroller) return;
+			scroller.scrollTop = window._starlightScrollRestore;
+			delete window._starlightScrollRestore;
+		})();
+	</script></sl-sidebar-state-persist><div class="md:sl-hidden"><div class="mobile-preferences sl-flex astro-lsc3yx5w"><div class="social-icons astro-lsc3yx5w"><a href="https://github.com/owent/llm-usage" rel="me" class="sl-flex astro-csqdcj5u"><span class="sr-only astro-csqdcj5u">GitHub</span><svg aria-hidden="true" class="astro-csqdcj5u astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a></div><starlight-theme-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">Select theme</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="light" class="astro-btilxiwo">Light</option><option value="dark" class="astro-btilxiwo">Dark</option><option value="auto" selected class="astro-btilxiwo">Auto</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-theme-select><script>window.LLMUsageDocsTheme.updatePickers();</script><starlight-lang-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">Select language</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path fill-rule="evenodd" d="M8.516 3a.94.94 0 0 0-.941.94v1.15H2.94a.94.94 0 1 0 0 1.882h7.362a7.422 7.422 0 0 1-1.787 3.958 7.42 7.42 0 0 1-1.422-2.425.94.94 0 1 0-1.774.627 9.303 9.303 0 0 0 1.785 3.043 7.422 7.422 0 0 1-4.164 1.278.94.94 0 1 0 0 1.881 9.303 9.303 0 0 0 5.575-1.855 9.303 9.303 0 0 0 4.11 1.74l-.763 1.525a.968.968 0 0 0-.016.034l-1.385 2.77a.94.94 0 1 0 1.683.841l1.133-2.267h5.806l1.134 2.267a.94.94 0 0 0 1.683-.841l-1.385-2.769a.95.95 0 0 0-.018-.036l-3.476-6.951a.94.94 0 0 0-1.682 0l-1.82 3.639a7.423 7.423 0 0 1-3.593-1.256 9.303 9.303 0 0 0 2.27-5.203h1.894a.94.94 0 0 0 0-1.881H9.456V3.94A.94.94 0 0 0 8.516 3Zm6.426 11.794a1.068 1.068 0 0 1-.02.039l-.703 1.407h3.924l-1.962-3.924-1.24 2.478Z" clip-rule="evenodd"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="/reference/design/copilot-otel/" class="astro-btilxiwo">English</option><option value="/zh-cn/reference/design/copilot-otel/" class="astro-btilxiwo">简体中文</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-lang-select></div></div></div></sl-sidebar-pane></nav><div class="main-frame astro-7ol3m3p7"><script type="module">var e=document.getElementById(`starlight__sidebar`),t=e?.querySelector(`sl-sidebar-state-persist`),n=`sl-sidebar-state`,r=()=>{let r=[],i=t?.dataset.hash||``;try{let e=sessionStorage.getItem(n),t=JSON.parse(e||`{}`);Array.isArray(t.open)&&t.hash===i&&(r=t.open)}catch{}return{hash:i,open:r,scroll:e?.scrollTop||0}},i=e=>{try{sessionStorage.setItem(n,JSON.stringify(e))}catch{}},a=()=>i(r()),o=(e,t)=>{let n=r();n.open[t]=e,i(n)};t?.addEventListener(`click`,e=>{if(!(e.target instanceof Element))return;let t=e.target.closest(`summary`)?.closest(`details`);if(!t)return;let n=t.querySelector(`sl-sidebar-restore`),r=parseInt(n?.dataset.index||``);isNaN(r)||o(!t.open,r)}),addEventListener(`visibilitychange`,()=>{document.visibilityState===`hidden`&&a()});</script><div class="lg:sl-flex astro-rcl3dmqm"><aside class="right-sidebar-container print:hidden astro-rcl3dmqm"><div class="right-sidebar astro-rcl3dmqm"><div class="lg:sl-hidden astro-fjp5q7r4"><mobile-starlight-toc data-min-h="2" data-max-h="3" class="astro-6exeh6u7"><nav aria-labelledby="starlight__on-this-page--mobile" class="astro-6exeh6u7"><details id="starlight__mobile-toc" class="astro-6exeh6u7"><summary id="starlight__on-this-page--mobile" class="sl-flex astro-6exeh6u7"><span class="toggle sl-flex astro-6exeh6u7">On this page<svg aria-hidden="true" class="caret astro-6exeh6u7 astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></span><span class="display-current astro-6exeh6u7"></span></summary><div class="dropdown astro-6exeh6u7"><ul class="isMobile astro-g6ctc22k" style="--depth: 0;"><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#_top" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Overview</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#supplemental-collection-options" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Supplemental collection options</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#implemented-configuration-controls" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Implemented configuration controls</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#manual-configuration" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Manual configuration</span></a><ul class="isMobile astro-g6ctc22k" style="--depth: 1;"><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#vs-code-extension-host" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">VS Code extension host</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#vs-code-agent-host" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">VS Code Agent Host</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#copilot-cli" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Copilot CLI</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#http-receiver" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">HTTP receiver</span></a></li></ul></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#additional-integration-design" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Additional integration design</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#prerequisites-for-statistical-source-selection" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Prerequisites for statistical source selection</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#acceptance-and-rollback" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Acceptance and rollback</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#sources-and-this-rounds-checks" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Sources and this round’s checks</span></a></li></ul></div></details></nav></mobile-starlight-toc><script type="module" src="/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.C3fM4Kra.js"></script></div><div class="right-sidebar-panel sl-hidden lg:sl-block astro-fjp5q7r4"><div class="sl-container astro-fjp5q7r4"><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">On this page</h2><ul class="astro-g6ctc22k" style="--depth: 0;"><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#_top" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Overview</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#supplemental-collection-options" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Supplemental collection options</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#implemented-configuration-controls" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Implemented configuration controls</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#manual-configuration" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Manual configuration</span></a><ul class="astro-g6ctc22k" style="--depth: 1;"><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#vs-code-extension-host" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">VS Code extension host</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#vs-code-agent-host" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">VS Code Agent Host</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#copilot-cli" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Copilot CLI</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#http-receiver" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">HTTP receiver</span></a></li></ul></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#additional-integration-design" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Additional integration design</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#prerequisites-for-statistical-source-selection" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Prerequisites for statistical source selection</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#acceptance-and-rollback" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Acceptance and rollback</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#sources-and-this-rounds-checks" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Sources and this round’s checks</span></a></li></ul></nav></starlight-toc><script type="module" src="/_astro/TableOfContents.astro_astro_type_script_index_0_lang.BpJaGz7G.js"></script></div></div></div></aside><div class="main-pane astro-rcl3dmqm"><main data-pagefind-body class="astro-i2f5rvhd" lang="en" dir="ltr"><div class="content-panel astro-ptfq3z6k"><div class="sl-container astro-ptfq3z6k"><h1 id="_top" class="astro-5fsxzwfk">Copilot supplemental collection and OTel configuration</h1></div></div><div class="content-panel astro-ptfq3z6k"><div class="sl-container astro-ptfq3z6k"><div class="sl-markdown-content"><p><a id="copilot-supplemental-collection-and-otel-configuration"></a></p>
+<p><a id="copilot-补充采集与-otel-配置设计"></a></p>
+<p>Distinguish missing configuration, configured but waiting for data, verified samples and
+configuration conflicts. Overview shows a compact summary. Details check actual output
+read-only every 30 seconds. When indistinguishable profiles share an output, do not claim
+each profile’s settings took effect. Existing data does not remove policy conflicts or
+establish complete history. JSONC merges preserve formatting without repeated blank lines;
+see <a href="/reference/design/dashboard-polish/">interactions</a> and
+<a href="/reference/evidence/dashboard-polish/">validation</a>.</p>
+<p>Asynchronous user-configuration checks, overview notices and merged settings controls are
+implemented. Trace SQLite parsing is not. Configuration development acceptance is in the
+<a href="/reference/evidence/telemetry-setup-ui/">implementation record</a>; native-format
+results are in the <a href="/reference/evidence/m9-copilot-review/">M9 review</a>.</p>
+<p>Automatic collection of application-configured VS Code Copilot file output is implemented
+and verified using copies of actual exports; see <a href="/reference/design/dashboard-repair/">dashboard rules</a>
+and <a href="/reference/evidence/dashboard-repair/">results</a>.
+CLIENT chat &lt;model&gt; spans represent individual calls. For the same host/user/session/local
+day, OTel replaces the native contribution while retaining native records. Rescans do not
+add both; archived partitions retain native contributions and exclude overlapping new spans.
+Never infer call identity from close timestamps or equal tokens. The enabling day may lack
+earlier calls; exports do not establish complete history. New CLI/JetBrains versions require
+independent native checks; other isolated exports do not automatically become statistical sources.</p>
+<p><a id="补充路线与取舍"></a></p>
+<h2 id="supplemental-collection-options">Supplemental collection options</h2>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Additional data</th>
+<th>Verified scope and limits</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>VS Code Copilot Chat OTel file</td>
+<td>Per-call input/output/cache/reasoning and subagent calls</td>
+<td>Fixed source and 30 local CLIENT spans accepted; discover application-managed output; absent fields stay unknown</td>
+</tr>
+<tr>
+<td>VS Code Agent Host OTel file</td>
+<td>Native runtime per-call records</td>
+<td>Separate configuration namespace; SDK service.name cannot alone establish an independent CLI</td>
+</tr>
+<tr>
+<td>VS Code local trace SQLite</td>
+<td>IDE-retained spans and existing history exports</td>
+<td>Official documentation/schema checked; no adapter implemented; opt-in with IDE retention limits</td>
+</tr>
+<tr>
+<td>Copilot CLI OTel file</td>
+<td>Future per-call tokens absent from latest chronicle</td>
+<td>Official variables checked; native row format still needs verification; cannot recover already-lost historical tokens</td>
+</tr>
+<tr>
+<td>Visual Studio automatic traces</td>
+<td>Verified VS 18 calls/cache reads</td>
+<td>Does not verify all VS 2022/older extensions; check TMP/TEMP/default user temp; more frequent collection reduces cleanup loss; <a href="/reference/evidence/m9-vs-copilot-discovery/">cross-version analysis/tool</a>; never invent exporter settings</td>
+</tr>
+<tr>
+<td>JetBrains Copilot debug File Logging</td>
+<td>Plugin OTel outfile</td>
+<td>Static checks for 1.18.0-261 only; manual setup without native IDE acceptance; no direct plugin XML edits</td>
+</tr>
+</tbody>
+</table>
+<p>Prefer local files: IDEs/CLIs may keep writing after this application exits, for later scanning.
+Local OTLP/HTTP requires the application to run. Support JSON/protobuf /v1/traces and
+/v1/logs plus isolated /v1/traces/supplemental output. Authenticate each source first.
+With native credential storage, automatically configure Claude/Codex logs and isolated
+CodeBuddy CLI 2.98.0 traces verified by the adjacent npm manifest. Protocol/rate-limit tests
+do not verify every sender/version’s authentication configuration; see
+<a href="/reference/design/receiver-auth/">authentication requirements</a>. No gRPC/metrics support; this is not a general Collector.</p>
+<p><a id="已实施的用户配置入口"></a></p>
+<h2 id="implemented-configuration-controls">Implemented configuration controls</h2>
+<p>After startup, bounded background discovery checks installation manifests and agent launchers
+on PATH. User directories locate settings without establishing installation; leftover directories
+after uninstall do not appear. Checks are read-only. Overview shows only a short notice,
+Enable all and View details. Details opens Settings → Local telemetry, listing installed
+agents supported by these checks, with batch configuration, individual preview/apply/revoke
+and recheck. Do not show templates for uninstalled agents.</p>
+<p>Pages share results without blocking statistical queries, periodically writing settings or
+executing agent launchers. Opening the settings panel refreshes installation/configuration
+read-only. CLI detection currently requires a PATH launcher; a nonstandard installation
+outside PATH is not inferred from its user directory.</p>
+<p>The batch button processes currently missing, automatically configurable items one by one:
+create a plan and immediately merge/apply it. Preparing all plans beforehand would make later
+shared-file concurrency checks stale after earlier writes. Skip existing settings/manual items;
+one failure does not stop later items. Report success/failure/manual results separately.
+Batch state and revocation remain across pages; overview omits paths/keys/per-item results.
+Users must run generated CLI launchers or reload file-configured IDEs/agents themselves;
+the application does not start them.</p>
+<table>
+<thead>
+<tr>
+<th>Client</th>
+<th>Automatic changes</th>
+<th>Output and verification limits</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>VS Code / Insiders Copilot</td>
+<td>Default user and existing profiles; check OTel keys declared by installed manifests; file export with content/identity disabled</td>
+<td>Inspect Windows version directories and normal extension directories; merge sync exclusions; explicit sync conflicts require manual setup</td>
+</tr>
+<tr>
+<td>VS Code Agent Host</td>
+<td>Separate chat.agentHost.otel when installed app manifest is verified 1.140.0</td>
+<td>Separate file per profile; other versions pending; extension keys cannot establish host support</td>
+</tr>
+<tr>
+<td>Copilot CLI</td>
+<td>Dedicated PowerShell/sh launcher inside application storage, setting official file variables only for its process</td>
+<td>No config.json/settings.json/global-environment/shell-profile edits or automatic execution</td>
+</tr>
+<tr>
+<td>Gemini CLI</td>
+<td>User settings.json telemetry enabled/local/outfile, logPrompts=false</td>
+<td>Append .gemini after GEMINI_CLI_HOME replaces home; actual new-version output not accepted</td>
+</tr>
+<tr>
+<td>Qwen Code</td>
+<td>User settings.json telemetry enabled/outfile; prompts/sensitive spans disabled</td>
+<td>QWEN_HOME is the config directory; QWEN_RUNTIME_DIR does not replace it; 0.25.0 consecutive multiline SDK JSON supports per-call/native partition selection; discover/check managed output read-only; isolate other versions; see source-upgrade record</td>
+</tr>
+<tr>
+<td>Claude Code</td>
+<td>User env with dedicated HTTP/JSON logs endpoint and authentication header; content disabled</td>
+<td>Restricted logs remain isolated; per-source credentials in current-user system storage; actual exporter still pending</td>
+</tr>
+<tr>
+<td>Codex</td>
+<td>User TOML HTTP/JSON logs, separate authentication header, log_user_prompt=false</td>
+<td>Preserve other tables/provider configuration/headers/comments; logs never automatically add to native usage</td>
+</tr>
+<tr>
+<td>CodeBuddy</td>
+<td>First PATH launcher’s adjacent npm manifest must be 2.98.0; generic headers with Bearer space encoded %20; content disabled</td>
+<td>Isolated supplemental traces only; other versions, absent manifest or existing traces-specific headers require manual setup; local JSONL remains independent</td>
+</tr>
+</tbody>
+</table>
+<p>Verified VS 18 components export automatic traces; check VS 2022 components/actual files
+independently without inventing user exporter settings. JetBrains remains manual.
+Do not automatically write portable/custom user-data, other IDE or remote-host configuration;
+follow official instructions. Preserve enabled output destinations. An existing destination
+with export disabled requires manual review. Known environment overrides, managed files,
+disabled telemetry, sync conflicts or configuration errors block automatic changes.
+User settings do not establish effective enterprise/workspace/other-launch-environment settings.</p>
+<p>Individual preview shows paths, exact keys/values, output location and receiver effects before
+apply. Merge JSONC using AST value ranges and TOML with a format-preserving editor. Check
+BOM/comments/duplicate keys/size limits/links/read-only state/concurrent edits. Back up original
+bytes first, then replace through a temporary file in the same directory. If receiver binding
+fails, do not write agent settings. Configuration failure restores this operation’s receiver state.</p>
+<p>HTTP apply generates per-source tokens, reads back system storage and reclaims newly owned
+credentials on failure. Previews show placeholders without returning existing header secrets.
+Revoke credentials before conditionally restoring user keys; other sources keep working.
+Profile sync exclusions belong in the default user file: preview both files and check both
+versions before applying. If the profile write fails, conditionally roll back default settings
+without overwriting intervening user edits. Revoke only values still equal to this feature’s
+writes; retain later user edits and report conflicts. Preview/revoke tokens last only within
+the current app process; original backups remain local after restart. Revoking one client
+does not automatically disable the shared receiver or delete collected files/history.</p>
+<p>OTel adds only actually exported records after enabling. Check cache/reasoning/failure/auxiliary/
+retry/inline coverage individually; do not promise tokens for all Copilot requests. Never add
+parent invoke_agent, child chat, same-call events and token histograms. Premium quotas/AIU
+stay separate, without token conversion.</p>
+<p><a id="手工配置"></a></p>
+<h2 id="manual-configuration">Manual configuration</h2>
+<p>These examples generate files; they do not establish complete end-to-end acceptance.
+Create a dedicated local directory and use actual absolute paths without assuming outfile
+expands environment variables or ~. Retain native statistics first; after checking the new
+file, select the statistical source rather than immediately mixing totals.</p>
+<p><a id="vs-code-扩展宿主"></a></p>
+<h3 id="vs-code-extension-host">VS Code extension host</h3>
+<p>Merge these keys in user Settings JSON. Replace the username and create the parent directory:</p>
+<div class="expressive-code"><link rel="stylesheet" href="/_astro/ec.w36nc.css"><script type="module" src="/_astro/ec.0vx5m.js"></script><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="json"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">{</span></div></div><div class="ec-line"><div class="code"><span class="indent">  </span><span style="--0:#7FDBCA;--1:#096E72">"github.copilot.chat.otel.enabled"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#FF6A83;--1:#A24848">true</span><span style="--0:#D6DEEB;--1:#403F53">,</span></div></div><div class="ec-line"><div class="code"><span class="indent">  </span><span style="--0:#7FDBCA;--1:#096E72">"github.copilot.chat.otel.exporterType"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#C789D6;--1:#7C5686">file</span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#D6DEEB;--1:#403F53">,</span></div></div><div class="ec-line"><div class="code"><span class="indent">  </span><span style="--0:#7FDBCA;--1:#096E72">"github.copilot.chat.otel.outfile"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#C789D6;--1:#7C5686">C:/Users/&lt;username&gt;/AppData/Local/llm-usage/copilot-otel/vscode.jsonl</span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#D6DEEB;--1:#403F53">,</span></div></div><div class="ec-line"><div class="code"><span class="indent">  </span><span style="--0:#7FDBCA;--1:#096E72">"github.copilot.chat.otel.captureContent"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#FF6A83;--1:#A24848">false</span><span style="--0:#D6DEEB;--1:#403F53">,</span></div></div><div class="ec-line"><div class="code"><span class="indent">  </span><span style="--0:#7FDBCA;--1:#096E72">"github.copilot.chat.otel.captureIdentity"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#FF6A83;--1:#A24848">false</span></div></div><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">}</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="{  &quot;github.copilot.chat.otel.enabled&quot;: true,  &quot;github.copilot.chat.otel.exporterType&quot;: &quot;file&quot;,  &quot;github.copilot.chat.otel.outfile&quot;: &quot;C:/Users/<username>/AppData/Local/llm-usage/copilot-otel/vscode.jsonl&quot;,  &quot;github.copilot.chat.otel.captureContent&quot;: false,  &quot;github.copilot.chat.otel.captureIdentity&quot;: false}"><div></div></button></div></figure></div>
+<p>Reload the window and check the file. After the user’s next normal Copilot usage, verify chat
+span identity/time/usage. Configuration checks do not send test prompts. User-selected files
+use manual roots; automatically configured Copilot files are discovered. Inspect coverage
+diagnostics/independent comparison first; handle overlap using the rules below.</p>
+<h3 id="vs-code-agent-host">VS Code Agent Host</h3>
+<p>Use the host’s own namespace and a separate file when using Agent Host sessions:</p>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="json"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">{</span></div></div><div class="ec-line"><div class="code"><span class="indent">  </span><span style="--0:#7FDBCA;--1:#096E72">"chat.agentHost.otel.enabled"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#FF6A83;--1:#A24848">true</span><span style="--0:#D6DEEB;--1:#403F53">,</span></div></div><div class="ec-line"><div class="code"><span class="indent">  </span><span style="--0:#7FDBCA;--1:#096E72">"chat.agentHost.otel.exporterType"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#C789D6;--1:#7C5686">file</span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#D6DEEB;--1:#403F53">,</span></div></div><div class="ec-line"><div class="code"><span class="indent">  </span><span style="--0:#7FDBCA;--1:#096E72">"chat.agentHost.otel.outfile"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#C789D6;--1:#7C5686">C:/Users/&lt;username&gt;/AppData/Local/llm-usage/copilot-otel/agent-host.jsonl</span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#D6DEEB;--1:#403F53">,</span></div></div><div class="ec-line"><div class="code"><span class="indent">  </span><span style="--0:#7FDBCA;--1:#096E72">"chat.agentHost.otel.captureContent"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#FF6A83;--1:#A24848">false</span></div></div><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">}</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="{  &quot;chat.agentHost.otel.enabled&quot;: true,  &quot;chat.agentHost.otel.exporterType&quot;: &quot;file&quot;,  &quot;chat.agentHost.otel.outfile&quot;: &quot;C:/Users/<username>/AppData/Local/llm-usage/copilot-otel/agent-host.jsonl&quot;,  &quot;chat.agentHost.otel.captureContent&quot;: false}"><div></div></button></div></figure></div>
+<p>Personal settings bind at host startup; restart the host/window. Include only local runtimes.
+Do not integrate remote Agent Host, SSH or cloud sessions. WSL/containers use separately
+authorized instance boundaries.</p>
+<h3 id="copilot-cli">Copilot CLI</h3>
+<p>Set process variables in the PowerShell terminal that will launch the CLI:</p>
+<div class="expressive-code"><figure class="frame is-terminal not-content"><figcaption class="header"><span class="title"></span><span class="sr-only">Terminal window</span></figcaption><pre data-language="powershell"><code><div class="ec-line"><div class="code"><span style="--0:#82AAFF;--1:#3B61B0">$copilotOtelDir</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#C792EA;--1:#8844AE">=</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#7FDBCA;--1:#096E72">Join-Path</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">$env:LOCALAPPDATA</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#D9F5DD;--1:#111111">'</span><span style="--0:#ECC48D;--1:#984E4D">llm-usage/copilot-otel</span><span style="--0:#D9F5DD;--1:#111111">'</span></div></div><div class="ec-line"><div class="code"><span style="--0:#7FDBCA;--1:#096E72">New-Item</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#C792EA;--1:#8844AE">-</span><span style="--0:#D6DEEB;--1:#403F53">ItemType Directory </span><span style="--0:#C792EA;--1:#8844AE">-</span><span style="--0:#D6DEEB;--1:#403F53">Path </span><span style="--0:#82AAFF;--1:#3B61B0">$copilotOtelDir</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#C792EA;--1:#8844AE">-</span><span style="--0:#D6DEEB;--1:#403F53">Force </span><span style="--0:#7FDBCA;--1:#096E72">|</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#7FDBCA;--1:#096E72">Out-Null</span></div></div><div class="ec-line"><div class="code"><span style="--0:#82AAFF;--1:#3B61B0">$env:COPILOT_OTEL_ENABLED</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#C792EA;--1:#8844AE">=</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#D9F5DD;--1:#111111">'</span><span style="--0:#ECC48D;--1:#984E4D">true</span><span style="--0:#D9F5DD;--1:#111111">'</span></div></div><div class="ec-line"><div class="code"><span style="--0:#82AAFF;--1:#3B61B0">$env:COPILOT_OTEL_EXPORTER_TYPE</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#C792EA;--1:#8844AE">=</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#D9F5DD;--1:#111111">'</span><span style="--0:#ECC48D;--1:#984E4D">file</span><span style="--0:#D9F5DD;--1:#111111">'</span></div></div><div class="ec-line"><div class="code"><span style="--0:#82AAFF;--1:#3B61B0">$env:COPILOT_OTEL_FILE_EXPORTER_PATH</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#C792EA;--1:#8844AE">=</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#7FDBCA;--1:#096E72">Join-Path</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">$copilotOtelDir</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#D9F5DD;--1:#111111">'</span><span style="--0:#ECC48D;--1:#984E4D">cli.jsonl</span><span style="--0:#D9F5DD;--1:#111111">'</span></div></div><div class="ec-line"><div class="code"><span style="--0:#82AAFF;--1:#3B61B0">$env:OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#C792EA;--1:#8844AE">=</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#D9F5DD;--1:#111111">'</span><span style="--0:#ECC48D;--1:#984E4D">false</span><span style="--0:#D9F5DD;--1:#111111">'</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="$copilotOtelDir = Join-Path $env:LOCALAPPDATA &#x27;llm-usage/copilot-otel&#x27;New-Item -ItemType Directory -Path $copilotOtelDir -Force | Out-Null$env:COPILOT_OTEL_ENABLED = &#x27;true&#x27;$env:COPILOT_OTEL_EXPORTER_TYPE = &#x27;file&#x27;$env:COPILOT_OTEL_FILE_EXPORTER_PATH = Join-Path $copilotOtelDir &#x27;cli.jsonl&#x27;$env:OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT = &#x27;false&#x27;"><div></div></button></div></figure></div>
+<p>Use the CLI normally in that terminal; existing processes do not inherit new variables.
+Closing the terminal ends this process configuration. Automatic setup provides a dedicated
+launcher that restores PowerShell’s previous process variables when it exits.</p>
+<p><a id="http-接收方案"></a></p>
+<h3 id="http-receiver">HTTP receiver</h3>
+<p>Claude/Codex and verified CodeBuddy 2.98.0 setup check native credential storage/binding,
+immediately enable the receiver and create independent local-instance authentication.
+CodeBuddy always uses isolated supplemental output. Backend keys are otel_receiver_enabled
+and otel_receiver_port, default off/4318; they never bypass authentication. Existing
+unauthenticated application HTTP settings need another preview/confirmation, without
+automatic reuse. Copilot per-source HTTP setup remains unverified; use file export above.
+Unverified CodeBuddy versions receive no automatic setup. Pointing an endpoint at the
+application alone does not establish integration; do not configure remote Collectors.</p>
+<p>Environment overrides, enterprise policy and VS Code telemetry switches may prevent settings
+taking effect. Show conflicts without overwriting policy. HTTP exporters may send metrics:
+the receiver rejects them and stores logs independently.</p>
+<p><a id="后续接入设计"></a></p>
+<h2 id="additional-integration-design">Additional integration design</h2>
+<ol>
+<li>Add source-page supplemental Copilot collection by client/version/host, showing coverage gaps, official instructions and copyable settings,
+including not-installed/unsupported versions. Prefer file then HTTP.</li>
+<li>Preview paths/keys/output/source effects. Users choose installation/profile/user-data directories; check JSONC/environment/policy without
+scanning or printing credentials.</li>
+<li>After Apply, back up original bytes and modify only listed keys while preserving comments/other settings. Compare file versions before
+writing; concurrent edits need another preview. Restore this operation on failure and report actual results.</li>
+<li>Distinguish configuration written, reload required, waiting for records and parseable calls received. Check only allowed identity/time/token
+fields and rescans; file existence does not establish acceptance.</li>
+<li>Revoke only changed keys still matching this feature’s writes; preserve later user edits with conflict notices. Backups stay local, out of
+logs/exports. Never automatically restart IDEs or create model requests.</li>
+</ol>
+<p>The implemented table above owns current scope. Initial acceptance is Windows. Isolated
+WSL checked Linux native credentials/HTTP; macOS credential code passed cross-platform
+type checking only. Actual desktop/exporter checks remain separate on both platforms.
+Modify user settings only, never project .vscode/settings.json. Merge sync exclusions without
+enabling Settings Sync. JetBrains stays manual; Visual Studio uses verified existing files.
+Managed VS Code Copilot file discovery, session-range source selection and actual existing
+exports were verified; see <a href="/reference/evidence/dashboard-repair/">dashboard repair</a>.
+New CLI/JetBrains exports, trace SQLite and more real revocation scenarios remain unverified.
+Extensions without current installations/files left this round’s plan with limits preserved.
+Session-store does not substitute for a trace database.</p>
+<p><a id="统计选择前置条件"></a></p>
+<h2 id="prerequisites-for-statistical-source-selection">Prerequisites for statistical source selection</h2>
+<p>Route managed Copilot telemetry directories only to OTel, not every adapter’s manual roots.
+Native vscode-copilot-chat still reads chatSessions. These are distinct formats, selected
+under the rules below. One physical file has one active adapter owner. Old incorrect sources
+without usage stop appearing in the source list. A recognized format may take over an
+unrecognized file with no committed cursor/usage, preserving the DB, diagnostics and disabled
+settings. Verify recovery through real registry discovery, including adapters promoting
+roots to parents; matching only the supplied directory is insufficient. Rebuild discovery
+for application-managed inputs only. Never hide sources with usage/period history.
+Metrics/logs may appear first; collect only verified call spans, not metrics as per-call usage.</p>
+<p>set_source_enabled stops scanning; load_daily_rows still includes disabled-source history.
+Disabling native collection then adding OTel cannot retract already stored overlap.
+VS Code file parsing uses trace+span identity. Copies across files/receiver contribute once
+within the same original host/user scope. Native turns and OTel calls lack common call IDs:
+equal tokens/close times cannot pair them. A mixed-agent receiver cannot be disabled wholesale
+to switch Copilot.</p>
+<p>Verified VS Code file selection uses original host/user/session/local day. Establish
+selection only with valid OTel calls. Retain native records but exclude their contribution
+from selected partitions on later rescans. Other sessions/days remain native; archived native
+partitions cannot add new overlapping telemetry. Selection applies to daily/hourly queries,
+charts and exports. The enabling day may lack earlier exports; expose coverage without
+promising lossless combination. Missing session identity cannot replace native contributions;
+never split a whole turn’s consumption using its timestamp at the switch boundary.</p>
+<p>Implemented corrections count chat calls without usage, use trace+span identity and strictly
+validate integer tokens; skip mixed logs/metrics and distinguish SDK CLIENT from OTLP enums.
+Local results verify VS Code’s embedded host. Subagent/other-runtime classification and
+actual records require separate checks. Configurable service.name cannot establish host
+identity. Prefer explicit relationships among same-origin file/receiver/SQLite records;
+without verified relationships, select one statistical source.</p>
+<p><a id="验收与回滚"></a></p>
+<h2 id="acceptance-and-rollback">Acceptance and rollback</h2>
+<p>Configuration regressions cover JSONC comments/BOM, existing profiles, known environment/
+policy conflicts, absent directories, read-only files, concurrent edits, repeated apply,
+failure recovery and revocation after user edits. Compare independent expectations with
+details/summaries for failed calls without tokens, mixed agents, parent/child spans,
+retransmission, same-origin file/HTTP/SQLite, source switching and archived contributions
+after cleanup.</p>
+<p>Portable/custom user-data auto-discovery is not implemented. This round read only actual
+VS Code output from the user’s earlier automatic configuration, without rewriting settings,
+reloading hosts or issuing model requests. Do not report those operations as tested this round.
+Actual acceptance should record settings writes/reload/normal-user-call output; synthetic
+data cannot represent real calls.</p>
+<p>Future trace SQLite uses read-only connections or IDE export while respecting WAL. Copying
+bare .db files may lose uncheckpointed data. Query necessary fields only, without exporting
+bodies/span_events. Unknown schemas remain limited. Trace DB, chronicle and session-store
+are distinct databases. Revocation preserves historical statistics, stops this feature’s
+export/reading, and permits independent selection back to the native source.</p>
+<p><a id="依据与本轮验证"></a></p>
+<h2 id="sources-and-this-rounds-checks">Sources and this round’s checks</h2>
+<p>Common metadata: verified_at=2026-10-01, owner=repository maintainers. Recheck before related
+work, upgrades or configuration/export/policy changes. Installed versions come from M9,
+without claiming fresh installation checks. C01 native VS Code file acceptance is dated
+2026-10-02 and does not expand other product interfaces.</p>
+<table>
+<thead>
+<tr>
+<th>ID / scope</th>
+<th>source_url / source_version</th>
+<th>method / status / impact</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>C01 Extension calls, file and trace DB</td>
+<td><a href="https://code.visualstudio.com/docs/agents/guides/monitoring-agents">Official monitoring</a>, 2026-09-30 page</td>
+<td>Official text; 30 actual VS Code file chat calls accepted 2026-10-02; trace DB unimplemented</td>
+</tr>
+<tr>
+<td>C02 CLI variables and CLIENT chat</td>
+<td><a href="https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference#opentelemetry-monitoring">Official CLI reference</a>, rolling</td>
+<td>Official text informs launchers/fields; actual new export not accepted</td>
+</tr>
+<tr>
+<td>C03 Independent Agent Host, file/DB and startup binding</td>
+<td><a href="https://github.com/microsoft/vscode/blob/dc546cc3c9979a19adafccd439889d7b64298def/src/vs/platform/agentHost/OTEL.md">Fixed source</a></td>
+<td>Fixed commit; informs host selection; main snapshot is not installed-version verification</td>
+</tr>
+<tr>
+<td>C04 File and SQLite formats</td>
+<td><a href="https://github.com/microsoft/vscode/blob/dc546cc3c9979a19adafccd439889d7b64298def/extensions/copilot/src/platform/otel/node/fileExporters.ts">fileExporters</a>, <a href="https://github.com/microsoft/vscode/blob/dc546cc3c9979a19adafccd439889d7b64298def/extensions/copilot/src/platform/otel/node/sqlite/otelSqliteStore.ts">otelSqliteStore</a></td>
+<td>Fixed source: one span per file line; DB schema_version/spans/span_attributes; references for future parsing</td>
+</tr>
+<tr>
+<td>C05 Policy/environment and telemetry switch</td>
+<td><a href="https://github.com/microsoft/vscode/blob/dc546cc3c9979a19adafccd439889d7b64298def/extensions/copilot/src/platform/otel/common/otelConfig.ts">otelConfig</a>, <a href="https://code.visualstudio.com/docs/enterprise/manage-ai-settings#configure-telemetry-export-with-opentelemetry">official policy</a></td>
+<td>Descriptions differ on precedence; use installed-version implementation without forcing overrides</td>
+</tr>
+<tr>
+<td>C06 JetBrains 1.18.0-261</td>
+<td><a href="/reference/evidence/m9-jb-copilot-analysis/">Existing analysis</a></td>
+<td>Static checks without a native IDE environment; version-limited manual instructions</td>
+</tr>
+</tbody>
+</table>
+<p>Public snapshots/SHA256 are under ignored build/copilot-otel-setup/. During the earlier
+documentation stage, root npm run lint:md (162 files), python build/copilot-otel-setup/check-links.py
+(4 documents/77 relative links) and git diff –check all exited 0. That stage changed no
+product code, reran no Rust/browser tests, enabled no OTel and made no model requests.
+Current implementation/source results are linked above.</p>
+</div><footer class="sl-flex astro-q3cosrfy"><div class="meta sl-flex astro-q3cosrfy"><a href="https://github.com/owent/llm-usage/edit/main/docs/design/desktop-usage/copilot-otel.md" class="sl-flex print:hidden astro-okj6rzri"><svg aria-hidden="true" class="astro-okj6rzri astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.2em;"><path d="M22 7.24a1 1 0 0 0-.29-.71l-4.24-4.24a1 1 0 0 0-1.1-.22 1 1 0 0 0-.32.22l-2.83 2.83L2.29 16.05a1 1 0 0 0-.29.71V21a1 1 0 0 0 1 1h4.24a1 1 0 0 0 .76-.29l10.87-10.93L21.71 8c.1-.1.17-.2.22-.33a1 1 0 0 0 0-.24v-.14l.07-.05ZM6.83 20H4v-2.83l9.93-9.93 2.83 2.83L6.83 20ZM18.17 8.66l-2.83-2.83 1.42-1.41 2.82 2.82-1.41 1.42Z"/></svg>Edit page</a></div><div class="pagination-links print:hidden astro-vd7os7a3" dir="ltr"></div></footer></div></div></main></div></div></div></div></body></html>

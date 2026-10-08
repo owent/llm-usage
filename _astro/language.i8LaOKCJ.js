@@ -1,0 +1,1 @@
+var e=`llm-usage.docs.language`;function t(e,t){if(t===`en`||t===`zh-CN`)return t;for(let t of e??[]){let e=String(t).toLowerCase().split(`-`)[0];if(e===`zh`)return`zh-CN`;if(e===`en`)return`en`}return`en`}function n(e,t){let n=e.replace(/^\/zh-cn(?=\/|$)/,``)||`/`;return t===`zh-CN`?`/zh-cn${n.startsWith(`/`)?n:`/${n}`}`:n}export{e as n,t as r,n as t};

@@ -1,0 +1,281 @@
+<!DOCTYPE html><html lang="zh-CN" dir="ltr" data-theme="dark" data-has-toc data-has-sidebar class="astro-i2f5rvhd"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>F2 费用估算引擎实施验证记录（2026-09-30） | LLM Usage</title><link rel="canonical" href="https://llm-usage.atframe.work/zh-cn/reference/evidence/f2-cost-engine/"/><link rel="alternate" hreflang="en" href="https://llm-usage.atframe.work/reference/evidence/f2-cost-engine/"/><link rel="alternate" hreflang="zh-CN" href="https://llm-usage.atframe.work/zh-cn/reference/evidence/f2-cost-engine/"/><link rel="alternate" hreflang="x-default" href="https://llm-usage.atframe.work/reference/evidence/f2-cost-engine/"/><link rel="sitemap" href="/sitemap-index.xml"/><link rel="shortcut icon" href="/favicon.svg" type="image/svg+xml"/><meta name="generator" content="Astro v7.3.6"/><meta name="generator" content="Starlight v0.42.5"/><meta property="og:title" content="F2 费用估算引擎实施验证记录（2026-09-30）"/><meta property="og:type" content="article"/><meta property="og:url" content="https://llm-usage.atframe.work/zh-cn/reference/evidence/f2-cost-engine/"/><meta property="og:locale" content="zh-CN"/><meta property="og:description" content="Understand the AI usage recorded on your computer."/><meta property="og:site_name" content="LLM Usage"/><meta name="twitter:card" content="summary_large_image"/><meta name="description" content="Understand the AI usage recorded on your computer."/><meta name="color-scheme" content="light dark"><script type="module" src="/_astro/Head.astro_astro_type_script_index_0_lang.CRxMF9Ma.js"></script><script>
+  (() => {
+    const scheme = matchMedia('(prefers-color-scheme: dark)');
+    let choice = 'auto';
+    try {
+      const saved = localStorage.getItem('starlight-theme');
+      if (saved === 'light' || saved === 'dark') choice = saved;
+    } catch { /* System theme remains available without browser storage. */ }
+    function updatePickers() {
+      document.querySelectorAll('starlight-theme-select').forEach(picker => {
+        const select = picker.querySelector('select');
+        if (select) select.value = choice;
+        const icon = document.querySelector('#docs-theme-icons')?.content.querySelector('.' + choice);
+        const target = picker.querySelector('svg.label-icon');
+        if (icon && target) target.replaceChildren(...icon.cloneNode(true).childNodes);
+      });
+    }
+    function apply(theme, persist = false) {
+      choice = theme === 'light' || theme === 'dark' ? theme : 'auto';
+      document.documentElement.dataset.theme = choice === 'auto' ? scheme.matches ? 'dark' : 'light' : choice;
+      updatePickers();
+      if (persist) {
+        try { localStorage.setItem('starlight-theme', choice === 'auto' ? '' : choice); }
+        catch { /* The current page still changes theme. */ }
+      }
+    }
+    window.LLMUsageDocsTheme = { apply, updatePickers };
+    scheme.addEventListener('change', () => { if (choice === 'auto') apply('auto'); });
+    apply(choice);
+  })();
+</script><template id="docs-theme-icons"><svg aria-hidden="true" class="light astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg><svg aria-hidden="true" class="dark astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="auto astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg></template><link rel="stylesheet" href="/_astro/print.ehPL0gv-.css" media="print"><link rel="stylesheet" href="/_astro/common.CLGr15ze.css"><style>@layer starlight.components{.card:where(.astro-eiplrasj){--sl-card-border:var(--sl-color-purple);--sl-card-bg:var(--sl-color-purple-low);border:1px solid var(--sl-color-gray-5);background-color:var(--sl-color-black);flex-direction:column;gap:clamp(.5rem,.125rem + 1vw,1rem);padding:clamp(1rem,.125rem + 3vw,2.5rem)}.card:where(.astro-eiplrasj):nth-child(4n+1){--sl-card-border:var(--sl-color-orange);--sl-card-bg:var(--sl-color-orange-low)}.card:where(.astro-eiplrasj):nth-child(4n+3){--sl-card-border:var(--sl-color-green);--sl-card-bg:var(--sl-color-green-low)}.card:where(.astro-eiplrasj):nth-child(4n+4){--sl-card-border:var(--sl-color-red);--sl-card-bg:var(--sl-color-red-low)}.card:where(.astro-eiplrasj):nth-child(4n+5){--sl-card-border:var(--sl-color-blue);--sl-card-bg:var(--sl-color-blue-low)}.title:where(.astro-eiplrasj){font-weight:600;font-size:var(--sl-text-h4);color:var(--sl-color-white);line-height:var(--sl-line-height-headings);align-items:center;gap:1rem}.card:where(.astro-eiplrasj) .icon:where(.astro-eiplrasj){border:1px solid var(--sl-card-border);background-color:var(--sl-card-bg);border-radius:.25rem;flex-shrink:0;padding:.2em}.card:where(.astro-eiplrasj) .body:where(.astro-eiplrasj){font-size:clamp(var(--sl-text-sm), calc(.5rem + 1vw), var(--sl-text-body));margin:0}.card-grid:where(.astro-t7b7g7fk){grid-template-columns:100%;gap:1rem;display:grid}.card-grid:where(.astro-t7b7g7fk)>*{margin-top:0!important}@media (width>=50rem){.card-grid:where(.astro-t7b7g7fk){grid-template-columns:1fr 1fr;gap:1.5rem}.stagger:where(.astro-t7b7g7fk){--stagger-height:5rem;padding-bottom:var(--stagger-height)}.stagger:where(.astro-t7b7g7fk)>:nth-child(2n){transform:translateY(var(--stagger-height))}}.sl-link-card:where(.astro-6ghwbfyk){border:1px solid var(--sl-color-gray-5);box-shadow:var(--sl-shadow-sm);border-radius:.5rem;grid-template-columns:1fr auto;gap:.5rem;padding:1rem;display:grid;position:relative}a:where(.astro-6ghwbfyk){line-height:var(--sl-line-height-headings);text-decoration:none}a:where(.astro-6ghwbfyk):before{content:"";position:absolute;inset:0}.stack:where(.astro-6ghwbfyk){flex-direction:column;gap:.5rem}.title:where(.astro-6ghwbfyk){color:var(--sl-color-white);font-weight:600;font-size:var(--sl-text-lg)}.description:where(.astro-6ghwbfyk){color:var(--sl-color-gray-3);line-height:1.5}.icon:where(.astro-6ghwbfyk){color:var(--sl-color-gray-3)}.sl-link-card:where(.astro-6ghwbfyk):hover{background:var(--sl-color-gray-7,var(--sl-color-gray-6));border-color:var(--sl-color-gray-2)}.sl-link-card:where(.astro-6ghwbfyk):hover .icon:where(.astro-6ghwbfyk){color:var(--sl-color-white)}}.app-screenshot:where(.astro-ofe7zldm){margin:1.5rem 0 2.5rem}.screenshot-frame:where(.astro-ofe7zldm){border:1px solid var(--sl-color-gray-5);background:var(--sl-color-bg);border-radius:1rem;box-shadow:0 16px 48px #00000018}.screenshot-frame:where(.astro-ofe7zldm) a:where(.astro-ofe7zldm){border-radius:inherit;display:block}.screenshot-frame:where(.astro-ofe7zldm) img:where(.astro-ofe7zldm){border-radius:inherit;width:100%;height:auto;box-shadow:none;border:0;margin:0;display:block}.screenshot-frame:where(.astro-ofe7zldm) .screenshot-dark:where(.astro-ofe7zldm),:root[data-theme=dark] .screenshot-light:where(.astro-ofe7zldm){display:none}:root[data-theme=dark] .screenshot-dark:where(.astro-ofe7zldm){display:block}figcaption:where(.astro-ofe7zldm){color:var(--sl-color-gray-2);flex-wrap:wrap;justify-content:space-between;gap:.25rem 1rem;margin-top:.75rem;font-size:.875rem;line-height:1.6;display:flex}.screenshot-hint:where(.astro-ofe7zldm){color:var(--sl-color-text-accent)}
+@layer starlight.components{svg:where(.astro-iwaxdyvu){color:var(--sl-icon-color);font-size:var(--sl-icon-size,1em);width:1em;height:1em}}
+</style><script type="module" src="/_astro/page.Dwipeu-R.js"></script></head><body class="astro-i2f5rvhd"><a class="sl-skip-link astro-af3xnx6k" href="#_top">跳转到内容</a><div class="page sl-flex astro-7ol3m3p7"><header class="header astro-7ol3m3p7"><div class="header astro-qqelxyz2"><div class="title-wrapper sl-flex astro-qqelxyz2"><a href="/zh-cn/" class="site-title sl-flex astro-pm7u5y3t"><img class="astro-pm7u5y3t" alt src="/_astro/brand.BEXAYDnz.svg" width="1024" height="1024"><span class="astro-pm7u5y3t" translate="no">LLM Usage</span></a></div><div class="sl-flex print:hidden astro-qqelxyz2"><site-search class="astro-qqelxyz2 astro-veqdxac2" data-translations="{&quot;placeholder&quot;:&quot;搜索&quot;}"><button data-open-modal disabled aria-label="搜索" aria-keyshortcuts="Control+K" class="astro-veqdxac2"><svg aria-hidden="true" class="astro-veqdxac2 astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg><span class="sl-hidden md:sl-block astro-veqdxac2" aria-hidden="true">搜索</span><kbd class="sl-hidden md:sl-flex astro-veqdxac2" style="display: none;"><kbd class="astro-veqdxac2">Ctrl</kbd><kbd class="astro-veqdxac2">K</kbd></kbd></button><dialog style="padding:0" aria-label="搜索" class="astro-veqdxac2"><div class="dialog-frame sl-flex astro-veqdxac2"><button data-close-modal class="sl-flex md:sl-hidden astro-veqdxac2">取消</button><div class="search-container astro-veqdxac2"><div id="starlight__search" class="astro-veqdxac2"></div></div></div></dialog></site-search><script>
+	(() => {
+		const openBtn = document.querySelector('button[data-open-modal]');
+		const shortcut = openBtn?.querySelector('kbd');
+		if (!openBtn || !(shortcut instanceof HTMLElement)) return;
+		const platformKey = shortcut.querySelector('kbd');
+		if (platformKey && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
+			platformKey.textContent = '⌘';
+			openBtn.setAttribute('aria-keyshortcuts', 'Meta+K');
+		}
+		shortcut.style.display = '';
+	})();
+</script><script type="module" src="/_astro/Search.astro_astro_type_script_index_0_lang.Bumivpjo.js"></script></div><div class="sl-hidden md:sl-flex print:hidden right-group astro-qqelxyz2"><div class="sl-flex social-icons astro-qqelxyz2"><a href="https://github.com/owent/llm-usage" rel="me" class="sl-flex astro-csqdcj5u"><span class="sr-only astro-csqdcj5u">GitHub</span><svg aria-hidden="true" class="astro-csqdcj5u astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a></div><starlight-theme-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">选择主题</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="light" class="astro-btilxiwo">浅色</option><option value="dark" class="astro-btilxiwo">深色</option><option value="auto" selected class="astro-btilxiwo">自动</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-theme-select><script>window.LLMUsageDocsTheme.updatePickers();</script><script type="module">document.addEventListener(`change`,e=>{let t=e.target;if(!(t instanceof HTMLSelectElement)||!t.closest(`starlight-theme-select`))return;let n=t.value===`light`||t.value===`dark`?t.value:`auto`;window.LLMUsageDocsTheme.apply(n,!0)});</script><starlight-lang-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">选择语言</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path fill-rule="evenodd" d="M8.516 3a.94.94 0 0 0-.941.94v1.15H2.94a.94.94 0 1 0 0 1.882h7.362a7.422 7.422 0 0 1-1.787 3.958 7.42 7.42 0 0 1-1.422-2.425.94.94 0 1 0-1.774.627 9.303 9.303 0 0 0 1.785 3.043 7.422 7.422 0 0 1-4.164 1.278.94.94 0 1 0 0 1.881 9.303 9.303 0 0 0 5.575-1.855 9.303 9.303 0 0 0 4.11 1.74l-.763 1.525a.968.968 0 0 0-.016.034l-1.385 2.77a.94.94 0 1 0 1.683.841l1.133-2.267h5.806l1.134 2.267a.94.94 0 0 0 1.683-.841l-1.385-2.769a.95.95 0 0 0-.018-.036l-3.476-6.951a.94.94 0 0 0-1.682 0l-1.82 3.639a7.423 7.423 0 0 1-3.593-1.256 9.303 9.303 0 0 0 2.27-5.203h1.894a.94.94 0 0 0 0-1.881H9.456V3.94A.94.94 0 0 0 8.516 3Zm6.426 11.794a1.068 1.068 0 0 1-.02.039l-.703 1.407h3.924l-1.962-3.924-1.24 2.478Z" clip-rule="evenodd"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="/reference/evidence/f2-cost-engine/" class="astro-btilxiwo">English</option><option value="/zh-cn/reference/evidence/f2-cost-engine/" selected class="astro-btilxiwo">简体中文</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-lang-select><script type="module">var e=class extends HTMLElement{constructor(){super();let e=this.querySelector(`select`);e&&(e.addEventListener(`change`,e=>{e.currentTarget instanceof HTMLSelectElement&&(window.location.pathname=e.currentTarget.value)}),window.addEventListener(`pageshow`,t=>{if(!t.persisted)return;let n=e.querySelector(`option[selected]`)?.index;n!==e.selectedIndex&&(e.selectedIndex=n??0)}))}};customElements.define(`starlight-lang-select`,e);</script><script type="module" src="/_astro/LanguageSelect.astro_astro_type_script_index_0_lang.DH65a7yi.js"></script></div></div></header><nav class="sidebar print:hidden astro-7ol3m3p7" aria-label="主要"><button popovertarget="starlight__sidebar" class="sl-menu-button sl-flex md:sl-hidden print:hidden astro-dcnpphyu"><svg aria-hidden="true" class="open-menu astro-dcnpphyu astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"/></svg><svg aria-hidden="true" class="close-menu astro-dcnpphyu astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"/></svg><span class="sr-only astro-dcnpphyu">菜单</span></button><script type="module">var e=class extends HTMLElement{constructor(){super();let e=matchMedia(`(min-width: 50em)`),t=()=>{this.popover=e.matches?null:`auto`};t(),e.addEventListener(`change`,()=>t()),this.addEventListener(`toggle`,({newState:e})=>this.trapFocus(e===`open`))}trapFocus(e){document.querySelectorAll(`.main-frame, .sl-skip-link`).forEach(t=>{t.toggleAttribute(`inert`,e)})}};customElements.define(`sl-sidebar-pane`,e);</script><sl-sidebar-pane popover id="starlight__sidebar" class="sidebar-pane astro-7ol3m3p7"><div class="sidebar-content sl-flex astro-7ol3m3p7"><sl-sidebar-state-persist data-hash="0llvynh" class="astro-lsvsit3p"><script aria-hidden="true">
+		(() => {
+			try {
+				if (!matchMedia('(min-width: 50em)').matches) return;
+				/** @type {HTMLElement | null} */
+				const target = document.querySelector('sl-sidebar-state-persist');
+				const state = JSON.parse(sessionStorage.getItem('sl-sidebar-state') || '0');
+				if (!target || !state || target.dataset.hash !== state.hash) return;
+				window._starlightScrollRestore = state.scroll;
+				customElements.define(
+					'sl-sidebar-restore',
+					class SidebarRestore extends HTMLElement {
+						connectedCallback() {
+							try {
+								const idx = parseInt(this.dataset.index || '');
+								const details = this.closest('details');
+								if (details && typeof state.open[idx] === 'boolean') details.open = state.open[idx];
+							} catch {}
+						}
+					}
+				);
+			} catch {}
+		})();
+	</script><ul class="top-level astro-ykcsoi7s"><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">开始使用</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="0"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">用户指南</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="1"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">开发指南</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="2"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">设计说明</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="3"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">开发验证记录</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="4"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">项目说明</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="5"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">测试数据说明</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="6"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li></ul><script aria-hidden="true">
+		(() => {
+			const scroller = document.getElementById('starlight__sidebar');
+			if (!window._starlightScrollRestore || !scroller) return;
+			scroller.scrollTop = window._starlightScrollRestore;
+			delete window._starlightScrollRestore;
+		})();
+	</script></sl-sidebar-state-persist><div class="md:sl-hidden"><div class="mobile-preferences sl-flex astro-lsc3yx5w"><div class="social-icons astro-lsc3yx5w"><a href="https://github.com/owent/llm-usage" rel="me" class="sl-flex astro-csqdcj5u"><span class="sr-only astro-csqdcj5u">GitHub</span><svg aria-hidden="true" class="astro-csqdcj5u astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a></div><starlight-theme-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">选择主题</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="light" class="astro-btilxiwo">浅色</option><option value="dark" class="astro-btilxiwo">深色</option><option value="auto" selected class="astro-btilxiwo">自动</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-theme-select><script>window.LLMUsageDocsTheme.updatePickers();</script><starlight-lang-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">选择语言</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path fill-rule="evenodd" d="M8.516 3a.94.94 0 0 0-.941.94v1.15H2.94a.94.94 0 1 0 0 1.882h7.362a7.422 7.422 0 0 1-1.787 3.958 7.42 7.42 0 0 1-1.422-2.425.94.94 0 1 0-1.774.627 9.303 9.303 0 0 0 1.785 3.043 7.422 7.422 0 0 1-4.164 1.278.94.94 0 1 0 0 1.881 9.303 9.303 0 0 0 5.575-1.855 9.303 9.303 0 0 0 4.11 1.74l-.763 1.525a.968.968 0 0 0-.016.034l-1.385 2.77a.94.94 0 1 0 1.683.841l1.133-2.267h5.806l1.134 2.267a.94.94 0 0 0 1.683-.841l-1.385-2.769a.95.95 0 0 0-.018-.036l-3.476-6.951a.94.94 0 0 0-1.682 0l-1.82 3.639a7.423 7.423 0 0 1-3.593-1.256 9.303 9.303 0 0 0 2.27-5.203h1.894a.94.94 0 0 0 0-1.881H9.456V3.94A.94.94 0 0 0 8.516 3Zm6.426 11.794a1.068 1.068 0 0 1-.02.039l-.703 1.407h3.924l-1.962-3.924-1.24 2.478Z" clip-rule="evenodd"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="/reference/evidence/f2-cost-engine/" class="astro-btilxiwo">English</option><option value="/zh-cn/reference/evidence/f2-cost-engine/" selected class="astro-btilxiwo">简体中文</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-lang-select></div></div></div></sl-sidebar-pane></nav><div class="main-frame astro-7ol3m3p7"><script type="module">var e=document.getElementById(`starlight__sidebar`),t=e?.querySelector(`sl-sidebar-state-persist`),n=`sl-sidebar-state`,r=()=>{let r=[],i=t?.dataset.hash||``;try{let e=sessionStorage.getItem(n),t=JSON.parse(e||`{}`);Array.isArray(t.open)&&t.hash===i&&(r=t.open)}catch{}return{hash:i,open:r,scroll:e?.scrollTop||0}},i=e=>{try{sessionStorage.setItem(n,JSON.stringify(e))}catch{}},a=()=>i(r()),o=(e,t)=>{let n=r();n.open[t]=e,i(n)};t?.addEventListener(`click`,e=>{if(!(e.target instanceof Element))return;let t=e.target.closest(`summary`)?.closest(`details`);if(!t)return;let n=t.querySelector(`sl-sidebar-restore`),r=parseInt(n?.dataset.index||``);isNaN(r)||o(!t.open,r)}),addEventListener(`visibilitychange`,()=>{document.visibilityState===`hidden`&&a()});</script><div class="lg:sl-flex astro-rcl3dmqm"><aside class="right-sidebar-container print:hidden astro-rcl3dmqm"><div class="right-sidebar astro-rcl3dmqm"><div class="lg:sl-hidden astro-fjp5q7r4"><mobile-starlight-toc data-min-h="2" data-max-h="3" class="astro-6exeh6u7"><nav aria-labelledby="starlight__on-this-page--mobile" class="astro-6exeh6u7"><details id="starlight__mobile-toc" class="astro-6exeh6u7"><summary id="starlight__on-this-page--mobile" class="sl-flex astro-6exeh6u7"><span class="toggle sl-flex astro-6exeh6u7">本页内容<svg aria-hidden="true" class="caret astro-6exeh6u7 astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></span><span class="display-current astro-6exeh6u7"></span></summary><div class="dropdown astro-6exeh6u7"><ul class="isMobile astro-g6ctc22k" style="--depth: 0;"><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#_top" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">概述</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#实施内容" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">实施内容</span></a><ul class="isMobile astro-g6ctc22k" style="--depth: 1;"><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#1-价格-schema任务-1schema_version-78" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">1. 价格 schema（任务 1；SCHEMA_VERSION 7→8）</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#2-种子快照与导入任务-2" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">2. 种子快照与导入（任务 2）</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#3-估算引擎任务-3纯函数-pricingrs" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">3. 估算引擎（任务 3；纯函数 pricing.rs）</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#4-日成本回填与汇总任务-4" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">4. 日成本回填与汇总（任务 4）</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#6-命令与界面任务-6" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">6. 命令与界面（任务 6）</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#7-v29-验收任务-7" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">7. V29 验收（任务 7）</span></a></li></ul></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#测试与命令windows-11-x64仓库根desktopsrc-tauri" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">测试与命令（Windows 11 x64，仓库根/desktop/src-tauri）</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#缺口与后置项如实登记" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">缺口与后置项（如实登记）</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#复核修复2026-09-30-第二轮" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">复核修复（2026-09-30 第二轮）</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#统一检查补跑2026-09-30本轮改动后" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">统一检查补跑（2026-09-30，本轮改动后）</span></a></li></ul></div></details></nav></mobile-starlight-toc><script type="module" src="/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.C3fM4Kra.js"></script></div><div class="right-sidebar-panel sl-hidden lg:sl-block astro-fjp5q7r4"><div class="sl-container astro-fjp5q7r4"><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">本页内容</h2><ul class="astro-g6ctc22k" style="--depth: 0;"><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#_top" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">概述</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#实施内容" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">实施内容</span></a><ul class="astro-g6ctc22k" style="--depth: 1;"><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#1-价格-schema任务-1schema_version-78" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">1. 价格 schema（任务 1；SCHEMA_VERSION 7→8）</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#2-种子快照与导入任务-2" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">2. 种子快照与导入（任务 2）</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#3-估算引擎任务-3纯函数-pricingrs" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">3. 估算引擎（任务 3；纯函数 pricing.rs）</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#4-日成本回填与汇总任务-4" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">4. 日成本回填与汇总（任务 4）</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#6-命令与界面任务-6" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">6. 命令与界面（任务 6）</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#7-v29-验收任务-7" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">7. V29 验收（任务 7）</span></a></li></ul></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#测试与命令windows-11-x64仓库根desktopsrc-tauri" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">测试与命令（Windows 11 x64，仓库根/desktop/src-tauri）</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#缺口与后置项如实登记" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">缺口与后置项（如实登记）</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#复核修复2026-09-30-第二轮" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">复核修复（2026-09-30 第二轮）</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#统一检查补跑2026-09-30本轮改动后" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">统一检查补跑（2026-09-30，本轮改动后）</span></a></li></ul></nav></starlight-toc><script type="module" src="/_astro/TableOfContents.astro_astro_type_script_index_0_lang.BpJaGz7G.js"></script></div></div></div></aside><div class="main-pane astro-rcl3dmqm"><main data-pagefind-body class="astro-i2f5rvhd" lang="zh-CN" dir="ltr"><div class="content-panel astro-ptfq3z6k"><div class="sl-container astro-ptfq3z6k"><h1 id="_top" class="astro-5fsxzwfk">F2 费用估算引擎实施验证记录（2026-09-30）</h1></div></div><div class="content-panel astro-ptfq3z6k"><div class="sl-container astro-ptfq3z6k"><div class="sl-markdown-content"><p><a id="f2-费用估算引擎实施验证记录2026-09-30"></a></p>
+<p><a id="f2-cost-estimation-implementation-checks-2026-09-30"></a></p>
+<p>范围：<a href="/zh-cn/reference/design/pricing/">价格规范</a>实施任务 1–4、6–7（任务 5
+可选在线刷新显式后置）。schema v8、种子快照、估算引擎、日成本回填、汇总查询、
+命令与界面、V29 格式测试。不提交、不推送、不部署。
+本页保留最初实施；后续<a href="/zh-cn/reference/evidence/pricing-archive-repair/">归档与精度修复</a>已替代逐分项提前舍入、
+当前参考仅读取明细等旧行为。现行规则以价格规范为准。</p>
+<p><a id="implemented-features"></a></p>
+<h2 id="实施内容">实施内容</h2>
+<p><a id="1-price-schema-task-1-schema_version-78"></a></p>
+<h3 id="1-价格-schema任务-1schema_version-78">1. 价格 schema（任务 1；SCHEMA_VERSION 7→8）</h3>
+<p><code>crates/core/src/storage/schema.rs</code>：<code>price_snapshots</code>（快照元数据：来源类型/URL/
+检索与核验时间/内容哈希 FNV-1a/许可/核验人）+ <code>price_versions</code> 重定义（region/
+channel 必填、service_tier、context_threshold_tokens、五档价格列 +
+cache_storage 小时价，单位=最小货币单位百分之一/百万 token）+ <code>daily_cost_usage</code>
+（日成本回填：分 tz/日/来源/模型/币种/kind 滚动，kind =
+estimate_at_time / reported / source_estimate；未计价计数与原因直方图记在
+currency=‘’ 行；sealed 语义与 daily_usage 一致）。
+预发布规则（2026-09-26 用户决策）：不做逐版本迁移，版本不匹配走既有
+“备份→重建→重扫”路径（v7 本机库升级时会触发该提示）。</p>
+<p>保留清理实现（retention_tiered.rs）：明细过期时封存日成本行（历史金额不改写）；
+日层清理时同步清理日成本行（随 daily_days 保留期）。</p>
+<p><a id="2-seed-snapshots-and-import-task-2"></a></p>
+<h3 id="2-种子快照与导入任务-2">2. 种子快照与导入（任务 2）</h3>
+<ul>
+<li><code>crates/core/prices/seed-2026-09-25.json</code>：19 行价格，来源=官方页正文
+（pricing.md S01/S03/S07/S09/S10/S15/S17，检索日 2026-09-25）。
+覆盖 openai（gpt-6-astra/gpt-6-sol；GPT-6 长档阈值未官方复核不收录）、
+moonshot 双渠道双币（kimi-k3 / kimi-k2.7-code；CN 站缓存写分项未公示不建行）、
+zhipuai bigmodel（GLM-5.3/5.2/5.3-Flash 限时五折/5.1 两档；缓存存储限时免费
+政策性记 0 并标注）、zai 国际（含 $0.075/M 的 flashx 缓存读——非整分值，
+百分之一单位可表达）、anthropic（尚未确认模型 ID 与本机记录对应，注释标注）、
+google（3.8 Flash 2026-12-31 前价 + 2027-01-01 起调价预登记为未来区间行；
+2027 行仅输入价已公示，其余分项 NULL）。</li>
+<li>校验（pricing.rs <code>PriceSnapshot::from_file</code>）：格式标记、币种枚举
+（USD/CNY）、服务档枚举、价格非负、生效区间合法、同键区间不重叠
+（to=NULL 视为开放，其后不得再有同键行）、行内 price_id 唯一、
+seed/community 必须带来源 URL。</li>
+<li>重复导入不重复新增（A10）：同快照 ID 同内容哈希跳过；同 ID 异内容报错
+（修正须换快照 ID）；price_id 跨快照冲突拒绝。应用启动
+（AppState::init）导入种子时不重复新增，失败不阻塞采集。</li>
+</ul>
+<p><a id="3-estimation-task-3-pricingrs-pure-functions"></a></p>
+<h3 id="3-估算引擎任务-3纯函数-pricingrs">3. 估算引擎（任务 3；纯函数 <code>pricing.rs</code>）</h3>
+<p>匹配顺序：provider（casefold）→ 用户显式选定的 (region, channel)
+（未配置 ⇒ channel_unknown 不套价）→ model（canonical 优先，casefold 精确，
+不做别名推断）→ standard 档（batch/flex/fast 不串用，A4）→ 半开生效区间
+（at_time 按事件 occurred_at；current_sim 按评估时点）→ 上下文档
+（多档且输入规模未知 ⇒ tier_ambiguous 不猜档；已知则取最大满足档）。</p>
+<p>分项计价：未缓存输入（显式值，否则 total−read−write 三者已知时派生）、
+缓存读、缓存写（TTL 档由用户默认选定——事件无 TTL 记录，未设默认档则写分量
+不计价，A6）、输出。金额 = round_half_up(token × 价格 / 1e8)，i128 中间量，
+逐分量四舍五入到最小货币单位后累加。推理子集无价格行、绝不重复计价（A3）。
+异常 token（负值、缓存读写合计大于已知总输入）整条拒绝（A8，不用 max(0,…)）。
+计价覆盖标记：priced_tokens / known_tokens + has_unknown_components
+（输出或未缓存输入未知 ⇒ 部分估算，A2）。</p>
+<p><a id="4-daily-backfill-and-summaries-task-4"></a></p>
+<h3 id="4-日成本回填与汇总任务-4">4. 日成本回填与汇总（任务 4）</h3>
+<ul>
+<li><code>recompute_cost_day</code>（storage/pricing.rs）：只重写未封存日；该日无明细事件
+不重建（历史行可能来自已过期明细）。事件批次后由 scanner 在
+pricing.enabled 时按“本轮数据修订触及的未封存日”自动回填；
+显式重算命令（后台线程）回填全部仍有明细的未封存日。价格快照导入
+不触发重算（既有估算不被后台更新改写）。</li>
+<li><code>cost_summary</code>：按发生时价（持久化日成本行，引用 price_basis 快照集合 +
+data_revision）与来源金额来自 daily_cost_usage；按当前价格模拟即时计算
+仍保留的明细事件并标 detail_limited（明细过期后无法模拟）。多币种分列
+小计，不合并（E8）；未计价原因直方图分列。</li>
+</ul>
+<p><a id="6-commands-and-ui-task-6"></a></p>
+<h3 id="6-命令与界面任务-6">6. 命令与界面（任务 6）</h3>
+<ul>
+<li>命令：<code>cost_summary</code>、<code>recompute_costs</code>（后台线程 + 操作日志）、
+<code>list_price_snapshots</code>、<code>import_price_snapshot</code>（文件路径手工导入）。</li>
+<li>设置（AppSettings.pricing，默认关闭）：enabled 开关 + 供应商默认表
+（provider/region/channel/TTL 5m|1h），随设置保存持久化。</li>
+<li>界面：设置新增“费用”页（开关、提示、快照列表+导入+重算、供应商默认编辑）；
+趋势页新增“费用估算（参考）“面板（未启用时不渲染，布局持久化不动），
+三列分币种展示 + 覆盖/部分/未计价标注 + 快照基础。i18n 新增 26 键 ×10 语言。</li>
+</ul>
+<p><a id="7-v29-acceptance-task-7"></a></p>
+<h3 id="7-v29-验收任务-7">7. V29 验收（任务 7）</h3>
+<ul>
+<li>单测（pricing.rs，9 项）：种子解析、负价/区间重叠拒绝、金额舍入
+（987.6536→988、2.8→3、26.2144→26）、渠道未配置不套价、异常拒绝、
+档位选择（E6/E7 数值）、TTL 默认档、派生未缓存输入、快照生效前事件不套价。</li>
+<li>格式测试（tests/pricing_v29.rs，3 项）：P1–P6 + A4 batch 对照行的完整
+管线（导入→ingest→回填→汇总）；E1（2056 分）/E3（714 美分）/E4（604）/
+E5（312）/E6（29 分）/E7（22 分）逐项断言；A1/A2/A3/A4/A5/A6/A8/A10
+行为断言；E8 双币种分列；A7 按发生时价与按当前价格模拟分列（09-20 事件
+at_time 未计价、current_sim 803 分）；渠道不明不套价；重复导入种子不新增价格条目。</li>
+<li>E2 原示例输入合计 1.3M，达到 P3 的 ≥272K 条件；手工计算为
+2000+40+250+1875=4165 美分。当前 pricing_v29.rs 检查缩小至 130K 的 E2′
+（P2：100+2+13+125=240 美分）与 P2/P3 阈值边界。当前源码没有独立原始
+1.3M 输入用例；不把计算示例描述为已执行测试。pricing.md 已同步。</li>
+<li>未执行项：A9（在线刷新失败回退）——在线刷新未实施（见缺口）；真实数据
+只读核对——本机已有数据的 GLM/Kimi 事件 provider_id 拼写与渠道归属
+需逐 Agent 核验后才能选定快照行，当前默认全部 channel_unknown 未计价
+（符合“渠道不明不套价”），待用户在设置中配置渠道默认后产生真实估算。</li>
+</ul>
+<p><a id="tests-and-commands-windows-11-x64-rootdesktopsrc-tauri"></a></p>
+<h2 id="测试与命令windows-11-x64仓库根desktopsrc-tauri">测试与命令（Windows 11 x64，仓库根/desktop/src-tauri）</h2>
+<table>
+<thead>
+<tr>
+<th>命令</th>
+<th>退出码</th>
+<th>结果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cargo test -p llm-usage-core --lib pricing</code></td>
+<td>0</td>
+<td>9 项通过</td>
+</tr>
+<tr>
+<td><code>cargo test -p llm-usage-core --test pricing_v29</code></td>
+<td>0</td>
+<td>5 项通过（含分组筛选语义与选日修订号限制）</td>
+</tr>
+<tr>
+<td><code>cargo test -p llm-usage-core</code></td>
+<td>0</td>
+<td>全量 66 个测试目标全绿</td>
+</tr>
+<tr>
+<td><code>cargo test -p llm-usage-desktop</code></td>
+<td>0</td>
+<td>15 项通过（含时区分区重建）</td>
+</tr>
+<tr>
+<td><code>cargo clippy --workspace --all-targets -- -D warnings</code></td>
+<td>0</td>
+<td>通过</td>
+</tr>
+<tr>
+<td><code>cargo fmt --all --check</code></td>
+<td>0</td>
+<td>通过</td>
+</tr>
+<tr>
+<td><code>npm --prefix desktop run check</code>（svelte-check）</td>
+<td>0</td>
+<td>0 错误 0 警告</td>
+</tr>
+<tr>
+<td><code>npm run test:ui</code> / <code>test:scripts</code></td>
+<td>0</td>
+<td>8 项 + 脚本测试通过</td>
+</tr>
+</tbody>
+</table>
+<p><code>npm run verify</code> 完整流程与 <code>npm run test:browser</code> 在本轮改动后重跑（见下）。</p>
+<p><a id="remaining-work-at-this-stage"></a></p>
+<h2 id="缺口与后置项如实登记">缺口与后置项（如实登记）</h2>
+<ol>
+<li><strong>任务 5 可选在线刷新未实施</strong>（默认关闭的功能）：当前仅手工导入/仓库种子。
+官方页无机器可读接口（Moonshot .md 除外），实施需逐渠道解析器；
+A9 场景随该任务执行。</li>
+<li><strong>快照新鲜度展示有限</strong>：面板显示 price_basis 快照 ID；fetched_at 在设置页
+快照列表可见，趋势面板未显示日期。</li>
+<li><strong>真实数据端到端估算未发生</strong>：需用户配置供应商渠道默认（设置 → 费用）；
+GLM 系本机事件 provider_id 拼写与 bigmodel/z.ai 渠道归属未逐 Agent 核验。</li>
+<li><strong>估算行不含缓存存储费</strong>（cache_storage 小时价列已建、引擎未计价）：
+事件未提供存储时长，计费需要存储时间序列，后置。</li>
+<li>usage_observation（Hermes 形态区间汇总）不参与计价：区间汇总无输入拆分，
+仅 total 不能套价（数据规则），如实排除。</li>
+<li>schema v8 升级会使既有 v7 本机库走“备份→重建→重扫”提示路径（预发布规则）。</li>
+</ol>
+<p><a id="review-repairs-second-round-2026-09-30"></a></p>
+<h2 id="复核修复2026-09-30-第二轮">复核修复（2026-09-30 第二轮）</h2>
+<p>首轮实施后的自查发现并修复三处缺陷，均补测试或修正文档：</p>
+<ol>
+<li><strong>扫描后回填选不到日（功能性）</strong>：费用回填原先按“当前 data_revision =”
+过滤，但分级保留在扫描后会再 bump 修订号，过滤恒为空 → 自动回填从不
+触发。改为在刷新起点捕获 <code>revision_before</code>、经 <code>cost_backfill_days_since</code>
+（core 可测方法）按 <code>data_revision &gt;</code> 选择本轮重写的未封存日；新增测试
+<code>v29_backfill_day_selection_uses_revision_floor</code> 固化语义（含封存日不入选、
+无新写入为空集）。</li>
+<li><strong>分组筛选空值语义错误（功能性）</strong>：cost_summary 与
+collect_events_for_pricing 的 provider/model 筛选原先无条件包含空值事件
+（<code>OR provider_id = ''</code>），与 query::Filters 的 “unknown” 语义不一致——
+筛选具体供应商时不应计入无供应商事件。改为共享 <code>fold_filter_condition</code>：
+casefold 后匹配允许值；仅当筛选值含 “unknown” 时空值/NULL 命中。
+新增格式测试 <code>v29_dimension_filters_do_not_include_empty_values</code>
+（openai 筛选 9500 美分不含无供应商事件；unknown 筛选命中 no_provider
+未计价；glm-5.3 模型筛选 3600 分）。</li>
+<li><strong>TTL 下拉绑定与设置校验</strong>：select 原用 <code>bind:value={null}</code> 依赖运行时
+类型保真，改为字符串 onchange 显式转换；<code>set_settings</code> 增加 F2 校验
+（供应商默认字段非空、TTL 仅 5/60 分钟），非法值拒绝保存。</li>
+</ol>
+<p>配套完善：设置保存且费用启用时自动触发一次后台重算（重复执行结果稳定；否则启用后
+既有明细需等下一次采集才回填）；时区重建清理其他时区的未封存日成本行
+（封存历史保留，与 daily 分区语义一致）；费用面板在“全部未计价”时也显示
+未计价计数与原因（原先被“暂无数据”遮蔽）。</p>
+<p>文档同步：pricing.md 快照格式节改为实施定案并补导入 JSON 示例与校验规则；
+validation.md V29 执行状态两处更新；README.md（范围映射）费用两行更新；
+i18n.md 键数 292 → 329（M6 基线 292 + 后续递增，F2 新增 26）。</p>
+<p><a id="full-checks-rerun-after-changes-2026-09-30"></a></p>
+<p><a id="门禁补跑2026-09-30本轮改动后"></a></p>
+<h2 id="统一检查补跑2026-09-30本轮改动后">统一检查补跑（2026-09-30，本轮改动后）</h2>
+<p><code>npm run verify</code>（仓库根）退出码 0：markdownlint、资产检查、脚本/UI 测试、
+svelte-check（0 错误 0 警告）、cargo fmt/clippy（-D warnings）、Rust 全量测试、
+vite 构建全通过。<code>npm run test:browser</code> 退出码 0（日历热图、十语言、主题、
+时区、过期响应、用户隔离、成员、分页、空闲轮询检查通过）。</p>
+</div><footer class="sl-flex astro-q3cosrfy"><div class="meta sl-flex astro-q3cosrfy"><a href="https://github.com/owent/llm-usage/edit/main/docs/zh-CN/docs/validation/desktop-usage/f2-cost-engine.md" class="sl-flex print:hidden astro-okj6rzri"><svg aria-hidden="true" class="astro-okj6rzri astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.2em;"><path d="M22 7.24a1 1 0 0 0-.29-.71l-4.24-4.24a1 1 0 0 0-1.1-.22 1 1 0 0 0-.32.22l-2.83 2.83L2.29 16.05a1 1 0 0 0-.29.71V21a1 1 0 0 0 1 1h4.24a1 1 0 0 0 .76-.29l10.87-10.93L21.71 8c.1-.1.17-.2.22-.33a1 1 0 0 0 0-.24v-.14l.07-.05ZM6.83 20H4v-2.83l9.93-9.93 2.83 2.83L6.83 20ZM18.17 8.66l-2.83-2.83 1.42-1.41 2.82 2.82-1.41 1.42Z"/></svg>编辑此页</a></div><div class="pagination-links print:hidden astro-vd7os7a3" dir="ltr"></div></footer></div></div></main></div></div></div></div></body></html>

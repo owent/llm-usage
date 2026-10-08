@@ -1,0 +1,291 @@
+<!DOCTYPE html><html lang="en" dir="ltr" data-theme="dark" data-has-toc data-has-sidebar class="astro-i2f5rvhd"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>M5 telemetry and historical remaining work: Second checks, 2026-09-29 | LLM Usage</title><link rel="canonical" href="https://llm-usage.atframe.work/reference/evidence/m5-telemetry-remainders/"/><link rel="alternate" hreflang="en" href="https://llm-usage.atframe.work/reference/evidence/m5-telemetry-remainders/"/><link rel="alternate" hreflang="zh-CN" href="https://llm-usage.atframe.work/zh-cn/reference/evidence/m5-telemetry-remainders/"/><link rel="alternate" hreflang="x-default" href="https://llm-usage.atframe.work/reference/evidence/m5-telemetry-remainders/"/><link rel="sitemap" href="/sitemap-index.xml"/><link rel="shortcut icon" href="/favicon.svg" type="image/svg+xml"/><meta name="generator" content="Astro v7.3.6"/><meta name="generator" content="Starlight v0.42.5"/><meta property="og:title" content="M5 telemetry and historical remaining work: Second checks, 2026-09-29"/><meta property="og:type" content="article"/><meta property="og:url" content="https://llm-usage.atframe.work/reference/evidence/m5-telemetry-remainders/"/><meta property="og:locale" content="en"/><meta property="og:description" content="Understand the AI usage recorded on your computer."/><meta property="og:site_name" content="LLM Usage"/><meta name="twitter:card" content="summary_large_image"/><meta name="description" content="Understand the AI usage recorded on your computer."/><meta name="color-scheme" content="light dark"><script type="module" src="/_astro/Head.astro_astro_type_script_index_0_lang.CRxMF9Ma.js"></script><script>
+  (() => {
+    const scheme = matchMedia('(prefers-color-scheme: dark)');
+    let choice = 'auto';
+    try {
+      const saved = localStorage.getItem('starlight-theme');
+      if (saved === 'light' || saved === 'dark') choice = saved;
+    } catch { /* System theme remains available without browser storage. */ }
+    function updatePickers() {
+      document.querySelectorAll('starlight-theme-select').forEach(picker => {
+        const select = picker.querySelector('select');
+        if (select) select.value = choice;
+        const icon = document.querySelector('#docs-theme-icons')?.content.querySelector('.' + choice);
+        const target = picker.querySelector('svg.label-icon');
+        if (icon && target) target.replaceChildren(...icon.cloneNode(true).childNodes);
+      });
+    }
+    function apply(theme, persist = false) {
+      choice = theme === 'light' || theme === 'dark' ? theme : 'auto';
+      document.documentElement.dataset.theme = choice === 'auto' ? scheme.matches ? 'dark' : 'light' : choice;
+      updatePickers();
+      if (persist) {
+        try { localStorage.setItem('starlight-theme', choice === 'auto' ? '' : choice); }
+        catch { /* The current page still changes theme. */ }
+      }
+    }
+    window.LLMUsageDocsTheme = { apply, updatePickers };
+    scheme.addEventListener('change', () => { if (choice === 'auto') apply('auto'); });
+    apply(choice);
+  })();
+</script><template id="docs-theme-icons"><svg aria-hidden="true" class="light astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg><svg aria-hidden="true" class="dark astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="auto astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg></template><link rel="stylesheet" href="/_astro/print.ehPL0gv-.css" media="print"><link rel="stylesheet" href="/_astro/common.CLGr15ze.css"><style>@layer starlight.components{.card:where(.astro-eiplrasj){--sl-card-border:var(--sl-color-purple);--sl-card-bg:var(--sl-color-purple-low);border:1px solid var(--sl-color-gray-5);background-color:var(--sl-color-black);flex-direction:column;gap:clamp(.5rem,.125rem + 1vw,1rem);padding:clamp(1rem,.125rem + 3vw,2.5rem)}.card:where(.astro-eiplrasj):nth-child(4n+1){--sl-card-border:var(--sl-color-orange);--sl-card-bg:var(--sl-color-orange-low)}.card:where(.astro-eiplrasj):nth-child(4n+3){--sl-card-border:var(--sl-color-green);--sl-card-bg:var(--sl-color-green-low)}.card:where(.astro-eiplrasj):nth-child(4n+4){--sl-card-border:var(--sl-color-red);--sl-card-bg:var(--sl-color-red-low)}.card:where(.astro-eiplrasj):nth-child(4n+5){--sl-card-border:var(--sl-color-blue);--sl-card-bg:var(--sl-color-blue-low)}.title:where(.astro-eiplrasj){font-weight:600;font-size:var(--sl-text-h4);color:var(--sl-color-white);line-height:var(--sl-line-height-headings);align-items:center;gap:1rem}.card:where(.astro-eiplrasj) .icon:where(.astro-eiplrasj){border:1px solid var(--sl-card-border);background-color:var(--sl-card-bg);border-radius:.25rem;flex-shrink:0;padding:.2em}.card:where(.astro-eiplrasj) .body:where(.astro-eiplrasj){font-size:clamp(var(--sl-text-sm), calc(.5rem + 1vw), var(--sl-text-body));margin:0}.card-grid:where(.astro-t7b7g7fk){grid-template-columns:100%;gap:1rem;display:grid}.card-grid:where(.astro-t7b7g7fk)>*{margin-top:0!important}@media (width>=50rem){.card-grid:where(.astro-t7b7g7fk){grid-template-columns:1fr 1fr;gap:1.5rem}.stagger:where(.astro-t7b7g7fk){--stagger-height:5rem;padding-bottom:var(--stagger-height)}.stagger:where(.astro-t7b7g7fk)>:nth-child(2n){transform:translateY(var(--stagger-height))}}.sl-link-card:where(.astro-6ghwbfyk){border:1px solid var(--sl-color-gray-5);box-shadow:var(--sl-shadow-sm);border-radius:.5rem;grid-template-columns:1fr auto;gap:.5rem;padding:1rem;display:grid;position:relative}a:where(.astro-6ghwbfyk){line-height:var(--sl-line-height-headings);text-decoration:none}a:where(.astro-6ghwbfyk):before{content:"";position:absolute;inset:0}.stack:where(.astro-6ghwbfyk){flex-direction:column;gap:.5rem}.title:where(.astro-6ghwbfyk){color:var(--sl-color-white);font-weight:600;font-size:var(--sl-text-lg)}.description:where(.astro-6ghwbfyk){color:var(--sl-color-gray-3);line-height:1.5}.icon:where(.astro-6ghwbfyk){color:var(--sl-color-gray-3)}.sl-link-card:where(.astro-6ghwbfyk):hover{background:var(--sl-color-gray-7,var(--sl-color-gray-6));border-color:var(--sl-color-gray-2)}.sl-link-card:where(.astro-6ghwbfyk):hover .icon:where(.astro-6ghwbfyk){color:var(--sl-color-white)}}.app-screenshot:where(.astro-ofe7zldm){margin:1.5rem 0 2.5rem}.screenshot-frame:where(.astro-ofe7zldm){border:1px solid var(--sl-color-gray-5);background:var(--sl-color-bg);border-radius:1rem;box-shadow:0 16px 48px #00000018}.screenshot-frame:where(.astro-ofe7zldm) a:where(.astro-ofe7zldm){border-radius:inherit;display:block}.screenshot-frame:where(.astro-ofe7zldm) img:where(.astro-ofe7zldm){border-radius:inherit;width:100%;height:auto;box-shadow:none;border:0;margin:0;display:block}.screenshot-frame:where(.astro-ofe7zldm) .screenshot-dark:where(.astro-ofe7zldm),:root[data-theme=dark] .screenshot-light:where(.astro-ofe7zldm){display:none}:root[data-theme=dark] .screenshot-dark:where(.astro-ofe7zldm){display:block}figcaption:where(.astro-ofe7zldm){color:var(--sl-color-gray-2);flex-wrap:wrap;justify-content:space-between;gap:.25rem 1rem;margin-top:.75rem;font-size:.875rem;line-height:1.6;display:flex}.screenshot-hint:where(.astro-ofe7zldm){color:var(--sl-color-text-accent)}
+@layer starlight.components{svg:where(.astro-iwaxdyvu){color:var(--sl-icon-color);font-size:var(--sl-icon-size,1em);width:1em;height:1em}}
+</style><script type="module" src="/_astro/page.Dwipeu-R.js"></script></head><body class="astro-i2f5rvhd"><a class="sl-skip-link astro-af3xnx6k" href="#_top">Skip to content</a><div class="page sl-flex astro-7ol3m3p7"><header class="header astro-7ol3m3p7"><div class="header astro-qqelxyz2"><div class="title-wrapper sl-flex astro-qqelxyz2"><a href="/" class="site-title sl-flex astro-pm7u5y3t"><img class="astro-pm7u5y3t" alt src="/_astro/brand.BEXAYDnz.svg" width="1024" height="1024"><span class="astro-pm7u5y3t" translate="no">LLM Usage</span></a></div><div class="sl-flex print:hidden astro-qqelxyz2"><site-search class="astro-qqelxyz2 astro-veqdxac2" data-translations="{&quot;placeholder&quot;:&quot;Search&quot;}"><button data-open-modal disabled aria-label="Search" aria-keyshortcuts="Control+K" class="astro-veqdxac2"><svg aria-hidden="true" class="astro-veqdxac2 astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg><span class="sl-hidden md:sl-block astro-veqdxac2" aria-hidden="true">Search</span><kbd class="sl-hidden md:sl-flex astro-veqdxac2" style="display: none;"><kbd class="astro-veqdxac2">Ctrl</kbd><kbd class="astro-veqdxac2">K</kbd></kbd></button><dialog style="padding:0" aria-label="Search" class="astro-veqdxac2"><div class="dialog-frame sl-flex astro-veqdxac2"><button data-close-modal class="sl-flex md:sl-hidden astro-veqdxac2">Cancel</button><div class="search-container astro-veqdxac2"><div id="starlight__search" class="astro-veqdxac2"></div></div></div></dialog></site-search><script>
+	(() => {
+		const openBtn = document.querySelector('button[data-open-modal]');
+		const shortcut = openBtn?.querySelector('kbd');
+		if (!openBtn || !(shortcut instanceof HTMLElement)) return;
+		const platformKey = shortcut.querySelector('kbd');
+		if (platformKey && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
+			platformKey.textContent = '⌘';
+			openBtn.setAttribute('aria-keyshortcuts', 'Meta+K');
+		}
+		shortcut.style.display = '';
+	})();
+</script><script type="module" src="/_astro/Search.astro_astro_type_script_index_0_lang.Bumivpjo.js"></script></div><div class="sl-hidden md:sl-flex print:hidden right-group astro-qqelxyz2"><div class="sl-flex social-icons astro-qqelxyz2"><a href="https://github.com/owent/llm-usage" rel="me" class="sl-flex astro-csqdcj5u"><span class="sr-only astro-csqdcj5u">GitHub</span><svg aria-hidden="true" class="astro-csqdcj5u astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a></div><starlight-theme-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">Select theme</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="light" class="astro-btilxiwo">Light</option><option value="dark" class="astro-btilxiwo">Dark</option><option value="auto" selected class="astro-btilxiwo">Auto</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-theme-select><script>window.LLMUsageDocsTheme.updatePickers();</script><script type="module">document.addEventListener(`change`,e=>{let t=e.target;if(!(t instanceof HTMLSelectElement)||!t.closest(`starlight-theme-select`))return;let n=t.value===`light`||t.value===`dark`?t.value:`auto`;window.LLMUsageDocsTheme.apply(n,!0)});</script><starlight-lang-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">Select language</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path fill-rule="evenodd" d="M8.516 3a.94.94 0 0 0-.941.94v1.15H2.94a.94.94 0 1 0 0 1.882h7.362a7.422 7.422 0 0 1-1.787 3.958 7.42 7.42 0 0 1-1.422-2.425.94.94 0 1 0-1.774.627 9.303 9.303 0 0 0 1.785 3.043 7.422 7.422 0 0 1-4.164 1.278.94.94 0 1 0 0 1.881 9.303 9.303 0 0 0 5.575-1.855 9.303 9.303 0 0 0 4.11 1.74l-.763 1.525a.968.968 0 0 0-.016.034l-1.385 2.77a.94.94 0 1 0 1.683.841l1.133-2.267h5.806l1.134 2.267a.94.94 0 0 0 1.683-.841l-1.385-2.769a.95.95 0 0 0-.018-.036l-3.476-6.951a.94.94 0 0 0-1.682 0l-1.82 3.639a7.423 7.423 0 0 1-3.593-1.256 9.303 9.303 0 0 0 2.27-5.203h1.894a.94.94 0 0 0 0-1.881H9.456V3.94A.94.94 0 0 0 8.516 3Zm6.426 11.794a1.068 1.068 0 0 1-.02.039l-.703 1.407h3.924l-1.962-3.924-1.24 2.478Z" clip-rule="evenodd"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="/reference/evidence/m5-telemetry-remainders/" class="astro-btilxiwo">English</option><option value="/zh-cn/reference/evidence/m5-telemetry-remainders/" class="astro-btilxiwo">简体中文</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-lang-select><script type="module">var e=class extends HTMLElement{constructor(){super();let e=this.querySelector(`select`);e&&(e.addEventListener(`change`,e=>{e.currentTarget instanceof HTMLSelectElement&&(window.location.pathname=e.currentTarget.value)}),window.addEventListener(`pageshow`,t=>{if(!t.persisted)return;let n=e.querySelector(`option[selected]`)?.index;n!==e.selectedIndex&&(e.selectedIndex=n??0)}))}};customElements.define(`starlight-lang-select`,e);</script><script type="module" src="/_astro/LanguageSelect.astro_astro_type_script_index_0_lang.DH65a7yi.js"></script></div></div></header><nav class="sidebar print:hidden astro-7ol3m3p7" aria-label="Main"><button popovertarget="starlight__sidebar" class="sl-menu-button sl-flex md:sl-hidden print:hidden astro-dcnpphyu"><svg aria-hidden="true" class="open-menu astro-dcnpphyu astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"/></svg><svg aria-hidden="true" class="close-menu astro-dcnpphyu astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"/></svg><span class="sr-only astro-dcnpphyu">Menu</span></button><script type="module">var e=class extends HTMLElement{constructor(){super();let e=matchMedia(`(min-width: 50em)`),t=()=>{this.popover=e.matches?null:`auto`};t(),e.addEventListener(`change`,()=>t()),this.addEventListener(`toggle`,({newState:e})=>this.trapFocus(e===`open`))}trapFocus(e){document.querySelectorAll(`.main-frame, .sl-skip-link`).forEach(t=>{t.toggleAttribute(`inert`,e)})}};customElements.define(`sl-sidebar-pane`,e);</script><sl-sidebar-pane popover id="starlight__sidebar" class="sidebar-pane astro-7ol3m3p7"><div class="sidebar-content sl-flex astro-7ol3m3p7"><sl-sidebar-state-persist data-hash="1ekcnao" class="astro-lsvsit3p"><script aria-hidden="true">
+		(() => {
+			try {
+				if (!matchMedia('(min-width: 50em)').matches) return;
+				/** @type {HTMLElement | null} */
+				const target = document.querySelector('sl-sidebar-state-persist');
+				const state = JSON.parse(sessionStorage.getItem('sl-sidebar-state') || '0');
+				if (!target || !state || target.dataset.hash !== state.hash) return;
+				window._starlightScrollRestore = state.scroll;
+				customElements.define(
+					'sl-sidebar-restore',
+					class SidebarRestore extends HTMLElement {
+						connectedCallback() {
+							try {
+								const idx = parseInt(this.dataset.index || '');
+								const details = this.closest('details');
+								if (details && typeof state.open[idx] === 'boolean') details.open = state.open[idx];
+							} catch {}
+						}
+					}
+				);
+			} catch {}
+		})();
+	</script><ul class="top-level astro-ykcsoi7s"><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Start here</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="0"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">User guide</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="1"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Developer guide</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="2"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Design specifications</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="3"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Development records</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="4"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Project reference</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="5"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Test data</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="6"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li></ul><script aria-hidden="true">
+		(() => {
+			const scroller = document.getElementById('starlight__sidebar');
+			if (!window._starlightScrollRestore || !scroller) return;
+			scroller.scrollTop = window._starlightScrollRestore;
+			delete window._starlightScrollRestore;
+		})();
+	</script></sl-sidebar-state-persist><div class="md:sl-hidden"><div class="mobile-preferences sl-flex astro-lsc3yx5w"><div class="social-icons astro-lsc3yx5w"><a href="https://github.com/owent/llm-usage" rel="me" class="sl-flex astro-csqdcj5u"><span class="sr-only astro-csqdcj5u">GitHub</span><svg aria-hidden="true" class="astro-csqdcj5u astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a></div><starlight-theme-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">Select theme</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="light" class="astro-btilxiwo">Light</option><option value="dark" class="astro-btilxiwo">Dark</option><option value="auto" selected class="astro-btilxiwo">Auto</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-theme-select><script>window.LLMUsageDocsTheme.updatePickers();</script><starlight-lang-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">Select language</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path fill-rule="evenodd" d="M8.516 3a.94.94 0 0 0-.941.94v1.15H2.94a.94.94 0 1 0 0 1.882h7.362a7.422 7.422 0 0 1-1.787 3.958 7.42 7.42 0 0 1-1.422-2.425.94.94 0 1 0-1.774.627 9.303 9.303 0 0 0 1.785 3.043 7.422 7.422 0 0 1-4.164 1.278.94.94 0 1 0 0 1.881 9.303 9.303 0 0 0 5.575-1.855 9.303 9.303 0 0 0 4.11 1.74l-.763 1.525a.968.968 0 0 0-.016.034l-1.385 2.77a.94.94 0 1 0 1.683.841l1.133-2.267h5.806l1.134 2.267a.94.94 0 0 0 1.683-.841l-1.385-2.769a.95.95 0 0 0-.018-.036l-3.476-6.951a.94.94 0 0 0-1.682 0l-1.82 3.639a7.423 7.423 0 0 1-3.593-1.256 9.303 9.303 0 0 0 2.27-5.203h1.894a.94.94 0 0 0 0-1.881H9.456V3.94A.94.94 0 0 0 8.516 3Zm6.426 11.794a1.068 1.068 0 0 1-.02.039l-.703 1.407h3.924l-1.962-3.924-1.24 2.478Z" clip-rule="evenodd"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="/reference/evidence/m5-telemetry-remainders/" class="astro-btilxiwo">English</option><option value="/zh-cn/reference/evidence/m5-telemetry-remainders/" class="astro-btilxiwo">简体中文</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-lang-select></div></div></div></sl-sidebar-pane></nav><div class="main-frame astro-7ol3m3p7"><script type="module">var e=document.getElementById(`starlight__sidebar`),t=e?.querySelector(`sl-sidebar-state-persist`),n=`sl-sidebar-state`,r=()=>{let r=[],i=t?.dataset.hash||``;try{let e=sessionStorage.getItem(n),t=JSON.parse(e||`{}`);Array.isArray(t.open)&&t.hash===i&&(r=t.open)}catch{}return{hash:i,open:r,scroll:e?.scrollTop||0}},i=e=>{try{sessionStorage.setItem(n,JSON.stringify(e))}catch{}},a=()=>i(r()),o=(e,t)=>{let n=r();n.open[t]=e,i(n)};t?.addEventListener(`click`,e=>{if(!(e.target instanceof Element))return;let t=e.target.closest(`summary`)?.closest(`details`);if(!t)return;let n=t.querySelector(`sl-sidebar-restore`),r=parseInt(n?.dataset.index||``);isNaN(r)||o(!t.open,r)}),addEventListener(`visibilitychange`,()=>{document.visibilityState===`hidden`&&a()});</script><div class="lg:sl-flex astro-rcl3dmqm"><aside class="right-sidebar-container print:hidden astro-rcl3dmqm"><div class="right-sidebar astro-rcl3dmqm"><div class="lg:sl-hidden astro-fjp5q7r4"><mobile-starlight-toc data-min-h="2" data-max-h="3" class="astro-6exeh6u7"><nav aria-labelledby="starlight__on-this-page--mobile" class="astro-6exeh6u7"><details id="starlight__mobile-toc" class="astro-6exeh6u7"><summary id="starlight__on-this-page--mobile" class="sl-flex astro-6exeh6u7"><span class="toggle sl-flex astro-6exeh6u7">On this page<svg aria-hidden="true" class="caret astro-6exeh6u7 astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></span><span class="display-current astro-6exeh6u7"></span></summary><div class="dropdown astro-6exeh6u7"><ul class="isMobile astro-g6ctc22k" style="--depth: 0;"><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#_top" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Overview</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#local-data-changes-recheck-2026-09-29" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Local data changes: Recheck, 2026-09-29</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#m5-implementation" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">M5 implementation</span></a><ul class="isMobile astro-g6ctc22k" style="--depth: 1;"><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#1-copilot-cli-adapter-native-data-check-pass" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">1. Copilot CLI adapter: Native data check PASS</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#2-otel-spans-jsonl-adapter-document-based" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">2. OTel spans JSONL adapter: Document-based</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#3-local-otlphttp-receiver-src-taurisrcotel_receiverrs" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">3. Local OTLP/HTTP receiver: src-tauri/src/otel_receiver.rs</span></a></li></ul></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#m1-remaining-work-consistent-backup-and-space-checks-before-migrationrebuildclear" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">M1 remaining work: Consistent backup and space checks before migration/rebuild/clear</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#m6-remaining-work-per-source-schedules-extraction_schedules" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">M6 remaining work: Per-source schedules, extraction_schedules</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#v20-initial-performance-m1m7-baseline-measurements" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">V20 initial performance: M1/M7 baseline measurements</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#m7-resource-recheck-partial-v21-measurements" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">M7 resource recheck: Partial V21 measurements</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#tests-and-commands" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Tests and commands</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#remaining-work-at-this-stage" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Remaining work at this stage</span></a></li></ul></div></details></nav></mobile-starlight-toc><script type="module" src="/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.C3fM4Kra.js"></script></div><div class="right-sidebar-panel sl-hidden lg:sl-block astro-fjp5q7r4"><div class="sl-container astro-fjp5q7r4"><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">On this page</h2><ul class="astro-g6ctc22k" style="--depth: 0;"><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#_top" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Overview</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#local-data-changes-recheck-2026-09-29" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Local data changes: Recheck, 2026-09-29</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#m5-implementation" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">M5 implementation</span></a><ul class="astro-g6ctc22k" style="--depth: 1;"><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#1-copilot-cli-adapter-native-data-check-pass" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">1. Copilot CLI adapter: Native data check PASS</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#2-otel-spans-jsonl-adapter-document-based" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">2. OTel spans JSONL adapter: Document-based</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#3-local-otlphttp-receiver-src-taurisrcotel_receiverrs" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">3. Local OTLP/HTTP receiver: src-tauri/src/otel_receiver.rs</span></a></li></ul></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#m1-remaining-work-consistent-backup-and-space-checks-before-migrationrebuildclear" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">M1 remaining work: Consistent backup and space checks before migration/rebuild/clear</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#m6-remaining-work-per-source-schedules-extraction_schedules" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">M6 remaining work: Per-source schedules, extraction_schedules</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#v20-initial-performance-m1m7-baseline-measurements" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">V20 initial performance: M1/M7 baseline measurements</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#m7-resource-recheck-partial-v21-measurements" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">M7 resource recheck: Partial V21 measurements</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#tests-and-commands" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Tests and commands</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#remaining-work-at-this-stage" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Remaining work at this stage</span></a></li></ul></nav></starlight-toc><script type="module" src="/_astro/TableOfContents.astro_astro_type_script_index_0_lang.BpJaGz7G.js"></script></div></div></div></aside><div class="main-pane astro-rcl3dmqm"><main data-pagefind-body class="astro-i2f5rvhd" lang="en" dir="ltr"><div class="content-panel astro-ptfq3z6k"><div class="sl-container astro-ptfq3z6k"><h1 id="_top" class="astro-5fsxzwfk">M5 telemetry and historical remaining work: Second checks, 2026-09-29</h1></div></div><div class="content-panel astro-ptfq3z6k"><div class="sl-container astro-ptfq3z6k"><div class="sl-markdown-content"><p><a id="m5-telemetry-and-historical-remaining-work-second-checks-2026-09-29"></a></p>
+<p><a id="m5-遥测文件接收器与历史待办验证记录2026-09-29-第二轮"></a></p>
+<p><a id="m5-遥测载体与历史余项实施验证记录2026-09-29-第二轮"></a></p>
+<p>This page retains that day’s methods/results; the remaining-work table reflects that stage.
+Later native files/field rules/rate limits/background/performance results:
+<a href="/reference/evidence/current-acceptance/">latest acceptance</a>. Current work: <a href="https://github.com/owent/llm-usage/blob/main/Plan.md">Plan</a>.
+Receiver settings below describe the historical implementation; current authentication rules
+are in <a href="/reference/design/receiver-auth/">receiver authentication</a>.</p>
+<p>Scope: address previous inventory’s outstanding items: M5 local Copilot CLI/OTel spans/OTLP
+receiver, M1 pre-migration backups, M6 per-source schedules, V20 initial performance, M7 idle
+memory recheck. No commit/push/deployment.</p>
+<p><a id="本机数据状态变化2026-09-29-复查"></a></p>
+<h2 id="local-data-changes-recheck-2026-09-29">Local data changes: Recheck, 2026-09-29</h2>
+<ul>
+<li>Copilot CLI data restored: ~/.copilot/session-store.db schema_version=8, assistant_usage_events
+36 native rows dated 2026-08-03, claude-opus-4.8. Entire tree absent on 2026-09-25 during
+upgrade migration, now written back.</li>
+<li>Claude ~/.claude only empty sessions/backups, without projects transcripts; native samples unavailable.</li>
+<li>CodeBuddy ~/.codebuddy diagnostics/logs/memwatch only, no usage files. Official monitoring
+documents CLI OTLP export only, without file exporter.</li>
+<li>APPDATA WorkBuddy/WorkBuddy AI directories reappeared but empty. Still no local format
+to verify; M4 paused state unchanged. Directory reappearance recorded separately.</li>
+<li>VS Code Copilot Chat globalStorage session-store.db contains only sessions/turns/session_files/
+session_refs, no usage table, matching the then-current A06 conclusion about telemetry requirements.</li>
+</ul>
+<p>Later source investigation narrows the CodeBuddy conclusion to <strong>this local directory state
+and OTel file exporter</strong>. Official directory docs separately establish ~/.codebuddy/projects
+session JSONL; third-party source identifies usage fields and WorkBuddy .workbuddy/projects.
+Both implemented from <a href="/reference/evidence/m4-buddy-local/">local-session references</a>, initially without native samples.</p>
+<p><a id="m5-实施"></a></p>
+<h2 id="m5-implementation">M5 implementation</h2>
+<p><a id="1-copilot-cli-适配器真实数据核对-pass"></a></p>
+<h3 id="1-copilot-cli-adapter-native-data-check-pass">1. Copilot CLI adapter: Native data check PASS</h3>
+<p>adapters/copilot/ common/detect/versions reads per-turn assistant_usage_events.
+map_copilot moved from root usage_map.rs into its product directory, adding reasoning,
+per V30. schema_version=8 KnownVersion; others latest-compatible.</p>
+<ul>
+<li>Native redacted tests/fixtures/copilot/assistant-usage-events-v8.sanitized.json: 36 rows
+of permitted columns, anonymous session_id/agent_id; expectations in _expectations.md.</li>
+<li>copilot_contract.rs rebuilds SQLite from the sample, calls run_adapter_scan, and matches
+manual input 4,649,981/output 34,157/cache read 4,416,791/cache write 233,118/reasoning
+17,678/uncached 72/total 4,684,138. Repeat scanning adds nothing.</li>
+<li>examples/real_verify_copilot.rs, desktop/src-tauri cwd: cargo run -p llm-usage-core
+–example real_verify_copilot – “$USERPROFILE/.copilot” build/m5-copilot/verify.
+36 events, fields match independent SQL, stable repeat, VERDICT: PASS.</li>
+<li>All 36 rows satisfy input≥cache_read+cache_write, verifying the M0 rule on actual data.
+request_multiplier=27.0 premium multiplier and total_nano_aiu excluded from tokens.</li>
+</ul>
+<p><a id="2-otel-spans-jsonl-适配器文档级"></a></p>
+<h3 id="2-otel-spans-jsonl-adapter-document-based">2. OTel spans JSONL adapter: Document-based</h3>
+<p>adapters/otel/ reads three formats: VS Code Copilot Chat file exporter github.copilot.chat.otel.<em>,
+official bdc5ebe NDJSON rather than OTLP, startTime seconds/nanoseconds pair; Copilot CLI
+file exporter, undocumented per-line schema with related-format tolerance awaiting samples;
+and this app receiver’s normalized exports, CodeBuddy agentlens unprefixed usage.</em>.
+Skip aggregate invoke_agent/codebuddy_code.interaction spans and model_request per official
+double-count warning. Permitted attributes; accept both trace/span ID spellings since docs
+do not specify exact keys.</p>
+<p><a id="3-本地-otlphttp-接收器src-taurisrcotel_receiverrs"></a></p>
+<h3 id="3-local-otlphttp-receiver-src-taurisrcotel_receiverrs">3. Local OTLP/HTTP receiver: src-tauri/src/otel_receiver.rs</h3>
+<ul>
+<li>127.0.0.1 loopback only; otel_receiver_enabled off by default, otel_receiver_port=4318.
+At this stage, enabling represented explicit local-instance authorization, V25.</li>
+<li>OTLP/JSON and OTLP/protobuf; CodeBuddy protobuf-only. Explicit wire parsing ResourceSpans→
+ScopeSpans→Span→KeyValue→AnyValue. Bounded gzip decompression 64 MiB, headers 64 KiB/body
+64 MiB, V22 compressed-input protection.</li>
+<li>Save permitted gen_ai.<em>/usage.</em>/model* prefixes; explicitly exclude message-text keys such
+as gen_ai.input.messages; strings at most 256 B. Output APPDATA/llm-usage-desktop/otel/spans.jsonl,
+automatically discovered by OTel adapter.</li>
+<li>JSON/protobuf unit tests and actual E2E: receiver→HTTP POST /v1/traces→saved output→OTel
+reads codebuddy model_stream event, HTTP 200.</li>
+<li>Debugging fixed two defects: accepted connections from nonblocking listener need explicit
+blocking restoration; HTTP header separator now byte array [0x0d,0x0a,0x0d,0x0a].</li>
+</ul>
+<p><a id="m1-余项迁移重建清理前一致备份--空间检查"></a></p>
+<h2 id="m1-remaining-work-consistent-backup-and-space-checks-before-migrationrebuildclear">M1 remaining work: Consistent backup and space checks before migration/rebuild/clear</h2>
+<p>src-tauri/src/db_backup.rs plus fs4 dependency:</p>
+<ul>
+<li>consistent_backup uses VACUUM INTO for a WAL-consistent snapshot. Check free space at least
+1.1×database including -wal, keep latest three backups, ordered by timestamp strings.</li>
+<li>app_state.rs schema-mismatch rebuild first calls read-only consistent_backup_legacy;
+failure aborts with original intact. clear_all_data uses shared helper with space check,
+replacing inline backup_before_clear.</li>
+<li>Pure space-check tests, independently reopenable backup round trip and retention of three.
+Windows open SQLite connections prevent deletion; test scopes now close them. fs4 ^0.13.</li>
+</ul>
+<p><a id="m6-余项逐源定时接线extraction_schedules"></a></p>
+<p><a id="m6-余项逐源定时实现extraction_schedules"></a></p>
+<h2 id="m6-remaining-work-per-source-schedules-extraction_schedules">M6 remaining work: Per-source schedules, extraction_schedules</h2>
+<ul>
+<li>core/src/schedules.rs SourceScheduleRule: interval 15 seconds–24 hours/daily HH:MM/
+weekly ISO weekday+HH:MM; initial release without arbitrary cron. Pure next_due with
+jiff timezone and then-current DST-ambiguity +24h fallback. upsert/delete/read/due_instances/
+custom_scheduled_instances/mark_source_run with schedule_state. Five boundary/daily/weekly
+crossing/disabled/storage tests.</li>
+<li>Framework run_adapter_scan_filtered uses InstanceFilter include/exclude; original
+run_adapter_scan signature retained as delegation.</li>
+<li>scanner.rs global refresh excludes custom schedules. Poll due instances every 500 ms,
+trigger individually. FixedTime shares refresh with global/manual requests and merges
+same-source jobs without concurrent execution. Advance next_due after running;
+missed times on wake cause one scan.</li>
+<li>set_source_schedule registered in invoke_handler; list_sources returns schedule/nextDueMs.
+SourceList.svelte per-source editing: inherit global, interval presets 15 seconds–24 hours,
+daily/weekly time-day selectors and next extraction. Weekday names use locale Intl.
+Six i18n keys across ten languages, positional locales.ts insertion plus zh-CN/en.</li>
+<li>scheduling.md status updated to implemented.</li>
+</ul>
+<p><a id="v20-性能初值m1m7-前置数据"></a></p>
+<h2 id="v20-initial-performance-m1m7-baseline-measurements">V20 initial performance: M1/M7 baseline measurements</h2>
+<p>examples/bench_v20.rs, release, configurable size, desktop/src-tauri cwd:</p>
+<table>
+<thead>
+<tr>
+<th>Scale</th>
+<th>Insert throughput</th>
+<th>Database + WAL</th>
+<th>Daily-query p50/p95/p99</th>
+<th>Detail pagination, 200 rows, p50/p95/p99</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>One million events, 366 days/4 models/6 agents/4 sources</td>
+<td>30,453/s, 32.8 s</td>
+<td>676.8 MiB + 34.9 MiB</td>
+<td>0.01/0.01/0.01 ms</td>
+<td>0.67/1.24/1.52 ms</td>
+</tr>
+<tr>
+<td>Ten million events</td>
+<td>23,560/s, 424.4 s</td>
+<td>6,788.3 MiB + 35.6 MiB</td>
+<td>0.01/0.01/0.02 ms</td>
+<td>2.28/4.65/5.41 ms</td>
+</tr>
+</tbody>
+</table>
+<p>No unbounded whole-file loading; indexed pagination. Ten-million temporary database cleaned.</p>
+<p><a id="m7-资源复测v21-部分数据"></a></p>
+<h2 id="m7-resource-recheck-partial-v21-measurements">M7 resource recheck: Partial V21 measurements</h2>
+<p>Release LLMUsage.exe GUI startup, headless scan, then idle: primary working set 32.5 MB plus
+WebView2 children 138.5 MB, about 171 MB, within 180 MiB target. Earlier M0 minimal-shell
+206.5 MB exceeded target; this measurement meets it. First-screen P95 and actual install/
+uninstall remained M7 outstanding at this stage.</p>
+<p><a id="测试与命令汇总"></a></p>
+<h2 id="tests-and-commands">Tests and commands</h2>
+<ul>
+<li>Repository-root npm run verify passes all checks: Markdown/Svelte zero errors or warnings,
+Cargo fmt/Clippy -D warnings/Vite build.</li>
+<li>desktop/src-tauri cargo test: 588+ pass. New Copilot format test 1/schedules 5/db_backup
+2/otel_receiver 4 including E2E, OTel adapter units and migrated mapping_v01 pass.
+V30 covers Copilot/OTel directories and moving map_copilot from the root.</li>
+<li>git diff –check passes; temporary files under ignored build/.</li>
+</ul>
+<p><a id="剩余未完成项如实登记"></a></p>
+<h2 id="remaining-work-at-this-stage">Remaining work at this stage</h2>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Status</th>
+<th>Missing requirement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>M5 native VS Code/Copilot CLI file exports</td>
+<td>Await user enablement</td>
+<td>Export must be enabled; per-line schema needs samples</td>
+</tr>
+<tr>
+<td>M5 actual CodeBuddy CLI to receiver E2E</td>
+<td>Await receiver enablement/CodeBuddy use; local sessions in <a href="/reference/evidence/m4-buddy-local/">record</a></td>
+<td>Receiver implemented/E2E with synthetic payload; overlap with sessions unresolved</td>
+</tr>
+<tr>
+<td>M2 native Claude/Gemini/Qwen samples</td>
+<td>No local data</td>
+<td>Claude recheck finds empty directories only</td>
+</tr>
+<tr>
+<td>M4 WorkBuddy</td>
+<td><a href="/reference/evidence/m4-buddy-local/">Local-session adapter</a> registered; later native eight-file/420-event check passed</td>
+<td>Trace/session relationship and other versions unchecked</td>
+</tr>
+<tr>
+<td>M3/M4/M8 native data acceptance</td>
+<td>Deferred</td>
+<td>Products not installed/no data locally</td>
+</tr>
+<tr>
+<td>F2 cost engine</td>
+<td>Main implementation complete, <a href="/reference/evidence/f2-cost-engine/">record</a></td>
+<td>Optional online refresh/usage-cost alerts/native E2E remain</td>
+</tr>
+<tr>
+<td>M6 actual desktop V13–V18/V23–V25 and V24 system tasks</td>
+<td>Await native operations</td>
+<td>Manual/automated GUI records needed</td>
+</tr>
+<tr>
+<td>M7 actual install/upgrade/uninstall V19, first-screen P95 V21/offline</td>
+<td>Await actual environment checks</td>
+<td>—</td>
+</tr>
+<tr>
+<td>V26 first three-platform CI</td>
+<td>Record after push</td>
+<td>Push not authorized at this stage</td>
+</tr>
+<tr>
+<td>File-change triggers</td>
+<td>Not implemented; optional optimization, polling already allowed</td>
+<td>Scheduling rules permit polling first</td>
+</tr>
+</tbody>
+</table>
+</div><footer class="sl-flex astro-q3cosrfy"><div class="meta sl-flex astro-q3cosrfy"><a href="https://github.com/owent/llm-usage/edit/main/docs/validation/desktop-usage/m5-telemetry-remainders.md" class="sl-flex print:hidden astro-okj6rzri"><svg aria-hidden="true" class="astro-okj6rzri astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.2em;"><path d="M22 7.24a1 1 0 0 0-.29-.71l-4.24-4.24a1 1 0 0 0-1.1-.22 1 1 0 0 0-.32.22l-2.83 2.83L2.29 16.05a1 1 0 0 0-.29.71V21a1 1 0 0 0 1 1h4.24a1 1 0 0 0 .76-.29l10.87-10.93L21.71 8c.1-.1.17-.2.22-.33a1 1 0 0 0 0-.24v-.14l.07-.05ZM6.83 20H4v-2.83l9.93-9.93 2.83 2.83L6.83 20ZM18.17 8.66l-2.83-2.83 1.42-1.41 2.82 2.82-1.41 1.42Z"/></svg>Edit page</a></div><div class="pagination-links print:hidden astro-vd7os7a3" dir="ltr"></div></footer></div></div></main></div></div></div></div></body></html>

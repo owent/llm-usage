@@ -1,0 +1,299 @@
+<!DOCTYPE html><html lang="zh-CN" dir="ltr" data-theme="dark" data-has-toc data-has-sidebar class="astro-i2f5rvhd"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>WSL Agent 产品安装验证与清理（2026-09-30） | LLM Usage</title><link rel="canonical" href="https://llm-usage.atframe.work/zh-cn/reference/evidence/wsl-agent-installs/"/><link rel="alternate" hreflang="en" href="https://llm-usage.atframe.work/reference/evidence/wsl-agent-installs/"/><link rel="alternate" hreflang="zh-CN" href="https://llm-usage.atframe.work/zh-cn/reference/evidence/wsl-agent-installs/"/><link rel="alternate" hreflang="x-default" href="https://llm-usage.atframe.work/reference/evidence/wsl-agent-installs/"/><link rel="sitemap" href="/sitemap-index.xml"/><link rel="shortcut icon" href="/favicon.svg" type="image/svg+xml"/><meta name="generator" content="Astro v7.3.6"/><meta name="generator" content="Starlight v0.42.5"/><meta property="og:title" content="WSL Agent 产品安装验证与清理（2026-09-30）"/><meta property="og:type" content="article"/><meta property="og:url" content="https://llm-usage.atframe.work/zh-cn/reference/evidence/wsl-agent-installs/"/><meta property="og:locale" content="zh-CN"/><meta property="og:description" content="Understand the AI usage recorded on your computer."/><meta property="og:site_name" content="LLM Usage"/><meta name="twitter:card" content="summary_large_image"/><meta name="description" content="Understand the AI usage recorded on your computer."/><meta name="color-scheme" content="light dark"><script type="module" src="/_astro/Head.astro_astro_type_script_index_0_lang.CRxMF9Ma.js"></script><script>
+  (() => {
+    const scheme = matchMedia('(prefers-color-scheme: dark)');
+    let choice = 'auto';
+    try {
+      const saved = localStorage.getItem('starlight-theme');
+      if (saved === 'light' || saved === 'dark') choice = saved;
+    } catch { /* System theme remains available without browser storage. */ }
+    function updatePickers() {
+      document.querySelectorAll('starlight-theme-select').forEach(picker => {
+        const select = picker.querySelector('select');
+        if (select) select.value = choice;
+        const icon = document.querySelector('#docs-theme-icons')?.content.querySelector('.' + choice);
+        const target = picker.querySelector('svg.label-icon');
+        if (icon && target) target.replaceChildren(...icon.cloneNode(true).childNodes);
+      });
+    }
+    function apply(theme, persist = false) {
+      choice = theme === 'light' || theme === 'dark' ? theme : 'auto';
+      document.documentElement.dataset.theme = choice === 'auto' ? scheme.matches ? 'dark' : 'light' : choice;
+      updatePickers();
+      if (persist) {
+        try { localStorage.setItem('starlight-theme', choice === 'auto' ? '' : choice); }
+        catch { /* The current page still changes theme. */ }
+      }
+    }
+    window.LLMUsageDocsTheme = { apply, updatePickers };
+    scheme.addEventListener('change', () => { if (choice === 'auto') apply('auto'); });
+    apply(choice);
+  })();
+</script><template id="docs-theme-icons"><svg aria-hidden="true" class="light astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg><svg aria-hidden="true" class="dark astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="auto astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg></template><link rel="stylesheet" href="/_astro/print.ehPL0gv-.css" media="print"><link rel="stylesheet" href="/_astro/common.CLGr15ze.css"><style>@layer starlight.components{.card:where(.astro-eiplrasj){--sl-card-border:var(--sl-color-purple);--sl-card-bg:var(--sl-color-purple-low);border:1px solid var(--sl-color-gray-5);background-color:var(--sl-color-black);flex-direction:column;gap:clamp(.5rem,.125rem + 1vw,1rem);padding:clamp(1rem,.125rem + 3vw,2.5rem)}.card:where(.astro-eiplrasj):nth-child(4n+1){--sl-card-border:var(--sl-color-orange);--sl-card-bg:var(--sl-color-orange-low)}.card:where(.astro-eiplrasj):nth-child(4n+3){--sl-card-border:var(--sl-color-green);--sl-card-bg:var(--sl-color-green-low)}.card:where(.astro-eiplrasj):nth-child(4n+4){--sl-card-border:var(--sl-color-red);--sl-card-bg:var(--sl-color-red-low)}.card:where(.astro-eiplrasj):nth-child(4n+5){--sl-card-border:var(--sl-color-blue);--sl-card-bg:var(--sl-color-blue-low)}.title:where(.astro-eiplrasj){font-weight:600;font-size:var(--sl-text-h4);color:var(--sl-color-white);line-height:var(--sl-line-height-headings);align-items:center;gap:1rem}.card:where(.astro-eiplrasj) .icon:where(.astro-eiplrasj){border:1px solid var(--sl-card-border);background-color:var(--sl-card-bg);border-radius:.25rem;flex-shrink:0;padding:.2em}.card:where(.astro-eiplrasj) .body:where(.astro-eiplrasj){font-size:clamp(var(--sl-text-sm), calc(.5rem + 1vw), var(--sl-text-body));margin:0}.card-grid:where(.astro-t7b7g7fk){grid-template-columns:100%;gap:1rem;display:grid}.card-grid:where(.astro-t7b7g7fk)>*{margin-top:0!important}@media (width>=50rem){.card-grid:where(.astro-t7b7g7fk){grid-template-columns:1fr 1fr;gap:1.5rem}.stagger:where(.astro-t7b7g7fk){--stagger-height:5rem;padding-bottom:var(--stagger-height)}.stagger:where(.astro-t7b7g7fk)>:nth-child(2n){transform:translateY(var(--stagger-height))}}.sl-link-card:where(.astro-6ghwbfyk){border:1px solid var(--sl-color-gray-5);box-shadow:var(--sl-shadow-sm);border-radius:.5rem;grid-template-columns:1fr auto;gap:.5rem;padding:1rem;display:grid;position:relative}a:where(.astro-6ghwbfyk){line-height:var(--sl-line-height-headings);text-decoration:none}a:where(.astro-6ghwbfyk):before{content:"";position:absolute;inset:0}.stack:where(.astro-6ghwbfyk){flex-direction:column;gap:.5rem}.title:where(.astro-6ghwbfyk){color:var(--sl-color-white);font-weight:600;font-size:var(--sl-text-lg)}.description:where(.astro-6ghwbfyk){color:var(--sl-color-gray-3);line-height:1.5}.icon:where(.astro-6ghwbfyk){color:var(--sl-color-gray-3)}.sl-link-card:where(.astro-6ghwbfyk):hover{background:var(--sl-color-gray-7,var(--sl-color-gray-6));border-color:var(--sl-color-gray-2)}.sl-link-card:where(.astro-6ghwbfyk):hover .icon:where(.astro-6ghwbfyk){color:var(--sl-color-white)}}.app-screenshot:where(.astro-ofe7zldm){margin:1.5rem 0 2.5rem}.screenshot-frame:where(.astro-ofe7zldm){border:1px solid var(--sl-color-gray-5);background:var(--sl-color-bg);border-radius:1rem;box-shadow:0 16px 48px #00000018}.screenshot-frame:where(.astro-ofe7zldm) a:where(.astro-ofe7zldm){border-radius:inherit;display:block}.screenshot-frame:where(.astro-ofe7zldm) img:where(.astro-ofe7zldm){border-radius:inherit;width:100%;height:auto;box-shadow:none;border:0;margin:0;display:block}.screenshot-frame:where(.astro-ofe7zldm) .screenshot-dark:where(.astro-ofe7zldm),:root[data-theme=dark] .screenshot-light:where(.astro-ofe7zldm){display:none}:root[data-theme=dark] .screenshot-dark:where(.astro-ofe7zldm){display:block}figcaption:where(.astro-ofe7zldm){color:var(--sl-color-gray-2);flex-wrap:wrap;justify-content:space-between;gap:.25rem 1rem;margin-top:.75rem;font-size:.875rem;line-height:1.6;display:flex}.screenshot-hint:where(.astro-ofe7zldm){color:var(--sl-color-text-accent)}
+@layer starlight.components{svg:where(.astro-iwaxdyvu){color:var(--sl-icon-color);font-size:var(--sl-icon-size,1em);width:1em;height:1em}}
+</style><script type="module" src="/_astro/page.Dwipeu-R.js"></script></head><body class="astro-i2f5rvhd"><a class="sl-skip-link astro-af3xnx6k" href="#_top">跳转到内容</a><div class="page sl-flex astro-7ol3m3p7"><header class="header astro-7ol3m3p7"><div class="header astro-qqelxyz2"><div class="title-wrapper sl-flex astro-qqelxyz2"><a href="/zh-cn/" class="site-title sl-flex astro-pm7u5y3t"><img class="astro-pm7u5y3t" alt src="/_astro/brand.BEXAYDnz.svg" width="1024" height="1024"><span class="astro-pm7u5y3t" translate="no">LLM Usage</span></a></div><div class="sl-flex print:hidden astro-qqelxyz2"><site-search class="astro-qqelxyz2 astro-veqdxac2" data-translations="{&quot;placeholder&quot;:&quot;搜索&quot;}"><button data-open-modal disabled aria-label="搜索" aria-keyshortcuts="Control+K" class="astro-veqdxac2"><svg aria-hidden="true" class="astro-veqdxac2 astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg><span class="sl-hidden md:sl-block astro-veqdxac2" aria-hidden="true">搜索</span><kbd class="sl-hidden md:sl-flex astro-veqdxac2" style="display: none;"><kbd class="astro-veqdxac2">Ctrl</kbd><kbd class="astro-veqdxac2">K</kbd></kbd></button><dialog style="padding:0" aria-label="搜索" class="astro-veqdxac2"><div class="dialog-frame sl-flex astro-veqdxac2"><button data-close-modal class="sl-flex md:sl-hidden astro-veqdxac2">取消</button><div class="search-container astro-veqdxac2"><div id="starlight__search" class="astro-veqdxac2"></div></div></div></dialog></site-search><script>
+	(() => {
+		const openBtn = document.querySelector('button[data-open-modal]');
+		const shortcut = openBtn?.querySelector('kbd');
+		if (!openBtn || !(shortcut instanceof HTMLElement)) return;
+		const platformKey = shortcut.querySelector('kbd');
+		if (platformKey && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
+			platformKey.textContent = '⌘';
+			openBtn.setAttribute('aria-keyshortcuts', 'Meta+K');
+		}
+		shortcut.style.display = '';
+	})();
+</script><script type="module" src="/_astro/Search.astro_astro_type_script_index_0_lang.Bumivpjo.js"></script></div><div class="sl-hidden md:sl-flex print:hidden right-group astro-qqelxyz2"><div class="sl-flex social-icons astro-qqelxyz2"><a href="https://github.com/owent/llm-usage" rel="me" class="sl-flex astro-csqdcj5u"><span class="sr-only astro-csqdcj5u">GitHub</span><svg aria-hidden="true" class="astro-csqdcj5u astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a></div><starlight-theme-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">选择主题</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="light" class="astro-btilxiwo">浅色</option><option value="dark" class="astro-btilxiwo">深色</option><option value="auto" selected class="astro-btilxiwo">自动</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-theme-select><script>window.LLMUsageDocsTheme.updatePickers();</script><script type="module">document.addEventListener(`change`,e=>{let t=e.target;if(!(t instanceof HTMLSelectElement)||!t.closest(`starlight-theme-select`))return;let n=t.value===`light`||t.value===`dark`?t.value:`auto`;window.LLMUsageDocsTheme.apply(n,!0)});</script><starlight-lang-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">选择语言</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path fill-rule="evenodd" d="M8.516 3a.94.94 0 0 0-.941.94v1.15H2.94a.94.94 0 1 0 0 1.882h7.362a7.422 7.422 0 0 1-1.787 3.958 7.42 7.42 0 0 1-1.422-2.425.94.94 0 1 0-1.774.627 9.303 9.303 0 0 0 1.785 3.043 7.422 7.422 0 0 1-4.164 1.278.94.94 0 1 0 0 1.881 9.303 9.303 0 0 0 5.575-1.855 9.303 9.303 0 0 0 4.11 1.74l-.763 1.525a.968.968 0 0 0-.016.034l-1.385 2.77a.94.94 0 1 0 1.683.841l1.133-2.267h5.806l1.134 2.267a.94.94 0 0 0 1.683-.841l-1.385-2.769a.95.95 0 0 0-.018-.036l-3.476-6.951a.94.94 0 0 0-1.682 0l-1.82 3.639a7.423 7.423 0 0 1-3.593-1.256 9.303 9.303 0 0 0 2.27-5.203h1.894a.94.94 0 0 0 0-1.881H9.456V3.94A.94.94 0 0 0 8.516 3Zm6.426 11.794a1.068 1.068 0 0 1-.02.039l-.703 1.407h3.924l-1.962-3.924-1.24 2.478Z" clip-rule="evenodd"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="/reference/evidence/wsl-agent-installs/" class="astro-btilxiwo">English</option><option value="/zh-cn/reference/evidence/wsl-agent-installs/" selected class="astro-btilxiwo">简体中文</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-lang-select><script type="module">var e=class extends HTMLElement{constructor(){super();let e=this.querySelector(`select`);e&&(e.addEventListener(`change`,e=>{e.currentTarget instanceof HTMLSelectElement&&(window.location.pathname=e.currentTarget.value)}),window.addEventListener(`pageshow`,t=>{if(!t.persisted)return;let n=e.querySelector(`option[selected]`)?.index;n!==e.selectedIndex&&(e.selectedIndex=n??0)}))}};customElements.define(`starlight-lang-select`,e);</script><script type="module" src="/_astro/LanguageSelect.astro_astro_type_script_index_0_lang.DH65a7yi.js"></script></div></div></header><nav class="sidebar print:hidden astro-7ol3m3p7" aria-label="主要"><button popovertarget="starlight__sidebar" class="sl-menu-button sl-flex md:sl-hidden print:hidden astro-dcnpphyu"><svg aria-hidden="true" class="open-menu astro-dcnpphyu astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"/></svg><svg aria-hidden="true" class="close-menu astro-dcnpphyu astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"/></svg><span class="sr-only astro-dcnpphyu">菜单</span></button><script type="module">var e=class extends HTMLElement{constructor(){super();let e=matchMedia(`(min-width: 50em)`),t=()=>{this.popover=e.matches?null:`auto`};t(),e.addEventListener(`change`,()=>t()),this.addEventListener(`toggle`,({newState:e})=>this.trapFocus(e===`open`))}trapFocus(e){document.querySelectorAll(`.main-frame, .sl-skip-link`).forEach(t=>{t.toggleAttribute(`inert`,e)})}};customElements.define(`sl-sidebar-pane`,e);</script><sl-sidebar-pane popover id="starlight__sidebar" class="sidebar-pane astro-7ol3m3p7"><div class="sidebar-content sl-flex astro-7ol3m3p7"><sl-sidebar-state-persist data-hash="0llvynh" class="astro-lsvsit3p"><script aria-hidden="true">
+		(() => {
+			try {
+				if (!matchMedia('(min-width: 50em)').matches) return;
+				/** @type {HTMLElement | null} */
+				const target = document.querySelector('sl-sidebar-state-persist');
+				const state = JSON.parse(sessionStorage.getItem('sl-sidebar-state') || '0');
+				if (!target || !state || target.dataset.hash !== state.hash) return;
+				window._starlightScrollRestore = state.scroll;
+				customElements.define(
+					'sl-sidebar-restore',
+					class SidebarRestore extends HTMLElement {
+						connectedCallback() {
+							try {
+								const idx = parseInt(this.dataset.index || '');
+								const details = this.closest('details');
+								if (details && typeof state.open[idx] === 'boolean') details.open = state.open[idx];
+							} catch {}
+						}
+					}
+				);
+			} catch {}
+		})();
+	</script><ul class="top-level astro-ykcsoi7s"><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">开始使用</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="0"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">用户指南</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="1"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">开发指南</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="2"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">设计说明</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="3"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">开发验证记录</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="4"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">项目说明</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="5"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">测试数据说明</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="6"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li></ul><script aria-hidden="true">
+		(() => {
+			const scroller = document.getElementById('starlight__sidebar');
+			if (!window._starlightScrollRestore || !scroller) return;
+			scroller.scrollTop = window._starlightScrollRestore;
+			delete window._starlightScrollRestore;
+		})();
+	</script></sl-sidebar-state-persist><div class="md:sl-hidden"><div class="mobile-preferences sl-flex astro-lsc3yx5w"><div class="social-icons astro-lsc3yx5w"><a href="https://github.com/owent/llm-usage" rel="me" class="sl-flex astro-csqdcj5u"><span class="sr-only astro-csqdcj5u">GitHub</span><svg aria-hidden="true" class="astro-csqdcj5u astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a></div><starlight-theme-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">选择主题</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="light" class="astro-btilxiwo">浅色</option><option value="dark" class="astro-btilxiwo">深色</option><option value="auto" selected class="astro-btilxiwo">自动</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-theme-select><script>window.LLMUsageDocsTheme.updatePickers();</script><starlight-lang-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">选择语言</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path fill-rule="evenodd" d="M8.516 3a.94.94 0 0 0-.941.94v1.15H2.94a.94.94 0 1 0 0 1.882h7.362a7.422 7.422 0 0 1-1.787 3.958 7.42 7.42 0 0 1-1.422-2.425.94.94 0 1 0-1.774.627 9.303 9.303 0 0 0 1.785 3.043 7.422 7.422 0 0 1-4.164 1.278.94.94 0 1 0 0 1.881 9.303 9.303 0 0 0 5.575-1.855 9.303 9.303 0 0 0 4.11 1.74l-.763 1.525a.968.968 0 0 0-.016.034l-1.385 2.77a.94.94 0 1 0 1.683.841l1.133-2.267h5.806l1.134 2.267a.94.94 0 0 0 1.683-.841l-1.385-2.769a.95.95 0 0 0-.018-.036l-3.476-6.951a.94.94 0 0 0-1.682 0l-1.82 3.639a7.423 7.423 0 0 1-3.593-1.256 9.303 9.303 0 0 0 2.27-5.203h1.894a.94.94 0 0 0 0-1.881H9.456V3.94A.94.94 0 0 0 8.516 3Zm6.426 11.794a1.068 1.068 0 0 1-.02.039l-.703 1.407h3.924l-1.962-3.924-1.24 2.478Z" clip-rule="evenodd"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="/reference/evidence/wsl-agent-installs/" class="astro-btilxiwo">English</option><option value="/zh-cn/reference/evidence/wsl-agent-installs/" selected class="astro-btilxiwo">简体中文</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-lang-select></div></div></div></sl-sidebar-pane></nav><div class="main-frame astro-7ol3m3p7"><script type="module">var e=document.getElementById(`starlight__sidebar`),t=e?.querySelector(`sl-sidebar-state-persist`),n=`sl-sidebar-state`,r=()=>{let r=[],i=t?.dataset.hash||``;try{let e=sessionStorage.getItem(n),t=JSON.parse(e||`{}`);Array.isArray(t.open)&&t.hash===i&&(r=t.open)}catch{}return{hash:i,open:r,scroll:e?.scrollTop||0}},i=e=>{try{sessionStorage.setItem(n,JSON.stringify(e))}catch{}},a=()=>i(r()),o=(e,t)=>{let n=r();n.open[t]=e,i(n)};t?.addEventListener(`click`,e=>{if(!(e.target instanceof Element))return;let t=e.target.closest(`summary`)?.closest(`details`);if(!t)return;let n=t.querySelector(`sl-sidebar-restore`),r=parseInt(n?.dataset.index||``);isNaN(r)||o(!t.open,r)}),addEventListener(`visibilitychange`,()=>{document.visibilityState===`hidden`&&a()});</script><div class="lg:sl-flex astro-rcl3dmqm"><aside class="right-sidebar-container print:hidden astro-rcl3dmqm"><div class="right-sidebar astro-rcl3dmqm"><div class="lg:sl-hidden astro-fjp5q7r4"><mobile-starlight-toc data-min-h="2" data-max-h="3" class="astro-6exeh6u7"><nav aria-labelledby="starlight__on-this-page--mobile" class="astro-6exeh6u7"><details id="starlight__mobile-toc" class="astro-6exeh6u7"><summary id="starlight__on-this-page--mobile" class="sl-flex astro-6exeh6u7"><span class="toggle sl-flex astro-6exeh6u7">本页内容<svg aria-hidden="true" class="caret astro-6exeh6u7 astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></span><span class="display-current astro-6exeh6u7"></span></summary><div class="dropdown astro-6exeh6u7"><ul class="isMobile astro-g6ctc22k" style="--depth: 0;"><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#_top" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">概述</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#安装与首跑全部官方渠道npm-包名经-registry-身份核验" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">安装与首跑（全部官方渠道，npm 包名经 registry 身份核验）</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#现成数据盘点安装前已存在与本次无关清理时保留" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">现成数据盘点（安装前已存在，与本次无关，清理时保留）</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#真实验证结果probe_home-只读检查内存数据库不保存到磁盘" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">真实验证结果（probe_home 只读检查，内存数据库不保存到磁盘）</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#claude-code-21197-真实格式适配根据本次真实样本修复" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Claude Code 2.1.197 真实格式适配（根据本次真实样本修复）</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#命令与退出码关键节点" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">命令与退出码（关键节点）</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#清理验证完成后执行" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">清理（验证完成后执行）</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#后续发现ci-暴露的暂存备份竞速已修复" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">后续发现：CI 暴露的暂存备份竞速（已修复）</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#未完成后续" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">未完成/后续</span></a></li></ul></div></details></nav></mobile-starlight-toc><script type="module" src="/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.C3fM4Kra.js"></script></div><div class="right-sidebar-panel sl-hidden lg:sl-block astro-fjp5q7r4"><div class="sl-container astro-fjp5q7r4"><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">本页内容</h2><ul class="astro-g6ctc22k" style="--depth: 0;"><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#_top" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">概述</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#安装与首跑全部官方渠道npm-包名经-registry-身份核验" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">安装与首跑（全部官方渠道，npm 包名经 registry 身份核验）</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#现成数据盘点安装前已存在与本次无关清理时保留" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">现成数据盘点（安装前已存在，与本次无关，清理时保留）</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#真实验证结果probe_home-只读检查内存数据库不保存到磁盘" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">真实验证结果（probe_home 只读检查，内存数据库不保存到磁盘）</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#claude-code-21197-真实格式适配根据本次真实样本修复" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Claude Code 2.1.197 真实格式适配（根据本次真实样本修复）</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#命令与退出码关键节点" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">命令与退出码（关键节点）</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#清理验证完成后执行" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">清理（验证完成后执行）</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#后续发现ci-暴露的暂存备份竞速已修复" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">后续发现：CI 暴露的暂存备份竞速（已修复）</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#未完成后续" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">未完成/后续</span></a></li></ul></nav></starlight-toc><script type="module" src="/_astro/TableOfContents.astro_astro_type_script_index_0_lang.BpJaGz7G.js"></script></div></div></div></aside><div class="main-pane astro-rcl3dmqm"><main data-pagefind-body class="astro-i2f5rvhd" lang="zh-CN" dir="ltr"><div class="content-panel astro-ptfq3z6k"><div class="sl-container astro-ptfq3z6k"><h1 id="_top" class="astro-5fsxzwfk">WSL Agent 产品安装验证与清理（2026-09-30）</h1></div></div><div class="content-panel astro-ptfq3z6k"><div class="sl-container astro-ptfq3z6k"><div class="sl-markdown-content"><p><a id="wsl-agent-产品安装验证与清理2026-09-30"></a></p>
+<p><a id="wsl-agent-installation-checks-and-cleanup-2026-09-30"></a></p>
+<p>范围：在 WSL Debian（用户 owent，Node 20.19.2/npm 10.9.9/Python 3.13.5，
+网络可用，无免密 sudo——全部用户级安装）安装 M2/M3/M8 缺真实样本产品中
+可无头安装的 CLI，做安装级/真实数据验证后全部卸载并清理。
+目的：检查此前缺少真实测试数据的产品；不产生模型调用
+（无凭据，不登录）。Windows 侧对 WSL 数据经
+<code>\\wsl.localhost\Debian\home\owent</code>（UNC）只读访问。</p>
+<p><a id="installation-and-first-run-official-channels-and-npm-package-identity-checks"></a></p>
+<h2 id="安装与首跑全部官方渠道npm-包名经-registry-身份核验">安装与首跑（全部官方渠道，npm 包名经 registry 身份核验）</h2>
+<table>
+<thead>
+<tr>
+<th>产品</th>
+<th>渠道与版本核验结果</th>
+<th>首次运行实际保存的文件</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Claude Code</td>
+<td>npm <code>@anthropic-ai/claude-code</code>（官方 repo 核对）；<code>claude -p hi</code> 未登录退出</td>
+<td><strong>真实转录</strong> <code>~/.claude/projects/&lt;cwd-slug&gt;/*.jsonl</code>（8 行）+ <code>~/.claude.json</code> + backups/sessions</td>
+</tr>
+<tr>
+<td>Gemini CLI</td>
+<td>npm <code>@google/gemini-cli</code> 0.62.0</td>
+<td><code>~/.gemini/projects.json.*.tmp</code>（首跑写临时文件后未留存主体）</td>
+</tr>
+<tr>
+<td>Qwen Code</td>
+<td>npm <code>@qwen-code/qwen-code</code>（bin 自报 0.15.10）</td>
+<td><code>~/.qwen</code>（installation_id/debug/skills/output-language.md）</td>
+</tr>
+<tr>
+<td>OpenCode</td>
+<td>npm <code>opencode-ai</code> 1.18.33；<code>opencode run</code></td>
+<td><strong>真实 SQLite</strong> <code>~/.local/share/opencode/opencode.db</code>（session/message/part 表族 + 7 行 event）+ snapshot/log</td>
+</tr>
+<tr>
+<td>Command Code</td>
+<td>npm <code>command-code</code> 1.72.4（bin 自报 0.52.5）</td>
+<td>–version/–help 无配置目录</td>
+</tr>
+<tr>
+<td>gajae-code</td>
+<td>npm <code>gajae-code</code> 0.18.1（Yeachan-Heo 官方）+ bun 1.4.2</td>
+<td><code>gjc --version</code> 可运行；无数据目录</td>
+</tr>
+<tr>
+<td>OpenClaw</td>
+<td>npm <code>openclaw</code>（openclaw/openclaw 官方）</td>
+<td><strong>包损坏</strong>：package.json bin 指向不存在的 openclaw.mjs，bin 未链接——安装核验结果记录，未运行</td>
+</tr>
+<tr>
+<td>goose</td>
+<td>官方 release v1.52.0 二进制（download_cli.sh 网络失败，改 gh api 取 latest release 直装）</td>
+<td><code>goose session list</code> 真实响应“无会话”；未建配置目录</td>
+</tr>
+<tr>
+<td>crush</td>
+<td>npm <code>@charmland/crush</code> v0.97.1（charm README 官方渠道）</td>
+<td><code>crush agent list</code> 需 TTY 配置，无配置目录</td>
+</tr>
+<tr>
+<td>jcode</td>
+<td>官方 <code>curl jcode.sh/install</code> v0.89.3</td>
+<td><code>~/.jcode</code>（builds/logs/migrations/telemetry；<strong>无 sessions</strong>——须实际会话）</td>
+</tr>
+<tr>
+<td>aider</td>
+<td>官方 <code>aider-install</code>（uv tool）0.86.2；<code>aider --yes --message hi</code></td>
+<td><strong>真实</strong> <code>~/.aider/analytics.json</code>（仅 opt-in 状态 uuid/permanently_disable/asked_opt_in）+ installs.json/caches</td>
+</tr>
+</tbody>
+</table>
+<p><strong>npm 命名陷阱（适配器安全备注）</strong>：<code>jcode</code>（npm）是无关 MVC 框架、
+<code>crush</code>（npm）是 MediaCrush 残件、<code>goose-cli</code> 是数据库迁移工具、
+<code>grok-cli</code> 是第三方代理、<code>hermes-agent</code>（npm）是非官方桥接——
+均非目标产品官方分发包，已在 registry 逐一经 repository/homepage 核对排除。</p>
+<p><a id="existing-data-predates-this-run-and-retained-during-cleanup"></a></p>
+<h2 id="现成数据盘点安装前已存在与本次无关清理时保留">现成数据盘点（安装前已存在，与本次无关，清理时保留）</h2>
+<ul>
+<li><code>~/.local/share/kilo/kilo.db</code>：kilo 7.6.2 真实库（27 会话/1659 消息，历史测试遗留）；</li>
+<li><code>~/.omp/agent/agent.db</code>：model_usage/usage_history/client_usage 表<strong>全部 0 行</strong>（空骨架）；</li>
+<li><code>~/.copilot</code>：仅 config/ide/logs，无 session-store.db；</li>
+<li><code>~/.cline/data/db/*.db</code>：<strong>Cline CLI 新产品面</strong>（sessions/schedules 表，0 行）——
+与我们已实施的 VS Code 扩展形态（ui_messages.json 完整 JSON 数组）不同源，矩阵未覆盖，
+记为待核验项（无用量行，不实施）。</li>
+</ul>
+<p><a id="native-checks-read-only-probe_home-with-an-in-memory-database"></a></p>
+<p><a id="真实验证结果probe_home-只读探针内存库不落盘"></a></p>
+<h2 id="真实验证结果probe_home-只读检查内存数据库不保存到磁盘">真实验证结果（probe_home 只读检查，内存数据库不保存到磁盘）</h2>
+<p>新增 <code>crates/core/examples/probe_home.rs</code>（适配器注册表同步下沉 core，
+<code>adapters::built_in_adapters()</code>，app 复用）；对 WSL home UNC 只读发现+扫描：</p>
+<table>
+<thead>
+<tr>
+<th>适配器</th>
+<th>结果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>claude</td>
+<td>发现真实转录；<strong>首轮 fail closed</strong>（首记录 <code>queue-operation</code> 不在文档集）→ 据此扩展适配器（见下）→ 复验 complete、8 条、0 事件（<code>&lt;synthetic&gt;</code> 占位跳过）</td>
+</tr>
+<tr>
+<td>kilo</td>
+<td>UNC 直读 SQLite staging backup 超时（9p 锁限制）；经 sqlite backup API 一致快照到本地后：<strong>complete、1659 条、1595 事件/27 会话/2 模型，latest_fallback（7.6.2 未收录版本真实回退验证）</strong></td>
+</tr>
+<tr>
+<td>opencode</td>
+<td>同上超时；本地快照：<strong>complete、真实 1.18.33 库探测通过、0 事件</strong>（无用量行，不虚构）</td>
+</tr>
+<tr>
+<td>jcode/goose/crush/aider/gemini/qwen</td>
+<td>无用量数据目录 → 无根发现（符合预期，不虚构）</td>
+</tr>
+<tr>
+<td>其余 30+</td>
+<td>无根发现</td>
+</tr>
+</tbody>
+</table>
+<p><strong>SQLite over UNC 发现</strong>：kilo/opencode 适配器的 staging backup
+（通过 SQLite backup API 创建一致副本）在 <code>\\wsl.localhost</code> 9p 文件系统上超时失败——若用户以手工根
+指向 WSL 路径会遇到；错误如实报出（fail closed），未损坏数据。
+本地一致性快照路径验证通过。</p>
+<p><a id="claude-code-21197-真实格式适配本次新证据驱动的修复"></a></p>
+<p><a id="claude-code-21197-changes-based-on-native-records"></a></p>
+<h2 id="claude-code-21197-真实格式适配根据本次真实样本修复">Claude Code 2.1.197 真实格式适配（根据本次真实样本修复）</h2>
+<p>真实转录固化的格式事实：文件可以 <code>queue-operation</code>（enqueue/dequeue）开头；
+<code>attachment</code>/<code>last-prompt</code> 为非用量元数据记录；未登录占位 assistant 为
+<code>model="&lt;synthetic&gt;"</code> 且 usage 全 0。适配器变更（claude/detect.rs +
+transcript_doc1.rs）：允许并跳过三类元数据记录（携带 usage 仍 fail closed）；
+<code>&lt;synthetic&gt;</code> assistant 记 <code>synthetic_assistant_skipped</code> 诊断、不产事件
+（不把 0 用量占位算作模型调用）。真实脱敏测试数据
+<code>tests/fixtures/claude/real-2.1.197-queue-metadata/</code>（8 行结构保真，ID 匿名化）</p>
+<ul>
+<li>格式测试 2 项（允许元数据/0 事件/重复读取不重复入库；usage 记录 fail closed→pending）。
+<code>claude_contract</code> 4 项全过；WSL 真实文件复验 complete。</li>
+</ul>
+<p><a id="commands-and-exit-codes"></a></p>
+<h2 id="命令与退出码关键节点">命令与退出码（关键节点）</h2>
+<table>
+<thead>
+<tr>
+<th>命令（环境）</th>
+<th>退出码</th>
+<th>结果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>npm install -g</code>×2 + bun/pip/uv 安装（WSL，用户级）</td>
+<td>0</td>
+<td>尝试安装 11 个产品；OpenClaw 包损坏，不计为成功安装</td>
+</tr>
+<tr>
+<td><code>cargo build --release -p llm-usage-core --example probe_home</code></td>
+<td>0</td>
+<td>检查程序构建</td>
+</tr>
+<tr>
+<td><code>probe_home.exe '\\wsl.localhost\...\owent'</code>（×3 轮）</td>
+<td>0</td>
+<td>39 适配器 × 真实 home（见上表）</td>
+</tr>
+<tr>
+<td><code>probe_home.exe &lt;本地快照镜像&gt; kilo opencode</code></td>
+<td>0</td>
+<td>1595 事件/27 会话/2 模型</td>
+</tr>
+<tr>
+<td><code>cargo test -p llm-usage-core --test claude_contract</code></td>
+<td>0</td>
+<td>4 项通过</td>
+</tr>
+<tr>
+<td><code>npm run verify</code>（仓库根，推送前）</td>
+<td>0</td>
+<td>统一检查全部通过</td>
+</tr>
+<tr>
+<td><code>npm run build:desktop</code>（图标/sample-data 修正后）</td>
+<td>0</td>
+<td>安装包 2.81 MiB</td>
+</tr>
+<tr>
+<td>清理后逐项核验</td>
+<td>—</td>
+<td>全部创建物（目录/二进制/缓存/tmp）不存在；<code>~/.local/bin</code> 仅剩既有 npm/npx/omp/pnpm/yarn</td>
+</tr>
+</tbody>
+</table>
+<p><a id="cleanup-performed-after-validation"></a></p>
+<h2 id="清理验证完成后执行">清理（验证完成后执行）</h2>
+<p>npm 卸载 8 包（672 packages removed）+ <code>rm -rf ~/.local/npm-global ~/.bun</code>；
+<code>uv tool uninstall aider-chat</code> + pip 卸载 aider-install/uv；删 goose/jcode 二进制；
+删除全部创建的数据目录（.claude/.claude.json/.qwen/.gemini/.config+cache+share
+的 opencode/.jcode/.aider/.local/share/uv）；清理 /tmp 产物。
+<strong>安装前已存在的目录（.cline/.omp/.copilot/kilo 数据等）一律未动。</strong>
+逐项核验无残留。</p>
+<p><a id="later-finding-ci-exposed-a-staging-backup-race-now-fixed"></a></p>
+<h2 id="后续发现ci-暴露的暂存备份竞速已修复">后续发现：CI 暴露的暂存备份竞速（已修复）</h2>
+<p>本次推送后 CI（Linux）暴露既有缺陷：9 个 SQLite 暂存副本适配器把
+backup.step 的 Busy/Locked 无进展重试也计入 done_pages，使“空间上限”与
+“超时”两个出口竞速——Linux 上 20.5s 页上限先触发，busy 场景误报
+<code>space cap</code>（Windows 本地超时先触发故全绿，与 WSL UNC 超时同为暂存
+备份路径）。修复（cb28454，2026-09-30）：仅 <code>StepResult::More</code> 计入
+实际复制的页数，Busy/Locked 只耗等待时间；Windows/WSL 双平台复测一致，
+CI 36709419197 全绿。登记见 <a href="/zh-cn/reference/evidence/m0-ci/">m0-ci</a>。</p>
+<p><a id="remaining-work-at-that-stage"></a></p>
+<h2 id="未完成后续">未完成/后续</h2>
+<ol>
+<li>全部产品无凭据未登录：用量事件为零（claude synthetic/opencode 空库），
+真实用量测试数据 仍待有凭据环境产生；</li>
+<li>goose/crush/command-code/gajae 的数据目录须实际会话才生成，本轮未获得用量文件；</li>
+<li>Cline CLI（<code>~/.cline/data/db</code>）新形态：0 行，缺少真实用量样本，未实施，入矩阵缺口；</li>
+<li>SQLite over UNC 的 staging backup 超时：如后续支持 WSL 手工根，需对 9p
+路径改用流式快照或文档化限制；</li>
+<li>安装核验结果（版本/初始目录结构/npm 包名冲突）已入本记录，供 adapters 矩阵引用。</li>
+</ol>
+</div><footer class="sl-flex astro-q3cosrfy"><div class="meta sl-flex astro-q3cosrfy"><a href="https://github.com/owent/llm-usage/edit/main/docs/zh-CN/docs/validation/desktop-usage/wsl-agent-installs.md" class="sl-flex print:hidden astro-okj6rzri"><svg aria-hidden="true" class="astro-okj6rzri astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.2em;"><path d="M22 7.24a1 1 0 0 0-.29-.71l-4.24-4.24a1 1 0 0 0-1.1-.22 1 1 0 0 0-.32.22l-2.83 2.83L2.29 16.05a1 1 0 0 0-.29.71V21a1 1 0 0 0 1 1h4.24a1 1 0 0 0 .76-.29l10.87-10.93L21.71 8c.1-.1.17-.2.22-.33a1 1 0 0 0 0-.24v-.14l.07-.05ZM6.83 20H4v-2.83l9.93-9.93 2.83 2.83L6.83 20ZM18.17 8.66l-2.83-2.83 1.42-1.41 2.82 2.82-1.41 1.42Z"/></svg>编辑此页</a></div><div class="pagination-links print:hidden astro-vd7os7a3" dir="ltr"></div></footer></div></div></main></div></div></div></div></body></html>

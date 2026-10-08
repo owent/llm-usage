@@ -1,0 +1,537 @@
+<!DOCTYPE html><html lang="en" dir="ltr" data-theme="dark" data-has-toc data-has-sidebar class="astro-i2f5rvhd"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>2026-09-27 review, archives and interface improvements | LLM Usage</title><link rel="canonical" href="https://llm-usage.atframe.work/reference/evidence/review-2026-09-27/"/><link rel="alternate" hreflang="en" href="https://llm-usage.atframe.work/reference/evidence/review-2026-09-27/"/><link rel="alternate" hreflang="zh-CN" href="https://llm-usage.atframe.work/zh-cn/reference/evidence/review-2026-09-27/"/><link rel="alternate" hreflang="x-default" href="https://llm-usage.atframe.work/reference/evidence/review-2026-09-27/"/><link rel="sitemap" href="/sitemap-index.xml"/><link rel="shortcut icon" href="/favicon.svg" type="image/svg+xml"/><meta name="generator" content="Astro v7.3.6"/><meta name="generator" content="Starlight v0.42.5"/><meta property="og:title" content="2026-09-27 review, archives and interface improvements"/><meta property="og:type" content="article"/><meta property="og:url" content="https://llm-usage.atframe.work/reference/evidence/review-2026-09-27/"/><meta property="og:locale" content="en"/><meta property="og:description" content="Understand the AI usage recorded on your computer."/><meta property="og:site_name" content="LLM Usage"/><meta name="twitter:card" content="summary_large_image"/><meta name="description" content="Understand the AI usage recorded on your computer."/><meta name="color-scheme" content="light dark"><script type="module" src="/_astro/Head.astro_astro_type_script_index_0_lang.CRxMF9Ma.js"></script><script>
+  (() => {
+    const scheme = matchMedia('(prefers-color-scheme: dark)');
+    let choice = 'auto';
+    try {
+      const saved = localStorage.getItem('starlight-theme');
+      if (saved === 'light' || saved === 'dark') choice = saved;
+    } catch { /* System theme remains available without browser storage. */ }
+    function updatePickers() {
+      document.querySelectorAll('starlight-theme-select').forEach(picker => {
+        const select = picker.querySelector('select');
+        if (select) select.value = choice;
+        const icon = document.querySelector('#docs-theme-icons')?.content.querySelector('.' + choice);
+        const target = picker.querySelector('svg.label-icon');
+        if (icon && target) target.replaceChildren(...icon.cloneNode(true).childNodes);
+      });
+    }
+    function apply(theme, persist = false) {
+      choice = theme === 'light' || theme === 'dark' ? theme : 'auto';
+      document.documentElement.dataset.theme = choice === 'auto' ? scheme.matches ? 'dark' : 'light' : choice;
+      updatePickers();
+      if (persist) {
+        try { localStorage.setItem('starlight-theme', choice === 'auto' ? '' : choice); }
+        catch { /* The current page still changes theme. */ }
+      }
+    }
+    window.LLMUsageDocsTheme = { apply, updatePickers };
+    scheme.addEventListener('change', () => { if (choice === 'auto') apply('auto'); });
+    apply(choice);
+  })();
+</script><template id="docs-theme-icons"><svg aria-hidden="true" class="light astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg><svg aria-hidden="true" class="dark astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="auto astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg></template><link rel="stylesheet" href="/_astro/print.ehPL0gv-.css" media="print"><link rel="stylesheet" href="/_astro/common.CLGr15ze.css"><style>@layer starlight.components{.card:where(.astro-eiplrasj){--sl-card-border:var(--sl-color-purple);--sl-card-bg:var(--sl-color-purple-low);border:1px solid var(--sl-color-gray-5);background-color:var(--sl-color-black);flex-direction:column;gap:clamp(.5rem,.125rem + 1vw,1rem);padding:clamp(1rem,.125rem + 3vw,2.5rem)}.card:where(.astro-eiplrasj):nth-child(4n+1){--sl-card-border:var(--sl-color-orange);--sl-card-bg:var(--sl-color-orange-low)}.card:where(.astro-eiplrasj):nth-child(4n+3){--sl-card-border:var(--sl-color-green);--sl-card-bg:var(--sl-color-green-low)}.card:where(.astro-eiplrasj):nth-child(4n+4){--sl-card-border:var(--sl-color-red);--sl-card-bg:var(--sl-color-red-low)}.card:where(.astro-eiplrasj):nth-child(4n+5){--sl-card-border:var(--sl-color-blue);--sl-card-bg:var(--sl-color-blue-low)}.title:where(.astro-eiplrasj){font-weight:600;font-size:var(--sl-text-h4);color:var(--sl-color-white);line-height:var(--sl-line-height-headings);align-items:center;gap:1rem}.card:where(.astro-eiplrasj) .icon:where(.astro-eiplrasj){border:1px solid var(--sl-card-border);background-color:var(--sl-card-bg);border-radius:.25rem;flex-shrink:0;padding:.2em}.card:where(.astro-eiplrasj) .body:where(.astro-eiplrasj){font-size:clamp(var(--sl-text-sm), calc(.5rem + 1vw), var(--sl-text-body));margin:0}.card-grid:where(.astro-t7b7g7fk){grid-template-columns:100%;gap:1rem;display:grid}.card-grid:where(.astro-t7b7g7fk)>*{margin-top:0!important}@media (width>=50rem){.card-grid:where(.astro-t7b7g7fk){grid-template-columns:1fr 1fr;gap:1.5rem}.stagger:where(.astro-t7b7g7fk){--stagger-height:5rem;padding-bottom:var(--stagger-height)}.stagger:where(.astro-t7b7g7fk)>:nth-child(2n){transform:translateY(var(--stagger-height))}}.sl-link-card:where(.astro-6ghwbfyk){border:1px solid var(--sl-color-gray-5);box-shadow:var(--sl-shadow-sm);border-radius:.5rem;grid-template-columns:1fr auto;gap:.5rem;padding:1rem;display:grid;position:relative}a:where(.astro-6ghwbfyk){line-height:var(--sl-line-height-headings);text-decoration:none}a:where(.astro-6ghwbfyk):before{content:"";position:absolute;inset:0}.stack:where(.astro-6ghwbfyk){flex-direction:column;gap:.5rem}.title:where(.astro-6ghwbfyk){color:var(--sl-color-white);font-weight:600;font-size:var(--sl-text-lg)}.description:where(.astro-6ghwbfyk){color:var(--sl-color-gray-3);line-height:1.5}.icon:where(.astro-6ghwbfyk){color:var(--sl-color-gray-3)}.sl-link-card:where(.astro-6ghwbfyk):hover{background:var(--sl-color-gray-7,var(--sl-color-gray-6));border-color:var(--sl-color-gray-2)}.sl-link-card:where(.astro-6ghwbfyk):hover .icon:where(.astro-6ghwbfyk){color:var(--sl-color-white)}}.app-screenshot:where(.astro-ofe7zldm){margin:1.5rem 0 2.5rem}.screenshot-frame:where(.astro-ofe7zldm){border:1px solid var(--sl-color-gray-5);background:var(--sl-color-bg);border-radius:1rem;box-shadow:0 16px 48px #00000018}.screenshot-frame:where(.astro-ofe7zldm) a:where(.astro-ofe7zldm){border-radius:inherit;display:block}.screenshot-frame:where(.astro-ofe7zldm) img:where(.astro-ofe7zldm){border-radius:inherit;width:100%;height:auto;box-shadow:none;border:0;margin:0;display:block}.screenshot-frame:where(.astro-ofe7zldm) .screenshot-dark:where(.astro-ofe7zldm),:root[data-theme=dark] .screenshot-light:where(.astro-ofe7zldm){display:none}:root[data-theme=dark] .screenshot-dark:where(.astro-ofe7zldm){display:block}figcaption:where(.astro-ofe7zldm){color:var(--sl-color-gray-2);flex-wrap:wrap;justify-content:space-between;gap:.25rem 1rem;margin-top:.75rem;font-size:.875rem;line-height:1.6;display:flex}.screenshot-hint:where(.astro-ofe7zldm){color:var(--sl-color-text-accent)}
+@layer starlight.components{svg:where(.astro-iwaxdyvu){color:var(--sl-icon-color);font-size:var(--sl-icon-size,1em);width:1em;height:1em}}
+</style><script type="module" src="/_astro/page.Dwipeu-R.js"></script></head><body class="astro-i2f5rvhd"><a class="sl-skip-link astro-af3xnx6k" href="#_top">Skip to content</a><div class="page sl-flex astro-7ol3m3p7"><header class="header astro-7ol3m3p7"><div class="header astro-qqelxyz2"><div class="title-wrapper sl-flex astro-qqelxyz2"><a href="/" class="site-title sl-flex astro-pm7u5y3t"><img class="astro-pm7u5y3t" alt src="/_astro/brand.BEXAYDnz.svg" width="1024" height="1024"><span class="astro-pm7u5y3t" translate="no">LLM Usage</span></a></div><div class="sl-flex print:hidden astro-qqelxyz2"><site-search class="astro-qqelxyz2 astro-veqdxac2" data-translations="{&quot;placeholder&quot;:&quot;Search&quot;}"><button data-open-modal disabled aria-label="Search" aria-keyshortcuts="Control+K" class="astro-veqdxac2"><svg aria-hidden="true" class="astro-veqdxac2 astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg><span class="sl-hidden md:sl-block astro-veqdxac2" aria-hidden="true">Search</span><kbd class="sl-hidden md:sl-flex astro-veqdxac2" style="display: none;"><kbd class="astro-veqdxac2">Ctrl</kbd><kbd class="astro-veqdxac2">K</kbd></kbd></button><dialog style="padding:0" aria-label="Search" class="astro-veqdxac2"><div class="dialog-frame sl-flex astro-veqdxac2"><button data-close-modal class="sl-flex md:sl-hidden astro-veqdxac2">Cancel</button><div class="search-container astro-veqdxac2"><div id="starlight__search" class="astro-veqdxac2"></div></div></div></dialog></site-search><script>
+	(() => {
+		const openBtn = document.querySelector('button[data-open-modal]');
+		const shortcut = openBtn?.querySelector('kbd');
+		if (!openBtn || !(shortcut instanceof HTMLElement)) return;
+		const platformKey = shortcut.querySelector('kbd');
+		if (platformKey && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
+			platformKey.textContent = '⌘';
+			openBtn.setAttribute('aria-keyshortcuts', 'Meta+K');
+		}
+		shortcut.style.display = '';
+	})();
+</script><script type="module" src="/_astro/Search.astro_astro_type_script_index_0_lang.Bumivpjo.js"></script></div><div class="sl-hidden md:sl-flex print:hidden right-group astro-qqelxyz2"><div class="sl-flex social-icons astro-qqelxyz2"><a href="https://github.com/owent/llm-usage" rel="me" class="sl-flex astro-csqdcj5u"><span class="sr-only astro-csqdcj5u">GitHub</span><svg aria-hidden="true" class="astro-csqdcj5u astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a></div><starlight-theme-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">Select theme</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="light" class="astro-btilxiwo">Light</option><option value="dark" class="astro-btilxiwo">Dark</option><option value="auto" selected class="astro-btilxiwo">Auto</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-theme-select><script>window.LLMUsageDocsTheme.updatePickers();</script><script type="module">document.addEventListener(`change`,e=>{let t=e.target;if(!(t instanceof HTMLSelectElement)||!t.closest(`starlight-theme-select`))return;let n=t.value===`light`||t.value===`dark`?t.value:`auto`;window.LLMUsageDocsTheme.apply(n,!0)});</script><starlight-lang-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">Select language</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path fill-rule="evenodd" d="M8.516 3a.94.94 0 0 0-.941.94v1.15H2.94a.94.94 0 1 0 0 1.882h7.362a7.422 7.422 0 0 1-1.787 3.958 7.42 7.42 0 0 1-1.422-2.425.94.94 0 1 0-1.774.627 9.303 9.303 0 0 0 1.785 3.043 7.422 7.422 0 0 1-4.164 1.278.94.94 0 1 0 0 1.881 9.303 9.303 0 0 0 5.575-1.855 9.303 9.303 0 0 0 4.11 1.74l-.763 1.525a.968.968 0 0 0-.016.034l-1.385 2.77a.94.94 0 1 0 1.683.841l1.133-2.267h5.806l1.134 2.267a.94.94 0 0 0 1.683-.841l-1.385-2.769a.95.95 0 0 0-.018-.036l-3.476-6.951a.94.94 0 0 0-1.682 0l-1.82 3.639a7.423 7.423 0 0 1-3.593-1.256 9.303 9.303 0 0 0 2.27-5.203h1.894a.94.94 0 0 0 0-1.881H9.456V3.94A.94.94 0 0 0 8.516 3Zm6.426 11.794a1.068 1.068 0 0 1-.02.039l-.703 1.407h3.924l-1.962-3.924-1.24 2.478Z" clip-rule="evenodd"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="/reference/evidence/review-2026-09-27/" class="astro-btilxiwo">English</option><option value="/zh-cn/reference/evidence/review-2026-09-27/" class="astro-btilxiwo">简体中文</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-lang-select><script type="module">var e=class extends HTMLElement{constructor(){super();let e=this.querySelector(`select`);e&&(e.addEventListener(`change`,e=>{e.currentTarget instanceof HTMLSelectElement&&(window.location.pathname=e.currentTarget.value)}),window.addEventListener(`pageshow`,t=>{if(!t.persisted)return;let n=e.querySelector(`option[selected]`)?.index;n!==e.selectedIndex&&(e.selectedIndex=n??0)}))}};customElements.define(`starlight-lang-select`,e);</script><script type="module" src="/_astro/LanguageSelect.astro_astro_type_script_index_0_lang.DH65a7yi.js"></script></div></div></header><nav class="sidebar print:hidden astro-7ol3m3p7" aria-label="Main"><button popovertarget="starlight__sidebar" class="sl-menu-button sl-flex md:sl-hidden print:hidden astro-dcnpphyu"><svg aria-hidden="true" class="open-menu astro-dcnpphyu astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"/></svg><svg aria-hidden="true" class="close-menu astro-dcnpphyu astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"/></svg><span class="sr-only astro-dcnpphyu">Menu</span></button><script type="module">var e=class extends HTMLElement{constructor(){super();let e=matchMedia(`(min-width: 50em)`),t=()=>{this.popover=e.matches?null:`auto`};t(),e.addEventListener(`change`,()=>t()),this.addEventListener(`toggle`,({newState:e})=>this.trapFocus(e===`open`))}trapFocus(e){document.querySelectorAll(`.main-frame, .sl-skip-link`).forEach(t=>{t.toggleAttribute(`inert`,e)})}};customElements.define(`sl-sidebar-pane`,e);</script><sl-sidebar-pane popover id="starlight__sidebar" class="sidebar-pane astro-7ol3m3p7"><div class="sidebar-content sl-flex astro-7ol3m3p7"><sl-sidebar-state-persist data-hash="1ekcnao" class="astro-lsvsit3p"><script aria-hidden="true">
+		(() => {
+			try {
+				if (!matchMedia('(min-width: 50em)').matches) return;
+				/** @type {HTMLElement | null} */
+				const target = document.querySelector('sl-sidebar-state-persist');
+				const state = JSON.parse(sessionStorage.getItem('sl-sidebar-state') || '0');
+				if (!target || !state || target.dataset.hash !== state.hash) return;
+				window._starlightScrollRestore = state.scroll;
+				customElements.define(
+					'sl-sidebar-restore',
+					class SidebarRestore extends HTMLElement {
+						connectedCallback() {
+							try {
+								const idx = parseInt(this.dataset.index || '');
+								const details = this.closest('details');
+								if (details && typeof state.open[idx] === 'boolean') details.open = state.open[idx];
+							} catch {}
+						}
+					}
+				);
+			} catch {}
+		})();
+	</script><ul class="top-level astro-ykcsoi7s"><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Start here</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="0"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">User guide</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="1"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Developer guide</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="2"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Design specifications</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="3"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Development records</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="4"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Project reference</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="5"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Test data</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="6"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li></ul><script aria-hidden="true">
+		(() => {
+			const scroller = document.getElementById('starlight__sidebar');
+			if (!window._starlightScrollRestore || !scroller) return;
+			scroller.scrollTop = window._starlightScrollRestore;
+			delete window._starlightScrollRestore;
+		})();
+	</script></sl-sidebar-state-persist><div class="md:sl-hidden"><div class="mobile-preferences sl-flex astro-lsc3yx5w"><div class="social-icons astro-lsc3yx5w"><a href="https://github.com/owent/llm-usage" rel="me" class="sl-flex astro-csqdcj5u"><span class="sr-only astro-csqdcj5u">GitHub</span><svg aria-hidden="true" class="astro-csqdcj5u astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a></div><starlight-theme-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">Select theme</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="light" class="astro-btilxiwo">Light</option><option value="dark" class="astro-btilxiwo">Dark</option><option value="auto" selected class="astro-btilxiwo">Auto</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-theme-select><script>window.LLMUsageDocsTheme.updatePickers();</script><starlight-lang-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">Select language</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path fill-rule="evenodd" d="M8.516 3a.94.94 0 0 0-.941.94v1.15H2.94a.94.94 0 1 0 0 1.882h7.362a7.422 7.422 0 0 1-1.787 3.958 7.42 7.42 0 0 1-1.422-2.425.94.94 0 1 0-1.774.627 9.303 9.303 0 0 0 1.785 3.043 7.422 7.422 0 0 1-4.164 1.278.94.94 0 1 0 0 1.881 9.303 9.303 0 0 0 5.575-1.855 9.303 9.303 0 0 0 4.11 1.74l-.763 1.525a.968.968 0 0 0-.016.034l-1.385 2.77a.94.94 0 1 0 1.683.841l1.133-2.267h5.806l1.134 2.267a.94.94 0 0 0 1.683-.841l-1.385-2.769a.95.95 0 0 0-.018-.036l-3.476-6.951a.94.94 0 0 0-1.682 0l-1.82 3.639a7.423 7.423 0 0 1-3.593-1.256 9.303 9.303 0 0 0 2.27-5.203h1.894a.94.94 0 0 0 0-1.881H9.456V3.94A.94.94 0 0 0 8.516 3Zm6.426 11.794a1.068 1.068 0 0 1-.02.039l-.703 1.407h3.924l-1.962-3.924-1.24 2.478Z" clip-rule="evenodd"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="/reference/evidence/review-2026-09-27/" class="astro-btilxiwo">English</option><option value="/zh-cn/reference/evidence/review-2026-09-27/" class="astro-btilxiwo">简体中文</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-lang-select></div></div></div></sl-sidebar-pane></nav><div class="main-frame astro-7ol3m3p7"><script type="module">var e=document.getElementById(`starlight__sidebar`),t=e?.querySelector(`sl-sidebar-state-persist`),n=`sl-sidebar-state`,r=()=>{let r=[],i=t?.dataset.hash||``;try{let e=sessionStorage.getItem(n),t=JSON.parse(e||`{}`);Array.isArray(t.open)&&t.hash===i&&(r=t.open)}catch{}return{hash:i,open:r,scroll:e?.scrollTop||0}},i=e=>{try{sessionStorage.setItem(n,JSON.stringify(e))}catch{}},a=()=>i(r()),o=(e,t)=>{let n=r();n.open[t]=e,i(n)};t?.addEventListener(`click`,e=>{if(!(e.target instanceof Element))return;let t=e.target.closest(`summary`)?.closest(`details`);if(!t)return;let n=t.querySelector(`sl-sidebar-restore`),r=parseInt(n?.dataset.index||``);isNaN(r)||o(!t.open,r)}),addEventListener(`visibilitychange`,()=>{document.visibilityState===`hidden`&&a()});</script><div class="lg:sl-flex astro-rcl3dmqm"><aside class="right-sidebar-container print:hidden astro-rcl3dmqm"><div class="right-sidebar astro-rcl3dmqm"><div class="lg:sl-hidden astro-fjp5q7r4"><mobile-starlight-toc data-min-h="2" data-max-h="3" class="astro-6exeh6u7"><nav aria-labelledby="starlight__on-this-page--mobile" class="astro-6exeh6u7"><details id="starlight__mobile-toc" class="astro-6exeh6u7"><summary id="starlight__on-this-page--mobile" class="sl-flex astro-6exeh6u7"><span class="toggle sl-flex astro-6exeh6u7">On this page<svg aria-hidden="true" class="caret astro-6exeh6u7 astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></span><span class="display-current astro-6exeh6u7"></span></summary><div class="dropdown astro-6exeh6u7"><ul class="isMobile astro-g6ctc22k" style="--depth: 0;"><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#_top" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Overview</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#repair-requirements-and-results" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Repair requirements and results</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#archive-source-checks" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Archive-source checks</span></a><ul class="isMobile astro-g6ctc22k" style="--depth: 1;"><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#codex-claude-opencode-and-kilo" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Codex, Claude, OpenCode and Kilo</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#zcode-database-collection-and-jsonl-fallback" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">ZCode: database collection and JSONL fallback</span></a></li></ul></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#interface-and-performance" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Interface and performance</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#checks-in-this-batch" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Checks in this batch</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#remaining-acceptance-and-data-limits" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Remaining acceptance and data limits</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#additional-archive-and-interface-checks" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Additional archive and interface checks</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#source-health-and-unknown-versions" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Source health and unknown versions</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#daily-heatmaps-and-language-expansion" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Daily heatmaps and language expansion</span></a></li></ul></div></details></nav></mobile-starlight-toc><script type="module" src="/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.C3fM4Kra.js"></script></div><div class="right-sidebar-panel sl-hidden lg:sl-block astro-fjp5q7r4"><div class="sl-container astro-fjp5q7r4"><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">On this page</h2><ul class="astro-g6ctc22k" style="--depth: 0;"><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#_top" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Overview</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#repair-requirements-and-results" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Repair requirements and results</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#archive-source-checks" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Archive-source checks</span></a><ul class="astro-g6ctc22k" style="--depth: 1;"><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#codex-claude-opencode-and-kilo" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Codex, Claude, OpenCode and Kilo</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#zcode-database-collection-and-jsonl-fallback" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">ZCode: database collection and JSONL fallback</span></a></li></ul></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#interface-and-performance" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Interface and performance</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#checks-in-this-batch" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Checks in this batch</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#remaining-acceptance-and-data-limits" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Remaining acceptance and data limits</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#additional-archive-and-interface-checks" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Additional archive and interface checks</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#source-health-and-unknown-versions" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Source health and unknown versions</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#daily-heatmaps-and-language-expansion" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Daily heatmaps and language expansion</span></a></li></ul></nav></starlight-toc><script type="module" src="/_astro/TableOfContents.astro_astro_type_script_index_0_lang.BpJaGz7G.js"></script></div></div></div></aside><div class="main-pane astro-rcl3dmqm"><main data-pagefind-body class="astro-i2f5rvhd" lang="en" dir="ltr"><div class="content-panel astro-ptfq3z6k"><div class="sl-container astro-ptfq3z6k"><h1 id="_top" class="astro-5fsxzwfk">2026-09-27 review, archives and interface improvements</h1></div></div><div class="content-panel astro-ptfq3z6k"><div class="sl-container astro-ptfq3z6k"><div class="sl-markdown-content"><p><a id="2026-09-27-review-archives-and-interface-improvements"></a></p>
+<p><a id="2026-09-27-审查归档与界面改进"></a></p>
+<p>Status: this batch’s repairs/local checks are complete. Scope: nine commits/444 changed files,
+4ef354d42dac2ca9f86ae101f70908ff4cb2f7eb through ff1e458, range 4ef354d^..ff1e458. Initial
+workspace clean. Review covers design/version references/full change inventory/collection-to-UI
+data flow/tests/build/docs. Historical checks do not count as current passes. No commits,
+pushes, installation or deployment.</p>
+<p><a id="修复要求与结果"></a></p>
+<p><a id="修复合同与结果"></a></p>
+<h2 id="repair-requirements-and-results">Repair requirements and results</h2>
+<p>Archives/active sessions share one source instance. Read only documented local formats;
+deduplicate by native identities without guessed association from nearby times/equal tokens.
+Unknowns remain unknown; messages/requests/cumulative values/quotas stay distinct. Model/Agent
+grouping/filtering is case-insensitive; event identity remains unchanged and display-name
+changes do not add events.</p>
+<table>
+<thead>
+<tr>
+<th>Finding</th>
+<th>Repair and regression coverage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Codex discovers sessions only, missing initial collection after archive</td>
+<td>Discover archived_sessions too; archive-only/active-plus-archive/repeats count once</td>
+</tr>
+<tr>
+<td>ZCode approximate time/token matching merges different calls; late JSONL duplicates</td>
+<td>Native model_usage IDs; atomic source/day replacement, no guessed cross-format match</td>
+</tr>
+<tr>
+<td>Deleting whole historical periods per dimension leaves only last dimension</td>
+<td>Delete once per period; retain multiple sources/models; repeated cleanup changes nothing</td>
+</tr>
+<tr>
+<td>Partial daily data overrides complete periods; summaries/groups select differently</td>
+<td>Shared coverage selector; periods must fit fully within query range; preserve daily cutoff</td>
+</tr>
+<tr>
+<td>Case handling differs across summaries/hours/details/charts</td>
+<td>SQLite lowercase function matches Rust; consistent paths; different providers retain model rows</td>
+</tr>
+<tr>
+<td>Hourly sessions use whole-day counts and add dimensions; cross-day duplicates</td>
+<td>Deduplicate source/session within selected range; missing IDs/aggregate-only history unknown</td>
+</tr>
+<tr>
+<td>Mean duration uses all calls as denominator</td>
+<td>Weight by duration-bearing samples; add sample count; no zero for unknown samples</td>
+</tr>
+<tr>
+<td>Hourly totals flatten quality/conflicts; cache ratios mix sample populations</td>
+<td>Retain quality/conflicts; paired samples from retained details; unrecoverable old archives unknown</td>
+</tr>
+<tr>
+<td>Empty user-source selection means every source</td>
+<td>Distinguish unrestricted selection from explicit empty set; prevent cross-user statistics exposure</td>
+</tr>
+<tr>
+<td>Export misses recent unsealed days/period history; import drops fields</td>
+<td>Direct aggregate snapshot includes day/hour/period/coverage counts and original host; invalid import fully rolls back</td>
+</tr>
+<tr>
+<td>Import overwrites partitions with live local details</td>
+<td>Identical packages change nothing; reject different-content conflicts with active details; avoid sealing/overwriting live sources</td>
+</tr>
+<tr>
+<td>Cursor commits before native summary failure lose retry data</td>
+<td>Native summaries/events/cursors share transaction; Hermes failure injection checks rollback/failure state/complete retry</td>
+</tr>
+<tr>
+<td>Interval zero still scans; concurrent trigger race</td>
+<td>Zero stops interval collection; changed intervals/manual completion reset deadlines; atomic refresh coalescing</td>
+</tr>
+<tr>
+<td>Second process opening DB recovers still-running jobs</td>
+<td>OS file lock per DB; headless requests merge into owner; crashes release lock</td>
+</tr>
+<tr>
+<td>Headless version mismatch opens delete-DB dialog</td>
+<td>Windowless startup returns error/preserves DB; GUI handles interactive recovery explicitly</td>
+</tr>
+<tr>
+<td>Returning to prior timezone omits later collected data</td>
+<td>Rebuild daily/hourly partitions from retained details; no guessed conversion of cleaned history</td>
+</tr>
+<tr>
+<td>Repeated page queries/stale responses/missed source reassignment refresh</td>
+<td>Deduplicate requests/use sequence guards; separate filter catalog; force reassignment requery; idle polling leaves charts alone</td>
+</tr>
+<tr>
+<td>Detail refresh resets page; cleanup leaves invalid page</td>
+<td>Same-range refresh retains page; range changes reset; shrinking data returns to last valid page</td>
+</tr>
+<tr>
+<td>Panel order lost on restart; unintuitive resize clicks</td>
+<td>Restore saved order; insertion-sort dragging; keyboard resize; canceled drags do not save</td>
+</tr>
+<tr>
+<td>Chinese user names produce identical IDs</td>
+<td>Separate IDs/names; random unique IDs; test Chinese/duplicate names</td>
+</tr>
+<tr>
+<td>GNU-only tar arguments break Windows script tests</td>
+<td>Relative working-directory archives support BSDtar; repeated reports avoid repackaging</td>
+</tr>
+</tbody>
+</table>
+<p><a id="归档来源核验"></a></p>
+<h2 id="archive-source-checks">Archive-source checks</h2>
+<p><a id="codexclaudeopencode-与-kilo"></a></p>
+<h3 id="codex-claude-opencode-and-kilo">Codex, Claude, OpenCode and Kilo</h3>
+<ul>
+<li>Codex official <a href="https://learn.chatgpt.com/docs/app-server">App Server documentation</a>
+describes thread/archive moving sessions to archives. Native event identity within a source
+remains unchanged by moves. Read-only local inventory: 306 active files/no archives; synthetic
+archives verify the path without claiming real local archive acceptance.</li>
+<li>Claude already discovers orphaned/superseded/subagents and tests native message identities;
+full suite rerun. No local Claude data for real archive comparison.</li>
+<li>OpenCode/Kilo DB queries retain archived sessions; added archive-marker before/after checks
+preserve totals. OpenCode fields reference official
+<a href="https://github.com/anomalyco/opencode/blob/dev/packages/opencode/src/session/session.ts">session source</a>.
+Shared code families do not establish other products’ archive formats.</li>
+<li>Other capabilities follow the <a href="/reference/design/adapters/">adapter matrix</a>.
+Archives without verified format references are not parsed speculatively; limited products
+such as OpenClaw do not thereby become accepted.</li>
+</ul>
+<p><a id="zcode数据库采集与-jsonl-回退"></a></p>
+<h3 id="zcode-database-collection-and-jsonl-fallback">ZCode: database collection and JSONL fallback</h3>
+<p>Read-only checks of installed resources/glm/zcode.cjs model_usage writing/cleanup, SHA-256
+B1DF2EF3E5BD76C4AF3ECB296BC003A10D3F13191A26610BD0BA940FEADAD529. Native row identity includes
+assistantMessage/span/start/attempt source fields. JSONL network requestId is a different
+identity; traceId can span requests. Equal timestamps/tokens cannot establish the same call.</p>
+<p>started_at cleanup removes records older than about 30 days: bounded local history, rather
+than permanent archives. Behavior:</p>
+<ol>
+<li>Normal discovery includes db/db.sqlite without a manual history button.</li>
+<li>Read-only consistent snapshots check fields/completion and use model_usage.id as source call key.</li>
+<li>Successful validation atomically replaces source/day events/daily/hourly rows and fingerprint;
+do not add turn_usage to per-call usage.</li>
+<li>Older saved app history remains. A possibly incomplete 30-day boundary preserves existing
+daily rows with diagnostics; expired daily-layer data is not split back into days.</li>
+<li>After a source uses DB data, missing/corrupt DBs preserve statistics/report errors; silently
+falling back to JSONL could double-count. Only sources that never used the DB may fall back.</li>
+<li>Missing per-record product-version references leave latest_fallback; valid amounts count,
+while version coverage remains unverified.</li>
+</ol>
+<p>Real read-only command: cargo run –manifest-path desktop/src-tauri/Cargo.toml -p llm-usage-core
+–example real_verify_zcode – &lt;local-ZCode-CLI-root&gt; build/review-2026-09-27/real-zcode-final.
+Input is the local source; output is an independent task DB. Snapshot exited 0; permitted values:</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th style="text-align: right">Compared result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Completed calls</td>
+<td style="text-align: right">8,225</td>
+</tr>
+<tr>
+<td>Input tokens, including cache</td>
+<td style="text-align: right">2,394,416,074</td>
+</tr>
+<tr>
+<td>Cache-read tokens</td>
+<td style="text-align: right">2,360,503,168</td>
+</tr>
+<tr>
+<td>Cache-write tokens</td>
+<td style="text-align: right">0</td>
+</tr>
+<tr>
+<td>Output tokens</td>
+<td style="text-align: right">4,533,937</td>
+</tr>
+<tr>
+<td>Total tokens, input + output</td>
+<td style="text-align: right">2,398,950,011</td>
+</tr>
+<tr>
+<td>Main / sub-Agent / auxiliary / unknown class</td>
+<td style="text-align: right">5,949 / 2,257 / 18 / 1</td>
+</tr>
+<tr>
+<td>Added on repeat / revision changes</td>
+<td style="text-align: right">0 / 0</td>
+</tr>
+</tbody>
+</table>
+<p>The source was still running; later snapshots may change without historical recalculation errors.
+Per-call model_usage sums match application statistics. Of 506 turn_usage rows, 482 groups
+agree and 24 differ; cumulative total 2,389,951,339. This live snapshot cannot replace all
+completed calls with turn_usage. Compare both representations and retain differences without
+forcing equality. The checker outputs no prompts/bodies/session IDs/project paths.</p>
+<p><a id="界面与性能"></a></p>
+<h2 id="interface-and-performance">Interface and performance</h2>
+<ul>
+<li>Five pages share sidebar/hierarchy/spacing/cards/tables/forms; themes include chart text/axes/
+tooltips. Narrow windows remain usable, with keyboard focus/reduced-motion preferences.</li>
+<li>Dashboard adds active days/known-usage-field ratio/duration samples/records requiring review/
+historical coverage. Wording uses cache-read proportion so token proportions are not called
+request hit rates.</li>
+<li>Sources support search/user ownership/enabling and show compatibility/missing files/failures;
+remove the ZCode manual history entry replaced by automatic collection.</li>
+<li>Same-structure charts update incrementally; unknown usage remains blank; custom tooltips
+escape source labels. Today/details use statistics timezone, without OS-timezone or fixed
+24-hour date offsets.</li>
+<li>Summaries reuse one coverage selection/detail scan instead of rescanning per period/dimension.
+Set-based period replacement avoids refiltering every daily row for each archive row. Aggregate
+export does not first load raw details. Unchanged scans/repeated imports/cleanup preserve revisions.</li>
+<li>Conclusions cover implementation/regressions only: million-row P95/idle memory/uniform source
+time limits were unmeasured. Fewer duplicate queries do not establish every M7 resource target.</li>
+</ul>
+<p><a id="本轮验证"></a></p>
+<h2 id="checks-in-this-batch">Checks in this batch</h2>
+<p>Windows x64, Node.js 24.21.0, Rust 1.98.1; lockfile dependencies; cwd root. OS locks use
+<a href="https://doc.rust-lang.org/stable/std/fs/struct.File.html#method.try_lock">File.try_lock</a>,
+available since Rust 1.89. Desktop Cargo rust-version becomes 1.89; existing CI 1.98.0 satisfies it.</p>
+<table>
+<thead>
+<tr>
+<th>Command / check</th>
+<th style="text-align: right">Exit</th>
+<th>Result / log</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>npm run verify</td>
+<td style="text-align: right">0</td>
+<td>476 Rust/six frontend logic/three script tests; assets/Markdown/Svelte/workspace fmt/clippy/frontend build; verify-complete.log</td>
+</tr>
+<tr>
+<td>npm run test:browser</td>
+<td style="text-align: right">0</td>
+<td>Headless Edge, ten groups/zero runtime errors/seven screenshots; browser-final.log</td>
+</tr>
+<tr>
+<td>npm run build:desktop</td>
+<td style="text-align: right">0</td>
+<td>Windows release + NSIS; release-complete.log</td>
+</tr>
+<tr>
+<td>real_verify_zcode</td>
+<td style="text-align: right">0</td>
+<td>Per-call amounts above agree; repeat adds nothing; real-zcode-final.log</td>
+</tr>
+<tr>
+<td>headless-schema-check.py</td>
+<td style="text-align: right">0</td>
+<td>Child exits 1 as expected; no dialog/unchanged DB SHA-256; headless-schema.log</td>
+</tr>
+<tr>
+<td>git diff –check</td>
+<td style="text-align: right">0</td>
+<td>Final whitespace check passed</td>
+</tr>
+</tbody>
+</table>
+<p>Final NSIS candidate desktop/src-tauri/target/release/bundle/nsis/LLMUsage_0.1.0-dev_x64-setup.exe:
+2,564,223 bytes, about 2.45 MiB; installer not run. Background failures use this release with
+isolated APPDATA, leaving the real user DB untouched. Logs/disposable probes: build/review-2026-09-27/.</p>
+<p>Browser suite desktop/tests/browser-smoke.mjs runs via npm run test:browser with fixed time,
+OS Los Angeles/statistics Shanghai timezones/synthetic IPC. Checks five pages/light-dark themes/
+760px no horizontal overflow/two initial summary queries/no additional summary queries in 31
+idle seconds/stale fast-filter responses/empty users/same-revision source reassignment/retained
+refresh page/cleanup page reduction. Results/screenshots: build/browser-smoke/. Six frontend
+logic cases cover timezone/DST/panel order/corrupt layouts/weighted duration/unknown chart values/
+case-insensitive names/tooltip HTML escaping. Rust covers archive deduplication/equal-value distinct
+native requests/instance isolation/missing DB protection/NULL/cutoff boundaries/period retention/
+user filters/exchange transactions/timezone rebuild/process locks.</p>
+<p>The first full check found two outdated assertions: missing session IDs counted zero and ZCode
+identity was JSONL-only. Updated to unknown and separate native DB/JSONL identities, preserving
+business assertions; full rerun passed. Terminal sandbox access-denied/child EPERM failures were
+resolved through supported elevated execution, rather than counted as business failures or
+avoided by deleting tests. AI maintenance entry points/selective guidance reflect real commands/
+collection regressions without duplicate Skills/empty rules. CI adds frontend regressions and
+workspace fmt/clippy; no push triggered CI in this batch.</p>
+<p><a id="剩余验收与数据限制"></a></p>
+<h2 id="remaining-acceptance-and-data-limits">Remaining acceptance and data limits</h2>
+<ul>
+<li>No native GUI lifecycle/install/uninstall/Windows system-task registration/macOS/Linux/WSL
+acceptance here. Playwright simulated IPC does not verify native Tauri dialogs/IPC/system integration.</li>
+<li>Deleted source data never saved by the app cannot be recovered. Incomplete boundaries/unverified
+versions remain visible. Session counts/duration samples/cross-timezone hours cannot be inferred
+from sealed totals.</li>
+<li>Week/month/year-only history cannot prorate clipped periods into arbitrary ranges; weekday/hour
+heatmaps display only retained detail ranges.</li>
+<li>Exchange still imports aggregate snapshots; detail merging/deletion propagation/full Merge are
+later work. Aggregate snapshots cannot overwrite same-source partitions with continuing details.</li>
+<li>Per-source schedules/watchers/system-task desired/applied/uniform time limits remain M6/M7 work;
+static/unit passes do not complete those plans.</li>
+</ul>
+<p><a id="归档与界面补充核验"></a></p>
+<h2 id="additional-archive-and-interface-checks">Additional archive and interface checks</h2>
+<p>Dark-heatmap black blocks were reproduced in browser screenshots: alternating axis backgrounds
+created gray-black checkerboards where calls were absent; low-value dark blue approached the
+panel background. Draw fixed 7×24 neutral base cells, overlay blue/cyan/gold intensity only with
+calls, and define base/gap colors per theme. New build/browser-smoke/trend-dark.png shows consistent
+no-call cells without alternating black blocks. Overview history/trend defaults are token usage,
+calls,sessions; saved layouts retain user ordering.</p>
+<p>Qwen Code official <a href="https://github.com/QwenLM/qwen-code/issues/6057">archive behavior</a>
+moves JSONL from chats to chats/archive and back on restore. Upstream
+<a href="https://github.com/QwenLM/qwen-code/issues/9688">active/archive coexistence issue</a>
+rules out adding file counts. <a href="https://github.com/QwenLM/qwen-code/blob/main/docs/users/configuration/settings.md">Settings documentation</a>
+defines QWEN_RUNTIME_DIR/QWEN_HOME; new projects/old tmp layouts are discussed in
+<a href="https://github.com/QwenLM/qwen-code/discussions/10579">session formats</a> and
+<a href="https://github.com/QwenLM/qwen-code/blob/main/docs/users/qwen-serve.md">daemon documentation</a>.
+Enumerate only chats/archive in both layouts, keep one source instance/root, read active files
+first, deduplicate native uuid, import new active tails normally. Runtime override priority selects
+automatic environment roots; manual roots can retain old locations. Absolute/tilde-prefixed paths
+resolve; paths relative to Agent working directories cannot reliably be reconstructed by the
+desktop and require absolute manual roots. No local Qwen root was found: archive counts use
+synthetic samples without real Qwen archive acceptance.</p>
+<p><a href="https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/session-management.md">Gemini session management</a>
+describes regular automatic-session cleanup. <a href="https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/commands.md">Manual checkpoints</a>
+save separate session state without verified per-call identities/formats enabling exact automatic-
+session deduplication; do not add them as independent calls. pi deletion may move sessions to the
+recycle bin: a deletion action, not independent native usage storage. Known Claude/Codex/Kilo/
+OpenCode/ZCode archive behavior retains the preceding rules without expanding to other Agents
+by similar directory names.</p>
+<p>Three new Qwen cases: archive-only imports; active tail plus retained archive gives three calls/
+unchanged repeat revision; old tmp/new projects share two native calls/exclude side JSONL; runtime
+override selects only target root. Qwen regression/eight prior incremental cases passed. Browser
+adds two default-order checks/dark trend screenshot: 11 groups/eight screenshots/zero runtime
+errors. Full npm run verify exited 0: 479 Rust/six frontend logic/three script tests/Markdown/assets/
+Svelte zero errors/warnings/fmt/clippy/build; build/review-2026-09-27/verify-archive-layout.log.
+npm run test:browser exited 0, browser-heatmap-final.log; npm run check after adding a legend
+exited 0, check-heatmap-legend.log. npm run build:desktop exited 0, release-archive-layout.log;
+same NSIS candidate path, 2,567,112 bytes, not installed. Synthetic browser IPC does not replace
+native GUI or real Qwen archive checks.</p>
+<p><a id="数据源健康与未知版本"></a></p>
+<h2 id="source-health-and-unknown-versions">Source health and unknown versions</h2>
+<p>User reported Codex/ZCode both need checks. Read-only app DB: Codex 272 active/38 degraded files;
+ZCode two active/ten old new/one old unsupported. Latest seven tasks successful for both. Current
+program reading the same sources into an isolated root build/ DB still has 38 degraded Codex
+files; ZCode normal. Codex failures are not unknown versions: all 38 use registered versions.
+New DB diagnostics: 37 per-call/final-snapshot mismatches, four cumulative rollbacks, one malformed
+usage object. Complete calls cannot be verified, so partial-data review stays visible. Isolated
+and real app DBs remain separate; no writes to the real DB/Agent logs.</p>
+<p>Old ZCode unsupported JSONL lacks sessionId but has requestId/usage. The DB is authoritative;
+current collection excludes JSONL to avoid cross-format double-counting. Read-only comparison
+finds no JSONL request-ID match in DB native/logical IDs; nearby same-day token values also differ.
+trace_id is not unique per call, so DB coverage of that call is unverified. A test-like filename
+cannot establish invalidity/safe exclusion. Retain warning/statistics without adding JSONL; source
+card shows one unidentified file. A fresh isolated DB is normal because authoritative DB reading
+skips side JSONL: it verifies the DB path, without establishing inclusion of side-file usage.</p>
+<p>Unknown versions already try each Agent’s latest built-in parser; structurally valid data counts
+with latest_fallback references. Two shared fixes: incremental scans retain saved version references;
+bad records under compatible parsing show partial-data review even with valid calls, rather than
+active_compat hiding failures. Completely incompatible first reads still reject; successful zero
+cannot substitute for errors. Source cards distinguish compatible reading in normal information
+colors from degraded files. Added checks: unregistered valid calls count with normal source health;
+later invalid usage retains two prior calls and degrades file/source; successful ZCode DB reads
+preserve old unsupported/degraded JSONL warnings. Browser asserts source health/unidentified files/
+compatibility notices.</p>
+<p>Same Windows x64/Node.js 24.21.0/Rust 1.98.1; root commands, focused Rust from desktop/src-tauri.
+Logs: build/source-health-2026-09-27/.</p>
+<table>
+<thead>
+<tr>
+<th>Command / check</th>
+<th style="text-align: right">Exit</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>cargo test -p llm-usage-core –test zcode_gaps_synthetic –test zcode_db_backfill –test codex_gaps_synthetic –test codex_versions_v17</td>
+<td style="text-align: right">0</td>
+<td>Final 38 passed; initial new case exposed incremental bad records misclassified as wholly incompatible, corrected</td>
+</tr>
+<tr>
+<td>npm run verify</td>
+<td style="text-align: right">0</td>
+<td>481 Rust/six frontend logic/three scripts; Markdown/Svelte zero errors or warnings/fmt/clippy/build</td>
+</tr>
+<tr>
+<td>npm run test:browser</td>
+<td style="text-align: right">0</td>
+<td>12 groups/eight screenshots/zero runtime errors; synthetic IPC</td>
+</tr>
+<tr>
+<td>npm run build:desktop</td>
+<td style="text-align: right">0</td>
+<td>Windows release/NSIS, 2,568,281 bytes; not installed</td>
+</tr>
+<tr>
+<td>git diff –check</td>
+<td style="text-align: right">0</td>
+<td>No whitespace errors</td>
+</tr>
+</tbody>
+</table>
+<p>The real user DB was untouched. Automatic approval review rejected copying it into repository
+build/ because potentially sensitive usage/metadata exceeded read-only permission. Instead use
+fresh isolated source rescans/targeted read-only live SQL/synthetic old-state regressions. Whether
+the first refresh after upgrading the real app clears historical warnings remains to be observed
+using the new version.</p>
+<p><a id="逐日热力图与多语言扩展"></a></p>
+<h2 id="daily-heatmaps-and-language-expansion">Daily heatmaps and language expansion</h2>
+<p>User requested one day per heatmap cell/major languages. Previous weekday×hour folding merged
+the same hour across weeks and directly read events, losing usage retained in daily summaries
+after detail cleanup. Now return consecutive local dates in the selected IANA timezone; daily_usage
+aggregates calls/known tokens under overview daily filtering. Before daily-layer cutoff, a day
+without matching daily data is unavailable. Period archives are checked separately for imported
+DBs without local daily cutoffs. Partially retained days keep known values/partial coverage.
+Week/month/year materializations cannot be split into days: no zero filling/prorating/recalculation.
+Weekday distribution combines these date cells and reports incomplete coverage. Synthetic cases:
+same weekday across weeks/Shanghai crossing UTC dates/daily data retained after event deletion/
+case-insensitive filters/empty users/period-only after daily cleanup/period import without cutoff/
+partially retained days.</p>
+<p>Calendar cells use theme base/intensity colors; cleaned dates have hatching distinct from zero
+calls, partial days dashed borders. Short ranges show known active days/longest active streak/
+highest-call date without implying complete coverage. Light/dark screenshots show no old black
+blocks; date-cell count matches selected range.</p>
+<p>Traditional Chinese/Japanese/Korean/Spanish/French/German/Brazilian Portuguese/Russian join
+Simplified Chinese/English for ten languages. All 292 UI keys exist per language; tests check key
+sets/nonempty text/interpolation parameters. Language persists/applies immediately; Intl formats
+dates/numbers/relative times in current locale. Translation does not change statistics timezone/
+query values. Diagnostic originals/raw source names are excluded. Native-speaker review remains
+needed, particularly cleanup/import/export instructions with operational consequences.</p>
+<p>Windows x64/Node.js 24.21.0/Rust 1.98.1. Synthetic browser IPC does not replace native GUI or
+installed acceptance after real daily cleanup.</p>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th style="text-align: right">Exit</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>npm run verify</td>
+<td style="text-align: right">0</td>
+<td>483 Rust/eight frontend logic/three scripts; Markdown/assets/Svelte zero errors or warnings/Rust fmt/Clippy/build</td>
+</tr>
+<tr>
+<td>npm run test:browser</td>
+<td style="text-align: right">0</td>
+<td>13 groups/nine screenshots/zero runtime errors; daily cells/themes/ten persisted languages/German-Russian narrow windows</td>
+</tr>
+<tr>
+<td>npm run build:desktop</td>
+<td style="text-align: right">0</td>
+<td>Windows x64 release/NSIS, 2,585,083 bytes; not installed</td>
+</tr>
+<tr>
+<td>git diff –check</td>
+<td style="text-align: right">0</td>
+<td>Tracked changes whitespace-clean; new files separately checked by formatting/types/tests</td>
+</tr>
+</tbody>
+</table>
+<p>Frontend JS gzip 287.14 KB/CSS gzip 7.27 KB remain below the designed 1 MiB gzip limit.
+First-screen P95 was not measured here. Native per-language desktop checks/native-speaker
+translation review remain for later manual acceptance.</p>
+</div><footer class="sl-flex astro-q3cosrfy"><div class="meta sl-flex astro-q3cosrfy"><a href="https://github.com/owent/llm-usage/edit/main/docs/validation/desktop-usage/review-2026-09-27.md" class="sl-flex print:hidden astro-okj6rzri"><svg aria-hidden="true" class="astro-okj6rzri astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.2em;"><path d="M22 7.24a1 1 0 0 0-.29-.71l-4.24-4.24a1 1 0 0 0-1.1-.22 1 1 0 0 0-.32.22l-2.83 2.83L2.29 16.05a1 1 0 0 0-.29.71V21a1 1 0 0 0 1 1h4.24a1 1 0 0 0 .76-.29l10.87-10.93L21.71 8c.1-.1.17-.2.22-.33a1 1 0 0 0 0-.24v-.14l.07-.05ZM6.83 20H4v-2.83l9.93-9.93 2.83 2.83L6.83 20ZM18.17 8.66l-2.83-2.83 1.42-1.41 2.82 2.82-1.41 1.42Z"/></svg>Edit page</a></div><div class="pagination-links print:hidden astro-vd7os7a3" dir="ltr"></div></footer></div></div></main></div></div></div></div></body></html>

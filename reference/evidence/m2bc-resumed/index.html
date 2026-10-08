@@ -1,0 +1,444 @@
+<!DOCTYPE html><html lang="en" dir="ltr" data-theme="dark" data-has-toc data-has-sidebar class="astro-i2f5rvhd"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>M2-B/C recovery: pi, oh-my-pi, Claude, Gemini and Qwen adapters | LLM Usage</title><link rel="canonical" href="https://llm-usage.atframe.work/reference/evidence/m2bc-resumed/"/><link rel="alternate" hreflang="en" href="https://llm-usage.atframe.work/reference/evidence/m2bc-resumed/"/><link rel="alternate" hreflang="zh-CN" href="https://llm-usage.atframe.work/zh-cn/reference/evidence/m2bc-resumed/"/><link rel="alternate" hreflang="x-default" href="https://llm-usage.atframe.work/reference/evidence/m2bc-resumed/"/><link rel="sitemap" href="/sitemap-index.xml"/><link rel="shortcut icon" href="/favicon.svg" type="image/svg+xml"/><meta name="generator" content="Astro v7.3.6"/><meta name="generator" content="Starlight v0.42.5"/><meta property="og:title" content="M2-B/C recovery: pi, oh-my-pi, Claude, Gemini and Qwen adapters"/><meta property="og:type" content="article"/><meta property="og:url" content="https://llm-usage.atframe.work/reference/evidence/m2bc-resumed/"/><meta property="og:locale" content="en"/><meta property="og:description" content="Understand the AI usage recorded on your computer."/><meta property="og:site_name" content="LLM Usage"/><meta name="twitter:card" content="summary_large_image"/><meta name="description" content="Understand the AI usage recorded on your computer."/><meta name="color-scheme" content="light dark"><script type="module" src="/_astro/Head.astro_astro_type_script_index_0_lang.CRxMF9Ma.js"></script><script>
+  (() => {
+    const scheme = matchMedia('(prefers-color-scheme: dark)');
+    let choice = 'auto';
+    try {
+      const saved = localStorage.getItem('starlight-theme');
+      if (saved === 'light' || saved === 'dark') choice = saved;
+    } catch { /* System theme remains available without browser storage. */ }
+    function updatePickers() {
+      document.querySelectorAll('starlight-theme-select').forEach(picker => {
+        const select = picker.querySelector('select');
+        if (select) select.value = choice;
+        const icon = document.querySelector('#docs-theme-icons')?.content.querySelector('.' + choice);
+        const target = picker.querySelector('svg.label-icon');
+        if (icon && target) target.replaceChildren(...icon.cloneNode(true).childNodes);
+      });
+    }
+    function apply(theme, persist = false) {
+      choice = theme === 'light' || theme === 'dark' ? theme : 'auto';
+      document.documentElement.dataset.theme = choice === 'auto' ? scheme.matches ? 'dark' : 'light' : choice;
+      updatePickers();
+      if (persist) {
+        try { localStorage.setItem('starlight-theme', choice === 'auto' ? '' : choice); }
+        catch { /* The current page still changes theme. */ }
+      }
+    }
+    window.LLMUsageDocsTheme = { apply, updatePickers };
+    scheme.addEventListener('change', () => { if (choice === 'auto') apply('auto'); });
+    apply(choice);
+  })();
+</script><template id="docs-theme-icons"><svg aria-hidden="true" class="light astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg><svg aria-hidden="true" class="dark astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="auto astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg></template><link rel="stylesheet" href="/_astro/print.ehPL0gv-.css" media="print"><link rel="stylesheet" href="/_astro/common.CLGr15ze.css"><style>@layer starlight.components{.card:where(.astro-eiplrasj){--sl-card-border:var(--sl-color-purple);--sl-card-bg:var(--sl-color-purple-low);border:1px solid var(--sl-color-gray-5);background-color:var(--sl-color-black);flex-direction:column;gap:clamp(.5rem,.125rem + 1vw,1rem);padding:clamp(1rem,.125rem + 3vw,2.5rem)}.card:where(.astro-eiplrasj):nth-child(4n+1){--sl-card-border:var(--sl-color-orange);--sl-card-bg:var(--sl-color-orange-low)}.card:where(.astro-eiplrasj):nth-child(4n+3){--sl-card-border:var(--sl-color-green);--sl-card-bg:var(--sl-color-green-low)}.card:where(.astro-eiplrasj):nth-child(4n+4){--sl-card-border:var(--sl-color-red);--sl-card-bg:var(--sl-color-red-low)}.card:where(.astro-eiplrasj):nth-child(4n+5){--sl-card-border:var(--sl-color-blue);--sl-card-bg:var(--sl-color-blue-low)}.title:where(.astro-eiplrasj){font-weight:600;font-size:var(--sl-text-h4);color:var(--sl-color-white);line-height:var(--sl-line-height-headings);align-items:center;gap:1rem}.card:where(.astro-eiplrasj) .icon:where(.astro-eiplrasj){border:1px solid var(--sl-card-border);background-color:var(--sl-card-bg);border-radius:.25rem;flex-shrink:0;padding:.2em}.card:where(.astro-eiplrasj) .body:where(.astro-eiplrasj){font-size:clamp(var(--sl-text-sm), calc(.5rem + 1vw), var(--sl-text-body));margin:0}.card-grid:where(.astro-t7b7g7fk){grid-template-columns:100%;gap:1rem;display:grid}.card-grid:where(.astro-t7b7g7fk)>*{margin-top:0!important}@media (width>=50rem){.card-grid:where(.astro-t7b7g7fk){grid-template-columns:1fr 1fr;gap:1.5rem}.stagger:where(.astro-t7b7g7fk){--stagger-height:5rem;padding-bottom:var(--stagger-height)}.stagger:where(.astro-t7b7g7fk)>:nth-child(2n){transform:translateY(var(--stagger-height))}}.sl-link-card:where(.astro-6ghwbfyk){border:1px solid var(--sl-color-gray-5);box-shadow:var(--sl-shadow-sm);border-radius:.5rem;grid-template-columns:1fr auto;gap:.5rem;padding:1rem;display:grid;position:relative}a:where(.astro-6ghwbfyk){line-height:var(--sl-line-height-headings);text-decoration:none}a:where(.astro-6ghwbfyk):before{content:"";position:absolute;inset:0}.stack:where(.astro-6ghwbfyk){flex-direction:column;gap:.5rem}.title:where(.astro-6ghwbfyk){color:var(--sl-color-white);font-weight:600;font-size:var(--sl-text-lg)}.description:where(.astro-6ghwbfyk){color:var(--sl-color-gray-3);line-height:1.5}.icon:where(.astro-6ghwbfyk){color:var(--sl-color-gray-3)}.sl-link-card:where(.astro-6ghwbfyk):hover{background:var(--sl-color-gray-7,var(--sl-color-gray-6));border-color:var(--sl-color-gray-2)}.sl-link-card:where(.astro-6ghwbfyk):hover .icon:where(.astro-6ghwbfyk){color:var(--sl-color-white)}}.app-screenshot:where(.astro-ofe7zldm){margin:1.5rem 0 2.5rem}.screenshot-frame:where(.astro-ofe7zldm){border:1px solid var(--sl-color-gray-5);background:var(--sl-color-bg);border-radius:1rem;box-shadow:0 16px 48px #00000018}.screenshot-frame:where(.astro-ofe7zldm) a:where(.astro-ofe7zldm){border-radius:inherit;display:block}.screenshot-frame:where(.astro-ofe7zldm) img:where(.astro-ofe7zldm){border-radius:inherit;width:100%;height:auto;box-shadow:none;border:0;margin:0;display:block}.screenshot-frame:where(.astro-ofe7zldm) .screenshot-dark:where(.astro-ofe7zldm),:root[data-theme=dark] .screenshot-light:where(.astro-ofe7zldm){display:none}:root[data-theme=dark] .screenshot-dark:where(.astro-ofe7zldm){display:block}figcaption:where(.astro-ofe7zldm){color:var(--sl-color-gray-2);flex-wrap:wrap;justify-content:space-between;gap:.25rem 1rem;margin-top:.75rem;font-size:.875rem;line-height:1.6;display:flex}.screenshot-hint:where(.astro-ofe7zldm){color:var(--sl-color-text-accent)}
+@layer starlight.components{svg:where(.astro-iwaxdyvu){color:var(--sl-icon-color);font-size:var(--sl-icon-size,1em);width:1em;height:1em}}
+</style><script type="module" src="/_astro/page.Dwipeu-R.js"></script></head><body class="astro-i2f5rvhd"><a class="sl-skip-link astro-af3xnx6k" href="#_top">Skip to content</a><div class="page sl-flex astro-7ol3m3p7"><header class="header astro-7ol3m3p7"><div class="header astro-qqelxyz2"><div class="title-wrapper sl-flex astro-qqelxyz2"><a href="/" class="site-title sl-flex astro-pm7u5y3t"><img class="astro-pm7u5y3t" alt src="/_astro/brand.BEXAYDnz.svg" width="1024" height="1024"><span class="astro-pm7u5y3t" translate="no">LLM Usage</span></a></div><div class="sl-flex print:hidden astro-qqelxyz2"><site-search class="astro-qqelxyz2 astro-veqdxac2" data-translations="{&quot;placeholder&quot;:&quot;Search&quot;}"><button data-open-modal disabled aria-label="Search" aria-keyshortcuts="Control+K" class="astro-veqdxac2"><svg aria-hidden="true" class="astro-veqdxac2 astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg><span class="sl-hidden md:sl-block astro-veqdxac2" aria-hidden="true">Search</span><kbd class="sl-hidden md:sl-flex astro-veqdxac2" style="display: none;"><kbd class="astro-veqdxac2">Ctrl</kbd><kbd class="astro-veqdxac2">K</kbd></kbd></button><dialog style="padding:0" aria-label="Search" class="astro-veqdxac2"><div class="dialog-frame sl-flex astro-veqdxac2"><button data-close-modal class="sl-flex md:sl-hidden astro-veqdxac2">Cancel</button><div class="search-container astro-veqdxac2"><div id="starlight__search" class="astro-veqdxac2"></div></div></div></dialog></site-search><script>
+	(() => {
+		const openBtn = document.querySelector('button[data-open-modal]');
+		const shortcut = openBtn?.querySelector('kbd');
+		if (!openBtn || !(shortcut instanceof HTMLElement)) return;
+		const platformKey = shortcut.querySelector('kbd');
+		if (platformKey && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
+			platformKey.textContent = '⌘';
+			openBtn.setAttribute('aria-keyshortcuts', 'Meta+K');
+		}
+		shortcut.style.display = '';
+	})();
+</script><script type="module" src="/_astro/Search.astro_astro_type_script_index_0_lang.Bumivpjo.js"></script></div><div class="sl-hidden md:sl-flex print:hidden right-group astro-qqelxyz2"><div class="sl-flex social-icons astro-qqelxyz2"><a href="https://github.com/owent/llm-usage" rel="me" class="sl-flex astro-csqdcj5u"><span class="sr-only astro-csqdcj5u">GitHub</span><svg aria-hidden="true" class="astro-csqdcj5u astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a></div><starlight-theme-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">Select theme</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="light" class="astro-btilxiwo">Light</option><option value="dark" class="astro-btilxiwo">Dark</option><option value="auto" selected class="astro-btilxiwo">Auto</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-theme-select><script>window.LLMUsageDocsTheme.updatePickers();</script><script type="module">document.addEventListener(`change`,e=>{let t=e.target;if(!(t instanceof HTMLSelectElement)||!t.closest(`starlight-theme-select`))return;let n=t.value===`light`||t.value===`dark`?t.value:`auto`;window.LLMUsageDocsTheme.apply(n,!0)});</script><starlight-lang-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">Select language</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path fill-rule="evenodd" d="M8.516 3a.94.94 0 0 0-.941.94v1.15H2.94a.94.94 0 1 0 0 1.882h7.362a7.422 7.422 0 0 1-1.787 3.958 7.42 7.42 0 0 1-1.422-2.425.94.94 0 1 0-1.774.627 9.303 9.303 0 0 0 1.785 3.043 7.422 7.422 0 0 1-4.164 1.278.94.94 0 1 0 0 1.881 9.303 9.303 0 0 0 5.575-1.855 9.303 9.303 0 0 0 4.11 1.74l-.763 1.525a.968.968 0 0 0-.016.034l-1.385 2.77a.94.94 0 1 0 1.683.841l1.133-2.267h5.806l1.134 2.267a.94.94 0 0 0 1.683-.841l-1.385-2.769a.95.95 0 0 0-.018-.036l-3.476-6.951a.94.94 0 0 0-1.682 0l-1.82 3.639a7.423 7.423 0 0 1-3.593-1.256 9.303 9.303 0 0 0 2.27-5.203h1.894a.94.94 0 0 0 0-1.881H9.456V3.94A.94.94 0 0 0 8.516 3Zm6.426 11.794a1.068 1.068 0 0 1-.02.039l-.703 1.407h3.924l-1.962-3.924-1.24 2.478Z" clip-rule="evenodd"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="/reference/evidence/m2bc-resumed/" class="astro-btilxiwo">English</option><option value="/zh-cn/reference/evidence/m2bc-resumed/" class="astro-btilxiwo">简体中文</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-lang-select><script type="module">var e=class extends HTMLElement{constructor(){super();let e=this.querySelector(`select`);e&&(e.addEventListener(`change`,e=>{e.currentTarget instanceof HTMLSelectElement&&(window.location.pathname=e.currentTarget.value)}),window.addEventListener(`pageshow`,t=>{if(!t.persisted)return;let n=e.querySelector(`option[selected]`)?.index;n!==e.selectedIndex&&(e.selectedIndex=n??0)}))}};customElements.define(`starlight-lang-select`,e);</script><script type="module" src="/_astro/LanguageSelect.astro_astro_type_script_index_0_lang.DH65a7yi.js"></script></div></div></header><nav class="sidebar print:hidden astro-7ol3m3p7" aria-label="Main"><button popovertarget="starlight__sidebar" class="sl-menu-button sl-flex md:sl-hidden print:hidden astro-dcnpphyu"><svg aria-hidden="true" class="open-menu astro-dcnpphyu astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"/></svg><svg aria-hidden="true" class="close-menu astro-dcnpphyu astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"/></svg><span class="sr-only astro-dcnpphyu">Menu</span></button><script type="module">var e=class extends HTMLElement{constructor(){super();let e=matchMedia(`(min-width: 50em)`),t=()=>{this.popover=e.matches?null:`auto`};t(),e.addEventListener(`change`,()=>t()),this.addEventListener(`toggle`,({newState:e})=>this.trapFocus(e===`open`))}trapFocus(e){document.querySelectorAll(`.main-frame, .sl-skip-link`).forEach(t=>{t.toggleAttribute(`inert`,e)})}};customElements.define(`sl-sidebar-pane`,e);</script><sl-sidebar-pane popover id="starlight__sidebar" class="sidebar-pane astro-7ol3m3p7"><div class="sidebar-content sl-flex astro-7ol3m3p7"><sl-sidebar-state-persist data-hash="1ekcnao" class="astro-lsvsit3p"><script aria-hidden="true">
+		(() => {
+			try {
+				if (!matchMedia('(min-width: 50em)').matches) return;
+				/** @type {HTMLElement | null} */
+				const target = document.querySelector('sl-sidebar-state-persist');
+				const state = JSON.parse(sessionStorage.getItem('sl-sidebar-state') || '0');
+				if (!target || !state || target.dataset.hash !== state.hash) return;
+				window._starlightScrollRestore = state.scroll;
+				customElements.define(
+					'sl-sidebar-restore',
+					class SidebarRestore extends HTMLElement {
+						connectedCallback() {
+							try {
+								const idx = parseInt(this.dataset.index || '');
+								const details = this.closest('details');
+								if (details && typeof state.open[idx] === 'boolean') details.open = state.open[idx];
+							} catch {}
+						}
+					}
+				);
+			} catch {}
+		})();
+	</script><ul class="top-level astro-ykcsoi7s"><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Start here</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="0"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">User guide</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="1"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Developer guide</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="2"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Design specifications</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="3"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Development records</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="4"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Project reference</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="5"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Test data</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="6"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li></ul><script aria-hidden="true">
+		(() => {
+			const scroller = document.getElementById('starlight__sidebar');
+			if (!window._starlightScrollRestore || !scroller) return;
+			scroller.scrollTop = window._starlightScrollRestore;
+			delete window._starlightScrollRestore;
+		})();
+	</script></sl-sidebar-state-persist><div class="md:sl-hidden"><div class="mobile-preferences sl-flex astro-lsc3yx5w"><div class="social-icons astro-lsc3yx5w"><a href="https://github.com/owent/llm-usage" rel="me" class="sl-flex astro-csqdcj5u"><span class="sr-only astro-csqdcj5u">GitHub</span><svg aria-hidden="true" class="astro-csqdcj5u astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a></div><starlight-theme-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">Select theme</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="light" class="astro-btilxiwo">Light</option><option value="dark" class="astro-btilxiwo">Dark</option><option value="auto" selected class="astro-btilxiwo">Auto</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-theme-select><script>window.LLMUsageDocsTheme.updatePickers();</script><starlight-lang-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">Select language</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path fill-rule="evenodd" d="M8.516 3a.94.94 0 0 0-.941.94v1.15H2.94a.94.94 0 1 0 0 1.882h7.362a7.422 7.422 0 0 1-1.787 3.958 7.42 7.42 0 0 1-1.422-2.425.94.94 0 1 0-1.774.627 9.303 9.303 0 0 0 1.785 3.043 7.422 7.422 0 0 1-4.164 1.278.94.94 0 1 0 0 1.881 9.303 9.303 0 0 0 5.575-1.855 9.303 9.303 0 0 0 4.11 1.74l-.763 1.525a.968.968 0 0 0-.016.034l-1.385 2.77a.94.94 0 1 0 1.683.841l1.133-2.267h5.806l1.134 2.267a.94.94 0 0 0 1.683-.841l-1.385-2.769a.95.95 0 0 0-.018-.036l-3.476-6.951a.94.94 0 0 0-1.682 0l-1.82 3.639a7.423 7.423 0 0 1-3.593-1.256 9.303 9.303 0 0 0 2.27-5.203h1.894a.94.94 0 0 0 0-1.881H9.456V3.94A.94.94 0 0 0 8.516 3Zm6.426 11.794a1.068 1.068 0 0 1-.02.039l-.703 1.407h3.924l-1.962-3.924-1.24 2.478Z" clip-rule="evenodd"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="/reference/evidence/m2bc-resumed/" class="astro-btilxiwo">English</option><option value="/zh-cn/reference/evidence/m2bc-resumed/" class="astro-btilxiwo">简体中文</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-lang-select></div></div></div></sl-sidebar-pane></nav><div class="main-frame astro-7ol3m3p7"><script type="module">var e=document.getElementById(`starlight__sidebar`),t=e?.querySelector(`sl-sidebar-state-persist`),n=`sl-sidebar-state`,r=()=>{let r=[],i=t?.dataset.hash||``;try{let e=sessionStorage.getItem(n),t=JSON.parse(e||`{}`);Array.isArray(t.open)&&t.hash===i&&(r=t.open)}catch{}return{hash:i,open:r,scroll:e?.scrollTop||0}},i=e=>{try{sessionStorage.setItem(n,JSON.stringify(e))}catch{}},a=()=>i(r()),o=(e,t)=>{let n=r();n.open[t]=e,i(n)};t?.addEventListener(`click`,e=>{if(!(e.target instanceof Element))return;let t=e.target.closest(`summary`)?.closest(`details`);if(!t)return;let n=t.querySelector(`sl-sidebar-restore`),r=parseInt(n?.dataset.index||``);isNaN(r)||o(!t.open,r)}),addEventListener(`visibilitychange`,()=>{document.visibilityState===`hidden`&&a()});</script><div class="lg:sl-flex astro-rcl3dmqm"><aside class="right-sidebar-container print:hidden astro-rcl3dmqm"><div class="right-sidebar astro-rcl3dmqm"><div class="lg:sl-hidden astro-fjp5q7r4"><mobile-starlight-toc data-min-h="2" data-max-h="3" class="astro-6exeh6u7"><nav aria-labelledby="starlight__on-this-page--mobile" class="astro-6exeh6u7"><details id="starlight__mobile-toc" class="astro-6exeh6u7"><summary id="starlight__on-this-page--mobile" class="sl-flex astro-6exeh6u7"><span class="toggle sl-flex astro-6exeh6u7">On this page<svg aria-hidden="true" class="caret astro-6exeh6u7 astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></span><span class="display-current astro-6exeh6u7"></span></summary><div class="dropdown astro-6exeh6u7"><ul class="isMobile astro-g6ctc22k" style="--depth: 0;"><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#_top" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Overview</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#metadata" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Metadata</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#commands-and-results" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Commands and results</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#independent-oh-my-pi-adapter-decision" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Independent oh-my-pi adapter decision</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#implementation-and-tests" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Implementation and tests</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#local-read-only-native-checks-2026-09-25-permitted-aggregates" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Local read-only native checks: 2026-09-25 permitted aggregates</span></a><ul class="isMobile astro-g6ctc22k" style="--depth: 1;"><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#pi-piagent-pi-0871" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">pi: ~/.pi/agent, pi 0.87.1</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#oh-my-pi-ompagent-omp-1827" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">oh-my-pi: ~/.omp/agent, omp 18.2.7</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#claude-code-gemini-cli-and-qwen-code" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Claude Code, Gemini CLI and Qwen Code</span></a></li></ul></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#observed-fork-behavior-pi-and-omp" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Observed fork behavior: pi and omp</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#recovery-fixes" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Recovery fixes</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#remaining-work-outside-this-recovery" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Remaining work outside this recovery</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#verification-artifacts" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Verification artifacts</span></a></li></ul></div></details></nav></mobile-starlight-toc><script type="module" src="/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.C3fM4Kra.js"></script></div><div class="right-sidebar-panel sl-hidden lg:sl-block astro-fjp5q7r4"><div class="sl-container astro-fjp5q7r4"><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">On this page</h2><ul class="astro-g6ctc22k" style="--depth: 0;"><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#_top" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Overview</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#metadata" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Metadata</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#commands-and-results" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Commands and results</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#independent-oh-my-pi-adapter-decision" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Independent oh-my-pi adapter decision</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#implementation-and-tests" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Implementation and tests</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#local-read-only-native-checks-2026-09-25-permitted-aggregates" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Local read-only native checks: 2026-09-25 permitted aggregates</span></a><ul class="astro-g6ctc22k" style="--depth: 1;"><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#pi-piagent-pi-0871" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">pi: ~/.pi/agent, pi 0.87.1</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#oh-my-pi-ompagent-omp-1827" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">oh-my-pi: ~/.omp/agent, omp 18.2.7</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#claude-code-gemini-cli-and-qwen-code" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Claude Code, Gemini CLI and Qwen Code</span></a></li></ul></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#observed-fork-behavior-pi-and-omp" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Observed fork behavior: pi and omp</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#recovery-fixes" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Recovery fixes</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#remaining-work-outside-this-recovery" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Remaining work outside this recovery</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#verification-artifacts" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Verification artifacts</span></a></li></ul></nav></starlight-toc><script type="module" src="/_astro/TableOfContents.astro_astro_type_script_index_0_lang.BpJaGz7G.js"></script></div></div></div></aside><div class="main-pane astro-rcl3dmqm"><main data-pagefind-body class="astro-i2f5rvhd" lang="en" dir="ltr"><div class="content-panel astro-ptfq3z6k"><div class="sl-container astro-ptfq3z6k"><h1 id="_top" class="astro-5fsxzwfk">M2-B/C recovery: pi, oh-my-pi, Claude, Gemini and Qwen adapters</h1></div></div><div class="content-panel astro-ptfq3z6k"><div class="sl-container astro-ptfq3z6k"><div class="sl-markdown-content"><p><a id="m2-bc-recovery-pi-oh-my-pi-claude-gemini-and-qwen-adapters"></a></p>
+<p><a id="m2-bc-恢复完成pi--oh-my-pi--claude--gemini--qwen-适配器"></a></p>
+<p>This records recovery acceptance for <a href="/reference/evidence/m2bc-suspended/">the interruption</a>. Scope follows its
+gap table: four sources’ integration requirements/missing-field/incremental tests and test data,
+an independent oh-my-pi adapter decision, five real_verify examples and local read-only native checks.</p>
+<p><a id="元信息"></a></p>
+<h2 id="metadata">Metadata</h2>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Date</td>
+<td>2026-09-25 recovery; interrupted 2026-09-24</td>
+</tr>
+<tr>
+<td>Environment</td>
+<td>Windows 11 x64; rustc 1.98.0; Node v24.21.0 / npm 12.0.2</td>
+</tr>
+<tr>
+<td>Revision</td>
+<td>Uncommitted worktree: accepted M2-A changes plus recovery additions</td>
+</tr>
+<tr>
+<td>Requirements</td>
+<td><a href="/reference/design/adapters/">Adapters</a>; <a href="/reference/design/validation/">validation</a> V07/V12/V17; <a href="https://github.com/owent/llm-usage/blob/main/docs/design/desktop-usage/execution.md">execution plan</a> M2</td>
+</tr>
+</tbody>
+</table>
+<p><a id="命令与结果"></a></p>
+<h2 id="commands-and-results">Commands and results</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Command and cwd</th>
+<th>Exit</th>
+<th>Results</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>cargo test –locked -p llm-usage-core; desktop/src-tauri</td>
+<td>0</td>
+<td>249 passed/zero failed: interruption baseline 143 plus 106, comprising 103 integration tests across five sources and three omp inline tests</td>
+</tr>
+<tr>
+<td>2</td>
+<td>cargo clippy –locked -p llm-usage-core –all-targets – -D warnings</td>
+<td>0</td>
+<td>Passed the broader all-targets check; four existing/new test lint issues were fixed as listed below</td>
+</tr>
+<tr>
+<td>3</td>
+<td>npm run verify; repository root</td>
+<td>0</td>
+<td>Markdown lint: 89 files/zero issues; assets/scripts/Svelte/fmt/clippy passed; core 249/app 2 = 251 Rust tests; Vite build passed</td>
+</tr>
+<tr>
+<td>4</td>
+<td>cargo run -p llm-usage-core –example real_verify_pi – ~/.pi/agent build/desktop-usage-validation/real-check-pi</td>
+<td>0</td>
+<td>Local read-only native check; permitted aggregates below</td>
+</tr>
+<tr>
+<td>5</td>
+<td>cargo run -p llm-usage-core –example real_verify_omp – ~/.omp/agent build/desktop-usage-validation/real-check-omp</td>
+<td>0</td>
+<td>Same check for omp</td>
+</tr>
+<tr>
+<td>6</td>
+<td>real_verify_claude / real_verify_gemini / real_verify_qwen</td>
+<td>0</td>
+<td>Each discovered zero roots; no_data/not_found results below</td>
+</tr>
+</tbody>
+</table>
+<p><a id="恢复简报问题结论oh-my-pi-需要独立适配器已完成"></a></p>
+<p><a id="冷启动简报问题定案oh-my-pi-需要独立适配器已完成"></a></p>
+<h2 id="independent-oh-my-pi-adapter-decision">Independent oh-my-pi adapter decision</h2>
+<p>Created adapters/omp.rs with 931 lines/three inline tests. It shares pub(crate) pi parsing helpers
+(parse_usage/map_cost/event construction), rather than the entire adapter. Native reads of
+58 local session files established these differences:</p>
+<ul>
+<li>First line is type:“title”, v=1; the session header follows. Detection reads at most four
+lines: a first line other than title/session is UnknownFormat; title without session is Pending.</li>
+<li>Assistants carry omp-specific floating-point duration/ttft milliseconds, rounded for storage.</li>
+<li>model_change writes a combined model=“provider/model” field, consistent in three redacted
+native samples. omp uses this field first and separate modelId/provider fields as fallback;
+the separate-field shape was not observed locally. Native samples exposed this implementation
+error during recovery.</li>
+<li>For sub-agents, filenames other than <code>&lt;ts&gt;_&lt;uuid&gt;.jsonl</code> use the nearest <code>&lt;ts&gt;_&lt;uuid&gt;</code> ancestor
+directory as parent, taking the portion after its first underscore. Nested sub-agents do not
+inherit a more distant ancestor’s identity.</li>
+</ul>
+<p><a id="实现与测试清单"></a></p>
+<h2 id="implementation-and-tests">Implementation and tests</h2>
+<table>
+<thead>
+<tr>
+<th>Source</th>
+<th>Native samples</th>
+<th>Synthetic sample count</th>
+<th>contract</th>
+<th>gaps</th>
+<th>incremental</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>pi</td>
+<td>session-error-zero-usage: one error call, all zero</td>
+<td>7</td>
+<td>2</td>
+<td>8</td>
+<td>8</td>
+</tr>
+<tr>
+<td>oh-my-pi</td>
+<td>session-glm-reasoning: reasoningTokens=54; session-k3-cache-abort: seven calls including aborted; subagent-community-research: five sub_agent calls</td>
+<td>9</td>
+<td>4</td>
+<td>12</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Claude</td>
+<td>None; local no_data</td>
+<td>8</td>
+<td>2</td>
+<td>11</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Gemini</td>
+<td>None; local not_found</td>
+<td>8</td>
+<td>3</td>
+<td>11</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Qwen</td>
+<td>None; local not_found</td>
+<td>8</td>
+<td>2</td>
+<td>11</td>
+<td>8</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Ignored build/desktop-usage-validation/tools/extract-pi-omp.mjs extracts/redacts native samples.
+Numbers/booleans/null remain; strings default to REDACTED, enum keys are allowlisted, and
+IDs map stably to anon-N. Deduplicated leakage checks left only enum values. Each sample
+directory has manually calculated _expectations.md, independently checked record-by-record
+with jq and compared against test expectations.</li>
+<li>input_total is derived input+cacheRead+cacheWrite through usage_map.rs map_pi_family;
+total_tokens is derived input_total+output; source_total preserves reported totalTokens.
+Recovery fixed two expectation documents that confused derived input_total with raw input sums.</li>
+<li>omp gaps tests cover four auxiliary usage formats, assistants without usage (count calls,
+leave tokens unknown), copied fork entries, nested sub-agents, error/aborted, cost&gt;0 as
+estimated (zero omitted), four first-line detection outcomes, rejection of unknown versions/
+formats and one diagnostic for an unknown entry type. These describe this historical stage.</li>
+</ul>
+<p><a id="本机真实只读核对2026-09-25白名单聚合"></a></p>
+<p><a id="本机真实只读核对2026-09-25允许保存的汇总字段"></a></p>
+<h2 id="local-read-only-native-checks-2026-09-25-permitted-aggregates">Local read-only native checks: 2026-09-25 permitted aggregates</h2>
+<p><a id="pipiagentpi-0871"></a></p>
+<h3 id="pi-piagent-pi-0871">pi: ~/.pi/agent, pi 0.87.1</h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Completely scanned files</td>
+<td>Two; diagnostics=0</td>
+</tr>
+<tr>
+<td>Lines/records/events</td>
+<td>130 lines produced 37 model-call events</td>
+</tr>
+<tr>
+<td>Repeat scan</td>
+<td>rescan_added=0</td>
+</tr>
+<tr>
+<td>UTC totals</td>
+<td>calls=37; input_total 2,805,788; cache_read 2,592,768; output 58,631; total 2,864,419</td>
+</tr>
+</tbody>
+</table>
+<p>The interruption’s empty pi sessions/no_data result was measured on the morning of 2026-09-24.
+Local sessions began at 16:37 that day; the first redacted sample came from that session.
+Two files existed at recovery. The invariant holds: 2,805,788+58,631=2,864,419.</p>
+<p><a id="oh-my-piompagentomp-1827"></a></p>
+<h3 id="oh-my-pi-ompagent-omp-1827">oh-my-pi: ~/.omp/agent, omp 18.2.7</h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Completely scanned files</td>
+<td>59: 17 primary/42 sub-agent files; diagnostics=0</td>
+</tr>
+<tr>
+<td>Lines/records/events</td>
+<td>28,004 lines produced 8,767 model-call events</td>
+</tr>
+<tr>
+<td>Categories</td>
+<td>primary=6,334; sub_agent=2,433; auxiliary=0, consistent with native reads finding no usage in the four auxiliary formats</td>
+</tr>
+<tr>
+<td>Repeat scan</td>
+<td>rescan_added=0</td>
+</tr>
+<tr>
+<td>UTC totals</td>
+<td>calls=8,767; input_total 1,021,931,700; cache_read 1,005,572,583, about 98.4%; output 4,859,995; total 1,026,791,695</td>
+</tr>
+</tbody>
+</table>
+<p>The invariant holds: 1,021,931,700+4,859,995=1,026,791,695.</p>
+<p><a id="claude-code--gemini-cli--qwen-code"></a></p>
+<h3 id="claude-code-gemini-cli-and-qwen-code">Claude Code, Gemini CLI and Qwen Code</h3>
+<table>
+<thead>
+<tr>
+<th>Source</th>
+<th>Local discovery repeated 2026-09-25</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Claude</td>
+<td>~/.claude exists with backups/ide/sessions/skills, but no projects/; real_verify_claude discovered_roots=0</td>
+<td>no_data</td>
+</tr>
+<tr>
+<td>Gemini</td>
+<td>~/.gemini absent; real_verify_gemini found zero roots</td>
+<td>not_found</td>
+</tr>
+<tr>
+<td>Qwen</td>
+<td>~/.qwen absent; real_verify_qwen found zero roots</td>
+<td>not_found</td>
+</tr>
+</tbody>
+</table>
+<p>These three adapters/tests rely on documentation/fixed-source references listed in their
+headers. Extract native samples under m0-agent-fixtures redaction rules when local data appears.</p>
+<p><a id="fork-的实际处理结果piomp-一致"></a></p>
+<p><a id="fork-已知偏差piomp-同一定案"></a></p>
+<h2 id="observed-fork-behavior-pi-and-omp">Observed fork behavior: pi and omp</h2>
+<p>The original capability text claimed identical copied four-field keys/content would select Keep.
+In native checks, copied entries carry the fork file’s session_id/parent_session_id from its
+header. They therefore share an existing key but differ in content, producing conflict and
+retaining the first scanned record. Usage is not counted twice, source-session ownership is
+retained and distinct-session counts do not increase; the result is conflict rather than Keep.
+pi.rs/omp.rs dedup.fork_copies descriptions and synthetic-fork-inherited/_expectations.md now
+describe the observed behavior.</p>
+<p><a id="修复记录恢复期间"></a></p>
+<h2 id="recovery-fixes">Recovery fixes</h2>
+<table>
+<thead>
+<tr>
+<th>Location</th>
+<th>Problem</th>
+<th>Correction</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>tests/qwen_incremental_v12.rs</td>
+<td>Four writes lacked trailing newline; incomplete last lines were not consumed, causing seven of eight tests to fail</td>
+<td>Added \n endings; eight of eight passed</td>
+</tr>
+<tr>
+<td>omp.rs model_change</td>
+<td>Parsed pi’s separate fields; native omp uses a combined field</td>
+<td>Prefer model=“provider/model”, retain separate-field fallback; updated capability/header</td>
+</tr>
+<tr>
+<td>omp synthetic-detect-supported</td>
+<td>Derived input_total expectation was incorrectly 110, equal to totalTokens</td>
+<td>Changed to 100, from 100+0+0; synchronized test/_expectations.md</td>
+</tr>
+<tr>
+<td>omp k3/subagent _expectations.md</td>
+<td>Stored input_total described as raw-input sum</td>
+<td>Corrected to 202,560/78,310 and explained derivation</td>
+</tr>
+<tr>
+<td>Two pi sample _expectations.md files</td>
+<td>markdownlint MD056/MD033</td>
+<td>Added missing table columns and code spans around angle brackets</td>
+</tr>
+<tr>
+<td>models_v05/retention_v14/claude_contract/qwen_incremental</td>
+<td>Four all-targets Clippy issues: numeric grouping, needless borrow, type_complexity, useless vec!</td>
+<td>Small local changes preserving semantics</td>
+</tr>
+</tbody>
+</table>
+<p><a id="未完成项显式遗留不属于本次恢复范围"></a></p>
+<h2 id="remaining-work-outside-this-recovery">Remaining work outside this recovery</h2>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Status</th>
+<th>Follow-up</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Version-specific legacy Codex samples</td>
+<td>Partial, 2026-09-25; <a href="/reference/evidence/m2d-layout-versions/">M2-D</a>: 0.153.0/0.154.0-alpha.6.1/6.2 verified; 0.139–0.151 lack per-call records, requiring a separately verified implementation</td>
+<td>Follow M2-D conditions</td>
+</tr>
+<tr>
+<td>Adapter directories/unknown-version compatibility, execution.md#m2-layout</td>
+<td>Complete, 2026-09-25; <a href="/reference/evidence/m2d-layout-versions/">M2-D</a></td>
+<td>—</td>
+</tr>
+<tr>
+<td>OMP_PROFILE named-profile paths</td>
+<td>Unverified</td>
+<td>Default ~/.omp only; limitation recorded in omp.rs</td>
+</tr>
+<tr>
+<td>Claude/Gemini/Qwen native samples</td>
+<td>No local data</td>
+<td>Extract/redact/recheck when data appears</td>
+</tr>
+<tr>
+<td>OTel telemetry</td>
+<td>Not implemented at this stage</td>
+<td>M5</td>
+</tr>
+</tbody>
+</table>
+<p><a id="验证产物"></a></p>
+<p><a id="证据文件"></a></p>
+<h2 id="verification-artifacts">Verification artifacts</h2>
+<ul>
+<li>Adapters: adapters/{pi,omp,claude,gemini,qwen,usage_map}.rs; tests:
+tests/{pi,omp,claude,gemini,qwen}_*.rs, tests/common/mod.rs and tests/fixtures/{pi,omp,claude,gemini,qwen}/.</li>
+<li>Examples: real_verify_{codex,pi,omp,claude,gemini,qwen}.rs.</li>
+<li>Ignored build/desktop-usage-validation/real-check-{pi,omp,claude,gemini,qwen}/ contains temporary
+verification databases; tools/extract-pi-omp.mjs is the ignored extraction tool.</li>
+</ul>
+</div><footer class="sl-flex astro-q3cosrfy"><div class="meta sl-flex astro-q3cosrfy"><a href="https://github.com/owent/llm-usage/edit/main/docs/validation/desktop-usage/m2bc-resumed.md" class="sl-flex print:hidden astro-okj6rzri"><svg aria-hidden="true" class="astro-okj6rzri astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.2em;"><path d="M22 7.24a1 1 0 0 0-.29-.71l-4.24-4.24a1 1 0 0 0-1.1-.22 1 1 0 0 0-.32.22l-2.83 2.83L2.29 16.05a1 1 0 0 0-.29.71V21a1 1 0 0 0 1 1h4.24a1 1 0 0 0 .76-.29l10.87-10.93L21.71 8c.1-.1.17-.2.22-.33a1 1 0 0 0 0-.24v-.14l.07-.05ZM6.83 20H4v-2.83l9.93-9.93 2.83 2.83L6.83 20ZM18.17 8.66l-2.83-2.83 1.42-1.41 2.82 2.82-1.41 1.42Z"/></svg>Edit page</a></div><div class="pagination-links print:hidden astro-vd7os7a3" dir="ltr"></div></footer></div></div></main></div></div></div></div></body></html>

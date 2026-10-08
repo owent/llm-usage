@@ -1,0 +1,1 @@
+import{n as e,r as t,t as n}from"./language.i8LaOKCJ.js";if(location.pathname===`/`){let r;try{r=localStorage.getItem(e)}catch{}let i=new URL(location.href).searchParams.get(`lang`);(i===`en`||i===`zh-CN`)&&(r=i);let a=t(navigator.languages,r);a===`zh-CN`&&location.replace(n(location.pathname,a)+location.search+location.hash)}

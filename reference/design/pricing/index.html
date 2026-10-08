@@ -1,0 +1,1040 @@
+<!DOCTYPE html><html lang="en" dir="ltr" data-theme="dark" data-has-toc data-has-sidebar class="astro-i2f5rvhd"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>Obtaining model API prices and estimating token costs | LLM Usage</title><link rel="canonical" href="https://llm-usage.atframe.work/reference/design/pricing/"/><link rel="alternate" hreflang="en" href="https://llm-usage.atframe.work/reference/design/pricing/"/><link rel="alternate" hreflang="zh-CN" href="https://llm-usage.atframe.work/zh-cn/reference/design/pricing/"/><link rel="alternate" hreflang="x-default" href="https://llm-usage.atframe.work/reference/design/pricing/"/><link rel="sitemap" href="/sitemap-index.xml"/><link rel="shortcut icon" href="/favicon.svg" type="image/svg+xml"/><meta name="generator" content="Astro v7.3.6"/><meta name="generator" content="Starlight v0.42.5"/><meta property="og:title" content="Obtaining model API prices and estimating token costs"/><meta property="og:type" content="article"/><meta property="og:url" content="https://llm-usage.atframe.work/reference/design/pricing/"/><meta property="og:locale" content="en"/><meta property="og:description" content="Understand the AI usage recorded on your computer."/><meta property="og:site_name" content="LLM Usage"/><meta name="twitter:card" content="summary_large_image"/><meta name="description" content="Understand the AI usage recorded on your computer."/><meta name="color-scheme" content="light dark"><script type="module" src="/_astro/Head.astro_astro_type_script_index_0_lang.CRxMF9Ma.js"></script><script>
+  (() => {
+    const scheme = matchMedia('(prefers-color-scheme: dark)');
+    let choice = 'auto';
+    try {
+      const saved = localStorage.getItem('starlight-theme');
+      if (saved === 'light' || saved === 'dark') choice = saved;
+    } catch { /* System theme remains available without browser storage. */ }
+    function updatePickers() {
+      document.querySelectorAll('starlight-theme-select').forEach(picker => {
+        const select = picker.querySelector('select');
+        if (select) select.value = choice;
+        const icon = document.querySelector('#docs-theme-icons')?.content.querySelector('.' + choice);
+        const target = picker.querySelector('svg.label-icon');
+        if (icon && target) target.replaceChildren(...icon.cloneNode(true).childNodes);
+      });
+    }
+    function apply(theme, persist = false) {
+      choice = theme === 'light' || theme === 'dark' ? theme : 'auto';
+      document.documentElement.dataset.theme = choice === 'auto' ? scheme.matches ? 'dark' : 'light' : choice;
+      updatePickers();
+      if (persist) {
+        try { localStorage.setItem('starlight-theme', choice === 'auto' ? '' : choice); }
+        catch { /* The current page still changes theme. */ }
+      }
+    }
+    window.LLMUsageDocsTheme = { apply, updatePickers };
+    scheme.addEventListener('change', () => { if (choice === 'auto') apply('auto'); });
+    apply(choice);
+  })();
+</script><template id="docs-theme-icons"><svg aria-hidden="true" class="light astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg><svg aria-hidden="true" class="dark astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="auto astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg></template><link rel="stylesheet" href="/_astro/print.ehPL0gv-.css" media="print"><link rel="stylesheet" href="/_astro/common.CLGr15ze.css"><style>@layer starlight.components{.card:where(.astro-eiplrasj){--sl-card-border:var(--sl-color-purple);--sl-card-bg:var(--sl-color-purple-low);border:1px solid var(--sl-color-gray-5);background-color:var(--sl-color-black);flex-direction:column;gap:clamp(.5rem,.125rem + 1vw,1rem);padding:clamp(1rem,.125rem + 3vw,2.5rem)}.card:where(.astro-eiplrasj):nth-child(4n+1){--sl-card-border:var(--sl-color-orange);--sl-card-bg:var(--sl-color-orange-low)}.card:where(.astro-eiplrasj):nth-child(4n+3){--sl-card-border:var(--sl-color-green);--sl-card-bg:var(--sl-color-green-low)}.card:where(.astro-eiplrasj):nth-child(4n+4){--sl-card-border:var(--sl-color-red);--sl-card-bg:var(--sl-color-red-low)}.card:where(.astro-eiplrasj):nth-child(4n+5){--sl-card-border:var(--sl-color-blue);--sl-card-bg:var(--sl-color-blue-low)}.title:where(.astro-eiplrasj){font-weight:600;font-size:var(--sl-text-h4);color:var(--sl-color-white);line-height:var(--sl-line-height-headings);align-items:center;gap:1rem}.card:where(.astro-eiplrasj) .icon:where(.astro-eiplrasj){border:1px solid var(--sl-card-border);background-color:var(--sl-card-bg);border-radius:.25rem;flex-shrink:0;padding:.2em}.card:where(.astro-eiplrasj) .body:where(.astro-eiplrasj){font-size:clamp(var(--sl-text-sm), calc(.5rem + 1vw), var(--sl-text-body));margin:0}.card-grid:where(.astro-t7b7g7fk){grid-template-columns:100%;gap:1rem;display:grid}.card-grid:where(.astro-t7b7g7fk)>*{margin-top:0!important}@media (width>=50rem){.card-grid:where(.astro-t7b7g7fk){grid-template-columns:1fr 1fr;gap:1.5rem}.stagger:where(.astro-t7b7g7fk){--stagger-height:5rem;padding-bottom:var(--stagger-height)}.stagger:where(.astro-t7b7g7fk)>:nth-child(2n){transform:translateY(var(--stagger-height))}}.sl-link-card:where(.astro-6ghwbfyk){border:1px solid var(--sl-color-gray-5);box-shadow:var(--sl-shadow-sm);border-radius:.5rem;grid-template-columns:1fr auto;gap:.5rem;padding:1rem;display:grid;position:relative}a:where(.astro-6ghwbfyk){line-height:var(--sl-line-height-headings);text-decoration:none}a:where(.astro-6ghwbfyk):before{content:"";position:absolute;inset:0}.stack:where(.astro-6ghwbfyk){flex-direction:column;gap:.5rem}.title:where(.astro-6ghwbfyk){color:var(--sl-color-white);font-weight:600;font-size:var(--sl-text-lg)}.description:where(.astro-6ghwbfyk){color:var(--sl-color-gray-3);line-height:1.5}.icon:where(.astro-6ghwbfyk){color:var(--sl-color-gray-3)}.sl-link-card:where(.astro-6ghwbfyk):hover{background:var(--sl-color-gray-7,var(--sl-color-gray-6));border-color:var(--sl-color-gray-2)}.sl-link-card:where(.astro-6ghwbfyk):hover .icon:where(.astro-6ghwbfyk){color:var(--sl-color-white)}}.app-screenshot:where(.astro-ofe7zldm){margin:1.5rem 0 2.5rem}.screenshot-frame:where(.astro-ofe7zldm){border:1px solid var(--sl-color-gray-5);background:var(--sl-color-bg);border-radius:1rem;box-shadow:0 16px 48px #00000018}.screenshot-frame:where(.astro-ofe7zldm) a:where(.astro-ofe7zldm){border-radius:inherit;display:block}.screenshot-frame:where(.astro-ofe7zldm) img:where(.astro-ofe7zldm){border-radius:inherit;width:100%;height:auto;box-shadow:none;border:0;margin:0;display:block}.screenshot-frame:where(.astro-ofe7zldm) .screenshot-dark:where(.astro-ofe7zldm),:root[data-theme=dark] .screenshot-light:where(.astro-ofe7zldm){display:none}:root[data-theme=dark] .screenshot-dark:where(.astro-ofe7zldm){display:block}figcaption:where(.astro-ofe7zldm){color:var(--sl-color-gray-2);flex-wrap:wrap;justify-content:space-between;gap:.25rem 1rem;margin-top:.75rem;font-size:.875rem;line-height:1.6;display:flex}.screenshot-hint:where(.astro-ofe7zldm){color:var(--sl-color-text-accent)}
+@layer starlight.components{svg:where(.astro-iwaxdyvu){color:var(--sl-icon-color);font-size:var(--sl-icon-size,1em);width:1em;height:1em}}
+</style><script type="module" src="/_astro/page.Dwipeu-R.js"></script></head><body class="astro-i2f5rvhd"><a class="sl-skip-link astro-af3xnx6k" href="#_top">Skip to content</a><div class="page sl-flex astro-7ol3m3p7"><header class="header astro-7ol3m3p7"><div class="header astro-qqelxyz2"><div class="title-wrapper sl-flex astro-qqelxyz2"><a href="/" class="site-title sl-flex astro-pm7u5y3t"><img class="astro-pm7u5y3t" alt src="/_astro/brand.BEXAYDnz.svg" width="1024" height="1024"><span class="astro-pm7u5y3t" translate="no">LLM Usage</span></a></div><div class="sl-flex print:hidden astro-qqelxyz2"><site-search class="astro-qqelxyz2 astro-veqdxac2" data-translations="{&quot;placeholder&quot;:&quot;Search&quot;}"><button data-open-modal disabled aria-label="Search" aria-keyshortcuts="Control+K" class="astro-veqdxac2"><svg aria-hidden="true" class="astro-veqdxac2 astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg><span class="sl-hidden md:sl-block astro-veqdxac2" aria-hidden="true">Search</span><kbd class="sl-hidden md:sl-flex astro-veqdxac2" style="display: none;"><kbd class="astro-veqdxac2">Ctrl</kbd><kbd class="astro-veqdxac2">K</kbd></kbd></button><dialog style="padding:0" aria-label="Search" class="astro-veqdxac2"><div class="dialog-frame sl-flex astro-veqdxac2"><button data-close-modal class="sl-flex md:sl-hidden astro-veqdxac2">Cancel</button><div class="search-container astro-veqdxac2"><div id="starlight__search" class="astro-veqdxac2"></div></div></div></dialog></site-search><script>
+	(() => {
+		const openBtn = document.querySelector('button[data-open-modal]');
+		const shortcut = openBtn?.querySelector('kbd');
+		if (!openBtn || !(shortcut instanceof HTMLElement)) return;
+		const platformKey = shortcut.querySelector('kbd');
+		if (platformKey && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
+			platformKey.textContent = '⌘';
+			openBtn.setAttribute('aria-keyshortcuts', 'Meta+K');
+		}
+		shortcut.style.display = '';
+	})();
+</script><script type="module" src="/_astro/Search.astro_astro_type_script_index_0_lang.Bumivpjo.js"></script></div><div class="sl-hidden md:sl-flex print:hidden right-group astro-qqelxyz2"><div class="sl-flex social-icons astro-qqelxyz2"><a href="https://github.com/owent/llm-usage" rel="me" class="sl-flex astro-csqdcj5u"><span class="sr-only astro-csqdcj5u">GitHub</span><svg aria-hidden="true" class="astro-csqdcj5u astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a></div><starlight-theme-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">Select theme</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="light" class="astro-btilxiwo">Light</option><option value="dark" class="astro-btilxiwo">Dark</option><option value="auto" selected class="astro-btilxiwo">Auto</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-theme-select><script>window.LLMUsageDocsTheme.updatePickers();</script><script type="module">document.addEventListener(`change`,e=>{let t=e.target;if(!(t instanceof HTMLSelectElement)||!t.closest(`starlight-theme-select`))return;let n=t.value===`light`||t.value===`dark`?t.value:`auto`;window.LLMUsageDocsTheme.apply(n,!0)});</script><starlight-lang-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">Select language</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path fill-rule="evenodd" d="M8.516 3a.94.94 0 0 0-.941.94v1.15H2.94a.94.94 0 1 0 0 1.882h7.362a7.422 7.422 0 0 1-1.787 3.958 7.42 7.42 0 0 1-1.422-2.425.94.94 0 1 0-1.774.627 9.303 9.303 0 0 0 1.785 3.043 7.422 7.422 0 0 1-4.164 1.278.94.94 0 1 0 0 1.881 9.303 9.303 0 0 0 5.575-1.855 9.303 9.303 0 0 0 4.11 1.74l-.763 1.525a.968.968 0 0 0-.016.034l-1.385 2.77a.94.94 0 1 0 1.683.841l1.133-2.267h5.806l1.134 2.267a.94.94 0 0 0 1.683-.841l-1.385-2.769a.95.95 0 0 0-.018-.036l-3.476-6.951a.94.94 0 0 0-1.682 0l-1.82 3.639a7.423 7.423 0 0 1-3.593-1.256 9.303 9.303 0 0 0 2.27-5.203h1.894a.94.94 0 0 0 0-1.881H9.456V3.94A.94.94 0 0 0 8.516 3Zm6.426 11.794a1.068 1.068 0 0 1-.02.039l-.703 1.407h3.924l-1.962-3.924-1.24 2.478Z" clip-rule="evenodd"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="/reference/design/pricing/" class="astro-btilxiwo">English</option><option value="/zh-cn/reference/design/pricing/" class="astro-btilxiwo">简体中文</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-lang-select><script type="module">var e=class extends HTMLElement{constructor(){super();let e=this.querySelector(`select`);e&&(e.addEventListener(`change`,e=>{e.currentTarget instanceof HTMLSelectElement&&(window.location.pathname=e.currentTarget.value)}),window.addEventListener(`pageshow`,t=>{if(!t.persisted)return;let n=e.querySelector(`option[selected]`)?.index;n!==e.selectedIndex&&(e.selectedIndex=n??0)}))}};customElements.define(`starlight-lang-select`,e);</script><script type="module" src="/_astro/LanguageSelect.astro_astro_type_script_index_0_lang.DH65a7yi.js"></script></div></div></header><nav class="sidebar print:hidden astro-7ol3m3p7" aria-label="Main"><button popovertarget="starlight__sidebar" class="sl-menu-button sl-flex md:sl-hidden print:hidden astro-dcnpphyu"><svg aria-hidden="true" class="open-menu astro-dcnpphyu astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"/></svg><svg aria-hidden="true" class="close-menu astro-dcnpphyu astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"/></svg><span class="sr-only astro-dcnpphyu">Menu</span></button><script type="module">var e=class extends HTMLElement{constructor(){super();let e=matchMedia(`(min-width: 50em)`),t=()=>{this.popover=e.matches?null:`auto`};t(),e.addEventListener(`change`,()=>t()),this.addEventListener(`toggle`,({newState:e})=>this.trapFocus(e===`open`))}trapFocus(e){document.querySelectorAll(`.main-frame, .sl-skip-link`).forEach(t=>{t.toggleAttribute(`inert`,e)})}};customElements.define(`sl-sidebar-pane`,e);</script><sl-sidebar-pane popover id="starlight__sidebar" class="sidebar-pane astro-7ol3m3p7"><div class="sidebar-content sl-flex astro-7ol3m3p7"><sl-sidebar-state-persist data-hash="1ekcnao" class="astro-lsvsit3p"><script aria-hidden="true">
+		(() => {
+			try {
+				if (!matchMedia('(min-width: 50em)').matches) return;
+				/** @type {HTMLElement | null} */
+				const target = document.querySelector('sl-sidebar-state-persist');
+				const state = JSON.parse(sessionStorage.getItem('sl-sidebar-state') || '0');
+				if (!target || !state || target.dataset.hash !== state.hash) return;
+				window._starlightScrollRestore = state.scroll;
+				customElements.define(
+					'sl-sidebar-restore',
+					class SidebarRestore extends HTMLElement {
+						connectedCallback() {
+							try {
+								const idx = parseInt(this.dataset.index || '');
+								const details = this.closest('details');
+								if (details && typeof state.open[idx] === 'boolean') details.open = state.open[idx];
+							} catch {}
+						}
+					}
+				);
+			} catch {}
+		})();
+	</script><ul class="top-level astro-ykcsoi7s"><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Start here</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="0"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">User guide</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="1"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Developer guide</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="2"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Design specifications</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="3"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Development records</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="4"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Project reference</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="5"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Test data</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="6"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li></ul><script aria-hidden="true">
+		(() => {
+			const scroller = document.getElementById('starlight__sidebar');
+			if (!window._starlightScrollRestore || !scroller) return;
+			scroller.scrollTop = window._starlightScrollRestore;
+			delete window._starlightScrollRestore;
+		})();
+	</script></sl-sidebar-state-persist><div class="md:sl-hidden"><div class="mobile-preferences sl-flex astro-lsc3yx5w"><div class="social-icons astro-lsc3yx5w"><a href="https://github.com/owent/llm-usage" rel="me" class="sl-flex astro-csqdcj5u"><span class="sr-only astro-csqdcj5u">GitHub</span><svg aria-hidden="true" class="astro-csqdcj5u astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a></div><starlight-theme-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">Select theme</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="light" class="astro-btilxiwo">Light</option><option value="dark" class="astro-btilxiwo">Dark</option><option value="auto" selected class="astro-btilxiwo">Auto</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-theme-select><script>window.LLMUsageDocsTheme.updatePickers();</script><starlight-lang-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">Select language</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path fill-rule="evenodd" d="M8.516 3a.94.94 0 0 0-.941.94v1.15H2.94a.94.94 0 1 0 0 1.882h7.362a7.422 7.422 0 0 1-1.787 3.958 7.42 7.42 0 0 1-1.422-2.425.94.94 0 1 0-1.774.627 9.303 9.303 0 0 0 1.785 3.043 7.422 7.422 0 0 1-4.164 1.278.94.94 0 1 0 0 1.881 9.303 9.303 0 0 0 5.575-1.855 9.303 9.303 0 0 0 4.11 1.74l-.763 1.525a.968.968 0 0 0-.016.034l-1.385 2.77a.94.94 0 1 0 1.683.841l1.133-2.267h5.806l1.134 2.267a.94.94 0 0 0 1.683-.841l-1.385-2.769a.95.95 0 0 0-.018-.036l-3.476-6.951a.94.94 0 0 0-1.682 0l-1.82 3.639a7.423 7.423 0 0 1-3.593-1.256 9.303 9.303 0 0 0 2.27-5.203h1.894a.94.94 0 0 0 0-1.881H9.456V3.94A.94.94 0 0 0 8.516 3Zm6.426 11.794a1.068 1.068 0 0 1-.02.039l-.703 1.407h3.924l-1.962-3.924-1.24 2.478Z" clip-rule="evenodd"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="/reference/design/pricing/" class="astro-btilxiwo">English</option><option value="/zh-cn/reference/design/pricing/" class="astro-btilxiwo">简体中文</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-lang-select></div></div></div></sl-sidebar-pane></nav><div class="main-frame astro-7ol3m3p7"><script type="module">var e=document.getElementById(`starlight__sidebar`),t=e?.querySelector(`sl-sidebar-state-persist`),n=`sl-sidebar-state`,r=()=>{let r=[],i=t?.dataset.hash||``;try{let e=sessionStorage.getItem(n),t=JSON.parse(e||`{}`);Array.isArray(t.open)&&t.hash===i&&(r=t.open)}catch{}return{hash:i,open:r,scroll:e?.scrollTop||0}},i=e=>{try{sessionStorage.setItem(n,JSON.stringify(e))}catch{}},a=()=>i(r()),o=(e,t)=>{let n=r();n.open[t]=e,i(n)};t?.addEventListener(`click`,e=>{if(!(e.target instanceof Element))return;let t=e.target.closest(`summary`)?.closest(`details`);if(!t)return;let n=t.querySelector(`sl-sidebar-restore`),r=parseInt(n?.dataset.index||``);isNaN(r)||o(!t.open,r)}),addEventListener(`visibilitychange`,()=>{document.visibilityState===`hidden`&&a()});</script><div class="lg:sl-flex astro-rcl3dmqm"><aside class="right-sidebar-container print:hidden astro-rcl3dmqm"><div class="right-sidebar astro-rcl3dmqm"><div class="lg:sl-hidden astro-fjp5q7r4"><mobile-starlight-toc data-min-h="2" data-max-h="3" class="astro-6exeh6u7"><nav aria-labelledby="starlight__on-this-page--mobile" class="astro-6exeh6u7"><details id="starlight__mobile-toc" class="astro-6exeh6u7"><summary id="starlight__on-this-page--mobile" class="sl-flex astro-6exeh6u7"><span class="toggle sl-flex astro-6exeh6u7">On this page<svg aria-hidden="true" class="caret astro-6exeh6u7 astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></span><span class="display-current astro-6exeh6u7"></span></summary><div class="dropdown astro-6exeh6u7"><ul class="isMobile astro-g6ctc22k" style="--depth: 0;"><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#_top" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Overview</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#research-scope-and-method" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Research scope and method</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#price-source-comparison" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Price-source comparison</span></a><ul class="isMobile astro-g6ctc22k" style="--depth: 1;"><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#official-machine-readable-interfaces" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Official machine-readable interfaces</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#community-catalogs" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Community catalogs</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#manually-maintained-local-snapshots" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Manually maintained local snapshots</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#source-selection" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Source selection</span></a></li></ul></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#verified-billing-dimensions" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Verified billing dimensions</span></a><ul class="isMobile astro-g6ctc22k" style="--depth: 1;"><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#dimension-matrix" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Dimension matrix</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#provider-details-and-observed-model-prices" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Provider details and observed-model prices</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#observed-models-and-price-mapping" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Observed models and price mapping</span></a></li></ul></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#versioned-price-snapshot-requirements" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Versioned price-snapshot requirements</span></a><ul class="isMobile astro-g6ctc22k" style="--depth: 1;"><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#snapshot-format" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Snapshot format</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#effective-intervals-and-updates" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Effective intervals and updates</span></a></li></ul></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#online-refresh-modelsdev-community-catalog" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Online refresh: models.dev community catalog</span></a><ul class="isMobile astro-g6ctc22k" style="--depth: 1;"><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#cache-and-failure-fallback" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Cache and failure fallback</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#catalog-filtering-official-pay-as-you-go-prices" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Catalog filtering: official pay-as-you-go prices</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#official-provider-fallback" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Official-provider fallback</span></a></li></ul></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#detailed-cost-rules" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Detailed cost rules</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#v29-acceptance-samples" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">V29 acceptance samples</span></a><ul class="isMobile astro-g6ctc22k" style="--depth: 1;"><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#fixed-price-samples" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Fixed price samples</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#manually-expected-amounts" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Manually expected amounts</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#error-and-boundary-scenarios" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Error and boundary scenarios</span></a></li></ul></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#implementation-checklist-and-dated-progress" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Implementation checklist and dated progress</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#risks-and-limits" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Risks and limits</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#research-record" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Research record</span></a></li></ul></div></details></nav></mobile-starlight-toc><script type="module" src="/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.C3fM4Kra.js"></script></div><div class="right-sidebar-panel sl-hidden lg:sl-block astro-fjp5q7r4"><div class="sl-container astro-fjp5q7r4"><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">On this page</h2><ul class="astro-g6ctc22k" style="--depth: 0;"><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#_top" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Overview</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#research-scope-and-method" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Research scope and method</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#price-source-comparison" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Price-source comparison</span></a><ul class="astro-g6ctc22k" style="--depth: 1;"><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#official-machine-readable-interfaces" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Official machine-readable interfaces</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#community-catalogs" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Community catalogs</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#manually-maintained-local-snapshots" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Manually maintained local snapshots</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#source-selection" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Source selection</span></a></li></ul></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#verified-billing-dimensions" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Verified billing dimensions</span></a><ul class="astro-g6ctc22k" style="--depth: 1;"><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#dimension-matrix" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Dimension matrix</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#provider-details-and-observed-model-prices" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Provider details and observed-model prices</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#observed-models-and-price-mapping" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Observed models and price mapping</span></a></li></ul></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#versioned-price-snapshot-requirements" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Versioned price-snapshot requirements</span></a><ul class="astro-g6ctc22k" style="--depth: 1;"><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#snapshot-format" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Snapshot format</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#effective-intervals-and-updates" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Effective intervals and updates</span></a></li></ul></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#online-refresh-modelsdev-community-catalog" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Online refresh: models.dev community catalog</span></a><ul class="astro-g6ctc22k" style="--depth: 1;"><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#cache-and-failure-fallback" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Cache and failure fallback</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#catalog-filtering-official-pay-as-you-go-prices" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Catalog filtering: official pay-as-you-go prices</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#official-provider-fallback" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Official-provider fallback</span></a></li></ul></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#detailed-cost-rules" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Detailed cost rules</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#v29-acceptance-samples" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">V29 acceptance samples</span></a><ul class="astro-g6ctc22k" style="--depth: 1;"><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#fixed-price-samples" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Fixed price samples</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#manually-expected-amounts" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Manually expected amounts</span></a></li><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#error-and-boundary-scenarios" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Error and boundary scenarios</span></a></li></ul></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#implementation-checklist-and-dated-progress" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Implementation checklist and dated progress</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#risks-and-limits" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Risks and limits</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#research-record" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Research record</span></a></li></ul></nav></starlight-toc><script type="module" src="/_astro/TableOfContents.astro_astro_type_script_index_0_lang.BpJaGz7G.js"></script></div></div></div></aside><div class="main-pane astro-rcl3dmqm"><main data-pagefind-body class="astro-i2f5rvhd" lang="en" dir="ltr"><div class="content-panel astro-ptfq3z6k"><div class="sl-container astro-ptfq3z6k"><h1 id="_top" class="astro-5fsxzwfk">Obtaining model API prices and estimating token costs</h1></div></div><div class="content-panel astro-ptfq3z6k"><div class="sl-container astro-ptfq3z6k"><div class="sl-markdown-content"><p><a id="obtaining-model-api-prices-and-estimating-token-costs"></a></p>
+<p><a id="模型-api-按量价格获取与-token-费用估算方案"></a></p>
+<p>The cost engine and optional models.dev refresh are implemented and default off. See
+<a href="#online-refresh">online refresh</a>, <a href="/reference/evidence/f2-cost-engine/">cost-engine results</a>,
+<a href="/reference/evidence/f2-online-refresh/">refresh results</a> and
+<a href="/reference/evidence/dashboard-reference/">current API references</a>.
+Occurrence-time estimates on real data still require verified/configured provider channels;
+reference-price comparison does not verify actual bills.
+<a href="/reference/design/budget-reminders/">Spending reminders</a> are implemented/default off, using user daily/monthly
+occurrence-time estimates per currency without zero-filling unknowns. Specified Coding Plans
+do not verify actual pay-as-you-go payments; other scope remains in <a href="https://github.com/owent/llm-usage/blob/main/Plan.md">Plan.md</a>.
+Research completed 2026-09-25. <a href="/reference/design/data-contract/#pricing">Data pricing rules</a> are authoritative;
+this document adds channel references/local snapshots. Prices below describe dated research
+snapshots and test values, rather than a promise of current rates.</p>
+<p><a id="调研范围与方法"></a></p>
+<h2 id="research-scope-and-method">Research scope and method</h2>
+<p>Prioritize locally observed providers: OpenAI Codex gpt-6-astra/gpt-6-sol; Zhipu GLM omp/pi/zcode
+glm-5.3-flash/GLM-5.3 including synthetic glm-5.2; Moonshot kimi-code/kimi-for-coding/k3.
+Anthropic/Google are specified integration targets without local data at the research date.
+Compare official machine-readable sources/official pages/community catalogs and manual snapshots.
+External lookup dates: 2026-09-25 unless a later dated entry says otherwise; source list below.
+Absent verifiable information stays unverified. Page bodies/public curl JSON establish facts;
+search summaries locate sources only. Most official pages lack versions/dates; snapshot identity
+uses URL/retrieval date/visible updates, e.g. Gemini Last updated. Community catalogs use data
+hash characteristics/repository push times.</p>
+<p><a id="价格获取渠道比较"></a></p>
+<h2 id="price-source-comparison">Price-source comparison</h2>
+<p><a id="官方机器可读接口"></a></p>
+<h3 id="official-machine-readable-interfaces">Official machine-readable interfaces</h3>
+<p>The checked OpenAI/Anthropic/Gemini model-list APIs require authentication and contain no price
+fields. Moonshot’s Mintlify platform supplies official .md/llms.txt from the same source as HTML.
+No anonymous pricing JSON/YAML API was found for the researched providers; absence of a verified
+endpoint does not prove one cannot exist.</p>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>Model-list API</th>
+<th>Price fields</th>
+<th>Public machine-readable pricing</th>
+<th>References</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OpenAI</td>
+<td>GET /v1/models, Authorization: Bearer</td>
+<td>No; id/created/object/owned_by/shutdown_date only</td>
+<td>Not found; HTML docs, platform.openai.com redirects 301 to developers.openai.com</td>
+<td>S01/S02</td>
+</tr>
+<tr>
+<td>Anthropic</td>
+<td>GET /v1/models, X-Api-Key</td>
+<td>No; id/display_name/created_at/max_tokens, etc.</td>
+<td>Not found; HTML docs</td>
+<td>S03/S04</td>
+</tr>
+<tr>
+<td>Google Gemini</td>
+<td>GET /v1beta/models?key=, API key</td>
+<td>No; Model has token limits, etc.</td>
+<td>publishPriceDocs not found (S23); HTML with Last updated date</td>
+<td>S07/S08</td>
+</tr>
+<tr>
+<td>Moonshot Kimi</td>
+<td>Public model-list endpoint unverified</td>
+<td>—</td>
+<td>Anonymous docs/pricing/chat.md/docs/llms.txt via Mintlify; CN moonshot.cn/kimi.com and global moonshot.ai/kimi.ai separate</td>
+<td>S09/S10</td>
+</tr>
+<tr>
+<td>Zhipu GLM</td>
+<td>bigmodel public model-list endpoint unverified</td>
+<td>—</td>
+<td>Not found; bigmodel pricing is rendered JS SPA; international docs.z.ai static docs</td>
+<td>S15/S17</td>
+</tr>
+</tbody>
+</table>
+<p>OpenAI/Anthropic/z.ai/bigmodel pages lack date/version markers, so page age cannot be established
+from them alone. Gemini dates updates but retrieval language can yield machine translations;
+one fetched page was Polish with original USD figures (S07). No update frequency promised.
+OpenAI mentions tier rename 2026-07-30/promotion end 2026-11-21, showing irregular revisions (S01).</p>
+<p><a id="社区目录"></a></p>
+<h3 id="community-catalogs">Community catalogs</h3>
+<table>
+<thead>
+<tr>
+<th>Catalog</th>
+<th>Data / license</th>
+<th>Structure</th>
+<th>Official comparison on 2026-09-25</th>
+<th>References</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>models.dev</td>
+<td>MIT, anomalyco/models.dev moved from sst; pushed 2026-09-25; api.json about 4.9 MiB/200+ providers</td>
+<td>Provider groups; cost.input/output/cache_read/cache_write USD/million tokens; context tiers; reasoning/tools; many coding-plan entries</td>
+<td>gpt-6-astra 10/50/1/12.5 and 272K tier 20/75 match; zai glm-5.3 1.4/4.4/0.26 matches docs.z.ai. zhipuai bigmodel endpoint links z.ai/USD without CN CNY. Coding-plan cost 0 denotes subscription placeholders</td>
+<td>S18/S19</td>
+</tr>
+<tr>
+<td>OpenRouter</td>
+<td>Anonymous GET /api/v1/models 200,460 models; USD/token decimal strings; license unverified</td>
+<td>pricing.prompt/completion/input_cache_read/input_cache_write; overrides min_prompt_tokens long tiers; separate :batch SKU</td>
+<td>gpt-6-astra/moonshotai/kimi-k3/z-ai/glm-5.3 match; Flash 0.045/0.14 below official 0.15/0.50; k2.7-code 0.6562/3.3 below 0.95/4.0. Aggregator rates are not official rates</td>
+<td>S20</td>
+</tr>
+<tr>
+<td>pydantic/genai-prices</td>
+<td>MIT; pushed 2026-09-25; provider YAML plus prices/new_data/v2/data.json/JSON Schema</td>
+<td>prices_checked/pricing_urls; input/cache_read/output USD/million; historical/tiered/daily rates; provider conversion/selection notes</td>
+<td>kimi-k3 3/0.3/15 and zai GLM-5.3 1.4/0.26/4.4 match. zhipuai explicitly converts CNY at 1 USD = 7.25 CNY/selects lowest flagship tier; an explicit CN approximation, not official data</td>
+<td>S21</td>
+</tr>
+<tr>
+<td>libgen pricing</td>
+<td>No LLM catalog with that name found after multiple searches; Library Genesis/unrelated results only</td>
+<td>—</td>
+<td>—</td>
+<td>S22</td>
+</tr>
+</tbody>
+</table>
+<p>Catalogs do not promise freshness. Cache-write TTL5m/1h, batch and subscription/API distinctions
+vary. Aggregator rates are a different price category. Use catalogs for cross-checks/candidates,
+without replacing official references.</p>
+<p><a id="手工维护本地快照"></a></p>
+<h3 id="manually-maintained-local-snapshots">Manually maintained local snapshots</h3>
+<p>See <a href="#snapshot">versioned snapshots</a>. Repository seeds are versioned JSON with source URLs/
+lookup dates/effective intervals/extraction methods per row. UI imports local JSON to override/
+supplement, validated by schema/interval conflicts. Work concentrates around flagship price
+changes/new releases; the small locally used model set makes manual checking manageable.</p>
+<p><a id="渠道结论与选择"></a></p>
+<h3 id="source-selection">Source selection</h3>
+<p>Prefer manually verified versioned snapshots: official machine-readable availability is limited,
+while community catalogs have licensing/structural benefits and observed discrepancies. models.dev/
+genai-prices cross-check official pages and supply candidates when pages are unavailable; adopted
+rows retain community provenance. OpenRouter is comparison-only because aggregator rates differ.
+Optional public-price metadata downloads default off. The implemented built-in refresh source
+is models.dev api.json only, MIT with data-driven official-provider selection, raw caching/long
+TTL/failure fallback; import official pay-as-you-go entries only, excluding plan placeholders.
+Manual imports/repository seeds remain available; see <a href="#online-refresh">online-refresh design</a>.</p>
+<p><a id="billing-dimensions"></a></p>
+<p><a id="计费维度核验"></a></p>
+<h2 id="verified-billing-dimensions">Verified billing dimensions</h2>
+<p>The five researched providers use pages for observed/target models. Prices are per million
+tokens; unverified means the page did not establish that dimension, without guessed values.</p>
+<p><a id="矩阵总览"></a></p>
+<h3 id="dimension-matrix">Dimension matrix</h3>
+<table>
+<thead>
+<tr>
+<th>Dimension</th>
+<th>OpenAI</th>
+<th>Anthropic</th>
+<th>Gemini</th>
+<th>Kimi</th>
+<th>GLM</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ordinary input</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Cache-miss price</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Cache read</td>
+<td>One tenth input</td>
+<td>0.1x, some0.025x/0.05x</td>
+<td>Context-cache price</td>
+<td>One tenth miss price</td>
+<td>Cache-hit price</td>
+</tr>
+<tr>
+<td>Cache write5m</td>
+<td>1.25x input</td>
+<td>1.25x input</td>
+<td>No separate write price</td>
+<td>Miss-input price</td>
+<td>No separate write price</td>
+</tr>
+<tr>
+<td>Cache write1h</td>
+<td>Unverified/not found</td>
+<td>2x input</td>
+<td>—</td>
+<td>2x miss-input</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Cache storage</td>
+<td>—</td>
+<td>—</td>
+<td>Million tokens/hour</td>
+<td>Unverified</td>
+<td>Temporarily free by policy</td>
+</tr>
+<tr>
+<td>Output</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Reasoning output</td>
+<td>No separate rate; input/output rates</td>
+<td>Thinking as output</td>
+<td>Included in output</td>
+<td>reasoning_content in input/output quotas</td>
+<td>Official rule unspecified below</td>
+</tr>
+<tr>
+<td>Batch</td>
+<td>Batch/Flex 50%</td>
+<td>50%, combines cache discount</td>
+<td>Batch/Flex 50%</td>
+<td>BatchJob 60%</td>
+<td>bigmodel50%; z.ai unverified</td>
+</tr>
+<tr>
+<td>Long context</td>
+<td>Two tiers; GPT-6 threshold absent on page, catalogs272K</td>
+<td>4.6+ standard at 1M, no tiers</td>
+<td>Pro &gt;200K</td>
+<td>No tiers found</td>
+<td>GLM-5.1 32K; none found5.2/5.3</td>
+</tr>
+<tr>
+<td>Currency</td>
+<td>USD</td>
+<td>USD</td>
+<td>USD</td>
+<td>CN CNY/global USD excluding tax</td>
+<td>bigmodel CNY/z.ai USD</td>
+</tr>
+<tr>
+<td>Region/channel</td>
+<td>FedRAMP/data residency+10%</td>
+<td>US-only inference1.1x for4.6+</td>
+<td>Not found/unverified</td>
+<td>Two platforms/two rates</td>
+<td>Two channels/two rates</td>
+</tr>
+</tbody>
+</table>
+<p><a id="各家要点与本机在用模型价目"></a></p>
+<h3 id="provider-details-and-observed-model-prices">Provider details and observed-model prices</h3>
+<p>OpenAI S01, undated page, locally observed Codex gpt-6-astra/gpt-6-sol: short astra input $10,
+cache read $1, write $12.50, output $50; sol $2/$0.20/$2.50/$10. Long astra$20/$2/$25/$75.
+The page does not show GPT-6’s tier threshold although older families show272K; models.dev/
+OpenRouter use272,000 (S18/S20), requiring official recheck before formal adoption. Fast,
+renamed from Priority2026-07-30, costs2x; FedRAMP/residency+10% for models released after
+2026-03-05. No separate reasoning rate; tokens use the chosen model’s input/output rates.</p>
+<p>Anthropic S03, research target with no local Claude data then: Opus 5.5 input $4/output $20,
+write $5/$8, read $0.20 (0.05x); Sonnet 5$2/$10, Haiku 4.5$1/$5. Sonnet 5 promotional$2/$10
+became permanent instead of the planned2026-09-01 increase. Batch 50% combines cache discounts
+(S06). Thinking is output; usage.output_tokens_details.thinking_tokens breaks out billed
+internal reasoning (S05). Retained historical thinking blocks count as input for Opus 4.5/4.6+.</p>
+<p>Gemini S07, Last updated 2026-09-24 UTC:3.8 Flash standard input $0.75 through 2026-12-31,
+$1.50 from 2027-01-01; output $3.75 including thinking; cache read $0.075/storage$0.50 per
+million tokens/hour. Batch/Flex 50%;2.5 Pro &gt;200K input $1.25/$2.50/output $10/$15.
+English/machine-translated3.1Pro preview fetches disagree on &gt;200K presentation; recheck before
+adoption, as noted in S07.</p>
+<p>Kimi S09–S13, observed Kimi Code/Work kimi-code/kimi-for-coding, wire inputOther/inputCacheRead/
+inputCacheCreation align with dimensions. kimi-k3 CN hit¥2/miss¥20/output¥100; global $0.30/$3/$15,
+excluding tax. kimi-k2.7-code CN¥1.30/¥6.50/¥27, global $0.19/$0.95/$4.
+Separate cache-write policy S12: global k3 five-minute $3=miss input, one-hour $6=2x; hits renew
+expiry. CN separate rates not found/unverified. BatchJob 60%, not50%(S13); reasoning_content
+counts toward input/output quotas(S11).</p>
+<p>GLM S15/S17, observed omp/pi/zcode glm-5.3-flash/GLM-5.3: bigmodelCN GLM-5.3 input¥8/cache¥2/
+output¥28 at 1M context. Flash temporary50% rates¥0.4/¥0.115/¥1.4 versus standard¥0.8/¥0.23/¥2.8.
+GLM-5.2 matches5.3;5.1 tiers[0,32K)/[32K+); Batch 50%; cache storage temporarily free.
+International z.ai GLM-5.3$1.4/$0.26/$4.4, Flash $0.15/$0.03/$0.50, FlashX $0.37/$0.075/$1.25.
+Batch/tier statements not found/unverified. Official thinking docs only mention additional tokens;
+examples combine reasoning_content/content in completion_tokens without reasoning_tokens(S16).
+Billing remains unverified; snapshots omit a separate reasoning price, and known output subsets
+must not be billed again.</p>
+<p><a id="本机在用模型与价目映射"></a></p>
+<h3 id="observed-models-and-price-mapping">Observed models and price mapping</h3>
+<table>
+<thead>
+<tr>
+<th>Observed model</th>
+<th>Source</th>
+<th>Pay-as-you-go availability</th>
+<th>Treatment</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>gpt-6-astra/gpt-6-sol</td>
+<td>Codex ChatGPT subscription</td>
+<td>S01</td>
+<td>API reference estimate applied to subscription usage</td>
+</tr>
+<tr>
+<td>GLM-5.3/glm-5.3-flash</td>
+<td>omp/pi/zcode</td>
+<td>S15/S17, two channels/currencies</td>
+<td>Exact channel first; unknown channels permit unambiguous official same-model reference only, without actual-payment inference</td>
+</tr>
+<tr>
+<td>kimi-code/k3</td>
+<td>Kimi Code/Work/omp</td>
+<td>k3 S09/S10</td>
+<td>Coding Plan usage gets API reference estimate</td>
+</tr>
+<tr>
+<td>kimi-for-coding</td>
+<td>Kimi Code/Work</td>
+<td>Official mapping since 2026-09-11 to K2.8 Preview; no verified original-vendor API price, S14</td>
+<td>Authorized K2.8 exception: current K2.7 Code official reference with substitute label; occurrence-time estimate still lacks price</td>
+</tr>
+<tr>
+<td>k28-agent-preview</td>
+<td>Kimi K2.8 Preview</td>
+<td>User confirmed identity/substitution2026-10-05</td>
+<td>Identity kimi-k2.8-preview; only missing exact prices use kimi-k2.7-code, not arbitrary unknown K2/K3</td>
+</tr>
+<tr>
+<td>Synthetic glm-5.2</td>
+<td>Kilo test samples</td>
+<td>S15/S17</td>
+<td>Same two-channel handling as GLM-5.3</td>
+</tr>
+</tbody>
+</table>
+<p>Coding Plans/API usage are different billing systems. models.dev kimi-code-plan-*/zai-coding-plan
+cost 0 is a subscription placeholder, not free API pricing; never import placeholder zeros.</p>
+<p><a id="snapshot"></a></p>
+<p><a id="版本化价格要求"></a></p>
+<p><a id="版本化价格合同"></a></p>
+<h2 id="versioned-price-snapshot-requirements">Versioned price-snapshot requirements</h2>
+<p><a id="快照格式"></a></p>
+<h3 id="snapshot-format">Snapshot format</h3>
+<p>A metadata header and row array. Each billing context is provider×model×region/channel×service
+tier×context tier×effective interval. Implemented2026-09-30/schema 8: price_snapshots metadata,
+price_versions mandatory region/channel, service_tier/context_threshold_tokens/five
+*_per_mtok_hundredths price columns/hourly cache_storage, matching these decisions:</p>
+<table>
+<thead>
+<tr>
+<th>Dimension</th>
+<th>Research schema</th>
+<th>Implemented decision</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cache-write TTL</td>
+<td>One cache_write</td>
+<td>cache_write_5m/cache_write_1h; absent tier NULL</td>
+</tr>
+<tr>
+<td>Service tiers</td>
+<td>Absent</td>
+<td>service_tier standard default; separate tier rows; auto-estimation standard only</td>
+</tr>
+<tr>
+<td>Context tiers</td>
+<td>Absent</td>
+<td>context_threshold_tokens minimum input, NULL=0; per-request input determines tier; unknown input with multiple tiers stays ambiguous</td>
+</tr>
+<tr>
+<td>Cache storage</td>
+<td>Absent</td>
+<td>cache_storage_hour; temporary free0 with policy metadata; engine omits without storage duration</td>
+</tr>
+<tr>
+<td>Precision</td>
+<td>Integer minor currency units/million</td>
+<td>Hundredths of minor units/million, i64; $0.075/M=750, supports ¥0.115/M</td>
+</tr>
+<tr>
+<td>Provenance</td>
+<td>price_version string only</td>
+<td>Snapshot ID/source type/URLs/fetched_at/content_hash/license/checker/method</td>
+</tr>
+<tr>
+<td>Reasoning price</td>
+<td>Absent</td>
+<td>No separately verified rate; GLM remains unverified; no second charge for output subsets</td>
+</tr>
+</tbody>
+</table>
+<p>Versioned seeds desktop/src-tauri/crates/core/prices/seed-2026-09-25.json and seed-2026-10-02.json
+import once on startup. Later seed adds Opus 4.8/GPT-4o mini2024-07-18 standard rates effective
+from verification date, without backdating. Settings costs imports use the same JSON/manual
+source_type. Monetary values/prices never use binary floats; <a href="/reference/design/data-contract/#pricing">data rules</a>.
+Format llm-usage-price-snapshot/1; ISO UTC YYYY-MM-DD dates, half-open effective interval,
+null end=open; prices hundredths of minor currency units/million; null component=no applicable rate:</p>
+<div class="expressive-code"><link rel="stylesheet" href="/_astro/ec.w36nc.css"><script type="module" src="/_astro/ec.0vx5m.js"></script><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="json"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">{</span></div></div><div class="ec-line"><div class="code"><span class="indent">  </span><span style="--0:#7FDBCA;--1:#096E72">"format"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#C789D6;--1:#7C5686">llm-usage-price-snapshot/1</span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#D6DEEB;--1:#403F53">,</span></div></div><div class="ec-line"><div class="code"><span class="indent">  </span><span style="--0:#7FDBCA;--1:#096E72">"snapshot"</span><span style="--0:#D6DEEB;--1:#403F53">: {</span></div></div><div class="ec-line"><div class="code"><span class="indent">    </span><span style="--0:#7FDBCA;--1:#096E72">"id"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#C789D6;--1:#7C5686">manual-2026-10-01</span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#D6DEEB;--1:#403F53">,</span></div></div><div class="ec-line"><div class="code"><span class="indent">    </span><span style="--0:#7FDBCA;--1:#096E72">"source_type"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#C789D6;--1:#7C5686">manual</span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#D6DEEB;--1:#403F53">,</span></div></div><div class="ec-line"><div class="code"><span class="indent">    </span><span style="--0:#7FDBCA;--1:#096E72">"source_urls"</span><span style="--0:#D6DEEB;--1:#403F53">: [</span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#C789D6;--1:#7C5686">https://example.com/pricing</span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#D6DEEB;--1:#403F53">],</span></div></div><div class="ec-line"><div class="code"><span class="indent">    </span><span style="--0:#7FDBCA;--1:#096E72">"fetched_at"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#C789D6;--1:#7C5686">2026-10-01</span><span style="--0:#D9F5DD;--1:#111111">"</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">},</span></div></div><div class="ec-line"><div class="code"><span class="indent">  </span><span style="--0:#7FDBCA;--1:#096E72">"rows"</span><span style="--0:#D6DEEB;--1:#403F53">: [</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">{</span></div></div><div class="ec-line"><div class="code"><span class="indent">      </span><span style="--0:#7FDBCA;--1:#096E72">"price_id"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#C789D6;--1:#7C5686">my-openai-gpt-6-astra</span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#D6DEEB;--1:#403F53">,</span></div></div><div class="ec-line"><div class="code"><span class="indent">      </span><span style="--0:#7FDBCA;--1:#096E72">"provider_id"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#C789D6;--1:#7C5686">openai</span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#D6DEEB;--1:#403F53">,</span></div></div><div class="ec-line"><div class="code"><span class="indent">      </span><span style="--0:#7FDBCA;--1:#096E72">"model"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#C789D6;--1:#7C5686">gpt-6-astra</span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#D6DEEB;--1:#403F53">,</span></div></div><div class="ec-line"><div class="code"><span class="indent">      </span><span style="--0:#7FDBCA;--1:#096E72">"region"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#C789D6;--1:#7C5686">global</span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#D6DEEB;--1:#403F53">,</span></div></div><div class="ec-line"><div class="code"><span class="indent">      </span><span style="--0:#7FDBCA;--1:#096E72">"channel"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#C789D6;--1:#7C5686">api</span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#D6DEEB;--1:#403F53">,</span></div></div><div class="ec-line"><div class="code"><span class="indent">      </span><span style="--0:#7FDBCA;--1:#096E72">"service_tier"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#C789D6;--1:#7C5686">standard</span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#D6DEEB;--1:#403F53">,</span></div></div><div class="ec-line"><div class="code"><span class="indent">      </span><span style="--0:#7FDBCA;--1:#096E72">"context_threshold_tokens"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#FF6A83;--1:#A24848">null</span><span style="--0:#D6DEEB;--1:#403F53">,</span></div></div><div class="ec-line"><div class="code"><span class="indent">      </span><span style="--0:#7FDBCA;--1:#096E72">"effective_from"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#C789D6;--1:#7C5686">2026-10-01</span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#D6DEEB;--1:#403F53">,</span></div></div><div class="ec-line"><div class="code"><span class="indent">      </span><span style="--0:#7FDBCA;--1:#096E72">"effective_to"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#FF6A83;--1:#A24848">null</span><span style="--0:#D6DEEB;--1:#403F53">,</span></div></div><div class="ec-line"><div class="code"><span class="indent">      </span><span style="--0:#7FDBCA;--1:#096E72">"currency"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#C789D6;--1:#7C5686">USD</span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#D6DEEB;--1:#403F53">,</span></div></div><div class="ec-line"><div class="code"><span class="indent">      </span><span style="--0:#7FDBCA;--1:#096E72">"input"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#F78C6C;--1:#AA0982">100000</span><span style="--0:#D6DEEB;--1:#403F53">, </span><span style="--0:#7FDBCA;--1:#096E72">"cache_read"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#F78C6C;--1:#AA0982">10000</span><span style="--0:#D6DEEB;--1:#403F53">,</span></div></div><div class="ec-line"><div class="code"><span class="indent">      </span><span style="--0:#7FDBCA;--1:#096E72">"cache_write_5m"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#F78C6C;--1:#AA0982">125000</span><span style="--0:#D6DEEB;--1:#403F53">, </span><span style="--0:#7FDBCA;--1:#096E72">"cache_write_1h"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#FF6A83;--1:#A24848">null</span><span style="--0:#D6DEEB;--1:#403F53">,</span></div></div><div class="ec-line"><div class="code"><span class="indent">      </span><span style="--0:#7FDBCA;--1:#096E72">"output"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#F78C6C;--1:#AA0982">500000</span><span style="--0:#D6DEEB;--1:#403F53">, </span><span style="--0:#7FDBCA;--1:#096E72">"cache_storage_hour"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#FF6A83;--1:#A24848">null</span><span style="--0:#D6DEEB;--1:#403F53">,</span></div></div><div class="ec-line"><div class="code"><span class="indent">      </span><span style="--0:#7FDBCA;--1:#096E72">"note"</span><span style="--0:#D6DEEB;--1:#403F53">: </span><span style="--0:#FF6A83;--1:#A24848">null</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">    </span></span><span style="--0:#D6DEEB;--1:#403F53">}</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#D6DEEB;--1:#403F53">  </span></span><span style="--0:#D6DEEB;--1:#403F53">]</span></div></div><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">}</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="{  &quot;format&quot;: &quot;llm-usage-price-snapshot/1&quot;,  &quot;snapshot&quot;: {    &quot;id&quot;: &quot;manual-2026-10-01&quot;,    &quot;source_type&quot;: &quot;manual&quot;,    &quot;source_urls&quot;: [&quot;https://example.com/pricing&quot;],    &quot;fetched_at&quot;: &quot;2026-10-01&quot;  },  &quot;rows&quot;: [    {      &quot;price_id&quot;: &quot;my-openai-gpt-6-astra&quot;,      &quot;provider_id&quot;: &quot;openai&quot;,      &quot;model&quot;: &quot;gpt-6-astra&quot;,      &quot;region&quot;: &quot;global&quot;,      &quot;channel&quot;: &quot;api&quot;,      &quot;service_tier&quot;: &quot;standard&quot;,      &quot;context_threshold_tokens&quot;: null,      &quot;effective_from&quot;: &quot;2026-10-01&quot;,      &quot;effective_to&quot;: null,      &quot;currency&quot;: &quot;USD&quot;,      &quot;input&quot;: 100000, &quot;cache_read&quot;: 10000,      &quot;cache_write_5m&quot;: 125000, &quot;cache_write_1h&quot;: null,      &quot;output&quot;: 500000, &quot;cache_storage_hour&quot;: null,      &quot;note&quot;: null    }  ]}"><div></div></button></div></figure></div>
+<p>Validate USD/CNY/service-tier enums/nonnegative prices/legal nonoverlapping same-key provider/
+model/region/channel/tier/threshold intervals/unique price_id without imported-row conflicts.
+Same snapshot ID skips only when price-field hashes/source metadata/notes all match; corrections
+require a new snapshot ID. Optional official_vendor bool since schema 11 marks original-vendor
+API prices as fallback candidates: seed/community default true, manual false; manual official
+rows can explicitly set true. Exact provider_id/region/channel matches selected defaults
+case-insensitively. Missing exact rows may use official same-model references below without
+guessing the actual channel. Across snapshots: applicable date/threshold, manual&gt;seed&gt;community,
+then newer fetched_at/import time within one class. Below-threshold inputs do not use a row;
+unknown inputs with high-tier rows do not guess tiers.</p>
+<p><a id="生效区间与更新流程"></a></p>
+<h3 id="effective-intervals-and-updates">Effective intervals and updates</h3>
+<ol>
+<li>Half-open [effective_from_ms,effective_to_ms); same-key provider/model/channel/tier/context
+rows within a snapshot cannot overlap. Match occurred_at_ms.</li>
+<li>Append rows only. New snapshots with later starts override old open intervals without
+changing imported old rows. Announced future changes, e.g. Gemini2027-01-01/GLM Flash discount
+expiry, can be registered for automatic date-based switching.</li>
+<li>Prefer manual import/official-page or .md seeds with lookup dates. Optional downloads default
+off per <a href="/reference/design/data-contract/#settings">cost/reminder settings</a>. HTTPS GET public price endpoints
+sends no local usage/host-source identity/session/account keys; no remote usage/billing APIs.</li>
+<li>Validate JSON Schema/nonnegative values/currencies/intervals; preview additions/interval
+closures/price changes per row. Community/official discrepancies warn and permit rejection.</li>
+<li>Persist locally; statistics/prior estimates work offline. Failed downloads/validation retain
+verified snapshots/show fetched_at/verified_at age; no silent amount changes.</li>
+<li>Reproduce history through data_revision/price_version. Keep occurrence-time amounts distinct
+from current-price simulation. Dashboard displays current API pay-as-you-go references rather
+than duplicate historic estimates. Background updates do not recalculate saved amounts;
+explicit user requests/data revisions may. Matching sealed days mark limited detail coverage.</li>
+</ol>
+<p><a id="online-refresh"></a></p>
+<p><a id="在线刷新设计modelsdev-社区目录"></a></p>
+<h2 id="online-refresh-modelsdev-community-catalog">Online refresh: models.dev community catalog</h2>
+<p><a id="在线刷新设计modelsdev-社区目录2026-10-01-实施"></a></p>
+<p>Task5 implementation. Settings costs online refresh defaults off. Enabled requests only HTTPS
+GET <a href="https://models.dev/api.json">models.dev api.json</a> (MIT,S18/S19/S24); no local usage/identities/session bodies/keys;
+User-Agent contains app/version only. Offline statistics/prior estimates and the no-remote-
+usage/billing boundary remain unchanged.</p>
+<p><a id="缓存与失败回退"></a></p>
+<h3 id="cache-and-failure-fallback">Cache and failure fallback</h3>
+<p><a id="缓存与失败回退2026-10-01-用户合同"></a></p>
+<ul>
+<li>Raw response <code>&lt;DB-directory&gt;/price-cache/models-dev-api.json</code> and .meta.json URL/fetch time/
+content hash/bytes; files survive DB rebuild.</li>
+<li>Default TTL three days, configurable 1–365. Fresh cache imports without network; explicit
+refresh-now bypasses TTL.</li>
+<li>Download/validation failures reuse the last successful cached response. No cache returns
+error/preserves all snapshots(A9); invalid responses never replace cache.</li>
+<li>Successful download IDs models-dev-YYYYMMDD-hash8 from date/hash; unchanged content skips;
+snapshot imports never recalculate saved occurrence estimates.</li>
+<li>Check after collection; enabled/expired cache downloads in background. Failures produce
+operation logs/diagnostics without blocking collection.</li>
+</ul>
+<p><a id="目录过滤以官方按量价为准"></a></p>
+<h3 id="catalog-filtering-official-pay-as-you-go-prices">Catalog filtering: official pay-as-you-go prices</h3>
+<p>2026-10-01 S24 api.json:225 providers/8339 models; context-only tiers; cost fields input/output/
+cache_read/cache_write/input_audio/output_audio/reasoning/tiers/context_over_200k. No currency
+field: USD/million list prices throughout.</p>
+<ul>
+<li>Data-driven official selection: provider IDs prefixed in at least one canonical_model_id,
+plus corresponding <code>&lt;id&gt;-cn</code> variants. Measured 23+3: openai/anthropic/google/zhipuai/moonshotai/
+alibaba/deepseek/xai/mistral/etc., plus moonshotai-cn/minimax-cn/alibaba-cn. Exclude aggregators/
+gateways/subscription placeholders.</li>
+<li>Skip provider IDs containing -plan, including checked coding-plan/token-plan/step-plan all-zero
+placeholders. Skip models whose input/output are both zero/missing; zero is not free pricing.</li>
+<li>Zero cache/read/write/input/output components import NULL for unavailable rate.</li>
+<li>cost.input/output/cache_read map directly; cache_write=&gt;cache_write_5m, one-hour NULL because
+catalog lacks TTL tiers. context tiers create context_threshold_tokens rows. Ignore duplicate
+context_over_200k and unsupported audio/reasoning dimensions; reasoning already in output.</li>
+<li>region cn for -cn/global otherwise, channel api,currencyUSD; CNY remains seed/manual. Only
+standard service; experimental.modes fast/ultrafast excluded. effective_from=fetch date without
+native price-effective intervals; freshness describes lookup time.</li>
+<li>USD/million×10^4 converts to hundredths of cents/million, rounded. Small prices such as
+DeepSeek cache $0.003625/M incur &lt;=0.5 unit/&lt;$0.00005/M rounding, noted in row metadata.</li>
+<li>Twenty-six eligible providers yield408 models/473 rows per snapshot. Empty-priced poolside/
+sarvam are skipped; persisted rows cover24 providers, as S24/test output distinguishes.</li>
+</ul>
+<p><a id="官方提供商回退匹配"></a></p>
+<h3 id="official-provider-fallback">Official-provider fallback</h3>
+<p><a id="官方提供商回退匹配2026-10-01-用户合同"></a></p>
+<p>official_vendor schema 11: seed/community true, manual false unless explicitly set. Only when
+exact provider=&gt;selected region/channel=&gt;model=&gt;standard=&gt;interval=&gt;tier finds no_price_row,
+search official rows for the same model/standard/date; selected region/channel first, otherwise
+manual&gt;seed&gt;community/newer within class. Unknown input/multiple tiers remains tier_ambiguous.
+Mark official_fallback and daily/summary fallback_event_count; UI shows official-reference
+count while retaining subscription-reference semantics. Missing provider/unconfigured channel
+enters reference search without premature no_provider/channel_unknown. Vendor-family restriction
+still requires an exact model: GPT/o OpenAI, Claude Anthropic, Gemini Google, Kimi/Moonshot
+Moonshot, GLM Zhipu/Z.ai, DeepSeek DeepSeek; references/IDs in <a href="/reference/design/dashboard-repair/">dashboard rules</a>.
+Prefer selected channel, then global official api (including vendor-named compatible channels).
+Ambiguous remaining regions/channels/currencies stay unpriced; no invented rates/conversion.</p>
+<p><a href="https://www.kimi.com/code/docs/en/kimi-code/models.html">Official Kimi model table</a>
+maps k3/k3-256k toK3. Local kimi-code/ profiles can reference kimi-k3 for price matching only,
+without changing raw statistics; exact profile prices win. Missing official same-model row yields
+no_price_row; unknown family plus missing provider yields no_provider. Real provider stays
+unchanged; reference is not actual payment. Known usage_observation tokens can be partially priced;
+priced-event counts are not call counts. One verified correction of existing unsealed/detail-
+retained estimates is permitted; later background prices leave occurrence amounts unchanged.
+Overview/trend show references/coverage; <a href="/reference/evidence/dashboard-repair/">results</a>.</p>
+<p>Queries retain historic responses and current model/currency subtotals/daily provider-model amounts/
+matched price_id units. Dashboard model cost column/footer, currency/model curves and expandable
+units share current references. One row per source-provider/model; show reference provider/snapshot/
+context tier. Query the same retained details/sealed daily-weekly-monthly partitions as usage,
+exclusively by complete source dimension; cleanup neither loses costs nor double-counts coexisting
+details. Weekly/monthly archives cannot invent daily curve points. Price saved archive components
+only; different sample-population sums cannot derive missing input components. Keep known totals
+in coverage denominators. Without per-call tiers use applicable tiers from the same preferred
+snapshot to bound known components; these intervals do not price missing components. Indivisible
+archives crossing dynamic-alias changes retain model ambiguity. Usage/prices share one SQLite
+read transaction. Today/range/selected-hour share references; local-hour filtering includes DST
+repeated hours and does not substitute whole-day costs. Queries leave saved estimates/snapshots
+unchanged. Hour-granularity usage may still show daily cost curves without prorating day costs.
+Candidate reduction retains providers/priorities/dates/tiers; see
+<a href="/reference/design/dashboard-polish/">interactions</a>/<a href="/reference/evidence/dashboard-polish/">results</a>.
+Never fallback after an exact-chain match, including tier_ambiguous.</p>
+<p><a id="费用规则细则"></a></p>
+<p><a id="费用合同细则"></a></p>
+<h2 id="detailed-cost-rules">Detailed cost rules</h2>
+<p>These refine authoritative <a href="/reference/design/data-contract/#pricing">data rules</a>:</p>
+<ol>
+<li>Unpriced required components/model without API rate or authorized current substitute/
+ambiguous channel-tier/unknown writeTTL remain empty, labeled unpriced; no zero/average rate.</li>
+<li>Known priceable components contribute subtotals even with missing others; coverage is priced
+tokens/known tokens, total marked partial estimate.</li>
+<li>Store hundredths of minor currency units/million; sum i128 token×price products before
+dividing 100,000,000, round each billing component to minor units. Current references group
+day/provider/model/currency; indivisible archives by period, then combine model/grand totals
+consistently with tables. Occurrence-time daily cost partitions retain sealed estimates.
+Never discard tiny event fractions before aggregation. Negative values/cache exceeding
+known input diagnose; overflow explicitly fails instead of becoming zero/unknown.</li>
+<li>Separate currencies. Preserve CNY originals/units, show approximate USD beside them with
+verified ECB2026-10-02 snapshot/date/source; no live exchange refresh/stored-value changes;
+<a href="/reference/design/dashboard-repair/">dashboard repair</a>. User conversion estimates retain source/time;
+absent applicable rate displays separate currencies only.</li>
+<li>API rates applied to ChatGPT/Coding Plan/GLM subscriptions are reference estimates; actual
+subscription payments differ. Estimated cache savings are not actual refunds.</li>
+<li>Missing writeTTL, e.g. Kimi inputCacheCreation, defaults unpriced. Explicit per-provider
+default TTL such as5m permits estimated pricing under that tier.</li>
+</ol>
+<p><a id="v29-验收样本设计"></a></p>
+<h2 id="v29-acceptance-samples">V29 acceptance samples</h2>
+<p><a href="/reference/design/validation/">Validation checklist</a> V29 uses fixed snapshots/manual expected amounts/errors.
+Values from 2026-09-25 official S01/S09–S13/S15 are fixed tests, not ongoing price guarantees;
+version them with seeds.</p>
+<p><a id="固定价格样本"></a></p>
+<h3 id="fixed-price-samples">Fixed price samples</h3>
+<table>
+<thead>
+<tr>
+<th>Row</th>
+<th>Provider/model</th>
+<th>Channel/currency</th>
+<th>Tier</th>
+<th>Threshold</th>
+<th>Input</th>
+<th>Cache read</th>
+<th>Write5m</th>
+<th>Write1h</th>
+<th>Output</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>P1</td>
+<td>glm-5.3</td>
+<td>bigmodel-cn/CNY</td>
+<td>standard</td>
+<td>—</td>
+<td>800</td>
+<td>200</td>
+<td>NULL</td>
+<td>NULL</td>
+<td>2800</td>
+</tr>
+<tr>
+<td>P2</td>
+<td>gpt-6-astra</td>
+<td>openai/USD</td>
+<td>standard</td>
+<td>0</td>
+<td>1000</td>
+<td>100</td>
+<td>1250</td>
+<td>NULL</td>
+<td>5000</td>
+</tr>
+<tr>
+<td>P3</td>
+<td>gpt-6-astra</td>
+<td>openai/USD</td>
+<td>standard</td>
+<td>272000</td>
+<td>2000</td>
+<td>200</td>
+<td>2500</td>
+<td>NULL</td>
+<td>7500</td>
+</tr>
+<tr>
+<td>P4</td>
+<td>kimi-k3</td>
+<td>moonshot-global/USD</td>
+<td>standard</td>
+<td>—</td>
+<td>300</td>
+<td>30</td>
+<td>300</td>
+<td>600</td>
+<td>1500</td>
+</tr>
+<tr>
+<td>P5</td>
+<td>glm-5.1</td>
+<td>bigmodel-cn/CNY</td>
+<td>standard</td>
+<td>0</td>
+<td>600</td>
+<td>NULL</td>
+<td>NULL</td>
+<td>NULL</td>
+<td>2400</td>
+</tr>
+<tr>
+<td>P6</td>
+<td>glm-5.1</td>
+<td>bigmodel-cn/CNY</td>
+<td>standard</td>
+<td>32768</td>
+<td>800</td>
+<td>NULL</td>
+<td>NULL</td>
+<td>NULL</td>
+<td>2800</td>
+</tr>
+</tbody>
+</table>
+<p>Table units: minor currency units/million (fen/cents): P1input800=¥8/M, P2input1000=$10/M.
+Engine storage multiplies table values by100, e.g.P1input80000. NULL cache write means no
+verified separate rate; temporary-free policies stay metadata, without substituting a zero rate.</p>
+<p><a id="人工期望金额"></a></p>
+<h3 id="manually-expected-amounts">Manually expected amounts</h3>
+<p>Single-event expected components round to fen/cents. Multi-event groups sum integer products
+before rounding, rather than summing rounded event values. All events occur inside half-open
+snapshot intervals. Archive/precision regression: <a href="/reference/evidence/pricing-archive-repair/">2026-10-05</a>.</p>
+<table>
+<thead>
+<tr>
+<th>Case</th>
+<th>Tokens: uncached/read/write/output</th>
+<th>Row</th>
+<th>Expected</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>E1 mixed input</td>
+<td>1,234,567/500,000/200,000/345,678</td>
+<td>P1</td>
+<td>988+100+968=2056 fen, ¥20.56; writes unpriced/coverage notice</td>
+</tr>
+<tr>
+<td>E2 all components</td>
+<td>1,000,000/200,000/100,000/250,000</td>
+<td>P3</td>
+<td>Input 1.3M≥272K selects P3: manually calculated 2000+40+250+1875=4165 cents/$41.65. The original P2 calculation of 2395 cents does not apply at this input size. Current tests check scaled 130K-input E2′ under P2 (240 cents) and P2/P3 threshold boundaries; <a href="/reference/evidence/f2-cost-engine/">results</a></td>
+</tr>
+<tr>
+<td>E3 one-hour TTL</td>
+<td>400,000/300,000/600,000(1h)/150,000</td>
+<td>P4</td>
+<td>120+9+360+225=714 cents/$7.14</td>
+</tr>
+<tr>
+<td>E4 upper-tier boundary</td>
+<td>Input272,000/0/0/output 8,000</td>
+<td>P3</td>
+<td>544+60=604 cents</td>
+</tr>
+<tr>
+<td>E5 below boundary</td>
+<td>Input271,999/0/0/output 8,000</td>
+<td>P2</td>
+<td>272+40=312 cents</td>
+</tr>
+<tr>
+<td>E6 GLM tier</td>
+<td>Input32,768/0/0/output 1,000</td>
+<td>P6</td>
+<td>26+3=29 fen</td>
+</tr>
+<tr>
+<td>E7 below GLM tier</td>
+<td>Input32,767/0/0/output 1,000</td>
+<td>P5</td>
+<td>20+2=22 fen</td>
+</tr>
+<tr>
+<td>E8 separate currencies</td>
+<td>E1+original E2 example</td>
+<td>P1+P2</td>
+<td>Original example2056CNYfen/2395USDcents separate; no conversion/combination; E2 tier correction remains applicable</td>
+</tr>
+</tbody>
+</table>
+<p><a id="异常场景"></a></p>
+<h3 id="error-and-boundary-scenarios">Error and boundary scenarios</h3>
+<table>
+<thead>
+<tr>
+<th>Case</th>
+<th>Input</th>
+<th>Expected</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A1 no occurrence-time price</td>
+<td>kimi-for-coding usage</td>
+<td>Empty occurrence estimate; current substitute tested separately</td>
+</tr>
+<tr>
+<td>A2 partial pricing</td>
+<td>Known input/unknown output</td>
+<td>Price input; partial total/correct coverage</td>
+</tr>
+<tr>
+<td>A3 no duplicate reasoning</td>
+<td>reasoning50,000 subset of output 200,000</td>
+<td>Charge output_total once</td>
+</tr>
+<tr>
+<td>A4 no wrong service tier</td>
+<td>Ordinary realtime call</td>
+<td>No batch price</td>
+</tr>
+<tr>
+<td>A5 absent cache-read price</td>
+<td>Known reads/NULL rate</td>
+<td>Component unpriced; others count/coverage notice</td>
+</tr>
+<tr>
+<td>A6 unknown TTL</td>
+<td>Known writes/no TTL/default</td>
+<td>Writes unpriced until explicit default, then estimated</td>
+</tr>
+<tr>
+<td>A7 historical reproduction</td>
+<td>Within/outside old interval</td>
+<td>Occurrence rates; missing history gets separate current-price simulation, never mixed</td>
+</tr>
+<tr>
+<td>A8 invalid tokens</td>
+<td>Negative/cache exceeds known input</td>
+<td>Reject cost calculation/diagnose; no max(0,…)</td>
+</tr>
+<tr>
+<td>A9 refresh failure</td>
+<td>Network/validation error</td>
+<td>Retain snapshots/age/amounts; last successful cache fallback; no-cache error preserves snapshots</td>
+</tr>
+<tr>
+<td>A10 immutable snapshot</td>
+<td>Same snapshot repeated</td>
+<td>Skip unchanged; corrected price uses new price_version</td>
+</tr>
+</tbody>
+</table>
+<p><a id="后续实施任务清单"></a></p>
+<h2 id="implementation-checklist-and-dated-progress">Implementation checklist and dated progress</h2>
+<p>2026-09-30 <a href="/reference/evidence/f2-cost-engine/">results</a>, with later completion
+updates explicitly noted below:</p>
+<ol>
+<li>Implemented schema 7=&gt;8 price_snapshots/redefined price_versions/daily_cost_usage; prerelease
+backup/rebuild policy.</li>
+<li>Implemented seed 2026-09-25/currency-tier/nonnegative/overlap/repeat-import validation.
+Official-page extraction script optional/unimplemented; seed manually authored.</li>
+<li>Implemented matching/components/rounding/unpriced-partial coverage/i128/overflow. UI labels references.</li>
+<li>Implemented saved occurrence-time/current simulation/history data_revision/price_basis sets.</li>
+<li>Implemented optional models.dev-only/raw-cache defaultthree-day/failure fallback/official
+filter/fallback schema 11/A9; <a href="#online-refresh">design</a>/<a href="/reference/evidence/f2-online-refresh/">results</a>.</li>
+<li>Implemented default-off cost UI/currency groups/snapshot view/manual import/explicit recompute.
+Reminders were deferred in the original2026-09-30 checklist; the opening update records later
+default-off implementation, with advisory behavior rather than blocking usage.</li>
+<li>Executed V29 fixed P1–P6/E/A cases and manual expectations. Real occurrence estimates still
+require verified/configured channels; current-reference checks recorded separately.</li>
+</ol>
+<p><a id="风险与限制"></a></p>
+<h2 id="risks-and-limits">Risks and limits</h2>
+<ul>
+<li>Undated official pages measure freshness by retrieval, not effective revision time. Community
+cross-checks/visible age reduce but cannot eliminate silent price changes.</li>
+<li>Region/channel differences matter: K3 CN¥20/global $3 input cannot substitute each other.
+Verify actual subscription endpoints per Agent; unknown channels may use unambiguous official
+same-model/currency references without endpoint inference.</li>
+<li>Resolve kimi-for-coding by usage date, never apply today’s dynamic route retroactively.
+K2.8 Preview lacks verified Moonshot API prices; user authorizes current K2.7 Code official
+substitution with label. Future exact prices win without deleting the substitute rule.
+estimate_at_time never substitutes models or rewrites historical amounts. Other channels
+need independent labels/references; <a href="/reference/design/dashboard-repair/">spelling/aliases/channel rules</a>.</li>
+<li>Observed catalog discrepancies include OpenRouter aggregator rates/models.dev zhipuai with
+international rates; retain recognizable community provenance.</li>
+<li>Limited-time GLM Flash discounts/free cache storage/Kimi separate-write policy may expire;
+rows express effective changes but detection depends on checking/refresh.</li>
+<li>Unverified/inconsistent: GPT-6 official threshold, GLM thinking billing, KimiCN write components,
+z.ai batch discount, Gemini3.1Pro preview tier presentation. Recheck officially before adoption.</li>
+<li>The research batch had no direct OpenAI/Anthropic/Gemini provider usage samples for API-bill
+comparison; page-level price checks do not establish local end-to-end billing matches.</li>
+<li>models.dev remains community data. zhipuai links z.aiUSD; -cn USD entries’ derivation from CNY
+is unverified. Changed structures fail validation/fallback instead of silent import. Community
+snapshots containUSD only; CN CNY prices require seed/manual data.</li>
+<li>Seeds/engine/online refresh are implemented; V29/validation records establish checked scope.</li>
+</ul>
+<p><a id="调研记录"></a></p>
+<h2 id="research-record">Research record</h2>
+<p>Windows 11 x64/Git Bash/curl-jq public JSON/Markdown/WebFetch-web-reader page bodies; dates
+2026-09-25 unless stated. Status: research references, not runtime acceptance.</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Source</th>
+<th>Adopted facts</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S01</td>
+<td><a href="https://developers.openai.com/api/docs/pricing">OpenAI pricing</a>, old platform.openai.com/docs/pricing redirects301; undated</td>
+<td>gpt-6-astra/sol/luna/gpt-5.6 rates/short-long/Batch-Flex50%/Fast2x renamed 2026-07-30/FedRAMP-residency+10%/no separate reasoning rate/promotions</td>
+</tr>
+<tr>
+<td>S02</td>
+<td><a href="https://developers.openai.com/api/docs/api-reference/models/list">OpenAI models API</a></td>
+<td>Bearer; no price fields</td>
+</tr>
+<tr>
+<td>S03</td>
+<td><a href="https://platform.claude.com/docs/en/about-claude/pricing">Anthropic pricing</a>, no version</td>
+<td>Input/output/write5m-1h/read/Sonnet 5 promotion permanent/4.6+ no long tier/US-only1.1x</td>
+</tr>
+<tr>
+<td>S04</td>
+<td><a href="https://platform.claude.com/docs/en/api/models-list">Anthropic models API</a></td>
+<td>X-Api-Key; no price fields</td>
+</tr>
+<tr>
+<td>S05</td>
+<td><a href="https://platform.claude.com/docs/en/build-with-claude/extended-thinking">Extended thinking</a></td>
+<td>Thinking as output/thinking_tokens billed subset/retained thinking as input</td>
+</tr>
+<tr>
+<td>S06</td>
+<td><a href="https://platform.claude.com/docs/en/build-with-claude/batch-processing">Anthropic batch</a></td>
+<td>Standard API50%; cache discounts combine</td>
+</tr>
+<tr>
+<td>S07</td>
+<td><a href="https://ai.google.dev/gemini-api/docs/pricing">Gemini pricing</a>, Last updated 2026-09-24 UTC; one translated fetch, USD originals</td>
+<td>Flash 3.8 input/output/cache/storage/2027changes; Batch-Flex50%;2.5 Pro &gt;200K; thinking output;3.1 Pro preview inconsistent fetches</td>
+</tr>
+<tr>
+<td>S08</td>
+<td><a href="https://ai.google.dev/api/models">Gemini models</a></td>
+<td>Key; no price fields</td>
+</tr>
+<tr>
+<td>S09</td>
+<td><a href="https://platform.moonshot.cn/docs/pricing/chat">Kimi CN</a>, canonical platform.kimi.com</td>
+<td>k3/k2.7-code/highspeed/k2.6 CNY/1M/billing concepts</td>
+</tr>
+<tr>
+<td>S10</td>
+<td><a href="https://platform.moonshot.ai/docs/pricing/chat">Kimi global</a>, canonical platform.kimi.ai; anonymous .md</td>
+<td>Same modelsUSD excluding tax; Mintlify .md/llms.txt</td>
+</tr>
+<tr>
+<td>S11</td>
+<td><a href="https://platform.kimi.ai/docs/guide/use-thinking-models.md">Kimi thinking</a></td>
+<td>reasoning_content input/output quota</td>
+</tr>
+<tr>
+<td>S12</td>
+<td><a href="https://platform.kimi.ai/docs/guide/context-caching.md">Kimi caching</a></td>
+<td>k3 write5m$3/1h$6/read $0.30/hit renewal/separation leaves total costs unchanged</td>
+</tr>
+<tr>
+<td>S13</td>
+<td><a href="https://platform.kimi.ai/docs/pricing/batch.md">Kimi batch</a></td>
+<td>BatchJob 60%</td>
+</tr>
+<tr>
+<td>S14</td>
+<td><a href="https://www.kimi.com/code/docs/en/kimi-code/models.html">Kimi Coding Plan models</a></td>
+<td>k3/k3-256k/kimi-for-coding K2.8 Preview/highspeed; subscription quotas without API rates</td>
+</tr>
+<tr>
+<td>S15</td>
+<td><a href="https://open.bigmodel.cn/pricing">Zhipu pricing</a>, rendered JS/undated</td>
+<td>GLM-5.3/Flash/5.2/5.1 CNY/32K/Batch 50%/temporary free storage/hit rates</td>
+</tr>
+<tr>
+<td>S16</td>
+<td><a href="https://docs.bigmodel.cn/cn/guide/capabilities/thinking">Zhipu thinking</a></td>
+<td>Additional tokens only; combined completion_tokens/no reasoning breakdown; billing unspecified</td>
+</tr>
+<tr>
+<td>S17</td>
+<td><a href="https://docs.z.ai/guides/overview/pricing">Z.AI pricing</a>, undated</td>
+<td>GLM-5.3/Flash/FlashXUSD; batch/tier statements absent</td>
+</tr>
+<tr>
+<td>S18</td>
+<td><a href="https://models.dev/api.json">models.dev api.json</a>,4.9 MiB/2026-09-25</td>
+<td>cost/tiers/reasoning_options/200+providers/plan0/zhipuai z.ai rates/astra official match</td>
+</tr>
+<tr>
+<td>S19</td>
+<td><a href="https://github.com/anomalyco/models.dev">anomalyco/models.dev</a>, moved from sst</td>
+<td>MIT/pushed 2026-09-25/community README/api.json/OpenCode use</td>
+</tr>
+<tr>
+<td>S20</td>
+<td><a href="https://openrouter.ai/api/v1/models">OpenRouter models</a>,anonymous200/460 models/2026-09-25</td>
+<td>USD/token/overrides min_prompt_tokens272000/:batch; matches and lower Flash/k2.7-code examples</td>
+</tr>
+<tr>
+<td>S21</td>
+<td><a href="https://github.com/pydantic/genai-prices">pydantic/genai-prices</a>,MIT/pushed 2026-09-25</td>
+<td>YAML/v2JSON-Schema/prices_checked/history-tiers-daily/zhipuai conversion/zai-moonshot official matches</td>
+</tr>
+<tr>
+<td>S22</td>
+<td>libgen search2026-09-25</td>
+<td>No named LLM-price catalog found; unrelated Library Genesis</td>
+</tr>
+<tr>
+<td>S23</td>
+<td>publishPriceDocs search2026-09-25</td>
+<td>No public Gemini pricing JSON found under that name</td>
+</tr>
+<tr>
+<td>S24</td>
+<td>models.dev api.json2026-10-01,5.28 MB/HTTP200</td>
+<td>Provider{id,env,npm,name,doc,models}; cost{input,output,cache_read,cache_write,tiers,context_over_200k,input_audio,output_audio,reasoning}; canonical_model_id 5274/8339;658 context tiers; no currency,USD/million. Official canonical-prefix/-cn selection26 eligible providers/408 models/473 rows; empty-priced poolside/sarvam excluded, rows24 providers, verified by probe. Plans all0. Official matching astra$10/$50,K3 $3/$15,GLM-5.3$1.4/$4.4,Opus 5.5$4/$20,Flash 3.8$0.75/$3.75; zhipuai/zai same docs.z.ai price</td>
+</tr>
+<tr>
+<td>S25</td>
+<td><a href="https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml">ECB daily rates XML</a>,fetched 2026-10-03/effective 2026-10-02</td>
+<td>EUR/USD1.1225,EUR/CNY7.5259; CNY=&gt;USD1.1225/7.5259 for reference display, not bills/trades</td>
+</tr>
+<tr>
+<td>S26</td>
+<td><a href="https://www.kimi.com/code/docs/en/kimi-code/models.html">Kimi model table</a>,<a href="https://platform.kimi.ai/docs/pricing/chat">global API</a>,<a href="https://github.com/anomalyco/models.dev">models.dev README</a>,reread2026-10-03</td>
+<td>k3/k3-256k mapK3; USD/million input 3/read 0.30/output 15/write5m-1h 3/6. models.dev alreadyUSD/million; CN provider names do not justify reconversion; exact bare-profile aliases leave statistics names unchanged</td>
+</tr>
+</tbody>
+</table>
+<p>Still unverified: official GPT-6 threshold/OpenAI1h/Anthropic page version/Gemini3.1Pro tiers/
+KimiCN write rates/public model-list endpoint/z.ai batch/GLM thinking billing/bigmodel model
+endpoint/OpenRouter license. The original research wrote no business code/seeds and made no
+credentialed requests; research alone did not establish automated pricing. Later implementation
+is explicitly recorded above.</p>
+</div><footer class="sl-flex astro-q3cosrfy"><div class="meta sl-flex astro-q3cosrfy"><a href="https://github.com/owent/llm-usage/edit/main/docs/design/desktop-usage/pricing.md" class="sl-flex print:hidden astro-okj6rzri"><svg aria-hidden="true" class="astro-okj6rzri astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.2em;"><path d="M22 7.24a1 1 0 0 0-.29-.71l-4.24-4.24a1 1 0 0 0-1.1-.22 1 1 0 0 0-.32.22l-2.83 2.83L2.29 16.05a1 1 0 0 0-.29.71V21a1 1 0 0 0 1 1h4.24a1 1 0 0 0 .76-.29l10.87-10.93L21.71 8c.1-.1.17-.2.22-.33a1 1 0 0 0 0-.24v-.14l.07-.05ZM6.83 20H4v-2.83l9.93-9.93 2.83 2.83L6.83 20ZM18.17 8.66l-2.83-2.83 1.42-1.41 2.82 2.82-1.41 1.42Z"/></svg>Edit page</a></div><div class="pagination-links print:hidden astro-vd7os7a3" dir="ltr"></div></footer></div></div></main></div></div></div></div></body></html>

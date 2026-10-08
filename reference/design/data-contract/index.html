@@ -1,0 +1,1117 @@
+<!DOCTYPE html><html lang="en" dir="ltr" data-theme="dark" data-has-toc data-has-sidebar class="astro-i2f5rvhd"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>Usage, storage and configuration rules | LLM Usage</title><link rel="canonical" href="https://llm-usage.atframe.work/reference/design/data-contract/"/><link rel="alternate" hreflang="en" href="https://llm-usage.atframe.work/reference/design/data-contract/"/><link rel="alternate" hreflang="zh-CN" href="https://llm-usage.atframe.work/zh-cn/reference/design/data-contract/"/><link rel="alternate" hreflang="x-default" href="https://llm-usage.atframe.work/reference/design/data-contract/"/><link rel="sitemap" href="/sitemap-index.xml"/><link rel="shortcut icon" href="/favicon.svg" type="image/svg+xml"/><meta name="generator" content="Astro v7.3.6"/><meta name="generator" content="Starlight v0.42.5"/><meta property="og:title" content="Usage, storage and configuration rules"/><meta property="og:type" content="article"/><meta property="og:url" content="https://llm-usage.atframe.work/reference/design/data-contract/"/><meta property="og:locale" content="en"/><meta property="og:description" content="Understand the AI usage recorded on your computer."/><meta property="og:site_name" content="LLM Usage"/><meta name="twitter:card" content="summary_large_image"/><meta name="description" content="Understand the AI usage recorded on your computer."/><meta name="color-scheme" content="light dark"><script type="module" src="/_astro/Head.astro_astro_type_script_index_0_lang.CRxMF9Ma.js"></script><script>
+  (() => {
+    const scheme = matchMedia('(prefers-color-scheme: dark)');
+    let choice = 'auto';
+    try {
+      const saved = localStorage.getItem('starlight-theme');
+      if (saved === 'light' || saved === 'dark') choice = saved;
+    } catch { /* System theme remains available without browser storage. */ }
+    function updatePickers() {
+      document.querySelectorAll('starlight-theme-select').forEach(picker => {
+        const select = picker.querySelector('select');
+        if (select) select.value = choice;
+        const icon = document.querySelector('#docs-theme-icons')?.content.querySelector('.' + choice);
+        const target = picker.querySelector('svg.label-icon');
+        if (icon && target) target.replaceChildren(...icon.cloneNode(true).childNodes);
+      });
+    }
+    function apply(theme, persist = false) {
+      choice = theme === 'light' || theme === 'dark' ? theme : 'auto';
+      document.documentElement.dataset.theme = choice === 'auto' ? scheme.matches ? 'dark' : 'light' : choice;
+      updatePickers();
+      if (persist) {
+        try { localStorage.setItem('starlight-theme', choice === 'auto' ? '' : choice); }
+        catch { /* The current page still changes theme. */ }
+      }
+    }
+    window.LLMUsageDocsTheme = { apply, updatePickers };
+    scheme.addEventListener('change', () => { if (choice === 'auto') apply('auto'); });
+    apply(choice);
+  })();
+</script><template id="docs-theme-icons"><svg aria-hidden="true" class="light astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg><svg aria-hidden="true" class="dark astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="auto astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg></template><link rel="stylesheet" href="/_astro/print.ehPL0gv-.css" media="print"><link rel="stylesheet" href="/_astro/common.CLGr15ze.css"><style>@layer starlight.components{.card:where(.astro-eiplrasj){--sl-card-border:var(--sl-color-purple);--sl-card-bg:var(--sl-color-purple-low);border:1px solid var(--sl-color-gray-5);background-color:var(--sl-color-black);flex-direction:column;gap:clamp(.5rem,.125rem + 1vw,1rem);padding:clamp(1rem,.125rem + 3vw,2.5rem)}.card:where(.astro-eiplrasj):nth-child(4n+1){--sl-card-border:var(--sl-color-orange);--sl-card-bg:var(--sl-color-orange-low)}.card:where(.astro-eiplrasj):nth-child(4n+3){--sl-card-border:var(--sl-color-green);--sl-card-bg:var(--sl-color-green-low)}.card:where(.astro-eiplrasj):nth-child(4n+4){--sl-card-border:var(--sl-color-red);--sl-card-bg:var(--sl-color-red-low)}.card:where(.astro-eiplrasj):nth-child(4n+5){--sl-card-border:var(--sl-color-blue);--sl-card-bg:var(--sl-color-blue-low)}.title:where(.astro-eiplrasj){font-weight:600;font-size:var(--sl-text-h4);color:var(--sl-color-white);line-height:var(--sl-line-height-headings);align-items:center;gap:1rem}.card:where(.astro-eiplrasj) .icon:where(.astro-eiplrasj){border:1px solid var(--sl-card-border);background-color:var(--sl-card-bg);border-radius:.25rem;flex-shrink:0;padding:.2em}.card:where(.astro-eiplrasj) .body:where(.astro-eiplrasj){font-size:clamp(var(--sl-text-sm), calc(.5rem + 1vw), var(--sl-text-body));margin:0}.card-grid:where(.astro-t7b7g7fk){grid-template-columns:100%;gap:1rem;display:grid}.card-grid:where(.astro-t7b7g7fk)>*{margin-top:0!important}@media (width>=50rem){.card-grid:where(.astro-t7b7g7fk){grid-template-columns:1fr 1fr;gap:1.5rem}.stagger:where(.astro-t7b7g7fk){--stagger-height:5rem;padding-bottom:var(--stagger-height)}.stagger:where(.astro-t7b7g7fk)>:nth-child(2n){transform:translateY(var(--stagger-height))}}.sl-link-card:where(.astro-6ghwbfyk){border:1px solid var(--sl-color-gray-5);box-shadow:var(--sl-shadow-sm);border-radius:.5rem;grid-template-columns:1fr auto;gap:.5rem;padding:1rem;display:grid;position:relative}a:where(.astro-6ghwbfyk){line-height:var(--sl-line-height-headings);text-decoration:none}a:where(.astro-6ghwbfyk):before{content:"";position:absolute;inset:0}.stack:where(.astro-6ghwbfyk){flex-direction:column;gap:.5rem}.title:where(.astro-6ghwbfyk){color:var(--sl-color-white);font-weight:600;font-size:var(--sl-text-lg)}.description:where(.astro-6ghwbfyk){color:var(--sl-color-gray-3);line-height:1.5}.icon:where(.astro-6ghwbfyk){color:var(--sl-color-gray-3)}.sl-link-card:where(.astro-6ghwbfyk):hover{background:var(--sl-color-gray-7,var(--sl-color-gray-6));border-color:var(--sl-color-gray-2)}.sl-link-card:where(.astro-6ghwbfyk):hover .icon:where(.astro-6ghwbfyk){color:var(--sl-color-white)}}.app-screenshot:where(.astro-ofe7zldm){margin:1.5rem 0 2.5rem}.screenshot-frame:where(.astro-ofe7zldm){border:1px solid var(--sl-color-gray-5);background:var(--sl-color-bg);border-radius:1rem;box-shadow:0 16px 48px #00000018}.screenshot-frame:where(.astro-ofe7zldm) a:where(.astro-ofe7zldm){border-radius:inherit;display:block}.screenshot-frame:where(.astro-ofe7zldm) img:where(.astro-ofe7zldm){border-radius:inherit;width:100%;height:auto;box-shadow:none;border:0;margin:0;display:block}.screenshot-frame:where(.astro-ofe7zldm) .screenshot-dark:where(.astro-ofe7zldm),:root[data-theme=dark] .screenshot-light:where(.astro-ofe7zldm){display:none}:root[data-theme=dark] .screenshot-dark:where(.astro-ofe7zldm){display:block}figcaption:where(.astro-ofe7zldm){color:var(--sl-color-gray-2);flex-wrap:wrap;justify-content:space-between;gap:.25rem 1rem;margin-top:.75rem;font-size:.875rem;line-height:1.6;display:flex}.screenshot-hint:where(.astro-ofe7zldm){color:var(--sl-color-text-accent)}
+@layer starlight.components{svg:where(.astro-iwaxdyvu){color:var(--sl-icon-color);font-size:var(--sl-icon-size,1em);width:1em;height:1em}}
+</style><script type="module" src="/_astro/page.Dwipeu-R.js"></script></head><body class="astro-i2f5rvhd"><a class="sl-skip-link astro-af3xnx6k" href="#_top">Skip to content</a><div class="page sl-flex astro-7ol3m3p7"><header class="header astro-7ol3m3p7"><div class="header astro-qqelxyz2"><div class="title-wrapper sl-flex astro-qqelxyz2"><a href="/" class="site-title sl-flex astro-pm7u5y3t"><img class="astro-pm7u5y3t" alt src="/_astro/brand.BEXAYDnz.svg" width="1024" height="1024"><span class="astro-pm7u5y3t" translate="no">LLM Usage</span></a></div><div class="sl-flex print:hidden astro-qqelxyz2"><site-search class="astro-qqelxyz2 astro-veqdxac2" data-translations="{&quot;placeholder&quot;:&quot;Search&quot;}"><button data-open-modal disabled aria-label="Search" aria-keyshortcuts="Control+K" class="astro-veqdxac2"><svg aria-hidden="true" class="astro-veqdxac2 astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg><span class="sl-hidden md:sl-block astro-veqdxac2" aria-hidden="true">Search</span><kbd class="sl-hidden md:sl-flex astro-veqdxac2" style="display: none;"><kbd class="astro-veqdxac2">Ctrl</kbd><kbd class="astro-veqdxac2">K</kbd></kbd></button><dialog style="padding:0" aria-label="Search" class="astro-veqdxac2"><div class="dialog-frame sl-flex astro-veqdxac2"><button data-close-modal class="sl-flex md:sl-hidden astro-veqdxac2">Cancel</button><div class="search-container astro-veqdxac2"><div id="starlight__search" class="astro-veqdxac2"></div></div></div></dialog></site-search><script>
+	(() => {
+		const openBtn = document.querySelector('button[data-open-modal]');
+		const shortcut = openBtn?.querySelector('kbd');
+		if (!openBtn || !(shortcut instanceof HTMLElement)) return;
+		const platformKey = shortcut.querySelector('kbd');
+		if (platformKey && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
+			platformKey.textContent = '⌘';
+			openBtn.setAttribute('aria-keyshortcuts', 'Meta+K');
+		}
+		shortcut.style.display = '';
+	})();
+</script><script type="module" src="/_astro/Search.astro_astro_type_script_index_0_lang.Bumivpjo.js"></script></div><div class="sl-hidden md:sl-flex print:hidden right-group astro-qqelxyz2"><div class="sl-flex social-icons astro-qqelxyz2"><a href="https://github.com/owent/llm-usage" rel="me" class="sl-flex astro-csqdcj5u"><span class="sr-only astro-csqdcj5u">GitHub</span><svg aria-hidden="true" class="astro-csqdcj5u astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a></div><starlight-theme-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">Select theme</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="light" class="astro-btilxiwo">Light</option><option value="dark" class="astro-btilxiwo">Dark</option><option value="auto" selected class="astro-btilxiwo">Auto</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-theme-select><script>window.LLMUsageDocsTheme.updatePickers();</script><script type="module">document.addEventListener(`change`,e=>{let t=e.target;if(!(t instanceof HTMLSelectElement)||!t.closest(`starlight-theme-select`))return;let n=t.value===`light`||t.value===`dark`?t.value:`auto`;window.LLMUsageDocsTheme.apply(n,!0)});</script><starlight-lang-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">Select language</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path fill-rule="evenodd" d="M8.516 3a.94.94 0 0 0-.941.94v1.15H2.94a.94.94 0 1 0 0 1.882h7.362a7.422 7.422 0 0 1-1.787 3.958 7.42 7.42 0 0 1-1.422-2.425.94.94 0 1 0-1.774.627 9.303 9.303 0 0 0 1.785 3.043 7.422 7.422 0 0 1-4.164 1.278.94.94 0 1 0 0 1.881 9.303 9.303 0 0 0 5.575-1.855 9.303 9.303 0 0 0 4.11 1.74l-.763 1.525a.968.968 0 0 0-.016.034l-1.385 2.77a.94.94 0 1 0 1.683.841l1.133-2.267h5.806l1.134 2.267a.94.94 0 0 0 1.683-.841l-1.385-2.769a.95.95 0 0 0-.018-.036l-3.476-6.951a.94.94 0 0 0-1.682 0l-1.82 3.639a7.423 7.423 0 0 1-3.593-1.256 9.303 9.303 0 0 0 2.27-5.203h1.894a.94.94 0 0 0 0-1.881H9.456V3.94A.94.94 0 0 0 8.516 3Zm6.426 11.794a1.068 1.068 0 0 1-.02.039l-.703 1.407h3.924l-1.962-3.924-1.24 2.478Z" clip-rule="evenodd"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="/reference/design/data-contract/" class="astro-btilxiwo">English</option><option value="/zh-cn/reference/design/data-contract/" class="astro-btilxiwo">简体中文</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-lang-select><script type="module">var e=class extends HTMLElement{constructor(){super();let e=this.querySelector(`select`);e&&(e.addEventListener(`change`,e=>{e.currentTarget instanceof HTMLSelectElement&&(window.location.pathname=e.currentTarget.value)}),window.addEventListener(`pageshow`,t=>{if(!t.persisted)return;let n=e.querySelector(`option[selected]`)?.index;n!==e.selectedIndex&&(e.selectedIndex=n??0)}))}};customElements.define(`starlight-lang-select`,e);</script><script type="module" src="/_astro/LanguageSelect.astro_astro_type_script_index_0_lang.DH65a7yi.js"></script></div></div></header><nav class="sidebar print:hidden astro-7ol3m3p7" aria-label="Main"><button popovertarget="starlight__sidebar" class="sl-menu-button sl-flex md:sl-hidden print:hidden astro-dcnpphyu"><svg aria-hidden="true" class="open-menu astro-dcnpphyu astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"/></svg><svg aria-hidden="true" class="close-menu astro-dcnpphyu astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"/></svg><span class="sr-only astro-dcnpphyu">Menu</span></button><script type="module">var e=class extends HTMLElement{constructor(){super();let e=matchMedia(`(min-width: 50em)`),t=()=>{this.popover=e.matches?null:`auto`};t(),e.addEventListener(`change`,()=>t()),this.addEventListener(`toggle`,({newState:e})=>this.trapFocus(e===`open`))}trapFocus(e){document.querySelectorAll(`.main-frame, .sl-skip-link`).forEach(t=>{t.toggleAttribute(`inert`,e)})}};customElements.define(`sl-sidebar-pane`,e);</script><sl-sidebar-pane popover id="starlight__sidebar" class="sidebar-pane astro-7ol3m3p7"><div class="sidebar-content sl-flex astro-7ol3m3p7"><sl-sidebar-state-persist data-hash="1ekcnao" class="astro-lsvsit3p"><script aria-hidden="true">
+		(() => {
+			try {
+				if (!matchMedia('(min-width: 50em)').matches) return;
+				/** @type {HTMLElement | null} */
+				const target = document.querySelector('sl-sidebar-state-persist');
+				const state = JSON.parse(sessionStorage.getItem('sl-sidebar-state') || '0');
+				if (!target || !state || target.dataset.hash !== state.hash) return;
+				window._starlightScrollRestore = state.scroll;
+				customElements.define(
+					'sl-sidebar-restore',
+					class SidebarRestore extends HTMLElement {
+						connectedCallback() {
+							try {
+								const idx = parseInt(this.dataset.index || '');
+								const details = this.closest('details');
+								if (details && typeof state.open[idx] === 'boolean') details.open = state.open[idx];
+							} catch {}
+						}
+					}
+				);
+			} catch {}
+		})();
+	</script><ul class="top-level astro-ykcsoi7s"><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Start here</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="0"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">User guide</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="1"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Developer guide</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="2"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Design specifications</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="3"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Development records</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="4"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Project reference</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="5"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">Test data</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="6"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li></ul><script aria-hidden="true">
+		(() => {
+			const scroller = document.getElementById('starlight__sidebar');
+			if (!window._starlightScrollRestore || !scroller) return;
+			scroller.scrollTop = window._starlightScrollRestore;
+			delete window._starlightScrollRestore;
+		})();
+	</script></sl-sidebar-state-persist><div class="md:sl-hidden"><div class="mobile-preferences sl-flex astro-lsc3yx5w"><div class="social-icons astro-lsc3yx5w"><a href="https://github.com/owent/llm-usage" rel="me" class="sl-flex astro-csqdcj5u"><span class="sr-only astro-csqdcj5u">GitHub</span><svg aria-hidden="true" class="astro-csqdcj5u astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a></div><starlight-theme-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">Select theme</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="light" class="astro-btilxiwo">Light</option><option value="dark" class="astro-btilxiwo">Dark</option><option value="auto" selected class="astro-btilxiwo">Auto</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-theme-select><script>window.LLMUsageDocsTheme.updatePickers();</script><starlight-lang-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">Select language</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path fill-rule="evenodd" d="M8.516 3a.94.94 0 0 0-.941.94v1.15H2.94a.94.94 0 1 0 0 1.882h7.362a7.422 7.422 0 0 1-1.787 3.958 7.42 7.42 0 0 1-1.422-2.425.94.94 0 1 0-1.774.627 9.303 9.303 0 0 0 1.785 3.043 7.422 7.422 0 0 1-4.164 1.278.94.94 0 1 0 0 1.881 9.303 9.303 0 0 0 5.575-1.855 9.303 9.303 0 0 0 4.11 1.74l-.763 1.525a.968.968 0 0 0-.016.034l-1.385 2.77a.94.94 0 1 0 1.683.841l1.133-2.267h5.806l1.134 2.267a.94.94 0 0 0 1.683-.841l-1.385-2.769a.95.95 0 0 0-.018-.036l-3.476-6.951a.94.94 0 0 0-1.682 0l-1.82 3.639a7.423 7.423 0 0 1-3.593-1.256 9.303 9.303 0 0 0 2.27-5.203h1.894a.94.94 0 0 0 0-1.881H9.456V3.94A.94.94 0 0 0 8.516 3Zm6.426 11.794a1.068 1.068 0 0 1-.02.039l-.703 1.407h3.924l-1.962-3.924-1.24 2.478Z" clip-rule="evenodd"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="/reference/design/data-contract/" class="astro-btilxiwo">English</option><option value="/zh-cn/reference/design/data-contract/" class="astro-btilxiwo">简体中文</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-lang-select></div></div></div></sl-sidebar-pane></nav><div class="main-frame astro-7ol3m3p7"><script type="module">var e=document.getElementById(`starlight__sidebar`),t=e?.querySelector(`sl-sidebar-state-persist`),n=`sl-sidebar-state`,r=()=>{let r=[],i=t?.dataset.hash||``;try{let e=sessionStorage.getItem(n),t=JSON.parse(e||`{}`);Array.isArray(t.open)&&t.hash===i&&(r=t.open)}catch{}return{hash:i,open:r,scroll:e?.scrollTop||0}},i=e=>{try{sessionStorage.setItem(n,JSON.stringify(e))}catch{}},a=()=>i(r()),o=(e,t)=>{let n=r();n.open[t]=e,i(n)};t?.addEventListener(`click`,e=>{if(!(e.target instanceof Element))return;let t=e.target.closest(`summary`)?.closest(`details`);if(!t)return;let n=t.querySelector(`sl-sidebar-restore`),r=parseInt(n?.dataset.index||``);isNaN(r)||o(!t.open,r)}),addEventListener(`visibilitychange`,()=>{document.visibilityState===`hidden`&&a()});</script><div class="lg:sl-flex astro-rcl3dmqm"><aside class="right-sidebar-container print:hidden astro-rcl3dmqm"><div class="right-sidebar astro-rcl3dmqm"><div class="lg:sl-hidden astro-fjp5q7r4"><mobile-starlight-toc data-min-h="2" data-max-h="3" class="astro-6exeh6u7"><nav aria-labelledby="starlight__on-this-page--mobile" class="astro-6exeh6u7"><details id="starlight__mobile-toc" class="astro-6exeh6u7"><summary id="starlight__on-this-page--mobile" class="sl-flex astro-6exeh6u7"><span class="toggle sl-flex astro-6exeh6u7">On this page<svg aria-hidden="true" class="caret astro-6exeh6u7 astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></span><span class="display-current astro-6exeh6u7"></span></summary><div class="dropdown astro-6exeh6u7"><ul class="isMobile astro-g6ctc22k" style="--depth: 0;"><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#_top" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Overview</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#reading-cline-sdk-sessions" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Reading Cline SDK sessions</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#defining-tokens-and-requests" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Defining tokens and requests</span></a><ul class="isMobile astro-g6ctc22k" style="--depth: 1;"><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#requests-messages-and-cumulative-values" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Requests, messages and cumulative values</span></a></li></ul></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#normalized-records" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Normalized records</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#historical-source-identity-and-exchange" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Historical source identity and exchange</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#identity-and-deduplication" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Identity and deduplication</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#cumulative-values-and-telemetry" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Cumulative values and telemetry</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#time-and-aggregation" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Time and aggregation</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#tables-transactions-and-recovery" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Tables, transactions and recovery</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#layered-archive-retention" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Layered archive retention</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#multiple-users-v6" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Multiple users (v6)</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#configuration-and-retention" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Configuration and retention</span></a><ul class="isMobile astro-g6ctc22k" style="--depth: 1;"><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#cost-rules" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Cost rules</span></a></li></ul></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#migrating-historical-prototype-data" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Migrating historical prototype data</span></a></li></ul></div></details></nav></mobile-starlight-toc><script type="module" src="/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.C3fM4Kra.js"></script></div><div class="right-sidebar-panel sl-hidden lg:sl-block astro-fjp5q7r4"><div class="sl-container astro-fjp5q7r4"><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">On this page</h2><ul class="astro-g6ctc22k" style="--depth: 0;"><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#_top" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Overview</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#reading-cline-sdk-sessions" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Reading Cline SDK sessions</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#defining-tokens-and-requests" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Defining tokens and requests</span></a><ul class="astro-g6ctc22k" style="--depth: 1;"><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#requests-messages-and-cumulative-values" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Requests, messages and cumulative values</span></a></li></ul></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#normalized-records" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Normalized records</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#historical-source-identity-and-exchange" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Historical source identity and exchange</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#identity-and-deduplication" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Identity and deduplication</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#cumulative-values-and-telemetry" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Cumulative values and telemetry</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#time-and-aggregation" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Time and aggregation</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#tables-transactions-and-recovery" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Tables, transactions and recovery</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#layered-archive-retention" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Layered archive retention</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#multiple-users-v6" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Multiple users (v6)</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#configuration-and-retention" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Configuration and retention</span></a><ul class="astro-g6ctc22k" style="--depth: 1;"><li style="--depth: 1;" class="astro-g6ctc22k"><a href="#cost-rules" style="--depth: 1;" class="astro-g6ctc22k"><span style="--depth: 1;" class="astro-g6ctc22k">Cost rules</span></a></li></ul></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#migrating-historical-prototype-data" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Migrating historical prototype data</span></a></li></ul></nav></starlight-toc><script type="module" src="/_astro/TableOfContents.astro_astro_type_script_index_0_lang.BpJaGz7G.js"></script></div></div></div></aside><div class="main-pane astro-rcl3dmqm"><main data-pagefind-body class="astro-i2f5rvhd" lang="en" dir="ltr"><div class="content-panel astro-ptfq3z6k"><div class="sl-container astro-ptfq3z6k"><h1 id="_top" class="astro-5fsxzwfk">Usage, storage and configuration rules</h1></div></div><div class="content-panel astro-ptfq3z6k"><div class="sl-container astro-ptfq3z6k"><div class="sl-markdown-content"><p><a id="usage-storage-and-configuration-rules"></a></p>
+<p><a id="用量存储与配置规则"></a></p>
+<p><a id="用量存储与配置合同"></a></p>
+<p>This document defines the required statistical behavior; implementation status is in
+<a href="https://github.com/owent/llm-usage/blob/main/Plan.md">Plan.md</a>. Each adapter must declare its field mapping. The UI cannot infer
+missing fields. New source identities and price retrieval are tracked in M1a/F2.
+Only data produced by local Agents is eligible under the <a href="/reference/design/readme/">design scope</a>.
+Remote reports remain excluded even when saved to disk.</p>
+<p>Read OpenClaw schema 24 local hot transcripts under the <a href="/reference/design/openclaw-runtime/">specific rules</a>.
+Keep positive uncached input, output and cache buckets; default zeros and computed totals
+remain unknown. Database-wide versions and the latest session model do not verify historical
+rows. Isolate external/migrated sources and show cold-archive gaps. Events and pagination
+positions commit together in the unified batch transaction.</p>
+<p><a id="cline-sdk-会话读取"></a></p>
+<h2 id="reading-cline-sdk-sessions">Reading Cline SDK sessions</h2>
+<p>On 2026-10-06, the official VS Code 4.1.22 native writer at fixed commit
+<code>f58bc118bdeef1bd2813cd08e00d98bdcda96475</code> was checked against isolated real samples.
+The independent cline-sdk-messages-v1 reader complements the separate documentation-based
+legacy ui_messages.json reader. Default sessions are
+<code>~/.cline/data/sessions/&lt;session&gt;/&lt;session&gt;.messages.json</code>, resolved using the official
+CLINE_DIR, CLINE_DATA_DIR and CLINE_SESSION_DATA_DIR precedence. Manual roots may be the
+Cline root, data, sessions, a single session directory or a native file. Do not add registry
+database, manifest cumulative tokens, hooks or conversation text as a second usage source.</p>
+<p>Accept only schema 1, agent=lead, origin.source=vscode and origin.mode=user, with matching
+sessionId fields in both locations. Other SDK interfaces, imports and subagents require
+independent checks. Session metadata origin.version may be rewritten on resume and does not
+verify every historical message. SDK reading remains latest_fallback; empty sessions do not
+verify the format. Legacy format references do not select SDK reader versions.</p>
+<p>Consume only assistant metrics without displayOnly, keyed by sessionId + message.id.
+Text, tools and assistants without metrics produce no usage. The writer may place a whole
+run’s usage on its last message; retry middleware may merge multiple requests. Store
+usage_observation and do not infer one underlying call per metrics object. Use only the
+message’s own modelInfo and ts; mark time uncertain. Do not borrow the current manifest’s
+model or session start time.</p>
+<p>inputTokens includes cache. Positive input/output/cache fields are individually reported.
+Writer/codec default zeros and absent fields remain unknown. Derive a complete total only
+from known input + output; subtract cache to obtain uncached input only when total input and
+both cache buckets are known. Diagnose cache exceeding input; do not truncate it. Cost,
+reasoning output and latency lack verified native fields and remain unknown. The real sample
+has three observations: input 8,922, output 48, complete total 8,970 and known cache read
+5,881; cache write, uncached decomposition and call count are unknown.</p>
+<p>Whole-file JSON reads have a 32 MiB limit and cooperative cancellation. Advance the cursor
+only after complete parsing; partial writes and unknown schemas do not advance it. Diagnose
+invalid numbers per record while importing other valid messages. Rescans and duplicate IDs
+within a file add no duplicate usage; differing content for the same ID still uses conflict
+handling. Historical messages disappearing from a source snapshot do not revoke observed usage.</p>
+<p><a id="metrics"></a></p>
+<p><a id="token-与请求的定义"></a></p>
+<h2 id="defining-tokens-and-requests">Defining tokens and requests</h2>
+<p>Use mutually exclusive input buckets. Missing fields are null, rather than zero.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Meaning</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>input_uncached</td>
+<td>Input tokens neither read from cache nor classified as cache creation</td>
+<td>Some providers include cache in input_tokens; others exclude it. Map each verified version separately.</td>
+</tr>
+<tr>
+<td>input_cache_read</td>
+<td>Input tokens read from cache</td>
+<td>Included in normalized total input.</td>
+</tr>
+<tr>
+<td>input_cache_write</td>
+<td>Input tokens used to create cache for this request</td>
+<td>Included in total input. TTL subdivisions such as 5 minutes/1 hour are subsets, not additional tokens.</td>
+</tr>
+<tr>
+<td>input_total</td>
+<td>All input tokens</td>
+<td>Sum the three known exclusive buckets, or retain directly reported total input with unknown decomposition as null.</td>
+</tr>
+<tr>
+<td>output_total</td>
+<td>Output tokens including known reasoning subsets under the provider’s semantics</td>
+<td>Gemini candidates/thoughts may be separately reported and need a specific mapping.</td>
+</tr>
+<tr>
+<td>output_reasoning</td>
+<td>Reasoning subset of output</td>
+<td>Do not add it again when output_total already includes it.</td>
+</tr>
+<tr>
+<td>total_tokens</td>
+<td>Normalized input_total + output_total</td>
+<td>If only a source total is available, retain its value and basis without inventing input/output.</td>
+</tr>
+<tr>
+<td>source_total</td>
+<td>Original source total</td>
+<td>Compare with normalized totals; diagnose semantic differences or inconsistencies.</td>
+</tr>
+</tbody>
+</table>
+<p>Mathematical definitions:</p>
+<div class="expressive-code"><link rel="stylesheet" href="/_astro/ec.w36nc.css"><script type="module" src="/_astro/ec.0vx5m.js"></script><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="text"><code><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">input_total = input_uncached + input_cache_read + input_cache_write</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">total_tokens = input_total + output_total</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">cache_input_ratio = SUM(input_cache_read) / SUM(input_total)</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="input_total = input_uncached + input_cache_read + input_cache_writetotal_tokens = input_total + output_totalcache_input_ratio = SUM(input_cache_read) / SUM(input_total)"><div></div></button></div></figure></div>
+<p>Calculate the first two only when all required fields are known and semantically compatible.
+Known total input with unknown components is valid. Calculate the ratio over the same records
+with known total input and cache read; show eligible record count, known input and coverage.
+For a zero denominator or no eligible samples, show “—”; do not show 0% or average daily
+percentages. The share of calls with cache reads is a separate metric whose denominator is
+model calls with known cache fields; do not confuse it with the token ratio.</p>
+<p>For example, a provider explicitly has no cache creation and reports input=1000 including
+cached=800, output=100 including reasoning=40. Uncached input is 200, total tokens 1100 and
+cache-input ratio 80%, rather than 1940 tokens. Another source reports exclusive ordinary
+input=100, cache read=800, cache write=100 and output=100: total tokens remain 1100 and the
+ratio 80%, rather than 88.89% after omitting cache creation. These are synthetic rule-checking
+values, rather than model prices or real session statistics.</p>
+<p>Record reported / derived / estimated / unknown per field, alongside completeness and source
+sampling state. Reported means the source reported it; it does not verify the final bill.
+Estimates are excluded from known-usage totals by default. Negative values, overflow or cache
+exceeding known total input produce bounded diagnostics; max(0, …) must not hide contradictions.</p>
+<p>Continue CLI initializes both session cumulative cache buckets to zero and increases them
+only for nonzero values. Fixed official source and real 1.5.47 local-model samples show that
+zero cannot distinguish absent reporting from reported zero. Cache zeros in this format
+remain unknown; positive native cumulative values are retained. Do not derive a complete
+total from cache buckets mixed across providers. Product defaults cannot establish an API’s
+field presence; see <a href="/reference/evidence/m8-container-samples/">real samples</a>.
+Parsing-rule updates automatically reread unchanged old cursors. Same-revision correction is
+allowed only when complete old/new aggregate summaries differ exclusively in cache
+0/reported → NULL/unknown. Other token, quality, ownership, time and coverage changes follow
+normal conflict handling. Keep diagnostic history; aggregates and cursors commit together.
+Do not bypass retention cutoffs or sealed history.</p>
+<p>The real gajae-code 0.18.7 session v5/OpenAI-completions format and fixed source show that
+cache zeros come from missing-field fallbacks. Initialized input/output/total zeros also do
+not establish API-reported zero. Retain positive values under the verified normalization and
+recover total input through its inverse. Cache zeros remain unknown; uncached input remains
+unknown unless both cache buckets are known. Do not derive complete totals when input or
+output is unknown. Retain nonzero source totals independently; costs are client Estimated
+values. message.timestamp is initialized before the request: record source_start. Entry
+time and product version do not replace per-call time/format references. Fixed session-manager
+source identifies configured_model_chain as configuration rather than usage; skip only that
+type, while other unknown entry types still stop reading. Do not generalize this API’s
+missing-field defaults to other APIs. Old gjc-session-1 → 2 event corrections permit only
+these zero/uncached-bucket and time-basis changes, after matching complete canonical/legacy
+old summaries. Preserve source revision, identity, model, positive usage, cost and other
+quality fields; retain first observation, conflicts and diagnostics. Events, summaries,
+fingerprints and cursors commit together; sealing and retention cutoffs still apply.</p>
+<p>Official AtomCode 5.2.1 OpenAI mapping and TokenBreakdown default missing fields to zero;
+real .meta/API/CLI checks confirm this. Cumulative cache zeros remain unknown; without
+reliable cache buckets, uncached input is unverified. Complete native normalized three-bucket
+input with a positive sum can recover total input; retain positive output. Do not derive a
+complete total when input/output is unknown. Missing or mistyped buckets cannot become zero.
+Keep cumulative overflow unknown with bounded diagnostics; import other valid models.
+turn_stats total_tokens is the last-request snapshot and is not added to model_usage.
+Keep round_count as a separate source aggregate; do not expand turns without timestamps
+into per-call records. atomcode-meta-turns-1 → 2 rereads old cursors automatically. Correct
+old aggregates only when their complete summaries establish these default-zero/old-derived
+fields; other known values, model, interval, call count, coverage and source revision stay
+unchanged. Reconstruct unknown old derived candidates only from default zeros and still
+trusted native buckets, rather than removing arbitrary real conflicts. Use the same-revision
+aggregate-upgrade rules, retaining history, diagnostics, transactions, retention and sealing.
+Real .ui.json v1 and .rewind.json version 2 are verified auxiliary state. Exclude them only
+with complete JSON/explicit shape, a same-name valid .meta and matching identity, within a
+64 KiB probe. Unknown versions, invalid shapes, unmatched files and manual JSON containing
+real id/turn_stats still receive format diagnostics/reading. Filename suffixes cannot hide
+user-file errors. Other auxiliary formats require verification before exclusion.</p>
+<p>Official Junie 26.9.22 (3419.29) distribution and seven real OpenAICompletion calls were
+checked. inputTokens is normalized uncached input, rather than total input; cache/output
+are independent components. Official OpenAI/Responses, Anthropic and Google converters and
+ModelUsage construction were inspected statically. UsageTokens defaults missing fields to
+zero in events: zero buckets remain unknown, positive buckets stay reported. The format
+contains neither API type nor product version; a model name cannot verify total input or
+total tokens, which remain unknown. time=0 may be a default and remains unknown; cost=0
+does not establish free usage or reported zero cost. Official OpenAI calcTokenCost estimates
+using client ModelCapabilities rates; absent prices do not prove free usage. Positive cost
+is Estimated; USD follows the original documented reference. Actual paid channel/unit have
+not been accepted. LlmResponseMetadataEvent calls already written before a task fails still
+count. junie-events-doc1 → 2 rereads unchanged old cursors and permits only corrections of
+input buckets, default zeros/time and cost quality established by complete canonical/legacy
+old summaries. Keep original keys, revisions and other fields. Bounded old-candidate
+enumeration covers absent/default-zero fields, not arbitrary positive values. Retain first
+observation, conflicts and diagnostic history; events/summaries/cursors commit together.
+Sealing and retention still apply. JUNIE_HOME is a verified discovery override.
+See <a href="/reference/evidence/m8-container-samples/">real samples</a>.</p>
+<p>Official Roo VSIX 3.54.0, fixed commit 27001b2b and a real VS Code extension host were
+checked. api_req_started tokensIn is total input including cache; positive tokensOut is
+output. Four buckets initialize to zero; missing provider usage/cache fields still write
+zero, so zeros remain unknown. The OpenAI-compatible route reads only top-level
+cache_read_input_tokens, rather than prompt_tokens_details.cached_tokens. Real cache hits
+may therefore leave native zero buckets; subtracting those zeros cannot establish uncached
+input. Derive input_uncached only when both cache subsets are known. Positive total input
+and output can yield total_tokens. Cost uses client model rates; positive values are
+Estimated. Default zero from absent rates is unknown and does not prove a free bill.
+Empty placeholders without numbers produce no events. Requests with explicit numeric
+fields, including default zeros, retain one observed call with unknown token fields.
+Cancellation may delete incomplete api_req_started records: an unlimited run had three API
+calls but two native records; do not invent the missing call. Keep the separate one-call
+comparison using the public limit of two. An archive announcement does not establish that
+historical local providers cannot run. roo-ui-messages-doc1 → 2 reevaluates unchanged old
+cursors. Complete canonical/legacy old summaries permit only zero-bucket/zero-estimate and
+their derived-field corrections. Protect keys, time, positive usage, quality, model/ownership
+and real conflicts. Events/summaries/cursors commit together; keep diagnostics and first
+observation. This does not verify other versions, CLI or tool/subagent coverage.</p>
+<p>Official Xum npm 0.30.0, matching commit 81b0b744 and two real local calls were checked.
+session-usage.json v1 input is exclusive uncached input; output excludes reasoning. Product
+normalization/accumulation defaults five absent buckets to zero. Zero buckets stay unknown;
+positive input maps to uncached input. Complete input and total tokens remain unknown: mixed
+historical display buckets do not establish complete provider totals. Add positive text
+output and known positive reasoning as derived output. If reasoning is unknown, retain
+positive text output as a lower bound with xum_output_incomplete coverage notice, without
+downgrading source health or deriving complete totals. Ignore CLI unknown-price zero cost;
+do not expand byModel into per-call records. The default custom OpenAI-compatible route does
+not request streaming usage; real missing usage writes five zeros and does not establish
+reported zero. A separate comparison used only a local gateway to request include_usage
+from a real model, forwarding its response unchanged. That gateway setting is not a default
+client capability. CLI deletes temporary sessions by default; retain native files using
+verified XUM_RUN_SESSION_ROOT/MUX_RUN_SESSION_ROOT. Configuration roots support XUM_ROOT/
+MUX_ROOT. xum-session-usage-1 → 2 rereads old cursors, permitting only input-bucket/default-zero
+corrections and known reasoning combination established by complete old aggregate summaries.
+Other tokens/quality, revision, identity, interval, calls and coverage stay unchanged. Keep
+diagnostics, conflict handling, transactions, retention and sealing. Format v1 does not
+verify all product versions. See <a href="/reference/evidence/m8-container-samples/">real samples</a>.</p>
+<p>Real native MiMo 0.1.15, Zoo 3.86.0 and DSH 0.2.0-rc.2 files were checked against independent
+API observations. Writer/codec, default zeros, component recovery and read limits are in
+<a href="/reference/design/m3-runtime-samples/">the three source specifications</a>. Positive Zoo tokensIn includes
+cache; default-zero components remain unknown and do not establish uncached input. Recover
+positive MiMo input/output totals only using its own SDK normalization; zero cache/reasoning
+remains unknown. Do not add message copies. Native DSH input is uncached. Invert normalization
+to recover total input only when the record itself establishes pi-ai openai-completions/
+version 2 and positive input was not reduced to zero. Output already includes reasoning;
+computed total is not source_total. Select settlement or stream, not both. Same-step
+replacement may reduce usage; retry starts another attempt. Inherited prefixes are not
+local calls. Unwritten title usage is a visible gap. Snapshot regression or changed source
+identity retains existing values/cursors. MiMo/Zoo old-rule corrections require complete
+canonical/legacy old summaries, identical revision and matching protected fields; keep real
+conflicts within the same batch. Reevaluate consumed old positions and commit events,
+summaries and cursors together.</p>
+<p><a id="请求消息与累计值"></a></p>
+<h3 id="requests-messages-and-cumulative-values">Requests, messages and cumulative values</h3>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Statistical behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>model_call</td>
+<td>One model call/attempt established by explicit records; basic request metric unit.</td>
+</tr>
+<tr>
+<td>transport_attempt</td>
+<td>HTTP/WebSocket reconnect/retry, counted independently. Do not add model_call unless it establishes a new model call.</td>
+</tr>
+<tr>
+<td>usage_observation</td>
+<td>One usage record, potentially one-to-many or many-to-one with calls. COUNT(*) is not automatically request count.</td>
+</tr>
+<tr>
+<td>cumulative_snapshot</td>
+<td>Session/process cumulative snapshot; compute differences using identity, version and reset boundaries, rather than summing each row.</td>
+</tr>
+<tr>
+<td>interval_aggregate</td>
+<td>Official daily/session aggregate; retain native scope, fields and units.</td>
+</tr>
+<tr>
+<td>quota_snapshot</td>
+<td>Quota, credit, subscription window or balance; display independently without converting to tokens/requests.</td>
+</tr>
+</tbody>
+</table>
+<p>The default card is “Observed model calls” with its coverage beside it. Only sources with
+verified per-call identity contribute. Failed calls may count with unknown usage; do not
+zero-fill unknown tokens. Records with no known token fields (quality_bucket=unknown, such
+as failed calls or call-only tool-loop rounds) count calls/events but do not inflate the
+displayed missing-field counts. Those counts describe gaps in partially observed usage.
+Successful-response logs alone cannot calculate overall success rate. Quality partitioning
+examines every token field, including output_reasoning and source_total. Cache-only,
+reasoning-only or source-total-only records are still partial usage; their missing input/
+output/complete totals count as missing fields. Reported zero is known. Estimated fields
+remain separate from reported fields. Daily/hourly and derived weekly/monthly aggregates
+use the same missing-field rules. User messages, tools, sessions and paid premium requests/
+credits are separate metrics. Token-only cumulative values leave call count unknown; the
+number of positive differences cannot establish calls.</p>
+<p>Hermes and similar sources may provide interval-cumulative api_call_count. Keep it as a
+“Source-reported call aggregate”, verify its meaning and display the native interval. Do
+not invent per-call model_call or add it to per-call counts covering the same usage. Two
+local requests/resumed sessions from the official Hermes 0.21.5 (v2026.9.24) image were
+checked: native session_model_usage.input_tokens is normalize_usage uncached input, rather
+than total input. Fixed release source agrees with the earlier A24 reference; absent/
+invalid buckets become zero and SQL accumulation also defaults to zero. Zero in all five
+token buckets and api_call_count stays unknown; positive values stay reported. Derive
+input/complete totals with checked addition only when uncached, cache read/write and output
+are all known; default zeros cannot complete them. Reasoning is an output subset. Cumulative
+rows retain native interval, call aggregate and six-part identity. Database schema_version
+describes migrations and does not verify client versions in mixed historical records:
+retain compatibility reading. Old-rule upgrades require complete old aggregate-summary
+matches, permitting only input_total → input_uncached, default-zero → unknown and specified
+derived-field updates. Other counts/quality/range/coverage/revision use normal conflict
+handling. Keep historical diagnostics; fully reevaluate consumed old positions and commit
+them with cursors. Integrate quota_snapshot only when local records verify local ownership;
+account quotas use the independent display below.</p>
+<p>Overview/trends read copilot-user-cache.json premium_interactions into generic quota_history
+(independent of agent; kind=rate_limit, unit=milli_requests). It is an account premium-request
+quota shared across devices/interfaces, locality_verified=false, rather than tokens. Do
+not add it to local token/request totals. Future Agents with similar request/credit balances
+reuse quota_history without agent-specific tables. Fractional quota is stored as integer
+thousandths of a request and displayed divided by 1000. Precision beyond that unit remains
+unknown, without rounding/truncating to zero. Bucket/deduplicate using timestamp_utc; absent
+source time cannot create a synthetic new snapshot. Same-time value/metadata corrections
+may update; identical values at new times are still retained. Quota clearing and hard
+retention apply to this table. Collect/verify VS Code native usage and account quota
+separately; retain quota records independently.</p>
+<p>VS Code Copilot Chat (M9) writes user-turn promptTokens/completionTokens/copilotCredits/
+elapsedMs/modelTotals in <code>workspaceStorage/&lt;hash&gt;/chatSessions/&lt;sessionId&gt;.jsonl</code>, using
+chatSessionOperationLog storageSchema v3 and VS Code chatModel.toJSON semantics. A turn is
+usage_observation. promptTokens is the last model call’s input: a turn input lower bound,
+rather than the sum of every call; VS Code does not persist per-call input. completionTokens
+is cumulative output across the whole turn. When present, modelTotals supplies the definitive
+whole-turn per-model input/cached/output totals and takes precedence. Cache components remain
+unknown by default; do not zero-fill. Thinking coverage is incomplete and excluded from
+output_reasoning. copilotCredits measures credits converted from nano AIU, rather than tokens,
+and stays outside token totals, as an independent metric like quota above. Streaming counters
+are periodically sampled snapshots: replay each whole turn to select final values and update
+the same keys without duplicates. Do not sum updates. Stable-ID/timestamp main-loop entries
+in toolCallRounds independently count model_call, with unknown per-round tokens. Turn/model
+observations contribute usage; these quality_bucket=unknown round markers count calls but
+do not inflate missing-field displays. Without rounds, turn count cannot substitute for calls.</p>
+<p>turn_input_incomplete, indicating promptTokens covers only the last call, is a format coverage
+limit, rather than invalid data or reconciliation disagreement. It does not downgrade source
+health; invalid rows/tokens, duplicate keys or absent ownership do. Likewise, Codex cumulative
+reconciliation differences reconcile_mismatch/snapshot_regression retain their diagnostics
+and mismatch result without independently degrading read health. New independent per-call
+records do not depend on cumulative snapshots; old total/last errors needed for call identity
+still degrade health. Missing/null info contains no usage and neither counts calls nor becomes
+zero. Statistics/health rule upgrades replay existing unchanged Copilot cursors once, keeping
+revision and history. Complete valid replay advances revision and recomputes affected unsealed
+days. Invalid rows, partial lines or exhausted read limits cannot mark the update successful;
+retry later. After completion, unchanged-file skipping resumes. Keep unknown tokens without
+clearing the database or increasing schema. Default last-call input and whole-turn output
+have different coverage and cannot yield complete total_tokens. New modelTotals replaces old
+contributions; model keys remain stable when arrays reorder. Accept only requests owned by
+the github.copilot namespace. Workspace/globalStorage/emptyWindowChatSessions in the same
+installation share a source to prevent migration-copy duplication. Partial lines, exhausted
+read limits or damaged snapshots never replace existing usage. See
+<a href="/reference/evidence/m9-copilot-review/">the review</a>.</p>
+<p>For verified VS Code Copilot file exports, SDK CLIENT chat &lt;model&gt; spans become per-call
+events. Input includes cache and reasoning is an output subset, not an extra addition.
+Derive total only when input/output are known; cache decomposition stays unknown. Without
+shared call IDs, select by verified host/user/session/local day: OTel replaces native
+contributions within that scope, retaining native records and revisions. Native rescans
+still apply the selection; sealed partitions are never added again. Coverage before enabling
+export cannot be recovered and is explicitly partial history. Unconsumed, rejected or expired
+records cannot establish a preferred-source range. Normalize Claude decimal/dash model
+spellings for grouping/pricing while retaining raw model fields. See <a href="/reference/design/dashboard-repair/">dashboard requirements</a>.
+Same-named CLI/JetBrains attributes in new versions cannot replace real-format acceptance.</p>
+<p>Claude Code 2.1.197 native assistant records carry their own version. Bind each record to
+its version, rather than installed version, first queued metadata or the highest version
+in a file. Other versions are compatible reads; retain separate old unversioned references.
+Validate the full four-bucket shape. Positive input is uncached input and positive output
+is reported output. The streaming writer adds zero buckets for unreported values: without
+a validity marker, zeros remain unknown and do not complete missing input/totals. Multiple
+content blocks from one response share message.id. Without requestId, deduplicate using
+message ID, rather than treating each uuid as a call. The format has no channel; Anthropic
+protocol or model names cannot establish provider/actual payment. CLI estimates do not
+fill transcript costs. Correct old doc1 default zeros, derived values, version and provider
+assumptions only after matching complete old event summaries. Actual positive usage/model/
+quality/revision changes still follow conflict handling. Reevaluate consumed unchanged
+positions; retain first observation, original completion time, real conflicts and diagnostics.
+Recompute unsealed days in the same transaction. Interrupted bounded scans can resume;
+mark rules updated only after a complete valid scan. See
+<a href="/reference/evidence/claude-container-sample/">native samples and upgrades</a>.</p>
+<p>Route manual .qwen roots to Qwen only when the first record in the documented chats layout
+has complete ChatRecord identity and Qwen message.parts or usageMetadata. A shared type
+field does not establish Claude format. Qwen still reports invalid rows. Recover old wrong
+ownership only when the entire source has no events or daily/period/native summaries. Release
+the file’s incorrect checkpoint while retaining diagnostics/configuration. Historical
+contributions require keeping existing ownership.</p>
+<p>Qwen Code 0.25.0 local SDK files contain consecutive multiline JSON objects. Only INTERNAL
+qwen-code.llm_request spans establish per-call records; logs, HTTP spans, parent interactions
+and metrics are not added. Verify product/version in resources and trace+span identity.
+Input includes cache read; retain output and thoughts separately. Real samples with thoughts=0
+permit total derivation from known input/output. Other reasoning/provider inclusion semantics
+require separate verification before combining totals; do not invent cache write or call
+ancestry. SDK/ChatRecord lack common call IDs: accepted 0.25.0 SDK spans replace native usage
+for the verified host/user/session/local day, retaining native records, excluding rescan
+duplication and prioritizing sealed partitions. When native/SDK source-day partitions are
+sealed and per-call identity is no longer recoverable, new SDK exports for the same host/user/
+local day cannot establish non-overlap. Keep exclusion reasons and coverage notices without
+adding them to sealed partitions. Regress actual retention cleanup, restart and late native/
+SDK copies, rather than merely simulating detail deletion. Select one export copy per trace+
+span. Isolate other versions; missing source identity cannot establish preferred-source scope.
+Export may start after session creation and does not promise complete partition history.
+Partial objects, exhausted read/object limits and invalid objects remain incomplete, with
+recoverable complete-object boundaries. SDK private fields are not a stable OTLP specification.</p>
+<p>For Visual Studio totals, derive total_tokens only when input/output in the same CLIENT chat
+span are known. Do not add cache again. Missing fields/overflow remain unknown. Replay consumed
+unchanged old cursors once; only complete valid snapshots mark the update finished. For old
+v1/v2 formats, supplementation is allowed only when the complete old-field hash matches the
+new event with total removed. Other field conflicts cannot be treated as upgrades. Preserve
+call identities/count, advance data revision and do not clear the database. Missing source
+files cannot recover unknown totals.</p>
+<p>Visual Studio Copilot per-call records (M9) are automatic OTLP JSON exports from verified
+VS 18 components at <code>Path.GetTempPath()/VSGitHubCopilotLogs/traces/*.jsonl</code>. Discovery checks
+TMP/TEMP and the user’s default LOCALAPPDATA/Temp candidates, deduplicating physical roots
+without SKU/year filters. Discovery requires no installation root; inspect installations
+with official vswhere querying every instance, rather than composing SKU/year paths.
+The checked VS 2022 Copilot 17.14.1713.63837 component lacks this exporter. Verify older
+extensions/other formats separately; installation, quota, context limits or CSV lacking
+event time cannot substitute for per-call usage. See
+<a href="/reference/evidence/m9-vs-copilot-discovery/">cross-version checks</a>.
+One CLIENT chat &lt;model&gt; span is one observed model_call within telemetry coverage.
+Failed calls without usage keep unknown tokens. Verify service.name and trace/span identity
+per batch. gen_ai.usage.input_tokens/output_tokens/cache_read.input_tokens are reported
+per request as OTLP intValue strings. Skip invoke_agent whole-turn aggregate spans to avoid
+double counting. Independently reported input/cache buckets do not establish uncached input:
+VS documentation does not declare their inclusion relationship, consistent with otel-family
+rules. Read only explicitly selected keys; prompt-body properties such as gen_ai.input.messages
+are neither stored nor printed. TEMP cleanup/rotation may remove history; retain existing
+results without claiming complete coverage.</p>
+<p><a id="标准化记录"></a></p>
+<h2 id="normalized-records">Normalized records</h2>
+<p>This is a logical model, rather than an already-created SQL schema.</p>
+<table>
+<thead>
+<tr>
+<th>Group</th>
+<th>Required or optional fields</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Identity</td>
+<td>event_id, origin_host_id, source_instance_id, source_record_key, record_kind, schema_version, parser_version</td>
+</tr>
+<tr>
+<td>Parser compatibility</td>
+<td>Nullable original source version, selection basis known_version/latest_fallback, compatibility validation state; separate from field quality.</td>
+</tr>
+<tr>
+<td>Relationships</td>
+<td>origin_call_id, attempt_id, session_id, parent_session_id, host_application, agent, call kind</td>
+</tr>
+<tr>
+<td>Time</td>
+<td>occurred_at_utc, observed_at_utc, source_time, time_basis, optional interval_start/end</td>
+</tr>
+<tr>
+<td>Model</td>
+<td>provider_id, model_raw, model_canonical, model_attribution; retain unknown.</td>
+</tr>
+<tr>
+<td>Tokens</td>
+<td>Fields above, known-field bitmap/quality, source-reported total and bounded explicitly allowed extensions.</td>
+</tr>
+<tr>
+<td>Lifecycle</td>
+<td>partial/final/corrected, source_revision, error/cancel state, nullable duration/TTFT</td>
+</tr>
+<tr>
+<td>Provenance</td>
+<td>Hostname snapshot/display alias, local instance/optional WSL or container instance, locality_basis, ownership validation, format, location identifier, digest, sampling/completeness; may link through source registry.</td>
+</tr>
+<tr>
+<td>Optional dimensions</td>
+<td>Workspace HMAC, custom names, main/subagent/auxiliary/unknown call classification</td>
+</tr>
+<tr>
+<td>Cost</td>
+<td>amount_decimal, currency, reported/estimated, price_version, nullable billing_scope</td>
+</tr>
+</tbody>
+</table>
+<p>Store tokens as nonnegative signed 64-bit integers, checking limits before aggregation.
+Reject/report out-of-range records rather than converting to approximate floating point.
+Costs use fixed-precision decimals/integer minor units with explicit rounding; do not sum
+bills using binary floating point.</p>
+<p>Store models as (provider_id, model_raw); derive display aliases/families using versioned
+rules. Same-named custom models from different providers do not merge by default. A current
+session model cannot identify every historical call: use structured model changes no later
+than the call, or its own request fields. Otherwise attribution is unknown. A line-wide regex
+finding “model” inside prompt text cannot establish the call’s model. IDE is host_application;
+agent is the actual caller, such as VS Code + Copilot or Zed + Codex. Host display and Agent
+usage are dimensions of one record, rather than two additive events.</p>
+<p>Unknown versions try the latest built-in reader under <a href="/reference/design/architecture/#unknown-version">compatibility policy</a>.
+Validated data can enter statistics; compatibility state survives queries, daily summaries,
+sealing and exports. Aggregation cannot discard notices. Compatibility does not change
+reported/derived field categories or turn absent values into zeros. Partial reads show
+coverage gaps. Later dedicated-reader rescans correct old contributions using stable identity
+without duplicate accumulation.</p>
+<p>Parser version is part of parsing references. On upgrade replay, change parser/digest/
+compatibility references and remove that record’s incorrect-version notice only when the
+complete old event summary equals the new event with parser version removed. Keep time,
+usage, call identity, source revision and diagnostic history; transactionally recompute affected
+unsealed day/hour summaries and advance revision. Observation time and repeated same-key
+final timestamps retain existing duplicate-update rules. Token, quality, model, ownership,
+source format or other content changes still follow source-revision/lifecycle handling.
+Later metadata updates in the same batch cannot remove real conflicts; a repeated matching
+version cannot clear them either. Missing sources cannot directly clear flags. Sealed summaries
+stay unchanged. Codex/Kilo upgrades use existing parser-version cursor replay and resume
+incremental reading after completion.</p>
+<p><a id="provenance"></a></p>
+<p><a id="历史来源身份与数据交换"></a></p>
+<p><a id="历史来源身份与交换合同"></a></p>
+<h2 id="historical-source-identity-and-exchange">Historical source identity and exchange</h2>
+<p>M1a implements this section. Persist original provenance rather than only global Agent/model
+totals. Hostnames aid recognition; stable identities form keys/indexes. host_application
+means an IDE or similar host application, rather than the computer.</p>
+<table>
+<thead>
+<tr>
+<th>Identity information</th>
+<th>Persistence and stability</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>origin_host_id</td>
+<td>Opaque stable ID generated/persisted on first registration. Hostname, IP, hardware fingerprint and account secrets are not unique identity.</td>
+</tr>
+<tr>
+<td>Hostnames/display aliases</td>
+<td>Retain observed names and changes. Renaming preserves origin_host_id; same name does not imply same host. Export may redact names.</td>
+</tr>
+<tr>
+<td>source_instance_id</td>
+<td>Agent installation/profile/source instance within the host, with separate WSL/container environment identity. Restart/confirmed directory migration does not create another source.</td>
+</tr>
+<tr>
+<td>Collection/import information</td>
+<td>Separately record executing instance, batch and time without replacing original host/source identity.</td>
+</tr>
+</tbody>
+</table>
+<p>(origin_host_id, source_instance_id) uniquely identifies original provenance. Event logical
+keys include that source and source_record_key. An equivalent global source ID namespaced by
+host is allowed, but requires database constraints and source/time indexes; display text alone
+cannot supply host identity. Call aliases, native cumulative/interval summaries, quotas,
+daily/sealed summaries and import manifests retain resolvable source links. Registry lifetime
+covers all referencing history; detail cleanup cannot remove required registrations.</p>
+<p>Export/reimport preserves original identities; the importing host cannot replace them with
+itself. Restoring/copying an application database to another host preserves historical sources
+while explicitly distinguishing new local collection identity. Registry conflicts require
+mapping/confirmation, rather than silently recording two hosts as one source. Names/source IDs
+support deduplication but do not establish local ownership/authenticity; locality_basis and
+other eligibility references remain necessary.</p>
+<p>Import/Merge rules below distinguish layers. Aggregates compare revisions per partition key:
+higher revisions replace; equal revisions also replace under overwrite semantics, with equal
+content adding no duplicates. Lower revisions preserve existing values and diagnose conflicts.
+Details use the <a href="/reference/design/detail-merge/">independent complete normalized package</a>, following native
+event conflict handling and recomputing within one transaction. Preserve cumulative/sealed
+partitions; do not import collection cursors.</p>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Required behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Same original source/key/revision</td>
+<td>Skip identical content without duplicates. Different content at the same revision is a conflict; repeated exchange adds no usage.</td>
+</tr>
+<tr>
+<td>Same source/key with a demonstrably superseding revision</td>
+<td>Revoke the old contribution and replace it. Without revision ordering, retain conflict rather than choosing larger tokens/cost.</td>
+</tr>
+<tr>
+<td>Verified distinct sources/records with disjoint coverage</td>
+<td>Add independent contributions. Copies/host mirrors still follow cross-source deduplication; different source IDs alone do not justify addition.</td>
+</tr>
+<tr>
+<td>Complete daily/interval snapshot for the same source</td>
+<td>Validate revision/completeness within identical source partition, time/timezone, dimensions and rule version, then atomically replace. Incremental/partial snapshots cannot replace entire history.</td>
+</tr>
+<tr>
+<td>Unknown ownership, source conflict or inseparable aggregate coverage</td>
+<td>Preserve existing results/diagnostics and preview required mapping. Same hostname cannot justify automatic replacement or addition of overlapping usage.</td>
+</tr>
+</tbody>
+</table>
+<p>Exchange includes format version, original registry, record/partition keys, range/timezone,
+field completeness, revision, complete/incremental snapshot kind and batch identity. Batch
+identity prevents duplicate import operations but cannot replace source-record identity.
+Absence from incremental packages does not imply deletion. Deletion/whole-range replacement
+must be explicitly defined. Display CSV/charts need not satisfy exchange requirements and
+cannot be treated as lossless reimport files.</p>
+<p>Legacy migration uses only verified source mappings. History without host attribution retains
+an independent stable legacy_unknown namespace with old database/source links, rather than
+one global unknown key or invented attribution to the importing host. Mixed-source summaries
+without details keep original values and unknown ownership; do not invent each host’s share.
+Repeated migration adds no duplicates. Hostnames are identifiable information; export may
+alias/omit them while keeping opaque stable keys. These rules preserve later exchange support;
+current collection still accepts only verified local Agent data.</p>
+<p><a id="身份与去重"></a></p>
+<h2 id="identity-and-deduplication">Identity and deduplication</h2>
+<p>Prefer stable source response/request IDs, namespaced by account/installation/runtime instance.
+Otherwise use session UUID + event ID/sequence + kind, falling back to file identity +
+generation + byte position. Content hashes detect changes and do not alone establish event
+identity: legitimate calls may have identical usage. Paths alone do not identify mirrored
+calls either; copying/renaming a session cannot create new consumption.</p>
+<p>Streaming, final and corrected usage for the same request use upsert. Order by source revision
+when available; otherwise use verified format lifecycle. Final values need not exceed partial
+values, so MAX is inappropriate. If relative precedence is unknown, retain conflict and
+diagnostics rather than choosing the larger record.</p>
+<p>Cross-source deduplication has two levels:</p>
+<ol>
+<li>Within each source, stable record identity prevents duplicates. File mirrors use native
+session/installation identity as well.</li>
+<li>Local logs, OTLP, host mirrors and local session exports linked by origin_call_id/trace
+become aliases of one logical call. Without links, user selection chooses the primary
+source for overlapping coverage; other sources are comparison-only, without automatic addition.</li>
+</ol>
+<p>Priority is selected per scope + metric. It is not a global ranking of logs over telemetry.
+Logs might supply historical tokens while future OTLP supplies errors/latency, with persisted
+transition boundaries. Unlinkable overlaps are displayed separately. Similar time/model/token
+values cannot establish fuzzy duplicates. Cloud bills/account totals are excluded from the
+application and cannot substitute for local per-request usage.</p>
+<p>Parent-session summaries, subagent requests and auxiliary calls need explicit coverage sets.
+For example, DSH final samples replace stream values for the same attempt and retries create
+new attempts. Cline deleted_api_reqs/subagent_usage are aggregates and cannot be added to their
+corresponding details. Without details, retain aggregate scope rather than inventing models,
+times or call counts.</p>
+<p><a id="累计值与遥测"></a></p>
+<h2 id="cumulative-values-and-telemetry">Cumulative values and telemetry</h2>
+<p>Independent session cumulative snapshots are reconciliation only, rather than replacements
+for per-call usage. Disagreements between Kilo session.tokens_* and message.data.tokens keep
+reconcile_mismatch without degrading valid per-record source health. Incomplete/mistyped
+details get detail_incomplete; SQLite conversion cannot turn them into zero/floating totals.
+Reconciliation cannot prevent valid-message imports. Invalid JSON, absent roles, malformed
+usage and single-record token contradictions still require review. Invalid rows outside
+incremental windows remain unhealthy until the same row reads successfully or disappears
+from the source database. Health-rule changes increase parser version and replay old positions
+through real discovery, rather than clearing the database or diagnostics. Unknown owning
+message versions remain compatible reads; readable reconciliation does not verify them.</p>
+<p>Cumulative metric-series identity includes resource, instrument, attributes, process instance
+and start_time. Repeated same-series/start/end data is processed once; delta data also needs
+deduplication. Distinguish explicit resets from source corrections when values decrease;
+without reset references, do not restart accumulation from zero. First-seen cumulative values
+can remain native interval totals. If the interval crosses days without intermediate samples,
+do not assign everything to today or distribute uniformly by duration. Detail trends show
+coverage gaps and explain differences from totals.</p>
+<p>OTel token-histogram sum is token quantity; count is instrument sample count. Input and output
+may each emit one sample, so adding their counts does not establish calls. Count per-request
+spans only at leaf LLM calls, excluding invoke_agent session totals. Trace sampling, packet loss,
+missing final usage and offline applications affect completeness. Multiplying sampled data
+cannot turn estimates into measured complete usage.</p>
+<p><a id="time"></a></p>
+<p><a id="时间和汇总"></a></p>
+<h2 id="time-and-aggregation">Time and aggregation</h2>
+<p>Store UTC integer-millisecond timestamps with source timezone/precision. Display/bucket using
+a persisted user-selected IANA timezone. Initially use system timezone; later system changes
+cannot silently rebucket history. Naive source timestamps require verified source configuration;
+otherwise time is uncertain. File mtime is for scanning, rather than request occurrence time.</p>
+<p>All intervals are half-open [start, end). Days/weeks/months use selected-timezone calendar
+boundaries. Default weeks start Monday with week-year labels; Sunday-start weeks use start-date
+labels rather than claiming ISO week semantics. Calendar months differ from 30 days. Preserve
+DST 23/25-hour days and label repeated hours with UTC offset. Cross-midnight calls normally
+use source completion time; when only start time is known, explicitly record time_basis.</p>
+<p>Persist daily contributions per original host/source instance, then aggregate timezone version,
+day, Agent, provider, model, call kind and quality/coverage. Source participates in persisted
+partition keys or equivalent unique constraints. Cross-source overview merges queries rather
+than retaining only origin-free totals. Weeks/months sum days and recalculate ratios. Use
+DISTINCT for sessions crossing periods, rather than summing daily session counts. P50/P95
+cannot average daily quantiles: use retained details or a verified mergeable distribution.
+The first release omits cross-period quantiles when details are absent. High-cardinality
+project/session dimensions query detail indexes on demand.</p>
+<p>Each aggregate returns known values, records with all required fields known, unknown counts,
+sampling/conflict counts and source coverage. Keep known-subset sums separate from complete
+totals: known input may display while unknown output leaves total tokens incomplete. Unknown
+models keep separate rows; filtering their display cannot remove known tokens from totals.</p>
+<p>Mark incomplete current weeks/months “In progress”; mark the earliest retention-truncated
+weeks/months “Partial history”. Year-over-year/period comparisons match range, timezone,
+source selection, metric definition and elapsed portion. Basic multi-select filters include
+Agent/model/provider/quality, AND across fields and OR within a field. Group/filter Agent,
+model and provider using common Unicode lowercase rules, without changing native call IDs.
+Model tables retain provider dimensions; same-named models from different providers do not
+become one source identity. Deduplicate range sessions by (source instance, session ID);
+missing IDs/incomplete detail make the result unknown. Hourly metrics use that hour’s records.
+Weight average duration by calls with known duration, rather than all calls. Daily partitions
+can deduplicate active days exactly; coarse-only periods cannot add each source’s active-day
+count. Hourly layers retain actual quality buckets/conflicts. Missing old hourly completeness,
+ordinary input and cache ratios are recovered only from retained details, never by subtracting
+input/cache summed from different sample sets.</p>
+<p>Each heatmap cell is one real date in the selected timezone, read from retained daily summaries.
+Weekday distribution reuses calls from those dates. Days with only weekly/monthly/yearly
+archives cannot be reconstructed and are unavailable. If other sources still retain daily
+data for that date, show known values with partial coverage. Imported packages may lack local
+daily cutoffs; inspect period archives themselves. Missing days are not zero-call days. Do
+not distribute or repeat period totals. Completeness ratios without sample metadata remain
+unknown.</p>
+<p><a id="数据表事务与恢复"></a></p>
+<h2 id="tables-transactions-and-recovery">Tables, transactions and recovery</h2>
+<table>
+<thead>
+<tr>
+<th>Logical table</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>origin_hosts / origin_host_names / users / source_instances / source_files</td>
+<td>Stable hosts, names/aliases, statistical users (v6), instance user/environment ownership, enablement, versions, file identity/generation, capabilities and health.</td>
+</tr>
+<tr>
+<td>ingestion_checkpoints</td>
+<td>Committed cursors/versioned context, including model state, cumulative baseline and unfinished requests.</td>
+</tr>
+<tr>
+<td>usage_events / event_aliases</td>
+<td>Normalized calls/records and cross-source links, with unique constraints preventing duplicates.</td>
+</tr>
+<tr>
+<td>source_aggregates / quota_snapshots</td>
+<td>Native interval summaries/quotas, never presented as per-call events.</td>
+</tr>
+<tr>
+<td>hourly_usage / daily_usage / period_usage / aggregate_generations</td>
+<td>Archive layers (v5): hours, original-source-partitioned days, materialized weeks/months/years, known counts, coverage and rule versions; sealing preserves provenance.</td>
+</tr>
+<tr>
+<td>settings / model_aliases / price_versions</td>
+<td>Schema-versioned configuration and cost references.</td>
+</tr>
+<tr>
+<td>extraction_schedules / schedule_state</td>
+<td>Global/per-source rules, timezones, logical trigger times, pause reasons and desired/applied OS-task state.</td>
+</tr>
+<tr>
+<td>ingest_runs / diagnostics</td>
+<td>Bounded execution state/redacted errors, without raw text.</td>
+</tr>
+<tr>
+<td>import_manifests / schema_migrations</td>
+<td>Import batch identity/range, migration versions and rollback information.</td>
+</tr>
+</tbody>
+</table>
+<p>Primary indexes cover original-host/source record uniqueness, source/time, occurred_at,
+model/time, Agent/time and source-revision cursors. Add project indexes only when optional
+dimensions are enabled. Use real EXPLAIN QUERY PLAN and benchmarks to select indexes, rather
+than precreating every dimension combination.</p>
+<p>Each batch commits event updates, cursors, parser state and affected daily statistics together.
+Replay interrupted uncommitted batches. Another source’s successful commit cannot save a failed
+source’s cursor early. Complex rebuilds use a new aggregate_generation and switch atomically
+after completion; the UI retains the old revision meanwhile. Damaged aggregates can rebuild
+from retained details; absent historical detail makes exact reconstruction explicitly unavailable.</p>
+<p>Check free space and make a consistent backup before migrations. Run versioned migrations
+transactionally; failure keeps the old database. An older application encountering a newer
+schema refuses writes rather than destructively downgrading. Parser-upgrade rescans use new
+revisions and retain existing statistics until comparison succeeds; missing sources cannot
+clear historical usage.</p>
+<p><a id="settings"></a></p>
+<p><a id="分级归档保留"></a></p>
+<h2 id="layered-archive-retention">Layered archive retention</h2>
+<p>Details → hours → days → weeks/months/years have progressively longer retention. Defaults
+are 7/3/90/1095/3650 days/lifetime:</p>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Storage</th>
+<th>Default</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Session details</td>
+<td>usage_events</td>
+<td>7 days</td>
+<td>Seal the containing day before deletion (V14 semantics).</td>
+</tr>
+<tr>
+<td>Hourly summaries</td>
+<td>hourly_usage</td>
+<td>3 days</td>
+<td>Recompute with affected days in each commit transaction; hourly charts read this layer.</td>
+</tr>
+<tr>
+<td>Daily summaries</td>
+<td>daily_usage</td>
+<td>90 days</td>
+<td>Daily queries and recent week/month derivation.</td>
+</tr>
+<tr>
+<td>Weekly/monthly</td>
+<td>period_usage</td>
+<td>3/10 years</td>
+<td>Materialize completed periods from days; repeated replace adds no duplicates.</td>
+</tr>
+<tr>
+<td>Yearly</td>
+<td>period_usage</td>
+<td>Lifetime</td>
+<td>Same rule.</td>
+</tr>
+</tbody>
+</table>
+<p>Details have no ordering constraint and may outlive hours; this is redundant, without losing
+data. Coarser layers cannot expire before finer layers: validate hourly ≤ daily ≤ weekly ≤
+monthly ≤ yearly.</p>
+<p><a id="多用户v6"></a></p>
+<h2 id="multiple-users-v6">Multiple users (v6)</h2>
+<ul>
+<li>
+<p>users(user_id, name): create random internal IDs, trim display names and reject empty/duplicate
+names. The default user_id=default is created during migration and owns all existing sources.
+Initially use the OS username for its display name, falling back to default if unavailable.</p>
+</li>
+<li>
+<p>source_instances.user_id owns each source instance. Different users may share a source host:
+origin_hosts and users have a many-to-many relationship, allowing different people’s Agent
+data on one machine to belong to different statistical users.</p>
+</li>
+<li>
+<p>Queries select the current user’s source set via Filters.instances, resolved in the app.
+Core statistics do not depend on user concepts. An empty set means that user has no sources.</p>
+</li>
+<li>
+<p>Imported sources default to the default user and disabled state, using remote_sync ownership
+basis. Users reassign and enable them on the sources page.</p>
+</li>
+<li>
+<p>Protect ongoing periods: the daily cutoff cannot cross the current week/month/year start,
+which would permanently lose unfinished periods. Effective retention may exceed configuration
+by up to a period (≤31 days plus year-start protection).</p>
+</li>
+<li>
+<p>Materialized weeks use fixed ISO Monday labels. Week-start display changes require explicit
+rebuilding to change materialization.</p>
+</li>
+<li>
+<p>distinct_sessions requires complete details and known session identity. NULL in materialized
+layers indicates coverage gaps; V06 does not invent counts.</p>
+</li>
+<li>
+<p>Complete periods replace only corresponding same-source/model/kind/quality daily partitions
+and must fall entirely within the query range. A whole month cannot answer a one-day query.
+Later partial daily data cannot overwrite complete periods.</p>
+</li>
+<li>
+<p>Repeated retention with the same day/policy/revision neither rematerializes nor advances revision.</p>
+</li>
+<li>
+<p>Under the same day/policy, skip completed-period materialization only when changes affect
+ongoing periods alone. Check completed-period daily count/max revision, period count/max
+revision and committed position together. Late corrections/deletions, missing periods,
+changed dates/policies, external future revisions or absent/damaged positions require full
+rebuild. Commit the position with retention; failure/cancellation saves nothing. Clearing
+usage also resets it.</p>
+</li>
+<li>
+<p>Aggregate exchange exports registry + all daily/period/hourly partitions without session
+details. Reimport restores historical trends while showing detail-only gaps. Daily partitions
+retain all known/unknown counts and ratio samples; hours/periods retain conflicts and original
+host ownership. Missing completeness in old packages remains unknown. Identical reimports
+do not advance revision. Different same-revision content follows overwrite rules; lower
+revisions keep existing data and diagnose. Invalid partitions roll back the entire batch.
+Same-path sources on different hosts cannot merge. Empty users/export selection does not
+mean all sources. Different aggregate snapshots cannot overwrite partitions with local
+per-call detail; reimporting the same own snapshot does not seal active days. Aggregate
+import restores historical snapshots. Complete normalized details/cumulative Merge are
+implemented under <a href="/reference/design/detail-merge/">detail exchange</a>. Later local collection retains its
+own cursors and source-revision handling.</p>
+</li>
+</ul>
+<p><a id="配置与数据保留"></a></p>
+<h2 id="configuration-and-retention">Configuration and retention</h2>
+<p>All user settings can be viewed, edited and reset in the UI, with consistent validation,
+impact preview, transactional saving and errors. Display-dimension switches differ from
+optional-field collection: hiding a column does not delete data, and disabling collection
+cannot create recoverable historical fields.</p>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Design default</th>
+<th>Range/behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Layered retention</td>
+<td>Details 7 days, hours 3 days, days 90 days, weeks 3 years, months 10 years, years lifetime</td>
+<td>Adjustable with coarse layers at least as long as fine layers. Archives show layer counts/database size; manual day cutoff or clearing/recollection retains hosts/users/settings.</td>
+</tr>
+<tr>
+<td>Diagnostics</td>
+<td>Expire alongside details</td>
+<td>Remove expired diagnostics in the same detail-cleanup transaction.</td>
+</tr>
+<tr>
+<td>Backups</td>
+<td>Latest 2, at most 7 days</td>
+<td>May be disabled; retention also applies to oldest data inside backups.</td>
+</tr>
+<tr>
+<td>Automatic collection</td>
+<td>One global interval, initially 1 hour</td>
+<td>0 disables; shorter 15-second–24-hour intervals. Per-source enablement implemented; per-source intervals/fixed times awaited integration in this design entry. See <a href="/reference/design/scheduling/">scheduling rules</a> for current status.</td>
+</tr>
+<tr>
+<td>Background/OS tasks</td>
+<td>Autostart and hourly Windows headless tasks disabled</td>
+<td>Explicit opt-in; system mode minimum 1 minute, no logged-out/sleep execution; show actual applied state and next run.</td>
+</tr>
+<tr>
+<td>Statistical time</td>
+<td>Initial system timezone; locale week start (zh Monday, en-US/CA Sunday)</td>
+<td>Select IANA timezone/Monday/Sunday; preview reconstructable history before changes.</td>
+</tr>
+<tr>
+<td>Default dimensions</td>
+<td>Agent, provider, model, day</td>
+<td>Weeks/months selectable. Project/workspace collection off by default; session IDs are for linking.</td>
+</tr>
+<tr>
+<td>Charts</td>
+<td>Top 10 + Other; calls/sessions, total/input/output tokens, stacked cache-read/cache-write/ordinary input, cache-input ratio</td>
+<td>Select dimensions/metrics, remember filters, reset defaults; missing fields remain gaps.</td>
+</tr>
+<tr>
+<td>Capacity notices</td>
+<td>Total app data 1 GiB or free disk below 1 GiB</td>
+<td>Configurable. Pause backfill/writes and notify rather than silently deleting retained data.</td>
+</tr>
+<tr>
+<td>Costs/reminders</td>
+<td>Estimation/reminders off</td>
+<td>Explicit enablement, local versioned rates, separate currencies; no cloud usage/bills/account secrets.</td>
+</tr>
+</tbody>
+</table>
+<p>These numbers are initial design values, rather than claims about the user’s current volume.
+For D-day finite retention, the cutoff is today’s selected-timezone start minus D−1 days,
+retaining today and the preceding D−1 local dates. This avoids the prototype’s ambiguous
+“366 days” actually including an extra day.</p>
+<p>Daily summaries outlive details. Expired dates become sealed with original provenance,
+timezone, fields and source-selection version. Ordinary rescans cannot append to sealed
+days. Backfill requires complete date/source partitions, recomputed and atomically replaced;
+without complete inputs retain existing summaries and mark them uncorrectable. Deleting
+details then rescanning cannot add the same usage again. Keep cursors/import cutoffs/necessary
+deduplication state until no longer needed. Expiry removes identifiable details containing
+event time/model; file cursors retain only necessary usage-free position state. Removing
+an entire source may also remove that state.</p>
+<p>Timezone/new-dimension changes rebuild dates covered by detail. Summary-only history retains
+old buckets with explicit notices, rather than silently joining incompatible trends. Consistent
+whole-history changes require complete source rescans before replacement. Preview the earliest
+recomputable date and unrecoverable historical dimensions before action.</p>
+<p>Shorter retention previews affected rows/dates/backups before confirmed database cleanup.
+Manual cleanup and clearing/recollection share one background maintenance task to avoid
+blocking the window with synchronous IPC. Before commit, cancellation is checked while waiting
+for collection, backing up and deleting SQL rows. Accepted cancellation rolls back the whole
+transaction, preserving revision, retention position, cursors and summaries without recollection.
+A backup alone is a recovery file, rather than successful cleanup. Atomically arbitrate commit
+entry against cancellation; after commit starts, reject cancellation and show committed state
+without promising to undo completed deletion. Clearing cancellation does not cover recollection
+after commit. Keep buttons disabled after accepted cancellation until completion. For rejected
+cancellation, distinguish finished work from commit entry; do not claim rollback.</p>
+<p>Optional query indexes change neither fields nor schema version; add them on first opening
+old databases without requiring clearing. Daily summaries, Agent distribution and daily charts
+merge metrics per row, retaining only result groups and active-day sets rather than all input
+dimension rows. Weekly/monthly archives retain existing partition replacement, unknowns and
+sealed coverage. Detail-coverage indexes only accelerate reading; they cannot replace complete
+session-identity sets or change filters, DST or duration samples.</p>
+<p>Repeated aggregates may use a per-connection cache of at most four entries, retaining at most
+2 MiB of string/vector capacity. That limit excludes allocator overhead and is not a process
+memory measurement. Keys include complete dates, granularity, timezone, week start, today,
+retention boundaries, source/model/Agent/quality filters and selections. Do not compare version
+values across connections. Within one read transaction, check data_revision, PRAGMA data_version
+and total_changes. Same-connection writes or other-connection commits invalidate cached results;
+failures/oversized results are not cached. Desktop reuses two mutex-protected read-only
+connections, with short-lived fallback when busy, and leaves no read transactions open.
+Measure cold and warm queries separately; cache hits do not verify cold-query targets.
+References: <a href="https://www.sqlite.org/pragma.html#pragma_data_version">SQLite data_version</a> and
+<a href="https://docs.rs/rusqlite/0.40.2/rusqlite/struct.Connection.html#method.total_changes">rusqlite 0.40.2</a>.
+SQLite first aggregates day/week/month sessions/durations within accurate local-date bounds;
+cross-day DISTINCT still merges source/session identities. Hour selections retain actual
+timezone conversion, rather than fixed UTC hours replacing DST. Delete in small batches,
+then perform controlled checkpoint/space reclamation. Never automatically delete original
+Agent logs. Rescans still honor new retention cutoffs and cannot restore expired usage just
+cleared by the user. SQLite logical deletion does not guarantee physical erasure; the UI
+cannot promise secure erasure. Users manage their own exported files.</p>
+<p><a id="pricing"></a></p>
+<p><a id="费用规则"></a></p>
+<p><a id="费用合同"></a></p>
+<h3 id="cost-rules">Cost rules</h3>
+<p>Separate locally recorded amounts, local API-rate estimates and subscription/credit consumption
+explicitly attributable to local usage. Hide native amount/credit panels without corresponding
+local fields. Known local tokens may still be estimated using applicable rates, without requiring
+native amounts. Remote Coding Plan/account balances/bills remain excluded and cannot fill gaps.
+Estimates record provider/model, region/channel, effective interval, cache read/write/TTL,
+batch/service tier and currency. Price units, model versions/aliases and long-context tiers
+must match. Reasoning subsets cannot be charged again when already included in output.
+Unknown prices/required token components show “Unpriced”; partial amounts state coverage
+without implying complete cost. Total tokens alone cannot establish input/output costs using
+an average rate. Never add different currencies directly; manual conversion is an estimate.
+Subscription calls’ API references are not actual bills; cache savings are not actual refunds.</p>
+<p>Public API prices are price metadata rather than remote usage/billing. Retrieval was researched
+under <a href="https://github.com/owent/llm-usage/blob/main/docs/design/desktop-usage/execution.md#f2">F2</a>. Snapshots store URL, retrieval time, effective interval, currency/
+unit, version and manual-override references. Refresh failures keep validated cache and show
+freshness; offline statistics remain available. Send no local usage/source identities.
+Results reference usage revision and price version. Background refresh cannot silently rewrite
+existing estimates. Separate occurrence-time prices from simulations at current rates. Without
+historical rates, current prices cannot masquerade as occurrence-time prices.</p>
+<p>Use the fixed precision/rounding above. The cost engine is implemented
+(<a href="/reference/evidence/f2-cost-engine/">results</a>); optional online refresh is
+implemented/default off with models.dev community data, long-lived raw-response cache,
+last-successful-download fallback and official-provider fallback matching
+(<a href="/reference/evidence/f2-online-refresh/">results</a>). Prefer exact provider/model/
+channel rows. Without an exact row, or with unknown provider/channel, a verified official
+pay-as-you-go row for the same model may supply an explicitly labeled API price reference,
+rather than actual billing. Families only constrain official-provider selection; unknown
+versions/subscription-only aliases receive no guessed price. Do not zero-fill unknown buckets.
+Prefer user channel, then official global API. Remaining region/channel/currency ambiguity
+prevents pricing. Known usage_observation tokens may receive partial estimates; priced-event
+count is not call count. Rule repairs recalculate retained unsealed detail once; background
+price refresh never rewrites occurrence-time amounts.</p>
+<p>Current API references and usage tables cover the same retention range. Select detail or
+sealed aggregates by complete source partitions. Unknown archive components stay unknown;
+known totals remain in coverage denominators. Without per-call tiers, show lower/upper costs
+for known components, rather than choosing a per-request tier using period total input. Sum
+integer products before rounding by displayed partition so small costs are retained. See
+<a href="/reference/design/pricing/">pricing requirements</a> for rules/results. Cross-model references require explicit
+user authorization, retaining actual model and substitute price model. Exact-model entries
+take precedence; ambiguity never triggers substitution and occurrence-time amounts stay
+unchanged. The current K2.8 Preview → K2.7 Code exception and UI label are specified in
+<a href="/reference/design/dashboard-repair/">dashboard requirements</a>.</p>
+<p>Spending reminders use user-selected known metrics and notify without blocking Agent execution.
+Missing sources limit reminder coverage. Restart/backfill cannot repeat the same threshold notice.</p>
+<p><a id="原型历史迁移"></a></p>
+<h2 id="migrating-historical-prototype-data">Migrating historical prototype data</h2>
+<p>Do not package previous-draft/data/usage.db into the app/tests. User-selected import first
+verifies schema read-only and previews dates/source/field coverage. Migration cannot repair
+unverified prototype request_id semantics, lost provider or default-zero fields automatically.
+Prefer source reconstruction for recoverable dates. Untraceable history is legacy_unverified,
+shown separately and excluded from new-data addition by default. Reimporting the same old
+database adds no duplicates; cancellation/failure rolls back the batch. Original files stay
+unchanged.</p>
+</div><footer class="sl-flex astro-q3cosrfy"><div class="meta sl-flex astro-q3cosrfy"><a href="https://github.com/owent/llm-usage/edit/main/docs/design/desktop-usage/data-contract.md" class="sl-flex print:hidden astro-okj6rzri"><svg aria-hidden="true" class="astro-okj6rzri astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.2em;"><path d="M22 7.24a1 1 0 0 0-.29-.71l-4.24-4.24a1 1 0 0 0-1.1-.22 1 1 0 0 0-.32.22l-2.83 2.83L2.29 16.05a1 1 0 0 0-.29.71V21a1 1 0 0 0 1 1h4.24a1 1 0 0 0 .76-.29l10.87-10.93L21.71 8c.1-.1.17-.2.22-.33a1 1 0 0 0 0-.24v-.14l.07-.05ZM6.83 20H4v-2.83l9.93-9.93 2.83 2.83L6.83 20ZM18.17 8.66l-2.83-2.83 1.42-1.41 2.82 2.82-1.41 1.42Z"/></svg>Edit page</a></div><div class="pagination-links print:hidden astro-vd7os7a3" dir="ltr"></div></footer></div></div></main></div></div></div></div></body></html>

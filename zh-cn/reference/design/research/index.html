@@ -1,0 +1,604 @@
+<!DOCTYPE html><html lang="zh-CN" dir="ltr" data-theme="dark" data-has-toc data-has-sidebar class="astro-i2f5rvhd"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>调研依据与验证入口 | LLM Usage</title><link rel="canonical" href="https://llm-usage.atframe.work/zh-cn/reference/design/research/"/><link rel="alternate" hreflang="en" href="https://llm-usage.atframe.work/reference/design/research/"/><link rel="alternate" hreflang="zh-CN" href="https://llm-usage.atframe.work/zh-cn/reference/design/research/"/><link rel="alternate" hreflang="x-default" href="https://llm-usage.atframe.work/reference/design/research/"/><link rel="sitemap" href="/sitemap-index.xml"/><link rel="shortcut icon" href="/favicon.svg" type="image/svg+xml"/><meta name="generator" content="Astro v7.3.6"/><meta name="generator" content="Starlight v0.42.5"/><meta property="og:title" content="调研依据与验证入口"/><meta property="og:type" content="article"/><meta property="og:url" content="https://llm-usage.atframe.work/zh-cn/reference/design/research/"/><meta property="og:locale" content="zh-CN"/><meta property="og:description" content="Understand the AI usage recorded on your computer."/><meta property="og:site_name" content="LLM Usage"/><meta name="twitter:card" content="summary_large_image"/><meta name="description" content="Understand the AI usage recorded on your computer."/><meta name="color-scheme" content="light dark"><script type="module" src="/_astro/Head.astro_astro_type_script_index_0_lang.CRxMF9Ma.js"></script><script>
+  (() => {
+    const scheme = matchMedia('(prefers-color-scheme: dark)');
+    let choice = 'auto';
+    try {
+      const saved = localStorage.getItem('starlight-theme');
+      if (saved === 'light' || saved === 'dark') choice = saved;
+    } catch { /* System theme remains available without browser storage. */ }
+    function updatePickers() {
+      document.querySelectorAll('starlight-theme-select').forEach(picker => {
+        const select = picker.querySelector('select');
+        if (select) select.value = choice;
+        const icon = document.querySelector('#docs-theme-icons')?.content.querySelector('.' + choice);
+        const target = picker.querySelector('svg.label-icon');
+        if (icon && target) target.replaceChildren(...icon.cloneNode(true).childNodes);
+      });
+    }
+    function apply(theme, persist = false) {
+      choice = theme === 'light' || theme === 'dark' ? theme : 'auto';
+      document.documentElement.dataset.theme = choice === 'auto' ? scheme.matches ? 'dark' : 'light' : choice;
+      updatePickers();
+      if (persist) {
+        try { localStorage.setItem('starlight-theme', choice === 'auto' ? '' : choice); }
+        catch { /* The current page still changes theme. */ }
+      }
+    }
+    window.LLMUsageDocsTheme = { apply, updatePickers };
+    scheme.addEventListener('change', () => { if (choice === 'auto') apply('auto'); });
+    apply(choice);
+  })();
+</script><template id="docs-theme-icons"><svg aria-hidden="true" class="light astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg><svg aria-hidden="true" class="dark astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="auto astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg></template><link rel="stylesheet" href="/_astro/print.ehPL0gv-.css" media="print"><link rel="stylesheet" href="/_astro/common.CLGr15ze.css"><style>@layer starlight.components{.card:where(.astro-eiplrasj){--sl-card-border:var(--sl-color-purple);--sl-card-bg:var(--sl-color-purple-low);border:1px solid var(--sl-color-gray-5);background-color:var(--sl-color-black);flex-direction:column;gap:clamp(.5rem,.125rem + 1vw,1rem);padding:clamp(1rem,.125rem + 3vw,2.5rem)}.card:where(.astro-eiplrasj):nth-child(4n+1){--sl-card-border:var(--sl-color-orange);--sl-card-bg:var(--sl-color-orange-low)}.card:where(.astro-eiplrasj):nth-child(4n+3){--sl-card-border:var(--sl-color-green);--sl-card-bg:var(--sl-color-green-low)}.card:where(.astro-eiplrasj):nth-child(4n+4){--sl-card-border:var(--sl-color-red);--sl-card-bg:var(--sl-color-red-low)}.card:where(.astro-eiplrasj):nth-child(4n+5){--sl-card-border:var(--sl-color-blue);--sl-card-bg:var(--sl-color-blue-low)}.title:where(.astro-eiplrasj){font-weight:600;font-size:var(--sl-text-h4);color:var(--sl-color-white);line-height:var(--sl-line-height-headings);align-items:center;gap:1rem}.card:where(.astro-eiplrasj) .icon:where(.astro-eiplrasj){border:1px solid var(--sl-card-border);background-color:var(--sl-card-bg);border-radius:.25rem;flex-shrink:0;padding:.2em}.card:where(.astro-eiplrasj) .body:where(.astro-eiplrasj){font-size:clamp(var(--sl-text-sm), calc(.5rem + 1vw), var(--sl-text-body));margin:0}.card-grid:where(.astro-t7b7g7fk){grid-template-columns:100%;gap:1rem;display:grid}.card-grid:where(.astro-t7b7g7fk)>*{margin-top:0!important}@media (width>=50rem){.card-grid:where(.astro-t7b7g7fk){grid-template-columns:1fr 1fr;gap:1.5rem}.stagger:where(.astro-t7b7g7fk){--stagger-height:5rem;padding-bottom:var(--stagger-height)}.stagger:where(.astro-t7b7g7fk)>:nth-child(2n){transform:translateY(var(--stagger-height))}}.sl-link-card:where(.astro-6ghwbfyk){border:1px solid var(--sl-color-gray-5);box-shadow:var(--sl-shadow-sm);border-radius:.5rem;grid-template-columns:1fr auto;gap:.5rem;padding:1rem;display:grid;position:relative}a:where(.astro-6ghwbfyk){line-height:var(--sl-line-height-headings);text-decoration:none}a:where(.astro-6ghwbfyk):before{content:"";position:absolute;inset:0}.stack:where(.astro-6ghwbfyk){flex-direction:column;gap:.5rem}.title:where(.astro-6ghwbfyk){color:var(--sl-color-white);font-weight:600;font-size:var(--sl-text-lg)}.description:where(.astro-6ghwbfyk){color:var(--sl-color-gray-3);line-height:1.5}.icon:where(.astro-6ghwbfyk){color:var(--sl-color-gray-3)}.sl-link-card:where(.astro-6ghwbfyk):hover{background:var(--sl-color-gray-7,var(--sl-color-gray-6));border-color:var(--sl-color-gray-2)}.sl-link-card:where(.astro-6ghwbfyk):hover .icon:where(.astro-6ghwbfyk){color:var(--sl-color-white)}}.app-screenshot:where(.astro-ofe7zldm){margin:1.5rem 0 2.5rem}.screenshot-frame:where(.astro-ofe7zldm){border:1px solid var(--sl-color-gray-5);background:var(--sl-color-bg);border-radius:1rem;box-shadow:0 16px 48px #00000018}.screenshot-frame:where(.astro-ofe7zldm) a:where(.astro-ofe7zldm){border-radius:inherit;display:block}.screenshot-frame:where(.astro-ofe7zldm) img:where(.astro-ofe7zldm){border-radius:inherit;width:100%;height:auto;box-shadow:none;border:0;margin:0;display:block}.screenshot-frame:where(.astro-ofe7zldm) .screenshot-dark:where(.astro-ofe7zldm),:root[data-theme=dark] .screenshot-light:where(.astro-ofe7zldm){display:none}:root[data-theme=dark] .screenshot-dark:where(.astro-ofe7zldm){display:block}figcaption:where(.astro-ofe7zldm){color:var(--sl-color-gray-2);flex-wrap:wrap;justify-content:space-between;gap:.25rem 1rem;margin-top:.75rem;font-size:.875rem;line-height:1.6;display:flex}.screenshot-hint:where(.astro-ofe7zldm){color:var(--sl-color-text-accent)}
+@layer starlight.components{svg:where(.astro-iwaxdyvu){color:var(--sl-icon-color);font-size:var(--sl-icon-size,1em);width:1em;height:1em}}
+</style><script type="module" src="/_astro/page.Dwipeu-R.js"></script></head><body class="astro-i2f5rvhd"><a class="sl-skip-link astro-af3xnx6k" href="#_top">跳转到内容</a><div class="page sl-flex astro-7ol3m3p7"><header class="header astro-7ol3m3p7"><div class="header astro-qqelxyz2"><div class="title-wrapper sl-flex astro-qqelxyz2"><a href="/zh-cn/" class="site-title sl-flex astro-pm7u5y3t"><img class="astro-pm7u5y3t" alt src="/_astro/brand.BEXAYDnz.svg" width="1024" height="1024"><span class="astro-pm7u5y3t" translate="no">LLM Usage</span></a></div><div class="sl-flex print:hidden astro-qqelxyz2"><site-search class="astro-qqelxyz2 astro-veqdxac2" data-translations="{&quot;placeholder&quot;:&quot;搜索&quot;}"><button data-open-modal disabled aria-label="搜索" aria-keyshortcuts="Control+K" class="astro-veqdxac2"><svg aria-hidden="true" class="astro-veqdxac2 astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg><span class="sl-hidden md:sl-block astro-veqdxac2" aria-hidden="true">搜索</span><kbd class="sl-hidden md:sl-flex astro-veqdxac2" style="display: none;"><kbd class="astro-veqdxac2">Ctrl</kbd><kbd class="astro-veqdxac2">K</kbd></kbd></button><dialog style="padding:0" aria-label="搜索" class="astro-veqdxac2"><div class="dialog-frame sl-flex astro-veqdxac2"><button data-close-modal class="sl-flex md:sl-hidden astro-veqdxac2">取消</button><div class="search-container astro-veqdxac2"><div id="starlight__search" class="astro-veqdxac2"></div></div></div></dialog></site-search><script>
+	(() => {
+		const openBtn = document.querySelector('button[data-open-modal]');
+		const shortcut = openBtn?.querySelector('kbd');
+		if (!openBtn || !(shortcut instanceof HTMLElement)) return;
+		const platformKey = shortcut.querySelector('kbd');
+		if (platformKey && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
+			platformKey.textContent = '⌘';
+			openBtn.setAttribute('aria-keyshortcuts', 'Meta+K');
+		}
+		shortcut.style.display = '';
+	})();
+</script><script type="module" src="/_astro/Search.astro_astro_type_script_index_0_lang.Bumivpjo.js"></script></div><div class="sl-hidden md:sl-flex print:hidden right-group astro-qqelxyz2"><div class="sl-flex social-icons astro-qqelxyz2"><a href="https://github.com/owent/llm-usage" rel="me" class="sl-flex astro-csqdcj5u"><span class="sr-only astro-csqdcj5u">GitHub</span><svg aria-hidden="true" class="astro-csqdcj5u astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a></div><starlight-theme-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">选择主题</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="light" class="astro-btilxiwo">浅色</option><option value="dark" class="astro-btilxiwo">深色</option><option value="auto" selected class="astro-btilxiwo">自动</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-theme-select><script>window.LLMUsageDocsTheme.updatePickers();</script><script type="module">document.addEventListener(`change`,e=>{let t=e.target;if(!(t instanceof HTMLSelectElement)||!t.closest(`starlight-theme-select`))return;let n=t.value===`light`||t.value===`dark`?t.value:`auto`;window.LLMUsageDocsTheme.apply(n,!0)});</script><starlight-lang-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">选择语言</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path fill-rule="evenodd" d="M8.516 3a.94.94 0 0 0-.941.94v1.15H2.94a.94.94 0 1 0 0 1.882h7.362a7.422 7.422 0 0 1-1.787 3.958 7.42 7.42 0 0 1-1.422-2.425.94.94 0 1 0-1.774.627 9.303 9.303 0 0 0 1.785 3.043 7.422 7.422 0 0 1-4.164 1.278.94.94 0 1 0 0 1.881 9.303 9.303 0 0 0 5.575-1.855 9.303 9.303 0 0 0 4.11 1.74l-.763 1.525a.968.968 0 0 0-.016.034l-1.385 2.77a.94.94 0 1 0 1.683.841l1.133-2.267h5.806l1.134 2.267a.94.94 0 0 0 1.683-.841l-1.385-2.769a.95.95 0 0 0-.018-.036l-3.476-6.951a.94.94 0 0 0-1.682 0l-1.82 3.639a7.423 7.423 0 0 1-3.593-1.256 9.303 9.303 0 0 0 2.27-5.203h1.894a.94.94 0 0 0 0-1.881H9.456V3.94A.94.94 0 0 0 8.516 3Zm6.426 11.794a1.068 1.068 0 0 1-.02.039l-.703 1.407h3.924l-1.962-3.924-1.24 2.478Z" clip-rule="evenodd"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="/reference/design/research/" class="astro-btilxiwo">English</option><option value="/zh-cn/reference/design/research/" selected class="astro-btilxiwo">简体中文</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-lang-select><script type="module">var e=class extends HTMLElement{constructor(){super();let e=this.querySelector(`select`);e&&(e.addEventListener(`change`,e=>{e.currentTarget instanceof HTMLSelectElement&&(window.location.pathname=e.currentTarget.value)}),window.addEventListener(`pageshow`,t=>{if(!t.persisted)return;let n=e.querySelector(`option[selected]`)?.index;n!==e.selectedIndex&&(e.selectedIndex=n??0)}))}};customElements.define(`starlight-lang-select`,e);</script><script type="module" src="/_astro/LanguageSelect.astro_astro_type_script_index_0_lang.DH65a7yi.js"></script></div></div></header><nav class="sidebar print:hidden astro-7ol3m3p7" aria-label="主要"><button popovertarget="starlight__sidebar" class="sl-menu-button sl-flex md:sl-hidden print:hidden astro-dcnpphyu"><svg aria-hidden="true" class="open-menu astro-dcnpphyu astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"/></svg><svg aria-hidden="true" class="close-menu astro-dcnpphyu astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"/></svg><span class="sr-only astro-dcnpphyu">菜单</span></button><script type="module">var e=class extends HTMLElement{constructor(){super();let e=matchMedia(`(min-width: 50em)`),t=()=>{this.popover=e.matches?null:`auto`};t(),e.addEventListener(`change`,()=>t()),this.addEventListener(`toggle`,({newState:e})=>this.trapFocus(e===`open`))}trapFocus(e){document.querySelectorAll(`.main-frame, .sl-skip-link`).forEach(t=>{t.toggleAttribute(`inert`,e)})}};customElements.define(`sl-sidebar-pane`,e);</script><sl-sidebar-pane popover id="starlight__sidebar" class="sidebar-pane astro-7ol3m3p7"><div class="sidebar-content sl-flex astro-7ol3m3p7"><sl-sidebar-state-persist data-hash="0llvynh" class="astro-lsvsit3p"><script aria-hidden="true">
+		(() => {
+			try {
+				if (!matchMedia('(min-width: 50em)').matches) return;
+				/** @type {HTMLElement | null} */
+				const target = document.querySelector('sl-sidebar-state-persist');
+				const state = JSON.parse(sessionStorage.getItem('sl-sidebar-state') || '0');
+				if (!target || !state || target.dataset.hash !== state.hash) return;
+				window._starlightScrollRestore = state.scroll;
+				customElements.define(
+					'sl-sidebar-restore',
+					class SidebarRestore extends HTMLElement {
+						connectedCallback() {
+							try {
+								const idx = parseInt(this.dataset.index || '');
+								const details = this.closest('details');
+								if (details && typeof state.open[idx] === 'boolean') details.open = state.open[idx];
+							} catch {}
+						}
+					}
+				);
+			} catch {}
+		})();
+	</script><ul class="top-level astro-ykcsoi7s"><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">开始使用</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="0"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">用户指南</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="1"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details open class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">开发指南</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="2"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">设计说明</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="3"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">开发验证记录</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="4"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">项目说明</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="5"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li><li class="astro-ykcsoi7s"><details class="astro-ykcsoi7s"><summary class="astro-ykcsoi7s"><span class="group-label astro-ykcsoi7s"><span class="large astro-ykcsoi7s">测试数据说明</span></span><svg aria-hidden="true" class="caret astro-ykcsoi7s astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="6"></sl-sidebar-restore><ul class="astro-ykcsoi7s"></ul></details></li></ul><script aria-hidden="true">
+		(() => {
+			const scroller = document.getElementById('starlight__sidebar');
+			if (!window._starlightScrollRestore || !scroller) return;
+			scroller.scrollTop = window._starlightScrollRestore;
+			delete window._starlightScrollRestore;
+		})();
+	</script></sl-sidebar-state-persist><div class="md:sl-hidden"><div class="mobile-preferences sl-flex astro-lsc3yx5w"><div class="social-icons astro-lsc3yx5w"><a href="https://github.com/owent/llm-usage" rel="me" class="sl-flex astro-csqdcj5u"><span class="sr-only astro-csqdcj5u">GitHub</span><svg aria-hidden="true" class="astro-csqdcj5u astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a></div><starlight-theme-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">选择主题</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="light" class="astro-btilxiwo">浅色</option><option value="dark" class="astro-btilxiwo">深色</option><option value="auto" selected class="astro-btilxiwo">自动</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-theme-select><script>window.LLMUsageDocsTheme.updatePickers();</script><starlight-lang-select><label style="--sl-select-width: 7em" class="astro-btilxiwo"><span class="sr-only astro-btilxiwo">选择语言</span><svg aria-hidden="true" class="icon label-icon astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path fill-rule="evenodd" d="M8.516 3a.94.94 0 0 0-.941.94v1.15H2.94a.94.94 0 1 0 0 1.882h7.362a7.422 7.422 0 0 1-1.787 3.958 7.42 7.42 0 0 1-1.422-2.425.94.94 0 1 0-1.774.627 9.303 9.303 0 0 0 1.785 3.043 7.422 7.422 0 0 1-4.164 1.278.94.94 0 1 0 0 1.881 9.303 9.303 0 0 0 5.575-1.855 9.303 9.303 0 0 0 4.11 1.74l-.763 1.525a.968.968 0 0 0-.016.034l-1.385 2.77a.94.94 0 1 0 1.683.841l1.133-2.267h5.806l1.134 2.267a.94.94 0 0 0 1.683-.841l-1.385-2.769a.95.95 0 0 0-.018-.036l-3.476-6.951a.94.94 0 0 0-1.682 0l-1.82 3.639a7.423 7.423 0 0 1-3.593-1.256 9.303 9.303 0 0 0 2.27-5.203h1.894a.94.94 0 0 0 0-1.881H9.456V3.94A.94.94 0 0 0 8.516 3Zm6.426 11.794a1.068 1.068 0 0 1-.02.039l-.703 1.407h3.924l-1.962-3.924-1.24 2.478Z" clip-rule="evenodd"/></svg><select autocomplete="off" class="astro-btilxiwo"><option value="/reference/design/research/" class="astro-btilxiwo">English</option><option value="/zh-cn/reference/design/research/" selected class="astro-btilxiwo">简体中文</option></select><svg aria-hidden="true" class="icon caret astro-btilxiwo astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-lang-select></div></div></div></sl-sidebar-pane></nav><div class="main-frame astro-7ol3m3p7"><script type="module">var e=document.getElementById(`starlight__sidebar`),t=e?.querySelector(`sl-sidebar-state-persist`),n=`sl-sidebar-state`,r=()=>{let r=[],i=t?.dataset.hash||``;try{let e=sessionStorage.getItem(n),t=JSON.parse(e||`{}`);Array.isArray(t.open)&&t.hash===i&&(r=t.open)}catch{}return{hash:i,open:r,scroll:e?.scrollTop||0}},i=e=>{try{sessionStorage.setItem(n,JSON.stringify(e))}catch{}},a=()=>i(r()),o=(e,t)=>{let n=r();n.open[t]=e,i(n)};t?.addEventListener(`click`,e=>{if(!(e.target instanceof Element))return;let t=e.target.closest(`summary`)?.closest(`details`);if(!t)return;let n=t.querySelector(`sl-sidebar-restore`),r=parseInt(n?.dataset.index||``);isNaN(r)||o(!t.open,r)}),addEventListener(`visibilitychange`,()=>{document.visibilityState===`hidden`&&a()});</script><div class="lg:sl-flex astro-rcl3dmqm"><aside class="right-sidebar-container print:hidden astro-rcl3dmqm"><div class="right-sidebar astro-rcl3dmqm"><div class="lg:sl-hidden astro-fjp5q7r4"><mobile-starlight-toc data-min-h="2" data-max-h="3" class="astro-6exeh6u7"><nav aria-labelledby="starlight__on-this-page--mobile" class="astro-6exeh6u7"><details id="starlight__mobile-toc" class="astro-6exeh6u7"><summary id="starlight__on-this-page--mobile" class="sl-flex astro-6exeh6u7"><span class="toggle sl-flex astro-6exeh6u7">本页内容<svg aria-hidden="true" class="caret astro-6exeh6u7 astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></span><span class="display-current astro-6exeh6u7"></span></summary><div class="dropdown astro-6exeh6u7"><ul class="isMobile astro-g6ctc22k" style="--depth: 0;"><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#_top" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">概述</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#原型的静态核对" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">原型的静态核对</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#技术选型依据" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">技术选型依据</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#agent-官方与源码索引" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Agent 官方与源码索引</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#m8-格式依据核验于-2026-09-29" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">M8 格式依据（核验于 2026-09-29）</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#研究边界" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">研究边界</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#扩展覆盖的来源类型与核验范围" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">扩展覆盖的来源类型与核验范围</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#当前验证入口" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">当前验证入口</span></a></li></ul></div></details></nav></mobile-starlight-toc><script type="module" src="/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.C3fM4Kra.js"></script></div><div class="right-sidebar-panel sl-hidden lg:sl-block astro-fjp5q7r4"><div class="sl-container astro-fjp5q7r4"><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">本页内容</h2><ul class="astro-g6ctc22k" style="--depth: 0;"><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#_top" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">概述</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#原型的静态核对" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">原型的静态核对</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#技术选型依据" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">技术选型依据</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#agent-官方与源码索引" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">Agent 官方与源码索引</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#m8-格式依据核验于-2026-09-29" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">M8 格式依据（核验于 2026-09-29）</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#研究边界" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">研究边界</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#扩展覆盖的来源类型与核验范围" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">扩展覆盖的来源类型与核验范围</span></a></li><li style="--depth: 0;" class="astro-g6ctc22k"><a href="#当前验证入口" style="--depth: 0;" class="astro-g6ctc22k"><span style="--depth: 0;" class="astro-g6ctc22k">当前验证入口</span></a></li></ul></nav></starlight-toc><script type="module" src="/_astro/TableOfContents.astro_astro_type_script_index_0_lang.BpJaGz7G.js"></script></div></div></div></aside><div class="main-pane astro-rcl3dmqm"><main data-pagefind-body class="astro-i2f5rvhd" lang="zh-CN" dir="ltr"><div class="content-panel astro-ptfq3z6k"><div class="sl-container astro-ptfq3z6k"><h1 id="_top" class="astro-5fsxzwfk">调研依据与验证入口</h1></div></div><div class="content-panel astro-ptfq3z6k"><div class="sl-container astro-ptfq3z6k"><div class="sl-markdown-content"><p><a id="调研依据与验证入口"></a></p>
+<p><a id="research-references-and-validation-entry-points"></a></p>
+<p>本文件保留设计的来源及适用版本。工作区为 D:/workspace/projs/github/owent/llm-usage；
+基础资料核验于 2026-09-24，扩展格式于 2026-09-29，调度与原生验收依据于 2026-10-03。
+原型只做静态核对，未执行 collect.py 或验证其运行行为。</p>
+<p>来源以官方正文、维护者固定源码和本地原型为层级，搜索摘要只用于定位。
+滚动文档不代表本机安装版本；源码字段存在不等于完整运行路径已验收。
+各 Agent 当前实现与真实验收以 <a href="/zh-cn/reference/design/adapters/">接入矩阵</a> 为准。
+Windows 11 x64 首发，三平台 CI；本机真实数据验证已获允许，本地用量格式尚未核验的 IDE 留 F1。
+仅统计本机来源，企业 API/账号报表资料只解释排除边界；Hermes 指 Nous Research 产品。</p>
+<p><a id="prototype"></a></p>
+<p><a id="static-prototype-review"></a></p>
+<h2 id="原型的静态核对">原型的静态核对</h2>
+<p>参考 <a href="/zh-cn/reference/repository/previous-draft/readme/">previous-draft</a>，共检查入口、存储、注册框架、
+七个 collectors 和 dashboard/index.html；没有发现业务依赖声明或测试要求。</p>
+<table>
+<thead>
+<tr>
+<th>位置</th>
+<th>已观察到的行为</th>
+<th>新设计处理</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>collect.py</td>
+<td>加载七个采集器，收集整个 list 后入库；导出日/周/月/今日小时快照</td>
+<td>有界分批，UI 通过后端刷新；保留维度但不把脚本当成桌面运行时</td>
+</tr>
+<tr>
+<td>dashboard/index.html</td>
+<td>独立刷新只 fetch data.json；失败或数据不符时显示 SAMPLE</td>
+<td>真正发起采集；失败保留旧结果并显示状态，不以演示数据冒充真实数据</td>
+</tr>
+<tr>
+<td>store.py / dashboard</td>
+<td>input + cache_read 被当作总输入，cache_write 没进入该公式</td>
+<td>三类互斥输入按适配器规则归一化；零分母和未知分开</td>
+</tr>
+<tr>
+<td>store.py</td>
+<td>request_id 全局唯一，INSERT OR IGNORE；日聚合无 provider</td>
+<td>稳定身份命名空间、可更正记录、provider 维度；不把每行都视为一次调用</td>
+</tr>
+<tr>
+<td>collectors/<strong>init</strong>.py</td>
+<td>iter_new_lines 先 state_set 再解析；只按大小检测截断</td>
+<td>游标/解析状态/事件/聚合原子提交；检测同长替换、改名和 generation</td>
+</tr>
+<tr>
+<td>collect.py / Store</td>
+<td>事件写与聚合分开 commit；不同源共用连接，失败源 state 可能被后来提交</td>
+<td>每源批次原子性和可重放；禁止保存失败批次游标</td>
+</tr>
+<tr>
+<td>kilo_code.py / copilot.py</td>
+<td>分别复制运行中的 db、wal、shm 再读</td>
+<td>SQLite 只读短事务或一致备份，不能把连续文件复制称为一致快照</td>
+</tr>
+<tr>
+<td>copilot.py</td>
+<td>窗口外条件只有 pass；仍遍历所有行；request_id 含数据库路径和变化数值</td>
+<td>源键及修订分离；去重多个库副本，不能声称现有 cursor 已实现有效增量</td>
+</tr>
+<tr>
+<td>codex.py</td>
+<td>任意带 model 的非 usage 行用正则；找不到早先模型时回填第一条；缺 response ID 易碰撞</td>
+<td>只使用结构化模型上下文；无模型归属依据时保持 unknown；缺 ID 使用已验证替代身份</td>
+</tr>
+<tr>
+<td>kimi_code.py / kimi_work.py</td>
+<td>新 wire 候选字段明确，但版本来自注释；Work 固定机器 D 盘路径</td>
+<td>官方确认路径后仍需 schema 测试样本；不复制机器路径作为默认值</td>
+</tr>
+<tr>
+<td>zcode.py</td>
+<td>requestId 和 traceId 都缺失时身份变成 zcode:None</td>
+<td>缺失稳定 ID 单独处理，不能合并所有记录</td>
+</tr>
+<tr>
+<td>oh_my_pi.py</td>
+<td>assistant usage + title-generator success 日志</td>
+<td>检验重叠，补充压缩/分支/独立 usage 类别的覆盖</td>
+</tr>
+<tr>
+<td>store.py</td>
+<td>保留常量 366 天，依执行机器本地时区；按日期 cutoff 清理</td>
+<td>可配置、固定时区及明确定义包含天数，清理/重扫/封存汇总协同</td>
+</tr>
+</tbody>
+</table>
+<p>这些是静态路径和失败条件分析，不是已复现线上错误，不直接修补原型。</p>
+<p>用于识别原始调研输入的 SHA-256（早于后续注释语言迁移）：</p>
+<table>
+<thead>
+<tr>
+<th>文件</th>
+<th>SHA-256</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>previous-draft/store.py</td>
+<td>81a6bb9e3a7f7943b40438ed642823ab3969f073e68164ce7eb26133cdc7d6d4</td>
+</tr>
+<tr>
+<td>previous-draft/collect.py</td>
+<td>aa8a406329afd21b4e49ba230fe150ffeeaf173247409d9f70992a8e256cf945</td>
+</tr>
+<tr>
+<td>previous-draft/collectors/<strong>init</strong>.py</td>
+<td>c4412b8fef0b7220e93c82901414e3833a681c57ed11480311f15d81cb2c0daa</td>
+</tr>
+</tbody>
+</table>
+<p><a id="technology-selection-references"></a></p>
+<h2 id="技术选型依据">技术选型依据</h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>已核验来源</th>
+<th>本设计使用的事实与限制</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>T01</td>
+<td><a href="https://v2.tauri.app/reference/webview-versions/">Tauri WebView</a>、<a href="https://v2.tauri.app/distribute/windows-installer/">Windows installer</a></td>
+<td>各 OS 的 WebView 不同；Windows 运行时分发方式影响体积；不从官网示例推本应用包体</td>
+</tr>
+<tr>
+<td>T02</td>
+<td><a href="https://sqlite.org/wal.html">SQLite WAL</a>、<a href="https://sqlite.org/backup.html">Online backup</a></td>
+<td>WAL 并发、只读条件、checkpoint 和一致备份；WAL-reset 修复版本需验证</td>
+</tr>
+<tr>
+<td>T03</td>
+<td><a href="https://www.electronjs.org/docs/latest/tutorial/process-model">Electron process model</a></td>
+<td>Chromium 多进程及 main/renderer 边界；不引用未经测量的内存差值</td>
+</tr>
+<tr>
+<td>T04</td>
+<td><a href="https://duckdb.org/docs/lts/connect/concurrency">DuckDB concurrency</a></td>
+<td>官方明确大量小事务不是主要目标；本应用首先需要增量写入/更正</td>
+</tr>
+<tr>
+<td>T05</td>
+<td><a href="https://echarts.apache.org/handbook/en/basics/import/">ECharts import</a></td>
+<td>可按需导入图表、组件与渲染器；本项目裁剪效果未测</td>
+</tr>
+<tr>
+<td>T06</td>
+<td><a href="https://v2.tauri.app/distribute/pipelines/github/">Tauri GitHub CI</a>、<a href="https://v2.tauri.app/start/prerequisites/">依赖</a></td>
+<td>可分 OS 构建；Linux WebKitGTK/系统依赖、macOS/Windows 工具链分别配置；不照搬自动发布示例</td>
+</tr>
+<tr>
+<td>T07</td>
+<td><a href="https://docs.github.com/en/actions/reference/runners/github-hosted-runners">GitHub runners</a></td>
+<td>版本化标签/架构候选；windows-2022、ubuntu-22.04、macos-15；M0 复核可用性，runner 构建不是目标桌面验收</td>
+</tr>
+<tr>
+<td>T08</td>
+<td><a href="https://learn.microsoft.com/en-us/windows/wsl/tutorials/gui-apps">Microsoft WSLg</a></td>
+<td>Linux GUI 需 WSL 2，WSLg 不等于完整 Linux 桌面；已有环境/编译结果见验证目录，最新 revision 仍独立验收</td>
+</tr>
+<tr>
+<td>T09</td>
+<td><a href="https://learn.microsoft.com/en-us/windows/win32/taskschd/task-scheduler-start-page">Task Scheduler</a>、<a href="https://learn.microsoft.com/en-us/windows/win32/taskschd/security-contexts-for-running-tasks">身份</a>、<a href="https://learn.microsoft.com/en-us/windows/win32/taskschd/tasksettings-startwhenavailable">错过时点</a></td>
+<td>2026-10-03 复核正文；COM API 使用当前交互用户、LUA、分钟重复和不唤醒；普通用户注册/删除已实测，OS 实际启动另验</td>
+</tr>
+<tr>
+<td>T10</td>
+<td><a href="https://v2.tauri.app/develop/tests/webdriver/">Tauri WebDriver</a></td>
+<td>当前文档有嵌入式跨平台服务；直接 tauri-driver 仍区分 Windows/Linux 与 macOS；测试插件不得进入发行制品</td>
+</tr>
+<tr>
+<td>T11</td>
+<td><a href="https://learn.microsoft.com/en-us/microsoft-edge/webview2/how-to/debug-visual-studio-code">WebView2 调试</a>、<a href="https://github.com/microsoft/playwright/blob/main/docs/src/webview2.md">Playwright WebView2</a></td>
+<td>2026-10-03 复核正文及源码；环境参数提供 CDP，测试从进程外连接真实 IPC，不在应用新增调试监听器</td>
+</tr>
+<tr>
+<td>T12</td>
+<td><a href="https://github.com/libuv/libuv/blob/v1.x/src/win/process.c">libuv Windows spawn</a></td>
+<td>2026-10-03 阅读 required_vars 并以 Node 24.21.0 实测；省略子 env 中 USERPROFILE 会补入父值，验收辅助函数须防此路径</td>
+</tr>
+<tr>
+<td>T13</td>
+<td><a href="https://github.com/tauri-apps/tauri/blob/tauri-cli-v2.12.0/crates/tauri-cli/src/interface/rust.rs">Tauri CLI 2.12.0</a>、<a href="https://github.com/tauri-apps/tauri/blob/tauri-codegen-v2.7.0/crates/tauri-codegen/src/embedded_assets.rs">资源代码</a></td>
+<td>2026-10-03 正文与本机锁定源码交叉核验；CLI 自带 custom-protocol，资源缓存存在即复用；生成包不证明嵌入资源可解压/可显示</td>
+</tr>
+<tr>
+<td>T14</td>
+<td><a href="https://learn.microsoft.com/en-us/windows/win32/api/winreg/nf-winreg-reggetvaluew">RegGetValueW</a>、<a href="https://learn.microsoft.com/en-us/windows/win32/api/winreg/nf-winreg-regdeletekeyvaluew">删除值</a></td>
+<td>2026-10-03 正文与 windows 0.62.2 签名核验；读取类型/长度及 Unicode 值，缺值与访问失败分开，原生查询无需 reg.exe</td>
+</tr>
+</tbody>
+</table>
+<p><a id="agents"></a></p>
+<p><a id="official-agent-documentation-and-source-index"></a></p>
+<h2 id="agent-官方与源码索引">Agent 官方与源码索引</h2>
+<p>下表共用字段：verified_at=2026-09-24；method=打开官方正文或下载固定源码只读核对；
+installed_version=未探测；owner=本项目维护者；status=调研依据，非运行验收。
+implementation trigger=对应阶段开始、产品升级、schema 改变或数值不符时复核；不自动升级工具。</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>官方来源 / 固定源码</th>
+<th>使用结论及限制</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A01</td>
+<td><a href="https://code.claude.com/docs/en/claude-directory">Claude 目录</a>、<a href="https://code.claude.com/docs/en/monitoring-usage">监控</a></td>
+<td>会话/子 Agent transcript 路径、token 分类及 query_source；2.1.197 智谱原生主循环逐请求已核对，见 <a href="/zh-cn/reference/evidence/claude-container-sample/">实样</a>，其他表面另验</td>
+</tr>
+<tr>
+<td>A02</td>
+<td><a href="https://learn.chatgpt.com/docs/agent-approvals-security">Codex 监控</a></td>
+<td>可选 OTel、请求/响应完成事件、提示词隐私配置；原型 token_usage_record 未获跨版本保证</td>
+</tr>
+<tr>
+<td>A03</td>
+<td><a href="https://github.com/cline/cline/blob/dcf8c3c33596e3d561a941202297c564a1cbcd49/apps/vscode/src/shared/getApiMetrics.ts">旧 Cline metrics</a>、<a href="https://github.com/cline/cline/blob/dcf8c3c33596e3d561a941202297c564a1cbcd49/apps/vscode/src/core/storage/disk.ts">旧 storage</a>；<a href="https://github.com/cline/cline/blob/f58bc118bdeef1bd2813cd08e00d98bdcda96475/sdk/packages/core/src/services/session-data.ts">4.1.22 SDK writer</a>、<a href="https://github.com/cline/cline/blob/f58bc118bdeef1bd2813cd08e00d98bdcda96475/sdk/packages/core/src/runtime/config/agent-message-codec.ts">codec</a></td>
+<td>2026-10-06 官方 VSIX/真实 VS Code GUI/API 与 SDK 三条原生记录核对：input 含缓存，默认零未知，metrics 可合并 run/重试，记 observation；origin.version 可重写，SDK latest_fallback；旧 UI 仍文档级，CLI/迁移/其他路径另验，见 <a href="/zh-cn/reference/evidence/cline-container-sample/">实样记录</a></td>
+</tr>
+<tr>
+<td>A04</td>
+<td><a href="https://www.codebuddy.ai/docs/cli/monitoring">CodeBuddy monitoring</a>、<a href="https://www.codebuddy.ai/docs/cli/codebuddy-dir">官方目录</a>、<a href="https://github.com/juliantanx/aiusage/blob/main/CHANGELOG.md">aiusage v1.5.8</a></td>
+<td>CLI <code>~/.codebuddy/projects</code> 本地 JSONL 已作第三方源码级接入；<code>message.usage.input_tokens</code> 含 cache read，优先 <code>rawUsage</code> 分桶；OTLP/HTTP protobuf 是可选来源，两种记录格式重叠未消解；IDE <code>statsSnapshot</code> 已有第三方线索但具体字段及本机样本待核验</td>
+</tr>
+<tr>
+<td>A05</td>
+<td>docs.github.com Copilot CLI OTel 文档（2026-09-29 核验：COPILOT_OTEL_FILE_EXPORTER_PATH JSON-lines、OTLP 默认 http/json、chat/invoke_agent 双层 span 与防双计警告；本地主来源表 assistant_usage_events 已真实核对）原行 → <a href="https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference">Copilot CLI reference</a></td>
+<td>OTLP JSON/protobuf 与 file JSONL、chat span；不依赖私有 SQLite schema 承诺</td>
+</tr>
+<tr>
+<td>A06</td>
+<td>microsoft/vscode extensions/copilot agent_monitoring.md bdc5ebe（2026-09-29 核验：<code>github.copilot.chat.otel.*</code> 设置族、file exporter NDJSON 非 OTLP、startTime [秒,纳秒]、chat span <code>gen_ai.usage.*</code> 属性表）原行 → <a href="https://code.visualstudio.com/docs/agents/guides/monitoring-agents">VS Code monitoring</a></td>
+<td>chat 与 invoke_agent 不同层级；可选缓存/推理与 TTFT 字段；只覆盖文档指定 Agent</td>
+</tr>
+<tr>
+<td>A07</td>
+<td><a href="https://www.jetbrains.com/help/jetbrains-console/analytics-api-v2.html">JetBrains API v2</a>、<a href="https://www.jetbrains.com/help/jetbrains-console/session-explorer.html">Session explorer</a></td>
+<td>仅证实远端企业分析，按新决策排除；不证明本地 schema，本地提取后移 F1</td>
+</tr>
+<tr>
+<td>A08</td>
+<td><a href="https://registry.npmjs.org/@deepseek-ai%2fdsh/0.2.0-rc.2">DSH npm rc.2</a>、<a href="https://github.com/deepseek-ai/deepseek-harness/blob/46a7f68b0922371ce7144b668b90e377d8e799f4/packages/llm/token-meter/README.md">旧 token-meter 文档</a></td>
+<td>2026-10-06 实装锁定模块与真实 v4 JSONL/zstd：settlement/retry/seed、pi-ai 输入反变换、自算 total 与标题缺口；旧 doc1 不能确认 rc.2 格式；字段及包摘要见三源验收</td>
+</tr>
+<tr>
+<td>A09</td>
+<td><a href="https://docs.openclaw.ai/reference/session-management-compaction/store">OpenClaw store</a>、<a href="https://docs.openclaw.ai/reference/token-use">token use</a>、<a href="https://registry.npmjs.org/-/npm/v1/attestations/openclaw@2026.9.8">npm provenance</a>、<a href="https://github.com/openclaw/openclaw/blob/aa6008ad198ef99c43f9d89dbd01694708712974/src/state/openclaw-agent-schema.sql">声明提交 schema</a>、<a href="https://github.com/openclaw/openclaw/tree/fc23bc864e4553c2d215e479eeec47b67a0bf943">CLI 显示提交</a></td>
+<td>2026-10-06 npm 2026.9.8 provenance 声明 aa6008ad，CLI 显示 fc23bc8；实装归一代码无声明提交新增的 contextUsage，字段规则按实装/真实样本核对，不直接套仓库提交。仅核对公开声明与摘要，未独立验证签名。schema 24 TEXT/zstd hot transcript 已核验并实施；本地 CLI/续会话 API/原生正桶一致，schema_meta 不能核验历史行版本；冷归档、其他协议/面仍待真实验收</td>
+</tr>
+<tr>
+<td>A10</td>
+<td><a href="https://geminicli.com/docs/cli/session-management/">Gemini sessions</a>、<a href="https://geminicli.com/docs/cli/telemetry/">telemetry</a></td>
+<td>本地 session 保存 token；官方请求、token 分类和延迟指标；具体映射继续核验</td>
+</tr>
+<tr>
+<td>A11</td>
+<td><a href="https://github.com/Kilo-Org/kilocode/blob/9e3f350767477864f7504fab3e01bf6c4d2a7644/packages/core/src/session/schema.ts">Kilo core schema</a>、<a href="https://github.com/Kilo-Org/kilocode/blob/9e3f350767477864f7504fab3e01bf6c4d2a7644/packages/core/src/database/migration/20260907102000_kilocode_model_usage_index.ts">用量索引迁移</a></td>
+<td>已核验源码树和 core 路径，不能沿用原型旧 message 表；索引具体 SQL 未完整审计</td>
+</tr>
+<tr>
+<td>A12</td>
+<td><a href="https://www.kimi.com/code/docs/en/kimi-code-cli/guides/sessions">Kimi sessions</a>、<a href="https://github.com/MoonshotAI/kimi-cli/blob/9ab1286b8fe4e6bcd116949a27ce5e0ac3389c82/src/kimi_cli/wire/types.py">旧源码 types</a></td>
+<td>官方新版路径已读；该 Python 文件没有证实原型 camelCase usage.record，保持字段待验证</td>
+</tr>
+<tr>
+<td>A13</td>
+<td><a href="https://github.com/owent/llm-usage/blob/main/previous-draft/collectors/kimi_work.py">原型 kimi_work.py</a></td>
+<td>仅作本地线索，无新版官方稳定存储规则或真实样本验收</td>
+</tr>
+<tr>
+<td>A14</td>
+<td><a href="https://github.com/XiaomiMiMo/MiMo-Code/releases/tag/v0.1.15">MiMo 0.1.15</a>、<a href="https://github.com/XiaomiMiMo/MiMo-Code/blob/14dfe68a1c121f859544ba810b3c308e8501bfb2/packages/opencode/src/session/session.ts">该发布 getUsage</a>、<a href="https://github.com/XiaomiMiMo/MiMo-Code/blob/14dfe68a1c121f859544ba810b3c308e8501bfb2/packages/shared/src/global.ts">独立路径</a></td>
+<td>2026-10-06 官方 ELF 与真实 SQLite/WAL：八次 part/API 对照、SDK 默认零与正总量反变换；逐会话版本、MIMOCODE_HOME/DB；不以 fork 或数据库最高版本确认历史记录格式</td>
+</tr>
+<tr>
+<td>A15</td>
+<td><a href="https://github.com/can1357/oh-my-pi/blob/62bc57be1b03ef0802a33cf7f5f530e534527531/docs/session.md">oh-my-pi session</a></td>
+<td>session 路径、entry 模型、持久化和分支；辅助日志以版本样本为准</td>
+</tr>
+<tr>
+<td>A16</td>
+<td><a href="https://github.com/badlogic/pi-mono/blob/b45597504eeaba1f11a9920a1d1048c361ed4b8e/packages/ai/src/types.ts">pi Usage</a>、<a href="https://github.com/badlogic/pi-mono/blob/b45597504eeaba1f11a9920a1d1048c361ed4b8e/packages/coding-agent/src/core/session-manager.ts">session manager</a></td>
+<td>reasoning 是 output 子集；独立 usage、压缩及分支总结有 usage</td>
+</tr>
+<tr>
+<td>A17</td>
+<td><a href="https://github.com/anomalyco/opencode/blob/0027387dc5c59793c12dfc531abc78f825ed6868/packages/core/src/session/sql.ts">OpenCode SQL</a>、<a href="https://github.com/anomalyco/opencode/blob/aec0b9a6d8898f68f923aaf08b7306d931fd9d76/packages/opencode/src/session/processor.ts">1.18.34 processor</a>、<a href="https://github.com/anomalyco/opencode/blob/aec0b9a6d8898f68f923aaf08b7306d931fd9d76/packages/opencode/src/session/prompt.ts">标题生成</a></td>
+<td>part step-finish 为已观测主循环，session 累计只对账；2026-10-05 官方 CLI / 本地模型真实核对 input/cache read 与重扫通过。默认标题 API 未进入 part/累计，覆盖及逐记录版本升级限制见 <a href="/zh-cn/reference/evidence/container-sources/">容器验收</a></td>
+</tr>
+<tr>
+<td>A18</td>
+<td><a href="https://github.com/QwenLM/qwen-code/blob/085e98c00cac2f8dd29eb39c760409bc6da889a9/packages/core/src/services/chatRecordingService.ts">Qwen recording</a>、<a href="https://qwenlm.github.io/qwen-code-docs/en/developers/development/telemetry/">telemetry</a></td>
+<td>usageMetadata/model 与会话路径；Goal 累计观测不能直接求和，prompt 日志需关闭</td>
+</tr>
+<tr>
+<td>A19</td>
+<td><a href="https://github.com/Zoo-Code-Org/Zoo-Code/releases/tag/v3.86.0">Zoo 3.86.0</a>、<a href="https://github.com/Zoo-Code-Org/Zoo-Code/blob/6aa9d0174a9ecae155c6c5db9134bead4b67197d/packages/types/src/message.ts">本版消息枚举</a>、<a href="https://github.com/Zoo-Code-Org/Zoo-Code/blob/f7806475331fcae5f4e8b5558d04415eeb5da88c/packages/core/src/message-utils/consolidateTokenUsage.ts">旧聚合依据</a></td>
+<td>2026-10-06 官方 VSIX/实际 VS Code 扩展 API/原生/UI 回调与模型 API 对照；tokensIn 含缓存、默认零未知及完整 ask/say 枚举；CLI/condense/删除路径另验</td>
+</tr>
+<tr>
+<td>A20</td>
+<td><a href="https://docs.trae.cn/enterprise_query-usage-details-by-session-id">TRAE session API</a>、<a href="https://docs.trae.cn/enterprise_check-individual-usage">企业个人用量</a></td>
+<td>企业远端接口/报表按新决策排除；不能推断本地格式，本地提取后移 F1</td>
+</tr>
+<tr>
+<td>A21</td>
+<td><a href="https://zcode.z.ai/cn/docs/usage-stats">ZCode 用量</a>、<a href="https://github.com/owent/llm-usage/blob/main/previous-draft/collectors/zcode.py">原型 zcode.py</a></td>
+<td>官方区分本地会话与远端 Coding Plan；具体 model-io schema 仍是原型线索</td>
+</tr>
+<tr>
+<td>A22</td>
+<td><a href="https://www.workbuddy.cn/docs/workbuddy/Usage">WorkBuddy 用量</a>、<a href="https://github.com/jazzenchen/agent-hud-open/blob/main/docs/providers.md">AgentHUD provider 要求</a>、<a href="https://docs.rs/tokmesh-core/latest/src/tokmesh_core/sessions/tencent_buddy.rs.html">tokmesh-core 解析器</a></td>
+<td>官方仅给积分/套餐；第三方源码确认 <code>.workbuddy/projects</code> 会话 JSONL 用量，随后本机 8 文件/420 事件真实核对通过；trace 汇总与会话重复及版本范围待核</td>
+</tr>
+<tr>
+<td>A23</td>
+<td><a href="https://zed.dev/docs/telemetry">Zed telemetry</a></td>
+<td>hosted 计量和本地遥测日志有区别；不能据服务端 token 计量推出本地完整字段</td>
+</tr>
+<tr>
+<td>A24</td>
+<td><a href="https://hermes-agent.nousresearch.com/">Hermes 官网</a>、<a href="https://hermes-agent.nousresearch.com/docs/developer-guide/session-storage/">存储文档</a>、<a href="https://github.com/NousResearch/hermes-agent/blob/ef70b3661cbfcf57e583008ad91dd04d8ba46070/hermes_state_usage.py">usage</a>、<a href="https://github.com/NousResearch/hermes-agent/blob/ef70b3661cbfcf57e583008ad91dd04d8ba46070/hermes_state_schema.py">schema</a>、<a href="https://github.com/NousResearch/hermes-agent/releases/tag/v2026.9.24">0.21.5 发布</a>、<a href="https://github.com/NousResearch/hermes-agent/blob/f97608f178d1ffeca59860195ab7da295f7c8e5f/agent/usage_pricing.py">固定归一代码</a></td>
+<td>官方 0.21.5 镜像真实 CLI/公开 resume：未缓存输入 849、缓存读 812、输出 4；A24/发布版归一代码一致，默认零未知、reasoning 为输出子集。整库 schema 不能核验逐行版本，仍兼容回退；gateway/辅助/回填/混合模型与逐次日志未获真实验收，见 Hermes 容器记录</td>
+</tr>
+<tr>
+<td>A25</td>
+<td><a href="https://github.com/junhoyeo/tokscale">tokscale</a>（固定 main <code>1d9a9395418efc6952944b794097935d7d6fa1e8</code>）</td>
+<td>第三方开源多 Agent 本地会话解析器（Rust）；本轮只读其 clients/scanner/sessions 源码提取路径与字段线索，未执行代码；其结论不替代逐产品官方核验与本机测试样本，估算/比价逻辑不沿用</td>
+</tr>
+<tr>
+<td>A26</td>
+<td><a href="https://github.com/aaif-goose/goose">Goose</a>（block/goose 已迁移改名；官方核验 a701bb1，2026-09-29；真实 CLI 1.53.0，2026-10-06）</td>
+<td>迁移 15 起 usage_ledger 逐请求表；真实本地调用 320/2/322、缓存读 0、写/成本 NULL，不叠加 sessions 累计或以累计预填零替代未知；其他版本/GUI 保留，见 <a href="/zh-cn/reference/evidence/m8-container-samples/">M8 样本</a></td>
+</tr>
+<tr>
+<td>A27</td>
+<td><a href="https://github.com/charmbracelet/crush">Crush</a>（固定 main <code>1f3827bcd2d20f38076b2d46123683271e6ed9ba</code>，官方核验 2026-09-29）</td>
+<td>projects.json {projects:[{path,data_dir,last_accessed}]}（CRUSH_GLOBAL_DATA/XDG/LOCALAPPDATA）；每项目 <code>&lt;data_dir&gt;/crush.db</code>；<strong>sessions.prompt/completion 是最近 step 上下文规模快照（非用量、摘要后重置）</strong>；cost 累计且子会话回卷父行（取 parent_session_id IS NULL）；messages 无 token 列</td>
+</tr>
+<tr>
+<td>A28</td>
+<td><a href="https://ampcode.com/">Amp 官网</a>（闭源 CLI；tokscale 1d9a939 sessions/amp.rs，2026-09-29 采信）</td>
+<td><code>~/.local/share/amp/threads/T-*.json</code>：messages[].usage（model、inputTokens/outputTokens、cacheRead/cacheCreation、credits）与 usageLedger.events（timestamp/model/credits/tokens）两种记录格式，需对账防双计</td>
+</tr>
+<tr>
+<td>A29</td>
+<td><a href="https://github.com/RooCodeInc/Roo-Code/releases/tag/v3.54.0">Roo 3.54.0 官方发行</a>、<a href="https://github.com/RooCodeInc/Roo-Code/tree/27001b2b5aa47b65e8a6ba1914e0f4216be0ebb0">固定提交</a>、<a href="https://roocodeinc.github.io/Roo-Code/">归档公告</a>（2026-10-06 VSIX 摘要/真实 VS Code extension-host/API 核验；旧结构参考提交 b867ec9）</td>
+<td>globalStorage/tasks/ui_messages.json；Task 四桶初始化零、OpenAI provider 未读嵌套缓存详情、cost 缺价默认零，保持 unknown；取消三 API/两原生记录与请求上限单调用对照分开；公开 API 不需要验收方注入 key。旧完整摘要保护与成品状态见 <a href="/zh-cn/reference/evidence/m8-container-samples/">真实样本</a>，不能核验 CLI/其他版本/分支</td>
+</tr>
+<tr>
+<td>A30</td>
+<td><a href="https://github.com/Aider-AI/aider">Aider</a>（固定 main <code>5dc9490bb35f9729ef2c95d00a19ccd30c26339c</code>，官方核验 2026-09-29；真实 0.86.2，2026-10-06）</td>
+<td>–analytics-log 可选保存到本机文件；真实 ask 的 message_send 为 95/3/98，成本为本地估算，缓存/推理未知；默认历史不回填，其他场景保留，见 <a href="/zh-cn/reference/evidence/m8-container-samples/">M8 样本</a></td>
+</tr>
+<tr>
+<td>A31</td>
+<td><a href="https://github.com/continuedev/continue">Continue</a>（官方核验 5522c6f44ca0ac3528b37b44818fbfa39b5af470，2026-09-29；真实 CLI 1.5.47，2026-10-06）</td>
+<td>独立 CONTINUE_GLOBAL_DIR 的 sessions usage 为会话累计；真实输入/输出 1,471/2，预填缓存零不能证明 API 报告零，保留 unknown；调用/模型/区间起点未知，不造日归属；hub 账号数据不接入，见 <a href="/zh-cn/reference/evidence/m8-container-samples/">M8 样本</a></td>
+</tr>
+<tr>
+<td>A32</td>
+<td><a href="https://factory.ai/">Droid</a>（Factory.ai CLI）</td>
+<td><code>~/.factory/sessions/{uuid}.settings.json</code> 的 tokenUsage（input/output/cacheRead/cacheCreation/thinking，累计）+ 同名 jsonl 转录；无费用；累计分摊是估计仅作区间</td>
+</tr>
+<tr>
+<td>A33</td>
+<td><a href="https://github.com/aws/amazon-q-developer-cli">Amazon Q Developer CLI</a>（官方核验 15cc8f3，2026-09-29）</td>
+<td><code>~/.aws/amazonq/history/</code> 按时间戳 JSON 会话（第三方资料）；repo 开源可源码核验；history 内 usage 字段未核验，SSO 重登录可能丢历史</td>
+</tr>
+<tr>
+<td>A34</td>
+<td>Grok Build（xAI 闭源 CLI；<a href="https://www.penligent.ai/">新闻报道</a>证实产品与版本线）</td>
+<td><code>~/.grok/sessions/&lt;workspace&gt;/&lt;session&gt;/{updates.jsonl,signals.json,summary.json,events.jsonl}</code> 与 <code>~/.grok/logs/unified.jsonl</code>；显式 usage 块五桶可用，累计 totalTokens 增量/压缩差额补偿为推断不采纳</td>
+</tr>
+<tr>
+<td>A35</td>
+<td><a href="https://antigravity.google/">Google Antigravity</a> CLI/扩展</td>
+<td><code>~/.gemini/antigravity[-cli]/conversations/&lt;uuid&gt;.db</code>：gen_metadata protobuf 逐回合 usage（input=固定提示+新增、cacheRead、output、thinking、responseId）；布局系逆向结论且 1.1.18 时间戳字段变更；IDE 主体用量经 language server，需另行核验</td>
+</tr>
+<tr>
+<td>A36</td>
+<td><a href="https://junie.jetbrains.com/docs/custom-llm-models.html">Junie 自定义模型</a>、<a href="https://github.com/JetBrains/junie/releases/tag/3419.29">官方发行 3419.29</a>（2026-10-06 实际 26.9.22、分发摘要/字节码/七次调用核验；旧别名 tokscale 1d9a939）</td>
+<td>JUNIE_HOME/sessions 或默认 .junie：modelUsage.inputTokens 是非缓存输入，缺字段默认零未知；正费用客户端 Estimated、零费用/耗时未知；无 API/provider/产品版本不派生完整总量；失败任务已有调用仍计数。旧摘要/游标/事务回归及成品状态见 <a href="/zh-cn/reference/evidence/m8-container-samples/">真实样本</a>；IDE 本体仍 F1</td>
+</tr>
+<tr>
+<td>A37</td>
+<td><a href="https://kiro.dev/">Kiro</a>（AWS；tokscale 1d9a939 sessions/kiro.rs，2026-09-29 采信）</td>
+<td>三种格式：CLI <code>~/.kiro/sessions/cli/*.json(+jsonl)</code>、kiro-cli <code>~/.local/share/kiro-cli/data.sqlite3</code> conversations_v2、IDE globalStorage <code>kiro.kiroagent</code>（.chat/execution/promptLogs）；Auto agent 常记 0，估算路径不采纳；metering credit 为独立计价单位</td>
+</tr>
+<tr>
+<td>A38</td>
+<td><a href="https://github.com/zed-industries/zed">Zed threads 存储</a>（官方核验 bd74733 + 本机 schema 只读核验 2026-09-29）</td>
+<td><code>~/.local/share/zed</code>、<code>~/Library/Application Support/Zed</code>、<code>%LOCALAPPDATA%\Zed</code> 下 threads/threads.db：threads 表 data blob（json 或 zstd）含 request_token_usage 逐次（input/output/cache_read/cache_creation）与 cumulative；当时核对范围仅为 zed.dev hosted，imported 线程跳过；后续 Zed 1.22.0/DbThread 0.3.0 指定外部 Provider 已独立核验，见 <a href="/zh-cn/reference/evidence/plan-20261007/">真实记录</a>，不能沿用旧限制概括当前行为</td>
+</tr>
+<tr>
+<td>A39</td>
+<td><a href="https://codebuff.com/">Codebuff</a>（原 Manicode；官方核验 caec5fc，2026-09-29）</td>
+<td><code>~/.config/manicode*/projects/*/chats/&lt;chatId&gt;/chat-messages.json</code>；CODEBUFF_DATA_DIR 覆盖；usage 字段待样本</td>
+</tr>
+<tr>
+<td>A40</td>
+<td><a href="https://commandcode.ai/">Command Code</a>、<a href="https://github.com/CommandCodeAI/command-code">仓库</a>（仓库无源码；npm 分发物 command-code@1.69.0 dist/cli.mjs 逐行核验 2026-09-29）</td>
+<td><code>~/.commandcode/projects/&lt;slug&gt;/*.jsonl</code> v3 树形（session/message/model_change；assistant usage inputTokens/outputTokens/cacheRead/cacheWrite/costUsd）；rewind 孤儿分支不计、fork 复制按 id+时间戳去重</td>
+</tr>
+<tr>
+<td>A41</td>
+<td><a href="https://jcode.sh/">jcode</a>（开源 Rust；官方核验 1jehuang/jcode 4f6bf8e，2026-09-29；真实 0.91.0，2026-10-06）</td>
+<td>快照 + journal；token_usage 输入/输出、可选缓存，无独立 reasoning/cost；真实自定义端点 460/2，API/CLI/快照一致，未知分项不补零；环境快照版本不能确认所有消息所属版本，见 <a href="/zh-cn/reference/evidence/m8-container-samples/">M8 样本</a></td>
+</tr>
+<tr>
+<td>A42</td>
+<td><a href="https://github.com/Yeachan-Heo/gajae-code">gajae-code</a>（官方核验 7e54f9c，2026-09-29；真实 0.18.7，2026-10-06）</td>
+<td>session v5 真实逐次 API/CLI/原生文件 412/2/414；固定版本源码确认配置链条目非用量、OpenAI-completions 缺字段零回退及消息初始化时间；缓存/未缓存保持未知、时间为请求开始；其他 API/版本不扩展，见 <a href="/zh-cn/reference/evidence/m8-container-samples/">M8 样本</a></td>
+</tr>
+<tr>
+<td>A43</td>
+<td><a href="https://github.com/coder/xum/tree/81b0b744db6e27a4416f3596d70bf88529171caf">Xum 固定提交</a>、<a href="https://xum.coder.com/reference/cli">官方 CLI</a>、<a href="https://xum.coder.com/config/providers">provider</a>（官方 npm 0.30.0/完整性与对应提交、2026-10-06 两次真实调用已核验；原 coder/mux）</td>
+<td>sessionUsageService 的 v1 byModel 累计、displayUsage 互斥未缓存输入/排除推理输出与默认零；XUM_ROOT/MUX_ROOT、RUN_SESSION_ROOT 原生保留入口；默认 custom provider 不请求流式 usage，真实五零与仅请求真实 usage 的网关成功对照分别保留。解析/完整旧摘要回归和成品状态见 <a href="/zh-cn/reference/evidence/m8-container-samples/">真实样本</a></td>
+</tr>
+<tr>
+<td>A44</td>
+<td><a href="https://www.warp.dev/">Warp</a></td>
+<td>本地仅见账户级用量缓存（requestsUsed/spendCents/syncedAt，工作区级），无 token 明细；属额度数据不入 token 统计</td>
+</tr>
+<tr>
+<td>A49</td>
+<td><a href="https://learn.microsoft.com/en-us/visualstudio/extensibility/locating-visual-studio?view=visualstudio">VS 定位 API</a>、<a href="https://github.com/microsoft/vswhere">vswhere</a>、<a href="https://learn.microsoft.com/en-us/visualstudio/extensibility/vsix-extension-schema-2-0-reference?view=visualstudio">SKU 继承</a>、<a href="https://learn.microsoft.com/en-us/visualstudio/ide/visual-studio-github-copilot-install-and-states?view=vs-2022">Copilot 安装</a>（2026-10-07 官方正文、本机 Setup/PE 和 VS 2022 官方 VSIX 核验）</td>
+<td>不按 Community/年份推断目录；VS 18 writer 使用 Path.GetTempPath，TMP/TEMP 都检查；受查 17.14.1713.63837 没有此 JSONL exporter，其他版本保持边界。catalog 完整性异常、逐包依据及本机两版本记录见 <a href="/zh-cn/reference/evidence/m9-vs-copilot-discovery/">专项记录</a></td>
+</tr>
+<tr>
+<td>A45</td>
+<td><a href="https://cursor.com/docs/cli/overview">Cursor CLI 文档</a>、<a href="https://github.com/lpalbou/CursorDump">CursorDump 转录分析</a></td>
+<td>CLI 转录 <code>~/.cursor/projects/&lt;slug&gt;/agent-transcripts/&lt;uuid&gt;/*.jsonl</code> 有会话但无 token/模型逐次字段；逐次用量仅远端 dashboard（get-filtered-usage-events）→ 按本地边界排除；IDE state.vscdb 待核验</td>
+</tr>
+<tr>
+<td>A46</td>
+<td><a href="https://github.com/iflow-ai/iflow-cli">iFlow CLI</a>（阿里心流，闭源；官方核验 4642808：<strong>2026-04-17 停服</strong>，2026-09-29）</td>
+<td><code>~/.iflow</code>（settings.json、<code>tmp/&lt;project_hash&gt;/</code>）官方文档证实；<code>/chat save</code> JSON 持久化；OTel 事件含逐次 api_response 五桶 token（与 Gemini CLI 同构）；chats 记录具体路径/usageMetadata 待本机样本</td>
+</tr>
+<tr>
+<td>A47</td>
+<td><a href="https://qoder.com/">Qoder</a>（阿里；前通义灵码，2026-05 品牌升级；docs.qoder.com + npm @qoder-ai/qodercli 1.1.64 解包核验 2026-09-29）</td>
+<td>CLI 设备流在 <code>~/.qoder/</code>，IDE 为 Electron <code>%APPDATA%\com.qoder.app.stable*</code>；CLI 会话格式与 usage 字段尚未核验，需本机核验</td>
+</tr>
+<tr>
+<td>A48</td>
+<td><a href="https://atomcode.atomgit.com/docs/en/index.html">AtomCode</a>（官方源码 e4215f733eeba4cede553e28f9b559e6b3dc34ef/45e05cb14775f070f3867539e1f21c9849b3484b；官方 npm 5.2.1，2026-10-06）</td>
+<td>真实 <code>.meta</code> v1/CLI/API 单轮 6,176 输入、2 输出；turn_stats 的模型桶累计与 round_count 分开，末次 total_tokens 不叠加；默认零未知，完整配对 UI v1/rewind v2 排除，其他格式未核对；二进制 build id unknown，采样版本不能核验其他会话，见 <a href="/zh-cn/reference/evidence/m8-container-samples/">M8 样本</a></td>
+</tr>
+</tbody>
+</table>
+<p>固定源码提交通过 GitHub 公共 API 的 commits 结果再次核对；
+文件读取使用 raw.githubusercontent.com，未执行任何上游代码。
+滚动页面没有与本机发行版做对应验证，接入时必须补版本清单及样本。
+CodeBuddy 页面在浏览工具返回 502，改用 PowerShell 只读获取官方 HTML 后核验正文；
+没有把失败页面当作事实依据。WorkBuddy 和 ZCode 正文也通过该方式核对。
+Hermes 固定 commit 通过 commits API 获取，定点只读核对存储文档、schema 与 usage 相关片段。
+追加获取 agent/usage_pricing.py 时遇到 HTTP 429；停止该读取，不把外层 PowerShell 退出码 0
+当作此文件获取成功，不据响应字段名称推断缓存包含关系；此项留给 M3 的版本样本核验。</p>
+<p><a id="m8-format-references-checked-2026-09-29"></a></p>
+<h2 id="m8-格式依据核验于-2026-09-29">M8 格式依据（核验于 2026-09-29）</h2>
+<p>在覆盖调研基础上，逐产品核验格式依据；固定源码与发行版本
+已并入上表 A25–A48 各行；字段级核验说明全文在各适配器源文件头与
+<a href="/zh-cn/reference/evidence/m8-second-batch/">M8 验证记录</a>：</p>
+<ul>
+<li>官方源码核验（固定提交）：Roo b867ec9（已归档）、Goose a701bb1、Crush 1f3827b、
+jcode 4f6bf8e、gajae 7e54f9c、Continue 5522c6f、AtomCode e4215f7、Zed bd74733、
+Aider 5dc9490、Amazon Q 15cc8f3、Codebuff caec5fc、iFlow 4642808。</li>
+<li>官方分发物核验：Command Code npm 1.69.0 dist/cli.mjs（仓库无产品源码）、
+Qoder npm 1.1.64（混淆 bundle，仅路径可信）。</li>
+<li>第三方解析器依据（闭源）：tokscale 1d9a939 的 Amp/Grok/Junie/Kiro/Droid/Xum/
+Antigravity 实现逐行提取。</li>
+<li>重大结论：Goose 存在 tokscale 未覆盖的逐请求 usage_ledger；Crush token 列是
+上下文快照非用量；Amazon Q/Codebuff 本地无逐次 token 记录（不实施）；
+iFlow 已停服（2026-04-17）；Roo 与 cline 的 tokensIn 包含关系存在字段定义差异
+（各按自身固定版本的字段定义实现，待真实样本复核）。</li>
+</ul>
+<p><a id="research-limits"></a></p>
+<h2 id="研究边界">研究边界</h2>
+<p>远端计费 API/组织数据不在范围内；真实来源仍须逐版本核对格式依据，缺失样本不推断。
+JetBrains 自家 AI Assistant/TRAE 等本地用量格式尚未核验的 IDE 留 F1；Zed/Junie CLI 在 M8。
+包体、性能、平台和真实来源结果分别见验证记录，设计目标不作为测量值。</p>
+<p><a id="扩展覆盖的证据层级"></a></p>
+<p><a id="extended-source-types-and-verification-scope"></a></p>
+<h2 id="扩展覆盖的来源类型与核验范围">扩展覆盖的来源类型与核验范围</h2>
+<p>扩展来源见上表 A25–A48；当前能力及阶段划分见
+<a href="/zh-cn/reference/design/adapters/#%E6%89%A9%E5%B1%95%E8%A6%86%E7%9B%96">接入矩阵</a>与 <a href="https://github.com/owent/llm-usage/blob/main/docs/design/desktop-usage/execution.md#m8">执行计划 M8</a>。</p>
+<p>核验方法、来源类型及适用范围：</p>
+<ul>
+<li>以第三方开源解析器 <a href="https://github.com/junhoyeo/tokscale">tokscale</a>
+（固定 main <code>1d9a9395418efc6952944b794097935d7d6fa1e8</code>）作为路径/字段线索层，
+只读其 clients.rs、scanner.rs 与 sessions/ 解析器源码；其估算、比价与
+聚合策略不沿用，仅取存储路径、字段名与生命周期线索。</li>
+<li>产品身份逐个经官方站点、官方仓库或多方报道核对：goose 仓库已由
+block/goose 迁移为 aaif-goose/goose；coder/mux 更名 coder/xum；
+Qoder 为通义灵码品牌升级（2026-05）；Grok Build 为 xAI 官方 CLI（新闻佐证）；
+Command Code、jcode、gajae-code、Codebuff、AtomCode 均有官方站点或发布渠道。</li>
+<li>闭源产品（Amp、Grok Build、Junie CLI、Kiro、Droid、Xum、iFlow CLI、
+Qoder CLI、Antigravity protobuf 布局）的字段资料来自第三方解析器或逆向分析，
+能力与真实验收按接入矩阵逐版本维护；合成回归不能核验本机实际输出。</li>
+<li>明确排除项：Cursor 逐次用量仅在远端 dashboard（get-filtered-usage-events）；
+TRAE 的 tokscale 路线来自其 usage API（远端）；Warp 本地仅账户级
+requests/spend 缓存。三者均不符合“只统计本机来源”边界，不入 token 统计。</li>
+<li>既有条目补充核验依据：Zed 内置（A23 补充 A38）发现 threads.db 本地逐次记录；
+JetBrains（A07）补充 Junie CLI 本地 events.jsonl 格式依据；两者从 F1 待核验类别
+已在 M8 注册；JetBrains AI Assistant IDE 插件与 TRAE 仍在 F1。</li>
+<li>本地用量格式尚未核验的 IDE 家族（F1 扩充，不探测/不实施）：Cursor IDE、Windsurf（IDE+CLI）、
+京东 JoyCode、智谱 CodeGeeX 插件、百度文心快码 Comate、华为 InsCode/CodeArts Snap。
+每项保留产品身份与“本地格式待核验”状态，不写“不支持”。</li>
+</ul>
+<p>这些来源不授权访问登录后台、计费 API 或组织数据；实现与验证按当前要求执行。</p>
+<p><a id="verification-20260929"></a>
+<a id="verification"></a>
+<a id="readiness-verification"></a></p>
+<p><a id="current-validation-entry-points"></a></p>
+<h2 id="当前验证入口">当前验证入口</h2>
+<p>设计与计划只保留当前要求；实际命令、版本、环境、结果及缺口集中在
+<a href="/zh-cn/reference/evidence/current-acceptance/">最新验收</a>。专项格式依据见
+<a href="/zh-cn/reference/evidence/readme/">验证目录</a>，旧过程由 Git 保留。
+文档检查不能代替业务、真实来源或原生平台验收。</p>
+</div><footer class="sl-flex astro-q3cosrfy"><div class="meta sl-flex astro-q3cosrfy"><a href="https://github.com/owent/llm-usage/edit/main/docs/zh-CN/docs/design/desktop-usage/research.md" class="sl-flex print:hidden astro-okj6rzri"><svg aria-hidden="true" class="astro-okj6rzri astro-iwaxdyvu" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.2em;"><path d="M22 7.24a1 1 0 0 0-.29-.71l-4.24-4.24a1 1 0 0 0-1.1-.22 1 1 0 0 0-.32.22l-2.83 2.83L2.29 16.05a1 1 0 0 0-.29.71V21a1 1 0 0 0 1 1h4.24a1 1 0 0 0 .76-.29l10.87-10.93L21.71 8c.1-.1.17-.2.22-.33a1 1 0 0 0 0-.24v-.14l.07-.05ZM6.83 20H4v-2.83l9.93-9.93 2.83 2.83L6.83 20ZM18.17 8.66l-2.83-2.83 1.42-1.41 2.82 2.82-1.41 1.42Z"/></svg>编辑此页</a></div><div class="pagination-links print:hidden astro-vd7os7a3" dir="ltr"></div></footer></div></div></main></div></div></div></div></body></html>
