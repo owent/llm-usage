@@ -26,6 +26,7 @@ const base = `http://127.0.0.1:${server.address().port}`;
 const browser = await chromium.launch(process.platform === 'win32' ? { channel: 'msedge', headless: true } : { headless: true });
 const checks = [];
 const layouts = [];
+const contrasts = [];
 const errors = [];
 const outbound = [];
 const contexts = [];
@@ -39,6 +40,54 @@ const pageFor = async options => {
   page.on('request', request => { if (!request.url().startsWith(base) && !request.url().startsWith('data:')) outbound.push(request.url()); });
   return page;
 };
+const measureContrast = async page => page.evaluate(() => {
+  const rgba = value => {
+    const values = value.match(/[\d.]+/g)?.map(Number);
+    if (!values || values.length < 3) throw new Error(`Unsupported color: ${value}`);
+    return [...values.slice(0, 3), values[3] ?? 1];
+  };
+  const composite = (front, back) => [0, 1, 2].map(i => front[i] * front[3] + back[i] * (1 - front[3]));
+  const background = element => {
+    const ancestors = [];
+    for (let el = element; el; el = el.parentElement) ancestors.unshift(el);
+    let color = [255, 255, 255];
+    for (const el of ancestors) {
+      const css = getComputedStyle(el);
+      if (css.backgroundImage !== 'none') throw new Error(`Text background image requires separate measurement: ${el.className}`);
+      color = composite(rgba(css.backgroundColor), color);
+    }
+    return color;
+  };
+  const luminance = color => color.slice(0, 3).map(v => v / 255).map(v => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4)
+    .reduce((total, v, i) => total + v * [.2126, .7152, .0722][i], 0);
+  const ratio = (a, b) => {
+    const values = [luminance(a), luminance(b)].sort((a, b) => b - a);
+    return (values[0] + .05) / (values[1] + .05);
+  };
+  const samples = [];
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  while (walker.nextNode()) {
+    const node = walker.currentNode;
+    const el = node.parentElement;
+    if (!node.textContent.trim() || !el.closest('.hero, .card, .sl-link-card, .sl-markdown-content, #starlight__sidebar, .right-sidebar, header.header')) continue;
+    if (el.closest('script, style, svg, dialog:not([open])')) continue;
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    if (![...range.getClientRects()].some(rect => rect.width > 0 && rect.height > 0)) continue;
+    const css = getComputedStyle(el);
+    if (css.visibility !== 'visible') continue;
+    const back = background(el);
+    const front = composite(rgba(css.color), back);
+    const size = parseFloat(css.fontSize);
+    const minimum = size >= 24 || (size >= 18.6667 && Number(css.fontWeight) >= 700) ? 3 : 4.5;
+    samples.push({ text: node.textContent.trim().slice(0, 90), foreground: front, background: back, ratio: ratio(front, back), minimum });
+  }
+  const focused = document.activeElement;
+  const css = getComputedStyle(focused);
+  const focus = css.outlineStyle !== 'none' && parseFloat(css.outlineWidth) >= 2
+    ? { width: css.outlineWidth, ratio: ratio(rgba(css.outlineColor), background(focused.parentElement)) } : null;
+  return { samples: samples.length, minimum: Math.min(...samples.map(s => s.ratio)), failures: samples.filter(s => s.ratio < s.minimum), focus };
+});
 try {
   for (const [locale, expected] of [['en-US', '/'], ['zh-CN', '/zh-cn/'], ['zh-TW', '/zh-cn/'], ['fr-FR', '/']]) {
     const page = await pageFor({ locale });
@@ -224,11 +273,62 @@ try {
   await keyboard.locator('site-search dialog').waitFor({ state: 'visible' });
   await keyboard.keyboard.press('Escape');
   checks.push('keyboard skip link and search shortcut');
+  for (const language of ['en', 'zh-CN']) {
+    const prefix = language === 'en' ? '' : '/zh-cn';
+    const themed = await pageFor({ locale: language });
+    for (const theme of ['light', 'dark']) {
+      for (const route of ['', '/guide/dashboard', '/development/documentation']) {
+        await themed.goto(`${base}${prefix}${route}/`);
+        await themed.locator('starlight-theme-select select').first().selectOption(theme);
+        await themed.waitForFunction(theme => document.documentElement.dataset.theme === theme, theme);
+        const focus = themed.locator(route ? '#starlight__sidebar a[aria-current="page"]' : '.hero .primary');
+        await focus.focus();
+        const report = await measureContrast(themed);
+        contrasts.push({ language, theme, route: route || '/', ...report });
+        assert.ok(report.samples > 50, 'Contrast measurement includes rendered navigation and reading text');
+        assert.deepEqual(report.failures, [], `${language} ${theme} ${route}: rendered text meets its contrast threshold`);
+        assert.ok(report.focus?.ratio >= 3, 'Keyboard focus contrasts with its adjacent background');
+        if (!route) {
+          for (const icon of await themed.locator('.card .icon').all()) {
+            assert.ok(await icon.locator('path, circle, rect, line, polyline').count() > 0, 'Feature cards render their actual icons');
+          }
+          await themed.screenshot({ path: join(artifacts, `${language}-${theme}-home-theme.png`) });
+          await focus.hover();
+          const hovered = await measureContrast(themed);
+          assert.deepEqual(hovered.failures, [], 'Hovered controls retain readable text');
+          const tagline = themed.locator('.hero .tagline');
+          await tagline.evaluate(el => el.style.color = getComputedStyle(el.closest('.hero')).backgroundColor);
+          assert.ok((await measureContrast(themed)).failures.length > 0, 'Measurement rejects unreadable text');
+          await tagline.evaluate(el => el.style.removeProperty('color'));
+        }
+      }
+      await themed.reload();
+      assert.equal(await themed.locator('html').getAttribute('data-theme'), theme, 'Selected theme survives reload');
+      checks.push(`${language} ${theme}: rendered text contrast, hover, focus and saved theme`);
+    }
+    await themed.goto(`${base}${prefix}/`);
+    await themed.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' });
+    assert.equal(await themed.locator('.hero').evaluate(el => getComputedStyle(el, '::before').display), 'none');
+    assert.equal(await themed.locator('body').evaluate(el => getComputedStyle(el, '::before').display), 'none');
+    await themed.locator('.hero .primary').focus();
+    await themed.keyboard.press('Enter');
+    await themed.waitForURL(`${base}${prefix}/start/installation/#downloads`);
+    await themed.emulateMedia({ forcedColors: 'none', media: 'screen' });
+    await themed.goto(`${base}${prefix}/`);
+    for (const theme of ['light', 'dark']) {
+      await themed.emulateMedia({ media: 'screen' });
+      await themed.locator('starlight-theme-select select').first().selectOption(theme);
+      await themed.emulateMedia({ media: 'print' });
+      assert.equal(await themed.locator('.hero').evaluate(el => getComputedStyle(el, '::after').display), 'none');
+      assert.equal(await themed.locator('.card .title').first().evaluate(el => getComputedStyle(el).color), 'rgb(0, 0, 0)', 'Print card headings remain readable');
+    }
+    checks.push(`${language}: forced colors, reduced motion, keyboard download and print decoration removal`);
+  }
   assert.deepEqual(errors, [], 'No browser JavaScript errors');
   assert.deepEqual(outbound, [], 'Documentation makes no third-party runtime requests');
   console.log(`Passed ${checks.length} documentation browser checks.`);
 } finally {
-  await writeFile(join(artifacts, 'report.json'), JSON.stringify({ checks, layouts, errors, outbound }, null, 2));
+  await writeFile(join(artifacts, 'report.json'), JSON.stringify({ checks, layouts, contrasts, errors, outbound }, null, 2));
   await Promise.all(contexts.map(context => context.close()));
   await browser.close();
   await new Promise(done => server.close(done));

@@ -4,7 +4,8 @@
 
 Started: 2026-10-07. Review date: 2026-10-08. Status: all document and source-comment pairs
 have been reviewed and local checks passed. Screenshot publication, automatic CI and public-domain
-HTTPS are verified, including the navigation/layout update. [Plan.md](../../../Plan.md) owns active status;
+HTTPS are verified for the navigation/layout update. The theme redesign has passed local
+checks; its new publication is pending. [Plan.md](../../../Plan.md) owns active status;
 the [documentation requirements](../../design/documentation-site.md) define behavior.
 
 <a id="环境与范围"></a>
@@ -186,13 +187,51 @@ the quoted Chinese title in English prose; code formatting preserves that exact 
 treating it as untranslated prose. An initial temporary live probe had an incorrect relative
 Playwright import; its corrected path allowed the actual site inspection.
 
+## Theme design and contrast
+
+Actual 1920px home/guide captures showed that the previous light header, sidebar and reading
+backgrounds were nearly identical; the dark theme used the same green family throughout.
+This was a visual separation problem, not a demonstrated text-contrast failure. W3C text,
+non-text and decorative-CSS guidance and the official Material color-role documentation were
+read on 2026-10-08; links and requirements are in the documentation design specification.
+
+The new light theme separates a slate page/side menu, an opaque off-white reading area,
+deep navy navigation/hero and teal actions. Dark pages use navy backgrounds, lighter cards
+and mint actions. Sparse dots are 48px apart in outer margins and 40px apart around the hero
+illustration; circular outlines are static and cannot intercept pointer input. Reading text,
+tables, cards and captions keep plain backgrounds. Print and forced-color modes remove
+decorations; print card headings remain black. English/Chinese home and guide captures in
+both themes, feature cards and 390px mobile pages were visually reviewed under
+build/documentation-site/theme/reviewed-source/. The original 20 application PNGs are unchanged.
+
+Visual review found empty chart/shield icons. Installed Starlight 0.42.5's Icons.js lacks
+the previous chart/shield-check names; analytics/padlock contain actual SVG paths. Both
+homepages now use those names, and browser checks reject empty feature-card icons.
+
+The browser suite measures rendered text on the homepage, dashboard guide and documentation
+developer page, including navigation, links, tables, captions and code. It uses computed
+foreground colors and composited ancestor backgrounds, compares unrounded ratios with the
+applicable 4.5:1 or 3:1 text threshold, and separately checks hovered actions and 3px keyboard
+outlines. A deliberately unreadable tagline verifies that the check rejects a failure.
+Across both languages, minimum measured text contrast is 5.34665:1 in light mode and
+5.54803:1 in dark mode; minimum keyboard-outline contrast is 5.16081:1. These checks cover
+sampled documentation pages, not a complete WCAG audit or the application inside screenshots.
+
+The first contrast run failed because the measurement passed an alpha component into the
+three-channel luminance sum, producing an invalid focus ratio. Restricting the calculation
+to RGB corrected the test; the UI outline already had sufficient contrast. Preserve
+theme-browser-first.log. An automatic approval review timed out before a subsequent browser
+command started; one retry ran successfully. A temporary screenshot probe also waited for
+an MDX figure absent on the Markdown guide; limiting that wait to the homepage corrected it.
+
 <a id="验证结果"></a>
 
 ## Validation results
 
 Commands ran from the repository root with the installed toolchain. Results were refreshed on
 2026-10-08 for all 460 commented source files and 220 document pairs. The latest documentation
-checks cover screenshots, Chinese homepage routing, navigation, downloads and wide-screen layout. The product results
+checks cover screenshots, Chinese homepage routing, navigation, downloads, wide-screen layout
+and theme design/contrast. The product results
 and native screenshot capture below precede these documentation-only changes.
 
 | Check | Observed result |
@@ -200,8 +239,8 @@ and native screenshot capture below precede these documentation-only changes.
 | npm run verify | Passed with the complete corpus: 1032 Rust tests passed, 8 remained ignored; 22 UI and 5 script tests passed; Markdown, Svelte, fmt, clippy and frontend build passed |
 | npm run test:docs | 31 tests passed; sidebar source inventory/order/nested versions, precise administrator branch configuration/read-back, localized index IDs and screenshot links, NSIS template preservation, comment references, document scope, language selection, links/anchors, source parsing and publication integrity |
 | npm run check:docs | All 199 repository pairs, 21 guide pairs and source comments synchronized; Astro checked 32 files with zero errors, warnings or hints |
-| npm run build:docs | Clean 16c77e3 build: 1363 pages / 2853 files passed locally and in CI; required sidebar links, links/fragments, language roots, local search, domain markers and screenshot digests/dimensions checked |
-| npm run test:docs:browser | 24 checks passed on installed Edge; sidebar category links/toggles/navigation, titles/downloads, 320–2560px layouts and directory overlap, five bilingual/theme-matched screenshots, original PNG links/dimensions, README/Details examples, search, language choices, storage denial, no-JavaScript fallback and keyboard access; zero JS errors/outbound requests in the local build |
+| npm run build:docs | Local theme build: 1363 pages / 2853 files; required sidebar links, links/fragments, language roots, local search, domain markers and screenshot digests/dimensions checked. Earlier clean 16c77e3 build also passed in CI |
+| npm run test:docs:browser | 30 checks passed on installed Edge; rendered text/focus contrast, hovered actions, theme persistence, icons, forced colors/printing, sidebar navigation, titles/downloads, 320–2560px layouts, bilingual/theme-matched screenshots, original-image links, search, language choices, storage denial, no-JavaScript fallback and keyboard access; zero JS errors/outbound requests in the local build |
 | npm run docs:screenshots | 20 real native captures; correct language/theme, 240 isolated calls and declared pixel dimensions |
 | npm run lint:md | 451 files, zero issues, including this record |
 | cargo fmt --manifest-path desktop/src-tauri/Cargo.toml --all --check | Passed |

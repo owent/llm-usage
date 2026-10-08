@@ -59,6 +59,22 @@
 重叠。按已审阅原件清单生成 Starlight 多语言 `slug` 链接，不依赖其默认内容目录。
 两种语言均核验实际分组链接、展开、键盘导航、当前页标识及手机菜单。
 
+<a id="visual-design"></a>
+
+## 视觉设计
+
+页面背景、阅读区、导航和卡片分别配色。亮色主题采用浅灰蓝背景、不透明的近白阅读区、
+深蓝页头和青绿操作按钮。暗色主题采用深蓝背景、较亮的卡片和薄荷绿操作按钮。
+正文和图注在默认、悬停、选中、聚焦时均应清晰。普通文字对比度至少为 4.5:1，必要的
+控件标识与相邻颜色对比度至少为 3:1；装饰性分隔线不承担控件状态。正文链接保留下划线，
+选中菜单加粗，避免只靠颜色表达含义。
+
+仅在页面外侧留白和首页插图区加入静态、稀疏的 CSS 点阵，插图周围使用间隔较大的圆弧。
+长文阅读区、表格、卡片及截图图注保持不透明，不铺纹理。装饰不响应鼠标、不承载信息，
+不需要额外下载，在系统强制颜色和打印模式下隐藏。保留跟随系统与手动主题选择、减少
+动态效果设置、宽屏正文空间和手机导航。实际审阅中英文首页与指南的亮暗主题截图；
+对比度检查不能单独说明视觉效果，也不代表完整的 WCAG 符合性检查。
+
 <a id="screenshots"></a>
 
 ## 截图
@@ -142,6 +158,14 @@ Pages 本身仍构建已编译的 `gh-pages` 分支。
 - [GitHub 制品下载](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/download-workflow-artifacts)：需要登录并具备读取权限。
 - [GitHub 部署分支规则](https://docs.github.com/en/rest/deployments/branch-policies?apiVersion=2026-03-10)。
 - [Cloudflare DNS 代理行为](https://developers.cloudflare.com/dns/proxy-status/)：代理记录公开 Cloudflare 地址，而非源站地址。
+- [W3C 文字对比度](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html)：
+  普通文字至少为 4.5:1，比较时使用未经舍入的计算结果。
+- [W3C 非文字对比度](https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast.html)：
+  必要的控件及状态标识至少为 3:1，与纯装饰边界分别处理。
+- [W3C CSS 装饰图像](https://www.w3.org/WAI/WCAG22/Techniques/css/C9)：
+  CSS 可以提供装饰图像，避免为辅助技术增加无关信息。
+- [Material 颜色用途](https://github.com/material-components/material-components-android/blob/master/docs/theming/Color.md)：
+  区分背景、容器及对应的文字颜色。本项目参考这种配色组织方式，不依赖 Android 组件。
 
 registry 报告 Astro 7.3.6、Starlight 0.42.5。其 Node engine 与 peer 范围按安装后的
 锁文件检查，不升级桌面应用依赖。

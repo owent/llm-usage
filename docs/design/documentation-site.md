@@ -74,6 +74,24 @@ and content overlap. Generate localized Starlight `slug` links from the reviewed
 inventory rather than its assumed content directory. Verify actual category links, expansion,
 keyboard navigation, active-page indication and mobile navigation in both languages.
 
+## Visual design
+
+Use separate colors for the page background, reading area, navigation and cards. The light
+theme combines a pale slate background, an opaque off-white reading area, a deep navy header
+and teal actions. The dark theme uses navy backgrounds, lighter cards and mint actions.
+Keep text and captions legible in default, hover, selected and focused states. Measure normal
+text at a minimum 4.5:1 contrast and essential control indicators at 3:1 against adjacent colors;
+decorative dividers do not carry control state. Keep inline links underlined and selected
+navigation bold, so color is not the only indication.
+
+Add static, sparse CSS dots in outer margins and the illustration half of the homepage hero,
+with widely spaced circular outlines around the illustration. Keep long-form reading areas,
+tables, cards and screenshot captions opaque and free of texture. Decorations have no pointer
+events or information, require no downloads and disappear in forced-color and print modes.
+Preserve system/manual theme selection, reduced-motion behavior, wide-screen content space
+and usable mobile navigation. Review actual English/Chinese home and guide screenshots in
+both themes; contrast checks alone do not establish visual quality or full WCAG conformance.
+
 <a id="截图"></a>
 
 ## Screenshots
@@ -173,6 +191,15 @@ Retrieved on 2026-10-08:
 - [GitHub deployment branch policies](https://docs.github.com/en/rest/deployments/branch-policies?apiVersion=2026-03-10).
 - [Cloudflare DNS proxy behavior](https://developers.cloudflare.com/dns/proxy-status/):
   proxied records expose Cloudflare addresses rather than the origin address.
+- [W3C text contrast](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html):
+  ordinary text requires 4.5:1; compute the ratio without rounding before comparison.
+- [W3C non-text contrast](https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast.html):
+  essential control/state indicators require 3:1; purely decorative boundaries are different.
+- [W3C decorative CSS images](https://www.w3.org/WAI/WCAG22/Techniques/css/C9):
+  CSS can provide decorative imagery without adding information to assistive-technology output.
+- [Material color roles](https://github.com/material-components/material-components-android/blob/master/docs/theming/Color.md):
+  separate background/container colors and their paired foreground colors. This informs the
+  site's color organization, not an Android component dependency.
 
 The registry reports Astro 7.3.6 and Starlight 0.42.5. Their documented Node engine and
 peer ranges will be checked against the installed lockfile; this does not upgrade the

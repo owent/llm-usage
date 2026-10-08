@@ -62,6 +62,20 @@ and expand the remaining content up to 110rem (100rem on the homepage). Check re
 boundaries as well as 1920px and 2560px screens. The homepage Download action targets the
 localized installation page; verify available packages before changing its instructions.
 
+Keep theme colors in `src/styles/custom.css`: page, reading area, card, sidebar and border
+colors have separate `--usage-*` variables, while Starlight variables supply text and actions.
+The header and hero use a shared navy palette in both themes. Static CSS dots are 48px apart
+in outer margins and 40px apart in the illustration area; circular decoration has no pointer
+events. Reading areas and captions keep opaque backgrounds. Forced colors and printing hide
+decorations. Avoid introducing animated backgrounds or external image/font downloads.
+
+The browser suite measures actual rendered text against composited computed backgrounds on
+both homepages, the dashboard guide and this developer page in both themes. It checks keyboard
+focus and hovered actions separately, saves measurements beside viewport screenshots, and
+rejects text over CSS background images that require a different measurement. Review the
+English/Chinese screenshots, mobile layouts and wide-screen reading areas as well as the ratios.
+These sampled checks do not replace a complete accessibility audit.
+
 The translation review manifest stores the checked English/Chinese hashes. Missing pairs
 or changes without corresponding review fail the content check. Check both languages for
 meaning and completeness before updating a review entry; matching hashes alone do not
