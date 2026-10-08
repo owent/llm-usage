@@ -17,7 +17,7 @@ Windows/Linux lifecycle and assistive-technology tools, synchronized tests/redac
 Plan, AI rules and documents. Raw databases/WAL/conversation bodies/client settings/temporary
 models remain in ignored build/ and outside commits.
 
-.github/workflows/ci.yml defines eight jobs: documents/frontend and Rust fmt/Clippy/test
+At 61223e5, .github/workflows/ci.yml defined eight jobs: documents/frontend and Rust fmt/Clippy/test
 plus release builds on windows-2022, ubuntu-22.04 and macos-15. Linux Rust additionally
 checks isolated D-Bus/temporary keyring; Windows release checks isolated headless collection.
 61223e591815a4369a85a00fa23ff1ab2819d6d5 adds two existing explicit macOS credential tests:
@@ -106,3 +106,52 @@ workflow must match the tested revision; Markdown/local links/diff checks run se
 This record uses 61223e5 as remote tested revision; record commits are not another CI run.
 Windows/Debian native/container results are in [current acceptance](current-acceptance.md);
 remaining real versions/protocols/host-desktop conditions stay in [Plan](../../../Plan.md).
+
+## Draft Release publication
+
+On 2026-10-08, the user authorized tag-triggered draft publication, replacement of release
+metadata/same-name assets and deletion/recreation of v0.2.1. The old annotated tag pointed
+to bda55d3b49959e9390c5d5c48fff91c3574b8724. The recreated tag and tested workflow/source
+point to a16ae4e74a7b3a9f2365b1991500f12555b66407.
+
+Local Windows x64 checks used Node 24.21.0, npm 12.0.2 and PowerShell 7. All commands exited
+0: node --test desktop/scripts/*.test.mjs (5 tests), the temporary workflow extraction/check
+script (10 synthetic release cases without network calls), npm run lint:md (451 files),
+npm run check:docs (199 repository pairs, 21 guide pairs and 32 Astro files, no diagnostics),
+npm run test:docs (31 tests) and git diff --check. These local simulations are separate from
+the GitHub publication below. The preceding main CI and local VS inventory test failed
+because an empty Measure-Object result has no Sum property in strict mode; the fix guards
+empty file arrays and the isolated test asserts zero file count/bytes without warnings.
+
+[Tag run 37749146960](https://github.com/owent/llm-usage/actions/runs/37749146960) passed all
+nine jobs on its first attempt, including three platform builds and draft publication.
+[Main CI](https://github.com/owent/llm-usage/actions/runs/37749146944) and the
+[documentation workflow](https://github.com/owent/llm-usage/actions/runs/37749147002) also passed.
+The draft has release ID 406615500, name/tag v0.2.1, the tested target commit and seven assets:
+four packages and three platform reports. The release job checked package revisions,
+sizes and digests before upload and GitHub asset sizes/digests after upload. Three reports
+were independently downloaded and matched the four published packages' API sizes/SHA-256.
+
+| Package | Bytes | SHA-256 |
+| --- | ---: | --- |
+| Windows x64 NSIS | 4,046,322 | 5c51b575d14cafe8744ab08915eb701445ec7a2dca8ebaba7169644b0788e6f3 |
+| Linux x64 deb | 5,631,732 | 6dfe3750cb9ea1781db706b1f67366586f82a783d3ad0bebdff0cf82f9188d9c |
+| Linux x64 AppImage | 84,097,528 | 9508a3e65dcf8217e9750e89df9c4ab9db8a15096298f8ef4897d09f691f0b9e |
+| macOS arm64 .app.tar.gz | 4,740,489 | 5b01cfee42fcf95f367a949b723c0393cc4ec0f996ef4e4f60155df9ff3af9ca |
+
+The first overwrite-test marker PATCH omitted tag_name. GitHub changed the original draft's
+tag to its generated untagged name, so attempt 2 correctly found no v0.2.1 draft and created
+extra draft 406616857. Its exact source/assets were checked before deleting only that
+test-owned draft. The original draft was restored with explicit tag_name and marker title/body;
+readback confirmed v0.2.1 before rerunning the release job. Attempt 3 passed: the original
+release ID was retained, title/body were restored, all seven asset IDs changed, and every
+size/digest stayed equal to the first upload. Only one v0.2.1 draft remains. The workflow's
+own create/update calls always include tag_name.
+
+Network EOFs affected status queries, not CI jobs. A read-only jobs query recovered;
+completed logs were captured under ignored build/github-release/ with ANSI removed before
+display. Local npm 12 initially rejected locked mirror tarballs; command-local
+--allow-remote=all with installation scripts disabled succeeded without changing locks or
+global configuration. Documentation/comment hashes were reviewed and synchronized.
+Publication remains a draft and does not establish signing, notarization or new GUI/install
+acceptance. Later record-only commits leave the tested source/workflow unchanged.

@@ -15,7 +15,7 @@
 同步测试、脱敏 fixture、Plan、AI 规则与文档。原始数据库、WAL、会话正文、客户端配置和
 临时模型均保留在已忽略的 build/，不加入提交。
 
-流水线以 .github/workflows/ci.yml 为准：文档与前端各一个作业，windows-2022、ubuntu-22.04、
+61223e5 的流水线以 .github/workflows/ci.yml 为准：文档与前端各一个作业，windows-2022、ubuntu-22.04、
 macos-15 各自 Rust fmt/Clippy/test 和 release 构建，共八个作业。Linux Rust 作业另验独立
 D-Bus/临时 keyring，Windows release 作业另验隔离来源无界面采集。
 提交 61223e591815a4369a85a00fa23ff1ab2819d6d5 为 macOS Rust 作业增加两个已有的
@@ -99,3 +99,47 @@ GitHub CLI 制品下载在 300 秒后超时，未接受任何解包结果。改�
 
 本批 Windows 与 Debian 原生/容器成品结果见 [最新验收](current-acceptance.md)；
 剩余真实版本、协议和宿主桌面条件统一保留在 [Plan.md](../../../Plan.md)。
+
+## Draft Release 发布
+
+2026-10-08，用户授权由 tag 触发草稿发布、覆盖 Release 元数据和同名附件，并删除后
+重建 v0.2.1。旧 annotated tag 指向 bda55d3b49959e9390c5d5c48fff91c3574b8724；
+重建的 tag 和受测流水线/源码指向 a16ae4e74a7b3a9f2365b1991500f12555b66407。
+
+本机 Windows x64 检查使用 Node 24.21.0、npm 12.0.2 和 PowerShell 7。
+以下命令均退出 0：node --test desktop/scripts/*.test.mjs（5 项）、临时流水线提取/检查
+脚本（10 项不联网的合成发布用例）、npm run lint:md（451 文件）、npm run check:docs
+（199 组仓库文档、21 组指南、32 个 Astro 文件，无诊断）、npm run test:docs（31 项）
+及 git diff --check。本机模拟与下述真实 GitHub 发布分开记录。
+前一次 main CI 和本机 VS 探测测试因空 Measure-Object 结果在严格模式下没有 Sum 属性而失败；
+修复对空文件数组单独处理，隔离测试确认文件数量/字节为零且没有警告。
+
+[tag 运行 37749146960](https://github.com/owent/llm-usage/actions/runs/37749146960)
+首次执行九作业全部成功，包含三平台构建及草稿发布。
+[main CI](https://github.com/owent/llm-usage/actions/runs/37749146944) 与
+[文档流水线](https://github.com/owent/llm-usage/actions/runs/37749147002) 也均通过。
+草稿 Release ID 为 406615500，名称/tag 为 v0.2.1，目标提交与受测源码一致；
+共七个附件：四个包和三份平台报告。发布作业在上传前核对包的 revision、大小和摘要，
+上传后核对 GitHub 附件的大小/摘要。另独立下载三份报告，四个发布包的 API 大小/SHA-256
+均与报告相符。
+
+| 平台/包 | 字节 | SHA-256 |
+| --- | ---: | --- |
+| Windows x64 NSIS | 4,046,322 | 5c51b575d14cafe8744ab08915eb701445ec7a2dca8ebaba7169644b0788e6f3 |
+| Linux x64 deb | 5,631,732 | 6dfe3750cb9ea1781db706b1f67366586f82a783d3ad0bebdff0cf82f9188d9c |
+| Linux x64 AppImage | 84,097,528 | 9508a3e65dcf8217e9750e89df9c4ab9db8a15096298f8ef4897d09f691f0b9e |
+| macOS arm64 .app.tar.gz | 4,740,489 | 5b01cfee42fcf95f367a949b723c0393cc4ec0f996ef4e4f60155df9ff3af9ca |
+
+首次覆盖测试的标记 PATCH 漏传 tag_name，GitHub 将原草稿的 tag 改为自动生成的
+untagged 名称，因此 attempt 2 按 v0.2.1 查询时未找到原草稿，新建了额外草稿 406616857。
+核对其完整源码/附件后，仅删除本次测试创建的额外草稿。恢复原草稿时显式传入 tag_name
+及标记标题/正文，回查确认 v0.2.1 后重跑发布作业。attempt 3 成功：原 Release ID 保持，
+标题/正文恢复，七个附件 ID 全部更新，各自大小/摘要与首次上传一致，最终仅一个 v0.2.1
+草稿。流水线自身的创建/更新请求均始终包含 tag_name。
+
+状态查询遇到网络 EOF，CI 作业没有因此失败；通过只读 jobs 查询恢复。
+完成日志保留在已忽略的 build/github-release/，显示前去除 ANSI。
+本机 npm 12 首次拒绝锁定的镜像 tarball；仅对安装命令使用 --allow-remote=all，
+禁用安装脚本后成功，未修改锁文件或全局配置。文档/注释摘要已审阅并同步。
+发布保持草稿，不建立签名、公证或新的 GUI/安装验收结论；后续仅记录提交保持
+受测源码/流水线不变。

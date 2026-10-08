@@ -102,12 +102,6 @@ Translation uses the current language model, with complete
 pair review and contextual wording checks. First failures, validation commands and exact remaining work are in the
 [documentation record](docs/validation/desktop-usage/documentation-site.md).
 
-## Draft Release validation
-
-- Verify the tag-push workflow locally, then commit the release configuration and recreate v0.2.1.
-- Observe successful platform builds, one draft Release and all package/report sizes and digests.
-- Repeat publication and verify the same Release ID with replaced same-name assets.
-
 <a id="执行边界"></a>
 
 ## Execution boundaries
