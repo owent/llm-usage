@@ -9,7 +9,7 @@ sidebar:
 
 Check the selected user and date range, including the statistical timezone. Inspect Sources
 for enablement, discovered paths, actual nonempty files/databases, record versions and diagnostics.
-An empty session proves no token format, and a known model does not supply missing usage.
+An empty session has no usage to collect, and a known model cannot supply missing token fields.
 
 If a client version is newer than the verified matrix, compatibility parsing can preserve
 valid observations with an unverified-version note. Preserve the exact version and file/database
@@ -18,13 +18,11 @@ missing field.
 
 ## Today's Codex usage is missing
 
-Historical backfill can require multiple bounded windows. The current Codex reader gives
-unvisited files priority and rotates confirmed visits across scans, preserving unfinished
-cursors so that old large files do not indefinitely delay today's files. Refresh, inspect
-progress and use the corrected executable; do not clear the database.
-
-The [recovery record](/reference/evidence/codex-today-recovery/) documents the actual local
-old-database repair, independent record reconciliation and the remaining backfill boundary.
+Update to the [latest Release](https://github.com/owent/llm-usage/releases/latest), refresh
+and inspect collection progress. Large histories may take several scans to backfill;
+the reader prioritizes files it has not visited so today's records can be collected.
+Keep the existing database. See the [recovery details](/reference/evidence/codex-today-recovery/)
+if the problem persists.
 
 ## Visual Studio Enterprise or VS 2022 is empty
 
@@ -39,10 +37,10 @@ trace files exist, without sharing conversations or credentials.
 
 ## Values look duplicated or change after an upgrade
 
-Do not add native and supplemental OTel totals manually. The application uses verified
-contribution scopes and preserves native history. A parser correction reevaluates consumed
-cursors and compares complete old event summaries; other content changes still undergo
-normal conflict handling. Inspect conflicts, field quality and source revisions.
+Do not add native and supplemental OTel totals manually. The application selects eligible
+contributions and preserves native history. Upgrades can reread existing records to correct
+parsing without clearing the database. Inspect conflicts, field quality and source revisions
+if values still differ; conflicting content remains in the history.
 
 ## Collection is stale or a task does not run
 

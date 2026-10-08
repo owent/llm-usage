@@ -9,7 +9,7 @@ hero:
     file: ../../../desktop/assets/app-icon.svg
   actions:
     - text: Download
-      link: /start/installation/#downloads
+      link: https://github.com/owent/llm-usage/releases/latest
     - text: Quick start
       link: /start/quick-start/
       icon: right-arrow
@@ -42,9 +42,9 @@ Screenshots use English application labels and follow this site's theme. See
     Collection status explains versions, incomplete fields and parsing failures.
     A supported parser does not imply that every client records every request.
   </Card>
-  <Card title="Development references" icon="document">
-    Developers can inspect the data model, adapter sources, migrations and native
-    acceptance records alongside the implementation.
+  <Card title="Portable packages" icon="document">
+    Choose a Windows, Linux or macOS package for x64 or arm64, extract the archive and
+    open the application. See the installation guide for system requirements.
   </Card>
 </CardGrid>
 
@@ -92,11 +92,7 @@ Manual source directories can restrict collection to the files you select. See
 
 <CardGrid>
   <LinkCard title="Quick start" description="Install, collect, inspect and manage usage history." href="/start/quick-start/" />
-  <LinkCard title="Developer setup" description="Set up the project and read its development requirements." href="/development/setup/" />
+  <LinkCard title="Installation and updates" description="Choose a package, open the app and keep your data when updating." href="/start/installation/" />
   <LinkCard title="Client support" description="Find each client's verified versions, record formats and limitations." href="/guide/clients/" />
-  <LinkCard title="Validation records" description="See what was actually tested and what remains outside the verified scope." href="/reference/evidence/current-acceptance/" />
+  <LinkCard title="Developer setup" description="Set up the project and read its development requirements." href="/development/setup/" />
 </CardGrid>
-
-LLM Usage is currently **pre-alpha, version 0.2.1**, with Windows 11 x64 as the first
-desktop target. Windows, Linux and macOS build jobs are kept in CI; their results are
-reported separately from native desktop and installation acceptance.

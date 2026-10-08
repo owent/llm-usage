@@ -29,6 +29,8 @@ const layouts = [];
 const contrasts = [];
 const errors = [];
 const outbound = [];
+const latestRelease = 'https://github.com/owent/llm-usage/releases/latest';
+const releaseNavigations = new Set();
 const contexts = [];
 const pageFor = async options => {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, ...options });
@@ -37,8 +39,23 @@ const pageFor = async options => {
   page.setDefaultTimeout(15000);
   page.setDefaultNavigationTimeout(30000);
   page.on('pageerror', error => errors.push(error.message));
-  page.on('request', request => { if (!request.url().startsWith(base) && !request.url().startsWith('data:')) outbound.push(request.url()); });
+  page.on('request', request => {
+    if (releaseNavigations.has(page) && request.url() === latestRelease
+      && request.isNavigationRequest() && request.frame() === page.mainFrame()) return;
+    if (!request.url().startsWith(base) && !request.url().startsWith('data:')) outbound.push(request.url());
+  });
   return page;
+};
+const openRelease = async (page, activate) => {
+  await page.route(latestRelease, route => route.fulfill({ contentType: 'text/html', body: '<title>Release download</title>' }));
+  releaseNavigations.add(page);
+  try {
+    await activate();
+    await page.waitForURL(latestRelease);
+  } finally {
+    releaseNavigations.delete(page);
+    await page.unroute(latestRelease);
+  }
 };
 const measureContrast = async page => page.evaluate(() => {
   const rgba = value => {
@@ -165,10 +182,10 @@ try {
     assert.equal(await home.locator('h1').innerText(), expectedTitle);
     assert.equal(await home.locator('.site-title span').innerText(), expectedTitle);
     const download = home.locator('.hero .actions a').filter({ hasText: language === 'en' ? /^Download$/ : /^下载$/ });
-    assert.equal(await download.getAttribute('href'), `${prefix}/start/installation/#downloads`);
-    await download.click();
-    await home.waitForURL(`${base}${prefix}/start/installation/#downloads`);
-    assert.equal(await home.locator('a[href="https://github.com/owent/llm-usage/actions/workflows/ci.yml"]').count(), 1);
+    assert.equal(await download.getAttribute('href'), latestRelease);
+    await openRelease(home, () => download.click());
+    await home.goto(`${base}${prefix}/start/installation/`);
+    assert.equal(await home.locator(`.sl-markdown-content a[href="${latestRelease}"]`).count(), 1);
     await home.goto(`${base}${prefix}/`);
     checks.push(`${language} homepage title and download instructions`);
     const figures = home.locator('figure.app-screenshot');
@@ -311,8 +328,7 @@ try {
     assert.equal(await themed.locator('.hero').evaluate(el => getComputedStyle(el, '::before').display), 'none');
     assert.equal(await themed.locator('body').evaluate(el => getComputedStyle(el, '::before').display), 'none');
     await themed.locator('.hero .primary').focus();
-    await themed.keyboard.press('Enter');
-    await themed.waitForURL(`${base}${prefix}/start/installation/#downloads`);
+    await openRelease(themed, () => themed.keyboard.press('Enter'));
     await themed.emulateMedia({ forcedColors: 'none', media: 'screen' });
     await themed.goto(`${base}${prefix}/`);
     for (const theme of ['light', 'dark']) {

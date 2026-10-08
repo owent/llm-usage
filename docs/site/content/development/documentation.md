@@ -59,8 +59,9 @@ all seven categories and navigate with pointer and keyboard on desktop/mobile sc
 
 Wide-screen layouts reserve fixed space for the left menu and right table of contents
 and expand the remaining content up to 110rem (100rem on the homepage). Check responsive
-boundaries as well as 1920px and 2560px screens. The homepage Download action targets the
-localized installation page; verify available packages before changing its instructions.
+boundaries as well as 1920px and 2560px screens. The homepage Download action and user
+download links target `https://github.com/owent/llm-usage/releases/latest`.
+The localized installation guide covers package selection and runtime requirements.
 
 Keep theme colors in `src/styles/custom.css`: page, reading area, card, sidebar and border
 colors have separate `--usage-*` variables, while Starlight variables supply text and actions.

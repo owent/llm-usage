@@ -64,9 +64,10 @@ language. No analytics, remote fonts, login or third-party runtime requests are 
 
 Use `AI usage dashboard` / `AI 用量看板` for the site and homepage titles. Introductions
 describe tokens, calls, cache usage and trends; explain data storage and local-source limits
-in the privacy and source instructions. The homepage's leading Download action opens the
-matching-language installation/download section. Link existing build artifacts when no
-Release packages have been published, and state their sign-in requirement.
+in the privacy and source instructions. The homepage's leading Download action and user
+guides link to `https://github.com/owent/llm-usage/releases/latest`. The matching-language
+installation guide explains package selection and system requirements. Keep tag publication,
+draft review and CI artifact procedures in developer guides and validation records.
 
 Wide screens expand the main content area, including tables and screenshots. Keep the
 left menu and right table of contents independently usable; avoid empty navigation groups

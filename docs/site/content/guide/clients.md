@@ -1,14 +1,14 @@
 ---
-title: Client support and verification
-description: Find the verified record formats, client versions and validation scope.
+title: Client support
+description: Supported clients, local record formats and version limits.
 sidebar:
   order: 3
 ---
 
 The [adapter matrix](/reference/design/adapters/) is the complete support reference. It
-records coverage IDs, product versions, local files/databases, field semantics, parser status
-and verification sources/results. Use it for an exact client/version decision rather than treating a shared
-engine or model name as proof of compatibility.
+lists product versions, local files/databases, available fields and support status.
+Check your exact client and version: sharing an engine or model name does not guarantee
+compatible records.
 
 ## Common families
 
@@ -47,10 +47,12 @@ pwsh -NoProfile -File desktop/scripts/inspect-vs-copilot.ps1
 Read the [cross-version Visual Studio analysis](/reference/evidence/m9-vs-copilot-discovery/)
 and [Copilot review](/reference/evidence/m9-copilot-review/) before interpreting an empty result.
 
-## Validation scope
+<a id="validation-scope"></a>
 
-Documented fields, static upstream code, synthetic test data, real native files/databases,
-browser IPC mocks, native desktop tests, installations and CI builds answer different
-questions. “Not verified” does not mean “unsupported.” An empty session or installed
-binary does not establish real token capture. Current results and historical limits are
-kept in [acceptance records](/reference/evidence/current-acceptance/).
+## Version and format limits
+
+An available parser may still lack native usage samples for a particular version or format.
+The matrix distinguishes those cases from formats checked with native records.
+“Not verified” does not mean “unsupported”; an installed client or empty session alone
+cannot confirm token collection. Detailed results and remaining limits are in the
+[acceptance records](/reference/evidence/current-acceptance/).

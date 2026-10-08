@@ -10,8 +10,9 @@ sign into your model provider or make an additional model request to view statis
 
 ## Install and open
 
-1. Read the [installation guide](/start/installation/) and obtain a package appropriate
-   for your platform from the repository's verified build artifacts, or build locally.
+1. Download the package for your OS and CPU architecture from the
+   [latest Release](https://github.com/owent/llm-usage/releases/latest).
+   Follow the [installation guide](/start/installation/) to extract or install it.
 2. Open LLM Usage. In **Settings**, choose your language, theme and statistical timezone.
 3. Open **Sources** to inspect discovered agents, their paths, versions and collection status.
 4. Use **Refresh** to collect enabled sources. Inspect both the results and any coverage notes.
@@ -24,9 +25,10 @@ Chinese browser language. Documentation language does not change application set
 
 ## Confirm your first result
 
-A source is useful only when its native file/database contains a nonempty usage record.
-Installing an agent, finding its directory or opening an empty session does not prove
-that tokens can be collected. A request can also be recorded without known token fields.
+Collection reads usage saved in local agent files/databases. A newly installed agent or
+an empty session may not have any usage yet. Some clients record requests without token
+fields; those values remain unknown. Check [client support](/guide/clients/) for format
+and version limits.
 
 If no data appears, check the selected user, time range, source enablement, data path
 and source status. Follow [troubleshooting](/guide/troubleshooting/) before changing or

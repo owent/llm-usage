@@ -24,9 +24,10 @@ counts, cached buckets or model attribution from those records.
 
 ## Does finding an installed client mean it is supported?
 
-Installation, configuration, parser implementation and real-token acceptance are distinct.
-Check the adapter matrix for the exact product/version/format. A document-level parser
-can exist without a native real sample, and an empty session is not a format acceptance test.
+Support depends on the exact product, version and local record format. Check
+[client support](/guide/clients/) and the adapter matrix for version limits and formats
+that still lack native usage samples. An installed client or empty session may not have
+saved usage to collect.
 
 ## Can I collect WSL, container or remote account data?
 

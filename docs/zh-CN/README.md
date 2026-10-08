@@ -26,14 +26,15 @@
 [英文仓库 README](../../README.md)
 
 LLM Usage 是 AI 用量看板，统计各模型的 token、请求和缓存使用。
-目前处于预发布阶段，已实现总览、趋势、详情、数据源和设置；支持范围及本轮结果见执行计划。
+目前处于预发布阶段，已实现总览、趋势、详情、数据源和设置。
 支持完整标准化明细导入/Merge，以及默认关闭的日/月 token 或单币种估算用量和费用提醒。
 
-已确认 Windows 11 x64 首发，GitHub CI 保留 macOS/Linux，本地可尝试 WSL 构建。
-tag 发行提供 Windows/Linux/macOS 各自 x64、arm64 的 `.tar.zst` 便携包，
-使用方式见[安装说明](https://llm-usage.atframe.work/zh-cn/start/installation/)。
-来源能力与环境受限条件保留在接入矩阵，缺安装或本地记录的 F1 IDE 已移出本轮；仅统计本机来源，支持在界面配置定时提取。
-用户已允许实施时提取本机真实 Agent 数据验证。
+[下载最新 Release](https://github.com/owent/llm-usage/releases/latest)，选择适合 Windows、Linux 或 macOS
+的 x64、arm64 软件包。便携包使用 `.tar.zst`，同时提供 Windows x64 安装器。
+使用方法见[安装说明](https://llm-usage.atframe.work/zh-cn/start/installation/)。
+
+采集读取本机 Agent 记录，可在界面配置定时提取。
+支持的格式、版本及来源限制见[接入矩阵](docs/design/desktop-usage/adapters.md)。
 
 [![中文总览，展示今日调用、token 汇总及缓存读取占比](../site/public/screenshots/zh-CN/overview-light.png)](../site/public/screenshots/zh-CN/overview-light.png)
 

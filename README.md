@@ -24,16 +24,16 @@
 
 LLM Usage is an AI usage dashboard: model tokens, requests and caching.
 It is currently pre-alpha, with Overview, Trends, Details, Sources and Settings implemented.
-The execution plan records support and current acceptance. Complete normalized detail import/merge
-and optional daily/monthly token or single-currency estimated-cost reminders are implemented.
+It supports complete normalized detail import/merge and optional daily/monthly token or
+single-currency estimated-cost reminders.
 
-Windows 11 x64 is the first desktop target; GitHub CI retains macOS/Linux, and local WSL builds
-can be attempted separately. Tagged releases provide Windows/Linux/macOS x64 and arm64
-portable `.tar.zst` archives; see [package instructions](https://llm-usage.atframe.work/start/installation/).
-The adapter matrix preserves source capabilities and environment limits.
-F1 IDEs without an installation/local usage files were removed from this round, without claiming unsupported
-products. Collection is limited to local sources and can be scheduled in the UI. Read-only extraction
-of local real agent data for implementation validation has already been authorized.
+[Download the latest Release](https://github.com/owent/llm-usage/releases/latest) for Windows,
+Linux or macOS in x64 or arm64. Portable packages use `.tar.zst`; a Windows x64 installer
+is also available. See [installation instructions](https://llm-usage.atframe.work/start/installation/).
+
+Collection reads local agent records and can be scheduled in the UI. The
+[adapter matrix](docs/design/desktop-usage/adapters.md) lists supported formats, versions
+and source limitations.
 
 [![English Overview with today's calls, token totals and cache-read share](docs/site/public/screenshots/en/overview-light.png)](docs/site/public/screenshots/en/overview-light.png)
 
