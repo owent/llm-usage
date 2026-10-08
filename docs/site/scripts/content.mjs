@@ -26,6 +26,10 @@ export async function files(directory) {
 export function repoPath(path) { return relative(root, path).replaceAll('\\', '/'); }
 export function chinesePath(path) { return resolve(root, 'docs/zh-CN', repoPath(path)); }
 
+export function documentationId(entry) {
+  return entry.replaceAll('\\', '/').replace(/\.(md|mdx)$/, '').replace(/\/index$/, '');
+}
+
 export function bilingualDocument(key) {
   return /\.mdx?$/.test(key) && !key.startsWith('docs/zh-CN/')
     && !key.startsWith('docs/site/') && !key.startsWith('.agents/')
@@ -71,10 +75,13 @@ export function rewriteLinks(body, source, documents) {
     const mirrorRelative = relative(mirror, physical);
     const isMirror = mirrorRelative !== '..' && !mirrorRelative.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`) && !/^(?:[a-z]:|\/)/i.test(mirrorRelative);
     const resolved = isMirror ? resolve(root, mirrorRelative) : physical;
+    const publicAsset = repoPath(resolved);
+    const screenshot = publicAsset.startsWith('docs/site/public/screenshots/')
+      ? `/${publicAsset.slice('docs/site/public/'.length)}` : null;
     const document = documents.has(resolved) ? resolved : documents.has(resolve(resolved, 'README.md')) ? resolve(resolved, 'README.md') : null;
-    const href = document
+    const href = screenshot ?? (document
       ? `${isMirror ? '/zh-cn/' : '/'}${route(document)}/${fragment ? `#${fragment}` : ''}`
-      : `https://github.com/owent/llm-usage/blob/main/${repoPath(resolved)}${fragment ? `#${fragment}` : ''}`;
+      : `https://github.com/owent/llm-usage/blob/main/${repoPath(resolved)}${fragment ? `#${fragment}` : ''}`);
     const raw = body.slice(start, end);
     const offset = raw.lastIndexOf(target);
     if (offset < 0) throw new Error(`Cannot locate Markdown URL in ${repoPath(source)}: ${target}`);

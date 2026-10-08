@@ -32,6 +32,8 @@ const pageFor = async options => {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, ...options });
   contexts.push(context);
   const page = await context.newPage();
+  page.setDefaultTimeout(15000);
+  page.setDefaultNavigationTimeout(30000);
   page.on('pageerror', error => errors.push(error.message));
   page.on('request', request => { if (!request.url().startsWith(base) && !request.url().startsWith('data:')) outbound.push(request.url()); });
   return page;
@@ -101,6 +103,69 @@ try {
     checks.push(`${language} mobile navigation`);
   }
   const keyboard = await pageFor({ locale: 'en' });
+  for (const language of ['en', 'zh-CN']) {
+    const prefix = language === 'en' ? '' : '/zh-cn';
+    const home = await pageFor({ locale: language, colorScheme: 'dark' });
+    await home.goto(`${base}${prefix}/`);
+    await home.waitForFunction(() => document.documentElement.dataset.theme === 'dark');
+    const figures = home.locator('figure.app-screenshot');
+    assert.equal(await figures.count(), 5, 'All five application pages have homepage examples');
+    for (const theme of ['light', 'dark']) {
+      await home.locator('starlight-theme-select select').first().selectOption(theme);
+      await home.waitForFunction(theme => document.documentElement.dataset.theme === theme, theme);
+      for (const [index, section] of ['overview', 'trend', 'details', 'sources', 'settings'].entries()) {
+        const figure = figures.nth(index);
+        await figure.scrollIntoViewIfNeeded();
+        assert.equal(await figure.getAttribute('data-language'), language);
+        const original = `/screenshots/${language}/${section}-${theme}.png`;
+        const link = figure.locator('a:visible');
+        assert.equal(await link.count(), 1, 'Only the selected theme is visible and focusable');
+        assert.equal(await link.getAttribute('href'), original);
+        const image = link.locator('img');
+        assert.equal(await image.getAttribute('src'), original);
+        assert.ok(await image.getAttribute('alt'), 'The screenshot has a readable description');
+        await home.waitForFunction(path => {
+          const img = document.querySelector(`figure.app-screenshot img[src="${path}"]`);
+          return img?.complete && img.naturalWidth === 2880 && img.naturalHeight === 2000;
+        }, original);
+        const size = await image.evaluate(img => ({ width: img.clientWidth, height: img.clientHeight }));
+        assert.ok(Math.abs(size.width / size.height - 2880 / 2000) < .02, 'The screenshot retains its original aspect ratio');
+      }
+      await home.evaluate(() => scrollTo(0, 0));
+      await home.screenshot({ path: join(artifacts, `${language}-home-${theme}.png`), fullPage: true });
+    }
+    checks.push(`${language} homepage: five localized screenshots, manual theme selection, original links and PNG dimensions`);
+    for (const width of [320, 390, 768]) {
+      await home.setViewportSize({ width, height: 900 });
+      await figures.last().scrollIntoViewIfNeeded();
+      assert.ok(await home.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `Homepage has no document-wide overflow at ${width}px`);
+      for (const figure of await figures.all()) {
+        const box = await figure.boundingBox();
+        assert.ok(box.x >= 0 && box.x + box.width <= width + 1, 'Screenshots and captions fit the viewport');
+      }
+      await home.evaluate(() => scrollTo(0, 0));
+      await home.screenshot({ path: join(artifacts, `${language}-home-${width}.png`) });
+    }
+    await home.setViewportSize({ width: 1440, height: 1000 });
+    const originalLink = figures.first().locator('a:visible');
+    await originalLink.focus();
+    await home.keyboard.press('Enter');
+    await home.waitForURL(`${base}/screenshots/${language}/overview-dark.png`);
+    await home.waitForFunction(() => document.querySelector('img')?.naturalWidth === 2880);
+    checks.push(`${language} homepage: 320/390/768px layouts and keyboard access to the original image`);
+    for (const [route, section] of [['reference/repository/readme', 'overview'], ['guide/dashboard', 'details']]) {
+      await home.goto(`${base}${prefix}/${route}/`);
+      const image = home.locator(`.sl-markdown-content img[src="/screenshots/${language}/${section}-light.png"]`);
+      assert.equal(await image.count(), 1, 'The guide or README uses its matching-language screenshot');
+      await image.scrollIntoViewIfNeeded();
+      await home.waitForFunction(path => {
+        const img = document.querySelector(`img[src="${path}"]`);
+        return img?.complete && img.naturalWidth === 2880;
+      }, `/screenshots/${language}/${section}-light.png`);
+      assert.equal(await image.locator('..').getAttribute('href'), `/screenshots/${language}/${section}-light.png`);
+    }
+    checks.push(`${language} README and dashboard: localized examples and original-image links`);
+  }
   await keyboard.goto(`${base}/guide/dashboard/`);
   await keyboard.keyboard.press('Tab');
   assert.equal(await keyboard.evaluate(() => document.activeElement?.getAttribute('href')), '#_top', 'Skip link is first keyboard target');

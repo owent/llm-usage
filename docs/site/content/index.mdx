@@ -17,6 +17,14 @@ hero:
 ---
 
 import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+import AppScreenshot from '@docs/components/AppScreenshot.astro';
+
+<AppScreenshot page="overview" language="en" alt="English Overview page showing today's calls, input and output tokens, and cache-read share" eager>
+  Overview in version 0.2.1. Actual Windows desktop UI with isolated synthetic demo data.
+</AppScreenshot>
+
+Screenshots use English application labels and follow this site's theme. See
+[screenshot privacy](/guide/privacy/) for capture details.
 
 <CardGrid>
   <Card title="Token and quota statistics" icon="chart">
@@ -36,6 +44,46 @@ import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
     acceptance records alongside the implementation.
   </Card>
 </CardGrid>
+
+## Usage trends
+
+Select a time range, agent and model to compare recorded calls, token usage and cache-read
+share. Charts support interval selections; totals and model rows follow the selected interval.
+See the [dashboard guide](/guide/dashboard/).
+
+<AppScreenshot page="trend" language="en" alt="English Trends page with a 30-day summary, cache-read share and token chart">
+  Trends with 240 synthetic calls over 30 days. Unknown session and duration values remain —.
+</AppScreenshot>
+
+## Record details
+
+Inspect the time, agent, model, input, cache-read and output fields of individual normalized
+records. Filter the table by time range, agent and model. Prompts, responses and tool output
+are excluded. Read [record fields](/guide/dashboard/#record-details).
+
+<AppScreenshot page="details" language="en" alt="English Details table with timestamps, agents, models, token fields and session identifiers">
+  Details for synthetic Codex records. The source did not report duration values.
+</AppScreenshot>
+
+## Source management
+
+Enable local sources, assign their user and choose their collection schedule. Source status
+and the last successful collection help identify which files need attention. See
+[source management](/guide/sources/) and [client support](/guide/clients/) for verified formats.
+
+<AppScreenshot page="sources" language="en" alt="English Sources page with a Codex source, enable switch, collection schedule and user assignment">
+  One isolated demo source. The Demo path replaces only the test directory shown in the UI.
+</AppScreenshot>
+
+## Language and appearance
+
+Choose English or Simplified Chinese, a light or dark theme, and the statistical timezone.
+Manual source directories can restrict collection to the files you select. See
+[language and accessibility](/guide/accessibility/) and [collection settings](/guide/scheduling/).
+
+<AppScreenshot page="settings" language="en" alt="English Settings page with language, theme, timezone and manual source controls">
+  General settings for the isolated demo. Language and statistical timezone are separate settings.
+</AppScreenshot>
 
 ## Documentation
 

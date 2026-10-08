@@ -1,0 +1,62 @@
+---
+interface Props {
+  page: 'overview' | 'trend' | 'details' | 'sources' | 'settings';
+  language: 'en' | 'zh-CN';
+  alt: string;
+  eager?: boolean;
+}
+
+const { page, language, alt, eager = false } = Astro.props;
+const fullSize = language === 'zh-CN' ? '查看原图' : 'View full-size image';
+const hint = language === 'zh-CN' ? '选择图片可查看原图。' : 'Select the image to view it at full size.';
+---
+
+<figure class="app-screenshot" data-page={page} data-language={language}>
+  <div class="screenshot-frame">
+    {(['light', 'dark'] as const).map(theme => (
+      <a class={`screenshot-${theme}`} href={`/screenshots/${language}/${page}-${theme}.png`}
+        aria-label={`${alt}. ${fullSize}`}>
+        <img src={`/screenshots/${language}/${page}-${theme}.png`} alt={alt}
+          width="2880" height="2000" loading={eager ? 'eager' : 'lazy'} decoding="async" />
+      </a>
+    ))}
+  </div>
+  <figcaption>
+    <span><slot /></span>
+    <span class="screenshot-hint">{hint}</span>
+  </figcaption>
+</figure>
+
+<style>
+  .app-screenshot { margin: 1.5rem 0 2.5rem; }
+  .screenshot-frame {
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 1rem;
+    background: var(--sl-color-bg);
+    box-shadow: 0 16px 48px #00000018;
+  }
+  .screenshot-frame a { display: block; border-radius: inherit; }
+  .screenshot-frame img {
+    display: block;
+    width: 100%;
+    height: auto;
+    margin: 0;
+    border: 0;
+    border-radius: inherit;
+    box-shadow: none;
+  }
+  .screenshot-frame .screenshot-dark { display: none; }
+  :global(:root[data-theme='dark']) .screenshot-light { display: none; }
+  :global(:root[data-theme='dark']) .screenshot-dark { display: block; }
+  figcaption {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .25rem 1rem;
+    justify-content: space-between;
+    margin-top: .75rem;
+    color: var(--sl-color-gray-2);
+    font-size: .875rem;
+    line-height: 1.6;
+  }
+  .screenshot-hint { color: var(--sl-color-text-accent); }
+</style>

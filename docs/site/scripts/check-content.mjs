@@ -66,6 +66,12 @@ for (const page of pages) {
   const body = await readFile(page, 'utf8');
   if (!/^---\r?\n/.test(body) || !/^title: .+/m.test(body)) problems.push(`Missing guide title: ${repoPath(page)}`);
   const locale = relative(authored, page).replaceAll('\\', '/').startsWith('zh-cn/') ? 'zh-CN' : 'en';
+  for (const [, attributes] of body.matchAll(/<AppScreenshot\b([^>]*)>/g)) {
+    if (attributes.match(/\blanguage="([^"]+)"/)?.[1] !== locale) {
+      problems.push(`Screenshot component language mismatch: ${repoPath(page)}`);
+    }
+    if (!/\balt="[^"]+"/.test(attributes)) problems.push(`Missing screenshot description: ${repoPath(page)}`);
+  }
   for (const [, image] of body.matchAll(/\]\((\/screenshots\/[^)]+)\)/g)) {
     if (!image.startsWith(`/screenshots/${locale}/`)) problems.push(`Screenshot language mismatch: ${repoPath(page)} → ${image}`);
   }

@@ -31,9 +31,23 @@ Give authored pages a title, concise description and sidebar order. Add the Chin
 with the same filename and appropriate localized links. Keep English and Chinese screenshots
 separate. Use meaningful alt text and explain synthetic screenshot provenance.
 
+On MDX pages, import `@docs/components/AppScreenshot.astro` and pass a page name (`overview`, `trend`,
+`details`, `sources` or `settings`), the matching language (`en` or `zh-CN`) and localized
+alt text. Put the caption inside the component. It selects the light/dark original with
+the site's theme and links to the full-size PNG. Use `eager` for the leading example;
+later images load lazily. Keep examples full-width so controls and labels have space.
+Markdown guides can link a localized PNG directly; relative screenshot links in repository
+READMEs become local `/screenshots/` links when those documents are published on the site.
+The `@docs/` alias resolves against `docs/site/src/` even after build preparation copies
+the authored page into `build/`; relative component imports would resolve from that copy.
+
 Build preparation imports the user, architecture and development documents into reference categories and rewrites
 document/source links through Markdown syntax nodes. It leaves fenced examples intact and
 preserves version punctuation in routes. Generated reference pages have no separate editable copy.
+The content loader removes a trailing `/index` from nested page IDs. This makes
+`zh-cn/index.mdx` the Chinese language root (`zh-cn`) and prevents Starlight from
+creating an English fallback at the same URL. The root `index.mdx` retains ID `index`,
+which Starlight normalizes itself. Version punctuation in all other IDs is preserved.
 
 The translation review manifest stores the checked English/Chinese hashes. Missing pairs
 or changes without corresponding review fail the content check. Check both languages for

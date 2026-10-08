@@ -33,6 +33,12 @@ F1 IDEs without an installation/local usage files were removed from this round, 
 products. Collection is limited to local sources and can be scheduled in the UI. Read-only extraction
 of local real agent data for implementation validation has already been authorized.
 
+[![English Overview with today's calls, token totals and cache-read share](docs/site/public/screenshots/en/overview-light.png)](docs/site/public/screenshots/en/overview-light.png)
+
+*Overview in version 0.2.1: actual Windows desktop UI with isolated synthetic demo data.
+Select the image to view the original 2880×2000 PNG. The documentation homepage also
+illustrates trends, record details, source management and settings in both themes.*
+
 <a id="文档"></a>
 
 ## Documentation

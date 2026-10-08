@@ -50,6 +50,19 @@ Agent, provider, model and billing channel are separate identities. A model name
 establish the actual billing provider or subscription channel. Price reference rows can
 therefore be incomplete even when token usage is known.
 
+## Record details
+
+Open Details to inspect normalized records for the selected user. Choose a time range,
+agent and model to narrow the table. Each row shows its timestamp, source agent, model,
+record category, known token fields, duration and session identifier when available.
+The table excludes prompts, responses and tool output. A row may represent a usage
+observation rather than an individual call; read its category and source field rules.
+
+[![English Details table with timestamps, models and token fields](/screenshots/en/details-light.png)](/screenshots/en/details-light.png)
+
+*Actual English desktop UI with isolated synthetic Codex records, in light theme.
+Unknown durations appear as —. Select the image to view the original 2880×2000 PNG.*
+
 ## Layout and accessibility
 
 Overview and Trends panels can be hidden or reordered. Use the layout controls and reset

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
-import { root, route, rewriteLinks, pairedAnchors, referenceBody, bilingualDocument } from '../scripts/content.mjs';
+import { root, route, rewriteLinks, pairedAnchors, referenceBody, bilingualDocument, documentationId } from '../scripts/content.mjs';
 
 test('bilingual publication includes guides and designs without translating agent skills or execution plans', () => {
   for (const key of ['README.md', 'desktop/assets/README.md', 'docs/design/documentation-site.md', 'docs/design/desktop-usage/architecture.md', 'docs/design/desktop-usage/validation.md', 'docs/validation/desktop-usage/current-acceptance.md', 'desktop/src-tauri/crates/core/tests/fixtures/codex/README.md', 'previous-draft/README.md']) assert.equal(bilingualDocument(key), true, key);
@@ -43,6 +43,28 @@ test('Markdown links, nested image links and code examples retain their distinct
   assert.ok(rendered.includes('[plan](/zh-cn/reference/repository/plan/#progress)'));
   assert.ok(rendered.includes('```md\n[example](Plan.md)\n```'));
   assert.ok(!rendered.includes('https://example.org'));
+});
+
+test('localized index IDs identify translated roots without changing versioned document paths', () => {
+  assert.equal(documentationId('index.mdx'), 'index');
+  assert.equal(documentationId('zh-cn/index.mdx'), 'zh-cn');
+  assert.equal(documentationId('reference/comments/index.md'), 'reference/comments');
+  assert.equal(documentationId('zh-cn/reference/comments/index.md'), 'zh-cn/reference/comments');
+  assert.equal(documentationId('zh-cn/reference/fixtures/opencode/real-1.18.34-local-default/expectations.md'),
+    'zh-cn/reference/fixtures/opencode/real-1.18.34-local-default/expectations');
+});
+
+test('repository screenshot links publish local original PNGs for both languages', () => {
+  for (const [source, language, target] of [
+    ['README.md', 'en', 'docs/site/public/screenshots/en/overview-light.png'],
+    ['docs/zh-CN/README.md', 'zh-CN', '../site/public/screenshots/zh-CN/overview-light.png'],
+  ]) {
+    const body = `[![Overview](${target})](${target})`;
+    assert.equal(rewriteLinks(body, resolve(root, source), new Set()),
+      `[![Overview](/screenshots/${language}/overview-light.png)](/screenshots/${language}/overview-light.png)`);
+  }
+  const body = '[source](docs/site/src/components/AppScreenshot.astro)';
+  assert.ok(rewriteLinks(body, resolve(root, 'README.md'), new Set()).includes('https://github.com/owent/llm-usage/blob/main/docs/site/src/components/AppScreenshot.astro'));
 });
 
 test('paired heading aliases preserve translated deep-link targets without duplicate traversal', () => {

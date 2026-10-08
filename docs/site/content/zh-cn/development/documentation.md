@@ -26,8 +26,20 @@ AI 规则、`.agents/skills/`、`Plan.md` 和 `docs/design/desktop-usage/executi
 撰写页提供标题、简洁描述和侧栏顺序；新增同名中文页并使用对应语言链接。
 中英文截图分开，提供有意义的 alt 及合成来源说明。
 
+MDX 页面导入 `@docs/components/AppScreenshot.astro`，传入页面名（`overview`、`trend`、`details`、
+`sources` 或 `settings`）、对应语言（`en` 或 `zh-CN`）及该语言的替代文字。
+图注放在组件内部。组件按站点主题选择亮色或暗色原图，并链接到完整尺寸的 PNG。
+首张示例使用 `eager`，后续图片按需加载。示例占满内容行，给控件和文字留出空间。
+Markdown 指南可以直接链接对应语言的 PNG；仓库 README 的相对截图链接在发布到
+站点时转换为站内 `/screenshots/` 链接。
+`@docs/` 别名相对于 `docs/site/src/` 解析；构建准备将撰写页复制到 `build/` 后仍然有效。
+相对组件导入则会按复制后的文件位置解析。
+
 构建准备将使用文档、架构设计和开发文档导入参考类别，通过 Markdown 语法节点转换文档/源码链接，
 不改变代码块示例，并保留 route 中版本标点。不创建额外可编辑设计说明副本。
+内容加载器去除嵌套页面 ID 末尾的 `/index`，使 `zh-cn/index.mdx` 对应中文语言根
+`zh-cn`，避免 Starlight 在同一 URL 生成英文回退页。根目录 `index.mdx` 保持 ID `index`，
+由 Starlight 自行规范。其他 ID 中的版本标点保持不变。
 
 翻译核验清单保存已检查双方哈希。缺配对或修改后未经对应审查时内容检查失败。
 更新核验条目前检查双方含义和完整性；哈希相符本身不证明翻译质量。

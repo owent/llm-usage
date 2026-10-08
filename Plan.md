@@ -71,14 +71,16 @@ language behavior, screenshot provenance and deployment acceptance.
 - [x] Complete required-document translation and source-comment reference checks.
 - [x] Verify the local production build, localized search, language negotiation, themes, keyboard navigation and mobile layout.
 - [x] Review 20 real English/Chinese screenshots from isolated synthetic sources, in both themes at 2880×2000 pixels.
+- [x] Add five localized feature screenshots to each homepage, plus README and record-details examples; verify theme switching and original-image links.
 - [ ] Publish the compiled site to gh-pages and configure/test automatic publication.
 - [ ] Verify Pages deployment, custom-domain DNS and HTTPS independently.
 
 Current coverage: all 199 required repository document pairs and 21 guide pairs reviewed,
 and all 7939 comment pairs across 460 source files reviewed. Complete product/document checks
-passed; 1363 pages and 2851 files built, with 12 browser checks passed. Remote publication still
-needs verification. Remote main is behind local main by an existing application commit whose
-push scope awaits user clarification. Translation uses the current language model, with complete
+passed; 1363 pages and 2851 files built, with 18 browser checks passed. Remote publication still
+needs verification. The user pushed the initial bilingual documentation and preceding application
+commit as af64b8951936c5b009640537cdad51e1f4da4164. Its CI build passed; publication failed because
+Pages settings have not been initialized. First-time setup and DNS remain pending. Translation uses the current language model, with complete
 pair review and contextual wording checks. First failures, validation commands and exact remaining work are in the
 [documentation record](docs/validation/desktop-usage/documentation-site.md).
 

@@ -34,7 +34,7 @@ body { text-rendering: optimizeLegibility; }
 .site-title { font-weight: 750; letter-spacing: -.025em; }
 .site-title img { width: 2.15rem; height: 2.15rem; border-radius: .65rem; }
 h1, h2, h3 { letter-spacing: -.025em; }
-.hero h1 { font-size: clamp(2.5rem, 6vw, 4.6rem); line-height: 1.07; max-width: 13ch; }
+.hero h1 { font-size: clamp(2.5rem, 6vw, 4.6rem); line-height: 1.07; max-width: 13ch; text-wrap: balance; }
 .hero .tagline { line-height: 1.65; max-width: 36rem; }
 .sl-markdown-content { line-height: 1.8; }
 .sl-markdown-content img { border: 1px solid var(--sl-color-gray-5); border-radius: .8rem; box-shadow: 0 12px 40px #00000018; }

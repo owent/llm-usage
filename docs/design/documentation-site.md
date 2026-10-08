@@ -75,6 +75,15 @@ original PNG pixels, readable labels and useful example data; no watermark
 or AI-generated reconstruction. Record application version, viewport, theme, language,
 data provenance and checks. Screenshots illustrate the UI, not real-provider acceptance.
 
+The homepage pairs feature descriptions with full-width screenshots of Overview, Trends,
+Details, Sources and Settings. Use the page's language and the selected site theme, including
+an explicit theme that differs from the system setting. Keep the original image aspect ratio,
+provide localized alt text and captions, and link to the original PNG for readable details on
+small screens. Load later screenshots lazily. Repository READMEs show a localized Overview
+example; the dashboard guide includes a Details example beside its field explanation.
+Disclose synthetic data beside the images. Browser checks verify image loading, language,
+theme switching, original-image links, keyboard access and layout at narrow widths.
+
 <a id="构建与发布"></a>
 
 ## Build and publication

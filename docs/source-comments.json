@@ -57054,18 +57054,18 @@
       ]
     },
     "docs/site/scripts/content.mjs": {
-      "codeHash": "9d7d51bb1e7858a7e82873dc294ae83271bc955bffc3d298cccc45c242e59f23",
+      "codeHash": "29bedbddf8ee50956fca1055b5624d48aa2ae0c74b0990982dd322b1c3bfb57c",
       "comments": [
         {
           "id": "15b0d967b378111b",
-          "line": 63,
+          "line": 67,
           "kind": "line",
           "en": "// Preserve reference badge text without sending requests to third-party image hosts.",
           "zh": "// 保留参考徽章的文字，不向第三方图片服务发起请求。"
         },
         {
           "id": "f3a9326d4121a992",
-          "line": 143,
+          "line": 150,
           "kind": "line",
           "en": "// Skill metadata is source documentation, not Starlight's page configuration.",
           "zh": "// Skill 元数据属于源码文档，不作为 Starlight 页面配置。"

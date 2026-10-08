@@ -33,6 +33,12 @@
 来源能力与环境受限条件保留在接入矩阵，缺安装或本地记录的 F1 IDE 已移出本轮；仅统计本机来源，支持在界面配置定时提取。
 用户已允许实施时提取本机真实 Agent 数据验证。
 
+[![中文总览，展示今日调用、token 汇总及缓存读取占比](../site/public/screenshots/zh-CN/overview-light.png)](../site/public/screenshots/zh-CN/overview-light.png)
+
+*0.2.1 版本总览：实际 Windows 桌面界面，使用隔离的合成演示数据。
+选择图片可查看 2880×2000 原 PNG。文档首页还展示趋势、记录详情、数据源管理及设置，
+并提供亮暗两种主题。*
+
 <a id="documentation"></a>
 
 ## 文档

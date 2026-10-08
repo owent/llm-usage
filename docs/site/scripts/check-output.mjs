@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { resolve, dirname } from 'node:path';
+import { resolve, dirname, relative } from 'node:path';
 import { output, files } from './content.mjs';
 import { screenshotProblems } from './screenshots-check.mjs';
 
@@ -20,6 +20,10 @@ for (const path of paths.filter(path => path.endsWith('.html'))) {
 }
 for (const path of paths.filter(path => path.endsWith('.html'))) {
   const { body } = html.get(path);
+  const language = relative(output, path).replaceAll('\\', '/').startsWith('zh-cn/') ? 'zh-CN' : 'en';
+  for (const [, imageLanguage] of body.matchAll(/<img\b[^>]*\bsrc="\/screenshots\/([^/]+)\//g)) {
+    if (imageLanguage !== language) failures.push(`${path}: screenshot language differs from page language`);
+  }
   if (body.includes('version https://git-lfs.github.com/spec/v1')) failures.push(`LFS pointer rendered in ${path}`);
   for (const [, encoded] of body.matchAll(/(?:href|src)="([^"]*)"/g)) {
     const target = entities(encoded);

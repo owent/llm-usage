@@ -17,9 +17,10 @@ negotiation with explicit preference, system/light/dark themes and local Pagefin
 No third-party browser requests were observed in the browser checks.
 
 The user authorized documentation publication, including gh-pages and the custom domain.
-Earlier application repairs remain separate local changes; no commits, pushes or remote
-publication were performed for this documentation work. Temporary logs, databases, generated
-content and previews stay under build/documentation-site/.
+Before this screenshot update, the user committed and pushed the initial bilingual documents
+as af64b8951936c5b009640537cdad51e1f4da4164, including the preceding application commit.
+The screenshot update changes documentation and site tooling. Temporary logs, databases,
+generated content and previews stay under build/documentation-site/.
 
 <a id="已实施内容与剩余覆盖"></a>
 
@@ -54,7 +55,7 @@ comments because they contained `#`. The scanner now skips complete template exp
 including quoted delimiters, while retaining actual inline hash comments permitted by the
 [NSIS syntax reference](https://nsis.sourceforge.io/Docs/Chapter4.html#4.1). Two regressions check
 template/non-comment preservation and all 32 conditional/loop directives in the actual installer.
-The repository inventory is now 538 source files, including 460 files with 7939 actual comments.
+The repository inventory is now 539 source files, including 460 files with 7939 actual comments.
 The first real-installer regression used an incorrect repository-relative path and failed with
 ENOENT; correcting that path made all 22 documentation tests pass. Installer translation
 preserved executable content, template directives and license notices; this is not new package-lifecycle acceptance.
@@ -122,6 +123,27 @@ The provenance file records version, executable digest, capture time, language, 
 dimensions and each image digest. Screenshots contain no watermark, account data or conversations.
 Guides use matching-language images and links to full-size PNGs.
 
+Both homepages now show Overview, Trends, Details, Sources and Settings beside their
+feature descriptions. Their images follow the selected site theme, including a manual
+light selection on a dark system. English/Chinese READMEs show the corresponding Overview;
+the dashboard guides include Details with field explanations. Captions disclose synthetic
+data, describe unknown values and link to the original PNGs. The 20 native images are reused
+without changing pixels or capture provenance. Full-width images retain their aspect ratio,
+later images load lazily, and small screens can open the original for readable details.
+
+The first placement build failed because relative component imports resolved from the
+generated build directory. The installed Astro alias implementation confirmed that a fixed
+@docs/ alias can resolve against docs/site/src; using it corrected the build. Preserve
+build/documentation-site/screenshots-docs-build-first-failure.log.
+The new browser checks then found that /zh-cn/ rendered English homepage content and images
+despite its Chinese html language. Starlight 0.42.5 routing normalized only the root index ID;
+the custom loader kept zh-cn/index, so a fallback route for zh-cn replaced its rendered content.
+Removing trailing /index from nested IDs corrected this without changing public URLs or
+version punctuation. Preserve screenshots-docs-browser-first-failure.log. Unit checks now
+cover index IDs and local README image links; output checks reject mismatched screenshot
+languages, and browser checks inspect loaded images rather than only the html language.
+Visual review also balanced the mobile hero heading to avoid a single-character final line.
+
 The first attempts exposed source-isolation issues: omitting HOME could discover host sources;
 a synthetic USERPROFILE prevented WebView2 CDP startup; using an isolated HOME alone still
 allowed fixed absolute source candidates. One attempt observed 279 calls instead of 240.
@@ -138,16 +160,17 @@ and pixel assertions corrected it; all final files match 2880×2000 and their re
 ## Validation results
 
 Commands ran from the repository root with the installed toolchain. Results were refreshed on
-2026-10-08 for all 460 source files and 220 document pairs. After adding publication timeouts,
-content, type and unit checks passed again; that change does not alter static pages or browser behavior.
+2026-10-08 for all 460 commented source files and 220 document pairs. The latest documentation
+checks cover the feature screenshots and Chinese homepage correction. The product results
+and native screenshot capture below precede these documentation-only changes.
 
 | Check | Observed result |
 | --- | --- |
 | npm run verify | Passed with the complete corpus: 1032 Rust tests passed, 8 remained ignored; 22 UI and 5 script tests passed; Markdown, Svelte, fmt, clippy and frontend build passed |
-| npm run test:docs | 22 tests passed; NSIS template preservation, empty-comment references, document scope, language selection, Markdown links/anchors, source parsing, Pages configuration and publication integrity |
-| npm run check:docs | All 199 repository pairs, 21 guide pairs and source comments synchronized; Astro checked 29 files with zero errors, warnings or hints |
+| npm run test:docs | 24 tests passed; localized index IDs and local screenshot links, NSIS template preservation, empty-comment references, document scope, language selection, Markdown links/anchors, source parsing, Pages configuration and publication integrity |
+| npm run check:docs | All 199 repository pairs, 21 guide pairs and source comments synchronized; Astro checked 30 files with zero errors, warnings or hints |
 | npm run build:docs | Complete build: 1363 pages / 2851 files passed; links/fragments, language roots, local search, domain markers and screenshot digests/dimensions checked |
-| npm run test:docs:browser | 12 checks passed on installed Edge; English/Chinese search, themes, root negotiation, explicit deep links, storage denial, no-JavaScript fallback, keyboard and mobile layout; zero JS errors/outbound requests |
+| npm run test:docs:browser | 18 checks passed on installed Edge; all five homepage screenshots in both languages/themes, original PNG links/dimensions, 320/390/768px layouts, README/Details examples, search, language choices, storage denial, no-JavaScript fallback and keyboard access; zero JS errors/outbound requests |
 | npm run docs:screenshots | 20 real native captures; correct language/theme, 240 isolated calls and declared pixel dimensions |
 | npm run lint:md | 451 files, zero issues, including this record |
 | cargo fmt --manifest-path desktop/src-tauri/Cargo.toml --all --check | Passed |
@@ -238,12 +261,16 @@ Initial Pages setup uses an authorized administrator's GitHub CLI session and th
 The configured source is gh-pages at / with llm-usage.atframe.work. The initial read-only
 inspection found no gh-pages branch, a Pages API 404 and no domain CNAME/A response.
 A later GitHub recheck encountered connection resets; this is a network failure rather than
-a verified change to remote settings. Read-only checks succeeded again on 2026-10-08: remote main is
-dda555f22b3092e444be19db3467b14159fcdd59; gh-pages is absent and Pages still returns 404.
-The authenticated user has repository administration permission. Local main has an additional
-unpushed application commit, 4296121185af04456d1e5fef29294781f4a100c7. Its push scope awaits
-user clarification; no remote writes were performed. Cloudflare hosts authoritative DNS,
-but the required CNAME is still absent and no DNS-editing connection for that zone is available.
+a verified change to remote settings. The user then pushed main, including the preceding
+application commit 4296121185af04456d1e5fef29294781f4a100c7. Read-only checks on 2026-10-08
+confirm that remote and local main are af64b8951936c5b009640537cdad51e1f4da4164;
+the earlier push-scope question is resolved by that user action. The authenticated user has
+repository administration permission. gh-pages is absent and Pages still returns 404.
+Documentation run 37712495970 passed its build job, including all local-equivalent checks,
+but publication failed while reading the uninitialized Pages settings. Preserve
+build/documentation-site/initial-remote-docs-ci-failure.log. First-time setup through the
+authorized administrator session is still required. Cloudflare hosts authoritative DNS;
+the required CNAME remains absent and no DNS-editing connection for that zone is available.
 
 DNS needs a CNAME for llm-usage.atframe.work pointing to owent.github.io. Verify DNS and
 HTTPS separately after configuring Pages; a CNAME file does not establish either.
