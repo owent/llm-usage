@@ -12,14 +12,6 @@ Design entry points: [product and architecture](docs/design/desktop-usage/README
 [deliverables](docs/design/desktop-usage/execution.md), [data rules](docs/design/desktop-usage/data-contract.md),
 [adapter matrix](docs/design/desktop-usage/adapters.md) and [acceptance criteria](docs/design/desktop-usage/validation.md).
 
-## Portable release work
-
-- [ ] Implement and verify six native Windows/Linux/macOS x64/arm64 portable `.tar.zst`
-  archives under the [platform requirements](docs/design/desktop-usage/platform-ci.md).
-  Release contains no Debian package; extracted programs, architecture, integrity and overwrite are checked.
-- [ ] Synchronize release version 0.2.2, commit/push the authorized change and publish v0.2.2
-  through the tag workflow. Record actual CI jobs, uploaded archive sizes/digests and remaining desktop limits.
-
 <a id="当前进度"></a>
 
 ## Current implementation
@@ -29,7 +21,7 @@ Design entry points: [product and architecture](docs/design/desktop-usage/README
 | M0/M1/M1a | Engineering baseline, SQLite transactions/recovery/statistics/backups, provenance and aggregate exchange. This round added complete normalized detail export, preview and transactional Merge, preserving revisions, conflicts, unknown values, cumulative data and archives; [detail merge rules](docs/design/desktop-usage/detail-merge.md). |
 | M2–M5/M8/M9 | Registered parsers, local telemetry and receiver authentication; real-sample labels apply only to tested versions/formats. M8 Zed adds 1.22.0 native external-provider samples for two models and caching. Claude Code 2.1.197 was downloaded through a domestic mirror and validated with native Zhipu main-loop usage for two models and old-database rereads; [record](docs/validation/desktop-usage/claude-container-sample.md). Per-source limits remain in the matrix. |
 | M6/F3 | Five pages, selections, retention/export, source schedules, pause/cancel, two-source concurrency, Windows tray/power/notifications and ten languages; [interaction/scheduling](docs/validation/desktop-usage/plan-finalization.md), [Linux Orca](docs/validation/desktop-usage/orca-multilang.md). |
-| M7 | Existing Windows NSIS, Linux packages/GTK/WebKit/FUSE/Orca, scale and resource acceptance. Historical CI/artifacts do not verify this round's code; [installation](docs/validation/desktop-usage/installation-lifecycle.md), [scale](docs/validation/desktop-usage/plan-execution.md), [existing CI](docs/validation/desktop-usage/ci-plan-validation.md). |
+| M7 | Six native Windows/Linux/macOS x64/arm64 portable archives and v0.2.2 draft publication/overwrite verification completed; [CI record](docs/validation/desktop-usage/ci-plan-validation.md). Existing Windows NSIS, Linux packages/GTK/WebKit/FUSE/Orca, scale and resource acceptance retain their original scope; [installation](docs/validation/desktop-usage/installation-lifecycle.md), [scale](docs/validation/desktop-usage/plan-execution.md). |
 | F2 | Costs, price snapshots, online cache/failure fallback and official API references. This round added default-off daily/monthly token or single-currency observation-time estimate reminders, exact thresholds and persistent deduplication; [usage and cost alert rules](docs/design/desktop-usage/budget-reminders.md). |
 | F1 | Authorized checks of candidate IDE installations and data paths found no testable installation/local usage files/database. Removed from this round without claiming the product is unsupported. |
 

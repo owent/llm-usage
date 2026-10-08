@@ -155,3 +155,88 @@ display. Local npm 12 initially rejected locked mirror tarballs; command-local
 global configuration. Documentation/comment hashes were reviewed and synchronized.
 Publication remains a draft and does not establish signing, notarization or new GUI/install
 acceptance. Later record-only commits leave the tested source/workflow unchanged.
+
+## Portable release v0.2.2
+
+On 2026-10-08, the user authorized Windows/Linux/macOS x64 and arm64 portable archives,
+no Debian package, increased zstd compression and publication through a new v0.2.2 tag.
+Root/desktop npm manifests and locks, Tauri configuration, both workspace Cargo manifests
+and their own Cargo.lock entries now agree on 0.2.2. The annotated tag points to
+39e74d09fa2b4e300dca3f7d0ba2edf4b6e95ba2; dependency versions remain locked.
+
+The six builds use native windows-2022/windows-11-arm, ubuntu-22.04/ubuntu-22.04-arm and
+macos-15-intel/macos-15 runners for x64/arm64 respectively. Each archive contains a
+versioned directory with its executable, complete resources and bilingual extraction/runtime
+instructions. Windows uses LLMUsage.exe; Linux includes extracted AppDir with AppRun and
+requires no FUSE mount; macOS includes the complete LLMUsage.app. Windows 11 uses system
+WebView2, Linux retains the Ubuntu 22.04/glibc 2.35 build baseline and compatible desktop,
+and macOS retains compatible system WebKit/Gatekeeper requirements. Data remains in the
+existing per-user directory; moving the program requires disabling owned scheduled tasks first.
+
+Packaging materializes tar before zstd -19 -T2 --long=27, runs zstd -t and verifies a fresh
+extraction against all file hashes, symbolic links and Unix modes. Executable headers must
+match the native matrix architecture. All six extracted executables pass actual headless
+SQLite/collection checks; both Linux archives additionally pass native Xvfb/WebKitWebDriver
+GUI/IPC collection and five-page navigation, with isolated source/data environments.
+Linux reports verify 370 tree entries; macOS verifies four and Windows two.
+
+Local Windows x64 used PowerShell 7, Node 24.21.0, npm 12.0.2, Rust 1.98.0, locked Tauri CLI
+2.12.0 and zstd 1.5.7. Commands exited 0: node --test desktop/scripts/*.test.mjs (13 tests),
+the extracted workflow checker (14 synthetic create/update/rejection cases), npm run lint:md
+(451 files), npm run check:docs (199 repository pairs, 21 guide pairs, 32 Astro files without
+diagnostics), npm run test:docs (31 tests), npm --prefix desktop run check, Cargo fmt and
+git diff --check. The direct desktop Tauri CLI built the actual Windows 0.2.2 executable/NSIS;
+version resources read back as 0.2.2. Its portable archive passed fresh-extraction/headless
+checks and native-smoke.mjs passed 19 actual WebView2/IPC/UI checks with three startup samples.
+The same 10,283,520-byte tar compressed to 4,843,925 bytes at zstd level 3 and 4,113,788 bytes
+at level 19, a 15.1% reduction without resource trimming. Fixture tests and workflow simulations
+are separate from native execution and real publication.
+
+First main run [37757778777](https://github.com/owent/llm-usage/actions/runs/37757778777)
+at 9d14217a5ce36c74dda90f61507e076225826c66 compiled both Linux targets but failed fresh
+extraction mode comparison: the default tar extraction umask removed group-write bits.
+The fix extracts with -p on Unix and adds 775/664 fixture coverage. At the tag's tested source,
+[main run 37759068722](https://github.com/owent/llm-usage/actions/runs/37759068722) passed
+all 11 required jobs (documents/frontend, three Rust and six builds); the tag-only publication
+job was skipped. Linux GUI and native credential checks passed. The tag was created only
+after this complete successful main run.
+
+[Tag run 37761919575](https://github.com/owent/llm-usage/actions/runs/37761919575)
+finished successfully after recovering the macOS x64 artifact-upload failure; all 12 logical
+jobs have successful results at the same source. Draft [v0.2.2](https://github.com/owent/llm-usage/releases/tag/untagged-564360182cf0e15d7e8a)
+has release ID 406718916, exact tag/name v0.2.2, that target commit and 13 assets:
+six portable .tar.zst archives, the retained Windows x64 NSIS installer and six platform reports.
+There is no deb, raw AppImage or gzip archive. The publication job hashes actual packages
+before upload and compares all uploaded GitHub sizes/digests. Six reports were independently
+downloaded, hashed and checked against the seven published packages' API sizes/SHA-256.
+
+A controlled title/body marker was applied with explicit tag_name and read back. Rerunning
+only the release job retained the same single draft ID, restored title/body/target metadata
+and replaced all 13 asset IDs while preserving every file size and digest. The final release
+attempt is 3; the independently downloaded reports were verified again after replacement.
+
+| Package | Bytes | SHA-256 |
+| --- | ---: | --- |
+| LLMUsage-0.2.2-windows-x64-portable.tar.zst | 4,117,621 | 0eca2969168447cb2c1e755b2c89626d4f7a44734778241bbd788e7c01c385d1 |
+| LLMUsage_0.2.2_x64-setup.exe | 4,046,000 | fdbcf85d1ed6ff73de55336669d5f427d8430fb2c72e847c94f8b9961c37b91a |
+| LLMUsage-0.2.2-windows-arm64-portable.tar.zst | 3,951,219 | ad91aa491272f2c13ac0f4b90489c3929f736d152a4ab584d8f30f1fc7f590d3 |
+| LLMUsage-0.2.2-linux-x64-portable.tar.zst | 72,899,343 | 67f2f64b5e054b6471d5daf907b7b1bc6d916985cf3e0b4233ac7d467c06b703 |
+| LLMUsage-0.2.2-linux-arm64-portable.tar.zst | 71,499,124 | 9151080f8e2fb18207b8823564e3c870b1da777b065d1032d1554316ba1e4eab |
+| LLMUsage-0.2.2-macos-x64-portable.tar.zst | 4,228,412 | 4d19e09a3f354a6b416b0345e0262c2d0690d96dbab1e274704914363d5ba1b9 |
+| LLMUsage-0.2.2-macos-arm64-portable.tar.zst | 3,965,860 | de180b5e1dc24b76ca3b8451d5bf9de533e7e2f633ade0bd731b993f5f82f114 |
+
+The first local root npm script rejected forwarded --bundles arguments under npm 12;
+the direct desktop Tauri CLI succeeded. Old 0.2.1/current 0.2.2 NSIS outputs initially made
+selection ambiguous; selection now requires the exact current-version filename and leaves
+old outputs intact. A mistaken log path was corrected to repository-root build/ before
+execution. The Windows sandbox launcher failed with CreateProcessAsUserW error 5; the approved
+execution path ran the unchanged checks. The first tag attempt's macOS x64 archive and
+headless checks passed, but GitHub CreateArtifact failed with DNS ENOTFOUND; the completed
+failed job was rerun after the whole attempt ended, without changing the tested source.
+
+Native Windows x64 GUI, Linux x64/arm64 CI GUI and six native headless results apply to
+their actual environments. They do not establish Windows arm64/macOS GUI, a new installer
+lifecycle, other Linux distributions or signing/notarization. The Release remains a draft.
+Task logs, fixtures and raw reports stay under ignored root build/portable-release-022/;
+the existing native smoke stores isolated evidence under root build/plan-completion/native/.
+Later acceptance-record commits leave source, workflow and lockfiles identical to the tag.

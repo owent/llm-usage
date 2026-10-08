@@ -2,7 +2,8 @@
 
 <a id="最新实施与验收"></a>
 
-Latest application acceptance: 2026-10-07, version 0.2.1. This is a result index; active
+Latest full application round: 2026-10-07, version 0.2.1; portable draft publication:
+2026-10-08, version 0.2.2. This is a result index; active
 scope/removed conditions are in [Plan](../../../Plan.md), criteria in
 [V01–V31](../../design/desktop-usage/validation.md). Detailed records retain complete
 commands/counts/environments/first failures/recovery; this page does not repeat every stage.
@@ -18,17 +19,19 @@ Linux uses isolated rootless Podman on WSL/Debian. CI runners/commits are record
 | Check | Verified result | Record and scope |
 | --- | --- | --- |
 | Local unified/browser checks | verify exit 0: Rust 1,032, frontend 22, scripts 5; 8 platform tests ignored; clean types. Six Claude tests also pass, overlapping unified counts; earlier Edge alert-display/deduplication checks retained | [VS discovery](m9-vs-copilot-discovery.md), [Codex](codex-today-recovery.md), [round](plan-20261007.md), [Claude](claude-container-sample.md); browser not rerun in this repair; existing simulated IPC/[three-source](m3-container-samples.md)/[M8](m8-container-samples.md) results retained |
-| Windows executable | Latest release/11 headless cases, local four-call VS check/rescan, Codex old-DB backfill/rescan, Claude new/old-DB correction pass; earlier 19 native WebView2/IPC cases including detail Merge/alerts, 20 startup checks and 8 receiver cases retained | [VS](m9-vs-copilot-discovery.md), [Codex](codex-today-recovery.md), [Claude](claude-container-sample.md), [round](plan-20261007.md), [three sources](m3-container-samples.md); GUI/IPC not rerun; synthetic DB/source isolation distinct from native samples |
+| Windows executable | 0.2.1 application release/11 headless cases, local four-call VS check/rescan, Codex old-DB backfill/rescan, Claude new/old-DB correction pass; earlier 19 native WebView2/IPC cases including detail Merge/alerts, 20 startup checks and 8 receiver cases retained | [VS](m9-vs-copilot-discovery.md), [Codex](codex-today-recovery.md), [Claude](claude-container-sample.md), [round](plan-20261007.md), [three sources](m3-container-samples.md); GUI/IPC not rerun in that repair; synthetic DB/source isolation distinct from native samples |
 | Windows installation | 12 NSIS upgrade/rollback/uninstall/reinstall/failure-abort cases pass | [Lifecycle](installation-lifecycle.md); owned tasks/startup entries only, other values retained |
 | Linux executable/install | Debian workspace 1,004 tests; deb lifecycle and actual AppImage FUSE/GTK/Orca: 9 groups/47 cases pass; earlier 40 checks each at GTK scales 1/2 retained separately | [Three sources](m3-container-samples.md), [lifecycle](installation-lifecycle.md), [ten-language Orca](orca-multilang.md); actual read-only mounts/release on exit checked |
 | Native credentials | Two Windows sets of 100 parallel rounds after handling confirmation; six isolated Linux D-Bus/keyring cases and two macOS CI Keychain/HTTP cases pass | [Credentials](platform-auth-continuation.md), [CI](ci-plan-validation.md); earlier Windows revoke anomaly remains unexplained, first failure/residual checks retained |
 | Batch remote CI/downloads | Two runs, eight successful jobs each; three archives match API digests/CRC, four packages match SHA-256/size/report revision | [CI 37486581699](https://github.com/owent/llm-usage/actions/runs/37486581699), source 61223e591815a4369a85a00fa23ff1ab2819d6d5; details in [CI record](ci-plan-validation.md) |
+| Portable release 0.2.2 | Six native Windows/Linux/macOS x64/arm64 .tar.zst archives; all 12 tag jobs pass after artifact-upload recovery. Six extracted headless checks, both Linux GUI checks and local Windows x64 19 native GUI checks pass; 13 uploaded assets match sizes/digests and overwrite succeeds | [Tag CI 37761919575](https://github.com/owent/llm-usage/actions/runs/37761919575), source 39e74d09fa2b4e300dca3f7d0ba2edf4b6e95ba2; [CI record](ci-plan-validation.md#portable-release-v022). No new installer lifecycle, Windows arm64/macOS GUI or signing/notarization acceptance |
 | Scale/resources | Uncached million/ten-million query P95 47.05/133.86 ms; million-event GUI import peak 371.09 MiB; ten-minute idle mean/peak 299.90/363.30 MiB meet revised limits | [Scale](plan-execution.md), [incremental/native](plan-finalization.md); development machine, synthetic sources, whole-process-tree private bytes; original measurements/limit changes retained |
 
-Local Windows/Linux packages and CI downloads checked separately; CI archive integrity does
-not establish local installation. Documents/current code are not a new remote CI run. The
-user reported main merge/signing/notarization/Release complete and removed them from active
-work; this round neither republishes nor independently reverifies external release results.
+Local Windows/Linux packages and CI downloads are checked separately; CI archive integrity
+does not establish local installation. The 2026-10-07 application round retained user-reported
+main merge/signing/notarization/Release completion without independently reverifying those
+external results. The 2026-10-08 portable draft publication is verified separately above;
+it includes no new signing/notarization. Later record-only commits are not another source CI run.
 
 <a id="来源与功能记录"></a>
 

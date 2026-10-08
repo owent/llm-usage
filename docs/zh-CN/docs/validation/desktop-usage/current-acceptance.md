@@ -2,7 +2,8 @@
 
 <a id="latest-implementation-and-acceptance-results"></a>
 
-最近业务验收：2026-10-07，版本 0.2.1。本文为结果索引；
+最近完整业务验收：2026-10-07，版本 0.2.1；portable 草稿发布：2026-10-08，版本 0.2.2。
+本文为结果索引；
 当前范围及移出条件统一见 [Plan.md](../../../Plan.md)，验收条件见
 [V01–V31](../../design/desktop-usage/validation.md)。专项记录保留完整命令、数量、环境、
 首次失败和恢复过程，本页不重复逐轮实施历史。
@@ -18,16 +19,18 @@ Linux 使用 WSL/Debian 独立 rootless Podman；CI runner 与受测提交另见
 | 检查 | 已核对结果 | 记录与适用范围 |
 | --- | --- | --- |
 | 本机统一检查及浏览器 | verify 退出 0：Rust 1,032、前端 22、脚本 5，8 项平台条件测试忽略，类型无错误/告警；另 Claude 专项六项通过（与统一检查重叠）；此前 Edge 提醒显示/去重回归保留 | [VS 发现修复](m9-vs-copilot-discovery.md)、[Codex 修复](codex-today-recovery.md)、[本轮](plan-20261007.md)、[Claude](claude-container-sample.md)；本次未重跑浏览器，既有模拟 IPC、[三源](m3-container-samples.md)/[M8](m8-container-samples.md) 结果保留 |
-| Windows 成品 | 最新 release/无界面 11 项、VS 本机 4 调用允许字段核对及重扫、Codex 本机旧库补采与重扫、Claude 新库/旧库自动纠正通过；此前原生 WebView2/IPC 19 项（含明细 Merge/提醒）、20 次首屏及接收器 8 项保留 | [VS](m9-vs-copilot-discovery.md)、[Codex](codex-today-recovery.md)、[Claude](claude-container-sample.md)、[本轮](plan-20261007.md)、[三源](m3-container-samples.md)；本次未重跑 GUI/IPC；合成检查隔离 SQLite 与来源环境，真实样本另列 |
+| Windows 成品 | 0.2.1 业务 release/无界面 11 项、VS 本机 4 调用允许字段核对及重扫、Codex 本机旧库补采与重扫、Claude 新库/旧库自动纠正通过；此前原生 WebView2/IPC 19 项（含明细 Merge/提醒）、20 次首屏及接收器 8 项保留 | [VS](m9-vs-copilot-discovery.md)、[Codex](codex-today-recovery.md)、[Claude](claude-container-sample.md)、[本轮](plan-20261007.md)、[三源](m3-container-samples.md)；该修复未重跑 GUI/IPC；合成检查隔离 SQLite 与来源环境，真实样本另列 |
 | Windows 安装 | NSIS 12 项升级/回滚/卸载/重装与失败中止通过 | [生命周期](installation-lifecycle.md)；仅自有任务/启动项，其他值保留 |
 | Linux 成品与安装 | Debian workspace 1,004 项；deb 生命周期、实际 AppImage FUSE/GTK/Orca 共 9 组/47 项通过；此前 GTK 缩放 1/2 各 40 项独立保留 | [三源阶段](m3-container-samples.md)、[生命周期](installation-lifecycle.md)、[Orca 十语言](orca-multilang.md)；真实只读挂载及退出释放已核对 |
 | 原生凭据 | Windows 处理确认后的两组各 100 轮并行、Linux 独立 D-Bus/keyring 六项及 macOS CI Keychain/HTTP 两项通过 | [跨平台凭据](platform-auth-continuation.md)、[CI](ci-plan-validation.md)；旧 Windows 撤销异常原因仍未确认，首次失败及残留检查保留 |
 | 本批远端 CI/下载包 | 两轮各八作业成功；三份归档 API 摘要/CRC、四个包 SHA-256/大小及报告 revision 相符 | [CI 37486581699](https://github.com/owent/llm-usage/actions/runs/37486581699)，受测源码 61223e591815a4369a85a00fa23ff1ab2819d6d5；完整分项见 [本批 CI](ci-plan-validation.md) |
+| Portable 版本 0.2.2 | 六种原生 Windows/Linux/macOS x64/arm64 .tar.zst 归档；恢复制品上传后全部 12 个 tag 作业通过。六种解压成品无界面、两个 Linux GUI 及本机 Windows x64 19 项原生 GUI 检查通过；13 个发布附件大小/摘要一致且实际覆盖成功 | [tag CI 37761919575](https://github.com/owent/llm-usage/actions/runs/37761919575)，受测源码 39e74d09fa2b4e300dca3f7d0ba2edf4b6e95ba2；[CI 记录](ci-plan-validation.md#portable-版本-v022)。未建立新安装生命周期、Windows arm64/macOS GUI 或签名/公证验收结论 |
 | 规模与资源 | 百万/千万未命中查询 P95 47.05/133.86 ms；百万 GUI 导入峰值 371.09 MiB；十分钟空闲均值/峰值 299.90/363.30 MiB，达到调整后的上限 | [规模测量](plan-execution.md)、[增量与原生检查](plan-finalization.md)；开发机、合成来源、全进程 private bytes，原测量与上限调整保留 |
 
 本机 Windows/Linux 包与 CI 下载包分别核对；本机安装结果不由 CI 归档摘要推导。
-文档与本轮代码不等于另有一次远端 CI。用户说明主分支合并、发行签名/公证及
-Release 已完成，已移出活动计划；本轮未另行发布或重新核验外部发行结果。
+2026-10-07 业务轮次保留用户报告的主分支合并、发行签名/公证及 Release 完成状态，
+未独立重新核验这些外部结果。2026-10-08 的 portable 草稿发布另按上表实际核对，
+未执行新的签名/公证；后续仅记录提交不等于再次执行源码 CI。
 
 <a id="source-and-feature-records"></a>
 

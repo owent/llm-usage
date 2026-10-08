@@ -143,3 +143,81 @@ untagged 名称，因此 attempt 2 按 v0.2.1 查询时未找到原草稿，新�
 禁用安装脚本后成功，未修改锁文件或全局配置。文档/注释摘要已审阅并同步。
 发布保持草稿，不建立签名、公证或新的 GUI/安装验收结论；后续仅记录提交保持
 受测源码/流水线不变。
+
+## Portable 版本 v0.2.2
+
+2026-10-08，用户授权提供 Windows/Linux/macOS 的 x64 与 arm64 portable 归档，
+不提供 Debian 包，提高 zstd 压缩率，并创建 v0.2.2 tag 发布。
+根目录与 desktop 的 npm 清单/锁文件、Tauri 配置、两个 workspace Cargo 清单及
+Cargo.lock 中本项目自身的条目均已统一为 0.2.2。annotated tag 指向
+39e74d09fa2b4e300dca3f7d0ba2edf4b6e95ba2；依赖版本仍由原锁文件确定。
+
+六种构建分别使用原生 windows-2022/windows-11-arm、ubuntu-22.04/ubuntu-22.04-arm、
+macos-15-intel/macos-15 runner 对应 x64/arm64。每个归档包含带版本号的目录、
+可执行程序、完整资源及双语解压/运行说明。Windows 运行 LLMUsage.exe；
+Linux 包含解出的完整 AppDir，以 AppRun 启动，无需 FUSE 挂载；macOS 保留完整
+LLMUsage.app。Windows 11 使用系统 WebView2，Linux 保留 Ubuntu 22.04/glibc 2.35
+构建基线及兼容桌面条件，macOS 保留兼容系统 WebKit/Gatekeeper 条件。
+数据仍在既有用户目录；移动程序前须关闭其自有定时任务。
+
+打包先生成 tar 文件，再执行 zstd -19 -T2 --long=27，随后 zstd -t 校验，并重新
+解压核对全部文件摘要、符号链接与 Unix 权限。可执行文件头必须符合原生矩阵架构。
+六个解压成品均通过实际无界面 SQLite/采集检查；两个 Linux 包还在隔离来源/数据环境下
+通过原生 Xvfb/WebKitWebDriver GUI/IPC 采集及五页导航。
+Linux 报告核对 370 个树条目，macOS 四个，Windows 两个。
+
+本机 Windows x64 使用 PowerShell 7、Node 24.21.0、npm 12.0.2、Rust 1.98.0、
+锁定的 Tauri CLI 2.12.0 及 zstd 1.5.7。以下命令退出 0：
+node --test desktop/scripts/*.test.mjs（13 项）、提取实际流水线脚本的检查器
+（14 项合成创建/更新/拒绝用例）、npm run lint:md（451 文件）、npm run check:docs
+（199 组仓库文档、21 组指南、32 个 Astro 文件，无诊断）、npm run test:docs（31 项）、
+npm --prefix desktop run check、Cargo fmt 和 git diff --check。
+直接运行 desktop Tauri CLI 构建真实 Windows 0.2.2 程序/NSIS，回查版本资源为 0.2.2。
+其 portable 包通过重新解压与无界面检查，native-smoke.mjs 通过 19 项实际
+WebView2/IPC/UI 检查及三次启动测量。同一份 10,283,520 字节的 tar 以 zstd 级别 3
+压缩为 4,843,925 字节，级别 19 为 4,113,788 字节，在不裁剪资源的情况下减少 15.1%。
+fixture 测试和流水线模拟与原生成品执行、真实发布分别记录。
+
+首次 main [运行 37757778777](https://github.com/owent/llm-usage/actions/runs/37757778777)
+对应 9d14217a5ce36c74dda90f61507e076225826c66，两个 Linux 目标均编译成功，
+但重新解压的权限比较失败：默认 tar 解压受 umask 影响，移除了组写权限。
+修复在 Unix 解压时使用 -p，并增加 775/664 fixture 回归。
+tag 对应受测源码的 [main 运行 37759068722](https://github.com/owent/llm-usage/actions/runs/37759068722)
+全部 11 个必需作业通过，包括文档/前端、三个 Rust 和六个构建；仅 tag 发布作业跳过。
+Linux GUI 与原生凭据检查通过；完整 main 运行成功后才创建 tag。
+
+[tag 运行 37761919575](https://github.com/owent/llm-usage/actions/runs/37761919575)
+恢复 macOS x64 制品上传失败后整体成功；相同源码的全部 12 个逻辑作业均有成功结果。
+草稿 [v0.2.2](https://github.com/owent/llm-usage/releases/tag/untagged-564360182cf0e15d7e8a) 的 Release ID 为 406718916，名称/tag 精确为
+v0.2.2，目标提交与受测源码一致，共 13 个附件：六个 portable .tar.zst 归档、
+保留的 Windows x64 NSIS 安装器及六份平台报告。没有 deb、原始 AppImage 或 gzip 归档。
+发布作业上传前对实际包计算摘要，上传后核对 GitHub 全部大小/摘要；另独立下载六份报告，
+核对其自身摘要及七个发布包的 API 大小/SHA-256。
+
+覆盖测试显式传入 tag_name，写入受控标题/正文标记并回查。只重跑发布作业后，
+原来唯一的草稿 ID 保持，标题/正文/目标元数据恢复，13 个附件 ID 全部替换，
+每个文件大小和摘要保持一致。最终发布 attempt 为 3，
+替换后再次核验了独立下载的报告。
+
+| 包 | 字节 | SHA-256 |
+| --- | ---: | --- |
+| LLMUsage-0.2.2-windows-x64-portable.tar.zst | 4,117,621 | 0eca2969168447cb2c1e755b2c89626d4f7a44734778241bbd788e7c01c385d1 |
+| LLMUsage_0.2.2_x64-setup.exe | 4,046,000 | fdbcf85d1ed6ff73de55336669d5f427d8430fb2c72e847c94f8b9961c37b91a |
+| LLMUsage-0.2.2-windows-arm64-portable.tar.zst | 3,951,219 | ad91aa491272f2c13ac0f4b90489c3929f736d152a4ab584d8f30f1fc7f590d3 |
+| LLMUsage-0.2.2-linux-x64-portable.tar.zst | 72,899,343 | 67f2f64b5e054b6471d5daf907b7b1bc6d916985cf3e0b4233ac7d467c06b703 |
+| LLMUsage-0.2.2-linux-arm64-portable.tar.zst | 71,499,124 | 9151080f8e2fb18207b8823564e3c870b1da777b065d1032d1554316ba1e4eab |
+| LLMUsage-0.2.2-macos-x64-portable.tar.zst | 4,228,412 | 4d19e09a3f354a6b416b0345e0262c2d0690d96dbab1e274704914363d5ba1b9 |
+| LLMUsage-0.2.2-macos-arm64-portable.tar.zst | 3,965,860 | de180b5e1dc24b76ca3b8451d5bf9de533e7e2f633ade0bd731b993f5f82f114 |
+
+本机首次通过根 npm 脚本转发 --bundles 参数被 npm 12 拒绝；直接 desktop Tauri CLI
+执行成功。旧 0.2.1 与新 0.2.2 NSIS 构建输出最初造成选择歧义，现要求精确匹配
+当前版本的文件名，保留旧输出。错误日志路径在执行前已改为仓库根 build/。
+Windows sandbox 启动器出现 CreateProcessAsUserW 错误 5，改用获准路径执行相同检查。
+首次 tag 运行的 macOS x64 归档与无界面检查通过，但 GitHub CreateArtifact 遇到
+DNS ENOTFOUND；等待整次运行结束后重跑已完成的失败作业，未改变受测源码。
+
+原生 Windows x64 GUI、Linux x64/arm64 CI GUI 与六种原生无界面结果只适用于各自
+实际环境，不建立 Windows arm64/macOS GUI、新安装生命周期、其他 Linux 发行版或
+签名/公证验收结论。Release 保持草稿。任务日志、fixture 和原始报告在根目录已忽略的
+build/portable-release-022/；既有原生 smoke 的隔离证据位于根 build/plan-completion/native/。
+后续验收记录提交保持源码、流水线和锁文件与 tag 相同。
