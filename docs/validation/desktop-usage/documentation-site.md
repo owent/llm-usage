@@ -4,7 +4,7 @@
 
 Started: 2026-10-07. Review date: 2026-10-08. Status: all document and source-comment pairs
 have been reviewed and local checks passed. Screenshot publication, automatic CI and public-domain
-HTTPS are verified; the latest navigation/layout update awaits publication. [Plan.md](../../../Plan.md) owns active status;
+HTTPS are verified, including the navigation/layout update. [Plan.md](../../../Plan.md) owns active status;
 the [documentation requirements](../../design/documentation-site.md) define behavior.
 
 <a id="环境与范围"></a>
@@ -200,7 +200,7 @@ and native screenshot capture below precede these documentation-only changes.
 | npm run verify | Passed with the complete corpus: 1032 Rust tests passed, 8 remained ignored; 22 UI and 5 script tests passed; Markdown, Svelte, fmt, clippy and frontend build passed |
 | npm run test:docs | 31 tests passed; sidebar source inventory/order/nested versions, precise administrator branch configuration/read-back, localized index IDs and screenshot links, NSIS template preservation, comment references, document scope, language selection, links/anchors, source parsing and publication integrity |
 | npm run check:docs | All 199 repository pairs, 21 guide pairs and source comments synchronized; Astro checked 32 files with zero errors, warnings or hints |
-| npm run build:docs | Complete build: 1363 pages / 2852 files passed; required sidebar links, links/fragments, language roots, local search, domain markers and screenshot digests/dimensions checked |
+| npm run build:docs | Clean 16c77e3 build: 1363 pages / 2853 files passed locally and in CI; required sidebar links, links/fragments, language roots, local search, domain markers and screenshot digests/dimensions checked |
 | npm run test:docs:browser | 24 checks passed on installed Edge; sidebar category links/toggles/navigation, titles/downloads, 320–2560px layouts and directory overlap, five bilingual/theme-matched screenshots, original PNG links/dimensions, README/Details examples, search, language choices, storage denial, no-JavaScript fallback and keyboard access; zero JS errors/outbound requests in the local build |
 | npm run docs:screenshots | 20 real native captures; correct language/theme, 240 isolated calls and declared pixel dimensions |
 | npm run lint:md | 451 files, zero issues, including this record |
@@ -323,8 +323,20 @@ establish GitHub-origin certificate enforcement. The proxy injects static.cloudf
 analytics; the checked compiled site contains no such script or third-party request. No DNS
 or Cloudflare settings were changed. Reports are remote-screenshot-publication.json,
 pages-environment-readback.json and live-before.json under build/documentation-site/.
-The latest navigation/layout changes have local checks; their new CI/public-domain result
-must be observed after pushing the reviewed source.
+
+Navigation/layout source 16c77e3fd386071ce266d862e70914a33cf2b4ed passed automatic run
+37719512134: 31 unit tests, 24 browser checks, content/types/Markdown, production build and
+publication. gh-pages revision 4e31c8c1eba6911469da27fe16d215798dab812d reached built; its
+history also retains a generic failed build whose cause is unverified. Public HTTPS checks
+confirmed the exact source marker, both homepage titles, localized download navigation,
+all seven menu categories, pointer/keyboard toggles, desktop page navigation and mobile
+keyboard navigation. Both guide bodies measured 1760px at 2560px. All 20 downloaded PNGs
+again matched the originals; no JavaScript errors occurred. The first public HTTP check
+exceeded its 15-second timeout; a later bounded run completed without request failures.
+Preserve live-layout-after.log and live-layout-first-failure.json alongside the successful
+live-layout-after-retry.log/live-after.json, layout-remote-publication.json and layout-remote-ci.log.
+These checks establish documentation publication and interactions, not new application/native
+acceptance. Subsequent publication-record edits do not change the verified site implementation.
 
 An optional offline translation environment was proposed under ignored build/ using pinned
 CTranslate2/SentencePiece/PyYAML and official OPUS-MT weights, with local inference and no

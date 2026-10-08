@@ -3,7 +3,7 @@
 <a id="documentation-site-implementation-record"></a>
 
 开始日期：2026-10-07；审阅日期：2026-10-08。全部文档与源码注释配对已完成审阅；
-本地检查通过；截图发布、自动 CI 和自定义域名 HTTPS 已核验，最新导航及布局修改尚待发布。
+本地检查通过；截图发布、自动 CI 和自定义域名 HTTPS 已核验，包括导航与布局修改。
 [Plan.md](../../../Plan.md)维护活动状态，[文档要求](../../design/documentation-site.md)维护行为。
 
 <a id="environment-and-scope"></a>
@@ -161,7 +161,7 @@ WebView2 CDP 无法启动；仅隔离 HOME 仍会访问固定绝对路径候选�
 | npm run verify | 完整语料上通过：1032 项 Rust 测试通过、8 项按原设置跳过；22 项界面测试、5 项脚本测试通过；Markdown、Svelte、fmt、clippy 和前端构建通过 |
 | npm run test:docs | 31 项通过，覆盖侧栏原件清单/顺序/嵌套版本、精确管理员分支配置及读回、语言首页 index ID、截图链接、NSIS 模板保留、注释对照、文档范围、语言选择、链接/章节标识、源码解析及发布完整性 |
 | npm run check:docs | 199 组仓库文档、21 组指南及全部源码注释同步；Astro 检查 32 个文件，零错误、警告及提示 |
-| npm run build:docs | 完整构建 1363 页、2852 文件通过；检查必需侧栏链接、链接/片段、语言入口、本地搜索、域名标记及截图摘要/尺寸 |
+| npm run build:docs | 干净 16c77e3 提交在本地及 CI 均构建 1363 页、2853 文件并通过；检查必需侧栏链接、链接/片段、语言入口、本地搜索、域名标记及截图摘要/尺寸 |
 | npm run test:docs:browser | 已安装 Edge 的 24 项通过；侧栏分组链接/展开/跳转、标题/下载、320–2560 像素布局及目录重叠、五类双语亮暗截图、原 PNG 链接/尺寸、README/详情示例、搜索、语言选择、存储拒绝、无 JavaScript 回退及键盘访问；本地构建零 JS 错误/出站请求 |
 | npm run docs:screenshots | 20 张真实原生截图，语言/主题正确，240 次隔离调用，像素尺寸符合声明 |
 | npm run lint:md | 451 个文件，零问题，包括本记录 |
@@ -258,7 +258,18 @@ CNAME 不能证明缺少路由。公开 HTTPS 通过不证明 GitHub 源站强�
 static.cloudflareinsights.com 分析脚本，受查编译产物中没有该脚本或第三方请求。
 未修改 DNS 或 Cloudflare 设置。报告为 build/documentation-site/ 下的
 remote-screenshot-publication.json、pages-environment-readback.json 和 live-before.json。
-最新导航及布局修改已有本地检查；推送受查原件后仍须观察新 CI 与公开域名结果。
+
+导航与布局源码 16c77e3fd386071ce266d862e70914a33cf2b4ed 的自动运行 37719512134
+通过 31 项单元测试、24 项浏览器检查、内容/类型/Markdown、生产构建和发布。
+gh-pages 版本 4e31c8c1eba6911469da27fe16d215798dab812d 达到 built；历史还保留一次
+原因未核验的通用失败。公开 HTTPS 检查确认准确源码标记、双方首页标题、对应语言下载
+跳转、全部七个菜单分组、鼠标/键盘展开、桌面页面跳转及手机键盘导航。双方指南正文
+在 2560 像素视口均为 1760 像素。再次下载的 20 张 PNG 全部与原图一致，没有 JavaScript
+错误。首次公网 HTTP 检查超过 15 秒期限；后续有时限的检查完成，没有请求失败。
+保留 live-layout-after.log、live-layout-first-failure.json，以及通过后的
+live-layout-after-retry.log、live-after.json、layout-remote-publication.json 和
+layout-remote-ci.log。这些结果验证文档发布与交互，不代表重新验收应用或原生功能。
+后续发布记录修改不改变已核验的站点实现。
 
 曾提议在已忽略 build/ 下建立可选离线翻译环境，使用固定版本 CTranslate2/
 SentencePiece/PyYAML 和官方 OPUS-MT 权重，本机推理，不把仓库文本发送到翻译服务。

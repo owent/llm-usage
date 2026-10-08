@@ -57,7 +57,7 @@ conditions and historical acceptance requirements preserved.
 
 <a id="文档发布进行中"></a>
 
-## Documentation publication in progress
+## Documentation publication results
 
 The user has now explicitly authorized an English-default repository documentation/comment
 migration, complete Chinese counterparts, an Astro documentation site, real localized
@@ -75,15 +75,17 @@ language behavior, screenshot provenance and deployment acceptance.
 - [x] Publish the compiled site to gh-pages and configure/test automatic publication.
 - [x] Verify Pages deployment, custom-domain DNS and HTTPS independently.
 - [x] Repair empty sidebar groups, expand wide-screen content, add localized download actions and simplify related titles/copy; pass local checks.
-- [ ] Observe successful CI publication and public-domain navigation for the latest layout update.
+- [x] Observe successful CI publication and public-domain navigation for the latest layout update.
 
 Current coverage: all 199 required repository document pairs and 21 guide pairs reviewed,
 and all 7939 comment pairs across 460 source files reviewed. Complete product/document checks
-passed; the layout update builds 1363 pages and 2852 files, with 31 unit and 24 browser checks passed.
+passed; layout source 16c77e3 builds 1363 pages and 2853 files, with 31 unit and 24 browser checks passed.
 Screenshot source db44b0300750ef4f3e00c89ad21edbfa83e60813 was published, and run 37716140836 attempt 2
 passed build/publication after the explicitly authorized exact main deployment rule was added.
 Both language homepages and all 20 original PNGs were checked through the custom HTTPS domain.
-The latest navigation/layout source awaits its own CI publication and live interaction checks.
+Navigation/layout source 16c77e3fd386071ce266d862e70914a33cf2b4ed passed automatic run 37719512134;
+its Pages deployment and public HTTPS menu/download interactions passed. Both guide languages use
+1760px content at a 2560px viewport, with no mobile overflow. This documentation round has no remaining active items.
 Translation uses the current language model, with complete
 pair review and contextual wording checks. First failures, validation commands and exact remaining work are in the
 [documentation record](docs/validation/desktop-usage/documentation-site.md).

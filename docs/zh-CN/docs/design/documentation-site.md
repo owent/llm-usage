@@ -6,7 +6,7 @@
 
 <a id="documentation-site-and-language-contract"></a>
 
-状态：已发布，正在核验导航和布局优化。既有桌面设计说明仍是应用行为的主要说明；[Plan.md](../../Plan.md)
+状态：已发布，导航和布局优化已核验。既有桌面设计说明仍是应用行为的主要说明；[Plan.md](../../Plan.md)
 统一维护当前工作和验收条件。
 
 <a id="content-and-ownership"></a>

@@ -26,6 +26,11 @@ gateways and cloud-synchronized sessions are outside the local-source boundary.
 - The documentation build uses local search and bundled assets, with no built-in analytics
   or remote font requests. Following an external source link opens that external site.
 
+The public documentation domain currently passes through Cloudflare, which adds its
+analytics script independently of the compiled site. This hosting behavior is separate
+from the desktop application's collection. The [site verification record](/reference/evidence/documentation-site/)
+distinguishes public-domain checks from the local build.
+
 ## Credentials and sharing
 
 Receiver credentials live in the OS store and are never returned by configuration previews

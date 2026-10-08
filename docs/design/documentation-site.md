@@ -6,7 +6,7 @@
 
 <a id="文档站与语言合同"></a>
 
-Status: published; navigation and layout improvements are being verified. The existing desktop specifications remain authoritative
+Status: published; navigation and layout improvements are verified. The existing desktop specifications remain authoritative
 for application behavior; [Plan.md](../../Plan.md) owns current work and acceptance conditions.
 
 <a id="内容与归属"></a>
