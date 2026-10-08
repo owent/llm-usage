@@ -1,21 +1,21 @@
-//! Kiro CLI 会话头格式实现（`cli_turns_v1`，kiro-cli-turns-1）。
+//! Kiro CLI session-header implementation (`cli_turns_v1`, kiro-cli-turns-1).
 //!
-//! 格式依据（tokscale 1d9a939 sessions/kiro.rs:48-113；闭源，本机未安装）：
-//! - `~/.kiro/sessions/cli/*.json` 会话头：`session_id`、`cwd`、
-//!   `session_state.rts_model_state.model_info.{model_id, context_window_tokens}`、
-//!   `session_state.conversation_metadata.user_turn_metadatas[]`。
-//! - turn 字段：`input_token_count`/`output_token_count`/
-//!   `cache_read_input_token_count`/`cache_write_input_token_count`/
-//!   `end_timestamp`/`total_request_count`/`metering_usage[]{value,unit:"credit"}`。
-//! - **估算不采纳**（模块头 "ESTIMATED, not measured"）：Auto agent 常记 0、
-//!   字节/4 折算与 context_window 差额路径全部跳过 ⇒ 只采至少一个计数
-//!   字段在场的 turn（全缺失/全 0 跳过记诊断）。
-//! - `end_timestamp` 单位在第三方解析器中未标明：按量级判别（≥1e11 视为毫秒，
-//!   否则秒×1000；与 tokscale crush 同型判别），越域拒绝。
-//! - metering credit 是计价单位（0.04 USD/credit 为第三方换算，不采信）⇒
-//!   不映射 cost。
-//! - 同 stem `.jsonl` 是消息转录（Prompt/AssistantMessage/ToolResults），
-//!   无 usage，不读。
+//! Reference: tokscale 1d9a939 sessions/kiro.rs:48-113; closed source, originally inspected without local installation.
+//! - ~/.kiro/sessions/cli/*.json has session_id, cwd,
+//!   session_state.rts_model_state.model_info.{model_id, context_window_tokens}
+//!   and session_state.conversation_metadata.user_turn_metadatas[].
+//! - Turn fields include input_token_count/output_token_count,
+//!   cache_read_input_token_count/cache_write_input_token_count,
+//!   end_timestamp/total_request_count/metering_usage[]{value,unit:"credit"}.
+//! - The reference labels Auto-agent counts "ESTIMATED, not measured" and commonly zero.
+//!   Exclude bytes/4 and context_window-difference estimates; require at least one
+//!   positive count field. Skip and diagnose turns whose counts are all absent or zero.
+//! - The third-party parser does not specify end_timestamp units: >=1e11 is treated as ms,
+//!   otherwise multiply seconds by 1000, as in its Crush parser; reject out-of-range values.
+//! - Metering credits are pricing units; the third-party 0.04 USD/credit conversion is unverified.
+//!   No cost is mapped.
+//! - Same-stem .jsonl stores Prompt/AssistantMessage/ToolResults transcripts
+//!   without usage and is not read by this implementation.
 
 use crate::adapters::framework::{
     ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -51,7 +51,7 @@ fn diag(code: &str, position: &str, message: &str) -> DiagnosticInput {
     }
 }
 
-/// 量级判别：≥1e11 视为毫秒；其余按秒换算（越域拒绝）。
+/// Magnitude heuristic: >=1e11 is milliseconds; otherwise seconds. Reject out-of-range results.
 fn ts_to_ms(value: Option<&serde_json::Value>) -> Option<i64> {
     let n = value?.as_f64()?;
     if !n.is_finite() || n <= 0.0 {
@@ -64,8 +64,8 @@ fn ts_to_ms(value: Option<&serde_json::Value>) -> Option<i64> {
     Some(ms.round() as i64)
 }
 
-/// 计数取值：Ok(Some(v))=有效计数；Ok(None)=字段缺失（未知）；
-/// Err=形状偏离（区分非整数与越界，诊断归因用）。
+/// Count result: Ok(Some(v)) is valid; Ok(None) is absent and unknown.
+/// Err identifies invalid shape, distinguishing noninteger and out-of-range values for diagnostics.
 fn count(
     obj: &serde_json::Map<String, serde_json::Value>,
     key: &str,
@@ -134,8 +134,8 @@ pub fn scan(
         }
     };
     let doc_session_id = document.get("session_id").and_then(|v| v.as_str());
-    // 缺 session_id 时去重键改用文件身份：多个缺 id 文件的键不能都塌缩成
-    // kiro:unknown:turn:N 而互相吞并；事件 session 维度不虚构，保持 None。
+    // Missing session_id uses file identity for deduplication, keeping distinct files separate
+    // instead of collapsing them into kiro:unknown:turn:N. Event session_id remains None.
     let session_key = doc_session_id.unwrap_or(target.file_identity.as_str());
     let model = document
         .pointer("/session_state/rts_model_state/model_info/model_id")
@@ -201,7 +201,7 @@ pub fn scan(
             continue;
         }
         let [input, output, cache_read, cache_write] = values;
-        // 全 0/缺失：Auto agent 常记 0（第三方解析器说明），无真实计数 ⇒ 不采。
+        // All counts absent/zero do not establish measured usage; skip Auto-agent defaults from the reference.
         if input.unwrap_or(0) == 0
             && output.unwrap_or(0) == 0
             && cache_read.unwrap_or(0) == 0
@@ -229,8 +229,8 @@ pub fn scan(
                 total_tokens: None,
                 source_total: None,
             },
-            // 在场桶必须标 Reported：TokenQuality::default() 全 Unknown 会在
-            // ingest 校验（domain.rs:421 值与质量不一致）被拒，整批事件无法入账。
+            // Present counts need Reported quality; default Unknown would contradict their values
+            // and domain.rs ingestion validation would reject those events.
             crate::domain::TokenQuality {
                 input_cache_read: crate::domain::FieldQuality::Reported,
                 input_cache_write: crate::domain::FieldQuality::Reported,
@@ -243,7 +243,7 @@ pub fn scan(
         events.push(EventInput {
             source_instance_id: target.instance_id.clone(),
             source_record_key: format!("kiro:{session_key}:turn:{index}"),
-            // 按 turn 聚合的真实计数（非逐请求）。
+            // One event represents turn-level counts; underlying requests are not reconstructed.
             record_kind: RecordKind::ModelCall,
             schema_version: KIRO_FORMAT_VERSION.to_string(),
             parser_version: KIRO_CLI_PARSER_VERSION.to_string(),
@@ -276,7 +276,7 @@ pub fn scan(
             exclusion_reason: None,
             cost: None,
         });
-        // total_request_count（turn 内请求数）无事件字段承载：不入账，见能力表限制。
+        // total_request_count has no mapped event field and is excluded; see capability limits.
     }
     if zero_turns > 0 {
         diagnostics.push(diag(

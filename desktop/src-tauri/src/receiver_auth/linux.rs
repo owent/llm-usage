@@ -62,7 +62,7 @@ impl Store for SystemStore {
             let service = SecretService::connect(EncryptionType::Dh).await?;
             let collection = persistent_default(&service).await?;
             // Search all collections to reject ambiguous or locked copies,
-            // including ones left by an external writer. Never pick a first match.
+            // including copies left by external writers; never choose the first match.
             let mut matches = service.search_items(attributes(name)).await?;
             if !matches.locked.is_empty() || matches.unlocked.len() > 1 {
                 return Err(secret_service::Error::Locked);

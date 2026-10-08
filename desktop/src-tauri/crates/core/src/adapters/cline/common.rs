@@ -1,20 +1,20 @@
-//! Cline 产品特有的 usage 字段映射（getApiMetrics.ts 固定源码 dcf8c3c，A03，
-//! 按文档或源码实现，待真实样本核验；本机 not_found 无真实样本）。
+//! Legacy Cline UI usage mapping from fixed getApiMetrics.ts dcf8c3c, A03.
+//! SDK records have separate parsing/mapping; native SDK acceptance does not verify this UI format.
 //!
-//! 依据（apps/vscode/src/shared/getApiMetrics.ts）：
-//! - usage 载体 `text` JSON 的 tokensIn/tokensOut/cacheWrites/cacheReads 逐字段
-//!   可选（上游 `typeof === "number"` 检查，缺失不补零）；
-//! - 四桶互斥：getLastApiReqTotalTokens 的 total =
-//!   `tokensIn + tokensOut + cacheWrites + cacheReads`（四分量之和）；
-//!   因此 input_total = tokensIn + cacheWrites + cacheReads（派生）、
-//!   total_tokens = 四桶之和（派生）。
+//! Source: apps/vscode/src/shared/getApiMetrics.ts.
+//! - text JSON tokensIn/tokensOut/cacheWrites/cacheReads are individually optional;
+//!   upstream checks typeof === "number", without replacing absent values with zero.
+//! - Four buckets are exclusive: getLastApiReqTotalTokens calculates
+//!   tokensIn + tokensOut + cacheWrites + cacheReads.
+//!   Therefore input_total = tokensIn + cacheWrites + cacheReads (derived),
+//!   and total_tokens sums all four buckets (derived).
 //!
-//! 共享的 MappedUsage/finish 逻辑在跨 Agent 的 usage_map.rs。
+//! Shared MappedUsage/finish remain in cross-agent usage_map.rs.
 
 use crate::adapters::usage_map::{finish, MappedUsage};
 use crate::domain::{FieldQuality as Q, TokenQuality, TokenUsage};
 
-/// Cline say 消息 text JSON 的 usage 四可选字段（互斥桶，缺失 = 未知）。
+/// Four optional exclusive usage buckets in Cline say-message text JSON; missing remains unknown.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct ClineUsage {
     pub tokens_in: Option<i64>,
@@ -24,7 +24,7 @@ pub struct ClineUsage {
 }
 
 impl ClineUsage {
-    /// 五个 usage 字段是否全部缺失（无 usage 数字的载体记录）。
+    /// Whether all four usage fields are absent.
     pub fn is_empty(&self) -> bool {
         self.tokens_in.is_none()
             && self.tokens_out.is_none()

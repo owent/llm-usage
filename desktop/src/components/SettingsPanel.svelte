@@ -29,9 +29,9 @@
   }: {
     settings: AppSettings;
     onsaved: (next: AppSettings) => void;
-    /** 导入等改变底层数据的操作完成后通知父级刷新查询。 */
+    /** Notify the parent to reload after imports or other underlying data changes. */
     ondatachanged?: () => void;
-    /** 采集进行中（父级轮询 refresh_status），期间禁用“清理全部数据”。 */
+    /** Parent-polled refresh_status collection state disables clear-all while collection runs. */
     collecting?: boolean;
     initialSection?: 'general' | 'telemetry';
   } = $props();
@@ -43,7 +43,7 @@
   $effect(() => { sub = initialSection; });
 
   // svelte-ignore state_referenced_locally
-  // 草稿编辑器刻意只捕获挂载时的设置初值；外部更新由父组件重新挂载本面板。
+  // Capture settings at mount intentionally; the parent remounts this editor for external updates.
   let draft = $state<AppSettings>({
     ...settings,
     budget: { enabled: false, metric: 'total_tokens', period: 'month', threshold: '1000000', currency: 'USD', ...settings.budget },
@@ -57,7 +57,7 @@
     },
   });
   // svelte-ignore state_referenced_locally
-  // 文本输入统一走字符串草稿（年为空 = 终身），保存时再解析校验。
+  // Edit numeric inputs as strings and validate on save; empty yearly means lifetime retention.
   let inputs = $state({
     weekStart: settings.week_start === null ? '' : String(settings.week_start),
     events: String(settings.retention.events_days),
@@ -87,12 +87,12 @@
   let exportMessage = $state('');
   let exportError = $state('');
 
-  // 导出过滤（任务 G）：用户/主机多选（默认当前用户/当前主机），全选 = 不过滤。
+  // G export scopes: default current user/host, multiple selection, all selected means no filter.
   let filterOptions = $state<ExportFilterOptionsDto | null>(null);
   let selectedUsers = $state<string[]>([]);
   let selectedHosts = $state<string[]>([]);
 
-  // 存储统计与手动清理。
+  // Storage statistics and manual cleanup.
   let stats = $state<StorageStatsDto | null>(null);
   let statsError = $state('');
   let cleanupDays = $state('30');
@@ -101,17 +101,17 @@
   let cleanupError = $state('');
   let cancelPending = $state(false);
 
-  // 清理全部数据并重新采集（确认层 + 后台阶段进度 + 结果/重采提示）。
+  // Clear all and recollect, with confirmation, background progress and results.
   let clearAllOpen = $state(false);
   let clearAllBusy = $state(false);
   let clearAllMessage = $state('');
   let clearAllError = $state('');
-  /** 后台任务当前阶段（空 = 未运行）；文案键 cleanup.clearAllPhase.<phase>。 */
+  /** Background task stage; empty means inactive; labels use cleanup.clearAllPhase.<phase>. */
   let clearAllPhase = $state('');
-  /** cleared 阶段送达的各表清除计数与备份路径（done 时汇总展示）。 */
+  /** cleared supplies per-table counts/backup path, summarized when done. */
   let clearAllCleared = $state<Record<string, number> | null>(null);
   let clearAllBackupPath = $state<string | null>(null);
-  /** 清空预检（打开确认层时加载）：磁盘已不存在的源文件 = 清空后无法重采。 */
+  /** Load clear-all preview on opening; missing disk sources cannot be recollected after clearing. */
   let clearPreview = $state<ClearAllPreviewDto | null>(null);
 
   $effect(() => {
@@ -120,7 +120,7 @@
 
   onMount(() => {
     let unlisten: (() => void) | null = null;
-    // 后台清理任务的阶段事件 → 确认层实时进度；done/failed 收尾。
+    // Background stages update confirmation progress; done/failed finish the operation.
     const handleProgress = (p: ClearAllProgressDto) => {
       if (p.phase === 'cancelled') {
         clearAllPhase = '';
@@ -138,7 +138,7 @@
       if (p.phase === 'cleared') {
         clearAllCleared = p.cleared ?? null;
         clearAllBackupPath = p.backup ?? null;
-        // 清空结果立即反映到存储统计与界面（重采完成后 done 再刷新一次）。
+        // Update storage/UI immediately after clearing, then refresh again when recollection finishes.
         void loadStats();
         ondatachanged?.();
       }
@@ -152,7 +152,7 @@
           clearAllMessage = `${clearAllMessage} ${t('cleanup.clearAllBackupAt', { path: clearAllBackupPath })}`;
         }
         clearAllMessage = `${clearAllMessage} ${t('cleanup.clearAllTriggered')}`;
-        // 存储统计与界面数据反映清空+重采结果（父级轮询结束时还会再刷一次）。
+        // Reflect clearing/recollection results; parent completion polling also refreshes data.
         void loadStats();
         ondatachanged?.();
         clearAllOpen = false;
@@ -167,27 +167,27 @@
     };
   });
 
-  // zcode db 历史回填（滚动窗口源文件丢失的恢复路径）。
+  // Historical ZCode DB backfill note: recovery of missing rolling-window source files.
 
-  // 聚合交换包导入。
+  // Aggregate exchange-package import.
   let importing = $state(false);
   let importMessage = $state('');
   let importError = $state('');
 
-  // 诊断日志（日志 Tab）：最近 200 条，支持手动/自动刷新 + code 过滤。
+  // Logs tab: latest 200 diagnostics with manual/automatic refresh and code filtering.
   let logs = $state<DiagnosticLogRowDto[]>([]);
   let logsLoading = $state(false);
   let logsError = $state('');
   let logsAuto = $state(false);
-  /** code 下拉过滤（'' = 全部；选中后传 code_filter 给 diagnostic_logs）。 */
+  /** Empty code selects all; otherwise pass code_filter to diagnostic_logs. */
   let logsCode = $state('');
-  /** code 选项列表（未过滤加载时从返回行提取 DISTINCT code）。 */
+  /** Extract distinct codes from unfiltered result rows for the selector. */
   let logsCodes = $state<string[]>([]);
-  /** 快捷开关：客户端隐藏 expired_by_retention 保留清理行。 */
+  /** Client-only shortcut hides expired_by_retention rows. */
   let hideRetention = $state(false);
 
   const RETENTION_CODE = 'expired_by_retention';
-  /** 保留清理行占比过半时显示“隐藏保留清理”快捷按钮（已开启时保留按钮供还原）。 */
+  /** Offer the retention-row shortcut when those rows exceed half the list; retain it while enabled. */
   const retentionDominant = $derived(
     logs.length > 0 && logs.filter((r) => r.code === RETENTION_CODE).length > logs.length / 2
   );
@@ -195,7 +195,7 @@
     hideRetention ? logs.filter((r) => r.code !== RETENTION_CODE) : logs
   );
 
-  /** 常见 IANA 时区（纯下拉选择；上方搜索框过滤长列表）。 */
+  /** Common IANA timezone options, filtered by the search input. */
   const TIMEZONES: string[] = [
     'UTC',
     'Asia/Shanghai', 'Asia/Hong_Kong', 'Asia/Taipei', 'Asia/Tokyo', 'Asia/Seoul',
@@ -216,11 +216,11 @@
     'Pacific/Auckland',
   ];
 
-  // 时区选择（2026-09-26 改造）：默认只显示当前值的“伪 select”按钮，点击弹出
-  // absolute 覆盖层（搜索框 + 过滤后的选项列表）；选择/点击外部/Esc 关闭。
+  // The 2026-09-26 timezone picker displays its current value as a button and opens
+  // an absolute-positioned searchable list; selection, outside click or Esc closes it.
   let tzFilter = $state('');
   let tzOpen = $state(false);
-  /** 覆盖层根节点（click-outside 命中测试用；bind:this 赋值）。 */
+  /** Picker root assigned by bind:this, used to identify outside clicks. */
   let tzRoot = $state<HTMLElement | null>(null);
   const tzOptions = $derived.by(() => {
     const needle = tzFilter.trim().toLowerCase();
@@ -239,12 +239,12 @@
     tzOpen = false;
   }
 
-  /** 覆盖层打开时聚焦搜索框（Svelte action，元素插入即执行）。 */
+  /** Svelte action focuses search as the picker opens and its input is inserted. */
   function focusInput(node: HTMLInputElement): void {
     node.focus();
   }
 
-  // 当前查询（导出用）：近 30 天日粒度。
+  // Export query: last 30 dates, daily granularity.
   const exportQuery: SummaryQuery = {
     first_day: new Date(Date.now() - 29 * 86_400_000).toISOString().slice(0, 10),
     last_day: new Date().toISOString().slice(0, 10),
@@ -274,8 +274,8 @@
     { field: 'yearly', label: t('settings.retention.yearly'), hint: t('settings.retention.yearlyForever') },
   ] as { field: RetentionField; label: string; hint: string }[]);
 
-  // 周起始生效值（与后端 effective_week_start 同规则：显式优先；zh→周一，
-  // en-US/CA→周日，其余周一）。
+  // Match backend effective_week_start: explicit settings win, zh starts Monday,
+  // en-US/CA starts Sunday, and other locales start Monday.
   const effectiveWeekStart = $derived.by(() => {
     if (inputs.weekStart === '6') return 6;
     if (inputs.weekStart === '0') return 0;
@@ -316,7 +316,7 @@
     }
   }
 
-  // ---- F2 费用估算：价格快照与供应商默认 ----
+  // F2 cost estimation: price snapshots and provider preferences.
   let snapshots = $state<PriceSnapshotInfoDto[]>([]);
   let snapshotError = $state('');
   let costMessage = $state('');
@@ -377,7 +377,7 @@
     }
   }
 
-  // ---- F2 在线刷新（models.dev）：状态轮询与手动刷新 ----
+  // F2 models.dev refresh: status polling and manual requests.
   let refreshStatus = $state<PriceRefreshStatusDto | null>(null);
   let refreshBusy = $state(false);
   let refreshPoll: ReturnType<typeof setInterval> | null = null;
@@ -435,7 +435,7 @@
       }, 1000);
       await loadRefreshStatus();
       if (refreshStatus && !refreshStatus.running) {
-        // 极快完成（或未能启动）：直接收尾，不依赖轮询。
+        // Handle immediate completion/start failure directly rather than waiting for polling.
         stopRefreshPoll();
         refreshBusy = false;
         if (refreshStatus.last_outcome) {
@@ -454,7 +454,7 @@
     return ms > 0 ? new Date(ms).toISOString().slice(0, 10) : '—';
   }
 
-  /** 导出过滤选项：默认勾选当前用户/当前主机（失败时多选框退化为仅当前值）。 */
+  /** Default export scopes to current user/host; load failure falls back to current values. */
   async function loadExportFilters() {
     try {
       const r = await api.exportFilterOptions();
@@ -476,7 +476,7 @@
   loadSnapshots();
   loadRefreshStatus();
 
-  /** 解析单级保留天数：undefined = 非法；null = 留空（仅年允许 = 终身）。 */
+  /** Parse retention days: undefined is invalid; null is empty and allowed only for lifetime yearly retention. */
   function tierValue(raw: string, allowEmpty: boolean): number | null | undefined {
     const s = raw.trim();
     if (s === '') return allowEmpty ? null : undefined;
@@ -491,9 +491,9 @@
   }
 
   /**
-   * 常规页恢复默认（仅改草稿，保存后生效）：语言 zh-CN、主题跟随系统、
-   * 时区系统值、周起始自动、采集间隔 3600。手工根目录是用户数据源清单，
-   * 不属于偏好默认，不清空。
+   * Restore general draft defaults, effective after save: zh-CN, system theme/timezone,
+   * automatic week start and 3600-second collection. Keep manual source roots because
+   * they are the user source list rather than preference defaults.
    */
   function restoreGeneralDefaults(): void {
     draft.language = 'zh-CN';
@@ -508,7 +508,7 @@
     message = t('settings.defaultsPending');
   }
 
-  /** 归档保留页恢复默认（仅改草稿，保存后生效）：7/3/90/1095/3650 天，年 = 空（终身）。 */
+  /** Restore draft retention: 7/3/90/1095/3650 days, with empty yearly for lifetime retention. */
   function restoreRetentionDefaults(): void {
     inputs.events = '7';
     inputs.hourly = '3';
@@ -520,7 +520,7 @@
     message = t('settings.defaultsPending');
   }
 
-  // 保存仅提交常规/归档/来源身份类字段；开机与后台即时生效，不经此路径。
+  // Save general/retention/host-identity settings; startup/background task toggles apply separately.
   async function save() {
     saving = true;
     message = '';
@@ -549,7 +549,7 @@
       }
       tiers[field] = v;
     }
-    // 校验通过后各级必有值；?? 默认值仅满足类型要求（yearly null = 终身）。
+    // Validated tiers have values; nullish defaults satisfy typing, and yearly null means lifetime.
     const retention: RetentionTiers = {
       events_days: tiers.events ?? 0,
       hourly_days: tiers.hourly ?? 0,
@@ -600,7 +600,7 @@
       systemError = t('system.actionFailed', { message: parseError(e) });
     } finally {
       autoBusy = false;
-      // 无论成败都重读状态，让开关回到系统真实值。
+      // Reread actual system-task status after success or failure so switches show actual state.
       await loadTaskStatus();
     }
   }
@@ -621,22 +621,23 @@
     }
   }
 
-  /** 保存对话框路径 → 所在目录（后端在该目录下生成本次导出文件名）。 */
+  /** Use the save-dialog parent directory; the backend generates the export filename there. */
   function parentDir(path: string): string {
     const i = Math.max(path.lastIndexOf('\\'), path.lastIndexOf('/'));
     return i > 0 ? path.slice(0, i) : path;
   }
 
   /**
-   * 多选 → 后端单值过滤的展开：全部勾选 = null（不过滤，等价合并一份）；
-   * 单选 = 该值；子集多选 = 逐个值分别导出（交换包文件名含时间戳不互相覆盖）。
+   * Expand multiple selections into backend scalar filters. All selected becomes null
+   * for one unfiltered package; one item stays scalar; subsets export one item at a time.
+   * Exchange filenames include timestamps to keep separate exports.
    */
   function expandSelection(all: string[], selected: string[]): (string | null)[] {
     if (all.length > 0 && selected.length === all.length) return [null];
     return [...selected];
   }
 
-  /** 至少勾选一个用户和一个主机才允许导出。 */
+  /** Export requires at least one selected user and host. */
   const canExport = $derived(selectedUsers.length > 0 && selectedHosts.length > 0);
 
   function selectAllUsers(): void {
@@ -667,12 +668,12 @@
     }
     try {
       if (kind === 'summary-csv') {
-        // CSV 为展示用汇总，后端不按用户/主机过滤，单次导出即可。
+        // Display-summary CSV ignores user/host filters in the backend; export once.
         const r = await api.exportData(kind, parentDir(picked), exportQuery, null, null);
         exportMessage = t('export.done', { path: r.path });
         return;
       }
-      // 交换包：按勾选的用户 × 主机组合展开（全选合并为一份 null 过滤）。
+      // Exchange packages expand user/host combinations; all selected becomes one null filter.
       const userScopes = expandSelection(filterOptions?.users.map((u) => u.user_id) ?? [], selectedUsers);
       const hostScopes = expandSelection(filterOptions?.hosts.map((h) => h.host_id) ?? [], selectedHosts);
       const paths: string[] = [];
@@ -680,7 +681,7 @@
         for (const h of hostScopes) {
           const r = await api.exportData(kind, parentDir(picked), exportQuery, u, h);
           paths.push(r.path);
-          // 交换包文件名含毫秒时间戳，错开 2ms 防止同毫秒覆盖。
+          // Millisecond-timestamp filenames need a 2ms delay to avoid same-millisecond overwrites.
           await new Promise((res) => setTimeout(res, 2));
         }
       }
@@ -737,7 +738,7 @@
     }
   }
 
-  /** 诊断日志时间：格式化到秒（本机时区，24 小时制）。 */
+  /** Display diagnostic time to seconds in the local timezone and 24-hour format. */
   function fmtLogTime(ms: number): string {
     return new Date(ms).toLocaleString(i18n.locale, {
       year: 'numeric',
@@ -752,12 +753,12 @@
 
   async function loadLogs() {
     logsLoading = true;
-    // 同步读取以建立 effect 依赖（code 过滤变化时在 Tab 内自动重查）。
+    // Read code synchronously to track it as an effect dependency and reload the active tab on changes.
     const code = logsCode || null;
     try {
       const r = await api.diagnosticLogs(200, code);
       logs = r.rows;
-      // 未过滤加载时刷新 code 选项列表（过滤加载保留旧列表供切换）。
+      // Refresh code options only from unfiltered results; retain options during filtered loads.
       if (!code) logsCodes = Array.from(new Set(r.rows.map((x) => x.code))).sort();
       logsError = '';
     } catch (e) {
@@ -767,7 +768,7 @@
     }
   }
 
-  // 进入日志 Tab 或切换 code 过滤时（重新）加载。
+  // Reload when entering logs or changing the code filter.
   $effect(() => {
     if (sub !== 'logs') return;
     void logsCode;
@@ -822,7 +823,7 @@
     }
   }
 
-  /** clear_all_data 各表名 → 展示标签（核心表用现有键；其余保留原名）。 */
+  /** clear_all_data table display labels: known translation keys for core tables, raw names otherwise. */
   const CLEAR_ALL_TABLE_LABELS: Record<string, string> = {
     usage_events: 'cleanup.stats.events',
     hourly_usage: 'cleanup.stats.hourly',
@@ -845,7 +846,7 @@
     clearAllMessage = '';
     clearAllError = '';
     clearAllOpen = true;
-    // 预检尽力而为：失败不阻塞确认层（此时不展示缺失文件预警）。
+    // A failed optional preview still opens confirmation, without a missing-file warning.
     clearPreview = null;
     void api
       .clearAllPreview()
@@ -853,9 +854,9 @@
       .catch(() => (clearPreview = null));
   }
 
-  /** 清理全部数据 → 后台执行（确认层实时显示阶段；完成展示各表清除条目数）。
-   * 命令立即返回，清库/备份/全量重采在后台线程进行（同步执行会冻结 UI）；
-   * 进度经 clear-all-progress 事件更新确认层，重采百分比另见顶栏。 */
+  /** Clear all in the background with stage progress and final table counts.
+   * The command returns immediately while a worker backs up, clears and recollects.
+   * clear-all-progress updates confirmation; collection percentage appears in the header. */
   async function confirmClearAll() {
     clearAllBusy = true;
     clearAllError = '';
@@ -866,7 +867,7 @@
     try {
       const r = await api.clearAllData();
       if (!r.started) {
-        // 已有任务在执行：留在确认层跟随其阶段事件。
+        // An existing task keeps this confirmation subscribed to its stage events.
         return;
       }
     } catch (e) {
@@ -1352,7 +1353,7 @@
           {#if exportMessage}<p class="ok">{exportMessage}</p>{/if}
           {#if exportError}<p class="bad">{exportError}</p>{/if}
         </section>
-        <!-- 导入与导出用分隔线隔开（.panel + .panel 顶边框）；导入不受导出范围影响。 -->
+        <!-- Separate import/export sections with panel borders; export scopes do not affect import. -->
         <section class="panel">
           <h4>{t('import.title')}</h4>
           <p class="hint">{t('import.scopeHint')}</p>
@@ -1483,7 +1484,7 @@
 </form>
 
 <style>
-  /* Typora 风格：左侧竖向分类菜单 + 右侧内容表单。 */
+  /* Category navigation on the left and settings forms on the right. */
   .snap-table td {
     padding: 4px 10px 4px 0;
     border-bottom: 1px solid var(--line, rgba(128, 128, 128, 0.25));
@@ -1545,7 +1546,7 @@
     margin: 2px 0 20px;
     color: var(--text-heading);
   }
-  /* 紧凑表单行：行距 10px、标签 140px 右对齐。 */
+  /* Compact form rows: 10px gap and 140px right-aligned labels. */
   .frow {
     display: flex;
     align-items: center;
@@ -1711,7 +1712,7 @@
     font-size: 12px;
     overflow-wrap: anywhere;
   }
-  /* 时区选择：伪 select 按钮 + 点击展开的搜索覆盖层（absolute，点击外部关闭）。 */
+  /* Timezone button opens an absolute searchable list, dismissed by outside clicks. */
   .tz-picker {
     position: relative;
     width: 240px;
@@ -1791,7 +1792,7 @@
     gap: 10px;
     flex-wrap: wrap;
   }
-  /* 日志 Tab：工具行 + 可滚动表格（时间到秒，mono 等宽）。 */
+  /* Logs toolbar and scrollable table, with seconds and monospaced values. */
   .logs-toolbar {
     display: flex;
     align-items: center;
@@ -1805,7 +1806,7 @@
   .logs-spacer {
     flex: 1;
   }
-  /* code 过滤下拉（“全部” + DISTINCT code 选项）。 */
+  /* Code filter offers all or distinct diagnostic codes. */
   .logs-filter {
     display: inline-flex;
     align-items: center;
@@ -1868,7 +1869,7 @@
     overflow-wrap: anywhere;
     min-width: 220px;
   }
-  /* 导出范围（任务 G + 多选改造）：用户/主机两组 checkbox（每组带“全选”）。 */
+  /* G export scopes: user/host checkbox groups, each with a select-all option. */
   .export-filters {
     display: flex;
     gap: 24px;
@@ -1960,7 +1961,7 @@
     cursor: wait;
     opacity: 0.6;
   }
-  /* 危险操作的实心红样式（清理全部数据）。 */
+  /* Solid red styling for destructive clear-all actions. */
   button.danger.solid {
     background: var(--danger);
     color: var(--accent-text);
@@ -1972,7 +1973,7 @@
     gap: 10px;
     flex-wrap: wrap;
   }
-  /* 确认层：居中模态（Esc/取消关闭；执行中不可关）。 */
+  /* Centered confirmation; Esc/cancel closes it when no operation is running. */
   .overlay {
     position: fixed;
     inset: 0;
@@ -1995,7 +1996,7 @@
     color: var(--text);
     margin: 0;
   }
-  /* 清空确认层：缺失源文件预警（危险色）与自动备份说明（弱化）。 */
+  /* Clear-all missing-file warning and secondary backup explanation. */
   .dialog-warn {
     font-size: 13px;
     color: var(--danger);
@@ -2006,7 +2007,7 @@
     color: var(--text-muted);
     margin: 8px 0 0;
   }
-  /* 后台清理阶段的流动指示（不定进度；百分比语义见顶栏采集进度）。 */
+  /* Indeterminate background-cleanup indicator; header shows collection percentages. */
   .dialog-progress {
     margin-top: 10px;
     height: 3px;
@@ -2065,7 +2066,7 @@
       border-bottom: 1px solid var(--border);
       flex-wrap: wrap;
     }
-    /* 窄屏退化为常规堆叠，避免 140px 标签挤压输入。 */
+    /* Stack narrow-screen rows so 140px labels do not squeeze inputs. */
     .frow {
       flex-wrap: wrap;
     }

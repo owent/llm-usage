@@ -1,142 +1,165 @@
-# 总量图表、Copilot 补充采集与官方价格参考修正
+# Total-usage charts, additional Copilot collection and official price references
 
-修复时先核验当前源码、锁文件及本机白名单字段；
-验证记录见 [本轮记录](../../validation/desktop-usage/dashboard-repair.md)。
+<a id="总量图表copilot-补充采集与官方价格参考修正"></a>
 
-## 行为与兼容
+Before repairs, inspect current source/lockfiles and permitted local fields. Results:
+[repair record](../../validation/desktop-usage/dashboard-repair.md).
 
-当前价参考须覆盖与用量表相同的保留范围：逐次明细与封存汇总按来源分区择一，
-日/周/月采用用量查询相同的归档选择规则，小时选区不能混入整日汇总。
-封存汇总只使用已保存的分项；未知拆分不补零，不用日总输入判断单次上下文档位。
-有多档价且无法恢复逐次档位时，显示各适用档位形成的费用上下界及原因；
-部分已知分项的区间不代表完整费用。当前价参考不回写历史价格或封存数据。
-费用累计保留整数乘积精度，汇总后舍入，避免逐次小额舍入丢失。
-模型详情按来源 provider 与模型拼写键合并；参考价供应商、档位和快照在同一模型行内展示。
+<a id="行为与兼容"></a>
 
-看板展示规则：
+## Behavior and compatibility
 
-- 应用管理的遥测根只传给 OTel 适配器；共享手工根尊重已确认的文件归属，
-  同一物理文件已有有效归属时不被其他适配器再次采集。旧错误注册自动重评，
-  不删除用量、修订或诊断；该目录中无用量历史的误登记不在数据源页冒充已安装 Agent。
-  用户手工文件的真实未知格式仍保留诊断；不存在的历史来源变灰，权限错误仍报告读取失败。
-- 模型名分为原始名称、拼写比较键和已核验的 API 参考型号。空格/下划线/连字符
-  可统一比较，版本小数与未知后缀不任意删除；动态 profile 映射保留生效时间依据。
-  原始来源、渠道和历史价格保持独立，按模型显示缺价/无用量原因。
-- 费用曲线缺失点保持缺口，已知零金额显示零；ECharts 缺失哨兵不能参与金额格式化。
-- Copilot 同范围输入输出齐全时求和；原生 turn 的末次输入与整轮输出只在展示层
-  显示已观测总量下界并解释来源，不能改写为完整总 token 或参与完整总量统计。
-- 设置中的开关统一视觉、焦点和键盘行为；多选项保留复选框语义和可点击标签。
+Current reference prices must cover the same retained range as usage. Select individual
+details or archived summaries per source partition, using identical daily/weekly/monthly
+archive rules. Hourly selection excludes whole-day totals. Archived summaries use saved
+components only: no zero-filled splits or per-call context tiers inferred from daily input.
+Multiple tiers without recoverable per-call tier show lower/upper costs and reasons;
+known-component intervals do not represent full cost. Current references never overwrite
+historical prices/archives. Retain integer-product precision, sum then round to avoid losing
+small costs. Model details merge by source provider/spelling key; reference supplier/tiers/
+snapshots appear within that model row.
 
-费用参考卡放入今日/趋势的指标网格，短标题为“API 参考费用”，
-宽容器八列、中等容器四列、窄容器两列/一列；账户额度仍用独立栏。
-费用缺口区分“来源未提供可计价 token”和“没有适用价目”，部分估算说明输入拆分、
-输出或价格分项缺失。未知 token 不补零，已知零用量可按适用价格记零金额。
+Dashboard rules:
 
-按用户要求增加 CNY→USD 的展示折算：保留人民币原金额/原单价，旁列约合美元，
-不合并不同币种，不改写历史估算。采用版本化 ECB 2026-10-02 快照（EUR/USD=1.1225、
-EUR/CNY=7.5259，CNY→USD=1.1225/7.5259），显示日期和来源；该快照不自动联网更新，
-未知币种或不安全数值不折算。金额和单价分别在各自整数单位上换算、四舍五入。
-来源：[ECB 官方参考汇率](https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html)。
+- Managed telemetry roots go only to OTel. Shared manual roots honor confirmed file ownership;
+  another adapter cannot collect an already assigned physical file. Reevaluate old wrong
+  registrations without deleting usage/revisions/diagnostics. Incorrect registrations without
+  usage history in that directory do not appear as installed agents. Actual unknown manual
+  formats keep diagnostics; missing historical sources gray out, permission errors remain read failures.
+- Keep original model name, spelling comparison key and verified API reference identity separate.
+  Spaces/underscores/hyphens may normalize for comparison; retain version decimals/unknown
+  suffixes. Dynamic profiles preserve effective dates. Original source/channel/historical prices
+  independent; model rows explain missing rates/usage.
+- Missing cost-curve points stay gaps, known zero stays zero. ECharts missing sentinel never
+  enters money formatting.
+- Sum Copilot input/output only with complete matching coverage. Native turn's last-call
+  input and whole-turn output provide a display-only observed-total lower bound, with explanation;
+  never redefine it as complete total tokens or include in full-total statistics.
+- Setting switches share visuals/focus/keyboard behavior; multiple choices retain checkbox
+  semantics and clickable labels.
 
-Codex 文件自动重评保留逐次用量、修订和对账诊断。累计快照差异保留 mismatch，
-不单独降级读取健康；新版独立逐次记录不依赖累计快照，旧版 total/last 字段异常仍降级。
-官方协议允许 TokenCountEvent.info 缺失/null：没有用量，不计调用、不补零。
-坏行、逐次用量形状或时间异常在分批读取后保留错误状态，避免后续正常批次覆盖异常。
-Kilo 新版本登记仍须逐版本脱敏样本，空会话没有 assistant 用量不能据此认证，
-不按版本范围自动认证。解析器或支持版本核验依据更新后自动重扫旧游标。
-数据源的兼容读取提示说明已经自动检查可识别用量，支持更新后自动复核；
-缺少版本核验依据与真实读取错误分别保留，不能仅为了移除提示认证新版本。
-Kilo 按逐消息的 session.version 标记依据，库内最高版本不替代其他会话的版本核验依据；
-混合库的兼容状态跨增量轮次保留，规则升级自动重放后重新判断。
+API reference cost card belongs in today/trend metric grid: eight columns wide, four medium,
+two/one narrow. Account quota remains separate. Distinguish missing priceable source tokens
+from no applicable price; partial estimates explain missing input splits/output/rate components.
+Unknown tokens remain unknown; known-zero usage may price to zero with an applicable rate.
 
-- 总量视图每组只绘制总 token，未知保持缺口，输入输出留在对应子图与提示中。
-  总量占比支持切换总量、输入、输出；缺少总量的 Agent 明示未知，不丢掉名称。
-- 调用次数图按 Agent 展示 Agent 名称和调用次数，单周期也保留可悬浮的数据点。
-  原生 Copilot 的用量 observation 不当成调用；模型名的已核验破折号/小数拼写统一分组。
-- 一键配置的本机 Copilot file 输出自动发现。只接入已核验的 CLIENT chat span，
-  支持 `chat <model>`，跳过 metrics、logs、invoke_agent 与其他非调用记录。
-  上游未报告 token 的调用仍计调用；缓存桶不补零，推理为输出子集。
-  总览小字提示 Copilot VS Code/Agent Host、最新版 CLI、JetBrains 需导出才能补齐
-  逐调用观测；CodeBuddy CLI 已有本机会话载体，导出仅为可选补充，不误称必须。
-- 没有共同调用 ID 时采用载体选择：同原始主机、用户、会话和统计本地日，
-  已观测 Copilot OTel 替代原生会话贡献；其他会话/日期保留原生数据。
-  这不是按时间/token 相同去重；配置开启当日可能只覆盖开启后的导出调用，明确提示。
-  原生记录及修订历史保留，后续原生重扫不能重新叠加。没有会话身份不替代原生记录。
-  file/HTTP 同源副本以 trace+span 联合身份和原主机/用户去重；不同 trace 的相同 span ID
-  仍是不同调用。旧版 span-only 游标重放保留旧记录并撤回旧贡献，不需清库。
-- 费用默认关闭。精确 provider、模型、用户配置渠道价格优先；没有精确项时，
-  即使 provider/渠道缺失，也可使用同模型已核验官方供应商按量价作为参考。
-  无渠道偏好时选官方 global 参考（优先 api 标签，也接受官方提供商名称的渠道标签）；
-  没有该项再选有确定币种的官方渠道，
-  候选渠道/币种仍有歧义则未计价。保留真实 provider、币种和 fallback_event_count。
-  不给同系列的不同型号套价，订阅专属模型无按量价时仍未知。
-  官方模型表确认 Kimi Code 的 k3/k3-256k 对应 K3，只用于 kimi-k3 价格参考；
-  别名对裸 model_raw（`k3`/`k3-256k`，Kilo Code / oh-my-pi 在自定义 Kimi provider
-  下的真实上报形态）与 provider 前缀形态都生效，并归属官方 moonshot；
-  统计保留原始 profile，精确 profile 渠道价格优先。
-  自定义模型命名空间仅在前缀与该记录的 provider 一致，或已核验前缀表命中时剥离；
-  已核验的备份 profile 支持相同规则，不任意删除未知命名空间/后缀。
-  GPT-5.5 官方快照 `gpt-5.5-2026-04-23` 可参考 `gpt-5.5`；其他日期不自动推断。
-  按 Kimi 官方发布说明，2026-09-11 起的 kimi-for-coding 对应
-  kimi-k2.8-preview，早期记录不套用新指向。当前未核到原厂公开按量价，
-  当前参考适用下述用户明确授权的替代规则；发生时估算仍缺价。
-  腾讯云等渠道的价目不伪装为 Moonshot 官方价格。hy4-preview-f 经本机官方
-  CodeBuddy 模型目录确认是 Hy4 preview，按腾讯官方 CNY 价参考。
-  别名与拼写规则集中维护；精确目录 ID 优先于拼写归一与上下文档位，冲突拒绝套价。
-  一套档位来自同一优先价格快照，不能拼接新基础价和旧长上下文价。
-  用户于 2026-10-05 明确确认 `k28-agent-preview` 是 Kimi K2.8 Preview，
-  并允许无官方价时参考 K2.7：身份映射保持 `kimi-k2.8-preview`，
-  当前 API 参考仅在没有精确渠道/同型号官方价目时使用 `kimi-k2.7-code` 官方价。
-  这是明确列出的跨型号例外，不扩展到相近型号；渠道/档位歧义不触发替代。
-  金额、汇总和单价详情均标替代型号；发生时估算不采用此替代，不回写历史金额。
-- 总览和趋势明确显示 API 按量价格参考、部分覆盖、官方回退和未计价原因；
-  已知用量 observation 同样支持部分估算，计价事件数不当成调用数。
-  后台价格更新不改写发生时估算。规则修复只重算仍保留明细且未封存的日期一次。
-- 趋势默认调用/用量并排，费用全宽，周分布与两个占比均分一行；允许用户调整，
-  不清空已有布局。网格填充空列，窄屏改为单列。
-  七项范围指标与账户额度组成八个卡片，宽屏两行四列，窄屏两列/一列，不留额度旁空档。
+User-requested CNY→USD display preserves original CNY amount/rate alongside approximate USD,
+without currency merging/history rewriting. Versioned ECB 2026-10-02 snapshot EUR/USD=1.1225,
+EUR/CNY=7.5259, CNY→USD=1.1225/7.5259; display date/source, no automatic network refresh.
+Unknown currencies/unsafe numbers unconverted. Amounts/rates converted and rounded in their
+respective integer units. [ECB reference rates](https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html).
+
+Codex automatic file reevaluation retains individual usage/revisions/comparison diagnostics.
+Cumulative mismatch stays visible without independently lowering read health. New individual
+records do not depend on snapshots; invalid legacy total/last fields still worsen health.
+Official TokenCountEvent.info may be absent/null: no usage/call/zero filling. Invalid rows,
+individual usage shape/time errors remain after later good batches. Register Kilo versions
+only with redacted per-version samples; empty sessions without assistant usage cannot verify
+format or a version range. Updated parser/version verification automatically rescans old
+cursors. Compatibility notices explain automatic readable-usage checks and review after support
+updates. Missing version verification and actual read errors stay distinct; notices cannot
+be cleared through unsupported version claims. Kilo uses each message's session.version;
+highest database version never replaces another session's basis. Mixed compatibility survives
+incremental rounds, reevaluated after rule-upgrade replay.
+
+- Total view draws total tokens only per group; unknown gaps remain, input/output in their
+  own charts/tooltips. Share chart switches total/input/output; agents without totals keep
+  names and explicit unknown values.
+- Call charts show agent names/counts, including hoverable points for a single period.
+  Native Copilot usage observations are not calls; verified hyphen/decimal model spellings group together.
+- Automatically discover locally configured Copilot file exports. Accept only verified CLIENT
+  chat spans, including chat followed by model; skip metrics/logs/invoke_agent/noncall records.
+  Calls without reported tokens still count; cache fields unknown, reasoning subset of output.
+  Small overview text says VS Code/Agent Host/latest CLI/JetBrains exports supplement per-call
+  observations. CodeBuddy CLI already has local sessions; export is optional supplementation.
+- Without common call IDs, choose native session or OTel contributions for each original
+  host/user/session/statistical local day. Observed Copilot OTel replaces matching native
+  contribution; other dates/sessions retain native data. No deduplication by equal time/tokens.
+  Enabling-day exports may cover only later calls; show limited coverage. Preserve native
+  records/revision history; later native replay cannot add them again. Missing session identity
+  cannot replace native records. Same-source file/HTTP copies deduplicate by trace+span and
+  original host/user. Equal span IDs in different traces remain different calls. Replay old
+  span-only cursors, retaining old records/removing old contribution without clearing the DB.
+- Costs off by default. Exact provider/model/user channel prices first. Without exact rows,
+  missing provider/channel can still use verified official same-model API reference rates.
+  Without channel preference choose official global, preferring api labels but also official
+  provider-name channel labels. Otherwise choose official channel with definite currency;
+  remaining channel/currency ambiguity stays unpriced. Preserve real provider/currency/
+  fallback_event_count. Never price another model from the same series; subscription-only
+  models without API rates stay unknown.
+  Official Kimi model table maps k3/k3-256k to K3 for kimi-k3 reference only. Alias applies
+  to bare model_raw k3/k3-256k from native Kilo/oh-my-pi custom Kimi providers and prefixed
+  forms, official moonshot assignment. Keep original profile; exact profile-channel rates first.
+  Strip custom namespaces only when prefix matches the record provider or verified prefix
+  table. Verified backup profiles follow the same rule; unknown namespaces/suffixes retained.
+  Official GPT-5.5 snapshot gpt-5.5-2026-04-23 may reference gpt-5.5; no inferred other dates.
+  Official Kimi release notes map kimi-for-coding from 2026-09-11 to kimi-k2.8-preview,
+  without changing earlier identity. No verified original-provider public API rate yet;
+  current reference follows the explicit exception below, occurrence-time estimate remains missing.
+  Tencent/other-channel prices are not labeled Moonshot official rates. Native official CodeBuddy
+  catalog identifies hy4-preview-f as Hy4 preview, using Tencent official CNY reference.
+  Centralize alias/spelling rules; exact catalog ID before spelling normalization/context tier,
+  conflicts unpriced. All tiers from one preferred snapshot, without mixing new base/old long rates.
+  User confirmed k28-agent-preview as Kimi K2.8 Preview on 2026-10-05 and authorized K2.7
+  when official prices absent. Identity stays kimi-k2.8-preview. Current API reference uses
+  official kimi-k2.7-code only without exact channel/same-model official rate. This listed
+  cross-model exception does not apply to similar models or channel/tier ambiguity. Amounts/
+  summaries/rate details identify substitute model. Occurrence-time estimates never use it;
+  no historical amount rewriting.
+- Overview/trend show API references/partial coverage/official fallback/unpriced reasons.
+  Known usage observations can receive partial estimates; priced-event count is not call count.
+  Background prices never rewrite occurrence-time estimates. Rule repairs recalculate retained
+  detail on unarchived days once.
+- Trend defaults: calls/usage side by side, costs full width, weekday/two share charts on one
+  evenly divided row. User adjustments/old layouts retained; grid fills empty columns, narrow
+  screens one column. Seven range metrics plus quota form eight cards, wide two rows/four
+  columns, narrow two/one, without blank space beside quota.
+
+<a id="官方供应商依据"></a>
 
 <a id="官方供应商证据"></a>
 
-## 官方供应商依据
+## Official provider references
 
-以下页面正文于 2026-10-02 核验；模型系列仅用于限定候选官方供应商，
-具体型号仍须在价格快照中有对应行，不根据系列虚构费率。
+Page text checked 2026-10-02. Model series narrow candidate official suppliers only;
+exact model must still have a price row, without invented series-based rates.
 
-| 系列 | 官方供应商/目录 ID | 来源 |
+| Series | Official supplier/catalog ID | Source |
 | --- | --- | --- |
-| GPT、OpenAI o 系列 | OpenAI / openai | [OpenAI 定价](https://developers.openai.com/api/docs/pricing) |
-| Claude | Anthropic / anthropic | [Claude 定价](https://platform.claude.com/docs/en/about-claude/pricing) |
-| Gemini | Google / google | [Gemini 定价](https://ai.google.dev/gemini-api/docs/pricing) |
-| Kimi、Moonshot | 月之暗面 Moonshot AI / moonshot、moonshotai（含 CN） | [Kimi 定价](https://platform.kimi.ai/docs/pricing/chat) |
-| GLM | 智谱 / zhipuai；国际 Z.ai / zai | [Z.ai 定价](https://docs.z.ai/guides/overview/pricing) |
-| DeepSeek | DeepSeek / deepseek | [官方定价](https://api-docs.deepseek.com/quick_start/pricing)（公开正文 HTTP 200，23982 字节，保存在忽略的 build/dashboard-repair/） |
+| GPT/OpenAI o | OpenAI/openai | [OpenAI pricing](https://developers.openai.com/api/docs/pricing) |
+| Claude | Anthropic/anthropic | [Claude pricing](https://platform.claude.com/docs/en/about-claude/pricing) |
+| Gemini | Google/google | [Gemini pricing](https://ai.google.dev/gemini-api/docs/pricing) |
+| Kimi/Moonshot | Moonshot AI/moonshot/moonshotai, including CN | [Kimi pricing](https://platform.kimi.ai/docs/pricing/chat) |
+| GLM | Zhipu/zhipuai; international Z.ai/zai | [Z.ai pricing](https://docs.z.ai/guides/overview/pricing) |
+| DeepSeek | DeepSeek/deepseek | [Official pricing](https://api-docs.deepseek.com/quick_start/pricing), public HTTP 200/23,982 bytes retained under ignored build/dashboard-repair/ |
 
-Kimi profile 对应关系来自 [Kimi Code 模型表](https://www.kimi.com/code/docs/en/kimi-code/models.html)。
-日期依据 [Kimi Code 发布说明](https://www.kimi.com/code/docs/en/kimi-code/whats-new.html)。
-HY4 采用 [腾讯官方价目](https://cloud.tencent.com/document/product/1823/130055)，
-广州标准 API 每百万 token CNY：输入 6、输出 18、缓存命中 0.3；
-[2026-10-03 补充快照](../../../desktop/src-tauri/crates/core/prices/seed-2026-10-03.json)
-从核验日起生效，不把 CodeBuddy 免费入口解释为免费 API。
-本轮本机明细与验证见 [第二轮反馈记录](../../validation/desktop-usage/feedback-round2.md)。
-新增 [2026-10-02 补充快照](../../../desktop/src-tauri/crates/core/prices/seed-2026-10-02.json)
-包含 Claude Opus 4.8 和 GPT-4o mini 的 2024-07-18 官方快照型号。
-标准 USD/百万 token：Opus 输入 5、输出 25、缓存命中 0.50，5 分钟/1 小时写入 6.25/10；
-GPT-4o mini 输入 0.15、缓存命中 0.075、输出 0.60。
-生效起点为本轮核验日，不虚构历史生效时间，也不为不存在的缓存价格补零。
+Kimi profiles: [Kimi Code model table](https://www.kimi.com/code/docs/en/kimi-code/models.html);
+dates: [release notes](https://www.kimi.com/code/docs/en/kimi-code/whats-new.html).
+HY4 uses [Tencent official prices](https://cloud.tencent.com/document/product/1823/130055),
+Guangzhou standard API CNY/million input 6/output 18/cache hit 0.3.
+[2026-10-03 snapshot](../../../desktop/src-tauri/crates/core/prices/seed-2026-10-03.json)
+effective from verification date; free CodeBuddy access does not establish free API pricing.
+Local details/results: [second feedback record](../../validation/desktop-usage/feedback-round2.md).
+[2026-10-02 snapshot](../../../desktop/src-tauri/crates/core/prices/seed-2026-10-02.json)
+adds Claude Opus 4.8 and GPT-4o mini official 2024-07-18 snapshot. Standard USD/million:
+Opus input 5/output 25/cache hit 0.50/write 5m 6.25/write 1h 10; GPT-4o mini input 0.15/
+cache hit 0.075/output 0.60. Effective from verification date, without invented historical
+dates or zero prices for absent cache components.
 
-Copilot file 形状依据已存档的固定源码
-[fileExporters](https://github.com/microsoft/vscode/blob/dc546cc3c9979a19adafccd439889d7b64298def/extensions/copilot/src/platform/otel/node/fileExporters.ts)
-及本机 30 个 CLIENT chat span；CLI 单次/汇总差异依据
-[官方 OTel 参考](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference#opentelemetry-monitoring)。
-不把这次 VS Code 真实验收扩大为 CLI/JetBrains 新版本真实验收。
-input 缓存包含关系与 reasoning 输出子集按 [OTel GenAI 语义](https://opentelemetry.io/docs/specs/semconv/registry/attributes/gen-ai/)
-核对；SDK 数值 CLIENT=2 与 OTLP CLIENT=3 不同，接收器转换为文本枚举避免混用。
+Copilot file shape: archived fixed [fileExporters source](https://github.com/microsoft/vscode/blob/dc546cc3c9979a19adafccd439889d7b64298def/extensions/copilot/src/platform/otel/node/fileExporters.ts)
+and 30 native CLIENT chat spans. CLI individual/aggregate distinction:
+[official OTel reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference#opentelemetry-monitoring).
+Native VS Code acceptance does not verify new CLI/JetBrains versions. Input/cache inclusion
+and reasoning output subset checked against [OTel GenAI semantics](https://opentelemetry.io/docs/specs/semconv/registry/attributes/gen-ai/).
+SDK CLIENT=2 differs from OTLP CLIENT=3; receiver converts to text enums to avoid mixing them.
 
-## 失败、验证与回滚
+<a id="失败验证与回滚"></a>
 
-导出缺失/损坏时显示已有可观测范围，不发起模型调用补样本。
-本机原始文件只读，临时验证库和脱敏输出位于根 build/dashboard-repair/。
-回归覆盖旧游标、重扫、先后扫描次序、跨主机/用户隔离、当日范围、图表悬浮、
-渠道未知的官方参考、型号缺失及多币种。验证命令和结果记录在本轮验证文档。
-回滚只撤回本轮代码；原始来源和价格快照不删，保留原生记录可重新选择来源。
+## Failures, validation and rollback
+
+Missing/damaged exports show existing observable coverage; no model calls to manufacture
+samples. Original local files read-only; temporary validation databases/redacted output under
+root build/dashboard-repair/. Regressions cover old cursors/rescans/read order, host/user
+isolation, enabling-day range, hover, official reference with unknown channel, absent models
+and multiple currencies. Commands/results in repair records. Rollback withdraws this round's
+code only; original sources/price snapshots retained. Native records permit source reselection.

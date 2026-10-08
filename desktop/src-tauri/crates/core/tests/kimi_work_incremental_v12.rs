@@ -1,5 +1,5 @@
-//! Kimi Work（A13，M4）V12 增量语义 —— 重复扫描不增量、追加续读、半行跨轮、
-//! 截断重扫（已入库历史不消失）、达到读取上限后分批恢复。
+//! Kimi Work (A13, M4) V12: repeat scans add nothing; append reads and incomplete lines resume;
+//! truncation rescans retain imported history, and bounded reads recover in batches.
 
 mod common;
 
@@ -22,7 +22,7 @@ fn budgeted_limits(max_lines: u64) -> ScanLimits {
 }
 
 fn rec_usage(io: i64, out: i64, cr: i64, time: i64) -> String {
-    // 1.4 形态：无 agentId、model 裸 id。
+    // Version 1.4 shape: no agentId; model is a bare ID.
     format!(
         r#"{{"type":"usage.record","model":"k3-agent","usage":{{"inputOther":{io},"output":{out},"inputCacheRead":{cr},"inputCacheCreation":0}},"usageScope":"turn","time":{time}}}"#
     )
@@ -149,7 +149,7 @@ fn truncation_triggers_rescan_keeps_history() {
     assert_eq!(second[0].outcome.as_ref().unwrap().added, 1, "仅新键事件");
     assert_eq!(generation(&storage), 1);
 
-    // 已入库历史不因源截断而消失（V12 与 codex 规则相同）。
+    // Source truncation leaves imported history intact, as in Codex V12.
     let summary = summary(&storage, "2026-01-01", "2026-01-02");
     assert_eq!(summary.totals.call_count, 3);
     assert_eq!(summary.totals.total_tokens_known, Some(550 + 1_060 + 580));

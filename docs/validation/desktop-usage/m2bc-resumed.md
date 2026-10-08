@@ -1,138 +1,176 @@
-# M2-B/C 恢复完成：pi / oh-my-pi / Claude / Gemini / Qwen 适配器
+# M2-B/C recovery: pi, oh-my-pi, Claude, Gemini and Qwen adapters
 
-本文件是 [m2bc-suspended.md](m2bc-suspended.md) 的恢复验收记录。恢复范围 =
-中断记录差距表：四源合同/缺口/增量集成测试与 fixtures、oh-my-pi 独立适配器定案、
-real_verify examples ×5、本机真实只读核对。
+<a id="m2-bc-恢复完成pi--oh-my-pi--claude--gemini--qwen-适配器"></a>
 
-## 元信息
+This records recovery acceptance for [the interruption](m2bc-suspended.md). Scope follows its
+gap table: four sources' integration requirements/missing-field/incremental tests and test data,
+an independent oh-my-pi adapter decision, five real_verify examples and local read-only native checks.
 
-| 项目 | 内容 |
+<a id="元信息"></a>
+
+## Metadata
+
+| Item | Value |
 | --- | --- |
-| 日期 | 2026-09-25（恢复执行；中断于 2026-09-24） |
-| 执行环境 | Windows 11 x64；rustc 1.98.0；Node v24.21.0 / npm 12.0.2 |
-| 代码 revision | 未提交工作树（M2-A 已验收状态 + 本次恢复新增） |
-| 依据合同 | [adapters.md](../../design/desktop-usage/adapters.md)；[validation.md](../../design/desktop-usage/validation.md) V07/V12/V17；[execution.md](../../design/desktop-usage/execution.md) M2 |
+| Date | 2026-09-25 recovery; interrupted 2026-09-24 |
+| Environment | Windows 11 x64; rustc 1.98.0; Node v24.21.0 / npm 12.0.2 |
+| Revision | Uncommitted worktree: accepted M2-A changes plus recovery additions |
+| Requirements | [Adapters](../../design/desktop-usage/adapters.md); [validation](../../design/desktop-usage/validation.md) V07/V12/V17; [execution plan](../../design/desktop-usage/execution.md) M2 |
 
-## 命令与结果
+<a id="命令与结果"></a>
 
-| # | 命令（cwd） | 退出码 | 结果摘要 |
+## Commands and results
+
+| # | Command and cwd | Exit | Results |
 | --- | --- | --- | --- |
-| 1 | `cargo test --locked -p llm-usage-core`（desktop/src-tauri） | 0 | **249 passed / 0 failed**（中断时基线 143 + 本次净增 106：五源集成测试 103 + omp 内联单测 3） |
-| 2 | `cargo clippy --locked -p llm-usage-core --all-targets -- -D warnings` | 0 | 比项目门禁（不带 --all-targets）更严的检查范围也通过；顺手修了 4 处存量/新增测试 lint（见「修复记录」） |
-| 3 | `npm run verify`（仓库根） | 0 | lint:md 89 文件 0 问题、assets:check、test:scripts、svelte-check、fmt --check、clippy、cargo test（core 249 + app 2 = **251**）、vite build 全绿 |
-| 4 | `cargo run -p llm-usage-core --example real_verify_pi -- ~/.pi/agent build/desktop-usage-validation/real-check-pi` | 0 | 本机真实只读核对，白名单聚合见下 |
-| 5 | `cargo run -p llm-usage-core --example real_verify_omp -- ~/.omp/agent build/desktop-usage-validation/real-check-omp` | 0 | 同上 |
-| 6 | real_verify_claude / real_verify_gemini / real_verify_qwen | 0 | 均 discovered 0 根（no_data / not_found 核验结果见下） |
+| 1 | cargo test --locked -p llm-usage-core; desktop/src-tauri | 0 | 249 passed/zero failed: interruption baseline 143 plus 106, comprising 103 integration tests across five sources and three omp inline tests |
+| 2 | cargo clippy --locked -p llm-usage-core --all-targets -- -D warnings | 0 | Passed the broader all-targets check; four existing/new test lint issues were fixed as listed below |
+| 3 | npm run verify; repository root | 0 | Markdown lint: 89 files/zero issues; assets/scripts/Svelte/fmt/clippy passed; core 249/app 2 = 251 Rust tests; Vite build passed |
+| 4 | cargo run -p llm-usage-core --example real_verify_pi -- ~/.pi/agent build/desktop-usage-validation/real-check-pi | 0 | Local read-only native check; permitted aggregates below |
+| 5 | cargo run -p llm-usage-core --example real_verify_omp -- ~/.omp/agent build/desktop-usage-validation/real-check-omp | 0 | Same check for omp |
+| 6 | real_verify_claude / real_verify_gemini / real_verify_qwen | 0 | Each discovered zero roots; no_data/not_found results below |
 
-## 冷启动简报问题②定案：oh-my-pi 需要独立适配器（已完成）
+<a id="恢复简报问题结论oh-my-pi-需要独立适配器已完成"></a>
 
-新建 `adapters/omp.rs`（931 行，3 内联单测），不复用 pi.rs 整体而共享其
-pub(crate) 解析件（parse_usage/map_cost/事件构造等）。与 pi 的真实差异
-（本机 58 会话文件实读核验）：
+<a id="冷启动简报问题定案oh-my-pi-需要独立适配器已完成"></a>
 
-- 首行为 `type:"title"`（v=1），session 头在其后：detect 有界读前 4 行定位
-  （首行非 title/session ⇒ UnknownFormat；只有 title 无 session ⇒ Pending）。
-- assistant 自带 `duration`/`ttft` 浮点毫秒（omp 特有），入库四舍五入。
-- **model_change 落盘为组合字段 `model`="provider/model"**（3 个真实脱敏
-  fixture 一致），非 pi 的 `modelId`/`provider` 分字段；omp.rs 以组合字段为准、
-  分字段作后备（omp 本机未观测分字段形状）。此修正是恢复期间由真实 fixture
-  核对发现的实现偏差。
-- 子 Agent 按路径形状判定：文件名非 `<ts>_<uuid>.jsonl` 时，父会话取最近的
-  `<ts>_<uuid>` 祖先目录名（首个下划线后部分）；嵌套子 Agent 隔代不归名。
+## Independent oh-my-pi adapter decision
 
-## 实现与测试清单
+Created adapters/omp.rs with 931 lines/three inline tests. It shares pub(crate) pi parsing helpers
+(parse_usage/map_cost/event construction), rather than the entire adapter. Native reads of
+58 local session files established these differences:
 
-| 源 | 真实 fixture | 合成 fixture 目录 | contract | gaps | incremental |
+- First line is type:"title", v=1; the session header follows. Detection reads at most four
+  lines: a first line other than title/session is UnknownFormat; title without session is Pending.
+- Assistants carry omp-specific floating-point duration/ttft milliseconds, rounded for storage.
+- model_change writes a combined model="provider/model" field, consistent in three redacted
+  native samples. omp uses this field first and separate modelId/provider fields as fallback;
+  the separate-field shape was not observed locally. Native samples exposed this implementation
+  error during recovery.
+- For sub-agents, filenames other than `<ts>_<uuid>.jsonl` use the nearest `<ts>_<uuid>` ancestor
+  directory as parent, taking the portion after its first underscore. Nested sub-agents do not
+  inherit a more distant ancestor's identity.
+
+<a id="实现与测试清单"></a>
+
+## Implementation and tests
+
+| Source | Native samples | Synthetic sample count | contract | gaps | incremental |
 | --- | --- | --- | --- | --- | --- |
-| pi | session-error-zero-usage（1 调用全 0，error） | 7 | 2 | 8 | 8 |
-| oh-my-pi | session-glm-reasoning（reasoningTokens=54）、session-k3-cache-abort（7 调用含 aborted）、subagent-community-research（5 调用 sub_agent） | 9 | 4 | 12 | 8 |
-| claude | 无（本机 no_data） | 8 | 2 | 11 | 8 |
-| gemini | 无（本机 not_found） | 8 | 3 | 11 | 5 |
-| qwen | 无（本机 not_found） | 8 | 2 | 11 | 8 |
+| pi | session-error-zero-usage: one error call, all zero | 7 | 2 | 8 | 8 |
+| oh-my-pi | session-glm-reasoning: reasoningTokens=54; session-k3-cache-abort: seven calls including aborted; subagent-community-research: five sub_agent calls | 9 | 4 | 12 | 8 |
+| Claude | None; local no_data | 8 | 2 | 11 | 8 |
+| Gemini | None; local not_found | 8 | 3 | 11 | 5 |
+| Qwen | None; local not_found | 8 | 2 | 11 | 8 |
 
-- 所有真实 fixture 经脱敏提取（`build/desktop-usage-validation/tools/extract-pi-omp.mjs`，
-  gitignored）：数字/布尔/null 保留、字符串默认 REDACTED、枚举键白名单、
-  ID→anon-N 稳定映射；泄漏核查全量去重后只剩枚举值。每个 fixture 目录配
-  `_expectations.md` 手工核算（jq 逐条验算），测试期望与之互核。
-- 期望值口径：`input_total` 为派生 input+cacheRead+cacheWrite（usage_map.rs
-  map_pi_family）；`total_tokens` 派生 = input_total+output；`source_total`
-  直报 totalTokens。恢复期间修正两处期望文档把派生值写成原始 input 合计的错误。
-- omp gaps 覆盖：四类辅助 usage 载体、无 usage 的 assistant（计调用不补零）、
-  fork 继承去重、嵌套子 Agent、error/aborted、cost>0 映射 estimated（0 不映射）、
-  detect 首行闸口四态、未知版本/未知格式 fail closed、未知条目类型单诊断。
+- Ignored build/desktop-usage-validation/tools/extract-pi-omp.mjs extracts/redacts native samples.
+  Numbers/booleans/null remain; strings default to REDACTED, enum keys are allowlisted, and
+  IDs map stably to anon-N. Deduplicated leakage checks left only enum values. Each sample
+  directory has manually calculated _expectations.md, independently checked record-by-record
+  with jq and compared against test expectations.
+- input_total is derived input+cacheRead+cacheWrite through usage_map.rs map_pi_family;
+  total_tokens is derived input_total+output; source_total preserves reported totalTokens.
+  Recovery fixed two expectation documents that confused derived input_total with raw input sums.
+- omp gaps tests cover four auxiliary usage formats, assistants without usage (count calls,
+  leave tokens unknown), copied fork entries, nested sub-agents, error/aborted, cost>0 as
+  estimated (zero omitted), four first-line detection outcomes, rejection of unknown versions/
+  formats and one diagnostic for an unknown entry type. These describe this historical stage.
 
-## 本机真实只读核对（2026-09-25，白名单聚合）
+<a id="本机真实只读核对2026-09-25白名单聚合"></a>
 
-### pi（~/.pi/agent，pi 0.87.1）
+<a id="本机真实只读核对2026-09-25允许保存的汇总字段"></a>
 
-| 指标 | 实测 |
+## Local read-only native checks: 2026-09-25 permitted aggregates
+
+<a id="pipiagentpi-0871"></a>
+
+### pi: ~/.pi/agent, pi 0.87.1
+
+| Metric | Result |
 | --- | --- |
-| 完整扫描文件 | 2（diagnostics=0） |
-| 行/记录/事件 | 130 行 → 37 个模型调用事件 |
-| 重复扫描 | rescan_added=0（幂等） |
-| 汇总（UTC） | calls=37；input_total 2,805,788；cache_read 2,592,768；output 58,631；total 2,864,419 |
+| Completely scanned files | Two; diagnostics=0 |
+| Lines/records/events | 130 lines produced 37 model-call events |
+| Repeat scan | rescan_added=0 |
+| UTC totals | calls=37; input_total 2,805,788; cache_read 2,592,768; output 58,631; total 2,864,419 |
 
-说明：中断记录写「pi sessions 为空（no_data）」是 2026-09-24 上午的旧核验结果；
-当日 16:37 起本机开始产生 pi 会话（首个脱敏 fixture 即取自该会话），
-本次核对时已有 2 个文件。不变量核验：input_total+output = total（2,805,788+58,631=2,864,419）成立。
+The interruption's empty pi sessions/no_data result was measured on the morning of 2026-09-24.
+Local sessions began at 16:37 that day; the first redacted sample came from that session.
+Two files existed at recovery. The invariant holds: 2,805,788+58,631=2,864,419.
 
-### oh-my-pi（~/.omp/agent，omp 18.2.7）
+<a id="oh-my-piompagentomp-1827"></a>
 
-| 指标 | 实测 |
+### oh-my-pi: ~/.omp/agent, omp 18.2.7
+
+| Metric | Result |
 | --- | --- |
-| 完整扫描文件 | 59（17 主会话 + 42 子 Agent 文件；diagnostics=0） |
-| 行/记录/事件 | 28,004 行 → 8,767 个模型调用事件 |
-| 类别计数 | primary=6,334、sub_agent=2,433（auxiliary=0，与本机四类辅助载体均无 usage 的实读一致） |
-| 重复扫描 | rescan_added=0（幂等） |
-| 汇总（UTC） | calls=8,767；input_total 1,021,931,700；cache_read 1,005,572,583（占比 ~98.4%）；output 4,859,995；total 1,026,791,695 |
+| Completely scanned files | 59: 17 primary/42 sub-agent files; diagnostics=0 |
+| Lines/records/events | 28,004 lines produced 8,767 model-call events |
+| Categories | primary=6,334; sub_agent=2,433; auxiliary=0, consistent with native reads finding no usage in the four auxiliary formats |
+| Repeat scan | rescan_added=0 |
+| UTC totals | calls=8,767; input_total 1,021,931,700; cache_read 1,005,572,583, about 98.4%; output 4,859,995; total 1,026,791,695 |
 
-不变量核验：input_total+output = total（1,021,931,700+4,859,995=1,026,791,695）成立。
+The invariant holds: 1,021,931,700+4,859,995=1,026,791,695.
 
-### Claude Code / Gemini CLI / Qwen Code
+<a id="claude-code--gemini-cli--qwen-code"></a>
 
-| 源 | 本机核验结果（2026-09-25 复探） | 结论 |
+### Claude Code, Gemini CLI and Qwen Code
+
+| Source | Local discovery repeated 2026-09-25 | Result |
 | --- | --- | --- |
-| claude | `~/.claude` 存在（backups/ide/sessions/skills），无 `projects/` 目录；real_verify_claude discovered_roots=0 | no_data |
-| gemini | `~/.gemini` 不存在；real_verify_gemini 0 根 | not_found |
-| qwen | `~/.qwen` 不存在；real_verify_qwen 0 根 | not_found |
+| Claude | ~/.claude exists with backups/ide/sessions/skills, but no projects/; real_verify_claude discovered_roots=0 | no_data |
+| Gemini | ~/.gemini absent; real_verify_gemini found zero roots | not_found |
+| Qwen | ~/.qwen absent; real_verify_qwen found zero roots | not_found |
 
-三源适配器与测试基于文档级/固定版本源码依据（文件头逐条标注），真实 fixture
-待本机出现数据后按 m0-agent-fixtures 脱敏流程补取。
+These three adapters/tests rely on documentation/fixed-source references listed in their
+headers. Extract native samples under m0-agent-fixtures redaction rules when local data appears.
 
-## fork 已知偏差（pi/omp 同一定案）
+<a id="fork-的实际处理结果piomp-一致"></a>
 
-capability 原描述称 fork 复制条目「四元组逐字相同 ⇒ 同键同内容 Keep」。实测：
-复制条目在 fork 文件中携带 **fork 会话身份**（session_id/parent_session_id 取
-本文件头），与源文件已存事件同键不同内容 ⇒ 仲裁为 conflict 并保留先扫者。
-净效果正确（不双计、源会话归属保留、distinct 会话数不虚增），但行为是
-conflict 而非 Keep。pi.rs/omp.rs 的 capability dedup.fork_copies 文本与
-`synthetic-fork-inherited/_expectations.md` 均已按实际行为改写。
+<a id="fork-已知偏差piomp-同一定案"></a>
 
-## 修复记录（恢复期间）
+## Observed fork behavior: pi and omp
 
-| 处 | 问题 | 修法 |
+The original capability text claimed identical copied four-field keys/content would select Keep.
+In native checks, copied entries carry the fork file's session_id/parent_session_id from its
+header. They therefore share an existing key but differ in content, producing conflict and
+retaining the first scanned record. Usage is not counted twice, source-session ownership is
+retained and distinct-session counts do not increase; the result is conflict rather than Keep.
+pi.rs/omp.rs dedup.fork_copies descriptions and synthetic-fork-inherited/_expectations.md now
+describe the observed behavior.
+
+<a id="修复记录恢复期间"></a>
+
+## Recovery fixes
+
+| Location | Problem | Correction |
 | --- | --- | --- |
-| tests/qwen_incremental_v12.rs | 4 处写文件缺结尾换行 ⇒ 末行按半行不消费，7/8 失败 | 统一以 `\n` 结尾；8/8 通过 |
-| omp.rs model_change | 按 pi 分字段形状解析，真实 omp 是组合字段 | 以 `model`="provider/model" 为准、分字段后备；capability 与文件头同步 |
-| omp synthetic-detect-supported | 期望把派生 input_total 误写为 110（=totalTokens） | 改 100（100+0+0），测试与 _expectations.md 同步 |
-| omp k3/subagent _expectations.md | 「期望入库」把派生 input_total 写成原始 input 合计 | 改 202,560 / 78,310 并注明派生口径 |
-| pi 两个 fixture _expectations.md | markdownlint MD056/MD033 | 补表格缺列、尖括号入码 span |
-| models_v05/retention_v14/claude_contract/qwen_incremental | clippy --all-targets 下 4 处 lint（数字分组、needless borrow、type_complexity、useless vec!） | 逐处小修，不影响语义 |
+| tests/qwen_incremental_v12.rs | Four writes lacked trailing newline; incomplete last lines were not consumed, causing seven of eight tests to fail | Added \n endings; eight of eight passed |
+| omp.rs model_change | Parsed pi's separate fields; native omp uses a combined field | Prefer model="provider/model", retain separate-field fallback; updated capability/header |
+| omp synthetic-detect-supported | Derived input_total expectation was incorrectly 110, equal to totalTokens | Changed to 100, from 100+0+0; synchronized test/_expectations.md |
+| omp k3/subagent _expectations.md | Stored input_total described as raw-input sum | Corrected to 202,560/78,310 and explained derivation |
+| Two pi sample _expectations.md files | markdownlint MD056/MD033 | Added missing table columns and code spans around angle brackets |
+| models_v05/retention_v14/claude_contract/qwen_incremental | Four all-targets Clippy issues: numeric grouping, needless borrow, type_complexity, useless vec! | Small local changes preserving semantics |
 
-## 未完成项（显式遗留，不属于本次恢复范围）
+<a id="未完成项显式遗留不属于本次恢复范围"></a>
 
-| 项 | 状态 | 后续 |
+## Remaining work outside this recovery
+
+| Item | Status | Follow-up |
 | --- | --- | --- |
-| Codex 旧版本逐版本 fixture | **部分完成**（2026-09-25，[m2d](m2d-layout-versions.md)：0.153.0/0.154.0-alpha.6.1/6.2 已验证；0.139–0.151 实测无逐次载体，待专用实现核验） | 按 m2d 记录后续条件执行 |
-| 适配器目录化迁移与未知版本兼容尝试（execution.md#m2-layout） | **已完成**（2026-09-25，[m2d](m2d-layout-versions.md)） | — |
-| OMP_PROFILE 命名 profile 目录规则 | 未核验 | 仅支持默认 ~/.omp，已记 omp.rs limitations |
-| claude/gemini/qwen 真实 fixture | 本机无数据 | 本机出现数据后按脱敏流程补取复验 |
-| OTel 遥测 | 未实现 | M5 |
+| Version-specific legacy Codex samples | Partial, 2026-09-25; [M2-D](m2d-layout-versions.md): 0.153.0/0.154.0-alpha.6.1/6.2 verified; 0.139–0.151 lack per-call records, requiring a separately verified implementation | Follow M2-D conditions |
+| Adapter directories/unknown-version compatibility, execution.md#m2-layout | Complete, 2026-09-25; [M2-D](m2d-layout-versions.md) | — |
+| OMP_PROFILE named-profile paths | Unverified | Default ~/.omp only; limitation recorded in omp.rs |
+| Claude/Gemini/Qwen native samples | No local data | Extract/redact/recheck when data appears |
+| OTel telemetry | Not implemented at this stage | M5 |
+
+<a id="验证产物"></a>
 
 <a id="证据文件"></a>
 
-## 验证产物
+## Verification artifacts
 
-- 适配器：`adapters/{pi,omp,claude,gemini,qwen,usage_map}.rs`；测试：`tests/{pi,omp,claude,gemini,qwen}_*.rs`、`tests/common/mod.rs`、`tests/fixtures/{pi,omp,claude,gemini,qwen}/`。
-- examples：`real_verify_{codex,pi,omp,claude,gemini,qwen}.rs`。
-- `build/desktop-usage-validation/real-check-{pi,omp,claude,gemini,qwen}/`（gitignored）：临时核对库；提取工具 `tools/extract-pi-omp.mjs`（gitignored）。
+- Adapters: adapters/{pi,omp,claude,gemini,qwen,usage_map}.rs; tests:
+  tests/{pi,omp,claude,gemini,qwen}_*.rs, tests/common/mod.rs and tests/fixtures/{pi,omp,claude,gemini,qwen}/.
+- Examples: real_verify_{codex,pi,omp,claude,gemini,qwen}.rs.
+- Ignored build/desktop-usage-validation/real-check-{pi,omp,claude,gemini,qwen}/ contains temporary
+  verification databases; tools/extract-pi-omp.mjs is the ignored extraction tool.

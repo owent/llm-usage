@@ -1,6 +1,6 @@
-//! V14：保留截止、封存、过期数据不复活、封存日不重复累加、硬性最长保留。
-//! 截止 = 所选时区今天起点往前 D−1 天；今天与前 D−1 个本地日保留。
-//! 测试遵守设置规则的范围（明细 7–3650 天）。
+//! V14 retention cutoff, archived summaries, expired-data exclusion, no duplicate archive accumulation and hard maximum retention.
+//! Cutoff is today minus D−1 local days in the selected timezone; retain today and the previous D−1 days.
+//! Tests follow the configured 7–3650-day detail-retention range.
 
 mod common;
 
@@ -12,7 +12,7 @@ use llm_usage_core::retention::{enforce_retention, RetentionPolicy, SEAL_FIELD_V
 
 const TODAY: &str = "2026-09-24T12:00:00Z";
 
-/// 09-15..09-24 共 10 天，每天一条事件，token 值 = 日期日号。
+/// Ten days, 09-15 through 09-24: one event per day, token value equal to the day number.
 fn seed_ten_days(storage: &llm_usage_core::storage::Storage) {
     let events: Vec<_> = (15..=24)
         .map(|d| {
@@ -59,7 +59,7 @@ fn v14_retention_cutoff_seals_expired_days() {
     };
     let outcome = enforce_retention(&storage, "UTC", ts(TODAY), &policy).unwrap();
 
-    // 截止 = 今天（09-24）往前 6 天 = 09-18；保留 09-18..09-24 恰好 7 个本地日。
+    // Today 09-24 minus six days is 09-18; 09-18 through 09-24 retains exactly seven local days.
     assert_eq!(outcome.cutoff_day, ymd(2026, 9, 18));
     assert_eq!(
         outcome.sealed_days,
@@ -71,14 +71,14 @@ fn v14_retention_cutoff_seals_expired_days() {
     );
     assert_eq!(outcome.deleted_events, 3);
 
-    // 明细恰好保留 7 天。
+    // Retain exactly seven days of details.
     let remaining: i64 = storage
         .conn()
         .query_row("SELECT COUNT(*) FROM usage_events", [], |r| r.get(0))
         .unwrap();
     assert_eq!(remaining, 7);
 
-    // 过期日冻结为封存汇总：记录时区、字段版本、来源选择版本；汇总值保留。
+    // Archive expired-day summaries with timezone, field/source-selection versions and their original values.
     let rows = daily_rows(&storage);
     assert_eq!(rows.len(), 10);
     assert_eq!(rows[0], ("2026-09-15".to_string(), 15, 1));
@@ -97,7 +97,7 @@ fn v14_retention_cutoff_seals_expired_days() {
     assert_eq!(seal_field, SEAL_FIELD_VERSION);
     assert!(seal_source.contains("inst"));
 
-    // 封存操作留有已发布的聚合代际记录。
+    // Archiving leaves a published aggregate-generation record.
     let generation: String = storage
         .conn()
         .query_row(
@@ -120,7 +120,7 @@ fn v14_expired_events_do_not_resurrect_and_sealed_day_not_appended() {
     };
     let outcome = enforce_retention(&storage, "UTC", ts(TODAY), &policy).unwrap();
 
-    // 源日志仍在时的重扫携带保留截止：过期事件被跳过并记诊断。
+    // A rescan with the cutoff excludes expired events and records diagnostics while leaving source logs intact.
     let mut late = batch(
         "inst",
         "UTC",
@@ -145,7 +145,7 @@ fn v14_expired_events_do_not_resurrect_and_sealed_day_not_appended() {
         .unwrap();
     assert_eq!(diag, 1);
 
-    // 即使漏传截止（防御性）：封存日也不被重算追加。
+    // Even without a supplied cutoff, archived days cannot be recomputed and appended.
     let unguarded = batch(
         "inst",
         "UTC",
@@ -160,7 +160,7 @@ fn v14_expired_events_do_not_resurrect_and_sealed_day_not_appended() {
     let rows = daily_rows(&storage);
     assert_eq!(rows[0], ("2026-09-15".to_string(), 15, 1));
 
-    // 汇总视图：封存行仍计入总计（合计不变）。
+    // Queries still include archived rows, preserving the total.
     let summary = query_summary(
         &storage,
         &SummaryRequest {
@@ -179,7 +179,7 @@ fn v14_expired_events_do_not_resurrect_and_sealed_day_not_appended() {
         summary.totals.input_total_known,
         Some((15..=24).sum::<i64>())
     );
-    // 封存日的明细指标不可得：distinct 会话为 None 且标部分历史。
+    // Deleted archived details leave distinct sessions unknown and mark partial history.
     let sealed_period = summary
         .periods
         .iter()
@@ -220,7 +220,7 @@ fn v14_hard_max_retention_drops_old_daily_and_quota() {
     )
     .unwrap();
 
-    // 先封存（明细保留 7 天），再施加硬性最长 8 天：09-15/16 的封存汇总也被清理。
+    // After archiving with seven detail days, an eight-day hard maximum also deletes 09-15/16 summaries.
     let seal_policy = RetentionPolicy {
         detail_days: 7,
         diagnostics_days: 7,

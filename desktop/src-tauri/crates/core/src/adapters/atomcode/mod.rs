@@ -1,7 +1,7 @@
-//! AtomCode 适配器（AtomGit 生态 CLI；独立目录约定）。载体：
-//! `$ATOMCODE_HOME`（默认 ~/.atomcode）/sessions/<project_hash>/<id>.meta 的
-//! turn_stats 按模型累计（TurnStat 无时间戳 ⇒ 会话区间聚合；round_count 合计
-//! 作调用数）。旧版单文件 <id>.json 同构。
+//! AtomCode adapter (AtomGit CLI; independent directory). Reads
+//! $ATOMCODE_HOME, default ~/.atomcode, sessions/<project_hash>/<id>.meta:
+//! per-model cumulative turn_stats, without TurnStat timestamps, become session intervals;
+//! sum round_count for calls. Legacy single-file <id>.json has the same layout.
 
 pub mod detect;
 pub mod versions;
@@ -10,11 +10,11 @@ pub use detect::ATOMCODE_FORMAT;
 pub use versions::meta_turns_v1;
 pub use versions::{ATOMCODE_FORMAT_VERSION, LATEST_IMPL_ID, VERIFIED_VERSION_IMPLS};
 
-/// AtomCode 适配器（无状态）。
+/// Stateless AtomCode adapter.
 pub struct AtomCodeAdapter;
 
-/// Only a complete, recognized native sidecar paired with its real meta is excluded.
-/// Explicit manual files and malformed/unrecognized JSON retain format diagnostics.
+/// Exclude only a complete recognized native sidecar paired with its actual meta.
+/// Manual files and malformed/unrecognized JSON keep their format diagnostics.
 fn native_companion(path: &std::path::Path, root: &std::path::Path) -> bool {
     if path == root {
         return false;
@@ -114,8 +114,8 @@ impl crate::adapters::framework::SourceAdapter for AtomCodeAdapter {
         let mut seen: std::collections::BTreeSet<std::path::PathBuf> =
             std::collections::BTreeSet::new();
         for (root, basis) in roots {
-            // .meta（当前）与旧版单文件 .json（含 turn_stats）同构读取；
-            // .jsonl/.snapshot 等不读。
+            // Read current .meta and legacy .json with turn_stats using the same layout;
+            // do not read .jsonl/.snapshot and similar files.
             let files = crate::adapters::framework::enumerate_files_bounded(&root, 2, &|p| {
                 p.extension()
                     .and_then(|e| e.to_str())

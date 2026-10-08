@@ -1,112 +1,132 @@
-# 跨平台凭据与计划继续执行
+# Cross-platform credentials and continued implementation
 
-日期：2026-10-05；应用版本 0.2.1。Windows 仓库 cwd：
-`D:/workspace/projs/github/owent/llm-usage`。开工工作树无修改；基于
-`0c5d63c19151e7d6f72a33c513f7ac9ddc0e2ad5` 的未提交工作树验证，未提交/推送/发布。
-依据：[认证合同](../../design/desktop-usage/receiver-auth.md)、
-[平台合同](../../design/desktop-usage/platform-ci.md)、[计划](../../../Plan.md)。
-本页保留该轮历史结果；2026-10-06 Windows 写后缺失观察、有界回查修正、
-跨进程处理确认后的 200 轮并行与旧撤销异常边界见
-[来源规则升级](source-policy-upgrades.md)。后续最终安装包与接收器复验见
-[M8 容器样本](m8-container-samples.md)，本页旧包摘要不作为最新制品。
+<a id="跨平台凭据与计划继续执行"></a>
 
-## 实现与核验依据
+Date 2026-10-05; application 0.2.1; Windows repository D:/workspace/projs/github/owent/llm-usage.
+Initially clean tree; tests ran against uncommitted changes based on
+0c5d63c19151e7d6f72a33c513f7ac9ddc0e2ad5, without commit/push/publication. References:
+[receiver authentication](../../design/desktop-usage/receiver-auth.md),
+[platform checks](../../design/desktop-usage/platform-ci.md), [Plan](../../../Plan.md).
+This record preserves that stage. Windows missing readback after writing, bounded confirmation,
+200 parallel rounds after cross-process handling confirmation, and the earlier unresolved revoke
+anomaly are in [source-rule upgrades](source-policy-upgrades.md), 2026-10-06. Later final packages/
+receiver checks are in [M8 native samples](m8-container-samples.md); hashes below identify these
+historical packages, rather than the latest artifacts.
 
-Linux 原实现一律拒绝系统凭据。现使用 `secret-service 5.2.0` 的 DH 会话、
-当前用户默认集合与全集合查找；锁定、重复项和唯一 session 临时项都拒绝，
-默认别名指向 session 同样拒绝。别名可修改的依据见
-[Secret Service Aliases](https://specifications.freedesktop.org/secret-service/latest/aliases.html)。
-不创建集合、不解锁；后台读取无提示，操作限定 3 秒。同步接口在独立线程运行
-限时异步任务，嵌套 Tauri runtime 不引发 panic。错误只返回固定代码。
-写入已保存但回复失败、或保存后回查失败时，仅回收与本次写入完全相同的项，
-外部替换保留。
+<a id="实现与核验依据"></a>
 
-macOS 使用 `security-framework 3.7.0`、`security-framework-sys 2.17.0`，
-所有查询/写入/删除均指定非同步 Keychain 和认证 UI Fail。库遗漏的 Apple Fail
-常量以单个原生符号声明补齐；`aarch64-apple-darwin` 类型检查通过，未原生运行。
-两平台随机源为 `getrandom 0.3.4`；Windows 原生实现保留。
+<a id="实现与核验结果"></a>
 
-核验了库正式发布元数据和下载源码，而后实施；来源：
-[Secret Service 规范](https://specifications.freedesktop.org/secret-service/latest/)、
-[secret-service 5.2.0](https://docs.rs/secret-service/5.2.0/secret_service/)、
-[Keychain PasswordOptions](https://docs.rs/security-framework/3.7.0/security_framework/passwords/struct.PasswordOptions.html)、
-[Apple UI Fail](https://developer.apple.com/documentation/security/ksecuseauthenticationuifail)。
-这些来源不证明真实 Agent exporter 已验收。
+## Implementation and checked references
 
-Rust CI 从 Linux 单作业扩为 Windows/macOS/Linux 三平台矩阵，保留 fail-fast=false。
-Linux 原生验证另用独立 D-Bus、一次性加密 keyring 和随机测试密码；密码/绑定仅经
-stdin，服务探测先检查名称所有者，避免触发第二守护进程。真实 Linux 制品报告发现
-Debian `control.tar.gz`/`data.tar.gz` 被列为发布制品；现报告及上传仅取安装包、
-macOS `.app.tar.gz` 与校验和报告，新增回归及真实打包目录复核通过。
+Linux previously rejected all system credentials. It now uses secret-service 5.2.0 with
+a DH session, the current user's default collection and search across all collections.
+Reject locked collections, duplicate items, a sole temporary session item, and a default alias
+pointing to the session collection. See [Secret Service aliases](https://specifications.freedesktop.org/secret-service/latest/aliases.html)
+for mutable aliases. No collection creation/unlocking; background reads do not prompt;
+operations limited to three seconds. Synchronous calls run bounded asynchronous work on a
+separate thread, avoiding nested Tauri-runtime panic. Errors return fixed codes only.
+If a saved write receives a failed reply or fails readback, cleanup removes only items matching
+the complete contents written by this operation; externally replaced items are retained.
 
-## 环境与结果
+macOS uses security-framework 3.7.0/security-framework-sys 2.17.0. All queries/writes/deletes
+specify nonsynchronizing Keychain items and authentication UI Fail. One native symbol declaration
+supplies the Apple Fail constant omitted by the library. aarch64-apple-darwin type checks pass;
+no native run at this stage. Both platforms use getrandom 0.3.4; Windows native implementation retained.
 
-Windows：Windows 11 x64、Node 24.21.0、Rust 1.98.0；Edge/WebView2。
-WSL：Debian 13.7 x86_64、内核 6.18.40.1、Node 24.21.0、Rust 1.98.1，
-WebKitGTK 2.54.0、gnome-keyring 48.0。按用户授权用 sudo apt 安装缺失系统依赖，
-用 rustup 补齐 Clippy/rustfmt；Windows/WSL 的 npm、target 和活库不共用。
-Linux 独立副本包含当前未提交源码；revision/差异清单保存在根 build/platform-auth/。
+Implementation followed inspection of published library metadata/downloaded source:
+[Secret Service specification](https://specifications.freedesktop.org/secret-service/latest/),
+[secret-service 5.2.0](https://docs.rs/secret-service/5.2.0/secret_service/),
+[Keychain PasswordOptions](https://docs.rs/security-framework/3.7.0/security_framework/passwords/struct.PasswordOptions.html),
+[Apple UI Fail](https://developer.apple.com/documentation/security/ksecuseauthenticationuifail).
+These references do not verify actual agent exporters.
 
-| 命令 / 检查 | 退出码 / 实际结果 | 范围 |
+Rust CI expanded from Linux-only to Windows/macOS/Linux, keeping fail-fast=false. Native
+Linux checks use isolated D-Bus, disposable encrypted keyring and random test passwords.
+Passwords/bindings pass through stdin only. Service checks inspect name ownership before
+contacting it, avoiding another daemon. Actual Linux artifact reporting incorrectly listed
+Debian control.tar.gz/data.tar.gz as release artifacts. Reports/uploads now include only
+installers, macOS .app.tar.gz and checksum reports; regression and real bundle-directory checks pass.
+
+<a id="环境与结果"></a>
+
+## Environment and results
+
+Windows 11 x64, Node 24.21.0, Rust 1.98.0, Edge/WebView2. WSL Debian 13.7 x86_64,
+kernel 6.18.40.1, Node 24.21.0, Rust 1.98.1, WebKitGTK 2.54.0, gnome-keyring 48.0.
+User-authorized sudo apt installed missing system dependencies; rustup added Clippy/rustfmt.
+Windows/WSL do not share npm/target/live databases. Isolated Linux copy includes uncommitted
+source; revision/difference inventory under root build/platform-auth/.
+
+| Command/check | Exit/result | Scope |
 | --- | --- | --- |
-| Windows `npm run verify` | 0；Rust 904（核心 808、应用 96），前端 21、脚本 4；类型无错误/告警 | Markdown、资源、fmt、Clippy、SQLite/合同/集成、前端构建；应用默认忽略 8 项环境测试 |
-| Windows `npm run build:desktop` | 0；release/NSIS 产出 | 未安装 |
-| Windows `npm run test:headless` | 0；11 项、3 事件/75 token | 隔离合成源，真实可执行文件/SQLite |
-| Windows `npm run test:desktop -- --runs 1` | 0；17 项、3 个首屏样本，P95 850.1 ms | 真实 WebView2/IPC/托盘/暂停/分钟任务；不代替完整资源或辅助技术实测 |
-| Windows `npm run test:receiver` | 0；8 项，自有凭据残留 0 | 合成 exporter 安装清单，真实 IPC/HTTP/凭据库 |
-| Windows 显式原生凭据测试 | 0；跨进程读取/撤销、真实 HTTP 撤销/另一来源继续，各 1 项 | 仅随机自有凭据；不写真实 IDE 配置 |
-| Windows `npm run test:browser` | 0 | Edge 模拟 IPC，十语言/主题/选区/遥测批量配置 |
-| Debian `cargo clippy --workspace --all-targets --locked -- -D warnings` | 0 | 最终平台实现与测试目标 |
-| Debian `cargo test --locked`，最终应用专项复测 | 0；核心 808、应用 95；应用默认忽略 9 项 | 核心完整合同/SQLite/适配器，Linux 超时/嵌套 runtime；显式原生项另列 |
-| Debian `npm run test:credentials:linux` | 0；6 项（五个原生测试，缺服务项也用于临时默认集合） | 缺服务且无监听、跨进程持久读取/撤销、真实 HTTP/来源隔离、重复及临时集合/默认别名拒绝、锁定；一次性 keyring 与守护进程已回收 |
-| Debian `npm run build:desktop -- --bundles deb,appimage` | 0；release、deb、AppImage 均产出 | 标准系统依赖，未使用旧 sysroot/WebKit 路径补丁；未安装 |
-| Debian ELF / 提取 AppImage `test:headless` | 均 0；各 11 项、3 事件/75 token | AppImage 原样提取后执行 AppRun；不代表 FUSE 挂载、WSLg 或原生 GUI 验收 |
-| macOS 模块交叉 `cargo check` / `cargo clippy`（`aarch64-apple-darwin`、`--locked`） | 均 0；Clippy `-D warnings` | Windows 临时最小检查工程直接引用实际模块；类型检查，无原生链接/运行 |
-| 制品报告脚本回归及真实 Linux 目录 | 0；4 项；实际报告仅 deb/AppImage 两项 | Debian 暂存文件不作为发行包 |
-| 最终文档与差异 | 0；182 Markdown、9 份受影响 Markdown 的 97 个本地引用/锚点、`git diff --check` | 临时产物全部位于根 build/ |
+| Windows npm run verify | 0; Rust 904, core 808/app 96; frontend 21/scripts 4; clean types | Markdown/assets/fmt/Clippy/SQLite/format/integration/build; 8 environment tests ignored by default |
+| Windows npm run build:desktop | 0; release/NSIS produced | Not installed |
+| Windows npm run test:headless | 0; 11 cases, 3 events/75 tokens | Isolated synthetic sources, actual executable/SQLite |
+| Windows npm run test:desktop -- --runs 1 | 0; 17 checks, 3 first-screen samples, P95 850.1 ms | Actual WebView2/IPC/tray/pause/minute tasks; not full resource/assistive-technology acceptance |
+| Windows npm run test:receiver | 0; 8 checks, zero owned credentials left | Synthetic exporter installation lists, actual IPC/HTTP/credential store |
+| Windows explicit native credential tests | 0; one each for cross-process read/revoke and actual HTTP revocation/other-source continuation | Random owned credentials only; no actual IDE configuration changes |
+| Windows npm run test:browser | 0 | Edge simulated IPC, ten languages/themes/selection/telemetry batch setup |
+| Debian cargo clippy --workspace --all-targets --locked -- -D warnings | 0 | Final platform implementation and test targets |
+| Debian cargo test --locked plus final app-specific rerun | 0; core 808/app 95; app ignores 9 by default | Full core formats/SQLite/adapters, Linux timeout/nested runtime; explicit native checks separate |
+| Debian npm run test:credentials:linux | 0; 6 cases, five native tests plus missing-service case also testing temporary default collections | No service/listener, cross-process persistent read/revoke, actual HTTP/source isolation, duplicate/temporary/default-alias rejection, locked store; disposable keyring/daemon cleaned |
+| Debian npm run build:desktop -- --bundles deb,appimage | 0; release/deb/AppImage produced | Standard system dependencies, no old sysroot/WebKit path patches; not installed |
+| Debian ELF/extracted AppImage headless checks | Both 0; each 11 cases, 3 events/75 tokens | Unmodified extracted AppImage through AppRun; not FUSE/WSLg/native GUI acceptance |
+| macOS module cross cargo check/clippy, aarch64-apple-darwin --locked | Both 0, Clippy -D warnings | Temporary minimal Windows project directly imports actual module; type checks, no native linking/execution |
+| Artifact-report regressions/real Linux directory | 0; four cases; report contains only deb/AppImage | Debian staging files excluded as release packages |
+| Final documents/diff | 0; 182 Markdown files, 97 local links/anchors in nine affected documents, git diff --check | All temporary files under root build/ |
 
-Windows 完整命令输出及 Linux 分项日志在 `build/platform-auth/`；Linux 临时检查库
-位于独立副本的根 build/。终端初始 PowerShell 启动及子进程限制以允许的 cmd/执行
-边界重试，不计为产品失败。
+Windows full output and Linux per-check logs are in build/platform-auth/; temporary Linux
+databases are under its isolated copy's root build/. Initial PowerShell startup/child-process
+restrictions were retried through allowed cmd/execution paths and are not product failures.
 
-Windows 显式原生测试的一次并行复测在第二次建立凭据时返回
-`credential_store_unavailable`；单项与 `--test-threads=1` 复测均退出 0。
-失败日志保留为 windows-native-final.log。实际模块的临时诊断副本仅扩充读/写错误码，
-两线程 40 次建立/撤销未复现错误，自有项残留 0。沿失败日志时间戳确定唯一合成
-测试目录，凭据命名空间内核对完整绑定，仅该目录的一项自有凭据仍存在，已精确回收；
-不回收其他应用/测试目录。结果在 windows-vault-concurrency.log。
-这证明失败路径曾留下凭据，原因尚未确认；系统存储失败后的回收可靠性继续待查，
-不据诊断未复现报成已修复。
+One parallel native Windows rerun returned credential_store_unavailable when creating the
+second credential. Individual and --test-threads=1 reruns exited 0. First failure retained
+as windows-native-final.log. A diagnostic copy of the actual module only expanded read/write
+error codes; two threads over 40 create/revoke operations did not reproduce it, zero owned
+items left. Failure timestamps identified the unique synthetic test directory. Complete
+binding inspection found one owned credential for that directory still present; it was
+precisely removed, preserving other applications/tests. See windows-vault-concurrency.log.
+The failure path left a credential; its cause remained unknown, and cleanup reliability
+after store failure still needed investigation. Nonreproduction does not establish a fix.
 
-Debian 重跑曾出现两项既有夹具失败：`source_intervals` 按 PID 重开已禁用的
-来源库，`process_guard` 按 PID 重开含 `active` 主键的库。只读核对旧合成库分别
-发现五个禁用来源与五个已存在运行；现两项均每次独立建目录，拒绝复用并在
-成功后关闭/回收。保留该状态证据于 pid-fixture-evidence.log，修复后应用 95 项通过。
+Two Debian rerun failures came from existing test setup: source_intervals reused a PID-named
+database with disabled sources; process_guard reused one with an active primary key.
+Read-only inspection found five disabled sources and five existing runs respectively.
+Both now create unique directories each run, reject reuse and close/clean after success.
+Original state is retained in pid-fixture-evidence.log. App's 95 tests then passed.
 
-## 制品
+<a id="制品"></a>
 
-| 制品 | 字节 | SHA-256 |
+## Artifacts
+
+| Artifact | Bytes | SHA-256 |
 | --- | --- | --- |
-| Windows 主程序 | 9,901,568 | `09de6cfa17d37e9195e910db3647ea58cab2417fe059f352b4d9d62835eae1a8` |
-| Windows NSIS | 3,913,043 | `993e255bff157f8e980180503bde5053378f3411f37333674ea587ba226919d8` |
-| Linux deb | 5,440,738 | `3895d451211bf69beb87e570168431dc460831e1d157c701199a4891cd8b1a9f` |
-| Linux AppImage | 111,122,936 | `9caebe7f4507d78190a504f0ce5a19645e006c99135a87d48ebb38fbea3ccea3` |
+| Windows executable | 9,901,568 | 09de6cfa17d37e9195e910db3647ea58cab2417fe059f352b4d9d62835eae1a8 |
+| Windows NSIS | 3,913,043 | 993e255bff157f8e980180503bde5053378f3411f37333674ea587ba226919d8 |
+| Linux deb | 5,440,738 | 3895d451211bf69beb87e570168431dc460831e1d157c701199a4891cd8b1a9f |
+| Linux AppImage | 111,122,936 | 9caebe7f4507d78190a504f0ce5a19645e006c99135a87d48ebb38fbea3ccea3 |
 
-Windows 包在 desktop/src-tauri/target/release/bundle/nsis/；Linux 包已复制到
-根 build/platform-auth/artifacts/。deb 的 Depends 与架构已查；未做安装/升级/卸载。
-当前 Windows 主程序/NSIS 另复制到该目录的 windows/，报告只覆盖本轮版本，
-不将原 bundle/ 中的旧版本标为本轮 revision；本轮报告均记录基准 SHA 与 uncommitted。
+Windows bundle under desktop/src-tauri/target/release/bundle/nsis/; Linux packages copied
+to root build/platform-auth/artifacts/. deb Depends/architecture checked; no install/upgrade/
+uninstall here. Current Windows executable/NSIS copied separately into artifacts/windows/;
+reports include only this stage's packages, not older bundle files marked with its revision.
+Reports record baseline SHA and uncommitted state.
 
-## 真实样本与剩余条件
+<a id="真实样本与剩余条件"></a>
 
-审阅既有 `local_availability` 后，分别在 Windows 与 Debian 只读执行真实注册表
-discover/detect，最多探测每根前三个文件，仅输出数量和版本元数据。
-Windows Gemini/Qwen、Junie 及其余缺样本来源未发现；Zed 一个库的 threads 为 0 行，
-不能认证用量格式。Debian 当前默认发现无可用来源，未启动 Agent/模型请求制造数据。
-已有 Codex/pi/omp/Kilo/ZCode/Kimi/Copilot 等发现结果不重复当作新来源验收。
+## Native samples and remaining checks
 
-本记录时点未触发远端 CI，也未执行安装验收。后续 Windows 安装往返、Debian
-Podman GTK/WebKit/FUSE/Orca 和新增来源实际样本结果见 [最新验收](current-acceptance.md)；
-macOS 原生 Keychain/HTTP 两项显式测试结果见 [本批 CI](ci-plan-validation.md)。
-macOS 桌面和特定硬件已取消本轮要求。其余来源版本、遥测、DPI/辅助技术、
-宿主注销/登录、出站审计，以及后置 F1/明细 Merge/预算条件统一见 [Plan.md](../../../Plan.md)。
+After reviewing existing local_availability, Windows/Debian ran read-only actual registry
+discover/detect, probing at most three files per root and printing only counts/version metadata.
+Windows Gemini/Qwen/Junie and other missing-sample sources were absent; Zed database threads
+had zero rows, insufficient to verify usage format. Debian default discovery found no usable
+sources. No agents/model requests were launched to fabricate data. Existing Codex/Pi/OMP/Kilo/
+ZCode/Kimi/Copilot results were not counted again as newly accepted sources.
+
+No remote CI or installation acceptance was triggered at this record's date. Later Windows
+installation, Debian Podman GTK/WebKit/FUSE/Orca and additional native sources are in
+[latest acceptance](current-acceptance.md); macOS native Keychain/HTTP's two explicit tests
+are in [batch CI](ci-plan-validation.md). macOS desktop/specific hardware requirements were
+removed for this round. Other source versions, telemetry, DPI/assistive technology, host
+logout/login, outbound audit and F1/detail Merge/usage-cost alerts are in [Plan](../../../Plan.md).

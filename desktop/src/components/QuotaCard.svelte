@@ -1,8 +1,8 @@
 <script lang="ts">
   /**
-   * 通用额度卡片：展示某 Agent 的账户级/速率限额额度（请求或额度计数，非 token）
-   * 与每日消耗趋势。数据来自通用 quota_history（agent 无关），任何未来 Agent 复用。
-   * 首个接入者为 Copilot premium 请求额度。
+   * Generic account/rate quota card with daily trends; counts requests or quota, not tokens.
+   * Uses Agent-independent quota_history and can serve future Agents.
+   * Copilot premium-request quota is the first integration.
    */
   import { api, parseError } from '../lib/api';
   import type { QuotaDto, QuotaPointDto } from '../lib/api';
@@ -76,7 +76,7 @@
     }
   }
 
-  // 趋势：used 随天变化的折线（单点显示圆点）。viewBox 100×32。
+  // Daily used trend; one point renders as a circle. viewBox is 100×32.
   const spark = $derived.by(() => {
     const vals = points.map((p) => p.used).filter((v): v is number => v != null);
     if (vals.length === 0) return null;

@@ -1,7 +1,7 @@
-//! Antigravity 适配器（Google，闭源；独立目录约定）。载体：
-//! `~/.gemini/antigravity[-cli]/conversations/<uuid>.db` 的 gen_metadata
-//! protobuf（逆向分析结果；无 #9.#4 时间戳的行 fail closed 不推造时间）。
-//! IDE 主体用量走 language server：本地用量载体尚未核验，不实施。
+//! Antigravity adapter (Google, closed source; independent directory). Reads
+//! gen_metadata protobuf in ~/.gemini/antigravity[-cli]/conversations/<uuid>.db.
+//! Based on reverse engineering; reject rows without #9.#4 time instead of inventing it.
+//! IDE usage uses a language server; its local usage format remains unverified/unimplemented.
 
 pub mod detect;
 pub mod versions;
@@ -10,7 +10,7 @@ pub use detect::ANTIGRAVITY_FORMAT;
 pub use versions::gen_metadata_v1;
 pub use versions::{ANTIGRAVITY_FORMAT_VERSION, LATEST_IMPL_ID, VERIFIED_VERSION_IMPLS};
 
-/// Antigravity 适配器（无状态）。
+/// Stateless Antigravity adapter.
 pub struct AntigravityAdapter;
 
 impl Default for AntigravityAdapter {
@@ -40,8 +40,8 @@ impl crate::adapters::framework::SourceAdapter for AntigravityAdapter {
     ) -> Vec<crate::adapters::framework::DiscoveredRoot> {
         use crate::adapters::framework::{DiscoveredRoot, RootBasis};
         let mut roots: Vec<(std::path::PathBuf, RootBasis)> = Vec::new();
-        // gemini 根：GEMINI_CLI_HOME 覆盖（tokscale clients.rs:744-756）。
-        // provenance 如实区分：env 覆盖命中记 EnvOverride，默认目录记 DefaultHome。
+        // GEMINI_CLI_HOME overrides the Gemini root (tokscale clients.rs:744–756).
+        // Record EnvOverride for an environment root and DefaultHome for the default directory.
         let env_hit = ctx
             .env
             .get("GEMINI_CLI_HOME")

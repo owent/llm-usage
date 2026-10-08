@@ -1,4 +1,4 @@
-//! Amp 探测：threads/T-*.json 的文档级指纹（messages + usageLedger/usage）。
+//! Detect documented Amp threads/T-*.json fields: messages and usageLedger/usage.
 
 use crate::adapters::framework::DetectOutcome;
 use crate::domain::VersionBasis;
@@ -12,7 +12,7 @@ pub const AMP_FORMAT: &str = "amp-threads-json";
 const DETECT_HEAD_BYTES: usize = 64 * 1024;
 
 pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
-    // 瞬态不可读（持锁/超时/枚举后被清理）⇒ Pending 下轮重探，不固化失败。
+    // A transient lock, timeout or removed file returns Pending for another detection attempt.
     let Some(head) = crate::adapters::framework::read_detect_head(path, DETECT_HEAD_BYTES)? else {
         return Ok(DetectOutcome::Pending);
     };

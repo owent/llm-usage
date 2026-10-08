@@ -1,36 +1,36 @@
-//! kimi-work 版本注册表：wire protocol_version → 格式实现的映射与未知版本回退
-//! （architecture.md#adapter-layout / #unknown-version，V30）。
+//! Kimi Work registry maps wire protocol_version to implementations or fallback.
+//! See architecture.md#adapter-layout / #unknown-version, V30.
 //!
-//! 版本选择依据（本机实读 + fixture，非官方协议文档）：
-//! - 已验证：仅 `1.4`（本机 Kimi Work 内嵌 kimi-code home，2026-09-25 盘点 +
-//!   tests/fixtures/kimi-work 真实脱敏样本）→ `wire_v14`，KnownVersion；
-//! - 未收录/缺失 protocol_version：尚未确认不兼容 ⇒ LatestFallback 兼容尝试；
-//!   注意 `1.5` 是 Kimi Code 侧的已验证锚点，在**本产品**注册表同样走
-//!   latest_fallback（两产品注册表独立，A12/A13；同一 wire 家族不共享验证态）。
+//! References are actual local reads/redacted test data, not official protocol documentation.
+//! - Verified 1.4 from Kimi Work embedded kimi-code home, 2026-09-25 inventory and
+//!   tests/fixtures/kimi-work native redacted data: wire_v14 with KnownVersion.
+//! - Unregistered/missing protocol_version uses LatestFallback until incompatibility is verified.
+//!   Kimi Code verifies 1.5; in this product, 1.5 still uses
+//!   latest_fallback. A12/A13 registries and verification scopes remain independent.
 //!
-//! 选择规则由 [`select`] 单一事实来源承载，探测（detect）与扫描（scan）共用。
+//! select defines the version policy shared by detection/scanning.
 
 pub mod wire_v14;
 
-/// 当前格式实现标识（"最新内置解析器"由本常量明确指定，不联网获取）。
+/// This constant selects the latest built-in implementation without network access.
 pub const LATEST_IMPL_ID: &str = "wire_v14";
 
-/// 已验证 wire protocol_version → 格式实现（逐版本 fixture 登记后再收录）。
+/// Register wire protocol_version mappings after reviewing version-specific samples.
 pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[
-    // 本机 Kimi Work（daimon 内嵌 kimi-code home）69 文件实读全为 1.4；
-    // 真实脱敏 fixture：conv-main / agent-44-subagent。
+    // All 69 local Kimi Work files (daimon embedded kimi-code home) used 1.4.
+    // Redacted native samples: conv-main and agent-44-subagent.
     ("1.4", "wire_v14"),
 ];
 
-/// 版本分派结论。
+/// Version selection result.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Selection {
     pub impl_id: &'static str,
     pub basis: crate::domain::VersionBasis,
 }
 
-/// 按来源 wire protocol_version 选择格式实现；探测与扫描共用（V30）。
-/// kimi-work 尚无已确认不兼容的版本：未收录/缺失一律 latest_fallback。
+/// Select using source wire protocol_version for both detection and scanning (V30).
+/// No verified incompatible Kimi Work versions; unregistered/missing values use latest_fallback.
 pub fn select(found: Option<&str>) -> Selection {
     match found.and_then(|v| VERIFIED_VERSION_IMPLS.iter().find(|(known, _)| *known == v)) {
         Some((_, impl_id)) => Selection {
@@ -62,8 +62,8 @@ mod tests {
 
     #[test]
     fn unrecorded_and_missing_versions_fall_back_to_latest() {
-        // 1.5 在 kimi-code 已验证、在本产品注册表未收录 ⇒ latest_fallback：
-        // 同一 wire 家族的两产品验证态独立（A12/A13）。
+        // Kimi Code verifies 1.5, but this registry does not: use latest_fallback.
+        // The two products retain independent verification scopes despite sharing a wire family (A12/A13).
         for found in [Some("1.5"), Some("9.9"), None] {
             assert_eq!(
                 select(found),

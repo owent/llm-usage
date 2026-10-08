@@ -1,5 +1,5 @@
 //! User-level telemetry discovery and opt-in configuration. Checking never writes.
-//! Copilot file outputs use explicit session/day carrier selection before statistics.
+//! Select Copilot native/exported files by session/day before including usage in statistics.
 mod edit;
 mod evidence;
 
@@ -14,8 +14,8 @@ use std::sync::{Arc, Mutex, OnceLock};
 const MAX_CONFIG: u64 = 2 * 1024 * 1024;
 const COPILOT_DOC: &str = "https://code.visualstudio.com/docs/agents/guides/monitoring-agents";
 
-/// Bounded discovery of app-owned, verified Copilot/Qwen exporters. Never read arbitrary
-/// settings paths or promote other clients' supplemental logs to usage statistics.
+/// Bounded discovery of verified Copilot/Qwen outputs managed by this application.
+/// Do not read arbitrary settings paths or treat other clients supplemental logs as usage.
 pub(crate) fn verified_usage_roots(app: &Path) -> Vec<PathBuf> {
     std::fs::read_dir(app.join("telemetry"))
         .into_iter()
@@ -114,7 +114,7 @@ impl Context {
         let data = std::env::var_os("LOCALAPPDATA")
             .map(PathBuf::from)
             .unwrap_or_else(|| home.join(".local/share"));
-        // Only keys used for routing/policy checks; never return their values to the UI.
+        // Select only routing/policy environment keys; never return their values to the UI.
         let env = std::env::vars_os()
             .filter_map(|(k, v)| Some((k.into_string().ok()?, v.into_string().ok()?)))
             .filter(|(k, _)| {
@@ -333,7 +333,7 @@ fn readable(path: &Path) -> Result<Option<Vec<u8>>, String> {
     Ok(Some(bytes))
 }
 
-/// Reject links/reparse points and relative paths rather than writing outside the shown target.
+/// Reject links/reparse points and relative paths so writes stay within the displayed target.
 fn safe_path(path: &Path) -> Result<(), String> {
     if !path.is_absolute() {
         return Err("unsafe_path".into());
@@ -382,8 +382,8 @@ fn installed_copilot_keys(ctx: &Context, channel: &str) -> Option<Vec<String>> {
     } else {
         "code-insiders"
     };
-    // Extension and user directories survive uninstalling the IDE. Require its launcher
-    // for standalone extensions; a bundled package is itself an installation manifest.
+    // Extension/user directories may survive IDE removal. Require the editor launcher
+    // for standalone extensions; bundled package metadata indicates an installed package.
     if ctx.has_command(editor_command) {
         if let Ok(entries) = std::fs::read_dir(extension_root) {
             for entry in entries.flatten().take(2048) {
@@ -397,7 +397,7 @@ fn installed_copilot_keys(ctx: &Context, channel: &str) -> Option<Vec<String>> {
             }
         }
     }
-    // Newer VS Code packages Copilot as a built-in extension.
+    // Check the Copilot package bundled with newer VS Code installations.
     {
         let install = if channel == "Code" {
             "Microsoft VS Code"
@@ -406,7 +406,7 @@ fn installed_copilot_keys(ctx: &Context, channel: &str) -> Option<Vec<String>> {
         };
         let install_root = ctx.data.join("Programs").join(install);
         manifests.push(install_root.join("resources/app/extensions/copilot/package.json"));
-        // Windows updater installs versioned directories (e.g. 07f806f999/resources/app).
+        // Windows updater directories can be versioned, such as 07f806f999/resources/app.
         if let Ok(entries) = std::fs::read_dir(&install_root) {
             for entry in entries.flatten().take(64) {
                 manifests.push(
@@ -441,8 +441,8 @@ fn installed_copilot_keys(ctx: &Context, channel: &str) -> Option<Vec<String>> {
             continue;
         }
         installed = true;
-        // The built-in package's sibling app manifest establishes the independently
-        // verified Agent Host baseline. Other versions remain manual until verified.
+        // Read the sibling application manifest for the independently verified Agent Host version.
+        // Leave other versions under manual configuration until their behavior is verified.
         if path
             .parent()
             .and_then(Path::parent)
@@ -538,7 +538,7 @@ fn discover(ctx: &Context) -> Vec<Target> {
             if keys.contains(&format!("{prefix}captureIdentity")) {
                 changes.push(change(&[&format!("{prefix}captureIdentity")], json!(false)));
             }
-            // Local absolute paths must not propagate via Settings Sync.
+            // Keep local absolute paths out of Settings Sync.
             changes.push(change(&["settingsSync.ignoredSettings"], json!([])));
             let mut row = target(
                 ctx,
@@ -705,7 +705,7 @@ fn discover(ctx: &Context) -> Vec<Target> {
     }
     let codebuddy = ctx.agent_dir("CODEBUDDY_CONFIG_DIR", ".codebuddy");
     if ctx.has_command("codebuddy") {
-        // CodeBuddy only exports traces. Keep supplemental traces out of auto-scanned roots.
+        // CodeBuddy exports traces only; keep supplemental traces outside automatically scanned roots.
         let envs = [
             ("CODEBUDDY_CODE_ENABLE_TELEMETRY", "1"),
             ("OTEL_TRACES_EXPORTER", "otlp"),
@@ -739,8 +739,8 @@ fn discover(ctx: &Context) -> Vec<Target> {
             .join("telemetry/otlp-traces.jsonl")
             .display()
             .to_string();
-        // Exact documented release; neither an unknown binary nor a newer manifest
-        // inherits this evidence. Do not execute the CLI to manufacture verification.
+        // Require the exact documented release; unknown binaries/newer manifests do not inherit
+        // its verified behavior. Do not execute the CLI merely to assume version compatibility.
         if !codebuddy_auth_version(ctx) {
             row.blocked = Some("unsupported_version");
         }
@@ -818,7 +818,7 @@ fn inspect(mut target: Target) -> Target {
                 if endpoint.starts_with("http://127.0.0.1:")
                     || endpoint.starts_with("http://localhost:")
                 {
-                    // Only an app-owned endpoint may be associated automatically.
+                    // Automatically associate only an endpoint managed by this application.
                     let desired = target
                         .changes
                         .iter()
@@ -869,8 +869,8 @@ fn inspect(mut target: Target) -> Target {
                 {
                     return Err("existing_destination".into());
                 }
-                // An existing HTTP exporter can contain headers/timeouts or other options.
-                // Edit leaf values rather than replacing that table (including inline tables).
+                // Existing HTTP exporter tables may contain headers, timeouts and other options.
+                // Edit individual values rather than replace the table, including inline TOML tables.
                 let desired = target
                     .changes
                     .iter()
@@ -984,8 +984,8 @@ fn inspect(mut target: Target) -> Target {
                     .pointer("/env/OTEL_EXPORTER_OTLP_TRACES_HEADERS")
                     .is_some()
             {
-                // The 2.98.0 release proves generic headers. Signal-specific headers
-                // in the rolling reference cannot certify this older installation.
+                // The checked 2.98.0 release supports generic headers. Signal-specific headers
+                // described by rolling references are unverified for that older installation.
                 return Err("authentication_unverified".into());
             }
             let (actual_endpoint, header) = if target.dto.id == "codex" {
@@ -1020,7 +1020,7 @@ fn inspect(mut target: Target) -> Target {
             if !configured && header.is_some() && actual_endpoint != Some(local_endpoint.as_str()) {
                 return Err("existing_destination".into());
             }
-            // Preserve existing destinations. Only our exact endpoint can offer credential repair.
+            // Preserve existing destinations; offer credential repair only for the exact application endpoint.
             if configured && actual_endpoint == Some(local_endpoint.as_str()) {
                 configured = header.as_deref().is_some_and(|h| {
                     crate::receiver_auth::configured(&target.auth_app, &target.path, family, h)
@@ -1034,10 +1034,10 @@ fn inspect(mut target: Target) -> Target {
             target.dto.status = "configured".into();
             target.dto.configurable = false;
         }
-        // Preserve every user entry; explicit sync inclusions require manual review.
+        // Preserve user sync entries; explicit inclusions require manual review.
         if target.dto.id.starts_with("copilot-vscode") {
-            // APPLICATION scope: Settings Sync exclusions always live in the default
-            // user's settings, even when Copilot's file settings live in a profile.
+            // APPLICATION scope keeps Settings Sync exclusions in default-user settings,
+            // even when Copilot output settings belong to another profile.
             let sync_bytes = target
                 .sync_path
                 .as_ref()
@@ -1095,7 +1095,7 @@ fn inspect(mut target: Target) -> Target {
                 *v = json!(ignored);
             }
         }
-        // Validate the prospective merge before enabling a button (wrong nested types fail closed).
+        // Validate the proposed merge before enabling apply; reject incompatible nested types.
         if !configured {
             let text =
                 std::str::from_utf8(bytes.as_deref().unwrap_or(if target.format == "toml" {
@@ -1181,7 +1181,7 @@ fn exporter_authorization(value: &Value, key: &str) -> Result<Option<String>, St
 }
 fn add_authentication(target: &mut Target, value: &Value, header: &str) -> Result<(), String> {
     if target.dto.id == "codex" {
-        // When replacing 'none', insert the header in the newly created table.
+        // Replacing none requires adding the header to the new exporter table.
         if let Some((_, exporter)) = target
             .changes
             .iter_mut()
@@ -1367,7 +1367,7 @@ fn preview_changes(target: &Target, value: &Value) -> Vec<(String, Value)> {
                         .is_some_and(|k| k.contains("HEADERS") || k == "Authorization")
                         || p == &["otel", "exporter"])
                 {
-                    // Exporter tables/headers may retain user secrets; never serialize them into IPC.
+                    // Exporter tables/headers may contain secrets; never return them through IPC.
                     if p == &["otel", "exporter"] {
                         let mut redacted = v.clone();
                         redacted["otlp-http"]["headers"] =
@@ -1469,7 +1469,7 @@ pub async fn telemetry_preview(
     .map_err(|_| "setup_failed".to_string())?
 }
 
-/// Writes through a same-directory temporary file. Backup required before replacing existing bytes.
+/// Write through a same-directory temporary file; back up existing bytes before replacement.
 fn commit(
     path: &Path,
     before: Option<&[u8]>,
@@ -1569,7 +1569,7 @@ fn commit_plan(plan: &Plan, backup_root: &Path, token: &str) -> Result<(), Strin
     );
     if result.is_err() {
         if let Some(sync) = &plan.sync {
-            // CAS rollback: never restore over a concurrently edited default settings file.
+            // Compare-and-swap rollback must not overwrite concurrently edited default settings.
             restore_exact(
                 &sync.path,
                 &sync.after,
@@ -1676,7 +1676,7 @@ pub async fn telemetry_apply(
         let mut receiver_started = false;
         let mut previous_receiver = false;
         if plan.target.receiver {
-            // The listener must actually bind before a user's Agent is pointed at it.
+            // Bind the listener successfully before configuring an Agent to use it.
             if ctx.port == 0 {
                 return Err("invalid_config".into());
             }

@@ -1,21 +1,21 @@
-//! Codex rollout JSONL 格式实现（`rollout_v1`）。
+//! Codex rollout JSONL implementation rollout_v1.
 //!
-//! 格式依据（build/desktop-usage-validation M0 fixtures，本机实读）：
-//! - `token_usage_record`：记录逐次 model_call；`payload.usage` 六字段
-//!   （input/cached/cache_write/output/reasoning/total），cached⊆input、reasoning⊆output、
-//!   total=input+output（319/319 成立）；response_id 为稳定身份。
-//! - `event_msg/token_count`：`info.total_token_usage` 是累计快照，只能取最终值或对
-//!   逐次记录求和，不能把多条快照相加；compaction 处携带记录被排除出快照
-//!   （实读核对：Σ逐次 == 最终快照 + Σ compacted 携带记录）。
-//! - `event_msg/token_count` 的 `info.last_token_usage` 是逐次回声，忽略防双计。
-//! - `compacted`：`payload.latest_token_usage_record` 是被压缩排除的边界记录副本，
-//!   正常与逐次流中记录同 response_id（去重），不计入快照。
-//! - usage 无 model 字段：按不晚于调用的 `turn_context` 位置归属；无法确认则 unknown。
-//! - `session_meta`：版本探测（payload.cli_version）；parent_thread_id 存在 ⇒ 子 Agent 会话。
+//! References: M0 native reads and samples under build/desktop-usage-validation.
+//! - token_usage_record stores model_call with six payload.usage fields:
+//!   input/cached/cache_write/output/reasoning/total; cached is within input and reasoning within output.
+//!   total=input+output held in 319/319 records; response_id identifies the call.
+//! - event_msg/token_count info.total_token_usage is cumulative: use its final value or
+//!   detailed calls, without summing snapshots. Compaction removes carried records from the snapshot;
+//!   checked detailed sum = final snapshot + compacted carried sum.
+//! - Ignore info.last_token_usage echoes in this format to prevent duplicate usage.
+//! - compacted payload.latest_token_usage_record copies the excluded boundary call;
+//!   normally it shares response_id with the detailed stream and is not in the snapshot.
+//! - usage has no model; use preceding turn_context, leaving unverified attribution unknown.
+//! - session_meta supplies payload.cli_version; parent_thread_id identifies a subagent session.
 //!
-//! 版本策略（architecture.md#unknown-version）：session_meta 经
-//! [`super::super::versions::select`] 分派；未收录/缺失版本用本实现（当前最新）
-//! 兼容尝试，事件带 `parse_basis` 标记，不因版本号未收录直接拒绝。
+//! Version selection follows architecture.md#unknown-version and
+//! super::super::versions::select. Unregistered/missing versions try this latest reader,
+//! with event parse_basis compatibility metadata rather than rejection by version alone.
 
 use crate::aggregates::{AggregateScope, Coverage, SourceAggregateInput};
 use crate::domain::{
@@ -34,11 +34,11 @@ use crate::adapters::jsonl::{read_jsonl, JsonlCursor, StopReason};
 
 use super::super::common::{map_codex_record, CodexRecordUsage};
 
-// 规则升级自动重放已消费文件；累计对照差异保留，逐次读取错误跨批次保留。
+// Registry rule changes replay consumed files; retain cumulative mismatches and per-call errors across batches.
 pub const CODEX_PARSER_VERSION: &str = "codex-rollout-4";
 const MAX_REASONABLE_TOKEN: i64 = crate::domain::MAX_TOKEN_VALUE;
 
-/// usage 六字段合计（累计/携带/快照对账用；i128 防溢出）。
+/// Six usage-field sums for snapshot/carried reconciliation; i128 protects additions.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 struct UsageSums {
     input: i128,
@@ -62,7 +62,7 @@ impl UsageSums {
     }
 }
 
-/// 最终快照状态。
+/// Final snapshot state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 struct SnapshotState {
     usage_input: i64,
@@ -75,7 +75,7 @@ struct SnapshotState {
     ts_ms: i64,
 }
 
-/// 持久化解析上下文（模型状态、累计基线、对账合计、版本选择依据）。
+/// Persisted model state, cumulative baseline, reconciliation sums and version basis.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 struct CodexParseContext {
     model: Option<String>,
@@ -99,13 +99,13 @@ struct CodexParseContext {
     unknown_types: Vec<String>,
     #[serde(default)]
     has_record_errors: bool,
-    /// 版本选择依据（known_version / latest_fallback）；旧解析上下文缺省为 None，
-    /// 迁移不重建来源、不重置游标（V30）。
+    /// known_version/latest_fallback; historical context without this field defaults to None.
+    /// Adding the field alone does not rebuild sources or reset cursors (V30).
     #[serde(default)]
     version_basis: Option<VersionBasis>,
 }
 
-/// 从存储的游标 JSON 还原；重扫或无效时回到文件头。
+/// Restore a JSON cursor; rescan or invalid state starts at the file beginning.
 fn restore_cursor(stored: &StoredScanState, generation: i64, rescan: bool) -> JsonlCursor {
     if rescan {
         return JsonlCursor {
@@ -137,7 +137,7 @@ fn restore_context(stored: &StoredScanState, rescan: bool) -> CodexParseContext 
         .unwrap_or_default()
 }
 
-/// 解析 usage 对象的六个必需数值字段；缺失/类型错误/负值/超限返回 None（调用方记诊断）。
+/// Require six bounded nonnegative integer fields; return None for missing/invalid values for caller diagnostics.
 fn parse_usage(value: &serde_json::Value) -> Option<CodexRecordUsage> {
     let obj = value.as_object()?;
     let get = |key: &str| -> Option<i64> {
@@ -167,7 +167,7 @@ fn json_str<'a>(value: &'a serde_json::Value, key: &str) -> Option<&'a str> {
     value.get(key)?.as_str()
 }
 
-/// originator → 宿主映射（版本化规则；未知宿主不留空猜测）。
+/// Map verified originator values to hosts; leave unknown hosts unset.
 fn map_originator(originator: Option<&str>) -> Option<String> {
     match originator {
         Some("codex_vscode") => Some("vscode".to_string()),
@@ -191,7 +191,7 @@ struct UsageRecordIds<'a> {
     session_id: Option<&'a str>,
 }
 
-/// 从 token_usage_record / compacted 携带记录构造 model_call 事件。
+/// Build model_call from token_usage_record or a compacted carried record.
 #[allow(clippy::too_many_arguments)]
 fn build_usage_event(
     target: &ScanTarget,
@@ -278,7 +278,7 @@ fn build_usage_event(
     }
 }
 
-/// 增量扫描一个 rollout JSONL 文件（统一入口 `CodexAdapter::scan` 分派到本实现）。
+/// Incrementally read one rollout file, dispatched by CodexAdapter::scan.
 pub fn scan(
     target: &ScanTarget,
     stored: &StoredScanState,
@@ -338,8 +338,8 @@ pub fn scan(
                     continue;
                 }
                 let version = json_str(&payload, "cli_version");
-                // 版本分派（探测/扫描同一注册表）：已知按映射；未知/缺失回退本实现
-                //（当前最新）并带兼容标记，不因未收录直接拒绝（V17/V30）。
+                // Detection/scanning share registry selection: known versions map to implementations,
+                // unknown/missing versions try this latest reader with compatibility metadata (V17/V30).
                 let selection = super::super::versions::select(version);
                 context.version_basis = Some(selection.basis);
                 context.cli_version = version.map(str::to_string);
@@ -394,9 +394,9 @@ pub fn scan(
                     thread_id: json_str(&payload, "thread_id"),
                     session_id: json_str(&payload, "session_id"),
                 };
-                // 事件全量发出（commit 管线按身份去重/裁决冲突）；对账合计按
-                // response_id 每轮首次出现计一次，重复 final 不破坏快照对账。
-                // 跨轮追加的重复/矛盾记录会如实触发冲突与 reconcile_mismatch 诊断。
+                // Emit events for ingest identity/conflict resolution; reconciliation sums count
+                // each response_id once per run so repeated finals do not duplicate those sums.
+                // Appended cross-run repeats/conflicts remain visible through conflicts and reconcile_mismatch diagnostics.
                 let first_sighting = match ids.response_id {
                     Some(rid) => emitted_ids.insert(rid.to_string()),
                     None => true,
@@ -424,8 +424,8 @@ pub fn scan(
                         Some(usage) => {
                             context.sum_carried.add(&usage);
                             let rid = json_str(&carried, "response_id");
-                            // 携带记录正常在逐次流中（去重）；不在流中属异常：
-                            // 作为恢复事件补出并记诊断，对账差异会显形。
+                            // A carried record normally also exists in the detailed stream. If absent,
+                            // emit a recovery event with diagnostics so reconciliation exposes the difference.
                             if !rid.map(|r| emitted_ids.contains(r)).unwrap_or(false) {
                                 diagnostics.push(diag(
                                     "compacted_carried_not_in_stream",
@@ -491,7 +491,7 @@ pub fn scan(
                             ));
                             continue;
                         };
-                        // 累计快照序列：compaction 后携带记录被排除出快照（实读核验）。
+                        // Native checks show compaction-carried records excluded from cumulative snapshots.
                         let previous = context.series_last_value.map(|last| {
                             crate::aggregates::CumulativeState {
                                 series_key: "thread".to_string(),
@@ -578,7 +578,7 @@ pub fn scan(
             ScanStatus::LineTooLong
         }
     };
-    // 对账只在读到当前文件尾时进行（文件可能仍在增长）。
+    // Reconcile only at the current EOF because the file may still be growing.
     if status == ScanStatus::Complete {
         let detail = context.sum_per_call.total;
         let snapshot = context.final_snapshot.map(|s| i128::from(s.usage_total));
@@ -614,7 +614,7 @@ pub fn scan(
             difference: difference.map(|v| v.min(i128::from(i64::MAX)) as i64),
             verdict: verdict.to_string(),
         });
-        // 最终快照存为来源原生区间汇总，仅作对照，不参与求和。
+        // Store final native interval snapshots for comparison, excluded from totals.
         if let Some(snap) = context.final_snapshot {
             let mapped = map_codex_record(&CodexRecordUsage {
                 input_tokens: snap.usage_input,
@@ -712,8 +712,8 @@ mod tests {
 
     #[test]
     fn old_parse_context_without_basis_still_restores() {
-        // 目录迁移前的解析上下文（M2-A 形状，无 version_basis 字段）反序列化
-        // 不失败，basis 为 None；不重建来源/不重置游标（V30）。
+        // Deserialize historical M2-A context without version_basis;
+        // basis stays None without rebuilding its source or resetting its cursor for that field alone (V30).
         let legacy = serde_json::json!({
             "model": Some("gpt-x"),
             "cli_version": Some("0.155.0-alpha.16.3"),

@@ -1,38 +1,38 @@
-//! Hermes 版本注册表：state.db `schema_version`（INTEGER）→ 格式实现的映射
-//! 与未知版本回退选择（architecture.md#adapter-layout / #unknown-version）。
+//! Hermes registry: state.db schema_version INTEGER maps to format implementations
+//! and unknown-version selection, architecture.md#adapter-layout / #unknown-version.
 //!
-//! 版本标记是 state.db `schema_version` 表的单行整数（固定源码
-//! hermes_state_common.py SCHEMA_VERSION=30；探测时另验真实列与主键形状，
-//! 不只看整数）。
+//! Version marker is one integer row in state.db schema_version; fixed source
+//! hermes_state_common.py sets SCHEMA_VERSION=30; detection also checks columns/primary key,
+//! without relying on the integer alone.
 //!
-//! 0.21.5 官方镜像真实 CLI/续会话已有脱敏 fixture 与独立用量核对。
-//! 整库 schema 整数仅描述迁移，缺少逐行客户端版本，不能认证混合历史会话。
-//! 因而注册表保持空：一切版本走 `LatestFallback`（带兼容标记，正常读取）。
+//! Official 0.21.5 image CLI/resume already has redacted native samples and independent totals.
+//! Database schema describes migration, without per-row client versions for mixed history.
+//! Registry therefore stays empty: every version uses marked LatestFallback for normal reads.
 //!
-//! 选择规则：
-//! - 已收录版本 → `KnownVersion`（当前为空集）；
-//! - 未收录/缺失版本（含 schema_version 表缺失）→ `LatestFallback`，
-//!   先尝试最新内置解析器（`session_model_usage_v1`）；
-//! - 已确认不兼容的形状（缺表/缺列/pre-v22 主键）在探测层 fail closed，
-//!   不进入回退。
+//! Selection rules:
+//! - Registered versions use KnownVersion; currently no entries.
+//! - Unregistered/missing versions, including absent schema_version table, use LatestFallback
+//!   and try the latest built-in session_model_usage_v1 parser first.
+//! - Detection rejects known incompatible missing tables/columns/pre-v22 primary keys,
+//!   without entering fallback.
 
 pub mod session_model_usage_v1;
 
-/// 当前格式实现标识（"最新内置解析器"由本常量明确指定，不联网获取）。
+/// Current implementation explicitly selects the latest built-in parser, without downloading.
 pub const LATEST_IMPL_ID: &str = "session_model_usage_v1";
 
-/// 已验证支持的 schema_version → 格式实现。
-/// 空集：整库 schema 整数不认证逐行客户端版本，不能仅凭单个真实样本登记。
+/// Verified schema_version values mapped to implementations.
+/// Empty: database schemas do not identify row client versions; one native sample is insufficient.
 pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[];
 
-/// 版本分派结论。
+/// Version-selection result.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Selection {
     pub impl_id: &'static str,
     pub basis: crate::domain::VersionBasis,
 }
 
-/// 按来源原始版本选择格式实现；探测与扫描共用本函数保证同一策略（V30）。
+/// Select by original source version; detection/scanning share this policy, V30.
 pub fn select(found: Option<&str>) -> Selection {
     match found {
         Some(version) => {
@@ -51,7 +51,7 @@ pub fn select(found: Option<&str>) -> Selection {
                 },
             }
         }
-        // 版本字段缺失但 Agent 身份/输入类型已确认：默认回退最新实现。
+        // Identifiable agent/format without version: try the latest implementation.
         None => Selection {
             impl_id: LATEST_IMPL_ID,
             basis: crate::domain::VersionBasis::LatestFallback,
@@ -66,7 +66,7 @@ mod tests {
 
     #[test]
     fn registry_is_empty_so_everything_is_latest_fallback() {
-        // 真实样本 schema_version=30 仍不认证混合历史行的客户端版本。
+        // Native schema_version=30 does not identify client versions of mixed historical rows.
         assert!(VERIFIED_VERSION_IMPLS.is_empty());
         assert_eq!(
             select(Some("30")),

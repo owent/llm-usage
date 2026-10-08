@@ -1,37 +1,37 @@
-//! kimi-code 版本注册表：wire protocol_version → 格式实现的映射与未知版本回退
-//! （architecture.md#adapter-layout / #unknown-version，V30）。
+//! Kimi Code registry maps wire protocol_version to implementations or fallback.
+//! See architecture.md#adapter-layout / #unknown-version, V30.
 //!
-//! 版本选择依据（本机实读 + fixture，非官方协议文档）：
-//! - 已验证：仅 `1.5`（本机 Kimi Code desktop 1.0.3，M0 fixture +
-//!   tests/fixtures/kimi-code 真实脱敏样本）→ `wire_v15`，KnownVersion；
-//! - 未收录/缺失 protocol_version：尚未确认不兼容 ⇒ 默认回退最新内置解析器
-//!   （LatestFallback，带兼容标记），不因版本号未收录直接拒绝；
-//!   注意 1.4 是 Kimi Work 侧的已验证锚点，在**本产品**注册表中同样走
-//!   latest_fallback（两产品注册表独立，A12/A13）。
+//! References are actual local reads/redacted test data, not official protocol documentation.
+//! - Verified 1.5 from desktop 1.0.3 and M0 samples;
+//!   native tests/fixtures/kimi-code select wire_v15 with KnownVersion.
+//! - Unregistered/missing protocol_version first tries the latest built-in parser
+//!   with LatestFallback compatibility metadata, without rejecting unlisted numbers alone.
+//! - Local active_compat files also verify protocol 1.4 with wire_v15 in this product.
+//!   Kimi Work remains a separate A12/A13 registry; its samples cannot establish this entry.
 //!
-//! 选择规则由 [`select`] 单一事实来源承载，探测（detect）与扫描（scan）共用。
+//! select defines the version policy shared by detection/scanning.
 
 pub mod wire_v15;
 
-/// 当前格式实现标识（"最新内置解析器"由本常量明确指定，不联网获取）。
+/// This constant selects the latest built-in implementation without network access.
 pub const LATEST_IMPL_ID: &str = "wire_v15";
 
-/// 已验证 wire protocol_version → 格式实现（逐版本 fixture 登记后再收录）。
+/// Register wire protocol_version mappings after reviewing version-specific samples.
 pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[
-    // 本机 desktop 1.0.3 实读（M0 + M4 fixture：session-main / subagent-agent-0）。
+    // Native desktop 1.0.3 M0/M4 samples: session-main and subagent-agent-0.
     ("1.5", "wire_v15"),
-    ("1.4", "wire_v15"), // 同形 wire 格式：kimi-work 侧 1.4 已验证，本产品本机 active_compat 文件证实同构
+    ("1.4", "wire_v15"), // Native active_compat files verify protocol 1.4 against wire_v15 independently of Kimi Work.
 ];
 
-/// 版本分派结论。
+/// Version selection result.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Selection {
     pub impl_id: &'static str,
     pub basis: crate::domain::VersionBasis,
 }
 
-/// 按来源 wire protocol_version 选择格式实现；探测与扫描共用（V30）。
-/// kimi-code 尚无已确认不兼容的版本：未收录/缺失一律 latest_fallback。
+/// Select using source wire protocol_version for both detection and scanning (V30).
+/// No verified incompatible Kimi Code versions; unregistered/missing values use latest_fallback.
 pub fn select(found: Option<&str>) -> Selection {
     match found.and_then(|v| VERIFIED_VERSION_IMPLS.iter().find(|(known, _)| *known == v)) {
         Some((_, impl_id)) => Selection {
@@ -63,8 +63,8 @@ mod tests {
 
     #[test]
     fn unrecorded_and_missing_versions_fall_back_to_latest() {
-        // 尚未确认不兼容的未收录/缺失版本：兼容尝试（V30），不直接拒绝。
-        // 1.4 现已注册（本机 active_compat 文件证实同构 wire_v15）。
+        // Try compatibility for unregistered/missing versions without verified incompatibility (V30).
+        // Protocol 1.4 is registered after native active_compat verification with wire_v15.
         for found in [Some("9.9"), None] {
             assert_eq!(
                 select(found),

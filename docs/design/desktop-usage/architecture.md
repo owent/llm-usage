@@ -1,301 +1,355 @@
-# 桌面架构与技术决策
+# Desktop architecture and technical decisions
 
-状态：设计合同；模块边界、数据库与调度核心已随 M1–M4/M6 实施，
-所有资源数字仍是验收目标，实测状态以验证记录为准。范围见 [设计入口](README.md)。
+<a id="桌面架构与技术决策"></a>
 
-## 桌面方案
+Status: design specification. M1–M4/M6 implemented the module boundaries, database and
+scheduling core. Resource numbers remain acceptance targets; validation records report
+actual measurements. See the [design entry](README.md) for scope.
 
-采用 Tauri 2 + Rust、Svelte + TypeScript + Vite；ECharts 按需加载图表/组件，
-六类图表使用 SVG 渲染。Node 仅用于构建，不随成品分发；Python 原型不作为 sidecar。
+<a id="桌面方案"></a>
 
-Tauri 的 Windows/macOS/Linux 分别使用 WebView2/WKWebView/WebKitGTK。
-这支持减少应用自带运行时的选择，但不证明总内存必然低于其他方案。
-Windows 包体必须区分应用、WebView2 安装下载、已安装运行时和用户数据库。
-依据：[Tauri WebView](https://v2.tauri.app/reference/webview-versions/)、
-[Windows 安装](https://v2.tauri.app/distribute/windows-installer/)。
+## Desktop stack
 
-| 选项 | 适合本任务的部分 | 取舍 |
+Use Tauri 2/Rust with Svelte/TypeScript/Vite. Selectively import ECharts charts/components;
+six chart types render as SVG. Node is a build tool, absent from distribution. The Python
+prototype is not a sidecar.
+
+Tauri uses WebView2, WKWebView and WebKitGTK on Windows, macOS and Linux respectively.
+System WebViews reduce the runtime shipped with the app; this does not establish lower
+total memory than alternatives. Windows size measurements distinguish the app, WebView2
+download/installation, shared installed runtime and user database. Sources:
+[Tauri WebViews](https://v2.tauri.app/reference/webview-versions/) and
+[Windows installation](https://v2.tauri.app/distribute/windows-installer/).
+
+| Option | Relevant capabilities | Decision and tradeoffs |
 | --- | --- | --- |
-| Tauri 2 + Rust | 系统 WebView、文件采集、SQLite、本地 IPC；原型图表思路可复用 | 采用；平台 WebView 差异和 Rust 维护需纳入验收 |
-| Electron | Chromium/Node 与成熟桌面 Web 工作流；易迁移 JS 采集器 | 本项目没有既有 Node 采集实现，且希望减少自带运行时，因此不首选；不编造包体差值 |
-| 原生 UI / egui / Flutter / Qt | 可实现桌面统计工具 | 当前无现成界面资产或团队约束支持承担第二套图表实现；仅在 Tauri 试验未达标时另做有界比较 |
-| Python 原型 + 桌面壳 | 采集逻辑可复用 | 增加 Python 运行时和跨进程分发；保留为参考与迁移输入，不作为成品运行依赖 |
-| 本地 HTTP 服务 + 浏览器 | 容易延续静态看板 | 不作为主交付，额外常驻服务和端口不符合当前简单桌面目标 |
+| Tauri 2/Rust | System WebView, files, SQLite and local IPC; prototype chart ideas reusable | Adopted; verify WebView differences and Rust maintenance requirements. |
+| Electron | Chromium/Node desktop workflow and easy JS collector migration | No existing Node collector; prefer shipping less runtime. No invented package-size comparison. |
+| Native UI/egui/Flutter/Qt | Can implement desktop statistics | No existing UI assets/team requirements justify a second chart implementation; compare within a defined scope if Tauri fails acceptance. |
+| Python prototype with desktop shell | Collector logic reusable | Adds Python/cross-process distribution; retained for reference/migration, absent from runtime dependencies. |
+| Local HTTP server/browser | Extends static dashboard | Not the main deliverable; another persistent service/port conflicts with the current desktop scope. |
 
-Electron 的进程模型有 [官方说明](https://www.electronjs.org/docs/latest/tutorial/process-model)。
-ECharts 的 [按需导入](https://echarts.apache.org/handbook/en/basics/import/)有官方支持；
-是否达到本项目预算仍需测量。M0 锁定实际依赖版本、许可证及兼容要求，不直接使用浮动 latest。
+See [Electron's process model](https://www.electronjs.org/docs/latest/tutorial/process-model)
+and [ECharts selective imports](https://echarts.apache.org/handbook/en/basics/import/).
+Measure whether the stack meets project resource limits. M0 fixes dependency versions,
+licenses and compatibility requirements; do not use floating latest. Windows 11 x64 is
+first; macOS/Linux CI jobs remain. WSL 2 can provide local Linux build checks.
+See [platform/CI](platform-ci.md) for artifacts and validation scope.
 
-首发已确定 Windows 11 x64，GitHub CI 同时建立 macOS/Linux 作业，
-WSL 2 可作本地 Linux 构建试验。平台、制品和验证范围见 [平台与 CI](platform-ci.md)。
+<a id="模块边界"></a>
 
-## 模块边界
+## Module boundaries
 
 ```text
-本机 JSONL / JSON / SQLite / 可核验本机来源的导出文件
-                    ↓
-源发现 → 版本/格式探测 → 有界读取 → 适配器 → 标准化/归属/去重
-                    ↓                         ↓
-             逐源健康状态          SQLite 单写者事务与统计缓存
-                                              ↑↓
-可选本地 OTLP 接收器 → 白名单字段提取        有类型查询/刷新 IPC
-                                              ↑↓
-                                本地静态前端、图表与设置
+Local JSONL / JSON / SQLite / exports with verifiable local origin
+                          ↓
+Discovery → version/format detection → bounded reads → adapters → normalization/attribution/deduplication
+                          ↓                                      ↓
+                 Source health                    SQLite single-writer transactions/statistics cache
+                                                                 ↕
+Optional local OTLP receiver → allowlisted fields           Typed query/refresh IPC
+                                                                 ↕
+                                                    Local static frontend/charts/settings
 ```
 
-后端按职责拆为 domain（统计语义）、ingest（读取与调度）、adapters（格式）、
-storage（迁移与查询）、aggregates/query（聚合与查询）、app（IPC 与桌面生命周期）。
-共享核心 crate 位于 `desktop/src-tauri/crates/core`，app 层位于 `desktop/src-tauri/src`
-（目录化已随 M2/M6 实施）。
-共享 Rust 核心还提供 headless 定时提取入口，启动该模式不创建窗口/WebView；
-GUI、托盘和系统任务共享配置、跨进程所有权锁、采集队列与单写者合同，见 [调度](scheduling.md)。
-UI 不得直接读取任意文件、执行 SQL、访问 Agent 凭据或启动 shell。
-导出文件只能由后端写到用户通过系统对话框选定的位置。
+Backend responsibilities are domain (statistics), ingest (reads/scheduling), adapters (formats),
+storage (migrations/queries), aggregates/query, and app (IPC/desktop lifecycle). M2/M6 placed
+the shared core at `desktop/src-tauri/crates/core` and app code at `desktop/src-tauri/src`.
+The shared Rust core also provides scheduled headless collection without a window/WebView.
+GUI/tray/system tasks share configuration, cross-process ownership lock, collection queue
+and a single database writer; see [scheduling](scheduling.md). UI code cannot read arbitrary
+files, run SQL, access Agent credentials or start a shell. Only the backend writes exports
+to a location selected through the system dialog.
 
-IPC 返回结构化 DTO：数值、已知字段数量、范围、来源状态、生成时间、数据修订号。
-数值较大的 token 用十进制字符串传输，避免 JavaScript 超过安全整数后静默舍入；
-图表可转换为缩放后的浮点展示，tooltip/导出保留精确整数。
-分页明细、每图最大点数和白名单筛选字段由后端限制。
+IPC returns typed DTOs: values, known-field counts, ranges, source states, generation time
+and data revision. Large token integers travel as decimal strings to prevent JavaScript
+safe-integer rounding. Charts may use scaled floats; tooltips/exports retain exact integers.
+The backend limits detail pagination, chart points and allowlisted filters.
 
 <a id="adapter-layout"></a>
 
-## Agent 适配器目录与多版本组织
+<a id="agent-适配器目录与多版本组织"></a>
 
-每个 Agent 的实现统一放在 `desktop/src-tauri/crates/core/src/adapters/<agent_id>/`，
-即使只支持一个版本也使用独立目录。升级后需要兼容的历史版本仍在该 Agent 目录内实现。
-`codex.rs`、`claude.rs`、`pi.rs`、`omp.rs`、`gemini.rs`、`qwen.rs` 的单文件迁移
-已在 M2 完成（V30 结构检查 + 迁移前后回归见验证记录 m2d）。
-此要求适用于 M2–M5 和后续 F1；同源衍生产品仍有自己的 Agent 目录及支持范围。
+## Agent directories and historical versions
 
-目标结构示意，`agent_id` 和 `format_id` 为占位标识，不代表已支持的产品或版本：
+Each Agent uses `desktop/src-tauri/crates/core/src/adapters/<agent_id>/`, even for one
+version. Compatible historical versions remain inside that directory. M2 migrated the former
+codex.rs/claude.rs/pi.rs/omp.rs/gemini.rs/qwen.rs single files; V30 structure and before/after
+regressions are in m2d. M2–M5 and later F1 follow this layout. Derivative products still own
+their Agent directories and support scope.
+
+Illustrative structure; agent_id/format_id are placeholders, not supported-product claims:
 
 ```text
 adapters/
-  mod.rs                     # 适配器导出与公共模块入口
-  framework.rs               # 跨 Agent 的统一接口与采集流程
-  jsonl.rs                   # 跨 Agent 的通用读取器
-  usage_map.rs               # 通用映射类型/辅助函数，产品特有映射下沉
+  mod.rs                     # Public adapters and shared module exports
+  framework.rs               # Cross-Agent interface and collection flow
+  jsonl.rs                   # Shared bounded reader
+  usage_map.rs               # Shared mapping types/helpers; product mappings remain local
   <agent_id>/
-    mod.rs                   # 该 Agent 的稳定入口与统一接口实现
-    detect.rs                # 产品/格式探测与版本分派
-    common.rs                # 已证实可复用的 Agent 内部逻辑，按需建立
+    mod.rs                   # Stable Agent entry and shared interface implementation
+    detect.rs                # Product/format detection and version dispatch
+    common.rs                # Verified reusable Agent-specific logic, when needed
     versions/
-      mod.rs                 # 已验证格式实现的注册与映射
-      <format_id>.rs         # 各格式实现；复杂版本可再拆为同名子目录
+      mod.rs                 # Verified format registration and mappings
+      <format_id>.rs         # Format implementation; split complex formats into a matching directory
 ```
 
-版本差异的解析、字段映射和生命周期逻辑放在 `versions/` 的对应模块；
-不要在适配器根目录新增 `<agent>_v1.rs` 等并列实现，也不要把全部历史差异堆回入口文件。
-`detect.rs` 按来源文件/数据库的版本字段、记录类型或 schema 指纹选择实现，
-不能用当前安装的 Agent 版本解释所有历史文件；同一源目录可含多个历史格式。
-已知版本按映射选择实现；未知版本按下述兼容策略先尝试最新内置解析器。
+Put version-specific parsing, field mapping and lifecycle rules in corresponding versions/
+modules. Do not add sibling `<agent>_v1.rs` files or put all historical differences in the entry.
+detect.rs selects by file/database version, record type or schema features. Installed Agent
+version cannot explain every historical file; one root may contain several formats. Known
+versions select their mapped parser. Unknown versions follow compatibility rules below.
 
-Agent 发布版本、来源格式/schema 和本应用 parser_version 分别记录。
-同一格式实现可覆盖多个发布版本，每个声明已验证支持的版本都须有核验依据与 fixture；
-映射表明确版本到实现的关系，兼容尝试成功不自动升级为该版本已验证。
-新增版本时保留已支持历史实现及回归样本，统一标准化输出和采集接口保持一致。
+Record product release, source format/schema and application parser_version separately.
+One parser may cover several releases; each verified release requires its own source/sample
+checks. Successful compatibility reading does not register a release as verified. Keep
+supported historical implementations/regressions while normalized output and collection
+interfaces stay consistent.
 
-跨 Agent 的框架、读取器和经测试证明一致的辅助逻辑可共享；产品特有映射归各自目录。
-目录迁移须保持公开入口、来源/记录身份和已有游标/解析状态兼容；
-确需改变解析状态格式时另行版本化并验证恢复，不能因 Rust 文件移动生成新来源或重复计数。
-fixtures 按 Agent 及版本/格式组织并注明确切来源版本；单元测试贴近版本模块，
-集成测试可保留 Cargo 可发现的入口，必须经统一适配器入口覆盖探测、分派和历史回归。
-迁移与验收步骤见 [M2](execution.md#m2-layout) 和 [V30](validation.md#adapter-versions)。
+Share frameworks/readers/helpers only where tests establish equal behavior. Product mappings
+remain local. Directory migrations preserve public entries, source/record identities and
+existing cursors/parsing state. Version changed state formats separately and check recovery;
+moving Rust files must not create sources or double count usage. Organize test data by Agent
+and version/format with exact provenance. Unit tests belong near versions; Cargo-discoverable
+integration entries must exercise detection/dispatch/history through the shared adapter entry.
+See [M2 migration](execution.md#m2-layout) and [V30](validation.md#adapter-versions).
 
 <a id="unknown-version"></a>
 
-### 未知版本的兼容尝试
+<a id="未知版本的兼容尝试"></a>
 
-应用更新频率低于 Agent，版本号未收录或缺失时默认先尝试该 Agent 最新内置解析器，
-无需等待应用更新或手动开启兼容模式。先确认 Agent 身份、输入类型和本机来源，
-再选择该 Agent 对应输入类型的最新解析器；不把其他产品或任意未知文件交给通用猜测逻辑。
-“最新”由 Agent 目录内的版本注册明确指定，指随应用发布的实现，不联网下载或执行解析器。
+### Unknown-version compatibility reading
 
-兼容尝试允许新增非必要字段；仍校验必需结构、字段类型/单位、token 包含关系、
-记录身份及累计/逐次语义。缺失的可选字段保持 unknown；不能为了通过校验补零或猜测计量方式。
-通过校验的数据正常入库并纳入统计，同时保留“使用最新解析器，版本兼容性未验证”标记；
-可独立确认的部分数据可以保留，覆盖缺口随结果返回，不把整个未知版本一概排除。
-仅忽略无法解释的记录不能据此报告完整成功；影响累计基线或调用关联时停止依赖它们的计算。
-来源健康状态以实际解析结果判定：兼容解析且关键记录通过时保持正常；同一文件
-出现坏记录（坏行/非法 token/缺关键字段/缺归属）时保留已确认调用，并提示需核对。
-Codex 的累计快照差异（reconcile_mismatch/snapshot_regression）保留诊断与对账结果，
-不单独降级读取健康；对照不相等仍显示 mismatch，不能宣称已证明用量完整。
-新版独立逐次记录不依赖累计快照，旧版 total/last 识别调用所需的字段异常仍降级。
-TokenCountEvent.info 缺失/null 是合法的无用量通知，不计调用、不补零。
-此规则不自动推广至其他 Agent。已消费文件的增量扫描
-沿用先前的版本选择依据，不能让“兼容”覆盖新出现的数据错误。
+Application releases can lag Agents. An absent/unregistered version automatically tries that
+Agent's latest built-in parser, without an app update or manual compatibility toggle. Confirm
+Agent identity, input type and local attribution before selecting the latest parser for that
+Agent/input. Do not guess across products/arbitrary files. Each Agent's version registry
+explicitly chooses latest, meaning a shipped implementation, never a downloaded executable parser.
 
-保存来源原始版本（可空）、所选格式与 parser_version、选择依据 `known_version / latest_fallback`、
-兼容验证状态及有限失败原因，供诊断、查询、汇总和导出追溯；兼容状态与 token 字段质量分别记录。
-通过结构校验只能说明当前数据可由该解析器处理，不能证明该版本所有字段和场景均兼容。
+Allow additional nonessential fields while validating required structure, types/units, token
+relationships, identities and cumulative/per-call meanings. Missing optional values stay
+unknown. Never fill zeros or guess units to pass validation. Import valid records into normal
+statistics with “latest parser; version compatibility unverified” markers. Retain independently
+valid partial records and return coverage limits instead of excluding an entire unknown release.
+Skipping unexplained records cannot establish complete success; stop calculations depending
+on affected baselines/call associations. Source health follows actual parsing: normal when
+key records validate, while malformed lines, illegal tokens, missing keys/attribution retain
+confirmed calls and prompt review.
 
-尝试后发现结构/语义不兼容、产品归属或格式匹配冲突时，明确标记失败或部分可用并保留旧结果。
-失败批次不提交不可信事件、游标或聚合；不得返回“成功 0 条”掩盖失败。
-解析器更新、来源变化或显式重扫后允许重新尝试，不永久封禁该版本。
-后续取得逐版本样本后可增加专用实现；用稳定记录身份更正旧贡献并回归，不能再追加同一份用量。
-此策略已在 M2 实施（探测/扫描共用版本注册表分派，兼容标记持久化于
-usage_events.parse_basis 与 source_files.format_status）；
-各 Agent 的回退行为与标记见验证记录 m2d。
+Codex reconcile_mismatch/snapshot_regression retain diagnostics/reconciliation without alone
+degrading read health. Show mismatch when comparison differs, without claiming completeness.
+Modern per-call records do not depend on cumulative snapshots. Legacy total/last errors needed
+for call identification still degrade health. Missing/null TokenCountEvent.info is a legal
+notification without usage; count no call and fill no zeros. Do not generalize this rule to
+other Agents. Incremental reads of consumed files retain the earlier parser-selection basis;
+compatibility must not hide newly encountered errors.
+
+Persist original source version (possibly absent), selected format/parser_version, basis
+known_version/latest_fallback, compatibility status and bounded failure reasons for diagnostics,
+queries, summaries and exports. Compatibility and field quality are separate. Validating the
+current shape verifies this input, not every field/scenario of its release.
+
+On structure/semantic incompatibility or product/format conflict, report failure or partial
+availability and preserve prior results. Failed batches commit no untrusted events, cursors
+or summaries; never return successful empty output to hide errors. Parser updates, changed
+sources or explicit rescans permit retries; do not permanently ban a release. Later native
+samples can justify dedicated implementations, correcting prior contributions by stable
+identity with regressions instead of adding duplicate usage. M2 implemented shared registry
+dispatch for detection/scanning and persisted usage_events.parse_basis/source_files.format_status.
+Per-Agent fallback results are in m2d.
 
 <a id="database"></a>
 
-## 数据库选择
+<a id="数据库选择"></a>
 
-采用 SQLite，通过 Rust 的 rusqlite 使用随应用固定版本的 SQLite，使用显式 SQL 迁移。
-最终 crate/SQLite 版本由 M0 核验。至少包含官方 WAL-reset 修复（3.51.3+ 或明确的已修复分支），
-不仅凭系统 SQLite 名称判断安全版本。[SQLite WAL 说明](https://sqlite.org/wal.html)
+## Database choice
 
-| 方案 | 本任务考虑 | 结论 |
+Use SQLite bundled through Rust rusqlite, with explicit SQL migrations. M0 verifies actual
+crate/SQLite versions. Require the official WAL-reset fix (3.51.3+ or an explicitly patched
+branch); a system SQLite name alone does not establish the fixed version.
+See [SQLite WAL](https://sqlite.org/wal.html).
+
+| Option | Relevant behavior | Decision |
 | --- | --- | --- |
-| SQLite | 事务、唯一键、局部更新、索引查询和本地文件；适合增量写入与交互查询 | 首选 |
-| DuckDB | 擅长批量分析，官方明确大量小事务不是主要设计目标 | 暂不引入第二引擎；未来超大导出分析再评估 |
-| KV 数据库 | 可存事件，但本项目仍需自行维护多维索引、迁移和聚合 | 增加这部分实现工作尚无充分依据 |
-| JSON/CSV 单文件 | 便于交换数据 | 用于导出，不承担并发更新、索引和事务 |
-| PostgreSQL 等服务型数据库 | 可扩展多用户并发 | 当前为单机桌面，无需用户维护数据库服务 |
+| SQLite | Transactions, unique keys, partial updates, indexes and local files suit incremental writes/interactive queries | Adopted |
+| DuckDB | Bulk analysis; many small transactions are outside its main design goal | No second engine now; revisit large export analysis later |
+| Key-value database | Stores events but needs application-managed indexes/migrations/aggregation | No sufficient reason for the extra implementation |
+| JSON/CSV files | Data exchange | Exports only; do not replace concurrent updates/indexes/transactions |
+| PostgreSQL/service databases | Multi-user concurrency | A local desktop does not require a database service |
 
-DuckDB 的取舍来自 [并发合同](https://duckdb.org/docs/lts/connect/concurrency)，
-不声称 SQLite 在任何分析规模都更快或更小。
+The DuckDB tradeoff follows its [concurrency documentation](https://duckdb.org/docs/lts/connect/concurrency),
+without claiming SQLite is always faster or smaller. Keep app data in the system application
+data directory, separate from source/repository directories, network shares and synced disks.
+Use one writer, a few readers, foreign_keys=ON, WAL and default synchronous=FULL. Batch
+transactions reduce sync overhead without weaker default durability. Bound busy_timeout and
+total retries; the writer schedules checkpoints. Limit long reads/WAL growth. Capacity includes
+main DB, WAL, backups and staging; successful cleanup must not be required for safe exit.
 
-应用数据库放系统应用数据目录，与源码、源会话目录分开；不放网络共享或同步盘。
-一个后台写者，少量只读连接；`foreign_keys=ON`、WAL、默认 `synchronous=FULL`。
-通过批量事务减轻同步开销，不以降低持久性作为默认优化。
-`busy_timeout` 和重试总时限有界；checkpoint 由写者调度，限制长读事务和 WAL 膨胀。
-容量计算包含主库、WAL、备份和暂存文件；应用退出不能把清理成功作为依赖条件。
+Source databases have different access rules:
 
-源 SQLite 与应用数据库使用不同合同：
+1. Prefer read-only connections and short transactions for active databases; change no journal/schema
+   and perform no source checkpoint.
+2. Meet read-only WAL file/permission requirements. If opening might create source sidecars, refuse it.
+3. When needed, use Online Backup from the read-only connection to make a consistent staged copy,
+   with page/time/space limits and cleanup.
+4. If consistent reads are unavailable, report busy/unsupported and preserve prior results;
+   suggest official exports or a copy taken after shutdown.
+5. Copying active .db/-wal/-shm independently does not establish consistency; never use immutable=1
+   for an active source.
 
-1. 对运行中的源库优先用 SQLite 只读连接和短事务，不改变 journal、schema 或做 checkpoint。
-2. 只读 WAL 需要满足对应文件/权限条件；如果无法保证不新建源端 sidecar，则不强行打开。
-3. 必要时从只读连接调用 Online Backup API 生成一致暂存副本，设置页/时间/空间上限并清理。
-4. 无法获得一致读取时标记 busy/unsupported，保留旧结果，提示导入工具官方导出或关闭后的副本。
-5. 不逐个复制活库 `.db`、`-wal`、`-shm` 后宣称一致；不对活库使用 `immutable=1`。
-
-依据：[Online Backup](https://sqlite.org/backup.html)、[WAL 只读条件](https://sqlite.org/wal.html)。
+References: [Online Backup](https://sqlite.org/backup.html), [read-only WAL](https://sqlite.org/wal.html).
 
 <a id="refresh"></a>
 
-## 发现与今日刷新
+<a id="发现与今日刷新"></a>
 
-初次启动只在已知产品候选目录做有界探测，展示发现项及能力；用户启用后才读取用量记录。
-支持手动选择多个源根、显式环境覆盖和 IDE profile；不递归扫描整块磁盘。
-同一路径的符号链接、Windows 大小写别名及重复配置先规范化，再确认文件/数据库身份。
-仅本机 WSL/容器可显式添加并记录实例身份，不自动启动环境或 Agent。
-远程目录、账号报表及云同步会话不作为本机用量；导入前检查来源归属，见 [范围合同](README.md)。
+## Discovery and refreshing today
 
-点击“刷新今日”依次执行：
+Initial discovery checks known product roots within limits and shows sources/capabilities;
+only enabled sources have usage read. Allow multiple manual roots, explicit environment
+overrides and IDE profiles, without recursive whole-disk scans. Normalize symlinks, Windows
+case aliases and duplicate configuration before identifying physical files/databases. Local
+WSL/containers require explicit roots/identity and are never automatically started. Remote
+directories, account reports and synced remote sessions are outside local scope; check origin
+before import, under [source requirements](README.md).
 
-1. 后端返回 job ID，并合并同源正在执行的刷新；UI 显示逐源状态。
-2. 扫描文件新增/变更及新的会话目录，读取增量和仍未终结的记录。
-3. 标准化并更新事件；事件、读取游标、解析上下文和受影响统计缓存原子提交。
-4. 发布新的数据修订号，UI 用同一修订的总计、图表和表格重新查询。
-5. 返回 added/updated/unchanged/skipped/error 及最近成功时间；失败不能伪装为零或切换到样例数据。
+Refresh today performs:
 
-今日刷新允许更新历史日期：例如昨晚的请求今天才写出最终 usage。
-刷新范围以“变化的数据源”为准，不只查今日文件名，也不每次重扫全部历史。
-请求计数默认按来源提供的调用完成/用量事件时间，具体时间合同见 data-contract.md。
+1. Return job ID and merge requests for already-running sources; show per-source UI state.
+2. Find new/changed files/session directories; read increments and unfinished records.
+3. Normalize/update events; atomically commit events, cursors, parsing state and affected caches.
+4. Publish data revision; query totals/charts/tables at that same revision.
+5. Return added/updated/unchanged/skipped/error and last success time; failure is neither zero
+   usage nor a switch to demo data.
 
-自动提取默认 1 小时，0 关闭全部自动触发；启用时启动校对全部启用来源。
-逐源间隔/每日/每周规则覆盖全局节奏，手动仍可采集全部启用来源。
-Windows 退出后采集默认关闭，启用后原生分钟任务按保存的意图和到期规则运行
-headless；任务状态不等同于采集成功。当前适配器顺序采集，数据库单写者。
-Windows 可选文件监听、节能暂停、逐源单调计时及协作式时间/重试限制已接入。
-默认并行 2 源及所有同步载体内部的中断仍待实施；清理事务已有取消，采集未提供
-任意阻塞 OS 读取的强制中止。
-要求及真实实现差异集中于 [调度合同](scheduling.md)。
-初始回填分页/分块提交，显示覆盖进度；不等待全部历史完成才显示今天。
+Today's refresh may update history, such as a final usage record written today for last night's
+request. Read changed sources, not only date-named files or all history on every run. Calls use
+source completion/usage timestamps by default; exact [time rules](data-contract.md) apply.
 
-## 各输入的增量策略
+Automatic collection defaults to one hour; 0 disables all automatic triggers. On enabled
+startup, reconcile enabled sources. Per-source interval/daily/weekly rules override the global
+frequency; manual refresh can still read every enabled source. Windows collection after exit
+defaults off. When enabled, minute system tasks run headless against saved intent/due rules;
+task existence does not establish collection success. GUI/headless share two source-instance
+workers and one database writer. Reads/parsing release the app database lock; ownership,
+results and transactions use the same Storage lock. Windows optional file notifications,
+power-saving pause, monotonic intervals and cooperative time/retry limits are implemented.
+JSON/JSONL and SQLite query/backup paths check scoped cancellation; blocking OS calls can
+only check after returning and have no guaranteed immediate interruption. Exact behavior and
+acceptance requirements are in [scheduling](scheduling.md). Initial backfill commits chunks
+with coverage progress, making today visible before all history finishes.
 
-| 输入 | 游标及读取策略 | 关键失败处理 |
+<a id="各输入的增量策略"></a>
+
+## Incremental input strategies
+
+| Input | Cursor and read strategy | Failure handling |
 | --- | --- | --- |
-| JSONL | 文件身份 + generation + 完整行字节偏移 + 解析上下文 | 半行留待下次；截断/同大小替换/改名时重探测；不仅比较文件长度 |
-| 整体重写 JSON | 稳定读取快照、内容指纹和内部记录 ID | 写入中变化则重试；记录以 ID 更新，不能拿文件偏移增量 |
-| SQLite | schema 指纹 + 稳定键 + 更新序号；未完成记录重复检查 | 只有 created_at 无 updated_at 时用有界重扫与周期校对，不能承诺单一一小时窗口完整 |
-| OTLP | 日志事件 ID/trace-span ID 或 metric series + start/end + temporality | 重传、累计值重置、采样和跨日区间独立处理 |
-| CSV/JSON 导出 | 文件摘要 + 行语义身份 + 报表范围/修订号 | 覆盖同一报表分区，不能把重叠导出每次累加 |
+| JSONL | Physical identity, generation, complete-line byte offset and parsing state | Defer partial lines; redetect truncation/same-size replacement/rename, beyond length checks |
+| Rewritten JSON | Stable snapshot, content fingerprint and internal record IDs | Retry concurrent change; update by ID rather than file offset |
+| SQLite | Schema features, stable keys/update sequence; recheck unfinished rows | Without updated_at, use bounded rereads/periodic reconciliation; an hour window cannot guarantee completeness |
+| OTLP | Event/trace-span identity or metric series/start/end/temporality | Handle retries, resets, sampling and cross-day intervals independently |
+| CSV/JSON exports | File digest, semantic row identity and report range/revision | Replace a matching report partition; overlapping exports do not add repeatedly |
 
-默认单行上限 8 MiB、单块 4 MiB（允许跨块组装行）、单源每轮 30 秒，
-这些是待 fixture 校准的初值。超限不静默丢弃，状态显示位置与原因，允许受控重试。
-JSONL 默认每文件读取窗 32 MiB，完整行续读及两来源实例槽的中断/事务规则见
-[调度合同](scheduling.md#合并事务与恢复)；显式较大单行上限相应放大窗口。
-常用日查询的可选派生结构、兼容与失效规则见 [查询加速](query-acceleration.md)。
-错误诊断只保存字段名、错误码及位置，不复制原始行内容。
+Initial limits are 8 MiB per line, 4 MiB per chunk (lines can span chunks), and 30 seconds per
+source/run, subject to calibration with test data. Report location/reason on excess, permitting
+controlled retries without silent drops. JSONL's default per-file window is 32 MiB; larger explicit
+line limits enlarge it. Complete-line continuation and two-worker interruption/transaction
+rules are in [scheduling](scheduling.md#合并事务与恢复). See [query acceleration](query-acceleration.md)
+for optional daily derived tables and invalidation. Diagnostics save field/code/position,
+never raw lines.
 
-## 仅本机的遥测与导入
+<a id="仅本机的遥测与导入"></a>
 
-M5 可选的 OTLP/HTTP 接收器支持 protobuf，按实际工具合同再启用 JSON；
-只实现需要的 logs/traces/metrics 入口，不捆绑 Collector、Prometheus 或 Grafana。
-默认关闭，不监听公网；启用时绑定 loopback，使用逐源随机令牌、体积/速率限制和无内容日志。
-不能配置认证的发送端优先使用文件导出；不为了兼容开放无保护端口。
-当前接收器已有 64 MiB 压缩/解压边界与精确字段白名单；接入全局每分钟 120 次、
-最多 4 个同时处理连接的限制，超限返回 HTTP 429。此为本地接收边界的初始上限，
-不认证发送端版本、身份或完整性。Windows 已实施 Claude/Codex logs 和
-CodeBuddy CLI 2.98.0 隔离 traces 逐源认证及当前用户系统凭据存储，
-预览脱敏、失败回收和撤销吊销见 [认证合同](receiver-auth.md)。
-未核验的认证配置不开放无保护接入，其他平台原生存储及 V22/V25 剩余场景另验。
-令牌绑定用户确认的本机 Agent 实例；loopback 地址本身不能证明数据在本机产生，
-不接受 SSH 隧道、转发 Collector 或远端聚合导入。无法核验来源时标记排除，不能仅信任 host.name 字符串。
+## Local telemetry and imports
 
-接收时只保留允许的数值及关联字段。CodeBuddy 的某些遥测模式会同时携带模型输入/输出，
-Qwen 的提示词日志开关也须明确关闭；不能照搬厂商完整调试配置。
-先在应用内生成可预览的最小配置，用户主动应用；本轮不修改外部 Agent 配置。
-退出后无接收者的遥测不会自动补回，必须在数据源页说明采集窗口与丢失风险。
-定时任务可以提取已落盘遥测；不能通过每隔几分钟短暂监听补齐流式遥测历史。
-用量采集不请求远端用量、账户余额或企业分析接口。费用使用随包/手工价格快照，
-可选在线刷新默认关闭，仅下载 models.dev 的公开 api.json，不携带本机数据；
-缓存、失败回退和历史估算规则见 [价格合同](pricing.md)。
+The optional M5 OTLP/HTTP receiver supports protobuf; enable JSON only for verified client
+requirements. Implement needed logs/traces/metrics paths, without shipping Collector,
+Prometheus or Grafana. Default off, loopback only, with per-source random tokens, size/rate
+limits and content-free logs. Exporters without authentication use files rather than an
+unprotected port. Current receiver caps compressed/decompressed bodies at 64 MiB, uses exact
+field allowlists, and admits 120 requests/minute with up to four simultaneous connections,
+returning HTTP 429 on excess. These limits do not verify sender versions, origin or completeness.
+Windows implements isolated Claude/Codex logs and CodeBuddy CLI 2.98.0 traces authentication
+with current-user system credentials. Preview redaction, failure cleanup/revocation and
+platform-specific results are in [authentication](receiver-auth.md); remaining native/V22/V25
+checks are recorded separately. Unverified authentication never opens an unprotected route.
 
-JetBrains 自家 AI Assistant/TRAE 的本地用量格式核验在 F1，当前不实施。
-Junie CLI/Zed 内置已归 M8；JetBrains Copilot 已核验手工 OTel file 路线，见
-[接入矩阵](adapters.md)，真实非空导出仍需独立验收。
-官方企业 API/账号报表资料只说明范围差异，不进入实现计划；下载后的远端报表仍排除。
-只允许用户选定且可核验本机来源的导出。没有可靠本地 usage 时显示受限，不增加账号登录回退。
-本地接收令牌/项目 HMAC 密钥进系统密钥存储，不进 SQLite、前端、导出或日志。
+Bind receiver tokens to user-confirmed local Agent instances. Loopback alone does not
+establish origin. Reject SSH tunnels, forwarded Collectors and remote aggregate imports.
+Unverified origin is excluded; host.name alone is insufficient. Retain only allowed numeric
+and association fields. Some CodeBuddy telemetry includes model input/output; explicitly
+disable Qwen prompt logs. Do not copy complete vendor debugging configurations. Provide a
+preview of minimal configuration and apply it only through the user's explicit action.
+Data sent while no receiver is running is not automatically recovered; Sources explains
+collection windows/loss. Schedules can read saved telemetry but intermittent listening cannot
+reconstruct streaming history.
 
-## 数据与 UI 安全
+Never request remote usage, balance or enterprise-analysis APIs. Costs use bundled/manual
+snapshots; optional online refresh defaults off, downloading only public models.dev api.json
+without local data. [Pricing](pricing.md) defines caching, failure fallback and historical estimates.
+JetBrains AI Assistant/TRAE local-format investigation remains F1 and is not implemented.
+Junie CLI/built-in Zed belong to M8; JetBrains Copilot supports the verified manual OTel-file
+route. See the [matrix](adapters.md); nonempty native exports require separate acceptance.
+Enterprise/account API references explain scope only; downloaded remote reports stay excluded.
+Import only selected exports with verifiable local origin. Explain unavailable local usage
+without account-login fallback. Receiver tokens/project HMAC keys use system credential stores,
+never SQLite, UI, exports or logs.
 
-只存统计白名单字段，不存提示词、回答、工具参数、完整诊断日志、token 密钥或账号邮箱。
-项目维度启用后用本机密钥 HMAC 形成不可直接反推路径的标识；显示名称由用户设置。
-UI 仅加载随应用发布的资源，CSP 与 Tauri capabilities 采取最小允许列表，
-不加载远端网页或从采集内容生成 HTML。CSV 导出防公式注入，来源名称按纯文本渲染。
-统计数据库默认不是加密数据库；依赖当前用户权限和系统磁盘保护，产品说明应如实表达。
+<a id="数据与-ui-安全"></a>
+
+## Data and UI security
+
+Store statistical allowlisted fields only: no prompts/responses/tool arguments/full diagnostic
+logs/API keys/account emails. Optional project grouping uses local-key HMAC to avoid directly
+recoverable paths; users choose display names. UI loads shipped assets only, with limited CSP
+and Tauri capabilities, no remote pages or HTML constructed from captured content. Prevent CSV
+formula injection; render source names as text. The statistics database is unencrypted by
+default, relying on user permissions/system disk protection; describe this accurately.
 
 <a id="budgets"></a>
 
-## 资源与性能目标
+<a id="资源与性能目标"></a>
 
-基准环境暂定 Windows 11 x64、4 核 CPU、16 GiB 内存、本地 SSD、既有 WebView2，
-release 构建。记录实际机器配置并分别测冷/热缓存；开发机实测不能直接认证拟定基准。
-最新测量与未达项见 [最新验收](../../validation/desktop-usage/current-acceptance.md)。
+## Resource and performance targets
 
-| 项目 | 拟定目标 | 测量范围 |
+Proposed baseline: Windows 11 x64, four CPU cores, 16 GiB RAM, local SSD, existing WebView2,
+release build. Record actual hardware and cold/warm-cache results; a development machine
+does not verify the proposed baseline. [Current acceptance](../../validation/desktop-usage/current-acceptance.md)
+reports measurements and unmet targets.
+
+| Item | Target | Measurement scope |
 | --- | --- | --- |
-| 压缩应用安装包 | ≤ 20 MiB | 不含可选 WebView2 离线包；同时报告后者下载与安装体积 |
-| 应用安装目录 | ≤ 60 MiB | 不含用户数据；说明共享运行时的增量占用 |
-| 前端 JS + CSS | gzip ≤ 1 MiB | 另报未压缩嵌入大小；无 CDN、远程字体、全量图标库 |
-| 空闲内存 | 10 分钟均值 ≤ 350 MiB，采样峰值 ≤ 400 MiB | 全进程 private bytes：主程序及所有本应用 WebView 子进程；默认 GPU、完整可见总览，另报 working set |
-| GUI 首次导入峰值内存 | 全进程 private bytes ≤ 512 MiB | 100 万条事件，从非空合成来源解析到落库、汇总及界面更新；不能一次载入全文件集合；headless 分开记录 |
-| 空闲 CPU | 10 分钟平均 < 单个逻辑核的 1% | 页面静止、无源变更；另报后台轮询唤醒次数 |
-| 首屏 | P95 ≤ 2 秒 | 已有 100 万条事件，测启动至可交互总览，不等全部源扫描 |
-| 常用查询 | P95 ≤ 200 毫秒 | 366 天、50 模型、20 Agent 的日汇总筛选；复杂明细另报 |
-| 今日增量刷新 | P95 ≤ 2 秒 | 本地已发现源合计新增 1,000 条，包含提交和 UI 更新；首次回填另测 |
-| 本地观察新鲜度 | 默认任务启用时 ≤ 所配刷新间隔 + 65 秒 | 默认间隔 1 小时；更短间隔（如 60 秒）另测；自定义频率/系统任务与源本身延迟单独显示 |
+| Compressed installer | ≤20 MiB | Exclude optional WebView2 offline package; report its download/installed size separately |
+| Installation directory | ≤60 MiB | Exclude user data; explain incremental shared-runtime space |
+| Frontend JS/CSS | gzip ≤1 MiB | Also report uncompressed embedded size; no CDN/remote fonts/full icon library |
+| Idle memory | 10-minute mean ≤350 MiB, sampled peak ≤400 MiB | All-process private bytes: app/every app WebView child, default GPU and complete visible Overview; also working set |
+| First GUI import peak | All-process private bytes ≤512 MiB | One million nonempty synthetic events, actual parsing/transactions/summaries/UI; no whole-corpus loading; headless separately |
+| Idle CPU | 10-minute mean <1% of one logical core | Static page/no source changes; also polling wakeups |
+| Initial screen | P95 ≤2 seconds | Existing million-event DB, launch to interactive Overview without awaiting all scans |
+| Common queries | P95 ≤200 ms | 366 days/50 models/20 Agents, daily filters; complex detail separately |
+| Today incremental refresh | P95 ≤2 seconds | 1,000 new records across discovered local sources, including commit/UI; backfill separately |
+| Observation freshness | Configured interval+65 seconds when default tasks enabled | Default one hour; shorter/custom/task frequencies and source delays measured separately |
 
-2026-10-04 根据现有单窗口、SVG 图表与百万库的完整原生实测调整内存预算：
-空闲均值/峰值 299.90/363.30 MiB，主程序均值 17.01 MiB，GPU 146.24 MiB。
-原 180 MiB 不适合作为当前 Windows GUI 的硬性门槛；350/400 MiB 分别给本次
-均值/峰值约 17%/10% 余量。这是项目工程取舍，不是 WebView2 官方最低内存保证。
-首次导入增加到 512 MiB，避免原 300 MiB 导入目标低于已观测 GUI 空闲峰值；
-导入验收仍须覆盖实际解析、事务和 UI，不从空闲值或无界面值推断通过。
-[微软性能指导](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/performance)
-确认多进程与 GPU/驱动缓冲开销并建议保留硬件加速，未给统一 MiB 下限。
-暖空页诊断只帮助定位，不能证明全新空页最低开销或代替完整产品。
-空闲测量前停止采集/维护并等待页面稳定；固定窗口、DPI、运行时与驱动，
-至少覆盖 600 秒、同时满足均值和峰值，观察是否持续增长。更改预算不免除泄漏排查、
-拟定硬件复测、托盘后台与其他原生平台验收；本轮开发机结果按新预算单独标注。
+On 2026-10-04, complete native single-window/SVG/million-record measurements justified new
+memory limits: idle mean/peak=299.90/363.30 MiB, app mean=17.01 MiB, GPU=146.24 MiB.
+The former 180 MiB cannot serve as a required current Windows GUI limit. The 350/400 MiB
+targets leave about 17%/10% mean/peak headroom. This is a project decision, not an official
+WebView2 minimum guarantee. First-import target rose to 512 MiB because its former 300 MiB
+was below the observed idle GUI peak; actual parsing, transactions and UI still require testing,
+without inferring success from idle/headless results.
+[Microsoft performance guidance](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/performance)
+describes multiprocess/GPU/driver buffers and recommends hardware acceleration, without a
+universal MiB minimum. Warm empty-page diagnostics cannot establish fresh-page minimum overhead
+or replace the full app. Stop collection/maintenance and stabilize the page before idle tests.
+Fix window/DPI/runtime/driver, sample at least 600 seconds, meet both limits and inspect growth.
+New limits do not waive leak investigation, baseline-hardware retesting, tray/background or
+other native-platform checks. Label this round's development-machine results under the new limits.
 
-100 万条及 1,000 万条分别报告主库、索引、WAL、吞吐和查询计划。
-超大档不是首版自动承诺；超过目标先定位依赖、查询或解析问题，再提出可审阅调整。
-无法达标不能通过省略 WebView 子进程、运行时或取消来源来美化结果。
-另报托盘后台和 headless 单次执行的峰值/耗时/唤醒次数；无窗口提取不应启动 WebView 子进程。
-macOS/Linux 记录各自平台等价指标，不把 Windows private bytes 直接作为跨系统可比数值。
+Report main DB/index/WAL/throughput/query plans for one million and ten million records
+separately. The larger case is not an automatic first-version guarantee. Investigate dependencies,
+queries or parsing before proposing reviewed target changes. Do not omit WebView children,
+runtimes or sources to improve reported results. Also measure tray/headless peak/time/wakeups;
+headless collection must not create WebView children. macOS/Linux use equivalent native metrics,
+without treating Windows private bytes as directly comparable cross-platform measurements.

@@ -1,4 +1,4 @@
-//! Authoritative local model_usage snapshots. JSONL is a fallback only when
+//! Prefer local model_usage database snapshots. JSONL is a fallback only when
 //! this root has never supplied a database. The source prunes after 30 days;
 //! snapshots replace complete source/day partitions, never match time or tokens.
 
@@ -13,21 +13,21 @@ use rusqlite::OptionalExtension;
 use rusqlite::{Connection, OpenFlags};
 use std::path::Path;
 
-/// 回填结果计数（写入操作日志与 UI）。
+/// Backfill counts recorded in operation logs and the UI.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ZcodeDbBackfillOutcome {
-    /// db 读到的 model_usage 行数（有 usage 的行）。
+    /// model_usage rows read with a nonnull completed_at; usage fields may be unknown.
     pub db_rows: usize,
-    /// 快照未改变的记录数。
+    /// Records in unchanged snapshots.
     pub matched_existing: usize,
-    /// 新插入事件数。
+    /// Newly inserted events.
     pub added: usize,
-    /// 同键更新（重复回填）事件数。
+    /// Events updated under an existing key on repeat backfill.
     pub updated: usize,
 }
 
-/// 只读打开 cli/db/db.sqlite 并同步权威快照。`instance_id` 须与 zcode JSONL
-/// 适配器的实例 ID 一致（事件归属同一来源实例，多用户分派沿用）。
+/// Open cli/db/db.sqlite read-only and synchronize its snapshots. `instance_id`
+/// must match the zcode JSONL instance, retaining common ownership/user routing.
 pub fn zcode_db_backfill(
     storage: &Storage,
     zcode_db_path: &Path,
@@ -111,8 +111,8 @@ pub fn zcode_db_backfill(
                 ),
             });
         }
-        // input_uncached = input − (cache_read + cache_write)；部分和超过总量时
-        // 置 None（未知不补零，与 AI SDK 的规则相同）。
+        // input_uncached = input - (cache_read + cache_write); invalid or missing operands
+        // leave it None, including cache exceeding input; never fill unknown values with zero.
         let uncached = row
             .cache_read
             .zip(row.cache_write)
@@ -348,7 +348,7 @@ fn commit_snapshot(
     Ok(result)
 }
 
-/// db.query_source → 调用分类（与 modelio_v1 同值域判定；compact 未证实 → unknown）。
+/// Map db.query_source as modelio_v1 does; unverified compact remains unknown.
 fn map_db_query_source(source: Option<&str>) -> (CallCategory, bool) {
     match source {
         Some("main_turn") => (CallCategory::Primary, false),
@@ -358,7 +358,7 @@ fn map_db_query_source(source: Option<&str>) -> (CallCategory, bool) {
     }
 }
 
-/// db 行（model_usage 读取形状；usage 均为非空——查询已过滤）。
+/// model_usage row selected by completed_at; optional usage fields remain optional.
 struct ZcodeDbRow {
     native_id: String,
     attempt_index: i64,
@@ -377,5 +377,5 @@ struct ZcodeDbRow {
     status: String,
 }
 
-/// 回填实现的解析器版本标识（事件可追溯）。
+/// Parser version identifying the backfill rule used by an event.
 pub const ZCODE_DB_BACKFILL_VERSION: &str = "zcode-db-snapshot-2";

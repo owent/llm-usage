@@ -1,12 +1,16 @@
-# synthetic-negative-usage 期望（人工核算，全合成样本）
+# synthetic-negative-usage expectations (manually calculated, synthetic)
 
-syn-a-bad 的 usageMetadata.promptTokenCount=-100（负值，超界）：形状偏离但**不**
-fail closed，跳过该记录并记 `usage_shape_deviation`；其余记录正常入账。
+<a id="synthetic-negative-usage-期望人工核算全合成样本"></a>
 
-## 期望
+syn-a-bad has usageMetadata.promptTokenCount=-100, outside the allowed range.
+Skip it with usage_shape_deviation, **without** whole-file rejection; import other records normally.
 
-- 事件数 = 1（syn-a-ok）：input_total=1000、output_total=50、cache_read=400、
-  total_tokens=1050；files[0].status="complete"，源文件 health=degraded。
-- diagnostics 1 条 code=usage_shape_deviation；qwen:syn-a-bad 无事件。
-- 汇总：call_count=1；input_total_known=1000；output_total_known=50；
-  cache_read_known=400；total_tokens_known=1050。
+<a id="期望"></a>
+
+## Expectations
+
+- One event, syn-a-ok: input_total=1000, output_total=50, cache_read=400, total_tokens=1050;
+  files[0].status="complete", source health=degraded.
+- One usage_shape_deviation diagnostic; no qwen:syn-a-bad event.
+- Summary: call_count=1, input_total_known=1000, output_total_known=50,
+  cache_read_known=400, total_tokens_known=1050.

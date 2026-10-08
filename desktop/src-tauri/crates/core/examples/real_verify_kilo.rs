@@ -1,9 +1,9 @@
-//! 对本机真实 Kilo Code CLI 数据（~/.local/share/kilo/kilo.db）做只读核对
-//!（已获用户允许的本机数据验证）。只输出白名单聚合：文件数、记录数、事件数、
-//! 会话数、分类/生命周期/兼容标记分布、token 合计、对账结论、诊断计数；
-//! 不打印路径、会话 ID、消息 ID、模型以外的任何记录内容。
-//! 源库只读（必要时 Online Backup 暂存副本，用完清理），绝不写源库。
-//! 用法：cargo run -p llm-usage-core --example real_verify_kilo -- <kilo根或其父目录或用户home> <work_dir>
+//! Read-only checks of native Kilo Code CLI ~/.local/share/kilo/kilo.db,
+//! authorized by the user. Output only permitted file/record/event counts,
+//! sessions, category/lifecycle/compatibility distributions, tokens, reconciliation and diagnostics.
+//! No paths, session/message IDs or record content beyond models.
+//! Source is read-only; if needed use Online Backup, then remove the staged copy.
+//! Usage: cargo run -p llm-usage-core --example real_verify_kilo -- <kilo-root-or-parent-or-user-home> <work_dir>
 
 use llm_usage_core::adapters::framework::{
     run_adapter_scan, DiscoverContext, RunConfig, ScanLimits,
@@ -69,7 +69,7 @@ fn main() {
         }
         reconciliations.extend(report.reconciliations.iter().cloned());
     }
-    // 会话累计快照对账结论（白名单计数，无 ID）。
+    // Session cumulative comparisons expose permitted counts without IDs.
     let matched = reconciliations
         .iter()
         .filter(|r| r.verdict == "matched")
@@ -87,7 +87,7 @@ fn main() {
         reconciliations.len()
     );
 
-    // 二次扫描：幂等（重复扫描不增量）。
+    // A second scan adds no duplicate records.
     let reports2 = run_adapter_scan(&storage, &adapter, &ctx, &config).expect("rescan");
     let (added2, updated2): (i64, i64) = reports2
         .iter()
@@ -95,7 +95,7 @@ fn main() {
         .fold((0, 0), |(a, u), (x, y)| (a + x, u + y));
     println!("rescan_added={added2} rescan_updated={updated2}");
 
-    // 白名单分布与合计（UTC 全区间）。
+    // Permitted distributions and sums across the full UTC interval.
     let conn = storage.conn();
     let (sessions, primary, sub, partial, known, fallback): (i64, i64, i64, i64, i64, i64) = conn
         .query_row(

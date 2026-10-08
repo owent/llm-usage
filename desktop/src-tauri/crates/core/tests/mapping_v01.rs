@@ -1,5 +1,5 @@
-//! V01：各 provider 缓存包含关系、reasoning 子集、cache TTL 子集映射。
-//! 缺失、零、异常负值、溢出必须可区分；矛盾进诊断，不用 max(0,…) 隐藏。
+//! V01 provider cache inclusion, reasoning subsets and cache-TTL subset mapping.
+//! Distinguish missing/zero/invalid negatives/overflow; diagnose contradictions without hiding them with max(0, ...).
 
 use llm_usage_core::adapters::codex::{map_codex, CodexUsage};
 use llm_usage_core::adapters::copilot::{map_copilot as copilot_map, CopilotUsage};
@@ -59,7 +59,7 @@ fn v01_codex_cached_exceeds_input_not_clamped() {
         total_tokens: 110,
         declares_no_cache_creation: true,
     });
-    // uncached 派生为负 → 不留 0，uncached 置未知并记诊断。
+    // Negative derived uncached input stays unknown with a diagnostic rather than becoming zero.
     assert_eq!(m.usage.input_uncached, None);
     assert!(m
         .diagnostics
@@ -88,23 +88,23 @@ fn v01_kimi_wire_four_mutually_exclusive_fields() {
 
 #[test]
 fn v01_zcode_dual_calibers_are_opposite() {
-    // 同一逻辑用量（未缓存 200、缓存读 800、输出 100）在两种字段语义下的原始字段不同。
+    // The same usage (uncached 200, cache read 800, output 100) has different raw fields under these APIs.
     let sdk = map_zcode_ai_sdk(&ZcodeAiSdkUsage {
-        input_tokens: 1000, // 含缓存读
+        input_tokens: 1000, // Includes cache reads.
         cached_input_tokens: Some(800),
         cache_creation_input_tokens: None,
         output_tokens: 100,
         reasoning_tokens: None,
         total_tokens: Some(1100),
     });
-    // 缓存创建未知，不能假设为零并补出未缓存输入。
+    // Unknown cache creation cannot be treated as zero to derive uncached input.
     assert_eq!(sdk.usage.input_uncached, None);
     assert_eq!(sdk.quality.input_uncached, FieldQuality::Unknown);
     assert_eq!(sdk.usage.input_total, Some(1000));
     assert_eq!(sdk.quality.input_total, FieldQuality::Reported);
 
     let anthropic = map_zcode_anthropic(&ZcodeAnthropicUsage {
-        input_tokens: 200, // 不含缓存
+        input_tokens: 200, // Excludes cache.
         cache_read_input_tokens: Some(800),
         cache_creation_input_tokens: Some(0),
         output_tokens: 100,
@@ -112,7 +112,7 @@ fn v01_zcode_dual_calibers_are_opposite() {
     assert_eq!(anthropic.usage.input_uncached, Some(200));
     assert_eq!(anthropic.usage.input_total, Some(1000));
     assert_eq!(anthropic.quality.input_total, FieldQuality::Derived);
-    // 两种语义映射后规范化数值一致（质量标记不同是合法的：直报 vs 推导）。
+    // Both map to the same values; reported versus derived field quality may differ.
     assert_eq!(
         input_total(&sdk.usage, &sdk.quality).map(|(v, _)| v),
         input_total(&anthropic.usage, &anthropic.quality).map(|(v, _)| v)
@@ -157,7 +157,7 @@ fn v01_kilo_all_mutually_exclusive_reasoning_not_in_output() {
         total: Some(1100),
     });
     assert_eq!(m.usage.input_total, Some(1000));
-    // canonical output_total 并入互斥的 reasoning。
+    // Add exclusive reasoning to normalized output_total.
     assert_eq!(m.usage.output_total, Some(100));
     assert_eq!(m.usage.output_reasoning, Some(40));
     assert_eq!(
@@ -169,7 +169,7 @@ fn v01_kilo_all_mutually_exclusive_reasoning_not_in_output() {
 
 #[test]
 fn v01_missing_zero_negative_overflow_are_distinct() {
-    // 缺失：保持 None / unknown，不补零。
+    // Missing stays None/unknown without a zero substitute.
     let m = map_kilo(&KiloUsage {
         input: 10,
         output: 5,
@@ -180,18 +180,18 @@ fn v01_missing_zero_negative_overflow_are_distinct() {
     });
     assert_eq!(m.usage.output_reasoning, None);
     assert_eq!(m.quality.output_reasoning, FieldQuality::Unknown);
-    // 零值是已知量。
+    // This direct mapper treats explicitly reported zero as known; native file default-zero rules are checked separately.
     assert_eq!(m.usage.input_cache_read, Some(0));
     assert_eq!(m.quality.input_cache_read, FieldQuality::Reported);
 
-    // 负值：校验拒绝整条记录。
+    // Validation rejects records with negative values.
     let negative = TokenUsage {
         input_total: Some(-1),
         ..TokenUsage::default()
     };
     assert!(negative.validate().is_err());
 
-    // 上限：MAX_TOKEN_VALUE 接受，超限拒绝。
+    // Accept MAX_TOKEN_VALUE and reject values above it.
     let at_max = TokenUsage {
         input_total: Some(MAX_TOKEN_VALUE),
         ..TokenUsage::default()

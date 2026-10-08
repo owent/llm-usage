@@ -1,4 +1,4 @@
-//! Real Crush cost carrier: current context snapshots must never become usage totals.
+//! Native Crush cost data: current context snapshots must never become usage totals.
 mod common;
 use common::{temp_storage, TempDir};
 use llm_usage_core::adapters::{built_in_adapters, framework::*};

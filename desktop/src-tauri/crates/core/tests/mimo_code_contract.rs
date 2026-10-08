@@ -1,10 +1,10 @@
-//! MiMo Code 适配器约定测试：合成 fixture（依据 A14 固定源码 456678b；
-//! 本机 not_found，2026-09-25 盘点）经
-//! 读取→解析→逐次事件→commit→查询。数值对照
-//! tests/fixtures/mimo-code/*/_expectations.md 的人工核算，不改计算规则。
+//! MiMo Code adapter tests use synthetic data from A14 fixed source 456678b.
+//! The 2026-09-25 local survey found no installation. Exercise
+//! reading, parsing, per-call events, commit and queries. Compare values with
+//! manual calculations in tests/fixtures/mimo-code/*/_expectations.md.
 //!
-//! 辅助函数从 tests/common/mod.rs 与 tests/hermes_contract.rs 复制（按任务
-//! 约束不改共享 common，避免并行冲突）。
+//! Helpers were copied from tests/common/mod.rs and tests/hermes_contract.rs;
+//! they remain local here, preserving the shared common module.
 
 mod common;
 
@@ -28,7 +28,7 @@ fn mimo_fixture(name: &str) -> PathBuf {
         .join(name)
 }
 
-/// serde_json 值 → SQLite 值（复制自 tests/common/mod.rs 的 json_to_sql）。
+/// Map serde_json to SQLite values, copied from tests/common/mod.rs json_to_sql.
 fn json_to_sql(value: &serde_json::Value) -> rusqlite::types::Value {
     use rusqlite::types::Value as Sql;
     match value {
@@ -63,8 +63,8 @@ fn insert_rows(conn: &rusqlite::Connection, table: &str, rows: &[serde_json::Val
     }
 }
 
-/// 按脱敏数据在 <dir>/mimo-home/data/mimocode.db 重建 SQLite 库（MIMOCODE_HOME
-/// 语义：<home>/data 下库文件），返回 data 目录。
+/// Rebuild redacted data at <dir>/mimo-home/data/mimocode.db, following MIMOCODE_HOME
+/// placement under <home>/data; return the data directory.
 fn build_mimo_db(dir: &TempDir, projection: &serde_json::Value) -> PathBuf {
     let home = dir.path().join("mimo-home").join("data");
     std::fs::create_dir_all(&home).unwrap();
@@ -203,10 +203,10 @@ fn contract_full_chain_matches_manual_expectations() {
     assert_eq!(sub.0, "sub_agent", "session.parent_id 非空");
     assert_eq!(sub.1, "mimo-code");
 
-    // MiMo session 表无累计列：无对账目标（不虚构）。
+    // MiMo session has no cumulative columns, so no reconciliation target is invented.
     assert!(report.reconciliations.is_empty());
 
-    // 汇总对照 _expectations.md。
+    // Compare totals with _expectations.md.
     let s = summary(&storage, "2026-06-13", "2026-06-13");
     assert_eq!(s.totals.call_count, 3);
     assert_eq!(s.totals.input_total_known, Some(20300));
@@ -215,7 +215,7 @@ fn contract_full_chain_matches_manual_expectations() {
     assert_eq!(s.totals.output_total_known, Some(380));
     assert_eq!(s.totals.total_tokens_known, Some(20680));
 
-    // 尚未用真实样本核验：latest_fallback 标记。
+    // This synthetic record's version is unverified and retains latest_fallback.
     let fallback: i64 = conn
         .query_row(
             "SELECT COUNT(*) FROM diagnostics WHERE code = 'latest_fallback'",
@@ -225,7 +225,7 @@ fn contract_full_chain_matches_manual_expectations() {
         .unwrap();
     assert_eq!(fallback, 1);
 
-    // 幂等：重复扫描不增量。
+    // Repeated scanning adds no usage.
     run_mimo(&storage, &root, NOW + 1_000);
     let s = summary(&storage, "2026-06-13", "2026-06-13");
     assert_eq!(s.totals.call_count, 3, "重复扫描不增量");
@@ -258,7 +258,7 @@ fn unknown_format_fail_closed_and_family_fingerprint_exclusive() {
     let dir = TempDir::new("mimo-bogus");
     let home = dir.path().join("mimo-home");
     std::fs::create_dir_all(&home).unwrap();
-    // 非 SQLite。
+    // Not SQLite.
     std::fs::write(home.join("mimocode.db"), b"not a sqlite file").unwrap();
     assert!(matches!(
         MimoCodeAdapter::new()
@@ -266,7 +266,7 @@ fn unknown_format_fail_closed_and_family_fingerprint_exclusive() {
             .unwrap(),
         DetectOutcome::UnknownFormat { .. }
     ));
-    // SQLite 但缺表。
+    // SQLite with missing required tables.
     let empty_db = home.join("other.db");
     {
         let conn = rusqlite::Connection::open(&empty_db).unwrap();
@@ -277,7 +277,7 @@ fn unknown_format_fail_closed_and_family_fingerprint_exclusive() {
         DetectOutcome::UnknownFormat { .. }
     ));
 
-    // OpenCode 库（message 无 agent_id）不能过 MiMo 指纹：不从 fork 关系推兼容。
+    // OpenCode message lacks agent_id and fails the MiMo fingerprint; forks do not establish compatibility.
     let oc_dir = TempDir::new("mimo-vs-opencode");
     let oc_text = std::fs::read_to_string(
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -318,7 +318,7 @@ fn unknown_format_fail_closed_and_family_fingerprint_exclusive() {
             .unwrap(),
         DetectOutcome::UnknownFormat { .. }
     ));
-    // 反向已在 opencode_contract.rs 覆盖；此处再证 mimo 库自身可通过。
+    // opencode_contract.rs checks the reverse; confirm MiMo's own database passes here.
     let good_dir = TempDir::new("mimo-good");
     let good = build_mimo_db_from_fixture(&good_dir, "synthetic-unknown-version");
     let supported = MimoCodeAdapter::new()
@@ -333,7 +333,7 @@ fn discover_respects_mimocode_home_env_and_xdg_defaults() {
     let dir = TempDir::new("mimo-discover");
     let root = build_mimo_db_from_fixture(&dir, "synthetic-step-finish");
     let adapter = MimoCodeAdapter::new();
-    // MIMOCODE_HOME → <home>/data（resolveMimocodeHome mimocode_home 模式）。
+    // MIMOCODE_HOME resolves to <home>/data through resolveMimocodeHome mimocode_home mode.
     let ctx = DiscoverContext {
         home_dir: None,
         env: std::collections::BTreeMap::from([(
@@ -353,7 +353,7 @@ fn discover_respects_mimocode_home_env_and_xdg_defaults() {
     ));
     assert_eq!(normalize_path(&roots[0].root), normalize_path(&root));
 
-    // 手工根传 MIMOCODE_HOME 形状的父目录：<root>/data 定位。
+    // A manual MIMOCODE_HOME-style parent resolves to <root>/data.
     let ctx = DiscoverContext {
         home_dir: None,
         env: Default::default(),
@@ -363,7 +363,7 @@ fn discover_respects_mimocode_home_env_and_xdg_defaults() {
     assert_eq!(roots.len(), 1);
     assert_eq!(normalize_path(&roots[0].root), normalize_path(&root));
 
-    // 数据目录名之外不产出根（不按文件名递归）。
+    // A different parent layout produces no root; do not recursively guess by filename.
     let ctx = DiscoverContext {
         home_dir: None,
         env: Default::default(),
@@ -371,7 +371,7 @@ fn discover_respects_mimocode_home_env_and_xdg_defaults() {
     };
     assert!(adapter.discover(&ctx).is_empty());
 
-    // XDG_DATA_HOME 候选目录存在但无 mimocode*.db ⇒ 无根。
+    // An XDG_DATA_HOME candidate without mimocode*.db produces no root.
     let xdg = TempDir::new("mimo-xdg-empty");
     let ctx = DiscoverContext {
         home_dir: None,
@@ -430,7 +430,7 @@ fn capability_table_retains_scoped_real_evidence_and_independent_registry() {
     assert!(!cap.limitations.is_empty());
     assert!(cap.limitations.iter().any(|l| l.contains("仅 0.1.15")));
     assert!(cap.limitations.iter().any(|l| l.contains("length")));
-    // 独立产品语义：不与 opencode 合并统计。
+    // MiMo remains independent of OpenCode statistics.
     assert_eq!(
         json["detection"]["magic"],
         serde_json::json!("SQLite + part/session/message 关键列（schema 指纹；message 须含 agent_id 列 ⇒ 与 OpenCode 库互斥，不从 fork 关系推兼容）")

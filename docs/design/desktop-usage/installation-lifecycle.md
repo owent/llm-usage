@@ -1,86 +1,121 @@
-# 安装生命周期验收
+# Installation lifecycle acceptance
 
-2026-10-05 用户已授权 Windows 本机与 WSL/Debian Podman 安装验收，
-不要求 macOS 桌面或指定硬件。遵守 [平台合同](platform-ci.md)与
-[调度合同](scheduling.md)，命令和实际结果集中到验证记录。
+<a id="安装生命周期验收"></a>
 
-## 环境与载体
+On 2026-10-05, the user authorized local Windows and WSL/Debian Podman installation
+acceptance, without requiring macOS desktop or specified hardware. Follow
+[platform requirements](platform-ci.md) and [scheduling rules](scheduling.md).
+Commands and actual results belong in validation records.
 
-- Windows 使用真实当前用户 NSIS 包，先只读核对已有安装、进程、产品注册键和快捷方式。
-  本轮无现有安装，使用仓库根 build/ 内独立安装目录、应用数据和合成来源。
-  对照已有旧版本包和当前包，记录包 SHA-256、实际安装版本与程序路径。
-- Linux 使用任务独立的 rootless Podman 存储、Debian 官方镜像的固定 digest、
-  独立用户/目录/显示/D-Bus。实际安装 deb 并通过 GTK/WebKit WebDriver 验证 GUI/IPC。
-   容器软件包升级/降级、卸载/重装与 AppImage 提取/FUSE 分别记录，保留数据和重扫幂等。
-   测试镜像包含 CJK 字体，GUI 前检查代表性中文字符覆盖，并复核实际截图；DOM 有文字
-   不证明字符可读，缺字不能记为完整显示通过。
-- 安装软件或容器不会自动产生用量。产品写入的非空本地载体、模型返回的真实 token、
-  官方脱敏样本及模拟接口合成用量分别认证；镜像和样本均不得包含账户密钥。
+<a id="环境与安装包"></a>
 
-## 行为要求
+## Environments and packages
 
-安装后核对注册信息、快捷方式、实际程序、IPC 和隔离 SQLite。
-升级保留用户数据、来源配置及已同意的系统任务，并回查任务执行路径。
-回滚先核对数据库兼容；拒绝回滚或需一致备份恢复时如实记录，不能删除数据库凑通过。
-卸载默认保留用量/配置，仅移除当前安装对应的自有任务与启动项；其他安装、
-其他数据目录或不匹配定义不得因名称前缀相同被删除。
+- Windows uses actual current-user NSIS packages. First inspect existing installations,
+  processes, product registry keys and shortcuts read-only. With no existing installation
+  in this batch, use isolated installation/data/synthetic-source directories under root
+  build/. Compare existing old and current packages; record SHA-256, installed version
+  and actual executable path.
+- Linux uses task-specific rootless Podman storage, a fixed official Debian image digest,
+  isolated users/directories/display/D-Bus. Install real deb packages and verify GUI/IPC
+  through GTK/WebKit WebDriver. Record upgrades/downgrades, uninstall/reinstall and
+  AppImage extraction/FUSE separately; retain data and confirm repeat scans add nothing.
+  Include CJK fonts; check representative Chinese glyph coverage before GUI testing and
+  inspect actual screenshots. DOM text does not establish readability; missing glyphs
+  cannot pass complete-display acceptance.
+- Installing software/containers creates no usage by itself. Distinguish nonempty product
+  files, real model-returned tokens, official anonymized samples and synthetic usage from
+  simulated interfaces. Neither images nor samples may contain account keys.
 
-Windows 卸载前的清理入口必须在建立 GUI、数据库迁移和采集器之前分流。
-任务按当前可执行文件、名称/参数/身份依据核验，失败回查并阻止卸载删除程序。
-升级调用的临时卸载不删除任务；卸载不自动恢复用户 IDE 配置或删除其他数据。
-清理操作不能靠任务存在、退出 0 或删除后的不可查询替代完整定义核对。
-当前实现要求自有 hash 名称、description、单一 Exec、绝对 data-dir 参数、当前用户 SID、
-交互登录和最低运行权限。COM 返回账户名时先解析 SID；快照完整 XML，删除前重查。
-只打开任务引用的既有库，用现有单写者锁关闭后台意图与待执行请求，不建库、不迁移；
-卸载默认保留其他设置、用量及 schema。任务删除后查 absence；重装不自动恢复后台同意。
+<a id="行为要求"></a>
 
-NSIS 模板固定官方 tauri-cli-v2.12.0，并保留 MIT 许可；唯一正文差异是移除默认
-不核对路径的 Run 删除语句，改由当前安装的清理入口核验归属。升级工具版本须复核
-模板差异。PREUNINSTALL 仅独立卸载调用 `--uninstall-cleanup`，失败在程序删除前中止。
+## Required behavior
 
-登录/注销与进程退出分开；不自动注销宿主 Windows/WSL 用户。仅停止本任务进程与
-容器，不全局停止 WSL、删除个人镜像或覆盖已有安装。新脚本须提供无副作用 --help。
+After installation, check registration, shortcuts, actual executable, IPC and isolated
+SQLite. Upgrades retain user data, source configuration and consented system tasks, then
+read back task executable paths. Check database compatibility before rollback. Record
+refused rollback or consistent-backup restoration honestly; never delete the database to
+make a test pass. Uninstall retains usage/configuration by default and removes only this
+installation's owned tasks/startup items. Matching name prefixes cannot justify deleting
+another installation, data directory or mismatched definition.
 
-## 可复用入口
+Windows cleanup must run before GUI initialization, database migration or collection.
+Verify tasks against the current executable and name/arguments/identity; recheck failures
+and prevent uninstall from deleting the executable. Temporary uninstall during upgrades
+keeps tasks. Uninstall does not automatically restore IDE configuration or delete other
+data. Task presence, exit 0 or an unqueryable post-delete task cannot replace full-definition
+checks. Current ownership requirements: owned hashed name, description, single Exec,
+absolute data-dir argument, current-user SID, interactive logon and least privilege.
+Resolve COM account names to SID; capture complete XML and recheck before deletion.
+Open only existing databases referenced by tasks, using the existing single-writer lock
+to disable background intent/pending requests. Create/migrate no database; retain other
+settings, usage and schema. Verify task absence after deletion. Reinstallation does not
+automatically restore background consent.
 
-均在仓库根运行，先构建并准备实际旧/新包；`--help` 不安装、不创建容器。
+The NSIS template is pinned to official tauri-cli-v2.12.0 and retains its MIT license.
+The only body change replaces the default Run deletion without path verification with
+this installation's ownership-checking cleanup command. Tool upgrades require reviewing
+template differences. PREUNINSTALL calls --uninstall-cleanup only for standalone
+uninstall and aborts on failure before executable deletion.
+
+Login/logout and process exit are distinct; never log out host Windows/WSL users
+automatically. Stop only this task's processes/containers. Do not stop WSL globally,
+delete personal images or overwrite existing installations. New scripts require a side-effect-free --help.
+
+<a id="可复用入口"></a>
+
+## Reusable commands
+
+Run from the repository root after building and preparing actual old/new packages.
+--help installs nothing and creates no containers.
 
 ```powershell
-npm run test:install:windows -- --previous-installer <旧NSIS路径> --previous-version 0.2.0
+npm run test:install:windows -- --previous-installer <previous-NSIS-path> --previous-version 0.2.0
 ```
 
-Windows 默认当前包来自 release/bundle/nsis，可用 `--installer` 指定。需要无已有
-LLMUsage 安装、进程或启动项；快照已有快捷方式并保留。NSIS 控制器超时 180 秒，
-测试创建当前用户任务/启动项并精确回收；独立安装、数据、结果在 build/install-lifecycle/windows/。
-系统任务须持久化 `manual_roots_only=true` 与合成手工根，不能依赖父进程环境。
+Windows defaults to the current release/bundle/nsis package; --installer can override it.
+Require no existing LLMUsage installation, process or startup item. Snapshot/preserve
+existing shortcuts. NSIS controller timeout=180 seconds. Tests create current-user
+tasks/startup items and remove only exact owned entries. Isolated installation, data
+and results are under build/install-lifecycle/windows/. System tasks must persist
+manual_roots_only=true and synthetic manual roots; parent process environment is insufficient.
 
 ```sh
-npm run test:install:linux -- --previous-deb <旧deb路径> --deb <当前deb路径> \
-  --appimage <当前AppImage路径> --appimage-mode extract
+npm run test:install:linux -- --previous-deb <previous-deb-path> --deb <current-deb-path> \
+  --appimage <current-AppImage-path> --appimage-mode extract
 ```
 
-Linux 需要 Node 22+ 与 rootless Podman，默认构建固定 Debian GUI 镜像；构建可联网，
-运行容器无网络/宿主挂载，文件用 cp 传入。可用 `--image`、`--skip-build-image` 复用
-已记录摘要的任务镜像；`--storage-dir` 仅接受仓库根 build/ 内专属目录及空 registry auth。
-构建限时 30 分钟、单次控制命令 5 分钟，GUI 请求最长 40 秒；成功/失败收集结果后
-停止并移除本次容器，镜像/缓存留在专属存储。输出在 build/install-lifecycle/linux/。
-`--gui-scale 1|2` 在独立 X11 显示设置 GTK 窗口缩放和相应屏幕尺寸；以 WebKit
-devicePixelRatio 与实际截图核对，逐页检查横向布局。该验证与 CSS 页面缩放、
-宿主显示设置和屏幕阅读器分开记录，不改成品默认环境。
-`--appimage-mode fuse` 显式为本次 rootless 容器映射 /dev/fuse 并添加 SYS_ADMIN，
-保留默认 seccomp。GUI 仍以普通用户运行，应用有效能力为 0；该能力供容器内
-fusermount 完成挂载，不使用 privileged 或关闭 WebKit 沙箱。核对实际 FUSE 类型、
-只读挂载、挂载所属用户与 AppImage 内的可执行文件，退出后核对挂载已释放。
-无此能力的默认容器挂载失败不能归因为 WSL 缺少 FUSE；先逐层检查设备、内核、
-用户命名空间及容器权限。sudo 可用于安装缺失组件，但不自动改宿主全局配置。
+Linux requires Node 22+ and rootless Podman and builds a fixed Debian GUI image by
+default. Building may use networking; runtime containers have no networking/host mounts,
+and files enter through cp. --image/--skip-build-image can reuse a task image with a
+recorded digest. --storage-dir accepts only a task-specific directory under root build/
+and empty registry authentication. Build timeout=30 minutes, control command=5 minutes,
+GUI request≤40 seconds. Collect results on success/failure, then stop/remove this run's
+container; leave images/cache in its dedicated storage. Output: build/install-lifecycle/linux/.
 
-当前包与实际结果见 [安装验收](../../validation/desktop-usage/installation-lifecycle.md)。
+--gui-scale 1|2 sets GTK window scale and matching screen dimensions on isolated X11.
+Verify WebKit devicePixelRatio and actual screenshots, checking horizontal layout on
+each page. Record this separately from CSS zoom, host display settings and screen readers;
+leave the production default environment unchanged. --appimage-mode fuse explicitly maps
+/dev/fuse and adds SYS_ADMIN only to this rootless container, retaining default seccomp.
+GUI runs as an ordinary user with effective capabilities=0. The added capability lets
+container fusermount mount the image; no privileged mode or disabled WebKit sandbox.
+Verify actual FUSE type, read-only mount, owning user and executable inside AppImage;
+verify release on exit. A default container lacking this capability does not establish
+missing WSL FUSE: check device, kernel, user namespace and container permission separately.
+sudo may install missing components, without automatically changing host global configuration.
 
-`--screen-reader` 为当前包重装后的独立 GUI 轮次增加真实 Orca 检查；构建镜像时安装
-Orca、Speech Dispatcher/espeak-ng、pyatspi 与 xdotool，复用镜像时回查这些包的版本。
-独立 D-Bus 和临时用户设置只在容器内启用辅助技术；使用原生 Tab/Enter，等待实际
-语音输出并核对十语言各五页切换；语言通过真实设置表单保存，每次按键只读取随后
-新增的 AT-SPI 焦点和语音日志，记录调试日志和结果，见
-[十语言验收](../../validation/desktop-usage/orca-multilang.md)。测试 launcher 仅对安装版 Orca 的
-调试文件设置行缓冲，正文变化须重新核验；事件处理和语音行为不改。ALSA null 不依赖音频硬件，不认证
-语言发音、物理可听性或其余页面控件；退出有界关闭并 wait 自有屏幕阅读器/语音进程，容器仍无网络。
+Current packages and results: [installation acceptance](../../validation/desktop-usage/installation-lifecycle.md).
+
+--screen-reader adds a separate native Orca GUI run after reinstalling the current
+package. Image builds install Orca, Speech Dispatcher/espeak-ng, pyatspi and xdotool;
+reused images require version readback. Isolated D-Bus/temporary user settings enable
+accessibility only inside the container. Use native Tab/Enter, await actual speech and
+verify five-page switching in ten languages. Save languages through actual settings;
+each keystroke reads only subsequent new AT-SPI focus/speech logs. Save debug logs and
+results; see [ten-language acceptance](../../validation/desktop-usage/orca-multilang.md).
+The test launcher only enables line buffering for the installed Orca debug file; body
+changes require rechecking. Event/speech behavior stays unchanged. ALSA null avoids
+audio-hardware dependence, without verifying pronunciation, physical audibility or other
+page controls. On exit, stop/wait only owned reader/speech processes with time limits;
+the container remains offline.

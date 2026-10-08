@@ -1,10 +1,10 @@
-//! Codex 适配器（独立目录约定 architecture.md#adapter-layout）：
-//! - 本模块是该 Agent 的稳定入口（统一接口实现与再导出）；
-//! - [`detect`]：产品/格式探测与版本分派；
-//! - [`versions`]：已验证格式实现的注册与映射，未知版本默认回退最新内置解析器；
-//! - 历史版本的格式实现一律保留在本目录内，不再回到根级单文件。
+//! Codex adapter directory: architecture.md#adapter-layout.
+//! - Stable agent entry point with interface implementation and reexports.
+//! - detect handles product/format detection and version selection.
+//! - versions maps verified formats; unknown versions try the latest built-in parser.
+//! - Retain historical implementations in this directory, without root-level single files.
 //!
-//! 原始格式依据见各版本模块文件头；M2-A/M2-D 验证记录。
+//! See version-module source references and M2-A/M2-D validation records.
 
 pub mod common;
 pub mod detect;
@@ -18,7 +18,7 @@ pub use versions::{
 
 pub const CODEX_ENV_HOME: &str = "CODEX_HOME";
 
-/// Codex 适配器（无状态）。
+/// Stateless Codex adapter.
 pub struct CodexAdapter;
 
 impl Default for CodexAdapter {
@@ -40,6 +40,10 @@ impl crate::adapters::framework::SourceAdapter for CodexAdapter {
 
     fn agent(&self) -> &'static str {
         "codex"
+    }
+
+    fn rotate_file_windows(&self) -> bool {
+        true
     }
 
     fn discover(
@@ -64,7 +68,7 @@ impl crate::adapters::framework::SourceAdapter for CodexAdapter {
         for (root, basis) in roots {
             // Archive/unarchive moves the same rollout. Keep the root instance
             // and native response/session keys, even when both copies exist.
-            let files = ["sessions", "archived_sessions"]
+            let mut files = ["sessions", "archived_sessions"]
                 .into_iter()
                 .flat_map(|dir| {
                     crate::adapters::framework::enumerate_files_bounded(&root.join(dir), 3, &|p| {
@@ -74,6 +78,9 @@ impl crate::adapters::framework::SourceAdapter for CodexAdapter {
                     })
                 })
                 .collect::<Vec<_>>();
+            // New rollouts use dated paths. Backfill must not put today's calls
+            // behind a historical file that needs several bounded read windows.
+            files.sort_by(|a, b| b.cmp(a));
             if !files.is_empty() {
                 out.push(DiscoveredRoot { root, basis, files });
             }
@@ -102,8 +109,8 @@ impl crate::adapters::framework::SourceAdapter for CodexAdapter {
         limits: &crate::adapters::framework::ScanLimits,
         now_ms: i64,
     ) -> Result<crate::adapters::framework::ScanOutcome, crate::error::CoreError> {
-        // 版本注册表分派（探测/扫描同一注册表）：0.153+ → rollout_v1，
-        // 0.139–0.151 旧载体 → rollout_legacy，未收录 → LatestFallback（rollout_v1）。
+        // Detection/scanning share version dispatch: registered newer formats use rollout_v1;
+        // verified 0.139–0.151 formats use rollout_legacy; unregistered versions use LatestFallback with rollout_v1.
         versions::dispatch_scan(target, stored, limits, now_ms)
     }
 

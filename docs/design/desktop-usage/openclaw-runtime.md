@@ -1,35 +1,50 @@
-# OpenClaw schema 24 本地读取合同
+# Reading local OpenClaw schema 24
 
-依据为 npm openclaw@2026.9.8 的实装代码、官方固定 schema 与本轮真实本地模型
-非空样本。公开 npm provenance 的 aa6008ad 提交、CLI 显示 fc23bc8 及实际编译
-代码分别核对；provenance 提交新增的 contextUsage 在当前实装归一代码中不存在，
-不得据此填造历史字段。源码与运行记录集中到本轮验收记录，状态见 [Plan.md](../../../Plan.md)。
+<a id="openclaw-schema-24-本地读取说明"></a>
 
-每个 agents/Agent/agent/openclaw-agent.sqlite 为独立实例，排除全局 state 库。
-探测同时核对 user_version=24、schema_meta 主行的 role=agent/schema_version/agent_id
-及所需表列；schema_meta.app_version 为整库可变元数据，不认证历史记录客户端版本。
-最新兼容读取仍 latest_fallback，未知 schema fail closed。旧 sessions JSON/JSONL
-为迁移输入，继续拒绝入账；不改变源文件或运行维护/迁移命令。
+This specification uses installed npm openclaw@2026.9.8 code, the fixed official schema
+and this batch's nonempty native local-model sample. Public npm provenance commit aa6008ad,
+CLI-displayed fc23bc8 and actual compiled code were checked separately. contextUsage was
+added in the provenance commit but is absent from installed normalization code; do not
+invent historical fields from that commit. Source and execution details are in the
+batch's validation record; [Plan.md](../../../Plan.md) maintains status.
 
-逐条读取 transcript_events 的 TEXT 或 zstd 正文；压缩只读解码，原始/解码正文
-上限 4 MiB，必须匹配 event_utf8_bytes。导航索引不是用量正文，超限/坏行留诊断
-并继续其他有效行。读取、schema/归属及冷归档检查处于同一只读 SQLite 快照。
-每轮最多 50,000 行，以 session_id/seq 分页，末页从头复查可变历史，WAL 不用
-字节偏移短路；事件与续读位置仍随统一批次同事务提交，回滚不推进。
+Each agents/Agent/agent/openclaw-agent.sqlite is a separate instance; exclude the global
+state database. Detection checks user_version=24, the main schema_meta row's
+role=agent/schema_version/agent_id, and required tables/columns. Mutable database-wide
+schema_meta.app_version does not verify historical records' client versions. Latest
+compatibility reading remains latest_fallback; unknown schemas are rejected. Legacy
+sessions JSON/JSONL remains migration input and is excluded. Leave sources unchanged
+and run no source maintenance/migration commands.
 
-仅已保存 session_entry_provenance=1、acp_owned=0 且无 plugin_owner_id、
-hook_external_content_source 的本地 OpenClaw 会话纳入；缺失/外部来源保持隔离。
-逐条 assistant message 的 api 必须是已核验的 openai-completions；其他协议不套用
-相同桶语义。身份用 session_id+条目 id，其他消息/系统/自定义/快照不重复入账。
-模型只取记录自身 provider/model，不沿用会话最新模型。调用类别及底层调用数在
-未完成所有尝试归属核验前保持未知，记录为 usage_observation。
+Read transcript_events bodies individually as TEXT or zstd, decoding read-only.
+Both original and decoded bodies have a 4 MiB limit and must match event_utf8_bytes.
+Navigation indexes are not usage bodies. Retain diagnostics for oversized/invalid rows
+and continue valid rows. Reading, schema/ownership checks and archive checks share one
+read-only SQLite snapshot. Scan at most 50,000 rows per run, paging by session_id/seq;
+after the final page, recheck mutable history from the beginning. WAL data cannot be
+skipped solely on byte offsets. Events and continuation position commit in the unified
+batch transaction; rollback advances neither.
 
-当前实装 input 为扣除缓存读/写后的非缓存输入，output 为总输出，cacheRead/
-cacheWrite 缺字段默认零。仅保留有效正桶，零/缺失保持未知；不从计算所得
-totalTokens 或缺省缓存推导完整输入/总量，不使用默认 cost=0 推断账单。
-坏类型、负值、超限和矛盾保持可见；有效其他字段可继续保存。时间按实际字段
-写入依据处理，不用数据库写入时刻补造请求完成时间。
+Include only saved local OpenClaw sessions with session_entry_provenance=1, acp_owned=0,
+and no plugin_owner_id or hook_external_content_source. Missing/external provenance
+stays isolated. Each assistant message must use the verified openai-completions API;
+other protocols do not inherit its token rules. Identity uses session_id plus entry id.
+Other messages, system/custom records and snapshots add no duplicate usage. Use only
+each record's provider/model, rather than the session's latest model. Call category and
+underlying call count remain unknown until all attempt attribution is verified;
+store usage_observation.
 
-热 transcript 与冷归档不相加。当前未取得非空冷归档真实样本，存在冷归档时显式
-提示覆盖缺口并保留已经保存的历史；不将空热表认证为完整历史。Gateway、辅助/
-嵌套/导入/旧版本及其他 transport 另验，不从本地 CLI 的两次调用扩大能力。
+Installed code's input is uncached input after subtracting cache read/write; output is
+total output. Missing cacheRead/cacheWrite defaults to zero. Retain valid positive
+values; zeros/missing values stay unknown. Do not derive complete input/total from
+calculated totalTokens or default cache values, or infer a bill from default cost=0.
+Invalid types, negatives, limits and contradictions stay visible; valid other fields
+can still be saved. Use actual timestamp field semantics rather than database-write
+time as an invented request completion time.
+
+Do not add active transcripts to archives. No nonempty native archive sample is available;
+when archives exist, explicitly report limited coverage and retain saved history. An
+empty active table does not establish complete history. Gateway, auxiliary/nested/
+imported/legacy cases and other transports need separate verification; two local CLI
+calls do not expand that scope.

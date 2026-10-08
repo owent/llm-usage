@@ -1,17 +1,17 @@
-//! Qoder CLI 会话载体探针实现（`probe_only`，qoder-pending-evidence）。
+//! Qoder CLI session-file probe: probe_only, qoder-pending-evidence.
 //!
-//! 格式核验结论（2026-09-29 实现前格式检查：官方文档 + npm @qoder-ai/qodercli 1.1.64
-//! 解包 + 第三方脚本）：
-//! - 路径已证：`~/.qoder/projects/<processed-project-path-name>/<session-id>.jsonl`
-//!   （对话日志）与 `<session-id>/state.json`（会话状态）；`QODER_CONFIG_DIR`
-//!   重定向根。
-//! - **用量落盘字段仍待真实样本核验**：bundle 混淆代码含 state.json 的
-//!   `modelRequests[]`/`compact_token_usage_json` schema 字符串与 OTel→存储列
-//!   映射（input_tokens/cache_read_tokens 等），但**未证实实际持久化**；
-//!   `/usage` 计量是云端 Credits（docs.qoder.com/cli/usage.md）。
-//! - 按"禁止猜测"约定：本实现只发现与识别会话文件，**不解析任何用量字段**
-//!   （fail closed，诊断说明待核验项）；取得本机 fixture 证实 state.json/
-//!   会话 jsonl 实际字段后再实现解析。
+//! Preimplementation format checks on 2026-09-29: official documentation, unpacked
+//! npm @qoder-ai/qodercli 1.1.64 and third-party scripts.
+//! - Verified paths: ~/.qoder/projects/<processed-project-path-name>/<session-id>.jsonl
+//!   conversation logs and <session-id>/state.json; QODER_CONFIG_DIR redirects
+//!   the root directory.
+//! - Persisted usage fields remain unverified. Obfuscated bundle code contains state.json
+//!   modelRequests[]/compact_token_usage_json schema strings and OTel-to-storage
+//!   input_tokens/cache_read_tokens mappings, without verifying actual persistence.
+//!   /usage reports cloud Credits under docs.qoder.com/cli/usage.md.
+//! - Discover/identify session files only, without parsing any usage field.
+//!   Reject unverified reading with diagnostics until native samples establish actual
+//!   state.json/session JSONL fields.
 
 use crate::adapters::framework::{
     ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -34,9 +34,9 @@ pub fn scan(
     _limits: &ScanLimits,
     _now_ms: i64,
 ) -> Result<ScanOutcome, CoreError> {
-    // fail closed：不解析、不入账；诊断说明尚未核验的字段及样本获取方式。
-    // 游标取文件长度：内容未变化时走 framework 的 unchanged 短路，
-    // 不每轮重复推同一条诊断（文件增长由 generation 裁决仍会重探）。
+    // Do not parse/import usage; diagnostics describe unverified fields and required samples.
+    // Store file length as cursor so unchanged files skip repeated diagnostics in the framework.
+    // Later file changes trigger another probe through framework change detection.
     Ok(ScanOutcome {
         status: ScanStatus::Complete,
         cursor: Some(serde_json::to_value(ProbeCursor {

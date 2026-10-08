@@ -88,7 +88,7 @@ fn switches_carrier_atomically_without_heuristic_dedup_and_replay_is_stable() {
     // Same native IDs in another installation must still count.
     zcode_db_backfill(&storage, &path, "zcode@other", "UTC", NOW + 2).unwrap();
     assert_eq!(totals(&storage, "zcode@other"), (2, Some(220)));
-    // A changed authoritative record replaces the whole contribution.
+    // A changed selected native record replaces its whole statistical contribution.
     Connection::open(&path)
         .unwrap()
         .execute(

@@ -1,24 +1,24 @@
-//! Continue 会话文件格式实现（`session_usage_v1`，continue-session-usage-1）。
+//! Continue session-file implementation (`session_usage_v1`, continue-session-usage-1).
 //!
-//! 格式依据（continuedev/continue 固定源码 5522c6f44ca0ac3528b37244818fbfa39b5af470；
-//! 官方源码核验；另有官方 CLI 1.5.47 的真实本地模型样本）：
-//! - 路径：`$CONTINUE_GLOBAL_DIR`（默认 ~/.continue）/sessions/&lt;uuidv4&gt;.json；
-//!   整写 JSON 对象 `{sessionId, title, workspaceDirectory, history[], usage?}`。
-//! - **顶层 `usage` 仅 CLI 写入**（extensions/cli session.ts:149-178
-//!   trackUsage 每请求累加并立即持久化）：`promptTokens`/`completionTokens`/
-//!   `promptTokensDetails?{cachedTokens?, cacheWriteTokens?}`/`totalCost`。
-//!   VS Code/JetBrains GUI 会话不写 usage（内存流）⇒ 无 usage 字段 = 无数据。
-//!   dev_data/devdata.sqlite 的 tokens_generated 是本地 tokenizer 估算，
-//!   **不采纳**（估算路径一律不采信）。
-//! - usage 是**会话累计非逐 turn 明细**（逐请求 API 值只在内存）⇒
-//!   IntervalAggregate（Session 级），不展开伪造逐次。
-//! - 缓存包含关系混合 provider（OpenAI cached ⊆ prompt；Anthropic 分立）：
-//!   来源不区分 ⇒ hermes 同型并列报告，不派生总量。
-//!   缓存两桶由 CLI 预填 0 且仅非零才累加，零无法证明已报告，保持 Unknown。
-//! - 会话无内嵌时间戳（sessions.json 索引有 dateCreated 但格式随端而变：
-//!   core 写毫秒字符串、CLI 写 ISO）⇒ 区间端点用文件 mtime（Uncertain），
-//!   不读 sessions.json（避免解析不稳定索引）。
-//! - JetBrains 插件硬编码 ~/.continue（不读 CONTINUE_GLOBAL_DIR）。
+//! References: continuedev/continue commit 5522c6f44ca0ac3528b37244818fbfa39b5af470,
+//! inspected upstream source and real local-model samples from official CLI 1.5.47.
+//! - $CONTINUE_GLOBAL_DIR, default ~/.continue, contains sessions/&lt;uuidv4&gt;.json:
+//!   rewritten JSON {sessionId, title, workspaceDirectory, history[], usage?}.
+//! - Only the CLI writes top-level usage (extensions/cli session.ts:149-178).
+//!   trackUsage accumulates and persists promptTokens/completionTokens,
+//!   promptTokensDetails?{cachedTokens?, cacheWriteTokens?} and totalCost after each request.
+//!   VS Code/JetBrains GUI streams stay in memory; missing usage supplies no data.
+//!   dev_data/devdata.sqlite tokens_generated is a local tokenizer estimate
+//!   and is excluded, as are all tokenizer-estimate paths.
+//! - usage is a session cumulative value, not per-turn details; API request values stay in memory.
+//!   Store a session IntervalAggregate without inventing per-call events.
+//! - Cache inclusion differs by provider: OpenAI cached is within prompt; Anthropic separates it.
+//!   The source does not distinguish these semantics; retain separate fields without deriving totals.
+//!   CLI cache buckets start at zero and add only nonzero values; zero remains unknown.
+//! - Sessions have no embedded timestamp. sessions.json dateCreated differs by client:
+//!   core uses millisecond strings and CLI uses ISO. Use file mtime as the uncertain interval endpoint;
+//!   do not read the inconsistent index.
+//! - The JetBrains plugin hardcodes ~/.continue and ignores CONTINUE_GLOBAL_DIR.
 
 use crate::adapters::framework::{
     ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -157,7 +157,7 @@ pub fn scan(
             health: "degraded".to_string(),
         });
     };
-    // GUI 会话无 usage 字段：无数据（不补零），正常完成。
+    // A GUI session without usage completes with no data; never substitute zero.
     let Some(usage) = document.get("usage").and_then(|v| v.as_object()) else {
         return Ok(ScanOutcome {
             status: ScanStatus::Complete,
@@ -213,10 +213,10 @@ pub fn scan(
             None => None,
             Some(v) => match v.as_i64() {
                 // CLI initializes both cache fields to zero and only adds nonzero
-                // provider values: zero cannot certify that the provider reported it.
+                // provider values: zero does not establish a provider-reported value.
                 Some(0) => None,
                 Some(n) if (1..=crate::domain::MAX_TOKEN_VALUE).contains(&n) => Some(n),
-                // 子字段越界：按主字段的规则记诊断（不 fail closed，置未知）。
+                // Diagnose out-of-range components and leave them unknown while retaining other valid fields.
                 _ => {
                     *deviation = true;
                     None
@@ -261,8 +261,8 @@ pub fn scan(
         output_total: completion.map(|_| Q::Reported).unwrap_or(Q::Unknown),
         ..Default::default()
     };
-    // mtime 作修订号前过 plausibility；interval_end_ms 保持原值由聚合层
-    // 校验（implausible 会被拒并记诊断，fail closed 方向）。
+    // Validate mtime before using it as a revision; keep raw interval_end_ms for aggregate
+    // validation, which rejects and diagnoses implausible endpoints.
     let mtime_ms = (crate::domain::MIN_PLAUSIBLE_MS..=4_102_444_800_000)
         .contains(&target.probe.mtime_ms)
         .then_some(target.probe.mtime_ms);

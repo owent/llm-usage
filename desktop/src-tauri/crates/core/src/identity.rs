@@ -1,14 +1,14 @@
-//! 身份与去重：event_id 命名空间（源实例+源记录键）、内容哈希（仅变更检测）、
-//! 同请求流式/最终/更正的 upsert 仲裁。
+//! Identity and deduplication: event_id namespaces source instance/record key; content hashes
+//! detect changes; revision/lifecycle comparisons select streamed, final or corrected records.
 //!
-//! 约定：有源修订号按修订号排序；否则按生命周期裁决（partial < final < corrected）。
-//! 不能确定先后权威关系时标记 conflict，保留诊断，不取 MAX。
+//! Compare both source revisions when present; otherwise partial < final < corrected.
+//! Unordered differing content retains the existing record with conflict diagnostics, never MAX.
 
 use crate::domain::{EventInput, Lifecycle};
 use serde::Serialize;
 
-/// event_id = 源实例命名空间 + 源记录键。复合唯一约束 (source_instance_id,
-/// source_record_key) 才是权威身份；本字符串便于日志与跨表引用。
+/// event_id joins source instance and record key. The composite unique constraint
+/// (source_instance_id, source_record_key) identifies the record; this string supports logs/references.
 pub fn event_id(source_instance_id: &str, source_record_key: &str) -> String {
     let escape = |s: &str| s.replace('%', "%25").replace('#', "%23");
     format!(
@@ -18,9 +18,9 @@ pub fn event_id(source_instance_id: &str, source_record_key: &str) -> String {
     )
 }
 
-/// 采集观察时间会随重扫改变，不代表源记录发生变化。
-/// parse_basis 是解析依据（known_version/latest_fallback），同一记录随注册表
-/// 扩展升级为已验证不构成内容变更，同样不参与内容哈希。
+/// Observation time changes on rescanning without changing source content.
+/// parse_basis records known_version/latest_fallback. Registry verification upgrades
+/// do not change source content, so this field is also excluded from the content hash.
 pub fn event_content_hash(event: &EventInput) -> String {
     let mut content = event.clone();
     content.observed_at_ms = None;
@@ -28,7 +28,7 @@ pub fn event_content_hash(event: &EventInput) -> String {
     content_hash(&content)
 }
 
-/// FNV-1a 64 位内容哈希：只用于变更检测，不独立作为事件身份。
+/// FNV-1a 64-bit content hash detects changes; it cannot identify an event independently.
 pub fn content_hash<T: Serialize>(value: &T) -> String {
     let bytes = serde_json::to_vec(value).unwrap_or_default();
     let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
@@ -39,7 +39,7 @@ pub fn content_hash<T: Serialize>(value: &T) -> String {
     format!("fnv1a64:{hash:016x}")
 }
 
-/// 已有记录的仲裁元数据。
+/// Existing metadata used to compare incoming records.
 #[derive(Debug, Clone)]
 pub struct ExistingMeta {
     pub lifecycle: Lifecycle,
@@ -47,20 +47,20 @@ pub struct ExistingMeta {
     pub content_hash: String,
 }
 
-/// upsert 仲裁结果。
+/// Outcome of comparing a record with existing content.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Arbitration {
-    /// 无现存记录：插入。
+    /// No existing record: insert.
     Insert,
-    /// 新记录更权威：替换（更正撤销旧贡献再应用新值）。
+    /// A higher revision/lifecycle replaces the old contribution with the new values.
     Replace,
-    /// 现存记录更权威或内容相同：保留（幂等重放）。
+    /// Keep the higher existing revision/lifecycle or identical content without duplicate usage.
     Keep,
-    /// 先后权威关系不可判定且内容不同：保留现存，标 conflict + 诊断。
+    /// Unordered different content: retain the existing record, mark conflict and diagnose.
     Conflict,
 }
 
-/// 仲裁：修订号优先，其次生命周期；同层级内容不同 → conflict。
+/// Compare source revisions before lifecycle; equal precedence with different content is conflict.
 pub fn arbitrate(
     existing: Option<&ExistingMeta>,
     incoming: &EventInput,
@@ -82,7 +82,7 @@ pub fn arbitrate(
             }
         }
     }
-    // 无修订号（或只有一侧有）：按生命周期裁决；同级同内容幂等，同级不同内容冲突。
+    // Missing revision on either side uses lifecycle; equal lifecycle/content keeps, differing content conflicts.
     match incoming.lifecycle.cmp(&existing.lifecycle) {
         std::cmp::Ordering::Greater => Arbitration::Replace,
         std::cmp::Ordering::Less => Arbitration::Keep,
@@ -150,22 +150,22 @@ mod tests {
     #[test]
     fn revision_orders_first() {
         let e = sample_event(Some(7), Lifecycle::Partial);
-        // 修订号更高：即使生命周期更低也替换（源明确排序）。
+        // A higher source revision replaces even with a lower lifecycle.
         assert_eq!(
             arbitrate(Some(&meta(Some(6), Lifecycle::Final, "a")), &e, "b"),
             Arbitration::Replace
         );
-        // 修订号更低：保留。
+        // A lower source revision retains the existing record.
         assert_eq!(
             arbitrate(Some(&meta(Some(8), Lifecycle::Partial, "a")), &e, "b"),
             Arbitration::Keep
         );
-        // 同修订号同内容：幂等。
+        // Equal revision and content adds no usage.
         assert_eq!(
             arbitrate(Some(&meta(Some(7), Lifecycle::Partial, "same")), &e, "same"),
             Arbitration::Keep
         );
-        // 同修订号不同内容：conflict。
+        // Equal revision with different content is conflict.
         assert_eq!(
             arbitrate(Some(&meta(Some(7), Lifecycle::Partial, "x")), &e, "y"),
             Arbitration::Conflict

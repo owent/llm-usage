@@ -1,34 +1,46 @@
-# subagent-agent-0._expectations.md（REAL，本机脱敏提取）
+# subagent-agent-0._expectations.md (REAL, anonymized local extraction)
 
-来源：`~/.kimi-code/sessions/<wd>/session_<uuid>/agents/agent-0/wire.jsonl`
-（原始 1619 行；与 session-main 同会话的子代理 wire；protocol_version=1.5）。
-提取时间：2026-09-25（白名单投影保留 455 行；正文 REDACTED、ID anon-N）。
+<a id="subagent-agent-0_expectationsmdreal本机脱敏提取"></a>
 
-## 结构期望
+Source: `~/.kimi-code/sessions/<wd>/session_<uuid>/agents/agent-0/wire.jsonl`.
+The original has 1,619 lines and protocol_version=1.5; this is a subagent wire file from
+the same session as session-main. Extracted on 2026-09-25: selected fields retain 455
+lines, with bodies REDACTED and IDs anon-N.
 
-- 首行 `metadata`（protocol_version="1.5"）。
-- usage.record ×150（全部 turn scope，无 session scope）；
-  step.end 回声 ×150 全部带 usage（此文件回声计数==记录计数）。
-- 模型：`kimi-code/k3-256k`（全部 150 条）。
+<a id="结构期望"></a>
 
-## usage 数值期望（工具输出与源文件 jq 独立求和一致；roundtrip 复核相等）
+## Structural expectations
+
+- First line: metadata with protocol_version="1.5".
+- 150 usage.record entries, all turn scope with no session scope. All 150 step.end
+  repeats include usage; repeat and record counts are equal in this file.
+- All 150 records use kimi-code/k3-256k.
+
+<a id="usage-数值期望工具输出与源文件-jq-独立求和一致roundtrip-复核相等"></a>
+
+## Expected usage values (tool output, independent source jq sums and roundtrip agree)
 
 | n | inputOther | output | inputCacheRead | inputCacheCreation |
 | --- | --- | --- | --- | --- |
 | 150 | 198,401 | 72,798 | 18,428,416 | 0 |
 
-## 子代理对账（M0 结论在本机复证）
+<a id="子代理对账m0-结论在本机复证"></a>
 
-- 该文件在主线 `subagent.completed`（time=1790269234273）**之后仍在增长**
-  （后续该子代理被重启复用直至 cancelled）：time≤completed 的前 22 条
-  Σ = {66876, 4631, 1264384, 0}，与 completed.usage 逐字段相等。
-- 因此 completed.usage 是**截至完成时刻的快照**，不是全文件 Σ
-  （全文件 Σ 更大）；二者都不得再单独入账——本文件逐次记录是唯一计账源。
+## Subagent comparison (M0 result rechecked locally)
 
-## 期望入库（人工核算）
+- The file **continued growing after** main-stream subagent.completed at
+  time=1790269234273; the subagent was restarted and reused until cancelled.
+  The first 22 records with time≤completed sum to {66876, 4631, 1264384, 0}, matching
+  completed.usage field by field.
+- completed.usage is a **snapshot at completion**, not the larger complete-file sum.
+  Neither snapshot is added separately; individual records in this file are the sole usage source.
 
-150 事件全 sub_agent；input_uncached=198,401；cache_read=18,428,416；
-cache_write=0（reported）；output_total=72,798；input_total=18,626,817（派生）；
-total_tokens=18,699,615（派生）。
+<a id="期望入库人工核算"></a>
 
-匿名 ID：302 个（anon-1…anon-302）。
+## Expected import (manually calculated)
+
+150 sub_agent events: input_uncached=198,401, cache_read=18,428,416,
+cache_write=0 (reported), output_total=72,798, input_total=18,626,817 (derived),
+total_tokens=18,699,615 (derived).
+
+302 anonymized IDs: anon-1…anon-302.

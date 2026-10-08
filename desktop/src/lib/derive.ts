@@ -1,10 +1,10 @@
 /**
- * 前端派生计算（纯函数，无 IPC）：周期耗时汇总、图表分组数据透视等。
+ * Pure frontend calculations without IPC: period durations and grouped chart data.
  */
 import type { ChartSeriesRowDto, PeriodDto } from './api';
 
-/** Native Copilot turn input is a lower bound. This is a display value only;
- * never substitute it for the canonical complete total in queries or exports. */
+/** Native Copilot turn input is a lower bound for display only;
+ * never replace complete query/export totals with it. */
 export function observedTokenTotal(input:string|number|null,output:string|number|null):string|null {
   if(input===null || output===null
     || (typeof input==='number' && !Number.isSafeInteger(input))
@@ -13,13 +13,13 @@ export function observedTokenTotal(input:string|number|null,output:string|number
   return (BigInt(input)+BigInt(output)).toString();
 }
 
-/** Short display only: complete totals, observed lower bounds, and unknown stay distinct. */
+/** Short display keeps complete totals, observed bounds and unknown distinct. */
 export function tokenTotalLabel(locale:string,total:string|number|null,input:string|number|null,output:string|number|null):string {
   const value=total===null ? observedTokenTotal(input,output) : observedTokenTotal(total,0);
   return value===null ? '—' : `${total===null ? '≥ ' : ''}${BigInt(value).toLocaleString(locale)}`;
 }
 
-/** A model can appear under several providers; a name-only pie combines them. */
+/** A model can appear under several providers; name-only pies combine them. */
 export function mergeNamedValues(rows: { name: string; value: number }[]) {
   const sums = new Map<string, number>();
   for (const row of rows) {
@@ -30,13 +30,13 @@ export function mergeNamedValues(rows: { name: string; value: number }[]) {
 }
 
 export interface DurationStats {
-  /** 每次调用平均耗时（毫秒）；无已知数据时 null。 */
+  /** Mean call duration in milliseconds; null without known data. */
   avgMs: number | null;
-  /** 已知周期的总耗时（毫秒）；无已知数据时 null。 */
+  /** Known period duration sum in milliseconds; null without known data. */
   totalMs: number | null;
 }
 
-/** 从 periods 汇总平均/总耗时（只累计 total_duration_ms 已知的周期，避免未知补零）。 */
+/** Sum/average known total_duration_ms periods only, without zero-filling unknowns. */
 export function durationStatsOf(periods: PeriodDto[]): DurationStats {
   let totalMs = 0;
   let calls = 0;
@@ -54,7 +54,7 @@ export function durationStatsOf(periods: PeriodDto[]): DurationStats {
   };
 }
 
-/** 分组单元（一个系列在一个时间标签上的聚合值；null = 未知，不补零）。 */
+/** One series/time-label value; null means unknown, not zero. */
 export interface ChartGroupCell {
   calls: number;
   input: number | null;
@@ -66,7 +66,7 @@ export interface ChartGroupCell {
   total: number | null;
 }
 
-/** chart_series 行透视结果：labels 时间序、names 系列名序、cells 按 (系列, 标签) 取值。 */
+/** chart_series output: chronological labels, series names and cells keyed by series/label. */
 export interface ChartGroupData {
   labels: string[];
   names: string[];
@@ -75,8 +75,9 @@ export interface ChartGroupData {
 }
 
 /**
- * 把 chart_series 行（后端按 标签+系列 GROUP BY，行唯一）透视为图表可用的
- * 二维结构；缺失的 (系列, 标签) 组合视为该时段无记录（查询时图表按 0/— 处理）。
+ * Turn unique backend GROUP BY label/series rows into chart arrays.
+ * Missing series/label pairs mean no records for that period; queries
+ * let charts render those gaps as zero or a dash.
  */
 export function pivotChartSeries(rows: ChartSeriesRowDto[]): ChartGroupData {
   const labels: string[] = [];

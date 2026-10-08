@@ -1,4 +1,4 @@
-//! MiMo 0.1.15 API/native projection and full historical policy migration.
+//! MiMo 0.1.15 API/native fields and complete historical rule migration.
 mod common;
 use common::{summary, temp_storage, TempDir};
 use llm_usage_core::adapters::{framework::*, mimo_code::MimoCodeAdapter};

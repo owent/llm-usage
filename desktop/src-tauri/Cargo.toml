@@ -7,7 +7,7 @@ rust-version = "1.89"
 
 [workspace]
 members = ["crates/core"]
-# 根 package.json 的 cargo 命令不带 --workspace；默认成员须同时覆盖 app 与 core。
+# Root package.json cargo commands omit --workspace; default members must include both app and core.
 default-members = [".", "crates/core"]
 
 [build-dependencies]
@@ -25,14 +25,14 @@ rusqlite = { version = "^0.40.2", features = ["bundled"] }
 llm-usage-core = { path = "crates/core" }
 jiff = { version = "^0.2.37" }
 rfd = { version = "^0.17.2" }
-# fs4：备份前磁盘剩余空间检查（V15 迁移/清理前一致备份约定）。
+# fs4: available-space checks before backups (V15 consistent backups before migration/cleanup).
 fs4 = { version = "^0.13" }
-# flate2：OTLP 接收器 gzip 解压（有界，V22 压缩炸弹防护）。
+# flate2: bounded OTLP receiver gzip decompression (V22 decompression-bomb protection).
 flate2 = { version = "^1" }
 # Edit JSONC by value ranges; unrelated configuration and comments stay intact.
 jsonc-parser = { version = "^0.34", features = ["serde"] }
 toml_edit = { version = "^0.25", features = ["serde"] }
-# ureq：F2 在线刷新 HTTPS GET models.dev api.json（rustls、无本地数据外发；响应体有界）。
+# ureq: F2 HTTPS GET refresh of models.dev api.json (rustls, no local-data upload, bounded response).
 ureq = "3.4.2"
 
 [target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]

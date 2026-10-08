@@ -1,6 +1,9 @@
-# synthetic-epoch-timestamps 期望（全合成）
+# synthetic-epoch-timestamps expectations (synthetic)
 
-防护：completedAt 为数字（毫秒 1800000000000 / 秒 1800000000）⇒ 统一折算毫秒（<1e11
-  视为秒）；model-io 实读为 ISO 字符串，本目录为防御性合成覆盖。
+<a id="synthetic-epoch-timestamps-期望全合成"></a>
 
-详见 tests/zcode_gaps_synthetic.rs 头部人工核算注释。
+Numeric completedAt values 1800000000000 milliseconds or 1800000000 seconds normalize to
+milliseconds; values <1e11 are seconds. Native model-io used ISO strings, so these numeric cases are
+defensive synthetic coverage.
+
+See the manually calculated expectations in the header of tests/zcode_gaps_synthetic.rs.

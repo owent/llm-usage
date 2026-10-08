@@ -1,7 +1,9 @@
-# 任务执行临时产物（脚本、日志、探测输出、核对库等）一律放 build/<任务名>/；
-# 不锚定根目录：任何深度误建的 build/ 同样忽略（防相对路径散落子目录）。
+# Task scripts, logs, probes and test databases belong in repository-root build/<task>/.
+# Ignore accidental build/ directories at any depth as well.
 build/
 /node_modules/
+/docs/site/.astro/
+/docs/site/node_modules/
 /.env
 /.env.*
 !/.env.example

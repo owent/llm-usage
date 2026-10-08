@@ -1,6 +1,6 @@
-//! Gemini CLI 适配器约定测试：合成固定样本（本机 not_found，全部 fixture 合成，
-//! 数值为人工核算，见各 fixture 目录 _expectations.md 与本文件头部注释）经
-//! 读取→解析→标准化→commit_batch→查询。
+//! Gemini CLI adapter tests use synthetic data; the initial local survey found no installation.
+//! Values are calculated manually in each data directory's _expectations.md and below.
+//! Exercise reading, parsing, normalization, commit_batch and queries.
 
 mod common;
 
@@ -8,12 +8,12 @@ use common::*;
 use llm_usage_core::adapters::framework::{self, SourceAdapter};
 use llm_usage_core::adapters::gemini::GeminiAdapter;
 
-// 手工核算值（对照 tests/fixtures/gemini/synthetic-contract/_expectations.md）：
-// syn-msg-1 tokens {input 1000, output 50, cached 400, thoughts 10, tool 5, total 1050}；
-// syn-msg-2 tokens {input 2000, output 100, total 2100}；syn-msg-3 无 tokens 不产事件。
-// 汇总：call_count=2；input_total=1000+2000=3000；output_total=50+100=150；
-// cache_read=400（仅 msg-1 直报）；total_tokens=1050+2100=3150（只取直报 total）。
-// thoughts/tool 不并入任何字段；cache_write 格式内无字段 → known=None（未知不补零）。
+// Manual calculations: tests/fixtures/gemini/synthetic-contract/_expectations.md.
+// syn-msg-1 tokens: input 1000, output 50, cached 400, thoughts 10, tool 5, total 1050.
+// syn-msg-2: input 2000, output 100, total 2100; syn-msg-3 has no tokens and creates no event.
+// Totals: call_count=2, input_total=1000+2000=3000, output_total=50+100=150.
+// cache_read=400 from msg-1 only; total_tokens=1050+2100=3150 uses reported totals.
+// Exclude thoughts/tool from every bucket; absent cache_write remains None, never zero.
 
 const NOW: i64 = 1_800_000_000_000;
 
@@ -45,7 +45,7 @@ fn contract_full_pipeline_matches_expectations() {
     );
     assert_eq!(summary.totals.total_tokens_known, Some(3_150));
 
-    // 逐事件 SQL 核验：字段映射 + thoughts/tool 不并入任何桶。
+    // Verify each event in SQL: field mapping and exclusion of thoughts/tool.
     let conn = storage.conn();
     let row1: (String, i64, i64, i64, i64, String, String, String, String) = conn
         .query_row(
@@ -78,7 +78,7 @@ fn contract_full_pipeline_matches_expectations() {
     assert_eq!(row1.7, "gemini-3.0-flash");
     assert_eq!(row1.8, "session-doc-1");
 
-    // thoughts=10 / tool=5 不并入任何字段：reasoning/uncached/source_total 均为 NULL。
+    // thoughts=10/tool=5 enter no bucket; reasoning/uncached/source_total are NULL.
     let nulls: (Option<i64>, Option<i64>, Option<i64>, Option<i64>) = conn
         .query_row(
             "SELECT output_reasoning, input_uncached, source_total, input_cache_write \
@@ -89,7 +89,7 @@ fn contract_full_pipeline_matches_expectations() {
         .unwrap();
     assert_eq!(nulls, (None, None, None, None));
 
-    // syn-msg-2：cached 缺省 → input_cache_read 未知（不补零）。
+    // syn-msg-2 has no cached field: input_cache_read remains unknown, never zero.
     let (total2, cached2): (i64, Option<i64>) = conn
         .query_row(
             "SELECT total_tokens, input_cache_read FROM usage_events \
@@ -101,7 +101,7 @@ fn contract_full_pipeline_matches_expectations() {
     assert_eq!(total2, 2100);
     assert_eq!(cached2, None);
 
-    // 事件属性：primary/final/model_call；origin_call_id = message.id。
+    // Event attributes: primary/final/model_call, with origin_call_id = message.id.
     let (category, kind, origin): (String, String, Option<String>) = conn
         .query_row(
             "SELECT call_category, record_kind, origin_call_id FROM usage_events \
@@ -114,7 +114,7 @@ fn contract_full_pipeline_matches_expectations() {
     assert_eq!(kind, "model_call");
     assert_eq!(origin.as_deref(), Some("syn-msg-1"));
 
-    // 质量位：直报字段 reported。
+    // Directly reported fields have reported quality.
     let quality: String = conn
         .query_row(
             "SELECT quality_json FROM usage_events \
@@ -129,7 +129,7 @@ fn contract_full_pipeline_matches_expectations() {
     assert_eq!(quality["total_tokens"], "reported");
     assert_eq!(quality["output_reasoning"], "unknown");
 
-    // 无诊断。
+    // No diagnostics.
     let diags: i64 = conn
         .query_row("SELECT COUNT(*) FROM diagnostics", [], |r| r.get(0))
         .unwrap();
@@ -146,7 +146,7 @@ fn capability_table_is_structured_and_complete() {
         json["supported_versions"],
         serde_json::json!(["session-doc-1"])
     );
-    // 字段能力八项齐全。
+    // All eight field capabilities are present.
     for key in [
         "tokens",
         "cache_read",
@@ -187,7 +187,7 @@ fn capability_table_is_structured_and_complete() {
         assert!(json.get(section).is_some(), "capability missing {section}");
     }
     assert!(!cap.limitations.is_empty());
-    // 能力声明可落库（source_instances.capabilities）roundtrip。
+    // Round-trip capabilities through source_instances.capabilities.
     let (_db, storage) = temp_storage("gemini-cap");
     framework::upsert_source_instance(
         &storage,
@@ -223,7 +223,7 @@ fn capability_table_is_structured_and_complete() {
 
 #[test]
 fn discover_enumerates_tmp_chats_layout() {
-    // 发现语义：manual root 下 tmp/<project_hash>/chats/*.json 被枚举。
+    // Discovery enumerates tmp/<project_hash>/chats/*.json under the manual root.
     let adapter = GeminiAdapter::new();
     let root = gemini_fixture("synthetic-contract");
     let ctx = framework::DiscoverContext {
@@ -238,7 +238,7 @@ fn discover_enumerates_tmp_chats_layout() {
         roots[0].files[0].ends_with("session-2026-01-05T10-00-syn1.json"),
         "发现命中 chats 下的会话 JSON"
     );
-    // 缺 tmp 目录的 root 不产生实例。
+    // A root without tmp produces no instance.
     let empty = TempDir::new("gemini-nodir");
     let ctx = framework::DiscoverContext {
         home_dir: None,

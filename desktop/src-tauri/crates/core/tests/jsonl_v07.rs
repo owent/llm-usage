@@ -1,5 +1,5 @@
-//! V07：JSONL 读取器边界 —— 半行、跨块 UTF-8、超长行、BOM、坏行、
-//! 文件轮转/截断/同长替换/改名重探测。期望逐条对应验收表。
+//! V07 JSONL boundaries: partial lines, cross-chunk UTF-8, long lines, BOM, bad rows,
+//! rotation/truncation/same-length replacement/renaming; cases match the acceptance table.
 
 mod common;
 
@@ -35,7 +35,7 @@ fn half_line_waits_and_cursor_does_not_advance() {
     assert_eq!(first.pending_bytes, 6);
     assert_eq!(first.stop, StopReason::Eof);
 
-    // 追加完成半行后，从同一游标继续读到完整行。
+    // Complete the partial line and continue from the same cursor.
     std::fs::write(&path, b"{\"n\":1}\n{\"n\":2}\n{\"n\":3}\n").unwrap();
     let second = read_jsonl(
         &path,
@@ -54,7 +54,7 @@ fn half_line_waits_and_cursor_does_not_advance() {
 #[test]
 fn multibyte_utf8_across_chunk_boundary() {
     let dir = TempDir::new("v07-utf8");
-    // 构造跨块多字节字符：小块大小必然切开 UTF-8 序列。
+    // Small chunks split a multibyte UTF-8 character deliberately.
     let mut bytes = Vec::new();
     bytes.extend_from_slice("{\"s\":\"中文🦀\"}\n".as_bytes());
     bytes.extend_from_slice("{\"s\":\"é\"}\n".as_bytes());
@@ -93,7 +93,7 @@ fn oversized_line_is_limited_error_not_silent_drop() {
         "cursor held at the oversized line start"
     );
 
-    // 受控重试：提高上限后同一游标可读完全部。
+    // Raising the limit allows a controlled retry from the same cursor to finish.
     let retry = read_jsonl(
         &path,
         out.next_offset,
@@ -114,7 +114,7 @@ fn utf8_bom_is_skipped_with_consistent_offsets() {
     assert_eq!(out.lines.len(), 2);
     assert_eq!(out.lines[0].text, "{\"a\":1}");
     assert_eq!(out.lines[0].start, 3, "BOM bytes count toward offsets");
-    // 从首行之后续读不重复 BOM 处理。
+    // Continuation after the first line does not process BOM again.
     let cont = read_jsonl(&path, out.lines[0].end, 2, &limits(4096, 1024)).unwrap();
     assert_eq!(cont.lines.len(), 1);
     assert_eq!(cont.lines[0].text, "{\"b\":2}");
@@ -133,7 +133,7 @@ fn invalid_utf8_line_is_isolated_without_content() {
     let bad = &out.bad_lines[0];
     assert_eq!(bad.code, "invalid_utf8_line");
     assert_eq!(bad.number, 2);
-    // 诊断只有错误码与位置；BadLine 类型本身不携带正文。
+    // Diagnostics contain only code/location; BadLine itself contains no body.
     let debug = format!("{bad:?}");
     assert!(!debug.contains("invalid "));
 }
@@ -180,14 +180,14 @@ fn probe_detects_truncation_and_same_size_replacement() {
         tail_hash: probe1.tail_hash,
         cursor_offset: probe1.len,
     };
-    // 纯追加 → Continue。
+    // Append-only changes select Continue.
     std::fs::write(&path, b"aaaaaaaaaaaaaaaa\nbbbb\n").unwrap();
     let probe2 = probe_file(&path).unwrap();
     assert_eq!(
         decide_generation(&stored, &probe2),
         GenerationDecision::Continue
     );
-    // 截断（短于游标）→ Rescan。
+    // Truncation below the cursor selects Rescan.
     std::fs::write(&path, b"aaaa\n").unwrap();
     let probe3 = probe_file(&path).unwrap();
     assert_eq!(
@@ -210,7 +210,7 @@ fn same_size_replacement_is_detected_by_content_not_length() {
         tail_hash: probe1.tail_hash,
         cursor_offset: probe1.len,
     };
-    // 同长替换（内容不同、长度一致）。
+    // Same-length replacement: different content, unchanged length.
     std::fs::write(&path, b"{\"session\":\"two\",\"usage\":200}\n").unwrap();
     let probe2 = probe_file(&path).unwrap();
     assert_eq!(probe2.len, probe1.len, "test precondition: same length");

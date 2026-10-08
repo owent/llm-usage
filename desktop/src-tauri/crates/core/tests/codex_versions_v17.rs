@@ -1,11 +1,11 @@
-//! Codex 逐版本 fixture 回归（M2-D，V17/V30）：
-//! 0.153.0 / 0.154.0-alpha.6.1 / 0.154.0-alpha.6.2 三个本机历史版本的脱敏
-//! 真实样本，验证注册表分派（KnownVersion）、逐次 usage 数值与 jq 独立核算的
-//! 期望一致、parse_basis=known_version、快照对账 matched、重复扫描不增量。
-//! 期望值来源：各 fixture 同名 `_expectations.md`（人工核算与测试互核）。
-//! M2-D 遗留项（2026-09-26）：0.139–0.151 旧载体（token_count/last_token_usage）
-//! 分派 rollout_legacy，三个代表 fixture（0.139.0 / 0.142.5 / 0.146.0-alpha.3）
-//! 覆盖重复上报去重、压缩摘要回声（carried）、源端回退（regression+mismatch）。
+//! Codex per-version regression tests (M2-D, V17/V30).
+//! Redacted local samples cover 0.153.0, 0.154.0-alpha.6.1, and 0.154.0-alpha.6.2.
+//! Check registry KnownVersion selection and individual usage against independent jq sums,
+//! known_version parse basis, matched snapshot comparisons, and repeat-scan deduplication.
+//! Expected values: each sample's _expectations.md, checked manually against these tests.
+//! Older 0.139-0.151 token_count/last_token_usage formats dispatch to rollout_legacy.
+//! Samples 0.139.0/0.142.5/0.146.0-alpha.3 check repeated reports, carried compaction
+//! responses, and source counter regressions with visible comparison mismatches.
 
 mod common;
 
@@ -23,7 +23,7 @@ struct VersionExpectations {
     output_total: i64,
     reasoning: i64,
     total_tokens: i64,
-    /// token_count 最终快照 total（对账 matched 时等于 Σ逐次）。
+    /// Final token_count snapshot total; matched comparisons equal the individual usage sum.
     snapshot_total: i64,
 }
 
@@ -71,7 +71,7 @@ fn per_version_fixtures_dispatch_known_and_match_expectations() {
         let dir = TempDir::new("codex-ver");
         let root = codex_root_with_file(&dir, "rollout-versioned.jsonl", &contents);
 
-        // 探测分派：已验证版本 → KnownVersion（探测/扫描同一注册表）。
+        // Detection and scanning use the same registry to select checked versions.
         let adapter = CodexAdapter::new();
         let file_path = root.join("sessions/2026/09/24/rollout-versioned.jsonl");
         assert_eq!(
@@ -91,7 +91,7 @@ fn per_version_fixtures_dispatch_known_and_match_expectations() {
         assert_eq!(report.files[0].status, "complete", "{}", exp.fixture);
         assert_eq!(report.files[0].events as i64, exp.calls, "{}", exp.fixture);
 
-        // 数值与 _expectations.md 的 jq 核算一致。
+        // Compare values with independent jq calculations in _expectations.md.
         let summary = summary(&storage, "2020-01-01", "2100-01-01");
         assert_eq!(summary.totals.call_count, exp.calls, "{}", exp.fixture);
         assert_eq!(
@@ -119,7 +119,7 @@ fn per_version_fixtures_dispatch_known_and_match_expectations() {
             exp.fixture
         );
 
-        // 已验证版本不带兼容标记；schema_version 保留来源原始版本。
+        // Checked versions carry no fallback marker; preserve the original version string.
         let (basis, schema_version): (Option<String>, String) = storage
             .conn()
             .query_row(
@@ -130,7 +130,7 @@ fn per_version_fixtures_dispatch_known_and_match_expectations() {
             .unwrap();
         assert_eq!(basis.as_deref(), Some("known_version"), "{}", exp.fixture);
         assert_eq!(schema_version, exp.version, "{}", exp.fixture);
-        // reasoning 子集合计与期望一致（summary 未暴露该维度，直接查库）。
+        // Query reasoning directly from storage for the expected subset sum.
         let reasoning: i64 = storage
             .conn()
             .query_row(
@@ -146,7 +146,7 @@ fn per_version_fixtures_dispatch_known_and_match_expectations() {
             .unwrap();
         assert_eq!(file_status, "active", "{}", exp.fixture);
 
-        // 快照对账 matched（Σ逐次 == 最终快照）。
+        // Matched reconciliation: individual usage sum equals the final snapshot.
         assert_eq!(
             report.reconciliations[0].verdict, "matched",
             "{}",
@@ -159,7 +159,7 @@ fn per_version_fixtures_dispatch_known_and_match_expectations() {
             exp.fixture
         );
 
-        // 重复扫描不增量。
+        // Repeat scanning adds no events.
         let reports2 = run_codex(&storage, &root, 1_800_000_000_100);
         let added2: i64 = reports2
             .iter()
@@ -171,9 +171,9 @@ fn per_version_fixtures_dispatch_known_and_match_expectations() {
 
 #[test]
 fn legacy_carrier_fixtures_dispatch_rollout_legacy_and_match_expectations() {
-    // 0.139–0.151 旧载体：无 token_usage_record，逐次用量 = token_count 的
-    // last_token_usage（total 增量法判据）。期望值来自
-    // rollout-legacy-v*._expectations.md（build 工具 JS 独立核算 + 人工核对）。
+    // Older 0.139-0.151 files lack token_usage_record; individual usage comes from
+    // token_count.last_token_usage under the cumulative-total change rules.
+    // Expectations use independent JavaScript calculations and manual review.
     struct LegacyExpectations {
         fixture: &'static str,
         version: &'static str,
@@ -187,8 +187,8 @@ fn legacy_carrier_fixtures_dispatch_rollout_legacy_and_match_expectations() {
         carried_sum: i64,
         difference: i64,
         verdict: &'static str,
-        /// source_files.status。reconcile/snapshot 对账差异只记诊断不降级，
-        /// 故 mismatch 场景仍为 active（真逐次解析问题才 degraded）。
+        /// Snapshot comparison differences produce diagnostics without degrading source_files.status.
+        /// Mismatches remain active; actual individual-usage parse errors degrade the file.
         file_status: &'static str,
         call_category: &'static str,
         model: &'static str,
@@ -241,7 +241,7 @@ fn legacy_carrier_fixtures_dispatch_rollout_legacy_and_match_expectations() {
             carried_sum: 16_894,
             difference: 299_899,
             verdict: "mismatch",
-            // reconcile 差异记诊断/对账但不降级健康度（快照仅作对照）。
+            // Snapshot mismatch is diagnostic reconciliation only; source health stays active.
             file_status: "active",
             call_category: "primary",
             model: "gpt-5.6-sol",
@@ -253,7 +253,7 @@ fn legacy_carrier_fixtures_dispatch_rollout_legacy_and_match_expectations() {
         let dir = TempDir::new("codex-legacy-ver");
         let root = codex_root_with_file(&dir, "rollout-legacy-versioned.jsonl", &contents);
 
-        // 探测分派：已登记旧版本 → KnownVersion（探测/扫描同一注册表）。
+        // Registered older versions use KnownVersion in detection and scanning.
         let adapter = CodexAdapter::new();
         let file_path = root.join("sessions/2026/09/24/rollout-legacy-versioned.jsonl");
         assert_eq!(
@@ -271,10 +271,10 @@ fn legacy_carrier_fixtures_dispatch_rollout_legacy_and_match_expectations() {
         let reports = run_codex(&storage, &root, 1_800_000_000_000);
         let report = &reports[0];
         assert_eq!(report.files[0].status, "complete", "{}", exp.fixture);
-        // calls = regular + carried（0.146.0-alpha.3 含 1 条压缩摘要回声）。
+        // Calls = regular + carried; 0.146.0-alpha.3 includes one carried compaction response.
         assert_eq!(report.files[0].events as i64, exp.calls, "{}", exp.fixture);
 
-        // 数值与 _expectations.md 的 JS 独立核算一致。
+        // Compare values with independent JavaScript calculations in _expectations.md.
         let summary = summary(&storage, "2020-01-01", "2100-01-01");
         assert_eq!(summary.totals.call_count, exp.calls, "{}", exp.fixture);
         assert_eq!(
@@ -302,7 +302,7 @@ fn legacy_carrier_fixtures_dispatch_rollout_legacy_and_match_expectations() {
             exp.fixture
         );
 
-        // 分派与身份：known_version + rollout_legacy 解析器 + seq 身份（无 response_id）。
+        // Preserve known_version, rollout_legacy parser, and sequence identity without response_id.
         let (basis, schema_version, parser, record_key): (Option<String>, String, String, String) =
             storage
                 .conn()
@@ -320,7 +320,7 @@ fn legacy_carrier_fixtures_dispatch_rollout_legacy_and_match_expectations() {
             record_key.starts_with("seq:"),
             "legacy identity is session UUID + line number: {record_key}"
         );
-        // reasoning 子集合计（carried 回声 reasoning=0，包含无害）。
+        // Sum reasoning subsets; the carried response contributes a known zero in this sample.
         let reasoning: i64 = storage
             .conn()
             .query_row(
@@ -330,7 +330,7 @@ fn legacy_carrier_fixtures_dispatch_rollout_legacy_and_match_expectations() {
             )
             .unwrap();
         assert_eq!(reasoning, exp.reasoning, "{}", exp.fixture);
-        // 归属：模型按 turn_context、sub_agent 按 parent_thread_id/source.subagent。
+        // Model comes from turn_context; subagent category from parent_thread_id/source.subagent.
         let (category, model): (String, Option<String>) = storage
             .conn()
             .query_row(
@@ -347,7 +347,7 @@ fn legacy_carrier_fixtures_dispatch_rollout_legacy_and_match_expectations() {
             .unwrap();
         assert_eq!(file_status, exp.file_status, "{}", exp.fixture);
 
-        // 快照对账：Σ逐次（regular+carried）== 最终快照 + Σcarried 的判定。
+        // Compare regular+carried sums against the final snapshot plus carried usage.
         assert_eq!(
             report.reconciliations[0].verdict, exp.verdict,
             "{}",
@@ -371,7 +371,7 @@ fn legacy_carrier_fixtures_dispatch_rollout_legacy_and_match_expectations() {
             exp.fixture
         );
         if exp.verdict == "mismatch" {
-            // 源端回退与压缩回声的可见诊断（不伪造数据）。
+            // Source regressions and carried responses retain visible diagnostics.
             let codes: Vec<String> = storage
                 .conn()
                 .prepare("SELECT DISTINCT code FROM diagnostics")
@@ -393,7 +393,7 @@ fn legacy_carrier_fixtures_dispatch_rollout_legacy_and_match_expectations() {
             }
         }
 
-        // 重复扫描不增量。
+        // Repeat scanning adds no events.
         let reports2 = run_codex(&storage, &root, 1_800_000_000_100);
         let added2: i64 = reports2
             .iter()
@@ -405,10 +405,10 @@ fn legacy_carrier_fixtures_dispatch_rollout_legacy_and_match_expectations() {
 
 #[test]
 fn legacy_carrier_versions_stay_fallback_not_pretend_verified() {
-    // 未核验登记的旧系列版本（如 0.141.0，本机无样本）仍按未知版本回退
-    // （LatestFallback → rollout_v1）：无逐次载体 ⇒ 0 事件 + 结构诊断
-    // （reconcile_mismatch：0 逐次 vs 非空快照）⇒ incompatible，
-    // 可见诊断、不伪造数据、游标不推进。
+    // Unregistered older version 0.141.0 remains a LatestFallback compatibility attempt.
+    // rollout_v1 finds no individual usage records in this older shape, so imports zero events.
+    // Nonempty snapshots differ from zero details and mark the attempted format incompatible.
+    // Preserve diagnostics without fabricating usage or advancing the cursor.
     let file = concat!(
         "{\"timestamp\":\"2026-07-01T10:34:00.000Z\",\"type\":\"session_meta\",\"payload\":{\"id\":\"syn-sess-legacy\",\"session_id\":\"syn-sess-legacy\",\"cli_version\":\"0.141.0\",\"originator\":\"codex_vscode\",\"model_provider\":\"openai\"}}\n",
         "{\"timestamp\":\"2026-07-01T10:34:01.000Z\",\"type\":\"event_msg\",\"payload\":{\"type\":\"item_completed\"}}\n",
@@ -436,7 +436,7 @@ fn legacy_carrier_versions_stay_fallback_not_pretend_verified() {
     let (_db, storage) = temp_storage("codex-legacy");
     let reports = run_codex(&storage, &root, 1_800_000_000_000);
     let report = &reports[0];
-    // 兼容尝试：无逐次载体 ⇒ 0 事件 + 结构诊断 ⇒ incompatible，不提交事件/游标/聚合。
+    // Incompatible attempts commit no events, cursors, or aggregates.
     assert_eq!(report.files[0].status, "incompatible");
     let events: i64 = storage
         .conn()

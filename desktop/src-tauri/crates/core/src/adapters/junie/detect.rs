@@ -1,4 +1,4 @@
-//! Junie CLI 探测：sessions/&lt;id&gt;/events.jsonl 的文档级指纹。
+//! Junie CLI detection: documented sessions/&lt;id&gt;/events.jsonl shape.
 
 use crate::adapters::framework::DetectOutcome;
 use crate::domain::VersionBasis;
@@ -11,8 +11,8 @@ use super::versions;
 pub const JUNIE_FORMAT: &str = "junie-events-jsonl";
 
 const DETECT_HEAD_BYTES: usize = 64 * 1024;
-/// 事件日志已确认但头部窗口无用量指纹时，继续分块搜索的上限
-/// （用量事件可能位于大文件后段；有界读取防失控）。
+/// Bounded chunk search after identifying a log whose initial window lacks usage.
+/// Usage may occur late in large files; bounded reads prevent unbounded scanning.
 const DETECT_MAX_SCAN_BYTES: usize = 4 * 1024 * 1024;
 
 fn has_usage_fingerprint(text: &str) -> bool {
@@ -23,13 +23,13 @@ fn has_event_fingerprint(text: &str) -> bool {
     text.contains("\"agentEvent\"") || text.contains("\"kind\"")
 }
 
-/// 探测一个 events.jsonl：用量事件指纹（LlmResponseMetadataEvent/modelUsage）。
+/// Detect events.jsonl by LlmResponseMetadataEvent/modelUsage usage shape.
 ///
-/// 已确认是 Junie 类型化事件日志但头部 64 KiB 窗口内尚无用量指纹时，
-/// 分块搜索至 4 MiB；仍无指纹返回 Pending（会话早期/无 LLM 调用，下轮重探），
-/// 而不是误报 UnknownFormat 让真实会话永远无法入账。
+/// For a confirmed typed Junie log without usage in the first 64 KiB,
+/// search chunks up to 4 MiB; still absent means Pending, retry next run.
+/// Early/no-call sessions must not become permanently uncollectable UnknownFormat.
 pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
-    // 瞬态不可读（持锁/超时/枚举后被清理）⇒ Pending 下轮重探，不固化失败。
+    // Transient lock/timeout/deletion after enumeration: Pending, retry rather than permanent failure.
     let mut file = match crate::adapters::run_policy::checked_file(path) {
         Ok(file) => file,
         Err(err) if crate::adapters::framework::is_transient_io(&err) => {
@@ -72,7 +72,7 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
                 });
             }
         } else if has_usage_fingerprint(&scanned) {
-            // 用量指纹在头部窗口之后、搜索上限之内。
+            // Usage after the initial window but within the search limit.
             return Ok(DetectOutcome::Supported {
                 format: JUNIE_FORMAT.to_string(),
                 format_version: Some(versions::JUNIE_FORMAT_VERSION.to_string()),
@@ -83,7 +83,7 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
             break;
         }
     }
-    // 类型化事件日志但搜索窗口内无用量事件：尚未可判定（可能会话早期），
-    // Pending 下轮重探；与"未知格式"区分（fail closed 语义见 framework.rs）。
+    // Typed log without usage in search window may be an early session, not yet identifiable.
+    // Pending retries next run, distinct from unknown format; see framework.rs rejection rules.
     Ok(DetectOutcome::Pending)
 }

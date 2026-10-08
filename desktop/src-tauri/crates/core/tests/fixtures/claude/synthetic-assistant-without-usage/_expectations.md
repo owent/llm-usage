@@ -1,19 +1,21 @@
-# synthetic-assistant-without-usage._expectations.md（SYNTHETIC）
+# synthetic-assistant-without-usage._expectations.md (synthetic)
 
-**本目录全部为合成样本（synthetic），不是真实会话提取。** assistant 条目无
-`message.usage`：未提供用量字段，不产事件（未知不补零），记
-`assistant_without_usage` 诊断，**每文件一次**（解析上下文持久化去重）。
+<a id="synthetic-assistant-without-usage_expectationsmdsynthetic"></a>
 
-## 场景与期望（人工核算）
+**All files in this directory are synthetic test data, not extracts from real sessions.** An assistant without `message.usage` has no reported usage and produces
+no event. Unknown values are not replaced with zero. Record assistant_without_usage
+**once per file**, using persistent parsing context to avoid repeat diagnostics.
 
-4 行：user ×1 + assistant ×3：
+<a id="场景与期望人工核算"></a>
 
-- 第 2 行 syn-req-ok 正常携带 usage 10/5/0/0 → 1 事件（input_total=10、
-  output=5、total=15）；
-- 第 3 行 message 无 usage 键 → 不产事件，记诊断一次；
-- 第 4 行连 message 键都无 → 不产事件，**不再重复记诊断**。
+## Scenario and manually calculated expectations
 
-- files[0]：complete、lines_read=4、records_seen=4、events=1。
-- 入库 added=1；usage_events 共 1 行；assistant_without_usage 诊断恰好 1 行。
-- 汇总（UTC 2026-09-24）：call_count=1、input_total_known=10、
-  output_total_known=5、total_tokens_known=15。
+Four lines: one user and three assistant records.
+
+- Line 2, syn-req-ok: usage 10/5/0/0 produces one event, input_total=10, output=5, total=15.
+- Line 3 has no usage key in message: no event, one diagnostic.
+- Line 4 has no message key: no event and **no repeated diagnostic**.
+- files[0]: complete, lines_read=4, records_seen=4, events=1.
+- Import: added=1, one usage_events row and exactly one assistant_without_usage diagnostic.
+- UTC 2026-09-24 summary: call_count=1, input_total_known=10, output_total_known=5,
+  total_tokens_known=15.

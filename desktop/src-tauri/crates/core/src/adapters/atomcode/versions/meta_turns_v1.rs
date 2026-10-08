@@ -1,26 +1,26 @@
-//! AtomCode 会话元数据格式实现（`meta_turns_v1`，atomcode-meta-turns-1）。
+//! AtomCode session metadata implementation meta_turns_v1; format atomcode-meta-turns-1.
 //!
-//! 格式依据（AtomGit atomgit_atomcode/atomcode 固定源码
-//! e4215f733eeba4cede553e28f9b559e6b3dc34ef（GitHub 镜像同 SHA 核验）；
-//! 及官方 npm 5.2.1 真实本地模型 .meta/API/CLI 核对）：
-//! - 路径：`$ATOMCODE_HOME`（默认 ~/.atomcode）/sessions/&lt;project_hash&gt;/
-//!   &lt;id&gt;.meta（SessionMeta JSON）；旧版单文件 &lt;id&gt;.json（messages +
-//!   turn_stats，LegacyCatalogMeta）同构读取。
-//! - SessionMeta（manager.rs:376-430）：`v`（schema 版）、`id`、`working_dir`、
-//!   `created_at`/`updated_at`（epoch **毫秒**）、`turn_stats[]`、
-//!   `detached_model_usage[]`、`detached_unattributed_tokens`。
-//! - TurnStat（manager.rs:634-668）：`turn_id`、`round_count`（LLM 往返数）、
-//!   `duration_ms`、`total_tokens`（本轮末次请求 prompt+completion，非累计）、
-//!   `model_usage[]`：`{provider_id, model_id, tokens: TokenBreakdown}`。
-//!   **TurnStat 无时间戳** ⇒ 会话区间聚合（interval 语义），round_count 合计
-//!   作 reported_call_count（不虚构逐次）。
-//! - TokenBreakdown（manager.rs:681-687 + usage_provider.rs:64-71）：
-//!   `input` = prompt − cached（**非缓存输入**）、`cached_input` = min(cached,
-//!   prompt)（缓存命中部分）、`output` = completion。无 cache_write 桶
-//!   （kernel TokenUsage{prompt,completion,cached} 三列）⇒ input_total =
-//!   input + cached_input（派生）、input_uncached=input（直报）、
-//!   input_cache_read=cached_input（直报）。
-//! - <id>.jsonl 逐消息转录、.snapshot/.todos/.rewind 等不读（usage 在 .meta）。
+//! References: AtomGit atomgit_atomcode/atomcode source commit
+//! e4215f733eeba4cede553e28f9b559e6b3dc34ef, checked against the GitHub mirror;
+//! and official npm 5.2.1 native .meta/API/CLI checks using a local model.
+//! - $ATOMCODE_HOME (default ~/.atomcode)/sessions/<project_hash>/ stores
+//!   <id>.meta SessionMeta JSON. The reader also accepts legacy <id>.json with messages
+//!   and turn_stats (LegacyCatalogMeta); this does not establish native legacy acceptance.
+//! - SessionMeta (manager.rs:376-430): schema v, id, working_dir,
+//!   created_at/updated_at in Unix milliseconds, turn_stats[],
+//!   detached_model_usage[] and detached_unattributed_tokens.
+//! - TurnStat (manager.rs:634-668): turn_id, round_count (LLM round trips),
+//!   duration_ms, total_tokens (last request prompt+completion, not cumulative),
+//!   and model_usage[] entries {provider_id, model_id, tokens: TokenBreakdown}.
+//!   TurnStat has no timestamp: store a session interval aggregate and summed
+//!   reported_call_count, without inventing individual calls.
+//! - TokenBreakdown (manager.rs:681-687 and usage_provider.rs:64-71):
+//!   input = prompt - cached (uncached input); cached_input = min(cached,
+//!   prompt) (cache read); output = completion. There is no cache-write field.
+//!   The kernel has prompt/completion/cached. Complete valid sums may yield
+//!   derived input_total = input + cached_input. Accepted uncached input and
+//!   cache read retain native values; default zero or invalid fields remain unknown.
+//! - Skip message <id>.jsonl and .snapshot/.todos/.rewind; usage comes from .meta.
 
 use crate::adapters::framework::{
     ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -136,7 +136,7 @@ fn bucket(value: Option<&serde_json::Value>, key: &str) -> Option<i64> {
         .then_some(n)
 }
 
-/// 按模型累计桶与调用数。
+/// Accumulate one token bucket while tracking whether every value is known.
 #[derive(Clone, Copy)]
 struct BucketAccum {
     sum: i64,
@@ -181,7 +181,7 @@ struct ModelAccum {
     cached_input: BucketAccum,
     output: BucketAccum,
     rounds: i64,
-    /// 至少存在一个 tokens 载体；默认零仍不能证明 API 报告过该字段。
+    /// Track presence of a tokens value; presence or default zero does not establish reported usage.
     tokens_seen: bool,
 }
 
@@ -343,10 +343,10 @@ pub fn scan(
         });
     };
     let mut records_seen: u64 = 0;
-    // turn_stats[] + detached_model_usage[] → 按 (provider, model) 累计。
+    // Sum turn_stats[] and detached_model_usage[] by (provider, model).
     let mut acc: std::collections::BTreeMap<(String, String), ModelAccum> = Default::default();
-    // 多模型 turn 与无 model_usage turn 的 round_count 无法归属单一模型
-    // （尚未确认每个模型是否都进行了 round_count 次往返）：单列，不分摊。
+    // Round counts from multiple-model turns or turns without model_usage have no single model
+    // attribution. Keep them separately rather than assuming every model made all round trips.
     let mut unattributed_rounds: i64 = 0;
     if let Some(turns) = document.get("turn_stats").and_then(|v| v.as_array()) {
         for turn in turns {
@@ -363,8 +363,8 @@ pub fn scan(
                     let tokens = model.get("tokens");
                     let entry = acc.entry(key).or_default();
                     entry.add_tokens(tokens, &mut diagnostics);
-                    // 单模型 turn 的 round_count 才能归属该模型；多模型
-                    // turn 对每个模型各加一次会虚增跨模型合计调用数。
+                    // Assign round_count to the model only for a single-model turn. Adding the same count
+                    // to every model in a multiple-model turn would inflate the combined call count.
                     if single_model {
                         entry.rounds = entry.rounds.saturating_add(rounds);
                     }
@@ -410,8 +410,8 @@ pub fn scan(
     let mut aggregates = Vec::new();
     for ((provider, model), entry) in acc {
         crate::adapters::run_policy::check()?;
-        // 无 token 数据且无调用数的行无信息量；有 rounds 的行保留
-        // （调用数与 token 分开统计，token 全未知不补零）。
+        // Skip rows with neither a tokens value nor rounds; retain rows with rounds even
+        // when all token fields are unknown. Count calls separately without filling unknowns with zero.
         if !entry.tokens_seen && entry.rounds == 0 {
             continue;
         }
@@ -449,7 +449,7 @@ pub fn scan(
         });
     }
     if unattributed_rounds > 0 {
-        // 多模型/无 model_usage turn 的调用数：调用已发生，但无法确认所属模型，单列。
+        // Keep calls from multiple-model/no-model_usage turns separately, without assigning a model.
         aggregates.push(SourceAggregateInput {
             instance_id: target.instance_id.clone(),
             scope: AggregateScope::Session,

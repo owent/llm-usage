@@ -79,7 +79,7 @@ fn copilot_turns_count_observed_rounds_and_replace_authoritative_model_totals() 
     write_log(&file, vec![request.clone()]);
     run(&storage, &file, NOW);
     assert_eq!(totals(&storage), (2, 100, 30));
-    // 同键最终值更正可降低计数，不能冲突留旧值，也不能取 MAX。
+    // A corrected final for the same key may lower counts; replace rather than keep conflicts or MAX.
     request["promptTokens"] = json!(80);
     request["completionTokens"] = json!(20);
     write_log(&file, vec![request.clone()]);
@@ -114,10 +114,10 @@ fn copilot_turns_count_observed_rounds_and_replace_authoritative_model_totals() 
 fn copilot_rounds_stay_active_and_do_not_inflate_unknown_fields() {
     let (dir, storage) = common::temp_storage("copilot-ide-unknown");
     let file = dir.path().join("chatSessions/s.jsonl");
-    // 默认路径 turn（promptTokens/completionTokens 已知）+ 两条 toolCallRounds。
+    // Default turn has known promptTokens/completionTokens and two toolCallRounds.
     write_log(&file, vec![turn("request-a")]);
     run(&storage, &file, NOW);
-    // 唯一诊断是 turn_input_incomplete 覆盖提示：来源文件保持 active，不提示需核对。
+    // turn_input_incomplete only describes coverage; file stays active without a review-needed state.
     let degraded: i64 = storage
         .conn()
         .query_row(
@@ -127,7 +127,7 @@ fn copilot_rounds_stay_active_and_do_not_inflate_unknown_fields() {
         )
         .unwrap();
     assert_eq!(degraded, 0, "coverage hint keeps the file active");
-    // round model_call（quality_bucket='unknown'）计调用但不计未知字段。
+    // Unknown-quality round model_call counts calls without counting missing fields.
     let (iu, ou): (Option<i64>, Option<i64>) = storage
         .conn()
         .query_row(
@@ -142,7 +142,7 @@ fn copilot_rounds_stay_active_and_do_not_inflate_unknown_fields() {
         (0, 0),
         "round call markers do not add 未知字段"
     );
-    // 调用数仍为 2（两条 round），token 由 turn observation 承载。
+    // Two rounds still mean two calls; turn observations supply tokens.
     assert_eq!(totals(&storage), (2, 100, 30));
 }
 
@@ -243,7 +243,7 @@ fn copilot_unchanged_legacy_checkpoint_repairs_health_and_396_field_gaps() {
         .collect::<Vec<_>>());
     write_log(&file, vec![request]);
     run(&storage, &file, NOW);
-    // 模拟旧版已完整消费的游标、单调修订及持久化展示；不改源文件字节。
+    // Simulate a consumed old cursor, monotonic revision and saved display without source-byte changes.
     storage
         .conn()
         .execute_batch(
@@ -374,7 +374,7 @@ fn copilot_copies_migrations_other_participants_and_single_file_scope() {
     assert_eq!(roots[0].files, vec![first.clone()]);
     run(&storage, &user.join("workspaceStorage"), NOW);
     assert_eq!(totals(&storage), (2, 100, 30));
-    // 空窗口新载体与工作区来源共享安装命名空间。
+    // Empty-window session files share the installation namespace with workspace sources.
     let empty = user.join("globalStorage/emptyWindowChatSessions/s.jsonl");
     write_log(&empty, vec![turn("request-a")]);
     run(&storage, &empty, NOW + 1);

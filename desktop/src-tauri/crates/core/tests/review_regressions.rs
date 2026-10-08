@@ -1,4 +1,4 @@
-//! Regression cases from the M0/M1 review. Expected values follow the data contract.
+//! M0/M1 review regressions; expected values follow the data specification.
 mod common;
 
 use common::{batch, evt, temp_storage, ts, with_tokens, TempDir};

@@ -1,4 +1,4 @@
-//! Official schema 24 and native 2026.9.8 CLI evidence; legacy inputs stay closed.
+//! Verified official schema 24 and native 2026.9.8 CLI format; reject legacy inputs.
 use crate::adapters::framework::DetectOutcome;
 use crate::adapters::openclaw::common::{open_source_db, schema_probe, short_probe, StagingLimits};
 use crate::domain::VersionBasis;

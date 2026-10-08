@@ -1,100 +1,157 @@
-# 平台、GitHub CI 与 WSL 验证
+# Platforms, GitHub CI and WSL validation
 
-状态：2026-10-06 已按用户授权提交并推送独立测试分支，两轮三平台 Rust/release 及
-公共检查各八作业成功；macOS 两项显式原生凭据通过。三份归档/四个包的下载摘要及
-源码 revision 已核对，结果见 [本批 CI](../../validation/desktop-usage/ci-plan-validation.md)。
-用户已确认 Windows 11 x64 首发，
-同时保留 macOS/Linux 的 GitHub CI。本文件保留验收合同；实际执行情况见验证记录。
-用户已确认按本方案推进：runner/工具链/Linux 基线在 M0 固定，WSL/WSLg 可用性在 M0 探测；
-macOS/Linux 不承诺首发发行支持。这些属于实施核验，不再作为开工前待用户确认事项。
-2026-10-05 验收范围调整：不要求 macOS 桌面或特定硬件；保留 macOS 构建与 Rust CI。
-Linux 实际 GUI/安装生命周期接受 WSL/Debian 内的独立 Podman 环境，
-记录发行版、镜像 digest、用户、显示与沙箱条件；不扩展为宿主登录/完整桌面支持。
-Windows 本机安装/升级/回滚/卸载已授权；新增合同见 [安装生命周期](installation-lifecycle.md)。
+<a id="平台github-ci-与-wsl-验证"></a>
 
-## 平台与制品矩阵
+Status: on 2026-10-06, the authorized separate test branch was committed and pushed.
+Two rounds of three-platform Rust/release and shared checks each passed all eight jobs;
+two explicit native macOS credential tests passed. Downloads of three archives/four packages
+were checked against their digests and source revision; see [this batch's CI](../../validation/desktop-usage/ci-plan-validation.md).
+Windows 11 x64 is the user-confirmed first desktop target, with macOS/Linux GitHub CI retained.
+This file preserves acceptance requirements; validation records own actual results.
 
-| 平台 | 首发定位 | CI 初始目标 | 交付和验证结果 |
+The user authorized this plan: fix runner/toolchain/Linux baselines in M0 and probe WSL/WSLg
+availability in M0. macOS/Linux have no first-release distribution commitment. These are
+implementation checks rather than prerequisites requiring another startup approval.
+The 2026-10-05 scope adjustment removed macOS desktop and specific hardware requirements,
+retaining macOS builds and Rust CI. Actual Linux GUI/installation lifecycle may use isolated
+Podman inside WSL/Debian. Record distribution, image digest, user, display and sandbox conditions;
+do not expand the result to host login or complete desktop support. Native Windows install,
+upgrade, rollback and uninstall are authorized; see [installation lifecycle](installation-lifecycle.md).
+
+<a id="平台与制品矩阵"></a>
+
+## Platform and artifact matrix
+
+| Platform | First-release role | Initial CI target | Delivery and validation results |
 | --- | --- | --- | --- |
-| Windows 11 x64 | 正式首发目标 | windows-2022；x86_64-pc-windows-msvc | NSIS 安装包候选、无界面采集、原生 IPC/安装/任务验证；另需真实 Windows 11 验收 |
-| Linux x64 | 持续兼容构建 | ubuntu-22.04；x86_64-unknown-linux-gnu | release 编译、Debian 包及 AppImage 候选；原生/虚拟显示测试与打包分别记录 |
-| macOS arm64 | 持续兼容构建 | macos-15；aarch64-apple-darwin | Rust/前端测试、release .app 构建；未签名或仅临时签名制品标作 CI 产物 |
-| 本地 WSL 2 Linux x64 | 开发及已授权的容器验收 | 记录实际发行版与工具链 | 构建、测试、打包单独记录；独立 Podman 的实际 GTK/WebKit GUI 与软件包生命周期按本轮范围验收 |
+| Windows 11 x64 | Official first desktop target | windows-2022; x86_64-pc-windows-msvc | NSIS candidate, headless collection, native IPC/install/task checks; actual Windows 11 acceptance remains separate |
+| Linux x64 | Ongoing compatible builds | ubuntu-22.04; x86_64-unknown-linux-gnu | Release compilation, Debian/AppImage candidates; native/virtual-display tests and packaging recorded separately |
+| macOS arm64 | Ongoing compatible builds | macos-15; aarch64-apple-darwin | Rust/frontend tests and release .app builds; unsigned/ad-hoc-signed artifacts labeled as CI output |
+| Local WSL 2 Linux x64 | Development and authorized container acceptance | Actual distribution/toolchain recorded | Builds, tests and packaging recorded separately; isolated Podman GTK/WebKit GUI and package lifecycle checked within this round's scope |
 
-以上 runner 是当前可用候选，M0 复核并锁定版本化标签；不使用浮动 latest 隐式改变架构。
-macOS Intel、Linux arm64、Windows arm64 不在首批必需矩阵，后续扩展需独立验证。
-GitHub Windows runner 的构建结果不等于 Windows 11 用户环境通过；macOS/Linux CI 保持运行，
-其制品不自动变成首发支持承诺。未通过项必须在结果中可见，不能长期 continue-on-error 掩盖失败。
+These runners are available candidates; verify and fix versioned labels in M0.
+Floating latest labels cannot silently change architecture. macOS Intel, Linux arm64 and
+Windows arm64 are outside the first required matrix and need independent verification later.
+A GitHub Windows runner build does not establish success in a Windows 11 user's environment.
+macOS/Linux CI remains active without automatically promising first-release desktop support.
+Keep failures visible; do not hide them indefinitely with continue-on-error.
 
-依据：[GitHub runner 列表](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)、
-[Tauri 多平台流水线](https://v2.tauri.app/distribute/pipelines/github/)、
-[平台依赖](https://v2.tauri.app/start/prerequisites/)。Linux 最低运行系统需按实际链接依赖在 M0 确认，
-不能把 CI 镜像版本当作已经验证的全部 Linux 支持范围。
+Sources: [GitHub runners](https://docs.github.com/en/actions/reference/runners/github-hosted-runners),
+[Tauri multiplatform pipeline](https://v2.tauri.app/distribute/pipelines/github/) and
+[platform prerequisites](https://v2.tauri.app/start/prerequisites/). Establish the minimum Linux
+runtime against actual linked dependencies in M0; the CI image does not establish support
+for every Linux environment.
 
-## GitHub CI 合同
+<a id="github-ci-合同"></a>
 
-三平台作业已存在；M7 持续验收须有实际运行结果。任务触发为 PR、主分支 push
-和手动执行，维护本地文件不意味着获准推送或触发远端 CI。
+<a id="github-ci-要求"></a>
 
-1. 公共检查：Markdown/本地链接、前端类型和单元测试、Rust fmt/clippy；命令从实际锁文件确定。
-2. OS 矩阵：在每个原生 runner 运行领域/适配器 fixture、真实临时 SQLite、调度器、路径和锁测试，
-   构建同一源码的前端与 Rust release。外部 Agent 不需安装，不读取 runner 个人目录。
-3. 制品：Windows 安装包、Linux 包、macOS .app，附源码 revision、OS/arch、依赖版本、大小和校验和。
-   打包失败与测试失败分别报出，不能用 cargo check 代替成品构建。
-4. 桌面集成：Windows 使用实际 WebView2 CDP，Linux 使用实际 GTK/WebKit WebDriver 与
-   Tauri 自动化环境开关。发布包不增加常驻监听；macOS 桌面已取消本轮要求。
-5. 独立 release 资源任务测包体和性能；通用托管 runner 时序只作回归信号，不能代替固定机器 P95。
-6. 构建依赖下载可以联网；统计运行和验收禁止出站访问用量/计费服务。fixtures 全部合成或脱敏，
-   不上传个人数据库/原始会话。离线用例覆盖有遥测开关时的行为。
+<a id="github-application-ci-contract"></a>
 
-检查入口包括 `cargo fmt --all --check`、
-`cargo clippy --workspace --all-targets --locked -- -D warnings` 覆盖核心 crate 与测试目标；
-前端作业运行 TypeScript 纯逻辑测试和 Playwright 浏览器回归。后者使用合成 IPC 数据，
-覆盖主题、时区、快速筛选、用户隔离和刷新，不计为第 4 项原生桌面验收。
-Windows 构建后执行真实可执行文件的 `test:headless`，隔离合成来源并检查来源类别。
-Rust fmt/Clippy/test 作业分别在三个原生 runner 执行，平台存储实现纳入各自编译。
-Linux 另运行 `test:credentials:linux`，使用独立 D-Bus 与一次性加密 keyring；
-凭据只在 stdin 传给测试子进程。macOS Rust 作业另显式运行系统凭据跨进程往返与
-真实 loopback HTTP 撤销，仅创建并精确回收随机自有项，不启用同步或认证 UI。
-Windows 原生凭据在本机显式执行，默认忽略项不能当作系统存储已验收。
-本机 `test:desktop` 经 WebView2 CDP 检查真实 IPC，不在发布包增加监听代码。
-最新本机结果及远端 CI 缺口见 [最新验收](../../validation/desktop-usage/current-acceptance.md)。
+## GitHub application CI requirements
 
-矩阵使用 fail-fast=false 留下全部结果；每作业有超时，重跑只针对已定位的临时基础设施故障。
-缓存键包含 OS、架构、Rust/Node 版本和锁文件摘要，隔离不同 target，不缓存真实 Agent 数据。
-Actions 使用 v 主版本号浮动引用而非固定提交 SHA，PR 使用只读权限，无发布/签名密钥；不在特权 pull_request_target 中执行 PR 代码。
-CI artifact 与 GitHub Release 分开；用户已说明发布/签名/公证完成，本轮不再列待办，
-不把本轮本机验证当作新的远端 CI 或 Release 核验。
-上传仅包含安装包、macOS `.app.tar.gz` 与大小/校验和报告；Debian 的
-`control.tar.gz`/`data.tar.gz`、AppDir 和其他打包暂存目录不计为发布制品。
+Three-platform jobs exist; ongoing M7 acceptance needs actual runs. Triggers are PRs,
+main-branch pushes and manual dispatch. Maintaining local files alone does not authorize
+pushing or triggering remote CI.
 
-桌面测试依据：[Tauri WebDriver](https://v2.tauri.app/develop/tests/webdriver/)。
-Linux 本轮直接使用 WebKitWebDriver 原生 capabilities，启动真实打包应用；
-它与 tauri-driver 的 WebKit 参数映射一致。macOS 构建/凭据原生测试与桌面验收分开。
-不依赖付费平台服务完成基础构建。
+1. Shared checks: Markdown/local links, frontend types/unit tests and Rust fmt/clippy;
+   determine commands from actual lockfiles.
+2. OS matrix: run domain/adapter test data, real temporary SQLite, scheduler, path and lock
+   tests on each native runner, then build the same source's frontend/Rust release.
+   External Agents need no installation; do not read a runner's personal directories.
+3. Artifacts: Windows installer, Linux packages and macOS .app with source revision,
+   OS/architecture, dependency versions, size and digests. Separate package/test failures;
+   cargo check cannot replace a complete build.
+4. Desktop integration: actual WebView2 CDP on Windows; GTK/WebKit WebDriver with Tauri's
+   automation environment switch on Linux. Release packages do not add a persistent listener.
+   Native macOS desktop is outside this round.
+5. Separate release resource jobs measure package size/performance. Hosted-runner timing
+   is a regression signal rather than a substitute for a fixed machine's P95.
+6. Build dependency downloads may use the network; statistical runtime/acceptance cannot
+   contact usage/billing services. Test data is synthetic/redacted; no personal databases
+   or original conversations are uploaded. Offline cases cover telemetry switches.
 
-## 本地 WSL 执行顺序
+Checks include cargo fmt --all --check and cargo clippy --workspace --all-targets --locked
+-- -D warnings across the core crate and test targets. Frontend jobs run TypeScript logic
+tests and Playwright browser regressions with synthetic IPC, covering themes, timezones,
+quick filters, user isolation and refresh. This is separate from item 4's native acceptance.
+Windows builds run the actual executable's test:headless with isolated synthetic sources
+and source-category assertions. Rust fmt/Clippy/test run on all three native runners, compiling
+their platform storage implementations.
 
-仅在获得实施授权后尝试，记录每步结果：
+Linux also runs test:credentials:linux with isolated D-Bus and a disposable encrypted keyring;
+credentials reach test children only through stdin. macOS Rust jobs explicitly exercise
+system credential cross-process round trips and real loopback HTTP revocation, creating and
+precisely cleaning random owned items without synchronization or authentication UI.
+Explicit native Windows credential tests run locally; ignored tests do not establish system
+storage acceptance. Local test:desktop checks actual IPC through WebView2 CDP without adding
+a release listener. See [current acceptance](../../validation/desktop-usage/current-acceptance.md)
+for local results and remote CI gaps.
 
-1. 探测已安装发行版、WSL 版本、CPU 架构、可用空间及 WSLg；没有环境时记录缺口，
-   不以用户允许尝试构建推断本轮已授权安装、升级或重启整机/发行版。
-2. 在 Linux 文件系统创建本任务独立工作副本，记录 Windows 工作树 revision 和未提交差异摘要。
-   不只 clone HEAD 而漏掉待验修改；不将 Windows node_modules、target 或个人 Agent 数据复制进去。
-3. 按固定锁文件建立 Linux Rust/Node 工具链与 GTK/WebKitGTK 4.1、SSL、托盘和打包所需依赖。
-   不修改 Windows 默认工具链，不依赖跨系统复用编译缓存；具体安装命令在实施时复核。
-4. 顺序运行纯逻辑/fixture 测试、release 构建、Linux 打包；记录命令、退出码、产物和依赖。
-   AppImage 的 FUSE/打包失败单独记录；不能把产出可执行文件写成安装包验收通过。
-5. 按已授权范围使用独立 Podman、普通用户、Xvfb、窗口管理器和 D-Bus，实际安装包并
-   验证 GTK/WebKit 窗口、IPC、页面和隔离数据；`test:install:linux` 是可复用入口。
-   无实际显示/GUI 结果时只保留编译/测试结论，不以安装了桌面依赖报 GUI 通过。
-6. 仅停止/清理本任务拥有的进程与目录，不使用全局 wsl --shutdown 干扰其他工作。
-   应用临时库位于 Linux 本地文件系统；不与 Windows 程序共用活跃数据库。
+Use fail-fast=false to retain all matrix results and timeouts per job. Retry only diagnosed
+temporary infrastructure failures. Cache keys include OS, architecture, Rust/Node versions
+and lockfile digests; separate targets and never cache real Agent data.
+Application Actions use floating major-version tags, PR permissions are read-only, and no
+publication/signing keys are present. Privileged pull_request_target cannot execute PR code.
+CI artifacts and GitHub Releases are separate. The user reported publication/signing/notarization
+complete, so they are no longer active tasks this round; local validation is not new remote
+CI/Release verification. Upload only installers, macOS .app.tar.gz and size/digest reports.
+Debian control.tar.gz/data.tar.gz, AppDir and packaging staging directories are not release artifacts.
 
-WSLg 依据：[Microsoft Linux GUI 说明](https://learn.microsoft.com/en-us/windows/wsl/tutorials/gui-apps)。
-该机制需要 WSL 2 且不提供完整 Linux 桌面。本轮容器 deb/AppImage 与实际 GUI
-按用户范围验收；宿主托盘、通知、登录/注销和开机启动仍单独验证。
-WSL 构建试验和本机 WSL Agent 用量验证分别记录；本机真实数据验证已获允许，
-仍按开工准备文档限定只读范围，不由构建测试隐式启动采集。
+Desktop source: [Tauri WebDriver](https://v2.tauri.app/develop/tests/webdriver/).
+This round's Linux tests use native WebKitWebDriver capabilities directly to launch actual
+packaged applications, matching tauri-driver's WebKit parameter mapping. Separate native macOS
+build/credential tests from desktop acceptance. Basic builds do not require paid platform services.
 
-验收见 V26/V27；未运行的 CI、WSL 或桌面测试不能用文档检查代替。
+<a id="文档-ci-与-pages"></a>
+
+## Documentation CI and Pages
+
+The explicitly authorized documentation publication has a separate workflow under
+.github/workflows/docs.yml and [documentation requirements](../documentation-site.md).
+It uses verified pinned Action revisions, Node 24, paired-content/comment checks, Astro checks,
+unit tests, production output validation and browser regressions before uploading a static
+artifact. Documentation changes trigger it automatically; source changes also check comment
+references. Pull requests have read-only permissions and cannot publish.
+
+Successful main-branch builds publish the compiled root to gh-pages without force-pushing,
+verify the source/output digests and explicitly request/observe the configured Pages build.
+Creating Pages initially requires an administrator; ordinary publication uses contents/pages
+permissions. Branch publication, observed Pages build, custom-domain DNS and HTTPS are separate
+results. The configured domain is llm-usage.atframe.work; its DNS CNAME must point to owent.github.io.
+An authored workflow or local production build does not establish remote CI/deployment success.
+
+<a id="本地-wsl-执行顺序"></a>
+
+## Local WSL execution order
+
+Attempt only under implementation authorization and record every step.
+
+1. Probe installed distributions, WSL version, CPU architecture, free space and WSLg.
+   Record missing prerequisites. Permission to attempt builds does not authorize installing,
+   upgrading or restarting the entire machine/distribution.
+2. Create this task's separate working copy on a Linux filesystem, recording the Windows
+   source revision and uncommitted-diff digest. Cloning only HEAD must not omit pending changes.
+   Do not copy Windows node_modules/target or personal Agent data.
+3. Prepare the locked Linux Rust/Node toolchain and GTK/WebKitGTK 4.1, SSL, tray and packaging
+   dependencies. Keep Windows' default toolchain intact and do not reuse cross-system build
+   caches. Verify exact installation commands at execution time.
+4. Run logic/test-data checks, release builds and Linux packaging sequentially, recording commands,
+   exit codes, artifacts and dependencies. Separate AppImage FUSE/packaging failures.
+   Producing an executable does not establish package acceptance.
+5. Within authorized scope, use isolated Podman, an ordinary user, Xvfb, window manager and
+   D-Bus; install actual packages and verify GTK/WebKit windows, IPC, pages and isolated data.
+   test:install:linux is the reusable entry. Without actual display/GUI results, retain only
+   compilation/test conclusions; installing GUI dependencies does not establish GUI success.
+6. Stop/clean only task-owned processes/directories. Avoid global wsl --shutdown that affects
+   other work. Temporary application databases use a local Linux filesystem and cannot share
+   an active database with Windows.
+
+WSLg source: [Microsoft Linux GUI guidance](https://learn.microsoft.com/en-us/windows/wsl/tutorials/gui-apps).
+It requires WSL 2 and does not provide a complete Linux desktop. This round's container
+deb/AppImage and actual GUI acceptance follows the user's scope; host tray, notifications,
+login/logout and startup remain separate. WSL builds and collection of real WSL Agent usage
+are recorded independently. Read-only local-data validation is authorized under the readiness
+field restrictions; build tests do not implicitly start collection.
+
+See V26/V27. Documentation checks cannot replace unexecuted CI, WSL or desktop tests.

@@ -1,12 +1,12 @@
-//! OTel spans JSONL 适配器（M5 遥测载体；独立目录约定）。覆盖：
-//! VS Code Copilot Chat file exporter（`github.copilot.chat.otel.*`，2026-10-02 本机已验收）、
-//! Copilot CLI file exporter（`COPILOT_OTEL_FILE_EXPORTER_PATH`，行级 schema
-//! 未文档化——同族容错解析，待本机样本）、**JetBrains Copilot 插件 file 导出**
-//! （插件设置 otelExporterType/otelOutfile，同词汇同族；源码核验见
-//! docs/validation/desktop-usage/m9-jb-copilot-analysis.md，2026-10-01）、
-//! 本应用 OTLP 接收器的归一化输出（CodeBuddy agentlens 经接收器落盘）。
-//! 汇总 span（invoke_agent/codebuddy_code.interaction）与 model_request
-//! 按官方防双计警告跳过。
+//! OTel spans JSONL and verified Qwen SDK files (M5); independent adapter directory. Coverage:
+//! VS Code Copilot Chat file exporter, github.copilot.chat.otel.*, native checked 2026-10-02;
+//! Copilot CLI file exporter, COPILOT_OTEL_FILE_EXPORTER_PATH, whose line schema remains
+//! undocumented: try compatible span reading, with native samples pending. JetBrains Copilot file export
+//! uses otelExporterType/otelOutfile; fixed-source checks are recorded in
+//! docs/validation/desktop-usage/m9-jb-copilot-analysis.md, 2026-10-01.
+//! Also read normalized local receiver output, including CodeBuddy agentlens files.
+//! Skip aggregate invoke_agent/codebuddy_code.interaction and model_request spans
+//! under the official warning against double counting.
 
 pub mod detect;
 use versions::qwen_sdk_025 as qwen_sdk;
@@ -17,7 +17,7 @@ pub use detect::OTEL_FORMAT;
 pub use versions::spans_doc1;
 pub use versions::{LATEST_IMPL_ID, OTEL_FORMAT_VERSION, VERIFIED_VERSION_IMPLS};
 
-/// OTel spans 适配器（无状态）。
+/// Stateless OTel spans adapter.
 pub struct OtelAdapter;
 
 impl Default for OtelAdapter {
@@ -47,7 +47,7 @@ impl crate::adapters::framework::SourceAdapter for OtelAdapter {
     ) -> Vec<crate::adapters::framework::DiscoveredRoot> {
         use crate::adapters::framework::{DiscoveredRoot, RootBasis};
         let mut roots: Vec<(std::path::PathBuf, RootBasis)> = Vec::new();
-        // 本应用 OTLP 接收器的归一化输出（固定应用数据目录 otel/spans.jsonl）。
+        // Normalized local receiver output under application data: otel/spans.jsonl.
         if cfg!(windows) {
             if let Some(appdata) = ctx.env.get("APPDATA") {
                 roots.push((
@@ -78,8 +78,8 @@ impl crate::adapters::framework::SourceAdapter for OtelAdapter {
                 RootBasis::DefaultHome,
             ));
         }
-        // 用户启用外部 exporter 的文件（VS Code outfile / COPILOT_OTEL_FILE_EXPORTER_PATH）
-        // 无固定默认路径：手工根添加。
+        // External exporter files: VS Code outfile / COPILOT_OTEL_FILE_EXPORTER_PATH.
+        // They have no fixed default path; add them through manual roots.
         for manual in &ctx.manual_roots {
             roots.push((manual.clone(), RootBasis::Manual));
         }
@@ -88,7 +88,7 @@ impl crate::adapters::framework::SourceAdapter for OtelAdapter {
             std::collections::BTreeSet::new();
         let mut seen_files = std::collections::BTreeSet::new();
         for (root, basis) in roots {
-            // 手工根可为目录或 *.jsonl 文件本身。
+            // Manual roots may be directories or individual files; directory discovery reads JSON/JSONL.
             let mut files = if root.is_file() {
                 vec![root.clone()]
             } else {

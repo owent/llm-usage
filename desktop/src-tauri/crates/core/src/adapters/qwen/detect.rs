@@ -1,15 +1,15 @@
-//! Qwen Code 探测与版本分派：有界读取首行，确认 ChatRecord 身份（`type` ∈
-//! 固定源码四值枚举且 uuid/sessionId/timestamp 必填齐全）后按
-//! [`super::versions`] 注册表选择格式实现。
+//! Qwen legacy ChatRecord detection reads a bounded first line, requiring a documented type
+//! from the fixed-source four-value enumeration and uuid/sessionId/timestamp identity,
+//! then selects the implementation through super::versions.
 //!
-//! 约定（architecture.md#unknown-version / V17）：
-//! - 首行不是 JSON / type 超出固定源码四值 / 身份字段缺失 ⇒ 未知格式，
-//!   fail closed，不把任意未知文件交给猜测逻辑；
-//! - 格式版本 = 固定源码 commit 锚点（已收录 ⇒ KnownVersion）；
-//!   `record.version`（CLI 版本）逐条存 schema_version，不做版本白名单，
-//!   不参与探测分派。
+//! Rules: architecture.md#unknown-version / V17.
+//! - Non-JSON, undocumented type or missing identity: unknown format;
+//!   reject rather than guess an arbitrary file format.
+//! - Format ID is the registered fixed-source commit prefix: KnownVersion.
+//!   Store each record.version (CLI release) as schema_version without restricting releases;
+//!   it does not control detection dispatch.
 //!
-//! 本目录化迁移自根级单文件 qwen.rs（M2 目录化迁移，V30），行为约定不变。
+//! M2/V30 moved root-level qwen.rs into this directory without changing these rules.
 
 use crate::error::CoreError;
 use std::path::Path;
@@ -20,7 +20,7 @@ use super::versions;
 
 pub const QWEN_FORMAT: &str = "qwen-chatrecord-jsonl";
 
-/// 探测一个 ChatRecord 文件并按注册表分派。
+/// Detect a legacy ChatRecord file and select through its registry.
 pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     let limits = super::super::jsonl::JsonlLimits {
         chunk_bytes: 64 * 1024,
@@ -44,7 +44,7 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
             reason: format!("first record type {record_type:?} not in ChatRecord set"),
         });
     }
-    // 必填身份字段（固定源码：uuid/sessionId/timestamp 全必填）。
+    // Fixed source requires uuid/sessionId/timestamp identity fields.
     if line.get("uuid").and_then(|v| v.as_str()).is_none()
         || line.get("sessionId").and_then(|v| v.as_str()).is_none()
         || line.get("timestamp").and_then(|v| v.as_str()).is_none()
@@ -53,8 +53,8 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
             reason: "first record missing required ChatRecord identity fields".to_string(),
         });
     }
-    // 格式版本 = 固定源码 commit 锚点（注册表已收录 ⇒ KnownVersion）；
-    // 不读 record.version 做白名单（逐条存 schema_version 是扫描层行为）。
+    // The registered fixed-source commit prefix selects KnownVersion.
+    // Do not select by record.version; scanning stores it as schema_version per record.
     let selection = versions::select(Some(versions::QWEN_FORMAT_VERSION));
     Ok(DetectOutcome::Supported {
         format: QWEN_FORMAT.to_string(),

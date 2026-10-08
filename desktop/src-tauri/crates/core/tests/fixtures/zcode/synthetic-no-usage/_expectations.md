@@ -1,6 +1,7 @@
-# synthetic-no-usage 期望（全合成）
+# synthetic-no-usage expectations (synthetic)
 
-缺口：末条记录 response.finishReason=null 且无 usage/providerMetadata（在途尾部）⇒
-  正常形状，不产事件、不失败。
+<a id="synthetic-no-usage-期望全合成"></a>
 
-详见 tests/zcode_gaps_synthetic.rs 头部人工核算注释。
+The final in-flight record has response.finishReason=null and neither usage nor providerMetadata. This is valid: no event and no failure.
+
+See the manually calculated expectations in the header of tests/zcode_gaps_synthetic.rs.

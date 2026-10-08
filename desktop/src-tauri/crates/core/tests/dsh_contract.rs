@@ -1,8 +1,8 @@
-//! DSH（DeepSeek Harness）适配器约定测试：合成 fixture（依据 A08
-//! 固定源码 token-meter；本机未安装，2026-09-25 盘点 not_found）全过程。
-//! 折叠规则（pinned README）：final 样本替换同 attempt 流式值；
-//! retry-started 结束替换范围并新开一个计费 attempt；attempt/step 边界
-//! 对最后一个样本定稿。occurred_at 用观察时间（README 无逐事件时间）。
+//! Legacy DSH (DeepSeek Harness) requirement tests use synthetic data from A08
+//! fixed token-meter source; the 2026-09-25 local inventory found no installation.
+//! Fixed README replacement rules: finals replace streaming values in the same attempt;
+//! retry-started closes replacement and starts another billing attempt. Attempt/step boundaries
+//! finalize the last sample. occurred_at uses observation time; this legacy README has no event timestamps.
 
 mod common;
 
@@ -49,10 +49,10 @@ fn contract_full_chain_matches_manual_expectations() {
     let (_dir, storage) = temp_storage("dsh-contract");
     let root = dsh_fixture("synthetic-contract");
     run_dsh(&storage, &root, NOW);
-    // 消息序列：msg1(60) 流式 → msg2(75) final 替换 → retry-started 定稿
-    // attempt0=(75,12,20,5) → msg3(30,6,5,5) → 尾部 step/start 定稿 attempt1。
-    // 两个计费 attempt：uncached=105、out=18、cr=25、cw=10
-    // ⇒ input_total=140、total=158。
+    // msg1 streaming 60 is replaced by msg2 final 75; retry-started finalizes
+    // attempt0=(75,12,20,5), then msg3=(30,6,5,5); final step/start closes attempt1.
+    // Two billing attempts: uncached=105, output=18, cache read=25, cache write=10;
+    // input_total=140, total=158.
     let s = summary(&storage, "2027-01-15", "2027-01-15");
     assert_eq!(s.totals.call_count, 2);
     assert_eq!(s.totals.input_total_known, Some(140));
@@ -70,10 +70,10 @@ fn replacement_semantics_fold_streaming_and_retry() {
     let (_dir, storage) = temp_storage("dsh-replace");
     let root = dsh_fixture("synthetic-replacement-cases");
     run_dsh(&storage, &root, NOW);
-    // step1：流式 120 被 final 70 替换 ⇒ attempt(70,8,25,5)。
-    // step2：流式 40/50/60，retry-started 定稿 attempt0=60；retry 的 5 定稿 attempt1。
-    // 三个计费 attempt：uncached=70+60+5=135、out=8+4+1=13、cr=25+30+0=55、cw=5。
-    // input_total=135+55+5=195、total=208。
+    // Step one: final 70 replaces streaming 120, yielding attempt(70,8,25,5).
+    // Step two: streaming 40/50/60 closes at retry-started as attempt0=60; retry 5 closes attempt1.
+    // Three billing attempts: uncached=70+60+5=135, output=8+4+1=13, cache read=25+30+0=55, cache write=5.
+    // input_total=135+55+5=195, total=208.
     let s = summary(&storage, "2027-01-15", "2027-01-15");
     assert_eq!(s.totals.call_count, 3, "retry 新开计费 attempt");
     assert_eq!(s.totals.input_total_known, Some(195));
@@ -91,8 +91,8 @@ fn non_usage_events_and_undocumented_type_do_not_invent_usage() {
         run_dsh(&storage, &root, NOW);
     }
     let s = summary(&storage, "2027-01-15", "2027-01-15");
-    // 无 usage 词汇（context/header/offload/user 消息）不产生请求；pressure/
-    // projected 估算不计账；唯一的 usage 消息 (10,2,0,0) ⇒ 1 调用 total 12。
+    // context/header/offload/user messages do not create calls; pressure/projected estimates
+    // do not count as usage. The only usage message (10,2,0,0) produces one call/total 12.
     assert_eq!(s.totals.call_count, 1);
     assert_eq!(s.totals.total_tokens_known, Some(12));
     assert_eq!(s.totals.attempt_count, 0, "估算/未文档化不产生 attempt");

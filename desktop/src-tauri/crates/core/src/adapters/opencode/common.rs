@@ -1,19 +1,19 @@
-//! OpenCode 产品特有的公共部分（独立目录约定 architecture.md#adapter-layout）：
-//! - schema 指纹（产品互斥：session 必须含 tokens_* 五累计列，MiMo 无此列）；
-//! - state 库只读访问实现（只读连接 + Online Backup 暂存副本）：
-//!   小工具函数复制自 `adapters/kilo/common.rs`（各 Agent 目录保持独立，
-//!   不共享模块；kilo 版本为 M3 已验收实现，语义一致仅前缀/注释不同）。
+//! OpenCode-specific helpers; independent layout: architecture.md#adapter-layout.
+//! - Schema fingerprint requires five session tokens_* totals, absent from the referenced MiMo schema.
+//! - Read-only state database access with Online Backup staging snapshots:
+//!   helpers copied from `adapters/kilo/common.rs`; each Agent keeps its own module.
+//!   The Kilo helper originated in the checked M3 implementation; prefixes/comments differ.
 //!
-//! 固定源码依据（A17，commit 0027387dc5c59793c12dfc531abc78f825ed6868）：
-//! - `packages/core/src/global.ts`：data = xdg-basedir 的 opencode 目录
-//!   （$XDG_DATA_HOME 缺省 ~/.local/share/opencode）；
-//! - `packages/core/src/database/database.ts`：库文件
-//!   `path() = data/opencode.db`（安装通道变体 `opencode-<channel>.db`，
-//!   channel 经 [^a-zA-Z0-9._-] 归一）；WAL 模式；
-//! - `packages/core/src/session/sql.ts`：`session`（含 parent_id/version/
-//!   tokens_input/output/reasoning/cache_read/cache_write 累计五列）、
-//!   `message`（id/session_id/…/data JSON）、`part`（id/message_id/session_id/
-//!   time_created/time_updated/data JSON）三表逐字列名。
+//! Fixed source: A17, commit 0027387dc5c59793c12dfc531abc78f825ed6868.
+//! - packages/core/src/global.ts: data uses the xdg-basedir opencode directory;
+//!   absent $XDG_DATA_HOME defaults to ~/.local/share/opencode.
+//! - packages/core/src/database/database.ts defines the database path:
+//!   data/opencode.db, or channel variant opencode-<channel>.db;
+//!   normalize channel with [^a-zA-Z0-9._-]; database uses WAL.
+//! - packages/core/src/session/sql.ts: session includes parent_id/version and five
+//!   cumulative tokens_input/output/reasoning/cache_read/cache_write columns;
+//!   message has id/session_id/data JSON; part has id/message_id/session_id/
+//!   time_created/time_updated/data JSON. Use literal columns from these three tables.
 
 use crate::error::CoreError;
 use rusqlite::backup::{Backup, StepResult};
@@ -21,10 +21,10 @@ use rusqlite::{Connection, OpenFlags};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-// ---- 源库只读访问（复制自 adapters/kilo/common.rs，各目录独立约定）----
+// Read-only database helpers copied from adapters/kilo/common.rs; modules remain independent.
 
-/// 一次只读访问：成功时直接用源库连接；busy/锁时自动切换到暂存副本。
-/// `guard` 持有暂存副本路径，drop 时清理（即使查询中途失败）。
+/// Read-only source access; busy-like probe failures switch to a staging snapshot.
+/// The staging guard owns its path and cleans up on drop, including query failures.
 pub struct SourceDb {
     conn: Connection,
     _staging: Option<StagingGuard>,
@@ -48,7 +48,7 @@ impl Drop for StagingGuard {
     }
 }
 
-/// busy/锁/CANTOPEN 判定（这些错误表示无法一致读取）。
+/// SQLite busy/locked/CANTOPEN errors prevent a successful consistency probe.
 pub(crate) fn is_busy_like(err: &rusqlite::Error) -> bool {
     matches!(
         err.sqlite_error_code(),
@@ -58,7 +58,7 @@ pub(crate) fn is_busy_like(err: &rusqlite::Error) -> bool {
     )
 }
 
-/// 暂存副本参数（architecture.md：设置页/时间/空间上限并清理）。
+/// Staging page/time/size limits and cleanup follow architecture.md.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct StagingLimits {
     pub pages_per_step: i32,
@@ -76,7 +76,7 @@ impl Default for StagingLimits {
     }
 }
 
-/// 打开源库只读连接。busy_timeout 设短：快速失败转暂存副本路径。
+/// Open read-only; short busy_timeout bounds probe waits before a staging fallback.
 pub(crate) fn open_readonly(path: &Path) -> Result<Connection, rusqlite::Error> {
     let conn = Connection::open_with_flags(
         path,
@@ -89,7 +89,7 @@ pub(crate) fn open_readonly(path: &Path) -> Result<Connection, rusqlite::Error> 
     Ok(conn)
 }
 
-/// Online Backup 到系统临时目录的一致暂存副本（从只读连接发起，不写源库）。
+/// Online Backup creates a consistent system-temporary snapshot without writing the source.
 fn backup_to_staging(
     source: &Connection,
     limits: &StagingLimits,
@@ -120,7 +120,7 @@ fn backup_to_staging(
             crate::adapters::run_policy::check_sqlite()?;
             match backup.step(limits.pages_per_step) {
                 Ok(StepResult::Done) => break Ok(()),
-                // More：实际拷贝了页，计入空间限制。
+                // More means pages were copied; count those pages toward the size limit.
                 Ok(StepResult::More) => {
                     done_pages += i64::from(limits.pages_per_step);
                     if done_pages > max_pages {
@@ -131,9 +131,9 @@ fn backup_to_staging(
                     }
                     std::thread::sleep(Duration::from_millis(20));
                 }
-                // Busy/Locked（#[non_exhaustive] 其余）：无进展重试，仍计入超时时间。
-                // 2026-09-30 修复：此前重试也计入页数，与超时出口竞速产生
-                // 平台相关的 space cap 误报（CI Linux 页上限先于超时触发）。
+                // Busy/Locked or other non-exhaustive results retry without progress, within the timeout.
+                // 2026-09-30 fix: retries previously added pages and raced the timeout, causing
+                // platform-specific false size-limit failures (Linux CI hit the page cap before timeout).
                 Ok(_) => {
                     std::thread::sleep(Duration::from_millis(20));
                 }
@@ -152,8 +152,8 @@ fn backup_to_staging(
     }
 }
 
-/// 打开 opencode.db 的只读访问：直接只读短查询 → busy 时暂存副本 → 仍失败上抛。
-/// 绝不写源库（不调用上游可能迁移/初始化的打开路径）。
+/// Probe read-only opencode.db; busy-like probe failures use staging, later failures propagate.
+/// Never write the source or invoke upstream open paths that could initialize/migrate it.
 pub(crate) fn open_source_db<F>(
     path: &Path,
     probe: F,
@@ -180,14 +180,14 @@ where
     }
 }
 
-/// 短查询事务探测（与 kilo 遵守同一规则）。
+/// Short schema query probes access, following kilo's rule.
 pub(crate) fn short_probe(conn: &Connection) -> Result<(), rusqlite::Error> {
     conn.query_row("SELECT COUNT(*) FROM sqlite_master", [], |_| Ok(()))
 }
 
-// ---- schema 指纹（固定源码 sql.ts 表/列名摘要；只含表/列名，可安全持久化）----
+// Schema fingerprint uses fixed sql.ts table/column names only, safe to persist.
 
-/// part 表关键列（逐次 usage 载体；sql.ts PartTable 逐字列名）。
+/// Required per-call part columns use literal sql.ts PartTable names.
 pub(crate) const REQUIRED_PART_COLUMNS: &[&str] = &[
     "id",
     "message_id",
@@ -196,8 +196,8 @@ pub(crate) const REQUIRED_PART_COLUMNS: &[&str] = &[
     "time_updated",
     "data",
 ];
-/// session 关键列：身份 + 子会话 + 版本 + 累计五列（对账目标；MiMo 无此五列，
-/// 指纹因此互斥，不能把 MiMo 库当 OpenCode 解析）。
+/// Session identity/parent/version and five cumulative columns support reconciliation.
+/// The referenced MiMo schema lacks these five columns and cannot match this fingerprint.
 pub(crate) const REQUIRED_SESSION_COLUMNS: &[&str] = &[
     "id",
     "parent_id",
@@ -208,10 +208,10 @@ pub(crate) const REQUIRED_SESSION_COLUMNS: &[&str] = &[
     "tokens_cache_read",
     "tokens_cache_write",
 ];
-/// message 关键列（模型归属 join：message.data.$.modelID/providerID）。
+/// Required message columns join model ownership from message.data.$.modelID/providerID.
 pub(crate) const REQUIRED_MESSAGE_COLUMNS: &[&str] = &["id", "session_id", "data"];
 
-/// 计算 schema 指纹（表缺失/关键列缺失返回 None）。
+/// Return schema fingerprint, or None for absent tables/required columns.
 pub(crate) fn schema_fingerprint(conn: &Connection) -> Result<Option<String>, CoreError> {
     let table_exists = |name: &str| -> Result<bool, CoreError> {
         let found: Option<i64> = conn

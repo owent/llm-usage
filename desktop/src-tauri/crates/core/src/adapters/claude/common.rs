@@ -1,14 +1,14 @@
-//! Claude 产品特有的 usage 字段映射（从根级 usage_map.rs 下沉，V30 目录约定）。
-//! 共享的 MappedUsage/finish/sub_checked/矛盾检测仍留在跨 Agent 的 usage_map.rs。
+//! Claude-specific usage mapping, moved from root usage_map.rs into the V30 directory.
+//! Shared MappedUsage/finish/sub_checked/contradiction checks stay in cross-agent usage_map.rs.
 
 use crate::adapters::usage_map::{finish, MappedUsage};
 use crate::domain::{FieldQuality as Q, TokenQuality, TokenUsage};
 
-/// Claude Code transcript assistant 条目的 usage 四字段（文档或源码依据 A01：
-/// monitoring-usage 的 input/output/cache_read/cache_creation 分类 + Anthropic
-/// usage 块互斥关系，与 map_zcode_anthropic 同形）。四字段缺一不可（缺失是未知，
-/// 不能当 0）；input_total/total_tokens 由互斥拆分派生。
-/// 无版本文档级载体保留旧映射；原生 2.1.197 使用独立的默认零规则。
+/// Four Claude transcript assistant usage fields follow A01 monitoring-usage:
+/// input/output/cache_read/cache_creation categories and Anthropic exclusive
+/// buckets, as in map_zcode_anthropic. All four are needed; missing fields stay unknown,
+/// not zero. Derive input_total/total_tokens from exclusive components.
+/// Unversioned documented files retain old mapping; native 2.1.197 has separate zero rules.
 #[derive(Debug, Clone, Copy)]
 pub struct ClaudeTranscriptUsage {
     pub input_tokens: i64,
@@ -54,8 +54,8 @@ pub fn map_claude_transcript(raw: &ClaudeTranscriptUsage) -> MappedUsage {
     finish(usage, quality, Vec::new())
 }
 
-/// 2.1.197 的流式写者会补入供应商未报告的零桶，且不保存有效性标记。
-/// 正桶仍为报告值；零桶未知，不用另一条 HTTP 响应替本地历史认证零。
+/// Its streaming writer inserts unreported zero buckets without validity flags.
+/// Positive buckets are reported; zero stays unknown. Another HTTP response cannot verify old zeros.
 pub fn map_claude_native(raw: &ClaudeTranscriptUsage) -> MappedUsage {
     let positive = |value| (value > 0).then_some(value);
     let input_uncached = positive(raw.input_tokens);

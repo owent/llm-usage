@@ -1,47 +1,61 @@
-# 应用标识与静态资源
+# Application identity and static assets
 
-## 设计合同
+<a id="应用标识与静态资源"></a>
 
-标识名为 **Usage U**：开口的 U 表示 usage，中间的刻度表示被观测的用量，
-上方琥珀色小点作为视觉识别点。它不表示连接状态、实时采集或零用量。
-深墨色圆角底承载青绿色标记；单色版保留 U 与刻度，省略小点。
-这是本仓库原创的 SVG 几何设计，无外部图片、字体、品牌标志或运行时请求。
+<a id="设计合同"></a>
 
-| 颜色 | 色值 | 用途 |
+<a id="设计说明"></a>
+
+<a id="design-contract"></a>
+
+## Design specifications
+
+The mark is **Usage U**: the open U represents usage; central ticks represent observed quantities.
+An amber dot above provides visual recognition, without connection/live-collection/zero-usage semantics.
+A rounded deep-ink background carries the teal mark; monochrome versions keep the U/ticks and omit the dot.
+This repository's original SVG geometry uses no external images, fonts, brand marks or runtime requests.
+
+| Color | Value | Purpose |
 | --- | --- | --- |
-| 墨色 | `#102A35` | 图标底色、浅色主题线条 |
-| 青绿 | `#53DDC5` | U 形主体 |
-| 浅薄荷 | `#D8FFF3` | 中央刻度 |
-| 琥珀 | `#F2B86B` | 品牌识别点；不承担状态语义 |
-| 灰绿 | `#77958F` | 插画辅助线 |
+| Ink | `#102A35` | Icon background/light-theme strokes |
+| Teal | `#53DDC5` | U body |
+| Pale mint | `#D8FFF3` | Central ticks |
+| Amber | `#F2B86B` | Brand recognition only, without status meaning |
+| Gray green | `#77958F` | Illustration supporting strokes |
 
-小于 24 px 使用专门绘制的 favicon 或单色托盘标记。品牌图标不加文字，
-不依赖渐变或颜色表达必需信息。插画不嵌入文案，状态必须由界面文字说明。
-预览页同时展示浅/深背景、原始小尺寸与三种空状态。
+Below 24 px, use the dedicated favicon/monochrome tray mark. Brand icons contain no text or essential
+information conveyed only by gradients/color. Illustrations contain no copy; UI text explains statuses.
+The preview displays light/dark backgrounds, original small sizes and three empty states.
+See [validation](../../docs/validation/desktop-usage/static-assets.md) for browser, Windows package and LFS checks.
 
-实际浏览器、Windows 包体与 LFS 检查见 [验证记录](../../docs/validation/desktop-usage/static-assets.md)。
+<a id="文件与使用"></a>
 
-## 文件与使用
+## Files and consumers
 
-| 文件 | 消费方 |
+| File | Consumer |
 | --- | --- |
-| `app-icon.svg` | 1024 × 1024 权威源；修改后重新生成派生文件 |
-| `tray-dark.svg`、`tray-light.svg` | 16 × 16 托盘源，分别用于浅色/深色背景 |
-| `../src-tauri/icons/` | Tauri 配置已有的 PNG、ICO、ICNS；保留 CLI 生成的 Store/移动端配套文件，不代表这些平台已支持 |
-| `../src-tauri/icons/tray/` | 16/20/24/32/48 px 单色 PNG；M6 接入托盘时按主题选择，macOS 使用黑色 template 图 |
-| `../public/brand/` | 生成的 SVG、256/512/1024 px PNG；当前窗口标题使用 SVG |
-| `../public/favicon.svg`、`../public/favicon.ico` | 网页页签；SVG 小尺寸单独优化，ICO 为兼容回退 |
-| `../public/ui/` | 24 px 导航/操作线条图标，SVG 随系统深浅主题切换；强制主题可通过 CSS mask 使用 |
-| `../public/illustrations/` | 未添加来源、筛选无匹配、来源受限三种状态；预留给 M6，不代表已有采集功能 |
-| `../asset-preview.html` | 本地审阅页，`npm --prefix desktop run dev` 后访问 `/asset-preview.html`；不进入 release 入口 |
+| `app-icon.svg` | Authoritative 1024 × 1024 source; regenerate derivatives after changes |
+| `tray-dark.svg`, `tray-light.svg` | 16 × 16 tray sources for light/dark backgrounds respectively |
+| `../src-tauri/icons/` | PNG/ICO/ICNS referenced by Tauri; retain generated Store/mobile companions without implying platform support |
+| `../src-tauri/icons/tray/` | 16/20/24/32/48 px monochrome PNG assets; macOS black template artwork is an asset, not an implemented tray promise |
+| `../public/brand/` | Generated SVG and 256/512/1024 px PNG; current window branding uses SVG |
+| `../public/favicon.svg`, `../public/favicon.ico` | Browser tabs; SVG is optimized separately for small sizes, ICO is fallback |
+| `../public/ui/` | 24 px navigation/action strokes; SVG responds to system theme, CSS masks support forced themes |
+| `../public/illustrations/` | No sources/no filter matches/limited sources assets; assets alone do not verify collection functionality |
+| `../asset-preview.html` | Local review page at /asset-preview.html after `npm --prefix desktop run dev`; outside release entry |
 
-图标控件由调用方提供可访问名称；旁边已有同义文字的图片使用 `alt=""`。
-空状态文案示例：“还没有添加数据源”“当前筛选没有匹配记录”“部分来源暂时不可读取”。
-无记录、读取失败和真实的零用量必须分开。托盘及状态插画目前仅交付资源，功能接入留 M6。
+Callers provide accessible names for icon controls. Images beside equivalent text use `alt=""`.
+Empty-state copy examples: No data sources yet; No records match the current filters; Some sources are
+temporarily unreadable. Distinguish missing records, read failures and actual zero usage.
+Windows opt-in close-to-tray is implemented in `../src-tauri/src/tray.rs`; it currently uses the application
+window icon. Dedicated monochrome resources and other platforms do not establish additional tray integration.
 
-## 生成和检查
+<a id="生成和检查"></a>
 
-仓库根，Node.js 22+；使用 desktop 锁文件中的 `@tauri-apps/cli` 2.11.5，无额外绘图依赖：
+## Generation and checks
+
+From the repository root with Node.js 22+, use desktop's locked `@tauri-apps/cli` (currently 2.12.0).
+No additional drawing dependencies:
 
 ```powershell
 git lfs install --local
@@ -51,27 +65,28 @@ npm run assets:generate
 npm run assets:check
 ```
 
-生成命令只重建上表中的派生图标，保留 UI/插画源文件；重复运行应产生相同字节。
-CLI 2.11.5 的 ICNS 图层顺序不固定；脚本按类型排序并保留旧式 RGB/透明度图层对，图层内容不变。
-渲染输出先写入临时目录，再复制到目标；渲染失败不会替换原图标，任何检查失败返回非零。
-检查命令核验源文件、PNG 格式/尺寸、ICO/ICNS 目录、派生文件一致性和 LFS 属性，
-遇到未下载的 LFS 指针直接失败。`--help` 可查看参数；`assets:check` 不改动资源。
-回滚设计时同时恢复 SVG 源与派生资源，或恢复源后重新生成。
+Generation rebuilds only the listed derivatives, retaining UI/illustration sources. Repetition should
+produce identical bytes. CLI 2.11.5 originally emitted nondeterministic ICNS layer ordering; the script
+sorts types while keeping legacy RGB/transparency pairs and unchanged layer content. Render into temporary
+directories before copying targets. Failures preserve original icons and return nonzero.
+Checks verify sources, PNG format/dimensions, ICO/ICNS directories, derivative consistency and LFS attributes.
+Undownloaded pointers fail immediately. Use --help for parameters; assets:check never changes assets.
+Rollback restores SVG sources/derivatives together, or regenerates from restored sources.
 
 ## Git LFS
 
-根 `.gitattributes` 管理图片（含 SVG）、字体、媒体、压缩包、可执行文件、库、数据库与 Python 字节码。
-整个 `desktop/public/`、Tauri 图标目录及原型的预构建 JS/静态 JSON 也使用 LFS。
-TS/Svelte/CSS 源码、配置、文档与生成脚本仍用普通 Git，以便审阅。
-构建目录和依赖目录继续忽略；LFS 规则不意味着应把安装包、缓存或本机数据加入仓库。
-原型已跟踪的数据库和字节码只迁移存储，不修改其内容或追补新数据。
+Root .gitattributes manages images including SVG, fonts, media, archives, executables, libraries, databases
+and Python bytecode. All desktop/public/, Tauri icons and prototype prebuilt JS/static JSON also use LFS.
+TS/Svelte/CSS sources, configuration, documentation and generators use ordinary Git for review.
+Build/dependency directories remain ignored. LFS rules do not justify tracking packages/caches/local data.
+Already tracked prototype databases/bytecode changed storage only, without content changes/new data.
 
-迁移采用 `.gitattributes` 配合指定文件的 `git add --renormalize`，转换当前索引，
-不改写历史。历史提交中的普通 Git blob 保留。
-新增资源经 `git add` 保存为 LFS 指针；工作树仍保存可直接打开的实际文件。
-CI checkout 必须设置 `lfs: true`；使用资源前运行检查命令，避免把指针当图片打包。
+Migration uses .gitattributes and targeted git add --renormalize to convert the current index, without
+rewriting history. Historical ordinary blobs remain. New git add operations save pointers while working
+files remain directly usable. CI checkout requires lfs: true; check assets before use to avoid packaging
+pointers as images.
 
-2026-09-24 核对的依据：
-[Tauri 图标规范](https://v2.tauri.app/develop/icons/)、
-[Git LFS 3.7.1 迁移说明](https://github.com/git-lfs/git-lfs/blob/v3.7.1/docs/man/git-lfs-migrate.adoc)、
-[当前固定 checkout 的 LFS 输入](https://github.com/actions/checkout/blob/d23441a48e516b6c34aea4fa41551a30e30af803/README.md)。
+Sources verified on 2026-09-24:
+[Tauri icons](https://v2.tauri.app/develop/icons/),
+[Git LFS 3.7.1 migration](https://github.com/git-lfs/git-lfs/blob/v3.7.1/docs/man/git-lfs-migrate.adoc),
+[pinned checkout LFS input](https://github.com/actions/checkout/blob/d23441a48e516b6c34aea4fa41551a30e30af803/README.md).

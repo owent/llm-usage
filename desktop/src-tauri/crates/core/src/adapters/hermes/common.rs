@@ -1,27 +1,27 @@
-//! Hermes Agent 产品特有的公共部分（独立目录约定 architecture.md#adapter-layout）：
-//! - usage 映射（`map_hermes`/`HermesUsage`，列定义依据为固定源码，见下）；
-//! - `billing_base_url` 内存规范化（无凭据 provider 标识或本地摘要，不持久化原文）；
-//! - state.db 源库只读访问实现（只读连接 + Online Backup 暂存副本）：
-//!   小工具函数复制自 `adapters/kilo/common.rs`（各 Agent 目录保持独立，
-//!   不共享模块；kilo 版本为 M3 已验收实现，语义一致仅前缀/注释不同）。
+//! Hermes Agent helpers; independent layout: architecture.md#adapter-layout.
+//! - map_hermes/HermesUsage uses fixed source column definitions below.
+//! - Normalize billing_base_url in memory to a credential-free provider ID or local digest.
+//! - Read-only state.db access uses direct connections and Online Backup staging:
+//!   helpers copied from adapters/kilo/common.rs, keeping independent Agent modules.
+//!   Kilo was accepted in M3; shared access semantics retain product-specific prefixes/comments.
 //!
-//! 固定源码依据（A24，commit ef70b3661cbfcf57e583008ad91dd04d8ba46070）：
-//! - `hermes_state_common.py` SCHEMA_SQL：`session_model_usage` 18 列，
+//! Fixed A24 source: ef70b3661cbfcf57e583008ad91dd04d8ba46070.
+//! - hermes_state_common.py SCHEMA_SQL defines 18 session_model_usage columns, with
 //!   PRIMARY KEY (session_id, model, billing_provider, billing_base_url,
-//!   billing_mode, task)；`sessions` 含 id/source/parent_session_id/started_at/
-//!   ended_at/end_reason 与累计五列等（本适配器只读时间回退列）。
-//! - `hermes_state_usage.py`：计数器按组合键 ADD 式累计（增量路径），
-//!   absolute 路径只覆盖 sessions 总量且不写模型行；`record_auxiliary_usage`
-//!   只写 task 键行、不进主会话总量；first_seen 仅插入时写入，last_seen
-//!   每次冲突更新推进。
-//! - `hermes_constants.py`：get_hermes_home = 上下文覆盖 → HERMES_HOME →
-//!   平台默认（Windows %LOCALAPPDATA%/hermes，其他 ~/.hermes）；
-//!   命名 profile 为 `<root>/profiles/<name>` 独立 state.db。
+//!   billing_mode, task). sessions includes id/source/parent_session_id/started_at/
+//!   ended_at/end_reason and five cumulative buckets; read only required fallback-time columns.
+//! - hermes_state_usage.py adds counters by compound key on the incremental path.
+//!   absolute updates sessions totals without model rows. record_auxiliary_usage writes
+//!   task rows rather than main totals; first_seen is insert-only and last_seen advances
+//!   on conflict updates.
+//! - hermes_constants.py get_hermes_home uses context override, HERMES_HOME, then
+//!   platform default: Windows %LOCALAPPDATA%/hermes, otherwise ~/.hermes.
+//!   Named profiles have independent state.db at <root>/profiles/<name>.
 //!
-//! 时间列（first_seen/last_seen/started_at/ended_at）为 REAL Unix epoch 秒
-//!（Python time.time()），本模块统一换算毫秒。A24 与 0.21.5 固定源码的
-//! normalize_usage 确认 input_tokens 为非缓存输入、reasoning 是输出子集。
-//! 真实请求/续会话核对通过；来源初始化/缺字段均归零，零值保持未知。
+//! first_seen/last_seen/started_at/ended_at are REAL Unix seconds from Python
+//! time.time(); convert to milliseconds. A24 and fixed 0.21.5 normalize_usage establish
+//! uncached input_tokens and reasoning as an output subset.
+//! Real request/resume checks passed; initialization/missing fields become zero and remain unknown.
 
 use crate::adapters::usage_map::{finish, MappedUsage};
 use crate::domain::{FieldQuality as Q, TokenQuality, TokenUsage};
@@ -31,7 +31,7 @@ use rusqlite::{Connection, OpenFlags};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-/// session_model_usage 五个并行计数列（NOT NULL DEFAULT 0，i64）。
+/// Five native session_model_usage counters: i64, NOT NULL DEFAULT 0.
 #[derive(Debug, Clone, Copy)]
 pub struct HermesUsage {
     pub input_tokens: i64,
@@ -41,8 +41,8 @@ pub struct HermesUsage {
     pub reasoning_tokens: i64,
 }
 
-/// 正数按原生归一桶报告；默认零无法区分缺字段，保持未知。
-/// 只有全部必需桶已知时才派生输入/完整总量，不用默认零补全。
+/// Positive normalized native buckets are reported; default zeros cannot establish field presence.
+/// Derive input/complete totals only with all required buckets known, without default-zero completion.
 pub fn map_hermes(raw: &HermesUsage) -> MappedUsage {
     let known = |v| (v != 0).then_some(v);
     let input_uncached = known(raw.input_tokens);
@@ -80,7 +80,7 @@ pub fn map_hermes(raw: &HermesUsage) -> MappedUsage {
     finish(usage, quality, Vec::new())
 }
 
-/// REAL epoch 秒 → UTC 毫秒。非有限/早于 2000-01-01（秒毫秒误判守卫）→ None。
+/// REAL epoch seconds to UTC milliseconds; reject nonfinite/pre-2000 values to avoid unit mistakes.
 pub(crate) fn seconds_to_ms(v: f64) -> Option<i64> {
     if !v.is_finite() {
         return None;
@@ -93,10 +93,10 @@ pub(crate) fn seconds_to_ms(v: f64) -> Option<i64> {
     }
 }
 
-/// billing_base_url 内存规范化（adapters.md Hermes 约定：只在内存规范化成
-/// 无凭据的 provider 标识或本机摘要，不持久化完整 URL/查询参数）：
-/// URL 形 → `scheme/host[:port]`（去 userinfo/path/query/fragment）；
-/// 非 URL 形 → 不可逆本地摘要（FNV-1a，identity::content_hash），不落原文。
+/// Normalize billing_base_url only in memory, under the Hermes adapter rules:
+/// retain a credential-free provider identifier/local digest, never full URLs or query parameters.
+/// URL-like values become scheme/host[:port], stripping userinfo/path/query/fragment.
+/// Other values become a local FNV-1a digest via identity::content_hash, without retaining raw text.
 pub(crate) fn normalize_base_url(raw: &str) -> String {
     let trimmed = raw.trim();
     if trimmed.is_empty() {
@@ -104,7 +104,7 @@ pub(crate) fn normalize_base_url(raw: &str) -> String {
     }
     if let Some((scheme, rest)) = trimmed.split_once("://") {
         let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
-        // 去 userinfo（user:pass@host）：只取最后一个 @ 之后的 host 段。
+        // Strip user:pass@host userinfo by taking the host segment after the final @.
         let host = authority.rsplit('@').next().unwrap_or(authority);
         if !host.is_empty() && !scheme.is_empty() {
             return format!(
@@ -120,10 +120,10 @@ pub(crate) fn normalize_base_url(raw: &str) -> String {
     )
 }
 
-// ---- 源库只读访问（复制自 adapters/kilo/common.rs，各目录独立约定）----
+// Independent read-only database helpers copied from adapters/kilo/common.rs.
 
-/// 一次只读访问：成功时直接用源库连接；busy/锁时自动切换到暂存副本。
-/// `guard` 持有暂存副本路径，drop 时清理（即使查询中途失败）。
+/// Read-only source access; busy-like probe failures switch to a staging snapshot.
+/// _staging owns the snapshot guard; drop cleans up even after query failure.
 pub struct SourceDb {
     conn: Connection,
     _staging: Option<StagingGuard>,
@@ -147,7 +147,7 @@ impl Drop for StagingGuard {
     }
 }
 
-/// busy/锁/CANTOPEN 判定（这些错误表示无法一致读取）。
+/// SQLite busy/locked/CANTOPEN errors prevent a successful consistency probe.
 pub(crate) fn is_busy_like(err: &rusqlite::Error) -> bool {
     matches!(
         err.sqlite_error_code(),
@@ -157,7 +157,7 @@ pub(crate) fn is_busy_like(err: &rusqlite::Error) -> bool {
     )
 }
 
-/// 暂存副本参数（architecture.md：设置页/时间/空间上限并清理）。
+/// Staging page/time/size limits and cleanup follow architecture.md.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct StagingLimits {
     pub pages_per_step: i32,
@@ -175,7 +175,7 @@ impl Default for StagingLimits {
     }
 }
 
-/// 打开源库只读连接。busy_timeout 设短：快速失败转暂存副本路径。
+/// Open read-only; short busy_timeout bounds probe waits before a staging fallback.
 pub(crate) fn open_readonly(path: &Path) -> Result<Connection, rusqlite::Error> {
     let conn = Connection::open_with_flags(
         path,
@@ -188,7 +188,7 @@ pub(crate) fn open_readonly(path: &Path) -> Result<Connection, rusqlite::Error> 
     Ok(conn)
 }
 
-/// Online Backup 到系统临时目录的一致暂存副本（从只读连接发起，不写源库）。
+/// Online Backup creates a consistent system-temp snapshot without writing the source.
 fn backup_to_staging(
     source: &Connection,
     limits: &StagingLimits,
@@ -219,7 +219,7 @@ fn backup_to_staging(
             crate::adapters::run_policy::check_sqlite()?;
             match backup.step(limits.pages_per_step) {
                 Ok(StepResult::Done) => break Ok(()),
-                // More：实际拷贝了页，计入空间限制。
+                // More means pages were copied; count those pages toward the size limit.
                 Ok(StepResult::More) => {
                     done_pages += i64::from(limits.pages_per_step);
                     if done_pages > max_pages {
@@ -230,9 +230,9 @@ fn backup_to_staging(
                     }
                     std::thread::sleep(Duration::from_millis(20));
                 }
-                // Busy/Locked（#[non_exhaustive] 其余）：无进展重试，仍计入超时时间。
-                // 2026-09-30 修复：此前重试也计入页数，与超时出口竞速产生
-                // 平台相关的 space cap 误报（CI Linux 页上限先于超时触发）。
+                // Busy/Locked or other non-exhaustive results retry without progress, within the timeout.
+                // 2026-09-30 fix: retries previously added pages and raced the timeout, causing
+                // platform-specific false size-limit failures (Linux CI hit the page cap before timeout).
                 Ok(_) => {
                     std::thread::sleep(Duration::from_millis(20));
                 }
@@ -251,8 +251,8 @@ fn backup_to_staging(
     }
 }
 
-/// 打开 state.db 的只读访问：直接只读短查询 → busy 时暂存副本 → 仍失败上抛。
-/// 绝不写源库（不调用上游可能迁移/修复的初始化 API）。
+/// Read state.db directly; busy-like probe failures try staging, other errors propagate.
+/// Never write the source or invoke upstream initialization that may migrate/repair it.
 pub(crate) fn open_source_db<F>(
     path: &Path,
     probe: F,
@@ -279,16 +279,16 @@ where
     }
 }
 
-/// 短查询事务探测（与 kilo 遵守同一规则）。
+/// Short sqlite_master count probe, following kilo; it creates no explicit transaction.
 pub(crate) fn short_probe(conn: &Connection) -> Result<(), rusqlite::Error> {
     conn.query_row("SELECT COUNT(*) FROM sqlite_master", [], |_| Ok(()))
 }
 
-// ---- schema 指纹（固定源码 DDL 表/列名摘要；只含表/列名，可安全持久化）----
+// Schema fingerprints contain fixed DDL table/column names, rather than source records.
 
-/// sessions 只读列（本适配器仅用身份与时间回退列；完整列集见固定源码）。
+/// Required sessions identity/time-fallback columns; fixed source defines the full table.
 pub(crate) const REQUIRED_SESSIONS_COLUMNS: &[&str] = &["id", "started_at", "ended_at"];
-/// session_model_usage 全部 18 列（固定源码 SCHEMA_SQL 逐字列名）。
+/// All 18 session_model_usage columns, using exact SCHEMA_SQL names.
 pub(crate) const REQUIRED_SMU_COLUMNS: &[&str] = &[
     "session_id",
     "model",
@@ -309,7 +309,7 @@ pub(crate) const REQUIRED_SMU_COLUMNS: &[&str] = &[
     "first_seen",
     "last_seen",
 ];
-/// 组合键列（v22 起 task 参与主键；固定源码 _migrate_v22_session_model_usage）。
+/// Expected compound-key columns; v22 migration adds task to the primary key.
 pub(crate) const SMU_KEY_COLUMNS: &[&str] = &[
     "session_id",
     "model",
@@ -320,14 +320,14 @@ pub(crate) const SMU_KEY_COLUMNS: &[&str] = &[
 ];
 
 pub(crate) struct SchemaProbe {
-    /// None = 表/关键列缺失或主键形状不符（探测层 fail closed 的依据分类）。
+    /// None indicates missing tables/required columns or an unmatched primary-key shape.
     pub fingerprint: Option<String>,
-    /// True = 两表关键列齐全但主键不含 task（pre-v22 形状）。
+    /// True when required columns exist but one or more expected key columns are absent from the PK.
     pub legacy_pk: bool,
 }
 
-/// 计算 schema 指纹 + 主键形状分类（adapters.md：必须探测真实列与主键，
-/// 不只看版本整数）。
+/// Compute schema fingerprint and primary-key classification from actual columns/keys,
+/// rather than relying on a version integer.
 pub(crate) fn schema_probe(conn: &Connection) -> Result<SchemaProbe, CoreError> {
     let columns_of = |table: &str| -> Result<Vec<(String, i64)>, CoreError> {
         let mut stmt = conn
@@ -372,7 +372,7 @@ pub(crate) fn schema_probe(conn: &Connection) -> Result<SchemaProbe, CoreError> 
             legacy_pk: false,
         });
     }
-    // 主键形状：SMU_KEY_COLUMNS 六列均须参与主键（v22 重建后形状）。
+    // All six SMU_KEY_COLUMNS must participate in the v22 primary key.
     let key_in_pk = SMU_KEY_COLUMNS
         .iter()
         .filter(|c| smu.iter().any(|(name, pk)| name == *c && *pk > 0))
@@ -394,7 +394,7 @@ pub(crate) fn schema_probe(conn: &Connection) -> Result<SchemaProbe, CoreError> 
     })
 }
 
-/// 库内 schema_version（固定源码 SCHEMA_VERSION=30；缺表/空 → None）。
+/// Read maximum schema_version (fixed source SCHEMA_VERSION=30); SQL/type errors propagate.
 pub(crate) fn db_schema_version(conn: &Connection) -> Result<Option<i64>, CoreError> {
     let found: Option<i64> = conn
         .query_row("SELECT MAX(version) FROM schema_version", [], |r| r.get(0))

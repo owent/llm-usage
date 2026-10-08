@@ -1,6 +1,6 @@
-//! Grok Build 适配器（xAI，闭源；独立目录约定）。载体：
-//! `$GROK_HOME`（默认 ~/.grok）下 sessions/&lt;workspace&gt;/&lt;session&gt;/updates.jsonl
-//! 的显式 usage 块；累计差额/压缩补偿/子代理 PID 归因等推断路径不采纳。
+//! Independent Grok Build adapter for closed-source xAI. Reads explicit usage
+//! from `$GROK_HOME` (default ~/.grok)/sessions/&lt;workspace&gt;/&lt;session&gt;/updates.jsonl.
+//! Excludes inferred cumulative deltas, compaction compensation and sub-agent PID attribution.
 
 pub mod detect;
 pub mod versions;
@@ -9,7 +9,7 @@ pub use detect::GROK_FORMAT;
 pub use versions::updates_doc1;
 pub use versions::{GROK_FORMAT_VERSION, LATEST_IMPL_ID, VERIFIED_VERSION_IMPLS};
 
-/// Grok 适配器（无状态）。
+/// Stateless Grok adapter.
 pub struct GrokAdapter;
 
 impl Default for GrokAdapter {

@@ -1,29 +1,29 @@
-//! VS Code Copilot Chat 会话日志版本注册表（V30 目录约定）。
+//! VS Code Copilot Chat session-log version registry, V30 directory rules.
 //!
-//! 锚点：chatSessionOperationLog.ts storageSchema 固定 `version: 3`
-//! （microsoft/vscode 源码）+ 本机 VS Code 1.140.0 真实数据核对
-//! （2026-10-01，10 请求全字段核验）。version=3 → KnownVersion；
-//! 其他/缺失 → LatestFallback 兼容尝试。
+//! Source: chatSessionOperationLog.ts storageSchema fixes version: 3
+//! in microsoft/vscode; native VS Code 1.140.0 data checked locally
+//! on 2026-10-01, ten saved request objects, not ten underlying model calls. v3 is KnownVersion;
+//! other/missing versions attempt LatestFallback.
 
 pub mod session_log_v3;
 
-/// 当前格式实现标识。
+/// Current format implementation ID.
 pub const LATEST_IMPL_ID: &str = "session_log_v3";
 
-/// 已验证的格式版本（本机真实数据核对 2026-10-01）。
+/// Format versions checked against native local data, 2026-10-01.
 pub const COPILOT_CHAT_FORMAT_VERSION: &str = "vscode-chat-session-log-v3";
 
-/// 已验证支持的格式版本 → 格式实现。
+/// Verified format versions mapped to implementations.
 pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[("3", "session_log_v3")];
 
-/// 版本分派结论。
+/// Version-selection result.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Selection {
     pub impl_id: &'static str,
     pub basis: crate::domain::VersionBasis,
 }
 
-/// 按格式版本选择实现；探测与扫描共用本函数（V30）。
+/// Select by format version; shared by detection and scanning, V30.
 pub fn select(found: Option<&str>) -> Selection {
     match found {
         Some(version) => {

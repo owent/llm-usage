@@ -1,16 +1,21 @@
-# synthetic-cost-estimated._expectations.md（SYNTHETIC）
+# synthetic-cost-estimated._expectations.md (SYNTHETIC)
 
-**本目录全部为合成样本（synthetic），不是真实会话提取。** usage.cost 为 Agent
-自带价目估算（非供应商账单）：>0 映射为 estimated，0 与无价目不可区分不映射。
-本机真实核验结果：2 个会话观测到 cost.total>0，其余均为 0。
+<a id="synthetic-cost-estimated_expectationsmdsynthetic"></a>
 
-## 场景与期望
+**All samples in this directory are synthetic, rather than extracted native sessions.**
+usage.cost is the Agent's estimate from its own price list, rather than a provider bill.
+Positive values map to estimated; zero cannot be distinguished from missing prices and
+does not map. Local native verification found cost.total>0 in two sessions; all others were zero.
 
-- 4 行：title、session（version=3，id=syn-omp-cost）、assistant syn-c1
-  （cost.total=0.058278）、assistant syn-c2（cost.total=0）。
-- 整轮：1 文件 complete、4 行、2 事件全 primary、added=2。
-- syn-c1：cost → (amount_minor=58278, currency=USD, kind=estimated)
-  （0.058278 USD × 1e6 四舍五入）；syn-c2：cost.total=0 ⇒ 不映射（unknown）。
-- 汇总（2026-01-05 UTC）：call_count=2、input_total_known=105（100+5）、
-  output_total_known=55、total_tokens_known=160、cache_read_known=Some(0)、
-  cache_write_known=Some(0)。
+<a id="场景与期望"></a>
+
+## Scenario and expectations
+
+- Four lines: title, session (version=3, id=syn-omp-cost), assistant syn-c1
+  (cost.total=0.058278), and assistant syn-c2 (cost.total=0).
+- Scan: one complete file, four lines, two primary events, added=2.
+- syn-c1 cost maps to (amount_minor=58278, currency=USD, kind=estimated), rounding
+  0.058278 USD × 1e6. syn-c2 cost.total=0 remains unknown.
+- Summary (2026-01-05 UTC): call_count=2, input_total_known=105 (100+5),
+  output_total_known=55, total_tokens_known=160, cache_read_known=Some(0),
+  cache_write_known=Some(0).

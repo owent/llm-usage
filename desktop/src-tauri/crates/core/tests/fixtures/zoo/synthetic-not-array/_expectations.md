@@ -1,8 +1,8 @@
-# synthetic-not-array 期望（全合成）
+# synthetic-not-array expectations (synthetic)
 
-场景：顶层不是 JSON 数组（taskMessages.ts 要求顶层数组）。
+<a id="synthetic-not-array-期望全合成"></a>
 
-期望：
+The top level is not a JSON array, required by taskMessages.ts.
 
-- detect 直接 UnknownFormat（文件头不以 `[` 开头）；
-  扫描层不接触该文件；0 事件。
+Expected: detect returns UnknownFormat because the file does not begin with `[`.
+Scanning does not read it; no events.

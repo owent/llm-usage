@@ -1,7 +1,7 @@
-//! Codex 适配器缺口场景：合成样本（目录/文件头均标 synthetic）与 V17 语义。
-//! 合成样本覆盖 M0 真实样本缺失的场景：重复 final、子 Agent、cache write>0、
-//! 无 usage 的 tool/user 消息、缺 response_id；未知版本默认回退最新内置解析器
-//! 并带兼容标记（V17/V30），未知格式 fail closed。
+//! Codex boundary tests: directories/headers marked synthetic, under V17 rules.
+//! Cover gaps in M0 real samples: duplicate final records, subagents, positive cache writes,
+//! tool/user messages without usage and absent response_id. Unknown versions try the latest parser
+//! with V17/V30 compatibility metadata; unknown formats are rejected.
 
 mod common;
 
@@ -21,7 +21,7 @@ fn duplicate_final_counts_once() {
     let reports = run_codex(&storage, &root, 1_800_000_000_000);
     let report = &reports[0];
     assert_eq!(report.files[0].status, "complete");
-    // 扫描产出 3 条事件（含重复 final），入库去重后 2 次调用。
+    // Three scanned events include a duplicate final; ingestion deduplicates them into two calls.
     assert_eq!(report.files[0].events, 3);
     let outcome = report.outcome.as_ref().unwrap();
     assert_eq!(outcome.added, 2);
@@ -140,8 +140,8 @@ fn missing_response_id_falls_back_to_session_ordinal_identity() {
 
 #[test]
 fn v17_unknown_version_falls_back_with_compat_mark() {
-    // 未收录版本 + 结构不变：默认回退最新内置解析器，数据正常入库并带兼容标记，
-    // 不因版本号未收录直接拒绝（V17/V30 新语义）。
+    // Unregistered version with unchanged shape tries the latest built-in parser, persists usage
+    // and compatibility metadata; V17/V30 does not reject an unlisted version alone.
     let adapter = CodexAdapter::new();
     let path = synthetic_root("synthetic-unknown-version")
         .join("sessions/2026/01/05/rollout-synthetic-uv.jsonl");
@@ -165,13 +165,13 @@ fn v17_unknown_version_falls_back_with_compat_mark() {
         report.files[0].detail.as_deref(),
         Some("latest_fallback: version compatibility unverified (found: 0.999.0-synthetic)")
     );
-    // 兼容尝试成功的数据正常统计：1 次调用 input=10 output=5 total=15。
+    // Valid compatibility data counts one call with input=10, output=5, total=15.
     let summary = summary(&storage, "2026-01-05", "2026-01-05");
     assert_eq!(summary.totals.call_count, 1);
     assert_eq!(summary.totals.input_total_known, Some(10));
     assert_eq!(summary.totals.output_total_known, Some(5));
     assert_eq!(summary.totals.total_tokens_known, Some(15));
-    // 兼容标记持久化：事件 parse_basis、文件 active_compat、探测结论 JSON。
+    // Persist compatibility in event parse_basis, file active_compat and detection JSON.
     let (basis, schema_version): (String, String) = storage
         .conn()
         .query_row(
@@ -202,7 +202,7 @@ fn v17_unknown_version_falls_back_with_compat_mark() {
     assert_eq!(fs["basis"], "latest_fallback");
     assert_eq!(fs["found_version"], "0.999.0-synthetic");
     assert_eq!(fs["compat"], "unverified");
-    // 重复扫描不增量（兼容标记不改变幂等）。
+    // Repeated scans add no usage; compatibility metadata preserves deduplication.
     let reports2 = run_codex(&storage, &root, 1_800_000_000_100);
     let added2: i64 = reports2
         .iter()
@@ -213,8 +213,8 @@ fn v17_unknown_version_falls_back_with_compat_mark() {
 
 #[test]
 fn v17_missing_version_but_agent_identified_falls_back() {
-    // 版本字段缺失但 Agent 身份可识别（session_meta 携带会话 id）：
-    // 默认回退最新内置解析器（V30 场景），format_version 为空。
+    // Version is absent but session_meta.id identifies the Agent's session.
+    // V30 selects the latest built-in parser with absent format_version.
     let dir = TempDir::new("codex-mv");
     let root = dir.path().join("root");
     let file = concat!(
@@ -245,8 +245,8 @@ fn v17_missing_version_but_agent_identified_falls_back() {
 
 #[test]
 fn v17_extra_optional_fields_tolerated_under_fallback() {
-    // 仅新增可选字段（envelope/payload/usage 各加未知键）：结构校验不受影响，
-    // 数据正常入库（V30“仅新增可选字段”场景）。
+    // Additional optional envelope/payload/usage keys do not break required structure;
+    // valid records are persisted under the V30 optional-field scenario.
     let dir = TempDir::new("codex-ef");
     let root = dir.path().join("root");
     let file = concat!(
@@ -266,9 +266,9 @@ fn v17_extra_optional_fields_tolerated_under_fallback() {
 
 #[test]
 fn v17_fallback_structural_break_marks_incompatible_and_keeps_old() {
-    // 结构破坏的未知版本：读到了记录但零事件且带结构诊断 ⇒ 判不兼容
-    // （状态 incompatible、无游标推进、不提交事件/聚合），保留旧结果；
-    // 下轮重新尝试，解析器更新后允许重试（V30）。
+    // An unknown version yielding no events plus structure diagnostics is incompatible;
+    // retain old results without advancing the cursor or committing events/aggregates.
+    // Retry next round, including after parser updates (V30).
     let dir = TempDir::new("codex-ib");
     let root = dir.path().join("root");
     let file = concat!(
@@ -289,7 +289,7 @@ fn v17_fallback_structural_break_marks_incompatible_and_keeps_old() {
         .query_row("SELECT COUNT(*) FROM usage_events", [], |r| r.get(0))
         .unwrap();
     assert_eq!(events, 0, "no untrusted events committed");
-    // 游标未推进：ingestion_checkpoints 为空，下轮可重新尝试。
+    // Empty ingestion_checkpoints permits a fresh attempt next round.
     let checkpoints: i64 = storage
         .conn()
         .query_row("SELECT COUNT(*) FROM ingestion_checkpoints", [], |r| {
@@ -302,7 +302,7 @@ fn v17_fallback_structural_break_marks_incompatible_and_keeps_old() {
         .query_row("SELECT status FROM source_files", [], |r| r.get(0))
         .unwrap();
     assert_eq!(file_status, "incompatible");
-    // 不是“成功 0 条”：latest_fallback 与结构诊断都可见。
+    // Show both latest_fallback and structure diagnostics, distinguishing rejection from an empty success.
     for code in [
         "latest_fallback",
         "unknown_record_type",
@@ -322,8 +322,8 @@ fn v17_fallback_structural_break_marks_incompatible_and_keeps_old() {
 
 #[test]
 fn v17_fallback_partial_usability_keeps_validated_part() {
-    // 部分可用：一条结构完好的 usage 记录 + 一条必需字段类型错误的记录。
-    // 可独立校验的部分保留入库（带兼容标记），缺口随诊断返回（V30）。
+    // Partly usable data: one valid usage record and one with an invalid required field type.
+    // Persist independently validated records with compatibility metadata; report the gap (V30).
     let dir = TempDir::new("codex-pu");
     let root = dir.path().join("root");
     let file = concat!(
@@ -392,7 +392,7 @@ fn detect_pending_on_empty_file() {
 
 #[test]
 fn map_codex_record_full_field_contract() {
-    // 合成样本：cache_write>0 的六字段映射（synthetic-cache-write 同值）。
+    // Synthetic positive cache-write data checks all six mapped fields, as in synthetic-cache-write.
     let mapped = map_codex_record(&CodexRecordUsage {
         input_tokens: 1000,
         cached_input_tokens: 400,
@@ -407,7 +407,7 @@ fn map_codex_record_full_field_contract() {
     assert_eq!(mapped.usage.source_total, Some(1050));
     assert!(mapped.diagnostics.is_empty());
 
-    // 矛盾不截断数值：cached + write > input → uncached 保持未知并进诊断。
+    // cached+write exceeding input leaves uncached unknown with a diagnostic; do not truncate values.
     let contradiction = map_codex_record(&CodexRecordUsage {
         input_tokens: 100,
         cached_input_tokens: 90,

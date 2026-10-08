@@ -1,113 +1,143 @@
-# M3：基于文档或源码实现的 Cline、DSH、Hermes、OpenClaw、OpenCode 家族适配器
+# M3: Cline, DSH, Hermes, OpenClaw and OpenCode-family adapters from documents/source
+
+<a id="m3基于文档或源码实现的-clinedshhermesopenclawopencode-家族适配器"></a>
 
 <a id="m3clinedshhermesopenclawopencode-家族文档级证据适配器"></a>
 
-本机未安装四个产品（2026-09-25 盘点 not_found，`~/.cline` 等候选路径不存在；
-real_verify 四例 discovered_roots=0 的结果为依据）。按用户指示以固定源码/官方文档
-级依据实现，合成测试通过；**真实数据验收后置**（安装后经 discover 自动发现，
-real_verify 入口复验）。适配器与 fixtures 均明确标注所用文档或源码依据。
+Four products were locally absent in the 2026-09-25 inventory, with candidate paths such
+as ~/.cline missing and all four real_verify examples discovering zero roots. The user
+directed implementation against fixed source/official documentation. Synthetic tests pass;
+**native-data acceptance was deferred** until installation/discovery and real_verify checks.
+Adapters and samples explicitly identify document/source references.
 
-## 元信息
+<a id="元信息"></a>
 
-| 项目 | 内容 |
+## Run information
+
+| Item | Value |
 | --- | --- |
-| 日期 | 2026-09-25 |
-| 执行环境 | Windows 11 x64；rustc 1.98.0 |
-| 代码 revision | 未提交工作树（M3/M4 批次之后 + 本次） |
-| 依据合同 | adapters.md（A03/A08/A24/A09 固定源码锚点）；V03/V07/V12/V17/V30 |
-| 执行方式 | 三个并行子代理因 API 限额中断（2026-09-25 21:33），适配器目录已完整（5 文件/个）且编译通过；主会话补齐测试、examples、内联缺陷修复并集成 |
+| Date | 2026-09-25 |
+| Environment | Windows 11 x64; rustc 1.98.0 |
+| Code revision | Uncommitted tree after M3/M4 plus this work |
+| Design references | adapters.md A03/A08/A24/A09 fixed source; V03/V07/V12/V17/V30 |
+| Execution | Three parallel subagents stopped at API limits, 2026-09-25 21:33; each adapter's five files compiled. Main session added tests/examples, fixed inline failures and integrated |
+
+<a id="实现与依据"></a>
 
 <a id="实现与证据"></a>
 
-## 实现与依据
+## Implementation and references
 
-### Cline（A03，固定源码 dcf8c3c）
+<a id="clinea03固定源码-dcf8c3c"></a>
 
-- usage 载体：type="say" 且 say ∈ {api_req_started, deleted_api_reqs,
-  subagent_usage} 消息的 `text` JSON（tokensIn/tokensOut/cacheWrites/
-  cacheReads/cost 逐字段可选）；四桶互斥，input_total=in+cw+cr 派生；
-  "compaction" 估算不入账；任务目录 `tasks/<任务 id>/`ui_messages.json（整写数组）。
-- 主会话修复（子代理未跑到的内联测试暴露）：`request` 键补入已知键集合
-  （A03 文档记载字段）；map_cost 补负值/非有限拒绝（与 parse 口径一致）。
-- 合同测试（3）：合成 contract 全链路（3 调用 input 475/total 530 人工核算）+
-  幂等；能力声明含文档级标注；缺口场景部分可用。
+### Cline: A03, fixed source dcf8c3c
 
-### DSH（A08，固定 token-meter README 46a7f68）
+- Usage comes from text JSON on type=say with say in api_req_started/deleted_api_reqs/
+  subagent_usage. tokensIn/tokensOut/cacheWrites/cacheReads/cost individually optional;
+  four exclusive buckets derive input_total=in+cw+cr. Compaction estimates excluded.
+  Task ui_messages.json is a whole-file array under the task directory.
+- Inline tests exposed missing documented request key and missing negative/nonfinite
+  map_cost rejection; main session fixed both consistently with parse rules.
+- Three format tests: synthetic end-to-end three calls/input 475/total 530 and stable
+  repeats; documentation-based capability label; partially usable boundary scenarios.
 
-- 折叠规则：final 样本替换同 attempt 流式值；retry-started 结束替换范围并
-  新开计费 attempt；attempt/step 边界定稿末样本；occurred_at 用观察时间
-  （README 无逐事件时间）；pressure/contextBreaks 估算不计账。
-- 合同测试（4）：contract（2 计费 attempt input 140/total 158，含一次
-  流式→final 替换 + retry）；replacement 场景（3 attempt input 195/total 208）；
-  非用量词汇不产请求；能力标注"合成假设"。
-- 落盘路径与行序列化未文档化：JSONL 行形状为合成假设（能力声明如实标注）。
+<a id="dsha08固定-token-meter-readme-46a7f68"></a>
 
-### Hermes（A24，固定源码 ef70b36）
+### DSH: A08, fixed token-meter README 46a7f68
 
-- session_model_usage 是模型/路由/任务累计表（非逐请求）：映射为来源区间
-  汇总（UsageObservation/区间聚合），api_call_count 不拆成 model_call，
-  跨日 first_seen/last_seen 不把累计全放最后一天（V03 Hermes 行）；
-  辅助 task 累计与主会话累计互斥求和。
-- 合同测试（8，子代理完成、主会话修类型/断言两处）：basic 累计、跨日、
-  辅助互斥、v20 回填/压缩继承、能力 evidence_level=doc-level。
-- fixtures：projection.json → SQLite 重建（schema DDL 随投影携带）。
+- Final replaces streaming samples of the same attempt. retry-started ends replacement
+  scope and starts another billable attempt. Attempt/step boundaries finalize the latest
+  sample. occurred_at uses observation time because README lacks per-event timestamps.
+  pressure/contextBreaks estimates excluded.
+- Four tests: two attempts/input 140/total 158 including streaming→final/retry; replacement
+  scenario three attempts/input 195/total 208; non-usage vocabulary creates no requests;
+  capability clearly says synthetic assumptions.
+- Persistence path/row serialization undocumented; proposed JSONL shape remains a labeled
+  synthetic assumption.
 
-### OpenClaw（A09，官方文档）
+<a id="hermesa24固定源码-ef70b36"></a>
 
-- 文档只给出存储位置形状（`~/.openclaw/agents/<id>/agent/openclaw-agent.sqlite`
-  与旧 sessions/ 归档），**未文档化表级/条目级 schema** ⇒ 运行时库与旧归档均
-  unknown_format fail closed（诊断 reason 注明待真实样本），不读表、不猜字段、
-  不产零值；归档按迁移输入降级（官方 doctor --fix 迁移路径）。
-- 合同测试（3）：运行时库 fail-closed + 幂等；归档不入账（占位数值 1200+300
-  等明确不计）；能力声明如实。layout.json → 临时目录重建（sqlite/json/jsonl）。
+### Hermes: A24, fixed source ef70b36
 
-## 命令与结果（主会话集成后）
+- session_model_usage is cumulative per model/route/task, not request-level. Map to source
+  intervals/UsageObservation; api_call_count does not become model_call. Cross-day first_seen/
+  last_seen never assigns the entire total to the last day, following V03. Auxiliary task
+  and main-session cumulative values are mutually exclusive.
+- Eight tests from subagent, with two type/assertion fixes during integration: basic
+  cumulative, cross-day, exclusive auxiliary totals, v20 backfill/compaction inheritance,
+  capability evidence_level=doc-level.
+- projection.json rebuilds SQLite; schema DDL accompanies that extracted test data.
 
-| # | 命令（cwd） | 退出码 | 结果摘要 |
+<a id="openclawa09官方文档"></a>
+
+### OpenClaw: A09, official documentation
+
+- Documents then established only ~/.openclaw/agents/id/agent/openclaw-agent.sqlite and
+  legacy sessions archive locations, **without table/entry schema**. Runtime DB/archive
+  return unknown_format with pending-native-sample reasons. No table/field guesses or
+  invented zeros. Archives treated as migration input following doctor --fix.
+- Three tests: runtime rejection/stable repeats, archives excluded even with placeholder
+  1200+300 values, accurate capabilities. layout.json rebuilds temporary SQLite/JSON/JSONL layout.
+
+<a id="命令与结果主会话集成后"></a>
+
+## Commands and results after integration
+
+| # | Command (directory) | Exit | Result |
 | --- | --- | --- | --- |
-| 1 | `cargo test -p llm-usage-core` | 0 | 全绿（新增 cline 3 + dsh 4 + openclaw 3 + hermes 8 + 内联若干；verify 53 个测试二进制） |
-| 2 | `cargo run --example real_verify_{cline,dsh,hermes,openclaw}` | 0 | 四例 discovered_roots=0（not_found 核验结果；无数据目录） |
-| 3 | `npm run verify` | 0 | lint 0、clippy/fmt 干净、前端构建不变 |
-| 4 | `APPDATA=<临时> cargo run -p llm-usage-m0 -- --headless` | 0 | 14 适配器注册；7 实例 27,158 事件（与上批一致量级，活文件微增） |
+| 1 | cargo test -p llm-usage-core | 0 | Cline 3, DSH 4, OpenClaw 3, Hermes 8 and additional inline tests pass; verify includes 53 test binaries |
+| 2 | cargo run --example real_verify_{cline,dsh,hermes,openclaw} | 0 | All four discovered_roots=0; local data directories absent |
+| 3 | npm run verify | 0 | Lint/Clippy/fmt clean; frontend build unchanged |
+| 4 | APPDATA=temporary cargo run -p llm-usage-m0 -- --headless | 0 | 14 registered adapters; 7 instances/27,158 events, same order of magnitude as prior batch with active-file changes |
 
-## 过程缺陷与修复
+<a id="过程缺陷与修复"></a>
 
-| 处 | 问题 | 修法 |
+## Problems and fixes during work
+
+| Location | Problem | Fix |
 | --- | --- | --- |
-| scanner.rs | 适配器注册表两次被外部改写回旧内容（编辑器/工具回写旧缓冲；探针定位：app 零发现 vs 探针 7 根） | 重新接线并以断言式脚本验证；新增 `examples/discover_probe.rs` 诊断工具（按 app 同一上下文逐适配器打印发现根） |
-| cline 内联测试 | "request" 未入已知键集合；map_cost 不拒负值 | 补键集合 + 非有限/负值拒绝（口径与 parse 一致） |
-| hermes_contract | 元组类型第 4 位误标不可空；evidence_level 断言过严 | 改可空类型；前缀断言 |
+| scanner.rs | Registry overwritten twice with stale external editor/tool buffers; app discovered zero versus probe seven roots | Restore integration and assert with script; discover_probe.rs prints per-adapter roots using app context |
+| Cline inline tests | request absent from known keys; map_cost accepted negatives | Add key; reject nonfinite/negative cost as parse does |
+| hermes_contract | Fourth tuple field incorrectly nonnullable; evidence_level assertion too strict | Nullable type and prefix assertion |
 
-### OpenCode / MiMo Code / Zoo Code（2026-09-26 第二批，A17/A14/A19）
+<a id="opencode--mimo-code--zoo-code2026-09-26-第二批a17a14a19"></a>
 
-- **OpenCode**（固定源码 0027387）：逐次数据可得——part 表 `data.type="step-finish"`
-  部件携带 tokens{input(未缓存),output,reasoning,cache{read,write}}+cost；语义经
-  projector/publish-llm-event 逐字证实（inclusive inputTokens=in+cr+cw、
-  total=五字段和）；session.tokens_* 仅对账（本实现 matched）；message.data
-  turn 聚合不读防双计；逐调用精确时间/模型切换序待 event 层（observed_at 口径）。
-- **MiMo Code**（456678b）：与 OpenCode 同形；`message.agent_id` 互斥指纹；
-  session 无累计列；MIMOCODE_HOME/data 路径；不从 fork 推兼容（双向 fail closed）。
-- **Zoo Code**（f780647）：Roo 血统整写 ui_messages.json；LIFO 配对合并
-  （finish 覆盖 start、无配对丢弃）；condense_context.cost 计上游 totalCost
-  （辅助调用、token 未知）；**tokensIn 含缓存**（与 opencode 家族相反）。
-- 家族共享模块 `adapters/opencode_family.rs`（OpenCode+MiMo 共享 step-finish
-  扫描核心，产品身份注入）；合同测试 16 个 + 模块单测 12 个绿。
-- **跨产品碰撞发现与修复**：kilo 数据目录存在同形 `opencode-rc.db`，首版
-  discover 曾误识别为 OpenCode 库（14 事件对账 matched 证实同形）；修复为按
-  数据目录名收敛（仅 opencode/mimocode 目录或 MIMOCODE_HOME data 直接子级），
-  修复后 not_found 与盘点一致，负向测试覆盖，capability 记录碰撞风险。
+### OpenCode / MiMo Code / Zoo Code: Second batch, 2026-09-26, A17/A14/A19
 
-## 未完成项
+- **OpenCode**, 0027387: part.data.type=step-finish has input, output, reasoning,
+  cache.read/write and cost. Source projector/publish-llm-event explicitly establishes
+  inputTokens=in+cr+cw and total=sum of five exclusive fields. session.tokens_* compares
+  totals, matching here; message.data turn totals excluded to avoid duplicates. Exact
+  call time/model-switch order needs event layer; this stage uses observed_at.
+- **MiMo**, 456678b: related layout with distinguishing message.agent_id, no session
+  cumulative columns, MIMOCODE_HOME/data. Shared ancestry does not establish compatibility;
+  both adapters reject the other's format.
+- **Zoo**, f780647: Roo-related whole ui_messages.json, LIFO start/finish pairing with
+  finish replacing start and unmatched finish discarded. condense_context.cost contributes
+  upstream totalCost as auxiliary work with unknown tokens. **tokensIn includes cache**,
+  unlike the OpenCode family.
+- adapters/opencode_family.rs shares step-finish scan for OpenCode/MiMo with injected product
+  identity. Sixteen format tests plus twelve module tests pass.
+- **Cross-product collision fixed:** Kilo held matching opencode-rc.db; initial discovery
+  misidentified it as OpenCode and matched 14 comparison events. Restrict discovery to
+  opencode/mimocode directories or direct MIMOCODE_HOME/data children. After repair,
+  not_found agrees with inventory; negative tests and capability collision warning retained.
 
-| 项 | 状态 | 后续 |
+<a id="未完成项"></a>
+
+## Outstanding work at this stage
+
+| Item | Status | Next step |
 | --- | --- | --- |
-| 七产品真实数据验收 | 后置（本机 not_found） | 安装后 real_verify 复验 + 脱敏 fixture 补取；逐 session.version 升 known_version |
+| Native data for seven products | Deferred; locally not_found | After installation, real_verify/redacted samples; verify each session.version before known_version |
+
+<a id="验证产物"></a>
 
 <a id="证据文件"></a>
 
-## 验证产物
+## Validation files
 
-- 适配器：`adapters/{cline,dsh,hermes,openclaw}/`；
-- 测试：`tests/{cline,dsh,openclaw,opencode,mimo_code,zoo}_contract.rs`、`tests/hermes_contract.rs`；
-- fixtures：`tests/fixtures/{cline,dsh,hermes,openclaw}/`（合成 + 期望文档）；
-- examples：`real_verify_{cline,dsh,hermes,openclaw,opencode,mimo_code,zoo}.rs`、`discover_probe.rs`。
+- adapters/{cline,dsh,hermes,openclaw}/.
+- `tests/{cline,dsh,openclaw,opencode,mimo_code,zoo}_contract.rs`, tests/hermes_contract.rs.
+- tests/fixtures/{cline,dsh,hermes,openclaw}/: synthetic data and expectations.
+- real_verify_{cline,dsh,hermes,openclaw,opencode,mimo_code,zoo}.rs and discover_probe.rs.

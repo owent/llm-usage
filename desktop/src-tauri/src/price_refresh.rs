@@ -1,12 +1,12 @@
-//! F2 在线刷新（models.dev 社区目录）：抓取、原始响应缓存、失败回退与幂等导入。
+//! F2 models.dev refresh: fetch, raw-response caching, failure fallback and repeatable imports.
 //!
-//! 约定（docs/design/desktop-usage/pricing.md · 在线刷新设计）：
-//! - 默认关闭；启用后仅 HTTPS GET models.dev api.json，请求不携带任何本地用量、
-//!   主机/来源身份、会话内容或账户密钥；
-//! - 原始响应缓存于 `<数据库目录>/price-cache/`，TTL 默认 3 天（1–365 可配），
-//!   新鲜期内不发网络请求；
-//! - 下载或校验失败回退到上一次成功下载的缓存；无缓存时报错并保留既有快照（A9）；
-//! - 校验失败的响应不覆盖缓存；导入幂等，不触发既有估算重算。
+//! Online refresh rules in docs/design/desktop-usage/pricing.md:
+//! - off by default; enabling it sends only an HTTPS GET for models.dev api.json,
+//!   without local usage, host/source identity, session content or account credentials;
+//! - raw responses live in <database-directory>/price-cache/, default TTL three days, range 1-365;
+//!   fresh caches avoid network requests;
+//! - download/validation failure uses the last successful cache; no cache means an error with snapshots retained (A9);
+//! - invalid responses never replace the cache; repeated import does not duplicate or reprice existing estimates.
 
 use llm_usage_core::models_dev::{
     content_hash, snapshot_from_models_dev, MODELS_DEV_API_URL, MODELS_DEV_MAX_BYTES,
@@ -15,22 +15,22 @@ use llm_usage_core::storage::Storage;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-/// 缓存 TTL 默认值（天）与合法范围。
+/// Default cache TTL in days and its valid range.
 pub const DEFAULT_TTL_DAYS: u32 = 3;
 pub const MIN_TTL_DAYS: u32 = 1;
 pub const MAX_TTL_DAYS: u32 = 365;
 
-/// 缓存元数据（sidecar JSON；随文件系统保留，数据库重建不影响）。
+/// Sidecar cache metadata remains on disk independently of database rebuilding.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CacheMeta {
     pub url: String,
     pub fetched_at_ms: i64,
-    /// FNV-1a 内容哈希十六进制（快照 ID 组成部分）。
+    /// Hexadecimal FNV-1a content hash, included in snapshot identity.
     pub content_hash: String,
     pub bytes: u64,
 }
 
-/// 缓存状态（界面展示新鲜度）。
+/// Cache state for displaying freshness.
 #[derive(Debug, Clone, Serialize)]
 pub struct PriceCacheInfo {
     pub fetched_at_ms: i64,
@@ -39,10 +39,10 @@ pub struct PriceCacheInfo {
     pub age_secs: i64,
 }
 
-/// 一次刷新的结果（UI 状态与操作日志）。
+/// Refresh result for UI state and operation logs.
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct PriceRefreshOutcome {
-    /// fetched / cache_fresh / fetch_failed_used_cache / fetch_failed_no_cache。
+    /// Status: fetched, cache_fresh, fetch_failed_used_cache or fetch_failed_no_cache.
     pub status: String,
     pub snapshot_id: Option<String>,
     pub inserted_rows: usize,
@@ -51,7 +51,7 @@ pub struct PriceRefreshOutcome {
     pub error: Option<String>,
 }
 
-/// 可观察的刷新状态（AppState 持有；UI 轮询）。
+/// Observable refresh state held by AppState for UI polling.
 #[derive(Debug, Default, Serialize)]
 pub struct PriceRefreshState {
     pub running: bool,
@@ -69,7 +69,7 @@ fn cache_paths(db_path: &Path) -> (PathBuf, PathBuf) {
     )
 }
 
-/// 读取缓存（meta 缺失/损坏时以文件 mtime 重建元数据——下载失败时仍能回退）。
+/// Read cache; missing/invalid metadata falls back to file mtime so download failure can still use it.
 fn read_cache(db_path: &Path) -> Option<(Vec<u8>, CacheMeta)> {
     let (json_path, meta_path) = cache_paths(db_path);
     let bytes = std::fs::read(&json_path).ok()?;
@@ -98,7 +98,7 @@ fn read_cache(db_path: &Path) -> Option<(Vec<u8>, CacheMeta)> {
     ))
 }
 
-/// 原子写缓存（tmp + rename；仅在内容通过校验后调用）。
+/// Write validated cache through temporary files and rename.
 fn write_cache(db_path: &Path, bytes: &[u8], meta: &CacheMeta) -> Result<(), String> {
     let (json_path, meta_path) = cache_paths(db_path);
     let dir = json_path.parent().expect("cache path has parent");
@@ -114,7 +114,7 @@ fn write_cache(db_path: &Path, bytes: &[u8], meta: &CacheMeta) -> Result<(), Str
     Ok(())
 }
 
-/// HTTPS GET models.dev api.json（ureq/rustls；全局超时；响应体有界）。
+/// HTTPS GET models.dev api.json with ureq/rustls, a global timeout and bounded response size.
 pub fn http_fetch(url: &str) -> Result<Vec<u8>, String> {
     let agent = ureq::Agent::config_builder()
         .https_only(true)
@@ -148,7 +148,7 @@ fn cache_info(meta: &CacheMeta, now_ms: i64) -> PriceCacheInfo {
     }
 }
 
-/// 从给定内容导入快照（幂等）；成功返回 (snapshot_id, inserted, already_present)。
+/// Import content without duplicates; return (snapshot_id, inserted, already_present).
 fn import_cached_content(
     storage: &Storage,
     bytes: &[u8],
@@ -170,10 +170,10 @@ fn import_cached_content(
     ))
 }
 
-/// 在线刷新主流程（可注入抓取函数以便测试）。
+/// Main refresh procedure with an injectable fetch function for tests.
 ///
-/// `force` 绕过 TTL（手动「立即刷新」）。任何失败都保留既有快照与缓存语义：
-/// 抓取/校验失败时回退到上次成功下载的内容导入；无缓存时报错。
+/// force bypasses TTL for manual refresh. Failures retain existing snapshot/cache semantics:
+/// fetch/validation failure imports the last successful cached content; without a cache, return an error.
 pub fn refresh_prices_with(
     storage: &Storage,
     db_path: &Path,
@@ -183,7 +183,7 @@ pub fn refresh_prices_with(
     fetch: &dyn Fn() -> Result<Vec<u8>, String>,
 ) -> PriceRefreshOutcome {
     let cached = read_cache(db_path);
-    // 1) 缓存新鲜且非强制：不发网络请求，幂等导入缓存内容。
+    // 1. Fresh cache without force: import cached content without a network request or duplicates.
     if !force {
         if let Some((bytes, meta)) = &cached {
             let ttl_ms = (ttl_days.max(MIN_TTL_DAYS) as i64) * 86_400_000;
@@ -207,12 +207,12 @@ pub fn refresh_prices_with(
             }
         }
     }
-    // 2) 抓取 + 校验 + 写缓存 + 导入。
+    // 2. Fetch, validate, write cache and import.
     match fetch().and_then(|bytes| {
         let text =
             String::from_utf8(bytes.clone()).map_err(|e| format!("response not UTF-8: {e}"))?;
         let hash = content_hash(&bytes);
-        // 先校验转换，通过后才覆盖缓存文件。
+        // Validate conversion before replacing cache files.
         let snapshot = snapshot_from_models_dev(&text, now_ms, hash)
             .map_err(|e| format!("validate models.dev content: {e}"))?;
         let meta = CacheMeta {
@@ -236,7 +236,7 @@ pub fn refresh_prices_with(
             error: None,
         },
         Err(e) => {
-            // 3) 失败回退：上一次成功下载的缓存（A9）。
+            // 3. A9 failure fallback uses the last successful downloaded cache.
             match cached {
                 Some((bytes, meta)) => {
                     match import_cached_content(storage, &bytes, &meta, now_ms) {
@@ -266,12 +266,12 @@ pub fn refresh_prices_with(
     }
 }
 
-/// 状态查询用缓存信息（无缓存时为 None）。
+/// Cache metadata for status queries, or None when absent.
 pub fn cache_info_for_status(db_path: &Path, now_ms: i64) -> Option<PriceCacheInfo> {
     read_cache(db_path).map(|(_, meta)| cache_info(&meta, now_ms))
 }
 
-/// 命令/调度入口：按当前设置执行一次刷新（后台线程调用；写操作日志）。
+/// Command/scheduler entry: background refresh using current settings, with operation logging.
 pub fn run_price_refresh(state: &crate::app_state::AppState, force: bool) -> PriceRefreshOutcome {
     let (ttl_days, now) = (
         state
@@ -303,8 +303,8 @@ pub fn run_price_refresh(state: &crate::app_state::AppState, force: bool) -> Pri
     outcome
 }
 
-/// 采集结束后的自动刷新检查：启用且缓存过期（或缺失）时后台刷新一次。
-/// 并发重入由 AppState.price_refresh 的 running 标记挡下；失败只留痕不阻塞。
+/// After collection, refresh only when enabled and stale/missing, unless explicitly forced.
+/// AppState.price_refresh.running prevents concurrent entry; report failure without blocking collection.
 pub fn maybe_auto_refresh(state: &std::sync::Arc<crate::app_state::AppState>, force: bool) -> bool {
     {
         let settings = state.settings.lock().unwrap();
@@ -354,11 +354,11 @@ mod tests {
     use llm_usage_core::storage::Storage;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
-    /// 最小合法 api.json：官方 vendorA（canonical 前缀）一个按量价模型。
+    /// Minimal synthetic api.json: one canonical provider model with pay-as-you-go rates.
     const MINI: &str = r#"{"vendorA":{"id":"vendorA","models":{"m-one":{"id":"m-one","canonical_model_id":"vendorA/m-one","cost":{"input":10,"output":50,"cache_read":1}}}}}"#;
 
-    /// 真实 HTTPS 抓取冒烟：ureq/rustls 调用过程 + 响应体上限 + 实载转换。
-    /// 需网络；CI 不运行（`cargo test -p llm-usage-desktop http_fetch_live -- --ignored`）。
+    /// Live HTTPS smoke check: ureq/rustls fetch, response limit and actual catalog conversion.
+    /// Requires network and is skipped in CI; run cargo test -p llm-usage-desktop http_fetch_live -- --ignored.
     #[test]
     #[ignore = "hits the live models.dev endpoint; maintainer-run smoke"]
     fn http_fetch_live_models_dev_smoke() {
@@ -399,15 +399,15 @@ mod tests {
         storage.load_price_book().unwrap().rows.len()
     }
 
-    const NOW: i64 = 1_790_000_000_000; // 2026-09-30 UTC 附近
+    const NOW: i64 = 1_790_000_000_000; // Synthetic time: 2026-09-21T14:13:20Z.
     const DAY: i64 = 86_400_000;
 
-    /// A9 主路径：下载失败 ⇒ 回退上一次成功下载的缓存继续导入。
+    /// A9 fetch failure falls back to the last successful cache for import.
     #[test]
     fn failed_fetch_falls_back_to_last_successful_cache() {
         let db = temp_db_path("a9-cache");
         let storage = Storage::open_in_memory().unwrap();
-        seed_cache(&db, MINI, NOW - 30 * DAY); // 陈旧缓存（30 天前）
+        seed_cache(&db, MINI, NOW - 30 * DAY); // Stale cache from 30 days earlier.
         let calls = AtomicUsize::new(0);
         let outcome = refresh_prices_with(&storage, &db, NOW, DEFAULT_TTL_DAYS, false, &|| {
             calls.fetch_add(1, Ordering::SeqCst);
@@ -421,7 +421,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(db.parent().unwrap());
     }
 
-    /// A9 无缓存：下载失败 ⇒ 报错且既有快照不受影响。
+    /// A9 no-cache fetch failure returns an error while retaining existing snapshots.
     #[test]
     fn failed_fetch_without_cache_keeps_existing_snapshots() {
         let db = temp_db_path("a9-none");
@@ -433,23 +433,23 @@ mod tests {
         });
         assert_eq!(outcome.status, "fetch_failed_no_cache");
         assert!(outcome.snapshot_id.is_none());
-        assert_eq!(priced_rows(&storage), before); // 既有快照原样保留
+        assert_eq!(priced_rows(&storage), before); // Existing snapshots remain unchanged.
         let _ = std::fs::remove_dir_all(db.parent().unwrap());
     }
 
-    /// TTL 内不发网络请求（缓存时间足够长，减少重复下载）。
+    /// A fresh cache avoids network requests within TTL.
     #[test]
     fn fresh_cache_skips_network() {
         let db = temp_db_path("fresh");
         let storage = Storage::open_in_memory().unwrap();
-        seed_cache(&db, MINI, NOW - DAY); // 1 天前 < 默认 3 天 TTL
+        seed_cache(&db, MINI, NOW - DAY); // One day old is within the default three-day TTL.
         let outcome = refresh_prices_with(&storage, &db, NOW, DEFAULT_TTL_DAYS, false, &|| {
             panic!("network must not be called within TTL")
         });
         assert_eq!(outcome.status, "cache_fresh");
         assert!(outcome.already_present || outcome.inserted_rows == 1);
         assert_eq!(priced_rows(&storage), 1);
-        // force 绕过 TTL：抓取被调用。
+        // force bypasses TTL and invokes fetch.
         let calls = AtomicUsize::new(0);
         let outcome = refresh_prices_with(&storage, &db, NOW, DEFAULT_TTL_DAYS, true, &|| {
             calls.fetch_add(1, Ordering::SeqCst);
@@ -460,7 +460,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(db.parent().unwrap());
     }
 
-    /// 校验失败的响应不覆盖缓存，并回退到旧缓存（A9 变体）。
+    /// Invalid downloaded content leaves cache intact and falls back to its prior bytes (A9).
     #[test]
     fn invalid_download_does_not_overwrite_cache() {
         let db = temp_db_path("invalid");
@@ -474,7 +474,7 @@ mod tests {
             .error
             .unwrap()
             .contains("validate models.dev content"));
-        // 缓存内容仍是旧的成功下载。
+        // Cache bytes still match the previous successful download.
         let (bytes, meta) = read_cache(&db).unwrap();
         assert_eq!(bytes, MINI.as_bytes());
         assert_eq!(meta.fetched_at_ms, NOW - 30 * DAY);
@@ -482,7 +482,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(db.parent().unwrap());
     }
 
-    /// 成功下载：写缓存 + 导入新快照；同内容重复刷新幂等。
+    /// Successful download writes/imports the snapshot; repeated identical content creates no duplicates.
     #[test]
     fn successful_fetch_writes_cache_and_imports_idempotently() {
         let db = temp_db_path("ok");
@@ -495,7 +495,7 @@ mod tests {
         assert_eq!(priced_rows(&storage), 1);
         let (_, meta) = read_cache(&db).expect("cache written");
         assert_eq!(meta.fetched_at_ms, NOW);
-        // 强制再刷新同内容：快照 ID 相同 ⇒ 幂等跳过。
+        // A forced repeat produces the same snapshot ID and skips duplicate insertion.
         let outcome = refresh_prices_with(&storage, &db, NOW, DEFAULT_TTL_DAYS, true, &|| {
             Ok(MINI.as_bytes().to_vec())
         });

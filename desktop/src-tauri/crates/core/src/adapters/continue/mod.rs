@@ -1,6 +1,6 @@
-//! Continue 适配器（continuedev/continue；独立目录约定）。载体：
-//! `~/.continue/sessions/<uuid>.json` 顶层 `usage`（**仅 CLI 写入**的会话累计
-//! 真实 API 值；GUI 会话无此字段；devdata.sqlite 是估算不采纳）。
+//! Continue (continuedev/continue) reads its own local files:
+//! `~/.continue/sessions/<uuid>.json` has top-level usage: native session totals
+//! written only by CLI. GUI lacks this field; devdata.sqlite estimates are excluded.
 
 pub mod detect;
 pub mod versions;
@@ -9,7 +9,7 @@ pub use detect::CONTINUE_FORMAT;
 pub use versions::session_usage_v1;
 pub use versions::{CONTINUE_FORMAT_VERSION, LATEST_IMPL_ID, VERIFIED_VERSION_IMPLS};
 
-/// Continue 适配器（无状态）。
+/// Stateless Continue adapter.
 pub struct ContinueAdapter;
 
 impl Default for ContinueAdapter {
@@ -62,7 +62,7 @@ impl crate::adapters::framework::SourceAdapter for ContinueAdapter {
         let mut seen: std::collections::BTreeSet<std::path::PathBuf> =
             std::collections::BTreeSet::new();
         for (root, basis) in roots {
-            // <uuid>.json（深度 1）；sessions.json 是索引不读。
+            // <uuid>.json at depth 1; sessions.json is an index and is not read.
             let files = crate::adapters::framework::enumerate_files_bounded(&root, 1, &|p| {
                 p.extension()
                     .and_then(|e| e.to_str())

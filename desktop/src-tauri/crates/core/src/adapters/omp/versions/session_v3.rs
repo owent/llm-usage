@@ -1,34 +1,34 @@
-//! oh-my-pi（omp）session JSONL 格式实现（`session_v3`）。
+//! oh-my-pi (omp) session JSONL parser: session_v3.
 //!
-//! 格式依据（本机真实数据，18.2.7 scoop 安装，58 个会话文件 2026-08-21 至 2026-09-24，
-//! 逐类型白名单实读核验；另有固定源码 oh-my-pi 62bc57b 与 omp.exe 二进制字符串佐证）：
-//! - 布局：`~/.omp/agent/sessions/<encoded-cwd>/<ts>_<uuid>.jsonl`（主会话）；
-//!   子 Agent 文件在 `<ts>_<父uuid>/<Name>.jsonl`，嵌套子 Agent 再深一层
-//!   `<ts>_<父uuid>/<Name>/<Name>.<sub>.jsonl`；会话目录内还有 .json/.md/.log 伴生文件
-//!   （不读）。全部 58 个文件首行均为 `type:"title"`（{v:1,title,updatedAt,pad,...}，
-//!   标题正文不读），session 头在其后。
-//! - session 头 `version`=3（58/58）；无 fork（parentSession 字段本机未出现，
-//!   仍按与 pi 相同的规则支持）；条目基础字段 {type,id,parentId,timestamp}。
-//! - model_change 落盘为组合字段 `model`="provider/model"（3 个脱敏 fixture 一致），
-//!   非 pi 的分字段 modelId/provider（分字段形状作后备解析，omp 本机未观测）。
-//! - assistant 条目（8752 条实读）：model/provider/stopReason/responseId 自带；
-//!   usage{input,output,cacheRead,cacheWrite,totalTokens,cost} 全部在场（含 error/aborted）；
-//!   `reasoningTokens`⊆output 可选（85 条）；`duration`/`ttft` 浮点毫秒（omp 特有）。
-//!   不变量逐条成立：totalTokens = input+output+cacheRead+cacheWrite。
-//! - toolResult 无 usage（6643/6643）；compaction（37）与 branch_summary（2）均无 usage
-//!   （tokensBefore/tokensAfter 是上下文估算，不计账）；独立 usage 条目未出现（仍支持）。
-//! - 其他已观测类型（忽略）：title/title_change/credential_pin/session_init/
-//!   ttsr_injection/service_tier_change/custom(tool_execution_start 等)/custom_message。
-//! - 日志侧写：~/.omp/logs/omp.*.log 仅见上下文估算 debug 行，无逐次用量；
-//!   title-generator 调用在本机日志未观测，尚未确认与会话记录重叠。
+//! Native reference: Scoop 18.2.7, 58 session files dated 2026-08-21 through 2026-09-24.
+//! Selected fields/types were inspected alongside oh-my-pi 62bc57b and omp.exe strings.
+//! - Main sessions: ~/.omp/agent/sessions/<encoded-cwd>/<ts>_<uuid>.jsonl.
+//!   Subagents: <ts>_<parent_uuid>/<Name>.jsonl; nested subagents:
+//!   <ts>_<parent_uuid>/<Name>/<Name>.<sub>.jsonl. Do not read companion .json/.md/.log files.
+//!   All 58 files start with type=title and v/title/updatedAt/pad metadata;
+//!   exclude title bodies and read the later session header.
+//! - All 58 headers have version=3. parentSession was not observed locally;
+//!   its compatibility path follows pi. Entry fields are type/id/parentId/timestamp.
+//! - Three redacted samples use combined model_change.model=provider/model.
+//!   Separate modelId/provider is a compatibility fallback, unobserved in these omp samples.
+//! - 8752 assistant entries carry model/provider/stopReason/responseId and
+//!   input/output/cacheRead/cacheWrite/totalTokens/cost usage, including error/aborted calls.
+//!   85 entries also report reasoningTokens as an output subset; duration/ttft are float milliseconds.
+//!   Every checked row has totalTokens=input+output+cacheRead+cacheWrite.
+//! - 6643 toolResult, 37 compaction, and 2 branch_summary records have no usage.
+//!   tokensBefore/tokensAfter estimate context size; standalone usage was not observed.
+//! - Ignore observed title/title_change/credential_pin/session_init/
+//!   ttsr_injection/service_tier_change/custom/custom_message metadata entries.
+//! - ~/.omp/logs/omp.*.log contained context-size debug estimates, not per-call usage.
+//!   No local title-generator record established overlap with session usage.
 //!
-//! 版本策略（architecture.md#unknown-version，V30）：session 头经
-//! [`super::super::versions::select`] 分派；已收录版本（3）按映射用本实现
-//! （KnownVersion），未收录/缺失版本用本实现（当前最新）兼容尝试并带
-//! `parse_basis` 标记，不因版本号未收录直接拒绝（omp 旧版落盘格式尚未核验，
-//! 与 pi 不同，无 evidenced-incompatible 分支）。
+//! V30 session header selection uses super::super::versions::select.
+//! Registered format 3 selects this implementation as KnownVersion.
+//! Unregistered/missing versions attempt compatibility reading with parse_basis markers.
+//! Unknown version alone does not reject data; older omp formats remain unverified
+//! and have no separately checked incompatible-version branch.
 //!
-//! V30 目录迁移自根级 adapters/omp.rs，扫描行为不变，不重建来源、不重置游标。
+//! V30 moved adapters/omp.rs without recreating sources, resetting cursors, or changing scan behavior.
 
 use crate::domain::{CallCategory, EventInput, ModelAttribution, VersionBasis};
 use crate::error::CoreError;
@@ -48,7 +48,7 @@ use crate::adapters::usage_map::PiFamilyUsage;
 
 pub const OMP_PARSER_VERSION: &str = "omp-session-1";
 
-/// 持久化解析上下文（会话身份、模型状态、未知类型登记、版本选择依据）。
+/// Persist session identity, model state, unknown types, and version selection.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 struct OmpParseContext {
     session_id: Option<String>,
@@ -58,8 +58,8 @@ struct OmpParseContext {
     model_provider: Option<String>,
     #[serde(default)]
     unknown_types: Vec<String>,
-    /// 版本选择依据（known_version / latest_fallback）；旧解析上下文缺省为 None，
-    /// V30 目录迁移不重建来源、不重置游标。
+    /// Format basis known_version/latest_fallback; older contexts default to None.
+    /// The V30 move does not recreate sources or reset cursors.
     #[serde(default)]
     version_basis: Option<VersionBasis>,
 }
@@ -95,12 +95,12 @@ fn restore_context(stored: &StoredScanState, rescan: bool) -> OmpParseContext {
         .unwrap_or_default()
 }
 
-/// omp 命名空间下的条目键。
+/// Entry key in the omp namespace.
 fn entry_key(prefix: &str, entry: &serde_json::Value) -> String {
     family_entry_key("omp", prefix, entry)
 }
 
-/// 浮点毫秒 → i64 毫秒（四舍五入）；非有限/负值/溢出返回 None（调用方记诊断）。
+/// Round float milliseconds to i64; nonfinite/negative/overflow values return None for diagnostics.
 fn float_ms(value: Option<&serde_json::Value>) -> Option<Option<i64>> {
     match value {
         None => Some(None),
@@ -114,9 +114,9 @@ fn float_ms(value: Option<&serde_json::Value>) -> Option<Option<i64>> {
     }
 }
 
-/// `<ts>_<uuid>` 形状判定（如 `2026-08-21T02-19-22-638Z_01a0221d-...`）：
-/// 首个下划线前是 ISO 形时间戳（数字开头、含 'T'），后是 UUID 形 ID。
-/// 本机 58 文件实读：主会话文件名全部匹配，子 Agent 文件名与中间目录均不匹配。
+/// Check the ts_uuid path shape, such as 2026-08-21T02-19-22-638Z_01a0221d-....
+/// Require a digit-leading timestamp with T and a sufficiently long hex-leading ID suffix.
+/// All 58 checked main filenames match; subagent filenames/intermediate name directories do not.
 fn is_session_dir_shape(name: &str) -> bool {
     let Some(pos) = name.find('_') else {
         return false;
@@ -130,7 +130,7 @@ fn is_session_dir_shape(name: &str) -> bool {
         && uuid.starts_with(|c: char| c.is_ascii_hexdigit())
 }
 
-/// 主会话文件名 `<ts>_<uuid>.jsonl`（剥扩展名后同上形状）。
+/// Main filename follows ts_uuid.jsonl after removing the extension.
 fn is_main_session_file(path: &Path) -> bool {
     path.file_stem()
         .and_then(|s| s.to_str())
@@ -138,9 +138,9 @@ fn is_main_session_file(path: &Path) -> bool {
         .unwrap_or(false)
 }
 
-/// 子 Agent 判定：文件名不是 `<ts>_<uuid>.jsonl` 形状时，父会话 UUID 取最近的
-/// `<ts>_<uuid>` 形状祖先目录名（首个下划线之后部分）。嵌套子 Agent（Named/ 目录）
-/// 隔代不归名，归到最近的会话目录。
+/// For a non-main filename, select the nearest ts_uuid ancestor directory
+/// and take the ID after its first underscore as parent session identity.
+/// Nested named directories do not become session IDs.
 fn subagent_parent_from_path(path: &Path) -> Option<String> {
     if is_main_session_file(path) {
         return None;
@@ -157,9 +157,9 @@ fn subagent_parent_from_path(path: &Path) -> Option<String> {
     None
 }
 
-/// omp 会话事件构造：duration/ttft 浮点毫秒取整；其余与 pi 共享。
-/// V30：版本选择依据（known_version / latest_fallback）取自解析上下文，
-/// 经 pi 家族共享构造器随事件落库。
+/// Construct omp events with rounded duration/ttft; share other mappings with pi.
+/// V30 parse context selects known_version/latest_fallback,
+/// passed to storage through the shared pi-family constructor.
 #[allow(clippy::too_many_arguments)]
 fn build_usage_event(
     target: &ScanTarget,
@@ -180,7 +180,7 @@ fn build_usage_event(
         "oh-my-pi",
         OMP_PARSER_VERSION,
         context.session_id.as_deref(),
-        // 头里的 parentSession（fork）优先；否则用目录推定的父会话。
+        // Prefer header parentSession; otherwise use the parent identified from the path.
         context.parent_session.as_deref().or(parent_from_path),
         context.header_version,
         context.version_basis,
@@ -196,7 +196,7 @@ fn build_usage_event(
     )
 }
 
-/// 增量扫描一个 omp session JSONL 文件（统一入口 `OmpAdapter::scan` 分派到本实现）。
+/// Scan omp session JSONL, dispatched by OmpAdapter::scan.
 pub fn scan(
     target: &ScanTarget,
     stored: &StoredScanState,
@@ -208,8 +208,8 @@ pub fn scan(
     let mut events: Vec<EventInput> = Vec::new();
     let mut diagnostics: Vec<DiagnosticInput> = Vec::new();
     let mut records_seen: u64 = 0;
-    // 子 Agent 判定：按文件名/祖先目录的 <ts>_<uuid> 形状（不依赖根路径，
-    // 避免规范化路径与枚举路径的分隔符差异）。
+    // Identify subagents from filename/ancestor shapes without depending on root paths
+    // or separator differences between enumeration and normalized paths.
     let parent_from_path = subagent_parent_from_path(&target.path);
     let outcome = read_jsonl(
         &target.path,
@@ -251,9 +251,9 @@ pub fn scan(
                     ));
                     continue;
                 }
-                // 版本分派（探测/扫描同一注册表）：已收录按映射；未收录/缺失回退
-                // 本实现（当前最新）继续解析并带兼容标记，不直接拒绝（V30；
-                // omp 旧版落盘格式尚未核验，与 pi 的 fail closed 分支不同）。
+                // Detection/scanning share the registry; registered versions use mapped implementations.
+                // Unknown/missing versions keep a compatibility marker and continue parsing.
+                // Older omp formats lack the independently checked incompatible rules used by pi.
                 let found = entry.get("version").and_then(|v| v.as_i64());
                 let selection = super::super::versions::select(found);
                 context.version_basis = Some(selection.basis);
@@ -270,9 +270,9 @@ pub fn scan(
                 }
             }
             "model_change" => {
-                // 本机真实形状（3 个脱敏 fixture 一致）：`model` 为
-                // "provider/model" 组合字段；pi 继承形状 modelId/provider
-                // 分字段作后备（omp 本机未观测）。
+                // Three native redacted datasets use combined model_change.model
+                // as provider/model. Separate modelId/provider fields remain a compatibility fallback
+                // without local omp acceptance for that shape.
                 if let Some(combined) = json_str(&entry, "model") {
                     let (provider, model) = combined.split_once('/').unwrap_or(("", combined));
                     context.model = Some(model.to_string());
@@ -370,8 +370,8 @@ pub fn scan(
                                 ));
                             }
                             None => {
-                                // 无 usage 的 assistant 消息仍表明发生过一次调用：
-                                // 计调用数，token 全未知（不补零）。本机 8752 条均带 usage。
+                                // Missing or invalid assistant usage still counts an observed call
+                                // with unknown tokens; all 8752 checked local assistant entries carry usage.
                                 diagnostics.push(diag(
                                     "usage_shape_deviation",
                                     Some("message.usage"),
@@ -396,8 +396,8 @@ pub fn scan(
                         }
                     }
                     "toolResult" => {
-                        // 工具执行自身的 usage（不进主上下文记账）→ 辅助调用。
-                        // 本机 6643 条均无 usage。
+                        // Tool execution usage maps to auxiliary consumption.
+                        // All 6643 checked local toolResult entries lack usage.
                         let Some(usage_json) = message.get("usage").cloned() else {
                             continue;
                         };
@@ -447,8 +447,8 @@ pub fn scan(
                 }
             }
             "usage" => {
-                // 独立 usage 条目（kind 如 cache_warm）：辅助调用，provider/model 自有字段。
-                // 本机未出现，仍按与 pi 相同的规则支持。
+                // Standalone usage such as cache_warm is auxiliary with its own provider/model.
+                // The pi-compatible path exists without native omp samples for it.
                 let usage_json = entry
                     .get("usage")
                     .cloned()
@@ -496,9 +496,9 @@ pub fn scan(
                 ));
             }
             "compaction" | "branch_summary" => {
-                // 总结/分支总结调用（usage 可选）：无模型字段，按不晚于它的
-                // model_change 归属。本机 37 条 compaction / 2 条 branch_summary
-                // 均无 usage（tokensBefore/tokensAfter 是上下文估算，不计账）。
+                // Optional compaction/branch_summary usage tracks preceding model_change ownership.
+                // The checked 37 compaction and 2 branch_summary entries have no usage;
+                // tokensBefore/tokensAfter are context estimates and do not count as consumption.
                 let Some(usage_json) = entry.get("usage").cloned() else {
                     continue;
                 };
@@ -657,10 +657,10 @@ mod tests {
             subagent_parent_from_path(nested),
             Some("01a093fe-50cb-72cd-97c8-20029d52ad34".to_string())
         );
-        // 非 <ts>_<uuid> 形状的中间目录不判为子 Agent 父级。
+        // Intermediate directories lacking ts_uuid shape do not establish a subagent parent.
         let stray = Path::new("/home/u/.omp/agent/sessions/--C--x--/random_dir/file.jsonl");
         assert_eq!(subagent_parent_from_path(stray), None);
-        // 带下划线但非时间戳形状的目录名不误判。
+        // An underscore alone without timestamp shape must not identify a session directory.
         let not_ts = Path::new("/home/u/.omp/agent/sessions/--C--x--/Foo_12345678/file.jsonl");
         assert_eq!(subagent_parent_from_path(not_ts), None);
     }
@@ -681,8 +681,8 @@ mod tests {
 
     #[test]
     fn old_parse_context_without_basis_still_restores() {
-        // 旧解析上下文（无 version_basis 字段）反序列化不失败，basis 为 None；
-        // V30 目录迁移不重建来源、不重置游标。
+        // Older contexts without version_basis deserialize successfully to None.
+        // The V30 directory move does not recreate sources or reset cursors.
         let legacy = serde_json::json!({"session_id": null, "header_version": null});
         let ctx: OmpParseContext = serde_json::from_value(legacy).expect("restore");
         assert_eq!(ctx.version_basis, None);

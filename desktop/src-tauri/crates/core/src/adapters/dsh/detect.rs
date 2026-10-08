@@ -1,7 +1,7 @@
-//! DSH 探测：rc.2 原生 v4 header 与旧文档级 JSONL 分别识别。
-//! 原生生成文件及 zstd 委托有界 v4 探测；其他明示格式版本拒绝。
-//! 六类旧事件只使用 session-log-doc-1 锚点，不认证原生产品版本。
-//! 空文件 Pending，坏 JSON/未知首行类型保持格式诊断。
+//! DSH detection distinguishes native rc.2 v4 headers from legacy documented JSONL.
+//! Native generated/zstd files use bounded v4 detection; reject other explicit formats.
+//! Six legacy event kinds use session-log-doc-1, without establishing native product version.
+//! Empty files are Pending; bad JSON/unknown first-row kinds retain format diagnostics.
 
 use crate::adapters::framework::DetectOutcome;
 use crate::domain::VersionBasis;
@@ -12,8 +12,8 @@ use super::versions;
 
 pub const DSH_FORMAT: &str = "dsh-session-log-jsonl";
 
-/// 探测一个持久会话日志文件。
-/// 原生格式版本与旧文档锚点分别分派，不从安装版本认证历史记录。
+/// Detect one saved session log.
+/// Dispatch native/documented formats separately; installed versions do not identify old rows.
 pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     if versions::session_v4::is_native_path(path) {
         return versions::session_v4::detect(path);

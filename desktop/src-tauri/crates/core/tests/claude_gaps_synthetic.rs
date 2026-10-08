@@ -1,7 +1,7 @@
-//! Claude Code 适配器缺口场景：合成样本（目录/文件头均标 synthetic，本机
-//! not_found 无真实样本）。覆盖子 Agent 分类与跨文件去重、orphaned/superseded
-//! 变体、身份回退链、无 usage 条目、未映射 usage 键，以及 V17 fail closed
-//! （载体外 usage / 未文档化 type）与 detect 直测。
+//! Synthetic Claude gap tests; directories/headers are labeled synthetic. Originally
+//! created without native samples. Covers subagents, cross-file deduplication and orphaned/superseded
+//! variants, fallback identities, no-usage records, unmapped usage keys and V17 rejection
+//! of usage on other records/undocumented types, plus direct detection tests.
 
 mod common;
 
@@ -25,9 +25,9 @@ fn subagent_category_and_cross_file_dedup() {
         assert_eq!(f.events, 2);
     }
     let outcome = report.outcome.as_ref().unwrap();
-    // 发现按路径分量排序：sess-1（目录）< sess-1.jsonl（文件），子 Agent 文件先扫。
-    // syn-req-shared 先入为 sub_agent 副本；主文件副本同键不同分类 → conflict，
-    // 已存值保持，不双计（见 _expectations.md）。
+    // Discovery sorts path components: sess-1 directory precedes sess-1.jsonl, so subagent first.
+    // syn-req-shared first arrives as sub_agent; same-key main copy has another category and conflicts.
+    // Retain stored value without double counting; see _expectations.md.
     assert_eq!(outcome.added, 3);
     assert_eq!(outcome.conflicts, 1);
     assert_eq!(outcome.unchanged, 0);
@@ -97,8 +97,8 @@ fn orphaned_superseded_variants_dedup_and_discovery() {
     let root = claude_fixture("synthetic-orphaned-superseded");
     let reports = run_claude(&storage, &root, NOW);
     let report = &reports[0];
-    // 3 文件：现行 + .jsonl.superseded- 变体（不以 .jsonl 结尾，验证 accept 规则
-    // 显式覆盖）+ .orphaned- 变体。
+    // Three files: current, .jsonl.superseded- (not ending in .jsonl, explicitly accepted),
+    // and .orphaned- variant.
     assert_eq!(
         report.files.len(),
         3,
@@ -237,7 +237,7 @@ fn unmapped_usage_keys_kept_and_diag_once() {
     assert_eq!(report.files[0].events, 2);
     assert_eq!(report.outcome.as_ref().unwrap().added, 2);
 
-    // 映射字段保留（额外键不影响四字段入账）。
+    // Extra keys do not change recording of the four mapped fields.
     let row: (i64, i64, i64, i64, i64) = storage
         .conn()
         .query_row(
@@ -325,7 +325,7 @@ fn undocumented_record_type_fails_closed() {
     let adapter = ClaudeAdapter::new();
     let root = claude_fixture("synthetic-undocumented-type");
     let path = root.join("projects/proj/sess-1.jsonl");
-    // detect 只看首行（type=user）：Supported；fail closed 发生在扫描层。
+    // Detection checks only the user first line: Supported; scanner rejects later invalid records.
     assert_eq!(
         adapter.detect(&path).unwrap(),
         DetectOutcome::Supported {

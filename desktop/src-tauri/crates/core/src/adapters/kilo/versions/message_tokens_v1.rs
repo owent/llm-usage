@@ -1,39 +1,39 @@
-//! kilo.db `message` 表逐次 usage 格式实现（`message_tokens_v1`）。
+//! Per-call usage from kilo.db's message table (message_tokens_v1).
 //!
-//! 格式依据（真实脱敏 fixture + 本机只读 SELECT 探查，2026-09-25）：
-//! - 库布局：`<kilo home>/kilo.db`（本机 `~/.local/share/kilo/kilo.db`，WAL 模式，
-//!   另有 kilo.db-wal/-shm；上游另有 opencode-rc.db 不在范围）。
-//! - 表：`message(id, session_id, time_created, time_updated, data)`，
-//!   `session(id, project_id, parent_id, …, version, …, tokens_input/output/
-//!   reasoning/cache_read/cache_write, …)`（DDL 见 fixture schema 节，实读原文）。
-//! - 逐次 usage 载体：message.data（JSON 文本）中 `role="assistant"` 的
-//!   `tokens{input, output, reasoning?, cache{read, write}, total?}`；
-//!   `total = input+output+reasoning+cache.read+cache.write` 全互斥。
-//!   本机实读库 13,342 条 assistant 全带 tokens，其中 42 条缺 `total`
-//!   （未完成/出错）；`finish` 取值 tool-calls/stop/length/other/error/null。
-//! - 模型归属：assistant 消息自带 `modelID`/`providerID`（request_field）；
-//!   `time{created, completed?}` 为 epoch 毫秒。
-//! - 子 Agent：session.parent_id 非空 ⇒ 该会话消息记 sub_agent（子会话是
-//!   独立 session 行，与主会话同库，无跨表双计）。
-//! - session 行 tokens_* 五列是累计快照：仅五列合计可与逐次对账
-//!   （实读 276 会话 275 对上；7.4.8/7.4.9 fixture 期列名与值错位，本机新版本
-//!   列名一一对应——列级语义随版本不稳定，五列合计稳定）。快照列绝不映射为
-//!   request 事件（A11：session 累计表不混入 request 计数）。
-//! - 新 core 数据层（session_message 表）当前 0 行；仅存 session_message 而无
-//!   message 表的库按未知格式 fail closed，待核验格式并编写专用实现。
+//! Format references: redacted native test data and read-only local SELECT queries, 2026-09-25.
+//! - Database: <kilo home>/kilo.db; local ~/.local/share/kilo/kilo.db uses WAL
+//!   with kilo.db-wal/-shm. Upstream opencode-rc.db is outside this parser's scope.
+//! - Tables: message(id, session_id, time_created, time_updated, data),
+//!   session(id, project_id, parent_id, …, version, …, tokens_input/output/
+//!   reasoning/cache_read/cache_write, …); original DDL is in the test-data schema section.
+//! - Per-call usage is message.data JSON with role="assistant" and
+//!   tokens{input, output, reasoning?, cache{read, write}, total?}.
+//!   total=input+output+reasoning+cache.read+cache.write; all five components are exclusive.
+//!   All 13,342 locally read assistant rows had tokens; 42 lacked total
+//!   when unfinished or failed. finish values: tool-calls/stop/length/other/error/null.
+//! - Assistant messages carry modelID/providerID (request_field);
+//!   time{created, completed?} uses epoch milliseconds.
+//! - Nonempty session.parent_id marks that session's messages as sub_agent;
+//!   child sessions have separate rows in the same database, without counting both tables.
+//! - Five session tokens_* columns are cumulative snapshots; compare only their combined sum
+//!   with per-call usage. 275 of 276 native sessions matched. In 7.4.8/7.4.9 test data,
+//!   column names and values were misaligned; the newer local version matched by column.
+//!   Column meanings vary by version; snapshots never become request events or add to request counts (A11).
+//! - The observed session_message table was empty. Databases with only that table and no
+//!   message table are unknown formats; verify them before adding a separate parser.
 //!
-//! 增量约定（architecture.md「各输入的增量策略」SQLite 行）：
-//! - schema 指纹（表/关键列存在性）持久化于解析上下文；指纹变化 ⇒ 已处理位置重置
-//!   全量重读（id 键 upsert 幂等，不双计）；
-//! - 稳定键 = message.id，更新序号 = message.time_updated（事件 source_revision）；
-//! - 已处理时间 + 60s 有界重叠窗（覆盖并发会话同毫秒写入，重复行按
-//!   同键同内容幂等）；
-//! - message 表同时有 time_created/time_updated，无需 created_at-only 有界重扫；
-//! - 每轮行数上限 50,000：触顶 ⇒ BudgetExhausted，已处理位置停在最后一个完整毫秒；
-//! - 游标 `offset` 恒为 0：WAL 下主库文件长度不变不代表内容未变，
-//!   字节长度不能作为无变化短路依据（框架短路与代数裁决仍生效）。
-//!   in-place 页重写会改变文件头（change counter）触发框架 Rescan 标记，
-//!   本实现不因 rescan 重置已处理位置（同一逻辑库的 id/更新序号仍有效）。
+//! Incremental SQLite rules: see the per-input strategies in architecture.md.
+//! - Persist a schema fingerprint (tables/key columns) in the parse context; a changed fingerprint
+//!   resets the processing position for a full reread with idempotent upserts by ID.
+//! - Stable key: message.id; revision: message.time_updated (event source_revision).
+//! - A 60-second overlap before the processed timestamp covers out-of-order same-millisecond
+//!   writes from concurrent sessions; identical key/content pairs remain idempotent.
+//! - message has both time_created/time_updated; it does not need a created_at-only bounded reread.
+//! - Limit each round to 50,000 rows. BudgetExhausted retains the last complete millisecond.
+//! - Cursor offset stays zero: an unchanged main-file size under WAL does not mean unchanged content.
+//!   Do not use byte length to skip reads; framework checks and generation handling still apply.
+//!   In-place page rewrites change the header change counter and trigger framework Rescan;
+//!   this parser preserves the processing position because IDs/revisions remain valid in the same logical database.
 
 use crate::adapters::framework::{
     Reconciliation, ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -51,23 +51,23 @@ use serde::{Deserialize, Serialize};
 
 pub const KILO_PARSER_VERSION: &str = "kilo-message-tokens-4";
 const MAX_REASONABLE_TOKEN: i64 = crate::domain::MAX_TOKEN_VALUE;
-/// 已处理时间的回看窗（毫秒）：覆盖并发子会话的同毫秒乱序写。
+/// Timestamp overlap in milliseconds covers out-of-order same-millisecond child-session writes.
 pub const WATERMARK_OVERLAP_MS: i64 = 60_000;
-/// 单轮行数上限：触顶停在该毫秒边界，下轮续读。
+/// Per-round row limit; resume the incomplete millisecond on the next round.
 pub const MAX_ROWS_PER_ROUND: i64 = 50_000;
 
-/// 游标（持久化在 ingestion_checkpoints.cursor_value）。
+/// Cursor persisted in ingestion_checkpoints.cursor_value.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 struct KiloCursor {
     generation: i64,
-    /// 恒为 0：DB 不用字节偏移做无变化判定（WAL 见模块头）。
+    /// Always zero; database change detection cannot use byte offsets under WAL.
     #[allow(dead_code)]
     offset: u64,
-    /// 已处理到的 message.time_updated（含该值）；None = 从头全量。
+    /// Last processed message.time_updated, inclusive; None starts a complete scan.
     watermark_ms: Option<i64>,
 }
 
-/// 解析上下文：schema 指纹 + 版本分派结论（游标期间库结构/版本的持久快照）。
+/// Parse context stores the schema fingerprint and version selection alongside the cursor.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 struct KiloParseContext {
     schema_fingerprint: Option<String>,
@@ -75,7 +75,7 @@ struct KiloParseContext {
     db_version: Option<String>,
     #[serde(default)]
     has_unverified_records: bool,
-    /// Record failures survive an incremental window until that row is reread successfully.
+    /// Record failures persist across incremental windows until the row is successfully reread.
     #[serde(default)]
     record_errors: std::collections::BTreeSet<String>,
 }
@@ -85,7 +85,7 @@ fn diag(code: &str, field: Option<&str>, id_pos: &str, message: &str) -> Diagnos
         event_id: None,
         code: code.to_string(),
         field: field.map(str::to_string),
-        // 位置只存 message.id（稳定身份，非路径/正文）。
+        // Store only message.id as the diagnostic position, excluding paths and message bodies.
         position: Some(id_pos.to_string()),
         message: message.to_string(),
     }
@@ -129,7 +129,7 @@ fn load_window(conn: &rusqlite::Connection, since_ms: i64) -> Result<Vec<Message
         .map_err(CoreError::Sqlite)
 }
 
-/// 库内数值最大 session.version（一个库可混存多版本会话）。
+/// Highest numeric session.version; the same database may contain sessions from several versions.
 fn max_session_version(conn: &rusqlite::Connection) -> Result<Option<String>, CoreError> {
     let mut stmt = conn
         .prepare("SELECT DISTINCT version FROM session")
@@ -144,9 +144,9 @@ fn max_session_version(conn: &rusqlite::Connection) -> Result<Option<String>, Co
         .reduce(|a, b| super::version_max(&a, &b).to_string()))
 }
 
-/// 解析 message.data.tokens（五互斥字段）。
-/// input/output/cache.read/cache.write 四者必需（本机实读 13,342/13,342 成立）；
-/// reasoning/total 可缺失（缺失是未知，不是 0）。越界/类型错误返回 None。
+/// Parse the five exclusive components in message.data.tokens.
+/// Require input/output/cache.read/cache.write, present in all 13,342 native assistant rows;
+/// optional reasoning/total remain unknown when absent. Invalid types or ranges return None.
 fn parse_tokens(tokens: &serde_json::Value) -> Option<KiloUsage> {
     let obj = tokens.as_object()?;
     let get = |parent: Option<&serde_json::Map<String, serde_json::Value>>, key: &str| {
@@ -188,8 +188,8 @@ fn build_event(
         node.as_i64()
     };
     let json_str = |key: &str| data.get(key).and_then(|v| v.as_str());
-    // 时间：优先完成时间（source_completion），未完成退开始时间（source_start），
-    // 再退行级 time_created（uncertain）。
+    // Prefer completion time (source_completion), then start time (source_start),
+    // then row time_created with uncertain time basis.
     let (occurred_ms, time_basis) = match (
         json_i64(&["time", "completed"]),
         json_i64(&["time", "created"]),
@@ -211,8 +211,8 @@ fn build_event(
     let finish = json_str("finish");
     let has_error =
         data.get("error").map(|e| e.is_object()).unwrap_or(false) || finish == Some("error");
-    // 未完成（无 finish、无 error、无 total）记 partial；完成后 time_updated 提升、
-    // 同键按 source_revision 替换为 final。
+    // Missing finish and error leaves a partial event. Completion raises time_updated;
+    // the same key can then replace it with a final event using source_revision.
     let lifecycle = if finish.is_some() || has_error {
         Lifecycle::Final
     } else {
@@ -270,7 +270,7 @@ fn build_event(
     }
 }
 
-/// 单会话对账：逐次五字段合计（assistant）vs session 行五列合计。
+/// Reconcile one session's five per-message assistant components against five cumulative session columns.
 fn reconcile_session(
     conn: &rusqlite::Connection,
     session_id: &str,
@@ -328,15 +328,15 @@ fn reconcile_session(
     })
 }
 
-/// 增量扫描一个 kilo.db（统一入口 `KiloAdapter::scan` 分派到本实现）。
+/// Incrementally scan kilo.db, called by KiloAdapter::scan.
 pub fn scan(
     target: &ScanTarget,
     stored: &StoredScanState,
     _limits: &ScanLimits,
     now_ms: i64,
 ) -> Result<ScanOutcome, CoreError> {
-    // 游标不做 generation 过滤：同一逻辑库的 in-place 重写会让框架标 Rescan，
-    // 但 id/更新序号记录的已处理位置仍有效；换了逻辑库（身份变化）时 stored 为空自然全量。
+    // Do not filter the cursor by generation: in-place rewrites of the same logical database trigger Rescan,
+    // but IDs/revisions retain a valid processing position. A changed logical identity has empty stored state and scans fully.
     let cursor: KiloCursor = stored
         .cursor
         .as_ref()
@@ -355,7 +355,7 @@ pub fn scan(
     let source = open_source_db(&target.path, short_probe, &StagingLimits::default())?;
     let conn = source.conn();
     let fingerprint = schema_fingerprint(conn)?;
-    // schema 指纹变化 ⇒ 旧的已处理位置不可信，全量重读（id 幂等，不双计）。
+    // A changed schema fingerprint resets the old position for a full, idempotent reread by ID.
     let fingerprint_reset =
         context.schema_fingerprint.is_some() && context.schema_fingerprint != fingerprint;
     let watermark = if fingerprint_reset {
@@ -377,7 +377,7 @@ pub fn scan(
     } else {
         context.record_errors
     };
-    // A mutable source may remove a previously invalid row; absent rows do not degrade it.
+    // A mutable source can remove invalid rows; deleted rows do not degrade its current health.
     record_errors.retain(|id| {
         conn.query_row(
             "SELECT EXISTS(SELECT 1 FROM message WHERE id=?1)",
@@ -411,7 +411,7 @@ pub fn scan(
                 continue;
             }
         };
-        // role 过滤：只 assistant 的 usage 记 model_call（A11）。
+        // Only assistant messages contribute model_call usage (A11).
         let role = data.get("role").and_then(|r| r.as_str()).unwrap_or("");
         if role != "assistant" {
             if role.is_empty() {
@@ -425,7 +425,7 @@ pub fn scan(
             }
             continue;
         }
-        // 一个库可含多个版本；最高版本不能认证其他会话的消息。
+        // Mixed-version databases require each session's version; the highest version does not verify other sessions.
         let row_selection = super::select(row.session_version.as_deref());
         has_unverified_records |= row_selection.basis == VersionBasis::LatestFallback;
         let mut event = build_event(target, row, &data, row_selection.basis, now_ms);
@@ -457,8 +457,8 @@ pub fn scan(
             },
             None => {
                 record_errors.insert(row.id.clone());
-                // 无 usage 的 assistant 消息仍表明发生过一次调用：
-                // 计调用数，token 全未知（不补零）。
+                // An assistant without usage still identifies a call:
+                // count the call and leave every token field unknown.
                 diagnostics.push(diag(
                     "usage_shape_deviation",
                     Some("tokens"),
@@ -470,7 +470,7 @@ pub fn scan(
         events.push(event);
     }
 
-    // 更新已处理位置：触顶时停在最后一个完整毫秒（该毫秒下轮重读，幂等）。
+    // At the row limit, retain the last complete millisecond; replay the incomplete millisecond idempotently.
     let new_watermark = if hit_cap {
         rows.last().map(|r| r.time_updated - 1)
     } else {
@@ -522,8 +522,8 @@ pub fn scan(
         has_unverified_records,
         record_errors,
     };
-    // Session columns are an independent cumulative snapshot, never usage event evidence.
-    // Its mismatch remains auditable without invalidating valid per-message usage.
+    // Session columns are separate cumulative snapshots; do not use them to infer per-call usage.
+    // Retain reconciliation differences without invalidating valid per-message usage.
     Ok(ScanOutcome {
         status,
         cursor: Some(serde_json::to_value(new_cursor)?),
@@ -544,12 +544,12 @@ pub fn scan(
     })
 }
 
-/// 短查询事务探测：一条廉价只读查询验证本连接当前可一致读取。
+/// A short read-only query checks that this connection can read the database consistently.
 fn short_probe(conn: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
     conn.query_row("SELECT COUNT(*) FROM sqlite_master", [], |_| Ok(()))
 }
 
-/// 供测试/示例使用的只读打开（同约定：busy 时暂存副本）。
+/// Read-only source opening for tests/examples; stage a copy if the database is busy.
 pub fn open_readonly_source(path: &std::path::Path) -> Result<SourceDb, CoreError> {
     open_source_db(path, short_probe, &StagingLimits::default())
 }
@@ -577,13 +577,13 @@ mod tests {
             Some(0),
             "explicit zero is a reported value"
         );
-        // 缺 cache 子对象或任一必需字段 ⇒ 无法按全互斥关系映射。
+        // Missing cache or any required component prevents the exclusive-component mapping.
         assert!(parse_tokens(&serde_json::json!({"input": 1, "output": 2})).is_none());
         assert!(parse_tokens(&serde_json::json!({
             "input": 1, "output": 2, "cache": {"read": 0}
         }))
         .is_none());
-        // 负值/超限拒绝。
+        // Reject negative or excessive values.
         assert!(parse_tokens(&serde_json::json!({
             "input": -1, "output": 2, "cache": {"read": 0, "write": 0}
         }))

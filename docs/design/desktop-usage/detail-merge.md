@@ -1,26 +1,42 @@
-# 明细交换与合并
+# Detail exchange and merge
 
-明细交换使用独立版本 `llm-usage-details-1`，保留完整标准化事件、逐字段质量、
-原始主机/来源身份、来源修订、冲突标记及独立累计快照。聚合交换格式继续兼容。
-设置页分别提供聚合与明细导出；导入按包格式识别，预览范围与数量后执行。
-导出只含统计白名单，不包含会话正文、凭据、额外原始载体路径字段或采集游标；
-稳定来源键按原值保留。文件上限 64 MiB，导出和导入一致，不产生无法回导的超限文件。
+<a id="明细交换与合并"></a>
 
-明细包附带已封存日/小时/周期分区；仍有明细的来源日由事件重算，不叠加其导出
-汇总。同一来源日的明细和封存快照不得覆盖彼此；不完整明细不能解封旧快照。
-累计快照保留 exclusive/duplicate/overlap_unknown，不展开为逐次调用。
-导出按完整来源日校验；目标仅有聚合而没有对应明细的来源日也不能被部分重建。
-事件原始费用随明细保留；开启估算时同事务重算受影响未封存日。
-价格快照、应用费用缓存及系统配置由数据库备份保留，明细包不是整库备份。
+Detail exchange uses the independent version `llm-usage-details-1`. It preserves complete
+normalized events, per-field quality, original host/source identity, source revisions,
+conflict flags and independent cumulative snapshots. Aggregate exchange remains compatible.
+Settings offers separate aggregate/detail exports; import detects the package format and
+previews scope/counts before execution. Exports contain only the statistical allowlist,
+excluding conversation bodies, credentials, additional original-file path fields and collection
+cursors. Stable source keys remain unchanged. Both import and export use a 64 MiB limit so
+an exported package is not too large to import again.
 
-导入保留来源 ID，跨主机同路径不能合并。来源默认禁用并归默认用户，显式选择
-导入本身不改变其原始归属。逐次记录沿用来源键、源修订及生命周期仲裁：重复
-跳过、权威修订替换、同级不同内容保留冲突及历史。包内缺失记录没有删除语义。
-旧格式不完整的逐次投影仍只能按聚合包导入，不补造字段质量。
+Detail packages include sealed day/hour/period partitions. Source days with retained details
+are recomputed from events without adding exported summaries. Details and sealed snapshots
+for the same source day cannot overwrite each other; incomplete details cannot unseal an old
+snapshot. Cumulative snapshots retain exclusive/duplicate/overlap_unknown and are not expanded
+into individual calls. Exports validate complete source days; a target source day containing
+only aggregates cannot be partially reconstructed. Original event costs stay with details;
+when estimation is enabled, affected unsealed days are recomputed in the same transaction.
+Database backups preserve price snapshots, application cost caches and system configuration;
+a details package is not a whole-database backup.
 
-全部来源注册、事件、累计、归档与汇总在一个 SQLite 事务中提交；任何非法字段、
-归属冲突或失败整体回滚。遵守保留清理下限，不恢复已清理明细；重复导入不
-推进用量修订。采集位置与游标不导入，后续本机采集继续使用自身处理位置。
+Import preserves source IDs; matching paths on different hosts do not merge. Sources default
+to disabled and the default user. Explicit import does not change original attribution.
+Per-request records retain source keys and source revisions. When both records have revision
+numbers, compare those numbers; otherwise compare lifecycle order (`partial < final < corrected`).
+A higher rank replaces the existing record, a lower rank keeps it, and equal ranks with different
+content retain the existing record and conflict history. Identical records are skipped.
+An absent package record has no deletion meaning.
+Incomplete per-request exports from old formats can only be imported as aggregate packages;
+field quality is not fabricated.
 
-验证覆盖非空往返、未知字段、耗时/费用/质量/模型归属、累计与归档、互斥新增、
-源修订替换、冲突及重复读取、跨主机拒绝、保留下限、整批回滚和真实 IPC。
+Source registration, events, cumulative data, archives and summaries commit in one SQLite
+transaction. Any invalid field, attribution conflict or failure rolls back the entire batch.
+The retention floor is respected, removed details are not restored, and duplicate imports do
+not advance the usage revision. Processing positions/cursors are not imported; subsequent
+local collection continues from its own positions.
+
+Validation covers nonempty round trips, unknown fields, duration/cost/quality/model attribution,
+cumulative data and archives, exclusive additions, source-revision replacement, conflicts,
+repeat reads, cross-host rejection, retention floors, whole-batch rollback and real IPC.

@@ -1,5 +1,5 @@
-//! 闭源 JSONL 无格式版本字段；只承诺已核验的格式锚点。
-//! CLI JSONL 为文档级（第三方源码）；扩展存储 index.json 为 2026-09-30 本机核验。
+//! Closed-source JSONL has no format version field; only verified format markers qualify.
+//! CLI JSONL follows documented third-party source; extension index.json was checked locally on 2026-09-30.
 pub const LATEST_IMPL_ID: &str = "session_doc1";
 pub const EXT_LATEST_IMPL_ID: &str = "extension_requests_doc1";
 pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[

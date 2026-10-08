@@ -1,4 +1,4 @@
-//! Grok 探测：sessions/<workspace>/<session>/updates.jsonl 的 JSON-RPC 指纹。
+//! Detect Grok sessions/<workspace>/<session>/updates.jsonl through JSON-RPC records.
 
 use crate::adapters::framework::DetectOutcome;
 use crate::domain::VersionBasis;
@@ -12,7 +12,7 @@ pub const GROK_FORMAT: &str = "grok-updates-jsonl";
 const DETECT_HEAD_BYTES: usize = 64 * 1024;
 
 pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
-    // 瞬态不可读（持锁/超时/枚举后被清理）⇒ Pending 下轮重探，不固化失败。
+    // A transient lock, timeout or removed file returns Pending for another detection attempt.
     let Some(head) = crate::adapters::framework::read_detect_head(path, DETECT_HEAD_BYTES)? else {
         return Ok(DetectOutcome::Pending);
     };

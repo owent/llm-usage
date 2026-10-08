@@ -1,4 +1,4 @@
-//! Real gajae-code v5 carrier and explicit zero-fallback policy upgrades.
+//! Native gajae-code v5 data and explicit default-zero rule upgrades.
 mod common;
 use common::{summary, temp_storage, TempDir};
 use llm_usage_core::adapters::{framework::*, gajae_code::GajaeCodeAdapter};
@@ -14,8 +14,8 @@ fn carrier(dir: &TempDir, legacy_layout: bool) -> (DiscoverContext, PathBuf) {
     let sessions = root.join("sessions/isolated-scope");
     std::fs::create_dir_all(&sessions).unwrap();
     let path = sessions.join("real.jsonl");
-    // The old parser did not accept the new non-usage config row. This control
-    // projection removes that row before the initial scan; usage stays real.
+    // The old parser rejected the new non-usage config row. This comparison
+    // extract omits that row before the initial scan and retains native usage.
     let text = if legacy_layout {
         FIXTURE
             .lines()
@@ -87,7 +87,7 @@ fn real_api_cli_and_v5_session_keep_config_rows_and_unknown_cache() {
     assert_eq!(api["usage"]["prompt_tokens"], cli["usage"]["input"]);
     assert_eq!(api["usage"]["completion_tokens"], cli["usage"]["output"]);
     assert_eq!(api["usage"]["total_tokens"], cli["usage"]["totalTokens"]);
-    assert_eq!(cli["usage"]["cacheWrite"], 0); // Native default, not API evidence.
+    assert_eq!(cli["usage"]["cacheWrite"], 0); // Native default, without confirmation from API usage.
     assert!(api["usage"]["prompt_tokens_details"]
         .get("cache_write_tokens")
         .is_none());

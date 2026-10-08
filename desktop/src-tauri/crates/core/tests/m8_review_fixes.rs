@@ -1,24 +1,24 @@
-//! M8 提交评审修复的回归测试（2026-09-29）。
+//! Regression tests for M8 review fixes (2026-09-29).
 //!
-//! 每条用例钉住一个评审确认的问题，防止回退：
-//! - copilot：未知 schema 走兼容回退，坏 token 桶诊断不补零。
-//! - otel：TTFT 三键按文档单位换算（不按数值猜）；token 越界跳过记录；
-//!   span status ERROR ⇒ error_status。
-//! - roo：同毫秒两条 api_req_started 都入账（去重键含序号）。
-//! - jcode：journal 读取截断如实上报（BudgetExhausted/LineTooLong），
-//!   不再静默漏计尾部消息；同消息时间戳的更正按会话更新时间修订。
-//! - aider：完全相同的两行都入账（键含行号）；同父多个手工目录根不互吞。
-//! - goose：token 全 NULL 但 provider cost 有效的行仍入账；schema 指纹
-//!   变化后游标重置全量重读；旧库累计会话更新后重读。
-//! - crush/kiro/zed：SQLite 行上限后可续扫；Crush 累计成本按修订替换；
-//!   Kiro 半写入 SQLite 魔数 Pending。
-//! - atomcode：多模型 turn 的 round_count 只计一次（unattributed 单列）；
-//!   零 token 但有 rounds 的行保留调用数。
-//! - gajae：version≠5 的事件 parse_basis 如实标 LatestFallback。
-//! - grok：token 越界行跳过记诊断。
-//! - junie：用量指纹在 64 KiB 头之后仍 Supported；类型化日志无指纹 Pending。
-//! - zed/crush：单行类型错误跳行记诊断，不中止整轮。
-//! - xum：版本取顶层字段；停用来源即使被逐源任务选中也不扫描。
+//! Each case preserves behavior for a problem identified in review:
+//! - copilot: fall back for unknown schemas; diagnose invalid token fields without replacing them with zero.
+//! - otel: convert three TTFT fields using their documented units; skip records with out-of-range tokens;
+//!   span status ERROR maps to error_status. The unlabelled agentlens field has a separate heuristic below.
+//! - roo: retain two api_req_started records in the same millisecond; include sequence in the key.
+//! - jcode: report truncated journal reads as BudgetExhausted/LineTooLong;
+//!   retain trailing messages; revise same-timestamp corrections using the session update time.
+//! - aider: retain identical lines using line numbers; preserve manual roots with the same parent.
+//! - goose: retain valid provider cost with all-NULL tokens; a changed schema fingerprint
+//!   resets the cursor for a complete reread; reread updated cumulative sessions from old databases.
+//! - crush/kiro/zed: resume after SQLite row limits; replace revised Crush cumulative costs;
+//!   return Pending for an incomplete Kiro SQLite header.
+//! - atomcode: count multi-model turn round_count once in an unattributed row;
+//!   retain calls from rows with rounds and unknown zero-valued tokens.
+//! - gajae: version≠5 events retain parse_basis=LatestFallback.
+//! - grok: skip out-of-range token rows and record diagnostics.
+//! - junie: a usage fingerprint beyond 64 KiB remains Supported; typed logs without it remain Pending.
+//! - zed/crush: diagnose and skip individual type errors without stopping the scan.
+//! - xum: read the top-level version; do not scan disabled sources selected by per-source tasks.
 
 use llm_usage_core::adapters::framework::{
     DetectOutcome, DiscoverContext, ScanLimits, ScanStatus, ScanTarget, SourceAdapter,
@@ -90,7 +90,7 @@ fn scan_with(
         .unwrap()
 }
 
-// ---- otel ----
+// OTel tests.
 
 #[test]
 fn otel_ttft_units_follow_documentation() {
@@ -100,15 +100,15 @@ fn otel_ttft_units_follow_documentation() {
     write(
         &path,
         concat!(
-            // copilot_chat.time_to_first_token 是毫秒：7298ms 保持 7298，
-            // 不能按"数值小=秒"猜成 7,298,000ms。
+            // copilot_chat.time_to_first_token uses milliseconds: 7298 ms remains 7298,
+            // without guessing that small values use seconds and converting it to 7,298,000 ms.
             r#"{"name":"chat","spanId":"a1","startTime":[1780000000,0],"attributes":{"gen_ai.usage.input_tokens":10,"copilot_chat.time_to_first_token":7298}}"#,
             "\n",
-            // gen_ai.response.time_to_first_chunk 是秒（可含小数）：1.5s ⇒ 1500ms。
+            // gen_ai.response.time_to_first_chunk uses seconds, including fractions: 1.5 s becomes 1500 ms.
             r#"{"name":"chat","spanId":"a2","startTime":[1780000000,0],"attributes":{"gen_ai.usage.input_tokens":10,"gen_ai.response.time_to_first_chunk":1.5}}"#,
             "\n",
-            // response.time_to_first_token（agentlens，单位未标）：量级启发
-            // 只用于该键——300 按秒折算 300000ms；15000 按毫秒保持。
+            // response.time_to_first_token (agentlens) has no stated unit; use the magnitude heuristic
+            // only for this key: 300 becomes 300000 ms; 15000 remains in milliseconds.
             r#"{"name":"model_stream","spanId":"a3","startTime":[1780000000,0],"attributes":{"usage.input_tokens":10,"response.time_to_first_token":300}}"#,
             "\n",
             r#"{"name":"model_stream","spanId":"a4","startTime":[1780000000,0],"attributes":{"usage.input_tokens":10,"response.time_to_first_token":15000}}"#,
@@ -131,10 +131,10 @@ fn otel_out_of_range_token_skips_record_with_diagnostic() {
     write(
         &path,
         concat!(
-            // 负 token：整条记录跳过（不能静默丢桶后入账）。
+            // Negative tokens reject the whole record rather than silently omitting the invalid field.
             r#"{"name":"chat","spanId":"b1","startTime":[1780000000,0],"attributes":{"gen_ai.usage.input_tokens":-5,"gen_ai.usage.output_tokens":3}}"#,
             "\n",
-            // 合法记录不受影响。
+            // Valid records remain readable.
             r#"{"name":"chat","spanId":"b2","startTime":[1780000000,0],"attributes":{"gen_ai.usage.input_tokens":7}}"#,
             "\n",
         ),
@@ -217,7 +217,7 @@ fn copilot_unknown_schema_uses_fallback_and_reports_bad_bucket() {
         .any(|d| d.code == "token_shape_deviation"));
 }
 
-// ---- roo ----
+// Roo tests.
 
 #[test]
 fn roo_same_millisecond_requests_both_counted() {
@@ -227,7 +227,7 @@ fn roo_same_millisecond_requests_both_counted() {
     let doc = serde_json::json!([
         {"type": "say", "say": "api_req_started", "ts": 1_780_000_000_000i64,
          "text": r#"{"tokensIn":100,"tokensOut":20,"cacheReads":30,"cacheWrites":10}"#},
-        // 同毫秒第二条请求（retry/并行子任务）：键冲突不能吞并。
+        // Retain the second same-millisecond request, including retries or parallel subtasks.
         {"type": "say", "say": "api_req_started", "ts": 1_780_000_000_000i64,
          "text": r#"{"tokensIn":50,"tokensOut":5}"#},
     ]);
@@ -242,7 +242,7 @@ fn roo_same_millisecond_requests_both_counted() {
     assert!(inputs.contains(&Some(100)) && inputs.contains(&Some(50)));
 }
 
-// ---- jcode ----
+// Jcode tests.
 
 fn jcode_fixture(dir: &Path, journal_lines: usize) -> (PathBuf, PathBuf) {
     let snapshot = dir.join("s1.json");
@@ -266,7 +266,7 @@ fn jcode_fixture(dir: &Path, journal_lines: usize) -> (PathBuf, PathBuf) {
 fn jcode_journal_budget_exhaustion_reported() {
     use llm_usage_core::adapters::jcode::JcodeAdapter;
     let dir = temp_dir("jcode-budget");
-    // 超过硬编码的 100k 行数上限：旧实现静默报 Complete，尾部消息永久漏计。
+    // Beyond the hard-coded 100k-line limit, the old implementation reported Complete and permanently missed trailing messages.
     let (snapshot, journal) = jcode_fixture(&dir, 100_500);
     let mut file = std::fs::OpenOptions::new()
         .append(true)
@@ -383,15 +383,15 @@ fn jcode_journal_overlong_line_held_for_retry() {
     assert_eq!(outcome.status, ScanStatus::LineTooLong);
 }
 
-// ---- aider ----
+// Aider tests.
 
 #[test]
 fn aider_identical_lines_both_counted() {
     use llm_usage_core::adapters::aider::AiderAdapter;
     let dir = temp_dir("aider-dup");
     let path = dir.join("analytics.jsonl");
-    // 完全相同的重复发送（同秒重发同一 prompt）：内容哈希相同，
-    // 键必须靠行号区分，不能折叠。
+    // Identical repeated sends (same prompt in the same second) have identical content hashes;
+    // distinguish their keys by line number to preserve both calls.
     let line = r#"{"event":"message_send","time":1755100406,"properties":{"main_model":"openai/gpt-x","prompt_tokens":100,"completion_tokens":10,"total_tokens":110,"cost":0.001}}"#;
     write(&path, format!("{line}\n{line}\n"));
     let outcome = scan(&AiderAdapter::new(), &path);
@@ -481,7 +481,7 @@ fn disabled_source_is_not_scanned_even_when_explicitly_included() {
     );
 }
 
-// ---- goose ----
+// Goose tests.
 
 fn goose_ledger_db(dir: &Path) -> PathBuf {
     let db = dir.join("sessions").join("sessions.db");
@@ -509,7 +509,7 @@ fn goose_null_tokens_with_provider_cost_still_recorded() {
     let db = goose_ledger_db(&dir);
     {
         let conn = rusqlite::Connection::open(&db).unwrap();
-        // token 全 NULL 但 provider_reported cost 有效：成本是已报告事实，不能丢。
+        // All tokens are NULL, but valid provider_reported cost must be retained as reported cost.
         conn.execute(
             "INSERT INTO usage_ledger (session_id, created_timestamp, model,
               input_tokens, output_tokens, total_tokens, cache_read_tokens,
@@ -551,7 +551,7 @@ fn goose_schema_fingerprint_change_resets_cursor() {
         cursor: first.cursor.clone(),
         parse_context: first.parse_context.clone(),
     };
-    // schema 变化（列集纳入指纹）⇒ 旧游标作废全量重读（upsert 幂等）。
+    // A changed schema column set invalidates the old cursor; reread fully with idempotent upserts.
     {
         let conn = rusqlite::Connection::open(&db).unwrap();
         conn.execute_batch("ALTER TABLE usage_ledger ADD COLUMN extra TEXT;")
@@ -611,7 +611,7 @@ fn goose_old_session_cumulative_update_is_rescanned() {
     assert_eq!(second.aggregates[0].usage.input_total, Some(20));
 }
 
-// ---- atomcode ----
+// AtomCode tests.
 
 #[test]
 fn atomcode_multi_model_turn_rounds_counted_once() {
@@ -645,22 +645,22 @@ fn atomcode_multi_model_turn_rounds_counted_once() {
         .iter()
         .map(|a| (a.scope_key.clone(), a))
         .collect();
-    // 单模型 turn：rounds 归属该模型。
+    // Attribute rounds to the model of a single-model turn.
     assert_eq!(
         by_key["atomcode:session:s1:p/m1"].reported_call_count,
         Some(5)
     );
-    // 多模型 turn 的 3 轮 + 无 model_usage turn 的 2 轮：单列不摊派。
+    // Keep 3 rounds from a multi-model turn + 2 from a turn without model_usage unattributed.
     assert_eq!(by_key["atomcode:session:s1:p/m2"].reported_call_count, None);
     assert_eq!(
         by_key["atomcode:session:s1:unattributed"].reported_call_count,
         Some(5)
     );
-    // 零 token 但有 rounds 的行保留调用数（token 全未知不补零）。
+    // Rows with rounds and zero tokens retain call counts; tokens remain unknown.
     let zero = &by_key["atomcode:session:s1:q/m9"];
     assert_eq!(zero.reported_call_count, Some(4));
     assert_eq!(zero.usage.input_total, None);
-    // 调用数总计守恒：5 + 5 + 4 = 14 = 3+5+2+4。
+    // Preserve total call counts: 5 + 5 + 4 = 14 = 3+5+2+4.
     let total: i64 = outcome
         .aggregates
         .iter()
@@ -669,7 +669,7 @@ fn atomcode_multi_model_turn_rounds_counted_once() {
     assert_eq!(total, 14);
 }
 
-// ---- gajae ----
+// gajae-code tests.
 
 fn gajae_session(version: i64) -> String {
     format!(
@@ -687,7 +687,7 @@ fn gajae_session(version: i64) -> String {
 fn gajae_fallback_version_marks_parse_basis_honestly() {
     use llm_usage_core::adapters::gajae_code::GajaeCodeAdapter;
     let dir = temp_dir("gajae-basis");
-    // version=5（已验证）⇒ KnownVersion。
+    // The built-in version=5 format uses KnownVersion; this synthetic test checks parser selection.
     let v5 = dir.join("v5.jsonl");
     write(&v5, gajae_session(5));
     let outcome = scan(&GajaeCodeAdapter::new(), &v5);
@@ -696,7 +696,7 @@ fn gajae_fallback_version_marks_parse_basis_honestly() {
         outcome.events[0].parse_basis,
         Some(VersionBasis::KnownVersion)
     );
-    // version=6（未收录）⇒ LatestFallback（不能虚标 KnownVersion）。
+    // Unlisted version=6 uses LatestFallback, without claiming KnownVersion.
     let v6 = dir.join("v6.jsonl");
     write(&v6, gajae_session(6));
     let outcome = scan(&GajaeCodeAdapter::new(), &v6);
@@ -707,7 +707,7 @@ fn gajae_fallback_version_marks_parse_basis_honestly() {
     );
 }
 
-// ---- grok ----
+// Grok tests.
 
 #[test]
 fn grok_out_of_range_token_line_skipped() {
@@ -758,15 +758,15 @@ fn xum_version_comes_from_top_level_document() {
     ));
 }
 
-// ---- junie ----
+// Junie tests.
 
 #[test]
 fn junie_usage_fingerprint_beyond_head_window_supported() {
     use llm_usage_core::adapters::junie::JunieAdapter;
     let dir = temp_dir("junie-window");
     let path = dir.join("sessions").join("s1").join("events.jsonl");
-    // 64 KiB 头内只有事件指纹，用量事件在大文件后段：
-    // 旧实现误报 UnknownFormat，该会话永远无法入账。
+    // The first 64 KiB contain only an event fingerprint; usage appears later in the file.
+    // The old implementation incorrectly returned UnknownFormat and never imported this session.
     let mut content = String::new();
     while content.len() < 80 * 1024 {
         content.push_str(r#"{"kind":"AgentStateUpdated","pad":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"}"#);
@@ -796,14 +796,14 @@ fn junie_typed_log_without_usage_is_pending_not_unknown_format() {
         matches!(outcome, DetectOutcome::Pending),
         "类型化事件日志无用量指纹应 Pending 重探: {outcome:?}"
     );
-    // 非 junie 文件仍 fail closed。
+    // Reject files without the Junie format.
     let other = dir.join("other.jsonl");
     write(&other, "{\"hello\":\"world\"}\n");
     let outcome = JunieAdapter::new().detect(&other).unwrap();
     assert!(matches!(outcome, DetectOutcome::UnknownFormat { .. }));
 }
 
-// ---- zed / crush 行级容错 ----
+// Zed/Crush row-level type-error tests.
 
 #[test]
 fn zed_row_type_error_skips_row_not_scan() {
@@ -819,7 +819,7 @@ fn zed_row_type_error_skips_row_not_scan() {
             [],
         )
         .unwrap();
-        // data 列存 INTEGER：String 读取类型错误——单行跳过不中止整轮。
+        // INTEGER in data causes a String read error; skip that row and continue the scan.
         conn.execute(
             "INSERT INTO threads (id, updated_at, data_type, data) VALUES ('bad', '2026-08-05T06:38:00Z', 'json', 42)",
             [],
@@ -859,8 +859,8 @@ fn crush_row_type_error_skips_row_not_scan() {
             [],
         )
         .unwrap();
-        // cost 存非数值文本（REAL 列亲和无法转换即原样存 TEXT）：
-        // f64 读取类型错误——单行跳过不中止整轮。
+        // Non-numeric cost text remains TEXT because REAL affinity cannot convert it;
+        // the f64 read error skips that row without stopping the scan.
         conn.execute(
             "INSERT INTO sessions (id, parent_session_id, cost, created_at, updated_at)
              VALUES ('bad', NULL, 'not-a-number', 1790000000, 1790000001)",

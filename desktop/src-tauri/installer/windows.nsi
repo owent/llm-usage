@@ -3,8 +3,8 @@
 ; Local change: the executable cleanup owns autostart removal; preserve foreign values.
 Unicode true
 ManifestDPIAware true
-; Add in `dpiAwareness` `PerMonitorV2` to manifest for Windows 10 1607+ (note this should not affect lower versions since they should be able to ignore this and pick up `dpiAware` `true` set by `ManifestDPIAware true`)
-; Currently undocumented on NSIS's website but is in the Docs folder of source tree, see
+; Add dpiAwareness=PerMonitorV2 for Windows 10 1607+; older systems retain ManifestDPIAware true.
+; Fixed NSIS source documentation references for this manifest setting:
 ; https://github.com/kichik/nsis/blob/5fc0b87b819a9eec006df4967d08e522ddd651c9/Docs/src/attributes.but#L286-L300
 ; https://github.com/tauri-apps/tauri/pull/10106
 ManifestDPIAwareness PerMonitorV2
@@ -105,7 +105,7 @@ VIAddVersionKey "ProductVersion" "${VERSION}"
   !uninstfinalize '${UNINSTALLERSIGNCOMMAND}'
 !endif
 
-; Handle install mode, `perUser`, `perMachine` or `both`
+; Handle install mode: currentUser, perMachine or both.
 !if "${INSTALLMODE}" == "perMachine"
   RequestExecutionLevel admin
 !endif
@@ -190,7 +190,7 @@ VIAddVersionKey "ProductVersion" "${VERSION}"
 Var ReinstallPageCheck
 Page custom PageReinstall PageLeaveReinstall
 Function PageReinstall
-  ; Uninstall previous WiX installation if exists.
+  ; Find a matching previous WiX installation.
   ;
   ; A WiX installer stores the installation info in registry
   ; using a UUID and so we have to loop through all keys under
@@ -223,7 +223,7 @@ Function PageReinstall
   ReadRegStr $R1 SHCTX "${UNINSTKEY}" "UninstallString"
   ${IfThen} "$R0$R1" == "" ${|} Abort ${|}
 
-  ; Compare this installar version with the existing installation
+  ; Compare this installer version with the existing installation
   ; and modify the messages presented to the user accordingly
   compare_version:
   StrCpy $R4 "$(older)"
@@ -430,7 +430,7 @@ Var DeleteAppDataCheckbox
 Var DeleteAppDataCheckboxState
 !define /ifndef WS_EX_LAYOUTRTL         0x00400000
 !define MUI_PAGE_CUSTOMFUNCTION_SHOW un.ConfirmShow
-Function un.ConfirmShow ; Add add a `Delete app data` check box
+Function un.ConfirmShow ; Add a Delete app data checkbox.
   ; $1 inner dialog HWND
   ; $2 window DPI
   ; $3 style
@@ -548,7 +548,7 @@ Section EarlyChecks
 SectionEnd
 
 Section WebView2
-  ; Check if Webview2 is already installed and skip this section
+  ; Read the installed WebView2 version and install or update as required.
   ${If} ${RunningX64}
     ReadRegStr $4 HKLM "SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\${WEBVIEW2APPGUID}" "pv"
   ${Else}
@@ -785,8 +785,8 @@ Section Uninstall
 
   !insertmacro CheckIfAppIsRunning "$INSTDIR\${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
 
-  ; Delete the app directory and its content from disk
-  ; Copy main executable
+  ; Delete owned installation files and attempt to remove the installation directory.
+  ; Delete main executable.
   Delete "$INSTDIR\${MAINBINARYNAME}.exe"
 
   ; Delete resources
@@ -861,10 +861,10 @@ Section Uninstall
     DeleteRegKey HKCU "${UNINSTKEY}"
   !endif
 
-  ; Removes the Autostart entry for ${PRODUCTNAME} from the HKCU Run key if it exists.
-  ; This ensures the program does not launch automatically after uninstallation if it exists.
-  ; If it doesn't exist, it does nothing.
-  ; We do this when not updating (to preserve the registry value on updates)
+  ; The executable pre-uninstall cleanup checks this installation's owned HKCU Run value.
+  ; Cleanup removes owned autostart content while preserving foreign values.
+  ; An absent owned value requires no deletion.
+  ; Update mode skips cleanup and retains autostart.
   ${If} $UpdateMode <> 1
     ; --uninstall-cleanup removed only this installation's autostart value.
   ${EndIf}

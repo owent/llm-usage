@@ -1,6 +1,6 @@
-//! 桌面客户端入口。GUI 使用单窗口与共享调度器；--headless 仅按已保存的
-//! 系统任务意图及到期规则采集；--scan-once 显式手动采集所有启用来源。
-//! 两种 CLI 模式均不创建 WebView 或本地遥测接收器。
+//! Desktop entry: single GUI window/shared scheduler. --headless uses saved
+//! system-task intent/due rules; --scan-once manually collects every enabled source.
+//! Neither CLI mode creates a WebView or local telemetry receiver.
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
@@ -61,10 +61,10 @@ fn db_path() -> Result<std::path::PathBuf, String> {
             .map_err(|e| e.to_string())?
             .join("llm-usage.sqlite"));
     }
-    // 无 Tauri 句柄阶段（headless/启动前）：%APPDATA%/llm-usage-desktop/ 或
-    // ~/.local/share/llm-usage-desktop/ 下的 llm-usage.sqlite；
-    // 与 architecture.md「应用数据库放系统应用数据目录」一致。
-    // 目录名避开 Roaming 下已存在的同名占位文件 llm-usage（第三方遗留，不改动它）。
+    // Before a Tauri handle, headless/prestartup DB is under APPDATA/llm-usage-desktop/ or
+    // ~/.local/share/llm-usage-desktop/, named llm-usage.sqlite;
+    // matching architecture.md system application-data storage rules.
+    // Avoid existing third-party Roaming placeholder file llm-usage; preserve it.
     if let Ok(appdata) = std::env::var("APPDATA") {
         return Ok(std::path::PathBuf::from(appdata)
             .join("llm-usage-desktop")
@@ -142,7 +142,7 @@ fn main() {
     };
 
     if headless {
-        // 无 WebView headless 提取：一次采集后退出；不启动窗口/调度线程。
+        // Headless without WebView: collect once then exit, no window/scheduler thread.
         let started = if std::env::args().any(|arg| arg == "--scan-once") {
             scanner::run_refresh(&state, llm_usage_core::jobs::TriggerKind::Manual)
         } else {
@@ -177,8 +177,8 @@ fn main() {
     let scheduler_state = Arc::clone(&state);
     scanner::spawn_scheduler(scheduler_state, stop);
 
-    // M5：本地 OTLP 接收器（按需启用；仅 127.0.0.1；线程随进程退出结束，
-    // 设置变化重启应用生效）。
+    // M5 local OTLP receiver: opt-in, 127.0.0.1 only, thread ends with the process;
+    // setting changes take effect after restart.
     {
         let (enabled, port) = {
             let settings = state.settings.lock().unwrap();
@@ -206,7 +206,7 @@ fn main() {
             if let Err(error) = crate::tray::apply(app.handle(), &state.settings.lock().unwrap()) {
                 eprintln!("tray setup failed: {error}");
             }
-            // 根据主显示器分辨率自适应窗口大小（60–85%，上限 1600×1000）。
+            // Size from primary-display resolution, 60-85%, maximum 1600x1000.
             if let Some(window) = app.get_webview_window("main") {
                 if let Ok(Some(monitor)) = window.primary_monitor() {
                     let size = monitor.size();

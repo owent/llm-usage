@@ -1,9 +1,9 @@
-//! VS Code Copilot Chat 会话日志探测：首行 `{kind:0, v:{version,…}}` 指纹。
+//! Detect VS Code Copilot Chat logs from the first {kind:0, v:{version,...}} record.
 //!
-//! 依据 objectMutationLog.ts：Initial（kind 0）只可作为首条目且携带完整初始
-//! 对象；chatSessionOperationLog.ts storageSchema 固定 `version: 3`。
-//! 压缩重写后首行同样为 Initial（携带当时全量状态，可能较大）：
-//! 按单行上限（8 MiB 同 jsonl 读取器）有界读取首行。
+//! objectMutationLog.ts allows Initial, kind 0, only first, with the complete initial
+//! object; chatSessionOperationLog.ts storageSchema fixes version: 3.
+//! Compact rewrites also begin with Initial containing full current state, possibly large.
+//! Bound the first-line read to the JSONL reader limit, 8 MiB.
 
 use crate::adapters::framework::DetectOutcome;
 use crate::error::CoreError;
@@ -14,10 +14,10 @@ use super::versions;
 
 pub const COPILOT_CHAT_FORMAT: &str = "vscode-chat-session-log";
 
-/// 探测首行读取上限（与 jsonl 读取器单行上限一致）。
+/// First-line size limit, matching the JSONL reader.
 const DETECT_MAX_FIRST_LINE: usize = crate::adapters::jsonl::DEFAULT_MAX_LINE_BYTES;
 
-/// 读取首行（不含换行；超上限返回 None 表示不可判定）。
+/// Read without newline; return None when too large to identify.
 fn read_first_line(path: &Path) -> std::io::Result<Option<Vec<u8>>> {
     let file = crate::adapters::run_policy::checked_file(path)?;
     let mut reader =
@@ -25,7 +25,7 @@ fn read_first_line(path: &Path) -> std::io::Result<Option<Vec<u8>>> {
     let mut buf = Vec::new();
     let n = reader.read_until(b'\n', &mut buf)?;
     if n == 0 || buf.last() != Some(&b'\n') {
-        return Ok(None); // 空文件：尚无可判定内容。
+        return Ok(None); // Empty file has nothing to identify yet.
     }
     if buf.len() > DETECT_MAX_FIRST_LINE {
         return Ok(None);
@@ -33,7 +33,7 @@ fn read_first_line(path: &Path) -> std::io::Result<Option<Vec<u8>>> {
     while buf.last() == Some(&b'\n') || buf.last() == Some(&b'\r') {
         buf.pop();
     }
-    // 跳过 UTF-8 BOM。
+    // Skip UTF-8 BOM.
     if buf.starts_with(b"\xEF\xBB\xBF") {
         buf.drain(0..3);
     }
@@ -63,7 +63,7 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
             });
         }
     };
-    // Initial 指纹：kind==0 且 v 是对象（携带 sessionId/requests 等会话状态）。
+    // Initial: kind==0 and object v containing session state, such as sessionId/requests.
     if doc.get("kind").and_then(serde_json::Value::as_i64) != Some(0)
         || !doc
             .get("v")

@@ -1,40 +1,48 @@
 # rollout-legacy-v0.142.5._expectations.md
 
-来源：`<HOME>/.codex/sessions/…/rollout-<ts>-<UUID>.jsonl`（原始 19 行，本机实读），
-2026-09-26 按脱敏流程提取（build/desktop-usage-validation/tools/extract-codex-legacy.mjs）：
-数字/布尔/null 保留、字符串默认 REDACTED、ID 稳定映射 anon-N（14 个）、cwd → `<PATH>`。
-泄漏核查：无 UUID/路径/正文残留；保留字符串仅为记录类型、枚举、版本与模型名。
+Source: `<HOME>/.codex/sessions/…/rollout-<ts>-<UUID>.jsonl`,
+19 original lines read locally. Extracted on 2026-09-26 with
+`build/desktop-usage-validation/tools/extract-codex-legacy.mjs`. Numbers, booleans and null remain
+unchanged. Strings default to REDACTED, IDs use stable anon-N mappings (14 IDs),
+and cwd becomes `<PATH>`. Redaction checks found no remaining UUIDs, paths or bodies;
+only record types, enum values, versions and model names remain as strings.
 
-0.142.5 是本机旧载体数据量最大的版本（44 文件）；本样本为最小会话，
-锁定 delta==0 且 last 未变 ⇒ 重复上报去重判据（2 条 token_count 只发 1 条事件）。
+Version 0.142.5 had the most local legacy-format files (44). This minimal session checks duplicate
+detection when delta==0 and last is unchanged: two token_count records produce one event.
 
-## 结构期望（JS 独立核算）
+<a id="结构期望js-独立核算"></a>
 
-- 19 行全部可解析（parseErrors=0）。
-- 记录类型计数：session_meta ×1、event_msg ×9、response_item ×7、
-  turn_context ×2（model 均存在：`codex-auto-review`）。
-- token_count ×2：首条 last==total（27,757）；第二条 total 不变、last 不变
-  ⇒ 同一调用的重复上报，去重跳过。
-- session_meta：parent_thread_id 存在且 source.subagent 存在 ⇒ sub_agent 会话。
+## Structural expectations independently calculated with JavaScript
 
-## usage 数值期望（按增量判据发出的事件求和）
+- All 19 lines parse; parseErrors=0.
+- Record counts: session_meta=1, event_msg=9, response_item=7,
+  turn_context=2; every context has model=codex-auto-review.
+- Two token_count records: the first has last==total (27,757); the second leaves both total and last unchanged and is skipped as a repeat of the same call.
+- session_meta contains parent_thread_id and source.subagent, identifying a sub_agent session.
 
-| 指标 | 期望 |
+<a id="usage-数值期望按增量判据发出的事件求和"></a>
+
+## Usage expectations summed over events emitted by the increment rules
+
+| Metric | Expected value |
 | --- | --- |
-| 模型调用（去重后发出） | 1 |
-| input_tokens 合计 | 27,648 |
-| cached_input_tokens 合计 | 7,040 |
-| cache_write_input_tokens 合计 | 0 |
-| output_tokens 合计 | 109 |
-| reasoning_output_tokens 合计 | 91 |
-| total_tokens 合计 | 27,757 |
+| Deduplicated model calls | 1 |
+| Summed input_tokens | 27,648 |
+| Summed cached_input_tokens | 7,040 |
+| Summed cache_write_input_tokens | 0 |
+| Summed output_tokens | 109 |
+| Summed reasoning_output_tokens | 91 |
+| Summed total_tokens | 27,757 |
 
-包含关系（1/1 成立）：total=input+output；cached⊆input；reasoning⊆output。
-快照对账：token_count 最终快照 total = 27,757 = Σ逐次（matched，无 compaction）。
+All 1/1 records satisfy total=input+output, cached⊆input and reasoning⊆output.
+The final token_count snapshot total=27,757 equals summed per-call usage:
+reconciliation=matched, with no compaction.
 
-## 分派期望（V30）
+<a id="分派期望v30"></a>
 
-- 版本 `0.142.5` 在注册表登记为已验证 ⇒ detect 返回
-  Supported { format_version: Some("0.142.5"), basis: KnownVersion }，
-  分派 `rollout_legacy`；事件 parse_basis = known_version、parser_version =
-  codex-rollout-legacy-1、身份 seq:{session}:{行号}（无 response_id）。
+## Dispatch expectations (V30)
+
+- Version 0.142.5 is registered as verified. detect returns
+  Supported { format_version: Some("0.142.5"), basis: KnownVersion } and selects rollout_legacy.
+  Events use parse_basis=known_version, parser_version=codex-rollout-legacy-1,
+  and identity seq:{session}:{line}, because response_id is absent.

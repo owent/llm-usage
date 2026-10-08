@@ -1,30 +1,30 @@
-//! Aider 版本注册表（V30 目录约定）。
+//! Aider version registry, V30 directory rules.
 //!
-//! analytics JSONL 无格式版本字段：注册表锚点是文档级格式版本
-//! aider-analytics-doc-1（官方源码 5dc9490 的 analytics.py 事件形状），
-//! 格式偏离在扫描层 fail closed，不走版本回退。
+//! Analytics JSONL lacks format versions; registry uses the documented format ID
+//! aider-analytics-doc-1, analytics.py event shape from official source 5dc9490.
+//! Scanner rejects different shapes without version fallback.
 
 pub mod analytics_doc1;
 
-/// 当前格式实现标识（"最新内置解析器"由本常量明确指定）。
+/// Current implementation explicitly selects the latest built-in parser.
 pub const LATEST_IMPL_ID: &str = "analytics_doc1";
 
-/// 文档级格式版本：按官方源码 5dc9490 的 analytics 事件定义实现。
+/// Documented format implemented from official 5dc9490 analytics events.
 pub const AIDER_FORMAT_VERSION: &str = "aider-analytics-doc-1";
 
-/// 已验证支持的格式版本 → 格式实现。
+/// Verified format versions mapped to implementations.
 pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[("aider-analytics-doc-1", "analytics_doc1")];
 
-/// 版本分派结论。
+/// Version-selection result.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Selection {
     pub impl_id: &'static str,
     pub basis: crate::domain::VersionBasis,
 }
 
-/// 按格式版本选择实现；探测与扫描共用本函数（V30）。
-/// 注：analytics JSONL 无版本字段，detect 恒走文档级 KnownVersion 不调用
-/// 本函数；保留它是 V30 注册表约定的一部分（真实版本字段出现时接线）。
+/// Select by format version; shared by detection/scanning, V30.
+/// Analytics has no version field: detection directly uses documented KnownVersion, without this call.
+/// Retained for V30 registry structure; connect it if native version fields become available.
 pub fn select(found: Option<&str>) -> Selection {
     match found {
         Some(version) => {

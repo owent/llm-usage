@@ -176,8 +176,8 @@ pub fn scan_with_byte_budget(
         let cache_read = token("gen_ai.usage.cache_read.input_tokens");
         let cache_write = token("gen_ai.usage.cache_creation.input_tokens");
         let reasoning = token("thoughts_token_count");
-        // candidates/thoughts containment varies by provider; this SDK shape
-        // does not retain that provenance. The genuine sample reports thoughts=0.
+        // candidates/thoughts containment varies by provider; this SDK format
+        // does not retain provider-specific definitions. The native sample reports thoughts=0.
         let total = if reasoning == Some(0) {
             input.zip(output).and_then(|(i, o)| i.checked_add(o))
         } else {

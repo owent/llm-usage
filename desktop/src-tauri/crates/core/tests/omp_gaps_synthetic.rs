@@ -1,10 +1,10 @@
-//! oh-my-pi（omp）适配器缺口场景：合成样本（目录/文件头均标 synthetic）与
-//! V17/V30 版本策略。覆盖真实样本缺失的场景：四类辅助 usage 载体、无 usage 的
-//! assistant、fork 继承去重（已知偏差定案同 pi）、嵌套子 Agent 路径归属、
-//! stopReason=error/aborted、cost 映射边界、detect 首行闸口（title/session/Pending）、
-//! 未知版本 latest_fallback 兼容回退（V30 新语义，omp 无 evidenced-incompatible
-//! 分支，与 pi 不同）、未知格式 fail closed、未知条目类型诊断。
-//! 期望值均由 fixture 手工核算（见各 _expectations.md）。
+//! Synthetic oh-my-pi (omp) cases, marked in directory names and file headers, for
+//! V17/V30 version policy. Cover cases without native samples: four auxiliary usage record types,
+//! assistants without usage, inherited fork deduplication (the same known difference as pi), nested subagent ownership,
+//! stopReason=error/aborted, cost mapping, first-line detection (title/session/Pending),
+//! latest_fallback for unknown versions (V30 policy; omp has no known-incompatible-format
+//! branch), rejection of unknown formats, and unknown entry diagnostics.
+//! Expected values are calculated manually from test data; see each _expectations.md.
 
 mod common;
 
@@ -29,12 +29,12 @@ fn diag_count(storage: &llm_usage_core::storage::Storage, code: &str) -> i64 {
         .unwrap()
 }
 
-// 手工核算值（synthetic-auxiliary-carriers，9 行 6 事件）：
-// primary：syn-a1（100/50/10/5/165）+ syn-a2（无 usage，token 全未知）；
-// auxiliary：syn-u1（0/0/0/1000/1000）、syn-c1（200/100/0/0/300）、
-// syn-b1（300/150/0/0/450）、syn-t1（10/5/0/0/15）；
-// 合计：call_count=6、input_total=1625（派生）、uncached=610、cache_read=10、
-// cache_write=1005、output=305、total=1930；usage_shape_deviation ×1（syn-a2）。
+// Manual calculation (synthetic-auxiliary-carriers, 9 lines and 6 events):
+// Primary: syn-a1 (100/50/10/5/165) + syn-a2 (no usage; all tokens unknown).
+// Auxiliary: syn-u1 (0/0/0/1000/1000), syn-c1 (200/100/0/0/300),
+// syn-b1 (300/150/0/0/450), and syn-t1 (10/5/0/0/15).
+// Sum: call_count=6, input_total=1625 (derived), uncached=610, cache_read=10,
+// cache_write=1005, output=305, total=1930; one usage_shape_deviation (syn-a2).
 #[test]
 fn auxiliary_carriers_classified_and_summed() {
     let (_db, storage) = temp_storage("omp-aux");
@@ -58,7 +58,7 @@ fn auxiliary_carriers_classified_and_summed() {
     assert_eq!(summary.totals.cache_write_known, Some(1_005));
     assert_eq!(summary.totals.output_total_known, Some(305));
     assert_eq!(summary.totals.total_tokens_known, Some(1_930));
-    // syn-a2 无 usage（quality_bucket=unknown）：计调用不算未知字段。
+    // syn-a2 has no usage (quality_bucket=unknown): count the call without counting unknown fields.
     assert_eq!(
         summary.totals.input_unknown_count, 0,
         "syn-a2 无 usage 不计未知字段"
@@ -78,7 +78,7 @@ fn auxiliary_carriers_classified_and_summed() {
         vec![("auxiliary".to_string(), 4), ("primary".to_string(), 2)]
     );
 
-    // 逐键核验归属与分类。
+    // Check ownership and category by record key.
     let row_for = |key: &str| {
         storage
             .conn()
@@ -109,7 +109,7 @@ fn auxiliary_carriers_classified_and_summed() {
             Some(115)
         )
     );
-    // 无 usage 的 assistant：计调用，token 全未知（不补零）。
+    // An assistant without usage counts as a call; all tokens remain unknown.
     let a2 = row_for("omp:message:syn-a2:syn-a1:2026-01-05T10:00:06.000Z");
     assert_eq!(a2.0, "primary");
     assert_eq!(a2.4, None, "no usage => tokens unknown");
@@ -124,7 +124,7 @@ fn auxiliary_carriers_classified_and_summed() {
             Some(1000)
         )
     );
-    // compaction/branch_summary 无模型字段：按 omp 组合形状 model_change 归属。
+    // compaction/branch_summary lack model fields; use omp's combined model_change structure.
     let c1 = row_for("omp:compaction:syn-c1:syn-u1:2026-01-05T10:00:08.000Z");
     assert_eq!(
         c1,
@@ -147,15 +147,15 @@ fn auxiliary_carriers_classified_and_summed() {
             Some(300)
         )
     );
-    // toolResult 的 usage 是工具执行自身消耗：辅助调用，所属模型未知。
+    // toolResult usage describes the tool's own consumption: an auxiliary call with an unknown model.
     let t1 = row_for("omp:toolresult:syn-t1:syn-b1:2026-01-05T10:00:10.000Z");
     assert_eq!(
         t1,
         ("auxiliary".into(), None, None, "unknown".into(), Some(10))
     );
 
-    // omp 特有浮点毫秒取整：syn-a1 duration 200.4→200、ttft 60.6→61；
-    // syn-a2 duration 150.5→151、ttft 缺字段 None。
+    // Round omp's fractional milliseconds: syn-a1 duration 200.4→200, ttft 60.6→61;
+    // syn-a2 duration 150.5→151; missing ttft remains None.
     let latency = |key: &str| {
         storage
             .conn()
@@ -182,10 +182,10 @@ fn auxiliary_carriers_classified_and_summed() {
     assert_eq!(diag_count(&storage, "usage_shape_deviation"), 1);
 }
 
-// 手工核算值（synthetic-fork-inherited）：源文件 2 事件（150+300），fork 文件逐字
-// 复制源 L3–L5 + 新 assistant syn-fa-3（15）；总调用 3，合计 input_total=350
-// （派生 input+cacheRead+cacheWrite：(100+0+0)+(200+40+0)+(10+0+0)）、
-// cache_read=40、output=115、total=465。已知偏差见 fixture _expectations.md。
+// Manual calculation (synthetic-fork-inherited): the source has 2 events (150+300); the fork copies
+// source lines L3–L5 verbatim and adds assistant syn-fa-3 (15). There are 3 calls and input_total=350
+// (derived input+cacheRead+cacheWrite: (100+0+0)+(200+40+0)+(10+0+0)),
+// cache_read=40, output=115, total=465. See test _expectations.md for the known difference.
 #[test]
 fn fork_inherited_entries_dedup_across_files() {
     let dir = TempDir::new("omp-fork");
@@ -198,7 +198,7 @@ fn fork_inherited_entries_dedup_across_files() {
         case.join("2026-01-05T11-00-00-061Z_00000000-0000-7000-8000-00000000d061.jsonl"),
     )
     .unwrap();
-    // 第一轮只放源文件；第二轮补 fork 文件（两文件各扫一次）。
+    // Scan the source alone first, then add the fork; each file is scanned once per round.
     let root = omp_root_with_file(
         &dir,
         "--C--syn--/2026-01-05T10-00-00-060Z_00000000-0000-7000-8000-00000000d060.jsonl",
@@ -224,9 +224,9 @@ fn fork_inherited_entries_dedup_across_files() {
         "fork 文件产出 2 复制条目 + 1 新条目"
     );
     let outcome = report.outcome.as_ref().unwrap();
-    // 已知偏差（同 pi 定案）：复制条目四元组相同，但事件 session_id/
-    // parent_session_id 取自 fork 会话头，与已存事件同键不同内容 → 仲裁 conflict
-    // （保留先扫者）。幂等净效果成立：不双计、先扫的源会话归属保留。
+    // Known difference, as in pi: copied entries have the same four-part key, but session_id/
+    // parent_session_id come from the fork header. Stored events with that key have different content: conflict
+    // handling keeps the first scanned event, preventing double-counting and preserving source-session ownership.
     assert_eq!(outcome.added, 1, "仅 fork 自有新条目共入");
     assert_eq!(outcome.conflicts, 2, "复制条目与源会话已存事件冲突");
     assert_eq!(outcome.unchanged, 0);
@@ -238,7 +238,7 @@ fn fork_inherited_entries_dedup_across_files() {
     assert_eq!(summary.totals.output_total_known, Some(115));
     assert_eq!(summary.totals.total_tokens_known, Some(465));
 
-    // fork 新条目携带 fork 会话身份与 parentSession。
+    // A new fork entry retains the fork session identity and parentSession.
     let (session, parent): (String, String) = storage
         .conn()
         .query_row(
@@ -251,7 +251,7 @@ fn fork_inherited_entries_dedup_across_files() {
     assert_eq!(session, "syn-omp-fork");
     assert_eq!(parent, "syn-omp-src");
 
-    // 复制条目保留先扫文件（源会话）的归属，并被标记冲突。
+    // Copied entries keep the first scanned source session's ownership and are marked as conflicts.
     let kept: (String, Option<String>, i64) = storage
         .conn()
         .query_row(
@@ -268,11 +268,11 @@ fn fork_inherited_entries_dedup_across_files() {
     let _ = dir;
 }
 
-// 手工核算值（synthetic-subagent-nested）：主会话 syn-ma-1（10/5/0/0/15）primary；
-// 两层子 Agent Research.jsonl syn-sa-1（100/50/0/0/150）与三层嵌套
-// Research/Research.Compactor.jsonl syn-sa-2（200/60/40/0/300）均 sub_agent，
-// parent 均为最近的 <ts>_<uuid> 祖先目录 d070。合计 call_count=3、
-// input_total=350（派生）、cache_read=40、output=115、total=465、distinct session=3。
+// Manual calculation (synthetic-subagent-nested): main-session syn-ma-1 (10/5/0/0/15) is primary;
+// two-level Research.jsonl syn-sa-1 (100/50/0/0/150) and three-level nested
+// Research/Research.Compactor.jsonl syn-sa-2 (200/60/40/0/300) are sub_agent.
+// Both parents are the nearest <ts>_<uuid> ancestor directory d070. Sum: call_count=3,
+// input_total=350 (derived), cache_read=40, output=115, total=465, distinct sessions=3.
 #[test]
 fn nested_subagent_parent_from_directory_shape() {
     let (_db, storage) = temp_storage("omp-nested");
@@ -339,9 +339,9 @@ fn nested_subagent_parent_from_directory_shape() {
     assert_eq!(summary.totals.total_tokens_known, Some(465));
 }
 
-// 手工核算值（synthetic-error-aborted）：2 事件均 primary；syn-e-1 error、
-// syn-e-2 aborted（无 duration/ttft）。合计 input_total=25、cache_read=5、
-// cache_write=0、output=25、total=50。
+// Manual calculation (synthetic-error-aborted): both events are primary; syn-e-1 error,
+// syn-e-2 aborted (no duration/ttft). Sum: input_total=25, cache_read=5,
+// cache_write=0, output=25, total=50.
 #[test]
 fn error_and_aborted_stop_reasons_map_to_error_status() {
     let (_db, storage) = temp_storage("omp-err");
@@ -385,8 +385,8 @@ fn error_and_aborted_stop_reasons_map_to_error_status() {
     assert_eq!(summary.totals.total_tokens_known, Some(50));
 }
 
-// 手工核算值（synthetic-cost-estimated）：syn-c1 cost.total=0.058278 → 58278 micro-USD
-// estimated；syn-c2 cost.total=0 → 不映射。合计 input_total=105、output=55、total=160。
+// Manual calculation (synthetic-cost-estimated): syn-c1 cost.total=0.058278 maps to 58278 micro-USD,
+// estimated; syn-c2 cost.total=0 is not mapped. Sum: input_total=105, output=55, total=160.
 #[test]
 fn cost_total_positive_maps_estimated_zero_stays_unknown() {
     let (_db, storage) = temp_storage("omp-cost");
@@ -427,8 +427,8 @@ fn cost_total_positive_maps_estimated_zero_stays_unknown() {
     assert_eq!(summary.totals.total_tokens_known, Some(160));
 }
 
-// 手工核算值（synthetic-detect-supported）：首行 title（v=1）、次行 session v3；
-// 5 行 1 事件（syn-a1：100/10/0/0/110，duration 100.4→100、ttft 50.4→50）。
+// Manual calculation (synthetic-detect-supported): title (v=1) first, then session v3;
+// 5 lines and 1 event (syn-a1: 100/10/0/0/110, duration 100.4→100, ttft 50.4→50).
 #[test]
 fn detect_supported_title_first_and_full_scan() {
     let adapter = OmpAdapter::new();
@@ -480,7 +480,7 @@ fn detect_supported_title_first_and_full_scan() {
 
 #[test]
 fn detect_session_header_first_also_supported() {
-    // omp detect 接受 session 头在前的文件（与 pi 同形；limitations 已记）。
+    // omp detection also accepts a session header first, as pi does; retain that documented limit.
     let dir = TempDir::new("omp-detect-pi-shape");
     let path = dir.path().join("pi-shape.jsonl");
     std::fs::write(
@@ -502,7 +502,7 @@ fn detect_session_header_first_also_supported() {
 
 #[test]
 fn detect_pending_when_only_title_without_session() {
-    // 只有 title 而前 4 行内无 session 头：可能仍在首次写入中，下轮重探。
+    // A title without a session header in the first 4 lines may be an incomplete write; retry detection next round.
     let dir = TempDir::new("omp-detect-title");
     let path = dir.path().join("title-only.jsonl");
     std::fs::write(
@@ -525,13 +525,13 @@ fn detect_pending_on_empty_file() {
     let _ = dir;
 }
 
-// 手工核算值（synthetic-unsupported-version，目录名为历史样本组织，V30 起行为
-// 已变）：未收录数值版本（version=4）与缺失 version（legacy 形状）都按
-// LatestFallback 回退 session_v3 尝试（omp 旧版落盘格式尚未核验，尚未确认不兼容，
-// 不直接拒绝——与 pi 的 evidenced-incompatible 分支不同）。两文件各 1 事件
-// （100/10/0/0/110）：合计 call_count=2、input_total=200（派生）、output=20、
-// total=220；事件 parse_basis=latest_fallback；文件 active_compat；
-// latest_fallback 诊断每文件一条（框架层探测时记）。
+// Manual calculation (synthetic-unsupported-version retains its historical directory name; behavior changed in V30):
+// both an unlisted numeric version (version=4) and a versionless legacy format use
+// LatestFallback with session_v3. Older omp files have not been checked or identified as incompatible;
+// do not reject them directly. pi has a separate known-incompatible branch. Each file has one event
+// (100/10/0/0/110): call_count=2, input_total=200 (derived), output=20,
+// total=220; events use parse_basis=latest_fallback; files are active_compat;
+// detection records one latest_fallback diagnostic per file.
 #[test]
 fn v17_unknown_version_falls_back_with_compat_mark() {
     let adapter = OmpAdapter::new();
@@ -542,7 +542,7 @@ fn v17_unknown_version_falls_back_with_compat_mark() {
     let legacy = case.join(
         "sessions/--C--syn--/2026-01-05T10-00-00-021Z_00000000-0000-7000-8000-00000000d021.jsonl",
     );
-    // 未收录数值版本与缺失 version 都回退最新内置解析器并带兼容标记。
+    // Both unlisted numeric versions and missing versions use the latest parser with compatibility markers.
     assert_eq!(
         adapter.detect(&v4).unwrap(),
         DetectOutcome::Supported {
@@ -582,14 +582,14 @@ fn v17_unknown_version_falls_back_with_compat_mark() {
         (2, 0, 0)
     );
 
-    // 兼容尝试成功的数据正常统计。
+    // Successfully parsed compatible data contributes to statistics.
     let summary = summary(&storage, "2026-01-05", "2026-01-05");
     assert_eq!(summary.totals.call_count, 2);
     assert_eq!(summary.totals.input_total_known, Some(200));
     assert_eq!(summary.totals.output_total_known, Some(20));
     assert_eq!(summary.totals.total_tokens_known, Some(220));
 
-    // 兼容标记持久化：事件 parse_basis、文件 active_compat、探测结论 JSON。
+    // Persist compatibility markers in event parse_basis, file active_compat, and detection JSON.
     let row_for = |key: &str| {
         storage
             .conn()
@@ -615,7 +615,7 @@ fn v17_unknown_version_falls_back_with_compat_mark() {
             Some("syn-omp-v4".into())
         )
     );
-    // 缺失 version 的 legacy 形状：schema_version 无从得知记 unknown，basis 仍带标记。
+    // A versionless legacy format has schema_version=unknown and retains the fallback parse basis.
     assert_eq!(
         row_for("omp:message:syn-l1:-:2026-01-05T10:00:05.000Z"),
         (
@@ -646,13 +646,13 @@ fn v17_unknown_version_falls_back_with_compat_mark() {
         assert_eq!(fs["basis"], "latest_fallback");
         assert_eq!(fs["compat"], "unverified");
     }
-    // file_id 排序：d020（version=4）在前，d021（缺失 version）在后。
+    // file_id order: d020 (version=4), then d021 (missing version).
     let fs0: serde_json::Value = serde_json::from_str(&statuses[0].1).unwrap();
     let fs1: serde_json::Value = serde_json::from_str(&statuses[1].1).unwrap();
     assert_eq!(fs0["found_version"], "4");
     assert_eq!(fs1["found_version"], serde_json::Value::Null);
 
-    // 重复扫描不增量（兼容标记不改变幂等）。
+    // A repeated scan adds no events; compatibility markers preserve deduplication.
     let second = run_omp(&storage, &case, 1_800_000_000_000 + 1000);
     let added2: i64 = second
         .iter()
@@ -682,8 +682,8 @@ fn v17_unknown_format_fails_closed_not_success_zero() {
     assert_eq!(diag_count(&storage, "unknown_format"), 1);
 }
 
-// 手工核算值（synthetic-unknown-record-type）：1 事件（syn-m1：7/3/0/0/10）；
-// 未知类型 brand_new_thing 出现 2 次，诊断每文件每类型只记一次。
+// Manual calculation (synthetic-unknown-record-type): one event (syn-m1: 7/3/0/0/10).
+// Unknown type brand_new_thing appears twice; diagnose each type once per file.
 #[test]
 fn unknown_record_type_ignored_with_single_diagnostic() {
     let (_db, storage) = temp_storage("omp-urt");
@@ -701,7 +701,7 @@ fn unknown_record_type_ignored_with_single_diagnostic() {
     assert_eq!(summary.totals.input_total_known, Some(7));
     assert_eq!(summary.totals.output_total_known, Some(3));
     assert_eq!(summary.totals.total_tokens_known, Some(10));
-    // 未知类型不 fail closed：文件状态保持 active。
+    // An unknown entry type does not reject the file; its state remains active.
     let status: Option<String> = storage
         .conn()
         .query_row("SELECT status FROM source_files", [], |r| r.get(0))

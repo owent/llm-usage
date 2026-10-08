@@ -1,25 +1,25 @@
-//! Claude Code transcript JSONL 格式实现（`transcript_doc1`，V30 目录迁移自
-//! 根级 claude.rs 单文件，拒绝语义不变）。
+//! Claude Code transcript JSONL parser: transcript_doc1, moved from root claude.rs
+//! in M2/V30 with the same whole-file rejection behavior.
 //!
-//! 旧文档锚点依据（A01）；原生 2.1.197 独立按下述真实样本规则读取：
-//! - 路径：`$CLAUDE_CONFIG_DIR/projects/<project>/<session>.jsonl`（默认
-//!   `~/.claude/projects/...`）；子 Agent transcript 在
-//!   `projects/<project>/<session>/subagents/`；被替换的旧 transcript 以
-//!   `<session>.orphaned-<ts>-<suffix>.jsonl` 与 `<session>.jsonl.superseded-<ts>`
-//!   变体保留（内容与现行 transcript 重叠，按稳定身份 upsert 防双计）。
-//! - monitoring-usage：usage 分类 input/output/cache_read/cache_creation；
-//!   `requestId` 持久化在 assistant 条目上；"An API response is persisted as one
-//!   transcript entry per content block"（同一响应多条目、usage 重复，按 requestId
-//!   去重）；`query_source` ∈ {main, subagent, auxiliary}（OTel 侧，未接入）。
-//! - 官方明示 "transcript entry format is internal ... not a stable contract"：
-//!   条目结构按 Anthropic API usage 块定义（input_tokens/output_tokens/
-//!   cache_read_input_tokens/cache_creation_input_tokens）实现，不能认证原生默认零。
+//! Older documented format A01 and native 2.1.197 use separate field rules:
+//! - Path: $CLAUDE_CONFIG_DIR/projects/<project>/<session>.jsonl, defaulting to
+//!   ~/.claude/projects/...; subagents use projects/<project>/<session>/subagents/.
+//!   Older replaced transcripts may remain as <session>.orphaned-<ts>-<suffix>.jsonl
+//!   or <session>.jsonl.superseded-<ts>, overlapping the active transcript.
+//!   Stable event identities prevent those files from counting the same response twice.
+//! - The monitoring documentation lists input/output/cache_read/cache_creation.
+//!   Content blocks can repeat response usage. Prefer requestId, then message.id;
+//!   native 2.1.197 samples have repeated message.id without requestId.
+//!   OTel query_source main/subagent/auxiliary is not ingested by this parser.
+//! - Upstream describes transcript entries as an internal, unstable format.
+//!   The older documented mapping uses API usage fields input_tokens/output_tokens/
+//!   cache_read_input_tokens/cache_creation_input_tokens, without verifying native default zeros.
 //!
-//! fail closed（V17）：未文档化记录 type、或非 usage 载体记录携带 usage 字段，
-//! 整文件拒绝（游标不推进、下轮确定性再拒），不猜格式。
+//! Reject files containing unsupported record types or usage on non-usage records (V17).
+//! Retain the cursor so subsequent scans retry rather than infer another format.
 //!
-//! 2.1.197 原生逐条 version、正用量与默认零规则见 Claude 容器实样记录。
-//! 无版本旧文档锚点独立保留；其他 version 只作兼容，不认证真实支持。
+//! Native 2.1.197 per-record versions and positive/default-zero rules are recorded in validation.
+//! Retain the older versionless format separately; other releases are compatibility reads only.
 
 use crate::domain::{
     AttributionStatus, CallCategory, EventInput, Lifecycle, ModelAttribution, RecordKind,
@@ -42,15 +42,15 @@ pub const CLAUDE_PARSER_VERSION: &str = "claude-transcript-doc1";
 pub const NATIVE_PARSER_VERSION: &str = "claude-transcript-doc2";
 const MAX_REASONABLE_TOKEN: i64 = crate::domain::MAX_TOKEN_VALUE;
 
-/// 持久化解析上下文（跨增量轮次的"每文件一次性"诊断标志 + 版本选择依据）。
+/// Persist per-file diagnostic flags and format selection across incremental scans.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 struct ClaudeParseContext {
     #[serde(default)]
     unmapped_usage_keys_reported: bool,
     #[serde(default)]
     assistant_without_usage_reported: bool,
-    /// 版本选择依据（known_version / latest_fallback）；旧解析上下文缺省为 None，
-    /// 迁移不重建来源；事件依据由每条 assistant 的版本确定。
+    /// Format selection: known_version/latest_fallback; older contexts default to None.
+    /// Moving files does not recreate sources; assistant records select their own version rules.
     #[serde(default)]
     version_basis: Option<VersionBasis>,
     #[serde(default)]
@@ -61,7 +61,7 @@ struct ClaudeParseContext {
     native_rules_invalid: bool,
 }
 
-/// 从存储的游标 JSON 还原；重扫或无效时回到文件头。
+/// Restore stored cursor JSON; restart at the file head for rescans or invalid cursors.
 fn restore_cursor(stored: &StoredScanState, generation: i64, rescan: bool) -> JsonlCursor {
     if rescan {
         return JsonlCursor {
@@ -113,8 +113,8 @@ fn parse_ts_ms(value: &serde_json::Value) -> Option<(i64, String)> {
     Some((ts, raw.to_string()))
 }
 
-/// 解析 assistant 条目 message.usage 四字段；全部必需、非负、有界。
-/// 缺失/类型错误/负值/超限返回 None（调用方记诊断）；未知额外键另行诊断但保留记录。
+/// Parse four required nonnegative, bounded message.usage fields from assistant entries.
+/// Missing/invalid fields return None; extra keys produce diagnostics without dropping valid usage.
 fn parse_usage(value: &serde_json::Value) -> Option<ClaudeTranscriptUsage> {
     let obj = value.as_object()?;
     let get = |key: &str| -> Option<i64> {
@@ -146,7 +146,7 @@ fn has_unknown_usage_keys(value: &serde_json::Value) -> bool {
         .unwrap_or(false)
 }
 
-/// 文件是否位于 `.../<session>/subagents/` 下；是则返回父会话目录名。
+/// Return the parent session name for files under .../<session>/subagents/.
 fn subagent_parent_session(path: &Path) -> Option<String> {
     let parent = path.parent()?;
     if parent.file_name()?.to_str()? != "subagents" {
@@ -155,7 +155,7 @@ fn subagent_parent_session(path: &Path) -> Option<String> {
     Some(parent.parent()?.file_name()?.to_str()?.to_string())
 }
 
-/// 增量扫描一个 transcript JSONL 文件（统一入口 `ClaudeAdapter::scan` 分派到本实现）。
+/// Scan a transcript JSONL file, dispatched by ClaudeAdapter::scan.
 pub fn scan(
     target: &ScanTarget,
     stored: &StoredScanState,
@@ -177,7 +177,7 @@ pub fn scan(
             .unwrap_or(false);
     let cursor = restore_cursor(stored, target.generation, target.rescan || replay);
     let mut context = restore_context(stored, target.rescan || replay);
-    // 文件格式门禁独立于每条事件的客户端版本。
+    // File-format checks remain independent of the client version carried by each record.
     context.version_basis = Some(VersionBasis::KnownVersion);
     let mut events: Vec<EventInput> = Vec::new();
     let mut diagnostics: Vec<DiagnosticInput> = Vec::new();
@@ -217,7 +217,7 @@ pub fn scan(
             "assistant" => {
                 let usage_value = line.get("message").and_then(|m| m.get("usage"));
                 let Some(usage_value) = usage_value else {
-                    // assistant 条目无 usage：未记录用量，不产事件（每文件一次性诊断）。
+                    // Assistant entries without usage produce no event; diagnose once per file.
                     if !context.assistant_without_usage_reported {
                         context.assistant_without_usage_reported = true;
                         diagnostics.push(diag(
@@ -295,8 +295,8 @@ pub fn scan(
                     .get("message")
                     .and_then(|m| json_str(m, "model"))
                     .map(str::to_string);
-                // 2026-09-30 真实样本核验结果（Claude Code 2.1.197）：未登录/占位响应写
-                // model="<synthetic>" 且 usage 全 0——未观测到模型调用，不产事件。
+                // 2.1.197 placeholder samples use model=<synthetic> with default-zero usage.
+                // They do not establish a model call; skip the placeholder response.
                 if model.as_deref() == Some("<synthetic>") {
                     diagnostics.push(diag(
                         "synthetic_assistant_skipped",
@@ -383,11 +383,11 @@ pub fn scan(
                     cost: None,
                 });
             }
-            // 2026-09-30 真实样本核验结果（2.1.197）：queue-operation（排队元数据）、
-            // attachment（上下文附件）、last-prompt（会话指针）为非用量载体，
-            // 跳过；若携带 usage 字段仍按格式偏离 fail closed。
+            // 2.1.197 inspection identifies queue-operation as queue metadata, attachment
+            // as context data, and last-prompt as a session pointer; none report usage.
+            // Skip them unless they carry usage, which rejects the file as a format error.
             "user" | "system" | "queue-operation" | "attachment" | "last-prompt" => {
-                // 非 usage 载体记录携带 usage 字段：格式偏离，整文件 fail closed。
+                // Usage on a non-usage record rejects the entire file.
                 let carries_usage = line.get("usage").is_some()
                     || line.get("message").and_then(|m| m.get("usage")).is_some();
                 if carries_usage {
@@ -434,7 +434,7 @@ pub fn scan(
                 "bad_json_line" | "usage_shape_deviation" | "line_too_long"
             )
         });
-    // fail closed：本轮事件清空、游标不推进（不提交 checkpoint），下轮确定性再拒。
+    // On rejection, discard this scan's events and retain the checkpoint for the next retry.
     context.native_rules_invalid |= health_degraded;
     context.native_rules_in_progress = status == ScanStatus::BudgetExhausted;
     if status == ScanStatus::Complete && !context.native_rules_invalid && fail_closed.is_none() {
@@ -525,8 +525,8 @@ mod tests {
 
     #[test]
     fn old_parse_context_without_basis_still_restores() {
-        // 旧解析上下文（无 version_basis 字段）反序列化不失败，basis 为 None；
-        // 目录迁移不重建来源/重置游标（V30）。
+        // Older contexts without version_basis deserialize to None.
+        // The V30 directory move does not recreate sources or reset cursors.
         let legacy = serde_json::json!({
             "unmapped_usage_keys_reported": false,
             "assistant_without_usage_reported": false

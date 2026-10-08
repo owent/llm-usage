@@ -1,10 +1,10 @@
-//! Codex 探测与版本分派：有界读取首行，确认 Agent 身份（`type=session_meta`
-//! rollout JSONL）后按 [`super::versions`] 注册表选择格式实现。
+//! Bounded Codex first-line detection: identify session_meta rollout JSONL,
+//! then select implementation through the super::versions registry.
 //!
-//! 约定（architecture.md#unknown-version）：
-//! - 首行不是 JSON / 不是 session_meta / payload 缺 id 与 cli_version ⇒ 未知格式，
-//!   fail closed，不把任意未知文件交给猜测逻辑；
-//! - cli_version 已收录 ⇒ KnownVersion；未收录或缺失 ⇒ LatestFallback（带兼容标记）。
+//! Rules: architecture.md#unknown-version.
+//! - Non-JSON, non-session_meta or missing both payload.id/session_id is unknown format;
+//!   reject rather than guess how to parse an arbitrary file.
+//! - Registered cli_version selects KnownVersion; absent/unregistered uses marked LatestFallback.
 
 use crate::error::CoreError;
 use std::path::Path;
@@ -15,7 +15,7 @@ use super::versions;
 
 pub const CODEX_FORMAT: &str = "codex-rollout-jsonl";
 
-/// 探测一个 rollout 文件并按注册表分派。
+/// Detect one rollout and select its registered implementation.
 pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     let limits = super::super::jsonl::JsonlLimits {
         chunk_bytes: 64 * 1024,
@@ -42,8 +42,8 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
         .get("payload")
         .cloned()
         .unwrap_or(serde_json::Value::Null);
-    // Agent 身份/输入类型确认：session_meta 须携带会话 id；cli_version 可缺失
-    //（缺失 ⇒ 版本未知，默认回退最新内置解析器，不直接拒绝）。
+    // session_meta must have a session ID; cli_version may be absent.
+    // Missing version uses the latest built-in parser with unknown-version status, not immediate rejection.
     if payload.get("id").and_then(|v| v.as_str()).is_none()
         && payload.get("session_id").and_then(|v| v.as_str()).is_none()
     {

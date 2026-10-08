@@ -1,9 +1,9 @@
-//! Hermes Agent 适配器约定测试：合成 fixture（目录标 synthetic，
-//! A24 固定源码 ef70b3661cbfcf57e583008ad91dd04d8ba46070）经
-//! 读取→解析→区间汇总→commit→查询。数值对照
-//! tests/fixtures/hermes/*/_expectations.md 的人工核算，不改计算规则。
+//! Hermes Agent adapter tests include synthetic samples in explicitly marked directories.
+//! A24 source reference: ef70b3661cbfcf57e583008ad91dd04d8ba46070.
+//! Read, parse, create interval aggregates, commit and query; compare the manually
+//! calculated tests/fixtures/hermes/*/_expectations.md values without changing calculation rules.
 //!
-//! 真实 0.21.5 CLI/续会话及旧处理位置升级回归也在此文件，保持与合成场景区分。
+//! Real 0.21.5 CLI/resumed-session and old-position upgrade tests are separately identified below.
 
 mod common;
 
@@ -27,7 +27,7 @@ fn hermes_fixture(name: &str) -> PathBuf {
         .join(name)
 }
 
-/// serde_json 值 → SQLite 值（复制自 tests/common/mod.rs 的 json_to_sql）。
+/// serde_json to SQLite values, copied from tests/common/mod.rs json_to_sql.
 fn json_to_sql(value: &serde_json::Value) -> rusqlite::types::Value {
     use rusqlite::types::Value as Sql;
     match value {
@@ -62,9 +62,9 @@ fn insert_rows(conn: &rusqlite::Connection, table: &str, rows: &[serde_json::Val
     }
 }
 
-/// 按脱敏数据（{schema:{schema_version,sessions_ddl,session_model_usage_ddl},
-/// sessions,session_model_usage}）在 <dir>/hermes-home/state.db 重建 SQLite 库，
-/// 返回 hermes home（可作为手工根传入 discover）。
+/// Rebuild SQLite from sanitized {schema:{schema_version,sessions_ddl,session_model_usage_ddl},
+/// sessions,session_model_usage} at <dir>/hermes-home/state.db;
+/// return the Hermes home for manual-root discovery.
 fn build_hermes_db(dir: &TempDir, projection: &serde_json::Value) -> PathBuf {
     let home = dir.path().join("hermes-home");
     std::fs::create_dir_all(&home).unwrap();
@@ -131,7 +131,7 @@ fn hermes_instance(root: &Path) -> String {
     format!("hermes@{}", normalize_path(root))
 }
 
-/// 一条区间汇总的仅保留白名单字段的数据。
+/// Selected fields from one interval aggregate.
 type AggRow = (
     String,
     Option<i64>,
@@ -243,7 +243,7 @@ fn contract_basic_cumulative_row_maps_to_interval_aggregate() {
     assert_eq!(report.files[0].events, 0, "累计行不产生事件");
     let instance = hermes_instance(&root);
 
-    // 期望见 _expectations.md：1 条区间汇总，全字段对照。
+    // Compare every field of the one interval aggregate with _expectations.md.
     let rows = aggregate_rows(&storage, &instance);
     assert_eq!(rows.len(), 1);
     let row = &rows[0];
@@ -276,7 +276,7 @@ fn contract_basic_cumulative_row_maps_to_interval_aggregate() {
         .unwrap();
     assert_eq!(interval_end_inclusive, 1, "last_seen 瞬时闭区间语义");
 
-    // api_call_count 不拆 model_call：usage_events 0 条、日汇总零请求零 token。
+    // api_call_count does not create model_call events: zero usage_events/daily calls and unknown daily tokens.
     let events: i64 = storage
         .conn()
         .query_row("SELECT COUNT(*) FROM usage_events", [], |r| r.get(0))
@@ -287,7 +287,7 @@ fn contract_basic_cumulative_row_maps_to_interval_aggregate() {
     assert_eq!(sums.totals.input_total_known, None, "不把 100 记入单日");
     assert_eq!(sums.totals.total_tokens_known, None);
 
-    // 互斥求和能力（区间汇总原生范围）。
+    // Sum exclusive aggregates within their native interval scope.
     let totals = llm_usage_core::aggregates::sum_exclusive_aggregates(&storage, &instance).unwrap();
     assert_eq!(totals.input_uncached, Some(100));
     assert_eq!(totals.input_total, Some(160));
@@ -300,7 +300,7 @@ fn contract_basic_cumulative_row_maps_to_interval_aggregate() {
     assert_eq!(totals.exclusive_rows, 1);
     assert_eq!(totals.duplicate_rows, 0);
 
-    // 整库 schema_version 不认证逐行客户端版本，仍 latest_fallback。
+    // Database-wide schema_version cannot verify each record's client version; retain latest_fallback.
     let fallback: i64 = storage
         .conn()
         .query_row(
@@ -339,7 +339,7 @@ fn contract_cross_day_row_stays_single_interval_not_day_split() {
     assert_eq!(rows[0].2, 1_790_361_000_000);
     assert_eq!(rows[0].10, Some(3), "api_call_count=3 不拆成 3 条调用");
 
-    // 无详单 ⇒ 三天日汇总均零请求、零 token（不摊分、不落最后一天）。
+    // No per-call details: the 2026-09-20..2026-09-30 query has zero calls and unknown tokens, without spreading or last-day assignment.
     let sums = summary(&storage, "2026-09-20", "2026-09-30");
     assert_eq!(sums.totals.call_count, 0);
     assert_eq!(sums.totals.input_total_known, None);
@@ -366,7 +366,7 @@ fn contract_auxiliary_task_rows_are_exclusive_not_added_twice() {
     assert!(rows.iter().all(|r| r.11 == "exclusive"));
 
     let totals = llm_usage_core::aggregates::sum_exclusive_aggregates(&storage, &instance).unwrap();
-    // V03 固定数学样本：100 + 20 = 120，不是 220（辅助不折算进主会话再计一次）。
+    // V03 example: 100 + 20 = 120; do not add auxiliary usage to the primary session again to get 220.
     assert_eq!(totals.input_uncached, Some(120));
     assert_eq!(totals.input_total, None);
     assert_eq!(totals.reported_call_count, Some(4));
@@ -386,20 +386,20 @@ fn contract_v20_backfill_row_uses_session_window_and_compression_child_not_dupli
     let instance = hermes_instance(&root);
     let rows = aggregate_rows(&storage, &instance);
     assert_eq!(rows.len(), 2);
-    // 回填行：first_seen NULL ⇒ interval_start NULL；区间端点回退 session ended_at。
+    // Backfill first_seen NULL leaves interval_start NULL; endpoint falls back to session ended_at.
     let backfill = rows
         .iter()
         .find(|r| r.3 == Some(500))
         .expect("backfill row (input=500)");
     assert_eq!(backfill.1, None);
     assert_eq!(backfill.2, 1_789_905_600_000, "回退父会话 ended_at");
-    // 子会话实时行照常。
+    // Retain the live child-session interval.
     let live = rows.iter().find(|r| r.3 == Some(300)).expect("live row");
     assert_eq!(live.1, Some(1_789_905_660_500));
     assert_eq!(live.2, 1_789_916_000_000);
     assert_eq!(live.10, Some(2));
 
-    // 压缩继承不双计：500 + 300 = 800（父汇总不复制给子）。
+    // Compaction inheritance does not duplicate parent usage: 500 + 300 = 800.
     let totals = llm_usage_core::aggregates::sum_exclusive_aggregates(&storage, &instance).unwrap();
     assert_eq!(totals.input_uncached, Some(800));
     assert_eq!(totals.input_total, None);
@@ -441,7 +441,7 @@ fn capability_table_preserves_real_sample_and_mixed_history_boundaries() {
             "capability fields missing {key}"
         );
     }
-    // 逐次请求/时间不可用（累计表语义），token 为 Partial(待真实样本)。
+    // Cumulative tables lack per-request calls/times; token capability is Partial with limited sample coverage.
     assert!(json["fields"]["per_request_calls"]["availability"]
         .get("unavailable")
         .is_some());
@@ -499,7 +499,7 @@ fn discover_respects_hermes_home_env_override() {
 #[test]
 fn discover_windows_localappdata_default_and_named_profile() {
     let dir = TempDir::new("hermes-winhome");
-    // %LOCALAPPDATA%/hermes/state.db + profiles/coder/state.db（带身份标记）。
+    // %LOCALAPPDATA%/hermes/state.db and profiles/coder/state.db with an identity marker.
     let base = dir.path().join("local");
     let home = base.join("hermes");
     std::fs::create_dir_all(home.join("profiles").join("coder")).unwrap();
@@ -517,9 +517,9 @@ fn discover_windows_localappdata_default_and_named_profile() {
             .unwrap();
         conn.execute_batch("CREATE TABLE t (x)").unwrap();
     }
-    // 固定源码 _PROFILE_IDENTITY_MARKERS 含 state.db 本身：profiles/<name>/
-    // 只要有 state.db 就算 profile 身份（上游对空壳目录另有 servable 判定，
-    // 采集层按文件存在即身份）。
+    // The referenced _PROFILE_IDENTITY_MARKERS includes state.db itself under profiles/<name>.
+    // A state.db file supplies that marker; upstream has a separate servable check for empty profiles.
+    // Discovery uses the file marker, while detection checks the database format.
     std::fs::create_dir_all(home.join("profiles").join("second")).unwrap();
     {
         let conn =
@@ -578,7 +578,7 @@ fn discover_from_manual_parent_root_and_empty_yields_none() {
     let dir = TempDir::new("hermes-manual");
     let root = build_hermes_db_from_fixture(&dir, "synthetic-basic-cumulative");
     let adapter = HermesAdapter::new();
-    // 手工根传 hermes home 的父目录（用户 home 语义）：有界深度内定位。
+    // Discover within bounded depth from a manual parent of Hermes home, as for a user home.
     let ctx = DiscoverContext {
         home_dir: None,
         env: Default::default(),
@@ -588,7 +588,7 @@ fn discover_from_manual_parent_root_and_empty_yields_none() {
     assert_eq!(roots.len(), 1, "父目录手工根仍定位 state.db");
     assert_eq!(normalize_path(&roots[0].root), normalize_path(&root));
 
-    // 空目录不产出根。
+    // An empty directory yields no source root.
     let empty = TempDir::new("hermes-empty");
     let ctx = DiscoverContext {
         home_dir: Some(empty.path().to_path_buf()),
@@ -992,7 +992,7 @@ fn bad_type_and_negative_synthetic_rows_retain_valid_unknown_version_aggregates(
     let dir = TempDir::new("hermes-bad-type");
     let root = build_hermes_db_from_fixture(&dir, "real-0.21.5");
     let db = rusqlite::Connection::open(root.join("state.db")).unwrap();
-    // Fault controls in a disposable copy; the committed real fixture is untouched.
+    // Inject faults in a disposable copy; the committed real sample remains unchanged.
     for (task, input, end) in [
         (
             "bad-type",

@@ -1,4 +1,4 @@
-//! Genuine Aider 0.86.2 analytics projection, checked against independent local inference usage.
+//! Native Aider 0.86.2 analytics fields checked against independent local-model usage.
 mod common;
 
 use common::{summary, temp_storage, TempDir};

@@ -1,14 +1,14 @@
-//! 适配器框架：discover → detect → scan → map → capability 统一接口，
-//! 以及把扫描结果接入 M1 `commit_batch` 管线的运行器（V12：重复扫描不增量）。
+//! Common adapter interface: discover, detect, scan, map and capability,
+//! with a runner feeding M1 commit_batch. V12: repeated reads do not duplicate usage.
 //!
-//! 规则要点：
-//! - discover：候选路径 + 环境覆盖 + 手工根，有界枚举，不全盘扫描；
-//! - detect：文件 magic/记录类型/schema 指纹 + Agent 目录版本注册表分派；
-//!   未知/缺失版本默认尝试该 Agent 最新内置解析器并带兼容标记（V17/V30），
-//!   已确认不兼容的版本与未知格式 fail closed 返回受限；
-//! - scan：增量游标读取（JSONL 游标 = 文件身份 + generation + 完整行字节偏移 + 解析上下文）；
-//! - capability：每源字段能力声明，供未来数据源页使用；
-//! - 诊断只存字段名/错误码/位置，不复制原始内容。
+//! Rules:
+//! - discover: bounded candidate paths, environment overrides and manual roots; no full-disk scan;
+//! - detect: file signatures, record types and schema fingerprints, with per-Agent version registries;
+//!   unknown/missing versions try the latest built-in Agent reader with compatibility metadata (V17/V30);
+//!   verified incompatible versions and unknown formats remain restricted;
+//! - scan: incremental JSONL cursors keep file identity, generation, complete-line byte offset and parse context;
+//! - capability: declare the fields available from each source;
+//! - diagnostics keep field names, error codes and positions without copying raw content.
 
 use crate::domain::EventInput;
 use crate::error::CoreError;
@@ -22,15 +22,15 @@ use std::path::{Path, PathBuf};
 
 use super::jsonl::{FileProbe, JsonlLimits, StoredFileState};
 
-/// 单源每轮墙钟超时初值（architecture.md：30 秒）。
+/// Default wall-clock timeout for one source run: 30 seconds (architecture.md).
 pub const DEFAULT_SOURCE_TIME_BUDGET: std::time::Duration = std::time::Duration::from_secs(30);
-/// 发现阶段的文件/目录上界（有界探测）。
+/// Discovery file/directory limits.
 pub const DISCOVER_MAX_FILES: usize = 20_000;
 pub const DISCOVER_MAX_DIRS: usize = 50_000;
 
-/// detect 入口的瞬态 IO 错误判定：杀软/产品进程短暂持锁
-/// （Windows 共享违例 → PermissionDenied）、超时、枚举后文件被清理。
-/// 瞬态错误必须 Pending 下轮重探，不能固化为扫描失败或 UnknownFormat。
+/// Transient detection I/O: short antivirus/product locks, Windows sharing violations
+/// mapped to PermissionDenied, timeouts or files deleted after enumeration.
+/// Return Pending and retry next run instead of persisting a scan failure or UnknownFormat.
 pub fn is_transient_io(err: &std::io::Error) -> bool {
     matches!(
         err.kind(),
@@ -42,8 +42,8 @@ pub fn is_transient_io(err: &std::io::Error) -> bool {
     )
 }
 
-/// detect 文件头读取助手：`Ok(None)` = 瞬态不可读（调用方返回 Pending）；
-/// 硬错误上抛 CoreError。
+/// Read a detection header; Ok(None) means transiently unreadable and requires Pending.
+/// Propagate other errors as CoreError.
 pub fn read_detect_head(path: &Path, head_bytes: usize) -> Result<Option<Vec<u8>>, CoreError> {
     use std::io::Read as _;
     let file = match super::run_policy::checked_file(path) {
@@ -60,7 +60,7 @@ pub fn read_detect_head(path: &Path, head_bytes: usize) -> Result<Option<Vec<u8>
     Ok(Some(head))
 }
 
-/// 发现上下文。环境变量以显式 map 传入，便于测试且不依赖真实进程环境。
+/// Discovery context: an explicit environment map supports isolated tests without process-environment reads.
 #[derive(Debug, Clone, Default)]
 pub struct DiscoverContext {
     pub home_dir: Option<PathBuf>,
@@ -68,19 +68,19 @@ pub struct DiscoverContext {
     pub manual_roots: Vec<PathBuf>,
 }
 
-/// 候选根的来源依据。
+/// How a candidate root was selected.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RootBasis {
-    /// 环境变量覆盖（值是变量名，不是内容）。
+    /// Environment override; the stored string is the variable name, not its value.
     EnvOverride(String),
-    /// 平台默认用户目录。
+    /// Platform default user directory.
     DefaultHome,
-    /// 用户手工添加的根。
+    /// User-added manual root.
     Manual,
 }
 
-/// 一个有界枚举后的候选根。
+/// Candidate root with bounded file enumeration.
 #[derive(Debug, Clone)]
 pub struct DiscoveredRoot {
     pub root: PathBuf,
@@ -88,16 +88,16 @@ pub struct DiscoveredRoot {
     pub files: Vec<PathBuf>,
 }
 
-/// 格式探测结果（architecture.md 未知版本兼容约定）：
-/// - Supported：Agent 身份与输入类型已确认。已知版本按注册表映射分派（KnownVersion）；
-///   未知/缺失版本默认选择该 Agent 最新内置解析器（LatestFallback），结果须带兼容标记。
-/// - UnsupportedVersion：有证据判定不兼容的版本（如固定源码证实格式不同），不尝试回退。
-/// - UnknownFormat：Agent 身份或格式无法确认，fail closed；不得返回“成功 0 条”（V17）。
+/// Detection results follow architecture.md compatibility rules:
+/// - Supported: verified Agent identity/input type; known versions dispatch through the registry.
+///   Unknown/missing versions select LatestFallback and retain compatibility metadata.
+/// - UnsupportedVersion: verified incompatibility, such as a different source format; no fallback.
+/// - UnknownFormat: unverified Agent/format stays restricted instead of reporting successful zero records (V17).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DetectOutcome {
     Supported {
         format: String,
-        /// 来源原始版本；版本字段缺失时为 None（仍可 LatestFallback）。
+        /// Native version, or None when absent; LatestFallback remains possible.
         format_version: Option<String>,
         basis: crate::domain::VersionBasis,
     },
@@ -109,11 +109,11 @@ pub enum DetectOutcome {
     UnknownFormat {
         reason: String,
     },
-    /// 文件尚无可判定内容（如新建空文件）：下轮重探。
+    /// No classifiable content yet, such as an empty new file; retry next run.
     Pending,
 }
 
-/// 单项能力可用性。
+/// Availability of one capability.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Availability {
@@ -122,7 +122,7 @@ pub enum Availability {
     Unavailable(String),
 }
 
-/// 结构化能力声明（发现/探测/映射/增量/去重/完整性/维护/定时/限制）。
+/// Structured discovery, detection, mapping, incremental, deduplication, coverage, maintenance and scheduling capabilities.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CapabilityTable {
     pub adapter_id: String,
@@ -131,7 +131,7 @@ pub struct CapabilityTable {
     pub supported_versions: Vec<String>,
     pub discovery: serde_json::Value,
     pub detection: serde_json::Value,
-    /// 字段能力：token/缓存读/缓存写/逐次请求/模型/时间/费用/延迟。
+    /// Token/cache/call/model/time/cost/latency field availability.
     pub fields: serde_json::Map<String, serde_json::Value>,
     pub lifecycle: serde_json::Value,
     pub incremental: serde_json::Value,
@@ -142,47 +142,47 @@ pub struct CapabilityTable {
     pub limitations: Vec<String>,
 }
 
-/// 逐文件扫描目标。
+/// One file to scan.
 #[derive(Debug, Clone)]
 pub struct ScanTarget {
     pub instance_id: String,
-    /// 规范化后的文件路径（只进本地库，不进对外输出）。
+    /// Normalized local file path; store locally and exclude from external output.
     pub path: PathBuf,
-    /// source_files.file_id（规范化路径字符串）。
+    /// source_files.file_id, based on the normalized path.
     pub file_id: String,
-    /// source_files.file_identity / checkpoint scope_key（跨改名稳定）。
+    /// source_files.file_identity/checkpoint scope_key, stable across supported renames.
     pub file_identity: String,
-    /// 探测到的当前文件状态。
+    /// Current observed file state.
     pub probe: FileProbe,
-    /// 代数裁决后的 generation（重扫时已是新值）。
+    /// Generation selected by file-continuity rules; a rescan already uses the new value.
     pub generation: i64,
-    /// 本次是否从头重扫（替换/截断/重建）。
+    /// Whether replacement, truncation or rebuilding requires a scan from the beginning.
     pub rescan: bool,
 }
 
-/// 已存储的扫描状态（游标 + 解析上下文）。
+/// Stored cursor and parse context.
 #[derive(Debug, Clone, Default)]
 pub struct StoredScanState {
     pub cursor: Option<serde_json::Value>,
     pub parse_context: Option<serde_json::Value>,
 }
 
-/// 扫描限制。
+/// Scan limits.
 #[derive(Debug, Clone, Default)]
 pub struct ScanLimits {
     pub jsonl: JsonlLimits,
 }
 
-/// 逐文件扫描状态。
+/// File scan status.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ScanStatus {
-    /// 读到当前文件尾。
+    /// Reached the current end of file.
     Complete,
-    /// 达到读取上限或超时，游标停在完整行边界，下轮继续。
+    /// Read/time limit reached; preserve a complete-line cursor and continue next run.
     BudgetExhausted,
-    /// 某行超过单行上限：受限，游标停在该行起点，允许受控重试。
+    /// Oversized line: restrict reading at its start and permit a controlled retry.
     LineTooLong,
-    /// 空文件等待内容。
+    /// Empty file awaiting content.
     Pending,
 }
 
@@ -197,24 +197,24 @@ impl ScanStatus {
     }
 }
 
-/// 快照对账结果（白名单数值，无正文）。
+/// Snapshot reconciliation with selected numeric fields, without message content.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Reconciliation {
-    /// 系列标签（如 "session_cumulative_snapshot"），不含 ID/路径。
+    /// Series label, such as session_cumulative_snapshot, without IDs/paths.
     pub series: String,
-    /// 逐次明细的 total_tokens 合计。
+    /// Sum of detailed total_tokens values.
     pub detail_sum: i64,
-    /// 最终累计快照值。
+    /// Final cumulative snapshot value.
     pub snapshot_final: Option<i64>,
-    /// 按已核验规则排除的边界记录合计（如 compaction 携带记录）。
+    /// Sum of boundary records excluded by verified rules, such as compaction-carried usage.
     pub carried_sum: i64,
-    /// detail_sum - (snapshot_final + carried_sum)。
+    /// Difference: detail_sum - (snapshot_final + carried_sum).
     pub difference: Option<i64>,
-    /// matched / mismatch / no_snapshot。
+    /// Reconciliation verdict: matched, mismatch or no_snapshot.
     pub verdict: String,
 }
 
-/// 一次扫描的产出。
+/// One scan result.
 #[derive(Debug, Clone)]
 pub struct ScanOutcome {
     pub status: ScanStatus,
@@ -226,22 +226,26 @@ pub struct ScanOutcome {
     pub lines_read: u64,
     pub records_seen: u64,
     pub reconciliations: Vec<Reconciliation>,
-    /// 源文件健康（active / degraded）。
+    /// Source-file health: active or degraded.
     pub health: String,
 }
 
-/// 适配器统一接口。
+/// Common adapter interface.
 pub trait SourceAdapter: Send + Sync {
     fn adapter_id(&self) -> &'static str;
-    /// 统计归属的 Agent 名（事件 agent 字段）。
+    /// Agent name used by statistics and event.agent.
     fn agent(&self) -> &'static str;
-    /// 有界发现：候选路径 + 环境覆盖 + 手工根；不全盘扫描。
+    /// Bounded discovery through candidate paths, environment overrides and manual roots.
     fn discover(&self, ctx: &DiscoverContext) -> Vec<DiscoveredRoot>;
-    /// 由候选根得到稳定的本机实例 ID。
+    /// Opt in only when files can be visited independently of discovery order.
+    fn rotate_file_windows(&self) -> bool {
+        false
+    }
+    /// Stable local instance ID for a candidate root.
     fn instance_id(&self, root: &DiscoveredRoot) -> String;
-    /// 格式探测：magic/记录类型/schema 指纹；未知版本 fail closed。
+    /// Detect file signature/record type/schema; use the per-Agent registry for version selection.
     fn detect(&self, path: &Path) -> Result<DetectOutcome, CoreError>;
-    /// 增量扫描一个已支持的文件。
+    /// Incrementally scan one supported file.
     fn scan(
         &self,
         target: &ScanTarget,
@@ -249,20 +253,20 @@ pub trait SourceAdapter: Send + Sync {
         limits: &ScanLimits,
         now_ms: i64,
     ) -> Result<ScanOutcome, CoreError>;
-    /// 重新检查已消费且字节未变化的文件，同时保留游标上下文中的单调修订。
-    /// 默认继续跳过；快照适配器可用于一次性的统计/健康规则修正。
+    /// Recheck consumed, unchanged files while preserving monotonic revisions in cursor context.
+    /// Skip by default; snapshot adapters can opt in for a one-time statistics/health rule correction.
     fn should_scan_unchanged(&self, _stored: &StoredScanState) -> bool {
         false
     }
-    /// 可变载体按本轮逐记录证据更新文件级兼容状态，与事件和游标一起提交。
+    /// Update file compatibility from per-record checks, committing it with events and cursors.
     fn scan_format(&self, _outcome: &ScanOutcome) -> Option<DetectOutcome> {
         None
     }
-    /// 结构化能力声明。
+    /// Structured capability declaration.
     fn capability(&self) -> CapabilityTable;
 
-    /// Complete prior digests for explicitly evidenced parser corrections only.
-    /// Same source revision remains mandatory; unrelated field changes still conflict.
+    /// Complete prior hashes for explicitly verified parser corrections only.
+    /// Require the same source revision; unrelated field changes still conflict.
     fn prior_aggregate_hashes(
         &self,
         _input: &crate::aggregates::SourceAggregateInput,
@@ -270,8 +274,8 @@ pub trait SourceAdapter: Send + Sync {
         Vec::new()
     }
 
-    /// A verified authoritative archive can replace file scanning for this root.
-    /// Errors must remain visible; never silently add a second carrier's counts.
+    /// A verified archive may replace file scanning for this root.
+    /// Keep errors visible without silently adding counts from a second data format.
     fn scan_archive(
         &self,
         _storage: &Storage,
@@ -282,14 +286,14 @@ pub trait SourceAdapter: Send + Sync {
     }
 }
 
-/// 规范化路径字符串（统一分隔符并去除 Windows verbatim 前缀；仅用于本地身份）。
+/// Normalize separators and remove the Windows verbatim prefix for local identity.
 pub fn normalize_path(path: &Path) -> String {
     let canon = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
     let s = canon.to_string_lossy().replace('\\', "/");
     s.strip_prefix("//?/").map(str::to_string).unwrap_or(s)
 }
 
-/// 有界目录枚举：深度受限、不跟随符号链接、文件数/目录数有上限。
+/// Enumerate bounded depth/file/directory counts without following symlinks.
 pub fn enumerate_files_bounded(
     root: &Path,
     max_depth: usize,
@@ -336,10 +340,40 @@ pub fn enumerate_files_bounded(
     files
 }
 
-/// source_instances 注册输入。enabled 等用户设置在冲突更新时保留。
-/// origin_host_id：本机核验采集传入本地主机 ID；None 表示未区分（legacy_unknown）。
-/// 已属于其他主机的来源不被覆盖；legacy_unknown 来源可被本机核验采集认领
-/// （文件就在本机且 locality 已核验 = 可证明映射，data-contract.md#provenance）。
+/// Rotate bounded file windows using persisted visits; unvisited files go first.
+/// Equal visits retain the adapter's discovery order. Only committed file rows
+/// count as visits, so a rolled-back read keeps its place for the next run.
+fn files_in_scan_order(
+    storage: &Storage,
+    instance_id: &str,
+    files: &[PathBuf],
+) -> Result<Vec<PathBuf>, CoreError> {
+    let mut visits: std::collections::BTreeMap<String, Option<i64>> = files
+        .iter()
+        .map(|path| (normalize_path(path), None))
+        .collect();
+    let mut stmt = storage
+        .conn()
+        .prepare("SELECT file_id,last_seen_ms FROM source_files WHERE instance_id=?1")?;
+    let rows = stmt.query_map([instance_id], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+    })?;
+    for row in rows {
+        super::run_policy::check()?;
+        let (file_id, seen_ms) = row?;
+        if let Some(visit) = visits.get_mut(&file_id) {
+            *visit = Some(seen_ms);
+        }
+    }
+    let mut ordered = files.to_vec();
+    ordered.sort_by_cached_key(|path| visits.get(&normalize_path(path)).copied().flatten());
+    Ok(ordered)
+}
+
+/// source_instances registration input; preserve user settings such as enabled during conflict updates.
+/// Verified local collection supplies origin_host_id; None denotes legacy_unknown ownership.
+/// Preserve sources owned by another host; verified local collection may claim legacy_unknown sources
+/// when file locality and ownership mapping are verified (data-contract.md#provenance).
 #[derive(Debug, Clone)]
 pub struct SourceInstanceInput {
     pub instance_id: String,
@@ -353,11 +387,11 @@ pub struct SourceInstanceInput {
     pub parser_version: String,
     pub capabilities: serde_json::Value,
     pub health: String,
-    /// 来源归属主机（M1a）；None → legacy_unknown 命名空间。
+    /// Source host ownership (M1a); None uses the legacy_unknown namespace.
     pub origin_host_id: Option<String>,
 }
 
-/// 迁移前的历史来源命名空间（v4 前未记录主机身份）。
+/// Historical namespace for databases before v4 host ownership.
 pub const LEGACY_UNKNOWN_HOST: &str = "legacy_unknown";
 
 pub fn upsert_source_instance(
@@ -436,7 +470,7 @@ pub fn upsert_source_instance(
     Ok(())
 }
 
-/// source_files 行（注册与改名/替换探测用）。
+/// source_files row used for registration, rename and replacement detection.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SourceFileRow {
     pub file_id: String,
@@ -449,7 +483,7 @@ pub struct SourceFileRow {
     pub head_len: u64,
     pub tail_hash: u64,
     pub status: String,
-    /// 探测结论（JSON）：原始版本、所选格式/parser、选择依据、兼容状态（v3 列）。
+    /// Detection JSON: native version, selected format/parser, selection basis and compatibility (v3 column).
     pub format_status: Option<String>,
 }
 
@@ -516,7 +550,7 @@ pub fn load_source_file(
     }
 }
 
-/// 按文件身份查找（改名探测：内容流身份稳定，路径可变）。
+/// Find by file identity: a supported rename preserves the content stream while changing its path.
 pub fn find_source_file_by_identity(
     storage: &Storage,
     instance_id: &str,
@@ -579,7 +613,7 @@ pub fn upsert_source_file(
     Ok(())
 }
 
-/// 读取检查点（游标 + 解析上下文）。
+/// Load cursor and parse context from the checkpoint.
 pub fn load_scan_state(
     storage: &Storage,
     instance_id: &str,
@@ -603,7 +637,7 @@ pub fn load_scan_state(
     }
 }
 
-/// 从 source_files 行构造 [`StoredFileState`]（代数裁决输入）。
+/// Build StoredFileState from source_files for file-continuity checks.
 pub fn stored_file_state(row: &SourceFileRow, cursor_offset: u64) -> StoredFileState {
     StoredFileState {
         generation: row.generation,
@@ -616,21 +650,21 @@ pub fn stored_file_state(row: &SourceFileRow, cursor_offset: u64) -> StoredFileS
     }
 }
 
-/// 一次源采集运行的配置。
+/// Configuration for one collection run.
 #[derive(Debug, Clone)]
 pub struct RunConfig {
     pub timezone: String,
     pub now_ms: i64,
     pub limits: ScanLimits,
     pub trigger: TriggerKind,
-    /// 运行/批次 ID 前缀；实际 ID 追加实例序号。
+    /// Run/batch ID prefix, with the instance sequence appended.
     pub run_id_prefix: String,
-    /// 采集归属的本机来源主机 ID（M1a）；None 表示未区分（legacy_unknown）。
-    /// 由应用层经 `Storage::ensure_local_host` 取得后传入。
+    /// Local source-host ID (M1a); None denotes legacy_unknown ownership.
+    /// The application obtains it through Storage::ensure_local_host.
     pub origin_host_id: Option<String>,
 }
 
-/// 逐文件运行报告。
+/// Per-file run report.
 #[derive(Debug, Clone)]
 pub struct FileReport {
     pub file_id: String,
@@ -642,7 +676,7 @@ pub struct FileReport {
     pub diagnostics: u64,
 }
 
-/// 逐实例运行报告。
+/// Per-instance run report.
 #[derive(Debug, Clone)]
 pub struct SourceRunReport {
     pub instance_id: String,
@@ -655,8 +689,8 @@ pub struct SourceRunReport {
     pub error: Option<String>,
 }
 
-/// 运行一个适配器：发现 → 逐文件探测/扫描 → 单事务提交（V12 语义）。
-/// 返回逐实例报告；单文件失败不中断其他文件，实例提交失败标 failed。
+/// Discover and detect/scan each file, then commit the instance in one transaction (V12).
+/// Return instance reports; isolate file failures and mark an unsuccessful instance commit failed.
 pub fn run_adapter_scan(
     storage: &Storage,
     adapter: &dyn SourceAdapter,
@@ -666,13 +700,13 @@ pub fn run_adapter_scan(
     run_adapter_scan_filtered(storage, adapter, ctx, config, &InstanceFilter::default())
 }
 
-/// 实例过滤（逐源定时：自定义计划的来源只按自身节奏触发，
-/// 全局刷新排除它们；到期刷新只包含到期实例）。
+/// Instance filters support source schedules: custom-scheduled sources use their own triggers,
+/// global refresh excludes them, and due-source refresh includes only due instances.
 #[derive(Debug, Clone, Default)]
 pub struct InstanceFilter {
-    /// 仅这些实例参与（None = 不限）。
+    /// Include these instances only; None imposes no inclusion filter.
     pub include: Option<BTreeSet<String>>,
-    /// 这些实例跳过（None = 不排除）。
+    /// Skip these instances; None imposes no exclusion filter.
     pub exclude: Option<BTreeSet<String>>,
 }
 
@@ -692,11 +726,11 @@ impl InstanceFilter {
     }
 }
 
-/// 带实例过滤的运行（run_adapter_scan 的过滤版；逐源定时接线用）。
-/// 停用实例（source_instances.enabled=0）在统一门控，任何触发路径
-/// （Interval/Startup/Manual/FixedTime）都不读取——"只读取用户启用的
-/// 本地来源"与 set_source_enabled"停用后不再读取该实例"的约定。
-/// 停用集加载失败时本适配器 fail-closed（宁可不扫，不越权读取）。
+/// Filtered run_adapter_scan for source scheduling.
+/// Check source_instances.enabled before reading from any trigger:
+/// Interval, Startup, Manual or FixedTime. Read only enabled local sources,
+/// preserving set_source_enabled behavior after an instance is disabled.
+/// If disabled-instance loading fails, stop this adapter before reading sources.
 pub fn run_adapter_scan_filtered(
     storage: &Storage,
     adapter: &dyn SourceAdapter,
@@ -778,6 +812,9 @@ impl SourceAdapter for RootAdapter<'_> {
     }
     fn discover(&self, _: &DiscoverContext) -> Vec<DiscoveredRoot> {
         vec![self.root.clone()]
+    }
+    fn rotate_file_windows(&self) -> bool {
+        self.adapter.rotate_file_windows()
     }
     fn instance_id(&self, root: &DiscoveredRoot) -> String {
         self.adapter.instance_id(root)
@@ -967,7 +1004,7 @@ pub fn run_adapter_scan_filtered_controlled(
     run_adapter_scan_filtered_access(storage, adapter, ctx, config, filter, control)
 }
 
-/// Metadata and commits share the existing writer; carrier parsing holds no lock.
+/// Metadata and commits share the existing writer; source parsing holds no writer lock.
 pub fn run_adapter_scan_filtered_access<S: StorageAccess>(
     access: &S,
     adapter: &dyn SourceAdapter,
@@ -989,7 +1026,7 @@ pub fn run_adapter_scan_filtered_access<S: StorageAccess>(
     })?;
     let mut reports = Vec::new();
     let roots = adapter.discover(ctx);
-    // 根去重（环境覆盖/默认/手工可能指向同一目录；Windows 大小写别名先归一）。
+    // Deduplicate environment/default/manual roots; normalize Windows case aliases first.
     let mut seen: BTreeSet<String> = BTreeSet::new();
     let roots: Vec<DiscoveredRoot> = roots
         .into_iter()
@@ -1097,7 +1134,7 @@ pub fn run_adapter_scan_filtered_access<S: StorageAccess>(
         }
         let active_run = report.run_id.clone().unwrap_or(run_id);
         if matches!(report.start, Some(RunStart::Merged(_))) {
-            // 本次未执行扫描；不能把合并请求报告为已成功完成。
+            // A merged request performed no scan here; do not report it as completed.
             report.finish = RunStatus::Running;
             reports.push(report);
             continue;
@@ -1132,6 +1169,7 @@ pub fn run_adapter_scan_filtered_access<S: StorageAccess>(
             reports.push(report);
             continue;
         }
+        let mut files = root.files.clone();
         let archive = access
             .with_storage(|storage| {
                 super::run_policy::check()?;
@@ -1144,7 +1182,13 @@ pub fn run_adapter_scan_filtered_access<S: StorageAccess>(
                     return Err(CoreError::Interrupted("source_disabled"));
                 }
                 let _sql = super::run_policy::SqliteScope::new(storage.conn())?;
-                adapter.scan_archive(storage, root, config)
+                let archive = adapter.scan_archive(storage, root, config)?;
+                if archive.is_none() && adapter.rotate_file_windows() {
+                    // Preparation failures and cancellation finish the run just
+                    // like archive failures, without leaving a running job behind.
+                    files = files_in_scan_order(storage, &instance_id, &root.files)?;
+                }
+                Ok(archive)
             })
             .map_err(|error| super::run_policy::check().err().unwrap_or(error));
         match archive {
@@ -1218,7 +1262,7 @@ pub fn run_adapter_scan_filtered_access<S: StorageAccess>(
         let mut aggregates: Vec<crate::aggregates::SourceAggregateInput> = Vec::new();
         let mut file_updates = Vec::new();
         let mut any_scanned = false;
-        for path in &root.files {
+        for path in &files {
             let enabled = access.with_storage(|storage| {
                 Ok(storage.conn().query_row(
                     "SELECT enabled FROM source_instances WHERE instance_id=?1",
@@ -1325,7 +1369,7 @@ pub fn run_adapter_scan_filtered_access<S: StorageAccess>(
             report.error =
                 Some("automatic_scan_paused_or_round_deadline; confirmed events retained".into());
         }
-        // 无任何文件变化时跳过提交（无变化扫描不推进修订号）。
+        // Skip commits when no file changed; unchanged scans do not advance the data revision.
         if any_scanned || !batch.events.is_empty() || !batch.checkpoints.is_empty() {
             let committed = access.with_storage(|storage| {
                 super::run_policy::check()?;
@@ -1343,7 +1387,7 @@ pub fn run_adapter_scan_filtered_access<S: StorageAccess>(
                     upsert_source_file(storage, &instance_id, row, config.now_ms)?;
                 }
                 let mut outcome = ingest::commit_batch_tx(storage, &tx, &batch, None, false)?;
-                // 原生汇总与事件、游标一起提交；任一失败均可完整重放。
+                // Commit native aggregates with events and cursors; any failure permits a complete replay.
                 for aggregate in &aggregates {
                     super::run_policy::check()?;
                     crate::aggregates::upsert_source_aggregate_with_prior_hashes_tx(
@@ -1420,8 +1464,8 @@ struct PreparedFile {
     detect_basis: Option<crate::domain::VersionBasis>,
 }
 
-/// 扫描单个文件：注册 → 代数裁决 → （必要时）探测 → 增量扫描 → 累积进批次。
-/// 返回（文件报告， 是否发生了实际读取）。
+/// Register one file, check continuity, detect when needed, scan and collect batch results.
+/// Return the file report and whether an actual read occurred.
 #[allow(clippy::too_many_arguments)]
 fn scan_one_file<S: StorageAccess>(
     access: &S,
@@ -1462,7 +1506,7 @@ fn scan_one_file<S: StorageAccess>(
     }
     let probe = super::jsonl::probe_file(path)?;
     let identity = file_identity_of(&probe);
-    // 注册/改名探测：路径未命中时按身份命中（同一内容流改名不算新文件）。
+    // After a path miss, check file identity; renaming the same stream does not create a new file.
     let mut row = match load_source_file(storage, instance_id, &file_id)? {
         Some(row) => row,
         None => match find_source_file_by_identity(storage, instance_id, &identity)? {
@@ -1497,7 +1541,7 @@ fn scan_one_file<S: StorageAccess>(
     if rescan {
         row.generation += 1;
     }
-    // 无变化短路：全部字节已消费且代数连续。
+    // Skip unchanged files whose bytes are fully consumed and continuity is intact.
     if !rescan
         && probe.len == cursor_offset
         && stored.cursor.is_some()
@@ -1519,8 +1563,8 @@ fn scan_one_file<S: StorageAccess>(
             false,
         ));
     }
-    // 首次或重扫时重新探测格式；已确认不兼容的版本与未知格式 fail closed（V17），
-    // 未知/缺失版本按该 Agent 注册表选择最新内置解析器并带兼容标记。
+    // Detect again on first scan/rescan; restrict verified incompatible versions and unknown formats (V17).
+    // Unknown/missing versions use the latest registered Agent reader and retain compatibility metadata.
     let mut detect_basis: Option<crate::domain::VersionBasis> = None;
     if stored.cursor.is_none() || rescan {
             let detected = adapter.detect(path);
@@ -1658,7 +1702,7 @@ fn scan_one_file<S: StorageAccess>(
             return Err(CoreError::Interrupted("source_time_budget_exhausted"));
         }
         let scanned = adapter.scan(&target, &stored, &limits, config.now_ms);
-        // Carrier error isolation must not turn a control stop into bad data.
+        // File error isolation must not classify cancellation or another control stop as invalid data.
         super::run_policy::check()?;
         match scanned {
             Ok(outcome) => break outcome,
@@ -1686,9 +1730,9 @@ fn scan_one_file<S: StorageAccess>(
         )? {
             return Err(CoreError::Interrupted("source_disabled"));
         }
-        // 未知版本兼容尝试（V30）：无事件或独立有效累计行且带结构诊断 ⇒ 不兼容。
-        // Duplicate/OverlapUnknown 对账快照不能替代有效载体（如旧 Codex 无逐次记录）。
-        // 保留旧结果、不提交事件/游标/聚合；下轮解析器更新或显式重扫可重新尝试。
+        // V30 fallback with structural diagnostics and no events/valid exclusive aggregate is incompatible.
+        // Duplicate/OverlapUnknown reconciliation snapshots do not establish valid usage, such as old Codex without calls.
+        // Keep prior results without new cursors/aggregates; retry after a parser update or explicit rescan.
         if let Some(DetectOutcome::Supported {
             format,
             format_version,
@@ -1784,7 +1828,7 @@ fn scan_one_file<S: StorageAccess>(
     })
 }
 
-/// 探测结论 JSON（source_files.format_status，v3 列）：白名单字段，无正文。
+/// Detection JSON in source_files.format_status (v3): selected metadata fields, without message content.
 fn format_status_json(
     format: &str,
     found_version: Option<&str>,
@@ -1811,7 +1855,7 @@ fn extract_found_version(json: &str) -> Option<String> {
         .map(str::to_string)
 }
 
-/// 文件内容流身份：创建时间 + 首采样指纹（追加稳定，不依赖路径）。
+/// File-stream identity: creation time and sampled prefix fingerprint/length, independent of path.
 fn file_identity_of(probe: &FileProbe) -> String {
     format!(
         "file-{:x}-{:x}-{:x}",

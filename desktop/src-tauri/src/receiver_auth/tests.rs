@@ -486,7 +486,7 @@ fn native_credential_http_revocation() {
             }
         }
     }
-    // Arm cleanup before the first write, including a later issue/bind failure.
+    // Register cleanup before the first write, including later issue/bind failures.
     let mut cleanup = Cleanup {
         port: None,
         out: out.clone(),

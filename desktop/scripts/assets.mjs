@@ -66,8 +66,8 @@ function icnsBlocks(icns) {
 }
 
 function normalizeIcns(path) {
-  // CLI 2.11.5 emits the same layer bytes in a varying order. Keep legacy
-  // RGB/mask pairs together, then order the named PNG layers deterministically.
+  // CLI 2.11.5 changes layer order without changing their bytes.
+  // Keep legacy RGB/mask pairs together and sort named PNG layers deterministically.
   const bytes = content(path);
   const order = ['is32', 's8mk', 'il32', 'l8mk', 'ih32', 'h8mk', 'it32', 't8mk', 'ic07', 'ic08', 'ic09', 'ic10', 'ic11', 'ic12', 'ic13', 'ic14'];
   const blocks = icnsBlocks(bytes);

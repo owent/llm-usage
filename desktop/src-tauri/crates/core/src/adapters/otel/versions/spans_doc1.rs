@@ -1,34 +1,34 @@
-//! OTel spans JSONL 格式实现（`spans_doc1`；Copilot native file parser v2）。
+//! OTel span JSONL parser: spans_doc1, Copilot native file parser v2.
 //!
-//! 格式依据：2026-09-29 官方文档、2026-10-02 VS Code 1.140.0 本机 30 个 CLIENT span
-//! （docs/validation/desktop-usage/dashboard-repair.md）；CLI/JetBrains 仍为独立待验版本。
-//! - **VS Code Copilot Chat file exporter**（microsoft/vscode
-//!   extensions/copilot/docs/monitoring/agent_monitoring.md @ bdc5ebe）：
-//!   `github.copilot.chat.otel.exporterType="file"` + `outfile`，或
-//!   `COPILOT_OTEL_FILE_EXPORTER_PATH`；"newline-delimited JSON records …
-//!   it is not an OTLP JSON payload"，span 记录含 trace/span IDs、parent
-//!   context、attributes、resource、scope、status；`startTime`/`endTime`/
-//!   `duration` 用 `[seconds, nanoseconds]` 对。chat span（CLIENT，每 LLM 请求
-//!   一个）属性：`gen_ai.request.model`/`gen_ai.response.model`/
-//!   `gen_ai.usage.input_tokens`/`gen_ai.usage.output_tokens`/
-//!   `gen_ai.usage.cache_read.input_tokens`/`gen_ai.usage.cache_creation.
-//!   input_tokens`/`gen_ai.usage.reasoning.output_tokens`/
-//!   `copilot_chat.time_to_first_token`（ms）/
-//!   `gen_ai.response.time_to_first_chunk`（秒）。
-//! - **Copilot CLI**（docs.github.com OpenTelemetry monitoring）：
-//!   `COPILOT_OTEL_FILE_EXPORTER_PATH`（"JSON-lines"，行级 schema 未文档化，
-//!   待本机样本——本实现按同族 span 记录容错解析）；chat span 属性同上 +
-//!   `github.copilot.nano_aiu`；**invoke_agent 根 span 是全 turn 汇总，
-//!   官方警告不得与子 chat span 求和双计** ⇒ 只采 chat，跳过汇总 span。
-//! - **CodeBuddy agentlens**（codebuddy.ai/docs/cli/monitoring）：
-//!   model_stream span（LLM）：无前缀 `usage.input_tokens`/`usage.output_tokens`/
-//!   `usage.total_tokens`、`model_name`/`request.model`、
-//!   `response.time_to_first_token`；model_request 不导出（官方：双计）。
-//!   仅 OTLP/protobuf 导出 ⇒ 由本应用 OTLP 接收器归一化为同形状 JSONL。
-//! - trace/span ID 键名文档未逐字给出 ⇒ 双拼写容错（spanId/span_id）；
-//!   不可用记录跳行记诊断（不猜）。
-//! - 已核验 VS Code Copilot gen_ai input 含缓存、reasoning 为 output 子集；仅两桶均已知派生总量。
-//!   CLI/其他同型记录的包含关系不从 VS Code 推断，保持总量未知。
+//! Reference: official documentation checked 2026-09-29 and 30 local CLIENT spans
+//! from VS Code 1.140.0 on 2026-10-02; CLI/JetBrains require independent version checks.
+//! - VS Code Copilot exporter reference: microsoft/vscode extensions/copilot/docs/
+//!   monitoring/agent_monitoring.md at bdc5ebe.
+//!   Use github.copilot.chat.otel.exporterType=file and outfile, or
+//!   COPILOT_OTEL_FILE_EXPORTER_PATH. Exported JSONL records are native SDK records,
+//!   rather than OTLP request payloads. They retain trace/span IDs, parent context,
+//!   attributes/resource/scope/status and second/nanosecond start/end/duration pairs.
+//!   CLIENT chat spans represent individual model requests with
+//!   gen_ai.request.model/gen_ai.response.model and
+//!   gen_ai.usage.input_tokens/output_tokens/cache_read.input_tokens/
+//!   cache_creation.input_tokens/reasoning.output_tokens.
+//!   TTFT fields include copilot_chat.time_to_first_token in milliseconds
+//!   and gen_ai.response.time_to_first_chunk in seconds.
+//!   Preserve these different units during normalization.
+//! - Copilot CLI documentation describes COPILOT_OTEL_FILE_EXPORTER_PATH JSON lines;
+//!   its native line schema still requires a local sample for acceptance.
+//!   This implementation attempts structurally compatible spans without declaring release support.
+//!   github.copilot.nano_aiu is credit; invoke_agent summarizes an entire turn.
+//!   Read chat spans only, excluding parent sums to prevent duplicate usage.
+//! - CodeBuddy agentlens documents model_stream request spans with
+//!   usage.input_tokens/output_tokens/total_tokens and model_name/request.model.
+//!   response.time_to_first_token has an unspecified unit in the reference.
+//!   Exclude model_request to avoid duplicate usage.
+//!   Its referenced protobuf transport is normalized by the local OTLP receiver to JSONL.
+//! - Accept spanId/span_id spellings where references do not specify one exact field.
+//!   Invalid records are skipped with diagnostics rather than invented values.
+//! - Checked VS Code input includes cache and reasoning is an output subset;
+//!   derive totals only from known input/output. Do not infer those rules for other clients.
 
 use crate::adapters::framework::{
     ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -95,7 +95,7 @@ fn restore_cursor(stored: &StoredScanState, generation: i64, rescan: bool) -> Js
         })
 }
 
-/// 记录里的属性表（attributes / resource.attributes 均可）。
+/// Attribute maps from record attributes and resource.attributes.
 fn attrs_of(record: &serde_json::Value) -> Vec<&serde_json::Map<String, serde_json::Value>> {
     let mut out = Vec::new();
     if let Some(map) = record.get("attributes").and_then(|v| v.as_object()) {
@@ -116,7 +116,7 @@ fn attr_u64(record: &serde_json::Value, keys: &[&str]) -> Option<Option<i64>> {
             match map.get(*key) {
                 None => continue,
                 Some(v) => {
-                    // 属性值可能是裸数或 {intValue:..}（OTLP JSON 形）。
+                    // Numeric attributes may be direct numbers or OTLP intValue wrappers.
                     let n = v
                         .as_i64()
                         .or_else(|| v.get("intValue").and_then(|x| x.as_i64()))
@@ -125,8 +125,8 @@ fn attr_u64(record: &serde_json::Value, keys: &[&str]) -> Option<Option<i64>> {
                                 .and_then(|x| x.as_i64())
                                 .or_else(|| v.get("doubleValue").and_then(|x| x.as_i64()))
                         })?;
-                    // 越界（负/超上限）按格式偏离处理：返回 None 让调用方跳过
-                    // 整条记录，不能与"键缺失"（Some(None)）混同而静默丢桶。
+                    // Negative/out-of-range values return None for an invalid record;
+                    // distinguish this from absent fields Some(None) instead of silently dropping known buckets.
                     if !(0..=MAX_REASONABLE_TOKEN).contains(&n) {
                         return None;
                     }
@@ -154,7 +154,7 @@ fn attr_str<'a>(record: &'a serde_json::Value, keys: &[&str]) -> Option<&'a str>
     None
 }
 
-/// 浮点属性（TTFT 秒值可含小数；裸数或 {doubleValue}/{intValue} 形）。
+/// Read float attributes, including fractional TTFT seconds and doubleValue/intValue wrappers.
 fn attr_f64(record: &serde_json::Value, keys: &[&str]) -> Option<f64> {
     for map in attrs_of(record) {
         for key in keys {
@@ -174,8 +174,8 @@ fn attr_f64(record: &serde_json::Value, keys: &[&str]) -> Option<f64> {
     None
 }
 
-/// service.name → 统计 agent 名（无则按 OTel 来源未知处理）。
-/// vs-copilot 与 vs_copilot 适配器（VS 自动遥测）同维度：两载体取其一防双计。
+/// Map service.name to the statistics Agent; missing service remains an unknown OTel source.
+/// VS telemetry shares the vs-copilot name; source selection must prevent duplicate ingestion.
 fn agent_of(record: &serde_json::Value) -> &'static str {
     match attr_str(record, &["service.name", "service_name"]).unwrap_or("") {
         "github-copilot" | "copilot-cli" => "copilot-cli",
@@ -186,7 +186,7 @@ fn agent_of(record: &serde_json::Value) -> &'static str {
     }
 }
 
-/// startTime：[秒, 纳秒] 对或毫秒整数。
+/// startTime accepts second/nanosecond pairs or epoch-millisecond integers.
 fn start_ms(record: &serde_json::Value) -> Option<i64> {
     match record.get("startTime") {
         Some(serde_json::Value::Array(pair)) if pair.len() == 2 => {
@@ -207,9 +207,9 @@ fn start_ms(record: &serde_json::Value) -> Option<i64> {
     }
 }
 
-/// 逐请求 span 判定：chat（Copilot/VS Code）或 model_stream（CodeBuddy）。
-/// 汇总 span（invoke_agent / codebuddy_code.interaction）与 model_request
-/// 跳过（官方防双计）。
+/// Request spans are chat for Copilot or model_stream for CodeBuddy.
+/// Exclude invoke_agent/codebuddy_code.interaction aggregates and model_request
+/// so parent/request representations are not counted twice.
 fn per_request(name: &str) -> bool {
     matches!(name, "chat" | "model_stream") || name.starts_with("chat ")
 }
@@ -242,7 +242,7 @@ pub fn scan(
     scan_with_byte_budget(target, stored, limits, now_ms, None)
 }
 
-/// A configuration check samples bounded file bytes without advancing stored state.
+/// Configuration checks sample bounded bytes without advancing persisted processing state.
 pub fn scan_with_byte_budget(
     target: &ScanTarget,
     stored: &StoredScanState,
@@ -286,13 +286,13 @@ pub fn scan_with_byte_budget(
             if !context.skipped_names.contains(&name.to_string()) {
                 context.skipped_names.push(name.to_string());
             }
-            continue; // 汇总 span：官方警告不得与逐请求求和。
+            continue; // Exclude parent sums that would overlap individual request spans.
         }
         if !per_request(name) {
-            continue; // 非用量 span（execute_tool/日志/指标行等）。
+            continue; // Skip tool, log, metric, and other non-usage records.
         }
-        // The native file mixes spans, metrics and logs. CLIENT is numeric 2 in
-        // the SDK export (OTLP uses 3); reject explicitly non-CLIENT chat spans.
+        // Native SDK files mix spans/metrics/logs and encode CLIENT as 2;
+        // OTLP uses 3. Reject explicitly non-CLIENT chat spans.
         if name.starts_with("chat")
             && value.get("kind").is_some_and(|k| {
                 k.as_i64() != Some(2)
@@ -302,7 +302,7 @@ pub fn scan_with_byte_budget(
         {
             continue;
         }
-        // token：gen_ai.*（Copilot/VS Code）或无前缀 usage.*（CodeBuddy）。
+        // Copilot uses gen_ai.* token fields; CodeBuddy uses usage.* fields.
         let input = attr_u64(&value, &["gen_ai.usage.input_tokens", "usage.input_tokens"]);
         let output = attr_u64(
             &value,
@@ -362,7 +362,7 @@ pub fn scan_with_byte_budget(
             ));
             continue;
         };
-        // spanId 双拼写容错（文档未逐字给出键名）。
+        // Accept both spanId and span_id where field spelling is not specified.
         let span_id = value
             .get("spanId")
             .or_else(|| value.get("span_id"))
@@ -386,10 +386,10 @@ pub fn scan_with_byte_budget(
             ],
         )
         .map(str::to_string);
-        // TTFT 三键单位不同（文档说明）：copilot_chat.* 是毫秒、
-        // gen_ai.response.time_to_first_chunk 是秒（可含小数）、
-        // response.time_to_first_token（agentlens）单位未标。
-        // 已标单位的键按文档换算；量级启发（>1e4 视为毫秒）只用于未标单位的键。
+        // TTFT field units differ: copilot_chat is milliseconds,
+        // gen_ai.response.time_to_first_chunk is fractional seconds,
+        // and agentlens response.time_to_first_token has no documented unit.
+        // Convert specified units directly; the >1e4-millisecond heuristic applies only to unspecified units.
         let ttft_ms = {
             let documented_ms =
                 attr_u64(&value, &["copilot_chat.time_to_first_token"]).unwrap_or(None);
@@ -409,8 +409,8 @@ pub fn scan_with_byte_budget(
                 })
             }
         };
-        // span status（OTel Status.code）：ERROR 不能把失败调用当成功入账；
-        // JSON 形 "STATUS_CODE_ERROR" 或枚举数值 2。
+        // Preserve failed-call status from OTel Status.code;
+        // accept STATUS_CODE_ERROR strings or numeric enum 2.
         let error_status = match value.pointer("/status/code") {
             Some(serde_json::Value::String(s))
                 if s == "STATUS_CODE_ERROR" || s.eq_ignore_ascii_case("error") =>
@@ -448,8 +448,8 @@ pub fn scan_with_byte_budget(
                 total_tokens: total,
                 source_total: None,
             },
-            // 在场桶必须标 Reported：全 Unknown 会在 ingest 校验
-            // （domain.rs 值与质量一致性）被拒，事件无法入账。
+            // Known source buckets need Reported quality, while calculated fields use Derived.
+            // Marking all fields Unknown would fail domain value/quality validation and reject the event.
             crate::domain::TokenQuality {
                 input_uncached: crate::domain::FieldQuality::Derived,
                 total_tokens: crate::domain::FieldQuality::Derived,

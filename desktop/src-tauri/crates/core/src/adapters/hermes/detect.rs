@@ -1,14 +1,14 @@
-//! Hermes 探测与版本分派：state.db schema 指纹（真实列 + 主键形状，
-//! 不只看 schema_version 整数）+ 注册表。
+//! Hermes detection: state.db tables/columns/primary-key shape,
+//! not schema_version alone; select through the registry.
 //!
-//! 约定（architecture.md#unknown-version / adapters.md Hermes 本地约定）：
-//! - sessions/session_model_usage 两表或关键列缺失 ⇒ 未知格式 fail closed；
-//! - 关键列齐全但主键不含 task（pre-v22 形状）⇒ fail closed 待核验
-//!   （固定源码 _migrate_v22_session_model_usage 会在上游打开时重建，
-//!   本采集器绝不代跑迁移/修复）；
-//! - 两表皆空（新装未用）⇒ Pending，下轮重探；
-//! - schema_version 已收录（真实 fixture 核验）⇒ KnownVersion；当前注册表
-//!   为空（仅固定源码/按文档或源码实现，待真实样本核验），一律 LatestFallback 带兼容标记。
+//! Rules: architecture.md#unknown-version / adapters.md local Hermes layout.
+//! - Missing sessions/session_model_usage tables or key columns: unknown format, reject.
+//! - Complete columns but primary key lacks task, pre-v22: reject pending verification.
+//!   Upstream _migrate_v22_session_model_usage rebuilds it when opening;
+//!   this collector never runs source migrations/repairs.
+//! - Both tables empty, such as unused installations: Pending, detect again next run.
+//! - Native 0.21.5 samples exist, but database migration versions do not identify every row.
+//!   Registry stays empty; all versions use marked LatestFallback.
 
 use crate::adapters::framework::DetectOutcome;
 use crate::adapters::hermes::common::{
@@ -28,7 +28,7 @@ fn is_not_a_database(err: &rusqlite::Error) -> bool {
     )
 }
 
-/// 探测一个 state.db 并按注册表分派。
+/// Detect state.db and select the registered implementation.
 pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     let source = match open_source_db(path, short_probe, &StagingLimits::default()) {
         Ok(source) => source,

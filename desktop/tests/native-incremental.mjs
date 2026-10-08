@@ -1,4 +1,4 @@
-// Existing synthetic million-event DB -> copied snapshot -> real source/IPC/UI.
+// Copy the existing synthetic million-event database, then exercise native collection/IPC/UI.
 // Node 22.16+ backup API; never write to the supplied baseline or real Agent files.
 import { chromium } from 'playwright';
 import { DatabaseSync, backup } from 'node:sqlite';

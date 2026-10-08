@@ -1,8 +1,8 @@
-//! 对 OpenClaw（openclaw-agent.sqlite/旧归档）做只读核对。本机未安装（not_found）时期望 0 个发现根。
-//! 只输出白名单聚合：文件数、记录数、事件数、模型调用、token 合计、诊断计数；
-//! 不打印路径、会话 ID、模型以外的任何记录内容。
-//! 适配器为按已核对的文档或源码实现，真实数据出现后按本入口复验。
-//! 用法：cargo run -p llm-usage-core --example real_verify_openclaw -- <openclaw_root> <work_dir>
+//! Read-only checks of OpenClaw openclaw-agent.sqlite/legacy archives; expect zero roots when not installed locally (not_found).
+//! Output only permitted statistics: files, records, events, calls, tokens and diagnostics;
+//! do not print paths, session IDs or record content beyond models.
+//! Adapter implementation follows inspected documents/source; use this entry to check native data.
+//! Usage:cargo run -p llm-usage-core --example real_verify_openclaw -- <openclaw_root> <work_dir>
 
 use llm_usage_core::adapters::framework::{
     run_adapter_scan, DiscoverContext, RunConfig, ScanLimits,
@@ -71,7 +71,7 @@ fn main() {
             );
         }
     }
-    // 二次扫描：幂等（重复扫描不增量）。
+    // A second scan adds no duplicate records.
     let reports2 = run_adapter_scan(&storage, &adapter, &ctx, &config).expect("rescan");
     let added2: i64 = reports2
         .iter()
@@ -79,7 +79,7 @@ fn main() {
         .sum();
     println!("rescan_added={added2}");
 
-    // 汇总查询白名单核对：调用数与 token 合计（UTC）。
+    // Check permitted summary fields: call counts and token sums in UTC.
     let summary = llm_usage_core::query::query_summary(
         &storage,
         &llm_usage_core::query::SummaryRequest {

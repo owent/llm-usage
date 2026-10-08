@@ -1,7 +1,7 @@
 <script lang="ts">
   import { t } from '../lib/i18n.svelte';
 
-  /** 高度拖动范围（px；与 lib/panels.ts 持久化清洗范围一致）。 */
+  /** Height drag range in pixels, matching lib/panels.ts persisted-value validation. */
   const HEIGHT_MIN = 120;
   const HEIGHT_MAX = 800;
 
@@ -13,29 +13,29 @@
     editable = false,
     dragging = false,
     dropTarget = false,
-    /** 布局分组名与面板在分组内的序号（父级拖拽命中测试回读）。 */
+    /** Layout group and index used by the parent's drag hit testing. */
     panelGroup = '',
     panelIndex = -1,
     ontoggle,
     onpickstart,
-    /** 编辑模式拖动右下角把手后的最终尺寸（height 未定义 = 自适应）。 */
+    /** Final edit-mode resize dimensions; undefined height fits content. */
     onsize,
     children,
   }: {
     title: string;
-    /** 6 列网格中的跨列数（1–6）。 */
+    /** Columns occupied in a six-column grid, from 1 to 6. */
     span?: number;
-    /** 面板高度档位（px；未设置 = 自适应内容高度）。 */
+    /** Height in pixels; absent height fits content. */
     height?: number;
     hidden?: boolean;
-    /** 编辑模式：显示手柄/显隐按钮并允许拖拽。 */
+    /** Edit mode displays drag/toggle controls and permits dragging. */
     editable?: boolean;
     dragging?: boolean;
     dropTarget?: boolean;
     panelGroup?: string;
     panelIndex?: number;
     ontoggle: () => void;
-    /** 编辑模式下按下标题栏（非按钮处）开始拖拽。 */
+    /** Start edit-mode dragging on header areas outside buttons. */
     onpickstart: (e: PointerEvent) => void;
     onsize?: (span: number, height: number | undefined) => void;
     children: import('svelte').Snippet;
@@ -44,37 +44,36 @@
   function handlePointerDown(e: PointerEvent): void {
     if (!editable) return;
     if (!e.isPrimary || e.button !== 0) return;
-    // 显隐按钮的点击不进入拖拽。
+    // The visibility button does not start a drag.
     if ((e.target as HTMLElement).closest('.ptoggle')) return;
-    // 指针捕获：移动/抬起即使移出元素或窗口边界也仍派发到本元素（冒泡至 window）。
+    // Request pointer capture so moves/releases outside this element still reach it and bubble to window.
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
     onpickstart(e);
   }
 
-  // ---- resize 把手（Pointer Events；边缘连续跟踪，抬起提交） ----
+  // ---- Pointer resize: preview edge movement, commit on release. ----
   /**
-   * 2026-09-26 重做：原实现按档位步进（span 1→2→3→4 循环、高度 200/300/400/500
-   * 档），面板边缘不跟手且永远到不了 5/6 列。现改为边缘跟踪：
-   * - pointerdown 时解析所在 .panel-grid 的 computed grid-template-columns 实际
-   *   列宽与列间距，得到“单列步长 = 列宽 + gap”与面板起点；
-   * - pointermove 按指针 x 相对面板起点的位置实时换算目标 span（1–6 连续预览，
-   *   且不超过面板到网格右缘可容纳的列数），高度按起始高度 + dy 连续缩放；
-   * - pointerup 提交最近合法 span（1–6 整数）与四舍五入后的高度（120–800px）。
+   * Resize updated 2026-09-26 follows pointer movement. The earlier stepped widths 1/2/3/4 and
+   * heights 200/300/400/500 did not follow the edge or reach columns 5/6.
+   * - pointerdown reads .panel-grid computed tracks/gap, column pitch and panel origin.
+   * - pointermove derives span 1-6 from pointer x, limited by remaining grid columns,
+   *   and height from starting height plus dy.
+   * - pointerup commits integer span and rounded height in the 120-800 pixel range.
    */
   let resizeDrag = $state<{
     startX: number;
     startY: number;
     panelLeft: number;
-    /** 单列步长（列宽 + 列间距，px）；0 = 非 6 列布局（如窄屏单列），宽度不动。 */
+    /** Column width plus gap in pixels; zero leaves width unchanged outside a six-track layout. */
     colPitch: number;
-    /** 面板起点到网格右缘可容纳的最大列数（≤6）。 */
+    /** Maximum columns available between panel origin and the grid's right edge, at most six. */
     maxSpan: number;
-    /** 拖动起始高度（auto 时取当前内容高度）。 */
+    /** Starting height; auto uses the current content height. */
     baseHeight: number;
     movedX: boolean;
     movedY: boolean;
   } | null>(null);
-  /** 拖动中的预览尺寸（null = 未在拖动，回退到 props）。 */
+  /** Live resize preview; null uses the supplied props. */
   let liveSpan = $state<number | null>(null);
   let liveHeight = $state<number | null>(null);
 
@@ -86,7 +85,7 @@
     if (!e.isPrimary || e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
-    // 指针捕获：移动/抬起始终派发到把手元素，移出面板也不丢事件。
+    // Request pointer capture to retain handle events when the pointer leaves the panel.
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
     const card = (e.currentTarget as HTMLElement).closest('.pcard') as HTMLElement | null;
     const grid = (card?.parentElement as HTMLElement | null) ?? null;
@@ -97,7 +96,7 @@
       const cardRect = card.getBoundingClientRect();
       const gridRect = grid.getBoundingClientRect();
       panelLeft = cardRect.left;
-      // computed track 列表（px，含小数）；窄屏 1 列布局不足 6 轨时不改宽度。
+      // Computed tracks in pixels, including fractions; fewer than six tracks leaves width unchanged.
       const tracks = getComputedStyle(grid)
         .gridTemplateColumns.split(' ')
         .map((s) => Number.parseFloat(s))
@@ -133,7 +132,7 @@
     if (Math.abs(dx) > 3) resizeDrag.movedX = true;
     if (Math.abs(dy) > 3) resizeDrag.movedY = true;
     if (resizeDrag.movedX && resizeDrag.colPitch > 0) {
-      // 指针到面板起点的列数（半列宽容差后四舍五入 = 吸附到最近网格线）。
+      // Add half a column pitch, then round the pointer's column position to the target span.
       const cols = (e.clientX - resizeDrag.panelLeft + resizeDrag.colPitch / 2) / resizeDrag.colPitch;
       liveSpan = Math.max(1, Math.min(resizeDrag.maxSpan, Math.round(cols)));
     }
@@ -144,7 +143,7 @@
 
   function resizeUp(): void {
     if (!resizeDrag) return;
-    // 未发生该方向位移时保留原值（宽度未动保 span，高度未动保 auto/原档位）。
+    // Preserve each unchanged axis: span for width, and auto/original height for height.
     const nextSpan = resizeDrag.movedX && liveSpan !== null ? liveSpan : span;
     const nextHeight = resizeDrag.movedY && liveHeight !== null ? liveHeight : height;
     const moved = resizeDrag.movedX || resizeDrag.movedY;
@@ -222,7 +221,7 @@
     margin: 0;
     display: flex;
     flex-direction: column;
-    /* resize 把手绝对定位于右下角；style:height 以整卡高度计算。 */
+    /* Position the resize handle at bottom right; style:height includes the entire card. */
     position: relative;
     box-sizing: border-box;
   }
@@ -240,7 +239,7 @@
     border-bottom: 1px solid var(--border-light);
     user-select: none;
   }
-  /* 仅编辑模式可拖拽：grab 光标 + 禁用触摸滚动（pointer 拖拽不被打断）。 */
+  /* Editable headers use grab and disable touch scrolling during pointer dragging. */
   .pcard.editable .phead {
     cursor: grab;
     touch-action: none;
@@ -281,7 +280,7 @@
   }
   .pbody {
     min-width: 0;
-    /* 高度档位生效时内容区填充剩余高度并可滚动（图表/表格超出时）。 */
+    /* Sized content fills remaining height and scrolls overflowing charts/tables. */
     flex: 1 1 auto;
     min-height: 0;
     overflow: auto;
@@ -289,7 +288,7 @@
   .pbody.collapsed {
     display: none;
   }
-  /* 右下角 resize 把手（8×8 三角形视觉，14×14 命中区）；仅编辑模式渲染。 */
+  /* Edit-only resize handle: 8x8 triangle inside a 24x24 hit area. */
   .presize {
     position: absolute;
     right: 3px;

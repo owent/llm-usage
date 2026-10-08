@@ -31,9 +31,9 @@
       sessions: number | null;
       avg_duration_ms: string | null;
     }[];
-    /** 今日查询（first=last=今天；分组维度的 chart_series 数据源）。 */
+    /** Today query, first=last=today; source for grouped chart_series. */
     query: SummaryQuery;
-    /** 深色主题（父级传入；变化时重绘轴/legend 文字与分隔线）。 */
+    /** Parent-provided dark theme; changes redraw axes/legend text and separators. */
     isDark?: boolean;
     selectedRange?: {first:string;last:string} | null;
     onrangechange?: (first:string,last:string)=>void;
@@ -48,8 +48,9 @@
   let chart: echarts.ECharts | null = null;
 
   /**
-   * 增量渲染（2026-09-26 用户反馈）：渲染结构签名与上次相同 → setOption 合并
-   * 更新（不整图重建）；结构变化 → notMerge 重建。数据刷新时避免闪烁。
+   * Incremental rendering for 2026-09-26 feedback: unchanged structure uses
+   * setOption merging; changed structure uses notMerge rebuilds.
+   * Data refresh avoids visible flicker.
    */
   let lastRenderKey = '';
 
@@ -63,13 +64,13 @@
     lastRenderKey = key;
   }
 
-  /** 主题感知色：全局文字（axis/legend 继承）与 y 轴分隔线。 */
+  /** Theme colors for global text inherited by axes/legend, and y-axis separators. */
   const chartText = $derived(isDark ? '#b0bfd4' : '#5b6a82');
   const splitColor = $derived(isDark ? '#2c3a52' : '#e8edf5');
 
   const PALETTE = CHART_PALETTE;
 
-  /** 有数据的小时桶（call_count>0 或 total_tokens 非空；无数据小时不补零）。 */
+  /** Hours with data: call_count>0 or nonnull total_tokens; do not zero-fill absent hours. */
   const activeHours = $derived(
     hourly
       .filter((h) => h.calls > 0 || h.total_tokens !== null)
@@ -77,7 +78,7 @@
       .sort((a, b) => a.hour - b.hour)
   );
 
-  // 分组数据：dimension/query 变化时经 chart_series 拉取；失败时保底显示错误文案。
+  // Fetch chart_series when dimension/query changes; show errors on failure.
   $effect(() => {
     const q = query;
     void hourly;
@@ -263,13 +264,13 @@
   onMount(() => {
     chart = echarts.init(el, i18n.locale === 'zh-CN' ? 'ZH' : 'EN', { renderer: 'svg' });
 
-    // Tooltip：hideDelay 0（ECharts 6 手动 hideTip 也走 hideLater(hideDelay)，不可用大值）+ 离开画布/移出窗口/失焦即隐藏（统一封装）。
+    // Tooltip hideDelay=0: ECharts 6 hideTip also uses hideLater; hide on canvas/window leave or blur.
     const disposeTipHide = setupTooltipAutoHide(chart!);
     const disposeSelection=setupRangeSelection(chart,selectionLabels,(label)=>onrangechange?.(label,label),(first,last)=>onrangechange?.(first,last));
     render();
     const onResize = () => chart?.resize();
     window.addEventListener('resize', onResize);
-    // 面板显示/隐藏或网格变化时容器尺寸变化（含 display:none 恢复），自动重设画布。
+    // Resize canvas after panel/grid size changes, including restoration from display:none.
     const observer = new ResizeObserver(() => chart?.resize());
     observer.observe(el);
     return () => {
@@ -282,7 +283,7 @@
     };
   });
 
-  // 数据/维度/语言/主题变化时重绘。
+  // Redraw when data/grouping/language/theme changes.
   $effect(()=>{const selected=selectedRange;if(chart)showRangeSelection(chart,selectionLabels(),selected);});
   $effect(() => {
     void hourly;
@@ -308,7 +309,7 @@
 
 <style>
   .coverage-hint {font-size:11px;color:var(--text-muted);margin:2px 0 0;}
-  /* 分组维度选择行（面板顶部；维度为分段按钮组，见 DimensionPicker）。 */
+  /* Top grouping selector uses segmented buttons; see DimensionPicker. */
   .dim-row {
     display: flex;
     align-items: center;

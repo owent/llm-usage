@@ -1,8 +1,8 @@
-//! 对本机真实 GitHub Copilot CLI 数据（~/.copilot/session-store.db 的
-//! assistant_usage_events）做只读核对（2026-09-29 首次执行：36 行真实数据）。
-//! 只输出白名单聚合：根数、记录数、事件数、token 合计、诊断计数、
-//! 以及重扫幂等性；不打印路径、会话 ID 或记录内容。
-//! 用法：cargo run -p llm-usage-core --example real_verify_copilot -- <copilot根或session-store.db> <work_dir>
+//! Read-only checks of native GitHub Copilot CLI data from ~/.copilot/session-store.db,
+//! assistant_usage_events; first run on 2026-09-29 contained 36 native rows.
+//! Output only permitted root/record/event/token/diagnostic counts
+//! and rescan stability; do not print paths, session IDs or record content.
+//! Usage: cargo run -p llm-usage-core --example real_verify_copilot -- <copilot-root-or-session-store.db> <work_dir>
 
 use llm_usage_core::adapters::copilot::CopilotAdapter;
 use llm_usage_core::adapters::framework::{
@@ -41,7 +41,7 @@ fn main() {
     };
     let reports = run_adapter_scan(&storage, &adapter, &ctx, &config).expect("scan");
     for report in &reports {
-        // 不打印 instance_id（含本机根路径，见文件头白名单声明）。
+        // Do not print instance_id: it contains local paths excluded by the output rules above.
         println!(
             "files={} events={} diagnostics={}",
             report.files.len(),
@@ -83,7 +83,7 @@ fn main() {
     println!(
         "collected: count={count} input={in_sum} output={out_sum} cache_read={cr_sum} cache_write={cw_sum} reasoning={r_sum} uncached={unc_sum} total={total_sum}"
     );
-    // 幂等：重复扫描不增量。
+    // Repeated scans add no duplicates.
     let reports2 = run_adapter_scan(&storage, &adapter, &ctx, &config).expect("rescan");
     let _ = reports2;
     let count2: i64 = conn

@@ -1,4 +1,4 @@
-//! Official Junie native failed-task usage and full-digest policy migration.
+//! Official Junie failed-task usage and migration comparing complete old event summaries.
 mod common;
 use common::{summary, temp_storage, TempDir};
 use llm_usage_core::adapters::{framework::*, junie::JunieAdapter};

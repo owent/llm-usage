@@ -1,4 +1,4 @@
-//! Standalone uninstallation: remove only integration owned by this executable.
+//! Standalone uninstall removes only integration owned by this executable.
 //! Do not initialize Storage, recover jobs, migrate databases or discover sources.
 use rusqlite::{Connection, OpenFlags};
 use std::path::{Path, PathBuf};
@@ -16,8 +16,8 @@ pub(crate) fn same_executable(left: &str, right: &str) -> bool {
     normalize(left).eq_ignore_ascii_case(&normalize(right))
 }
 
-/// The canonical argument grammar is produced by system_tasks::native::apply.
-/// A prefix/name alone never grants ownership of a Task Scheduler entry.
+/// system_tasks::native::apply produces the accepted argument syntax.
+/// A prefix/name alone never establishes Task Scheduler entry ownership.
 pub(crate) fn task_database(
     name: &str,
     description: &str,
@@ -44,7 +44,7 @@ pub(crate) fn task_database(
     (name == expected && description == format!("llm-usage:{expected}")).then_some(database)
 }
 
-/// Opening an existing database with plain SQLite leaves even a newer schema intact.
+/// Plain SQLite opens an existing database without changing even a newer schema.
 /// The returned owner lock prevents another application from re-enabling consent.
 pub(crate) fn disable_existing_intent(path: &Path) -> Result<Option<std::fs::File>, String> {
     if !path.try_exists().map_err(|e| e.to_string())? {
@@ -127,8 +127,8 @@ pub(crate) fn current_user_sid() -> Result<String, String> {
     }
 }
 
-/// Task Scheduler returns an account name from Principal.UserId even when its XML
-/// contains a SID. Resolve that native identity before comparing current ownership.
+/// Task Scheduler returns an account name from Principal.UserId even with a SID in XML.
+/// Resolve that native identity before comparing current ownership.
 pub(crate) fn principal_matches_sid(account: &str, expected: &str) -> windows::core::Result<bool> {
     use windows::core::{HSTRING, PWSTR};
     use windows::Win32::Foundation::{LocalFree, ERROR_NONE_MAPPED, HLOCAL};

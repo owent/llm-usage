@@ -1,7 +1,7 @@
-//! Junie CLI 适配器（JetBrains，独立目录约定）。载体：
-//! `~/.junie/sessions/<session-id>/events.jsonl` 的
-//! LlmResponseMetadataEvent.modelUsage[]（逐轮；零默认保留未知）。
-//! JetBrains AI Assistant IDE 插件本体的本地用量格式尚未核验，留在 F1；本适配器只覆盖 CLI。
+//! Junie CLI adapter (JetBrains, independent directory). Reads
+//! ~/.junie/sessions/<session-id>/events.jsonl, specifically
+//! LlmResponseMetadataEvent.modelUsage[] per round; initialized zeros remain unknown.
+//! JetBrains AI Assistant IDE usage remains unverified in F1; this adapter covers CLI only.
 
 pub mod detect;
 pub mod versions;
@@ -10,7 +10,7 @@ pub use detect::JUNIE_FORMAT;
 pub use versions::events_doc1;
 pub use versions::{JUNIE_FORMAT_VERSION, LATEST_IMPL_ID, VERIFIED_VERSION_IMPLS};
 
-/// Junie 适配器（无状态）。
+/// Stateless Junie adapter.
 pub struct JunieAdapter;
 
 impl Default for JunieAdapter {
@@ -56,7 +56,7 @@ impl crate::adapters::framework::SourceAdapter for JunieAdapter {
         let mut seen: std::collections::BTreeSet<std::path::PathBuf> =
             std::collections::BTreeSet::new();
         for (root, basis) in roots {
-            // 手工根可为 sessions 目录、某会话目录或 events.jsonl 所在目录。
+            // Manual roots may be sessions, one session directory or the events.jsonl directory.
             let base = if root.file_name().and_then(|n| n.to_str()) == Some("sessions") {
                 root.clone()
             } else if root.join("events.jsonl").is_file() {

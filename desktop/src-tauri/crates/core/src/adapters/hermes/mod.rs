@@ -1,15 +1,15 @@
-//! Hermes Agent 适配器（独立目录约定 architecture.md#adapter-layout）：
-//! - 本模块是该 Agent 的稳定入口（统一接口实现与再导出）；
-//! - [`detect`]：state.db schema 指纹（真实列 + v22 主键形状）探测与版本分派；
-//! - [`versions`]：格式实现注册与映射（`session_model_usage_v1` 区间汇总）；
-//! - [`common`]：产品特有 usage 映射 + base_url 内存规范化 + 源库只读/暂存副本约定。
+//! Hermes Agent adapter; see architecture.md#adapter-layout.
+//! - Stable entry point implements the shared interface and re-exports modules.
+//! - detect checks state.db columns and the v22 primary-key shape before version selection.
+//! - versions registers session_model_usage_v1 interval aggregates.
+//! - common owns usage mapping, in-memory base_url normalization and read-only/staged source access.
 //!
-//! 实现依据与核验范围（A24）：固定源码 commit ef70b3661cbfcf57e583008ad91dd04d8ba46070
-//! （hermes_state_common.py SCHEMA_SQL / hermes_state_usage.py / agent/turn_usage.py）
-//! 与 0.21.5 官方镜像 f97608f178d1ffeca59860195ab7da295f7c8e5f；
-//! 隔离本地模型的真实 CLI/续会话样本核验归一桶，其他覆盖仍保留待验边界。
-//! 首个可交付能力 = 本机按模型/任务的原生区间统计；逐次请求（agent 日志详单）
-//! 与精确日统计独立标注，不在本实现范围。
+//! A24 references: source commit ef70b3661cbfcf57e583008ad91dd04d8ba46070
+//! (hermes_state_common.py SCHEMA_SQL, hermes_state_usage.py and agent/turn_usage.py)
+//! and official 0.21.5 image commit f97608f178d1ffeca59860195ab7da295f7c8e5f.
+//! Real isolated local-model CLI/resumed-session samples checked normalized buckets; other paths remain unverified.
+//! This implementation reads native local intervals per model/task.
+//! Per-request agent-log details and exact daily attribution require separate verification.
 
 pub mod common;
 pub mod detect;
@@ -19,10 +19,10 @@ pub use common::{map_hermes, HermesUsage};
 pub use detect::HERMES_FORMAT;
 pub use versions::{session_model_usage_v1, LATEST_IMPL_ID, VERIFIED_VERSION_IMPLS};
 
-/// Hermes home 环境覆盖（固定源码 hermes_constants.py get_hermes_home）。
+/// Hermes-home environment override from hermes_constants.py get_hermes_home.
 pub const HERMES_ENV_HOME: &str = "HERMES_HOME";
 
-/// Hermes Agent 适配器（无状态）。
+/// Stateless Hermes Agent adapter.
 pub struct HermesAdapter;
 
 impl Default for HermesAdapter {
@@ -36,12 +36,12 @@ impl HermesAdapter {
         HermesAdapter
     }
 
-    /// 一个候选根下的 state.db 文件（根本身 + 命名 profile 一层）。
-    /// profile 目录须匹配固定源码 PROFILE_ID_RE（^[a-z0-9][a-z0-9_-]{0,63}$）
-    /// 且带身份标记（config.yaml/.env/SOUL.md/profile.yaml/auth.json/state.db）。
+    /// Find state.db under a candidate root, including named profiles.
+    /// Profile directories must match PROFILE_ID_RE: ^[a-z0-9][a-z0-9_-]{0,63}$
+    /// and contain config.yaml/.env/SOUL.md/profile.yaml/auth.json/state.db as an identity marker.
     fn state_dbs_under(root: &std::path::Path) -> Vec<std::path::PathBuf> {
         use crate::adapters::framework::enumerate_files_bounded;
-        // 深度 3 覆盖 root/profiles/<name>/state.db。
+        // Depth 3 includes root/profiles/<name>/state.db.
         let files = enumerate_files_bounded(root, 3, &|p| {
             p.file_name()
                 .and_then(|n| n.to_str())
@@ -77,10 +77,10 @@ impl HermesAdapter {
         files
             .into_iter()
             .filter(|p| {
-                // 相对根深度：1 = 根直下 state.db（默认 home/HERMES_HOME 指向本身）；
-                // 2 = 手工根宽松（用户 home/备份根下一层，身份由 detect 指纹把关）；
-                // 3 = profiles/<name>/state.db（须 profile 语法；state.db 本身即
-                // 固定源码身份标记之一，无须另验标记文件）。
+                // Relative path depth 1 is root/state.db for the default home or HERMES_HOME.
+                // Depth 2 accepts a user/backup parent root; detect checks database identity.
+                // Depth 3 requires profiles/<name>/state.db and a valid profile name. state.db
+                // itself is a referenced identity marker, so no additional marker file is needed.
                 let Ok(rel) = p.strip_prefix(root) else {
                     return false;
                 };
@@ -113,7 +113,7 @@ impl crate::adapters::framework::SourceAdapter for HermesAdapter {
     ) -> Vec<crate::adapters::framework::DiscoveredRoot> {
         use crate::adapters::framework::{DiscoveredRoot, RootBasis};
         let mut roots: Vec<(std::path::PathBuf, RootBasis)> = Vec::new();
-        // HERMES_HOME 覆盖（固定源码：上下文覆盖采集器不可见，取环境变量一级）。
+        // Read HERMES_HOME; process-internal context overrides are invisible to collection.
         if let Some(home) = ctx.env.get(HERMES_ENV_HOME) {
             if !home.trim().is_empty() {
                 roots.push((
@@ -122,9 +122,9 @@ impl crate::adapters::framework::SourceAdapter for HermesAdapter {
                 ));
             }
         }
-        // 平台默认（固定源码 _get_platform_default_hermes_home）：
-        // Windows %LOCALAPPDATA%/hermes（缺省回退 ~/AppData/Local/hermes），
-        // macOS/Linux ~/.hermes。
+        // Platform defaults from _get_platform_default_hermes_home:
+        // Windows %LOCALAPPDATA%/hermes, falling back to ~/AppData/Local/hermes;
+        // macOS/Linux ~/.hermes.
         if let Some(home) = &ctx.home_dir {
             if cfg!(windows) {
                 let base = ctx
@@ -148,8 +148,8 @@ impl crate::adapters::framework::SourceAdapter for HermesAdapter {
             if !root.is_dir() {
                 continue;
             }
-            // 手工根语义宽松：接受 hermes home 本身、其父目录或用户 home
-            //（有界深度 2 定位 state.db 与 profiles/<name>/state.db）。
+            // Manual roots can be a Hermes home, its parent or a user home.
+            // Bounded enumeration uses depth 3 and accepts root/child state.db or named profiles at depth 3.
             for file in Self::state_dbs_under(&root) {
                 let Some(parent) = file.parent() else {
                     continue;

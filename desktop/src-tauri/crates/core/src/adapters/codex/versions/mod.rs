@@ -1,45 +1,45 @@
-//! Codex 版本注册表：发布版本 → 格式实现的映射与未知版本回退选择
-//! （architecture.md#adapter-layout / #unknown-version）。
+//! Codex registry maps release versions to implementations or compatibility fallback.
+//! See architecture.md#adapter-layout / #unknown-version.
 //!
-//! 已验证版本须经真实样本核验（fixture 或本机全量实读 + 期望值核算）；
-//! 注册表扩展只增加条目，不删除历史实现。
-//! 格式实现：
-//! - `rollout_v1`：0.153+ 逐次载体 `token_usage_record`（0.155.0-alpha.16.3
-//!   真实 fixture 核验读取、解析、入库与查询；0.153/0.154 逐版本 fixture 同形共用）；
-//! - `rollout_legacy`：0.139–0.151 无逐次载体，以 `event_msg/token_count` 的
-//!   `last_token_usage` 回声提供逐次用量（2026-09-26 本机全量 238 文件实读核验：
-//!   21 版本零 token_usage_record；13,481 条 token_count 按 total 增量法分桶；
-//!   222/238 对账 matched；核验方法与判据详见 rollout_legacy.rs 文件头）。
+//! Register versions after native-sample checks: redacted test data or full local reads with calculated expectations.
+//! Extend the registry by adding entries without deleting historical implementations.
+//! Format implementations:
+//! - rollout_v1: token_usage_record per-call records in 0.153+. Native 0.155.0-alpha.16.3
+//!   samples verify reading/parsing/storage/queries; 0.153/0.154 samples share that checked format.
+//! - rollout_legacy: 0.139–0.151 lack per-call records; event_msg/token_count echoes
+//!   last_token_usage. Full local reads on 2026-09-26 covered 238 files across 21 versions:
+//!   zero token_usage_record records, 13,481 token_count records grouped by total differences,
+//!   and 222/238 matched reconciliations. See rollout_legacy.rs for methods and criteria.
 //!
-//! 选择规则：
-//! - 已收录版本 → `KnownVersion`，按映射分派；
-//! - 未收录/缺失版本 → `LatestFallback`，先尝试最新内置解析器（rollout_v1），
-//!   通过校验的数据带兼容标记入库，不因版本号未收录直接拒绝；
-//! - Codex 无已证实不兼容的版本（无 `known_incompatible` 条目）；
-//!   结构不兼容在扫描层按 V30 判定并保留旧结果。
+//! Selection rules:
+//! - Registered version: KnownVersion, dispatch through the mapping.
+//! - Unregistered/missing version: try the latest built-in parser (rollout_v1) with LatestFallback.
+//!   Validated records retain compatibility metadata; an unregistered number alone does not cause rejection.
+//! - No Codex version is verified incompatible; there are no known_incompatible entries.
+//!   Scanning handles incompatible structures under V30 while retaining previous results.
 
 pub mod rollout_legacy;
 pub mod rollout_v1;
 
-/// 当前格式实现标识（"最新内置解析器"由本常量明确指定，不联网获取）。
+/// This constant selects the latest built-in implementation without network access.
 pub const LATEST_IMPL_ID: &str = "rollout_v1";
 
-/// 已验证支持的发布版本 → 格式实现。
-/// 每个版本都有固定格式样本并已核验；同形版本共用实现，分派仍逐版本登记。
-/// 0.139–0.151 系列（rollout_legacy）：本机全量实读核验（每版本全文件
-/// total 增量法分桶 + Σ逐次 vs 最终快照核算，222/238 matched、16 mismatch
-/// 均属已解释类别），代表 fixture 0.139.0 / 0.142.5 / 0.146.0-alpha.3
-/// 读取、解析、入库与查询均已验证；详情见 rollout_legacy.rs 文件头与 m2d 验证记录。
+/// Registered release versions mapped to implementations.
+/// Each version has checked native format samples; shared formats retain separate version entries.
+/// 0.139–0.151 rollout_legacy: full local reads grouped each version by total differences and
+/// compared summed calls with final snapshots. 222/238 matched; the 16 mismatches were
+/// explained. Representative 0.139.0/0.142.5/0.146.0-alpha.3 samples verify
+/// reading/parsing/storage/queries; see rollout_legacy.rs and the M2-D validation record.
 pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[
-    // M2-A 真实 fixture（3 会话，49 调用读取、解析、入库与查询的期望值）。
+    // M2-A native samples: reading/parsing/storage/query expectations for three sessions/49 calls.
     ("0.155.0-alpha.16.3", "rollout_v1"),
-    // M2-D 逐版本脱敏 fixture（rollout-v*.sanitized.json + _expectations.md
-    // jq 独立核算；token_usage_record 逐次载体与 0.155 同形，共用 rollout_v1）。
+    // M2-D version-specific redacted rollout-v*.sanitized.json samples and _expectations.md:
+    // independent jq calculations; token_usage_record has the checked 0.155 shape, shared through rollout_v1.
     ("0.154.0-alpha.6.2", "rollout_v1"),
     ("0.154.0-alpha.6.1", "rollout_v1"),
     ("0.153.0", "rollout_v1"),
-    // 旧载体系列（token_count/last_token_usage）：本机 238 文件实读核验 +
-    // rollout-legacy-*.sanitized.json fixture 验证读取、解析、入库与查询（2026-09-26）。
+    // Legacy token_count/last_token_usage: full local reads of 238 files and redacted
+    // rollout-legacy-*.sanitized.json reading/parsing/storage/query checks, 2026-09-26.
     ("0.151.0-alpha.7.1", "rollout_legacy"),
     ("0.149.0-alpha.4.1", "rollout_legacy"),
     ("0.148.0-alpha.9", "rollout_legacy"),
@@ -63,17 +63,17 @@ pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[
     ("0.139.0", "rollout_legacy"),
 ];
 
-/// 兼容公开路径的旧常量名（tests/examples 引用）。
+/// Preserve the old public constant name used by tests/examples.
 pub const SUPPORTED_CLI_VERSIONS: &[&str] = &["0.155.0-alpha.16.3"];
 
-/// 版本分派结论。
+/// Version selection result.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Selection {
     pub impl_id: &'static str,
     pub basis: crate::domain::VersionBasis,
 }
 
-/// 按来源原始版本选择格式实现；探测与扫描共用本函数保证同一策略（V30）。
+/// Detection and scanning share this V30 format-selection function.
 pub fn select(found: Option<&str>) -> Selection {
     match found {
         Some(version) => {
@@ -92,7 +92,7 @@ pub fn select(found: Option<&str>) -> Selection {
                 },
             }
         }
-        // 版本字段缺失但 Agent 身份/输入类型已确认：默认回退最新实现。
+        // If product identity/input format is known but the version is missing, try the latest implementation.
         None => Selection {
             impl_id: LATEST_IMPL_ID,
             basis: crate::domain::VersionBasis::LatestFallback,
@@ -100,9 +100,9 @@ pub fn select(found: Option<&str>) -> Selection {
     }
 }
 
-/// 为一次扫描解析选择依据：优先用已持久化解析上下文里的 cli_version
-/// （增量轮次免重复读首行）；首轮/重扫/上下文缺失时有界读首行 session_meta。
-/// 任一路径失败都回到 `select(None)` = LatestFallback → rollout_v1（与探测同策略）。
+/// Select the scan implementation using persisted parse_context.cli_version first, avoiding
+/// repeated header reads. Initial/rescan/missing-context paths read bounded first-line session_meta.
+/// Either failed route selects None: LatestFallback through rollout_v1, matching detection.
 fn select_for_scan(
     target: &crate::adapters::framework::ScanTarget,
     stored: &crate::adapters::framework::StoredScanState,
@@ -123,7 +123,7 @@ fn select_for_scan(
     }
 }
 
-/// 有界读首行 session_meta.payload.cli_version（读取失败/非 JSON 均返回 None）。
+/// Read first-line session_meta.payload.cli_version within bounds; read/JSON failures return None.
 fn first_line_cli_version(path: &std::path::Path) -> Option<String> {
     let limits = crate::adapters::jsonl::JsonlLimits {
         chunk_bytes: 64 * 1024,
@@ -143,9 +143,9 @@ fn first_line_cli_version(path: &std::path::Path) -> Option<String> {
         .map(str::to_string)
 }
 
-/// 统一扫描分派：按注册表选择实现（探测/扫描同一注册表，V30）。
-/// 已知限制（与 latest_fallback 升级限制同源）：跨实现升级不自动重扫已消费游标；
-/// 本系列旧文件此前均判 incompatible 且游标未推进，登记后从头解析无残留状态。
+/// Dispatch scans through the same registered version policy used by detection (V30).
+/// This dispatcher does not reset consumed cursors on implementation changes; the scan framework decides when to rescan.
+/// Before registration these legacy files were incompatible with unadvanced cursors, so initial parsing had no retained scan state.
 pub fn dispatch_scan(
     target: &crate::adapters::framework::ScanTarget,
     stored: &crate::adapters::framework::StoredScanState,
@@ -172,7 +172,7 @@ mod tests {
                 basis: VersionBasis::KnownVersion
             }
         );
-        // M2-D 逐版本 fixture 核验的同形版本。
+        // M2-D version-specific samples verify these shared-format versions.
         for v in ["0.153.0", "0.154.0-alpha.6.1", "0.154.0-alpha.6.2"] {
             assert_eq!(
                 select(Some(v)),
@@ -182,7 +182,7 @@ mod tests {
                 }
             );
         }
-        // 0.139–0.151 系列已核验并登记为 rollout_legacy（fixture + 全量实读）。
+        // Register verified 0.139–0.151 versions as rollout_legacy after sample/full-local-read checks.
         for v in [
             "0.139.0",
             "0.140.0-alpha.2",
@@ -215,7 +215,7 @@ mod tests {
                 "version {v}"
             );
         }
-        // 未核验版本（如 0.141.0、未来版本）仍按未知版本回退 rollout_v1。
+        // Unverified releases (such as 0.141.0 or future versions) still use rollout_v1 compatibility fallback.
         assert_eq!(select(Some("0.141.0")).basis, VersionBasis::LatestFallback);
         assert_eq!(
             select(Some("0.142.5-x")).basis,

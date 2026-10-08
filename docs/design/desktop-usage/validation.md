@@ -1,151 +1,188 @@
-# 测试与验收计划
+# Tests and acceptance requirements
 
-本文保留验收条件，进度以 [Plan.md](../../../Plan.md) 和
-[最新验收](../../validation/desktop-usage/current-acceptance.md) 为准。
-适配器版本、价格及来源交换的专项验证结果见 [验证目录](../../validation/desktop-usage/)。
-已实现功能不能代替实际验收，GUI、原生平台及真实来源缺口仍独立登记。
-每项需要记录对应版本、数据集、命令、退出码和实际结果，不能仅勾选编号。
+<a id="测试与验收要求"></a>
 
-## 测试层级
+<a id="测试与验收计划"></a>
 
-1. 纯函数单元测试：字段映射、数学、时间、身份及生命周期，使用独立人工期望。
-2. 适配器合同测试：固定版本脱敏 fixture，经实际读取→解析→标准化→查询完整流程。
-3. 本地集成测试：真实临时 SQLite、文件增量/重写、WAL、事务中断和迁移，不只 mock 数据库。
-4. 桌面验收：真实 Tauri IPC、WebView、配置和刷新；组件测试不能代替原生桌面验收。
-5. 已授权真实来源核对：与 Agent 自身本机统计/本机会话导出比较，记录差额与覆盖区别。
-6. 性能及发行：release 制品、全进程资源、真实安装/升级/卸载/恢复。
+This document preserves acceptance criteria. Track progress in [Plan.md](../../../Plan.md)
+and [current acceptance](../../validation/desktop-usage/current-acceptance.md).
+Specialized adapter-version, pricing and source-exchange results are in the
+[validation directory](../../validation/desktop-usage/). Implementation does not establish
+acceptance: record GUI, native-platform and real-source gaps separately. Every item needs
+its version, dataset, command, exit code and actual result; checking an ID alone is insufficient.
 
-从根 package.json 选择实际命令：`verify` 执行静态及单元/合同检查，
-`test:browser` 使用模拟 IPC；`test:headless` 使用真实可执行文件和 SQLite，
-`test:desktop` 使用 Windows WebView2 的真实 IPC。后两者须先构建并隔离来源环境。
-系统任务 API 往返另以显式测试执行，不能据此声称 OS 已启动应用。
-无需生成模型请求即可完成前四层的大部分验证。
+<a id="测试层级"></a>
 
-## 验收用例
+## Test levels
 
-| ID | 场景 | 必须观察的结果 |
+1. Pure-function tests: field mapping, mathematics, time, identity and lifecycle, using independent manually calculated expectations.
+2. Adapter format tests: fixed-version redacted test data through actual reading, parsing, normalization and queries.
+3. Local integration: real temporary SQLite, incremental/rewritten files, WAL, transaction interruption and migration, beyond database mocks.
+4. Desktop acceptance: actual Tauri IPC, WebView, configuration and refresh; component tests do not replace native desktop checks.
+5. Authorized real-source comparisons: compare local agent statistics/session exports and record differences in values and coverage.
+6. Performance and releases: release artifacts, all application processes, actual installation/upgrade/uninstall/recovery.
+
+Choose actual commands from root package.json. verify runs static, unit and format checks;
+test:browser uses simulated IPC; test:headless uses the real executable and SQLite;
+test:desktop uses Windows WebView2 with actual IPC. Build first and isolate source environments
+for the latter two. Explicit system-task API round trips do not establish OS-triggered startup.
+Most checks at the first four levels need no model requests.
+
+<a id="验收用例"></a>
+
+## Acceptance cases
+
+| ID | Scenario | Required observation |
 | --- | --- | --- |
-| V01 | 各 provider 的缓存包含关系、reasoning 子集、cache TTL 子集 | 人工计算等式正确；无重复 token；缺失、零、异常负值、溢出可区分 |
-| V02 | 两次合法请求恰好拥有相同 token/模型/时间；同请求重复 final | 前者计两次，后者计一次；更正更新旧贡献，顺序乱序不静默覆盖 |
-| V03 | 成功、失败、取消、transport retry、无 usage、用户/工具消息、累计值 | 调用/尝试/消息分别统计，未知 token 不补零，无法确认调用时不产生 request 数 |
-| V04 | 跨午夜、闰日、ISO 跨年周、周日起始、DST 23/25 小时 | 半开区间、周所属年和本地日期正确；重复小时可分辨 |
-| V05 | 模型切换、同名不同 provider、unknown、别名变更 | 不从未来设置推历史模型；unknown 进入总计；别名不篡改原始记录 |
-| V06 | 日→周/月、加权比例、distinct 会话、部分周期、分位数 | 不平均百分比/P95，不叠加每日 distinct；样本范围和缺口可见 |
-| V07 | JSONL 半行、跨块 UTF-8、超长行、BOM、坏行、新目录、文件轮转/同长替换 | 不丢完整事件；半行不前移游标；变更检测不限于长度；错误无正文泄露 |
-| V08 | file/OTLP 同数据重传，累计 metric 重置，token histogram 双类型，采样 | 幂等，正确区分 sum/count；跨日未知区间不摊分；采样总计标记不完整 |
-| V09 | 在读后/事件写后/游标写后/聚合前/commit 后各点终止进程 | 重启重放结果相同；没有只提交游标丢数据或只提交事件翻倍 |
-| V10 | 父子会话、fork 继承、宿主镜像、两个源库重复、辅助调用 | 覆盖集合可解释；有明确关联依据才合并；无关联时主来源选择避免双计 |
-| V11 | 真实 SQLite 并发写入、busy、WAL 未 checkpoint、只读权限、schema 变化 | 一致读取；不修改源库及源 journal；无法安全读取时保留旧结果 |
-| V12 | 今日刷新、新增/更正昨天数据、双击刷新、一个源失败、休眠恢复 | 真正触发采集；日周月更新同一修订；失败源有状态，其他源继续，无样例回退 |
-| V13 | 改时区/周起始、明细已清理、项目采集开关、只隐藏列 | 预览可重建范围；旧汇总不虚构新维度；展示设置与数据删除分离 |
-| V14 | 缩短/延长保留、有限/无限切换、清理取消、日期边界、再次全扫 | 恰好保留指定本地日；过期数据不复活，源日志不变；封存日不重复累加 |
-| V15 | 清理后磁盘空间、长读者阻塞 checkpoint、磁盘满、备份过期 | 统计主库/WAL/备份；有界退避和提示；备份不绕过最长保留，无无声数据丢失 |
-| V16 | 旧库重复导入、范围重叠、更正、取消、迁移失败、旧程序开新 schema | 导入幂等/可回滚；legacy 标签保留；迁移失败可恢复；旧程序拒绝写入 |
-| V17 | 已验证版本、未知/缺失版本但结构兼容、新增可选字段、结构/语义破坏及部分可用 | 已知版本按映射解析；未知版本先尝试该 Agent 最新内置解析器，通过校验的数据可统计且带兼容标记；不兼容有诊断，失败不伪装“成功 0 条” |
-| V18 | 表格与图表筛选一致、键盘/缩放/深浅色、无数据/部分数据、预算/费用 | 图表数值与查询相同；单位明确；币种和费用类别不混加；提醒不因重启重发 |
-| V19 | 真实安装、运行时缺失、离线、应用重启、后台/托盘关闭 | 核心功能无网络可用；缺 WebView 提示清晰；无隐藏常驻进程；设置正确恢复 |
-| V20 | 100 万/1,000 万事件、366 日/多模型/多源、少数超大会话 | 按资源合同核对 GUI 空闲 10 分钟均值/峰值及百万首次导入峰值；全进程、headless、working set 分别报告；吞吐、查询分位数、数据库/WAL 大小记录，无全文件无界载入 |
-| V21 | release 包体、启动、刷新、空闲 CPU、卸载/升级 | 达到 architecture.md 的目标或记录未达原因；包含 WebView 子进程与运行时说明 |
-| V22 | OTLP 认证/限流/压缩炸弹、CSV 注入、路径逃逸、恶意源字符串、本地导入失败 | 不执行外部文字、不持久化正文/凭据、不访问未授权范围；本地导入中断可恢复 |
-| V23 | 全局/逐源间隔与定点、禁用/恢复、手动/监听/定时重叠、时钟回拨、DST、休眠 | 同源不并发，合并待处理触发；禁用后无自动读取；错过时点每源只补扫一次，下次执行正确 |
-| V24 | Windows 系统任务注册失败/禁用失败、普通用户、GUI/headless 竞争、退出/注销/升级/卸载 | 实际生效状态可见；无密码或提权需求；单写者，无 WebView/Agent 启动；关闭配置后残留触发也不采集，只清理自有任务 |
-| V25 | 本机 WSL/容器、远端同步文件、云账单落盘、账号报表、loopback 转发/伪造 host | 本机实例显式授权且去重；远端/未知来源排除并给原因；无远端用量/API 出站请求，不隐式启动环境 |
-| V26 | GitHub Windows/macOS/Linux 矩阵、锁文件、release 制品、测试插桩和权限 | 三 OS 实际构建测试并保留分项状态；Windows 11 实机另验；制品无测试监听器/个人数据，不自动发版 |
-| V27 | 本地 WSL 2 Linux 构建、工作副本、缺依赖、AppImage、WSLg 有/无 | revision/未提交差异和环境可追溯；编译/测试/打包/GUI 分项；库不跨系统共用，不将 WSL 等同原生桌面通过 |
-| V28 | 主机改名、同名不同主机、目录迁移、复制数据库、清理明细、旧库来源缺失、导出重入、同源修订/部分快照/来源冲突 | 稳定来源参与唯一约束与历史分区；导出保留原始来源，导入机不覆盖归属；重复幂等、权威修订替换、互斥来源新增；旧混合汇总不虚构拆分，失败保留旧结果 |
-| V29 | 价格渠道依据、模型别名/版本、缓存 TTL、推理包含关系、阶梯/档位/批处理、价格生效边界、多币种、缺价、离线/更新失败 | 价格出处与适用范围可复核；固定 token/单价样本有人工期望；未知不补零、部分计价有覆盖、确定精度舍入；历史估算可复现，无用量上传，不冒充订阅实付 |
-| V30 | Agent 目录迁移、历史版本并存、新旧/未知版本混合目录、最新解析器回退、格式冲突、共用逻辑变更及旧游标恢复 | 每 Agent 独立目录，版本实现留在该目录内；已知分派与未知回退正确，兼容状态可追溯；既有已验证版本重构前后身份、用量及恢复结果一致，重复扫描不增长；历史回归保留 |
-| V31 | 界面语言切换、缺失键回退、语言协商、数字/日期/单位本地化、导出格式分列 | 切换行为符合 F3 合同；缺失键回退默认语言且可诊断；统计口径不随语言改变；CSV 导出格式与界面格式分列说明 |
+| V01 | Provider cache inclusion, reasoning subset and cache-TTL subsets | Independently calculated equations; no duplicated tokens; distinguish missing, zero, invalid negative values and overflow |
+| V02 | Two valid requests with identical tokens/model/time; duplicate final for one request | Count the former twice and the latter once; corrections replace old contributions; reordered input cannot silently overwrite data |
+| V03 | Success, failure, cancellation, transport retries, no usage, user/tool messages and cumulative values | Separate calls/attempts/messages; unknown tokens stay unknown; no request count without verified calls |
+| V04 | Midnight, leap day, ISO year-boundary weeks, Sunday week start and DST 23/25-hour days | Correct half-open ranges, week year and local dates; distinguish repeated hours |
+| V05 | Model changes, identical names across providers, unknown values and changed aliases | Future settings cannot identify historical models; totals include unknown models; aliases preserve original records |
+| V06 | Daily to weekly/monthly aggregation, weighted ratios, distinct sessions, partial periods and percentiles | Do not average percentages/P95 or sum daily distinct counts; expose sample range and gaps |
+| V07 | JSONL partial lines, split UTF-8, oversized lines, BOM, invalid lines, new directories, rotation and equal-length replacement | Preserve complete events; partial lines cannot advance cursors; detection goes beyond file length; errors never leak bodies |
+| V08 | File/OTLP retransmission, cumulative-metric resets, both token histogram forms and sampling | Repeat input adds no duplicate contributions; distinguish sum/count; do not distribute unknown cross-day intervals; sampled totals are incomplete |
+| V09 | Termination after reading, event writing, cursor writing, before aggregation and after commit | Restart/replay produces the same result; no cursor-only commit losing data or event-only commit doubling it |
+| V10 | Parent/child sessions, inherited forks, host copies, duplicate source databases and auxiliary calls | Explain coverage sets; merge only with explicit identity relationships; otherwise select a primary source to avoid duplication |
+| V11 | Actual concurrent SQLite writers, busy, uncheckpointed WAL, read-only access and schema changes | Consistent reads without modifying the source database/journal; retain old results when safe reads fail |
+| V12 | Refresh today, new/corrected yesterday data, double refresh, one source failing and wake from sleep | Actually collect; daily/weekly/monthly results share a revision; expose failed-source status while others continue; no demo fallback |
+| V13 | Changed timezone/week start, deleted details, project-collection switch and hidden columns | Preview rebuildable ranges; old summaries cannot invent new groupings; separate display settings from deletion |
+| V14 | Shorter/longer retention, finite/unlimited changes, cancelled cleanup, date boundaries and another full scan | Preserve exactly the specified local days; expired data cannot reappear; source logs stay unchanged; archived days cannot accumulate twice |
+| V15 | Disk reclamation, readers blocking checkpoints, full disk and expired backups | Account for main DB/WAL/backups; bounded retries and notices; backups cannot bypass maximum retention; no silent loss |
+| V16 | Repeated old-database imports, overlapping ranges, corrections, cancellation, migration failure and old apps opening new schemas | Repeat imports add no duplicates and can roll back; retain legacy labels; recover migration failures; old apps refuse writes |
+| V17 | Verified versions; unknown/missing versions with compatible structure; optional additions; structural/semantic breakage and partial usability | Use known mappings; try that agent's latest built-in parser for unknown versions; valid data counts with a compatibility label; diagnose incompatible data without presenting failure as successful zero records |
+| V18 | Consistent table/chart filters, keyboard/scale/light/dark, absent/partial data, usage alerts and costs | Chart values match queries; explicit units; keep currencies/cost categories separate; restarts do not resend alerts |
+| V19 | Actual installation, missing runtime, offline use, restart and disabling background/tray operation | Core features work offline; clear missing-WebView notices; no hidden resident process; settings restore correctly |
+| V20 | 1M/10M events, 366 days/multiple models/sources and a few huge sessions | Measure 10-minute GUI idle means/peaks and first million-record import peaks under resource requirements; report all processes, headless and working set separately; record throughput, query percentiles and DB/WAL size; no unbounded whole-file loading |
+| V21 | Release package size, startup, refresh, idle CPU and uninstall/upgrade | Meet architecture.md targets or record unmet reasons; include WebView children and runtime assumptions |
+| V22 | OTLP authentication/rate limits/decompression bombs, CSV injection, path escape, malicious source strings and failed local import | Never execute external text or persist bodies/credentials; no unauthorized access; interrupted local imports recover |
+| V23 | Global/per-source intervals/fixed times, disable/resume, overlapping manual/watch/scheduled triggers, clock rollback, DST and sleep | One scan per source, merge pending triggers; disabled automatic collection never reads; missed times cause at most one catch-up per source; correct next run |
+| V24 | Windows task registration/disable failures, ordinary users, GUI/headless competition, exit/logout/upgrade/uninstall | Expose actual state; no password/elevation requirement; one writer without launching WebView/agents; disabled settings also block residual triggers; clean only owned tasks |
+| V25 | Local WSL/containers, remote synchronized files, saved cloud bills, account reports and loopback forwarding/forged host | Explicitly authorize/deduplicate local instances; exclude remote/unknown origins with reasons; no outbound remote usage/API calls or implicit environment startup |
+| V26 | GitHub Windows/macOS/Linux matrix, lockfiles, release artifacts, test instrumentation and permissions | Actual builds/tests on all three OSes with separate status; Windows 11 hardware acceptance separately; no test listener/personal data in artifacts or automatic release |
+| V27 | Local WSL 2 Linux builds, copies, missing dependencies, AppImage and WSLg availability | Trace revision/uncommitted differences/environment; separate compilation/tests/packaging/GUI; never share databases across systems or equate WSL builds with native desktop acceptance |
+| V28 | Host rename, same-named hosts, moved roots, copied DBs, deleted details, missing old provenance, reimport, same-source revisions/partial snapshots/conflicts | Stable provenance participates in uniqueness/history partitions; export original ownership; importing hosts cannot replace it; duplicates add nothing, accepted revisions replace, exclusive sources add; old mixed summaries cannot invent splits; failures retain old results |
+| V29 | Pricing channels, model aliases/versions, cache TTL, reasoning inclusion, tiers/batch, effective boundaries, currencies, missing prices and offline/update failures | Reviewable price sources/scope; fixed token/rate cases with independent expectations; unknown stays unknown; expose partial pricing coverage and deterministic rounding; reproducible history without usage uploads or treating subscription data as actual payment |
+| V30 | Adapter-directory migration, historical versions, mixed known/unknown roots, latest-parser fallback, format conflicts, shared-logic changes and old-cursor recovery | Independent agent directories with internal version implementations; correct dispatch/fallback and traceable compatibility; identities/usage/recovery unchanged for verified versions; repeats add nothing; preserve historical regressions |
+| V31 | UI language changes, missing-key fallback, negotiation, localized numbers/dates/units and separate export formats | F3 localization rules; diagnostic default-language fallback; calculations independent of language; explain CSV and UI formats separately |
 
-V28 的来源持久化、迁移和合并判定样本由 M1a 验收，实际导出由 M6 验收
-（聚合包为来源注册 + 日/周期/小时层；[明细包](detail-merge.md) 另含完整事件和累计）；
-聚合与明细导入均已实施，事务、修订、未知、完整日、封存及原生往返分别验收，
-不开放跨设备采集。
-V29 使用固定价格样本 P1–P6、人工期望 E1–E8、异常场景 A1–A10；
-测试与在线失败回退结果见 [费用引擎](../../validation/desktop-usage/f2-cost-engine.md)、
-[在线刷新](../../validation/desktop-usage/f2-online-refresh.md)。当前 API 参考与发生时
-估算分别核对，后者须有明确供应商渠道；[预算提醒](budget-reminders.md) 已实施，
-验收默认关闭、用户/周期隔离、精确金额、未知覆盖及重启去重。
+M1a verifies V28 provenance persistence, migration and merge decisions; M6 verifies actual
+exports. Aggregate packages contain the source registry and daily/period/hourly data;
+[detail packages](detail-merge.md) also contain complete events and cumulative records.
+Both imports are implemented; independently test transactions, revisions, unknowns,
+complete days, archives and native round trips. Cross-device collection remains excluded.
+V29 uses fixed price cases P1–P6, independent expectations E1–E8 and abnormal cases A1–A10;
+see [cost engine](../../validation/desktop-usage/f2-cost-engine.md) and
+[online refresh](../../validation/desktop-usage/f2-online-refresh.md).
+Check current API references separately from observation-time estimates, which require a
+known provider channel. [Usage/cost alerts](budget-reminders.md) are implemented: verify
+default-off behavior, user/period isolation, exact amounts, unknown coverage and restart deduplication.
 
 <a id="adapter-versions"></a>
 
-### V30：适配器目录与历史版本回归
+<a id="v30适配器目录与历史版本回归"></a>
 
-M2 负责现有单文件迁移；M3–M5 及后续 F1 的新适配器沿用 [目录合同](architecture.md#adapter-layout)。
-按以下场景分别记录结果，目录存在或编译通过不能代替版本兼容验收：
+### V30: Adapter directories and historical versions
 
-- 检查每个 Agent 的独立目录、统一入口、版本分派和内部实现，产品特有映射不留在根级单文件。
-- 用迁移前已验证版本的固定样本及已提交游标/解析上下文核对迁移后的身份、事件、汇总和增量结果；
-  移动实现不生成新来源、不重复计数，旧公开入口、examples 和测试仍可用。
-- 对每个实际支持的发布版本验证正确分派；同一根目录的新旧历史文件分别进入匹配实现。
-  未知或缺失版本先进入该 Agent 对应输入类型的最新内置实现，不因未收录的版本号直接拒绝。
-- 用未收录版本号但结构不变、版本缺失但 Agent 可识别、仅新增可选字段的样本验证默认回退成功；
-  经实际探测→扫描→入库→查询链路确认 token 与人工期望一致，并显示未验证兼容状态。
-  版本探测、扫描及能力声明使用同一策略，不允许仅在探测阶段放行。
-- 分别注入必需字段类型错误、token 包含关系矛盾、无法识别的计量记录及格式匹配冲突；
-  可独立校验的部分数据保留并标注覆盖，依赖未知累计基线的计算停止；失败批次不推进游标或覆盖旧结果。
-  错误文件不影响独立的已知格式文件，不能仅跳过错误行后宣称完整成功或“成功 0 条”。
-- 重启后兼容标记仍可查询，日汇总/封存和导出不丢失解析依据；同一数据重复扫描不增长。
-  更新解析器、来源变化或显式重扫可重新尝试，后续专用实现替换旧贡献而非再次追加。
-- 新增版本后执行全部已支持历史版本的固定回归；共享组件改动覆盖全部实际使用者。
-  支持矩阵、样本说明和 parser_version 可追溯；不删除旧样本以掩盖新版本回归。
+M2 migrates existing single-file adapters. M3–M5 and later F1 adapters follow the
+[directory specification](architecture.md#adapter-layout). Record each scenario separately;
+directory existence or compilation does not establish version compatibility.
 
-当前仅有一个已证实版本的 Agent 先验目录迁移与现有行为；尚未核验的历史版本保留待验证，
-合成的版本分派测试只能证明分派逻辑，不能替代对该 Agent 真实格式样本的核验。
+- Check each agent's directory, stable entry point, dispatch and internal implementations; product-specific mapping cannot remain in root-level single files.
+- Compare fixed samples of previously verified versions and committed cursors/parser context before/after migration: identity, events, summaries
+  and increments. Moving implementations creates no new sources, duplicates or cursor resets; old public entries/examples/tests remain usable.
+- Verify every actually supported release's dispatch. Historical files with different versions in one root select their matching implementations.
+  Unknown/missing versions first use that agent/input type's latest built-in implementation rather than rejection solely for an unlisted version
+  number.
+- Test unchanged formats with unlisted versions, recognizable agents without versions and optional additions. Actual
+  detection/scanning/storage/query results must match independent token expectations and show unverified compatibility. Detection, scanning and
+  capability declarations use the same policy.
+- Inject invalid required types, contradictory token inclusion, unrecognizable usage records and competing format matches. Preserve independently
+  valid partial data with coverage labels; stop calculations requiring unknown cumulative baselines. Failed batches cannot advance cursors or
+  overwrite old results. Invalid files leave independent valid files usable; skipping invalid lines cannot establish complete success or
+  successful zero records.
+- Compatibility remains queryable after restart; daily summaries/archives/exports retain parsing references. Repeat scans add nothing. Parser
+  updates, source changes or explicit rescans allow retries; later dedicated implementations replace earlier contributions rather than append
+  them again.
+- Regress all supported historical versions when adding a version, and all actual consumers when shared components change. Trace the support
+  matrix, sample descriptions and parser_version; never delete old samples to conceal regressions.
 
-## 固定数学样本
+For agents with one verified version, first check migration/current behavior. Unverified
+historical versions remain pending. Synthetic dispatch tests establish dispatch logic,
+not that agent's actual historical formats.
 
-下列数值进入单元与端到端 fixture，期望写死于测试数据说明，不调用实现自身生成期望。
+<a id="固定数学样本"></a>
 
-| 输入 | 期望 |
+## Fixed mathematical cases
+
+Use these values in unit/end-to-end test data. Hard-code independent expectations in the
+test-data instructions; never calculate expectations using the implementation being tested.
+
+| Input | Expected result |
 | --- | --- |
-| 普通输入 100，缓存读 800，缓存写 100，输出 100 | 总输入 1000，总 token 1100，缓存输入占比 80% |
-| 总输入 1000（缓存读 800 已包含），输出 100（推理 40 已包含） | 总 token 1100，不再加缓存或推理；普通输入在可证明无缓存创建时为 200 |
-| 甲输入 100/缓存 90，乙输入 900/缓存 90 | 合并比例 18%，不是 50%；甲 90%，乙 10% |
-| 输入 100、输出未知 | 已知输入 100；输出及完整总量未知；不能产生完整总 token=100 |
-| 同请求 usage 从 100 改成 80 | 当前值 80，调用数 1；不是 180 或取 MAX=100 |
-| 两个稳定 ID 的请求 usage 都为 100 | 总量 200，调用数 2；内容相同不能去重 |
-| DSH 同 attempt 流式 80→final 100，retry final 40 | 两个已确认尝试的 token 合计 140；具体 model_call 身份随适配器核验依据 |
-| 累计 100→150→150，明确新进程 20 | 区间增量 50、0 与新进程 20；首次 100 保留原始区间，不硬塞进今天 |
-| 跨两天同一个 session，各日都活动 | 周/月 DISTINCT session=1；活跃天数=2 |
-| Hermes 两日累计行 token=1000、api_call_count=3，只有 first_seen/last_seen | 保存来源区间汇总；不产生三条 model_call，不把 1000 全放最后一天；重复扫描不增加 |
-| Hermes 主模型累计 100，独立 task 辅助累计 20，sessions 主循环也是 100 | 已证明覆盖互斥时总量 120，不是 220；session 与模型表不双计，辅助任务不遗漏 |
+| Uncached input 100, cache read 800, cache write 100, output 100 | Total input 1000, total tokens 1100, cache-input ratio 80% |
+| Total input 1000 including cache read 800; output 100 including reasoning 40 | Total tokens 1100; no extra cache/reasoning addition; uncached input 200 only when absent cache creation is established |
+| A input 100/cache 90; B input 900/cache 90 | Combined ratio 18%; individual ratios 90%/10%; no averaging to 50% |
+| Input 100, unknown output | Known input 100; output/complete total unknown; no complete total_tokens=100 |
+| One request corrected from usage 100 to 80 | Current value 80, one call; neither 180 nor MAX=100 |
+| Two stable request IDs each with usage 100 | Total 200, two calls; identical content cannot deduplicate identities |
+| DSH same attempt streams 80 then final 100; retry final 40 | Two verified attempts total 140; model_call identity follows verified adapter rules |
+| Cumulative 100→150→150, explicitly new process 20 | Interval increments 50/0/new-process 20; preserve first 100 in its original interval, without assigning it all to today |
+| Same session active on two days | Weekly/monthly DISTINCT sessions=1, active days=2 |
+| Hermes two-day cumulative row: token=1000/api_call_count=3 with first_seen/last_seen only | Preserve source interval summary; no three invented model_call rows or all 1000 assigned to the final day; repeats add nothing |
+| Hermes main-model cumulative 100, independent auxiliary task cumulative 20, sessions main loop also 100 | Total 120 only with verified exclusive coverage; no 220, duplicate model/session addition or omitted auxiliary task |
 
-另外覆盖接近 i64 上限、大于 JS 安全整数、毫秒/秒误判、夏令时重复小时和 null 字段传播。
+Also cover near-i64 limits, values above JS safe integers, millisecond/second confusion,
+repeated DST hours and null propagation.
 
-## 适配器真实核对
+<a id="适配器真实核对"></a>
 
-实施阶段提取本机真实 Agent 数据验证已获用户允许，按 [最小提取流程](implementation-readiness.md) 执行。
-M0 可先只读提取必要字段生成脱敏 fixture，解析器通过后再做真实来源的端到端比较。
-F1 本轮已授权核查；无安装/载体的项移出活动计划，限制及未实施状态保留在矩阵。
-本轮更多 DPI、完整读屏、宿主登录/注销及 OS 唤醒已取消，活动验收以 Plan.md 为准。
+## Real adapter comparisons
 
-每个发布适配器至少固定一个实际版本；多版本支持必须各有 schema 样本。
-来源样本包括单次调用、工具循环、模型切换、子 Agent、失败/取消、重启恢复和辅助请求。
-不具备某个场景的产品标记缺口，不能用别的产品数据替代。
+Read-only extraction of real local agent data for implementation is authorized; follow
+the [minimum extraction procedure](implementation-readiness.md). M0 may extract required
+redacted fields first, then compare end-to-end real sources after parser checks pass.
+F1 inspection is authorized this round. Items lacking installation/local data leave the
+active plan while the matrix retains their limits and unimplemented status.
+Extra DPI, complete screen-reader, host login/logout and OS-wake requirements were cancelled
+this round; Plan.md owns active acceptance.
 
-与 Agent 本机统计核对时固定时区、时间范围、本机实例、模型和统计单位。
-差额先检查源端写入延迟、日志保留、隐藏辅助请求及源界面是否混入了跨设备数据。
-token 相符不自动证明 request/cache 相符；每个字段独立验收。
-已有本地历史核对优先，不为了验收自动发起付费调用或改为接入账号 API。
+Each released adapter fixes at least one actual version; multiple-version support requires
+schema samples for each. Cover single calls, tool loops, model changes, subagents,
+failure/cancellation, restart recovery and auxiliary requests. Record unavailable scenarios
+for that product; another product's data cannot substitute.
 
-## 调度与平台补充验收
+Compare agent-local statistics using identical timezone/range/local instance/model/units.
+Investigate source write delay, log retention, hidden auxiliary requests and cross-device
+data in the source UI before explaining differences. Matching tokens does not establish
+matching request/cache values: accept each field independently. Prefer existing local
+history; do not automatically issue paid requests or switch to account APIs for testing.
 
-V23 的时钟/DST 用可控时钟，V24 使用实际 Windows 11 普通用户测试任务，
-不能用 mock 注册成功证明系统任务可用。任务测试只操作本应用测试命名空间，结束复核无残留。
-V25 合成明确的本机、跨设备和未知归属 fixtures，出站审计覆盖运行/手动/定时/导入路径；
-构建依赖下载与统计运行网络行为分开，不把 Agent 自身访问云端模型误判为采集器出站。
-V26 至少有三平台原生构建、Rust/fixture/SQLite/调度测试结果，GUI 自动化不足单列，
-Windows 安装、系统任务和资源目标仍需真实 Windows 11 验收。
-2026-10-05 用户取消 macOS 桌面及特定硬件要求，Linux GUI/包生命周期接受独立
-WSL/Debian Podman 的实际 GTK/WebKit/IPC 验收；宿主登录/注销、托盘/通知和其他
-发行版仍分开记录，FUSE 不可挂载时不能以提取运行报 FUSE 通过。
-V27 是可选本地补充；环境不可用记录未执行，不能删掉 Linux CI 或声称其已通过。
+<a id="调度与平台补充验收"></a>
 
-## 不作为通过依据
+## Scheduling and platform checks
 
-- 编译成功、schema 存在、目录被发现，不能证明用量正确。
-- 原型 README、第三方统计工具的映射和搜索摘要，不能替代上游格式依据。
-- 本地固定样本不证明所有发行版本、所有 IDE、真实服务或生产覆盖。
-- 空壳 Tauri 的包体数字不能代替包含图表、数据库、采集和遥测后的成品。
-- Markdown lint 通过只说明文档格式，不证明任意业务验收完成。
+Use controllable clocks for V23/DST. V24 uses actual Windows 11 ordinary-user test tasks:
+mock registration cannot establish working OS tasks. Operate only the application's test
+namespace and confirm cleanup. V25 uses explicit local/cross-device/unknown-origin synthetic
+data; audit outbound behavior during startup/manual/scheduled/import paths. Separate build
+dependency downloads from collection-time network activity; agents calling cloud models
+are not collector outbound usage traffic.
+V26 requires actual native builds and Rust/format/SQLite/scheduling results on all three
+platforms; record missing GUI automation separately. Windows installation/tasks/resources
+still require actual Windows 11 checks.
+On 2026-10-05 the user removed macOS desktop/specific-hardware requirements and accepted
+isolated WSL/Debian Podman GTK/WebKit/IPC for Linux GUI/package lifecycle. Host login/logout,
+tray/notifications and other distributions retain separate scopes. Extracted execution
+cannot establish successful FUSE mounting. V27 is optional local validation: report unavailable
+environments as unexecuted without deleting Linux CI or claiming it passed.
+
+<a id="不作为通过依据"></a>
+
+## Insufficient acceptance results
+
+- Compilation, schema existence or discovered directories do not establish correct usage.
+- Prototype READMEs, third-party statistics mappings and search snippets cannot replace upstream format references.
+- Fixed local samples do not verify every release, IDE, real service or production coverage.
+- Empty Tauri-shell package sizes cannot represent the full chart/database/collection/telemetry product.
+- Markdown lint checks formatting and cannot establish application acceptance.

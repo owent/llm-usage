@@ -1,63 +1,77 @@
-# M0/M1 提交审查与回归修复
+# M0/M1 commit review and regression fixes
 
-2026-09-24 审查 `3588345`（M0）和 `9394264`（P1/M1）。开始时工作区干净；
-本次修改未提交、未推送。环境为 Windows x64、PowerShell 7.6.6、Node 24.21.0、
-Cargo/Rust 1.98.0；依赖继续使用现有锁文件。
+<a id="m0m1-提交审查与回归修复"></a>
 
-## 已修复的问题
+Reviewed 3588345 (M0) and 9394264 (P1/M1) on 2026-09-24, starting with a clean working
+tree. These changes were not committed or pushed. Environment: Windows x64, PowerShell
+7.6.6, Node 24.21.0, Cargo/Rust 1.98.0; existing dependency locks retained.
 
-| 优先级 | 触发与影响 | 修复与回归 |
+<a id="已修复的问题"></a>
+
+## Fixed problems
+
+| Priority | Trigger and effect | Fix and regression |
 | --- | --- | --- |
-| P1 | 日汇总与原生区间汇总把 estimated 字段加入“已知用量”，派生 total 又丢失估算质量 | 按字段只汇总 reported/derived；保留已报告的其他字段和调用数；校验值与质量一致 |
-| P1 | Codex/ZCode/Kilo 在缺少缓存创建、缓存读取或推理字段时补出已知拆分；来源 total 不一致时被作为规范化总量；缓存求和可溢出 panic | 缺失保持未知；规范化总量与 source_total 分离；检查加法；比例保留 i128 整数对 |
-| P1 | 普通事件接口接收累计/区间/额度类型，按日直接累加；混源批次推进错误来源游标；不存在或已结束的作业仍能提交批次 | 类型走专用存储接口；批次来源、作业归属与 running 状态在事务内核验 |
-| P1 | 带 `#` 的身份组件可发生主键碰撞；重扫只改变 observed_at 也会产生冲突 | 转义身份组件；忽略采集观察时间的内容比较；兼容 v1 摘要与现有别名 |
-| P1 | 来源区间汇总同修订号冲突被覆盖，诊断与用量不在同一事务，数据修订号不更新 | 不确定更新保留旧值并记录冲突；汇总/诊断/修订号原子提交；未知调用汇总返回 None，并附已知/未知行数 |
-| P1 | 明确重置后新累计值大于旧值时误算差值；迟到值移动当前基线 | 先判断采样时序与重置依据；迟到/同刻冲突保留基线；新 series 独立处理 |
-| P1 | 保留清理遇到 event_aliases 外键失败；重启后漏传截止会复活过期数据；硬期限未约束诊断与来源区间 | 先清理涉及过期事件的别名；保存只前进的保留下限；硬期限作用到诊断、额度和原生区间及重扫 |
-| P2 | 周/月 token 按选定日期过滤，会话数却查整个自然周期；无 session 的活动日丢失；明细与排除计数筛选不一致 | 会话/活跃日限定同一日期范围；活动日不依赖 session；所有查询使用一致筛选和读快照 |
-| P1 | 拒绝新 schema 前先修改 journal_mode；改完计算逻辑后旧日汇总仍保留错误值 | 先读取版本再变更设置；schema v2 事务迁移身份与别名，重算有明细的汇总；迁移中途失败整体回滚 |
-| P1 | M0 安装后的文件探测依赖编译机器源码路径；并发探测共用临时数据库 | 配置 bundle.resources，通过 Tauri resource_dir 读取；每次 SQLite 探测使用独立临时目录并清理 |
-| P1 | Linux Rust 检查作业未安装 Tauri 系统库；制品检查把 `.app` 当文件而漏掉它 | 补齐 Rust 作业依赖；Node 脚本检查实际制品、写大小/SHA-256/revision；先归档 `.app` 再上传以保留权限和符号链接 |
+| P1 | Daily/native interval summaries counted estimated fields as known usage; derived total lost estimated quality | Sum reported/derived per field; preserve other reported fields and call counts; validate value/quality consistency |
+| P1 | Codex/ZCode/Kilo invented known splits when cache creation/read/reasoning was missing; inconsistent source total became normalized total; cache addition could overflow/panic | Keep missing fields unknown; separate normalized total/source_total; checked addition; i128 integer ratio pairs |
+| P1 | Event API accepted cumulative/interval/quota records and added them daily; mixed-source batches advanced the wrong cursor; absent/ended jobs could submit | Dedicated storage APIs; verify batch source, job ownership and running state inside transaction |
+| P1 | Identity components containing # could collide; changing only observed_at on rescan caused conflicts | Escape identity components; ignore observation time in content comparison; retain v1 hash/alias compatibility |
+| P1 | Same-revision interval conflicts overwritten; diagnostics/usage not atomic; data revision unchanged | Keep old value and record uncertain updates as conflicts; atomic summary/diagnostic/revision; unknown call totals return None with known/unknown row counts |
+| P1 | After explicit reset, a new cumulative value above the old value produced a false delta; late values moved baseline | Check sampling order/reset information first; keep baseline for late/same-time conflicts; separate new series |
+| P1 | Retention failed on event_aliases foreign keys; missing restart cutoff restored expired data; hard deadline missed diagnostics/intervals | Delete expired-event aliases first; persist forward-only retention floor; apply hard deadline to diagnostics, quotas, native intervals and rescans |
+| P2 | Week/month tokens respected selection but sessions used full natural period; days without sessions lost; detail/exclusion filters differed | Same date range for sessions/active days; activity independent of session; consistent filters/read snapshot |
+| P1 | journal_mode changed before rejecting newer schema; old daily totals retained calculation errors | Read version before settings changes; transactional v2 identity/alias migration and recomputation where details remain; full rollback on failure |
+| P1 | Installed M0 discovery depended on build-machine source paths; concurrent probes shared temporary DB | bundle.resources and Tauri resource_dir; independent temporary SQLite directory per probe, cleaned afterward |
+| P1 | Linux Rust job lacked Tauri libraries; artifact checker treated .app as a file and missed it | Add dependencies; Node checks actual outputs and records size/SHA-256/revision; archive .app before upload to retain permissions/symlinks |
 
-`review_regressions.rs` 新增 27 个核心回归，桌面入口新增 2 个测试，
-`bundle-report.test.mjs` 新增 3 个测试。核心回归使用真实临时 SQLite 文件库，
-包括并发读写、v1 升级、迁移失败回滚、封存缺失明细和故障触发器。
-第一批 17 个用例已先在原实现上运行，17 个全部失败；修复后全部通过。
-后续新增的区间冲突与原子性用例也先复现失败再修复。
+review_regressions.rs adds 27 core regressions, desktop entry adds two tests and
+bundle-report.test.mjs adds three. Core tests use real temporary SQLite files, covering
+concurrent reads/writes, v1 upgrade, failed-migration rollback, sealed missing details and
+failure triggers. All first 17 cases failed on the original implementation and passed
+after fixes. Later interval-conflict/atomicity cases likewise reproduced failures first.
+
+<a id="兼容与核验范围"></a>
 
 <a id="兼容与证据边界"></a>
 
-## 兼容与核验范围
+## Compatibility and verification scope
 
-- v2 重算仍有明细的旧日汇总；已封存的 estimated 分区无法恢复逐字段已知量，
-  保留调用数并将 token 标为不可恢复，记录 `sealed_estimate_unavailable`，不推测为零。
-- 硬期限下，起点未知或横跨截止的原生区间不能精确拆分，整条移除并阻止普通重扫恢复。
-  v1 在清理时没有保存截止；已被 v1 删除且没有留下封存记录的历史无法倒推出旧截止。
-- 源适配器、跨来源别名选择/去重、时区切换重建、迁移前一致备份/空间检查、
-  应用管理备份清理及容量/性能基准仍按原计划推进；本次不把表结构测试记为这些功能验收。
-- Tauri 资源映射依据本地锁定的 `tauri-utils 2.9.3` 配置定义与
-  `tauri 2.11.6` 的 `path/desktop.rs` 实现，已核对平台资源目录行为。
-- GitHub 三平台 CI 尚未实际运行；本机归档脚本测试不能代替 macOS 桌面运行或制品下载验收。
+- v2 recomputes old days with retained details. Sealed estimated partitions cannot recover
+  known per-field values: keep calls, mark tokens unrecoverable and record
+  sealed_estimate_unavailable, without guessing zero.
+- Under a hard deadline, native intervals with unknown start or crossing the cutoff cannot
+  be split exactly; remove the whole interval and block ordinary rescan restoration. v1
+  did not save cleanup cutoffs; deleted history without sealed rows cannot reveal an old cutoff.
+- Adapters, cross-source aliases/deduplication, timezone rebuilds, consistent pre-migration
+  backups/space checks, managed-backup cleanup and capacity/performance tests remain planned
+  work. Table tests do not count as acceptance of those features.
+- Resource mapping was checked against locked tauri-utils 2.9.3 configuration definitions
+  and tauri 2.11.6 path/desktop.rs, including platform resource directories.
+- Three-platform GitHub CI had not run; local archive tests do not verify macOS desktop
+  execution or downloaded artifacts.
 
-## 命令与结果
+<a id="命令与结果"></a>
 
-除注明外，cwd 为仓库根。Windows 沙箱首次启动报 `CreateProcessAsUserW failed: 5`，
-平台允许的执行路径恢复后才开始读库/测试；该错误不是产品测试失败。
+## Commands and results
 
-| 命令 | 退出码 | 结果 |
+Working directory is repository root unless stated. Initial Windows sandbox launch failed
+with CreateProcessAsUserW failed: 5. Database reads/tests began after the permitted execution
+path worked; this launch error was not a product-test failure.
+
+| Command | Exit | Result |
 | --- | --- | --- |
-| 修复前 `cargo test --manifest-path desktop/src-tauri/Cargo.toml --locked -p llm-usage-core` | 0 | 原有 72 个测试通过 |
-| 第一批 `cargo test ... --test review_regressions` | 1 | 17 个新用例均复现失败 |
-| 最终 `cargo test ... --test review_regressions` | 0 | 27 passed / 0 failed |
-| `npm run verify` | 0 | 最终 99 个核心测试 + 2 个桌面测试 + 3 个脚本测试全部通过；34 个 Markdown 文件无问题、67 项派生资源/82 个文件核验通过；svelte-check 无错误或警告，fmt/clippy/前端构建通过 |
-| `npm run build:desktop -- --bundles nsis` | 1 | npm 12 嵌套脚本参数转发拒绝 `--bundles`；改用锁定 CLI 直接调用 |
-| `node node_modules/@tauri-apps/cli/tauri.js build --bundles nsis`（desktop） | 0 | Windows x64 release 与 NSIS 成功；安装包 1,894,207 B |
-| `7z l desktop/src-tauri/target/release/bundle/nsis/llm-usage-m0_0.1.0_x64-setup.exe` | 0 | 安装包内含 190 B 的 sample-data.txt；构建资源与源码样本 SHA-256 相同 |
-| `node desktop/scripts/bundle-report.mjs desktop/src-tauri/target/release/bundle` | 0 | 实际 NSIS 大小与 SHA-256 写入 bundle-report.json |
-| `git diff --check` | 0 | 无空白错误 |
+| Before fixes: cargo test --manifest-path desktop/src-tauri/Cargo.toml --locked -p llm-usage-core | 0 | Original 72 tests pass |
+| First cargo test ... --test review_regressions | 1 | All 17 new cases reproduce failures |
+| Final cargo test ... --test review_regressions | 0 | 27 passed / 0 failed |
+| npm run verify | 0 | 99 core + 2 desktop + 3 script tests pass; 34 Markdown files clean; 67 generated/82 total resources verified; svelte-check clean; fmt/clippy/frontend build pass |
+| npm run build:desktop -- --bundles nsis | 1 | npm 12 rejected nested-script --bundles forwarding; use locked CLI directly |
+| node node_modules/@tauri-apps/cli/tauri.js build --bundles nsis (desktop) | 0 | Windows x64 release/NSIS; installer 1,894,207 bytes |
+| 7z l desktop/src-tauri/target/release/bundle/nsis/llm-usage-m0_0.1.0_x64-setup.exe | 0 | Includes 190-byte sample-data.txt; bundled/source sample SHA-256 match |
+| node desktop/scripts/bundle-report.mjs desktop/src-tauri/target/release/bundle | 0 | Actual NSIS size/SHA-256 in bundle-report.json |
+| git diff --check | 0 | No whitespace errors |
 
-本次安装包 SHA-256：`4e382336b14980fd5a400061a8d958bd402ff7d0886ffa714e43187a78cf43da`。
-制品保存在已忽略的 `desktop/src-tauri/target/release/bundle/`。
+Installer SHA-256: 4e382336b14980fd5a400061a8d958bd402ff7d0886ffa714e43187a78cf43da.
+Outputs remain in ignored desktop/src-tauri/target/release/bundle/.
 
-未启动或调用真实 Agent，未读取私人会话；未安装或发布本次生成的安装包。
+No real agent started/called, no private session read, and the package was neither installed
+nor published.

@@ -1,23 +1,23 @@
-//! 数据库一致备份 + 备份前空间检查（V15/M1 余项：迁移/清理/重建前备份约定）。
+//! Consistent database backups and disk-space checks before V15/M1 migration/cleanup/rebuild.
 //!
-//! 规则要点：
-//! - 一致备份用 `VACUUM INTO` 单文件快照（WAL 下也是一致点；不是文件复制）；
-//! - 备份前检查目标盘剩余空间 ≥ 库文件（含 -wal）× 1.1：不足则失败，
-//!   调用方中止破坏性操作（无无声数据丢失）；
-//! - 备份只保留最近 3 份（文件名含时间戳，字典序即时间序）；
-//!   备份是应用管理的恢复路径，不绕过最长保留的清理语义（V15）；
-//! - 旧 schema 库（我们的 setup 拒绝打开）用裸连接只读打开做备份——
-//!   重建路径先备份再删除。
+//! Backup rules:
+//! - VACUUM INTO creates a single consistent snapshot, including with WAL, without file copying.
+//! - Require target free space >= 1.1 * database/WAL/SHM bytes; insufficient space fails,
+//!   allowing callers to stop destructive operations.
+//! - Keep three matching snapshots in filename order, using timestamped names.
+//!   V15 treats backups as application-managed restoration subject to retention rules.
+//! - A direct read-only connection backs up old schemas rejected by application setup;
+//!   rebuild must finish backup before deleting the original.
 
 use rusqlite::{Connection, OpenFlags};
 use std::path::{Path, PathBuf};
 
-/// 备份保留份数。
+/// Number of matching backups retained.
 const KEEP_BACKUPS: usize = 3;
-/// 空间余量系数（VACUUM INTO 产物可能略小于源库，取 1.1 倍上界）。
+/// Free-space factor 1.1; this check does not establish an upper bound on snapshot size.
 const SPACE_HEADROOM: f64 = 1.1;
 
-/// 库文件（含 -wal/-shm）当前占用的字节数。
+/// Current bytes in the database, -wal and -shm files.
 pub fn db_files_bytes(db_path: &Path) -> u64 {
     let mut total = 0u64;
     for suffix in ["", "-wal", "-shm"] {
@@ -29,7 +29,7 @@ pub fn db_files_bytes(db_path: &Path) -> u64 {
     total
 }
 
-/// 备份目录（库文件同目录 backups/，与 backup_before_clear 同一布局）。
+/// backups/ beside the database, matching backup_before_clear placement.
 pub fn backup_dir(db_path: &Path) -> PathBuf {
     db_path
         .parent()
@@ -37,7 +37,7 @@ pub fn backup_dir(db_path: &Path) -> PathBuf {
         .join("backups")
 }
 
-/// 空间判定（纯函数，供测试）：free ≥ needed×1.1 才允许备份。
+/// Pure space test: free >= needed * 1.1 allows backup.
 pub fn space_sufficient(free: u64, needed: u64) -> bool {
     if needed == 0 {
         return true;
@@ -45,7 +45,7 @@ pub fn space_sufficient(free: u64, needed: u64) -> bool {
     (free as f64) >= (needed as f64) * SPACE_HEADROOM
 }
 
-/// 备份前空间检查：目标盘剩余空间不足时报错（调用方中止破坏性操作）。
+/// Insufficient target free space fails before backup; callers must stop destructive work.
 fn ensure_space(backup_target_dir: &Path, needed: u64) -> Result<(), String> {
     if needed == 0 {
         return Ok(());
@@ -62,7 +62,7 @@ fn ensure_space(backup_target_dir: &Path, needed: u64) -> Result<(), String> {
     Ok(())
 }
 
-/// 只保留最近 KEEP_BACKUPS 份（前缀过滤 + 字典序）。
+/// Keep the last KEEP_BACKUPS matching prefix/.sqlite files in lexical filename order.
 fn prune_old_backups(dir: &Path, prefix: &str) {
     let mut olds: Vec<PathBuf> = std::fs::read_dir(dir)
         .map(|rd| {
@@ -82,7 +82,7 @@ fn prune_old_backups(dir: &Path, prefix: &str) {
     }
 }
 
-/// 打开（可能 schema 不兼容的）旧库做只读备份连接。
+/// Open an old, possibly incompatible schema through a read-only connection.
 fn open_legacy_readonly(db_path: &Path) -> Result<Connection, String> {
     Connection::open_with_flags(
         db_path,
@@ -91,8 +91,8 @@ fn open_legacy_readonly(db_path: &Path) -> Result<Connection, String> {
     .map_err(|e| format!("open legacy database for backup: {e}"))
 }
 
-/// 一致备份当前可写库（调用方持有写连接；VACUUM INTO 单文件快照）。
-/// 返回备份文件路径；库无任何表（全新/空）时返回 None 不备份。
+/// VACUUM INTO snapshots the caller's current connection consistently.
+/// Return its path, or None without backup when the database has no tables.
 pub fn consistent_backup(
     conn: &Connection,
     db_path: &Path,
@@ -116,7 +116,7 @@ pub fn consistent_backup(
     let stamp = format!("{}-{:08x}", prefix, u64::try_from(secs.max(0)).unwrap_or(0));
     let mut backup = dir.join(format!("{stamp}.sqlite"));
     let mut suffix = 0u32;
-    // 同秒重复备份：追加序号避免覆盖。
+    // Append an ordinal when the same-second name exists, avoiding overwrite.
     while backup.exists() && suffix < 1000 {
         suffix += 1;
         backup = dir.join(format!("{stamp}-{suffix}.sqlite"));
@@ -135,8 +135,8 @@ pub fn consistent_backup(
     Ok(Some(backup))
 }
 
-/// 一致备份一个我们不兼容的旧库（重建路径：先备份再删除）。
-/// 用只读裸连接 + VACUUM INTO；失败返回 Err（调用方不得删除原库）。
+/// Back up an incompatible old schema before rebuild deletes the original.
+/// A direct read-only connection uses VACUUM INTO; Err must prevent original-file deletion.
 pub fn consistent_backup_legacy(
     db_path: &Path,
     prefix: &str,
@@ -242,8 +242,8 @@ mod tests {
         let backup = consistent_backup(&conn, &db, "test-backup", 1_800_000_000_000)
             .unwrap()
             .expect("backup created");
-        // 备份是一致快照：可独立打开并读出数据（读毕关闭——
-        // Windows 下未关闭的 SQLite 连接持有文件锁，会阻止 prune 删除）。
+        // Open the consistent snapshot independently and close it after reading;
+        // an open SQLite connection on Windows can prevent prune from deleting the file.
         {
             let bconn =
                 Connection::open_with_flags(&backup, OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
@@ -252,7 +252,7 @@ mod tests {
                 .unwrap();
             assert_eq!(value, 42);
         }
-        // 重复备份 5 份（不同时间戳）⇒ 只留最近 3 份。
+        // Five more timestamped backups leave the last three matching snapshots.
         for i in 1..=5i64 {
             consistent_backup(&conn, &db, "test-backup", 1_800_000_000_000 + i * 5_000).unwrap();
         }

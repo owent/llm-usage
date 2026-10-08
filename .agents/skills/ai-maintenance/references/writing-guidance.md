@@ -1,90 +1,124 @@
-# 写作指导：去除 AI 腔
+# Writing guidance: remove formulaic AI prose
+
+<a id="写作指导去除-ai-腔"></a>
 
 Use when drafting or editing repository prose: replies, comments, documentation,
 examples, agent instructions, commit messages, and PR or release notes.
 
-按读者需要先说明事实、结果或动作，再解释必要原因。去除空话不等于猜测作者身份，
-也不意味着用口语梗、营销比喻或省略技术条件来装自然。
+Lead with the fact, result or action the reader needs, then explain necessary reasons.
+Removing empty prose does not identify an author's identity or justify slang, marketing
+metaphors or omitted technical conditions as a way to sound natural.
 
-## 内容与结构
+<a id="内容与结构"></a>
 
-- 写当前可验证的行为；未知、计划和已完成分别表达，不把“未验证”改成肯定句。
-  文档只保留最新规则和状态，直接合并修改，不追加历史修订日期或逐次更新说明。
-  变更过程由版本控制或备份保存；仍需兼容的旧行为、版本号、配置键和 API 路径继续说明。
-- 一段说明一件事，用具体对象和动词。一个概念使用一个名称，避免为了变化而换同义词。
-- 删除不增加信息的开场、章节预告、段末总结和重复结论。顺序重要时保留步骤编号；
-  字段、选项或并行检查适合列表/表格，其余优先用连贯段落。
-- 少用形容词称赞方案；写实际文件、条件、数量、时间或验证结果。没有测量就删掉性能赞语，
-  不能为了替换“高效”而编造数字。
-- 技术说明先交代变化和影响，再给依据。PR 说明面向未读聊天的审阅者，
-  包含实际问题、最终行为及必要验证，不复述讨论过程或无关替代方案。
+## Content and structure
 
-## 标题、宣传与导航
+- Describe currently verifiable behavior. Distinguish unknowns, plans and completed work;
+  never turn unverified statements into certainty. Keep current rules/status in documentation
+  by integrating changes rather than appending revision dates or update logs. Git/backups
+  preserve change history. Continue explaining compatible old behavior, versions, keys and APIs.
+- Give each paragraph one subject with concrete objects/verbs. Use one name per concept;
+  do not vary terms merely for style.
+- Remove empty openings, section previews, paragraph summaries and repeated conclusions.
+  Keep numbered steps when sequence matters. Fields, options and parallel checks suit lists/
+  tables; otherwise prefer connected prose.
+- Avoid praising designs with adjectives. State files, conditions, quantities, times and
+  measured results. Remove unmeasured performance claims; do not invent numbers to replace
+  words such as efficient.
+- Technical explanations lead with changes/impact, then evidence. PR descriptions serve
+  reviewers who have not read the conversation: include the actual problem, final behavior
+  and necessary validation, without discussion history or unrelated alternatives.
 
-标题用简短、正式的主题词说明本节对象或功能；条件、步骤和解释放正文。
-删除不提供信息的形容词、“一文读懂”“全网最全”类宣传修饰、双分句口号和句末句号，
-不用强制换行维持长标题。没有统一字数上限，仍需在两种语言和窄屏上检查是否容易辨认。
+<a id="标题宣传与导航"></a>
 
-首页、功能卡片和其他宣传文案禁用“从……到……”式覆盖口号，标题禁用“先……再……”句式
-及英文对应的 From … to …、First … then … 口号，也不换成“由……走向……”等同类句式。
-“看一眼”“跑通”“看清”“掌握”等邀约或抽象动作不用于正式标题。
-正文中的真实操作先后、输入输出关系和数值范围写清对象与条件，不因句式相似删除必要语义。
+## Titles, promotion and navigation
 
-能力描述要能指认功能：核对“直接表达”表达的是什么、“清晰流程”包含哪些动作、
-“可靠”有什么依据；改为具体结构、输入、操作和结果，不靠另一组形容词替换。
-摘要不暗示未验证的性能或全面支持。链接和按钮使用目标页面名称。
+Titles use short, formal subject terms naming the section's object/function. Put conditions,
+steps and explanations in the body. Remove empty adjectives, promotional claims such as
+`一文读懂`/`全网最全`, two-clause slogans and final periods. Do not force line breaks to support
+long titles. There is no universal length cap; check both languages/narrow screens for readability.
 
-审阅用户指出的问题时，同时检查同页的标题、摘要、功能卡片、按钮、图注，
-以及相邻文档、导航和页脚的重复模式。两种语言分别写自然的主题词与说明；
-不为逐字对应保留英文口号，也不批量改写说明技术顺序的正常句子。
+Homepage copy, feature cards and other promotion must avoid `从……到……` coverage slogans.
+Titles avoid `先……再……` and their English From … to …/First … then … slogans; do not replace
+them with equivalent `由……走向……` patterns. Invitations/abstract actions such as `看一眼`,
+`跑通`, `看清` or `掌握` are unsuitable formal titles. Preserve actual operation order,
+input/output relationships and numeric ranges in the body with their objects/conditions;
+similar sentence shapes do not justify deleting necessary meaning.
 
-## 中文表达
+Capabilities must name functions: identify what direct expression expresses, what actions
+a clear workflow includes, and what supports reliability. Replace vague praise with
+structures, inputs, operations and outcomes rather than different adjectives. Summaries
+cannot imply unverified performance/comprehensive support. Links/buttons use destination names.
 
-下表是人工审阅提示，不是禁词表。先核对代码或上下文，再选择准确表述。
+When reviewing user-identified wording issues, check titles, summaries, cards, buttons,
+captions and repeated patterns in neighboring docs/navigation/footers. Write natural titles/
+explanations independently in each language. Do not preserve English slogans for literal
+equivalence or bulk-rewrite ordinary technical sequences.
 
-| 需要检查的表达 | 按实际含义改写 |
+<a id="中文表达"></a>
+
+## Chinese wording
+
+In engineering prose, replace the vague or metaphorical uses below with the actual object,
+operation or result. This applies to titles, navigation, captions, comments and agent
+instructions as well as paragraphs. A search match starts a contextual review; it does not
+authorize changing identifiers, original output or the precise technical uses listed under
+Exceptions and checks.
+
+| Expression to review | Rewrite according to actual meaning |
 | --- | --- |
-| 赋能、加持、助力、打造 | 谁提供什么功能、执行什么动作 |
-| 抓手、底座、打通 | 具体工具、公共库、服务或接口，以及连接关系 |
-| 沉淀、落地、闭环 | 记录结论、保存数据、实现、部署、修复并验证 |
-| 对齐、拉齐、收敛 | 保持哪项一致、合并什么、统一什么状态或缩小什么范围 |
-| 口径、维度、颗粒度 | 计算规则、时间来源、检查条件、指标或处理单位 |
-| 链路、投影 | 实际调用顺序、缓存/副本/派生视图 |
-| 水位 | 写处理位置（已处理到的最大时间戳/序号），按语境写旧处理位置、已消费位置或保留处理位置；不用“进度”，避免与采集进度展示混淆 |
-| 终态、终值 | 按所指对象写：作业或状态机写结束状态及合法转移；数据快照写最终值或最终快照 |
-| 夹具 | 指测试直接读取的静态数据文件时写测试数据；泛指 xUnit 固定测试前提时保留英文 fixture |
-| 秘密、机密 | 按实际对象写密钥、凭据、口令或敏感信息，不把 secret 直译为“秘密” |
-| 预算 | 若谈执行限制，写重试次数上限、剩余次数、超时时间或数量上限 |
-| 合同（用于开发文档或计划） | 按所指内容写设计规范、接口约定、字段规则、平台协议或验收标准；法律合同、引文和代码标识符保留原词 |
-| 缺证、待证、未证 | 写明缺少什么或尚未完成什么：缺少真实用量样本、本地格式尚未核验、版本兼容性待验证；不把“未验证”写成“不支持” |
-| 证据（用于研发说明） | 按对象写源码依据、文档依据、样本、日志、测试结果、测量结果或验证记录；说明它能支持哪项结论，避免只写“有证据”或“缺少证据” |
-| 门槛 | 按含义写前置条件、采用条件、版本要求、验收标准、判定阈值或限制；有明确数值时直接写比较条件，保留必须满足还是仅供参考的区别 |
-| 兜底、护栏、门禁、钳制 | 写触发条件及实际动作：返回默认值、拒绝、重试、限制数值或阻止合入 |
-| 全面、深度、系统性、全方位 | 写实际检查的文件、场景和方法，避免暗示未做的工作 |
-| 神器、利器、干货、保姆级 | 实际功能、操作步骤与适用条件 |
-| 强大、无缝、优雅、高效、稳健、轻松 | 写使用前提和已验证行为，删除无依据的评价 |
+| `赋能、加持、助力、打造` | Name who provides which function or performs which action |
+| `抓手、底座、打通` | Name tools, shared libraries, services/interfaces and their connections |
+| `沉淀、落地、闭环` | Record conclusions, save data, implement, deploy, fix and verify |
+| `对齐、拉齐、收敛` | Specify what remains consistent, is merged/unified, or has its scope narrowed |
+| `口径、维度、颗粒度` | Specify calculation rules, time sources, conditions, metrics or processing units |
+| `链路、投影` | State call order, cache/copy/derived view |
+| `水位` | Use processing position (maximum processed timestamp/sequence), old/consumed/retained position as appropriate; avoid `进度` because it can mean displayed collection progress |
+| `终态、终值` | For jobs/state machines, state completion states/legal transitions; for snapshots, state final values/snapshots |
+| `夹具` | Use test data for static files consumed by tests; retain fixture for general xUnit setup |
+| `秘密、机密` | Specify keys, credentials, passwords or sensitive data; do not translate secret mechanically as `秘密` |
+| `预算` | For execution limits, state retry counts, remaining attempts, timeouts or quantity caps |
+| `合同` in development docs/plans | Use design specifications, interface conventions, field rules, platform protocols or acceptance criteria as appropriate; preserve legal contracts, quotations and identifiers |
+| `缺证、待证、未证` | State missing samples/checks, unverified local formats or pending compatibility; unverified does not mean unsupported |
+| `证据` in engineering explanations | Name source/documentation basis, samples, logs, test/measurement results or records, and the conclusion they support |
+| `门槛` | State prerequisites, adoption conditions, versions, acceptance criteria, thresholds or limits; preserve exact comparisons and required/advisory strength |
+| `兜底、护栏、门禁、钳制` | State trigger/action: default return, rejection, retry, numeric restriction or merge prevention |
+| `全面、深度、系统性、全方位` | Name actual files, scenarios and methods without implying unperformed work |
+| `神器、利器、干货、保姆级` | State functions, steps and applicability |
+| `强大、无缝、优雅、高效、稳健、轻松` | State prerequisites/verified behavior; remove unsupported praise |
+| `载体、面、落点、权威` used without a concrete object | Name the file/database/export, client interface, target file/section or primary maintained document |
+| `仲裁、认证、封存` used without explaining data operations | Describe conflict selection, the version/format checked, or the retained archive partition; preserve actual database meanings |
+| `热、冷` used without storage context | Identify active transcripts or archived files, and say which the parser reads |
 
-直接陈述事实，减少“值得注意的是”“需要指出的是”“显然”“毋庸置疑”。
-删除无事实作用的“本质上”“从某种意义上说”和“对……进行……处理”。
-少用“不是 A，而是 B”“并非 A，而是 B”“不在于 A，而在于 B”等先否定、再肯定的句式。
-否定项只为烘托重点时，直接写结论；纠正具体误解、区分易混概念或说明排除范围时可以保留。
-不要凭空树立反面观点，也不要把可以同时成立的两项写成互相排斥；需要突出重点时写清依据和优先次序。
-按常见汉语复句分类，“不是……而是……”属于并列关系中的对举，否定前项、肯定后项。
-“不仅……而且……”“不只是……更……”表达递进，前项仍然成立；简化时保留两项事实。
-“但”“然而”“不过”按真实的转折或让步关系使用，不因这条规则减少正常转折。
-检查句式是否增加信息，不设词频、比例或固定次数限制；保留必要的否定、条件和技术限制。
-“从 X 到 Y”在正文只用于同类且确实覆盖的范围，不为凑节奏强行列三项；宣传与标题中的口号用法见上节。
-删除“随着……的发展”“在……时代”一类时代背景开场，以及“换句话说”“也就是说”一类
-不增加信息的转述，开场直接写对象。“众所周知”“不言而喻”是含糊归因，写出依据或删除；
-不用“你是否遇到过……？”式修辞提问代替问题陈述。顺序不重要时不套“首先/其次/最后”链条；
-“答案是肯定的”等自答式强调直接给结论。
+State facts directly and reduce empty signposting such as `值得注意的是`, `需要指出的是`,
+`显然` or `毋庸置疑`. Remove fact-free `本质上`, `从某种意义上说` and inflated
+`对……进行……处理`. Avoid unnecessary denial-then-affirmation patterns such as `不是 A，而是 B`,
+`并非 A，而是 B` and `不在于 A，而在于 B`. State conclusions directly when negation only
+adds emphasis; retain genuine corrections, distinctions and exclusions. Do not invent opposing
+views or present compatible claims as mutually exclusive. State evidence/priority when emphasizing.
 
-描述验证情况时，尽量写清检查对象、方法、结果和适用范围。
-“尚未验证”表示检查未完成；“缺少真实样本”表示缺少特定输入；
-“验证未通过”表示已经检查且结果不符合要求，三者不能互换。
-源码或文档可作为实现依据，合成测试可验证解析逻辑，真实样本可核对本地格式，
-这些结果不能相互替代，也不能扩大到未检查的版本或环境。
-条件类表述需保留约束强度、适用版本、数值及比较方向，不统一改成含糊的“要求”。
+In common Chinese compound-sentence classification, `不是……而是……` is parallel contrast,
+denying the first claim and affirming the second. `不仅……而且……` and `不只是……更……`
+are progressive: the first claim remains true, so retain both when simplifying. Use `但`,
+`然而` and `不过` for actual contrast/concession; do not remove normal contrasts.
+Assess added information without frequency/ratio/count quotas. Keep necessary negation,
+conditions and technical limits. Body-text `从 X 到 Y` ranges must involve like objects
+and actual coverage, without forced triads; promotional/title slogans follow the earlier section.
+
+Remove era-setting openings such as `随着……的发展` or `在……时代` and redundant
+`换句话说`/`也就是说` restatements. Name the subject immediately. Vague attribution
+such as `众所周知`/`不言而喻` needs a source or removal. Rhetorical `你是否遇到过……？`
+does not replace a problem statement. Without meaningful sequence, avoid
+`首先/其次/最后` chains. Give the conclusion directly instead of `答案是肯定的`.
+
+Validation descriptions identify objects, methods, results and scope. Unverified means checks
+are unfinished; missing real samples means particular inputs are absent; failed validation
+means completed checks did not meet criteria. These are not interchangeable. Source/docs
+support implementation, synthetic tests check parsing, and real samples check local formats.
+Neither substitutes the others or certifies unchecked versions/environments. Preserve condition
+strength, versions, quantities and comparison direction rather than replacing them with vague requirements.
+
+<a id="英文表达"></a>
 
 ## English wording
 
@@ -92,6 +126,15 @@ Prefer concrete verbs and familiar nouns. Review words such as delve, leverage,
 seamless, robust, streamline, unlock, elevate, empower, cutting-edge, game-changer,
 foster, facilitate, and utilize when they replace a specific action or evidence.
 Keep the established technical meaning when it is the accurate term.
+
+Review engineering uses of contract, evidence, fixture, projection, gate, carrier, surface,
+certify and budget as carefully as their Chinese translations. Name specifications or field
+rules, source references or test results, test data, cached/derived results, required checks,
+files or databases, client interfaces, verified formats, and time/quantity limits where these
+are the actual meanings. Do not turn an already vague Chinese expression into English jargon.
+Legal contracts, test-framework fixtures, mathematical projections and actual spending budgets
+retain their established meanings. For usage/cost notifications, prefer usage and cost alerts;
+keep existing setting keys and quoted UI labels unchanged.
 
 Remove staged or rhetorical openings such as “Let's dive in”, “In today's world”, and
 “Imagine a world where …”, unnecessary Additionally/Moreover/Furthermore, vague attribution,
@@ -105,67 +148,96 @@ Keep genuine corrections, distinctions, and exclusions; do not frame compatible 
 Preserve both claims when simplifying “not only X but also Y”. Use but, however, and yet according to meaning.
 Review the information a sentence adds, without imposing a word ban or frequency quota.
 
-## 保留语义的例子
+<a id="保留语义的例子"></a>
 
-| 原句 | 改写 |
+## Examples that preserve meaning
+
+| Original example | Revision |
 | --- | --- |
-| 全面打通 Skill 加载链路，形成验证闭环。 | 从仓库根和子目录检查 Skill 发现结果，并记录失败项。 |
-| 耗尽重试预算后触发兜底。 | 重试次数达到上限后返回错误。仅当代码确实如此时使用这句。 |
-| 缺证 IDE 后移 F1。 | 本地用量格式尚未核验的 IDE 列入 F1 后续计划。 |
-| 取得证据后更新验收状态。 | 完成对应检查并记录结果后更新验收状态。 |
-| 源码证据不能代替桌面证据。 | 源码核验不能代替原生桌面验收。 |
-| MCP 采用门槛。 | MCP 采用条件。 |
-| 三次试验不是产品硬门槛。 | 三次试验仅为建议次数，产品未规定必须执行三次。 |
-| 随着 AI 编程工具的普及，用量统计变得越来越重要。 | 删除背景句，直接写用量统计的对象与规则。 |
-| 从日志到看板，一站式掌握用量。 | 标题写对象（如“用量看板”）；覆盖范围与步骤写进正文。 |
-| 本节不是罗列功能，而是介绍配置步骤。 | 若无需澄清章节范围，直接写“本节介绍配置步骤”。 |
-| 本工具不仅能扫描日志，更能生成报表。 | 若无需强调递进，写“本工具能扫描日志并生成报表”，保留两项能力。 |
-| 通过本节，你可以轻松了解项目的强大规则体系。 | 删除引导句，直接写规则与适用条件。 |
-| This robust workflow seamlessly ensures documentation quality. | Run npm run lint:docs to check Markdown formatting. |
+| `全面打通 Skill 加载链路，形成验证闭环。` | Check Skill discovery from the root/subdirectories and record failures |
+| `耗尽重试预算后触发兜底。` | Return an error after the retry limit, only if code actually does so |
+| `缺证 IDE 后移 F1。` | Put IDEs with unverified local usage formats in the F1 follow-up plan |
+| `取得证据后更新验收状态。` | Update acceptance status after completing/checking the corresponding result |
+| `源码证据不能代替桌面证据。` | Source verification does not replace native desktop acceptance |
+| `MCP 采用门槛。` | MCP adoption conditions |
+| `三次试验不是产品硬门槛。` | Three trials are advisory; the product does not require three |
+| `随着 AI 编程工具的普及，用量统计变得越来越重要。` | Remove the background and state collection objects/rules directly |
+| `从日志到看板，一站式掌握用量。` | Name the subject, such as Usage dashboard; describe scope/steps in the body |
+| `本节不是罗列功能，而是介绍配置步骤。` | State This section explains configuration steps unless exclusion needs clarification |
+| `本工具不仅能扫描日志，更能生成报表。` | State This tool scans logs and generates reports, preserving both capabilities |
+| `通过本节，你可以轻松了解项目的强大规则体系。` | Remove the introduction and state rules/applicability |
+| This robust workflow seamlessly ensures documentation quality. | Run npm run lint:md to check Markdown formatting |
 
-改写不得改变首次尝试是否计数、何时重置、范围是否含端点等行为。
-重试、返回默认值、拒绝输入和截断数值是不同操作，不能一律改成“处理异常”。
+Rewrites must preserve whether the first attempt counts, reset timing and inclusive endpoints.
+Retry, default return, input rejection and numeric truncation are different operations;
+do not replace them all with handling errors.
 
-## 例外与检查
+<a id="例外与检查"></a>
 
-保留原样：标识符、配置键、API/协议文本、错误信息、引文和专有名称。
-内存对齐、张量维度、网络链路、链路追踪、算法收敛、闭环控制、
-统计显著性、财务预算、SRE 错误预算和自动机理论中的终态等术语按准确含义使用。
-“证据”在法律、取证或专门讨论证明材料的语境中可保留；“门槛”用于实际进入难度时也可保留。
-解释某个词时可以引用它。历史验证记录可以调整说明用词，保留当时的日期、版本、
-命令、结果和未执行项；原始输入、引文及程序实际输出保留原样。
-来源核验时间、样本覆盖时间、价格生效日期和模型别名适用日期有技术用途，按需保留，
-不要把这些日期当作文档修订历史删除。注释按同一规范改写，保留标识符与可执行内容。
-真实纠正可以保留，例如在澄清计数单位时写“这里统计的不是请求次数，而是消息条数”。
-正常转折也可以保留，例如“调用成功，但日志未完整写入。”它说明调用结果与日志状态的差异。
+## Exceptions and checks
 
-回读时检查重复、长定语、被动句、读者不熟悉的缩写、无依据判断及机械开头结尾。
-检查先否定、再肯定的句子：否定项是否增加信息，两项是否确实排斥，有没有为强调而制造错误观点。
-改为直接陈述后，核对必要的排除范围和前项事实是否仍然清楚；重复使用同一种句式时调整组织方式。
-搜索命中只用于定位，不能仅凭词语判 lint 失败或声称文本由 AI 生成。
-确认术语、事实、授权边界、条件和未验证项没有因缩短句子而丢失，再检查格式与链接。
+Preserve identifiers, configuration keys, API/protocol text, error messages, quotations and
+proper names. Keep accurate technical terms for memory alignment, tensor dimensions, network
+links/tracing, algorithm convergence, closed-loop control, statistical significance, financial
+budgets, SRE error budgets and automata final states. Evidence remains appropriate in legal/
+forensic/proof discussions; thresholds remain appropriate for actual entry difficulty.
+Words may be quoted when explaining them.
 
-## 编辑流程
+Historical records may change explanatory wording while retaining dates, versions, commands,
+results and unexecuted checks. Preserve original inputs, quotations and actual program output.
+Source verification times, sample coverage dates, price effective dates and model alias dates
+have technical purposes; do not delete them as revision history. Apply the same guidance to
+comments while preserving identifiers/executable content. Genuine corrections may remain:
+`这里统计的不是请求次数，而是消息条数` distinguishes count units. Normal contrast may remain:
+`调用成功，但日志未完整写入。` distinguishes call results/log state.
 
-1. 标记必须保留的事实、术语、立场、引文和格式；区分已验证、推断与未知。
-   材料不足时先写有依据的部分或列出待补问题，不编造数字、来源、经历或检查结果。
-2. 先修事实与论证，再调结构，最后处理语法与措辞。决策说明先给判断；
-   教程交代前提、步骤和结果；推导与复盘保留有助理解的过程，不强凑三点或等长章节。
-3. 写清对象、动作、条件和结果，用准确动词代替空泛名词；
-   删除不推进内容的开场、转场、夸大评价和重复小结。
-4. 按上下文检查措辞与句式，不执行禁词表或全局替换；链接和按钮使用目标页面名称。
-   保留技术顺序、范围、真实纠正和排除；简化递进句时保留两项事实，术语保持一致。
-5. 对照修改前后复核否定、条件、数量、单位、时序、因果、承诺强度和验证状态。
-   双语言按各自语序完整表达同一技术含义；翻译示例标签时核对工具实际接受的关键字，
-   并同步输入与配套资源。发现功能问题时单独处理，不在文字润色中顺手改行为。
-6. 通读相关段落及全文的重复模式，只改有问题的部分。一轮润色没有可说明的改善，
-   或开始损失语义与作者特点时停止或撤回；不靠错字、随机句长或检测器分数制造自然感。
+Review repetition, long modifiers, passive voice, unfamiliar abbreviations, unsupported judgments
+and mechanical openings/endings. For denial/affirmation, ask whether negation adds information,
+claims truly conflict or emphasis invents an incorrect view. After direct rewrites, verify that
+necessary exclusions/first-claim facts remain clear; reorganize repeated sentence patterns.
+Search matches only locate issues; words alone do not fail lint or identify AI authorship.
+Confirm terms, facts, permission boundaries, conditions and unverified items survive shortening,
+then check formatting/links.
 
-## 参考与取舍
+<a id="编辑流程"></a>
 
-参考兄弟仓库 AICodeReviewer、atsf4g-co 的
-`.agents/skills/ai-agent-maintenance/references/writing-guidance.md`，
-按本仓库任务整理；来源见 [来源索引](source-index.md#本地写作参考)。
-采用具体用词、段落结构、语义例外和人工审阅方法；
-不引入其他项目的站点禁词脚本、业务路径或中文词语识别 AI 作者的结论。
-本文件包含执行所需内容，不要求客户端访问兄弟仓库。
+## Editing workflow
+
+1. Mark essential facts, terms, positions, quotations and formatting. Separate verified,
+   inferred and unknown claims. With insufficient material, write supported content/questions
+   instead of inventing numbers, sources, experiences or check results.
+2. Fix facts/arguments, then structure, then grammar/wording. Decisions lead with judgments;
+   tutorials explain prerequisites/steps/results; derivations/reviews retain useful process.
+   Do not force three points or equal-length sections.
+3. Name objects/actions/conditions/results. Replace empty nouns with accurate verbs and remove
+   empty introductions/transitions, exaggerated praise and repeated conclusions.
+4. Correct the prohibited vague uses in context, without blind global replacements. Links/buttons name
+   destinations. Preserve technical order, ranges, corrections/exclusions, both progressive
+   claims and consistent terminology.
+5. Compare negation, conditions, quantities, units, timing, causation, commitment strength and
+   verification status. Both languages fully express the same meaning in natural order.
+   Check tool-accepted keywords when translating example labels and synchronize inputs/resources.
+   Handle functional defects separately rather than changing behavior during prose editing.
+6. Read relevant paragraphs/full-text patterns and change only defects. Stop/revert if a pass
+   offers no explainable improvement or loses meaning/author traits. Typos, random sentence
+   lengths and detector scores do not create natural prose.
+
+Translate user, architecture and development documents directly with the current language model.
+AI rules, Skills and execution plans keep a single original and need no translation.
+Compare each complete paired document, including tables, links, examples
+and failure conditions. Review the Chinese wording as well as the English wording, and translate
+required sections fully rather than leaving English paragraphs in the Chinese edition.
+Record reviewed pairs only after this comparison; a translation service, automated substitution
+or matching file hashes does not establish completeness or natural wording.
+
+<a id="参考与取舍"></a>
+
+## References and choices
+
+Adapted for this repository from sibling AICodeReviewer/atsf4g-co
+`.agents/skills/ai-agent-maintenance/references/writing-guidance.md`;
+see the [source index](source-index.md#本地写作参考).
+Adopt concrete wording, paragraph structure, semantic exceptions and manual review.
+Do not import other projects' banned-word scripts, business paths or claims identifying
+AI authors from Chinese vocabulary. This file contains the needed guidance;
+clients need not access sibling repositories.

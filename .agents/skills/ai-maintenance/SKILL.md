@@ -1,24 +1,28 @@
 ---
 name: ai-maintenance
-description: "Use when: maintaining this repository's AI rules, skills, client compatibility, or maintenance evidence."
+description: "Use when: maintaining this repository's AI rules, skills, client compatibility, or maintenance records."
 metadata:
   owner: "repository-maintainers"
 ---
 
-# AI 维护
+# AI maintenance
 
-先核对任务范围与 Git 现状，按下表仅读相关资源，不预载整个目录。
-修改后按根 [AGENTS.md](../../../AGENTS.md) 的当前可用命令检查文档与引用；
-迁移保留覆盖 ID、来源和未验收项，不把缺失的依赖声明当作已有运行合同。
-计划和设计只留当前行为与待办；验收细节集中到验证记录，不复制历史过程。
+<a id="ai-维护"></a>
 
-| Use when | 读取 |
+Check task scope and Git state first. Read only relevant resources below; do not preload the directory.
+Check documentation and references with the currently available commands in root [AGENTS.md](../../../AGENTS.md).
+During migration, retain coverage IDs, sources and unaccepted items. Missing dependency declarations
+do not establish runtime behavior. Plans/designs describe current behavior and remaining work;
+keep acceptance details in validation records rather than copying historical processes.
+
+| Use when | Read |
 | -------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| 维护规则分层、工程流程或文档约定 | [维护合同](references/maintenance.md) |
-| 编写或修改回复、注释、文档、PR 说明 | [写作指导](references/writing-guidance.md) |
-| 选择 CLI 或处理 Windows 执行问题 | [终端工具](references/terminal-tools.md) |
-| 接入 MCP、调试外部服务、部署或处理密钥 | [操作边界](references/operations.md) |
-| 核验客户端入口与加载差异 | [客户端记录](references/clients.md) |
-| 修改易变事实或核对官方依据 | [来源索引](references/source-index.md) |
-| 实质修改 Skill 描述或流程 | [触发与质量评估](references/skill-evaluation.md) |
-| 恢复初始化或审查交付记录 | [覆盖表](references/records/initialization-coverage.md)、[验证记录](references/records/validation.md) |
+| Maintaining rules, workflows or documentation conventions | [Maintenance guidance](references/maintenance.md) |
+| Writing or editing replies, comments, documentation or PR descriptions | [Writing guidance](references/writing-guidance.md) |
+| Choosing CLIs or diagnosing Windows execution | [Terminal tools](references/terminal-tools.md) |
+| Integrating MCP, debugging external services, deploying or handling secrets | [Operating boundaries](references/operations.md) |
+| Verifying client entry points and loading differences | [Client records](references/clients.md) |
+| Updating changing facts or checking official sources | [Source index](references/source-index.md) |
+| Substantively changing Skill descriptions or workflow | [Trigger and quality evaluation](references/skill-evaluation.md) |
+| Recovering initialization or reviewing delivery records | [Coverage table](references/records/initialization-coverage.md), [validation records](references/records/validation.md) |
+| Maintaining the bilingual documentation site or comment translations | [Documentation requirements](../../../docs/design/documentation-site.md) |

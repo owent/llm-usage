@@ -1,11 +1,16 @@
-# synthetic-unmapped-keys 期望（人工核算，全合成样本）
+# synthetic-unmapped-keys expectations (manually calculated, synthetic)
 
-两条 assistant 的 usageMetadata 各带一个固定六分类之外的键（serviceTier /
-anotherUnknown）：保留已映射字段，事件照常入账；`unmapped_usage_keys` 每文件只记一次
-（解析上下文跨轮次持久化该标志）。
+<a id="synthetic-unmapped-keys-期望人工核算全合成样本"></a>
 
-## 期望
+Two assistants have an extra usageMetadata key beyond the six fixed categories:
+serviceTier or anotherUnknown. Import mapped fields. Record unmapped_usage_keys once
+per file, with the flag persisted in parsing context across scans.
 
-- 事件数 = 2；汇总：call_count=2；input_total_known=300；output_total_known=50；
-  total_tokens_known=350；cache_read_known=None（两条均未直报，未知不补零）。
-- diagnostics 恰好 1 条 code=unmapped_usage_keys。
+<a id="期望"></a>
+
+## Expectations
+
+- Two events. Summary: call_count=2, input_total_known=300, output_total_known=50,
+  total_tokens_known=350, cache_read_known=None; neither record directly reports cache read.
+  Unknown remains unknown.
+- Exactly one unmapped_usage_keys diagnostic.

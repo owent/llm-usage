@@ -1,5 +1,5 @@
-//! 明细保留与封存：截止 = 所选时区今天起点往前 D−1 天；过期日冻结为封存汇总
-//! （记录时区/字段/来源选择版本），普通重扫不向封存日追加；容量统计主库+WAL+备份。
+//! Detail cutoff is today's start in the selected timezone minus D-1 days; archive expired days
+//! with timezone/field/source versions and block ordinary additions. Size includes DB/WAL/SHM/backups.
 
 use crate::calendar::Calendar;
 use crate::error::CoreError;
@@ -10,16 +10,16 @@ use rusqlite::{params, OptionalExtension};
 use std::collections::BTreeSet;
 use std::path::Path;
 
-/// 封存字段约定版本（字段或其语义变化时递增，封存行记录当时版本）。
+/// Increment when archive field meanings change; archived rows retain the version used.
 pub const SEAL_FIELD_VERSION: &str = "m1-fields-1";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RetentionPolicy {
-    /// 明细保留（本地日，含今天）。7–3650。
+    /// Detail retention in local days, including today: 7–3650.
     pub detail_days: u32,
-    /// 诊断保留（天）。
+    /// Diagnostic retention in days.
     pub diagnostics_days: u32,
-    /// 硬性最长保留（本地日）；约束所有用量、额度、诊断。None = 不额外限制。
+    /// Hard maximum local-day retention for usage/quotas/diagnostics; None adds no extra limit.
     pub hard_max_days: Option<u32>,
 }
 
@@ -50,7 +50,7 @@ impl RetentionPolicy {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RetentionOutcome {
-    /// 明细保留截止本地日：>= 该日的明细保留。
+    /// Keep details on or after this local cutoff day.
     pub cutoff_day: Date,
     pub cutoff_ms: i64,
     pub sealed_days: Vec<String>,
@@ -61,7 +61,7 @@ pub struct RetentionOutcome {
     pub data_revision: i64,
 }
 
-/// 执行保留：冻结过期日为封存汇总后删除过期明细。整个操作单事务。
+/// Archive expired daily summaries and delete expired details in one transaction.
 pub fn enforce_retention(
     storage: &Storage,
     timezone: &str,
@@ -76,7 +76,7 @@ pub fn enforce_retention(
 
     let conn = storage.conn();
     let tx = conn.unchecked_transaction()?;
-    // 清理下限持久化且只前进；重启/扩大保留期也不能普通重扫复活已删除数据。
+    // Persist an increasing cleanup floor; restart/longer retention cannot restore deleted data through ordinary rescans.
     tx.execute(
         "INSERT INTO settings (key, value, schema_version, updated_at_ms)
          VALUES ('detail_retention_floor_ms', ?1, 1, ?2)
@@ -84,7 +84,7 @@ pub fn enforce_retention(
         params![cutoff_ms.to_string(), now_ms],
     )?;
 
-    // 1. 找到有明细的过期本地日。
+    // 1. Find expired local days with details.
     let mut expired_days: BTreeSet<Date> = BTreeSet::new();
     {
         let mut stmt = tx.prepare(
@@ -96,8 +96,8 @@ pub fn enforce_retention(
         }
     }
 
-    // 2. 逐日重算（确保汇总最新）后封存：记录时区、字段与来源选择版本。
-    //    封存作为一次聚合代际记录（原子提交）。
+    // 2. Recompute each day before archiving; retain timezone/field/source-selection versions.
+    // Publish the aggregate generation atomically with the transaction.
     tx.execute(
         "INSERT INTO aggregate_generations (kind, tz_version, status, note, created_at_ms, published_at_ms)
          VALUES ('retention_seal', ?1, 'building', NULL, ?2, NULL)",
@@ -134,7 +134,7 @@ pub fn enforce_retention(
         sealed_days.push(day.to_string());
     }
 
-    // 3. 删除过期明细（SQLite 逻辑删除不承诺物理擦除）。
+    // 3. Delete expired details; logical SQLite deletion does not guarantee physical erasure.
     tx.execute(
         "DELETE FROM event_aliases WHERE canonical_event_id IN
          (SELECT event_id FROM usage_events WHERE occurred_at_ms < ?1)
@@ -146,7 +146,7 @@ pub fn enforce_retention(
         params![cutoff_ms],
     )? as i64;
 
-    // 4. 诊断保留。
+    // 4. Apply diagnostic retention.
     let mut diag_cutoff = now_ms - i64::from(policy.diagnostics_days) * 86_400_000;
     if let Some(hard_days) = policy.hard_max_days {
         let hard_day = calendar.retention_cutoff_day(today, hard_days)?;
@@ -157,7 +157,7 @@ pub fn enforce_retention(
         params![diag_cutoff],
     )? as i64;
 
-    // 5. 硬性最长保留：约束日汇总与额度快照。
+    // 5. Apply hard maximum retention to daily summaries and quota snapshots.
     let mut deleted_daily_rows = 0i64;
     let mut deleted_quota_rows = 0i64;
     if let Some(hard_days) = policy.hard_max_days {
@@ -181,7 +181,7 @@ pub fn enforce_retention(
             "DELETE FROM quota_history WHERE observed_at_ms < ?1",
             params![hard_cutoff_ms],
         )? as i64;
-        // 原生区间不能按比例拆分；跨越截止或起点未知的汇总无法证明满足硬期限。
+        // Native intervals cannot be split proportionally; unknown starts/cross-cutoff aggregates cannot satisfy the hard limit.
         tx.execute(
             "DELETE FROM source_aggregates WHERE interval_start_ms IS NULL OR interval_start_ms < ?1 OR interval_end_ms < ?1",
             params![hard_cutoff_ms],
@@ -222,7 +222,7 @@ pub(crate) fn hard_retention_floor(conn: &rusqlite::Connection) -> Result<Option
         .transpose()
 }
 
-/// 容量统计：主库 + WAL + SHM + 备份目录。
+/// Storage size: main DB, WAL, SHM and backup-directory files.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct StorageFootprint {
     pub main_db_bytes: u64,

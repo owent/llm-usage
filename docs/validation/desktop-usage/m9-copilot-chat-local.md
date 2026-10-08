@@ -1,99 +1,112 @@
-# VS Code 内置 Copilot Chat 本地会话接入（2026-10-01）
+# Local VS Code built-in Copilot Chat sessions, 2026-10-01
 
-本记录保留首次实施时的验证结果；同日 [审查修正](m9-copilot-review.md) 覆盖其中
-“10 请求”“一个 turn = model_call”、默认输入输出派生总量及无工作区目录的结论。
-当前为 10 个用量 turn、217 个已观测主循环 round；调用与用量分别入账。
+<a id="vs-code-内置-copilot-chat-本地会话接入2026-10-01"></a>
+
+This record preserves the first implementation results. The same-day [review and
+corrections](m9-copilot-review.md) supersede its “10 requests”, “one turn = model_call”,
+derived input-plus-output total and no-workspace directory conclusions. Current counts
+are 10 usage turns and 217 observed main-loop rounds; usage and calls are recorded separately.
+
+<a id="背景与核验过程"></a>
 
 <a id="背景与证据链"></a>
 
-## 背景与核验过程
+## Background and investigation
 
-- 用户报告：当前 VSCode 里的 Copilot 有使用数据，要求提取真实 token 用量与请求数，
-  而非仅 credit（premium_interactions 额度）。此前结论（2026-10-01 前）认为
-  "VS Code Copilot Chat 本地不落盘逐次 token"——本轮推翻。
-- 只读穷尽核验本机候选载体（按准备合同白名单提取、不输出正文）：
-  - `%APPDATA%\Code\User\globalStorage\github.copilot-chat\session-store.db`：
-    chronicle v3（sessions/turns/checkpoints/search_index），`turns.assistant_response`
-    为纯文本，无 usage（与 CLI 同族布局，维持 CLI 适配器 fail-closed 处理）；
-  - `transcripts/*.jsonl`（扩展转录）：assistant.message/turn_start/turn_end/
-    tool.execution，无 token、无模型名；
-  - `debug-logs/<id>/main.jsonl`：仅 session_start；`chatEditingSessions`：编辑状态；
-  - 全局/工作区 `state.vscdb`：`lmBaseCount/<model>` 为全模型同值 204 的排序种子
-    （非真实计数）；`github-*-usages` 为认证扩展 lastUsed；
-  - **实际载体：`workspaceStorage/<hash>/chatSessions/<sessionId>.jsonl`**——
-    VS Code 原生会话日志，逐请求携带 promptTokens/completionTokens/copilotCredits/
-    elapsedMs/promptTokenDetails/modelTotals/toolCallRounds。
-- microsoft/vscode 源码锁定语义（2026-10-01 拉取核对，本机 VS Code 1.140.0 /
-  内置 Copilot Chat 0.68.0）：
-  - `chatSessionStore.ts`：落盘 `workspaceStorageHome/<workspaceId>/chatSessions`
-    （无工作区窗口 `no-workspace/chatSessions`）；
-  - `objectMutationLog.ts`：行格式 Entry——kind 0 初始（首行/压缩重写后）、
-    kind 1 Set(k,v)、kind 2 Push(k,v[],i=截断后长度)、kind 3 Delete；
-    超 1024 条整体重写（replace）；
-  - `chatModel.ts` toJSON + `chatSessionOperationLog.ts` storageSchema v3：
-    `promptTokens` = **末次模型调用输入**（IChatUsage.promptTokens 描述最近一次调用）、
-    `completionTokens` = **整 turn 跨调用累计输出**（_setUsage 逐调用累加，
-    modelTotals 存在时取权威值）、`copilotCredits` = turn 级 credit（nano AIU 折算）、
-    `elapsedMs`、`outputBuffer`、`modelTotals`（IChatUsageModelTotal：
-    model/inputTokens/cachedTokens/outputTokens，"sums across every model call
-    the response made"，仅 agent host 会话提供）、`sessionCopilotCredits`、
-    `modelState{value,completedAt}`（0 Pending/1 Complete/2 Cancelled/3 Failed/
-    4 NeedsInput，sealed=1/2/3）；
-  - `agentIntent.ts`：数值直传 API 响应 `usage.prompt_tokens`/`completion_tokens`/
-    `prompt_tokens_details.cached_tokens`。
-- 采样快照判定：流式计数器更新序列（如 15 次更新对 40 轮调用）由周期 saveState
-  落盘，是采样而非逐调用记录——**不能对更新序列求和恢复逐调用输入**；
-  `toolCallRounds` 才是逐轮记录（含 modelId/thinking.tokens/timestamp）。
+- The user reported existing VS Code Copilot data and requested actual token usage/call
+  counts, beyond credit/premium_interactions quota. This investigation overturned the
+  earlier conclusion that VS Code Copilot Chat saved no per-call token information locally.
+- Read-only inspection of local candidate files/databases used only the permitted fields
+  in the preparation instructions, without printing message text:
+  - APPDATA/Code/User/globalStorage/github.copilot-chat/session-store.db: chronicle v3
+    sessions/turns/checkpoints/search_index; turns.assistant_response is plain text without
+    usage. Related CLI layout remains rejected by the CLI adapter when usage format is unknown.
+  - transcripts/*.jsonl: assistant.message/turn_start/turn_end/tool.execution, without
+    token fields or model names.
+  - debug-logs/id/main.jsonl: session_start only; chatEditingSessions: editing state.
+  - Global/workspace state.vscdb: lmBaseCount/model is the same ordering seed, 204, for
+    every model, rather than actual counts; github-*-usages stores authentication-extension lastUsed.
+  - **Actual usage files: workspaceStorage/hash/chatSessions/sessionId.jsonl**, VS Code
+    native session logs with promptTokens/completionTokens/copilotCredits/elapsedMs/
+    promptTokenDetails/modelTotals/toolCallRounds per request.
+- microsoft/vscode source inspected on 2026-10-01 established field semantics for local
+  VS Code 1.140.0 / built-in Copilot Chat 0.68.0:
+  - chatSessionStore.ts saves workspaceStorageHome/workspaceId/chatSessions, including
+    no-workspace/chatSessions for windows without a workspace.
+  - objectMutationLog.ts: kind 0 initializes the object, including after compact rewrites;
+    kind 1 Set(k,v); kind 2 Push(k,v[],i), where i is the length after truncation;
+    kind 3 Delete. More than 1,024 entries triggers a whole-file replacement.
+  - chatModel.ts toJSON and chatSessionOperationLog.ts storageSchema v3: promptTokens is
+    **the last model call's input**, as IChatUsage documents. completionTokens accumulates
+    **output across calls within the turn**, through _setUsage; modelTotals replaces that
+    value when present. copilotCredits is turn-level credit converted from nano AIU.
+    Other fields include elapsedMs/outputBuffer/modelTotals, sessionCopilotCredits and
+    modelState with value/completedAt. IChatUsageModelTotal has model/inputTokens/
+    cachedTokens/outputTokens accumulated across all model calls, for agent-host sessions
+    only. State values: 0 Pending, 1 Complete, 2 Cancelled, 3 Failed, 4 NeedsInput;
+    sealed states are 1/2/3.
+  - agentIntent.ts forwards API usage.prompt_tokens/completion_tokens and
+    prompt_tokens_details.cached_tokens directly.
+- Periodic saveState writes sampled streaming counters: for example, 15 updates for
+  40 model rounds. **Summing updates cannot reconstruct per-call input.** toolCallRounds
+  contains round records, including modelId/thinking.tokens/timestamp.
 
-## 实施
+<a id="实施"></a>
 
-- 新增 `copilot_chat` 适配器（独立目录 + 版本注册表 `session_log_v3`，
-  agent=`vscode-copilot-chat`，与 otel 适配器对该面的 service.name 归属一致）：
-  - 发现：`%APPDATA%\Code\User\workspaceStorage`（及 `Code - Insiders`；
-    macOS/Linux 对应路径）两级有界枚举 `<hash>/chatSessions/*.jsonl` 与
-    `no-workspace/chatSessions`；手工根支持 chatSessions 目录、workspaceStorage
-    目录或单个 .jsonl；每个 chatSessions 目录一个实例；
-  - 探测：首行 `{kind:0, v:{version:3, sessionId, requests[]}}` 指纹；
-    version=3 KnownVersion，其他/缺失 LatestFallback；空文件 Pending；
-  - 扫描：**每轮全量重放**（kv 采样快照不可增量拼接；文件经压缩有界，
-    真实样本 5.25MB/最大行 837KB），事件键 `vscode-chat:<sessionId>:<requestId>`
-    upsert 幂等（同内容 unchanged，流式增长走 Replace；压缩重写经代数裁决
-    触发重扫后同键收敛）；
-  - 映射：一个 user turn = 一条 model_call（与 copilot CLI assistant 消息级
-    粒度一致）；input_total=promptTokens（**末次调用输入，turn 输入下界**，
-    quality=reported）、output_total=completionTokens（整 turn 累计）、
-    total 派生；modelTotals 存在时按权威整轮逐模型总量替换（cached 记
-    cache_read、uncached 派生；多模型时逐模型一事件）；occurred_at=
-    completedAt（完成时刻，缺失回退请求 timestamp 并标 source_start）；
-    duration=elapsedMs、ttft=result.timings.firstProgress；模型
-    resolvedModel > modelId（去 copilot/ 前缀）> 末轮 modelId；
-    lifecycle 按 modelState 1/2/3=Final、0/4=Partial；无 token 信号的请求
-    跳过（仅 credit 不构成事件）；copilotCredits 不入 token；
-  - 数据库无新增表：usage_events 为既有 agent 无关通用表；额度时序沿用
-    上一轮的 quota_history（copilot-user-cache.json，agent=copilot）。
-- 同步修正过时结论：copilot CLI 适配器 capability 的 hidden_calls 说明、
-  `copilot_quota.rs` 文档头"本机唯一可提取"表述、data-contract.md 对应段落。
+## Implementation
 
-## 验证与未完成条件
+- New copilot_chat adapter, independent directory and session_log_v3 version registry;
+  agent=vscode-copilot-chat, matching the OTel adapter's service.name assignment:
+  - Discovery: APPDATA/Code/User/workspaceStorage and Code - Insiders, plus corresponding
+    macOS/Linux paths; bounded two-level enumeration of hash/chatSessions/*.jsonl and
+    no-workspace/chatSessions. Manual roots accept a chatSessions directory, workspaceStorage
+    directory or individual .jsonl file. One instance per chatSessions directory.
+  - Detection: first-line kind=0 with v.version=3, sessionId and requests array. Version 3
+    is KnownVersion; other/missing versions use LatestFallback; empty files remain Pending.
+  - **Full replay each run:** sampled object updates cannot be joined through incremental
+    reads. Compaction bounds the file; native sample 5.25 MB, largest line 837 KB. Event key
+    vscode-chat:sessionId:requestId prevents duplicate insertion. Identical content stays
+    unchanged; growing streaming records use Replace. A compact rewrite changes the source
+    generation and triggers replay, converging on the same event keys.
+  - **Initial mapping, superseded by the review above:** one user turn produced one model_call,
+    matching CLI assistant-message granularity. input_total=promptTokens, the last-call input
+    and a lower bound for the turn, quality=reported; output_total=completionTokens, the
+    whole-turn accumulated output; total was derived. When present, modelTotals replaced
+    these with whole-turn totals per model: cached→cache_read, uncached derived, one event
+    per model for mixed-model turns. occurred_at=completedAt, falling back to request
+    timestamp with source_start; duration=elapsedMs, ttft=result.timings.firstProgress.
+    Model preference: resolvedModel, then modelId without copilot/ prefix, then last-round
+    modelId. State 1/2/3→Final; 0/4→Partial. Requests without token signals are skipped;
+    credits alone do not create token events, and copilotCredits never becomes tokens.
+  - No new database tables: existing agent-independent usage_events; quota_history from
+    copilot-user-cache.json remains separate under agent=copilot.
+- Updated outdated CLI hidden_calls capability wording, the copilot_quota.rs header's
+  claim of being the only locally extractable data, and the matching data-contract.md section.
 
-- 合成单测：`cargo test -p llm-usage-core copilot_chat`——17 项通过
-  （v3/未知版本/非 JSON/空文件探测、Set last-wins 映射、Partial 生命周期、
-  Push 截断、Delete、压缩重写重置、无 usage 跳过、modelTotals 单/多模型、
-  坏行诊断、缺时间戳跳过、空日志 Pending）。
-- 本机真实数据（只读）：
-  `cargo run -p llm-usage-core --example real_verify_copilot_chat --
-  <chatSessions 目录> build/desktop-usage-validation/copilot-chat-real`：
-  files=3、events=10、diagnostics=0；count=10、input=3,408,279、
-  output=320,141、models=1（claude-opus-4-8）、partial=0；重扫 count 不变、
-  added=0，verdict=PASS。数值与独立脱敏提取（Python 重放 kv）逐请求一致。
-- 应用管线：同库 `daily_usage` 物化 `2026-09-30 / vscode-copilot-chat /
-  claude-opus-4-8 / 10 次 / input_known_sum=3408279 / output_known_sum=320141`，
-  总览与趋势查询按 agent 分组即可见。
-- 门禁：`npm run verify` 退出码 0（Markdown、Svelte、fmt、clippy -D warnings、
-  Rust 全量 224+ 测试、Web 构建）；`npm run test:browser` 退出码 0。
-- 未完成/边界：turn 内逐调用输入不落盘（input 为末次调用下界，
-  modelTotals 出现后自动升级权威口径）；thinking tokens 覆盖不全不入
-  output_reasoning；inline chat 等不经 chatSessions 的面不计；与 otel
-  file exporter 载体（同 agent 维度）同时启用会重复计数，择一使用；
-  `completionTokens` 对后端重报（上游 isSameUsage 去重失效场景）可能高估，
-  上游注释已承认；跨版本（v4+）走 latest 兼容尝试待真实样本锚定。
+<a id="验证与未完成条件"></a>
+
+## Validation and remaining limits
+
+- Synthetic unit tests: cargo test -p llm-usage-core copilot_chat, 17 passed. Covers
+  v3/unknown/non-JSON/empty detection, last Set wins, Partial lifecycle, truncated Push,
+  Delete, compact rewrite reset, no-usage skip, single/multiple modelTotals, malformed
+  rows, missing timestamp and empty-log Pending.
+- Read-only native check: cargo run -p llm-usage-core --example real_verify_copilot_chat
+  with a chatSessions directory and output under build/desktop-usage-validation/copilot-chat-real.
+  files=3, events=10, diagnostics=0; **historical count=10**, input=3,408,279, output=320,141,
+  one model claude-opus-4-8, partial=0. Repeat count unchanged, added=0, verdict=PASS.
+  Per-request values match independent redacted extraction through Python object-log replay.
+  This historical count does not represent the current model-call count.
+- Application daily_usage contained 2026-09-30 / vscode-copilot-chat / claude-opus-4-8 /
+  historical count 10 / input_known_sum=3408279 / output_known_sum=320141, visible through
+  agent-grouped overview/trend queries.
+- npm run verify exit 0: Markdown/Svelte/fmt/clippy -D warnings, 224+ full Rust tests and
+  web build; npm run test:browser exit 0.
+- Per-call input within a turn is unsaved; default input remains a last-call lower bound,
+  replaced by whole-turn modelTotals when available. Incomplete thinking-token coverage
+  excludes output_reasoning. Inline chat outside chatSessions is excluded. At this stage,
+  simultaneous native/OTel-file collection for the same agent could duplicate counts;
+  choose one. Later partition selection is described in the review. completionTokens may
+  overestimate when upstream isSameUsage fails to deduplicate repeated backend reports,
+  acknowledged by an upstream comment. v4+ uses latest-compatible parsing and still needs
+  native samples before a verified-format claim.

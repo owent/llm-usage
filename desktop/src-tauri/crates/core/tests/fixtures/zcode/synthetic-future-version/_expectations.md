@@ -1,6 +1,7 @@
-# synthetic-future-version 期望（全合成）
+# synthetic-future-version expectations (synthetic)
 
-缺口：x-zcode-app-version=9.9.9（未收录）⇒ latest_fallback
-  兼容尝试；结构通过则带标记统计（active_compat）。
+<a id="synthetic-future-version-期望全合成"></a>
 
-详见 tests/zcode_gaps_synthetic.rs 头部人工核算注释。
+Unregistered x-zcode-app-version=9.9.9 uses latest_fallback. Valid structure is counted with compatibility markers and active_compat state.
+
+See the manually calculated expectations in the header of tests/zcode_gaps_synthetic.rs.

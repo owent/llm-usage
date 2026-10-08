@@ -1,5 +1,5 @@
-//! 存储与作业杂项：ingest_runs 状态机、归属排除、数据修订号、
-//! 接近 i64 上限、大于 JS 安全整数、毫秒/秒误判、null 传播、额度与别名。
+//! Storage/job tests: ingest_runs states, attribution exclusions, data revisions,
+//! i64/JavaScript integer limits, seconds/milliseconds mistakes, nulls, quotas and aliases.
 
 mod common;
 
@@ -39,7 +39,7 @@ fn jobs_state_machine_and_restart_interruption() {
     let now = ts("2026-09-24T12:00:00Z");
     {
         let storage = Storage::open(&path).unwrap();
-        // 启动作业；同源重叠触发合并进既有作业。
+        // Start a job; overlapping triggers for the same source merge into that running job.
         let start = start_run(&storage, "run-1", "inst", TriggerKind::Manual, now).unwrap();
         assert_eq!(start, RunStart::Started("run-1".into()));
         let merged = start_run(&storage, "run-2", "inst", TriggerKind::Interval, now + 1).unwrap();
@@ -54,7 +54,7 @@ fn jobs_state_machine_and_restart_interruption() {
             .unwrap();
         assert!(merged_triggers.contains("interval"));
 
-        // 批次统计与作业进度同事务提交。
+        // Commit batch statistics and job progress in one transaction.
         let mut b = batch(
             "inst",
             "UTC",
@@ -73,7 +73,7 @@ fn jobs_state_machine_and_restart_interruption() {
             .unwrap();
         assert_eq!(added, 1);
 
-        // 进入结束状态后不能再 finish。
+        // A finished job cannot be finished again.
         finish_run(
             &storage,
             "run-1",
@@ -96,7 +96,7 @@ fn jobs_state_machine_and_restart_interruption() {
             now + 3
         )
         .is_err());
-        // finish 不接受未结束状态（running）。
+        // finish rejects running, which is not a terminal status.
         assert!(finish_run(
             &storage,
             "run-x",
@@ -107,17 +107,17 @@ fn jobs_state_machine_and_restart_interruption() {
         )
         .is_err());
 
-        // 遗留一个 running 作业，模拟进程退出。
+        // Leave a running job to simulate process exit.
         start_run(&storage, "run-orphan", "inst-b", TriggerKind::Interval, now).unwrap();
     }
-    // 重启：running → interrupted，幂等恢复。
+    // Reopening storage recovers running as interrupted.
     {
         let storage = Storage::open(&path).unwrap();
         assert_eq!(
             run_status(&storage, "run-orphan").unwrap(),
             Some(RunStatus::Interrupted)
         );
-        // 已结束的不受影响。
+        // Completed jobs remain unchanged.
         assert_eq!(
             run_status(&storage, "run-1").unwrap(),
             Some(RunStatus::Succeeded)
@@ -154,7 +154,7 @@ fn data_revision_is_monotonic_and_visible_to_queries() {
     .unwrap();
     assert!(o2.data_revision > o1.data_revision);
     assert_eq!(storage.data_revision().unwrap(), o2.data_revision);
-    // 查询返回同一修订号视图。
+    // The query returns the same data revision as the committed values.
     let summary = day_totals(&storage);
     assert_eq!(summary.data_revision, o2.data_revision);
     assert_eq!(summary.totals.input_total_known, Some(3));
@@ -178,11 +178,11 @@ fn attribution_excluded_events_stay_out_of_totals_and_are_listable() {
     .unwrap();
 
     let summary = day_totals(&storage);
-    // 未确认归属的不进总计。
+    // Exclude events whose ownership is unverified from totals.
     assert_eq!(summary.totals.input_total_known, Some(100));
     assert_eq!(summary.excluded_event_count, 2);
 
-    // 按排除原因列出。
+    // List exclusions by reason.
     let (start, _) = llm_usage_core::calendar::Calendar::utc()
         .day_range_ms(ymd(2026, 9, 24))
         .unwrap();
@@ -200,7 +200,7 @@ fn attribution_excluded_events_stay_out_of_totals_and_are_listable() {
 fn token_limits_near_i64_and_js_safe_integer() {
     let (_dir, storage) = temp_storage("limits");
     let base = ts("2026-09-24T10:00:00Z");
-    // 大于 JS 安全整数（2^53+1）精确往返。
+    // 2^53+1 exceeds the JavaScript safe-integer limit and must round-trip exactly.
     let big = 9_007_199_254_740_993i64;
     let mut e = evt("inst", "big", base);
     e.usage.input_total = Some(big);
@@ -217,7 +217,7 @@ fn token_limits_near_i64_and_js_safe_integer() {
     assert_eq!(stored, big);
     assert_eq!(day_totals(&storage).totals.input_total_known, Some(big));
 
-    // 上限边界：MAX_TOKEN_VALUE 接受。
+    // Accept the MAX_TOKEN_VALUE boundary.
     let mut at_max = evt("inst", "at-max", base);
     at_max.usage.input_total = Some(MAX_TOKEN_VALUE);
     at_max.quality.input_total = FieldQuality::Reported;
@@ -228,7 +228,7 @@ fn token_limits_near_i64_and_js_safe_integer() {
     )
     .unwrap();
 
-    // 聚合溢出防护：两条 MAX 记录求和超过 i64 → 报错且整体回滚，不静默回绕。
+    // Summing two MAX records exceeds i64: return an error and roll back without wrapping.
     let mut m1 = evt("inst", "m1", base);
     m1.usage.input_total = Some(MAX_TOKEN_VALUE);
     m1.quality.input_total = FieldQuality::Reported;
@@ -241,7 +241,7 @@ fn token_limits_near_i64_and_js_safe_integer() {
         None,
     );
     assert!(result.is_err());
-    // 回滚：m1/m2 未入库。
+    // Rollback leaves neither m1 nor m2 stored.
     let count: i64 = storage
         .conn()
         .query_row(
@@ -256,7 +256,7 @@ fn token_limits_near_i64_and_js_safe_integer() {
 #[test]
 fn seconds_vs_milliseconds_misjudgment_rejected() {
     let (_dir, storage) = temp_storage("mssec");
-    // 秒级时间戳（~2023-11-14）被当作毫秒 → 早于 2000 年，拒绝并记诊断。
+    // Unix seconds near 2023-11-14 misread as milliseconds predate 2000; reject and diagnose.
     let mut bad = evt("inst", "sec-ts", 1_700_000_000);
     bad.usage.input_total = Some(1);
     bad.quality.input_total = FieldQuality::Reported;
@@ -283,7 +283,7 @@ fn seconds_vs_milliseconds_misjudgment_rejected() {
 fn null_fields_propagate_through_storage_and_aggregation() {
     let (_dir, storage) = temp_storage("nulls");
     let base = ts("2026-09-24T10:00:00Z");
-    // 全部 token 未知。
+    // Every token field is unknown.
     let e = evt("inst", "all-unknown", base);
     commit_batch(&storage, &batch("inst", "UTC", base + 1, vec![e]), None).unwrap();
     let stored: Option<i64> = storage
@@ -301,7 +301,7 @@ fn null_fields_propagate_through_storage_and_aggregation() {
     assert_eq!(sums.output_total_known, None);
     assert_eq!(sums.total_tokens_known, None);
     assert_eq!(sums.cache_input_ratio(), None);
-    // 全未知（quality_bucket=unknown）计调用不算未知字段。
+    // quality_bucket=unknown counts calls without unknown-field denominators.
     assert_eq!(sums.input_unknown_count, 0);
 }
 
@@ -333,7 +333,7 @@ fn quota_snapshots_are_not_converted_to_tokens() {
         )
         .unwrap();
     assert_eq!(kind, "subscription_window");
-    // 额度不进入 token 统计。
+    // Quotas do not contribute to token statistics.
     assert_eq!(day_totals(&storage).totals.event_count, 0);
 }
 
@@ -391,7 +391,7 @@ fn source_instance_stores_locality_and_attribution() {
     assert_eq!(status, "pending");
 }
 
-/// quality_json 持久化逐字段质量（reported/derived/estimated/unknown）。
+/// quality_json persists reported/derived/estimated/unknown quality for every field.
 #[test]
 fn field_quality_roundtrip() {
     let (_dir, storage) = temp_storage("quality");
@@ -411,7 +411,7 @@ fn field_quality_roundtrip() {
     let quality: TokenQuality = serde_json::from_str(&json).unwrap();
     assert_eq!(quality.input_total, FieldQuality::Estimated);
     assert_eq!(quality.output_total, FieldQuality::Unknown);
-    // 估算进入 estimated 质量分区，与 reported 分开。
+    // Estimated fields belong to the estimated quality partition, separate from reported fields.
     let bucket: String = storage
         .conn()
         .query_row(
@@ -423,7 +423,7 @@ fn field_quality_roundtrip() {
     assert_eq!(bucket, "estimated");
 }
 
-/// 批次内矛盾事件：缓存读 > 总输入 → 事件保留原值，诊断记录，不用 max(0,…) 隐藏。
+/// Cache reads greater than total input retain their values with diagnostics; never hide them with max(0,...).
 #[test]
 fn contradiction_diagnostics_stored_without_clamping() {
     let (_dir, storage) = temp_storage("contradiction");
@@ -454,7 +454,7 @@ fn contradiction_diagnostics_stored_without_clamping() {
     assert_eq!(diag, 1);
 }
 
-/// usage_events 的 usage 值域在查询层再次校验 token 字段质量传播的默认值。
+/// Default TokenUsage/TokenQuality values remain unknown through metrics helpers.
 #[test]
 fn token_usage_default_is_all_unknown() {
     let usage = TokenUsage::default();
@@ -467,8 +467,8 @@ fn token_usage_default_is_all_unknown() {
     assert_eq!(llm_usage_core::metrics::cache_input_ratio(&[]), (None, 0));
 }
 
-/// 调度规则存储：全局/逐源规则、时区、下次计划时间、desired/applied 状态。
-/// （M1 只建结构与存储语义；定时器与并发控制在 M6 接。）
+/// Store global/per-source schedules, timezones, next times and desired/applied state.
+/// This M1 test checks table/storage behavior; M6 timer and concurrency checks are separate.
 #[test]
 fn schedule_tables_roundtrip() {
     let (_dir, storage) = temp_storage("sched");
@@ -515,7 +515,7 @@ fn schedule_tables_roundtrip() {
     );
 }
 
-/// 导入批次身份与状态：planned → committed / rolled_back（旧库导入幂等细节属 M2）。
+/// Store an import identity and update planned to committed; rolled_back is a separate status, and M2 tests import idempotency.
 #[test]
 fn import_manifests_roundtrip() {
     let (_dir, storage) = temp_storage("import");

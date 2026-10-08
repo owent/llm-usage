@@ -1,8 +1,8 @@
-//! 来源接入：字段语义映射（V01）、有界 JSONL 读取器（V07）、适配器框架
-//! （discover/detect/scan/capability + V12 运行管线）与各 Agent 适配器。
+//! Source integration: field mappings (V01), bounded JSONL reading (V07), adapter framework
+//! discovery/detection/scanning/capabilities and V12 ingestion, plus product adapters.
 //!
-//! 计算规则依据 docs/validation/desktop-usage/m0-agent-fixtures.md 的实读核验结论，
-//! 按来源与版本固定，不能由 UI 猜测缺失字段。
+//! Native checks in docs/validation/desktop-usage/m0-agent-fixtures.md define calculation rules
+//! per source/version; the UI cannot infer missing fields.
 
 pub mod aider;
 pub mod amp;
@@ -59,8 +59,8 @@ pub mod zcode;
 pub mod zed;
 pub mod zoo;
 
-/// 内置适配器注册表：新增适配器在此登记（目录约定见 architecture.md#adapter-layout）。
-/// 应用扫描器与探针工具共用同一注册表。
+/// Register built-in adapters here; directory rules are in architecture.md#adapter-layout.
+/// Application scanners and probe tools use this same registry.
 pub fn built_in_adapters() -> Vec<Box<dyn framework::SourceAdapter>> {
     vec![
         Box::new(codex::CodexAdapter::new()),
@@ -73,8 +73,8 @@ pub fn built_in_adapters() -> Vec<Box<dyn framework::SourceAdapter>> {
         Box::new(zcode::ZcodeAdapter::new()),
         Box::new(kimi_code::KimiCodeAdapter::new()),
         Box::new(kimi_work::KimiWorkAdapter::new()),
-        // 以下为本机未安装产品（2026-09-25 盘点 not_found）：按已核对的文档或源码实现，
-        // discover 在本机返回空；真实数据出现后自动发现（真实验收后置）。
+        // The original 2026-09-25 inventory found these products absent; implementation began from checked docs/source.
+        // Discovery returned no local roots at that stage; later native checks have product-specific scopes.
         Box::new(cline::ClineAdapter::new()),
         Box::new(dsh::DshAdapter::new()),
         Box::new(hermes::HermesAdapter::new()),
@@ -82,8 +82,8 @@ pub fn built_in_adapters() -> Vec<Box<dyn framework::SourceAdapter>> {
         Box::new(opencode::OpenCodeAdapter::new()),
         Box::new(mimo_code::MimoCodeAdapter::new()),
         Box::new(zoo::ZooAdapter::new()),
-        // M8 第二批：最初按 2026-09-29 源码实施；后续隔离容器真实样本
-        // 仅提升对应产品/场景的依据，当前范围见各适配器 capability。
+        // M8 second batch began from 2026-09-29 source checks. Later isolated-container samples
+        // verify only the respective product/scenario; each capability records the current scope.
         Box::new(zed::ZedAdapter::new()),
         Box::new(aider::AiderAdapter::new()),
         Box::new(junie::JunieAdapter::new()),
@@ -104,13 +104,13 @@ pub fn built_in_adapters() -> Vec<Box<dyn framework::SourceAdapter>> {
         Box::new(kiro::KiroAdapter::new()),
         Box::new(antigravity::AntigravityAdapter::new()),
         Box::new(qoder::QoderAdapter::new()),
-        // M5：Copilot CLI（本机真实数据核对 2026-09-29）。
+        // M5 Copilot CLI: native local data checked 2026-09-29.
         Box::new(copilot::CopilotAdapter::new()),
-        // M9：VS Code 内置 Copilot Chat 会话日志（本机真实数据核对 2026-10-01）。
+        // M9 VS Code built-in Copilot Chat sessions: native local data checked 2026-10-01.
         Box::new(copilot_chat::CopilotChatAdapter::new()),
-        // M9：Visual Studio 内置 Copilot 遥测（本机真实数据核对 2026-10-01）。
+        // M9 Visual Studio built-in Copilot telemetry: native local data checked 2026-10-01.
         Box::new(vs_copilot::VsCopilotAdapter::new()),
-        // M5：OTel spans 载体（需启用 exporter/接收器；默认发现仅接收器输出目录）。
+        // M5 OTel span files require an exporter/receiver; default discovery reads receiver output directories only.
         Box::new(otel::OtelAdapter::new()),
     ]
 }

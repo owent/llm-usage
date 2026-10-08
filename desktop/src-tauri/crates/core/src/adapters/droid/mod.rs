@@ -1,6 +1,6 @@
-//! Droid 适配器（Factory.ai，闭源；独立目录约定）。载体：
-//! `~/.factory/sessions/<uuid>.settings.json` 的 tokenUsage 会话级累计快照
-//! （IntervalAggregate；转录按字节分摊属估计不采纳）。
+//! Independent Droid adapter for closed-source Factory.ai. Reads session-level
+//! tokenUsage snapshots from `~/.factory/sessions/<uuid>.settings.json`.
+//! Uses IntervalAggregate; byte-proportional transcript estimates are excluded.
 
 pub mod detect;
 pub mod versions;
@@ -9,7 +9,7 @@ pub use detect::DROID_FORMAT;
 pub use versions::settings_doc1;
 pub use versions::{DROID_FORMAT_VERSION, LATEST_IMPL_ID, VERIFIED_VERSION_IMPLS};
 
-/// Droid 适配器（无状态）。
+/// Stateless Droid adapter.
 pub struct DroidAdapter;
 
 impl Default for DroidAdapter {

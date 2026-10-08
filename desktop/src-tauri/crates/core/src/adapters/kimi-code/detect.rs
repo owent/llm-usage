@@ -1,11 +1,11 @@
-//! kimi-code 探测与版本分派：有界读取首行 metadata 头（家族共享指纹），
-//! 按 [`super::versions`] 注册表选择格式实现。
+//! Bounded Kimi Code metadata-header detection uses shared family fields,
+//! then selects through the super::versions registry.
 //!
-//! 约定（architecture.md#unknown-version，V17/V30）：
-//! - 首行不是 JSON / 不是 metadata 头 ⇒ 未知格式，fail closed；
-//! - protocol_version 已收录（"1.5"）⇒ KnownVersion；
-//! - 未收录/缺失 ⇒ LatestFallback（兼容尝试带标记，不直接拒绝）；
-//!   kimi-code 尚无已确认不兼容的版本（与 pi 的 v1/v2 拒绝分支不同）。
+//! Rules: architecture.md#unknown-version, V17/V30.
+//! - Non-JSON/non-metadata first line is unknown format and rejected.
+//! - Registered protocol_version 1.5 selects KnownVersion.
+//! - Missing/unregistered versions use marked LatestFallback compatibility attempts;
+//!   no incompatible Kimi Code version is confirmed, unlike rejected Pi v1/v2.
 
 use crate::adapters::framework::DetectOutcome;
 use crate::adapters::kimi_wire::{read_metadata_head, HeadProbe};
@@ -16,8 +16,8 @@ use super::versions;
 
 pub const KIMI_CODE_FORMAT: &str = "kimi-wire-jsonl";
 
-/// 探测一个 wire.jsonl 并按注册表分派（首行 metadata 头是家族共享指纹；
-/// 产品身份来自发现根，同一 wire 格式在 kimi-work 侧有独立注册表）。
+/// Detect wire.jsonl and select a version. Metadata fields are family-shared;
+/// discovery roots establish product identity; Kimi Work has an independent registry.
 pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     match read_metadata_head(path)? {
         HeadProbe::Pending => Ok(DetectOutcome::Pending),

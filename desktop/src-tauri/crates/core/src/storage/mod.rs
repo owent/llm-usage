@@ -1,5 +1,5 @@
-//! SQLite 持久化：单写者连接、WAL、synchronous=FULL、有界 busy_timeout、
-//! 显式版本迁移。数据库约定见 architecture.md#database 与数据规范「数据表」。
+//! SQLite storage: one writer, WAL, synchronous=FULL and bounded busy_timeout.
+//! Check schema versions without automatic migrations; see architecture.md#database and the data rules.
 
 pub mod pricing;
 pub mod schema;
@@ -9,11 +9,11 @@ use rusqlite::{Connection, OpenFlags, OptionalExtension};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-/// 默认 busy_timeout：有界，避免长读者/写者死等。
+/// Default bounded busy_timeout avoids indefinite waits behind readers/writers.
 pub const DEFAULT_BUSY_TIMEOUT: Duration = Duration::from_millis(5_000);
 
-// SQLite's built-in lower/NOCASE only handle ASCII. Use the same Unicode
-// lowercase mapping for SQL filters and Rust grouping, including old rows.
+// SQLite's built-in lower/NOCASE handles only ASCII. Apply matching Unicode
+// lowercase rules in SQL filters and Rust grouping, including historical rows.
 fn register_functions(conn: &Connection) -> Result<(), rusqlite::Error> {
     use rusqlite::functions::FunctionFlags;
     conn.create_scalar_function(
@@ -36,7 +36,7 @@ fn register_functions(conn: &Connection) -> Result<(), rusqlite::Error> {
 
 pub struct OpenOptions {
     pub busy_timeout: Duration,
-    /// 本程序支持的最新 schema 版本；None 表示 [`schema::SCHEMA_VERSION`]。
+    /// Latest supported schema; None selects schema::SCHEMA_VERSION.
     pub max_supported_version: Option<u32>,
 }
 
@@ -49,7 +49,7 @@ impl Default for OpenOptions {
     }
 }
 
-/// 单写者存储句柄。
+/// Single-writer storage handle.
 pub struct Storage {
     conn: Connection,
     path: PathBuf,
@@ -63,8 +63,8 @@ impl std::fmt::Debug for Storage {
 }
 
 impl Storage {
-    /// 打开（必要时创建）数据库：设置 pragmas、执行待迁移版本、
-    /// 把上次进程遗留的 running 作业标记为 interrupted。
+    /// Open/create the database, configure pragmas and check/create the expected schema;
+    /// mark running jobs left by the previous process as interrupted.
     pub fn open(path: &Path) -> Result<Self, CoreError> {
         Self::open_with(path, OpenOptions::default())
     }
@@ -83,9 +83,9 @@ impl Storage {
         Self::setup(conn, path.to_path_buf(), options)
     }
 
-    /// 只读连接（architecture.md：一个后台写者、少量只读连接）。
-    /// 不执行迁移、不写任何 pragma 持久化设置；WAL 库上可与写者并发。
-    /// 库不存在或无读权限时报错（调用方显示空态/错误，不回退到建新库）。
+    /// Read-only connection, alongside one background writer and a few readers.
+    /// Do not migrate or persist pragma settings; WAL permits concurrent writer access.
+    /// Missing/unreadable databases return errors instead of creating an empty replacement.
     pub fn open_readonly(path: &Path) -> Result<Self, CoreError> {
         let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
         register_functions(&conn)?;
@@ -105,29 +105,29 @@ impl Storage {
         conn.busy_timeout(options.busy_timeout)?;
         let found_version: u32 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
 
-        // 预发布阶段约定（当前设计）：不做逐版本迁移。
-        // 版本不匹配 ⇒ 报错让应用层提示"删除重建或退出"。
-        // user_version == 0 且文件为空/新建 ⇒ 建全量 schema。
+        // Current prerelease policy does not migrate databases version by version.
+        // A version mismatch returns an error for application-level rebuild/exit handling.
+        // A new database with user_version=0 receives the full schema.
         if found_version == 0 {
-            // 可能是新建空文件或旧库；检查是否有表。
+            // Distinguish a new database from an unversioned one by checking for the settings table.
             let has_tables: bool = conn.query_row(
                 "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='settings')",
                 [],
                 |r| r.get(0),
             )?;
             if !has_tables {
-                // 全新库：一步建表。
+                // Create the schema in one step for a new database.
                 conn.execute_batch(schema::FULL_SCHEMA)?;
                 conn.pragma_update(None, "user_version", supported)?;
             } else {
-                // 有表但无版本号——旧库，要求重建。
+                // A settings table without a version identifies an old database requiring rebuilding.
                 return Err(CoreError::SchemaTooNew {
                     found: found_version,
                     supported,
                 });
             }
         } else if found_version != supported {
-            // 预发布阶段：任何版本差异都要求重建（不尝试迁移）。
+            // Prerelease version mismatches require rebuilding rather than automatic migration.
             return Err(CoreError::SchemaMismatch {
                 found: found_version,
                 expected: supported,
@@ -135,13 +135,13 @@ impl Storage {
         }
 
         conn.pragma_update(None, "foreign_keys", "ON")?;
-        // journal_mode 是持久化设置；内存库返回 memory，可忽略其结果差异。
+        // journal_mode persists; in-memory databases return memory instead of WAL.
         conn.pragma_update(None, "journal_mode", "WAL")?;
         conn.pragma_update(None, "synchronous", "FULL")?;
         conn.busy_timeout(options.busy_timeout)?;
 
-        // Optional acceleration only: old schema-11 databases remain compatible.
-        // Partial indexes avoid repeatedly scanning all valid events for rare gaps.
+        // These optional acceleration indexes do not change the schema version.
+        // Partial indexes avoid repeated full scans for uncommon coverage gaps.
         conn.execute_batch("CREATE INDEX IF NOT EXISTS idx_events_unverified_time ON usage_events(occurred_at_ms) WHERE attribution_status!='verified';
             CREATE INDEX IF NOT EXISTS idx_events_carrier_gap_time ON usage_events(occurred_at_ms) WHERE exclusion_reason='copilot_otel_session_authority';
             CREATE INDEX IF NOT EXISTS idx_events_qwen_carrier_gap_time ON usage_events(occurred_at_ms) WHERE exclusion_reason='qwen_sdk_session_authority';
@@ -162,7 +162,7 @@ impl Storage {
         &self.conn
     }
 
-    /// Drop only the optional query cache, for explicit uncached measurements.
+    /// Drop only the optional query cache for explicit uncached measurements.
     pub fn clear_summary_cache(&self) {
         self.summary_cache.borrow_mut().clear();
     }
@@ -171,19 +171,19 @@ impl Storage {
         &self.path
     }
 
-    /// 当前 user_version。
+    /// Current user_version.
     pub fn schema_version(&self) -> Result<u32, CoreError> {
         Ok(self
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))?)
     }
 
-    /// 数据修订号：单调递增，查询按同一修订号返回一致视图。
+    /// Monotonic data revision; queries use one revision for a consistent view.
     pub fn data_revision(&self) -> Result<i64, CoreError> {
         data_revision(&self.conn)
     }
 
-    /// 提升数据修订号并返回新值。仅在事务内调用。
+    /// Increment and return the data revision, within a transaction only.
     pub fn bump_data_revision_tx(
         tx: &rusqlite::Transaction<'_>,
         now_ms: i64,
@@ -200,7 +200,7 @@ impl Storage {
         Ok(next)
     }
 
-    /// 进程重启恢复：把 running 作业标记为 interrupted（不依赖 PID 文件）。
+    /// Recover jobs by marking running as interrupted, without relying on PID files.
     pub fn mark_running_jobs_interrupted(&self, now_ms: i64) -> Result<usize, CoreError> {
         let n = self.conn.execute(
             "UPDATE ingest_runs SET status = 'interrupted', finished_ms = ?1
@@ -210,13 +210,13 @@ impl Storage {
         Ok(n)
     }
 
-    /// 确保本机来源主机身份存在并返回其不透明稳定 ID（data-contract.md#provenance）。
-    /// - 首次调用生成 `host-<32hex>` 持久化于 origin_hosts（is_local=1），
-    ///   并把 settings.local_origin_host_id 指向它；不使用主机名/IP/硬件指纹作身份。
-    /// - 后续调用返回同一 ID 并记录主机名观察（改名不换 ID、不重复计数；
-    ///   主机名只进观察表用于辨认，不参与任何键）。
-    /// - 复制数据库到新机器时不自动认领历史：身份与采集由调用方显式传入，
-    ///   来源注册冲突走映射/确认流程（M1a 只提供判定，不做静默合并）。
+    /// Ensure this source host exists and return its opaque stable ID (data-contract.md#provenance).
+    /// - First call persists host-<32hex> in origin_hosts with is_local=1 and
+    ///   settings.local_origin_host_id; do not identify hosts by name, IP or hardware fingerprint.
+    /// - Later calls return the same ID and record hostname observations; a rename
+    ///   creates no new identity or duplicate usage, and names never enter keys.
+    /// - Copying a database to another machine does not claim its history automatically.
+    ///   Callers supply ownership explicitly; source conflicts require mapping/confirmation (M1a).
     pub fn ensure_local_host(&self, hostname: &str, now_ms: i64) -> Result<String, CoreError> {
         let existing: Option<String> = self
             .conn
@@ -266,7 +266,7 @@ impl Storage {
         Ok(host_id)
     }
 
-    /// 当前本机主机 ID（未初始化时为 None）。
+    /// Current local host ID, or None before initialization.
     pub fn local_host_id(&self) -> Result<Option<String>, CoreError> {
         let id: Option<String> = self
             .conn
@@ -279,7 +279,7 @@ impl Storage {
         Ok(id)
     }
 
-    /// 记录主机名观察（同一主机的历史名称都保留；改名不换 ID）。
+    /// Retain historical hostname observations without changing host identity.
     pub fn observe_hostname(
         &self,
         host_id: &str,
@@ -299,7 +299,7 @@ impl Storage {
         Ok(())
     }
 
-    /// 登记一台外部来源主机（导入用）：返回其 host_id；同一 host_id 重复登记幂等。
+    /// Register an imported source host and return host_id; repeated registration keeps the same identity.
     pub fn register_origin_host(
         &self,
         host_id: &str,

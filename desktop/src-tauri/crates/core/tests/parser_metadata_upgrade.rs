@@ -1,4 +1,4 @@
-//! 解析器升级只更改解析依据；旧冲突、真实矛盾、乱序和事务回滚分别核验。
+//! Parser upgrades change only parsing metadata; test old conflicts, contradictions, order and rollback.
 mod common;
 
 use common::*;

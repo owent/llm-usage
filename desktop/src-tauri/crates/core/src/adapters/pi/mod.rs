@@ -1,15 +1,15 @@
-//! pi（pi-coding-agent）适配器（独立目录约定 architecture.md#adapter-layout，
-//! V30 自根级 adapters/pi.rs 目录化迁移）：
-//! - 本模块是该 Agent 的稳定入口（统一接口实现与再导出）；
-//! - [`detect`]：产品/格式探测与版本分派；
-//! - [`versions`]：已验证格式实现的注册与映射，未收录数值默认回退最新内置解析器，
-//!   固定源码已确认不兼容的版本（v1/v2/缺失 version）才 fail closed；
-//! - 历史版本的格式实现一律保留在本目录内，不再回到根级单文件。
+//! pi (pi-coding-agent) adapter; layout: architecture.md#adapter-layout.
+//! V30 moved the former root adapters/pi.rs into an independent directory.
+//! - Stable product entry point implementing/re-exporting the common interface.
+//! - [`detect`]: product/format detection and version selection.
+//! - [`versions`]: verified registry; unregistered numeric versions try the latest reader.
+//!   Only fixed-source-confirmed incompatible v1/v2/missing versions reject before parsing.
+//! - Keep historical format implementations in this directory, without root-level single files.
 //!
-//! 原始格式依据见 [`versions::session_v3`] 文件头（固定源码 pi-mono b4559750 +
-//! 本机 fixture）；pi/omp 家族共享的 usage 解析与事件构造随扫描实现放在
-//! [`versions::session_v3`] 并在此再导出（`map_pi_family` 仍留在跨 Agent 的
-//! 根级 usage_map.rs，勿动）。
+//! [`versions::session_v3`] headers retain fixed pi-mono b4559750 and local test references.
+//! pi/omp shared usage parsing/event construction lives with scanning in
+//! [`versions::session_v3`] and is re-exported here; cross-product map_pi_family stays in
+//! root usage_map.rs.
 
 pub mod detect;
 pub mod versions;
@@ -18,8 +18,8 @@ pub use detect::PI_FORMAT;
 pub use versions::session_v3::PI_PARSER_VERSION;
 pub use versions::{LATEST_IMPL_ID, SUPPORTED_SESSION_VERSION, VERIFIED_VERSION_IMPLS};
 
-// pi/omp 家族共享辅助（原根级 pi.rs 的 pub(crate) 项，保持 crate 内旧路径可用；
-// map_cost 仅本目录内使用，不再对外再导出）。
+// Re-export former root pi.rs pub(crate) helpers to preserve internal pi/omp paths.
+// map_cost is local to this directory and is not re-exported.
 pub(crate) use versions::session_v3::{
     build_pi_family_event, diag, family_entry_key, json_str, parse_entry_ts, parse_usage,
     UsageEventBase,
@@ -28,7 +28,7 @@ pub(crate) use versions::session_v3::{
 pub const PI_ENV_AGENT_DIR: &str = "PI_CODING_AGENT_DIR";
 pub const PI_ENV_SESSION_DIR: &str = "PI_CODING_AGENT_SESSION_DIR";
 
-/// pi 适配器（无状态）。
+/// Stateless pi adapter.
 pub struct PiAdapter;
 
 impl Default for PiAdapter {
@@ -57,7 +57,7 @@ impl crate::adapters::framework::SourceAdapter for PiAdapter {
         ctx: &crate::adapters::framework::DiscoverContext,
     ) -> Vec<crate::adapters::framework::DiscoveredRoot> {
         use crate::adapters::framework::{DiscoveredRoot, RootBasis};
-        // (sessions 目录, basis)；root 统一取 sessions 目录，跨来源去重后同目录只扫一次。
+        // Use sessions directories as instance roots; the framework deduplicates identical instances.
         let mut candidates: Vec<(std::path::PathBuf, RootBasis)> = Vec::new();
         if let Some(dir) = ctx.env.get(PI_ENV_AGENT_DIR) {
             candidates.push((
@@ -78,7 +78,7 @@ impl crate::adapters::framework::SourceAdapter for PiAdapter {
             ));
         }
         for manual in &ctx.manual_roots {
-            // 手工根语义：含 sessions 子目录按 agent 根解析，否则按 sessions 目录本身。
+            // Manual roots containing sessions resolve to that child; otherwise use the root itself.
             let sessions = if manual.join("sessions").is_dir() {
                 manual.join("sessions")
             } else {
@@ -91,7 +91,7 @@ impl crate::adapters::framework::SourceAdapter for PiAdapter {
             if !sessions.is_dir() {
                 continue;
             }
-            // sessions/<encoded-cwd>/*.jsonl：深度 2，有界枚举；根下散落 jsonl 一并接受。
+            // Enumerate JSONL at depth two, including encoded-cwd children and files directly in sessions.
             let files = crate::adapters::framework::enumerate_files_bounded(&sessions, 2, &|p| {
                 p.extension().and_then(|e| e.to_str()) == Some("jsonl")
             });
@@ -127,8 +127,8 @@ impl crate::adapters::framework::SourceAdapter for PiAdapter {
         limits: &crate::adapters::framework::ScanLimits,
         now_ms: i64,
     ) -> Result<crate::adapters::framework::ScanOutcome, crate::error::CoreError> {
-        // 当前所有可尝试版本共用 session_v3（session 头内部按注册表分派，
-        // 已确认不兼容的版本跳过并记诊断）；注册表扩展多实现后在此按选择分派。
+        // Current attempted versions share session_v3; the reader checks session-header versions
+        // and diagnoses known incompatibilities. Future distinct implementations require dispatch here.
         versions::session_v3::scan(target, stored, limits, now_ms)
     }
 

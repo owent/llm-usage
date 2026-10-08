@@ -10,7 +10,7 @@
     scopeKey = '',
   }: {
     query: SummaryQuery;
-    /** 用户切换/导入等不改变 query 的强制重查信号。 */
+    /** Force a query refresh for user switches/imports without changing query fields. */
     reloadKey?: number;
     timezone?: string;
     scopeKey?: string;
@@ -23,13 +23,13 @@
   let total = $state(0);
   let page = $state(0);
   let jumpText = $state('');
-  /** 初始 true：挂载即骨架占位，首次请求返回后填充。 */
+  /** Initially true: show a skeleton until the first response fills the rows. */
   let loading = $state(true);
   let error = $state('');
   let loadToken = 0;
 
   const totalPages = $derived(Math.max(1, Math.ceil(total / pageSize)));
-  /** 首屏加载（尚无任何行）时显示骨架矩形而非空表。 */
+  /** With no initial rows, show skeleton rectangles instead of an empty table. */
   const showSkeleton = $derived(loading && rows.length === 0 && error === '');
 
   function fmtTime(ms: number): string {
@@ -45,7 +45,7 @@
     }).format(new Date(ms));
   }
 
-  /** 耗时：毫秒 → 秒，保留 1 位小数。 */
+  /** Convert milliseconds to seconds with one decimal place. */
   function fmtSeconds(ms: string | null): string {
     if (ms === null) return '—';
     return `${(Number(ms) / 1000).toFixed(1)} s`;
@@ -56,7 +56,7 @@
     loading = true;
     error = '';
     try {
-      // 只请求当前页：page/pageSize 原样传给后端，后端做 LIMIT/OFFSET。
+      // Request the current page only; backend applies page/pageSize as LIMIT/OFFSET.
       const r = await api.eventDetails(query, page, pageSize);
       if (token !== loadToken) return;
       total = r.total;
@@ -77,9 +77,9 @@
     }
   }
 
-  // 查询范围变化时回到第 1 页；后台刷新保留页码，数据缩减时回到最后一页。
-  // queryKey 为查询字段的稳定序列化：父级每次轮询重建 query 对象（身份变化）
-  // 但字段值不变时不重查，只有真正的过滤/范围变化才重新请求。
+  // Range changes reset to page 1; refresh keeps the page, shrinking data selects the last page.
+  // queryKey stably serializes fields; polling recreates query objects
+  // without refetching equal values. Only real filter/range changes request again.
   const queryKey = $derived(
     JSON.stringify([
       query.first_day,
@@ -125,7 +125,7 @@
     <p class="error">{t('common.error', { message: error })}</p>
   {/if}
   {#if showSkeleton}
-    <!-- 首屏骨架：灰色矩形占位，请求返回后替换为表格。 -->
+    <!-- Initial skeleton: gray rectangles replaced by the response table. -->
     <div class="skeleton" aria-busy="true">
       {#each Array.from({ length: 10 }) as _, i (i)}
         <div class="sk-row" style:width="{96 - ((i * 7) % 30)}%"></div>
@@ -230,7 +230,7 @@
     border-radius: 10px;
     box-shadow: var(--shadow);
   }
-  /* 首屏骨架：灰色矩形占位（微光动画），请求返回后替换为表格。 */
+  /* Initial gray skeleton with subtle animation, replaced by the response table. */
   .skeleton {
     background: var(--bg-card);
     border: 1px solid var(--border);

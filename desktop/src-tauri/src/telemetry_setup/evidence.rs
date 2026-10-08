@@ -1,4 +1,4 @@
-//! Bounded, read-only checks of the actual export. No invocation or ingestion.
+//! Bounded read-only export checks, without client invocation or ingestion.
 use super::*;
 use llm_usage_core::adapters::{
     framework::{ScanLimits, ScanTarget, StoredScanState},
@@ -32,8 +32,8 @@ fn expected_agent(id: &str) -> &str {
 }
 
 /// A record identifies the client family, not the originating VS Code profile.
-/// Distinct families can share a receiver; indistinguishable profiles cannot
-/// each claim the same records as proof that their own configuration is active.
+/// Distinct client families may share a receiver; indistinguishable profiles cannot
+/// each use the same records to confirm their own configuration is active.
 pub(super) fn verify_all(mut targets: Vec<Target>) -> Vec<Target> {
     let mut owners = BTreeMap::new();
     for target in &targets {
@@ -92,7 +92,7 @@ pub(super) fn verify(target: &mut Target) {
             return;
         }
     }
-    // Inspect the newest 2 MiB at a complete line boundary; bounded time/rows.
+    // Read the newest 2 MiB from a complete-line boundary, within time/row limits.
     let mut offset = probe.len.saturating_sub(2 * 1024 * 1024);
     if target.dto.id == "qwen" {
         offset = 0;
@@ -199,8 +199,8 @@ pub(super) fn verify(target: &mut Target) {
                 .count();
         }
     }
-    // Supplemental log records were already projected by our receiver. Check
-    // exact client event names, timestamp and nonnegative integer usage fields.
+    // Receiver has already extracted permitted fields from supplemental logs. Check
+    // exact client event names, timestamps and nonnegative integer usage.
     if target.dto.verified_records == 0 && matches!(expected, "claude" | "codex") {
         if let Ok(read) = llm_usage_core::adapters::jsonl::read_jsonl_with_byte_budget(
             path,

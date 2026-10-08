@@ -1,77 +1,101 @@
-# 当前 API 价格参考与紧凑摘要验证
+# Current API reference prices and compact-summary validation
 
-2026-10-02，Windows 11 x64。本轮沿用用户已授权的修复、只读本机核验与
-[交互规范](../../design/desktop-usage/dashboard-polish.md)，保留所有既有修改。
+<a id="当前-api-价格参考与紧凑摘要验证"></a>
 
-## 实施和根因
+2026-10-02, Windows 11 x64. Existing user authorization covers corrections/read-only
+local checks and the [interaction specification](../../design/desktop-usage/dashboard-polish.md).
+All pre-existing changes were retained.
 
-费用面板、模型表、模型汇总和费用曲线统一当前价“API按量付费价格参考”；
-历史发生时估算与来源金额仍保留在数据库/API。单次费用查询返回实际匹配 price_id
-的输入/输出/缓存读写单价、上下文档、币种、渠道、供应商与快照，展开不重复查询。
-未知价格不补零，多个币种不合并。费用默认关闭，在线刷新设置保持既有行为。
+<a id="实施和根因"></a>
 
-今日摘要和当前范围摘要附相同当前价；点选、x 轴或缩放区间同时更新摘要金额，
-过期响应丢弃，恢复全范围无需重算整图。小时选区按本地小时限制保留明细，
-DST 同标签两次小时都计入；费用曲线仍为日粒度。归档明细过期明确提示覆盖受限。
+## Implementation and causes
 
-趋势七项指标在宽屏一行，窄屏四列/两列，不被额度组件撑高；输入分解放悬浮提示。
-Copilot 额度为独立紧凑行，快照时间、剩余额度、账户共享范围及历史曲线可展开查看。
-模型表改为一列费用，保持全宽与底部汇总。
+Cost panel, model table/summaries and curves share current-price “API usage-based price
+reference”. Event-time estimates/source amounts remain in the database/API. One cost
+query returns the actually matched price_id's input/output/cache-read/write prices,
+context tiers, currency, channel, provider and snapshot; expansion adds no query.
+Unknown prices stay unknown; currencies do not merge. Costs remain off by default,
+with existing online-refresh behavior unchanged.
 
-本机真实只读 SQL 确认“未知”指总 token，而非模型名：
+Today's/current-range summaries include the same current-price reference. Point/x-axis/
+zoom selections update summary amounts; discard stale responses and reset without
+recalculating the complete chart. Hourly selections filter retained details by local
+hour, including both DST occurrences under one label. Cost curves remain daily.
+Expired archived details explicitly limit coverage.
 
-| 日期 / 本机来源 | 输入 | 输出 | 修复前完整总 token | 原因 |
+Seven trend metrics occupy one wide-screen row or four/two narrow-screen columns;
+quota does not stretch them. Input decomposition is in tooltips. Copilot quota has its
+own compact row with expandable snapshot time, remaining quota, shared-account scope
+and history. The full-width model table has one amount column and bottom totals.
+
+Native read-only SQL confirmed that unknown referred to total tokens, not model names:
+
+| Date / local source | Input | Output | Complete total before fix | Cause |
 | --- | --- | --- | --- | --- |
-| 10-01 VS Copilot，2 次调用 | 17,470 | 219 | 未知 | 逐请求 span 有两项，适配器漏派生总量 |
-| 10-02 VS Copilot，1 次调用 | 16,950 | 95 | 未知 | 同上 |
-| 10-01 VS Code Copilot 原生 observation | 3,373,952 | 312,616 | 未知 | 输入末次调用下界、输出整轮总量，覆盖不同，不能相加 |
+| 10-01 VS Copilot, two calls | 17,470 | 219 | Unknown | Per-request spans had both fields; adapter omitted derived total |
+| 10-02 VS Copilot, one call | 16,950 | 95 | Unknown | Same |
+| 10-01 native VS Code Copilot observations | 3,373,952 | 312,616 | Unknown | Input is last-call lower bound, output whole-turn total; differing coverage prevents addition |
 
-VS 同一请求两项已知即可派生，缺项/溢出保留未知；旧未变化 EOF 游标重放。
-只接受旧 parser v1/v2 的完整字段哈希与撤回新 total 后完全一致的补齐，其他冲突
-继续按原仲裁规则处理。调用/模型曲线不添加未知 Agent 后缀；缺总量提示为
-“完整总 token 未提供”，保留输入、输出的可观察值。
+Derive VS total only when both fields in the same request are known; missing/overflow
+stay unknown. Replay unchanged consumed EOF cursors. Accept completion only when the
+old parser v1/v2 complete field digest exactly matches after removing the new total;
+other conflicts retain original handling. Agent/model curves add no unknown Agent
+suffix. Missing totals display the complete-total-unavailable explanation while retaining
+observable input/output.
 
-## 实际核验
+<a id="实际核验"></a>
 
-真实 IDE 配置、原始 Agent 文件和用户数据库均未修改，没有产生模型调用。
-原库以 SQLite mode=ro 备份至忽略目录 build/dashboard-reference/，修复只写副本；
-脚本、程序及日志也在该目录，脱敏输出限于日期/Agent/型号/计数/金额，不含身份和正文。
+## Actual checks
 
-副本重扫 VS 来源：3 次调用，总量从未知补齐为 34,734；updated=3，新增/冲突/错误为 0，
-数据修订推进至 131。第二次重扫 updated=0，修订仍 131，记录和调用数均保持 3。
-按 Agent 与 Agent+模型的实际曲线查询分别得到 10-01 的 17,689 和 10-02 的
-17,045 总 token；系列名均含实际 Agent/模型，没有未知后缀。
-此验证依赖仍存在的 TEMP 来源，不能保证被清理的历史可恢复。
+Actual IDE configuration, original Agent files and user database were unchanged; no
+model calls. SQLite mode=ro backed up the original into ignored build/dashboard-reference/;
+correction wrote only the copy. Scripts/programs/logs also remain there. Anonymized output
+contains only date/Agent/model/count/amount, without identities/bodies.
 
-副本当前费用查询（09-03 至 10-02，Asia/Shanghai，全部保留实例，默认参考渠道）：
-11 个模型、10 个实际匹配单价、23 个日金额行。三次耗时 221.567 / 210.951 / 180.603 ms。
-模型小计和日曲线分别等于币种总计；USD 19,572 cents，已计价记录 3,758，未计价 1,111。
-金额是该副本与筛选的参考值，未将计价记录数当成调用数。此次数据范围比上一轮副本大，
-不把两次耗时直接作为同库性能比较；当前价查询仍共用一次请求，不增加按模型 IPC。
+Copy rescan: three VS calls, total changed from unknown to 34,734, updated=3,
+zero additions/conflicts/errors, data revision=131. Second rescan updated=0, revision
+still 131; three records/calls retained. Actual Agent and Agent-plus-model curve queries
+both returned totals 17,689 on 10-01 and 17,045 on 10-02. Series names contain actual
+Agent/model, without unknown suffixes. This relies on surviving TEMP sources; deleted
+history is not guaranteed recoverable.
 
-## 验证命令
+Copy cost query: 09-03 through 10-02, Asia/Shanghai, all retained instances, default
+reference channel. Eleven models, ten matched prices, 23 daily-amount rows. Three timings:
+221.567 / 210.951 / 180.603 ms. Model subtotals and daily curves each match currency
+totals: USD 19,572 cents, 3,758 priced records, 1,111 unpriced. These are reference values
+for this copy/filter, without treating priced-record counts as calls. Its data range
+exceeds the previous copy's, so timings are not a same-database performance comparison.
+Current-price querying remains one request, without per-model IPC additions.
 
-Node.js 24.21.0、Rust/Cargo 1.98.1、PowerShell 7.6.6，浏览器使用已安装 Edge。
-最终结果如下，退出码均为 0；完整日志位于忽略目录 build/dashboard-reference/。
+<a id="验证命令"></a>
 
-| 命令 | 结果 |
+## Validation commands
+
+Node.js 24.21.0, Rust/Cargo 1.98.1, PowerShell 7.6.6, installed Edge.
+All final commands exited 0; complete logs are under ignored build/dashboard-reference/.
+
+| Command | Result |
 | --- | --- |
-| npm run verify | Markdown 169 文件 0 问题、82 资产文件、脚本 3 项、前端 14 项；Svelte 0 错误/警告；fmt/clippy 通过；Rust 796 通过、3 忽略；前端生产构建通过 |
-| npm run test:browser | Edge 全部回归通过，包括模型单价展开、今日/选区金额、紧凑摘要和窄窗口 |
-| npm run build:desktop | Windows x64 release 成功（3m 59s）；LLMUsage.exe 9,419,264 bytes，NSIS 安装包 3,746,310 bytes（3.57 MiB） |
-| git diff --check | 通过，仅既有 LF/CRLF 提示，无空白错误 |
-| 本轮文档相对链接检查 | 6 文件、112 链接，无缺失 |
+| npm run verify | 169 Markdown files/no issues, 82 assets, three script tests, 14 frontend tests; Svelte zero errors/warnings; fmt/Clippy passed; Rust 796 passed/three ignored; production frontend build passed |
+| npm run test:browser | All Edge regressions passed, including model-price expansion, today/selection amounts, compact summaries and narrow windows |
+| npm run build:desktop | Windows x64 release succeeded in 3m 59s; LLMUsage.exe 9,419,264 bytes, NSIS 3,746,310 bytes (3.57 MiB) |
+| git diff --check | Passed; existing LF/CRLF notices only, no whitespace errors |
+| This batch's relative-document-link check | Six files, 112 links, none missing |
 
-安装包生成于 desktop/src-tauri/target/release/bundle/nsis/；本轮未安装或启动 GUI，
-浏览器 IPC 使用模拟响应，实际统计修复和查询使用真实库副本。因此不将这次构建与
-浏览器回归当成真实桌面逐操作验收。运行新构建并刷新采集后，仍存在的旧 VS 来源
-会自动触发本次规则重放；原用户数据库在核验过程中保持只读。
+Installer output: desktop/src-tauri/target/release/bundle/nsis/. No installation or GUI
+startup in this batch. Browser IPC used simulated responses; actual correction/queries
+used a real database copy. Build/browser checks do not verify each native desktop
+operation. Running the new build and collecting again replays still-existing old VS
+sources automatically. The original user database stayed read-only during validation.
 
-已通过费用测试 11 项：当前单价与历史价不同、实际匹配多上下文档、模型/曲线汇总、
-小时选区、非法标签、多币种、明细过期；新增 DST 选区同时覆盖两次小时。
-VS 旧 EOF 重放集成核验完整/缺项调用的记录和修订；字段确实变更时仍保留冲突。
-坏行、半行不能标记升级完成；派生值超出 token 上限时保留已知桶与调用、总量未知。
-Edge 回归已通过今日/趋势当前金额、七列模型表、单价展开零额外请求、当前价曲线、
-选点/缩放/快速过期响应、额度默认高度小于 80 px 与详情、原有十语言/主题/过滤检查。
+Eleven cost tests passed: different current/historical prices, actual multi-context-tier
+matches, model/curve summaries, hour selection, invalid labels, multiple currencies and
+expired details; added DST selection covers both occurrences. VS old-EOF integration
+checks records/revisions for complete/incomplete calls and retains conflicts for actual
+field changes. Invalid/incomplete lines cannot mark upgrade complete. Derived totals
+over the token limit retain known components/calls and unknown total. Edge regressions
+passed today/trend current amounts, seven-column model table, price expansion with zero
+extra requests, current-price curves, point/zoom/rapid stale responses, quota default
+height<80 px and details, and existing ten-language/theme/filter checks.
 
-回滚仅撤回本轮代码；数据库和快照没有新 schema 或删除迁移。
+Rollback removes only this batch's code; databases/snapshots have no new schema or deletion migration.

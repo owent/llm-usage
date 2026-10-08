@@ -1,26 +1,26 @@
-//! Goose sessions.db 格式实现（`usage_ledger_v1`，goose-usage-ledger-1）。
+//! Goose sessions.db implementation usage_ledger_v1; format goose-usage-ledger-1.
 //!
-//! 格式依据（aaif-goose/goose 固定源码 a701bb1756f0c6a49a7dbc10ac8a90f94dd24bd1，
-//! 官方源码核验；本机未安装、无真实样本）：
-//! - `usage_ledger`（迁移 15）：每 provider 响应一行 INSERT（append-only，
-//!   AUTOINCREMENT id 单调）；`created_timestamp` Unix **秒**；列
+//! Source reference: aaif-goose/goose commit a701bb1756f0c6a49a7dbc10ac8a90f94dd24bd1.
+//! Native 1.53.0 container CLI/local-model API/DB checks are recorded in the M8 samples.
+//! - usage_ledger (migration 15) appends one INSERT per provider response, with
+//!   monotonic AUTOINCREMENT id and created_timestamp in Unix seconds. Columns:
 //!   session_id/model/input_tokens/output_tokens/total_tokens/cache_read_tokens/
-//!   cache_write_tokens/cost REAL/cost_source/is_compaction。
-//! - `cost_source`：`provider_reported` ⇒ Reported（micro-USD）；`estimated`
-//!   与 `carried_forward`（补账差额行）⇒ cost 不映射（估算/混合来源不采信）；
-//!   carried_forward 行的 **token 计入**（它是产品自己的累计补账，非推断）。
-//! - `is_compaction=1` ⇒ Auxiliary（auto-compaction 后的 retained-context
-//!   基线调用）；`input_tokens` 含 cache 读/写（官方 token_usage.rs 字段语义）⇒
-//!   input_uncached 减法派生。
-//! - 旧库（schema &lt; 15）无 usage_ledger：按 `sessions.accumulated_*` 会话级
-//!   聚合回退（IntervalAggregate；非 accumulated 单次列是最后快照，不用）；
-//!   created_at/updated_at 为 SQLite 文本 UTC（`YYYY-MM-DD HH:MM:SS`）。
-//!   两载体互斥：有 ledger 的库不再读 accumulated（防双计）。
-//! - fork/copy 不复制用量；subagent 会话独立行，全表求和不双计（官方字段语义）。
+//!   cache_write_tokens/cost REAL/cost_source/is_compaction.
+//! - provider_reported cost becomes Reported micro-USD. estimated and
+//!   carried_forward cost are excluded because their amounts are estimated or mixed.
+//!   Include carried_forward token rows as the product's recorded cumulative corrections.
+//! - is_compaction=1 becomes Auxiliary for the retained-context baseline after
+//!   compaction. Source token_usage.rs defines input_tokens as including cache reads/writes;
+//!   derive input_uncached by subtraction.
+//! - Databases before schema 15 have no usage_ledger: fall back to session accumulated_*
+//!   interval aggregates. Ignore non-accumulated columns containing only the last snapshot.
+//!   created_at/updated_at are SQLite UTC text (YYYY-MM-DD HH:MM:SS).
+//!   Read ledger or accumulated values exclusively to prevent duplicate usage.
+//! - Source inspection describes fork/copy and separate subagent rows; native checks cover neither.
 //!
-//! 增量约定（append-only 表）：游标 = 已处理最大 ledger id（行只 INSERT 不
-//! UPDATE，无重叠窗需求）；schema 指纹变化 ⇒ 重置全量重读（事件键
-//! goose:ledger:&lt;id&gt; upsert 幂等）；单轮 50,000 行上限。
+//! Incremental scanning follows the append-only ledger: remember the greatest processed id.
+//! A changed ledger column fingerprint resets scanning. Repeated goose:ledger:<id> keys
+//! update the same event. Pages read up to 50,001 rows; an extra row indicates continuation.
 
 use crate::adapters::framework::{
     ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -45,16 +45,16 @@ pub const MAX_ROWS_PER_ROUND: i64 = 50_000;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 struct GooseCursor {
     generation: i64,
-    /// 已处理的最大 ledger id（append-only 表；旧库聚合模式恒 0）。
+    /// Greatest processed ledger id; stays zero in legacy aggregate mode.
     last_ledger_id: i64,
-    /// 旧库聚合模式已处理的最大 session id（字典序游标；缺省=从头）。
+    /// Greatest processed legacy session id, in lexical order; an empty value starts at the beginning.
     #[serde(default)]
     last_session_id: String,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 struct GooseParseContext {
-    /// schema 指纹（表名集合；变化 ⇒ 框架按 parser_version 逻辑重扫）。
+    /// Ledger presence and column-name fingerprint; changes reset this reader and its stored cursor.
     schema_fingerprint: Option<String>,
     #[serde(default)]
     version_basis: Option<VersionBasis>,
@@ -77,7 +77,7 @@ fn seconds_to_ms(secs: i64) -> Option<i64> {
         .then_some(ms)
 }
 
-/// SQLite 文本 UTC 时间（datetime('now') 形 `YYYY-MM-DD HH:MM:SS`，或 RFC3339）。
+/// Parse SQLite UTC text (datetime('now'), YYYY-MM-DD HH:MM:SS) or RFC3339.
 fn text_ts_ms(value: Option<&str>) -> Option<i64> {
     let raw = value?.trim();
     if raw.is_empty() {
@@ -99,7 +99,7 @@ fn usd_cost(cost: Option<f64>, cost_source: Option<&str>) -> Option<CostAmount> 
     if !amount.is_finite() || amount < 0.0 {
         return None;
     }
-    // 只有 provider_reported 的 cost 入账；estimated/carried_forward 不映射。
+    // Import cost only when cost_source is provider_reported; exclude estimated/carried_forward.
     if !matches!(cost_source, Some("provider_reported")) {
         return None;
     }
@@ -147,7 +147,7 @@ pub fn scan(
         .as_ref()
         .and_then(|v| serde_json::from_value::<GooseParseContext>(v.clone()).ok())
         .unwrap_or_default();
-    // 指纹变化（列集变化 ⇒ 列义可能变化）：全量重读，旧游标作废。
+    // Changed columns may change field meaning: reread from the beginning and discard the old cursor.
     let fingerprint_changed = context.schema_fingerprint.as_deref() != Some(fingerprint.as_str());
     if target.rescan || fingerprint_changed {
         context = GooseParseContext::default();
@@ -200,7 +200,7 @@ pub fn scan(
         let mut records_seen: u64 = 0;
         let mut max_id = last_id;
         for row in rows {
-            // 行级容错：单行类型错误不中止整轮（SQLite 动态类型）。
+            // SQLite row type errors produce diagnostics without aborting the remaining rows.
             let (
                 id,
                 session_id,
@@ -251,7 +251,7 @@ pub fn scan(
                 && usage.cache_write_tokens.is_none()
                 && cost_mapped.is_none()
             {
-                // token 全 NULL 且无有效 provider cost：无信息量行。
+                // Skip rows with all token fields NULL and no valid provider-reported cost.
                 continue;
             }
             let mapped = map_goose_ledger(&usage);
@@ -317,9 +317,9 @@ pub fn scan(
             health: "active".to_string(),
         })
     } else {
-        // 旧库聚合回退：sessions.accumulated_* 会话级聚合（无逐请求表）。
-        // 超过单轮上限时用 session id 分页。读到末页后清空游标，
-        // 下一轮从头重读：旧库累计值会更新已有会话，不能永久跳过旧 id。
+        // Fall back to session accumulated_* aggregates when there is no per-request ledger.
+        // Page by session id when the row limit is reached; clear the cursor after the last page.
+        // Legacy cumulative values can change existing sessions, so the next scan must revisit old ids.
         let mut stmt = db.conn().prepare(
             "SELECT id, accumulated_total_tokens, accumulated_input_tokens,
                     accumulated_output_tokens, created_at, updated_at
@@ -343,7 +343,7 @@ pub fn scan(
         let mut records_seen: u64 = 0;
         let mut max_session_id = last_session_id.clone();
         for row in rows {
-            // 行级容错：单行类型错误不中止整轮（SQLite 动态类型）。
+            // SQLite row type errors produce diagnostics without aborting the remaining rows.
             let (id, total, input, output, created_at, updated_at) = match row {
                 Ok(r) => r,
                 Err(e) => {

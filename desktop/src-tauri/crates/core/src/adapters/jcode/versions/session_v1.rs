@@ -1,27 +1,27 @@
-//! jcode 会话存储格式实现（`session_v1`，jcode-session-1）。
+//! jcode session storage parser: session_v1, jcode-session-1.
 //!
-//! 格式依据（1jehuang/jcode 固定源码 4f6bf8e044bc175d5d4659ed54583f5512320235
-//! （master，2026-09-29）；0.91.0 官方发布包及真实本地模型单次 run 已核对；
-//! 脱敏快照/API/CLI 见 fixtures/jcode/real-0.91.0，其他场景保留未验证）：
-//! - 路径：`$JCODE_HOME`（默认 ~/.jcode）/sessions/session_*.json 快照 +
-//!   同 stem `.journal.jsonl` 追加（storage_paths.rs:7-30）。
-//! - 加载语义（persistence.rs:269-341）：快照 + 逐条 journal 回放；
-//!   journal `meta` **逐字段覆盖**快照元数据（provider_key/model 以最后一条
-//!   journal 为准）；`append_messages` 追加。checkpoint 时整写快照并**删除**
-//!   journal（512 KiB 上限，session.rs:264）⇒ 两载体消息互斥；崩溃窗口
-//!   （写快照后删 journal 前）重放会重复 extend，源码无 id 去重 ⇒
-//!   适配器按消息 id upsert 保持幂等（本方防御，如实标注）。
-//! - StoredMessage（session-types lib.rs:229-272）：`id`/`role`/`timestamp`
-//!   （RFC3339，消息完成时刻）/`tool_duration_ms?`/
-//!   `token_usage?{input_tokens(必),output_tokens(必),
-//!   cache_read_input_tokens?,cache_creation_input_tokens?}`；
-//!   `prompt_tokens` 是上下文规模非计费桶，**不采**；无 cost/reasoning 落盘。
-//! - **缓存字段语义按 provider 原样保留**（官方注释，OpenAI stream.rs:988-1018）：
-//!   provider_key=="openai" ⇒ input_tokens 是总量，cache 读/写是其**子集**；
-//!   =="anthropic" ⇒ 三列分立互斥（API 原生）；其他/未知 ⇒ 包含关系未知，
-//!   hermes 同型并列不派生。`ResponseStats` 官方注释 "Missing telemetry is
-//!   unknown, not zero" 规则相同。
-//! - 回合计数库 model-usage-v1.sqlite3 只记计数不记 token，不读。
+//! Source: 1jehuang/jcode 4f6bf8e044bc175d5d4659ed54583f5512320235
+//! (master, 2026-09-29). The official 0.91.0 package and one local-model run were checked.
+//! Redacted snapshot/API/CLI records: fixtures/jcode/real-0.91.0; other scenarios remain unverified.
+//! - Path: $JCODE_HOME, default ~/.jcode, with sessions/session_*.json snapshots
+//!   and same-stem .journal.jsonl appends (storage_paths.rs:7-30).
+//! - persistence.rs:269-341 loads the snapshot then replays journal records.
+//!   Journal meta overrides snapshot fields individually; the latest provider_key/model
+//!   wins. append_messages adds messages. Checkpoints write a full snapshot and delete
+//!   the journal at the 512 KiB threshold (session.rs:264). A crash after snapshot writing
+//!   but before journal deletion can replay duplicate messages; upstream has no ID deduplication.
+//!   This adapter prevents duplicate imports by updating records with the same message ID.
+//! - StoredMessage (session-types lib.rs:229-272): id, role, RFC3339 completion timestamp,
+//!   optional tool_duration_ms, and optional token_usage containing required
+//!   input_tokens/output_tokens and optional cache_read_input_tokens/
+//!   cache_creation_input_tokens.
+//!   prompt_tokens measures context size; do not collect it. Cost/reasoning are not persisted.
+//! - Cache semantics remain provider-specific (OpenAI stream.rs:988-1018):
+//!   openai input_tokens includes cache reads/writes as subsets;
+//!   anthropic input/cache-read/cache-write are independent buckets. Other providers have
+//!   unverified inclusion, so preserve independent fields without deriving totals.
+//!   ResponseStats also distinguishes missing telemetry from reported zero.
+//! - model-usage-v1.sqlite3 stores turn counts, not tokens; do not read it.
 
 use crate::adapters::framework::{
     ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -41,8 +41,8 @@ pub const JCODE_PARSER_VERSION: &str = "jcode-session-1";
 pub const JCODE_MAX_FILE_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_REASONABLE_TOKEN: i64 = crate::domain::MAX_TOKEN_VALUE;
 
-/// journal 分页时保存位置及源文件指纹；读到末页后从头重读以处理
-/// 会话级 meta 更新。事件按消息 id upsert 幂等。
+/// Save journal page positions and fingerprints; after the last page restart reading
+/// to apply changed session metadata to earlier events using stable message IDs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 struct JcodeCursor {
     generation: i64,
@@ -120,10 +120,10 @@ fn opt_token(value: Option<&serde_json::Value>) -> Option<Option<i64>> {
     }
 }
 
-/// jcode 缓存字段语义（provider 原样保留）：
-/// - openai：input 是总量，cache 读/写为子集 ⇒ uncached 减法派生；
-/// - anthropic：三列互斥 ⇒ uncached=input，input_total=三列之和（派生）；
-/// - 其他/未知：包含关系未知 ⇒ 并列报告不派生。
+/// Preserve provider-specific jcode cache semantics:
+/// - openai: input is total, with cache subsets; derive uncached input by subtraction.
+/// - anthropic: independent buckets; uncached=input and derived total=sum of all three.
+/// - Other/unknown providers: preserve fields without assuming inclusion or deriving totals.
 fn map_jcode(
     provider_key: Option<&str>,
     input: Option<i64>,
@@ -187,7 +187,7 @@ fn map_jcode(
     finish(usage, quality, contradictions)
 }
 
-/// 一条合并后的消息（快照或 journal append）。
+/// One message merged from the snapshot or a journal append.
 struct MergedMessage {
     id: Option<String>,
     role: String,
@@ -251,7 +251,7 @@ pub fn scan(
         .and_then(|s| s.to_str())
         .unwrap_or("unknown-session")
         .to_string();
-    // 快照 + journal sidecar（同 stem）。
+    // Pair the snapshot with its same-stem journal sidecar.
     let journal_path = target.path.with_file_name(format!(
         "{}.journal.jsonl",
         target
@@ -365,7 +365,7 @@ pub fn scan(
         context.journal_model = None;
         context.journal_updated_at_ms = None;
     }
-    // 元数据：快照值 + journal 逐条覆盖（最后一条 journal 为准）。
+    // Start with snapshot metadata and apply journal overrides in order.
     let mut provider_key = snapshot
         .get("provider_key")
         .and_then(|v| v.as_str())
@@ -440,9 +440,9 @@ pub fn scan(
                 }
             }
         }
-        // journal 未读完（行数/超时时间或超限行）：尾部消息缺失，不能报
-        // Complete。分页游标从本轮末尾续读；读到末页后下一轮从头
-        // 重读，以便会话级 meta 更新能修订前页事件。
+        // Unread journal pages mean incomplete tail coverage; do not return Complete.
+        // Resume after this page, then restart from the head after reaching the final page
+        // so changed session metadata can revise events from earlier pages.
         match read.stop {
             crate::adapters::jsonl::StopReason::Eof => {
                 next_journal_offset = 0;
@@ -456,7 +456,7 @@ pub fn scan(
     context.journal_provider_key = provider_key.clone();
     context.journal_model = model.clone();
     context.journal_updated_at_ms = session_updated_at_ms;
-    // 处理崩溃窗口：同 id 消息后者覆盖前者（journal 权威，persistence 同语义）。
+    // For duplicate IDs in the crash window, prefer the later journal message.
     let mut events = Vec::new();
     let mut seen_ids: std::collections::BTreeMap<String, ()> = Default::default();
     for message in messages.iter().rev() {
@@ -465,9 +465,9 @@ pub fn scan(
             continue;
         }
         let Some(usage) = &message.usage else {
-            continue; // 无 token_usage 的 assistant 消息：按官方规则保持未知，不补零。
+            continue; // Missing assistant token_usage remains unknown; do not fill it with zero.
         };
-        // StoredMessage.id 是必填字段（官方类型）：缺失按格式偏离跳过记诊断。
+        // StoredMessage.id is required by the source type; skip missing IDs with a diagnostic.
         let Some(message_id) = &message.id else {
             diagnostics.push(diag(
                 "message_without_id",
@@ -477,7 +477,7 @@ pub fn scan(
             continue;
         };
         if seen_ids.insert(message_id.clone(), ()).is_some() {
-            continue; // journal 覆盖快照的同 id 消息：取 journal 版（先迭代）。
+            continue; // Iteration visits the journal first, so it replaces a snapshot message with the same ID.
         }
         let key = format!("jcode:{session_id}:{message_id}");
         let Some(occurred_ms) = message.timestamp else {
@@ -515,7 +515,7 @@ pub fn scan(
             occurred_at_ms: occurred_ms,
             observed_at_ms: Some(now_ms),
             source_time: Some(occurred_ms.to_string()),
-            // timestamp 是消息完成时刻（官方 storage_types 注释）。
+            // Source timestamp identifies message completion, as described by storage_types.
             time_basis: TimeBasis::SourceCompletion,
             interval_start_ms: message
                 .tool_duration_ms
@@ -528,8 +528,8 @@ pub fn scan(
             usage: mapped.usage,
             quality: mapped.quality,
             lifecycle: Lifecycle::Final,
-            // journal meta.updated_at 是会话保存时间；消息完成时间不会随
-            // 后续同 id 更正必然变化。缺失修订依据时由 ingest 保留冲突。
+            // Journal meta.updated_at identifies session saving; later corrections need not
+            // change message completion timestamps. Ingest retains conflicts without a newer revision.
             source_revision: session_updated_at_ms,
             error_status: None,
             duration_ms: message.tool_duration_ms,

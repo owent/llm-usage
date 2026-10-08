@@ -1,29 +1,29 @@
-//! Qwen Code ChatRecord JSONL 格式实现（`chatrecord_085e98c0`，固定源码依据 A18）。
+//! Qwen Code ChatRecord JSONL parser: chatrecord_085e98c0, fixed source reference A18.
 //!
-//! 格式依据（qwen-code 源码固定 commit 085e98c00cac2f8dd29eb39c760409bc6da889a9）：
-//! - 路径：`~/.qwen/tmp/<project_id>/chats/<sessionId>.jsonl`（append-only JSONL；
-//!   无文档化环境覆盖）。
-//! - `ChatRecord{uuid, parentUuid, sessionId, timestamp(ISO), type:
-//!   user|assistant|tool_result|system, subtype?(33 值枚举), provenance, cwd,
-//!   version(CLI 版本), gitBranch?, message?, usageMetadata?, model?,
-//!   contextWindowSize?, agentId?, agentName?, isSidechain?, goalContext?, ...}`。
-//! - `recordAssistantTurn` 设 `record.usageMetadata = data.tokens`（
-//!   GenerateContentResponseUsageMetadata，六分类各自可选）与 `record.model`；
-//!   tokens 参数本身可选 ⇒ assistant 记录无 usageMetadata 属正常形状。
-//! - `isSidechain:true` / `agentId` = 子 Agent 记录（与主会话同文件，无双计）。
-//! - Goal 控制记录：`goal_state` 的 `goal.tokensUsed` 是跨 turn 累计表
-//!   （"totalTokenCount summed per model call"），绝不当 request/总消耗（双计）；
-//!   `goal_runtime`/`goal_turn_end`/`chat_compression` 同为控制记录，明确忽略。
-//!   `goal_context` 标注的 assistant 记录仍是一次真实模型调用，照常计入。
-//! - `session_model` subtype 是 daemon 恢复绑定，不能归给历史调用。
+//! Source: qwen-code commit 085e98c00cac2f8dd29eb39c760409bc6da889a9.
+//! - Path: ~/.qwen/tmp/<project_id>/chats/<sessionId>.jsonl, append-only JSONL,
+//!   without a documented environment override.
+//! - ChatRecord: uuid/parentUuid/sessionId/ISO timestamp/type/
+//!   optional subtype (33 values), provenance, cwd, and four types user/assistant/tool_result/system.
+//!   Optional fields include CLI version, gitBranch, message, usageMetadata, model,
+//!   contextWindowSize, agentId/agentName, isSidechain, and goalContext.
+//! - recordAssistantTurn assigns data.tokens to usageMetadata and sets model.
+//!   GenerateContentResponseUsageMetadata has six optional token categories.
+//!   The optional tokens argument means assistant entries can legitimately lack usageMetadata.
+//! - isSidechain=true or agentId identifies subagent records within the same session file.
+//! - goal_state.goal.tokensUsed sums totalTokenCount across model calls;
+//!   it is not additional request usage and must not be counted twice.
+//!   Ignore goal_runtime/goal_turn_end/chat_compression control records as well.
+//!   Assistant entries marked goal_context still represent individual model calls.
+//! - session_model restores daemon state; it does not identify historical call models.
 //!
-//! fail closed（V17）：type 超出四值、subtype 超出 33 值枚举、或非 assistant
-//! 记录携带 usageMetadata，整文件拒绝（游标不推进、下轮确定性再拒）。
+//! Reject the entire file for unsupported type/subtype values or non-assistant
+//! records carrying usageMetadata; keep the cursor for a later retry (V17).
 //!
-//! 版本策略（architecture.md#adapter-layout）：格式锚点是固定源码 commit，不做
-//! 版本白名单——`record.version`（CLI 版本）逐条存 schema_version，不参与分派；
-//! 注册表（[`super::versions`]）为与其他 Agent 统一的结构而设。
-//! 本实现自根级单文件 qwen.rs 目录化平移（M2 目录化迁移，V30），行为约定不变。
+//! Version selection follows the fixed source format in architecture.md#adapter-layout.
+//! Preserve each record.version as schema_version; it does not select another parser.
+//! The super::versions registry keeps a consistent adapter structure.
+//! M2/V30 moved root-level qwen.rs into this directory without changing behavior.
 
 use crate::domain::{
     AttributionStatus, CallCategory, EventInput, Lifecycle, ModelAttribution, RecordKind,
@@ -42,10 +42,10 @@ use crate::adapters::usage_map::{map_genai_usage, GenaiUsage};
 pub const QWEN_PARSER_VERSION: &str = "qwen-chatrecord-085e98c0-1";
 const MAX_REASONABLE_TOKEN: i64 = crate::domain::MAX_TOKEN_VALUE;
 
-/// 固定源码 ChatRecord.type 四值。
+/// Four ChatRecord.type values from the fixed source.
 pub const RECORD_TYPES: &[&str] = &["user", "assistant", "tool_result", "system"];
 
-/// 固定源码 ChatRecord.subtype 33 值枚举（commit 085e98c0）。
+/// The 33 ChatRecord.subtype values from commit 085e98c0.
 const RECORD_SUBTYPES: &[&str] = &[
     "chat_compression",
     "slash_command",
@@ -82,8 +82,8 @@ const RECORD_SUBTYPES: &[&str] = &[
     "managed_session_commit_v1",
 ];
 
-/// 明确忽略的控制记录 subtype（Goal 累计表/运行时/轮次边界/压缩检查点）：
-/// 绝不产生事件（goal.tokensUsed 是跨 turn 累计表，计入即双计）。
+/// Ignore control subtypes for goal sums, runtime, turn boundaries, and compaction.
+/// goal.tokensUsed spans turns; creating usage events from it would duplicate existing calls.
 const IGNORED_SUBTYPES: &[&str] = &[
     "goal_state",
     "goal_runtime",
@@ -91,7 +91,7 @@ const IGNORED_SUBTYPES: &[&str] = &[
     "chat_compression",
 ];
 
-/// usageMetadata 六分类键（GenerateContentResponseUsageMetadata，各自可选）。
+/// Six optional GenerateContentResponseUsageMetadata token fields.
 const USAGE_KEYS: &[&str] = &[
     "promptTokenCount",
     "candidatesTokenCount",
@@ -101,18 +101,18 @@ const USAGE_KEYS: &[&str] = &[
     "totalTokenCount",
 ];
 
-/// 持久化解析上下文（跨增量轮次的"每文件一次性"诊断标志与版本选择依据）。
+/// Persist per-file diagnostic flags and format selection across incremental scans.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 struct QwenParseContext {
     #[serde(default)]
     unmapped_usage_keys_reported: bool,
-    /// 版本选择依据（known_version）；格式锚点固定 ⇒ 恒为 Some(KnownVersion)。
-    /// 旧解析上下文缺省为 None，迁移不重建来源、不重置游标（V30）。
+    /// KnownVersion identifies the registered fixed-source format, not every native client release.
+    /// Older contexts default to None; the V30 move does not recreate sources or reset cursors.
     #[serde(default)]
     version_basis: Option<VersionBasis>,
 }
 
-/// 从存储的游标 JSON 还原；重扫或无效时回到文件头。
+/// Restore cursor JSON; restart at the head for rescans or invalid cursors.
 fn restore_cursor(stored: &StoredScanState, generation: i64, rescan: bool) -> JsonlCursor {
     if rescan {
         return JsonlCursor {
@@ -158,8 +158,8 @@ fn json_str<'a>(value: &'a serde_json::Value, key: &str) -> Option<&'a str> {
     value.get(key)?.as_str()
 }
 
-/// 解析 usageMetadata 六可选字段；存在的值必须非负有界（违例返回 None，调用方记诊断）。
-/// 未知额外键返回 true（保留已映射字段，每文件一次性诊断）。
+/// Parse six optional usageMetadata fields; present values must be nonnegative and bounded.
+/// Flag unknown extra keys once per file while retaining mapped fields.
 fn parse_usage_metadata(value: &serde_json::Value) -> Option<(GenaiUsage, bool)> {
     let obj = value.as_object()?;
     let get = |key: &str| -> Option<Option<i64>> {
@@ -186,7 +186,7 @@ fn parse_usage_metadata(value: &serde_json::Value) -> Option<(GenaiUsage, bool)>
     Some((usage, unknown))
 }
 
-/// 增量扫描一个 ChatRecord JSONL 文件（统一入口 `QwenAdapter::scan` 分派到本实现）。
+/// Scan ChatRecord JSONL, dispatched by QwenAdapter::scan.
 pub fn scan(
     target: &ScanTarget,
     stored: &StoredScanState,
@@ -195,8 +195,8 @@ pub fn scan(
 ) -> Result<ScanOutcome, CoreError> {
     let cursor = restore_cursor(stored, target.generation, target.rescan);
     let mut context = restore_context(stored, target.rescan);
-    // 格式锚点是固定源码 commit（已收录注册表）⇒ 解析依据恒为 known_version；
-    // 持久化解析上下文形状与其他 Agent 一致（V30）。
+    // The fixed-source format is registered as known_version;
+    // persisted context follows the shared adapter structure (V30).
     context.version_basis = Some(VersionBasis::KnownVersion);
     let mut events: Vec<EventInput> = Vec::new();
     let mut diagnostics: Vec<DiagnosticInput> = Vec::new();
@@ -248,7 +248,7 @@ pub fn scan(
                 ));
                 break;
             }
-            // 控制记录明确忽略（Goal 累计表等，计入即双计）。
+            // Ignore control records such as goal sums to avoid duplicate usage.
             if IGNORED_SUBTYPES.contains(&subtype) {
                 continue;
             }
@@ -257,7 +257,7 @@ pub fn scan(
             "assistant" => {
                 let usage_value = line.get("usageMetadata");
                 let Some(usage_value) = usage_value else {
-                    // tokens 在固定源码中可选：无 usageMetadata 属正常形状，不产事件。
+                    // Optional source tokens permit assistant entries without usageMetadata; create no usage event.
                     continue;
                 };
                 let Some((usage, unknown_keys)) = parse_usage_metadata(usage_value) else {
@@ -328,7 +328,7 @@ pub fn scan(
                     record_kind: RecordKind::ModelCall,
                     schema_version: json_str(&line, "version").unwrap_or("unknown").to_string(),
                     parser_version: QWEN_PARSER_VERSION.to_string(),
-                    // 格式锚点固定（固定源码 commit 注册表已收录）⇒ 恒为 known_version。
+                    // KnownVersion records the fixed-source format reference, not universal release acceptance.
                     parse_basis: Some(VersionBasis::KnownVersion),
                     origin_call_id,
                     attempt_id: None,
@@ -367,7 +367,7 @@ pub fn scan(
                     cost: None,
                 });
             }
-            // 非 assistant 记录携带 usageMetadata：格式偏离，整文件 fail closed。
+            // usageMetadata on a non-assistant record rejects the whole file.
             _ => {
                 if line.get("usageMetadata").is_some() {
                     fail_closed = Some((
@@ -405,7 +405,7 @@ pub fn scan(
                 "bad_json_line" | "usage_shape_deviation" | "line_too_long"
             )
         });
-    // fail closed：本轮事件清空、游标不推进（不提交 checkpoint），下轮确定性再拒。
+    // Discard events and retain the checkpoint on rejection; retry the same file next scan.
     let (cursor_out, context_out) = if let Some((line_no, detail, code)) = fail_closed {
         diagnostics.push(diag(code, Some("type"), line_no, &detail));
         events.clear();
@@ -489,8 +489,8 @@ mod tests {
 
     #[test]
     fn old_parse_context_without_basis_still_restores() {
-        // 旧解析上下文（无 version_basis 字段）反序列化不失败，basis 为 None；
-        // 目录迁移不重建来源/重置游标（V30）。
+        // Older contexts without version_basis deserialize successfully to None.
+        // The V30 directory move does not recreate sources or reset cursors.
         let legacy = serde_json::json!({"unmapped_usage_keys_reported": true});
         let ctx: QwenParseContext = serde_json::from_value(legacy).expect("restore");
         assert!(ctx.unmapped_usage_keys_reported);

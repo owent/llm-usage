@@ -1,360 +1,430 @@
-# 维护合同
+# Maintenance guidance
+
+<a id="维护说明"></a>
+
+<a id="维护合同"></a>
 
 <a id="范围与证据"></a>
 
-## 范围与核验依据
+<a id="范围与核验依据"></a>
 
-修改业务前，从实际语言、锁文件、调用方、测试及运行配置核验命令。
-仓库现有 previous-draft 原型，其 README 描述用量采集、SQLite 缓存与静态看板；
-这些说明尚未作为本项目的运行验收。权威规则见 [AGENTS.md](../../../../AGENTS.md)。
+<a id="maintenance-contract"></a>
 
-维护规则由一个根入口、一个 Skill 和按需 references 承载；
-覆盖与验证记录放 references/records，只在恢复初始化或审查交付结果时读取。
-文档 lint 与统一验证命令位于仓库根；package.json/package-lock.json 已在 M0 恢复。
-业务依赖仍以 desktop 的 npm/Cargo 清单及锁文件为准；保留 Kilo 本地忽略文件。
-没有模块差异，因此不创建嵌套规则；没有已采用的 Claude 工作流，因此暂不创建
-CLAUDE.md；没有独立角色、业务 change、部署资源或配置需求，
-因此不创建各客户端配置、OpenSpec、roadmap、development 或密钥样例空壳。
-客户端范围未确认不等于该客户端“不适用”，详见 [客户端记录](clients.md)。
+<a id="scope-and-verification-evidence"></a>
 
-调研顺序：确认范围与授权，检查工作区及上级/就近规则，查看已有索引，
-读取相关实现、测试和版本，再核验官方正文、发布说明及必要源码。
-搜索摘要只定位入口；冲突结论追到对应版本，仍不明确则记录未验证。
-核验客户端分发物时，将实际包版本、完整性与源码提交对应；npm 的公开构建来源可能
-不同于同版本 GitHub 标签，应核对 provenance 声明的提交并区分声明读取与签名验证。
-声明提交与实际编译代码仍可能不同，字段合同须回查实装模块，不能只读仓库提交。
-运行样本仍须独立核对，分发提交或整库 schema 不认证历史记录所属版本。
-原始 SQLite 样本须携带有效 WAL，不能用主库文件摘要认证未 checkpoint 的全部记录；
-只读也可能更新 SHM，持久载体与共享内存分别核对。SDK 自算和与默认零须追溯实际
-writer/codec，不能因字段名 total 或 token 为数值就认定为独立已报告量。
-关键事实使用 [来源字段](source-index.md#fields)；相关任务前复核，
-产品升级、弃用、安全公告、加载失败或行为变化触发更新，不自动升级依赖。
+## Scope and verification sources
 
-## AI 规则维护
+Before product changes, verify commands against actual languages, lockfiles, callers, tests and runtime
+configuration. The previous-draft README describes collection, SQLite caching and a static dashboard;
+these descriptions have not established runtime acceptance for this project. [AGENTS.md](../../../../AGENTS.md)
+is authoritative.
 
-结果是目标客户端可读取的共享规则、必要兼容差异，以及逐项覆盖和实际验证结果。
-普通业务修改不重做初始化清单。工作目录为仓库根，先确认用户完整输入、现有修改、
-相关规则与客户端；输入截断就分段补读，关键要求缺失时澄清并继续独立部分。
+Maintenance guidance uses one root entry, one Skill and selective references. Coverage/validation records
+live in references/records and are read only for initialization recovery or delivery review. Documentation
+lint and unified verification run from the root; M0 restored package.json/package-lock.json. Product
+dependencies remain governed by desktop npm/Cargo manifests and lockfiles. Retain Kilo's local ignore file.
+No module differences require nested rules. No adopted Claude workflow currently requires CLAUDE.md.
+Without independent roles, product changes, deployment resources or configuration needs, do not create
+empty client configurations, OpenSpec changes, roadmaps, development guides or secret examples. Unconfirmed
+client scope does not establish inapplicability; see [client records](clients.md).
 
-1. 初始化或全面维护时，从原始要求逐章提取列表、表格、条件分支与模板要求，
-   在现有 [覆盖表](records/initialization-coverage.md)保留稳定 ID、依据、文件章节、状态及验证记录。
-   局部维护只追加或更新受影响的条目，不建立平行计划。
-2. 先确定哪些要求仍适用，再分配到根规则、Skill 或按需参考；
-   迁移资源同步实际读取入口与交叉引用，不以文件存在、同名标题或总行数代替内容核对。
-3. 易变结论核对官方正文及安装版本，按来源索引记录；规则启动、Skill 发现、
-   人工调用和授权分别验证。没有自动发现时明确使用手动读取的临时流程。
-4. 回读修改，反查每项要求；执行文档 lint、引用检查和必要的无副作用客户端探测。
-   实质描述/流程变化使用评估集合；未运行的模型评估留为未验证。
-5. 同步受影响的来源、规则和已有计划，交付实际文件、验证与未完成项。
-   完整初始化的章节/子项统计见覆盖表，不能把本次局部修改通过写成初始化全部完成。
+Research in this order: establish scope/authorization, inspect workspace and parent/nearest rules, check
+indexes, read relevant implementations/tests/versions, then verify official text, release notes and necessary
+source. Search snippets only locate sources. Trace conflicting conclusions to corresponding versions;
+record unresolved facts as unverified. Match distributed packages to actual versions, integrity and source
+commits. Public npm build provenance may differ from same-version GitHub tags: check declared commits and
+distinguish reading declarations from signature verification. Declared commits may differ from compiled
+code; verify field rules in installed modules. Runtime samples need independent checks. Distribution
+commits/database-wide schemas do not identify historical record versions.
 
-来源不可访问则标记未验证，不从摘要补出结论；客户端不可用就记录缺失条件。
-校验失败保留诊断并修正问题，不删断言、扩大权限或清掉已有阻塞来凑通过。
-终端启动故障按平台允许的机制重试，操作超时按 [执行合同](operations.md#timeouts)
-核对实际状态。回滚仅撤回本任务差异，清理前核验路径并保留用户文件及验证资料。
+Raw SQLite samples need valid WAL files. Main-file digests do not establish integrity of uncheckpointed records.
+Read-only access may update SHM; check database/WAL files and shared memory separately. Trace SDK-computed
+totals/default zeros to actual writers/codecs. Numeric total/token fields are not necessarily independent
+reports. Record key facts with [source fields](source-index.md#fields) and recheck before relevant tasks.
+Upgrades, deprecations, security notices, loading failures or behavior changes trigger updates;
+do not automatically upgrade dependencies.
+
+<a id="ai-规则维护"></a>
+
+## AI rule maintenance
+
+Deliver shared rules readable by target clients, necessary compatibility differences, item-level coverage
+and actual verification. Ordinary product changes do not redo initialization. Work from the root; confirm
+complete user input, existing edits, applicable rules and clients. Read truncated inputs in segments.
+Clarify missing critical requirements while continuing independent work.
+
+1. For initialization/full maintenance, extract lists, tables, conditions and templates chapter by chapter
+   from original requirements. Preserve stable IDs, source references and check results, file sections, status and checks in the
+   [coverage table](records/initialization-coverage.md). Local maintenance updates affected entries only;
+   no parallel plans.
+2. Determine applicability before assigning requirements to root rules, Skills or selective references.
+   Migration updates actual reading entry points/cross-references. File existence, matching headings and
+   line counts do not replace content review.
+3. Verify changing conclusions against official text/installed versions and record sources. Verify rule
+   startup, Skill discovery, manual invocation and authorization separately. When automatic discovery is
+   absent, describe the temporary manual-reading workflow.
+4. Read changes back against every requirement. Run documentation lint, references and necessary
+   side-effect-free client probes. Substantive description/workflow changes use evaluation sets;
+   unrun model evaluations remain unverified.
+5. Synchronize affected sources/rules/plans and deliver files, checks and outstanding work. Initialization
+   chapter/subitem counts belong in coverage records. Passing local edits do not complete initialization.
+
+Unavailable sources remain unverified; do not infer conclusions from snippets. Record missing client
+conditions. Preserve diagnostics and fix causes rather than deleting assertions, expanding permissions or
+clearing blockers. Retry terminal startup through platform-permitted mechanisms. For timeouts, verify actual
+state under the [execution requirements](operations.md#timeouts). Roll back only this task's differences.
+Verify cleanup paths and preserve user files and required records.
 
 <a id="authoring"></a>
 
-## 分层与编写合同
+<a id="分层与编写合同"></a>
 
-| 需求 | 权威落点与使用边界 |
+<a id="规则组织与编写要求"></a>
+
+<a id="layering-and-authoring-contract"></a>
+
+## Rule organization and authoring
+
+| Requirement | Authoritative location and limits |
 | --- | --- |
-| 大多数任务稳定必需的约束 | 根 AGENTS.md：项目范围、真实命令、工具提示、边界和按需导航 |
-| 模块/文件类型差异 | 就近 AGENTS.md 或客户端路径规则，先确认嵌套发现及 glob |
-| 可复用专业流程 | .agents/skills/name/SKILL.md，名称描述负责路由，正文按需读 |
-| Claude 兼容 | 采用后验证原生读取；必要时薄 CLAUDE.md 导入共享入口，仅加真实差异 |
-| 独立角色 | 确实需要隔离、工具限制或 handoff 时采用目标客户端 schema |
-| 手动重复任务 | 优先 Skill；采用 workflow/prompt files 前核验客户端与会话支持 |
-| 可审阅行为变化 | 一份设计/spec/ADR；采用 OpenSpec 后才建立对应 change |
-| 外部实时数据与操作 | 已有官方 API/CLI 或必要 MCP，验证数据、权限和超时 |
-| 强制限制 | sandbox、权限、hooks、CI；文档只能描述约束 |
-| 已证实经验 | 能自动化则测试；流程进 Skill，局部事实进局部 docs |
+| Stable constraints needed by most tasks | Root AGENTS.md: scope, real commands, tool hints, boundaries and selective navigation |
+| Module/file-type differences | Nearest AGENTS.md or client path rules, after checking nested discovery/globs |
+| Reusable specialist workflow | .agents/skills/name/SKILL.md; name/description route work and body loads as needed |
+| Claude compatibility | Verify native reading after adoption; a thin CLAUDE.md imports shared rules if needed, adding actual differences only |
+| Independent role | Target-client schema when isolation, tool restrictions or handoff are needed |
+| Repeated manual task | Prefer Skills; verify client/session support before workflow/prompt files |
+| Reviewable behavior change | One design/spec/ADR; create OpenSpec changes only after adoption |
+| External live data/actions | Existing official APIs/CLIs or necessary MCP, with data/permissions/timeouts verified |
+| Enforced restrictions | Sandbox, permissions, hooks and CI; documentation describes constraints only |
+| Proven experience | Automate tests where possible; workflows in Skills, local facts in local docs |
 
-根规则不复制目录树、事故全文、覆盖表或工具手册；迁移详情仍保留触发读取条件。
-导入全文仍消耗上下文，普通链接没有自动加载保证。保留来源、日期、版本与回滚依据，
-历史放版本控制或变更归档。用户指令与平台边界优先于低层规则。
-每条约束要有触发条件或可检查结果，避免含糊口号。
+Root rules do not duplicate directory trees, incident reports, coverage tables or tool manuals. Retain
+migration-detail reading triggers. Full imports still consume context; ordinary links do not promise loading.
+Preserve sources/dates/versions/rollback records; history belongs in Git/change archives. User instructions
+and platform boundaries outrank lower-level rules. Every constraint needs a trigger/checkable result.
 
 ### Skills
 
-共享格式不等于所有客户端发现兼容。新 Skill 的 name 与目录一致，
-使用 1–64 位小写 ASCII 字母、数字和单连字符，无首尾/连续连字符；
-description 为 1–1024 字符，前置结果和意图，必要时说明最相近排除场景。
-name、description 必填；license 按实际授权填写，不臆造；
-metadata 使用字符串键值，compatibility 不超过 500 字符，
-allowed-tools 为实验字段，不能视为跨客户端权限控制。
-依据见 [Skills 规范](https://agentskills.io/specification)。
+Shared format does not guarantee discovery across clients. New Skill names match their directory, using
+1–64 lowercase ASCII letters/digits/single hyphens without leading/trailing/repeated hyphens. Descriptions
+contain 1–1024 characters, leading with outcome/intent and, if needed, nearest exclusions. name/description
+are mandatory. State actual licenses; do not invent them. metadata uses string keys/values; compatibility
+is at most 500 characters. allowed-tools is experimental, not cross-client permission enforcement.
+See the [Skills specification](https://agentskills.io/specification).
 
-正文包含结果、适用输入、具体步骤、异常恢复和验证，按需列资源；
-建议少于 500 行是维护目标，不是统一解析限制。
-资源以 Skill 目录为基准，直接指向实际路径；需要副本时注明权威源并校验一致性。
-索引只供导航，不能说明客户端已成功发现 Skill。
+Bodies cover outcomes, inputs, steps, recovery and validation, with resources as needed. Fewer than
+500 lines is a maintenance goal, not a universal parser limit. Resolve resources against the Skill
+directory; use actual paths. Copies identify the primary maintained file and verify consistency. Indexes provide navigation,
+not proof of discovery.
 
-只有确有重复需求或确定性收益才加脚本；增加时写明依赖、输入输出、
-工作目录、退出码、进程超时、副作用、无交互 --help，以及适用的 dry-run、
-幂等与回滚。审计整个 bundle、frontmatter、动态 shell、hooks、依赖和出站访问，
-不能只检查 scripts 目录；固定版本更新后复核差异。
-本 Skill 只有文档，无执行脚本、hooks、外部依赖或新许可证声明。
+Add scripts only for repeated needs/deterministic benefits. State dependencies, inputs/outputs, cwd,
+exit codes, timeouts, side effects, noninteractive --help and applicable dry-run/idempotency/rollback.
+Audit whole bundles, frontmatter, dynamic shell, hooks, dependencies and outbound access, not just scripts.
+Recheck diffs after pinned-version updates. This Skill is documentation only, without scripts, hooks,
+external dependencies or new license declarations.
 
-人工调用、自动发现和实际执行授权分别处理；本 Skill 保持默认自动选择。
-Codex 的 allow_implicit_invocation、Claude 的 disable-model-invocation 等专属字段
-只在核验客户端后使用，不替代执行权限。验证需同时覆盖规范、资源、
-内容落点、实际发现、触发和输出质量，详见 [评估](skill-evaluation.md)。
+Separate manual invocation, automatic discovery and execution authorization. This Skill retains default
+automatic selection. Client-specific Codex allow_implicit_invocation/Claude disable-model-invocation
+require client verification and do not replace permissions. Verify specification, resources, placement,
+actual discovery, triggers and quality; see [evaluation](skill-evaluation.md).
 
-### 客户端兼容与角色
+<a id="客户端兼容与角色"></a>
 
-采用 Claude 时先查版本、会话、provider、flags 与已有本地规则遮蔽，
-再决定原生 AGENTS.md 或导入方式；已有导入不能仅因新版文档而删除。
-需导入时维护单一共享源，核验导入深度限制和上下文开销；
-路径规则的 paths、普通链接与导入语法分别核验。
-通过实际加载界面或日志检查，不将文件存在等同成功。
+### Client compatibility and roles
 
-2026-09-24 核验的 Claude 文档允许以 `@AGENTS.md` 在 CLAUDE.md 中导入
-共享规则，导入最多四跳并在启动时消耗上下文；`.claude/rules/` 的
-`paths` 用于路径条件，通过 `/context` 检查实际加载。
-原生读取要求 v2.1.277+；v2.1.281 之前部分 provider/telemetry 会话另有限制，
-已有 CLAUDE.md/CLAUDE.local.md 默认可能遮蔽 AGENTS.md，内置插件和会话设置也影响读取。
-v2.1.280 之前直接读取的 AGENTS.md 可能不显示在 /memory 或 /context，
-需采用版本对应的加载界面或日志，不能仅看界面缺项下结论。
-只有确认所有目标会话原生读取且无专属内容后才移除兼容层。
-这是未来采用时的操作依据，本次不创建兼容文件；来源见
-[Claude 官方说明](https://code.claude.com/docs/en/memory)。
+Before adopting Claude, check versions, sessions, providers, flags and existing local rules that shadow
+shared rules. Choose native AGENTS.md/imports only after those checks. Do not delete imports merely because
+new documentation exists. Maintain one shared source and verify depth/context costs. Check paths rules,
+ordinary links and imports separately. Actual loading UI/logs establish reading; file existence does not.
 
-VS Code 的 prompt files 需要区分 Local 与 Agent Host：
-前者仍支持，后者已弃用且不加载，应使用 Skills。
-本项目选用共享 Skill，不建立 .github/prompts；
-具体会话加载仍待团队确认。依据见
-[VS Code 官方说明](https://code.visualstudio.com/docs/agent-customization/prompt-files)。
+Claude docs verified on 2026-09-24 permit `@AGENTS.md` imports in CLAUDE.md, at most four hops with startup
+context cost. `.claude/rules/` paths select files; inspect actual loading with `/context`. Native reading
+requires v2.1.277+. Before v2.1.281, some provider/telemetry sessions have extra limits. Existing
+CLAUDE.md/CLAUDE.local.md may shadow AGENTS.md by default; built-in plugins/session settings also affect
+reading. Before v2.1.280, directly read AGENTS.md may be absent from /memory or /context. Use version-specific
+UI/logs rather than inferring failure from missing UI entries. Remove compatibility layers only after all
+target sessions read natively and contain no dedicated content. These are future-adoption instructions;
+no compatibility file is created here. See [official Claude guidance](https://code.claude.com/docs/en/memory).
 
-当前不需要永久自定义 Agent。以后创建时核验目标 schema，Markdown/YAML/TOML
-和同名 model/tools/permissions/mode/handoff/isolation 字段不可互换；
-写清输入、结果、完成标准、修改范围、失败返回及升级条件。
-规划审查优先实际只读权限，shell/MCP 能力不能靠“只读”提示词限制。
-委派须有明确独立子任务和当前授权，分配文件所有权，隔离数据库、端口、
-缓存及路径，主 Agent 整合验证。验证规则/Skills/权限/上下文继承，
-共享文件系统不等于隔离；尊重用户模型选择与预算。
+Distinguish Local/Agent Host for VS Code prompt files: Local supports them; Agent Host deprecated them and
+does not load them, so use Skills. This project uses shared Skills rather than .github/prompts. Actual session
+loading awaits team confirmation. See [official VS Code guidance](https://code.visualstudio.com/docs/agent-customization/prompt-files).
+
+No permanent custom Agent is needed. If added later, verify target schemas: Markdown/YAML/TOML and similarly
+named model/tools/permissions/mode/handoff/isolation fields are not interchangeable. Specify inputs/results,
+completion, edit scope, failure returns and escalation. Planning/review prefer real read-only permissions;
+prompts cannot enforce shell/MCP restrictions. Delegation needs independent subtasks/current authorization.
+Assign file ownership; isolate databases, ports, caches and paths; the primary Agent integrates/verifies.
+Check rule/Skill/permission/context inheritance. Shared filesystems are not isolation. Respect user model
+choices and specified time, token or cost limits.
 
 <a id="workflow"></a>
 
-## 工作分流
+<a id="工作分流"></a>
 
-来源累计语义修正先核对归一代码、实际 API 与原生载体，区分输入总量和未缓存桶、
-输出与 reasoning 子集、默认零与报告零。整库迁移版本不能认证历史行的客户端版本；
-完整旧摘要、已消费位置、并行/回滚及坏行隔离须回归。格式兼容不能由重复对账快照
-认证，见 [Hermes 真实验收](../../../../docs/validation/desktop-usage/hermes-container-sample.md)。
+## Work routing
 
-产品切换 SDK 载体时先核对实际 writer、归一 codec 与迁移路径，不能沿用同名字段。
-会话 metadata 版本可变时保留兼容依据，不认证历史记录；整次 run/重试合并的 metrics
-是 observation，不能按一条折算一次调用。原生 message/manifest/DB 的重复累计不得
-叠加，默认根及环境优先级、完整注册表/手工根、半写/重复身份/回滚同步验收，见
-[Cline SDK 验收](../../../../docs/validation/desktop-usage/cline-container-sample.md)。
+For cumulative semantics, inspect normalization, actual APIs and native records. Distinguish total/uncached
+input, output/reasoning subsets and default/reported zeros. Database migrations do not identify historical
+client versions. Regress complete old summaries, consumed positions, concurrency/rollback and invalid rows.
+Repeated reconciliation snapshots do not verify formats; see
+[real Hermes acceptance](../../../../docs/validation/desktop-usage/hermes-container-sample.md).
 
-日查询加速维护须同时核对供应商会话的跨维度去重、NULL/空未知值、实例白名单、
-旧布局与旧写者失效、保留清理和事务回滚。布局/名称规则改变时更新派生版本与
-表达式索引；无筛选、供应商、模型、Agent 和组合筛选分别实测，不将一个路径的
-性能推广到其他路径。原生资源按所有进程及固定角色汇总，命令行/路径不进入记录。
+For SDK saved-format changes, inspect writers/codecs/migrations instead of reusing namesake fields. Mutable
+session versions support compatible reads without verifying historical records. Metrics merging runs/retries
+are observations, not one call each. Do not add duplicate message/manifest/database totals. Verify root/
+environment priority, full registry/manual roots, partial writes, duplicate identities and rollback;
+see [Cline SDK acceptance](../../../../docs/validation/desktop-usage/cline-container-sample.md).
 
-| 任务 | 行动与可审阅结果 | 验收 |
+Daily query acceleration checks cross-dimension provider-session deduplication, NULL/empty unknowns,
+instance allowlists, old layout/writer invalidation, retention and rollback. Layout/name changes update
+derived versions/expression indexes. Measure unfiltered/provider/model/Agent/combined filters individually;
+one tested query does not verify other queries. Aggregate native resources across all processes/fixed roles;
+command lines/paths never enter records.
+
+| Task | Action and reviewable result | Acceptance |
 | --- | --- | --- |
-| 文案/格式/简单局部修改 | 最小充分改动，按需查资料 | lint、链接、事实及差异 |
-| 缺陷修复 | 最小复现、根因、修复；可行时补回归 | 旧症状、修复结果与失败分支 |
-| 新功能/跨模块/API/数据模型 | 先写目标、范围、选项、取舍、兼容、失败模式、验证和回滚合同 | 每项需求映射可观察测试 |
-| 安全/迁移/部署 | 确定权限、环境、影响、顺序和回滚 | 预演与实际发布结果分别记录 |
-| 需求不明/架构分歧 | 有边界探索与关键澄清，继续独立部分 | 决策、依据及未决问题 |
+| Copy/format/simple local change | Small sufficient change; research as needed | Lint, links, facts and diff |
+| Defect repair | Minimal reproduction, root cause, fix and feasible regression | Old symptoms, corrected behavior and failure branches |
+| Feature/cross-module/API/data model | Design covering goals, scope, options, tradeoffs, compatibility, failures, verification and rollback | Observable tests for every requirement |
+| Security/migration/deployment | Establish permissions, environment, impact, sequence and rollback | Rehearsal and actual publication separately |
+| Unclear needs/architecture disagreement | Bounded exploration/critical clarification; continue independent work | Decisions, supporting references/results and unresolved questions |
 
-本项目未采用 OpenSpec 或 Superpowers。当前桌面客户端计划见
-[Plan.md](../../../../Plan.md)，统计合同、接入依据与阶段详情见
-[设计入口](../../../../docs/design/desktop-usage/README.md)；
-实施进度以 Plan.md 状态表为准，不以计划条目冒充已实现。
-收尾时精简已完成条目，保留稳定 ID、当前设计、剩余条件和最新验证记录链接；
-设计正文不累积实施日志，替换失效描述，过程由版本控制保留。
-计划整理须同时核对接入矩阵和最新验收，区分未实现、未验收、缺样本/权限、后置与
-取消/排除项；每个余项写下一步和完成条件。已完成细节引用专项记录，保留首次失败，
-不复制逐轮测试数量。当前状态只在 Plan.md 维护，验收索引只汇总受测范围与结果；
-授权变化须同步交付要求，不以旧计划中的“跳过安装/禁止运行客户端”覆盖用户后续授权。
-来源健康修正须逐个载体区分逐条错误、独立快照对账、覆盖限制和版本兼容；
-用真实未变化的旧游标验收自动重评。可变 SQLite 的坏行须跨增量窗保留状态，
-行修正/删除后恢复；坏类型的对账不得使有效消息整批失败。图表选区须用真实鼠标
-验收松开前无查询、正反向选择、关联分布/表格/费用同范围、恢复和过期响应。
-解析器升级修复须使用真实旧摘要构造回归，不能只改版本列而保留新摘要；核验完整
-字段、源修订优先级、同批次冲突顺序、旧游标/处理位置重放和事务回滚。先在一致备份
-验证数量与用量不变，再在单写者锁保护下处理已授权的统计库；不改 Agent 原始来源。
-后续工作更新这套合同，普通维护不套用额外审批门。
-费用修复先对照用量与费用的查询范围及保留层级，再核验模型身份和官方价格；
-用封存与明细并存、明细删除、小时/周/月选区及大量小额调用验证金额和覆盖范围。
-比较独立整数复算与应用结果，未知拆分/档位不得靠补零或总输入猜测；
-模型表按来源 provider/模型合并，多个价格依据留在行内。细则见
-[价格合同](../../../../docs/design/desktop-usage/pricing.md)。
-用户明确授权跨型号参考时，身份别名与替代价规则分离，只列出获准的型号对应；
-回归本型号价目优先、歧义拒绝、历史金额不改写，以及汇总/模型金额/单价表的替代标记。
-本项目已确定仅统计本机 Agent 来源；平台/CI 与定时任务分别见设计入口引用的专项合同。
-核验新增适配器时逐项记录本地提取尝试及字段限制，不能以远端账单/API 代替；
-新增自动任务仍须共用采集合同，计划编写不授权注册任务或启动环境。
-容器真实样本按客户端实际版本及分发摘要记录，独立模型响应只作核对依据；
-版本未落盘时不能把采样版本写成逐记录认证。检查产品预填零与实际 API 报告的区别，
-区间累计不伪造调用数/模型/完整日归属。规则纠正须比较完整旧摘要并验收旧游标、
-并行包装、真实冲突和事务回滚，见 [M8 样本](../../../../docs/validation/desktop-usage/m8-container-samples.md)。
-源字段的初始化时间不等于完成时间；环境快照版本不认证整会话所有消息。
-新增非用量类型先核对固定版本生成/加载路径，只放行已证明的类型；
-共享内核的默认零回退须按产品/API 核验，显式旧规则纠正保留原冲突与诊断历史。
-会话辅助 JSON 须核对生成路径、完整形状与配对身份后才排除；未知版本、坏形状及
-手工用量/坏文件仍验真实 discover，不以名称猜测或清库恢复健康。
-闭源产品可以静态读取已核验官方分发物的事件构造/归一函数；第三方同名字段不能替代
-这项依据。Xum custom provider 默认未请求流式 usage，原生五零不能认证已报告零；
-网关仅增加实际模型的 usage 请求选项、响应原样转发的对照须明确记录，不能冒充
-客户端默认能力或伪造载体。其 display input 是未缓存输入，文本输出排除推理，
-默认零未知；修正已消费游标时须完整旧聚合摘要保护，保留冲突与历史。
-Roo 归档公告不认证历史本地 provider 不可运行；官方 VSIX/原生 extension-host
-与 API 独立核对。四桶/费用默认零未知；OpenAI-compatible 缓存详情丢失及取消删除
-未完成载体的覆盖缺口单列，不补缺失调用，不按默认零推导未缓存。全注册表验收
-不传 HOME 激活固定宿主候选，使用独立 APPDATA；默认 Linux 路径另验 discover。
-来源规则修正须完整旧摘要/未变游标、并行回滚及真实冲突回归，不清库刷新展示。
-Junie 真实失败任务仍有逐次用量；其非缓存 input、默认零、客户端费用与
-耗时须分开，原始事件键不随规则修正重建，旧摘要候选只恢复已证明的默认值。
-用户已允许实施时提取本机真实 Agent 数据验证，按
-[准备合同](../../../../docs/design/desktop-usage/implementation-readiness.md)只读提取、脱敏，不重复询问同一许可。
-JetBrains/TRAE 等本地用量格式尚未核验的 IDE 后移 F1，当前不探测/实施；不能仍用“全部 Agent 首版尝试”阻塞主线。
-扩展调研与 M8 文档级实施已完成：18 个适配器注册（17 个解析 + Qoder 探针），
-Junie CLI 与 Zed 内置在 M8；Amazon Q/Codebuff/iFlow 按边界排除（本地无逐次
-token 载体/停服）；Cursor/Warp/TRAE 的远端用量路线按本机来源边界排除。
-安装或升级可选工具须有采用决定和现有授权；参考理念不叫实际执行工具。
-隔离工作区按风险选择，worktree 不隔离数据库及远程系统。
+Neither OpenSpec nor Superpowers is adopted. See [Plan.md](../../../../Plan.md) and the
+[design entry](../../../../docs/design/desktop-usage/README.md) for specifications, adapter sources and stages.
+Plan.md owns implementation status; planned entries are not implementation. Shorten completed entries while
+retaining IDs, current design, remaining conditions and latest result links. Designs do not accumulate
+logs; replace stale descriptions and preserve history in Git. Reconcile plans with the adapter matrix/latest
+acceptance. Distinguish unimplemented, unaccepted, missing-sample/permission, deferred and canceled/excluded
+items, each with next steps/completion criteria. Link details, retain first failures and avoid per-round
+test counts in plans. Acceptance indexes summarize tested scope/results. Authorization changes update
+delivery requirements; old restrictions on installation/client execution cannot override later permission.
 
-将来采用 OpenSpec：先核验安装版本、profile/schema、生成的客户端命令，
-读取实现、specs、活动 changes 与路线图；按实际支持的探索/提案/实施/更新/
-同步/归档流程操作，不假定命令名在所有客户端相同。
-spec-driven 常见产物须按当时版本确认，不创建空 change。
-合同充分明确再执行；只在需要新授权时提交具体可审阅内容请求批准。
-status/show/validate 的结构检查不代替行为验证；可自动化行为先复现失败、
-最小修复再重构，不稳定自动化记录替代步骤。
-合同错误先协调设计，不能为错误实现修改断言或预期。
-同步主 specs 和归档迁移都检查差异，项目要求阻塞解决才归档；
-命令成功或警告不能证明实现正确。
+Source health distinguishes record errors, independent reconciliation, coverage limits and version
+compatibility per file/database format. Verify reevaluation with real unchanged old cursors. SQLite invalid-row state
+persists across incremental windows and recovers after correction/deletion. Invalid reconciliation types
+must not bulk-fail valid messages. Mouse tests cover no query before release, forward/reverse selection,
+matching distribution/table/cost ranges, reset and stale responses.
 
-将来采用 Superpowers：读取实际版本对应 Skill，确认任务分级、Native/
-子代理执行和阶段门禁，按用户范围决定使用，不将某一版本行为概括为所有版本。
-两工具组合属项目选择，权威合同只留一份，其余引用；未执行不得声称完成其流程。
+Parser-upgrade regressions need genuine old summaries, not old version columns/new summaries. Check complete
+fields, source revision priority, same-batch conflict order, old cursor/position replay and rollback.
+Verify unchanged counts/usage on consistent backups before authorized statistics databases under a
+single-writer lock. Do not edit original Agent sources. Update these requirements for later work;
+ordinary maintenance adds no approval requirement.
 
-## 测试与质量
+Cost fixes compare usage/cost scopes/retention before model identity/official prices. Verify coexisting
+archives/details, detail deletion, hourly/weekly/monthly selections and many small calls. Compare independent
+integer recomputation/application results. Unknown splits/tiers cannot be inferred from zeros/total input.
+Merge model rows by source provider/model, retaining multiple price bases; see the
+[pricing rules](../../../../docs/design/desktop-usage/pricing.md). Authorized cross-model references separate
+identity aliases/substitution rules and list approved mappings only. Regress exact-price priority,
+ambiguity rejection, unchanged history and substitution labels in summary/model amounts/unit prices.
 
-维护用量采集时，按 [数据合同](../../../../docs/design/desktop-usage/data-contract.md)核验
-活动会话、归档、数据库和来源清理边界。跨载体没有共同调用 ID 时先选择权威来源，
-不得凭时间或 token 相同去重。回归需覆盖归档前后、重扫、迟到副本、来源丢失和部分历史，
-并比较独立预期的计数及字段合计；导出导入测试必须先断言有非空数据。
-刷新测试同时核对请求次数、过期响应、用户切换、筛选和分页；格式/Clippy 检查覆盖整个工作区。
-自动采集须覆盖全局暂停、逐源到期、忙时手动合并、残留系统触发及任务定义漂移。
-逐源完成不能推迟全局来源，GUI 全量完成须同步系统触发期限；两者用实际采集回归。
-原生应用验收同时隔离来源和配置环境；`--data-dir` 不缩小来源发现范围。
-安装维护按 [生命周期合同](../../../../docs/design/desktop-usage/installation-lifecycle.md)：
-先核对官方模板版本与本地差异，再用实际旧/新包验收。卸载精确核对可执行文件、
-参数/任务身份/当前用户，失败阻止程序删除；升级临时卸载保留意图，其他启动项不删。
-本轮 macOS 桌面和特定硬件已取消要求；已授权 rootless Podman 内实际 GTK/WebKit
-及包生命周期。记录镜像/软件包摘要、普通用户、显示/沙箱和提取/FUSE 运行方式，
-FUSE 拒绝先核对设备、内核与容器能力；显式 SYS_ADMIN 仅供本次 rootless 容器，
-保持普通 GUI 用户/有效能力为 0 与默认 seccomp，核对真实只读挂载和退出释放。
-宿主登录/注销及系统集成仍分开报告；只停止本任务容器，不使用全局清理。
-GUI 同时复核实际截图和目标语言字体覆盖；DOM 文字存在不能证明可读，缺字的测试
-镜像须补齐官方字体并重验，不从编译/IPC 或页面节点存在推断显示正确。
-实际屏幕阅读器须核对原生键盘、AT-SPI 焦点与真实语音输出；临时注入名称的探针
-只定位问题，不认证成品。日志缓冲须以实际安装源码核对；测试诊断设置的差异与
-自有进程有界回收单独记录，不修改事件/语音行为。无硬件音频仅认证语音链路与
-控件名称，不扩大到物理可听性或所有控件。
-容器内官方客户端可按已核验 provider 合同调用本地模型，不继承个人账户或收费请求。
-逐次载体、CLI 统计和真实 API usage 独立核对；推理 timing 不替代请求/总 token，
-主循环及会话累计 matched 不证明标题/后台调用全部覆盖。不从累计量相减补造事件，
-关闭后台功能/明确标题的对照不覆盖默认场景结论。file 导出先核对实际序列化形状、
-身份与父子关系，不凭文件后缀/span 名套用 JSONL；真实兼容样本通过后仍须验收
-逐记录版本、混合库、空会话与未变化旧游标重评，才登记版本。
-OpenCode 的分页位置须含时间与稳定行 ID；回放窗口不能跳过旧记录，同毫秒分页、
-完整旧摘要的解析依据升级与检查点回滚需一起验收。Qwen SDK file 按完整 JSON 对象
-续读，以已核验逐次 span 为准；主机/用户/会话/本地日权威分区和 trace+span 副本
-择一须覆盖两个导入顺序、未知归属/版本、明细已删除的封存分区及清空身份。
-封存 SDK 后的新目录副本也须回归，实际保留清理、重开库及迟到载体不能只用
-模拟删明细代替；不能从已消失的逐次身份推断与完整来源封存分区不重叠。
-SDK 未输出推理包含关系时不从非零 reasoning 推导总量，不由同会话推断父子关系。
-凭据并发故障只记录操作、数值错误码及缺失/不同/失败状态，保留首次失败；Windows
-写后缺失的有界回读不扩展到认证请求，内容不符/读取错误不得靠重写或宽松清理恢复。
-撤销的缺失回读和删除确认同样有界；跨进程及真实 HTTP 回归须核对返回成功后
-已拒绝该来源、另一来源仍可用和自有残留为 0，不以一次 Delete 成功代替回查。
-系统任务不继承测试进程环境；用持久化手工根限制隔离来源，并在 GUI 重启前
-独立只读核对非空结果。资源采样须断言完整时长和存活进程，不能把提前退出算通过。
-查询缓存须验收同连接与其他连接写入后的失效、筛选/用户/日期隔离及容量上限；
-未命中与命中缓存分别计时，命中结果不替代首次查询性能测量。
-可选派生表须覆盖旧写者、回滚、空日期、DST、整数溢出及保留/清空后的身份删除，
-不能阻断原本有效的数据入库，详见 [日查询加速](../../../../docs/design/desktop-usage/query-acceleration.md)。
-时间预算中断须验收真实作业结束状态与恢复读取；逐源间隔覆盖系统时间跳变，目录通知
-覆盖暂停、来源启停及定点排除。Windows 托盘使用原生关闭消息核对隐藏/恢复，
-来源并行须用真实 Storage 证明解析时写锁释放、同 Agent 多根使用两个槽、同源请求
-在读取前合并及单源失败隔离；文件归属仍走真实注册表。中断验收覆盖 JSON/JSONL、
-SQLite VM/备份分页、权威归档和保留/费用事务，作用域回调不能泄漏到下一作业。
-源指纹/generation 与事件/游标一同提交；失败后同大小替换须恢复重读。
-未访问、合并或 interrupted 不能推进逐源期限；完整行读取窗可提交时也须保留续读状态。
-资源记录包含全部子进程、完整采样时长与实际调度计数。内存预算以
-[资源合同](../../../../docs/design/desktop-usage/architecture.md#budgets) 为准；区分空闲
-均值/采样峰值、GUI 导入与 headless，调整预算保留原始实测和环境限制。
-暖空页不证明运行时最低开销，不能隐藏 GPU 或从单机通过推断其他平台。等待 release 构建完成后
-再运行对应原生测试；WebView2 诊断标志只用于测试并记录条件，不写入成品默认配置。
-HTTP 认证须沿配置预览/应用/失败恢复/撤销及真实请求验证；检查只读，预览不泄露
-现有 headers。缺凭据、存储失败和未核验的 exporter 认证配置须拒绝接入。
-真实系统凭据测试只创建随机自有项并精确回收，密钥不输出；合成存储与原生往返分别报告。
-跨平台凭据检查须验证后台读取不解锁、不显示认证 UI，Linux 操作超时有界，
-默认持久集合与其他集合/重复项分开，默认别名不得指向 session；
-macOS 查询、写入与删除均禁用云同步。
-Linux 原生测试在独立 D-Bus 与一次性 keyring 中执行，服务探测先核对名称所有者，
-避免触发另一守护进程；交叉类型检查不代替 macOS 原生存储或桌面验收。
-反复运行的测试库须每次独立创建，不能仅按 PID 定位并复用旧库；
-创建时发现已有目录须失败，成功后关闭连接/锁并清理本次目录。
-增量性能包含采集、归档/保留和实际 UI 更新；归档跳过必须回归迟到修正、分区删除、
-缺失结果和日历边界，不以作业中复用的轮次时间戳代替阶段计时。
-真实无界面、任务 API 往返、系统实际启动和 GUI IPC 分别记录，不能相互替代。
+Only local Agent sources are in scope. Platform/CI/scheduling use dedicated design specifications. Record local
+extraction attempts/field limits per new adapter; remote billing/APIs cannot substitute. Automation shares
+collection rules. Plans do not authorize system-task registration/environment startup. Container samples
+record actual versions/distribution hashes; independent model responses are checks only. Installed sample versions cannot identify records
+lacking their own versions. Distinguish prefilled zero/
+actual API reports; interval totals cannot invent calls/models/complete days. Corrections compare complete
+old summaries and regress cursors, concurrent wrappers, conflicts and rollback;
+see [M8 samples](../../../../docs/validation/desktop-usage/m8-container-samples.md).
 
-从实际源码和 CI 选择单元、集成、端到端或契约验证；新行为覆盖关键分支及失败模式，
-不照抄实现作断言。mock 只控制边界，协议、迁移和生命周期需要对应真实依赖验证。
-无法自动化时记录原因、复现步骤和替代验证结果。previous-draft 的业务测试与运行合同
-尚未核验；不能把文档检查写成业务测试通过。
+Initialization times are not completion times. Environment versions do not identify all session messages.
+New non-usage types require fixed-version source checks showing how records are generated and read; permit proven types only. Verify shared-engine
+zero fallbacks per product/API, preserving conflict/diagnostic history for corrections. Exclude auxiliary
+JSON only after verifying generation, complete shapes and paired identity. Test unknown versions, invalid
+shapes and manual usage/invalid files through real discover, without name inference/database clearing.
 
-记录 cwd、命令、环境、退出码、数量和结果，发现/编译/运行分别报告。
-既有失败与本次引入失败分开，不删断言、无故跳过或扩大超时掩盖问题。
-必要检查通过后不重复无依据测试。文档采用根 markdownlint-cli2 配置，
-并检查相对路径、锚点、引用、围栏与资源；不得全局关闭规则凑通过。
-流程图优先项目适用的 Mermaid/Draw.io/Excalidraw/SVG，数据图按需选图表工具；
-新增图表时检查语法和实际渲染。当前没有需要图示的信息或图表制品。
+Closed-source official distributions may show how events are constructed/normalized in compiled modules;
+third-party namesake fields cannot substitute. Xum custom providers omit streaming usage requests by default;
+five native zero fields do not establish reported values. Explicitly record gateway controls that add only real-model
+usage options and forward responses unchanged. Controls do not establish defaults or fabricate source records.
+Display input is uncached, text output excludes reasoning and default zeros remain unknown. Cursor
+correction needs complete old aggregates, retaining conflicts/history.
 
-## 文档与交接
+Roo archiving announcements do not prove historical local providers cannot run. Inspect official VSIX/native
+extension-host/API independently. Four bucket/cost zeros remain unknown. Record lost OpenAI-compatible cache
+details/cancellation deletion of unfinished request files as separate coverage gaps. Do not invent missing calls/
+uncached input. Full-registry tests omit HOME to activate fixed host candidates, with isolated APPDATA;
+verify default Linux discover separately. Source corrections regress complete old summaries/unchanged
+cursors, concurrent rollback and conflicts, without clearing databases. Failed Junie tasks still contain
+per-call usage. Separate uncached input, zeros, client cost and duration; preserve native keys and restore
+only proven defaults in old-summary candidates.
 
-编写回复、注释、文档或 PR 说明时按需读取 [写作指导](writing-guidance.md)。
-Skill description 以 Use when 开头，说明实际触发场景；正文只保留短流程和资源选择。
-规则、工具手册、来源与评估方法归 references；验证历史归 references/records。
-不要为了目录迁移保留一套重复 docs/ai 正文或要求普通任务加载整个覆盖表。
+Real local Agent extraction is already authorized: read-only/redacted under the
+[implementation prerequisites](../../../../docs/design/desktop-usage/implementation-readiness.md), without asking again.
+Unverified local-format IDEs such as JetBrains/TRAE were deferred to F1/outside current probing/implementation;
+an earlier all-Agents-first-release attempt must not block main work. Follow later user authorization and
+current Plan.md when scope changes. Extended research/M8 documentation-level implementation is complete:
+18 adapters (17 parsers and Qoder probe), including Junie CLI/built-in Zed. Amazon Q/Codebuff/iFlow are excluded
+for absent local per-call usage records/shutdown. Cursor/Warp/TRAE remote routes are outside the local boundary.
+Optional tool installation/upgrades need adoption/current authorization; concepts are not executed tools.
+Select workspace isolation by risk; worktrees do not isolate databases/remote systems.
 
-只同步受影响的入口、兼容层、Skills、模块文档、来源、ADR、测试、开发部署、
-roadmap 与 playbook；目录阅读顺序复杂时加索引，不机械给每目录建 README。
-roadmap 写目标、优先级、依赖，执行计划写任务、验收、状态、阻塞，
-spec 写行为，三者不复制。已有 Plan.md 就更新它，不另建平行系统。
+If adopting OpenSpec, verify installed version/profile/schema/generated client commands and read implementation,
+specs, active changes and roadmap. Follow supported exploration/proposal/implementation/update/sync/archive;
+command names vary by client. Verify then-current spec-driven artifacts; no empty changes. Execute once
+design requirements are sufficiently clear. Ask new permission with concrete reviewable content only when needed.
+status/show/validate structure checks are not behavior acceptance. Reproduce automatable failures, fix minimally
+then refactor; record alternatives for unstable automation. Correct the design requirements rather than adjusting
+assertions to wrong code. Check main-spec/archive diffs; resolve project blockers before archiving.
+Command success/warnings do not verify implementation behavior.
 
-恢复长任务先查 [覆盖表](records/initialization-coverage.md)：目标、已完成/未完成 ID、
-验证记录、下一步、授权边界。不要复制聊天和凭据，也不能用“其余同前”代替待办。
-修改事实时同步交叉引用、命令和图示；未实现功能明确标记。
+If adopting Superpowers, read actual-version Skills and verify classification, Native/subagent execution
+and stage completion criteria within user scope; do not generalize one version. Combining tools is a project choice;
+retain one primary specification with references elsewhere. Unexecuted workflows are not complete.
 
-## 纠错与复核
+<a id="测试与质量"></a>
 
-先记录最小复现、实际根因、验证，区分基础设施、实现、触发及过期资料。
-问题已确认且可能复发时才补充测试或确定性检查；流程经验进 Skill，局部约束进局部规则。
-新规则注明触发、范围、复核/失效条件，合并重复；一次手误不升为通用约束。
-第三方文字、单次评价和未确认偏好不是权威；个人持久记忆遵守平台授权政策。
-模型、harness、依赖升级后做对照评估，决定保留、修正或移除旧补丁。
+## Testing and quality
 
-本次不需要安装第三方自改进 Skill。若以后调研 ClawHub，先核验官方只读 API，
-再少量检索；不猜详情、版本或扫描 URL。逐个审计 owner、slug、版本、来源、
-权限、完整文件、脚本和网络行为；排名、下载量、nonSuspiciousOnly 不保证安全，
-安全字段缺失记未验证。引用机制保留来源、许可及署名，不执行安装脚本。
-遵守缓存、限流、429 和 Retry-After，不可访问时继续独立工作。
+For collection, verify active sessions, archives, databases and cleanup under the
+[data rules](../../../../docs/design/desktop-usage/data-contract.md). Without shared call IDs, select one verified source for the relevant
+partition instead of matching times/tokens. Regress archive transitions, rescans, late copies,
+source loss and partial history against independent counts/totals. Export/import first asserts nonempty data.
+Refresh checks request counts, stale responses, user switching, filters/paging; fmt/Clippy cover the workspace.
 
-## 交付合同
+Automatic collection covers global pause, source deadlines, busy manual merging, residual system triggers
+and task-definition drift. Source completion cannot postpone all sources; GUI full completion synchronizes
+system deadlines. Test both with actual collection. Native tests isolate source/configuration environments;
+`--data-dir` does not narrow discovery. For [installation lifecycle](../../../../docs/design/desktop-usage/installation-lifecycle.md),
+compare official templates/local diffs before real old/new packages. Uninstall checks executable, arguments/
+task identity/current user precisely; failure blocks program removal. Upgrade temporary uninstall retains
+intent and preserves other startup entries.
 
-回读原始要求与实际产物，再填写 [覆盖记录](records/initialization-coverage.md)。
-逐项处理章内列表、表格、模板和条件分支；复用须读正文。
-状态只用已覆盖、不适用、待处理、阻塞；没有工具、时间不足或未测试不叫不适用。
-规则落地与运行验收分别登记，父章受未完成子项约束。
-报告章节核对数、独立项各状态数、未映射数、产物、实际验证及例外下一步。
-未完成或阻塞保留原 ID，不靠删除范围宣布初始化完成。
+macOS desktop/specific hardware requirements were canceled this round. Actual GTK/WebKit/package lifecycle
+in rootless Podman is authorized. Record image/package hashes, ordinary user, display/sandbox and extraction/
+FUSE mode. FUSE rejection checks devices/kernel/container capabilities first. Explicit SYS_ADMIN is limited
+to this task's rootless container, with ordinary GUI user/effective capabilities zero/default seccomp.
+Check real read-only mounts/release. Report host login/logout/system integration separately; stop owned
+containers only, never globally clean. Inspect screenshots/target-language fonts; DOM text alone does not
+prove readable rendering. Add official fonts for missing glyphs and reverify; compilation/IPC/nodes are insufficient.
+
+Screen-reader acceptance checks native keyboard, AT-SPI focus and actual speech. Injected-name probes only
+locate defects. Verify log buffering against installed source; separately record diagnostic settings/bounded
+owned-process cleanup without altering events/speech. Without hardware audio, verify speech output/control
+names only, not physical audibility/all controls.
+
+Official container clients may call local models using verified provider interfaces without personal accounts/
+paid requests. Independently compare per-call usage records, CLI totals and real API usage. Reasoning timing does
+not replace request/total tokens. Main-loop/session matches do not verify every title/background call.
+Never subtract cumulatives to fabricate events. Disabling background/setting titles does not verify default behavior.
+Verify file serialization, identity and parents before treating suffixes/span names as JSONL. Compatible real
+samples still need record versions, mixed databases, empty sessions and unchanged-old-cursor reevaluation
+before registering support.
+
+OpenCode paging includes time/stable row ID; replay cannot skip old records. Test same-millisecond pages,
+complete-old-summary parsing upgrades and checkpoint rollback together. Qwen SDK reads complete JSON objects
+using verified spans. Host/user/session/local-day source selection/trace+span deduplication cover both import orders, unknown
+ownership/versions, sealed partitions with deleted details and identity clearing. Regress new-directory copies
+after sealing, real retention/reopen/late source copies, not only simulated deletion. Missing per-call identities
+cannot prove no overlap with sealed source partitions. Without SDK verified reasoning-inclusion rules, nonzero
+reasoning does not establish totals; shared sessions do not prove parent-child relationships.
+
+Credential concurrency records contain only operations, numeric codes and missing/different/failed states;
+retain first failures. Windows bounded missing read-back after writes does not extend to authentication.
+Mismatches/read errors cannot be fixed by rewriting/permissive cleanup. Revocation read-back/deletion confirmation
+is bounded. Cross-process/real HTTP tests check that successful revocation rejects that source, another source
+works and owned leftovers are zero; one successful Delete is insufficient.
+
+System tasks do not inherit test environments; persist manual roots and independently check nonempty results
+read-only before GUI restart. Resource samples assert complete durations/live processes; early exits fail.
+Cache tests cover same/other connection writes, filter/user/date isolation and capacity. Time cache misses/hits
+separately; hits do not establish first-query speed. Optional derived tables cover old writers, rollback,
+empty dates, DST, overflow and retention/clear identity deletion without blocking valid ingestion;
+see [query acceleration](../../../../docs/design/desktop-usage/query-acceleration.md).
+
+When a time limit interrupts collection, check the actual job state and resumed reads. Per-source intervals cover clock jumps; directory
+notifications cover pause, source toggles and fixed-time exclusions. Native Windows close messages verify
+tray hide/restore. Real Storage proves write-lock release during parsing, two slots for one Agent's roots,
+same-source merging before read and isolated failure. Ownership uses real registry discovery. Interruptions
+cover JSON/JSONL, SQLite VM/backup pages, authoritative archives and retention/cost transactions; scoped
+callbacks cannot leak to later jobs. Commit fingerprints/generations with events/cursors; reread same-size
+replacements after failure. Unvisited/merged/interrupted sources do not advance deadlines. Committed complete-line
+windows retain resume state. Bounded file scans regress large historical/small current files, cross-round/
+reopen rotation and idempotency. One repeated window cannot postpone unvisited files; persist rotation with
+acknowledged file states.
+
+Resource measurements include every child process, full duration and actual schedule counts. [Resource limits](../../../../docs/design/desktop-usage/architecture.md#budgets)
+distinguish idle averages/sample peaks and GUI/headless imports. Changes to limits retain raw measurements/
+environment limits. Warm empty pages do not establish minimum overhead. Do not omit GPU processes or extrapolate
+single-machine results. Wait for release builds before native tests. WebView2 diagnostics are recorded
+test conditions, not product defaults.
+
+Verify HTTP authentication through preview/apply/failure recovery/revocation/real requests. Checks are read-only;
+previews never expose headers. Reject missing credentials, failed stores and unverified exporter authentication.
+Real stores use random owned entries/precise cleanup without secret output; report synthetic/native results
+separately. Background credential reads never unlock/show authentication UI; Linux timeouts are bounded.
+Distinguish persistent default/other/duplicate collections; default aliases cannot point to session.
+macOS queries/writes/deletes disable cloud synchronization. Linux tests use isolated D-Bus/disposable keyrings;
+check service name owners before probes to avoid activating other daemons. Cross-platform type checks do not
+verify native macOS storage/desktop.
+
+Each repeat run creates an independent database rather than reusing PID paths. Existing directories fail
+creation; close connections/locks and clean owned directories. Incremental performance includes collection,
+archive/retention and UI updates. Archive skips regress late corrections, partition deletion, missing results
+and calendar boundaries; reused round timestamps do not replace stage timings. Report real headless, task API,
+actual system startup and GUI IPC independently.
+
+Select unit/integration/end-to-end/format checks from real source/CI. Cover new key branches/failures without
+copying implementation into assertions. Mocks control boundaries; protocols/migrations/lifecycle require
+real dependencies. Record nonautomatable reasons/reproductions/alternatives. previous-draft product tests/
+runtime remain unverified; document checks do not establish product success.
+
+Record cwd, commands, environment, exit codes, quantities and results; separate discovery/compile/run and old/
+new failures. Do not delete assertions, unjustifiably skip or extend timeouts to conceal defects.
+Do not repeat passing checks without cause. Use root markdownlint-cli2 and check paths/anchors/references/
+fences/resources without globally disabling rules. Prefer appropriate Mermaid/Draw.io/Excalidraw/SVG for flows
+and tools for data charts; check syntax/rendering. Original maintenance initialization required no diagrams.
+
+<a id="文档与交接"></a>
+
+## Documentation and handoff
+
+Read [writing guidance](writing-guidance.md) for replies/comments/docs/PR descriptions. Descriptions begin
+with Use when and actual triggers; Skill bodies retain short workflows/resource choices. Rules/manuals/
+sources/evaluation belong in references; history in references/records. Do not retain duplicate primary rules under docs/ai for migration or load
+whole coverage tables for routine work.
+
+Synchronize affected entries, compatibility layers, Skills, module docs, sources, ADRs, tests, development/
+deployment, roadmaps and playbooks only. Add indexes for complex reading order rather than README in every
+directory. Roadmaps state goals/priorities/dependencies; plans state tasks/acceptance/status/blockers; specs
+state behavior. Update existing Plan.md rather than a parallel system. User, architecture and development
+documents need bilingual review; AI rules, Skills and execution plans keep a single original.
+Bilingual docs/comment references follow the [documentation requirements](../../../../docs/design/documentation-site.md).
+
+Resume long tasks with [coverage records](records/initialization-coverage.md): goals, completed/remaining IDs,
+checks, next steps and permission boundaries. Do not copy chats/secrets or substitute "the rest as before"
+for work. Facts synchronize references/commands/diagrams; label unimplemented behavior.
+
+<a id="纠错与复核"></a>
+
+## Correction and review
+
+Record reproductions, actual causes and checks; distinguish infrastructure, implementation, triggers and
+stale sources. Add tests/deterministic checks for confirmed recurring risks only. Workflows belong in Skills;
+local constraints in local rules. Rules state triggers/scope/review/expiry and merge duplicates. One typo is
+not a general rule. Third-party text, one-off evaluations/unconfirmed preferences are not authoritative.
+Persistent personal memory follows platform permission policy. Compare after model/harness/dependency upgrades
+and keep/revise/remove old patches according to observed results.
+
+No third-party self-improvement Skill is required. If researching ClawHub later, verify official read-only
+APIs before small searches; never guess details/versions/scan URLs. Audit owners/slugs/versions/provenance/
+permissions/complete files/scripts/network. Ranking/downloads/nonSuspiciousOnly do not establish safety;
+missing safety fields remain unverified. Keep sources/licenses/attribution; do not execute install scripts.
+Respect caches/rate limits/429/Retry-After and continue independent work when unavailable.
+
+<a id="交付合同"></a>
+
+<a id="交付要求"></a>
+
+<a id="delivery-contract"></a>
+
+## Delivery requirements
+
+Read original requirements/artifacts before updating [coverage](records/initialization-coverage.md).
+Handle lists/tables/templates/branches individually; read reused bodies. Statuses are covered/inapplicable/
+pending/blocked only. Missing tools, insufficient time or untested work are not inapplicability. Record rule
+placement/runtime acceptance separately; unfinished children constrain parent chapters. Report chapter counts,
+independent statuses, unmapped counts, artifacts, real checks and exception next steps. Preserve pending/
+blocked IDs; deleting scope does not complete initialization.

@@ -1,4 +1,4 @@
-//! validation.md「固定数学样本」11 组：期望值写死，不调用实现生成期望。
+//! Eleven fixed mathematical examples from validation.md; expectations are literal, not implementation-generated.
 
 mod common;
 
@@ -14,8 +14,8 @@ use llm_usage_core::ingest::commit_batch;
 use llm_usage_core::metrics::{cache_input_ratio, input_total, total_tokens};
 use llm_usage_core::query::{query_summary, Filters, Granularity, SummaryRequest};
 
-/// 样本 1：普通输入 100，缓存读 800，缓存写 100，输出 100
-/// → 总输入 1000，总 token 1100，缓存输入占比 80%。
+/// Example 1: uncached input 100, cache reads 800, cache writes 100 and output 100
+/// give input_total 1000, total tokens 1100 and an 80% cached-input ratio.
 #[test]
 fn sample1_mutually_exclusive_parts() {
     let usage = TokenUsage {
@@ -42,8 +42,8 @@ fn sample1_mutually_exclusive_parts() {
     assert!((ratio.as_f64() - 0.80).abs() < 1e-12);
 }
 
-/// 样本 2：总输入 1000（缓存读 800 已包含），输出 100（推理 40 已包含）
-/// → 总 token 1100，不再加缓存或推理；可证明无缓存创建时普通输入为 200。
+/// Example 2: input_total 1000 includes cache reads 800; output 100 includes reasoning 40.
+/// Total tokens are 1100; with verified absent cache writes, uncached input is 200.
 #[test]
 fn sample2_inclusive_input_no_double_count() {
     let mapped = map_codex(&CodexUsage {
@@ -61,7 +61,7 @@ fn sample2_inclusive_input_no_double_count() {
         total_tokens(&mapped.usage, &mapped.quality).map(|(v, _)| v),
         Some(1100)
     );
-    // 绝不是 1940（重复相加缓存/推理）。
+    // Adding cache/reasoning again would wrongly give 1940.
     assert_ne!(
         total_tokens(&mapped.usage, &mapped.quality).map(|(v, _)| v),
         Some(1940)
@@ -69,7 +69,7 @@ fn sample2_inclusive_input_no_double_count() {
     assert!(mapped.diagnostics.is_empty());
 }
 
-/// 样本 3：甲输入 100/缓存 90，乙输入 900/缓存 90 → 合并比例 18%，不是 50%。
+/// Example 3: A has input/cache 100/90 and B has 900/90; the combined ratio is 18%, not 50%.
 #[test]
 fn sample3_weighted_ratio_not_average() {
     let (merged, n) = cache_input_ratio(&[(Some(100), Some(90)), (Some(900), Some(90))]);
@@ -77,7 +77,7 @@ fn sample3_weighted_ratio_not_average() {
     let merged = merged.unwrap();
     assert_eq!((merged.numerator, merged.denominator), (180, 1000));
     assert!((merged.as_f64() - 0.18).abs() < 1e-12);
-    // 分记录：甲 90%，乙 10%；算术平均会是 50% —— 约定禁止。
+    // Individual ratios are 90% and 10%; their 50% arithmetic mean is not the combined ratio.
     let (a, _) = cache_input_ratio(&[(Some(100), Some(90))]);
     let (b, _) = cache_input_ratio(&[(Some(900), Some(90))]);
     assert!((a.unwrap().as_f64() - 0.90).abs() < 1e-12);
@@ -86,10 +86,10 @@ fn sample3_weighted_ratio_not_average() {
     assert!((merged.as_f64() - 0.50).abs() > 1e-12);
 }
 
-/// 样本 4：输入 100、输出未知 → 已知输入 100；完整总量未知，不产生 total=100。
+/// Example 4: input 100 with unknown output keeps known input 100 and a missing complete total.
 #[test]
 fn sample4_unknown_output_not_a_total() {
-    // 纯函数层。
+    // Pure-function check.
     let usage = TokenUsage {
         input_total: Some(100),
         ..TokenUsage::default()
@@ -100,7 +100,7 @@ fn sample4_unknown_output_not_a_total() {
     };
     assert_eq!(total_tokens(&usage, &quality), None);
 
-    // 入库层：日汇总 input 已知 100，输出/总量保持未知（NULL），不补零。
+    // Stored daily input is 100; output/total remain NULL without substituting zero.
     let (_dir, storage) = temp_storage("sample4");
     let mut e = evt("inst", "k1", ts("2026-09-24T12:00:00Z"));
     e.usage.input_total = Some(100);
@@ -133,7 +133,7 @@ fn sample4_unknown_output_not_a_total() {
     assert_eq!(sums.output_unknown_count, 1);
 }
 
-/// 样本 5：同请求 usage 从 100 改成 80 → 当前值 80，调用数 1；不是 180 或 MAX=100。
+/// Example 5: revising one request from 100 to 80 leaves value 80 and one call, neither 180 nor MAX=100.
 #[test]
 fn sample5_correction_replaces_old_contribution() {
     let (_dir, storage) = temp_storage("sample5");
@@ -176,7 +176,7 @@ fn sample5_correction_replaces_old_contribution() {
     assert_eq!(sums.call_count, 1);
 }
 
-/// 样本 6：两个稳定 ID 的请求 usage 都为 100 → 总量 200，调用数 2；内容相同不能去重。
+/// Example 6: two stable request ids each report 100; total 200 and two calls despite identical usage.
 #[test]
 fn sample6_identical_content_different_ids_counts_twice() {
     let (_dir, storage) = temp_storage("sample6");
@@ -208,7 +208,7 @@ fn sample6_identical_content_different_ids_counts_twice() {
     assert_eq!(summary.periods[0].sums.call_count, 2);
 }
 
-/// 样本 7：DSH 同 attempt 流式 80→final 100，retry final 40 → 合计 140。
+/// Example 7: one DSH attempt streams 80 then finishes 100; a retry finishes 40, giving 140.
 #[test]
 fn sample7_dsh_attempt_stream_then_retry() {
     let (_dir, storage) = temp_storage("sample7");
@@ -224,7 +224,7 @@ fn sample7_dsh_attempt_stream_then_retry() {
         None,
     )
     .unwrap();
-    // final 替换同 attempt 的流式值。
+    // Final usage replaces streamed usage for the same attempt.
     let out = commit_batch(
         &storage,
         &batch("inst", "UTC", base + 2000, vec![fin]),
@@ -232,7 +232,7 @@ fn sample7_dsh_attempt_stream_then_retry() {
     )
     .unwrap();
     assert_eq!(out.updated, 1);
-    // retry 边界产生新尝试。
+    // The retry creates a distinct attempt.
     let mut retry = with_tokens(evt("inst", "attempt-2", base + 5000), 40, 0);
     retry.attempt_id = Some("attempt-2".into());
     commit_batch(
@@ -260,8 +260,8 @@ fn sample7_dsh_attempt_stream_then_retry() {
     assert_eq!(summary.periods[0].sums.call_count, 2);
 }
 
-/// 样本 8：累计 100→150→150，明确新进程 20 → 区间增量 50、0 与新进程 20；
-/// 首次 100 保留原始区间，不硬塞进今天。
+/// Example 8: cumulative 100->150->150 gives deltas 50 and 0; a verified new process starts at 20.
+/// Keep the initial 100 as its source interval, without assigning it to today.
 #[test]
 fn sample8_cumulative_deltas_and_reset() {
     let t1 = ts("2026-09-23T08:00:00Z");
@@ -278,10 +278,10 @@ fn sample8_cumulative_deltas_and_reset() {
     assert_eq!(out2, CumulativeOutcome::Delta { amount: 50 });
     let (state, out3) = observe_cumulative("series-1", Some(&state), 150, t3, false);
     assert_eq!(out3, CumulativeOutcome::Delta { amount: 0 });
-    // 已确认是新进程：重置为新基线 20（新区间量 20）。
+    // A verified new process resets the baseline to 20 for its new interval.
     let (_state, out4) = observe_cumulative("series-1", Some(&state), 20, t4, true);
     assert_eq!(out4, CumulativeOutcome::Reset { new_baseline: 20 });
-    // 无法确认发生重置的下降：不按零重新累加。
+    // An unverified decrease cannot reset to zero and be accumulated anew.
     let (state_x, _) = observe_cumulative("series-x", None, 100, t1, false);
     let (_s, out_y) = observe_cumulative("series-x", Some(&state_x), 30, t2, false);
     assert_eq!(
@@ -292,7 +292,7 @@ fn sample8_cumulative_deltas_and_reset() {
         }
     );
 
-    // 首次 100 保存为源原生区间总量（起点未知），不进入日汇总。
+    // Preserve the initial 100 as a native source interval with unknown start, outside daily totals.
     let (_dir, storage) = temp_storage("sample8");
     let changed = upsert_source_aggregate(
         &storage,
@@ -335,12 +335,12 @@ fn sample8_cumulative_deltas_and_reset() {
         },
     )
     .unwrap();
-    // 没有任何逐次事件：日汇总为空，100 不被塞进今天。
+    // No per-call events exist, so daily totals stay empty instead of receiving the interval 100.
     assert!(summary.periods.is_empty());
     assert_eq!(summary.totals.event_count, 0);
 }
 
-/// 样本 9：跨两天同一个 session，各日都活动 → 周/月 DISTINCT session=1；活跃天数=2。
+/// Example 9: one session active on two days has weekly/monthly DISTINCT session=1 and active_days=2.
 #[test]
 fn sample9_distinct_session_across_days() {
     let (_dir, storage) = temp_storage("sample9");
@@ -377,8 +377,8 @@ fn sample9_distinct_session_across_days() {
     }
 }
 
-/// 样本 10：Hermes 两日累计行 token=1000、api_call_count=3，只有 first_seen/last_seen
-/// → 保存来源区间汇总；不产生三条 model_call；不把 1000 全放最后一天；重复扫描不增加。
+/// Example 10: a Hermes two-day cumulative row has token=1000/api_call_count=3 and only first_seen/last_seen.
+/// Keep an interval aggregate, without three invented model_call events or assigning 1000 to the last day; rereads add nothing.
 #[test]
 fn sample10_hermes_interval_aggregate() {
     let (_dir, storage) = temp_storage("sample10");
@@ -406,14 +406,14 @@ fn sample10_hermes_interval_aggregate() {
         source_revision: None,
     };
     assert!(upsert_source_aggregate(&storage, &input, last_seen).unwrap());
-    // 重复扫描幂等。
+    // Repeating the same aggregate adds no usage.
     assert!(!upsert_source_aggregate(&storage, &input, last_seen + 1000).unwrap());
 
     let totals = sum_exclusive_aggregates(&storage, "hermes").unwrap();
     assert_eq!(totals.total_tokens, Some(1000));
     assert_eq!(totals.reported_call_count, Some(3));
 
-    // 不产生逐次 model_call，也不把 1000 放到最后一天的日汇总。
+    // Create no per-call model_call records and no last-day daily total of 1000.
     let summary = query_summary(
         &storage,
         &SummaryRequest {
@@ -433,8 +433,8 @@ fn sample10_hermes_interval_aggregate() {
     assert_eq!(summary.totals.total_tokens_known, None);
 }
 
-/// 样本 11：Hermes 主模型累计 100，独立 task 辅助累计 20，sessions 主循环也是 100
-/// → 已证明覆盖互斥时总量 120，不是 220；session 与模型表不双计。
+/// Example 11: Hermes primary-model cumulative 100, separate auxiliary-task 20 and sessions primary-loop 100
+/// sum to 120 for verified exclusive model/task coverage; exclude the duplicate session total instead of summing 220.
 #[test]
 fn sample11_disjoint_coverage_sums_to_120() {
     let (_dir, storage) = temp_storage("sample11");
@@ -468,7 +468,7 @@ fn sample11_disjoint_coverage_sums_to_120() {
     )
     .unwrap();
     upsert_source_aggregate(&storage, &mk("task-aux", 20, Coverage::Exclusive, None), t1).unwrap();
-    // sessions 主循环与 model-main 覆盖相同：对照不叠加。
+    // sessions primary-loop duplicates model-main coverage and remains a comparison row.
     upsert_source_aggregate(
         &storage,
         &mk(

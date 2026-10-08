@@ -1,7 +1,7 @@
-//! Qwen Code 适配器缺口场景：合成样本（目录/文件头均标 synthetic）。
-//! 覆盖 fail closed（未知 type / 未知 subtype / 非 assistant 携带 usageMetadata）、
-//! 无 usageMetadata 正常形状、负值跳过、额外键一次性诊断、缺 uuid 行号回退、detect 直测。
-//! 期望值均为人工核算（见各 fixture 目录 _expectations.md）。
+//! Qwen adapter boundary tests; directories and headers clearly label synthetic samples.
+//! Reject unknown type/subtype and usageMetadata on non-assistant records;
+//! cover valid missing-usage records, skipped negatives, one-time extra-key diagnostics, missing-UUID line fallback and direct detection.
+//! Expectations are calculated manually in _expectations.md for each sample directory.
 
 mod common;
 
@@ -51,7 +51,7 @@ fn undocumented_record_type_fails_closed_and_never_advances() {
     assert_eq!(diag_count(&storage, "undocumented_record_type"), 1);
     assert_eq!(checkpoint_count(&storage), 0, "游标不推进（无 checkpoint）");
 
-    // 二次扫描：确定性再拒，诊断每轮一条。
+    // Second scan rejects consistently, with one diagnostic per run.
     let second = run_qwen(&storage, &root, NOW + 1000);
     assert_eq!(second[0].files[0].status, "pending");
     assert_eq!(event_count(&storage), 0);
@@ -197,7 +197,7 @@ fn detect_pending_on_empty_file() {
 
 #[test]
 fn detect_unknown_format_on_missing_identity_fields() {
-    // 首行 type 合法但缺 uuid/sessionId/timestamp 必填身份字段。
+    // Valid first-row type, but required uuid/sessionId/timestamp identity fields are missing.
     let dir = TempDir::new("qwen-noident");
     let path = dir.path().join("sess-noident.jsonl");
     std::fs::write(

@@ -1,6 +1,6 @@
-//! 对本机真实 copilot-user-cache.json 做端到端核验：
-//! 提取 → 通用 quota_history 落库 → 查询回读。
-//! 运行：cargo run -p llm-usage-core --example copilot_quota_probe
+//! Validate the native copilot-user-cache.json through extraction,
+//! storage in generic quota_history, and query readback.
+//! Run: cargo run -p llm-usage-core --example copilot_quota_probe
 
 use std::collections::BTreeMap;
 
@@ -23,7 +23,7 @@ fn main() {
         );
     }
 
-    // 端到端：临时库落库 → 回读（通用 quota_history）。
+    // Save to a temporary database and read back generic quota_history.
     let dir = std::path::PathBuf::from("build/copilot-review/quota-e2e");
     std::fs::create_dir_all(&dir).unwrap();
     let storage = llm_usage_core::storage::Storage::open(&dir.join("q.sqlite")).unwrap();

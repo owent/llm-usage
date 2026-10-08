@@ -1,0 +1,95 @@
+# 实施边界与真实数据验证
+
+<a id="implementation-boundaries-and-real-data-validation"></a>
+
+产品、平台、架构和本机数据开发验证许可已确定，当前状态见
+[Plan.md](../../../Plan.md)。无需再次确认同一只读验证许可；计划本身不授权发布或推送。
+2026-10-07 用户另明确授权指定智谱 Provider 的最小真实请求、本机 Zed 配置和测试、
+Podman 样本及 F1 核查；此许可不推广到其他产品登录、其他凭据或无限模型调用。
+
+<a id="current-boundaries"></a>
+
+## 当前边界
+
+仅统计本机 Agent 实例的数据；Windows 11 x64 首发，macOS/Linux 保留 CI。
+Tauri 2/Rust、SQLite、Svelte/TypeScript、按需 ECharts；依赖及具体版本由实际
+manifest 与锁文件确定。所有支持能力须有逐版本字段核验依据，未知不补零。
+
+当前适配器和真实验收标签以 [接入矩阵](adapters.md) 为准。
+M2–M5/M8 已有可核验资料的本地来源可实施，本地用量格式尚未核验的 IDE 留 F1；Junie CLI/Zed 内置在 M8，
+JetBrains Copilot 的手工 OTel file 路线在 M9，JetBrains 自家 AI Assistant 仍 F1。
+宿主运行受支持外部 Agent 时按底层来源统计，不推断宿主内置 Agent 能力。
+遥测、调度、价格和平台分别按专项设计；缺少真实样本不阻塞独立核心功能。
+
+<a id="authorized-real-local-data-validation"></a>
+
+## 已授权的本机真实数据验证
+
+1. 从本机安装元数据及已知候选路径做有界发现，不全盘扫描，F1 核查限授权候选，
+   不由只读许可隐式初始化 Agent 或产生模型调用；另已授权的容器流程见下节。
+2. 先审阅最小字段提取器，再读取少量近期格式样本，覆盖新增、缓存、模型切换
+   与辅助调用。没有真实场景用合成样本补充，并明确标记，空会话不能据此确认用量格式。
+3. JSON/JSONL 在本地解析，只返回允许保留的字段、匿名关联 ID、版本/schema、数值
+   和汇总差异。SQLite 查询必要列，不 SELECT *；嵌套 usage 可在本地提取并丢弃正文。
+4. 提示词、回答、工具参数/输出、凭据、邮箱和真实项目路径不进入模型上下文、
+   日志、Git 或 CI。关联 ID 稳定匿名化，所需正文占位使用常量；保留真实 token
+   数值和包含关系。样本只证明该版本、字段和范围，没有字段保留 unknown。
+5. 活库按 [数据与存储设计](data-contract.md) 一致只读；不 checkpoint、迁移、
+   修复或复制裸库忽略 WAL。无法安全读取时保留限制并继续其他来源。
+6. 临时提取、核对库和产物放根 build/任务名/。尽量不复制原始日志；确需一致
+   暂存副本时限制本机访问并清理。产物与源目录分离，不删除或清理 Agent 会话。
+7. 经审阅脱敏数据才可进入测试与 CI。解析器先通过合成/脱敏回归，再对同版本
+   真实来源独立核对明细、汇总、时区、调用单位和重扫；记录差异及覆盖缺口。
+
+来源不存在或读取失败不接远端账单/API 填空。文件保存在本机、经过 loopback 或
+来源主机名相同，都不能独立证明它来自本机运行实例。
+
+<a id="authorized-container-source-validation"></a>
+
+## 已授权的容器来源验证
+
+先核验官方客户端的版本、安装完整性与本地模型 provider 接口要求；模型和服务镜像固定
+版本/digest，并校验下载文件。使用任务专属 rootless 存储、无网络运行容器、独立普通
+用户和新 HOME，不挂宿主来源/凭据，不继承个人认证。离线模型服务只绑定 loopback；
+指定外部 Provider 测试可启用隔离容器出站，key 仅通过标准输入传给目标进程环境，
+安装/下载进程不继承 key，不写普通配置、不打印原始请求、响应或认证头。
+客户端实际调用本地模型后，将原生逐次记录、CLI 直报统计与模型服务计数独立核对，
+再经实际应用发现/入库/汇总与重扫；模型 ID 不伪装成云端型号，记录中的版本逐条保留。
+模型请求失败、空会话和安装完成均不能据此确认 token 格式。
+
+后台请求可能没有进入会话记录；按 CLI 明确来源字段记录已知覆盖缺口，不能用累计
+总量减主循环补造事件。禁用后台功能的对照样本须同时保留默认场景结论。
+只有通过既有允许保留的字段和脱敏审查的数据可保存为测试样本；原始会话只留本任务 build/。
+本轮 Qwen 0.25.0 的真实结果见
+[容器来源验收](../../validation/desktop-usage/container-sources.md)。
+
+<a id="isolated-desktop-and-background-acceptance"></a>
+
+## 隔离桌面与后台验收
+
+`--data-dir <绝对目录>` 指定应用数据库、任务身份及默认导出目录，用于独立数据
+目录运行；不改变 Agent 来源发现范围。验证时同时给子进程独立的来源/config
+环境，避免仅隔离统计库却读取真实源或写入真实用户配置。
+注册表包含不依赖用户路径的已观测 Kimi Work 候选及 TEMP 下的 Visual Studio
+遥测根。合成验收不提供 HOME/USERPROFILE，使用显式 CODEX_HOME 与独立
+APPDATA/LOCALAPPDATA/TEMP/TMP；同时断言来源仅包含指定合成 Agent。
+OS 任务不继承这些测试环境变量。无窗口任务验收须保存手工合成根、启用
+`manual_roots_only`，并在 GUI 启动前用独立只读连接断言非空事件和 token；
+不能用随后 GUI 的启动采集证明 OS 已采集。
+Windows [libuv](https://github.com/libuv/libuv/blob/v1.x/src/win/process.c) 会补入父进程
+USERPROFILE；测试辅助函数仅在同步 spawn 调用期间移除该父进程变量，随后恢复，
+不能只从传入的 env map 省略它便声称隔离完成。
+
+`npm run test:desktop` 使用 Windows release 客户端、真实 WebView2/Tauri IPC 和
+隔离的非空合成数据，不模拟 IPC。它不安装应用、不写真实 IDE 配置、不制造用量。
+系统任务往返验证只注册本任务隔离目录对应的临时当前用户任务，结束删除，并核对
+无残留；原生脚本还只读观察该任务的真实分钟触发及退出码。
+原生 UI、系统任务、真实 Agent 样本和 CI 结果分别报告。
+
+<a id="implementation-and-delivery-checks"></a>
+
+## 实施与交付检查
+
+先读 Git 现状、源码、配置、测试和版本依据；保留用户修改，按影响同步规则、
+Skill、设计与 Plan.md。未实现行为明确标记，不把结构检查当实际运行记录。
+完成后记录实际命令、环境、退出码、测试数量、结果和缺口；不自动提交、推送或发布。

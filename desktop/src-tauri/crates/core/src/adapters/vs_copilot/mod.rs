@@ -1,32 +1,33 @@
-//! Visual Studio 内置 GitHub Copilot 遥测适配器（独立目录约定）。载体：
-//! `%TEMP%\VSGitHubCopilotLogs\traces\<hex>_VSGitHubCopilot_traces.jsonl`——
-//! VS 自动写入的 OTLP JSON 遥测（每行一个 resourceSpans 批次），**无需任何配置**。
+//! Built-in Visual Studio GitHub Copilot telemetry adapter. The local JSONL path is
+//! <temporary directory>/VSGitHubCopilotLogs/traces/<hex>_VSGitHubCopilot_traces.jsonl:
+//! verified VS 18 components automatically write one OTLP resourceSpans batch per line.
+//! This does not verify all VS 2022/older extensions; see m9-vs-copilot-discovery.md for version limits.
 //!
-//! 载体识别依据（2026-10-01 本机只读核验：VS 18 Community 18.10.1197+4b9e241b86，
-//! DevHub/.NET 10.0.12 运行时）：
-//! - resource.attributes：`service.name=vs-copilot`、`service.namespace=visualstudio`、
-//!   `service.version`、`process.runtime.name=DevHub`；
-//! - `chat <model>` span（kind=3 CLIENT，**每 LLM 请求一个**）：属性
-//!   `gen_ai.usage.input_tokens`/`gen_ai.usage.output_tokens`/
-//!   `gen_ai.usage.cache_read.input_tokens`（OTLP 形 `{intValue:"8697"}`，int64 为
-//!   字符串）、`gen_ai.request.model`/`gen_ai.response.model`、
-//!   `gen_ai.conversation.id`（=VSGitHubCopilot 会话 UUID）、
-//!   `copilot_chat.root_request_id`、`server.address=api.githubcopilot.com`；
-//!   时间 `startTimeUnixNano`/`endTimeUnixNano`（数字或字符串，纳秒）；
-//! - `invoke_agent GitHub Copilot` 根 span 是整 turn 汇总（无 usage 属性）——
-//!   与官方 OTel 防双计警告同族：**只采 chat span，跳过汇总 span**；
-//! - `gen_ai.input.messages`/`gen_ai.output.messages`/`gen_ai.tool.definitions`
-//!   内嵌提示/响应正文：解析只读白名单键，正文不入库不输出（隐私约定）。
+//! Format references: read-only local checks on 2026-10-01 using VS 18 Community
+//! 18.10.1197+4b9e241b86 and DevHub/.NET 10.0.12.
+//! - resource.attributes includes service.name=vs-copilot, service.namespace=visualstudio,
+//!   service.version and process.runtime.name=DevHub.
+//! - chat <model> CLIENT spans (kind=3) represent individual LLM requests and contain
+//!   gen_ai.usage.input_tokens/gen_ai.usage.output_tokens,
+//!   gen_ai.usage.cache_read.input_tokens with string int64 values such as {intValue:"8697"},
+//!   gen_ai.request.model/gen_ai.response.model,
+//!   gen_ai.conversation.id (the VSGitHubCopilot session UUID),
+//!   copilot_chat.root_request_id and server.address=api.githubcopilot.com.
+//!   startTimeUnixNano/endTimeUnixNano are numeric/string nanosecond timestamps.
+//! - invoke_agent GitHub Copilot root spans summarize whole turns without usage.
+//!   Read chat spans and skip summaries, following the OTel duplicate-counting warning.
+//! - gen_ai.input.messages/gen_ai.output.messages/gen_ai.tool.definitions contain
+//!   conversation/tool content; read selected usage keys without storing or printing bodies.
 //!
-//! 边界：TEMP 目录会被系统/用户清理，历史遥测随 VS 实例滚动保留——来源消失时
-//! 保留既有结果（framework 代数/消失语义），不虚报覆盖。
+//! Temporary files can be deleted by users/system cleanup, and VS rolls telemetry files.
+//! Source disappearance retains imported results through framework file-generation rules; history may be incomplete.
 
 pub mod detect;
 pub mod versions;
 
 pub use detect::VS_COPILOT_FORMAT;
 
-/// VS Copilot 适配器（无状态）。
+/// Stateless VS Copilot adapter.
 pub struct VsCopilotAdapter;
 
 impl Default for VsCopilotAdapter {
@@ -41,20 +42,36 @@ impl VsCopilotAdapter {
     }
 }
 
-/// 遥测目录默认路径（TEMP/TMP 下 VSGitHubCopilotLogs\traces）。
-fn default_traces_dir(
-    env: &std::collections::BTreeMap<String, String>,
-) -> Option<std::path::PathBuf> {
-    let temp = env
-        .get("TEMP")
-        .map(|s| s.trim())
-        .filter(|s| !s.is_empty())
-        .or_else(|| env.get("TMP").map(|s| s.trim()).filter(|s| !s.is_empty()))?;
-    Some(
-        std::path::PathBuf::from(temp)
-            .join("VSGitHubCopilotLogs")
-            .join("traces"),
-    )
+/// FileOutputResolver uses Path.GetTempPath(); Windows resolves TMP before TEMP.
+/// Collect both variables and the observed default user temporary directory without SKU/year filters.
+/// Use only the supplied context so manual_roots_only/isolated tests cannot read host sources.
+fn default_traces_dirs(
+    ctx: &crate::adapters::framework::DiscoverContext,
+) -> Vec<std::path::PathBuf> {
+    let env_path = |key: &str| {
+        ctx.env
+            .get(key)
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .map(std::path::PathBuf::from)
+    };
+    let mut temps: Vec<_> = [env_path("TMP"), env_path("TEMP")]
+        .into_iter()
+        .flatten()
+        .collect();
+    // Current-user GetTempPath fallback; do not enumerate Windows/SystemTemp or other users.
+    if temps.is_empty() {
+        if let Some(profile) = env_path("USERPROFILE").or_else(|| ctx.home_dir.clone()) {
+            temps.push(profile);
+        }
+    }
+    if let Some(local) = env_path("LOCALAPPDATA") {
+        temps.push(local.join("Temp"));
+    }
+    temps
+        .into_iter()
+        .map(|temp| temp.join("VSGitHubCopilotLogs").join("traces"))
+        .collect()
 }
 
 impl crate::adapters::framework::SourceAdapter for VsCopilotAdapter {
@@ -62,8 +79,8 @@ impl crate::adapters::framework::SourceAdapter for VsCopilotAdapter {
         "vs-copilot"
     }
 
-    /// 统计 Agent 名：与遥测 resource 的 service.name（"vs-copilot"）一致；
-    /// otel 适配器对该 service 的归属同步为同名，两载体同维度不分裂。
+    /// Agent name matches resource service.name="vs-copilot".
+    /// The otel adapter uses the same name, grouping both formats under the same Agent.
     fn agent(&self) -> &'static str {
         "vs-copilot"
     }
@@ -78,7 +95,7 @@ impl crate::adapters::framework::SourceAdapter for VsCopilotAdapter {
     ) -> Vec<crate::adapters::framework::DiscoveredRoot> {
         use crate::adapters::framework::{DiscoveredRoot, RootBasis};
         let mut roots: Vec<(std::path::PathBuf, RootBasis)> = Vec::new();
-        if let Some(dir) = default_traces_dir(&ctx.env) {
+        for dir in default_traces_dirs(ctx) {
             if dir.is_dir() {
                 roots.push((dir, RootBasis::DefaultHome));
             }
@@ -93,7 +110,7 @@ impl crate::adapters::framework::SourceAdapter for VsCopilotAdapter {
             if !manual.is_dir() {
                 continue;
             }
-            // 手工根可为 traces 目录或其父 VSGitHubCopilotLogs 目录。
+            // Manual roots accept traces, its VSGitHubCopilotLogs parent or the containing temporary directory.
             if manual
                 .file_name()
                 .and_then(|n| n.to_str())
@@ -102,25 +119,19 @@ impl crate::adapters::framework::SourceAdapter for VsCopilotAdapter {
                 roots.push((manual.clone(), RootBasis::Manual));
             } else if manual.join("traces").is_dir() {
                 roots.push((manual.join("traces"), RootBasis::Manual));
+            } else if manual.join("VSGitHubCopilotLogs").join("traces").is_dir() {
+                roots.push((
+                    manual.join("VSGitHubCopilotLogs").join("traces"),
+                    RootBasis::Manual,
+                ));
             }
         }
         let mut out = Vec::new();
         let mut seen = std::collections::BTreeSet::new();
         for (dir, basis) in roots {
-            let mut files: Vec<std::path::PathBuf> = match std::fs::read_dir(&dir) {
-                Ok(entries) => {
-                    let mut files: Vec<std::path::PathBuf> = entries
-                        .flatten()
-                        .map(|e| e.path())
-                        .filter(|p| {
-                            p.is_file() && p.extension().and_then(|e| e.to_str()) == Some("jsonl")
-                        })
-                        .collect();
-                    files.sort();
-                    files
-                }
-                Err(_) => continue,
-            };
+            let mut files = crate::adapters::framework::enumerate_files_bounded(&dir, 0, &|p| {
+                p.extension().and_then(|e| e.to_str()) == Some("jsonl")
+            });
             if basis == RootBasis::Manual
                 && !ctx
                     .manual_roots
@@ -251,9 +262,9 @@ impl crate::adapters::framework::SourceAdapter for VsCopilotAdapter {
             surfaces: vec!["visual-studio".into()],
             supported_versions: vec!["1".to_string()],
             discovery: serde_json::json!({
-                "default_roots": ["%TEMP%/VSGitHubCopilotLogs/traces (win)"],
-                "env_override": "TEMP/TMP（定位 VSGitHubCopilotLogs；无官方覆盖变量）",
-                "manual_roots": "traces 目录 / VSGitHubCopilotLogs 目录 / 单个 .jsonl 遥测文件",
+                "default_roots": ["%TMP%/VSGitHubCopilotLogs/traces", "%TEMP%/VSGitHubCopilotLogs/traces", "%LOCALAPPDATA%/Temp/VSGitHubCopilotLogs/traces (win)"],
+                "env_override": "TMP/TEMP 均检查；两者缺失时检查当前 USERPROFILE；按物理目录去重",
+                "manual_roots": "traces 目录 / VSGitHubCopilotLogs 目录 / 临时目录 / 单个 .jsonl 遥测文件",
                 "bounded": true,
                 "pattern": "单目录 *.jsonl 枚举（每 VS 实例一个 <hex>_VSGitHubCopilot_traces.jsonl）",
                 "profile": "无",
@@ -285,11 +296,13 @@ impl crate::adapters::framework::SourceAdapter for VsCopilotAdapter {
             maintenance: serde_json::json!({
                 "parser_version": versions::traces_v1::VS_COPILOT_PARSER_VERSION,
                 "format_evidence": "本机 VS 18 Community 真实数据只读取证（2026-10-01：resource/span 属性、intValue 字符串形、纳秒时间戳、2 chat + 2 invoke_agent span）",
+                "installation_discovery": "遥测发现独立于安装目录和 SKU；安装核查使用 desktop/scripts/inspect-vs-copilot.ps1 的 vswhere 全实例查询",
                 "evidence_level": "real-data（本机全字段核对）",
                 "upgrade_policy": "属性集/信封变化走 latest 兼容尝试，真实样本后锚定新版本",
             }),
             scheduling: serde_json::json!({ "entry": "统一 run_adapter_scan" }),
             limitations: vec![
+                "不按 Community/Professional/Enterprise 或安装年份筛选；仅采实际存在且通过格式核验的遥测。已核查的 VS 2022 Copilot 17.14.1713.63837 没有 VS 18 的 JSONL exporter，不能以安装完成认证 token 覆盖".into(),
                 "载体在 TEMP：系统清理/磁盘清理会删除历史遥测，覆盖随 VS 实例滚动（不承诺完整历史）".into(),
                 "invoke_agent 整 turn 汇总 span 跳过防双计；只用 chat span 逐请求计数".into(),
                 "与 otel 适配器边界：把 VS span 经接收器再导出给 otel 载体会重复计数（同 agent 维度 vs-copilot）；两者取其一".into(),
@@ -305,7 +318,7 @@ mod tests {
     use super::*;
     use crate::adapters::framework::{DiscoverContext, RootBasis, SourceAdapter};
 
-    /// 默认发现：TEMP 下构造 VSGitHubCopilotLogs\traces；无关 jsonl 不收。
+    /// Default discovery builds VSGitHubCopilotLogs/traces under TEMP and enumerates JSONL files.
     #[test]
     fn default_discovery_finds_traces_dir() {
         let dir = std::env::temp_dir().join(format!(
@@ -333,7 +346,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    /// 手工根：traces 目录 / VSGitHubCopilotLogs 父目录 / 单文件。
+    /// Manual roots accept traces, the VSGitHubCopilotLogs parent or an individual file.
     #[test]
     fn manual_root_shapes() {
         let dir = std::env::temp_dir().join(format!(

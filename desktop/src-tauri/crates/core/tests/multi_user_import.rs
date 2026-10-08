@@ -1,5 +1,5 @@
-//! v6 多用户（users 表/来源归属/按用户过滤查询）与聚合导入与查询验证
-//!（导出 → 导入 → 数据不缺失/幂等/修订合并）的回归测试。
+//! v6 user attribution/query filtering and aggregate exchange regressions:
+//! export/import preserves data, repeated imports and revision handling.
 
 mod common;
 
@@ -163,8 +163,8 @@ fn request_all() -> SummaryRequest {
 #[test]
 fn users_partition_queries_by_source_membership() {
     let (_dir, storage) = temp_storage("users");
-    // 两个来源各写一天数据；A 归 default，B 改归 user2。
-    // commit_batch 不建 source_instances——采集流程由 upsert 注册，此处直接建。
+    // Two sources each write one day; A uses default, B changes to user2.
+    // commit_batch does not register source instances; normally upsert does so, but this test creates them directly.
     for instance in ["codex@a", "codex@b"] {
         storage
             .conn()
@@ -223,7 +223,7 @@ fn users_partition_queries_by_source_membership() {
             [],
         )
         .unwrap();
-    // 按用户的来源集合过滤查询（app 层解析方式）。
+    // Filter by each user's source-instance set, matching application query resolution.
     let instances_of = |user: &str| -> Vec<String> {
         storage
             .conn()
@@ -239,14 +239,14 @@ fn users_partition_queries_by_source_membership() {
     assert_eq!(s_default.totals.total_tokens_known, Some(110));
     let s_u2 = query_summary(&storage, &request(instances_of("u2"))).unwrap();
     assert_eq!(s_u2.totals.call_count, 1, "用户视图互不串数");
-    // 不过滤 = 全部（共享 host 的两个用户合计不双计：各来源一次）。
+    // Without a filter, count both shared-host users once per source.
     let s_all = query_summary(&storage, &request_all()).unwrap();
     assert_eq!(s_all.totals.call_count, 2);
 }
 
 #[test]
 fn aggregate_export_import_roundtrip_restores_history() {
-    // 库 A（导出方）：两来源两天数据 + 小时层。
+    // Export database A has one source across two days with hourly aggregates.
     let (_dir_a, storage_a) = temp_storage("export-a");
     let host = storage_a.ensure_local_host("machine-a", 1_000).unwrap();
     storage_a
@@ -305,23 +305,23 @@ fn aggregate_export_import_roundtrip_restores_history() {
         2_100,
     )
     .unwrap();
-    // 聚合导出改造由 app 层清 records + 补全分区；这里直接验证结构字段：
-    // 来源注册在、日分区在（build_export 默认含封存行——模拟补全）。
+    // build_export supplies complete daily partitions; check source/host metadata here.
+    // Aggregate import uses partitions without adding exported detail records again.
     assert_eq!(export.host.origin_host_id, host);
     assert!(!export.sources.is_empty());
 
-    // 库 B（导入方）：空库导入 JSON 往返包。
+    // Import a JSON round-trip bundle into empty database B.
     let json = serde_json::to_string(&export).unwrap();
     let parsed: llm_usage_core::exchange::ExchangeExport = serde_json::from_str(&json).unwrap();
     let (_dir_b, storage_b) = temp_storage("import-b");
     let outcome = import_aggregate(&storage_b, &parsed, 3_000).unwrap();
     assert_eq!(outcome.sources_registered, export.sources.len());
-    // 重复导入覆盖（同修订也替换——用户约定"覆盖"语义；内容相同 SQL 幂等）。
+    // Reimport identical content at the same revision: skip two daily partitions, with no duplicates or replacements.
     let again = import_aggregate(&storage_b, &parsed, 3_100).unwrap();
     assert_eq!(again.daily_inserted, 0, "同键不重复插入");
     assert_eq!(again.daily_replaced, 0);
     assert_eq!(again.daily_skipped, 2);
-    // 导入后查询可见（来源聚合重建）。
+    // Query imported history after rebuilding source aggregates.
     let s = query_summary(&storage_b, &request_all()).unwrap();
     assert_eq!(export.daily_partitions.len(), 2);
     assert_eq!(s.totals.call_count, 2);
@@ -381,10 +381,10 @@ fn import_newer_revision_replaces_and_older_conflicts() {
         hourly_partitions: vec![],
         period_partitions: vec![],
     };
-    // 初次导入（rev 5）→ 插入。
+    // Initial revision 5 inserts the partition.
     let out1 = import_aggregate(&storage, &make_partition(5, 100), 1_000).unwrap();
     assert_eq!(out1.daily_inserted, 1);
-    // 更高修订（rev 6, 值 80）→ 替换（当前值 80，V02 更正语义）。
+    // Higher revision 6 corrects the value to 80 under V02.
     let out2 = import_aggregate(&storage, &make_partition(6, 80), 1_100).unwrap();
     assert_eq!(out2.daily_replaced, 1);
     let total: Option<i64> = storage
@@ -392,7 +392,7 @@ fn import_newer_revision_replaces_and_older_conflicts() {
         .query_row("SELECT total_known_sum FROM daily_usage", [], |r| r.get(0))
         .unwrap();
     assert_eq!(total, Some(80));
-    // 更低修订（rev 4）→ 冲突保留现存。
+    // Lower revision 4 conflicts and retains the stored value.
     let out3 = import_aggregate(&storage, &make_partition(4, 999), 1_200).unwrap();
     assert_eq!(out3.daily_conflicts, 1);
     let total: Option<i64> = storage
@@ -409,7 +409,7 @@ fn import_newer_revision_replaces_and_older_conflicts() {
         )
         .unwrap();
     assert_eq!(diag, 1, "冲突可见");
-    // 导入主机登记为外部。
+    // Register imported hosts as external.
     let is_local: i64 = storage
         .conn()
         .query_row(
@@ -423,7 +423,7 @@ fn import_newer_revision_replaces_and_older_conflicts() {
 
 #[test]
 fn old_version_database_rejected() {
-    // 预发布约定：任何版本不匹配都拒绝（不做迁移）。
+    // Reject mismatched database versions under the no-incremental-migration rule.
     let dir = TempDir::new("v6-old");
     {
         let storage = Storage::open(&dir.db_path()).unwrap();

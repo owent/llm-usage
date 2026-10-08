@@ -1,57 +1,57 @@
-//! opencode SQLite 家族共享解析件（OpenCode A17 / MiMo Code A14，M3）。
+//! Shared SQLite helpers for OpenCode A17 and MiMo Code A14 (M3).
 //!
-//! 两产品是同一 opencode 内核家族的不同产品身份（adapters.md「分家族复用的
-//! 范围」：数据根、实例身份与注册表独立，不因内核同名合并）；本模块是类比
-//! kimi_wire.rs 的**根级家族共享件**，只放两产品 pinned 源码逐一证实同形的
-//! wire 级逻辑，产品身份（ns/agent/解析器版本）由各产品目录注入：
+//! Products in the OpenCode engine family retain separate identities, data roots,
+//! instances, and registries; see adapters.md. This root-level module, like
+//! kimi_wire.rs, shares serialized structures checked separately in each product's pinned source.
+//! Each product supplies its namespace, agent name, parser version, and field policies.
 //!
-//! - `part` 表逐 step usage：`data.type="step-finish"` 且 `cost`+`tokens`
-//!   在场时携带 `tokens{input, output, reasoning, cache{read, write}}`
-//!   （+可选 `total`）。依据：OpenCode pinned 0027387
-//!   `packages/core/src/session/projector.ts` 的 `usage()` 提取规则与
-//!   `applyUsage` 计数维护、迁移 `20260510033149_session_usage.ts` 的
-//!   json_extract 查询规则、以及 pinned 仓库内 vendored client
-//!   `packages/app/vendor/opencode-ai-client-1.17.13-v2.tgz` 的
-//!   `StepFinishPart`/`AssistantMessage` 类型（tokens 同形，`total` 可选）；
-//!   MiMo pinned 456678b `packages/opencode/src/session/message-v2.ts` 的
-//!   `StepFinishPart` zod schema（total 可选、五数字段必需）。
-//! - **字段语义（固定源码依据，不跨产品移植）**：OpenCode
-//!   `packages/core/src/session/runner/publish-llm-event.ts` 的 `tokens()`
-//!   逐字映射：`input = usage.nonCachedInputTokens`（未缓存输入，不含缓存）、
-//!   `output = usage.visibleOutputTokens`、`reasoning/cache{read,write}` 独立；
-//!   `packages/llm/src/protocols/anthropic-messages.ts` mapUsage 证实
-//!   inclusive `inputTokens = nonCached + cacheRead + cacheWrite`（sumTokens）
-//!   且 anthropic 的 reasoning 不拆分（计入 outputTokens、reasoning 保持
-//!   undefined→safe()=0）；`packages/llm/src/protocols/shared.ts` totalTokens
-//!   政策 = `inputTokens + outputTokens`（无 provider total 时）。⇒
-//!   input_total = input+cache.read+cache.write（派生，上游自算 inclusive
-//!   字段语义）、output_total = output+reasoning（派生，两种 provider 模式均
-//!   成立：anthropic reasoning=0 已含于 output；拆分 provider 为补和）、
-//!   total = 五字段之和（与 kilo 同血统实读结论一致）；`total` 在场时按
-//!   source_total 对照，不一致记诊断。
-//! - 时间列 epoch 毫秒（两产品 `Timestamps` 均 `Date.now()` 默认）。
-//! - 表形状（两产品 pinned sql.ts 逐字列名）：
-//!   `part(id, message_id, session_id, time_created, time_updated, data)`、
-//!   `session(id, parent_id, version, …)`、`message(id, …, data)`；MiMo 的
-//!   `message` 另有 `agent_id` 列、`session` 无 tokens_* 累计列，OpenCode
-//!   相反——探测指纹因此互斥，见各产品 common.rs。
+//! - Per-step part usage: data.type="step-finish" with cost and tokens fields,
+//!   tokens{input, output, reasoning, cache{read, write}},
+//!   and optional total. References: OpenCode commit 0027387,
+//!   packages/core/src/session/projector.ts usage extraction,
+//!   applyUsage counters, migration 20260510033149_session_usage.ts
+//!   json_extract queries, and vendored client
+//!   packages/app/vendor/opencode-ai-client-1.17.13-v2.tgz
+//!   StepFinishPart/AssistantMessage types, with optional total.
+//!   MiMo commit 456678b packages/opencode/src/session/message-v2.ts
+//!   defines StepFinishPart with five required numeric fields and optional total.
+//! - OpenCode field rules, verified independently in its pinned source:
+//!   packages/core/src/session/runner/publish-llm-event.ts tokens()
+//!   maps input=usage.nonCachedInputTokens, excluding cache;
+//!   output=usage.visibleOutputTokens, with separate reasoning/cache read/write.
+//!   packages/llm/src/protocols/anthropic-messages.ts mapUsage
+//!   defines inclusive inputTokens=nonCached+cacheRead+cacheWrite through sumTokens.
+//!   Anthropic does not split reasoning: outputTokens includes it, while reasoning
+//!   defaults from undefined to zero through safe(). packages/llm/src/protocols/shared.ts
+//!   derives totalTokens=inputTokens+outputTokens when the provider omits total.
+//!   Derived input_total=input+cache.read+cache.write;
+//!   output_total=output+reasoning works with the inspected provider mappings,
+//!   where Anthropic reasoning is already in output and the separate reasoning field is zero.
+//!   Total is the sum of five components. Compare an optional total field
+//!   as source_total and diagnose differences; shared arithmetic does not verify another product.
+//! - Both products' Timestamps default to Date.now(): epoch milliseconds.
+//! - Pinned sql.ts table structures:
+//!   part(id, message_id, session_id, time_created, time_updated, data),
+//!   session(id, parent_id, version, …), message(id, …, data). MiMo has
+//!   message.agent_id and lacks session tokens_* columns; OpenCode differs.
+//!   Each product's common.rs defines its distinct detection fingerprint.
 //!
-//! 家族约定（adapters.md A14/A17）：
-//! - **step 与 message 汇总不双计**：assistant `message.data.tokens` 是 turn 级
-//!   聚合（OpenCode 迁移把 message.data 逐字段 SUM 进 session 累计列），本实现
-//!   只读 `part`（step-finish）逐次入账；message 仅取 `modelID`/`providerID`
-//!   归属，不读其 tokens/cost；
-//! - **不把 session 累计列逐次相加**：OpenCode `session.tokens_*` 五列只作对账
-//!   （projector applyUsage = Σ 当前 step-finish 部件，含删行补偿）；MiMo 无
-//!   该五列，不对账；
-//! - 模型归属：`message.data.modelID/providerID`（request_field；vendored
-//!   client AssistantMessage + MiMo zod 均为必需字段）；**逐调用的精确时间
-//!   仍待上游 event 层**（A17：part 行时间是派生视图写入时刻，非逐调用完成时间），
-//!   时间依据如实标 observed_at；
-//! - step-finish 部件无独立调用 ID：事件键 = `part.id`（两产品均为主键）。
+//! Collection rules (adapters.md A14/A17):
+//! - Assistant message.data.tokens aggregates a turn. OpenCode migrations sum its fields
+//!   into cumulative session columns. Read only part step-finish usage for per-call events;
+//!   message provides modelID/providerID attribution, without counting
+//!   its tokens or cost again.
+//! - OpenCode session.tokens_* columns are reconciliation only:
+//!   projector applyUsage sums current step-finish parts, compensating for deleted rows.
+//!   MiMo lacks those columns, so omit this reconciliation.
+//! - Models come from message.data.modelID/providerID (request_field), required by
+//!   the vendored AssistantMessage type and MiMo schema. Exact per-call completion time
+//!   is not available here: part timestamps describe writes to a derived database view.
+//!   Keep observed_at as time basis.
+//! - A step-finish part has no independent call ID; use primary key part.id for event identity.
 //!
-//! OpenCode 1.18.34 已有官方 CLI / 本地模型真实 fixture；MiMo 仍为文档级依据。
-//! 版本认证由各产品自己的逐记录选择器提供，不相互推定。
+//! Native samples cover OpenCode 1.18.34 and MiMo 0.1.15 under their documented route limits.
+//! Each product selects record versions and zero-value rules independently; never infer one from the other.
 
 use crate::adapters::framework::{
     Reconciliation, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -68,17 +68,17 @@ use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 
 const MAX_REASONABLE_TOKEN: i64 = crate::domain::MAX_TOKEN_VALUE;
-/// 已处理时间的回看窗（毫秒）：覆盖并发会话的同毫秒乱序写（同 kilo/kimi 约定）。
+/// Millisecond overlap before the processing position covers out-of-order concurrent-session writes.
 pub(crate) const WATERMARK_OVERLAP_MS: i64 = 60_000;
-/// 单轮行数上限：触顶停在该毫秒边界，下轮续读。
+/// Per-round row limit; timestamp/ID continuation resumes within the same millisecond.
 pub(crate) const MAX_ROWS_PER_ROUND: i64 = 50_000;
 
-/// opencode 家族 step-finish `tokens` 五数字段 + 可选 `total`。
-/// 语义（固定源码依据，见模块头）：input 是**未缓存**输入（不含缓存），
-/// cache 独立桶；reasoning 与 output 拆分与否随 provider（anthropic 不拆分
-/// ⇒ reasoning=0 已含于 output）。派生计算：input_total = input+cr+cw、
-/// output_total = output+reasoning、total = 五字段之和；`total` 在场时按
-/// source_total 对照（不一致记诊断）。
+/// Five numeric step-finish token components and an optional total.
+/// Input is uncached in the inspected mappings; cache components are separate.
+/// Reasoning/output separation depends on the provider; Anthropic keeps reasoning
+/// within output with a zero separate component. Derive input_total=input+cr+cw,
+/// output_total=output+reasoning, and total from all five components; compare optional total
+/// as source_total and diagnose differences. Products apply their own zero-value rules.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct OpencodeFamilyUsage {
     pub input: i64,
@@ -86,12 +86,12 @@ pub(crate) struct OpencodeFamilyUsage {
     pub reasoning: i64,
     pub cache_read: i64,
     pub cache_write: i64,
-    /// 源直报总量（可选字段）；缺失 = 未知，不补零。
+    /// Optional source total; absence remains unknown.
     pub total: Option<i64>,
 }
 
-/// 桶间包含关系按固定源码推导（上游自算 inclusive 输入）；溢出字段
-/// 保持 None（未知），不 panic、不截断数值。与 kilo 源码同源，计算规则相同。
+/// Component relationships follow the pinned mappings. Overflowing derived fields
+/// remain None without panic or truncation; similar arithmetic does not establish another product's field rules.
 pub(crate) fn map_opencode_family_usage(raw: &OpencodeFamilyUsage) -> MappedUsage {
     let mut diagnostics = Vec::new();
     let input_total = raw
@@ -148,10 +148,10 @@ pub(crate) fn map_opencode_family_usage(raw: &OpencodeFamilyUsage) -> MappedUsag
     finish(usage, quality, diagnostics)
 }
 
-/// MiMo 0.1.15 getUsage subtracts the same normalized cache/reasoning
-/// counters that it persists. Adding those counters back reconstructs positive
-/// SDK totals even when a subcounter was defaulted. The subcounter zero itself
-/// does not prove a reported zero. This policy is independent of OpenCode.
+/// MiMo 0.1.15 getUsage subtracts the normalized cache/reasoning
+/// counters that it persists. Adding them back reconstructs positive
+/// SDK totals even if a subcounter was defaulted. A zero subcounter alone
+/// does not establish reported zero; this MiMo policy is independent of OpenCode.
 pub(crate) fn map_mimo_usage(raw: &OpencodeFamilyUsage) -> MappedUsage {
     let mut mapped = map_opencode_family_usage(raw);
     for (value, quality) in [
@@ -200,7 +200,7 @@ pub(crate) fn map_mimo_usage(raw: &OpencodeFamilyUsage) -> MappedUsage {
     finish(mapped.usage, mapped.quality, mapped.diagnostics)
 }
 
-/// cost 浮点美元 → micro-USD（estimated；上游自行估算，与 cline/zoo 规则相同）。
+/// Convert client-estimated cost from floating-point USD to micro-USD.
 pub(crate) fn map_family_cost(cost: Option<f64>) -> Option<CostAmount> {
     let total = cost?;
     if !total.is_finite() || total < 0.0 {
@@ -219,12 +219,12 @@ pub(crate) fn map_family_cost(cost: Option<f64>) -> Option<CostAmount> {
     })
 }
 
-/// step-finish 部件 usage 提取（两产品 pinned 提取规则的共同内核）：
-/// - `type == "step-finish"`；
-/// - `cost` 与 `tokens` 同时在场（OpenCode projector `usage()` 规则）；
-/// - `tokens{input, output, reasoning, cache{read, write}}` 五数字段必需
-///   （MiMo zod required；vendored client 同形），`total` 可选；
-/// - 数值非负有界，越界/类型错误返回 None（调用方计调用、token 未知）。
+/// Extract step-finish usage from the independently inspected product structures:
+/// - type must be step-finish;
+/// - cost and tokens must both exist, as in OpenCode projector usage();
+/// - five numeric tokens{input, output, reasoning, cache{read, write}} fields are required;
+///   total is optional in MiMo's schema and the vendored client type;
+/// - require bounded nonnegative values; invalid data returns None, leaving the caller's counted call with unknown tokens.
 pub(crate) fn parse_step_finish(value: &serde_json::Value) -> Option<OpencodeFamilyUsage> {
     let obj = value.as_object()?;
     if obj.get("type").and_then(|t| t.as_str()) != Some("step-finish") {
@@ -249,28 +249,28 @@ pub(crate) fn parse_step_finish(value: &serde_json::Value) -> Option<OpencodeFam
     })
 }
 
-/// 扫描时注入的产品身份（家族模块不持有产品状态）。
+/// Product identity supplied during scanning; this module holds no product state.
 pub(crate) struct PartProduct {
-    /// 事件键命名空间（= adapter_id：opencode / mimo-code）。
+    /// Event-key namespace: adapter_id opencode or mimo-code.
     pub ns: &'static str,
-    /// 统计归属 Agent 名。
+    /// Agent name used in statistics.
     pub agent: &'static str,
-    /// 本版本实现的解析器版本串。
+    /// Parser version for this product implementation.
     pub parser_version: &'static str,
-    /// OpenCode：session.tokens_* 五列对账；MiMo 无累计列不对账。
+    /// Reconcile OpenCode session.tokens_*; MiMo has no cumulative columns to reconcile.
     pub reconcile_session_counters: bool,
-    /// Each product explicitly selects its independently verified zero policy.
+    /// Each product explicitly selects its independently verified zero-value policy.
     pub default_zero_unknown: bool,
 }
 
-/// 游标（持久化在 ingestion_checkpoints.cursor_value）。
+/// Cursor persisted in ingestion_checkpoints.cursor_value.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct PartCursor {
     pub generation: i64,
-    /// 恒为 0：WAL 活库不用字节偏移做无变化判定（同 kilo 约定）。
+    /// Always zero; database change detection cannot use byte offsets under WAL.
     #[allow(dead_code)]
     pub offset: u64,
-    /// 已处理到的 part.time_updated（含该值）；None = 从头全量。
+    /// Last processed part.time_updated, inclusive; None starts a complete scan.
     pub watermark_ms: Option<i64>,
     #[serde(default)]
     pub continuation: Option<(i64, String)>,
@@ -278,7 +278,7 @@ pub(crate) struct PartCursor {
     pub window_start_ms: Option<i64>,
 }
 
-/// 解析上下文：schema 指纹 + 版本分派结论快照。
+/// Parse context stores schema fingerprints and version-selection state.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub(crate) struct PartParseContext {
     pub schema_fingerprint: Option<String>,
@@ -299,13 +299,13 @@ fn diag(code: &str, field: Option<&str>, id_pos: &str, message: &str) -> Diagnos
         event_id: None,
         code: code.to_string(),
         field: field.map(str::to_string),
-        // 位置只存 part.id（稳定身份，非路径/正文）。
+        // Store only part.id as the diagnostic position, excluding paths and message bodies.
         position: Some(id_pos.to_string()),
         message: message.to_string(),
     }
 }
 
-/// 窗口行：step-finish 部件 + 会话/消息归属列。
+/// One window row: a step-finish part and session/message attribution columns.
 pub(crate) struct PartRow {
     pub id: String,
     pub message_id: String,
@@ -319,8 +319,8 @@ pub(crate) struct PartRow {
     pub provider_id: Option<String>,
 }
 
-/// 按已处理时间窗口查询（两产品同形：part LEFT JOIN session/message；
-/// message.data 经 json_valid 守卫后取 modelID/providerID，消息正文不入内存）。
+/// Query the timestamp window using part LEFT JOIN session/message;
+/// json_valid checks message.data before extracting modelID/providerID, without loading message bodies.
 fn load_window(
     conn: &Connection,
     since_ms: i64,
@@ -373,7 +373,7 @@ fn load_window(
         .map_err(CoreError::Sqlite)
 }
 
-/// 库内数值最大 session.version（两产品 session 表均有该列；空表 → None）。
+/// Highest numeric session.version in either product's database; an empty table returns None.
 pub(crate) fn max_session_version(conn: &Connection) -> Result<Option<String>, CoreError> {
     let mut stmt = conn
         .prepare("SELECT DISTINCT version FROM session")
@@ -383,13 +383,13 @@ pub(crate) fn max_session_version(conn: &Connection) -> Result<Option<String>, C
         .map_err(CoreError::Sqlite)?
         .collect::<Result<Vec<_>, _>>()
         .map_err(CoreError::Sqlite)?;
-    // 语义最大按数值序比较（同 kilo version_max 约定）。
+    // Compare version components numerically, using the same ordering as kilo version_max.
     Ok(versions
         .into_iter()
         .reduce(|a, b| version_max(&a, &b).to_string()))
 }
 
-/// 数值序版本比较（kilo versions::version_max 同语义，家族内复制）。
+/// Numeric-component version ordering, copied within the family with kilo's ordering rules.
 fn version_max<'a>(a: &'a str, b: &'a str) -> &'a str {
     let parse = |s: &str| -> Vec<i64> {
         s.split('.')
@@ -404,8 +404,8 @@ fn version_max<'a>(a: &'a str, b: &'a str) -> &'a str {
     }
 }
 
-/// OpenCode 对账：逐次 step-finish 五字段合计 vs session.tokens_* 五列合计
-/// （projector applyUsage 语义：五列 = Σ 当前部件，含删行补偿）。
+/// OpenCode reconciliation compares five per-step components with five cumulative session columns;
+/// projector applyUsage includes current parts and compensates for deleted rows.
 fn reconcile_session_counters(
     conn: &Connection,
     session_id: &str,
@@ -454,10 +454,10 @@ fn reconcile_session_counters(
     })
 }
 
-/// 家族共享扫描核心：step-finish 部件 → 逐次 model_call 事件 + 已处理位置游标。
-/// 调用方（各产品 versions 实现）负责打开只读连接、计算 schema 指纹与版本
-/// 分派结论后传入；本函数完成游标/指纹重置/窗口/事件/对账/更新已处理位置。
-/// 扫描上下文：探测/分派结论（产品身份、schema 指纹、原始版本与选择依据）。
+/// Shared scan: step-finish parts produce model_call events and a persisted processing position.
+/// Product callers supply a read-only connection, schema fingerprint, and version selection.
+/// This function handles state restoration, resets, windows, events, reconciliation, and cursor updates.
+/// Scan context: product identity, schema fingerprint, database version, and selection basis.
 pub(crate) struct PartScanContext {
     pub product: PartProduct,
     pub fingerprint: String,
@@ -482,8 +482,8 @@ pub(crate) fn scan_step_finish_parts(
         record_basis,
         row_limit,
     } = ctx;
-    // 游标不做 generation 过滤：同一逻辑库 in-place 重写让框架标 Rescan，
-    // 但 part.id/更新序号记录的已处理位置仍有效（同 kilo 约定）。
+    // Do not filter the cursor by generation: same-database in-place rewrites trigger Rescan,
+    // but part IDs and revisions retain a valid processing position.
     let cursor: PartCursor = stored
         .cursor
         .as_ref()
@@ -500,7 +500,7 @@ pub(crate) fn scan_step_finish_parts(
         .as_ref()
         .and_then(|v| serde_json::from_value(v.clone()).ok())
         .unwrap_or_default();
-    // schema 指纹变化 ⇒ 旧的已处理位置不可信，全量重读（id 键 upsert 幂等）。
+    // A changed schema fingerprint resets the position for a complete idempotent reread by ID.
     let fingerprint_reset = context.schema_fingerprint.is_some()
         && context.schema_fingerprint.as_deref() != Some(fingerprint.as_str());
     let policy_reset = context.scan_policy_version.as_deref() != Some(product.parser_version)
@@ -543,7 +543,7 @@ pub(crate) fn scan_step_finish_parts(
         let data: serde_json::Value = match crate::adapters::run_policy::json_from_str(&row.data) {
             Ok(v) => v,
             Err(_) => {
-                // json_valid 已在 SQL 层过滤；此处防御游标期间被改写的行。
+                // SQL already filters with json_valid; protect against rows changed during this read.
                 diagnostics.push(diag(
                     "bad_data_json",
                     Some("data"),
@@ -554,7 +554,7 @@ pub(crate) fn scan_step_finish_parts(
                 continue;
             }
         };
-        // 行时间是派生视图写入时刻：不可信（早于 2000）时跳过不猜。
+        // Row time describes a derived-view write; skip timestamps before 2000 without guessing replacements.
         if row.time_created < crate::domain::MIN_PLAUSIBLE_MS {
             diagnostics.push(diag(
                 "timestamp_implausible",
@@ -592,7 +592,7 @@ pub(crate) fn scan_step_finish_parts(
                 )
             }
             None => {
-                // step-finish 在场即表明该 step 已运行：计调用、token 未知。
+                // A step-finish record identifies a completed step; count the call even when tokens are unknown.
                 diagnostics.push(diag(
                     "usage_shape_deviation",
                     Some("tokens"),
@@ -637,7 +637,7 @@ pub(crate) fn scan_step_finish_parts(
             occurred_at_ms: row.time_created,
             observed_at_ms: Some(now_ms),
             source_time: Some(row.time_created.to_string()),
-            // part 行写入时刻（≈该 step 完成），非上游精确逐调用时间（A17）。
+            // Use the part write time as observed_at; it does not establish exact upstream call time (A17).
             time_basis: TimeBasis::ObservedAt,
             interval_start_ms: None,
             interval_end_ms: None,
@@ -651,7 +651,7 @@ pub(crate) fn scan_step_finish_parts(
             },
             usage,
             quality,
-            // 行级当前值即该 step 最终值；后续改写经 time_updated 修订替换。
+            // The current part value is Final; later edits can replace it through time_updated revisions.
             lifecycle: Lifecycle::Final,
             source_revision: Some(row.time_updated),
             error_status: None,
@@ -663,7 +663,7 @@ pub(crate) fn scan_step_finish_parts(
         });
     }
 
-    // 触顶按时间与稳定键续扫；同毫秒及高密度重叠窗不会反复读取首页。
+    // Resume by timestamp and stable key; dense overlaps and same-millisecond rows must not repeat only the first page.
     let new_watermark = rows.last().map(|r| r.time_updated);
     let next_watermark = match (watermark, new_watermark) {
         (_, Some(w)) => Some(w.max(watermark.unwrap_or(i64::MIN))),
@@ -769,20 +769,20 @@ mod tests {
         assert_eq!(usage.input, 1000);
         assert_eq!(usage.total, Some(1230));
 
-        // 缺 cost 或 tokens（projector 规则）⇒ None。
+        // Missing cost or tokens returns None, matching projector's extraction rule.
         assert!(parse_step_finish(&serde_json::json!({
             "type": "step-finish", "tokens": {"input": 1, "output": 1, "reasoning": 0,
                                               "cache": {"read": 0, "write": 0}}
         }))
         .is_none());
-        // 非 step-finish 类型 ⇒ None。
+        // A type other than step-finish returns None.
         assert!(parse_step_finish(&serde_json::json!({
             "type": "text", "cost": 0.1,
             "tokens": {"input": 1, "output": 1, "reasoning": 0,
                        "cache": {"read": 0, "write": 0}}
         }))
         .is_none());
-        // 五数字段缺一/越界 ⇒ None（按 MiMo zod required 定义）。
+        // Missing or excessive required numeric fields return None, matching the MiMo schema.
         assert!(parse_step_finish(&serde_json::json!({
             "type": "step-finish", "cost": 0.1,
             "tokens": {"input": 1, "output": 1, "reasoning": 0,
@@ -807,7 +807,7 @@ mod tests {
             cache_write: 10,
             total: Some(205),
         });
-        // input 是未缓存输入（pinned publish-llm-event tokens()）：inclusive 派生。
+        // Input excludes cache in pinned publish-llm-event tokens(); derive inclusive input.
         assert_eq!(m.usage.input_uncached, Some(100));
         assert_eq!(
             m.usage.input_total,
@@ -819,7 +819,7 @@ mod tests {
         assert_eq!(m.usage.source_total, Some(205));
         assert!(m.diagnostics.is_empty(), "直报 total 与派生一致");
 
-        // 缺 total：source_total None，派生总量仍在。
+        // Missing total leaves source_total=None while preserving the derived total.
         let missing = map_opencode_family_usage(&OpencodeFamilyUsage {
             input: 10,
             output: 5,
@@ -831,7 +831,7 @@ mod tests {
         assert_eq!(missing.usage.source_total, None);
         assert_eq!(missing.usage.total_tokens, Some(17));
 
-        // 直报 total 与派生值不一致时记诊断（包含关系成立才有可比性）。
+        // Diagnose differences between source total and derived total when component relationships permit comparison.
         let bad = map_opencode_family_usage(&OpencodeFamilyUsage {
             input: 10,
             output: 5,
@@ -858,7 +858,7 @@ mod tests {
             cache_write: 0,
             total: None,
         });
-        // 溢出的派生字段保持 None（未知），不 panic、不截断数值。
+        // Overflowing derived fields remain None without panic or numeric truncation.
         assert_eq!(m.usage.input_total, None);
         assert_eq!(m.usage.total_tokens, None);
     }

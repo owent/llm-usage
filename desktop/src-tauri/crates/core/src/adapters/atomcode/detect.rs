@@ -1,5 +1,5 @@
-//! AtomCode 探测：sessions/&lt;hash&gt;/&lt;id&gt;.meta（SessionMeta）或旧版
-//! 单文件 &lt;id&gt;.json（messages+turn_stats）指纹。
+//! Detect AtomCode sessions/&lt;hash&gt;/&lt;id&gt;.meta (SessionMeta), or legacy
+//! &lt;id&gt;.json files through messages and turn_stats.
 
 use crate::adapters::framework::DetectOutcome;
 use crate::domain::VersionBasis;
@@ -13,7 +13,7 @@ pub const ATOMCODE_FORMAT: &str = "atomcode-session-meta-json";
 const DETECT_HEAD_BYTES: usize = 64 * 1024;
 
 pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
-    // 瞬态不可读（持锁/超时/枚举后被清理）⇒ Pending 下轮重探，不固化失败。
+    // A transient lock, timeout or removed file returns Pending for another detection attempt.
     let Some(head) = crate::adapters::framework::read_detect_head(path, DETECT_HEAD_BYTES)? else {
         return Ok(DetectOutcome::Pending);
     };

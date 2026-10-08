@@ -1,42 +1,42 @@
-//! Qwen 版本注册表：格式版本 → 格式实现的映射与选择
-//! （architecture.md#adapter-layout / #unknown-version）。
+//! Qwen legacy ChatRecord registry maps format IDs to implementations.
+//! See architecture.md#adapter-layout / #unknown-version.
 //!
-//! Qwen 的格式锚点是固定源码 commit（085e98c0 前缀），不是发布版本白名单：
-//! `record.version`（CLI 版本）逐条存 schema_version，不参与分派；本注册表为
-//! 与其他 Agent 统一的结构而设，当前仅一个格式实现 `chatrecord_085e98c0`
-//! （A18 固定源码依据）。重固定新 commit 后增加条目并扩展枚举。
+//! Legacy ChatRecord uses fixed source commit prefix 085e98c0 as its format ID, not a release allowlist.
+//! Each record.version (CLI version) is stored as schema_version without controlling dispatch.
+//! This registry preserves the shared adapter interface; chatrecord_085e98c0 is its sole format
+//! from fixed source A18. Add entries/selection variants when a new fixed-source format is verified.
 //!
-//! 选择规则（与其他 Agent 同形）：
-//! - 已收录格式版本 → `KnownVersion`，按映射分派；
-//! - 未收录/缺失 → `LatestFallback`，回退最新内置解析器；
-//!   Qwen 探测恒以固定锚点查询（已收录），该分支仅为保持统一函数形状。
+//! Selection rules follow the shared adapter interface:
+//! - Registered format ID: KnownVersion, dispatch through the mapping.
+//! - Unregistered/missing ID: LatestFallback through the latest built-in parser.
+//!   Legacy ChatRecord detection supplies the registered fixed ID; SDK reading is separate.
 
 pub mod chatrecord_085e98c0;
 
-/// 当前格式实现标识（"最新内置解析器"由本常量明确指定，不联网获取）。
+/// This constant selects the latest built-in implementation without network access.
 pub const LATEST_IMPL_ID: &str = "chatrecord_085e98c0";
 
-/// 格式版本 = 固定源码 commit 前缀（schema 以该 commit 为准）。
+/// Format ID is the fixed-source commit prefix defining this schema.
 pub const QWEN_FORMAT_VERSION: &str = "chatrecord-085e98c0";
 
-/// 已验证格式版本 → 格式实现。
-/// 键是固定源码 commit 锚点，不是 CLI 版本白名单（`record.version` 逐条存
-/// schema_version，不做白名单）；注册表为统一结构而设。
+/// Registered format IDs mapped to implementations.
+/// Keys identify fixed-source formats, not allowed CLI releases. Store record.version as
+/// schema_version per record without a release allowlist; retain the shared registry interface.
 pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[
-    // A18 固定源码依据（qwen-code commit 085e98c00cac2f8dd29eb39c760409bc6da889a9）。
+    // A18 fixed source: qwen-code commit 085e98c00cac2f8dd29eb39c760409bc6da889a9.
     ("chatrecord-085e98c0", "chatrecord_085e98c0"),
 ];
 
-/// 版本分派结论。
+/// Version selection result.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Selection {
     pub impl_id: &'static str,
     pub basis: crate::domain::VersionBasis,
 }
 
-/// 按格式版本选择格式实现；探测与扫描共用本函数保证同一策略（V30）。
-/// Qwen 格式版本恒为固定锚点（已收录 ⇒ KnownVersion）；未收录/缺失分支
-/// 仅为与其他 Agent 统一的函数形状保留，当前不会被走到。
+/// Detection and scanning share this V30 format-selection function.
+/// Legacy ChatRecord callers supply the registered fixed ID (KnownVersion).
+/// Missing/unregistered branches preserve the shared interface and are not used by that route.
 pub fn select(found: Option<&str>) -> Selection {
     match found {
         Some(version) => {
@@ -69,7 +69,7 @@ mod tests {
 
     #[test]
     fn pinned_format_anchor_dispatches_known() {
-        // 固定源码 commit 锚点已收录：探测/扫描据此给出 known_version。
+        // Detection/scanning of legacy ChatRecord use the registered fixed-source ID: known_version.
         assert_eq!(
             select(Some(QWEN_FORMAT_VERSION)),
             Selection {
@@ -81,7 +81,7 @@ mod tests {
 
     #[test]
     fn unified_select_shape_keeps_fallback_branch() {
-        // 与 codex 同形的回退分支：仅保持统一结构，Qwen 恒以固定锚点查询。
+        // Shared fallback branch; legacy ChatRecord callers always supply the registered fixed ID.
         assert_eq!(
             select(Some("chatrecord-ffffffff")).basis,
             VersionBasis::LatestFallback

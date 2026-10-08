@@ -1,10 +1,10 @@
 /**
- * 多语言消息目录（F3 约定：docs/design/desktop-usage/i18n.md）。
- * - 语言协商：用户设置 → 系统语言 → 默认；
- * - 缺失键回退默认语言并 console.warn（开发可诊断）；
- * - 键名点分命名空间，{name} 插值；复数按 key.one/key.other（zh 只有 other）；
- * - 数字/日期/百分比用 Intl（ECMA-402）；统计时间规则（时区/周起始）不随语言改变；
- * - 切换即时生效（runes 响应式，无需重启）。
+ * Localized messages, F3: docs/design/desktop-usage/i18n.md.
+ * - Locale preference: saved user choice, system language, default.
+ * - Missing keys use default language and console.warn for development diagnostics.
+ * - Dot-separated keys, {name} interpolation, key.one/key.other plurals; Chinese uses other only.
+ * - Intl/ECMA-402 formats numbers/dates/percentages; statistics timezone/week start stay independent.
+ * - Rune-reactive changes take effect immediately, without restart.
  */
 import { translatedCatalogs } from './locales';
 import { telemetryCatalogs } from './telemetry-locales';
@@ -784,7 +784,7 @@ function detectSystemLocale(): Locale {
 
 export const i18n = $state({
   locale: DEFAULT_LOCALE as Locale,
-  /** 用户显式选择过的语言（设置持久化）；null 表示尚未选择，用系统语言。 */
+  /** Persisted explicit language choice; null uses system language until selected. */
   userChoice: null as Locale | null,
 });
 
@@ -798,7 +798,7 @@ export function setLocale(locale: Locale): void {
   i18n.locale = locale;
 }
 
-/** 翻译：缺失键回退默认语言并告警；{name} 插值。 */
+/** Translate with {name} interpolation; missing keys use default language and warn. */
 export function t(key: string, params?: Record<string, string | number>): string {
   let text = catalogs[i18n.locale][key] ?? catalogs[DEFAULT_LOCALE][key];
   if (text === undefined) {
@@ -813,7 +813,7 @@ export function t(key: string, params?: Record<string, string | number>): string
   return text;
 }
 
-/** 数字格式化（语言地区分组；统计值本身不变）。 */
+/** Locale-specific number grouping without changing statistical values. */
 export function fmtNumber(value: number | string | null | undefined): string {
   if (value === null || value === undefined || value === '') return '—';
   const n = typeof value === 'string' ? Number(value) : value;
@@ -821,19 +821,19 @@ export function fmtNumber(value: number | string | null | undefined): string {
   return new Intl.NumberFormat(i18n.locale).format(n);
 }
 
-/** 精确数字（千分位分组）：tooltip 显示完整值，如 332,958,868。 */
+/** Full grouped number for tooltips, such as 332,958,868. */
 export function fmtPrecise(value: number | string | null | undefined): string {
   return fmtNumber(value);
 }
 
-/** 一位小数（≥100 取整）用于紧凑单位换算。 */
+/** Compact-unit conversion uses one decimal, or an integer for values >=100. */
 function oneDecimal(x: number): string {
   const r = x >= 100 ? Math.round(x) : Math.round(x * 10) / 10;
   return String(r);
 }
 
-/** 数量级自动缩放（卡片与图表 y 轴）：zh 按中文习惯 万/亿/万亿，
- *  en 用 Intl 紧凑记法（K/M/B/T）；<1 万原样显示。 */
+/** Compact cards/y-axes: Chinese uses 10^4/10^8/10^12 units, retaining values below 10,000;
+ * other locales use Intl compact notation, including English K/M/B/T. */
 export function fmtSmart(value: number | string | null | undefined): string {
   if (value === null || value === undefined || value === '') return '—';
   const n = typeof value === 'string' ? Number(value) : value;
@@ -852,7 +852,7 @@ export function fmtSmart(value: number | string | null | undefined): string {
   }).format(n);
 }
 
-/** 耗时（毫秒）：秒保留 1 位；分钟/小时/天按量级换算（单位缩写双语言通用）。 */
+/** Millisecond durations use one decimal for seconds and scale to minutes/hours/days; shared unit abbreviations. */
 export function fmtDurationShort(ms: number | null | undefined): string {
   if (ms === null || ms === undefined || !Number.isFinite(ms)) return '—';
   const seconds = ms / 1000;
@@ -865,13 +865,13 @@ export function fmtDurationShort(ms: number | null | undefined): string {
   return `${(hours / 24).toFixed(1)} d`;
 }
 
-/** 百分比（0–1）。 */
+/** Percentage from a 0-1 ratio. */
 export function fmtPercent(ratio: number | null | undefined): string {
   if (ratio === null || ratio === undefined || !Number.isFinite(ratio)) return '—';
   return new Intl.NumberFormat(i18n.locale, { style: 'percent', maximumFractionDigits: 1 }).format(ratio);
 }
 
-/** 相对时间（最近成功等）。 */
+/** Relative time, such as last successful collection. */
 export function fmtRelative(ms: number | null | undefined): string {
   if (!ms) return '—';
   const delta = Date.now() - ms;
@@ -884,7 +884,7 @@ export function fmtRelative(ms: number | null | undefined): string {
   return formatter.format(-Math.round(hours / 24), 'day');
 }
 
-/** 预计剩余时长（<60 秒按秒、<3600 按分钟、否则按小时；单位词随语言）。 */
+/** Remaining duration: seconds below 60, minutes below 3600, otherwise hours; localized units. */
 export function fmtEtaDuration(seconds: number | null | undefined): string {
   if (seconds === null || seconds === undefined || !Number.isFinite(seconds) || seconds < 0) {
     return '';
@@ -900,7 +900,7 @@ export function fmtEtaDuration(seconds: number | null | undefined): string {
   }).format(value);
 }
 
-/** 字节数人类可读（B/KB/MB/GB/TB；≥100 或个位取整，否则 1 位小数）。 */
+/** Readable B/KB/MB/GB/TB: raw bytes or scaled values >=100 round to integers, otherwise one decimal. */
 export function fmtBytes(bytes: number | null | undefined): string {
   if (bytes === null || bytes === undefined || !Number.isFinite(bytes)) return '—';
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];

@@ -1,19 +1,19 @@
-//! ZCode 适配器（独立目录约定 architecture.md#adapter-layout）：
-//! - 本模块是该 Agent 的稳定入口（统一接口实现与再导出）；
-//! - [`detect`]：产品/格式探测与版本分派；
-//! - [`versions`]：已验证格式实现的注册与映射（版本锚点
-//!   `request.headers["x-zcode-app-version"]`；已验证 3.14.3，未知版本
-//!   latest_fallback 兼容尝试）；
-//! - [`common`]：两类 usage 字段映射（AI SDK 主视图 + anthropic 对照视图，
-//!   从根级 usage_map.rs 下沉）；
-//! - [`db_backfill`]：数据库逐次记录为主来源，按来源/日原子替换；
-//! - [`db_reconciliation`]：轮级累计只用于对账，不与逐次记录相加。
+//! ZCode adapter; see architecture.md#adapter-layout.
+//! - Stable entry point implements the shared interface and re-exports modules.
+//! - detect identifies the product/format and selects versions.
+//! - versions maps verified formats using the version field
+//!   request.headers["x-zcode-app-version"]; 3.14.3 is verified,
+//!   while unregistered versions use latest_fallback compatibility reading.
+//! - common maps AI SDK primary usage and Anthropic comparison usage,
+//!   extracted from the former root-level usage_map.rs.
+//! - db_backfill reads database per-call records as the primary source, replacing source/day partitions atomically.
+//! - db_reconciliation compares turn cumulative totals without adding them to per-call records.
 //!
-//! 发现依据（m345-inventory-2026-09-25 目录核验结果，本机实读）：
-//! 数据根 `<home>/.zcode/cli`；用量逐次记录在 `rollout/model-io-*.jsonl`；
-//! `db/db.sqlite` 的 model_usage 用于采集，turn_usage 用于对照；
-//! `agents/*/transcript.jsonl` 为正文类（不计量）；`~/.zcode/v2` 无 rollout；
-//! `%APPDATA%/zcode` 为桌面端 session 小存储（未接入）。无文档化环境覆盖。
+//! Discovery references: real local directory inspection, m345-inventory-2026-09-25.
+//! Root <home>/.zcode/cli has rollout/model-io-*.jsonl per-call usage;
+//! db/db.sqlite model_usage is collected and turn_usage is used for comparison.
+//! agents/*/transcript.jsonl contains conversation content, excluded from usage; ~/.zcode/v2 has no rollout.
+//! %APPDATA%/zcode desktop session storage is not integrated; no documented environment override.
 
 pub mod common;
 pub mod db_backfill;
@@ -26,7 +26,7 @@ pub use versions::{modelio_v1, LATEST_IMPL_ID, VERIFIED_VERSION_IMPLS};
 
 use rusqlite::Connection;
 
-/// ZCode 适配器（无状态）。
+/// Stateless ZCode adapter.
 pub struct ZcodeAdapter;
 
 impl Default for ZcodeAdapter {
@@ -56,7 +56,7 @@ impl crate::adapters::framework::SourceAdapter for ZcodeAdapter {
     ) -> Vec<crate::adapters::framework::DiscoveredRoot> {
         use crate::adapters::framework::{DiscoveredRoot, RootBasis};
         let mut roots: Vec<(std::path::PathBuf, RootBasis)> = Vec::new();
-        // 本机归属默认根：<home>/.zcode/cli（inventory 实读证实；不硬编码盘符）。
+        // Observed local default <home>/.zcode/cli; use the supplied home, without a fixed drive.
         if let Some(home) = &ctx.home_dir {
             roots.push((home.join(".zcode").join("cli"), RootBasis::DefaultHome));
         }
@@ -70,7 +70,7 @@ impl crate::adapters::framework::SourceAdapter for ZcodeAdapter {
             if !rollout.is_dir() && !db.is_file() {
                 continue;
             }
-            // rollout/model-io-<sessionId>.jsonl：深度 1，有界枚举。
+            // Bounded depth 1 enumerates rollout/model-io-<sessionId>.jsonl.
             let mut files =
                 crate::adapters::framework::enumerate_files_bounded(&rollout, 1, &|p| {
                     p.file_name()
@@ -109,7 +109,7 @@ impl crate::adapters::framework::SourceAdapter for ZcodeAdapter {
         limits: &crate::adapters::framework::ScanLimits,
         now_ms: i64,
     ) -> Result<crate::adapters::framework::ScanOutcome, crate::error::CoreError> {
-        // 当前所有已验证版本共用 modelio_v1；注册表扩展多实现后在此按选择分派。
+        // All verified versions use modelio_v1; extend selected dispatch with the registry.
         versions::modelio_v1::scan(target, stored, limits, now_ms)
     }
 
@@ -287,29 +287,29 @@ impl crate::adapters::framework::SourceAdapter for ZcodeAdapter {
     }
 }
 
-/// cli/db/db.sqlite 只读对账结果（白名单数值，无 ID/路径/正文）。
+/// Read-only cli/db/db.sqlite reconciliation returns selected numeric fields, without ids, paths or content.
 ///
-/// 依据（本机 3.14.3 只读探测）：`model_usage` 逐次行（4169 行）、
-/// `turn_usage` 逐轮聚合（438 行），computed_total_tokens 可对账；
-/// M0 样本 16/16 轮相等；活库快照上少量在途/取消轮存在差异，
-/// 对账只报告 matched/mismatch，不做修正、不入库计量。
+/// References: local 3.14.3 inspection found 4169 model_usage per-call rows and
+/// 438 turn_usage aggregate rows, whose computed_total_tokens can be compared.
+/// All 16/16 M0 sample turns matched; live snapshots have some unfinished/cancelled-turn differences.
+/// Return comparison results only, without correcting or importing totals as usage.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DbReconciliation {
     pub model_rows: i64,
     pub turn_rows: i64,
     pub turns_total: i64,
-    /// Σmodel_usage.computed_total_tokens == turn_usage.computed_total_tokens 的轮数。
+    /// Turns classified matched by comparing model_usage sums with turn_usage.computed_total_tokens.
     pub turns_matched: i64,
-    /// 有 model_usage 行但合计不等的轮数（活库快照下含在途/取消轮）。
+    /// Turns with a present model sum differing from the turn total; live snapshots include unfinished/cancelled turns.
     pub turns_mismatched: i64,
-    /// 无任何 model_usage 行的轮数。
+    /// Turns whose joined model computed-total sum is NULL.
     pub turns_without_model_rows: i64,
     pub model_computed_total_sum: i64,
     pub turn_computed_total_sum: i64,
 }
 
-/// 只读打开 cli/db/db.sqlite 并做 Σmodel_usage == turn_usage 对账
-///（M0 结论 turn_usage==Σmodel_usage 的持续核验）。失败返回错误，不写库。
+/// Open cli/db/db.sqlite read-only and compare summed model_usage against turn_usage.
+/// Continue checking the M0 sum relationship; return errors without writing the database.
 pub fn db_reconciliation(
     db_path: &std::path::Path,
 ) -> Result<DbReconciliation, crate::error::CoreError> {

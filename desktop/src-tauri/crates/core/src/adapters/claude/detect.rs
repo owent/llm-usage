@@ -1,7 +1,7 @@
-//! Claude Code 探测：有界读取首行，按文档化记录类型集合确认 Agent 身份。
+//! Detect Claude Code from a bounded first line and documented record types.
 //!
-//! 文件首行仅作格式门禁，不认证其他行的客户端版本；扫描按每条 assistant
-//! 自带 version 选择规则，队列元数据或安装版本不能认证历史用量。
+//! First line checks format only, not client versions of other rows. Each assistant
+//! uses its own version; queue metadata or installed versions do not verify historical usage.
 
 use crate::error::CoreError;
 use std::path::Path;
@@ -13,7 +13,7 @@ use super::versions::CLAUDE_FORMAT_VERSION;
 
 pub const CLAUDE_FORMAT: &str = "claude-transcript-jsonl";
 
-/// 探测一个 transcript 文件；无版本字段可回退，格式版本固定为文档级锚点。
+/// Detect one transcript; missing version allows fallback, using a documented format identifier.
 pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     let limits = super::super::jsonl::JsonlLimits {
         chunk_bytes: 64 * 1024,
@@ -37,9 +37,9 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
             format_version: Some(CLAUDE_FORMAT_VERSION.to_string()),
             basis: VersionBasis::KnownVersion,
         }),
-        // 2026-09-30 真实样本核验结果（Claude Code 2.1.197，WSL）：排队/附件/last-prompt
-        // 元数据记录可出现在文件首行；它们不是用量载体，探测放行，
-        // 逐行解析阶段仍按白名单处理（transcript_doc1）。
+        // Native Claude Code 2.1.197 sample, WSL, 2026-09-30: queue/attachment/last-prompt
+        // metadata may appear first; these records contain no usage and detection accepts them.
+        // Line parsing still selects permitted fields through transcript_doc1.
         Some("queue-operation") | Some("attachment") | Some("last-prompt") => {
             Ok(DetectOutcome::Supported {
                 format: CLAUDE_FORMAT.to_string(),

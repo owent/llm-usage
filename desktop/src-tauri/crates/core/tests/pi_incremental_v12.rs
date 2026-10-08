@@ -1,7 +1,7 @@
-//! V12：pi 适配器增量与刷新语义 —— 重复扫描不增量、追加续读、半行跨轮、
-//! 截断/同长替换/改名重探测、达到读取上限后分批恢复、矛盾重复条目冲突标记。
-//! 场景对照 codex_incremental_v12.rs；基础内容取真实脱敏 fixture
-//! session-error-zero-usage（7 行，唯一事件在 L7）。
+//! Pi V12 incremental tests: repeat deduplication, appended reads, partial lines,
+//! truncation/equal-size replacement/rename detection, bounded resumption and conflicting duplicates.
+//! Scenarios follow codex_incremental_v12.rs; base data is real and redacted:
+//! session-error-zero-usage has seven lines, with the only event on L7.
 
 mod common;
 
@@ -10,7 +10,7 @@ use llm_usage_core::adapters::framework::ScanLimits;
 use llm_usage_core::adapters::jsonl::JsonlLimits;
 
 const NOW: i64 = 1_800_000_000_000;
-/// 真实 fixture 重建后的会话文件相对路径（sessions/<encoded-cwd>/<file>）。
+/// Reconstructed native session path relative to sessions/<encoded-cwd>/<file>.
 const REL: &str = "--C--Users-anon--/2026-09-24T16-37-28-439Z_anon-1.jsonl";
 
 fn budgeted_limits(max_lines: u64) -> ScanLimits {
@@ -60,7 +60,7 @@ fn repeat_scan_does_not_increment() {
 fn appended_lines_are_read_incrementally() {
     let dir = TempDir::new("pi-v12-append");
     let jsonl = real_fixture_jsonl();
-    // 先写前 6 行（无 usage 载体），再追加第 7 行（assistant）。
+    // Write six lines without usage, then append the seventh assistant line.
     let text = String::from_utf8(jsonl).unwrap();
     let mut lines: Vec<&str> = text.lines().collect();
     let tail = lines.split_off(6);
@@ -84,7 +84,7 @@ fn appended_lines_are_read_incrementally() {
     let summary = summary(&storage, "2026-09-24", "2026-09-24");
     assert_eq!(summary.totals.call_count, 1);
     assert_eq!(summary.totals.total_tokens_known, Some(0));
-    // 追加续读保留会话身份（解析上下文随游标持久化）。
+    // Appended reads retain session identity through persisted parser context and cursor.
     let session: String = storage
         .conn()
         .query_row("SELECT session_id FROM usage_events", [], |r| r.get(0))
@@ -100,7 +100,7 @@ fn half_line_is_not_consumed_until_completed() {
     let text = String::from_utf8(jsonl).unwrap();
     let lines: Vec<&str> = text.lines().collect();
     let (head, last) = (lines[..lines.len() - 1].join("\n"), lines[lines.len() - 1]);
-    // 写入除最后一条外的全部行 + 最后一条的前半（assistant 事件行不完整）。
+    // Write complete earlier lines and half the final assistant line.
     let partial = format!("{head}\n{}", &last[..last.len() / 2]);
     let file_path = dir.path().join("sessions").join(REL);
     let root = pi_root_with_file(&dir, REL, partial.as_bytes());
@@ -110,7 +110,7 @@ fn half_line_is_not_consumed_until_completed() {
     assert_eq!(first[0].files[0].lines_read as usize, lines.len() - 1);
     assert_eq!(first[0].files[0].events, 0, "半行未消费，无事件");
 
-    // 完成最后半行。
+    // Complete the last partial line.
     std::fs::write(&file_path, format!("{head}\n{last}\n").as_bytes()).unwrap();
     let second = run_pi(&storage, &root, NOW + 1000);
     assert_eq!(
@@ -135,7 +135,7 @@ fn truncation_triggers_generation_rescan() {
     let (_db, storage) = temp_storage("pi-v12-trunc");
     run_pi(&storage, &root, NOW);
 
-    // 截断为前 6 行（源端极端行为）：重探测 → generation+1 → 从头重扫。
+    // Truncate to six lines: redetect, increment generation and rescan from the beginning.
     let text = String::from_utf8(jsonl).unwrap();
     let head: String = text.lines().take(6).collect::<Vec<_>>().join("\n") + "\n";
     std::fs::remove_file(&file_path).unwrap();
@@ -148,7 +148,7 @@ fn truncation_triggers_generation_rescan() {
         .query_row("SELECT generation FROM source_files", [], |r| r.get(0))
         .unwrap();
     assert_eq!(generation, 1);
-    // 已入库历史不因源截断而消失。
+    // Stored history survives source truncation.
     let summary = summary(&storage, "2026-09-24", "2026-09-24");
     assert_eq!(summary.totals.call_count, 1);
     let _ = dir;
@@ -164,8 +164,8 @@ fn same_size_replacement_rescans_without_dropping_history() {
     run_pi(&storage, &root, NOW);
     let before = storage.data_revision().unwrap();
 
-    // 同长替换：交换两条完整记录行（总字节数不变、每行仍是合法 JSON、
-    // 首行仍是 session 头），内容指纹改变必须触发重扫。
+    // Swap two complete JSON lines without changing byte length or the initial session header;
+    // changed content fingerprints must cause a rescan.
     let text = String::from_utf8(original.clone()).unwrap();
     let mut lines: Vec<&str> = text.split_inclusive('\n').collect();
     assert!(lines.len() >= 5, "fixture should have enough lines to swap");
@@ -181,7 +181,7 @@ fn same_size_replacement_rescans_without_dropping_history() {
         .unwrap();
     assert_eq!(generation, 1, "same-size replacement bumps generation");
     assert!(storage.data_revision().unwrap() >= before);
-    // 重扫产出同一事件（同键同内容）：幂等，不双计。
+    // Identical key/content on rescan leaves one event without double counting.
     assert_eq!(second[0].files[0].lines_read, 7);
     let outcome = second[0].outcome.as_ref().unwrap();
     assert_eq!((outcome.added, outcome.unchanged), (0, 1));
@@ -220,14 +220,14 @@ fn rename_keeps_identity_and_cursor() {
     let _ = dir;
 }
 
-// 手工核算值（synthetic-auxiliary-carriers，8 行 6 事件，行序：session/model_change/
-// assistant(带 usage)/assistant(无 usage)/usage/compaction/branch_summary/toolResult）：
-// 各批行数上限 3+4+100 ⇒ 事件 1+4+1；合计 call_count=6、input_total=2915、
-// cache_read=1190、cache_write=110、output=355、total=3270。
+// Manual synthetic-auxiliary-carriers values: eight lines/six events ordered as session/model_change/
+// assistant with usage/assistant without usage/usage/compaction/branch_summary/toolResult.
+// Batch line limits 3+4+100 produce events 1+4+1; total calls=6 and input_total=2915,
+// cache_read=1190, cache_write=110, output=355, total=3270.
 #[test]
 fn budget_split_resumes_without_duplicates() {
     let dir = TempDir::new("pi-v12-budget");
-    // 复制合成 fixture 到临时目录（避免改动仓库内 fixture）。
+    // Copy synthetic data to the temporary test directory, preserving repository data.
     let jsonl = std::fs::read(
         pi_fixture("synthetic-auxiliary-carriers")
             .join("sessions/--C--Users-syn--/2026-01-05T10-00-00-000Z_syn-sess-aux.jsonl"),
@@ -271,8 +271,8 @@ fn budget_split_resumes_without_duplicates() {
     let _ = dir;
 }
 
-// 手工核算值：syn-cf-1 首轮 input=1000/cacheRead=400 ⇒ input_total=1400、total=1450；
-// 追加同四元组不同 usage（input=1500）⇒ 无法确认哪条修订更新 → conflict，已存值保持。
+// syn-cf-1 initially has input=1000/cacheRead=400, giving input_total=1400 and total=1450.
+// Same identity tuple with input=1500 has no ordered revision: mark conflict and retain stored values.
 #[test]
 fn conflicting_duplicate_entry_marks_conflict_and_keeps_existing() {
     let dir = TempDir::new("pi-v12-conflict");
@@ -286,7 +286,7 @@ fn conflicting_duplicate_entry_marks_conflict_and_keeps_existing() {
     let (_db, storage) = temp_storage("pi-v12-conflict");
     run_pi(&storage, &root, NOW);
 
-    // 追加同条目四元组（type/id/parentId/timestamp 相同）但 usage 数值不同的记录。
+    // Append the same type/id/parentId/timestamp tuple with different usage.
     let conflict_line = "{\"type\":\"message\",\"id\":\"syn-cf-1\",\"parentId\":null,\"timestamp\":\"2026-01-05T10:00:01.000Z\",\"message\":{\"role\":\"assistant\",\"provider\":\"syn-prov\",\"model\":\"syn-model-a\",\"usage\":{\"input\":1500,\"output\":50,\"cacheRead\":400,\"cacheWrite\":0,\"totalTokens\":1950},\"stopReason\":\"stop\"}}\n";
     let mut appended = base.as_bytes().to_vec();
     appended.extend_from_slice(conflict_line.as_bytes());
@@ -296,7 +296,7 @@ fn conflicting_duplicate_entry_marks_conflict_and_keeps_existing() {
     assert_eq!(outcome.conflicts, 1);
 
     let key = "pi:message:syn-cf-1:-:2026-01-05T10:00:01.000Z";
-    // 不任意择大：已存值保持 1400，冲突标记并记诊断。
+    // Retain input_total=1400 rather than choosing the larger value; mark conflict and diagnose.
     let (input, conflict_flag): (i64, i64) = storage
         .conn()
         .query_row(

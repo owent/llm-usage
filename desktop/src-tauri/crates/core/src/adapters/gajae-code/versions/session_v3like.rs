@@ -1,28 +1,28 @@
-//! gajae-code（gjc）会话 JSONL 格式实现（`session_v3like`，文档级
-//! gjc-session-doc-1）。
+//! gajae-code (gjc) session JSONL implementation session_v3like;
+//! format gjc-session-doc-1.
 //!
-//! 格式依据（Yeachan-Heo/gajae-code 固定源码 7e54f9cbcf712cfa7f633d3c8da58a6d89f7f301，
-//! 官方源码核验 + docs/session.md；pi 血统（共同祖先 v3，非现行 pi 子集）；
-//! 0.18.7 官方二进制/固定版本源码及真实本地模型样本已核对）：
-//! - 布局：`<agentDir>/sessions/<scope>/<ISO-ts-dashes>_<uuid7>.jsonl`；
-//!   子代理文件在父会话同名目录（去 .jsonl）下任意嵌套（官方 stats
-//!   parser.ts:105-118 按路径深度推断角色；去重键 = 会话文件 + 条目 id）。
-//! - 首行 `{type:"session", version:5, id, timestamp(ISO), cwd, ...}`；
-//!   条目 `{type, id(8hex), parentId, timestamp(ISO)}`；assistant message：
-//!   `{type:"message", message:{role, api, provider, model, responseId?, usage,
-//!   timestamp(Unix **毫秒**，优先于条目 ISO)}}`。
-//! - `usage`（packages/ai types.ts:713-760，**已归一化互斥桶**）：
-//!   `input`（非缓存）/`output`（含 thinking）/`cacheRead`/`cacheWrite`/
-//!   `totalTokens`（四桶之和）；`reasoningTokens?`⊆output；
-//!   `cost{input,output,cacheRead,cacheWrite,total}`（USD，费率自算 ⇒
-//!   Estimated）。与 pi 家族 map_pi_family 的计算规则一致（按官方归一化实现核验）。
-//!   0.18.7 OpenAI-completions 的缺字段零回退须进一步保留 Unknown；
-//!   不改其他 API 的已核验映射，见 gajae_contract 和数据合同。
-//! - 官方 stats 计算规则（parser.ts:71-77,176-199）：只统计 role==assistant、
-//!   五桶齐全（非负有限数）且 model/provider/api 非空的行；缺桶/缺 id 行
-//!   跳过不造数（同本方"未知不补零"）。
-//! - 会话头 timestamp 与条目 timestamp 为 ISO；message.timestamp 为毫秒
-//!   （两种单位并存，勿混用——以 message.timestamp 优先）。
+//! References: Yeachan-Heo/gajae-code source 7e54f9cbcf712cfa7f633d3c8da58a6d89f7f301
+//! and official docs/session.md. It shares a v3 ancestor with pi, not current pi format rules.
+//! Official 0.18.7 binary/fixed source/native local-model samples were checked.
+//! - <agentDir>/sessions/<scope>/<ISO-ts-dashes>_<uuid7>.jsonl;
+//!   subagent files nest under the parent session basename without .jsonl. Official stats
+//!   parser.ts:105-118 infers role by depth; record keys combine file identity and entry id.
+//! - Header: type=session, version=5, id, ISO timestamp and cwd.
+//!   Entries have type, 8-hex id, parentId and ISO timestamp. Assistant messages contain
+//!   role, api, provider, model, optional responseId, usage and
+//!   Unix-millisecond message.timestamp, preferred over the entry ISO timestamp.
+//! - Normalized usage (packages/ai types.ts:713-760) has independent
+//!   input (uncached), output (including thinking), cacheRead and cacheWrite;
+//!   totalTokens sums those four, with optional reasoningTokens within output.
+//!   cost{input,output,cacheRead,cacheWrite,total} is USD computed from client rates,
+//!   classified Estimated. Base token mapping matches checked pi normalization, with separate
+//!   0.18.7 OpenAI-completions default-zero corrections retaining Unknown.
+//!   Other APIs retain their independently checked mappings; see gajae_contract and the data rules.
+//! - Official stats (parser.ts:71-77,176-199) selects assistant rows with
+//!   five finite nonnegative token fields and nonempty model/provider/api;
+//!   missing fields/IDs are skipped without replacement values.
+//! - Headers/entries use ISO timestamps; message.timestamp uses milliseconds.
+//!   Prefer valid message.timestamp without confusing the units.
 
 use crate::adapters::framework::{
     ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -41,7 +41,7 @@ use super::GJC_FORMAT_VERSION;
 pub const GJC_PARSER_VERSION: &str = "gjc-session-2";
 const MAX_REASONABLE_TOKEN: i64 = crate::domain::MAX_TOKEN_VALUE;
 
-/// 固定源码 + docs/session.md 枚举的条目类型；未列出 ⇒ fail closed（V17）。
+/// Entry types enumerated by fixed source/docs/session.md; unknown types stop reading (V17).
 const DOCUMENTED_ENTRY_TYPES: &[&str] = &[
     "session",
     "message",
@@ -152,8 +152,8 @@ pub fn scan(
     now_ms: i64,
 ) -> Result<ScanOutcome, CoreError> {
     let mut context = restore_context(stored, target.rescan);
-    // version_basis 由会话头 version 字段确定（见 entry_type=="session" 分支）；
-    // 增量续扫时从 parse_context 恢复，不硬编码。
+    // Read version_basis from session.version;
+    // restore it from parse_context on incremental continuation rather than hardcode it.
     let cursor = restore_cursor(stored, target.generation, target.rescan);
     let read = read_jsonl(
         &target.path,
@@ -174,7 +174,7 @@ pub fn scan(
         };
         let entry_type = value.get("type").and_then(|v| v.as_str()).unwrap_or("");
         if !DOCUMENTED_ENTRY_TYPES.contains(&entry_type) {
-            // fail closed：整文件停下（游标不推进），待真实样本扩展。
+            // Stop this file without advancing its cursor; additional formats require verified samples.
             return Ok(ScanOutcome {
                 status: ScanStatus::Pending,
                 cursor: None,
@@ -194,8 +194,8 @@ pub fn scan(
         }
         if entry_type == "session" {
             context.session_id = value.get("id").and_then(|v| v.as_str()).map(str::to_string);
-            // 与 detect 同规则：version==5 为已验证版本；其他/缺失按
-            // LatestFallback 如实标注（不能虚标 KnownVersion）。
+            // Match detect: version=5 is a verified format; other/missing versions retain
+            // LatestFallback rather than an unsupported KnownVersion label.
             context.version_basis = Some(match value.get("version").and_then(|v| v.as_i64()) {
                 Some(5) => VersionBasis::KnownVersion,
                 _ => VersionBasis::LatestFallback,
@@ -214,7 +214,7 @@ pub fn scan(
         if message.get("role").and_then(|v| v.as_str()) != Some("assistant") {
             continue;
         }
-        // 官方 stats 规则：model/provider 非空才统计。
+        // Require nonempty model/provider, following the official stats rule.
         let model = message.get("model").and_then(|v| v.as_str()).unwrap_or("");
         let provider = message
             .get("provider")
@@ -226,7 +226,7 @@ pub fn scan(
         let Some(usage) = message.get("usage").and_then(|v| v.as_object()) else {
             continue;
         };
-        // 五桶齐全（官方 parser 规则相同）；缺桶跳过不补零。
+        // Require all five native fields; skip missing fields without filling zero.
         let (Some(input), Some(output), Some(cache_read), Some(cache_write), Some(total)) = (
             bounded(usage.get("input")),
             bounded(usage.get("output")),
@@ -249,7 +249,7 @@ pub fn scan(
             ));
             continue;
         };
-        // message.timestamp（毫秒）优先；缺则条目 ISO。
+        // Prefer valid millisecond message.timestamp, then the entry ISO timestamp.
         let occurred_ms = message
             .get("timestamp")
             .and_then(|v| v.as_i64())
@@ -279,9 +279,9 @@ pub fn scan(
         let openai_completions =
             message.get("api").and_then(|v| v.as_str()) == Some("openai-completions");
         if openai_completions {
-            // 0.18.7 parseChunkUsage uses missing-field zero fallbacks. Its inverse
-            // recovers total prompt tokens, but zero cache buckets cannot certify
-            // uncached input. Other APIs retain their separately verified mapping.
+            // 0.18.7 parseChunkUsage supplies zeros for absent fields. Its inverse recovers
+            // total prompt input, but zero cache fields do not establish uncached input.
+            // Keep independently checked mappings for other APIs.
             use crate::domain::FieldQuality::{Derived, Unknown};
             if cache_read == 0 {
                 mapped.usage.input_cache_read = None;
@@ -351,8 +351,8 @@ pub fn scan(
             time_basis: if openai_completions
                 && message.get("timestamp").and_then(|v| v.as_i64()) == Some(occurred_ms)
             {
-                // createInitialResponsesAssistantMessage initializes timestamp
-                // before connecting the request; it is not response completion.
+                // createInitialResponsesAssistantMessage sets timestamp
+                // before connecting the request, so it identifies request start.
                 TimeBasis::SourceStart
             } else {
                 TimeBasis::SourceCompletion

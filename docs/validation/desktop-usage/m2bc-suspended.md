@@ -1,122 +1,157 @@
-# M2-B/C 中断记录：pi/oh-my-pi/Claude/Gemini/Qwen 适配器（半成品保留，未验收）
+# M2-B/C interruption: pi, oh-my-pi, Claude, Gemini and Qwen adapters
 
-> **已于 2026-09-25 恢复并完成验收**，见 [m2bc-resumed.md](m2bc-resumed.md)。
-> 本文保留为中断经过与冷启动简报的历史记录；下方「与 M2 完成条件的差距」
-> 状态列已按恢复结果更新。
+<a id="m2-bc-中断记录pioh-my-piclaudegeminiqwen-适配器半成品保留未验收"></a>
 
-本文件不是通过记录。M2-B（pi + oh-my-pi）与 M2-C（Claude Code/Gemini CLI/Qwen Code）
-两个并行实现任务由用户决定于 2026-09-24 中断，工作树半成品经核验编译与测试全绿后保留，
-待用户恢复后继续。恢复前不得以「M2 适配器已完成」对外表述。
+> **Resumed and accepted on 2026-09-25**; see [the recovery record](m2bc-resumed.md).
+> This historical record preserves the interruption and instructions for resuming on another machine.
+> The completion-gap table below includes the recovery results.
 
-## 元信息
+This is an interruption record, not a passing acceptance report. The user stopped the parallel
+M2-B (pi/oh-my-pi) and M2-C (Claude Code/Gemini CLI/Qwen Code) implementation tasks on 2026-09-24.
+Their unfinished worktree changes were retained after compilation/tests passed. Before recovery,
+the adapters could not be reported as complete.
 
-| 项目 | 内容 |
+<a id="元信息"></a>
+
+## Metadata
+
+| Item | Value |
 | --- | --- |
-| 日期 | 2026-09-24 |
-| 执行环境 | Windows 11 x64；rustc 1.98.0；Node v24.21.0 / npm 12.0.2 |
-| 代码 revision | 未提交工作树：M2-A 已验收状态（另一会话已 `git add`）+ 本次中断留下的未跟踪/未暂存改动 |
-| 依据合同 | [adapters.md](../../design/desktop-usage/adapters.md) 接入矩阵；[validation.md](../../design/desktop-usage/validation.md) V07/V12/V17 |
+| Date | 2026-09-24 |
+| Environment | Windows 11 x64; rustc 1.98.0; Node v24.21.0 / npm 12.0.2 |
+| Revision | Uncommitted worktree: accepted M2-A changes already staged by another session, plus untracked/unstaged changes left by this interruption |
+| Requirements | [Adapter matrix](../../design/desktop-usage/adapters.md); [validation requirements](../../design/desktop-usage/validation.md) V07/V12/V17 |
 
-## 中断经过与恢复方式
+<a id="中断经过与恢复方式"></a>
 
-| 任务 | 范围 | 运行时长 | 中断原因 | 恢复方式 |
+## Interruption and recovery
+
+| Task | Scope | Duration | Reason | Recovery method |
 | --- | --- | --- | --- | --- |
-| M2-B（后台子代理 agent-16） | pi + oh-my-pi 适配器 | 约 57 分钟 | 用户要求暂停并落地文档 | 本机：`Agent(resume="agent-16", "继续")`；换机后失效，用下方冷启动简报 |
-| M2-C（后台子代理 agent-17） | Claude/Gemini/Qwen 适配器 | 约 57 分钟 | 同上 | 本机：`Agent(resume="agent-17", "继续")`；换机后失效，用下方冷启动简报 |
+| M2-B, background agent-16 | pi/oh-my-pi adapters | About 57 minutes | User requested a pause and written status | On the original machine: `Agent(resume="agent-16", "继续")`; on another machine, use the recovery instructions below |
+| M2-C, background agent-17 | Claude/Gemini/Qwen adapters | About 57 minutes | Same request | On the original machine: `Agent(resume="agent-17", "继续")`; on another machine, use the recovery instructions below |
 
-## 换机恢复方案（2026-09-24 增补）
+<a id="换机恢复方案2026-09-24-增补"></a>
 
-### 换机后会失效的东西
+## Recovery on another machine: 2026-09-24 addition
 
-- **子代理会话**：agent-16/17 的上下文只存在本机 `~/.kimi-code/sessions/`，不随仓库转移。
-  换机后由「冷启动简报」（本节末尾）替代，新机器上的 Agent 读简报冷启动即可。
-- **未提交的工作树**：M0 以来的全部成果（含本记录）目前只在本机工作树/暂存区，
-  `git log` 最新仍是 `9394264 P1`。不转移则全部丢失。
-- **`build/desktop-usage-validation/`**：真实核对的原始产物被 gitignore，不随 git 转移；
-  其结论已固化在 m2a-codex.md / m0-agent-fixtures.md（会随 git 转移）。需要原始产物时手动复制该目录。
-- **本机真实数据探测结论**：claude/gemini/qwen 本机 not_found、pi sessions 为空（no_data）
-  是**这台机器**的核验结果。新机器可能装有这些 Agent、存在真实数据——可以补充真实样本，
-  也意味着恢复后必须按新机器实际重新探测，不得沿用旧机结论。
+<a id="换机后会失效的东西"></a>
 
-### 第一步：把工作树固化并转移（三选一）
+### State that does not transfer automatically
 
-| 方案 | 命令（旧机执行） | 新机恢复 | 适用 |
+- Agent-16/17 contexts exist only in the original machine's `~/.kimi-code/sessions/`, outside
+  the repository. A new agent can use the brief below instead of resuming those sessions.
+- All uncommitted M0-and-later work, including this record, exists only in the worktree/index.
+  The latest `git log` entry remained `9394264 P1`; failing to transfer these files loses the work.
+- `build/desktop-usage-validation/` contains ignored raw verification artifacts. The conclusions
+  are recorded in m2a-codex.md/m0-agent-fixtures.md and transfer with Git; copy the ignored directory
+  separately when raw artifacts are needed.
+- The Claude/Gemini/Qwen not_found results and empty pi sessions/no_data result apply to the
+  original machine. Another machine may have installations and native data. Repeat discovery on
+  that machine and collect additional native samples where available.
+
+<a id="第一步保存并转移工作树三选一"></a>
+
+<a id="第一步把工作树固化并转移三选一"></a>
+
+### Step 1: preserve and transfer the worktree
+
+| Option | Original-machine operation | Restore on the new machine | Applicability |
 | --- | --- | --- | --- |
-| A. 提交并推送（推荐） | `git add -A && git commit -m "M0-M2 阶段性成果与 M2-B/C 中断半成品" && git push origin main`（LFS 对象随 push 自动上传） | `git clone git@github.com:owent/llm-usage.git && cd llm-usage && git lfs pull` | 有 GitHub 访问权；历史可追溯，最稳 |
-| B. git bundle 单文件 | 先按 A 提交，再 `git bundle create llm-usage.bundle main` | `git clone llm-usage.bundle` | 不想推送远端；**注意 bundle 不含 LFS 对象**，需另复制 `.git/lfs/` 目录，否则 svg/ico 等是指针 |
-| C. 整目录文件同步 | 无（用网盘/U盘/rsync 复制整个 `llm-usage/` 含 `.git/`，`node_modules` 与 `target/` 可排除） | 直接进目录工作 | 最省事，工作树与暂存区逐字节保留；但无提交历史增量，丢失恢复点 |
+| A. Commit and push, recommended | `git add -A && git commit -m "M0-M2 阶段性成果与 M2-B/C 中断半成品" && git push origin main`; push uploads LFS objects | `git clone git@github.com:owent/llm-usage.git && cd llm-usage && git lfs pull` | GitHub access; preserves commit history and a recovery revision |
+| B. Git bundle | Commit as in A, then `git bundle create llm-usage.bundle main` | `git clone llm-usage.bundle` | Avoids a remote push; bundles omit LFS objects, so copy `.git/lfs/` separately or SVG/ICO assets remain pointers |
+| C. Copy the entire directory | Copy `llm-usage/`, including `.git/`, using file sync/USB/rsync; node_modules/target may be omitted | Work directly in the copied directory | Preserves worktree/index bytes with fewer steps, but creates no additional commit recovery point |
 
-无论哪个方案，新机首次进入后重建依赖并验证基线：
+After any transfer, reinstall dependencies and verify the baseline on the new machine.
+The original recorded command block is retained below:
 
 ```bash
-npm ci                 # 根目录；desktop/ 依赖由根 scripts 级联（如缺则再 npm --prefix desktop ci）
-npm run verify         # 基线：core 143 + app 2 = 145 passed，lint/clippy/fmt/svelte-check 全绿
+npm ci                 # Repository root; root scripts load desktop dependencies (run npm --prefix desktop ci if needed)
+npm run verify         # Baseline: core 143 + app 2 = 145 passed; lint/clippy/fmt/svelte-check passed
 ```
 
-### 第二步：新机环境前提
+Its notes require root dependencies, optional `npm --prefix desktop ci` if desktop dependencies
+are absent, and the historical 145-test baseline (core 143/app 2), with lint/clippy/fmt/Svelte checks passing.
 
-| 依赖 | 要求 | 旧机实测 |
+<a id="第二步新机环境前提"></a>
+
+### Step 2: new-machine prerequisites
+
+| Dependency | Requirement | Original-machine result |
 | --- | --- | --- |
-| OS | Windows 11 x64（首发验收平台）；WSL2 可做 Linux 构建冒烟 | Windows 11 x64 |
-| Node.js | 22+（AGENTS.md 合同） | v24.21.0 / npm 12.0.2 |
-| Rust | stable（edition 2021，无 toolchain 文件锁定） | 1.98.0 |
-| git-lfs | 必需（`.gitattributes` 对 svg/png/ico 等启用 LFS） | 已启用 |
-| WebView2 | GUI 冒烟（`npm run dev:desktop`）需要 | 通过 |
+| OS | Windows 11 x64 for first-release acceptance; WSL2 may run a Linux build smoke check | Windows 11 x64 |
+| Node.js | 22+, under AGENTS.md requirements | v24.21.0 / npm 12.0.2 |
+| Rust | Stable; edition 2021, no pinned toolchain file | 1.98.0 |
+| git-lfs | Required; .gitattributes uses LFS for SVG/PNG/ICO and other assets | Enabled |
+| WebView2 | Required for the GUI smoke check with npm run dev:desktop | Passed |
 
-### 第三步：冷启动简报（换机后给新 Agent，替代 agent resume）
+<a id="第三步恢复简报换机后给新-agent替代-agent-resume"></a>
 
-> 你在 `llm-usage` 仓库继续 M2-B/C。先读：`Plan.md`（状态表）、
-> `docs/validation/desktop-usage/m2bc-suspended.md`（本文件，含半成品清单与差距表）、
-> `docs/validation/desktop-usage/m2a-codex.md`（已验收的适配器长什么样，照此标准）、
-> `docs/design/desktop-usage/adapters.md` 与 `data-contract.md`（口径合同）。
-> 工作树已有 pi/claude/gemini/qwen 四个适配器半成品与共享 usage_map（文件清单见上节），
-> 编译测试全绿但只有内联单测。你的任务：①对照 codex 的 contract/gaps/incremental
-> 测试组补齐四源集成测试（`tests/common/mod.rs` 辅助函数已预留，fixture 目录待建）；
-> ②确认 oh-my-pi 是否需要独立适配器文件；③按本机实际安装重新探测真实数据
-> （旧机 claude/gemini/qwen not_found、pi sessions 为空——那是旧机证据，新机重查），
-> 有真实样本则按 m0-agent-fixtures 脱敏流程提取核验，没有则记录 not_found/no_data；
-> ④补 real_verify example 与验收记录。规则：测试不 mock、未知不补零、
-> 未知版本 fail closed、不改 previous-draft/、未经授权不 commit/push。
-> 完成后 `npm run verify` 必须全绿（基线 145 passed，只会增不会减）。
+<a id="第三步冷启动简报换机后给新-agent替代-agent-resume"></a>
 
-## 半成品清单（全部保留在工作树，未提交）
+### Step 3: brief for a new agent
 
-| 文件 | 状态 | 内容与核验范围 |
+> Continue M2-B/C in llm-usage. Read Plan.md for status; this interruption record for unfinished
+> files and gaps; m2a-codex.md for the accepted adapter standard; and adapters.md/data-contract.md
+> for source and field rules. Four unfinished adapters (pi/Claude/Gemini/Qwen) and shared usage_map
+> already compile and pass their inline unit tests. Add integration tests matching Codex's
+> contract/gaps/incremental groups; tests/common/mod.rs already has helpers, but the sample
+> directories remain to be created. Determine whether oh-my-pi needs a separate adapter.
+> Rediscover native data on the actual machine: the old machine's Claude/Gemini/Qwen not_found
+> and empty pi sessions do not apply automatically. Extract/redact available native samples
+> under m0-agent-fixtures rules; otherwise record not_found/no_data. Add real_verify examples
+> and acceptance records. The historical brief required tests without mocks, unknown values
+> left unknown, rejection of unknown versions, no previous-draft changes, and no unauthorized
+> commit/push. npm run verify must pass; the 145-test baseline may increase, not decrease.
+
+<a id="半成品清单全部保留在工作树未提交"></a>
+
+## Retained unfinished files: uncommitted worktree
+
+| File | State | Content and verified scope |
 | --- | --- | --- |
-| `desktop/src-tauri/crates/core/src/adapters/pi.rs` | 未跟踪，985 行，3 单测 | pi session JSONL v3；固定版本源码依据 pi-mono b4559750（联网只读核对）；本机 pi 0.87.1 sessions 为空，真实核对状态 no_data |
-| `desktop/src-tauri/crates/core/src/adapters/claude.rs` | 未跟踪，680 行，3 单测 | 仅有文档依据（A01），文件头自标「待真实样本」；本机 not_found |
-| `desktop/src-tauri/crates/core/src/adapters/gemini.rs` | 未跟踪，658 行，2 单测 | 同上量级，未核实真实样本 |
-| `desktop/src-tauri/crates/core/src/adapters/qwen.rs` | 未跟踪，705 行，2 单测 | 同上量级，未核实真实样本 |
-| `desktop/src-tauri/crates/core/src/adapters/usage_map.rs` | 未暂存改动 +195 行 | `PiFamilyUsage`/`map_pi_family`（pi-mono b4559750 与 oh-my-pi 62bc57b 固定源码口径）、`ClaudeTranscriptUsage` 等共享映射 |
-| `desktop/src-tauri/crates/core/src/adapters/mod.rs` | 未暂存改动 +5 行 | 注册四个新模块 |
-| `desktop/src-tauri/crates/core/tests/common/mod.rs` | 未暂存改动 +114 行 | M2-C 测试辅助（claude/qwen/gemini 临时目录与 fixture 路径构造）；**对应 `tests/fixtures/{claude,qwen,gemini}/` 目录与集成测试尚未创建**，辅助函数当前无调用方 |
+| desktop/src-tauri/crates/core/src/adapters/pi.rs | Untracked; 985 lines/three unit tests | pi session JSONL v3; read-only online checks against pi-mono b4559750; local pi 0.87.1 sessions empty, native status no_data |
+| desktop/src-tauri/crates/core/src/adapters/claude.rs | Untracked; 680 lines/three unit tests | A01 documentation only; header marks native samples pending; local not_found |
+| desktop/src-tauri/crates/core/src/adapters/gemini.rs | Untracked; 658 lines/two unit tests | Similar documentation-based implementation; native samples unverified |
+| desktop/src-tauri/crates/core/src/adapters/qwen.rs | Untracked; 705 lines/two unit tests | Similar documentation-based implementation; native samples unverified |
+| desktop/src-tauri/crates/core/src/adapters/usage_map.rs | Unstaged; +195 lines | PiFamilyUsage/map_pi_family based on fixed pi-mono b4559750 and oh-my-pi 62bc57b rules; ClaudeTranscriptUsage and other shared mappings |
+| desktop/src-tauri/crates/core/src/adapters/mod.rs | Unstaged; +five lines | Registers the four modules |
+| desktop/src-tauri/crates/core/tests/common/mod.rs | Unstaged; +114 lines | M2-C temporary-directory/sample-path helpers; tests/fixtures/{claude,qwen,gemini}/ and integration tests do not yet exist, so the helpers have no callers |
 
-oh-my-pi 适配器未见独立文件（仅共享 `map_pi_family` 口径）；M2-B 的 oh-my-pi 部分是否
-完成取样未核实，恢复后先向 agent-16 确认。
+No independent oh-my-pi adapter file was found; only shared map_pi_family rules existed.
+Whether M2-B had completed oh-my-pi sampling was unverified; the historical recovery instruction
+was to ask agent-16 when its session remained available.
 
-## 命令与结果（中断后核验）
+<a id="命令与结果中断后核验"></a>
 
-| # | 命令（cwd） | 退出码 | 结果摘要 |
+## Checks after interruption
+
+| # | Command and cwd | Exit | Results |
 | --- | --- | --- | --- |
-| 1 | `cargo test --locked -p llm-usage-core`（desktop/src-tauri） | 0 | **143 passed / 0 failed**（含四个新适配器内联单测 10 个：pi 3、claude 3、gemini 2、qwen 2） |
-| 2 | `npm run verify`（仓库根） | 0 | 全链路绿：lint:md 57 文件 0 问题（本次在 `.markdownlint-cli2.jsonc` 的 ignores 增补 `.venv/**`，该目录已被 `.gitignore` 忽略，为本地 Python 环境非项目文档）、assets:check、test:scripts、svelte-check、cargo fmt --check、clippy -D warnings、cargo test --locked（core 143 + app 2 = 145，对比 M2-A 记录 135）、vite build 518.01 kB / gzip 176.33 kB |
+| 1 | cargo test --locked -p llm-usage-core; desktop/src-tauri | 0 | 143 passed/zero failed, including ten new inline adapter tests: pi three, Claude three, Gemini two, Qwen two |
+| 2 | npm run verify; repository root | 0 | Markdown lint: 57 files/zero issues; assets:check/test:scripts/Svelte/fmt/clippy -D warnings passed; locked Rust tests core 143/app 2 = 145, compared with M2-A's 135; Vite 518.01 kB/gzip 176.33 kB. .venv/** was added to markdownlint ignores because it is an ignored local Python environment, not project documentation |
 
-## 与 M2 完成条件的差距（恢复后待办）
+<a id="与-m2-完成条件的差距恢复后待办"></a>
 
-> 2026-09-25 恢复完成，各项状态如下；验收细节见 [m2bc-resumed.md](m2bc-resumed.md)。
+## M2 completion gaps and recovery results
 
-| 项 | 状态 | 原因 | 后续条件 |
+> Recovery completed on 2026-09-25; see [the recovery record](m2bc-resumed.md).
+
+| Item | Status | Result | Follow-up |
 | --- | --- | --- | --- |
-| 合同级集成测试（对照 Codex 的 contract/gaps/incremental 测试组） | **已完成**（2026-09-25） | 五源 15 个集成测试文件 103 用例全绿；oh-my-pi 定案为独立适配器 omp.rs | — |
-| 合成/真实 fixture | **已完成**（2026-09-25） | pi 真实 1 + 合成 7；omp 真实 3 + 合成 9；claude/gemini/qwen 合成各 8（本机无真实数据，no_data/not_found 核验结果在恢复记录） | 三源真实样本待本机出现数据后按 m0 脱敏流程补取 |
-| 本机真实只读核对（对照 `real_verify_codex` example） | **已完成**（2026-09-25） | examples ×6 齐备；pi/omp 真实核对通过（幂等、不变量成立）；claude/gemini/qwen 记录 no_data/not_found | — |
-| 重复扫描不增量、主/辅助/子 Agent 覆盖可见（M2 完成条件） | **已验收**（2026-09-25） | V12 增量套件五源全绿；omp 真实核对类别计数 primary/sub_agent 分列 | — |
-| Codex 旧版本 fail closed 逐版本 fixture | **部分完成**（2026-09-25，[m2d](m2d-layout-versions.md)） | 0.153.0/0.154.0-alpha.6.1/6.2 已验证；0.139–0.151 实测无逐次载体，待专用实现核验 | 按 m2d 记录后续条件执行 |
-| 适配器目录化迁移与未知版本兼容尝试（execution.md#m2-layout） | **已完成**（2026-09-25，[m2d](m2d-layout-versions.md)） | 六源目录化 + 注册表分派 + 兼容标记持久化回归全绿 | — |
+| Integration tests matching Codex contract/gaps/incremental groups | Complete, 2026-09-25 | Five sources, 15 integration-test files/103 passing cases; oh-my-pi uses independent omp.rs | — |
+| Synthetic/native test data | Complete, 2026-09-25 | pi: one native/seven synthetic; omp: three native/nine synthetic; Claude/Gemini/Qwen: eight synthetic each. Local no_data/not_found results remain in the recovery record | Extract/redact native samples for those three when data becomes available |
+| Read-only native checks matching real_verify_codex | Complete, 2026-09-25 | Six examples; pi/omp passed repeat-read/invariant checks; other three recorded no_data/not_found | — |
+| Repeat scans add no usage; primary/auxiliary/sub-agent coverage visible | Accepted, 2026-09-25 | All five V12 incremental suites passed; native omp counts separate primary/sub_agent | — |
+| Version-specific legacy Codex rejection samples | Partial, 2026-09-25; [M2-D](m2d-layout-versions.md) | 0.153.0/0.154.0-alpha.6.1/6.2 verified; native 0.139–0.151 lack per-call records, requiring a separately verified implementation | Follow M2-D conditions |
+| Adapter directories/unknown-version compatibility, execution.md#m2-layout | Complete, 2026-09-25; [M2-D](m2d-layout-versions.md) | Six adapter directories, registry dispatch and persisted-compatibility regressions passed | — |
+
+<a id="验证产物"></a>
 
 <a id="证据文件"></a>
 
-## 验证产物
+## Verification artifacts
 
-- 适配器内联依据：四个 `adapters/*.rs` 文件头注释（固定源码 commit 与文档出处逐条在列）。
-- 本记录命令输出以工作树复跑为准；无新增脱敏产物写入 `build/desktop-usage-validation/`。
+- The four adapters/*.rs headers list their fixed-source commits/documentation references individually.
+- Repeated worktree command results establish the checks in this record; no additional redacted
+  artifacts were written to build/desktop-usage-validation/ during the interruption check.

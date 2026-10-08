@@ -1,30 +1,30 @@
-//! OTel spans JSONL 版本注册表（V30 目录约定）。锚点 otel-spans-doc-1
-//! （VS Code agent_monitoring.md bdc5ebe 文档格式 + CodeBuddy agentlens 属性，
-//! 2026-09-29 官方文档核验；无本机真实样本）。
+//! OTel span JSONL version registry (V30 layout), using otel-spans-doc-1.
+//! Initially based on VS Code agent_monitoring.md at bdc5ebe and CodeBuddy agentlens attributes;
+//! official documents checked on 2026-09-29, before local native samples were available.
 
 pub mod qwen_sdk_025;
 pub mod spans_doc1;
 
-/// 当前格式实现标识。
+/// Identifier of the current format implementation.
 pub const LATEST_IMPL_ID: &str = "spans_doc1";
 
-/// 文档级格式版本。
+/// Format version established by documentation/source inspection.
 pub const OTEL_FORMAT_VERSION: &str = "otel-spans-doc-1";
 
-/// 已验证支持的格式版本 → 格式实现。
+/// Supported format versions mapped to implementations.
 pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[
     ("otel-spans-doc-1", "spans_doc1"),
     ("qwen-code-sdk-file-0.25.0", "qwen_sdk_025"),
 ];
 
-/// 版本分派结论。
+/// Result of selecting a version implementation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Selection {
     pub impl_id: &'static str,
     pub basis: crate::domain::VersionBasis,
 }
 
-/// 按格式版本选择实现；探测与扫描共用本函数（V30）。
+/// Select by format version; detection and scanning share this function (V30).
 pub fn select(found: Option<&str>) -> Selection {
     match found {
         Some(version) => {

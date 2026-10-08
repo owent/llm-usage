@@ -1,28 +1,28 @@
-//! Junie 版本注册表（V30 目录约定）。
+//! Junie version registry (V30 layout).
 //!
-//! events.jsonl 无格式版本字段：注册表锚点是文档级格式版本
-//! junie-events-doc-1（第三方解析器 tokscale 固定提交 1d9a939 的字段依据，
-//! 闭源产品官方源码不可得），格式偏离在扫描层 fail closed。
+//! events.jsonl lacks a format-version field. The initial documented format is
+//! junie-events-doc-1, based on third-party tokscale at fixed commit 1d9a939;
+//! official source for the closed product is unavailable. Scanning rejects format deviations.
 
 pub mod events_doc1;
 
-/// 当前格式实现标识。
+/// Identifier of the current format implementation.
 pub const LATEST_IMPL_ID: &str = "events_doc1";
 
-/// 文档级格式版本（依据第三方解析器实现）。
+/// Documented format version based on the third-party parser.
 pub const JUNIE_FORMAT_VERSION: &str = "junie-events-doc-1";
 
-/// 已验证支持的格式版本 → 格式实现。
+/// Supported format versions mapped to implementations.
 pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[("junie-events-doc-1", "events_doc1")];
 
-/// 版本分派结论。
+/// Result of selecting a version implementation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Selection {
     pub impl_id: &'static str,
     pub basis: crate::domain::VersionBasis,
 }
 
-/// 按格式版本选择实现；探测与扫描共用本函数（V30）。
+/// Select by format version; detection and scanning share this function (V30).
 pub fn select(found: Option<&str>) -> Selection {
     match found {
         Some(version) => {

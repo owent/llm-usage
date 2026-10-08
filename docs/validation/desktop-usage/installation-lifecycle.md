@@ -1,39 +1,44 @@
-# Windows 与 Debian 容器安装验收
+# Windows and Debian container installation acceptance
 
-日期 2026-10-05；版本 0.2.1；合同见
-[安装生命周期](../../design/desktop-usage/installation-lifecycle.md)。
-Windows cwd 为仓库根；Linux cwd 为 WSL Debian 本任务独立工作副本。
-用户已取消 macOS 桌面与特定硬件要求，允许 Windows 本机及 Linux Podman 安装验收。
-本文保留 2026-10-05 的制品与结果；2026-10-06 来源规则修复及实际 Orca
-检查见 [来源规则升级](source-policy-upgrades.md)，最终 M8 后续包的 Windows 12 项、
-Linux deb/FUSE/GTK/Orca 9 组、47 项及准确制品摘要见
-[M8 容器样本](m8-container-samples.md)，不能混用各阶段包摘要。
-同一当前包的十语言 Orca 导航扩展及完整生命周期复验见 [专项结果](orca-multilang.md)。
+<a id="windows-与-debian-容器安装验收"></a>
 
-## 环境与制品
+Date: 2026-10-05; version 0.2.1; [installation lifecycle requirements](../../design/desktop-usage/installation-lifecycle.md).
+Windows cwd was repository root; Linux cwd was this task's independent WSL Debian copy.
+The user removed macOS desktop/specific-hardware requirements and authorized native Windows/
+Linux Podman installation acceptance. This record preserves the 2026-10-05 artifacts/results.
+For 2026-10-06 source corrections/actual Orca checks, see [source upgrades](source-policy-upgrades.md).
+Later M8 packages' 12 Windows checks, nine Linux deb/FUSE/GTK/Orca groups/47 checks and exact
+digests are in [M8 samples](m8-container-samples.md). Never mix different stages' package hashes.
+The same-current-package ten-language Orca/full-lifecycle rerun is in [Orca results](orca-multilang.md).
 
-Windows 11 Pro x64 10.0.26300，Node 24.21.0、Rust 1.98.1、Tauri CLI 2.12.0、
-PowerShell 7.6.6、WebView2 154.0.4258.53。旧 NSIS 是既有实际 0.2.0 包，
-源码 revision 未确认，不能仅凭版本归到某次提交。当前包基于 0c5d63c 与本工作树
-修改；安装在 build/install-lifecycle/windows/ 的 Unicode/空格目录，来源与数据隔离。
+<a id="环境与制品"></a>
 
-Linux：WSL 2 Debian 13.7 x86_64、kernel 6.18.40.1、rootless Podman 5.4.2。
-普通 acceptance 用户 UID 1000，Xvfb/Openbox、独立 D-Bus、WebKitWebDriver，
-实际 GTK/WebKit 前端与 IPC；默认 seccomp，无 privileged、宿主目录挂载
-或关闭 WebKit 沙箱。提取轮次无额外 capability，FUSE 轮次仅添加 SYS_ADMIN；
-GUI 进程有效能力仍为 0。容器运行 `--network=none`，仅打包控制操作使用映射容器 root。
-Debian 官方基础镜像固定
-`docker.io/library/debian@sha256:7792b1f7702a86946cd518db72b6a407302c3e9bc1635634368b878189e8221c`；
-最终 GUI 镜像 ID
-`8fdeddb5aadaf9e6afcb68434ae4269b669ba23d776830b52adbef2684758154`，
-由原 GUI 镜像 `311d072b80b15c3a57a9afd8135deed530931aec6e4afac81361f35f6f19793e`
-增加 fonts-noto-cjk 1:20240730+repack1-1 得到。
-旧 Linux 包从 2e8ceadecbba0b93e10777c51b4c0d01b4b61dd3 的原锁文件构建；
-新包包含本轮跨平台凭据、早期 CLI 分流与最新 Qwen/OpenCode 能力说明；Windows
-专属卸载代码不进入 Linux 二进制。此前包摘要分别保存在根 build/install-lifecycle/
-final-windows-metadata.json、final-linux-metadata.json，与本次最终包分开记录。
+## Environment and artifacts
 
-| 实际制品 | 字节 | SHA-256 |
+Windows 11 Pro x64 10.0.26300, Node 24.21.0, Rust 1.98.1, Tauri CLI 2.12.0,
+PowerShell 7.6.6, WebView2 154.0.4258.53. Old NSIS was the actual existing 0.2.0 package,
+whose source revision is unconfirmed; its version alone cannot identify a commit.
+Current package uses 0c5d63c plus worktree changes. Installations under
+build/install-lifecycle/windows/ used Unicode/space paths with isolated sources/data.
+
+Linux: WSL 2 Debian 13.7 x86_64, kernel 6.18.40.1, rootless Podman 5.4.2.
+Ordinary acceptance user UID 1000, Xvfb/Openbox, independent D-Bus, WebKitWebDriver,
+actual GTK/WebKit frontend/IPC. Default seccomp, no privileged containers/host-directory
+mounts/disabled WebKit sandbox. Extraction runs added no capability. FUSE runs added
+only SYS_ADMIN; GUI processes still had zero effective capabilities. Containers used
+--network=none; only package-control operations used mapped container root.
+Official Debian base:
+docker.io/library/debian@sha256:7792b1f7702a86946cd518db72b6a407302c3e9bc1635634368b878189e8221c.
+Final GUI image ID: 8fdeddb5aadaf9e6afcb68434ae4269b669ba23d776830b52adbef2684758154,
+built by adding fonts-noto-cjk 1:20240730+repack1-1 to image
+311d072b80b15c3a57a9afd8135deed530931aec6e4afac81361f35f6f19793e.
+Old Linux packages used original lockfiles from 2e8ceadecbba0b93e10777c51b4c0d01b4b61dd3.
+New packages include cross-platform credentials, early CLI dispatch and current Qwen/
+OpenCode capability notes. Windows uninstall code is excluded from Linux binaries.
+Earlier root build/install-lifecycle/final-windows-metadata.json and
+final-linux-metadata.json retain their separate package digests.
+
+| Actual artifact | Bytes | SHA-256 |
 | --- | ---: | --- |
 | Windows 0.2.0 NSIS | 3,901,720 | 4572792f5a7010fc5dfbdd02fc0e3155a5c64ee38a974328a9a3df3400ffbab5 |
 | Windows 0.2.1 NSIS | 3,925,533 | c058671a65c8f084fbcb5af22a5180e5a55b2da31fcc0e66df9dcd8900d5f893 |
@@ -42,32 +47,43 @@ final-windows-metadata.json、final-linux-metadata.json，与本次最终包分�
 | Linux 0.2.1 deb | 5,441,170 | ba4a4b9b0692eab659fc34c380cc8dc1f85588aeaf6dc624d7c4d496aa835b09 |
 | Linux 0.2.1 AppImage | 111,122,936 | 7a6e070c9b86d1ba7092c7e5b9bffeac617f0665381d031b71e331eb95a413cb |
 
-## Windows 结果与修复
+<a id="windows-结果与修复"></a>
 
-实际发现独立卸载删除程序/启动项后，留下自有分钟任务。已增加 GUI/数据库初始化前的
-卸载清理入口，按完整定义确认任务归属，持有现有库写者锁并关闭意图；失败阻止 NSIS
-删除程序。实际 COM 的 UserId 返回账户名而非 XML SID，按原生账户解析 SID 核对。
-官方 NSIS 模板默认无路径核验的 Run 删除会删其他值，已仅移除该语句并保留上游许可；
-模板来源固定 [tauri-cli-v2.12.0](https://github.com/tauri-apps/tauri/blob/tauri-cli-v2.12.0/crates/tauri-bundler/src/bundle/windows/nsis/installer.nsi)。
+## Windows results and repairs
+
+Actual standalone uninstall removed the application/startup entry but left its owned
+minute task. Add cleanup before GUI/database initialization, verify task ownership using
+the complete definition, hold the existing database writer lock and disable saved intent.
+Failures stop NSIS from deleting the executable. Actual COM UserId returns an account
+name rather than the XML SID; resolve the account natively before comparing SIDs.
+Upstream NSIS Run deletion lacks path verification and may delete another value.
+Remove only that statement and preserve the upstream license; fixed
+[tauri-cli-v2.12.0 template](https://github.com/tauri-apps/tauri/blob/tauri-cli-v2.12.0/crates/tauri-bundler/src/bundle/windows/nsis/installer.nsi).
 
 ```powershell
 npm run build:desktop
 npm run test:install:windows -- --previous-installer desktop/src-tauri/target/release/bundle/nsis/LLMUsage_0.2.0_x64-setup.exe --previous-version 0.2.0
 ```
 
-均退出 0，最终能力说明/删除前定义重查纳入包后，正式运行 12 项通过：旧包安装及两个真实快捷方式；旧程序导入；升级；
-原生 IPC 注册任务/启动项；回滚；再次升级；卸载清理与数据保留；重装保留数据并保持
-后台关闭；CLI 拒绝运行中的写者；真实 NSIS 收到失败中止并保留程序供重试；
-再次卸载保留其他启动值/同前缀任务。始终为 1 个合成事件 / 15 token，schema 11。
-结束回查产品注册、进程、快捷方式、启动项及自有/测试诱饵任务均无残留。
+Both commands exited 0. After packaging final capability notes and the pre-deletion
+definition recheck, all 12 checks passed: old installation/two real shortcuts, old
+application import, upgrade, native IPC task/startup registration, rollback, another
+upgrade, uninstall cleanup/data retention, reinstall with retained data/background off,
+CLI rejection of an active writer, actual NSIS aborting on failure while preserving the
+application for retry, and another uninstall preserving unrelated startup values/tasks
+with similar prefixes. Data stayed at one synthetic event/15 tokens, schema 11.
+Final inspection found no product registration/process/shortcut/startup/owned or decoy tasks.
 
-最新能力说明纳入包后再次完整 12 项退出 0，结果为
-build/install-lifecycle/windows/1791209633008/result.json；最终包另存
-build/install-lifecycle/artifacts/fuse-continuation/windows/，摘要为
-fuse-continuation-windows-metadata.json。此前一次紧接进程退出的包操作返回 2，未确认原因；
-控制脚本加入退出后短等待，正式完整往返通过，不把该等待写成产品缺陷修复。
+Another complete 12-check run with current capability notes exited 0:
+build/install-lifecycle/windows/1791209633008/result.json.
+Final packages: build/install-lifecycle/artifacts/fuse-continuation/windows/;
+fuse-continuation-windows-metadata.json. An earlier package operation immediately after
+process exit returned 2 with an unconfirmed cause. The controller added a short post-exit
+wait and the full round trip passed. That wait is not a verified product-defect repair.
 
-## Linux 结果与边界
+<a id="linux-结果与边界"></a>
+
+## Linux results and limits
 
 ```sh
 npm run test:install:linux -- \
@@ -77,61 +93,75 @@ npm run test:install:linux -- \
   --image localhost/llm-usage-lifecycle-cjk-verified:20261005 --skip-build-image
 ```
 
-退出 0，8 组通过：五轮实际 deb GUI（旧版、升级、回滚、再次升级、重装）及一轮
-AppImage 提取 GUI，每轮 5 项（前端、隔离发现、原生 IPC/SQLite、五页、平台状态），
-合计 30 项；remove 与 purge 各验证数据保留，共 32 项断言。
-旧/新版本均保留 1 个合成事件 / 15 token，未迁移失败、重复或丢失；卸载实际 exe 不存在。
-Linux 如实报告 Windows 专属系统任务 unsupported。截图与结果在
-build/install-lifecycle/linux/1791202022165/；结束本次容器移除，专属存储无运行容器。
+Exit 0, eight groups: five actual deb GUI runs (old/upgrade/rollback/upgrade again/reinstall)
+and one extracted AppImage GUI. Each checked frontend, isolated discovery, native IPC/
+SQLite, five pages and platform state: 30 checks; remove/purge data retention added two,
+for 32 assertions. Both versions preserved one synthetic event/15 tokens without failed
+migration/duplicates/loss. The actual executable was absent after uninstall. Linux correctly
+reported Windows tasks unsupported. Screenshots/results:
+build/install-lifecycle/linux/1791202022165/. Owned containers were removed; dedicated
+storage had no running containers.
 
-初始截图中文为方框：原测试镜像只有拉丁字体，DOM/IPC 成功不足以认证文字可读。
-已在可复用 Containerfile 添加官方 [Debian CJK 字体](https://packages.debian.org/trixie/fonts-noto-cjk)，
-下载包从 [官方镜像列表](https://www.debian.org/mirror/list)中的镜像取得，
-按 [官方下载页](https://packages.debian.org/trixie/all/fonts-noto-cjk/download)
-核对 56,674,044 字节及 SHA-256
-`f5dc28a754e17327d99f0a612134d92c8dd6187314ae967cb77f25df60860139` 后离线安装。
-新字体覆盖检查真实拒绝原拉丁镜像；补齐字体后的全部 8 组退出 0，并人工复核
-最终 deb/AppImage 截图中文可读。CDN 的慢速/重试下载已精确中止并以校验后包替代，
-测试环境修复不改应用包；字节/摘要仍与上表一致。
+Initial Chinese screenshots showed boxes because the test image contained Latin fonts only.
+Passing DOM/IPC did not establish readable text. Add official
+[Debian CJK fonts](https://packages.debian.org/trixie/fonts-noto-cjk) to the reusable Containerfile.
+Download from a mirror in the [official list](https://www.debian.org/mirror/list), then check the
+[official download page](https://packages.debian.org/trixie/all/fonts-noto-cjk/download)
+for 56,674,044 bytes and SHA256
+f5dc28a754e17327d99f0a612134d92c8dd6187314ae967cb77f25df60860139 before offline installation.
+Font coverage correctly rejected the old Latin-only image. All eight groups passed after
+adding fonts, with manually reviewed readable Chinese deb/AppImage screenshots.
+Precisely cancel slow/retrying CDN downloads and substitute the verified package.
+This test-environment repair did not change application packages; sizes/hashes remain above.
 
-映射 /dev/fuse 的默认 rootless 环境实际报 `fusermount: mount failed: Operation not permitted`。
-后续对同一镜像/包的对比确认 WSL 内核已有 fuse，设备为 0666；单独映射设备失败，
-显式添加 SYS_ADMIN 后，UID 1000 的 `--appimage-mount` 返回实际只读 FUSE 挂载，
-默认 seccomp 保留。参数范围按 [Podman 5.4.2 文档](https://docs.podman.io/en/v5.4.2/markdown/podman-run.1.html#cap-add-capability)
-核对，没有使用 privileged、rootful Podman 或修改宿主全局配置；sudo 已可用但无需调用安装。
+Default rootless /dev/fuse mapping failed with
+fusermount: mount failed: Operation not permitted.
+Same-image/package comparisons confirmed kernel FUSE and device mode 0666.
+Device mapping alone failed; adding SYS_ADMIN let UID 1000 --appimage-mount return an
+actual read-only FUSE mount while retaining default seccomp. Check capability scope against
+[Podman 5.4.2](https://docs.podman.io/en/v5.4.2/markdown/podman-run.1.html#cap-add-capability).
+No privileged/rootful Podman/global-host changes; sudo existed but installation did not need it.
 
-可复用入口追加 `--appimage-mode fuse` 后，实际 GUI exe 位于已核对 FUSE 挂载点的
-usr/bin/LLMUsage。挂载类型 fuse.LLMUsage.AppImage、ro/nosuid/nodev、
-user_id/group_id=1000；应用四个 UID 均为 1000、CapEff=0、Seccomp=2。
-关闭 GUI 后再次读取 mountinfo，确认自有挂载释放。最初 34 项结果仍在
-build/install-lifecycle/linux/1791206172914/；缩放检查与最终包复验结果见下。
-[提取替代方案](https://docs.appimage.org/user-guide/troubleshooting/fuse.html)仍独立保留先前 32 项通过结果。
+Reusable --appimage-mode fuse runs the actual GUI usr/bin/LLMUsage under the verified mount.
+Mount type fuse.LLMUsage.AppImage, ro/nosuid/nodev, user_id/group_id=1000.
+All four application UIDs were 1000, CapEff=0, Seccomp=2. Read mountinfo after closing
+the GUI to verify owned mount release. Initial 34-check results remain in
+build/install-lifecycle/linux/1791206172914/. Final scaling/package reruns are below.
+The [extraction alternative](https://docs.appimage.org/user-guide/troubleshooting/fuse.html)
+retains its earlier separate 32 passes.
 
-继续补充 [GTK 3 官方 X11 缩放](https://docs.gtk.org/gtk3/x11.html)对照：
-`--gui-scale 1|2` 分别设置 GDK_SCALE=1/2、GDK_DPI_SCALE=1；独立 Xvfb DPI=96，
-屏幕 1440×1000 / 2880×2000。实际 WebKit devicePixelRatio 为 1 / 2，
-两轮均无 CSS zoom（1）、逻辑窗口 1036×780；缩放 2 截图为 2072×1560。
-每轮 8 组共 40 项（38 项 GUI/缩放/挂载/释放 + 2 项数据保留）退出 0，五页均无
-文档级横向溢出，并人工复核中文截图。两轮结果分别在
-build/install-lifecycle/linux/1791209706834/（1）与 1791209741062/（2），
-Windows 摘要/截图为 fuse-continuation-scale-{1,2}-result.json 与对应 appimage-fuse /
-upgrade-again.png；包摘要和专属容器残留 0 见 fuse-continuation-linux-metadata.json。
-上表新 deb/AppImage 均参与这两轮完整生命周期；镜像摘要保持不变。
-这是容器内真实 GTK 窗口缩放验收，不认证宿主显示设置、物理显示器或屏幕阅读器。
+Additional [GTK 3 X11 scaling](https://docs.gtk.org/gtk3/x11.html) checks:
+--gui-scale 1|2 sets GDK_SCALE=1/2 and GDK_DPI_SCALE=1.
+Independent Xvfb DPI=96, displays 1440×1000/2880×2000; actual WebKit devicePixelRatio 1/2.
+CSS zoom=1 in both; logical window 1036×780, scale-two screenshots 2072×1560.
+Each run had eight groups/40 checks (38 GUI/scaling/mount/release plus two retention),
+all exit 0; no document-wide horizontal overflow on five pages, with manual Chinese
+screenshot review. Roots:
+build/install-lifecycle/linux/1791209706834/ (1) and 1791209741062/ (2).
+Windows summaries/screenshots: fuse-continuation-scale-{1,2}-result.json and corresponding
+appimage-fuse/upgrade-again.png. Package hashes and zero dedicated-container leftovers:
+fuse-continuation-linux-metadata.json. Both new deb/AppImage above underwent both complete
+lifecycles; image hash stayed unchanged. Actual container GTK scaling does not verify
+host display settings, physical monitors or screen readers.
 
-本轮 Debian 容器的包/GUI 结果不扩展为其他发行版、宿主完整桌面、
-登录/注销、通知/托盘或原生开机启动。macOS 桌面与指定硬件不再列为本轮缺口。
+Debian container package/GUI results do not cover other distributions, the complete host
+desktop, login/logout, notifications/tray or native boot startup. macOS desktop/specific
+hardware are outside this round's requested scope.
 
-## 最终检查
+<a id="最终检查"></a>
 
-Windows `npm run verify` 退出 0：Rust 908（核心 810、应用 98；默认忽略 8），
-前端 21、脚本 4；类型无错误/告警，Markdown 189 文件、资源、fmt、Clippy 与前端构建通过。
-最终 Windows `test:headless` 11 项退出 0；卸载归属/未来 schema/写者锁单元 2 项与
-最终 Clippy 均退出 0。Linux 最终 Clippy、Qwen 3 项 / OpenCode 8 项合同退出 0，
-deb/AppImage 构建与新包回读两源真实载体退出 0，保持用量和更新后的能力说明。
-两平台安装脚本 --help、JS/Python/PowerShell AST 与 shell 语法检查退出 0。
-最后仅调整新增合同测试的临时库隔离：根 build 下独立临时目录与纳秒标签避免 PID
-复用；Windows/Debian OpenCode 8 项、fmt/Clippy 再次通过，生产代码与受测包未变。
-实际命令日志集中到 `build/install-lifecycle/final-*` 与 `fuse-continuation-*`，
-源和制品检查结果分别保存；
-没有提交、推送或发布，远端 CI 未触发。
+## Final checks
+
+Windows npm run verify exited 0: Rust 908 (core 810/app 98, eight ignored), frontend
+21/scripts four; no type errors/warnings. Markdown 189 files, assets, fmt, Clippy and
+frontend build passed. Final Windows test:headless 11 passed; two uninstall-ownership/
+future-schema/writer-lock units and final Clippy passed. Final Linux Clippy, Qwen three/
+OpenCode eight format tests, deb/AppImage builds and both native source rereads passed,
+preserving usage/current capability notes. Both platforms' install-script --help,
+JS/Python/PowerShell AST and shell syntax checks passed.
+
+The final change only isolated added format-test databases: independent root-build
+directories/nanosecond tags avoid PID reuse. Windows/Debian OpenCode eight tests plus
+fmt/Clippy passed again; production code/tested packages stayed unchanged.
+Command logs: `build/install-lifecycle/final-*` and `fuse-continuation-*`.
+Source/package check results are recorded separately. No commit/push/publication or remote CI trigger.

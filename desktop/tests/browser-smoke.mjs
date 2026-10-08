@@ -51,8 +51,8 @@ await page.addInitScript(() => {
   const telemetryConfigured = new Set(['gemini']);
   let failQwenPreview = true;
   window.holdTelemetryApply = true;
-  // 事件订阅（clear-all-progress 等）：transformCallback 注册回调，
-  // plugin:event|listen/unlisten 登记；emitLater 供 mock 命令推送阶段事件。
+  // Event subscriptions such as clear-all-progress: transformCallback registers handlers,
+  // plugin:event|listen/unlisten records them; emitLater sends mock phase events.
   let cbSeq = 0;
   const tauriCallbacks = new Map();
   const eventListeners = {};
@@ -62,7 +62,7 @@ await page.addInitScript(() => {
   window.__TAURI_INTERNALS__ = {
     transformCallback: (callback) => { const id = ++cbSeq; tauriCallbacks.set(id, callback); return id; },
   };
-  // @tauri-apps/api 2.12 的 listen/unlisten 需要的插件内部对象（冒烟环境无真实运行时）。
+  // Internal plugin object required by API 2.12 listen/unlisten without a native runtime.
   window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
   window.__TAURI_INTERNALS__.invoke = async (cmd, args={}) => {
     window.appCalls.push({cmd,args});
@@ -178,7 +178,7 @@ await page.addInitScript(() => {
     if(cmd==='set_source_enabled') return;
     if(cmd==='clear_all_preview') return {event_count:42, missing_files:1, total_files:7};
     if(cmd==='clear_all_data') {
-      // 后台任务阶段事件序列（fake clock 驱动）：waiting→backup→clearing→cleared→rescan→done。
+      // Fake-clock job phases: waiting→backup→clearing→cleared→rescan→done.
       emitLater('clear-all-progress', {phase:'waiting'}, 0);
       emitLater('clear-all-progress', {phase:'backup'}, 200);
       emitLater('clear-all-progress', {phase:'clearing'}, 600);
@@ -648,8 +648,8 @@ for (const locale of ['zh-TW','ko','fr','de','pt-BR','ru','en','zh-CN']) {
     await page.setViewportSize({width:1440,height:1100});
   }
 }
-// 清理全部数据（后台任务事件驱动）：确认层展示缺失文件预警与阶段进度，
-// done 后自动关闭并给出已清理汇总。
+// Clear-all confirmation shows missing-file warnings and phase progress;
+// done closes it automatically and shows the cleared summary.
 await page.getByRole('button', { name: '归档保留', exact: true }).click();
 await page.getByRole('button', { name: '清理全部数据并重新采集', exact: true }).click();
 await page.clock.runFor(300);

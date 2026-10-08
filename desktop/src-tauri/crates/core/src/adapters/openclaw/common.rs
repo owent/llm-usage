@@ -1,14 +1,14 @@
-//! OpenClaw 产品特有的公共部分（独立目录约定）：
-//! - 源库只读约定小工具复制自 `adapters/kilo/common.rs`（各 Agent 目录保持
-//!   独立不共享模块；仅前缀/注释不同）；
-//! - 运行时库结构枚举（只读表名集合，不含数据）。
+//! OpenClaw-specific shared helpers under the independent adapter-directory convention:
+//! - Read-only database helpers copied from `adapters/kilo/common.rs`; each Agent keeps
+//!   its own module with product-specific prefixes and comments.
+//! - Read-only schema/ownership checks inspect columns and primary metadata, without transcripts.
 //!
-//! 实现依据与核验范围（A09，官方文档 docs.openclaw.ai，2026-09-24 核验）：
-//! - store 参考：每 Agent 一个 `~/.openclaw/agents/<agentId>/agent/openclaw-agent.sqlite`
-//!   （会话行 + 追加式 transcript 两个持久层）；旧 `sessions/` 目录与
-//!   `sessions/sessions.json` 为迁移/归档输入，Gateway 启动不导入。
-//! - schema 24/官方 2026.9.8 实装及真实 CLI 样本已核对；完整合同见
-//!   docs/design/desktop-usage/openclaw-runtime.md。
+//! References and checks: A09, official docs.openclaw.ai, checked 2026-09-24.
+//! - Store: one `~/.openclaw/agents/<agentId>/agent/openclaw-agent.sqlite` per Agent,
+//!   with session rows and append-only transcripts; legacy `sessions/` and
+//!   `sessions/sessions.json` are migration/archive inputs not imported at Gateway startup.
+//! - Schema 24, official 2026.9.8 installation and real CLI samples checked; full rules:
+//!   docs/design/desktop-usage/openclaw-runtime.md.
 
 use crate::error::CoreError;
 use rusqlite::backup::{Backup, StepResult};
@@ -16,7 +16,7 @@ use rusqlite::{Connection, OpenFlags};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-/// 一次只读访问：成功时直接用源库连接；busy/锁时自动切换到暂存副本。
+/// Read-only source access; busy-like probe failures switch to a staging snapshot.
 pub struct SourceDb {
     conn: Connection,
     _staging: Option<StagingGuard>,
@@ -40,7 +40,7 @@ impl Drop for StagingGuard {
     }
 }
 
-/// busy/锁/CANTOPEN 判定（这些错误表示无法一致读取）。
+/// SQLite busy/locked/CANTOPEN errors prevent a successful consistency probe.
 pub(crate) fn is_busy_like(err: &rusqlite::Error) -> bool {
     matches!(
         err.sqlite_error_code(),
@@ -50,7 +50,7 @@ pub(crate) fn is_busy_like(err: &rusqlite::Error) -> bool {
     )
 }
 
-/// 暂存副本参数（同 kilo/hermes 约定）。
+/// Staging limits follow the kilo/hermes convention.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct StagingLimits {
     pub pages_per_step: i32,
@@ -110,7 +110,7 @@ fn backup_to_staging(
             crate::adapters::run_policy::check_sqlite()?;
             match backup.step(limits.pages_per_step) {
                 Ok(StepResult::Done) => break Ok(()),
-                // More：实际拷贝了页，计入空间限制。
+                // More means pages were copied; count those pages toward the size limit.
                 Ok(StepResult::More) => {
                     done_pages += i64::from(limits.pages_per_step);
                     if done_pages > max_pages {
@@ -121,9 +121,9 @@ fn backup_to_staging(
                     }
                     std::thread::sleep(Duration::from_millis(20));
                 }
-                // Busy/Locked（#[non_exhaustive] 其余）：无进展重试，仍计入超时时间。
-                // 2026-09-30 修复：此前重试也计入页数，与超时出口竞速产生
-                // 平台相关的 space cap 误报（CI Linux 页上限先于超时触发）。
+                // Busy/Locked or other non-exhaustive results retry without progress, within the timeout.
+                // 2026-09-30 fix: retries previously added pages and raced the timeout, causing
+                // platform-specific false size-limit failures (Linux CI hit the page cap before timeout).
                 Ok(_) => {
                     std::thread::sleep(Duration::from_millis(20));
                 }
@@ -172,7 +172,7 @@ pub(crate) fn short_probe(conn: &Connection) -> Result<(), rusqlite::Error> {
     conn.query_row("SELECT COUNT(*) FROM sqlite_master", [], |_| Ok(()))
 }
 
-/// Structural evidence only; never certify a historical row's client version.
+/// Check structure/ownership only; database schema does not identify historical client versions.
 pub(crate) fn schema_probe(conn: &Connection, agent: &str) -> Result<Option<i64>, CoreError> {
     use rusqlite::OptionalExtension;
     for (table, required) in [

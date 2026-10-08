@@ -1,7 +1,7 @@
-//! V12：oh-my-pi（omp）适配器增量与刷新语义 —— 重复扫描不增量、追加续读、
-//! 半行跨轮、截断/同长替换/改名重探测、达到读取上限后分批恢复、矛盾重复条目冲突标记。
-//! 场景对照 pi_incremental_v12.rs；基础内容取真实脱敏 fixture
-//! session-glm-reasoning（7 行，唯一事件在 L6 assistant，L7 为 custom）。
+//! V12: oh-my-pi (omp) repeated reads, appended lines, partial lines across rounds,
+//! truncation/equal-length replacement/rename detection, bounded resume and conflicting duplicates.
+//! Scenarios correspond to pi_incremental_v12.rs; the base is the real sanitized
+//! session-glm-reasoning sample: 7 lines, one event at L6 assistant and L7 custom.
 
 mod common;
 
@@ -10,7 +10,7 @@ use llm_usage_core::adapters::framework::ScanLimits;
 use llm_usage_core::adapters::jsonl::JsonlLimits;
 
 const NOW: i64 = 1_800_000_000_000;
-/// 真实 fixture 重建后的会话文件相对路径（sessions/<encoded-cwd>/<file>）。
+/// Relative reconstructed real-sample path: sessions/<encoded-cwd>/<file>.
 const REL: &str =
     "--C--Users-anon--/2026-09-24T16-39-54-647Z_00000000-0000-7000-8000-000000000009.jsonl";
 
@@ -61,8 +61,8 @@ fn repeat_scan_does_not_increment() {
 fn appended_lines_are_read_incrementally() {
     let dir = TempDir::new("omp-v12-append");
     let jsonl = real_fixture_jsonl();
-    // 先写前 5 行（title/session/model_change/thinking_level_change/user，无事件），
-    // 再追加 L6 assistant（事件）与 L7 custom。
+    // Write the first five lines, title/session/model_change/thinking_level_change/user, without events;
+    // then append L6 assistant with its event and L7 custom.
     let text = String::from_utf8(jsonl).unwrap();
     let mut lines: Vec<&str> = text.lines().collect();
     let tail = lines.split_off(5);
@@ -86,7 +86,7 @@ fn appended_lines_are_read_incrementally() {
     let summary = summary(&storage, "2026-09-24", "2026-09-24");
     assert_eq!(summary.totals.call_count, 1);
     assert_eq!(summary.totals.input_total_known, Some(17_542));
-    // 追加续读保留会话身份（解析上下文随游标持久化）。
+    // Appended reads retain session identity through parser context persisted with the cursor.
     let session: String = storage
         .conn()
         .query_row("SELECT session_id FROM usage_events", [], |r| r.get(0))
@@ -101,7 +101,7 @@ fn half_line_is_not_consumed_until_completed() {
     let jsonl = real_fixture_jsonl();
     let text = String::from_utf8(jsonl).unwrap();
     let lines: Vec<&str> = text.lines().collect();
-    // 写入前 5 行 + 第 6 行（assistant 事件行）的前半。
+    // Write five complete lines plus the first half of the L6 assistant event.
     let head = lines[..5].join("\n");
     let event_line = lines[5];
     let partial = format!("{head}\n{}", &event_line[..event_line.len() / 2]);
@@ -113,7 +113,7 @@ fn half_line_is_not_consumed_until_completed() {
     assert_eq!(first[0].files[0].lines_read, 5);
     assert_eq!(first[0].files[0].events, 0, "半行未消费，无事件");
 
-    // 完成最后半行（并补上 L7 custom）。
+    // Complete that partial line and add L7 custom.
     std::fs::write(&file_path, text.as_bytes()).unwrap();
     let second = run_omp(&storage, &root, NOW + 1000);
     assert_eq!(
@@ -138,7 +138,7 @@ fn truncation_triggers_generation_rescan() {
     let (_db, storage) = temp_storage("omp-v12-trunc");
     run_omp(&storage, &root, NOW);
 
-    // 截断为前 5 行（源端极端行为）：重探测 → generation+1 → 从头重扫。
+    // Truncating to five lines triggers detection, generation+1 and a scan from the start.
     let text = String::from_utf8(jsonl).unwrap();
     let head: String = text.lines().take(5).collect::<Vec<_>>().join("\n") + "\n";
     std::fs::remove_file(&file_path).unwrap();
@@ -151,7 +151,7 @@ fn truncation_triggers_generation_rescan() {
         .query_row("SELECT generation FROM source_files", [], |r| r.get(0))
         .unwrap();
     assert_eq!(generation, 1);
-    // 已入库历史不因源截断而消失。
+    // Truncation does not remove already imported history.
     let summary = summary(&storage, "2026-09-24", "2026-09-24");
     assert_eq!(summary.totals.call_count, 1);
     let _ = dir;
@@ -167,9 +167,9 @@ fn same_size_replacement_rescans_without_dropping_history() {
     run_omp(&storage, &root, NOW);
     let before = storage.data_revision().unwrap();
 
-    // 同长替换：交换两条完整记录行（L3 model_change ↔ L4 thinking_level_change；
-    // 总字节数不变、每行仍是合法 JSON、首行 title 与 L2 session 头不动），
-    // 内容指纹改变必须触发重扫。
+    // Equal-length replacement swaps L3 model_change and L4 thinking_level_change.
+    // Byte length and valid JSON lines stay intact; L1 title and L2 session remain unchanged.
+    // A changed content fingerprint must trigger a rescan.
     let text = String::from_utf8(original.clone()).unwrap();
     let mut lines: Vec<&str> = text.split_inclusive('\n').collect();
     assert!(lines.len() >= 5, "fixture should have enough lines to swap");
@@ -185,7 +185,7 @@ fn same_size_replacement_rescans_without_dropping_history() {
         .unwrap();
     assert_eq!(generation, 1, "same-size replacement bumps generation");
     assert!(storage.data_revision().unwrap() >= before);
-    // 重扫产出同一事件（同键同内容）：幂等，不双计。
+    // Rescanning the same key/content is idempotent and adds no duplicate event.
     assert_eq!(second[0].files[0].lines_read, 7);
     let outcome = second[0].outcome.as_ref().unwrap();
     assert_eq!((outcome.added, outcome.unchanged), (0, 1));
@@ -224,15 +224,15 @@ fn rename_keeps_identity_and_cursor() {
     let _ = dir;
 }
 
-// 手工核算值（synthetic-auxiliary-carriers，9 行 6 事件，行序：title/session/
-// model_change/assistant(带 usage)/assistant(无 usage)/usage/compaction/
-// branch_summary/toolResult）：各批行数上限 4+4+100 ⇒ 事件 1+4+1；合计
-// call_count=6、input_total=1625（派生）、cache_read=10、cache_write=1005、
-// output=305、total=1930、input_unknown_count=0（syn-a2 无 usage 计调用不计未知字段）。
+// Manual synthetic-auxiliary-carriers totals: 9 lines, 6 events, ordered title/session/
+// model_change/assistant(with usage)/assistant(without usage)/usage/compaction/
+// branch_summary/toolResult. Line limits 4+4+100 produce events 1+4+1.
+// Totals: call_count=6, derived input_total=1625, cache_read=10, cache_write=1005,
+// output=305, total=1930, input_unknown_count=0; syn-a2 counts a call without unknown-field denominators.
 #[test]
 fn budget_split_resumes_without_duplicates() {
     let dir = TempDir::new("omp-v12-budget");
-    // 复制合成 fixture 到临时目录（避免改动仓库内 fixture）。
+    // Copy the synthetic sample into a temporary directory, leaving repository samples intact.
     let jsonl = std::fs::read(omp_fixture("synthetic-auxiliary-carriers").join(
         "sessions/--C--syn--/2026-01-05T10-00-00-040Z_00000000-0000-7000-8000-00000000d040.jsonl",
     ))
@@ -275,8 +275,8 @@ fn budget_split_resumes_without_duplicates() {
     let _ = dir;
 }
 
-// 手工核算值：syn-cf-1 首轮 input=1000/cacheRead=400 ⇒ input_total=1400、total=1450；
-// 追加同四元组不同 usage（input=1500）⇒ 无法确认哪条修订更新 → conflict，已存值保持。
+// syn-cf-1 first read: input=1000/cacheRead=400 gives input_total=1400 and total=1450.
+// Same tuple with input=1500 has no proven revision order; mark conflict and retain existing values.
 #[test]
 fn conflicting_duplicate_entry_marks_conflict_and_keeps_existing() {
     let dir = TempDir::new("omp-v12-conflict");
@@ -291,7 +291,7 @@ fn conflicting_duplicate_entry_marks_conflict_and_keeps_existing() {
     let (_db, storage) = temp_storage("omp-v12-conflict");
     run_omp(&storage, &root, NOW);
 
-    // 追加同条目四元组（type/id/parentId/timestamp 相同）但 usage 数值不同的记录。
+    // Append a record with the same type/id/parentId/timestamp but different usage.
     let conflict_line = "{\"type\":\"message\",\"id\":\"syn-cf-1\",\"parentId\":null,\"timestamp\":\"2026-01-05T10:00:01.000Z\",\"message\":{\"role\":\"assistant\",\"provider\":\"syn-provider\",\"model\":\"syn-model-a\",\"usage\":{\"input\":1500,\"output\":50,\"cacheRead\":400,\"cacheWrite\":0,\"totalTokens\":1950},\"stopReason\":\"stop\",\"responseId\":\"syn-r1\",\"duration\":100.4,\"ttft\":50.4,\"timestamp\":1789706401000}}\n";
     let mut appended = base.as_bytes().to_vec();
     appended.extend_from_slice(conflict_line.as_bytes());
@@ -301,7 +301,7 @@ fn conflicting_duplicate_entry_marks_conflict_and_keeps_existing() {
     assert_eq!(outcome.conflicts, 1);
 
     let key = "omp:message:syn-cf-1:-:2026-01-05T10:00:01.000Z";
-    // 不任意择大：已存值保持 1400，冲突标记并记诊断。
+    // Retain input 1400 instead of selecting the greater value; flag and diagnose conflict.
     let (input, conflict_flag): (i64, i64) = storage
         .conn()
         .query_row(

@@ -1,9 +1,9 @@
-//! Kimi Work（A13，M4）约定测试：真实脱敏 fixture（conv-main + agent-44-subagent，
-//! 本机内嵌 kimi-code home / wire protocol_version=1.4，2026-09-25 提取）经
-//! 读取→解析→标准化→commit_batch→查询。期望值为人工核算，
-//! 见 tests/fixtures/kimi-work/*.sanitized.json 同名 _expectations.md。
-//! 与 Kimi Code（1.5）的实读差异在断言中逐项固定：目录布局 conv-*、
-//! usage.record 无 agentId、model 为裸 id、注册表锚点 1.4。
+//! Kimi Work (A13, M4) tests use real sanitized conv-main and agent-44-subagent samples.
+//! Extracted 2026-09-25 from the local embedded kimi-code home, wire protocol_version=1.4.
+//! Read, parse, normalize, commit_batch and query against manual totals in
+//! tests/fixtures/kimi-work/*.sanitized.json and their corresponding _expectations.md files.
+//! Assertions distinguish this sample from Kimi Code 1.5: conv-* layout,
+//! no usage.record agentId, bare model ids and registered format 1.4.
 
 mod common;
 
@@ -11,18 +11,18 @@ use common::*;
 use llm_usage_core::adapters::framework::{self, SourceAdapter};
 use llm_usage_core::adapters::kimi_work::KimiWorkAdapter;
 
-// 手工核算（对照 _expectations.md；roundtrip jq 独立复核相等）：
-// conv-main：38 turn（primary）；io 47,574 / cr 1,310,720 / out 18,658。
-// agent-44：7 turn（sub_agent）+ 1 session（auxiliary）；
-//   io 204,485+29,663 / cr 374,784+183,040 / out 23,343+12,440。
-// 合计 46 事件：input_uncached 281,722；input_total 2,150,266；total 2,204,707。
+// Manual totals cross-checked against _expectations.md and an independent jq round trip.
+// conv-main: 38 turn/primary records; io 47,574, cr 1,310,720, out 18,658.
+// agent-44: 7 turn/sub_agent records plus 1 session/auxiliary record;
+// io 204,485+29,663, cr 374,784+183,040, out 23,343+12,440.
+// 46 events: input_uncached 281,722, input_total 2,150,266, total 2,204,707.
 
 const NOW: i64 = 1_800_000_000_000;
 
 #[test]
 fn contract_full_pipeline_matches_expectations() {
     let (_db, storage) = temp_storage("kimi-work-contract");
-    // 两个真实会话（不同 wd/conv 目录，同实例根）。
+    // Two real sessions in distinct wd/conv directories under one instance root.
     let conv_wire = reconstruct_kimi_wire(&kimi_work_fixture("conv-main.sanitized.json"));
     let sub_wire = reconstruct_kimi_wire(&kimi_work_fixture("agent-44-subagent.sanitized.json"));
     let dir = TempDir::new("kimi-work-real");
@@ -51,7 +51,7 @@ fn contract_full_pipeline_matches_expectations() {
     let outcome = reports[0].outcome.as_ref().unwrap();
     assert_eq!((outcome.added, outcome.updated, outcome.errors), (46, 0, 0));
 
-    // 全事件白名单核对（跨两日区间覆盖 2026-07-18 与 2026-09-13）。
+    // Compare all events over a date range containing 2026-07-18 and 2026-09-13.
     let summary = summary(&storage, "2026-07-18", "2026-09-13");
     assert_eq!(summary.totals.call_count, 46);
     assert_eq!(summary.totals.uncached_known, Some(281_722));
@@ -62,7 +62,7 @@ fn contract_full_pipeline_matches_expectations() {
     assert_eq!(summary.totals.total_tokens_known, Some(2_204_707));
 
     let conn = storage.conn();
-    // 分类：38 primary + 1 auxiliary（agent-44 压缩摘要）+ 7 sub_agent。
+    // Categories: 38 primary, 1 auxiliary agent-44 compaction summary and 7 sub_agent.
     let (primary, auxiliary, sub_agent): (i64, i64, i64) = conn
         .query_row(
             "SELECT SUM(call_category = 'primary'), SUM(call_category = 'auxiliary'), \
@@ -73,7 +73,7 @@ fn contract_full_pipeline_matches_expectations() {
         .unwrap();
     assert_eq!((primary, auxiliary, sub_agent), (38, 1, 7));
 
-    // Agent 分列：kimi-work（不与 kimi-code 混列，A12/A13）。
+    // Agent is kimi-work, separately identified from kimi-code (A12/A13).
     let agents: Vec<(String, i64)> = {
         let mut stmt = conn
             .prepare("SELECT agent, COUNT(*) FROM usage_events GROUP BY agent")
@@ -85,7 +85,7 @@ fn contract_full_pipeline_matches_expectations() {
     };
     assert_eq!(agents, vec![("kimi-work".to_string(), 46)]);
 
-    // 事件键命名空间与 schema：1.4 已验证锚点。
+    // Verify the event-key namespace and registered schema 1.4.
     let (key, schema, basis): (String, String, String) = conn
         .query_row(
             "SELECT source_record_key, schema_version, parse_basis FROM usage_events \
@@ -98,7 +98,7 @@ fn contract_full_pipeline_matches_expectations() {
     assert_eq!(schema, "1.4");
     assert_eq!(basis, "known_version");
 
-    // 模型白名单：1.4 裸 id 原样入账。
+    // Keep the observed bare model ids from 1.4.
     let models: Vec<(String, i64)> = {
         let mut stmt = conn
             .prepare(
@@ -118,7 +118,7 @@ fn contract_full_pipeline_matches_expectations() {
         ]
     );
 
-    // 会话身份：conv 目录名（1.4 无 agentId 字段，身份来自路径）。
+    // Session identity uses the conv directory; 1.4 has no agentId field.
     let sub_rows: i64 = conn
         .query_row(
             "SELECT COUNT(*) FROM usage_events WHERE session_id = 'conv_syn-sub'",
@@ -128,14 +128,14 @@ fn contract_full_pipeline_matches_expectations() {
         .unwrap();
     assert_eq!(sub_rows, 8, "agent-44 的 8 条（7 turn + 1 session）");
 
-    // 诊断：真实 fixture 无坏形状 ⇒ 0。
+    // Valid real sample shapes produce zero diagnostics.
     let diags: i64 = conn
         .query_row("SELECT COUNT(*) FROM diagnostics", [], |r| r.get(0))
         .unwrap();
     assert_eq!(diags, 0);
 
-    // 回声对账（记录侧只算 turn scope；session scope 无回声）：两文件均 matched——
-    // conv-main 38==38；agent-44 7 turn==7 回声（1 条 session scope 不参与）。
+    // Reconcile turn-scope records against echoes; session scope has no echo. Both files match:
+    // conv-main 38 turns == 38 echoes; agent-44 7 turns == 7 echoes, excluding its session record.
     let matched = reports[0]
         .reconciliations
         .iter()
@@ -143,7 +143,7 @@ fn contract_full_pipeline_matches_expectations() {
         .count();
     assert_eq!(matched, 2, "两文件的回声对账均 matched");
 
-    // 幂等：二次扫描无新增。
+    // Repeated scanning adds no duplicate events.
     let reports2 = run_kimi_work(&storage, &root, NOW + 1000);
     let added2: i64 = reports2
         .iter()
@@ -152,8 +152,8 @@ fn contract_full_pipeline_matches_expectations() {
     assert_eq!(added2, 0, "重复扫描不增量（V12）");
 }
 
-/// 两产品实例身份天然分离：同一目录树分别经 kimi-code/kimi-work 手工根扫描
-/// 产生不同实例与 Agent 分列（防 A12/A13 合并计账）。
+/// A manual-root Kimi Work scan returns its own source-instance namespace and Agent value.
+/// Verify kimi-work identity and event keys independently of the kimi-code product (A12/A13).
 #[test]
 fn instance_identity_separates_from_kimi_code() {
     let dir = TempDir::new("kimi-work-ident");
@@ -228,7 +228,7 @@ fn capability_table_is_structured_and_complete() {
         assert!(json["fields"].get(key).is_some(), "missing {key}");
     }
     assert_eq!(json["fields"]["tokens"]["availability"], "available");
-    // 发现声明如实记录：候选为本机实测推导 + manual，无 env 覆盖。
+    // Candidate roots come from local observations and manual input, with no environment override.
     assert_eq!(json["discovery"]["env_override"], serde_json::Value::Null);
     let basis: &str = json["discovery"]["default_root_basis"].as_str().unwrap();
     assert!(

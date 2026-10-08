@@ -1,20 +1,20 @@
-//! SQLite schema（预发布阶段：不做逐版本迁移，只建当前 schema）。
+//! SQLite full-creation schema; this module does not implement incremental version migrations.
 //!
-//! 约定（当前设计）：
-//! - 未发布过，不记录每个版本的数据库迁移历史；
-//! - 打开时发现 user_version != SCHEMA_VERSION ⇒ 返回 SchemaTooNew/SchemaTooOld；
-//! - 由应用层提示用户"数据库版本不兼容，是否全量删除重建"；
-//! - 用户允许 ⇒ 删除整个数据库文件重新创建；不允许 ⇒ 退出应用。
+//! Current initialization rules:
+//! - Maintain full creation SQL here rather than per-version migration scripts.
+//! - Existing nonzero user_version differing from the supported version returns SchemaMismatch.
+//! - The application asks whether to delete/recreate the incompatible database.
+//! - Recreate only after user consent; otherwise exit.
 
-/// 本程序支持的最新 schema 版本（唯一有效值）。
-/// v8（2026-09-30，F2）：价格快照/价格行重定义 + 日成本回填表。
-/// v10（2026-10-01）：额度时序及 Copilot IDE 统计修正；来源命名空间和调用
-/// 单位变化，旧试验库按预发布规则提示重建，避免保留旧 turn 调用贡献。
-/// v11（2026-10-01，F2 在线刷新）：price_versions 增 official_vendor（官方
-/// 提供商按量价标记，回退匹配候选池）；daily_cost_usage 增 fallback_event_count。
+/// Default schema version supported by this program.
+/// v8, 2026-09-30/F2: redefine price snapshots/rows and add daily cost backfill.
+/// v10, 2026-10-01: quota history/Copilot IDE statistics; source namespaces and call units
+/// changed. Older experimental databases require rebuilding to avoid old turn-count contributions.
+/// v11, 2026-10-01/F2 online refresh: price_versions adds official_vendor for official
+/// provider pay-as-you-go fallback candidates; daily_cost_usage adds fallback_event_count.
 pub const SCHEMA_VERSION: u32 = 11;
 
-/// 完整建库 SQL（新库一步到位；不做增量迁移）。
+/// Complete SQL for new databases, without incremental version migration.
 pub const FULL_SCHEMA: &str = r#"
 PRAGMA defer_foreign_keys = ON;
 

@@ -1,40 +1,40 @@
-//! M8 第二批适配器约定测试：17 个适配器的合成 fixture（尚未用真实样本核验，
-//! 2026-09-29 调研锚点；本机盘点均未安装，仅 Zed 有空库）经 探测→扫描→
-//! 各步骤的断言。期望值为本文件各用例内的人工核算，不改计算规则。
+//! M8 second-batch tests for 18 adapters using synthetic inputs for detection, scanning,
+//! and step assertions. Initial research was on 2026-09-29; these tests do not establish
+//! native acceptance. Current per-adapter checks are recorded separately. Expected values are calculated here.
 //!
-//! 手工核算摘要（fixture 数值）：
-//! - zed：cumulative{in=120,out=34}（cr/cc 缺省=已报告 0）⇒ 聚合
-//!   120/34/0/0；request 桶和 161 vs cumulative 154 ⇒ mismatch（覆盖语义）；
-//!   非 zed.dev 与 imported（version 1.0.0）线程跳过。
-//! - aider：{prompt=10006,completion=81,total=10087,cost=0.0133175} 秒→毫秒
-//!   1_755_100_406_000；cost=13_318 micro-USD（Estimated）。
-//! - junie：modelUsage[2]（input/output + cache 别名组）⇒ 2 事件；
-//!   time=1500 ⇒ interval_start = ts−1500；重复扫描键稳定。
-//! - xum：byModel 两模型 ⇒ 2 聚合；键 provider:model 拆分。
-//! - droid：tokenUsage{in=10,out=20,cr=30,cc=40,think=5} ⇒ 1 聚合。
-//! - amp：ledger 2 行入账（有 timestamp）；1 条无 ledger 对应的 assistant
-//!   usage 跳过（不推造时间）⇒ 诊断 + Reconciliation mismatch。
-//! - grok：2 行显式 usage（别名组），1 行无 usage 跳过 ⇒ 2 事件。
-//! - roo：tokensIn=100（含缓存）+ cr=30+cw=10 ⇒ uncached=60 total=120；
-//!   api_req_deleted 不计；condense cost-only 辅助事件。
-//! - goose：usage_ledger 3 行（provider_reported cost 入账、estimated 不入、
-//!   carried_forward token 入账 cost 不入）⇒ 3 事件 1 cost；旧库 accumulated
-//!   ⇒ 1 聚合。
-//! - crush：根会话 cost=0.5 ⇒ 1 条 UsageObservation（500_000 micro-USD
-//!   Estimated）；子会话行排除。
-//! - jcode：openai input=100 cr=30 cw=10 ⇒ uncached=60；anthropic in=60
-//!   cr=30 cw=10 ⇒ input_total=100；崩溃窗口同 id 取 journal 版。
-//! - gajae：五桶 {1,2,3,4,10} ⇒ 按 pi 的计算规则，totalTokens=10 与四桶和一致；
-//!   缺桶行跳过。
-//! - commandcode：链上 2 条 assistant usage；孤儿分支 1 条不计。
-//! - continue：CLI usage ⇒ 1 聚合（prompt/completion/cached）；
-//!   GUI 会话（无 usage）0 产出。
-//! - atomcode：两模型累计 ⇒ 2 聚合；rounds 合计 5；计算规则 input=prompt−cached。
-//! - kiro：CLI 1 个非零 turn 入账、1 个全零 turn（Auto）跳过；
-//!   sqlite request_metadata 1 事件（毫秒时间戳）。
-//! - antigravity：protobuf 行 #1+#2 input、#9.#4 时间戳 ⇒ 事件；无时间戳行
-//!   跳过。
-//! - qoder：探针 fail closed（诊断 usage_fields_unverified，0 事件）。
+//! Manual calculations for synthetic test data:
+//! - zed: historical hosted cumulative{in=120,out=34} decodes missing cr/cc as zero,
+//!   yielding 120/34/0/0. Requests sum to 161 versus cumulative 154: reconciliation mismatch.
+//!   Skip the unverified Anthropic provider in this case and imported version-1.0.0 threads.
+//! - aider: {prompt=10006,completion=81,total=10087,cost=0.0133175}; seconds become milliseconds,
+//!   1_755_100_406_000; estimated cost=13_318 micro-USD.
+//! - junie: two modelUsage entries with input/output and cache aliases produce two events;
+//!   time=1500 gives interval_start=timestamp−1500; repeated scan keys are stable.
+//! - xum: two byModel entries produce two aggregates; split provider:model keys.
+//! - droid: tokenUsage{in=10,out=20,cr=30,cc=40,think=5} produces one aggregate.
+//! - amp: one timestamped ledger event is imported; an assistant without a ledger entry
+//!   or timestamp is skipped with a diagnostic and reconciliation mismatch.
+//! - grok: two explicit usage rows using aliases produce events; skip one row without usage.
+//! - roo: legacy test mapping tokensIn=100 includes cr=30+cw=10; uncached=60, total=120.
+//!   Skip api_req_deleted; retain a cost-only condense auxiliary event.
+//! - goose: three ledger rows retain provider_reported cost, exclude estimated cost,
+//!   and retain carried_forward tokens without cost: three events, one cost. Old accumulated
+//!   fields produce one aggregate.
+//! - crush: root cost=0.5 produces one UsageObservation (500_000 micro-USD,
+//!   Estimated); exclude child rows.
+//! - jcode: OpenAI input=100, cr=30, cw=10 gives uncached=60; Anthropic in=60,
+//!   cr=30, cw=10 gives input_total=100; the journal replaces a same-ID snapshot after a crash.
+//! - gajae: five fields {1,2,3,4,10} use pi calculation rules; totalTokens=10 equals their component sum;
+//!   skip rows with missing required fields.
+//! - commandcode: two linked assistant usage records count; exclude one orphan branch.
+//! - continue: CLI usage produces one prompt/completion/cached aggregate;
+//!   a GUI session without usage produces nothing.
+//! - atomcode: two model aggregates plus unattributed rounds; total calls=5; uncached input=prompt−cached.
+//! - kiro: one nonzero CLI turn counts; skip one all-zero Auto turn;
+//!   SQLite request_metadata produces one event with a millisecond timestamp.
+//! - antigravity: protobuf input=#1+#2 and timestamp=#9.#4 produce an event;
+//!   skip a row without that timestamp.
+//! - qoder: reject unverified usage with usage_fields_unverified and zero events.
 
 mod common;
 
@@ -95,7 +95,7 @@ fn scan(
         .unwrap()
 }
 
-// ---- zed ----
+// Zed tests.
 
 #[test]
 fn zed_threads_db_aggregate_and_filters() {
@@ -125,7 +125,7 @@ fn zed_threads_db_aggregate_and_filters() {
             [thread_json.as_bytes()],
         )
         .unwrap();
-        // 非 zed.dev provider：跳过。
+        // Skip the unverified Anthropic provider in this test; separately verified native providers have their own rules.
         let external = serde_json::json!({
             "model": {"provider": "anthropic", "model": "x"},
             "cumulative_token_usage": {"input_tokens": 999},
@@ -137,7 +137,7 @@ fn zed_threads_db_aggregate_and_filters() {
             [external.as_bytes()],
         )
         .unwrap();
-        // 分享导入（version 1.0.0）：跳过。
+        // Skip imported threads with version 1.0.0.
         let imported = serde_json::json!({
             "version": "1.0.0",
             "model": {"provider": "zed.dev", "model": "y"},
@@ -179,7 +179,7 @@ fn zed_threads_db_aggregate_and_filters() {
         .any(|d| d.code == "non_zed_dev_thread_skipped"));
 }
 
-// ---- aider ----
+// Aider tests.
 
 #[test]
 fn aider_analytics_events_and_cost() {
@@ -209,7 +209,7 @@ fn aider_analytics_events_and_cost() {
     assert_eq!(event.provider_id.as_deref(), Some("gemini"));
     let cost = event.cost.as_ref().unwrap();
     assert_eq!(cost.amount_minor, 13_318, "micro-USD Estimated");
-    // 追加一行再扫：增量。
+    // Append another line and scan incrementally.
     std::fs::OpenOptions::new()
         .append(true)
         .open(&log)
@@ -228,7 +228,7 @@ fn aider_analytics_events_and_cost() {
     assert_eq!(outcome2.events[0].usage.input_total, Some(5));
 }
 
-// ---- junie ----
+// Junie tests.
 
 #[test]
 fn junie_model_usage_events() {
@@ -268,7 +268,7 @@ fn junie_model_usage_events() {
     assert_eq!(second.usage.input_cache_read, None);
 }
 
-// ---- xum ----
+// Xum tests.
 
 #[test]
 fn xum_session_usage_by_model() {
@@ -317,7 +317,7 @@ fn xum_session_usage_by_model() {
     assert_eq!(primary.interval_end_ms, 1_790_000_000_000);
 }
 
-// ---- droid ----
+// Droid tests.
 
 #[test]
 fn droid_settings_cumulative_aggregate() {
@@ -349,7 +349,7 @@ fn droid_settings_cumulative_aggregate() {
     assert!(aggregate.scope_key.starts_with("droid:"));
 }
 
-// ---- amp ----
+// Amp tests.
 
 #[test]
 fn amp_ledger_primary_and_unmatched_message_reported() {
@@ -385,7 +385,7 @@ fn amp_ledger_primary_and_unmatched_message_reported() {
         DetectOutcome::Supported { .. }
     ));
     let outcome = scan(&adapter, &thread);
-    // ledger 1 行入账；messageId=2 已对账不计；messageId=3 无 ledger 且无时间戳跳过。
+    // Import one ledger event; messageId=2 is already accounted for; skip messageId=3 without a ledger entry or timestamp.
     assert_eq!(outcome.events.len(), 1);
     assert_eq!(outcome.events[0].usage.input_total, Some(100));
     assert_eq!(
@@ -400,7 +400,7 @@ fn amp_ledger_primary_and_unmatched_message_reported() {
     assert_eq!(outcome.reconciliations[0].verdict, "mismatch");
 }
 
-// ---- grok ----
+// Grok tests.
 
 #[test]
 fn grok_explicit_usage_blocks_only() {
@@ -455,7 +455,7 @@ fn grok_explicit_usage_blocks_only() {
     );
 }
 
-// ---- roo ----
+// Roo tests.
 
 #[test]
 fn roo_tokens_in_includes_cache_and_deleted_memo_skipped() {
@@ -480,7 +480,7 @@ fn roo_tokens_in_includes_cache_and_deleted_memo_skipped() {
         DetectOutcome::Supported { .. }
     ));
     let outcome = scan(&adapter, &task);
-    // 1 请求 + 1 condense 辅助；deleted 备忘不计。
+    // One request + one condense auxiliary event; skip the deleted memo.
     assert_eq!(outcome.events.len(), 2);
     let request = &outcome.events[0];
     assert_eq!(request.usage.input_total, Some(100));
@@ -499,13 +499,13 @@ fn roo_tokens_in_includes_cache_and_deleted_memo_skipped() {
         .any(|d| d.code == "deleted_request_memo_skipped"));
 }
 
-// ---- goose ----
+// Goose tests.
 
 #[test]
 fn goose_usage_ledger_and_old_db_fallback() {
     use llm_usage_core::adapters::goose::GooseAdapter;
     let adapter = GooseAdapter::new();
-    // 新库：usage_ledger。
+    // New database with usage_ledger.
     let dir = temp_dir("goose");
     let db = dir.join("sessions").join("sessions.db");
     std::fs::create_dir_all(db.parent().unwrap()).unwrap();
@@ -549,7 +549,7 @@ fn goose_usage_ledger_and_old_db_fallback() {
         "input 含缓存"
     );
 
-    // 旧库：无 usage_ledger，accumulated_* 兜底。
+    // Old database without usage_ledger uses accumulated_* fields.
     let old = dir.join("sessions-old").join("sessions.db");
     std::fs::create_dir_all(old.parent().unwrap()).unwrap();
     {
@@ -587,7 +587,7 @@ fn goose_usage_ledger_and_old_db_fallback() {
     assert_eq!(outcome.aggregates[0].usage.input_total, Some(300));
 }
 
-// ---- crush ----
+// Crush tests.
 
 #[test]
 fn crush_root_session_cost_only() {
@@ -613,14 +613,14 @@ fn crush_root_session_cost_only() {
             [],
         )
         .unwrap();
-        // 子会话（cost 回卷父行）：排除。
+        // Exclude child-session cost already included in the parent.
         conn.execute(
             "INSERT INTO sessions (id, parent_session_id, title, cost, created_at, updated_at)
              VALUES ('child-1', 'root-1', 't', 0.2, 1790000500, 1790000900)",
             [],
         )
         .unwrap();
-        // 零 cost 根会话：跳过。
+        // Skip root sessions with zero cost.
         conn.execute(
             "INSERT INTO sessions (id, parent_session_id, title, cost, created_at, updated_at)
              VALUES ('root-2', NULL, 't', 0.0, 1790000000, 1790001000)",
@@ -644,7 +644,7 @@ fn crush_root_session_cost_only() {
     assert_eq!(event.usage.input_total, None, "token 快照不采");
 }
 
-// ---- jcode ----
+// Jcode tests.
 
 #[test]
 fn jcode_snapshot_journal_merge_and_cache_semantics() {
@@ -686,8 +686,8 @@ fn jcode_snapshot_journal_merge_and_cache_semantics() {
         DetectOutcome::Supported { .. }
     ));
     let outcome = scan(&adapter, &snapshot);
-    // m1 取 journal 版（meta 覆盖为 anthropic：in=60 cr=30 cw=10 ⇒ total=100）；
-    // m2 anthropic in=50 无 cache ⇒ total=50。
+    // m1 uses the journal's Anthropic metadata: in=60, cr=30, cw=10 gives input_total=100;
+    // m2 Anthropic in=50 with no cache gives input_total=50.
     assert_eq!(outcome.events.len(), 2);
     let m1 = outcome
         .events
@@ -715,7 +715,7 @@ fn jcode_snapshot_journal_merge_and_cache_semantics() {
     assert_eq!(m2.duration_ms, Some(1200));
 }
 
-// ---- gajae-code ----
+// gajae-code tests.
 
 #[test]
 fn gajae_five_bucket_gate_and_pi_mapping() {
@@ -742,7 +742,7 @@ fn gajae_five_bucket_gate_and_pi_mapping() {
         DetectOutcome::Supported { .. }
     ));
     let outcome = scan(&adapter, &session);
-    // 五桶齐全 1 条入账；缺桶行跳过（官方 parser 规则相同）。
+    // Import one row with all five required fields; skip missing-field rows, matching the referenced parser rule.
     assert_eq!(outcome.events.len(), 1);
     let event = &outcome.events[0];
     assert_eq!(event.usage.input_uncached, Some(1));
@@ -756,7 +756,7 @@ fn gajae_five_bucket_gate_and_pi_mapping() {
         .any(|d| d.code == "usage_bucket_missing"));
 }
 
-// ---- commandcode ----
+// CommandCode tests.
 
 #[test]
 fn commandcode_effective_path_and_orphan_exclusion() {
@@ -783,7 +783,7 @@ fn commandcode_effective_path_and_orphan_exclusion() {
         DetectOutcome::Supported { .. }
     ));
     let outcome = scan(&adapter, &session);
-    // head=cccc0001 → aaaa0002 → aaaa0001：bbbb0001 是 rewind 孤儿不计。
+    // Effective path: head=cccc0001 → aaaa0002 → aaaa0001; exclude rewind orphan bbbb0001.
     assert_eq!(outcome.events.len(), 2);
     let keys: Vec<&str> = outcome
         .events
@@ -800,7 +800,7 @@ fn commandcode_effective_path_and_orphan_exclusion() {
     assert_eq!(first.usage.input_uncached, Some(60), "inputTokens 含缓存");
 }
 
-// ---- continue ----
+// Continue tests.
 
 #[test]
 fn continue_cli_usage_aggregate_and_gui_empty() {
@@ -831,7 +831,7 @@ fn continue_cli_usage_aggregate_and_gui_empty() {
     assert_eq!(aggregate.usage.input_cache_read, Some(100));
     assert_eq!(aggregate.usage.output_total, Some(40));
 
-    // GUI 会话（无 usage 字段）：0 产出、正常完成。
+    // A GUI session without usage fields finishes normally with no output.
     let gui_session = dir.join("0b6c3a2e-2.json");
     write(
         &gui_session,
@@ -842,7 +842,7 @@ fn continue_cli_usage_aggregate_and_gui_empty() {
     assert!(outcome.aggregates.is_empty());
 }
 
-// ---- atomcode ----
+// AtomCode tests.
 
 #[test]
 fn atomcode_meta_turns_by_model() {
@@ -885,16 +885,16 @@ fn atomcode_meta_turns_by_model() {
         DetectOutcome::Supported { .. }
     ));
     let outcome = scan(&adapter, &meta);
-    // 两模型各一聚合 + 多模型 turn 的 round_count 单列 unattributed
-    // （t1 的 3 轮调用无法确认所属模型，不能对 claude/gpt 各计一次虚增合计）。
+    // Two model aggregates plus a separate unattributed round_count for the multi-model turn.
+    // t1's three calls have unknown model ownership; do not assign them to both Claude and GPT.
     assert_eq!(outcome.aggregates.len(), 3, "两模型各一聚合 + unattributed");
     let claude = outcome
         .aggregates
         .iter()
         .find(|a| a.scope_key.contains("claude-4"))
         .unwrap();
-    // 60+30=90 未缓存 + 40+10=50 缓存 ⇒ input_total=140；
-    // 仅单模型 turn t2 的 2 轮归属 claude。
+    // Uncached input 60+30=90 + cache reads 40+10=50 gives input_total=140;
+    // only single-model turn t2's two calls belong to Claude.
     assert_eq!(claude.usage.input_uncached, Some(90));
     assert_eq!(claude.usage.input_cache_read, Some(50));
     assert_eq!(claude.usage.input_total, Some(140));
@@ -913,7 +913,7 @@ fn atomcode_meta_turns_by_model() {
         .find(|a| a.scope_key.ends_with(":unattributed"))
         .unwrap();
     assert_eq!(unattributed.reported_call_count, Some(3), "t1 的 3 轮单列");
-    // 调用数总计守恒：2 + 3 = 5 = 3(t1) + 2(t2)。
+    // Preserve total calls: 2+3=5=3(t1)+2(t2).
     let total_calls: i64 = outcome
         .aggregates
         .iter()
@@ -922,7 +922,7 @@ fn atomcode_meta_turns_by_model() {
     assert_eq!(total_calls, 5);
 }
 
-// ---- kiro ----
+// Kiro tests.
 
 #[test]
 fn kiro_cli_turns_skip_auto_zero_and_sqlite_requests() {
@@ -953,7 +953,7 @@ fn kiro_cli_turns_skip_auto_zero_and_sqlite_requests() {
         DetectOutcome::Supported { .. }
     ));
     let outcome = scan(&adapter, &cli);
-    // 全零 turn（Auto agent 默认）跳过；1 个真实 turn 入账。
+    // Skip the all-zero Auto-agent turn; import one synthetic nonzero turn.
     assert_eq!(outcome.events.len(), 1);
     assert_eq!(
         outcome.events[0].occurred_at_ms, 1_790_000_000_000,
@@ -965,7 +965,7 @@ fn kiro_cli_turns_skip_auto_zero_and_sqlite_requests() {
         .iter()
         .any(|d| d.code == "zero_count_turns_skipped"));
 
-    // kiro-cli SQLite：request_metadata 逐请求。
+    // Kiro CLI SQLite request_metadata contains per-request records.
     let db = dir.join("kiro-cli").join("data.sqlite3");
     std::fs::create_dir_all(db.parent().unwrap()).unwrap();
     {
@@ -1007,7 +1007,7 @@ fn kiro_cli_turns_skip_auto_zero_and_sqlite_requests() {
     assert_eq!(event.occurred_at_ms, 1_790_000_010_000);
 }
 
-// ---- antigravity ----
+// Antigravity tests.
 
 #[test]
 fn antigravity_protobuf_rows_and_timestamp_gate() {
@@ -1021,8 +1021,8 @@ fn antigravity_protobuf_rows_and_timestamp_gate() {
             [],
         )
         .unwrap();
-        // protobuf：chatModel{#19 model bytes, #9{#4 Timestamp{#1 seconds}}} +
-        // usage{#1 1132, #2 100, #5 40, #9 20, #10 5, #11 "resp-1"}。
+        // Protobuf test structure: chatModel{#19 model bytes, #9{#4 Timestamp{#1 seconds}}} plus
+        // usage{#1 1132, #2 100, #5 40, #9 20, #10 5, #11 "resp-1"}.
         let mut row1 = protobuf_field_bytes(1, &{
             let mut m = protobuf_field_bytes(19, b"gemini-2.6-pro");
             m.extend_from_slice(&protobuf_field_bytes(
@@ -1040,7 +1040,7 @@ fn antigravity_protobuf_rows_and_timestamp_gate() {
             u.extend_from_slice(&protobuf_field_bytes(11, b"resp-1"));
             u
         }));
-        // 行 2：无 #9.#4 时间戳（1.1.18+ 布局）⇒ 跳过。
+        // Row 2 lacks #9.#4, as in the 1.1.18+ layout; skip it.
         let row2 = protobuf_field_bytes(4, &{
             let mut u = protobuf_field_varint(2, 999);
             u.extend_from_slice(&protobuf_field_varint(9, 99));
@@ -1104,7 +1104,7 @@ fn protobuf_field_bytes(field: u64, payload: &[u8]) -> Vec<u8> {
     out
 }
 
-// ---- qoder ----
+// Qoder tests.
 
 #[test]
 fn qoder_probe_fail_closed() {
@@ -1121,7 +1121,7 @@ fn qoder_probe_fail_closed() {
         .any(|d| d.code == "usage_fields_unverified"));
 }
 
-// ---- 结构约定：V30 注册表形状（M8 全目录）----
+// Check V30 directory and registry structure for all M8 second-batch adapters.
 
 #[test]
 fn m8_adapter_directories_and_registries() {

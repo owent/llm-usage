@@ -1,4 +1,4 @@
-//! Genuine whitelisted schema 24 projection plus meaningful failure boundaries.
+//! Native schema 24 fields and tests for specific failure conditions.
 mod common;
 use llm_usage_core::{
     adapters::{built_in_adapters, framework::*, openclaw::OpenClawAdapter},

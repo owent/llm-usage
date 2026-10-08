@@ -1,10 +1,10 @@
-//! OpenCode 适配器约定测试：A17 固定源码 0027387 的合成 fixture 与
-//! 1.18.34 官方 CLI / 本地模型的真实脱敏 fixture 经
-//! 读取→解析→逐次事件→commit→查询。数值对照
-//! tests/fixtures/opencode/*/_expectations.md 的人工核算，不改计算规则。
+//! OpenCode tests include synthetic samples based on A17 source 0027387 and
+//! real sanitized official CLI/local-model samples from 1.18.34.
+//! Read, parse, create per-step events, commit and query; compare the manually
+//! calculated tests/fixtures/opencode/*/_expectations.md values without changing calculation rules.
 //!
-//! 辅助函数从 tests/common/mod.rs 与 tests/hermes_contract.rs 复制（按任务
-//! 约束不改共享 common，避免并行冲突）。
+//! Helpers were copied from tests/common/mod.rs and tests/hermes_contract.rs during
+//! the earlier task, which kept shared common unchanged to avoid concurrent edits.
 
 mod common;
 
@@ -52,7 +52,7 @@ fn opencode_fixture(name: &str) -> PathBuf {
         .join(name)
 }
 
-/// serde_json 值 → SQLite 值（复制自 tests/common/mod.rs 的 json_to_sql）。
+/// serde_json to SQLite values, copied from tests/common/mod.rs json_to_sql.
 fn json_to_sql(value: &serde_json::Value) -> rusqlite::types::Value {
     use rusqlite::types::Value as Sql;
     match value {
@@ -87,9 +87,9 @@ fn insert_rows(conn: &rusqlite::Connection, table: &str, rows: &[serde_json::Val
     }
 }
 
-/// 按脱敏数据（{schema:{session_ddl,message_ddl,part_ddl},sessions,messages,parts}）
-/// 在 <dir>/opencode/opencode.db 重建 SQLite 库，返回数据目录
-///（可作为手工根传入 discover）。
+/// Rebuild SQLite from sanitized {schema:{session_ddl,message_ddl,part_ddl},sessions,messages,parts}
+/// at <dir>/opencode/opencode.db and return the data directory
+/// for manual-root discovery.
 fn build_opencode_db(dir: &TempDir, projection: &serde_json::Value) -> PathBuf {
     let home = dir.path().join("opencode");
     std::fs::create_dir_all(&home).unwrap();
@@ -155,7 +155,7 @@ fn opencode_instance(root: &Path) -> String {
     format!("opencode@{}", normalize_path(root))
 }
 
-/// The former parser's full event and checkpoint contract, not a modified hash field.
+/// Emulate the former parser's complete events and checkpoints for upgrade tests.
 struct LegacyOpenCode(std::sync::Mutex<Vec<llm_usage_core::domain::EventInput>>);
 impl SourceAdapter for LegacyOpenCode {
     fn adapter_id(&self) -> &'static str {
@@ -547,7 +547,7 @@ fn real_local_model_steps_match_api_usage_and_remain_idempotent() {
         run_opencode(&storage, &root, NOW + 1_000);
         let after = event_rows(&storage, &instance);
         assert_eq!(after.len(), before.len());
-        // 大元组不实现 PartialEq；分成互斥两组核对全部白名单字段。
+        // Large tuples lack PartialEq; compare all selected fields in two nonoverlapping groups.
         for (actual, expected) in after.iter().zip(&before) {
             assert_eq!(
                 (
@@ -590,7 +590,7 @@ fn real_local_model_steps_match_api_usage_and_remain_idempotent() {
     }
 }
 
-/// 事件仅保留白名单字段的数据（一行一条逐次事件）。
+/// Selected event fields, one row per per-step event.
 type EventRow = (
     String,
     String,
@@ -667,7 +667,7 @@ fn contract_full_chain_matches_manual_expectations() {
     assert_eq!(report.files[0].events, 3);
     let instance = opencode_instance(&root);
 
-    // 期望见 _expectations.md：3 条逐次事件，全字段对照。
+    // Compare every field of the three per-step events with _expectations.md.
     let rows = event_rows(&storage, &instance);
     assert_eq!(rows.len(), 3);
     let by_key = |k: &str| rows.iter().find(|r| r.0 == k).unwrap();
@@ -707,7 +707,7 @@ fn contract_full_chain_matches_manual_expectations() {
     assert_eq!(p3.15, Some("gpt-5.2".to_string()));
     assert_eq!(p3.16, Some("openai".to_string()));
 
-    // text 部件不产事件（SQL 层过滤）；汇总对照 _expectations.md。
+    // SQL excludes text parts; compare summary totals with _expectations.md.
     let s = summary(&storage, "2026-06-13", "2026-06-13");
     assert_eq!(s.totals.call_count, 3);
     assert_eq!(s.totals.input_total_known, Some(20300));
@@ -716,14 +716,14 @@ fn contract_full_chain_matches_manual_expectations() {
     assert_eq!(s.totals.output_total_known, Some(380));
     assert_eq!(s.totals.total_tokens_known, Some(20680));
 
-    // 会话累计对账：两会话均 matched（五列 = Σ 部件，projector applyUsage）。
+    // Both session cumulative comparisons match: five-column sums equal their part sums through projector applyUsage.
     assert_eq!(report.reconciliations.len(), 2);
     assert!(report
         .reconciliations
         .iter()
         .all(|r| r.verdict == "matched"));
 
-    // 合成样本的旧版本未获真实认证，仍保留 latest_fallback 标记。
+    // Synthetic old-version records have no native version verification and retain latest_fallback.
     let fallback: i64 = storage
         .conn()
         .query_row(
@@ -746,7 +746,7 @@ fn contract_full_chain_matches_manual_expectations() {
         .unwrap();
     assert_eq!(basis, "latest_fallback");
 
-    // 幂等：重复扫描不增量。
+    // Repeated scanning adds no duplicate usage.
     run_opencode(&storage, &root, NOW + 1_000);
     let s = summary(&storage, "2026-06-13", "2026-06-13");
     assert_eq!(s.totals.call_count, 3, "重复扫描不增量");
@@ -782,7 +782,7 @@ fn contract_unknown_version_is_latest_fallback_not_rejected() {
 
 #[test]
 fn unknown_format_fail_closed_for_bogus_sqlite_and_missing_tables() {
-    // 非 SQLite 文件。
+    // File is not SQLite.
     let dir = TempDir::new("opencode-bogus");
     let home = dir.path().join("opencode-home");
     std::fs::create_dir_all(&home).unwrap();
@@ -792,7 +792,7 @@ fn unknown_format_fail_closed_for_bogus_sqlite_and_missing_tables() {
         .unwrap();
     assert!(matches!(outcome, DetectOutcome::UnknownFormat { .. }));
 
-    // SQLite 但无三表。
+    // SQLite exists but lacks the three required tables.
     let empty_db = home.join("other.db");
     {
         let conn = rusqlite::Connection::open(&empty_db).unwrap();
@@ -801,7 +801,7 @@ fn unknown_format_fail_closed_for_bogus_sqlite_and_missing_tables() {
     let outcome = OpenCodeAdapter::new().detect(&empty_db).unwrap();
     assert!(matches!(outcome, DetectOutcome::UnknownFormat { .. }));
 
-    // 仅新 core 派生视图层（session_message）而无 part 表 ⇒ 拒绝并注明待核验。
+    // A derived session_message table without part is rejected as an unverified format.
     let core_db = home.join("core-only.db");
     {
         let conn = rusqlite::Connection::open(&core_db).unwrap();
@@ -819,7 +819,7 @@ fn unknown_format_fail_closed_for_bogus_sqlite_and_missing_tables() {
         other => panic!("expected UnknownFormat, got {other:?}"),
     }
 
-    // 空库（两表皆空）⇒ Pending 下轮重探。
+    // Empty session/part tables remain Pending for later detection.
     let pending_db = home.join("pending.db");
     {
         let conn = rusqlite::Connection::open(&pending_db).unwrap();
@@ -845,7 +845,7 @@ fn unknown_format_fail_closed_for_bogus_sqlite_and_missing_tables() {
 
 #[test]
 fn family_fingerprints_are_mutually_exclusive_not_assumed_compatible() {
-    // OpenCode 库（session 含 tokens_* 五列、message 无 agent_id）不能过 MiMo 指纹。
+    // OpenCode session tokens_* columns and message without agent_id fail the MiMo fingerprint.
     let oc_dir = TempDir::new("opencode-vs-mimo");
     let oc_root = build_opencode_db_from_fixture(&oc_dir, "synthetic-step-finish");
     let oc_db = oc_root.join("opencode.db");
@@ -858,7 +858,7 @@ fn family_fingerprints_are_mutually_exclusive_not_assumed_compatible() {
         }
         other => panic!("MiMo detect must reject opencode db, got {other:?}"),
     }
-    // 反向：MiMo 库（无 tokens_* 列）不能过 OpenCode 指纹。
+    // Conversely, MiMo without tokens_* columns fails the OpenCode fingerprint.
     let mimo_dir = TempDir::new("mimo-vs-opencode");
     let text = std::fs::read_to_string(
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -900,7 +900,7 @@ fn discover_respects_xdg_data_home_and_manual_parent_root() {
     let dir = TempDir::new("opencode-discover");
     let src = TempDir::new("opencode-discover-src");
     let _ = build_opencode_db_from_fixture(&src, "synthetic-step-finish");
-    // XDG 布局：<XDG_DATA_HOME>/opencode/opencode.db。
+    // XDG layout: <XDG_DATA_HOME>/opencode/opencode.db.
     let xdg_base = dir.path().join("xdgroot");
     let xdg_home = xdg_base.join("opencode");
     std::fs::create_dir_all(&xdg_home).unwrap();
@@ -910,7 +910,7 @@ fn discover_respects_xdg_data_home_and_manual_parent_root() {
     )
     .unwrap();
     let adapter = OpenCodeAdapter::new();
-    // XDG_DATA_HOME 覆盖（固定源码 global.ts xdgData 解析）。
+    // XDG_DATA_HOME follows the referenced global.ts xdgData lookup.
     let ctx = DiscoverContext {
         home_dir: None,
         env: std::collections::BTreeMap::from([(
@@ -934,7 +934,7 @@ fn discover_respects_xdg_data_home_and_manual_parent_root() {
     ));
     assert_eq!(normalize_path(&roots[0].root), normalize_path(&xdg_home));
 
-    // 手工根传数据目录的父目录：<root>/opencode 形状定位。
+    // A manual parent root discovers <root>/opencode.
     let ctx = DiscoverContext {
         home_dir: None,
         env: Default::default(),
@@ -944,9 +944,9 @@ fn discover_respects_xdg_data_home_and_manual_parent_root() {
     assert_eq!(roots.len(), 1);
     assert_eq!(normalize_path(&roots[0].root), normalize_path(&xdg_home));
 
-    // 手工根语义按数据目录名限定：不按文件名递归——grandparent 目录
-    //（无名为 opencode 的数据目录形状）不产出根，防止误触同血统产品的
-    // opencode-rc.db（kilo 目录实测存在同名前缀库）。
+    // No recursive filename search: the grandparent here has no accepted direct database
+    // or child data-directory layout and yields no root. This avoids scanning deeper
+    // unrelated directories such as Kilo's observed opencode-rc.db location.
     let ctx = DiscoverContext {
         home_dir: None,
         env: Default::default(),
@@ -957,7 +957,7 @@ fn discover_respects_xdg_data_home_and_manual_parent_root() {
         "数据目录名之外不产出根（防 kilo opencode-rc.db 碰撞）"
     );
 
-    // 默认 home 候选（~/.local/share/opencode）在临时 home 下为空 ⇒ 无根。
+    // Default ~/.local/share/opencode is absent under the temporary home and yields no root.
     let empty = TempDir::new("opencode-empty");
     let ctx = DiscoverContext {
         home_dir: Some(empty.path().to_path_buf()),

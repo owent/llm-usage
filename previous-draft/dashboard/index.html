@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LLM 用量看板</title>
 <style>
-  /* 独立运行（浏览器直接打开）时的回退主题；在 Kimi Work 宿主内由宿主变量覆盖 */
+  /* Standalone fallback theme; Kimi Work host CSS variables override it. */
   :root {
     --kimi-font-sans: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
     --kimi-space-2: 8px; --kimi-space-3: 12px; --kimi-space-4: 16px;
@@ -29,7 +29,7 @@
           position: relative; max-width: 1180px; }
   .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
 
-  /* 顶部条 */
+  /* Top bar. */
   .topbar { display: flex; align-items: baseline; gap: var(--kimi-space-3); flex-wrap: wrap; }
   .topbar h1 { font-size: 17px; font-weight: 500; margin: 0; }
   .meta { font-size: 12px; color: var(--kimi-color-text-tertiary); }
@@ -40,7 +40,7 @@
   .src-name { font-size: 12px; color: var(--kimi-color-text-tertiary); }
   .badge-sample { font-size: 12px; color: var(--kimi-color-warning); margin-inline-start: var(--kimi-space-2); }
 
-  /* 面板通用 */
+  /* Shared panels. */
   .panel { margin-top: var(--kimi-space-3); border: 1px solid var(--kimi-color-border);
            border-radius: var(--kimi-radius-panel); padding: var(--kimi-space-3); }
   .panel-head { display: flex; align-items: center; gap: var(--kimi-space-3); flex-wrap: wrap; margin-bottom: var(--kimi-space-3); }
@@ -48,14 +48,14 @@
   .sub { font-size: 12px; color: var(--kimi-color-text-tertiary); }
   .ctl-label { font-size: 12px; color: var(--kimi-color-text-tertiary); }
 
-  /* 今日统计条 */
+  /* Today's statistics strip. */
   .stat-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--kimi-space-2); margin-bottom: var(--kimi-space-3); }
   .stat { background: var(--kimi-color-fill-secondary, rgba(0,0,0,.03)); border-radius: var(--kimi-radius-card, 8px); padding: 8px 12px; }
   .stat .k { font-size: 12px; color: var(--kimi-color-text-tertiary); }
   .stat .v { font-size: 18px; font-weight: 600; margin-top: 2px; }
   .stat .v small { font-size: 12px; font-weight: 400; color: var(--kimi-color-text-tertiary); margin-inline-start: 4px; }
 
-  /* 今日三张图 */
+  /* Three charts for today. */
   .today-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--kimi-space-3); }
   .tchart { min-width: 0; }
   .tchart-title { font-size: 12px; color: var(--kimi-color-text-secondary); margin-bottom: 4px; }
@@ -64,7 +64,7 @@
   .today-empty { display: flex; align-items: center; justify-content: center; height: 100%;
                  color: var(--kimi-color-text-tertiary); font-size: 12px; }
 
-  /* 控制条 */
+  /* Controls. */
   .controls { display: flex; align-items: center; gap: var(--kimi-space-3); flex-wrap: wrap; margin-top: var(--kimi-space-4); }
   .kimi-segmented { display: inline-flex; gap: 4px; }
   .kimi-chip { border: 1px solid var(--kimi-color-border); background: transparent; color: var(--kimi-color-text-secondary);
@@ -72,7 +72,7 @@
   .kimi-chip.is-selected { background: var(--kimi-color-text-primary); color: var(--kimi-color-bg, #fff); border-color: var(--kimi-color-text-primary); }
   #range-note { margin-inline-start: auto; }
 
-  /* 汇总卡片 */
+  /* Summary cards. */
   .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: var(--kimi-space-2); margin-top: var(--kimi-space-3); }
   .card { border: 1px solid var(--kimi-color-border); border-radius: var(--kimi-radius-card, 8px); padding: 8px 12px; }
   .card .k { font-size: 12px; color: var(--kimi-color-text-tertiary); }
@@ -83,7 +83,7 @@
   .kimi-chip:disabled { opacity: .38; cursor: default; }
   .focus-chip { border-style: dashed; }
 
-  /* 表格 */
+  /* Tables. */
   .tables { display: grid; grid-template-columns: repeat(auto-fit, minmax(430px, 1fr)); gap: var(--kimi-space-3); margin-top: var(--kimi-space-3); }
   table { width: 100%; border-collapse: collapse; font-size: 12px; }
   caption { text-align: left; font-size: 13px; font-weight: 500; padding-bottom: 6px; color: var(--kimi-color-text-secondary); }
@@ -109,7 +109,7 @@
     <div class="src-dots" id="src-dots"></div>
   </div>
 
-  <!-- 今日实时 -->
+  <!-- Today view. -->
   <div class="panel">
     <div class="panel-head">
       <span class="panel-label">今日实时</span>
@@ -134,7 +134,7 @@
     <div style="margin-top:8px" id="today-rows"></div>
   </div>
 
-  <!-- 历史趋势 -->
+  <!-- Historical trends. -->
   <div class="controls">
     <div class="kimi-segmented" id="grain-tabs">
       <button class="kimi-chip" data-grain="month" type="button">按月</button>
@@ -199,7 +199,7 @@
   "use strict";
   var host = window.DaimonWidget;
 
-  // ---------- 示例数据（首次运行前渲染） ----------
+  // Sample data displayed before the first collected result.
   var SAMPLE = {
     generatedAt: "",
     sources: [
@@ -257,7 +257,7 @@
     return t;
   }
 
-  // ---------- 主题色（读取宿主 CSS 变量，失败用回退色） ----------
+  // Read host theme variables with fallback colors.
   function cssVar(name, fb) {
     try {
       if (typeof getComputedStyle === "function") {
@@ -287,7 +287,7 @@
     return cssVar("--kimi-font-sans", "-apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif");
   }
 
-  // ---------- ECharts 封装 ----------
+  // ECharts wrapper.
   var charts = {};
   function renderChart(elId, option, emptyText, onClick) {
     var el = document.getElementById(elId);
@@ -297,7 +297,7 @@
       return;
     }
     try {
-      if (emptyText) {  // 无数据：销毁实例显示占位
+      if (emptyText) {  // Dispose the chart and show a placeholder when no data exists.
         if (charts[elId] && !charts[elId].isDisposed()) charts[elId].dispose();
         charts[elId] = null;
         el.innerHTML = '<div class="today-empty">' + emptyText + "</div>";
@@ -312,7 +312,7 @@
           inst.on("click", onClick);
         } catch (e) {}
       }
-    } catch (e) { /* smoke 沙箱等环境直接跳过 */ }
+    } catch (e) { /* Skip rendering errors in the smoke-test sandbox. */ }
   }
   function tooltipVal(metric) {
     return function (v) {
@@ -339,7 +339,7 @@
   }
   function baseGrid(bottom) { return { left: 64, right: 24, top: 34, bottom: bottom || 30 }; }
 
-  // ---------- 今日实时 ----------
+  // Today view.
   function renderToday(data) {
     var rows = data.todayHourly || [];
     var tot = data.today || [];
@@ -349,7 +349,7 @@
     document.getElementById("today-time").textContent = rows.length
       ? "覆盖 " + Object.keys(nHours).length + " 个时段 · 鼠标悬停查看数值" : "";
 
-    // 今日统计条：总输入 / 缓存命中输入 / 未命中输入 / 输出 / 命中率 / 请求数
+    // Today totals: input, cached/uncached input, output, hit ratio, and requests.
     var strip = document.getElementById("today-stats");
     strip.innerHTML = "";
     var hit = T.cacheRead + T.input > 0 ? fmtPct(T.cacheRead / (T.cacheRead + T.input) * 100) : "—";
@@ -368,7 +368,7 @@
     document.getElementById("tsa-title").textContent = "今日按 Agent 汇总 · " + METRIC_LABEL[metric];
     document.getElementById("tsm-title").textContent = "今日按模型汇总 · " + METRIC_LABEL[metric];
 
-    // 连续小时轴：00:00 到 当前/最新数据小时，零填充无空档
+    // Prototype hour axis fills gaps with zero through the current/latest data hour.
     var nowHour = new Date().getHours();
     var lastHour = 0;
     rows.forEach(function (r) { lastHour = Math.max(lastHour, parseInt(r.hour, 10) || 0); });
@@ -383,7 +383,7 @@
     todaySummary(rows, "today-sum-agent", function (r) { return r.tool; }, metric, "按 Agent");
     todaySummary(rows, "today-sum-model", function (r) { return r.model; }, metric, "按模型");
 
-    // 今日按工具+模型明细 chips
+    // Today's tool/model detail chips.
     var chipBox = document.getElementById("today-rows");
     chipBox.innerHTML = "";
     if (!tot.length) {
@@ -486,12 +486,12 @@
     });
   }
 
-  // 今日汇总条形图：不按时间，仅按 Agent / 模型聚合当日总量
+  // Today's bars group totals by Agent/model without a time axis.
   function todaySummary(rows, elId, keyfn, metric, label) {
     if (!rows.length) { renderChart(elId, null, "暂无数据"); return; }
     var sum = agg(rows, keyfn);
     var keys = Object.keys(sum).sort(function (a, b) {
-      return metricOf(sum[a], metric) - metricOf(sum[b], metric);  // 升序，条形自上而下降序
+      return metricOf(sum[a], metric) - metricOf(sum[b], metric);  // Sort ascending; displayed bars run descending from top to bottom.
     });
     var colors = palette();
     var ac = axisColors();
@@ -516,7 +516,7 @@
     });
   }
 
-  // ---------- 历史趋势 ----------
+  // Historical trends.
   function continuousPeriods(grain, page) {
     page = page || 0;
     var out = [];
@@ -532,9 +532,9 @@
         var m = new Date(now.getFullYear(), now.getMonth() - i, 1);
         out.push(m.getFullYear() + "-" + ("0" + (m.getMonth() + 1)).slice(-2));
       }
-    } else {  // week：ISO 周
+    } else {  // Group by ISO week.
       var dayMs = 86400000;
-      var todayDow = (now.getDay() + 6) % 7;  // 周一=0
+      var todayDow = (now.getDay() + 6) % 7;  // Monday is zero.
       var thisMonday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - todayDow);
       var endMonday = new Date(thisMonday.getTime() - page * GRAIN_N.week * 7 * dayMs);
       for (var w = GRAIN_N.week - 1; w >= 0; w--) {
@@ -547,7 +547,7 @@
   function isoWeekOf(d) {
     var dd = new Date(d.getTime());
     dd.setHours(0, 0, 0, 0);
-    dd.setDate(dd.getDate() + 3 - ((dd.getDay() + 6) % 7));  // 本周周四
+    dd.setDate(dd.getDate() + 3 - ((dd.getDay() + 6) % 7));  // Thursday in this ISO week.
     var week1 = new Date(dd.getFullYear(), 0, 4);
     var week = 1 + Math.round(((dd - week1) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7);
     return dd.getFullYear() + "-W" + ("0" + week).slice(-2);
@@ -559,7 +559,7 @@
     var p = 0;
     while (p < 60) {
       var ps = continuousPeriods(grain, p);
-      if (ps[ps.length - 1] < earliest) break;  // 窗口末尾已早于最早数据，再往前无数据
+      if (ps[ps.length - 1] < earliest) break;  // Stop paging when the entire window precedes the earliest data.
       p++;
     }
     return Math.max(0, p - 1);
@@ -575,7 +575,7 @@
     var keep = {};
     periods.forEach(function (p) { keep[p] = 1; });
     var rows = rowsAll.filter(function (r) { return keep[r.period]; });
-    // 点击数据点：汇总卡与明细表联动到该期
+    // Selecting a point filters cards and details to its period.
     if (state.focusPeriod && !keep[state.focusPeriod]) state.focusPeriod = null;
     var rowsView = state.focusPeriod ? rows.filter(function (r) { return r.period === state.focusPeriod; }) : rows;
 
@@ -630,7 +630,7 @@
   function renderLineChart(rows, periods) {
     if (!periods.length) { renderChart("chart", null, "暂无历史数据"); return; }
     var metric = state.metric;
-    var mode = state.series;  // total | model | agent
+    var mode = state.series;  // Grouping modes: total, model, or agent.
     var byAgent = mode === "agent";
     var keyOf = mode === "agent"
       ? function (r) { return r.tool + " · " + r.model; }
@@ -643,7 +643,7 @@
     var hasOther = mode !== "total" && keys.length > topN;
     var seriesKeys = top.concat(hasOther ? ["其他"] : []);
 
-    // 颜色：Agent×模型 按 Agent 上色；其余按序列上色
+    // Agent/model series use Agent colors; other modes color by series.
     var colors = palette();
     var toolRank = {};
     if (byAgent) {
@@ -657,7 +657,7 @@
       return colors[(toolRank[t] === undefined ? 6 : Math.min(toolRank[t], 6)) % colors.length];
     }
 
-    // 按 期×序列 累计原始量，命中率由总量加权计算（避免比率直接相加出错）
+    // Sum raw values by period/series and derive hit ratio from those sums.
     var acc = {};
     rows.forEach(function (r) {
       var key = keyOf(r);
@@ -751,7 +751,7 @@
     for (var i = 0; i < 5; i++) document.getElementById(tfPrefix + i).textContent = vals[i];
   }
 
-  // ---------- 渲染入口 ----------
+  // Render entry point.
   function render(data) {
     if (!data || !data.generatedAt) { data = SAMPLE; document.getElementById("sample-badge").hidden = false; }
     else { document.getElementById("sample-badge").hidden = true; }
@@ -777,7 +777,7 @@
     try { renderMain(); } catch (e) {}
   }
 
-  // ---------- 事件 ----------
+  // Event handlers.
   function bindTabs(sel, attr, apply) {
     var tabs = document.querySelectorAll(sel + " .kimi-chip");
     for (var i = 0; i < tabs.length; i++) {
@@ -870,8 +870,8 @@
     }
   }
 
-  // ---------- 启动（能力防护，兼容 Binding 投递 smoke 沙箱） ----------
-  // 独立模式：不在 Kimi Work 宿主内时，从同目录 data.json 读取快照并渲染
+  // Check available host APIs at startup for the Binding smoke-test sandbox.
+  // Standalone mode fetches data.json beside this page and renders its snapshot.
   function loadStandaloneData(isRefresh) {
     if (typeof fetch !== "function") { render(SAMPLE); return; }
     setRunning(!!isRefresh);
@@ -905,7 +905,7 @@
       bind();
       loadStandaloneData(false);
     }
-  } catch (e) { /* smoke 沙箱中保持静态渲染 */ }
+  } catch (e) { /* Keep static rendering in the smoke-test sandbox. */ }
 })();
 </script>
 </body>

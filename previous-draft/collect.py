@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
-"""LLM 用量采集与统计入口。
+"""LLM usage collection and statistics entry point.
 
-两种运行方式：
-1. Blueprint Automation 托管执行，调用 run(ctx)。
-   ctx.input: {"refresh": bool, "tools": [名称...]}
-2. 独立运行：python collect.py [--refresh] [--tool NAME ...] [--out PATH]
-   增量采集后把统计快照写入 dashboard/data.json（供静态看板读取），
-   并打印各数据源状态。数据库默认使用 data/usage.db。
+Two execution modes:
+1. Managed Blueprint Automation calls run(ctx).
+   ctx.input: {"refresh": bool, "tools": [names...]}
+2. Standalone: python collect.py [--refresh] [--tool NAME ...] [--out PATH]
+   After incremental collection, write the statistical snapshot to dashboard/data.json
+   for the static dashboard and print source states. The default database is data/usage.db.
 """
 import os
 import sys
@@ -26,7 +26,7 @@ DB_PATH = os.path.join(BASE, "data", "usage.db")
 
 
 def _load_collectors():
-    """自动发现 collectors/ 包下的所有采集器模块——新增工具只需丢一个文件进来。"""
+    """Discover all collector modules under collectors/; add one file to introduce a tool."""
     for info in pkgutil.iter_modules(collectors.__path__):
         __import__(f"collectors.{info.name}")
 
@@ -87,7 +87,7 @@ def run(ctx):
                          "error": f"{type(e).__name__}: {e}"}
             sources.append(entry)
 
-        # 只重算有新事件的日期——历史数据直接沿用缓存
+        # Recompute only dates with new events; historical data reuses the cache.
         store.rebuild_days(touched_days)
         store.prune()
 

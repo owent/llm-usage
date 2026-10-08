@@ -1,9 +1,14 @@
-# synthetic-bom 期望（人工核算，全合成样本）
+# synthetic-bom expectations (manually calculated, synthetic)
 
-UTF-8 BOM 头的会话 JSON：detect 与整写解析均剥 BOM，正常入账。
+<a id="synthetic-bom-期望人工核算全合成样本"></a>
 
-## 期望
+A session JSON file begins with a UTF-8 BOM. Both detection and whole-file parsing
+remove the BOM and import normally.
 
-- detect=Supported；files[0].status="complete"；事件数 = 1（syn-msg-1）。
-- 汇总：call_count=1；input_total_known=100；output_total_known=20；
-  total_tokens_known=120；无诊断。
+<a id="期望"></a>
+
+## Expectations
+
+- detect=Supported; files[0].status="complete"; one event, syn-msg-1.
+- Summary: call_count=1, input_total_known=100, output_total_known=20,
+  total_tokens_known=120; no diagnostics.

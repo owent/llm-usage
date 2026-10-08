@@ -1,5 +1,5 @@
-//! ingest 批次：事件 upsert + 游标 + 解析上下文 + 受影响日汇总在同一事务提交。
-//! 中断前未提交的批次可重放；重放幂等（事件按键 upsert、日汇总按日分区重算）。
+//! Commit event updates, cursors, parse context and affected daily aggregates in one ingest transaction.
+//! Replay uncommitted interrupted batches without duplicates: update events by key and recompute daily partitions.
 
 use crate::calendar::Calendar;
 use crate::domain::{EventInput, QualityBucket};
@@ -14,7 +14,7 @@ use jiff::civil::Date;
 use rusqlite::{params, OptionalExtension, Transaction};
 use std::collections::BTreeSet;
 
-/// usage_events 中已存在记录的去重判定视图。
+/// Existing usage_events metadata used to resolve duplicates.
 type ExistingRow = (
     ExistingMeta,
     i64,
@@ -25,7 +25,7 @@ type ExistingRow = (
     Option<crate::domain::VersionBasis>,
 );
 
-/// 游标与版本化解析上下文更新（模型状态、累计基线、未完成请求）。
+/// Cursor and versioned parse-context updates: model state, cumulative baseline and unfinished requests.
 #[derive(Debug, Clone)]
 pub struct CheckpointUpdate {
     pub scope_key: String,
@@ -34,7 +34,7 @@ pub struct CheckpointUpdate {
     pub source_revision: Option<i64>,
 }
 
-/// 批次内诊断（脱敏：字段名/错误码/位置，不复制原始行内容）。
+/// Redacted batch diagnostics: field names, error codes and positions, without original row content.
 #[derive(Debug, Clone)]
 pub struct DiagnosticInput {
     pub event_id: Option<String>,
@@ -44,25 +44,25 @@ pub struct DiagnosticInput {
     pub message: String,
 }
 
-/// 一个 ingest 批次。M1 批次内事件属于同一来源实例（跨源并发合入在 M6 接）。
+/// One ingest batch; every event belongs to the same source instance.
 #[derive(Debug, Clone)]
 pub struct IngestBatch {
     pub batch_id: String,
-    /// 本批次来源实例。
+    /// Source instance for this batch.
     pub instance_id: String,
-    /// 分桶用固定 IANA 时区（保存后不随系统变化）。
+    /// Fixed IANA timezone for grouping; stored settings do not follow later system changes.
     pub timezone: String,
     pub now_ms: i64,
     pub events: Vec<EventInput>,
     pub checkpoints: Vec<CheckpointUpdate>,
     pub diagnostics: Vec<DiagnosticInput>,
-    /// 关联的运行中作业：批次统计与其同事务提交。
+    /// Associated running job; commit its batch statistics in the same transaction.
     pub run_id: Option<String>,
-    /// 保留截止（UTC 毫秒）：更早的事件被跳过并记诊断，不允许复活已清理明细。
+    /// UTC-millisecond retention cutoff: skip older events with diagnostics instead of restoring deleted details.
     pub retention_cutoff_ms: Option<i64>,
 }
 
-/// 故障注入点（V09）。在任何定义点失败都必须整体回滚，重放结果相同。
+/// V09 fault-injection points; failure must roll back the whole transaction and permit identical replay.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FaultPoint {
     AfterEvents,
@@ -95,7 +95,7 @@ pub struct BatchOutcome {
     pub errors: i64,
     pub conflicts: i64,
     pub data_revision: i64,
-    /// 本次重算影响的本地日（YYYY-MM-DD）。
+    /// Local days affected by recomputation, formatted YYYY-MM-DD.
     pub affected_days: Vec<String>,
 }
 
@@ -106,7 +106,7 @@ fn check_fault(fault: Option<FaultPoint>, point: FaultPoint) -> Result<(), CoreE
     Ok(())
 }
 
-/// 提交批次：单一事务。fault 为测试钩子，注入后整体回滚。
+/// Commit in one transaction; the fault test hook forces complete rollback.
 pub fn commit_batch(
     storage: &Storage,
     batch: &IngestBatch,
@@ -126,8 +126,8 @@ pub(crate) fn commit_batch_tx(
     archive_snapshot: bool,
 ) -> Result<BatchOutcome, CoreError> {
     let calendar = Calendar::new(&batch.timezone)?;
-    // schema < 3（测试钩子冻结的旧库）没有 parse_basis 列：按旧 schema 降级写入，
-    // 新字段不持久化（等价历史行为）。正常运行总是先迁移到 SCHEMA_VERSION。
+    // Test-frozen schemas before v3 lack parse_basis; write using the historical schema
+    // without that field. Normal startup migrates to SCHEMA_VERSION first.
     let parse_basis_column = storage.schema_version().unwrap_or(u32::MAX) >= 3;
     if batch
         .events
@@ -181,7 +181,7 @@ pub(crate) fn commit_batch_tx(
     let mut pending_diagnostics: Vec<(Option<String>, DiagnosticInput)> = Vec::new();
     let mut content_conflicts = BTreeSet::new();
 
-    // 1. 事件 upsert。
+    // 1. Insert or update events.
     for event in &batch.events {
         crate::adapters::run_policy::check()?;
         let eid = event_id(&event.source_instance_id, &event.source_record_key);
@@ -240,8 +240,8 @@ pub(crate) fn commit_batch_tx(
                 },
             )
             .optional()?;
-        // v1 的内容摘要包含 observed_at；仅观察时间改变仍视为同一内容。
-        // 同键同内容的重复 final（仅发生/观察/源时间文本不同）是重报而非冲突，同样视为同一内容。
+        // The v1 content hash included observed_at; an observation-time change alone is duplicate content.
+        // Same-key final repeats differing only in occurrence/observation/native time are repeated reports, not conflicts.
         if let Some((meta, old_ms, _, observed, old_source_time, _, _)) = &mut existing {
             let mut legacy = event.clone();
             legacy.observed_at_ms = *observed;
@@ -268,8 +268,8 @@ pub(crate) fn commit_batch_tx(
                 .as_ref()
                 .filter(|old| parser_metadata_upgrade(old, event))
             {
-                // 完整旧摘要只允许解析器依据变化；保留原时间、用量和源修订。
-                // 同批次已观测的实际冲突不能被后续的元数据更新清除。
+                // Full prior hashes permit only parser-metadata changes; retain original time, usage and source revision.
+                // Later metadata updates cannot clear a real conflict already observed in this batch.
                 let mut current = event.clone();
                 current.occurred_at_ms = old.1;
                 current.source_time = old.4.clone();
@@ -315,9 +315,9 @@ pub(crate) fn commit_batch_tx(
                     || mimo_policy_upgrade(old, event)
                     || claude_native_policy_upgrade(old, event)
             }) {
-                // Explicit source policies compare the full old
-                // digest. Preserve first observation, real conflict flags and all
-                // audit history while correcting only the verified derived fields.
+                // Explicit source-correction policies compare the complete old hash.
+                // Retain first observation, real conflict flags and all change history
+                // while correcting only verified fields.
                 let conflict: i64 = tx.query_row(
                     "SELECT conflict FROM usage_events WHERE event_id=?1",
                     [&eid],
@@ -383,7 +383,7 @@ pub(crate) fn commit_batch_tx(
             }
             Arbitration::Conflict => {
                 content_conflicts.insert(eid.clone());
-                // 不任意择大：保留现存，标 conflict 并记诊断；所在日重算以反映冲突计数。
+                // Keep the existing conflicting value rather than choose a larger one; diagnose and recompute its daily conflict count.
                 tx.execute(
                     "UPDATE usage_events SET conflict = 1 WHERE event_id = ?1",
                     params![eid],
@@ -405,7 +405,7 @@ pub(crate) fn commit_batch_tx(
                 ));
             }
         }
-        // 数学矛盾进入受限诊断（不用 max(0,…) 隐藏）。
+        // Record mathematical contradictions as diagnostics instead of hiding them with max(0, ...).
         for contradiction in detect_contradictions(&event.usage) {
             pending_diagnostics.push((
                 Some(eid.clone()),
@@ -424,7 +424,7 @@ pub(crate) fn commit_batch_tx(
     crate::qwen_carriers::select(tx, batch, &calendar, &mut affected)?;
     check_fault(fault, FaultPoint::AfterEvents)?;
 
-    // 2. 游标与解析上下文（同事务；分两段以便故障点语义清晰）。
+    // 2. Commit cursors and parse context together; separate stages make fault-injection points explicit.
     for checkpoint in &batch.checkpoints {
         crate::adapters::run_policy::check()?;
         tx.execute(
@@ -460,7 +460,7 @@ pub(crate) fn commit_batch_tx(
     }
     check_fault(fault, FaultPoint::AfterParseContext)?;
 
-    // 3. 数据修订号单调递增；本批次的日汇总行携带新修订。
+    // 3. Advance the data revision when days are affected; recomputed daily rows carry that revision.
     let next_revision = if affected.is_empty() {
         crate::storage::data_revision(tx)?
     } else {
@@ -469,8 +469,8 @@ pub(crate) fn commit_batch_tx(
     outcome.data_revision = next_revision;
     check_fault(fault, FaultPoint::BeforeAggregates)?;
 
-    // 4. 受影响日按（时区, 日）分区重算；封存日不追加。小时分桶同事务持久化
-    //    （分级归档：明细删除后小时层仍有数据）。
+    // 4. Recompute affected timezone/day partitions without adding to sealed days; persist hours
+    // in the same transaction so hourly archives survive later deletion of details.
     for day in &affected {
         crate::adapters::run_policy::check()?;
         recompute_day(tx, &calendar, *day, next_revision)?;
@@ -479,7 +479,7 @@ pub(crate) fn commit_batch_tx(
     outcome.affected_days = affected.iter().map(Date::to_string).collect();
     check_fault(fault, FaultPoint::AfterAggregates)?;
 
-    // 5. 诊断（脱敏）。
+    // 5. Store redacted diagnostics.
     for (event_id, diag) in &pending_diagnostics {
         crate::adapters::run_policy::check()?;
         insert_diagnostic(tx, batch, event_id.as_deref(), diag)?;
@@ -489,7 +489,7 @@ pub(crate) fn commit_batch_tx(
         insert_diagnostic(tx, batch, diag.event_id.as_deref(), diag)?;
     }
 
-    // 6. 作业进度同事务提交。
+    // 6. Commit job progress in the same transaction.
     if let Some(run_id) = &batch.run_id {
         jobs::merge_run_stats_tx(
             tx,
@@ -509,7 +509,7 @@ pub(crate) fn commit_batch_tx(
     Ok(outcome)
 }
 
-/// 比较完整旧事件摘要，不把解析器更名当作源修订或允许其他字段变化。
+/// Compare complete prior events; a renamed parser is not a source revision or permission to change other fields.
 fn parser_metadata_upgrade(old: &ExistingRow, event: &EventInput) -> bool {
     if old.5 == event.parser_version && old.6 == event.parse_basis {
         return false;
@@ -517,7 +517,7 @@ fn parser_metadata_upgrade(old: &ExistingRow, event: &EventInput) -> bool {
     let mut legacy = event.clone();
     legacy.parser_version = old.5.clone();
     legacy.parse_basis = old.6;
-    // 同键重复 final 的时间兼容与普通仲裁一致；元数据更新仍保留原时间。
+    // Match normal same-key final-repeat time handling; metadata updates still retain original timestamps.
     for preserve_time in [false, true] {
         if preserve_time {
             legacy.occurred_at_ms = old.1;
@@ -535,7 +535,7 @@ fn parser_metadata_upgrade(old: &ExistingRow, event: &EventInput) -> bool {
 }
 
 /// Reconstruct the complete doc1 event for the verified native writer only.
-/// All positive counters, identity and attribution must still match the old digest.
+/// All positive counters, identity and attribution must still match the old hash.
 fn claude_native_policy_upgrade(old: &ExistingRow, event: &EventInput) -> bool {
     use crate::adapters::claude::{
         common::map_claude_native, map_claude_transcript, ClaudeTranscriptUsage,
@@ -585,9 +585,9 @@ fn claude_native_policy_upgrade(old: &ExistingRow, event: &EventInput) -> bool {
     false
 }
 
-/// Only the known gajae v5/OpenAI-completions policy can produce these v2
-/// unknown buckets/start basis. Reconstruct every old field before comparing
-/// canonical or legacy full hashes; unrelated content changes still arbitrate.
+/// Only the verified gajae v5/OpenAI-completions policy permits these v2
+/// unknown fields/start-time basis. Reconstruct every old field before comparing
+/// canonical or legacy full hashes; resolve unrelated content changes normally.
 fn gajae_policy_upgrade(old: &ExistingRow, event: &EventInput) -> bool {
     use crate::domain::{FieldQuality as Q, TimeBasis, VersionBasis};
     if event.agent != "gajae-code"
@@ -675,9 +675,9 @@ fn gajae_policy_upgrade(old: &ExistingRow, event: &EventInput) -> bool {
             || content_hash(&legacy) == old.0.content_hash)
 }
 
-/// Official Junie normalized input and zero defaults. A maximum of 128
-/// candidates restores only missing/default-zero fields of the old parser;
-/// every other field must match its full canonical or legacy digest.
+/// Junie native uncached input and default-zero corrections compare at most 128
+/// candidates restoring only missing/default-zero fields from the old parser;
+/// every other field must match its full canonical or legacy hash.
 fn junie_policy_upgrade(old: &ExistingRow, event: &EventInput) -> bool {
     use crate::domain::{CostAmount, CostKind, FieldQuality as Q, VersionBasis};
     if event.agent != "junie"
@@ -758,9 +758,9 @@ fn junie_policy_upgrade(old: &ExistingRow, event: &EventInput) -> bool {
     false
 }
 
-/// MiMo's required raw counters and client price default to zero. Restore only those
-/// absent/default fields and their old derived values; the full prior digest
-/// still protects identity, every positive value, quality and attribution.
+/// MiMo required raw counters and client prices default to zero. Restore only those
+/// absent/default fields and their old derived values; the complete prior hash
+/// still preserves identity, every positive value, quality and attribution.
 fn mimo_policy_upgrade(old: &ExistingRow, event: &EventInput) -> bool {
     use crate::domain::{CostAmount, CostKind, FieldQuality as Q};
     if event.agent != "mimo-code"
@@ -794,8 +794,8 @@ fn mimo_policy_upgrade(old: &ExistingRow, event: &EventInput) -> bool {
     if expected.usage != event.usage || expected.quality != event.quality {
         return false;
     }
-    // Five raw counters were required by the old parser. Reconstruct its full
-    // summary; never authorize a correction merely from an unchanged part ID.
+    // The old parser required five raw counters. Reconstruct its complete summary;
+    // an unchanged part ID alone cannot authorize a correction.
     for mask in 0u8..4 {
         let mut legacy = event.clone();
         legacy.parser_version = old.5.clone();
@@ -1100,8 +1100,8 @@ fn update_event(
     Ok(())
 }
 
-/// 与 INSERT/UPDATE 共用的参数顺序；?41 为 conflict（仅 INSERT 使用字面 0，占位一致），
-/// ?48 created_at_ms 仅 INSERT 有意义（UPDATE 不引用）。
+/// Shared INSERT/UPDATE parameter order; ?41 is conflict (INSERT uses literal zero).
+/// ?48 created_at_ms is used only by INSERT, not UPDATE.
 fn event_params(
     event: &EventInput,
     event_id: &str,
@@ -1123,56 +1123,56 @@ fn event_params(
         None => (None, None, None, None, None),
     };
     vec![
-        Value::Text(event_id.to_string()),                            // 1
-        Value::Text(event.source_instance_id.clone()),                // 2
-        Value::Text(event.source_record_key.clone()),                 // 3
-        Value::Text(event.record_kind.as_str().to_string()),          // 4
-        Value::Text(event.schema_version.clone()),                    // 5
-        Value::Text(event.parser_version.clone()),                    // 6
-        opt_text(&event.origin_call_id),                              // 7
-        opt_text(&event.attempt_id),                                  // 8
-        opt_text(&event.session_id),                                  // 9
-        opt_text(&event.parent_session_id),                           // 10
-        opt_text(&event.host_application),                            // 11
-        Value::Text(event.agent.clone()),                             // 12
-        Value::Text(event.call_category.as_str().to_string()),        // 13
-        Value::Integer(event.occurred_at_ms),                         // 14
-        opt_int(event.observed_at_ms),                                // 15
-        opt_text(&event.source_time),                                 // 16
-        Value::Text(event.time_basis.as_str().to_string()),           // 17
-        opt_int(event.interval_start_ms),                             // 18
-        opt_int(event.interval_end_ms),                               // 19
-        opt_text(&event.provider_id),                                 // 20
-        opt_text(&event.model_raw),                                   // 21
-        opt_text(&event.model_canonical),                             // 22
-        Value::Text(event.model_attribution.as_str().to_string()),    // 23
-        opt_int(event.usage.input_uncached),                          // 24
-        opt_int(event.usage.input_cache_read),                        // 25
-        opt_int(event.usage.input_cache_write),                       // 26
-        opt_int(event.usage.input_total),                             // 27
-        opt_int(event.usage.output_total),                            // 28
-        opt_int(event.usage.output_reasoning),                        // 29
-        opt_int(event.usage.total_tokens),                            // 30
-        opt_int(event.usage.source_total),                            // 31
-        Value::Text(quality_json),                                    // 32
-        Value::Text(bucket.as_str().to_string()),                     // 33
-        Value::Text(event.lifecycle.as_str().to_string()),            // 34
-        opt_int(event.source_revision),                               // 35
-        opt_text(&event.error_status),                                // 36
-        opt_int(event.duration_ms),                                   // 37
-        opt_int(event.ttft_ms),                                       // 38
-        Value::Text(event.attribution_status.as_str().to_string()),   // 39
-        opt_text(&event.exclusion_reason),                            // 40
-        Value::Integer(0),                                            // 41 conflict 占位
-        Value::Text(hash.to_string()),                                // 42
-        opt_int(cost_minor),                                          // 43
-        opt_text(&cost_currency),                                     // 44
-        opt_text(&cost_kind),                                         // 45
-        opt_text(&price_version),                                     // 46
-        opt_text(&billing_scope),                                     // 47
-        Value::Integer(now_ms),                                       // 48 created（INSERT）
-        Value::Integer(now_ms),                                       // 49 updated
-        opt_text(&event.parse_basis.map(|b| b.as_str().to_string())), // 50 版本选择依据
+        Value::Text(event_id.to_string()),                     // 1 event_id
+        Value::Text(event.source_instance_id.clone()),         // 2 source_instance_id
+        Value::Text(event.source_record_key.clone()),          // 3 source_record_key
+        Value::Text(event.record_kind.as_str().to_string()),   // 4 record_kind
+        Value::Text(event.schema_version.clone()),             // 5 schema_version
+        Value::Text(event.parser_version.clone()),             // 6 parser_version
+        opt_text(&event.origin_call_id),                       // 7 origin_call_id
+        opt_text(&event.attempt_id),                           // 8 attempt_id
+        opt_text(&event.session_id),                           // 9 session_id
+        opt_text(&event.parent_session_id),                    // 10 parent_session_id
+        opt_text(&event.host_application),                     // 11 host_application
+        Value::Text(event.agent.clone()),                      // 12 agent
+        Value::Text(event.call_category.as_str().to_string()), // 13 call_category
+        Value::Integer(event.occurred_at_ms),                  // 14 occurred_at_ms
+        opt_int(event.observed_at_ms),                         // 15 observed_at_ms
+        opt_text(&event.source_time),                          // 16 source_time
+        Value::Text(event.time_basis.as_str().to_string()),    // 17 time_basis
+        opt_int(event.interval_start_ms),                      // 18 interval_start_ms
+        opt_int(event.interval_end_ms),                        // 19 interval_end_ms
+        opt_text(&event.provider_id),                          // 20 provider_id
+        opt_text(&event.model_raw),                            // 21 model_raw
+        opt_text(&event.model_canonical),                      // 22 model_canonical
+        Value::Text(event.model_attribution.as_str().to_string()), // 23 model_attribution
+        opt_int(event.usage.input_uncached),                   // 24 input_uncached
+        opt_int(event.usage.input_cache_read),                 // 25 input_cache_read
+        opt_int(event.usage.input_cache_write),                // 26 input_cache_write
+        opt_int(event.usage.input_total),                      // 27 input_total
+        opt_int(event.usage.output_total),                     // 28 output_total
+        opt_int(event.usage.output_reasoning),                 // 29 output_reasoning
+        opt_int(event.usage.total_tokens),                     // 30 total_tokens
+        opt_int(event.usage.source_total),                     // 31 source_total
+        Value::Text(quality_json),                             // 32 quality_json
+        Value::Text(bucket.as_str().to_string()),              // 33 quality_bucket
+        Value::Text(event.lifecycle.as_str().to_string()),     // 34 lifecycle
+        opt_int(event.source_revision),                        // 35 source_revision
+        opt_text(&event.error_status),                         // 36 error_status
+        opt_int(event.duration_ms),                            // 37 duration_ms
+        opt_int(event.ttft_ms),                                // 38 ttft_ms
+        Value::Text(event.attribution_status.as_str().to_string()), // 39 attribution_status
+        opt_text(&event.exclusion_reason),                     // 40 exclusion_reason
+        Value::Integer(0),                                     // 41 conflict placeholder
+        Value::Text(hash.to_string()),                         // 42 content_hash
+        opt_int(cost_minor),                                   // 43 cost_minor
+        opt_text(&cost_currency),                              // 44 cost_currency
+        opt_text(&cost_kind),                                  // 45 cost_kind
+        opt_text(&price_version),                              // 46 price_version
+        opt_text(&billing_scope),                              // 47 billing_scope
+        Value::Integer(now_ms),                                // 48 created_at_ms (INSERT)
+        Value::Integer(now_ms),                                // 49 updated_at_ms
+        opt_text(&event.parse_basis.map(|b| b.as_str().to_string())), // 50 parse_basis
     ]
 }
 
@@ -1190,8 +1190,8 @@ fn opt_int(value: Option<i64>) -> rusqlite::types::Value {
     }
 }
 
-/// 重算单个本地日：删除未封存行后从 usage_events 重建。
-/// 只有归属已核验的事件进入总计；transport_attempt 只计入 attempt_count。
+/// Rebuild one local day from usage_events after deleting its unsealed rows.
+/// Include only verified ownership in totals; transport_attempt contributes to attempt_count only.
 pub(crate) fn recompute_day(
     tx: &Transaction<'_>,
     calendar: &Calendar,
@@ -1204,8 +1204,8 @@ pub(crate) fn recompute_day(
         params![calendar.tz_name(), day_str],
     )?;
     let (start_ms, end_ms) = calendar.day_range_ms(day)?;
-    // v4 起 daily_usage 按来源实例分区（M1a：查询跨来源求和，落盘保留每来源贡献）。
-    // v2 迁移的旧库重算发生在 v4 分区之前，按旧形状（无 instance_id 列）写入。
+    // Since v4, daily_usage keeps each source-instance contribution; queries sum across sources (M1a).
+    // A v2 migration rebuilds before v4 partitioning, using the old shape without instance_id.
     let partitioned: bool = tx.query_row(
         "SELECT EXISTS(SELECT 1 FROM pragma_table_info('daily_usage') WHERE name = 'instance_id')",
         [],
@@ -1253,10 +1253,10 @@ pub(crate) fn recompute_day(
     } else {
         "AND NOT EXISTS (SELECT 1 FROM daily_usage d WHERE d.tz_version=?1 AND d.local_day=?2 AND d.sealed=1)"
     };
-    // 未知字段计数（input/output/total_unknown_count）排除 quality_bucket='unknown'
-    // 的记录：没有任何已知 token 字段的记录是“无用量调用/观测”（失败调用、
-    // Copilot 工具循环 round 等计调用但用量由 turn observation 承载），计入
-    // call/event，但不算作观测缺字段的未知字段（数据规范「请求、消息与累计值」）。
+    // input/output/total_unknown_count exclude quality_bucket='unknown' records:
+    // records with no known token field include failed calls and Copilot round markers.
+    // Calls remain counted while turn observations supply usage separately;
+    // include call/event counts without treating these as partially observed missing token fields.
     let sql = format!(
         "{insert_head}
            COALESCE(provider_id, ''), COALESCE(model_raw, ''),
@@ -1308,7 +1308,7 @@ pub(crate) fn recompute_day(
     Ok(())
 }
 
-/// Only the verified v1/v2 omission is repairable: every other source field must match.
+/// Repair only the verified v1/v2 total omission; every other native field must match.
 fn vs_copilot_policy_upgrade(existing: &crate::identity::ExistingMeta, event: &EventInput) -> bool {
     let expected_total = event
         .usage
@@ -1339,9 +1339,9 @@ fn vs_copilot_policy_upgrade(existing: &crate::identity::ExistingMeta, event: &E
         })
 }
 
-/// 按目标时区重算 [from_ms, to_ms] 覆盖的本地日（维护/修复路径：时区分区修复）。
-/// 事件仍在 ⇒ 重算是推导不是猜测；该时区下已封存的日跳过；单事务 + 修订号。
-/// 返回新数据修订号；范围内无未封存重算时返回当前修订号。
+/// Recompute local days covering inclusive [from_ms, to_ms] in the requested timezone.
+/// Use retained events, skip sealed days and commit recomputation with its revision in one transaction.
+/// Return the new revision committed by this transaction.
 pub fn recompute_days_in_tz(
     storage: &Storage,
     timezone: &str,
@@ -1352,7 +1352,7 @@ pub fn recompute_days_in_tz(
     let calendar = Calendar::new(timezone)?;
     let mut day = calendar.local_day_of(from_ms)?;
     let last = calendar.local_day_of(to_ms)?;
-    // 有界防护：最多重算 750 天（超出报错，由调用方分批）。
+    // Limit recomputation to 750 days; reject larger ranges for the caller to split.
     let mut guard = 0;
     let conn = storage.conn();
     let tx = conn.unchecked_transaction()?;
@@ -1374,18 +1374,18 @@ pub fn recompute_days_in_tz(
     Ok(revision)
 }
 
-/// 小时分桶持久化（分级归档的 30 天层）：按本地日重算该日各小时分桶行，
-/// 维度与日汇总一致（实例/Agent/provider/模型/类别/质量桶）。
-/// 与 recompute_day 同事务调用；封存日的小时层同样冻结（不重算）。
-/// 小时换算按事件时刻的本地偏移（DST 日 23/25 小时自然正确）。
+/// Rebuild hourly aggregates by local day for the hourly retention layer.
+/// Use the same instance/Agent/provider/model/category/quality dimensions as daily totals.
+/// Call with recompute_day in the same transaction; sealed days keep their frozen hourly rows.
+/// Use the local offset at each event time, preserving 23/25-hour DST days.
 pub(crate) fn persist_hourly_day(
     tx: &Transaction<'_>,
     calendar: &Calendar,
     day: Date,
     data_revision: i64,
 ) -> Result<(), CoreError> {
-    // schema < 5（测试钩子冻结的旧库）没有 hourly_usage 表：跳过
-    //（迁移到当前版本后自然生效；不影响日/明细层语义）。
+    // Test-frozen schemas before v5 have no hourly_usage table; skip hourly persistence.
+    // Migration enables it later without changing daily/detail meanings.
     let has_table: bool = tx.query_row(
         "SELECT EXISTS(SELECT 1 FROM pragma_table_info('hourly_usage'))",
         [],

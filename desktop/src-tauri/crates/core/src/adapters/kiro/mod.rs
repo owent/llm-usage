@@ -1,8 +1,8 @@
-//! Kiro 适配器（AWS，闭源；独立目录约定）。双载体：
-//! ① CLI `~/.kiro/sessions/cli/*.json` user_turn_metadatas（按 turn 真实计数）；
-//! ② kiro-cli `~/.local/share/kiro-cli/data.sqlite3` conversations_v2
-//! request_metadata（逐请求毫秒时间戳）。IDE 载体（session.json/messages.jsonl）
-//! 纯估算不实施；Auto agent 零计数与估算路径一律不采。
+//! Kiro adapter, AWS proprietary product, independent directory. Two local formats:
+//! 1. CLI ~/.kiro/sessions/cli/*.json user_turn_metadatas, actual turn counts;
+//! 2. kiro-cli ~/.local/share/kiro-cli/data.sqlite3 conversations_v2
+//!    request_metadata, per-request millisecond timestamps. IDE session.json/messages.jsonl
+//!    estimates not implemented; Auto-agent zero counts/estimate paths excluded.
 
 pub mod detect;
 pub mod versions;
@@ -13,7 +13,7 @@ pub use versions::{
     KIRO_FORMAT_VERSION, KIRO_SQLITE_FORMAT_VERSION, LATEST_IMPL_ID, VERIFIED_VERSION_IMPLS,
 };
 
-/// Kiro 适配器（无状态）。
+/// Stateless Kiro adapter.
 pub struct KiroAdapter;
 
 impl Default for KiroAdapter {
@@ -44,12 +44,12 @@ impl crate::adapters::framework::SourceAdapter for KiroAdapter {
         use crate::adapters::framework::{DiscoveredRoot, RootBasis};
         let mut roots: Vec<(std::path::PathBuf, RootBasis)> = Vec::new();
         if let Some(home) = &ctx.home_dir {
-            // 载体①：CLI 会话头。
+            // Format 1: CLI session header.
             roots.push((
                 home.join(".kiro").join("sessions").join("cli"),
                 RootBasis::DefaultHome,
             ));
-            // 载体②：kiro-cli 库（unix；macOS 备选 Application Support）。
+            // Format 2: kiro-cli database on Unix; macOS Application Support alternative.
             let xdg = ctx
                 .env
                 .get("XDG_DATA_HOME")
@@ -71,7 +71,7 @@ impl crate::adapters::framework::SourceAdapter for KiroAdapter {
         let mut seen: std::collections::BTreeSet<std::path::PathBuf> =
             std::collections::BTreeSet::new();
         for (root, basis) in roots {
-            // CLI 目录枚举 *.json；kiro-cli 目录定位 data.sqlite3；手工根三者兼容。
+            // Enumerate CLI *.json or locate kiro-cli data.sqlite3; manual roots support all three forms.
             let mut files = crate::adapters::framework::enumerate_files_bounded(&root, 1, &|p| {
                 p.extension()
                     .and_then(|e| e.to_str())
@@ -112,9 +112,9 @@ impl crate::adapters::framework::SourceAdapter for KiroAdapter {
         limits: &crate::adapters::framework::ScanLimits,
         now_ms: i64,
     ) -> Result<crate::adapters::framework::ScanOutcome, crate::error::CoreError> {
-        // 按文件形态分派（探测结论已在 format_status；此处按内容判定，
-        // 与 detect 同一指纹规则）。短文件可能是正在写入的 SQLite 魔数，
-        // 也可能是完整的短 JSON；只对前者 Pending。
+        // Dispatch by content shape using the same detection rules; format_status already records detection.
+        // A short file may be incomplete SQLite magic or complete small JSON;
+        // only the incomplete SQLite header is Pending.
         let head = crate::adapters::framework::read_detect_head(&target.path, 16)?;
         match head.as_deref() {
             Some(head) if head.starts_with(b"SQLite format 3\0") => {

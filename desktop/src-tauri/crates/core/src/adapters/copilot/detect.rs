@@ -1,4 +1,4 @@
-//! Copilot CLI 探测：session-store.db 的 assistant_usage_events 表指纹。
+//! Detect Copilot CLI through session-store.db assistant_usage_events columns.
 
 use crate::adapters::framework::DetectOutcome;
 use crate::error::CoreError;
@@ -20,8 +20,8 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
         }
     };
     let columns: Vec<String> = {
-        // 瞬态锁（杀软/产品进程持库）是常态：busy 类错误 Pending 下轮重探，
-        // 不固化为 UnknownFormat。
+        // Transient antivirus/product locks cause Pending and retry on a later scan;
+        // do not persist them as UnknownFormat.
         let mut stmt = match conn.prepare("PRAGMA table_info(assistant_usage_events)") {
             Ok(stmt) => stmt,
             Err(err) if common::is_busy_like(&err) => return Ok(DetectOutcome::Pending),
@@ -54,11 +54,11 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
         .copied()
         .collect();
     if !missing.is_empty() {
-        // assistant_usage_events 缺失/列不全：先判定是否为新版 Copilot
-        // chronicle 会话库（2026-09-30 本机核验 + 官方 cli-config-dir-reference：
-        // 最新 CLI 的 session-store.db 已改为 checkpoint/search 索引，
-        // 用量载体外移）。命中则确认为 Copilot 身份但该版本无逐次用量，
-        // 记不兼容版本（不回退、不虚报“非 Copilot 库”）。
+        // If assistant_usage_events/required columns are absent, check the newer Copilot
+        // chronicle store verified locally on 2026-09-30 and in cli-config-dir-reference.
+        // The checked session-store.db is a checkpoint/search index;
+        // per-call usage moved elsewhere. Matching tables identify Copilot but lack verified per-call usage.
+        // Return UnsupportedVersion without fallback, rather than misidentifying it as unrelated SQLite.
         if is_chronicle_store(&conn) {
             let found = conn
                 .query_row("SELECT version FROM schema_version LIMIT 1", [], |r| {
@@ -81,8 +81,8 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
             reason: format!("assistant_usage_events missing required columns: {missing:?}"),
         });
     }
-    // 列集吻合后按 schema_version 表定版本依据（V30，本机实测 version=8）：
-    // 已收录版本 KnownVersion；其他/缺失 LatestFallback 兼容尝试，不虚标已验证。
+    // Matching columns use schema_version for V30 selection; native checked version=8.
+    // Registered versions use KnownVersion; absent/other versions try LatestFallback without claiming verified support.
     let found = common::read_schema_version(&conn);
     let selection = versions::select(found.as_deref());
     Ok(DetectOutcome::Supported {
@@ -92,9 +92,9 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     })
 }
 
-/// 新版 Copilot session-store.db（checkpoint/search 索引）指纹：
-/// sessions/turns/checkpoints/search_index 四表齐备。用于把“最新版布局”与
-/// “非 Copilot 库”区分开（前者记不兼容版本，后者才是 UnknownFormat）。
+/// Newer Copilot checkpoint/search schema requires all four tables:
+/// sessions/turns/checkpoints/search_index. It distinguishes chronicle
+/// (UnsupportedVersion) from unrelated databases (UnknownFormat).
 fn is_chronicle_store(conn: &rusqlite::Connection) -> bool {
     let names = table_names(conn);
     ["sessions", "turns", "checkpoints", "search_index"]
@@ -138,7 +138,7 @@ mod tests {
 
     #[test]
     fn new_chronicle_store_is_unsupported_version_not_unknown_format() {
-        // 最新 CLI 的 session-store.db：chronicle/search 索引，无 assistant_usage_events。
+        // Checked newer CLI layout: chronicle/search index, without assistant_usage_events.
         let path = temp_db(
             "chronicle",
             "CREATE TABLE schema_version (version INTEGER);

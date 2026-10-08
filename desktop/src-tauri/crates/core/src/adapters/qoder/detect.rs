@@ -1,4 +1,4 @@
-//! Qoder 探测：会话 JSONL/state.json 指纹（识别但不解析——用量字段尚未核验）。
+//! Recognize Qoder session JSONL/state.json; usage fields remain unverified and are not parsed.
 
 use crate::adapters::framework::DetectOutcome;
 use crate::domain::VersionBasis;
@@ -10,7 +10,7 @@ pub const QODER_FORMAT: &str = "qoder-session-jsonl";
 const DETECT_HEAD_BYTES: usize = 64 * 1024;
 
 pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
-    // 瞬态不可读（持锁/超时/枚举后被清理）⇒ Pending 下轮重探，不固化失败。
+    // Temporary lock/timeout/removal after enumeration is Pending; retry detection next run.
     let Some(head) = crate::adapters::framework::read_detect_head(path, DETECT_HEAD_BYTES)? else {
         return Ok(DetectOutcome::Pending);
     };
@@ -18,10 +18,10 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     if text.trim().is_empty() {
         return Ok(DetectOutcome::Pending);
     }
-    // 宽指纹：JSON 行会话（jsonl）或 state.json 对象。识别为 Qoder 会话文件
-    // 但 LatestFallback（字段未验证，扫描层 fail closed）。
-    // 注意优先级：session_id 子串命中也必须以 '{' 开头为前提，否则任何
-    // 含 "session_id" 的异源文件都会被误吞。
+    // Recognize JSONL sessions or state.json objects as Qoder session files,
+    // but use LatestFallback and reject usage during scanning until fields are verified.
+    // A session_id substring match also requires an opening brace; otherwise unrelated
+    // files containing "session_id" could be incorrectly claimed.
     let looks_jsonl = text.starts_with('{')
         && (text.contains("\"sessionId\"") || text.contains("\"session_id\""));
     let looks_state =

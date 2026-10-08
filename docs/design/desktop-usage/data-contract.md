@@ -1,64 +1,81 @@
-# 用量、存储与配置合同
+# Usage, storage and configuration rules
 
-本文是统计行为的权威合同，实现状态见 [Plan.md](../../../Plan.md)。
-适配器必须声明如何映射，不能由 UI 猜测缺失字段；新增来源身份与价格获取要求分别在 M1a/F2 跟踪。
-来源仅限本机 Agent 产生的数据，具体准入见 [设计范围](README.md)；远端报表即使落盘也不纳入。
+<a id="用量存储与配置规则"></a>
 
-OpenClaw schema 24 的本地 hot transcript 按
-[专项合同](openclaw-runtime.md)读取：正非缓存输入/输出/缓存桶保留，默认零与计算
-总量保持未知；整库版本、会话最新模型不认证历史行。外部/迁移来源隔离，冷归档
-缺口可见，事件及分页位置随统一批次同事务保存。
+<a id="用量存储与配置合同"></a>
 
-## Cline SDK 会话读取
+This document defines the required statistical behavior; implementation status is in
+[Plan.md](../../../Plan.md). Each adapter must declare its field mapping. The UI cannot infer
+missing fields. New source identities and price retrieval are tracked in M1a/F2.
+Only data produced by local Agents is eligible under the [design scope](README.md).
+Remote reports remain excluded even when saved to disk.
 
-2026-10-06 已核对官方 VS Code 4.1.22、固定提交
-`f58bc118bdeef1bd2813cd08e00d98bdcda96475` 的原生 writer 和隔离真实样本。
-新增独立 `cline-sdk-messages-v1` 实现；旧 `ui_messages.json` 文档级实现保持独立。
-默认读取 `~/.cline/data/sessions/<session>/<session>.messages.json`，按官方
-`CLINE_DIR`、`CLINE_DATA_DIR`、`CLINE_SESSION_DATA_DIR` 的优先级解析；
-手工根可为 Cline 根、data、sessions、单会话目录或原生文件。
-不读取 registry DB、manifest 累计 token、hooks 或正文作为第二份用量。
+Read OpenClaw schema 24 local hot transcripts under the [specific rules](openclaw-runtime.md).
+Keep positive uncached input, output and cache buckets; default zeros and computed totals
+remain unknown. Database-wide versions and the latest session model do not verify historical
+rows. Isolate external/migrated sources and show cold-archive gaps. Events and pagination
+positions commit together in the unified batch transaction.
 
-仅接受 schema 1、`agent=lead`、`origin.source=vscode`、`origin.mode=user`，
-两处 sessionId 必须一致；其他 SDK 产品面、导入与子代理待独立核验。
-`origin.version` 来自会话 metadata，可能在恢复时重写，不能认证全部历史消息；
-SDK 保持 `latest_fallback`，空会话不认证。旧格式锚点不用于 SDK 版本分派。
+<a id="cline-sdk-会话读取"></a>
 
-只消费非 displayOnly 的 assistant `metrics`，身份为 sessionId + message.id；
-正文、工具消息和没有 metrics 的 assistant 不生成用量。writer 可把整次 run 用量
-回填到末条消息，重试中间件也可合并多个请求，因此保存 `usage_observation`，
-不从一条 metrics 推导一次底层调用。只使用消息自身 `modelInfo` 与 `ts`，
-时间标记 uncertain，不从当前 manifest 补模型或会话开始时间。
+## Reading Cline SDK sessions
 
-`inputTokens` 已含缓存；正 input/output/cache 字段分别 reported。
-writer/codec 的默认零和缺项都保留 unknown；完整总量只由已知 input + output
-派生，未缓存输入只在总输入及两个缓存桶都已知时相减。缓存超过输入须诊断，
-不截断。成本、推理输出与延迟尚无真实字段依据，保持 unknown。
-真实样本三个 observation：输入 8,922、输出 48、完整总量 8,970、已知缓存读
-5,881；缓存写和未缓存拆分未知，调用数未知。
+On 2026-10-06, the official VS Code 4.1.22 native writer at fixed commit
+`f58bc118bdeef1bd2813cd08e00d98bdcda96475` was checked against isolated real samples.
+The independent cline-sdk-messages-v1 reader complements the separate documentation-based
+legacy ui_messages.json reader. Default sessions are
+`~/.cline/data/sessions/<session>/<session>.messages.json`, resolved using the official
+CLINE_DIR, CLINE_DATA_DIR and CLINE_SESSION_DATA_DIR precedence. Manual roots may be the
+Cline root, data, sessions, a single session directory or a native file. Do not add registry
+database, manifest cumulative tokens, hooks or conversation text as a second usage source.
 
-整写 JSON 采用 32 MiB 上限、协作取消、完整解析后推进游标；半写、未知 schema
-不推进。坏数值逐条诊断，其他有效消息继续入库。重扫与文件内重复 ID 幂等，
-同 ID 不同内容仍仲裁；历史消息从源快照消失不撤销已观测用量。
+Accept only schema 1, agent=lead, origin.source=vscode and origin.mode=user, with matching
+sessionId fields in both locations. Other SDK interfaces, imports and subagents require
+independent checks. Session metadata origin.version may be rewritten on resume and does not
+verify every historical message. SDK reading remains latest_fallback; empty sessions do not
+verify the format. Legacy format references do not select SDK reader versions.
+
+Consume only assistant metrics without displayOnly, keyed by sessionId + message.id.
+Text, tools and assistants without metrics produce no usage. The writer may place a whole
+run's usage on its last message; retry middleware may merge multiple requests. Store
+usage_observation and do not infer one underlying call per metrics object. Use only the
+message's own modelInfo and ts; mark time uncertain. Do not borrow the current manifest's
+model or session start time.
+
+inputTokens includes cache. Positive input/output/cache fields are individually reported.
+Writer/codec default zeros and absent fields remain unknown. Derive a complete total only
+from known input + output; subtract cache to obtain uncached input only when total input and
+both cache buckets are known. Diagnose cache exceeding input; do not truncate it. Cost,
+reasoning output and latency lack verified native fields and remain unknown. The real sample
+has three observations: input 8,922, output 48, complete total 8,970 and known cache read
+5,881; cache write, uncached decomposition and call count are unknown.
+
+Whole-file JSON reads have a 32 MiB limit and cooperative cancellation. Advance the cursor
+only after complete parsing; partial writes and unknown schemas do not advance it. Diagnose
+invalid numbers per record while importing other valid messages. Rescans and duplicate IDs
+within a file add no duplicate usage; differing content for the same ID still uses conflict
+handling. Historical messages disappearing from a source snapshot do not revoke observed usage.
 
 <a id="metrics"></a>
 
-## token 与请求的定义
+<a id="token-与请求的定义"></a>
 
-统一采用以下互斥输入分类；字段缺失用 null，而不是 0。
+## Defining tokens and requests
 
-| 字段 | 含义 | 注意 |
+Use mutually exclusive input buckets. Missing fields are null, rather than zero.
+
+| Field | Meaning | Notes |
 | --- | --- | --- |
-| input_uncached | 未读取缓存且未列为缓存创建的输入 token | 有些供应商的 input_tokens 包含缓存，有些不包含，必须按版本映射 |
-| input_cache_read | 从缓存读取的输入 token | 包含于统一的总输入 |
-| input_cache_write | 为本次输入创建缓存的 token | 包含于总输入；5 分钟/1 小时等细分是子集，不再额外相加 |
-| input_total | 所有输入 token | 已知互斥三类时相加；也可由源直接提供，但拆分未知仍为 null |
-| output_total | 输出 token，按供应商语义包含已知推理子集 | Gemini 等字段可能分别报告 candidates/thoughts，需专属映射 |
-| output_reasoning | 推理 token 子集 | 不再加到已经包含它的 output_total |
-| total_tokens | 统一 input_total + output_total | 仅源有 total、拆分不明时保留源值及 basis，不能伪造输入/输出 |
-| source_total | 来源原始总量 | 与规范化总量比较；语义差异或不一致记录为诊断 |
+| input_uncached | Input tokens neither read from cache nor classified as cache creation | Some providers include cache in input_tokens; others exclude it. Map each verified version separately. |
+| input_cache_read | Input tokens read from cache | Included in normalized total input. |
+| input_cache_write | Input tokens used to create cache for this request | Included in total input. TTL subdivisions such as 5 minutes/1 hour are subsets, not additional tokens. |
+| input_total | All input tokens | Sum the three known exclusive buckets, or retain directly reported total input with unknown decomposition as null. |
+| output_total | Output tokens including known reasoning subsets under the provider's semantics | Gemini candidates/thoughts may be separately reported and need a specific mapping. |
+| output_reasoning | Reasoning subset of output | Do not add it again when output_total already includes it. |
+| total_tokens | Normalized input_total + output_total | If only a source total is available, retain its value and basis without inventing input/output. |
+| source_total | Original source total | Compare with normalized totals; diagnose semantic differences or inconsistencies. |
 
-数学合同：
+Mathematical definitions:
 
 ```text
 input_total = input_uncached + input_cache_read + input_cache_write
@@ -66,598 +83,793 @@ total_tokens = input_total + output_total
 cache_input_ratio = SUM(input_cache_read) / SUM(input_total)
 ```
 
-前两式仅在所需字段已知、语义一致时计算；总输入可知而细分未知是合法状态。
-比例只对总输入和缓存读取都已知的同一记录集合计算，并展示有效记录数、已知输入量及覆盖范围。
-分母为零或无有效样本时显示“—”；不能显示 0% 或取各日百分比的算术平均。
-“有缓存读取的调用占比”是另一个指标，分母为缓存字段可知的模型调用数，不与 token 占比混用。
+Calculate the first two only when all required fields are known and semantically compatible.
+Known total input with unknown components is valid. Calculate the ratio over the same records
+with known total input and cache read; show eligible record count, known input and coverage.
+For a zero denominator or no eligible samples, show “—”; do not show 0% or average daily
+percentages. The share of calls with cache reads is a separate metric whose denominator is
+model calls with known cache fields; do not confuse it with the token ratio.
 
-例如：供应商明确无缓存创建，报告 input=1000，其中 cached=800，output=100（reasoning=40 已包含），
-则未缓存输入=200，总 token=1100，缓存输入占比=80%，不能得到 1940。
-另一个来源报告互斥的普通输入=100、缓存读=800、缓存写=100、输出=100，
-同样总 token=1100，命中率为 80%，不能漏掉缓存创建而得到 88.89%。
-这两个例子是合同测试数据，不是任何模型价格或真实会话统计。
+For example, a provider explicitly has no cache creation and reports input=1000 including
+cached=800, output=100 including reasoning=40. Uncached input is 200, total tokens 1100 and
+cache-input ratio 80%, rather than 1940 tokens. Another source reports exclusive ordinary
+input=100, cache read=800, cache write=100 and output=100: total tokens remain 1100 and the
+ratio 80%, rather than 88.89% after omitting cache creation. These are synthetic rule-checking
+values, rather than model prices or real session statistics.
 
-每个字段记录 `reported / derived / estimated / unknown`，另记录数据完整性和源采样状态。
-reported 只代表来源报告，不承诺它等于最终账单；估算值默认不进入“已知用量”总计。
-负值、溢出、缓存大于已知总输入等异常进入受限诊断，不能用 `max(0, …)` 隐藏矛盾。
+Record reported / derived / estimated / unknown per field, alongside completeness and source
+sampling state. Reported means the source reported it; it does not verify the final bill.
+Estimates are excluded from known-usage totals by default. Negative values, overflow or cache
+exceeding known total input produce bounded diagnostics; max(0, …) must not hide contradictions.
 
-Continue CLI 会话累计的缓存两桶由产品初始化为 0、仅收到非零值才增加；
-固定官方源码及 1.5.47 真实本地模型证明，零值不能区分“未报告”和“报告零”。
-该载体的缓存零值保留 unknown；正数仍采信原生累计，不从混合 provider 的缓存桶
-派生完整总量。产品填入的默认值不能替代 API 字段缺失依据，详见
-[真实样本](../../validation/desktop-usage/m8-container-samples.md)。
-解析规则更新须自动重读未变化的旧游标；仅在完整旧聚合摘要与新摘要的差异
-恰为缓存 0/reported→NULL/unknown、源修订完全相同时允许更新。其他 token、
-质量、归属、时间和覆盖变化继续原仲裁；诊断历史保留，聚合与游标同事务，
-保留清理下限及已封存历史不绕过。
+Continue CLI initializes both session cumulative cache buckets to zero and increases them
+only for nonzero values. Fixed official source and real 1.5.47 local-model samples show that
+zero cannot distinguish absent reporting from reported zero. Cache zeros in this format
+remain unknown; positive native cumulative values are retained. Do not derive a complete
+total from cache buckets mixed across providers. Product defaults cannot establish an API's
+field presence; see [real samples](../../validation/desktop-usage/m8-container-samples.md).
+Parsing-rule updates automatically reread unchanged old cursors. Same-revision correction is
+allowed only when complete old/new aggregate summaries differ exclusively in cache
+0/reported → NULL/unknown. Other token, quality, ownership, time and coverage changes follow
+normal conflict handling. Keep diagnostic history; aggregates and cursors commit together.
+Do not bypass retention cutoffs or sealed history.
 
-gajae-code 0.18.7 的 session v5/OpenAI-completions 实际载体及固定源码证明：
-缓存零由缺字段回退产生；初始化的输入/输出/总量零也不能认证为 API 已报告零。
-正数按该已核验的归一函数采信，总输入由其反变换恢复；缓存零保持 unknown，
-不能确认两缓存桶时未缓存输入保持 unknown，输入/输出任一未知不派生完整总量。
-非零源总量独立保留；成本仍是客户端 Estimated。message.timestamp 在请求前初始化，
-按 source_start 记录，条目时间与产品版本不替代逐次时间/格式依据。
-配置链 configured_model_chain 已由固定 session-manager 源码证明为非用量条目，
-只允许跳过这一类型，其他未知条目仍停读。其他 API 不套用上述缺字段回退结论。
-gjc-session-1→2 的旧事件更新只允许上述零值/未缓存桶与时间依据纠正：
-完整旧 canonical/legacy 摘要匹配，源修订、身份、模型、非零量、费用和其余质量均不变；
-保留原观察时间与冲突标记/诊断，事件/汇总/指纹/游标同事务，旧封存与保留下限继续生效。
+The real gajae-code 0.18.7 session v5/OpenAI-completions format and fixed source show that
+cache zeros come from missing-field fallbacks. Initialized input/output/total zeros also do
+not establish API-reported zero. Retain positive values under the verified normalization and
+recover total input through its inverse. Cache zeros remain unknown; uncached input remains
+unknown unless both cache buckets are known. Do not derive complete totals when input or
+output is unknown. Retain nonzero source totals independently; costs are client Estimated
+values. message.timestamp is initialized before the request: record source_start. Entry
+time and product version do not replace per-call time/format references. Fixed session-manager
+source identifies configured_model_chain as configuration rather than usage; skip only that
+type, while other unknown entry types still stop reading. Do not generalize this API's
+missing-field defaults to other APIs. Old gjc-session-1 → 2 event corrections permit only
+these zero/uncached-bucket and time-basis changes, after matching complete canonical/legacy
+old summaries. Preserve source revision, identity, model, positive usage, cost and other
+quality fields; retain first observation, conflicts and diagnostics. Events, summaries,
+fingerprints and cursors commit together; sealing and retention cutoffs still apply.
 
-AtomCode 官方 5.2.1 的 OpenAI 映射和 TokenBreakdown 都会将缺字段回退为零，
-真实 `.meta`/API/CLI 已核对。缓存累计零保持 unknown；没有可靠缓存桶时不认证
-未缓存输入。原生归一三桶齐全且输入和为正时可恢复总输入，正输出采信；
-输入/输出任一未知不派生完整总量。缺少或坏类型的桶不能补零，累计溢出保留未知与
-受限诊断，其他有效模型继续入库。turn_stats 的 total_tokens 是末次请求快照，
-不与 model_usage 相加；round_count 保留独立来源汇总，turn 无时间戳不展开逐次。
-atomcode-meta-turns-1→2 自动重读旧游标；旧聚合仅能通过完整摘要证明为上述
-默认零/旧派生桶时纠正，其他已知量、模型、区间、调用数、覆盖和源修订不变。
-未知派生量的旧候选只从默认零与仍可信的原生桶重构，不能任意消除真实冲突；
-使用同修订聚合升级合同，诊断/历史和事务、保留/封存边界保持不变。
-真实目录的 `.ui.json` v1 与 `.rewind.json` version 2 是已核验辅助状态；
-仅在完整 JSON/明确形状、同名合法 `.meta` 与身份匹配时排除（探测上限 64 KiB）。
-未知版本、坏形状、无配对以及带真实 id/turn_stats 的手工 JSON 仍走格式诊断/读取，
-不以文件后缀隐藏用户错误；其他辅助格式未验证前不按同类猜测。
+Official AtomCode 5.2.1 OpenAI mapping and TokenBreakdown default missing fields to zero;
+real .meta/API/CLI checks confirm this. Cumulative cache zeros remain unknown; without
+reliable cache buckets, uncached input is unverified. Complete native normalized three-bucket
+input with a positive sum can recover total input; retain positive output. Do not derive a
+complete total when input/output is unknown. Missing or mistyped buckets cannot become zero.
+Keep cumulative overflow unknown with bounded diagnostics; import other valid models.
+turn_stats total_tokens is the last-request snapshot and is not added to model_usage.
+Keep round_count as a separate source aggregate; do not expand turns without timestamps
+into per-call records. atomcode-meta-turns-1 → 2 rereads old cursors automatically. Correct
+old aggregates only when their complete summaries establish these default-zero/old-derived
+fields; other known values, model, interval, call count, coverage and source revision stay
+unchanged. Reconstruct unknown old derived candidates only from default zeros and still
+trusted native buckets, rather than removing arbitrary real conflicts. Use the same-revision
+aggregate-upgrade rules, retaining history, diagnostics, transactions, retention and sealing.
+Real .ui.json v1 and .rewind.json version 2 are verified auxiliary state. Exclude them only
+with complete JSON/explicit shape, a same-name valid .meta and matching identity, within a
+64 KiB probe. Unknown versions, invalid shapes, unmatched files and manual JSON containing
+real id/turn_stats still receive format diagnostics/reading. Filename suffixes cannot hide
+user-file errors. Other auxiliary formats require verification before exclusion.
 
-Junie 官方 26.9.22（3419.29）发行包与七次真实 OpenAICompletion 调用已核验：
-`inputTokens` 是归一后的非缓存输入，不能作总输入；缓存与输出是独立分项。
-官方 OpenAI/Responses、Anthropic、Google 转换与 ModelUsage 构造均已静态检查；
-UsageTokens 的缺字段默认零会进入事件，零桶保持 unknown，正桶保留报告值。
-载体无 API 类型及产品版本，不能从模型名认证总输入或总 token；这些总量保持未知。
-`time=0` 也可能是默认值，保持未知；`cost=0` 不认证免费或已报告零费用。
-官方 OpenAI calcTokenCost 按客户端 ModelCapabilities 价目估算，缺价不能认证免费；
-正费用标 Estimated，USD 单位沿用原文档依据；真实付费渠道/单位尚未验收。
-任务失败前已写入的 LlmResponseMetadataEvent 仍按逐次调用统计。
-junie-events-doc1→2 自动重读未变化的旧游标；仅允许完整旧 canonical/legacy
-摘要证明的输入桶纠正、默认零/时间消除和费用质量纠正，保持原始键、修订及其他字段。
-旧候选有界枚举缺失/默认零，不恢复任意正数；保留观察时间、冲突和诊断历史，
-事件/汇总/游标同事务，封存及保留下限继续生效。JUNIE_HOME 为已核验发现入口。
-详见 [真实样本](../../validation/desktop-usage/m8-container-samples.md)。
+Official Junie 26.9.22 (3419.29) distribution and seven real OpenAICompletion calls were
+checked. inputTokens is normalized uncached input, rather than total input; cache/output
+are independent components. Official OpenAI/Responses, Anthropic and Google converters and
+ModelUsage construction were inspected statically. UsageTokens defaults missing fields to
+zero in events: zero buckets remain unknown, positive buckets stay reported. The format
+contains neither API type nor product version; a model name cannot verify total input or
+total tokens, which remain unknown. time=0 may be a default and remains unknown; cost=0
+does not establish free usage or reported zero cost. Official OpenAI calcTokenCost estimates
+using client ModelCapabilities rates; absent prices do not prove free usage. Positive cost
+is Estimated; USD follows the original documented reference. Actual paid channel/unit have
+not been accepted. LlmResponseMetadataEvent calls already written before a task fails still
+count. junie-events-doc1 → 2 rereads unchanged old cursors and permits only corrections of
+input buckets, default zeros/time and cost quality established by complete canonical/legacy
+old summaries. Keep original keys, revisions and other fields. Bounded old-candidate
+enumeration covers absent/default-zero fields, not arbitrary positive values. Retain first
+observation, conflicts and diagnostic history; events/summaries/cursors commit together.
+Sealing and retention still apply. JUNIE_HOME is a verified discovery override.
+See [real samples](../../validation/desktop-usage/m8-container-samples.md).
 
-Roo 官方 VSIX 3.54.0、固定提交 27001b2b 与真实 VS Code extension-host 已核验：
-`api_req_started` 的 tokensIn 为含缓存总输入，正 tokensOut 为输出；四桶先初始化零，
-provider 缺 usage/缓存字段仍写零，因此零保持 unknown。OpenAI-compatible 路线只读
-顶层 cache_read_input_tokens，不读 prompt_tokens_details.cached_tokens；实际缓存命中
-仍可能在原生桶中为零，不能按零相减推导未缓存输入。只有两个缓存子集均已知才派生
-input_uncached；正总输入/输出可相加得 total_tokens。cost 按客户端模型费率算，
-正值为 Estimated；缺价目的默认零未知，不认证免费账单。纯占位未携数字不产事件，
-显式数字（即使为默认零）的请求记录保留一次已观测调用及 unknown 字段。
-取消可删除未完成 api_req_started：无上限实测 API 3 次、原生 2 次，缺失一次不补造。
-公开请求上限为 2 的单调用对照单列；不以归档公告断言历史本地 provider 不可运行。
-roo-ui-messages-doc1→2 重评未变化的旧游标；完整旧 canonical/legacy 摘要仅允许零桶/
-零估价及其派生字段纠正，键、时间、非零用量、质量、模型/归属和真实冲突保持保护。
-事件/汇总/游标同事务，诊断与首次观察保留；不认证其他版本、CLI 或工具/子代理覆盖。
+Official Roo VSIX 3.54.0, fixed commit 27001b2b and a real VS Code extension host were
+checked. api_req_started tokensIn is total input including cache; positive tokensOut is
+output. Four buckets initialize to zero; missing provider usage/cache fields still write
+zero, so zeros remain unknown. The OpenAI-compatible route reads only top-level
+cache_read_input_tokens, rather than prompt_tokens_details.cached_tokens. Real cache hits
+may therefore leave native zero buckets; subtracting those zeros cannot establish uncached
+input. Derive input_uncached only when both cache subsets are known. Positive total input
+and output can yield total_tokens. Cost uses client model rates; positive values are
+Estimated. Default zero from absent rates is unknown and does not prove a free bill.
+Empty placeholders without numbers produce no events. Requests with explicit numeric
+fields, including default zeros, retain one observed call with unknown token fields.
+Cancellation may delete incomplete api_req_started records: an unlimited run had three API
+calls but two native records; do not invent the missing call. Keep the separate one-call
+comparison using the public limit of two. An archive announcement does not establish that
+historical local providers cannot run. roo-ui-messages-doc1 → 2 reevaluates unchanged old
+cursors. Complete canonical/legacy old summaries permit only zero-bucket/zero-estimate and
+their derived-field corrections. Protect keys, time, positive usage, quality, model/ownership
+and real conflicts. Events/summaries/cursors commit together; keep diagnostics and first
+observation. This does not verify other versions, CLI or tool/subagent coverage.
 
-Xum 官方 npm 0.30.0、对应提交 81b0b744 与两次真实本地调用已核验：
-`session-usage.json` v1 的 `input` 是互斥未缓存输入，`output` 已排除推理；
-五桶缺字段会在产品归一/累计时变成零。零桶保持 unknown，正输入映射未缓存输入；
-完整输入与总 token 保持未知，不把混合历史的 display 桶认证为完整供应商总量。
-正文本输出与已知正推理相加，质量记 derived；推理未知时保留正文本输出下界及
-`xum_output_incomplete` 覆盖提示，不降级来源健康，不派生完整总 token。
-费用不采纳客户端 CLI 的未知价零；byModel 不展开逐次调用。
-默认 custom OpenAI-compatible 不请求流式 usage，真实缺 usage 场景写入五零，不能认证
-已报告零。独立对照仅由本地网关向真实模型请求 include_usage，响应原样传递；
-不将该网关设置当成客户端默认能力。CLI 默认删除临时会话，保留原生载体须使用
-已核验的 XUM_RUN_SESSION_ROOT/MUX_RUN_SESSION_ROOT；配置根支持 XUM_ROOT/MUX_ROOT。
-xum-session-usage-1→2 自动重读旧游标，仅允许完整旧聚合摘要证明的输入桶纠正、
-默认零消除及已知推理归并；其他 token/质量、修订、身份、区间、调用与覆盖不变，
-保留旧诊断、冲突仲裁和事务、保留/封存边界。格式 v1 不认证所有产品版本。
-详见 [真实样本](../../validation/desktop-usage/m8-container-samples.md)。
+Official Xum npm 0.30.0, matching commit 81b0b744 and two real local calls were checked.
+session-usage.json v1 input is exclusive uncached input; output excludes reasoning. Product
+normalization/accumulation defaults five absent buckets to zero. Zero buckets stay unknown;
+positive input maps to uncached input. Complete input and total tokens remain unknown: mixed
+historical display buckets do not establish complete provider totals. Add positive text
+output and known positive reasoning as derived output. If reasoning is unknown, retain
+positive text output as a lower bound with xum_output_incomplete coverage notice, without
+downgrading source health or deriving complete totals. Ignore CLI unknown-price zero cost;
+do not expand byModel into per-call records. The default custom OpenAI-compatible route does
+not request streaming usage; real missing usage writes five zeros and does not establish
+reported zero. A separate comparison used only a local gateway to request include_usage
+from a real model, forwarding its response unchanged. That gateway setting is not a default
+client capability. CLI deletes temporary sessions by default; retain native files using
+verified XUM_RUN_SESSION_ROOT/MUX_RUN_SESSION_ROOT. Configuration roots support XUM_ROOT/
+MUX_ROOT. xum-session-usage-1 → 2 rereads old cursors, permitting only input-bucket/default-zero
+corrections and known reasoning combination established by complete old aggregate summaries.
+Other tokens/quality, revision, identity, interval, calls and coverage stay unchanged. Keep
+diagnostics, conflict handling, transactions, retention and sealing. Format v1 does not
+verify all product versions. See [real samples](../../validation/desktop-usage/m8-container-samples.md).
 
-MiMo 0.1.15、Zoo 3.86.0 和 DSH 0.2.0-rc.2 的真实载体与独立 API 已核验，
-具体 writer/codec、默认零、分项恢复和读取上限见 [三源合同](m3-runtime-samples.md)。
-Zoo 的正 tokensIn 含缓存，默认零子桶未知，不派生未缓存输入；MiMo 仅按自身 SDK
-归一函数恢复正 input/output 总量，零缓存/推理仍未知，不叠加 message 副本。
-DSH 原生 input 为非缓存桶，只有记录自身证明 pi-ai openai-completions/version 2
-且正 input 未被钳零时，才反变换恢复总输入；output 已含推理，自算 total 不计 source_total。
-settlement/stream 择一，同 step 替换可下修，retry 新开尝试，继承前缀不计本机调用；
-未落盘标题用量只提示缺口。完整快照回退或变更来源身份保留原值及游标。
-MiMo/Zoo 旧规则纠正要求完整旧 canonical/legacy 摘要、相同修订及保护字段相符，
-同批真实冲突保留；已消费的旧处理位置必须重评，事件/汇总/游标同事务。
+Real native MiMo 0.1.15, Zoo 3.86.0 and DSH 0.2.0-rc.2 files were checked against independent
+API observations. Writer/codec, default zeros, component recovery and read limits are in
+[the three source specifications](m3-runtime-samples.md). Positive Zoo tokensIn includes
+cache; default-zero components remain unknown and do not establish uncached input. Recover
+positive MiMo input/output totals only using its own SDK normalization; zero cache/reasoning
+remains unknown. Do not add message copies. Native DSH input is uncached. Invert normalization
+to recover total input only when the record itself establishes pi-ai openai-completions/
+version 2 and positive input was not reduced to zero. Output already includes reasoning;
+computed total is not source_total. Select settlement or stream, not both. Same-step
+replacement may reduce usage; retry starts another attempt. Inherited prefixes are not
+local calls. Unwritten title usage is a visible gap. Snapshot regression or changed source
+identity retains existing values/cursors. MiMo/Zoo old-rule corrections require complete
+canonical/legacy old summaries, identical revision and matching protected fields; keep real
+conflicts within the same batch. Reevaluate consumed old positions and commit events,
+summaries and cursors together.
 
-### 请求、消息与累计值
+<a id="请求消息与累计值"></a>
 
-| 类型 | 统计行为 |
+### Requests, messages and cumulative values
+
+| Kind | Statistical behavior |
 | --- | --- |
-| model_call | 有明确记录依据的一次模型调用/尝试；是 request 指标的基本单位 |
-| transport_attempt | HTTP/WebSocket 重连或重试；独立计数，除非证明就是新的模型调用，不能直接增加 model_call |
-| usage_observation | 一条 usage 记录；与调用可能一对多或多对一，不能默认 COUNT(*) 为 request |
-| cumulative_snapshot | 会话/进程累计快照；根据身份、版本和重置边界求差，不能逐条求和 |
-| interval_aggregate | 官方按日/会话等给出的汇总；保留其原生范围、字段和单位 |
-| quota_snapshot | 额度、积分、订阅窗口、余额；独立显示，不转成 token 或 request |
+| model_call | One model call/attempt established by explicit records; basic request metric unit. |
+| transport_attempt | HTTP/WebSocket reconnect/retry, counted independently. Do not add model_call unless it establishes a new model call. |
+| usage_observation | One usage record, potentially one-to-many or many-to-one with calls. COUNT(*) is not automatically request count. |
+| cumulative_snapshot | Session/process cumulative snapshot; compute differences using identity, version and reset boundaries, rather than summing each row. |
+| interval_aggregate | Official daily/session aggregate; retain native scope, fields and units. |
+| quota_snapshot | Quota, credit, subscription window or balance; display independently without converting to tokens/requests. |
 
-默认卡片名称为“已观测模型调用”，旁边显示范围；只有满足逐次调用识别条件的来源进入该计数。
-失败调用即使用量未知也可计入调用数；未知 token 不补零。无任何已知 token 字段的记录
-（quality_bucket=unknown，如失败调用或仅计调用的工具循环轮次）计入调用/事件，但不计作
-观测缺字段的“未知字段”展示——缺字段计数只反映带部分用量观测的缺口。仅成功响应日志不能计算全部成功率。
-质量分区检查全部 token 字段（含 output_reasoning 和 source_total）；仅有缓存、推理或
-来源总量的记录仍是部分用量，缺失的输入/输出/完整总量继续计缺字段。已报告零值属于已知，
-估算字段仍与已报告字段分开。日/小时及其周/月聚合使用相同缺字段规则。
-用户消息、工具调用、会话数量和付费 premium request/credit 各自独立。
-仅有 token 累计值时调用数显示未知，不能通过非零 delta 数目推测请求次数。
-Hermes 等源可能报告 api_call_count 的区间累计：保留为“来源报告调用汇总”，
-核验含义后按原生区间显示，不伪造逐次 model_call，不与相同覆盖的逐次计数相加。
-Hermes 0.21.5（v2026.9.24）官方镜像的两次本地请求/续会话已核对：原生
-session_model_usage.input_tokens 为 normalize_usage 后的非缓存输入，不能当输入总量。
-固定发布源码与 A24 原固定源码一致，未报告/非法桶会归零、SQL 累计也有默认零；
-因此五个 token 桶及 api_call_count 的零保留未知，正数按报告保留。仅非缓存、缓存读/
-写和输出均已知时按检查溢出的和推导输入/完整总量，不用零默认补全；reasoning 为输出子集。
-累计行保留原生区间、调用汇总与六键身份；schema_version 是整库迁移状态，不能认证
-混合历史记录所属客户端版本，继续保留兼容读取。旧规则升级须完整旧聚合摘要匹配，
-只允许原 input_total 移至 input_uncached、默认零改未知及明确派生字段更新；其他计数/
-质量/范围/覆盖/修订仍仲裁，历史诊断保留，已消费的旧处理位置须全量重评并与游标同事务。
-quota_snapshot 仅在本地记录可证明属于本机使用时接入；账户级额度采用下述独立展示规则。
+The default card is “Observed model calls” with its coverage beside it. Only sources with
+verified per-call identity contribute. Failed calls may count with unknown usage; do not
+zero-fill unknown tokens. Records with no known token fields (quality_bucket=unknown, such
+as failed calls or call-only tool-loop rounds) count calls/events but do not inflate the
+displayed missing-field counts. Those counts describe gaps in partially observed usage.
+Successful-response logs alone cannot calculate overall success rate. Quality partitioning
+examines every token field, including output_reasoning and source_total. Cache-only,
+reasoning-only or source-total-only records are still partial usage; their missing input/
+output/complete totals count as missing fields. Reported zero is known. Estimated fields
+remain separate from reported fields. Daily/hourly and derived weekly/monthly aggregates
+use the same missing-field rules. User messages, tools, sessions and paid premium requests/
+credits are separate metrics. Token-only cumulative values leave call count unknown; the
+number of positive differences cannot establish calls.
 
-总览/趋势接入
-`copilot-user-cache.json` 的 `premium_interactions`（账户级 premium 请求配额），写入
-**通用额度时序 `quota_history`**（agent 无关；kind=rate_limit、unit=milli_requests）独立展示——
-按请求计数、**非 token**、`locality_verified=false`（跨设备/入口共享，不可证明属于本机）、
-不并入 token/request 总计。未来同形态 Agent（请求额度、积分余额等）复用 `quota_history`，
-不新增 agent 专用表。
-额度可含小数，以千分之一请求的整数存储，显示时除以 1000；精度超出该单位时
-保持未知，不取整或截零。使用 timestamp_utc 分日、去重；缺少来源时间不伪造新快照。
-同刻数值或元数据更正可更新，新时刻同值仍保存。额度清空与硬保留适用于此表。
-VS Code 原生会话用量与账户额度分别采集和验证，额度记录独立保留。
+Hermes and similar sources may provide interval-cumulative api_call_count. Keep it as a
+“Source-reported call aggregate”, verify its meaning and display the native interval. Do
+not invent per-call model_call or add it to per-call counts covering the same usage. Two
+local requests/resumed sessions from the official Hermes 0.21.5 (v2026.9.24) image were
+checked: native session_model_usage.input_tokens is normalize_usage uncached input, rather
+than total input. Fixed release source agrees with the earlier A24 reference; absent/
+invalid buckets become zero and SQL accumulation also defaults to zero. Zero in all five
+token buckets and api_call_count stays unknown; positive values stay reported. Derive
+input/complete totals with checked addition only when uncached, cache read/write and output
+are all known; default zeros cannot complete them. Reasoning is an output subset. Cumulative
+rows retain native interval, call aggregate and six-part identity. Database schema_version
+describes migrations and does not verify client versions in mixed historical records:
+retain compatibility reading. Old-rule upgrades require complete old aggregate-summary
+matches, permitting only input_total → input_uncached, default-zero → unknown and specified
+derived-field updates. Other counts/quality/range/coverage/revision use normal conflict
+handling. Keep historical diagnostics; fully reevaluate consumed old positions and commit
+them with cursors. Integrate quota_snapshot only when local records verify local ownership;
+account quotas use the independent display below.
 
-VS Code Copilot Chat 载体（M9）：`workspaceStorage/<hash>/chatSessions/
-<sessionId>.jsonl`（chatSessionOperationLog storageSchema v3）按 user turn 落盘
-`promptTokens`/`completionTokens`/`copilotCredits`/`elapsedMs`/`modelTotals`
-（VSCode 源码 chatModel.toJSON 语义）。一个 turn = usage_observation；`promptTokens`
-是**末次模型调用的输入**（turn 输入下界，非逐调用输入和——VSCode 不落盘逐调用输入），
-`completionTokens` 是整 turn 跨调用累计输出；`modelTotals` 存在时为权威整轮逐模型
-input/cached/output 总量并优先采用。缓存细分默认未知不补零；thinking tokens 覆盖不全
-不入 output_reasoning；`copilotCredits` 是 credit 计量（nano AIU 折算）非 token，
-不入 token 统计（与上段额度时序同属独立展示）。流式计数器为周期采样快照：
-采集端每轮全量重放取最终值，同键 upsert 幂等，不对更新序列求和。
-`toolCallRounds` 中有稳定 ID 和时间的主循环轮次独立计 model_call，逐轮 token
-保持未知，由 turn/逐模型 observation 贡献用量（这些 round 标记计调用但 quality_bucket=unknown，
-不计入“未知字段”展示）；没有轮次记录时不以 turn 数补调用。输入覆盖提示
-（turn_input_incomplete：promptTokens 仅覆盖末次调用）是该格式固有限制、非坏记录或对账差异，
-不降级来源健康（仅坏行/非法 token/重复键/缺归属等才标“需核对”）。同理，Codex rollout
-对累计快照的交叉对账差异（reconcile_mismatch/snapshot_regression）保留原诊断和 mismatch
-结论，不单独降级读取健康；新版独立逐次记录不依赖累计快照，旧版调用识别所需的
-total/last 异常仍降级。info 缺失/null 不含用量，不计调用、不补零。
-既有 Copilot 游标在统计/健康规则更新后需对未变化文件重放一次；保留 revision 和历史
-快照，完整有效重放推进修订并重算受影响的未封存日。坏行、半行或预算不足不标记更新成功，
-下次仍可重试；完成后恢复未变化文件的跳过行为。保留 token 未知值，不要求清库或提高 schema。
-默认路径输入下界和整轮输出覆盖不同，不派生完整 total_tokens；modelTotals 出现时
-替换旧用量贡献，模型键不随数组换序变化。仅接入请求归属 github.copilot 命名空间
-的记录；同安装工作区与 globalStorage/emptyWindowChatSessions 共用来源避免迁移副本
-双计。半行/预算不足/损坏快照不覆盖既有用量。详见 [审查记录](../../validation/desktop-usage/m9-copilot-review.md)。
+Overview/trends read copilot-user-cache.json premium_interactions into generic quota_history
+(independent of agent; kind=rate_limit, unit=milli_requests). It is an account premium-request
+quota shared across devices/interfaces, locality_verified=false, rather than tokens. Do
+not add it to local token/request totals. Future Agents with similar request/credit balances
+reuse quota_history without agent-specific tables. Fractional quota is stored as integer
+thousandths of a request and displayed divided by 1000. Precision beyond that unit remains
+unknown, without rounding/truncating to zero. Bucket/deduplicate using timestamp_utc; absent
+source time cannot create a synthetic new snapshot. Same-time value/metadata corrections
+may update; identical values at new times are still retained. Quota clearing and hard
+retention apply to this table. Collect/verify VS Code native usage and account quota
+separately; retain quota records independently.
 
-VS Code Copilot file：已核验的 SDK CLIENT `chat <model>` 逐调用入库，
-input 包含缓存，reasoning 属于 output 子集，不额外相加。只在输入/输出均已知时派生 total；
-缓存拆分缺失保持未知。没有共同调用 ID 时按已核验主机/用户/会话/本地日择一，
-OTel 替代该范围原生贡献，保留原生记录与修订；原生重扫仍应用选择，封存分区不叠加。
-导出开启前覆盖不能追补，明确标为部分历史；未消费、拒绝或过期记录不能声明权威范围。
-Claude 版本小数/破折号拼写统一用于分组与价格匹配，原始模型字段保留。
-见 [本轮合同](dashboard-repair.md)；CLI/JetBrains 新版本的同名属性不能替代真实载体验收。
+VS Code Copilot Chat (M9) writes user-turn promptTokens/completionTokens/copilotCredits/
+elapsedMs/modelTotals in `workspaceStorage/<hash>/chatSessions/<sessionId>.jsonl`, using
+chatSessionOperationLog storageSchema v3 and VS Code chatModel.toJSON semantics. A turn is
+usage_observation. promptTokens is the last model call's input: a turn input lower bound,
+rather than the sum of every call; VS Code does not persist per-call input. completionTokens
+is cumulative output across the whole turn. When present, modelTotals supplies the definitive
+whole-turn per-model input/cached/output totals and takes precedence. Cache components remain
+unknown by default; do not zero-fill. Thinking coverage is incomplete and excluded from
+output_reasoning. copilotCredits measures credits converted from nano AIU, rather than tokens,
+and stays outside token totals, as an independent metric like quota above. Streaming counters
+are periodically sampled snapshots: replay each whole turn to select final values and update
+the same keys without duplicates. Do not sum updates. Stable-ID/timestamp main-loop entries
+in toolCallRounds independently count model_call, with unknown per-round tokens. Turn/model
+observations contribute usage; these quality_bucket=unknown round markers count calls but
+do not inflate missing-field displays. Without rounds, turn count cannot substitute for calls.
 
-Claude Code 2.1.197 原生 assistant 自带 version，按记录所属版本绑定，不以安装版本、
-文件首行队列元数据或同文件最高版本认证历史；其他版本仅兼容读取，无版本旧文档
-锚点独立保留。四桶校验完整形状，正 input 为非缓存输入、正 output 为报告输出；
-流式写者会补入未报告零桶，零缺少有效性标记时保持未知，不派生缺项完整输入/总量。
-一响应多内容块共享 message.id，没有 requestId 时按消息 ID 去重，不按 uuid 拆调用。
-载体无渠道，provider 与实付不按 Anthropic 协议或模型名推断；CLI 估值不补入 transcript。
-旧 doc1 仅在完整旧事件摘要匹配时纠正默认零、派生值、版本及提供商假设，
-正用量/模型/质量/修订等实际变化仍仲裁；重评已消费的未变处理位置，保留首次观察、
-原完成时间、真实冲突与诊断，同事务重算未封存日。预算中断可续读，只有完整有效
-扫描标记规则已更新，见 [实样与升级](../../validation/desktop-usage/claude-container-sample.md)。
+turn_input_incomplete, indicating promptTokens covers only the last call, is a format coverage
+limit, rather than invalid data or reconciliation disagreement. It does not downgrade source
+health; invalid rows/tokens, duplicate keys or absent ownership do. Likewise, Codex cumulative
+reconciliation differences reconcile_mismatch/snapshot_regression retain their diagnostics
+and mismatch result without independently degrading read health. New independent per-call
+records do not depend on cumulative snapshots; old total/last errors needed for call identity
+still degrade health. Missing/null info contains no usage and neither counts calls nor becomes
+zero. Statistics/health rule upgrades replay existing unchanged Copilot cursors once, keeping
+revision and history. Complete valid replay advances revision and recomputes affected unsealed
+days. Invalid rows, partial lines or exhausted read limits cannot mark the update successful;
+retry later. After completion, unchanged-file skipping resumes. Keep unknown tokens without
+clearing the database or increasing schema. Default last-call input and whole-turn output
+have different coverage and cannot yield complete total_tokens. New modelTotals replaces old
+contributions; model keys remain stable when arrays reorder. Accept only requests owned by
+the github.copilot namespace. Workspace/globalStorage/emptyWindowChatSessions in the same
+installation share a source to prevent migration-copy duplication. Partial lines, exhausted
+read limits or damaged snapshots never replace existing usage. See
+[the review](../../validation/desktop-usage/m9-copilot-review.md).
 
-手工 `.qwen` 根只有在文档布局的 chats 首记录具有完整 ChatRecord 身份，且出现
-Qwen `message.parts` 或 `usageMetadata` 时才定向给 Qwen；共享的 type 不证明 Claude 格式。
-坏行仍由 Qwen 报告。旧误认领只有整个来源无事件、日/周期/原生汇总时才恢复，
-释放该文件的错误检查点，保留历史诊断和配置；存在历史贡献时保留原归属。
+For verified VS Code Copilot file exports, SDK CLIENT chat &lt;model&gt; spans become per-call
+events. Input includes cache and reasoning is an output subset, not an extra addition.
+Derive total only when input/output are known; cache decomposition stays unknown. Without
+shared call IDs, select by verified host/user/session/local day: OTel replaces native
+contributions within that scope, retaining native records and revisions. Native rescans
+still apply the selection; sealed partitions are never added again. Coverage before enabling
+export cannot be recovered and is explicitly partial history. Unconsumed, rejected or expired
+records cannot establish a preferred-source range. Normalize Claude decimal/dash model
+spellings for grouping/pricing while retaining raw model fields. See [dashboard requirements](dashboard-repair.md).
+Same-named CLI/JetBrains attributes in new versions cannot replace real-format acceptance.
 
-Qwen Code 0.25.0 的本地 SDK file 是连续多行 JSON 对象；只将
-`qwen-code.llm_request` INTERNAL span 作为逐调用载体，log、HTTP span、父 interaction
-及 metrics 不相加。按资源中的产品/版本和 trace+span 身份核验；输入含缓存读，
-输出和 thoughts 并列保留；真实样本 thoughts=0 时可由已知输入/输出派生总量，
-其他 reasoning/供应商包含关系未核验前不合成总量，不补缓存写或调用父子关系。
-SDK 与 ChatRecord 没有共同调用 ID，因此同已核验主机/用户/会话/本地日以已接收的
-0.25.0 SDK span 替代原生贡献，原生记录保留、重扫不叠加、封存分区优先。
-原生或 SDK 的来源/日已封存且逐次身份不可恢复时，同主机/用户/本地日的新 SDK
-输出不能证明与封存分区不重叠，保留排除原因及覆盖提示，不向该分区追加；
-实际保留清理后的重启与迟到原生/SDK 副本仍须回归，不仅模拟删除明细。
-同 trace+span 的导出副本择一；其他版本隔离，缺来源身份不声明权威。
-导出可能晚于会话开始，不承诺该分区完整历史；半对象、预算/对象上限和坏对象
-保持未完成状态及可恢复对象边界，不将 SDK 私有字段视为稳定 OTLP 合同。
+Claude Code 2.1.197 native assistant records carry their own version. Bind each record to
+its version, rather than installed version, first queued metadata or the highest version
+in a file. Other versions are compatible reads; retain separate old unversioned references.
+Validate the full four-bucket shape. Positive input is uncached input and positive output
+is reported output. The streaming writer adds zero buckets for unreported values: without
+a validity marker, zeros remain unknown and do not complete missing input/totals. Multiple
+content blocks from one response share message.id. Without requestId, deduplicate using
+message ID, rather than treating each uuid as a call. The format has no channel; Anthropic
+protocol or model names cannot establish provider/actual payment. CLI estimates do not
+fill transcript costs. Correct old doc1 default zeros, derived values, version and provider
+assumptions only after matching complete old event summaries. Actual positive usage/model/
+quality/revision changes still follow conflict handling. Reevaluate consumed unchanged
+positions; retain first observation, original completion time, real conflicts and diagnostics.
+Recompute unsealed days in the same transaction. Interrupted bounded scans can resume;
+mark rules updated only after a complete valid scan. See
+[native samples and upgrades](../../validation/desktop-usage/claude-container-sample.md).
 
-Visual Studio 总量计算：同一 CLIENT chat span 的 input/output
-均已知时派生 total_tokens，缓存桶不再额外相加；缺项/溢出保留未知。已消费且字节
-不变的旧游标重放一次，只有完整有效快照标记规则完成。对旧 v1/v2 载体，入库只
-允许旧完整字段哈希与新事件撤回 total 后完全一致的补齐，不将其他字段冲突当成升级。
-修复保持调用身份与记录数量、推进数据修订，不清库；原始来源缺失不能恢复未知总量。
+Route manual .qwen roots to Qwen only when the first record in the documented chats layout
+has complete ChatRecord identity and Qwen message.parts or usageMetadata. A shared type
+field does not establish Claude format. Qwen still reports invalid rows. Recover old wrong
+ownership only when the entire source has no events or daily/period/native summaries. Release
+the file's incorrect checkpoint while retaining diagnostics/configuration. Historical
+contributions require keeping existing ownership.
 
-Visual Studio Copilot 逐次载体（M9）：`%TEMP%\VSGitHubCopilotLogs/
-traces\*.jsonl`（VS 自动写入的 OTLP JSON 遥测，无需配置）。一个 `chat <model>`
-CLIENT span = 一次模型调用（model_call，限已观测遥测范围）；无 usage 的失败调用
-保留 token 未知。每批次核对 service.name 和 trace/span 身份；`gen_ai.usage.input_tokens/output_tokens/cache_read.input_tokens`
-逐请求直报（OTLP intValue 字符串形），`invoke_agent` 整 turn 汇总 span 跳过防双计。
-token 桶并列报告不派生 uncached（input 与 cache_read 包含关系未由 VS 文档声明，
-与 otel 家族口径一致）；提示正文属性（gen_ai.input.messages 等）只读白名单键、
-不入库不输出。载体在 TEMP：清理/实例滚动丢失历史时保留既有结果不虚报覆盖。
+Qwen Code 0.25.0 local SDK files contain consecutive multiline JSON objects. Only INTERNAL
+qwen-code.llm_request spans establish per-call records; logs, HTTP spans, parent interactions
+and metrics are not added. Verify product/version in resources and trace+span identity.
+Input includes cache read; retain output and thoughts separately. Real samples with thoughts=0
+permit total derivation from known input/output. Other reasoning/provider inclusion semantics
+require separate verification before combining totals; do not invent cache write or call
+ancestry. SDK/ChatRecord lack common call IDs: accepted 0.25.0 SDK spans replace native usage
+for the verified host/user/session/local day, retaining native records, excluding rescan
+duplication and prioritizing sealed partitions. When native/SDK source-day partitions are
+sealed and per-call identity is no longer recoverable, new SDK exports for the same host/user/
+local day cannot establish non-overlap. Keep exclusion reasons and coverage notices without
+adding them to sealed partitions. Regress actual retention cleanup, restart and late native/
+SDK copies, rather than merely simulating detail deletion. Select one export copy per trace+
+span. Isolate other versions; missing source identity cannot establish preferred-source scope.
+Export may start after session creation and does not promise complete partition history.
+Partial objects, exhausted read/object limits and invalid objects remain incomplete, with
+recoverable complete-object boundaries. SDK private fields are not a stable OTLP specification.
 
-## 标准化记录
+For Visual Studio totals, derive total_tokens only when input/output in the same CLIENT chat
+span are known. Do not add cache again. Missing fields/overflow remain unknown. Replay consumed
+unchanged old cursors once; only complete valid snapshots mark the update finished. For old
+v1/v2 formats, supplementation is allowed only when the complete old-field hash matches the
+new event with total removed. Other field conflicts cannot be treated as upgrades. Preserve
+call identities/count, advance data revision and do not clear the database. Missing source
+files cannot recover unknown totals.
 
-以下为逻辑模型，不是已经创建的 SQL schema。
+Visual Studio Copilot per-call records (M9) are automatic OTLP JSON exports from verified
+VS 18 components at `Path.GetTempPath()/VSGitHubCopilotLogs/traces/*.jsonl`. Discovery checks
+TMP/TEMP and the user's default LOCALAPPDATA/Temp candidates, deduplicating physical roots
+without SKU/year filters. Discovery requires no installation root; inspect installations
+with official vswhere querying every instance, rather than composing SKU/year paths.
+The checked VS 2022 Copilot 17.14.1713.63837 component lacks this exporter. Verify older
+extensions/other formats separately; installation, quota, context limits or CSV lacking
+event time cannot substitute for per-call usage. See
+[cross-version checks](../../validation/desktop-usage/m9-vs-copilot-discovery.md).
+One CLIENT chat &lt;model&gt; span is one observed model_call within telemetry coverage.
+Failed calls without usage keep unknown tokens. Verify service.name and trace/span identity
+per batch. gen_ai.usage.input_tokens/output_tokens/cache_read.input_tokens are reported
+per request as OTLP intValue strings. Skip invoke_agent whole-turn aggregate spans to avoid
+double counting. Independently reported input/cache buckets do not establish uncached input:
+VS documentation does not declare their inclusion relationship, consistent with otel-family
+rules. Read only explicitly selected keys; prompt-body properties such as gen_ai.input.messages
+are neither stored nor printed. TEMP cleanup/rotation may remove history; retain existing
+results without claiming complete coverage.
 
-| 组 | 必需或可选字段 |
+<a id="标准化记录"></a>
+
+## Normalized records
+
+This is a logical model, rather than an already-created SQL schema.
+
+| Group | Required or optional fields |
 | --- | --- |
-| 身份 | event_id、origin_host_id、source_instance_id、source_record_key、record_kind、schema_version、parser_version |
-| 解析兼容 | 来源原始版本（可空）、解析器选择依据 known_version/latest_fallback、兼容验证状态；与字段质量分别保存 |
-| 关联 | origin_call_id、attempt_id、session_id、parent_session_id、host_application、agent、调用类别 |
-| 时间 | occurred_at_utc、observed_at_utc、source_time、time_basis、可选 interval_start/end |
-| 模型 | provider_id、model_raw、model_canonical、model_attribution；保留 unknown |
-| token | 上述字段、字段已知位图/质量、源报告总量和有限白名单扩展 |
-| 生命周期 | partial/final/corrected、source_revision、error/cancel 状态、duration/TTFT（可空） |
-| 来源 | 主机名快照/显示别名、本机实例/可选 WSL 或容器实例、locality_basis、归属核验状态、格式、位置标识、摘要、sampling/completeness；可通过来源注册表关联 |
-| 可选维度 | 工作区 HMAC、用户自定义名称、主调用/子 Agent/辅助调用/未知 |
-| 费用 | amount_decimal、currency、reported/estimated、price_version、billing_scope（可空） |
+| Identity | event_id, origin_host_id, source_instance_id, source_record_key, record_kind, schema_version, parser_version |
+| Parser compatibility | Nullable original source version, selection basis known_version/latest_fallback, compatibility validation state; separate from field quality. |
+| Relationships | origin_call_id, attempt_id, session_id, parent_session_id, host_application, agent, call kind |
+| Time | occurred_at_utc, observed_at_utc, source_time, time_basis, optional interval_start/end |
+| Model | provider_id, model_raw, model_canonical, model_attribution; retain unknown. |
+| Tokens | Fields above, known-field bitmap/quality, source-reported total and bounded explicitly allowed extensions. |
+| Lifecycle | partial/final/corrected, source_revision, error/cancel state, nullable duration/TTFT |
+| Provenance | Hostname snapshot/display alias, local instance/optional WSL or container instance, locality_basis, ownership validation, format, location identifier, digest, sampling/completeness; may link through source registry. |
+| Optional dimensions | Workspace HMAC, custom names, main/subagent/auxiliary/unknown call classification |
+| Cost | amount_decimal, currency, reported/estimated, price_version, nullable billing_scope |
 
-token 在数据库用非负有符号 64 位整数并检查上限，聚合前防溢出；
-超过上限拒绝该记录并报错，不能转为浮点近似。费用用确定精度的十进制/整数最小单位，
-计算时显式舍入；不要用二进制浮点累加账单金额。
+Store tokens as nonnegative signed 64-bit integers, checking limits before aggregation.
+Reject/report out-of-range records rather than converting to approximate floating point.
+Costs use fixed-precision decimals/integer minor units with explicit rounding; do not sum
+bills using binary floating point.
 
-模型以 `(provider_id, model_raw)` 保存；显示别名和模型家族由版本化规则派生。
-同名自定义模型跨供应商默认不合并。模型只有会话当前值时不能归给所有历史调用；
-只使用不晚于调用的结构化模型变更或请求自身字段，无模型归属依据则 unknown。
-不得从整行正则读到提示词中的 `"model"` 字样就当作调用模型。
+Store models as (provider_id, model_raw); derive display aliases/families using versioned
+rules. Same-named custom models from different providers do not merge by default. A current
+session model cannot identify every historical call: use structured model changes no later
+than the call, or its own request fields. Otherwise attribution is unknown. A line-wide regex
+finding “model” inside prompt text cannot establish the call's model. IDE is host_application;
+agent is the actual caller, such as VS Code + Copilot or Zed + Codex. Host display and Agent
+usage are dimensions of one record, rather than two additive events.
 
-IDE 是 host_application，实际调用方是 agent：例如 VS Code + Copilot，Zed + Codex。
-父级宿主显示和底层 Agent 消耗是同一记录的不同维度，不是两个可以相加的事件。
+Unknown versions try the latest built-in reader under [compatibility policy](architecture.md#unknown-version).
+Validated data can enter statistics; compatibility state survives queries, daily summaries,
+sealing and exports. Aggregation cannot discard notices. Compatibility does not change
+reported/derived field categories or turn absent values into zeros. Partial reads show
+coverage gaps. Later dedicated-reader rescans correct old contributions using stable identity
+without duplicate accumulation.
 
-未知版本按 [兼容策略](architecture.md#unknown-version) 尝试最新内置解析器；
-通过校验的数据可以入库统计，兼容验证状态随查询、日汇总/封存和导出保留，不能汇总后丢失提示。
-兼容状态不改变 reported/derived 等字段来源分类，也不把缺失值补成零；
-部分解析结果标明覆盖缺口，后续专用解析器重扫按稳定身份更正旧贡献，不重复累计。
-
-解析器版本属于解析依据。升级重读时，仅在完整旧事件摘要与新事件撤回解析器版本后
-一致时更新解析器、摘要与兼容依据，并撤销该记录的版本误报标记；保留原时间、
-用量、调用身份、源修订和诊断历史，同事务重算受影响的未封存日/小时汇总并推进修订。
-观察时间与同键重复 final 的时间沿用现有幂等规则。token、质量、模型、归属、
-来源格式或其他内容变化仍按源修订/生命周期仲裁；同批次真实冲突不因后续元数据
-更新消失，同版本匹配重报也不清除真实冲突。来源缺失不直接清标记，封存汇总保持原值。
-Codex/Kilo 升级通过既有解析器版本机制重放旧游标，完成后恢复增量读取。
+Parser version is part of parsing references. On upgrade replay, change parser/digest/
+compatibility references and remove that record's incorrect-version notice only when the
+complete old event summary equals the new event with parser version removed. Keep time,
+usage, call identity, source revision and diagnostic history; transactionally recompute affected
+unsealed day/hour summaries and advance revision. Observation time and repeated same-key
+final timestamps retain existing duplicate-update rules. Token, quality, model, ownership,
+source format or other content changes still follow source-revision/lifecycle handling.
+Later metadata updates in the same batch cannot remove real conflicts; a repeated matching
+version cannot clear them either. Missing sources cannot directly clear flags. Sealed summaries
+stay unchanged. Codex/Kilo upgrades use existing parser-version cursor replay and resume
+incremental reading after completion.
 
 <a id="provenance"></a>
 
-## 历史来源身份与交换合同
+<a id="历史来源身份与数据交换"></a>
 
-本节由 M1a 实施。历史落盘必须保留原始来源，不能只保存按 Agent/模型汇总的全局数字。
-主机名用于辨认，稳定身份用于键和索引；`host_application` 表示 IDE 等宿主应用，不表示主机。
+<a id="历史来源身份与交换合同"></a>
 
-| 身份信息 | 持久化与稳定性要求 |
+## Historical source identity and exchange
+
+M1a implements this section. Persist original provenance rather than only global Agent/model
+totals. Hostnames aid recognition; stable identities form keys/indexes. host_application
+means an IDE or similar host application, rather than the computer.
+
+| Identity information | Persistence and stability |
 | --- | --- |
-| origin_host_id | 首次登记时生成并持久化的不透明稳定 ID；不使用主机名、IP、硬件指纹或账户密钥作为唯一身份 |
-| 主机名及显示别名 | 保留观察到的主机名及变更信息；改名不更换 origin_host_id，同名不等于同机；导出可脱敏 |
-| source_instance_id | 标识该主机内的 Agent 安装/profile/数据源实例；WSL/容器另记录环境实例身份；重启或已确认的目录迁移不产生新来源 |
-| 采集/导入信息 | 单独记录执行采集/导入的实例、批次和时间，不覆盖原始主机与来源身份 |
+| origin_host_id | Opaque stable ID generated/persisted on first registration. Hostname, IP, hardware fingerprint and account secrets are not unique identity. |
+| Hostnames/display aliases | Retain observed names and changes. Renaming preserves origin_host_id; same name does not imply same host. Export may redact names. |
+| source_instance_id | Agent installation/profile/source instance within the host, with separate WSL/container environment identity. Restart/confirmed directory migration does not create another source. |
+| Collection/import information | Separately record executing instance, batch and time without replacing original host/source identity. |
 
-原始来源至少由 `(origin_host_id, source_instance_id)` 唯一标识。
-事件逻辑唯一键包括该来源和 `source_record_key`；实现可通过带主机命名空间的全局来源 ID 等价表达，
-但必须有数据库约束和来源/时间索引，不能仅在展示文本里附加主机名。
-调用别名、原生累计/区间汇总、额度快照、日汇总、封存汇总和导入清单均保留可解析的来源关联。
-来源注册信息的生命周期至少覆盖所有引用它的历史，不能在清理明细时一并丢失。
+(origin_host_id, source_instance_id) uniquely identifies original provenance. Event logical
+keys include that source and source_record_key. An equivalent global source ID namespaced by
+host is allowed, but requires database constraints and source/time indexes; display text alone
+cannot supply host identity. Call aliases, native cumulative/interval summaries, quotas,
+daily/sealed summaries and import manifests retain resolvable source links. Registry lifetime
+covers all referencing history; detail cleanup cannot remove required registrations.
 
-来源身份随导出和重新导入保持不变；导入机不能把原始主机改成自己。
-恢复或复制应用数据库到另一台机器时，保留已有历史来源，并显式区分新的本机采集身份；
-来源注册冲突进入映射/确认流程，不能静默把两台机器的新数据记成同一来源。
-主机名及来源 ID 是去重依据，不构成本机归属或真实性证明，仍需 locality_basis 等纳入统计的依据。
+Export/reimport preserves original identities; the importing host cannot replace them with
+itself. Restoring/copying an application database to another host preserves historical sources
+while explicitly distinguishing new local collection identity. Registry conflicts require
+mapping/confirmation, rather than silently recording two hosts as one source. Names/source IDs
+support deduplication but do not establish local ownership/authenticity; locality_basis and
+other eligibility references remain necessary.
 
-导入/Merge 按下列规则确定行为（聚合层：同分区键按修订比较，
-更高修订替换、同修订也替换（覆盖语义，重复导出/导入不缺失，内容相同时幂等）、
-更低修订冲突保留现存并记诊断；明细使用 [独立完整标准化包](detail-merge.md)，
-沿事件原生仲裁在同一事务重算，累计和封存分区保留，不导入采集游标）：
+Import/Merge rules below distinguish layers. Aggregates compare revisions per partition key:
+higher revisions replace; equal revisions also replace under overwrite semantics, with equal
+content adding no duplicates. Lower revisions preserve existing values and diagnose conflicts.
+Details use the [independent complete normalized package](detail-merge.md), following native
+event conflict handling and recomputing within one transaction. Preserve cumulative/sealed
+partitions; do not import collection cursors.
 
-| 场景 | 处理合同 |
+| Scenario | Required behavior |
 | --- | --- |
-| 同一原始来源、记录键和同一修订 | 内容一致时幂等跳过；同修订内容不同标记冲突，重复导出/导入不增加用量 |
-| 同一原始来源、记录键且有更权威修订 | 撤销旧贡献后替换；缺少修订顺序依据时保留 conflict，不按金额/token 大小裁决 |
-| 已证实不同来源或不同记录且覆盖互斥 | 新增独立贡献；复制文件、宿主镜像仍按跨源去重合同处理，不能只因来源 ID 不同就相加 |
-| 同来源的完整日/区间快照 | 在相同来源分区、时间/时区、维度及合同版本下校验修订和完整性后原子替换；增量或部分快照不能覆盖整段历史 |
-| 归属未知、来源冲突或汇总覆盖无法拆分 | 保留旧结果及诊断，预览待映射范围；不能凭主机名相同自动替换或把重叠用量直接相加 |
+| Same original source/key/revision | Skip identical content without duplicates. Different content at the same revision is a conflict; repeated exchange adds no usage. |
+| Same source/key with a demonstrably superseding revision | Revoke the old contribution and replace it. Without revision ordering, retain conflict rather than choosing larger tokens/cost. |
+| Verified distinct sources/records with disjoint coverage | Add independent contributions. Copies/host mirrors still follow cross-source deduplication; different source IDs alone do not justify addition. |
+| Complete daily/interval snapshot for the same source | Validate revision/completeness within identical source partition, time/timezone, dimensions and rule version, then atomically replace. Incremental/partial snapshots cannot replace entire history. |
+| Unknown ownership, source conflict or inseparable aggregate coverage | Preserve existing results/diagnostics and preview required mapping. Same hostname cannot justify automatic replacement or addition of overlapping usage. |
 
-交换格式须包含版本、原始来源注册信息、记录/分区键、时间范围与时区、字段完整性、修订、
-完整快照/增量类型和批次身份。批次身份只保证导入操作幂等，不能替代来源记录身份。
-同一范围未出现于增量包不表示删除；删除或整段替换语义须由交换合同明确声明。
-展示用 CSV/图表可不满足交换合同，但不得被当作无损回导文件。
+Exchange includes format version, original registry, record/partition keys, range/timezone,
+field completeness, revision, complete/incremental snapshot kind and batch identity. Batch
+identity prevents duplicate import operations but cannot replace source-record identity.
+Absence from incremental packages does not imply deletion. Deletion/whole-range replacement
+must be explicitly defined. Display CSV/charts need not satisfy exchange requirements and
+cannot be treated as lossless reimport files.
 
-迁移旧数据只使用可证明的来源映射；缺少主机归属依据的历史保留独立、稳定的 `legacy_unknown` 命名空间，
-并记录其旧库/来源关联，不能都塞入同一个全局 unknown 键，也不能补写为当前导入主机。
-已丢明细的混合来源汇总保留原值和未知归属，不虚构每台主机的分量；重复迁移仍须幂等。
-主机名属于可识别信息，导出允许别名化或省略名称，仍保留稳定的不透明来源键。
-上述合同为后续交换保留依据，当前采集仍只接受已核验的本机 Agent 数据。
+Legacy migration uses only verified source mappings. History without host attribution retains
+an independent stable legacy_unknown namespace with old database/source links, rather than
+one global unknown key or invented attribution to the importing host. Mixed-source summaries
+without details keep original values and unknown ownership; do not invent each host's share.
+Repeated migration adds no duplicates. Hostnames are identifiable information; export may
+alias/omit them while keeping opaque stable keys. These rules preserve later exchange support;
+current collection still accepts only verified local Agent data.
 
-## 身份与去重
+<a id="身份与去重"></a>
 
-优先采用来源稳定 response/request ID，并加账户/安装实例/运行实例命名空间。
-没有该 ID 时使用会话 UUID + 事件 ID/序号 + 类型；再退化为文件身份 + generation + 字节位置。
-仅内容哈希用于变更检测，不独立作为事件身份：两次合法请求可能有完全相同的 usage。
-路径也不单独作为跨镜像身份：同一会话复制或改名不应产生新消耗。
+## Identity and deduplication
 
-同一请求的流式 usage、最终 usage 和更正记录使用 upsert；有源修订号时按修订号排序，
-否则按该格式的已验证生命周期裁决。最终数据不必比部分数据更大，不能盲目取 MAX。
-不知道两条记录的先后权威关系时标记 conflict，保留诊断，不任意择大。
+Prefer stable source response/request IDs, namespaced by account/installation/runtime instance.
+Otherwise use session UUID + event ID/sequence + kind, falling back to file identity +
+generation + byte position. Content hashes detect changes and do not alone establish event
+identity: legitimate calls may have identical usage. Paths alone do not identify mirrored
+calls either; copying/renaming a session cannot create new consumption.
 
-跨源采用两层去重：
+Streaming, final and corrected usage for the same request use upsert. Order by source revision
+when available; otherwise use verified format lifecycle. Final values need not exceed partial
+values, so MAX is inappropriate. If relative precedence is unknown, retain conflict and
+diagnostics rather than choosing the larger record.
 
-1. 源内部按记录身份幂等；同一内容的文件镜像结合源会话/安装身份去重。
-2. 本机日志、OTLP、宿主镜像和本机会话导出能通过 origin_call_id/trace 关联时，建立别名到一个逻辑调用。
-   不能关联的同一覆盖范围使用用户选定的主来源，其他来源仅作对照；不自动叠加。
+Cross-source deduplication has two levels:
 
-优先级是按“范围 + 指标”的选择，不是全局“所有日志优于所有遥测”。
-例如日志承担历史 token、未来 OTLP 承担错误与延迟，切换点明确保存。
-重叠时缺少关联依据就分开展示；不能靠相近时间、模型和 token 相同做模糊去重。
-云端账单和账号总额不导入应用，也不作为本机逐请求用量的替代来源。
+1. Within each source, stable record identity prevents duplicates. File mirrors use native
+   session/installation identity as well.
+2. Local logs, OTLP, host mirrors and local session exports linked by origin_call_id/trace
+   become aliases of one logical call. Without links, user selection chooses the primary
+   source for overlapping coverage; other sources are comparison-only, without automatic addition.
 
-父会话汇总、子 Agent 请求和辅助调用需要明确覆盖集合。
-例如 DSH 最终样本替换同一尝试的流式值，retry 边界产生新尝试；
-Cline 的 deleted_api_reqs/subagent_usage 是聚合记录，不能与相应明细再相加。
-只剩汇总而没有明细时保留汇总范围，不虚构模型、时间和调用数。
+Priority is selected per scope + metric. It is not a global ranking of logs over telemetry.
+Logs might supply historical tokens while future OTLP supplies errors/latency, with persisted
+transition boundaries. Unlinkable overlaps are displayed separately. Similar time/model/token
+values cannot establish fuzzy duplicates. Cloud bills/account totals are excluded from the
+application and cannot substitute for local per-request usage.
 
-## 累计值与遥测
+Parent-session summaries, subagent requests and auxiliary calls need explicit coverage sets.
+For example, DSH final samples replace stream values for the same attempt and retries create
+new attempts. Cline deleted_api_reqs/subagent_usage are aggregates and cannot be added to their
+corresponding details. Without details, retain aggregate scope rather than inventing models,
+times or call counts.
 
-独立的会话累计快照只作对账，不替代逐次调用。Kilo session.tokens_* 与
-message.data.tokens 不一致时保存 reconcile_mismatch，不降低有效逐条用量的来源健康。
-不完整或坏类型的明细标记 detail_incomplete，不由 SQLite 隐式转换成零或浮点合计，
-也不让对账中断有效消息入库。坏 JSON、缺角色、用量结构错误和单条 token 矛盾仍须提示核对；
-增量窗外的坏行状态保留，同一行重读成功或已从源库删除时恢复。
-健康规则变更提高解析器版本，真实发现路径重放旧处理位置，不清库或清除诊断历史；
-未知消息所属版本继续标为兼容读取，不能因对账可读而认证版本。
+<a id="累计值与遥测"></a>
 
-累计 metric series 身份包含资源、instrument、属性、进程实例和 start_time。
-相同 series/start/end 的重复数据只处理一次；delta 也必须去重。
-累计值下降需区分明确重置和来源更正；缺少重置依据时不按零重新累加。
-首次看到累计值可保存为源原生区间总量；若区间跨日且无中间采样，不把全部 token 记入今天，
-也不按时长平均摊分。明细趋势显示覆盖缺口，总计和趋势的差异有解释。
+## Cumulative values and telemetry
 
-OTel token histogram 的 sum 是 token 量，count 是该 instrument 的样本数量；
-输入和输出可能各记一次，不能由两个 count 相加得到调用数。
-只对叶级 LLM 调用 span 统计逐次请求，不叠加 invoke_agent 的会话总量。
-trace sampling、丢包、无 final usage、应用离线均进入完整性状态。
-不通过对采样数据乘倍率把估算当作实测总用量。
+Independent session cumulative snapshots are reconciliation only, rather than replacements
+for per-call usage. Disagreements between Kilo session.tokens_* and message.data.tokens keep
+reconcile_mismatch without degrading valid per-record source health. Incomplete/mistyped
+details get detail_incomplete; SQLite conversion cannot turn them into zero/floating totals.
+Reconciliation cannot prevent valid-message imports. Invalid JSON, absent roles, malformed
+usage and single-record token contradictions still require review. Invalid rows outside
+incremental windows remain unhealthy until the same row reads successfully or disappears
+from the source database. Health-rule changes increase parser version and replay old positions
+through real discovery, rather than clearing the database or diagnostics. Unknown owning
+message versions remain compatible reads; readable reconciliation does not verify them.
+
+Cumulative metric-series identity includes resource, instrument, attributes, process instance
+and start_time. Repeated same-series/start/end data is processed once; delta data also needs
+deduplication. Distinguish explicit resets from source corrections when values decrease;
+without reset references, do not restart accumulation from zero. First-seen cumulative values
+can remain native interval totals. If the interval crosses days without intermediate samples,
+do not assign everything to today or distribute uniformly by duration. Detail trends show
+coverage gaps and explain differences from totals.
+
+OTel token-histogram sum is token quantity; count is instrument sample count. Input and output
+may each emit one sample, so adding their counts does not establish calls. Count per-request
+spans only at leaf LLM calls, excluding invoke_agent session totals. Trace sampling, packet loss,
+missing final usage and offline applications affect completeness. Multiplying sampled data
+cannot turn estimates into measured complete usage.
 
 <a id="time"></a>
 
-## 时间和汇总
+<a id="时间和汇总"></a>
 
-存 UTC 时间戳（整数毫秒）及来源时区/精度，显示和分桶使用用户固定选择的 IANA 时区。
-首次默认系统时区，保存后不随系统变化悄悄重分桶。没有时区的源时间必须有可证实的源配置，
-否则标记时间不确定；文件 mtime 只能用于扫描，不能作为请求发生时间。
+## Time and aggregation
 
-时间区间统一半开 `[start, end)`；日/周/月按所选时区的日历边界计算。
-默认周一起始，周标签包含周所属年份；周日起始时使用“开始日期”标签，不能冒充 ISO 周。
-自然月不等于 30 天。DST 的 23/25 小时日必须保留，重复小时附 UTC offset。
-跨午夜请求默认归到来源记录的完成时间；只知道开始时间时明确 time_basis。
+Store UTC integer-millisecond timestamps with source timezone/precision. Display/bucket using
+a persisted user-selected IANA timezone. Initially use system timezone; later system changes
+cannot silently rebucket history. Naive source timestamps require verified source configuration;
+otherwise time is uncertain. File mtime is for scanning, rather than request occurrence time.
 
-日级按原始主机/来源实例保留贡献分区，再聚合时区版本、日、Agent、provider、model、调用类别、质量/覆盖。
-来源必须参与持久化分区键或等价唯一约束；跨来源总览由查询合并，不能只留失去来源的总数。
-周/月由日级加总；比例重新计算。跨周期会话数用 DISTINCT，不把各日会话数直接求和。
-P50/P95 不能平均各日分位数，需从留存明细计算或使用经过验证的可合并分布；
-首版没有明细时不显示跨周期分位数。项目/会话等高基数维度从明细索引按需查询。
+All intervals are half-open [start, end). Days/weeks/months use selected-timezone calendar
+boundaries. Default weeks start Monday with week-year labels; Sunday-start weeks use start-date
+labels rather than claiming ISO week semantics. Calendar months differ from 30 days. Preserve
+DST 23/25-hour days and label repeated hours with UTC offset. Cross-midnight calls normally
+use source completion time; when only start time is known, explicitly record time_basis.
 
-每项汇总返回已知值、所需字段均已知的记录数、未知数、采样/冲突数及来源范围。
-已知子集之和与完整总计分开：例如输入已知而输出未知，仍显示输入，但总 token 标记不完整。
-unknown 模型保留独立行，总计必须包含其已知 token，不能因为筛选展示而丢掉。
+Persist daily contributions per original host/source instance, then aggregate timezone version,
+day, Agent, provider, model, call kind and quality/coverage. Source participates in persisted
+partition keys or equivalent unique constraints. Cross-source overview merges queries rather
+than retaining only origin-free totals. Weeks/months sum days and recalculate ratios. Use
+DISTINCT for sessions crossing periods, rather than summing daily session counts. P50/P95
+cannot average daily quantiles: use retained details or a verified mergeable distribution.
+The first release omits cross-period quantiles when details are absent. High-cardinality
+project/session dimensions query detail indexes on demand.
 
-当前周/月只完成一部分时标记“进行中”；保留时间截断的最早周/月标记“部分历史”。
-同比/环比必须匹配范围、时区、来源选择、指标定义和已过时段。
-基础筛选可多选 Agent、模型、供应商、数据质量；不同字段 AND，同字段 OR。
-Agent、模型、供应商按统一 Unicode 小写规则分组和筛选，原始调用身份不变。
-模型表保留供应商维度；不同供应商的同名模型不合成同一来源身份。
-范围会话数按 (来源实例, 会话 ID) 去重；缺失 ID 或明细不全时为未知。
-小时指标只使用对应小时记录，平均耗时按有耗时的调用数加权，不按总调用数平均。
-活动天数可从日分区准确去重；只有粗周期时不跨来源累加各自活动天数。
-小时层保留真实质量桶与冲突数；旧小时层欠缺的字段完整性、普通输入和缓存比例
-仅从仍保留的明细补齐，不以输入减缓存的不同样本集合猜测。
-热力图每格对应所选时区的一个实际日期，读取仍保留的每日汇总；每周分布复用同一批
-日期的调用数。每日层已清理而仅有周/月/年归档的日期不能按日还原，显示为不可用；
-同日还保留其他来源的日数据时保留已知数值并标记部分覆盖。导入包可能没有本机
-每日截止线，仍需检查周期归档本身。不得把缺失日当成零调用，也不得把周期总量
-分摊或重复计入。数据完整性比例缺少样本元数据时显示未知。
+Each aggregate returns known values, records with all required fields known, unknown counts,
+sampling/conflict counts and source coverage. Keep known-subset sums separate from complete
+totals: known input may display while unknown output leaves total tokens incomplete. Unknown
+models keep separate rows; filtering their display cannot remove known tokens from totals.
 
-## 数据表、事务与恢复
+Mark incomplete current weeks/months “In progress”; mark the earliest retention-truncated
+weeks/months “Partial history”. Year-over-year/period comparisons match range, timezone,
+source selection, metric definition and elapsed portion. Basic multi-select filters include
+Agent/model/provider/quality, AND across fields and OR within a field. Group/filter Agent,
+model and provider using common Unicode lowercase rules, without changing native call IDs.
+Model tables retain provider dimensions; same-named models from different providers do not
+become one source identity. Deduplicate range sessions by (source instance, session ID);
+missing IDs/incomplete detail make the result unknown. Hourly metrics use that hour's records.
+Weight average duration by calls with known duration, rather than all calls. Daily partitions
+can deduplicate active days exactly; coarse-only periods cannot add each source's active-day
+count. Hourly layers retain actual quality buckets/conflicts. Missing old hourly completeness,
+ordinary input and cache ratios are recovered only from retained details, never by subtracting
+input/cache summed from different sample sets.
 
-| 逻辑表 | 作用 |
+Each heatmap cell is one real date in the selected timezone, read from retained daily summaries.
+Weekday distribution reuses calls from those dates. Days with only weekly/monthly/yearly
+archives cannot be reconstructed and are unavailable. If other sources still retain daily
+data for that date, show known values with partial coverage. Imported packages may lack local
+daily cutoffs; inspect period archives themselves. Missing days are not zero-call days. Do
+not distribute or repeat period totals. Completeness ratios without sample metadata remain
+unknown.
+
+<a id="数据表事务与恢复"></a>
+
+## Tables, transactions and recovery
+
+| Logical table | Purpose |
 | --- | --- |
-| origin_hosts / origin_host_names / users / source_instances / source_files | 稳定主机身份、主机名/别名、统计用户（v6）及来源实例归属用户、环境、启用范围、版本、文件身份、generation、能力、健康状态 |
-| ingestion_checkpoints | 已提交游标和版本化解析上下文，包括模型状态、累计基线及未完成请求 |
-| usage_events / event_aliases | 标准化调用/记录及跨来源关联；唯一约束防重复 |
-| source_aggregates / quota_snapshots | 原生区间汇总与额度，禁止伪装成逐次请求 |
-| hourly_usage / daily_usage / period_usage / aggregate_generations | 分级归档各层（v5）：小时分桶、按原始来源分区的日统计、周/月/年物化、已知数量、覆盖范围和合同版本；封存仍保留来源 |
-| settings / model_aliases / price_versions | 带 schema 版本的配置与费用依据 |
-| extraction_schedules / schedule_state | 全局/逐源规则、时区、逻辑触发时点、暂停原因及 desired/applied 系统任务状态 |
-| ingest_runs / diagnostics | 有界执行状态与脱敏错误，不存原始文本 |
-| import_manifests / schema_migrations | 导入批次身份、范围、迁移版本和回滚信息 |
+| origin_hosts / origin_host_names / users / source_instances / source_files | Stable hosts, names/aliases, statistical users (v6), instance user/environment ownership, enablement, versions, file identity/generation, capabilities and health. |
+| ingestion_checkpoints | Committed cursors/versioned context, including model state, cumulative baseline and unfinished requests. |
+| usage_events / event_aliases | Normalized calls/records and cross-source links, with unique constraints preventing duplicates. |
+| source_aggregates / quota_snapshots | Native interval summaries/quotas, never presented as per-call events. |
+| hourly_usage / daily_usage / period_usage / aggregate_generations | Archive layers (v5): hours, original-source-partitioned days, materialized weeks/months/years, known counts, coverage and rule versions; sealing preserves provenance. |
+| settings / model_aliases / price_versions | Schema-versioned configuration and cost references. |
+| extraction_schedules / schedule_state | Global/per-source rules, timezones, logical trigger times, pause reasons and desired/applied OS-task state. |
+| ingest_runs / diagnostics | Bounded execution state/redacted errors, without raw text. |
+| import_manifests / schema_migrations | Import batch identity/range, migration versions and rollback information. |
 
-主要索引：含原始主机/来源实例的记录唯一键、来源/时间、occurred_at、模型/时间、Agent/时间、源修订游标；
-可选项目维度启用后再建立对应索引。以实际 EXPLAIN QUERY PLAN 和基准决定增加索引，
-不预建所有维度组合。
+Primary indexes cover original-host/source record uniqueness, source/time, occurred_at,
+model/time, Agent/time and source-revision cursors. Add project indexes only when optional
+dimensions are enabled. Use real EXPLAIN QUERY PLAN and benchmarks to select indexes, rather
+than precreating every dimension combination.
 
-每批事件更新、游标、解析状态及所影响日统计在同一事务提交。
-中断前未提交的批次可重放；错误源不能因另一个源提交而提前保存失败游标。
-复杂全量重建使用新 aggregate_generation，完成后原子切换；期间 UI 保留旧修订。
-出现聚合损坏时可从保留明细重建，历史明细已清理则明确无法精确重建。
+Each batch commits event updates, cursors, parser state and affected daily statistics together.
+Replay interrupted uncommitted batches. Another source's successful commit cannot save a failed
+source's cursor early. Complex rebuilds use a new aggregate_generation and switch atomically
+after completion; the UI retains the old revision meanwhile. Damaged aggregates can rebuild
+from retained details; absent historical detail makes exact reconstruction explicitly unavailable.
 
-迁移前检查可用空间，使用一致备份；迁移按版本事务执行，失败保留旧库。
-检测新版本 schema 时旧程序拒绝写入，不破坏性降级。
-源解析器升级的重扫使用新修订，保留之前统计直至比较通过，不在源缺失时清空历史。
+Check free space and make a consistent backup before migrations. Run versioned migrations
+transactionally; failure keeps the old database. An older application encountering a newer
+schema refuses writes rather than destructively downgrading. Parser-upgrade rescans use new
+revisions and retain existing statistics until comparison succeeds; missing sources cannot
+clear historical usage.
 
 <a id="settings"></a>
 
-## 分级归档保留
+<a id="分级归档保留"></a>
 
-<a id="分级归档保留2026-09-26-用户合同"></a>
+## Layered archive retention
 
-明细→小时→日→周/月/年逐级更长保留，默认 7/3/90/1095/3650 天/终身：
+Details → hours → days → weeks/months/years have progressively longer retention. Defaults
+are 7/3/90/1095/3650 days/lifetime:
 
-| 层 | 载体 | 默认 | 说明 |
+| Layer | Storage | Default | Notes |
 | --- | --- | --- | --- |
-| session 明细 | usage_events | 7 天 | 删除前先封存所在日汇总（V14 语义） |
-| 小时汇总 | hourly_usage | 3 天 | 每次提交随受影响日同事务重算；小时图从此读取 |
-| 按天汇总 | daily_usage | 90 天 | 查询日粒度与近期周/月推导来源 |
-| 按周/月 | period_usage | 3 年/10 年 | 完成周期从日汇总物化（replace 幂等） |
-| 按年 | period_usage | 终身 | 同上 |
+| Session details | usage_events | 7 days | Seal the containing day before deletion (V14 semantics). |
+| Hourly summaries | hourly_usage | 3 days | Recompute with affected days in each commit transaction; hourly charts read this layer. |
+| Daily summaries | daily_usage | 90 days | Daily queries and recent week/month derivation. |
+| Weekly/monthly | period_usage | 3/10 years | Materialize completed periods from days; repeated replace adds no duplicates. |
+| Yearly | period_usage | Lifetime | Same rule. |
 
-明细层无层级约束：可比小时层长，只是冗余不丢数据。
-粗层不得短于细层（策略校验要求 hourly ≤ daily ≤ weekly ≤ monthly ≤ yearly）。
+Details have no ordering constraint and may outlive hours; this is redundant, without losing
+data. Coarser layers cannot expire before finer layers: validate hourly ≤ daily ≤ weekly ≤
+monthly ≤ yearly.
 
-## 多用户（v6）
+<a id="多用户v6"></a>
 
-<a id="多用户v62026-09-26-用户合同"></a>
+## Multiple users (v6)
 
-- `users(user_id, name)`；新用户采用随机内部 ID，显示名去掉首尾空格且不能为空或重复。
-  默认用户 user_id=`default`（迁移自动创建并归属全部既有来源），
-  显示名首次初始化取 OS 当前用户名，取不到时保持 `default`。
-- `source_instances.user_id`：来源实例归属用户；**不同用户的来源可共享同一
-  来源主机**（origin_hosts 与 user 多对多，天然成立——同一台机器上不同人的
-  Agent 数据可归不同统计用户）。
-- 查询按"当前用户的来源集合"过滤（`Filters.instances`，app 层解析；
-  core 不感知 user 概念，保持统计内核解耦）。空集合=该用户暂无来源。
-- 导入的来源默认归 default 用户、启用状态关闭（remote_sync 归属依据），
-  由用户在数据源页重新分配归属与启用。
+- users(user_id, name): create random internal IDs, trim display names and reject empty/duplicate
+  names. The default user_id=default is created during migration and owns all existing sources.
+  Initially use the OS username for its display name, falling back to default if unavailable.
+- source_instances.user_id owns each source instance. Different users may share a source host:
+  origin_hosts and users have a many-to-many relationship, allowing different people's Agent
+  data on one machine to belong to different statistical users.
+- Queries select the current user's source set via Filters.instances, resolved in the app.
+  Core statistics do not depend on user concepts. An empty set means that user has no sources.
+- Imported sources default to the default user and disabled state, using remote_sync ownership
+  basis. Users reassign and enable them on the sources page.
 
-- **进行中周期保护**：日层下限不得越过当前周/月/年起点（否则未完成周期
-  永远缺失），实际生效保留期可比设定值多至一个周期（≤31 天 + 年初保护）。
-- 周期物化固定 ISO 周一起始标签；周起始为显示配置，变更后重建物化属显式操作。
-- distinct_sessions 仅明细完整且会话身份已知时可算；物化层 NULL=覆盖缺口（V06 不虚构）。
-- 完整周期只替换同来源/模型/类别/质量的对应日分区，且必须完整落在查询范围内；
-  不把完整月份的值放进只选一天的查询。后续仅余部分日数据时不得覆盖完整周期。
-- 同一天、同策略、同修订的重复保留任务不再重新物化或推进修订。
-- 同日同策略下，只有进行中周期发生增量时，可跳过完整周期物化。跳过必须同时
-  核对完成周期范围内的日行数量/最高修订、周期行数量/最高修订与已提交处理位置；
-  迟到修正、删除、缺失周期、日期/策略变化、外来未来修订或缺失/损坏处理位置均回退完整重建。
-  处理位置与保留事务一起提交，失败/取消不保存；清空用量时一并重置。
-- 导出"聚合交换包"= 来源注册 + 全部日分区 + 周期分区 + 小时层，不含 session
-  明细；重导入可重建历史趋势（明细指标按缺口展示）。
-  日分区附带全部已知/未知计数与比例样本，小时/周期带冲突信息，来源保留原主机身份。
-  旧包没有完整性字段时显示未知，不补成全已知。完全相同的重复导入不推进修订。
-  同修订不同内容维持覆盖合同，低修订保留现存值并诊断；非法分区整批回滚。
-  不同主机的同路径来源拒绝合并；空用户/空导出选择不等于全部来源。
-  本机仍有逐次明细的分区不能被不同的聚合快照覆盖；重导入自己的相同快照不封存活跃日。
-  聚合导入用于历史快照恢复；完整标准化明细及累计 Merge 已按
-  [明细交换](detail-merge.md) 实施，后续本机采集沿用自身游标和来源修订仲裁。
+- Protect ongoing periods: the daily cutoff cannot cross the current week/month/year start,
+  which would permanently lose unfinished periods. Effective retention may exceed configuration
+  by up to a period (≤31 days plus year-start protection).
+- Materialized weeks use fixed ISO Monday labels. Week-start display changes require explicit
+  rebuilding to change materialization.
+- distinct_sessions requires complete details and known session identity. NULL in materialized
+  layers indicates coverage gaps; V06 does not invent counts.
+- Complete periods replace only corresponding same-source/model/kind/quality daily partitions
+  and must fall entirely within the query range. A whole month cannot answer a one-day query.
+  Later partial daily data cannot overwrite complete periods.
+- Repeated retention with the same day/policy/revision neither rematerializes nor advances revision.
+- Under the same day/policy, skip completed-period materialization only when changes affect
+  ongoing periods alone. Check completed-period daily count/max revision, period count/max
+  revision and committed position together. Late corrections/deletions, missing periods,
+  changed dates/policies, external future revisions or absent/damaged positions require full
+  rebuild. Commit the position with retention; failure/cancellation saves nothing. Clearing
+  usage also resets it.
+- Aggregate exchange exports registry + all daily/period/hourly partitions without session
+  details. Reimport restores historical trends while showing detail-only gaps. Daily partitions
+  retain all known/unknown counts and ratio samples; hours/periods retain conflicts and original
+  host ownership. Missing completeness in old packages remains unknown. Identical reimports
+  do not advance revision. Different same-revision content follows overwrite rules; lower
+  revisions keep existing data and diagnose. Invalid partitions roll back the entire batch.
+  Same-path sources on different hosts cannot merge. Empty users/export selection does not
+  mean all sources. Different aggregate snapshots cannot overwrite partitions with local
+  per-call detail; reimporting the same own snapshot does not seal active days. Aggregate
+  import restores historical snapshots. Complete normalized details/cumulative Merge are
+  implemented under [detail exchange](detail-merge.md). Later local collection retains its
+  own cursors and source-revision handling.
 
-## 配置与数据保留
+<a id="配置与数据保留"></a>
 
-所有用户配置都能在 UI 查看、修改和恢复默认；配置变更校验、预览影响、保存事务和错误反馈一致。
-开关“展示维度”与“采集可选字段”分开：隐藏列不删除数据，停止采集也不会伪装成可回填历史。
+## Configuration and retention
 
-| 设置 | 设计默认值 | 可选范围/行为 |
+All user settings can be viewed, edited and reset in the UI, with consistent validation,
+impact preview, transactional saving and errors. Display-dimension switches differ from
+optional-field collection: hiding a column does not delete data, and disabling collection
+cannot create recoverable historical fields.
+
+| Setting | Design default | Range/behavior |
 | --- | --- | --- |
-| 分级保留 | 明细 7 天/小时 3 天/日 90 天/周 3 年/月 10 年/年终身 | 分级归档合同见上节；各层可调且粗层不短于细层；归档页显示各层条目数与库体积、手动按天数截断清理，或清空全部用量数据重新采集（保留主机/用户/设置） |
-| 诊断保留 | 随明细层同批过期 | 明细清理同事务删除过期诊断 |
-| 备份 | 最近 2 份、最多 7 天 | 用户可关闭；清理期限同时作用到备份内部的最老数据 |
-| 自动提取 | 单一全局间隔，默认 1 小时 | 0=关闭；可配更短间隔（15 秒–24 小时），逐源启停已实施，逐源间隔/定点待接线，详见 [调度合同](scheduling.md) |
-| 后台与系统任务 | 开机启动、Windows 系统任务（每小时 headless）均关闭 | 显式启用；系统模式最短 1 分钟，注销/休眠不运行；实际生效及下次执行可见 |
-| 统计时间 | 首次系统时区；周起始跟随语言地区（zh→周一，en-US/CA→周日） | 可选 IANA 时区/周一或周日，变更前预览可重建历史范围 |
-| 默认维度 | Agent、供应商、模型、日 | 周/月可切；项目/工作区采集默认关闭，会话 ID 仅用于关联 |
-| 图表 | Top 10 + 其他；调用/会话、总 token、输入（缓存读取、缓存写入、普通输入堆叠）、输出、缓存读取占比 | 维度与指标可选、记住筛选、可恢复默认；未知字段保持缺口，不补零 |
-| 容量提醒 | 总应用数据 1 GiB 或磁盘空闲低于 1 GiB | 可配置；先暂停回填/写入并告知，不静默删除保留期内数据 |
-| 费用及预算 | 估算和提醒默认关闭 | 手动启用、本地版本化费率、币种独立；不获取云端用量/账单或账户密钥 |
+| Layered retention | Details 7 days, hours 3 days, days 90 days, weeks 3 years, months 10 years, years lifetime | Adjustable with coarse layers at least as long as fine layers. Archives show layer counts/database size; manual day cutoff or clearing/recollection retains hosts/users/settings. |
+| Diagnostics | Expire alongside details | Remove expired diagnostics in the same detail-cleanup transaction. |
+| Backups | Latest 2, at most 7 days | May be disabled; retention also applies to oldest data inside backups. |
+| Automatic collection | One global interval, initially 1 hour | 0 disables; shorter 15-second–24-hour intervals. Per-source enablement implemented; per-source intervals/fixed times awaited integration in this design entry. See [scheduling rules](scheduling.md) for current status. |
+| Background/OS tasks | Autostart and hourly Windows headless tasks disabled | Explicit opt-in; system mode minimum 1 minute, no logged-out/sleep execution; show actual applied state and next run. |
+| Statistical time | Initial system timezone; locale week start (zh Monday, en-US/CA Sunday) | Select IANA timezone/Monday/Sunday; preview reconstructable history before changes. |
+| Default dimensions | Agent, provider, model, day | Weeks/months selectable. Project/workspace collection off by default; session IDs are for linking. |
+| Charts | Top 10 + Other; calls/sessions, total/input/output tokens, stacked cache-read/cache-write/ordinary input, cache-input ratio | Select dimensions/metrics, remember filters, reset defaults; missing fields remain gaps. |
+| Capacity notices | Total app data 1 GiB or free disk below 1 GiB | Configurable. Pause backfill/writes and notify rather than silently deleting retained data. |
+| Costs/reminders | Estimation/reminders off | Explicit enablement, local versioned rates, separate currencies; no cloud usage/bills/account secrets. |
 
-数字均为设计初值，不声称来自用户现有用量规模。
-有限保留 D 天的截止为所选时区今天起点往前 D−1 天；
-今天与前 D−1 个本地日保留，避免原型“保留 366 天”实际多含一天的歧义。
+These numbers are initial design values, rather than claims about the user's current volume.
+For D-day finite retention, the cutoff is today's selected-timezone start minus D−1 days,
+retaining today and the preceding D−1 local dates. This avoids the prototype's ambiguous
+“366 days” actually including an extra day.
 
-当日汇总比明细保留更久，过期日期冻结成已封存汇总，保留原始来源分区、时区、字段和来源选择版本。
-普通重扫不再向封存日追加；回填旧数据必须以完整日期/来源分区重算后原子替换，
-缺少完整输入时只保留旧汇总并标记不可修正。不能删除明细后重扫再加一次。
-源游标、导入下限和必要去重状态保留到不再需要时；到期清理所有含事件时间/模型的可识别明细，
-文件游标只留必要不含用量的定位状态。整个源移除时可选择同时清除这些状态。
+Daily summaries outlive details. Expired dates become sealed with original provenance,
+timezone, fields and source-selection version. Ordinary rescans cannot append to sealed
+days. Backfill requires complete date/source partitions, recomputed and atomically replaced;
+without complete inputs retain existing summaries and mark them uncorrectable. Deleting
+details then rescanning cannot add the same usage again. Keep cursors/import cutoffs/necessary
+deduplication state until no longer needed. Expiry removes identifiable details containing
+event time/model; file cursors retain only necessary usage-free position state. Removing
+an entire source may also remove that state.
 
-改变时区/新增维度：明细可覆盖的日期重建；只剩汇总的日期保留旧分桶并明确标记，
-不能把不同分桶历史接成一条无说明的趋势。如果要求全历史一致，需来源重扫恢复完整数据后替换。
-界面在操作前展示“可重算至某日”“旧历史不可恢复的维度”。
+Timezone/new-dimension changes rebuild dates covered by detail. Summary-only history retains
+old buckets with explicit notices, rather than silently joining incompatible trends. Consistent
+whole-history changes require complete source rescans before replacement. Preview the earliest
+recomputable date and unrecoverable historical dimensions before action.
 
-缩短保留期先预览影响行数、日期与备份，确认后才清理应用数据库。
-手动清理与清空重采共用一个后台维护任务，避免同步 IPC 阻塞窗口。
-提交前可取消：等待采集、备份及 SQL 删除期间检查取消，取消后事务整体回滚，
-修订号、保留处理位置、游标与汇总保持原值，不触发重采。备份只作为恢复文件，不计成功清理。
-提交入口与取消请求原子裁决；进入提交后取消返回未接受，界面明确显示已提交，
-不宣称可以撤销已完成删除。清空重采的取消范围不包含提交后的重新采集。
-已接受取消后按钮保持禁用直到结束；未接受时区分操作已结束或开始提交，不声称已经撤销。
-查询加速用的可选索引不改变字段和 schema 版本；旧库首次打开补建，不要求清库。
-日汇总、Agent 分布及日粒度图表按行合并指标，仅保留结果分组和活动日集合；
-不保留全部输入维度行。
-归档周/月仍按原有分区替换规则读取，未知和封存覆盖不改变。明细覆盖索引只加速读取，
-不代替完整会话身份集合，也不改变过滤、DST 或耗时样本选择。
-重复汇总可使用连接内缓存，最多 4 项；字符串/向量保留容量预算 2 MiB，
-该预算不等于含分配器开销的进程内存。键包含完整日期、粒度、时区、
-周起始、今天、保留边界、来源/模型/Agent/质量筛选及选区，不跨连接比较版本值。
-在同一读事务内核对 data_revision、PRAGMA data_version 和 total_changes；同连接写入
-或其他连接提交后失效，失败/超限结果不缓存。桌面复用两个受互斥保护的只读连接，
-忙时使用短命备用连接；不留打开的读事务。冷热查询分别测量，缓存命中不认证冷查询目标。
-版本依据见 [SQLite data_version](https://www.sqlite.org/pragma.html#pragma_data_version)
-与 [rusqlite 0.40.2](https://docs.rs/rusqlite/0.40.2/rusqlite/struct.Connection.html#method.total_changes)。
-日/周/月的会话与耗时在准确本地日边界内先由 SQLite 聚合，跨日 distinct 仍按来源和
-会话身份集合合并；小时选区继续按实际时区换算，不能用固定 UTC 小时替代 DST。
-删除以小批执行，完成后进行受控 checkpoint/空间回收；不自动删除 Agent 原始日志。
-源日志仍存在时重扫也受新保留截止限制，不能恢复用户刚清掉的过期数据。
-SQLite 逻辑删除不保证物理擦除，UI 不作安全擦除承诺；用户导出的文件由用户自行管理。
+Shorter retention previews affected rows/dates/backups before confirmed database cleanup.
+Manual cleanup and clearing/recollection share one background maintenance task to avoid
+blocking the window with synchronous IPC. Before commit, cancellation is checked while waiting
+for collection, backing up and deleting SQL rows. Accepted cancellation rolls back the whole
+transaction, preserving revision, retention position, cursors and summaries without recollection.
+A backup alone is a recovery file, rather than successful cleanup. Atomically arbitrate commit
+entry against cancellation; after commit starts, reject cancellation and show committed state
+without promising to undo completed deletion. Clearing cancellation does not cover recollection
+after commit. Keep buttons disabled after accepted cancellation until completion. For rejected
+cancellation, distinguish finished work from commit entry; do not claim rollback.
+
+Optional query indexes change neither fields nor schema version; add them on first opening
+old databases without requiring clearing. Daily summaries, Agent distribution and daily charts
+merge metrics per row, retaining only result groups and active-day sets rather than all input
+dimension rows. Weekly/monthly archives retain existing partition replacement, unknowns and
+sealed coverage. Detail-coverage indexes only accelerate reading; they cannot replace complete
+session-identity sets or change filters, DST or duration samples.
+
+Repeated aggregates may use a per-connection cache of at most four entries, retaining at most
+2 MiB of string/vector capacity. That limit excludes allocator overhead and is not a process
+memory measurement. Keys include complete dates, granularity, timezone, week start, today,
+retention boundaries, source/model/Agent/quality filters and selections. Do not compare version
+values across connections. Within one read transaction, check data_revision, PRAGMA data_version
+and total_changes. Same-connection writes or other-connection commits invalidate cached results;
+failures/oversized results are not cached. Desktop reuses two mutex-protected read-only
+connections, with short-lived fallback when busy, and leaves no read transactions open.
+Measure cold and warm queries separately; cache hits do not verify cold-query targets.
+References: [SQLite data_version](https://www.sqlite.org/pragma.html#pragma_data_version) and
+[rusqlite 0.40.2](https://docs.rs/rusqlite/0.40.2/rusqlite/struct.Connection.html#method.total_changes).
+SQLite first aggregates day/week/month sessions/durations within accurate local-date bounds;
+cross-day DISTINCT still merges source/session identities. Hour selections retain actual
+timezone conversion, rather than fixed UTC hours replacing DST. Delete in small batches,
+then perform controlled checkpoint/space reclamation. Never automatically delete original
+Agent logs. Rescans still honor new retention cutoffs and cannot restore expired usage just
+cleared by the user. SQLite logical deletion does not guarantee physical erasure; the UI
+cannot promise secure erasure. Users manage their own exported files.
 
 <a id="pricing"></a>
 
-### 费用合同
+<a id="费用规则"></a>
 
-费用分为本机来源记录金额、按本地 API 价目估算和可明确归属本机的订阅/积分消耗。
-来源记录金额/积分缺少对应本地字段时隐藏相应面板；已知本地 token 可另按适用价格估算，
-不要求源日志同时提供金额。远端 Coding Plan/账号余额及账单不导入，不能用其补空。
-估算需记录供应商/模型、地区/渠道、价格生效区间、缓存读写及 TTL、批处理/服务档位和币种。
-价格单位、模型版本/别名及长上下文阶梯也须匹配；推理子集不能与已包含它的输出重复计价。
-未知价格或必要 token 拆分显示“未计价”；可计算的部分金额附覆盖范围，不能冒充完整费用。
-仅有 total_tokens 时不能套平均单价猜测输入/输出成本；不同币种不能直接相加，手工汇率转换标为估算。
-不把订阅调用的 API 参考价称为实际账单，也不把缓存节省量称为实际返款。
+<a id="费用合同"></a>
 
-公开 API 价目属于价格元数据，不属于远端用量/账单；获取方式由 [F2](execution.md#f2) 调研后确定。
-价格快照记录来源 URL、获取时间、生效区间、币种/单位、版本和手工覆盖依据；
-更新失败保留已校验缓存并显示新鲜度，离线核心统计继续可用，不上传任何本地用量或来源身份。
-费用结果引用用量修订和价格版本，既有估算不因后台更新被静默改写。
-按发生时适用价格估算与按当前价格模拟分开展示；缺少历史价格时不得把当前价格冒充当时价格。
-精度和舍入沿用本合同的确定精度要求；费用引擎已实施（F2，[验证记录](../../validation/desktop-usage/f2-cost-engine.md)），
-可选在线刷新已实施（默认关闭：models.dev 社区目录 + 原始响应长缓存 + 失败回退上次成功下载，
-并支持官方提供商回退匹配，[验证记录](../../validation/desktop-usage/f2-online-refresh.md)）；
-精确 provider/模型/渠道行优先；缺精确行或 provider/渠道未知时，
-可回退同型号已核验官方供应商按量行并明确展示 API 价格参考（非实际账单）。
-系列只用于限定官方方，不能给未知版本或订阅专属别名猜价格；未知桶不能补零。
-优先用户渠道，其次官方 global API；剩余地区/渠道/币种有歧义不套价。
-usage_observation 的已知 token 也可部分估算，金额行的事件数不当成调用数。
-规则修复只重算保留明细的未封存历史一次；后台价格刷新不重写既有估算。
-当前 API 参考与用量表采用相同保留范围，明细与封存汇总按完整来源分区择一。
-归档中的未知分项保持未知，已知总量保留在覆盖分母；缺少逐次档位时显示已知分项
-费用的上下界，不能用周期总输入选择单次上下文档位。累计整数乘积后按展示分区
-舍入，避免逐次舍入吞掉小额费用，细则与验收见 [价格合同](pricing.md)。
-跨型号参考只允许用户明确授权的对应规则，保留真实模型及替代价型号；
-本型号价目优先，歧义不触发替代，不改写发生时金额。当前 K2.8 Preview → K2.7 Code
-例外及界面标记见 [看板修正合同](dashboard-repair.md)。
+### Cost rules
 
-预算提醒按用户选择的可知指标触发；仅提醒，不阻止 Agent 执行。
-数据源缺失时提醒覆盖受限，重启/补录不重复弹出同一阈值通知。
+Separate locally recorded amounts, local API-rate estimates and subscription/credit consumption
+explicitly attributable to local usage. Hide native amount/credit panels without corresponding
+local fields. Known local tokens may still be estimated using applicable rates, without requiring
+native amounts. Remote Coding Plan/account balances/bills remain excluded and cannot fill gaps.
+Estimates record provider/model, region/channel, effective interval, cache read/write/TTL,
+batch/service tier and currency. Price units, model versions/aliases and long-context tiers
+must match. Reasoning subsets cannot be charged again when already included in output.
+Unknown prices/required token components show “Unpriced”; partial amounts state coverage
+without implying complete cost. Total tokens alone cannot establish input/output costs using
+an average rate. Never add different currencies directly; manual conversion is an estimate.
+Subscription calls' API references are not actual bills; cache savings are not actual refunds.
 
-## 原型历史迁移
+Public API prices are price metadata rather than remote usage/billing. Retrieval was researched
+under [F2](execution.md#f2). Snapshots store URL, retrieval time, effective interval, currency/
+unit, version and manual-override references. Refresh failures keep validated cache and show
+freshness; offline statistics remain available. Send no local usage/source identities.
+Results reference usage revision and price version. Background refresh cannot silently rewrite
+existing estimates. Separate occurrence-time prices from simulations at current rates. Without
+historical rates, current prices cannot masquerade as occurrence-time prices.
 
-不直接把 previous-draft/data/usage.db 打包进应用或测试数据。
-实施时由用户选择导入，先只读核验 schema，输出日期/来源/字段覆盖的预览。
-原型 request_id 的语义、provider 丢失、字段默认零等问题不能在迁移中自动修复。
-可从源重建的日期优先重建；无法追溯的历史标为 legacy_unverified，单独显示且默认不与新数据相加。
-同一旧库重复导入幂等，取消/失败回滚批次；旧文件保持不变。
+Use the fixed precision/rounding above. The cost engine is implemented
+([results](../../validation/desktop-usage/f2-cost-engine.md)); optional online refresh is
+implemented/default off with models.dev community data, long-lived raw-response cache,
+last-successful-download fallback and official-provider fallback matching
+([results](../../validation/desktop-usage/f2-online-refresh.md)). Prefer exact provider/model/
+channel rows. Without an exact row, or with unknown provider/channel, a verified official
+pay-as-you-go row for the same model may supply an explicitly labeled API price reference,
+rather than actual billing. Families only constrain official-provider selection; unknown
+versions/subscription-only aliases receive no guessed price. Do not zero-fill unknown buckets.
+Prefer user channel, then official global API. Remaining region/channel/currency ambiguity
+prevents pricing. Known usage_observation tokens may receive partial estimates; priced-event
+count is not call count. Rule repairs recalculate retained unsealed detail once; background
+price refresh never rewrites occurrence-time amounts.
+
+Current API references and usage tables cover the same retention range. Select detail or
+sealed aggregates by complete source partitions. Unknown archive components stay unknown;
+known totals remain in coverage denominators. Without per-call tiers, show lower/upper costs
+for known components, rather than choosing a per-request tier using period total input. Sum
+integer products before rounding by displayed partition so small costs are retained. See
+[pricing requirements](pricing.md) for rules/results. Cross-model references require explicit
+user authorization, retaining actual model and substitute price model. Exact-model entries
+take precedence; ambiguity never triggers substitution and occurrence-time amounts stay
+unchanged. The current K2.8 Preview → K2.7 Code exception and UI label are specified in
+[dashboard requirements](dashboard-repair.md).
+
+Spending reminders use user-selected known metrics and notify without blocking Agent execution.
+Missing sources limit reminder coverage. Restart/backfill cannot repeat the same threshold notice.
+
+<a id="原型历史迁移"></a>
+
+## Migrating historical prototype data
+
+Do not package previous-draft/data/usage.db into the app/tests. User-selected import first
+verifies schema read-only and previews dates/source/field coverage. Migration cannot repair
+unverified prototype request_id semantics, lost provider or default-zero fields automatically.
+Prefer source reconstruction for recoverable dates. Untraceable history is legacy_unverified,
+shown separately and excluded from new-data addition by default. Reimporting the same old
+database adds no duplicates; cancellation/failure rolls back the batch. Original files stay
+unchanged.

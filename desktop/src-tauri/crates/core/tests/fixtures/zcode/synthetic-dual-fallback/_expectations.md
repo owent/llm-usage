@@ -1,5 +1,7 @@
-# synthetic-dual-fallback 期望（全合成）
+# synthetic-dual-fallback expectations (synthetic)
 
-缺口：response.usage 缺席但 providerMetadata.anthropic.usage 在场（双口径互斥取一，绝不相加）。
+<a id="synthetic-dual-fallback-期望全合成"></a>
 
-详见 tests/zcode_gaps_synthetic.rs 头部人工核算注释。
+response.usage is absent, but providerMetadata.anthropic.usage is present. Select one usage representation exclusively; never add both.
+
+See the manually calculated expectations in the header of tests/zcode_gaps_synthetic.rs.

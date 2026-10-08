@@ -1,29 +1,29 @@
-//! ZCode 适配器缺口场景：九个合成 fixture（目录/文件头均标 synthetic）全覆盖，
-//! 期望值为人工核算（各 fixture 目录 _expectations.md 指向本文件头部注释）。
+//! ZCode edge-case tests with nine datasets explicitly marked synthetic in paths and headers.
+//! Manual expectations are referenced by each dataset's _expectations.md.
 //!
-//! 手工核算（AI SDK 五键 {in, out, total, cr, cw}；anthropic {in, out, cr, cw?}）：
-//! - cache-write：{2000,100,2100,800,200} + anthropic{1000,100,800,200}；
-//!   1000+800+200=2000 ✓ 两个 usage 视图的结果一致，0 诊断；uncached=2000-800-200=1000；
-//!   汇总 input=2000 out=100 cr=800 cw=Some(200) total=2100。
-//! - dual-fallback：rec1 usage 缺席、anthropic{200,50,800,100} 在场 ⇒ 互斥回退
-//!   对照视图（input_total=1100 derived、uncached=200 reported、source_total=None）；
-//!   rec2 AI SDK{1000,100,1100,400,0} 无对照视图 ⇒ 主视图；
-//!   汇总 input=2100 out=150 cr=1200 cw=Some(100) total=2250；1 条 ai_sdk_usage_missing。
-//! - dual-mismatch：AI SDK in=1000 vs anthropic 999+400+0=1399 ≠ 1000 ⇒ 1 条
-//!   dual_caliber_mismatch；AI SDK 主视图保留（input=1000 total=1100 source=1100）。
-//! - epoch-timestamps：completedAt 数字 1800000000000（毫秒）与 1800000000（<1e11
-//!   折算秒）⇒ 两事件 occurred_at_ms 均 1,800,000,000,000（2027-01-15 UTC）；
-//!   汇总 input=1500 out=150 cr=400 cw=Some(0) total=1650。
-//! - future-version：9.9.9 未收录 ⇒ latest_fallback 兼容尝试，结构通过 ⇒
-//!   active_compat 标记统计；汇总 input=3000 out=300 cr=1200 total=3300。
-//! - missing-request-id：缺 requestId ⇒ seq:syn-sess-1:1 + missing_request_id 诊断；
-//!   汇总 input=1000 total=1100。
-//! - negative-usage：inputTokens=-5 ⇒ usage_shape_deviation、该条跳过、文件 degraded；
-//!   其余正常：input=1000 total=1100。
-//! - no-usage：末条 finishReason=null 无 usage ⇒ 正常形状不产事件不失败；
-//!   input=1000 total=1100，0 诊断。
-//! - undocumented-type：第二条 type=other_event ⇒ 扫描层 fail closed：
-//!   事件清空、游标不推进、下轮确定性再拒。
+//! Calculations: AI SDK {in,out,total,cr,cw}; Anthropic {in,out,cr,optional cw}.
+//! - cache-write: {2000,100,2100,800,200} and Anthropic {1000,100,800,200}.
+//!   1000+800+200=2000; views agree, no diagnostics, uncached=2000-800-200=1000.
+//!   Summary: input=2000, out=100, cr=800, cw=Some(200), total=2100.
+//! - dual-fallback: record 1 lacks SDK usage; use Anthropic {200,50,800,100}
+//!   alone, deriving total input 1100 with reported uncached 200 and no source total.
+//!   Record 2 has SDK {1000,100,1100,400,0} without the comparison view.
+//!   Summary: input=2100, out=150, cr=1200, cw=Some(100), total=2250; one missing-SDK diagnostic.
+//! - dual-mismatch: SDK input 1000 differs from Anthropic 999+400+0=1399.
+//!   Keep SDK input=1000, total/source=1100 and one dual_caliber_mismatch diagnostic.
+//! - epoch-timestamps: completedAt 1800000000000 milliseconds and 1800000000 seconds
+//!   both map to occurred_at_ms=1,800,000,000,000 (2027-01-15 UTC).
+//!   Summary: input=1500, out=150, cr=400, cw=Some(0), total=1650.
+//! - future-version: unregistered 9.9.9 uses latest_fallback; valid structure is counted
+//!   with active_compat. Summary: input=3000, out=300, cr=1200, total=3300.
+//! - missing-request-id: use seq:syn-sess-1:1 and diagnose missing_request_id.
+//!   Summary: input=1000, total=1100.
+//! - negative-usage: inputTokens=-5 skips that record, diagnoses usage_shape_deviation,
+//!   and degrades the file; the valid record still contributes input=1000, total=1100.
+//! - no-usage: unfinished finishReason=null has no usage and produces no event/error.
+//!   Summary: input=1000, total=1100, with zero diagnostics.
+//! - undocumented-type: second record type=other_event rejects the scan;
+//!   discard events, retain the cursor, and reject again on the next scan.
 
 mod common;
 
@@ -70,8 +70,8 @@ fn file_status(storage: &Storage) -> String {
 
 #[test]
 fn cache_write_positive_with_consistent_dual_calibers() {
-    // 真实样本全 cw=0；本合成场景 cw=200 且 anthropic cache_creation=200 在场，
-    // 两个 usage 视图的结果一致（1000+800+200=2000），0 诊断。
+    // Native samples have cw=0; this synthetic case has cw/cache_creation=200.
+    // Both usage views agree: 1000+800+200=2000, with zero diagnostics.
     let jsonl =
         reconstruct_jsonl_projection(&zcode_fixture("synthetic-cache-write").join("records.json"));
     let dir = TempDir::new("zcode-cw-src");
@@ -121,8 +121,8 @@ fn dual_caliber_exclusive_fallback_never_sums() {
     assert_eq!(reports[0].files[0].events, 2);
     assert_eq!(diag_count(&storage, "ai_sdk_usage_missing"), 1);
 
-    // rec1（回退 anthropic 对照视图）：input_total=1100（derived）、
-    // uncached=200（reported）、source_total=None（对照视图无 totalTokens）。
+    // Record 1 uses only Anthropic: derived input_total=1100,
+    // reported uncached=200, source_total=None because that view lacks totalTokens.
     let (input_total, uncached, source_total, cache_write): (i64, i64, Option<i64>, i64) = storage
         .conn()
         .query_row(
@@ -137,7 +137,7 @@ fn dual_caliber_exclusive_fallback_never_sums() {
     assert_eq!(source_total, None);
     assert_eq!(cache_write, 100);
 
-    // rec2（AI SDK 主视图无对照视图）：source_total=1100。
+    // Record 2 uses SDK usage without a comparison view; source_total=1100.
     let source2: Option<i64> = storage
         .conn()
         .query_row(
@@ -181,7 +181,7 @@ fn dual_caliber_mismatch_diagnosed_and_ai_sdk_kept() {
     assert_eq!(total, 1_100);
     assert_eq!(source_total, 1_100);
     assert_eq!(uncached, 600);
-    // 矛盾是对照结论，不是形状损坏：文件保持 active。
+    // Usage-view disagreement is a comparison diagnostic; the valid file stays active.
     assert_eq!(file_status(&storage), "active");
 }
 
@@ -196,7 +196,7 @@ fn epoch_numeric_timestamps_normalize_to_milliseconds() {
     let reports = run_zcode(&storage, &root, NOW);
     assert_eq!(reports[0].files[0].events, 2);
 
-    // 毫秒值 1800000000000 与秒值 1800000000（<1e11 折算）⇒ 同一毫秒。
+    // 1800000000000 milliseconds equals 1800000000 seconds after conversion below 1e11.
     let times: Vec<i64> = {
         let conn = storage.conn();
         let mut stmt = conn
@@ -228,7 +228,7 @@ fn future_version_uses_latest_fallback_with_compat_mark() {
     let (_d, storage) = temp_storage("zcode-fv");
     let reports = run_zcode(&storage, &root, NOW);
 
-    // 结构通过 ⇒ 数据照常统计（added=2），版本兼容性未验证单独标记。
+    // Valid structure imports both records (added=2); version compatibility remains unverified.
     assert_eq!(reports[0].outcome.as_ref().unwrap().added, 2);
     assert_eq!(file_status(&storage), "active_compat");
     assert_eq!(diag_count(&storage, "latest_fallback"), 1);
@@ -437,7 +437,7 @@ fn undocumented_type_fails_closed_and_never_advances() {
     assert_eq!(diag_count(&storage, "undocumented_record_type"), 1);
     assert_eq!(checkpoint_count(&storage), 0, "游标不推进（无 checkpoint）");
 
-    // 二次扫描：确定性再拒，诊断每轮一条。
+    // A second scan rejects the same shape and adds one diagnostic for that scan.
     let second = run_zcode(&storage, &root, NOW + 1000);
     assert_eq!(second[0].files[0].status, "pending");
     assert_eq!(event_count(&storage), 0);
@@ -484,7 +484,7 @@ fn detect_unknown_format_on_type_outside_model_io() {
 
 #[test]
 fn detect_unknown_format_without_session_identity() {
-    // type=model_io 但缺 sessionId 身份字段：fail closed。
+    // type=model_io without required sessionId identity is rejected.
     let dir = TempDir::new("zcode-noident");
     let path = dir.path().join("model-io-noident.jsonl");
     std::fs::write(
@@ -503,7 +503,7 @@ fn detect_unknown_format_without_session_identity() {
 #[test]
 fn detect_dispatches_by_version_anchor() {
     let adapter = ZcodeAdapter::new();
-    // 已收录 3.14.3（真实 fixture 首行）⇒ KnownVersion。
+    // Native sample header 3.14.3 selects registered KnownVersion.
     let jsonl =
         reconstruct_jsonl_projection(&zcode_fixture("real-main-session").join("sanitized.json"));
     let dir = TempDir::new("zcode-ver");
@@ -521,7 +521,7 @@ fn detect_dispatches_by_version_anchor() {
         }
         other => panic!("expected Supported, got {other:?}"),
     }
-    // 未收录 9.9.9（synthetic-future-version 首行）⇒ LatestFallback 兼容尝试。
+    // Synthetic unregistered 9.9.9 selects a LatestFallback compatibility attempt.
     let future = reconstruct_jsonl_projection(
         &zcode_fixture("synthetic-future-version").join("records.json"),
     );

@@ -1,35 +1,46 @@
-# OpenClaw fixtures
+# OpenClaw test samples
+
+<a id="openclaw-fixtures"></a>
 
 <a id="openclaw-合成-fixtures文档级证据待真实样本"></a>
 
-synthetic-* 保留原合成数据（syn- 前缀、常量占位），只验证未知 schema 与旧迁移
-输入仍 fail closed。real-2026.9.8 为 2026-10-06 官方 npm 客户端在独立无网络
-容器内公开 CLI/续会话两次调用真实本地模型的白名单脱敏产物。
+synthetic-* retains original synthetic data with syn- prefixes and constant placeholders.
+It tests rejection of unknown schemas and legacy migration input. real-2026.9.8 comes
+from the official npm client on 2026-10-06 in an isolated container with networking
+disabled: two real local-model calls through public CLI/session continuation, extracted
+with selected fields and anonymization.
+
+<a id="官方文档依据a092026-09-24-核验"></a>
 
 <a id="官方文档级证据a092026-09-24-核验"></a>
 
-## 官方文档依据（A09，2026-09-24 核验）
+## Official documentation (A09, checked 2026-09-24)
 
-- 磁盘位置/持久层概念（每 Agent 一个 openclaw-agent.sqlite；旧 sessions/
-  目录与 sessions.json 为迁移/归档输入，Gateway 启动不导入）：
+- Disk location and persistence: one openclaw-agent.sqlite per Agent; legacy sessions/
+  and sessions.json are migration/archive inputs and are not imported at Gateway startup:
   <https://docs.openclaw.ai/reference/session-management-compaction/store>
-- usage 形状（assistant transcript 条目持久化规范化 usage、input/output
-  别名归一、total 回退 input+output、usage.cost）：
+- Assistant transcript entries persist normalized usage, normalize input/output aliases,
+  fall back to input+output for total, and include usage.cost:
   <https://docs.openclaw.ai/reference/token-use>
 
-此前 synthetic fixtures 的表名/条目字段是**占位发明**（`synthetic-table-*` 与
-`syn-*` 字段），仅用于验证发现形状与 fail-closed 行为，不代表真实 schema。
+Earlier synthetic table names/entry fields were **invented placeholders**
+(`synthetic-table-*` and `syn-*`). They test discovery shape and rejection, without
+representing the real schema.
 
-## 场景
+<a id="场景"></a>
 
-| 目录 | 覆盖 |
+## Scenarios
+
+| Directory | Coverage |
 | --- | --- |
-| synthetic-runtime-store | agents/main/agent/openclaw-agent.sqlite（占位表）⇒ 身份确认但表级 schema 待核验，fail closed |
-| synthetic-legacy-archive | agents/main/sessions/ 旧 JSONL 归档 + sessions.json ⇒ 迁移输入降级，fail closed |
-| real-2026.9.8 | schema_meta、session_windows、transcript_events 精确字段投影及独立 API 用量；非缓存输入 6,157/输出 154/缓存读 6,101，默认零未知 |
+| synthetic-runtime-store | agents/main/agent/openclaw-agent.sqlite with placeholder tables; product identified, table schema unverified, reject |
+| synthetic-legacy-archive | legacy agents/main/sessions/ JSONL archives plus sessions.json; migration input remains excluded |
+| real-2026.9.8 | Selected exact schema_meta/session_windows/transcript_events fields and independent API usage; uncached input 6,157, output 154, cache read 6,101; default zeros unknown |
 
-期望值见各目录 `_expectations.md` 与 real-2026.9.8/provenance.json。真实投影剥离
-提示词、响应、配置和私有路径，身份替换为稳定占位。重建 SQLite 使用最小所需
-结构，坏类型/压缩/外部来源等变体为定向合成边界，不认证对应真实产品场景。
-完整原始样本仅存根 build/，schema/时间/默认零语义见
-[读取合同](../../../../../../../docs/design/desktop-usage/openclaw-runtime.md)。
+Expectations are in each directory's _expectations.md and real-2026.9.8/provenance.json.
+Native extraction removes prompts, responses, configuration and private paths; stable
+placeholders replace identities. Rebuilt SQLite contains only required structures.
+Invalid-type, compression and external-source variants are targeted synthetic cases,
+without verification of those native product scenarios. Complete originals stay only
+in root build/. Schema, timestamps and default-zero semantics are in the
+[reading specification](../../../../../../../docs/design/desktop-usage/openclaw-runtime.md).

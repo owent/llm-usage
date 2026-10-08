@@ -1,11 +1,11 @@
-//! Aider 适配器（独立目录约定 architecture.md#adapter-layout）：
-//! - 载体是 `--analytics-log <file>` 的本地 JSONL（需启用，不回填历史）；
-//! - 默认**无固定路径**（args.py 无 default）：发现只走手工根——
-//!   用户把 analytics 日志文件本身或其所在目录加为手工根；
-//! - `.aider.chat.history.md`/`.aider.input.history`/`--llm-history-file`
-//!   均无逐次 usage（固定源码 5dc9490 核验），不采集。
+//! Aider adapter with independent directory, architecture.md#adapter-layout.
+//! - Local --analytics-log <file> JSONL needs enablement, without historical backfill.
+//! - No fixed default path: args.py has no default, so discovery uses manual roots only.
+//!   Add the analytics file itself or its containing directory.
+//! - .aider.chat.history.md/.aider.input.history/--llm-history-file
+//!   contain no per-call usage, verified in fixed 5dc9490 source; excluded.
 //!
-//! 版本注册表唯一条目：文档级 aider-analytics-doc-1。
+//! Sole registry entry: documented aider-analytics-doc-1 format.
 
 pub mod detect;
 pub mod versions;
@@ -14,7 +14,7 @@ pub use detect::AIDER_FORMAT;
 pub use versions::analytics_doc1;
 pub use versions::{AIDER_FORMAT_VERSION, LATEST_IMPL_ID, VERIFIED_VERSION_IMPLS};
 
-/// Aider 适配器（无状态）。
+/// Stateless Aider adapter.
 pub struct AiderAdapter;
 
 impl Default for AiderAdapter {
@@ -43,7 +43,7 @@ impl crate::adapters::framework::SourceAdapter for AiderAdapter {
         ctx: &crate::adapters::framework::DiscoverContext,
     ) -> Vec<crate::adapters::framework::DiscoveredRoot> {
         use crate::adapters::framework::{DiscoveredRoot, RootBasis};
-        // 固定源码无默认 analytics 路径：只接受手工根（文件或目录）。
+        // Fixed source defines no default analytics path; manual files/directories only.
         let mut out = Vec::new();
         let mut seen: std::collections::BTreeSet<std::path::PathBuf> =
             std::collections::BTreeSet::new();
@@ -51,7 +51,7 @@ impl crate::adapters::framework::SourceAdapter for AiderAdapter {
             let files = if manual.is_file() {
                 vec![manual.clone()]
             } else if manual.is_dir() {
-                // 目录：枚举一层 *.jsonl（探测指纹会过滤非 analytics 文件）。
+                // Enumerate one directory level of *.jsonl; detection excludes unrelated files.
                 crate::adapters::framework::enumerate_files_bounded(manual, 1, &|p| {
                     p.extension()
                         .and_then(|e| e.to_str())
@@ -60,8 +60,8 @@ impl crate::adapters::framework::SourceAdapter for AiderAdapter {
             } else {
                 continue;
             };
-            // 文件手工根取父目录；目录手工根取自身——同父的多个目录根
-            // 不能合并成一个 root（后者文件会整体丢失）。
+            // File roots use their parent; directory roots use themselves. Distinct directories
+            // sharing a parent must stay separate, or later roots lose all files.
             let root = if manual.is_dir() {
                 manual.clone()
             } else {

@@ -1,35 +1,35 @@
-//! 逐源提取计划（extraction_schedules/schedule_state 接线，M6 余项）。
+//! Per-source collection scheduling with extraction_schedules and schedule_state (M6).
 //!
-//! 约定（scheduling.md）：
-//! - 逐源频率覆盖全局：固定间隔 15 秒–24 小时，或每日/每周指定时间
-//!   （time_of_day "HH:MM"、weekday ISO 1–7 周一=1）；首版不开放任意 cron/shell；
-//! - 启用的自定义计划覆盖全局自动节奏；手动刷新仍包含全部启用来源；
-//! - 同源不并发（应用层 refresh 单飞合并）；禁用后无自动读取；
-//! - 错过时点（休眠/关机）醒来后只补扫一次（next_due 在运行后推进）；
-//! - 时区固定保存；DST 重复时刻取第一次，缺失时刻取跳变后的首个有效时刻。
+//! Rules from scheduling.md:
+//! - Override the global interval with 15 seconds to 24 hours or a daily/weekly time.
+//!   time_of_day uses HH:MM; ISO weekday 1-7 starts Monday. No arbitrary cron or shell commands.
+//! - Enabled custom schedules override automatic timing; manual refresh includes all enabled sources.
+//! - Refresh runs merge to prevent concurrent reads of one source; disabled sources are not auto-read.
+//! - After sleep/shutdown, collect an overdue source once and advance its next due time after a result.
+//! - Persist the timezone; choose the first repeated DST instant or the first valid instant after a gap.
 
 use crate::error::CoreError;
 use crate::storage::Storage;
 use rusqlite::{params, OptionalExtension};
 use std::collections::BTreeSet;
 
-/// 逐源间隔允许范围（秒）。
+/// Allowed per-source intervals in seconds.
 pub const MIN_INTERVAL_SECS: i64 = 15;
 pub const MAX_INTERVAL_SECS: i64 = 24 * 60 * 60;
 
-/// 一条逐源计划规则（scope 恒为 "source"，schedule_id = "source:<instance_id>"）。
+/// Source rule with scope=source and schedule_id=source:<instance_id>.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SourceScheduleRule {
     pub instance_id: String,
-    /// "interval" | "daily" | "weekly"。
+    /// Rule kind: interval, daily, or weekly.
     pub rule_kind: String,
-    /// interval 专用：15..=86400 秒。
+    /// Interval-only value: 15..=86400 seconds.
     pub interval_seconds: Option<i64>,
-    /// daily/weekly 专用："HH:MM"（24h 制，本地时区语义）。
+    /// Daily/weekly local time in 24-hour HH:MM form.
     pub time_of_day: Option<String>,
-    /// weekly 专用：ISO 1..=7（周一=1，周日=7）。
+    /// Weekly ISO weekday 1..=7, Monday through Sunday.
     pub weekday: Option<i64>,
-    /// 计划时区（IANA 名；空串在首次保存时固定为用户统计时区）。
+    /// IANA timezone; on first save, an empty value is fixed to the current statistics timezone.
     pub tz: String,
     pub enabled: bool,
 }
@@ -45,7 +45,7 @@ fn parse_hhmm(value: Option<&str>) -> Option<(u8, u8)> {
     (h < 24 && m < 60).then_some((h, m))
 }
 
-/// 规则校验（拒绝任意 cron/越界）。
+/// Validate supported rule kinds and numeric ranges, rejecting arbitrary cron.
 pub fn validate_rule(rule: &SourceScheduleRule) -> Result<(), CoreError> {
     let bad = |msg: &str| Err(CoreError::Validation(msg.to_string()));
     if rule.instance_id.trim().is_empty() {
@@ -78,8 +78,8 @@ pub fn validate_rule(rule: &SourceScheduleRule) -> Result<(), CoreError> {
         }
         other => return bad(&format!("unknown rule_kind {other:?}")),
     }
-    // tz 非空时必须可解析为 IANA 时区：否则 next_due_ms 静默返回 None，
-    // 计划永不触发且无任何报错（fail-closed 到 Validation，而非静默失效）。
+    // Reject invalid nonempty IANA timezone names; otherwise next_due_ms could return None
+    // silently and the schedule would never trigger.
     let tz = rule.tz.trim();
     if !tz.is_empty() && jiff::tz::TimeZone::get(tz).is_err() {
         return bad(&format!("unknown IANA time zone {tz:?}"));
@@ -87,10 +87,10 @@ pub fn validate_rule(rule: &SourceScheduleRule) -> Result<(), CoreError> {
     Ok(())
 }
 
-/// 计算下一次到期毫秒（纯函数）。
-/// None 只在：规则未启用、tz 名无法解析（validate_rule 已拦截非空 tz；
-/// 空 tz 继承的 fallback_tz 由设置层校验）、或 now 越出时间戳范围。
-/// daily/weekly 的重复时刻只取第一次；缺失时刻顺延到跳变后的首个有效时刻。
+/// Compute the next due instant in milliseconds without changing storage.
+/// Disabled/invalid rules or out-of-range times return None; validation checks nonempty
+/// timezone names and settings validation checks the fallback used for empty names.
+/// Repeated daily/weekly DST times choose the first instant; gaps advance to the first valid instant.
 pub fn next_due_ms(rule: &SourceScheduleRule, now_ms: i64, fallback_tz: &str) -> Option<i64> {
     if !rule.enabled {
         return None;
@@ -144,15 +144,15 @@ pub fn next_due_ms(rule: &SourceScheduleRule, now_ms: i64, fallback_tz: &str) ->
                 }
                 candidate_date = candidate_date.tomorrow().ok()?;
             }
-            // 八天内找不到（理论不可达）：保守回退。
+            // If no candidate is found within eight days, return the calculated fallback.
             Some(fallback)
         }
         _ => None,
     }
 }
 
-/// Preview the next three planned instants; overdue execution is still merged by
-/// due_instances rather than replaying every missed occurrence.
+/// Preview the next three scheduled instants; overdue work is merged by due_instances
+/// into one collection rather than replaying every missed occurrence.
 pub fn preview_due_ms(rule: &SourceScheduleRule, now_ms: i64, fallback_tz: &str) -> Vec<i64> {
     let mut result = Vec::new();
     let mut cursor = now_ms;
@@ -166,8 +166,8 @@ pub fn preview_due_ms(rule: &SourceScheduleRule, now_ms: i64, fallback_tz: &str)
     result
 }
 
-/// Old rules inherited the statistics timezone dynamically. Pin their current
-/// effective timezone once, before users can change statistics settings again.
+/// Older rules followed the statistics timezone dynamically; persist their current
+/// effective timezone before later statistics-setting changes.
 pub fn pin_legacy_timezones(storage: &Storage, timezone: &str) -> Result<(), CoreError> {
     jiff::tz::TimeZone::get(timezone).map_err(|e| CoreError::Validation(e.to_string()))?;
     storage.conn().execute(
@@ -177,14 +177,14 @@ pub fn pin_legacy_timezones(storage: &Storage, timezone: &str) -> Result<(), Cor
     Ok(())
 }
 
-/// upsert 一条逐源计划（含 next_due 重算；config_version 递增）。
+/// Upsert a source schedule, recompute next_due, and increment config_version.
 pub fn upsert_source_schedule(
     storage: &Storage,
     rule: &SourceScheduleRule,
     now_ms: i64,
     fallback_tz: &str,
 ) -> Result<(), CoreError> {
-    // Persist the initial fallback instead of following later statistics changes.
+    // Persist the initial fallback timezone instead of following later statistics changes.
     let mut rule = rule.clone();
     rule.tz = if rule.tz.trim().is_empty() {
         fallback_tz.trim()
@@ -237,7 +237,7 @@ pub fn upsert_source_schedule(
     Ok(())
 }
 
-/// 删除逐源计划（恢复继承全局）。
+/// Delete a source schedule so it inherits global timing.
 pub fn delete_source_schedule(storage: &Storage, instance_id: &str) -> Result<(), CoreError> {
     let schedule_id = format!("source:{instance_id}");
     storage.conn().execute(
@@ -251,7 +251,7 @@ pub fn delete_source_schedule(storage: &Storage, instance_id: &str) -> Result<()
     Ok(())
 }
 
-/// 读取一条逐源计划（UI 回显）。
+/// Read a source rule for the settings UI.
 pub fn source_schedule(
     storage: &Storage,
     instance_id: &str,
@@ -295,11 +295,11 @@ pub fn source_schedule(
     ))
 }
 
-/// 到期（计划启用且来源实例也启用）的实例集合：next_due_at_ms <= now。
-/// 联 source_instances.enabled：停用来源不被计划触发——否则到期实例每轮
-/// 被采集层跳过又按"无报告=失败"推进 next_due，error_summary 留误导性
-/// 失败记录（"禁用后无自动读取"约定）。INNER JOIN：无实例行的悬空计划
-/// 无从扫描，一并排除。
+/// Return due instances where schedule/source are enabled and next_due_at_ms <= now.
+/// Join source_instances.enabled to omit disabled sources.
+/// Inner joining also omits schedules without an existing source instance.
+/// An unvisited source has no run result and does not advance its next due time;
+/// disabled or missing sources do not produce fabricated failure records.
 pub fn due_instances(storage: &Storage, now_ms: i64) -> Result<BTreeSet<String>, CoreError> {
     let mut stmt = storage.conn().prepare(
         "SELECT e.instance_id FROM extraction_schedules e
@@ -316,7 +316,7 @@ pub fn due_instances(storage: &Storage, now_ms: i64) -> Result<BTreeSet<String>,
     Ok(out)
 }
 
-/// 有自定义启用计划的实例集合（全局刷新时排除）。
+/// Instances with enabled custom schedules, excluded from the global automatic interval.
 pub fn custom_scheduled_instances(storage: &Storage) -> Result<BTreeSet<String>, CoreError> {
     let mut stmt = storage.conn().prepare(
         "SELECT instance_id FROM extraction_schedules
@@ -330,7 +330,7 @@ pub fn custom_scheduled_instances(storage: &Storage) -> Result<BTreeSet<String>,
     Ok(out)
 }
 
-/// 运行后推进：next_due = 以当前时刻重算；schedule_state 记录成败。
+/// After an actual result, recompute next_due from now and store success/failure.
 pub fn mark_source_run(
     storage: &Storage,
     instance_id: &str,
@@ -415,7 +415,7 @@ mod tests {
             next_due_ms(&rule, ms("2026-11-01T05:31:00Z"), "UTC"),
             Some(ms("2026-11-02T06:30:00Z"))
         );
-        // Lord Howe advances only 30 minutes; adding a fixed hour is incorrect.
+        // Lord Howe advances 30 minutes; a fixed one-hour adjustment is incorrect.
         let rule = daily("Australia/Lord_Howe", "02:15");
         assert_eq!(
             next_due_ms(&rule, ms("2026-10-03T14:00:00Z"), "UTC"),
@@ -517,7 +517,7 @@ mod tests {
             next_due_ms(&interval, now.as_millisecond(), "UTC"),
             Some(now.as_millisecond() + 3_600_000)
         );
-        // daily 09:00 UTC：now=2027-01-15T02:13:20Z ⇒ 当日 09:00。
+        // Daily 09:00 UTC: now=2027-01-15T08:00:00Z selects that day at 09:00.
         let daily = SourceScheduleRule {
             instance_id: "x".into(),
             rule_kind: "daily".into(),
@@ -537,7 +537,7 @@ mod tests {
 
     #[test]
     fn next_due_weekly_skips_to_weekday() {
-        // 2027-01-15 是周五（ISO 5）。周一 09:00 的 weekly ⇒ 下周一 2027-01-18。
+        // Friday 2027-01-15 (ISO 5) schedules Monday 09:00 on 2027-01-18.
         let now = jiff::Timestamp::from_millisecond(1_800_000_000_000).unwrap();
         assert_eq!(
             now.to_zoned(jiff::tz::TimeZone::UTC)
@@ -590,7 +590,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let storage = Storage::open(&dir.join("s.sqlite")).unwrap();
         let now = 1_800_000_000_000i64;
-        // due_instances 联 source_instances.enabled：先注册实例行（采集层 upsert）。
+        // due_instances joins source_instances.enabled; register the instance first.
         storage
             .conn()
             .execute(
@@ -613,20 +613,20 @@ mod tests {
             "UTC",
         )
         .unwrap();
-        // 未到期。
+        // Not yet due.
         assert!(due_instances(&storage, now + 30_000).unwrap().is_empty());
-        // 到期。
+        // Now due.
         assert_eq!(
             due_instances(&storage, now + 61_000).unwrap(),
             BTreeSet::from(["inst-1".to_string()])
         );
-        // 推进后不再到期；custom 集合包含。
+        // Advancing the deadline removes it from due instances but retains its custom rule.
         mark_source_run(&storage, "inst-1", now + 61_000, true, "UTC", None).unwrap();
         assert!(due_instances(&storage, now + 61_000).unwrap().is_empty());
         assert!(custom_scheduled_instances(&storage)
             .unwrap()
             .contains("inst-1"));
-        // 删除恢复继承。
+        // Deleting the rule restores global timing.
         delete_source_schedule(&storage, "inst-1").unwrap();
         assert!(custom_scheduled_instances(&storage).unwrap().is_empty());
         let _ = std::fs::remove_dir_all(&dir);
@@ -667,7 +667,7 @@ mod tests {
             "UTC",
         )
         .unwrap();
-        // 停用来源：到期也不返回（禁用后无自动读取）。
+        // Disabled sources are omitted even when overdue.
         storage
             .conn()
             .execute(
@@ -676,7 +676,7 @@ mod tests {
             )
             .unwrap();
         assert!(due_instances(&storage, now + 120_000).unwrap().is_empty());
-        // 重新启用：计划恢复生效。
+        // Reenabled sources retain their schedule.
         storage
             .conn()
             .execute(
@@ -688,7 +688,7 @@ mod tests {
             due_instances(&storage, now + 120_000).unwrap(),
             BTreeSet::from(["inst-2".to_string()])
         );
-        // 停用计划本身（rule.enabled=false）同样不到期。
+        // Disabling the rule itself also removes it from due instances.
         storage
             .conn()
             .execute(
@@ -712,7 +712,7 @@ mod tests {
             enabled: true,
         };
         assert!(validate_rule(&rule).is_err());
-        // 合法 IANA 名通过。
+        // A valid IANA timezone name passes validation.
         let ok = SourceScheduleRule {
             tz: "Asia/Shanghai".into(),
             ..rule

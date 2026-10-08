@@ -1,81 +1,104 @@
-# 执行与外部操作边界
+# Execution and external operation boundaries
 
-## 本地调试与密钥
+<a id="执行与外部操作边界"></a>
 
-一次性脚本、日志和下载检查放仓库根已忽略的 build/任务名/（任意深度 build/
-均被忽略，但约定只放根），记录创建者、路径、进程和清理情况；已有正常构建约定优先。本次不需要外部服务或业务密钥。
-development/secret/ 与 .env 忽略规则只是误提交防护，不替代访问权限或密钥扫描。
+<a id="本地调试与密钥"></a>
 
-凭据优先来自密钥管理器、系统存储或受控进程环境，不进入提示词、参数、
-日志、调试输出、普通产物或全量环境转储；只交给授权的预期服务。
-jq/yq 仅解析数据，不是安全传输通道。配置确实需要时才生成无真实值的
-.env.example；先验证本地配置被忽略，再经受控流程注入，勿在对话索要密钥。
+## Local debugging and secrets
 
-清理只处理任务自有产物，递归删除/移动前核验解析后的绝对路径和链接目标，
-确保位于允许的任务目录；保留用户文件、现有修改和必要的脱敏验证资料。
-不要跨 shell 拼接破坏性命令。
+Disposable scripts, logs and download checks go under ignored repository-root build/task-name/.
+Although build/ is ignored at any depth, use the root only. Record owner, paths, processes and cleanup;
+existing normal build conventions take priority. The original maintenance task required no external
+services or product secrets. Ignore rules for development/secret/ and .env prevent accidental commits;
+they do not replace access controls or secret scanning.
 
-## 部署与 CI
+Prefer secret managers, system stores or controlled process environments. Credentials never enter
+prompts, arguments, logs, debugging, ordinary artifacts or full environment dumps; send them only to
+authorized intended services. jq/yq parse data rather than securing transport. Create .env.example
+without real values only when configuration needs it. Verify local configuration is ignored before
+controlled injection; never request secrets in conversation.
 
-当前已有桌面制品、SQLite 迁移与三平台构建 CI，没有生产部署目标。
-维护实际流程时：
+Clean owned task artifacts only. Before recursive deletion/moving, verify resolved absolute paths
+and link targets remain inside allowed task directories. Preserve user files, existing changes and
+necessary redacted logs/check results. Do not combine destructive commands across shells.
 
-- 确定目标环境、制品标识、迁移顺序、健康检查、验收及回滚触发条件。
-- CI/CD 使用短期凭据、最小 token 权限；第三方 GitHub Actions 固定完整 commit SHA，
-  分离不可信 PR 与有发布凭据的任务。
-- 本地/mock、真实依赖、预发布与生产验收分别记录；部署准备不等于发布授权。
-- 超时写操作先查询实际状态，不以重跑掩盖不确定结果。
+<a id="部署与-ci"></a>
 
-已有独立测试分支提交/推送授权时，先在根 build/ 的独立 worktree 形成审查后的快照，
-保留主工作区与其他任务修改；不再次询问同一许可。回查 origin、分支与完整 head_sha，
-按实际 workflow 触发规则执行。本仓库测试分支 push 不触发 CI，须明确指定分支手动执行；
-触发超时先查询该分支/提交已有运行，不能盲目重复。
-记录源码/流水线受测 revision、全部作业及下载制品的摘要/报告，原生测试、打包和
-GUI 结果分开。仅同步验收记录的后续提交须核对源码/流水线差异为空并单独验证文档，
-不能把前一 revision 的 CI 结果写成后续提交已跑 CI。下载认证与签名 URL 不进入参数或日志。
+## Deployment and CI
+
+The project has desktop artifacts, SQLite migrations and three-platform build CI. Documentation now
+has a separately authorized GitHub Pages publication target under the
+[documentation requirements](../../../../docs/design/documentation-site.md).
+For actual workflows:
+
+- Establish target environments, artifact identities, migration sequence, health checks,
+  acceptance and rollback triggers.
+- Use short-lived CI/CD credentials and minimum token permissions. Pin third-party GitHub Actions
+  to full commit SHAs. Separate untrusted PR jobs from jobs with publication credentials.
+- Report local/mock, real dependencies, staging and production separately. Preparation does not
+  establish deployment authorization.
+- After timed-out writes, query actual state before retrying.
+
+When a separate test branch is already authorized for commit/push, prepare a reviewed snapshot in an
+independent root build/ worktree and preserve the main workspace/other tasks. Do not ask again.
+Verify origin, branch and full head_sha against actual workflow triggers. Test-branch pushes do not
+trigger this repository's product CI; dispatch explicitly for the branch. After trigger timeouts,
+query existing branch/commit runs rather than blindly dispatching again. Record tested source/workflow
+revisions, every job and downloaded artifact hashes/reports. Report native tests, packaging and GUI
+independently. Subsequent validation-record-only commits must verify no source/workflow changes and validate docs
+separately; preceding-revision CI does not verify later commits. Download authentication/signed URLs
+never enter arguments/logs.
 
 <a id="mcp"></a>
 
 <a id="mcp-采用门槛"></a>
 
-## MCP 采用条件
+<a id="mcp-采用条件"></a>
 
-当前项目未接入 MCP，harness 自带连接器不等于本仓库集成。
-无需安装服务器、修改用户配置或为了清空覆盖表启动服务。
-采用前记录服务器来源、数据流、工具集合、读写范围、客户端/服务端/
-SDK/传输/协议版本，核验对应官方规范，不能把模板里的“current”当已核验事实。
+## MCP adoption conditions
 
-设计和验收需要覆盖以下边界：
+This project has no MCP integration. Harness connectors do not establish repository integration.
+Do not install servers, change user configuration or start services merely to complete coverage.
+Before adoption, record server provenance, flows, tool sets, read/write scope and client/server/SDK/
+transport/protocol versions. Verify corresponding official specifications; template current labels
+are not verified facts.
 
-- 最小权限、路径及工具集；验证输入、目标路径、符号链接边界、出站目的，
-  防路径穿越、SSRF、元数据投毒和结果中的提示注入。
-- HTTP 按实际协议及 OAuth 校验 audience、issuer、发现与重定向，
-  禁止 token passthrough；STDIO 使用受控进程环境，不机械套用 HTTP OAuth。
-- 不可预测的业务状态句柄绑定认证主体、逐次鉴权，不能作为身份凭据；
-  协议无状态不代表业务没有状态，也不能推断旧版 SDK 行为。
-- HTTP 校验 Origin、限制监听地址并认证；STDIO stdout 仅供协议，
-  诊断进 stderr；取消优先按协议，不终止共享服务。
-- 调用超时、输出上限、速率限制和脱敏审计；写工具需要实际权限。
-  只读/破坏性 annotations 是元数据，不构成授权保证。
-- 非敏感模板可入库；token、密码、cookie、会话文件不进版本库或模型上下文。
-  退出时仅清理本任务拥有的进程树，验证进程和监听已关闭。
+Design/acceptance cover:
 
-以上是项目接入检查项，本次没有完成协议实现或运行验收。
-首次接入须补充版本对应来源与无副作用发现、拒绝权限、错误路径及进程生命周期测试。
+- Minimal permissions, paths and tools. Validate inputs, targets, symlink boundaries and outbound
+  destinations against traversal, SSRF, metadata poisoning and prompt injection in results.
+- HTTP follows actual protocol/OAuth audience, issuer, discovery and redirect validation;
+  prohibit token passthrough. STDIO uses controlled environments instead of mechanically applying HTTP OAuth.
+- Unpredictable business state handles bind to authenticated subjects and reauthorize each call;
+  they are not identity credentials. Stateless protocols do not imply stateless business logic
+  or establish older SDK behavior.
+- HTTP validates Origin, restricts listening and authenticates. STDIO stdout is protocol-only;
+  diagnostics use stderr. Prefer protocol cancellation without terminating shared services.
+- Bound calls/output/rates and redact audits. Write tools need real permissions.
+  Read-only/destructive annotations are metadata, not authorization guarantees.
+- Nonsensitive templates may enter Git; tokens, passwords, cookies and session files never enter
+  Git/model context. Clean owned process trees on exit and verify processes/listeners are closed.
+
+These are integration checks, not completed protocol implementation/runtime acceptance.
+First integration needs version-specific sources and side-effect-free discovery, permission refusal,
+error-path and process-lifecycle tests.
 
 <a id="timeouts"></a>
 
-## 超时与重试
+<a id="超时与重试"></a>
 
-工具等待窗口、子进程超时和整个任务预算是三个量。
-“仍在运行”只表示需要恢复等待，不表示失败。按实际 CI 历史、任务风险和阶段
-制定有限预算，不给所有命令相同超时。
+## Timeouts and retries
 
-超时先保留脱敏诊断，检查下载、死锁、资源限制与遗留进程，确认旧进程状态
-再开下一次。只对可恢复错误有限重试；网络退避加抖动，遵守 Retry-After。
-解析错误、参数错误和权限拒绝先定位，不能无限重试或降低安全设置。
+Tool wait windows, subprocess timeouts and the overall task time limit are separate quantities.
+Still running means waiting must resume rather than failure. Use finite limits based on actual CI
+history, risk and stages; do not give all commands identical timeouts.
 
-部署、创建、发送等操作超时可能已成功，先查询 durable identity/实际状态，
-使用幂等键或去重再决定重放；无法消除歧义时报告未知状态。
-自动化不等待交互；登录由用户在受控界面完成。
-Windows 后台进程使用隐藏窗口，记录 PID、日志及退出清理，仅停止自有进程。
+After timeouts, retain redacted diagnostics and inspect downloads, deadlocks, resource limits and
+remaining processes. Confirm old process state before another attempt. Retry recoverable errors
+within bounds, with jittered network backoff/Retry-After. Diagnose parsing/argument/permission errors;
+do not retry endlessly or weaken security.
+
+Deployment, creation or sending may succeed despite timeout. Query durable identities/actual state,
+then use idempotency keys/deduplication before replay. Report unknown state if ambiguity remains.
+Automation never waits for interactive input; users log in through controlled interfaces.
+Windows background processes use hidden windows. Record PIDs/logs/exit cleanup and stop owned processes only.

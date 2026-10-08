@@ -1,32 +1,32 @@
-//! Zed 版本注册表：格式版本 → 格式实现的映射与回退选择
-//! （architecture.md#adapter-layout / #unknown-version，V30 目录约定）。
+//! Zed registry: map format versions to implementations and fallback selection.
+//! architecture.md#adapter-layout / #unknown-version, V30 directory rules.
 //!
-//! threads.db 无产品版本字段：注册表锚点是文档级格式版本
-//! zed-threads-db-1 / 2（bd74733 结构与 76659a55 外部 Provider 实样），
-//! schema 偏离在探测/扫描层 fail closed，不走版本回退。
+//! threads.db lacks product versions; registry uses documented format IDs
+//! zed-threads-db-1 / 2: bd74733 schema and 76659a55 external-provider native samples.
+//! Reject schema changes in detection/scanning, without version fallback.
 
 pub mod threads_db_v1;
 
-/// 当前格式实现标识（"最新内置解析器"由本常量明确指定）。
+/// Current implementation; explicitly selects the latest built-in parser.
 pub const LATEST_IMPL_ID: &str = "threads_db_v1";
 
-/// 文档级格式版本：包含 1.22.0 的已核验外部 Provider 映射，不认证全部客户端历史。
+/// Documented formats include verified 1.22.0 external-provider mappings, without validating all history.
 pub const ZED_FORMAT_VERSION: &str = "zed-threads-db-2";
 
-/// 已验证支持的格式版本 → 格式实现。
+/// Verified format versions mapped to implementations.
 pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[
     ("zed-threads-db-1", "threads_db_v1"),
     ("zed-threads-db-2", "threads_db_v1"),
 ];
 
-/// 版本分派结论。
+/// Version-selection result.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Selection {
     pub impl_id: &'static str,
     pub basis: crate::domain::VersionBasis,
 }
 
-/// 按格式版本选择实现；探测与扫描共用本函数（V30）。
+/// Select by format version; shared by detection and scanning, V30.
 pub fn select(found: Option<&str>) -> Selection {
     match found {
         Some(version) => {

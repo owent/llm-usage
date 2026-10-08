@@ -1,4 +1,4 @@
-//! Optional, transactionally maintained schema-11 query projections.
+//! Optional schema-11 query caches, maintained within transactions.
 use crate::{calendar::Calendar, error::CoreError};
 use jiff::civil::Date;
 use rusqlite::{params, Connection, Transaction};
@@ -43,8 +43,8 @@ pub(crate) fn install(conn: &Connection) -> Result<(), CoreError> {
         conn.execute_batch(&format!("CREATE TABLE IF NOT EXISTS query_rollup_{axis} AS SELECT * FROM daily_usage WHERE 0;
             CREATE INDEX IF NOT EXISTS query_rollup_{axis}_range ON query_rollup_{axis}(tz_version,local_day);"))?;
     }
-    // Invalidation also removes derived identities: retention and older writers
-    // must not leave session identifiers in an unusable projection.
+    // Invalidation removes cached identities too: retention and older writers
+    // must not leave session identifiers in an unusable cache.
     conn.execute_batch("DROP TRIGGER IF EXISTS query_accel_discard;
         CREATE TRIGGER query_accel_discard AFTER UPDATE OF valid ON query_accel_days WHEN OLD.valid=1 AND NEW.valid=0 BEGIN
         DELETE FROM query_rollup_day WHERE tz_version=NEW.tz_version AND local_day=NEW.local_day;
@@ -81,8 +81,8 @@ pub(crate) fn install(conn: &Connection) -> Result<(), CoreError> {
         CREATE INDEX IF NOT EXISTS idx_daily_provider_query_v1 ON daily_usage(tz_version,fold_name(provider_id),local_day);
         CREATE INDEX IF NOT EXISTS idx_events_model_query_v1 ON usage_events(fold_name(model_key(model_raw)),occurred_at_ms,source_instance_id,session_id,duration_ms,record_kind,agent,provider_id) WHERE attribution_status='verified' AND record_kind IN ('model_call','transport_attempt','usage_observation');
         CREATE INDEX IF NOT EXISTS idx_events_agent_query_v1 ON usage_events(fold_name(agent),occurred_at_ms,source_instance_id,session_id,duration_ms,record_kind,model_raw,provider_id) WHERE attribution_status='verified' AND record_kind IN ('model_call','transport_attempt','usage_observation');")?;
-    // Include all tables and retain SQLite's bounded analysis flag. This helps
-    // combined filters choose the more selective expression index.
+    // Include every table and retain bounded SQLite analysis so
+    // combined filters can choose the more selective expression index.
     conn.execute_batch("PRAGMA optimize=0x10012")?;
     installation.commit()?;
     Ok(())
@@ -106,8 +106,8 @@ pub(crate) fn rebuild_day(
         Ok(()) => tx.execute_batch("RELEASE query_projection")?,
         Err(error) => {
             tx.execute_batch("ROLLBACK TO query_projection; RELEASE query_projection")?;
-            // An optional aggregate must not reject valid events in separate
-            // dimensions merely because their combined metric exceeds i64.
+            // Optional caching must not reject valid events from separate groups
+            // when only the combined metric exceeds i64.
             if matches!(&error, CoreError::Sqlite(rusqlite::Error::SqliteFailure(_, Some(message))) if message == "integer overflow")
             {
                 tx.execute(
@@ -194,7 +194,7 @@ pub(crate) fn repair(conn: &Connection) -> Result<(), CoreError> {
         let calendar = Calendar::new(&tz)?;
         let mut day = crate::calendar::parse_date(&first)?;
         let last = crate::calendar::parse_date(&last)?;
-        // Old, very long retained histories use the original query outside this window.
+        // Outside this window, long retained histories use the original query.
         day = day.max(last.checked_sub(jiff::Span::new().days(749))?);
         let tx = conn.unchecked_transaction()?;
         while day <= last {
@@ -245,9 +245,9 @@ pub(crate) fn usable(
     if count == i64::from(expected) {
         return Ok(true);
     }
-    // Today, empty days before the first observation, and calendar gaps need no
-    // stored zero bucket. Prove missing partitions empty in both authority tables
-    // so an older writer's event-only insertion cannot use stale projections.
+    // Today, days before the first observation and calendar gaps need no
+    // stored zero rows. Check absent partitions against daily_usage and usage_events
+    // so an older event-only writer cannot make a stale cache appear valid.
     let days=conn.prepare("SELECT local_day FROM query_accel_days WHERE tz_version=?1 AND local_day>=?2 AND local_day<=?3 AND valid=1")?.query_map(params![request.timezone,request.first_day.to_string(),request.last_day.to_string()],|r|r.get::<_,String>(0))?.collect::<Result<std::collections::BTreeSet<_>,_>>()?;
     let calendar = Calendar::new(&request.timezone)?;
     let mut day = request.first_day;

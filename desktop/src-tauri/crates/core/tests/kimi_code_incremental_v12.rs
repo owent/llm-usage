@@ -1,5 +1,5 @@
-//! Kimi Code（A12，M4）V12 增量语义 —— 重复扫描不增量、追加续读（对账累计跨轮
-//! 持久）、半行跨轮、截断重扫、达到读取上限后分批恢复、改名重探测。
+//! Kimi Code (A12, M4) V12: repeat deduplication, appended reads and persisted reconciliation,
+//! partial lines, truncation rescans, bounded batches with resumption and renamed-file detection.
 
 mod common;
 
@@ -27,8 +27,8 @@ fn rec_usage(io: i64, out: i64, cr: i64, time: i64) -> String {
     )
 }
 
-/// 基础文件（3 行）：metadata + 两条 turn 记录
-/// {100,50,400} 与 {200,60,800}（total 550/1060）。
+/// Base file: three lines, metadata and two turn records
+/// {100,50,400} and {200,60,800}, with totals 550/1060.
 fn base_lines() -> Vec<String> {
     vec![
         r#"{"type":"metadata","protocol_version":"1.5","created_at":1767225600000}"#.to_string(),
@@ -76,8 +76,8 @@ fn repeat_scan_does_not_increment() {
     assert_eq!(summary.totals.total_tokens_known, Some(1_610));
 }
 
-/// 追加续读：活文件追加一条记录，仅新行入账；对账累计跨轮持久
-/// （第一轮后回声Σ为 0，追加回声后 matched）。
+/// Appended reads add only new records and preserve cumulative reconciliation across rounds.
+/// Echo starts at zero; the appended echo still covers only part of the record sum.
 #[test]
 fn append_continues_from_cursor_and_reconciliation_persists() {
     let dir = TempDir::new("kimi-code-append");
@@ -96,13 +96,13 @@ fn append_continues_from_cursor_and_reconciliation_persists() {
 
     let first = run_kimi_code(&storage, &root, NOW);
     assert_eq!(first[0].files[0].events, 2);
-    // 第一轮无回声（基础文件未带 step.end）：记录侧 2 条，回声 0 ⇒ echo_subset。
+    // Base has no step.end: two usage records and zero echo give echo_subset.
     assert!(first[0]
         .reconciliations
         .iter()
         .any(|r| r.series == "kimi_wire_step_end_echo" && r.verdict == "echo_subset"));
 
-    // 追加：1 条新 usage.record + 与第一条回声相等的 step.end 回声。
+    // Append one usage.record and a step.end echo matching the first existing usage record.
     let echo = r#"{"type":"context.append_loop_event","agentId":"main","event":{"type":"step.end","uuid":"syn-1","turnId":"0","step":1,"messageId":"chatcmpl-syn","usage":{"inputOther":100,"output":50,"inputCacheRead":400,"inputCacheCreation":0},"finishReason":"tool_use"},"time":1767225601100}"#;
     let appended = format!("{}\n{}\n", echo, rec_usage(300, 70, 900, 1767225603000));
     let mut bytes = std::fs::read(&wire_path).unwrap();
@@ -113,7 +113,7 @@ fn append_continues_from_cursor_and_reconciliation_persists() {
     assert_eq!(second[0].files[0].status, "complete");
     let outcome = second[0].outcome.as_ref().unwrap();
     assert_eq!(outcome.added, 1, "仅新增 usage.record 入账；回声不产事件");
-    // 对账累计跨轮持久：记录侧 3 条 Σ=550+1060+1270=2880，回声侧 550 ⇒ echo_subset。
+    // Persisted sums: three records 550+1060+1270=2880 versus echo 550, giving echo_subset.
     assert!(second[0]
         .reconciliations
         .iter()
@@ -127,7 +127,7 @@ fn append_continues_from_cursor_and_reconciliation_persists() {
     assert_eq!(summary.totals.total_tokens_known, Some(1_610 + 1_270));
 }
 
-/// 半行跨轮：末行无换行不消费，补齐换行后下轮读完整行。
+/// Leave a final line without newline unread; consume it after the newline is appended.
 #[test]
 fn half_line_is_not_consumed() {
     let dir = TempDir::new("kimi-code-half");
@@ -140,7 +140,7 @@ fn half_line_is_not_consumed() {
         .join("main")
         .join("wire.jsonl");
     std::fs::create_dir_all(wire_path.parent().unwrap()).unwrap();
-    // metadata + 第一条完整；第二条无换行（半行）。
+    // Metadata and the first record are complete; the last record has no newline.
     let mut text = format!("{}\n", base_lines()[..2].join("\n"));
     text.push_str(&rec_usage(300, 70, 900, 1767225603000));
     std::fs::write(&wire_path, text.as_bytes()).unwrap();
@@ -159,8 +159,8 @@ fn half_line_is_not_consumed() {
     assert_eq!(summary.totals.call_count, 2);
 }
 
-/// 截断重写：generation 递增、整文件重扫；已入库历史不因源截断而消失
-/// （V12 语义，同 codex），重扫仅新增新键事件。
+/// Truncation increments generation and rescans; stored history survives source truncation
+/// under V12, as for Codex. Rescanning adds only events with new keys.
 #[test]
 fn truncation_triggers_rescan() {
     let dir = TempDir::new("kimi-code-trunc");
@@ -180,7 +180,7 @@ fn truncation_triggers_rescan() {
     let _ = run_kimi_code(&storage, &root, NOW);
     assert_eq!(generation(&storage), 0);
 
-    // 截断为首行（metadata）+ 换一条不同 usage。
+    // Rewrite with metadata and one different usage record.
     std::fs::write(
         &wire_path,
         format!(
@@ -196,13 +196,13 @@ fn truncation_triggers_rescan() {
     assert_eq!(second[0].outcome.as_ref().unwrap().added, 1, "仅新键事件");
     assert_eq!(generation(&storage), 1, "重扫代数递增");
 
-    // 已入库历史不因源截断而消失：旧 2 条 + 新 1 条。
+    // Keep two historical events and add one new event despite source truncation.
     let summary = summary(&storage, "2026-01-01", "2026-01-02");
     assert_eq!(summary.totals.call_count, 3);
     assert_eq!(summary.totals.total_tokens_known, Some(550 + 1_060 + 580));
 }
 
-/// 按行数上限分批：达到上限停在完整行边界，下轮续读；游标推进按行消费。
+/// Stop at a complete line on reaching the line limit; resume from the consumed-line cursor.
 #[test]
 fn line_budget_resumes() {
     let dir = TempDir::new("kimi-code-budget");
@@ -213,14 +213,14 @@ fn line_budget_resumes() {
     );
     let (_db, storage) = temp_storage("kimi-code-budget");
 
-    // 本轮上限 2 行：metadata + 第一条记录；状态 budget_exhausted。
+    // Limit this round to two lines: metadata and first record; status budget_exhausted.
     let first = run_kimi_code_with_limits(&storage, &root, NOW, budgeted_limits(2));
     assert_eq!(first[0].files[0].status, "budget_exhausted");
     assert_eq!(first[0].outcome.as_ref().unwrap().added, 1);
-    // 对账只应在读到文件尾时进行：本轮不产生 matched 行。
+    // Reconcile only at EOF; this limited round produces no reconciliation row.
     assert!(first[0].reconciliations.is_empty());
 
-    // 下轮无行数限制：续读剩余 1 行并完结。
+    // The next normal-limit round reads the remaining record and completes.
     let second = run_kimi_code(&storage, &root, NOW + 1000);
     assert_eq!(second[0].files[0].status, "complete");
     assert_eq!(second[0].outcome.as_ref().unwrap().added, 1);
@@ -234,8 +234,8 @@ fn line_budget_resumes() {
     assert_eq!(summary.totals.total_tokens_known, Some(1_610));
 }
 
-/// 改名重探测：同内容流换路径（文件名保持 wire.jsonl，换代理目录）按
-/// file_identity 命中，事件不重复。
+/// Rename the unchanged stream while keeping wire.jsonl and changing its agent directory.
+/// file_identity matches the stream, preventing duplicate events.
 #[test]
 fn rename_keeps_identity() {
     let dir = TempDir::new("kimi-code-rename");
@@ -251,7 +251,7 @@ fn rename_keeps_identity() {
     let (_db, storage) = temp_storage("kimi-code-rename");
 
     let _ = run_kimi_code(&storage, &root, NOW);
-    // 换代理目录（文件内容流不变，仍在发现范围内）。
+    // Change the agent directory; the unchanged stream remains discoverable.
     std::fs::create_dir_all(agents.join("agent-2")).unwrap();
     std::fs::rename(
         agents.join("main").join("wire.jsonl"),

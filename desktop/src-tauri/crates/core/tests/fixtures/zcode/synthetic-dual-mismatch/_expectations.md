@@ -1,7 +1,8 @@
-# synthetic-dual-mismatch 期望（全合成）
+# synthetic-dual-mismatch expectations (synthetic)
 
-缺口：AI SDK inputTokens=1000（含缓存读）而 anthropic
-  input_tokens=999+cache_read=400=1399 ≠ 1000 → dual_caliber_mismatch 诊断，AI
-  SDK 主口径保留。
+<a id="synthetic-dual-mismatch-期望全合成"></a>
 
-详见 tests/zcode_gaps_synthetic.rs 头部人工核算注释。
+AI SDK inputTokens=1000 includes cache read, while Anthropic input_tokens=999 plus cache_read=400
+gives 1399. Record dual_caliber_mismatch and retain the primary AI SDK values.
+
+See the manually calculated expectations in the header of tests/zcode_gaps_synthetic.rs.

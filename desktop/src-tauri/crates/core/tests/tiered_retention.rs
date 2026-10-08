@@ -1,6 +1,6 @@
-//! 分级归档保留（2026-09-26 用户需求）：明细→小时→日→周/月/年逐级保留；
-//! 日汇总删除前物化周期；查询按"日层存活走日、更早走物化"合并；
-//! 小时图读持久化小时表（明细删除后仍有数据）。
+//! Tiered retention (2026-09-26 request): details, hourly, daily and week/month/year archives.
+//! Store completed period rows before deleting daily rows; queries combine retained days with archives.
+//! Hourly charts use persisted hourly rows after detail deletion.
 
 mod common;
 
@@ -276,7 +276,7 @@ fn completed_month_rebuilds_for_late_data_deletions_missing_rows_and_unknown_wat
             .materialized_period_rows,
         1
     );
-    // Imported future revisions cannot be certified by the local watermark.
+    // The local processing marker cannot establish validity of imported future revisions.
     storage
         .conn()
         .execute(
@@ -297,9 +297,9 @@ fn completed_month_rebuilds_for_late_data_deletions_missing_rows_and_unknown_wat
 #[test]
 fn tiered_retention_prunes_by_layer_and_materializes_history() {
     let (_dir, storage) = temp_storage("tiered");
-    // 2025-12-15（其周/月/年均已完成）+ 本周内 09-22/09-25。
-    // 注：进行中周/月/年起点受保护（今日 2026-09-26 ⇒ 2026-01-01 起不可删），
-    // 故历史数据选在 2025 年才能触发日层删除（保护语义见模块头）。
+    // Use completed 2025-12-15 week/month/year plus current-week 09-22/09-25.
+    // Ongoing week/month/year starts are protected: today 2026-09-26 protects 2026-01-01 onward.
+    // Use 2025 history to exercise daily deletion; see the module's protection rules.
     for (key, day, tokens) in [
         ("r-old", "2025-12-15T10:00:00Z", 100i64),
         ("r-w22", "2026-09-22T10:00:00Z", 100),
@@ -321,7 +321,7 @@ fn tiered_retention_prunes_by_layer_and_materializes_history() {
         )
         .unwrap();
     }
-    // 窗口：明细 1 天、小时 2 天、日 3 天、周/月长期。
+    // Retain details one day, hours two days, days three days, with longer week/month archives.
     let policy = TieredRetentionPolicy {
         events_days: 1,
         hourly_days: 2,
@@ -332,14 +332,14 @@ fn tiered_retention_prunes_by_layer_and_materializes_history() {
     };
     let outcome =
         enforce_tiered_retention(&storage, "UTC", ts("2026-09-26T12:00:00Z"), &policy).unwrap();
-    // 明细层：全部事件早于明细下限（今天起）⇒ 全删。
+    // All events precede the detail cutoff at today's start and are deleted.
     let events: i64 = storage
         .conn()
         .query_row("SELECT COUNT(*) FROM usage_events", [], |r| r.get(0))
         .unwrap();
     assert_eq!(events, 0);
     assert_eq!(outcome.deleted_events, 3);
-    // 小时层：<09-25 删除 ⇒ 2025-12-15/09-22 删、09-25 留。
+    // Delete hours before 09-25: remove 2025-12-15/09-22, retain 09-25.
     let hourly: Vec<(String, i64)> = storage
         .conn()
         .prepare("SELECT local_day, call_count FROM hourly_usage ORDER BY local_day")
@@ -349,7 +349,7 @@ fn tiered_retention_prunes_by_layer_and_materializes_history() {
         .collect::<Result<_, _>>()
         .unwrap();
     assert_eq!(hourly, vec![("2026-09-25".to_string(), 1)]);
-    // 日层：计算下限 09-24；年保护（2026-01-01 起）⇒ 仅 2025-12-15 删。
+    // Daily cutoff is 09-24; year protection from 2026-01-01 leaves only 2025-12-15 deleted.
     let daily: Vec<String> = storage
         .conn()
         .prepare("SELECT DISTINCT local_day FROM daily_usage ORDER BY local_day")
@@ -363,8 +363,8 @@ fn tiered_retention_prunes_by_layer_and_materializes_history() {
         vec!["2026-09-22".to_string(), "2026-09-25".to_string()]
     );
     assert_eq!(outcome.deleted_daily_rows, 1);
-    // 物化：2025 的周/月/年各一行（1 调用 110）；本周/本月/本年进行中
-    // 不物化（由受保护的日行服务）。
+    // Store one 2025 row per week/month/year (one call, 110 tokens). Ongoing current periods
+    // use protected daily rows instead of stored period rows.
     assert_eq!(outcome.materialized_period_rows, 3, "2025 周+月+年各一行");
     for granularity in ["week", "month", "year"] {
         let row: (i64, Option<i64>) = storage
@@ -377,7 +377,7 @@ fn tiered_retention_prunes_by_layer_and_materializes_history() {
             .unwrap();
         assert_eq!(row, (1, Some(110)), "{granularity} 行来自 2025-12-15");
     }
-    // 查询合并：周粒度跨年查询 ⇒ 2025-12-15 周走物化 + 2026-09-21 周走日行。
+    // Cross-year weekly queries combine the archived 2025-12-15 week with daily 2026-09-21 week.
     let s = query_summary(
         &storage,
         &request("2025-12-01", "2026-09-30", Granularity::Week),
@@ -392,8 +392,8 @@ fn tiered_retention_prunes_by_layer_and_materializes_history() {
         .find(|p| p.start_day.to_string().starts_with("2025-"))
         .expect("materialized week row visible");
     assert!(materialized_period.partial_history);
-    // 幂等：重复执行不增量。2025 日行已删 ⇒ 无可重物化（物化行原样保留）；
-    // 现存 2026 日行属进行中周期 ⇒ materialized=0。
+    // Repeated retention adds no usage; deleted 2025 days cannot be rematerialized, so archives stay.
+    // Existing 2026 days belong to ongoing periods, giving materialized=0.
     let again =
         enforce_tiered_retention(&storage, "UTC", ts("2026-09-26T13:00:00Z"), &policy).unwrap();
     assert_eq!(again.materialized_period_rows, 0);
@@ -488,14 +488,14 @@ fn hourly_table_survives_detail_prune() {
 
 #[test]
 fn tiered_policy_validates_ordering() {
-    // 明细比小时层长是合法冗余（不丢数据）。
+    // Details may outlive hourly rows; this redundancy loses no data.
     let redundant = TieredRetentionPolicy {
         events_days: 10,
         hourly_days: 5,
         ..TieredRetentionPolicy::default()
     };
     assert!(redundant.validate().is_ok());
-    // 粗层短于细层非法。
+    // Coarser summaries cannot have a shorter retention range than finer summaries.
     let bad = TieredRetentionPolicy {
         hourly_days: 90,
         daily_days: 30,
@@ -505,7 +505,7 @@ fn tiered_policy_validates_ordering() {
 }
 
 fn storage_none() -> llm_usage_core::storage::Storage {
-    // 校验在打开库之前失败即可；用内存库占位。
+    // Use an in-memory database while testing rejection of an invalid policy.
     llm_usage_core::storage::Storage::open_in_memory().unwrap()
 }
 

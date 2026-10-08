@@ -22,7 +22,7 @@ impl Drop for ControlScope {
     }
 }
 
-/// Nest source/file deadlines without leaking control into the next worker job.
+/// Nest source/file deadlines without carrying control into the next worker job.
 pub fn enter(deadline: Option<Instant>, allowed: Option<Allowed>) -> ControlScope {
     CONTROL.with(|current| {
         let previous = current.borrow().clone();
@@ -61,7 +61,7 @@ pub fn enter_source(instance: &str, deadline: Option<Instant>) -> ControlScope {
 }
 
 pub fn check() -> Result<(), CoreError> {
-    // Do not hold the TLS borrow while invoking a callback.
+    // Do not hold the thread-local borrow while invoking a callback.
     let control = CONTROL.with(|current| current.borrow().clone());
     if control
         .deadline

@@ -1,6 +1,6 @@
-//! V12：Claude Code 适配器增量与刷新语义 —— 重复扫描不增量、追加续读、半行跨轮、
-//! 截断/同长替换/改名重探测、达到读取上限后分批恢复、矛盾重复（同 requestId 不同 usage）
-//! 冲突标记。内容均为合成（syn- 前缀 ID），期望值逐条人工核算。
+//! V12 Claude incremental refresh: duplicate scans, appended data and incomplete lines;
+//! truncation/equal-length replacement/rename, bounded resume and conflicting duplicate usage
+//! under one requestId. All data is synthetic (syn- IDs), with manually calculated expectations.
 
 mod common;
 
@@ -21,8 +21,8 @@ fn budgeted_limits(max_lines: u64) -> ScanLimits {
     }
 }
 
-/// 合成 assistant 条目（usage 四字段，无缓存）：input_total=input、
-/// total=input+output。
+/// Synthetic assistant with four usage fields and no cache: input_total=input,
+/// total=input+output.
 fn assistant_line(req: &str, uuid: &str, time: &str, input: i64, output: i64) -> String {
     format!(
         "{{\"type\":\"assistant\",\"timestamp\":\"{time}\",\"sessionId\":\"syn-sess-v12\",\"requestId\":\"{req}\",\"uuid\":\"{uuid}\",\"isSidechain\":false,\"message\":{{\"id\":\"syn-msg-{uuid}\",\"model\":\"syn-claude-model-a\",\"usage\":{{\"input_tokens\":{input},\"output_tokens\":{output},\"cache_read_input_tokens\":0,\"cache_creation_input_tokens\":0}}}}}}\n"
@@ -138,7 +138,7 @@ fn half_line_is_not_consumed_until_completed() {
         200,
         20,
     );
-    // 写入前两条完整行 + 第三条的前半（无换行符）。
+    // Write two complete lines and half of the third, without its newline.
     let partial = format!("{l1}{l2}{}", &l3[..l3.len() / 2]);
     let file_path = dir.path().join("projects/proj/sess-v12.jsonl");
     let root = claude_root_with_file(&dir, "proj/sess-v12.jsonl", partial.as_bytes());
@@ -195,7 +195,7 @@ fn truncation_triggers_generation_rescan() {
     let first = run_claude(&storage, &root, NOW);
     assert_eq!(first[0].outcome.as_ref().unwrap().added, 2);
 
-    // 截断为前 2 行（源端极端行为）：重探测 → generation+1 → 从头重扫。
+    // Truncate to two lines: redetect, increment generation and rescan from the beginning.
     std::fs::remove_file(&file_path).unwrap();
     std::fs::write(&file_path, format!("{l1}{l2}").as_bytes()).unwrap();
     let second = run_claude(&storage, &root, NOW + 1000);
@@ -206,7 +206,7 @@ fn truncation_triggers_generation_rescan() {
         .query_row("SELECT generation FROM source_files", [], |r| r.get(0))
         .unwrap();
     assert_eq!(generation, 1);
-    // 已入库历史不因源截断而消失；重扫的 syn-req-t1 逐字段相同 → 幂等 Keep。
+    // Preserve stored history after truncation; identical syn-req-t1 fields produce Keep without duplicate contributions.
     assert_eq!(second[0].outcome.as_ref().unwrap().unchanged, 1);
     let summary = summary(&storage, "2026-09-24", "2026-09-24");
     assert_eq!(summary.totals.call_count, 2);
@@ -217,7 +217,7 @@ fn truncation_triggers_generation_rescan() {
 fn same_size_replacement_rescans_without_dropping_history() {
     let dir = TempDir::new("claude-v12-replace");
     let l1 = user_line("syn-uuid-s0", "2026-09-24T10:00:00.000Z");
-    // 两条 assistant 行严格等长（requestId/uuid 等长、数值位数相同），交换即同长替换。
+    // Equal requestId/uuid lengths and equal numeric digit counts make these assistant lines equal length.
     let l2 = assistant_line(
         "syn-req-s1",
         "syn-uuid-s1",
@@ -245,7 +245,7 @@ fn same_size_replacement_rescans_without_dropping_history() {
     assert_ne!(replaced, original);
     std::fs::write(&file_path, replaced.as_bytes()).unwrap();
     let second = run_claude(&storage, &root, NOW + 1000);
-    // 内容指纹变化触发重扫；两条事件逐字段相同 → 幂等 Keep，不双计。
+    // Changed content fingerprints trigger a rescan; identical events produce Keep without double counting.
     let generation: i64 = storage
         .conn()
         .query_row("SELECT generation FROM source_files", [], |r| r.get(0))
@@ -303,7 +303,7 @@ fn rename_keeps_identity_and_cursor() {
 #[test]
 fn budget_split_resumes_without_duplicates() {
     let dir = TempDir::new("claude-v12-budget");
-    // 5 行：user + assistant ×4（每行一个调用）。
+    // Five lines: one user plus four assistants, each representing one call.
     let file = user_line("syn-uuid-b0", "2026-09-24T10:00:00.000Z")
         + &assistant_line(
             "syn-req-b1",
@@ -377,7 +377,7 @@ fn conflicting_duplicate_marks_conflict_and_keeps_existing() {
     let (_db, storage) = temp_storage("claude-v12-conflict");
     run_claude(&storage, &root, NOW);
 
-    // 追加同 requestId 但 usage 不同的重报（无法确认哪条修订更新 → conflict）。
+    // Append changed usage under the same requestId; unknown revision order produces a conflict.
     let conflict = file
         + &assistant_line(
             "syn-req-c1",
@@ -393,7 +393,7 @@ fn conflicting_duplicate_marks_conflict_and_keeps_existing() {
     let outcome = second[0].outcome.as_ref().unwrap();
     assert_eq!(outcome.conflicts, 1);
 
-    // 不任意择大：已存值保持 input_total=100，冲突记诊断。
+    // Retain input_total=100 and diagnose the conflict instead of choosing the larger value.
     let input: i64 = storage
         .conn()
         .query_row(

@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
-"""新版 Kimi Code 采集器（v2.x，桌面端 / CLI 独立版）。
+"""New Kimi Code collector (v2.x, desktop/standalone CLI).
 
-新版 Kimi Code 的 home 目录从 kimi-code 内核共享目录迁到了 `~/.kimi-code`
-（如 C:\\Users\\<user>\\.kimi-code），但会话事件仍写在
-`sessions/**/agents/<agentId>/wire.jsonl` 中，记录格式仍为 `usage.record`
-（字段：usage.inputOther / output / inputCacheRead / inputCacheCreation）。
+The new Kimi Code home moved from the shared kimi-code engine directory to
+~/.kimi-code (for example C:/Users/<user>/.kimi-code). Session events still live
+in sessions/**/agents/<agentId>/wire.jsonl as usage.record with fields
+usage.inputOther / output / inputCacheRead / inputCacheCreation.
 
-本采集器递归扫描新 home 的 sessions 树，兼容未来层级变化。
+Scan the new home sessions tree recursively to accommodate future nesting changes.
 
-默认搜索 ~/.kimi-code/sessions，可用环境变量 KIMI_CODE_SESSIONS 覆盖
-（多个路径用 ; 分隔）；KIMI_CODE_HOME 可整体覆盖 home 目录。
+The default root is ~/.kimi-code/sessions. KIMI_CODE_SESSIONS overrides it
+with semicolon-separated paths; KIMI_CODE_HOME overrides the entire home directory.
 """
 import glob
 import json
@@ -32,7 +32,7 @@ def _roots():
 
 
 def _iter_wire_files(root):
-    """递归产出 sessions 树下所有 wire.jsonl（兼容任意层级）。"""
+    """Yield every wire.jsonl recursively under sessions, regardless of nesting depth."""
     for path in glob.glob(os.path.join(root, "**", "wire.jsonl"), recursive=True):
         if os.path.isfile(path):
             yield path

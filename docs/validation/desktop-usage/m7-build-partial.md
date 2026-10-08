@@ -1,43 +1,55 @@
-# M7（部分）：release 构建与包体测量
+# M7 (partial): release build and package measurements
+
+<a id="m7部分release-构建与包体测量"></a>
 
 <a id="m7部分release-构建与包体证据"></a>
 
-M7 的安装/资源/调度/三平台完整验收（V19–V27）未开始；本记录仅登记
-Windows release 构建与包体实测，以及 WSL Linux 编译/测试分项（V27 部分）。
-macOS 按用户指示不经本机验收，后续经 CI 流水线测试。
+Full M7 installation/resource/scheduling/three-platform acceptance (V19–V27) had not
+started at this stage. This record covers the Windows release build and measured
+package sizes, plus WSL Linux compilation/tests (part of V27). Per user instructions,
+macOS had no local acceptance and was reserved for subsequent CI testing.
 
-## 元信息
+<a id="元信息"></a>
 
-| 项目 | 内容 |
+## Metadata
+
+| Item | Value |
 | --- | --- |
-| 日期 | 2026-09-25 |
-| 执行环境 | Windows 11 x64；rustc 1.98.0；Node v24.21.0；WSL2 Ubuntu rustc 1.98.1 |
-| 代码 revision | 未提交工作树（M3 文档级批次之后） |
+| Date | 2026-09-25 |
+| Environment | Windows 11 x64; rustc 1.98.0; Node v24.21.0; WSL2 Ubuntu rustc 1.98.1 |
+| Code revision | Uncommitted working tree, after the M3 documentation-based batch |
 
-## 命令与结果
+<a id="命令与结果"></a>
 
-| # | 命令（cwd） | 退出码 | 结果摘要 |
+## Commands and results
+
+| # | Command (cwd) | Exit code | Result |
 | --- | --- | --- | --- |
-| 1 | `npm run build:desktop`（仓库根） | 0 | release 构建 + NSIS 打包成功 |
-| 2 | WSL `cargo check -p llm-usage-core / -p llm-usage-m0` | 0 | core 与 app 在 Linux 编译通过 |
-| 3 | WSL `cargo test -p llm-usage-core` | 0 | 全绿（Linux 侧） |
+| 1 | `npm run build:desktop` (repository root) | 0 | Release build and NSIS packaging succeeded |
+| 2 | WSL `cargo check -p llm-usage-core / -p llm-usage-m0` | 0 | Core and application compiled on Linux |
+| 3 | WSL `cargo test -p llm-usage-core` | 0 | Linux tests passed |
 
-## 包体实测（对照 architecture.md 资源目标）
+<a id="包体实测对照-architecturemd-资源目标"></a>
 
-| 项目 | 实测 | 目标 |
+## Package measurements (architecture.md resource targets)
+
+| Item | Measured | Target |
 | --- | --- | --- |
-| NSIS 安装包 | 首测 2,343,869 B ≈ 2.24 MiB；改名重建 LLMUsage_0.1.0_x64-setup.exe（同量级） | ≤ 20 MiB ✓ |
-| 主程序二进制 | 5,808,128 B ≈ 5.54 MiB | 安装目录 ≤ 60 MiB（组件分项待测） |
-| 前端 gzip | 220.32 kB | ≤ 1 MiB ✓ |
+| NSIS installer | Initial 2,343,869 B ≈2.24 MiB; renamed/rebuilt LLMUsage_0.1.0_x64-setup.exe had comparable size | ≤20 MiB ✓ |
+| Main executable | 5,808,128 B ≈5.54 MiB | Installed directory ≤60 MiB; component measurements pending |
+| Frontend gzip | 220.32 kB | ≤1 MiB ✓ |
 
-说明：M0 报告的空壳试验包体已被包含 17 适配器/查询/调度/导出/i18n 的
-当前实现取代；WebView2 Evergreen 复用前提下的安装包增量达标。
-应用已按用户要求改名：二进制与安装包 LLMUsage（2026-09-26 起，
-旧 llm-usage-m0 制品已删除）。
-空闲内存（≤180 MiB）与首屏/查询分位数（V20）未测，留 M7 正式验收。
+The M0 shell package was superseded by the implementation containing 17 adapters,
+queries, scheduling, export and i18n. Installer growth meets the target when reusing
+WebView2 Evergreen. Per user request, executable and installer were renamed LLMUsage
+from 2026-09-26; old llm-usage-m0 artifacts were deleted. Idle memory (≤180 MiB) and
+first-screen/query percentiles (V20) were not measured and remained for formal M7 acceptance.
 
-## 未完成项（M7 剩余）
+<a id="未完成项m7-剩余"></a>
 
-真实安装/升级/卸载与重启恢复（V19）、全进程资源（V21）、离线运行、
-Windows 系统任务对账（V24）、三平台 CI 制品（V26，待推送后首次运行登记）、
-WSL 编译已证/打包与 WSLg 未做（V27）、支持矩阵与 README 同步。
+## Unfinished M7 items at this stage
+
+Actual installation/upgrade/uninstall and restart recovery (V19), all-process resources
+(V21), offline operation, Windows system-task comparison (V24), three-platform CI
+artifacts (V26; first run to be recorded after pushing), WSL packaging/WSLg (V27;
+compilation already verified), and support-matrix/README synchronization.

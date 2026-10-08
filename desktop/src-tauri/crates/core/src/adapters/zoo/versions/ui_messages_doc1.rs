@@ -1,39 +1,39 @@
-//! Zoo ui_messages.json 格式实现（`ui_messages_doc1`，文档级
-//! zoo-ui-messages-doc-1）。
+//! Zoo ui_messages.json parser: ui_messages_doc1,
+//! format zoo-ui-messages-doc-1.
 //!
-//! 格式依据（固定源码 f7806475331fcae5f4e8b5558d04415eeb5da88c，A19，
-//! 按文档或源码实现，待真实样本核验；本机 not_found）：
-//! - 路径：宿主 globalStorage 下 `tasks/<taskId>/ui_messages.json`
-//!   （src/shared/globalFileNames.ts uiMessages；packages/core/src/
-//!   task-persistence/taskMessages.ts：整文件 JSON **数组**，非 JSONL，
-//!   消息删除/合并时整写重写）；VS Code 扩展身份
-//!   ZooCodeOrganization.zoo-code（src/package.json publisher/name），
-//!   CLI 缺省 `~/.vscode-mock/global-storage`（apps/cli task-history +
-//!   vscode-shim paths）。
-//! - usage 载体（consolidateTokenUsage.ts + consolidateApiRequests.ts）：
-//!   `type=="say"` 且 `say ∈ {api_req_started, condense_context}`；
-//!   api_req_started 的 `text` 为 JSON 字符串（tokensIn/tokensOut/
-//!   cacheWrites/cacheReads/cost 逐字段可选 + apiProtocol ∈
-//!   {anthropic, openai}），cost 仅在 consolidateApiRequests 把对应
-//!   api_req_finished 的 text 合并进来后在场（LIFO 配对：finished 弹出最近
-//!   未合并的 started，`{...startData, ...finishData}` finish 覆盖；无配对
-//!   的 finished 被丢弃）；**tokensIn 存总输入（含缓存）**（两协议规则相同，
-//!   固定源码注释），contextTokens = tokensIn + tokensOut 是上游自算的
-//!   per-request 总量算术。
-//! - condense_context：`contextCondense.cost` 计入上游 totalCost（固定源码）；
-//!   无 token 字段（contextTokens 换用 newContextTokens 属上下文规模，
-//!   不是用量）⇒ 按辅助调用入账（有 cost 映射 cost，token 全未知）。
-//! - `ts` 是消息中唯一已确认的身份字段（epoch 毫秒数字）；数组下标会因删除
-//!   移位，不进身份。
+//! Historical reference: f7806475331fcae5f4e8b5558d04415eeb5da88c (A19).
+//! Native 3.86.0 checks use 6aa9d017; legacy finished/condense scenario limits remain separate.
+//! - Path: host globalStorage/tasks/<taskId>/ui_messages.json.
+//!   src/shared/globalFileNames.ts and packages/core/src/task-persistence/taskMessages.ts
+//!   write a whole JSON array rather than JSONL, including after deletion/merging.
+//!   VS Code extension identity is ZooCodeOrganization.zoo-code
+//!   from src/package.json publisher/name.
+//!   Source CLI default: ~/.vscode-mock/global-storage from apps/cli task-history
+//!   and vscode-shim paths; native CLI acceptance is separate.
+//! - Usage records follow consolidateTokenUsage.ts/consolidateApiRequests.ts:
+//!   type=say with api_req_started or condense_context.
+//!   api_req_started.text is JSON containing optional input/output/cache-write/
+//!   cache-read/cost and apiProtocol anthropic/openai.
+//!   The historical finished path merges later usage/cost back into started.
+//!   LIFO pairing pops the latest unmatched start; finish fields override start
+//!   through {...startData,...finishData}. Discard unmatched finished entries.
+//!   tokensIn includes cache under both protocol rules.
+//!   Upstream contextTokens=input+output is calculated request usage;
+//!   it does not establish a separately reported native total.
+//! - condense_context.contextCondense.cost contributes to upstream totalCost.
+//!   newContextTokens measures context size, without request token usage.
+//!   Record a separate auxiliary call with unknown tokens and any positive estimated cost.
+//! - Millisecond ts is the documented message identity field;
+//!   array positions change after deletion and are excluded from identity.
 //!
-//! 3.86.0 官方 VSIX 与固定提交 6aa9d017 的真实样本已核对。
-//! 完整 ask/say 枚举按 packages/types/src/message.ts；非用量消息跳过，
-//! 未知类型仍整文件拒绝、不推进游标。四桶/费用默认零保持未知。
+//! Official 3.86.0 VSIX and source 6aa9d017 have checked native samples.
+//! Read full ask/say enums from packages/types/src/message.ts; skip non-usage records.
+//! Unknown types reject the file without advancing its cursor; default-zero usage/cost stays unknown.
 //!
-//! 增量语义（整写 JSON）：全量有界读取（32 MiB 初值）；游标存已消费字节数
-//! 复用框架无变化短路；改写/截断走 generation 重扫，事件按稳定身份 upsert
-//! 幂等；半程写入（parse 失败）不推进游标，下轮确定性重试。消息删除流程
-//! 未在固定源码文档化：已入账事件保持，待真实样本核验（无墓碑推导）。
+//! Read whole JSON within 32 MiB, storing consumed bytes for unchanged-file checks.
+//! Rewrites/truncation change generation; stable keys prevent duplicate imports.
+//! Partial JSON leaves the cursor unchanged for retry. Removed messages do not
+//! create inferred deletion records; preserve old events until deletion semantics are checked.
 
 use crate::adapters::framework::{
     ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -51,11 +51,11 @@ use super::super::common::{map_zoo_cost, map_zoo_usage, ZooUsage};
 use super::ZOO_FORMAT_VERSION;
 
 pub const ZOO_PARSER_VERSION: &str = "zoo-ui-messages-doc2";
-/// 单文件有界读取上限（初值 32 MiB）。
+/// Whole-file read limit, initially 32 MiB.
 pub const ZOO_MAX_FILE_BYTES: u64 = 32 * 1024 * 1024;
 const MAX_REASONABLE_TOKEN: i64 = crate::domain::MAX_TOKEN_VALUE;
 
-/// 3.86.0 固定源码完整枚举；Zoo 的 task 不能由 Roo 枚举替代。
+/// Complete 3.86.0 enumeration; Roo's enum cannot substitute for Zoo's.
 const DOCUMENTED_SAY_KINDS: &[&str] = &[
     "error",
     "api_req_started",
@@ -100,7 +100,7 @@ const DOCUMENTED_ASK_KINDS: &[&str] = &[
     "use_mcp_server",
     "auto_approval_max_req_reached",
 ];
-/// text JSON 的已文档化键（@example 的 request + ParsedApiReqStartedTextType 全键）。
+/// Documented text JSON keys from request examples and ParsedApiReqStartedTextType.
 const DOCUMENTED_TEXT_KEYS: &[&str] = &[
     "request",
     "tokensIn",
@@ -113,8 +113,8 @@ const DOCUMENTED_TEXT_KEYS: &[&str] = &[
     "streamingFailedMessage",
 ];
 
-/// 持久化解析上下文：一次性诊断标志（重扫时重置）+ 版本选择依据。
-/// Zoo 无 cline 的 deleted_api_reqs 文档化删除流程：不维护墓碑差分基。
+/// Persist once-per-file diagnostics and format selection; reset diagnostic flags on rescan.
+/// No verified Zoo deleted_api_reqs removal flow establishes a deletion comparison baseline.
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 struct ZooParseContext {
     #[serde(default)]
@@ -125,14 +125,14 @@ struct ZooParseContext {
     unpaired_finished_reported: bool,
     #[serde(default)]
     unmapped_keys_reported: bool,
-    /// 版本选择依据（known_version / latest_fallback）；zoo 固定为
-    /// KnownVersion（文档级锚点）。
+    /// Format selection is fixed to the documented KnownVersion entry;
+    /// it does not identify every record's native client release.
     #[serde(default)]
     version_basis: Option<VersionBasis>,
 }
 
-/// 整写 JSON 游标：offset=已消费字节数，line_number 恒 1；
-/// 无变化短路依赖 probe.len == cursor.offset。
+/// Whole-file cursor stores consumed bytes with line_number=1.
+/// The unchanged-file shortcut compares probe.len with cursor.offset.
 #[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 struct WholeFileCursor {
     generation: i64,
@@ -140,7 +140,7 @@ struct WholeFileCursor {
     line_number: u64,
 }
 
-/// restore：一次性标志在重扫时重置（重读重新报告）。
+/// Reset once-per-file diagnostic flags when rescanning so new reads can report them.
 fn restore_context(stored: &StoredScanState, rescan: bool) -> ZooParseContext {
     let mut ctx = stored
         .parse_context
@@ -166,7 +166,7 @@ fn diag(code: &str, field: Option<&str>, position: &str, message: &str) -> Diagn
     }
 }
 
-/// 任务目录名（tasks/<taskId>）作为会话身份。
+/// Task directory name tasks/<taskId> supplies session identity.
 fn task_id_of(path: &Path) -> String {
     path.parent()
         .and_then(|p| p.file_name())
@@ -175,9 +175,9 @@ fn task_id_of(path: &Path) -> String {
         .to_string()
 }
 
-/// 解析 text JSON 的 usage 四可选字段（i64 非负有界）与 cost。
-/// 返回 None 表示 text 不是 JSON 对象或数值违例（记 shape 诊断跳过）。
-/// 未文档化额外键返回 true。
+/// Parse four optional nonnegative, bounded i64 token fields and separate cost.
+/// Nonobject text/invalid token values return None and produce a shape diagnostic.
+/// Flag extra undocumented keys separately.
 fn parse_usage_text(
     text: &str,
     position: &str,
@@ -224,7 +224,7 @@ fn parse_usage_text(
     Some((usage, cost, unknown))
 }
 
-/// 消息的 ts（epoch 毫秒）：缺失/非整数/越域返回 None（调用方跳过记诊断）。
+/// Read epoch-millisecond ts; missing, noninteger, or out-of-range values are diagnosed and skipped.
 fn message_ts(message: &serde_json::Map<String, serde_json::Value>) -> Option<i64> {
     let ts = message.get("ts")?.as_i64()?;
     (crate::domain::MIN_PLAUSIBLE_MS..=4_102_444_800_000)
@@ -232,7 +232,7 @@ fn message_ts(message: &serde_json::Map<String, serde_json::Value>) -> Option<i6
         .then_some(ts)
 }
 
-/// 合并后的请求载体（api_req_started + 可选配对的 api_req_finished text）。
+/// Started request optionally merged with paired finished text.
 struct ConsolidatedRequest {
     text: Option<String>,
     ts: Option<i64>,
@@ -266,8 +266,8 @@ fn build_event(
         occurred_at_ms: ts,
         observed_at_ms: Some(now_ms),
         source_time: Some(ts.to_string()),
-        // api_req_started 的 ts 是请求起点（cost 由 finished 合并写回）；
-        // condense_context 的 ts 是消息写入时刻，非调用起讫。
+        // Started ts identifies request start; finished may merge later cost into its record.
+        // Condense ts identifies message writing, without identifying call start/completion.
         time_basis: if say == "condense_context" {
             TimeBasis::Uncertain
         } else {
@@ -292,7 +292,7 @@ fn build_event(
     }
 }
 
-/// 增量扫描一个任务 ui_messages.json（统一入口 `ZooAdapter::scan` 分派）。
+/// Scan one task's ui_messages.json, dispatched by ZooAdapter::scan.
 pub fn scan(
     target: &ScanTarget,
     stored: &StoredScanState,
@@ -300,7 +300,7 @@ pub fn scan(
     now_ms: i64,
 ) -> Result<ScanOutcome, CoreError> {
     let mut context = restore_context(stored, target.rescan);
-    // 无版本字段可读：格式锚点是文档级 zoo-ui-messages-doc-1，固定 KnownVersion。
+    // No record version is available; KnownVersion refers to the documented format.
     context.version_basis = Some(VersionBasis::KnownVersion);
     let task_id = task_id_of(&target.path);
     let mut events: Vec<EventInput> = Vec::new();
@@ -312,7 +312,7 @@ pub fn scan(
             line_number: 1,
         })?)
     };
-    // 超限：受限，游标停在起点，受控重试（不静默丢弃）。
+    // Oversized files remain limited with their cursor unchanged for retry.
     if target.probe.len > ZOO_MAX_FILE_BYTES {
         diagnostics.push(diag(
             "file_exceeds_size_cap",
@@ -358,7 +358,7 @@ pub fn scan(
         });
     }
     let consumed = bytes.len() as u64;
-    // 半程写入：parse 失败不推进游标，下轮确定性重试（暂态，非降级）。
+    // Partial JSON leaves the cursor unchanged; retry on the next scan.
     let document: serde_json::Value =
         match crate::adapters::run_policy::json_from_slice(super::super::strip_bom(&bytes)) {
             Ok(v) => v,
@@ -404,9 +404,9 @@ pub fn scan(
         });
     };
 
-    // ---- 第一遍：consolidateApiRequests 配对（固定源码 LIFO 算法）----
-    // started 进结果集并入栈；finished 弹出最近未合并的 started 合并 text
-    // （{...startData, ...finishData}，finish 覆盖）；无配对的 finished 丢弃。
+    // First pass: upstream LIFO request pairing.
+    // Push started into results and the open stack; finished pops the latest start
+    // and overrides matching text fields. Discard unmatched finished records.
     let mut requests: Vec<ConsolidatedRequest> = Vec::new();
     let mut condenses: Vec<(Option<i64>, Option<f64>)> = Vec::new();
     let mut open_started: Vec<usize> = Vec::new();
@@ -514,7 +514,7 @@ pub fn scan(
                         started.text = Some(serde_json::to_string(&merged)?);
                     }
                     None => {
-                        // 固定源码：无配对的 finished 不进合并结果 ⇒ 不产事件。
+                        // Unmatched finished records produce no usage event, matching the fixed source.
                         if !context.unpaired_finished_reported {
                             context.unpaired_finished_reported = true;
                             diagnostics.push(diag(
@@ -528,7 +528,7 @@ pub fn scan(
                 }
             }
             "condense_context" => {
-                // 固定源码：contextCondense.cost 计入 totalCost；无 token 字段。
+                // contextCondense.cost contributes to cost, without token fields.
                 let cost = message_obj
                     .get("contextCondense")
                     .and_then(|c| c.get("cost"))
@@ -536,15 +536,15 @@ pub fn scan(
                     .filter(|c| c.is_finite() && *c >= 0.0);
                 condenses.push((message_ts(message_obj), cost));
             }
-            _ => {} // 已验证的普通消息、请求删除备忘、子任务摘要不重复计用量。
+            _ => {} // Known ordinary messages, removed-request memos, and subtask summaries add no usage.
         }
     }
 
-    // ---- 第二遍：consolidateTokenUsage 计账语义 ----
+    // Second pass: upstream consolidated token-usage rules.
     for request in &requests {
         crate::adapters::run_policy::check()?;
         let Some(text) = request.text.as_deref() else {
-            // usage 载体无 text：上游短路不读；未记录用量，不产事件。
+            // Usage records without text report no usable usage and produce no event.
             continue;
         };
         let position = format!("{}:api_req_started", task_id);
@@ -577,8 +577,8 @@ pub fn scan(
             continue;
         };
         if usage.is_empty() {
-            // 未配对 finished 的 started：载体无 usage 数字 ⇒ 未记录 token
-            // 不产事件（一次性诊断；cost 单独无 token 不入账，保持同源）。
+            // A started record without token values, including an unmatched incomplete request,
+            // produces one diagnostic and no event; cost alone does not add request usage.
             if !context.without_numbers_reported {
                 context.without_numbers_reported = true;
                 diagnostics.push(diag(
@@ -614,8 +614,8 @@ pub fn scan(
             ));
             continue;
         };
-        // condense（上下文压缩摘要）表明发生过一次辅助调用：计调用、token 全
-        // 未知（固定源码只有 cost 贡献），cost 有则映射（estimated）。
+        // Condense identifies an auxiliary call with unknown tokens;
+        // map positive cost as an estimate when available.
         events.push(build_event(
             target,
             &task_id,

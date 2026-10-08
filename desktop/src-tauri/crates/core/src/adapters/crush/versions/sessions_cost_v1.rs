@@ -1,23 +1,23 @@
-//! Crush crush.db 格式实现（`sessions_cost_v1`，crush-sessions-cost-1）。
+//! Crush crush.db implementation (`sessions_cost_v1`, crush-sessions-cost-1).
 //!
-//! 格式依据（charmbracelet/crush 固定源码
-//! 1f3827bcd2d20f38076b2d46123683271e6ed9ba 及 v0.97.1；真实 API/CLI/SQLite
-//! 核对主循环+自动标题 cost=0.005059（明确人工测试费率），上下文快照 4901
-//! 不代替 API 合计 5063；其他场景/版本未认证）：
-//! - 每项目一库 `<data_dir>/crush.db`（WAL）；sessions 表
+//! References: charmbracelet/crush source commit
+//! 1f3827bcd2d20f38076b2d46123683271e6ed9ba and v0.97.1; real API/CLI/SQLite checks
+//! matched main-loop plus automatic-title cost=0.005059 using explicit test rates.
+//! Context snapshot 4901 does not replace API total 5063; other scenarios/versions remain unverified.
+//! - Each project has a WAL database `<data_dir>/crush.db`; sessions columns include
 //!   id/parent_session_id/title/message_count/prompt_tokens/completion_tokens/
-//!   cost/updated_at/created_at（Unix 秒）。
-//! - **token 列不是用量**（官方 agent.go:2060-2086：最近 step 上下文规模快照，
-//!   SET 覆盖、摘要后重置、标题请求会额外加一次）⇒ 一律不采
-//!   （求和即虚增；官方 stats.sql 的 SUM 是上游的近似计算方式，不沿用）。
-//! - **cost 是累计**（agent.go:2065），子会话结束回卷父行
-//!   （coordinator.go:1742-1758）⇒ 只取 parent_session_id IS NULL 根行
-//!   防双计（官方统计查询规则相同）。
-//! - 交付形态：每根会话一条 UsageObservation 事件（cost-only；token 全
-//!   Unknown）。cost 由模型费率自算（含 OpenRouter 覆盖价、FlatRate=0、
-//!   估算 usage 时 0）⇒ CostKind::Estimated（micro-USD）。
-//! - 增量：整表读（≤50k 行），事件键 crush:&lt;db 指纹&gt;:&lt;session id&gt;，
-//!   内容哈希幂等（cost 增长时按请求更新语义推进）。
+//!   cost/updated_at/created_at (Unix seconds).
+//! - Token columns are context-size snapshots, not usage (agent.go:2060-2086):
+//!   SET overwrites them, summarization resets them and title requests add another contribution.
+//!   Summing would overcount; the upstream stats.sql approximation is not imported.
+//! - Cost is cumulative (agent.go:2065); finished child sessions roll into their parent
+//!   (coordinator.go:1742-1758). Read only parent_session_id IS NULL root rows
+//!   to avoid duplicate cost, as in the upstream statistics query.
+//! - Each root becomes one cost-only UsageObservation with all token fields unknown.
+//!   Model-rate calculations include OpenRouter overrides, FlatRate=0 and zero for
+//!   estimated usage; positive values use CostKind::Estimated in micro-USD.
+//! - Paginate ordered session ids with up to 50,001 rows per round; EOF resets the cursor.
+//!   Key crush:session:&lt;session id&gt; is scoped by source instance; hashes deduplicate, updated_at orders changes.
 
 use crate::adapters::crush::common::{open_source_db, short_probe, StagingLimits};
 use crate::adapters::framework::{
@@ -62,7 +62,7 @@ fn seconds_to_ms(secs: i64) -> Option<i64> {
 }
 
 fn usd_cost(amount: f64) -> Option<CostAmount> {
-    // 零 cost（列默认 0.0 / FlatRate 模型）无信息量：不产观测事件。
+    // Default 0.0/FlatRate cost does not establish reported zero; emit no observation.
     if !amount.is_finite() || amount <= 0.0 {
         return None;
     }
@@ -97,7 +97,7 @@ pub fn scan(
             .map(|c| c.last_session_id)
             .unwrap_or_default()
     };
-    // 多取一行判定是否还有更多（恰好 MAX 行不误报 BudgetExhausted）。
+    // Read one extra row to distinguish exactly MAX rows from a remaining page (BudgetExhausted).
     let mut stmt = db.conn().prepare(
         "SELECT id, title, cost, created_at, updated_at
          FROM sessions WHERE parent_session_id IS NULL AND id > ?1
@@ -118,7 +118,7 @@ pub fn scan(
     let mut last_session_id = after_id;
     for row in rows {
         crate::adapters::run_policy::check()?;
-        // 行级容错：单行类型错误不中止整轮（SQLite 动态类型）。
+        // Diagnose and skip individual SQLite column-type errors while continuing the round.
         let (session_id, _title, cost, created_at, updated_at) = match row {
             Ok(r) => r,
             Err(e) => {
@@ -148,7 +148,7 @@ pub fn scan(
         events.push(EventInput {
             source_instance_id: target.instance_id.clone(),
             source_record_key: format!("crush:session:{session_id}"),
-            // cost-only 观测：不是一次模型调用，token 全 Unknown（快照列不采）。
+            // Cost-only observation is not a model call; context-snapshot token columns remain unknown.
             record_kind: RecordKind::UsageObservation,
             schema_version: CRUSH_FORMAT_VERSION.to_string(),
             parser_version: CRUSH_PARSER_VERSION.to_string(),
@@ -173,8 +173,8 @@ pub fn scan(
             usage: crate::domain::TokenUsage::default(),
             quality: crate::domain::TokenQuality::default(),
             lifecycle: Lifecycle::Final,
-            // cost 是根会话的累计快照；updated_at 为同一 session 的
-            // 修订次序，否则第二次扫描的增长会与旧 Final 事件冲突。
+            // Root-session cost is cumulative; valid updated_at milliseconds order revisions.
+            // Without that order, changed content may conflict with the previous Final event.
             source_revision: end_ms,
             error_status: None,
             duration_ms: None,

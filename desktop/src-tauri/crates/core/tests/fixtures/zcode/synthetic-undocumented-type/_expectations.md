@@ -1,6 +1,8 @@
-# synthetic-undocumented-type 期望（全合成）
+# synthetic-undocumented-type expectations (synthetic)
 
-缺口：首条 model_io 正常（探测通过），第二条 type=other_event ⇒ 扫描层 fail
-  closed：事件清空、游标不推进、下轮确定性再拒。
+<a id="synthetic-undocumented-type-期望全合成"></a>
 
-详见 tests/zcode_gaps_synthetic.rs 头部人工核算注释。
+The first model_io record passes detection, but the second has type=other_event. Scanning rejects
+the file, clears events, retains the cursor, and rejects again on the next scan.
+
+See the manually calculated expectations in the header of tests/zcode_gaps_synthetic.rs.

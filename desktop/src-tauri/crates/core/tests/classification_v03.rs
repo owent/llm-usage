@@ -1,5 +1,5 @@
-//! V03：调用/尝试/消息/累计值分类。失败无 usage 计调用不计 token；
-//! 未知 token 不补零；未观测到调用时不产生 request 数。
+//! V03 call/attempt/message/cumulative categories; failed calls without usage count calls, not tokens.
+//! Missing tokens stay unknown; unobserved calls do not create request counts.
 
 mod common;
 
@@ -30,12 +30,12 @@ fn summarize(storage: &llm_usage_core::storage::Storage) -> llm_usage_core::quer
 fn v03_call_attempt_observation_classified_separately() {
     let (_dir, storage) = temp_storage("v03class");
     let base = ts("2026-09-24T10:00:00Z");
-    // 成功调用，有 usage。
+    // Successful call with usage.
     let call = with_tokens(evt("inst", "call-1", base), 100, 50);
-    // transport retry：独立计数，不增加 model_call。
+    // Transport retry is counted separately and does not increase model_call.
     let mut attempt = evt("inst", "attempt-1", base + 1);
     attempt.record_kind = RecordKind::TransportAttempt;
-    // 一条 usage_observation：计入用量，不计入调用数。
+    // usage_observation contributes usage, not calls.
     let mut observation = with_tokens(evt("inst", "obs-1", base + 2), 200, 100);
     observation.record_kind = RecordKind::UsageObservation;
     commit_batch(
@@ -51,7 +51,7 @@ fn v03_call_attempt_observation_classified_separately() {
     assert_eq!(sums.attempt_count, 1);
     assert_eq!(sums.observation_count, 1);
     assert_eq!(sums.event_count, 3);
-    // token 合计 = call 100+50 与 observation 200+100；attempt 无 token 贡献。
+    // Tokens: call 100+50 plus observation 200+100; attempt contributes none.
     assert_eq!(sums.input_total_known, Some(300));
     assert_eq!(sums.output_total_known, Some(150));
 }
@@ -62,7 +62,7 @@ fn v03_failed_call_without_usage_counts_call_not_tokens() {
     let base = ts("2026-09-24T10:00:00Z");
     let mut failed = evt("inst", "call-fail", base);
     failed.error_status = Some("http_500".into());
-    // usage 全部未知。
+    // All usage fields are unknown.
     commit_batch(
         &storage,
         &batch("inst", "UTC", base + 1, vec![failed]),
@@ -74,11 +74,11 @@ fn v03_failed_call_without_usage_counts_call_not_tokens() {
     let sums = &summary.periods[0].sums;
     assert_eq!(sums.call_count, 1);
     assert_eq!(sums.input_total_known, None);
-    // 无用量调用（quality_bucket=unknown）计入 call_count，但不算观测缺字段的未知字段。
+    // Unknown-quality usage-free calls increase call_count without adding unknown-field observations.
     assert_eq!(sums.input_unknown_count, 0);
     assert_eq!(sums.total_tokens_known, None);
 
-    // 质量分区为 unknown（无任何已知 token 字段）。
+    // Quality partition is unknown because no token field is known.
     let bucket: String = storage
         .conn()
         .query_row("SELECT quality_bucket FROM daily_usage LIMIT 1", [], |r| {

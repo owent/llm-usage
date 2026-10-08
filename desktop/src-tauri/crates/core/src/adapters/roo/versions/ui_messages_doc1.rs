@@ -1,45 +1,45 @@
-//! Roo Code ui_messages.json 格式实现（`ui_messages_doc1`，文档级
-//! roo-ui-messages-doc-1）。
+//! Roo Code ui_messages.json parser: ui_messages_doc1,
+//! documented format roo-ui-messages-doc-1.
 //!
-//! 格式依据（RooCodeInc/Roo-Code 固定源码 b867ec9145750d0ae1ff7f02d35406e9bf2a0b16，
-//! 官方源码核验；另有末版 v3.54.0/27001b2b 官方 VSIX 的真实 extension-host/API
-//! 默认与单调用对照，2026-10-06）：
-//! - 路径：VS Code globalStorage `RooVeterinaryInc.roo-cline/tasks/<taskId>/
-//!   ui_messages.json`（src/package.json publisher.name；storage.ts:53-57）；
-//!   CLI `~/.vscode-mock/global-storage/tasks/`（vscode-shim paths）；
-//!   `roo-code.customStoragePath` 可把任务移出 globalStorage（手工根覆盖）；
-//!   .vscode-server 远端变体按 VS Code 机制（源码未见显式处理）。
-//! - ui_messages 数组元素 = ClineMessage（packages/types/src/message.ts:249-279）：
-//!   `ts`（毫秒）、`type ∈ {ask, say}`、`say`/`ask`、`text`、`contextCondense`。
-//! - **api_req_started 的 text 为 JSON**（ClineApiReqInfo，vscode-extension-host.ts:
-//!   780-790）：`tokensIn/tokensOut/cacheWrites/cacheReads/cost` 逐字段可选 +
-//!   `request`/`cancelReason`/`streamingFailedMessage`/`apiProtocol`。
-//!   **tokensIn 恒为含缓存的总输入**（三处源码核对结果：Task.ts:2662
-//!   tokensIn=totalInputTokens；cost.ts:64-79/91-111 两协议注释；
-//!   consolidateTokenUsage.ts:81-92 "no longer need to add cache separately"）——
-//!   cacheReads/cacheWrites 是其子集，**不得再相加**（与 cline 适配器的
-//!   四桶互斥关系不同血统分歧，见 adapters.md）。
-//! - api_req_started/api_req_finished LIFO 配对（consolidateApiRequests.ts:50-85，
-//!   finish 覆盖同名字段）；当前版本后端不再写 finished（Task.ts:2615-2621，
-//!   legacy）。**api_req_deleted**（checkpoint 恢复时写入，checkpoints/index.ts:
-//!   234-289）与旧 Cline **deleted_api_reqs** 是已扣除量备忘：**不计入**
-//!   （consolidateTokenUsage 不统计，上游计算时自动扣除）。
-//! - condense_context：`contextCondense.cost` 是压缩摘要独立调用的总成本
-//!   （condense/index.ts:215），不走请求循环 ⇒ 按辅助调用入账（token 未知）；
-//!   sliding_window_truncation 只有 token 计数无 cost，不入账。
-//! - subtask：子任务独立目录独立计费，父任务 subtask_result 只是文本摘要；
-//!   按任务去重不双计。
-//! - 完整 say/ask 集合已在固定源码枚举（message.ts:27-40/144-172）：
-//!   未列出的记录类型 fail closed（V17）。
+//! Source: RooCodeInc/Roo-Code b867ec9145750d0ae1ff7f02d35406e9bf2a0b16.
+//! Official v3.54.0/27001b2b VSIX also has real extension-host/API default and
+//! single-call comparisons recorded 2026-10-06; CLI acceptance is separate.
+//! - VS Code globalStorage: RooVeterinaryInc.roo-cline/tasks/<taskId>/ui_messages.json
+//!   from package publisher/name and storage.ts:53-57.
+//!   Source also defines CLI ~/.vscode-mock/global-storage/tasks/; it was not accepted natively here.
+//!   roo-code.customStoragePath requires a manual root when outside globalStorage.
+//!   No explicit remote .vscode-server handling was identified in the referenced source.
+//! - ClineMessage array (packages/types/src/message.ts:249-279): millisecond ts,
+//!   ask/say type and kind, text, and contextCondense.
+//! - api_req_started.text is ClineApiReqInfo JSON (vscode-extension-host.ts:780-790):
+//!   optional tokensIn/tokensOut/cacheWrites/cacheReads/cost plus
+//!   request/cancelReason/streamingFailedMessage/apiProtocol.
+//!   tokensIn includes cache, per Task.ts:2662 totalInputTokens,
+//!   both protocol comments in cost.ts:64-79/91-111, and
+//!   consolidateTokenUsage.ts:81-92.
+//!   Cache reads/writes are subsets, so do not add them again.
+//!   Read Cline SDK and legacy UI semantics independently in adapters.md.
+//! - Pair started/finished in LIFO order (consolidateApiRequests.ts:50-85).
+//!   finished overrides matching fields; current Task.ts:2615-2621 no longer writes it.
+//!   api_req_deleted (checkpoint restore, checkpoints/index.ts:234-289) and
+//!   older deleted_api_reqs are memos for already removed usage.
+//!   consolidateTokenUsage excludes them; the adapter also excludes them.
+//! - condense_context.contextCondense.cost reports a separate summary-call estimate
+//!   (condense/index.ts:215), mapped as auxiliary with unknown tokens.
+//!   sliding_window_truncation reports context size without cost; do not count it.
+//! - Subtasks have their own directories; parent subtask_result only contains a summary.
+//!   Stable task identities prevent counting the same task twice.
+//! - Fixed source enumerates complete ask/say sets (message.ts:27-40/144-172).
+//!   Reject unlisted record kinds (V17).
 //!
-//! 四桶先初始化零；OpenAI-compatible 忽略 prompt_tokens_details.cached_tokens。
-//! 因此零桶未知，只有正缓存子集均已知才推导未缓存；默认零费用亦未知。
-//! 取消可能删除最后占位，默认实测 API 三次、原生两次，不补缺失调用。
-//! 映射：input_total=tokensIn（含缓存）、cache 子集并列、input_uncached=
-//! tokensIn−cacheWrites−cacheReads（派生，sub_checked 防负）、output=tokensOut、
-//! total=tokensIn+tokensOut（派生）；cost=扩展自算（estimated micro-USD）。
-//! 增量：整写 JSON 32 MiB 上限，字节游标 + generation 重扫，事件键
-//! {taskId}:{say}:{ts} upsert 幂等。
+//! Four buckets initialize to zero; OpenAI-compatible code ignores nested cached_tokens.
+//! Default zeros remain unknown; derive uncached input only from known positive cache subsets.
+//! Cancellation can delete the last placeholder: the default test has three API calls but two native records.
+//! Map tokensIn as total input and cache fields as subsets; derive uncached input only
+//! when all required buckets are known, with checked subtraction.
+//! Derive complete total from known input/output; positive client cost is estimated micro-USD.
+//! Whole JSON reads are limited to 32 MiB; fingerprint generation changes trigger rereads.
+//! Stable keys include task, kind, timestamp, and same-timestamp sequence.
 
 use crate::adapters::framework::{
     ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -59,9 +59,9 @@ pub const ROO_PARSER_VERSION: &str = "roo-ui-messages-doc2";
 pub const ROO_MAX_FILE_BYTES: u64 = 32 * 1024 * 1024;
 const MAX_REASONABLE_TOKEN: i64 = crate::domain::MAX_TOKEN_VALUE;
 
-/// 固定源码完整枚举的 type 集合。
+/// Complete type enumeration from the fixed source.
 const DOCUMENTED_TYPES: &[&str] = &["ask", "say"];
-/// 固定源码完整枚举的 say 集合（message.ts:144-172）。
+/// Complete say enumeration from message.ts:144-172.
 const DOCUMENTED_SAY_KINDS: &[&str] = &[
     "error",
     "api_req_started",
@@ -92,7 +92,7 @@ const DOCUMENTED_SAY_KINDS: &[&str] = &[
     "too_many_tools_warning",
     "tool",
 ];
-/// 固定源码完整枚举的 ask 集合（message.ts:27-40）。
+/// Complete ask enumeration from message.ts:27-40.
 const DOCUMENTED_ASK_KINDS: &[&str] = &[
     "followup",
     "command",
@@ -106,9 +106,9 @@ const DOCUMENTED_ASK_KINDS: &[&str] = &[
     "use_mcp_server",
     "auto_approval_max_req_reached",
 ];
-/// 已扣除量备忘（不计入）：Roo api_req_deleted + 旧 Cline deleted_api_reqs。
+/// Already-removed usage memos: api_req_deleted and older deleted_api_reqs.
 const MEMO_KINDS: &[&str] = &["api_req_deleted", "deleted_api_reqs"];
-/// api_req_started text JSON 的已文档化键。
+/// Documented keys in api_req_started text JSON.
 const DOCUMENTED_TEXT_KEYS: &[&str] = &[
     "request",
     "tokensIn",
@@ -183,7 +183,7 @@ fn usd_cost(value: Option<f64>) -> Option<CostAmount> {
     Some(CostAmount {
         amount_minor: micros.round() as i64,
         currency: "USD".to_string(),
-        // 扩展按费率自算（cost.ts）：参考估算，非账单。
+        // Client rate estimate from cost.ts rather than a supplier bill.
         kind: CostKind::Estimated,
         price_version: None,
         billing_scope: None,
@@ -196,8 +196,8 @@ fn build_event(
     task_id: &str,
     say: &str,
     ts: i64,
-    // 同任务同毫秒可有多条同类事件（retry/子任务并行）：键含序号防 upsert 吞并。
-    // 整文件重扫序号确定，跨轮稳定（幂等）。
+    // Multiple same-kind records can share a task timestamp; sequence prevents key collisions.
+    // Whole-file rereads produce the same sequence and stable identities.
     seq: usize,
     category: CallCategory,
     mapped: crate::adapters::usage_map::MappedUsage,
@@ -245,8 +245,8 @@ fn build_event(
     }
 }
 
-/// 解析 api_req_started text JSON：tokensIn（含缓存总输入）+ 子集桶 + cost。
-/// 四桶（tokensIn/tokensOut/cacheWrites/cacheReads，缺省=未知）。
+/// Parse total tokensIn, cache subsets, output, and cost from request text JSON.
+/// Four optional buckets; missing/default-zero values remain unknown.
 type RooUsageBuckets = (Option<i64>, Option<i64>, Option<i64>, Option<i64>);
 
 fn parse_usage_text(
@@ -293,7 +293,7 @@ fn parse_usage_text(
     ))
 }
 
-/// Roo 字段语义：tokensIn 含缓存 ⇒ input_uncached = tokensIn − writes − reads（派生）。
+/// tokensIn includes cache; derive uncached=input-writes-reads only with known buckets.
 fn map_roo_usage(
     tokens_in: Option<i64>,
     tokens_out: Option<i64>,
@@ -451,8 +451,8 @@ pub fn scan(
         });
     };
 
-    // LIFO 配对（consolidateApiRequests 同款）：started 入栈；finished 弹出
-    // 最近 started 合并 text（finish 覆盖）。
+    // LIFO pairing: push started and pop the most recent one on finished;
+    // merge text fields with finished values taking precedence.
     struct Started {
         text: Option<String>,
         ts: Option<i64>,
@@ -510,7 +510,7 @@ pub fn scan(
             "say" => DOCUMENTED_SAY_KINDS.contains(&kind),
             _ => DOCUMENTED_ASK_KINDS.contains(&kind),
         };
-        // 旧 Cline 血统的 deleted_api_reqs 备忘也按备忘处理（不入账）。
+        // Treat older deleted_api_reqs as already-removed usage memos.
         if !documented && !MEMO_KINDS.contains(&kind) {
             return Ok(fail_closed(
                 &mut diagnostics,
@@ -519,7 +519,7 @@ pub fn scan(
             ));
         }
         if MEMO_KINDS.contains(&kind) {
-            // 已扣除量备忘：上游不统计，本适配器也按该规则排除。
+            // Upstream excludes these memos from totals; this adapter follows that exclusion.
             if !context.memo_reported {
                 context.memo_reported = true;
                 diagnostics.push(diag(
@@ -613,7 +613,7 @@ pub fn scan(
             && cache_writes.is_none()
             && cache_reads.is_none()
         {
-            // 占位/未完成请求：无 token 数字 ⇒ 不产事件（上游恢复时 splice 删除）。
+            // Placeholders without positive token usage produce no event; upstream may remove them on restore.
             if !context.without_numbers_reported {
                 context.without_numbers_reported = true;
                 diagnostics.push(diag(
@@ -654,7 +654,7 @@ pub fn scan(
             ));
             continue;
         };
-        // 压缩摘要独立调用：cost 有则映射（estimated），token 全未知。
+        // Separate summary call: map positive estimated cost with unknown tokens.
         events.push(build_event(
             target,
             &task_id,
@@ -704,7 +704,7 @@ mod tests {
     #[test]
     fn tokens_in_includes_cache() {
         let mapped = map_roo_usage(Some(100), Some(20), Some(10), Some(30));
-        // tokensIn=100 含缓存：uncached = 100-10-30 = 60。
+        // Total input 100 includes cache; uncached=100-10-30=60.
         assert_eq!(mapped.usage.input_total, Some(100));
         assert_eq!(mapped.usage.input_uncached, Some(60));
         assert_eq!(mapped.usage.total_tokens, Some(120));

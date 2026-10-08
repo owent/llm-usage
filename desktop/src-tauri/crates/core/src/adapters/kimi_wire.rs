@@ -1,36 +1,36 @@
-//! kimi wire JSONL 家族共享解析件（Kimi Code A12 / Kimi Work A13，M4）。
+//! Shared Kimi wire JSONL helpers for Kimi Code A12 and Kimi Work A13 (M4).
 //!
-//! 两产品是同一 wire 协议家族的不同产品身份（adapters.md「分家族复用的范围」：
-//! 数据根、实例身份和日志 revision 独立，不因内核同名合并）；本模块是类比
-//! jsonl.rs 的**根级家族共享件**，只放经两产品真实数据测试证明一致的辅助逻辑：
+//! The products share a wire protocol family but retain separate identities, as specified
+//! in adapters.md: separate data roots, instances, and log revisions. This root-level module,
+//! like jsonl.rs, shares only helper behavior checked against native data from both products.
 //!
-//! - metadata 首行探测（protocol_version 字符串锚点，1.5/1.4 均实测为字符串）；
-//! - usage.record 提取：camelCase 四字段 {inputOther, output, inputCacheRead,
-//!   inputCacheCreation} 互斥、无 total（m0-agent-fixtures.md 实读结论）；
-//! - epoch 毫秒时间：本机 82 个 wire.jsonl 实读全部为毫秒（1.78e12–1.79e12），
-//!   无秒级样本——超出合理毫秒域的值记诊断跳过，**不做 ×1000 猜测**；
-//! - `event.usage` 回声去重：`context.append_loop_event` 的 step.end 事件内
-//!   `usage` 是 usage.record 的逐字段回声（M0 实读：二选一计账，防止双计）；
-//!   实测 958/960（1.5）与 1329/1329（1.4）——被打断的步可能没有回声，
-//!   回声只会少不会多，因此只按 usage.record 计账、回声仅作对账；
-//! - subagent.completed 对账：主线 wire 的 `subagent.completed.usage` 是子代理
-//!   wire 截至 completed.time 的逐次 Σ 快照（本机 2026-09-25 复证逐字段相等），
-//!   子代理 wire 自身已逐次入账 ⇒ completed 绝不产生事件（计入即双计）；
-//! - usageScope 语义（实读）：`turn` = 主循环 LLM 调用；`session` = 会话级
-//!   辅助调用（本机全部出现在 full_compaction.begin…complete 区间 = 压缩摘要
-//!   调用，llm.request kind=compaction 对应）⇒ 按辅助调用入账；
-//! - 逐次身份：usage.record **无 uuid/messageId**（稳定 ID 只存在于回声侧：
-//!   step.end 的 `uuid`/`messageId` 字段，与记录侧无关联键）⇒ 事件键采用
-//!   `{session 目录}:{agent}:{time}:{同毫秒序号}`——本机 Kimi Work 实测存在
-//!   跨文件同毫秒的 usage.record（swarm 并行子代理与主线同毫秒完成 2 对），
-//!   键必须含身份段；同文件同毫秒重复时追加序号并记诊断，确定性且重扫稳定。
+//! - First-line metadata detection: protocol_version is a string in observed 1.5/1.4 files.
+//! - usage.record has four exclusive camelCase fields: inputOther, output, inputCacheRead,
+//!   inputCacheCreation; no native total, as documented in the M0 local-read results.
+//! - All 82 locally read wire.jsonl files use epoch milliseconds (1.78e12–1.79e12).
+//!   No seconds samples exist here; diagnose and skip implausible times without guessing a ×1000 conversion.
+//! - step.end event.usage within context.append_loop_event repeats usage.record field values.
+//!   Count usage.record alone and use repeats only for reconciliation, preventing double-counting.
+//!   Observed repeats: 958/960 for 1.5 and 1329/1329 for 1.4; interrupted steps can lack repeats.
+//!   The observed repeats are a subset; excess repeated totals signal a format difference.
+//! - Main-wire subagent.completed.usage is a cumulative snapshot of child-wire calls
+//!   through completed.time; local 2026-09-25 checks matched fields individually.
+//!   Child wire records count independently; completed snapshots produce no events.
+//! - Observed usageScope: turn identifies main-loop LLM calls; session identifies
+//!   auxiliary calls. Local session records occurred within full_compaction.begin…complete,
+//!   corresponding to llm.request kind=compaction, and count as auxiliary usage.
+//! - usage.record has no uuid/messageId. Those IDs appear only in repeated
+//!   step.end records, without a key linking them to usage.record. Event keys use
+//!   {session directory}:{agent}:{time}:{same-millisecond sequence}. Kimi Work had
+//!   two pairs of child/main usage.record completions at the same millisecond across files.
+//!   Keep session/agent identity; same-file duplicate times get a deterministic sequence and diagnostic.
 //!
-//! 差异（分别用各自 fixture 核验，见 tests/fixtures/kimi-code|kimi-work）：
-//! - Kimi Code 1.5：usage.record 带 `agentId`；目录 `sessions/<wd>/session_<uuid>/`；
-//!   model 为 `alias/model` 组合串。本机 desktop 1.0.3。
-//! - Kimi Work 1.4：usage.record **无** agentId（身份来自 agents/<id>/ 目录）；
-//!   目录 `sessions/<wd>/<conv-*|ctitle-*>/`；model 为裸 id；宿主 daimon
-//!   （state.json createdBy=daimon-kernel-adapter）。
+//! Product differences checked separately in tests/fixtures/kimi-code and kimi-work:
+//! - Kimi Code protocol 1.5: usage.record includes agentId; sessions/<wd>/session_<uuid>/;
+//!   model is alias/model. The observed desktop product version was 1.0.3.
+//! - Kimi Work protocol 1.4: usage.record lacks agentId; use agents/<id>/ directory identity;
+//!   sessions/<wd>/<conv-*|ctitle-*>/; model is a bare ID; daimon host
+//!   uses state.json createdBy=daimon-kernel-adapter.
 
 use crate::adapters::framework::{
     Reconciliation, ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -47,13 +47,13 @@ use crate::ingest::DiagnosticInput;
 use serde::{Deserialize, Serialize};
 
 const MAX_REASONABLE_TOKEN: i64 = crate::domain::MAX_TOKEN_VALUE;
-/// 合理毫秒下界（domain）：早于此的 time 视为秒级/异常，跳过不猜测换算。
+/// Minimum plausible epoch milliseconds; skip lower values without assuming seconds or converting them.
 const MIN_TIME_MS: i64 = crate::domain::MIN_PLAUSIBLE_MS;
-/// 合理毫秒上界（2286 年）：防御未来异常值；实读上限 1.79e12。
+/// Maximum epoch milliseconds in year 2286; observed local values reached only 1.79e12.
 const MAX_TIME_MS: i64 = 10_000_000_000_000;
 
-/// kimi wire usage.record 原始四字段：互斥、无 total（M0 实读结论）。
-/// 自 usage_map.rs 随家族模块下沉（M4；Kimi Code / Kimi Work 共用）。
+/// Four exclusive native usage.record fields, without a native total (M0 local reads).
+/// Shared by Kimi Code/Work; moved from usage_map.rs into the M4 family module.
 #[derive(Debug, Clone, Copy)]
 pub struct KimiWireUsage {
     pub input_other: i64,
@@ -62,8 +62,8 @@ pub struct KimiWireUsage {
     pub output: i64,
 }
 
-/// kimi wire 四互斥字段 → 规范化 usage：input_total/total_tokens 派生求和，
-/// 无 source total；reasoning 无字段保持 unknown。
+/// Derive input_total/total_tokens from the four exclusive wire fields.
+/// No native total or reasoning field; reasoning remains unknown.
 pub fn map_kimi_wire(raw: &KimiWireUsage) -> MappedUsage {
     let input_total = raw
         .input_other
@@ -93,20 +93,20 @@ pub fn map_kimi_wire(raw: &KimiWireUsage) -> MappedUsage {
     finish(usage, quality, Vec::new())
 }
 
-/// 扫描时传入的产品身份（kimi_wire 不持有产品状态，身份由各产品目录注入）。
+/// Product identity supplied by each product's scan implementation; this module holds no product state.
 pub(crate) struct WireProduct {
-    /// 事件键命名空间（= adapter_id：kimi-code / kimi-work）。
+    /// Event-key namespace: adapter_id kimi-code or kimi-work.
     pub ns: &'static str,
-    /// 统计归属 Agent 名（kimi-code / kimi-work）。
+    /// Agent name used in statistics: kimi-code or kimi-work.
     pub agent: &'static str,
-    /// 本版本实现的解析器版本串。
+    /// Parser version for this product implementation.
     pub parser_version: &'static str,
 }
 
-/// 实读已观测、明确不产事件的记录类型（静默忽略；清单外类型一次性诊断）。
-/// 覆盖本机 82 个 wire.jsonl 的全部观测类型（1.5 + 1.4 并集）。
+/// Observed non-usage types are ignored; diagnose unlisted types once.
+/// Covers the union of observed types across 82 native protocol-1.5/1.4 wire.jsonl files.
 pub(crate) const KNOWN_IGNORED_TYPES: &[&str] = &[
-    // 生命周期/控制
+    // Lifecycle/control records.
     "agent.message.appended",
     "agent.switched",
     "agent.turn.started",
@@ -131,12 +131,12 @@ pub(crate) const KNOWN_IGNORED_TYPES: &[&str] = &[
     "permission.record_approval_result",
     "swarm_mode.enter",
     "swarm_mode.exit",
-    // 子代理生命周期（completed 单独处理：快照不产事件）
+    // Child-agent lifecycle; completed snapshots have separate non-event handling.
     "subagent.spawned",
     "subagent.started",
     "subagent.failed",
     "subagent.cancelled",
-    // 上下文/压缩控制
+    // Context/compaction control records.
     "context.append_message",
     "context.apply_compaction",
     "context.undo",
@@ -144,31 +144,31 @@ pub(crate) const KNOWN_IGNORED_TYPES: &[&str] = &[
     "full_compaction.begin",
     "full_compaction.complete",
     "micro_compaction.apply",
-    // 请求/工具快照（llm.request 与 usage.record 无稳定关联键，不并账）
+    // Request/tool snapshots; llm.request has no stable key linking it to usage.record, so do not combine them.
     "llm.request",
     "llm.tools_snapshot",
     "mcp.tools_discovered",
     "tools.update_store",
     "tools.set_active_tools",
     "tools.register_user_tool",
-    // token_counting 是上下文估算/累计表（非逐次 usage），计入会造成计算错误
+    // token_counting describes estimated/cumulative context; exclude it from per-call usage.
     "token_counting.measured",
     "token_counting.rebased",
     "token_counting.truncated",
     "token_counting.turn_recorded",
-    // 文件历史/杂项
+    // File history and miscellaneous records.
     "file_history.tracked",
     "file_history.checkpoint",
 ];
 
-/// metadata 首行探测结果（家族共享；detect 与 scan 共用）。
+/// Shared first-line metadata detection result for detect and scan.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct MetadataHead {
     pub protocol_version: Option<String>,
 }
 
-/// 首行探测结论：Pending（无完整行）/ Metadata（身份确认）/ NotMetadata
-/// （fail closed 原因）。IO 错误走 `Err`。
+/// First-line result: Pending without a complete line; Metadata with an identified header;
+/// NotMetadata with a rejection reason. I/O failures return Err.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum HeadProbe {
     Pending,
@@ -176,7 +176,7 @@ pub(crate) enum HeadProbe {
     NotMetadata(String),
 }
 
-/// 有界读取首行并按家族指纹识别 metadata 头。
+/// Bounded first-line read identifying the family's metadata fingerprint.
 pub(crate) fn read_metadata_head(path: &std::path::Path) -> Result<HeadProbe, CoreError> {
     let limits = super::jsonl::JsonlLimits {
         chunk_bytes: 64 * 1024,
@@ -198,7 +198,7 @@ pub(crate) fn read_metadata_head(path: &std::path::Path) -> Result<HeadProbe, Co
         ));
     }
     Ok(HeadProbe::Metadata(MetadataHead {
-        // 实读 1.4/1.5 均为字符串；非字符串形态按 None 处理（走注册表回退语义）。
+        // Observed protocol versions 1.4/1.5 are strings; other types become None for registry fallback.
         protocol_version: line
             .get("protocol_version")
             .and_then(|v| v.as_str())
@@ -206,18 +206,18 @@ pub(crate) fn read_metadata_head(path: &std::path::Path) -> Result<HeadProbe, Co
     }))
 }
 
-/// 持久化解析上下文（跨增量轮次的计数、对账累计与一次性诊断标志）。
+/// Persist counters, reconciliation totals, and one-time diagnostics across incremental rounds.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub(crate) struct WireParseContext {
     pub protocol_version: Option<String>,
     pub version_basis: Option<VersionBasis>,
-    /// 事件键序号状态：同毫秒冲突时递增（本机实读未观测到冲突）。
+    /// Increment the event-key sequence for same-millisecond repeats within one file; none were locally observed.
     usage_records_seen: u64,
     last_usage_time: Option<i64>,
     dup_in_last_time: u64,
-    /// 对账累计（i64 饱和；回声侧只用于对账不用于计账）。
-    /// 记录侧只累计 **turn scope**：session scope（压缩摘要）无回声
-    /// （实读 1.4：1329 回声 == 1329 turn 记录；session 8 条全无回声）。
+    /// Saturating i64 reconciliation totals; repeated values do not contribute to usage.
+    /// Sum only turn-scope records: session-scope compaction has no corresponding repeated usage.
+    /// Native 1.4 had 1329 repeats for 1329 turn records and no repeats for 8 session records.
     record_turn_total_sum: i64,
     echo_total_sum: i64,
     subagent_completed: u64,
@@ -268,12 +268,12 @@ fn diag(code: &str, field: Option<&str>, line: u64, message: &str) -> Diagnostic
     }
 }
 
-/// epoch 毫秒合理性（实读全为毫秒；越界记诊断，不换算秒值）。
+/// Check plausible epoch milliseconds; diagnose out-of-range times without converting seconds.
 fn plausible_time_ms(value: i64) -> bool {
     (MIN_TIME_MS..=MAX_TIME_MS).contains(&value)
 }
 
-/// 解析 usage 四互斥字段；缺失/类型错误/负值/超限返回 None（调用方记诊断跳过）。
+/// Parse four exclusive usage fields; missing/invalid/negative/excessive values return None for caller diagnostics.
 pub(crate) fn parse_wire_usage(value: &serde_json::Value) -> Option<KimiWireUsage> {
     let obj = value.as_object()?;
     let get = |key: &str| -> Option<i64> {
@@ -298,9 +298,9 @@ fn wire_total(raw: &KimiWireUsage) -> i64 {
         .saturating_add(raw.output)
 }
 
-/// 由文件路径推导会话/代理身份：`…/<session>/agents/<agent>/wire.jsonl`
-/// （agent = 父目录名；session = 再上一层的 agents 目录的父目录名）。
-/// Kimi Work 1.4 的 usage.record 无 agentId 字段，身份只能来自目录。
+/// Derive identity from …/<session>/agents/<agent>/wire.jsonl:
+/// agent is the parent directory; session is the parent of the agents directory.
+/// Kimi Work 1.4 usage.record has no agentId; obtain identity from directories.
 pub(crate) fn identity_from_path(path: &std::path::Path) -> (Option<String>, Option<String>) {
     let agent = path
         .ancestors()
@@ -317,7 +317,7 @@ pub(crate) fn identity_from_path(path: &std::path::Path) -> (Option<String>, Opt
     (session, agent)
 }
 
-/// 构造一条 usage.record 事件（家族共享；身份与计算规则的依据见模块头）。
+/// Build a shared usage.record event; identity and calculation references are in the module documentation.
 #[allow(clippy::too_many_arguments)]
 fn build_usage_event(
     target: &ScanTarget,
@@ -334,10 +334,10 @@ fn build_usage_event(
 ) -> EventInput {
     EventInput {
         source_instance_id: target.instance_id.clone(),
-        // 稳定身份：ns + 会话目录 + 代理 + 记录侧 time + 同毫秒序号
-        // （usage.record 无 uuid/messageId）。session/agent 段必需：本机 Kimi Work
-        // 实测存在**跨文件同毫秒**的 usage.record（swarm 并行子代理与主线同毫秒
-        // 完成 2 对），仅靠 time+序号会跨文件撞键（conflict 丢事件）。
+        // Stable identity: namespace + session directory + agent + record time + same-millisecond sequence.
+        // usage.record lacks uuid/messageId. Keep session/agent because Kimi Work had two pairs
+        // of child/main usage.record completions sharing a millisecond across files;
+        // time+sequence alone would collide across those files and lose events during conflict handling.
         source_record_key: format!(
             "{}:usage:{}:{}:{}:{}",
             product.ns,
@@ -387,7 +387,7 @@ fn build_usage_event(
     }
 }
 
-/// 家族共享增量扫描（kimi-code / kimi-work 的版本实现统一委托到这里）。
+/// Shared incremental scan called by kimi-code and kimi-work version implementations.
 pub(crate) fn scan_wire(
     target: &ScanTarget,
     stored: &StoredScanState,
@@ -445,7 +445,7 @@ pub(crate) fn scan_wire(
                     .get("protocol_version")
                     .and_then(|v| v.as_str())
                     .map(str::to_string);
-                // 版本分派（探测/扫描同一注册表，由产品目录注入）。
+                // Product-supplied version registry shared by detection and scanning.
                 context.version_basis = Some(select_version(context.protocol_version.as_deref()));
             }
             "usage.record" => {
@@ -490,7 +490,7 @@ pub(crate) fn scan_wire(
                     ));
                     continue;
                 };
-                // 同毫秒序号（重扫稳定的确定性身份）。
+                // Deterministic same-millisecond sequence remains stable on rescans.
                 if context.last_usage_time == Some(time) {
                     context.dup_in_last_time += 1;
                     if context.dup_in_last_time == 1 {
@@ -521,8 +521,8 @@ pub(crate) fn scan_wire(
                         &contradiction.detail,
                     ));
                 }
-                // 分类：session scope = 会话级辅助调用（压缩摘要，实读证据）；
-                // turn scope 按代理身份：非 main 目录 = sub_agent。
+                // session scope identifies auxiliary compaction calls in native samples;
+                // turn scope uses agent identity: an agent other than main is sub_agent.
                 let record_agent = line.get("agentId").and_then(|a| a.as_str());
                 let effective_agent = record_agent.or(path_agent.as_deref());
                 let category = if scope == "session" {
@@ -558,8 +558,8 @@ pub(crate) fn scan_wire(
                 ));
             }
             "context.append_loop_event" => {
-                // step.end 的 event.usage 是 usage.record 的回声（防双计二选一）：
-                // 只累计对账，不产事件。
+                // step.end event.usage repeats usage.record; count usage.record only:
+                // retain repeated totals for reconciliation without creating events.
                 let event = line.get("event");
                 if event.and_then(|e| e.get("type")).and_then(|t| t.as_str()) == Some("step.end") {
                     if let Some(echo) = event
@@ -572,8 +572,8 @@ pub(crate) fn scan_wire(
                 }
             }
             "subagent.completed" => {
-                // 主线快照：等于子代理 wire 截至 completed.time 的 Σ（M0 + 本机复证）。
-                // 子代理 wire 已逐次入账 ⇒ 不产事件；仅计数供对账说明。
+                // The main-wire snapshot matched child-wire sums through completed.time in M0/local checks.
+                // Child-wire calls count independently; retain only a completed-snapshot count for reconciliation notes.
                 context.subagent_completed += 1;
             }
             other if KNOWN_IGNORED_TYPES.contains(&other) => {}
@@ -616,11 +616,11 @@ pub(crate) fn scan_wire(
         offset: outcome.next_offset,
         line_number: outcome.next_line_number,
     };
-    // 回声对账只在读到文件尾时进行（文件仍在增长时半程对账无意义）。
+    // Reconcile repeated totals only at end-of-file, avoiding comparisons against a partial read.
     let mut reconciliations = Vec::new();
     if status == ScanStatus::Complete && context.usage_records_seen > 0 {
-        // 记录侧 = turn scope Σ；回声 ⊆ turn 记录（打断步无回声，实读 958/960）：
-        // 差值>0 是信息性子集关系；回声超过记录侧才是异常（格式变化信号）。
+        // Sum turn records; repeated usage is a subset because interrupted steps can lack it (observed 958/960).
+        // A positive difference describes that subset; repeated totals exceeding records signal a possible format change.
         let echo_exceeds = context.echo_total_sum > context.record_turn_total_sum;
         let difference = context.record_turn_total_sum - context.echo_total_sum;
         let verdict = if echo_exceeds {
@@ -647,8 +647,8 @@ pub(crate) fn scan_wire(
             verdict: verdict.to_string(),
         });
     }
-    // 主线 subagent.completed 快照：明细在子代理自己的 wire（另一文件/实例），
-    // 本文件无对账明细侧——如实报告计数与 no_detail_in_file，不伪造比较。
+    // Main-wire subagent.completed details live in another child wire file/instance;
+    // retain the count and no_detail_in_file without inventing a comparison.
     if status == ScanStatus::Complete && context.subagent_completed > 0 {
         reconciliations.push(Reconciliation {
             series: format!(
@@ -662,7 +662,7 @@ pub(crate) fn scan_wire(
             verdict: "no_detail_in_file".to_string(),
         });
     }
-    // 无 usage 记录的文件是正常形态（如仅 error 步的 wire）：不降级、不补零。
+    // Files without usage, such as error-only steps, remain valid; do not degrade health or insert zero usage.
     let health_degraded = !outcome.bad_lines.is_empty()
         || diagnostics.iter().any(|d| {
             matches!(

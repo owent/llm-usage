@@ -1,21 +1,21 @@
-//! Goose 产品特有的公共部分（独立目录约定）：
-//! - 源库只读约定（复制自 adapters/zed/common.rs 的 hermes/kilo 同款实现）；
-//! - 逐请求 usage_ledger 行映射（官方源码 a701bb1，A26）。
+//! Goose-specific helpers under the independent adapter-directory convention.
+//! - Read-only DB access copied from adapters/zed/common.rs, following hermes/kilo.
+//! - Per-request usage_ledger mapping: official a701bb1, A26.
 //!
-//! 固定源码依据（aaif-goose/goose a701bb1756f0c6a49a7dbc10ac8a90f94dd24bd1）：
-//! - usage_ledger（迁移 15，session_manager.rs:1083-1097）：每 provider 响应
-//!   一行 INSERT（:913），created_timestamp 为 Unix **秒**；cost_source ∈
-//!   {provider_reported, estimated, carried_forward}；is_compaction 标记压缩调用。
-//! - Usage 字段语义（goose-provider-types token_usage.rs:93-101）：input_tokens
-//!   为全部 prompt tokens，**包含** cache 读/写（子集）⇒ input_uncached 由
-//!   减法派生（sub_checked 防负）。
-//! - sessions.accumulated_* 是会话累计（非 accumulated 列是最后快照，不用）；
-//!   仅在旧库（schema < 15，无 usage_ledger）时按 session 聚合回退。
+//! Fixed source: aaif-goose/goose a701bb1756f0c6a49a7dbc10ac8a90f94dd24bd1.
+//! - usage_ledger migration 15 (session_manager.rs:1083-1097) inserts one row per
+//!   provider response (:913); created_timestamp is Unix seconds. cost_source is
+//!   provider_reported/estimated/carried_forward; is_compaction marks compaction calls.
+//! - Usage (goose-provider-types token_usage.rs:93-101): input_tokens is the entire
+//!   prompt including cache-read/write subsets; derive input_uncached by subtraction
+//!   with sub_checked rejecting negative results.
+//! - sessions.accumulated_* contains session totals; other columns are last snapshots.
+//!   Fall back to session aggregates only in older databases without usage_ledger (schema <15).
 
 use crate::adapters::usage_map::{finish, sub_checked, MappedUsage};
 use crate::domain::{FieldQuality as Q, TokenQuality, TokenUsage};
 
-/// usage_ledger 行的 token 列（NULL 视为未知，不补零）。
+/// usage_ledger token columns; NULL remains unknown without zero substitution.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct GooseLedgerUsage {
     pub input_tokens: Option<i64>,
@@ -25,7 +25,7 @@ pub struct GooseLedgerUsage {
     pub cache_write_tokens: Option<i64>,
 }
 
-/// input_tokens 含 cache 读/写（官方字段语义）⇒ uncached 派生；total 直报对照。
+/// Derive uncached from cache-inclusive input; retain reported total for comparison.
 pub fn map_goose_ledger(raw: &GooseLedgerUsage) -> MappedUsage {
     let mut diagnostics = Vec::new();
     let uncached = match (
@@ -82,7 +82,7 @@ pub fn map_goose_ledger(raw: &GooseLedgerUsage) -> MappedUsage {
     finish(usage, quality, diagnostics)
 }
 
-// ---- 源库只读访问（复制自 adapters/hermes/common.rs，各目录独立约定）----
+// Read-only database helpers copied from adapters/hermes/common.rs; modules remain independent.
 
 use crate::error::CoreError;
 use rusqlite::backup::{Backup, StepResult};
@@ -90,7 +90,7 @@ use rusqlite::{Connection, OpenFlags};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-/// 一次只读访问：成功时直接用源库连接；busy/锁时自动切换到暂存副本。
+/// Read-only source access; busy-like probe failures switch to a staging snapshot.
 pub struct SourceDb {
     conn: Connection,
     _staging: Option<StagingGuard>,
@@ -114,7 +114,7 @@ impl Drop for StagingGuard {
     }
 }
 
-/// busy/锁/CANTOPEN 判定（这些错误表示无法一致读取）。
+/// SQLite busy/locked/CANTOPEN errors prevent a successful consistency probe.
 pub(crate) fn is_busy_like(err: &rusqlite::Error) -> bool {
     matches!(
         err.sqlite_error_code(),
@@ -124,7 +124,7 @@ pub(crate) fn is_busy_like(err: &rusqlite::Error) -> bool {
     )
 }
 
-/// 暂存副本参数（architecture.md：设置页/时间/空间上限并清理）。
+/// Staging page/time/size limits and cleanup follow architecture.md.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct StagingLimits {
     pub pages_per_step: i32,
@@ -142,7 +142,7 @@ impl Default for StagingLimits {
     }
 }
 
-/// 打开源库只读连接。busy_timeout 设短：快速失败转暂存副本路径。
+/// Open read-only; short busy_timeout bounds probe waits before a staging fallback.
 pub(crate) fn open_readonly(path: &Path) -> Result<Connection, rusqlite::Error> {
     let conn = Connection::open_with_flags(
         path,
@@ -155,7 +155,7 @@ pub(crate) fn open_readonly(path: &Path) -> Result<Connection, rusqlite::Error> 
     Ok(conn)
 }
 
-/// Online Backup 到系统临时目录的一致暂存副本（从只读连接发起，不写源库）。
+/// Online Backup creates a consistent system-temporary snapshot without writing the source.
 fn backup_to_staging(
     source: &Connection,
     limits: &StagingLimits,
@@ -186,7 +186,7 @@ fn backup_to_staging(
             crate::adapters::run_policy::check_sqlite()?;
             match backup.step(limits.pages_per_step) {
                 Ok(StepResult::Done) => break Ok(()),
-                // More：实际拷贝了页，计入空间限制。
+                // More means pages were copied; count those pages toward the size limit.
                 Ok(StepResult::More) => {
                     done_pages += i64::from(limits.pages_per_step);
                     if done_pages > max_pages {
@@ -197,9 +197,9 @@ fn backup_to_staging(
                     }
                     std::thread::sleep(Duration::from_millis(20));
                 }
-                // Busy/Locked（#[non_exhaustive] 其余）：无进展重试，仍计入超时时间。
-                // 2026-09-30 修复：此前重试也计入页数，与超时出口竞速产生
-                // 平台相关的 space cap 误报（CI Linux 页上限先于超时触发）。
+                // Busy/Locked or other non-exhaustive results retry without progress, within the timeout.
+                // 2026-09-30 fix: retries previously added pages and raced the timeout, causing
+                // platform-specific false size-limit failures (Linux CI hit the page cap before timeout).
                 Ok(_) => {
                     std::thread::sleep(Duration::from_millis(20));
                 }
@@ -218,8 +218,8 @@ fn backup_to_staging(
     }
 }
 
-/// 打开 sessions.db 的只读访问：直接只读短查询 → busy 时暂存副本 → 仍失败上抛。
-/// 绝不写源库。
+/// Probe read-only sessions.db; busy-like probe failures use staging, later failures propagate.
+/// Never write the source database.
 pub(crate) fn open_source_db<F>(
     path: &Path,
     probe: F,
@@ -246,13 +246,13 @@ where
     }
 }
 
-/// 短查询事务探测（与 kilo 遵守同一规则）。
+/// Short schema query probes access, following kilo's rule.
 pub(crate) fn short_probe(conn: &Connection) -> Result<(), rusqlite::Error> {
     conn.query_row("SELECT COUNT(*) FROM sqlite_master", [], |_| Ok(()))
 }
 
-/// threads 表必需列（固定源码建表 + 迁移列集；created_at 缺列时探测层降级）。
-/// usage_ledger 逐列（固定源码迁移 15 建表 SQL）。
+/// Required usage_ledger columns follow the fixed migration-15 schema.
+/// Include each column from the fixed usage_ledger creation SQL.
 pub(crate) const LEDGER_COLUMNS: &[&str] = &[
     "id",
     "session_id",
@@ -267,7 +267,7 @@ pub(crate) const LEDGER_COLUMNS: &[&str] = &[
     "cost_source",
     "is_compaction",
 ];
-/// sessions 表兜底所需列（旧库无 usage_ledger 时按 accumulated_* 聚合）。
+/// Legacy sessions fallback requires accumulated_* columns when usage_ledger is absent.
 pub(crate) const SESSIONS_FALLBACK_COLUMNS: &[&str] = &[
     "id",
     "accumulated_total_tokens",
@@ -283,7 +283,7 @@ mod tests {
 
     #[test]
     fn uncached_derived_from_input_minus_cache() {
-        // input_tokens 含 cache 读/写：uncached = 100 - 30 - 10 = 60。
+        // Input includes cache read/write: uncached = 100 - 30 - 10 = 60.
         let mapped = map_goose_ledger(&GooseLedgerUsage {
             input_tokens: Some(100),
             output_tokens: Some(20),
@@ -299,7 +299,7 @@ mod tests {
 
     #[test]
     fn negative_derived_reports_contradiction_not_clamped() {
-        // cache 合计超过 input：uncached 置未知 + 矛盾诊断（不改成 0）。
+        // Cache exceeds input: leave uncached unknown with a contradiction diagnostic, without zero replacement.
         let mapped = map_goose_ledger(&GooseLedgerUsage {
             input_tokens: Some(10),
             cache_read_tokens: Some(8),
@@ -315,7 +315,7 @@ mod tests {
 
     #[test]
     fn missing_buckets_stay_unknown() {
-        // NULL 列不补零。
+        // NULL columns remain unknown without zero substitution.
         let mapped = map_goose_ledger(&GooseLedgerUsage {
             input_tokens: Some(50),
             ..Default::default()

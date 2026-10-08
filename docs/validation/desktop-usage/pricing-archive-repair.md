@@ -1,126 +1,147 @@
-# 价格归档、精度与模型合并修复验收
+# Price archives, precision and model-row merging: Acceptance results
 
-日期：2026-10-05。环境：Windows x64、Node.js 24.21.0、Rust 1.98.1。
-实现与合同见 [价格](../../design/desktop-usage/pricing.md)及
-[看板修正](../../design/desktop-usage/dashboard-repair.md)。
+<a id="价格归档精度与模型合并修复验收"></a>
 
-## 根因与修正
+Date 2026-10-05; Windows x64, Node.js 24.21.0, Rust 1.98.1. Implementation/rules:
+[pricing](../../design/desktop-usage/pricing.md), [dashboard repairs](../../design/desktop-usage/dashboard-repair.md).
 
-| 问题 | 已确认根因 | 修正 |
+<a id="根因与修正"></a>
+
+## Causes and corrections
+
+| Problem | Confirmed cause | Correction |
 | --- | --- | --- |
-| 大量历史 token 只显示 $0.01 | 用量表读封存日汇总，当前价只遍历尚存 usage_events；清理明细后费用范围缩小 | 复用用量查询的归档选择；明细/归档按实例、Agent、原始 provider/model、调用分类、质量和时间互斥 |
-| 部分同模型缺价 | 有价模型的事件已归档；GPT 官方快照 ID 和备份/自定义路由前缀也未解析 | 恢复归档计价、增加有依据的别名，并仅剥离匹配该记录 provider 的自定义命名空间 |
-| 小额费用丢失 | 每条事件的各分量提前舍入到分，再累加 | 保留 i128 整数乘积，按展示日/provider/模型/币种或不可拆分归档周期累计后舍入 |
-| 相同模型重复行 | 单价界面每个档位渲染一条模型行，且显示参考供应商而非来源 provider | 每个来源 provider/模型一行，多个档位及快照在行内展示；大小写/分隔符及 provider 外围空白一致归组 |
-| 新旧档位拼接 | 价目候选跨快照选最高阈值，可能把旧长档与新基础价混用 | 先确定优先快照，再在该快照内部选档 |
+| Large historical usage displays only $0.01 | Usage reads retained daily summaries; current prices read only surviving usage_events, shrinking priced coverage after detail cleanup | Reuse usage-query archive selection; choose details/archives exclusively by instance/agent/original provider-model/call classification/quality/time |
+| Some rows for the same model lack prices | Priced events archived; official GPT snapshot IDs and backup/custom routing prefixes unresolved | Restore archive pricing, add source-supported aliases, strip only custom namespaces matching the record's provider |
+| Small costs disappear | Each event component rounds to cents before accumulation | Retain i128 integer products; sum by display day/provider/model/currency or indivisible archive period, then round |
+| Duplicate model rows | One row per price tier, displaying reference supplier instead of source provider | One source provider/model row with tiers/snapshots within; group case/separator variants and outer provider whitespace consistently |
+| Old/new tiers mixed | Candidate selection chooses greatest threshold across snapshots, mixing old long-context and new base rates | Choose preferred snapshot first, then its tier |
 
-当前参考在同一 SQLite 读事务中取得用量、价格与修订，不修改真实源数据或历史封存金额。
-发生时估算规则标记更新为 `official-reference-5`，只修正保留明细的未封存日期一次，
-后续价目更新仍不重写历史。小时封存判定修正为完整来源分区，活跃的其他模型不再
-遮蔽同日已归档的模型。周/月归档复用用量选择规则，不虚构日曲线点。
+Current reference prices read usage/prices/revisions in one SQLite read transaction, without
+changing sources or historical archived amounts. Occurrence-time estimate rule becomes
+official-reference-5, correcting unarchived dates with retained details once. Later price
+updates still do not rewrite history. Hourly archive selection now uses complete source
+partitions, so another active model cannot hide an archived model on the same day. Weekly/
+monthly archives reuse usage-selection rules, without invented daily curve points.
 
-归档已不包含逐次上下文长度：固定单价可直接计算；多档价显示已知分项的上下界。
-旧小时/周/月汇总未保存 uncached 分项时保留部分估算，不能用不同样本的输入/缓存
-总和相减。已知总量仍计入覆盖分母，不能把仅输出已计价显示成完整覆盖。
-跨动态别名变更日期的不可拆分归档保持型号歧义。
+Archives lack individual context lengths. Fixed rates can be calculated directly; multiple
+tiers show lower/upper amounts for known components. Old hourly/weekly/monthly summaries
+without uncached fields remain partial; subtracting input/cache sums from different samples
+cannot infer missing components. Known totals stay in the coverage denominator, preventing
+output-only pricing from appearing complete. Indivisible archives spanning dynamic-alias
+changes retain ambiguous model identity.
 
-## 官方依据
+<a id="官方依据"></a>
 
-2026-10-05 核对官方正文。下表为标准 API 每百万 token 的 USD 参考，不是订阅实付。
+## Official references
 
-| 型号 | 未命中输入 / 缓存读 / 输出 | 依据及处理 |
+Official pages checked on 2026-10-05. Standard API reference USD per million tokens,
+without claiming actual subscription charges:
+
+| Model | Uncached input / cache read / output | Reference and handling |
 | --- | --- | --- |
-| gpt-5.5、gpt-5.5-2026-04-23 | 5 / 0.5 / 30 | [官方模型页](https://developers.openai.com/api/docs/models/gpt-5.5)明确列出快照身份及长上下文倍率 |
-| gpt-6-sol | 2 / 0.2 / 10 | [官方模型页](https://developers.openai.com/api/docs/models/gpt-6-sol)另列缓存写 2.5；长上下文输入/缓存 2 倍、输出 1.5 倍 |
-| glm-5.3-flash | 0.15 / 0.03 / 0.50 | [Z.ai 官方价格](https://docs.z.ai/guides/overview/pricing)，复核既有种子价 |
-| glm-5.3 | 1.4 / 0.26 / 4.4 | [Z.ai 官方价格](https://docs.z.ai/guides/overview/pricing)，复核既有种子价 |
-| k3、k3-256k | 3 / 0.3 / 15 | [Kimi Code 模型表](https://www.kimi.com/code/docs/en/kimi-code/models.html)确认 K3 身份；[Kimi API 价格](https://platform.kimi.ai/docs/pricing/chat)及其 Markdown 正文列出 K3 单价 |
-| k28-agent-preview | 替代参考 0.95 / 0.19 / 4.00 | 用户确认其为 K2.8 Preview，并明确授权缺价时参考 K2.7；采用 Kimi 官方 kimi-k2.7-code 标准 API 价，界面明确标替代型号 |
+| gpt-5.5, gpt-5.5-2026-04-23 | 5 / 0.5 / 30 | [Official model page](https://developers.openai.com/api/docs/models/gpt-5.5) identifies snapshot and long-context multipliers |
+| gpt-6-sol | 2 / 0.2 / 10 | [Official model page](https://developers.openai.com/api/docs/models/gpt-6-sol), cache write 2.5; long-context input/cache ×2, output ×1.5 |
+| glm-5.3-flash | 0.15 / 0.03 / 0.50 | [Official Z.ai prices](https://docs.z.ai/guides/overview/pricing), existing seed reconfirmed |
+| glm-5.3 | 1.4 / 0.26 / 4.4 | [Official Z.ai prices](https://docs.z.ai/guides/overview/pricing), existing seed reconfirmed |
+| k3, k3-256k | 3 / 0.3 / 15 | [Kimi Code models](https://www.kimi.com/code/docs/en/kimi-code/models.html) establishes K3 identity; [Kimi API pricing](https://platform.kimi.ai/docs/pricing/chat) and Markdown list rates |
+| k28-agent-preview | Substitute reference 0.95 / 0.19 / 4.00 | User confirms K2.8 Preview and authorizes K2.7 reference when exact prices absent; official kimi-k2.7-code standard API rates, substitute model labeled |
 
-新增 `seed-2026-10-05` 保存 GPT-5.5/GPT-6 Sol 完整短/长档，从核验日起生效，
-不覆盖旧快照；官方条件为输入 **大于** 272000，整数阈值用 272001。
-未知 GPT 日期后缀、未知命名空间、渠道/币种冲突仍拒绝套价。
-`kimi-for-coding` 作为 provider 不改变 `k3-256k` 的模型身份；
-它作为 model 的日期别名与此不同，不能混为同一条映射。
+New seed-2026-10-05 preserves complete GPT-5.5/GPT-6 Sol short/long tiers, effective from
+verification date without replacing old snapshots. Official threshold is input **greater
+than** 272000, represented by integer 272001. Unknown GPT date suffixes/namespaces/channel
+or currency conflicts still prevent pricing. kimi-for-coding as provider does not change
+k3-256k identity; its dated model alias is a different mapping.
 
-## 本机只读复算
+<a id="本机只读复算"></a>
 
-在只读 SQLite 事务中提取模型、来源类别、日期、token 分项、质量及计数白名单；
-实例 ID 哈希脱敏，无提示词、源文件路径、账号秘密或原始会话文本。
-146 条日汇总导入临时内存库，在副本中模拟全部封存，覆盖 26 个 provider/模型组。
-临时数据、脚本、独立计算结果与日志均留在忽略的 `build/pricing-root-cause/`。
+## Read-only local recalculation
 
-- `kimi-code/k3-256k`：本机封存 token 992,415,571，尚存明细仅一条 9,080 token。
-  原查询只算这一条，确实舍入为 USD 0.01。
-- 按 Asia/Shanghai、2026-01-01 至 2026-10-05 的保留日汇总复算，该组合覆盖
-  12 个有数据日期、992,424,651 token。新引擎结果 USD 409.65，与独立整数乘法
-  及相同日分区舍入完全一致。这个范围不等同于用户截图中未明确的选区。
-- `kimi-code-owent`、`kimi-for-coding` 下的 k3-256k，以及
-  `kimi-code/k3-256k`、`kimi-for-coding-backup/k3-256k` 均匹配 K3 官方参考。
-  GLM-5.3/Flash 各本机 provider 分组恢复参考价格；GPT 快照与 Sol 归档显示适用区间。
-- GPT 的部分 Copilot 记录缺可计价 token，仍保留 `no_known_usage`；
-  有价格不等于缺失 token 可以补零或补全。未核验的其他型号保持原有缺价。
+One read-only SQLite transaction extracts permitted model/source-class/date/token-component/
+quality/count fields. Instance IDs hashed; no prompts/source paths/account credentials/session
+text. Imported 146 daily summaries into a temporary in-memory DB, simulated complete archival
+in the copy across 26 provider/model groups. Temporary data/scripts/independent calculations/
+logs remain in ignored build/pricing-root-cause/.
 
-## 执行结果与限制
+- kimi-code/k3-256k: archived native tokens 992,415,571; surviving detail only one event of
+  9,080 tokens. Original query priced only this event, rounding to USD 0.01.
+- Asia/Shanghai retained daily summaries from 2026-01-01 through 2026-10-05 contain this
+  combination on 12 days, 992,424,651 tokens. New engine USD 409.65 exactly matches independent
+  integer multiplication and identical daily-partition rounding. This range does not establish
+  the unspecified selection in the user's screenshot.
+- k3-256k under kimi-code-owent/kimi-for-coding, plus kimi-code/k3-256k and
+  kimi-for-coding-backup/k3-256k, all match official K3 reference. Local GLM-5.3/Flash
+  provider groups regain prices; GPT snapshots/Sol archives display applicable ranges.
+- Some GPT Copilot records lack priceable tokens and remain no_known_usage. A known rate
+  cannot fill missing tokens with zero or invented values. Other unverified models retain missing prices.
 
-| 检查 | 退出码 | 结果 |
+<a id="执行结果与限制"></a>
+
+## Results and limitations
+
+| Check | Exit | Result |
 | --- | --- | --- |
-| `npm run verify` | 101 | 文档、资源、脚本 3 项、界面 21 项、Svelte、fmt 全部通过；进入根工作区 Clippy 时依赖解析失败 |
-| `cargo test --manifest-path build/pricing-root-cause/rust/crates/core/Cargo.toml --offline --no-fail-fast` | 0 | 隔离核心 804 项通过，无失败/忽略；含新增价格 10 项 |
-| `cargo clippy --manifest-path build/pricing-root-cause/rust/crates/core/Cargo.toml --offline --all-targets -- -D warnings` | 0 | 隔离核心无警告 |
-| `cargo run --manifest-path build/pricing-root-cause/rust/crates/core/Cargo.toml --offline --example live_price_review` | 0 | 脱敏日汇总复算与独立期望一致 |
-| 临时桌面副本 `cargo check --workspace --all-targets --locked --offline` | 0 | 桌面命令层及核心编译检查通过 |
-| 临时桌面副本 `cargo clippy --workspace --all-targets --locked --offline -- -D warnings` | 0 | 全工作区无警告 |
-| 临时桌面副本 `cargo test -p llm-usage-desktop --locked --offline` | 0 | 应用单元测试 95 项通过，6 项显式外部/原生测试按既有标记忽略；合计 Rust 899 项通过 |
-| `npm run build:web` | 0 | 前端生产构建通过 |
-| `npm run test:browser` | 0 | Edge 模拟 IPC 回归通过：单模型多档一行、区间/上界曲线、窄窗无页面溢出，以及原有交互 |
-| `git diff --check` | 0 | 无空白错误；工作区无未跟踪临时产物 |
+| npm run verify | 101 | Documents/assets/scripts 3/UI 21/Svelte/fmt pass; dependency resolution fails entering root-workspace Clippy |
+| cargo test --manifest-path build/pricing-root-cause/rust/crates/core/Cargo.toml --offline --no-fail-fast | 0 | Isolated core 804 pass, none fail/ignored, including 10 new price tests |
+| cargo clippy --manifest-path build/pricing-root-cause/rust/crates/core/Cargo.toml --offline --all-targets -- -D warnings | 0 | Isolated core clean |
+| cargo run --manifest-path build/pricing-root-cause/rust/crates/core/Cargo.toml --offline --example live_price_review | 0 | Redacted daily-summary calculation matches independent expectations |
+| Temporary desktop copy: cargo check --workspace --all-targets --locked --offline | 0 | Desktop command layer/core compile |
+| Temporary desktop copy: cargo clippy --workspace --all-targets --locked --offline -- -D warnings | 0 | Whole workspace clean |
+| Temporary desktop copy: cargo test -p llm-usage-desktop --locked --offline | 0 | App 95 pass, six existing explicit external/native tests ignored; Rust total 899 pass |
+| npm run build:web | 0 | Production frontend build |
+| npm run test:browser | 0 | Edge simulated IPC: one multi-tier model row, range/upper-bound curves, narrow-window overflow and existing interactions |
+| git diff --check | 0 | No whitespace errors or untracked task temp files |
 
-根锁文件引用的 `foldhash 0.2.1` 在当前索引/缓存不可取得；这发生在产品编译之前。
-没有修改用户现有依赖或锁文件。为完成业务验证，复制 Rust 源码到根 `build/`
-中的独立核心工作区，以相同声明依赖离线解析；与原锁文件相比新增的版本仅为
-`foldhash 0.2.0`。这不是原锁文件的完整桌面构建验收。
-进一步对照已有差异发现 `core-graphics-types`、`foldhash`、`option-ext`、`powerfmt`
-四条第三方记录的版本都从 0.2.0 改成 0.2.1，但校验和没有变化。
-仅在临时 `build/pricing-root-cause/app-validation/` 中将四条版本还原为 0.2.0，
-保留应用/core 的 0.2.1 及其余锁定记录，完成上表桌面编译、Clippy 与应用单元测试。
-这三个命令均附加
-`--manifest-path build/pricing-root-cause/app-validation/Cargo.toml --target-dir desktop/src-tauri/target`，
-复用已有编译缓存；源工作区的 Cargo.lock 未改变。
-本轮未构建 release 安装包或安装新的桌面程序，未执行原生 WebView2/真实 IPC 验收。
+Root lockfile's foldhash 0.2.1 was unavailable in the current index/cache, before product
+compilation. Existing user dependencies/lockfile retained. Copied Rust source into an isolated
+core workspace under root build/, resolving the same declared dependencies offline; only
+new version versus original lockfile was foldhash 0.2.0. This does not verify a complete desktop
+build with the original lockfile. Further comparison found third-party core-graphics-types/
+foldhash/option-ext/powerfmt versions changed from 0.2.0 to 0.2.1 without checksum changes.
+Only in build/pricing-root-cause/app-validation/, restored those four to 0.2.0, preserving
+app/core 0.2.1 and other locked records. The three desktop compilation/Clippy/app-test commands
+add --manifest-path build/pricing-root-cause/app-validation/Cargo.toml --target-dir
+desktop/src-tauri/target, reusing compilation cache. Source Cargo.lock unchanged. No release
+installer/new desktop installation/native WebView2/actual IPC acceptance this round.
 
-自动回归包括：6 亿缓存 token 保留前后金额一致、明细/归档并存不重计、千次小额
-调用累计、272000 边界、归档多档上下界、原始分区隔离、小时筛选、周/月归档、
-动态别名跨期、未知拆分覆盖、混合旧/新价目和跨 Agent 同 provider/模型合并。
-浏览器截图位于 `build/browser-smoke/`，其中 `unit-prices.png` 与
-`model-archive-range-narrow.png` 分别核验合并行和归档区间；模拟 IPC 与真实数据
-核心复算分别记录，不能合称原生 GUI 验收。
+Regressions cover 600 million cached tokens before/after retention, exclusive detail/archive
+pricing, 1,000 small calls summed before rounding, 272000 threshold, archive tier bounds,
+original-partition isolation, hourly selection, weekly/monthly archives, aliases across dates,
+unknown-component coverage, mixed old/new price snapshots and same provider/model across agents.
+Screenshots in build/browser-smoke/: unit-prices.png and model-archive-range-narrow.png check
+merged rows/archive ranges. Simulated IPC and native-data core recalculation remain separate
+from native GUI acceptance.
 
-## 用户确认后的 K2.8 替代参考
+<a id="用户确认后的-k28-替代参考"></a>
 
-2026-10-05 用户明确确认 `k28-agent-preview` 是 Kimi K2.8 Preview，并授权没有
-官方价目时参考 K2.7。这是本条身份映射与跨型号例外的授权依据，不将其描述为
-官方确认的 K2.8 按量价格。Kimi 官方价格 Markdown 正文再次读取成功，
-`kimi-k2.7-code` 标准每百万 token：未命中输入 USD 0.95、缓存读 USD 0.19、
-输出 USD 4.00，与既有版本化种子一致；不选择 highspeed 的 1.90/0.38/8.00。
+## User-authorized K2.8 substitute reference
 
-身份和价目替代分离：`k28-agent-preview` 保持来源模型，并识别为
-`kimi-k2.8-preview`；缺精确渠道/同型号官方行时，当前参考才允许使用
-`kimi-k2.7-code` 官方行。本型号价目补入后自动优先；渠道/币种歧义、已有价目
-缺分项、未知 token 不通过替代绕过。其他近似型号不匹配；`kimi-for-coding`
-仍按日期解析身份，只有已确认指向 K2.8 的日期适用同一参考规则。
-发生时估算不使用跨型号替代，不新增历史修正规则或修改原价快照。
+On 2026-10-05, user explicitly confirmed k28-agent-preview as Kimi K2.8 Preview and authorized
+K2.7 prices when official K2.8 rates are absent. This authorizes identity mapping and this
+specific cross-model exception, without claiming official K2.8 pay-as-you-go prices. Kimi
+official Markdown rechecked successfully: kimi-k2.7-code standard API USD per million
+uncached input 0.95/cache read 0.19/output 4.00 matches existing versioned seed. highspeed
+1.90/0.38/8.00 is not selected.
 
-替代型号随金额传递至日曲线数据、模型小计与币种总计，金额卡片显示“替代参考”，
-模型详情/单价表显示 K2.8 身份和实际采用的 K2.7 Code 价目，十种语言同步。
-新增 `pricing_substitutes.rs` 四项回归验证：裸 ID/路由别名、精确价优先、官方
-供应商与未知/歧义保护、封存前后金额及替代依据一致。固定样本各一百万未命中
-输入/缓存读/输出合计 USD 5.14，金额及身份均保留到汇总。
+Identity/substitution remain separate: source model k28-agent-preview is preserved and
+recognized as kimi-k2.8-preview. Only current reference pricing may use official kimi-k2.7-code
+when no exact channel/same-model official row exists. Exact model price takes priority when
+available. Channel/currency ambiguity, missing components in an existing price and unknown
+tokens remain protected. Other similar model names do not match. kimi-for-coding resolves
+identity by date; only dates confirmed as K2.8 receive this exception. Occurrence-time estimates
+never use cross-model substitution; no new historical correction rule or old-price snapshot edits.
 
-本次增量验证：隔离桌面副本运行 `pricing_substitutes`、`pricing_archives`、
-`model_reference`、`pricing_v29`、`dashboard_repair` 共 42 项通过（退出 0）；
-全工作区 Clippy 无警告，Svelte 无错误/警告；界面 21 项、前端构建通过（退出 0）。
-浏览器回归通过（退出 0），核验汇总短标记、模型原名、单价身份/替代价分离和窄窗
-无页面溢出；截图 `build/browser-smoke/cost-substitute-narrow.png`。夹具初次将费用
-模型改为 k28 而用量仍为 GPT，导致关联断言失败；统一两路模型身份后通过，未放松断言。
-沿用上文临时副本的四条锁记录修复，源工作区锁文件保持不变。
+Substitute model propagates with amounts through daily curves/model subtotals/currency totals.
+Amount cards label the substitute reference; model details/unit-price table show K2.8 identity
+and actual K2.7 Code rate, in ten languages. Four pricing_substitutes.rs regressions cover
+bare/routed IDs, exact-price priority, official-provider/unknown/ambiguity rules, and consistent
+amount/substitution basis before/after archival. One million each uncached input/cache read/output
+totals USD 5.14; amount and identity remain in aggregates.
+
+Additional checks: isolated desktop copy pricing_substitutes/pricing_archives/model_reference/
+pricing_v29/dashboard_repair, 42 pass, exit 0; whole-workspace Clippy clean, Svelte clean,
+UI 21/frontend build exit 0. Browser exit 0 verifies short subtotal labels, original model
+name, separate identity/substitute prices and narrow layout; build/browser-smoke/cost-substitute-narrow.png.
+Initial test data changed the cost model to k28 while usage stayed GPT, failing association
+assertion. Consistent identities on both paths pass without weakening assertions. Same four
+temporary lock-record repairs as above; source lockfile unchanged.

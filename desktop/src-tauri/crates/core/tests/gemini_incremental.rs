@@ -1,6 +1,6 @@
-//! Gemini CLI 增量语义（整写 JSON，不是行游标）：重复扫描不增量、追加消息后整文件
-//! 重写（upsert 幂等不双计）、半程写入 pending 不推进游标、同长替换触发 generation
-//! 重扫、改名身份保持。
+//! Gemini incremental behavior for whole-file JSON: unchanged repeats add nothing; appends
+//! rewrite the whole file without duplicate upserts; partial writes stay pending without cursor advance;
+//! same-length replacement changes generation and rescans; rename retains identity.
 
 mod common;
 
@@ -26,9 +26,9 @@ fn session_json(messages: &[String]) -> String {
     )
 }
 
-/// 基础会话：1 user + 2 gemini（input 1000/2000，output 50/100，total 1050/2100）。
-/// 手工核算：call_count=2；input_total_known=3000；output_total_known=150；
-/// total_tokens_known=3150；cache_read_known=None（未直报，未知不补零）。
+/// Base session: one user, two gemini messages; input 1000/2000, output 50/100, total 1050/2100.
+/// Manual totals: call_count=2, input_total_known=3000, output_total_known=150;
+/// total_tokens_known=3150, cache_read_known=None; unreported fields remain unknown.
 fn base_session() -> String {
     session_json(&[
         msg_user("syn-u-1", "2026-01-05T10:00:00.000Z"),
@@ -96,7 +96,7 @@ fn appended_message_full_rewrite_upserts_idempotently() {
     let first = run_gemini(&storage, &root, NOW);
     assert_eq!(first[0].outcome.as_ref().unwrap().added, 2);
 
-    // 整文件重写：messages 追加一条 gemini（input 500, output 25, total 525）。
+    // Whole-file rewrite appends a gemini message: input 500/output 25/total 525.
     let grown = session_json(&[
         msg_user("syn-u-1", "2026-01-05T10:00:00.000Z"),
         msg_gemini("syn-m-1", "2026-01-05T10:00:05.000Z", 1000, 50, 1050),
@@ -129,8 +129,8 @@ fn appended_message_full_rewrite_upserts_idempotently() {
 fn half_written_json_pends_then_recovers() {
     let dir = TempDir::new("gemini-half");
     let full = base_session();
-    // 截断在 messages 数组中段：保留 sessionId/messages 指纹（detect 仍 Supported），
-    // 但 JSON 不完整（半程写入）。
+    // Truncate inside messages, retaining sessionId/messages detection shape: Supported,
+    // but JSON remains incomplete while writing.
     let cut = full.find("\"content\":\"synthetic reply syn-m-1").unwrap();
     let partial = &full[..cut];
     assert!(partial.contains("\"sessionId\"") && partial.contains("\"messages\""));
@@ -162,7 +162,7 @@ fn half_written_json_pends_then_recovers() {
         .unwrap();
     assert_eq!(unparseable, 1);
 
-    // 补全后下轮正常解析。
+    // Completing the file allows normal parsing next run.
     std::fs::write(&file_path, full.as_bytes()).unwrap();
     let second = run_gemini(&storage, &root, NOW + 1000);
     assert_eq!(second[0].files[0].status, "complete");
@@ -178,7 +178,7 @@ fn half_written_json_pends_then_recovers() {
 #[test]
 fn same_size_message_swap_triggers_generation_rescan() {
     let dir = TempDir::new("gemini-swap");
-    // 两条等长 gemini 消息（同位数数值），交换顺序保持总长不变。
+    // Equal-length gemini messages use same-digit numbers; reversing keeps file size.
     let msg_a = msg_gemini("syn-m-a", "2026-01-05T10:00:05.000Z", 1000, 50, 1050);
     let msg_b = msg_gemini("syn-m-b", "2026-01-05T10:00:06.000Z", 2000, 60, 2060);
     assert_eq!(msg_a.len(), msg_b.len(), "交换样本必须等长");

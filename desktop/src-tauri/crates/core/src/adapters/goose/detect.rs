@@ -1,4 +1,4 @@
-//! Goose 探测：sessions.db 的表/列指纹（usage_ledger 或 sessions.accumulated_*）。
+//! Detect Goose sessions.db by usage_ledger or sessions.accumulated_* table/column shapes.
 
 use crate::adapters::framework::DetectOutcome;
 use crate::domain::VersionBasis;
@@ -10,8 +10,8 @@ use super::versions;
 
 pub const GOOSE_FORMAT: &str = "goose-sessions-db";
 
-/// 表列集探测：Ok(None)=表不存在；Ok(Some)=列集；Err=瞬态/查询错误
-/// （busy 类错误由调用方映射 Pending，不能吞成"表不存在"误判格式不明）。
+/// Column detection: Ok(None) means absent table, Ok(Some) returns columns, Err is a query error.
+/// The caller maps busy to Pending; do not misreport query failures as missing tables.
 fn table_columns(
     conn: &rusqlite::Connection,
     table: &str,
@@ -58,7 +58,7 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     };
     let ledger = match table_columns(&conn, "usage_ledger") {
         Ok(cols) => cols.unwrap_or_default(),
-        // 瞬态锁（产品进程持库写入）⇒ Pending 下轮重探。
+        // A temporary lock from product writes returns Pending for the next scan.
         Err(err) if common::is_busy_like(&err) => return Ok(DetectOutcome::Pending),
         Err(err) => return Err(err.into()),
     };
@@ -87,7 +87,7 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     }
     let missing = missing(&sessions, common::SESSIONS_FALLBACK_COLUMNS);
     if missing.is_empty() {
-        // 旧库（schema < 15）：无逐请求表，按 sessions.accumulated_* 聚合回退。
+        // Before schema 15 there is no per-request table; use sessions.accumulated_* aggregates.
         return Ok(DetectOutcome::Supported {
             format: GOOSE_FORMAT.to_string(),
             format_version: Some(versions::GOOSE_FORMAT_VERSION.to_string()),

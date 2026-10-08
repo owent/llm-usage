@@ -1,20 +1,20 @@
-//! V12：kilo 适配器增量与刷新语义（SQLite 源，schema 指纹 + message.id
-//! 稳定键 + time_updated 已处理位置；对照 codex/pi 的 JSONL 版本）：
-//! - 重复扫描不增量（已处理时间窗口内重复行按同键同修订幂等）；
-//! - 新增消息只增量入账（不重放全库）；
-//! - 行更新（time_updated 提升、tokens 变化）按 source_revision 替换，不冲突；
-//! - 未完成消息完成（partial → final）同键替换；
-//! - schema 指纹变化 ⇒ 已处理位置重置全量重读（幂等）；
-//! - 库文件重建（新文件身份）⇒ 全量重扫幂等，历史不丢。
+//! Kilo V12 incremental SQLite tests use schema fingerprints, stable message.id keys
+//! and time_updated processing positions, compared with Codex/Pi JSONL tests:
+//! - Repeated rows in the processed window with identical key/revision do not add usage.
+//! - New messages contribute incrementally, without replaying the entire database.
+//! - Increased time_updated and changed tokens replace values by source_revision without conflict.
+//! - Completion replaces partial with final under the same key.
+//! - Schema fingerprint changes reset processing positions and reread without duplication.
+//! - Database recreation rescans without duplicate usage or loss of stored history.
 //!
-//! 场景数据为合成（schema 同真实 fixture DDL），数值人工核算。
+//! Data is synthetic using the real sample DDL, with manually calculated values.
 
 mod common;
 
 use common::*;
 
 const NOW: i64 = 1_800_000_000_000;
-/// 合成时间基；增量各步分别 +1_000_000（远超 60s 重叠窗，避免跨步重读歧义）。
+/// Synthetic time base; each step adds 1_000_000 ms, beyond the 60-second overlap window.
 const T0: i64 = 1_783_000_000_000;
 const STEP: i64 = 1_000_000;
 
@@ -52,7 +52,7 @@ fn syn_session(version: &str, snapshot: [i64; 5]) -> serde_json::Value {
     })
 }
 
-/// 直接写一条 assistant 消息（tokens 可为 Null 表示无 usage；finish 可选）。
+/// Insert one assistant; Null tokens means no usage and finish is optional.
 #[allow(clippy::too_many_arguments)]
 fn insert_message(
     dir: &TempDir,
@@ -167,8 +167,8 @@ fn repeat_scan_does_not_double_count() {
     assert_eq!(first[0].outcome.as_ref().unwrap().added, 2);
     let revision_after_first = storage.data_revision().unwrap();
 
-    // 无变化：已处理时间窗口（60s 重叠）内两行重读，但同键同内容同修订 ⇒ unchanged，
-    // 不新增、不双计（SQLite 源不做字节长度短路，见适配器 incremental 约定）。
+    // Replay two unchanged rows in the 60-second overlap: same key/content/revision is unchanged,
+    // without added usage. SQLite does not skip solely on byte length; see incremental rules.
     let second = run_kilo(&storage, &root, NOW + 1_000);
     let outcome = second[0].outcome.as_ref().unwrap();
     assert_eq!(
@@ -180,7 +180,7 @@ fn repeat_scan_does_not_double_count() {
     let summary = summary(&storage, "2026-01-01", "2026-12-31");
     assert_eq!(summary.totals.call_count, 2);
     assert_eq!(summary.totals.total_tokens_known, Some(300));
-    // 空批次不推进受影响日：修订不再因重算而上抬（仅事务号 +1）。
+    // Empty replay adds no usage; the data revision must not move backwards.
     assert!(storage.data_revision().unwrap() >= revision_after_first);
     let _ = dir;
 }
@@ -208,7 +208,7 @@ fn appended_message_is_ingested_incrementally() {
     let first = run_kilo(&storage, &root, NOW);
     assert_eq!(first[0].files[0].events, 1);
 
-    // 追加一条（超出重叠窗）：只读已处理位置之后的新行。
+    // Append beyond the overlap window; the new row contributes once and old rereads remain unchanged.
     insert_message(
         &dir,
         "syn-m2",
@@ -220,7 +220,7 @@ fn appended_message_is_ingested_incrementally() {
     let outcome = second[0].outcome.as_ref().unwrap();
     assert_eq!(outcome.added, 1, "只有新行入账");
     assert_eq!(outcome.unchanged, 1, "重叠窗内旧行幂等");
-    // 快照列未同步更新是源侧行为：对账 mismatch 可见（不隐藏），总数以明细为准。
+    // Unsynchronized source snapshots remain visible as mismatch; detail events determine totals.
     let summary = summary(&storage, "2026-01-01", "2026-12-31");
     assert_eq!(summary.totals.call_count, 2);
     assert_eq!(summary.totals.total_tokens_known, Some(280 + 75));
@@ -249,7 +249,7 @@ fn updated_message_replaces_values_by_revision() {
     let (_db, storage) = temp_storage("kilo-v12-update");
     run_kilo(&storage, &root, NOW);
 
-    // 活库更新旧行：time_updated 提升为修订号，tokens 下修。
+    // Update an existing row with a higher time_updated revision and reduced token values.
     update_message(
         &dir,
         "syn-m1",
@@ -316,7 +316,7 @@ fn unfinished_message_completion_replaces_partial() {
     assert_eq!(total, Some(15), "未完成消息的中间值照常入账");
     assert_eq!(time_basis, "source_start");
 
-    // 完成后：finish=stop、补 total、time_updated 提升 ⇒ 同键替换为 final。
+    // finish=stop, completed total and increased time_updated replace the same key as final.
     update_message(
         &dir,
         "syn-m1",
@@ -373,7 +373,7 @@ fn schema_fingerprint_change_resets_watermark_idempotently() {
     let (_db, storage) = temp_storage("kilo-v12-schema");
     run_kilo(&storage, &root, NOW);
 
-    // 模拟 schema 演进：篡改持久化的 schema 指纹 ⇒ 下轮已处理位置重置全量重读。
+    // Modify the persisted schema fingerprint to simulate evolution and trigger a complete reread.
     storage
         .conn()
         .execute(
@@ -387,7 +387,7 @@ fn schema_fingerprint_change_resets_watermark_idempotently() {
         )
         .unwrap();
     let second = run_kilo(&storage, &root, NOW + 1_000);
-    // 全量重读：旧行同键同修订同内容 ⇒ unchanged，不重加、不冲突。
+    // Identical old key/revision/content is unchanged on full reread, without additions or conflict.
     let outcome = second[0].outcome.as_ref().unwrap();
     assert_eq!(
         (outcome.added, outcome.updated, outcome.unchanged),
@@ -427,7 +427,7 @@ fn recreated_database_rescans_idempotently() {
     let (_db, storage) = temp_storage("kilo-v12-recreate");
     run_kilo(&storage, &root, NOW);
 
-    // 同路径重建（新文件身份）：全量重扫，同实例同键幂等，历史不丢。
+    // Recreate at the same path; rereads preserve history and deduplicate the same instance/key.
     let projection = synthetic_kilo_projection(
         serde_json::json!([syn_session("7.4.9", [200, 80, 0, 0, 0])]),
         serde_json::json!([{
@@ -507,8 +507,8 @@ fn recreated_database_rescans_idempotently() {
         (0, 1),
         "重扫同键幂等（新身份全量重读或同身份处理位置重读都收敛于此）"
     );
-    // 文件身份 = 创建时间 + 首采样指纹：创建时间不可得（None）且内容同形的
-    // 重建库会命中旧身份（框架按身份改名探测语义复用行），不产生新实例数据。
+    // File identity includes creation time and first-sample fingerprint; when creation time is absent,
+    // same-shape recreation matches the old stream identity without a new instance contribution.
     let identities: i64 = storage
         .conn()
         .query_row(

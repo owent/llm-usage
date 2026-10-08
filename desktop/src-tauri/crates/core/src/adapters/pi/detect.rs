@@ -1,13 +1,13 @@
-//! pi 探测与版本分派：有界读取首行，确认 Agent 身份（`type=session` 头）后按
-//! [`super::versions`] 注册表选择格式实现。
+//! Detect pi and select its version: read the first line within limits, verify the
+//! type=session header, then select an implementation through [super::versions].
 //!
-//! 约定（architecture.md#unknown-version，V30）：
-//! - 首行不是 JSON / 不是 session 头 ⇒ 未知格式，fail closed，不把任意未知文件
-//!   交给猜测逻辑；
-//! - version 已收录（3）⇒ KnownVersion；未收录数值（如 4）⇒ LatestFallback
-//!   （带兼容标记）；
-//! - 固定源码已确认不兼容的 version（1、2）与缺失 version（v1/v2 时代不写该字段
-//!   的 legacy 形态）⇒ UnsupportedVersion，不尝试回退。
+//! Rules: architecture.md#unknown-version, V30.
+//! - A non-JSON/non-session first line is UnknownFormat; reject it rather than
+//!   guessing how to parse arbitrary files.
+//! - Registered version 3 uses KnownVersion; unregistered integers such as 4
+//!   use LatestFallback with compatibility metadata.
+//! - Source-verified incompatible versions 1/2 and missing versions from the
+//!   legacy v1/v2 format use UnsupportedVersion without fallback.
 
 use crate::error::CoreError;
 use std::path::Path;
@@ -18,7 +18,7 @@ use super::versions;
 
 pub const PI_FORMAT: &str = "pi-session-jsonl";
 
-/// 探测一个 pi session 文件并按注册表分派。
+/// Detect a pi session file and select through the registry.
 pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     let limits = super::super::jsonl::JsonlLimits {
         chunk_bytes: 64 * 1024,
@@ -41,8 +41,8 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
             reason: "first record type is not session header".to_string(),
         });
     }
-    // Agent 身份/输入类型已确认；version 非整数（异常形态）与缺失同按 None 处理，
-    // 统一走注册表分派（v1/v2 时代不写 version 字段，legacy 形态已确认不兼容）。
+    // Agent/input type is verified. Noninteger and absent versions both become None;
+    // registry dispatch rejects the verified incompatible legacy format that lacks version.
     let found = line.get("version").and_then(|v| v.as_i64());
     match versions::select(found) {
         Ok(selection) => Ok(DetectOutcome::Supported {

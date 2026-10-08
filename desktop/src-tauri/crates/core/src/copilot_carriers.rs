@@ -1,5 +1,5 @@
-//! Select a carrier for a host/user/session/local-day partition, without guessing
-//! call identity from timestamps or token amounts. Native records remain stored.
+//! Select a record format per host/user/session/local day, without guessing
+//! call identity from time/token equality; native records remain stored.
 use crate::{calendar::Calendar, error::CoreError, ingest::IngestBatch};
 use jiff::civil::Date;
 use rusqlite::{params, OptionalExtension, Transaction};
@@ -33,8 +33,8 @@ pub(crate) fn upgrade_otel_identity(
                 WHERE accepted.source_instance_id=?1 AND accepted.source_record_key=?3 AND accepted.attribution_status='verified')",
             params![e.source_instance_id,format!("otel:{span}"),e.source_record_key],|r|Ok((r.get(0)?,r.get(1)?))).optional()?;
         if let Some((id, ms)) = old {
-            // Accepted trace+span records replace legacy span-only identity; the
-            // legacy audit record stays stored and cannot inflate aggregates.
+            // Accepted trace+span records replace legacy span-only identities;
+            // old audit records remain stored without inflating aggregates.
             tx.execute("UPDATE usage_events SET attribution_status='excluded',exclusion_reason='otel_trace_identity_upgrade' WHERE event_id=?1",[id])?;
             affected.insert(calendar.local_day_of(ms)?);
         }
@@ -55,8 +55,8 @@ pub(crate) fn select(
     {
         return Ok(());
     }
-    // Repeated exports with the same trace+span have proven call identity. Keep
-    // one stable carrier per local host/user, independently of collection enable.
+    // Repeated trace+span identifies the same call. Keep one stable file
+    // per local host/user regardless of collection enable state.
     let duplicates = {
         let mut stmt=tx.prepare("SELECT e.event_id,e.occurred_at_ms,e.origin_call_id,s.origin_host_id,s.user_id
             FROM usage_events e JOIN source_instances s ON s.instance_id=e.source_instance_id
@@ -107,8 +107,8 @@ pub(crate) fn select(
                 && e.parser_version == "otel-spans-file-2"
                 && e.attribution_status == crate::domain::AttributionStatus::Verified
             {
-                // A rejected/expired incoming record cannot claim authority. Read the
-                // accepted version, including its session/time, from this transaction.
+                // Rejected/expired input cannot select the contributing format. Read the
+                // accepted version and its session/time from this transaction.
                 let accepted: Option<(Option<String>, Option<String>, i64)> = tx
                     .query_row(
                         "SELECT session_id,parent_session_id,occurred_at_ms FROM usage_events
@@ -189,7 +189,7 @@ pub(crate) fn select(
                     .is_ok_and(|date| date.to_string() == *d)
         });
         if selected {
-            // Preserve a sealed partition: its historical contribution is frozen.
+            // Preserve sealed partitions; their historical contributions are fixed.
             let sealed: bool = tx.query_row(
                 "SELECT EXISTS(SELECT 1 FROM daily_usage d
                 JOIN usage_events e ON e.source_instance_id=d.instance_id WHERE e.event_id=?1

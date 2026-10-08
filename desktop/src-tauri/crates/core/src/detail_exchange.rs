@@ -1,4 +1,4 @@
-//! Complete statistical details, merged with the ordinary ingest arbitration.
+//! Complete statistical details merged through ordinary ingest conflict handling.
 use crate::aggregates::SourceAggregateInput;
 use crate::domain::EventInput;
 use crate::error::CoreError;
@@ -39,7 +39,7 @@ pub struct DetailImportOutcome {
     pub cumulative_changed: usize,
 }
 
-// All keys are the normalized statistics whitelist; no source payload is serialized.
+// Serialize only permitted normalized statistics fields, without original source payloads.
 const EVENT_JSON: &str = "json_object(
  'source_instance_id',source_instance_id,'source_record_key',source_record_key,
  'record_kind',record_kind,'schema_version',schema_version,'parser_version',parser_version,
@@ -219,7 +219,7 @@ pub fn import_details_with_pricing(
         }
     }
     let tx = storage.conn().unchecked_transaction()?;
-    // A sealed source-day cannot be reconstructed from a partial retained export.
+    // A retained archive source-day cannot be rebuilt from an incomplete detail export.
     for (instance, day) in &live {
         let (start, end) = calendar.day_range_ms(crate::calendar::parse_date(day)?)?;
         let sealed:bool=tx.query_row("SELECT EXISTS(SELECT 1 FROM daily_usage WHERE instance_id=?1 AND local_day=?2 AND tz_version=?3 AND (sealed=1 OR NOT EXISTS(SELECT 1 FROM usage_events WHERE source_instance_id=?1 AND occurred_at_ms>=?4 AND occurred_at_ms<?5)))",params![instance,day,package.archive.timezone,start,end],|r|r.get(0))?;

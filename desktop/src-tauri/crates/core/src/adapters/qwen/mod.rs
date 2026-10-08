@@ -1,12 +1,12 @@
-//! Qwen Code 适配器（独立目录约定 architecture.md#adapter-layout）：
-//! - 本模块是该 Agent 的稳定入口（统一接口实现与再导出）；
-//! - [`detect`]：产品/格式探测与版本分派；
-//! - [`versions`]：已验证格式实现的注册与映射（统一结构；格式锚点是固定源码
-//!   commit，不做 CLI 版本白名单）；
-//! - 历史版本的格式实现一律保留在本目录内，不再回到根级单文件。
+//! Qwen Code native ChatRecord adapter; layout: architecture.md#adapter-layout.
+//! - Stable product entry point implementing/re-exporting the common interface.
+//! - [`detect`]: product/format detection and version selection.
+//! - [`versions`]: fixed-source ChatRecord format registry;
+//!   the source commit identifies the format rather than a CLI-release allowlist.
+//! - Keep historical format implementations in this directory, without root-level single files.
 //!
-//! 原始格式依据见各版本模块文件头（A18）；本目录化迁移自根级单文件 qwen.rs
-//! 平移（M2 目录化迁移，V30），行为约定不变。
+//! Version headers retain A18 references; M2/V30 moved the former root qwen.rs here
+//! without changing the native ChatRecord rules. SDK telemetry has a separate reader.
 
 pub mod detect;
 pub mod versions;
@@ -17,7 +17,7 @@ pub use versions::{
     chatrecord_085e98c0, LATEST_IMPL_ID, QWEN_FORMAT_VERSION, VERIFIED_VERSION_IMPLS,
 };
 
-/// Qwen Code 适配器（无状态）。
+/// Stateless Qwen Code adapter.
 pub struct QwenAdapter;
 
 impl Default for QwenAdapter {
@@ -50,13 +50,13 @@ impl crate::adapters::framework::SourceAdapter for QwenAdapter {
             DISCOVER_MAX_FILES,
         };
         let mut roots: Vec<(std::path::PathBuf, RootBasis)> = Vec::new();
-        // The runtime override is authoritative for this process. Keep manual roots
-        // separate so users can still scan a previous installation explicitly.
+        // The runtime override selects this process's automatic root. Keep manual roots
+        // separate so users can explicitly collect from a previous installation.
         let runtime = ctx.env.get("QWEN_RUNTIME_DIR").filter(|s| !s.is_empty());
         let qwen_home = ctx.env.get("QWEN_HOME").filter(|s| !s.is_empty());
         if let Some(path) = runtime.or(qwen_home) {
             // Qwen resolves relative overrides against its own working directory,
-            // which the desktop process does not know. Never guess that base.
+            // which this desktop process cannot determine; do not guess that base.
             let configured = std::path::PathBuf::from(path);
             let resolved = if path == "~" {
                 ctx.home_dir.clone()
@@ -91,8 +91,8 @@ impl crate::adapters::framework::SourceAdapter for QwenAdapter {
         let mut out = Vec::new();
         for (root, basis) in roots {
             let mut files = Vec::new();
-            // Inspect only the documented chats directories. Scanning every
-            // project sidecar can spend the directory budget before reaching
+            // Inspect only documented chats directories. Enumerating every project sidecar
+            // could exhaust directory limits before reaching
             // archived sessions.
             for base in ["projects", "tmp"] {
                 let dir = root.join(base);
@@ -127,8 +127,8 @@ impl crate::adapters::framework::SourceAdapter for QwenAdapter {
                 }
             }
             files.truncate(DISCOVER_MAX_FILES);
-            // A Qwen writer can recreate the active file after archiving. Read it
-            // first; shared native UUIDs in the archive remain idempotent.
+            // Qwen may recreate an active file after archiving. Read active files first;
+            // shared native archive UUIDs do not add duplicate usage.
             files.sort_by_key(|p| {
                 (
                     p.parent()
@@ -166,7 +166,7 @@ impl crate::adapters::framework::SourceAdapter for QwenAdapter {
         limits: &crate::adapters::framework::ScanLimits,
         now_ms: i64,
     ) -> Result<crate::adapters::framework::ScanOutcome, crate::error::CoreError> {
-        // 当前所有已验证版本共用 chatrecord_085e98c0；注册表扩展多实现后在此按选择分派。
+        // Current native versions share chatrecord_085e98c0; future distinct readers require dispatch here.
         versions::chatrecord_085e98c0::scan(target, stored, limits, now_ms)
     }
 

@@ -1,156 +1,207 @@
-# 本地定时提取与后台生命周期
+# Local scheduled collection and background lifecycle
 
-当前实现为全局间隔、逐源间隔/每日/每周、启动校对、手动合并、单写者及 Windows
-可选原生系统任务。Windows 托盘可选，节能暂停与协作式扫描时间限制已接入，
-具体验收状态见 [Plan.md](../../../Plan.md)。Windows 文件监听与逐源间隔单调计时
-已接入；来源实例有两个解析槽，载体与后处理通过作用域控制协作中断。
+<a id="本地定时提取与后台生命周期"></a>
 
-## 设置与执行选择
+Current implementation provides global intervals, per-source interval/daily/weekly rules,
+startup reconciliation, merged manual requests, one database writer and optional native
+Windows tasks. Optional Windows tray, energy-saving pause and cooperative scan limits
+are implemented; acceptance status in [Plan](../../../Plan.md). Windows file watching and
+monotonic per-source intervals are implemented. Two source-instance parsing slots use
+scoped cancellation for file/database reads and postprocessing.
 
-| 设置 | 默认与当前行为 |
+<a id="设置与执行选择"></a>
+
+## Settings and execution
+
+| Setting | Default and current behavior |
 | --- | --- |
-| 全局自动提取 | 1 小时；0 关闭所有自动提取（含启动、逐源和系统触发），手动仍可执行 |
-| 逐源规则 | 覆盖全局；间隔 15s–24h、每日 HH:MM、每周 ISO 星期 + HH:MM；来源必须启用 |
-| 定点时区 | 首次采用统计时区并独立保存，之后修改统计时区不改变计划；数据源页可改时区并预览接下来三次 |
-| 启动/恢复 | 自动提取开启时启动校对全部启用来源；全局错过多个间隔合并一次，不回放每个时点 |
-| 开机启动 | Windows 当前用户自启，默认关闭；与后台任务分别配置 |
-| 退出后采集 | Windows 系统任务默认关闭；当前用户已登录时无窗口检查到期来源；不唤醒电脑 |
-| 托盘 | Windows 默认关闭；开启后关闭窗口隐藏，点击托盘/显示窗口恢复，退出菜单始终退出；开机启动及系统采集独立 |
-| 节能暂停 | Windows 默认开启；只读 GetSystemPowerStatus，节能模式暂停启动/间隔/逐源/系统自动采集，手动保留，恢复后合并校对一次 |
-| 文件监听 | Windows 可选、默认关闭；仅已登记且启用的本机根，2 秒防抖；每日/每周规则不监听；保留轮询兜底 |
+| Global automatic collection | One hour; 0 disables every automatic trigger, including startup/per-source/system triggers; manual collection remains available |
+| Per-source rule | Overrides global; interval 15 seconds–24 hours, daily HH:MM or weekly ISO weekday + HH:MM; source must be enabled |
+| Calendar-rule timezone | Initially statistical timezone, then saved independently; changing statistics does not change schedule. Source page can change it and preview next three runs |
+| Startup/resume | With automation enabled, reconcile all enabled sources at startup; multiple missed global intervals become one run |
+| Start at login | Current Windows user, off by default; configured separately from background tasks |
+| Collect after exit | Windows system task off by default; checks due sources without a window while current user logged in; no waking computer |
+| Tray | Windows off by default; enabled close hides window; tray/show restores; exit menu always exits. Login startup/system collection independent |
+| Energy-saving pause | Windows on by default; read-only GetSystemPowerStatus; pauses startup/interval/per-source/system automation. Manual remains; reconcile once after resume |
+| File watching | Optional Windows, off by default; registered/enabled local roots only, two-second debounce; excludes daily/weekly rules; polling remains fallback |
 
-Windows 开机启动通过原生注册表 API 读写 HKCU Run 的应用值；查询核对当前可执行
-路径，旧路径或异形值不当作生效。不启动 reg.exe，不把删除权限失败视为已关闭。
+Windows login startup uses native registry APIs for the app's HKCU Run value. Status verifies
+current executable path; old paths/unexpected value forms do not count as active. No reg.exe;
+delete-permission failures do not count as disabled.
 
-每个来源使用相同采集入口，任务只读取已有本机记录，不执行 shell、Agent CLI、
-提示词或模型调用。手动刷新包含全部启用来源，包括有独立计划者；自动全局扫描
-排除尚未到期的独立计划，到期规则每源补扫一次。停用来源不撤回历史贡献。
-应用内自动提取关闭后，残留系统触发也不能读取；显式 `--scan-once` 为手动采集。
+All sources share collection entry points. Tasks read existing local records without shell,
+agent CLI, prompts or model calls. Manual refresh includes every enabled source, including
+independent schedules. Automatic global scans exclude independent schedules not yet due;
+each due source gets one additional scan. Disabling a source retains historical contributions.
+After disabling app automation, residual system triggers cannot read. Explicit --scan-once
+is manual collection.
 
-计划保存规则/时区、启用、配置版本及下次执行；来源停止后无自动读取，恢复后
-错过时点合并校对。固定时刻的 DST 缺失时间顺延到跳变后的首个有效时刻；
-重复时间只取第一次。已执行后推进下一个日历时点，不因回拨重放同一时点。
-全局及逐源运行期间的间隔等待使用单调时钟；逐源首次载入从持久化 UTC 到期
-时间恢复，之后时钟跳变不提前触发间隔。运行完成/规则修订重新计时，并按剩余
-单调时间修正下次执行的 UTC 展示；每日/每周仍按独立时区的日历时刻。
-GUI 的启动/手动/全局扫描共用持久化全局期限；逐源扫描只推进对应来源，
-不能反复重置全局计时而饿死继承全局的来源。
-旧版未保存时区的规则在初始化时固定当前有效统计时区一次。
+Saved schedules include rule/timezone/enabled state/configuration version/next run. Stopped
+sources are not read automatically; resumed missed times merge into one reconciliation.
+DST missing calendar times move to the first valid time after the transition; repeated times
+use the first occurrence. Completed rules advance to the next calendar time, without replay
+after clock rollback. Global/per-source interval waits use monotonic clocks while running.
+Initial per-source load restores persisted UTC due times; later clock jumps do not trigger
+intervals early. Completion/rule revision restarts timing; remaining monotonic time corrects
+the displayed next UTC time. Daily/weekly rules still use their independent timezone's calendar.
+GUI startup/manual/global scans share the persisted global deadline; per-source scans advance
+only their source, avoiding repeated global resets that postpone inherited-global sources.
+Legacy rules lacking timezone bind the current effective statistical timezone once at initialization.
 
-## 合并、事务与恢复
+<a id="合并事务与恢复"></a>
 
-GUI/headless 共用两个来源实例工作槽，同一 Agent 的不同根也能并行；
-空槽领取下一个根，同一实例由既有作业状态机合并。读取和解析时释放应用数据库锁。
-文件归属/游标加载、结果接纳、批次及作业状态更新经同一个 Storage 互斥锁串行执行，
-不创建第二个写连接；归档的权威替换仍在该锁内完成。并行须回归同文件归属、
-停用/暂停、一次失败不影响其他来源、事件与游标回滚以及重扫幂等。
-载体中断采用每工作线程独立的作用域控制，期限按源/轮次取较早者；有界读取、
-逐行/逐记录循环、SQLite 查询和备份分页检查。只有完整有效批次才接纳结果，
-中断不成为解析错误或推进未处理游标；控制及源 SQLite 的句柄随作用域撤销。
-成功解析的探测指纹、generation 与事件/游标同事务写入；失败后同大小替换仍须重读。
-JSONL 默认每文件读取窗 32 MiB，显式较大单行上限会相应放大窗口；完整行可提交，
-剩余部分标 interrupted，来源计划保持到期。读取至多使用剩余文件预算的一半，
-给解析和提交留时间；暂停或期限耗尽时未确认批次回滚。查找换行只扫描新读入字节。
-JSON 有控制时每 32 KiB 检查，IO 每次至多 64 KiB；开关检查最多缓存 20 ms，
-期限每次检查。SQLite 每 1,000 VM 指令和备份每页组检查，回调内不调用 SQL。
-应用归档/保留/费用连接的回调在解锁前撤销，未确认维护事务回滚；已中断的轮次
-不继续启动保留、费用或可选价格刷新。未访问、中断或合并请求不推进逐源到期时间。
-任何阻塞 OS 调用仍只能在返回后检查，不能声称硬实时终止。
+## Merging, transactions and recovery
 
-GUI 与 headless 按同一数据库的 OS 文件锁确定唯一所有者；异常退出由 OS 释放锁。
-失去锁的手动请求与系统请求分别持久化并合并，不通过打开 Storage 恢复别人的
-running 作业。GUI 消费手动请求不依赖自动启用；消费系统请求时再次核对启用意图。
-运行期间的重复手动刷新最多保留一个后续请求；定点到期保持在库中，运行后推进。
+GUI/headless share two source-instance slots, permitting different roots of the same agent
+in parallel. Empty slots take the next root; existing job state merges same-instance requests.
+Release app database lock during reads/parsing. One Storage mutex serializes file ownership/
+cursor loading/result acceptance/batch/job-state updates; no second writer connection.
+Archive replacement uses that lock. Parallel regressions cover same-file ownership,
+disable/pause, independent source failures, event/cursor rollback and duplicate-free rescans.
 
-当前应用按注册表分组发现，再由两个工作槽采集来源实例，数据库单写者。事件、游标、解析状态、聚合与作业提交
-进度同事务；错误源保留状态，其他适配器继续。重启恢复 interrupted 作业并幂等
-重扫，不靠 PID 文件无限占锁。任务注册成功与采集成功是两种状态。
+Each worker has scoped cancellation with the earlier source/round deadline. Bounded reads,
+line/record loops, SQLite queries and backup pages check it. Accept only complete valid
+batches. Interruption is not a parse error and cannot advance unprocessed cursors; scoped
+control/source SQLite handles released with the scope. Successful detection/generation and
+events/cursors commit together; same-size replacement after failure still requires rereading.
+JSONL default per-file window 32 MiB; explicitly larger line limits enlarge it accordingly.
+Complete lines can commit; remainder marked interrupted, source schedule stays due. Reading
+uses at most half the remaining per-file time to leave parsing/commit time. Pause/expiry
+rolls back unaccepted batches. Newline searches examine newly read bytes only.
 
-生命周期规则与实施边界：
+Codex prioritizes unvisited files across runs, rotating others by last confirmed visit time
+in the database; ties use reverse date-path order. Large files retain cursors after exhausting
+the window and yield to other unvisited files next run, preventing historical backfill from
+postponing fresh usage. Rotation does not mark interrupted collection complete. Other
+adapters keep their discovery order; enable rotation only after verifying files have no
+read-order dependency.
 
-- Windows 文件变更采用原生目录通知，不增加扫描线程；全局开关默认关闭，
-  依赖自动提取及节能门控。只对启用来源登记的本机目录/手工文件父目录注册，
-  每日/每周不监听；手工根隔离模式同时限制监听根。最多 32 个目录通知句柄，
-  注册/通知失败或超限回退既有轮询，不把通知本身当成用量或读取成功。
-  同一批变更静默 2 秒后按来源合并一次；暂停时释放句柄，恢复后启动校对。
-- 逐源间隔采用上述进程内单调期限；短生命周期系统任务重启时从 UTC 恢复，
-  不声称单调时钟可以跨进程持久化。
-- 同源最多一个作业和一个合并触发；不同来源最多并行 2 个解析任务。
-- 单文件 scan 的 SQLite busy/locked、短暂 IO 和 Windows 共享违例最多重试 3 次，
-  等待 5/15/30 秒；剩余源时间容纳不下等待时立即返回错误。解析、权限拒绝及
-  不存在的文件不在同轮重试；发现/探测 Pending 留待下轮。
-  重试等待每 100 ms 核对暂停/期限，下一次读取前再核对；中断保留游标且不作解析失败。
-- 设置保存使用后台工作线程；有效暂停请求在等待数据库写锁前阻止自动读取。
-  只有保存成功才替换持久设置，失败释放该请求并沿用旧设置；并发暂停请求分别计数。
-- 每源文件扫描默认共用 30 秒单调计时，包含探测及重试等待；JSONL 读取收到剩余
-  时间，文件及载体内部到期停止；仅已提交批次算确认，未提交事件/游标/指纹一起回滚。
-  自动轮次共用 5 分钟期限及暂停，包含载体读取与归档、保留、费用后处理；未访问
-  来源不冒认成功，也不推进到期时间。系统任务另有 5 分钟
-  终止限制。这是协作式限制，
-  不能当成任何 OS 读取都能在精确时限内强制返回。
-- 托盘与节能仅 Windows 首版；其他平台保留构建，尚未认证原生行为。
+Controlled JSON checks every 32 KiB, IO reads at most 64 KiB. Switch checks cached for at
+most 20 ms; deadlines checked each time. SQLite checks every 1,000 VM instructions and
+backup page group; callbacks execute no SQL. Archive/retention/cost callbacks removed
+before unlocking; unaccepted maintenance transactions roll back. Interrupted rounds do
+not start retention/cost/optional price refresh. Unvisited/interrupted/merged requests do
+not advance per-source due times. Blocking OS calls can only be checked after return;
+no hard real-time termination guarantee.
 
-采集只能看到源已落盘记录，不能恢复上游删除或未导出的用量。
-累计观察跨日时保留区间不确定性，不把全部增量算在唤醒日。
-新鲜度目标仅适用于源已落盘且正常运行，见 [资源目标](architecture.md#budgets)。
+GUI/headless use an OS file lock for the same database's sole owner; OS releases on abnormal
+exit. Losing manual/system requests persist and merge separately; opening Storage must not
+recover another owner's running jobs. GUI handles manual requests independently of automation;
+system requests recheck saved intent. Repeated manual refresh during a run retains at most
+one follow-up request. Due calendar rules stay in the database, advancing after execution.
 
-## Windows 原生系统任务
+Discovery groups adapters by registry; two slots collect instances with one writer. Events,
+cursors/parse state/aggregates/job committed progress share transactions. Failed sources
+retain state while other adapters continue. Restart recovers interrupted jobs with stable
+rescans, without PID files indefinitely holding ownership. Task registration and collection
+success are separate states.
 
-通过 Task Scheduler COM API 注册，每个应用数据库路径有独立任务名及所有权标记。
-执行路径与参数分别保存：程序绝对路径，参数 `--headless --data-dir <绝对目录>`；
-不拼接 shell，中文/空格路径独立验收。不覆盖或删除所有权标记不匹配的任务。
+Lifecycle rules and implementation limits:
 
-任务使用 `TASK_LOGON_INTERACTIVE_TOKEN`、`TASK_RUNLEVEL_LUA`，不保存密码、不
-使用 SYSTEM 或管理员权限；每分钟检查应用规则，不唤醒机器，最多一个实例，
-OS 执行期限 5 分钟。注销、关机和休眠期间不承诺执行；恢复后合并补扫。
-不足一分钟的逐源间隔在仅系统任务模式下受限，界面显示该精度。
+- Windows directory notifications add no scanning thread. Global watch switch off by
+  default; depends on automation and energy-saving checks. Only registered enabled local
+  directories/manual-file parents; no daily/weekly watches. Manual-root isolation also
+  restricts watch roots. At most 32 notification handles; failures/overflow use polling.
+  Notifications alone do not establish usage/read success. Merge one source trigger after
+  two quiet seconds; pause releases handles, resume reconciles startup.
+- Per-source intervals use in-process monotonic deadlines; short-lived system tasks restore
+  UTC on restart, without claiming monotonic clocks persist across processes.
+- At most one job/one merged trigger per source; at most two parsing jobs across sources.
+- One-file scans retry SQLite busy/locked, transient IO and Windows sharing violations up
+  to three times, waits 5/15/30 seconds. Insufficient remaining source time returns error
+  immediately. No same-round retry for parsing/permission denial/missing files; discovery/
+  detection Pending waits for another round. Retry waits check pause/deadline every 100 ms
+  and before rereading. Interrupted scans retain cursor without parse-failure status.
+- Settings save on a background worker. Valid pause requests block automatic reads before
+  waiting for the write lock. Persisted settings replace only after successful save;
+  failure releases the request and keeps old settings. Concurrent pause requests counted separately.
+- Source file scans share a default 30-second monotonic limit, including detection/retry
+  waits. JSONL receives remaining time; files and inner reads stop on expiry. Only committed
+  batches count as accepted; uncommitted events/cursors/detection information roll back
+  together. Automatic rounds share five minutes/pause, including reads/archive/retention/
+  costs. Unvisited sources are not successful and keep due times. System task has another
+  five-minute termination limit. These are cooperative checks, without forcing every OS
+  read to return at an exact deadline.
+- Tray/energy-saving behavior is Windows-only initially. Other platforms build but native
+  behavior is unverified.
 
-启用/关闭意图先持久化，再调用 OS，最后回查真实生效状态；错误保留意图和原因。
-设置页分别显示已安装/实际启用、期望状态及重试应用入口；只读状态检查不注册任务。
-关闭先落盘，即使删除失败，残留 `--headless` 也立即退出。
-任务路径失效或升级后路径变化显示待修复，用户应用时重注册；不凭任务存在报成功。
+Collection sees only saved source records; it cannot restore upstream deletions/unsaved
+exports. Cross-day cumulative observations retain uncertain intervals, without assigning
+all increments to wake day. Freshness targets require saved sources and normal operation;
+see [resource targets](architecture.md#budgets).
 
-GUI 持锁时 headless 只提交一个后台请求并退出，GUI 再按已保存规则筛选。
-独立 headless 也先检查意图、全局暂停和逐源到期，完成退出，不创建 WebView、
-Agent 或临时 OTLP 接收器。全局后台期限持久化，频繁系统触发不会反复全扫；
-只有未到期独立规则时不推进它们。旧通用名称任务不会自动冒认成新任务。
+<a id="windows-原生系统任务"></a>
 
-`--data-dir` 只隔离应用数据，不改变来源范围；原生验收须同时隔离子进程的来源
-与配置环境，见 [实施边界](implementation-readiness.md)。
-系统任务由 OS 启动，不能假定继承测试进程的环境。`manual_roots_only` 默认关闭，
-启用后发现只使用已保存的手工目录，不读取环境/默认根、本机账户额度或自动管理的
-遥测导出。它不删除旧统计。无窗口原生验收同时启用此设置、保存非空合成根，并在
-GUI 重启前独立只读核对库中事件，避免启动校对掩盖系统触发未采集。
-关闭/升级/卸载、注册/删除失败和普通用户竞争按 V24 验收。原生注册 API 往返不等于
-系统触发器已真实启动应用；两种验证结果分别报告。
-独立 Windows 卸载会精确清理当前安装对应的自有任务/启动项，并在既有库的写者锁下
-关闭后台意图；升级临时卸载保留，失败阻止删除程序。详见 [安装合同](installation-lifecycle.md)。
+## Native Windows system tasks
 
-## 其他平台与本机环境
+Register through Task Scheduler COM API, with separate task names/ownership markers for
+each app database path. Executable path and arguments saved separately: absolute executable,
+--headless --data-dir followed by an absolute directory. No shell concatenation; Chinese/
+space-containing paths independently tested. Never replace/delete tasks with mismatched ownership.
 
-macOS/Linux 保留共享调度器、headless、读取与数据库互斥代码及 CI；首版不提供
-launchd/systemd/cron 注册入口。WSL/容器须用户显式添加，不为读取隐式启动环境。
-活跃 WSL SQLite 不跨环境复制三件套；无法一致只读则使用已核验本机一致导出或
-保留限制。Linux 应用数据库放 Linux 文件系统，不与 Windows 并发共享。
+Tasks use TASK_LOGON_INTERACTIVE_TOKEN/TASK_RUNLEVEL_LUA, without passwords, SYSTEM or
+administrator rights. Check app rules every minute, no waking machine, at most one instance,
+OS execution limit five minutes. No execution promise during logout/shutdown/sleep;
+merge missed scans after resume. Subminute per-source intervals are limited in system-task-only
+mode; UI displays that precision.
 
-## 依据与验收
+Persist enable/disable intent first, call OS, then inspect actual effective state; failures
+retain intent/reason. Settings separately show installed/actually enabled, desired state and
+retry action. Read-only status does not register tasks. Disabling persists first; residual
+--headless exits immediately even if deletion fails. Invalid/changed executable paths after
+upgrade show repair-needed; user applies registration again. Task existence alone is not success.
 
-[Task Scheduler API](https://learn.microsoft.com/en-us/windows/win32/taskschd/task-scheduler-start-page)、
-[Windows 节能状态](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-getsystempowerstatus)、
-[Tauri 托盘](https://v2.tauri.app/learn/system-tray/)、
-[Windows 目录通知](https://learn.microsoft.com/en-us/windows/win32/fileio/obtaining-directory-change-notifications)、
-[任务身份与权限](https://learn.microsoft.com/en-us/windows/win32/taskschd/security-contexts-for-running-tasks)、
-[StartWhenAvailable](https://learn.microsoft.com/en-us/windows/win32/taskschd/tasksettings-startwhenavailable)、
-[重复间隔](https://learn.microsoft.com/en-us/windows/win32/taskschd/repetitionpattern-interval)。
-StartWhenAvailable 可能延迟启动，不能据此保证唤醒后立刻采集。
-OS 锁使用 [File.try_lock](https://doc.rust-lang.org/stable/std/fs/struct.File.html#method.try_lock)，
-最低 Rust 1.89；具体 CI 工具链以仓库实际配置为准。
-两个工作槽使用 [Rust scoped threads](https://doc.rust-lang.org/std/thread/fn.scope.html)；
-控制读取遵守 [Read 的错误语义](https://doc.rust-lang.org/std/io/trait.Read.html#method.read_to_end)，
-用带类型的 Other 错误返回暂停，避免 Interrupted 被 read_to_end 自动重试。
-SQLite 控制依据 [progress handler](https://www.sqlite.org/c3ref/progress_handler.html)，
-锁内访问符合 [rusqlite 0.40.2 Connection](https://docs.rs/rusqlite/0.40.2/rusqlite/struct.Connection.html)
-的 Send / 非 Sync 约束。2026-10-04 核对官方正文、锁版本及当前编译/回归，
-不将官方滚动 Rust 文档版本当作本机工具链。
-V23/V24/V25 覆盖暂停、到期、DST、重启、竞争、来源边界与无窗口运行；GUI 和
-headless 资源分别测量，实际结果只在验证记录与 Plan.md 登记。
+While GUI owns the lock, headless submits one background request and exits; GUI selects due
+sources by saved rules. Independent headless also checks intent/global pause/source due times,
+then exits without WebView/agent/temporary OTLP receiver. Persisted global background deadline
+prevents frequent system triggers from repeating full scans; independent not-due rules keep
+their deadlines. Legacy generic-name tasks are not assumed to be newly owned tasks.
+
+--data-dir isolates only application data, leaving source scope unchanged. Native acceptance
+must also isolate child source/configuration environments; see [implementation scope](implementation-readiness.md).
+OS-launched tasks cannot be assumed to inherit test-process environment. manual_roots_only
+off by default; enabled discovery reads only saved manual directories, excluding environment/
+default roots, local account quotas and managed telemetry exports. Old statistics retained.
+Headless native tests enable it, save nonempty synthetic roots, and independently inspect
+events read-only before restarting GUI, preventing startup reconciliation from hiding failed
+system collection. V24 checks disable/upgrade/uninstall, registration/deletion failures and
+ordinary-user contention. Native registration round trips and actual OS-triggered launches
+are reported separately. Standalone Windows uninstall precisely cleans this installation's
+owned tasks/startup entries and disables background intent under the existing DB writer lock.
+Temporary upgrade uninstall retains them; failure blocks executable removal. See
+[installation lifecycle](installation-lifecycle.md).
+
+<a id="其他平台与本机环境"></a>
+
+## Other platforms and local environments
+
+macOS/Linux retain shared scheduler/headless/read/database-lock code and CI. Initial release
+has no launchd/systemd/cron registration UI. User explicitly adds WSL/container sources;
+discovery does not launch environments. Do not copy live WSL SQLite's three files across
+environments. If consistent read-only access is unavailable, use a verified consistent local
+export or retain the limitation. Linux app DB belongs on a Linux filesystem, without concurrent
+sharing with Windows.
+
+<a id="依据与验收"></a>
+
+## References and acceptance
+
+[Task Scheduler API](https://learn.microsoft.com/en-us/windows/win32/taskschd/task-scheduler-start-page),
+[Windows power status](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-getsystempowerstatus),
+[Tauri tray](https://v2.tauri.app/learn/system-tray/),
+[Windows directory notifications](https://learn.microsoft.com/en-us/windows/win32/fileio/obtaining-directory-change-notifications),
+[task identity/permissions](https://learn.microsoft.com/en-us/windows/win32/taskschd/security-contexts-for-running-tasks),
+[StartWhenAvailable](https://learn.microsoft.com/en-us/windows/win32/taskschd/tasksettings-startwhenavailable),
+[repetition interval](https://learn.microsoft.com/en-us/windows/win32/taskschd/repetitionpattern-interval).
+StartWhenAvailable may delay startup and does not guarantee immediate collection after waking.
+OS locks use [File.try_lock](https://doc.rust-lang.org/stable/std/fs/struct.File.html#method.try_lock),
+minimum Rust 1.89; actual CI toolchains come from repository configuration. Two slots use
+[Rust scoped threads](https://doc.rust-lang.org/std/thread/fn.scope.html). Controlled reads
+follow [Read errors](https://doc.rust-lang.org/std/io/trait.Read.html#method.read_to_end), returning
+typed Other for pause so read_to_end cannot automatically retry Interrupted. SQLite control:
+[progress handler](https://www.sqlite.org/c3ref/progress_handler.html). Locked access follows
+[rusqlite 0.40.2 Connection](https://docs.rs/rusqlite/0.40.2/rusqlite/struct.Connection.html)
+Send/non-Sync constraints. Official text/locked versions/current compilation and regressions
+checked 2026-10-04; rolling Rust documentation is not the installed toolchain. V23/V24/V25
+cover pause/due/DST/restart/contention/source scope/headless runs. GUI/headless resources
+measured separately; actual results recorded only in validation records and Plan.md.

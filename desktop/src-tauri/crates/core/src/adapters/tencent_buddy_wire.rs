@@ -1,7 +1,7 @@
-//! 本地 CodeBuddy Code / WorkBuddy 会话 JSONL。两产品保留独立来源身份。
-//! 字段依据：CodeBuddy 官方目录文档；tokmesh-core tencent_buddy.rs 的
-//! 公开解析器和测试；aiusage v1.5.8 对 CodeBuddy 缓存重复计数的修正。
-//! 无本机真实样本时仅承诺下列已见字段，偏离格式跳过并记录诊断。
+//! Local CodeBuddy Code/WorkBuddy session JSONL, with separate product source identities.
+//! Field references: official CodeBuddy directory docs, public tokmesh-core
+//! tencent_buddy.rs parser/tests, and aiusage v1.5.8 cache-double-count correction.
+//! Without native samples, only observed fields are supported; deviations skip with diagnostics.
 
 use crate::adapters::framework::{
     Availability, CapabilityTable, DetectOutcome, DiscoverContext, DiscoveredRoot, RootBasis,
@@ -186,8 +186,8 @@ fn parse_event<const WORK: bool>(
         .and_then(|v| v.as_str())
         .filter(|s| !s.is_empty())
         .ok_or("missing message identity")?;
-    // CodeBuddy 的 message.usage.input_tokens 已含 cache_read。rawUsage 的
-    // prompt_cache_miss 是明确的未缓存桶；其余只在可核对时作减法。
+    // CodeBuddy message.usage.input_tokens already includes cache_read. rawUsage
+    // prompt_cache_miss explicitly gives uncached input; subtract other fields only when verified.
     let uncached = match (cache_miss, input, cache_read) {
         (Some(miss), Some(total), Some(hit)) if miss.checked_add(hit) == Some(total) => Some(miss),
         (Some(_), Some(_), Some(_)) => return Err("input/cache buckets disagree"),
@@ -357,7 +357,7 @@ impl<const WORK: bool> SourceAdapter for BuddyAdapter<WORK> {
             ));
         }
         for manual in &ctx.manual_roots {
-            // 手工根只接受明确的产品 projects 目录，防止两个同形解析器互抢。
+            // Manual roots must identify the product projects directory, avoiding competing parsers.
             if manual.file_name().and_then(|s| s.to_str()) == Some("projects")
                 && manual
                     .parent()

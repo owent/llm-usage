@@ -1,22 +1,22 @@
-//! CodeBuddy IDE/插件（CodeBuddyExtension）会话存储的请求级用量载体。
-//! 字段依据：2026-09-30 本机只读核验（Windows，扩展数据目录
-//! `%LOCALAPPDATA%\CodeBuddyExtension\Data`）：
-//! - `Data/<profile>/<host>/<workspace>/history/<session>/<conversation>/index.json`
-//!   含 `requests[]`，每项 `{id, type, messages, state, startedAt, usage}`；
-//!   `usage` 为该请求聚合：`inputTokens = cacheTokens(读命中) +
-//!   cachedMissTokens(未缓存)`，`totalTokens = inputTokens + outputTokens`，
-//!   另有 `cachedWriteTokens`、`lastTokens`（语义尚未验证，不映射）与 `credit`
-//!   （平台积分，非货币，不映射）。
-//! - 上层 `history/<session>/index.json` 只有 `conversations[]/current`
-//!   注册表，不含用量，不作为扫描目标。
-//! - 消息体在 conversation 目录 `messages/<id>.json`，其 `extra`（字符串
-//!   内嵌 JSON）携带 `modelId/modelName/isHelperMessage/requestId`；仅按
-//!   requests[].messages 引用做有界读取提取模型，不读正文。
+//! CodeBuddy IDE/extension request usage from CodeBuddyExtension session storage.
+//! Field reference: read-only local Windows inspection on 2026-09-30 under
+//! %LOCALAPPDATA%/CodeBuddyExtension/Data.
+//! - Data/<profile>/<host>/<workspace>/history/<session>/<conversation>/index.json
+//!   stores requests[] with id/type/messages/state/startedAt/usage.
+//!   Request usage: inputTokens = cacheTokens reads + cachedMissTokens uncached input;
+//!   totalTokens = inputTokens + outputTokens.
+//!   Preserve reported cachedWriteTokens separately; lastTokens remains unmapped
+//!   because its meaning is unverified. credit is platform credit, not currency; do not map it.
+//! - history/<session>/index.json contains conversations[]/current registration only,
+//!   without usage; it is not a scan target.
+//! - messages/<id>.json stores bodies and an extra JSON string containing
+//!   modelId/modelName/isHelperMessage/requestId. Follow only referenced message IDs
+//!   with bounded reads and extract model metadata without importing bodies.
 //!
-//! 同一请求可能随会话复制到多个 profile/workspace 树（本机已见同 session
-//! hash 的多树副本），记录键只用请求 id 让单实例内幂等合并，不双计。
-//! 偏离已核验形态（非 craft、非 complete、分桶不一致）跳过并记诊断；
-//! 全零用量视为无模型调用，不入账。
+//! Local copies can repeat a request across profile/workspace trees under the same session hash.
+//! Use request ID within one source instance to prevent counting those copies twice.
+//! Skip unverified request types/states or inconsistent buckets with diagnostics.
+//! Requests without positive input/output/miss/total signals produce no event.
 
 use crate::adapters::framework::{
     DetectOutcome, DiscoverContext, DiscoveredRoot, RootBasis, ScanOutcome, ScanStatus, ScanTarget,
@@ -40,8 +40,8 @@ const MAX_MESSAGE_BYTES: u64 = 1024 * 1024;
 const DATA_DIR: &str = "CodeBuddyExtension";
 const STORE_DIR: &str = "Data";
 
-/// 整文件游标：offset 记录扫描时的文件长度，供运行器做无变化短路；
-/// 文件被改写（首/尾指纹变化）触发整文件重扫，事件按键幂等 upsert。
+/// Whole-file cursor stores the scanned length for unchanged-file checks.
+/// Changed head/tail fingerprints trigger whole-file reads and stable-key event updates.
 #[derive(serde::Serialize, serde::Deserialize)]
 struct ExtCursor {
     generation: i64,
@@ -76,9 +76,9 @@ fn started_at_ms(value: &serde_json::Value) -> Option<i64> {
         .then_some(ms)
 }
 
-/// 是否为 conversation 级 index.json（发现与分派共用）：
-/// `history/<session>/<conversation>/index.json`；上层 session 级
-/// index.json（conversations 注册表）不在其列。
+/// Shared discovery/detection check for conversation-level index.json:
+/// history/<session>/<conversation>/index.json, excluding the parent session
+/// index.json containing only conversation registrations.
 pub fn is_conversation_index_path(path: &Path) -> bool {
     path.file_name().and_then(|s| s.to_str()) == Some("index.json")
         && path
@@ -99,7 +99,7 @@ fn data_roots(ctx: &DiscoverContext) -> Vec<(PathBuf, RootBasis)> {
         ));
     }
     for manual in &ctx.manual_roots {
-        // 手工根只接受扩展存储的 Data 目录，防止与其他产品目录互抢。
+        // Manual roots accept only the extension Data directory to avoid claiming other product files.
         if manual.file_name().and_then(|s| s.to_str()) == Some(STORE_DIR)
             && manual
                 .parent()
@@ -113,8 +113,8 @@ fn data_roots(ctx: &DiscoverContext) -> Vec<(PathBuf, RootBasis)> {
     candidates
 }
 
-/// 有界枚举 conversation 级 index.json：
-/// Data/<profile>/<host>/<workspace>/history/<session>/<conversation>/。
+/// Enumerate conversation-level index.json within bounded reads under
+/// Data/<profile>/<host>/<workspace>/history/<session>/<conversation>/.
 pub fn discover(ctx: &DiscoverContext) -> Vec<DiscoveredRoot> {
     let mut seen = std::collections::BTreeSet::new();
     data_roots(ctx)
@@ -155,8 +155,8 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     }
 }
 
-/// 模型归属：按 requests[].messages 引用的消息 id 在 conversation 目录下
-/// 做有界读取，只取 extra 内嵌 JSON 的 modelId/modelName，不读正文。
+/// Follow requests[].messages IDs under this conversation with bounded reads;
+/// extract only modelId/modelName from extra JSON, without importing message bodies.
 fn message_models(
     conversation_dir: &Path,
     referenced: &BTreeSet<String>,
@@ -210,13 +210,13 @@ fn message_models(
     models
 }
 
-/// 请求内多个模型时无法把聚合用量归到单一模型；取最后一条有模型信息的
-/// 消息（能力声明记录该限制），全部缺失保持 unknown。
+/// Multiple request models cannot identify aggregate ownership; current behavior selects
+/// the last message with model metadata and reports this limit; missing models stay unknown.
 fn request_model(ids: &[String], models: &BTreeMap<String, String>) -> Option<String> {
     ids.iter().rev().find_map(|id| models.get(id).cloned())
 }
 
-/// 解析单个请求；Ok(None) = 无模型调用（全零），Err = 偏离已核验形态。
+/// Parse one request; Ok(None) means no positive usage signal, Err means an unverified shape.
 #[allow(clippy::too_many_arguments)]
 fn parse_request(
     value: &serde_json::Value,
@@ -254,7 +254,7 @@ fn parse_request(
     let cache_miss =
         token(usage, "cachedMissTokens").map_err(|_| "invalid cache miss token count")?;
     let reported_total = token(usage, "totalTokens").map_err(|_| "invalid total token count")?;
-    // 全零/缺失：请求没有发生模型调用（本机样本中的空回合），不入账。
+    // Skip empty/default-zero input/output/miss/total signals observed in empty local turns.
     if input.unwrap_or(0) == 0
         && output.unwrap_or(0) == 0
         && cache_miss.unwrap_or(0) == 0
@@ -263,8 +263,8 @@ fn parse_request(
         return Ok(None);
     }
     let occurred_ms = started_at_ms(value).ok_or("missing or implausible startedAt")?;
-    // inputTokens 含缓存读：miss + read 可核对时 uncached 取 miss；
-    // 分桶不可核对时保留 input_total，uncached 置未知。
+    // inputTokens includes cache reads; use miss when it agrees with input and read.
+    // Missing read can retain miss <= input; inconsistent buckets reject the request.
     let uncached = match (cache_miss, input, cache_read) {
         (Some(miss), Some(total), Some(hit)) if miss + hit == total => Some(miss),
         (None, Some(_), None) => None,
@@ -341,8 +341,8 @@ fn parse_request(
     );
     Ok(Some(EventInput {
         source_instance_id: instance_id.to_string(),
-        // 只按请求 id（UUID）构造键：同一请求复制到其他 profile/workspace
-        // 树时 conversation id 会变，键保持稳定才能幂等合并不双计。
+        // Use UUID request identity across copied profile/workspace trees;
+        // conversation IDs can change while the request remains the same.
         source_record_key: format!("codebuddy:request:{request_id}"),
         record_kind: RecordKind::ModelCall,
         schema_version: EXT_FORMAT.into(),
@@ -445,8 +445,8 @@ pub fn scan(
         .and_then(|s| s.to_str())
         .unwrap_or_default()
         .to_string();
-    // host 组件（VSCode/CodeBuddyIDE）只作展示性归属，不参与身份：
-    // index.json 的五级祖先依次是 conversation/session/history/workspace/host。
+    // Display host ownership from VSCode/CodeBuddyIDE without using it as event identity.
+    // Five index.json ancestors: conversation/session/history/workspace/host.
     let host = target
         .path
         .parent()
@@ -480,7 +480,7 @@ pub fn scan(
             now_ms,
         ) {
             Ok(Some(event)) => {
-                // 同文件重复请求 id 只入账一次（跨树复制由记录键幂等合并）。
+                // A repeated request ID contributes once per file; stable keys also deduplicate tree copies.
                 if seen.insert(event.source_record_key.clone()) {
                     events.push(event);
                 } else {
@@ -521,7 +521,7 @@ mod tests {
     use crate::adapters::tencent_buddy_wire::BuddyAdapter;
     use std::path::PathBuf;
 
-    /// 测试目录：<base>/<name>-pid 充当 LOCALAPPDATA，其下建 CodeBuddyExtension/Data。
+    /// Isolated test LOCALAPPDATA: <base>/<name>-pid, containing CodeBuddyExtension/Data.
     fn store_base(name: &str) -> PathBuf {
         let base = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../../../build/codebuddy-ext-tests")
@@ -536,7 +536,7 @@ mod tests {
         root
     }
 
-    /// history/<session>/<conversation> 目录（conversation 级 index 所在地）。
+    /// Conversation-level index directory: history/<session>/<conversation>.
     fn conversation_dir(root: &Path, host: &str) -> PathBuf {
         let dir = root
             .join("profile-1")
@@ -573,7 +573,7 @@ mod tests {
         }
     }
 
-    /// LOCALAPPDATA 指向 Data 根的上两级（CodeBuddyExtension 的父目录）。
+    /// LOCALAPPDATA is two levels above Data, the parent of CodeBuddyExtension.
     fn ctx_with_localappdata(data_root: &Path) -> DiscoverContext {
         let base = data_root
             .parent()
@@ -673,9 +673,9 @@ mod tests {
 
     #[test]
     fn same_request_in_two_trees_shares_record_key() {
-        // 扩展存储可能把同一会话复制到多个 profile/workspace 树
-        // （conversation id 随之不同）；单一根实例 + 请求 id 记录键
-        // 让 ingest 幂等合并，不双计。
+        // Extension storage can copy a session across profile/workspace trees
+        // with differing conversation IDs. One root instance and stable request keys
+        // let ingest merge identical copies without counting twice.
         let root = store_root("crosstree");
         for (profile, workspace, conversation_id) in [
             ("profile-1", "workspace-1", "conv-a"),
@@ -721,7 +721,7 @@ mod tests {
         std::fs::remove_dir_all(root.parent().unwrap().parent().unwrap()).unwrap();
     }
 
-    /// CLI JSONL 载体与扩展载体并存时分派正确；WorkBuddy 不发现扩展存储。
+    /// Coexisting CLI JSONL and extension files dispatch separately; WorkBuddy excludes extension storage.
     #[test]
     fn composite_dispatch_and_workbuddy_guard() {
         let root = store_root("dispatch");
@@ -732,7 +732,7 @@ mod tests {
             r#"{"messages":[],"requests":[]}"#,
         )
         .unwrap();
-        // 上层 session 级 index（conversations 注册表）不得被发现/探测为扩展载体。
+        // Parent session indexes with conversation registration are not extension usage targets.
         let session_index = conversation.parent().unwrap().join("index.json");
         std::fs::write(&session_index, r#"{"conversations":[],"current":"c"}"#).unwrap();
         let home = root.parent().unwrap().parent().unwrap().join("home");

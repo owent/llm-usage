@@ -1,8 +1,8 @@
-//! Zoo Code 适配器约定测试：合成 fixture（依据 A19 固定源码 f780647；
-//! 本机 not_found，2026-09-25 盘点）经
-//! 读取→合并（consolidateApiRequests LIFO）→计账（consolidateTokenUsage 语义）
-//! →commit→查询。数值对照 tests/fixtures/zoo/*/_expectations.md 的
-//! 人工核算，不改计算规则。辅助函数写在本文件内（不改共享 common）。
+//! Zoo Code adapter tests use synthetic data based on A19 fixed source f780647.
+//! The 2026-09-25 local survey found no installation. Exercise
+//! reading, consolidateApiRequests LIFO merging and consolidateTokenUsage accounting,
+//! then commit/query. Compare values with manually calculated
+//! tests/fixtures/zoo/*/_expectations.md. Helpers remain local to this file.
 
 mod common;
 
@@ -47,7 +47,7 @@ fn run_zoo(storage: &Storage, root: &Path, now_ms: i64) -> Vec<SourceRunReport> 
 }
 
 fn zoo_instance(root: &Path) -> String {
-    // discover 的实例根是 tasks 目录（手工根含 tasks/ 时归一到其下）。
+    // Discovery uses tasks as the instance root, resolving a manual parent's tasks child.
     format!("zoo@{}", normalize_path(&root.join("tasks")))
 }
 
@@ -68,7 +68,7 @@ fn contract_full_chain_matches_manual_expectations() {
     let instance = zoo_instance(&root);
 
     let conn = storage.conn();
-    // 请求 1：started+finished 合并（finish 覆盖 start）。
+    // Request 1: merge started+finished; finished fields override started fields.
     type Req1Row = (
         String,
         Option<i64>,
@@ -115,7 +115,7 @@ fn contract_full_chain_matches_manual_expectations() {
     assert_eq!(req1.8, None);
     assert_eq!(req1.9, Some("source_start".to_string()));
 
-    // 请求 2：第二对合并。
+    // Request 2: merge the second pair.
     type Req2Row = (Option<i64>, Option<i64>, Option<i64>);
     let req2: Req2Row = conn
         .query_row(
@@ -129,7 +129,7 @@ fn contract_full_chain_matches_manual_expectations() {
     assert_eq!(req2.1, Some(580));
     assert_eq!(req2.2, Some(6_000));
 
-    // condense_context：辅助调用，token 全未知、cost 映射。
+    // condense_context is auxiliary; tokens remain unknown and cost is mapped.
     type CondenseRow = (
         String,
         Option<i64>,
@@ -170,7 +170,7 @@ fn contract_full_chain_matches_manual_expectations() {
     assert_eq!(condense.5, None);
     assert_eq!(condense.6, Some("uncertain".to_string()));
 
-    // 汇总对照 _expectations.md（2026-06-13，UTC）。
+    // Compare totals with _expectations.md for 2026-06-13 UTC.
     let s = summary(&storage, "2026-06-13", "2026-06-13");
     assert_eq!(s.totals.call_count, 3, "2 primary + 1 auxiliary");
     assert_eq!(s.totals.input_total_known, Some(1500));
@@ -179,7 +179,7 @@ fn contract_full_chain_matches_manual_expectations() {
     assert_eq!(s.totals.output_total_known, Some(280));
     assert_eq!(s.totals.total_tokens_known, Some(1780));
 
-    // 未配对 started：一次性诊断，不产事件。
+    // An unmatched started record creates one diagnostic and no event.
     let diag: i64 = conn
         .query_row(
             "SELECT COUNT(*) FROM diagnostics WHERE code = 'usage_carrier_without_numbers'",
@@ -188,7 +188,7 @@ fn contract_full_chain_matches_manual_expectations() {
         )
         .unwrap();
     assert_eq!(diag, 1);
-    // 文档级锚点恒 KnownVersion：无 latest_fallback 诊断。
+    // The document format is KnownVersion; no latest_fallback diagnostic.
     let fallback: i64 = conn
         .query_row(
             "SELECT COUNT(*) FROM diagnostics WHERE code = 'latest_fallback'",
@@ -198,7 +198,7 @@ fn contract_full_chain_matches_manual_expectations() {
         .unwrap();
     assert_eq!(fallback, 0);
 
-    // 幂等：重复扫描不增量。
+    // Repeated scanning adds no usage.
     run_zoo(&storage, &root, NOW + 1_000);
     let s = summary(&storage, "2026-06-13", "2026-06-13");
     assert_eq!(s.totals.call_count, 3, "重复扫描不增量");
@@ -209,7 +209,7 @@ fn undocumented_say_kind_fails_closed_whole_file() {
     let (_dir, storage) = temp_storage("zoo-undocumented");
     let root = zoo_fixture("synthetic-undocumented-say");
     let reports = run_zoo(&storage, &root, NOW);
-    // detect 指纹成立（type/say 在场）⇒ 进入扫描；扫描遇未文档化 say 整文件拒绝。
+    // type/say fingerprint enables scanning; an undocumented say kind rejects the entire file.
     assert_eq!(
         reports[0].files[0].status, "pending",
         "fail closed：游标不推进"
@@ -237,14 +237,14 @@ fn not_array_detects_unknown_format() {
     let (_dir, storage) = temp_storage("zoo-not-array");
     let root = zoo_fixture("synthetic-not-array");
     let adapter = ZooAdapter::new();
-    // 直接探测：文件头不以 [ 开头 ⇒ UnknownFormat。
+    // Direct detection: a prefix other than [ is UnknownFormat.
     let file = root
         .join("tasks")
         .join("syn-zoo-3")
         .join("ui_messages.json");
     let outcome = adapter.detect(&file).unwrap();
     assert!(matches!(outcome, DetectOutcome::UnknownFormat { .. }));
-    // 全过程：detect 拒绝 ⇒ 文件 unsupported，0 事件。
+    // Full scan: detection rejects the file as unknown_format, with zero events.
     let reports = run_zoo(&storage, &root, NOW);
     assert_eq!(reports[0].files[0].status, "unknown_format");
     assert_eq!(reports[0].files[0].events, 0);
@@ -254,7 +254,7 @@ fn not_array_detects_unknown_format() {
 fn discover_cli_default_and_vscode_global_storage_and_manual() {
     use llm_usage_core::adapters::framework::RootBasis;
     let dir = common::TempDir::new("zoo-discover");
-    // CLI 缺省：~/.vscode-mock/global-storage/tasks/<id>/ui_messages.json。
+    // CLI default: ~/.vscode-mock/global-storage/tasks/<id>/ui_messages.json.
     let cli_home = dir.path().join("home1");
     let cli_tasks = cli_home
         .join(".vscode-mock")
@@ -277,7 +277,7 @@ fn discover_cli_default_and_vscode_global_storage_and_manual() {
         .any(|f| f.to_string_lossy().contains("syn-zoo-cli")));
     assert!(matches!(roots[0].basis, RootBasis::DefaultHome));
 
-    // VS Code 扩展 globalStorage（Windows APPDATA 布局）。
+    // VS Code extension globalStorage under the Windows APPDATA layout.
     let appdata = dir.path().join("appdata");
     let vscode_tasks = appdata
         .join("Code")
@@ -303,7 +303,7 @@ fn discover_cli_default_and_vscode_global_storage_and_manual() {
         .iter()
         .any(|p| p.contains("zoocodeorganization.zoo-code")));
 
-    // 手工根传 tasks 目录本身（cline 同型语义）。
+    // Manual roots also resolve to tasks, as separately implemented by Cline.
     let manual_root = zoo_fixture("synthetic-contract");
     let ctx = DiscoverContext {
         home_dir: None,
@@ -361,7 +361,7 @@ fn capability_table_separates_real_sample_from_other_paths() {
         .limitations
         .iter()
         .any(|l| l.contains("CLI") && l.contains("未实测")));
-    // 独立产品：不能擅自按 Roo Code 处理（A19）。
+    // Zoo is an independent product; Roo Code rules cannot replace its A19 rules.
     assert!(json["product"]
         .as_str()
         .is_some_and(|p| p.contains("独立产品")));

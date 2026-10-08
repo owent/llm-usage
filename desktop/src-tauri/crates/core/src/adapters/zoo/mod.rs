@@ -1,29 +1,29 @@
-//! Zoo Code 适配器（独立目录约定 architecture.md#adapter-layout）：
-//! - 本模块是该 Agent 的稳定入口（统一接口实现与再导出）；
-//! - [`detect`]：产品/格式探测（文档级指纹；ui_messages.json 无版本字段，
-//!   不做版本分派）；
-//! - [`versions`]：统一形状的格式注册表（唯一条目：文档级
-//!   zoo-ui-messages-doc-1，与 Cline 目录独立）；
-//! - 产品特有映射在 [`common`]（tokensIn 含缓存的计算规则 + cost）。
+//! Zoo Code adapter layout: architecture.md#adapter-layout.
+//! - Stable entry point for the shared interface and reexports.
+//! - detect checks documented product/format fingerprints; ui_messages.json has
+//!   no client-version field for dispatch.
+//! - versions keeps one documented zoo-ui-messages-doc-1 format entry,
+//!   independently of Cline's implementation.
+//! - common contains Zoo-specific total-input/cache and cost mapping.
 //!
-//! 当前依据：官方 VSIX 3.86.0 / 6aa9d0174a9ecae155c6c5db9134bead4b67197d，
-//! 2026-10-06 独立 VS Code 容器非空样本已与公开 API/模型服务核对（A19）。
-//! 旧 f780647 的 finished/condense 文档路径独立保留，未作真实场景认证。
-//! - `packages/core/src/message-utils/consolidateTokenUsage.ts`：usage 载体
-//!   type="say" say="api_req_started"，text JSON 字段 tokensIn/tokensOut/
-//!   cacheWrites/cacheReads/cost 逐字段可选 + apiProtocol；
-//!   **tokensIn 存总输入（含缓存）**；condense_context 的
-//!   contextCondense.cost 计入 totalCost；contextTokens=in+out 是上游算术。
-//! - `packages/core/src/message-utils/consolidateApiRequests.ts`：
-//!   api_req_finished 与最近未合并 started LIFO 配对，text JSON 合并
-//!   （finish 覆盖 start）；无配对 finished 丢弃；cost 仅合并后在场。
-//! - `packages/core/src/task-persistence/taskMessages.ts` +
-//!   `src/shared/globalFileNames.ts`：任务目录 = 宿主 globalStorage 下
-//!   `tasks/<taskId>/ui_messages.json`（整写 JSON 数组）。
-//! - 宿主：VS Code 扩展 `ZooCodeOrganization.zoo-code`（src/package.json）；
-//!   CLI 缺省 `~/.vscode-mock/global-storage`（apps/cli + vscode-shim）。
+//! Native reference: official VSIX 3.86.0 / 6aa9d0174a9ecae155c6c5db9134bead4b67197d.
+//! Nonempty isolated VS Code container samples were compared with the public API/model service 2026-10-06.
+//! Older f780647 finished/condense paths remain separately documented without native scenario acceptance.
+//! - packages/core/src/message-utils/consolidateTokenUsage.ts reads say/api_req_started
+//!   text JSON with optional tokensIn/tokensOut/cacheWrites/cacheReads/cost
+//!   and apiProtocol.
+//!   tokensIn includes cache; contextCondense.cost contributes to totalCost.
+//!   Upstream calculates contextTokens=input+output.
+//! - packages/core/src/message-utils/consolidateApiRequests.ts pairs finished
+//!   with the latest unmatched started in LIFO order and merges text JSON.
+//!   Finished fields override start fields; unmatched finished entries are discarded.
+//! - packages/core/src/task-persistence/taskMessages.ts and
+//!   src/shared/globalFileNames.ts store full JSON arrays under host globalStorage
+//!   at tasks/<taskId>/ui_messages.json.
+//! - VS Code extension: ZooCodeOrganization.zoo-code (src/package.json).
+//!   Source CLI default: ~/.vscode-mock/global-storage (apps/cli and vscode-shim).
 //!
-//! 独立产品（Roo 血统）：不能擅自按 Roo Code 的目录/字段语义处理（A19）。
+//! Verify Zoo's own directories and fields rather than inheriting Roo rules (A19).
 
 pub mod common;
 pub mod detect;
@@ -34,21 +34,21 @@ pub use detect::ZOO_FORMAT;
 pub use versions::ui_messages_doc1;
 pub use versions::{LATEST_IMPL_ID, VERIFIED_VERSION_IMPLS, ZOO_FORMAT_VERSION};
 
-/// VS Code 扩展 globalStorage 目录名（src/package.json publisher/name 的小写
-/// 扩展 ID；VS Code globalStorage 以小写 ID 建目录）。
+/// Lowercase extension ID from package publisher/name used as the VS Code
+/// globalStorage directory name.
 pub const ZOO_EXT_GLOBAL_STORAGE: &str = "zoocodeorganization.zoo-code";
-/// CLI 缺省任务存储（apps/cli task-history DEFAULT_CLI_TASK_STORAGE_PATH +
-/// vscode-shim getGlobalStorageDir：~/.vscode-mock/global-storage）。
+/// Source CLI task-history DEFAULT_CLI_TASK_STORAGE_PATH and vscode-shim default:
+/// ~/.vscode-mock/global-storage.
 pub const ZOO_CLI_STORAGE_DIR: &str = ".vscode-mock";
 
 const UTF8_BOM: &[u8] = b"\xEF\xBB\xBF";
 
-/// 剥 UTF-8 BOM（detect 指纹探测与整文件解析共用；无 BOM 输入原样返回）。
+/// Strip UTF-8 BOM for detection and whole-file parsing; return other bytes unchanged.
 fn strip_bom(bytes: &[u8]) -> &[u8] {
     bytes.strip_prefix(UTF8_BOM).unwrap_or(bytes)
 }
 
-/// Zoo Code 适配器（无状态）。
+/// Stateless Zoo Code adapter.
 pub struct ZooAdapter;
 
 impl Default for ZooAdapter {
@@ -63,7 +63,7 @@ impl ZooAdapter {
     }
 }
 
-/// 手工根兼容两种形状：globalStorage 目录（含 tasks/）或 tasks 目录本身。
+/// Manual roots may contain tasks/ or identify the tasks directory itself.
 fn zoo_tasks_dir(root: &std::path::Path) -> Option<std::path::PathBuf> {
     let tasks = root.join("tasks");
     if tasks.is_dir() {
@@ -90,8 +90,8 @@ impl crate::adapters::framework::SourceAdapter for ZooAdapter {
     ) -> Vec<crate::adapters::framework::DiscoveredRoot> {
         use crate::adapters::framework::{DiscoveredRoot, RootBasis};
         let mut roots: Vec<(std::path::PathBuf, RootBasis)> = Vec::new();
-        // APPDATA is an independent Windows default, including isolated callers
-        // that deliberately omit HOME/USERPROFILE.
+        // APPDATA supplies an independent Windows default, including isolated callers
+        // that omit HOME/USERPROFILE.
         if let Some(appdata) = ctx.env.get("APPDATA") {
             roots.push((
                 std::path::PathBuf::from(appdata)
@@ -102,16 +102,16 @@ impl crate::adapters::framework::SourceAdapter for ZooAdapter {
                 RootBasis::DefaultHome,
             ));
         }
-        // CLI 缺省任务存储（固定源码 apps/cli + vscode-shim：~/.vscode-mock/
-        // global-storage，与用户 home 同级）。
+        // Source CLI default is ~/.vscode-mock/global-storage
+        // under the user home.
         if let Some(home) = &ctx.home_dir {
             roots.push((
                 home.join(ZOO_CLI_STORAGE_DIR).join("global-storage"),
                 RootBasis::DefaultHome,
             ));
-            // VS Code 扩展 globalStorage（Windows %APPDATA%/Code、macOS
-            // ~/Library/Application Support/Code、unix XDG ~/.config/Code；
-            // APPDATA/XDG_CONFIG_HOME 只用于解析平台默认位置）。
+            // VS Code extension roots: Windows APPDATA/Code, macOS
+            // ~/Library/Application Support/Code, and Unix XDG or ~/.config/Code.
+            // APPDATA/XDG_CONFIG_HOME select the platform's default base directory.
             roots.push((
                 home.join("Library")
                     .join("Application Support")
@@ -142,11 +142,11 @@ impl crate::adapters::framework::SourceAdapter for ZooAdapter {
         let mut seen: std::collections::BTreeSet<std::path::PathBuf> =
             std::collections::BTreeSet::new();
         for (root, basis) in roots {
-            // 手工根可能是 tasks/ 本身；默认根必须含 tasks/ 子目录。
+            // A manual root can be tasks/; standard storage roots contain a tasks/ child.
             let Some(tasks) = zoo_tasks_dir(&root) else {
                 continue;
             };
-            // tasks/<taskId>/ui_messages.json：深度 2，有界枚举。
+            // Enumerate tasks/<taskId>/ui_messages.json within a bounded depth of two.
             let files = crate::adapters::framework::enumerate_files_bounded(&tasks, 2, &|p| {
                 p.file_name()
                     .and_then(|n| n.to_str())

@@ -1,16 +1,16 @@
-//! Zoo Code 探测：整写 ui_messages.json 数组的文档级指纹。
+//! Zoo Code detection: document fingerprints for rewritten ui_messages.json arrays.
 //!
-//! ui_messages.json 无版本字段（固定源码 f780647 taskMessages.ts：整文件
-//! JSON.parse 且要求顶层数组），格式版本恒为文档级
-//! [`super::versions::ZOO_FORMAT_VERSION`]；不做版本分派、不存在未知版本回退。
+//! ui_messages.json has no version field. Fixed source f780647 taskMessages.ts
+//! parses the whole file as a JSON array. Use document-level format
+//! [`super::versions::ZOO_FORMAT_VERSION`], without unknown-version dispatch.
 //!
-//! 约定（V17 fail closed）：
-//! - 文件头 64 KiB（剥 UTF-8 BOM）不以 JSON 数组开头 ⇒ 未知格式；
-//! - 无 say 消息指纹 ⇒ 未知格式；
-//! - 空内容 ⇒ Pending，下轮重探；
-//! - 指纹成立 ⇒ Supported，文档级格式版本是注册表唯一已收录条目，
-//!   选择依据恒为 KnownVersion。say 种类合法性在扫描层逐条核验
-//!   （api_req_started/api_req_finished/condense_context 之外 fail closed）。
+//! Detection rules (V17 rejects unrecognized shapes):
+//! - The first 64 KiB, after UTF-8 BOM removal, must start with a JSON array.
+//! - Missing say/type fingerprint is UnknownFormat.
+//! - Empty content is Pending and is probed again next round.
+//! - A matching fingerprint is Supported with the registered document format;
+//!   basis is KnownVersion. Scanning checks the complete documented ask/say set,
+//!   rejecting undocumented kinds and skipping known nonusage messages.
 
 use crate::adapters::framework::DetectOutcome;
 use crate::domain::VersionBasis;
@@ -21,13 +21,13 @@ use super::versions;
 
 pub const ZOO_FORMAT: &str = "zoo-ui-messages-json";
 
-/// 探测窗口：文件头 64 KiB 指纹（有界读取，不解析全文件）。
+/// Detection window: first 64 KiB, without parsing the entire file.
 const DETECT_HEAD_BYTES: usize = 64 * 1024;
 
-/// 探测一个任务 ui_messages.json 文件。
-/// 无版本字段可分派：指纹成立即返回固定文档级格式版本（恒为 KnownVersion）。
+/// Detect one task ui_messages.json file.
+/// A matching fingerprint selects the fixed document format with KnownVersion.
 pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
-    // 瞬态不可读（持锁/超时/枚举后被清理）⇒ Pending 下轮重探，不固化失败。
+    // Transient read failure (lock/timeout/disappearance) is Pending for the next probe.
     let Some(head) = crate::adapters::framework::read_detect_head(path, DETECT_HEAD_BYTES)? else {
         return Ok(DetectOutcome::Pending);
     };
@@ -41,8 +41,8 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
             reason: "task file does not start with a JSON array".to_string(),
         });
     }
-    // 指纹：say 消息结构（consolidateTokenUsage/consolidateApiRequests
-    // 只消费 type="say" 的消息）。
+    // Fingerprint: say/type markers; consolidateTokenUsage/consolidateApiRequests
+    // consume type="say" messages.
     let has_say = trimmed.contains("\"say\"");
     let has_type = trimmed.contains("\"type\"");
     if has_say && has_type {

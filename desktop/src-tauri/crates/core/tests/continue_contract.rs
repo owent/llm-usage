@@ -1,4 +1,4 @@
-//! Actual Continue CLI cumulative carrier; initialized cache zeroes are not API evidence.
+//! Native Continue CLI cumulative data; initialized cache zeros do not verify API usage.
 mod common;
 use common::{summary, temp_storage, TempDir};
 use llm_usage_core::adapters::{continuedev::ContinueAdapter, framework::*};

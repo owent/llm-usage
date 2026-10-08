@@ -1,17 +1,17 @@
-//! 领域类型：标准化记录、token 字段、生命周期、模型身份、时间与来源归属。
-//! 语义权威来源是 docs/design/desktop-usage/data-contract.md。
+//! Domain types: normalized records, tokens, lifecycle, model identity, time and source ownership.
+//! Field meanings follow docs/design/desktop-usage/data-contract.md.
 
 use crate::error::CoreError;
 use serde::{Deserialize, Serialize};
 
-/// 单个 token 字段允许的最大值（2^62）。超过即拒绝该记录并报错，
-/// 禁止转为浮点近似；聚合时再以防溢出加法保护。
+/// Maximum value for one token field (2^62). Reject larger values with an error;
+/// preserve integer precision and check aggregate additions for overflow.
 pub const MAX_TOKEN_VALUE: i64 = 1 << 62;
 
-/// 早于该毫秒的时间戳视为不可信（2000-01-01T00:00:00Z），用于发现秒/毫秒误判。
+/// Reject timestamps before 2000-01-01T00:00:00Z to catch mistaken seconds/milliseconds.
 pub const MIN_PLAUSIBLE_MS: i64 = 946_684_800_000;
 
-/// 单个字段的数据质量。`reported` 只代表来源报告，不承诺等于最终账单。
+/// Field quality: reported means the source reports a value, without establishing the final bill.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FieldQuality {
@@ -44,21 +44,21 @@ impl FieldQuality {
     }
 }
 
-/// 记录类型。统计行为见数据规范「请求、消息与累计值」。
+/// Record kinds; statistical behavior follows the data rules for requests, messages and cumulative values.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RecordKind {
-    /// 已观测到的一次模型调用/尝试；request 指标的基本单位。
+    /// One observed model call/attempt; the basic request-count unit.
     ModelCall,
-    /// HTTP/WebSocket 重连或重试；独立计数，不直接增加 model_call。
+    /// HTTP/WebSocket reconnect or retry; count separately without increasing model_call directly.
     TransportAttempt,
-    /// 一条 usage 记录；与调用可能一对多或多对一。
+    /// A usage observation; its relationship to calls may be one-to-many or many-to-one.
     UsageObservation,
-    /// 会话/进程累计快照；按身份与重置边界求差，不能逐条求和。
+    /// Session/process cumulative snapshot; take differences by identity/reset boundaries rather than sum rows.
     CumulativeSnapshot,
-    /// 官方按日/会话等给出的汇总；保留原生范围。
+    /// Native day/session or other aggregate, retaining its original scope.
     IntervalAggregate,
-    /// 额度、积分、订阅窗口、余额；独立显示。
+    /// Quota, credits, subscription window or balance, displayed separately.
     QuotaSnapshot,
 }
 
@@ -89,7 +89,7 @@ impl RecordKind {
     }
 }
 
-/// 生命周期：流式部分值 / 最终值 / 更正。
+/// Streaming partial values, final values or corrections.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Lifecycle {
@@ -117,7 +117,7 @@ impl Lifecycle {
     }
 }
 
-/// 调用类别：主调用 / 子 Agent / 辅助 / 未知。
+/// Primary, subagent, auxiliary or unknown call category.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CallCategory {
@@ -150,15 +150,15 @@ impl CallCategory {
     }
 }
 
-/// 模型归属依据。没有不晚于调用的结构化记录时保持 unknown。
+/// Model attribution; keep unknown without structured information available by the call time.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ModelAttribution {
-    /// 请求自身字段。
+    /// Model field on the request itself.
     RequestField,
-    /// 不晚于调用的结构化模型变更/turn context。
+    /// Structured model change/turn context available by the call time.
     StructuredChange,
-    /// 来源映射（如 turn_context 归属）。
+    /// Source mapping, such as turn_context ownership.
     ProviderMapping,
     Unknown,
 }
@@ -186,7 +186,7 @@ impl ModelAttribution {
     }
 }
 
-/// 时间依据。跨午夜请求默认归到来源记录的完成时间；只有开始时间时明确标记。
+/// Time basis: assign midnight-crossing calls by native completion; identify start-only timestamps.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TimeBasis {
@@ -194,7 +194,7 @@ pub enum TimeBasis {
     SourceStart,
     ObservedAt,
     IntervalStart,
-    /// 没有可证实的源时区/时间配置。
+    /// Native timezone/time configuration has not been verified.
     Uncertain,
 }
 
@@ -223,9 +223,9 @@ impl TimeBasis {
     }
 }
 
-/// 版本选择依据（architecture.md 未知版本兼容约定）：
-/// 已知版本按注册表映射分派；未知/缺失版本先尝试该 Agent 最新内置解析器，
-/// 结果带兼容标记，兼容状态与 token 字段质量分别记录。
+/// Version selection follows architecture.md compatibility rules:
+/// dispatch known versions through the registry; unknown/missing versions try the latest built-in reader
+/// for that Agent. Record compatibility separately from token-field quality.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum VersionBasis {
@@ -252,7 +252,7 @@ impl VersionBasis {
     }
 }
 
-/// 本机归属依据。
+/// Basis for identifying this device as the source.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum LocalityBasis {
@@ -291,7 +291,7 @@ impl LocalityBasis {
     }
 }
 
-/// 归属核验状态。无法确认归属的记录不进入总计。
+/// Ownership verification; records with unverified ownership do not enter totals.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AttributionStatus {
@@ -321,7 +321,7 @@ impl AttributionStatus {
     }
 }
 
-/// token 字段集合。缺失为 None（落盘为 NULL），绝不补零。
+/// Token fields; missing values are None (stored as NULL), without replacement zeros.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TokenUsage {
     pub input_uncached: Option<i64>,
@@ -331,12 +331,12 @@ pub struct TokenUsage {
     pub output_total: Option<i64>,
     pub output_reasoning: Option<i64>,
     pub total_tokens: Option<i64>,
-    /// 来源原始总量，与规范化总量比较；不一致记诊断。
+    /// Original source total, compared with normalized totals; disagreements produce diagnostics.
     pub source_total: Option<i64>,
 }
 
 impl TokenUsage {
-    /// 逐字段校验：非负、不超过上限。超限拒绝整条记录。
+    /// Validate every field as nonnegative and within the limit; reject an out-of-range record.
     pub fn validate(&self) -> Result<(), CoreError> {
         let fields = [
             ("input_uncached", self.input_uncached),
@@ -366,7 +366,7 @@ impl TokenUsage {
     }
 }
 
-/// 逐字段质量，与 [`TokenUsage`] 同形。unknown 字段不允许有值。
+/// Per-field quality matching TokenUsage; unknown fields must have no value.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TokenQuality {
     pub input_uncached: FieldQuality,
@@ -442,17 +442,17 @@ impl TokenQuality {
     }
 }
 
-/// 事件级质量分区（日聚合的低基数维度之一）。
+/// Event quality category, used when grouping daily aggregates.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum QualityBucket {
-    /// 输入与输出总量均已知。
+    /// Both input and output totals are known.
     Complete,
-    /// 部分字段已知。
+    /// Some token fields are known.
     Partial,
-    /// 任一字段为估算。
+    /// At least one field is estimated.
     Estimated,
-    /// 没有任何已知 token 字段。
+    /// No token field is known.
     Unknown,
 }
 
@@ -504,7 +504,7 @@ impl QualityBucket {
     }
 }
 
-/// 费用：整数最小单位 + 币种，不用二进制浮点累加。
+/// Cost in integer smallest units with a currency; avoid floating-point accumulation.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CostAmount {
     pub amount_minor: i64,
@@ -530,17 +530,17 @@ impl CostKind {
     }
 }
 
-/// 进入 ingest 批次的标准化事件（model_call / transport_attempt / usage_observation）。
+/// Normalized ingest event: model_call, transport_attempt or usage_observation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EventInput {
     pub source_instance_id: String,
-    /// 来源稳定记录键（response/request ID、会话 UUID+序号、文件身份+位置等）。
+    /// Stable native key: response/request ID, session UUID plus sequence, or file identity plus position.
     pub source_record_key: String,
     pub record_kind: RecordKind,
     pub schema_version: String,
     pub parser_version: String,
-    /// 版本选择依据（known_version / latest_fallback）；None 为未区分的历史数据。
-    /// 兼容状态是解析依据，不是记录内容，不参与内容哈希。
+    /// Reader selection: known_version/latest_fallback; None identifies undifferentiated historical data.
+    /// Compatibility describes parsing, rather than event content, and is excluded from the content hash.
     pub parse_basis: Option<VersionBasis>,
     pub origin_call_id: Option<String>,
     pub attempt_id: Option<String>,
@@ -549,7 +549,7 @@ pub struct EventInput {
     pub host_application: Option<String>,
     pub agent: String,
     pub call_category: CallCategory,
-    /// UTC 毫秒整数。
+    /// Integer UTC milliseconds.
     pub occurred_at_ms: i64,
     pub observed_at_ms: Option<i64>,
     pub source_time: Option<String>,
@@ -563,7 +563,7 @@ pub struct EventInput {
     pub usage: TokenUsage,
     pub quality: TokenQuality,
     pub lifecycle: Lifecycle,
-    /// 源修订号；有则按修订号排序，否则按生命周期裁决。
+    /// Prefer source revision ordering when available; otherwise resolve by lifecycle.
     pub source_revision: Option<i64>,
     pub error_status: Option<String>,
     pub duration_ms: Option<i64>,
@@ -574,7 +574,7 @@ pub struct EventInput {
 }
 
 impl EventInput {
-    /// 入库前校验：token 字段非负有上限；时间戳 plausible（毫秒而非秒）。
+    /// Before storage, validate bounded nonnegative tokens and plausible millisecond timestamps.
     pub fn validate(&self) -> Result<(), CoreError> {
         self.usage.validate()?;
         self.quality.validate(&self.usage)?;

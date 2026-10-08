@@ -1,4 +1,4 @@
-//! Roo Code 探测：任务 ui_messages.json 的文档级指纹（type/say 结构）。
+//! Detect Roo Code task ui_messages.json using documented type/say fields.
 
 use crate::adapters::framework::DetectOutcome;
 use crate::domain::VersionBasis;
@@ -18,7 +18,7 @@ fn strip_bom(bytes: &[u8]) -> &[u8] {
 }
 
 pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
-    // 瞬态不可读（持锁/超时/枚举后被清理）⇒ Pending 下轮重探，不固化失败。
+    // Temporary lock, timeout or deletion after enumeration: return Pending and retry next scan.
     let Some(head) = crate::adapters::framework::read_detect_head(path, DETECT_HEAD_BYTES)? else {
         return Ok(DetectOutcome::Pending);
     };

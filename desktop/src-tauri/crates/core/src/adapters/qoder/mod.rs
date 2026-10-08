@@ -1,7 +1,7 @@
-//! Qoder 适配器（阿里，前通义灵码；独立目录约定）。**实现前格式核验阶段**：
-//! 路径已证（`~/.qoder/projects/...`，QODER_CONFIG_DIR 重定向），用量落盘
-//! 字段仍待真实样本核验（bundle schema 线索不能确认落盘格式；计量是云端 Credits）⇒ 只发现与
-//! 识别，不解析（fail closed）。JetBrains 插件归 F1。
+//! Qoder adapter (Alibaba, formerly Tongyi Lingma; independent directory). Format inspection:
+//! ~/.qoder/projects/... and QODER_CONFIG_DIR redirection are verified. Saved usage
+//! fields need native samples; bundle schemas do not establish the file format and billing uses
+//! cloud Credits. Discover/recognize only, without usage parsing; JetBrains plugin remains F1.
 
 pub mod detect;
 pub mod versions;
@@ -10,7 +10,7 @@ pub use detect::QODER_FORMAT;
 pub use versions::probe_only;
 pub use versions::{LATEST_IMPL_ID, QODER_FORMAT_VERSION, VERIFIED_VERSION_IMPLS};
 
-/// Qoder 适配器（无状态）。
+/// Stateless Qoder adapter.
 pub struct QoderAdapter;
 
 impl Default for QoderAdapter {
@@ -60,7 +60,7 @@ impl crate::adapters::framework::SourceAdapter for QoderAdapter {
         let mut seen: std::collections::BTreeSet<std::path::PathBuf> =
             std::collections::BTreeSet::new();
         for (root, basis) in roots {
-            // 会话 jsonl（深度 2）+ state.json（sessions/<id>/state.json 形态）。
+            // Bounded discovery of session JSONL and sessions/<id>/state.json files.
             let files = crate::adapters::framework::enumerate_files_bounded(&root, 3, &|p| {
                 let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
                 name == "state.json"

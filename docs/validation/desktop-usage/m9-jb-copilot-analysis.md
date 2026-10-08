@@ -1,74 +1,81 @@
-# GitHub Copilot for JetBrains 插件核验（2026-10-01）
+# GitHub Copilot for JetBrains plugin inspection, 2026-10-01
+
+<a id="github-copilot-for-jetbrains-插件核验2026-10-01"></a>
+
+<a id="背景与方法"></a>
 
 <a id="github-copilot-for-jetbrains-插件取证2026-10-01"></a>
 
-## 背景与方法
+## Background and method
 
-- 用户要求分析插件结构与文档、尝试适配 JetBrains 的 Copilot 用量提取。
-  本机未安装 JetBrains IDE（无 `%APPDATA%\JetBrains`），按"文档级证据先行"
-  流程：从 JetBrains 市场下载 Windows x64 插件包（github-copilot-intellij
-  1.18.0-261，updateId 1173985）解包，对 Kotlin/Java 字节码做常量池字符串
-  核验（产物在已忽略的 build/jb-copilot-analysis/），并核对 GitHub 官方
-  故障排查文档。不做运行时探测（不启动 IDE/不产生付费用量）。
+The user requested analysis of plugin structure/documentation and JetBrains Copilot usage
+collection. No JetBrains IDE or %APPDATA%\JetBrains existed locally. Following the
+documentation/source inspection process, the Windows x64 Marketplace plugin
+github-copilot-intellij 1.18.0-261, updateId 1173985, was downloaded/unpacked. Kotlin/Java
+constant-pool strings were checked in ignored build/jb-copilot-analysis/, alongside official
+GitHub troubleshooting documentation. No IDE started and no paid usage was generated.
 
-## 载体结论
+<a id="载体结论"></a>
 
-- **默认开启的本地数据无逐次 token**：
-  - 会话库为嵌入式 **Nitrite**（打包 h2-mvstore 2.2.224）：
-    `NitriteAgentSessionPersistenceService` 常量 `copilot-agent-sessions-nitrite.db`，
-    实体 `NtAgentSession`（turns、modelName/modelProvider/modelIdType、
-    sessionStatus、**`turnCreditsJson`**）/`NtAgentTurn`/`NtAgentMessage`（模型
-    信息）；`turnCreditsJson` 编解码为 `RestoredTurnCredits(messageId, credits)`
-    ——credit/额度概念，**非 token**（与 CLI 的 nano AIU/premium 倍率同类，
-    按合同不折算不入 token）。父路径经 `Project.getDirectoryStorePath`
-    （项目 `.idea` 相关存储）组合，精确子路径待真实样本锚定；
-  - `idea.log`（官方文档：Help → Show Log，诊断输出）；
-  - `telemetry.properties` = App Insights 密钥（远程遥测，按本机来源边界排除）。
-- **逐次 token 载体 = 需启用的 OTel 导出**（与 VS Code `github.copilot.chat.otel.*`
-  同族同词汇）：
-  - 设置项 `CopilotApplicationState`：`otelEnabled`、`otelExporterType`
-    （枚举 `file`/`otlp-http`/`otlp-grpc`/`console`，默认协议 `otlp-http`）、
-    `otelEndpoint`、`otelOutfile`、`otelServiceName`、`otelResourceAttributes`、
-    `otelCaptureContent`；经 agent 命令 `CopilotOtelSettings` 下发给
-    copilot-language-server；
-  - 官方文档（viewing-logs）：JetBrains 侧有可选 **Agent debug File Logging**
-    （Settings → Tools → Copilot → Chat），即上述 file 导出；
-  - **五桶 token 解析依据**：插件自身 Agent Debug Panel 的
-    `OTelSpanProvider$getEventRows$2` 常量包含 `gen_ai.response.model`、
-    `gen_ai.usage.input_tokens`、`gen_ai.usage.output_tokens`、
-    `gen_ai.usage.cache_read.input_tokens`、`gen_ai.usage.cache_creation.input_tokens`；
-    span 经 `OtlpSpan`（attributes/status，逐行 JSON）从 outfile 读取
-    （`readSpansFromFile`），路径由 agent 命令 `GetAgentDebugLogPath`
-    （`debug/getAgentDebugLogPath`）返回。
-- 原生 agent 为 `copilot-agent/native/*/copilot-language-server.exe`
-  （Node SEA 打包，字符串压缩不可直读），与 CLI/VS 同族。
+<a id="本地记录格式"></a>
 
-## 适配决定
+## Local formats
 
-- **不新增默认载体适配器**：默认本地数据只含 credit（用户明确要求不把
-  credit 当作用量主口径；合同规定额度不折算不入 token）。
-- **JetBrains 面接入路径 = 既有 otel 适配器（M5）**：用户在插件设置启用
-  `otelExporterType=file` + `otelOutfile` 后，把 outfile 作为本应用手工根
-  添加。行格式与 VS Code file exporter 同族（NDJSON span 记录），
-  本机无 JetBrains 无法真实锚定，维持文档级；真实样本出现后按 V30 流程
-  锚定。otel 适配器能力表已登记该同族载体与边界。
-- 隐私注意：启用 `otelCaptureContent` 时 outfile 含提示/响应正文；本应用
-  解析只读白名单键，正文不入库不输出（与 VS Code otel 载体同一约定）。
-- 双计边界：JetBrains outfile（手工根）与本应用 OTLP 接收器不重叠；
-  与 JetBrains 自身 Debug Panel 仅读取不冲突（同文件多方只读）。
+- **Default local data lacks per-call tokens.**
+  - Embedded Nitrite session database, bundled h2-mvstore 2.2.224:
+    NitriteAgentSessionPersistenceService names copilot-agent-sessions-nitrite.db.
+    NtAgentSession has turns, modelName/modelProvider/modelIdType, sessionStatus and
+    turnCreditsJson; NtAgentTurn/NtAgentMessage contain model information. turnCreditsJson
+    decodes RestoredTurnCredits(messageId, credits): credits/quota, **not tokens**, comparable
+    to CLI nano AIU/premium multipliers. Quotas are neither converted nor added to tokens.
+    Project.getDirectoryStorePath builds the parent from project .idea-related storage;
+    the exact subpath needs a real sample.
+  - idea.log is diagnostic output; official instructions use Help → Show Log.
+  - telemetry.properties contains an App Insights key for remote telemetry, outside local-source scope.
+- **Per-call tokens require enabled OTel export.** Its names are related to VS Code
+  github.copilot.chat.otel.*:
+  - CopilotApplicationState: otelEnabled, otelExporterType (file/otlp-http/otlp-grpc/console;
+    default protocol otlp-http), otelEndpoint, otelOutfile, otelServiceName,
+    otelResourceAttributes and otelCaptureContent. CopilotOtelSettings sends them to
+    copilot-language-server.
+  - Official viewing-logs documentation describes optional Agent debug File Logging under
+    Settings → Tools → Copilot → Chat, corresponding to file export.
+  - The plugin's Agent Debug Panel OTelSpanProvider$getEventRows$2 contains
+    gen_ai.response.model, gen_ai.usage.input_tokens, gen_ai.usage.output_tokens,
+    gen_ai.usage.cache_read.input_tokens and gen_ai.usage.cache_creation.input_tokens.
+    OtlpSpan reads line-oriented JSON attributes/status through readSpansFromFile;
+    GetAgentDebugLogPath, debug/getAgentDebugLogPath, returns the path.
+- Native agent: copilot-agent/native/*/copilot-language-server.exe, a Node SEA executable
+  with compressed strings that cannot be read directly, related to CLI/VS agents.
+
+<a id="适配决定"></a>
+
+## Adapter decision
+
+- No new adapter for default files: they hold credits, which the user's requirements keep
+  separate from the main token statistics.
+- JetBrains intake uses the existing otel adapter (M5). Enable otelExporterType=file and
+  otelOutfile in plugin settings, then add outfile as a manual root. NDJSON span format is
+  related to the VS Code exporter, but without a local JetBrains environment this remains
+  documentation/source analysis. Verify a real sample under V30 when available. The otel
+  capability table records this format and limitation.
+- otelCaptureContent puts prompt/response bodies in outfile. The application reads only
+  permitted statistical keys; bodies are neither stored nor output, as for VS Code OTel.
+- The manually selected JetBrains outfile and the application's OTLP receiver must not
+  count overlapping calls. Reading the same file in JetBrains Debug Panel is harmless.
+
+<a id="核验资料清单"></a>
 
 <a id="证据清单"></a>
 
-## 核验资料清单
+## Inspection references
 
-- 插件包：JetBrains 市场 updateId 1173985（1.18.0-261 windows-x64）。
-- 字节码常量：`NitriteAgentSessionPersistenceService`（db 文件名）、
-  `NtAgentSession`/`RestoredTurnCredits`、`CopilotApplicationState`
-  （otel 设置族与默认协议）、`OtelExporterType`（四值枚举）、
-  `CopilotOtelSettings`、`OTelSpanProvider*`（gen_ai 五桶键 + readSpansFromFile）、
-  `GetAgentDebugLogPathCommand`（debug/getAgentDebugLogPath）、
-  `telemetry.properties`（App Insights key）。
-- 官方文档：[Viewing logs for GitHub Copilot in your environment](https://docs.github.com/copilot/troubleshooting-github-copilot/viewing-logs-for-github-copilot-in-your-environment)
-  （JetBrains → idea.log；Agent Debug Panel/Agent debug File Logging 可选）。
-- 未完成：无 JetBrains 真实环境，outfile 行格式、默认 otelServiceName、
-  Nitrite db 精确路径未锚定——真实样本出现后补充本地核验结果。
+- Marketplace updateId 1173985, 1.18.0-261 windows-x64 plugin.
+- Constants: NitriteAgentSessionPersistenceService (DB name), NtAgentSession/
+  RestoredTurnCredits, CopilotApplicationState (settings/default protocol), OtelExporterType
+  (four values), CopilotOtelSettings, OTelSpanProvider* (gen_ai fields/readSpansFromFile),
+  GetAgentDebugLogPathCommand (debug/getAgentDebugLogPath), telemetry.properties (App Insights key).
+- Official [Viewing logs for GitHub Copilot in your environment](https://docs.github.com/copilot/troubleshooting-github-copilot/viewing-logs-for-github-copilot-in-your-environment):
+  JetBrains idea.log and optional Agent Debug Panel/Agent debug File Logging.
+- Outstanding: actual outfile rows, default otelServiceName and exact Nitrite database path
+  require a real JetBrains environment/sample and subsequent local checks.

@@ -1,29 +1,37 @@
-# synthetic-fork-inherited._expectations.md（SYNTHETIC）
+# synthetic-fork-inherited._expectations.md (SYNTHETIC)
 
-**本目录全部为合成样本（synthetic），不是真实会话提取。** fork 逐字复制条目
-（type/id/parentId/timestamp 四元组不变）到 fork 会话文件；继承不是新调用。
-本机 58 文件未观测到 fork（无 parentSession），此场景按 pi 同口径合成。
+<a id="synthetic-fork-inherited_expectationsmdsynthetic"></a>
 
-## 场景与期望
+**All samples in this directory are synthetic, rather than extracted native sessions.**
+A fork copies entries verbatim into its session file, preserving type/id/parentId/timestamp.
+Inherited entries are not new calls. None of 58 observed local files had a fork or
+parentSession; this synthetic scenario uses the same rules as Pi.
 
-- 源文件（…d060.jsonl）：5 行，session id=syn-omp-src，assistant syn-fa-1
-  （100/50/0/0/150）+ syn-fa-2（200/60/40/0/300）⇒ 2 事件。
-- fork 文件（…d061.jsonl）：6 行，session id=syn-omp-fork、
-  parentSession=syn-omp-src；逐字复制源 L3–L5（model_change + 2 assistant），
-  追加新 assistant syn-fa-3（10/5/0/0/15）⇒ 3 事件。
-- 两轮扫描（先源后 fork）：第一轮 added=2；第二轮源文件 unchanged 短路，
-  fork 文件 events=3。
+<a id="场景与期望"></a>
 
-## 已知偏差（与 pi 同一定案）
+## Scenario and expectations
 
-复制条目四元组与源文件逐字相同，但事件 session_id/parent_session_id 取自
-fork 会话头，与已存事件同键不同内容 ⇒ 仲裁为 conflict（保留先扫者），
-而非「同键同内容 Keep」。幂等净效果成立：不双计、先扫的源会话归属保留。
-第二轮 outcome：added=1（syn-fa-3）、conflicts=2、unchanged=0；
-update_conflict 诊断 ×2。
+- Source `…d060.jsonl`: five lines, session id=syn-omp-src, assistant syn-fa-1
+  (100/50/0/0/150) and syn-fa-2 (200/60/40/0/300): two events.
+- Fork `…d061.jsonl`: six lines, session id=syn-omp-fork,
+  parentSession=syn-omp-src. Verbatim source L3–L5 copies model_change and both assistants;
+  new assistant syn-fa-3 (10/5/0/0/15) gives three events.
+- Two scans, source before fork: first added=2; second skips the unchanged source and
+  reads three events from the fork.
 
-- syn-fa-3 携带 fork 会话身份：session_id=syn-omp-fork、
-  parent_session_id=syn-omp-src。
-- 汇总（2026-01-05 UTC）：call_count=3、input_total_known=350（派生口径
-  (100+0+0)+(200+40+0)+(10+0+0)）、cache_read_known=40、cache_write_known=0、
-  output_total_known=115、total_tokens_known=465。
+<a id="已知偏差与-pi-同一定案"></a>
+
+<a id="已知偏差与-pi-相同"></a>
+
+## Known difference (same result as Pi)
+
+Copied entry fields are identical, but event session_id/parent_session_id come from the
+fork header. The same event key therefore has different content: report conflict and
+retain the first-scanned event, rather than Keep for identical content. The resulting
+statistics count once and retain the source session read first. Second outcome:
+added=1 (syn-fa-3), conflicts=2, unchanged=0; two update_conflict diagnostics.
+
+- syn-fa-3 keeps session_id=syn-omp-fork and parent_session_id=syn-omp-src.
+- Summary (2026-01-05 UTC): call_count=3, input_total_known=350
+  (derived: (100+0+0)+(200+40+0)+(10+0+0)), cache_read_known=40,
+  cache_write_known=0, output_total_known=115, total_tokens_known=465.

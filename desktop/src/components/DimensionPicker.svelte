@@ -1,8 +1,8 @@
 <script lang="ts">
   /**
-   * 分组维度分段选择器（替代下拉）：总用量 | 按模型 | 按 Agent | 按 Agent+模型。
-   * 水平按钮组（iOS segmented control 风格）：选中项蓝底白字，未选中白底灰边框；
-   * 按钮间距 2px、圆角 6px、整体一行（父级 .dim-row 内与错误文案并排）。
+   * Segmented grouping selector: total usage, model, Agent, or Agent plus model.
+   * Selected buttons use blue with white text; others use white with gray borders.
+   * Spacing is 2px, radius 6px, one row beside errors in the parent .dim-row.
    */
   import type { ChartDimension } from '../lib/api';
   import { t } from '../lib/i18n.svelte';

@@ -1,6 +1,6 @@
-//! chart_series 维度分组查询（2026-09-26 粒度/筛选修复回归）：
-//! 小时粒度读 hourly_usage、周/月粒度按日历周期聚合、period_usage 物化周期并入、
-//! Agent/模型/实例筛选生效；标签与 query_summary 总用量视图保持一致。
+//! chart_series grouping regressions for the 2026-09-26 period/filter repair:
+//! hourly uses hourly_usage; weeks/months aggregate calendar periods, including period_usage;
+//! agent/model/instance filters apply; labels match query_summary total-usage results.
 mod common;
 
 use common::{batch, evt, temp_storage, ts, with_tokens};
@@ -56,7 +56,7 @@ fn hour_granularity_groups_by_hour_label_from_hourly_usage() {
     let summary = query_summary(&storage, &r).unwrap();
     let summary_labels: Vec<&str> = summary.periods.iter().map(|p| p.label.as_str()).collect();
     let chart_labels: Vec<&str> = rows.iter().map(|r| r.label.as_str()).collect();
-    // 时间轴标签与总用量视图一致（小时格式 "YYYY-MM-DD HH:00"）。
+    // Time labels match total usage: hourly format YYYY-MM-DD HH:00.
     assert_eq!(chart_labels, summary_labels);
     assert_eq!(chart_labels, vec!["2026-09-24 01:00", "2026-09-24 14:00"]);
 
@@ -83,10 +83,10 @@ fn hour_granularity_groups_by_hour_label_from_hourly_usage() {
 #[test]
 fn week_granularity_merges_days_into_calendar_weeks() {
     let (_dir, storage) = temp_storage("chart-week");
-    // 同一周的周一与周三：周粒度应合并为一个周期。
+    // Monday and Wednesday in the same week combine into one weekly period.
     insert_event(&storage, "d1", "2026-09-21T08:00:00Z", "m1", 100, 10);
     insert_event(&storage, "d2", "2026-09-23T09:00:00Z", "m1", 40, 4);
-    // 下一周。
+    // The following week.
     insert_event(&storage, "d3", "2026-09-29T10:00:00Z", "m2", 70, 7);
 
     let r = request(Granularity::Week, ymd(2026, 9, 1), ymd(2026, 9, 30));
@@ -136,7 +136,7 @@ fn filters_apply_to_grouped_series() {
     assert_eq!(rows[0].series_name, "m1");
     assert_eq!(rows[0].call_count, 1);
 
-    // 实例白名单：其他实例的数据不出现。
+    // Allowed-instance filter excludes other instances.
     r.filters = Filters {
         instances: Some(vec!["other-inst".into()]),
         ..Default::default()
@@ -148,7 +148,7 @@ fn filters_apply_to_grouped_series() {
 #[test]
 fn week_merges_materialized_period_usage_and_skips_covered() {
     let (_dir, storage) = temp_storage("chart-materialized");
-    // 日层数据只覆盖 2026-09-21 那一周；更早的一周只有 period_usage 物化行。
+    // Daily data covers only the week of 2026-09-21; the earlier week has period_usage only.
     insert_event(&storage, "d1", "2026-09-21T08:00:00Z", "m1", 100, 10);
 
     let cal = Calendar::new("UTC").unwrap();
@@ -190,20 +190,20 @@ fn week_merges_materialized_period_usage_and_skips_covered() {
     );
     assert_eq!(old.start_day, old_week_start);
     assert_eq!(old.end_day, ymd(2026, 9, 6));
-    // 日层已覆盖的那周不含物化实例的数据（covered 去重）。
+    // The daily-covered week excludes that instance from period rows to avoid duplication.
     let covered = &rows[1];
     assert_eq!(covered.call_count, 1);
     assert!(rows
         .iter()
         .all(|r| r.series_name != "m2" || r.label == old_key));
 
-    // 与总用量视图的周期集合一致。
+    // Same period set as total-usage results.
     let summary = query_summary(&storage, &r).unwrap();
     let summary_labels: Vec<&str> = summary.periods.iter().map(|p| p.label.as_str()).collect();
     let chart_labels: Vec<&str> = rows.iter().map(|r| r.label.as_str()).collect();
     assert_eq!(chart_labels, summary_labels);
 
-    // 实例白名单筛选同样作用于物化行。
+    // Allowed-instance filtering also applies to period rows.
     let mut r2 = r.clone();
     r2.filters.instances = Some(vec!["inst".into()]);
     let rows = chart_series(&storage, &r2, &ChartDimension::ByModel).unwrap();

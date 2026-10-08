@@ -1,22 +1,27 @@
-# synthetic-v20-backfill-compression 期望（全合成）
+# synthetic-v20-backfill-compression expectations (all synthetic)
 
-场景：压缩父会话（end_reason='compression'，2026-09-20T09:00Z..12:00Z）
-带一条 v20 回填行（历史汇总种成模型行，first/last_seen NULL）；
-压缩子会话（parent_session_id 指向父）有自己的实时行。
+<a id="synthetic-v20-backfill-compression-期望全合成"></a>
 
-时间值（epoch 秒）：父 started=1789894800 ended=1789905600；
-子 started=1789905660，实时行 first=1789905660.5 last=1789916000.0。
+Scenario: a compressed parent session (end_reason='compression',
+2026-09-20T09:00Z..12:00Z) has one v20 backfilled row. A historical summary was populated
+as a model row with first/last_seen=NULL. Its compressed child, linked through
+parent_session_id, has its own live row.
 
-期望（人工核算）：
+Epoch seconds: parent started=1789894800, ended=1789905600; child started=1789905660.
+The live row has first=1789905660.5 and last=1789916000.0.
 
-- 2 条 `source_aggregates` 行：
-  - 回填行：interval_start_ms=NULL（first_seen 未知）、
-    interval_end_ms=1789905600000（回退 session ended_at 时间窗）、
-    reported_call_count=NULL（默认零未知）、input_uncached=500；
-  - 子会话实时行：interval 1789905660500..1789916000000、
-    input_uncached=300、cache_read=20、reported_call_count=2。
-- 压缩继承不双计：sum input_uncached=500+300=**800**（不是把父汇总复制给子）。
-- 默认缓存零未知，input_total/total_tokens 不补全；已知来源调用小计 2，不宣称完整调用数。
-- `usage_events` 0 条；coverage 均 exclusive。
-- 注意：回填行不证明历史调用使用 legacy-model（v20 语义），api_call_count
-  缺有效性标记的零调用数不作为已知零。
+Manually calculated expectations:
+
+- Two `source_aggregates` rows:
+  - Backfill: interval_start_ms=NULL (unknown first_seen), interval_end_ms=1789905600000
+    (session ended_at fallback), reported_call_count=NULL (default zero is unknown),
+    input_uncached=500.
+  - Child live row: interval 1789905660500..1789916000000, input_uncached=300,
+    cache_read=20, reported_call_count=2.
+- Compression does not duplicate inherited usage: input_uncached sum=500+300=**800**;
+  the parent summary is not copied into the child.
+- Default cache zeros remain unknown. Do not fill input_total/total_tokens. The known
+  source-call subtotal is 2, without claiming a complete call count.
+- Zero `usage_events` rows; all aggregate coverage is exclusive.
+- The backfilled row does not establish that historical calls used legacy-model
+  (v20 semantics). An api_call_count zero without a validity marker is unknown.

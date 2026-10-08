@@ -1,22 +1,22 @@
-//! Zed 内置 Agent 适配器（独立目录约定 architecture.md#adapter-layout）：
-//! - 本模块是该 Agent 的稳定入口（统一接口实现与再导出）；
-//! - [`detect`]：threads.db 表/列指纹；
-//! - [`versions`]：格式注册表（文档级 zed-threads-db-1 / 2）；
-//! - 产品特有映射与源库只读访问在 [`common`]。
+//! Built-in Zed Agent adapter; see architecture.md#adapter-layout.
+//! - Stable entry point implements the shared interface and re-exports modules.
+//! - detect checks threads.db tables and columns.
+//! - versions registers document formats zed-threads-db-1 / 2.
+//! - common owns product-specific mapping and read-only source access.
 //!
-//! 2026-10-07 新增 1.22.0 / 76659a55 的非空外部 Provider 实样；
-//! 仅 llm-usage-zhipu + DbThread 0.3.0 采用独立默认零未知映射。
-//! 以下为原有 hosted 格式依据（Zed 官方源码 bd747337d7be138834e20972b9e203c7b239cc47，A38；
-//! 本机 2026-09-29 只读核验 `%LOCALAPPDATA%/Zed/threads/threads.db` threads 表
-//! schema 一致、0 行）：
-//! - 库布局 `<data_dir>/threads/threads.db`；data_dir 三平台默认见 common；
-//!   主程序无 ZED_DATA_DIR 环境变量（覆盖是 CLI --user-data-dir，采集不可见）。
-//! - data blob（json/zstd）DbThread：model{provider,model}、
-//!   cumulative_token_usage（线程总量，权威）、request_token_usage
-//!   （turn 级桶，turn 内多请求后写覆盖前写，仅作对账）。
-//! - 仅 provider=="zed.dev" 的 hosted 调用计入；分享导入线程（version "1.0.0"）
-//!   用量置零跳过；外部 ACP Agent 会话不进 threads 表（官方 thread_import 写
-//!   sidebar_threads），按底层来源适配器计量，不计为 Zed 内置支持。
+//! Nonempty external-provider samples from 1.22.0 / 76659a55 were checked on 2026-10-07.
+//! Only llm-usage-zhipu with DbThread 0.3.0 uses the separately verified default-zero mapping.
+//! Hosted-format references: official Zed commit bd747337d7be138834e20972b9e203c7b239cc47, A38,
+//! plus read-only local inspection on 2026-09-29 of %LOCALAPPDATA%/Zed/threads/threads.db:
+//! matching threads schema with zero rows, without usage-format acceptance.
+//! - Layout is <data_dir>/threads/threads.db; common documents platform data directories.
+//!   Zed has no ZED_DATA_DIR override; --user-data-dir is not visible to collection.
+//! - JSON/zstd DbThread data has model{provider,model},
+//!   cumulative_token_usage (thread total) and request_token_usage
+//!   (turn buckets overwritten by later requests in that turn, used only for reconciliation).
+//! - The hosted path requires provider=="zed.dev"; shared imports with version "1.0.0"
+//!   have initialized zero usage and are skipped. External ACP threads are written to
+//!   sidebar_threads, not threads; collect through their underlying source adapters.
 
 pub mod common;
 pub mod detect;
@@ -27,7 +27,7 @@ pub use detect::ZED_FORMAT;
 pub use versions::threads_db_v1;
 pub use versions::{LATEST_IMPL_ID, VERIFIED_VERSION_IMPLS, ZED_FORMAT_VERSION};
 
-/// Zed 适配器（无状态）。
+/// Stateless Zed adapter.
 pub struct ZedAdapter;
 
 impl Default for ZedAdapter {
@@ -59,7 +59,7 @@ impl crate::adapters::framework::SourceAdapter for ZedAdapter {
         let mut roots: Vec<(std::path::PathBuf, RootBasis)> = Vec::new();
         if let Some(home) = &ctx.home_dir {
             if cfg!(windows) {
-                // 官方 paths.rs:161-165：dirs::data_local_dir() + "Zed"。
+                // Official paths.rs:161-165 uses dirs::data_local_dir() + "Zed".
                 let base = ctx
                     .env
                     .get("LOCALAPPDATA")
@@ -76,8 +76,8 @@ impl crate::adapters::framework::SourceAdapter for ZedAdapter {
                     RootBasis::DefaultHome,
                 ));
             } else {
-                // 官方 paths.rs:155-160：XDG_DATA_HOME（默认 ~/.local/share）+ "zed"
-                //（Linux 用小写）；FLATPAK_XDG_DATA_HOME 特例。
+                // Official paths.rs:155-160 uses XDG_DATA_HOME, default ~/.local/share, plus "zed";
+                // Linux uses lowercase and also has FLATPAK_XDG_DATA_HOME handling.
                 let xdg = ctx
                     .env
                     .get("XDG_DATA_HOME")
@@ -100,7 +100,7 @@ impl crate::adapters::framework::SourceAdapter for ZedAdapter {
         let mut seen: std::collections::BTreeSet<std::path::PathBuf> =
             std::collections::BTreeSet::new();
         for (root, basis) in roots {
-            // 手工根宽松：threads 目录、threads.db 本身或 Zed data 目录均可。
+            // Accept a threads directory, an existing file, or a data directory named exactly "Zed".
             let db = if root.join("threads.db").is_file() {
                 root.join("threads.db")
             } else if root.is_file() {

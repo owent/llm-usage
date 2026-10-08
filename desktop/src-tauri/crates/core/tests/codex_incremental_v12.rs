@@ -1,5 +1,5 @@
-//! V12：增量与刷新语义 —— 重复扫描不增量、追加续读、半行跨轮、截断/同长替换/
-//! 改名重探测、达到读取上限后分批恢复、矛盾重复 final 冲突标记。
+//! V12 incremental refresh: repeat scans, appended lines, incomplete lines across runs, truncation,
+//! same-size replacement, rename detection, bounded scan resumption and conflicting duplicate finals.
 
 mod common;
 
@@ -51,7 +51,7 @@ fn repeat_scan_does_not_increment() {
 fn appended_lines_are_read_incrementally() {
     let dir = TempDir::new("v12-append");
     let jsonl = reconstruct_codex_jsonl(&codex_fixture("rollout-single-call.sanitized.json"));
-    // 先写前 10 行（无 usage），再追加剩余 7 行。
+    // Write ten lines without usage, then append the remaining seven.
     let text = String::from_utf8(jsonl).unwrap();
     let mut lines: Vec<&str> = text.lines().collect();
     let tail = lines.split_off(10);
@@ -89,7 +89,7 @@ fn half_line_is_not_consumed_until_completed() {
     let text = String::from_utf8(jsonl).unwrap();
     let lines: Vec<&str> = text.lines().collect();
     let (head, last) = (lines[..lines.len() - 1].join("\n"), lines[lines.len() - 1]);
-    // 写入除最后一条外的全部行 + 最后一条的前半。
+    // Write every complete line except the last, plus the first half of that last line.
     let partial = format!("{head}\n{}", &last[..last.len() / 2]);
     let file_path = dir.path().join("sessions/2026/09/24/rollout-h.jsonl");
     let root = codex_root_with_file(&dir, "rollout-h.jsonl", partial.as_bytes());
@@ -102,7 +102,7 @@ fn half_line_is_not_consumed_until_completed() {
         "usage record on line 15 is complete"
     );
 
-    // 完成最后半行（task_complete）。
+    // Complete the final task_complete line.
     std::fs::write(&file_path, format!("{head}\n{last}\n").as_bytes()).unwrap();
     let second = run_codex(&storage, &root, NOW + 1000);
     assert_eq!(
@@ -125,7 +125,7 @@ fn truncation_triggers_generation_rescan() {
     let (_db, storage) = temp_storage("v12-trunc");
     run_codex(&storage, &root, NOW);
 
-    // 截断为前 10 行（源端极端行为）：重探测 → generation+1 → 从头重扫。
+    // Truncate to ten lines: redetect, increment generation and rescan from the start.
     let text = String::from_utf8(jsonl).unwrap();
     let head: String = text.lines().take(10).collect::<Vec<_>>().join("\n") + "\n";
     std::fs::remove_file(&file_path).unwrap();
@@ -137,7 +137,7 @@ fn truncation_triggers_generation_rescan() {
         .query_row("SELECT generation FROM source_files", [], |r| r.get(0))
         .unwrap();
     assert_eq!(generation, 1);
-    // 已入库历史不因源截断而消失（usage 行在截除部分，重扫头 10 行无事件）。
+    // Retain stored history after truncation; the remaining ten lines contain no usage events.
     let summary = summary(&storage, "2026-09-24", "2026-09-24");
     assert_eq!(summary.totals.call_count, 1);
 }
@@ -152,8 +152,8 @@ fn same_size_replacement_rescans_without_dropping_history() {
     run_codex(&storage, &root, NOW);
     let before = storage.data_revision().unwrap();
 
-    // 同长替换：交换两条完整记录行（总字节数不变、每行仍是合法 JSON、cli_version 保持受支持），
-    // 但内容指纹改变，必须触发重扫。
+    // Same-size replacement swaps two complete valid JSON records with a supported cli_version,
+    // changing the content fingerprint and requiring a rescan.
     let text = String::from_utf8(one.clone()).unwrap();
     let mut lines: Vec<&str> = text.split_inclusive('\n').collect();
     assert!(lines.len() >= 5, "fixture should have enough lines to swap");
@@ -163,14 +163,14 @@ fn same_size_replacement_rescans_without_dropping_history() {
     assert_ne!(replaced, one);
     std::fs::write(&file_path, &replaced).unwrap();
     let second = run_codex(&storage, &root, NOW + 1000);
-    // 行序变化触发内容指纹重扫；格式仍受支持，重扫逐行读取。
+    // Reordered lines change the fingerprint; the supported format is rescanned line by line.
     let generation: i64 = storage
         .conn()
         .query_row("SELECT generation FROM source_files", [], |r| r.get(0))
         .unwrap();
     assert_eq!(generation, 1, "same-size replacement bumps generation");
     assert!(storage.data_revision().unwrap() >= before);
-    // 原会话记录保留（历史不清空），替换文件内容按自身解析结果入账。
+    // Retain original session history while parsing the replacement content independently.
     assert!(second[0].files[0].lines_read > 0);
     let summary = summary(&storage, "2026-09-24", "2026-09-24");
     assert!(summary.totals.call_count >= 1);
@@ -208,7 +208,7 @@ fn rename_keeps_identity_and_cursor() {
 fn budget_split_resumes_without_duplicates() {
     let dir = TempDir::new("v12-budget");
     let root_path = codex_fixture("synthetic-duplicate-final");
-    // 复制合成 fixture 到临时目录（避免改动仓库内 fixture）。
+    // Copy synthetic test data to a temporary directory, preserving repository samples.
     let jsonl =
         std::fs::read(root_path.join("sessions/2026/01/05/rollout-synthetic-dup.jsonl")).unwrap();
     let root = codex_root_with_file(&dir, "rollout-b.jsonl", &jsonl);
@@ -252,7 +252,7 @@ fn conflicting_duplicate_final_marks_conflict_and_keeps_existing() {
     let (_db, storage) = temp_storage("v12-conflict");
     run_codex(&storage, &root, NOW);
 
-    // 追加同 response_id 但数值不同的重复 final（无法确认哪条修订更新 → conflict）。
+    // Append a final with the same response_id and different values; unknown revision order means conflict.
     let conflict_line = "{\"timestamp\":\"2026-01-05T10:00:10.000Z\",\"type\":\"token_usage_record\",\"payload\":{\"thread_id\":\"syn-sess-dup\",\"turn_id\":\"syn-turn-1\",\"session_id\":\"syn-sess-dup\",\"response_id\":\"syn-resp-1\",\"usage\":{\"input_tokens\":1500,\"cached_input_tokens\":400,\"cache_write_input_tokens\":0,\"output_tokens\":50,\"reasoning_output_tokens\":10,\"total_tokens\":1550}}}\n";
     let mut appended = jsonl.clone();
     appended.extend_from_slice(conflict_line.as_bytes());
@@ -261,7 +261,7 @@ fn conflicting_duplicate_final_marks_conflict_and_keeps_existing() {
     let outcome = second[0].outcome.as_ref().unwrap();
     assert_eq!(outcome.conflicts, 1);
 
-    // 不任意择大：已存值保持 1000，冲突记诊断。
+    // Do not choose the larger value: retain 1000 and record the conflict diagnostic.
     let input: i64 = storage
         .conn()
         .query_row(

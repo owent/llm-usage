@@ -1,18 +1,18 @@
-//! MiMo Code 适配器（独立目录约定 architecture.md#adapter-layout）：
-//! - 本模块是该 Agent 的稳定入口（统一接口实现与再导出）；
-//! - [`detect`]：mimocode.db schema 指纹（message.agent_id 产品互斥锚点，
-//!   不从 OpenCode 派生关系推兼容）+ session.version 注册表；
-//! - [`versions`]：格式注册表（当前空：文档或源码依据，全部 latest_fallback）；
-//! - [`common`]：产品互斥 schema 指纹 + 源库只读/暂存副本约定；
-//! - wire 解析核心在家族共享模块 [`crate::adapters::opencode_family`]。
+//! MiMo Code adapter; see architecture.md#adapter-layout.
+//! - Stable entry point implements the shared interface and re-exports modules.
+//! - detect checks mimocode.db, including product-specific message.agent_id,
+//!   and session.version; OpenCode ancestry does not establish compatibility.
+//! - versions has no dedicated per-record mappings yet, so every version uses latest_fallback.
+//! - common owns product-specific schema checks and read-only/staged source access.
+//! - Wire parsing is shared in crate::adapters::opencode_family.
 //!
-//! 格式依据：0.1.15 官方分发物与提交 14dfe68a，真实容器/API/原生 SQLite
-//! 已核对；其他路径和版本保留限制，见 m3-runtime-samples.md。
-//! - 路径：`resolveMimocodeHome()`（MIMOCODE_HOME 绝对路径 → `<home>/data`；
-//!   否则 XDG `$XDG_DATA_HOME/mimocode`，缺省 ~/.local/share/mimocode）下
-//!   `mimocode.db`（通道变体 `mimocode-<channel>.db`），WAL；
-//! - 逐次 usage：`part` 表 step-finish 部件（family 模块头证据链）；
-//!   step 与 message 汇总不双计（只读 step 侧）。
+//! References: official 0.1.15 distribution and commit 14dfe68a, checked with real
+//! container/API/native SQLite samples; other paths/versions retain limits in m3-runtime-samples.md.
+//! - resolveMimocodeHome uses absolute MIMOCODE_HOME + /data;
+//!   otherwise $XDG_DATA_HOME/mimocode or default ~/.local/share/mimocode.
+//!   WAL databases use mimocode.db or channel-specific mimocode-<channel>.db.
+//! - Per-step usage comes from part step-finish rows; see family module references.
+//!   Read step usage without adding message aggregates.
 
 pub mod common;
 pub mod detect;
@@ -22,11 +22,11 @@ pub use detect::MIMO_CODE_FORMAT;
 pub use versions::step_finish_parts_v1;
 pub use versions::{LATEST_IMPL_ID, VERIFIED_VERSION_IMPLS};
 
-/// MiMo 官方环境覆盖（固定源码 resolveMimocodeHome：须绝对路径，非绝对上游
-/// 抛错；发现层对非绝对值跳过并依赖其余候选）。
+/// resolveMimocodeHome requires an absolute MIMOCODE_HOME; upstream rejects relative values.
+/// Discovery disables environment/default candidates for an invalid override; manual roots remain available.
 pub const MIMOCODE_ENV_HOME: &str = "MIMOCODE_HOME";
 
-/// MiMo Code 适配器（无状态）。
+/// Stateless MiMo Code adapter.
 pub struct MimoCodeAdapter;
 
 impl Default for MimoCodeAdapter {
@@ -102,11 +102,11 @@ impl crate::adapters::framework::SourceAdapter for MimoCodeAdapter {
         for manual in &ctx.manual_roots {
             roots.push((manual.clone(), RootBasis::Manual));
         }
-        // 发现范围按**数据目录名**限定（不按文件名递归全盘）：mimocode*.db 只在
-        // mimocode 数据目录或 MIMOCODE_HOME/data 内接受。手工根兼容四种形状：
-        // 数据目录本身、<root>/data（MIMOCODE_HOME 形状）、<root>/mimocode、
-        // <root>/.local/share/mimocode——防止把同血统产品目录里的同名前缀库
-        // 误认为本产品。
+        // Accept explicit database files; directory candidates enumerate mimocode*.db without disk-wide recursion.
+        // Manual directory roots may directly contain databases or provide <root>/data
+        // (MIMOCODE_HOME layout), <root>/mimocode or <root>/.local/share/mimocode.
+        // Filename prefixes do not distinguish related products;
+        // detect must verify the MiMo-specific schema before reading usage.
         let is_db_name = |p: &std::path::Path| {
             p.file_name()
                 .and_then(|n| n.to_str())
@@ -191,7 +191,7 @@ impl crate::adapters::framework::SourceAdapter for MimoCodeAdapter {
         limits: &crate::adapters::framework::ScanLimits,
         now_ms: i64,
     ) -> Result<crate::adapters::framework::ScanOutcome, crate::error::CoreError> {
-        // 当前所有可尝试版本共用 step_finish_parts_v1；注册表扩展后在此分派。
+        // All attempted versions use step_finish_parts_v1; extend dispatch with the registry.
         versions::step_finish_parts_v1::scan(target, stored, limits, now_ms)
     }
 

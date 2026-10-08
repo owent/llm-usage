@@ -1,20 +1,20 @@
-//! VS Copilot OTLP 遥测格式实现（`traces_v1`，vs-copilot-otlp-traces-v1）。
+//! VS Copilot OTLP telemetry implementation traces_v1; format vs-copilot-otlp-traces-v1.
 //!
-//! 格式依据（2026-10-01 本机 VS 18 Community 真实数据只读核验）：
-//! - 行 = OTLP JSON 批次 `{"resourceSpans":[{"resource":{"attributes":[…]},
-//!   "scopeSpans":[{"spans":[…]}]}]}`；
-//! - span 字段：name/traceId/spanId/parentSpanId/kind、
-//!   `startTimeUnixNano`/`endTimeUnixNano`（数字或字符串，纳秒）、attributes
-//!   （OTLP 形 `{key, value:{stringValue|intValue|…}}`，int64 序列化为字符串）；
-//! - `chat <model>` span（CLIENT）：`gen_ai.usage.input_tokens`、
-//!   `gen_ai.usage.output_tokens`、`gen_ai.usage.cache_read.input_tokens`
-//!   （cache_creation/reasoning 键容错支持）、`gen_ai.request.model`、
-//!   `gen_ai.response.model`、`gen_ai.conversation.id`；
-//! - `invoke_agent …` 根 span 为整 turn 汇总（无 usage）：跳过防双计
-//!   （官方 OTel 防双计警告同族规则）。
+//! References: real local VS 18 Community data inspected read-only on 2026-10-01.
+//! - Each line is an OTLP JSON batch {"resourceSpans":[{"resource":{"attributes":[...]},
+//!   "scopeSpans":[{"spans":[...]}]}]}.
+//! - Span fields include name/traceId/spanId/parentSpanId/kind,
+//!   numeric/string nanosecond startTimeUnixNano/endTimeUnixNano and attributes.
+//!   OTLP values use {key,value:{stringValue|intValue|...}}; int64 serializes as a string.
+//! - chat <model> CLIENT spans contain gen_ai.usage.input_tokens,
+//!   gen_ai.usage.output_tokens and gen_ai.usage.cache_read.input_tokens;
+//!   compatibility handling also reads cache_creation/reasoning keys, gen_ai.request.model,
+//!   gen_ai.response.model and gen_ai.conversation.id.
+//! - invoke_agent root spans summarize whole turns without usage;
+//!   skip them to avoid adding summaries to per-request usage, following the OTel warning.
 //!
-//! 增量约定：批次行追加写——标准 JSONL 字节偏移游标；事件键
-//! `vs-copilot:span:<traceId>:<spanId>` 幂等。
+//! Appended batch lines use a JSONL byte-offset cursor.
+//! Key vs-copilot:span:<traceId>:<spanId> deduplicates repeated reads.
 
 use crate::adapters::framework::{
     ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -31,7 +31,7 @@ use serde_json::Value;
 
 pub const VS_COPILOT_PARSER_VERSION: &str = "vs-copilot-otlp-traces-3";
 
-/// 单 span 时长合理上限（30 天毫秒）。
+/// Maximum accepted single-span duration: 30 days in milliseconds.
 const MAX_DURATION_MS: i64 = 30 * 24 * 3600 * 1000;
 const PLAUSIBLE_MS: std::ops::RangeInclusive<i64> =
     crate::domain::MIN_PLAUSIBLE_MS..=4_102_444_800_000;
@@ -65,7 +65,7 @@ fn diag(code: &str, position: &str, message: &str) -> DiagnosticInput {
     }
 }
 
-/// OTLP 属性值 → i64：裸数、{intValue:"123"|123}、{stringValue:"123"}（数值串）。
+/// OTLP to i64: bare integer, intValue integer/string or numeric stringValue.
 fn value_i64(v: &Value) -> Option<i64> {
     let raw = v
         .as_i64()
@@ -83,12 +83,12 @@ fn value_i64(v: &Value) -> Option<i64> {
     Some(raw)
 }
 
-/// {"intValue": "123"} 的字符串数值形态。
+/// Parse string-encoded integer values such as {"intValue":"123"}.
 fn x_get_str_int(v: &Value, key: &str) -> Option<i64> {
     v.get(key)?.as_str()?.trim().parse::<i64>().ok()
 }
 
-/// 属性数组按键取 i64：Ok(None)=键缺失；Err=值在但不可解析/越界（跳整条记诊断）。
+/// Missing key/value gives Ok(None); unparsable/out-of-range values give Err and a skipped-span diagnostic.
 fn attr_i64(attrs: &[Value], key: &str) -> Result<Option<i64>, ()> {
     for attr in attrs {
         if attr.get("key").and_then(|k| k.as_str()) != Some(key) {
@@ -124,7 +124,7 @@ fn attr_str(attrs: &[Value], key: &str) -> Option<String> {
                     .map(str::to_string)
             })
             .or_else(|| {
-                // 数值键的缺值时转为字符串（模型名等不会走到，防御性）。
+                // Convert numeric values to strings when no string representation exists.
                 value_i64(value).map(|n| n.to_string())
             });
     }
@@ -149,7 +149,7 @@ fn attr_f64(attrs: &[Value], key: &str) -> Option<f64> {
         })
 }
 
-/// 纳秒 Unix 时间（数字或字符串）→ 毫秒。
+/// Unix nanoseconds, numeric or string, to milliseconds.
 fn nano_ms(v: &Value) -> Option<i64> {
     let nano = v
         .as_i64()
@@ -158,8 +158,8 @@ fn nano_ms(v: &Value) -> Option<i64> {
     PLAUSIBLE_MS.contains(&ms).then_some(ms)
 }
 
-/// span 时间：startTimeUnixNano/endTimeUnixNano（本产品形），
-/// 防御性兼容 startTime/endTime 的 [秒,纳秒] 对或毫秒整数（otel 家族形）。
+/// Read startTimeUnixNano/endTimeUnixNano used by this product.
+/// Also accept startTime/endTime [seconds,nanoseconds] pairs or integer milliseconds.
 fn span_time_ms(span: &Value, field: &str) -> Option<i64> {
     if let Some(v) = span.get(format!("{field}UnixNano")) {
         if let Some(ms) = nano_ms(v) {
@@ -181,12 +181,12 @@ fn span_time_ms(span: &Value, field: &str) -> Option<i64> {
     }
 }
 
-/// 逐请求 span：`chat` 或 `chat <model>`（Copilot 家族 CLIENT span 命名）。
+/// Per-request name predicate: chat or chat <model>; the caller checks CLIENT kind.
 fn per_request(name: &str) -> bool {
     name == "chat" || name.starts_with("chat ")
 }
 
-/// 汇总 span（整 turn，无 usage；官方防双计）。
+/// Summary-name predicate excludes turn-wide spans from per-request usage.
 fn is_summary(name: &str) -> bool {
     name == "invoke_agent"
         || name.starts_with("invoke_agent")
@@ -298,7 +298,7 @@ pub fn scan(
                         .and_then(|v| v.as_array())
                         .cloned()
                         .unwrap_or_default();
-                    // token 桶（OTLP intValue 字符串形；越界记诊断跳过整条）。
+                    // Read OTLP token buckets; invalid or out-of-range values diagnose and skip the span.
                     let keys = [
                         "gen_ai.usage.input_tokens",
                         "gen_ai.usage.output_tokens",
@@ -371,8 +371,8 @@ pub fn scan(
                         });
                     let session_id = attr_str(&attrs, "gen_ai.conversation.id")
                         .or_else(|| attr_str(&attrs, "copilot_chat.session_id"));
-                    // TTFT（本机样本未出现，容错）：copilot_chat.* 毫秒、
-                    // gen_ai.response.time_to_first_chunk 秒。
+                    // Compatibility TTFT fields, absent in the local sample: copilot_chat time_to_first_token is ms;
+                    // gen_ai.response.time_to_first_chunk is seconds.
                     let ttft_ms = match attr_i64(&attrs, "copilot_chat.time_to_first_token") {
                         Ok(Some(ms)) => Some(ms),
                         _ => match attr_f64(&attrs, "gen_ai.response.time_to_first_chunk") {
@@ -554,7 +554,7 @@ mod tests {
         .unwrap()
     }
 
-    /// 镜像本机真实形态的信封行（intValue 字符串形 + 数字纳秒时间）。
+    /// Synthetic batch reproducing the observed local structure: string intValue and numeric nanosecond times.
     fn batch(spans: &str) -> String {
         format!(
             r#"{{"resourceSpans":[{{"resource":{{"attributes":[{{"key":"service.name","value":{{"stringValue":"vs-copilot"}}}},{{"key":"service.version","value":{{"stringValue":"18.10.1197+4b9e241b86"}}}}]}},"scopeSpans":[{{"spans":[{spans}]}}]}}]}}"#
@@ -579,7 +579,7 @@ mod tests {
         );
         let outcome = run(&path);
         assert_eq!(outcome.status, ScanStatus::Complete);
-        // invoke_agent 汇总跳过：只有 1 条 chat 事件。
+        // Skip invoke_agent summary, leaving one chat event.
         assert_eq!(outcome.events.len(), 1);
         let e = &outcome.events[0];
         assert_eq!(
@@ -596,13 +596,13 @@ mod tests {
             e.session_id.as_deref(),
             Some("12d09993-03fd-412c-b0a3-5d1fc0ebb89c")
         );
-        // 纳秒 → 毫秒（完成时刻 + 派生时长；两端各自截断后相减）。
+        // Nanoseconds to milliseconds: completion time and derived duration truncate endpoints separately.
         assert_eq!(e.occurred_at_ms, 1_790_824_593_533);
         assert_eq!(e.duration_ms, Some(5_228));
         assert_eq!(e.time_basis, TimeBasis::SourceCompletion);
         assert_eq!(e.agent, "vs-copilot");
         assert_eq!(e.host_application.as_deref(), Some("Visual Studio"));
-        // 汇总 span 名称进入跳过记录。
+        // Record skipped summary names in parse context.
         assert!(
             outcome
                 .parse_context
@@ -724,7 +724,7 @@ mod tests {
         assert_eq!(e.usage.input_total, Some(100));
         assert_eq!(e.usage.output_total, Some(50));
         assert_eq!(e.occurred_at_ms, 1_790_824_593_533);
-        // 无模型属性时取 span 名的模型段。
+        // Without model attributes, read the model segment of the span name.
         assert_eq!(e.model_raw.as_deref(), Some("gpt-5.5"));
         let _ = std::fs::remove_file(&path);
     }

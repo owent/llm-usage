@@ -1,5 +1,5 @@
-//! WorkBuddy 本机会话只读核对；输出限于统计、诊断代码和幂等结论。
-//! 用法：cargo run -p llm-usage-core --example real_verify_workbuddy -- <home> <work_dir>
+//! Read-only local WorkBuddy checks; print statistics, diagnostic codes and repeat-read results.
+//! Usage: cargo run -p llm-usage-core --example real_verify_workbuddy -- <home> <work_dir>
 
 use llm_usage_core::adapters::framework::{
     run_adapter_scan, DiscoverContext, RunConfig, ScanLimits,

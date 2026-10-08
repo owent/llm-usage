@@ -1,6 +1,6 @@
-//! 采集运行器：内置适配器注册表 + 全源刷新 + 间隔调度循环（M6）。
-//! 约定：只读取用户启用的本地来源；定时任务只运行本应用采集逻辑；
-//! 同一时刻仅一个刷新在执行（重复触发合并，V12/V23）。
+//! Collection runner: built-in adapters, full refresh and interval scheduler (M6).
+//! Read enabled local sources only; scheduled tasks run application collection logic.
+//! One refresh runs at a time; merge repeated triggers (V12/V23).
 
 use crate::app_state::{summarize_reports, AppState, RefreshInstanceSummary};
 use llm_usage_core::adapters::framework::{
@@ -11,7 +11,7 @@ use llm_usage_core::jobs::{RunStart, RunStatus, TriggerKind};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-/// 内置适配器注册表（与探针工具共用 core 实现）。
+/// Built-in registry shares core implementations with probe tools.
 pub fn built_in_adapters() -> Vec<Box<dyn SourceAdapter>> {
     llm_usage_core::adapters::built_in_adapters()
 }
@@ -82,21 +82,21 @@ fn discover_context(manual_roots: Vec<String>, manual_only: bool) -> DiscoverCon
     }
 }
 
-/// 执行一次全源刷新（已启用来源）。已在执行时直接返回 false（合并触发，不并发）。
+/// Refresh enabled sources; return false when already running and retain a pending manual request for later.
 pub fn run_refresh(state: &Arc<AppState>, trigger: TriggerKind) -> bool {
     run_refresh_filtered(state, trigger, None, false)
 }
 
-/// 清空任务提交后执行的全源重采（含自定义计划来源）；
-/// 清空标志保持有效直到重采结束。
+/// Full recollection after clearing includes custom-scheduled sources;
+/// retain the clearing flag until recollection ends.
 pub fn run_refresh_after_clear(state: &Arc<AppState>) -> bool {
     run_refresh_filtered(state, TriggerKind::Manual, None, true)
 }
 
-/// 逐源定时接线的过滤版：
-/// - include（到期集合）非空：只运行这些实例（FixedTime/Interval 触发）；
-/// - include=None 的全局自动刷新：排除自定义计划尚未到期的实例，
-///   运行结束后推进到期计划。
+/// Filter source schedules:
+/// - include selects due instances for FixedTime/Interval triggers;
+/// - global automatic refresh with include=None excludes custom schedules not yet due,
+///   then advances only schedules with actual completed run outcomes.
 fn run_refresh_filtered(
     state: &Arc<AppState>,
     trigger: TriggerKind,
@@ -153,8 +153,8 @@ fn run_refresh_in_context(
         refresh.instances.clear();
     }
     let now = now_ms();
-    // 日汇总分区用用户统计时区（V04/V12：日界随用户时区；此前误用 UTC 导致
-    // UI 按本地时区查询永远为空——2026-09-26 修复，验证记录见 m6 修订）。
+    // Use the user statistics timezone for daily partitions; historical UTC writes caused
+    // empty local-time queries, fixed on 2026-09-26 and recorded in M6.
     let config = RunConfig {
         timezone: timezone.clone(),
         now_ms: now,
@@ -164,8 +164,8 @@ fn run_refresh_in_context(
         origin_host_id: Some(host_id),
     };
     let ctx = context.unwrap_or_else(|| discover_context(manual_roots, manual_only));
-    // Only the verified Copilot/Qwen file targets produced by this app are promoted.
-    // Other supplemental exports retain their isolated validation boundary.
+    // Promote only verified Copilot/Qwen output roots produced by this application.
+    // Other supplemental exports require separate validation.
     let copilot_roots = if manual_only {
         Vec::new()
     } else {
@@ -176,8 +176,8 @@ fn run_refresh_in_context(
             .unwrap_or_default()
     };
     let mut summaries: Vec<RefreshInstanceSummary> = Vec::new();
-    // F2：刷新前修订号——本轮采集重写的 daily_usage 行 revision 均大于它
-    // （retention 之后还会再 bump，不能用"当前 revision"等于过滤）。
+    // F2 remember the pre-refresh revision; daily rows changed by collection have newer revisions.
+    // Retention can advance it again, so do not filter using equality to the final revision.
     let revision_before: i64 = {
         let storage = state.storage.lock().unwrap();
         if let Err(e) =
@@ -197,9 +197,9 @@ fn run_refresh_in_context(
         }
         storage.data_revision().unwrap_or(0)
     };
-    // 全局刷新排除有自定义启用计划的实例（逐源节奏覆盖全局）。排除集
-    // 加载失败时宁可本轮不扫（记失败摘要），也不能把自定义计划的来源
-    // 卷进全局节奏——节奏约定优先于本轮覆盖。
+    // Global intervals exclude custom schedules that are not due. If loading exclusions
+    // fails, record the failure and skip this global run to preserve source scheduling,
+    // instead of reading custom-scheduled sources at the global interval.
     let scheduled_due = if include.is_none() && trigger == TriggerKind::Interval {
         let storage = state.storage.lock().unwrap();
         state
@@ -235,10 +235,10 @@ fn run_refresh_in_context(
     } else {
         Some(None)
     };
-    // 逐源定时成败归属：实例 → 本轮实际运行结果（到期计划按真实结果推进）。
+    // Map instances to actual outcomes before advancing their due schedules.
     let mut instance_outcomes: std::collections::BTreeMap<String, bool> =
         std::collections::BTreeMap::new();
-    // 两个解析槽在文件读取期间释放写锁；元数据、归档与提交仍用同一写者。
+    // Two parsing slots release the writer lock during file reads; metadata, archives and commits share one writer.
     let adapters = built_in_adapters();
     let total_adapters = adapters.len();
     let scan_start = now_ms();
@@ -270,8 +270,8 @@ fn run_refresh_in_context(
         let Some(exclude) = global_exclude.clone() else {
             break;
         };
-        // 进度：按适配器序号估算（完成后百分百精确；运行中含当前适配器的
-        // 文件级进度由各适配器内部掌握，此处用粗粒度近似+ETA）。
+        // Estimate progress by adapter order; completion reaches 100 percent, while per-file
+        // progress stays inside adapters and this runner provides a coarse estimate and ETA.
         {
             let mut refresh = state.refresh.lock().unwrap();
             refresh.progress_percent =
@@ -341,8 +341,8 @@ fn run_refresh_in_context(
                     interrupted |= reports
                         .iter()
                         .any(|report| report.finish == RunStatus::Interrupted);
-                    // 逐实例记录真实成败（RunStatus::Succeeded 才算成功）；
-                    // 适配器级失败时本次到期实例保持无记录 ⇒ 下面按失败推进。
+                    // Record success only for RunStatus::Succeeded.
+                    // Adapter-wide failure leaves instance outcomes absent, so their deadlines remain unchanged.
                     for report in &reports {
                         if let Some(outcome) = schedule_outcome(report) {
                             instance_outcomes.insert(report.instance_id.clone(), outcome);
@@ -377,8 +377,8 @@ fn run_refresh_in_context(
             trigger == TriggerKind::Manual || automatic_allowed(&allowed_state)
         })),
     );
-    // Copilot premium 请求额度（本机 copilot-user-cache.json；账户级请求配额，
-    // 非 token，独立展示）。采集失败只记摘要，不影响本轮其他来源。
+    // Copilot premium quota comes from local copilot-user-cache.json as an account request allowance.
+    // Display it separately from tokens; a quota read failure does not stop other sources.
     if !interrupted
         && (trigger == TriggerKind::Manual || automatic_allowed(state))
         && !manual_only
@@ -421,7 +421,7 @@ fn run_refresh_in_context(
         }
     }
     if !interrupted && llm_usage_core::adapters::run_policy::check().is_ok() {
-        // 分级归档保留：采集后按设置执行（明细→小时→物化周期→日→周/月；单事务）。
+        // Apply configured tiered retention after collection in one transaction.
         {
             let policy = llm_usage_core::retention_tiered::TieredRetentionPolicy {
                 events_days: retention.events_days,
@@ -468,8 +468,8 @@ fn run_refresh_in_context(
         }
     }
     if !interrupted && llm_usage_core::adapters::run_policy::check().is_ok() {
-        // F2 费用回填：采集改写了当日事件（数据修订）⇒ 按当前价格设置重算
-        // 受影响未封存日的日成本行。估算未启用时跳过（显式重算仍可用）。
+        // F2 recompute changed, unsealed daily cost rows under current pricing preferences
+        // when estimation is enabled; skip automatic backfill when disabled.
         let (pricing_enabled, tz, options) = {
             let settings = state.settings.lock().unwrap();
             (
@@ -518,14 +518,14 @@ fn run_refresh_in_context(
         }
     }
     if !interrupted && llm_usage_core::adapters::run_policy::check().is_ok() {
-        // F2 在线刷新（models.dev）：启用且缓存过期时后台刷新一次；
-        // 失败仅记操作日志/诊断，不阻塞采集，不改写既有估算。
+        // F2 models.dev refresh runs in the background only when enabled and stale.
+        // Failures leave operation diagnostics without blocking collection or repricing existing estimates.
         crate::price_refresh::maybe_auto_refresh(state, false);
     }
     {
-        // 逐源定时：本轮已实际运行的到期计划按真实成败推进 next_due
-        // （失败记 running_error 留痕；未运行/无报告的实例记失败不冒认成功；
-        // 未到期的不动，错过时点醒来后仍只补一次）。
+        // Advance next_due only for due instances with actual completed outcomes.
+        // Record running_error for a completed failure; keep unvisited/interrupted/merged deadlines unchanged.
+        // Leave schedules not yet due alone; resume after missed times with one collection only.
         if !scheduled_due.is_empty() {
             let storage = state.storage.lock().unwrap();
             let tz = {
@@ -586,7 +586,7 @@ fn run_refresh_in_context(
         refresh.progress_percent = 100;
         refresh.eta_seconds = None;
     }
-    // 操作日志：采集完成摘要（白名单计数）。
+    // Record selected completion counts in the operation log.
     {
         let storage = state.storage.lock().unwrap();
         let total_events: u64 = refresh_summary_events(state);
@@ -617,8 +617,8 @@ fn refresh_summary_events(state: &Arc<AppState>) -> u64 {
         .sum()
 }
 
-/// System triggers honor persisted consent and the same per-source deadlines.
-/// A leftover OS task is harmless after disabling the feature, even if deletion fails.
+/// System triggers honor saved user settings and the same source deadlines.
+/// Disabled automatic collection remains disabled even if an owned OS task could not be deleted.
 pub fn run_background_refresh(state: &Arc<AppState>) -> Result<bool, String> {
     run_background_refresh_in_context(state, None)
 }
@@ -653,12 +653,12 @@ fn run_background_refresh_in_context(
     })
 }
 
-/// 间隔调度循环：按设置的全局间隔触发刷新；间隔 0 = 暂停自动提取。
-/// 错过时点（休眠）醒来后立即补一次扫描（V23 补扫合并语义：只补一次）。
+/// Run collection on the configured global interval; zero pauses automatic collection.
+/// After sleep/missed intervals, run one catch-up scan (V23).
 pub fn spawn_scheduler(state: Arc<AppState>, stop: Arc<AtomicBool>) {
     std::thread::spawn(move || {
         let mut was_allowed = automatic_allowed(&state);
-        // 启动后先做一次回填扫描（Startup 触发）。
+        // Start one Startup scan only when automatic collection is allowed.
         if was_allowed {
             run_refresh(&state, TriggerKind::Startup);
         }
@@ -720,9 +720,9 @@ pub fn spawn_scheduler(state: Arc<AppState>, stop: Arc<AtomicBool>) {
             {
                 run_refresh(&state, TriggerKind::Interval);
             } else if allowed {
-                // 逐源定时：无全局刷新在跑时，触发到期实例（FixedTime 语义；
-                // 与手动/全局合并由 refresh 单飞保证，同源不并发）。
-                // 到期探测失败不静默跳过：记诊断留痕，下轮重试。
+                // When no global refresh runs, collect due instances under FixedTime behavior;
+                // merge manual/global triggers through the single active refresh to avoid concurrent source reads.
+                // Due-source detection failures produce diagnostics and retry next run.
                 let due = {
                     let storage = state.storage.lock().unwrap();
                     match state
@@ -754,8 +754,8 @@ pub fn spawn_scheduler(state: Arc<AppState>, stop: Arc<AtomicBool>) {
     });
 }
 
-/// Pure scheduling state: zero disables, settings changes reset the deadline,
-/// and waking after multiple missed intervals schedules only one scan.
+/// Scheduling state: zero disables; settings changes reset the deadline;
+/// multiple missed intervals after waking produce only one scan.
 #[derive(Default)]
 struct IntervalSchedule {
     interval_secs: u64,
@@ -1057,7 +1057,7 @@ mod tests {
         );
         drop(storage);
         {
-            // No discovered carrier is an unvisited source, not a completed failure.
+            // No discovered usage file means the source was unvisited, without a completed outcome.
             for name in [
                 "rollout-first.jsonl",
                 "rollout-second.jsonl",

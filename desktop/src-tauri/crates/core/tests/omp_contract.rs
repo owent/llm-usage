@@ -1,7 +1,7 @@
-//! oh-my-pi（omp）适配器约定测试：M2-B/C 恢复阶段真实脱敏 fixture（本机 omp 18.2.7，
-//! glm-reasoning 主会话 / k3-cache-abort 主会话 / CommunityResearch 子 Agent）。
-//! 经 读取→解析→标准化→commit_batch→查询，期望与各 _expectations.md
-//! 的人工核算一致（jq 逐条验算；input_total 由 input+cacheRead+cacheWrite 派生）。
+//! oh-my-pi (omp) adapter tests use real redacted data from M2-B/C recovery, omp 18.2.7:
+//! glm-reasoning and k3-cache-abort main sessions, plus a CommunityResearch subagent.
+//! Exercise reading, parsing, normalization, commit_batch and queries against _expectations.md.
+//! Values were checked per record with jq; input_total = input+cacheRead+cacheWrite.
 
 mod common;
 
@@ -9,9 +9,9 @@ use common::*;
 use llm_usage_core::adapters::framework::SourceAdapter;
 use llm_usage_core::adapters::omp::OmpAdapter;
 
-/// glm 主会话：7 行仅 L6 assistant 产 1 事件；usage 17542/65/0/0/17607 +
-/// reasoningTokens=54；duration 6058.1505→6058、ttft 4360.7924→4361；
-/// cost.total=0 不映射；stopReason=stop 无 error_status。
+/// glm main: seven lines, with only L6 assistant producing one event; usage 17542/65/0/0/17607,
+/// reasoningTokens=54; duration 6058.1505->6058, ttft 4360.7924->4361.
+/// cost.total=0 is excluded; stopReason=stop has no error_status.
 #[test]
 fn glm_reasoning_full_pipeline_matches_expectations() {
     let dir = TempDir::new("omp-contract-glm");
@@ -42,7 +42,7 @@ fn glm_reasoning_full_pipeline_matches_expectations() {
     assert_eq!(summary.totals.cache_write_known, Some(0));
     assert_eq!(summary.totals.total_tokens_known, Some(17_607));
 
-    // SQL 逐字段核验：分类/模型/供应商/版本/延迟/推理/费用/会话身份。
+    // Verify category/model/provider/version/latency/reasoning/cost/session fields in SQL.
     let row = storage
         .conn()
         .query_row(
@@ -99,13 +99,13 @@ fn glm_reasoning_full_pipeline_matches_expectations() {
     assert_eq!(row.14, Some(6058), "duration 浮点毫秒四舍五入");
     assert_eq!(row.15, Some(4361), "ttft 浮点毫秒四舍五入");
 
-    // 无快照系列：omp 不产对账（无累计快照概念）。
+    // No cumulative snapshot series means no omp reconciliation records.
     assert!(report.reconciliations.is_empty());
     let _ = dir;
 }
 
-/// k3 主会话：31 行 7 事件全 primary（6 toolUse + 1 aborted）；aborted 条目
-/// 无 duration/ttft。汇总 input_total=202560（派生 21312+181248+0）。
+/// k3 main: 31 lines and seven primary events (six toolUse, one aborted); aborted has
+/// no duration/ttft. Derived total input=21312+181248+0=202560.
 #[test]
 fn k3_cache_abort_full_pipeline_matches_expectations() {
     let dir = TempDir::new("omp-contract-k3");
@@ -139,7 +139,7 @@ fn k3_cache_abort_full_pipeline_matches_expectations() {
     assert_eq!(summary.totals.output_total_known, Some(4_828));
     assert_eq!(summary.totals.total_tokens_known, Some(207_388));
 
-    // 类别/模型/供应商：全部 primary、k3-256k/kimi-code。
+    // All records are primary with model k3-256k and provider kimi-code.
     let mut stmt = storage
         .conn()
         .prepare("SELECT call_category, COUNT(*) FROM usage_events GROUP BY call_category")
@@ -160,7 +160,7 @@ fn k3_cache_abort_full_pipeline_matches_expectations() {
         .unwrap();
     assert_eq!(models, 7);
 
-    // aborted 条目：error_status=aborted，output=0 是报告值，无延迟字段。
+    // Aborted has error_status=aborted, reported output=0 and no latency fields.
     let aborted = storage
         .conn()
         .query_row(
@@ -182,7 +182,7 @@ fn k3_cache_abort_full_pipeline_matches_expectations() {
     assert_eq!(aborted.2, None);
     assert_eq!(aborted.3, None);
 
-    // 首条 toolUse 延迟取整：duration 10312.2929→10312、ttft 2587.1515→2587。
+    // First toolUse rounds duration 10312.2929->10312 and ttft 2587.1515->2587.
     let first = storage
         .conn()
         .query_row(
@@ -202,8 +202,8 @@ fn k3_cache_abort_full_pipeline_matches_expectations() {
     let _ = dir;
 }
 
-/// 子 Agent 文件（真实 CommunityResearch，41 行 5 事件）：路径形状推定父会话；
-/// 自有 session 头无 parentSession；全 sub_agent；duration/ttft 四舍五入。
+/// Real CommunityResearch subagent: 41 lines, five events; parent is inferred from the path.
+/// Its own session header lacks parentSession; all events are sub_agent, with rounded latencies.
 #[test]
 fn subagent_community_research_full_pipeline_matches_expectations() {
     let dir = TempDir::new("omp-contract-sub");
@@ -239,7 +239,7 @@ fn subagent_community_research_full_pipeline_matches_expectations() {
     assert_eq!(summary.totals.output_total_known, Some(6_135));
     assert_eq!(summary.totals.total_tokens_known, Some(84_445));
 
-    // 全部 sub_agent；parent 来自目录名（首个下划线后部分）；自有 session 头 anon-1。
+    // All are sub_agent; parent comes after the directory's first underscore; own session is anon-1.
     let (category, session, parent): (String, String, String) = storage
         .conn()
         .query_row(
@@ -262,8 +262,8 @@ fn subagent_community_research_full_pipeline_matches_expectations() {
         .unwrap();
     assert_eq!(all_sub, 5);
 
-    // 逐条延迟取整（四舍五入）：17309.34289999993→17309、6857.021999999997→6857；
-    // 14649.890800000052→14650、6983.533100000001→6984。
+    // Round latencies: 17309.34289999993->17309, 6857.021999999997->6857;
+    // 14649.890800000052->14650, 6983.533100000001->6984.
     let latency = |key: &str| {
         storage
             .conn()
@@ -304,7 +304,7 @@ fn capability_table_is_structured_and_complete() {
     let json = serde_json::to_value(&cap).unwrap();
     assert_eq!(json["adapter_id"], "omp");
     assert_eq!(json["supported_versions"], serde_json::json!(["3"]));
-    // 字段能力八项齐全。
+    // All eight field capabilities are present.
     for key in [
         "tokens",
         "cache_read",
@@ -344,7 +344,7 @@ fn capability_table_is_structured_and_complete() {
         assert!(json.get(section).is_some(), "capability missing {section}");
     }
     assert!(!cap.limitations.is_empty());
-    // 能力声明可落库（source_instances.capabilities）。
+    // Persist capabilities in source_instances.capabilities.
     let (_db, storage) = temp_storage("omp-cap");
     llm_usage_core::adapters::framework::upsert_source_instance(
         &storage,

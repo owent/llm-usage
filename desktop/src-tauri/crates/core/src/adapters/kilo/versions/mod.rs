@@ -1,48 +1,48 @@
-//! Kilo 版本注册表：`session.version` → 格式实现的映射与未知版本回退选择
-//! （architecture.md#adapter-layout / #unknown-version）。
+//! Kilo registry maps session.version to implementations or compatibility fallback.
+//! See architecture.md#adapter-layout / #unknown-version.
 //!
-//! 版本标记是 kilo.db `session.version` 列（写消息时的 CLI 版本，逐会话固定）；
-//! 一个库可混存多版本会话，探测取数值最大者作为该库的格式标记。
+//! kilo.db stores the CLI version in session.version, fixed for each session when messages are written.
+//! Detection uses the highest numeric version as a file marker; each message selects by its owning session.
 //!
-//! 已验证版本须有真实脱敏 fixture 与期望值核验结果：
+//! Register versions after checking redacted native samples and expected results:
 //!
-//! - 7.4.8（session-7.4.8-edges：错误消息 tokens 全零、缺 total、双模型切换）；
-//! - 7.4.9（session-7.4.9-family：父子会话家族，5 会话 51 调用读取、解析、入库与查询的期望值）；
-//! - 7.8.1（session-7.8.1-k3：本机实读 7.8.1 会话脱敏，34 次 k3-256k 调用，
-//!   顶层 modelID/providerID、tokens 五字段，单会话对账 matched）。
+//! - 7.4.8: session-7.4.8-edges covers error-message zero tokens, missing total and two models.
+//! - 7.4.9: session-7.4.9-family checks reading, parsing, storage and queries for five sessions/51 calls.
+//! - 7.8.1: session-7.8.1-k3 redacts a native local session with 34 k3-256k calls,
+//!   top-level modelID/providerID and five token fields; session reconciliation matched.
 //!
-//! 三者 message.data.tokens 载体同形，共用 `message_tokens_v1`。
+//! All three use the same message.data.tokens shape through message_tokens_v1.
 //!
-//! 选择规则：
-//! - 已收录版本 → `KnownVersion`，按映射分派；
-//! - 未收录/缺失版本 → `LatestFallback`，先尝试最新内置解析器，
-//!   通过校验的数据带兼容标记入库（本机实读库观测 7.3.42–7.7.12，
-//!   仅 7.4.8/7.4.9 有已核验 fixture，其余均走 LatestFallback）；
-//! - kilo 无已证实不兼容的版本；schema 偏离在探测层 fail closed，
-//!   结构不兼容在扫描层按 V30 判定并保留旧结果。
+//! Selection rules:
+//! - Registered version: KnownVersion, dispatch through the mapping.
+//! - Unregistered/missing version: try the latest built-in parser with LatestFallback.
+//!   Validated records retain compatibility metadata. An earlier local inventory found 7.3.42–7.7.12;
+//!   at that stage only 7.4.8/7.4.9 had verified samples, and other versions used LatestFallback.
+//! - No Kilo version is verified incompatible. Detection rejects schema deviations;
+//!   scanning handles incompatible structures under V30 while retaining previous results.
 
 pub mod message_tokens_v1;
 
-/// 当前格式实现标识（"最新内置解析器"由本常量明确指定，不联网获取）。
+/// This constant selects the latest built-in implementation without network access.
 pub const LATEST_IMPL_ID: &str = "message_tokens_v1";
 
-/// 已验证支持的 session.version → 格式实现。
-/// 每个版本都有真实脱敏 fixture 与人工核算期望；同形版本共用实现，
-/// 分派仍逐版本登记（注册表扩展只增加条目，不删除历史实现）。
+/// Registered session.version values mapped to implementations.
+/// Each version has native redacted samples and manually calculated expectations. Shared formats
+/// retain separate version entries; add entries without deleting historical implementations.
 pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[
     ("7.4.8", "message_tokens_v1"),
     ("7.4.9", "message_tokens_v1"),
     ("7.8.1", "message_tokens_v1"),
 ];
 
-/// 版本分派结论。
+/// Version selection result.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Selection {
     pub impl_id: &'static str,
     pub basis: crate::domain::VersionBasis,
 }
 
-/// 按来源原始版本选择格式实现；探测与扫描共用本函数保证同一策略（V30）。
+/// Detection and scanning share this V30 format-selection function.
 pub fn select(found: Option<&str>) -> Selection {
     match found {
         Some(version) => {
@@ -61,7 +61,7 @@ pub fn select(found: Option<&str>) -> Selection {
                 },
             }
         }
-        // 版本字段缺失但 Agent 身份/输入类型已确认：默认回退最新实现。
+        // If product identity/input format is known but the version is missing, try the latest implementation.
         None => Selection {
             impl_id: LATEST_IMPL_ID,
             basis: crate::domain::VersionBasis::LatestFallback,
@@ -69,8 +69,8 @@ pub fn select(found: Option<&str>) -> Selection {
     }
 }
 
-/// 数值感知的版本比较（"7.4.10" > "7.4.9"，字符串序会误判）。
-/// 非数值段按 i64::MIN 折叠后逐段比较；完全无法解析时退回字典序。
+/// Compare numeric version segments: 7.4.10 exceeds 7.4.9, unlike string ordering.
+/// Parse nonnumeric segments as i64::MIN; equal parsed vectors use string ordering as a tie-breaker.
 pub(crate) fn version_max<'a>(a: &'a str, b: &'a str) -> &'a str {
     let parse = |v: &str| -> Vec<i64> {
         v.split(['.', '-', '+'])
@@ -108,7 +108,7 @@ mod tests {
 
     #[test]
     fn unrecorded_version_falls_back_to_latest() {
-        // 本机实读库中观测到但尚无已核验 fixture 的版本：latest_fallback，不拒绝。
+        // Unregistered versions, including those observed locally, use latest_fallback without rejection.
         for v in ["7.3.42", "7.4.20", "7.7.12", "9.0.0"] {
             assert_eq!(select(Some(v)).basis, VersionBasis::LatestFallback);
         }

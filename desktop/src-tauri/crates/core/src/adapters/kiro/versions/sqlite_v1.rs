@@ -1,24 +1,24 @@
-//! Kiro kiro-cli data.sqlite3 格式实现（`sqlite_v1`，kiro-cli-sqlite-1）。
+//! Kiro kiro-cli data.sqlite3 parser: sqlite_v1, kiro-cli-sqlite-1.
 //!
-//! 格式依据（tokscale 1d9a939 sessions/kiro.rs:1491,1777-1805；闭源，本机未安装）：
-//! - `~/.local/share/kiro-cli/data.sqlite3`（macOS 备选
-//!   ~/Library/Application Support/kiro-cli/data.sqlite3）`conversations_v2`
-//!   表：`SELECT key, conversation_id, value FROM conversations_v2`（key=cwd）。
-//! - `value` JSON：`history[]{user, assistant, request_metadata}`；
-//!   `request_metadata`（毫秒时间戳）：`request_start_timestamp_ms`/
-//!   `stream_end_timestamp_ms`、input=`input_tokens|uncached_input_tokens|
-//!   input_token_count`、output=`output_tokens|output_token_count`、
-//!   cache_read=`cache_read_input_tokens|cache_read_tokens|cache_read`、
-//!   cache_write=`cache_write_input_tokens|cache_write_tokens|
-//!   cache_creation_input_tokens|cache_write`、reasoning=`reasoning_tokens|
-//!   reasoning_token_count|thinking_tokens`、request_count=`request_count|
-//!   user_turn_request_count|total_request_count`（嵌套 token_usage|usage
-//!   同形，平铺优先）。
-//! - 模型字段未确认（第三方解析器未见）⇒ 模型未知，标注 Unknown。
-//! - 会话级 `user_turn_metadata.usage_info[]{value,unit:"credit"}` 是计价
-//!   单位：不映射。
-//! - 与 CLI 载体（~/.kiro/sessions/cli）的重叠关系尚未核验 ⇒ 两实例分列 +
-//!   限制标注（真实样本后补对账）。
+//! Format reference: tokscale 1d9a939 sessions/kiro.rs:1491,1777-1805; native usage remains unverified.
+//! - Default path: ~/.local/share/kiro-cli/data.sqlite3; macOS alternative:
+//!   ~/Library/Application Support/kiro-cli/data.sqlite3, with conversations_v2.
+//!   Read key, conversation_id, and value; key identifies cwd.
+//! - value JSON: history[]{user, assistant, request_metadata}.
+//!   Metadata has request_start_timestamp_ms/stream_end_timestamp_ms in milliseconds.
+//!   Input aliases: input_tokens/uncached_input_tokens/
+//!   input_token_count; output: output_tokens/output_token_count.
+//!   Cache read: cache_read_input_tokens/cache_read_tokens/cache_read.
+//!   Cache write: cache_write_input_tokens/cache_write_tokens/
+//!   cache_creation_input_tokens/cache_write; reasoning: reasoning_tokens/
+//!   reasoning_token_count/thinking_tokens; request count: request_count/
+//!   user_turn_request_count/total_request_count. Nested token_usage/usage uses
+//!   the same aliases; flat fields take precedence.
+//! - Model fields were not identified in the reference parser; leave models unknown.
+//! - Session user_turn_metadata.usage_info[]{value,unit=credit} is a billing
+//!   quantity, not a token field; do not map it.
+//! - Overlap with ~/.kiro/sessions/cli has not been checked; keep source instances
+//!   separate with a coverage notice until native samples establish their relationship.
 
 use crate::adapters::framework::{
     ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -36,7 +36,7 @@ pub const MAX_ENTRIES_PER_ROUND: i64 = 50_000;
 #[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 struct SqliteCursor {
     generation: i64,
-    /// 本轮在稳定排序中的已处理行数；读到末页后归零以复查可变行。
+    /// Rows consumed in stable order; reset after the last page to revisit mutable rows.
     offset: u64,
 }
 
@@ -57,10 +57,10 @@ fn ms_field(value: Option<&serde_json::Value>) -> Option<i64> {
         .then_some(n)
 }
 
-/// 别名组取值（平铺层优先；嵌套 token_usage|usage 同形回退）。
-/// 返回语义：Some(Some(v))=命中有效值；Some(None)=全部别名缺失；
-/// None=命中别名但值类型错误/越界（格式偏离，调用方跳过该条目）。
-/// 类型不符的别名不遮蔽同层后续有效别名（多版本兼容分支必须可达）。
+/// Select aliases from flat fields before nested token_usage/usage fields.
+/// Some(Some(v)) is a valid value; Some(None) means every alias is absent.
+/// None means an invalid type or out-of-range value; callers skip that entry.
+/// A type-invalid alias does not hide a later valid alias at the same level.
 fn alias(obj: &serde_json::Map<String, serde_json::Value>, keys: &[&str]) -> Option<Option<i64>> {
     let pick = |source: &serde_json::Map<String, serde_json::Value>| -> Option<Option<i64>> {
         let mut type_deviation = false;
@@ -73,7 +73,7 @@ fn alias(obj: &serde_json::Map<String, serde_json::Value>, keys: &[&str]) -> Opt
                         continue;
                     };
                     if !(0..=crate::domain::MAX_TOKEN_VALUE).contains(&n) {
-                        return None; // 越界=格式偏离
+                        return None; // Out-of-range values reject the format.
                     }
                     return Some(Some(n));
                 }
@@ -108,8 +108,8 @@ pub fn scan(
     _limits: &ScanLimits,
     now_ms: i64,
 ) -> Result<ScanOutcome, CoreError> {
-    // 只读连接（小库；busy 时短暂重试由 busy_timeout 覆盖，不做暂存副本——
-    // kiro-cli 库写频低，尚未观测到 WAL 高竞争；失败保留旧结果由框架处理）。
+    // Open read-only without a staging copy; busy_timeout bounds waits for contention.
+    // Connection/read failures leave previously stored results intact through the framework.
     let conn = Connection::open_with_flags(
         &target.path,
         OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
@@ -183,7 +183,7 @@ pub fn scan(
     let mut records_seen: u64 = 0;
     for row in rows {
         crate::adapters::run_policy::check()?;
-        // 行级容错：单行类型错误不中止整轮（SQLite 动态类型）。
+        // SQLite row type errors do not stop other rows from being read.
         let (conversation_id, value_json) = match row {
             Ok(r) => r,
             Err(e) => {
@@ -282,7 +282,7 @@ pub fn scan(
                 ));
                 continue;
             };
-            // 区间端点先后校验：倒置不报区间（起止时间自相矛盾）。
+            // Do not report an interval whose end precedes its start.
             let (interval_start_ms, interval_end_ms) = {
                 let s = ms_field(meta.get("request_start_timestamp_ms"));
                 let e = ms_field(meta.get("stream_end_timestamp_ms"));
@@ -309,8 +309,8 @@ pub fn scan(
                     total_tokens: None,
                     source_total: None,
                 },
-                // 在场桶必须标 Reported：全 Unknown 会在 ingest 校验
-                // （domain.rs 值与质量一致性）被拒，事件无法入账。
+                // Present token fields must have Reported quality; marking every field Unknown
+                // would fail domain value/quality validation and reject the event.
                 crate::domain::TokenQuality {
                     input_cache_read: crate::domain::FieldQuality::Reported,
                     input_cache_write: crate::domain::FieldQuality::Reported,
@@ -358,7 +358,7 @@ pub fn scan(
             });
         }
     }
-    // 多取一行判定是否还有更多（恰好 MAX 行不误报 BudgetExhausted）。
+    // Read one extra entry to detect continuation without treating an exact MAX as exhausted.
     let hit_cap = records_seen > MAX_ENTRIES_PER_ROUND as u64;
     Ok(ScanOutcome {
         status: if hit_cap {
@@ -395,26 +395,26 @@ mod tests {
 
     #[test]
     fn alias_flat_priority_and_nested_fallback() {
-        // 平铺优先。
+        // Flat fields take precedence.
         let o = obj(serde_json::json!({"input_tokens": 5, "usage": {"input_tokens": 9}}));
         assert_eq!(alias(&o, &["input_tokens"]), Some(Some(5)));
-        // 平铺缺失回退嵌套 token_usage/usage。
+        // Missing flat fields fall back to nested token_usage/usage.
         let o = obj(serde_json::json!({"token_usage": {"input_tokens": 7}}));
         assert_eq!(alias(&o, &["input_tokens"]), Some(Some(7)));
-        // 全缺失。
+        // All aliases are absent.
         let o = obj(serde_json::json!({"other": 1}));
         assert_eq!(alias(&o, &["input_tokens"]), Some(None));
     }
 
     #[test]
     fn alias_type_error_does_not_shadow_valid_alias() {
-        // 首个别名类型错误（字符串）不能遮蔽同层后续有效别名。
+        // A first alias with string type must not hide a later valid alias.
         let o = obj(serde_json::json!({"input_tokens": "many", "input_token_count": 42}));
         assert_eq!(
             alias(&o, &["input_tokens", "input_token_count"]),
             Some(Some(42))
         );
-        // 全部别名都类型错误 ⇒ 格式偏离（None），不是"缺失"。
+        // All aliases have invalid types: return None for a format error.
         let o = obj(serde_json::json!({"input_tokens": "many"}));
         assert_eq!(alias(&o, &["input_tokens"]), None);
     }

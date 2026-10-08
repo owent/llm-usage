@@ -1,20 +1,20 @@
-//! Xum session-usage.json 格式实现（`usage_v1`，文档级
-//! xum-session-usage-doc-1）。
+//! Xum session-usage.json reader (usage_v1, document format
+//! xum-session-usage-doc-1).
 //!
-//! 格式依据：官方 npm 0.30.0 与对应 coder/xum 提交
-//! 81b0b744db6e27a4416f3596d70bf88529171caf；默认/网关对照真实本地模型样本。
-//! 原始文档依据：tokscale 固定提交 1d9a939 sessions/mux.rs。
-//! - 路径 `~/.mux/sessions/<workspaceId>/session-usage.json`（clients.rs:543-552）；
-//!   新根 ~/.xum/sessions；XUM_ROOT/MUX_ROOT 与 RUN_SESSION_ROOT 支持 sessions 发现。
-//! - JSON：`version`（u32）、`byModel`（map，键 `"provider:model"`，splitn(2,':')）、
-//!   每模型 `{ input:{tokens,cost_usd}, cached:{...}, cacheCreate:{...},
-//!   output:{...}, reasoning:{...} }`、`lastRequest{ model, timestamp }`
-//!   （timestamp 毫秒；缺失回退 mtime）（mux.rs:12-43）。
-//! - 语义：**会话级累计、按模型一行**（IntervalAggregate，不展开伪造逐次）；
-//!   cost_usd 不映射（会话级累计成本与逐次成本单位不同，见能力表）。
-//! - dedup `xum:<workspaceId>:<model_key>`（mux.rs:96-102 同形）。
-//! - displayUsage.ts 将 input 归一为未缓存输入、output 排除推理，缺字段默认零。
-//!   正文本输出加已知推理；推理未知时为下界。总输入/完整总量不派生。
+//! References: official npm 0.30.0 and matching coder/xum commit
+//! 81b0b744db6e27a4416f3596d70bf88529171caf; real default/gateway local-model comparisons.
+//! Earlier documentation reference: tokscale 1d9a939 sessions/mux.rs.
+//! - Legacy ~/.mux/sessions/<workspaceId>/session-usage.json (clients.rs:543-552);
+//!   new ~/.xum/sessions, with XUM_ROOT/MUX_ROOT/RUN_SESSION_ROOT discovery.
+//! - JSON: u32 version, byModel keyed "provider:model" (reference splitn(2,':')),
+//!   each entry has input:{tokens,cost_usd}, cached, cacheCreate,
+//!   output and reasoning objects, plus lastRequest{model,timestamp}.
+//!   Timestamp is milliseconds; absent/invalid values use mtime (mux.rs:12-43).
+//! - Cumulative session rows per model use IntervalAggregate, never invented per-call events.
+//!   Cumulative cost_usd is not imported as per-call cost; see capabilities.
+//! - Deduplication key xum:<workspaceId>:<model_key> follows mux.rs:96-102.
+//! - displayUsage.ts input is uncached, output excludes reasoning; missing fields default zero.
+//!   Add known positive reasoning to positive text; otherwise output is a lower bound. No full totals.
 
 use crate::adapters::framework::{
     ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -26,7 +26,7 @@ use crate::ingest::DiagnosticInput;
 use std::io::Read;
 
 pub const XUM_PARSER_VERSION: &str = "xum-session-usage-2";
-/// 单文件有界读取上限。
+/// Maximum bytes read from one file.
 pub const XUM_MAX_FILE_BYTES: u64 = 16 * 1024 * 1024;
 const MAX_REASONABLE_TOKEN: i64 = crate::domain::MAX_TOKEN_VALUE;
 
@@ -127,7 +127,7 @@ fn workspace_id_of(path: &std::path::Path) -> String {
         .to_string()
 }
 
-/// 桶对象 {tokens, cost_usd}：tokens 必须在场且非负有界；cost_usd 可选。
+/// Optional {tokens,cost_usd}: present tokens must be nonnegative and bounded; cost_usd is optional.
 fn bucket(value: Option<&serde_json::Value>) -> Option<(Option<i64>, Option<f64>)> {
     let Some(obj) = value else {
         return Some((None, None));
@@ -187,7 +187,7 @@ pub fn scan(
     let document: serde_json::Value = match crate::adapters::run_policy::json_from_slice(&bytes) {
         Ok(v) => v,
         Err(_) => {
-            // 半程写入：游标不推进，下轮确定性重试。
+            // Mid-write or corrupt JSON leaves the cursor unchanged for a later retry.
             return Ok(ScanOutcome {
                 status: ScanStatus::Pending,
                 cursor: None,
@@ -297,7 +297,7 @@ pub fn scan(
         {
             continue;
         }
-        // The display carrier loses whether a zero was reported or initialized.
+        // Display data does not distinguish a reported zero from an initialized zero.
         let input = input.filter(|n| *n > 0);
         let cached = cached.filter(|n| *n > 0);
         let cache_create = cache_create.filter(|n| *n > 0);

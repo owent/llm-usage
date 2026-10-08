@@ -1,12 +1,12 @@
-//! OpenCode 探测与版本分派：opencode.db schema 指纹（真实列，产品互斥）+
-//! `session.version` 注册表。
+//! OpenCode detection: opencode.db schema columns distinguish products;
+//! select through the session.version registry.
 //!
-//! 约定（architecture.md#unknown-version / adapters.md A17）：
-//! - part/session/message 三表或关键列缺失 ⇒ 未知格式 fail closed；
-//!   仅存新 core 派生视图层（session_message 表）而无 part 表的库同样拒绝，
-//!   待核验格式并编写专用实现（A17：新 core 与旧 message 层不能通用解析）；
-//! - 库尚无用量部件 ⇒ Pending，下轮重探；空会话不参与版本认证；
-//! - 每条 step-finish 按所属 session.version 认证；混合库保留兼容标记。
+//! Rules: architecture.md#unknown-version / adapters.md A17.
+//! - Missing part/session/message tables or key columns: unknown format, reject.
+//!   Also reject new-core session_message databases without part;
+//!   verify that format and implement separately; new core and old message layouts differ, A17.
+//! - No usage parts: Pending, retry next run; empty sessions do not verify versions.
+//! - Validate each step-finish against its session.version; retain mixed-version compatibility flags.
 
 use crate::adapters::framework::DetectOutcome;
 use crate::adapters::opencode::common::{
@@ -26,7 +26,7 @@ fn is_not_a_database(err: &rusqlite::Error) -> bool {
     )
 }
 
-/// 探测一个 opencode.db 并按注册表分派。
+/// Detect opencode.db and select the registered implementation.
 pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     let source = match open_source_db(path, short_probe, &StagingLimits::default()) {
         Ok(source) => source,
@@ -74,7 +74,7 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     }
 }
 
-/// 文件级依据只覆盖现存用量部件；不是库内最高版本或空会话的认证。
+/// File-level basis covers actual usage parts; empty/highest-version sessions cannot verify other sessions.
 pub(crate) fn usage_version_summary(
     conn: &rusqlite::Connection,
 ) -> Result<Option<(Option<String>, crate::domain::VersionBasis)>, CoreError> {

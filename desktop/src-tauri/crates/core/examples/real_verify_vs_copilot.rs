@@ -1,9 +1,9 @@
-//! 对本机真实 Visual Studio Copilot 遥测
-//! （%TEMP%\VSGitHubCopilotLogs\traces\*.jsonl）做只读核对
-//! （2026-10-01 首次执行：VS 18 Community，2 chat span）。
-//! 只输出白名单聚合：文件数、事件数、token 合计、模型去重、诊断计数、
-//! 重扫幂等性；不打印路径、trace/span ID 或属性正文。
-//! 用法：cargo run -p llm-usage-core --example real_verify_vs_copilot -- <traces目录或单个.jsonl或VSGitHubCopilotLogs目录> <work_dir>
+//! Read-only checks of native Visual Studio Copilot telemetry
+//! at %TEMP%\VSGitHubCopilotLogs\traces\*.jsonl.
+//! First run: 2026-10-01, VS 18 Community, two chat spans.
+//! Output only permitted statistics: files, events, tokens, distinct models, diagnostics,
+//! and rescan stability; no paths, trace/span IDs or attribute bodies.
+//! Usage: cargo run -p llm-usage-core --example real_verify_vs_copilot -- <traces-dir-or-jsonl-or-log-root> <work_dir>
 
 use llm_usage_core::adapters::framework::{
     run_adapter_scan, DiscoverContext, RunConfig, ScanLimits,

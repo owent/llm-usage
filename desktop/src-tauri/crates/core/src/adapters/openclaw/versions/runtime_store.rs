@@ -1,4 +1,4 @@
-//! Schema 24 hot transcript reader. See openclaw-runtime.md for evidence/scope.
+//! Schema 24 active transcript reader. See openclaw-runtime.md for verified formats and scope.
 use crate::adapters::framework::{
     ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
 };
@@ -129,8 +129,8 @@ fn message_event(
             usage.output_reasoning = None;
         }
     }
-    // totalTokens is a calculation over default-zero buckets in the distributed
-    // transport. It is neither independent raw total evidence nor completeness.
+    // Distributed transport calculates totalTokens from initialized zero fields;
+    // this does not establish an independently reported total or complete usage.
     let _ = positive(native, "totalTokens", position, diagnostics);
     if let Some(total) = native
         .get("totalTokens")

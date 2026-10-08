@@ -1,11 +1,11 @@
-//! oh-my-pi（omp）适配器（独立目录约定 architecture.md#adapter-layout）：
-//! - 本模块是该 Agent 的稳定入口（统一接口实现与再导出）；
-//! - [`detect`]：产品/格式探测与版本分派（首行 title/session 闸口四态语义不变）；
-//! - [`versions`]：已验证格式实现的注册与映射，未知版本默认回退最新内置解析器；
-//! - 历史版本的格式实现一律保留在本目录内，不再回到根级单文件。
+//! oh-my-pi (omp) adapter; independent directory under architecture.md#adapter-layout.
+//! - Stable adapter entry point implementing the shared interface and re-exports.
+//! - detect: product/format detection and selection, retaining title/session first-line outcomes.
+//! - versions: checked format mappings; unknown versions try the latest built-in parser.
+//! - Retain historical implementations inside this directory instead of root-level files.
 //!
-//! 原始格式依据见各版本模块文件头；M2-B/C 验证记录。V30 目录迁移自根级
-//! adapters/omp.rs，行为除未知版本策略外不变，不重建来源、不重置游标。
+//! Original format references are in implementation headers and the M2-B/C validation record.
+//! V30 moved adapters/omp.rs here; only unknown-version policy changed, without recreating sources/resetting cursors.
 
 pub mod detect;
 pub mod versions;
@@ -16,7 +16,7 @@ pub use versions::{session_v3, LATEST_IMPL_ID, VERIFIED_VERSION_IMPLS};
 pub const OMP_ENV_AGENT_DIR: &str = "PI_CODING_AGENT_DIR";
 pub const OMP_ENV_SESSION_DIR: &str = "PI_CODING_AGENT_SESSION_DIR";
 
-/// oh-my-pi 适配器（无状态）。
+/// Stateless oh-my-pi adapter.
 pub struct OmpAdapter;
 
 impl Default for OmpAdapter {
@@ -45,7 +45,7 @@ impl crate::adapters::framework::SourceAdapter for OmpAdapter {
         ctx: &crate::adapters::framework::DiscoverContext,
     ) -> Vec<crate::adapters::framework::DiscoveredRoot> {
         use crate::adapters::framework::{DiscoveredRoot, RootBasis};
-        // (sessions 目录, basis)；root 统一取 sessions 目录，跨来源去重后同目录只扫一次。
+        // Store (sessions directory, basis); normalized sessions roots are scanned once after cross-source deduplication.
         let mut candidates: Vec<(std::path::PathBuf, RootBasis)> = Vec::new();
         if let Some(dir) = ctx.env.get(OMP_ENV_AGENT_DIR) {
             candidates.push((
@@ -66,7 +66,7 @@ impl crate::adapters::framework::SourceAdapter for OmpAdapter {
             ));
         }
         for manual in &ctx.manual_roots {
-            // 手工根语义：含 sessions 子目录按 agent 根解析，否则按 sessions 目录本身。
+            // Manual roots containing sessions/ resolve there; otherwise treat the root as the sessions directory.
             let sessions = if manual.join("sessions").is_dir() {
                 manual.join("sessions")
             } else {
@@ -79,8 +79,8 @@ impl crate::adapters::framework::SourceAdapter for OmpAdapter {
             if !sessions.is_dir() {
                 continue;
             }
-            // sessions/<cwd>/*.jsonl 主会话（深度 2）；子 Agent <cwd>/<ts>_<uuid>/*.jsonl
-            // （深度 3）与嵌套子 Agent（深度 4）；伴生 .json/.md/.log 不接受。
+            // Expected primary files: sessions/<cwd>/*.jsonl at depth two; sub-agents below <cwd>/<ts>_<uuid>
+            // at depth three/four. Enumerate JSONL to depth four; reject companion JSON/Markdown/log files.
             let files = crate::adapters::framework::enumerate_files_bounded(&sessions, 4, &|p| {
                 p.extension().and_then(|e| e.to_str()) == Some("jsonl")
             });
@@ -116,7 +116,7 @@ impl crate::adapters::framework::SourceAdapter for OmpAdapter {
         limits: &crate::adapters::framework::ScanLimits,
         now_ms: i64,
     ) -> Result<crate::adapters::framework::ScanOutcome, crate::error::CoreError> {
-        // 当前所有已验证版本共用 session_v3；注册表扩展多实现后在此按选择分派。
+        // All registered versions currently use session_v3; extend dispatch when multiple implementations are added.
         versions::session_v3::scan(target, stored, limits, now_ms)
     }
 

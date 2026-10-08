@@ -1,42 +1,50 @@
-# MiMo Code fixtures
+# MiMo Code test samples
+
+<a id="mimo-code-fixtures"></a>
 
 <a id="mimo-code-合成-fixtures文档级证据待真实样本"></a>
 
-`synthetic-*` 为合成数据。`real-0.1.15` 是官方客户端调用真实本地模型后的
-SQLite 白名单投影，八条 part 与八条独立 API 用量逐条核对；原始库摘要见 provenance。
-仅保留身份占位、时间、模型、用量和必要 schema，正文、配置及原始路径不保留。
-八次 finish 均为 length，不能以 CLI 退出 0 宣称任务完成。
+synthetic-* is synthetic data. real-0.1.15 extracts selected SQLite fields after the
+official client called a real local model. Eight parts match eight independent API usage
+records individually; provenance records the original database digest. Retain only
+placeholder identities, times, models, usage and required schema, excluding bodies,
+configuration and original paths. All eight finish reasons are length; CLI exit 0 does
+not establish task completion.
+
+<a id="源码依据a14固定-commit-456678b6a5afb0eef3fe2754575637218cfb3c84"></a>
 
 <a id="源码级证据a14固定-commit-456678b6a5afb0eef3fe2754575637218cfb3c84"></a>
 
-## 源码依据（A14，固定 commit `456678b6a5afb0eef3fe2754575637218cfb3c84`）
+## Source references (A14, fixed commit 456678b6a5afb0eef3fe2754575637218cfb3c84)
 
-- session/message/part 三表 DDL（message.agent_id 特有列、session 无
-  tokens_* 累计列）：
+- session/message/part DDL: distinctive message.agent_id, no session tokens_* cumulative columns:
   <https://github.com/XiaomiMiMo/MiMo-Code/blob/456678b6a5afb0eef3fe2754575637218cfb3c84/packages/opencode/src/session/session.sql.ts>
-- StepFinishPart zod schema（tokens{total?, input, output, reasoning,
-  cache{read, write}} + cost）与 Assistant（modelID/providerID 必需）：
+- StepFinishPart zod schema: tokens{total?, input, output, reasoning, cache{read, write}}
+  plus cost; Assistant requires modelID/providerID:
   <https://github.com/XiaomiMiMo/MiMo-Code/blob/456678b6a5afb0eef3fe2754575637218cfb3c84/packages/opencode/src/session/message-v2.ts>
-- 路径解析（MIMOCODE_HOME → `<home>/data`；XDG 缺省 ~/.local/share/mimocode）：
+- Path resolution: `MIMOCODE_HOME`→`<home>/data`; XDG default `~/.local/share/mimocode`:
   <https://github.com/XiaomiMiMo/MiMo-Code/blob/456678b6a5afb0eef3fe2754575637218cfb3c84/packages/shared/src/global.ts>
-- 库文件（data/mimocode.db，通道变体）：
+- Database: data/mimocode.db with channel variants:
   <https://github.com/XiaomiMiMo/MiMo-Code/blob/456678b6a5afb0eef3fe2754575637218cfb3c84/packages/opencode/src/storage/db.ts>
 
-当前语义以官方 0.1.15 提交 `14dfe68a1c121f859544ba810b3c308e8501bfb2`
-自身 `session/session.ts:getUsage` 为准：SDK 输入减缓存、输出减 reasoning 后落盘；
-加回同份分项恢复正 SDK 总量，默认零子桶及费用仍未知。
-不从 OpenCode 血统或库内最高版本认证行，仍 latest_fallback。
+Current semantics follow official 0.1.15 commit 14dfe68a1c121f859544ba810b3c308e8501bfb2,
+session/session.ts:getUsage. It stores SDK input after subtracting cache and output
+after subtracting reasoning; adding those same components restores positive SDK totals.
+Default-zero subfields and costs stay unknown. OpenCode ancestry or a database's highest
+version does not verify individual rows; use latest_fallback.
 
-## 场景
+<a id="场景"></a>
 
-| 目录 | 覆盖 |
+## Scenarios
+
+| Directory | Coverage |
 | --- | --- |
-| synthetic-step-finish | 正常：主/子会话 × 3 条 step-finish 部件逐次入账 + text 部件过滤；无累计列 ⇒ 无对账 |
-| synthetic-unknown-version | 未收录 session.version ⇒ latest_fallback 兼容尝试 |
-| real-0.1.15 | 八次 CLI/续会话 API/part，输入 25,588、输出 1,024、总量 26,612，已知缓存读 20,733 |
+| synthetic-step-finish | Main/child sessions with three step-finish parts and a filtered text part; no cumulative columns, so no comparison |
+| synthetic-unknown-version | Unregistered session.version attempts latest_fallback |
+| real-0.1.15 | Eight CLI/session-continuation API/part calls; input 25,588, output 1,024, total 26,612, known cache read 20,733 |
 
-期望值见各目录 `_expectations.md`（人工核算）。
-未知格式 fail closed 与产品互斥（OpenCode 库拒绝）用例在
-`tests/mimo_code_contract.rs` 内联构造。
-默认零/旧完整摘要/越过样本的旧处理位置、并行/回滚及冲突保护见 `mimo_real_contract.rs`。
-单一路线真实样本不认证所有协议、角色或版本。
+Each directory's _expectations.md contains manually calculated values. Unknown-format
+rejection and product separation (rejecting OpenCode databases) are constructed inline
+in tests/mimo_code_contract.rs. Default zeros, complete old summaries, consumed positions
+beyond samples, parallelism, rollback and conflict retention are covered by
+mimo_real_contract.rs. A single native request path does not verify every protocol, role or version.

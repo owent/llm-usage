@@ -1,4 +1,4 @@
-//! Synthetic mutations of the sanitized 7.8.1 fixture exercise health and consumed cursors.
+//! Synthetic changes to the anonymized 7.8.1 sample test health and consumed cursors.
 mod common;
 use common::*;
 use llm_usage_core::storage::Storage;

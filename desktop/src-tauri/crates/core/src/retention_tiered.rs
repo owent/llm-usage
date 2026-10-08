@@ -1,7 +1,7 @@
-//! 分级归档保留（用户需求）：
-//! 明细/小时/日/周/月/年逐级更长保留；日汇总删除前物化周/月/年（replace 幂等）；
-//! distinct_sessions 仅明细仍在时可算，物化层 NULL 表示覆盖缺口（V06 语义）。
-//! 周期物化固定周一 ISO 标签；周起始为显示层配置，变更重建物化属后续显式操作。
+//! User-configured retention for details and hourly/daily/weekly/monthly/yearly archives.
+//! Longer aggregate periods retain longer history; materialize weeks/months/years before deleting days.
+//! Compute distinct_sessions from retained details; materialized NULL leaves that count unknown (V06).
+//! Materialized weeks use Monday/ISO labels; changing their week-start requires explicit rebuilding.
 
 use crate::calendar::Calendar;
 use crate::error::CoreError;
@@ -10,7 +10,7 @@ use jiff::civil::Date;
 use jiff::Span;
 use rusqlite::{params, OptionalExtension, Transaction};
 
-/// 分级保留策略（天数）。
+/// Tiered retention durations in days.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TieredRetentionPolicy {
     pub events_days: u32,
@@ -18,13 +18,13 @@ pub struct TieredRetentionPolicy {
     pub daily_days: u32,
     pub weekly_days: u32,
     pub monthly_days: u32,
-    /// None = 终身保留。
+    /// None retains yearly history indefinitely.
     pub yearly_days: Option<u32>,
 }
 
 impl Default for TieredRetentionPolicy {
     fn default() -> Self {
-        // 2026-09-26 用户调整：降低图表聚合消耗（小时 3 天/日 90 天/周 3 年/月 10 年）。
+        // User-selected defaults from 2026-09-26: hourly 3 days, daily 90 days, weekly 3 years, monthly 10 years.
         TieredRetentionPolicy {
             events_days: 7,
             hourly_days: 3,
@@ -38,8 +38,8 @@ impl Default for TieredRetentionPolicy {
 
 impl TieredRetentionPolicy {
     pub fn validate(&self) -> Result<(), CoreError> {
-        // 明细层无层级约束（可比小时层长——只是冗余不丢数据）；
-        // 粗粒度层必须不短于细粒度层（hourly <= daily <= weekly <= monthly <= yearly）。
+        // Detail retention is independent of aggregate tiers and may exceed hourly retention.
+        // Aggregate durations must satisfy hourly <= daily <= weekly <= monthly <= yearly.
         if self.events_days < 1 {
             return Err(CoreError::Validation(
                 "tiered retention requires events_days >= 1".into(),
@@ -129,8 +129,8 @@ fn materialization_counts(
     Ok((daily, periods))
 }
 
-/// 执行分级保留：明细 → 小时 → 物化周/月/年 → 日 → 周/月（年按策略）。
-/// 全程单事务；明细下限沿用 floor 机制防止过期重扫复活（V14）。
+/// Enforce details, hourly, materialized week/month/year, daily, then period retention.
+/// One transaction; the detail floor prevents expired records from returning on rescan (V14).
 pub fn enforce_tiered_retention(
     storage: &Storage,
     timezone: &str,
@@ -179,7 +179,7 @@ pub fn enforce_tiered_retention_controlled(
     }
     let revision = Storage::bump_data_revision_tx(&tx, now_ms)?;
 
-    // 1. 明细层：封存过期日 → 删除过期明细/诊断（沿用既有封存语义）。
+    // 1. Seal expired daily partitions, then delete expired events/diagnostics.
     {
         let cutoff_day = calendar.retention_cutoff_day(today, policy.events_days)?;
         let (cutoff_ms, _) = calendar.day_range_ms(cutoff_day)?;
@@ -211,11 +211,11 @@ pub fn enforce_tiered_retention_controlled(
             "DELETE FROM diagnostics WHERE created_ms < ?1",
             params![cutoff_ms],
         )? as i64;
-        // F2：明细过期后日成本行封存（历史金额不再改写，仍可查询）。
+        // F2: Seal daily cost rows after details expire; keep historical amounts unchanged and queryable.
         crate::storage::pricing::seal_cost_days_tx(&tx, timezone, &cutoff_day.to_string())?;
     }
 
-    // 2. 小时层。
+    // 2. Apply hourly retention.
     {
         let cutoff_day = calendar.retention_cutoff_day(today, policy.hourly_days)?;
         outcome.deleted_hourly_rows = tx.execute(
@@ -261,9 +261,9 @@ pub fn enforce_tiered_retention_controlled(
         }
     }
 
-    // 4. 日层删除（物化已完成，历史趋势不丢）。进行中周/月/年的起点受保护：
-    //    其日行删除会导致该周期永远缺失（周期未完成不能物化完整值），
-    //    代价是日层最多多保留一个周期长度（≤31 天 + 年初对年粒度同保护）。
+    // 4. Delete daily rows after materialization; protect starts of ongoing weeks/months/years.
+    // Deleting those days would lose the inputs needed to finish the period.
+    // Retain from the earliest protected year/month/week start, then include its whole ISO boundary week.
     {
         let mut cutoff_day = calendar.retention_cutoff_day(today, policy.daily_days)?;
         let week_start = calendar.week_start_of(today, crate::calendar::WeekStart::Monday);
@@ -279,7 +279,7 @@ pub fn enforce_tiered_retention_controlled(
             "DELETE FROM daily_usage WHERE tz_version = ?1 AND local_day < ?2",
             params![timezone, cutoff_day.to_string()],
         )? as i64;
-        // F2：日成本行随日层保留期同步清理（明细与估算历史均已到期）。
+        // F2: Prune daily cost rows with daily retention after detail/estimate history expires.
         crate::storage::pricing::prune_cost_days_tx(&tx, timezone, &cutoff_day.to_string())?;
         tx.execute(
             "INSERT INTO settings(key, value, schema_version, updated_at_ms) VALUES (?1, ?2, 1, ?3)
@@ -288,7 +288,7 @@ pub fn enforce_tiered_retention_controlled(
         )?;
     }
 
-    // 5. 周/月层删除；年层按策略（None = 终身保留）。
+    // 5. Apply weekly/monthly retention and optional yearly retention; None retains years indefinitely.
     for (granularity, days) in [("week", policy.weekly_days), ("month", policy.monthly_days)] {
         let cutoff_day = calendar.retention_cutoff_day(today, days)?;
         outcome.deleted_period_rows += tx.execute(
@@ -337,8 +337,8 @@ pub fn enforce_tiered_retention_controlled(
     Ok(outcome)
 }
 
-/// 物化 [from, to] 内出现的所有已完成周/月/年（replace：先删同周期旧行再插）。
-/// 进行中周期（end_day >= to）跳过——由日层继续服务。
+/// Materialize completed weeks/months/years represented in inclusive [from, to]; delete old period rows before inserting replacements.
+/// Skip periods with end_day >= to; daily rows continue to serve ongoing periods.
 pub(crate) fn materialize_periods(
     tx: &Transaction<'_>,
     calendar: &Calendar,
@@ -557,7 +557,7 @@ pub(crate) fn materialize_periods(
     Ok(written)
 }
 
-/// 一天的周/月/年归属（周用 ISO 周一起始标签；见模块头注释）。
+/// Week/month/year containing a day; weeks use ISO Monday labels as described above.
 fn period_keys_of(calendar: &Calendar, day: Date) -> Vec<(String, String, Date, Date)> {
     let mut out = Vec::with_capacity(3);
     let week_start = calendar.week_start_of(day, crate::calendar::WeekStart::Monday);

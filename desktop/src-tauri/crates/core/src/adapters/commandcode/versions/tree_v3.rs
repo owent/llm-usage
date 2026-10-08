@@ -1,29 +1,29 @@
-//! Command Code v3 树形会话 JSONL 格式实现（`tree_v3`，commandcode-tree-v3）。
+//! Command Code v3 tree-session JSONL parser: tree_v3, commandcode-tree-v3.
 //!
-//! 格式依据（官方 npm 分发物 command-code@1.69.0 dist/cli.mjs 逐行核对；
-//! 仓库无产品源码（仅 readme），闭源；本机未安装、无真实样本）：
-//! - 路径：`~/.commandcode/projects/<slug>/*.jsonl`（slug=@sindresorhus/slugify(cwd)；
-//!   **HOME 优先于 USERPROFILE**——与采集器取根顺序可能不同，同用户目录时一致）；
-//!   会话文件名排除 `.checkpoints.`/`.prompts.`/`.v2.bak`。
-//! - 首行 header `{type:"session", version:3, id, timestamp(ISO), cwd,
-//!   parentSession?}`；entry `{type, id(8hex), parentId, timestamp(ISO)}`，
-//!   类型集：message/model_change/effort_change/compaction/branch_summary/
-//!   custom/custom_message/label/session_info。
-//! - assistant message 携带 `usage{inputTokens, outputTokens, cacheReadTokens,
-//!   cacheWriteTokens, [cacheWriteTokens1h], [costUsd]}`（四桶完成请求必写，
-//!   `?? 0` 归一化 ⇒ **全零=已报告零**；缺 usage 字段=未完成/中断，未知）。
-//!   **inputTokens 含 cache 读/写**（官方成本公式 max(0,input−cacheR−cacheW)
-//!   证实子集关系）；costUsd 为本地费率估算（费率缺失时不写字段）。
-//! - 有效路径规则（官方 buildSessionPath/getTree）：从**文件最后一条 entry**
-//!   回溯 parentId 链至根；rewind 只把 head 指回旧 entry，被弃分支留在文件中
-//!   （append-only）⇒ **孤儿分支不计**。compaction 折叠不剔除真实调用：
-//!   链上条目（含压缩前）全计。
-//! - fork：根→目标 leaf 的 entries 原样复制进新文件（**id 与 timestamp 保留
-//!   原值**）⇒ 跨文件去重键 = `cmd:<entry id>:<timestamp>`（8hex id 仅 32bit
-//!   跨文件可能碰撞，加时间戳增强）。
-//! - 子代理 usage 不写盘（subagentProgressTranslator 过滤）：文件内 usage 仅
-//!   主对话请求。
-//! - 时间戳 ISO（v2 是毫秒 number，v1 anthropic 旧形状——非 v3 不读）。
+//! Source reference: official command-code@1.69.0 npm dist/cli.mjs inspected line by line.
+//! The public repository contains documentation only; 1.74.3 preparation reached authentication limits.
+//! - Path: ~/.commandcode/projects/<slug>/*.jsonl, using @sindresorhus/slugify(cwd).
+//!   Upstream prefers HOME over USERPROFILE; different roots require discovery checks.
+//!   Exclude session filenames containing .checkpoints., .prompts., or .v2.bak.
+//! - Header: type=session, version=3, id, ISO timestamp, cwd, optional parentSession.
+//!   Entries carry type, 8-hex id, parentId, and ISO timestamp.
+//!   Entry types: message/model_change/effort_change/compaction/branch_summary/
+//!   custom/custom_message/label/session_info.
+//! - Assistant usage: inputTokens/outputTokens/cacheReadTokens/cacheWriteTokens,
+//!   optional cacheWriteTokens1h/costUsd. The source normalizes completed request buckets
+//!   with ?? 0; this parser reports present zeros. Missing usage leaves a request unknown.
+//!   inputTokens includes cache reads/writes, as shown by max(0,input-cacheR-cacheW)
+//!   in the source cost formula. costUsd is a local rate estimate, absent without rates.
+//! - buildSessionPath/getTree follows parentId from the last entry to the root.
+//!   Rewinding leaves discarded branches in the append-only file; exclude orphan branches.
+//!   Compaction retains real calls on the selected path, including pre-compaction entries.
+//!   Count all assistant usage entries on that path.
+//! - Forks copy root-to-leaf entries without changing IDs or timestamps.
+//!   Cross-file key: cmd:<entry id>:<timestamp>; the timestamp reduces collisions
+//!   from 32-bit entry IDs but does not establish collision-free identity.
+//! - subagentProgressTranslator excludes subagent usage from persisted records;
+//!   these files contain main-conversation usage only.
+//! - v3 timestamps are ISO strings; v2 millisecond numbers and v1 shapes are not read here.
 
 use crate::adapters::framework::{
     ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -40,7 +40,7 @@ use std::io::Read as _;
 use super::COMMANDCODE_FORMAT_VERSION;
 
 pub const COMMANDCODE_PARSER_VERSION: &str = "commandcode-tree-v3";
-/// 单文件有界读取上限（整文件树重建）。
+/// Whole-file read limit for rebuilding the session tree.
 pub const CMD_MAX_FILE_BYTES: u64 = 32 * 1024 * 1024;
 const MAX_REASONABLE_TOKEN: i64 = crate::domain::MAX_TOKEN_VALUE;
 
@@ -101,14 +101,14 @@ fn usd_cost(value: Option<&serde_json::Value>) -> Option<CostAmount> {
     Some(CostAmount {
         amount_minor: micros.round() as i64,
         currency: "USD".to_string(),
-        // 本地费率估算（estimateSessionCostUsd，费率缺失时不写字段）。
+        // Local rate estimate from estimateSessionCostUsd; absent when rates are unavailable.
         kind: CostKind::Estimated,
         price_version: None,
         billing_scope: None,
     })
 }
 
-/// inputTokens 含 cache 读/写（官方成本公式证实）⇒ uncached 派生。
+/// Derive uncached input from the source-defined total input and cache subsets.
 fn map_cmd_usage(
     input: Option<i64>,
     output: Option<i64>,
@@ -171,7 +171,7 @@ struct EntryLite {
     id: String,
     parent_id: Option<String>,
     entry_type: String,
-    /// assistant message 位置：usage 四桶（Some=字段在场）。
+    /// Four assistant usage buckets; Some means the field is present.
     usage_input: Option<i64>,
     usage_output: Option<i64>,
     usage_cache_read: Option<i64>,
@@ -216,7 +216,7 @@ pub fn scan(
             health: "degraded".to_string(),
         });
     }
-    // 整文件读取（树重建需要全局 parentId 图；追加式文件无变化时框架短路）。
+    // Rebuild the parentId graph from the whole file; unchanged append-only files can be skipped.
     let mut bytes = Vec::new();
     std::io::Read::take(
         &mut crate::adapters::run_policy::checked_file(&target.path)?,
@@ -254,7 +254,7 @@ pub fn scan(
         records_seen += 1;
         let Ok(value) = crate::adapters::run_policy::json_from_str::<serde_json::Value>(line)
         else {
-            // crash 截断行：上游 safeParseRecord 计入 corrupted 不中断。
+            // Match upstream safeParseRecord: count malformed lines as corrupted and continue.
             diagnostics.push(diag(
                 "corrupted_line",
                 &format!("line:{}", index + 1),
@@ -349,7 +349,7 @@ pub fn scan(
             is_assistant,
         });
     }
-    // 有效路径：文件最后一条 entry 回溯 parentId 链（官方 buildSessionPath）。
+    // Follow parentId from the last entry, matching upstream buildSessionPath.
     let by_id: std::collections::BTreeMap<&str, usize> = entries
         .iter()
         .enumerate()
@@ -359,12 +359,12 @@ pub fn scan(
     let mut on_path = vec![false; entries.len()];
     let mut cursor: Option<usize> = entries.len().checked_sub(1);
     let mut current_model: Option<String> = None;
-    // 末条目回溯 parentId 链标记 on_path（环保护）；model_change 归属在
-    // 下一步按文件顺序推进时完成。
+    // Mark the last-entry-to-root path, stopping at cycles; model changes are applied
+    // when the next loop walks the selected entries in file order.
     while let Some(index) = cursor {
         crate::adapters::run_policy::check()?;
         if on_path[index] {
-            break; // 环保护。
+            break; // Stop at a parent cycle.
         }
         on_path[index] = true;
         let entry = &entries[index];
@@ -373,7 +373,7 @@ pub fn scan(
             .as_deref()
             .and_then(|p| by_id.get(p).copied());
     }
-    // 按文件顺序输出链上 assistant usage 事件（模型状态沿文件顺序）。
+    // Emit selected-path assistant usage in file order while tracking model changes.
     let mut events = Vec::new();
     for (index, entry) in entries.iter().enumerate() {
         crate::adapters::run_policy::check()?;
@@ -385,7 +385,7 @@ pub fn scan(
         if !entry.is_assistant || !on_path[index] {
             continue;
         }
-        // usage 字段缺失 = 未完成/中断（官方按未知用量处理）：不入账。
+        // No usage buckets means unknown usage for an incomplete/interrupted request; skip the event.
         if entry.usage_input.is_none()
             && entry.usage_output.is_none()
             && entry.usage_cache_read.is_none()
@@ -412,7 +412,7 @@ pub fn scan(
         );
         events.push(EventInput {
             source_instance_id: target.instance_id.clone(),
-            // fork 复制保留 id+timestamp ⇒ 跨文件折叠键（按官方实现）。
+            // Forks retain ID and timestamp; use both in the cross-file duplicate key.
             source_record_key: format!("cmd:{}:{}", entry.id, occurred_ms),
             record_kind: RecordKind::ModelCall,
             schema_version: COMMANDCODE_FORMAT_VERSION.to_string(),

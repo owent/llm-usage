@@ -1,9 +1,9 @@
-//! 对本机真实 oh-my-pi（omp）数据做只读核对（已获用户允许的本机数据验证）。
-//! 只输出白名单聚合：文件数、记录数、事件数、类别计数、模型调用、token 合计、
-//! 诊断计数；不打印路径、会话 ID、模型以外的任何记录内容。
-//! 用法：cargo run -p llm-usage-core --example real_verify_omp -- <omp_root> <work_dir>
-//! omp_root 可为 ~/.omp/agent 或 ~/.omp/agent/sessions（手工根语义：含 sessions
-//! 子目录按 agent 根解析，否则按 sessions 目录本身）。
+//! Read-only checks of native oh-my-pi (OMP), authorized by the user.
+//! Output only permitted file/record/event/category/call/token counts
+//! and diagnostics; no paths, session IDs or record content beyond models.
+//! Usage: cargo run -p llm-usage-core --example real_verify_omp -- <omp_root> <work_dir>
+//! omp_root may be ~/.omp/agent or ~/.omp/agent/sessions; a sessions child
+//! selects the agent root, otherwise use the sessions directory itself.
 
 use llm_usage_core::adapters::framework::{
     run_adapter_scan, DiscoverContext, RunConfig, ScanLimits,
@@ -71,7 +71,7 @@ fn main() {
             );
         }
     }
-    // 二次扫描：幂等（重复扫描不增量）。
+    // A second scan adds no duplicate records.
     let reports2 = run_adapter_scan(&storage, &adapter, &ctx, &config).expect("rescan");
     let added2: i64 = reports2
         .iter()
@@ -79,7 +79,7 @@ fn main() {
         .sum();
     println!("rescan_added={added2}");
 
-    // 类别计数（omp 有子 Agent 文件布局：primary/sub_agent/auxiliary 分开核）。
+    // OMP child layout requires separate primary/sub_agent/auxiliary counts.
     let mut stmt = storage
         .conn()
         .prepare("SELECT call_category, COUNT(*) FROM usage_events GROUP BY call_category ORDER BY call_category")
@@ -91,7 +91,7 @@ fn main() {
         .collect();
     println!("call_categories={categories:?}");
 
-    // 汇总查询白名单核对：调用数与 token 合计（UTC）。
+    // Check permitted UTC summary fields: calls and token sums.
     let summary = llm_usage_core::query::query_summary(
         &storage,
         &llm_usage_core::query::SummaryRequest {

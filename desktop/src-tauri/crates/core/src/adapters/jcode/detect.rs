@@ -1,4 +1,4 @@
-//! jcode 探测：session_*.json 快照指纹（id/messages/token_usage）。
+//! Detect jcode session_*.json snapshots through id/messages/token_usage.
 
 use crate::adapters::framework::DetectOutcome;
 use crate::domain::VersionBasis;
@@ -12,7 +12,7 @@ pub const JCODE_FORMAT: &str = "jcode-session-json";
 const DETECT_HEAD_BYTES: usize = 64 * 1024;
 
 pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
-    // 瞬态不可读（持锁/超时/枚举后被清理）⇒ Pending 下轮重探，不固化失败。
+    // A transient lock, timeout or removed file returns Pending for another detection attempt.
     let Some(head) = crate::adapters::framework::read_detect_head(path, DETECT_HEAD_BYTES)? else {
         return Ok(DetectOutcome::Pending);
     };

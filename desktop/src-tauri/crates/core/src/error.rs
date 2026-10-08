@@ -1,37 +1,37 @@
 use std::fmt;
 
-/// 核心错误类型。所有失败必须显式可诊断，不做静默降级。
+/// Core failures remain explicit and diagnosable without silent degradation.
 #[derive(Debug)]
 pub enum CoreError {
-    /// SQLite 层错误。
+    /// SQLite error.
     Sqlite(rusqlite::Error),
-    /// IO 错误（容量统计、临时目录等）。
+    /// I/O error, including size checks and temporary directories.
     Io(std::io::Error),
-    /// 数据库 user_version 比本程序支持的更新：拒绝打开写入，不破坏性降级。
+    /// Unusable/newer database schema; refuse writable initialization without destructive downgrade.
     SchemaTooNew { found: u32, supported: u32 },
-    /// 预发布阶段：版本不匹配（旧库或未知版本），需用户确认删除重建或退出。
+    /// Schema mismatch under rebuild rules; the application requests confirmation to rebuild or exit.
     SchemaMismatch { found: u32, expected: u32 },
-    /// 迁移执行失败；旧库保持不变。
+    /// Migration failure, retaining the old database.
     MigrationFailed {
         version: u32,
         name: String,
         detail: String,
     },
-    /// 记录校验失败（负值、超过上限、时间明显不合理等）。
+    /// Invalid record, such as negative/oversized values or implausible timestamps.
     Validation(String),
-    /// token 聚合溢出（i64 上溢防护）。
+    /// Token aggregation overflow beyond i64.
     Overflow(&'static str),
-    /// 时区/日历计算失败。
+    /// Timezone/calendar calculation failure.
     Calendar(String),
-    /// 调度/作业状态机非法转移。
+    /// Illegal scheduling/job state transition.
     JobState(String),
-    /// 查询参数非法（如粒度与区间不匹配）。
+    /// Invalid query parameters, such as period grouping incompatible with the range.
     Query(String),
-    /// 注入了故障（测试钩子）。
+    /// Test hook injected a failure.
     FaultInjected(&'static str),
     /// Cooperative collection stop; not a parser or source-health failure.
     Interrupted(&'static str),
-    /// JSON 序列化失败。
+    /// JSON serialization failure.
     Json(String),
 }
 

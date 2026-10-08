@@ -1,67 +1,87 @@
-# M0：本机 Agent 版本记录与脱敏 fixture
+# M0: Local agent versions and redacted test samples
 
-## 元信息
+<a id="m0本机-agent-版本记录与脱敏-fixture"></a>
 
-| 项目 | 内容 |
+<a id="元信息"></a>
+
+## Run information
+
+| Item | Value |
 | --- | --- |
-| 日期 | 2026-09-24 |
-| 执行环境 | Windows 11 Pro 26200 x64；Node v24.21.0；只读提取，未修改任何 Agent 原始数据 |
-| 代码 revision | 工作树未提交改动 |
-| 依据合同 | implementation-readiness.md「实施阶段的真实数据验证」；execution.md M0 第 5 项 |
+| Date | 2026-09-24 |
+| Environment | Windows 11 Pro 26200 x64; Node v24.21.0; read-only extraction, no agent-source changes |
+| Code revision | Uncommitted working tree |
+| Design references | implementation-readiness.md, real-data validation during implementation; execution.md M0 item 5 |
 
-## 范围与方法
+<a id="范围与方法"></a>
 
-- 有界发现：仅已知候选目录，不全盘扫描；版本从本地包/安装元数据读取，未启动 Agent 入口。
-- 白名单字段：事件类型、schema/版本迹象、匿名 ID（anon-N 稳定映射）、时间、模型、token 数值及包含关系；
-  正文以常量替换。SQLite 在暂存副本上只读查询，副本已清理。
-- 产物在 gitignored 的 `build/desktop-usage-validation/`：`fixtures/<source>/`（每源附 `_expectations.md`
-  人工可核算期望值）、`agent-inventory.md`、`tools/`（提取与泄漏扫描脚本）。
-- 泄漏核查：`tools/leak-check.py` 扫描全部 42 个产物文件，0 泄漏（UUID/路径/邮箱/正文/用户名）；
-  过程中发现并修复两处脱敏缺陷后重生成全部 fixture。
+## Scope and method
 
-## 本机产品矩阵（实测）
+- Search only known candidate directories, not entire disks. Versions come from local
+  packages/install metadata; agent entrypoints were not started.
+- Retained fields: event kind, schema/version hints, stable anon-N IDs, time, model, token
+  values and inclusion relations. Bodies become constants. SQLite queried read-only from
+  staged copies, then copies removed.
+- Ignored build/desktop-usage-validation/ holds `fixtures/<source>/`, each with manually
+  checkable _expectations.md, agent-inventory.md and tools/ extraction/leak scanners.
+- tools/leak-check.py scanned all 42 outputs for UUID/path/email/body/username leaks:
+  zero. Two redaction defects were found/fixed before regenerating all samples.
 
-| 产品 | 版本（核验来源） | 本地格式状态 | 样本 |
+<a id="本机产品矩阵实测"></a>
+
+## Observed local products
+
+| Product | Version and reference | Local format | Sample |
 | --- | --- | --- | --- |
-| Codex（VS Code 扩展宿主） | cli 0.155.0-alpha.16.3（rollout session_meta）；openai.chatgpt 扩展 26.917.62051 | rollout JSONL：token_usage_record 逐次 + token_count 累计 + turn_context；另有 6 个 sqlite | extracted（3 个会话，最多 49 调用/1457 行） |
-| 新版 Kimi Code | desktop 1.0.3；wire protocol_version=1.5 | `sessions/<wd>/session_*/agents/*/wire.jsonl`；camelCase usage.record{inputOther,output,inputCacheRead,inputCacheCreation}，epoch 毫秒 | extracted（主线 + 子代理对账样本） |
-| ZCode | 3.14.3（exe 3.14.3.7762）；协议客户端 0.16.9/schemaVersion 1 | model-io JSONL 双口径（AI SDK camelCase + anthropic snake_case）；db.sqlite 有 model_usage/turn_usage | extracted（8 请求尾部、日日志、两表样本） |
-| Copilot CLI | 1.0.73（events.jsonl copilotVersion） | events.jsonl 事件流无逐次 token；session-store.db 的 assistant_usage_events 逐 turn 全字段 | extracted |
-| Kilo Code CLI | 7.4.21（pnpm 包元数据）；session.version 观测 7.4.15–7.4.20 | `~/.local/share/kilo/kilo.db`（1.6 GB；**不在** ~/.config/kilo）；opencode 派生 SQLite，usage 在 message.data.tokens | extracted（schema + 脱敏样本） |
-| VS Code | 1.139.0（code --version） | copilot-chat session-store.db 无 token 列（M5 再证）；扩展 kilocode.kilo-code 7.7.9 | schema_recorded |
-| pi | 0.87.1（scoop） | sessions 目录为空 | no_data |
-| WorkBuddy | 37.10.3-24（version 文件） | 三处目录均空/仅 version 文件 | no_data（残留） |
-| Claude Code | 未找到 CLI 安装元数据 | ~/.claude 无 projects/，sessions/backups 空 | no_data |
-| Gemini CLI | 未找到安装元数据 | ~/.gemini 无 chats/ | no_data |
-| oh-my-pi | 18.2.11（scoop manifest） | ~/.omp/agent/{agent.db,history.db} 存在 | exists_only（合同限存在性检查） |
-| qwen/opencode/mimocode/openclaw/hermes/zoo/dsh | — | 候选路径不存在 | not_found |
+| Codex, VS Code extension host | CLI 0.155.0-alpha.16.3 from rollout session_meta; openai.chatgpt extension 26.917.62051 | rollout JSONL token_usage_record per call, token_count cumulative, turn_context; 6 SQLite files | extracted; 3 sessions, up to 49 calls/1,457 lines |
+| New Kimi Code | Desktop 1.0.3; wire protocol_version=1.5 | `sessions/<wd>/session_*/agents/*/wire.jsonl`; camelCase usage.record inputOther/output/inputCacheRead/inputCacheCreation; epoch ms | extracted; main/subagent comparison |
+| ZCode | 3.14.3, EXE 3.14.3.7762; protocol client 0.16.9/schemaVersion 1 | model-io JSONL AI SDK camelCase and Anthropic snake_case with opposite input definitions; db.sqlite model_usage/turn_usage | extracted; last 8 requests, daily log, two tables |
+| Copilot CLI | 1.0.73 from events.jsonl copilotVersion | events.jsonl has no per-call tokens; session-store.db assistant_usage_events has per-turn fields | extracted |
+| Kilo Code CLI | pnpm 7.4.21; session.version observed 7.4.15–7.4.20 | ~/.local/share/kilo/kilo.db, 1.6 GB, **not** ~/.config/kilo; OpenCode-derived SQLite, message.data.tokens | extracted schema/redacted rows |
+| VS Code | code --version: 1.139.0 | copilot-chat session-store.db no token columns, recheck M5; kilocode.kilo-code extension 7.7.9 | schema_recorded |
+| pi | Scoop 0.87.1 | Empty sessions | no_data |
+| WorkBuddy | version file 37.10.3-24 | Three directories empty or version-only | no_data, remnants |
+| Claude Code | No CLI install metadata found | ~/.claude lacks projects; sessions/backups empty | no_data |
+| Gemini CLI | No install metadata found | ~/.gemini lacks chats | no_data |
+| oh-my-pi | Scoop manifest 18.2.11 | ~/.omp/agent/{agent.db,history.db} exists | exists_only; this stage permits existence checks only |
+| qwen/opencode/mimocode/openclaw/hermes/zoo/dsh | — | Candidate paths absent | not_found |
 
-## 字段口径结论（实读核验，供 M1/M2 解析器合同）
+<a id="字段口径结论实读核验供-m1m2-解析器合同"></a>
 
-- codex：total=input+output，cached⊆input，reasoning⊆output（98/98）；Σ逐次==最终累计快照（无压缩会话）；
-  **compaction 会重置累计快照**（Σ32.06M≠快照 31.59M）；usage 无 model 字段，须按 turn_context 归属。
-- kimi wire：四字段互斥无 total；`event.usage` 是 usage.record 的回声（防双计二选一）；
-  subagent.completed.usage == 子代理 wire Σ逐次（逐字段相等）。
-- zcode：同产品两种口径相反——response.usage.inputTokens **含**缓存读，anthropic.usage.input_tokens **不含**；
-  turn_usage==Σmodel_usage（16 请求轮相等）。
-- copilot：input=未缓存+read+write；request_multiplier=27.0 为付费倍率。
-- kilo：total=input+output+reasoning+cache.read+cache.write **全互斥**（与上述源相反）；
-  codex threads.tokens_used 与 rollout 逐次合计跨存储一致。
+<a id="字段口径结论实读核验供-m1m2-解析器规则"></a>
 
-## 失败与未执行项
+## Observed field meanings for M1/M2 parsers
 
-| 项 | 状态 | 原因/后续 |
+- Codex: total=input+output, cached is an input subset, reasoning an output subset (98/98).
+  Per-call sum equals final cumulative snapshot without compaction. **Compaction resets
+  cumulative snapshots**: 32.06M sum differs from 31.59M snapshot. usage has no model;
+  attribution requires turn_context.
+- Kimi wire: four exclusive fields, no total. event.usage echoes usage.record; choose one
+  to prevent double counting. subagent.completed.usage equals per-field child wire sums.
+- ZCode: response.usage.inputTokens includes cache reads; anthropic.usage.input_tokens
+  excludes them. turn_usage equals model_usage sums for 16 request rounds.
+- Copilot: input=uncached+read+write; request_multiplier=27.0 is a paid multiplier.
+- Kilo: input/output/reasoning/cache.read/cache.write are all exclusive, unlike the above.
+  Codex threads.tokens_used also agrees with rollout per-call totals across stores.
+
+<a id="失败与未执行项"></a>
+
+## Failures and unexecuted checks
+
+| Item | Status | Cause/next step |
 | --- | --- | --- |
-| 缓存写>0 场景 | 仅 copilot 覆盖 | codex/kimi/zcode 样本全 0；M2/M3 用合成样本补充并标识 |
-| 模型中途变更 | 仅 codex 覆盖 | 其余源样本未观测到 |
-| reasoning 字段 | kimi/zcode 样本无值 | 不补零，记 unknown |
-| kimi wire 活文件 | 时间点快照 | 采样期间 394→515 行；期望值已注明快照时点 |
-| .omp 数据库内容、WSL/容器实例、F1 产品 | 未执行 | 合同限制或不在本阶段范围 |
+| Positive cache writes | Copilot only | Codex/Kimi/ZCode samples all zero; labeled synthetic cases in M2/M3 |
+| Mid-session model changes | Codex only | Not observed in other samples |
+| Reasoning | Kimi/ZCode samples lack values | Keep unknown, no zero filling |
+| Active Kimi wire file | Point-in-time snapshot | Grew 394→515 lines during sampling; expectations state snapshot time |
+| .omp DB contents, WSL/container instances, F1 products | Not inspected | Stage restrictions/out of scope |
+
+<a id="验证产物"></a>
 
 <a id="证据文件"></a>
 
-## 验证产物
+## Validation files
 
-`build/desktop-usage-validation/`（gitignored）：agent-inventory.md、fixtures/（codex、kimi-code、zcode、
-copilot-cli、kilo 共 5 源）、tools/（extract-jsonl.mjs、sqlite-probe.py、kilo-sample.py、leak-check.py）。
-入库前需按合同复核脱敏 fixture；CI 只使用已审阅 fixture。
+Ignored build/desktop-usage-validation/: agent-inventory.md; fixtures/ for Codex, Kimi Code,
+ZCode, Copilot CLI and Kilo; tools/extract-jsonl.mjs, sqlite-probe.py, kilo-sample.py and
+leak-check.py. Review redaction before importing samples; CI uses reviewed samples only.

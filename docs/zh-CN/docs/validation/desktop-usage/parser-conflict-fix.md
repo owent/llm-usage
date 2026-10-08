@@ -1,0 +1,46 @@
+# 解析器升级冲突修复验收
+
+<a id="parser-upgrade-conflict-correction-validation"></a>
+
+日期：2026-10-03；Windows 11 x64，Node 24.21.0、Rust 1.98；应用 0.2.1。
+本页仅保留最新结果；临时脚本、备份与日志放根 build/conflict-fix/。
+
+<a id="cause-and-current-behavior"></a>
+
+## 根因与当前行为
+
+本机趋势页的 1414 条全部位于 Asia/Shanghai 的 2026-09-27：Codex 1380 条，
+Kilo Code 34 条。只读比较 13 个 Codex 文件和一个 Kilo 库，全部 token 字段一致，
+完整旧摘要仅差解析器版本；没有其他内容差异或读取错误。
+
+完整旧摘要比较覆盖全部事件字段，仅解析器依据变化可更新解析器/摘要/兼容依据，
+保留原时间、用量、源修订、身份和诊断历史；撤销该记录的误报，同事务重算受影响
+的未归档日/小时汇总。实际内容变化仍按修订和生命周期处理，同批次真实冲突不能
+被后续元数据更新清除，同版本匹配重报不清除真实冲突。归档历史不重写。
+Codex rollout-4、Kilo message-tokens-3 触发既有版本更新机制重放旧游标/处理位置，
+无需清库或改变 schema。详见 [数据规则](../../design/desktop-usage/data-contract.md)。
+
+<a id="actual-checks"></a>
+
+## 实际检查
+
+| 检查 | 结果 | 范围 |
+| --- | --- | --- |
+| 修复前 Codex 健康/去重/Kilo 增量回归 | 退出 0；17 通过 | 原有行为基线 |
+| parser_metadata_upgrade | 退出 0；8 通过 | 旧摘要（含观察时间）、版本误报、时间保留、全部字段变化、冲突两种顺序、乱序、回滚、Codex 消费游标和 Kilo 处理位置重放 |
+| codex_incremental_v12 / dedup_v02 / dashboard_repair | 退出 0；28 通过 | 原有重复 final、真实冲突、VS 总量升级及看板统计 |
+| 本机一致备份验证 | 退出 0；1414 → 0 | 13 个 Codex 文件与一个 Kilo 库；3903 条事件及全部非冲突汇总指标不变，原始来源字节不变；重读不重复入库 |
+| 实际统计库修复与独立只读复核 | 退出 0；明细/日汇总冲突均为 0 | 持应用同一单写者锁，修复前留一致备份；3903 条事件、1424 条原有 update_conflict 诊断完整保留，增加 1414 条元数据修复诊断，数据修订 388 → 390 |
+| npm run verify | 退出 0；Rust 834、前端 20、脚本 3 通过 | Markdown、资源、类型、fmt、全工作区 Clippy -D warnings、设计要求/集成及前端构建；默认测试仍有 5 项显式/环境测试忽略 |
+| npm run build:desktop | 退出 0；NSIS 3.60 MiB | 包含修复的 Windows release 与安装制品；未安装 |
+| npm run test:headless | 退出 0；11 项通过 | 新构建可执行文件，隔离合成来源，最终 3 事件/75 token |
+| npm run test:desktop -- --runs 1 | 退出 0；9 项通过 | 新构建的真实 WebView2/IPC 与隔离非空合成数据；2 次启动样本仅作功能检查，未重新测 20 次性能基准 |
+| npm run lint:md / 本地引用检查 / git diff --check | 退出 0；175 Markdown、22 个修改文档/170 本地引用，无错误 | 包含新文件，临时脚本与备份均在根 build/，未进入 Git |
+| 只读核对本任务进程与系统任务 | 退出 0；均无残留 | 仅匹配隔离验收目录及本任务工具 |
+
+实际修复的一致备份位于 build/conflict-fix/real-1791037580446/before.sqlite，
+保留在本机，不进入 Git。实际库未直接批量清标记：所有 1414 条均经过完整旧摘要
+核验，再通过与应用相同的 ingest 事务重算汇总；原始 Agent 数据始终只读。
+使用本轮新构建的程序继续采集；旧程序不具备元数据升级冲突处理逻辑。
+
+本轮未提交、推送、安装或触发远端 CI；跨平台和完整 GUI 规模验收仍见 Plan.md。

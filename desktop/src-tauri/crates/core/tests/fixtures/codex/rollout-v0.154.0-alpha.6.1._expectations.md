@@ -1,34 +1,43 @@
 # rollout-v0.154.0-alpha.6.1._expectations.md
 
-来源：`<HOME>/.codex/sessions/…/rollout-<ts>-<UUID>.jsonl`（原始 37 行，本机实读），
-2026-09-25 按脱敏流程提取（build/desktop-usage-validation/tools/extract-codex-versions.mjs）：
-数字/布尔/null 保留、字符串默认 REDACTED、ID 稳定映射 anon-N（33 个）、cwd → `<PATH>`。
-泄漏核查：无 UUID/路径/正文残留；保留字符串仅为记录类型、枚举、版本与模型名。
+Source: `<HOME>/.codex/sessions/…/rollout-<ts>-<UUID>.jsonl`,
+37 original lines read locally. Extracted on 2026-09-25 with
+`build/desktop-usage-validation/tools/extract-codex-versions.mjs`. Numbers, booleans and null remain
+unchanged. Strings default to REDACTED, IDs use stable anon-N mappings (33 IDs),
+and cwd becomes `<PATH>`. Redaction checks found no remaining UUIDs, paths or bodies;
+only record types, enum values, versions and model names remain as strings.
 
-## 结构期望（jq 独立核算）
+<a id="结构期望jq-独立核算"></a>
 
-- 37 行全部可解析（parseErrors=0）。
-- 记录类型计数：session_meta ×1、event_msg ×17、response_item ×12、
-  world_state ×1、turn_context ×3、token_usage_record ×3。
-- session_meta.cli_version = `0.154.0-alpha.6.1`（本 fixture 的版本核验依据）。
+## Structural expectations independently calculated with jq
 
-## usage 数值期望（按 response_id 首次出现求和）
+- All 37 lines parse; parseErrors=0.
+- Record counts: session_meta=1, event_msg=17, response_item=12,
+  world_state=1, turn_context=3, token_usage_record=3.
+- session_meta.cli_version=0.154.0-alpha.6.1 is the version reference for this sample.
 
-| 指标 | 期望 |
+<a id="usage-数值期望按-response_id-首次出现求和"></a>
+
+## Usage expectations summed by first occurrence of response_id
+
+| Metric | Expected value |
 | --- | --- |
-| 模型调用（token_usage_record 去重后） | 3 |
-| input_tokens 合计 | 69,373 |
-| cached_input_tokens 合计 | 48,384 |
-| cache_write_input_tokens 合计 | 0 |
-| output_tokens 合计 | 367 |
-| reasoning_output_tokens 合计 | 151 |
-| total_tokens 合计 | 69,740 |
+| Deduplicated model calls | 3 |
+| Summed input_tokens | 69,373 |
+| Summed cached_input_tokens | 48,384 |
+| Summed cache_write_input_tokens | 0 |
+| Summed output_tokens | 367 |
+| Summed reasoning_output_tokens | 151 |
+| Summed total_tokens | 69,740 |
 
-包含关系（3/3 逐条成立）：total=input+output；cached⊆input；reasoning⊆output。
-快照对账：token_count 最终快照 total = 69,740 = Σ逐次（matched，无 compaction）。
+All 3/3 records satisfy total=input+output, cached⊆input and reasoning⊆output.
+The final token_count snapshot total=69,740 equals summed per-call usage:
+reconciliation=matched, with no compaction.
 
-## 分派期望（V30）
+<a id="分派期望v30"></a>
 
-- 版本 `0.154.0-alpha.6.1` 在注册表登记为已验证（本 fixture 核验结果）⇒ detect 返回
-  Supported { format_version: Some("0.154.0-alpha.6.1"), basis: KnownVersion }；
-  事件 parse_basis = known_version，文件状态 active（非 active_compat）。
+## Dispatch expectations (V30)
+
+- Version 0.154.0-alpha.6.1 is registered as verified based on this sample.
+  detect returns Supported { format_version: Some("0.154.0-alpha.6.1"), basis: KnownVersion }.
+  Events use parse_basis=known_version; file status=active, rather than active_compat.

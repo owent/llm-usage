@@ -1,25 +1,25 @@
-//! QODER 版本注册表（V30 目录约定）。锚点为文档级 qoder-pending-evidence。
+//! Qoder version registry following V30; qoder-pending-evidence remains unverified.
 
 pub mod probe_only;
 
-/// 当前格式实现标识。
+/// Identifier of the current format implementation.
 pub const LATEST_IMPL_ID: &str = "probe_only";
 
-/// 文档级格式版本。
+/// Format version established by documentation/source inspection.
 pub const QODER_FORMAT_VERSION: &str = "qoder-pending-evidence";
 
-/// 已验证支持的格式版本 → 格式实现。
+/// Supported format versions mapped to implementations.
 pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[("qoder-pending-evidence", "probe_only")];
 
-/// 版本分派结论。
+/// Result of selecting a version implementation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Selection {
     pub impl_id: &'static str,
     pub basis: crate::domain::VersionBasis,
 }
 
-/// 按格式版本选择实现（V30 注册表标准形）。Qoder 用量字段尚未核验、探针
-/// 不解析；本函数为取得本地 fixture 后的版本分派入口预留。
+/// Select by format version (V30 registry layout). Qoder usage fields are unverified;
+/// detection does not parse them. Reserve this entry for dispatch after a local sample is obtained.
 pub fn select(found: Option<&str>) -> Selection {
     match found {
         Some(version) => {

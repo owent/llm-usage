@@ -1,32 +1,32 @@
-//! Zed threads.db 格式实现（`threads_db_v1`，文档级 zed-threads-db-1 / 2）。
-//! 1.22.0 / 76659a55 实样另支持 llm-usage-zhipu + DbThread 0.3.0：
-//! input 为非缓存桶，正桶报告，默认零未知。以下旧依据描述 hosted 路径。
+//! Zed threads.db parser: threads_db_v1, documented zed-threads-db-1/2 formats.
+//! Native 1.22.0 / 76659a55 also supports llm-usage-zhipu with DbThread 0.3.0:
+//! input is uncached; positive buckets are reported and default zeros remain unknown.
 //!
-//! 格式依据（Zed 官方源码 bd747337d7be138834e20972b9e203c7b239cc47，A38；
-//! 本机 2026-09-29 只读核对 threads 表 schema 一致、0 行）：
-//! - 库布局：`<data_dir>/threads/threads.db`；data_dir = Windows
-//!   `%LOCALAPPDATA%\Zed`、macOS `~/Library/Application Support/Zed`、
-//!   Linux `~/.local/share/zed`（crates/paths/src/paths.rs:143-169）。
-//!   主程序无 `ZED_DATA_DIR` 环境变量（覆盖途径是 CLI `--user-data-dir`，
-//!   采集器不可见；`ZED_STATELESS` 为真时不落盘）。
-//! - threads 表列：id/summary/updated_at(RFC3339)/data_type(json|zstd)/data BLOB
-//!   + 迁移列 parent_id/folder_paths/folder_paths_order/created_at(回填=updated_at)。
-//! - data blob JSON（DbThread）：`model{provider,model}`、
-//!   `cumulative_token_usage`（TokenUsage 四 u64，0 值序列化缺省=报告 0）、
-//!   `request_token_usage`（HashMap<用户消息 UUID, TokenUsage>，**turn 内多请求
-//!   后写覆盖前写**，thread.rs:2893；求和会漏计，仅作对账）、顶层 `version`。
-//! - 仅 provider=="zed.dev" 的 hosted 调用计入；分享导入线程（SharedThread
-//!   version "1.0.0"，db.rs:156-174）用量置零，非 zed.dev/导入线程跳过。
+//! Historical hosted reference: Zed bd747337d7be138834e20972b9e203c7b239cc47 (A38).
+//! Local 2026-09-29 inspection found matching table schema but zero rows, without usage acceptance.
+//! - Database: <data_dir>/threads/threads.db. Data directories:
+//!   Windows %LOCALAPPDATA%/Zed; macOS ~/Library/Application Support/Zed;
+//!   Linux ~/.local/share/zed (crates/paths/src/paths.rs:143-169).
+//!   Upstream uses --user-data-dir, not ZED_DATA_DIR; the collector cannot observe that CLI option.
+//!   ZED_STATELESS disables persistence.
+//! - threads columns: id/summary/updated_at RFC3339/data_type json|zstd/data BLOB,
+//!   plus parent_id/folder_paths/folder_paths_order/created_at, initially backfilled from updated_at.
+//! - DbThread JSON contains model{provider,model}, cumulative_token_usage,
+//!   four u64 buckets omitting zeros in the historical serializer; its mapper reports those zeros.
+//!   request_token_usage maps user UUIDs to usage; multiple requests in a turn
+//!   overwrite earlier values (thread.rs:2893). Use those sums only for comparison.
+//! - Accept historical zed.dev plus the separately checked llm-usage-zhipu/0.3.0 path.
+//!   Skip other providers and 1.0.0 imported threads with no nonempty cumulative usage.
 //!
-//! 映射约定（M8 会话级聚合边界）：每线程一条 `SourceAggregateInput`
-//! （scope=Session，总量以 cumulative_token_usage 为准，不展开伪造逐次事件）；
-//! request_token_usage 桶数作 `reported_call_count`（=turn 数下界，覆盖语义
-//! 如实标注）、桶合计作 Reconciliation 对照，不入账；逐次 usage 无时间戳
-//! （官方源码未见），区间用 created_at..updated_at，time_basis=Uncertain。
+//! Each thread contributes a session SourceAggregateInput from cumulative usage,
+//! without constructing individual call tokens, models, or timestamps.
+//! request_token_usage bucket count is a turn-count lower bound stored as reported_call_count.
+//! Bucket sums reconcile only; source records do not provide individual usage timestamps.
+//! Use created_at..updated_at as the uncertain aggregate interval.
 //!
-//! 增量约定（SQLite 行）：线程 id 分页，末页后从头复查可变累计行；
-//! offset 恒 0（WAL 下字节长度不能作无变化判定）；聚合按 scope_key
-//! upsert 幂等，source_revision = updated_at 毫秒；单轮行数上限 50,000。
+//! Page by thread ID and restart after the last page to revisit mutable cumulative rows.
+//! Keep offset=0 because database file size under WAL cannot identify unchanged rows.
+//! Upsert scope_key at updated_at revision; read up to 50,001 rows including a continuation check.
 
 use crate::adapters::framework::{
     ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -42,12 +42,12 @@ use serde::{Deserialize, Serialize};
 use std::io::Read;
 
 pub const ZED_PARSER_VERSION: &str = "zed-threads-db-2";
-/// 单轮行数上限。
+/// Nominal row limit per scan; one extra row detects continuation.
 pub const MAX_ROWS_PER_ROUND: i64 = 50_000;
-/// 单线程 data blob 解压上限（64 MiB；超限跳过该行并记诊断）。
+/// Decompressed thread data limit: 64 MiB; oversized blobs are skipped with diagnostics.
 pub const MAX_BLOB_BYTES: usize = 64 * 1024 * 1024;
 
-/// 游标（offset 恒 0：DB 不用字节偏移做无变化判定）。
+/// Database cursor keeps offset=0 rather than using byte positions to skip changed rows.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 struct ZedCursor {
     generation: i64,
@@ -67,7 +67,7 @@ fn diag(code: &str, id_pos: &str, message: &str) -> DiagnosticInput {
     }
 }
 
-/// RFC3339 → UTC 毫秒。
+/// Convert RFC3339 to UTC milliseconds.
 fn rfc3339_ms(value: &str) -> Option<i64> {
     let ts: jiff::Timestamp = value.trim().parse().ok()?;
     let ms = ts.as_millisecond();
@@ -76,9 +76,9 @@ fn rfc3339_ms(value: &str) -> Option<i64> {
         .then_some(ms)
 }
 
-/// 解压 zstd blob（有界：超上限返回 None，调用方记诊断跳行）。
-/// json 分支同样限长——64 MiB 上限约束的是"单 blob 解压后大小"，
-/// 与存储编码无关（字段语义以能力表声明为准）。
+/// Decode bounded zstd data; oversized/invalid blobs return None and skip the row.
+/// Plain JSON shares the 64 MiB decoded-data limit.
+/// Encoding does not change the field rules recorded in adapter capabilities.
 fn decode_blob(data_type: &str, data: &[u8]) -> Option<Vec<u8>> {
     if data_type.eq_ignore_ascii_case("json") {
         return (data.len() <= MAX_BLOB_BYTES).then(|| data.to_vec());
@@ -95,10 +95,10 @@ fn decode_blob(data_type: &str, data: &[u8]) -> Option<Vec<u8>> {
     (out.len() <= MAX_BLOB_BYTES).then_some(out)
 }
 
-/// TokenUsage JSON（0 值缺省=报告 0；负值/类型错误拒绝该线程）。
+/// Decode historical TokenUsage defaults as zero; the native external mapper handles validity separately.
 fn parse_token_usage(value: Option<&serde_json::Value>) -> Option<ZedUsage> {
     let Some(obj) = value else {
-        // 缺失对象 = 全零（官方 serde default 语义）。
+        // Missing objects decode to default zeros; this alone does not verify reported native usage.
         return Some(ZedUsage::default());
     };
     if !obj.is_object() {
@@ -123,8 +123,8 @@ fn parse_token_usage(value: Option<&serde_json::Value>) -> Option<ZedUsage> {
     })
 }
 
-/// request_token_usage 的桶数与合计（map 新格式 / 数组旧格式都接受；
-/// 旧 Vec 与 messages 等长按索引对齐，官方升级时已归到用户消息 key）。
+/// Count and sum request_token_usage buckets from the current map or historical array.
+/// Older vectors align with messages; upstream upgrades assign user-message keys.
 fn request_usage_summary(value: Option<&serde_json::Value>) -> Option<(usize, i64)> {
     let Some(value) = value else {
         return Some((0, 0));
@@ -137,7 +137,7 @@ fn request_usage_summary(value: Option<&serde_json::Value>) -> Option<(usize, i6
     let mut sum = 0i64;
     for bucket in &buckets {
         let usage = parse_token_usage(Some(bucket))?;
-        // checked 算术约定：溢出（桶值极大时）拒绝该线程，不饱和隐藏。
+        // Checked arithmetic rejects overflow instead of replacing large values with a maximum.
         sum = sum.checked_add(usage.total()?)?;
     }
     Some((buckets.len(), sum))
@@ -151,7 +151,7 @@ fn load_rows(
     after_id: &str,
     diagnostics: &mut Vec<DiagnosticInput>,
 ) -> Result<Vec<ThreadRow>, CoreError> {
-    // 多取一行判定是否还有更多（恰好 MAX 行不误报 BudgetExhausted）。
+    // Read one extra row to distinguish an exact limit from a remaining page.
     let sql = if has_created_at {
         "SELECT id, updated_at, data_type, data, created_at FROM threads
          WHERE id > ?1 ORDER BY id LIMIT ?2"
@@ -171,7 +171,7 @@ fn load_rows(
             ))
         })
         .map_err(CoreError::Sqlite)?;
-    // 行级容错：单行类型错误（SQLite 动态类型）跳行记诊断，不中止整轮。
+    // Skip and diagnose SQLite row type errors without stopping other valid rows.
     let mut out = Vec::new();
     for row in rows {
         match row {
@@ -186,7 +186,7 @@ fn load_rows(
     Ok(out)
 }
 
-/// 增量扫描一个 threads.db（统一入口 `ZedAdapter::scan` 分派）。
+/// Scan threads.db, dispatched by ZedAdapter::scan.
 pub fn scan(
     target: &ScanTarget,
     stored: &StoredScanState,
@@ -362,7 +362,7 @@ pub fn scan(
                 verdict: if bucket_sum == cumulative_total {
                     "matched".to_string()
                 } else {
-                    // 覆盖语义（官方 thread.rs:2893）下逐桶和可能小于累计值。
+                    // Overwritten request buckets can sum below the cumulative value (thread.rs:2893).
                     "mismatch".to_string()
                 },
             });
@@ -411,7 +411,7 @@ mod tests {
 
     #[test]
     fn token_usage_defaults_to_reported_zero() {
-        // 官方 skip_serializing_if 语义：字段缺失 = 已报告 0，不是未知。
+        // Test historical decoding defaults only; native default-zero validity is checked separately.
         let usage = parse_token_usage(None).unwrap();
         assert_eq!(usage.total(), Some(0));
         let usage = parse_token_usage(Some(&serde_json::json!({

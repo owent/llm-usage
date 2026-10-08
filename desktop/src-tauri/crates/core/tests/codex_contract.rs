@@ -1,7 +1,7 @@
-//! Codex 适配器约定测试：M0 真实脱敏 fixture（本机 0.155.0-alpha.16.3）
-//! 经 读取→解析→标准化→commit_batch→查询，期望与
-//! tests/fixtures/codex/*._expectations.md 的人工核算值一致（含本文件顶部注释中
-//! 从 fixture 手工核算的分模型/分段数值）。
+//! Codex adapter tests using real sanitized M0 samples from local 0.155.0-alpha.16.3.
+//! Read, parse, normalize, commit_batch and query; results must match the manually
+//! calculated tests/fixtures/codex/*._expectations.md values and the model/segment
+//! calculations below, derived from those samples.
 
 mod common;
 
@@ -10,12 +10,12 @@ use llm_usage_core::adapters::codex::CodexAdapter;
 use llm_usage_core::adapters::framework::{SourceAdapter, SourceFileRow};
 use rusqlite::OptionalExtension;
 
-// 手工核算值（jq 对 fixture 逐条求和，与 _expectations.md 互核）：
-// multimodel：gpt-6-astra 169 次 input 23,683,841 cached 22,957,312 output 109,592
-//   reasoning 28,759 total 23,793,433；gpt-6-sol 52 次 input 8,377,585
-//   cached 8,098,560 output 33,789 reasoning 16,739 total 8,411,374；
-//   最终快照 total 31,724,335；compacted 携带 250,108 + 230,364 = 480,472；
-//   32,204,807 = 31,724,335 + 480,472。
+// Manual totals: jq sums each sample record and cross-checks _expectations.md.
+// multimodel: gpt-6-astra 169 calls, input 23,683,841, cached 22,957,312, output 109,592;
+// reasoning 28,759, total 23,793,433; gpt-6-sol 52 calls, input 8,377,585,
+// cached 8,098,560, output 33,789, reasoning 16,739, total 8,411,374.
+// Final snapshot total 31,724,335; compacted carries 250,108 + 230,364 = 480,472.
+// Complete per-call total 32,204,807 = 31,724,335 + 480,472.
 
 fn setup_fixture(tag: &str, fixture: &str) -> (TempDir, std::path::PathBuf) {
     let dir = TempDir::new(tag);
@@ -83,7 +83,7 @@ fn single_call_full_pipeline_matches_expectations() {
     assert_eq!(summary.totals.output_total_known, Some(131));
     assert_eq!(summary.totals.total_tokens_known, Some(25_689));
 
-    // auto-review 子代理会话：parent_thread_id ⇒ sub_agent；模型来自 turn_context。
+    // auto-review subagent: parent_thread_id sets sub_agent; turn_context supplies the model.
     let (category, model, attribution): (String, String, String) = storage
         .conn()
         .query_row(
@@ -96,7 +96,7 @@ fn single_call_full_pipeline_matches_expectations() {
     assert_eq!(model, "codex-auto-review");
     assert_eq!(attribution, "provider_mapping");
 
-    // 单次会话：Σ逐次 == 最终快照，对账 matched。
+    // Single-call session: per-call sum equals the final snapshot; reconciliation is matched.
     assert_eq!(report.reconciliations.len(), 1);
     let rec = &report.reconciliations[0];
     assert_eq!(rec.verdict, "matched");
@@ -105,7 +105,7 @@ fn single_call_full_pipeline_matches_expectations() {
     assert_eq!(rec.carried_sum, 0);
     assert_eq!(rec.difference, Some(0));
 
-    // 快照存为来源区间汇总（对照，不求和）。
+    // Store the snapshot as a source interval aggregate for comparison, without adding it to details.
     let snap_total: Option<i64> = storage
         .conn()
         .query_row("SELECT total_tokens FROM source_aggregates", [], |r| {
@@ -247,15 +247,15 @@ fn calls_49_full_pipeline_matches_expectations() {
     assert_eq!(summary.totals.cache_write_known, Some(0));
     assert_eq!(summary.totals.output_total_known, Some(4_051));
     assert_eq!(summary.totals.total_tokens_known, Some(4_188_588));
-    // 缓存输入占比 = 4,022,016 / 4,184,537 ≈ 96.1%（auto-review 高命中）。
+    // Cached-input ratio: 4,022,016 / 4,184,537 is about 96.1% for auto-review.
     let ratio = summary.totals.cache_input_ratio().unwrap();
     assert!((ratio.as_f64() - 0.961).abs() < 0.001);
     assert_eq!(summary.totals.ratio_sample_count(), 49);
-    // 同一 rollout 一个会话。
+    // One rollout identifies one session.
     assert_eq!(summary.periods.len(), 1);
     assert_eq!(summary.periods[0].distinct_sessions, Some(1));
 
-    // 推理 token 是 output 子集，不再加总：从事件表直接核验。
+    // Reasoning is a subset of output and is not added again; verify it in usage_events.
     let reasoning: i64 = storage
         .conn()
         .query_row("SELECT SUM(output_reasoning) FROM usage_events", [], |r| {
@@ -289,7 +289,7 @@ fn multimodel_compaction_pipeline_matches_expectations() {
     assert_eq!(summary.totals.output_total_known, Some(143_381));
     assert_eq!(summary.totals.total_tokens_known, Some(32_204_807));
 
-    // 模型按 turn_context 位置归属：两模型分段（人工核算值见文件头注释）。
+    // turn_context positions assign the two model segments; manual totals are above.
     let breakdown: std::collections::BTreeMap<String, (i64, i64, i64)> = summary
         .model_breakdown
         .iter()
@@ -312,7 +312,7 @@ fn multimodel_compaction_pipeline_matches_expectations() {
         "no unknown-model row: turn_context covers all calls"
     );
 
-    // compaction 重置快照：Σ逐次 == 最终快照 + 携带记录（480,472）。
+    // Compaction resets snapshots: per-call sum = final snapshot + carried records (480,472).
     let rec = &report.reconciliations[0];
     assert_eq!(rec.verdict, "matched");
     assert_eq!(rec.detail_sum, 32_204_807);
@@ -320,7 +320,7 @@ fn multimodel_compaction_pipeline_matches_expectations() {
     assert_eq!(rec.carried_sum, 480_472);
     assert_eq!(rec.difference, Some(0));
 
-    // 快照区间汇总保存最终值（对照），不是逐次合计。
+    // The snapshot aggregate keeps the final comparison value, separate from per-call totals.
     let snap_total: i64 = storage
         .conn()
         .query_row("SELECT total_tokens FROM source_aggregates", [], |r| {
@@ -329,7 +329,7 @@ fn multimodel_compaction_pipeline_matches_expectations() {
         .unwrap();
     assert_eq!(snap_total, 31_724_335);
 
-    // 主会话（无 parent_thread_id）：category=primary。
+    // No parent_thread_id identifies a primary session.
     let categories: i64 = storage
         .conn()
         .query_row(
@@ -348,8 +348,8 @@ fn capability_table_is_structured_and_complete() {
     let cap = adapter.capability();
     let json = serde_json::to_value(&cap).unwrap();
     assert_eq!(json["adapter_id"], "codex");
-    // supported_versions 由版本注册表生成（M2-D 逐版本 fixture + 2026-09-26
-    // 0.139–0.151 旧载体核验后登记）。
+    // supported_versions comes from the version registry: M2-D per-version samples plus
+    // 0.139-0.151 older formats checked and registered on 2026-09-26.
     assert_eq!(
         json["supported_versions"],
         serde_json::json!([
@@ -380,7 +380,7 @@ fn capability_table_is_structured_and_complete() {
             "0.139.0"
         ])
     );
-    // 字段能力八项齐全。
+    // All eight field-capability entries must exist.
     for key in [
         "tokens",
         "cache_read",
@@ -414,7 +414,7 @@ fn capability_table_is_structured_and_complete() {
         assert!(json.get(section).is_some(), "capability missing {section}");
     }
     assert!(!cap.limitations.is_empty());
-    // 能力声明可落库（source_instances.capabilities）。
+    // Persist structured capabilities in source_instances.capabilities.
     let (_db, storage) = temp_storage("codex-cap");
     llm_usage_core::adapters::framework::upsert_source_instance(
         &storage,
@@ -488,7 +488,7 @@ fn source_file_row_composite_roundtrip() {
         .unwrap()
         .unwrap();
     assert_eq!(loaded, row);
-    // 改名：同身份新路径按身份命中。
+    // Lookup by file identity returns the existing row and its stored path.
     let by_identity = llm_usage_core::adapters::framework::find_source_file_by_identity(
         &storage,
         "codex@test",

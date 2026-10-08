@@ -1,6 +1,6 @@
-//! Copilot CLI 适配器约定测试：真实脱敏 fixture（本机 schema_version=8，
-//! 2026-09-29 提取，36 行）重建 SQLite → discover/detect/scan → commit →
-//! 查询全链。期望值对照 tests/fixtures/copilot/_expectations.md 的人工核算。
+//! Copilot CLI format tests: redacted native schema_version=8 sample,
+//! extracted 2026-09-29, 36 rows; rebuild SQLite→discover/detect/scan→commit→
+//! query; compare manual expectations in tests/fixtures/copilot/_expectations.md.
 
 mod common;
 
@@ -22,7 +22,7 @@ fn fixture_json() -> PathBuf {
         .join("assistant-usage-events-v8.sanitized.json")
 }
 
-/// 把脱敏 fixture 重建为真实形状的 SQLite 库。
+/// Rebuild native-layout SQLite from the redacted sample.
 fn build_store(dir: &std::path::Path) -> PathBuf {
     let rows: Vec<serde_json::Value> =
         serde_json::from_str(&std::fs::read_to_string(fixture_json()).unwrap()).unwrap();
@@ -101,7 +101,7 @@ fn contract_matches_manual_expectations_and_idempotent() {
     std::fs::create_dir_all(&dir).unwrap();
     let db = build_store(&dir);
 
-    // 探测：schema_version=8 → KnownVersion。
+    // schema_version=8 selects KnownVersion.
     let adapter = CopilotAdapter::new();
     assert!(matches!(
         adapter.detect(&db).unwrap(),
@@ -140,7 +140,7 @@ fn contract_matches_manual_expectations_and_idempotent() {
             },
         )
         .unwrap();
-    // 期望值：tests/fixtures/copilot/_expectations.md 人工核算。
+    // Manually calculated tests/fixtures/copilot/_expectations.md expectations.
     assert_eq!(count, 36);
     assert_eq!(in_sum, 4_649_981);
     assert_eq!(out_sum, 34_157);
@@ -148,7 +148,7 @@ fn contract_matches_manual_expectations_and_idempotent() {
     assert_eq!(cw_sum, 233_118);
     assert_eq!(unc_sum, 72, "input−read−write 派生");
     assert_eq!(total_sum, 4_684_138, "input+output 派生");
-    // reasoning 并列报告（不并入派生总量）。
+    // Reasoning is reported separately, outside derived total.
     let reasoning_sum: i64 = conn
         .query_row(
             "SELECT SUM(output_reasoning) FROM usage_events WHERE agent='copilot-cli'",
@@ -157,7 +157,7 @@ fn contract_matches_manual_expectations_and_idempotent() {
         )
         .unwrap();
     assert_eq!(reasoning_sum, 17_678);
-    // 延迟字段在场。
+    // Latency fields are present.
     let with_ttft: i64 = conn
         .query_row(
             "SELECT COUNT(*) FROM usage_events WHERE agent='copilot-cli' AND ttft_ms IS NOT NULL",
@@ -167,7 +167,7 @@ fn contract_matches_manual_expectations_and_idempotent() {
         .unwrap();
     assert!(with_ttft > 0);
 
-    // 幂等：重复扫描不增量（V12）。
+    // V12 repeated scans add no duplicates.
     run(&storage, &dir, NOW + 60_000);
     let count2: i64 = conn
         .query_row(

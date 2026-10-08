@@ -1,4 +1,4 @@
-//! Crush 探测：项目库 crush.db 的 sessions 表指纹（cost-only 载体）。
+//! Detect the sessions table in project crush.db; this format reports cost only.
 
 use crate::adapters::framework::DetectOutcome;
 use crate::domain::VersionBasis;
@@ -23,7 +23,7 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     let columns: Vec<String> = {
         let mut stmt = match conn.prepare("PRAGMA table_info(sessions)") {
             Ok(stmt) => stmt,
-            // 瞬态锁（超过 busy_timeout 的持库）⇒ Pending，不误判格式不明。
+            // A lock exceeding busy_timeout is transient; return Pending, not an unknown format.
             Err(err) if common::is_busy_like(&err) => return Ok(DetectOutcome::Pending),
             Err(_) => {
                 return Ok(DetectOutcome::UnknownFormat {

@@ -1,11 +1,11 @@
-//! Codex 产品特有的 usage 字段映射（从根级 usage_map.rs 下沉，V30 目录约定）。
-//! 共享的 MappedUsage/finish/sub_checked/矛盾检测仍留在跨 Agent 的 usage_map.rs。
+//! Codex usage mapping moved from root usage_map.rs under the V30 directory rules.
+//! Shared MappedUsage/finish/sub_checked/contradiction checks remain in usage_map.rs.
 
 use crate::adapters::usage_map::{finish, sub_checked, MappedUsage};
 use crate::domain::{FieldQuality as Q, TokenQuality, TokenUsage};
 use crate::metrics::Contradiction;
 
-/// 累计快照仅作对照；文件健康由逐次载体的读取失败决定。
+/// Cumulative snapshots are comparisons only; per-record read errors determine file health.
 pub(crate) fn is_record_error(diagnostic: &crate::ingest::DiagnosticInput) -> bool {
     matches!(
         diagnostic.code.as_str(),
@@ -13,16 +13,16 @@ pub(crate) fn is_record_error(diagnostic: &crate::ingest::DiagnosticInput) -> bo
     ) && diagnostic.field.as_deref() != Some("info.total_token_usage")
 }
 
-/// TokenCountEvent.info 是 Option<TokenUsageInfo>；仅额度更新可没有用量。
-/// 官方 rust-v0.144.0 protocol.rs 与本机 0.144.0-alpha.4 样本均已核验。
+/// TokenCountEvent.info is Option<TokenUsageInfo>; quota-only updates may lack usage.
+/// Verified against official rust-v0.144.0 protocol.rs and native 0.144.0-alpha.4 samples.
 pub(crate) fn token_count_has_no_usage(payload: &serde_json::Value) -> bool {
     matches!(payload.get("info"), None | Some(serde_json::Value::Null))
 }
 
-/// codex rollout token_usage_record：input 含缓存读，无缓存创建字段；
-/// output 含 reasoning；total=input+output。
-/// `declares_no_cache_creation` 按已核验格式声明：该版本明确无缓存创建时，
-/// 未缓存输入才可证明为 input-cached，缓存写记 0（derived）。
+/// Codex rollout usage: input includes cache read, with no cache-creation field;
+/// output includes reasoning, and total=input+output.
+/// declares_no_cache_creation requires a verified version/format declaration:
+/// only then derive uncached=input-cached and cache write=0.
 #[derive(Debug, Clone, Copy)]
 pub struct CodexUsage {
     pub input_tokens: i64,
@@ -33,11 +33,11 @@ pub struct CodexUsage {
     pub declares_no_cache_creation: bool,
 }
 
-/// codex 0.155.0-alpha.16.3 完整 usage 记录（token_usage_record.payload.usage
-/// 与 token_count 的 total/last_token_usage 同形）：六字段全部存在。
-/// 字段语义：`cached ⊆ input`（真实样本 319/319 成立）、`reasoning ⊆ output`、
-/// `total = input + output`；`cache_write ⊆ input` 是该版本 schema 的映射假设
-/// （真实样本仅覆盖 cache_write=0），矛盾进诊断，不用 max(0, …) 隐藏。
+/// Complete Codex 0.155.0-alpha.16.3 usage in token_usage_record.payload.usage
+/// and token_count total/last_token_usage has the same six required fields.
+/// cached is an input subset (319/319 native samples); reasoning is an output subset;
+/// total=input+output. Cache-write inclusion is a schema-based mapping assumption:
+/// native samples cover cache_write=0 only. Diagnose contradictions instead of hiding them with max(0, ...).
 #[derive(Debug, Clone, Copy)]
 pub struct CodexRecordUsage {
     pub input_tokens: i64,

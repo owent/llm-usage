@@ -1,7 +1,7 @@
-//! Gemini CLI 适配器缺口场景：合成样本（目录/文件头均标 synthetic）。
-//! 覆盖 fail closed（user 携带 tokens / 未文档化消息 type / 顶层 schema 偏离）、
-//! tokens 形状偏离不 fail closed、额外键一次性诊断、缺 id 下标回退、BOM 头、detect 直测。
-//! 期望值均为人工核算（见各 fixture 目录 _expectations.md）。
+//! Gemini boundary scenarios, with synthetic labels in directories and headers.
+//! Reject user tokens, undocumented message types and top-level schema deviations;
+//! token-shape errors do not reject the whole file; cover one-time extra-key diagnostics, missing-ID index fallback, BOM and detection.
+//! Expectations are manually calculated in each sample _expectations.md.
 
 mod common;
 
@@ -51,7 +51,7 @@ fn user_message_with_tokens_fails_closed_and_never_advances() {
     assert_eq!(diag_count(&storage, "usage_on_unexpected_message_type"), 1);
     assert_eq!(checkpoint_count(&storage), 0, "游标不推进（无 checkpoint）");
 
-    // 二次扫描：确定性再拒（非静默成功零），诊断每轮一条。
+    // Second scan still rejects rather than returning silent zero success; one diagnostic per run.
     let second = run_gemini(&storage, &root, NOW + 1000);
     assert_eq!(
         second[0].files[0].status, "pending",
@@ -94,7 +94,7 @@ fn negative_token_skips_message_without_failing_closed() {
     assert_eq!(reports[0].files[0].status, "complete");
     assert_eq!(reports[0].files[0].events, 1, "负值消息跳过，其余正常入账");
     assert_eq!(diag_count(&storage, "usage_shape_deviation"), 1);
-    // 源文件健康降级可见。
+    // Source-file degraded health is visible.
     let file_status: String = storage
         .conn()
         .query_row("SELECT status FROM source_files", [], |r| r.get(0))
@@ -107,7 +107,7 @@ fn negative_token_skips_message_without_failing_closed() {
     assert_eq!(summary.totals.output_total_known, Some(50));
     assert_eq!(summary.totals.cache_read_known, Some(400));
     assert_eq!(summary.totals.total_tokens_known, Some(1_050));
-    // 跳过负值消息：不存在 gemini:syn-sess-neg:syn-msg-bad 事件。
+    // Skip negative-valued message: no gemini:syn-sess-neg:syn-msg-bad event.
     let bad: i64 = storage
         .conn()
         .query_row(
@@ -188,7 +188,7 @@ fn detect_pending_on_empty_file() {
 
 #[test]
 fn detect_pending_on_session_id_only() {
-    // 只有 sessionId 无 messages 指纹：可能仍在首次写入中，下轮重探。
+    // sessionId without messages may be an unfinished initial write; retry detection next run.
     let dir = TempDir::new("gemini-sidonly");
     let path = dir.path().join("session-sid.json");
     std::fs::write(&path, br#"{"sessionId": "syn-x""#).unwrap();

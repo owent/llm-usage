@@ -1,23 +1,23 @@
-//! VS Code Copilot Chat 会话日志格式实现（`session_log_v3`，
-//! vscode-chat-session-log-v3）。
+//! VS Code Copilot Chat session-log parser: session_log_v3,
+//! format vscode-chat-session-log-v3.
 //!
-//! 格式依据（microsoft/vscode 源码 + 本机 VS Code 1.140.0 真实数据核对
-//! 2026-10-01，10 请求 5.25MB/最大行 837KB 全字段核验）：
-//! - 文件：`workspaceStorage/<hash>/chatSessions/<sessionId>.jsonl`，
-//!   objectMutationLog Entry 逐行 JSON：
-//!   `{kind:0,v}` 初始（压缩重写后再次出现）、`{kind:1,k,v}` Set、
-//!   `{kind:2,k,v?,i?}` Push（i = 截断后长度再追加）、`{kind:3,k}` Delete。
-//! - 请求级字段语义（chatModel.ts toJSON + 扩展 agentIntent.ts 直传 API
-//!   usage.prompt_tokens/completion_tokens）：
-//!   `promptTokens` = **末次模型调用输入**、`completionTokens` =
-//!   **整 turn 跨调用累计输出**（modelTotals 存在时为权威整轮总量）、
-//!   `elapsedMs`、`copilotCredits`（credit 非 token 不入账）、
-//!   `modelState{value,completedAt}`（0 Pending/1 Complete/2 Cancelled/
-//!   3 Failed/4 NeedsInput）。
+//! Format reference: microsoft/vscode source and local VS Code 1.140.0 records.
+//! Checked 2026-10-01: 10 requests, 5.25 MB, largest line 837 KB, all selected fields reviewed.
+//! - File: workspaceStorage/<hash>/chatSessions/<sessionId>.jsonl.
+//!   objectMutationLog entries are one JSON object per line.
+//!   kind 0 initializes/replaces state; kind 1 Set carries k/v.
+//!   kind 2 Push carries k/v?/i? and truncates to i before append; kind 3 Delete carries k.
+//! - chatModel.ts toJSON and Copilot agentIntent.ts define the persisted
+//!   API prompt/completion token fields and their different scopes.
+//!   promptTokens covers the last model call's input; completionTokens spans
+//!   the whole turn, while supplied modelTotals reports complete turn sums by model.
+//!   elapsedMs and copilotCredits are separate; credits are not token usage.
+//!   modelState values: 0 Pending, 1 Complete, 2 Cancelled,
+//!   3 Failed, 4 NeedsInput, with optional completedAt.
 //!
-//! 增量约定：kv 更新是周期采样快照，不能按行增量拼接——每轮**全量重放**
-//! （文件经 1024 条压缩有界），事件按 `vscode-chat:<sessionId>:<requestId>`
-//! 键 upsert 幂等（同内容 unchanged，流式计数器增长走 Replace）。
+//! Replay the entire bounded mutation log on each changed scan; periodic snapshots
+//! cannot be appended as usage increments. Upstream compacts after 1024 entries.
+//! Stable vscode-chat:<sessionId>:<requestId> keys skip identical content and replace newer revisions.
 
 use crate::adapters::framework::{
     ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -35,8 +35,8 @@ use serde_json::Value;
 
 pub const COPILOT_CHAT_PARSER_VERSION: &str = "vscode-copilot-chat-session-log-2";
 
-// 解析格式未变；旧游标需重放一次以修正健康状态和日汇总缺字段计数。
-// 保留既有 revision/tracked_events，不能清空上下文后退回低修订快照。
+// Replay old cursors once to correct source health and daily missing-field counts.
+// Keep existing revision/tracked_events; resetting them could restore an older snapshot.
 const SCAN_POLICY_VERSION: u32 = 1;
 
 pub fn should_scan_unchanged(stored: &StoredScanState) -> bool {
@@ -48,10 +48,10 @@ pub fn should_scan_unchanged(stored: &StoredScanState) -> bool {
         != Some(u64::from(SCAN_POLICY_VERSION))
 }
 
-/// 单 turn 时长/TTFT 合理上限（30 天毫秒）：超出按损坏丢弃。
+/// Duration/TTFT maximum per turn: 30 days in milliseconds; discard values beyond it.
 const MAX_DURATION_MS: i64 = 30 * 24 * 3600 * 1000;
 
-/// 时间戳合理区间（毫秒）。
+/// Accepted timestamp range in milliseconds.
 const PLAUSIBLE_MS: std::ops::RangeInclusive<i64> =
     crate::domain::MIN_PLAUSIBLE_MS..=4_102_444_800_000;
 
@@ -79,7 +79,7 @@ fn diag(code: &str, position: &str, message: &str) -> DiagnosticInput {
     }
 }
 
-/// token 列合理域（0..=MAX_TOKEN_VALUE）；越界置未知并记诊断。
+/// Token values must be within 0..=MAX_TOKEN_VALUE; invalid values become unknown with diagnostics.
 fn token_col(value: Option<i64>) -> (Option<i64>, bool) {
     match value {
         Some(n) if (0..=crate::domain::MAX_TOKEN_VALUE).contains(&n) => (Some(n), false),
@@ -88,7 +88,7 @@ fn token_col(value: Option<i64>) -> (Option<i64>, bool) {
     }
 }
 
-/// 沿路径段（对象键/数组下标）解析可变引用。
+/// Resolve mutable references through object-key and array-index path segments.
 fn resolve_mut<'a>(node: &'a mut Value, path: &[Value]) -> Option<&'a mut Value> {
     let mut cur = node;
     for seg in path {
@@ -104,7 +104,7 @@ fn resolve_mut<'a>(node: &'a mut Value, path: &[Value]) -> Option<&'a mut Value>
     Some(cur)
 }
 
-/// Set：显式 null 保留；仅缺失 v 表示 JavaScript undefined。
+/// Set preserves explicit null; only absent v represents JavaScript undefined.
 fn apply_set(state: &mut Value, path: &[Value], value: Option<Value>) -> Result<(), ()> {
     let (last, parents) = path.split_last().ok_or(())?;
     let parent = resolve_mut(state, parents).ok_or(())?;
@@ -129,7 +129,7 @@ fn apply_set(state: &mut Value, path: &[Value], value: Option<Value>) -> Result<
                     arr[i] = v;
                     Ok(())
                 }
-                // 越界 Set 未见产生源：不静默扩张，记路径失败由调用方诊断。
+                // Reject an out-of-range Set without expanding arrays; the caller diagnoses path failure.
                 _ => Err(()),
             }
         }
@@ -137,7 +137,7 @@ fn apply_set(state: &mut Value, path: &[Value], value: Option<Value>) -> Result<
     }
 }
 
-/// Push：末端按对象键定位数组，先截断到 `start` 长度再追加 items。
+/// Push resolves the final object key to an array, truncates to start, then appends items.
 fn apply_push(
     state: &mut Value,
     path: &[Value],
@@ -147,7 +147,7 @@ fn apply_push(
     let (last, parents) = path.split_last().ok_or(())?;
     let key = match last {
         Value::String(key) => key.clone(),
-        // 数组键（对象属性名）也可能以数字形态出现于路径段，此处末端必是键。
+        // The final segment must be a string object key; reject other segment types.
         _ => return Err(()),
     };
     let parent = resolve_mut(state, parents).ok_or(())?;
@@ -168,7 +168,7 @@ fn apply_push(
     Ok(())
 }
 
-/// 重放完整 mutation 日志，得到最终会话状态。
+/// Replay mutations to reconstruct the latest session state.
 fn replay(
     lines: &[crate::adapters::jsonl::RawLine],
     diagnostics: &mut Vec<DiagnosticInput>,
@@ -190,7 +190,7 @@ fn replay(
         };
         match doc.get("kind").and_then(Value::as_i64) {
             Some(0) => {
-                // 初始（含压缩重写后的新初始）：整体替换状态。
+                // A new initial object, including compaction replacement, replaces the entire state.
                 state = doc.get("v").cloned().filter(Value::is_object);
             }
             Some(1) => {
@@ -278,7 +278,7 @@ fn replay(
     state
 }
 
-/// 请求重放最终值的字段视图（只取白名单，不触碰消息正文）。
+/// Selected usage fields from the final request state; exclude message bodies.
 struct RequestUsage {
     request_id: Option<String>,
     prompt_tokens: Option<i64>,
@@ -360,7 +360,7 @@ fn extract_request(r: &Value) -> RequestUsage {
 }
 
 impl RequestUsage {
-    /// 任一 token 字段有值才入账（未知用量不补零；仅 credit 不构成事件）。
+    /// A known token field is required; unknown usage stays absent and credits alone produce no event.
     fn has_token_signal(&self) -> bool {
         self.prompt_tokens.is_some()
             || self.completion_tokens.is_some()
@@ -369,7 +369,7 @@ impl RequestUsage {
             })
     }
 
-    /// modelState 1/2/3（Complete/Cancelled/Failed）封口；0/4/缺失仍流式。
+    /// Complete/Cancelled/Failed (1/2/3) are final; Pending/NeedsInput/missing state remains partial.
     fn lifecycle(&self) -> Lifecycle {
         match self.model_state_value {
             Some(1) | Some(2) | Some(3) => Lifecycle::Final,
@@ -395,8 +395,8 @@ impl RequestUsage {
         }
     }
 
-    /// 模型归属：resolvedModel（结果元数据）> 请求 modelId（去 copilot/ 前缀）
-    /// > 末轮 modelId。
+    /// Multiple round model IDs leave the turn model unknown; otherwise prefer resolvedModel,
+    /// then request modelId without copilot/, then the final round modelId.
     fn model_raw(&self) -> Option<String> {
         let round_models: std::collections::BTreeSet<_> = self
             .rounds
@@ -421,12 +421,12 @@ impl RequestUsage {
     }
 }
 
-/// 默认路径映射：input = 末次调用输入（下界）、output = 整 turn 累计。
+/// Default mapping: last-call input lower bound and whole-turn output.
 fn map_default_usage(
     prompt: Option<i64>,
     completion: Option<i64>,
 ) -> crate::adapters::usage_map::MappedUsage {
-    // 输入只覆盖末次调用，输出覆盖整轮；两者不能派生整轮总 token。
+    // These input/output scopes cannot establish complete whole-turn total tokens.
     let total = None;
     let usage = TokenUsage {
         input_uncached: None,
@@ -459,7 +459,7 @@ fn map_default_usage(
     finish(usage, quality, Vec::new())
 }
 
-/// modelTotals 权威映射：input 含 cached（uncached 派生）、output 直报。
+/// Supplied modelTotals input includes cached tokens; derive uncached input and retain output.
 fn map_model_total_usage(entry: &ModelTotalEntry) -> crate::adapters::usage_map::MappedUsage {
     let mut diagnostics = Vec::new();
     let uncached = match (entry.input_tokens, entry.cached_tokens) {
@@ -531,8 +531,8 @@ pub fn scan(
     limits: &ScanLimits,
     now_ms: i64,
 ) -> Result<ScanOutcome, CoreError> {
-    // 全量重放约定：不消费旧游标（kv 采样快照不可增量拼接）；游标仅记录
-    // 已读字节供 framework 的无变化短路使用。
+    // Replay the full file rather than resuming mutations from an old byte cursor.
+    // Store consumed bytes only for the framework's unchanged-file shortcut.
     let mut context = stored
         .parse_context
         .as_ref()
@@ -573,7 +573,7 @@ pub fn scan(
         StopReason::LineBudget | StopReason::TimeBudget => ScanStatus::BudgetExhausted,
     };
     if status != ScanStatus::Complete {
-        // 行超限：不推进游标（重放语义下也不提交事件），受控重试。
+        // Incomplete bounded reads retain the cursor and commit no replay events; retry later.
         return Ok(ScanOutcome {
             status,
             cursor: None,
@@ -588,7 +588,7 @@ pub fn scan(
         });
     }
     let Some(state) = replay(&read.lines, &mut diagnostics) else {
-        // 无初始条目（空/损坏）：等待或下轮重试，不虚报成功。
+        // Missing initial state leaves the file pending instead of reporting success.
         return Ok(ScanOutcome {
             status: ScanStatus::Pending,
             cursor: None,
@@ -646,7 +646,7 @@ pub fn scan(
     let mut replaced_turns = std::collections::BTreeSet::new();
     for (index, request) in requests.iter().enumerate() {
         crate::adapters::run_policy::check()?;
-        // chatSessions 是 VS Code 的通用会话库；其他扩展的轮次不能归为 Copilot。
+        // chatSessions also stores other extensions; only identified Copilot turns belong here.
         if !request
             .pointer("/agent/id")
             .and_then(Value::as_str)
@@ -766,7 +766,7 @@ pub fn scan(
                 "promptTokens covers the last call only; whole-turn input/total and auxiliary-call coverage are unknown"));
         } else {
             let mut models = std::collections::BTreeSet::new();
-            // 权威整轮逐模型总量（agent host 会话）：一段一事件，键附加模型段。
+            // Whole-turn modelTotals produces one observation per model segment with a model-specific key.
             for (mt_index, entry) in usable_totals.iter().enumerate() {
                 if !models.insert(entry.model.as_deref().unwrap_or("unknown")) {
                     diagnostics.push(diag(
@@ -841,8 +841,8 @@ pub fn scan(
                 });
             }
         }
-        // 每条工具循环 round 是已观测的一次主循环调用；token 仍由 turn
-        // observation 贡献。不能把轮次或多模型汇总行数当作调用次数。
+        // Each identified toolCallRound contributes one observed main-loop call; token usage
+        // comes from turn observations. User-turn/model-summary row counts do not count underlying calls.
         let mut round_ids = std::collections::BTreeSet::new();
         for round in &view.rounds {
             let Some(id) = round
@@ -890,8 +890,8 @@ pub fn scan(
             events.push(call);
         }
     }
-    // 只对白名单事件视图求修订。正文变化不改变修订；完整重放后的更正
-    // 可降低计数。断行、达到读取上限或坏行均不能撤销或覆盖旧快照。
+    // Revise selected event fields only, ignoring body changes. A valid complete replay
+    // may correct counters downward; partial reads or malformed mutations cannot replace old snapshots.
     if !diagnostics.iter().any(|d| {
         matches!(
             d.code.as_str(),
@@ -933,8 +933,8 @@ pub fn scan(
                 tombstone.source_revision = Some(context.revision);
                 events.push(tombstone);
             } else if policy_changed && !current.contains(&old.source_record_key) {
-                // 来源已清理的历史仍保留。规则更新时重发既有白名单快照，
-                // 让这些旧事件所在日也重算；不恢复正文或已过期明细。
+                // Keep history already removed by the source. On policy updates replay retained event fields
+                // to rebuild their days, without restoring message bodies or expired detail records.
                 let mut retained = old.clone();
                 retained.observed_at_ms = Some(now_ms);
                 events.push(retained);
@@ -964,9 +964,9 @@ pub fn scan(
     } else {
         events.clear();
     }
-    // 输入覆盖提示（turn_input_incomplete）是该格式固有限制——promptTokens 只覆盖末次
-    // 调用，不代表坏记录或对账差异，不降级来源健康（architecture.md#unknown-version：
-    // 仅坏记录/对账差异提示需核对）。其余诊断（坏行、非法 token、重复键、缺失归属等）仍降级。
+    // turn_input_incomplete reflects last-call input coverage inherent in this format.
+    // It does not indicate a malformed record or lower source health.
+    // Other diagnostics, including invalid lines/tokens, duplicate keys, or missing ownership, degrade health.
     let health = if diagnostics
         .iter()
         .all(|d| d.code == "turn_input_incomplete")
@@ -1091,7 +1091,7 @@ mod tests {
             e.source_record_key,
             "vscode-chat:11111111-2222-3333-4444-555555555555:request_a"
         );
-        // last-wins：末次调用输入 + 整 turn 累计输出。
+        // Latest snapshot: last-call input and whole-turn output remain separate.
         assert_eq!(e.usage.input_total, Some(91_756));
         assert_eq!(e.usage.output_total, Some(12_733));
         assert_eq!(e.usage.total_tokens, None);
@@ -1134,7 +1134,7 @@ mod tests {
             &[
                 header("[]"),
                 r#"{"kind":2,"k":["requests"],"v":[{"requestId":"request_a","timestamp":1790783284143},{"requestId":"request_b","timestamp":1790783284144}]}"#.to_string(),
-                // 截断到长度 1（移除 request_b）再追加 request_c。
+                // Truncate to length 1, removing request_b, then append request_c.
                 r#"{"kind":2,"k":["requests"],"v":[{"requestId":"request_c","timestamp":1790783284145}],"i":1}"#.to_string(),
                 r#"{"kind":1,"k":["requests",0,"completionTokens"],"v":10}"#.to_string(),
                 r#"{"kind":1,"k":["requests",1,"completionTokens"],"v":20}"#.to_string(),
@@ -1179,7 +1179,7 @@ mod tests {
                 header("[]"),
                 r#"{"kind":2,"k":["requests"],"v":[{"requestId":"request_a","timestamp":1790783284143}]}"#.to_string(),
                 r#"{"kind":1,"k":["requests",0,"completionTokens"],"v":10}"#.to_string(),
-                // 压缩重写：新初始行（状态里已含 request_a 最终值）。
+                // Compaction replacement initializes state already containing request_a's final values.
                 header(
                     r#"[{"requestId":"request_a","timestamp":1790783284143,"completionTokens":10}]"#,
                 ),
@@ -1367,9 +1367,9 @@ mod tests {
 
     #[test]
     fn turn_input_incomplete_alone_keeps_source_active() {
-        // 默认路径 turn（无 modelTotals）：promptTokens 只覆盖末次调用，产出
-        // turn_input_incomplete 覆盖提示。该提示是格式固有限制、非坏记录或对账差异，
-        // 不降级来源健康（否则每个普通 Copilot 会话都会被误标“需核对”）。
+        // A default turn without modelTotals reports only last-call promptTokens and emits
+        // turn_input_incomplete as a coverage notice, not a malformed-record diagnostic.
+        // This notice keeps source health active instead of marking every normal turn for review.
         let path = temp_log(
             "coverage-hint-active",
             &[header(
@@ -1393,7 +1393,7 @@ mod tests {
             .iter()
             .all(|d| d.code == "turn_input_incomplete"));
         assert_eq!(outcome.health, "active");
-        // 一条 turn observation 承载 token；两条 round 计 model_call、逐轮 token 未知。
+        // One turn observation carries tokens; two rounds count model_call with unknown per-call tokens.
         let obs = outcome
             .events
             .iter()

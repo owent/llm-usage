@@ -1,4 +1,4 @@
-//! Xum 探测：session-usage.json 的文档级指纹（byModel + lastRequest/version）。
+//! Detect documented session-usage.json fields: byModel and lastRequest/version.
 
 use crate::adapters::framework::DetectOutcome;
 use crate::domain::VersionBasis;
@@ -12,7 +12,7 @@ pub const XUM_FORMAT: &str = "xum-session-usage-json";
 const DETECT_HEAD_BYTES: usize = 64 * 1024;
 
 pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
-    // 瞬态不可读（持锁/超时/枚举后被清理）⇒ Pending 下轮重探，不固化失败。
+    // Temporary lock/timeout/removal after enumeration is Pending; retry detection next run.
     let Some(head) = crate::adapters::framework::read_detect_head(path, DETECT_HEAD_BYTES)? else {
         return Ok(DetectOutcome::Pending);
     };
@@ -23,9 +23,9 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     let has_by_model = text.contains("\"byModel\"");
     let has_anchor = text.contains("\"lastRequest\"") || text.contains("\"version\"");
     if has_by_model && has_anchor {
-        // version 整数字段如实判定（V30）：参考解析器（tokscale mux.rs）覆盖
-        // version=1/缺失的文档形态；其他整数值是未见形态 ⇒ LatestFallback
-        // 兼容尝试，不能虚标 KnownVersion。
+        // Classify integer version honestly (V30): reference parser tokscale mux.rs covers
+        // documented version=1 or absent; unseen integer values use LatestFallback
+        // compatibility attempts, without claiming KnownVersion.
         let basis = match crate::adapters::run_policy::json_from_str::<serde_json::Value>(&text) {
             Ok(doc) if doc.is_object() => {
                 if !doc.get("byModel").is_some_and(|v| v.is_object())
@@ -46,7 +46,7 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
                     reason: "Xum session usage must be a JSON object".to_string(),
                 });
             }
-            // 头部窗口截断或 JSON 无法完整解析时不声明版本已验证。
+            // A truncated prefix or incomplete JSON parse does not verify the version.
             Err(_) => VersionBasis::LatestFallback,
         };
         Ok(DetectOutcome::Supported {

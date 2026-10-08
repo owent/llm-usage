@@ -1,0 +1,16 @@
+---
+import DefaultHead from '@astrojs/starlight/components/Head.astro';
+---
+<DefaultHead />
+<meta name="color-scheme" content="light dark" />
+<script>
+  import { preferredLanguage, localizedPath, preferenceKey } from '../lib/language.mjs';
+  if (location.pathname === '/') {
+    let saved;
+    try { saved = localStorage.getItem(preferenceKey); } catch { /* Storage may be unavailable. */ }
+    const explicit = new URL(location.href).searchParams.get('lang');
+    if (explicit === 'en' || explicit === 'zh-CN') saved = explicit;
+    const language = preferredLanguage(navigator.languages, saved);
+    if (language === 'zh-CN') location.replace(localizedPath(location.pathname, language) + location.search + location.hash);
+  }
+</script>

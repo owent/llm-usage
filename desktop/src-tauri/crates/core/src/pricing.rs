@@ -1,40 +1,40 @@
-//! F2 价格快照与费用估算（[价格规范](../../../docs/design/desktop-usage/pricing.md)、
-//! [费用计算规则](../../../docs/design/desktop-usage/data-contract.md#pricing)）。
+//! F2 price snapshots and cost estimates: see the [pricing specification](../../../docs/design/desktop-usage/pricing.md)
+//! and [cost calculation rules](../../../docs/design/desktop-usage/data-contract.md#pricing).
 //!
-//! 单位约定：价格 = 最小货币单位的百分之一 / 百万 token（i64，如 $0.075/M = 750）；
-//! 计费项金额 = round_half_up(token × 价格 / 100_000_000)，i128 中间量，四舍五入到
-//! 最小货币单位后累加；不用二进制浮点。
+//! Rates use hundredths of a minor currency unit per million tokens (i64; $0.075/M = 750).
+//! Per-event components use round_half_up(tokens * rate / 100_000_000), with i128 arithmetic.
+//! Also retain exact numerators so aggregate callers can sum before rounding; no binary floats.
 //!
-//! 边界：实际渠道不明时仅展示同模型官方 API 价格参考，候选渠道/币种有歧义不套价；推理子集无独立
-//! 价格行、绝不与输出重复计价；未知 token 不补零；异常 token 拒绝进入费用计算。
+//! Unknown billing channels permit an unambiguous official API reference for the same model.
+//! Do not price reasoning twice, fill unknown tokens with zero, or price anomalous tokens.
 
 use crate::error::CoreError;
 use jiff::civil::Date;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-/// 仓库随版本维护的种子快照（种子导入幂等，见 [`crate::storage::pricing`]）。
+/// Repository seed snapshot maintained with releases; imports skip duplicates in storage::pricing.
 pub const SEED_SNAPSHOT_JSON: &str = include_str!("../prices/seed-2026-09-25.json");
 pub const SUPPLEMENT_SNAPSHOT_JSON: &str = include_str!("../prices/seed-2026-10-02.json");
 
-/// 币种枚举（种子与本程序当前核验范围；新币种需先核验对应价格资料再扩展）。
+/// Currencies checked for the seed and current application; verify price references before adding one.
 pub const CURRENCIES: &[&str] = &["USD", "CNY"];
 
-/// 服务档位（估算只自动匹配 standard；batch/flex/fast 行不串用）。
+/// Service tiers; automatic estimation selects standard without mixing batch/flex/fast rows.
 pub const SERVICE_TIERS: &[&str] = &["standard", "batch", "flex", "fast"];
 
-/// 缓存写 TTL 档（分钟）。
+/// Cache-write TTL tiers in minutes.
 pub const CACHE_TTL_5M_MINUTES: u32 = 5;
 pub const CACHE_TTL_1H_MINUTES: u32 = 60;
 
-/// 金额换算分母：token × 价格(百分之一最小单位/Mtok) → 最小货币单位。
+/// Denominator converting tokens * hundredths of a minor unit/M tokens to minor units.
 const TOKEN_PRICE_DIVISOR: i128 = 100_000_000;
 
 // ---------------------------------------------------------------------------
-// 快照文件格式
+// Snapshot file format.
 // ---------------------------------------------------------------------------
 
-/// 快照 JSON 文件（种子与用户手工导入同格式）。
+/// Snapshot JSON format shared by seed and manually imported files.
 #[derive(Debug, Clone, Deserialize)]
 pub struct SnapshotFile {
     pub format: String,
@@ -45,11 +45,11 @@ pub struct SnapshotFile {
 #[derive(Debug, Clone, Deserialize)]
 pub struct SnapshotMetaFile {
     pub id: String,
-    /// seed / manual / community。
+    /// Source type: seed, manual, or community.
     pub source_type: String,
     #[serde(default)]
     pub source_urls: Vec<String>,
-    /// ISO 日期（YYYY-MM-DD，UTC）。
+    /// ISO date in UTC (YYYY-MM-DD).
     pub fetched_at: String,
     #[serde(default)]
     pub verified_at: Option<String>,
@@ -72,7 +72,7 @@ pub struct PriceRowFile {
     pub service_tier: String,
     #[serde(default)]
     pub context_threshold_tokens: Option<i64>,
-    /// ISO 日期（YYYY-MM-DD，UTC 零点）。
+    /// ISO date at UTC midnight (YYYY-MM-DD).
     pub effective_from: String,
     #[serde(default)]
     pub effective_to: Option<String>,
@@ -89,8 +89,8 @@ pub struct PriceRowFile {
     pub output: Option<i64>,
     #[serde(default)]
     pub cache_storage_hour: Option<i64>,
-    /// 官方供应商按量价标记（v11；None = 按快照来源类型默认：seed/community
-    /// 为 true，manual 为 false）。
+    /// Official supplier pay-as-you-go flag (v11). When absent, source type supplies the default:
+    /// true for seed/community, false for manual.
     #[serde(default)]
     pub official_vendor: Option<bool>,
     #[serde(default)]
@@ -101,7 +101,7 @@ fn default_service_tier() -> String {
     "standard".to_string()
 }
 
-/// 解析后的快照（进入存储层前的运行时形态）。
+/// Parsed snapshot passed to storage.
 #[derive(Debug, Clone)]
 pub struct PriceSnapshot {
     pub snapshot_id: String,
@@ -125,9 +125,9 @@ pub struct PriceRow {
     pub region: String,
     pub channel: String,
     pub service_tier: String,
-    /// NULL 阈值归一为 0。
+    /// Normalize a NULL threshold to zero.
     pub context_threshold_tokens: i64,
-    /// 半开 [from, to)；to None = 仍有效。
+    /// Half-open [from, to) interval; None for to means still effective.
     pub effective_from_ms: i64,
     pub effective_to_ms: Option<i64>,
     pub input_per_mtok_hundredths: Option<i64>,
@@ -137,12 +137,12 @@ pub struct PriceRow {
     pub output_per_mtok_hundredths: Option<i64>,
     pub cache_storage_per_mtok_hour_hundredths: Option<i64>,
     pub currency: String,
-    /// 官方供应商按量价标记：无精确匹配时的回退候选池（pricing.md 在线刷新设计）。
+    /// Official supplier flag identifying fallback candidates when exact matching fails.
     pub official_vendor: bool,
     pub note: Option<String>,
 }
 
-/// ISO 日期（YYYY-MM-DD）→ UTC 零点毫秒。
+/// Convert an ISO date (YYYY-MM-DD) to UTC midnight milliseconds.
 pub(crate) fn iso_date_to_ms(text: &str, what: &str) -> Result<i64, CoreError> {
     let date = Date::strptime("%Y-%m-%d", text).map_err(|e| {
         CoreError::Validation(format!(
@@ -156,7 +156,7 @@ pub(crate) fn iso_date_to_ms(text: &str, what: &str) -> Result<i64, CoreError> {
     Ok(dt.timestamp().as_millisecond())
 }
 
-/// FNV-1a 内容哈希（跨版本稳定；用于同快照幂等导入判定）。
+/// Stable FNV-1a content hash for duplicate snapshot import checks.
 pub(crate) fn fnv1a(bytes: &[u8]) -> u64 {
     let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
     for &b in bytes {
@@ -167,13 +167,13 @@ pub(crate) fn fnv1a(bytes: &[u8]) -> u64 {
 }
 
 impl PriceSnapshot {
-    /// 内容哈希十六进制表示（TEXT 存储形态）。
+    /// Hexadecimal content hash as stored in a TEXT column.
     pub fn content_hash_hex(&self) -> String {
         format!("{:016x}", self.content_hash)
     }
 
-    /// 校验并归一化快照：格式标记、币种/档位枚举、非负价格、生效区间合法、
-    /// 同键区间不重叠、行内 price_id 唯一。
+    /// Validate and normalize the format, currency/tier enums, nonnegative rates, valid intervals,
+    /// nonoverlapping intervals for each key, and unique price_id values within the snapshot.
     pub fn from_file(file: &SnapshotFile) -> Result<Self, CoreError> {
         if file.format != "llm-usage-price-snapshot/1" {
             return Err(CoreError::Validation(format!(
@@ -307,7 +307,7 @@ impl PriceSnapshot {
             });
         }
 
-        // 同键区间不重叠（半开 [from, to)；to None 视为 +∞，其后不得再有同键行）。
+        // Same-key intervals are half-open; an open-ended row excludes later rows with that key.
         let mut by_key: BTreeMap<String, Vec<&PriceRow>> = BTreeMap::new();
         for row in &rows {
             let key = format!(
@@ -339,7 +339,7 @@ impl PriceSnapshot {
             }
         }
 
-        // 内容哈希：修正必须换快照 ID（A10 幂等导入的前提）。
+        // Content changes require a new snapshot ID for A10 duplicate import checks.
         let mut hash_input = String::new();
         hash_input.push_str(&meta.id);
         hash_input.push_str(&meta.source_type);
@@ -387,11 +387,11 @@ impl PriceSnapshot {
 }
 
 // ---------------------------------------------------------------------------
-// 估算引擎（纯函数）
+// Pure estimation functions.
 // ---------------------------------------------------------------------------
 
-/// 估算输入：单条 model_call 事件的计价相关字段。
-/// 调用方负责按 quality_json 把非 known（reported/derived）字段置 None。
+/// Price-related fields of a model_call or usage_observation event.
+/// Callers map fields with quality other than reported/derived to None using quality_json.
 #[derive(Debug, Clone, Default)]
 pub struct PricingEvent {
     pub provider_id: Option<String>,
@@ -405,79 +405,79 @@ pub struct PricingEvent {
     pub output_total: Option<i64>,
 }
 
-/// 估算选项：精确渠道价优先；未知渠道仅允许无歧义的同型号官方参考。
+/// Prefer exact channel prices; unknown channels require an unambiguous official model reference.
 #[derive(Debug, Clone, Default)]
 pub struct EstimateOptions {
-    /// 供应商（casefold 键）→ 用户选定的 (region, channel)。
+    /// Case-folded provider keys mapped to user-selected (region, channel) pairs.
     pub provider_channels: BTreeMap<String, (String, String)>,
-    /// 供应商（casefold 键）→ 缓存写默认 TTL 档（5/60 分钟）。
+    /// Case-folded provider keys mapped to default cache-write TTL tiers (5/60 minutes).
     pub cache_ttl_minutes: BTreeMap<String, u32>,
 }
 
-/// 估算用价格行集合（存储层载入全部行）。
+/// All price rows loaded from storage for estimation.
 #[derive(Debug, Clone, Default)]
 pub struct PriceBook {
     pub rows: Vec<PriceRow>,
 }
 
-/// 单事件估算结果。
+/// Estimate for one event.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EventEstimate {
-    /// 至少一个分量计价成功（其余分量可能未计价——见 known/priced token 与
-    /// 分量 Option）。
+    /// At least one component was priced; other components may remain unpriced.
+    /// See known/priced token counts and the component Option values.
     Priced(Box<EventEstimateAmounts>),
-    /// 整条事件未计价（金额空，不写 0）。
+    /// No component was priced; leave the amount absent instead of writing zero.
     Unpriced(UnpricedReason),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EventEstimateAmounts {
-    /// Exact token * rate numerators, retained until the reporting scope is summed.
+    /// Exact tokens * rate numerators retained until the reporting scope has been summed.
     pub component_numerators: [Option<i128>; 4],
-    /// Aggregate context tiers are unknown; this is the upper bound for priced components.
+    /// Upper bound for priced components when archived request context tiers are unknown.
     pub upper_numerators: Option<[Option<i128>; 4]>,
     pub currency: String,
-    /// 分量金额（最小货币单位）；None = 该分量未计价（token 已知但价格缺）。
+    /// Component amounts in minor units; None means the component was not priced.
     pub input_amount_minor: Option<i64>,
     pub cache_read_amount_minor: Option<i64>,
     pub cache_write_amount_minor: Option<i64>,
     pub output_amount_minor: Option<i64>,
-    /// 已计价分量金额合计（仅 Some 分量求和）。
+    /// Sum only the priced component amounts.
     pub total_amount_minor: i64,
-    /// 已计价 token 数（按可计价分量）。
+    /// Tokens in components that can be priced.
     pub priced_tokens: i64,
-    /// 已知 token 数（含未计价分量；覆盖比例 = priced/known）。
+    /// Known tokens including unpriced components; coverage is priced/known.
     pub known_tokens: i64,
-    /// 存在未知 token 分量（输出或未缓存输入未知）：金额只能部分估算（A2）。
+    /// Unknown output or uncached input limits the estimate to known components (A2).
     pub has_unknown_components: bool,
-    /// 缓存写 TTL 采用用户默认档（事件未提供该值）。
+    /// The event lacks cache-write TTL, so estimation uses the user default.
     pub ttl_defaulted: bool,
-    /// 无精确 provider+模型匹配时采用了官方供应商按量价行（参考估算；
-    /// pricing.md 在线刷新设计）。
+    /// An official pay-as-you-go row supplies a reference after exact provider/model matching fails;
+    /// see the online price refresh specification in pricing.md.
     pub official_fallback: bool,
-    /// Actual price model for an explicitly authorized cross-model reference.
+    /// Price model used for an explicitly authorized reference to a different model.
     pub substitute_model: Option<String>,
-    /// 参与计价的价格行（追溯）。
+    /// IDs of the price rows used in this estimate.
     pub matched_price_ids: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UnpricedReason {
-    /// 来源没有报告任何可用于计价的 token 分量。
+    /// The source reported no token components usable for pricing.
     NoKnownUsage,
     NoProvider,
     NoModel,
-    /// 官方参考渠道/地区/币种仍有歧义，或未知系列缺少渠道配置。
+    /// Official reference channels/regions/currencies remain ambiguous or lack required configuration.
     ChannelUnknown,
-    /// 无适用价格行（含事件早于快照生效起点）。
+    /// No applicable price row, including events before its effective start.
     NoPriceRow,
-    /// Separator normalization found distinct catalog IDs without an exact match.
+    /// Separator normalization found different catalog IDs without an exact match.
     ModelAmbiguous,
-    /// 存在多个上下文档但事件输入规模未知：不猜测档位。
+    /// Multiple context tiers exist but input size is unknown; leave the tier unselected.
     TierAmbiguous,
-    /// token 异常（负值或缓存大于已知总输入）：拒绝计价。
+    /// Negative tokens or cache tokens exceeding known total input prevent pricing.
     TokenAnomaly,
-    /// 中间量溢出：拒绝该事件计价并记诊断。
+    /// Intermediate overflow rejects pricing for this event and records a diagnostic.
     InternalOverflow,
 }
 
@@ -497,7 +497,7 @@ impl UnpricedReason {
     }
 }
 
-/// 单分量计价：token × 价格(百分之一最小单位/Mtok) ÷ 1e8，四舍五入到最小货币单位。
+/// Price one component: tokens * hundredths of a minor unit/M tokens / 1e8, rounded half up.
 fn component_amount_minor(token: i64, price_hundredths: i64) -> Result<i64, CoreError> {
     let value = (token as i128)
         .checked_mul(price_hundredths as i128)
@@ -509,7 +509,7 @@ fn component_amount_minor(token: i64, price_hundredths: i64) -> Result<i64, Core
     i64::try_from(minor).map_err(|_| CoreError::Overflow("cost component amount"))
 }
 
-/// 分量槽位（金额列 + token 来源）。
+/// Component slot pairing an amount column with its token field.
 #[derive(Debug, Clone, Copy)]
 enum Slot {
     Input,
@@ -535,7 +535,7 @@ impl Slot {
 }
 
 impl PriceBook {
-    /// Narrow once per model, retaining all intervals, tiers and snapshot priority.
+    /// Filter once per model, retaining all intervals, tiers, and snapshot priorities.
     pub fn for_model(&self, event: &PricingEvent) -> PriceBook {
         let model = crate::model_names::model_key(
             event
@@ -566,7 +566,7 @@ impl PriceBook {
         }
     }
 
-    /// 按发生时价计价（权威估算：区间按事件 occurred_at 匹配）。
+    /// Estimate using the price interval containing the event occurred_at timestamp.
     pub fn estimate_at_time(
         &self,
         event: &PricingEvent,
@@ -575,7 +575,7 @@ impl PriceBook {
         self.estimate_inner(event, options, event.occurred_at_ms, false, false)
     }
 
-    /// 按指定参考时点计价：`at_ms` 传入评估时点（now）即为"按当前价格模拟"。
+    /// Estimate at at_ms; passing now selects the current price reference.
     pub fn estimate(
         &self,
         event: &PricingEvent,
@@ -585,8 +585,8 @@ impl PriceBook {
         self.estimate_inner(event, options, at_ms, false, true)
     }
 
-    /// Archived token sums cannot identify a request's context tier. Return
-    /// component-wise bounds over a single selected tariff, never tier by day sum.
+    /// Archived sums do not identify individual request context tiers. Return component bounds
+    /// within one selected tariff; do not select a tier from a whole day's input sum.
     pub fn estimate_aggregate(
         &self,
         event: &PricingEvent,
@@ -627,7 +627,7 @@ impl PriceBook {
             event.occurred_at_ms,
         );
 
-        // 异常 token：负值 / 缓存大于已知总输入（不用 max(0,…) 修饰）。
+        // Reject negative tokens or cache exceeding known total input; do not replace them with zero.
         let read = event.input_cache_read;
         let write = event.input_cache_write;
         let total_input = event.input_total;
@@ -665,7 +665,7 @@ impl PriceBook {
             }
         }
 
-        // 区间匹配：from ≤ at_ms < to（to NULL = 开放）。
+        // Select intervals where from <= at_ms < to; NULL to means open-ended.
         let in_range = |r: &&PriceRow| {
             (crate::model_names::model_key(&r.model) == model
                 || crate::model_names::model_key(&r.model) == reference_model)
@@ -691,7 +691,7 @@ impl PriceBook {
         {
             candidates.retain(|r| crate::model_names::model_key(&r.model) == model);
         }
-        // Reference pricing also works when the billing channel/provider is unknown.
+        // Unknown billing channels/providers can still show a reference without inferring actual billing.
         // Vendor families restrict fallback; the model release must still match exactly.
         let mut official_fallback = false;
         if candidates.is_empty() {
@@ -713,8 +713,8 @@ impl PriceBook {
                     if let Some(substitute) =
                         crate::model_names::reference_price_substitute(&reference_model)
                     {
-                        // Reuse channel/currency/tier validation, but only official
-                        // rows of this explicitly allowed substitute can participate.
+                        // Reuse channel, currency, and tier checks; only official rows for this explicitly
+                        // authorized substitute model may participate.
                         let substitute_book = PriceBook {
                             rows: self
                                 .rows
@@ -793,8 +793,8 @@ impl PriceBook {
                 preferred
             };
             official_fallback = true;
-            // Select one vendor/channel before choosing its context tier. Mixing rows
-            // across vendors/currencies can otherwise pick an unrelated high tier.
+            // Select one vendor/channel before its context tier; mixing vendors or currencies
+            // could otherwise select an unrelated high tier.
             let first = candidates[0];
             if candidates.iter().any(|r| {
                 r.currency != first.currency
@@ -810,8 +810,8 @@ impl PriceBook {
                     && r.currency == first.currency
             });
         }
-        // Resolve catalog spelling before context tiers: a different spelling's
-        // higher tier must never override an exact ID.
+        // Resolve catalog spelling before context tiers; a higher tier under a different
+        // spelling must not override an exact model ID.
         let raw_model = event
             .model_canonical
             .as_deref()
@@ -835,8 +835,8 @@ impl PriceBook {
         {
             return EventEstimate::Unpriced(UnpricedReason::ModelAmbiguous);
         }
-        // A tariff's tiers must come from one prioritized snapshot. Combining a
-        // newer base rate with an older long-context rate creates a fictitious tariff.
+        // Take all tariff tiers from one prioritized snapshot; mixing a new base rate
+        // with an older long-context rate would invent a tariff.
         let snapshot = candidates[0].snapshot_id.clone();
         candidates.retain(|r| r.snapshot_id == snapshot);
         if aggregate {
@@ -872,8 +872,8 @@ impl PriceBook {
                 (other, _) => other,
             };
         }
-        // 即使只有一个高档价格行，也必须验证输入达到该行阈值。
-        // 多档且输入规模未知时不能从价格簿顺序猜测档位。
+        // Even a lone high-tier row requires input at or above its threshold.
+        // Unknown input size cannot select among tiers by price-book order.
         let input_size = total_input.or_else(|| {
             event
                 .input_uncached?
@@ -894,7 +894,7 @@ impl PriceBook {
         } else if candidates.iter().any(|r| r.context_threshold_tokens != 0) {
             return EventEstimate::Unpriced(UnpricedReason::TierAmbiguous);
         }
-        // 相同档位跨快照重复时，候选行已按快照优先级排序。
+        // Candidates with the same tier are already ordered by snapshot priority.
         let estimate = self.price_with_row(event, options, candidates[0]);
         match (official_fallback, estimate) {
             (true, EventEstimate::Priced(mut amounts)) => {
@@ -905,20 +905,20 @@ impl PriceBook {
         }
     }
 
-    /// 已选定价格行后的分量计价。
+    /// Price components after selecting a price row.
     fn price_with_row(
         &self,
         event: &PricingEvent,
         options: &EstimateOptions,
         row: &PriceRow,
     ) -> EventEstimate {
-        // TTL 默认档按事件供应商的用户配置取（回退行 provider 与事件不同也适用）。
+        // Use the event provider's configured TTL default even when the fallback provider differs.
         let provider = event
             .provider_id
             .as_deref()
             .unwrap_or_default()
             .to_lowercase();
-        // 未缓存输入：优先显式值；否则 total − read − write（三者均已知时派生）。
+        // Prefer explicit uncached input; otherwise derive total - read - write only if all are known.
         let uncached = event.input_uncached.or(
             match (
                 event.input_total,
@@ -963,7 +963,7 @@ impl PriceBook {
                 .ok_or(CoreError::Overflow("cost known tokens"))?;
             let p = match price {
                 Some(p) => p,
-                None => return Ok(()), // 分量未计价：价格列缺失
+                None => return Ok(()), // The component is unpriced because its rate is absent.
             };
             let amount = component_amount_minor(tok, p)?;
             amounts.component_numerators[slot.index()] = Some(i128::from(tok) * i128::from(p));
@@ -1002,7 +1002,7 @@ impl PriceBook {
             )
         })
         .and_then(|()| {
-            // 缓存写：TTL 档由用户默认选定（事件未提供 TTL）；未设默认档不计价。
+            // Use a user-selected TTL when the event lacks one; without a default, leave writes unpriced.
             let write = match event.input_cache_write {
                 Some(w) => w,
                 None => return Ok(()),
@@ -1011,7 +1011,7 @@ impl PriceBook {
                 .known_tokens
                 .checked_add(write)
                 .ok_or(CoreError::Overflow("cost known tokens"))?;
-            // 已知零写入无需猜测 TTL，也不会产生写入费用。
+            // Known zero writes require no TTL choice and incur no write amount.
             if write == 0 {
                 amounts.component_numerators[2] = Some(0);
                 amounts.cache_write_amount_minor = Some(0);
@@ -1038,7 +1038,7 @@ impl PriceBook {
                     amounts.ttl_defaulted = true;
                     Ok(())
                 }
-                None => Ok(()), // 无默认档或该档无价：写分量未计价
+                None => Ok(()), // No default TTL or no rate for that tier leaves writes unpriced.
             }
         });
         match result {
@@ -1052,7 +1052,7 @@ impl PriceBook {
                 .iter()
                 .all(Option::is_none)
                 {
-                    // 所有分量均未计价（价格列缺失或 token 未知）：整条未计价。
+                    // With no priced components, return an unpriced event instead of a zero amount.
                     EventEstimate::Unpriced(UnpricedReason::NoPriceRow)
                 } else {
                     EventEstimate::Priced(Box::new(amounts))
@@ -1066,7 +1066,7 @@ impl PriceBook {
     }
 }
 
-/// 解析快照 JSON 文本（种子或用户文件）。
+/// Parse snapshot JSON from a repository seed or a user file.
 pub fn parse_snapshot_json(text: &str) -> Result<PriceSnapshot, CoreError> {
     let file: SnapshotFile = serde_json::from_str(text)
         .map_err(|e| CoreError::Validation(format!("price snapshot JSON parse failed: {e}")))?;
@@ -1106,7 +1106,7 @@ mod tests {
             .rows
             .iter()
             .all(|r| r.currency == "USD" || r.currency == "CNY"));
-        // 种子内 glm-5.1 两档阈值并存且不重叠。
+        // The seed retains both nonoverlapping glm-5.1 context tiers.
         let glm51: Vec<&PriceRow> = snapshot
             .rows
             .iter()
@@ -1119,7 +1119,7 @@ mod tests {
     fn rejects_negative_price_and_overlap() {
         let neg = snapshot_json(vec![row_json("a", -1, 0, None, 0)]);
         assert!(parse_snapshot_json(&neg).is_err());
-        // 同键两行首尾相接不重叠（from 相同则重叠）。
+        // Adjacent same-key intervals do not overlap; equal starts do.
         let overlap = snapshot_json(vec![
             row_json("a", 10, 0, None, 0),
             row_json("b", 10, 0, None, 0),
@@ -1129,13 +1129,13 @@ mod tests {
 
     #[test]
     fn amount_rounding_matches_contract() {
-        // $10/M = 100000 百分之一美分；1 token × 100000 / 1e8 → 0.001 美分 → 0。
+        // $10/M = 100000 hundredths of a cent; 1 * 100000 / 1e8 = 0.001 cent, rounded to 0.
         assert_eq!(component_amount_minor(1, 100_000).unwrap(), 0);
-        // 1,234,567 × 80000 / 1e8 = 987.6536 → 988（E1 输入分量）。
+        // E1 input: 1,234,567 * 80000 / 1e8 = 987.6536, rounded to 988.
         assert_eq!(component_amount_minor(1_234_567, 80_000).unwrap(), 988);
-        // 1,000 × 280000 / 1e8 = 2.8 → 3（E6 输出分量，四舍五入）。
+        // E6 output: 1,000 * 280000 / 1e8 = 2.8, rounded half up to 3.
         assert_eq!(component_amount_minor(1_000, 280_000).unwrap(), 3);
-        // 32,768 × 80000 / 1e8 = 26.2144 → 26（E6 输入分量）。
+        // E6 input: 32,768 * 80000 / 1e8 = 26.2144, rounded to 26.
         assert_eq!(component_amount_minor(32_768, 80_000).unwrap(), 26);
     }
 
@@ -1166,7 +1166,7 @@ mod tests {
             book.estimate_at_time(&event, &EstimateOptions::default()),
             EventEstimate::Unpriced(UnpricedReason::ChannelUnknown)
         );
-        // 配置渠道后可计价（小 token 舍入为 0 是合法金额）。
+        // Configuring a channel enables pricing; a small known amount can round to zero.
         match book.estimate_at_time(&event, &base_options()) {
             EventEstimate::Priced(a) => {
                 assert_eq!(a.currency, "USD");
@@ -1189,7 +1189,7 @@ mod tests {
             occurred_at_ms: 1_800_000_000_000,
             input_total: Some(100),
             input_cache_read: Some(90),
-            input_cache_write: Some(20), // 110 > 100
+            input_cache_write: Some(20), // Cache sum 110 exceeds total input 100.
             output_total: Some(50),
             ..Default::default()
         };
@@ -1201,7 +1201,7 @@ mod tests {
 
     #[test]
     fn tier_selection_requires_known_input_size() {
-        // P5/P6：glm-5.1 [0,32K) ¥6/¥24 与 [32K+) ¥8/¥28（百分之一分单位）。
+        // P5/P6 rates: glm-5.1 [0,32K) at CNY 6/24 and [32K,+inf) at CNY 8/28 per M tokens.
         let rows = [
             r#"{"price_id":"t0","provider_id":"p","model":"m","region":"r","channel":"c",
                 "context_threshold_tokens":0,"effective_from":"2026-01-01","currency":"CNY",
@@ -1229,12 +1229,12 @@ mod tests {
             output_total: Some(1_000),
             ..Default::default()
         };
-        // 输入规模未知 → 不猜档。
+        // Unknown input size leaves the context tier unselected.
         assert_eq!(
             book.estimate_at_time(&base, &base_options()),
             EventEstimate::Unpriced(UnpricedReason::TierAmbiguous)
         );
-        // E6：输入 32,768 命中高档 → 26 + 3 = 29 分。
+        // E6: input 32,768 selects the high tier; 26 + 3 = 29 minor units.
         let at_tier = PricingEvent {
             input_total: Some(32_768),
             input_uncached: Some(32_768),
@@ -1250,7 +1250,7 @@ mod tests {
             }
             other => panic!("expected priced, got {other:?}"),
         }
-        // E7：输入 32,767 命中低档 → 20 + 2 = 22 分。
+        // E7: input 32,767 selects the low tier; 20 + 2 = 22 minor units.
         let below = PricingEvent {
             input_total: Some(32_767),
             input_uncached: Some(32_767),
@@ -1307,7 +1307,7 @@ mod tests {
 
     #[test]
     fn cache_write_requires_ttl_default() {
-        // $10/$1/$3/$50 per Mtok（百分之一美分单位）。
+        // Synthetic rates: $0.10/$0.01/$0.03/$0.50 per M tokens (1000/100/300/5000 hundredths of a cent).
         let snapshot = parse_snapshot_json(&snapshot_json(vec![row_json(
             "a",
             1000,
@@ -1328,7 +1328,7 @@ mod tests {
             output_total: Some(1_000_000),
             ..Default::default()
         };
-        // 未设默认档：写分量未计价，其余照计（10+0+50 → 部分计价）。
+        // No default TTL leaves writes unpriced; input/output still total 10 + 50 = 60 cents.
         match book.estimate_at_time(&event, &base_options()) {
             EventEstimate::Priced(a) => {
                 assert_eq!(a.cache_write_amount_minor, None);
@@ -1337,7 +1337,7 @@ mod tests {
             }
             other => panic!("expected priced, got {other:?}"),
         }
-        // 设默认 5m 档后：写分量 1M×300/1e8=3，标 defaulted。
+        // Default 5m TTL prices writes at 1M * 300 / 1e8 = 3 cents and sets defaulted.
         let mut options = base_options();
         options.cache_ttl_minutes.insert("p".into(), 5);
         match book.estimate_at_time(&event, &options) {
@@ -1363,7 +1363,7 @@ mod tests {
         let book = PriceBook {
             rows: snapshot.rows,
         };
-        // 无显式 uncached：total 3_000_000 − read 1_000_000 − write 1_000_000 = 1M。
+        // No explicit uncached input: total 3_000_000 - read 1_000_000 - write 1_000_000 = 1M.
         let event = PricingEvent {
             provider_id: Some("p".into()),
             model_raw: Some("m".into()),
@@ -1378,7 +1378,7 @@ mod tests {
         options.cache_ttl_minutes.insert("p".into(), 5);
         match book.estimate_at_time(&event, &options) {
             EventEstimate::Priced(a) => {
-                // 1M×1000 + 1M×100 + 1M×300 + 1M×5000 → 10+1+3+50 = 64。
+                // Divide each 1M * rate product by 1e8: 10 + 1 + 3 + 50 = 64 cents.
                 assert_eq!(a.total_amount_minor, 64);
                 assert_eq!(a.known_tokens, 4_000_000);
                 assert_eq!(a.priced_tokens, 4_000_000);
@@ -1397,7 +1397,7 @@ mod tests {
         let event = PricingEvent {
             provider_id: Some("p".into()),
             model_raw: Some("m".into()),
-            occurred_at_ms: 1_000_000_000_000, // 2001 年，早于 2026-01-01 生效起点
+            occurred_at_ms: 1_000_000_000_000, // Year 2001 precedes the effective start 2026-01-01.
             input_uncached: Some(100),
             output_total: Some(50),
             ..Default::default()
@@ -1409,10 +1409,10 @@ mod tests {
     }
 
     // ------------------------------------------------------------------
-    // 官方供应商回退匹配（当前规则；pricing.md 在线刷新设计）
+    // Official supplier fallback matching; see the online price refresh specification.
     // ------------------------------------------------------------------
 
-    /// 带 official_vendor 标记的行 JSON（seed/community 默认 true；manual 默认 false）。
+    /// Row JSON with official_vendor; seed/community default true and manual defaults false.
     fn row_json_official(id: &str, provider: &str, model: &str, official: Option<bool>) -> String {
         let flag = official
             .map(|v| format!(",\"official_vendor\":{v}"))
@@ -1425,7 +1425,7 @@ mod tests {
     }
 
     fn fallback_book() -> PriceBook {
-        // 社区快照：官方提供商 vendorA 的 m-one（official 默认 true）。
+        // Synthetic community snapshot: vendorA/m-one with the default official flag true.
         let community = format!(
             r#"{{"format":"llm-usage-price-snapshot/1",
                 "snapshot":{{"id":"comm-1","source_type":"community",
@@ -1452,7 +1452,7 @@ mod tests {
     #[test]
     fn official_fallback_prices_when_exact_match_missing() {
         let book = fallback_book();
-        // 事件 provider「relay-x」无精确行；回退到官方 vendorA 行并标记。
+        // relay-x has no exact price row; select the flagged vendorA reference and record fallback.
         let mut options = EstimateOptions::default();
         options
             .provider_channels
@@ -1460,12 +1460,12 @@ mod tests {
         match book.estimate_at_time(&fallback_event("relay-x"), &options) {
             EventEstimate::Priced(a) => {
                 assert!(a.official_fallback);
-                assert_eq!(a.total_amount_minor, 6000); // 1M×$10/M + 1M×$50/M = $60
+                assert_eq!(a.total_amount_minor, 6000); // 1M * $10/M + 1M * $50/M = $60.
                 assert_eq!(a.matched_price_ids, ["md-vendorA-m-one"]);
             }
             other => panic!("expected fallback priced, got {other:?}"),
         }
-        // 精确链命中时不回退：provider=vendorA 精确命中同一行，无回退标记。
+        // Exact provider vendorA matches the same row without a fallback flag.
         let mut options = EstimateOptions::default();
         options
             .provider_channels
@@ -1479,7 +1479,7 @@ mod tests {
     #[test]
     fn fallback_without_configured_channel_still_requires_official_rows() {
         let book = fallback_book();
-        // 无渠道配置也能展示唯一官方模型价，实付渠道仍不推断。
+        // An unambiguous official reference needs no channel configuration or actual billing inference.
         assert!(
             matches!(book.estimate_at_time(&fallback_event("relay-x"), &EstimateOptions::default()),
             EventEstimate::Priced(a) if a.official_fallback && a.total_amount_minor==6000)
@@ -1488,7 +1488,7 @@ mod tests {
         options
             .provider_channels
             .insert("relay-x".into(), ("r".into(), "c".into()));
-        // 模型无官方行 ⇒ no_price_row。
+        // A model with no official row returns no_price_row.
         let unknown_model = PricingEvent {
             model_raw: Some("no-such-model".into()),
             ..fallback_event("relay-x")
@@ -1497,7 +1497,7 @@ mod tests {
             book.estimate_at_time(&unknown_model, &options),
             EventEstimate::Unpriced(UnpricedReason::NoPriceRow)
         );
-        // 手工导入行默认非官方 ⇒ 不进回退候选池。
+        // Manual rows default to nonofficial and are excluded from fallback candidates.
         let manual_only = PriceBook {
             rows: parse_snapshot_json(&snapshot_json(vec![row_json_official(
                 "manual-1", "vendorB", "m-two", None,
@@ -1513,7 +1513,7 @@ mod tests {
             manual_only.estimate_at_time(&event, &options),
             EventEstimate::Unpriced(UnpricedReason::NoPriceRow)
         );
-        // 手工行显式 official_vendor: true ⇒ 参与回退。
+        // Explicit official_vendor: true allows a manual row to participate in fallback.
         let manual_official = PriceBook {
             rows: parse_snapshot_json(&snapshot_json(vec![row_json_official(
                 "manual-2",
@@ -1532,7 +1532,7 @@ mod tests {
 
     #[test]
     fn fallback_prefers_configured_region_channel_and_keeps_tier_rules() {
-        // 同一模型的两个官方行：region/channel 与配置一致者优先。
+        // Prefer the official row with region/channel matching the configured values.
         let rows = [
             r#"{"price_id":"g","provider_id":"vendorA","model":"m","region":"global","channel":"api",
                 "official_vendor":true,"effective_from":"2026-01-01","currency":"USD",
@@ -1570,7 +1570,7 @@ mod tests {
             }
             other => panic!("expected cn-preferred fallback, got {other:?}"),
         }
-        // 档位歧义在回退中同样不猜档：两个档位的官方行 + 输入规模未知。
+        // Fallback also leaves unknown request tiers unselected when two context tiers exist.
         let tiered = [
             r#"{"price_id":"t0","provider_id":"vendorA","model":"tm","region":"global","channel":"api",
                 "official_vendor":true,"context_threshold_tokens":0,"effective_from":"2026-01-01",

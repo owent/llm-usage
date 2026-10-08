@@ -1,4 +1,4 @@
-//! Kiro 探测：CLI 会话头 JSON 与 kiro-cli SQLite 双载体指纹。
+//! Detect Kiro CLI session-header JSON or kiro-cli SQLite.
 
 use crate::adapters::framework::DetectOutcome;
 use crate::domain::VersionBasis;
@@ -13,8 +13,8 @@ pub const KIRO_SQLITE_FORMAT: &str = "kiro-cli-sqlite";
 const DETECT_HEAD_BYTES: usize = 64 * 1024;
 
 pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
-    // SQLite 载体：按头 16 字节 magic（"SQLite format 3\0"）。
-    // 瞬态不可读（持锁/超时/枚举后被清理）⇒ Pending 下轮重探，不固化失败。
+    // Identify SQLite by its first 16 bytes: "SQLite format 3\0".
+    // Temporary lock, timeout or deletion after enumeration: Pending, retry next scan.
     let Some(head) = crate::adapters::framework::read_detect_head(path, DETECT_HEAD_BYTES)? else {
         return Ok(DetectOutcome::Pending);
     };
@@ -26,7 +26,7 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
             Ok(conn) => conn,
             Err(_) => return Ok(DetectOutcome::Pending),
         };
-        // busy 是瞬态（kiro-cli 写库中）：Pending 下轮重探，不误报 UnknownFormat。
+        // busy during kiro-cli writes is temporary: Pending, rather than UnknownFormat.
         if conn
             .busy_timeout(std::time::Duration::from_millis(150))
             .is_err()
@@ -56,7 +56,7 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     if !head.is_empty() && b"SQLite format 3\0".starts_with(&head) {
         return Ok(DetectOutcome::Pending);
     }
-    // CLI 会话头 JSON。
+    // CLI session-header JSON.
     let text = String::from_utf8_lossy(&head);
     if text.trim().is_empty() {
         return Ok(DetectOutcome::Pending);

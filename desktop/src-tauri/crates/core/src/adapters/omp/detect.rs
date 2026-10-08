@@ -1,12 +1,12 @@
-//! omp 探测与版本分派：有界读取前 4 行，确认 Agent 身份（首行 `type:"title"`
-//! 或 `type:"session"`，session 头在前 4 行内定位）后按 [`super::versions`]
-//! 注册表选择格式实现。
+//! omp detection reads at most four lines to identify a first-line title/session record
+//! and locate a session header within that window, then selects the implementation through
+//! the super::versions registry.
 //!
-//! 约定（architecture.md#unknown-version，首行闸口四态语义不变）：
-//! - 首行不是 JSON / 首行类型既非 title 也非 session ⇒ 未知格式，fail closed；
-//! - 有 title 但前 4 行内无 session 头 ⇒ Pending（可能仍在首次写入中）；
-//! - session 头 version 已收录 ⇒ KnownVersion；未收录或缺失 ⇒ LatestFallback
-//!   （带兼容标记，先尝试最新内置解析器，不直接拒绝）。
+//! Rules: architecture.md#unknown-version; preserve the four first-line detection outcomes.
+//! - Non-JSON/first type other than title/session: reject as unknown format.
+//! - Title without a session header in four lines: Pending, possibly an incomplete initial write.
+//! - Registered header version: KnownVersion; unregistered/missing: LatestFallback,
+//!   trying the latest built-in parser with compatibility metadata.
 
 use crate::error::CoreError;
 use std::path::Path;
@@ -18,9 +18,9 @@ use super::versions;
 
 pub const OMP_FORMAT: &str = "omp-session-jsonl";
 
-/// 探测一个 omp 会话文件并按注册表分派。
+/// Detect an omp session file and select through its version registry.
 pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
-    // omp 文件首行为 title（v=1），session 头在其后；有界读前 4 行定位。
+    // Native omp files begin with title v=1 before session; locate the header within four lines.
     let limits = JsonlLimits {
         chunk_bytes: 64 * 1024,
         max_line_bytes: DEFAULT_MAX_LINE_BYTES,
@@ -55,8 +55,8 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
         if line.get("type").and_then(|t| t.as_str()) != Some("session") {
             continue;
         }
-        // Agent 身份/输入类型已确认，按注册表分派；未收录/缺失版本回退最新
-        // 内置解析器并带兼容标记（V30；omp 旧版格式尚未核验，不直接拒绝）。
+        // With known product identity/input format, select through the registry; missing/unregistered
+        // versions try the latest parser with compatibility metadata. Older omp formats remain unverified (V30).
         let found = line.get("version").and_then(|v| v.as_i64());
         let selection = versions::select(found);
         return Ok(DetectOutcome::Supported {
@@ -65,6 +65,6 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
             basis: selection.basis,
         });
     }
-    // 有 title 但前 4 行内无 session 头：可能仍在首次写入中，下轮重探。
+    // Title without a session header in four lines may still be writing; retry next scan.
     Ok(DetectOutcome::Pending)
 }

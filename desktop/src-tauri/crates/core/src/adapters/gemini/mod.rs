@@ -1,12 +1,12 @@
-//! Gemini CLI 适配器（独立目录约定 architecture.md#adapter-layout）：
-//! - 本模块是该 Agent 的稳定入口（统一接口实现与再导出）；
-//! - [`detect`]：产品/格式探测（文档级指纹；gemini 无版本字段，不做版本分派）；
-//! - [`versions`]：统一形状的格式注册表（唯一条目：文档级 session-doc-1）；
-//! - map_genai_usage 是 gemini/qwen 跨 Agent 共享映射，留在根级 usage_map.rs。
+//! Gemini CLI adapter directory: architecture.md#adapter-layout.
+//! - Stable agent entry point with interface implementation and reexports.
+//! - detect checks the documented format; no native version field for dispatch.
+//! - versions exposes the single documented session-doc-1 format.
+//! - Shared gemini/qwen map_genai_usage remains in root usage_map.rs.
 //!
-//! 原始格式依据见 [`versions::session_doc1`] 文件头；
-//! M2 目录化迁移（V30）自根级 gemini.rs 原样迁入，拒绝语义不变：
-//! 未文档化消息 type 或载体外 tokens ⇒ 整文件拒绝（fail closed）。
+//! See versions::session_doc1 for format references.
+//! M2/V30 moved root gemini.rs without changing rejection behavior:
+//! reject undocumented message types or tokens outside the expected records.
 
 pub mod detect;
 pub mod versions;
@@ -17,12 +17,12 @@ pub use versions::{session_doc1, GEMINI_FORMAT_VERSION, LATEST_IMPL_ID, VERIFIED
 
 const UTF8_BOM: &[u8] = b"\xEF\xBB\xBF";
 
-/// 剥 UTF-8 BOM（detect 指纹探测与整文件解析共用；无 BOM 输入原样返回）。
+/// Remove UTF-8 BOM for detection/parsing; return BOM-free input unchanged.
 fn strip_bom(bytes: &[u8]) -> &[u8] {
     bytes.strip_prefix(UTF8_BOM).unwrap_or(bytes)
 }
 
-/// Gemini CLI 适配器（无状态）。
+/// Stateless Gemini CLI adapter.
 pub struct GeminiAdapter;
 
 impl Default for GeminiAdapter {
@@ -64,7 +64,7 @@ impl crate::adapters::framework::SourceAdapter for GeminiAdapter {
             if !tmp.is_dir() {
                 continue;
             }
-            // tmp/<project_hash>/chats/session-*.json：深度 2，有界枚举。
+            // Bounded depth-two JSON enumeration under tmp; expected chats use tmp/<project_hash>/chats/session-*.json.
             let files = crate::adapters::framework::enumerate_files_bounded(&tmp, 2, &|p| {
                 p.file_name()
                     .and_then(|n| n.to_str())
@@ -99,8 +99,8 @@ impl crate::adapters::framework::SourceAdapter for GeminiAdapter {
         limits: &crate::adapters::framework::ScanLimits,
         now_ms: i64,
     ) -> Result<crate::adapters::framework::ScanOutcome, crate::error::CoreError> {
-        // 唯一格式实现；无版本字段，detect 不按版本分派。注册表扩展多实现后
-        // （如 session-doc-2）在此按 detect 结论分派。
+        // One format without version dispatch. If the registry later adds implementations
+        // such as session-doc-2, dispatch here using the detection result.
         versions::session_doc1::scan(target, stored, limits, now_ms)
     }
 

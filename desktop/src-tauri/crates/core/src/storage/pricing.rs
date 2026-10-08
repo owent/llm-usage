@@ -1,10 +1,10 @@
-//! F2 价格快照持久化、日成本回填与费用汇总查询。
+//! F2 price snapshot storage, daily cost rebuilding, and cost summary queries.
 //!
-//! 维护模型（沿用 daily_usage 的封存语义）：
-//! - 事件批次提交后按受影响日回填 `daily_cost_usage`（只重写未封存日）；
-//! - 明细事件过期删除时，保留层在日成本行上封存（sealed=1），历史金额不再改写；
-//! - 价格快照导入不触发既有估算重算；重算仅在数据修订（事件批次）或用户显式
-//!   请求（`recompute_unsealed_cost_days`）时进行并更新引用。
+//! Follow the daily_usage archive rules:
+//! - Rebuild affected, unsealed daily_cost_usage rows after event batches commit.
+//! - Mark daily costs sealed=1 when detail retention expires; keep historical amounts.
+//! - Snapshot imports do not recalculate estimates. Event revisions or an explicit
+//!   recompute_unsealed_cost_days request rebuild eligible rows and their references.
 
 use crate::calendar::{parse_date, Calendar};
 use crate::error::CoreError;
@@ -17,14 +17,14 @@ use rusqlite::{params, Connection, OptionalExtension, Transaction};
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
 
-/// 费用行 kind：本程序按发生时价的估算。
+/// Cost kind for this application's estimate using prices at occurrence time.
 pub const KIND_ESTIMATE_AT_TIME: &str = "estimate_at_time";
-/// 费用行 kind：来源记录金额（EventInput.cost，Reported）。
+/// Cost kind for amounts reported by the source (EventInput.cost, Reported).
 pub const KIND_SOURCE_REPORTED: &str = "reported";
-/// 费用行 kind：来源自己给出的估算金额（EventInput.cost，Estimated）。
+/// Cost kind for the source's own estimates (EventInput.cost, Estimated).
 pub const KIND_SOURCE_ESTIMATE: &str = "source_estimate";
 
-/// 快照导入结果（A10：同 ID 同内容幂等跳过）。
+/// Snapshot import result; identical content under the same ID is skipped (A10).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SnapshotImportOutcome {
     pub snapshot_id: String,
@@ -32,7 +32,7 @@ pub struct SnapshotImportOutcome {
     pub already_present: bool,
 }
 
-/// 价格快照摘要（界面展示：来源、年龄、行数）。
+/// Snapshot summary for the UI: source, age, and row count.
 #[derive(Debug, Clone, Serialize)]
 pub struct PriceSnapshotInfo {
     pub snapshot_id: String,
@@ -46,7 +46,7 @@ pub struct PriceSnapshotInfo {
     pub row_count: i64,
 }
 
-/// 日成本回填结果。
+/// Result of rebuilding daily costs.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct CostDayOutcome {
     pub day: String,
@@ -72,7 +72,7 @@ struct CurrentReference {
 }
 
 impl Storage {
-    /// 导入价格快照（同 ID 同内容幂等；同 ID 异内容报错——修正须换快照 ID）。
+    /// Import a snapshot; identical IDs/content are skipped, differing content requires a new ID.
     pub fn import_price_snapshot(
         &self,
         snapshot: &PriceSnapshot,
@@ -84,7 +84,7 @@ impl Storage {
         Ok(outcome)
     }
 
-    /// 幂等导入仓库种子快照（应用启动时调用；不触发任何估算重算）。
+    /// Import repository seed snapshots at startup without recalculating existing estimates.
     pub fn ensure_seed_price_snapshot(
         &self,
         now_ms: i64,
@@ -102,16 +102,16 @@ impl Storage {
             crate::pricing::parse_snapshot_json(include_str!("../../prices/seed-2026-10-05.json"))?;
         import_price_snapshot_tx(&tx, &current, now_ms)?;
         tx.commit()?;
-        // Preserve the public return contract for the original seed snapshot.
+        // Preserve the original seed snapshot's public return values.
         Ok(result)
     }
 
-    /// 载入全部价格行（估算用价格簿）。
+    /// Load all price rows into the estimation price book.
     pub fn load_price_book(&self) -> Result<PriceBook, CoreError> {
         load_price_book_conn(self.conn())
     }
 
-    /// 价格快照列表（含行数）。
+    /// List price snapshots with row counts.
     pub fn list_price_snapshots(&self) -> Result<Vec<PriceSnapshotInfo>, CoreError> {
         let mut stmt = self.conn().prepare(
             "SELECT s.snapshot_id, s.source_type, s.source_urls, s.fetched_at_ms,
@@ -140,10 +140,10 @@ impl Storage {
         Ok(out)
     }
 
-    /// 采集后费用回填的选日：返回时区下"修订号大于 `revision_before` 的
-    /// 未封存日"（本轮事件批次重写过的日；封存日不动）。调用方在刷新起点
-    /// 捕获 revision_before——分级保留在扫描后还会 bump 修订号，不能用
-    /// "当前修订号相等"过滤。
+    /// Select unsealed days in this timezone with revisions greater than revision_before.
+    /// These days were rewritten by this collection batch; sealed days remain unchanged.
+    /// Capture revision_before at refresh start: retention can increment the revision after
+    /// scanning, so comparing against only the final current revision would omit changed days.
     pub fn cost_backfill_days_since(
         &self,
         timezone: &str,
@@ -162,8 +162,8 @@ impl Storage {
         Ok(out)
     }
 
-    /// One-time correction of retained, unsealed estimates after a matching-rule
-    /// fix. A price catalog refresh never changes this marker or historical costs.
+    /// Correct retained, unsealed estimates once after a price matching rule changes.
+    /// Catalog refreshes do not change this marker or historical amounts.
     pub fn ensure_cost_matching_policy(
         &self,
         timezone: &str,
@@ -186,8 +186,8 @@ impl Storage {
         Ok(())
     }
 
-    /// 回填单日成本（事件批次提交后/显式重算调用；只重写未封存日）。
-    /// 该日无明细事件时不重建（历史行可能来自已过期的明细，保持不动）。
+    /// Rebuild an unsealed day after an event batch or an explicit recalculation.
+    /// Keep existing costs when no detail events remain; they may represent expired details.
     pub fn recompute_cost_day(
         &self,
         timezone: &str,
@@ -205,7 +205,7 @@ impl Storage {
         Ok(outcome)
     }
 
-    /// 显式重算：回填时区下所有"仍有明细事件的未封存日"。
+    /// Explicitly rebuild all unsealed days in this timezone that still contain detail events.
     pub fn recompute_unsealed_cost_days(
         &self,
         timezone: &str,
@@ -237,13 +237,13 @@ impl Storage {
         Ok(out)
     }
 
-    /// 费用汇总：按发生时价估算与来源金额来自日成本行；按当前价格模拟即时
-    /// 计算仍保留的明细事件（明细过期后无法模拟，标 detail_limited）。
+    /// Historical estimates and source amounts come from daily costs. Current reference prices
+    /// apply to the same usage view, using mutually exclusive retained details or archives.
     pub fn cost_summary(&self, request: &CostSummaryRequest) -> Result<CostSummary, CoreError> {
         self.cost_summary_selected(request, None)
     }
 
-    /// Current reference can select local hour labels; frozen daily history is preserved.
+    /// Current references can select local hours; historical daily costs remain unchanged.
     pub fn cost_summary_selected(
         &self,
         request: &CostSummaryRequest,
@@ -296,7 +296,7 @@ impl Storage {
         );
 
         let snapshot = self.conn().unchecked_transaction()?;
-        // 1) 日成本行（按发生时价 + 来源金额）。
+        // 1) Daily historical estimates and source amounts.
         let mut filter_sql = String::new();
         let filter_params: Vec<rusqlite::types::Value> = vec![
             request.timezone.clone().into(),
@@ -422,7 +422,7 @@ impl Storage {
                         entry.clone(),
                     )?;
                     if currency.is_empty() {
-                        // currency='' 行只携带未计价计数。
+                        // Empty-currency rows carry only unpriced event counts.
                         if let Some(row) = at_time.get_mut("") {
                             row.unpriced_event_count += unpriced_events;
                         } else {
@@ -458,7 +458,7 @@ impl Storage {
         }
         drop(stmt);
 
-        // 未计价原因直方图（currency='' 行聚合）。
+        // Aggregate unpriced reasons from empty-currency rows.
         {
             let mut stmt = self.conn().prepare(&format!(
                 "SELECT unpriced_reasons FROM daily_cost_usage
@@ -480,7 +480,7 @@ impl Storage {
                 }
             }
         }
-        // 数据修订引用（该范围成本行的最大修订号）。
+        // Use the maximum cost-row revision in the selected range.
         let data_revision: i64 = {
             let mut stmt = self.conn().prepare(&format!(
                 "SELECT MAX(data_revision) FROM daily_cost_usage
@@ -492,7 +492,7 @@ impl Storage {
             .unwrap_or(0)
         };
 
-        // 2) 按当前价格模拟，覆盖相同视图的明细与归档。
+        // 2) Apply current reference prices to the same detail/archive view.
         let mut reference = self.cost_summary_current_sim(
             range_start,
             range_end,
@@ -583,7 +583,7 @@ impl Storage {
         Ok(result)
     }
 
-    /// 按当前价格模拟：明细与用量查询选中的封存汇总互斥计价。
+    /// Apply current prices to either details or the sealed summaries selected by usage queries.
     fn cost_summary_current_sim(
         &self,
         range_start: i64,
@@ -616,8 +616,8 @@ impl Storage {
                 },
             },
         )?;
-        // The same retained detail may coexist with an imported/sealed aggregate.
-        // Match the full source partition; only one representation contributes.
+        // Retained details can coexist with an imported or sealed aggregate.
+        // Match the complete source partition and count only one representation.
         let mut sealed_partitions: BTreeMap<_, Vec<_>> = BTreeMap::new();
         for a in &archives {
             sealed_partitions
@@ -791,8 +791,8 @@ impl Storage {
                 }
             }
         }
-        // Round once per displayed day/model/currency (or indivisible archive
-        // period), then roll up those amounts so the table and totals reconcile.
+        // Sum exact component numerators within each displayed day/model/currency or indivisible
+        // archive period before rounding; roll up those amounts to keep rows and totals consistent.
         for ((_, provider, model), currencies) in daily.iter().chain(coarse.iter()) {
             for entry in currencies.values().filter(|e| !e.currency.is_empty()) {
                 merge_currency_row(&mut by_currency, entry.clone())?;
@@ -899,7 +899,7 @@ fn sum_opt(a: Option<i64>, b: Option<i64>) -> Result<Option<i64>, CoreError> {
     })
 }
 
-/// 事务内导入快照（幂等：同 ID 同内容跳过；同 ID 异内容拒绝）。
+/// Import within a transaction: skip identical IDs/content and reject changed content.
 pub(crate) fn import_price_snapshot_tx(
     tx: &Transaction<'_>,
     snapshot: &PriceSnapshot,
@@ -997,8 +997,8 @@ pub(crate) fn import_price_snapshot_tx(
     })
 }
 
-/// 旧库中的内容哈希只覆盖价格字段；重复导入还须核对来源元数据和行注释，
-/// 否则同 ID 修改这些字段会被误判为幂等。保留旧哈希算法以兼容已导入快照。
+/// Older stored hashes cover price fields only. Reimports must also compare source metadata
+/// and row notes; retain the old hash algorithm while detecting changes under the same ID.
 fn snapshot_provenance_matches(
     tx: &Transaction<'_>,
     snapshot: &PriceSnapshot,
@@ -1053,9 +1053,9 @@ fn snapshot_provenance_matches(
             .all(|row| notes.get(&row.price_id) == Some(&row.note)))
 }
 
-/// 维度筛选条件（SQL 片段）：casefold IN 白名单；筛选值含 "unknown" 时
-/// 空值/NULL 也命中（与 query::Filters 的 unknown 语义一致），否则不命中。
-/// 白名单由构建方（应用命令层）控制，单引号剔除防注入。
+/// Build case-insensitive SQL filters. Selecting unknown also includes empty and NULL
+/// values, matching query::Filters; other selections exclude those values.
+/// Callers supply fixed column names; strip single quotes from selected values.
 fn model_filter_condition(values: &[String]) -> String {
     fold_filter_condition(
         "model_key(model_raw)",
@@ -1131,8 +1131,8 @@ fn load_price_book_conn(conn: &Connection) -> Result<PriceBook, CoreError> {
     Ok(PriceBook { rows: out })
 }
 
-/// 参与计价的事件（verified model_call，区间内，按筛选）及其维度。
-/// quality 非 known（reported/derived）的字段置 None。
+/// Filtered, time-bounded model_call or usage_observation events with verified ownership.
+/// Map token fields with quality other than reported/derived to None.
 pub(crate) struct EventWithDims {
     pub category: String,
     pub quality: String,
@@ -1141,7 +1141,7 @@ pub(crate) struct EventWithDims {
     pub agent: String,
     pub provider: String,
     pub model: String,
-    /// 来源记录金额（cost_* 列；Reported/Estimated 分别成行）。
+    /// Source amounts from cost_* columns; keep Reported and Estimated rows separate.
     pub source_amount_minor: Option<i64>,
     pub source_currency: Option<String>,
     pub source_kind: Option<String>,
@@ -1274,7 +1274,7 @@ pub(crate) fn collect_events_for_pricing(
     Ok(out)
 }
 
-/// 单日回填的事务内实现：删除未封存成本行 → 事件计价 + 来源金额 → 重插。
+/// Rebuild a day in one transaction: replace unsealed costs with estimates and source amounts.
 pub(crate) fn recompute_cost_day_tx(
     tx: &Transaction<'_>,
     calendar: &Calendar,
@@ -1305,7 +1305,7 @@ pub(crate) fn recompute_cost_day_tx(
     )?;
 
     let book = load_price_book_conn(tx)?;
-    // 累计键：instance/agent/provider/model/currency/kind。
+    // Group by instance, agent, provider, model, currency, and cost kind.
     struct Acc {
         exact_cost: CostCurrencyRow,
         instance: String,
@@ -1421,7 +1421,7 @@ pub(crate) fn recompute_cost_day_tx(
                 ),
             ))
             .or_insert_with(|| book.for_model(&row.event));
-        // 1) 按发生时价估算。
+        // 1) Estimate using prices at occurrence time.
         match book.estimate_at_time(&row.event, options) {
             EventEstimate::Priced(amounts) => {
                 let partial =
@@ -1481,7 +1481,7 @@ pub(crate) fn recompute_cost_day_tx(
                     .or_insert(0) += 1;
             }
         }
-        // 2) 来源记录金额（reported / 来源自身估算，分列）。
+        // 2) Retain reported amounts and source estimates as separate kinds.
         if let (Some(amount), Some(currency), Some(kind_str)) = (
             row.source_amount_minor,
             row.source_currency.clone(),
@@ -1574,8 +1574,8 @@ pub(crate) fn recompute_cost_day_tx(
     })
 }
 
-/// 费用汇总筛选（与 query::Filters 同语义：不同字段 AND、同字段 OR、
-/// "unknown" 匹配空值；instances Some([]) = 无可用来源）。
+/// Cost filters use query::Filters rules: AND across fields, OR within a field;
+/// unknown matches empty values, and instances Some([]) selects no available source.
 #[derive(Debug, Clone, Default)]
 pub struct CostFilters {
     pub agents: Vec<String>,
@@ -1584,11 +1584,11 @@ pub struct CostFilters {
     pub instances: Option<Vec<String>>,
 }
 
-/// 费用汇总请求。
+/// Cost summary request.
 #[derive(Debug, Clone)]
 pub struct CostSummaryRequest {
     pub timezone: String,
-    /// 本地日 YYYY-MM-DD（含端点）。
+    /// Inclusive local date in YYYY-MM-DD format.
     pub first_day: String,
     pub last_day: String,
     pub filters: CostFilters,
@@ -1596,11 +1596,11 @@ pub struct CostSummaryRequest {
     pub options: EstimateOptions,
 }
 
-/// 按币种分列的金额行（不同币种不合并；E8）。
+/// Amounts by currency; currencies are never merged (E8).
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct CostCurrencyRow {
     pub substitute_models: Vec<String>,
-    /// Bound on the same priced components, when archived request tiers are unknown.
+    /// Upper bound for the same priced components when archived request tiers are unknown.
     pub upper_amount_minor: Option<i64>,
     pub aggregate_event_count: i64,
     #[serde(skip)]
@@ -1619,7 +1619,7 @@ pub struct CostCurrencyRow {
     pub unpriced_event_count: i64,
     pub partial_event_count: i64,
     pub ttl_defaulted_events: i64,
-    /// 官方提供商回退计价的事件数（无精确匹配时参考官方按量价）。
+    /// Events priced with an official pay-as-you-go reference because no exact match exists.
     pub fallback_event_count: i64,
 }
 
@@ -1722,27 +1722,27 @@ fn accumulate_amounts(
     Ok(())
 }
 
-/// 单一估算模式的汇总（按币种行 + 未计价原因）。
+/// One estimation mode: currency rows and unpriced reasons.
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct CostModeSummary {
     pub rows: Vec<CostCurrencyRow>,
-    /// 未计价原因直方图（reason → 事件数）。
+    /// Counts of events by unpriced reason.
     pub unpriced_reasons: BTreeMap<String, i64>,
-    /// 模拟模式的评估时点/明细受限标记（at_time 不用）。
+    /// Reference evaluation time and detail coverage flag; unused by at_time.
     pub as_of_ms: i64,
     pub detail_limited: bool,
 }
 
-/// 费用汇总响应（估算引用 data_revision 与 price_basis 快照集合）。
+/// Cost response with data_revision and the referenced price_basis snapshot set.
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct CostSummary {
-    /// 按发生时价估算（持久化日成本行）。
+    /// Historical estimates stored in daily cost rows.
     pub at_time: CostModeSummary,
-    /// 来源记录金额（reported + 来源自身估算，分列币种）。
+    /// Source reports and source estimates, kept separate by kind and currency.
     pub source_amounts: Vec<CostCurrencyRow>,
-    /// 按当前价格模拟（互斥使用明细或归档中的已知用量）。
+    /// Current reference estimates from mutually exclusive known detail or archive usage.
     pub current_sim: CostModeSummary,
-    /// at_time 引用的价格快照。
+    /// Price snapshots referenced by at_time.
     pub price_basis: Vec<String>,
     pub data_revision: i64,
     pub models: Vec<CostModelRow>,
@@ -1774,7 +1774,7 @@ impl CostSummary {
     }
 }
 
-/// 封存日成本行（明细层保留截止时调用；历史金额不再改写）。
+/// Seal daily costs at detail retention expiry, preserving historical amounts.
 pub(crate) fn seal_cost_days_tx(
     tx: &Transaction<'_>,
     tz: &str,
@@ -1787,7 +1787,7 @@ pub(crate) fn seal_cost_days_tx(
     )?)
 }
 
-/// 日层清理时同步清理日成本行（随日层保留期；与 daily_usage 同 cutoff）。
+/// Delete daily costs with daily_usage using the same daily retention cutoff.
 pub(crate) fn prune_cost_days_tx(
     tx: &Transaction<'_>,
     tz: &str,

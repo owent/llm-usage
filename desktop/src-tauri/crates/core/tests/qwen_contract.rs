@@ -1,5 +1,5 @@
-//! Qwen Code 合同：合成边界及 0.25.0 本地模型调用的脱敏字段投影，
-//! 经读取→解析→标准化→commit_batch→查询。各 fixture 标明真实/合成依据。
+//! Qwen Code field tests: synthetic boundaries and redacted native 0.25.0 local-model records.
+//! Exercise reading, parsing, normalization, commit_batch and queries; each dataset states its origin.
 
 mod common;
 
@@ -7,14 +7,14 @@ use common::*;
 use llm_usage_core::adapters::framework::{self, SourceAdapter};
 use llm_usage_core::adapters::qwen::QwenAdapter;
 
-// 手工核算值（对照 fixture _expectations.md）：
-// syn-a-1（primary）{prompt 1000, candidates 50, cached 400, thoughts 10, toolUse 5, total 1050}；
-// syn-a-2（isSidechain ⇒ sub_agent）{prompt 2000, candidates 100, cached 0, total 2100}；
-// syn-a-3（agentId ⇒ sub_agent）{prompt 500, candidates 25, total 525}。
-// 汇总：call_count=3；input_total=1000+2000+500=3500；output_total=50+100+25=175；
-// cache_read=400+0=400（a3 未直报，未知不补零）；total_tokens=1050+2100+525=3675。
-// thoughts/toolUsePrompt 不并入任何字段；goal_state 的 tokensUsed=4,000,000,000 是
-// 跨 turn 累计表，明确忽略；chat_compression/session_model 不产事件。
+// Manual calculations match the test data's _expectations.md.
+// syn-a-1 (primary): prompt 1000, candidates 50, cached 400, thoughts 10, toolUse 5, total 1050.
+// syn-a-2 (isSidechain -> sub_agent): prompt 2000, candidates 100, cached 0, total 2100.
+// syn-a-3 (agentId -> sub_agent): prompt 500, candidates 25, total 525.
+// Totals: call_count=3, input_total=1000+2000+500=3500, output_total=50+100+25=175.
+// cache_read=400+0=400; a3 is unknown, never filled with zero. total_tokens=1050+2100+525=3675.
+// thoughts/toolUsePrompt enter no bucket. goal_state tokensUsed=4,000,000,000 is a
+// cross-turn cumulative value and is excluded; chat_compression/session_model create no events.
 
 const NOW: i64 = 1_800_000_000_000;
 
@@ -48,7 +48,7 @@ fn real_025_local_main_usage_matches_native_records_without_inventing_background
             identity,
             ("0.25.0".into(), "qwen2.5-0.5b-local".into(), None, None)
         );
-        // 默认模式的 CLI stats 另有后台记忆调用；ChatRecord 投影不能补造该事件。
+        // Default CLI stats also count a background memory call; these ChatRecords cannot invent that event.
         let revision = storage.data_revision().unwrap();
         let repeated = run_qwen(&storage, &root, NOW + 1000);
         assert_eq!(repeated[0].files[0].status, "unchanged");
@@ -90,7 +90,7 @@ fn contract_full_pipeline_matches_expectations() {
     assert_eq!(summary.totals.total_tokens_known, Some(3_675));
 
     let conn = storage.conn();
-    // 分类：1 primary + 2 sub_agent（isSidechain / agentId）。
+    // Categories: one primary and two sub_agent records through isSidechain/agentId.
     let (primary, sub): (i64, i64) = conn
         .query_row(
             "SELECT SUM(call_category = 'primary'), SUM(call_category = 'sub_agent') \
@@ -101,7 +101,7 @@ fn contract_full_pipeline_matches_expectations() {
         .unwrap();
     assert_eq!((primary, sub), (1, 2));
 
-    // 事件键 = qwen:{uuid}；schema_version = record.version 逐条透传；provider 无字段。
+    // Event key = qwen:{uuid}; schema_version retains each record.version; no provider field exists.
     let row1: (
         String,
         i64,
@@ -143,7 +143,7 @@ fn contract_full_pipeline_matches_expectations() {
     assert_eq!(row1.7, "qwen3-coder-plus");
     assert_eq!(row1.8, "0.5.0", "schema_version = record.version");
 
-    // thoughts=10 / toolUsePrompt=5 不并入任何桶：reasoning/uncached/source_total 全 NULL。
+    // thoughts=10/toolUsePrompt=5 enter no bucket; reasoning/uncached/source_total are NULL.
     let nulls: (Option<i64>, Option<i64>, Option<i64>, Option<i64>) = conn
         .query_row(
             "SELECT output_reasoning, input_uncached, source_total, input_cache_write \
@@ -154,8 +154,8 @@ fn contract_full_pipeline_matches_expectations() {
         .unwrap();
     assert_eq!(nulls, (None, None, None, None));
 
-    // goal_state 的 4,000,000,000 累计表与压缩/控制记录不进任何汇总：
-    // 上面 total_tokens_known=3675 已含此断言；再核验全表 token 合计无巨额值。
+    // Exclude goal_state cumulative 4,000,000,000 and compression/control records from all totals.
+    // total_tokens_known=3675 already checks this; MAX(total_tokens) also excludes the large value.
     let max_total: Option<i64> = conn
         .query_row("SELECT MAX(total_tokens) FROM usage_events", [], |r| {
             r.get(0)
@@ -163,7 +163,7 @@ fn contract_full_pipeline_matches_expectations() {
         .unwrap();
     assert_eq!(max_total, Some(2_100));
 
-    // sub_agent 两条的分类与身份。
+    // Check categories and identities of both sub_agent records.
     let categories: Vec<(String, String)> = {
         let mut stmt = conn
             .prepare(
@@ -185,7 +185,7 @@ fn contract_full_pipeline_matches_expectations() {
         ]
     );
 
-    // 无诊断。
+    // No diagnostics.
     let diags: i64 = conn
         .query_row("SELECT COUNT(*) FROM diagnostics", [], |r| r.get(0))
         .unwrap();
@@ -202,7 +202,7 @@ fn capability_table_is_structured_and_complete() {
         json["supported_versions"],
         serde_json::json!(["chatrecord-085e98c0"])
     );
-    // 字段能力八项齐全。
+    // All eight field capabilities are present.
     for key in [
         "tokens",
         "cache_read",
@@ -238,7 +238,7 @@ fn capability_table_is_structured_and_complete() {
         assert!(json.get(section).is_some(), "capability missing {section}");
     }
     assert!(!cap.limitations.is_empty());
-    // 能力声明可落库（source_instances.capabilities）roundtrip。
+    // Round-trip capabilities through source_instances.capabilities.
     let (_db, storage) = temp_storage("qwen-cap");
     framework::upsert_source_instance(
         &storage,

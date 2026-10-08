@@ -1,4 +1,4 @@
-//! Command Code 探测：v3 树形会话 JSONL 首行 header 指纹。
+//! Detect Command Code v3 tree-session JSONL through its first-line header.
 
 use crate::adapters::framework::DetectOutcome;
 use crate::domain::VersionBasis;
@@ -12,7 +12,7 @@ pub const COMMANDCODE_FORMAT: &str = "commandcode-tree-v3-jsonl";
 const DETECT_HEAD_BYTES: usize = 64 * 1024;
 
 pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
-    // 瞬态不可读（持锁/超时/枚举后被清理）⇒ Pending 下轮重探，不固化失败。
+    // A transient lock, timeout or removed file returns Pending for another detection attempt.
     let Some(head) = crate::adapters::framework::read_detect_head(path, DETECT_HEAD_BYTES)? else {
         return Ok(DetectOutcome::Pending);
     };
@@ -41,8 +41,8 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
             format_version: Some(versions::COMMANDCODE_FORMAT_VERSION.to_string()),
             basis: VersionBasis::KnownVersion,
         }),
-        // 上游 detectSessionFileVersion：version > 3 拒开；< 3 由产品打开时
-        // 自动迁移（.v2.bak）。未迁移文件按不兼容处理（fail closed）。
+        // Upstream detectSessionFileVersion rejects version > 3; the product migrates
+        // versions < 3 on open (.v2.bak). Reject files that have not been migrated.
         other => Ok(DetectOutcome::UnsupportedVersion {
             format: COMMANDCODE_FORMAT.to_string(),
             found: other.map(|v| v.to_string()),

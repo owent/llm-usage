@@ -1,16 +1,16 @@
-//! Gemini 探测：整写会话 JSON 的文档级指纹（architecture.md#adapter-layout）。
+//! Gemini detection: rewritten session JSON fingerprints (architecture.md#adapter-layout).
 //!
-//! gemini 会话 JSON 无版本字段，格式版本恒为文档级
-//! [`super::versions::GEMINI_FORMAT_VERSION`]；不做版本分派、
-//! 不存在未知版本回退（区别于 codex 的注册表分派）。
+//! Gemini session JSON has no version field. Use document-level format
+//! [`super::versions::GEMINI_FORMAT_VERSION`]; there is no version dispatch
+//! or unknown-version fallback as in the Codex registry.
 //!
-//! 约定（V17 fail closed）：
-//! - 文件头 64 KiB（剥 UTF-8 BOM）不以 JSON object 开头 ⇒ 未知格式，
-//!   不把任意未知文件交给猜测逻辑；
-//! - 缺 sessionId/messages 指纹 ⇒ 未知格式；
-//! - 只有 sessionId（可能仍在首次写入中）⇒ Pending，下轮重探；
-//! - 指纹成立 ⇒ Supported，文档级格式版本是注册表唯一已收录条目，
-//!   选择依据恒为 KnownVersion。
+//! Detection rules (V17 rejects unrecognized shapes):
+//! - Read the first 64 KiB, strip UTF-8 BOM; a nonobject prefix is UnknownFormat.
+//!   Unrecognized files are not parsed by guessing their format.
+//! - Missing sessionId/messages fingerprint is UnknownFormat.
+//! - sessionId alone may indicate an initial write: Pending, then probe next round.
+//! - A matching fingerprint is Supported with the registered document format;
+//!   basis is KnownVersion.
 
 use crate::adapters::framework::DetectOutcome;
 use crate::domain::VersionBasis;
@@ -21,13 +21,13 @@ use super::versions;
 
 pub const GEMINI_FORMAT: &str = "gemini-session-json";
 
-/// 探测窗口：文件头 64 KiB 指纹（有界读取，不解析全文件）。
+/// Detection window: first 64 KiB, without parsing the entire file.
 const DETECT_HEAD_BYTES: usize = 64 * 1024;
 
-/// 探测一个会话 JSON 文件。
-/// 无版本字段可分派：指纹成立即返回固定文档级格式版本（恒为 KnownVersion）。
+/// Detect one session JSON file.
+/// A matching fingerprint selects the fixed document format with KnownVersion.
 pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
-    // 瞬态不可读（持锁/超时/枚举后被清理）⇒ Pending 下轮重探，不固化失败。
+    // Transient read failure (lock/timeout/disappearance) is Pending for the next probe.
     let Some(head) = crate::adapters::framework::read_detect_head(path, DETECT_HEAD_BYTES)? else {
         return Ok(DetectOutcome::Pending);
     };
@@ -44,15 +44,15 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     let has_session_id = trimmed.contains("\"sessionId\"");
     let has_messages = trimmed.contains("\"messages\"");
     if has_session_id && has_messages {
-        // 无版本字段：格式版本为文档级 session-doc-1，注册表唯一已收录条目，
-        // 选择依据恒为 KnownVersion（不存在"未知版本"状态）。
+        // Without a native version field, select the registered document format session-doc-1
+        // with KnownVersion; this format has no unknown-version state.
         Ok(DetectOutcome::Supported {
             format: GEMINI_FORMAT.to_string(),
             format_version: Some(versions::GEMINI_FORMAT_VERSION.to_string()),
             basis: VersionBasis::KnownVersion,
         })
     } else if has_session_id {
-        // 只有 sessionId：可能仍在首次写入中，下轮重探。
+        // sessionId alone may indicate an incomplete initial write; probe again next round.
         Ok(DetectOutcome::Pending)
     } else {
         Ok(DetectOutcome::UnknownFormat {

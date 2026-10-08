@@ -1,4 +1,7 @@
-# synthetic-no-usage._expectations.md（SYNTHETIC）
+# synthetic-no-usage._expectations.md (synthetic)
 
-无任何 usage.record 的 wire（error 步 + retry，均为真实观测到的无 usage 形态）。
-期望：status=complete、0 事件、0 诊断（无 usage 是正常形状，不补零不报错）。
+<a id="synthetic-no-usage_expectationsmdsynthetic"></a>
+
+Wire data contains no usage.record: an error step followed by a retry, both matching
+observed native shapes without usage. Expected: status=complete, no events or diagnostics.
+Absent usage is valid; neither fill zeros nor report an error.

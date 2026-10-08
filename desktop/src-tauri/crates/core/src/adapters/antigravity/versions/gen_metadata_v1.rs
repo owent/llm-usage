@@ -1,26 +1,26 @@
-//! Antigravity conversations/&lt;uuid&gt;.db 格式实现（`gen_metadata_v1`，
-//! antigravity-gen-metadata-1）。
+//! Antigravity conversations/&lt;uuid&gt;.db parser (gen_metadata_v1,
+//! parser version antigravity-gen-metadata-1).
 //!
-//! 格式依据（第三方逆向分析结果：tokscale 固定提交 1d9a939
-//! sessions/antigravity_cli.rs:20-60,313-321,466-556；闭源产品 Google，
-//! 本机未安装、无真实样本；**protobuf 布局为逆向结论**）：
-//! - 路径：CLI `~/.gemini/antigravity-cli/conversations/<uuid>.db`（env
-//!   GEMINI_CLI_HOME 重定向 gemini 根）；扩展
-//!   `~/.gemini/antigravity/conversations/*.db`；与 Gemini CLI 同根
-//!   （~/.gemini）不同子目录，目录发现互不推断。
-//! - SQLite 表：`gen_metadata(idx, data BLOB protobuf)`、
-//!   `trajectory_metadata_blob`、`steps`。
-//! - protobuf 字段号（逆向）：gen_metadata `#1` = chatModel 子消息
-//!   （`#19` responseModel 机器 id、`#21` 显示名、`#9` 时间容器）；
-//!   `#4` = usage 子消息：`#1` 固定 system prompt varint、`#2` 新输入 varint、
-//!   `#5` cacheRead、`#9` output、`#10` thinking、`#11` responseId（string，
-//!   去重键）。**input = #1 + #2**（固定 system prompt 计入计费输入）。
-//! - 时间戳：agy ≤1.1.17 在 `#9.#4`（protobuf Timestamp：#1 秒 varint、
-//!   #2 纳秒）；1.1.18 起该字段消失（#10 8 字节编码是从 issue 推断的，
-//!   **不采纳**；steps 表回退路径复杂亦不采纳）⇒ 无 #9.#4 时间戳的行
-//!   **跳过记诊断**（fail closed，不推造时间）。
-//! - 路由标签 `gemini-default` 不是模型 id：不采为模型。
-//! - cache_write 字段未确认 ⇒ Unknown；cost 字段未确认 ⇒ None。
+//! Format reference: third-party reverse engineering in pinned tokscale commit 1d9a939,
+//! sessions/antigravity_cli.rs:20-60,313-321,466-556. Google's closed-source product has
+//! no local installation or native samples here; the protobuf layout is reverse-engineered.
+//! - CLI path: ~/.gemini/antigravity-cli/conversations/<uuid>.db; environment variable
+//!   GEMINI_CLI_HOME redirects the Gemini root. Extensions use
+//!   ~/.gemini/antigravity/conversations/*.db. They share Gemini CLI's root
+//!   (~/.gemini), with separate subdirectories and discovery rules.
+//! - SQLite tables: gen_metadata(idx, data BLOB protobuf),
+//!   trajectory_metadata_blob, and steps.
+//! - Reverse-engineered protobuf fields: gen_metadata #1 is the chatModel message
+//!   (#19 responseModel machine ID, #21 display name, #9 time container);
+//!   #4 is usage: #1 fixed system prompt varint, #2 new input varint,
+//!   #5 cacheRead, #9 output, #10 thinking, #11 responseId string
+//!   used for deduplication. Input=#1+#2, including the fixed system prompt.
+//! - Timestamp: agy ≤1.1.17 uses #9.#4 (protobuf Timestamp: #1 seconds varint,
+//!   #2 nanoseconds). That field disappears in 1.1.18. The issue's suggested 8-byte #10 encoding
+//!   and the complex steps-table fallback are not implemented. Rows without #9.#4
+//!   are skipped with diagnostics; do not invent timestamps.
+//! - gemini-default is a routing label; do not use it as a model ID.
+//! - Unverified cache_write remains Unknown; unverified cost remains None.
 
 use crate::adapters::framework::{
     ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -35,14 +35,14 @@ use crate::ingest::DiagnosticInput;
 use super::ANTIGRAVITY_FORMAT_VERSION;
 
 pub const ANTIGRAVITY_PARSER_VERSION: &str = "antigravity-gen-metadata-1";
-/// 单 blob 上限（protobuf data 列）。
+/// Maximum size of one protobuf blob in the data column.
 pub const ANTIGRAVITY_MAX_BLOB_BYTES: usize = 4 * 1024 * 1024;
 pub const MAX_ROWS_PER_ROUND: i64 = 50_000;
 
 #[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 struct AntigravityCursor {
     generation: i64,
-    /// 已处理的最大 idx（行级游标；事件键含 responseId/idx，重读幂等）。
+    /// Highest processed idx; responseId/idx event keys make repeated reads idempotent.
     last_idx: i64,
 }
 
@@ -56,7 +56,7 @@ fn diag(code: &str, position: &str, message: &str) -> DiagnosticInput {
     }
 }
 
-// ---- 极简 protobuf wire 解析（仅 varint 与 length-delimited）----
+// Protobuf wire reader for varints and length-delimited fields.
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum WireValue<'a> {
@@ -64,8 +64,8 @@ enum WireValue<'a> {
     Bytes(&'a [u8]),
 }
 
-/// 逐字段迭代一个消息体；跳过不认识的 wire 类型（group 等罕见路径按丢弃处理，
-/// 返回 None 表示该消息不可靠）。
+/// Visit fields in one message, skipping fixed-width values. Unsupported wire types, including groups,
+/// return None, rejecting the message.
 fn iter_fields<'a>(
     data: &'a [u8],
     mut visit: impl FnMut(u64, WireValue<'a>) -> Option<()>,
@@ -93,7 +93,7 @@ fn iter_fields<'a>(
                 visit(field, WireValue::Bytes(&data[pos..end]))?;
                 pos = end;
             }
-            // 64/32-bit 定长：跳过（本格式未用到；保留可靠跳过）。
+            // Skip unused 64/32-bit fixed-width fields after checking bounds.
             1 => {
                 let end = pos.checked_add(8)?;
                 if end > data.len() {
@@ -118,8 +118,8 @@ fn read_varint(data: &[u8]) -> Option<(u64, usize)> {
     let mut value: u64 = 0;
     let mut shift = 0u32;
     for (i, byte) in data.iter().enumerate().take(10) {
-        // 第 10 字节只允许 0/1（protobuf u64 编码规则）；更大值是损坏数据，
-        // 不能静默截断高位后当合法 varint 收下。
+        // The tenth byte must be 0 or 1 for a protobuf u64 varint. Reject larger bytes
+        // without truncating high bits and accepting corrupted data.
         if i == 9 && byte > &1 {
             return None;
         }
@@ -132,7 +132,7 @@ fn read_varint(data: &[u8]) -> Option<(u64, usize)> {
     None
 }
 
-/// gen_metadata.data 一行的解析产物。
+/// Parsed fields from one gen_metadata.data row.
 struct GenRow {
     timestamp_ms: Option<i64>,
     fixed_system: Option<i64>,
@@ -163,7 +163,7 @@ fn parse_gen_row(data: &[u8]) -> Option<GenRow> {
     };
     iter_fields(data, |field, value| {
         match (field, value) {
-            // #1 chatModel 子消息。
+            // #1 chatModel message.
             (1, WireValue::Bytes(chat_model)) => {
                 iter_fields(chat_model, |sub, sub_value| {
                     match (sub, sub_value) {
@@ -171,11 +171,11 @@ fn parse_gen_row(data: &[u8]) -> Option<GenRow> {
                             row.response_model = Some(String::from_utf8_lossy(model).to_string());
                             Some(())
                         }
-                        // #9 时间容器（agy ≤1.1.17）。
+                        // #9 time container (agy ≤1.1.17).
                         (9, WireValue::Bytes(time_container)) => {
                             iter_fields(time_container, |t, tv| match (t, tv) {
                                 (4, WireValue::Bytes(ts)) => {
-                                    // protobuf Timestamp：#1 秒、#2 纳秒。
+                                    // protobuf Timestamp: #1 seconds, #2 nanoseconds; this parser reads seconds.
                                     let mut seconds: Option<u64> = None;
                                     iter_fields(ts, |s, sv| {
                                         if let (1, WireValue::Varint(v)) = (s, sv) {
@@ -184,8 +184,8 @@ fn parse_gen_row(data: &[u8]) -> Option<GenRow> {
                                         Some(())
                                     })?;
                                     if let Some(secs) = seconds {
-                                        // 秒值溢出/越域：按"无可信时间戳"处理
-                                        // （与 1.1.18+ 同路径），不是结构畸形。
+                                        // Overflowing or out-of-range seconds produce no usable timestamp,
+                                        // as with the 1.1.18+ layout; they do not invalidate the protobuf structure.
                                         if let Some(ms) = i64::try_from(secs)
                                             .ok()
                                             .and_then(|s| s.checked_mul(1000))
@@ -209,7 +209,7 @@ fn parse_gen_row(data: &[u8]) -> Option<GenRow> {
                 })?;
                 Some(())
             }
-            // #4 usage 子消息。
+            // #4 usage message.
             (4, WireValue::Bytes(usage)) => {
                 iter_fields(usage, |u, uv| {
                     match (u, uv) {
@@ -239,9 +239,9 @@ pub fn scan(
     _limits: &ScanLimits,
     now_ms: i64,
 ) -> Result<ScanOutcome, CoreError> {
-    // 行级游标：超过单轮上限时按 idx 续扫（旧实现游标恒 0，达到上限后
-    // 永远 BudgetExhausted 且超出部分不可见）。事件键含 responseId/idx，
-    // 游标推进前的重放行 upsert 幂等。
+    // Resume by idx after the per-round limit. The old cursor stayed at zero, so repeated
+    // BudgetExhausted scans never reached later rows. Event keys include responseId/idx;
+    // upserts remain idempotent for replayed rows before cursor advancement.
     let last_idx = if target.rescan {
         0
     } else {
@@ -277,7 +277,7 @@ pub fn scan(
     let mut seen_response_ids: std::collections::BTreeSet<String> = Default::default();
     for row in rows {
         crate::adapters::run_policy::check()?;
-        // 行级容错：单行类型错误不中止整轮（SQLite 动态类型）。
+        // Skip individual SQLite dynamic-type errors without stopping the scan.
         let (idx, data) = match row {
             Ok(r) => r,
             Err(e) => {
@@ -308,7 +308,7 @@ pub fn scan(
             ));
             continue;
         };
-        // 无 #9.#4 时间戳（agy 1.1.18+ 布局变更）：不推造时间，跳过。
+        // No #9.#4 timestamp, including the agy 1.1.18+ layout: skip without inventing a time.
         let Some(occurred_ms) = parsed.timestamp_ms else {
             no_timestamp += 1;
             continue;
@@ -328,13 +328,13 @@ pub fn scan(
             .response_id
             .clone()
             .unwrap_or_else(|| format!("idx-{idx}"));
-        // responseId 文件内去重（与第三方解析器的实现一致）。
+        // Deduplicate responseId within this scan, matching the third-party reader's approach.
         if parsed.response_id.is_some()
             && !seen_response_ids.insert(parsed.response_id.clone().unwrap())
         {
             continue;
         }
-        // 路由标签不是模型 id（gemini-default）；responseModel 缺失 ⇒ 模型未知。
+        // gemini-default is a routing label; missing responseModel leaves the model unknown.
         let model_raw = parsed
             .response_model
             .filter(|m| !m.is_empty() && m != "gemini-default");
@@ -349,8 +349,8 @@ pub fn scan(
                 total_tokens: None,
                 source_total: None,
             },
-            // 在场桶必须标 Reported：全 Unknown 会在 ingest 校验
-            // （domain.rs 值与质量一致性）被拒，事件无法入账。
+            // Present values need appropriate quality markers. All-Unknown quality would fail ingest's
+            // value/quality consistency check in domain.rs and prevent import.
             crate::domain::TokenQuality {
                 input_cache_read: crate::domain::FieldQuality::Reported,
                 input_total: crate::domain::FieldQuality::Reported,
@@ -465,15 +465,15 @@ mod tests {
 
     #[test]
     fn parses_usage_and_timestamp() {
-        // Timestamp(seconds=1_790_000_000) → #4 bytes{#1 varint}
-        // #9 时间容器 { #4 Timestamp { #1 秒 } }。
+        // Build Timestamp(seconds=1_790_000_000) as #4 bytes{#1 varint}.
+        // #9 time container { #4 Timestamp { #1 seconds } }.
         let ts = field_varint(1, 1_790_000_000);
         let ts_container = field_bytes(9, &field_bytes(4, &ts));
-        // responseModel #19 是 string：bytes 编码。
+        // responseModel #19 is a string encoded as bytes.
         let mut chat_model = field_bytes(19, b"gemini-2.6-pro");
         chat_model.extend_from_slice(&ts_container);
-        // usage #4：#1 固定 1132、#2 新输入 100、#5 cacheRead 40、#9 output 20、
-        // #10 thinking 5、#11 responseId "resp-1"。
+        // usage #4: #1 fixed prompt 1132, #2 new input 100, #5 cacheRead 40, #9 output 20,
+        // #10 thinking 5 and #11 responseId "resp-1".
         let usage = [
             field_varint(1, 1132),
             field_varint(2, 100),
@@ -500,22 +500,22 @@ mod tests {
 
     #[test]
     fn varint_tenth_byte_high_bits_rejected() {
-        // 10 字节全 continuation：拒绝。
+        // Reject ten continuation bytes.
         assert_eq!(read_varint(&[0xff; 10]), None);
-        // 第 10 字节 > 1（u64 溢出路径）：必须拒绝而非静默截断高位。
+        // Reject a tenth byte >1 (u64 overflow), without truncating high bits.
         let bad = [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x02];
         assert_eq!(read_varint(&bad), None);
-        // 第 10 字节 = 1 是 u64::MAX 的合法编码。
+        // A tenth byte of 1 is valid for u64::MAX.
         let max = encode_varint(u64::MAX);
         assert_eq!(read_varint(&max), Some((u64::MAX, 10)));
-        // 常规值不受影响。
+        // Ordinary values remain readable.
         assert_eq!(read_varint(&encode_varint(300)), Some((300, 2)));
     }
 
     #[test]
     fn timestamp_seconds_overflow_is_no_timestamp_not_malformed() {
-        // 秒值使 ×1000 溢出：行走"无可信时间戳"路径（timestamp_ms=None），
-        // 不是 protobuf 畸形（parse 仍成功）。
+        // Seconds that overflow when multiplied by 1000 leave timestamp_ms=None,
+        // while the protobuf structure remains valid and parsing succeeds.
         let ts = field_varint(1, u64::MAX);
         let ts_container = field_bytes(9, &field_bytes(4, &ts));
         let chat_model = ts_container;

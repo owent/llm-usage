@@ -1,10 +1,10 @@
-//! 对本机真实 Zoo Code 数据（~/.vscode-mock/global-storage 或 VS Code
-//! globalStorage/zoocodeorganization.zoo-code 的 tasks/<taskId>/ui_messages.json）
-//! 做只读核对。本机未安装（not_found，2026-09-25 盘点）时期望 discovered_roots=0。
-//! 只输出白名单聚合：发现根数、文件数、记录数、事件数、token 合计、诊断计数；
-//! 不打印路径、任务 ID、模型以外的任何记录内容。
-//! 适配器为按已核对的文档或源码实现，真实数据出现后按本入口复验。
-//! 用法：cargo run -p llm-usage-core --example real_verify_zoo -- <zoo根或其父目录或用户home> <work_dir>
+//! Read-only native Zoo Code checks: ~/.vscode-mock/global-storage or VS Code
+//! globalStorage/zoocodeorganization.zoo-code tasks/<taskId>/ui_messages.json.
+//! The 2026-09-25 not_found inventory expected discovered_roots=0.
+//! Output only permitted roots/files/records/events/tokens/diagnostics;
+//! no paths, task IDs or record content beyond models.
+//! Implementation follows inspected documents/source; use this entry to verify native data.
+//! Usage: cargo run -p llm-usage-core --example real_verify_zoo -- <zoo-root-or-parent-or-user-home> <work_dir>
 
 use llm_usage_core::adapters::framework::{
     run_adapter_scan, DiscoverContext, RunConfig, ScanLimits,
@@ -73,7 +73,7 @@ fn main() {
             );
         }
     }
-    // 二次扫描：幂等（重复扫描不增量）。
+    // A second scan adds no duplicate records.
     let reports2 = run_adapter_scan(&storage, &adapter, &ctx, &config).expect("rescan");
     let added2: i64 = reports2
         .iter()
@@ -81,7 +81,7 @@ fn main() {
         .sum();
     println!("rescan_added={added2}");
 
-    // 汇总查询白名单核对：调用数与 token 合计（UTC）。
+    // Check permitted UTC summary fields: calls and token sums.
     let summary = llm_usage_core::query::query_summary(
         &storage,
         &llm_usage_core::query::SummaryRequest {

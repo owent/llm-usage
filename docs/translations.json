@@ -1,0 +1,887 @@
+{
+  "schema": 1,
+  "documents": {
+    "desktop/assets/README.md": {
+      "en": "ef129103169c49f83b16d527c261e17f302f79a301f70ef7097077455f10ec50",
+      "zh": "bc75b3d861c9c20c1b33d1fe731a436dde00f2257ce80ab914d97b31f38ab8e3"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/claude/real-2.1.197-queue-metadata/_expectations.md": {
+      "en": "6975dcfabd39ce75fe2506c8277646e1500a527992a94a7a00c25677898543cd",
+      "zh": "4da31c339a7c0b03b571e9d11398b608a3902a7edffdc1426b0ad48bd3a73109"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/claude/real-2.1.197-zhipu/_expectations.md": {
+      "en": "314b0d19a3bfd669fca6fb83d57f365b0b63e77eb2fc63fab9eb1f30842b0285",
+      "zh": "a4bab563ef603b6762413487dddca6fc5c04d75d2b0fc5e236751a5d9b94c161"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/claude/synthetic-assistant-without-usage/_expectations.md": {
+      "en": "7f106f317b95a97886beedbd385be62c77be10d7dc2fac226a4452c208ea4a6f",
+      "zh": "ae1c514f7c9730e87c6d14989e3223eda545665c8680fb4bc04bd1fea9a05942"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/claude/synthetic-contract/_expectations.md": {
+      "en": "2f5c07a8a95ffb32a833465a4ca62addb085c32749caffa362ace350b9bc6d07",
+      "zh": "cb57a42e6efc89efd9f5a820d6a913df8d57902a5f658976fb4e6a1639e26348"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/claude/synthetic-fallback-identity/_expectations.md": {
+      "en": "fddeac01f2b23f249b69e1a4b02c45c96c0396ce150fb9e57d96f45980dbcdaf",
+      "zh": "a33ccd1119d7b92ec9787b341087f396704c58445921fc247160bf2f24a9fc5b"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/claude/synthetic-orphaned-superseded/_expectations.md": {
+      "en": "ea974c64c8eb193eaaebf9c700da29a9b0b8c5765e6a6e61338f10d72a082428",
+      "zh": "7889355bbff36013271f3e7ff11765d14d72d1fa08ddfa5daba8ac0e4e056ac3"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/claude/synthetic-subagent/_expectations.md": {
+      "en": "2865ea583ef571943add438b74c09a4035ae483cebe3214d5237e993dfe17428",
+      "zh": "36942aa0d679583c07894e5ade6354d953d3813cd7e19b7437adbd57696a2f88"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/claude/synthetic-undocumented-type/_expectations.md": {
+      "en": "d88584acdf5ff1fb836a842c1364ee6bd6855128c438bf8ae0b32ff21b62a14e",
+      "zh": "613fbcd2eae6a0cfdbf251dcd034b35b02a8ff66b1d4eae807c88e0097a5ebbe"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/claude/synthetic-unmapped-usage-keys/_expectations.md": {
+      "en": "bc1d33eae370b5f8a4753410f83d90be4e5126022b0c0094d59d7c016471f4a3",
+      "zh": "66453dbc76b9bf9aacd288467ccedf2ed75afcd3be5421218687a9ce31d5a890"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/claude/synthetic-usage-on-user/_expectations.md": {
+      "en": "84fcf5fefeeb650de99efb7a9b65690ae9aa32893ce87f92e4698d6b4dfa172e",
+      "zh": "b7422c6cf0ab6cc97e5ec9a66339073afe5411e47f6e3696b012abbb8646a96c"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/cline/real-vscode-4.1.22/README.md": {
+      "en": "f89e89455d2737880974224eefa6d9a3ce71c635b22eb2c4197c0673251da568",
+      "zh": "c92e6af42f6cb3702d782202c0907af0cd271ae49f8c859b220891f459ef2e68"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/codex/rollout-49calls._expectations.md": {
+      "en": "79ad9ad5b9af20cc7a7b8e09a5239c5c570869e03b968619f8e8bc609da8f5af",
+      "zh": "b04ecbad85e2b6e7481a164ad1f88fa2dde65c5aac1ea11a43801e172adbd1a1"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/codex/rollout-legacy-v0.139.0._expectations.md": {
+      "en": "1b721e5699c7fe504c5f2965c12e1450ed64f28534156fc4733d61c4ff88f95f",
+      "zh": "2930a606a304f732bf5515a5becd3e90244a63f4a706d38e4c471dd44758af21"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/codex/rollout-legacy-v0.142.5._expectations.md": {
+      "en": "80b1e9dbcd4df012f259f5366c1a988abd364cfbbc714c6dd0a8be868877f066",
+      "zh": "40daf605c71173e0a1aa09e759b8658003b61c4eb274de3e10df2b373eb0ff7a"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/codex/rollout-legacy-v0.146.0-alpha.3._expectations.md": {
+      "en": "e081d08bfdafcdb22176b09ef6ffc905d0d0ab6e64f73d57d7568c9b935fb33a",
+      "zh": "0b8f3d3527eb35478f3629d192e635d2602efff74254f69689d4057de6c69e9e"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/codex/rollout-multimodel-full._expectations.md": {
+      "en": "90042ba9879eaf0ec2186b51e857d9ea3a4fb7d74916e4d3bd8d367e61cc7572",
+      "zh": "49a2ebe80e1b111b046372aea349215fb5e8c6081c2ed8cbf80ca0ecc24674c2"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/codex/rollout-single-call._expectations.md": {
+      "en": "73d67c54228012984ae1bc5ca5de33280bc533130b670cb1f89b94252a8044c1",
+      "zh": "36562f2ec8a41146281f7d2e5f37c2f3e8883e491444d72797bcbb71ff9f4381"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/codex/rollout-v0.153.0._expectations.md": {
+      "en": "94928d4354f318ad533b2f910a38236480e85701be6730c5035b083822e80925",
+      "zh": "33f57947f6a6266f13a2147dcf990fcb4a486e4879cc29263fc286ca95aaf836"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/codex/rollout-v0.154.0-alpha.6.1._expectations.md": {
+      "en": "1c823b97493aebbfd20e7e794efd8d07e3cbed02be2a79953412356656e62950",
+      "zh": "7222b8107449fe89ddfcbd63aaa4618e451d3c6174337109b51413704cde997b"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/codex/rollout-v0.154.0-alpha.6.2._expectations.md": {
+      "en": "f74d39435638b7c43d2a0a71db8cadd1187188faa1e8ef7256d0d3b2b5e0b96c",
+      "zh": "f200fb51c208285a4f14e9614eb41b0d50defd13ad3397509599515d3e4e6747"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/codex/synthetic-cache-write/_expectations.md": {
+      "en": "36c1623ab41488e95352044b5e2da259149cd6b0ce154a5c9270241c8b4c1de6",
+      "zh": "8110c07fbe7df9740e71774886e5496e86eab5682bae3d316b12c05e11cd3c50"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/codex/synthetic-duplicate-final/_expectations.md": {
+      "en": "c01b2c6464dcb0dec83b7988be0e3ce6a592049f811c4cc9f3d8de58dac85ca8",
+      "zh": "bfb62505aaf73f297b428a5b55d8428859fde56db4cc207bf21294eb3a985a61"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/codex/synthetic-no-usage-messages/_expectations.md": {
+      "en": "c7596b1b76bda1b2f3a349499678aa1ffe9ecc866424c8b987f66d95d1d18812",
+      "zh": "91da0353af4a81f52cae8a7182d32368489614f0a2f497dd2a6910d65ba8eac6"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/codex/synthetic-not-codex/_expectations.md": {
+      "en": "ebeb6439cef03be10c1ab473909042b91f603434b74abdaf398893374e2eb8b1",
+      "zh": "6cb6a5be36e18a0fd65f8575873537b297aecaa35fa28a72bd76396fe0b4b247"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/codex/synthetic-subagent/_expectations.md": {
+      "en": "18b0ae8f1035dc6d89d951f22f36191de19d7ebd0297c034f630f2ed833cebfd",
+      "zh": "faed759db9599906d8118ac35a5398d3450c1c4408f775a01b006bf012891ff2"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/codex/synthetic-unknown-version/_expectations.md": {
+      "en": "61331029e35c1eab252925e16c639e7aa13ed14d56b7e91439eb7c4b421b035f",
+      "zh": "bc5c7dcc918c37a5b646980ac2e7e2db79f8d0fd00e0ed3d3aa363e90c01cc96"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/copilot/_expectations.md": {
+      "en": "11a0a38b4aff1e410b2fa6643213613e646d439567cbc731bf4bd839d7fe9594",
+      "zh": "7dc936990e382cdee7acfc8eda21f5a4ef280ae576f15efe64ea88e868515dff"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/dsh/real-0.2.0-rc.2/_expectations.md": {
+      "en": "1b180ac074fc76fe675f43ab9d7c2b54fd613fd894cb3e0ce48beb8c1b388ff2",
+      "zh": "9875f09e4331fa47c3a5dcc97c634f5810b4456023704b6b30eb4a83804ca5ca"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/gemini/synthetic-bom/_expectations.md": {
+      "en": "364260d874110eb3c0cc1fea4b377e0b3a051f75940e558a3549090b54721fb7",
+      "zh": "02f714a11c7944be0cd234b813091387c5377f5edf6a8ed811093e5a3bcb0162"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/gemini/synthetic-contract/_expectations.md": {
+      "en": "9f850b3fd55bf050adb36fce7911e0ede807da739e3f25829de3a5d862da741a",
+      "zh": "e9222ce99b753c109338ab8738f0e390a7bb082c5aa6d91733ab8dfbfe86e3e9"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/gemini/synthetic-missing-id/_expectations.md": {
+      "en": "1da7c6e795a888fa776841b0fb4ac51f99e8aae4cacc2901dde8276891dc04e1",
+      "zh": "fd87c1e7b4e3579690daf76ac47aab793c50d8844f366005558b69d67321c542"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/gemini/synthetic-negative-tokens/_expectations.md": {
+      "en": "2dda3753f57c1de8278f0999fc3e439a558684b223f8ef5628a9ab621b4877d4",
+      "zh": "81a444d4313ad9cf149cdc6e1769746a765ad68940b5e5b2f2f12fd6a54ef77f"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/gemini/synthetic-schema-deviation/_expectations.md": {
+      "en": "7c4dbff15a76659d87b95ceaaa3256fd235fd11ffb28416658908d78c8780a9f",
+      "zh": "6f17e5834a6de181a982b47e02b2687d59578c2774bb87713ab3cbac75086cbb"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/gemini/synthetic-undocumented-type/_expectations.md": {
+      "en": "f1f76b0c54b6a48a709e9f89e87cdc2613bd9a3d4c2aa6918bbddbc2071b5c6f",
+      "zh": "2f9f9661bedf45d2301c1942ee1389dd2b666547e946ebe575374fe7e1168014"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/gemini/synthetic-unmapped-keys/_expectations.md": {
+      "en": "4b7866590306af0c1239ed06d2eaa32831955f271297b29d78da9bb0c55baabe",
+      "zh": "1b99bf723276888000d2d398e20b5bdda821c520ba1a67f9ea9600b1e5295ed3"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/gemini/synthetic-usage-on-user/_expectations.md": {
+      "en": "de64750aa59ba7c0d4c85753c93c50d3b105e2069eedb11a7752e0eda04e9c99",
+      "zh": "35740e0e01ccbfd5fc9e9b2ca3c9510d16875338db4c0e8d25df7a4b96ae1289"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/hermes/README.md": {
+      "en": "4d4ee10470ff9e749974d6e0edcd3eba055dc482076b95e548354edfc6bb3864",
+      "zh": "5b605f5f35fed96c053cc7dd4b4d91dbc6c8550522c7f1a381715fff9ce2f54f"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/hermes/synthetic-aux-task-mutex/_expectations.md": {
+      "en": "0d9a9634e2b192e59a4892dfe091cdb34ce5de747ba2a07ee5dbfb30e6b622ef",
+      "zh": "535374824f38fca7e3b6d4bfa68631e7033630ff0e93a14e15a9514251262e1d"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/hermes/synthetic-basic-cumulative/_expectations.md": {
+      "en": "92e198869c442c9318aef2067bdf3921744e765af3b2f526d67dcce9bb89f74c",
+      "zh": "2b38c7b97c3d8e186ebb008f67aa0108f59589541464e046212f722044292b45"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/hermes/synthetic-cross-day/_expectations.md": {
+      "en": "81cdc736e762e45ca6616436be502efa21ced8324e9a76721b4e533651d88c35",
+      "zh": "7f8c97126cf96c7dcc73ff129339a5103e1f14318b828598d931f8672b8a6ffd"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/hermes/synthetic-v20-backfill-compression/_expectations.md": {
+      "en": "551eb99cd6a2a68d2a71d0136b23643916747efd3ecaf3f1cedf7a25074e2cac",
+      "zh": "d183c7050d552df77741e466c07cf97469b5d2d1c4a0d580d6ddb47d34f61001"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/kilo/session-7.4.8-edges._expectations.md": {
+      "en": "ca391e70c2bc7b84e861111f5e4823ad52e72860753472fd3dc952e1eb105077",
+      "zh": "fd1829c6857d4417fae940ca2e03493a3b2cd34813dd7ee1548fd623be03c6a4"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/kilo/session-7.4.9-family._expectations.md": {
+      "en": "4ebbb341ba150de4a444b9259a17db0b5c84b7b60d82e0365509dffaa73dddc2",
+      "zh": "b42b3fc002cfb7ca26c11b00a00b905eb95cb2e30d7a2a5ef90a5f5861770f7a"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/kilo/session-7.8.1-k3._expectations.md": {
+      "en": "cd984b032509113d5af4245bef6bf68d446b305882f66e6a725d817a2fba2127",
+      "zh": "6c4c0c0093b216e1e5e3dcb42ff18e4c1dacae072420042106790b547372b55f"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/kimi-code/session-main._expectations.md": {
+      "en": "3dab12e086f53099f7f0ca24bf23a0d7fbcb2f2f37d34f060f4cf033136a86bf",
+      "zh": "c45c333f18817ebaf06bea718526909f607870f3490d162c98f284d96e59711b"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/kimi-code/subagent-agent-0._expectations.md": {
+      "en": "0b378197b5f86e4adf40e1ed81efbd56d88532034399347135090bb4c0ffa4d8",
+      "zh": "d53599856b8082cf16f9c0afcdb410ada682dc04961796c9269a9ff2521148a0"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/kimi-code/synthetic-bad-shapes/_expectations.md": {
+      "en": "4b3cc21cbd040fe6ebf3789dc739927c91b99379ba9c09d8667ff9bf6c26ff23",
+      "zh": "2d9a5c41e850d34128e2a85d341e8ee4ca000e00b0e354780950682f5af7c4c1"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/kimi-code/synthetic-echo-defense/_expectations.md": {
+      "en": "a1c384449bdd379c3a1739d10ca60c4ea340a419f4a036fa377d11a18b0bdf99",
+      "zh": "f4645c398a9b589b400cb22eaa8cc1d536afbe9e31731e4cf4b8429002498640"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/kimi-code/synthetic-no-usage/_expectations.md": {
+      "en": "ec169ccff520fdc207403b0814b71663d76624a43cd3094f7af1edb5571e9628",
+      "zh": "8caa49dfb54d362c3cd8df68be00e0882fe02e7ca9d3a2a38c932d9069681fa3"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/kimi-code/synthetic-unknown-version/_expectations.md": {
+      "en": "3539a7b62ba37e7b6edea8b0621cf7262ea52db7a3ec14fac9033b9817205580",
+      "zh": "71c5cf20924fa1f657b4d7b11f5848a064cc713e673f315efe850f0a174accf2"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/kimi-work/agent-44-subagent._expectations.md": {
+      "en": "7a1cdab6a6fbcb34dbe8a7a0c52fbf7b88f1da3b45b299d686a9e31d988cc030",
+      "zh": "462406c50da3de706b14ddca7d7520de9fd827ac680d5e5d0ded8a798e685863"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/kimi-work/conv-main._expectations.md": {
+      "en": "8b995076e417dfc3234d5bf8525cfcd1a0cc7309eb9ca76248f34aac24c109d0",
+      "zh": "85217db62e6d828de1feef44fe3b4bff35b812a1c5d9883274f52b737745df48"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/kimi-work/synthetic-bad-shapes/_expectations.md": {
+      "en": "8327472e40e74b133d18b000a3a709d0d159a6c02207132e539a269ba4f6ad46",
+      "zh": "26ea8fd91979c989c2078e4a2c61936d464f78b6acb79dad372eae303ede460a"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/kimi-work/synthetic-echo-defense/_expectations.md": {
+      "en": "0d0ae50c592278038d3d681a90aae9753a2a09036aa913555f90a4df5ef2f640",
+      "zh": "9196243550fa5a98fdf42f06109dc49f3863101c6758a01f8b18a8d6d821e9d0"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/kimi-work/synthetic-no-usage/_expectations.md": {
+      "en": "c78897db53011d402e1bea898ec79940b0a6f32eef1e878860789428d7e4dcd4",
+      "zh": "f962a31706a549a0d408e5bd3476aafbd84558783cb713705f8ecd30c693bbb7"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/kimi-work/synthetic-unknown-version/_expectations.md": {
+      "en": "b12b18c87aa4dad8809242e7a0743562fb50b086aa5ee6c1c507d6c0c1e61d60",
+      "zh": "59d02b02b64ad82fbfcf1516ef55826ea3d9ac89c2f9165493e041156d16e96f"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/mimo-code/README.md": {
+      "en": "48c73bf08a1a92cf47b0cca569b8df3256ff034d7d12965439f159b930b89573",
+      "zh": "47770463f43b5805ffc9fa2b7ee63f79fcf4505bd01c4dc6db2bb2e4392d0c8d"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/mimo-code/synthetic-step-finish/_expectations.md": {
+      "en": "4a16c22e4e2debc130dabec1192c82a6f4e41a6ca5b04bfb138fdb29ac28879b",
+      "zh": "81eb3c88d52617980821bc27f1c1bc5b7fae221986887f9ec74071e659892941"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/mimo-code/synthetic-unknown-version/_expectations.md": {
+      "en": "e2af9aaea7b4c0ea6cd00b954a59fe880bd4e777e5f7813686aaa36249f45613",
+      "zh": "e81e156cb1c0d11f486c1f744f1c24c3f21d5668b872d1103b89bad086dc1107"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/omp/session-glm-reasoning._expectations.md": {
+      "en": "d27a5ecdbd98f69b218b48dffa359d934e472929f09e99f0e7b7b6524dce5d31",
+      "zh": "faf0bfc53281a32082500306f0305cd0dabfb057f1cc895cfd361a165d20e715"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/omp/session-k3-cache-abort._expectations.md": {
+      "en": "2ac181695b34323669b1fd83e3495b565468a2f9242d4e568879554b7ac433e7",
+      "zh": "8db76fc1f2302c18a15ee17d9da139c831859dd8affa5082782db1ddb22945ab"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/omp/subagent-community-research._expectations.md": {
+      "en": "d92494db83ce69a20d1209244639d37d61a713966e5172b59c94f3ccd61b9d94",
+      "zh": "6b6b22f7eac507d41713c8be229c3d5413b5463d84f6c4637414f4e04f8891ef"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/omp/synthetic-auxiliary-carriers/_expectations.md": {
+      "en": "c2178b629c5758f42536e19e5c67198f421229d021af432372ff27d6bb008912",
+      "zh": "ecc60ea3e30751b87d394b89bac66c37f2bef4bc3ae51804819a7550ba621ab5"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/omp/synthetic-cost-estimated/_expectations.md": {
+      "en": "38d2322358c697f6bf5168da83c22b5c7e9642e386e7070cea8cbb26642bc995",
+      "zh": "6ab3ebeb1db144b5a44396d19863e45c652b28bd002df9b7ca514d7af26c0567"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/omp/synthetic-detect-supported/_expectations.md": {
+      "en": "3e766f5c42092a7c457b87cecd8ba17d3cd37b8833391fc8a22b89db46f98bfb",
+      "zh": "6163096e8dec621c63b4e43e99e686660c0cbd1ede9686e9d63dd53c05213c61"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/omp/synthetic-error-aborted/_expectations.md": {
+      "en": "596b489ed3bf1e406f850f4d88970c352bf7565f1c451f12c59ed65466187327",
+      "zh": "45bba9c46455c9d1afca3479a2755fcb6768bf6203b357cb38404aef4e948d22"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/omp/synthetic-fork-inherited/_expectations.md": {
+      "en": "936789ffa43c630a1fb08a2ec7df3359b8bdd5b818050574057cad18e7cf958c",
+      "zh": "b384760e5f701addda2d24beb3466cb7fec42e2d4a7e66696c9e67eb60f32c64"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/omp/synthetic-not-omp/_expectations.md": {
+      "en": "0d7c0e1087238b734a5b416731c7fa867645526483c3db8c068862ddc2b573c1",
+      "zh": "a781d16a6bb4df8c1e3acb983f54ac4dd5ba5d78ccea800b7321b3e05c115a45"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/omp/synthetic-subagent-nested/_expectations.md": {
+      "en": "908e6a952be4a4823208b0e4b6dd85ca151e2df58572fcbae603b6c26e43634b",
+      "zh": "dc99a995f059b84d341eff87ac7f4e77a5bc51c194779165e1cf27cb639918ff"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/omp/synthetic-unknown-record-type/_expectations.md": {
+      "en": "ca53ddb10a6cd59d77ac4a8f23928a5db046d400b2b60e8ce3278fb1be6086d8",
+      "zh": "51eb30ffb1a4c575ae0ca84ef88713a6d88ccd58be8b79564e1c1e1e71028e52"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/omp/synthetic-unsupported-version/_expectations.md": {
+      "en": "ce4af4b31712c90410a5dc0d9023d9500b90562f10d7b7f472330acdbb4db14c",
+      "zh": "d0aca93f34c9c4181cfb0541c4b42b22b7548c5cff262ee03662fe37936b5a63"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/openclaw/README.md": {
+      "en": "fd9296c14d5e07d981d2fe7adf7e1fce9bf297147fc38cbabe9d5b74b06a39b2",
+      "zh": "11ed4f43879869ac232ef5ea2dc888d90f5ed0cda17847be35e3cdd93f007cff"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/openclaw/synthetic-legacy-archive/_expectations.md": {
+      "en": "cadd72a9fc35173ecb3da723d56d29a0c5605b5e15eaca8f69a5bd980851f4e8",
+      "zh": "8a9dfa65128800a02d4027b1c26e8afbf81219532a1728e3b0590241fcac10fd"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/openclaw/synthetic-runtime-store/_expectations.md": {
+      "en": "84c6a27687a3bcd7dad853be0a37a44c885cdede8d3e0a68cc7202e84b16961e",
+      "zh": "8f2107d9916927c5252e2bcc355e86281a74d76dad7da41912d8b2a292dc6b4f"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/opencode/README.md": {
+      "en": "08b069d28a93c7add6778a4491678e1e4edbee3a20c434cd5dc4ce1ae0cc3e83",
+      "zh": "d1a55893ca2f6a0b6c6a9837bb6188fbd5dae09c7ff7a6be605de985dd4128a1"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/opencode/real-1.18.34-local-controlled/_expectations.md": {
+      "en": "7e8e8f9ae1ae801a80b154b249bff8a19133bd01a176baa3013703b1fa18b1de",
+      "zh": "c8dc637ace03e9af6ec145c790cfbcf17bc3e857f224129e1f0bdb820d77603a"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/opencode/real-1.18.34-local-default/_expectations.md": {
+      "en": "fb3768a5dad47bcfe5a20d9b6519dcc0b469c5ee85f867cbd96affdf61e02bda",
+      "zh": "ef1cc3649f48096290d07b12fc76317c66f3853d82733800b5e3e0bbfc36be14"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/opencode/synthetic-step-finish/_expectations.md": {
+      "en": "9bbbdaa5c77f9a65ed96240f6ab2941b3e8aab713f0321c1f4bd377b4a434eb3",
+      "zh": "7191a97d8e75aa9df70d389cbe9368c1405193b75dd1ac100975f83de08a8b18"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/opencode/synthetic-unknown-version/_expectations.md": {
+      "en": "1cc9288064db770210df1907b145ade75f4f4f7327df117018a3166e50c0ab09",
+      "zh": "367ba79e19dcaf3fc634d1191e361a578f5d57c867f6ede58d1d3ed7d3515bcc"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/otel/real-qwen-0.25.0-sdk/_expectations.md": {
+      "en": "2e0915cdd0cf6d585bebdd35450fdf22963ac3a3916bdae126b3bfa511b6d467",
+      "zh": "d80a8660e2da19bbec55ee6acee258365f839113ff49ebfccd25d805d3fce6e2"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/pi/session-error-zero-usage._expectations.md": {
+      "en": "6419bb3d0e7c47f9cc18fa784b31ff1d896b22835dd78f7722aee19bac716f28",
+      "zh": "5309000ade82dafec3b946c291a0f29b92d62e5630193eb6536a7ec1b829dc92"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/pi/synthetic-auxiliary-carriers/_expectations.md": {
+      "en": "24c89e373c4a53098e92537e9cd4c191ac03f478c21f1f4b4c2e7e536facb93b",
+      "zh": "983c7b7685e8970b1e7fb9df676ce98f1b2ec3c89da5222e13c5f057f31b2e5a"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/pi/synthetic-cost-estimated/_expectations.md": {
+      "en": "0c114d6c464970ac99e43c3705eb6958f6c17e081e86645838f386f6cc5b90f6",
+      "zh": "97cfff2b97468dc9db5dbe6fba8ce506f9b9b8a16f48d608750677ebda6f7306"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/pi/synthetic-error-aborted/_expectations.md": {
+      "en": "fc444f7db5c0720a35fe452e4157e8448fc59992038c1f8c335f18c0ade218ad",
+      "zh": "2941f091b4356a179b82cf5492ffa8e58c36a5584caa0258784dc5c4f3a04452"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/pi/synthetic-fork-inherited/_expectations.md": {
+      "en": "7c346037efd8145ac92b0dc66b7d341ddbdf6873aefa8146fdc4bf7132ef981e",
+      "zh": "b96cfc85148d51b711cc227e32e90e51826b67a901cad0d9fab6fe90a5215565"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/pi/synthetic-not-pi/_expectations.md": {
+      "en": "4ed0e74d58ef6c0a8bc9a4c953d8388b1031a223f2052dcb17078aa44e7c61b3",
+      "zh": "e1d73f9afb7cb76c8465ce1ca85d01e5a9ee689e8b723c4b0bcd917d9bf072c3"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/pi/synthetic-unknown-record-type/_expectations.md": {
+      "en": "829d088163b1a01c01c6662b0d536873d542b76a121af5fd7fb2cf9e40a5856c",
+      "zh": "62a6aafb2178d8f1f42f0bee3f7872ccb897725fb7f794394e801413ca9bfa41"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/pi/synthetic-unknown-version/_expectations.md": {
+      "en": "0941f4b77f71a0b84ca2c80581df5dfb83a0664b94fc3e68ba76923b76a70187",
+      "zh": "ae0de23202227d3f48c5c235151b7a5fb3d6311bb7637fb4f05a6469d7a2d349"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/pi/synthetic-version-fallback/_expectations.md": {
+      "en": "a6a53d824fc37ba2cf7662cc7321add756c3eab26c1ad4d301a2ad620952b1bd",
+      "zh": "335a729d11d0fde344c01548cf3508d2b5a79caea7e14d2e9cb355b15c27ff6a"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/qwen/real-0.25.0-local-controlled/_expectations.md": {
+      "en": "d95d9d3b5a404cd81e6b1c21a4533cc1d93a1629303bf2d31390065ca1e07b91",
+      "zh": "e2c7e4e3f91bea447bcc9960822904d11285d450ff8b4e8f446fd11f840cdaf1"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/qwen/real-0.25.0-local-default/_expectations.md": {
+      "en": "06183f117db83ad035ba427dab8f6bcefd22730ea770dbdd973837842165753d",
+      "zh": "db65417265a2f7667042d16f58a4fa631691f0f0b68f888cbf87fd99c7f130a1"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/qwen/synthetic-contract/_expectations.md": {
+      "en": "417ecc3039d5270df1a5fb2140f1ccb40e8321e8946e7ed0c3a389508dcc463f",
+      "zh": "224ae15e81782636b6ddb3608e9c375d319f643ca5680c14243987ba575229e3"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/qwen/synthetic-missing-uuid/_expectations.md": {
+      "en": "c6f4517adf0291723d988c8ba1bed9708f1480967d3e85027c67ee3d988339c1",
+      "zh": "eeece6e884064b1053cf6c7c7208d838bf607d5a9472b0c945a6e23b4d91e721"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/qwen/synthetic-negative-usage/_expectations.md": {
+      "en": "3bf5227d7f2fe28287360321ceceb7bb1cc7e141d99d43cd351157c9a92d7d69",
+      "zh": "677a22d0d5a9cc81610179ec1ec2678fe1fcfd32d3d2f0b67ea00a749715f626"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/qwen/synthetic-no-usage-metadata/_expectations.md": {
+      "en": "8466c983ebda227114509e96c5f05d4592befddd0f1f797359de7531f164aad4",
+      "zh": "a5c33de1bb0a8f780c678e6b1b468bbc43147ecf7d06ee167cb9afc43655bd06"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/qwen/synthetic-undocumented-subtype/_expectations.md": {
+      "en": "5985f2d0e343802dfda8931176b87987e2a892a3b9c7df50cd1aaa24aace1149",
+      "zh": "ec6130b1ab26d2d837cf30233f3e4901dddb79ade2f4cd73bcaf8dbec0169df3"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/qwen/synthetic-undocumented-type/_expectations.md": {
+      "en": "578a0244b9853ef7cd006b52772dbef9533e1f6e32e3ed594c70bc1f1044dde0",
+      "zh": "82c9b186b2ee2b8777d3e2113efe2ed439006968510f3059145625dfba02dad0"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/qwen/synthetic-unmapped-keys/_expectations.md": {
+      "en": "0c933479f0f0ba495177df1d9ff6c88a800a49d176c1c915a94e212c3afc2838",
+      "zh": "c30c386b4cf4cea98ce8dd35c70ef9fc93666bcef7adf4c55c80b3182f113ef2"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/qwen/synthetic-usage-on-tool-result/_expectations.md": {
+      "en": "fa266a845c42a3bf55e30f830da932d6990856ef2a51bd5e64580f5dc15548ca",
+      "zh": "af9425158393424890ba71d99c5838a8c08d8df39af2a84fbebab7a740540724"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/zcode/real-main-session/_expectations.md": {
+      "en": "de353f9a6f6804b12ef8b78ed8b585a811b899464551ffb53208c3d882686a91",
+      "zh": "8b7fe632de62e446f689d299b8b2c1973ce7c3684e71f12116e002c372d384a6"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/zcode/real-subagent/_expectations.md": {
+      "en": "f8299ea687d707b068509f4e88d20f6a6e38183d658328c5c372a0d1dc145788",
+      "zh": "928e2523dd88d2635f58f6430585c3036d2e91675c670d6215d9683b56a1545e"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/zcode/synthetic-cache-write/_expectations.md": {
+      "en": "0f13aa4b6f30596a372c37c2c4cb6e0806d4f8a12d93e75345eeb40365572b5b",
+      "zh": "b2a7d3a67cd4e4cc0e76874b3474534310fd6fa2cc8c744e07ecbf4f60c9f01d"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/zcode/synthetic-dual-fallback/_expectations.md": {
+      "en": "6a0090d9dcc892b882366699ab9f9bc9fecb9c844b365cb5861442f225ea1489",
+      "zh": "1f587fd750a99b13e274408d8900a28fb60e9005cad7acea2aa15433a60e8bcf"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/zcode/synthetic-dual-mismatch/_expectations.md": {
+      "en": "f0e950fd23e598c973c0c2cd961bc9180c8601dfb2c0e0d72843e55591a6cbee",
+      "zh": "0358f32987319f79c4a70eb039fcfa2e22f4220c7107f9b8a24a92c8104ab845"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/zcode/synthetic-epoch-timestamps/_expectations.md": {
+      "en": "c00b3d36205954aac292edfd3e1a7f887b67ef0c775017368935a2e80e64fbd7",
+      "zh": "a56fb1c75023a17761b51b0f37f1702f90d7aa93a458bb6a4c7e576c2e6d380b"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/zcode/synthetic-future-version/_expectations.md": {
+      "en": "19048c62b89b6970b00af918d568c2909e1a417480e652ab7182d4c6c3ab37f0",
+      "zh": "5293edfabaaffe0e945f85a87125b8078f7b840a742f825e471785ec2d7b5f6e"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/zcode/synthetic-missing-request-id/_expectations.md": {
+      "en": "2b5edd17e5db07ac535f969ea694e8df84f11bc94fa2a4e00e9a85a40d323f70",
+      "zh": "1a4e00366ca4d0bf7a794c757c7e5dc638347379dbb49628f1a6087fa1da7b1d"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/zcode/synthetic-negative-usage/_expectations.md": {
+      "en": "ed75b354b3f9f93f9b52ab045b0573cbcbfba3f2106f2e1260eed1b725eab28e",
+      "zh": "abf7a259ac819e9aa81de49702733b92b770c7c925e907c8608b42e81d8cb1ce"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/zcode/synthetic-no-usage/_expectations.md": {
+      "en": "fdfc5288aa2620ecfdb6dd9986e9f2ab42fda597decacad971c2537c6f737de6",
+      "zh": "cd4cad0f71f433d1f3439fe54130b4793b4ed38c6153d0f9bc8aa6ffd0f3f88d"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/zcode/synthetic-session-title/_expectations.md": {
+      "en": "6bb333161abd39c283735dd1da18e9dce46c5f9f03b504a509c7d612ac1df33d",
+      "zh": "99abc628953a925273245b929f93b0c6a5d67bcf3cd4cb3392c804de99f98031"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/zcode/synthetic-undocumented-type/_expectations.md": {
+      "en": "57aad0c57514d03a021b644722d5a4ab38a8913b4f7f8fcebb3fa22a8d11657d",
+      "zh": "ab89c3f3df1ff4ab45237e53c209397f634ef0e07b68cccd049f9b0809f60a17"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/zoo/README.md": {
+      "en": "6d6ce4595a38353cdf17579c8a023c368fe4e5f5bda99b56480a5b84cf1ba6d4",
+      "zh": "b8739605d3063b8d31f8374fa12d85ad3bb81ada9015c36e97588863563c650f"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/zoo/real-3.86.0/_expectations.md": {
+      "en": "d32adf7d414a1692ca4b6c23ed0761bdc08dbffdd88c13487c36ae2dcf077788",
+      "zh": "42d89434440af3fa7cf12efe791a1571e5b7191475f4acbeaa44589e02a0f971"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/zoo/synthetic-contract/_expectations.md": {
+      "en": "fbb9c2b55c5a81375da569a14dff23aba3451ec2d3cd4d85f0d000107ff481b1",
+      "zh": "14238f8fb415bb5b3de83f3f83461b945de3d30c07dd6730707e397e72df4cf3"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/zoo/synthetic-not-array/_expectations.md": {
+      "en": "060f547551d85d2cc23c02470dc2b0dadb5fda36e37e27c43c654a90acbe4c76",
+      "zh": "c6c92b53df7ab315e3c9d556a0438af17769248f9e2b3239c39fb72cc0626023"
+    },
+    "desktop/src-tauri/crates/core/tests/fixtures/zoo/synthetic-undocumented-say/_expectations.md": {
+      "en": "08a21de27c117352b0f45208cf5841c1d24d02897b5c6823abb45551ffae37ba",
+      "zh": "de0cbc03eabe4bde140b6e658bac6fc4bdfe4ac1df4d6d87ed747b07ab3d65ce"
+    },
+    "docs/design/desktop-usage/adapters.md": {
+      "en": "72f69fede83d187361b6dbe2ff2d19502fdfec621c88e0d7a4905b0af1db00c1",
+      "zh": "8fa97a689e5ac36a96a60d75c04f987e5c1d1a132e9e50a59e5381dea0e8bea9"
+    },
+    "docs/design/desktop-usage/architecture.md": {
+      "en": "99bc58383d8f4f2456cd2c0d562ba18f5f77f8c7d1777d4cdd8edf4c5d6558f6",
+      "zh": "063a38e38a7c75a955dbab405c013b5f38ec9344d009990f761e45f3ebf77e9c"
+    },
+    "docs/design/desktop-usage/budget-reminders.md": {
+      "en": "e402c5995a9424ae7abcc5000b863d527184ac242deb9801dc3120fd04f2b43c",
+      "zh": "72c3b486a1ba2c3e5d0f7e5f39d57b2589e81004fe17353ffd67d70e79d6473f"
+    },
+    "docs/design/desktop-usage/copilot-otel.md": {
+      "en": "9743dff3090c28a9af8f4a5582643ceb3a44d1818dfb31c7402f669c791a0f31",
+      "zh": "d83ecf840a2ffa34085c7a01aa5b7b9c2ffe1372cfeac54e7d7048af1928a59b"
+    },
+    "docs/design/desktop-usage/dashboard-polish.md": {
+      "en": "e69c52ad267cc6f6d73916755e1ea0a8de900b3e5048fd2c89aa68a0132e50d6",
+      "zh": "d7a358e917fc51b6db775ffed70a60ca0979054e63ab8aaecba59f74d18e12b6"
+    },
+    "docs/design/desktop-usage/dashboard-repair.md": {
+      "en": "2d20c39e91e51b6681e7b44a3755a397fef058fdef1a0a7e6e9cb7fab6757b66",
+      "zh": "89833ba15c417ae71f8a1cd3daa4f56eba1b600548897c60d9bdb39dbb87437d"
+    },
+    "docs/design/desktop-usage/data-contract.md": {
+      "en": "62abf8137ef5d0942f2e6404af00220c7b5553a7f6cbef7ac1c69b5cb6047b51",
+      "zh": "747392ffb1a7b7baf5791af927e84e0ad39e76cdec64d6a389fb72afdc7a7689"
+    },
+    "docs/design/desktop-usage/detail-merge.md": {
+      "en": "a180539e195a469e16c0f9e22fa49eb0573a45892e00d2802f5826dd8a93a3f2",
+      "zh": "98f1e02bb41d00d8e1c94990fd1aea199f426174d497052e5bc59c3e9ebe14d6"
+    },
+    "docs/design/desktop-usage/i18n.md": {
+      "en": "420d423fbf6fa3448add5529564f21f2fa9c671cfc9c720d1a31034df326dbf3",
+      "zh": "9f5d5fd198f43d7b2041b823416776a5cac5f64b3915198186ee0d223afe798c"
+    },
+    "docs/design/desktop-usage/implementation-readiness.md": {
+      "en": "a1bd7795eb22e114a646083d970647716fb12b38b92db109b11d936de37fc829",
+      "zh": "461612c9cac11469017c936f3242453f4ea373f44ef4148206c139ea2b55ded7"
+    },
+    "docs/design/desktop-usage/installation-lifecycle.md": {
+      "en": "b0590adbe2e3a2ae6d0089a077e9bbda4ec09e25e3d3c9c8051d1a176a95b490",
+      "zh": "48a867057af84ef21b62c081e297a8da9bcab1400df229bbcc74d17a4cad39f7"
+    },
+    "docs/design/desktop-usage/m3-runtime-samples.md": {
+      "en": "c941719816f8d4f810ad7bc8647e4772b981d0ce8413cb00a826cbfc6f1ce1dc",
+      "zh": "b2e8e0900393d03cba8fed6bf79b37fe6a7fbb0105af691f741732b6303d3ef3"
+    },
+    "docs/design/desktop-usage/openclaw-runtime.md": {
+      "en": "794f0c6a9408c14a5cef52e99167fddf6eebd7c9bb65e69c0f0208b9735cb9b1",
+      "zh": "0e96ff8aa960f553a5f4c4c6d4f6a13a4f7fca95f85ffdd19305bfce88c9640c"
+    },
+    "docs/design/desktop-usage/platform-ci.md": {
+      "en": "4ac2f73806b9b0700c120e2bcc0f3012d8f118ad0205806da5bfbef63c72218d",
+      "zh": "1f1526d60d0eff5a25bbd3424c1599a42656ace44802e9c138a5d8a87ba8317d"
+    },
+    "docs/design/desktop-usage/pricing.md": {
+      "en": "aeb621bf04ac5889577f51857f03b76f197764a43ef237bb008fa5185c4f1985",
+      "zh": "100d00938c2b810eecc834b3d5016421b58b00e1e9df0766dbe7b0973f12235e"
+    },
+    "docs/design/desktop-usage/query-acceleration.md": {
+      "en": "24897bf6abcfe62f4e22c0fe826667e602aaf245d42ce883568fe0f15ce3f530",
+      "zh": "605410c2d63bc398b47893d4f8b9160887d41b26b4cb0e1c471e45d613bf5e36"
+    },
+    "docs/design/desktop-usage/README.md": {
+      "en": "9053d88735b99ff94f6b679fd1547c7d8ac330a17ecd5f9f5e56920e14c3f1c3",
+      "zh": "876b85863c651d7d18d5721380c54eb063c573c157a9ff4310f2f2ab2090fb05"
+    },
+    "docs/design/desktop-usage/receiver-auth.md": {
+      "en": "9699de5a2c39cf08a4b387604ffab63df24b8df998441208c457489a337b7aec",
+      "zh": "ec18c4a850003e84ac75fba8419c68a5218cafbcd7eb8613ddee84a6ef831750"
+    },
+    "docs/design/desktop-usage/research.md": {
+      "en": "aacda86ef03d906eac833b2338dfe150418111ed24e098d7fc662cc69f60a8ec",
+      "zh": "70d3fa278ac328d52a5f1ec9879324e768e1881882aff4dd33a98bd32275b8e4"
+    },
+    "docs/design/desktop-usage/scheduling.md": {
+      "en": "4fe285801c77bc8d49a087198360dfae96be2dce270baae49544ccb885ebe4ad",
+      "zh": "d5087e9ecffeba6a49cb73c38a8a146b6af350bd29e3efb88efb87eeb5b58115"
+    },
+    "docs/design/desktop-usage/validation.md": {
+      "en": "e4ac44a9cbacc7594584eddad54ad862ca03735fa6a9154eaf96a0e0dcbabde6",
+      "zh": "719e6a8f9183306fc59ce944a986edc5c8d2bc21744f5e127f5c4ddc27cf1398"
+    },
+    "docs/design/documentation-site.md": {
+      "en": "d4db1860284cbf05cca16dbea4714e2c6fd89613979b5cb4187a8f5dce266ce7",
+      "zh": "be5561a068d0532c76a568e62c5909912cc8351b779c7449a1632e85aa43c9d9"
+    },
+    "docs/validation/desktop-usage/ci-plan-validation.md": {
+      "en": "4832e61334bbb82a670741512de22f60b40c425ce259a47aa705aec7db074a78",
+      "zh": "86f3146a7b5aa3b6df52cce0c9a1134d5ff26ca9254cd5ee48b53d430719299a"
+    },
+    "docs/validation/desktop-usage/claude-container-sample.md": {
+      "en": "5c6b33ac9b13c252ac8923789a3992d2f387fd99116412cc3b577bc3ce90d12f",
+      "zh": "bc98406dc8d63b467c10ea0fd89f4043475a0fa7fc2fe7c7d4043b00019952ef"
+    },
+    "docs/validation/desktop-usage/cline-container-sample.md": {
+      "en": "aca055d0946af5f0e8cf2f634ff7288dcee48284e15f22c6f7deb23710d40f1c",
+      "zh": "6a4028758d9492ed4719287897bd9ec4fb026c76eed517467e4ec2bffe6b9012"
+    },
+    "docs/validation/desktop-usage/codex-today-recovery.md": {
+      "en": "0a6b8c9d1f4d81b01497d39518514f667eabbb05dc13ca13a319511fe7957987",
+      "zh": "b625bf99bbb5c3fa966a85f93cdb3b8a014d117ec87fb8346d1272c850b19b4a"
+    },
+    "docs/validation/desktop-usage/container-sources.md": {
+      "en": "c3cedf5b71c36853e20dbcc59bf70b16f7cde27baa4f0c4e408862c7c8e8df05",
+      "zh": "05487c61a562fc8c06812798033494b0346d106f01b5d9ded5ac881f88c21bca"
+    },
+    "docs/validation/desktop-usage/current-acceptance.md": {
+      "en": "748803d9cf90f949e40f417a3fd2f07c42690b49031f8622ee0aa4cc3918f9b1",
+      "zh": "e22f9d5d8ab5394d624ef76c63c44db6b2167d6137bb22d4b68eb0939555acd0"
+    },
+    "docs/validation/desktop-usage/dashboard-fixes.md": {
+      "en": "f0a44b626817b915bc6fc0a814fc296b2858d024bdc11775d53588bcebd1cf97",
+      "zh": "b5f2f1d7dbac8bcd26955f36e58dae39dc976a261afe3bf1a7067e2685ec1ff9"
+    },
+    "docs/validation/desktop-usage/dashboard-polish.md": {
+      "en": "8681583454cce91af575ca8c2fd8abb6e5962be3951764355241bb5aa109b9f9",
+      "zh": "86c53726b900834191623280c88d25a7f2329f69abd62835e8a868aa9ad982de"
+    },
+    "docs/validation/desktop-usage/dashboard-reference.md": {
+      "en": "c0ad0311f2753be53d04b55fd1b9822e85da4e4f08af3a8f9c78d77548ee0c20",
+      "zh": "4a0d95e8559811f446fc1a22582e33372a6bebaf7d96d7dedd61b47ea0393bf0"
+    },
+    "docs/validation/desktop-usage/dashboard-repair.md": {
+      "en": "8cc7bc3fab8360fb731a0e67b7644f459ff3080e223f8b5c96bed03cb94c1bea",
+      "zh": "29cb915fb06e7720ebcf41433521bcf860eb2876af66078fe42c64ad4e95740e"
+    },
+    "docs/validation/desktop-usage/documentation-site.md": {
+      "en": "862238a4cca4be096edb4ffdf6fd985734276f0e9286cc243abfecd0c0e1646d",
+      "zh": "0fa21ebd3a66b02c0d34ebcaef5d874c78475f5f47a5f34913ad9efeb29a1a86"
+    },
+    "docs/validation/desktop-usage/f2-cost-engine.md": {
+      "en": "08db72ad1c86445bc357a89ba29644a6851545fce1faaec7490f32bfd27e08ff",
+      "zh": "b03ee443f0aab8dabe9b5ccabac874ccb141dc06d99cec8b5925271f43b8ae2e"
+    },
+    "docs/validation/desktop-usage/f2-online-refresh.md": {
+      "en": "136e495ccded26670ed82865b68b292a81fdcdbc8759f070cc525f6002dc21db",
+      "zh": "a41b397fd01641724d7350e4ab278cc3ad29584c037b325c9ecba0047db4b503"
+    },
+    "docs/validation/desktop-usage/feedback-round2.md": {
+      "en": "e3d24363d860b2ae875de3813bebc2b70089d3c520963945da677276ee9fb603",
+      "zh": "286ec3dd575396062f5dc63e19f40432fa2d39f9de5627352ee36d816954ae0c"
+    },
+    "docs/validation/desktop-usage/feedback-round3.md": {
+      "en": "8abd59228edaacc0bf2beac34826d4e381958b078ad5b2ed276c34da99e5f33f",
+      "zh": "dd10fe99641ae21c55a0aef5892fd2348d5c4d885434fccf0db1f19c9a82fae8"
+    },
+    "docs/validation/desktop-usage/hermes-container-sample.md": {
+      "en": "08d0c9135b41d8d4029f46378fece17f3d5d6bbe6e93df5c1a95df9e357f4cbb",
+      "zh": "01429a208b11acb6c63cf75546ddf219c98a913bc29c332d60d1cefe362fdb69"
+    },
+    "docs/validation/desktop-usage/installation-lifecycle.md": {
+      "en": "903fa33aab047fd2c830e90507102460ced7efd7abb22599d3f48e7c946136fa",
+      "zh": "67f6728a0bcce9487446ed2a12c3a35714c4d4f2a10de9081300193937f6367a"
+    },
+    "docs/validation/desktop-usage/m0-agent-fixtures.md": {
+      "en": "1533e4baf86d00b9b2738c86e61690804f230768a9e570d962ccfb1080d9fb83",
+      "zh": "4fb0ab69f997290dcf14d441941065bf7265df854726a416bce61a994303c617"
+    },
+    "docs/validation/desktop-usage/m0-ci.md": {
+      "en": "53811a2402834cc5c959db391210301cfb7152d96d5a1deb9bef5352073ffc56",
+      "zh": "d0812ee245f340cf97f98c0b6115240bbd2e15f32c00c21d59c59bec16afead7"
+    },
+    "docs/validation/desktop-usage/m0-m1-review.md": {
+      "en": "a78d5c86fe233752237f5b8d7819b87324b698cccca8593a47bdd0c3949019ef",
+      "zh": "dca0f3e25da02d58b3f96ddd3cbf3a4f2074e7cc37efa7b05cbb47cdef3477e9"
+    },
+    "docs/validation/desktop-usage/m0-windows-baseline.md": {
+      "en": "e3a50b22c50cade06e048d41035a008808c1329e7cc3639602de1f5204a48f4a",
+      "zh": "782f1f32cfdc9d7022c22f4050a2ba459cb7d3bf8725afb611e9a171437d2e11"
+    },
+    "docs/validation/desktop-usage/m0-wsl-linux.md": {
+      "en": "c39e49793daea2b58a6cd1fbc7989de9a5a42e79764867941bf9d809c83e510e",
+      "zh": "abb15f2da6abc069fed56199105a935fc774f39fb881efc1fc2f6f198d6c0b7d"
+    },
+    "docs/validation/desktop-usage/m1-core.md": {
+      "en": "65819dba7143a7c80b5eb988e7217809cdee461818f32670de122eb8a0c15094",
+      "zh": "937875a48c0a723a1f10d267d57fb50f0351090c2b2566794e1a04e36c6c4a43"
+    },
+    "docs/validation/desktop-usage/m1a-provenance.md": {
+      "en": "6fff0a26aaa0871d35def6d1fecbc5ebfbbc6fd4ebe99ab34ec0d3ced3f5cc04",
+      "zh": "a4f69041b8368de860c5d8b919d351817a420ed9bd0a6fbc876ba31e0310e698"
+    },
+    "docs/validation/desktop-usage/m2a-codex.md": {
+      "en": "70b87de893dd7d0cdc5eae73fbe7c0990e46fde70feb217527b0ffccca390bcd",
+      "zh": "050a2d1da9bd43e952e77e84fc2306bd9fb62150e779df12860c4fbded8b72a9"
+    },
+    "docs/validation/desktop-usage/m2bc-resumed.md": {
+      "en": "5dbb90f539fa5f3e1df8d972cf266f60d5f2efb6764efbdd5a49e5f0da67ab12",
+      "zh": "60880c6db39973168edb535267fb3c86b4273451db0f922b8489f08954f36b53"
+    },
+    "docs/validation/desktop-usage/m2bc-suspended.md": {
+      "en": "3c34a687c13423b601998918b8a7153210bf64304e2957f470e50f399a607ff0",
+      "zh": "4d1bff411c69d45a8af9438b3c3f232f80ed303fde729de59a3ce31d8c88d073"
+    },
+    "docs/validation/desktop-usage/m2d-layout-versions.md": {
+      "en": "54c18bad5eb68dd78bd2c5a7e16f1479b52b586c70471c876a3ca655fb60cf96",
+      "zh": "ecec1319beeeac94ba1d7ebaeacf7af9d411c74a17a798d951d6e9f092bfed19"
+    },
+    "docs/validation/desktop-usage/m3-container-samples.md": {
+      "en": "d55e8947cd0bdc74908f5d4136632fc48eaf538f69b7f2b2b39cefd12d1aa22a",
+      "zh": "7eb298dc2912685158553499726f5b97dd2c649037bbf2441f946c2e28604048"
+    },
+    "docs/validation/desktop-usage/m3-doclevel-cmdh.md": {
+      "en": "5d4597df9f50785eff0ee4ba681ae8ed834a4d4bfcc087ac39c935ecf8df5111",
+      "zh": "f406cbdbeb5f6bf82c1de8d0bc15206cc21e2b060a6b09e2c65ffd0218e8bdf1"
+    },
+    "docs/validation/desktop-usage/m34-kilo-zcode-kimi.md": {
+      "en": "92acf47182b0efcd6d033c59fce129be4a6631fd4245b397885f0a07a65e9279",
+      "zh": "153ee502fcacf4ae048675ab6676ad641b4c31bc0b7e6bd88cf1df4564a39886"
+    },
+    "docs/validation/desktop-usage/m4-buddy-local.md": {
+      "en": "c86f0bbfc767d709a9e94c020145865535ba47c24bc94c37363a07061fb724d5",
+      "zh": "2e33c52eee86efe605c896965faa5c5134d8faf68e931d9a7d585ef2527f9878"
+    },
+    "docs/validation/desktop-usage/m5-telemetry-remainders.md": {
+      "en": "b007887b12cb4b2117aae5d3b601edac3b883ce9024711ab82e82a1c343fb27c",
+      "zh": "7972dc461f9558775656cad4d143d180a04755f4abf79c57c4091938aca4fc21"
+    },
+    "docs/validation/desktop-usage/m6-desktop-core.md": {
+      "en": "d3dbfba05e40c559c7fbc87c811553813fb44c4858f1df51273006ada913a8e4",
+      "zh": "924b64d7a6951aa0d452f267ed5b81f6ee2aa83c8ad14b37061c80f13876a0d3"
+    },
+    "docs/validation/desktop-usage/m7-build-partial.md": {
+      "en": "486962413517b878aed0bf55b0ec9dd38ec9a137902382577bf60c48a2e8b7f4",
+      "zh": "74783ac27d4d7c91414f5bf61d6165d795f3c6f6c1c5dfa0de378ce5f0af4502"
+    },
+    "docs/validation/desktop-usage/m8-container-samples.md": {
+      "en": "5f7af4f7adb6532b3a6cc5ee2b3579f6bfc6dcf86569c2db4b5bd4a9c800278b",
+      "zh": "f6444af9538166044dc547d6e6210d45d428e9d0f8317efd6d9b5e76bdba53b9"
+    },
+    "docs/validation/desktop-usage/m8-second-batch.md": {
+      "en": "abafbabd0e915a718914e720c3195bee8f65203a0f604c211bd72d56c59e9b18",
+      "zh": "2fa6bfca74d168601f3dc2b1e0490bbacf57a42ee6f7e9d42576bb87610fe7e5"
+    },
+    "docs/validation/desktop-usage/m9-copilot-chat-local.md": {
+      "en": "df9a2c373e780846d24466067da19a251e5c542ad90e2ec7187d0cd710a1ad5a",
+      "zh": "d92f28cf1302e5f1a35e98536f86e6873d2e8337666f2ee55984e80eb30c8ece"
+    },
+    "docs/validation/desktop-usage/m9-copilot-review.md": {
+      "en": "5e22af6adfb80b95ef851b4f5769cb92ac66aca4dae1c1a4f10fb1d9b38fca47",
+      "zh": "ef7df298dca1e94e935b68d33bcb98b0e4d5f363cff93d7a1ac0b4103936599f"
+    },
+    "docs/validation/desktop-usage/m9-jb-copilot-analysis.md": {
+      "en": "e7167c01a03af8e93de36f19e6354d1c59df73e3f7176a1695950b4448e4c8da",
+      "zh": "3a8d70310b77e2be454c806cfa4b87775fe57350813e12cb3724d1e8233559d3"
+    },
+    "docs/validation/desktop-usage/m9-vs-copilot-discovery.md": {
+      "en": "3786b0a251c2b1d1cef9d3a3bdc1eeec625233a4ea6766a906955cc30077a54e",
+      "zh": "471049ab1ea92ebd5c800355b3bf0cc0da660c34bbaa57862edfe029a13ff0bf"
+    },
+    "docs/validation/desktop-usage/m9-vs-copilot-local.md": {
+      "en": "09ebd996edadf7ce0ebd2ee8242cc52303f99c5e9da8589e29753e3a1b2fd6d7",
+      "zh": "bfafb51abb15697f95e9b9d7859ce76dddba7b423148d717e5ad4562d4206f51"
+    },
+    "docs/validation/desktop-usage/openclaw-container-sample.md": {
+      "en": "adbe8c9d12fbdf66a1889b7c39bf67c675e68e610e0d684da16f172d87351df8",
+      "zh": "a1eba4684dd68b627fb2d323b8e5aa50a506f11a466f65e711f85aba3ae3fb07"
+    },
+    "docs/validation/desktop-usage/orca-multilang.md": {
+      "en": "c8834775493eba626f584c03d3f8c116a9e69eba9d20dfb26bcb753f5a0545c8",
+      "zh": "18e002dfd62b3708c9087bda2d3831f8b62f9896ad204b26883a8e281f031163"
+    },
+    "docs/validation/desktop-usage/parser-conflict-fix.md": {
+      "en": "4d49dc6e6cd0739b985ad39822f33aa24a9d7f63cc39ddb6a1ba49efe51bbd94",
+      "zh": "e3186d0d0d7cea147b0142efcbbdc7ef403434a8380719bb91fdd828db30bf40"
+    },
+    "docs/validation/desktop-usage/plan-20261007.md": {
+      "en": "b10aec5140f1eaf05e2c2a4c80269f254388e00218f71034f0a0ded5cf1a79b0",
+      "zh": "47043f3f67364e18fa1efa8539b627e018823ecabe5bb02f38b9b68bbacf3815"
+    },
+    "docs/validation/desktop-usage/plan-execution.md": {
+      "en": "8a570495e196d6a29d8933aa352a15b6c4e648615a2e280ea146923abb375535",
+      "zh": "24e8bf84946e90bec93931e738815f3e81a5b72d9c539cac877dbf84aba4ca08"
+    },
+    "docs/validation/desktop-usage/plan-finalization.md": {
+      "en": "97a5c55d4c9c1f8f5a641d0d7ced4038cbf97432b469820b88be581ee93bf27a",
+      "zh": "136a285b80e755cadd8e001d64aaed08a6a38fac1d19d2d65966fc3933e1d4e2"
+    },
+    "docs/validation/desktop-usage/platform-auth-continuation.md": {
+      "en": "79efee22cb474c212e1408635e44f1034e727df4fefa53d1b521012a04716a19",
+      "zh": "52c672261051c3798de4716b513cfafeb587727c793f5233c4720257a5c72150"
+    },
+    "docs/validation/desktop-usage/pricing-archive-repair.md": {
+      "en": "f6066f73cb0242cb082317f02318cb830267407654e13d53b557ea2dcea7f413",
+      "zh": "0912080afde997de85975caa19a7b55c17ba0eae3399cfcf7710a8b17c7b7e26"
+    },
+    "docs/validation/desktop-usage/README.md": {
+      "en": "df261517468b4cba3c1c16a0f726ebb84342e5a2837bc16df07e01c0d7a43485",
+      "zh": "70b4cb27e73fb7b75abc2889cd88144d768e4fe0a2e13032055fafa6a772ffaa"
+    },
+    "docs/validation/desktop-usage/review-2026-09-27.md": {
+      "en": "ba981d6017f8344fcb58e54ea19ce2271be0e5503865156129fad29b4e53f3a9",
+      "zh": "ad8bd075900e4396f345e45472b67a9f82a7b1539564a5cac38b85e869f01c30"
+    },
+    "docs/validation/desktop-usage/source-policy-upgrades.md": {
+      "en": "0bb038271907c054d04423da297c295adc554c046de5eca85dbf5aa099ef121b",
+      "zh": "b2f7f7c3a418422bc9c5cc0739f49d9eca283620b83b229b07e1499c7cdcb695"
+    },
+    "docs/validation/desktop-usage/static-assets.md": {
+      "en": "7c8dae69148a8df43dd99c04cf7eff9fbd9491c889a3942fcc026ffbc2efcec4",
+      "zh": "3cc8a06765c64fa81bda8b687df6f661a883c0a1c4ebe878293ff62ea4a67436"
+    },
+    "docs/validation/desktop-usage/telemetry-setup-ui.md": {
+      "en": "7c10d1d8c983ac739f2c7146984f72ee7f271e592dc359fd165b353a741bd857",
+      "zh": "da87327b234f0ff748705993d0d621e0f1e5b3195814f6243ade92a25b859f91"
+    },
+    "docs/validation/desktop-usage/TEMPLATE.md": {
+      "en": "6b2301778236ea5887665dc32e92298b343ceaa143880254dd6d3bb00e26194e",
+      "zh": "2d3da491b26a97542c01676f5fa740f0b860b629dfadff052acdb15869269109"
+    },
+    "docs/validation/desktop-usage/trend-range-kilo.md": {
+      "en": "e02dbfe891e50f7ae6de998695d6bc1f63f7404098a67d40a4546f84427e54ef",
+      "zh": "ec7c988bfc9dad3344d2767ef399e8979e70a0c4d7fed389ace1833e9280d3bc"
+    },
+    "docs/validation/desktop-usage/wsl-agent-installs.md": {
+      "en": "a013aaf4a60e0a65118cbc40d34fb931ec558607909502000fd04e6efc6acabd",
+      "zh": "584a73953afa500ff804aa61c2f4b357555bff2c94c58a9c99e5ea6e4caa472c"
+    },
+    "previous-draft/README.md": {
+      "en": "56597062b62a4678fd0ab335e65fb6ee0961882a6ac149b627e55a4469c30a63",
+      "zh": "d5963238079a03a2ab2da5eeb22e2f08570040f32b6f9275ff27349d3f77f1f2"
+    },
+    "README.md": {
+      "en": "eac4584735feb7845969272f702286c048077e31ff919458f77af85d81809bf6",
+      "zh": "f00710fa82d6e94560393434c0371e62cb62a6e2a15990a8cd77015f538f2d14"
+    }
+  },
+  "guides": {
+    "docs/site/content/development/adapters.md": {
+      "en": "efc1c5708b9c4a2e3478e7e5d5bc744f71c4622035e374d68529bc9ad138f417",
+      "zh": "d5a789d33211471e33f0b9f804114007524746fd661f8f4e4da6ea5915ac0554"
+    },
+    "docs/site/content/development/architecture.md": {
+      "en": "cae2067b259ce2604224536feed7fa4ff242813efedb57dad3373a2bcfd3f523",
+      "zh": "38d335ff9fbfc9d0cd1774bb8fc253c4fa0705078a029358df1af0c2beb4426f"
+    },
+    "docs/site/content/development/comments.md": {
+      "en": "5cdec60f37568d370dfd236a55fffec020d841b9dd0d2ff4f4659991a7e42297",
+      "zh": "5c9311b002a3ef1103fb3cf05254420e4283ba819fdb8cb160c096f2e40b52d8"
+    },
+    "docs/site/content/development/documentation.md": {
+      "en": "c8f44dea2b290c207758c90d35b95d2b55111fc193fc15c097661982b709aded",
+      "zh": "50a2e7599d17173c48a2ab606a3979559d365bb0baaabbc5d55672b8e94057f9"
+    },
+    "docs/site/content/development/releases.md": {
+      "en": "4275de6cb93f38cd353556fa9a5ce608702afde34ee20480465538dfc9b9d257",
+      "zh": "b3145b2a2220980403aa1ed08ff761443ae3607fe2cd2809a71571b241e6fe9d"
+    },
+    "docs/site/content/development/setup.md": {
+      "en": "0dd665c1833d9f9252c2f6f6cfbcd67d6a5724c995caf9e5dc5a69d9386892d6",
+      "zh": "5ffc5d0df5b60132557833b4024e9ea4c351d48f5b830e7277ccfac9ba1bb6e5"
+    },
+    "docs/site/content/development/testing.md": {
+      "en": "3adf3b0c7b8bb7d47aac9de77d43175edb408402a456eb639e662b9851291ad1",
+      "zh": "8410771fb3d586fe25f5c31daec0bcdade34bd49a57f4afb2f728190aee300c7"
+    },
+    "docs/site/content/guide/accessibility.md": {
+      "en": "d8676bcf59a0dec068caccea18996d60a6be1c30270923937d2749ec8675e8d3",
+      "zh": "f40729b75389ef9b8f6621ec0c37c832b5888ef8fd0ffc615842fef357653da9"
+    },
+    "docs/site/content/guide/clients.md": {
+      "en": "201c0faf9cfe9342e56cbc06645f2a426bf05fb70059462b4dca23c7b02ad6f5",
+      "zh": "f0c0c2e77734aca164cf067f1fb76b10799c4a0e2b2c42187599b49f0236717d"
+    },
+    "docs/site/content/guide/dashboard.md": {
+      "en": "5ff5a78dccf3f039912440b29918c471369620547dd70b38fb6b21d184c1d15c",
+      "zh": "1a6d9de36d4252513e049d7d7fafb8fab60b43af097a4804620d81827ea6eb14"
+    },
+    "docs/site/content/guide/data.md": {
+      "en": "04d73795a4f6db5b490917369bb1843865b2a4247458743d52bd470ed5e1cb04",
+      "zh": "0536b0bf4d42ad0482563bf02e322428717206242970ad8524dba37e2af0f287"
+    },
+    "docs/site/content/guide/pricing.md": {
+      "en": "e3f8fb41deb323bfdfb8394a6b93dcaa8f7e8ac6d7332d5f64df88246e2c10e4",
+      "zh": "a0f179f573be64072d38953ab27f031c466eb9066b2ff8108083d142df0b18a8"
+    },
+    "docs/site/content/guide/privacy.md": {
+      "en": "cc8d6286fc0994989c9ee1e9254f22d3441d6cc32124c16edb80a86a85cb1e8d",
+      "zh": "368adbcbd4e7e38eeda05928077fa04a7b68d658f6bd0137c2399504d9a87165"
+    },
+    "docs/site/content/guide/scheduling.md": {
+      "en": "b41ad4e52463f86b29640981ae9fd4babc81562c6dbc6a3b65730049f48b37f4",
+      "zh": "cb794c4cd12812cff412d4483ab3710fda5df524c906314769649961135df858"
+    },
+    "docs/site/content/guide/sources.md": {
+      "en": "9b639cf5336add72d202acf523e964a58ceb7db17b54ed35d9b4eb4ebc36779f",
+      "zh": "28a72aafd7eb2034f72783a5edec2612b5a0d7086b0bc7302a58d1fabe9628cc"
+    },
+    "docs/site/content/guide/telemetry.md": {
+      "en": "36c55ff5bcd4663998496b663e7f382c5c23179a5c14e8b387a0e0faad66b17d",
+      "zh": "27767207b1f56cfb14ab8b5ef771f629aebe09dd8b7706f5240aa47f903a85e9"
+    },
+    "docs/site/content/guide/troubleshooting.md": {
+      "en": "7a1a03bb64b73dc853eff8ba823d8e0c20629f9980b711a26a58e4180af3413c",
+      "zh": "3d967cfe15a91052ddf5c6965e14973e6e721665ff4605fbe6fd1fd5f757b233"
+    },
+    "docs/site/content/index.mdx": {
+      "en": "6512b35311fb862f6c93a1102a6c332fe75bc2841f0486d159af7955cb78386c",
+      "zh": "e9b1d940376b873df7cc5950cbbaccde123f546520f6614e6fd9aa46c5458c93"
+    },
+    "docs/site/content/start/faq.md": {
+      "en": "19961d5426aac588441353af66b0775ee5174f50f77144f6d6b611812e13372f",
+      "zh": "721a9f9522f28b77766cb860f135377755015702ec50e4150cc895fb3ee1652a"
+    },
+    "docs/site/content/start/installation.md": {
+      "en": "fc11eb722dfe7a9282805998d0c5e57a142f2f66af46779a6a159e3ed51a8632",
+      "zh": "82e40320b2c3800400cd3db108e743767742aee76184466272a7d391bda641d9"
+    },
+    "docs/site/content/start/quick-start.md": {
+      "en": "a74bb104e85ab22814442157c8a16b00cc1a89e38d6c28cb506fcaa1102e7934",
+      "zh": "1230e5e3cdbc0642bfa0642f037c233ed10326be3131d3b76db1109decfd645b"
+    }
+  }
+}

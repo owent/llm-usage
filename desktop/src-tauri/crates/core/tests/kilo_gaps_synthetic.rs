@@ -1,17 +1,17 @@
-//! Kilo 适配器缺口场景测试（全部合成：本文件构造的 kilo.db 均为合成数据，
-//! schema 复用真实 fixture 原始 DDL；数值为人工核算，文件头即标注）。
+//! Kilo missing/invalid-data tests: every kilo.db here is synthetic.
+//! Schema DDL comes from real samples; token values are calculated manually.
 //!
-//! 覆盖：无 usage 的 assistant 消息、未知 session.version 回退（latest_fallback）、
-//! 部分可用（坏 JSON 行 / 孤儿会话消息）、直报 total 与派生不一致、
-//! 仅新 core 数据层（session_message 无 message）fail closed、
-//! busy 写者下保留旧结果（只读约定第 4 条）。
+//! Covers assistant messages without usage, unknown session.version latest_fallback,
+//! valid rows alongside bad JSON/orphan messages and reported/derived-total mismatch.
+//! Reject session_message-only databases lacking message;
+//! retain earlier results with a busy writer under read-only requirement 4.
 
 mod common;
 
 use common::*;
 
 const NOW: i64 = 1_800_000_000_000;
-/// 合成消息统一时间基（毫秒 epoch，2026-09-01 附近）。
+/// Synthetic message baseline: epoch milliseconds, 2026-07-02T13:46:40Z.
 const T0: i64 = 1_783_000_000_000;
 
 fn session(id: &str, parent: Option<&str>, version: &str, snapshot: [i64; 5]) -> serde_json::Value {
@@ -97,7 +97,7 @@ fn full_tokens(
 
 #[test]
 fn assistant_without_tokens_counts_call_with_unknown_usage() {
-    // syn-a-1：assistant 但无 tokens 对象 ⇒ 计一次调用，token 全未知（不补零）。
+    // syn-a-1: assistant without tokens counts one call with unknown token fields.
     let dir = TempDir::new("kilo-no-usage");
     let root = build_kilo_db(
         &dir,
@@ -121,7 +121,7 @@ fn assistant_without_tokens_counts_call_with_unknown_usage() {
     assert_eq!(reports[0].files[0].diagnostics, 1, "usage_shape_deviation");
     let summary = summary(&storage, "2026-01-01", "2026-12-31");
     assert_eq!(summary.totals.call_count, 1);
-    // 无用量 assistant 计一次调用，但零已知 token 字段（quality_bucket=unknown）不算未知字段。
+    // quality_bucket=unknown counts the call but has no known fields or unknown-field denominators.
     assert_eq!(summary.totals.input_unknown_count, 0);
     assert_eq!(summary.totals.input_total_known, None);
     assert_eq!(summary.totals.total_tokens_known, None);
@@ -141,7 +141,7 @@ fn assistant_without_tokens_counts_call_with_unknown_usage() {
 
 #[test]
 fn unknown_version_falls_back_to_latest_parser_with_compat_flag() {
-    // session.version=9.9.9 未收录 ⇒ latest_fallback：数据照常入库，带兼容标记。
+    // Unregistered session.version=9.9.9 uses latest_fallback and retains compatibility status.
     let dir = TempDir::new("kilo-fallback");
     let root = build_kilo_db(
         &dir,
@@ -186,8 +186,8 @@ fn unknown_version_falls_back_to_latest_parser_with_compat_flag() {
 
 #[test]
 fn partial_availability_isolates_bad_rows_and_counts_orphan_messages() {
-    // syn-good：正常；syn-bad：data 非法 JSON（隔离记诊断）；
-    // syn-orphan：session_id 指向不存在的会话（LEFT JOIN 空仍计调用，no_snapshot）。
+    // syn-good is valid; syn-bad has invalid data JSON and receives diagnostics.
+    // syn-orphan references a missing session; LEFT JOIN still counts the call with no_snapshot.
     let dir = TempDir::new("kilo-partial");
     let mut messages = vec![
         assistant(
@@ -213,7 +213,7 @@ fn partial_availability_isolates_bad_rows_and_counts_orphan_messages() {
             }),
         ),
     ];
-    // syn-bad 的 data 直接写成非法 JSON 文本：绕过脱敏数据的 JSON 序列化。
+    // Write syn-bad data as invalid JSON text directly, bypassing sanitized-data serialization.
     let root = {
         let projection = synthetic_kilo_projection(
             serde_json::json!([session("syn-sess-1", None, "7.4.9", [230, 21, 5, 30, 0])]),
@@ -294,7 +294,7 @@ fn partial_availability_isolates_bad_rows_and_counts_orphan_messages() {
     let (_db, storage) = temp_storage("kilo-partial");
     let reports = run_kilo(&storage, &root, NOW);
 
-    // 部分可用：2 事件（good + orphan），坏行隔离记诊断。
+    // Retain two events, good and orphan, while diagnosing the bad row.
     assert_eq!(reports[0].files[0].events, 2);
     let conn = storage.conn();
     let bad: i64 = conn
@@ -305,7 +305,7 @@ fn partial_availability_isolates_bad_rows_and_counts_orphan_messages() {
         )
         .unwrap();
     assert_eq!(bad, 1);
-    // 孤儿消息：正常计调用，快照对账 no_snapshot。
+    // The orphan counts as a call and has no_snapshot reconciliation.
     let (key, category, schema_version): (String, String, String) = conn
         .query_row(
             "SELECT source_record_key, call_category, schema_version FROM usage_events \
@@ -326,7 +326,7 @@ fn partial_availability_isolates_bad_rows_and_counts_orphan_messages() {
         "session_cumulative_snapshot".to_string(),
         "no_snapshot".to_string()
     )));
-    // 明细有无法归类的坏 JSON：255 是有效行小计，不能假定为完整总量来比较快照 286。
+    // Unassigned bad JSON leaves 255 as a valid-row subtotal, not a complete total to compare with snapshot 286.
     assert!(reports[0].reconciliations.iter().any(|r| {
         r.verdict == "detail_incomplete"
             && r.detail_sum == 255
@@ -345,7 +345,7 @@ fn partial_availability_isolates_bad_rows_and_counts_orphan_messages() {
 
 #[test]
 fn reported_total_mismatch_is_diagnosed_not_hidden() {
-    // 直报 total=999 与派生 255 不一致 ⇒ 诊断 source_total_mismatch，不截断数值。
+    // Reported total 999 differs from derived 255; diagnose source_total_mismatch without clipping.
     let dir = TempDir::new("kilo-mismatch");
     let root = build_kilo_db(
         &dir,
@@ -380,7 +380,7 @@ fn reported_total_mismatch_is_diagnosed_not_hidden() {
 
 #[test]
 fn core_data_layer_without_message_table_fails_closed() {
-    // 仅新 core 数据层（session_message）而无 message 表 ⇒ 未知格式 fail closed。
+    // session_message without message is unknown_format and is not read as a supported format.
     let dir = TempDir::new("kilo-core-layer");
     let kilo_home = dir.path().join(".local").join("share").join("kilo");
     std::fs::create_dir_all(&kilo_home).unwrap();
@@ -420,8 +420,8 @@ fn core_data_layer_without_message_table_fails_closed() {
 
 #[test]
 fn busy_writer_keeps_old_results() {
-    // 只读约定第 4 条：写者持独占锁（rollback journal）时无法一致读取 ⇒
-    // 暂存副本备份也拿不到锁 ⇒ 源预算耗尽返回 interrupted，旧结果与游标保留。
+    // Read-only requirement 4: an exclusive rollback-journal writer blocks a consistent read.
+    // Staging backup also fails to acquire the lock; the source time limit interrupts, retaining results/cursor.
     let dir = TempDir::new("kilo-busy");
     let root = build_kilo_db(
         &dir,
@@ -448,7 +448,7 @@ fn busy_writer_keeps_old_results() {
         .collect::<Result<_, _>>()
         .unwrap();
 
-    // 另一连接持有 EXCLUSIVE 事务：只读短查询与暂存备份都无法一致读取。
+    // Another connection holds EXCLUSIVE; neither the short read nor staging backup can read consistently.
     let holder = rusqlite::Connection::open(
         dir.path()
             .join(".local")
@@ -487,7 +487,7 @@ fn busy_writer_keeps_old_results() {
         .collect::<Result<_, _>>()
         .unwrap();
     assert_eq!(cursors_before, cursors_after);
-    // 旧结果保留：总数不变（不能伪装为零或丢历史）。
+    // Retain old totals and history, without replacing them with zero.
     let summary_after = summary(&storage, "2026-01-01", "2026-12-31");
     assert_eq!(
         summary_after.totals.call_count,
@@ -499,10 +499,10 @@ fn busy_writer_keeps_old_results() {
     );
     holder.execute_batch("ROLLBACK;").unwrap();
     drop(holder);
-    // 锁释放后下一轮恢复采集。
+    // Collection resumes after the lock is released.
     let third = run_kilo(&storage, &root, NOW + 2_000);
     assert_eq!(third[0].files[0].status, "complete");
-    // 只读约定：暂存副本用完清理，系统临时目录无本进程残留。
+    // Remove staging copies after use; this process leaves none in the system temporary directory.
     let prefix = format!("llm-usage-kilo-staging-{}-", std::process::id());
     let leftovers: Vec<_> = std::fs::read_dir(std::env::temp_dir())
         .map(|entries| {

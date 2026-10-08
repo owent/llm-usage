@@ -1,5 +1,5 @@
-//! Goose 适配器（Block→aaif-goose；独立目录约定）。载体：sessions.db 的
-//! usage_ledger 逐请求表（迁移 15+）；旧库按 sessions.accumulated_* 聚合回退。
+//! Goose adapter (Block→aaif-goose; independent directory). Reads sessions.db
+//! per-request usage_ledger, migration 15+; old DBs fall back to sessions.accumulated_* aggregates.
 
 pub mod common;
 pub mod detect;
@@ -9,7 +9,7 @@ pub use detect::GOOSE_FORMAT;
 pub use versions::usage_ledger_v1;
 pub use versions::{GOOSE_FORMAT_VERSION, LATEST_IMPL_ID, VERIFIED_VERSION_IMPLS};
 
-/// Goose 适配器（无状态）。
+/// Stateless Goose adapter.
 pub struct GooseAdapter;
 
 impl Default for GooseAdapter {
@@ -39,7 +39,7 @@ impl crate::adapters::framework::SourceAdapter for GooseAdapter {
     ) -> Vec<crate::adapters::framework::DiscoveredRoot> {
         use crate::adapters::framework::{DiscoveredRoot, RootBasis};
         let mut roots: Vec<(std::path::PathBuf, RootBasis)> = Vec::new();
-        // GOOSE_PATH_ROOT（必须绝对路径，官方 paths.rs:41-50）。
+        // GOOSE_PATH_ROOT must be absolute (official paths.rs:41–50).
         if let Some(root) = ctx.env.get("GOOSE_PATH_ROOT").filter(|v| {
             let t = v.trim();
             !t.is_empty() && std::path::Path::new(t).is_absolute()
@@ -53,7 +53,7 @@ impl crate::adapters::framework::SourceAdapter for GooseAdapter {
         }
         if let Some(home) = &ctx.home_dir {
             if cfg!(windows) {
-                // etcetera 0.11 Windows 策略：Roaming/<author>/<app>/data。
+                // etcetera 0.11 Windows layout: Roaming/<author>/<app>/data.
                 if let Some(appdata) = ctx.env.get("APPDATA") {
                     roots.push((
                         std::path::PathBuf::from(appdata)
@@ -72,7 +72,7 @@ impl crate::adapters::framework::SourceAdapter for GooseAdapter {
                     .map(std::path::PathBuf::from)
                     .unwrap_or_else(|| home.join(".local").join("share"));
                 roots.push((xdg.join("goose").join("sessions"), RootBasis::DefaultHome));
-                // 旧 Block 时代 macOS 根（官方注释保留兼容）。
+                // Legacy Block macOS root retained for compatibility by official comments.
                 roots.push((
                     home.join("Library")
                         .join("Application Support")
@@ -82,7 +82,7 @@ impl crate::adapters::framework::SourceAdapter for GooseAdapter {
                     RootBasis::DefaultHome,
                 ));
             }
-            // 旧 Block 时代 unix 根。
+            // Legacy Block Unix root.
             roots.push((
                 home.join(".local")
                     .join("share")
@@ -99,8 +99,8 @@ impl crate::adapters::framework::SourceAdapter for GooseAdapter {
         let mut seen: std::collections::BTreeSet<std::path::PathBuf> =
             std::collections::BTreeSet::new();
         for (root, basis) in roots {
-            // 文件形手工根：root 取文件本身——同目录下两个手工 db 文件的
-            // root 规范化后相同会被框架去重吞并其一（该库永不扫描）。
+            // File manual roots use the file itself: two DBs in one directory must not
+            // normalize to one directory and lose one forever through framework deduplication.
             let (db, root_key) = if root.join("sessions.db").is_file() {
                 (root.join("sessions.db"), root.clone())
             } else if root.is_file() {

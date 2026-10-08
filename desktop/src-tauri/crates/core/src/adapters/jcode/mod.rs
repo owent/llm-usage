@@ -1,6 +1,6 @@
-//! jcode 适配器（jcode.sh，开源 Rust 终端 Agent；独立目录约定）。载体：
-//! `$JCODE_HOME`（默认 ~/.jcode）/sessions/session_*.json 快照 +
-//! 同 stem `.journal.jsonl`（journal 权威覆盖快照；按消息 id upsert 幂等）。
+//! jcode (jcode.sh, open-source Rust terminal Agent) reads its own files:
+//! `$JCODE_HOME` (default ~/.jcode)/sessions/session_*.json snapshots plus
+//! same-stem .journal.jsonl; journal overrides snapshots, upserting by message ID.
 
 pub mod detect;
 pub mod versions;
@@ -9,7 +9,7 @@ pub use detect::JCODE_FORMAT;
 pub use versions::session_v1;
 pub use versions::{JCODE_FORMAT_VERSION, LATEST_IMPL_ID, VERIFIED_VERSION_IMPLS};
 
-/// jcode 适配器（无状态）。
+/// Stateless jcode adapter.
 pub struct JcodeAdapter;
 
 impl Default for JcodeAdapter {
@@ -55,7 +55,7 @@ impl crate::adapters::framework::SourceAdapter for JcodeAdapter {
         let mut seen: std::collections::BTreeSet<std::path::PathBuf> =
             std::collections::BTreeSet::new();
         for (root, basis) in roots {
-            // 只枚举快照；journal 由扫描层按 stem 组装（两载体一个逻辑单元）。
+            // Enumerate snapshots only; scanning pairs the same-stem journal into one logical source.
             let files = crate::adapters::framework::enumerate_files_bounded(&root, 1, &|p| {
                 p.file_name()
                     .and_then(|n| n.to_str())

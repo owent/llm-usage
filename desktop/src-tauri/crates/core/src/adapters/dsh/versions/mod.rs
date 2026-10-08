@@ -1,35 +1,35 @@
-//! DSH 版本注册表：格式版本 → 格式实现的映射与回退选择
-//! （architecture.md#adapter-layout / #unknown-version，V30 目录约定）。
+//! DSH registry maps format versions to implementations or fallback.
+//! See architecture.md#adapter-layout / #unknown-version, V30.
 //!
-//! rc.2 原生格式 4 已有非空真实样本；旧 session-log-doc-1 仍为独立文档锚点。
-//! KnownVersion 只认证载体格式，不认证全部客户端版本或继承历史。
-//! select 保留统一回退形状；实际 detect 拒绝未知明示格式版本。
+//! Native rc.2 format 4 has nonempty real samples; retain the separate legacy session-log-doc-1 ID.
+//! KnownVersion identifies a file format, not all client versions or inherited history.
+//! select retains the shared fallback interface; detection rejects unknown explicit format versions.
 
 pub mod session_log_doc1;
 pub mod session_v4;
 
-/// 当前格式实现标识（"最新内置解析器"由本常量明确指定，不联网获取）。
+/// This constant selects the latest built-in implementation without network access.
 pub const LATEST_IMPL_ID: &str = "session_v4";
 
-/// 文档级格式版本（非产品版本）：按固定 README 46a7f68 的事件与替换语义实现，
-/// 待真实样本核验。
+/// Legacy format ID based on README 46a7f68 event/replacement rules, not a product version.
+/// Native format-4 samples do not verify this separate legacy format.
 pub const DSH_FORMAT_VERSION: &str = "session-log-doc-1";
 
-/// 已验证支持的格式版本 → 格式实现。
-/// 无逐产品版本登记；原生格式 4 与旧文档锚点分别保存。
+/// Registered format IDs mapped to implementations.
+/// No per-product version mappings; keep native format 4 and the legacy ID separate.
 pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[
     ("session-log-doc-1", "session_log_doc1"),
     ("4", "session_v4"),
 ];
 
-/// 版本分派结论。
+/// Version selection result.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Selection {
     pub impl_id: &'static str,
     pub basis: crate::domain::VersionBasis,
 }
 
-/// 按格式版本选择实现；探测与扫描共用本函数保证同一策略（V30）。
+/// Detection and scanning share this V30 format-selection function.
 pub fn select(found: Option<&str>) -> Selection {
     match found {
         Some(version) => {
@@ -42,14 +42,14 @@ pub fn select(found: Option<&str>) -> Selection {
                     impl_id,
                     basis: crate::domain::VersionBasis::KnownVersion,
                 },
-                // 实际 detect 已拒绝未知明示格式；保留统一选择接口。
+                // Detection rejects unknown explicit formats; retain the shared selection interface.
                 None => Selection {
                     impl_id: LATEST_IMPL_ID,
                     basis: crate::domain::VersionBasis::LatestFallback,
                 },
             }
         }
-        // 实际 detect 要求原生 header 或旧指纹，缺失分支保持统一形状。
+        // Detection requires a native header or legacy shape; None preserves the common interface.
         None => Selection {
             impl_id: LATEST_IMPL_ID,
             basis: crate::domain::VersionBasis::LatestFallback,
@@ -75,8 +75,8 @@ mod tests {
 
     #[test]
     fn unreachable_branches_keep_unified_shape() {
-        // None/其他值分支对 dsh 实际不可达（detect 不读版本号）；
-        // 仅保持与其他 Agent 注册表相同的 LatestFallback 形状（V30 结构检查）。
+        // Test fallback branches directly; successful detection supplies a supported native or legacy format.
+        // Preserve the same LatestFallback result shape as other registries for V30 checks.
         assert_eq!(
             select(None),
             Selection {

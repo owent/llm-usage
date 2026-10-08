@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""LLM 用量存储层：原始事件表 + 按日聚合缓存（历史数据缓存优先，保留一年）。"""
+"""LLM usage storage: raw events and daily aggregate cache; prefer cached history, retain one year."""
 import os
 import sqlite3
 import time
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT);
 
 
 def local_day(ts: float) -> str:
-    """本地时区（运行机器时区）的日期串。"""
+    """Date string in the running machine's local timezone."""
     return datetime.fromtimestamp(ts).strftime("%Y-%m-%d")
 
 
@@ -48,7 +48,7 @@ class Store:
     def close(self):
         self.con.close()
 
-    # ---- 采集状态（增量游标/文件偏移） ----
+    # ---- Collection state: incremental cursors/file offsets ----
     def state_get(self, tool: str, key: str, default=None):
         row = self.con.execute(
             "SELECT value FROM source_state WHERE tool=? AND key=?", (tool, key)
@@ -61,9 +61,9 @@ class Store:
             (tool, key, str(value)),
         )
 
-    # ---- 事件写入（幂等） ----
+    # ---- Idempotent event writes ----
     def add_events(self, events) -> list:
-        """插入事件，返回实际新插入事件的 day 列表（去重后）。"""
+        """Insert events and return deduplicated days with newly inserted events."""
         new_days = []
         for e in events:
             day = local_day(e.ts)
@@ -79,9 +79,9 @@ class Store:
         self.con.commit()
         return new_days
 
-    # ---- 按日聚合缓存 ----
+    # ---- Daily aggregate cache ----
     def rebuild_days(self, days):
-        """重算指定日期的聚合缓存（历史数据直接读缓存，不回溯源）。"""
+        """Recompute selected dates; historical reads use the cache without revisiting sources."""
         days = sorted(set(days))
         if not days:
             return
@@ -103,14 +103,14 @@ class Store:
         self.con.execute("DELETE FROM daily WHERE day < ?", (cutoff,))
         self.con.commit()
 
-    # ---- 查询 ----
+    # ---- Queries ----
     def _rows(self, where: str = "", params=()):
         sql = ("SELECT day, tool, model, requests, input, output, cache_read, cache_write "
                "FROM daily " + where + " ORDER BY day, tool, model")
         return self.con.execute(sql, params).fetchall()
 
     def hourly_rows(self, day: str):
-        """指定日期按 本地小时 × 工具 × 模型 聚合（今日实时图表用）。"""
+        """Aggregate a date by local hour, tool and model for today's live charts."""
         return self.con.execute(
             """SELECT CAST(strftime('%H', ts, 'unixepoch', 'localtime') AS INTEGER) AS h,
                       tool, model, COUNT(*), SUM(input), SUM(output),

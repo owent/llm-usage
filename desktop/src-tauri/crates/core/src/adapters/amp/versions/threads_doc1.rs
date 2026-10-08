@@ -1,27 +1,27 @@
-//! Amp threads/T-*.json 格式实现（`threads_doc1`，文档级 amp-threads-doc-1）。
+//! Amp threads/T-*.json implementation threads_doc1; document format amp-threads-doc-1.
 //!
-//! 格式依据（第三方解析器 tokscale 固定提交
-//! 1d9a9395418efc6952944b794097935d7d6fa1e8 sessions/amp.rs；闭源产品
-//! Sourcegraph，本机未安装、无真实样本）：
-//! - 路径 `~/.local/share/amp/threads/T-*.json`（clients.rs:463-472，
-//!   PathRoot::XdgData；Windows 实际目录布局尚未核验，%LOCALAPPDATA%\amp\threads
-//!   作为候选根探测，指纹过滤）。
-//! - 每线程一个 JSON：`id`、`created`（Unix **毫秒**）、`messages[]`、
-//!   `usageLedger`（amp.rs:64-71）。
-//! - **usageLedger.events[]**（主载体，amp.rs:13-24）：`timestamp`（RFC3339）、
-//!   `model`、`credits`（计费单位非美元，不映射 cost）、`tokens{ input,
-//!   output, cacheReadInputTokens, cacheCreationInputTokens }`、
-//!   `operationType`、`fromMessageId`/`toMessageId`。
-//! - **messages[]（assistant）usage**（amp.rs:37-57）：`messageId`、
-//!   `usage{ model, inputTokens, outputTokens, cacheReadInputTokens,
-//!   cacheCreationInputTokens, credits }`——**无时间戳**。
+//! Reference: third-party tokscale commit
+//! 1d9a9395418efc6952944b794097935d7d6fa1e8, sessions/amp.rs, describing the closed-source
+//! product under Sourcegraph. Original inspection had no local installation/native samples.
+//! - ~/.local/share/amp/threads/T-*.json uses PathRoot::XdgData (clients.rs:463-472).
+//!   Windows layout remains unverified; %LOCALAPPDATA%/amp/threads is a candidate
+//!   checked by format detection.
+//! - One JSON object per thread has id, created in Unix milliseconds, messages[]
+//!   and usageLedger (amp.rs:64-71).
+//! - usageLedger.events[] is the primary source (amp.rs:13-24), with RFC3339 timestamp,
+//!   model, credits (billing units, not USD/cost) and tokens{input,
+//!   output, cacheReadInputTokens, cacheCreationInputTokens},
+//!   plus operationType and fromMessageId/toMessageId.
+//! - Assistant messages[].usage (amp.rs:37-57) has messageId and
+//!   usage{model,inputTokens,outputTokens,cacheReadInputTokens,
+//!   cacheCreationInputTokens,credits}, without a timestamp.
 //!
-//! 对账约定（M8 双载体边界）：ledger 与逐消息 usage 按 toMessageId==messageId
-//! 对账防双计；ledger 事件有显式时间戳 ⇒ 主入账载体；无 ledger 对应的消息
-//! usage 无时间戳（tokscale 以 thread.created + messageId×1000 推造时间，
-//! **不采纳**——矩阵明令禁止）⇒ 跳过并记诊断 + Reconciliation 对照。
-//! credits 是 Amp 计费单位（非美元）：不映射 CostAmount（额度类）。
-//! 五桶包含关系未知 ⇒ 并列报告不派生总量（hermes 同型）。
+//! M8 reconciliation joins ledger toMessageId to messageId, avoiding duplicate usage.
+//! Timestamped ledger events are imported; unmatched assistant usage has no timestamp.
+//! The reference fabricates thread.created + messageId*1000 timing, which the matrix rejects:
+//! skip those messages with diagnostics and a reconciliation comparison.
+//! Credits are Amp billing units and do not map to CostAmount.
+//! Inclusion among the four input/output/cache fields is unverified; keep separate without deriving totals.
 
 use crate::adapters::framework::{
     ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -37,7 +37,7 @@ use std::io::Read;
 use super::AMP_FORMAT_VERSION;
 
 pub const AMP_PARSER_VERSION: &str = "amp-threads-doc1";
-/// 单文件有界读取上限。
+/// Bounded read limit per file.
 pub const AMP_MAX_FILE_BYTES: u64 = 32 * 1024 * 1024;
 const MAX_REASONABLE_TOKEN: i64 = crate::domain::MAX_TOKEN_VALUE;
 
@@ -77,7 +77,7 @@ fn rfc3339_ms(value: Option<&serde_json::Value>) -> Option<i64> {
         .then_some(ms)
 }
 
-/// 五桶（缺字段=None 未知；负值/超限返回 None 由调用方记诊断）。
+/// Four token fields: missing is None/unknown; invalid values reject the bucket set with caller diagnostics.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 struct FiveBuckets {
     input: Option<i64>,
@@ -111,7 +111,7 @@ fn opt_token(value: Option<&serde_json::Value>) -> Option<Option<i64>> {
     }
 }
 
-/// ledger events[].tokens{input,output,cacheReadInputTokens,cacheCreationInputTokens}。
+/// Read ledger events[].tokens input/output/cacheReadInputTokens/cacheCreationInputTokens.
 fn ledger_tokens(obj: &serde_json::Map<String, serde_json::Value>) -> Option<FiveBuckets> {
     let tokens = obj.get("tokens").and_then(|v| v.as_object())?;
     Some(FiveBuckets {
@@ -122,7 +122,7 @@ fn ledger_tokens(obj: &serde_json::Map<String, serde_json::Value>) -> Option<Fiv
     })
 }
 
-/// assistant messages[].usage{inputTokens,outputTokens,cacheReadInputTokens,cacheCreationInputTokens}。
+/// Read assistant messages[].usage inputTokens/outputTokens/cacheReadInputTokens/cacheCreationInputTokens.
 fn message_usage(obj: &serde_json::Map<String, serde_json::Value>) -> Option<FiveBuckets> {
     let usage = obj.get("usage").and_then(|v| v.as_object())?;
     Some(FiveBuckets {
@@ -185,7 +185,7 @@ pub fn scan(
             });
         }
     };
-    // ---- 主载体：usageLedger.events（有显式时间戳）----
+    // Primary source: timestamped usageLedger.events.
     let mut ledger_matched_message_ids: std::collections::BTreeSet<i64> = Default::default();
     let mut ledger_sum: i64 = 0;
     let mut records_seen: u64 = 0;
@@ -238,8 +238,8 @@ pub fn scan(
                     total_tokens: None,
                     source_total: None,
                 },
-                // 在场桶必须标 Reported：全 Unknown 会在 ingest 校验
-                // （domain.rs 值与质量一致性）被拒，事件无法入账。
+                // Present fields need Reported quality; Unknown would contradict their values
+                // and domain.rs ingestion validation would reject the event.
                 crate::domain::TokenQuality {
                     input_cache_read: crate::domain::FieldQuality::Reported,
                     input_cache_write: crate::domain::FieldQuality::Reported,
@@ -289,7 +289,7 @@ pub fn scan(
             });
         }
     }
-    // ---- 对照载体：assistant messages[].usage（无时间戳，仅对账）----
+    // Comparison source: untimestamped assistant messages[].usage, used only for reconciliation.
     let mut unmatched_message_usage: u64 = 0;
     let mut message_sum: i64 = 0;
     if let Some(messages) = document.get("messages").and_then(|v| v.as_array()) {
@@ -310,7 +310,7 @@ pub fn scan(
             }
             let message_id = obj.get("messageId").and_then(|v| v.as_i64());
             if message_id.is_some_and(|id| ledger_matched_message_ids.contains(&id)) {
-                // 已由 ledger 入账（对账命中，不双计）。
+                // A matching ledger event already supplied usage; skip this message to avoid duplicates.
                 continue;
             }
             unmatched_message_usage += 1;
@@ -369,7 +369,7 @@ mod tests {
             Some("abc123")
         );
         assert_eq!(thread_id_of(std::path::Path::new("/x/other.json")), None);
-        // 空前缀归 unknown（调用方提供默认值），不产空键。
+        // Empty thread-id suffix returns None; callers supply unknown instead of an empty key.
         assert_eq!(
             thread_id_of(std::path::Path::new("/x/threads/T-.json")),
             None

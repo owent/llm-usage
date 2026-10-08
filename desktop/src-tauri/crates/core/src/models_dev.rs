@@ -1,24 +1,24 @@
-//! models.dev 社区目录（`api.json`）→ 价格快照转换（F2 在线刷新，
-//! [价格规范 · 在线刷新设计](../../../docs/design/desktop-usage/pricing.md)）。
+//! Convert the models.dev api.json catalog to price snapshots for F2 online refresh.
+//! Rules: docs/design/desktop-usage/pricing.md, online refresh design.
 //!
-//! 实测结构（2026-10-01，S24）：顶层为 `{ provider_id: { id, name, doc, env,
-//! npm, models: { model_id: ModelEntry } } }`；`ModelEntry.cost` 字段集为
+//! S24 structure observed on 2026-10-01: provider_id maps to id/name/doc/env/
+//! npm/models, with model_id mapping to ModelEntry. Its cost fields include
 //! input/output/cache_read/cache_write/input_audio/output_audio/reasoning/
-//! tiers/context_over_200k（美元/百万 token，无币种字段）；`canonical_model_id`
-//! 形如 `"openai/gpt-6-astra"`，是目录自身的官方归属标注。
+//! tiers/context_over_200k, denominated in USD per million tokens without a currency field.
+//! canonical_model_id, such as openai/gpt-6-astra, supplies catalog provider attribution.
 //!
-//! 过滤约定（以官方按量价为准）：
-//! - 官方提供商 = 至少一个模型 `canonical_model_id` 前缀对应的提供商 ID，
-//!   或其 `<id>-cn` 中国区变体；ID 含 `-plan`（coding-plan/token-plan 等订阅
-//!   占位，实测 cost 全 0）整体排除；
-//! - 模型级 input 与 output 同时为 0/缺失 ⇒ 跳过（订阅占位不是价格）；
-//! - 分量 0 值 ⇒ NULL（无价），不把目录占位零值当免费价格；
-//! - `cache_write` → `cache_write_5m`（目录无 TTL 分档）；`tiers[type=context]`
-//!   → `context_threshold_tokens` 行；`context_over_200k` 为重复表达不采用；
-//!   audio/reasoning 价格项不导入（reasoning 仍含在输出价格中）；
-//! - 行属性：region = cn（-cn 变体）/ global，channel = api，currency = USD，
-//!   service_tier = standard，official_vendor = true；
-//! - 单位折算：美元/百万 token ×10⁴ → 百分之一美分/百万 token，四舍五入。
+//! Select official-provider pay-as-you-go entries by the catalog rules:
+//! - provider IDs must match a canonical_model_id prefix or its -cn variant;
+//!   exclude IDs containing -plan, including coding-plan/token-plan subscription
+//!   placeholders whose observed costs were all zero;
+//! - skip models with input/output both zero or absent; subscription placeholders are not prices;
+//! - raw zero components become NULL, without treating placeholder zeros as free rates;
+//! - map cache_write to cache_write_5m because the catalog lacks TTL tiers; context-type tiers
+//!   become context_threshold_tokens rows, without duplicating context_over_200k;
+//!   do not import audio/reasoning rates separately; reasoning remains within output pricing;
+//! - set region cn for -cn variants, otherwise global; channel api, currency USD,
+//!   service_tier standard and official_vendor true;
+//! - convert USD/million tokens to hundredths of a cent/million with multiplication by 10^4 and rounding.
 
 use crate::error::CoreError;
 use crate::pricing::{PriceRow, PriceSnapshot};
@@ -26,10 +26,10 @@ use jiff::tz::TimeZone;
 use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
 
-/// 内置在线刷新来源（唯一；HTTPS GET，不携带任何本地数据）。
+/// Only built-in online price source; HTTPS GET sends no local data.
 pub const MODELS_DEV_API_URL: &str = "https://models.dev/api.json";
 
-/// 响应体上限（实测约 5.3 MiB；上限防异常膨胀）。
+/// Response-size limit; S24 observed about 5.3 MiB.
 pub const MODELS_DEV_MAX_BYTES: u64 = 64 * 1024 * 1024;
 
 #[derive(Debug, Deserialize)]
@@ -76,8 +76,8 @@ struct TierMeta {
     size: Option<i64>,
 }
 
-/// 美元/百万 token → 百分之一美分/百万 token（×10⁴ 四舍五入；0 ⇒ None，
-/// 目录占位零值不当免费价格）。
+/// Convert USD/million tokens to hundredths of a cent/million by 10^4 and rounding.
+/// Raw zero placeholders become None rather than free prices.
 fn usd_to_hundredths(value: Option<f64>) -> Option<i64> {
     match value {
         Some(v) if v.is_finite() && v > 0.0 => {
@@ -88,13 +88,13 @@ fn usd_to_hundredths(value: Option<f64>) -> Option<i64> {
             Some((scaled + 0.5) as i64)
         }
         Some(v) if v.is_finite() && v == 0.0 => None,
-        Some(_) => None, // 负值/非有限值：不导入（校验层对负价的拒绝针对显式负值）
+        Some(_) => None, // Skip negative/non-finite raw rates before snapshot validation.
         None => None,
     }
 }
 
-/// 官方提供商判定：ID 是任一 canonical_model_id 前缀，或为 `<前缀>-cn` 变体；
-/// ID 含 `-plan` 的订阅占位渠道整体排除。
+/// Select provider IDs from canonical_model_id prefixes and their -cn variants;
+/// exclude -plan subscription placeholders.
 fn official_provider_ids(api: &ApiFile) -> BTreeSet<String> {
     let mut prefixes: BTreeSet<String> = BTreeSet::new();
     for provider in api.providers.values() {
@@ -124,9 +124,9 @@ fn official_provider_ids(api: &ApiFile) -> BTreeSet<String> {
         .collect()
 }
 
-/// 把 api.json 原文转换为社区价格快照（source_type=community）。
-/// `fetched_at_ms` 为本次成功下载时间（决定快照 ID 日期与行生效起点）。
-/// `raw_hash` 为原始响应内容的 FNV-1a 哈希（快照 ID 组成部分，幂等前提）。
+/// Convert raw api.json to a community price snapshot (source_type=community).
+/// Successful fetched_at_ms determines the snapshot date and effective start.
+/// Raw-response FNV-1a hash contributes to snapshot identity and duplicate detection.
 pub fn snapshot_from_models_dev(
     json_text: &str,
     fetched_at_ms: i64,
@@ -152,7 +152,7 @@ pub fn snapshot_from_models_dev(
         .date();
     let snapshot_id = format!("models-dev-{}-{:08x}", fetched_date, raw_hash as u32);
     let effective_from = fetched_date.to_string();
-    // 生效起点 = 抓取日期（UTC 零点）；目录无价格生效区间。
+    // Use the fetched UTC date as effective start because the catalog has no rate-effective intervals.
     let effective_from_ms = crate::pricing::iso_date_to_ms(&effective_from, "effective_from")?;
 
     let mut rows: Vec<PriceRow> = Vec::new();
@@ -168,7 +168,7 @@ pub fn snapshot_from_models_dev(
             let input = usd_to_hundredths(cost.input);
             let output = usd_to_hundredths(cost.output);
             if input.is_none() && output.is_none() {
-                continue; // 订阅占位/无价目：跳过
+                continue; // Skip subscription placeholders or entries without usable rates.
             }
             let base_id = format!("{snapshot_id}:{provider_id}:{model_id}");
             let mut push_row = |threshold: i64,
@@ -210,7 +210,7 @@ pub fn snapshot_from_models_dev(
                 output,
                 String::new(),
             );
-            // 长上下文档：仅 context 类型；同尺寸去重（保首个）。
+            // Import context-type long-context tiers, keeping the first entry for each size.
             let mut seen_sizes: BTreeSet<i64> = BTreeSet::new();
             for tier in &cost.tiers {
                 let Some(meta) = &tier.tier else { continue };
@@ -244,7 +244,7 @@ pub fn snapshot_from_models_dev(
     }
     rows.sort_by(|a, b| a.price_id.cmp(&b.price_id));
 
-    // 复用快照文件校验链（区间重叠/非负/枚举等）：构造等价 SnapshotFile 再归一化。
+    // Reuse SnapshotFile validation for intervals, nonnegative values and enums before normalization.
     let file = crate::pricing::SnapshotFile {
         format: "llm-usage-price-snapshot/1".to_string(),
         snapshot: crate::pricing::SnapshotMetaFile {
@@ -292,7 +292,7 @@ pub fn snapshot_from_models_dev(
     PriceSnapshot::from_file(&file)
 }
 
-/// 原始响应内容的 FNV-1a 哈希（与 pricing 模块同算法，快照 ID 用）。
+/// Raw-response FNV-1a hash uses the pricing algorithm for snapshot identity.
 pub fn content_hash(bytes: &[u8]) -> u64 {
     crate::pricing::fnv1a(bytes)
 }
@@ -301,8 +301,8 @@ pub fn content_hash(bytes: &[u8]) -> u64 {
 mod tests {
     use super::*;
 
-    /// 迷你 api.json：vendorA（canonical 前缀官方）、vendora-cn（-cn 变体）、
-    /// coding-plan 占位、聚合商（非官方）、零价模型、长上下文档、0 分量。
+    /// Synthetic catalog includes canonical vendorA, its vendorA-cn variant,
+    /// subscription placeholders, an aggregator, zero-rate models, context tiers and zero components.
     const MINI: &str = r#"{
       "vendorA": {
         "id": "vendorA",
@@ -368,8 +368,8 @@ mod tests {
     #[test]
     fn filters_to_official_pay_as_you_go_rows() {
         let snapshot = convert();
-        // vendorA：m-one 基价 + 272K 档、m-free-cache、m-tiny；vendorA-cn：m-one。
-        // m-zero（全 0）与 coding-plan/aggregator 条目被排除。
+        // vendorA: m-one base and 272K tier, m-free-cache and m-tiny; vendorA-cn: m-one.
+        // Exclude all-zero m-zero and coding-plan/aggregator entries.
         assert_eq!(snapshot.rows.len(), 5);
         assert!(snapshot
             .rows
@@ -380,14 +380,14 @@ mod tests {
             .iter()
             .all(|r| r.provider_id == "vendorA" || r.provider_id == "vendorA-cn"));
         assert!(!snapshot.rows.iter().any(|r| r.model == "m-zero"));
-        // -cn 变体 region=cn，其余 global。
+        // -cn variants use region cn; other entries use global.
         let cn = snapshot
             .rows
             .iter()
             .find(|r| r.provider_id == "vendorA-cn")
             .expect("cn row");
         assert_eq!(cn.region, "cn");
-        assert_eq!(cn.input_per_mtok_hundredths, Some(1150)); // 0.115 × 10⁴
+        assert_eq!(cn.input_per_mtok_hundredths, Some(1150)); // 0.115 * 10^4.
     }
 
     #[test]
@@ -398,9 +398,9 @@ mod tests {
             .iter()
             .find(|r| r.price_id.ends_with(":vendorA:m-one"))
             .expect("base row");
-        assert_eq!(base.input_per_mtok_hundredths, Some(100_000)); // $10/M
-        assert_eq!(base.cache_write_5m_per_mtok_hundredths, Some(125_000)); // $12.5/M → 5m 档
-        assert_eq!(base.cache_write_1h_per_mtok_hundredths, None); // 目录无 1h 档
+        assert_eq!(base.input_per_mtok_hundredths, Some(100_000)); // USD 10 per million tokens.
+        assert_eq!(base.cache_write_5m_per_mtok_hundredths, Some(125_000)); // USD 12.5 per million tokens, in the five-minute tier.
+        assert_eq!(base.cache_write_1h_per_mtok_hundredths, None); // The catalog has no one-hour tier.
         assert_eq!(base.context_threshold_tokens, 0);
         let tier = snapshot
             .rows
@@ -408,8 +408,8 @@ mod tests {
             .find(|r| r.price_id.ends_with(":t272000"))
             .expect("tier row");
         assert_eq!(tier.context_threshold_tokens, 272000);
-        assert_eq!(tier.output_per_mtok_hundredths, Some(750_000)); // $75/M
-                                                                    // 0 分量 ⇒ NULL（不把占位零值当免费价格）。
+        assert_eq!(tier.output_per_mtok_hundredths, Some(750_000)); // USD 75 per million tokens.
+                                                                    // Raw zero components become NULL instead of free placeholder rates.
         let free_cache = snapshot
             .rows
             .iter()
@@ -417,7 +417,7 @@ mod tests {
             .expect("free cache row");
         assert_eq!(free_cache.cache_write_5m_per_mtok_hundredths, None);
         assert_eq!(free_cache.cache_read_per_mtok_hundredths, Some(2600));
-        // 极低分项四舍五入：$0.003625/M ×10⁴ = 36.25 → 36。
+        // Round USD 0.003625/M * 10^4 = 36.25 to 36.
         let tiny = snapshot
             .rows
             .iter()
@@ -435,7 +435,7 @@ mod tests {
         assert_eq!(a.source_type, "community");
         assert_eq!(a.source_urls, [MODELS_DEV_API_URL]);
         assert_eq!(a.license.as_deref(), Some("MIT"));
-        // 内容变化 ⇒ 快照 ID 变化（修正须换 ID 的约定前提）。
+        // Changed bytes produce a different snapshot ID, as required for corrected snapshots.
         let changed = MINI.replace("\"input\": 10", "\"input\": 11");
         let other = snapshot_from_models_dev(
             &changed,
@@ -450,7 +450,7 @@ mod tests {
     fn rejects_invalid_and_empty_content() {
         assert!(snapshot_from_models_dev("not json", 0, 0).is_err());
         assert!(snapshot_from_models_dev("{}", 0, 0).is_err());
-        // 只有订阅占位（全 0）⇒ 过滤后无价格行，拒绝导入。
+        // Subscription-only zero placeholders yield no rows and must be rejected.
         let only_plan =
             r#"{"p-coding-plan": {"models": {"m": {"cost": {"input": 0, "output": 0}}}}}"#;
         assert!(snapshot_from_models_dev(only_plan, 0, 0).is_err());

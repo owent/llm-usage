@@ -1,24 +1,24 @@
-//! COMMANDCODE 版本注册表（V30 目录约定）。锚点为文档级 commandcode-tree-v3。
+//! COMMANDCODE version registry (V30 layout); documented format commandcode-tree-v3.
 
 pub mod tree_v3;
 
-/// 当前格式实现标识。
+/// Identifier of the current format implementation.
 pub const LATEST_IMPL_ID: &str = "tree_v3";
 
-/// 文档级格式版本。
+/// Format version established by documentation/source inspection.
 pub const COMMANDCODE_FORMAT_VERSION: &str = "commandcode-tree-v3";
 
-/// 已验证支持的格式版本 → 格式实现。
+/// Supported format versions mapped to implementations.
 pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[("commandcode-tree-v3", "tree_v3")];
 
-/// 版本分派结论。
+/// Result of selecting a version implementation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Selection {
     pub impl_id: &'static str,
     pub basis: crate::domain::VersionBasis,
 }
 
-/// 按格式版本选择实现；探测与扫描共用本函数（V30）。
+/// Select by format version; detection and scanning share this function (V30).
 pub fn select(found: Option<&str>) -> Selection {
     match found {
         Some(version) => {

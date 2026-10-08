@@ -1,39 +1,39 @@
-//! VS Code 内置 GitHub Copilot Chat 会话用量适配器（独立目录约定）。载体：
-//! VS Code 原生聊天会话日志 `workspaceStorage/<hash>/chatSessions/<sessionId>.jsonl`
-//! （chatSessionOperationLog storageSchema **version 3**；本机 VS Code 1.140.0
-//! 真实数据核验 2026-10-01）。
+//! VS Code built-in GitHub Copilot Chat usage adapter with its own source directory.
+//! Read native workspaceStorage/<hash>/chatSessions/<sessionId>.jsonl logs,
+//! chatSessionOperationLog storageSchema version 3, checked against local
+//! VS Code 1.140.0 records on 2026-10-01.
 //!
-//! 载体识别依据（microsoft/vscode 源码 + 本机实读，2026-10-01）：
-//! - 落盘位置：`chatSessionStore.ts` → `workspaceStorageHome/<workspaceId>/
-//!   chatSessions`（无工作区窗口为 `no-workspace/chatSessions`）；
-//! - 行格式：`objectMutationLog.ts` Entry——kind 0 首行完整初始对象、
-//!   kind 1 Set(k 路径, v)、kind 2 Push(k, v[], i=截断后长度)、kind 3 Delete；
-//!   超过 1024 条后整体重写为新初始行（replace）；
-//! - 逐请求字段（`chatModel.ts` toJSON + `chatSessionOperationLog.ts` schema）：
-//!   `promptTokens` = **末次模型调用的输入 token**（IChatUsage.promptTokens
-//!   描述最近一次调用）、`completionTokens` = **整 turn 跨调用累计输出**
-//!   （chatModel._setUsage 逐调用累加，modelTotals 存在时取权威值）、
-//!   `copilotCredits` = turn 级 Copilot credit（nano AIU 折算，非 token）、
-//!   `elapsedMs`、`outputBuffer`、`modelTotals`（agent host 会话才提供的
-//!   整 turn 逐模型 input/cached/output 总量）、`sessionCopilotCredits`；
-//! - 数值来源：Copilot 扩展 `agentIntent.ts` 直传 API 响应
-//!   `usage.prompt_tokens` / `completion_tokens` /
-//!   `prompt_tokens_details.cached_tokens`。
+//! Source references: microsoft/vscode and local records checked 2026-10-01.
+//! - chatSessionStore.ts persists workspaceStorageHome/<workspaceId>/chatSessions;
+//!   windows without a workspace use no-workspace/chatSessions.
+//! - objectMutationLog.ts entries: kind 0 initial object, kind 1 Set(k,v),
+//!   kind 2 Push(k,v[],i), and kind 3 Delete; i is the length after truncation.
+//!   After more than 1024 entries upstream can replace the log with a new initial object.
+//! - chatModel.ts toJSON and chatSessionOperationLog.ts define request fields:
+//!   promptTokens covers the most recent model call's input, as IChatUsage describes.
+//!   completionTokens accumulates output across calls in the whole user turn.
+//!   chatModel._setUsage accumulates output; supplied modelTotals takes precedence.
+//!   copilotCredits is a turn-level credit quantity converted from nano AIU, not tokens.
+//!   elapsedMs/outputBuffer/modelTotals/sessionCopilotCredits are also stored;
+//!   agent-host modelTotals reports whole-turn input/cache/output by model.
+//! - Copilot agentIntent.ts forwards API usage.prompt_tokens/completion_tokens/
+//!   prompt_tokens_details.cached_tokens.
+//!   Their persisted fields must retain their individual reporting scopes.
 //!
-//! 统计范围（data-contract「请求、消息与累计值」）：
-//! - 一个 user turn = usage_observation；toolCallRounds 带 ID 的调用
-//!   才计为 model_call。turn 内多次模型调用无逐次 token，
-//!   `toolCallRounds` 仅含逐轮模型/思考 token 与时间戳；
-//! - 默认路径 input = 末次调用输入（**已知下界**，非整 turn 输入和）；
-//!   output = 整 turn 累计。modelTotals 存在时为权威整轮总量，优先采用；
-//! - credit（premium 额度概念）不入 token 统计（额度类经 quota_history 独立展示）。
+//! Statistics follow the request/message/cumulative rules in data-contract:
+//! - A user turn contributes usage_observation; identified toolCallRounds contribute
+//!   observed model_call records, without inventing per-call token breakdowns.
+//!   Rounds can carry model, reasoning, and timestamps, not a complete call usage set.
+//! - Default input is a known lower bound from the last call; output spans the whole turn.
+//!   Prefer supplied whole-turn modelTotals; do not combine unlike scopes into total tokens.
+//! - Keep credits outside token statistics; account quotas are displayed via quota_history.
 
 pub mod detect;
 pub mod versions;
 
 pub use detect::COPILOT_CHAT_FORMAT;
 
-/// VS Code Copilot Chat 适配器（无状态）。
+/// Stateless VS Code Copilot Chat adapter.
 pub struct CopilotChatAdapter;
 
 impl Default for CopilotChatAdapter {
@@ -48,7 +48,7 @@ impl CopilotChatAdapter {
     }
 }
 
-/// 候选 VS Code 变体（stable/Insiders）的 workspaceStorage 根。
+/// Candidate workspaceStorage roots for stable and Insiders installations.
 fn default_workspace_storages(
     env: &std::collections::BTreeMap<String, String>,
     home: Option<&std::path::Path>,
@@ -76,7 +76,7 @@ fn default_workspace_storages(
                 out.push(base.join(v).join("User").join("workspaceStorage"));
             }
         } else {
-            // Linux / 其他：XDG_CONFIG_HOME 优先，否则 ~/.config。
+            // On Linux/other platforms prefer XDG_CONFIG_HOME, then ~/.config.
             let base = env
                 .get("XDG_CONFIG_HOME")
                 .map(|s| s.trim())
@@ -91,8 +91,8 @@ fn default_workspace_storages(
     out
 }
 
-/// 把一个 workspaceStorage 根枚举为若干 chatSessions 根
-/// （每个 `<hash>/chatSessions` 一个根；`no-workspace/chatSessions` 同理）。
+/// Enumerate chatSessions roots under one workspaceStorage root:
+/// one per workspace hash plus no-workspace/chatSessions.
 fn chat_session_roots_under(storage_root: &std::path::Path) -> Vec<std::path::PathBuf> {
     let files = crate::adapters::framework::enumerate_files_bounded(
         storage_root,
@@ -112,7 +112,7 @@ fn chat_session_roots_under(storage_root: &std::path::Path) -> Vec<std::path::Pa
         };
         let key = crate::adapters::framework::normalize_path(&parent);
         if cfg!(windows) {
-            // Windows 大小写别名归一（与 run_adapter_scan 的根去重同规则）。
+            // Deduplicate Windows case aliases with the same rule as run_adapter_scan roots.
             if !seen.insert(key.to_lowercase()) {
                 continue;
             }
@@ -133,8 +133,8 @@ impl crate::adapters::framework::SourceAdapter for CopilotChatAdapter {
         "copilot-chat"
     }
 
-    /// 统计 Agent 名：与 otel 适配器对 VS Code Copilot Chat span 的
-    /// service.name 归属（"vscode-copilot-chat"）一致，两载体同维度不分裂。
+    /// Use the same vscode-copilot-chat Agent name as the otel service.name mapping
+    /// so native records and telemetry remain grouped under the same Agent.
     fn agent(&self) -> &'static str {
         "vscode-copilot-chat"
     }
@@ -168,8 +168,8 @@ impl crate::adapters::framework::SourceAdapter for CopilotChatAdapter {
             if !manual.is_dir() {
                 continue;
             }
-            // 手工根可为 chatSessions 目录、workspaceStorage 目录或任意父目录：
-            // 直接含 *.jsonl 视为 chatSessions 根；否则有界枚举两级找 chatSessions。
+            // Manual roots can identify chatSessions, workspaceStorage, or a parent directory.
+            // Direct JSONL files select that root; otherwise search two levels for chatSessions.
             let direct: Vec<std::path::PathBuf> = match std::fs::read_dir(manual) {
                 Ok(entries) => entries
                     .flatten()
@@ -205,7 +205,7 @@ impl crate::adapters::framework::SourceAdapter for CopilotChatAdapter {
                 }
                 Err(_) => continue,
             };
-            // 单文件手工根仅授权该文件；显式目录或自动发现才包含同目录其他文件。
+            // An explicit file selects only itself; directory selection/discovery can include sibling files.
             if basis == RootBasis::Manual
                 && !ctx
                     .manual_roots
@@ -390,7 +390,7 @@ impl crate::adapters::framework::SourceAdapter for CopilotChatAdapter {
     }
 }
 
-/// 同安装的工作区与空窗口迁移共用命名空间，迟到副本不增加用量。
+/// Workspace/no-workspace copies from one installation share a namespace to avoid duplicate usage.
 fn source_root(dir: &std::path::Path) -> std::path::PathBuf {
     if dir.file_name().and_then(|n| n.to_str()) == Some("chatSessions") {
         if let Some(storage) = dir
@@ -414,9 +414,9 @@ mod tests {
     use super::*;
     use crate::adapters::framework::{DiscoverContext, RootBasis, SourceAdapter};
 
-    /// 默认发现路径（平台分支各自构造 fixture）：workspaceStorage/<hash>/
-    /// chatSessions/*.jsonl 与 no-workspace/chatSessions/*.jsonl 均可发现，
-    /// chatSessions 外的 jsonl 不收。
+    /// Platform-specific test data checks workspaceStorage/<hash>/chatSessions/*.jsonl
+    /// and no-workspace/chatSessions/*.jsonl discovery.
+    /// Exclude JSONL outside chatSessions.
     #[test]
     fn default_discovery_finds_chat_sessions_roots() {
         let dir = std::env::temp_dir().join(format!(
@@ -445,7 +445,7 @@ mod tests {
                 "APPDATA".to_string(),
                 dir.join("appdata").to_string_lossy().to_string(),
             );
-            // fixture 挂到伪 APPDATA 下（Code/User/workspaceStorage）。
+            // Place test data under isolated APPDATA/Code/User/workspaceStorage.
             let src = dir
                 .join("appdata")
                 .join("Code")
@@ -504,7 +504,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    /// 手工根三种形态：chatSessions 目录、workspaceStorage 目录、单个 jsonl。
+    /// Manual roots: chatSessions directory, workspaceStorage directory, or one JSONL file.
     #[test]
     fn manual_root_accepts_dir_storage_root_or_file() {
         let dir = std::env::temp_dir().join(format!(

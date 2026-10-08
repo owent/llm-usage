@@ -1,104 +1,150 @@
-# 看板配置状态、费用明细与趋势交互优化
+# Dashboard setup status, cost details and trend interaction
 
-2026-10-04，沿用本机来源、价格参考及历史保留合同。
+<a id="看板配置状态费用明细与趋势交互优化"></a>
 
-## 可观测性
+2026-10-04. Existing local-source, reference-pricing and history-retention rules apply.
 
-总览只保留一行状态与开启/详情操作。仅缺配置且可自动配置的项目算待开启，
-其余尚未核验有效数据的项目在总览显示“暂无数据”，包括暂不能自动配置的项目；
-收到有效数据后自动显示“已核验”。总览不显示零项“配置受限”；有有效数据但仍有
-配置冲突时单独提示限制。详情始终分别展示配置状态、限制原因和数据核验结果，
-不因总览显示“暂无数据”而解除写入限制。详情自动只读检查实际输出目标，
-文件存在不等于有效数据：按已有适配器白名单核对可解析遥测，限制读取范围和大小，
-不读正文入库、不产生调用。尚无数据显示等待数据；有效数据自动标记核验，
-不能用历史数据消除当前配置冲突。外部目标保留、不能关联客户端的共享输出不冒认成功。
-修复 JSONC 插入的重复换行，保留注释、BOM、换行风格和其他键。
+<a id="配置与采集状态"></a>
 
-页面每 30 秒自动复查，与同时进行的检查合并。输出先核对尾部 2 MiB；
-未发现匹配调用时兼查前部 8 MiB，各样本最多 2,000 行、单行 256 KiB、读取预算
-200 ms。只按实际客户端身份确认有效记录，不以共享文件中的其他 Agent 为依据。
-长度、mtime、创建时间及首尾指纹未变化时缓存核验结果最多 5 分钟，最多 128 项；
-新增输出会使缓存失效。有效样本说明已观测到导出，不保证全部历史或当日数据完整。
+## Setup and collection status
 
-采集期间每 500 ms 查询状态，完成后重查用量；空闲仍为 10 秒，只检查状态而不重绘。
-手动请求已接受但后台尚未标记 running 时保留采集提示并禁用重复按钮，直到观察到
-运行或完成时间变化；短任务在两次轮询之间完成也能刷新，不提前回落空闲等待。
+Overview retains one status line with enable/details actions. Only missing configuration
+eligible for automatic setup counts as waiting to enable. Other items without verified
+valid data display “No data”, including those currently ineligible for automatic setup;
+valid incoming data changes status to “Verified”. Hide zero-count configuration-limit
+items. Show remaining configuration conflicts separately even with valid data. Details
+always distinguish configuration state, restriction reasons and data checks; “No data”
+does not permit otherwise restricted writes. Details inspect actual output targets
+automatically and read-only. File presence does not establish valid data: existing
+adapter field rules check parsable telemetry with read-size/range limits, without
+importing bodies or creating calls. Wait when data is absent; valid samples verify
+observed data, without clearing current configuration conflicts. Preserve external
+targets and do not claim success for shared output whose client cannot be identified.
+Fix duplicated JSONC insertion newlines while retaining comments, BOM, newline style and other keys.
 
-## 费用和布局
+Recheck every 30 seconds and merge concurrent checks. Inspect the last 2 MiB first;
+if no matching call appears, also inspect the first 8 MiB. Each sample allows at most
+2,000 lines, 256 KiB per line and 200 ms reading time. Identify the actual client;
+another Agent's records in shared files do not verify it. If length, mtime, creation
+time and first/last fingerprints are unchanged, cache checks for at most five minutes
+and 128 entries. New output invalidates cache. Valid samples establish observed export,
+without guaranteeing complete historical or current-day coverage.
 
-今日逐小时的模型、Agent、Agent＋模型分组均绘制 token 曲线，
-单小时也使用同一时间轴和曲线逻辑，不切换为调用次数或柱图。缺失总量保持缺口。
-分组提示每行只放名称和数值（下界用 ≥，未知用 —），下界短说明只出现一次；
-完整覆盖说明留在可按需查看的位置，限制提示宽度并允许长模型名换行。
-费用指标卡只显示紧凑金额，覆盖计数放悬浮说明；费用面板默认保留金额、缺口计数和曲线，
-覆盖解释按需展开，避免多币种和长说明使其明显高于其他组件。
+Poll status every 500 ms during collection and refresh usage afterward. Idle polling
+remains ten seconds and checks status without redrawing. After a manual request is
+accepted but before running is visible, retain the collection indicator and disable
+repeat requests until running or completion time changes. A short task finishing
+between polls still refreshes; do not revert prematurely to idle waiting.
 
-费用默认关闭。看板只展示当前价的“API按量付费价格参考”，
-历史发生时估算与来源金额仍保留在数据库/API，不在看板重复展示。未知金额用缺口，多币种不合并。模型明细增加 API 参考金额
-及分币种汇总，占满宽度；汇总不将未知 token 补零，保留未计价和部分覆盖。
+<a id="费用和布局"></a>
 
-费用查询附带 provider/model 小计和按本地日/provider/model 分组的当前价金额，
-共用一次请求供面板、表格和曲线展示。曲线按币种切换、可按模型比较，不混算货币。
-费用曲线为日粒度：用量按小时展示时费用仍按日绘制，不分摊到某个小时；
-周/月曲线汇总对应范围内的日金额。未知日保持缺口，已核验零金额可显示零。
-趋势调用/用量图各全宽，费用与模型表全宽，两个占比并排；不随选区变化的
-活跃热力图和周分布放在最后，现有布局只调整这两项的位置，保留其他顺序、尺寸和显隐。
-热力图按所选整年、周分布按完整查询日期范围显示，各自提示不受图表选区限制；
-饼图按容器尺寸留出独立图例空间，避免裁切和覆盖，窄屏上下排列。
+## Costs and layout
 
-费用面板折叠展示每个使用模型实际匹配的当前单价（每百万 token），包含供应商、
-币种、输入、输出、缓存读/写档位、上下文阈值、渠道和价格快照。复用事件实际匹配
-price_id，不用均价或自行重新选择档位；未匹配的模型显示暂无可用单价。原始模型
-归属与参考供应商分开，未知币种/费率不补零。参考模型表只保留一列金额及分币种汇总。
-今日汇总和当前范围汇总开启费用时附同范围参考金额；选中小时用保留逐调用明细按
-本地小时精确筛选（DST 重复小时一并计入），不把整日费用放到小时卡片。
-七项指标和费用采用紧凑等高网格，输入覆盖说明保留在悬浮提示；额度另为
-紧凑行，账户额度的范围、快照时间和独立于本机 token 的说明仍可展开查阅。
+Today's hourly model, Agent and Agent-plus-model groups all plot token curves, including
+one-hour ranges with the same axis/curve logic. Do not switch to call counts or bars.
+Unknown totals remain gaps. Tooltip rows show only name/value (≥ for lower bounds, —
+for unknowns); explain lower bounds once. Full coverage explanations remain available
+on demand. Limit tooltip width and wrap long model names. Cost cards show compact
+amounts, with coverage counts in tooltips. The cost panel normally shows amounts, gap
+counts and curves, expanding explanations on demand so currencies/long text do not
+make it much taller than neighboring components.
 
-本机只读核验：2026-10-01/02 VS 的逐请求 span 均有 input/output，但原适配器没有
-派生 total；只在同一 span 两项均已知时派生，缺项、失败调用或溢出保留未知。
-修正规则必须重放已消费且未变化的旧游标，完整有效重放才标记完成，不清库、不丢历史。
-旧 VS Code turn 输入下界和整轮输出之和只能显示为已观测下界，不能改写完整总量。
-图例保持 Agent/模型名，提示用 `名称: ≥ 数值` 或 `名称: —`；下界说明只显示一次，
-完整语义放图表下方短提示的悬浮说明，不在每条序列后重复。
+Costs are off by default. The dashboard shows current-price “API usage-based price
+reference”; historical event-time estimates/source amounts remain in the database/API
+without repeated dashboard display. Unknown amounts remain gaps; currencies never
+merge. Full-width model details add reference amounts and per-currency totals, retaining
+unpriced/partially covered usage without filling unknown tokens with zero.
 
-## 查询和选择
+One cost request returns provider/model subtotals and current-price amounts grouped by
+local day/provider/model for panel, table and curve reuse. Switch curves by currency
+and compare models without mixing currencies. Cost curves are daily even when usage is
+hourly; never distribute a daily amount into one hour. Weekly/monthly curves sum relevant
+days. Unknown days remain gaps; verified zero amounts may display zero. Usage/call charts,
+costs and model table use full width; two share charts sit side by side. Activity heatmap
+and weekday distribution, unaffected by chart selection, move last; preserve other
+order/sizes/visibility. Heatmap covers the selected whole year and weekday distribution
+the full queried date range, with independent scope explanations. Pie charts reserve
+separate legend space to prevent clipping/overlap; stack vertically on narrow screens.
 
-先测真实库副本耗时、SQL 查询计划和调用次数，再优化。周分布复用受日期和用户筛选
-限制的日汇总，不读取原始消息；归档不可分配到日的覆盖仍未知。费用避免每模型重复请求，
-价格匹配按模型缩小候选，保留原优先级和档位判断。需要索引时以查询计划为依据，
-兼容既有数据库，不清库、不因索引改写历史。
+The collapsible cost panel lists each used model's actually matched current unit price
+per million tokens: provider, currency, input/output/cache-read/write tiers, context
+threshold, channel and price snapshot. Reuse each event's matched price_id rather than
+averaging or selecting tiers again. Unmatched models show unavailable prices. Original
+model attribution and reference provider remain separate; unknown currency/rates stay
+unknown. The reference model table uses one amount column and per-currency totals.
+Today's/current-range summaries include reference amounts over the same range when
+enabled. Selected hours filter retained individual calls by exact local hour, including
+both DST occurrences; never place whole-day costs in hourly cards. Seven metrics and
+costs use compact equal-height grids; input-coverage explanation remains in tooltips.
+Quota uses a separate compact row with expandable scope, snapshot time and explanation
+that account quota is independent of local tokens.
 
-“近 2 个自然日”包含设置时区中的昨天和今天，以日期边界查询，不是滚动 24 小时。
-该范围和当天默认小时粒度，不把夏令时自然日固定为 24 小时。
+Local read-only checks found input/output on VS per-request spans for 2026-10-01/02,
+but the old adapter had not derived total. Derive only when both fields in the same
+span are known; missing fields, failed calls or overflow stay unknown. Rule correction
+replays consumed unchanged cursors; only complete valid replay marks completion.
+Keep the database/history. Old VS Code turn-input lower bounds plus whole-turn output
+yield only an observed lower bound, without replacing complete total. Keep Agent/model
+names in legends; tooltips use “name: ≥ value” or “name: —”. Explain lower bounds once,
+with full semantics available from the short note's tooltip below the chart rather than
+repeated after every series.
 
-趋势用量、调用与会话、费用曲线，以及总览历史图和今日逐小时图，支持点击点、
-x 轴标签或在绘图区按住鼠标横向拖选。连续选区在松开时按对应周期边界查询，
-支持反向拖选；拖选不平移图表，滚轮/滑块缩放仍可选择可见范围。
-显示选区高亮、所选起止范围及恢复操作，恢复时清除全部相关图表高亮。
-趋势选区统一限制汇总、模型/Agent 分布及模型表的用量和当前价参考；
-总览历史选区使用相同汇总与分布口径，今日小时选区独立限制今日汇总、分布及模型/Agent 表。
-今日查询不受历史范围选择影响。费用曲线保留日粒度，小时视图点击费用日包含该日全部小时，
-小时用量选区的费用则按真实调用小时精确查询，不摊分整日金额。选取限制在当前查询范围，
-跨日时区和周起点一致；旧响应不能覆盖新选择，筛选/粒度/用户变化清除旧选择。
-图表保持整个查询范围，选区不重新拉取曲线数据或形成循环查询。
-等待或失败时显示待加载值或缺口，不继续显示上个范围的分布与模型表。
+<a id="查询和选择"></a>
 
-summary 命令可选 first_period/last_period 标签边界，在日期和实例筛选后限制周期行，
-会话与耗时仍从同范围留存明细核验，不累加各周期 DISTINCT。小时按本地标签选择；
-夏令时重复小时沿用图表单一标签，包括该小时的两次实际发生。周/月选区显示被查询
-日期边界裁剪后的真实范围。汇总等待时保持卡片布局，显示待加载值，避免跳动。
+## Queries and selection
 
-### 键盘选区
+Measure real-database-copy timing, SQL query plans and call counts before optimization.
+Weekday distribution reuses daily summaries restricted by date/user filters, without
+reading raw messages. Archives unassignable to days retain unknown coverage. Avoid
+repeated per-model cost requests. Narrow price candidates by model while retaining
+priority/tier decisions. Add indexes based on query plans and preserve old-database
+compatibility; do not clear the database or rewrite history for an index.
 
-时间图表可聚焦并具有本地化可访问名称。方向键移动，Home/End 到首末时段，
-Shift 扩展连续范围，Enter 才应用查询；使用与鼠标选区相同的范围与修订。
+“Last two calendar days” means yesterday/today in the selected timezone, using date
+boundaries rather than a rolling 24-hour window. This range and today default to hourly
+periods; a DST calendar day is not assumed to last 24 hours.
 
-## 验证与回滚
+Trend usage, calls/sessions and cost curves, plus overview history/today's hourly charts,
+support point/x-axis-label clicks and horizontal mouse-drag selection. On release query
+the continuous range by corresponding period boundaries, including reverse drags.
+Dragging selects rather than pans; wheel/slider zoom still chooses visible ranges.
+Show highlight, start/end and reset; reset clears every related highlight. Trend selection
+restricts summaries, model/Agent distribution, model-table usage and current-price
+references together. Overview history uses the same summary/distribution rules; today's
+hourly selection independently restricts today's summary/distribution/model/Agent table.
+History selection does not change today's query. Daily cost points in hourly views select
+all hours of that day; hourly usage selections query exact call-hour costs, without
+allocating daily amounts. Bound selection to the queried range and keep cross-day timezone/
+week-start consistent. Stale responses cannot overwrite new selections. Filter/period/user
+changes clear selection. Charts retain the complete query range; selection neither
+refetches curves nor creates query loops. During waiting/failure, show loading/gaps
+rather than the previous range's distribution/model table.
 
-覆盖已配置/等待/有效/损坏/共享混合数据、配置冲突不被历史样本掩盖、换行保留、
-模型小计等于币种总计、曲线等于当前价汇总、单价等于实际匹配档位、日期/用户/模型筛选、归档覆盖、
-真实鼠标正反向拖选、松开前无查询、快速选点与过期响应、选区分布/模型用量/费用一致、
-自然日边界、整段恢复、宽窄布局。原始来源与配置只读，临时脚本和副本
-放根 build/ 对应任务目录；记录最终命令、环境、退出码、性能数字及缺口。
-回滚撤回本轮代码和可选索引，不删除原始来源、统计或价格快照。
+summary accepts optional first_period/last_period label boundaries to restrict period
+rows after date/instance filters. Sessions/duration still use retained details from the
+same range, without adding period DISTINCT counts. Select hours by local labels; the
+chart's single repeated-DST-hour label includes both actual occurrences. Weekly/monthly
+selections show actual ranges clipped by queried date boundaries. Pending summaries
+retain card layout and loading values to prevent jumps.
+
+<a id="键盘选区"></a>
+
+### Keyboard selection
+
+Time charts are focusable with localized accessible names. Arrows move, Home/End choose
+first/last period, Shift extends contiguous range, Enter applies the query. Mouse and
+keyboard use the same range/revision rules.
+
+<a id="验证与回滚"></a>
+
+## Validation and rollback
+
+Test configured/waiting/valid/invalid/shared mixed data, current conflicts despite historical
+samples, newline preservation, model subtotals equaling currency totals, curves equaling
+current-price summaries, unit prices matching selected tiers, date/user/model filters,
+archive coverage, actual forward/reverse mouse drags, no query before release, rapid
+clicks/stale responses, consistent selected distribution/model usage/cost, calendar-day
+boundaries, full reset and wide/narrow layouts. Original sources/configuration stay
+read-only; scripts/copies belong under the task's root build/ directory. Record final
+commands, environment, exit codes, performance measurements and gaps. Rollback removes
+this batch's code/optional indexes without deleting sources, statistics or price snapshots.

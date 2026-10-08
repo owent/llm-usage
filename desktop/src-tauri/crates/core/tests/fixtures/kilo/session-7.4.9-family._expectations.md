@@ -1,7 +1,9 @@
-# session-7.4.9-family._expectations.md 期望值（独立核算）
+# session-7.4.9-family._expectations.md expected values (independent calculation)
 
-核算方法：直接对脱敏 JSON 的 assistant 消息逐条求和；
-total 口径 = input+output+reasoning+cache.read+cache.write（全互斥）。
+<a id="session-749-family_expectationsmd-期望值独立核算"></a>
+
+Calculation: sum each assistant message in the anonymized JSON.
+Total = input+output+reasoning+cache.read+cache.write; all fields are mutually exclusive.
 
 - session anon-1 ver=7.4.9 main(primary): msgs=37 input=89396 output=7318 reasoning=24825 cache_read=1863424 cache_write=0 derived_total=1984963
   reported_total_sum=1984963 | snapshot(in+out+reason+cr+cw)=1984963.0 reconcile=matched models={'glm-5.2': 37}
@@ -18,5 +20,5 @@ total 口径 = input+output+reasoning+cache.read+cache.write（全互斥）。
 - session anon-6 ver=7.4.9 child(sub_agent): msgs=3 input=3382 output=108 reasoning=2220 cache_read=54080 cache_write=0 derived_total=59790
   reported_total_sum=59790 | snapshot(in+out+reason+cr+cw)=59790.0 reconcile=matched models={'glm-5.2': 3}
 
-- 合计: assistant msgs=51 input=121774 output=8876 reasoning=45302 cache_read=2137472 cache_write=0 derived_total=2313424 reported_total_sum=2313424
+- Sum: assistant msgs=51 input=121774 output=8876 reasoning=45302 cache_read=2137472 cache_write=0 derived_total=2313424 reported_total_sum=2313424
   missing_total_msgs=1

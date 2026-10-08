@@ -1,16 +1,16 @@
-//! Claude Code 适配器约定测试：合成固定样本即约定样本（synthetic，本机
-//! not_found 无真实样本；结构按 A01 文档定义，逐文件核验说明见各目录
-//! _expectations.md）。经 读取→解析→标准化→commit_batch→查询。
+//! Claude Code tests include synthetic document-format samples from the original
+//! local not_found run, shaped by A01 and described in each _expectations.md.
+//! Read, parse, normalize, commit_batch and query; real 2.1.197 metadata tests are below.
 //!
-//! 手工核算值（fixture synthetic-contract，逐条核算并用 jq 验算，与
-//! _expectations.md 互核）：
-//! - syn-req-1：第 3/4/5 行同 requestId 同 usage（内容块拆分重报，仅时间戳
-//!   不同）→ 去重后 1 调用；input 100 cache_read 40 cache_creation 10
-//!   output 20 → input_total=150（derived）、total_tokens=170（derived）；
-//! - syn-req-2：200/0/50/30 → input_total=250、total=280；
-//! - syn-req-3：50/25/0/5 → input_total=75、total=80；
-//! - 合计：call_count=3、input_total=475、cache_read=65、cache_write=60、
-//!   output=55、uncached=350、total_tokens=530。
+//! synthetic-contract manual totals, calculated record by record and cross-checked
+//! with jq and _expectations.md:
+//! - syn-req-1: lines 3/4/5 repeat requestId and usage across content blocks with
+//!   different timestamps. Deduplicate to one call: input 100, cache_read 40, cache_creation 10,
+//!   output 20; derived input_total=150 and total_tokens=170.
+//! - syn-req-2: 200/0/50/30 gives input_total=250 and total=280.
+//! - syn-req-3: 50/25/0/5 gives input_total=75 and total=80.
+//! - Totals: call_count=3, input_total=475, cache_read=65, cache_write=60,
+//!   output=55, uncached=350 and total_tokens=530.
 
 mod common;
 
@@ -53,8 +53,8 @@ fn contract_fixed_sample_full_pipeline() {
     assert_eq!(summary.periods.len(), 1);
     assert_eq!(summary.periods[0].distinct_sessions, Some(1));
 
-    // 逐键 SQL 核验字段映射：input_uncached=input_tokens（reported）；
-    // input_total=input+cache_read+cache_creation（derived）；total_tokens derived。
+    // Verify SQL mapping per key: reported input_uncached=input_tokens;
+    // derived input_total=input+cache_read+cache_creation and derived total_tokens.
     let rows: Vec<(String, i64, i64, i64, i64, i64, i64)> = storage
         .conn()
         .prepare(
@@ -87,7 +87,7 @@ fn contract_fixed_sample_full_pipeline() {
         "per-request mapping: uncached reported, input_total/total derived"
     );
 
-    // 静态字段与 quality 逐键核验（以 syn-req-1 为代表）。
+    // Check static fields and per-field quality using syn-req-1.
     #[allow(clippy::type_complexity)]
     type UsageEventRow = (
         String,
@@ -195,7 +195,7 @@ fn capability_table_is_structured_and_complete() {
         json["supported_versions"],
         serde_json::json!(["transcript-doc-1", "2.1.197"])
     );
-    // 字段能力八项齐全。
+    // All eight field-capability entries must exist.
     for key in [
         "tokens",
         "cache_read",
@@ -240,7 +240,7 @@ fn capability_table_is_structured_and_complete() {
         assert!(json.get(section).is_some(), "capability missing {section}");
     }
     assert!(!cap.limitations.is_empty());
-    // 能力声明可落库（source_instances.capabilities）。
+    // Persist structured capabilities in source_instances.capabilities.
     let (_db, storage) = temp_storage("claude-cap");
     llm_usage_core::adapters::framework::upsert_source_instance(
         &storage,
@@ -277,9 +277,9 @@ fn capability_table_is_structured_and_complete() {
     );
 }
 
-/// 真实 2.1.197 样本（WSL 脱敏提取）：queue-operation 开头 + attachment/
-/// last-prompt 元数据 + `<synthetic>` 占位 assistant——0 事件、
-/// synthetic 诊断、探测放行；重复扫描不增量。
+/// Real sanitized WSL 2.1.197 sample begins with queue-operation and has attachment/
+/// last-prompt metadata plus a <synthetic> placeholder assistant: zero events,
+/// a synthetic diagnostic and successful detection; repeated reads add nothing.
 #[test]
 fn contract_real_2_1_197_queue_metadata_and_synthetic() {
     let (_db, storage) = temp_storage("claude-real-217");
@@ -295,7 +295,7 @@ fn contract_real_2_1_197_queue_metadata_and_synthetic() {
         report.files[0].events, 0,
         "synthetic placeholder is not a call"
     );
-    // 空批次（0 事件）无提交结果；有也必须是零增量。
+    // A zero-event batch either has no commit result or reports zero changes.
     assert_eq!(
         report
             .outcome
@@ -304,7 +304,7 @@ fn contract_real_2_1_197_queue_metadata_and_synthetic() {
             .unwrap_or((0, 0, 0)),
         (0, 0, 0)
     );
-    // synthetic 跳过以诊断留痕（不含正文）。
+    // Skipped synthetic assistants leave diagnostics without message bodies.
     let diag: Vec<String> = storage
         .conn()
         .prepare("SELECT code FROM diagnostics ORDER BY code")
@@ -315,7 +315,7 @@ fn contract_real_2_1_197_queue_metadata_and_synthetic() {
         .collect();
     assert!(diag.contains(&"synthetic_assistant_skipped".to_string()));
 
-    // 重复扫描不增量。
+    // Repeated reads add no duplicate events.
     let reports2 = run_claude(&storage, &root, 1_800_000_001_000);
     assert_eq!(
         reports2[0]
@@ -332,8 +332,8 @@ fn contract_real_2_1_197_queue_metadata_and_synthetic() {
     assert_eq!(events, 0);
 }
 
-/// queue-operation/attachment 携带 usage 字段 ⇒ 整文件 fail closed
-/// （非用量载体带 usage 是格式偏离，不用静默跳过掩盖）。
+/// Reject queue-operation/attachment records containing usage.
+/// Usage on a non-usage record deviates from the format and must not be silently skipped.
 #[test]
 fn contract_real_2_1_197_queue_metadata_rejects_usage_carriers() {
     let (_db, storage) = temp_storage("claude-real-217-guard");
@@ -345,7 +345,7 @@ fn contract_real_2_1_197_queue_metadata_rejects_usage_carriers() {
     );
     let reports = run_claude(&storage, &root, 1_800_000_000_000);
     let report = &reports[0];
-    // fail closed 约定：状态 pending（游标保持文件头等待受控重试），不产事件。
+    // Detection holds the file pending at its start for controlled retry, without importing events.
     assert_eq!(report.files[0].status, "pending");
     assert!(report.files[0]
         .detail

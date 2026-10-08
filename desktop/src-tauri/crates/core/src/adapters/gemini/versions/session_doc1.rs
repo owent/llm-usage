@@ -1,27 +1,27 @@
-//! Gemini 会话 JSON 格式实现（`session_doc1`，文档级 session-doc-1）。
+//! Gemini session JSON parser: session_doc1, documented format session-doc-1.
 //!
-//! 格式依据（官方文档，A10）：
-//! - 路径：`~/.gemini/tmp/<project_hash>/chats/session-<date>T<time>-<hash>.json`
-//!   （单文件 JSON，非 JSONL；无文档化环境覆盖）。
-//! - 顶层 `{sessionId, projectHash, startTime, lastUpdated, messages[]}`；
-//!   "Token usage statistics (input, output, cached, etc.)"。
-//! - telemetry `gemini_cli.token.usage` type ∈ {input, output, thought, cache, tool}；
-//!   `api_response` 六字段 input/output/cached_content/thoughts/tool/total
-//!   _token_count + model + duration_ms（telemetry 侧，未接入）。
-//! - 消息 token 形状按文档分类实现：`tokens{input, output, cached, thoughts, tool,
-//!   total}` 各自可选；thoughts/cached/tool 与 input/output 的包含关系未核验
-//!   （未知不猜：total 只取直报，thoughts/tool 不并入任何字段）。
+//! Documented format references (A10):
+//! - Path: ~/.gemini/tmp/<project_hash>/chats/session-<date>T<time>-<hash>.json.
+//!   One JSON document, not JSONL; no documented environment override.
+//! - Root fields: sessionId, projectHash, startTime, lastUpdated, and messages[].
+//!   The documented session format includes token usage statistics.
+//! - Telemetry gemini_cli.token.usage types: input, output, thought, cache, tool.
+//!   api_response has input/output/cached_content/thoughts/tool/total_token_count
+//!   plus model and duration_ms; this parser does not ingest that telemetry.
+//! - Message tokens fields input/output/cached/thoughts/tool/total are optional.
+//!   Inclusion of thoughts, cached, and tool in input/output has not been checked.
+//!   Read only reported totals; do not add thoughts/tool to other token fields.
 //!
-//! 增量语义（整写 JSON）：全量有界读取（32 MiB 初值）；游标存已消费字节数复用
-//! 框架无变化短路；改写/截断走 generation 重扫，事件按稳定身份 upsert 幂等；
-//! 半程写入（parse 失败）不推进游标，下轮确定性重试。
+//! Read whole rewritten JSON within a 32 MiB limit. Store consumed bytes so the framework
+//! skips unchanged files; content rewrites/truncation change generation and restart reads.
+//! Stable event identities prevent duplicate inserts. Parse failure leaves the cursor unchanged.
 //!
-//! fail closed（V17）：未文档化消息 type、或 user 消息携带 tokens，整文件拒绝
-//! （游标不推进、下轮确定性再拒），不猜格式。
+//! Reject an entire file for undocumented message types or user messages carrying tokens (V17).
+//! Leave the cursor unchanged so subsequent scans retry the same file without guessing its format.
 //!
-//! 无版本字段可分派：事件 [`EventInput::parse_basis`] 恒为 KnownVersion
-//! （文档级格式版本是注册表唯一已收录条目）。
-//! M2 目录化迁移（V30）自根级 gemini.rs 原样迁入。
+//! No client-version field selects another implementation. Event parse_basis is KnownVersion
+//! for this documented format, the only registered format; this does not verify native releases.
+//! M2/V30 moved the implementation from root-level gemini.rs without changing its behavior.
 
 use crate::adapters::framework::{
     ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -36,14 +36,14 @@ use crate::ingest::DiagnosticInput;
 use std::io::Read;
 
 pub const GEMINI_PARSER_VERSION: &str = "gemini-session-doc1";
-/// 单文件有界读取上限（初值 32 MiB）。
+/// Whole-file read limit, initially 32 MiB.
 pub const GEMINI_MAX_FILE_BYTES: u64 = 32 * 1024 * 1024;
 const MAX_REASONABLE_TOKEN: i64 = crate::domain::MAX_TOKEN_VALUE;
 
-/// 文档化消息类型（info/error/warning 等真实存在但未文档化 ⇒ fail closed 待扩）。
+/// Documented message types; unverified info/error/warning shapes are rejected.
 const MESSAGE_TYPES: &[&str] = &["user", "gemini"];
 
-/// 消息 tokens 六键（各自可选；包含关系未核验，total 只取直报）。
+/// Six optional token fields; inclusion is unverified, so totals use only reported values.
 const TOKEN_KEYS: &[&str] = &["input", "output", "cached", "thoughts", "tool", "total"];
 
 fn diag(code: &str, field: Option<&str>, position: &str, message: &str) -> DiagnosticInput {
@@ -60,8 +60,8 @@ fn json_str<'a>(value: &'a serde_json::Value, key: &str) -> Option<&'a str> {
     value.get(key)?.as_str()
 }
 
-/// 解析消息 tokens 六可选字段；存在的值必须非负有界（违例 None，调用方记诊断）。
-/// 未知额外键返回 true（保留已映射字段，每轮一次性诊断）。
+/// Parse six optional token fields; present values must be nonnegative and bounded.
+/// Invalid fields reject the token object; extra keys are flagged while known fields remain.
 fn parse_tokens(value: &serde_json::Value) -> Option<(GenaiUsage, bool)> {
     let obj = value.as_object()?;
     let get = |key: &str| -> Option<Option<i64>> {
@@ -88,8 +88,8 @@ fn parse_tokens(value: &serde_json::Value) -> Option<(GenaiUsage, bool)> {
     Some((usage, unknown))
 }
 
-/// 整写 JSON 游标：复用框架 JsonlCursor 形状（offset=已消费字节数，line_number 恒 1），
-/// 无变化短路依赖 probe.len == cursor.offset。
+/// Whole-document cursor stores consumed bytes and line_number=1 in the shared cursor shape.
+/// The unchanged-file shortcut compares probe.len with cursor.offset.
 #[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 struct WholeFileCursor {
     generation: i64,
@@ -97,8 +97,8 @@ struct WholeFileCursor {
     line_number: u64,
 }
 
-/// 增量扫描一个会话 JSON 文件（统一入口 `GeminiAdapter::scan` 分派到本实现；
-/// 唯一格式实现，无版本分派）。
+/// Scan one session JSON document, dispatched by GeminiAdapter::scan.
+/// This documented format has one implementation and no client-version dispatch.
 pub fn scan(
     target: &ScanTarget,
     _stored: &StoredScanState,
@@ -114,7 +114,7 @@ pub fn scan(
             line_number: 1,
         })?)
     };
-    // 超限：受限，游标停在起点，受控重试（不静默丢弃）。
+    // Oversized files retain their starting cursor and return a limited result for retry.
     if target.probe.len > GEMINI_MAX_FILE_BYTES {
         diagnostics.push(diag(
             "file_exceeds_size_cap",
@@ -160,7 +160,7 @@ pub fn scan(
         });
     }
     let consumed = bytes.len() as u64;
-    // 半程写入：parse 失败不推进游标，下轮确定性重试（暂态，非降级）。
+    // Partially written JSON fails parsing without advancing the cursor; retry next scan.
     let document: serde_json::Value =
         match crate::adapters::run_policy::json_from_slice(super::super::strip_bom(&bytes)) {
             Ok(v) => v,
@@ -185,7 +185,7 @@ pub fn scan(
                 });
             }
         };
-    // fail closed 出口：事件清空、游标不推进、degraded，下轮确定性再拒。
+    // Reject the file: clear events, retain the cursor, and report degraded health for retry.
     let fail_closed = |events: &mut Vec<EventInput>,
                        diagnostics: &mut Vec<DiagnosticInput>,
                        records_seen: u64,
@@ -267,7 +267,7 @@ pub fn scan(
             continue;
         }
         let Some(tokens_value) = tokens_value else {
-            // gemini 消息无 tokens：未记录用量，不产事件。
+            // Gemini messages without tokens report no usage and produce no event.
             continue;
         };
         let Some((usage, unknown_keys)) = parse_tokens(tokens_value) else {
@@ -330,7 +330,7 @@ pub fn scan(
             record_kind: RecordKind::ModelCall,
             schema_version: super::GEMINI_FORMAT_VERSION.to_string(),
             parser_version: GEMINI_PARSER_VERSION.to_string(),
-            // 无版本字段：文档级格式版本恒为注册表已收录条目，解析依据恒 KnownVersion。
+            // KnownVersion identifies the registered documented format, not a native client release.
             parse_basis: Some(VersionBasis::KnownVersion),
             origin_call_id,
             attempt_id: None,

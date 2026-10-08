@@ -1,8 +1,8 @@
-//! Kimi Code（A12，M4）缺口场景：合成样本（目录/文件头均标 synthetic）。
-//! 覆盖：无 usage 事件（error 步）、未知 protocol_version fallback（含 1.4——
-//! Kimi Work 的锚点在本产品注册表未收录）、回声/completed 双计防御、
-//! 负值/未知 scope/秒级时间（不猜测换算）、detect 直测。
-//! 期望值均为人工核算（见各 fixture 目录 _expectations.md）。
+//! Kimi Code (A12, M4) boundary tests use directories and headers marked synthetic.
+//! Cover error steps without usage, unregistered protocol fallback, independently verified
+//! 1.4/1.5 selection, echo/completed duplicate prevention,
+//! invalid negative values/scopes/second timestamps without guessed conversion, and direct detection.
+//! Expected values are calculated manually in each dataset's _expectations.md.
 
 mod common;
 
@@ -31,8 +31,8 @@ fn event_count(storage: &Storage) -> i64 {
         .unwrap()
 }
 
-/// 无 usage.record 的 wire（error 步 + retry）是正常形状：
-/// 0 事件、0 诊断、complete（不补零、不报错）。
+/// Error/retry wire data without usage.record is a valid shape:
+/// complete, zero events and zero diagnostics, without invented zero usage.
 #[test]
 fn no_usage_records_is_normal_shape() {
     let (_db, storage) = temp_storage("kimi-code-nousage");
@@ -47,13 +47,13 @@ fn no_usage_records_is_normal_shape() {
         .query_row("SELECT COUNT(*) FROM diagnostics", [], |r| r.get(0))
         .unwrap();
     assert_eq!(diags, 0);
-    // 汇总无该源任何数值行（不伪造零值）。
+    // No numeric source row is fabricated from absent usage.
     let summary = summary(&storage, "2026-01-01", "2026-01-01");
     assert_eq!(summary.totals.call_count, 0);
 }
 
-/// 未收录 protocol_version（"9.9"）：latest_fallback 兼容尝试——
-/// 数据照常入账并带 unverified 标记，不因版本号未收录直接拒绝（V30）。
+/// Unregistered protocol "9.9" tries latest_fallback compatibility;
+/// valid usage is retained as unverified, without rejecting the version number alone (V30).
 #[test]
 fn unknown_protocol_version_falls_back_with_compat_flag() {
     let (_db, storage) = temp_storage("kimi-code-unknown");
@@ -80,8 +80,8 @@ fn unknown_protocol_version_falls_back_with_compat_flag() {
     assert_eq!(summary.totals.total_tokens_known, Some(550));
 }
 
-/// 回声/completed 双计防御：step.end 回声逐字段等于 usage.record、
-/// subagent.completed.usage 是子代理 wire Σ 快照——二者都不产生事件。
+/// step.end echoes equal usage.record fields; subagent.completed.usage snapshots
+/// child wire sums. Neither creates events or adds duplicate usage.
 #[test]
 fn echo_and_subagent_completed_never_double_count() {
     let (_db, storage) = temp_storage("kimi-code-echo");
@@ -91,7 +91,7 @@ fn echo_and_subagent_completed_never_double_count() {
 
     let summary = summary(&storage, "2026-01-01", "2026-01-01");
     assert_eq!(summary.totals.call_count, 2);
-    // 若回声/completed 双计，四项都会翻倍以上。
+    // Adding echo/completed usage would inflate these four totals.
     assert_eq!(summary.totals.uncached_known, Some(1_000));
     assert_eq!(summary.totals.cache_read_known, Some(400));
     assert_eq!(summary.totals.output_total_known, Some(120));
@@ -112,7 +112,7 @@ fn echo_and_subagent_completed_never_double_count() {
         "session scope（压缩摘要）= auxiliary"
     );
 
-    // completed 的 {123,45,678,0} 不得出现在任何事件。
+    // No event may contain completed snapshot values {123,45,678,0}.
     let leaked: i64 = conn
         .query_row(
             "SELECT COUNT(*) FROM usage_events WHERE input_uncached = 123 AND output_total = 45",
@@ -122,7 +122,7 @@ fn echo_and_subagent_completed_never_double_count() {
         .unwrap();
     assert_eq!(leaked, 0);
 
-    // 回声对账：记录侧 Σ == 回声侧 Σ（turn 1 条 = 回声 1 条）⇒ matched。
+    // One turn and its echo have equal sums, producing matched reconciliation.
     assert!(reports[0]
         .reconciliations
         .iter()
@@ -133,8 +133,8 @@ fn echo_and_subagent_completed_never_double_count() {
         .any(|r| r.series.starts_with("kimi_subagent_completed_snapshot")));
 }
 
-/// 坏形状隔离：负值 / 未知 usageScope / 秒级时间各记诊断跳过，
-/// 正常记录照常入账；秒值不做 ×1000 猜测（实读 82 文件全部毫秒）。
+/// Diagnose and skip negative values, unknown usageScope and second timestamps.
+/// Valid records remain; do not multiply seconds by 1000. All 82 inspected native files used milliseconds.
 #[test]
 fn bad_shapes_skip_without_guessing() {
     let (_db, storage) = temp_storage("kimi-code-bad");
@@ -153,10 +153,10 @@ fn bad_shapes_skip_without_guessing() {
             |r| Ok((r.get(0)?, r.get(1)?)),
         )
         .unwrap();
-    // 唯一入账记录 {200,60,800,10}：缓存写 10 是 reported（合成缺口场景，
-    // 真实本机样本全 0——字段映射经此验证）。
+    // The only valid synthetic record {200,60,800,10} reports cache write 10;
+    // inspected native cache writes were zero, so this test separately checks the positive mapping.
     assert_eq!((input_uncached, cache_write), (200, 10));
-    // 秒级 time（1_767_225_600）未被换算入账。
+    // Second-scale time 1_767_225_600 is not converted into an event.
     let seconds_row: i64 = conn
         .query_row(
             "SELECT COUNT(*) FROM usage_events WHERE occurred_at_ms < 946684800000",
@@ -173,7 +173,7 @@ fn bad_shapes_skip_without_guessing() {
     assert_eq!(file_status, "degraded");
 }
 
-/// 同毫秒两条 usage.record：身份加序号区分，不碰撞（防御性；本机未观测）。
+/// Same-millisecond usage.record entries use ordinal identity suffixes; this synthetic case was not observed locally.
 #[test]
 fn same_millisecond_records_get_sequence_suffix() {
     let dir = TempDir::new("kimi-code-dup");
@@ -211,7 +211,7 @@ fn same_millisecond_records_get_sequence_suffix() {
             "kimi-code:usage:session_syn-dup:main:1767225601000:1".to_string(),
         ]
     );
-    // 幂等：重扫不因序号身份产生新事件。
+    // Rescanning ordinal identities adds no events.
     let reports2 = run_kimi_code(&storage, &root, NOW + 1000);
     let added2: i64 = reports2
         .iter()
@@ -220,7 +220,7 @@ fn same_millisecond_records_get_sequence_suffix() {
     assert_eq!(added2, 0);
 }
 
-/// detect 直测：空文件 Pending；首行非 JSON / 非 metadata 头 ⇒ UnknownFormat。
+/// Empty detection is Pending; a non-JSON or nonmetadata first line is UnknownFormat.
 #[test]
 fn detect_pending_and_unknown_format() {
     let adapter = KimiCodeAdapter::new();
@@ -249,7 +249,7 @@ fn detect_pending_and_unknown_format() {
     ));
 }
 
-/// 已验证锚点 1.5 ⇒ KnownVersion；1.4（kimi-work 锚点）在本注册表 ⇒ fallback。
+/// Independently verified Kimi Code protocol versions 1.5 and 1.4 both select KnownVersion.
 #[test]
 fn detect_registry_dispatches_by_own_anchor() {
     let adapter = KimiCodeAdapter::new();

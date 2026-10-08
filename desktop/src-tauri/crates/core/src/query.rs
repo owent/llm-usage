@@ -1,6 +1,6 @@
-//! 日/周/月汇总查询。周/月由日级加总；比例重新计算不取各日算术平均；
-//! 跨周期会话数用 DISTINCT（从留存明细计算，明细已清理则标覆盖缺口）；
-//! 未知模型保留独立行且计入总计；归属未核验的记录不进入总计并可按原因列出。
+//! Hour/day/week/month usage queries share detail/archive selection and recompute ratios from sums.
+//! Cross-period sessions use distinct retained identities; absent detail marks incomplete coverage.
+//! Unknown models retain separate rows in totals; unverified ownership is excluded with reasons.
 
 use crate::calendar::{parse_date, Calendar, WeekStart};
 use crate::domain::QualityBucket;
@@ -20,16 +20,16 @@ pub enum Granularity {
     Month,
 }
 
-/// 基础筛选：不同字段 AND，同字段 OR。空列表 = 不筛选。
-/// provider/model 的 `"unknown"` 匹配未知（空）值。
+/// AND across filter fields, OR within one field; an empty list applies no restriction.
+/// provider/model unknown matches absent or empty values.
 #[derive(Debug, Clone, Default)]
 pub struct Filters {
     pub agents: Vec<String>,
     pub providers: Vec<String>,
     pub models: Vec<String>,
     pub quality_buckets: Vec<QualityBucket>,
-    /// 来源实例白名单（多用户：app 层把当前用户的来源集合传入）；
-    /// None = no restriction; Some([]) = no owned sources, therefore no rows.
+    /// Source instances selected by the application for the current user.
+    /// None applies no restriction; Some([]) means no owned sources and yields no rows.
     pub instances: Option<Vec<String>>,
 }
 
@@ -68,24 +68,24 @@ impl Filters {
 pub struct SummaryRequest {
     pub timezone: String,
     pub week_start: WeekStart,
-    /// 含端点的本地日区间。
+    /// Inclusive local date range.
     pub first_day: Date,
     pub last_day: Date,
     pub granularity: Granularity,
     pub filters: Filters,
-    /// 查询方提供的“今天”（本地日），用于进行中标记。
+    /// Caller-supplied local today determines the in-progress flag.
     pub today: Date,
-    /// 明细保留截止日：早于它的周期标记“部分历史”。
+    /// Periods before the detail retention cutoff are marked partial history.
     pub retention_cutoff: Option<Date>,
 }
 
-/// 一组记录/一天的指标合计。known_sum 只在有已知样本时为 Some。
+/// Metric sums for a record group/day; known sums are Some only when known samples exist.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct MetricSums {
     pub input_total_known: Option<i64>,
-    /// 平均耗时（毫秒；仅有 duration 样本的均值）。
+    /// Mean duration in milliseconds over records reporting duration.
     pub avg_duration_ms: Option<i64>,
-    /// 总耗时（毫秒）。
+    /// Total known duration in milliseconds.
     pub total_duration_ms: Option<i64>,
     pub duration_sample_count: i64,
     pub input_known_count: i64,
@@ -110,8 +110,8 @@ pub struct MetricSums {
 }
 
 impl MetricSums {
-    /// 缓存输入占比：SUM(cache_read)/SUM(input_total)，只对两字段均已知的记录集合。
-    /// 分母为零或无有效样本时为 None（显示“—”而不是 0%）。
+    /// Cache ratio is summed reads/summed total input over records where both are known.
+    /// No valid samples or a zero denominator returns None, displayed as an em dash.
     pub fn cache_input_ratio(&self) -> Option<Ratio> {
         if self.ratio_sample_count == 0 || self.ratio_input_sum == 0 {
             return None;
@@ -194,18 +194,18 @@ pub struct PeriodRow {
     pub end_day: Date,
     pub utc_start_ms: i64,
     pub utc_end_ms: i64,
-    /// 当前周/月只完成一部分。
+    /// The current week/month is still in progress.
     pub in_progress: bool,
-    /// 保留时间截断的最早周期，或明细已清理（封存）。
+    /// Coverage is limited by retention or sealed detail history.
     pub partial_history: bool,
     pub sums: MetricSums,
-    /// 跨周期 DISTINCT 会话数；明细缺失时为 None（覆盖缺口）。
+    /// Distinct sessions across the period; absent detail leaves the count unknown.
     pub distinct_sessions: Option<i64>,
-    /// 有活动的本地日数；明细缺失时为 None。
+    /// Active local dates; absent detail leaves the count unknown.
     pub active_days: Option<i64>,
-    /// 平均请求耗时（毫秒；仅有 duration 的样本）；None = 无样本。
+    /// Mean request duration in milliseconds over known samples; None means no sample.
     pub avg_duration_ms: Option<i64>,
-    /// 总请求耗时（毫秒）。
+    /// Total known request duration in milliseconds.
     pub total_duration_ms: Option<i64>,
 }
 
@@ -223,12 +223,12 @@ pub struct Summary {
     pub week_start: WeekStart,
     pub periods: Vec<PeriodRow>,
     pub totals: MetricSums,
-    /// 模型分组（含 unknown 独立行）；总计必须包含其已知 token。
+    /// Model rows include unknown models and retain their known tokens in totals.
     pub model_breakdown: Vec<ModelRow>,
     pub agent_breakdown: Vec<AgentRow>,
     pub distinct_sessions: Option<i64>,
     pub active_days: Option<i64>,
-    /// 范围内归属未核验/被排除的事件数（未计入 totals）。
+    /// Unverified/excluded event count in the range, outside totals.
     pub excluded_event_count: i64,
 }
 
@@ -237,7 +237,7 @@ struct DailyRow {
     model_original: String,
     local_day: Date,
     instance_id: String,
-    /// 小时粒度时的-hour 值（日粒度行恒 None；由 hourly_usage 加载）。
+    /// Local hour from hourly_usage; daily rows use None.
     hour: Option<i64>,
     agent: String,
     provider_id: String,
@@ -268,10 +268,10 @@ struct DailyRow {
     conflict_count: i64,
 }
 
-/// 周期分组键（标签 + 起止日）：query_summary 与 chart_series 共用，
-/// 保证总用量视图与维度分组视图的时间轴标签一致。
-/// 小时粒度标签 "YYYY-MM-DD HH:00"；周标签按 week_start（ISO 周或起始日）；
-/// 月标签 "YYYY-MM"。
+/// Shared period label/start/end key for summary and chart queries;
+/// grouped series and total views use the same timeline.
+/// Hour labels are YYYY-MM-DD HH:00; week labels follow week_start;
+/// month labels are YYYY-MM.
 fn period_key_of(
     calendar: &Calendar,
     granularity: Granularity,
@@ -300,13 +300,13 @@ fn period_key_of(
     }
 }
 
-/// 执行汇总查询。
+/// Query the usage summary.
 pub fn query_summary(storage: &Storage, request: &SummaryRequest) -> Result<Summary, CoreError> {
     query_summary_selected(storage, request, None)
 }
 
-/// Select visible period labels, including local hours (both DST folds share a label).
-/// Date/user filters remain mandatory; no summing per-period session counts.
+/// Select visible periods, including local hours; both DST folds share an hour label.
+/// Keep date/user filters and distinct cross-period sessions without summing per-period counts.
 pub fn query_summary_selected(
     storage: &Storage,
     request: &SummaryRequest,
@@ -536,7 +536,7 @@ fn set_duration(sums: &mut MetricSums, details: Option<&DetailStats>) {
     }
 }
 
-/// Read retained details once, rather than once for every period/dimension.
+/// Read retained details once for the selected range.
 fn detail_stats(
     storage: &Storage,
     calendar: &Calendar,
@@ -600,9 +600,9 @@ fn detail_stats(
     Ok((total, groups))
 }
 
-/// Aggregate retained details in SQLite before transferring them to Rust. Exact
-/// calendar boundaries preserve DST and historical offsets; session sets still
-/// span days and are never replaced with sums of per-day DISTINCT counts.
+/// Aggregate detail metrics in SQLite before transferring results to Rust.
+/// Exact calendar boundaries preserve DST and historical offsets; distinct sessions
+/// span days rather than summing independent daily session counts.
 fn detail_stats_days(
     storage: &Storage,
     calendar: &Calendar,
@@ -740,9 +740,9 @@ fn detail_stats_projection(
     Ok((total, groups))
 }
 
-/// One coverage selection for totals, models, agents and chart series.
-/// A complete materialized partition replaces its matching daily dimensions;
-/// it never replaces another source, nor gets assigned to a clipped interval.
+/// Select one coverage representation for totals, models, Agents, and charts.
+/// A complete materialized partition replaces only its matching daily source partition;
+/// it cannot replace another source or be assigned to a clipped interval.
 fn load_summary_rows(
     storage: &Storage,
     request: &SummaryRequest,
@@ -869,7 +869,7 @@ fn load_summary_rows(
     Ok(rows)
 }
 
-/// Current-price simulation reuses exactly the usage query's archive selection.
+/// Current reference pricing uses the same archived usage selection as usage queries.
 pub(crate) struct ArchivedPricingRow {
     pub event: crate::pricing::PricingEvent,
     pub day: String,
@@ -909,8 +909,8 @@ pub(crate) fn archived_pricing_rows(
         } else {
             row.local_day
         };
-        // Aggregate fields can cover different samples. Preserve the saved split;
-        // subtracting independently known sums would invent uncached usage.
+        // Aggregate fields can represent different sample sets; retain saved component sums.
+        // Subtracting independently known sums would invent uncached input.
         let known_tokens_floor = row
             .input_known_sum
             .unwrap_or(0)
@@ -932,7 +932,7 @@ pub(crate) fn archived_pricing_rows(
                 model_raw: Some(row.model_original),
                 occurred_at_ms: start,
                 input_uncached: row.uncached_known_sum,
-                // Aggregate input is not a request size, nor necessarily the same sample set.
+                // Aggregate total input is not a per-request context size or necessarily the same sample set.
                 input_total: None,
                 input_cache_read: row.cache_read_known_sum,
                 input_cache_write: row.cache_write_known_sum,
@@ -1106,7 +1106,7 @@ fn period_range_ms(calendar: &Calendar, start: Date, end: Date) -> Result<(i64, 
     Ok((s, e))
 }
 
-/// 归属未核验/被排除的事件数：不进入总计，可按排除原因列出。
+/// Count unverified/excluded events outside totals, with their exclusion reasons.
 fn count_excluded(
     storage: &Storage,
     calendar: &Calendar,
@@ -1152,7 +1152,7 @@ fn count_excluded(
     Ok(count)
 }
 
-/// 按排除原因分组的排除记录清单（为 V25 打底）。
+/// Group excluded records by reason.
 pub fn list_excluded(
     storage: &Storage,
     first_ms: i64,
@@ -1261,14 +1261,14 @@ fn append_filters(
     }
 }
 
-/// Agent 分组行（与 ModelRow 同构；总计规则一致）。
+/// Agent rows share ModelRow metric structure and total rules.
 #[derive(Debug, Clone)]
 pub struct AgentRow {
     pub agent: String,
     pub sums: MetricSums,
 }
 
-/// 按 Agent 分组（含 unknown 独立行：provider/model 为空的记录归入该 Agent 名下）。
+/// Group by Agent, retaining unknown models/providers under that Agent.
 pub fn agent_breakdown(
     storage: &Storage,
     request: &SummaryRequest,
@@ -1287,8 +1287,8 @@ pub fn agent_breakdown(
         .collect())
 }
 
-/// 单日逐小时桶（今日小时图）。calls/known sums 按 source_completion 的本地小时分桶；
-/// DST 重复小时先合并显示（offset 可区分的完整处理随 V04 用例细化）。
+/// One day's local-hour buckets use each event's retained occurrence-time basis.
+/// Both occurrences of a repeated DST hour share the displayed local-hour label.
 #[derive(Debug, Clone, Default)]
 pub struct HourBucket {
     pub hour: u32,
@@ -1298,9 +1298,9 @@ pub struct HourBucket {
     pub cache_read_known: Option<i64>,
     pub output_total_known: Option<i64>,
     pub total_tokens_known: Option<i64>,
-    /// 该小时的 DISTINCT 会话数。
+    /// Distinct sessions in this hour.
     pub session_count: Option<i64>,
-    /// 平均耗时（毫秒）。
+    /// Mean known duration in milliseconds.
     pub avg_duration_ms: Option<i64>,
 }
 
@@ -1343,7 +1343,7 @@ pub fn hourly_breakdown(
         .collect())
 }
 
-/// 热力图单元格：一个本地日。日层已清理且无法再分配到日期的周期汇总标为不可用。
+/// Heatmap date cell; archived periods that cannot be assigned to individual dates remain unavailable.
 #[derive(Debug, Clone, Default)]
 pub struct HeatCell {
     pub day: String,
@@ -1374,8 +1374,8 @@ pub fn heatmap_cells(
             |r| r.get(0),
         )
         .optional()?;
-    // Only the heatmap's columns cross SQLite; push owner/model filters into
-    // the bounded daily query instead of materializing every dimensional row.
+    // Query only required heatmap columns with ownership/model filters applied in SQLite
+    // rather than loading every grouped daily row.
     let mut sums: BTreeMap<Date, (i64, Option<i64>)> = BTreeMap::new();
     let mut day_sql = String::from(
         "SELECT local_day,SUM(call_count),
@@ -1402,8 +1402,8 @@ pub fn heatmap_cells(
         sums.insert(parse_date(&day)?, (calls, total));
     }
     drop(stmt);
-    // A period-only import may not carry the local daily_retention_floor setting.
-    // Detect materialized partitions on their own; never assign their totals to a date.
+    // Period-only imports may lack the local daily_retention_floor setting.
+    // Detect their materialized partitions directly without assigning period sums to one date.
     let mut period_sql = String::from(
         "SELECT p.period_start_day, p.period_end_day FROM period_usage p
          WHERE p.tz_version = ?1 AND p.period_start_day <= ?2 AND p.period_end_day >= ?3
@@ -1469,7 +1469,7 @@ pub fn heatmap_cells(
     Ok(cells)
 }
 
-/// 明细行（详情页分页展示）。
+/// Paginated detail row.
 #[derive(Debug, Clone)]
 pub struct EventDetailRow {
     pub event_id: String,
@@ -1502,7 +1502,7 @@ pub struct EventDetailPage {
     pub limit: i64,
 }
 
-/// 分页查询明细事件（详情页；按时间倒序）。
+/// Query detail events in descending occurrence-time order.
 pub fn event_details(
     storage: &Storage,
     request: &EventDetailRequest,
@@ -1562,8 +1562,8 @@ pub fn event_details(
     })
 }
 
-/// 小时粒度：把 hourly_usage 展开为 DailyRow 形状（label = "HH:00"），
-/// 供 query_summary 的通用分组/合并逻辑复用。
+/// Expose hourly_usage in the shared DailyRow shape, retaining the local hour
+/// so summary grouping and merging can reuse the same implementation.
 fn load_hourly_as_daily(
     storage: &Storage,
     tz: &str,
@@ -1644,8 +1644,8 @@ fn load_hourly_as_daily(
     Ok(out)
 }
 
-/// Hourly storage predates completeness counters. Recover them from retained
-/// records, without deriving unknown token fields by subtracting unlike samples.
+/// Recover completeness metadata absent from older hourly storage using retained records;
+/// do not derive unknown fields by subtracting sums from unlike sample sets.
 fn enrich_hourly_metadata(
     storage: &Storage,
     tz: &str,
@@ -1718,8 +1718,8 @@ fn enrich_hourly_metadata(
         let input: Option<i64> = e.get(8)?;
         let output: Option<i64> = e.get(9)?;
         let total: Option<i64> = e.get(10)?;
-        // 与 recompute_day 一致：quality_bucket='unknown'（无任何已知 token 字段）的
-        // 记录是无用量的调用/观测，计 call/event 但不计作观测缺字段的未知字段。
+        // Like recompute_day, unknown-quality markers report no known token fields.
+        // Count their calls/events without treating them as missing fields of token observations.
         let field_gap = row.quality_bucket != "unknown";
         row.input_known_count += i64::from(input.is_some());
         row.input_unknown_count += i64::from(field_gap && input.is_none());
@@ -1745,7 +1745,7 @@ fn enrich_hourly_metadata(
     Ok(())
 }
 
-/// 图表维度分组模式。
+/// Chart grouping mode.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ChartDimension {
     Total,
@@ -1754,7 +1754,7 @@ pub enum ChartDimension {
     ByAgentModel,
 }
 
-/// 按维度分组的时间序列行（趋势图表数据源；直接从聚合表读，低计算量）。
+/// Grouped time-series row for trend charts.
 #[derive(Debug, Clone)]
 pub struct ChartSeriesRow {
     pub label: String,
@@ -1771,11 +1771,11 @@ pub struct ChartSeriesRow {
     pub total_tokens: Option<i64>,
 }
 
-/// 按维度分组查询时间序列（趋势图表数据源；不触 usage_events 明细——降低图表
-/// 数据源计算量，当前规则）。数据源与 query_summary 一致：小时粒度读
-/// hourly_usage，日/周/月读 daily_usage；周/月再并入 period_usage 物化周期
-/// （日层已覆盖的周期不重复计入）；筛选（Agent/provider/model/实例）同样生效。
-/// 标签经共享 period_key_of 生成，与总用量视图时间轴一致。
+/// Query grouped time series using the same retained partitions as query_summary.
+/// Hourly queries use hourly_usage; date-based queries use daily_usage and eligible
+/// materialized period_usage archives for week/month/year views.
+/// Exclude archives already covered by daily rows and retain Agent/provider/model/instance filters.
+/// Shared period_key_of labels match the total usage timeline.
 pub fn chart_series(
     storage: &Storage,
     request: &SummaryRequest,
@@ -1829,7 +1829,7 @@ pub fn chart_series(
         .collect())
 }
 
-/// 诊断日志行（设置页日志查看器）。
+/// Diagnostic row for the settings log viewer.
 #[derive(Debug, Clone)]
 pub struct DiagnosticLogRow {
     pub created_ms: i64,
@@ -1839,7 +1839,7 @@ pub struct DiagnosticLogRow {
     pub message: String,
 }
 
-/// 查询最近诊断日志（按时间倒序，限量；白名单字段无正文）。
+/// Read bounded recent diagnostics in descending time order, excluding message bodies.
 pub fn diagnostic_logs(
     storage: &Storage,
     limit: i64,

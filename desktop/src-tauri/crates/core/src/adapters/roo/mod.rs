@@ -1,8 +1,8 @@
-//! Roo Code 适配器（VS Code 扩展 + CLI；独立目录约定）。载体：
-//! globalStorage `RooVeterinaryInc.roo-cline/tasks/<taskId>/ui_messages.json`。
-//! 官方源码已归档（b867ec9，2026-05）；tokensIn 含缓存（与 cline 四桶互斥
-//! 字段语义的产品间差异已在 adapters.md 登记）。3.54.0 官方 VSIX 另有
-//! 真实 extension-host/API 样本：默认零未知，取消及缓存详情覆盖缺口保留。
+//! Roo Code adapter for extension/CLI candidate paths; independent directory. Native format:
+//! globalStorage RooVeterinaryInc.roo-cline/tasks/<taskId>/ui_messages.json.
+//! Official source b867ec9 was archived in 2026-05. tokensIn includes cache; adapters.md
+//! records its difference from legacy Cline exclusive buckets. Official 3.54.0 VSIX has
+//! native extension-host/API samples; default zeros remain unknown and cancellation/cache gaps remain.
 
 pub mod detect;
 pub mod versions;
@@ -11,12 +11,12 @@ pub use detect::ROO_FORMAT;
 pub use versions::ui_messages_doc1;
 pub use versions::{LATEST_IMPL_ID, ROO_FORMAT_VERSION, VERIFIED_VERSION_IMPLS};
 
-/// VS Code 扩展 globalStorage 目录名（小写扩展 ID）。
+/// VS Code extension globalStorage directory name, using the lowercase extension ID.
 pub const ROO_EXT_GLOBAL_STORAGE: &str = "rooveterinaryinc.roo-cline";
-/// CLI 缺省任务存储（vscode-shim：~/.vscode-mock/global-storage）。
+/// CLI default task storage through vscode-shim: ~/.vscode-mock/global-storage.
 pub const ROO_CLI_STORAGE_DIR: &str = ".vscode-mock";
 
-/// Roo Code 适配器（无状态）。
+/// Stateless Roo Code adapter.
 pub struct RooAdapter;
 
 impl Default for RooAdapter {
@@ -31,7 +31,7 @@ impl RooAdapter {
     }
 }
 
-/// 手工根兼容：globalStorage 目录、tasks 目录或任务目录本身。
+/// Resolve roots containing tasks/ or named tasks.
 fn roo_tasks_dir(root: &std::path::Path) -> Option<std::path::PathBuf> {
     let tasks = root.join("tasks");
     if tasks.is_dir() {
@@ -71,13 +71,13 @@ impl crate::adapters::framework::SourceAdapter for RooAdapter {
             ));
         }
         if let Some(home) = &ctx.home_dir {
-            // CLI（vscode-shim 固定 globalStorage，无 publisher 层）。
+            // CLI vscode-shim uses fixed global-storage without a publisher directory.
             roots.push((
                 home.join(ROO_CLI_STORAGE_DIR).join("global-storage"),
                 RootBasis::DefaultHome,
             ));
-            // VS Code 扩展 globalStorage 三平台默认 + .vscode-server 远端变体
-            //（远端在 WSL/SSH 侧，本机探测通常为空，保留候选）。
+            // VS Code extension defaults on the three platforms and .vscode-server candidates.
+            // Remote files are on the WSL/SSH host; local probes are usually empty, but retain candidates.
             roots.push((
                 home.join("Library")
                     .join("Application Support")

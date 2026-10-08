@@ -1,5 +1,5 @@
-//! Native schema 24 reader; official distribution and real CLI evidence are kept
-//! separate from mutable whole-database client version metadata.
+//! Native schema 24 reader; official distribution and real CLI verification are
+//! independent of mutable whole-database client version metadata.
 pub mod common;
 pub mod detect;
 pub mod versions;

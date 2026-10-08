@@ -1,107 +1,148 @@
-# 执行要求与交付顺序
+# Execution requirements and delivery order
 
-当前状态和剩余工作只在 [Plan.md](../../../Plan.md) 维护。本文件保留仍有效的
-交付要求；行为分别以数据、调度、价格和平台设计为准。实现、合成测试、真实来源、
-原生桌面和 CI 验证结果分列；文档或测试数据通过不证明其他版本/真实环境通过。
+<a id="执行要求与交付顺序"></a>
 
-## M0/M1：基线与统计存储
+Current status and remaining work are maintained only in [Plan.md](../../../Plan.md).
+This file retains the applicable delivery requirements; behavior follows the data, scheduling,
+pricing and platform designs. Report implementation, synthetic tests, real sources, native desktop
+and CI results separately. Passing documentation or synthetic-data tests does not establish other versions
+or real environments.
 
-交付可复现锁文件、开发/构建入口、三平台 CI 和固定格式样本。
-SQLite 存储区分已知/未知、调用/尝试/累计；每批事件、游标、解析状态、聚合和作业
-同事务提交。更新撤销旧贡献，重复扫描不增量，崩溃重启幂等恢复。
-迁移、重建和清理前进行一致备份与空间检查；源数据库只读，不 checkpoint 或修复。
-性能、资源、包体和平台结果按实际环境记录，不能从语言或架构推断。
+<a id="m0m1基线与统计存储"></a>
+
+## M0/M1: Baseline and statistical storage
+
+Deliver reproducible lockfiles, development/build entry points, three-platform CI and fixed-format
+samples. SQLite distinguishes known/unknown values, calls, attempts and cumulative observations.
+Commit each batch's events, cursors, parsing state, aggregates and jobs in one transaction.
+Updates remove previous contributions; rescans do not add duplicates; recovery after a crash is
+idempotent. Make consistent backups and check available space before migrations, rebuilds and cleanup.
+Read source databases without checkpointing or repairing them. Record performance, resources,
+package size and platform results in the actual environment; language or architecture cannot establish them.
 
 <a id="m1a"></a>
 
-## M1a：来源身份与交换
+<a id="m1a来源身份与交换"></a>
 
-稳定主机 ID、主机名和来源实例分别保存原始来源与采集位置；身份不因重启、改名或
-已确认迁移变化。来源进入事件唯一约束与聚合分区，主机名不作为本机归属证明。
-版本化交换声明来源、分区键、时间范围、修订及快照/增量语义；重复跳过、同源修订
-替换、互斥新增、冲突保留。聚合及 [完整标准化明细 Merge](detail-merge.md) 已实施，
-导入预览、完整来源日、封存、保留下限及事件/累计/汇总事务分别验收。
-回导验证先断言导出非空，再比较独立期望；CSV 和图表不能作为无损回导格式。
+## M1a: Source identity and exchange
+
+Store stable host ID, hostname and source instance with both original provenance and collection
+location. Identity survives restarts, renaming and confirmed migration. Include provenance in event
+uniqueness and aggregate partitions; hostname does not prove local origin. Versioned exchange declares
+provenance, partition keys, time ranges, revisions and snapshot/increment semantics. Skip duplicates,
+replace revisions from the same source, add mutually exclusive partitions and retain conflicts.
+Aggregate exchange and [complete normalized detail Merge](detail-merge.md) are implemented. Verify
+import previews, complete source days, sealing, retention floors and event/cumulative/summary transactions
+separately. Round-trip checks assert nonempty exports before comparing independent expectations.
+CSV and charts are not lossless round-trip formats.
 
 <a id="m2-layout"></a>
 
-## M2–M5/M8：逐适配器交付
+<a id="m2m5m8逐适配器交付"></a>
 
-每个 Agent 使用独立目录、入口、版本探测/分派和 versions/ 格式实现。
-产品映射留在对应目录；跨 Agent 共享逻辑须有逐产品语义依据。已知版本按注册表
-分派；未知/缺失版本先尝试该输入类型的最新内置解析器，校验通过带兼容标记。
-依据按记录所属版本保留，库内最高版本与空会话不能认证其他记录格式。
+## M2–M5/M8: Delivery per adapter
 
-每适配器交付 discover、probe、增量、字段映射、能力说明和固定格式测试数据；
-优先只读核对已有同版本数据的明细、汇总及重扫；本轮已授权独立 Podman 中运行
-官方客户端调用真实模型补样本；本轮指定 Provider 与 Zed 配置已获明确授权，
-须先核验协议、版本及原生载体，凭据不进入普通配置或日志。
-来源缺失、安全读取失败或字段不足时保留原因；不接远端账单/API 填空。
-手工根、环境覆盖和平台路径分别核验；应用管理的根按载体定向路由，沿整个注册表
-真实 discover 路径验收旧登记恢复。共享读取器变化须回归全部实际使用者。
+Each Agent has its own directory, entry point, version probing/dispatch and implementations under
+versions/. Keep product mappings in that directory; logic shared across Agents needs verified field semantics for each product. Dispatch known
+versions through the registry. For unknown/missing versions,
+try the latest built-in parser for that input type and retain a compatibility marker when validation
+succeeds. Associate source references/checks with each record’s version; the highest database version or empty
+sessions cannot verify other records.
 
-跨载体只按原生共同身份或已核验分区择一；不凭时间/token 相同猜调用身份。
-会话级累计不展开为逐次模型请求；父子 span、宿主镜像、失败请求、采样、重传及
-部分历史均需独立解释。遥测采用字段白名单，只接受已启用本机实例，拒绝正文、
-凭据、远端转发与账户/组织汇总。本机 loopback 本身不能证明原始来源。
-本机 HTTP 的认证、系统凭据与条件恢复按 [接收认证](receiver-auth.md) 实施。
-V07–V12/V17/V22/V25/V30 按实际支持载体逐项验收。
+Each adapter delivers discovery, probing, incremental reading, field mappings, capability notes
+and fixed-format test data. Prefer read-only comparisons of existing same-version details, summaries
+and rescans. Running official clients against real models in isolated Podman containers is authorized
+this round. The specified Providers and Zed configuration are explicitly authorized; verify protocols,
+versions and native files/databases first, and keep credentials out of ordinary configuration and logs.
+Retain reasons for missing sources, unsafe reads and insufficient fields; do not fill gaps with remote
+billing/APIs. Verify manual roots, environment overrides and platform paths separately. Route managed
+roots by file/database format and verify restoration of old registrations through the entire registry's real discover
+path. Shared-reader changes require regressions for every actual consumer.
+
+Across source formats, use native shared identity or select one verified partition. Matching timestamps/token
+counts cannot establish call identity. Session cumulatives do not become individual model requests.
+Explain parent/child spans, host mirrors, failed requests, sampling, retransmission and partial history
+independently. Telemetry uses field allowlists and accepts only enabled local instances; reject bodies,
+credentials, remote forwarding and account/organization totals. Local loopback does not prove original
+provenance. Implement local HTTP authentication, system credentials and conditional recovery under
+[receiver authentication](receiver-auth.md). Verify V07–V12/V17/V22/V25/V30 against actual supported file/database formats.
 
 <a id="m8"></a>
 
-M8 适配器范围与各家族必须补的样本以 [接入矩阵](adapters.md#扩展覆盖) 为准。
-已有格式依据的内置解析器可先做文档级交付，但真实验收标签不能扩大。估算 token 路径
-不采纳，品牌迁移双根要发现及去重。Qoder 为受限探针；Amazon Q/Codebuff 的
-已核验版本无本地逐次 token 载体，iFlow 按停服边界排除。
+The [adapter matrix](adapters.md#扩展覆盖) defines the M8 scope and required samples for each family.
+Built-in parsers with format references may be delivered at documentation level without expanding real
+acceptance labels. Exclude estimated-token routes; discover and deduplicate both roots after brand
+migration. Qoder is a limited probe. Verified Amazon Q/Codebuff versions have no local per-call token
+records; exclude iFlow under its shutdown boundary.
 
-## M6/M7：桌面、后台与发行验收
+<a id="m6m7桌面后台与发行验收"></a>
 
-五页界面连接真实查询、刷新、设置、保留、交换及十语言。
-图表/表格/选区采用同一范围与修订；错误或过期响应不覆盖当前筛选。
-手动采集包含所有启用来源，自动任务按启用状态与到期规则执行；同源不并发，
-手动、定时和 GUI/headless 重叠须合并。规则时区独立保存，DST 与休眠按
-[调度设计](scheduling.md)；Windows 任务期望/实际状态分开，遗留触发不绕过关闭设置。
+## M6/M7: Desktop, background collection and release acceptance
 
-原生验收必须使用真实 Tauri IPC/WebView，浏览器模拟不能替代。
-隔离非空来源及数据库验证设置、查询、导出/导入、清理取消、重启、离线、语言、
-缩放及可访问名称。实机全进程资源、首屏分位数和 release 包体分别测量。
-Windows 实机、三平台 CI、WSL 构建与 Linux 实际 GUI 验收分别记录。
-本轮 Windows 安装生命周期及独立 Podman 的 Linux 包/GTK/WebKit/FUSE 已授权，
-按 [生命周期要求](installation-lifecycle.md) 验收；不要求 macOS 桌面或特定硬件。
-本轮不再要求更多 DPI、完整读屏、宿主登录/注销或 OS 唤醒；已有结果保留。
-主分支、签名/公证及 Release 用户说明已完成，不再列活动任务。
+Connect the five pages to real queries, refresh, settings, retention, exchange and ten languages.
+Charts, tables and selections use the same range and revision. Failed or stale responses cannot replace
+the current filters. Manual collection includes all enabled sources; automatic jobs follow source
+enablement and deadlines. The same source cannot run concurrently; merge overlapping manual, scheduled
+and GUI/headless requests. Store rule timezones independently and handle DST/sleep under the
+[scheduling design](scheduling.md). Separate expected/actual Windows task states; leftover triggers cannot
+bypass disabled settings.
 
-## F1：后续 IDE 支持
+Native acceptance uses actual Tauri IPC/WebView. Browser mocks cannot replace it. With isolated nonempty
+sources/databases, verify settings, queries, export/import, cleanup cancellation, restart, offline behavior,
+languages, zoom and accessible names. Measure all-process resources on actual hardware, first-screen
+percentiles and release package size separately. Record native Windows, three-platform CI, WSL builds
+and actual Linux GUI acceptance separately. Windows installation lifecycle and isolated Podman's Linux
+packages/GTK/WebKit/FUSE are authorized this round; verify the [lifecycle requirements](installation-lifecycle.md).
+macOS desktop or specific hardware is not required. Additional DPI, complete screen-reader coverage,
+host login/logout and OS wake-up are no longer required this round; retain existing results.
+The main branch, signing/notarization and Release user instructions were reported complete and are no
+longer active tasks.
 
-本轮已授权核查；未发现可测试安装或本地用量载体的项移出活动计划，
-产品/变体能力限制以 [接入矩阵](adapters.md) 为准，不认证其不支持。
-Junie CLI 与 Zed 内置属于 M8，JetBrains 的 Copilot 手工 OTel 路线属于 M9；
-JetBrains 自家 AI Assistant 仍 F1。宿主运行已支持外部 Agent 时按底层来源统计，
-不能据此宣称宿主内置 Agent 已支持。后续交付有版本依据的适配器或具体限制。
+<a id="f1后续-ide-支持"></a>
+
+## F1: Subsequent IDE support
+
+Investigation is authorized this round. Move items without a testable installation or local usage files/database
+out of the active plan; retain product/variant limits in the [adapter matrix](adapters.md) without claiming
+the product is unsupported. Junie CLI and built-in Zed belong to M8; JetBrains Copilot's manual OTel route belongs
+to M9; JetBrains's own AI Assistant remains F1. When a host runs a supported external Agent, count its
+underlying source without claiming support for the host's built-in Agent. Future delivery provides
+versioned adapter source references or specific limitations.
 
 <a id="f2"></a>
 
-## F2：价格与费用
+<a id="f2价格与费用"></a>
 
-按 [价格设计](pricing.md) 保留版本化价目、渠道/币种/档位/TTL 和覆盖标记。
-估算与在线刷新默认关闭；发生时价格与当前价格模拟分开，历史估算不随后台刷新
-重写。models.dev 只获取公开价格元数据，不携带本机数据；原始响应长缓存及失败
-回退按设计执行。精确价格优先，缺价可使用无歧义同型号官方 API 参考；不推断实付。
-默认关闭的 [预算提醒](budget-reminders.md) 已实施；本轮指定端点为 Coding Plan，
-不能套用按量实付估算。金额运算与 V29 异常/部分计价/回退场景独立验证。
+## F2: Pricing and costs
+
+The [pricing design](pricing.md) governs versioned price lists, channels, currencies, tiers, TTL and coverage
+markers. Estimation and online refresh default to off. Separate prices at occurrence from current-price
+simulation; background refresh cannot rewrite historical estimates. models.dev fetches only public pricing
+metadata without local data; retain the designed long raw-response cache and failure fallback. Exact prices
+take priority; missing prices may use an unambiguous official API reference for the same model without
+inferring actual payment. Disabled-by-default [usage and cost alerts](budget-reminders.md) are implemented.
+This round's specified endpoints are Coding Plans and cannot use pay-as-you-go estimates as actual cost.
+Verify amount arithmetic and V29 anomalies/partial pricing/fallback scenarios independently.
 
 <a id="f3"></a>
 
-## F3：多语言
+<a id="f3多语言"></a>
 
-十语言使用同一统计规则和稳定英文诊断 code；数值/日期按用户设置格式化。
-新增界面键同步全部语言，检查键与插值完整性；V31 原生语言/布局验收随 M6。
+## F3: Languages
 
-## 变更、回退与完成记录
+All ten languages use the same statistical rules and stable English diagnostic codes. Format numbers
+and dates with user settings. Synchronize new interface keys across every language and check keys and
+interpolation placeholders. V31 native language/layout acceptance accompanies M6.
 
-保持可独立审阅的变更，保留用户修改；本批独立测试分支提交/推送/CI 已获授权，
-不自动合并、部署或发布。授权范围及当前结果见 Plan.md。
-解析失败停止该源后续读取并保留旧结果；数据库迁移失败恢复一致备份，旧程序拒绝
-写入新 schema。不可逆清理提前说明恢复条件，不删除源文件。
-记录实际 cwd、命令、版本、环境、退出码、数量、结果及缺口，完成对应检查并记录结果后再更新进度。
-临时产物只放仓库根 build/；最新设计不复制逐轮历史叙述。
+<a id="变更回退与完成记录"></a>
+
+## Changes, rollback and completion records
+
+Keep changes independently reviewable and preserve user edits. Commits, pushes and CI on the separate
+test branch were authorized for that batch; this does not automatically authorize merging, deployment
+or publication. See Plan.md for authorization scope/current results. A parsing failure stops subsequent
+reading of that source and retains old results. Failed migrations restore a consistent backup; old programs
+refuse to write a newer schema. Explain recovery conditions before irreversible cleanup and retain source
+files. Record actual cwd, commands, versions, environment, exit codes, quantities, results and gaps.
+Update progress only after completing and recording the corresponding checks. Temporary artifacts belong
+only under repository-root build/. Current designs do not repeat the narrative of every historical round.

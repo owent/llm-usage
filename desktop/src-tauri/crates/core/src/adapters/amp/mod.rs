@@ -1,7 +1,7 @@
-//! Amp 适配器（Sourcegraph，闭源；独立目录约定）。载体：
-//! `~/.local/share/amp/threads/T-*.json` 的 usageLedger.events（主，有显式
-//! 时间戳）+ messages[].usage（对照，无时间戳不入账）。credits 是计费
-//! 单位非美元，不映射 cost（额度类）。
+//! Amp adapter (Sourcegraph, closed source; independent directory). Reads
+//! ~/.local/share/amp/threads/T-*.json usageLedger.events with explicit timestamps;
+//! messages[].usage is comparison-only without time. Credits are billing units,
+//! not dollars; keep them as quota-like data, without mapping cost.
 
 pub mod detect;
 pub mod versions;
@@ -10,7 +10,7 @@ pub use detect::AMP_FORMAT;
 pub use versions::threads_doc1;
 pub use versions::{AMP_FORMAT_VERSION, LATEST_IMPL_ID, VERIFIED_VERSION_IMPLS};
 
-/// Amp 适配器（无状态）。
+/// Stateless Amp adapter.
 pub struct AmpAdapter;
 
 impl Default for AmpAdapter {
@@ -41,7 +41,7 @@ impl crate::adapters::framework::SourceAdapter for AmpAdapter {
         use crate::adapters::framework::{DiscoveredRoot, RootBasis};
         let mut roots: Vec<(std::path::PathBuf, RootBasis)> = Vec::new();
         if let Some(home) = &ctx.home_dir {
-            // tokscale PathRoot::XdgData：XDG_DATA_HOME 或 ~/.local/share。
+            // tokscale PathRoot::XdgData uses XDG_DATA_HOME or ~/.local/share.
             let xdg = ctx
                 .env
                 .get("XDG_DATA_HOME")
@@ -50,7 +50,7 @@ impl crate::adapters::framework::SourceAdapter for AmpAdapter {
                 .unwrap_or_else(|| home.join(".local").join("share"));
             roots.push((xdg.join("amp").join("threads"), RootBasis::DefaultHome));
             if cfg!(windows) {
-                // Windows 实际目录布局尚未核验：LOCALAPPDATA 作为候选根，按指纹过滤。
+                // Windows layout remains unverified; treat LOCALAPPDATA as a candidate and check file fields.
                 if let Some(appdata) = ctx.env.get("LOCALAPPDATA") {
                     roots.push((
                         std::path::PathBuf::from(appdata)

@@ -1,39 +1,39 @@
-//! omp 版本注册表：session 数值版本 → 格式实现的映射与未知版本回退选择
-//! （architecture.md#adapter-layout / #unknown-version）。
+//! omp registry maps numeric session versions to implementations or compatibility fallback.
+//! See architecture.md#adapter-layout / #unknown-version.
 //!
-//! 已验证版本须经真实样本核验：本机 58/58 会话头实测全部 `version`=3（18.2.7 scoop，
-//! 2026-08-21 至 2026-09-24）+ 固定源码 oh-my-pi 62bc57b 佐证。注册表扩展只增加
-//! 条目，不删除历史实现。当前仅一个格式实现 `session_v3`。
+//! Native checks found version=3 in all 58 local session headers (Scoop 18.2.7,
+//! 2026-08-21 through 2026-09-24), supported by fixed oh-my-pi 62bc57b source. Add entries
+//! without deleting historical implementations; session_v3 is currently the sole format.
 //!
-//! 选择规则（与 pi 不同，已核验范围不同）：
-//! - 已收录版本 → `KnownVersion`，按映射分派；
-//! - 未收录数值版本 / `version` 字段缺失 → `LatestFallback`，先尝试最新内置
-//!   解析器，通过校验的数据带兼容标记入库，不因版本号未收录直接拒绝；
-//! - 依据：pi 的 v1/v2 已按固定源码确认不兼容（pi 注册表有 evidenced-incompatible
-//!   分支）；omp 旧版落盘格式尚未核验（尚未确认格式不同），故无 `known_incompatible`
-//!   条目，未收录与缺失都回退 `session_v3` 尝试；结构不兼容在扫描层按 V30
-//!   判定（读到记录、零事件且带结构诊断 ⇒ 保留旧结果）。
+//! Selection differs from pi because the verified format scopes differ:
+//! - Registered version: KnownVersion, dispatch through the mapping.
+//! - Unregistered numeric/missing version: try the latest parser with LatestFallback.
+//!   Validated records retain compatibility metadata; an unregistered number alone does not cause rejection.
+//! - Fixed pi source verifies v1/v2 as incompatible, but old omp file formats remain
+//!   unverified. omp therefore has no known_incompatible entries:
+//!   missing/unregistered versions try session_v3. Scanning evaluates structural incompatibility
+//!   under V30: observed records/zero events/structural diagnostics retain previous results.
 
 pub mod session_v3;
 
-/// 当前格式实现标识（"最新内置解析器"由本常量明确指定，不联网获取）。
+/// This constant selects the latest built-in implementation without network access.
 pub const LATEST_IMPL_ID: &str = "session_v3";
 
-/// 已验证支持的 session 数值版本 → 格式实现。
-/// 每个版本都经真实样本核验；同形版本共用实现，分派仍逐版本登记。
+/// Registered numeric session versions mapped to implementations.
+/// Each version has native-sample checks; shared formats retain separate version entries.
 pub const VERIFIED_VERSION_IMPLS: &[(i64, &str)] = &[
-    // 本机 58/58 会话头实测 version=3 + oh-my-pi 62bc57b 固定源码。
+    // All 58 native session headers used version=3; fixed oh-my-pi 62bc57b source agrees.
     (3, "session_v3"),
 ];
 
-/// 版本分派结论。
+/// Version selection result.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Selection {
     pub impl_id: &'static str,
     pub basis: crate::domain::VersionBasis,
 }
 
-/// 按来源原始 session 数值版本选择格式实现；探测与扫描共用本函数保证同一策略（V30）。
+/// Detection/scanning select by the original numeric session version through this function (V30).
 pub fn select(found: Option<i64>) -> Selection {
     let known = found.and_then(|v| {
         VERIFIED_VERSION_IMPLS
@@ -46,8 +46,8 @@ pub fn select(found: Option<i64>) -> Selection {
             impl_id,
             basis: crate::domain::VersionBasis::KnownVersion,
         },
-        // 未收录数值版本或 version 字段缺失：Agent 身份/输入类型已确认，默认回退
-        // 最新实现（omp 旧版格式尚未核验，尚未确认不兼容，不直接拒绝）。
+        // With known product identity/input format, unregistered/missing versions try the latest parser.
+        // Older omp formats remain unverified, without verified incompatibility; do not reject them by version alone.
         None => Selection {
             impl_id: LATEST_IMPL_ID,
             basis: crate::domain::VersionBasis::LatestFallback,
@@ -87,8 +87,8 @@ mod tests {
                 basis: VersionBasis::LatestFallback
             }
         );
-        // version 字段缺失（legacy 形状）同样回退尝试，不直接拒绝（与 pi 不同：
-        // pi v1 无 version 字段已按固定源码确认不兼容，omp 尚未核验）。
+        // Missing legacy version likewise tries compatibility, unlike pi:
+        // fixed source verifies versionless pi v1 as incompatible, while old omp remains unverified.
         assert_eq!(
             select(None),
             Selection {

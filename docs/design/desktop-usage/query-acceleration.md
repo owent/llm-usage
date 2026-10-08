@@ -1,29 +1,44 @@
-# 日查询加速
+# Faster daily queries
 
-常用日查询保留总计、模型、Agent 三类按来源分区的派生日汇总，以及按来源/会话
-分组的日耗时与会话关联。日查询无维度筛选或仅供应商筛选时使用对应派生表；实例白名单
-仍在 SQL 中生效。供应商会话表按供应商拆分，查询先按来源/会话合并再计算 DISTINCT，
-不把同一会话的多个供应商算成多个会话。模型/Agent 筛选保留原路径，并使用与
-既有 fold_name/model_key 表达式一致的索引。其他查询沿用完整路径。跨日会话仍合并来源与会话身份，未知
-会话保持未知，不把每天的 DISTINCT 相加。
+<a id="日查询加速"></a>
 
-派生表是 schema 11 的可选加速结构，不改事件、原汇总、修订或来源游标。
-写者打开旧库时重建缺失/失效的日分区，正常采集与日重算同事务更新。SQLite
-AFTER 触发器使原表的插入、修改、删除失效对应日，并删除该日派生行及会话标识。
-只读查询在请求日有效，或缺失日经原日表和事件表同时证实为空时使用加速表；
-否则读取原表。旧程序写入也会使它们失效。事务回滚同时撤回
-失效标记与派生行。删除加速结构后可重新生成，不能作为交换或封存的权威数据。
-清空统计同时移除全部派生结构的数据。首次修复最多处理最近 750 个日分区；更早
-历史沿用原查询。整型 SUM 溢出只取消该日的可选派生构建，不拒绝原本按不同
-模型/来源分别有效的事件；正常查询仍保留原来的精确整数校验，不改用浮点金额。
-派生布局有独立版本标记；布局或名称归一化变更时须失效重建并更新表达式索引，
-不能让旧的派生结果认证新规则。
-写者打开时运行有界 `PRAGMA optimize` 更新查询规划统计，组合筛选按实际
-选择度选索引；其依据与运行范围见 [SQLite PRAGMA optimize](https://www.sqlite.org/pragma.html#pragma_optimize)。
+Common daily queries use derived summaries for totals, models and Agents, partitioned
+by source, plus daily duration and session membership grouped by source/session.
+Queries with no dimension filter or only a provider filter use the appropriate derived
+tables; instance allowlists still apply in SQL. Provider session tables are split by
+provider. Merge source/session identities before DISTINCT, so one session using several
+providers still counts once. Model/Agent filters keep the existing query path and indexes
+matching the existing fold_name/model_key expressions. Other queries use the full path.
+Across days, merge source/session identities; unknown sessions stay unknown, and daily
+DISTINCT counts must not simply be added.
 
-分别测量旧库补建、当前索引下完整导入、未命中连接缓存查询、增量刷新及原生
-全进程资源；加速结构的空间和写入成本计入结果。过滤、别名、未知值、DST、
-封存、实例隔离、外部连接写入及回滚与原路径比较独立期望。
+These optional schema-11 tables leave events, original summaries, revisions and source
+cursors unchanged. A writer opening an old database rebuilds missing or invalid daily
+partitions. Collection and daily recalculation update them in the same transaction.
+SQLite AFTER triggers invalidate the affected day on insert/update/delete in original
+tables and remove its derived rows and session identities. Read-only queries use the
+accelerated tables only when each requested day is valid, or when both original daily
+and event tables establish that a missing day is empty. Otherwise they read original
+tables. Older applications' writes also invalidate the derived data; rollback reverts
+both invalidation and derived rows. Deleted structures can be regenerated and are not
+the primary data for exchange or archives. Clearing statistics removes all derived data.
+Initial repair handles at most the latest 750 daily partitions; older history retains
+the original query path. Integer SUM overflow skips only that day's optional derived
+build, without rejecting events whose separate model/source totals are valid. Normal
+queries retain exact integer checks and never switch money to floating point.
 
-触发器行为依据 [SQLite CREATE TRIGGER](https://www.sqlite.org/lang_createtrigger.html)。
-整数求和依据 [SQLite aggregates](https://www.sqlite.org/lang_aggfunc.html)，2026-10-04 正文核验。
+The derived layout has its own version. Layout or name-normalization changes require
+invalidation, rebuilding and updated expression indexes; old results cannot verify new
+rules. Opening a writer runs bounded `PRAGMA optimize` to update query-planner statistics.
+Combined filters choose indexes by actual selectivity; see
+[SQLite PRAGMA optimize](https://www.sqlite.org/pragma.html#pragma_optimize) for its behavior and scope.
+
+Measure old-database rebuilding, complete imports with current indexes, queries without
+a cached connection, incremental refresh and all native processes separately. Include
+derived storage and write costs. Compare filtering, aliases, unknown values, DST,
+archives, instance isolation, external writes and rollback against independent expected
+results for the original query path.
+
+Trigger behavior: [SQLite CREATE TRIGGER](https://www.sqlite.org/lang_createtrigger.html).
+Integer summation: [SQLite aggregates](https://www.sqlite.org/lang_aggfunc.html).
+Both page bodies were checked on 2026-10-04.

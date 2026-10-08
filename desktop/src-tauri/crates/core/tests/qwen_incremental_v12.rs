@@ -1,5 +1,5 @@
-//! Qwen Code V12：增量与刷新语义 —— 重复扫描不增量、追加续读、半行跨轮、截断/
-//! 同长替换/改名重探测、达到读取上限后分批恢复、矛盾重复冲突标记（同 uuid 不同 usageMetadata）。
+//! Qwen V12: stable repeats, append continuation, partial lines across runs, truncation,
+//! same-size replacement/rename detection, bounded-read continuation and same-uuid usage conflicts.
 
 mod common;
 
@@ -33,9 +33,9 @@ fn rec_assistant(uuid: &str, ts: &str, prompt: i64, candidates: i64, total: i64)
     )
 }
 
-/// 基础文件（3 行）：user + assistant a1(1000/50/1050) + assistant a2(2000/100/2100)。
-/// 手工核算：call_count=2；input_total_known=3000；output_total_known=150；
-/// total_tokens_known=3150；cache_read_known=None（未直报，未知不补零）。
+/// Base three lines: user, assistant a1(1000/50/1050), assistant a2(2000/100/2100).
+/// Manual totals: call_count=2, input_total_known=3000, output_total_known=150;
+/// total_tokens_known=3150, cache_read_known=None; unreported cache stays unknown.
 fn base_lines() -> Vec<String> {
     vec![
         rec_user("syn-u-1", "2026-01-05T10:00:00.000Z"),
@@ -45,7 +45,7 @@ fn base_lines() -> Vec<String> {
 }
 
 fn base_file() -> Vec<u8> {
-    // JSONL 必须以换行结尾：末行无 \n 会被视为半行而不消费。
+    // JSONL needs a final newline; without it the last line stays unconsumed partial data.
     format!("{}\n", base_lines().join("\n")).into_bytes()
 }
 
@@ -140,7 +140,7 @@ fn truncation_triggers_generation_rescan() {
     run_qwen(&storage, &root, NOW);
     assert_eq!(generation(&storage), 0);
 
-    // 截断为前 2 行（源端极端行为）：重探测 → generation+1 → 从头重扫。
+    // Truncate to the first two lines: redetect, generation+1, replay from the beginning.
     let head = format!("{}\n{}\n", lines[0], lines[1]);
     std::fs::remove_file(&file_path).unwrap();
     std::fs::write(&file_path, head.as_bytes()).unwrap();
@@ -148,7 +148,7 @@ fn truncation_triggers_generation_rescan() {
     assert_eq!(second[0].files[0].status, "complete");
     assert_eq!(second[0].files[0].lines_read, 2);
     assert_eq!(generation(&storage), 1);
-    // 已入库历史不因源截断而消失；a1 重扫后 upsert 幂等。
+    // Truncation retains imported history; replaying a1 adds no duplicate event.
     let summary = summary(&storage, "2026-01-05", "2026-01-05");
     assert_eq!(summary.totals.call_count, 2);
     assert_eq!(summary.totals.total_tokens_known, Some(3_150));
@@ -157,7 +157,7 @@ fn truncation_triggers_generation_rescan() {
 #[test]
 fn same_size_replacement_rescans_without_dropping_history() {
     let dir = TempDir::new("qwen-replace");
-    // 两条等长 assistant 记录（同位数数值），交换行序保持总长不变。
+    // Same-digit assistant numbers produce equal line lengths; swap order without resizing file.
     let line_a = rec_assistant("syn-a-1", "2026-01-05T10:00:05.000Z", 1000, 50, 1050);
     let line_b = rec_assistant("syn-a-2", "2026-01-05T10:00:08.000Z", 2000, 60, 2060);
     assert_eq!(line_a.len(), line_b.len(), "交换样本必须等长");
@@ -216,7 +216,7 @@ fn rename_keeps_identity_and_cursor() {
 #[test]
 fn budget_split_resumes_without_duplicates() {
     let dir = TempDir::new("qwen-budget");
-    // 5 行：user + a1 + user + a2 + a3（3 次调用）。
+    // Five lines: user+a1+user+a2+a3, three calls.
     let lines = [
         rec_user("syn-u-1", "2026-01-05T10:00:00.000Z"),
         rec_assistant("syn-a-1", "2026-01-05T10:00:05.000Z", 1000, 50, 1050),
@@ -264,7 +264,7 @@ fn conflicting_duplicate_marks_conflict_and_keeps_existing() {
     let (_db, storage) = temp_storage("qwen-conflict");
     run_qwen(&storage, &root, NOW);
 
-    // 追加同 uuid 但 usageMetadata 数值不同的记录（无法确认哪条修订更新 → conflict）。
+    // Same uuid, different usageMetadata: newer revision unknown, so conflict.
     let conflict_line = rec_assistant("syn-c-1", "2026-01-05T10:00:10.000Z", 1500, 60, 1560);
     let mut appended = format!("{}\n", lines.join("\n")).into_bytes();
     appended.extend_from_slice(conflict_line.as_bytes());
@@ -274,7 +274,7 @@ fn conflicting_duplicate_marks_conflict_and_keeps_existing() {
     let outcome = second[0].outcome.as_ref().unwrap();
     assert_eq!(outcome.conflicts, 1);
 
-    // 不任意择大：已存值保持 1000，冲突标旗并记诊断。
+    // Do not pick the larger value; retain 1000, mark conflict and record diagnostics.
     let input: i64 = storage
         .conn()
         .query_row(

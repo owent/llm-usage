@@ -1,10 +1,14 @@
-# synthetic-usage-on-user 期望（人工核算，全合成样本）
+# synthetic-usage-on-user expectations (manually calculated, synthetic)
 
-user 消息携带 tokens 对象：超出文档化形状（tokens 只属于 gemini 消息），
-整文件 fail closed（`usage_on_unexpected_message_type`）。
+<a id="synthetic-usage-on-user-期望人工核算全合成样本"></a>
 
-## 期望
+A user message contains a tokens object, although the documented format permits
+tokens only on gemini messages. Reject the whole file with usage_on_unexpected_message_type.
 
-- files[0].status="pending"；0 事件入库；游标不推进（无 checkpoint）。
-- diagnostics 每轮 1 条 code=usage_on_unexpected_message_type；二次扫描仍 pending、
-  诊断再记 1 条（确定性再拒，非静默成功零）。
+<a id="期望"></a>
+
+## Expectations
+
+- files[0].status="pending"; no imported events or cursor advancement; no checkpoint.
+- One usage_on_unexpected_message_type diagnostic per scan. A second scan is still
+  pending and adds another diagnostic, confirming repeated rejection rather than a successful empty result.

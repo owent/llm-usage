@@ -1,11 +1,11 @@
-//! Claude Code 适配器（独立目录约定 architecture.md#adapter-layout，V30 目录迁移）：
-//! - 本模块是该 Agent 的稳定入口（统一接口实现与再导出）；
-//! - [`detect`]：格式探测（首行记录类型集合）；
-//! - [`versions`]：旧文档锚点与逐条 2.1.197 原生版本独立绑定；
-//! - 历史版本的格式实现一律保留在本目录内，不再回到根级单文件。
+//! Claude Code adapter: independent directory, architecture.md#adapter-layout, V30.
+//! - Stable agent entry with shared-interface implementation and reexports.
+//! - [`detect`]: identify the first record type and format.
+//! - [`versions`]: separate historical source references from native per-row 2.1.197 versions.
+//! - Retain historical format implementations here, without root single-file adapters.
 //!
-//! 原始格式依据见各版本模块文件头；目录迁移不改已验收的拒绝语义
-//! （未文档化记录 type / 载体外 usage 字段 ⇒ 整文件 fail closed，V17）。
+//! Version-module headers cite original formats. Migration retains validated rejection:
+//! undocumented record types or usage on non-usage records reject the file, V17.
 
 pub mod common;
 pub mod detect;
@@ -20,7 +20,7 @@ pub use versions::{
 
 pub const CLAUDE_ENV_HOME: &str = "CLAUDE_CONFIG_DIR";
 
-/// Claude Code 适配器（无状态）。
+/// Stateless Claude Code adapter.
 pub struct ClaudeAdapter;
 
 impl Default for ClaudeAdapter {
@@ -68,7 +68,7 @@ impl crate::adapters::framework::SourceAdapter for ClaudeAdapter {
             if !projects.is_dir() {
                 continue;
             }
-            // projects/<project>/<session>.jsonl 深度 2；subagents/ 内 transcript 深度 3。
+            // projects/<project>/<session>.jsonl depth 2; subagents/ transcripts depth 3.
             let files = crate::adapters::framework::enumerate_files_bounded(&projects, 3, &|p| {
                 p.file_name()
                     .and_then(|n| n.to_str())
@@ -103,7 +103,7 @@ impl crate::adapters::framework::SourceAdapter for ClaudeAdapter {
         limits: &crate::adapters::framework::ScanLimits,
         now_ms: i64,
     ) -> Result<crate::adapters::framework::ScanOutcome, crate::error::CoreError> {
-        // 当前所有已验证格式共用 transcript_doc1；注册表扩展多实现后在此按选择分派。
+        // Verified formats currently share transcript_doc1; dispatch by selection when implementations grow.
         versions::transcript_doc1::scan(target, stored, limits, now_ms)
     }
 

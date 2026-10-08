@@ -1,5 +1,5 @@
 //! Official VS Code 4.1.22 SDK messages writer, f58bc118 (A03).
-//! Session origin is mutable metadata, not per-message version evidence.
+//! Session origin is mutable metadata and cannot verify each message's client version.
 //! Metrics may describe a whole run/retry group: observations, never inferred calls.
 use std::{io::Read, path::Path};
 

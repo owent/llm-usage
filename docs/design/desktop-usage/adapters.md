@@ -1,272 +1,321 @@
-# Agent 接入调研与能力矩阵
+# Agent research and capability matrix
 
-初始调研日期：2026-09-24；2026-09-27 复核归档行为，见文末及
-[本轮验证](../../validation/desktop-usage/review-2026-09-27.md)。
-国内外流行 Agent 覆盖扩展调研（A25–A48）与 M8 文档级
-实施均已完成（[M8 验证记录](../../validation/desktop-usage/m8-second-batch.md)）：
-18 个适配器（17 个解析 + Qoder 探针）已注册；Amazon Q/Codebuff/iFlow 经源码核验
-证实本地无逐次 token 载体（或已停服），按边界排除。
-下表区分实施候选与核验状态。
-初始实施阶段只读核对本机数据；此后真实请求及容器验收按各专项授权执行。
-用户列出的 Codex 重复项合并，CLI/桌面/IDE 仍须分别标识产品表面。
-Harness Agent 按用户提供官网更正为 Hermes Agent。所有工具均保留本地支持计划；
-缺少本地格式依据的 IDE 保留 F1 标签；2026-10-07 已按授权核查候选本机安装，
-没有可测试安装/载体的项移出本轮。Junie CLI 与 Zed 内置已转 M8；
-Zed 外部 Provider 实样见 [本轮记录](../../validation/desktop-usage/plan-20261007.md)。
-实施阶段可提取本机真实 Agent 数据验证，流程见 [开工准备](implementation-readiness.md)。
-不以企业 API、账号报表或远程日志替代本机来源。
+<a id="agent-接入调研与能力矩阵"></a>
 
-## 如何解释支持
+Initial research: 2026-09-24; archive behavior reviewed 2026-09-27, as described below and
+in [the review](../../validation/desktop-usage/review-2026-09-27.md). Expanded Agent research
+(A25–A48) and M8 documentation-based implementation are complete
+([M8 results](../../validation/desktop-usage/m8-second-batch.md)): 18 registered adapters,
+17 parsers plus a Qoder probe. Source inspection found no local per-call token records for
+Amazon Q/Codebuff; iFlow has shut down. They are excluded under the local-source boundary.
+The tables distinguish implementation candidates from verified support.
 
-- **本地候选**：官方资料或源码证实存在可用存储/字段，仍需版本绑定的脱敏 fixture。
-- **需启用**：有官方遥测或导出能力；未启用之前通常不能回填历史。
-- **有条件**：需要特定本地版本、日志开关或本机会话导出，不能保证默认安装可用。
-- **待证实**：只有原型解析逻辑或产品说明，尚缺本地字段/格式的可核验依据。
-- **后续 F1**：用户已确定后移的 IDE 产品/变体；不是“不支持”的技术结论，不参与首版必验。
+Initial implementation inspected local data read-only. Later real requests/container acceptance
+followed their specific authorizations. Merge the user's duplicate Codex listing, but identify
+CLI, desktop and IDE interfaces separately. The supplied website identifies “Harness Agent”
+as Hermes Agent. Retain local-support plans for all tools; IDEs without verified local formats
+remain F1. Authorized local-installation checks on 2026-10-07 removed candidates without
+testable installations/files from this round. Junie CLI and built-in Zed moved to M8.
+Zed external-provider samples are in [the current record](../../validation/desktop-usage/plan-20261007.md).
+Real local Agent data may be extracted for implementation validation under
+[readiness requirements](implementation-readiness.md). Enterprise APIs, account reports and
+remote logs cannot substitute for local sources.
 
-实现后的状态另用 `supported / partial / unsupported_format / not_found / disabled / error`，
-并展示 token、缓存读、缓存写、逐次请求、模型、时间、费用、延迟分别是否可用。
-来源“有文件”与格式“支持”必须分开；无法读取时不得生成全零记录。
-未知或缺失版本默认按 [最新解析器兼容策略](architecture.md#unknown-version) 尝试读取。
-成功解析的数据可正常统计，并单独展示未验证兼容状态、所用解析器及覆盖缺口；
-不能仅因版本未收录就设为 unsupported_format，也不能把兼容尝试成功写成逐版本验证通过。
+<a id="如何解释支持"></a>
 
-## 用户指定工具
+## Interpreting support
 
-来源编号对应 [官方与源码索引](research.md#agents)。表中的字段为已观察到的上游能力或原型候选映射。
+- **Local candidate**: official material/source establishes storage/fields; a version-bound
+  redacted sample is still required.
+- **Enable first**: official telemetry/export exists; enabling usually cannot recover earlier history.
+- **Conditional**: requires a particular local version, logging switch or local session export;
+  default installations are not guaranteed to work.
+- **Unverified**: only prototype parsing/product descriptions exist, without verifiable local
+  field/format references.
+- **Deferred F1**: user-deferred IDE products/variants, rather than a technical conclusion of
+  unsupported behavior; excluded from first-release mandatory acceptance.
 
-| 工具/变体 | 拟接入来源与可用信息 | 边界与下一步 | 阶段/依据 |
+Implementation states use supported / partial / unsupported_format / not_found / disabled /
+error, separately showing tokens, cache read/write, per-call identity, model, time, cost and
+latency capabilities. File existence differs from format support; unreadable files produce
+no all-zero events. Unknown/missing versions try the latest reader under
+[compatibility policy](architecture.md#unknown-version). Validated data can enter statistics
+with an unverified-compatibility notice, reader identity and coverage gaps. Unregistered
+versions alone cannot become unsupported_format; successful compatibility reading does not
+verify each version.
+
+<a id="用户指定工具"></a>
+
+## User-specified tools
+
+Reference IDs link to [official/source references](research.md#agents). Fields below describe
+observed upstream capabilities or candidate prototype mappings.
+
+| Tool/interface | Proposed source and available information | Limits and next checks | Stage/reference |
 | --- | --- | --- | --- |
-| Claude Code | projects 原生 JSONL：2.1.197 国内镜像/官方 integrity 核对，Debian/Podman 使用智谱两模型的两次真实主循环，API/CLI/原生正输入/输出相符；[真实记录](../../validation/desktop-usage/claude-container-sample.md) | 四内容块按 message.id 去重为两调用；逐行 version 绑定，默认零缓存/完整总量未知；载体无渠道，provider/费用不推断。旧完整摘要与未变化处理位置自动纠正。Anthropic 自家模型、正缓存、辅助/子 Agent/重试与其他版本仍另验；OTel 不叠加 | M2/M5 已实施，2.1.197 兼容端点实样通过，A01 |
-| Cline | 旧 UI 文档级适配器 + 独立 VS Code SDK schema 1；4.1.22 官方 VSIX/真实 GUI 与本地 API 三条原生 metrics 已核对，成品复验见 [记录](../../validation/desktop-usage/cline-container-sample.md) | SDK inputTokens 含缓存、正桶 reported/默认零未知、消息自身 modelInfo/ts；metrics 可合并 run/重试，记 observation，调用数未知；origin.version 可重写，仍 latest_fallback；只读原生 messages，不叠加 manifest/DB。旧 UI 四桶/删除/子 Agent/compaction 合同独立保留，尚无真实样本；CLI/desktop SDK 面、迁移、其他 provider 待验，不以空 registry DB 认证 | M3 已实施；SDK 实样通过、其他面另验，A03 |
-| CodeBuddy Code / IDE / 插件 | **扩展存储适配器已实施（本机真实核对 PASS，2026-09-30）**：`%LOCALAPPDATA%\CodeBuddyExtension\Data\...\history\<session>\<conversation>\index.json` 的 `requests[].usage` 请求级聚合（`inputTokens=cacheTokens+cachedMissTokens`），消息 `extra.modelId` 归属模型，见 [M4/M5 记录](../../validation/desktop-usage/m4-buddy-local.md)。CLI 载体：官方目录文档确认 `~/.codebuddy/projects` 会话 JSONL；第三方解析器与测试证实 `message.usage` / `providerData.rawUsage` 可读逐次 token，`input_tokens` 已含缓存读。官方 monitoring 文档另提供需启用的 OTLP/HTTP protobuf `model_stream` | 扩展 usage 为请求级聚合（非逐 LLM 调用）；全零请求无模型调用不入账；`credit` 积分与 `lastTokens` 语义尚未核验不映射；同请求跨 profile/workspace 树复制按请求 id 键幂并不双计；CLI JSONL 本机仍无真实样本（文档级）；OTLP 与本地载体同时启用可能重复计数，应择一使用 | 扩展存储 M5 已实施（真实核对）；CLI 本地文档级适配器已注册，真实样本待完成，A04 |
-| Codex CLI / 桌面 / IDE | 原型读 CODEX_HOME 下 rollout 的 token_usage_record；官方 OTel 支持请求、响应完成 usage 和流事件 | 已验证版本（逐版本脱敏 fixture）：0.155.0-alpha.16.3（M0/M2-A）、0.154.0-alpha.6.1/6.2、0.153.0（M2-D），逐次/累计/turn_context 三类记录，compaction 重置累计快照；0.139–0.151 已有 rollout_legacy 专用实现及 21 个精确版本映射，按 token_count 增量记录处理，边界见 m2d 记录；未知新版本默认 latest_fallback 带兼容标记；原型固定默认路径需改为发现/配置；旧 token_count 与新记录必须分格式；模型从结构化上下文归属，缺 response ID 不碰撞 | M2/M5；本地候选/需启用，A02 + 原型 |
-| GitHub Copilot CLI | **适配器已实现（真实数据核对 PASS，2026-09-29）**：session-store.db assistant_usage_events（schema_version=8，36 行真实 fixture+期望值）；OTel 路径：`COPILOT_OTEL_FILE_EXPORTER_PATH`（JSON-lines，行级 schema 未文档化）/OTLP（默认 http/json；chat span gen_ai.usage.* 含缓存细分、TTFT；invoke_agent 汇总 span 官方警告不得求和双计）。**2026-09-30 复核：最新 CLI 的 `~/.copilot/session-store.db` 已改为 chronicle/search 索引（sessions/turns/checkpoints/search_index，无 assistant_usage_events），逐次用量载体外移；discover 增补 `COPILOT_HOME` 覆盖，detect 命中 chronicle 指纹记 UnsupportedVersion（不误报非 Copilot 库）。VS Code 扩展面 globalStorage 的同族 chronicle 库亦无 usage（turns 为纯文本）——VS Code 面用量经 copilot-chat 适配器（A06 行）接入，与 CLI 载体互不重复** | assistant_usage_events 为已验证主载体（旧版）；**最新版本已移除该表：`session-state/<id>/events.jsonl` 事件日志经同族 copilot-agent 转录核验无逐次 token 字段，`copilot-user-cache.json` 仅账户额度（premium_interactions）非逐次——最新 CLI 本地无已验证逐次用量，待真实最新 CLI 样本或启用 OTel 后锚定**；OTel file exporter 行级 schema 待本机样本（otel 适配器同族容错）；premium 倍率/nano AIU 不入 token；2026-09-25 消失为升级迁移、已恢复 | 主载体 M5 已实施（真实核对，旧版 schema=8）；最新版布局变更已识别（fail-closed），真实样本/OTel 后置；OTel 载体 M5 已实施（文档级），A05 |
-| JetBrains 内置 AI Assistant / Junie | IDE 插件本地 schema 尚未核验，保留在 F1；Junie CLI 已取得本地格式依据，转入 M8：`~/.junie/sessions/<id>/events.jsonl` 逐轮 modelUsage（input/output/cache/reasoning/cost/time/provider），timestampMs 为结束时刻 | A07 只证实企业远端分析，已排除；Junie CLI（A36）不再列为待核验；AI Assistant IDE 插件本地 token/cache schema 待核验，当前不探测/开发 | IDE 插件 F1；Junie CLI M8，A07/A36 |
-| DeepSeek Harness（DSH） | 官方 npm 0.2.0-rc.2 两轮本地 CLI/续会话、原生 v4 JSONL/zstd 与 API 已核对，Windows/Linux 新包回读通过 | 正非缓存输入；仅本行 pi-ai openai-completions/version 2 正输入反变换含缓存总输入；output 已含推理，自算 total 不作源总量；settlement/stream 择一、retry 新身份、继承前缀排除；时间用原生行时间并标观察依据；标题 205 token 未落盘不补造，旧 doc1 独立保留 | M3 当前主循环完成；其他协议/真实 seed/retry/fail 另验，[合同](m3-runtime-samples.md)，A08 |
-| Hermes Agent（原需求 Harness Agent） | M3 已实现；0.21.5/v2026.9.24 官方镜像的真实本地请求/续会话已核对，schema 30 不认证其他历史版本 | session_model_usage 为非缓存输入/缓存读写/输出/推理区间累计；默认零未知，api_call_count 不拆调用；完整旧摘要/旧处理位置重评；模型/费用维度与日志详单另验 | M3 本地样本已核对，A24 |
-| OpenClaw | schema 24 只读读取已实现（M3，2026-10-06；官方 npm 2026.9.8 CLI/续会话真实本地模型样本） | transcript_events TEXT/zstd 正文；本地已核验 provenance，外部/迁移输入隔离；input 为非缓存，默认零、计算总量/费用及底层调用未知，整库版本不认证历史行；冷归档显式覆盖缺口，其他协议/schema 不套用 | M3 真实 CLI 专项 11 项、原库升级与 Windows 成品双读通过，A09；[读取合同](openclaw-runtime.md)、[真实验收](../../validation/desktop-usage/openclaw-container-sample.md) |
-| Gemini CLI | 官方会话存储 ~/.gemini/tmp/<project_hash>/chats/ 含 token；OTel 提供 input/output/thought/cache/tool 和请求统计 | JSON/JSONL 具体版本探测；thought/cache/tool 字段的包含关系逐 provider 核验；Gemini 网页和 Code Assist 不冒充 CLI | M2/M5；本地候选/需启用，A10 |
-| Kilo Code CLI / 桌面 / IDE 扩展 | 适配器已实现（M3，2026-09-25）：SQLite 只读 + 暂存副本合同；message.data.tokens 逐次五互斥；按处理位置增量；session 行 tokens 列仅作会话对账（275/276 matched，列级语义随版本不稳定不映射事件）；真实核对 13,342 调用/1.65B token 与独立求和一致、幂等 | 已验证 7.4.8/7.4.9/7.8.1（fixture）；库内其余 7.3.42–7.7.12 等未收录走 latest_fallback；7.8.1 为本机实读脱敏（顶层 modelID/providerID 载体，与 7.4.x 同形共用 message_tokens_v1）；新 core 数据层（session_message，当前 0 行）切换后需专用实现核验；IDE 扩展后移 F1；不能拿 CLI 通过代表 IDE 通过 | CLI/桌面 M3 已实施；本地用量格式尚未核验的 IDE 变体 F1，A11 |
-| 新版 Kimi Code | 适配器已实现（M4，2026-09-25）：家族共享 kimi_wire.rs；注册表锚点 protocol_version=1.5；真实核对 13 文件 965 调用 total 116,428,813 与 jq 逐字段相等、幂等；打断步回声缺失以 echo_subset 可见 | usage.record 无稳定 ID ⇒ provider/逐次延迟不入账（如实 unavailable）；旧会话 1.4 走 latest_fallback；其他版本仍需各自 fixture | M4 已实施；跨版本待核验，A12 |
-| Kimi Work | 适配器已实现（M4，2026-09-25）：独立目录（A13 不与 Kimi Code 合并）；conv-*/ctitle-* 布局（daimon 宿主）；锚点 1.4；真实核对 69 文件 1,337 调用 total 125,225,933 逐字段相等、69/69 对账 matched；跨文件同毫秒（swarm）事件键含 session:agent 身份段 | 官方默认布局/env 未见文档（迁移需手工加根）；subagent.completed 与缓存写>0 无本机真实样本；与 Kimi Code 共享 wire 解析但统计分列 | M4 已实施，A13 |
-| MiMo Code | 官方 0.1.15 CLI/续会话八条 step-finish 与 API 已逐条核对，Windows/Linux 原始 SQLite/WAL 新包升级通过 | 自身 SDK 归一 input/output 与缓存/推理反变换；零缓存/推理/费用未知，不叠加 message 副本；所属会话版本逐记录 latest_fallback；MIMOCODE_HOME/data 与 MIMOCODE_DB 优先级独立核验；八次 length 不认证任务成功 | M3 当前主循环完成；其他版本/协议/非截断任务另验，[合同](m3-runtime-samples.md)，A14 |
-| oh-my-pi | 官方 session 文档确认 ~/.omp/agent/sessions/...jsonl，assistant usage 与模型/provider | 本机 18.2.7 已取 3 个脱敏 fixture（2026-09-25，[M2-B/C 恢复记录](../../validation/desktop-usage/m2bc-resumed.md)）：assistant 全带 usage + duration/ttft 浮点毫秒；model_change 落盘为 `model`="provider/model" 组合字段（非 pi 分字段）；子 Agent 文件在 `<ts>_<父UUID>/` 目录按路径形状归父；~/.omp/logs 仅上下文估算 debug 行、无逐次用量，title-generator 尚无重叠依据；compaction/branch_summary 本机均无 usage（辅助载体合同已实现，待真实样本） | M2；本地候选，A15 |
-| pi | 固定源码 Usage 含 input/output/cacheRead/cacheWrite/reasoning；session 有 message、独立 usage、compaction/branch summary usage | 推理已含于 output；仅 assistant message 会漏辅助用量；分支继承不代表新调用；目录由该版本配置函数解析；本机 0.87.1 已取真实 fixture 并通过幂等核对（2026-09-25，[M2-B/C 恢复记录](../../validation/desktop-usage/m2bc-resumed.md)）；fork 复制条目带 fork 会话身份，仲裁为 conflict 保留先扫者，净效果不双计 | M2；本地候选，A16 |
-| OpenCode | 适配器已实现；1.18.34（固定源码 aec0b9a6）在独立 Podman 真实主循环及缓存读与 API/CLI/原生库/应用一致，重扫幂等；1.18.34 已逐记录认证，混合版本与旧处理位置升级回归通过 | part 的 input 为未缓存桶；session.tokens_* 仅对账、message 聚合不叠加；默认标题另有 549 token API 调用，未进入主循环 part/累计，matched 不证明全覆盖；明确标题对照 1 次/299 token。不由一条真实会话认证同库其他版本/空会话或旧游标 | M3 主循环真实兼容验收；其他版本/云端/未落盘标题载体另验；[容器记录](../../validation/desktop-usage/container-sources.md)，A17 |
-| Qwen Code | recording service 记录 usageMetadata/model；0.25.0 独立 Podman 真实主循环与 CLI/模型服务/SQLite 一致、重扫幂等；真实 file 导出已核对主循环与后台两条 API 日志/LLM span，含后台缓存读 | 默认自动记忆调用未进入会话逐次载体，不从累计量补造事件；file 为连续多行 SDK JSON，现有 OTel JSONL 未接入，权威分区另验；Goal 不叠加，活动/归档按 uuid 去重；未知本地模型名不套价；云端、其他版本/主循环缓存命中待验 | M2 主循环真实验收，M5 file 样本已取、解析/分区待实施；[容器记录](../../validation/desktop-usage/container-sources.md)，A18 |
-| Zoo Code | 官方 VSIX 3.86.0 在独立 VS Code GUI/公开 API 调用本地模型，原生数组/回调/API 与 Windows/Linux 新包回读一致 | 完整 ask/say 枚举；正 tokensIn 含缓存，默认零桶/费用未知；缓存未齐不派生未缓存；模型/客户端版本不从全局配置补造；旧 finished LIFO/condense 文档路径保留；真实任务主动取消，不声明完成 | M3 当前扩展主调用完成；CLI/删除/压缩/其他版本另验，JetBrains 变体 F1，[合同](m3-runtime-samples.md)，A19 |
-| TRAE / TraeCode 及插件 | 后续探测本地 IDE/CLI 日志、会话库、插件数据和本机会话导出 | A20 企业 API/控制台报表不纳入；2026-09-29 复核：tokscale 的 TRAE 路线源自其远端 usage API 落盘缓存（dollar_float/extra_info 形态），同样不符合本机来源边界；本地逐次格式仍缺少可核验的资料，整个产品家族继续后移 | F1；后续支持，A20 为范围排除依据 |
-| VS Code | 原生 chatSessions v3：promptTokens 为末次调用输入下界、completionTokens 为整轮累计；modelTotals 提供整轮逐模型总量；toolCallRounds 带 ID/时间戳的主循环轮次计调用；仅接入请求 agent.id 为 github.copilot 命名空间的记录。workspaceStorage 与 globalStorage/emptyWindowChatSessions 共用安装来源；本机 10 turn/217 round，输入下界 3,408,279、输出 320,141，见 [审查记录](../../validation/desktop-usage/m9-copilot-review.md)。2026-10-02：一键配置 file 导出本机 30 个 CLIENT chat span 已验收，见 [补充记录](../../validation/desktop-usage/dashboard-repair.md) | copilot-chat 全量重放完整快照；turn/逐模型汇总计 usage_observation，round 计 model_call，逐轮 token 未知；modelTotals 替换旧贡献、模型换序/副本/流式更新不重复累计。末次输入和整轮输出不派生完整总 token；缓存默认未知。应用管理的 OTel file 自动发现，同原主机/用户/会话/本地日择 OTel，保留原生历史及开启前覆盖缺口；trace+span 同源副本去重 | M9 原生和 VS Code file 均有本机真实验收；CLI/JetBrains OTel 仍文档级需独立验收，A06 |
-| GitHub Copilot for Visual Studio | **VS 自动遥测（2026-10-01 本机真实验收）**：`%TEMP%\VSGitHubCopilotLogs\traces\<hex>_VSGitHubCopilot_traces.jsonl`——OTLP JSON（行=resourceSpans 批次、service.name=vs-copilot），`chat <model>` span 每 LLM 请求一个：`gen_ai.usage.input_tokens/output_tokens/cache_read.input_tokens`（intValue 字符串形）、模型/会话 id/纳秒时间戳；无需任何配置，见 [M9 记录](../../validation/desktop-usage/m9-vs-copilot-local.md)（2 span input=17,470/output=219/cache_read=13,184 与独立提取一致、重扫幂等）。会话文件（`VSGitHubCopilot\copilot-chat\…\sessions`，MessagePack）无逐次 token（响应正文 EncryptedContent、模型目录 InputTokens=上下文上限、Quotas 无 Usage），不接入 | vs-copilot 适配器（M9 已实现）：invoke_agent 整 turn 汇总 span 跳过（官方 OTel 防双计同族规则）；TEMP 载体随清理/实例滚动——不承诺完整历史；与 otel 接收器捕获的同源 span 同 agent 维度（vs-copilot）择一；token 桶并列报告不派生 uncached（包含关系未由 VS 文档声明）；`gen_ai.input.messages` 提示正文只读白名单键不入库 | M9 已实施（本机真实验收），A06 同族扩展 |
-| GitHub Copilot for JetBrains | **源码核验（2026-10-01 插件 1.18.0-261 解包，[M9 分析记录](../../validation/desktop-usage/m9-jb-copilot-analysis.md)）**：默认本地数据无逐次 token——会话库为嵌入式 Nitrite `copilot-agent-sessions-nitrite.db`（NtAgentSession：turns/模型/**turnCreditsJson=RestoredTurnCredits(messageId,credits)**，credit 非 token 不折算）、日志走 idea.log、App Insights 为远程（排除）；**逐次 token 载体=需启用的 OTel 导出**：插件设置 `otelEnabled`/`otelExporterType(file/otlp-http/otlp-grpc/console)`/`otelOutfile`/`otelServiceName`/`otelCaptureContent`（=官方文档 Agent debug File Logging），与 VS Code `github.copilot.chat.otel.*` 同族同词汇；插件自身 Debug Panel 即从 outfile 解析 `gen_ai.usage.{input,output,cache_read,cache_creation}*` 五桶（OTelSpanProvider 字节码核验依据） | 不新增默认载体适配器（默认仅 credit，违背逐次 token 诉求）；接入路径=既有 otel 适配器（M5）：用户在 Settings → Tools → Copilot → Chat 启用 file 导出后把 otelOutfile 加为手工根；行格式同族容错、本机无 JetBrains 待真实样本锚定；otelCaptureContent 含提示正文——本应用只读白名单键 | 经 otel 适配器接入（需启用载体，文档级），A06 同族扩展 |
-| ZCode | 适配器已实现（M4，2026-09-25）：model-io JSONL 双口径——AI SDK 五键为主（inputTokens 含缓存读）、anthropic snake_case 对照互斥校验（矛盾进诊断）；db.sqlite model_usage 为自动采集主载体，turn_usage 只读对账（活库不一致轮可见）；真实核对幂等 | 已验证 3.14.3（真实 fixture）；未收录版本 latest_fallback；`~/.zcode/v2` 布局与 `%APPDATA%/zcode` 桌面存储未接入（待核验）；缺 requestId/traceId 时不得全部变成 zcode:None | M4 已实施；跨版本待核验，A21 |
-| WorkBuddy | 第三方开源解析器证实 `~/.workbuddy/projects/**/*.jsonl` 会话逐次用量字段；本机 8 文件/420 事件真实只读核对、重扫幂等通过（[记录](../../validation/desktop-usage/m4-buddy-local.md)） | 独立来源，未套用 CodeBuddy CLI OTLP；`traces/` 的总量与会话明细重叠关系未核，暂不叠加；套餐/账号积分页不纳入 | M4 已实施并核对当前本机格式；跨版本/trace 待核验，A22 |
-| Zed | threads.db 的 json/zstd DbThread；cumulative_token_usage 为线程累计，request_token_usage 是 turn 末次请求桶，仅作对账 | 1.22.0 / DbThread 0.3.0 的 llm-usage-zhipu 两模型已真实请求：input 为非缓存桶，正桶报告、默认零未知，不派生总量或底层调用/模型明细；原 hosted 映射独立，imported 跳过，ACP 按底层来源读取 | M8 新增本机非空实样与成品回读；旧 hosted 仍仅源码/schema 依据；[记录](../../validation/desktop-usage/plan-20261007.md)，A23/A38 |
+| Claude Code | Native projects JSONL: 2.1.197 mirror checked against official integrity; two real Debian/Podman main-loop calls to two Zhipu models have matching positive API/CLI/native input/output. [Samples](../../validation/desktop-usage/claude-container-sample.md). | Four content blocks deduplicate by message.id into two calls. Bind per-record version; default-zero cache/complete totals unknown. No native channel: do not infer provider/cost. Complete old summaries/unchanged positions correct automatically. Anthropic models, positive cache, auxiliary/subagent/retry and other versions need separate checks; do not add OTel. | M2/M5 implemented; 2.1.197 compatible-endpoint samples passed; A01. |
+| Cline | Separate legacy UI documentation-based reader and VS Code SDK schema 1. Official 4.1.22 VSIX/real GUI/local API verified three native metrics records; [executable recheck](../../validation/desktop-usage/cline-container-sample.md). | SDK inputTokens includes cache; positive buckets reported, default zeros unknown; use message modelInfo/ts. Metrics may merge runs/retries: observation, unknown calls. Rewritable origin.version remains latest_fallback. Read native messages without manifest/DB addition. Legacy UI four-bucket/deletion/subagent/compaction rules remain separate, without real samples. CLI/desktop SDK, migration/other providers require checks; empty registry DB verifies nothing. | M3 implemented; SDK real samples passed; other interfaces separate; A03. |
+| CodeBuddy Code / IDE / extensions | Extension storage implemented, real local PASS 2026-09-30: `%LOCALAPPDATA%\CodeBuddyExtension\Data\...\history\<session>\<conversation>\index.json` requests[].usage is request-level aggregation, inputTokens=cacheTokens+cachedMissTokens; extra.modelId identifies models. [Results](../../validation/desktop-usage/m4-buddy-local.md). Official CLI `~/.codebuddy/projects` JSONL; third-party parser/tests show message.usage/providerData.rawUsage per-call tokens with input_tokens including cache read. Official monitoring provides opt-in OTLP/HTTP protobuf model_stream. | Extension usage aggregates requests, rather than individual LLM calls. All-zero requests without model calls are excluded. credit/lastTokens semantics unverified. Copies across profile/workspace trees deduplicate by request ID. CLI native samples still absent; local files/OTLP require source selection to avoid overlap. | Extension M5 implemented/real checks; registered CLI documentation-based reader awaits samples; A04. |
+| Codex CLI / desktop / IDE | Prototype reads CODEX_HOME rollout token_usage_record; official OTel has requests, response-completed usage and streaming events. | Exact-version redacted samples: 0.155.0-alpha.16.3 (M0/M2-A), 0.154.0-alpha.6.1/6.2 and 0.153.0 (M2-D); per-call/cumulative/turn_context records, with compaction resets. Dedicated rollout_legacy supports 21 exact 0.139–0.151 mappings via token_count increments; see m2d limits. Unknown newer versions latest_fallback. Prototype fixed paths require discovery/configuration. Keep legacy/new formats separate; structured context identifies models and missing response IDs must not collide. | M2/M5; local candidate/opt-in telemetry; A02 + prototype. |
+| GitHub Copilot CLI | Implemented/real PASS 2026-09-29: session-store.db assistant_usage_events, schema_version=8, 36 real redacted rows/expectations. COPILOT_OTEL_FILE_EXPORTER_PATH JSON-lines lacks documented row schema; OTLP defaults http/json with chat gen_ai.usage.*, cache/TTFT. Official warning excludes additive invoke_agent totals. 2026-09-30: newer `~/.copilot/session-store.db` is chronicle/search (sessions/turns/checkpoints/search_index), without assistant_usage_events. Discovery supports COPILOT_HOME; chronicle fingerprint gives UnsupportedVersion rather than wrong-product error. VS Code globalStorage chronicle also lacks usage; its turns are text. copilot-chat reads VS Code usage separately. | assistant_usage_events verifies the older primary format. Newer CLI removed it; checked related copilot-agent session-state events.jsonl lacks per-call tokens and copilot-user-cache.json premium_interactions is account quota. Current checked CLI has no verified local per-call format; await real newer samples or enabled OTel. File-export schema still needs native samples; otel tolerant parsing is documentation-based. Premium multipliers/nano AIU are not tokens. The 2026-09-25 disappearance was an upgrade migration and recovery was completed. | Older schema 8 M5 implemented/real; newer layout recognized without importing unverified usage. New samples/OTel acceptance deferred; OTel M5 documentation-based; A05. |
+| JetBrains built-in AI Assistant / Junie | IDE plugin local schema unverified/F1. Junie CLI moved to M8 using `~/.junie/sessions/<id>/events.jsonl` modelUsage input/output/cache/reasoning/cost/time/provider; timestampMs is completion time. | A07 establishes excluded remote enterprise analytics only. Junie CLI A36 is no longer awaiting format references; AI Assistant IDE token/cache schema remains unverified, without current discovery/development. | IDE F1; Junie CLI M8; A07/A36. |
+| DeepSeek Harness (DSH) | Official npm 0.2.0-rc.2, two local CLI/resume rounds, native v4 JSONL/zstd and API checked; new Windows/Linux executable reads passed. | Positive input is uncached. Recover cache-inclusive input only from that row's pi-ai openai-completions/version 2 positive input. Output includes reasoning; computed totals are not source totals. Select settlement/stream, separate retries, exclude inherited prefixes. Native row time has observation basis. Unwritten 205-token title is not invented. Old doc1 stays separate. | M3 current main loop complete; other protocols/real seed/retry/failure require checks. [Rules](m3-runtime-samples.md), A08. |
+| Hermes Agent (originally “Harness Agent”) | M3 implemented; official 0.21.5/v2026.9.24 image local request/resume checked. Schema 30 does not verify other historical versions. | session_model_usage is interval-cumulative uncached/cache-read/cache-write/output/reasoning. Default zeros unknown; api_call_count does not expand into calls. Reevaluate complete old summaries/positions. Model/cost dimensions and detailed logs need separate checks. | M3 local samples checked; A24. |
+| OpenClaw | Schema 24 read-only reader implemented M3, 2026-10-06, with official npm 2026.9.8 CLI/resumed local-model samples. | transcript_events TEXT/zstd; verified local provenance, external/migrated inputs isolated. Input uncached; default zero, computed totals/cost and underlying calls unknown. Database-wide version does not verify historical rows. Cold-archive gaps visible; other protocols/schemas separate. | Eleven real CLI checks, original-DB upgrade and Windows executable double-read passed. A09; [rules](openclaw-runtime.md), [acceptance](../../validation/desktop-usage/openclaw-container-sample.md). |
+| Gemini CLI | Official `~/.gemini/tmp/<project_hash>/chats/` token storage; OTel input/output/thought/cache/tool and request metrics. | Probe actual JSON/JSONL versions. Verify thought/cache/tool inclusion per provider. Gemini web/Code Assist are separate products. | M2/M5; local candidate/opt-in telemetry; A10. |
+| Kilo Code CLI / desktop / IDE extensions | Implemented M3, 2026-09-25: read-only SQLite/staging-copy rules; five exclusive per-message data.tokens buckets, incremental positions. Session token columns reconcile only (275/276 matched), with unstable version semantics. Independent real sums match 13,342 calls/1.65B tokens, without repeat additions. | Verified 7.4.8/7.4.9/7.8.1 samples; other 7.3.42–7.7.12 versions latest_fallback. Native redacted 7.8.1 top-level modelID/providerID shares verified shape with message_tokens_v1. New core session_message has zero rows; switching needs a dedicated verified reader. IDE extension F1; CLI acceptance does not verify it. | CLI/desktop M3 implemented; unverified IDE format F1; A11. |
+| New Kimi Code | Implemented M4, 2026-09-25, with shared kimi_wire.rs and protocol_version=1.5. Real 13 files/965 calls/116,428,813 total tokens match jq per field and repeats. Interrupted-step echo gaps appear as echo_subset. | usage.record lacks stable ID, so provider/per-call latency remain unavailable. Old 1.4 sessions latest_fallback; other versions need their own samples. | M4 implemented; cross-version verification pending; A12. |
+| Kimi Work | Implemented M4, 2026-09-25: independent A13 roots, conv-*/ctitle-* with daimon host, 1.4 reference. Real 69 files/1,337 calls/125,225,933 tokens match per field; 69/69 reconciliation matched. Same-millisecond swarm keys include session:agent identity. | No official default-layout/environment documentation found; migration requires manual roots. No native subagent.completed/positive cache-write samples. Share verified wire parsing with Kimi Code while reporting separately. | M4 implemented; A13. |
+| MiMo Code | Official 0.1.15 CLI/resume eight step-finish records match API individually. New Windows/Linux executable upgrade reads original SQLite/WAL. | Invert its SDK-normalized input/output/cache/reasoning; zero cache/reasoning/cost unknown; no message-copy addition. Owning-session versions remain per-record latest_fallback. MIMOCODE_HOME/data and MIMOCODE_DB precedence independently checked. Eight length finishes do not establish task success. | M3 current main loop complete; other versions/protocols/nontruncated tasks separate. [Rules](m3-runtime-samples.md), A14. |
+| oh-my-pi | Official session documentation: `~/.omp/agent/sessions/...jsonl`, assistant usage/model/provider. | Native 18.2.7 has three redacted samples, 2026-09-25 ([resumed M2-B/C](../../validation/desktop-usage/m2bc-resumed.md)). All assistants have usage/duration/ttft in floating milliseconds. model_change uses combined model=provider/model, unlike Pi fields. Child files under `<ts>_<parentUUID>/` infer parents by verified path shape. .omp/logs has context-estimate debug lines, without per-call usage; title-generator overlap unverified. Native compaction/branch_summary lacks usage; auxiliary-format rules implemented, real samples pending. | M2 local candidate; A15. |
+| Pi | Fixed source Usage input/output/cacheRead/cacheWrite/reasoning; session message, independent usage, compaction/branch-summary usage. | Reasoning included in output. Assistant-only reading misses auxiliary usage; inherited branches are not new calls. Resolve directories via version configuration functions. Native 0.87.1 sample/repeat checks passed 2026-09-25 ([record](../../validation/desktop-usage/m2bc-resumed.md)). Fork-copied entries carry fork-session identity; conflicts retain the first scanned contribution without net duplication. | M2 local candidate; A16. |
+| OpenCode | Implemented; fixed aec0b9a6 version 1.18.34 real isolated Podman main loop/cache-read matches API/CLI/native DB/app, with repeat deduplication. Per-record 1.18.34 verified; mixed versions/old-position upgrade regressions passed. | Part input is uncached. Session tokens reconcile only; message totals are not added. Default title API used another 549 tokens absent from main-loop parts/cumulative totals: matched does not establish complete coverage. Controlled title comparison: one call/299 tokens. One real session cannot verify other DB versions, empty sessions or old cursors. | M3 real main-loop compatibility acceptance; other versions/cloud/unwritten titles separate. [Container record](../../validation/desktop-usage/container-sources.md), A17. |
+| Qwen Code | recording service usageMetadata/model. Real isolated 0.25.0 Podman main loop matches CLI/model service/SQLite without repeat additions. Real file export verifies main/background API logs and LLM spans, including background cache read. | Default automatic-memory calls are absent from native session per-call files; do not invent events from cumulative values. Files contain consecutive multiline SDK JSON, requiring the dedicated reader, rather than generic OTel JSONL. The 2026-10-06 reader selects verified host/user/session/local-day SDK coverage, retains native history and excludes sealed overlap. Goal is not added; active/archive deduplicates UUID. Unknown local model names receive no prices. Cloud/other versions/main-loop cache hits remain unverified. | M2 native main loop accepted; M5 0.25.0 SDK reader/selection implemented. [Container record](../../validation/desktop-usage/container-sources.md), [data rules](data-contract.md), A18. |
+| Zoo Code | Official VSIX 3.86.0 isolated VS Code GUI/public API/local model; native array/callback/API match new Windows/Linux executable reads. | Complete ask/say enumeration. Positive tokensIn includes cache; default-zero buckets/cost unknown. Incomplete cache prevents uncached derivation. Do not invent model/client version from global configuration. Keep old finished LIFO/condense documentation path. Real task was actively cancelled, rather than completed. | M3 current extension main calls complete; CLI/deletion/compaction/other versions separate, JetBrains F1. [Rules](m3-runtime-samples.md), A19. |
+| TRAE / TraeCode / extensions | Future local IDE/CLI logs, session databases, plugin data and local session exports. | Exclude A20 enterprise APIs/reports. 2026-09-29 inspection: tokscale TRAE uses a disk cache of remote usage API data, dollar_float/extra_info, also outside scope. Verifiable local per-call format still absent; defer the product family. | F1 future support; A20 establishes exclusions. |
+| VS Code | Native chatSessions v3 last-call promptTokens input lower bound, whole-turn completionTokens, per-model modelTotals and stable-ID/time toolCallRounds main calls. Only github.copilot agent.id namespace. workspaceStorage/globalStorage/emptyWindowChatSessions share installation source. Real 10 turns/217 rounds, input lower bound 3,408,279/output 320,141 ([review](../../validation/desktop-usage/m9-copilot-review.md)). 2026-10-02 one-click file setup: 30 native CLIENT chat spans accepted ([record](../../validation/desktop-usage/dashboard-repair.md)). | Replay complete snapshots. Turn/model totals are observations; rounds count calls with unknown tokens. modelTotals replaces old usage; array reordering/copies/streams do not duplicate. Last-call input plus whole-turn output cannot derive complete total; cache unknown by default. Auto-discover app-managed OTel files, select OTel per original host/user/session/local day, retain native history/pre-enable gaps and deduplicate trace+span export copies. | M9 native and VS Code file real local acceptance. CLI/JetBrains OTel remains documentation-based, requiring separate acceptance; A06. |
+| GitHub Copilot for Visual Studio | Verified VS 18 automatic `Path.GetTempPath()/VSGitHubCopilotLogs/traces/*.jsonl`, OTLP JSON service.name=vs-copilot. CLIENT chat spans report per-request input/output/cache_read, model/session/nanosecond time. Discovery checks TMP/TEMP/default user temp without Community/Professional/Enterprise/year filters. Official vswhere locates installations. Checked VS 2022 component 17.14.1713.63837 lacks the VS 18 JSONL exporter. Shared SDK/installed version does not verify other old formats ([checks](../../validation/desktop-usage/m9-vs-copilot-discovery.md)). MessagePack sessions/context limits/quota cannot replace tokens. | vs-copilot skips invoke_agent totals; temporary cleanup/rotation prevents complete-history promises. Select it or same-source otel. Parallel buckets do not establish uncached input. Selected-key privacy protection, unknowns and old cursors retained. [Native sample](../../validation/desktop-usage/m9-vs-copilot-local.md) and current four-call independent/repeat checks passed. | M9 implemented; real usage limited to tested VS 18 Community records. Other SKUs/VS 2022 keep separate static/native limits; A49. |
+| GitHub Copilot for JetBrains | Plugin 1.18.0-261 inspected 2026-10-01 ([analysis](../../validation/desktop-usage/m9-jb-copilot-analysis.md)). Default Nitrite copilot-agent-sessions-nitrite.db has NtAgentSession turns/models/turnCreditsJson=RestoredTurnCredits(messageId,credits), without per-call tokens; credits are not converted. Logs use idea.log; remote App Insights excluded. Opt-in OTel settings otelEnabled/otelExporterType(file/otlp-http/otlp-grpc/console)/otelOutfile/otelServiceName/otelCaptureContent correspond to Agent debug File Logging and VS Code github.copilot.chat.otel.*. Debug Panel parses gen_ai.usage.{input,output,cache_read,cache_creation}* into five buckets; OTelSpanProvider bytecode checked. | No default-format token adapter. Existing M5 otel accepts a manual otelOutfile root after Settings → Tools → Copilot → Chat file export is enabled. Related row parsing is tolerant; no local JetBrains real samples yet. otelCaptureContent may contain prompts; read only selected keys. | Existing otel integration, requires enablement, documentation-based; A06 family extension. |
+| ZCode | Implemented M4, 2026-09-25: model-io JSONL AI SDK five-key mapping primary (inputTokens includes cache read), mutually exclusive Anthropic snake_case comparison/contradiction diagnostics. Automatic primary is db.sqlite model_usage; turn_usage reconciliation only, with live mismatches visible. Native repeat check passed. | Verified 3.14.3 real sample; other versions latest_fallback. Unverified `~/.zcode/v2` and `%APPDATA%/zcode` desktop layout not implemented. Missing requestId/traceId cannot collapse into zcode:None. | M4 implemented; other versions need checks; A21. |
+| WorkBuddy | Third-party open-source parser identifies per-call fields in `~/.workbuddy/projects/**/*.jsonl`. Real eight files/420 events read-only/repeat passed ([record](../../validation/desktop-usage/m4-buddy-local.md)). | Independent source, without assuming CodeBuddy CLI OTLP. traces overlap with session detail unverified, so not added. Plan/account credits excluded. | M4 implemented/native format checked; cross-version/trace pending; A22. |
+| Zed | threads.db JSON/zstd DbThread cumulative_token_usage is thread aggregate; request_token_usage is last-request turn buckets, reconciliation only. | Native 1.22.0/DbThread 0.3.0 llm-usage-zhipu calls to two models: uncached input, positive reported buckets, default zeros unknown. No derived complete totals/underlying calls/model detail. Historical hosted mapping separate; imported skipped and ACP reads underlying sources. | M8 nonempty native/executable reads; old hosted still source/schema only. [Record](../../validation/desktop-usage/plan-20261007.md), A23/A38. |
 
-本轮没有将任何“未发现文档”写成“该产品不可能支持”。
-若不能取得可靠用量，仍可展示该工具状态与限制，但不占据有数值的总计行。
+Unfound documentation is never described as proof that a product cannot support collection.
+Tools without reliable usage may still show status/limits, without numeric total rows.
 
 <a id="扩展覆盖"></a>
 
-## 扩展覆盖
+## Expanded coverage
 
-<a id="扩展覆盖2026-09-29-第二批调研"></a>
+Additional popular Agents use A25–A48 [research references](research.md#agents). M8
+documentation-based implementation is complete ([record](../../validation/desktop-usage/m8-second-batch.md)):
+independent adapter directories/version registries/V30 layout checks and 19 synthetic
+tests/m8_contract.rs checks. Later real containers/product checks appear in
+[M8 samples](../../validation/desktop-usage/m8-container-samples.md); others still need verification.
+Closed-source field references come from third-party readers/reverse engineering and gain
+verification after authorized real redacted samples. Reject inferred Kiro Auto zeros,
+Grok cumulative/compaction differences and Goose reasoning differences; use native counts only.
 
-下列产品为本轮补全的国内外流行 Agent，来源编号见 [调研索引](research.md#agents)
-（A25–A48）。已完成 M8 文档级实施（[验证记录](../../validation/desktop-usage/m8-second-batch.md)）：
-各适配器独立目录 + 版本注册表 + V30 结构检查 + 合成 fixture 合同测试
-（tests/m8_contract.rs 19 项）；后续真实容器样本和产品专项见
-[M8 容器样本](../../validation/desktop-usage/m8-container-samples.md)，其余产品仍待核验。
-闭源产品的字段依据来自第三方解析器或逆向分析，真实脱敏 fixture（许可已给）
-出现后升级验证；一切估算路径（Kiro Auto 补零、Grok 累计差额、Goose reasoning
-差额等）不采纳，仅采信原生计数。
-
-| 工具/变体 | 拟接入来源与可用信息 | 边界与下一步 | 阶段/依据 |
+| Tool/interface | Proposed source and available information | Limits and next checks | Stage/reference |
 | --- | --- | --- | --- |
-| Amp（Sourcegraph，闭源） | `~/.local/share/amp/threads/T-*.json`：messages[].usage（model、inputTokens/outputTokens、cacheRead/cacheCreation、credits）与 usageLedger.events（timestamp/model/credits/tokens 五桶）双载体 | ledger 与逐消息 usage 按 messageId+桶对账防双计；缺显式时间戳不得以 thread created+messageId 推造逐次时间；credits 是计费单位非美元；schema 随版本滚动需 fixture | M8 已实施（文档级 2026-09-29；ledger 为主、消息 usage 仅对账不推造时间；credits 不映射），A28 |
-| Goose（Block；仓库已迁 aaif-goose） | `sessions.db` 的 usage_ledger 逐请求五桶；旧 sessions accumulated_* 聚合兜底；GOOSE_PATH_ROOT 与平台多根 | 两载体互斥；NULL 不用累计默认 0 覆盖；reasoning 差额不采；1.53.0 CLI 本地模型 API/库/应用真实一致 | M8 已实施；estimated/carried_forward cost 不映射，格式锚点不认证产品版本；更多场景见 [真实样本](../../validation/desktop-usage/m8-container-samples.md)，A26 |
-| Crush（Charm） | `~/.local/share/crush/projects.json` 注册表映射每项目 data_dir 与 crush.db；根会话 cost 累计，token 列是上下文快照 | 0.97.1 真实主循环/标题两次 API 与原生/CLI Estimated 成本一致；人工验收费率不认证模型价格/账单；token/调用/模型仍未知 | M8 cost-only 已实施；根会话过滤避免子成本重复，真实样本及成品状态见 [M8 容器样本](../../validation/desktop-usage/m8-container-samples.md)，A27 |
-| Roo Code | VS Code globalStorage `rooveterinaryinc.roo-cline/tasks/<uuid>/ui_messages.json`；3.54.0 官方 VSIX/真实 VS Code extension-host 与本地 API 已核对 | 正 tokensIn 含缓存，四桶/估价默认零未知；OpenAI-compatible 缓存详情丢失，不按零推导未缓存；取消场景 API 三次/原生两次缺口保留，单调用对照单列；无逐次模型不推断 | M8 已实施；完整旧摘要/未变游标修正范围见数据合同，成品状态见 [M8 容器样本](../../validation/desktop-usage/m8-container-samples.md)；CLI/其他 provider/子代理另证，A29 |
-| Aider | 默认历史无逐次 usage；显式 `--analytics-log` 本地 JSONL 的 message_send 含 token/cost | 需启用、不回填；0.86.2 本地模型真实 API/CLI/应用一致；无缓存/推理分项，不走 tokenizer 估算 | M8 已实施；cost=litellm 自算 Estimated；手工根；格式锚点不认证产品版本，见 [真实样本](../../validation/desktop-usage/m8-container-samples.md)，A30 |
-| Continue（CLI/VS Code/JetBrains） | `~/.continue/sessions` 的 CLI 顶层 usage 会话累计；索引/估算日志不采 | 1.5.47 真实流式本地模型输入/输出与 API 一致；缓存默认零保持未知；无调用数、模型/完整总量或区间起点，不伪造日归属 | M8 已实施；旧完整摘要仅纠正缓存默认零，保留其他仲裁/历史；GUI 无用量字段，见 [真实样本](../../validation/desktop-usage/m8-container-samples.md)，A31 |
-| Droid（Factory.ai，闭源） | `~/.factory/sessions/{uuid}.settings.json` tokenUsage（input/output/cacheRead/cacheCreation/thinking，累计）+ 同名 jsonl 转录 | 累计值保留区间语义，分摊到回合属估计不采纳为逐次；无费用字段；providerLock 与转录时间归属待样本 | M8 已实施（tokenUsage 累计快照→会话聚合；转录字节分摊不采），A32 |
-| Amazon Q Developer CLI | `~/.aws/amazonq/history/` 按时间戳 JSON 会话（第三方资料）；官方仓库开源 | history 内 usage/token 字段未核验，先源码级核验再实现；SSO 重登录可能丢历史，保留缺口可见 | 不实施 token 适配器（2026-09-29 源码核验：API tokenUsage 在类型转换层被丢弃，conversations/history 均无 token 字段），A33 |
-| Grok Build（xAI，闭源） | `~/.grok/sessions/<workspace>/<session>/`（updates.jsonl、signals.json、summary.json、events.jsonl）与 `~/.grok/logs/unified.jsonl` | 仅取显式 usage 块五桶；累计 totalTokens 增量与压缩差额补偿是推断不采纳；PID 复用/子代理模型归属复杂，归属依据冲突时保持 unknown；GROK_HOME 覆盖 | M8 已实施（仅 updates.jsonl 显式 usage 块；累计差额/补偿/PID 归因不采），A34 |
-| Antigravity CLI/扩展（Google） | `~/.gemini/antigravity[-cli]/conversations/<uuid>.db`：gen_metadata protobuf 逐回合 usage（input=固定系统提示+新增、cacheRead、output、thinking、responseId） | protobuf 布局为逆向结论且 1.1.18 时间戳字段变更，须逐版本锚定；IDE 主体用量走 language server，另按需启用核验；与 Gemini CLI 目录同根不同子目录 | M8 已实施（逆向 protobuf：input=#1+#2、#9.#4 时间戳；1.1.18+ 无时间戳行 fail closed；IDE language server 载体尚未核验不实施），A35 |
-| Junie CLI（JetBrains） | `JUNIE_HOME/sessions` 或 `~/.junie/sessions/<session-id>/events.jsonl`，逐次 modelUsage；26.9.22 官方发行包/七次真实失败任务与 API/CLI 已核对 | inputTokens 为非缓存输入，默认零/费用/耗时保持未知；正费用 Estimated；无 API/provider/产品版本，完整总量不推造；timestampMs 完成时刻，正 time 才补起点 | M8 已实施；doc1→2 完整旧摘要/未变游标修正、事务/冲突保留通过，成品状态见 [M8 容器样本](../../validation/desktop-usage/m8-container-samples.md)，A36 |
-| Kiro（AWS，CLI+IDE） | 三载体：CLI `~/.kiro/sessions/cli/*.json(+jsonl)`；kiro-cli `~/.local/share/kiro-cli/data.sqlite3` conversations_v2；IDE globalStorage `kiro.kiroagent`（.chat 快照、execution、promptLogs） | Auto agent 常记 0：估算路径不采纳，仅采显式计数；execution 与 .chat 快照按 executionId 抑制重复；metering credit 独立计价单位；三载体交叉去重 | M8 已实施（CLI turns 真实计数 + kiro-cli SQLite request_metadata；Auto 零计数/估算不采；IDE 估算载体不实施；双载体重叠待真实样本对账），A37 |
-| Zed 内置（升级自 F1） | threads.db 的线程累计四桶；turn 桶不认证逐次完整请求 | zed.dev 沿用原源码合同；新增 llm-usage-zhipu + DbThread 0.3.0 已核验正值/默认零与缓存语义；imported/其他 Provider 不认证，有界解压 | M8：1.22.0 / 76659a55、glm-5.3 与 glm-5.3-flash 三 turn 非空实样；累计 21,696 非缓存输入/10,816 缓存读/61 输出，写缓存及总量未知；[记录](../../validation/desktop-usage/plan-20261007.md)，A23/A38 |
-| Codebuff（原 Manicode） | `~/.config/manicode*/projects/*/chats/<chatId>/chat-messages.json`；CODEBUFF_DATA_DIR 覆盖 | usage 字段与分通道根（manicode/-dev/-staging）待 fixture | 不实施 token 适配器（2026-09-29 官方源码 caec5fc 证实本地仅 credits、无 token 字段；CODEBUFF_DATA_DIR 非官方变量），A39 |
-| Command Code | `~/.commandcode/projects/<slug>/*.jsonl` v3 树形（session/message/model_change；assistant usage 五桶+costUsd）；配置 config.json | rewind 孤儿分支不计；fork 复制按 id+时间戳去重；checkpoints 文件跳过；全零 usage 视为已报告零 | M8 已实施（npm 1.69.0 分发物核验依据：inputTokens 含 cache、当前路径口径、fork 按 id+时间戳跨文件去重、全零=已报告零），A40 |
-| jcode（jcode.sh，开源 Rust） | `~/.jcode/sessions/session_*.json` 快照 + `.journal.jsonl` 追加（journal 值权威覆盖快照）；token_usage 输入/输出与可选缓存 | OpenAI/Anthropic 缓存口径差异逐版本归一；JCODE_HOME 覆盖；环境快照版本不认证所有消息 | M8 已实施；0.91.0 真实离线单次 run 的 API/CLI/快照输入 460、输出 2、缓存读 0 一致；自定义 provider 未推断缓存关系、完整总量/成本/推理未知，journal/其他场景待验，见 [真实样本](../../validation/desktop-usage/m8-container-samples.md)，A41 |
-| gajae-code（gjc） | `~/.gjc/agent/sessions/<slug>/*.jsonl`：session v5 头、assistant model/provider/usage 与 Estimated 成本 | GJC_CODING_AGENT_DIR 等覆盖；OpenAI-completions 缺字段零回退不能认证缓存/零用量；message.timestamp 为请求开始 | M8 已实施；0.18.7 真实 API/CLI/载体 412/2/414 一致，补配置链非用量类型、未知缓存/未缓存与旧完整摘要/游标升级；其他 API/版本/分支待验，见 [真实样本](../../validation/desktop-usage/m8-container-samples.md)，A42 |
-| Xum（Coder；原 mux） | `.xum/.mux/sessions`、XUM_ROOT/MUX_ROOT 或 RUN_SESSION_ROOT 下的 `session-usage.json` v1；0.30.0 官方源码与两次真实本地调用已核对 | input 为未缓存输入；默认零未知；正文本输出加已知推理，推理未知时为下界；完整输入/总量未知。默认 CLI 临时会话删除且 custom provider 未请求流式 usage，网关对照单独记录 | M8 已实施；成本/逐次调用不虚构；完整旧摘要/游标与回滚/冲突专项通过，成品状态见 [M8 容器样本](../../validation/desktop-usage/m8-container-samples.md)，A43 |
-| iFlow CLI（阿里心流，闭源） | 官方固定提交 4642808 已公告 2026-04-17 停服；本地默认逐次用量载体未核验，需启用的 OTel 按 M5 合同另行核验 | 不套用 Gemini 家族格式；不作为现行 M8 本地候选 | 不实施；与 AGENTS/M8 边界一致，A46 |
-| Qoder CLI（阿里，前通义灵码） | CLI 设备流 `~/.qoder/`；IDE 为 Electron `%APPDATA%\com.qoder.app.stable*`；另有 globalStorage/`~/.local/share/qoder` 线索 | CLI 会话格式与 usage 字段尚未核验：先本机核验再定实现；与灵码品牌演化记录在案；JetBrains 插件归 F1 | M8 探针级接入（路径已核验、字段尚未核验：只发现识别不解析，fail closed；待本机实测 `<session>.jsonl` 与 `state.json`），A47 |
-| AtomCode（AtomGit 生态） | `.meta` turn_stats/model_usage 按模型会话聚合；round_count 来源报告调用汇总；旧单文件同构 | 5.2.1 真实 API/CLI/.meta 为 6,176 输入/2 输出；缓存默认零与坏桶保持未知，未缓存不猜测；有界排除完整配对的 UI v1/rewind v2，其他仍诊断 | M8 已实施；官方 e4215f7/45e05cb 与真实样本、旧完整摘要/游标及并行/回滚通过；产品版本不认证其他记录，InsCode IDE 归 F1，见 [真实样本](../../validation/desktop-usage/m8-container-samples.md)，A48 |
-| Warp | 本地仅账户级用量缓存（requestsUsed/spendCents/syncedAt，工作区级） | 无 token 明细且属账户额度数据：不入 token 统计，最多以状态行展示受限 | 暂缓（额度类），A44 |
-| Cursor（CLI/IDE） | CLI 转录 `~/.cursor/projects/<slug>/agent-transcripts/<uuid>/*.jsonl`（有会话、无逐次 token/模型字段）；IDE state.vscdb 载体待核验 | 逐次用量仅存在于远端 dashboard（get-filtered-usage-events/CSV 导出），按本地边界排除；不以 tokenizer 从转录估算 | F1（本地用量格式待核验），A45 |
-| Windsurf（IDE+CLI） | IDE Cascade 与 2026 年确认存在的 windsurf CLI；本地 usage 存储尚未核验 | 本地逐次 token 格式尚未核验时不探测/不实施；列入 F1 后续支持计划 | F1；后续支持 |
+| Amp (Sourcegraph, closed source) | `~/.local/share/amp/threads/T-*.json` messages[].usage model/inputTokens/outputTokens/cacheRead/cacheCreation/credits, plus usageLedger.events timestamp/model/credits/five token buckets. | Reconcile ledger/message usage by messageId+buckets to prevent duplication. Without explicit time, thread creation/messageId cannot invent per-call time. Credits are not dollars. Version-changing schema requires samples. | M8 documentation-based, 2026-09-29; ledger primary, messages reconciliation only, no invented times/credit mapping; A28. |
+| Goose (Block, repository moved to aaif-goose) | sessions.db usage_ledger per-request five buckets; legacy sessions accumulated_* aggregate fallback. GOOSE_PATH_ROOT/platform roots. | Select one format; NULL cannot be overwritten by cumulative default zero. Ignore reasoning differences. Native 1.53.0 CLI/local-model API/DB/app match. | M8 implemented; no estimated/carried_forward cost mapping. Format reference does not verify product version; [samples](../../validation/desktop-usage/m8-container-samples.md), A26. |
+| Crush (Charm) | `~/.local/share/crush/projects.json` maps per-project data_dir/crush.db. Root-session cost cumulative; token columns are context snapshots. | Real 0.97.1 main/title API calls match native/CLI Estimated cost. Manual acceptance rates do not verify model prices/bills. Tokens/calls/model remain unknown. | M8 cost-only; root filtering avoids duplicate child costs. [Samples/executable status](../../validation/desktop-usage/m8-container-samples.md), A27. |
+| Roo Code | VS Code globalStorage `rooveterinaryinc.roo-cline/tasks/<uuid>/ui_messages.json`; official 3.54.0 VSIX/real extension host/local API checked. | Positive tokensIn includes cache; default-zero four buckets/estimates unknown. OpenAI-compatible cache details lost: zero cannot establish uncached input. Cancellation leaves three API calls/two native records, preserved gap; one-call comparison separate. No invented per-call model. | M8 implemented; old-summary/unchanged-cursor corrections follow data rules. [Samples](../../validation/desktop-usage/m8-container-samples.md); CLI/other providers/subagents separate; A29. |
+| Aider | Default history lacks per-call usage; explicit --analytics-log local JSONL message_send contains tokens/cost. | Enable first without backfill. Real 0.86.2 local-model API/CLI/app match. No cache/reasoning components; no tokenizer estimates. | M8 implemented, manual root; cost is LiteLLM Estimated. Format reference does not verify product version. [Samples](../../validation/desktop-usage/m8-container-samples.md), A30. |
+| Continue (CLI/VS Code/JetBrains) | `~/.continue/sessions` CLI top-level cumulative usage; exclude indexes/estimate logs. | Real 1.5.47 streaming input/output matches local-model API. Default-zero cache unknown. Calls/model/complete total/interval start absent; no invented day ownership. | M8 implemented; complete old summaries permit cache-zero correction only, keeping other conflicts/history. GUI has no usage fields. [Samples](../../validation/desktop-usage/m8-container-samples.md), A31. |
+| Droid (Factory.ai, closed source) | `~/.factory/sessions/{uuid}.settings.json` cumulative tokenUsage input/output/cacheRead/cacheCreation/thinking, plus same-name JSONL transcript. | Retain cumulative interval semantics; turn allocation is an estimate, not per-call usage. No cost fields. providerLock/transcript time attribution needs samples. | M8 session aggregates; reject transcript-byte allocation; A32. |
+| Amazon Q Developer CLI | Timestamped JSON history under `~/.aws/amazonq/history/` from third-party references; official open-source repository. | History usage fields require source inspection first. SSO re-login may lose history; show gaps. | No token adapter: 2026-09-29 source shows tokenUsage lost in type conversion and absent from conversations/history; A33. |
+| Grok Build (xAI, closed source) | `~/.grok/sessions/<workspace>/<session>/` updates.jsonl/signals.json/summary.json/events.jsonl, plus `~/.grok/logs/unified.jsonl`. | Explicit five-bucket usage only. Cumulative totalTokens/compaction differences are rejected inference. PID reuse/subagent ownership complex; conflicting model references stay unknown. GROK_HOME. | M8 explicit updates.jsonl usage only, without cumulative compensation/PID attribution; A34. |
+| Antigravity CLI/extensions (Google) | `~/.gemini/antigravity[-cli]/conversations/<uuid>.db` gen_metadata protobuf per-turn usage; input=fixed system prompt+new input, cacheRead/output/thinking/responseId. | Reverse-engineered layout and changed 1.1.18 time fields require version-specific references. IDE language-server usage needs separate opt-in verification. Shared Gemini root, different subdirectories. | M8 reverse-engineered input=#1+#2/time=#9.#4; 1.1.18+ untimed rows rejected. Unverified IDE language-server format unimplemented; A35. |
+| Junie CLI (JetBrains) | `JUNIE_HOME/sessions` or `~/.junie/sessions/<session-id>/events.jsonl` modelUsage. Official 26.9.22/seven real failed-task calls match API/CLI. | inputTokens uncached; default-zero tokens/cost/duration unknown, positive cost Estimated. No API/provider/product version; no invented complete total. timestampMs completion; positive time alone supplies start. | M8 implemented; doc1→2 complete old-summary/unchanged-cursor correction, transactions/conflicts passed. [Executable/sample status](../../validation/desktop-usage/m8-container-samples.md), A36. |
+| Kiro (AWS CLI/IDE) | Three formats: CLI `~/.kiro/sessions/cli/*.json(+jsonl)`, kiro-cli `~/.local/share/kiro-cli/data.sqlite3` conversations_v2, IDE globalStorage kiro.kiroagent .chat/execution/promptLogs. | Auto agent often zero; explicit counts only, without inferred usage. execution/.chat deduplicated by executionId. Metering credits separate. Cross-format deduplication required. | M8 real CLI turns/kiro-cli SQLite request_metadata; Auto zeros/estimates rejected, IDE estimate format unimplemented; overlapping formats need real reconciliation; A37. |
+| Built-in Zed (moved from F1) | Thread cumulative four buckets in threads.db; turn buckets do not verify complete per-call requests. | Keep original zed.dev source rules separate; llm-usage-zhipu/DbThread 0.3.0 positive/default-zero/cache semantics verified. Imported/other providers unverified; bounded decompression. | M8 native 1.22.0/76659a55, three glm-5.3/glm-5.3-flash turns: 21,696 uncached input/10,816 cache read/61 output, unknown cache write/total. [Record](../../validation/desktop-usage/plan-20261007.md), A23/A38. |
+| Codebuff (formerly Manicode) | `~/.config/manicode*/projects/*/chats/<chatId>/chat-messages.json`; suggested CODEBUFF_DATA_DIR override. | Usage/channel roots manicode/-dev/-staging need samples. | No token adapter: official caec5fc source 2026-09-29 has local credits without tokens; CODEBUFF_DATA_DIR is not official; A39. |
+| Command Code | `~/.commandcode/projects/<slug>/*.jsonl` v3 tree session/message/model_change, assistant five usage buckets/costUsd; config.json. | Exclude orphan rewind branches, deduplicate fork copies by ID/time, skip checkpoints; all-zero usage is reported zero under this verified format. | M8 npm 1.69.0 distribution reference, cache-inclusive inputTokens, current directory rules, cross-file fork ID/time identity, reported all-zero usage; A40. |
+| jcode (jcode.sh, Rust) | `~/.jcode/sessions/session_*.json` plus append-only .journal.jsonl, journal superseding snapshot. token_usage input/output/optional cache. | Normalize API-specific OpenAI/Anthropic cache inclusion per version; JCODE_HOME. Environment snapshot version does not verify all messages. | M8; real 0.91.0 single offline run matches API/CLI/snapshot input 460/output 2/cache read 0. Custom-provider cache inclusion unverified; total/cost/reasoning unknown. Journal/other scenarios separate. [Samples](../../validation/desktop-usage/m8-container-samples.md), A41. |
+| gajae-code (gjc) | `~/.gjc/agent/sessions/<slug>/*.jsonl` session v5, assistant model/provider/usage/Estimated cost. | GJC_CODING_AGENT_DIR overrides. OpenAI-completions missing-field zero cannot establish cache/reported-zero usage. message.timestamp is request start. | M8 real 0.18.7 API/CLI/native 412/2/414; recognize nonusage configuration chains, unknown cache/uncached and complete old-summary/cursor upgrade. Other APIs/versions/branches separate. [Samples](../../validation/desktop-usage/m8-container-samples.md), A42. |
+| Xum (Coder, formerly mux) | .xum/.mux/sessions, XUM_ROOT/MUX_ROOT or RUN_SESSION_ROOT session-usage.json v1. Official 0.30.0 source/two native local calls checked. | Input uncached, default zeros unknown. Positive text output + known reasoning; unknown reasoning gives lower bound. Complete input/total unknown. CLI temporary-session deletion/default custom-provider missing streaming usage distinguished from gateway comparison. | M8, without invented cost/per-call identity. Complete old-summary/cursor/rollback/conflict regressions passed. [Samples/executable status](../../validation/desktop-usage/m8-container-samples.md), A43. |
+| iFlow CLI (Alibaba, closed source) | Official 4642808 announcement: service ended 2026-04-17. Default local per-call format unverified; opt-in OTel separately checked under M5. | Do not borrow Gemini-family formats; excluded as a current M8 local candidate. | Unimplemented, consistent with AGENTS/M8; A46. |
+| Qoder CLI (Alibaba, formerly Tongyi Lingma) | CLI device flow `~/.qoder/`; Electron IDE `%APPDATA%\com.qoder.app.stable*`; globalStorage/`~/.local/share/qoder` leads. | CLI session/usage fields unverified: inspect local samples before selecting implementation. Brand evolution recorded; JetBrains F1. | M8 discovery-only probe: verified paths, unverified fields, no parsing/import; await native session.jsonl/state.json checks; A47. |
+| AtomCode (AtomGit ecosystem) | .meta turn_stats/model_usage per-model session aggregate; round_count source call summary; legacy single-file equivalent layout. | Real 5.2.1 API/CLI/.meta input 6,176/output 2. Default-zero cache/invalid buckets unknown; no guessed uncached input. Exclude only complete paired UI v1/rewind v2, diagnose other files. | M8 official e4215f7/45e05cb/native samples, old-summary/cursor/parallel/rollback passed. Product version does not verify other records; InsCode IDE F1. [Samples](../../validation/desktop-usage/m8-container-samples.md), A48. |
+| Warp | Local account/workspace usage cache requestsUsed/spendCents/syncedAt only. | No token detail, account quota excluded from token totals; at most show limited status. | Deferred quota category; A44. |
+| Cursor CLI/IDE | CLI `~/.cursor/projects/<slug>/agent-transcripts/<uuid>/*.jsonl` has sessions without per-call tokens/models. IDE state.vscdb format unverified. | Per-call usage found only in remote dashboard get-filtered-usage-events/CSV and excluded. Do not estimate with a tokenizer. | Local-format F1; A45. |
+| Windsurf IDE/CLI | IDE Cascade/CLI confirmed in 2026; local usage storage unverified. | No discovery/implementation without verified per-call format; retain future F1 support. | F1 future support. |
 
-## Hermes Agent 本地合同
+<a id="hermes-agent-本地规则"></a>
 
-A24 固定源码 `ef70b3661cbfcf57e583008ad91dd04d8ba46070` 与官方 0.21.5 发布
-`f97608f178d1ffeca59860195ab7da295f7c8e5f` 确认以下内容；当前真实样本限本地 CLI
-主循环与一次续会话，其他版本/历史记录及 gateway 不扩大认证：
+<a id="hermes-agent-本地合同"></a>
 
-- 路径遵循 get_hermes_home：上下文覆盖、HERMES_HOME、平台默认值；当前 Windows 默认
-  `%LOCALAPPDATA%/hermes`，macOS/Linux 默认 `~/.hermes`。命名 profile 有独立目录/state.db。
-  采集器只探测/读取允许的根，不导入运行 Hermes 代码；不能只硬编码 Linux 默认目录。
-- sessions 存会话累计；session_model_usage 按 session/model/provider/base_url/billing_mode/task
-  组合键累计，含 input/output/cache_read/cache_write/reasoning、api_call_count、first_seen/last_seen。
-  base_url 只在内存规范化成无凭据的 provider 标识或本机 HMAC，不持久化完整 URL/查询参数。
-- update_token_counts 有增量与 absolute 两条路径；后者不能分解历史模型路由。
-  record_auxiliary_usage 只写按任务累计，不写主 sessions 总量，不能简单二选一或两表相加。
-  未解释残差保持未知模型/覆盖缺口，禁止强归给 session 当前模型。
-- schema v20 将历史 sessions 汇总回填为模型行；v22 加 task 键，源码另有旧键修复。
-  必须探测真实列与主键，不只看版本整数；旧回填行不证明历史全部调用使用该模型。
-- first_seen/last_seen 是聚合写入边界，不是逐请求时间；跨日累计按区间保存，
-  无详单不能生成精确每日趋势。api_call_count 先作为来源汇总，不能展开成伪造调用事件。
-- agent/turn_usage.py 有响应 usage 和带 model/provider/id 等信息的日志路径；
-  实际日志文件、轮转、时区、稳定关联 ID、失败覆盖和缓存缺省语义尚待 fixture。
-  两份固定源码的 normalize_usage 已完整核验，input_tokens 为非缓存、输出含 reasoning；
-  默认零不能证明响应字段存在。正桶保留、零未知，仅全部必需桶已知才派生总量。
-  整库 schema_version 不证明每行历史的客户端版本，仍保留 latest_fallback。
-- 父子/压缩继承、辅助任务、MoA 聚合及外部 Codex 镜像必须验证覆盖集合；
-  不读取 messages/FTS 正文计数来补请求数。源 DB 只读，不能调用其可能迁移/修复的初始化 API。
+## Local Hermes Agent rules
 
-首个可交付能力可为本机按模型/任务的原生区间统计；逐次请求和精确日统计独立标注能力。
-计费金额字段只保留本机调用归属明确的记录，不读取 Hermes Portal 账号余额或调用 account_usage API。
+Fixed A24 `ef70b3661cbfcf57e583008ad91dd04d8ba46070` and official 0.21.5 release
+`f97608f178d1ffeca59860195ab7da295f7c8e5f` establish the following. Real acceptance currently
+covers the local CLI main loop and one resumed session, without extending to other versions,
+historical records or gateway usage.
 
-## 分家族复用的范围
+- get_hermes_home uses context override, HERMES_HOME, then platform default: Windows
+  `%LOCALAPPDATA%/hermes`, macOS/Linux `~/.hermes`. Named profiles have separate directories/
+  state.db. Probe/read allowed roots without importing/executing Hermes; Linux-only hardcoding
+  misses other platforms.
+- sessions holds cumulative usage. session_model_usage keys session/model/provider/base_url/
+  billing_mode/task and includes input/output/cache_read/cache_write/reasoning, api_call_count
+  and first_seen/last_seen. Normalize base_url in memory into a credential-free provider ID
+  or local HMAC; do not persist full URLs/query parameters.
+- update_token_counts has incremental and absolute paths; absolute cannot recover historical
+  model routing. record_auxiliary_usage updates task aggregates without main sessions totals.
+  Neither unconditional table selection nor table addition is valid. Unexplained differences
+  remain unknown-model/coverage gaps, rather than assigned to the current session model.
+- Schema v20 backfills historical sessions into model rows; v22 adds task to the key, with
+  other source fixes for old keys. Probe actual columns/primary keys, rather than version
+  integers alone. Backfilled rows do not establish one model for all historical calls.
+- first_seen/last_seen are aggregate-write boundaries, rather than call timestamps. Keep
+  cross-day cumulative intervals; without details, exact daily trends are unavailable.
+  api_call_count remains a source aggregate and cannot produce synthetic per-call events.
+- agent/turn_usage.py has response usage/logging with model/provider/ID. Actual log paths,
+  rotation, timezone, stable IDs, failure coverage and cache defaults still require samples.
+  Both fixed normalize_usage implementations were fully checked: input uncached/output includes
+  reasoning. Default zero does not establish response-field presence. Retain positive buckets,
+  unknown zeros and derive totals only with every required bucket known. Database-wide
+  schema_version does not verify each historical client version; keep latest_fallback.
+- Verify coverage of parent/child/compaction inheritance, auxiliary tasks, MoA and external
+  Codex mirrors. Message/FTS text counts cannot fill calls. Read databases without invoking
+  initialization APIs that might migrate/repair them.
 
-基础读取器可以复用 JSONL、可变 JSON、只读 SQLite、OTLP 和 CSV。
-业务映射仅在字段与生命周期测试证明一致后复用：
+The first deliverable may be native local model/task interval statistics, with separate
+per-call/exact-day capabilities. Retain cost only for explicitly local calls; exclude Hermes
+Portal balances/account_usage APIs.
 
-- pi/oh-my-pi 可共享部分 Usage 类型知识，辅助事件及分支恢复仍各测；
-  gajae-code（gjc）为 pi 血统变体，复用同样逐项验证。
-- OpenCode/Kilo/MiMo 可共享结构探测工具，不共享未经验证的目录、表名或累计/增量假设。
-  Kilo 的库内最高版本只用于格式探测；每条消息按所属 session.version 保留已验证/兼容
-  依据。混合库存在未验证消息时保留兼容提示，后续只有已验证增量不能覆盖该状态；
-  新版本空会话不能认证，也不降级已有消息的版本核验依据。支持依据/规则更新自动重评。
-  OpenCode 同样按产生 step-finish 的所属会话选择依据；无用量的会话不参与认证。
-  版本支持或解析规则变化时从头重评旧处理位置；分页以 `(time_updated, part.id)`
-  续扫，完成窗口后恢复 60 秒重叠，不能因同毫秒或重叠窗口停滞。只有完整有效重评
-  标记规则完成，坏记录与未验证记录跨增量保留；事件、续扫位置与规则进度同事务提交。
-- Cline/Zoo/旧 Kilo 扩展的 API 记录可以共享解析组件，但子 Agent 汇总、删除与压缩记录逐项测试；
-  Roo Code 扩展载体同构可复用组件，删除/子 Agent/压缩行为分版本复测。
-- VS Code/Copilot/宿主嵌入的 Claude/Codex 不按应用品牌重复计费，使用 origin 归属关系。
-- Kimi Work 和 Kimi Code 的数据根、实例身份和日志 revision 独立，重叠来源显式处理。
-- Amp 的 usageLedger 与逐消息 usage、Kiro 的 execution 与 .chat 快照属于同源双载体，
-  对账去重规则各自验证，不能按时间接近或数值相同猜测同一请求。
-- Goose/Xum/Droid 等会话级聚合来源按 Hermes 区间语义处理，不展开成伪造逐次事件。
-- Antigravity CLI 与 Gemini CLI 同根（~/.gemini）不同子目录，目录发现互不推断；
-  iFlow CLI 与 Gemini CLI 格式相似仅作线索，字段仍逐个核验。
+<a id="分家族复用的范围"></a>
 
-## 每个适配器的交付合同
+## Reuse within Agent families
 
-代码布局遵守 [Agent 独立目录与版本组织](architecture.md#adapter-layout)。
-每个 Agent 一个目录，历史版本实现在目录内分模块；该要求适用于本表全部阶段
-（目录迁移与版本注册表已随 M2 实施，见 [架构合同](architecture.md#adapter-layout)）；
-已验证支持与未知版本兼容尝试分别记录，不把尚待执行的结构调整记为已实现。
+Basic JSONL, mutable JSON, read-only SQLite, OTLP and CSV readers may be shared. Share business
+mappings only after field/lifecycle tests establish equivalent semantics:
 
-| 项目 | 必须交付的内容 |
+- Pi/oh-my-pi share some Usage knowledge; auxiliary events/branch restoration remain separately
+  tested. Pi-derived gajae-code (gjc) likewise requires individual checks.
+- OpenCode/Kilo/MiMo share structural probes, without unverified directories/tables/cumulative
+  assumptions. Kilo's highest DB version identifies format only; bind each message to its
+  owning session.version and preserve verified/compatible references. Unverified messages
+  in mixed DBs keep notices despite later verified-only increments. Empty new-version sessions
+  neither verify usage nor downgrade existing message references. Support/rule updates trigger
+  reevaluation. OpenCode also uses the session owning each step-finish; empty sessions verify
+  nothing. Replay old positions from the beginning on support/rule changes, paginating by
+  (time_updated, part.id), then restore 60-second overlap after finishing the window. Equal
+  milliseconds/overlap cannot stall progression. Only complete valid reevaluation marks rules
+  updated; retain invalid/unverified state across increments. Events, continuation positions
+  and rule progress commit together.
+- Cline/Zoo/legacy Kilo extension API records may share components, with separately tested
+  subagent/deletion/compaction summaries. Roo equivalent formats still require these version checks.
+- VS Code/Copilot/embedded Claude/Codex uses origin relationships, rather than duplicate billing
+  by application brand.
+- Kimi Work/Code roots, instance identities and log revisions remain independent; resolve overlaps explicitly.
+- Amp usageLedger/message usage and Kiro execution/.chat are same-source dual formats. Verify
+  their reconciliation/deduplication separately; nearby times/equal values cannot establish identity.
+- Goose/Xum/Droid session aggregates follow Hermes-like interval semantics, without synthetic calls.
+- Antigravity/Gemini share ~/.gemini but have independent subdirectories/discovery. iFlow's
+  apparent Gemini similarity is only a research lead; verify every field separately.
+
+<a id="每个适配器的交付要求"></a>
+
+<a id="每个适配器的交付合同"></a>
+
+## Adapter delivery requirements
+
+Follow [independent directories/version organization](architecture.md#adapter-layout): one
+directory per Agent, historical implementations within it. This applies to every stage in
+the matrix; directory migration/registries were implemented with M2. Record verified support
+separately from unknown-version compatibility; proposed changes are not implemented work.
+
+| Area | Required delivery |
 | --- | --- |
-| 目录与版本 | Agent 独立目录、统一入口、发布版本/来源格式到内部实现的映射、逐版本 fixture；新增版本保留历史实现及回归，按 V30 验收 |
-| 发现 | 产品/表面/OS/版本范围、本机归属依据、候选路径、环境覆盖、profile、手工添加方法 |
-| 探测 | 逐文件/数据库识别 Agent 与输入类型；已知版本按映射分派，未知版本先尝试该 Agent 最新内置解析器；结构/语义不兼容或匹配冲突时明确报错 |
-| 字段映射 | 每个 token 字段包含关系、单位、时间基准、模型归属、调用 ID、调用确认依据 |
-| 生命周期 | 单次/累计/流式/最终/更正/聚合、重试和分支/子 Agent/辅助调用的处理 |
-| 增量 | 游标、重写/轮转检测、事务恢复、数据源自身保留和最早可回填日期 |
-| 去重 | 本机副本、多个数据库、宿主镜像、本机遥测/会话导出之间的关联或主来源选择 |
-| 完整性 | success-only、是否记录隐藏调用、采样/丢包/日志清理、无 timestamp 的限制 |
-| 验证 | 原始版本说明、最小脱敏 fixture、人工期望值、单元/集成结果、真实应用核对结果；兼容尝试覆盖版本未收录但结构兼容、结构破坏及部分可用 |
-| 维护 | 源码 commit/schema、最新默认解析器、选择依据、兼容状态、升级重试与不兼容诊断；不因未知版本号直接拒绝 |
-| 定时 | 统一采集入口、增量/重扫开销、暂停/取消、无变化扫描和任务恢复；不启动 Agent |
+| Directory/version | Independent Agent directory, common entry, release/format-to-reader mappings and per-version samples. New versions preserve old readers/regressions; V30 acceptance. |
+| Discovery | Product/interface/OS/version range, local ownership, candidate paths, environment overrides, profiles/manual addition. |
+| Detection | Identify Agent/input per file/database; dispatch known mappings, try latest Agent reader for unknown versions; explicit errors for semantic/structural incompatibility or ambiguous matches. |
+| Field mapping | Every token's inclusion, units, time basis, model ownership, call ID and call-verification references. |
+| Lifecycle | Per-call/cumulative/stream/final/correction/aggregate, retries, branches/subagents/auxiliary calls. |
+| Incremental reading | Cursor, rewrite/rotation, transaction recovery, source retention and earliest backfillable date. |
+| Deduplication | Copies, multiple databases, host mirrors, local telemetry/session-export links or primary-source selection. |
+| Completeness | Success-only/hidden-call coverage, sampling/loss/log cleanup and missing-timestamp limits. |
+| Validation | Original version references, minimal redacted samples, manually checked expectations, unit/integration and real-app results. Unknown-version tests cover unregistered compatible shapes, structural breakage and partial usability. |
+| Maintenance | Source commit/schema, latest default reader, selection basis, compatibility state, upgrade retries/incompatibility diagnostics; unknown version alone does not reject. |
+| Scheduling | Unified entry, incremental/rescan cost, pause/cancel, unchanged scans and recovery without launching Agents. |
 
-每个样本仅保留事件类型、匿名 ID、时间、模型、数值与必要关系；正文替换为常量。
-样本改变后重新计算摘要，记录脱敏方法；不得提交完整真实会话库。
+Samples retain only event kind, anonymous IDs, time, model, numbers and necessary relationships;
+replace conversation bodies with constants. Recompute digests after changes and document
+redaction. Never commit complete real session databases.
 
-## 各家族必须补的样本
+<a id="各家族必须补的样本"></a>
 
-| 家族 | 必需样本 |
+## Required samples by family
+
+| Family | Required cases |
 | --- | --- |
-| Claude/Codex | 一请求多个片段、无 usage 的 tool/user 消息、重复 final、旧累计与新逐次格式、模型中途切换、子 Agent |
-| pi/oh-my-pi | message + 独立 usage、标题/压缩/分支总结、会话 fork 继承、错误/取消、日志辅助事件交叉去重 |
-| Cline/Zoo | started/finished 合并、同记录更新、压缩、删除请求汇总、子 Agent 汇总与明细同时存在、模型缺失 |
-| OpenCode/Kilo/MiMo | 活库更新旧行、新 core/旧库分辨、session 累计与 step/message 明细关系、provider 变更 |
-| Gemini/Qwen | prompt/cache/thought/tool 包含关系、文件重写、provider 转换、累计遥测重置及 Goal 重复恢复 |
-| DSH | 流式 usage→最终替换→同 step retry、新旧 stateVersion、context estimate 不进用量、累计值下修 |
-| OpenClaw | SQLite 正在写入、旧 JSONL 与迁移库重叠、外部 CLI 镜像、嵌套会话、远端路径与非持久会话 |
-| Hermes | Windows/profile 路径、模型中途切换、增量/absolute、task 辅助、v20 回填/v22 主键、跨日累计、压缩/子 Agent/MoA、缺 usage |
-| Kimi Code/Work/ZCode | 真实产品版本、每次调用稳定 ID 或序号、model/provider 字段、毫秒时间、缺 ID、目录迁移 |
-| Copilot/VS Code/CodeBuddy | chat/model_stream 与父 span 去重、file/OTLP 重传、cache 缺失、无 usage 的失败、SDK/宿主重叠、chatSessions 与 otel outfile 同面双计（同 agent 维度择一）、kv 采样快照与压缩重写（chatSessions 全量重放+同键幂等）、VS TEMP 遥测清理/实例滚动与 otel 接收器同维度择一 |
-| JetBrains/TRAE/其他本地待核验源 | 本地日志/数据库真实样本、版本/插件差异、缺 usage、同区间重导入；远端同步/账号报表必须排除 |
-| M8 双载体/对账类（Amp/Kiro） | ledger 全量与部分覆盖、execution 覆盖快照、重复事件、缺 messageId、跨载体同一请求 |
-| M8 会话级聚合类（Goose/Xum/Droid） | accumulated 与单次列、跨日会话、快照+日志合并（jcode）、provider 前缀模型 key、累计下修 |
-| M8 逆向/闭源类（Antigravity/Grok/Junie/Qoder/iFlow） | protobuf 布局版本变更、累计与压缩差额、缺时间戳、结束时刻语义、品牌迁移双根 |
-| M8 开源同构类（Roo/gjc/Command/jcode/Codebuff/Continue/Crush/Aider/Amazon Q） | rewind/fork 分支、删除汇总、子代理重放、缓存口径差异、需启用日志、SSO 丢历史 |
+| Claude/Codex | Multiple fragments per request, tool/user without usage, duplicate final, legacy cumulative/new per-call formats, model switch, subagents. |
+| Pi/oh-my-pi | Message/independent usage, titles/compaction/branch summaries, fork inheritance, error/cancel, log auxiliary-event deduplication. |
+| Cline/Zoo | Started/finished merge, updated same record, compaction/deleted-request summaries, simultaneous subagent summaries/details, absent model. |
+| OpenCode/Kilo/MiMo | Live old-row updates, new core/legacy DB detection, cumulative-session/detail relationship, provider changes. |
+| Gemini/Qwen | Prompt/cache/thought/tool inclusion, file rewrite, provider conversion, cumulative telemetry reset, repeated Goal recovery. |
+| DSH | Stream → final replacement → same-step retry, old/new stateVersion, context estimates excluded, cumulative decreases. |
+| OpenClaw | Concurrent SQLite writing, legacy JSONL/migrated DB overlap, external CLI mirrors, nested sessions, remote paths/nonpersistent sessions. |
+| Hermes | Windows/profiles, model switch, incremental/absolute, auxiliary tasks, v20 backfill/v22 keys, cross-day cumulative, compaction/subagents/MoA, missing usage. |
+| Kimi Code/Work/ZCode | Real versions, stable per-call IDs/sequences, model/provider, millisecond time, missing IDs, directory migration. |
+| Copilot/VS Code/CodeBuddy | chat/model_stream parent deduplication, file/OTLP retries, absent cache/failed-call usage, SDK/host overlap, chatSessions/otel same-interface selection, sampled key-value snapshots/compaction replay without repeated keys, VS TEMP cleanup/rotation and receiver same-dimension selection. |
+| JetBrains/TRAE/other unverified local sources | Native logs/DB samples, version/plugin differences, absent usage, same-interval reimports. Exclude remote synchronization/account reports. |
+| M8 dual-format/reconciliation (Amp/Kiro) | Complete/partial ledger, execution coverage, duplicates, missing messageId, same request across formats. |
+| M8 session aggregates (Goose/Xum/Droid) | Accumulated/per-call columns, cross-day sessions, snapshot/journal merge (jcode), provider-prefixed model keys, cumulative correction. |
+| M8 reverse-engineered/closed-source (Antigravity/Grok/Junie/Qoder/iFlow) | Protobuf-version changes, cumulative/compaction differences, missing timestamps, completion-time semantics, brand migration roots. |
+| M8 similar open-source formats (Roo/gjc/Command/jcode/Codebuff/Continue/Crush/Aider/Amazon Q) | Rewind/fork branches, deletion summaries, subagent replay, cache semantics, opt-in logs, SSO history loss. |
 
-## 会话归档与历史可回采性
+<a id="会话归档与历史可回采性"></a>
 
-<a id="会话归档与历史可回采性2026-09-27-复核"></a>
+## Session archives and recoverable history
 
-来源归档与本应用分级保留是两件事。发现来源时也检查已证实的归档载体；
-同一来源的活动/归档副本共用原生调用身份。没有共同调用 ID 的载体必须明确主来源，
-不能按时间接近、token 相同或会话 ID 相同猜测同一请求。
+Source archives differ from application-layer retention. Discover verified archive formats
+alongside active data; copies share native call identity. Without shared call IDs, choose an
+explicit primary source. Nearby time, equal tokens or equal session IDs cannot establish requests.
 
-| 来源 | 已核验入口与行为 | 实现和核验范围 |
+| Source | Verified entry/behavior | Implementation/validation scope |
 | --- | --- | --- |
-| Codex | CODEX_HOME 下 sessions 与 archived_sessions；官方 thread/archive 移动 JSONL，恢复时移回 | 两目录合并发现，只有归档目录也可采集；活动/归档副本与反复重扫去重。当前本机 306 个活动文件、无真实归档，归档行为由官方合同及合成移动/副本测试验证 |
-| Qwen Code | 旧 tmp 与新 projects 下各项目的 chats/archive 为独立归档目录；daemon 将活动 JSONL 移入或移出归档，异常情况下活动和归档副本可同时存在 | 扫描两种布局的 chats 与 archive，按同来源原生 uuid 去重；QWEN_RUNTIME_DIR、QWEN_HOME 与手工根按已证实路径选择，相对 Agent 工作目录需配置绝对手工根；0.25.0 容器真实主循环已核对，真实归档及其他版本仍另验 |
-| ZCode | cli/db/db.sqlite 的 model_usage 保留已完成调用，JSONL 可能删除/压实 | DB 为同一来源的主载体，按原生 id 及来源/日快照替换；从未有 DB 时才读 JSONL。使用过 DB 后丢失或损坏即报错并保留旧统计，不回退造成双计。旧 JSONL 未识别记录若无法与 DB 调用可靠对应，保留健康告警，不直接相加或抹除 |
-| Claude Code | projects 中主/子会话、orphaned JSONL 与 superseded 副本 | 现有递归发现覆盖这些路径，以请求/消息身份去重；已有合成 fixture，当前无真实本机归档可核对 |
-| Kilo / OpenCode | SQLite session.time_archived 是归档标记，调用仍在 message/part | 查询不排除归档会话；补充先归档、恢复、再归档全链路测试。Kilo 使用真实脱敏 fixture，OpenCode 为固定源码合同合成 fixture |
-| Gemini CLI / Kimi Code / Kimi Work / pi / oh-my-pi | 已知本地会话文件；Gemini 自动保存与手动 checkpoint 不同 | Gemini 自动清理默认约 30 天，是删除而非另一个归档目录；手动 checkpoint 可能复制会话，但没有已验证的独立逐次用量合同，不能叠加。其他来源现有目录按格式采集；omp usage_history 是额度窗口，不能当调用历史 |
-| Cline / Zoo / Hermes / DSH | 按各自已验证格式处理压缩、删除汇总或区间记录 | 沿用能力矩阵，不能把汇总反推出逐次明细；无本机真实档案的来源仍待验收 |
-| OpenClaw | 已核验 schema 24 hot transcript 与旧迁移/冷归档分离 | 已核验正桶入账；默认零、底层调用与完整总量保持未知；冷归档缺口可见，旧 JSONL 不叠加，其他协议/版本单独核验 |
+| Codex | CODEX_HOME sessions/archived_sessions; official thread/archive moves JSONL, restoration moves it back. | Discover both, including archive-only roots; deduplicate copies/repeats. Historical local check: 306 active files/no real archive; official behavior plus synthetic move/copy tests verify archive handling. |
+| Qwen Code | Old tmp/new projects chats/archive; daemon moves active JSONL in/out, with possible duplicate copies. | Both layouts discovered, deduplicated by native UUID/source. Verified QWEN_RUNTIME_DIR/QWEN_HOME/manual-root choices; Agent-working-directory-relative paths require absolute manual roots. Real 0.25.0 main loop checked; real archives/other versions separate. |
+| ZCode | cli/db/db.sqlite model_usage retains completed calls; JSONL may be deleted/compacted. | DB primary, native ID/source-day replacement; JSONL only before any DB exists. Once used, missing/damaged DB errors and retains statistics without duplicate-producing fallback. Unmatched legacy JSONL remains a health warning; neither add nor erase it without reliable DB-call identity. |
+| Claude Code | projects main/child/orphaned JSONL and superseded copies. | Recursive discovery/request-message deduplication; synthetic samples, without native archive acceptance at that historical check. |
+| Kilo / OpenCode | SQLite session.time_archived marks archive; calls remain in message/part. | Queries include archived sessions, with archive/restore/rearchive tests. Kilo real redacted samples; OpenCode archive tests synthetic from fixed source. |
+| Gemini CLI / Kimi Code / Kimi Work / Pi / oh-my-pi | Known session files; Gemini automatic saving differs from manual checkpoints. | Gemini default cleanup around 30 days deletes data rather than moving it to another archive. Manual checkpoints may copy sessions but lack separately verified per-call rules, so not added. Other roots read by format. omp usage_history is quota-window data, not call history. |
+| Cline / Zoo / Hermes / DSH | Verified compaction/deletion/interval formats. | Follow capability matrix; aggregate values cannot reconstruct per-call detail. Real archive acceptance remains pending where samples are absent. |
+| OpenClaw | Verified schema 24 hot transcripts separate from old migration/cold archives. | Positive buckets retained; default zero/underlying calls/complete totals unknown, cold gaps visible, old JSONL not added, protocols/versions separately checked. |
 
-ZCode 安装包的 recordModelUsage 会按 started_at 清理约 30 天前的记录。
-DB 不是永久完整档案：边界日已有统计时不以可能不完整的快照覆盖；来源清掉的旧日保留
-在应用汇总中。新发现来源只能统计当前仍存在的数据，不能恢复从未采集且已被删除的记录。
-DB 没有逐行产品版本，结构校验通过后使用 latest_fallback 标记，不宣称逐版本验证。
+Installed ZCode recordModelUsage deletes records roughly 30 days before started_at. The DB
+is not permanent complete history. Do not replace existing boundary-day statistics with a
+potentially incomplete snapshot; source-expired days stay in application summaries. Newly
+discovered sources contain only surviving data and cannot recover never-collected deleted
+records. No per-row product version exists: successful structure checks retain latest_fallback,
+without claiming exact-version verification.
 
-最新真实核对：8,225 次调用、2,398,950,011 Token；再次扫描新增为 0、修订不变。
-turn_usage 有 24 个轮级对账差异，仅作对照，不能与 model_usage 相加。
-会话文件目前存在不能证明产品永远不清理；清空应用统计前的备份仍有必要。
+At the 2026-09-27 real check: 8,225 calls/2,398,950,011 tokens; repeat scan added zero and left
+revision unchanged. turn_usage had 24 reconciliation differences and remains comparison-only,
+without addition to model_usage. Current files do not prove permanent retention; backups before
+clearing application statistics remain useful.
 
-依据：[Codex App Server](https://learn.chatgpt.com/docs/app-server)、
-[OpenCode Session 源码](https://github.com/anomalyco/opencode/blob/dev/packages/opencode/src/session/session.ts)、
-[Qwen Code 会话归档合同](https://github.com/QwenLM/qwen-code/issues/6057)、
-[Qwen Code 活动/归档副本问题](https://github.com/QwenLM/qwen-code/issues/9688)、
-[Qwen Code 环境路径](https://github.com/QwenLM/qwen-code/blob/main/docs/users/configuration/settings.md)、
-[Gemini CLI 会话管理](https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/session-management.md)；
-本机安装包指纹、只读 SQL、脱敏结果及测试入口见[审查记录](../../validation/desktop-usage/review-2026-09-27.md)。
+References: [Codex App Server](https://learn.chatgpt.com/docs/app-server),
+[OpenCode session source](https://github.com/anomalyco/opencode/blob/dev/packages/opencode/src/session/session.ts),
+[Qwen archives](https://github.com/QwenLM/qwen-code/issues/6057),
+[Qwen active/archive copies](https://github.com/QwenLM/qwen-code/issues/9688),
+[Qwen environment paths](https://github.com/QwenLM/qwen-code/blob/main/docs/users/configuration/settings.md),
+[Gemini session management](https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/session-management.md).
+Installed-package fingerprints, read-only SQL, redacted results and test entries are in
+[the review](../../validation/desktop-usage/review-2026-09-27.md).
 
-## 暂未证实工具的推进方式
+<a id="暂未证实工具的推进方式"></a>
 
-M4 保留新版 Kimi Code、Kimi Work、ZCode、WorkBuddy；初始范围将 JetBrains/TRAE、Zed 内置及
-未核验 IDE 变体后移 F1。2026-09-29 第二批调研后：
-Junie CLI 与 Zed 内置（threads.db）已取得本地载体依据，从 F1 转入 M8；
-Cursor、Windsurf、京东 JoyCode、智谱 CodeGeeX 插件、百度文心快码 Comate、
-华为 InsCode/CodeArts Snap 本地用量格式仍待核验，保留在 F1；Warp 仅账户级额度缓存、
-Cursor/TRAE 的逐次用量在远端，均按本地边界排除且不以估算补齐。
-各产品到其所属阶段后，按
-“识别版本→本地存储/本机导出/本地遥测→最小脱敏样本→字段/生命周期测试”推进。
-不能因同属 IDE 后移有明确本地字段依据的 Cline、Roo Code 或已文档化的 VS Code 遥测。
-每个工具留下核验版本、已查的官方本地入口/候选格式、授权范围、读取结果、缺失字段、
-失败原因和后续条件；没有本机版本/样本时记“未尝试/待样本”，不能写“已验证不支持”。
-只有套餐/账号额度页时显示本地用量暂不可提取；只有文本无可靠 usage 时不默认使用 tokenizer 估算。
+## Progress for unverified tools
 
-不通过 TLS 中间人、浏览器会话 cookie、进程注入或私有账单接口补齐缺口。
-用户未来主动要求自定义 API 网关计量时另做设计；代理不能读取此前历史，
-也不一定覆盖官方订阅通道，因此不是当前通用回退方案。
+M4 retains new Kimi Code, Kimi Work, ZCode and WorkBuddy. Initial scope deferred JetBrains/
+TRAE, built-in Zed and unverified IDE variants to F1. After 2026-09-29 research, Junie CLI/
+Zed threads.db moved to M8 with local-format references. Cursor, Windsurf, JD JoyCode, Zhipu
+CodeGeeX, Baidu Comate and Huawei InsCode/CodeArts Snap local usage formats remain F1. Warp
+account quota and remote Cursor/TRAE per-call usage are excluded without estimated replacements.
+At each stage identify version, inspect local storage/export/telemetry, extract minimal redacted
+samples and test field/lifecycle rules. Do not defer Cline/Roo/official VS Code telemetry solely
+because they are IDEs with established local fields.
 
-M8 注册范围见 [第二批实施记录](../../validation/desktop-usage/m8-second-batch.md)：18 个适配器
-（17 个解析 + Qoder 探针）；Amazon Q/Codebuff 经源码核验确认本地无逐次 token 载体、
-iFlow 已停服（2026-04-17）且唯一载体是需启用的 OTel（归 M5），三者不实施
-token 适配器；Cursor/Windsurf 维持 F1。历史十源样本见
-[容器样本](../../validation/desktop-usage/m8-container-samples.md)；本轮另取得 Zed 实样，
-容器账户/协议限制与 F1 本机核查见 [本轮记录](../../validation/desktop-usage/plan-20261007.md)。
-当前环境未取得样本的项移出 Plan.md 活动待办；文档级实现不认证未核验的版本或载体。
+Record versions, checked official local paths/formats, authorization, read results, missing
+fields, failures and next conditions. Without local versions/samples, use “Not attempted”/
+“Awaiting samples”, rather than claiming verified unsupported behavior. Account-only quota
+pages mean local usage is unavailable. Text without reliable usage does not enable default
+tokenizer estimates. TLS interception, browser cookies, process injection and private billing
+interfaces are not gap-filling methods. A future user-requested metering gateway needs a separate
+design; it cannot recover earlier history or necessarily cover subscription channels, so is
+not the current general fallback.
+
+[M8 registration](../../validation/desktop-usage/m8-second-batch.md) includes 18 adapters,
+17 parsers and Qoder probe. Amazon Q/Codebuff source confirms absent local per-call tokens;
+iFlow ended 2026-04-17 and its identified usage route requires enabled OTel under M5. These
+three have no token adapter. Cursor/Windsurf retain F1. Historical ten-source samples are in
+[the container record](../../validation/desktop-usage/m8-container-samples.md); new Zed samples,
+container account/protocol limits and F1 installation checks are in
+[the current record](../../validation/desktop-usage/plan-20261007.md). Candidates without samples
+in this environment were removed from active Plan.md work. Documentation-based implementation
+does not verify untested versions/formats.

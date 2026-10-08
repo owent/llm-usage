@@ -1,7 +1,7 @@
-//! OpenClaw 版本注册表（形状约定与 kilo/hermes 一致）。
+//! OpenClaw version registry, using the same directory layout as Kilo/Hermes.
 //!
 //! Official 2026.9.8 native schema 24 and two real local CLI turns are verified.
-//! Mutable schema_meta.app_version cannot certify historical client versions.
+//! Mutable schema_meta.app_version cannot establish historical client versions.
 
 pub mod runtime_store;
 
@@ -10,15 +10,15 @@ pub const LATEST_IMPL_ID: &str = "runtime_store_schema24";
 /// No immutable per-record client version is available.
 pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[];
 
-/// 版本分派结论。
+/// Result of selecting a version implementation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Selection {
     pub impl_id: &'static str,
     pub basis: crate::domain::VersionBasis,
 }
 
-/// 按来源原始版本选择格式实现；探测与扫描共用（V30）。
-/// 当前一律 LatestFallback（注册表为空）。
+/// Select by original source version; detection and scanning share this function (V30).
+/// Currently always LatestFallback because the registry is empty.
 pub fn select(found: Option<&str>) -> Selection {
     let known = found.and_then(|version| {
         VERIFIED_VERSION_IMPLS

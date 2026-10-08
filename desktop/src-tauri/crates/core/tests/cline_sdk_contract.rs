@@ -1,4 +1,4 @@
-//! Genuine SDK source plus targeted mutation/transaction boundaries; old UI is separate.
+//! Native SDK data and targeted synthetic/transaction cases; legacy UI is tested separately.
 mod common;
 
 use common::{summary, temp_storage, TempDir};

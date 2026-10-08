@@ -7,7 +7,7 @@ rust-version = "1.77.2"
 license = "MIT"
 
 [dependencies]
-# backup：SQLite Online Backup API（源库一致暂存副本，kilo 只读约定）。
+# backup: SQLite Online Backup API for a consistent staged source copy; Kilo read-only source rules.
 rusqlite = { version = "^0.40.2", features = [
   "bundled",
   "backup",
@@ -17,7 +17,7 @@ rusqlite = { version = "^0.40.2", features = [
 serde = { version = "^1.0.229", features = ["derive"] }
 serde_json = { version = "^1.0.151" }
 jiff = { version = "^0.2.37" }
-# zstd：Zed threads.db data blob（data_type="zstd"）有界解压（M8/A38）。
+# zstd: bounded decompression of Zed threads.db data blobs (data_type="zstd", M8/A38).
 zstd = { version = "^0.13", default-features = false }
 
 [dev-dependencies]

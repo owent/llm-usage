@@ -1,0 +1,155 @@
+{
+  "version": "0.2.1",
+  "executableSha256": "d09328d76d3f437b890f9d85024b2c7dd48f58fbba7e363082511841911ff1bb",
+  "provenance": "actual Windows WebView2/Tauri IPC with isolated synthetic Codex records; rendered task paths replaced with Demo paths before capture; numbers and controls unchanged; no real-provider certification",
+  "capturedAt": "2026-10-07T08:46:56.736Z",
+  "timezone": "Asia/Shanghai",
+  "viewport": {
+    "width": 1440,
+    "height": 1000
+  },
+  "deviceScaleFactor": 2,
+  "expectedCalls": 240,
+  "screenshots": [
+    {
+      "path": "screenshots/en/overview-light.png",
+      "language": "en",
+      "theme": "light",
+      "page": "overview",
+      "sha256": "8045b1ef09ee386acc199b3477c048abaa8f43e5ec021956dd5bc0a1424b50e9"
+    },
+    {
+      "path": "screenshots/en/trend-light.png",
+      "language": "en",
+      "theme": "light",
+      "page": "trend",
+      "sha256": "cb6315a87bd3c76829fd59b014243cbd570bf837b3a99b7a4755d8817a39211b"
+    },
+    {
+      "path": "screenshots/en/sources-light.png",
+      "language": "en",
+      "theme": "light",
+      "page": "sources",
+      "sha256": "759a3f69bb2dd9209d92a27e6bcc7bce9e5fa4bd0ce80776d5846aa491c76beb"
+    },
+    {
+      "path": "screenshots/en/details-light.png",
+      "language": "en",
+      "theme": "light",
+      "page": "details",
+      "sha256": "58bc963f81b4f26fcb158feba69ce20a638617491949ee370e893343f4f3e90f"
+    },
+    {
+      "path": "screenshots/en/settings-light.png",
+      "language": "en",
+      "theme": "light",
+      "page": "settings",
+      "sha256": "0a205f678e8d8ee910e3f21f4f1dd6d05d82e7612e32693b2f47d6fa38c219c6"
+    },
+    {
+      "path": "screenshots/en/overview-dark.png",
+      "language": "en",
+      "theme": "dark",
+      "page": "overview",
+      "sha256": "2766c34421cd03ccb35db96da7a2b51878ef2902a6abd246c82810ecad58624c"
+    },
+    {
+      "path": "screenshots/en/trend-dark.png",
+      "language": "en",
+      "theme": "dark",
+      "page": "trend",
+      "sha256": "1764d72499a637f31c86910e8375795cbc45311c13242be1d291447f804dfc78"
+    },
+    {
+      "path": "screenshots/en/sources-dark.png",
+      "language": "en",
+      "theme": "dark",
+      "page": "sources",
+      "sha256": "3a9237d74ff90bf9b6ddec114c34b14fecd30ff11f9893fc859241682c590e57"
+    },
+    {
+      "path": "screenshots/en/details-dark.png",
+      "language": "en",
+      "theme": "dark",
+      "page": "details",
+      "sha256": "f9e4b2ab10c872b2fe77a74978748e21b08eb254bcd2326cc86c323f63085984"
+    },
+    {
+      "path": "screenshots/en/settings-dark.png",
+      "language": "en",
+      "theme": "dark",
+      "page": "settings",
+      "sha256": "9a49aea3d7caa9bdf9f0944d8f925f5eaafecdc1d67c8d4589a4171291496ca1"
+    },
+    {
+      "path": "screenshots/zh-CN/overview-light.png",
+      "language": "zh-CN",
+      "theme": "light",
+      "page": "overview",
+      "sha256": "9f5a0f963ff77f312edd629c7bfed6fbe3c94f0ac270470bb9a21b9fce824f73"
+    },
+    {
+      "path": "screenshots/zh-CN/trend-light.png",
+      "language": "zh-CN",
+      "theme": "light",
+      "page": "trend",
+      "sha256": "99ed35b27262c77e0cf3b5b03004ea0f303abfffc55c3a459439cc9e3716f26f"
+    },
+    {
+      "path": "screenshots/zh-CN/sources-light.png",
+      "language": "zh-CN",
+      "theme": "light",
+      "page": "sources",
+      "sha256": "2c4cd8685500c19329140087483e753cb71bea2d28fd5c89f14890b933a4c6db"
+    },
+    {
+      "path": "screenshots/zh-CN/details-light.png",
+      "language": "zh-CN",
+      "theme": "light",
+      "page": "details",
+      "sha256": "8ccf0d9d149f116ce2174211b398d561ccf9c3dc0aae05762980193a88638d73"
+    },
+    {
+      "path": "screenshots/zh-CN/settings-light.png",
+      "language": "zh-CN",
+      "theme": "light",
+      "page": "settings",
+      "sha256": "6da8ef65213a9e8d3ee14e8d37dd3225c6ac5faca12805f768effe867422a5be"
+    },
+    {
+      "path": "screenshots/zh-CN/overview-dark.png",
+      "language": "zh-CN",
+      "theme": "dark",
+      "page": "overview",
+      "sha256": "9bc90bdf7ef97b7219f153039dcf7865f94c484909d4c3d90a18255a29f87a30"
+    },
+    {
+      "path": "screenshots/zh-CN/trend-dark.png",
+      "language": "zh-CN",
+      "theme": "dark",
+      "page": "trend",
+      "sha256": "a55994022779d74acb81bc16cadbd8f1968931423eb55b213e205cfec54231b8"
+    },
+    {
+      "path": "screenshots/zh-CN/sources-dark.png",
+      "language": "zh-CN",
+      "theme": "dark",
+      "page": "sources",
+      "sha256": "8d9e42f915bdedce9799c2f41c3a9efbfc79f76e8254c8b62a47e626e9380188"
+    },
+    {
+      "path": "screenshots/zh-CN/details-dark.png",
+      "language": "zh-CN",
+      "theme": "dark",
+      "page": "details",
+      "sha256": "a3cd25b253792351c81cfc64295ef4120644da79845ddeeb42fdeae2b6b1fb43"
+    },
+    {
+      "path": "screenshots/zh-CN/settings-dark.png",
+      "language": "zh-CN",
+      "theme": "dark",
+      "page": "settings",
+      "sha256": "281c6091ebc578693e92c37aa84a80bb3cb4ea6abe569b2aefc43637ec92c579"
+    }
+  ]
+}

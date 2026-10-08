@@ -1,5 +1,5 @@
-//! Aggregate exchange: validate first, then merge in one transaction.
-//! Equal revisions retain the selected overwrite contract; identical replay is a no-op.
+//! Validate aggregate exchange, then merge in one transaction.
+//! Equal revisions follow the selected overwrite behavior; identical replay changes nothing.
 //! Imported days are sealed because request details are not restored.
 use crate::error::CoreError;
 use crate::exchange::{ExchangeExport, ExchangeHost, EXCHANGE_FORMAT_VERSION};
@@ -177,7 +177,7 @@ pub(crate) fn import_aggregate_tx(
         + out.period_inserted
         + out.period_replaced;
     if changed > 0 {
-        // Keep local materialization revisions newer than imported partition revisions.
+        // Local recomputation revisions stay newer than imported partition revisions.
         tx.execute("INSERT INTO settings(key,value,schema_version,updated_at_ms) VALUES ('data_revision',?1,1,?2)
             ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at_ms=excluded.updated_at_ms",
             params![max_revision.to_string(),now_ms])?;
@@ -313,8 +313,8 @@ fn merge_partition(
         if old == &values {
             return Ok(Merge::Unchanged);
         }
-        // Re-importing our own snapshot must not seal a live source/day and
-        // prevent its next requests from entering the aggregate.
+        // Reimporting our snapshot must not seal a live source/day and
+        // block subsequent requests from entering its aggregate.
         if table == "daily_usage" {
             let sealed = columns.iter().position(|k| *k == "sealed").unwrap();
             if old[sealed] == rusqlite::types::Value::Integer(0)
@@ -369,7 +369,7 @@ fn older_diagnostic(tx: &Transaction<'_>, now: i64) -> Result<(), CoreError> {
     Ok(())
 }
 
-/// 注册导出包的主机（外部来源；本机身份不覆盖）。
+/// Register exported external hosts without overwriting local identity.
 fn register_host(tx: &Transaction<'_>, host: &ExchangeHost, now_ms: i64) -> Result<(), CoreError> {
     tx.execute(
         "INSERT INTO origin_hosts (host_id, is_local, note, first_seen_ms, last_seen_ms)

@@ -1,16 +1,16 @@
-//! 本地 OTLP/HTTP 接收器（M5，按需启用）：仅绑定 127.0.0.1，接收
-//! OTLP/JSON 与 OTLP/protobuf 的 /v1/traces（CodeBuddy 仅支持 protobuf；
-//! Copilot CLI/VS Code 默认 JSON），gzip 有界解压，把逐请求 span 归一化为
-//! otel 适配器可读的 JSONL（%APPDATA%/llm-usage-desktop/otel/spans.jsonl）。
+//! Opt-in local OTLP/HTTP receiver (M5), bound to 127.0.0.1.
+//! /v1/traces accepts OTLP JSON/protobuf; referenced CodeBuddy exports use protobuf.
+//! Normalize per-request spans into adapter-readable JSONL after bounded gzip decoding.
+//! The managed output directory contains otel/spans.jsonl; supplemental logs stay separate.
 //!
-//! 约定（execution.md M5 / V22 / V25）：
-//! - 默认关闭（settings.otel_receiver_enabled）；启用 = 用户显式授权本机实例；
-//! - 仅 127.0.0.1；逐源 Bearer 令牌由当前用户的原生凭据库核验；
-//! - 请求头 ≤ 64 KiB、body ≤ 64 MiB、gzip 解压上限 64 MiB（压缩炸弹防护）；
-//! - 字段白名单：只保留 span 名/ID/kind/时间及逐项列出的用量、模型、会话属性；
-//!   不接受任意属性前缀，正文/凭据不落盘；
-//! - 认证先于正文处理；不接受浏览器 Origin 或声明转发的请求。
-//! - 全局每分钟最多 120 次，最多 4 个活动连接；超限 HTTP 429。
+//! Receiver rules (execution.md M5/V22/V25):
+//! - Disabled by default; enabling authorizes this local instance.
+//! - Bind loopback only; verify each source Bearer token against native current-user credential storage.
+//! - Headers <=64 KiB, body <=64 MiB, and decompressed gzip <=64 MiB.
+//! - Retain only named span identity/timing fields and explicitly selected usage/model/session attributes.
+//!   Do not accept arbitrary attribute prefixes or persist bodies/credentials.
+//! - Authenticate before body processing; reject browser Origin and forwarded requests.
+//! - Limit all sources together to 120 requests/minute and four active connections; return HTTP 429.
 
 use crate::receiver_auth::Family;
 use std::io::{Read, Write};
@@ -18,7 +18,7 @@ use std::net::TcpListener;
 use std::path::PathBuf;
 type Authority = std::sync::Arc<dyn Fn(&str, &str) -> Option<Family> + Send + Sync>;
 
-/// Keep one app-owned listener; a port already used by another process is an error.
+/// Keep one owned listener; an occupied port belonging to another process is an error.
 pub fn ensure_started(port: u16, out_dir: PathBuf) -> Result<(), String> {
     ensure_started_owned(port, out_dir).map(|_| ())
 }
@@ -68,7 +68,7 @@ impl Drop for Permit {
     }
 }
 
-/// Returns true only when this call starts a listener (for configuration failure rollback).
+/// True only when this call starts a listener, allowing configuration rollback to stop its own listener.
 pub fn ensure_started_owned(port: u16, out_dir: PathBuf) -> Result<bool, String> {
     let mut current = LISTENER.lock().map_err(|_| "receiver_busy")?;
     if let Some(active) = current.as_ref() {
@@ -104,13 +104,13 @@ pub fn stop_owned(port: u16, out_dir: &std::path::Path) {
     }
 }
 
-/// body 上限。
+/// Maximum body bytes.
 const MAX_BODY_BYTES: usize = 64 * 1024 * 1024;
-/// 头区上限。
+/// Maximum header bytes.
 const MAX_HEAD_BYTES: usize = 64 * 1024;
-/// gzip 解压上限。
+/// Maximum decompressed gzip bytes.
 const MAX_GZIP_BYTES: usize = 64 * 1024 * 1024;
-/// Exact keys consumed by the verified span adapter. New attributes need review.
+/// Exact keys consumed by the checked span adapter; review new attributes before adding them.
 const ALLOWED_ATTR_KEYS: &[&str] = &[
     "gen_ai.usage.input_tokens",
     "gen_ai.usage.output_tokens",
@@ -139,10 +139,10 @@ const ALLOWED_ATTR_KEYS: &[&str] = &[
     "github.copilot.turn_id",
 ];
 const ALLOWED_RESOURCE_KEYS: &[&str] = &["service.name"];
-/// 标量字符串上限（超出按非白名单丢弃：防超长正文变体）。
+/// Maximum scalar string bytes; discard oversized values instead of persisting body-like text.
 const MAX_ATTR_STRING_BYTES: usize = 256;
 
-/// 启动接收器线程；绑定失败返回 Err（调用方展示）。线程随进程退出结束。
+/// Start the test receiver thread; return bind errors, and exit the thread with the process.
 #[cfg(test)]
 pub fn start(port: u16, out_dir: PathBuf) -> Result<(), String> {
     start_with_admission(port, out_dir, Admission::new(), test_authority()).map(|_| ())
@@ -196,9 +196,9 @@ fn start_with_admission(
                             let _ =
                                 stream.set_write_timeout(Some(std::time::Duration::from_secs(1)));
                             let _ = respond(&mut stream, 429, "receiver request limit");
-                            // Explicit FIN plus bounded draining avoids losing
-                            // the response during Winsock connection teardown.
-                            // Rejected input is never parsed or persisted.
+                            // Explicit FIN and bounded input draining preserve the response
+                            // during Winsock connection shutdown.
+                            // Rejected input is neither parsed nor persisted.
                             let _ = stream.shutdown(std::net::Shutdown::Write);
                             let deadline =
                                 std::time::Instant::now() + std::time::Duration::from_millis(100);
@@ -246,18 +246,18 @@ fn start_with_admission(
 
 const CRLF: &str = "\u{0d}\u{0a}";
 
-/// 处理一条 HTTP 连接（单请求即关；OTLP exporter 均为短连接）。
+/// Handle one HTTP request per connection, then close the connection.
 fn handle(
     mut stream: std::net::TcpStream,
     out_dir: &std::path::Path,
     authority: &Authority,
 ) -> std::io::Result<()> {
-    // 接受自非阻塞 listener 的连接可能继承非阻塞属性：显式恢复阻塞读写。
+    // Restore blocking reads/writes explicitly after accepting from a nonblocking listener.
     stream.set_nonblocking(false)?;
     stream.set_read_timeout(Some(std::time::Duration::from_secs(30)))?;
     let mut buf = Vec::new();
     let mut chunk = [0u8; 16 * 1024];
-    // 读到头部结束或超限。
+    // Read until headers end or the configured size limit is reached.
     let head_end = loop {
         if let Some(pos) = find_head_end(&buf) {
             break pos;
@@ -393,7 +393,7 @@ fn handle(
     } else if content_type.contains("json") {
         parse_otlp_json(&body)
     } else {
-        // 默认按 protobuf（CodeBuddy 唯一形态）。
+        // Non-JSON content uses protobuf, the referenced CodeBuddy export encoding.
         parse_otlp_protobuf(&body)
     };
     let records = records
@@ -402,7 +402,7 @@ fn handle(
         .collect::<Vec<_>>();
     let count = records.len();
     if count > 0 {
-        // Supplemental logs are not auto-scanned as spans or summed with native sessions.
+        // Supplemental logs are not auto-scanned as spans or added to native session usage.
         let output = if logs {
             out_dir
                 .parent()
@@ -654,7 +654,7 @@ fn respond(stream: &mut std::net::TcpStream, status: u16, msg: &str) -> std::io:
     )
 }
 
-/// 白名单过滤后的扁平属性值。
+/// Flatten only explicitly permitted attribute values.
 fn allowed_attr(key: &str, value: &serde_json::Value) -> Option<serde_json::Value> {
     let keep = ALLOWED_ATTR_KEYS.contains(&key) || ALLOWED_RESOURCE_KEYS.contains(&key);
     if !keep {
@@ -664,7 +664,7 @@ fn allowed_attr(key: &str, value: &serde_json::Value) -> Option<serde_json::Valu
 }
 
 fn filtered_scalar(value: &serde_json::Value) -> Option<serde_json::Value> {
-    // OTLP AnyValue 形 {stringValue/intValue/doubleValue/boolValue} → 标量。
+    // Convert OTLP AnyValue string/int/double/bool values to scalars.
     if let Some(obj) = value.as_object() {
         if let Some(v) = obj.get("stringValue").and_then(|v| v.as_str()) {
             if v.len() > MAX_ATTR_STRING_BYTES {
@@ -701,7 +701,7 @@ fn filtered_scalar(value: &serde_json::Value) -> Option<serde_json::Value> {
     Some(value.clone())
 }
 
-/// OTLP/JSON ExportTraceServiceRequest → 归一化 span 记录。
+/// Normalize OTLP JSON ExportTraceServiceRequest to span records.
 fn parse_otlp_json(body: &[u8]) -> Vec<serde_json::Value> {
     let Ok(doc) = serde_json::from_slice::<serde_json::Value>(body) else {
         return Vec::new();
@@ -742,7 +742,7 @@ fn parse_otlp_json(body: &[u8]) -> Vec<serde_json::Value> {
     out
 }
 
-/// 单 span（OTLP JSON 形）→ 归一化记录（startTime 毫秒整数 + 扁平属性）。
+/// Map OTLP numeric span kind to its name.
 fn otlp_kind(kind: u64) -> &'static str {
     match kind {
         1 => "INTERNAL",
@@ -788,8 +788,8 @@ fn normalize_span(
     if let Some(ms) = start_ms {
         record.insert("startTime".into(), serde_json::Value::from(ms));
     }
-    // span status 透传（span 级元数据，非属性，不在白名单范围）：
-    // ERROR 状态供 otel 适配器标 error_status，失败调用不能当成功入账。
+    // Preserve span-level status metadata separately from filtered attributes.
+    // ERROR lets the adapter mark error_status without reporting failed calls as successful.
     if let Some(code) = span.pointer("/status/code") {
         record.insert("status".into(), serde_json::json!({"code": code.clone()}));
     }
@@ -809,13 +809,13 @@ fn normalize_span(
     serde_json::Value::Object(record)
 }
 
-// ---- protobuf wire 解析（ExportTraceServiceRequest）----
+// Parse ExportTraceServiceRequest protobuf wire fields.
 
 fn read_varint(data: &[u8]) -> Option<(u64, usize)> {
     let mut value: u64 = 0;
     let mut shift = 0u32;
     for (i, byte) in data.iter().enumerate().take(10) {
-        // 第 10 字节只允许 0/1（protobuf u64 编码规则）；更大值是损坏数据。
+        // A u64 protobuf varint permits only 0/1 in byte ten; larger values are malformed.
         if i == 9 && byte > &1 {
             return None;
         }
@@ -881,7 +881,7 @@ fn iter_fields<'a>(
     Some(())
 }
 
-/// protobuf KeyValue → (key, 标量值)。
+/// Decode protobuf KeyValue into a key and scalar value.
 fn protobuf_keyvalue(data: &[u8]) -> Option<(String, serde_json::Value)> {
     let mut key = String::new();
     let mut value: Option<serde_json::Value> = None;
@@ -917,7 +917,7 @@ fn protobuf_keyvalue(data: &[u8]) -> Option<(String, serde_json::Value)> {
     Some((key, value?))
 }
 
-/// OTLP/protobuf body → 归一化 span 记录。
+/// Normalize OTLP protobuf body to span records.
 fn parse_otlp_protobuf(body: &[u8]) -> Vec<serde_json::Value> {
     let mut out = Vec::new();
     iter_fields(body, |field, wire| {
@@ -986,7 +986,7 @@ fn protobuf_span(
                     }
                 }
             }
-            // Status 子消息：#2 code（枚举；2=ERROR）。
+            // Status submessage field 2 is code; enum 2 means ERROR.
             (15, Wire::Bytes(status)) => {
                 iter_fields(status, |f, w| {
                     if let (2, Wire::Varint(c)) = (f, w) {
@@ -1187,7 +1187,7 @@ mod tests {
         assert_eq!(record["kind"], "INTERNAL");
         assert_eq!(record["spanId"], "bb");
         assert_eq!(record["startTime"], serde_json::json!(1_780_000_000_500i64));
-        // 白名单：usage.* 保留、正文与超长字符串丢弃。
+        // Retain selected usage.* fields; discard bodies and oversized strings.
         assert_eq!(record["attributes"]["usage.input_tokens"], 100);
         assert!(record["attributes"].get("gen_ai.input.messages").is_none());
         assert_eq!(
@@ -1219,9 +1219,9 @@ mod tests {
             }
             out
         }
-        // span{spanId=0xab, name="model_stream", start=fixed64, attrs=[usage.input_tokens=100]}
+        // Test span: ID 0xab, model_stream name, fixed64 start, usage.input_tokens=100.
         let kv = [field_bytes(1, b"usage.input_tokens"), {
-            let mut any = read_varint_test(3 << 3); // AnyValue.int_value = field 3
+            let mut any = read_varint_test(3 << 3); // AnyValue int_value is protobuf field 3.
             any.extend(read_varint_test(100));
             field_bytes(2, &any)
         }]
@@ -1235,10 +1235,10 @@ mod tests {
         span.extend(time_tag);
         span.extend(field_bytes(9, &kv));
         let scope_spans = field_bytes(2, &span);
-        // Resource = field1(repeated KeyValue)；KeyValue = field1(key)+field2(AnyValue)。
+        // Resource field 1 repeats KeyValue; its fields 1/2 hold key/AnyValue.
         let name_kv = [
             field_bytes(1, b"service.name"),
-            // AnyValue{field1 stringValue}：wire2 长度分隔。
+            // AnyValue stringValue uses field 1 with length-delimited wire type 2.
             field_bytes(2, &field_bytes(1, b"codebuddy")),
         ]
         .concat();
@@ -1271,7 +1271,7 @@ mod tests {
                 .unwrap()
                 .as_nanos()
         ));
-        // 随机高位端口起接收器。
+        // Start on a high port derived from the process ID.
         let port = 46000u16 + (std::process::id() % 1000) as u16;
         start(port, dir.clone()).expect("receiver start");
         std::thread::sleep(std::time::Duration::from_millis(300));
@@ -1291,7 +1291,7 @@ mod tests {
             .unwrap();
         let _ = stream.read_to_string(&mut response);
         assert!(response.starts_with("HTTP/1.1 200"), "response: {response}");
-        // 接收器线程异步写盘：轮询等待。
+        // Wait with bounded polling for the receiver thread to write the file.
         let spans_path = dir.join("spans.jsonl");
         for _ in 0..50 {
             if spans_path.exists() {
@@ -1300,7 +1300,7 @@ mod tests {
             std::thread::sleep(std::time::Duration::from_millis(100));
         }
         let text = std::fs::read_to_string(&spans_path).expect("spans.jsonl written");
-        // otel 适配器扫描该文件。
+        // Scan the written file with the otel adapter.
         use llm_usage_core::adapters::framework::{
             ScanLimits, ScanTarget, SourceAdapter, StoredScanState,
         };
@@ -1424,8 +1424,8 @@ mod tests {
             let payload = br#"{"resourceSpans":[]}"#;
             write!(client,"POST /v1/traces HTTP/1.1{CRLF}Authorization: Bearer receiver-fixture{CRLF}Content-Type: application/json{CRLF}Content-Length: {}{CRLF}{CRLF}",payload.len()).unwrap();
             client.write_all(payload).unwrap();
-            // HTTP clients consume Content-Length, rather than waiting for EOF
-            // after a rejected request whose unread input may reset the socket.
+            // HTTP clients use Content-Length instead of waiting for EOF
+            // when unread rejected input can cause a socket reset.
             let mut head = Vec::new();
             while !head.ends_with(b"\r\n\r\n") {
                 let mut byte = [0];
@@ -1558,7 +1558,7 @@ mod tests {
             }
             String::from_utf8(response).unwrap()
         };
-        // No body is sent, despite a huge declaration. Authentication must respond immediately.
+        // A huge declared body sends no bytes; authentication must still respond immediately.
         assert!(request("/v1/logs", "", b"", MAX_BODY_BYTES + 1).starts_with("HTTP/1.1 401"));
         let header = format!("Authorization: {}{CRLF}", binding.header());
         assert!(request("/v1/traces", &header, b"", MAX_BODY_BYTES + 1).starts_with("HTTP/1.1 401"));
@@ -1602,12 +1602,12 @@ mod tests {
 
     #[test]
     fn json_status_passthrough() {
-        // span status.code 透传（ERROR 供适配器标 error_status）。
+        // Preserve status.code=ERROR for adapter error_status.
         let body = br#"{"resourceSpans":[{"scopeSpans":[{"spans":[{"spanId":"s1","name":"chat","status":{"code":"STATUS_CODE_ERROR"}}]}]}]}"#;
         let records = parse_otlp_json(body);
         assert_eq!(records.len(), 1);
         assert_eq!(records[0]["status"]["code"], "STATUS_CODE_ERROR");
-        // 无 status 的 span 不带该键。
+        // Spans without status omit that key.
         let body =
             br#"{"resourceSpans":[{"scopeSpans":[{"spans":[{"spanId":"s2","name":"chat"}]}]}]}"#;
         let records = parse_otlp_json(body);
@@ -1637,7 +1637,7 @@ mod tests {
             }
             out
         }
-        // Status{#2 code varint 2（ERROR）} → Span #15。
+        // Status field 2 varint ERROR=2 is nested in Span field 15.
         let status = {
             let mut s = varint_test(2 << 3);
             s.extend(varint_test(2));
@@ -1656,7 +1656,7 @@ mod tests {
 
     #[test]
     fn varint_tenth_byte_guard() {
-        // 第 10 字节 > 1：拒绝（不静默截断高位）。
+        // Reject varint byte ten above 1 instead of truncating high bits.
         let bad = [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x02];
         assert_eq!(read_varint(&bad), None);
     }

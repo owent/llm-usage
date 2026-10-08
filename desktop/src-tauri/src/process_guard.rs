@@ -76,7 +76,7 @@ mod tests {
                     .as_nanos()
             ));
         std::fs::create_dir_all(root.parent().unwrap()).unwrap();
-        // Reused process IDs must not reopen old ingest_runs fixtures.
+        // Reused process IDs must not reopen previous ingest_runs test databases.
         std::fs::create_dir(&root).unwrap();
         let path = root.join("test.sqlite");
         let guard = super::acquire(&path).unwrap().unwrap();

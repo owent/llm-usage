@@ -1,9 +1,13 @@
-# synthetic-undocumented-type 期望（人工核算，全合成样本）
+# synthetic-undocumented-type expectations (manually calculated, synthetic)
 
-第 2 行 type="brand_new_record" 超出固定源码 ChatRecord 四值枚举：整文件 fail closed
-（`undocumented_record_type`），第 1 行已解析的 assistant 事件一并清空。
+<a id="synthetic-undocumented-type-期望人工核算全合成样本"></a>
 
-## 期望
+Line 2 has type="brand_new_record", outside the four-value ChatRecord enum in fixed source. Clear
+the assistant event parsed from line 1. Reject the whole file with undocumented_record_type.
 
-- files[0].status="pending"；0 事件入库（fail closed 清轮）；游标不推进（无 checkpoint）。
-- diagnostics 每轮 1 条 code=undocumented_record_type；二次扫描仍 pending、再记 1 条。
+<a id="期望"></a>
+
+## Expectations
+
+- files[0].status="pending"; no imported events or cursor advancement; no checkpoint.
+- One diagnostic per scan; a second scan remains pending and adds another diagnostic. Diagnostic code=undocumented_record_type.

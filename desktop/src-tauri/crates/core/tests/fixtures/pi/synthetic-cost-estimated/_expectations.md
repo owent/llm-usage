@@ -1,15 +1,20 @@
-# synthetic-cost-estimated._expectations.md（SYNTHETIC）
+# synthetic-cost-estimated._expectations.md (synthetic)
 
-**本目录全部为合成样本（synthetic），不是真实会话提取。** 覆盖 usage.cost.total 的
-estimated 费用映射：>0 映射、=0 不映射（0 与无价目不可区分）。结构仿 pi session JSONL v3。
+<a id="synthetic-cost-estimated_expectationsmdsynthetic"></a>
 
-## 场景与期望
+**All files are synthetic, not native session extracts.** Test estimated usage.cost.total:
+map positive values, leave zero unknown because it cannot be distinguished from missing
+prices. Shape: Pi session JSONL v3.
 
-3 行：session 头（syn-sess-cost）、assistant syn-c-1（usage 100/50/0/0/150，
-cost.total=0.005）、assistant syn-c-2（usage 5/5/0/0/10，cost.total=0）。
+<a id="场景与期望"></a>
 
-- syn-c-1：cost_amount_minor = 0.005 × 1_000_000 = 5000（USD，kind=estimated，
-  price_version 缺失保持 NULL）。
-- syn-c-2：cost.total=0 ⇒ cost_amount_minor/cost_currency/cost_kind 全 NULL。
-- 汇总（2026-01-05）：call_count=2、input_total_known=155（150+5）、
-  output_total_known=55（50+5）、total_tokens_known=160（150+10）。
+## Scenario and expectations
+
+Three lines: session syn-sess-cost; assistant syn-c-1, usage 100/50/0/0/150,
+cost.total=0.005; assistant syn-c-2, usage 5/5/0/0/10, cost.total=0.
+
+- syn-c-1: cost_amount_minor=0.005×1_000_000=5000, USD, kind=estimated;
+  absent price_version remains NULL.
+- syn-c-2: cost.total=0 leaves cost_amount_minor/cost_currency/cost_kind NULL.
+- 2026-01-05 summary: call_count=2, input_total_known=105 (100+5),
+  output_total_known=55 (50+5), total_tokens_known=160 (150+10).

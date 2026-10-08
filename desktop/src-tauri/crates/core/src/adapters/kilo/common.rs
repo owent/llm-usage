@@ -1,11 +1,11 @@
-//! Kilo Code CLI 产品特有的公共部分（从根级 usage_map.rs 下沉，V30 目录约定）：
-//! - usage 映射（`map_kilo`/`KiloUsage`，全互斥关系）；
-//! - 源 SQLite 只读访问实现（architecture.md#database 末五条）：
-//!   只读连接 + 短查询；busy/锁时经 Online Backup API 生成系统临时目录暂存副本，
-//!   带页/时间/空间上限并清理；仍无法一致读取时把 busy 上抛，由框架保留旧结果；
-//!   绝不写源库（不 checkpoint、不改 journal/schema、不新建源端 sidecar）。
+//! Kilo Code CLI helpers moved from root usage_map.rs under the V30 directory convention.
+//! - map_kilo/KiloUsage maps mutually exclusive usage buckets.
+//! - Read-only source SQLite access follows architecture.md#database:
+//!   direct connection/short probe, with Online Backup to system temp on busy-like probe failure.
+//!   Staging has page/time/size limits and cleanup; errors propagate so existing results survive.
+//!   Never checkpoint or alter source journal/schema, or create source-side files.
 //!
-//! 共享的 MappedUsage/finish/sub_checked/矛盾检测仍留在跨 Agent 的 usage_map.rs。
+//! Cross-Agent usage_map.rs retains MappedUsage/finish/sub_checked and contradiction checks.
 
 use crate::adapters::usage_map::{finish, MappedUsage};
 use crate::domain::{FieldQuality as Q, TokenQuality, TokenUsage};
@@ -16,14 +16,14 @@ use rusqlite::{Connection, OpenFlags};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-/// kilo（opencode 派生）message.data.tokens：
-/// total = input+output+reasoning+cache.read+cache.write 全互斥（与其他源相反，
-/// m0-agent-fixtures.md 实读结论）。因此 canonical output_total 须把 reasoning
-/// 并入（derived），才能满足统一约定 total_tokens = input_total + output_total。
+/// OpenCode-derived Kilo message.data.tokens has five mutually exclusive components:
+/// total = input + output + reasoning + cache.read + cache.write, verified in
+/// m0-agent-fixtures.md. Add reasoning to canonical output_total as derived output
+/// to satisfy normalized total_tokens = input_total + output_total when required buckets are known.
 ///
-/// `total` 为 `Option`：未完成/出错消息可缺 `total` 字段（7.4.8/7.4.9 真实 fixture
-/// 各有 2/1 条；本机实读库 13,342 条 assistant 中 42 条缺失）——缺失时 source_total
-/// 保持 None（未知，不补零），派生总量仍由五字段相加得出。
+/// total is optional: unfinished/failed messages may omit it (two/one records in real
+/// 7.4.8/7.4.9 samples; 42 of 13,342 local assistant rows). Missing source_total remains
+/// None, without zero-filling; complete known components can still derive total.
 #[derive(Debug, Clone, Copy)]
 pub struct KiloUsage {
     pub input: i64,
@@ -96,8 +96,8 @@ pub fn map_kilo(raw: &KiloUsage) -> MappedUsage {
     finish(usage, quality, diagnostics)
 }
 
-/// 一次只读访问：成功时直接用源库连接；busy/锁时自动切换到暂存副本。
-/// `guard` 持有暂存副本路径，drop 时清理（即使查询中途失败）。
+/// Read-only source access; busy-like probe failures switch to a staging snapshot.
+/// _staging owns the snapshot guard; drop cleans up even after query failure.
 pub struct SourceDb {
     conn: Connection,
     _staging: Option<StagingGuard>,
@@ -121,7 +121,7 @@ impl Drop for StagingGuard {
     }
 }
 
-/// busy/锁/CANTOPEN 判定（这些错误表示无法一致读取）。
+/// SQLite busy/locked/CANTOPEN errors prevent a successful consistency probe.
 pub(crate) fn is_busy_like(err: &rusqlite::Error) -> bool {
     matches!(
         err.sqlite_error_code(),
@@ -131,14 +131,14 @@ pub(crate) fn is_busy_like(err: &rusqlite::Error) -> bool {
     )
 }
 
-/// 暂存副本参数（architecture.md：设置页/时间/空间上限并清理）。
+/// Staging page/time/size limits and cleanup follow architecture.md.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct StagingLimits {
-    /// 每步备份页数（限制单步持锁时长）。
+    /// Pages copied per backup step, bounding work while holding locks.
     pub pages_per_step: i32,
-    /// 暂存副本字节上限（超限放弃，标记 busy 而非占满磁盘）。
+    /// Snapshot byte limit; abort oversized backups rather than filling the disk.
     pub max_bytes: u64,
-    /// 备份总时限。
+    /// Overall backup timeout.
     pub max_time: Duration,
 }
 
@@ -146,16 +146,16 @@ impl Default for StagingLimits {
     fn default() -> Self {
         StagingLimits {
             pages_per_step: 512,
-            // 空间上限 2 GiB：更大的活库不强行暂存（busy/unsupported 保留旧结果）。
+            // Default 2 GiB staging limit; do not force-copy larger live databases, preserving prior results.
             max_bytes: 2 * 1024 * 1024 * 1024,
-            // 时间上限 30s：超限放弃暂存并按 busy 上抛（单源每轮 30s 超时时间之内）。
+            // Default 30-second staging timeout; exceeding it returns busy rather than completing the snapshot.
             max_time: Duration::from_secs(30),
         }
     }
 }
 
-/// 打开源库只读连接。busy_timeout 设短：快速失败转暂存副本路径，
-/// 不长时间阻塞采集线程。
+/// Open read-only with short busy_timeout so probe waits are bounded
+/// without blocking the collection thread for long periods.
 pub(crate) fn open_readonly(path: &Path) -> Result<Connection, rusqlite::Error> {
     let conn = Connection::open_with_flags(
         path,
@@ -168,9 +168,9 @@ pub(crate) fn open_readonly(path: &Path) -> Result<Connection, rusqlite::Error> 
     Ok(conn)
 }
 
-/// Online Backup 到系统临时目录的一致暂存副本（从只读连接发起，不写源库）。
-/// 逐步备份并在页/时间/空间任一超限时中止；中止/失败时先关闭目标连接再删文件
-/// （Windows 下打开句柄中的 remove_file 会因共享冲突静默失败留下残留）。
+/// Online Backup creates a consistent system-temp snapshot without writing the source.
+/// Copy in steps, aborting at limits; close destination handles before removing partial files.
+/// Windows remove_file can otherwise fail because an open handle denies shared deletion.
 fn backup_to_staging(
     source: &Connection,
     limits: &StagingLimits,
@@ -187,7 +187,7 @@ fn backup_to_staging(
             .unwrap_or(0)
     ));
     let started = Instant::now();
-    // 闭包内 `?` 只退出闭包：任何失败路径都统一落入下方清理（先关句柄再删文件）。
+    // ? exits this closure only; every failure reaches common cleanup after handles close.
     let attempt = || -> Result<(), rusqlite::Error> {
         let mut dest = Connection::open(&dest_path)?;
         let backup = Backup::new(source, &mut dest)?;
@@ -202,8 +202,8 @@ fn backup_to_staging(
             crate::adapters::run_policy::check_sqlite()?;
             match backup.step(limits.pages_per_step) {
                 Ok(StepResult::Done) => break Ok(()),
-                // Busy/Locked/More（StepResult 标记 #[non_exhaustive]）按可重试推进。
-                // More：实际拷贝了页，计入空间限制。
+                // StepResult is non-exhaustive; retryable results remain within the configured limits.
+                // More means pages were copied; count those pages toward the size limit.
                 Ok(StepResult::More) => {
                     done_pages += i64::from(limits.pages_per_step);
                     if done_pages > max_pages {
@@ -214,9 +214,9 @@ fn backup_to_staging(
                     }
                     std::thread::sleep(Duration::from_millis(20));
                 }
-                // Busy/Locked（#[non_exhaustive] 其余）：无进展重试，仍计入超时时间。
-                // 2026-09-30 修复：此前重试也计入页数，与超时出口竞速产生
-                // 平台相关的 space cap 误报（CI Linux 页上限先于超时触发）。
+                // Busy/Locked or other non-exhaustive results retry without progress, within the timeout.
+                // 2026-09-30 fix: retries previously added pages and raced the timeout, causing
+                // platform-specific false size-limit failures (Linux CI hit the page cap before timeout).
                 Ok(_) => {
                     std::thread::sleep(Duration::from_millis(20));
                 }
@@ -224,7 +224,7 @@ fn backup_to_staging(
             }
         }
     };
-    // 此处 dest/backup 均已随闭包结束关闭，删除不再受句柄阻塞。
+    // Destination/backup handles have closed with the closure; they no longer prevent removal.
     match attempt() {
         Ok(()) => Ok(dest_path),
         Err(e) => {
@@ -236,13 +236,13 @@ fn backup_to_staging(
     }
 }
 
-/// 打开 kilo.db 的只读访问：
+/// Open kilo.db for read-only access:
 ///
-/// 1. 直接只读连接 + 短查询事务（`probe` 成功即视为本步一致可读）；
-/// 2. busy/锁时经 Online Backup 生成暂存副本再读；
-/// 3. 仍失败 → CoreError（调用方记 busy/unsupported，保留旧结果）。
+/// 1. Open directly and run the short probe; this function creates no explicit read transaction.
+/// 2. On busy-like probe failure, create/read an Online Backup snapshot.
+/// 3. Other failures become CoreError; callers retain existing results and report the error.
 ///
-/// 绝不写源库。
+/// Never write the source database.
 pub(crate) fn open_source_db<F>(
     path: &Path,
     probe: F,
@@ -258,7 +258,7 @@ where
             _staging: None,
         }),
         Err(e) if is_busy_like(&e) => {
-            // 短读失败：用同一只读连接发起到暂存副本的一致备份。
+            // The consistency probe failed; back up through the same read-only source connection.
             let staging_path = backup_to_staging(&conn, limits).map_err(CoreError::Sqlite)?;
             let staged = open_readonly(&staging_path).map_err(CoreError::Sqlite)?;
             Ok(SourceDb {
@@ -270,8 +270,8 @@ where
     }
 }
 
-/// kilo.db schema 指纹：表与关键列的存在情况（不含数据、不含正文）。
-/// message 五列 + session 九列（usage 对账需要 tokens_* 五列）。
+/// kilo.db schema fingerprint covers required tables/columns, without records or conversations.
+/// Require five message columns and eight session columns, including five reconciliation token columns.
 pub(crate) const REQUIRED_MESSAGE_COLUMNS: &[&str] =
     &["id", "session_id", "time_created", "time_updated", "data"];
 pub(crate) const REQUIRED_SESSION_COLUMNS: &[&str] = &[
@@ -285,7 +285,7 @@ pub(crate) const REQUIRED_SESSION_COLUMNS: &[&str] = &[
     "tokens_cache_write",
 ];
 
-/// 计算 schema 指纹（表缺失返回 None）。指纹串只含表/列名，可安全持久化。
+/// Missing tables/columns return None; the persisted fingerprint contains only table/column names.
 pub(crate) fn schema_fingerprint(conn: &Connection) -> Result<Option<String>, CoreError> {
     let table_exists = |name: &str| -> Result<bool, CoreError> {
         let found: Option<i64> = conn
@@ -353,7 +353,7 @@ mod tests {
         assert_eq!(m.usage.source_total, Some(1100));
         assert!(m.diagnostics.is_empty());
 
-        // 缺 total：source_total None，派生总量仍在。
+        // Missing native total keeps source_total unknown while known components can still derive total.
         let missing = map_kilo(&KiloUsage {
             input: 10,
             output: 5,
@@ -366,7 +366,7 @@ mod tests {
         assert_eq!(missing.quality.source_total, Q::Unknown);
         assert_eq!(missing.usage.total_tokens, Some(17));
 
-        // 直报 total 与派生值不一致时记诊断（包含关系成立才有可比性）。
+        // Diagnose disagreement between comparable reported and derived totals.
         let bad = map_kilo(&KiloUsage {
             input: 10,
             output: 5,
@@ -393,7 +393,7 @@ mod tests {
             cache_write: 0,
             total: None,
         });
-        // 溢出的派生字段保持 None（未知），不 panic、不截断数值。
+        // Overflowed derived fields stay None; do not panic or truncate numeric values.
         assert_eq!(m.usage.input_total, None);
         assert_eq!(m.usage.total_tokens, None);
     }

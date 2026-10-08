@@ -1,19 +1,26 @@
-# DSH 0.2.0-rc.2 v4 真实白名单投影
+# DSH 0.2.0-rc.2 v4 native sample with selected fields
 
-官方 npm CLI 在独立无网络容器中调用真实本地模型，两轮 CLI 退出 0。
-原生压缩文件 17,575 字节、解压 51,114 字节；摘要见 provenance.json。
-fixture 只保留 header、事件封套、turn/step、时间、匿名身份、模型与用量，
-不保留内容、reasoning 文本、请求配置、工具参数或原始目录。
-普通非用量事件的 data 为采集白名单投影，不作为完整 DSH 恢复格式认证。
+<a id="dsh-020-rc2-v4-真实样本的字段提取"></a>
 
-| 样本 | 未缓存输入 | 缓存读 | 总输入 | 输出 | 总量 |
+<a id="dsh-020-rc2-v4-真实按允许字段提取"></a>
+
+The official npm CLI called a real local model in an isolated container with networking
+disabled. Both CLI runs exited 0. The native compressed file was 17,575 bytes and the
+decompressed file 51,114 bytes; provenance.json records their digests. This test sample
+retains only the header, event envelope, turn/step, timestamps, anonymized identities,
+model and usage. It excludes content, reasoning text, request configuration, tool arguments
+and original directories. Ordinary non-usage events retain only permitted data fields;
+this extraction does not verify the complete DSH recovery format.
+
+| Sample | Uncached input | Cache read | Total input | Output | Total |
 | --- | --- | --- | --- | --- | --- |
-| 主循环一 | 5,572 | 未知 | 5,572 | 64 | 5,636 |
-| 主循环二 | 34 | 5,568 | 5,602 | 41 | 5,643 |
-| 已知合计 | 5,606 | 5,568 | 11,174 | 105 | 11,279 |
+| Main loop 1 | 5,572 | Unknown | 5,572 | 64 | 5,636 |
+| Main loop 2 | 34 | 5,568 | 5,602 | 41 | 5,643 |
+| Known sum | 5,606 | 5,568 | 11,174 | 105 | 11,279 |
 
-调用 2；同 settlement 的 stream usage 不叠加。pi-ai total 是自算值，
-source_total 未知；缓存写、reasoning、费用未知。标题 API 另有 205 token，
-原生只有请求标记，无结果用量，不补造第三条事件。
-单独的 synthetic mutation 测试覆盖继承、重试、坏类型、限制、半写与回滚，
-不声称这些路径已有真实样本；真实原生 zstd 成品回读另记。
+There are two calls. Do not add stream usage from the same settlement. pi-ai calculates
+total itself, so source_total is unknown; cache write, reasoning and cost are unknown.
+The title API used another 205 tokens, but native data has only the request marker and
+no result usage: do not invent a third event. Separate synthetic mutation tests cover
+inheritance, retries, invalid types, limits, incomplete writes and rollback. Those paths
+have no claimed native samples. Reading the actual native zstd output is recorded separately.

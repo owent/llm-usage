@@ -1,4 +1,4 @@
-//! Surgical JSONC/TOML edits. Never deserialize and rewrite a user's whole JSON file.
+//! Targeted JSONC/TOML edits; never deserialize and rewrite a user's whole JSON file.
 use jsonc_parser::{ast, common::Ranged, CollectOptions, ParseOptions};
 use serde_json::Value;
 
@@ -42,7 +42,7 @@ fn validate(value: &ast::Value<'_>) -> Result<(), String> {
 
 pub fn json_value(text: &str) -> Result<Value, String> {
     let text = text.strip_prefix('\u{feff}').unwrap_or(text);
-    // Bound nesting before invoking a recursive parser on a user-controlled file.
+    // Limit nesting before recursively parsing user-controlled files.
     let bytes = text.as_bytes();
     let mut pos = 0;
     let mut depth = 0usize;
@@ -85,7 +85,7 @@ pub fn json_value(text: &str) -> Result<Value, String> {
     jsonc_parser::parse_to_serde_value(text, &options()).map_err(|_| "invalid_config".into())
 }
 
-/// First significant byte after a value, skipping comments. Needed for trailing commas.
+/// First non-whitespace/comment byte after a value, used for trailing commas.
 fn significant(text: &str, mut at: usize) -> Option<(usize, u8)> {
     let bytes = text.as_bytes();
     while at < bytes.len() {
@@ -132,8 +132,8 @@ fn json_edit(text: &str, path: &[String], value: &Value) -> Result<String, Strin
             let insert = format!("  {}: {nested}{nl}", serde_json::to_string(key).unwrap());
             let mut output = text.to_owned();
             let close = object.range.end - 1;
-            // Reuse the closing brace's newline instead of adding another one
-            // on every inserted property. Existing comments/blank lines stay.
+            // Reuse the closing brace's newline rather than adding a new line
+            // for every inserted property; preserve comments and blank lines.
             let line_start = text[..close].rfind('\n').map_or(close, |p| p + 1);
             if line_start < close && text[line_start..close].trim().is_empty() {
                 output.insert_str(line_start, &insert);
@@ -222,8 +222,8 @@ fn remove_json(text: &str, path: &[String]) -> Result<String, String> {
     Ok(output)
 }
 
-/// Revert owned values only. Later user edits to other keys are preserved, and edited
-/// owned values are reported as conflicts rather than being overwritten.
+/// Revert owned values only; preserve later edits to other keys and report changed
+/// owned values as conflicts instead of overwriting them.
 pub fn restore_json(
     text: &str,
     before: &Value,

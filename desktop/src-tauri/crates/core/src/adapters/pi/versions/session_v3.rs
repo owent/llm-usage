@@ -1,32 +1,32 @@
-//! pi session JSONL 格式实现（`session_v3`，version 3）。
+//! pi session JSONL parser: session_v3, format version 3.
 //!
-//! 格式依据（固定源码 pi-mono b45597504eeaba1f11a9920a1d1048c361ed4b8e，本阶段联网只读核对；
-//! 真实核对以本机 fixture 为准，合成 fixture 均标注）：
-//! - `packages/ai/src/types.ts`：`Usage{input,output,cacheRead,cacheWrite,cacheWrite1h?(⊆cacheWrite),
-//!   reasoning?(⊆output),totalTokens,cost}`；anthropic-messages/openai-completions 均把
-//!   `input` 规范化为未缓存桶，`totalTokens = input+output+cacheRead+cacheWrite`。
-//! - `packages/coding-agent/src/core/session-manager.ts`：条目基座 `{type,id,parentId,timestamp}`；
-//!   首行 `type:"session"` 头（`version`=3，`id`，`parentSession?`）；usage 载体四类：
-//!   ① `message` 且 role=assistant（逐次 model_call；responseId 可选）；
-//!   ② 独立 `usage` 条目（`kind` 如 cache_warm；provider/model 自有字段）；
-//!   ③ `compaction` 条目 `usage?`（总结调用；无模型字段，按不晚于它的 model_change 归属）；
-//!   ④ `branch_summary` 条目 `usage?`（同③）。toolResult 的 `usage?` 是工具执行自身消耗，
-//!   不进主上下文记账（types.ts 注释），按辅助调用映射。
-//!   fork（`fork`/`forkFrom`）把源文件全部非头条目**逐字复制**进新文件（id/parentId/timestamp
-//!   不变，新 header 记 `parentSession`），继承条目不是新调用：事件键用条目四元组
-//!   （type+id+parentId+timestamp），复制件在实例内 upsert 幂等去重。
-//! - `packages/coding-agent/src/core/agent-session.ts` `getSessionStats`：对文件内全部条目求和
-//!   （含被压缩/放弃分支，因为调用均已计费）——适配器规则相同。
-//! - `packages/coding-agent/src/config.ts`：目录由 `PI_CODING_AGENT_DIR`（agent 根）/
-//!   `PI_CODING_AGENT_SESSION_DIR`（sessions 直指定）解析，默认 `~/.pi/agent/sessions`。
+//! Fixed reference: pi-mono b45597504eeaba1f11a9920a1d1048c361ed4b8e, inspected read-only.
+//! Native acceptance uses local samples; synthetic datasets are identified separately.
+//! - packages/ai/src/types.ts defines input/output/cacheRead/cacheWrite, optional
+//!   cacheWrite1h as a write subset, reasoning as an output subset, totalTokens, and cost.
+//!   Referenced providers normalize input to uncached; totalTokens sums the four independent buckets.
+//! - session-manager.ts entries have type/id/parentId/timestamp and a version=3
+//!   session header with id/optional parentSession. Usage can appear in four entry types:
+//!   assistant message model_call with optional responseId;
+//!   standalone usage such as cache_warm with its own provider/model;
+//!   compaction usage and branch_summary usage, whose model ownership is tracked
+//!   from preceding model_change records. toolResult usage is separate tool consumption,
+//!   mapped as auxiliary usage without adding it to the main context.
+//!   fork/forkFrom copies non-header entries verbatim, keeping IDs, parents, and timestamps.
+//!   The new header records parentSession; inherited entries do not represent new calls.
+//!   A type/id/parentId/timestamp key deduplicates copies within the instance.
+//! - agent-session.ts getSessionStats sums all file entries, including compacted
+//!   or discarded branches; this adapter likewise retains their observed usage.
+//! - config.ts resolves PI_CODING_AGENT_DIR or the direct PI_CODING_AGENT_SESSION_DIR;
+//!   default sessions are ~/.pi/agent/sessions.
 //!
-//! 版本策略（architecture.md#unknown-version，V30）：session 头经
-//! [`super::select`]（探测/扫描同一注册表）分派；未收录数值用本实现（当前最新）
-//! 兼容尝试，事件带 `parse_basis` 标记；已确认不兼容的版本（v1/v2/缺失 version）
-//! 才跳过并记诊断。
+//! V30 version rules: super::select reads the session header through the same registry
+//! used by detection. Unregistered numeric versions attempt the latest compatible parser
+//! with parse_basis markers; checked incompatible versions 1/2 or missing version
+//! are skipped with diagnostics.
 //!
-//! V30 目录迁移：本实现自根级 adapters/pi.rs 整体迁入（已验收行为保持原样）；
-//! pi/omp 家族共享的 usage 解析与事件构造也在此实现，由上级 mod.rs 再导出。
+//! V30 moved adapters/pi.rs without changing checked behavior.
+//! Shared pi/omp usage parsing and event construction live here and are reexported by mod.rs.
 
 use crate::domain::{
     AttributionStatus, CallCategory, CostAmount, CostKind, EventInput, Lifecycle, ModelAttribution,
@@ -45,7 +45,7 @@ use crate::adapters::usage_map::{map_pi_family, PiFamilyUsage};
 pub const PI_PARSER_VERSION: &str = "pi-session-1";
 const MAX_REASONABLE_TOKEN: i64 = crate::domain::MAX_TOKEN_VALUE;
 
-/// 持久化解析上下文（会话身份、模型状态、版本选择依据、未知类型登记）。
+/// Persist session identity, model state, version selection, and unknown entry types.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 struct PiParseContext {
     session_id: Option<String>,
@@ -55,8 +55,8 @@ struct PiParseContext {
     model_provider: Option<String>,
     #[serde(default)]
     unknown_types: Vec<String>,
-    /// 版本选择依据（known_version / latest_fallback）；旧解析上下文缺省为 None，
-    /// V30 目录迁移不重建来源、不重置游标。
+    /// Format basis known_version/latest_fallback; older contexts default to None.
+    /// The V30 directory move does not recreate sources or reset cursors.
     #[serde(default)]
     version_basis: Option<VersionBasis>,
 }
@@ -92,8 +92,8 @@ fn restore_context(stored: &StoredScanState, rescan: bool) -> PiParseContext {
         .unwrap_or_default()
 }
 
-/// 解析 pi/omp 家族 usage 对象；必需数值缺失/类型错误/负值/超限返回 None（调用方记诊断）。
-/// `reasoning`/`reasoningTokens` 缺字段保持 None（供应商未报告 ≠ 0）。
+/// Parse shared usage; absent required values, invalid types, negatives, or excessive tokens return None.
+/// Missing reasoning/reasoningTokens stays None rather than becoming zero.
 pub(crate) fn parse_usage(value: &serde_json::Value) -> Option<PiFamilyUsage> {
     let obj = value.as_object()?;
     let get = |key: &str| -> Option<i64> {
@@ -118,8 +118,8 @@ pub(crate) fn parse_usage(value: &serde_json::Value) -> Option<PiFamilyUsage> {
     })
 }
 
-/// usage.cost.total（USD，Agent 自带价目估算，非供应商账单）→ estimated 费用。
-/// 0 与无价目不可区分，不映射（None = unknown）；非有限/负值/溢出记诊断返回 None。
+/// Map usage.cost.total in USD as an Agent rate estimate rather than a supplier bill.
+/// Zero cannot identify a known rate; nonfinite/negative/overflow values produce diagnostics and None.
 pub(crate) fn map_cost(
     usage: &serde_json::Value,
     price_version: Option<String>,
@@ -178,8 +178,8 @@ pub(crate) fn diag(code: &str, field: Option<&str>, line: u64, message: &str) ->
     }
 }
 
-/// 条目身份：fork 逐字复制保持四元组一致（types+id+parentId+timestamp），
-/// 实例内 upsert 幂等；`parentId` 为空用 "-" 占位。`ns` 为适配器命名空间（pi/omp）。
+/// Fork copies preserve type/id/parentId/timestamp identity.
+/// Stable instance keys use - for absent parentId and ns for the pi/omp adapter namespace.
 pub(crate) fn family_entry_key(ns: &str, prefix: &str, entry: &serde_json::Value) -> String {
     let id = json_str(entry, "id").unwrap_or("noid");
     let parent = json_str(entry, "parentId").unwrap_or("-");
@@ -187,7 +187,7 @@ pub(crate) fn family_entry_key(ns: &str, prefix: &str, entry: &serde_json::Value
     format!("{ns}:{prefix}:{id}:{parent}:{ts}")
 }
 
-/// pi 命名空间下的条目键。
+/// Entry key in the pi namespace.
 fn entry_key(prefix: &str, entry: &serde_json::Value) -> String {
     family_entry_key("pi", prefix, entry)
 }
@@ -202,10 +202,10 @@ pub(crate) struct UsageEventBase<'a> {
     pub error_status: Option<String>,
 }
 
-/// 由任意 usage 载体条目构造 pi 家族事件（pi/omp 共用）。`usage` 为 None 时
-/// token 全未知（无 usage 的 assistant 消息仍计一次调用；不补零）。
-/// duration/ttft 仅 omp 会话的 assistant 消息有字段（types.ts duration?/ttft?），
-/// 其余载体与 pi 一律 None。`parse_basis` 为版本选择依据（V30 兼容标记）。
+/// Shared pi/omp event constructor; absent usage leaves token fields unknown.
+/// Assistant records still count an observed call without filling unknown tokens with zero.
+/// Only omp assistant records define optional duration/ttft fields in the referenced types.
+/// Other entries and pi leave those fields None; parse_basis carries the selected version reference.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn build_pi_family_event(
     target: &ScanTarget,
@@ -287,8 +287,8 @@ pub(crate) fn build_pi_family_event(
     }
 }
 
-/// pi 会话事件构造：无 duration/ttft 字段（pi types.ts 未定义），共享实现见
-/// [`build_pi_family_event`]；`parse_basis` 取自解析上下文的版本选择依据。
+/// pi event construction has no duration/ttft fields in the referenced types.
+/// See build_pi_family_event; parse_basis comes from persisted format selection.
 #[allow(clippy::too_many_arguments)]
 fn build_usage_event(
     target: &ScanTarget,
@@ -321,7 +321,7 @@ fn build_usage_event(
     )
 }
 
-/// 增量扫描一个 pi session JSONL 文件（统一入口 `PiAdapter::scan` 分派到本实现）。
+/// Scan pi session JSONL, dispatched by PiAdapter::scan.
 pub fn scan(
     target: &ScanTarget,
     stored: &StoredScanState,
@@ -373,9 +373,9 @@ pub fn scan(
                     ));
                     continue;
                 }
-                // 版本分派（探测/扫描共用同一注册表，V30）：KnownVersion/LatestFallback
-                // 都继续解析（未知版本数据照常入库，事件带 parse_basis 标记）；
-                // 已确认不兼容（v1/v2/缺失 version）才跳过并记诊断。
+                // Detection/scanning share V30 version selection. KnownVersion and LatestFallback
+                // both continue with marked events when structure is valid.
+                // Checked incompatible versions 1/2 or absent version are skipped with diagnostics.
                 let header_version = entry.get("version").and_then(|v| v.as_i64());
                 match super::select(header_version) {
                     Ok(selection) => {
@@ -462,8 +462,8 @@ pub fn scan(
                                 ));
                             }
                             None => {
-                                // 无 usage 的 assistant 消息仍表明发生过一次调用：
-                                // 计调用数，token 全未知（不补零）。
+                                // Missing or invalid assistant usage still leaves an observed call:
+                                // count the call with unknown tokens instead of zeros.
                                 diagnostics.push(diag(
                                     "usage_shape_deviation",
                                     Some("message.usage"),
@@ -485,7 +485,7 @@ pub fn scan(
                         }
                     }
                     "toolResult" => {
-                        // 工具执行自身的 usage（不进主上下文记账）→ 辅助调用。
+                        // Tool-result usage is separate consumption mapped to auxiliary calls.
                         let Some(usage_json) = message.get("usage").cloned() else {
                             continue;
                         };
@@ -532,7 +532,7 @@ pub fn scan(
                 }
             }
             "usage" => {
-                // 独立 usage 条目（kind 如 cache_warm）：辅助调用，provider/model 自有字段。
+                // Standalone usage such as cache_warm is auxiliary and carries its own provider/model.
                 let usage_json = entry
                     .get("usage")
                     .cloned()
@@ -577,8 +577,8 @@ pub fn scan(
                 ));
             }
             "compaction" | "branch_summary" => {
-                // 总结/分支总结调用（usage 可选）：无模型字段，按不晚于它的
-                // 按 model_change 记录模型变更，无法确认所属模型时保持 unknown。
+                // Optional compaction/branch_summary usage tracks preceding model_change records;
+                // leave the model unknown when ownership cannot be established.
                 let Some(usage_json) = entry.get("usage").cloned() else {
                     continue;
                 };

@@ -1,11 +1,11 @@
-//! 统计数学：互斥输入分类求和、缓存占比、聚合与矛盾诊断。
-//! 约定：input_total = 三类互斥之和；total_tokens = input_total + output_total；
-//! cache_input_ratio = SUM(cache_read) / SUM(input_total)（两字段均已知的记录集合）。
+//! Statistics: sum exclusive input buckets, calculate cache ratios, aggregate and diagnose contradictions.
+//! input_total sums three exclusive input buckets; total_tokens = input_total + output_total.
+//! cache_input_ratio = SUM(cache_read) / SUM(input_total), restricted to records with both fields known.
 
 use crate::domain::{FieldQuality, TokenQuality, TokenUsage};
 use crate::error::CoreError;
 
-/// 数学矛盾的受限诊断码（不持久化正文，只存代码与字段名）。
+/// Mathematical contradiction metadata: code, field and numeric explanation without conversation bodies.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Contradiction {
     pub code: &'static str,
@@ -13,7 +13,7 @@ pub struct Contradiction {
     pub detail: String,
 }
 
-/// 已知字段求和，任一未知则整体未知。防溢出。
+/// Sum known values without overflow; any unknown component makes the complete sum unknown.
 pub fn checked_sum(values: &[Option<i64>], what: &'static str) -> Result<Option<i64>, CoreError> {
     if values.iter().any(Option::is_none) {
         return Ok(None);
@@ -28,8 +28,8 @@ pub fn checked_sum(values: &[Option<i64>], what: &'static str) -> Result<Option<
     Ok(Some(acc as i64))
 }
 
-/// input_total：三类互斥拆分全已知时相加；否则采用来源直报值；都没有则为 None。
-/// 返回值的第二个分量是推导出的字段质量。
+/// input_total sums three known exclusive buckets; otherwise use the existing total, or None.
+/// The second result component describes field quality.
 pub fn input_total(usage: &TokenUsage, quality: &TokenQuality) -> Option<(i64, FieldQuality)> {
     if let (Some(u), Some(r), Some(w)) = (
         usage.input_uncached,
@@ -57,7 +57,7 @@ pub fn input_total(usage: &TokenUsage, quality: &TokenQuality) -> Option<(i64, F
     usage.input_total.map(|v| (v, quality.input_total))
 }
 
-/// total_tokens：input_total 与 output_total 均已知时相加；否则保留源 total（含 basis）。
+/// Sum known input_total/output_total; otherwise retain usage.total_tokens and its quality.
 pub fn total_tokens(usage: &TokenUsage, quality: &TokenQuality) -> Option<(i64, FieldQuality)> {
     if let (Some((input, input_quality)), Some(output)) =
         (input_total(usage, quality), usage.output_total)
@@ -79,8 +79,8 @@ pub fn total_tokens(usage: &TokenUsage, quality: &TokenQuality) -> Option<(i64, 
     usage.total_tokens.map(|v| (v, quality.total_tokens))
 }
 
-/// 一致性诊断：负值在 domain 校验拒绝；这里发现"缓存大于已知总输入"等矛盾，
-/// 进入诊断，不用 max(0, …) 隐藏。
+/// Domain validation rejects negatives. Diagnose contradictions such as cache exceeding input;
+/// do not hide them by replacing negative results with max(0, ...).
 pub fn detect_contradictions(usage: &TokenUsage) -> Vec<Contradiction> {
     let mut out = Vec::new();
     if let (Some(read), Some(total)) = (usage.input_cache_read, usage.input_total) {
@@ -147,7 +147,7 @@ pub fn detect_contradictions(usage: &TokenUsage) -> Vec<Contradiction> {
     out
 }
 
-/// 比例：分子/分母的精确整数对。分母为零或无有效样本时返回 None（显示"—"）。
+/// Exact integer numerator/denominator; None for a zero denominator or no valid samples (display —).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Ratio {
     pub numerator: i128,
@@ -170,8 +170,8 @@ impl Ratio {
     }
 }
 
-/// 一组记录的缓存输入占比：只对 input_total 与 input_cache_read 均已知的记录集合。
-/// 返回 (ratio, 有效记录数)。无有效样本或分母为零时 ratio 为 None。
+/// Cache-input ratio over records with known input_total and input_cache_read.
+/// Return (ratio, valid record count); ratio is None without valid samples or with a zero denominator.
 pub fn cache_input_ratio(samples: &[(Option<i64>, Option<i64>)]) -> (Option<Ratio>, i64) {
     let mut input_sum: i128 = 0;
     let mut read_sum: i128 = 0;

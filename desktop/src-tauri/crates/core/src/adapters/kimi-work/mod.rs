@@ -1,15 +1,15 @@
-//! Kimi Work 适配器（独立目录约定 architecture.md#adapter-layout，M4/A13）：
-//! - 本模块是该 Agent 的稳定入口（统一接口实现与再导出）；
-//! - [`detect`]：产品/格式探测与版本分派（首行 metadata 头 + protocol_version，
-//!   注册表锚点 1.4）；
-//! - [`versions`]：已验证格式实现的注册与映射；未收录（含 1.5）/缺失版本默认
-//!   回退最新内置解析器；
-//! - wire 解析逻辑在家族共享模块 [`crate::adapters::kimi_wire`]；数据根、实例
-//!   身份、注册表锚点与统计分列独立（adapters.md：不因内核同名合并）。
+//! Kimi Work adapter; see architecture.md#adapter-layout, M4/A13.
+//! - Stable entry point implements the shared interface and re-exports modules.
+//! - detect reads the initial metadata header and protocol_version,
+//!   with registered format 1.4.
+//! - versions registers verified formats; unregistered values, including 1.5,
+//!   or missing versions use the latest built-in parser as fallback.
+//! - Wire parsing is shared in crate::adapters::kimi_wire; roots and instance
+//!   identities, version registries and Agent statistics stay product-specific (adapters.md).
 //!
-//! 产品身份识别依据：内嵌 kimi-code home 位于 daimon 宿主目录
-//! （state.json createdBy=daimon-kernel-adapter），与独立 Kimi Code 的
-//! `~/.kimi-code` 数据根不重叠。
+//! Product references: embedded kimi-code home under the daimon host directory,
+//! state.json createdBy=daimon-kernel-adapter, separate from standalone Kimi Code
+//! default ~/.kimi-code data.
 
 pub mod detect;
 pub mod versions;
@@ -18,13 +18,13 @@ pub use detect::KIMI_WORK_FORMAT;
 pub use versions::wire_v14::PARSER_VERSION as KIMI_WORK_PARSER_VERSION;
 pub use versions::{wire_v14, LATEST_IMPL_ID, VERIFIED_VERSION_IMPLS};
 
-/// 本机实测的内嵌 home sessions 候选（2026-09-25 盘点：69 文件/31.5 MiB）。
-/// 该布局由本机安装位推导（D:/Cache 为自定义缓存盘），**不是官方文档默认**；
-/// 官方环境覆盖未见文档 ⇒ 不定义 env 变量；其余安装位经 manual_roots 接入。
+/// Observed embedded-home candidate: 69 files/31.5 MiB in the 2026-09-25 local inventory.
+/// Derived from this installation with custom D:/Cache; not an official default.
+/// No documented environment override was found; other locations use manual_roots.
 pub const KIMI_WORK_OBSERVED_HOME: &str =
     "D:/Cache/Kimi/share/daimon-share/daimon/runtime/kimi-code/home";
 
-/// Kimi Work 适配器（无状态）。
+/// Stateless Kimi Work adapter.
 pub struct KimiWorkAdapter;
 
 impl Default for KimiWorkAdapter {
@@ -53,11 +53,11 @@ impl crate::adapters::framework::SourceAdapter for KimiWorkAdapter {
         ctx: &crate::adapters::framework::DiscoverContext,
     ) -> Vec<crate::adapters::framework::DiscoveredRoot> {
         use crate::adapters::framework::{DiscoveredRoot, RootBasis};
-        // (sessions 目录, basis)；root 统一取 sessions 目录。
-        // 候选：本机实测布局（推导，非官方默认）+ manual_roots。
-        // 框架 DefaultHome 惯例（同 claude/pi/qwen）：默认候选仅在调用方提供
-        // home_dir 上下文时探测；无 home 上下文（测试/隔离运行）只用手工根。
-        // 无官方文档化的环境覆盖 ⇒ 不读 env（与 kimi-code 的 KIMI_CODE_HOME 不同）。
+        // Candidate pairs contain sessions directory and basis; the instance root is that directory.
+        // Candidates are the observed local layout and manual_roots.
+        // Default candidates require a matching home context; tests or isolated callers
+        // without it use manual roots, following the framework convention for claude/pi/qwen.
+        // No documented environment override: do not read KIMI_CODE_HOME for this product.
         let mut candidates: Vec<(std::path::PathBuf, RootBasis)> = Vec::new();
         // This custom absolute installation belongs to the current process user.
         // A caller supplying an isolated home must never discover personal sources.
@@ -79,7 +79,7 @@ impl crate::adapters::framework::SourceAdapter for KimiWorkAdapter {
             ));
         }
         for manual in &ctx.manual_roots {
-            // 手工根语义：含 sessions 子目录按内嵌 home 解析，否则按 sessions 目录本身。
+            // A manual root containing sessions is an embedded home; otherwise use the root as sessions.
             let sessions = if manual.join("sessions").is_dir() {
                 manual.join("sessions")
             } else {
@@ -92,8 +92,8 @@ impl crate::adapters::framework::SourceAdapter for KimiWorkAdapter {
             if !sessions.is_dir() {
                 continue;
             }
-            // sessions/<wd>/<conv-*|ctitle-*>/agents/*/wire.jsonl：深度 4（agent 目录一层），有界枚举；
-            // 同目录 state.json、output.log、内容 hash 文件按名过滤不读。
+            // Bounded depth 4 covers sessions/<wd>/<conv-*|ctitle-*>/agents/*/wire.jsonl.
+            // Filename filtering excludes state.json, output.log and content-hash files.
             let files = crate::adapters::framework::enumerate_files_bounded(&sessions, 4, &|p| {
                 p.file_name().and_then(|n| n.to_str()) == Some("wire.jsonl")
             });
@@ -129,7 +129,7 @@ impl crate::adapters::framework::SourceAdapter for KimiWorkAdapter {
         limits: &crate::adapters::framework::ScanLimits,
         now_ms: i64,
     ) -> Result<crate::adapters::framework::ScanOutcome, crate::error::CoreError> {
-        // 当前所有可尝试版本共用 wire_v14；注册表扩展多实现后在此按选择分派。
+        // All attempted versions use wire_v14; extend dispatch when the registry has more implementations.
         versions::wire_v14::scan(target, stored, limits, now_ms)
     }
 

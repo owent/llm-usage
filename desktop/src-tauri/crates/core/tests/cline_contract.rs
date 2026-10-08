@@ -1,8 +1,8 @@
-//! Cline 适配器约定测试：合成 fixture（依据 A03 固定源码；本机未安装，
-//! 2026-09-25 盘点 not_found）经读取→解析→commit→查询。
-//! 数值为 fixture 人工核算（见各目录数据），字段语义：四桶互斥
-//! （tokensIn/tokensOut/cacheWrites/cacheReads），input_total = in+cw+cr 派生，
-//! total = 四桶之和（common.rs 文件头）。
+//! Legacy Cline UI format tests use synthetic samples based on fixed A03 source;
+//! the 2026-09-25 not_found inventory preceded read→parse→commit→query tests.
+//! Values are manually calculated from samples: four exclusive UI buckets
+//! tokensIn/tokensOut/cacheWrites/cacheReads; derived input_total=in+cw+cr;
+//! total is the four-bucket sum (common.rs). This differs from the newer SDK.
 
 mod common;
 
@@ -50,8 +50,8 @@ fn contract_full_chain_matches_manual_expectations() {
     let (_dir, storage) = temp_storage("cline-contract");
     let root = cline_fixture("synthetic-contract");
     run_cline(&storage, &root, NOW);
-    // 3 次 api_req_started：(100,20,10,40)、(200,30,50,0)、(50,5,0,25)。
-    // input_total = in+cw+cr ⇒ 150+250+75 = 475；total = 四桶和 ⇒ 170+280+80 = 530。
+    // Three api_req_started: (100,20,10,40), (200,30,50,0), (50,5,0,25).
+    // input_total=150+250+75=475; total=170+280+80=530.
     let s = summary(&storage, "2026-09-24", "2026-09-24");
     assert_eq!(s.totals.call_count, 3);
     assert_eq!(s.totals.input_total_known, Some(475));
@@ -59,7 +59,7 @@ fn contract_full_chain_matches_manual_expectations() {
     assert_eq!(s.totals.cache_write_known, Some(60));
     assert_eq!(s.totals.output_total_known, Some(55));
     assert_eq!(s.totals.total_tokens_known, Some(530));
-    // 幂等。
+    // Repeated scans add no duplicates.
     run_cline(&storage, &root, NOW + 1_000);
     let s = summary(&storage, "2026-09-24", "2026-09-24");
     assert_eq!(s.totals.call_count, 3, "重复扫描不增量");
@@ -82,8 +82,8 @@ fn capability_is_doc_level_with_pending_note() {
 
 #[test]
 fn undocumented_say_and_started_without_finished_visible() {
-    // started-without-finished：部分可用（有 usage 的 started 记账，
-    // 无对应完成不算失败）；undocumented-say：未文档化 say 不计请求。
+    // started-without-finished keeps known started usage; missing completion
+    // is not failure. undocumented-say does not count undocumented say as requests.
     let (_dir, storage) = temp_storage("cline-gaps");
     for name in [
         "synthetic-started-without-finished",

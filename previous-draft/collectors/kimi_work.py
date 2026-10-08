@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-"""kimi work 采集器：kimi-code 内核会话 wire.jsonl 中的 usage.record 记录。
+"""Kimi Work collector: usage.record in the kimi-code engine session wire.jsonl.
 
-默认搜索 D:/Cache/KimiDesktop/daimon-share/daimon/runtime/kimi-code/home/sessions，
-可用环境变量 KIMI_WORK_SESSIONS 覆盖（多个路径用 ; 分隔）。
+Default root: D:/Cache/KimiDesktop/daimon-share/daimon/runtime/kimi-code/home/sessions.
+KIMI_WORK_SESSIONS overrides it with semicolon-separated paths.
 """
 import glob
 import json

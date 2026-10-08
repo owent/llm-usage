@@ -1,6 +1,6 @@
-//! ZCode V12 增量语义：重复扫描不增量、追加续读、半行跨轮、截断重扫、
-//! 改名保身份、达到读取上限后分批恢复。样本为真实脱敏 fixture（real-main-session，
-//! 4 条记录，人工核算见 _expectations.md：input 合计 1,567,484、total 1,568,658）。
+//! ZCode V12: no duplicate rescans, append continuation, partial lines, truncation,
+//! rename identity and segmented scan-limit recovery. Redacted real-main-session has
+//! four records; _expectations.md calculates input=1,567,484 and total=1,568,658.
 
 mod common;
 
@@ -93,7 +93,7 @@ fn half_line_is_not_consumed_until_completed() {
     let lines: Vec<&str> = text.lines().collect();
     let head = lines[..lines.len() - 1].join("\n");
     let last = lines[lines.len() - 1];
-    // 写入前 3 条完整行 + 第 4 条的前半（无行终止符）。
+    // Write three complete lines and half of line four without a terminator.
     let partial = format!("{head}\n{}", &last[..last.len() / 2]);
     let file_path = dir.path().join("rollout/model-io-h.jsonl");
     let root = zcode_root_with_file(&dir, "model-io-h.jsonl", partial.as_bytes());
@@ -103,7 +103,7 @@ fn half_line_is_not_consumed_until_completed() {
     assert_eq!(first[0].files[0].lines_read as usize, lines.len() - 1);
     assert_eq!(first[0].files[0].events, 3, "前 3 条记录完整入账");
 
-    // 补全最后半行。
+    // Complete the final partial line.
     std::fs::write(&file_path, format!("{head}\n{last}\n").as_bytes()).unwrap();
     let second = run_zcode(&storage, &root, NOW + 1000);
     assert_eq!(
@@ -126,7 +126,7 @@ fn truncation_triggers_generation_rescan_and_keeps_history() {
     let (_db, storage) = temp_storage("zcode-v12-trunc");
     run_zcode(&storage, &root, NOW);
 
-    // 截断为前 2 行（源端极端行为）：重探测 → generation+1 → 从头重扫。
+    // Truncate to two lines: redetect, generation+1 and rescan from the beginning.
     let text = String::from_utf8(jsonl).unwrap();
     let head: String = text.lines().take(2).collect::<Vec<_>>().join("\n") + "\n";
     std::fs::remove_file(&file_path).unwrap();
@@ -138,7 +138,7 @@ fn truncation_triggers_generation_rescan_and_keeps_history() {
         .query_row("SELECT generation FROM source_files", [], |r| r.get(0))
         .unwrap();
     assert_eq!(generation, 1);
-    // 重扫的 2 条与已入库内容相同（unchanged），已入库历史不因源截断消失。
+    // Both rows match stored content; source truncation does not delete imported history.
     let outcome = second[0].outcome.as_ref().unwrap();
     assert_eq!((outcome.added, outcome.unchanged), (0, 2));
     let summary = summary(&storage, "2026-09-25", "2026-09-25");

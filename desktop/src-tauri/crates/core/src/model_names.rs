@@ -73,7 +73,7 @@ pub fn reference_model_key_at(model: &str, occurred_at_ms: i64) -> String {
 }
 
 /// Explicit user-authorized substitute for CURRENT reference estimates only.
-/// This is not model identity, and never licenses general nearest-model pricing.
+/// Preserve model identity; this exception does not permit general nearest-model pricing.
 pub fn reference_price_substitute(reference_model: &str) -> Option<&'static str> {
     match reference_model {
         "kimi-k2.8-preview" => Some("kimi-k2.7-code"),

@@ -1,19 +1,26 @@
-# OpenCode 1.18.34 默认标题场景
+# OpenCode 1.18.34 default-title scenario
 
-2026-10-05 官方 CLI 在独立 rootless Podman 中调用真实 CPU 本地模型，网络关闭、
-新 HOME；固定源码 aec0b9a6d8898f68f923aaf08b7306d931fd9d76。并非合成 token，
-过程与来源见 [容器记录](../../../../../../../../docs/validation/desktop-usage/container-sources.md)。
-仅提取三张表的原始 DDL 与用量白名单；正文删除，ID/路径/标题匿名化，时间按同一
-偏移移到 2026-10-05 UTC，token 不改。message 与 session 累计只用于对照，不叠加。
+<a id="opencode-11834-默认标题场景"></a>
 
-| 依据 | 调用 / 用量 |
+On 2026-10-05, the official CLI at source revision
+aec0b9a6d8898f68f923aaf08b7306d931fd9d76 called a real local CPU model in isolated rootless
+Podman with networking disabled and fresh HOME. Tokens are native; the
+[container record](../../../../../../../../docs/validation/desktop-usage/container-sources.md)
+describes the procedure and source. Extraction retains the original three-table DDL and
+permitted usage fields. Bodies are removed; IDs, paths and titles are anonymized.
+Timestamps share one offset into 2026-10-05 UTC; tokens are unchanged. Message and session
+cumulative totals are comparison values and are never added to individual usage.
+
+| Measurement | Calls / usage |
 | --- | --- |
-| 真实主循环 API usage | input 298（含缓存读 3）、output 1、total 299 |
-| CLI / part / assistant message / session | 未缓存 input 295、cache read 3、write 0、output 1、reasoning 0、total 299 |
-| 应用 | 1 条、input_total 298、output_total 1、total 299；重扫事件/修订/汇总不变 |
-| 默认标题 API usage | 另 1 条：input 539、output 10、total 549；未进入 step-finish 与会话累计 |
+| Native main-loop API usage | input 298 (including cache read 3), output 1, total 299 |
+| CLI / part / assistant message / session | uncached input 295, cache read 3, write 0, output 1, reasoning 0, total 299 |
+| Application | one event; input_total 298, output_total 1, total 299; repeat scan changes no events, revisions or summaries |
+| Default-title API usage | another call: input 539, output 10, total 549; absent from step-finish and session cumulative totals |
 
-默认两次 API 合计 848，不能从主循环和累计对账 matched 声称全客户端覆盖。
-不从差额补造标题事件，不由本地模型名推断云端模型或价目。费用 0 为客户端所写，
-没有真实账单或非零费用依据。版本仍为 latest_fallback；逐记录版本及旧游标升级
-验收未完成，不能以本样本认证同库其他会话。
+The two default API calls total 848. A matched comparison between main-loop events and
+cumulative totals does not establish complete client coverage. Do not invent a title
+event from the difference or infer a cloud model or price from the local model name.
+The client wrote cost=0; no actual bill or positive cost was verified. Version handling
+remains latest_fallback. Per-record version verification and old-cursor upgrade testing
+are unfinished, so this sample cannot verify other sessions in the same database.

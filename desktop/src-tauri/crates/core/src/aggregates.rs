@@ -1,11 +1,11 @@
-//! 来源原生区间汇总（source_aggregates）、累计快照求差与额度快照。
+//! Native source intervals (source_aggregates), cumulative differences and quota snapshots.
 //!
-//! 规则要点：
-//! - interval_aggregate 保留原生范围、字段和单位，不伪装成逐次请求；
-//! - cumulative_snapshot 按身份/版本/重置边界求差；首次值保留为源原生区间总量，
-//!   区间跨日且无中间采样时不把全部 token 记入某一天，也不按时长摊分；
-//! - 相同 series/start/end 的重复数据只处理一次；delta 也去重；
-//! - 已证明覆盖互斥的汇总可求和；重叠覆盖的汇总标记 duplicate，不双计。
+//! Rules:
+//! - interval_aggregate keeps native scope, fields and units without inventing individual calls.
+//! - cumulative_snapshot differences follow identity, version and reset boundaries. Keep the
+//!   first native interval total; do not assign an unsampled multi-day total to one day or spread it by time.
+//! - Process repeated series/start/end values once and deduplicate differences too.
+//! - Sum verified disjoint coverage; mark verified duplicates without counting them twice.
 
 use crate::domain::{TimeBasis, TokenQuality, TokenUsage};
 use crate::error::CoreError;
@@ -15,7 +15,7 @@ use crate::storage::Storage;
 use rusqlite::{params, OptionalExtension};
 use serde::{Deserialize, Serialize};
 
-/// 汇总范围类型。
+/// Native aggregate scope.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AggregateScope {
@@ -38,15 +38,15 @@ impl AggregateScope {
     }
 }
 
-/// 覆盖关系：已证明互斥才可求和；重叠的标记 duplicate 指向正主。
+/// Sum verified disjoint coverage; duplicate coverage refers to the matching original aggregate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Coverage {
-    /// 已证明与其他汇总互斥。
+    /// Verified disjoint coverage.
     Exclusive,
-    /// 已被证明覆盖与另一条相同：仅作对照，不参与求和。
+    /// Verified duplicate coverage; retain for comparison and exclude from totals.
     Duplicate,
-    /// 覆盖关系未知：分开展示，默认不自动叠加。
+    /// Unknown overlap; display separately and exclude from automatic sums.
     OverlapUnknown,
 }
 
@@ -69,24 +69,24 @@ impl Coverage {
     }
 }
 
-/// 一条来源原生区间汇总（如 Hermes 两日累计行、OTel 累计区间）。
+/// A native source interval aggregate, such as a Hermes two-day total or OTel cumulative interval.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SourceAggregateInput {
     pub instance_id: String,
     pub scope: AggregateScope,
-    /// 系列/行身份：资源+instrument+属性+进程实例+start_time，或来源行身份。
+    /// Series/row key: resource, instrument, attributes, process instance and start_time, or native row identity.
     pub scope_key: String,
-    /// 区间起点；首次观察的累计值可能不知道 series start，为 None。
+    /// Interval start; the first cumulative observation may have no known series start.
     pub interval_start_ms: Option<i64>,
     pub interval_end_ms: i64,
-    /// 来源端点是闭区间语义（如 last_seen 瞬时）时为 true。
+    /// True when the source endpoint is inclusive, such as an instantaneous last_seen.
     pub interval_end_inclusive: bool,
     pub usage: TokenUsage,
     pub quality: TokenQuality,
-    /// 来源报告调用汇总（如 api_call_count 区间累计）；不伪造逐次 model_call。
+    /// Native aggregate call count, such as interval api_call_count; do not invent model_call records.
     pub reported_call_count: Option<i64>,
     pub coverage: Coverage,
-    /// coverage = duplicate 时指向正主 aggregate 的 scope_key。
+    /// scope_key of the matching original aggregate when coverage is duplicate.
     pub duplicate_of: Option<String>,
     pub time_basis: TimeBasis,
     pub source_revision: Option<i64>,
@@ -122,8 +122,8 @@ impl SourceAggregateInput {
     }
 }
 
-/// upsert 一条区间汇总：相同 (instance, scope, scope_key) 按修订/内容幂等。
-/// 返回是否发生变更。
+/// Insert or update by (instance, scope, scope_key), comparing revision and content.
+/// Return whether storage changed.
 pub fn upsert_source_aggregate(
     storage: &Storage,
     input: &SourceAggregateInput,
@@ -172,11 +172,11 @@ pub(crate) fn upsert_source_aggregate_with_prior_hashes_tx(
         )
         .optional()?;
     if let Some((old_hash, old_rev)) = &existing {
-        // 重复扫描幂等：内容相同则不变更。
+        // Repeated identical content leaves storage unchanged.
         if *old_hash == hash {
             return Ok(false);
         }
-        // 有修订号时旧修订不覆盖新修订。
+        // An older explicit revision cannot replace a newer one.
         if let (Some(new_rev), Some(old_rev)) = (input.source_revision, *old_rev) {
             if new_rev < old_rev {
                 return Ok(false);
@@ -258,8 +258,8 @@ pub(crate) fn upsert_source_aggregate_with_prior_hashes_tx(
     Ok(true)
 }
 
-/// 已证明互斥覆盖的汇总 token 求和（Hermes 样本 11：100+20=120 而非 220）。
-/// duplicate 行不参与；overlap_unknown 行不参与并单独计数。
+/// Sum verified disjoint token aggregates (Hermes sample 11: 100+20=120, not 220).
+/// Exclude duplicates; exclude and separately count overlap_unknown rows.
 pub fn sum_exclusive_aggregates(
     storage: &Storage,
     instance_id: &str,
@@ -365,32 +365,32 @@ pub struct AggregateTotals {
     pub overlap_unknown_rows: i64,
 }
 
-/// 累计序列状态（持久化在 ingestion_checkpoints.parse_context）。
+/// Cumulative series state, persisted in ingestion_checkpoints.parse_context.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CumulativeState {
     pub series_key: String,
     pub last_value: i64,
     pub last_observed_ms: i64,
-    /// 进程/series 起点（已知时）。
+    /// Process/series start, when known.
     pub start_ms: Option<i64>,
 }
 
-/// 累计观察结果。
+/// Result of observing a cumulative value.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CumulativeOutcome {
-    /// 迟到或同一采样时点内容不一致；保留现有基线，交给调用方诊断。
+    /// Late or conflicting same-time observations keep the baseline; the caller records diagnostics.
     OutOfOrder,
-    /// 首次看到累计值：保存为源原生区间总量，不硬塞进今天。
+    /// First cumulative observation: preserve the native interval total without assigning it to today.
     FirstObservation { native_total: i64 },
-    /// 区间增量（含 0）。
+    /// Interval difference, including zero.
     Delta { amount: i64 },
-    /// 已确认发生重置（新进程）：新基线即新区间量。
+    /// Confirmed reset, such as a new process; its baseline is the new interval total.
     Reset { new_baseline: i64 },
-    /// 累计值下降但无法确认发生重置：不按零重新累加，记冲突诊断。
+    /// Unconfirmed decrease: record a conflict rather than treating the new value as a zero-based total.
     Regression { previous: i64, observed: i64 },
 }
 
-/// 观察一次累计值。相同值重复观察返回 Delta 0（调用方幂等去重）。
+/// Repeated equal values yield Delta zero; callers deduplicate the resulting observations.
 pub fn observe_cumulative(
     series_key: &str,
     previous: Option<&CumulativeState>,
@@ -466,20 +466,20 @@ pub fn observe_cumulative(
     }
 }
 
-/// 额度快照输入。额度独立显示，不转成 token 或 request。
+/// Quota snapshot input; keep quotas separate from recorded usage without converting units.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QuotaSnapshotInput {
     pub quota_id: String,
     pub instance_id: String,
     pub observed_at_ms: i64,
-    /// credits / subscription_window / balance / rate_limit。
+    /// Quota kinds: credits, subscription_window, balance or rate_limit.
     pub kind: String,
-    /// 整数最小单位；未知为 None，不补零。
+    /// Integer smallest unit; unknown is None rather than zero.
     pub quantity_minor: Option<i64>,
     pub unit: String,
     pub window_start_ms: Option<i64>,
     pub window_end_ms: Option<i64>,
-    /// 仅在本地记录可证明属于本机使用时为 true；账号总额属排除范围。
+    /// True only for verified usage on this device; an account-wide quota does not establish local usage.
     pub locality_verified: bool,
     pub detail: Option<serde_json::Value>,
 }

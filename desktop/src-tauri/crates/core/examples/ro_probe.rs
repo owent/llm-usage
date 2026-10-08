@@ -1,4 +1,4 @@
-//! 只读连接探针：验证 Storage::open_readonly 对带 WAL 的库的行为。
+//! Verify Storage::open_readonly behavior for a database with a WAL.
 use llm_usage_core::storage::Storage;
 fn main() {
     let db = std::env::args().nth(1).expect("db path");

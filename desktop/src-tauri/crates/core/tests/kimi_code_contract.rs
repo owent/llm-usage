@@ -1,7 +1,7 @@
-//! Kimi Code（A12，M4）约定测试：真实脱敏 fixture（session-main + subagent-agent-0，
-//! 本机 desktop 1.0.3 / wire protocol_version=1.5，2026-09-25 提取）经
-//! 读取→解析→标准化→commit_batch→查询。期望值为人工核算，
-//! 见 tests/fixtures/kimi-code/*.sanitized.json 同名 _expectations.md。
+//! Kimi Code pipeline tests (A12/M4) with redacted session-main/subagent-agent-0 samples.
+//! Extracted 2026-09-25 from desktop 1.0.3, wire protocol_version=1.5.
+//! Read, parse, normalize, commit, and query; expected amounts were calculated manually.
+//! References: matching _expectations.md files under tests/fixtures/kimi-code.
 
 mod common;
 
@@ -9,23 +9,23 @@ use common::*;
 use llm_usage_core::adapters::framework::{self, SourceAdapter};
 use llm_usage_core::adapters::kimi_code::KimiCodeAdapter;
 
-// 手工核算（对照 _expectations.md；roundtrip jq 独立复核相等）：
-// main：369 turn（primary）+ 3 session（compaction ⇒ auxiliary）= 372；
-//   inputOther 1,506,693 / cacheRead 47,066,368 / output 257,373 / creation 0。
-// agent-0：150 turn（agents/agent-0 ⇒ sub_agent）；io 198,401 / cr 18,428,416 / out 72,798。
-// 合计 522 事件：input_uncached 1,705,094；input_total 67,199,878；total 67,530,049。
-// subagent.completed(agent-0, time=1790269234273) 的 usage {66876,4631,1264384,0}
-// 是子代理 wire 截至该时刻 Σ 的快照 ⇒ 不产事件（防双计）；
-// step.end 回声 Σ（368 条）小于记录侧（打断步无回声）⇒ 只计记录。
+// Manual expectations independently checked with jq:
+// Main: 369 primary turn records + 3 auxiliary compaction/session records = 372.
+// Main buckets: inputOther 1,506,693; cacheRead 47,066,368; output 257,373; creation 0.
+// agent-0: 150 subagent turns; inputOther 198,401; cacheRead 18,428,416; output 72,798.
+// Total 522 events: uncached 1,705,094; total input 67,199,878; total tokens 67,530,049.
+// subagent.completed at 1790269234273 reports {66876,4631,1264384,0},
+// a snapshot of subagent wire sums up to that time; do not create another usage event.
+// The 368 step.end echoes omit interrupted usage; count usage records instead of echoes.
 
 const NOW: i64 = 1_800_000_000_000;
-/// main fixture 中 subagent.completed 的 time（子代理对账上界，白名单数字）。
+/// Observed main-sample subagent.completed time, bounding subagent reconciliation.
 const SUBAGENT_COMPLETED_MS: i64 = 1_790_269_234_273;
 
 #[test]
 fn contract_full_pipeline_matches_expectations() {
     let (_db, storage) = temp_storage("kimi-code-contract");
-    // 单会话布局：sessions/<wd>/<session>/agents/{main,agent-0}/wire.jsonl。
+    // One session: sessions/<wd>/<session>/agents/{main,agent-0}/wire.jsonl.
     let main_wire = reconstruct_kimi_wire(&kimi_code_fixture("session-main.sanitized.json"));
     let sub_wire = reconstruct_kimi_wire(&kimi_code_fixture("subagent-agent-0.sanitized.json"));
     let dir = TempDir::new("kimi-code-real");
@@ -47,7 +47,7 @@ fn contract_full_pipeline_matches_expectations() {
 
     let reports = run_kimi_code(&storage, &root, NOW);
     assert_eq!(reports.len(), 1);
-    // 字典序：agents/agent-0 先扫，agents/main 后扫。
+    // Lexical order visits agents/agent-0 before agents/main.
     assert_eq!(reports[0].files.len(), 2);
     let (sub_file, main_file) = (&reports[0].files[0], &reports[0].files[1]);
     assert_eq!(sub_file.status, "complete");
@@ -64,7 +64,7 @@ fn contract_full_pipeline_matches_expectations() {
         (522, 0, 0)
     );
 
-    // 全事件白名单核对（两日：2026-09-24/25 UTC）。
+    // Check all event sums over 2026-09-24/25 UTC.
     let summary = summary(&storage, "2026-09-24", "2026-09-25");
     assert_eq!(summary.totals.call_count, 522);
     assert_eq!(summary.totals.uncached_known, Some(1_705_094));
@@ -75,7 +75,7 @@ fn contract_full_pipeline_matches_expectations() {
     assert_eq!(summary.totals.total_tokens_known, Some(67_530_049));
 
     let conn = storage.conn();
-    // 分类：main 文件 369 primary + 3 auxiliary；agent-0 150 sub_agent。
+    // Main: 369 primary + 3 auxiliary events; agent-0: 150 sub_agent events.
     let (primary, auxiliary, sub_agent): (i64, i64, i64) = conn
         .query_row(
             "SELECT SUM(call_category = 'primary'), SUM(call_category = 'auxiliary'), \
@@ -86,7 +86,7 @@ fn contract_full_pipeline_matches_expectations() {
         .unwrap();
     assert_eq!((primary, auxiliary, sub_agent), (369, 3, 150));
 
-    // Agent 分列：kimi-code（两文件同 Agent；实例身份同根）。
+    // Both files belong to kimi-code under the same root instance.
     let agents: Vec<(String, i64)> = {
         let mut stmt = conn
             .prepare("SELECT agent, COUNT(*) FROM usage_events GROUP BY agent")
@@ -102,7 +102,7 @@ fn contract_full_pipeline_matches_expectations() {
         "kimi-work 不混入（A12/A13 分列）"
     );
 
-    // 会话/子代理身份：session_id 来自路径（agents/<id> 归属子代理）。
+    // Session identity comes from the path; agents/<id> identifies subagent ownership.
     let sub_agent_rows: i64 = conn
         .query_row(
             "SELECT COUNT(*) FROM usage_events WHERE call_category = 'sub_agent' \
@@ -113,7 +113,7 @@ fn contract_full_pipeline_matches_expectations() {
         .unwrap();
     assert_eq!(sub_agent_rows, 150);
 
-    // 事件键形状：kimi-code:usage:{time 毫秒}:{同毫秒序号}；schema_version=1.5。
+    // Key: kimi-code:usage:<session>:<agent>:<time_ms>:<same-ms sequence>; schema 1.5.
     let (key, schema, basis): (String, String, String) = conn
         .query_row(
             "SELECT source_record_key, schema_version, parse_basis FROM usage_events \
@@ -126,7 +126,7 @@ fn contract_full_pipeline_matches_expectations() {
     assert_eq!(schema, "1.5");
     assert_eq!(basis, "known_version", "1.5 已验证锚点");
 
-    // usage.record 无 uuid/messageId：origin_call_id 不伪造。
+    // usage.record has no uuid/messageId; do not invent origin_call_id.
     let origins: i64 = conn
         .query_row(
             "SELECT COUNT(*) FROM usage_events WHERE origin_call_id IS NOT NULL",
@@ -136,7 +136,7 @@ fn contract_full_pipeline_matches_expectations() {
         .unwrap();
     assert_eq!(origins, 0);
 
-    // 模型白名单（model 原样入账，alias/model 组合串不拆）。
+    // Preserve observed model strings, including combined alias/model identifiers.
     let models: Vec<(String, i64)> = {
         let mut stmt = conn
             .prepare(
@@ -157,15 +157,15 @@ fn contract_full_pipeline_matches_expectations() {
         ]
     );
 
-    // 诊断：真实 fixture 无坏形状 ⇒ 0 诊断。
+    // Valid redacted native sample shapes produce zero diagnostics.
     let diags: i64 = conn
         .query_row("SELECT COUNT(*) FROM diagnostics", [], |r| r.get(0))
         .unwrap();
     assert_eq!(diags, 0);
 
-    // 回声对账（run 报告白名单）：agent-0 记录==回声（matched）；main 记录>回声
-    // （369 turn 中 1 条被打断步无回声 + 3 session scope 无回声 ⇒ echo_subset）；
-    // completed 快照行 no_detail_in_file（明细在子代理 wire）。
+    // Reconciliation: agent-0 records equal echoes (matched); main records exceed echoes
+    // because one of 369 turns was interrupted and three session-scope records have no echo.
+    // completed is no_detail_in_file because its details reside in the subagent wire.
     let recs = &reports[0].reconciliations;
     assert!(recs
         .iter()
@@ -180,7 +180,7 @@ fn contract_full_pipeline_matches_expectations() {
         .any(|r| r.series.starts_with("kimi_subagent_completed_snapshot")
             && r.verdict == "no_detail_in_file"));
 
-    // 幂等：二次扫描无新增。
+    // Scanning again adds no events.
     let reports2 = run_kimi_code(&storage, &root, NOW + 1000);
     let added2: i64 = reports2
         .iter()
@@ -189,8 +189,8 @@ fn contract_full_pipeline_matches_expectations() {
     assert_eq!(added2, 0, "重复扫描不增量（V12）");
 }
 
-/// M0 结论复证：subagent.completed.usage == 子代理 wire 截至其 time 的逐次 Σ。
-/// （主线 completed.usage {66876,4631,1264384,0} vs agent-0 前 22 条 wire。）
+/// Check the M0 result: completed.usage equals the subagent wire sum through its timestamp.
+/// Main completed {66876,4631,1264384,0} matches the first 22 agent-0 wire records.
 #[test]
 fn contract_subagent_completed_reconciles_with_subagent_wire() {
     let (_db, storage) = temp_storage("kimi-code-sub");
@@ -215,8 +215,8 @@ fn contract_subagent_completed_reconciles_with_subagent_wire() {
     run_kimi_code(&storage, &root, NOW);
 
     let conn = storage.conn();
-    // completed.usage（人工核算自 fixture）：inputOther=66876, output=4631,
-    // cacheRead=1264384, creation=0；对账对象 = agent-0 事件中 time ≤ completed 的 Σ。
+    // Manual completed.usage: inputOther=66876, output=4631,
+    // cacheRead=1264384, creation=0; compare agent-0 events at or before completion.
     let (io, out, cr, cc, n): (i64, i64, i64, i64, i64) = conn
         .query_row(
             "SELECT \
@@ -233,7 +233,7 @@ fn contract_subagent_completed_reconciles_with_subagent_wire() {
         (66_876, 4_631, 1_264_384, 0, 22),
         "subagent.completed.usage 与子代理 wire 逐字段相等（M0 + 本机复证）"
     );
-    // completed 之后子代理 wire 继续增长（复用段）⇒ 总 Σ 大于快照，全量逐次入账。
+    // Later subagent wire records exceed this snapshot; retain all individual usage records.
     let total_sub: i64 = conn
         .query_row(
             "SELECT COUNT(*) FROM usage_events WHERE call_category = 'sub_agent'",
@@ -288,7 +288,7 @@ fn capability_table_is_structured_and_complete() {
         assert!(json.get(section).is_some(), "missing {section}");
     }
     assert!(!cap.limitations.is_empty());
-    // 能力声明可落库 roundtrip。
+    // Capability declarations survive storage round trips.
     let (_db, storage) = temp_storage("kimi-code-cap");
     framework::upsert_source_instance(
         &storage,

@@ -1,4 +1,4 @@
-//! Source-scoped credentials. No secrets in DTOs, SQLite, logs or ordinary state files.
+//! Source-scoped credentials stay out of DTOs, SQLite, logs and ordinary state files.
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -38,8 +38,8 @@ impl Family {
         match self {
             Self::Claude => name.starts_with("claude_code."),
             Self::Codex => name.starts_with("codex."),
-            // Supplemental spans stay quarantined. User-configurable service.name
-            // and span naming do not prove origin; the credential binds the source.
+            // Supplemental spans stay isolated. User-configurable service.name/span names
+            // do not establish provenance; the credential binds the source.
             Self::CodeBuddy => true,
             #[cfg(test)]
             Self::Synthetic => true,
@@ -47,7 +47,7 @@ impl Family {
     }
 }
 
-// Intentionally no Debug: error reporting must never format a credential.
+// Omit Debug to prevent credential values appearing in formatted errors.
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Binding {
     version: u8,
@@ -78,7 +78,7 @@ pub trait Store: Send + Sync {
 
 pub struct SystemStore;
 pub fn available() -> bool {
-    // Read-only capability probe. Missing entries are distinct from an unavailable vault.
+    // Read-only system-store probe distinguishes missing entries from unavailable storage.
     SystemStore
         .read("llm-usage/otel/v1/capability-check")
         .is_ok()
@@ -106,7 +106,7 @@ fn split_header(header: &str) -> Option<(&str, &str)> {
     (valid_hex(id, 32) && valid_hex(secret, 64)).then_some((id, secret))
 }
 fn same_secret(a: &str, b: &str) -> bool {
-    // Inputs are fixed-size, validated hexadecimal strings. Do not stop at the first mismatch.
+    // Compare validated fixed-size hexadecimal strings without stopping at the first mismatch.
     a.len() == 64
         && b.len() == 64
         && a.bytes().zip(b.bytes()).fold(0u8, |v, (x, y)| v | (x ^ y)) == 0
@@ -136,8 +136,8 @@ pub fn issue(
     }
     let bytes = serde_json::to_vec(&binding).map_err(|_| "credential_store_unavailable")?;
     if let Err(error) = store.write(&name, &bytes) {
-        // A service can persist a write before its reply fails. Reclaim only
-        // the exact entry we attempted, never a replaced or ambiguous value.
+        // A service may persist a write before its reply fails. Reclaim only the exact
+        // attempted content, preserving replaced or ambiguous values.
         if store.read_for_mutation(&name)?.as_deref() == Some(bytes.as_slice()) {
             store.delete(&name)?;
             if !store.confirm_deleted(&name, &bytes)? {
@@ -146,7 +146,7 @@ pub fn issue(
         }
         return Err(error);
     }
-    // Verify persistence before any exporter is configured. Roll back our entry on failure.
+    // Verify persistent storage before exporter configuration; reclaim the owned entry on failure.
     let verification = store.read_for_mutation(&name);
     match verification {
         Ok(Some(saved)) if saved == bytes => Ok(binding),
@@ -162,8 +162,8 @@ pub fn issue(
             );
             #[cfg(not(test))]
             let _ = other;
-            // A failed verification may mean another writer replaced this
-            // target. Re-read and only reclaim our exact payload.
+            // Verification failure may indicate replacement by another writer.
+            // Re-read and reclaim only the exact owned content.
             if store.read_for_mutation(&name)?.as_deref() == Some(bytes.as_slice()) {
                 store.delete(&name)?;
                 if !store.confirm_deleted(&name, &bytes)? {
@@ -179,9 +179,9 @@ pub fn issue(
 fn read_visible_after_write(
     mut read: impl FnMut() -> Result<Option<Vec<u8>>, String>,
 ) -> Result<Option<Vec<u8>>, String> {
-    // Native Windows tests observed a successful write followed by NOT_FOUND,
-    // then the exact payload 10 ms later. Only missing post-write reads wait;
-    // errors and replacement values are returned immediately. Never re-write.
+    // Native Windows tests saw a successful write, NOT_FOUND, then matching content
+    // 10 ms later. Only missing reads in mutation flows wait; authentication reads do not use this helper.
+    // Errors and present values return immediately; do not write again.
     for attempt in 0..=5 {
         let value = read()?;
         if value.is_some() || attempt == 5 {
@@ -228,7 +228,7 @@ pub fn authorize(store: &dyn Store, app: &Path, header: &str, path: &str) -> Opt
 }
 pub fn revoke(store: &dyn Store, binding: &Binding) -> Result<(), String> {
     let name = format!("{PREFIX}{}", binding.id);
-    // Only remove exactly our credential, even if an external writer changed this target.
+    // Delete only the exact owned credential; reject external replacements.
     if let Some(bytes) = store.read_for_mutation(&name)? {
         let expected = serde_json::to_vec(binding).map_err(|_| "credential_store_unavailable")?;
         if bytes != expected {
@@ -294,7 +294,7 @@ impl Store for SystemStore {
             Err(error) => return Err(windows_store_error("CredReadW", error)),
             Ok(()) => {}
         }
-        // CredRead returns one allocation; free it even when the payload is invalid.
+        // CredRead returns one allocation; free it even when its content is invalid.
         struct Owned(*mut CREDENTIALW);
         impl Drop for Owned {
             fn drop(&mut self) {

@@ -1,4 +1,4 @@
-//! Regression evidence for carrier selection, unchanged checkpoints and API references.
+//! Regressions for source selection, unchanged processing positions and API references.
 mod common;
 
 use common::{batch, evt, temp_storage, ts, with_tokens};
@@ -123,7 +123,7 @@ fn native_file_counts_decorated_client_calls_and_replays_consumed_legacy_cursor(
         sums.total_unknown_count, 0,
         "a failed call without usage is not an unknown token observation"
     );
-    // Old parser consumed the identical file but dropped decorated spans.
+    // Old parser consumed the same bytes but skipped decorated spans.
     storage.conn().execute_batch("DELETE FROM usage_events; DELETE FROM daily_usage; DELETE FROM hourly_usage;
         UPDATE ingestion_checkpoints SET parse_context=json_remove(parse_context,'$.policy_version');").unwrap();
     assert_eq!(scan(&storage, &file, now + 1), 2);
@@ -182,7 +182,7 @@ fn carrier_selection_preserves_records_revisions_and_native_rescan() {
             .query_row("SELECT COUNT(*) FROM usage_events", [], |r| r.get(0))
             .unwrap();
         assert_eq!(count, 2);
-        // Coverage is limited to the selected source/model, not unrelated users.
+        // Coverage concerns the selected source/model only, excluding unrelated users.
         let unrelated = summary(
             &storage,
             Granularity::Day,
@@ -319,7 +319,7 @@ fn vs_total_upgrade_replays_unchanged_eof_without_duplicate_calls_or_conflicts()
     };
     let initial = scan_vs(now);
     let instance = &initial[0].instance_id;
-    // Exact legacy payload retained behind a fully consumed, unchanged checkpoint.
+    // Keep the exact legacy payload behind its fully consumed, unchanged processing position.
     let mut legacy = evt(instance, "vs-copilot:span:trace:call", now);
     legacy.agent = "vs-copilot".into();
     legacy.schema_version =
@@ -336,7 +336,7 @@ fn vs_total_upgrade_replays_unchanged_eof_without_duplicate_calls_or_conflicts()
     legacy.usage.output_total = Some(20);
     legacy.quality.input_total = FieldQuality::Reported;
     legacy.quality.output_total = FieldQuality::Reported;
-    // Test setup restores the old exact payload using SQL, preserving all records/checkpoints.
+    // Restore the exact old payload through SQL, retaining every record and processing position.
     for (id, output) in [("call", Some(20)), ("partial", None)] {
         let mut old = legacy.clone();
         old.source_record_key = format!("vs-copilot:span:trace:{id}");
@@ -377,7 +377,7 @@ fn vs_total_upgrade_replays_unchanged_eof_without_duplicate_calls_or_conflicts()
     let revision = storage.data_revision().unwrap();
     assert_eq!(scan_vs(now + 2)[0].files[0].status, "unchanged");
     assert_eq!(storage.data_revision().unwrap(), revision);
-    // A changed source value must remain a conflict even behind an old policy marker.
+    // A changed source value remains a conflict despite the old policy marker.
     legacy.usage.input_total = Some(101);
     let hash = llm_usage_core::identity::event_content_hash(&legacy);
     storage.conn().execute("UPDATE usage_events SET parser_version=?1,input_total=101,total_tokens=NULL,quality_json=?2,content_hash=?3 WHERE source_instance_id=?4 AND source_record_key=?5",
@@ -547,7 +547,7 @@ fn pricing_distinguishes_unknown_tokens_zero_usage_and_native_currency_units() {
     assert_eq!(
         (usd.currency.as_str(), usd.total_amount_minor),
         ("USD", 1800)
-    ); // $3 input + $15 output
+    ); // USD 3 input + USD 15 output.
     let mut options = EstimateOptions::default();
     options
         .provider_channels
@@ -558,7 +558,7 @@ fn pricing_distinguishes_unknown_tokens_zero_usage_and_native_currency_units() {
     assert_eq!(
         (cny.currency.as_str(), cny.total_amount_minor),
         ("CNY", 12000)
-    ); // ¥20 input + ¥100 output
+    ); // CNY 20 input + CNY 100 output.
     event.input_uncached = None;
     event.input_cache_read = None;
     event.input_cache_write = None;
@@ -568,7 +568,7 @@ fn pricing_distinguishes_unknown_tokens_zero_usage_and_native_currency_units() {
     };
     assert!(partial.has_unknown_components);
     assert_eq!(partial.input_amount_minor, None);
-    assert_eq!(partial.total_amount_minor, 1500); // only known output; never guess the input split
+    assert_eq!(partial.total_amount_minor, 1500); // Known output only; do not infer the input split.
 }
 
 #[test]
@@ -747,8 +747,8 @@ fn kimi_profile_alias_and_official_global_named_channels_have_reference_prices()
         llm_usage_core::model_names::reference_model_key("kimi-code/kimi-for-coding"),
         "kimi-k2.8-preview"
     );
-    // 真实场景（issue 5）：Kilo Code / oh-my-pi 以裸 model_raw `k3-256k` + 用户自定义
-    // provider（如 kimi-code-owent）上报；别名仍应命中官方 moonshot kimi-k3 参考价。
+    // Native issue 5: Kilo Code/oh-my-pi reports bare model_raw k3-256k and a custom
+    // provider, such as kimi-code-owent; alias should match official moonshot kimi-k3 rates.
     for provider in [
         None,
         Some("kimi-code-owent".to_string()),

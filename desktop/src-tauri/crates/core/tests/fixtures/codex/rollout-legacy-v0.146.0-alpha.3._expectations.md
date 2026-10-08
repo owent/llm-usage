@@ -1,54 +1,68 @@
 # rollout-legacy-v0.146.0-alpha.3._expectations.md
 
-来源：`<HOME>/.codex/sessions/…/rollout-<ts>-<UUID>.jsonl`（原始 454 行，本机实读），
-2026-09-26 按脱敏流程提取（build/desktop-usage-validation/tools/extract-codex-legacy.mjs）：
-数字/布尔/null 保留、字符串默认 REDACTED、ID 稳定映射 anon-N（675 个）、cwd → `<PATH>`。
-泄漏核查：无 UUID/路径/正文残留；保留字符串仅为记录类型、枚举、版本与模型名。
+Source: `<HOME>/.codex/sessions/…/rollout-<ts>-<UUID>.jsonl`,
+454 original lines read locally. Extracted on 2026-09-26 with
+`build/desktop-usage-validation/tools/extract-codex-legacy.mjs`. Numbers, booleans and null remain
+unchanged. Strings default to REDACTED, IDs use stable anon-N mappings (675 IDs),
+and cwd becomes `<PATH>`. Redaction checks found no remaining UUIDs, paths or bodies;
+only record types, enum values, versions and model names remain as strings.
 
-本样本覆盖旧载体系列的三个已核验异常类别，是行为最丰富的代表：
-压缩摘要回声（carried）、源端计数回退（regression）、多次调用区间（delta > last）。
+This sample covers three verified legacy-format cases: carried compaction usage,
+source counter regression, and intervals spanning multiple calls (delta>last).
 
-## 结构期望（JS 独立核算）
+<a id="结构期望js-独立核算"></a>
 
-- 454 行全部可解析（parseErrors=0）。
-- 记录类型计数：session_meta ×1、event_msg ×155、response_item ×290、
-  world_state ×2、turn_context ×5（model 均存在：`gpt-5.6-sol`）、compacted ×1。
-- token_count ×86：85 次常规发出 + 1 次 delta==0 且 last 变化且紧随 compacted
-  （压缩摘要调用回声 (0,0,0,0,0,16894)，源端排除出累计 total ⇒ 发事件但计入
-  carried 对账排除）。
-- 源端回退 ×3（实读 L338/L341/L444 附近：total 微降 319/607 等）⇒
-  `snapshot_regression` 诊断 + 基线重定；其中伴随 last 实际变化的仍发事件。
+## Structural expectations independently calculated with JavaScript
 
-## usage 数值期望（按增量判据发出的事件求和）
+- All 454 lines parse; parseErrors=0.
+- Record counts: session_meta=1, event_msg=155, response_item=290, world_state=2,
+  turn_context=5 (all model=gpt-5.6-sol), compacted=1.
+- 86 token_count records: 85 regular events and one with delta==0, changed last and
+  an immediately preceding compacted record. The carried compaction call has usage
+  (0,0,0,0,0,16894). The source excludes it from cumulative total, so emit the event
+  and classify it as carried for reconciliation exclusion.
+- Three source counter regressions, observed near native lines L338/L341/L444,
+  produce snapshot_regression and reset the baseline. Cumulative total decreases
+  include 319/607. If last actually changes, the corresponding event is still emitted.
 
-| 指标 | 期望 |
+<a id="usage-数值期望按增量判据发出的事件求和"></a>
+
+## Usage expectations summed over events emitted by the increment rules
+
+| Metric | Expected value |
 | --- | --- |
-| 模型调用（regular） | 85 |
-| 压缩摘要回声（carried） | 1 |
-| input_tokens 合计（regular） | 11,169,365 |
-| cached_input_tokens 合计（regular） | 10,530,048 |
-| cache_write_input_tokens 合计（regular） | 0 |
-| output_tokens 合计（regular） | 42,138 |
-| reasoning_output_tokens 合计（regular） | 20,692 |
-| total_tokens 合计（regular） | 11,211,503 |
-| carried total_tokens 合计 | 16,894 |
+| Regular model calls | 85 |
+| Carried compaction events | 1 |
+| Regular summed input_tokens | 11,169,365 |
+| Regular summed cached_input_tokens | 10,530,048 |
+| Regular summed cache_write_input_tokens | 0 |
+| Regular summed output_tokens | 42,138 |
+| Regular summed reasoning_output_tokens | 20,692 |
+| Regular summed total_tokens | 11,211,503 |
+| Carried summed total_tokens | 16,894 |
 
-包含关系（85/85 常规逐条成立）：total=input+output；cached⊆input；reasoning⊆output。
-carried 回声天然 total != input+output（已核验的记录形状）⇒ 1 条 source_total_mismatch
-矛盾诊断（可见、不隐藏）。
+All 85 regular records satisfy total=input+output, cached⊆input and reasoning⊆output.
+The verified carried record has total!=input+output and produces one visible
+source_total_mismatch diagnostic.
 
-## 快照对账期望
+<a id="快照对账期望"></a>
 
-- 最终快照 total = 10,911,604；detail_sum = 11,228,397（regular + carried）；
-  carried_sum = 16,894；difference = +299,899 ⇒ **mismatch**（进诊断，不伪造数据）。
-- 差异来源（核验）：源端两次计数回退重定基线后、回退伴随的真实调用按
-  宁多勿漏发出（超出快照），以及 delta > last 的多次调用区间只回声最新一次
-  （该方向本应少计）；两类残差一并在对账差异中显形。
+## Snapshot reconciliation expectations
 
-## 分派期望（V30）
+- Final snapshot total=10,911,604; detail_sum=11,228,397 (regular+carried),
+  carried_sum=16,894, difference=+299,899. Reconciliation is **mismatch**;
+  retain a diagnostic without inventing data.
+- Verified difference causes: baseline resets after two decreases in cumulative total
+  retain the accompanying real calls to avoid omissions, exceeding the snapshot.
+  Multi-call intervals with delta>last expose only the latest call, which undercounts
+  the interval. Both residuals remain visible in the reconciliation difference.
 
-- 版本 `0.146.0-alpha.3` 在注册表登记为已验证 ⇒ detect 返回
-  Supported { format_version: Some("0.146.0-alpha.3"), basis: KnownVersion }，
-  分派 `rollout_legacy`；事件 parse_basis = known_version、parser_version =
-  codex-rollout-legacy-1、身份 seq:{session}:{行号}（无 response_id）。
-- reconcile_mismatch ⇒ 文件状态 degraded（事件照常入库）。
+<a id="分派期望v30"></a>
+
+## Dispatch expectations (V30)
+
+- Version 0.146.0-alpha.3 is registered as verified. detect returns
+  Supported { format_version: Some("0.146.0-alpha.3"), basis: KnownVersion } and selects rollout_legacy.
+  Events use parse_basis=known_version, parser_version=codex-rollout-legacy-1,
+  and identity seq:{session}:{line}, because response_id is absent.
+- reconcile_mismatch makes file status degraded; events are still imported.

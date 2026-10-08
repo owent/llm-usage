@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-"""oh-my-pi 采集器：~/.omp/agent/sessions/*/*.jsonl 主请求 + ~/.omp/logs/*.log 标题生成等辅助请求。"""
+"""oh-my-pi collector: main requests in ~/.omp/agent/sessions/*/*.jsonl
+and auxiliary requests such as title generation in ~/.omp/logs/*.log."""
 import glob
 import json
 import os
@@ -24,7 +25,7 @@ def _ts(iso: str) -> float:
 @collector(TOOL)
 def collect(ctx):
     events = []
-    # 1) 会话主请求
+    # 1) Main session requests.
     for path in glob.glob(os.path.join(HOME, ".omp", "agent", "sessions", "*", "*.jsonl")):
         for raw in iter_new_lines(path, ctx, TOOL):
             if '"usage"' not in raw:
@@ -53,7 +54,7 @@ def collect(ctx):
                 cache_read=int(u.get("cacheRead") or 0),
                 cache_write=int(u.get("cacheWrite") or 0),
             ))
-    # 2) 日志中的辅助请求（title-generator 等）
+    # 2) Auxiliary requests in logs, such as title-generator.
     for path in glob.glob(os.path.join(HOME, ".omp", "logs", "omp.*.log")):
         for raw in iter_new_lines(path, ctx, TOOL):
             if "title-generator" not in raw or '"usage"' not in raw:

@@ -1,5 +1,5 @@
-//! Crush 适配器（Charm；独立目录约定）。载体：全局 projects.json 注册表 →
-//! 每项目 `.crush/crush.db` 的根会话 cost 累计（token 列是上下文快照不采）。
+//! Crush adapter (Charm, independent directory): global projects.json points to
+//! project .crush/crush.db root-session cumulative cost; context-snapshot token columns are ignored.
 
 pub mod common;
 pub mod detect;
@@ -9,7 +9,7 @@ pub use detect::CRUSH_FORMAT;
 pub use versions::sessions_cost_v1;
 pub use versions::{CRUSH_FORMAT_VERSION, LATEST_IMPL_ID, VERIFIED_VERSION_IMPLS};
 
-/// Crush 适配器（无状态）。
+/// Stateless Crush adapter.
 pub struct CrushAdapter;
 
 impl Default for CrushAdapter {
@@ -24,8 +24,8 @@ impl CrushAdapter {
     }
 }
 
-/// 解析 projects.json：{projects:[{path, data_dir, ...}]} → crush.db 候选列表。
-/// data_dir 为绝对路径或相对项目 path（官方 config.load.go）。
+/// Parse projects.json {projects:[{path,data_dir,...}]} into candidate crush.db paths.
+/// data_dir is absolute or relative to project path (official config.load.go).
 fn project_dbs(registry_path: &std::path::Path) -> Vec<std::path::PathBuf> {
     let Ok(text) = std::fs::read_to_string(registry_path) else {
         return Vec::new();
@@ -70,11 +70,11 @@ impl crate::adapters::framework::SourceAdapter for CrushAdapter {
         ctx: &crate::adapters::framework::DiscoverContext,
     ) -> Vec<crate::adapters::framework::DiscoveredRoot> {
         use crate::adapters::framework::{DiscoveredRoot, RootBasis};
-        // 注册表目录候选：CRUSH_GLOBAL_DATA → XDG → Windows LOCALAPPDATA。
+        // Registry candidates: CRUSH_GLOBAL_DATA, then XDG, then Windows LOCALAPPDATA.
         let mut registry_dirs: Vec<(std::path::PathBuf, RootBasis)> = Vec::new();
         if let Some(dir) = ctx.env.get("CRUSH_GLOBAL_DATA").filter(|v| {
-            // 相对路径只能相对宿主进程 cwd 解析，采集侧无法复现：只接受绝对路径
-            // （与 GOOSE_PATH_ROOT 规则相同）。
+            // Process-relative paths require the source process cwd, which collection cannot reproduce;
+            // accept absolute overrides only, as for GOOSE_PATH_ROOT.
             let t = v.trim();
             !t.is_empty() && std::path::Path::new(t).is_absolute()
         }) {
@@ -107,7 +107,7 @@ impl crate::adapters::framework::SourceAdapter for CrushAdapter {
                 continue;
             }
             for db in project_dbs(&registry) {
-                // 实例身份用项目库路径（同注册表下多项目去重）。
+                // Project database paths distinguish instances sharing a registry.
                 if seen.insert(db.clone()) {
                     out.push(DiscoveredRoot {
                         root: db
@@ -120,7 +120,7 @@ impl crate::adapters::framework::SourceAdapter for CrushAdapter {
                 }
             }
         }
-        // 手工根：crush.db 文件、其 data_dir 或 projects.json 所在目录。
+        // Manual roots: crush.db, its data_dir or the projects.json directory.
         for manual in &ctx.manual_roots {
             let candidates = if manual.is_file() {
                 if manual.file_name().and_then(|n| n.to_str()) == Some("projects.json") {

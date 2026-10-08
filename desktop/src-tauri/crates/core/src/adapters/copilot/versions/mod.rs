@@ -1,29 +1,29 @@
-//! Copilot CLI 版本注册表（V30 目录约定）。
+//! Copilot CLI version registry (V30 layout).
 //!
-//! 锚点：session-store.db `schema_version` 表（本机实测 8）+ M0 核验 1.0.73
-//! 逐 turn 字段。schema_version=8 → KnownVersion；其他/缺失 → LatestFallback
-//! 兼容尝试（列集在探测层校验）。
+//! Uses session-store.db schema_version (locally observed 8) and M0-verified 1.0.73
+//! per-turn fields. schema_version=8 selects KnownVersion; other/missing versions use
+//! LatestFallback compatibility attempts; detection validates the column set.
 
 pub mod usage_events_v8;
 
-/// 当前格式实现标识。
+/// Identifier of the current format implementation.
 pub const LATEST_IMPL_ID: &str = "usage_events_v8";
 
-/// 已验证的格式版本（schema_version=8，真实数据核对 2026-09-29）。
+/// Verified format version: schema_version=8, native-data check on 2026-09-29.
 pub const COPILOT_FORMAT_VERSION: &str = "assistant-usage-events-v8";
 
-/// 已验证支持的格式版本 → 格式实现。
+/// Supported format versions mapped to implementations.
 pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] =
     &[("assistant-usage-events-v8", "usage_events_v8")];
 
-/// 版本分派结论。
+/// Result of selecting a version implementation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Selection {
     pub impl_id: &'static str,
     pub basis: crate::domain::VersionBasis,
 }
 
-/// 按格式版本选择实现；探测与扫描共用本函数（V30）。
+/// Select by format version; detection and scanning share this function (V30).
 pub fn select(found: Option<&str>) -> Selection {
     match found {
         Some(version) => {

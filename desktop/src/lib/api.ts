@@ -1,11 +1,11 @@
 /**
- * 后端 IPC 类型与封装。token 大数值按约定以十进制字符串传输（number 转换仅用于
- * 图表缩放展示；精确值保留字符串）。
+ * Backend IPC types and wrappers. Large token integers use decimal strings; convert to
+ * number only for chart scaling, retaining strings for exact values.
  */
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
-/** 分级归档保留（天；yearly 为 null = 终身）。 */
+/** Tiered archive retention in days; yearly null means lifetime retention. */
 export interface RetentionTiers {
   events_days: number;
   hourly_days: number;
@@ -17,7 +17,7 @@ export interface RetentionTiers {
 
 export interface AppSettings {
   timezone: string;
-  /** null = 跟随语言地区（zh→周一；en-US/CA→周日）。 */
+  /** null follows locale: Monday for zh, Sunday for en-US/CA. */
   week_start: number | null;
   retention: RetentionTiers;
   refresh_interval_secs: number;
@@ -25,13 +25,13 @@ export interface AppSettings {
   close_to_tray?: boolean;
   file_watch_enabled?: boolean;
   language: string;
-  /** 主题：system（跟随系统）/ light / dark。 */
+  /** Theme: system, light or dark. */
   theme: string;
   manual_roots: string[];
   manual_roots_only?: boolean;
-  /** 本机来源身份显示名（仅辨认用途，不改 host_id 键）。 */
+  /** Display alias for this source host; does not change host_id. */
   hostname_alias: string | null;
-  /** F2 费用估算（默认关闭；旧设置 JSON 无此字段时视为关闭）。 */
+  /** F2 cost estimation, off by default and when absent from historical settings JSON. */
   pricing?: PricingSettings;
   budget?: BudgetSettings;
   otel_receiver_enabled?: boolean;
@@ -83,25 +83,25 @@ export interface TelemetryPreviewDto {
   sync_changes?: [string, unknown][];
 }
 
-/** 供应商级估算偏好；未配置时仅允许同型号无歧义的官方 API 参考。 */
+/** Provider pricing preferences; absent preferences allow only an unambiguous official API reference for the same model. */
 export interface ProviderPricingDefault {
   provider_id: string;
   region: string;
   channel: string;
-  /** 缓存写默认 TTL 档（分钟；null = 未设，写分量不计价）。 */
+  /** Default cache-write TTL tier in minutes; null leaves that component unpriced. */
   cache_ttl_minutes: number | null;
 }
 
 export interface PricingSettings {
   enabled: boolean;
   provider_defaults: ProviderPricingDefault[];
-  /** F2 在线刷新（models.dev 社区目录；默认关闭；旧设置 JSON 无此字段时视为关闭）。 */
+  /** F2 models.dev catalog refresh, off by default and when absent from historical settings JSON. */
   online_refresh_enabled?: boolean;
-  /** 在线刷新缓存 TTL（天，1–365，默认 7；缓存新鲜期内不发网络请求）。 */
+  /** Online cache TTL: 1-365 days, default 3; fresh caches avoid network requests. */
   online_cache_ttl_days?: number;
 }
 
-/** 按币种分列的金额行（最小货币单位；不同币种不合并）。 */
+/** Amount rows by currency in smallest units; keep currencies separate. */
 export interface CostCurrencyRowDto {
   substitute_models?: string[];
   upper_amount_minor?: number | null;
@@ -118,7 +118,7 @@ export interface CostCurrencyRowDto {
   unpriced_event_count: number;
   partial_event_count: number;
   ttl_defaulted_events: number;
-  /** 经官方提供商回退定价的事件数（provider 无精确价目时参考模型官方方按量价）。 */
+  /** Events priced through official-provider fallback when the recorded provider lacks an exact entry. */
   fallback_event_count: number;
 }
 
@@ -169,7 +169,7 @@ export interface PriceSnapshotInfoDto {
   row_count: number;
 }
 
-/** 在线刷新原始响应缓存信息（展示新鲜度）。 */
+/** Raw online-response cache metadata for displaying freshness. */
 export interface PriceCacheInfoDto {
   fetched_at_ms: number;
   bytes: number;
@@ -177,7 +177,7 @@ export interface PriceCacheInfoDto {
   age_secs: number;
 }
 
-/** 一次在线刷新的结果。status: fetched / cache_fresh / fetch_failed_used_cache / fetch_failed_no_cache。 */
+/** Refresh result: fetched, cache_fresh, fetch_failed_used_cache or fetch_failed_no_cache. */
 export interface PriceRefreshOutcomeDto {
   status: string;
   snapshot_id: string | null;
@@ -195,7 +195,7 @@ export interface PriceRefreshStatusDto {
   last_outcome: PriceRefreshOutcomeDto | null;
 }
 
-/** 系统任务期望与实际状态（Windows，每分钟检查到期来源）。 */
+/** Intended/actual system-task state; Windows checks due sources each minute. */
 export interface SystemTaskStatusDto {
   platform: string;
   auto_start: boolean;
@@ -293,9 +293,9 @@ export interface SourceDto {
   degraded_files: number;
   unsupported_files: number;
   incompatible_files: number;
-  /** 注册过但磁盘已不存在（Agent 自行清理/压实）：其历史只存于本应用存档。 */
+  /** Registered files no longer on disk after Agent cleanup/compaction; only retained application history remains. */
   missing_files: number;
-  /** 逐源提取计划（null = 继承全局间隔；M6 逐源定时）。 */
+  /** Source collection schedule; null inherits the global interval (M6). */
   schedule?: {
     kind: 'interval' | 'daily' | 'weekly';
     intervalSeconds: number | null;
@@ -312,10 +312,10 @@ export interface RefreshStateDto {
   started_ms: number;
   last_finished_ms: number;
   trigger: string;
-  /** 采集进度（0–100 百分比 + 预计剩余秒；null = 暂不可估）。 */
+  /** Collection progress: 0-100 percent and estimated remaining seconds; null ETA means unavailable. */
   progress_percent: number;
   eta_seconds: number | null;
-  /** 已完成的适配器名（按完成顺序）。 */
+  /** Completed adapter names in completion order. */
   completed_adapters: string[];
   instances: {
     instance_id: string;
@@ -339,7 +339,7 @@ export interface AppInfoDto {
   exchange_format_version: string;
 }
 
-/** 多用户（v6）：用户清单 + 当前统计用户。 */
+/** v6 user list and currently selected statistics user. */
 export interface UserDto {
   user_id: string;
   name: string;
@@ -351,7 +351,7 @@ export interface UsersDto {
   current: string;
 }
 
-/** 各归档层条目数 + 库文件占用（含 WAL）。 */
+/** Row counts by retention layer and database bytes, including WAL. */
 export interface StorageStatsDto {
   events: number;
   hourly: number;
@@ -362,7 +362,7 @@ export interface StorageStatsDto {
   wal_bytes: number;
 }
 
-/** 聚合交换包导入计数（M1a 约定）。 */
+/** Aggregate exchange-package import counts (M1a). */
 export interface ImportOutcomeDto {
   details_added?: number;
   details_updated?: number;
@@ -380,7 +380,7 @@ export interface ImportOutcomeDto {
   hourly_skipped: number;
 }
 
-/** 手动分层清理结果。 */
+/** Manual tiered-cleanup result. */
 export interface CleanupResultDto {
   deleted_events: number;
   deleted_hourly_rows: number;
@@ -389,15 +389,15 @@ export interface CleanupResultDto {
   materialized_period_rows: number;
 }
 
-/** 清理全部数据：后台任务启动结果（started=false 表示已有任务在执行）。 */
+/** Background clear-all start; started=false means a task is already running. */
 export interface ClearAllStartDto {
   started: boolean;
 }
 
-/** 清理全部数据后台任务阶段事件（clear-all-progress）。
- * waiting=等当前采集结束；backup=备份数据库；clearing=清库事务；
- * cleared=清库完成（含各表计数/备份路径）；rescan=全量重采已开始；
- * done=重采结束；failed=失败终止（error 含原因）。 */
+/** Background clear-all-progress stages.
+ * waiting: wait for collection; backup: copy database; clearing: clear transaction;
+ * cleared: tables cleared with counts/backup path; rescan: full collection started;
+ * done: rescan finished; failed: stopped with error details; cancelled: cancellation acknowledged. */
 export interface ClearAllProgressDto {
   phase: 'waiting' | 'backup' | 'clearing' | 'cleared' | 'rescan' | 'done' | 'failed' | 'cancelled';
   cleared?: Record<string, number>;
@@ -407,14 +407,14 @@ export interface ClearAllProgressDto {
   error?: string;
 }
 
-/** 清空预检：事件总量 + 已注册但磁盘不存在的源文件数（这些历史无法重采）。 */
+/** Clear-all preview: event count and registered missing source files that cannot be recollected. */
 export interface ClearAllPreviewDto {
   event_count: number;
   missing_files: number;
   total_files: number;
 }
 
-/** 用量明细分页行（event_details 命令）。token 为十进制字符串。 */
+/** event_details page row; token integers use decimal strings. */
 export interface EventDetailRowDto {
   event_id: string;
   agent: string;
@@ -437,7 +437,7 @@ export interface EventDetailsDto {
   page_size: number;
 }
 
-/** 导出过滤选项：可用用户/主机 + 当前值（is_current 标记默认选中项）。 */
+/** Export user/host options and current values; is_current selects defaults. */
 export interface ExportFilterOptionsDto {
   users: { user_id: string; name: string; is_current: boolean }[];
   hosts: { host_id: string; name: string | null; is_current: boolean }[];
@@ -445,10 +445,10 @@ export interface ExportFilterOptionsDto {
   current_host: string;
 }
 
-/** chart_series 维度分组模式（图表分组数据源；从聚合表直读）。 */
+/** chart_series grouping dimension, queried directly from aggregate tables. */
 export type ChartDimension = 'total' | 'model' | 'agent' | 'agent_model';
 
-/** 维度分组时间序列行（token 为十进制字符串或 null=未知）。 */
+/** Grouped time-series row; tokens are decimal strings or null for unknown. */
 export interface ChartSeriesRowDto {
   cache_write: string | null;
   uncached: string | null;
@@ -466,7 +466,7 @@ export interface ChartSeriesDto {
   rows: ChartSeriesRowDto[];
 }
 
-/** 诊断日志行（diagnostic_logs 命令；时间为毫秒时间戳）。 */
+/** diagnostic_logs row; time is a millisecond timestamp. */
 export interface DiagnosticLogRowDto {
   time: number;
   code: string;
@@ -479,7 +479,7 @@ export interface DiagnosticLogsDto {
   rows: DiagnosticLogRowDto[];
 }
 
-/** 通用额度快照（请求/额度计数，非 token）。 */
+/** Generic quota snapshot; retain native units separately from recorded usage. */
 export interface QuotaDto {
   agent: string;
   quota_id: string;
@@ -549,7 +549,7 @@ export const api = {
     invoke<EventDetailsDto>('event_details', { q, page, pageSize }),
   chartSeries: (q: SummaryQuery, dimension: ChartDimension) =>
     invoke<ChartSeriesDto>('chart_series', { q, dimension }),
-  /** 诊断日志（code_filter 为 null = 全部；传 code 字符串只取该类）。 */
+  /** Diagnostic logs: null code_filter selects all; a code string selects that category. */
   diagnosticLogs: (limit: number, codeFilter: string | null = null) =>
     invoke<DiagnosticLogsDto>('diagnostic_logs', { limit, codeFilter }),
   exportFilterOptions: () => invoke<ExportFilterOptionsDto>('export_filter_options'),
@@ -562,7 +562,7 @@ export const api = {
       'import_price_snapshot',
       { path },
     ),
-  /** F2 在线刷新：后台抓取 models.dev 并导入（force=true 绕过缓存 TTL）。 */
+  /** Background models.dev refresh/import; force=true bypasses cache TTL. */
   refreshPricesOnline: (force: boolean) =>
     invoke<{ started: boolean }>('refresh_prices_online', { force }),
   priceRefreshStatus: () => invoke<PriceRefreshStatusDto>('price_refresh_status'),
@@ -584,27 +584,27 @@ export const api = {
   manualCleanup: (daysBefore: number) => invoke<CleanupResultDto>('manual_cleanup', { daysBefore }),
   cancelCleanup: () => invoke<boolean>('cancel_cleanup'),
   clearAllData: () => invoke<ClearAllStartDto>('clear_all_data'),
-  /** 订阅清理全部数据后台任务的阶段进度；返回取消订阅函数。 */
+  /** Subscribe to background clear-all stages and return the unsubscribe callback. */
   onClearAllProgress: (handler: (p: ClearAllProgressDto) => void): Promise<UnlistenFn> =>
     listen<ClearAllProgressDto>('clear-all-progress', (e) => handler(e.payload)),
   clearAllPreview: () => invoke<ClearAllPreviewDto>('clear_all_preview'),
   pickOpenPath: (extension: string) => invoke<string | null>('pick_open_path', { extension }),
-  /** 通用额度总览（agent=null 取全部；请求/额度计数，非 token）。 */
+  /** Generic quota overview; agent=null selects all, with native units separate from recorded usage. */
   quotaSummary: (agent: string | null = null) =>
     invoke<QuotaSummaryDto>('quota_summary', { agent }),
-  /** 某 (agent, quota_id) 的每日额度趋势。 */
+  /** Daily quota trend for (agent, quota_id). */
   quotaSeries: (agent: string, quotaId: string) =>
     invoke<QuotaSeriesDto>('quota_series', { agent, quotaId }),
 };
 
-/** 结构化错误解析（后端返回 JSON 字符串 code+message）。 */
+/** Parse a backend JSON-string error containing code/message. */
 export function parseError(e: unknown): string {
   if (typeof e === 'string') {
     try {
       const parsed = JSON.parse(e) as { code?: string; message?: string };
       if (parsed.message) return `${parsed.code ?? 'error'}: ${parsed.message}`;
     } catch {
-      /* 原样返回 */
+      /* Return the original string when JSON parsing fails. */
     }
     return e;
   }

@@ -1,6 +1,6 @@
-//! Xum 适配器（Coder，原 mux；独立目录约定）。载体：
-//! `~/.mux/sessions/<workspaceId>/session-usage.json` 的 byModel 会话级
-//! 按模型累计（IntervalAggregate；产品更名保留 mux 旧根）。
+//! Xum (Coder, formerly mux) reads its own local files:
+//! `~/.mux/sessions/<workspaceId>/session-usage.json` contains byModel session
+//! model totals as IntervalAggregate; the rename retains the old mux root.
 
 pub mod detect;
 pub mod versions;
@@ -9,7 +9,7 @@ pub use detect::XUM_FORMAT;
 pub use versions::usage_v1;
 pub use versions::{LATEST_IMPL_ID, VERIFIED_VERSION_IMPLS, XUM_FORMAT_VERSION};
 
-/// Xum 适配器（无状态）。
+/// Stateless Xum adapter.
 pub struct XumAdapter;
 
 impl Default for XumAdapter {
@@ -61,7 +61,7 @@ impl crate::adapters::framework::SourceAdapter for XumAdapter {
                 ));
             }
         }
-        // 旧品牌 mux 根保留（产品更名；第三方解析器读取的路径即 ~/.mux）。
+        // Retain the old mux root after renaming; the third-party parser reads ~/.mux.
         if let Some(home) = &ctx.home_dir {
             roots.push((home.join(".mux").join("sessions"), RootBasis::DefaultHome));
             roots.push((home.join(".xum").join("sessions"), RootBasis::DefaultHome));

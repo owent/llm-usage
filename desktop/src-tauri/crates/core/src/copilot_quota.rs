@@ -1,50 +1,50 @@
-//! GitHub Copilot 本机额度记录提取（`copilot-user-cache.json`）。
+//! Read local GitHub Copilot quota records from copilot-user-cache.json.
 //!
-//! 载体识别依据（2026-10-01 本机核验 + 官方 cli-config-dir-reference「cache 目录」）：
-//! VS Code Copilot Chat 与 Copilot CLI 共享的账户额度缓存文件
-//! `copilot-user-cache.json`，Windows 位于 `%LOCALAPPDATA%/copilot/`，
-//! macOS `~/Library/Caches/copilot/`，Linux `$XDG_CACHE_HOME/copilot` 或
-//! `~/.cache/copilot/`。文件以 `//` 注释行开头，随后为 JSON：
-//! `copilotUserCache.<hash>.response.quota_snapshots.<quota_id>`。
+//! References: 2026-10-01 local checks and the official CLI cache-directory reference.
+//! VS Code Copilot Chat and Copilot CLI share an account quota cache:
+//! copilot-user-cache.json under Windows %LOCALAPPDATA%/copilot/,
+//! macOS ~/Library/Caches/copilot/, or Linux $XDG_CACHE_HOME/copilot
+//! with ~/.cache/copilot/ fallback. JSON follows comment lines.
+//! Quota fields live at copilotUserCache.<hash>.response.quota_snapshots.<quota_id>.
 //!
-//! **统计范围**：这是账户级「premium 请求额度」（所有设备/入口共享同一 1500
-//! 额度），是请求配额而非逐次 token；按额度快照独立展示，绝不折算成 token。
-//! `timestamp_utc` 为服务端快照时刻。（2026-10-01 更正：chronicle session-store.db
-//! 无逐次 token 的结论只覆盖该库；VS Code 原生 `chatSessions/*.jsonl` 会话日志
-//! 携带逐请求 token，由 `copilot_chat` 适配器接入，额度记录继续独立保留。）
+//! These account premium-request quotas span devices/interfaces. The observed sample had
+//! an allowance of 1500, not a universal limit. Display native requests separately, without token conversion.
+//! timestamp_utc is the service snapshot time. The 2026-10-01 conclusion about absent
+//! per-call tokens applied to the inspected chronicle session-store.db. Native VS Code
+//! chatSessions/*.jsonl usage/round records are read by copilot_chat; quotas remain separate.
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-/// 单条额度快照（账户级；请求计数，非 token）。
+/// Account quota snapshot in request units, separate from tokens.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct CopilotQuota {
-    /// 额度标识：premium_interactions / chat / completions。
+    /// Quota ID: premium_interactions, chat or completions.
     pub quota_id: String,
-    /// 本计费周期配额上限（0 表示无上限占位）。
+    /// Billing-window allowance; zero is an unlimited placeholder.
     pub entitlement: Option<i64>,
-    /// 剩余额度，千分之一请求；缺失/不可精确映射为未知。
+    /// Remaining allowance in milli-requests; missing/inexact values stay unknown.
     pub remaining: Option<i64>,
-    /// 已用额度 = entitlement − remaining（有上限且非 unlimited 时才有意义）。
+    /// Used = allowance - remaining only for a positive, non-unlimited allowance.
     pub used: Option<i64>,
-    /// 剩余百分比（服务端原值）。
+    /// Native remaining percentage.
     pub percent_remaining: Option<f64>,
-    /// 是否无上限（chat/completions 通常 true：不计入已用）。
+    /// Unlimited flag; chat/completions are usually unlimited and have no derived used count.
     pub unlimited: bool,
-    /// 快照观测时刻（来自 timestamp_utc，毫秒）。
+    /// Service snapshot timestamp from timestamp_utc, in milliseconds.
     pub observed_at_ms: Option<i64>,
 }
 
-/// 解析结果：账户计划标识 + 各额度快照。
+/// Parsed account plan label and quota snapshots.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct CopilotUsageCache {
     pub plan: Option<String>,
     pub quotas: Vec<CopilotQuota>,
 }
 
-/// 解析 `copilot-user-cache.json` 文本（先剥离 `//` 注释行再按 JSON 解析）。
+/// Strip comment lines before parsing copilot-user-cache.json.
 pub fn parse_cache(text: &str) -> Option<CopilotUsageCache> {
-    // 文件头是 `//` 注释行；从第一个 `{` 起才是 JSON。
+    // Remove lines starting with // after whitespace, preserving the JSON body.
     let json = text
         .trim_start_matches('\u{feff}')
         .lines()
@@ -53,7 +53,7 @@ pub fn parse_cache(text: &str) -> Option<CopilotUsageCache> {
         .join("\n");
     let value: serde_json::Value = crate::adapters::run_policy::json_from_str(&json).ok()?;
     let cache = value.get("copilotUserCache")?.as_object()?;
-    // 取最新一条（按 retrievedAt 排序；缺失则任取其一，通常仅一条）。
+    // Select the greatest retrievedAt; missing timestamps sort before known timestamps.
     let entry = cache
         .values()
         .filter_map(|v| v.as_object())
@@ -72,13 +72,13 @@ pub fn parse_cache(text: &str) -> Option<CopilotUsageCache> {
     };
     let snapshots = response.get("quota_snapshots").and_then(|v| v.as_object());
     if let Some(snapshots) = snapshots {
-        // 按 quota_id 字典序稳定输出。
+        // Emit quota IDs in stable lexical order.
         let ordered: BTreeMap<&String, &serde_json::Value> = snapshots.iter().collect();
         for (quota_id, snap) in ordered {
             let Some(snap) = snap.as_object() else {
                 continue;
             };
-            // has_quota=false 表示该额度对本账户不适用：跳过。
+            // has_quota=false means this account lacks the quota; skip it.
             if snap
                 .get("has_quota")
                 .and_then(|v| v.as_bool())
@@ -86,7 +86,7 @@ pub fn parse_cache(text: &str) -> Option<CopilotUsageCache> {
             {
                 continue;
             }
-            // premium 额度可为小数；用千分之一请求的整数存储，禁止取整。
+            // Preserve fractional premium requests as integer milli-requests without whole-request rounding.
             let milli = |v: &serde_json::Value| -> Option<i64> {
                 if let Some(n) = v.as_i64() {
                     return n.checked_mul(1000).filter(|n| *n >= 0);
@@ -107,7 +107,7 @@ pub fn parse_cache(text: &str) -> Option<CopilotUsageCache> {
                 .get("unlimited")
                 .and_then(serde_json::Value::as_bool)
                 .unwrap_or(false);
-            // 已用仅在有正上限且非 unlimited 时可派生（配额语义）；否则未知不补零。
+            // Derive used only for a positive limited allowance; otherwise leave it unknown.
             let used = if !unlimited {
                 entitlement
                     .zip(remaining)
@@ -143,8 +143,8 @@ fn parse_iso_ms(raw: &str) -> Option<i64> {
     Some(ts.as_millisecond())
 }
 
-/// 解析缓存文件默认路径（平台 cache 目录；COPILOT_CACHE_HOME 覆盖）。
-/// 传入显式 env map 便于测试，不直接读进程环境。
+/// Resolve platform cache paths with COPILOT_CACHE_HOME override.
+/// Accept an explicit environment map for isolated tests, without process-environment reads.
 pub fn cache_path(
     env: &BTreeMap<String, String>,
     home: Option<&std::path::Path>,
@@ -171,7 +171,7 @@ pub fn cache_path(
                 .join(file),
         );
     }
-    // Linux / 其他：XDG_CACHE_HOME 优先，否则 ~/.cache。
+    // Linux/other platforms prefer XDG_CACHE_HOME, then ~/.cache.
     let base = env
         .get("XDG_CACHE_HOME")
         .map(|s| s.trim())
@@ -181,7 +181,7 @@ pub fn cache_path(
     Some(base.join("copilot").join(file))
 }
 
-/// 读取并解析本机 Copilot 额度缓存（文件缺失/不可解析返回 None）。
+/// Read the local cache; missing/unparseable files return None.
 pub fn read_from(
     env: &BTreeMap<String, String>,
     home: Option<&std::path::Path>,
@@ -201,18 +201,18 @@ pub fn read_from(
     parse_cache(&text)
 }
 
-// ---- 归一到通用额度时序（agent 无关 quota_history）----
+// Map to Agent-independent quota_history.
 
 use crate::error::CoreError;
 use crate::quota_history::QuotaObservation;
 use crate::storage::Storage;
 
-/// 统计 Agent 名。
+/// Agent name used in statistics.
 pub const AGENT: &str = "copilot";
 
-/// 把解析出的额度快照映射为通用 [`QuotaObservation`]。
-/// 仅纳入有真实上限且非 unlimited 的额度（premium_interactions）：
-/// 账户级请求配额（所有设备共享 ⇒ locality_verified=false），按请求计数、非 token。
+/// Map parsed snapshots to generic QuotaObservation.
+/// Include positive limited quotas such as premium_interactions;
+/// account quotas span devices, so locality_verified=false; retain request units rather than tokens.
 pub fn to_observations(cache: &CopilotUsageCache) -> Vec<QuotaObservation> {
     cache
         .quotas
@@ -235,7 +235,7 @@ pub fn to_observations(cache: &CopilotUsageCache) -> Vec<QuotaObservation> {
             percent_remaining: q.percent_remaining,
             window_start_ms: None,
             window_end_ms: None,
-            // 账户级配额跨设备共享，不可证明属于本机：locality_verified=false。
+            // An account quota does not establish local-device usage; locality_verified=false.
             locality_verified: false,
             detail: cache
                 .plan
@@ -245,7 +245,7 @@ pub fn to_observations(cache: &CopilotUsageCache) -> Vec<QuotaObservation> {
         .collect()
 }
 
-/// 便捷：从本机缓存读取并记录到通用 quota_history；返回记录的额度条数。
+/// Read and store local-cache observations in quota_history; return the number recorded.
 pub fn collect(
     storage: &Storage,
     env: &BTreeMap<String, String>,
@@ -298,7 +298,7 @@ mod tests {
         assert_eq!(premium.remaining, Some(137_400));
         assert_eq!(premium.used, Some(1_362_600));
         assert!(!premium.unlimited);
-        // timestamp_utc -07:00 → UTC 毫秒。
+        // Parse timestamp_utc with its -07:00 offset into UTC milliseconds.
         assert!(premium.observed_at_ms.is_some_and(|t| t > 0));
     }
 

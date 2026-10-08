@@ -1,16 +1,16 @@
-//! Cline 探测：整写 ui_messages.json 数组的文档级指纹。
+//! Cline detection: legacy ui_messages.json array fingerprints, with separate SDK dispatch.
 //!
-//! ui_messages.json 无版本字段，格式版本恒为文档级
-//! [`super::versions::CLINE_FORMAT_VERSION`]（固定源码 dcf8c3c）；不做版本分派、
-//! 不存在未知版本回退（区别于 codex 的注册表分派）。
+//! Legacy ui_messages.json has no version field; its format uses the document-level
+//! [`super::versions::CLINE_FORMAT_VERSION`] (fixed source dcf8c3c). This branch
+//! does not dispatch unknown versions; SDK files use sdk_messages_v1::detect.
 //!
-//! 约定（V17 fail closed）：
-//! - 文件头 64 KiB（剥 UTF-8 BOM）不以 JSON 数组开头 ⇒ 未知格式，
-//!   不把任意未知文件交给猜测逻辑；
-//! - 无 say 消息指纹 ⇒ 未知格式；
-//! - 空内容 ⇒ Pending，下轮重探；
-//! - 指纹成立 ⇒ Supported，文档级格式版本是注册表唯一已收录条目，
-//!   选择依据恒为 KnownVersion。say 种类合法性在扫描层逐条核验。
+//! Detection rules (V17 rejects unrecognized shapes):
+//! - Read the first 64 KiB, strip UTF-8 BOM; a nonarray prefix is UnknownFormat.
+//!   Unrecognized files are not parsed by guessing their format.
+//! - Missing say/type fingerprint is UnknownFormat.
+//! - Empty content is Pending and is probed again next round.
+//! - A matching fingerprint is Supported with the registered document format;
+//!   basis is KnownVersion. Scanning checks each message kind separately.
 
 use crate::adapters::framework::DetectOutcome;
 use crate::domain::VersionBasis;
@@ -21,16 +21,16 @@ use super::versions;
 
 pub const CLINE_FORMAT: &str = "cline-ui-messages-json";
 
-/// 探测窗口：文件头 64 KiB 指纹（有界读取，不解析全文件）。
+/// Detection window: first 64 KiB, without parsing the entire file.
 const DETECT_HEAD_BYTES: usize = 64 * 1024;
 
-/// 探测一个任务 ui_messages.json 文件。
-/// 无版本字段可分派：指纹成立即返回固定文档级格式版本（恒为 KnownVersion）。
+/// Detect an SDK file separately, or a legacy task ui_messages.json file.
+/// A legacy fingerprint selects the fixed document format with KnownVersion.
 pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     if versions::sdk_messages_v1::is_sdk_file(path) {
         return versions::sdk_messages_v1::detect(path);
     }
-    // 瞬态不可读（持锁/超时/枚举后被清理）⇒ Pending 下轮重探，不固化失败。
+    // Transient read failure (lock/timeout/disappearance) is Pending for the next probe.
     let Some(head) = crate::adapters::framework::read_detect_head(path, DETECT_HEAD_BYTES)? else {
         return Ok(DetectOutcome::Pending);
     };
@@ -44,7 +44,7 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
             reason: "task file does not start with a JSON array".to_string(),
         });
     }
-    // 指纹：say 消息结构（getApiMetrics.ts 只消费 type="say" 的消息）。
+    // Fingerprint: say/type markers; getApiMetrics.ts consumes type="say" messages.
     let has_say = trimmed.contains("\"say\"");
     let has_type = trimmed.contains("\"type\"");
     if has_say && has_type {
@@ -54,7 +54,7 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
             basis: VersionBasis::KnownVersion,
         })
     } else if has_type {
-        // 有消息结构但窗口内无 say 消息：不能确认是 Cline 消息数组。
+        // Typed messages without say in this window do not establish a Cline array.
         Ok(DetectOutcome::UnknownFormat {
             reason: "array carries typed messages but no say fingerprint in head window"
                 .to_string(),

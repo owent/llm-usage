@@ -1,12 +1,16 @@
-# Zoo 3.86.0 真实容器用量投影
+# Zoo 3.86.0 native container usage extraction
 
-官方 VSIX 固定提交 `6aa9d0174a9ecae155c6c5db9134bead4b67197d`。
-独立 VS Code 1.140.0 的公开扩展 API 调用本地模型，保留五条消息的 type/say/ask、
-时间、partial 和已核验 usage 字段；所有正文、配置、原始 task ID 均移除。
-`api-usage.json` 来自独立服务计数，`extension-usage.json` 来自公开用量回调。
+<a id="zoo-3860-真实容器用量字段提取"></a>
 
-一条已观测主请求，输入 6,118、输出 53、派生总量 6,171；原生零缓存与零费用
-均为默认零，保持未知。未缓存、推理、源总量、模型/供应商未知。
-普通文本、推理与恢复提示不计调用。真实任务在收到用量后公开取消，不声明任务成功。
-历史迁移测试另投影为 usage-only 合成载体，模拟 doc1 曾能消费的消息集合，
-不声称旧读取器可读这份完整真实数组。
+Official VSIX at fixed commit 6aa9d0174a9ecae155c6c5db9134bead4b67197d. Independent
+VS Code 1.140.0 called a local model through the public extension API. Preserve five
+messages' type/say/ask, time, partial and verified usage fields; remove bodies, configuration
+and original task ID. api-usage.json is the independent service counter;
+extension-usage.json is the public usage callback.
+
+One observed main request: input=6,118, output=53, derived total=6,171. Native cache/cost
+zeros are initialized defaults and stay unknown. Uncached/reasoning/source total/model/provider
+are unknown. Ordinary text/reasoning/resume prompts are not calls. The real task was publicly
+cancelled after receiving usage; no task-success claim. Historical migration tests use a
+separate synthetic usage-only extract to represent messages consumed by doc1, without
+claiming the old reader accepts this complete native array.

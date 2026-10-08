@@ -1,12 +1,12 @@
-//! MiMo Code 探测与版本分派：mimocode.db schema 指纹（真实列，产品互斥：
-//! message 须含 `agent_id` 列 ⇒ OpenCode 库不能过本指纹，不从 fork 关系推兼容）+
-//! `session.version` 注册表。
+//! MiMo Code detection: mimocode.db schema columns distinguish this product.
+//! message requires agent_id; OpenCode fails this shape. Shared ancestry does not imply compatibility.
+//! Select using the session.version registry.
 //!
-//! 约定（architecture.md#unknown-version / adapters.md A14）：
-//! - part/session/message 三表或关键列缺失 ⇒ 未知格式 fail closed；
-//! - 库尚无会话（session/part 均空）⇒ Pending，下轮重探；
-//! - 版本标记取库内数值最大 session.version：已收录 ⇒ KnownVersion；
-//!   未收录/缺失 ⇒ LatestFallback（带兼容标记；当前注册表为空：文档或源码依据）。
+//! Rules: architecture.md#unknown-version / adapters.md A14.
+//! - Missing part/session/message tables or key columns: unknown format, reject.
+//! - Empty session and part tables: Pending, detect again next run.
+//! - File version uses the numerically greatest session.version; registered means KnownVersion.
+//!   Otherwise/missing: marked LatestFallback; registry currently empty, source/documentation only.
 
 use crate::adapters::framework::DetectOutcome;
 use crate::adapters::mimo_code::common::{
@@ -26,7 +26,7 @@ fn is_not_a_database(err: &rusqlite::Error) -> bool {
     )
 }
 
-/// 探测一个 mimocode.db 并按注册表分派。
+/// Detect mimocode.db and select the registered implementation.
 pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     let source = match open_source_db(path, short_probe, &StagingLimits::default()) {
         Ok(source) => source,
@@ -46,7 +46,7 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
                 .to_string(),
         }),
         Ok(Some(_)) => {
-            // 空 session 且空 part（新装未用）⇒ Pending。
+            // Empty session and part tables, such as an unused installation: Pending.
             let row_count: i64 = conn
                 .query_row(
                     "SELECT (SELECT COUNT(*) FROM session) + (SELECT COUNT(*) FROM part)",

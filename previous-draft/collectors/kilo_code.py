@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""kilo code 采集器：~/.local/share/kilo/kilo.db 的 message 表（assistant 消息 tokens）。"""
+"""Kilo Code collector: assistant message tokens in ~/.local/share/kilo/kilo.db."""
 import json
 import os
 import shutil
@@ -19,7 +19,7 @@ def collect(ctx):
     if not os.path.exists(SRC):
         ctx.skip_reason = "未找到 kilo.db"
         return []
-    # 活库先复制（含 WAL）再读，避免锁与脏读
+    # Copy the live database, including WAL, before reading to avoid locks and dirty reads.
     tmp = tempfile.mkdtemp(prefix="kilo-db-")
     dst = os.path.join(tmp, "kilo.db")
     try:
@@ -33,7 +33,7 @@ def collect(ctx):
                 cursor = 0 if ctx.refresh else int(ctx.store.state_get(TOOL, CURSOR_KEY, 0) or 0)
             except (ValueError, TypeError):
                 cursor = 0
-            # 回退一小时窗口，配合 request_id 幂等去重
+            # Rewind the window by one hour and deduplicate with request_id.
             rows = con.execute(
                 "SELECT id, data FROM message WHERE time_created >= ?",
                 (max(0, cursor - 3600_000),),

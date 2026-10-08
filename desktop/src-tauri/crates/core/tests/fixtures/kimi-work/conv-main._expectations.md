@@ -1,38 +1,48 @@
-# conv-main._expectations.md（REAL，本机脱敏提取）
+# conv-main._expectations.md (REAL, anonymized local extraction)
 
-来源：Kimi Work 内嵌 kimi-code home
-`…/Kimi/share/daimon-share/daimon/runtime/kimi-code/home/sessions/<wd>/conv-<hexid>/agents/main/wire.jsonl`
-（原始 363 行；wire protocol_version=1.4；宿主 daimon，state.json
-createdBy=daimon-kernel-adapter 佐证产品身份）。
-提取时间：2026-09-25（tools/extract-kimi.mjs 白名单投影保留 115 行；
-正文 REDACTED、ID anon-N）。
+<a id="conv-main_expectationsmdreal本机脱敏提取"></a>
 
-## 结构期望
+Source: Kimi Work's embedded kimi-code home,
+`…/Kimi/share/daimon-share/daimon/runtime/kimi-code/home/sessions/<wd>/conv-<hexid>/agents/main/wire.jsonl`.
+The original has 363 lines, wire protocol_version=1.4 and host daimon. state.json
+createdBy=daimon-kernel-adapter also identifies the product. Extracted on 2026-09-25:
+tools/extract-kimi.mjs retains 115 lines of selected fields, with bodies REDACTED and IDs anon-N.
 
-- 首行 `metadata`（protocol_version="1.4"）。
-- usage.record ×38（全部 turn scope、无 agentId 字段——1.4 主线 wire 不带
-  agentId，代理身份来自目录 agents/main）；step.end 回声 ×38 全部带 usage。
-- 模型：`k28-agent-preview` ×38；llm.request provider=`kimi`。
+<a id="结构期望"></a>
 
-## usage 数值期望（工具输出与源文件 jq 独立求和一致；roundtrip 复核相等）
+## Structural expectations
+
+- First line: metadata with protocol_version="1.4".
+- 38 turn-scoped usage.record entries, with no agentId: the 1.4 main wire omits agentId;
+  Agent identity comes from agents/main. All 38 step.end repeats contain usage.
+- Model k28-agent-preview ×38; llm.request provider=kimi.
+
+<a id="usage-数值期望工具输出与源文件-jq-独立求和一致roundtrip-复核相等"></a>
+
+## Expected usage values (tool output, independent source jq sums and roundtrip agree)
 
 | n | inputOther | output | inputCacheRead | inputCacheCreation |
 | --- | --- | --- | --- | --- |
 | 38 | 47,574 | 18,658 | 1,310,720 | 0 |
 
-回声 Σ 与记录 Σ 完全相等（38=38，此会话无中断步）。
+Repeat and record sums match exactly (38=38); this session has no interrupted steps.
+
+<a id="与-kimi-code15的实测差异独立-fixture-核验结果不因内核同名合并"></a>
 
 <a id="与-kimi-code15的实测差异独立-fixture-证据不因内核同名合并"></a>
 
-## 与 Kimi Code（1.5）的实测差异（独立 fixture 核验结果，不因内核同名合并）
+## Measured differences from Kimi Code 1.5 (separate native samples)
 
-- 目录布局：`conv-<hexid>`（而非 `session_<uuid>`）；本会话无子代理目录。
-- usage.record 无 agentId（1.5 主线带）；模型为裸 id（非 alias/model 组合）。
+- Directory: `conv-<hexid>` rather than `session_<uuid>`; this session has no subagent directory.
+- usage.record omits agentId, which 1.5 main records include. Models use bare IDs rather
+  than alias/model combinations. A shared kernel name does not merge product verification.
 
-## 期望入库（人工核算）
+<a id="期望入库人工核算"></a>
 
-38 事件全 primary；input_uncached=47,574；cache_read=1,310,720；
-cache_write=0（reported）；output_total=18,658；input_total=1,358,294（派生）；
-total_tokens=1,376,952（派生）。
+## Expected import (manually calculated)
 
-匿名 ID：76 个（anon-1…anon-76）。
+38 primary events: input_uncached=47,574, cache_read=1,310,720,
+cache_write=0 (reported), output_total=18,658, input_total=1,358,294 (derived),
+total_tokens=1,376,952 (derived).
+
+76 anonymized IDs: anon-1…anon-76.

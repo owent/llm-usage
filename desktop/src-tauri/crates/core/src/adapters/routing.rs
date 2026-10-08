@@ -1,4 +1,4 @@
-//! Route app-owned carriers explicitly and preserve physical-file ownership.
+//! Route application-managed files explicitly and preserve physical-file ownership.
 use super::framework::{normalize_path, DetectOutcome, DiscoverContext, SourceAdapter};
 use crate::{error::CoreError, storage::Storage};
 use rusqlite::{params, OptionalExtension};
@@ -22,8 +22,8 @@ pub fn context_for_adapter(
     ctx
 }
 
-/// Keep valid history and settings. Only hide empty instances created by the old
-/// managed-root broadcast; a future real discovery makes them active again.
+/// Retain valid history/settings; hide only empty instances from the old managed-root
+/// broadcast. Future valid discovery may activate them again.
 pub fn retire_misrouted_sources(storage: &Storage, roots: &[PathBuf]) -> Result<(), CoreError> {
     retire_other_sources(storage, roots, "otel")
 }
@@ -65,10 +65,10 @@ fn zed_native_file(path: &Path) -> bool {
 }
 
 fn retire_other_sources(storage: &Storage, roots: &[PathBuf], keep: &str) -> Result<(), CoreError> {
-    // Old discovery could transform a supplied root (Junie lifts a session
-    // directory to its parent). Reproduce that metadata path through the registry
-    // instead of assuming every adapter registered the literal supplied path.
-    // No home/env roots: only the old broadcast's managed inputs are candidates.
+    // Old discovery could transform roots: Junie promotes a session directory to its parent.
+    // Reproduce the resulting metadata path through the full registry instead of assuming
+    // each adapter registered the literal supplied path.
+    // Without home/environment roots, candidates are limited to old broadcast-managed inputs.
     let legacy_context = DiscoverContext {
         manual_roots: roots.to_vec(),
         ..Default::default()
@@ -166,8 +166,8 @@ pub(super) fn accepts_manual_file(
     instance: &str,
     path: &Path,
 ) -> Result<bool, CoreError> {
-    // Exact DSH framing is stronger evidence than another reader's shared
-    // `type=session` word. Corrupt manual files still follow normal diagnostics.
+    // Exact DSH framing identifies its format more precisely than a shared
+    // type=session field; corrupt manual files still receive normal diagnostics.
     if !instance.starts_with("dsh@") && dsh_native_record(path) {
         return Ok(false);
     }
@@ -180,8 +180,8 @@ pub(super) fn accepts_manual_file(
             |r| r.get(0),
         )
         .optional()?;
-    // Unknown user-selected files still need diagnostics. Only the app's managed
-    // roots have an explicit adapter route; don't silently hide genuine corruption.
+    // Unknown manual files need diagnostics. Only application-managed roots have explicit
+    // adapter routing; retain actual corruption reports.
     match owner {
         None => Ok(true),
         Some(owner) => Ok(recoverable_qwen_owner(storage, instance, &owner, path)?
@@ -228,8 +228,8 @@ fn recoverable_dsh_owner(
     storage.conn().query_row("SELECT NOT EXISTS(SELECT 1 FROM usage_events WHERE source_instance_id=?1) AND NOT EXISTS(SELECT 1 FROM daily_usage WHERE instance_id=?1) AND NOT EXISTS(SELECT 1 FROM period_usage WHERE instance_id=?1) AND NOT EXISTS(SELECT 1 FROM source_aggregates WHERE instance_id=?1)",[owner],|r|r.get(0)).map_err(Into::into)
 }
 
-/// A physical file has one owner. Recover only an unrecognized registration
-/// that never committed usage or a cursor; never transfer a valid stream.
+/// Each physical file has one owner. Verified Qwen/DSH ownership repairs require no statistical history.
+/// Other unrecognized registrations also require no checkpoint; never transfer valid historical contributions.
 pub(super) fn claim_file(
     storage: &Storage,
     adapter: &dyn SourceAdapter,
@@ -288,8 +288,8 @@ pub(super) fn claim_file(
         params![instance, file, owner],
     )?;
     if changed == 1 {
-        // Only an empty unrecognized owner whose last file was transferred.
-        // Other manually selected bad files still retain their visible diagnosis.
+        // Hide only an empty unrecognized owner after its final file transfers.
+        // Retain visible diagnostics for other invalid manual files.
         tx.execute("UPDATE source_instances SET health='not_applicable' WHERE instance_id=?1 AND NOT EXISTS(SELECT 1 FROM source_files WHERE instance_id=?1)",[&owner])?;
     }
     tx.commit()?;

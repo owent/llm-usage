@@ -1,11 +1,11 @@
-//! ZCode 探测与版本分派：有界读取首行，确认 Agent 身份（`type=model_io` 的
-//! model-io JSONL、sessionId 必填）后按 [`super::versions`] 注册表选择格式实现。
+//! ZCode detection: bounded first-line read identifies model-io JSONL type=model_io
+//! with required sessionId; then select the format through [`super::versions`].
 //!
-//! 约定（architecture.md#unknown-version）：
-//! - 首行不是 JSON / 不是 model_io / 缺 sessionId 身份字段 ⇒ 未知格式，
-//!   fail closed，不把任意未知文件交给猜测逻辑；
-//! - 版本锚点 `request.headers["x-zcode-app-version"]` 已收录 ⇒ KnownVersion；
-//!   未收录（如未来 9.9.9）或缺失 ⇒ LatestFallback（带兼容标记）。
+//! Rules: architecture.md#unknown-version.
+//! - Non-JSON/non-model_io/missing sessionId: unknown format,
+//!   reject rather than parse arbitrary unidentified files.
+//! - Registered request.headers["x-zcode-app-version"]: KnownVersion;
+//!   unregistered, such as future 9.9.9, or missing: marked LatestFallback.
 
 use crate::error::CoreError;
 use std::path::Path;
@@ -16,7 +16,7 @@ use super::versions;
 
 pub const ZCODE_FORMAT: &str = "zcode-modelio-jsonl";
 
-/// 探测一个 model-io 文件并按注册表分派。
+/// Detect model-io and select the registered implementation.
 pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     let limits = super::super::jsonl::JsonlLimits {
         chunk_bytes: 64 * 1024,
@@ -39,8 +39,8 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
             reason: "first record type is not model_io".to_string(),
         });
     }
-    // Agent 身份/输入类型确认：model_io 须携带 sessionId；版本锚点可缺失
-    //（缺失 ⇒ 版本未知，默认回退最新内置解析器，不直接拒绝）。
+    // Confirm model_io and sessionId; the version field may be absent.
+    // Missing version uses the latest built-in parser, without immediate rejection.
     if line.get("sessionId").and_then(|v| v.as_str()).is_none() {
         return Ok(DetectOutcome::UnknownFormat {
             reason: "model_io without session identity (sessionId)".to_string(),

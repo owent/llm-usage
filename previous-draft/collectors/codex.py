@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
-"""codex 采集器：~/.codex/sessions/**/rollout-*.jsonl 的 token_usage_record。
+"""Codex collector: token_usage_record in ~/.codex/sessions/**/rollout-*.jsonl.
 
-input_tokens 含缓存命中部分，这里拆分为：input = input_tokens - cached_input_tokens，
-cache_read = cached_input_tokens，cache_write = cache_write_input_tokens。
+input_tokens includes cache hits. Split input = input_tokens - cached_input_tokens,
+cache_read = cached_input_tokens and cache_write = cache_write_input_tokens.
 
-模型名跟踪：usage 记录本身不带模型，模型出现在 event_msg(thread_settings_applied)
-等行里。增量读取时新数据块可能只含 usage 行，因此：
-1. 每个文件的"最近已知模型"持久化到 source_state（model:<path>），跨增量块保留；
-2. 仍解析不出模型的事件，按时间戳回扫全文件，取最近一条不晚于该事件的模型行补齐。
+Model tracking: usage records omit the model; event_msg(thread_settings_applied)
+and other lines provide it. An incremental block may contain only usage lines:
+1. Persist each file's latest known model in source_state (model:<path>) across blocks.
+2. For unresolved events, scan the complete file by timestamp and use the latest
+   model line that is no later than the event.
 """
 import glob
 import json
@@ -32,7 +33,7 @@ def _ts(iso) -> float:
 
 
 def _models_by_ts(path):
-    """全文件扫描模型行，返回按文件顺序的 (ts, model) 列表（跳过 usage 行）。"""
+    """Scan model lines across the file in file order as (ts, model), skipping usage lines."""
     out = []
     try:
         with open(path, encoding="utf-8", errors="replace") as f:
@@ -54,7 +55,7 @@ def _models_by_ts(path):
 
 
 def _resolve_model(pairs, ts):
-    """取最近一条 ts_model <= ts 的模型行；事件早于首条模型行时用首条。"""
+    """Use the latest model line with ts_model <= ts; use the first line for earlier events."""
     if not pairs:
         return None
     best = pairs[0][1]
@@ -77,7 +78,7 @@ def collect(ctx):
                 current_model = ctx.store.state_get(TOOL, state_key) or None
             except Exception:
                 current_model = None
-        pending = []  # 未解析出模型的事件下标
+        pending = []  # Indices of events whose model is unresolved.
         for raw in iter_new_lines(path, ctx, TOOL):
             if '"token_usage_record"' not in raw and '"model"' not in raw:
                 continue

@@ -1,6 +1,6 @@
-//! Command Code 适配器（独立目录约定）。载体：
-//! `~/.commandcode/projects/<slug>/*.jsonl` v3 树形（当前路径规则；fork 复制
-//! 按 entry id+timestamp 跨文件去重）。已核对官方 npm 分发物 1.69.0。
+//! Command Code reads its own local files:
+//! `~/.commandcode/projects/<slug>/*.jsonl` uses the current v3 tree layout; fork copies
+//! deduplicate across files by entry id+timestamp. Official npm distribution 1.69.0 was checked.
 
 pub mod detect;
 pub mod versions;
@@ -9,7 +9,7 @@ pub use detect::COMMANDCODE_FORMAT;
 pub use versions::tree_v3;
 pub use versions::{COMMANDCODE_FORMAT_VERSION, LATEST_IMPL_ID, VERIFIED_VERSION_IMPLS};
 
-/// Command Code 适配器（无状态）。
+/// Stateless Command Code adapter.
 pub struct CommandCodeAdapter;
 
 impl Default for CommandCodeAdapter {
@@ -52,7 +52,7 @@ impl crate::adapters::framework::SourceAdapter for CommandCodeAdapter {
         let mut seen: std::collections::BTreeSet<std::path::PathBuf> =
             std::collections::BTreeSet::new();
         for (root, basis) in roots {
-            // projects/<slug>/<session>.jsonl（深度 2；排除 checkpoints/prompts/v2.bak）。
+            // projects/<slug>/<session>.jsonl, depth 2; exclude checkpoints/prompts/v2.bak.
             let files = crate::adapters::framework::enumerate_files_bounded(&root, 2, &|p| {
                 let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
                 name.ends_with(".jsonl")

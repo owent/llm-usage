@@ -1,29 +1,29 @@
-//! MiMo Code 版本注册表：`session.version`（TEXT）→ 格式实现映射与未知版本
-//! 回退选择（architecture.md#adapter-layout / #unknown-version）。
+//! MiMo Code version registry: TEXT session.version selects a format implementation or
+//! fallback (architecture.md#adapter-layout / #unknown-version).
 //!
-//! 已验证版本须有真实脱敏 fixture 与期望值核验结果。当前**没有**任何本机真实
-//! 样本（2026-09-25 盘点 not_found），仅有固定源码
-//! （456678b6a5afb0eef3fe2754575637218cfb3c84）文档或源码依据，因此注册表为空：
-//! 一切版本走 `LatestFallback`（带兼容标记，数据照常入库，compat=unverified）。
-//! 注册表与 OpenCode 目录独立（adapters.md A14：不因内核同名合并锚点）。
+//! MiMo Code 0.1.15 has native redacted samples, but session versions still use
+//! LatestFallback: those samples do not establish dedicated per-record version mappings.
+//! The initial source reference was 456678b6a5afb0eef3fe2754575637218cfb3c84; the registry stays empty.
+//! All versions use LatestFallback with compatibility metadata, compat=unverified.
+//! Keep this registry separate from OpenCode (A14); shared engine names do not identify versions.
 
 pub mod step_finish_parts_v1;
 
-/// 当前格式实现标识（"最新内置解析器"由本常量明确指定，不联网获取）。
+/// Current implementation ID: this constant selects the latest built-in parser without network access.
 pub const LATEST_IMPL_ID: &str = "step_finish_parts_v1";
 
-/// 已验证支持的 session.version → 格式实现。
-/// 空集：尚未用真实样本核验（见模块头），核验完成前不登记任何版本。
+/// Verified session.version values mapped to implementations.
+/// Empty: native samples have not established a dedicated mapping for each record version.
 pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[];
 
-/// 版本分派结论。
+/// Version selection result.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Selection {
     pub impl_id: &'static str,
     pub basis: crate::domain::VersionBasis,
 }
 
-/// 按来源原始版本选择格式实现；探测与扫描共用本函数保证同一策略（V30）。
+/// Select by the original record version; detection and scanning share this V30 policy.
 pub fn select(found: Option<&str>) -> Selection {
     match found {
         Some(version) => {

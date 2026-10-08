@@ -1,4 +1,4 @@
-//! 闭源 JSONL 无格式版本字段；只承诺已核验的文档级格式锚点。
+//! Closed-source JSONL has no format version; support only documented, verified field shapes.
 pub const LATEST_IMPL_ID: &str = "session_doc1";
 pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] =
     &[("tencent-buddy-session-doc1", LATEST_IMPL_ID)];

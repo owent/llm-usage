@@ -1,6 +1,6 @@
-//! gajae-code（命令 `gjc`）适配器（独立目录约定）。pi 血统（共同祖先 v3），
-//! 但 usage 已官方归一化为互斥桶。载体：`<agentDir>/sessions/<scope>/*.jsonl`；
-//! 子代理文件嵌套在父会话同名目录下（深度 ≤3 枚举，会话文件+条目 id 去重）。
+//! gajae-code, command gjc, independent adapter; shares Pi v3 ancestry,
+//! but official usage normalization uses exclusive buckets. Reads <agentDir>/sessions/<scope>/*.jsonl.
+//! Child files nest under the parent-name directory, depth ≤3; deduplicate by file and entry ID.
 
 pub mod detect;
 pub mod versions;
@@ -9,7 +9,7 @@ pub use detect::GJC_FORMAT;
 pub use versions::session_v3like;
 pub use versions::{GJC_FORMAT_VERSION, LATEST_IMPL_ID, VERIFIED_VERSION_IMPLS};
 
-/// gajae-code 适配器（无状态）。
+/// Stateless gajae-code adapter.
 pub struct GajaeCodeAdapter;
 
 impl Default for GajaeCodeAdapter {
@@ -39,7 +39,7 @@ impl crate::adapters::framework::SourceAdapter for GajaeCodeAdapter {
     ) -> Vec<crate::adapters::framework::DiscoveredRoot> {
         use crate::adapters::framework::{DiscoveredRoot, RootBasis};
         let mut roots: Vec<(std::path::PathBuf, RootBasis)> = Vec::new();
-        // 官方 dirs.ts 解析顺序（.env 污染防护由产品侧负责，采集器取环境一级）。
+        // Follow official dirs.ts order; product prevents .env contamination, collector uses process env.
         for env_name in ["GJC_CODING_AGENT_DIR", "PI_CODING_AGENT_DIR"] {
             if let Some(dir) = ctx.env.get(env_name).filter(|v| !v.trim().is_empty()) {
                 roots.push((
@@ -58,7 +58,7 @@ impl crate::adapters::framework::SourceAdapter for GajaeCodeAdapter {
                     .map(|v| (v.trim().to_string(), *env))
             })
             .map(|(v, env)| (std::path::PathBuf::from(v), env.to_string()));
-        // config_dir 覆盖是绝对路径、不依赖 home_dir：不能嵌在 home 判断里丢失。
+        // config_dir override is absolute and home-independent; do not require home_dir.
         if let Some((dir, env)) = config_name {
             roots.push((
                 dir.join("agent").join("sessions"),
@@ -69,7 +69,7 @@ impl crate::adapters::framework::SourceAdapter for GajaeCodeAdapter {
                 home_dir.join(".gjc").join("agent").join("sessions"),
                 RootBasis::DefaultHome,
             ));
-            // XDG（仅非 override 时；官方拍平 agent/ 段）。
+            // XDG applies only without override; official layout flattens the agent/ segment.
             if !cfg!(windows) {
                 let xdg = ctx
                     .env
@@ -87,7 +87,7 @@ impl crate::adapters::framework::SourceAdapter for GajaeCodeAdapter {
         let mut seen: std::collections::BTreeSet<std::path::PathBuf> =
             std::collections::BTreeSet::new();
         for (root, basis) in roots {
-            // 会话文件深度 1（scope/<file>）；子代理嵌套至深度 3。
+            // Sessions are depth 1 at scope/<file>; child agents may nest to depth 3.
             let files = crate::adapters::framework::enumerate_files_bounded(&root, 3, &|p| {
                 p.extension()
                     .and_then(|e| e.to_str())

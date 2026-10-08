@@ -1,11 +1,14 @@
-# synthetic-missing-id 期望（人工核算，全合成样本）
+# synthetic-missing-id expectations (manually calculated, synthetic)
 
-messages[1] 是带 tokens 的 gemini 消息但缺 id：身份回退数组下标
-（`gemini:<sessionId>:idx-<下标>`，append-only 假设），记 `missing_message_id` 诊断。
+<a id="synthetic-missing-id-期望人工核算全合成样本"></a>
 
-## 期望
+messages[1] is a gemini message with tokens but no id. Fall back to the array index,
+`gemini:<sessionId>:idx-<index>`, under the append-only assumption, and record missing_message_id.
 
-- 事件数 = 1；source_record_key="gemini:syn-sess-noid:idx-1"；origin_call_id 为 NULL。
-- diagnostics 1 条 code=missing_message_id。
-- 汇总：call_count=1；input_total_known=100；output_total_known=20；
-  total_tokens_known=120。
+<a id="期望"></a>
+
+## Expectations
+
+- One event; source_record_key="gemini:syn-sess-noid:idx-1"; origin_call_id=NULL.
+- One diagnostic, code=missing_message_id.
+- Summary: call_count=1, input_total_known=100, output_total_known=20, total_tokens_known=120.

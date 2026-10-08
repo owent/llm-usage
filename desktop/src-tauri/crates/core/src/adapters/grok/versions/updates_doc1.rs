@@ -1,28 +1,28 @@
-//! Grok updates.jsonl 格式实现（`updates_doc1`，文档级 grok-updates-doc-1）。
+//! Grok updates.jsonl implementation updates_doc1; document format grok-updates-doc-1.
 //!
-//! 格式依据（第三方解析器 tokscale 固定提交
-//! 1d9a9395418efc6952944b794097935d7d6fa1e8 sessions/grok.rs；闭源产品 xAI，
-//! 本机未安装、无真实样本）：
-//! - 路径 `$GROK_HOME`（默认 `~/.grok`）下
-//!   `sessions/<workspace>/<session>/updates.jsonl`（JSON-RPC 行）。
-//! - **只取显式 usage 块**（矩阵边界）：`params.update.usage` 对象，
-//!   别名组（grok.rs:180-253）：input=`inputTokens|input_tokens|promptTokens`、
-//!   output=`outputTokens|output_tokens|completionTokens`、
-//!   cache_read=`cachedReadTokens|cacheReadTokens|cache_read_input_tokens`、
-//!   cache_write=`cachedWriteTokens|cacheWriteTokens|cacheCreationTokens|
-//!   cache_creation_input_tokens`、reasoning=`reasoningTokens|thoughtTokens|
-//!   thinkingTokens`、total=`totalTokens|total_tokens`。
-//!   模型：`params.update._meta.modelId | params._meta.modelId | params.modelId
-//!   | model_id | modelId | model` 或 `modelUsage` 单键 map 的键。
-//!   时间戳：`params._meta.agentTimestampMs | params.update._meta.agentTimestampMs
-//!   | params.timestamp | timestamp | ts`（数字=毫秒；字符串=RFC3339）。
-//! - **不采纳**（估算/推断路径）：累计 totalTokens 回退（_meta.totalTokens 等
-//!   差值增量）、signals.json 压缩差额补偿、unified.jsonl 子代理 PID 归因、
-//!   events.jsonl/summary.json 汇总。
-//! - 包含关系：第三方解析器认为 inputTokens 含 cachedRead、outputTokens 含
-//!   reasoning（减法拆桶不采用）⇒ hermes 同型并列报告，不派生总量，无双计。
-//! - dedup：`params._meta.eventId` 不唯一（Grok 会复用）⇒ 键含文件内行号
-//!   （tokscale grok:&lt;session&gt;:usage:&lt;index&gt;:&lt;eventId&gt; 同款）。
+//! Reference: third-party tokscale commit
+//! 1d9a9395418efc6952944b794097935d7d6fa1e8, sessions/grok.rs, for the closed-source xAI product.
+//! Original inspection had no local installation/native samples; this reference is not native acceptance.
+//! - $GROK_HOME, default ~/.grok, contains
+//!   sessions/<workspace>/<session>/updates.jsonl JSON-RPC lines.
+//! - Read only explicit params.update.usage objects, as required by the adapter matrix.
+//!   Aliases from grok.rs:180-253: input=inputTokens|input_tokens|promptTokens;
+//!   output=outputTokens|output_tokens|completionTokens;
+//!   cache_read=cachedReadTokens|cacheReadTokens|cache_read_input_tokens;
+//!   cache_write=cachedWriteTokens|cacheWriteTokens|cacheCreationTokens|
+//!   cache_creation_input_tokens; reasoning=reasoningTokens|thoughtTokens|
+//!   thinkingTokens. The reference also lists totalTokens|total_tokens, which this reader does not map.
+//!   Model lookup: params.update._meta.modelId, params._meta.modelId, params.modelId,
+//!   params.model_id, modelId, model, then the first modelUsage map key.
+//!   Time: params._meta.agentTimestampMs, params.update._meta.agentTimestampMs,
+//!   params.timestamp, timestamp or ts; numeric milliseconds or RFC3339 strings.
+//! - Exclude inferred cumulative totalTokens deltas such as _meta.totalTokens,
+//!   signals.json compaction differences, unified.jsonl subagent PID attribution
+//!   and events.jsonl/summary.json totals.
+//! - The reference assumes cachedRead within inputTokens and reasoning within outputTokens.
+//!   Do not use its subtraction mapping; keep separate fields without deriving totals.
+//! - params._meta.eventId can repeat; include the file line number in the key,
+//!   following tokscale grok:&lt;session&gt;:usage:&lt;index&gt;:&lt;eventId&gt;.
 
 use crate::adapters::framework::{
     ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -93,8 +93,8 @@ fn alias_token(
             None => continue,
             Some(v) => {
                 let n = v.as_i64()?;
-                // 越界按格式偏离返回 None（调用方跳过该行并记诊断），
-                // 不能与"键缺失"（Some(None)）混同而静默丢桶。
+                // Invalid values return None so the caller diagnoses and skips the line;
+                // absent keys return Some(None) and remain distinguishable from invalid fields.
                 if !(0..=MAX_REASONABLE_TOKEN).contains(&n) {
                     return None;
                 }
@@ -105,7 +105,7 @@ fn alias_token(
     Some(None)
 }
 
-/// 时间戳：数字毫秒（越域拒绝）或 RFC3339 字符串。
+/// Timestamp: numeric milliseconds within range, or an RFC3339 string.
 fn any_ts(value: Option<&serde_json::Value>) -> Option<i64> {
     let value = value?;
     match value {
@@ -160,7 +160,7 @@ pub fn scan(
             diagnostics.push(diag("invalid_json_line", line.number, "line is not JSON"));
             continue;
         };
-        // 显式 usage 块：params.update.usage。
+        // Read explicit params.update.usage.
         let Some(usage) = value
             .pointer("/params/update/usage")
             .and_then(|v| v.as_object())
@@ -225,7 +225,7 @@ pub fn scan(
         {
             continue;
         }
-        // 时间戳：多路径别名。
+        // Select among timestamp paths.
         let ts_value = [
             value.pointer("/params/_meta/agentTimestampMs"),
             value.pointer("/params/update/_meta/agentTimestampMs"),
@@ -243,7 +243,7 @@ pub fn scan(
             ));
             continue;
         };
-        // 模型：多路径别名 + modelUsage 单键 map。
+        // Select model paths, then the first modelUsage map key.
         let model = [
             value.pointer("/params/update/_meta/modelId"),
             value.pointer("/params/_meta/modelId"),
@@ -275,8 +275,8 @@ pub fn scan(
                 total_tokens: None,
                 source_total: None,
             },
-            // 在场桶必须标 Reported：全 Unknown 会在 ingest 校验
-            // （domain.rs 值与质量一致性）被拒，事件无法入账。
+            // Present fields need Reported quality; Unknown would contradict their values
+            // and domain.rs ingestion validation would reject the event.
             crate::domain::TokenQuality {
                 input_cache_read: crate::domain::FieldQuality::Reported,
                 input_cache_write: crate::domain::FieldQuality::Reported,
@@ -289,7 +289,7 @@ pub fn scan(
         );
         events.push(EventInput {
             source_instance_id: target.instance_id.clone(),
-            // eventId 不唯一（Grok 复用）：键含行号（tokscale 同款）。
+            // eventId is reused; include the line number, matching the referenced tokscale key.
             source_record_key: format!("grok:{session_id}:usage:{}:{event_id}", line.number),
             record_kind: RecordKind::ModelCall,
             schema_version: GROK_FORMAT_VERSION.to_string(),

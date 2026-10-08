@@ -1,0 +1,23 @@
+---
+import DefaultLanguageSelect from '@astrojs/starlight/components/LanguageSelect.astro';
+---
+<DefaultLanguageSelect />
+<script>
+  import { preferenceKey } from '../lib/language.mjs';
+  // Persist only a deliberate selection; visiting a translated deep link does not overwrite it.
+  document.addEventListener('change', (event) => {
+    const select = event.target;
+    if (!(select instanceof HTMLSelectElement) || !select.closest('starlight-lang-select')) return;
+    const language = select.value.includes('/zh-cn') ? 'zh-CN' : 'en';
+    try { localStorage.setItem(preferenceKey, language); }
+    catch {
+      // Carry the deliberate choice in the URL when browser storage cannot retain it.
+      event.stopImmediatePropagation();
+      const target = new URL(select.value, location.origin);
+      target.search = location.search;
+      target.searchParams.set('lang', language);
+      target.hash = location.hash;
+      location.assign(target.href);
+    }
+  }, true);
+</script>

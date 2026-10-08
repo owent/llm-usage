@@ -1,4 +1,4 @@
-// Windows all-process private bytes; authority: architecture.md#budgets.
+// Measure Windows private bytes across all processes; targets: architecture.md#budgets.
 export const idleMeanBudgetBytes=350*1048576;
 export const idlePeakBudgetBytes=400*1048576;
 export const importPeakBudgetBytes=512*1048576;

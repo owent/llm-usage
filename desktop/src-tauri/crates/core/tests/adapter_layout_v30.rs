@@ -1,10 +1,10 @@
-//! V30 结构检查：每个已实现 Agent 独立目录（mod/detect/versions），根级不再有
-//! 该 Agent 的单文件实现；产品特有映射不留在根级 usage_map.rs。
-//! 目录存在或编译通过不能代替版本兼容验收（兼容行为在各适配器 V17 测试中验证），
-//! 本测试只锁定目录约定本身，防止后续新增 Agent 又回到根级单文件。
+//! V30 structure: each implemented agent has mod/detect/versions in its own directory;
+//! no root-level single-file implementation or product mapping remains in usage_map.rs.
+//! Directories/compilation do not verify version compatibility; adapter V17 tests check that.
+//! These tests enforce directory structure for future agents.
 
-// M8 第二批（2026-09-29 文档级实施）同受目录约定约束：
-// gajae-code/continue 目录名与模块名分离（#[path] 映射），按目录检查。
+// M8 second-batch adapters (documentation-level implementation, 2026-09-29) follow the same layout.
+// gajae-code/continue directory names differ from module names through #[path]; check directories.
 const M8_AGENTS: &[&str] = &[
     "zed",
     "aider",
@@ -58,7 +58,7 @@ fn every_implemented_agent_lives_in_its_own_directory() {
             dir.join("versions").join("mod.rs").is_file(),
             "{agent}/versions/mod.rs (版本注册表) missing"
         );
-        // 根级不再有该 Agent 的单文件实现。
+        // No root-level single-file implementation for this agent.
         assert!(
             !root.join(format!("{agent}.rs")).is_file(),
             "root-level {agent}.rs must not exist; implementations live in {agent}/"
@@ -68,9 +68,9 @@ fn every_implemented_agent_lives_in_its_own_directory() {
 
 #[test]
 fn product_specific_mappings_left_root_usage_map() {
-    // V30：产品特有映射不留在根级单文件。codex/claude 映射已下沉；
-    // pi/omp（map_pi_family）与 gemini/qwen（map_genai_usage）是固定源码证实的
-    // 跨 Agent 共享字段语义，允许留在根级（usage_map.rs 文件头有登记）。
+    // V30: Codex/Claude product mappings moved into their directories.
+    // pi/omp map_pi_family and gemini/qwen map_genai_usage have source-verified
+    // shared field semantics and may remain at root, as documented in usage_map.rs.
     let usage_map = std::fs::read_to_string(adapters_src().join("usage_map.rs")).unwrap();
     assert!(
         !usage_map.contains("pub fn map_codex"),
@@ -84,15 +84,15 @@ fn product_specific_mappings_left_root_usage_map() {
         !usage_map.contains("pub fn map_copilot"),
         "copilot product mapping must live in adapters/copilot/ (M5 下沉)"
     );
-    // 允许保留的跨 Agent 共享映射确实存在（防止误删共享件）。
+    // Retain the permitted shared mappings.
     assert!(usage_map.contains("pub fn map_pi_family"));
     assert!(usage_map.contains("pub fn map_genai_usage"));
 }
 
 #[test]
 fn each_agent_registry_declares_verified_versions_and_latest() {
-    // 注册表形状检查：每个 Agent 的 versions/mod.rs 登记已验证版本映射与
-    // 最新实现常量（探测/扫描共用 select 的单一事实来源）。
+    // Every versions/mod.rs declares verified version mappings and the latest
+    // implementation constant; detection/scanning share select as their version policy.
     let all: Vec<&str> = AGENTS
         .iter()
         .chain(M8_AGENTS.iter())

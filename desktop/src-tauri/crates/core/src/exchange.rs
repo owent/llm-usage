@@ -1,11 +1,11 @@
-//! 历史来源交换约定（M1a，data-contract.md#provenance）：
-//! 版本化导出格式 + 重复跳过/权威修订替换/互斥来源新增/冲突保留的合并判定。
+//! Historical source exchange rules (M1a, data-contract.md#provenance):
+//! versioned exports and merge decisions for duplicates, newer revisions, disjoint contributions and conflicts.
 //!
-//! 边界：
-//! - 本模块只定义格式与判定；实际导入/Merge 写入另行排期（M5/M6）。
-//! - 展示用 CSV/图表不满足本约定，不得被当作无损回导文件。
-//! - 批次身份（batch_id）只保证导入操作幂等，不替代来源记录身份。
-//! - 导出允许主机名别名化或省略（redact_hostnames），稳定来源键不重写。
+//! Boundaries:
+//! - this module defines formats, builds exports and resolves records; aggregate writes live in exchange_import;
+//! - display CSV/charts are not lossless reimport packages;
+//! - batch_id prevents duplicate import operations without replacing source-record identity;
+//! - exports may redact hostname labels while retaining stable source keys.
 
 use crate::error::CoreError;
 use crate::identity::{arbitrate, Arbitration, ExistingMeta};
@@ -16,17 +16,17 @@ use std::collections::BTreeSet;
 
 pub const EXCHANGE_FORMAT_VERSION: &str = "llm-usage-exchange-1";
 
-/// 导出类型：完整快照或增量。同一范围未出现于增量包不表示删除；
-/// 删除或整段替换语义由导出方在 `deletions` 中显式声明。
+/// Full or incremental export; omission from an incremental package is not deletion.
+/// Explicit deletions declare removed source-record keys.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "kind")]
 pub enum ExchangeKind {
     FullSnapshot,
     Incremental {
-        /// 增量起点（上次导出的批次 ID 或事件时间下界，毫秒）；None 表示未约束。
+        /// Lower-bound event timestamp in milliseconds; None imposes no incremental lower bound.
         since_ms: Option<i64>,
-        /// 显式删除/整段替换声明：被删除事件的 (source_instance_id, source_record_key)。
-        /// 空表示无删除语义。
+        /// Deleted keys as (source_instance_id, source_record_key).
+        /// Empty declarations mean no deletion.
         deletions: Vec<DeletedRecord>,
     },
 }
@@ -35,11 +35,11 @@ pub enum ExchangeKind {
 pub struct DeletedRecord {
     pub source_instance_id: String,
     pub source_record_key: String,
-    /// 删除依据（如源端清理观察）；不含正文。
+    /// Deletion reason, such as observed source cleanup, without message content.
     pub reason: String,
 }
 
-/// 来源主机注册信息。主机名可脱敏（别名化/省略），host_id 不重写。
+/// Source host registration: hostname labels may be redacted, while host_id stays unchanged.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExchangeHost {
     pub origin_host_id: String,
@@ -47,7 +47,7 @@ pub struct ExchangeHost {
     pub hostname_alias: Option<String>,
 }
 
-/// 来源实例注册信息（原始来源，导入机不得改成自己）。
+/// Original source-instance registration; an importing machine must not replace its ownership.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExchangeSource {
     pub source_instance_id: String,
@@ -57,13 +57,13 @@ pub struct ExchangeSource {
     pub locality_basis: String,
     pub attribution_status: String,
     pub first_seen_ms: i64,
-    /// 字段完整性/能力摘要（白名单 JSON，无正文）。
+    /// Selected field coverage/capability JSON without message content.
     pub completeness: serde_json::Value,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub origin_host_id: Option<String>,
 }
 
-/// 逐事件交换记录：来源 + 记录键构成逻辑唯一键；数值与完整性随记录走。
+/// Source plus record key identifies an exchange event; values and coverage travel with it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExchangeRecord {
     pub source_instance_id: String,
@@ -90,9 +90,9 @@ pub struct ExchangeRecord {
     pub session_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub parent_session_id: Option<String>,
-    /// 八个 token 字段可空（unknown 不补零）。
+    /// Eight nullable token fields; preserve unknowns without filling zeros.
     pub usage: ExchangeUsage,
-    /// 逐字段质量（reported/derived/unknown），与 token 字段质量分别记录。
+    /// Event quality category: complete, partial, estimated or unknown, distinct from per-field quality.
     pub quality_bucket: String,
     pub source_revision: Option<i64>,
     pub conflict: bool,
@@ -100,7 +100,7 @@ pub struct ExchangeRecord {
     pub parse_note: Option<String>,
 }
 
-/// 与 usage_events 数值列一一对应；null = unknown。
+/// Values correspond to usage_events columns; null means unknown.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExchangeUsage {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -140,7 +140,7 @@ pub struct ExchangeDailyStatistics {
     pub ratio_cache_read_sum: Option<i64>,
 }
 
-/// 日/封存分区（明细已清理时历史汇总仍可导出，保留来源与修订）。
+/// Daily/sealed partitions preserve source/revision when details are deleted.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExchangeDailyPartition {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -165,7 +165,7 @@ pub struct ExchangeDailyPartition {
     pub data_revision: i64,
 }
 
-/// 小时层交换行（按配置保留；导入按 (tz,day,hour,dims) 键合并）。
+/// Retained hourly rows merge by timezone/day/hour/dimensions.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExchangeHourlyPartition {
     #[serde(default)]
@@ -216,45 +216,45 @@ pub struct ExchangePeriodPartition {
     pub distinct_sessions: Option<i64>,
 }
 
-/// 完整导出包。
+/// Complete export package.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ExchangeExport {
     pub format_version: String,
     pub kind: ExchangeKind,
-    /// 批次身份：同一批次重复导入幂等；不替代记录身份。
+    /// Batch identity prevents repeated imports without replacing record identity.
     pub batch_id: String,
     pub exported_at_ms: i64,
     pub timezone: String,
     pub host: ExchangeHost,
     pub sources: Vec<ExchangeSource>,
     pub records: Vec<ExchangeRecord>,
-    /// 全部日分区，包含仍有明细的近期日期。聚合导入仅使用这些分区，
-    /// 不把 records 再次相加；桌面聚合导出省略 records。
+    /// All daily partitions, including recent days with retained details; aggregate imports use them
+    /// without adding records again, and desktop aggregate exports omit records.
     #[serde(default)]
     pub daily_partitions: Vec<ExchangeDailyPartition>,
-    /// 小时层（今日小时图在明细删除后的数据来源）。
+    /// Hourly history remains available after detail deletion.
     #[serde(default)]
     pub hourly_partitions: Vec<ExchangeHourlyPartition>,
     #[serde(default)]
     pub period_partitions: Vec<ExchangePeriodPartition>,
 }
 
-/// 导出请求。
+/// Export request.
 #[derive(Debug, Clone)]
 pub struct ExportRequest {
     pub timezone: String,
-    /// 事件时间下界/上界（毫秒，半开区间语义由调用方定义并写入导出）。
+    /// Event range [from_ms, to_ms) in milliseconds.
     pub from_ms: i64,
     pub to_ms: i64,
-    /// None = all sources; Some([]) = empty selection.
+    /// None selects all sources; Some([]) selects none.
     pub instances: Option<Vec<String>>,
-    /// true 时省略主机名（导出脱敏）。
+    /// True omits hostname labels from exports.
     pub redact_hostnames: bool,
     pub kind: ExchangeKind,
     pub batch_id: String,
 }
 
-/// 构建导出包（只读查询）。
+/// Build an export through read-only queries.
 pub fn build_export(
     storage: &Storage,
     request: &ExportRequest,
@@ -299,7 +299,7 @@ fn build_export_tx(
     include_records: bool,
 ) -> Result<ExchangeExport, CoreError> {
     let local_host = storage.local_host_id()?;
-    // 包主机取本机身份；每个来源另存原始主机，避免再导出改写历史归属。
+    // The package uses the local host; each source retains its original host ownership on reexport.
     let Some(host_id) = local_host else {
         return Err(CoreError::Validation(
             "export requires an initialized local origin host".into(),
@@ -324,7 +324,7 @@ fn build_export_tx(
         name
     };
 
-    // 来源注册：本导出涉及的实例（含其 origin_host_id 关联的原始注册信息）。
+    // Register included source instances and their original origin_host_id metadata.
     let instance_filter = &request.instances;
     let mut sources = Vec::new();
     {
@@ -381,7 +381,7 @@ fn build_export_tx(
         }
     }
 
-    // 事件明细。
+    // Event details.
     let mut records = Vec::new();
     let wanted: BTreeSet<String> = sources
         .iter()
@@ -441,7 +441,7 @@ fn build_export_tx(
         }
     }
 
-    // 全部日分区（含近期未封存日期），保留来源、修订和完整性计数。
+    // All daily partitions, including recent unsealed days, retain source/revision/coverage counts.
     let mut partitions = Vec::new();
     {
         let mut stmt = storage.conn().prepare(
@@ -499,7 +499,7 @@ fn build_export_tx(
         }
     }
 
-    // 小时层（有界：仅现存的；导入按修订合并）。
+    // Export only retained hourly rows; import merges by revision.
     let mut hourly = Vec::new();
     {
         let mut stmt = storage.conn().prepare(
@@ -603,7 +603,7 @@ fn day_in_request(request: &ExportRequest, day: &str) -> Result<bool, CoreError>
     Ok(start >= request.from_ms && end <= request.to_ms)
 }
 
-/// 合并判定输入：现存记录元数据（导入侧从库中读出）。
+/// Existing record metadata for an import merge decision.
 #[derive(Debug, Clone)]
 pub struct ExistingRecord {
     pub source_instance_id: String,
@@ -613,23 +613,23 @@ pub struct ExistingRecord {
     pub content_hash: String,
 }
 
-/// 合并判定结论（data-contract.md 合并规则表）。
+/// Merge result, following the data rules.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MergeDecision {
-    /// 新来源/新记录键（覆盖互斥）：新增独立贡献；
-    /// 跨源镜像仍按事件仲裁去重，不因来源 ID 不同就直接相加。
+    /// Add a new record with independent coverage;
+    /// still deduplicate mirrored events rather than summing solely because source IDs differ.
     AddIndependent,
-    /// 同一来源记录键、同修订且内容一致：幂等跳过，重复导出/导入不增量。
+    /// Same source/key/revision/content is a duplicate; repeated exchange does not add usage.
     SkipIdempotent,
-    /// 更权威修订（或修订同级的更正）：撤销旧贡献后替换；
-    /// 无法确认修订顺序时不按 token 大小裁决，落 Conflict。
+    /// Replace after revoking the old contribution when revision/lifecycle establishes a newer correction;
+    /// otherwise record Conflict without choosing by token magnitude.
     ReplaceAfterRevoke,
-    /// 先后权威关系不可判定且内容不同：保留现存并标记冲突。
+    /// Conflicting content with unresolved ordering retains the existing record and marks conflict.
     Conflict,
 }
 
-/// 逐记录合并判定：复用 ingest 的仲裁（修订号优先，其次生命周期；
-/// 同层级内容不同 → 冲突），保证交换判定与本地写入语义一致。
+/// Reuse ingest resolution: revision first, then lifecycle;
+/// conflicting content at the same level remains a conflict.
 pub fn decide_record_merge(
     incoming: &ExchangeRecord,
     incoming_content_hash: &str,
@@ -667,8 +667,8 @@ pub fn decide_record_merge(
     }
 }
 
-/// 仲裁探针事件：合并判定只关心身份/修订/生命周期/内容哈希，
-/// 借用 arbitrate 需要一个 EventInput；usage 不参与仲裁，置空即可。
+/// Build an EventInput for resolution of identity/revision/lifecycle/content hash.
+/// This comparison does not read usage, so the temporary event has empty token fields.
 fn arbitration_event(
     incoming: &ExchangeRecord,
     lifecycle: crate::domain::Lifecycle,

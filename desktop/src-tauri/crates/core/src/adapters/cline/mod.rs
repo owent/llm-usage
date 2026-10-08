@@ -1,27 +1,27 @@
-//! Cline 适配器（独立目录约定 architecture.md#adapter-layout）：
-//! - 本模块是该 Agent 的稳定入口（统一接口实现与再导出）；
-//! - [`detect`]：旧 UI 数组与 SDK VS Code 原生会话分别探测；
-//! - [`versions`]：旧文档级锚点与独立 SDK schema 1 实现；
-//! - 产品特有映射在 [`common`]（四互斥桶 + cost）。
+//! Cline adapter; see architecture.md#adapter-layout.
+//! - Stable entry point implements the shared interface and re-exports modules.
+//! - detect checks legacy UI arrays and native SDK VS Code sessions independently.
+//! - versions separates the legacy document format from SDK schema 1.
+//! - common maps the legacy four exclusive token buckets and cost.
 //!
-//! SDK 依据：4.1.22 固定提交 f58bc118，真实 GUI/API/原生样本已核对。
-//! origin.version 是可重写会话 metadata，SDK 保持 latest_fallback。
-//! metrics 可合并整次 run 或重试，记 observation，不推导底层调用数。
-//! 旧格式依据（固定源码 dcf8c3c33596e3d561a941202297c564a1cbcd49，A03，
-//! 按文档或源码实现，待真实样本核验；本机 2026-09-25 盘点 not_found）：
-//! - `apps/vscode/src/shared/getApiMetrics.ts`：usage 载体是 type="say" 且
-//!   say ∈ {api_req_started, deleted_api_reqs, subagent_usage} 的消息，
-//!   `text` 为 JSON 字符串，字段 tokensIn/tokensOut/cacheWrites/cacheReads/cost
-//!   逐字段可选（typeof number 检查）；api_req_started 已与对应
-//!   api_req_finished 合并；不能每条 say 算请求。四桶互斥：
-//!   getLastApiReqTotalTokens 的 total = tokensIn + tokensOut + cacheWrites
-//!   + cacheReads。
+//! SDK reference: 4.1.22 commit f58bc118 with checked real GUI/API/native samples.
+//! Rewritable session metadata origin.version cannot identify all records; SDK uses latest_fallback.
+//! Metrics can merge a run/retries; record observations without deriving underlying call counts.
+//! Legacy reference: commit dcf8c3c33596e3d561a941202297c564a1cbcd49, A03,
+//! source/documentation implementation awaiting native checks; local 2026-09-25 inventory was not_found.
+//! - apps/vscode/src/shared/getApiMetrics.ts reads type="say" messages with
+//!   say in {api_req_started, deleted_api_reqs, subagent_usage}.
+//!   text is JSON with optional tokensIn/tokensOut/cacheWrites/cacheReads/cost;
+//!   each field is checked with typeof number. api_req_started incorporates its
+//!   matching api_req_finished; not every say message is a request. Four buckets are exclusive:
+//!   getLastApiReqTotalTokens sums tokensIn + tokensOut + cacheWrites
+//!   + cacheReads.
 //!
-//!   say="compaction" 的 tokensBefore/tokensAfter 是 SDK 估算（chars/4 级），
-//!   只驱动上下文条显示，不进入用量。
-//! - `apps/vscode/src/core/storage/disk.ts`：任务目录 = 宿主 globalStorage 下
-//!   `tasks/<taskId>/`，消息持久化为 `ui_messages.json`（整写 JSON 数组）；
-//!   宿主为 VS Code 扩展 saoudrizwan.claude-dev。
+//!   compaction tokensBefore/tokensAfter are SDK estimates around chars/4
+//!   for the context display, excluded from usage.
+//! - apps/vscode/src/core/storage/disk.ts writes tasks/<taskId>/
+//!   ui_messages.json as a whole JSON array under host globalStorage.
+//!   The VS Code extension identifier is saoudrizwan.claude-dev.
 
 pub mod common;
 pub mod detect;
@@ -34,17 +34,17 @@ pub use versions::{
     ui_messages_doc1, CLINE_FORMAT_VERSION, LATEST_IMPL_ID, VERIFIED_VERSION_IMPLS,
 };
 
-/// VS Code 扩展 globalStorage 目录名（disk.ts 经宿主 globalStorageFsPath 定位任务目录）。
+/// VS Code extension globalStorage name; disk.ts uses host globalStorageFsPath for tasks.
 pub const CLINE_EXT_GLOBAL_STORAGE: &str = "saoudrizwan.claude-dev";
 
 const UTF8_BOM: &[u8] = b"\xEF\xBB\xBF";
 
-/// 剥 UTF-8 BOM（detect 指纹探测与整文件解析共用；无 BOM 输入原样返回）。
+/// Strip UTF-8 BOM for detection/whole-file parsing; return bytes unchanged if no BOM.
 fn strip_bom(bytes: &[u8]) -> &[u8] {
     bytes.strip_prefix(UTF8_BOM).unwrap_or(bytes)
 }
 
-/// Cline 适配器（无状态）。
+/// Stateless Cline adapter.
 pub struct ClineAdapter;
 
 impl Default for ClineAdapter {
@@ -59,7 +59,7 @@ impl ClineAdapter {
     }
 }
 
-/// 手工根兼容两种形状：globalStorage 目录（含 tasks/）或 tasks 目录本身。
+/// Legacy manual roots accept globalStorage containing tasks, or a directory named tasks.
 fn cline_tasks_dir(root: &std::path::Path) -> Option<std::path::PathBuf> {
     let tasks = root.join("tasks");
     if tasks.is_dir() {
@@ -129,9 +129,9 @@ impl crate::adapters::framework::SourceAdapter for ClineAdapter {
                 .unwrap_or(RootBasis::DefaultHome);
             roots.push((root, basis));
         }
-        // VS Code 默认 globalStorage（Windows %APPDATA%/Code、unix XDG、macOS
-        // ~/Library/Application Support/Code）；APPDATA/XDG_CONFIG_HOME 只用于
-        // 解析平台默认位置，不是 Cline 自己的环境覆盖。
+        // VS Code globalStorage defaults: Windows %APPDATA%/Code, Unix XDG and macOS
+        // ~/Library/Application Support/Code. APPDATA/XDG_CONFIG_HOME resolve host paths,
+        // rather than defining Cline-specific environment overrides.
         if let Some(appdata) = ctx.env.get("APPDATA") {
             roots.push((
                 std::path::PathBuf::from(appdata)
@@ -171,9 +171,9 @@ impl crate::adapters::framework::SourceAdapter for ClineAdapter {
         }
         let mut out = Vec::new();
         for (root, basis) in roots {
-            // 手工根可能是 tasks/ 本身；默认根必须含 tasks/ 子目录。
+            // SDK files are discovered independently; legacy task roots use tasks itself or a tasks child.
             let mut files = sdk_files(&root);
-            // tasks/<taskId>/ui_messages.json：深度 2，有界枚举。
+            // Bounded depth 2 covers legacy tasks/<taskId>/ui_messages.json.
             if let Some(tasks) = cline_tasks_dir(&root) {
                 files.extend(crate::adapters::framework::enumerate_files_bounded(
                     &tasks,

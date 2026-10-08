@@ -1,28 +1,28 @@
-//! VS Copilot 遥测版本注册表（V30 目录约定）。
+//! VS Copilot telemetry version registry (V30 layout).
 //!
-//! 锚点：本机 VS 18 Community 真实数据（2026-10-01）——OTLP JSON 信封
-//! （行=resourceSpans 批次）、service.name=vs-copilot、chat span 携带
-//! gen_ai.usage.*（intValue 字符串形）、纳秒 Unix 时间戳。
+//! Verified local VS 18 Community data, 2026-10-01: OTLP JSON envelope
+//! with one resourceSpans batch per line, service.name=vs-copilot, chat spans containing
+//! gen_ai.usage.* (string intValue) and nanosecond Unix timestamps.
 
 pub mod traces_v1;
 
-/// 当前格式实现标识。
+/// Identifier of the current format implementation.
 pub const LATEST_IMPL_ID: &str = "traces_v1";
 
-/// 已验证的格式版本（本机真实数据核对 2026-10-01）。
+/// Verified format version; native-data check on 2026-10-01.
 pub const VS_COPILOT_FORMAT_VERSION: &str = "vs-copilot-otlp-traces-v1";
 
-/// 已验证支持的格式版本 → 格式实现。
+/// Supported format versions mapped to implementations.
 pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[("1", "traces_v1")];
 
-/// 版本分派结论。
+/// Result of selecting a version implementation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Selection {
     pub impl_id: &'static str,
     pub basis: crate::domain::VersionBasis,
 }
 
-/// 按格式版本选择实现；探测与扫描共用本函数（V30）。
+/// Select by format version; detection and scanning share this function (V30).
 pub fn select(found: Option<&str>) -> Selection {
     match found {
         Some(version) => {

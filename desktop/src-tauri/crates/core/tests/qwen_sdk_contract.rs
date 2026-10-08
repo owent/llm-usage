@@ -1,4 +1,4 @@
-//! Genuine 0.25.0 SDK file and native ChatRecord; synthetic boundary controls are explicit.
+//! Native 0.25.0 SDK file and ChatRecord; additional boundary cases are explicitly synthetic.
 mod common;
 use common::{summary, temp_storage, TempDir};
 use llm_usage_core::adapters::{framework::*, otel::OtelAdapter, qwen::QwenAdapter};

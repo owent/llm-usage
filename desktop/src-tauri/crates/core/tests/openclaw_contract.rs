@@ -1,5 +1,5 @@
-//! Old invented-schema and legacy fixtures must remain closed after the genuine
-//! schema 24 reader is added; runtime acceptance is in openclaw_runtime_contract.
+//! Legacy samples with invented schemas remain rejected after adding the native
+//! schema 24 reader; runtime acceptance is in openclaw_runtime_contract.
 
 mod common;
 
@@ -22,7 +22,7 @@ fn openclaw_fixture(name: &str) -> PathBuf {
         .join(name)
 }
 
-/// layout.json → 临时目录重建（sqlite 建占位表；json/jsonl 写内容/记录）。
+/// Rebuild layout.json in a temporary directory: placeholder SQLite tables and JSON/JSONL data.
 fn rebuild_layout(dir: &Path, layout: &serde_json::Value) {
     for file in layout["files"].as_array().unwrap() {
         let path = dir.join(file["path"].as_str().unwrap());
@@ -102,7 +102,7 @@ fn invented_runtime_schema_still_fails_closed() {
         )
         .unwrap();
     assert!(diags >= 1, "fail closed 有诊断（不是成功 0 条）");
-    // 幂等：重扫状态稳定。
+    // Repeat scans retain the same state.
     run_openclaw(&storage, &root, NOW + 1_000);
     let events: i64 = storage
         .conn()

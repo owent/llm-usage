@@ -1,8 +1,8 @@
-//! pi 适配器缺口场景：合成样本（目录/文件头均标 synthetic）与 V17/V30 拒绝/回退。
-//! 覆盖真实样本缺失的场景：四类辅助 usage 载体、无 usage 的 assistant、fork 继承
-//! 去重、stopReason=error/aborted、cost 映射边界、未知版本策略（已确认不兼容则拒绝、
-//! 未收录数值 latest_fallback 回退）、未知格式 fail closed、未知条目类型诊断。
-//! 期望值均由 fixture 手工核算（jq 验算，见各 _expectations.md）。
+//! Synthetic pi adapter cases, marked in directory names and file headers, for V17/V30 rejection and fallback.
+//! Cover cases without native samples: four auxiliary usage record types, assistants without usage, inherited fork
+//! deduplication, stopReason=error/aborted, cost mapping, version policy (reject known incompatible formats;
+//! use latest_fallback for unlisted numeric versions), rejection of unknown formats, and unknown entry diagnostics.
+//! Expected values are calculated manually from test data and checked with jq; see each _expectations.md.
 
 mod common;
 
@@ -27,12 +27,12 @@ fn diag_count(storage: &llm_usage_core::storage::Storage, code: &str) -> i64 {
         .unwrap()
 }
 
-// 手工核算值（synthetic-auxiliary-carriers，8 行 6 事件）：
-// primary：syn-a-1（1000/50/800/100/1050，reasoning 10）+ syn-a-2（无 usage，token 全未知）；
-// auxiliary：syn-u-1（100/0/90/0/100）、syn-c-1（1000/200/0/0/1200）、
-// syn-b-1（800/100/300/0/900）、syn-t-1（15/5/0/10/20）；
-// 合计：call_count=6、input_total=2915、cache_read=1190、cache_write=110、
-// output=355、total=3270；usage_shape_deviation ×1（syn-a-2）。
+// Manual calculation (synthetic-auxiliary-carriers, 8 lines and 6 events):
+// Primary: syn-a-1 (1000/50/800/100/1050, reasoning 10) + syn-a-2 (no usage; all tokens unknown).
+// Auxiliary: syn-u-1 (100/0/90/0/100), syn-c-1 (1000/200/0/0/1200),
+// syn-b-1 (800/100/300/0/900), and syn-t-1 (15/5/0/10/20).
+// Sum: call_count=6, input_total=2915, cache_read=1190, cache_write=110,
+// output=355, total=3270; one usage_shape_deviation (syn-a-2).
 #[test]
 fn auxiliary_carriers_classified_and_summed() {
     let (_db, storage) = temp_storage("pi-aux");
@@ -56,7 +56,7 @@ fn auxiliary_carriers_classified_and_summed() {
     assert_eq!(summary.totals.output_total_known, Some(355));
     assert_eq!(summary.totals.total_tokens_known, Some(3_270));
 
-    // 类别计数：pi 无 sub_agent，2 primary + 4 auxiliary。
+    // Category counts: pi has no sub_agent entries; 2 primary + 4 auxiliary.
     let mut stmt = storage
         .conn()
         .prepare("SELECT call_category, COUNT(*) FROM usage_events GROUP BY call_category ORDER BY call_category")
@@ -71,7 +71,7 @@ fn auxiliary_carriers_classified_and_summed() {
         vec![("auxiliary".to_string(), 4), ("primary".to_string(), 2)]
     );
 
-    // 逐键核验归属与分类。
+    // Check ownership and category by record key.
     let row_for = |key: &str| {
         storage
             .conn()
@@ -102,7 +102,7 @@ fn auxiliary_carriers_classified_and_summed() {
             Some(1000)
         )
     );
-    // 无 usage 的 assistant：计调用，token 全未知（不补零）。
+    // An assistant without usage counts as a call; all tokens remain unknown.
     let a2 = row_for("pi:message:syn-a-2:syn-a-1:2026-01-05T10:00:03.000Z");
     assert_eq!(a2.0, "primary");
     assert_eq!(a2.4, None, "no usage => tokens unknown");
@@ -117,7 +117,7 @@ fn auxiliary_carriers_classified_and_summed() {
             Some(100)
         )
     );
-    // compaction/branch_summary 无模型字段：按不晚于它的 model_change 归属。
+    // compaction/branch_summary lack model fields; use the latest preceding model_change, including equal timestamps.
     let c1 = row_for("pi:compaction:syn-c-1:syn-u-1:2026-01-05T10:00:05.000Z");
     assert_eq!(
         c1,
@@ -140,14 +140,14 @@ fn auxiliary_carriers_classified_and_summed() {
             Some(800)
         )
     );
-    // toolResult 的 usage 是工具执行自身消耗：辅助调用，所属模型未知。
+    // toolResult usage describes the tool's own consumption: an auxiliary call with an unknown model.
     let t1 = row_for("pi:toolresult:syn-t-1:syn-b-1:2026-01-05T10:00:07.000Z");
     assert_eq!(
         t1,
         ("auxiliary".into(), None, None, "unknown".into(), Some(15))
     );
 
-    // reasoning 是 output 子集，不再加总：仅 syn-a-1 报告 10。
+    // Reasoning is a subset of output; do not add it again. Only syn-a-1 reports 10.
     let reasoning: i64 = storage
         .conn()
         .query_row("SELECT SUM(output_reasoning) FROM usage_events", [], |r| {
@@ -158,16 +158,16 @@ fn auxiliary_carriers_classified_and_summed() {
     assert_eq!(diag_count(&storage, "usage_shape_deviation"), 1);
 }
 
-// 手工核算值（synthetic-fork-inherited）：源文件 2 事件（150+300），fork 文件逐字
-// 复制源 L2–L4 + 新 assistant syn-fa-3（15）；总调用 3，合计 input_total=350
-// （派生 input+cacheRead+cacheWrite：100+240+10）、cache_read=40、output=115、total=465。
+// Manual calculation (synthetic-fork-inherited): the source has 2 events (150+300); the fork copies
+// source lines L2–L4 verbatim and adds assistant syn-fa-3 (15). There are 3 calls and input_total=350
+// (derived input+cacheRead+cacheWrite: 100+240+10), cache_read=40, output=115, total=465.
 #[test]
 fn fork_inherited_entries_dedup_across_files() {
     let dir = TempDir::new("pi-fork");
     let case = synthetic_root("synthetic-fork-inherited").join("sessions/--C--Users-syn--");
     let source = std::fs::read(case.join("2026-01-05T10-00-00-000Z_syn-sess-src.jsonl")).unwrap();
     let fork = std::fs::read(case.join("2026-01-05T11-00-00-000Z_syn-sess-fork.jsonl")).unwrap();
-    // 第一轮只放源文件；第二轮补 fork 文件（两文件各扫一次）。
+    // Scan the source alone first, then add the fork; each file is scanned once per round.
     let root = pi_root_with_file(
         &dir,
         "--C--Users-syn--/2026-01-05T10-00-00-000Z_syn-sess-src.jsonl",
@@ -193,23 +193,23 @@ fn fork_inherited_entries_dedup_across_files() {
         "fork 文件产出 2 复制条目 + 1 新条目"
     );
     let outcome = report.outcome.as_ref().unwrap();
-    // 已知偏差（见 fixture _expectations.md）：复制条目四元组相同，但事件 session_id/
-    // parent_session_id 取自 fork 会话头，与已存事件同键不同内容 → 仲裁 conflict
-    // （保留先扫者），而非 capability 声称的「同键同内容 Keep」。幂等净效果成立：
-    // 不双计、先扫的源会话归属保留。
+    // Known difference (see test _expectations.md): copied entries have the same four-part key, but session_id/
+    // parent_session_id come from the fork header. Stored events with that key have different content: conflict
+    // handling keeps the first scanned event, rather than the capability's claimed same-key/same-content Keep.
+    // Repeated reads do not double-count; ownership remains with the first scanned source session.
     assert_eq!(outcome.added, 1, "仅 fork 自有新条目共入");
     assert_eq!(outcome.conflicts, 2, "复制条目与源会话已存事件冲突");
     assert_eq!(outcome.unchanged, 0);
 
     let summary = summary(&storage, "2026-01-05", "2026-01-05");
     assert_eq!(summary.totals.call_count, 3, "复制件不双计");
-    // input_total 由 input+cacheRead+cacheWrite 派生：(100+0+0)+(200+40+0)+(10+0+0)=350。
+    // Derived input_total=input+cacheRead+cacheWrite: (100+0+0)+(200+40+0)+(10+0+0)=350.
     assert_eq!(summary.totals.input_total_known, Some(350));
     assert_eq!(summary.totals.cache_read_known, Some(40));
     assert_eq!(summary.totals.output_total_known, Some(115));
     assert_eq!(summary.totals.total_tokens_known, Some(465));
 
-    // fork 新条目携带 fork 会话身份与 parentSession。
+    // A new fork entry retains the fork session identity and parentSession.
     let (session, parent): (String, String) = storage
         .conn()
         .query_row(
@@ -222,7 +222,7 @@ fn fork_inherited_entries_dedup_across_files() {
     assert_eq!(session, "syn-sess-fork");
     assert_eq!(parent, "syn-sess-src");
 
-    // 复制条目保留先扫文件（源会话）的归属，并被标记冲突。
+    // Copied entries keep the first scanned source session's ownership and are marked as conflicts.
     let kept: (String, Option<String>, i64) = storage
         .conn()
         .query_row(
@@ -239,8 +239,8 @@ fn fork_inherited_entries_dedup_across_files() {
     let _ = dir;
 }
 
-// 手工核算值（synthetic-error-aborted）：2 事件均 primary；合计 input_total=20、
-// cache_read=5、cache_write=0、output=25、total=45。
+// Manual calculation (synthetic-error-aborted): both events are primary; input_total=20,
+// cache_read=5, cache_write=0, output=25, total=45.
 #[test]
 fn error_and_aborted_stop_reasons_map_to_error_status() {
     let (_db, storage) = temp_storage("pi-err");
@@ -277,8 +277,8 @@ fn error_and_aborted_stop_reasons_map_to_error_status() {
     assert_eq!(summary.totals.total_tokens_known, Some(45));
 }
 
-// 手工核算值（synthetic-cost-estimated）：syn-c-1 cost.total=0.005 → 5000 micro-USD
-// estimated；syn-c-2 cost.total=0 → 不映射。合计 input_total=155、output=55、total=160。
+// Manual calculation (synthetic-cost-estimated): syn-c-1 cost.total=0.005 maps to 5000 micro-USD,
+// estimated; syn-c-2 cost.total=0 is not mapped. Sum: input_total=105, output=55, total=160.
 #[test]
 fn cost_total_positive_maps_estimated_zero_stays_unknown() {
     let (_db, storage) = temp_storage("pi-cost");
@@ -315,14 +315,14 @@ fn cost_total_positive_maps_estimated_zero_stays_unknown() {
 
     let summary = summary(&storage, "2026-01-05", "2026-01-05");
     assert_eq!(summary.totals.call_count, 2);
-    // input_total 由 input+cacheRead+cacheWrite 派生：(100+0+0)+(5+0+0)=105。
+    // Derived input_total=input+cacheRead+cacheWrite: (100+0+0)+(5+0+0)=105.
     assert_eq!(summary.totals.input_total_known, Some(105));
     assert_eq!(summary.totals.total_tokens_known, Some(160));
 }
 
-// V30 新语义（synthetic-unknown-version）：未收录数值（version=4）默认回退最新内置
-// 解析器，数据带兼容标记入库；缺失 version 的 legacy 形状（固定源码证实 v1/v2 时代
-// 不写该字段，落盘无 id/parentId）已确认不兼容，仍 fail closed 拒绝。
+// V30 policy (synthetic-unknown-version): an unlisted numeric version (version=4) uses the latest built-in
+// parser and stores compatibility markers. The versionless legacy format is known to be incompatible:
+// pinned v1/v2 source omitted version, id, and parentId; reject that format.
 #[test]
 fn v17_unknown_version_fallback_or_evidenced_reject() {
     let adapter = PiAdapter::new();
@@ -369,7 +369,7 @@ fn v17_unknown_version_fallback_or_evidenced_reject() {
             .unwrap_or_else(|| panic!("no report file containing {frag}"))
             .clone()
     };
-    // v4：latest_fallback 成功扫描入库，1 事件（syn-v4-1：1/1/0/0/2）。
+    // v4: latest_fallback imports one event (syn-v4-1: 1/1/0/0/2).
     let v4_file = file_for("syn-sess-v4");
     assert_eq!(v4_file.status, "complete");
     assert_eq!(v4_file.events, 1);
@@ -377,7 +377,7 @@ fn v17_unknown_version_fallback_or_evidenced_reject() {
         v4_file.detail.as_deref(),
         Some("latest_fallback: version compatibility unverified (found: 4)")
     );
-    // legacy：已确认不兼容，显式拒绝（不是静默的「成功 0 条」）。
+    // Reject the known incompatible legacy format explicitly; do not report a successful empty scan.
     let legacy_file = file_for("syn-sess-legacy");
     assert_eq!(legacy_file.status, "unsupported_version");
     assert_eq!(legacy_file.events, 0);
@@ -393,7 +393,7 @@ fn v17_unknown_version_fallback_or_evidenced_reject() {
         1,
         "显式拒绝逐文件落诊断；不是静默的成功 0 条"
     );
-    // 文件状态：v4 active_compat（兼容标记），legacy unsupported。
+    // File states: v4 active_compat with compatibility markers; legacy unsupported.
     let status_for = |frag: &str| -> String {
         storage
             .conn()
@@ -408,11 +408,11 @@ fn v17_unknown_version_fallback_or_evidenced_reject() {
     assert_eq!(status_for("syn-sess-legacy"), "unsupported");
 }
 
-// 手工核算值（synthetic-version-fallback，version=4 未收录）：2 事件均 primary：
-// syn-vf-1（10/5/0/0/15）、syn-vf-2（20/10/0/0/30）；合计 call_count=2、
-// input_total=30、output=15、total=45。全部事件 parse_basis=latest_fallback，
-// schema_version 记录来源声明 "4"，文件 active_compat，latest_fallback 诊断 ×1，
-// 重复扫描不增量。
+// Manual calculation (synthetic-version-fallback, unlisted version=4): both events are primary:
+// syn-vf-1 (10/5/0/0/15), syn-vf-2 (20/10/0/0/30); call_count=2,
+// input_total=30, output=15, total=45. All events use parse_basis=latest_fallback;
+// schema_version retains the source's declared "4"; the file is active_compat with one latest_fallback diagnostic.
+// A repeated scan adds no events.
 #[test]
 fn unrecorded_version_falls_back_with_compat_marks() {
     let (_db, storage) = temp_storage("pi-vf");
@@ -433,12 +433,12 @@ fn unrecorded_version_falls_back_with_compat_marks() {
 
     let summary = summary(&storage, "2026-01-05", "2026-01-05");
     assert_eq!(summary.totals.call_count, 2);
-    // input_total 由 input+cacheRead+cacheWrite 派生：10+20。
+    // Derived input_total=input+cacheRead+cacheWrite: 10+20.
     assert_eq!(summary.totals.input_total_known, Some(30));
     assert_eq!(summary.totals.output_total_known, Some(15));
     assert_eq!(summary.totals.total_tokens_known, Some(45));
 
-    // 兼容标记持久化：事件 parse_basis=latest_fallback，schema_version 记录来源声明。
+    // Persist compatibility markers: event parse_basis=latest_fallback; schema_version retains the source declaration.
     let rows: Vec<(String, String)> = storage
         .conn()
         .prepare("SELECT parse_basis, schema_version FROM usage_events ORDER BY source_record_key")
@@ -456,7 +456,7 @@ fn unrecorded_version_falls_back_with_compat_marks() {
     );
     assert_eq!(diag_count(&storage, "latest_fallback"), 1);
 
-    // 文件状态与探测结论 JSON：active_compat、basis/found_version/compat。
+    // File state and detection JSON: active_compat, basis/found_version/compat.
     let (file_status, format_status): (String, String) = storage
         .conn()
         .query_row("SELECT status, format_status FROM source_files", [], |r| {
@@ -470,7 +470,7 @@ fn unrecorded_version_falls_back_with_compat_marks() {
     assert_eq!(fs["basis"], "latest_fallback");
     assert_eq!(fs["compat"], "unverified");
 
-    // 重复扫描不增量（兼容标记不改变幂等）。
+    // A repeated scan adds no events; compatibility markers preserve deduplication.
     let reports2 = run_pi(&storage, &root, 1_800_000_000_100);
     let added2: i64 = reports2
         .iter()
@@ -509,8 +509,8 @@ fn detect_pending_on_empty_file() {
     let _ = dir;
 }
 
-// 手工核算值（synthetic-unknown-record-type）：1 事件（syn-m-1：7/3/0/0/10）；
-// 未知类型 brand_new_thing 出现 2 次，诊断每文件每类型只记一次。
+// Manual calculation (synthetic-unknown-record-type): one event (syn-m-1: 7/3/0/0/10).
+// Unknown type brand_new_thing appears twice; diagnose each type once per file.
 #[test]
 fn unknown_record_type_ignored_with_single_diagnostic() {
     let (_db, storage) = temp_storage("pi-urt");
@@ -528,7 +528,7 @@ fn unknown_record_type_ignored_with_single_diagnostic() {
     assert_eq!(summary.totals.input_total_known, Some(7));
     assert_eq!(summary.totals.output_total_known, Some(3));
     assert_eq!(summary.totals.total_tokens_known, Some(10));
-    // 未知类型不 fail closed：文件状态保持 active。
+    // An unknown entry type does not reject the file; its state remains active.
     let status: Option<String> = storage
         .conn()
         .query_row("SELECT status FROM source_files", [], |r| r.get(0))

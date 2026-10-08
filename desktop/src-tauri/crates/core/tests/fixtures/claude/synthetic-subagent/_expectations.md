@@ -1,34 +1,37 @@
-# synthetic-subagent._expectations.md（SYNTHETIC）
+# synthetic-subagent._expectations.md (synthetic)
 
-**本目录全部为合成样本（synthetic），不是真实会话提取。** 覆盖子 Agent 两种
-关联依据：主文件内 `isSidechain=true` 条目，与
-`projects/<proj>/<session>/subagents/` 路径下的独立子 Agent transcript。
+<a id="synthetic-subagent_expectationsmdsynthetic"></a>
 
-## 场景与期望（人工核算）
+**All files in this directory are synthetic test data, not extracts from real sessions.** Test both sub-agent associations: isSidechain=true in the main file,
+and a separate transcript under `projects/<proj>/<session>/subagents/`.
 
-主文件 `projects/proj/sess-1.jsonl`（3 行）：
+<a id="场景与期望人工核算"></a>
 
-- user ×1（不产事件）；
-- syn-req-shared：usage 100/10/0/0 → input_total=100、total=110，primary；
-- syn-req-side（isSidechain=true）：30/5/10/0 → input_total=40、total=45，
-  sub_agent，parent_session_id=NULL（路径不在 subagents/ 下）。
+## Scenario and manually calculated expectations
 
-子 Agent 文件 `projects/proj/sess-1/subagents/agent-a.jsonl`（3 行）：
+Main file `projects/proj/sess-1.jsonl`, three lines:
 
-- user ×1（detect 锚点，不产事件）；
-- syn-req-shared：与主文件同 requestId 同 usage（仅 uuid/时间戳不同）——
-  跨文件重报；
-- syn-req-subonly：70/15/20/5 → input_total=95、total=110。
+- One user, producing no event.
+- syn-req-shared: usage 100/10/0/0 → input_total=100, total=110, primary.
+- syn-req-side, isSidechain=true: 30/5/10/0 → input_total=40, total=45,
+  sub_agent, parent_session_id=NULL because its path is outside subagents/.
 
-发现排序按路径分量比较：`sess-1`（目录分量）< `sess-1.jsonl`（文件分量），
-故 subagents/agent-a.jsonl 先扫、主文件后扫。syn-req-shared 先入的是子 Agent
-副本（sub_agent、parent=sess-1）；主文件副本同键但分类/父会话不同（primary、
-parent NULL）→ 同层级不同内容判 conflict，已存值保持，行标 conflict=1，
-诊断 update_conflict ×1。**不双计**：syn-req-shared 只计一次。
+Sub-agent file `projects/proj/sess-1/subagents/agent-a.jsonl`, three lines:
 
-- 入库：added=3、conflicts=1、unchanged=0；usage_events 共 3 行。
-- 汇总（UTC 2026-09-24）：call_count=3、input_total_known=235、
-  cache_read_known=30、cache_write_known=5、output_total_known=30、
-  total_tokens_known=265、conflict_count=1。
-- 分类核验：syn-req-shared=sub_agent/parent=sess-1/conflict=1（先入者）；
-  syn-req-side=sub_agent/parent NULL；syn-req-subonly=sub_agent/parent=sess-1。
+- One user used for detection, producing no event.
+- syn-req-shared: same requestId and usage as the main file, with different uuid/timestamp;
+  this is a cross-file repeat.
+- syn-req-subonly: 70/15/20/5 → input_total=95, total=110.
+
+Discovery compares path components: directory sess-1 precedes file sess-1.jsonl, so
+subagents/agent-a.jsonl is scanned first. Its syn-req-shared is stored as sub_agent,
+parent=sess-1. The main-file copy has the same key but different category/parent
+(primary, parent NULL). Equal-priority records with different content conflict:
+keep the stored value, set conflict=1 and record one update_conflict diagnostic.
+**No double counting:** syn-req-shared counts once.
+
+- Import: added=3, conflicts=1, unchanged=0; three usage_events rows.
+- UTC 2026-09-24 summary: call_count=3, input_total_known=235, cache_read_known=30,
+  cache_write_known=5, output_total_known=30, total_tokens_known=265, conflict_count=1.
+- Categories: syn-req-shared=sub_agent/parent=sess-1/conflict=1 (first imported);
+  syn-req-side=sub_agent/parent NULL; syn-req-subonly=sub_agent/parent=sess-1.

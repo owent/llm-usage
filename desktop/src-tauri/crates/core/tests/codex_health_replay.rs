@@ -1,4 +1,4 @@
-//! 自动重评已消费游标，并区分累计对照和逐次读取异常。
+//! Recheck consumed cursors automatically; distinguish cumulative comparisons from per-call errors.
 mod common;
 use common::*;
 use llm_usage_core::adapters::framework::ScanLimits;

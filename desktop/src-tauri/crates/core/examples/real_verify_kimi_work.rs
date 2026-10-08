@@ -1,9 +1,9 @@
-//! 对本机真实 Kimi Work 数据做只读核对（已获用户允许的本机数据验证）。
-//! 只输出白名单聚合：文件数、记录数、事件数、模型调用、token 合计、
-//! 对账结论与诊断计数；不打印路径、会话 ID、模型以外的任何记录内容。
-//! 用法：cargo run -p llm-usage-core --example real_verify_kimi_work -- \
+//! Read-only native Kimi Work checks, authorized by the user.
+//! Output only permitted file/record/event/call/token counts,
+//! reconciliation and diagnostics; no paths, session IDs or content beyond models.
+//! Usage: cargo run -p llm-usage-core --example real_verify_kimi_work -- \
 //!   <kimi_work_sessions_root> <work_dir>
-//! （sessions_root 例：D:/Cache/Kimi/share/daimon-share/daimon/runtime/kimi-code/home/sessions）
+//! sessions_root example: D:/Cache/Kimi/share/daimon-share/daimon/runtime/kimi-code/home/sessions.
 
 use llm_usage_core::adapters::framework::{
     run_adapter_scan, DiscoverContext, RunConfig, ScanLimits,
@@ -70,7 +70,7 @@ fn main() {
                 o.added, o.updated, o.unchanged, o.skipped, o.conflicts, o.data_revision
             );
         }
-        // 回声对账与 subagent.completed 快照计数（白名单）。
+        // Permitted echo reconciliation and subagent.completed snapshot counts.
         for r in &report.reconciliations {
             println!(
                 "reconciliation series={} detail_sum={} snapshot_final={:?} difference={:?} verdict={}",
@@ -78,7 +78,7 @@ fn main() {
             );
         }
     }
-    // 二次扫描：幂等（重复扫描不增量）。
+    // A second scan adds no duplicate records.
     let reports2 = run_adapter_scan(&storage, &adapter, &ctx, &config).expect("rescan");
     let added2: i64 = reports2
         .iter()
@@ -86,7 +86,7 @@ fn main() {
         .sum();
     println!("rescan_added={added2}");
 
-    // 汇总查询白名单核对：调用数与 token 合计（UTC）。
+    // Check permitted UTC summary fields: calls and token sums.
     let summary = llm_usage_core::query::query_summary(
         &storage,
         &llm_usage_core::query::SummaryRequest {
@@ -111,7 +111,7 @@ fn main() {
         summary.totals.output_total_known,
         summary.totals.total_tokens_known
     );
-    // 分类白名单。
+    // Permitted category counts.
     let (primary, auxiliary, sub): (i64, i64, i64) = storage
         .conn()
         .query_row(

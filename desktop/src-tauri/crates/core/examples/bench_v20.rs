@@ -115,7 +115,7 @@ fn main() {
         Storage::open(&db)
     }
     .expect("open");
-    // 规模可由第二参数覆盖（默认 100 万；验收含 1,000 万档）。
+    // Second argument overrides scale; default one million, with a ten-million acceptance tier.
     let total: u64 = std::env::args()
         .nth(2)
         .and_then(|v| v.parse().ok())
@@ -147,7 +147,7 @@ fn main() {
     };
     let (first_ms, _) = calendar.day_range_ms(first_day).unwrap();
     if !query_only {
-        // Assign the same ownership and timezone metadata a native application uses.
+        // Assign the same ownership and timezone metadata used by the native app.
         for i in 0..20 {
             storage.conn().execute("INSERT INTO source_instances(instance_id,agent,locality_basis,attribution_status,enabled,format,parser_version,capabilities,health,user_id,created_at_ms,updated_at_ms) VALUES(?1,?2,'local_filesystem','verified',0,'synthetic','bench','{}','ok','default',?3,?3)", rusqlite::params![format!("inst-{i}"),format!("agent-{i}"),now_ms]).unwrap();
         }
@@ -192,7 +192,7 @@ fn main() {
             inserted as f64 / insert_secs
         );
     }
-    // 库与 WAL 大小。
+    // Database and WAL sizes.
     let db_bytes = std::fs::metadata(&db).map(|m| m.len()).unwrap_or(0);
     let wal_bytes = std::fs::metadata(db.with_file_name("llm-usage.sqlite-wal"))
         .map(|m| m.len())
@@ -202,7 +202,7 @@ fn main() {
         db_bytes as f64 / 1048576.0,
         wal_bytes as f64 / 1048576.0
     );
-    // Exercise the actual dashboard query, including session and duration statistics.
+    // Exercise actual dashboard queries, including sessions and durations.
     let request = SummaryRequest {
         timezone: "UTC".into(),
         week_start: WeekStart::Monday,
@@ -308,7 +308,7 @@ fn main() {
             );
         }
     }
-    // 明细分页查询分位。
+    // Detail pagination timing percentiles.
     let mut page_samples = Vec::new();
     for offset in (0..100).map(|i| i * 1000) {
         let t = Instant::now();

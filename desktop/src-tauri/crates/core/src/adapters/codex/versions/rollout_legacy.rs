@@ -1,47 +1,47 @@
-//! Codex rollout JSONL 旧版格式实现（`rollout_legacy`，0.139–0.151 系列）。
+//! Codex legacy rollout JSONL implementation rollout_legacy for registered 0.139-0.151 versions.
 //!
-//! 格式依据（2026-09-26 本机 ~/.codex/sessions 全量 238 个 0.139–0.151 文件实读，
-//! 21 个版本、13,481 条 token_count 事件逐条分桶；核验脚本输出存
-//! build/codex-legacy-forensics/，gitignored）：
-//! - 全部 238 个文件 **零 `token_usage_record`**（逐次载体缺失）——与 rollout_v1 的
-//!   载体不同，故本实现从 `event_msg/token_count` 读取逐次用量。
-//! - `token_count.info.total_token_usage`：累计快照，六字段同形；`last_token_usage`：
-//!   最近一次调用的回声，六字段同形（input/cached/cache_write/output/reasoning/total）。
-//!   envelope timestamp 为 ISO8601 毫秒 UTC（13,481/13,481）。
-//! - **last 语义判据（total 增量法，逐条核对）**：
-//!   * delta = 本次 total − 上次 total；delta > 0 ⇒ 覆盖 ≥1 次新调用，last 是其中
-//!     最新一次（13,032 条 delta>0 全部伴随 last 变化；13,024 条 delta == last.total
-//!     = 单次调用；8 条 delta > last.total = 区间内多次调用、仅最新一次在 last 中，
-//!     例 0.139.0 rollout-…-019ec029….jsonl L1043–L1051：四条 function_call 分属两批
-//!     模型调用，delta=400,696 而 last=199,034）。
-//!   * delta == 0 且 last 与上一条相同（121 条）⇒ 同一调用的重复上报（UI 回显），
-//!     去重跳过——判据：total 未动、回声未变。
-//!   * delta == 0 且 last 变化（85 条）⇒ **全部 85/85 紧随 `compacted` 记录**，形状
-//!     退化为 (0,0,0,0,0,N>0)：压缩摘要调用回声，源端自身将其排除出累计 total
-//!     （total 跨 compaction 不变，例 0.146.0-alpha.3 rollout-…-019f9496….jsonl
-//!     L335–L339：total=9,823,579 → compacted → total=9,823,579、last=16,894）。
-//!     记为 carried 事件并对账排除（与 rollout_v1 的携带量处理规则相同：
-//!     Σ逐次 == 最终快照 + Σ携带）。
-//!   * delta < 0（4 条）⇒ 源端计数回退/重置（0.142.3 L338 3,015,122→407,209、
-//!     L456 →258400==context_window 且 last 全 0；0.146.0-alpha.3 L434/L441 微降
-//!     319/607），无结构标记 ⇒ 记 `snapshot_regression` 诊断并重定基线；last 有
-//!     实际变化且非全零时按"宁多勿漏"仍发事件，残差进对账差异。
-//! - 文件首条 token_count：last == total（227/238）⇒ 首次调用；last != total
-//!   （11 条，续接会话：total 含上一文件遗留上下文、last 仅本次）⇒ 发 last，
-//!   残差由对账差异暴露。
-//! - `compacted`：旧版存在（91 条）但 `latest_token_usage_record` 全部为 null
-//!   （91/91，与 0.155 携带记录副本不同），仅作上述 delta==0 判据的结构标记。
-//! - `turn_context.model`：2,482/2,482 存在 ⇒ 按不晚于调用行的 turn_context 归属。
-//! - 无 response_id ⇒ 身份 `seq:{session}:{行号}`。
-//! - 记录类型：session_meta/turn_context/event_msg/response_item/world_state/compacted/
-//!   inter_agent_communication_metadata（129 条，本系列已知结构类型，静默忽略）。
-//! - 全量核算：222/238 文件 Σ逐次==最终快照（matched）；16 个 mismatch 均属上述
-//!   已解释类别（续接基线/多次调用区间/源端回退），进诊断不伪造数据。
+//! Native reference: 2026-09-26 reads of all 238 local ~/.codex/sessions files in that series,
+//! covering 21 versions and 13,481 token_count records. Analysis output lives under ignored
+//! build/codex-legacy-forensics/.
+//! - All 238 files lacked token_usage_record, unlike rollout_v1, so this reader uses
+//!   event_msg/token_count for individual usage.
+//! - info.total_token_usage is a six-field cumulative snapshot; last_token_usage
+//!   repeats the latest call with input/cached/cache_write/output/reasoning/total.
+//!   All 13,481 envelope timestamps are ISO8601 UTC with milliseconds.
+//! - Compare cumulative totals record by record to classify last:
+//!   * delta=current total - previous total. Positive delta covers one or more calls, with last the
+//!     latest. All 13,032 positive-delta records changed last; 13,024 had delta=last.total,
+//!     and eight had larger deltas covering multiple calls with only the latest in last.
+//!     Example: 0.139.0 rollout-...-019ec029...jsonl L1043-L1051 has four function_call records
+//!     in two model-call batches, delta=400,696 and last=199,034.
+//!   * Zero delta with unchanged last occurred 121 times as repeated reports;
+//!     skip duplicates when neither total nor last changes.
+//!   * Zero delta with changed last occurred 85 times, all immediately after compacted:
+//!     (0,0,0,0,0,N>0) compaction-summary calls are excluded from native cumulative total.
+//!     Example: 0.146.0-alpha.3 rollout-...-019f9496...jsonl
+//!     L335-L339 retains total=9,823,579 across compaction, with last=16,894.
+//!     Emit carried events excluded from snapshot comparison, following rollout_v1:
+//!     detailed sum = final snapshot + carried sum.
+//!   * Four negative deltas reflect native regression/reset: 0.142.3 L338 3,015,122 to 407,209;
+//!     L456 to 258400=context_window with all-zero last; 0.146.0-alpha.3 L434/L441 decreases of
+//!     319/607. Without a reset marker, diagnose snapshot_regression and reset the comparison baseline.
+//!     Changed nonzero last still emits an observed call; residuals remain reconciliation mismatches.
+//! - First token_count had last=total in 227/238 files; the other 11 resumed sessions
+//!   retained earlier context in total. Emit only last for the current observed call,
+//!   leaving the residual visible in reconciliation.
+//! - All 91 compacted records had latest_token_usage_record=null, unlike the 0.155 copy.
+//!   Use compacted only as the structural marker for changed last with zero delta.
+//! - All 2,482 turn_context records had model; use context available by the call line.
+//! - Without response_id, identity is seq:<session>:<line-number>.
+//! - Known structural types include session_meta/turn_context/event_msg/response_item/world_state/compacted/
+//!   inter_agent_communication_metadata (129 records), ignored without usage.
+//! - In 222/238 files the detailed sum matched the final snapshot; the other 16 fell into
+//!   resumed-baseline, multiple-call or native-regression cases, retained as diagnostics without invented data.
 //!
-//! 版本策略（architecture.md#unknown-version）：本实现仅服务注册表登记的
-//! 0.139–0.151 版本；未收录版本仍走 LatestFallback → rollout_v1（行为不变）。
-//! 已知限制（与 rollout_v1 同）：latest_fallback 已消费游标的文件在解析器升级后
-//! 不自动重扫；本系列此前全部判 incompatible 且游标未推进，登记后从头解析。
+//! Version policy in architecture.md#unknown-version: this reader serves registered
+//! 0.139-0.151 versions; unregistered versions use LatestFallback with rollout_v1.
+//! Registry parser/supported-version changes reset stored checkpoints and revisit consumed files.
+//! Previously incompatible legacy files had no advanced cursor; registering them permits a full read.
 
 use crate::adapters::framework::{
     Reconciliation, ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -61,7 +61,7 @@ use super::super::common::{map_codex_record, CodexRecordUsage};
 pub const CODEX_LEGACY_PARSER_VERSION: &str = "codex-rollout-legacy-1";
 const MAX_REASONABLE_TOKEN: i64 = crate::domain::MAX_TOKEN_VALUE;
 
-/// usage 六字段合计（i128 防溢出）。
+/// Six usage-field sums, using i128 against overflow.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 struct UsageSums {
     input: i128,
@@ -85,7 +85,7 @@ impl UsageSums {
     }
 }
 
-/// 最终快照状态。
+/// Final snapshot state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 struct SnapshotState {
     usage: StoredUsage,
@@ -93,7 +93,7 @@ struct SnapshotState {
     ts_ms: i64,
 }
 
-/// 持久化快照六字段（serde 友好）。
+/// Persisted six-field snapshot suitable for serde.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 struct StoredUsage {
     input: i64,
@@ -117,7 +117,7 @@ impl StoredUsage {
     }
 }
 
-/// 持久化解析上下文（模型状态、上一快照/回声、对账合计、版本选择依据）。
+/// Persisted model, previous snapshot/echo, reconciliation sums and version basis.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 struct LegacyParseContext {
     model: Option<String>,
@@ -128,11 +128,11 @@ struct LegacyParseContext {
     model_provider: Option<String>,
     category: Option<String>,
     session_started_ms: Option<i64>,
-    /// 上一条 token_count 的 total（增量法基线；回归后重定基线）。
+    /// Previous token_count total for delta comparison; reset after regression.
     prev_total: Option<i64>,
-    /// 上一条 token_count 的 last 六字段（重复上报去重判据）。
+    /// Previous last six-field echo for duplicate detection.
     prev_last: Option<[i64; 6]>,
-    /// 上一 token_count 以来是否见过 compacted（delta==0 且 last 变化的结构标记）。
+    /// Whether compacted occurred since the previous token_count, used for changed last with zero delta.
     saw_compacted: bool,
     sum_per_call: UsageSums,
     sum_carried: UsageSums,
@@ -144,7 +144,7 @@ struct LegacyParseContext {
     unknown_types: Vec<String>,
     #[serde(default)]
     has_record_errors: bool,
-    /// 版本选择依据（known_version / latest_fallback）。
+    /// Version selection basis: known_version/latest_fallback.
     #[serde(default)]
     version_basis: Option<VersionBasis>,
 }
@@ -180,7 +180,7 @@ fn restore_context(stored: &StoredScanState, rescan: bool) -> LegacyParseContext
         .unwrap_or_default()
 }
 
-/// 解析 usage 对象的六个必需数值字段；缺失/类型错误/负值/超限返回 None。
+/// Require six bounded nonnegative integers; missing/invalid fields return None.
 fn parse_usage(value: &serde_json::Value) -> Option<CodexRecordUsage> {
     let obj = value.as_object()?;
     let get = |key: &str| -> Option<i64> {
@@ -238,20 +238,20 @@ fn diag(code: &str, field: Option<&str>, line: u64, message: &str) -> Diagnostic
     }
 }
 
-/// last_token_usage 语义判定结论（文件头核验依据的分类）。
+/// last_token_usage classification using the native checks described above.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum LastVerdict {
-    /// 新调用（delta>0，或首条有效，或回归基线上的真实回声变化）。
+    /// Observed new call: positive delta, valid first record or changed echo after regression.
     NewCall,
-    /// 压缩摘要调用回声（delta==0 且 last 变化且紧随 compacted）：发事件但对账排除。
+    /// Changed last with zero delta after compacted: emit a carried call excluded from snapshot comparison.
     CompactionEcho,
-    /// 同一调用的重复上报（delta==0 且 last 未变）：去重跳过。
+    /// Zero delta with unchanged last is a duplicate report; skip it.
     DuplicateReport,
-    /// 无逐次用量（last 缺失/全零）：跳过，残差由对账报告。
+    /// Missing/all-zero last has no individual usage; skip it and expose residuals in reconciliation.
     NoPerCallEvidence,
 }
 
-/// 按核验判据分类一条 token_count 的 last 回声。
+/// Classify one token_count last echo using the checked rules.
 fn classify_last(
     prev_total: Option<i64>,
     cur_total: i64,
@@ -262,7 +262,7 @@ fn classify_last(
     let last_valid = last.is_some_and(|l| l[5] > 0);
     match prev_total {
         None => {
-            // 首条：last 有实际用量即首调（或续接会话的首调），残差由对账暴露。
+            // A valid first last represents the first observed call, including resumed sessions; diagnose residuals.
             if last_valid {
                 LastVerdict::NewCall
             } else {
@@ -272,7 +272,7 @@ fn classify_last(
         Some(prev) => {
             let delta = cur_total - prev;
             if delta > 0 {
-                // 区间内 ≥1 次调用；last 是最新一次（核验：13,032/13,032 伴随 last 变化）。
+                // Positive delta covers one or more calls; last is latest (13,032/13,032 native echoes changed).
                 if last_valid {
                     LastVerdict::NewCall
                 } else {
@@ -283,14 +283,14 @@ fn classify_last(
                     if saw_compacted {
                         LastVerdict::CompactionEcho
                     } else {
-                        // 实读未出现（0/13,481）；按宁多勿漏发事件，残差进对账差异。
+                        // This case was absent from 13,481 native records; emit the changed nonzero echo and diagnose residuals.
                         LastVerdict::NewCall
                     }
                 } else {
                     LastVerdict::DuplicateReport
                 }
             } else {
-                // 源端计数回退：真实回声变化仍发事件（宁多勿漏），基线重定。
+                // On native regression, emit a changed nonzero echo and reset the comparison baseline.
                 if last_valid && last != prev_last {
                     LastVerdict::NewCall
                 } else {
@@ -301,7 +301,7 @@ fn classify_last(
     }
 }
 
-/// 从 token_count 的 last_token_usage 构造 model_call 事件（身份 seq:{session}:{行号}）。
+/// Build model_call from last_token_usage with seq:<session>:<line-number> identity.
 #[allow(clippy::too_many_arguments)]
 fn build_last_event(
     target: &ScanTarget,
@@ -370,7 +370,7 @@ fn build_last_event(
     }
 }
 
-/// 增量扫描一个旧版 rollout JSONL 文件（统一入口 `CodexAdapter::scan` 按注册表分派）。
+/// Incrementally scan legacy rollout files through CodexAdapter registry dispatch.
 pub fn scan(
     target: &ScanTarget,
     stored: &StoredScanState,
@@ -460,8 +460,8 @@ pub fn scan(
                 }
             }
             "compacted" => {
-                // 旧版 latest_token_usage_record 全为 null（91/91 实读），无携带记录副本；
-                // 仅作为 delta==0 且 last 变化的结构标记。
+                // All 91 checked legacy compacted records lacked a carried-record copy.
+                // Use the marker only for changed last with zero delta.
                 context.saw_compacted = true;
             }
             "event_msg" => {
@@ -556,7 +556,7 @@ pub fn scan(
                     _ => {}
                 }
             }
-            // 旧系列已知结构类型：内容不含 usage，静默忽略。
+            // Ignore known structural records without usage in this series.
             "response_item" | "world_state" | "inter_agent_communication_metadata" => {}
             other => {
                 if !context.unknown_types.iter().any(|t| t == other) {
@@ -584,8 +584,8 @@ pub fn scan(
             ScanStatus::LineTooLong
         }
     };
-    // 对账只在读到当前文件尾时进行（文件可能仍在增长）：
-    // Σ逐次（regular + carried）== 最终快照 + Σ carried（压缩摘要回声被源端排除出快照）。
+    // Reconcile only at the current EOF while allowing future appends:
+    // regular+carried sum = final snapshot+carried; native snapshots exclude compaction-summary echoes.
     if status == ScanStatus::Complete {
         let detail = context.sum_per_call.total + context.sum_carried.total;
         let snapshot = context.final_snapshot.map(|s| i128::from(s.usage.total));
@@ -621,7 +621,7 @@ pub fn scan(
             difference: difference.map(|v| v.min(i128::from(i64::MAX)) as i64),
             verdict: verdict.to_string(),
         });
-        // 最终快照存为来源原生区间汇总，仅作对照，不参与求和。
+        // Keep the final native interval snapshot for comparison without adding it to totals.
         if let Some(snap) = context.final_snapshot {
             let mapped = map_codex_record(&snap.usage.to_record());
             aggregates.push(SourceAggregateInput {
@@ -651,7 +651,7 @@ pub fn scan(
     };
     context.has_record_errors |= !outcome.bad_lines.is_empty()
         || diagnostics.iter().any(|d| {
-            // 旧载体依赖 total/last 一起识别调用，快照形状异常也可能丢失调用。
+            // Legacy call classification requires total and last together; malformed snapshots can hide observed calls.
             matches!(
                 d.code.as_str(),
                 "bad_json_line"
@@ -718,13 +718,13 @@ mod tests {
 
     #[test]
     fn positive_delta_is_new_call_even_when_equal_to_previous() {
-        // delta>0 恒为新调用（实读 13,032/13,032；不依赖 last 是否与上一条相同）。
+        // Positive delta is a new observed call even if last equals its predecessor (13,032/13,032 native checks).
         let last = six_usage(80, 20, 0, 20, 5, 100);
         assert_eq!(
             classify_last(Some(0), 100, Some(last), Some(last), false),
             LastVerdict::NewCall
         );
-        // last 缺失时无法生成逐次用量事件。
+        // Missing last cannot produce an individual usage event.
         assert_eq!(
             classify_last(Some(0), 100, Some(last), None, false),
             LastVerdict::NoPerCallEvidence
@@ -742,14 +742,14 @@ mod tests {
 
     #[test]
     fn zero_delta_changed_last_after_compaction_is_carried() {
-        // 压缩摘要回声：total 不动、last 变化（退化为仅 total>0）。
+        // Compaction-summary echo leaves total unchanged and changes last to total-only positive usage.
         let prev = six_usage(214636, 211840, 0, 982, 391, 215618);
         let echo = six_usage(0, 0, 0, 0, 0, 13444);
         assert_eq!(
             classify_last(Some(3_000_000), 3_000_000, Some(prev), Some(echo), true),
             LastVerdict::CompactionEcho
         );
-        // 无 compacted 标记的零增量变化（实读未出现）：宁多勿漏发事件。
+        // A zero-delta change without compacted was not observed natively; retain the changed nonzero echo.
         assert_eq!(
             classify_last(Some(3_000_000), 3_000_000, Some(prev), Some(echo), false),
             LastVerdict::NewCall
@@ -760,7 +760,7 @@ mod tests {
     fn regression_rebases_and_emits_only_real_change() {
         let prev_last = six_usage(146293, 140160, 0, 1014, 0, 147307);
         let new_last = six_usage(147942, 140160, 0, 867, 516, 148809);
-        // 计数回退 + 真实回声变化（0.142.3 L338 实读形状）⇒ 发事件。
+        // Regression plus changed usage emits a call, matching native 0.142.3 L338.
         assert_eq!(
             classify_last(
                 Some(3_015_122),
@@ -771,7 +771,7 @@ mod tests {
             ),
             LastVerdict::NewCall
         );
-        // 回退且 last 全零（0.142.3 L456 实读形状）⇒ 无逐次用量。
+        // Regression with all-zero last has no individual usage, matching native 0.142.3 L456.
         assert_eq!(
             classify_last(
                 Some(568_759),
@@ -782,7 +782,7 @@ mod tests {
             ),
             LastVerdict::NoPerCallEvidence
         );
-        // 回退且 last 未变 ⇒ 无新调用。
+        // Regression with unchanged last has no new observed call.
         assert_eq!(
             classify_last(
                 Some(568_759),

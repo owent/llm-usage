@@ -1,84 +1,112 @@
-# M1：统计核心与 SQLite 存储
+# M1: Statistics core and SQLite storage
 
-本页记录 M1 初始实施；后续 schema v2、统计/保留/查询修复与新增回归见
-[M0/M1 审查](m0-m1-review.md)，下表 72 测试为初始基线。
+<a id="m1统计核心与-sqlite-存储"></a>
 
-## 元信息
+This records the initial M1 implementation. Later schema v2 and statistics/retention/query
+repairs and regressions are in [M0/M1 review](m0-m1-review.md). The 72 tests below are the
+initial baseline.
 
-| 项目 | 内容 |
+<a id="元信息"></a>
+
+## Run information
+
+| Item | Value |
 | --- | --- |
-| 日期 | 2026-09-24 |
-| 执行环境 | Windows 11 Pro 26200 x64；Rust 1.98.0；Node v24.21.0 |
-| 代码 revision | 工作树未提交改动（desktop/src-tauri 改造为 workspace） |
-| 依据合同 | execution.md M1；data-contract.md（统计权威）；validation.md V01–V06/V09/V14/V16 与固定数学样本；scheduling.md 作业语义 |
+| Date | 2026-09-24 |
+| Environment | Windows 11 Pro 26200 x64; Rust 1.98.0; Node v24.21.0 |
+| Code revision | Uncommitted working tree; desktop/src-tauri converted to a workspace |
+| Design references | execution.md M1; data-contract.md statistical rules; validation.md V01–V06/V09/V14/V16 and fixed mathematical samples; scheduling.md job behavior |
 
-## 命令与结果
+<a id="命令与结果"></a>
 
-| # | 命令（cwd） | 退出码 | 结果摘要 |
+## Commands and results
+
+| # | Command (working directory) | Exit | Result |
 | --- | --- | --- | --- |
-| 1 | `npm run verify`（仓库根） | 0 | lint:md / assets:check / svelte-check / fmt --check / clippy -D warnings / cargo test / vite build 全绿 |
-| 2 | `cargo test --locked --workspace`（desktop/src-tauri） | 0 | **72 passed / 0 failed**，14 个测试套件，全部真实临时 SQLite 文件库，无 mock |
-| 3 | `git diff --check`（仓库根） | 0 | 无空白错误 |
+| 1 | npm run verify (repository root) | 0 | lint:md, assets:check, svelte-check, fmt --check, clippy -D warnings, cargo test and vite build pass |
+| 2 | cargo test --locked --workspace (desktop/src-tauri) | 0 | **72 passed / 0 failed**, 14 suites; real temporary SQLite files, no mocks |
+| 3 | git diff --check (repository root) | 0 | No whitespace errors |
 
-## 实现清单
+<a id="实现清单"></a>
 
-`desktop/src-tauri` 改为 workspace（app crate + `crates/core`，包名 `llm-usage-core`，纯 Rust 库不依赖 tauri；
-`default-members` 保证根命令覆盖 core）。核心模块：
+## Implemented changes
 
-- `domain`：TokenUsage 8 字段全可空（未知不补零）、RecordKind 六类、FieldQuality、Lifecycle、整数最小单位费用；
-  token 上限 2^62 超限拒绝；秒/毫秒时间误判拒绝。
-- `metrics`：互斥输入求和、cache_input_ratio（分母零/无样本返回无值）、矛盾进诊断不钳制、i128 防溢出。
-- `adapters/usage_map`：五种真实口径映射（codex cached⊆input / kimi 四字段互斥 / zcode 双口径相反 /
-  copilot 三类相加 / kilo 全互斥），各自独立测试。
-- `calendar`：jiff IANA 时区；DST 23/25 小时日、ISO 周含跨年、周日起始标签、保留截止 D−1。
-- `storage`：18 张合同表 DDL + 按版本事务迁移；foreign_keys=ON/WAL/synchronous=FULL/busy_timeout=5s；
-  user_version 过新拒绝打开；data_revision 单调递增。
-- `identity`：命名空间事件身份；修订号优先、生命周期裁决、同级冲突保留不取 MAX。
-- `ingest`：批次单事务（事件+游标+解析上下文+日汇总+诊断+作业进度+修订号），6 个故障注入点。
-- `aggregates`：来源区间汇总、累计值观察（重置/回归区分）、覆盖互斥求和、额度不转 token。
-- `query`：周/月由日加总、比例重算、跨周期 DISTINCT 会话、部分周期标记、unknown 独立行进总计、
-  归属排除可按原因列出。
-- `jobs`：ingest_runs 状态机、同源合并、重启标 interrupted。
-- `retention`：过期日封存（记录时区/字段/来源版本）后删明细、封存日不追加、容量统计含 WAL/备份。
+desktop/src-tauri becomes a workspace: app crate and crates/core, named llm-usage-core,
+a pure Rust library without Tauri; default-members makes root commands include core.
 
-## 测试覆盖对照
+- domain: all eight TokenUsage fields nullable, unknown stays unknown; six RecordKind
+  categories, FieldQuality, Lifecycle and integer minor-unit costs. Reject tokens above
+  2^62 and confused second/millisecond timestamps.
+- metrics: sum exclusive input buckets; cache_input_ratio returns no value for zero
+  denominators/no samples; contradictory values produce diagnostics without adjusting
+  them into range; i128 prevents overflow.
+- adapters/usage_map: five independently tested mappings: Codex cache is an input subset,
+  Kimi four exclusive fields, ZCode's two opposite input definitions, Copilot three added
+  categories and Kilo's entirely exclusive buckets.
+- calendar: jiff IANA zones; DST 23/25-hour days, cross-year ISO weeks, Sunday labels and
+  retention cutoff D−1.
+- storage: DDL for 18 specified tables and versioned transactional migrations;
+  foreign_keys=ON/WAL/synchronous=FULL/busy_timeout=5s; reject too-new user_version;
+  monotonically increasing data_revision.
+- identity: namespaced event IDs; source revisions first, otherwise lifecycle order;
+  equal-rank conflicts remain, without choosing MAX.
+- ingest: one transaction for events, cursors, parser context, daily summaries, diagnostics,
+  job progress and revision; six injected failure points.
+- aggregates: source intervals, cumulative observations distinguishing resets/regressions,
+  sums of mutually exclusive coverage; quotas do not become tokens.
+- query: days sum into weeks/months; ratios recomputed; DISTINCT sessions across periods;
+  partial-period flags, separate unknown rows included in totals; excluded attribution
+  listed by reason.
+- jobs: ingest_runs state machine, same-source coalescing, interrupted on restart.
+- retention: seal expired days with timezone/field/source versions before removing details;
+  no additions to sealed days; storage size includes WAL/backups.
 
-| 验收 | 测试 | 结果 |
+<a id="测试覆盖对照"></a>
+
+## Test coverage
+
+| Requirement | Tests | Result |
 | --- | --- | --- |
-| 固定数学样本 11 组 | fixed_samples.rs 11 个，期望写死 | 通过 |
-| V01 缓存包含关系 | mapping_v01.rs 8 个 | 通过 |
-| V02 重复/更正/乱序/冲突 | dedup_v02.rs 6 个 | 通过 |
-| V03 调用/尝试/消息分类 | classification_v03.rs 3 个 | 通过 |
-| V04 跨午夜/闰日/跨年周/周日/DST | calendar_v04.rs 6 个 | 通过 |
-| V05 模型切换/同名跨 provider/unknown | models_v05.rs 3 个 | 通过 |
-| V06 日→周月/加权比例/distinct/部分周期 | rollup_v06.rs 4 个 | 通过 |
-| V09 故障注入恢复 | faults_v09.rs 3 个（6 注入点逐一验证+重启重放幂等） | 通过 |
-| V14 保留/封存/容量 | retention_v14.rs 5 个 | 通过 |
-| V16 schema 拒绝/迁移回滚 | migration_v16.rs 5 个 | 通过 |
-| 存储/作业/边界 | storage_jobs.rs 14 个 + src 内 4 个 | 通过 |
+| 11 fixed mathematical samples | fixed_samples.rs: 11 hard-coded expectations | Passed |
+| V01 cache inclusion | mapping_v01.rs: 8 | Passed |
+| V02 repeats/corrections/disorder/conflicts | dedup_v02.rs: 6 | Passed |
+| V03 call/attempt/message categories | classification_v03.rs: 3 | Passed |
+| V04 midnight/leap day/cross-year week/Sunday/DST | calendar_v04.rs: 6 | Passed |
+| V05 model switch/same name across providers/unknown | models_v05.rs: 3 | Passed |
+| V06 day→week/month, weighted ratios, distinct, partial periods | rollup_v06.rs: 4 | Passed |
+| V09 injected-failure recovery | faults_v09.rs: 3; all six points and idempotent restart replay | Passed |
+| V14 retention/sealing/storage size | retention_v14.rs: 5 | Passed |
+| V16 schema rejection/migration rollback | migration_v16.rs: 5 | Passed |
+| Storage/jobs/boundaries | storage_jobs.rs: 14 plus 4 in src | Passed |
 
-## 新锁定依赖
+<a id="新锁定依赖"></a>
 
-| 依赖 | 版本 | 许可证 | 用途 |
+## Newly locked dependencies
+
+| Dependency | Version | License | Purpose |
 | --- | --- | --- | --- |
-| jiff（含 jiff-core/static/tzdb 传递依赖） | =0.2.37 | Unlicense OR MIT | IANA 时区日历与 DST |
-| portable-atomic 系（传递） | 1.15.0 / 0.2.8 | Apache-2.0 OR MIT | jiff 传递 |
+| jiff, including transitive jiff-core/static/tzdb | =0.2.37 | Unlicense OR MIT | IANA calendar/DST |
+| portable-atomic family, transitive | 1.15.0 / 0.2.8 | Apache-2.0 OR MIT | jiff dependency |
 
-## 失败与未执行项
+<a id="失败与未执行项"></a>
 
-| 项 | 状态 | 后续 |
+## Failures and outstanding work at this stage
+
+| Item | Status | Next step |
 | --- | --- | --- |
-| 性能初值（M1 交付项） | 未执行 | 需 ≥100 万事件基准，随 V20 规模数据一起做 |
-| 费用日聚合 | 未实现（仅存储） | 合同禁止跨币种相加，面板属 M6 |
-| aggregate_generations 跨事务 building→published 切换 | 未实现 | 当前重算单事务原子完成；复杂重建需要时再加 |
-| 迁移前空间检查与一致备份 | 未实现 | 随 V15/V16 完整验收补 |
-| 归属核验实际逻辑（WSL/容器） | 仅存储与查询合同 | V25 阶段 |
-| 定时器/防抖/系统任务 | 未实现（仅表结构与作业语义） | M6 |
-| import_manifests 旧库导入逻辑 | 仅状态存储 | M2 |
+| Initial performance measurement, M1 deliverable | Not run | At least one million events with V20 scale tests |
+| Daily cost aggregation | Storage only | No cross-currency addition; panel belongs to M6 |
+| aggregate_generations building→published across transactions | Not implemented | Current recomputation is atomic in one transaction; add if complex rebuilds need it |
+| Pre-migration space check/consistent backup | Not implemented | Complete V15/V16 acceptance |
+| Actual WSL/container attribution checks | Storage/query rules only | V25 |
+| Timers/debounce/system tasks | Tables/job behavior only | M6 |
+| import_manifests legacy import logic | State storage only | M2 |
+
+<a id="验证产物"></a>
 
 <a id="证据文件"></a>
 
-## 验证产物
+## Validation files
 
-- `desktop/src-tauri/crates/core/`：核心库源码与测试（tests/ 下 10 个集成测试文件）。
-- `desktop/src-tauri/Cargo.lock`：含 jiff 与 llm-usage-core 条目。
+- desktop/src-tauri/crates/core/: source and tests; ten integration-test files under tests/.
+- desktop/src-tauri/Cargo.lock: jiff and llm-usage-core.

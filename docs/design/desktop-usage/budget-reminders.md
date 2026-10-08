@@ -1,17 +1,31 @@
-# 预算提醒
+# Usage and cost alerts
 
-提醒默认关闭，用户选择本地日或本地月、已知总 token 或发生时估算金额，以及
-正整数 token 阈值或最多六位小数的金额阈值。金额采用既有微单位和单一币种，费用估算关闭时不计算金额提醒；
-当前 API 参考和实付账单不混用。提醒只在应用内显示，不停止 Agent 或采集。
+<a id="budget-reminders"></a>
 
-查询限定当前统计用户，沿用时区、保留范围及明细/归档择一规则。未知字段不补零；
-来源健康受限、用量未知或价格部分覆盖时显示覆盖提示。已知下界达到阈值仍可
-提醒，不能将未触发解释为完整用量未超限。
+<a id="用量和费用提醒"></a>
 
-提醒身份由用户、时区、本地周期、指标、币种及阈值组成，持久保存在应用数据库。
-同一身份只展示一次；重启、补录、重复读取和多个窗口不会再次弹出。新周期或
-用户显式改阈值可产生新提醒。关闭提醒不删除历史身份，清空用量也不重新提醒
-已经展示过的同一周期阈值。设置页显示载入时的当前值与覆盖范围。
+<a id="预算提醒"></a>
 
-验证覆盖默认关闭、未知量、时区/DST/跨月、单币种金额、阈值边界、重复与重启、
-配置变更、用户隔离、事务失败以及原生 IPC 与界面显示。
+Reminders default to off. The user chooses a local day or month, known total tokens or
+observation-time estimated cost, and either a positive integer token threshold or a monetary
+threshold with at most six decimal places. Monetary values use the existing micro-units and
+one currency; no monetary reminder is evaluated while cost estimation is disabled. Current
+API references and actual bills are kept separate. Reminders appear only in the application
+and do not stop an agent or collection.
+
+Queries are scoped to the current statistical user and follow the saved timezone, retention
+range and exclusive choice of details versus archives. Unknown fields are not filled with
+zero. Restricted source health, unknown usage or partial price coverage produce a coverage
+note. A known lower bound reaching the threshold can still trigger a reminder; lack of a
+reminder does not establish that complete usage stayed below the threshold.
+
+A reminder's identity consists of user, timezone, local period, metric, currency and threshold
+and is persisted in the application database. Each identity is displayed once; restarts,
+backfills, repeated reads and multiple windows do not produce another popup. A new period or
+an explicit threshold change can create a new reminder. Disabling reminders keeps historical
+identities, and clearing usage does not repeat an already shown threshold for the same period.
+Settings displays the current value and coverage as observed when the panel loads.
+
+Validation covers default-off behavior, unknown usage, timezone/DST/month transitions,
+single-currency amounts, threshold boundaries, duplicates/restarts, configuration changes,
+user isolation, transaction failure, native IPC and UI presentation.

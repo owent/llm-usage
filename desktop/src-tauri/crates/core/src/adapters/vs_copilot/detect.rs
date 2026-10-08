@@ -1,4 +1,4 @@
-//! VS Copilot 遥测探测：首行 OTLP 信封 + service.name=vs-copilot 指纹。
+//! Detect VS Copilot telemetry by the first OTLP envelope and service.name=vs-copilot.
 
 use crate::adapters::framework::DetectOutcome;
 use crate::domain::VersionBasis;
@@ -8,7 +8,7 @@ use std::path::Path;
 
 pub const VS_COPILOT_FORMAT: &str = "vs-copilot-otlp-traces";
 
-/// 探测首行读取上限（遥测批次行可含长 messages 属性，按单行上限有界读取）。
+/// Bound first-line detection reads; a telemetry batch can contain long messages attributes.
 const DETECT_MAX_FIRST_LINE: usize = crate::adapters::jsonl::DEFAULT_MAX_LINE_BYTES;
 
 fn read_first_line(path: &Path) -> std::io::Result<Option<Vec<u8>>> {
@@ -32,7 +32,7 @@ fn read_first_line(path: &Path) -> std::io::Result<Option<Vec<u8>>> {
     Ok(Some(buf))
 }
 
-/// 解析 OTLP 属性数组中的 service.name（本产品=vs-copilot/visualstudio 命名空间）。
+/// Read service.name from OTLP attributes; this product uses vs-copilot/visualstudio namespaces.
 pub(crate) fn service_name_of(attrs: &[serde_json::Value]) -> Option<String> {
     for attr in attrs {
         let Some(key) = attr.get("key").and_then(|v| v.as_str()) else {

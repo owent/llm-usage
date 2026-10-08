@@ -12,7 +12,7 @@ const phrases:Record<string,string[]>={
   ru:['Текущие доступные тарифы по валютам; только справочная оценка API.','Посмотреть цены моделей','За миллион токенов; применённые тарифы и пороги контекста. — означает отсутствие тарифа.','Подходящего тарифа нет','Запись кэша · 5 мин','Запись кэша · 1 час','Входной контекст ≥ {count} токенов','Полное число токенов не предоставлено','Некоторые исторические записи удалены по сроку хранения; оценка охватывает только сохранённые записи.','Подробности квоты'],
 };
 const titles:Record<string,string>={'zh-CN':'API按量付费价格参考','zh-TW':'API 按量付費價格參考',en:'API pay-as-you-go price reference',ja:'API 従量課金の参考額',ko:'API 종량제 가격 참고',es:'Referencia de precios API por uso',fr:'Référence des tarifs API à l’usage',de:'API-Preisreferenz nach Verbrauch','pt-BR':'Referência de preços API por uso',ru:'Справочная стоимость API по использованию'};
-// 卡片用短标题（与指标卡等高，单行；完整标题保留在悬浮提示）。
+// Use one-line short titles to match metric-card height; retain full titles in tooltips.
 const shortTitles:Record<string,string>={'zh-CN':'API 参考费用','zh-TW':'API 參考費用',en:'API ref. cost',ja:'API 参考額',ko:'API 참고 요금',es:'Costo API ref.',fr:'Coût API réf.',de:'API-Referenz','pt-BR':'Custo API ref.',ru:'Справка API'};
 const statusKeys=['cost.reason.no_known_usage','cost.reason.no_provider','cost.reason.no_model','cost.reason.channel_unknown','cost.reason.no_price_row','cost.reason.tier_ambiguous','cost.reason.token_anomaly','cost.reason.internal_overflow','cost.reason.other','cost.partialHint','cost.fxHint'];
 const statuses:Record<string,string[]>={

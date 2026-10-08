@@ -1,13 +1,13 @@
-//! Kilo 探测与版本分派：kilo.db schema 指纹（表存在性/关键列）+
-//! `session.version` 注册表。kilo 无官方 env 覆盖（A11），发现层不做 env 项。
+//! Kilo detection: kilo.db tables/key columns and
+//! session.version registry. No official environment override, A11.
 //!
-//! 约定（architecture.md#unknown-version）：
-//! - message/session 两表或关键列缺失 ⇒ 未知格式 fail closed；
-//!   仅存新 core 数据层（session_message）而无 message 表的库同样拒绝，
-//!   待核验格式并编写专用实现（adapters.md：新版与旧 message 表不保证兼容）；
-//! - 库尚无会话（session 空表）⇒ Pending，下轮重探；
-//! - 版本标记取库内数值最大 session.version：已收录 ⇒ KnownVersion；
-//!   未收录/缺失 ⇒ LatestFallback（带兼容标记，不因版本号未收录直接拒绝）。
+//! Rules: architecture.md#unknown-version.
+//! - Missing message/session tables or key columns: unknown format, reject.
+//!   Also reject new-core session_message databases without message;
+//!   verify and implement separately; compatibility with old message layout is unestablished.
+//! - Empty session table: Pending, detect again next run.
+//! - File marker uses greatest numeric session.version; registered means KnownVersion.
+//!   Missing/unregistered versions use marked LatestFallback; scanners retain each message's session version.
 
 use crate::adapters::framework::DetectOutcome;
 use crate::adapters::kilo::common::{open_source_db, schema_fingerprint, StagingLimits};
@@ -29,7 +29,7 @@ fn probe_schema(conn: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
     conn.query_row("SELECT COUNT(*) FROM sqlite_master", [], |_| Ok(()))
 }
 
-/// 探测一个 kilo.db 并按注册表分派。
+/// Detect kilo.db and select the registered implementation.
 pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     let source = match open_source_db(path, probe_schema, &StagingLimits::default()) {
         Ok(source) => source,
@@ -42,7 +42,7 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     };
     let conn = source.conn();
     match schema_fingerprint(conn) {
-        // 指纹不含表：区分“新 core 数据层”与“完全无关的库”，两者都 fail closed。
+        // Distinguish new-core layout from unrelated databases; reject both unverified shapes.
         Ok(None) => {
             let has_session_message: bool = conn
                 .query_row(
@@ -66,7 +66,7 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
         }),
         Err(e) => Err(e),
         Ok(Some(_)) => {
-            // 版本标记：库内数值最大 session.version；空 session 表 ⇒ Pending。
+            // File marker is greatest numeric session.version; no sessions means Pending.
             let mut stmt = conn
                 .prepare("SELECT version FROM session")
                 .map_err(CoreError::Sqlite)?;

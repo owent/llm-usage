@@ -1,35 +1,35 @@
-//! OpenCode 版本注册表：`session.version`（TEXT，写入会话的上游应用版本）→
-//! 格式实现映射与未知版本回退选择（architecture.md#adapter-layout /
-//! #unknown-version）。
+//! OpenCode registry maps session.version (upstream application version stored as TEXT)
+//! to format implementations or compatibility fallback. See architecture.md#adapter-layout /
+//! #unknown-version.
 //!
-//! 已验证版本须有真实脱敏 fixture 与期望值核验结果。1.18.34 官方 CLI / 本地
-//! 模型真实主循环及缓存读已核对；逐记录选择依据，空会话不认证其他记录。
-//! 支持更新通过稳定部件键重评旧处理位置，不追加相同用量。
+//! Register versions after checking redacted native samples and expected results. Official CLI
+//! 1.18.34 has verified local-model main-loop/cache reads. Select each record; empty sessions verify no other records.
+//! Support updates reevaluate old processing positions by stable part keys without adding duplicate usage.
 //!
-//! 选择规则：
-//! - 已收录版本 → `KnownVersion`；
-//! - 未收录/缺失版本 → `LatestFallback`，先尝试最新内置解析器
-//!   （`step_finish_parts_v1`）；
-//! - 已确认不兼容的形状（三表缺失/关键列缺失/仅新 core 派生视图层）在探测层
-//!   fail closed，不进入回退。
+//! Selection rules:
+//! - Registered version: KnownVersion.
+//! - Unregistered/missing version: LatestFallback, try the latest built-in parser
+//!   (step_finish_parts_v1).
+//! - Detection rejects verified incompatible shapes: missing tables/key columns or only the new
+//!   core derived-view format; they do not enter compatibility fallback.
 
 pub mod step_finish_parts_v1;
 
-/// 当前格式实现标识（"最新内置解析器"由本常量明确指定，不联网获取）。
+/// This constant selects the latest built-in implementation without network access.
 pub const LATEST_IMPL_ID: &str = "step_finish_parts_v1";
 
-/// 已验证支持的 session.version → 格式实现。
-/// 真实脱敏 fixture 与逐记录升级合同共同限定支持范围。
+/// Registered session.version values mapped to implementations.
+/// Native redacted samples and per-record upgrade requirements define the verified scope.
 pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[("1.18.34", LATEST_IMPL_ID)];
 
-/// 版本分派结论。
+/// Version selection result.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Selection {
     pub impl_id: &'static str,
     pub basis: crate::domain::VersionBasis,
 }
 
-/// 按来源原始版本选择格式实现；探测与扫描共用本函数保证同一策略（V30）。
+/// Detection and scanning share this V30 format-selection function.
 pub fn select(found: Option<&str>) -> Selection {
     match found {
         Some(version) => {
@@ -48,8 +48,8 @@ pub fn select(found: Option<&str>) -> Selection {
                 },
             }
         }
-        // 版本字段缺失（空 session 表已由探测层 Pending 拦截；此分支防御
-        // 会话行 version 异常空值）：默认回退最新实现。
+        // Detection returns Pending when no usage parts exist. A usage record whose session version
+        // is missing or invalid uses the latest implementation with compatibility metadata.
         None => Selection {
             impl_id: LATEST_IMPL_ID,
             basis: crate::domain::VersionBasis::LatestFallback,

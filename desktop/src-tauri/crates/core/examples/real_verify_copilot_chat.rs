@@ -1,10 +1,10 @@
-//! 对本机真实 VS Code Copilot Chat 会话日志
-//! （workspaceStorage/<hash>/chatSessions/<sessionId>.jsonl）做只读核对
-//! （2026-10-01 首次执行：VS Code 1.140.0，10 请求）。
-//! 只输出白名单聚合：根数、事件数、token 合计、模型去重计数、诊断计数、
-//! 以及重扫幂等性；不打印路径、会话 ID 或记录内容。
-//! 用法：cargo run -p llm-usage-core --example real_verify_copilot_chat -- <chatSessions目录或单个.jsonl或workspaceStorage目录> <work_dir> [--reuse] [--timezone=Asia/Shanghai]
-//! --reuse 仅用于 build 下的隔离核验库，保留旧游标以核验刷新修复；不传用户活库目录。
+//! Read-only checks of native VS Code Copilot Chat sessions
+//! at workspaceStorage/<hash>/chatSessions/<sessionId>.jsonl.
+//! First run: 2026-10-01, VS Code 1.140.0, ten requests.
+//! Output only permitted root/event/token/distinct-model/diagnostic counts
+//! and rescan stability, without paths, session IDs or record content.
+//! Usage: cargo run -p llm-usage-core --example real_verify_copilot_chat -- <chatSessions-dir-or-jsonl-or-workspaceStorage> <work_dir> [--reuse] [--timezone=Asia/Shanghai]
+//! --reuse preserves old cursors only in isolated build/ databases; never pass an active user DB.
 
 use llm_usage_core::adapters::copilot_chat::CopilotChatAdapter;
 use llm_usage_core::adapters::framework::{
@@ -61,7 +61,7 @@ fn main() {
     };
     let reports = run_adapter_scan(&storage, &adapter, &ctx, &config).expect("scan");
     for report in &reports {
-        // 不打印 instance_id（含本机根路径，见文件头白名单声明）。
+        // Do not print instance_id, which contains local paths excluded by the output rules.
         println!(
             "files={} events={} diagnostics={}",
             report.files.len(),
@@ -93,7 +93,7 @@ fn main() {
     println!(
         "collected: calls={count} observations={observations} input={in_sum:?} output={out_sum:?} total={total_sum:?} models={models} partial={partials}"
     );
-    // 幂等：重复扫描不增量（同内容 unchanged）。
+    // Repeated scans add nothing when content is unchanged.
     let reports2 = run_adapter_scan(&storage, &adapter, &ctx, &config).expect("rescan");
     let added2: i64 = reports2
         .iter()

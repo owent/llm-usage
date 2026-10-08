@@ -1,24 +1,27 @@
-# synthetic-usage-on-user._expectations.md（SYNTHETIC）
+# synthetic-usage-on-user._expectations.md (synthetic)
 
-**本目录全部为合成样本（synthetic），不是真实会话提取。** 非 usage 载体记录
-（user）携带 usage 字段：格式偏离（V17 fail closed），整文件拒绝——本轮事件
-清空、游标不推进（不提交 checkpoint），下轮确定性再拒；不猜格式。
+<a id="synthetic-usage-on-user_expectationsmdsynthetic"></a>
 
-## 场景与期望（人工核算）
+**All files in this directory are synthetic test data, not extracts from real sessions.** A user record contains usage although this record type has no usage fields
+in the specified format. V17 rejects the whole file, clears current events and does not
+commit a checkpoint. The next scan rejects it again; do not infer another format.
 
-3 行：
+<a id="场景与期望人工核算"></a>
 
-- 第 1 行 user 正常（detect 锚点：首行 type=user → Supported）；
-- 第 2 行 assistant syn-req-would 带 usage 10/5/0/0 —— 本可产 1 事件，
-  但 fail closed 清空本轮事件；
-- 第 3 行 user 携带顶层 usage 键 → 第 3 行触发
-  `usage_on_unexpected_record_type`，整文件拒绝。
+## Scenario and manually calculated expectations
 
-每轮扫描期望：
+Three lines:
 
-- files[0]：status=pending（ScanStatus::Pending）、lines_read=3、
-  records_seen=3、events=0；
-- usage_events 恒为 0 行；ingestion_checkpoints 恒为 0 行（游标不推进）；
-- diagnostics 每轮新增 1 行 usage_on_unexpected_record_type（field=type、
-  position="line 3"）；source_files.status="degraded"。
-- 同文件二次扫描：仍然 pending、0 事件、诊断再 +1（累计 2 行）——确定性再拒。
+- Line 1: valid user, used for detection; first-line type=user returns Supported.
+- Line 2: assistant syn-req-would has usage 10/5/0/0 and would produce one event,
+  which is cleared on rejection.
+- Line 3: user has a top-level usage key, triggering usage_on_unexpected_record_type
+  and whole-file rejection.
+
+Each scan must produce:
+
+- files[0]: status=pending (ScanStatus::Pending), lines_read=3, records_seen=3, events=0.
+- Zero usage_events and ingestion_checkpoints rows; the cursor never advances.
+- One new usage_on_unexpected_record_type diagnostic, field=type, position="line 3";
+  source_files.status="degraded".
+- A second scan remains pending with zero events and one further diagnostic (two total).

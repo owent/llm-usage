@@ -1,33 +1,33 @@
-//! Cline ui_messages.json 格式实现（`ui_messages_doc1`，文档级 ui-messages-doc-1）。
+//! Legacy Cline ui_messages.json parser: ui_messages_doc1, documented ui-messages-doc-1.
 //!
-//! 格式依据（固定源码 dcf8c3c33596e3d561a941202297c564a1cbcd49，A03，文档级
-//! 依据，待真实样本核验；本机 not_found）：
-//! - 路径：宿主（VS Code 扩展 saoudrizwan.claude-dev）globalStorage 下
-//!   `tasks/<taskId>/ui_messages.json`（disk.ts：ensureTaskDirectoryExists =
-//!   getGlobalStorageDir("tasks", taskId)，GlobalFileNames.uiMessages）；
-//!   单文件 JSON **数组**，非 JSONL，消息删除/合并时整写重写。
-//! - usage 载体（getApiMetrics.ts）：`type=="say"` 且
-//!   `say ∈ {api_req_started, deleted_api_reqs, subagent_usage}`，`text` 为
-//!   JSON 字符串，字段 tokensIn/tokensOut/cacheWrites/cacheReads/cost 逐字段
-//!   可选；api_req_started 已与对应 api_req_finished 合并（不能每条 say 算请求，
-//!   也无流式中间值落盘）。say="compaction" 的 tokensBefore/tokensAfter 是
-//!   SDK 估算（chars/4 级），不进入用量。
-//! - `ts` 是固定源码示例中唯一已确认的消息身份字段（epoch 毫秒数字）；
-//!   数组下标会因删除移位，不进身份。
+//! Fixed reference: dcf8c3c33596e3d561a941202297c564a1cbcd49 (A03).
+//! This legacy UI format and its migration remain separate from native 4.1.22 SDK acceptance.
+//! - Path: saoudrizwan.claude-dev host globalStorage/tasks/<taskId>/ui_messages.json.
+//!   disk.ts ensureTaskDirectoryExists uses getGlobalStorageDir(tasks,taskId)
+//!   with GlobalFileNames.uiMessages.
+//!   The file is a full JSON array, rewritten after message deletion/merging.
+//! - getApiMetrics.ts reads type=say records with kinds api_req_started,
+//!   deleted_api_reqs, and subagent_usage; text is a JSON string.
+//!   Optional fields: tokensIn/tokensOut/cacheWrites/cacheReads/cost.
+//!   Started requests already contain merged finished data; do not count every say as a call.
+//!   This reference has no intermediate streaming usage. Compaction tokensBefore/tokensAfter
+//!   are SDK context estimates based on chars/4, excluded from consumption.
+//! - Epoch-millisecond ts identifies messages in the referenced examples;
+//!   array positions move after deletion and do not identify events.
 //!
-//! 增量语义（整写 JSON）：全量有界读取（32 MiB 初值）；游标存已消费字节数复用
-//! 框架无变化短路；改写/截断走 generation 重扫，事件按稳定身份 upsert 幂等；
-//! 半程写入（parse 失败）不推进游标，下轮确定性重试。
+//! Read the full file within 32 MiB, recording consumed bytes for unchanged-file checks.
+//! Rewrites/truncation change generation; stable keys deduplicate event updates.
+//! Partial JSON leaves the cursor unchanged for the next retry.
 //!
-//! 删除流程墓碑（deleted_api_reqs 的配套语义）：消息删除后原 api_req_started
-//! 从数组消失、其用量以 deleted_api_reqs 聚合重述。整写重读时对"上一轮已入账、
-//! 本轮消失"的键发射 Corrected/Excluded 墓碑（复用 ingest 仲裁
-//! Corrected > Final 的 Replace 语义，撤销旧贡献），防止与聚合双计；
-//! 已墓碑键再次原样恢复时 Corrected 优先保持排除（记录限制）。
+//! Legacy deletion moves removed api_req_started usage into deleted_api_reqs aggregates.
+//! After a valid rewrite, compare previously tracked keys against the current keys.
+//! Emit Corrected/Excluded deletion records for vanished keys to remove prior contributions
+//! under ingest's lifecycle selection and prevent counting both detail and aggregate.
+//! Restoring identical content to an excluded corrected key does not reactivate it; retain this limit.
 //!
-//! fail closed（V17）：非 say 记录类型、未文档化 say 种类 ⇒ 整文件拒绝
-//! （游标不推进、下轮确定性再拒），不猜格式。真实文件中的 ask / say=text 等
-//! 非用量消息未在固定源码中枚举，按未文档化处理，待真实样本扩展。
+//! Reject non-say or undocumented say kinds for this legacy format (V17).
+//! Keep the cursor for retry; ask/text kinds lack a checked mapping here.
+//! Native SDK support does not establish these older UI record shapes.
 
 use crate::adapters::framework::{
     ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -45,11 +45,11 @@ use super::super::common::{map_cline_usage, ClineUsage};
 use super::CLINE_FORMAT_VERSION;
 
 pub const CLINE_PARSER_VERSION: &str = "cline-ui-messages-doc1";
-/// 单文件有界读取上限（初值 32 MiB）。
+/// Whole-file read limit, initially 32 MiB.
 pub const CLINE_MAX_FILE_BYTES: u64 = 32 * 1024 * 1024;
 const MAX_REASONABLE_TOKEN: i64 = crate::domain::MAX_TOKEN_VALUE;
 
-/// 文档化 say 种类（getApiMetrics.ts 三个 usage 载体 + compaction 估算载体）。
+/// Three documented usage kinds plus compaction context estimates.
 const DOCUMENTED_SAY_KINDS: &[&str] = &[
     "api_req_started",
     "deleted_api_reqs",
@@ -57,7 +57,7 @@ const DOCUMENTED_SAY_KINDS: &[&str] = &[
     "compaction",
 ];
 const COMPACTION_SAY_KIND: &str = "compaction";
-/// text JSON 的 usage 五键（tokensIn/tokensOut/cacheWrites/cacheReads/cost）。
+/// Selected usage text keys: tokensIn/tokensOut/cacheWrites/cacheReads/cost.
 const USAGE_KEYS: &[&str] = &[
     "request",
     "tokensIn",
@@ -67,11 +67,11 @@ const USAGE_KEYS: &[&str] = &[
     "cost",
 ];
 
-/// 持久化解析上下文：上一轮已入账键（删除流程墓碑的差分基，跨重扫保留）
-/// 与每文件一次性诊断标志 + 版本选择依据。
+/// Persist previously imported keys for deletion comparison across rescans,
+/// plus once-per-file diagnostics and format selection.
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 struct ClineParseContext {
-    /// 上一轮从本文件入账的记录键（差分基，重扫不重置）。
+    /// Keys previously imported from this file; rescans retain them for deletion comparisons.
     #[serde(default)]
     tracked_keys: Vec<String>,
     #[serde(default)]
@@ -80,14 +80,14 @@ struct ClineParseContext {
     without_numbers_reported: bool,
     #[serde(default)]
     unmapped_keys_reported: bool,
-    /// 版本选择依据（known_version / latest_fallback）；旧上下文缺省为 None。
-    /// cline 固定为 KnownVersion（文档级锚点）。
+    /// Format selection known_version/latest_fallback; older contexts default to None.
+    /// This documented legacy format uses KnownVersion without identifying a native release.
     #[serde(default)]
     version_basis: Option<VersionBasis>,
 }
 
-/// 整写 JSON 游标：复用框架 JsonlCursor 形状（offset=已消费字节数，line_number 恒 1），
-/// 无变化短路依赖 probe.len == cursor.offset。
+/// Whole-file cursor shares consumed-byte offset and line_number=1 fields.
+/// Unchanged-file checks compare probe.len with cursor.offset.
 #[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 struct WholeFileCursor {
     generation: i64,
@@ -95,8 +95,8 @@ struct WholeFileCursor {
     line_number: u64,
 }
 
-/// restore：一次性标志在重扫时重置（重读重新报告）；tracked_keys 跨重扫保留
-/// （它是删除流程差分基，不是解析位置状态）。
+/// Rescans reset diagnostic flags but retain tracked_keys
+/// as the previous record set, independently of parsing positions.
 fn restore_context(stored: &StoredScanState, rescan: bool) -> ClineParseContext {
     let mut ctx = stored
         .parse_context
@@ -121,7 +121,7 @@ fn diag(code: &str, field: Option<&str>, position: &str, message: &str) -> Diagn
     }
 }
 
-/// 任务目录名（tasks/<taskId>）作为会话身份。
+/// Task directory name tasks/<taskId> supplies session identity.
 fn task_id_of(path: &Path) -> String {
     path.parent()
         .and_then(|p| p.file_name())
@@ -130,9 +130,9 @@ fn task_id_of(path: &Path) -> String {
         .to_string()
 }
 
-/// 解析 text JSON 的 usage 四可选字段（i64 非负有界）与 cost。
-/// 返回 None 表示 text 不是 JSON 对象或数值违例（调用方记 shape 诊断跳过；
-/// 上游对 parse 失败静默忽略，本层可见化）。未文档化额外键返回 true。
+/// Parse four optional nonnegative, bounded i64 token fields plus cost.
+/// Invalid text/tokens return None for a visible diagnostic and skip that record;
+/// upstream silently skips parse errors. Extra keys are flagged separately.
 fn parse_usage_text(
     text: &str,
     position: &str,
@@ -177,8 +177,8 @@ fn parse_usage_text(
     Some((usage, cost, unknown))
 }
 
-/// cost 浮点美元 → micro-USD（estimated；费用来源尚未确认，按扩展自算估算入账，
-/// 与 pi 适配器 map_cost 同规则）。溢出记诊断留空。
+/// Convert dollar cost to estimated micro-USD; actual billing origin remains unverified.
+/// Like pi cost mapping, leave overflow unknown with a diagnostic.
 fn map_cost(
     cost: Option<f64>,
     position: &str,
@@ -213,7 +213,7 @@ fn map_cost(
     })
 }
 
-/// 增量扫描一个任务 ui_messages.json（统一入口 `ClineAdapter::scan` 分派到本实现）。
+/// Scan one task's legacy UI messages, dispatched by ClineAdapter::scan.
 pub fn scan(
     target: &ScanTarget,
     stored: &StoredScanState,
@@ -221,7 +221,7 @@ pub fn scan(
     now_ms: i64,
 ) -> Result<ScanOutcome, CoreError> {
     let mut context = restore_context(stored, target.rescan);
-    // 无版本字段可读：格式锚点是文档级 ui-messages-doc-1，固定 KnownVersion。
+    // KnownVersion refers to the documented legacy format; no record client version is available.
     context.version_basis = Some(VersionBasis::KnownVersion);
     let task_id = task_id_of(&target.path);
     let mut events: Vec<EventInput> = Vec::new();
@@ -233,7 +233,7 @@ pub fn scan(
             line_number: 1,
         })?)
     };
-    // 超限：受限，游标停在起点，受控重试（不静默丢弃）。
+    // Oversized files stay limited with their cursor unchanged for retry.
     if target.probe.len > CLINE_MAX_FILE_BYTES {
         diagnostics.push(diag(
             "file_exceeds_size_cap",
@@ -279,7 +279,7 @@ pub fn scan(
         });
     }
     let consumed = bytes.len() as u64;
-    // 半程写入：parse 失败不推进游标，下轮确定性重试（暂态，非降级）。
+    // Partial JSON leaves the cursor unchanged for the next retry.
     let document: serde_json::Value =
         match crate::adapters::run_policy::json_from_slice(super::super::strip_bom(&bytes)) {
             Ok(v) => v,
@@ -361,7 +361,7 @@ pub fn scan(
             .and_then(|t| t.as_str())
             .unwrap_or("");
         if record_type != "say" {
-            // 固定源码只证实 type="say" 的消息；其余记录类型未文档化 ⇒ fail closed。
+            // This checked legacy mapping accepts say only; reject other record types.
             let outcome = fail_closed(
                 &mut diagnostics,
                 "undocumented_record_type",
@@ -382,8 +382,8 @@ pub fn scan(
             return Ok(outcome);
         }
         if say_kind == COMPACTION_SAY_KIND {
-            // compaction 的 tokensBefore/tokensAfter 是 SDK 估算（chars/4 级），
-            // 只驱动上下文条显示，不进入用量（一次性诊断可见）。
+            // Compaction tokensBefore/tokensAfter estimate context size from chars/4
+            // for display, without contributing token consumption; diagnose once per file.
             if !context.compaction_reported {
                 context.compaction_reported = true;
                 diagnostics.push(diag(
@@ -396,12 +396,12 @@ pub fn scan(
             continue;
         }
         let Some(text) = message_obj.get("text").and_then(|t| t.as_str()) else {
-            // usage 载体无 text：上游短路不读；未记录用量，不产事件。
+            // A usage record without text produces no event.
             continue;
         };
         let Some((usage, cost, unknown_keys)) = parse_usage_text(text, &position, &mut diagnostics)
         else {
-            // 上游对 JSON parse 失败静默忽略；本层逐条诊断后跳过（部分可用）。
+            // Diagnose and skip malformed usage text while continuing other valid records.
             diagnostics.push(diag(
                 "usage_shape_deviation",
                 Some("text"),
@@ -411,9 +411,9 @@ pub fn scan(
             continue;
         };
         if usage.is_empty() {
-            // api_req_started 无 finished 等场景：载体无 usage 数字（可能只有
-            // request/cost 描述）⇒ 未记录 token，不产事件；其余记录继续入账
-            // （部分可用，一次性诊断）。cost 单独无 token 不入账，保持同源。
+            // Started requests can lack usage values, including unfinished requests.
+            // Skip those records and continue reading other usage;
+            // diagnose once per file. Cost alone does not identify request token usage.
             if !context.without_numbers_reported {
                 context.without_numbers_reported = true;
                 diagnostics.push(diag(
@@ -444,7 +444,7 @@ pub fn scan(
             continue;
         };
         if !(crate::domain::MIN_PLAUSIBLE_MS..=4_102_444_800_000).contains(&ts) {
-            // 2000-01-01 至 2100-01-01 之外视为秒/毫秒误判，跳过该记录。
+            // Reject timestamps outside the configured millisecond range.
             diagnostics.push(diag(
                 "timestamp_implausible",
                 Some("ts"),
@@ -486,8 +486,8 @@ pub fn scan(
             occurred_at_ms: ts,
             observed_at_ms: Some(now_ms),
             source_time: Some(ts.to_string()),
-            // api_req_started 的 ts 是请求起点（usage 由 finished 合并写回）；
-            // 聚合记录的 ts 是聚合消息写入时刻，非任何单次调用起讫。
+            // Started ts identifies request start; usage may be merged back from finished.
+            // Aggregate ts identifies message writing rather than an individual call boundary.
             time_basis: if is_aggregate {
                 TimeBasis::Uncertain
             } else {
@@ -511,8 +511,8 @@ pub fn scan(
             cost: map_cost(cost, &position, &mut diagnostics),
         });
     }
-    // 删除流程墓碑：上一轮已入账、本轮消失的键（消息被删、用量以
-    // deleted_api_reqs 聚合重述）⇒ Corrected/Excluded 撤销旧贡献防双计。
+    // Keys missing after a valid rewrite may be represented in deleted_api_reqs;
+    // emit Corrected/Excluded records to remove previous contributions and prevent duplicate counts.
     let tracked: std::collections::BTreeSet<String> =
         context.tracked_keys.iter().cloned().collect();
     let current: std::collections::BTreeSet<String> = current_keys.iter().cloned().collect();

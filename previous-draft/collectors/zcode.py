@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-"""zcode 采集器：~/.zcode/cli/rollout/model-io-*.jsonl（每请求一条记录，response.usage 为 camelCase）。"""
+"""Zcode collector: ~/.zcode/cli/rollout/model-io-*.jsonl, one record per request
+with camelCase response.usage fields."""
 import glob
 import json
 import os

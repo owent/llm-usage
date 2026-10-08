@@ -1,4 +1,4 @@
-//! Actual AtomCode cumulative carrier, default-zero policy and atomic old-library repair.
+//! Native AtomCode cumulative data, default-zero handling and atomic old-database correction.
 mod common;
 use common::{temp_storage, TempDir};
 use llm_usage_core::adapters::{atomcode::AtomCodeAdapter, framework::*};

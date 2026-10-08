@@ -37,7 +37,7 @@
 
   type Tab = 'overview' | 'trend' | 'sources' | 'details' | 'settings';
   type Granularity = 'hour' | 'day' | 'week' | 'month';
-  /** 两个自然日/当天自动切小时粒度，以设置时区的日期为边界。 */
+  /** Today/two-calendar-day ranges use hourly data bounded by dates in the configured timezone. */
   type RangeKey = '2' | 'today' | '7' | '30' | '365';
 
   let tab = $state<Tab>('overview');
@@ -51,7 +51,7 @@
   let pendingSummaryKey = '';
   let summaryLoading = $state(false);
   let summary = $state<SummaryDto | null>(null);
-  /** 今日独立查询（任务 D8）：当日 first=last 的 summary，供今日分区使用。 */
+  /** Separate today query (D8): summary first_day=last_day for the current-day section. */
   let todaySummary = $state<SummaryDto | null>(null);
   let sources = $state<SourceDto[]>([]);
   let refresh = $state<RefreshStateDto | null>(null);
@@ -62,8 +62,8 @@
   let agentFilter = $state('');
   let modelFilter = $state('');
 
-  // ---- 主题（跟随系统/亮色/暗色）：data-theme 属性 + isDark 派生（供 ECharts）。 ----
-  /** 系统深色偏好实时状态（change 时更新；system 模式下系统切换立即重绘图表）。 */
+  // Theme: system/light/dark through data-theme and derived isDark for ECharts.
+  /** Track system dark-mode changes so system-theme charts update immediately. */
   let systemDark = $state(window.matchMedia('(prefers-color-scheme: dark)').matches);
 
   $effect(() => {
@@ -73,21 +73,21 @@
     return () => mq.removeEventListener('change', onChange);
   });
 
-  /** 生效主题：设置显式 light/dark 优先，其余（含未知值）回落 system。 */
+  /** Explicit light/dark wins; other values, including unknown settings, use system. */
   const theme = $derived(
     settings?.theme === 'light' || settings?.theme === 'dark' ? settings.theme : 'system'
   );
-  /** 是否深色（显式 dark，或 system 且系统偏好深色）；传给各 ECharts 组件。 */
+  /** Effective dark mode supplied to ECharts: explicit dark or system with a dark preference. */
   const isDark = $derived(theme === 'dark' || (theme === 'system' && systemDark));
 
-  // system = 移除 data-theme（themes.css 的 prefers-color-scheme 媒体查询接管）。
+  // For system theme, remove data-theme and let themes.css prefers-color-scheme apply.
   $effect(() => { document.documentElement.lang = i18n.locale; });
   $effect(() => {
     if (theme === 'system') delete document.documentElement.dataset.theme;
     else document.documentElement.dataset.theme = theme;
   });
 
-  // 多用户（v6）：顶栏切换 + 新建。
+  // v6 users: header selection and creation.
   let users = $state<UserDto[]>([]);
   let currentUser = $state('');
   let userSelect = $state('');
@@ -96,10 +96,10 @@
   let userBusy = $state(false);
   let userError = $state('');
 
-  /** 用户切换/导入等不改变 query 的强制重查信号（传给子组件）。 */
+  /** Force child queries to reload after user switches/imports without a changed query. */
   let dataReloadKey = $state(0);
 
-  // ---- 面板布局（任务 E10/E11）：拖拽顺序 + 显示/隐藏，按页持久化 localStorage。 ----
+  // E10/E11 panel order/visibility, persisted per page in localStorage.
   type PanelGroupKey = 'overviewToday' | 'overviewHistory' | 'trendMain';
   const PANEL_GROUPS: Record<PanelGroupKey, { page: string; group: string; ids: string[] }> = {
     overviewToday: {
@@ -154,7 +154,7 @@
     ),
   });
 
-  /** 面板在 6 列网格中的默认跨列数。 */
+  /** Default panel column span in the six-column grid. */
   const PANEL_SPAN: Record<string, number> = {
     'today-cards': 6,
     'today-hourly': 6,
@@ -185,7 +185,7 @@
     (id) => id !== 'today-costs' || (settings?.pricing?.enabled ?? false),
   ));
 
-  /** 趋势页面板顺序：费用估算未启用时隐藏费用面板（布局持久化不动）。 */
+  /** Hide trend cost panels when estimates are disabled, without rewriting the saved layout. */
   const trendPanelOrder = $derived(
     panelState.trendMain.order.filter(
       (id) => id !== 'trend-costs' || (settings?.pricing?.enabled ?? false),
@@ -199,25 +199,25 @@
     persistGroup(gk);
   }
 
-  /** 面板生效跨列数：编辑模式把手拖出的档位优先，其次面板默认值。 */
+  /** Prefer a resized edit-mode column span over the panel default. */
   function spanOf(gk: PanelGroupKey, id: string): number {
     if (id.endsWith('model-table')) return 6;
     return panelState[gk].sizes[id]?.span ?? PANEL_SPAN[id] ?? 3;
   }
 
-  /** 面板生效高度（px；未调整过 = 自适应）。 */
+  /** Panel height in pixels; unmodified panels size automatically. */
   function heightOf(gk: PanelGroupKey, id: string): number | undefined {
     return panelState[gk].sizes[id]?.height;
   }
 
-  /** resize 把手拖动结束：记录 span/height 并持久化布局。 */
+  /** Persist span/height and layout when resize dragging ends. */
   function panelResize(gk: PanelGroupKey, id: string, span: number, height: number | undefined): void {
     const g = panelState[gk];
     g.sizes[id] = height === undefined ? { span } : { span, height };
     persistGroup(gk);
   }
 
-  /** 重置布局（编辑模式）：清除当前页 localStorage 记录，恢复默认顺序/尺寸/显隐。 */
+  /** Reset current-page localStorage layout to default order, dimensions and visibility. */
   function resetLayout(): void {
     if (tab === 'overview') {
       const def = PANEL_GROUPS.overviewToday;
@@ -232,18 +232,17 @@
     }
   }
 
-  /** 布局编辑模式：仅此时面板可拖拽/调整显隐（总览与趋势共用一个开关）。 */
+  /** Shared overview/trend edit mode enables dragging and visibility controls. */
   let editLayout = $state(false);
 
   let dragFrom = $state<{ gk: PanelGroupKey; index: number } | null>(null);
   let dropIndex = $state(-1);
 
   /**
-   * 面板拖拽（Pointer Events；2026-09-26 修复“完全无法拖动”）：
-   * WebView2 在 Tauri 默认 dragDropEnabled=true 时拦截 HTML5 drag 事件，
-   * dragstart/drop 根本不触发。改为 pointerdown（Panel 内）+ window 级
-   * pointermove/pointerup/pointercancel：move 时 elementsFromPoint 命中
-   * 落点面板（data-panel-group/-index），抬起时交换 order 并持久化。
+   * Pointer-based panel dragging fixed on 2026-09-26. With default dragDropEnabled=true,
+   * Tauri WebView2 intercepted HTML5 dragstart/drop. Use panel pointerdown and window
+   * pointermove/pointerup/pointercancel instead. elementsFromPoint identifies the target
+   * data-panel-group/-index during movement; releasing swaps and persists panel order.
    */
   function panelPickStart(gk: PanelGroupKey, index: number, e: PointerEvent): void {
     e.preventDefault();
@@ -256,7 +255,7 @@
     for (const raw of document.elementsFromPoint(e.clientX, e.clientY)) {
       const card = (raw as Element).closest?.('.pcard');
       if (!card) continue;
-      // 命中其它分组/页面区域：落点回退为自身（松手不产生交换）。
+      // A target in another group/page falls back to this panel, leaving its order unchanged.
       if (card.getAttribute('data-panel-group') !== dragFrom.gk) {
         dropIndex = dragFrom.index;
         break;
@@ -432,7 +431,7 @@
     return ()=>{cancelled=true;};
   });
 
-  /** 总览历史与趋势共用周期选区；总览再次点击同一点取消。 */
+  /** Overview history and trends share period selection; reselecting the same overview point clears it. */
   function onHistoryPeriodClick(label: string): void {
     if (trendSelection?.first === label && trendSelection.last === label) trendSelection = null;
     else onTrendPeriodClick(label);
@@ -445,7 +444,7 @@
     Array.from(new Set((catalog?.models ?? []).map((m) => m.model ?? '__unknown__'))).sort()
   );
 
-  // 下拉选项 = 用户列表 +（当前用户不在列表时合成一项，如初始 default）。
+  // User options include a synthetic current entry when absent from the list, such as initial default.
   const userOptions = $derived.by(() => {
     const list = [...users];
     if (currentUser && !list.some((u) => u.user_id === currentUser)) {
@@ -454,7 +453,7 @@
     return list;
   });
 
-  // 今日饼图数据：total_tokens 占比（unknown 归“未知”；0 值不参与）。
+  // Today shares use total_tokens by model/Agent; group unknown names and exclude zero values.
   const todayModelPie = $derived(
     (todayScopeSummary?.models ?? [])
       .map((m) => ({
@@ -471,7 +470,7 @@
         output: a.sums.output_total_known === null ? null : Number(a.sums.output_total_known) }))
   );
 
-  // 趋势页饼图数据：当前时间范围 summary 的模型/Agent total_tokens 占比。
+  // Trend shares use model/Agent total_tokens from the selected-range summary.
   const trendModelPie = $derived(
     (trendScopeSummary?.models ?? [])
       .map((m) => ({
@@ -515,12 +514,12 @@
     return trendSelection && !selectionSummary ? cards.map((card) => ({...card,value: selectionError ? '—' : '…',sub: undefined})) : cards;
   });
 
-  /** 今日分区日期标签。 */
+  /** Date label for the today section. */
   const todayDateLabel = $derived(`${todayDay} · ${settings?.timezone ?? 'UTC'}`);
 
   /**
-   * 选中时间点汇总卡（结构同今日汇总）：总调用、输入（总量 + 命中/未命中分解）、
-   * 输出、总 token、缓存命中率、会话数；周/月粒度附加活动天数。
+   * Selected-period cards mirror today: calls, input/cache/uncached, output, total tokens,
+   * cache ratio and sessions; week/month selections also show active days.
    */
   const selectedPeriodCards = $derived.by(() => {
     const cards = [...trendSummaryCards];
@@ -578,9 +577,9 @@
     }
   }
 
-  /** 主查询 + 今日查询（同一次用户交互/刷新内成对加载）。
-   * 查询键与数据修订均未变化时保留现有对象引用：派生值/图表不重算，
-   * 避免空闲轮询导致的整体重绘闪烁（2026-09-26 用户反馈）。 */
+  /** Load the main and today queries together for one interaction/refresh.
+   * Preserve object references when query keys and data revisions are unchanged, avoiding
+   * idle chart redraws and flicker reported on 2026-09-26. */
   async function loadSummary() {
     if (!ready) return;
     const [q, tq] = [query, todayQuery];
@@ -631,7 +630,7 @@
     }
   }
 
-  /** 用户切换/导入等不改变 query 的数据重载（summary/heatmap/sources 都要刷新）。 */
+  /** Reload summary, heatmap and sources after a user switch/import without a changed query. */
   async function reloadUserData() {
     dataReloadKey += 1;
     await Promise.all([loadSummary(), loadSources()]);
@@ -640,7 +639,7 @@
   async function onUserChange(e: Event) {
     const value = (e.currentTarget as HTMLSelectElement).value;
     if (value === '__new__') {
-      // 打开新建行；下拉回落到当前用户。
+      // Open user creation while keeping the dropdown on the current user.
       newUserOpen = true;
       newUserName = '';
       userSelect = currentUser;
@@ -660,7 +659,7 @@
       agentFilter = modelFilter = '';
       currentUser = value;
       userSelect = value;
-      // summary/heatmap 后端按当前用户过滤，切换后必须重拉。
+      // Backend summary/heatmap follow the current user and must reload after switching.
       await reloadUserData();
     } catch (e) {
       userError = parseError(e);
@@ -693,16 +692,16 @@
     }
   }
 
-  // ---- 采集状态轮询与数据自动刷新 ----
-  /** 上次观察到"已结束"的采集完成时间（变化 = 一次采集结束，需要重查数据）。 */
+  // Collection-status polling and automatic data refresh.
+  /** Last observed completed-collection timestamp; a change requires data reload. */
   let lastFinishedMs = 0;
-  /** 已加载 summary 的查询键 + 数据修订（loadSummary 跳过重复赋值用）。 */
+  /** Loaded summary query key and data revision, used to skip identical assignments. */
   let loadedDataKey = '';
 
   /**
-   * 轮询采集状态：只在采集刚结束（running→结束）或完成时间变化（计划任务/
-   * headless 触发的采集结束）时重查数据；空闲轮询仅更新进度条状态，
-   * 不触发查询与图表重建（修复总览页周期性闪烁）。
+   * Reload data when collection finishes or its completion timestamp changes, including
+   * scheduled/headless collection. Idle polling updates status without rebuilding charts,
+   * preventing periodic overview flicker.
    */
   let polling = false;
   // An accepted request may not have set the worker's running flag yet.
@@ -726,15 +725,15 @@
         if (ready) await Promise.all([loadSummary(), loadSources(), checkTelemetry(true)]);
       }
     } catch {
-      /* 轮询失败下次再试 */
+      /* Retry a failed poll on the next interval. */
     } finally {
       polling = false;
     }
   }
 
   /**
-   * 状态轮询间隔自适应：采集中 500 ms，空闲 10 秒
-   * （仅探测系统任务/调度器启动的采集；状态查询本身不重绘图表）。
+   * Poll every 500 ms during collection and every 10 seconds when idle.
+   * Idle status checks detect system/scheduler collection without redrawing charts.
    */
   const collecting = $derived((refresh?.running ?? false) || pendingManualFinish !== null);
   $effect(() => {
@@ -743,10 +742,10 @@
     return () => clearInterval(timer);
   });
 
-  // ---- 顶部数据自动刷新间隔（UI 定时重查；localStorage 持久化，默认 5 分钟）。 ----
+  // Header query-refresh interval: localStorage persistence, default five minutes.
   const AUTO_REFRESH_OPTIONS = [0, 30, 60, 120, 300, 600];
-  // 键带 v2：默认值由 60 秒改为 300 秒（2026-09-26），旧默认的存量记录作废，
-  // 已运行过的界面首次启动回落新默认而非保留旧默认 60。
+  // The v2 key accompanies the default change from 60 to 300 seconds on 2026-09-26.
+  // Ignore the old stored default on first startup with this key.
   const AUTO_REFRESH_KEY = 'llm-usage-auto-refresh-v2';
 
   function loadAutoRefreshSecs(): number {
@@ -764,7 +763,7 @@
     try {
       localStorage.setItem(AUTO_REFRESH_KEY, String(v));
     } catch {
-      /* 存储不可用时仅本次会话生效 */
+      /* Without storage access, keep the selection for this session only. */
     }
   }
 
@@ -805,13 +804,13 @@
     return () => { mounted = false; ++summarySequence; clearInterval(timer); };
   });
 
-  // 两个自然日/当天自动切到小时粒度。
+  // Today/two-calendar-day ranges select hourly data.
   $effect(() => {
     if (rangeKey === '2' || rangeKey === 'today') granularity = 'hour';
     else if (granularity === 'hour') granularity = 'day';
   });
 
-  // 查询条件变化即重查（防抖 300ms）；旧选中时间点标签可能失效，一并清空。
+  // Debounce changed queries by 200 ms and clear a selection whose period label may be stale.
   $effect(() => {
     void query;
     void currentUser;
@@ -830,10 +829,10 @@
     settings = next;
     const locale = normalizeLocale(next.language);
     if (locale) setLocale(locale);
-    // 时区/周起始影响统计范围但不改查询键，需强制重查。
+    // Timezone/week-start changes affect date ranges without changing the query key; force reload.
     dataReloadKey += 1;
-    // F2：费用估算配置变化后既有明细尚未估过价——启用时自动触发一次后台重算
-    //（幂等；未启用则跳过，采集管线也不回填）。
+    // F2: enabling pricing starts a background cost recomputation for retained details.
+    // Repeated recomputation is safe; skip when disabled, as collection does not backfill it.
     if (next.pricing?.enabled) {
       void api.recomputeCosts().catch(() => undefined);
     }
@@ -851,7 +850,7 @@
         : t('action.refresh')
   );
 
-  // 采集中：ETA 文案（null/不可估时为空串，模板据此隐藏）。
+  // Collection ETA is empty when unavailable so the template hides it.
   const refreshEtaText = $derived(fmtEtaDuration(refresh?.eta_seconds));
 </script>
 
@@ -915,7 +914,7 @@
         </span>
       </span>
     {/if}
-    <!-- 数据自动重查间隔（与后台采集间隔独立；关闭 = 只手动刷新）。 -->
+    <!-- Query-refresh interval is independent of background collection; disabled means manual refresh. -->
     <label class="auto-refresh" title={t('header.autoRefresh.hint')}>
       {t('header.autoRefresh')}
       <select
@@ -1078,7 +1077,7 @@
           {/each}
         </div>
 
-        <!-- 范围/粒度只影响历史趋势区（今日数据独立查询），故放在该分区内侧而非页面顶部。 -->
+        <!-- Put range/granularity inside history because today uses an independent query. -->
         <div class="section-head">
           <h2>{t('overview.historySection')}</h2>
           <span class="section-controls" title={t('overview.historyFilterHint')}>
@@ -1101,7 +1100,7 @@
             </label>
           </span>
         </div>
-        <!-- 选中时间点汇总（点击任一历史趋势图的数据点出现；结构同今日汇总）。 -->
+        <!-- Selecting a historical chart point shows period cards matching the today layout. -->
         {#if trendSelection}
           <div class="period-summary">
             <div class="period-head">
@@ -1128,8 +1127,8 @@
               {/each}
               {#if settings?.pricing?.enabled}<CostReferenceSummary summary={selectionCosts} error={selectionCostsError} />{/if}
             </div>
-            <!-- 选中时间点的模型/Agent 占比饼图（chart_series 数据，采用相同筛选条件）。
-                 加载占位与饼图同高度、换选保留旧图原地换数据，避免布局跳动。 -->
+            <!-- Model/Agent pies use chart_series with the same selected-period filters.
+                 Match loading/chart heights and retain the old chart while replacing data to reduce movement. -->
             {#if selectionError}
               <p class="error">{t('chart.loadFailed', { message: selectionError })}</p>
             {/if}
@@ -1190,7 +1189,7 @@
     {/if}
   {:else if tab === 'trend'}
     {#if summary}
-      <!-- 范围汇总面板（图表区上方固定位置）：7 张小卡片，取 summary.totals。 -->
+      <!-- Seven fixed range-summary cards above charts use summary.totals. -->
       <UsageInsights summary={trendScopeSummary} />
       <div class="range-summary">
         <div class="section-head">
@@ -1341,7 +1340,7 @@
   .filters .spacer {
     flex: 1;
   }
-  /* 布局编辑模式开关（🔧；激活时高亮）。 */
+  /* Highlight the panel-layout edit toggle when active. */
   .edit-toggle {
     border: 1px solid var(--border);
     background: var(--bg-input);
@@ -1376,7 +1375,7 @@
   .user-picker select {
     max-width: 170px;
   }
-  /* 顶部自动刷新间隔（与采集进度条/刷新按钮同行）。 */
+  /* Header query-refresh selector shares a row with collection progress and refresh. */
   .auto-refresh {
     display: flex;
     align-items: center;
@@ -1385,7 +1384,7 @@
     color: var(--text-secondary);
     white-space: nowrap;
   }
-  /* 采集中：简洁进度条（宽度 = 百分比）+ 百分比/剩余时间文案。 */
+  /* Collection progress width follows its percentage, alongside percentage/ETA text. */
   .refresh-progress {
     display: inline-flex;
     align-items: center;
@@ -1463,7 +1462,7 @@
     color: var(--text-muted);
     font-size: 13px;
   }
-  /* 今日/历史醒目分区标题（任务 D8）；历史区标题右侧内联范围/粒度筛选（只影响该区）。 */
+  /* D8 today/history headings; history range/granularity filters affect that section only. */
   .section-head {
     display: flex;
     align-items: center;
@@ -1486,7 +1485,7 @@
     color: var(--text-muted);
     font-size: 12.5px;
   }
-  /* 历史趋势区标题右侧的范围/粒度下拉（与今日数据区视觉分离）。 */
+  /* History range/granularity controls sit beside its heading, separate from today. */
   .section-controls {
     margin-left: auto;
     display: flex;
@@ -1500,7 +1499,7 @@
     align-items: center;
     gap: 4px;
   }
-  /* 选中时间点汇总（历史趋势区内）：标题行 + 复用 summary-cards 卡片网格。 */
+  /* Selected-period heading and reused summary-cards grid inside history. */
   .period-summary {
     margin: 2px 0 6px;
   }
@@ -1534,7 +1533,7 @@
     font-size: 12px;
     color: var(--text-muted);
   }
-  /* 选中时间点饼图行：模型/Agent 两列卡片（窄屏叠一行一个）。 */
+  /* Model/Agent pies use two columns, stacking on narrow screens. */
   .period-pies {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -1547,7 +1546,7 @@
     border-radius: 8px;
     padding: 8px 12px 6px;
     min-width: 0;
-    /* 与加载骨架/空数据态保持同高：换选时间点时布局零跳动。 */
+    /* Match loading/empty-state height to reduce movement when changing selected periods. */
     min-height: 224px;
     box-sizing: border-box;
   }
@@ -1555,13 +1554,13 @@
     font-size: 12.5px;
     color: var(--text-secondary);
   }
-  /* 饼图加载占位：高度与 SharePie 190px 一致，加载完成不产生布局跳动。 */
+  /* Match the SharePie loading placeholder to its 190px chart height. */
   .ppie-skeleton {
     height: 190px;
     border-radius: 6px;
     background: var(--bg-skeleton);
   }
-  /* 面板 6 列格子布局（任务 E10）；跨列数由 Panel 的 span 类决定。 */
+  /* E10 six-column panel grid; Panel span classes set column widths. */
   .panel-grid {
     display: grid;
     grid-template-columns: repeat(6, minmax(0, 1fr));

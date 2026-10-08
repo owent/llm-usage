@@ -1,26 +1,26 @@
-//! Xum 版本注册表（V30 目录约定）。session-usage.json 的版本演化尚未核验
-//! （version 字段为整数内容版本）；锚点为文档级 xum-session-usage-doc-1
-//! （第三方解析器 tokscale 1d9a939 字段依据 + 官方开源仓库线索）。
+//! Xum version registry (V30 layout). session-usage.json version changes remain unverified;
+//! version is an integer content revision; documented format xum-session-usage-doc-1
+//! uses third-party tokscale at 1d9a939 and references to the official open-source repository.
 
 pub mod usage_v1;
 
-/// 当前格式实现标识。
+/// Identifier of the current format implementation.
 pub const LATEST_IMPL_ID: &str = "usage_v1";
 
-/// 文档级格式版本。
+/// Format version established by documentation/source inspection.
 pub const XUM_FORMAT_VERSION: &str = "xum-session-usage-doc-1";
 
-/// 已验证支持的格式版本 → 格式实现。
+/// Supported format versions mapped to implementations.
 pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[("xum-session-usage-doc-1", "usage_v1")];
 
-/// 版本分派结论。
+/// Result of selecting a version implementation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Selection {
     pub impl_id: &'static str,
     pub basis: crate::domain::VersionBasis,
 }
 
-/// 按格式版本选择实现；探测与扫描共用本函数（V30）。
+/// Select by format version; detection and scanning share this function (V30).
 pub fn select(found: Option<&str>) -> Selection {
     match found {
         Some(version) => {

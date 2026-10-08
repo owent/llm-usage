@@ -1,4 +1,4 @@
-//! Official Xum default-zero carrier and genuine local-model gateway control.
+//! Official Xum default-zero data and a native local-model gateway comparison.
 mod common;
 use common::{temp_storage, TempDir};
 use llm_usage_core::adapters::{framework::*, xum::XumAdapter};

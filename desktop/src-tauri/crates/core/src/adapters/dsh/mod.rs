@@ -1,5 +1,5 @@
 //! DSH: rc.2 native v4 snapshots and the separate historical synthetic doc1 reader.
-//! Actual installed persistence/LLM/token-meter evidence: m3-runtime-samples.md.
+//! Installed persistence/LLM/token-meter source references: m3-runtime-samples.md.
 pub mod common;
 pub mod detect;
 pub mod versions;
@@ -145,7 +145,7 @@ impl SourceAdapter for DshAdapter {
         limits: &ScanLimits,
         now_ms: i64,
     ) -> Result<ScanOutcome, crate::error::CoreError> {
-        // Detection owns arbitrary manual filenames; schema framing, never bloodline, dispatches.
+        // Detect arbitrary manual filenames by schema structure, without inferring product ancestry.
         match detect::detect(&target.path)? {
             DetectOutcome::Supported { format, .. } if format == versions::session_v4::FORMAT => {
                 versions::session_v4::scan(target, stored, limits, now_ms)

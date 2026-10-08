@@ -1,13 +1,13 @@
-//! Kilo Code CLI 适配器（独立目录约定 architecture.md#adapter-layout）：
-//! - 本模块是该 Agent 的稳定入口（统一接口实现与再导出）；
-//! - [`detect`]：kilo.db schema 指纹探测与版本分派；
-//! - [`versions`]：已验证格式实现的注册与映射，未知版本默认回退最新内置解析器；
-//! - [`common`]：产品特有 usage 映射（全互斥关系）+ 源库只读/暂存副本约定。
+//! Kilo Code CLI adapter; independent layout: architecture.md#adapter-layout.
+//! - Stable product entry point implementing/re-exporting the common interface.
+//! - [`detect`]: kilo.db schema fingerprint and version selection.
+//! - [`versions`]: verified format registry; unknown versions try the latest built-in reader.
+//! - [`common`]: exclusive usage buckets and read-only/staging database access.
 //!
-//! 原始格式依据见各模块文件头（真实脱敏 fixture session-7.4.8-edges /
-//! session-7.4.9-family + 2026-09-25 本机只读 SELECT 探查）；kilo 是 opencode
-//! 派生（A11），仅按本目录证实的 message/session 两表解析，不共享 OpenCode 的
-//! 目录、表名或累计假设。
+//! References are in module headers: real redacted session-7.4.8-edges/
+//! session-7.4.9-family samples and local read-only SELECT checks on 2026-09-25.
+//! Kilo derives from OpenCode (A11), but reads its independently verified message/session
+//! tables without sharing OpenCode directories, table names or cumulative assumptions.
 
 pub mod common;
 pub mod detect;
@@ -17,7 +17,7 @@ pub use common::{map_kilo, KiloUsage};
 pub use detect::KILO_FORMAT;
 pub use versions::{message_tokens_v1, LATEST_IMPL_ID, VERIFIED_VERSION_IMPLS};
 
-/// Kilo Code 适配器（无状态）。
+/// Stateless Kilo Code adapter.
 pub struct KiloAdapter;
 
 impl Default for KiloAdapter {
@@ -47,9 +47,9 @@ impl crate::adapters::framework::SourceAdapter for KiloAdapter {
     ) -> Vec<crate::adapters::framework::DiscoveredRoot> {
         use crate::adapters::framework::{DiscoveredRoot, RootBasis};
         let mut roots: Vec<(std::path::PathBuf, RootBasis)> = Vec::new();
-        // 默认根：Unix 布局 ~/.local/share/kilo（Windows 上同样是
-        // %USERPROFILE%/.local/share/kilo，本机实测，用 home_dir 推导）。
-        // kilo 无官方 env 覆盖（A11），不做 env 项。
+        // Default root ~/.local/share/kilo also applies to Windows:
+        // %USERPROFILE%/.local/share/kilo, checked locally and resolved through home_dir.
+        // No verified official environment override in A11; do not add one.
         if let Some(home) = &ctx.home_dir {
             roots.push((
                 home.join(".local").join("share").join("kilo"),
@@ -66,9 +66,9 @@ impl crate::adapters::framework::SourceAdapter for KiloAdapter {
             if !root.is_dir() {
                 continue;
             }
-            // 手工根语义宽松：接受 kilo home 本身、其父目录或用户 home
-            //（如直接传入 ~）。有界（深度 3）按文件名定位 kilo.db，
-            // 不递归整盘。找到的每个 kilo.db 的父目录即一个实例根。
+            // Manual directories may be Kilo home, a parent, or user home such as ~.
+            // Search kilo.db by filename at bounded depth three, without scanning an entire disk.
+            // Each discovered database parent forms one source-instance root.
             let files = crate::adapters::framework::enumerate_files_bounded(&root, 3, &|p| {
                 p.file_name()
                     .and_then(|n| n.to_str())
@@ -113,7 +113,7 @@ impl crate::adapters::framework::SourceAdapter for KiloAdapter {
         limits: &crate::adapters::framework::ScanLimits,
         now_ms: i64,
     ) -> Result<crate::adapters::framework::ScanOutcome, crate::error::CoreError> {
-        // 当前所有已验证版本共用 message_tokens_v1；注册表扩展多实现后在此按选择分派。
+        // This entry uses message_tokens_v1; its reader handles per-record version selection.
         versions::message_tokens_v1::scan(target, stored, limits, now_ms)
     }
 

@@ -1,7 +1,7 @@
-//! GitHub Copilot CLI 适配器（独立目录约定）。载体：
-//! `~/.copilot/session-store.db` 的 `assistant_usage_events`（逐 turn 全字段；
-//! schema_version=8 真实数据核对 2026-09-29）。OTel 路径（events.jsonl/OTLP）
-//! 是需启用的补充载体，见能力表边界。
+//! GitHub Copilot CLI adapter (independent directory). Reads
+//! assistant_usage_events in ~/.copilot/session-store.db with per-turn fields;
+//! schema_version=8 verified locally on 2026-09-29. OTel events.jsonl/OTLP
+//! is optional supplementary export; see capability limits.
 
 pub mod common;
 pub mod detect;
@@ -12,7 +12,7 @@ pub use detect::COPILOT_FORMAT;
 pub use versions::usage_events_v8;
 pub use versions::{COPILOT_FORMAT_VERSION, LATEST_IMPL_ID, VERIFIED_VERSION_IMPLS};
 
-/// Copilot CLI 适配器（无状态）。
+/// Stateless Copilot CLI adapter.
 pub struct CopilotAdapter;
 
 impl Default for CopilotAdapter {
@@ -42,7 +42,7 @@ impl crate::adapters::framework::SourceAdapter for CopilotAdapter {
     ) -> Vec<crate::adapters::framework::DiscoveredRoot> {
         use crate::adapters::framework::{DiscoveredRoot, RootBasis};
         let mut roots: Vec<(std::path::PathBuf, RootBasis)> = Vec::new();
-        // COPILOT_HOME 覆盖整个 ~/.copilot（官方 cli-config-dir-reference）。
+        // COPILOT_HOME overrides all of ~/.copilot (official cli-config-dir-reference).
         if let Some(dir) = ctx
             .env
             .get("COPILOT_HOME")
@@ -64,7 +64,7 @@ impl crate::adapters::framework::SourceAdapter for CopilotAdapter {
         let mut seen: std::collections::BTreeSet<std::path::PathBuf> =
             std::collections::BTreeSet::new();
         for (root, basis) in roots {
-            // 手工根可为 .copilot 目录或 session-store.db 文件本身。
+            // Manual roots may be .copilot or session-store.db itself.
             let db = if root.join("session-store.db").is_file() {
                 root.join("session-store.db")
             } else if root.is_file() {

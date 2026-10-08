@@ -1,42 +1,57 @@
-# 验证记录模板
+# Validation record template
 
-复制本模板创建 `<阶段>-<主题>.md`（如 `m0-windows-baseline.md`）。所有字段按实际填写；
-未执行的项目保留并标注"未执行"及原因，不删除、不预填结果。
+<a id="验证记录模板"></a>
 
-## 元信息
+Copy this template to `<stage>-<topic>.md`, for example `m0-windows-baseline.md`.
+Fill every field from actual observations. Keep unexecuted items marked **Not run** with
+the reason; do not remove them or prefill successful results.
 
-| 项目 | 内容 |
+<a id="元信息"></a>
+
+## Metadata
+
+| Item | Content |
 | --- | --- |
-| 日期 | YYYY-MM-DD |
-| 执行环境 | OS 版本/架构、CPU、内存、运行时版本（Node/Rust/WebView 等） |
-| 代码 revision | commit 或工作树状态摘要 |
-| 依据合同 | 对应设计文档章节与 V 编号 |
+| Date | YYYY-MM-DD |
+| Environment | OS version/architecture, CPU, memory and runtime versions (Node/Rust/WebView, etc.). |
+| Code revision | Commit or working-tree status summary. |
+| Governing design specifications | Relevant design sections and V identifiers. |
 
-## 命令与结果
+<a id="命令与结果"></a>
 
-每条命令记录：cwd、完整命令、退出码、耗时、关键输出摘要。
+## Commands and results
 
-| # | 命令（cwd） | 退出码 | 结果摘要 |
+For each command, record cwd, full command, exit code, duration and key output summary.
+
+| # | Command (cwd) | Exit code | Result summary |
 | --- | --- | --- | --- |
 | 1 | | | |
 
-## 锁定版本
+<a id="锁定版本"></a>
 
-| 依赖 | 锁定版本 | 实际解析（锁文件值） | 许可证 | 来源 |
+## Locked versions
+
+| Dependency | Locked version | Actual resolution (lockfile value) | License | Source |
 | --- | --- | --- | --- | --- |
 
-## 测量与测试
+<a id="测量与测试"></a>
 
-| 指标/用例 | 目标 | 实测 | 方法与样本 | 结论 |
+## Measurements and tests
+
+| Metric/case | Target | Observed | Method/sample | Conclusion |
 | --- | --- | --- | --- | --- |
 
-## 失败与未执行项
+<a id="失败与未执行项"></a>
 
-| 项 | 状态 | 原因 | 后续条件 |
+## Failures and unexecuted items
+
+| Item | Status | Reason | Follow-up condition |
 | --- | --- | --- | --- |
 
 <a id="证据文件"></a>
 
-## 验证产物
+<a id="验证产物"></a>
 
-列出产物路径（fixtures、构建制品、日志），注明存放位置与脱敏方法。
+## Validation artifacts
+
+List artifact paths (test data, build artifacts, logs), storage location and redaction method.

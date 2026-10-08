@@ -1,22 +1,22 @@
-//! ZCode 适配器约定测试：真实脱敏 fixture（本机 ZCode 3.14.3 只读提取，
-//! 2026-09-25，tests/fixtures/zcode/real-main-session 与 real-subagent）
-//! 经 读取→探测→解析→标准化→commit_batch→查询，对 _expectations.md
-//! 的人工核算值逐项断言。
+//! ZCode tests use real sanitized local ZCode 3.14.3 samples, extracted read-only
+//! on 2026-09-25 into tests/fixtures/zcode/real-main-session and real-subagent.
+//! Read, detect, parse, normalize, commit_batch and query, then compare each value
+//! with the manual calculations in _expectations.md.
 //!
-//! 两个 usage 视图的处理规则（同记录两个 usage 视图，互斥不混算）：
-//! - AI SDK `response.usage`（camelCase 五键，**主视图**）：inputTokens 含缓存读；
-//! - anthropic `response.providerMetadata.anthropic.usage`（snake_case，**对照视图**）：
-//!   input_tokens 不含缓存；一致性校验 in+cr+cw == inputTokens、out == outputTokens。
+//! Two usage representations of one record are exclusive and must not be added:
+//! - AI SDK response.usage: five camelCase keys; primary inputTokens includes cache reads.
+//! - Anthropic response.providerMetadata.anthropic.usage: snake_case comparison fields;
+//!   input_tokens excludes cache; check in+cr+cw == inputTokens and out == outputTokens.
 //!
-//! 手工核算（real-main-session，4 条全 main_turn）：
-//! in 391115+391297+392343+392729=1,567,484；out 120+595+345+114=1,174；
-//! cr 390976+391104+391296+392320=1,565,696；cw 全 0；
-//! total 391235+391892+392688+392843=1,568,658；uncached 和 1788。
-//! 手工核算（real-subagent，4 条全 subagent）：
-//! in=596,365；out=4,594；cr=587,328；total=600,959；uncached 和 9037。
-//! 合并：8 事件；in=2,163,849；out=5,768；cr=2,153,024；cw=Some(0)；
-//! total=2,169,617；uncached 合计 10,825（=2,163,849−2,153,024−0）；
-//! anthropic 侧 in_tokens 合计 10,825 + cr 2,153,024 = 2,163,849 与 AI SDK 互斥一致。
+//! real-main-session manual totals: four main_turn records.
+//! in 391115+391297+392343+392729=1,567,484; out 120+595+345+114=1,174;
+//! cr 390976+391104+391296+392320=1,565,696; all cw values are 0;
+//! total 391235+391892+392688+392843=1,568,658; uncached sum 1788.
+//! real-subagent manual totals: four subagent records.
+//! in=596,365, out=4,594, cr=587,328, total=600,959 and uncached sum 9037.
+//! Combined: 8 events, in=2,163,849, out=5,768, cr=2,153,024 and cw=Some(0);
+//! total=2,169,617, uncached=10,825 (=2,163,849-2,153,024-0).
+//! Anthropic in_tokens 10,825 + cr 2,153,024 = 2,163,849 matches the exclusive AI SDK representation.
 
 mod common;
 
@@ -64,7 +64,7 @@ fn contract_main_session_matches_expectations() {
     assert_eq!(summary.totals.total_tokens_known, Some(1_568_658));
 
     let conn = storage.conn();
-    // 首条事件（line 1，requestId anon-2，attempt 1）逐字段核对。
+    // Check each field of the first event: line 1, requestId anon-2, attempt 1.
     type RowRow = (
         i64,
         i64,
@@ -141,7 +141,7 @@ fn contract_main_session_matches_expectations() {
         "occurred_at = completedAt"
     );
 
-    // 身份四键 = zcode:{requestId}:{attempt}；全部 main_turn ⇒ primary。
+    // Verify zcode:{requestId}:{attempt} keys; all main_turn records are primary.
     let keys: Vec<(String, String)> = {
         let mut stmt = conn
             .prepare(
@@ -163,7 +163,7 @@ fn contract_main_session_matches_expectations() {
         ]
     );
 
-    // 解析依据：3.14.3 已收录 ⇒ known_version；时间基准 source_completion。
+    // Registered 3.14.3 uses known_version with source_completion timestamps.
     let (basis, time_basis, agent, parse_basis): (Option<String>, String, String, Option<String>) =
         conn.query_row(
             "SELECT schema_version, time_basis, agent, parse_basis FROM usage_events LIMIT 1",
@@ -176,7 +176,7 @@ fn contract_main_session_matches_expectations() {
     assert_eq!(agent, "zcode");
     assert_eq!(parse_basis.as_deref(), Some("known_version"));
 
-    // 无任何诊断。
+    // No diagnostics are expected.
     let diags: i64 = conn
         .query_row("SELECT COUNT(*) FROM diagnostics", [], |r| r.get(0))
         .unwrap();
@@ -206,7 +206,7 @@ fn contract_subagent_matches_expectations() {
     assert_eq!(summary.totals.cache_write_known, Some(0));
     assert_eq!(summary.totals.total_tokens_known, Some(600_959));
 
-    // querySource=subagent ⇒ sub_agent；首条 input_uncached=145225-(142656+0)=2569。
+    // querySource=subagent maps to sub_agent; first uncached input is 145225-(142656+0)=2569.
     let (category, uncached, session): (String, i64, String) = storage
         .conn()
         .query_row(
@@ -223,7 +223,7 @@ fn contract_subagent_matches_expectations() {
 
 #[test]
 fn contract_merged_roots_match_combined_expectations() {
-    // 两文件放同一 rollout 根：8 事件、4 primary + 4 sub_agent、合并合计。
+    // Put both files under one rollout root: 8 events, 4 primary and 4 sub_agent with combined totals.
     let (_db, storage) = temp_storage("zcode-contract-merged");
     let dir = TempDir::new("zcode-contract-merged-src");
     let root = zcode_root_with_file(&dir, "model-io-sess_anon-1.jsonl", &main_jsonl());
@@ -257,7 +257,7 @@ fn contract_merged_roots_match_combined_expectations() {
         .unwrap();
     assert_eq!((primary, sub), (4, 4));
 
-    // input_uncached 合计 10,825：与 anthropic 侧互斥关系一致（不相加、不双计）。
+    // Uncached total 10,825 matches the Anthropic representation; never add both representations.
     let uncached_sum: i64 = conn
         .query_row(
             "SELECT COALESCE(SUM(input_uncached), 0) FROM usage_events",
@@ -334,7 +334,7 @@ fn capability_table_is_structured_and_complete() {
         "保留无数据库来源的 JSONL 身份合同"
     );
     assert!(!cap.limitations.is_empty());
-    // 能力声明可落库（source_instances.capabilities）roundtrip。
+    // Persist and read back capabilities in source_instances.capabilities.
     let (_db, storage) = temp_storage("zcode-cap");
     framework::upsert_source_instance(
         &storage,

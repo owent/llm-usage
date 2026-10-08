@@ -1,5 +1,5 @@
-//! V04：跨午夜、闰日、ISO 跨年周、周日起始、DST 23/25 小时分桶。
-//! 半开区间；周所属年和本地日期正确；重复小时可分辨。
+//! V04: midnight, leap days, ISO week-year boundaries, Sunday starts and 23/25-hour DST days.
+//! Half-open intervals, correct week-year/local dates and distinguishable repeated hours.
 
 mod common;
 
@@ -33,11 +33,11 @@ fn summary_for(
     .unwrap()
 }
 
-/// 跨午夜请求默认归到完成时间所在本地日。
+/// A request spanning midnight defaults to the local day containing completion.
 #[test]
 fn v04_cross_midnight_belongs_to_completion_day() {
     let (_dir, storage) = temp_storage("v04midnight");
-    // UTC：开始 23:55（day1），完成 00:10（day2）。
+    // UTC start 23:55 on day1; completion 00:10 on day2.
     let mut e = with_tokens(evt("inst", "k1", ts("2026-09-25T00:10:00Z")), 100, 0);
     e.time_basis = llm_usage_core::domain::TimeBasis::SourceCompletion;
     e.interval_start_ms = Some(ts("2026-09-24T23:55:00Z"));
@@ -62,14 +62,14 @@ fn v04_cross_midnight_belongs_to_completion_day() {
     assert_eq!(s.periods[0].label, "2026-09-25");
 }
 
-/// 闰日 2024-02-29 是合法本地日；半开区间端点归属正确。
+/// Leap day 2024-02-29 is valid; half-open endpoints select the correct day.
 #[test]
 fn v04_leap_day_and_half_open_boundary() {
     let (_dir, storage) = temp_storage("v04leap");
     let events = vec![
-        with_tokens(evt("inst", "end-of-28", ts("2024-02-29T00:00:00Z")), 1, 0), // 恰好在 29 日起点
+        with_tokens(evt("inst", "end-of-28", ts("2024-02-29T00:00:00Z")), 1, 0), // Exactly the start of February 29.
         with_tokens(evt("inst", "leap-noon", ts("2024-02-29T12:00:00Z")), 2, 0),
-        with_tokens(evt("inst", "end-of-29", ts("2024-03-01T00:00:00Z")), 4, 0), // 恰好进入 3-01
+        with_tokens(evt("inst", "end-of-29", ts("2024-03-01T00:00:00Z")), 4, 0), // Exactly the start of March 1.
     ];
     commit_batch(
         &storage,
@@ -93,7 +93,7 @@ fn v04_leap_day_and_half_open_boundary() {
     assert!(s.periods.iter().all(|p| p.label != "2024-02-28"));
 }
 
-/// ISO 跨年周：2025-12-29..2026-01-04 属 2026-W01；周标签含周所属年份。
+/// 2025-12-29 through 2026-01-04 is ISO 2026-W01; labels include the week-year.
 #[test]
 fn v04_iso_cross_year_week_label() {
     assert_eq!(iso_week(ymd(2025, 12, 31)), (2025 + 1, 1));
@@ -125,7 +125,7 @@ fn v04_iso_cross_year_week_label() {
     assert_eq!(s.periods[0].sums.input_total_known, Some(7));
 }
 
-/// 周日起始：标签用开始日期，不能冒充 ISO 周。
+/// Sunday-start weeks use their start date as the label.
 #[test]
 fn v04_sunday_week_uses_start_date_label() {
     let (_dir, storage) = temp_storage("v04sun");
@@ -149,42 +149,42 @@ fn v04_sunday_week_uses_start_date_label() {
         ymd(2026, 1, 5),
     );
     assert_eq!(s.periods.len(), 1);
-    // 周日起始：2025-12-28 开始的一周；标签是开始日期。
+    // Sunday-start week begins 2025-12-28; its start date is its label.
     assert_eq!(s.periods[0].label, "2025-12-28");
     assert_eq!(s.periods[0].start_day, ymd(2025, 12, 28));
     assert_eq!(s.periods[0].end_day, ymd(2026, 1, 3));
 }
 
-/// DST 23 小时日（America/New_York 2026-03-08 拨快）与 25 小时日（2026-11-01 拨回）；
-/// 重复小时内的事件可分辨（UTC offset 不同）但归同一本地日。
+/// America/New_York DST gives 23 hours on 2026-03-08 and 25 hours on 2026-11-01.
+/// Repeated-hour instants have different UTC offsets but belong to the same local day.
 #[test]
 fn v04_dst_23_and_25_hour_days() {
     let cal = Calendar::new("America/New_York").unwrap();
 
-    // 春季拨快：2026-03-08 02:00 不存在，日本地日 23 小时。
+    // Spring advance: 2026-03-08 02:00 does not exist; this local day has 23 hours.
     let (s, e) = cal.day_range_ms(ymd(2026, 3, 8)).unwrap();
     assert_eq!(e - s, 23 * 3_600_000);
-    // 间隙两侧事件同属 2026-03-08。
+    // Instants on both sides of the gap belong to 2026-03-08.
     assert_eq!(
         cal.local_day_of(ts("2026-03-08T06:30:00Z")).unwrap(),
         ymd(2026, 3, 8)
-    ); // 01:30 EST
+    ); // Local time 01:30 EST.
     assert_eq!(
         cal.local_day_of(ts("2026-03-08T07:30:00Z")).unwrap(),
         ymd(2026, 3, 8)
-    ); // 03:30 EDT
+    ); // Local time 03:30 EDT.
 
-    // 秋季拨回：2026-11-01 有 25 小时，01:30 出现两次，offset 可分辨。
+    // Fall retreat: 2026-11-01 has 25 hours; 01:30 occurs twice with different offsets.
     let (s, e) = cal.day_range_ms(ymd(2026, 11, 1)).unwrap();
     assert_eq!(e - s, 25 * 3_600_000);
-    let first = ts("2026-11-01T05:30:00Z"); // 01:30 EDT (UTC-4)
-    let second = ts("2026-11-01T06:30:00Z"); // 01:30 EST (UTC-5)
+    let first = ts("2026-11-01T05:30:00Z"); // Local time 01:30 EDT (UTC-4).
+    let second = ts("2026-11-01T06:30:00Z"); // Local time 01:30 EST (UTC-5).
     assert_eq!(cal.offset_seconds_at(first).unwrap(), -4 * 3600);
     assert_eq!(cal.offset_seconds_at(second).unwrap(), -5 * 3600);
     assert_eq!(cal.local_day_of(first).unwrap(), ymd(2026, 11, 1));
     assert_eq!(cal.local_day_of(second).unwrap(), ymd(2026, 11, 1));
 
-    // 端到端分桶：两个重复小时事件落在同一本地日。
+    // Full ingestion/query path groups both repeated-hour events into the same local day.
     let (_dir, storage) = temp_storage("v04dst");
     let events = vec![
         with_tokens(evt("inst", "edt", first), 1, 0),
@@ -210,16 +210,16 @@ fn v04_dst_23_and_25_hour_days() {
     assert_eq!(s.periods[0].sums.input_total_known, Some(3));
 }
 
-/// 跨 DST 的周/月 UTC 区间保持半开且覆盖整周期。
+/// The UTC interval for a week spanning DST covers the complete half-open week.
 #[test]
 fn v04_week_range_across_dst_is_half_open() {
     let cal = Calendar::new("America/New_York").unwrap();
-    // 2026-11-01 所在周（周一起始 2026-10-26..2026-11-01）。
+    // Monday-start week containing 2026-11-01: 2026-10-26 through 2026-11-01.
     let start = cal.week_start_of(ymd(2026, 11, 1), WeekStart::Monday);
     assert_eq!(start, ymd(2026, 10, 26));
     let (s, _) = cal.day_range_ms(start).unwrap();
     let next = start.checked_add(jiff::Span::new().days(7)).unwrap();
     let (e, _) = cal.day_range_ms(next).unwrap();
-    // 该周包含 25 小时日：总时长 7*24+1 小时。
+    // This week contains a 25-hour day: 7*24+1 hours in total.
     assert_eq!(e - s, (7 * 24 + 1) * 3_600_000);
 }

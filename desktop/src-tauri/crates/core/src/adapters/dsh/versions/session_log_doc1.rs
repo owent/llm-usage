@@ -1,38 +1,38 @@
-//! DSH 持久会话日志 JSONL 格式实现（`session_log_doc1`，文档级
-//! session-log-doc-1）。
+//! Historical DSH documentation-based JSONL reader (session_log_doc1,
+//! format session-log-doc-1), separate from the verified native v4 reader.
 //!
-//! 格式依据（固定 token-meter README 46a7f68b0922371ce7144b668b90e377d8e799f4，
-//! A08，按文档或源码实现，待真实样本核验；本机 not_found）：
-//! - 事件词汇（README 枚举）：`step/start`、`assistant/message`、
-//!   `llm/retry-started`、`request/context`、`request/header`、`image/offload`；
-//!   usage 样本挂在 assistant/message 上，字段
-//!   uncachedInputTokens/outputTokens/cacheReadTokens/cacheWriteTokens 各自可选。
-//! - 替换语义："A final assistant-message sample replaces streaming usage from
-//!   the same attempt; `llm/retry-started` ends that replacement scope, so a
-//!   retry in the same step contributes another billed attempt"；
-//!   "Usage folds replace samples within each attempt; totals need not be
-//!   monotone"。
-//! - 估算排除：contextPressure（pressureTokens/projectedTokens/contextWindow）
-//!   与 contextBreakdown（systemTokens/toolsTokens/messageTokens）"are
-//!   estimates … not its provider-billed size"，不进入用量。
-//! - 落盘路径与行序列化未文档化：JSONL 行形状为合成假设（fixtures 标
-//!   synthetic），真实样本到达后核验。
+//! Reference: token-meter README pinned at 46a7f68b0922371ce7144b668b90e377d8e799f4.
+//! A08 documentation/source implementation; this legacy JSONL representation lacks native validation.
+//! - Documented event types: step/start, assistant/message,
+//!   llm/retry-started, request/context, request/header, image/offload.
+//!   assistant/message carries usage samples with optional
+//!   uncachedInputTokens/outputTokens/cacheReadTokens/cacheWriteTokens.
+//! - A final assistant sample replaces streaming usage within the same attempt.
+//!   llm/retry-started ends that replacement scope; a retry within the same
+//!   step has separate usage. The README describes it as another billed attempt,
+//!   without making the collected tokens a billing record. Samples replace earlier values;
+//!   their totals need not increase monotonically.
+//! - Exclude contextPressure (pressureTokens/projectedTokens/contextWindow)
+//!   and contextBreakdown (systemTokens/toolsTokens/messageTokens): these describe
+//!   estimated context sizes, not provider-reported usage.
+//! - The README does not document disk paths or serialized rows. This reader's JSONL shape
+//!   is a synthetic assumption, marked in test data; native v4 has separate rules.
 //!
-//! 折叠/仲裁机制（复用既有 ingest 仲裁，不发明新机制）：
-//! - attempt 键 = `{file_identity}:s{step}:a{attempt}`（step 由 step/start 计数、
-//!   attempt 由 llm/retry-started 在 step 内计数；确定性重放）；
-//! - 同 attempt 每个样本立即入账（lifecycle=Partial，source_revision=样本序号）
-//!   ——样本序号 + 跨轮单调 revision_floor 保证后续样本按"更高修订号 Replace"
-//!   撤销旧贡献（V03 样本 7 语义），重扫重放不产生同级内容冲突；
-//! - attempt 边界（llm/retry-started / step/start）到达时对最后一个样本补发
-//!   Final（更高修订号 Replace 收口）；日志尾部未闭合 attempt 保持 Partial
-//!   （值正确，尚未确认生命周期状态）；
-//! - 重扫后消失的 attempt 键发射 Corrected/Excluded 墓碑（防截断改写双计）；
-//!   revision_floor 与 attempt 键集跨重扫保留，折叠计数器重置。
+//! Sample replacement uses existing ingest revision and conflict handling:
+//! - Attempt key: {file_identity}:s{step}:a{attempt}; count step/start for step,
+//!   and llm/retry-started within each step for attempt; replay deterministically.
+//! - Import each attempt sample immediately as Partial, with a sample revision.
+//!   Sample ordinal plus monotonic revision_floor gives later samples higher revisions;
+//!   Replace removes the old contribution (V03 sample 7), avoiding equal-revision replay conflicts.
+//! - At llm/retry-started or step/start, emit the last sample again as
+//!   Final with a higher revision. An open attempt at the log tail remains Partial:
+//!   retain its current values without claiming a confirmed completion state.
+//! - Missing attempt keys after a rescan emit Corrected/Excluded records to remove old contributions.
+//!   Preserve revision_floor and tracked attempt keys across rescans; reset sample counters.
 //!
-//! fail closed（V17）：未文档化事件 type ⇒ 整文件拒绝（游标不推进、下轮
-//! 确定性再拒）。usage 四字段值违例（负/非整数/超限）逐条跳过记诊断（部分可用）。
-//! pinned README 未记载逐事件时间字段：occurred_at 用观察时间（observed_at）。
+//! V17 rejects an entire file with an undocumented event type, retaining its cursor for
+//! repeated rejection. Skip and diagnose invalid usage fields (negative/noninteger/out-of-range) per record.
+//! The README lacks per-event timestamps; occurred_at uses observed_at, limiting daily attribution.
 
 use crate::adapters::framework::{
     ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -51,7 +51,7 @@ use super::DSH_FORMAT_VERSION;
 pub const DSH_PARSER_VERSION: &str = "dsh-session-log-doc1";
 const MAX_REASONABLE_TOKEN: i64 = crate::domain::MAX_TOKEN_VALUE;
 
-/// README 枚举的事件类型（detect 与扫描共用同一接受集）。
+/// Documented event types shared by detection and scanning.
 pub const DOCUMENTED_EVENT_TYPES: &[&str] = &[
     "step/start",
     "assistant/message",
@@ -61,34 +61,34 @@ pub const DOCUMENTED_EVENT_TYPES: &[&str] = &[
     "image/offload",
 ];
 
-/// 待收口样本（attempt 打开期间的最后一个已入账样本，跨轮持久化）。
+/// Last imported sample of an open attempt, persisted until a boundary finalizes it.
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 struct PendingSample {
     revision: i64,
     usage: DshUsage,
 }
 
-/// 持久化折叠状态。重扫语义：折叠计数器（step/attempt/ordinal/pending）重置
-/// 从头重折（确定性重放）；revision_floor 与 tracked_keys 跨重扫保留——
-/// 前者防重放产生同级内容冲突，后者是消失 attempt 的墓碑差分基。
+/// Persisted sample-replacement state. Rescans reset step/attempt/ordinal/pending counters
+/// and replay from the beginning; preserve revision_floor and tracked_keys.
+/// Higher revisions prevent replay conflicts; tracked keys identify removed attempts.
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 struct DshParseContext {
-    /// 已发射的最大 source_revision（跨轮单调）。
+    /// Highest emitted source_revision, monotonic across rounds.
     #[serde(default)]
     revision_floor: i64,
-    /// 上一轮入账的 attempt 键（墓碑差分基，重扫不重置）。
+    /// Previously imported attempt keys for identifying removals; preserve across rescans.
     #[serde(default)]
     tracked_keys: Vec<String>,
-    /// 已见 step/start 数（0 = 尚无 step）。
+    /// Number of observed step/start events; zero means no step yet.
     #[serde(default)]
     step_index: u64,
-    /// 当前 step 内已见 llm/retry-started 数（attempt 序号）。
+    /// Number of llm/retry-started events within the current step: the attempt index.
     #[serde(default)]
     attempt_index: u64,
-    /// 当前 attempt 已发射样本数 + 1（下一个样本序号）。
+    /// Samples emitted in the current attempt +1: the next sample ordinal.
     #[serde(default)]
     sample_ordinal: i64,
-    /// 打开 attempt 的最后样本（边界事件收口用）。
+    /// Last sample of an open attempt, finalized at a boundary event.
     #[serde(default)]
     pending: Option<PendingSample>,
     #[serde(default)]
@@ -97,13 +97,13 @@ struct DshParseContext {
     estimate_excluded_reported: bool,
     #[serde(default)]
     unmapped_keys_reported: bool,
-    /// 版本选择依据；dsh 固定为 KnownVersion（文档级锚点）。
+    /// Version basis: KnownVersion identifies the documentation format, not a native DSH client version.
     #[serde(default)]
     version_basis: Option<VersionBasis>,
 }
 
 impl DshParseContext {
-    /// 重扫：重置折叠位置状态，保留差分基与修订号地板。
+    /// Rescan resets replacement counters and retains prior keys and the highest revision.
     fn reset_fold(&mut self) {
         self.step_index = 0;
         self.attempt_index = 0;
@@ -122,7 +122,7 @@ impl DshParseContext {
     }
 }
 
-/// 从存储的游标 JSON 还原；重扫或无效时回到文件头。
+/// Restore the saved JSON cursor; invalid state or a rescan starts at the file beginning.
 fn restore_cursor(stored: &StoredScanState, generation: i64, rescan: bool) -> JsonlCursor {
     if rescan {
         return JsonlCursor {
@@ -165,8 +165,8 @@ fn diag(code: &str, field: Option<&str>, line: u64, message: &str) -> Diagnostic
     }
 }
 
-/// usage 对象四可选字段（i64 非负有界）；非对象返回 None；
-/// 未文档化额外键返回 true（保留已映射字段，一次性诊断）。
+/// Four optional bounded nonnegative i64 usage fields; nonobjects return None.
+/// Extra undocumented keys set true; retain mapped fields and diagnose once.
 const USAGE_KEYS: &[&str] = &[
     "uncachedInputTokens",
     "outputTokens",
@@ -198,7 +198,7 @@ fn parse_usage(value: &serde_json::Value) -> Option<(DshUsage, bool)> {
     Some((usage, unknown))
 }
 
-/// 增量扫描一个持久会话日志（统一入口 `DshAdapter::scan` 分派到本实现）。
+/// Incrementally scan a historical documentation-format log, called by DshAdapter::scan.
 pub fn scan(
     target: &ScanTarget,
     stored: &StoredScanState,
@@ -207,22 +207,22 @@ pub fn scan(
 ) -> Result<ScanOutcome, CoreError> {
     let cursor = restore_cursor(stored, target.generation, target.rescan);
     let mut context = restore_context(stored, target.rescan);
-    // 无版本字段可读：格式锚点是文档级 session-log-doc-1，固定 KnownVersion。
+    // No native client version field; KnownVersion refers only to session-log-doc-1.
     context.version_basis = Some(VersionBasis::KnownVersion);
     let mut events: Vec<EventInput> = Vec::new();
     let mut diagnostics: Vec<DiagnosticInput> = Vec::new();
     let mut records_seen: u64 = 0;
     let mut fail_closed: Option<(u64, String)> = None;
-    // 本轮折叠结果中的 attempt 键集：增量续读从上一轮累计集出发（append-only
-    // 下旧 attempt 不因无新行而"消失"）；重扫从头重折则从空集出发
-    // （差分 = 上一轮累计集 - 本轮完整折叠结果）。
+    // Incremental reads begin with previously tracked attempt keys, so append-only files
+    // retain old attempts even without new rows. Rescans rebuild the complete set from empty;
+    // removed keys are the previous set minus the complete rebuilt set.
     let mut current_keys: Vec<String> = if target.rescan {
         Vec::new()
     } else {
         context.tracked_keys.clone()
     };
 
-    // 构造一个 usage 样本事件（streaming 收 Partial；收口样本 Final）。
+    // Build a sample event: streaming samples are Partial; boundary-finalized samples are Final.
     let sample_event = |target: &ScanTarget,
                         context: &DshParseContext,
                         key: &str,
@@ -248,7 +248,7 @@ pub fn scan(
             host_application: None,
             agent: "deepseek-harness".to_string(),
             call_category: CallCategory::Primary,
-            // pinned README 未记载逐事件时间字段：使用观察时间，日归属受限。
+            // No per-event time in the pinned README; observation time limits daily attribution.
             occurred_at_ms: now_ms,
             observed_at_ms: Some(now_ms),
             source_time: None,
@@ -272,8 +272,8 @@ pub fn scan(
         }
     };
 
-    // attempt 边界收口：对打开 attempt 的最后样本补发 Final（更高修订号
-    // Replace 收口）；无待收口样本则只推进边界。
+    // Finalize an open attempt by re-emitting its last sample as Final with a higher revision;
+    // with no pending sample, only advance the boundary.
     macro_rules! finalize_attempt {
         () => {
             if let Some(pending) = context.pending.take() {
@@ -330,15 +330,15 @@ pub fn scan(
         }
         match event_type {
             "step/start" => {
-                // 步边界：收口当前 attempt，进入新 step（attempt 序号归零）。
+                // Step boundary: finalize the current attempt and start a new step with attempt index zero.
                 finalize_attempt!();
                 context.step_index += 1;
                 context.attempt_index = 0;
                 context.sample_ordinal = 0;
             }
             "llm/retry-started" => {
-                // retry 边界：结束替换范围（收口当前 attempt），同 step 新开
-                // attempt（新键，独立计费）。
+                // Retry boundary: finalize the current attempt and start another within the same step,
+                // with a separate key and independently counted usage.
                 finalize_attempt!();
                 context.attempt_index += 1;
                 context.sample_ordinal = 0;
@@ -346,8 +346,8 @@ pub fn scan(
             "assistant/message" => {
                 let usage_value = line.get("usage");
                 let Some(usage_value) = usage_value else {
-                    // 无 usage 的 assistant/message：未记录用量，不产事件
-                    // （一次性诊断；部分可用）。
+                    // An assistant/message without usage produces no event;
+                    // record a one-time diagnostic and retain other readable data.
                     if !context.without_usage_reported {
                         context.without_usage_reported = true;
                         diagnostics.push(diag(
@@ -389,8 +389,8 @@ pub fn scan(
                         "usage object carries keys beyond the documented four; mapped fields kept",
                     ));
                 }
-                // 同 attempt 的流式/最终样本：立即入账 Partial，样本序号 +
-                // revision_floor 构成单调修订号 ⇒ 后续样本 Replace 撤销旧贡献。
+                // Import streaming/final samples in the same attempt immediately as Partial. Sample ordinal plus
+                // revision_floor gives higher revisions, so Replace removes earlier contributions.
                 context.sample_ordinal += 1;
                 let revision = context.revision_floor + context.sample_ordinal;
                 let key = context.attempt_key(&target.file_identity);
@@ -409,8 +409,8 @@ pub fn scan(
                 context.pending = Some(PendingSample { revision, usage });
             }
             "request/context" => {
-                // contextPressure（pressureTokens/projectedTokens/contextWindow）
-                // 是估算/预测，不进入用量（一次性诊断可见）。
+                // contextPressure (pressureTokens/projectedTokens/contextWindow)
+                // is estimated context size; exclude it from usage and diagnose once.
                 if !context.estimate_excluded_reported {
                     context.estimate_excluded_reported = true;
                     diagnostics.push(diag(
@@ -422,7 +422,7 @@ pub fn scan(
                 }
             }
             "request/header" | "image/offload" => {
-                // 文档化非用量事件：无用量语义，跳过。
+                // Skip documented events without usage meaning.
             }
             other => {
                 fail_closed = Some((
@@ -446,9 +446,9 @@ pub fn scan(
             ScanStatus::LineTooLong
         }
     };
-    // 消失 attempt 墓碑（重扫差分）：上一轮入账、本轮折叠结果中不存在的
-    // attempt 键 ⇒ Corrected/Excluded 撤销旧贡献，防截断改写双计。
-    // 仅在完整读到文件尾时更新差分基（达到读取上限而中断不做差分判断）。
+    // After a complete rescan, previously imported attempts missing from the rebuilt set
+    // receive Corrected/Excluded records to remove old contributions and avoid counting rewritten files twice.
+    // Update tracked keys only at end-of-file; interrupted bounded reads do not identify removals.
     let mut tracked_update = None;
     if status == ScanStatus::Complete {
         let tracked: std::collections::BTreeSet<String> =
@@ -518,7 +518,7 @@ pub fn scan(
                 "bad_json_line" | "usage_shape_deviation" | "line_too_long"
             )
         });
-    // fail closed：本轮事件清空、游标不推进（不提交 checkpoint），下轮确定性再拒。
+    // Reject undocumented types: clear this round's events, retain the checkpoint, and reject again next round.
     let (cursor_out, context_out) = if let Some((line_no, detail)) = fail_closed {
         diagnostics.push(diag(
             "undocumented_event_type",
@@ -588,7 +588,7 @@ mod tests {
 
     #[test]
     fn old_parse_context_defaults_restore() {
-        // 旧/空上下文反序列化不失败：差分基与修订号地板缺省 0。
+        // Old or empty contexts restore with revision_floor=0 and an empty tracked-key set.
         let ctx: DshParseContext = serde_json::from_value(serde_json::json!({})).unwrap();
         assert_eq!(ctx.revision_floor, 0);
         assert!(ctx.tracked_keys.is_empty());

@@ -24,7 +24,7 @@ export async function reportBundles(directory, revision) {
       } else if (entry.isDirectory()) {
         await visit(path);
       // Debian staging contains control.tar.gz/data.tar.gz. Only the macOS
-      // .app archive is a release tarball in this project's bundle contract.
+      // .app archive is the release tarball under this project's packaging rules.
       } else if (entry.isFile() && /\.(?:exe|msi|deb|AppImage|dmg|app\.tar\.gz)$/.test(entry.name)) {
         artifacts.push(path);
       }

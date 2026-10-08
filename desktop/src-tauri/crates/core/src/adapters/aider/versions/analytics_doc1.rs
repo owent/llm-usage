@@ -1,26 +1,26 @@
-//! Aider `--analytics-log` JSONL 格式实现（`analytics_doc1`，文档级
-//! aider-analytics-doc-1）。
+//! Aider --analytics-log JSONL implementation (`analytics_doc1`, document format
+//! aider-analytics-doc-1).
 //!
-//! 格式依据（Aider-AI/aider 固定源码 5dc9490bb35f9729ef2c95d00a19ccd30c26339c，
-//! A30；另有官方镜像 0.86.2 的真实本地模型 analytics 样本）：
-//! - 启用：`--analytics-log <file>`（args.py:575-579，默认不开启）；即使遥测
-//!   未 opt-in，只要设置 logfile 本地照写（analytics.py:213-214 event() 守卫）。
-//!   **不回填历史**（写入仅发生在事件时刻），文件路径由用户指定。
-//! - 每行 `{event, properties, user_id, time}`；`time` 是 `int(time.time())`
-//!   Unix **秒**（analytics.py:242-254，追加模式）。
-//! - `message_send` 事件（base_coder.py:2113-2122）properties：
-//!   `main_model`/`weak_model`/`editor_model`/`edit_format` +
-//!   `prompt_tokens`/`completion_tokens`/`total_tokens` + `cost`/`total_cost`。
-//!   **无 cache 分项**：Anthropic cache_creation 并入 prompt_tokens
-//!   （base_coder.py:2011-2019），cache_hit 只进成本公式不上报。
-//!   `cost` 是本条消息成本（litellm 费率自算 ⇒ Estimated）；
-//!   `total_cost` 是会话累计（不入账，避免双计）。
-//! - 模型名可能被 `_redact_model_name` 脱敏（models.db 未知且含 `/` 的只留
-//!   provider 前缀 + "/REDACTED"，analytics.py:190-199）：按原文入账。
+//! References: Aider-AI/aider commit 5dc9490bb35f9729ef2c95d00a19ccd30c26339c,
+//! A30, plus real local-model analytics samples from the official 0.86.2 image.
+//! - --analytics-log <file> is off by default (args.py:575-579). A configured local
+//!   logfile is written even without telemetry opt-in (analytics.py:213-214 event() guard).
+//!   Events are written when they occur; no historical backfill. The user chooses the path.
+//! - Each appended line is {event, properties, user_id, time}; time is int(time.time())
+//!   in Unix seconds (analytics.py:242-254).
+//! - message_send properties (base_coder.py:2113-2122) contain
+//!   main_model/weak_model/editor_model/edit_format,
+//!   prompt_tokens/completion_tokens/total_tokens and cost/total_cost.
+//!   Cache components are absent: Anthropic cache_creation is included in prompt_tokens
+//!   (base_coder.py:2011-2019); cache_hit affects cost calculations but is not reported.
+//!   Per-message cost uses LiteLLM rates (Estimated).
+//!   Session cumulative total_cost is excluded to avoid duplicate cost.
+//! - _redact_model_name replaces unknown models.db names containing a slash with
+//!   provider + "/REDACTED" (analytics.py:190-199); keep that value without reconstructing the model.
 //!
-//! 映射：input_total=prompt_tokens（含 cache 写，官方字段语义），cache 两桶 Unknown，
-//! output_total=completion_tokens，total_tokens=total_tokens（直报）。
-//! 事件键 = 行号 + 整行内容哈希（无消息 ID；追加式文件，重放幂等）。
+//! Map input_total=prompt_tokens (including cache writes); both cache buckets stay unknown.
+//! Map output_total=completion_tokens and reported total_tokens=total_tokens.
+//! With no message id, line number plus full-line hash identifies append-only records for repeated reads.
 
 use crate::adapters::framework::{
     ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -87,7 +87,7 @@ fn restore_context(stored: &StoredScanState, rescan: bool) -> AiderParseContext 
         .unwrap_or_default()
 }
 
-/// Unix 秒 → UTC 毫秒（越域拒绝）。
+/// Convert Unix seconds to UTC milliseconds; reject out-of-range values.
 fn seconds_to_ms(secs: i64) -> Option<i64> {
     let ms = secs.checked_mul(1000)?;
     (crate::domain::MIN_PLAUSIBLE_MS..=4_102_444_800_000)
@@ -110,7 +110,7 @@ fn usd_cost(value: Option<&serde_json::Value>) -> Option<CostAmount> {
     if !amount.is_finite() || amount < 0.0 {
         return None;
     }
-    // 与全库约定一致：amount_minor 存 micro-USD（zoo/pi/opencode/cline 规则相同）。
+    // amount_minor stores micro-USD, matching the zoo/pi/opencode/cline convention.
     let micros = amount * 1_000_000.0;
     if micros > i64::MAX as f64 {
         return None;
@@ -118,7 +118,7 @@ fn usd_cost(value: Option<&serde_json::Value>) -> Option<CostAmount> {
     Some(CostAmount {
         amount_minor: micros.round() as i64,
         currency: "USD".to_string(),
-        // litellm 费率自算（base_coder.py show_exhausted_tokens_report 成本公式）。
+        // LiteLLM-rate estimate from base_coder.py show_exhausted_tokens_report.
         kind: CostKind::Estimated,
         price_version: None,
         billing_scope: None,
@@ -244,8 +244,8 @@ pub fn scan(
         );
         events.push(EventInput {
             source_instance_id: target.instance_id.clone(),
-            // 无消息 ID：追加式文件，行号+内容哈希是稳定身份（重放幂等；
-            // 完全相同的重复发送靠行号区分，不被哈希折叠）。
+            // With no message id, line number plus content hash gives append-only identity for repeated reads.
+            // Separate line numbers retain distinct sends even when their complete bytes match.
             source_record_key: format!(
                 "aider:{}:{}",
                 line.number,

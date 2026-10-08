@@ -1,6 +1,6 @@
-//! pi 适配器约定测试：M2-B/C 恢复阶段真实脱敏 fixture（本机 pi 0.87.1，
-//! session-error-zero-usage）。经 读取→解析→标准化→commit_batch→查询，
-//! 期望与 tests/fixtures/pi/session-error-zero-usage._expectations.md 的人工核算一致。
+//! pi requirement tests use native redacted M2-B/C recovery data from local pi 0.87.1:
+//! session-error-zero-usage. Read, parse, normalize, commit_batch and query;
+//! compare manually calculated tests/fixtures/pi/session-error-zero-usage._expectations.md.
 
 mod common;
 
@@ -8,12 +8,12 @@ use common::*;
 use llm_usage_core::adapters::framework::SourceAdapter;
 use llm_usage_core::adapters::pi::PiAdapter;
 
-// 手工核算值（jq 对 fixture 逐条核验，与 _expectations.md 互核）：
-// 7 行记录（session/model_change/thinking_level_change/custom/message(system)/
-// custom_message/message(assistant)），仅 L7 assistant 产 1 事件；
-// usage 五字段全为直报 0（reported 零不是 unknown），totalTokens=0；
-// 无 reasoning 字段（保持 unknown）；cost.total=0 ⇒ 不映射费用；
-// stopReason=error ⇒ error_status="error"；无 responseId/duration/ttft。
+// Expected values are calculated manually and checked record-by-record with jq:
+// Seven records: session/model_change/thinking_level_change/custom/system message/
+// custom_message/assistant message; only the seventh assistant produces an event.
+// All five usage fields explicitly report zero, including totalTokens; these zeros are known.
+// Reasoning is absent and remains unknown; cost.total=0 does not produce a cost value.
+// stopReason=error sets error_status="error"; responseId/duration/ttft are absent.
 
 fn setup_fixture(tag: &str) -> (TempDir, std::path::PathBuf) {
     let dir = TempDir::new(tag);
@@ -44,7 +44,7 @@ fn error_zero_usage_full_pipeline_matches_expectations() {
 
     let summary = summary(&storage, "2026-09-24", "2026-09-24");
     assert_eq!(summary.totals.call_count, 1);
-    // 直报 0 是已知值，不是 unknown。
+    // Explicitly reported zero is known.
     assert_eq!(summary.totals.input_total_known, Some(0));
     assert_eq!(summary.totals.output_total_known, Some(0));
     assert_eq!(summary.totals.cache_read_known, Some(0));
@@ -52,7 +52,7 @@ fn error_zero_usage_full_pipeline_matches_expectations() {
     assert_eq!(summary.totals.total_tokens_known, Some(0));
     assert_eq!(summary.totals.uncached_known, Some(0));
 
-    // SQL 逐字段核验：分类/模型/供应商/版本/错误状态/未知字段。
+    // Check category/model/provider/version/error/unknown fields through SQL.
     let row = storage
         .conn()
         .query_row(
@@ -98,7 +98,7 @@ fn error_zero_usage_full_pipeline_matches_expectations() {
     assert_eq!(row.11, None, "主会话无 parentSession");
     assert_eq!(row.12, "request_field");
 
-    // 无快照系列：pi 不产对账（无累计快照概念）。
+    // pi has no cumulative snapshots and produces no reconciliation results.
     assert!(report.reconciliations.is_empty());
     let _ = dir;
 }
@@ -110,7 +110,7 @@ fn capability_table_is_structured_and_complete() {
     let json = serde_json::to_value(&cap).unwrap();
     assert_eq!(json["adapter_id"], "pi");
     assert_eq!(json["supported_versions"], serde_json::json!(["3"]));
-    // 字段能力八项齐全。
+    // All eight field capability entries are present.
     for key in [
         "tokens",
         "cache_read",
@@ -152,7 +152,7 @@ fn capability_table_is_structured_and_complete() {
         assert!(json.get(section).is_some(), "capability missing {section}");
     }
     assert!(!cap.limitations.is_empty());
-    // 能力声明可落库（source_instances.capabilities）。
+    // Capability metadata survives storage in source_instances.capabilities.
     let (_db, storage) = temp_storage("pi-cap");
     llm_usage_core::adapters::framework::upsert_source_instance(
         &storage,

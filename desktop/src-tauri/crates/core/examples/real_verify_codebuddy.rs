@@ -1,6 +1,6 @@
-//! CodeBuddy 本机会话只读核对（CLI JSONL + CodeBuddyExtension index.json）；
-//! 输出限于统计、诊断代码和幂等结论，不打印记录正文。
-//! 用法：cargo run -p llm-usage-core --example real_verify_codebuddy -- <home> <localappdata> <work_dir>
+//! Read-only local CodeBuddy checks: CLI JSONL and CodeBuddyExtension index.json.
+//! Print statistics, diagnostic codes and repeat-read results, never record bodies.
+//! Usage: cargo run -p llm-usage-core --example real_verify_codebuddy -- <home> <localappdata> <work_dir>
 
 use llm_usage_core::adapters::codebuddy::CodeBuddyAdapter;
 use llm_usage_core::adapters::framework::{

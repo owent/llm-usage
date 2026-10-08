@@ -1,5 +1,5 @@
-//! V02：重复/更正/乱序。同请求重复 final 计一次；更正更新旧贡献；
-//! 乱序不静默覆盖；无法判定先后标 conflict 不取 MAX。
+//! V02 repeats/corrections/disorder: identical final counts once; corrections update prior totals.
+//! Disorder never silently overwrites; undecidable order keeps conflict instead of MAX.
 
 mod common;
 
@@ -37,7 +37,7 @@ fn v02_duplicate_final_is_idempotent() {
     let make = || with_tokens(evt("inst", "req-1", ms), 100, 0);
     let o1 = commit_batch(&storage, &batch("inst", "UTC", ms, vec![make()]), None).unwrap();
     assert_eq!(o1.added, 1);
-    // 同请求重复 final（同内容）：幂等。
+    // Identical final for the same request is retained without duplicates.
     let o2 = commit_batch(&storage, &batch("inst", "UTC", ms + 1, vec![make()]), None).unwrap();
     assert_eq!(o2.added, 0);
     assert_eq!(o2.unchanged, 1);
@@ -67,7 +67,7 @@ fn v02_out_of_order_lower_revision_does_not_overwrite() {
     newer.source_revision = Some(2);
     newer.lifecycle = Lifecycle::Corrected;
     commit_batch(&storage, &batch("inst", "UTC", ms, vec![newer]), None).unwrap();
-    // 乱序到达的旧修订：保留现状，不静默覆盖。
+    // A late old revision keeps existing state without overwriting.
     let mut older = with_tokens(evt("inst", "req-1", ms), 100, 0);
     older.source_revision = Some(1);
     let out = commit_batch(&storage, &batch("inst", "UTC", ms + 1, vec![older]), None).unwrap();
@@ -83,13 +83,13 @@ fn v02_same_revision_different_content_is_conflict_not_max() {
     let mut e1 = with_tokens(evt("inst", "req-1", ms), 100, 0);
     e1.source_revision = Some(5);
     commit_batch(&storage, &batch("inst", "UTC", ms, vec![e1]), None).unwrap();
-    // 同修订号但内容不同：先后不可判定 → conflict，保留现存（不取 MAX）。
+    // Equal revision/different content keeps existing data and records conflict, without MAX.
     let mut e2 = with_tokens(evt("inst", "req-1", ms), 999, 0);
     e2.source_revision = Some(5);
     let out = commit_batch(&storage, &batch("inst", "UTC", ms + 1, vec![e2]), None).unwrap();
     assert_eq!(out.conflicts, 1);
     assert_eq!(day_input_total(&storage), Some(100));
-    // 诊断与 daily 冲突计数可见。
+    // Diagnostics and daily conflict counts are visible.
     let diag_count: i64 = storage
         .conn()
         .query_row(
@@ -112,7 +112,7 @@ fn v02_same_revision_different_content_is_conflict_not_max() {
 fn v02_lifecycle_ordering_without_revision() {
     let (_dir, storage) = temp_storage("v02life");
     let ms = ts("2026-09-24T10:00:00Z");
-    // final 先到达，partial 后到：partial 不覆盖 final。
+    // A partial arriving after final cannot replace final.
     let fin = with_tokens(evt("inst", "req-1", ms), 100, 0);
     commit_batch(&storage, &batch("inst", "UTC", ms, vec![fin]), None).unwrap();
     let mut partial = with_tokens(evt("inst", "req-1", ms), 80, 0);
@@ -121,7 +121,7 @@ fn v02_lifecycle_ordering_without_revision() {
     assert_eq!(out.unchanged, 1);
     assert_eq!(day_input_total(&storage), Some(100));
 
-    // corrected 覆盖 final。
+    // corrected replaces final.
     let mut corrected = with_tokens(evt("inst", "req-1", ms), 90, 0);
     corrected.lifecycle = Lifecycle::Corrected;
     let out = commit_batch(
@@ -134,7 +134,7 @@ fn v02_lifecycle_ordering_without_revision() {
     assert_eq!(day_input_total(&storage), Some(90));
 }
 
-/// 更正把贡献移到另一天时，旧日撤销、新日生效。
+/// A correction moving to another day removes the old contribution and adds the new one.
 #[test]
 fn v02_correction_moves_day_contribution() {
     let (_dir, storage) = temp_storage("v02move");

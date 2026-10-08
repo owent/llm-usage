@@ -1,131 +1,154 @@
-# 本地 AI 用量桌面客户端设计
+# Local AI usage desktop design
 
-当前实施状态及剩余验收见 [执行计划](../../../Plan.md)。本目录只保留最新设计，
-公开文档、固定版本源码和实际实现分别作为依据；样本、原生桌面与 CI 验证结果分列。
-来源能力与限制见 [接入矩阵](adapters.md)，已授权只读范围见
-[实施与验证边界](implementation-readiness.md)。Copilot 配置、看板交互和价格参考
-分别见 [遥测配置](copilot-otel.md)、[看板交互](dashboard-polish.md)及[价格](pricing.md)。
-本机 HTTP 的来源认证、凭据与失败/撤销规则见 [接收认证](receiver-auth.md)。
+<a id="本地-ai-用量桌面客户端设计"></a>
 
-## 产品目标与边界
+Current implementation and remaining acceptance work are in [Plan.md](../../../Plan.md).
+This directory maintains the current design. Public documentation, fixed-version source
+and actual implementation provide distinct references; sample, native desktop and CI results
+are recorded separately. See the [adapter matrix](adapters.md) for capabilities/limits and
+[implementation prerequisites](implementation-readiness.md) for the authorized read-only scope.
+[Telemetry setup](copilot-otel.md), [dashboard interactions](dashboard-polish.md) and
+[pricing](pricing.md) define their respective behavior. Local HTTP source authentication,
+credentials, failure recovery and revocation are in [receiver authentication](receiver-auth.md).
 
-让用户看清本机各 Agent、各模型在今天和历史期间的可观测用量，
-判断主要消耗来自哪里、缓存使用是否变化、哪些来源尚未完整采集。
-仅统计本地数据，无账号登录、云同步或外部数据库要求；统计不需要额外调用大语言模型。
+<a id="产品目标与边界"></a>
 
-“本机”指当前电脑上的 Agent 运行实例产生的日志、数据库、用量文件及显式启用的本机遥测。
-读取本机 Agent 对云端模型的调用记录仍属于本地统计；这不要求模型本身离线运行。
-本机 WSL/容器须显式添加，记录发行版/实例身份并去重；不自动扫描或启动其环境。
-SSH/远端 Gateway、网络共享、云端账单与企业/跨设备账号报表均不接入；
-远端导出下载到本地、远端会话同步到本地或文件来自云同步盘，都不能据此证明本机归属。
-本地会话导出须保留可核验的本机来源和原生粒度；无法确认归属的记录不纳入总计，并显示排除原因。
-没有数据不是零用量，源日志存在也不代表所有模型请求都被记录。
+## Product purpose and scope
 
-已确认 Windows 11 x64 首发，GitHub CI 保留 Windows/macOS/Linux 的实际构建与测试任务。
-本地可用 WSL 2 尝试 Linux 构建；WSLg 冒烟、CI 编译和真实桌面验收分别记录。
-Harness Agent 已确认是 [Hermes Agent](https://hermes-agent.nousresearch.com/)，接入依据见 A24。
-用户已允许实施阶段提取本机真实 Agent 数据验证；按最小字段、只读和脱敏流程进行。
-F1 IDE 本轮已授权核查，缺安装/本地载体的项移出活动计划，能力限制留在矩阵；
-Zed 内置和 Junie CLI 归 M8；Zed 1.22.0 的指定外部 Provider 已有两模型/缓存原生用量样本，
-不认证 hosted 或其他 Provider；
-有本地字段依据的扩展/遥测继续按原阶段推进，详见接入矩阵。
+Show observed local usage by Agent and model for today and historical periods: where
+consumption occurs, how cache usage changes, and which sources have incomplete collection.
+Statistics use local data, requiring no account login, cloud synchronization, external
+database or additional language-model calls.
 
-## 主要决策
+Local means logs, databases, usage files and explicitly enabled telemetry produced by
+Agent instances on this computer. Local records of calls to cloud models qualify; models
+need not run offline. Local WSL/container instances require explicit roots, instance or
+distribution identity and deduplication; do not discover or start these environments automatically.
+Exclude SSH/remote gateways, network shares, cloud bills and enterprise/cross-device account
+reports. Downloading remote exports, syncing remote sessions or using a cloud-synced directory
+does not establish local origin. Local session exports must retain verifiable local attribution
+and native detail. Exclude unattributed records from totals and explain why. Missing data
+does not mean zero usage; source logs do not establish that all model requests were recorded.
 
-| 决策 | 作用与约束 |
+Windows 11 x64 is the first desktop target; GitHub CI retains Windows/macOS/Linux build and
+test jobs. Local WSL 2 Linux builds, WSLg smoke tests, CI builds and real desktop acceptance
+have separate results. Harness Agent was identified as [Hermes Agent](https://hermes-agent.nousresearch.com/),
+with A24 references. The user authorized read-only extraction of minimal, redacted native
+Agent data during implementation. This round also authorized F1 IDE investigation; missing
+installations/local formats leave active work, while limits remain in the matrix. Built-in
+Zed and Junie CLI belong to M8. Zed 1.22.0 has native two-model/cache samples for the specified
+external provider, verifying neither hosted service nor other providers. Extensions/telemetry
+with local field references continue in their assigned stages; see the matrix.
+
+<a id="主要决策"></a>
+
+## Main decisions
+
+| Decision | Purpose and constraints |
 | --- | --- |
-| Tauri 2 + Rust 后端 | 系统 WebView；文件与数据库访问集中在本地后端，包体、全进程资源和平台行为按实际环境验收 |
-| SQLite，单写者 + WAL | 本地事务、唯一约束、修订更新与汇总；无额外数据库服务，保留清理和恢复不得改动源库 |
-| Svelte + TypeScript，ECharts 按需导入、SVG 渲染 | 页面以筛选、设置与图表为主；产物和资源已有实测，未做纯 TypeScript 对照，不推断性能差值 |
-| 本地历史、显式遥测与本机会话导出 | 每源独立核验版本、字段、生命周期和本机归属；本地格式未核验的 IDE 后移 F1，不接远端用量 API |
-| 区分事件、累计值、区间报表和额度 | 消息行数、直方图样本数、积分不折算为请求或 token；字段级样本分别核对 |
-| 稳定主机/来源身份与版本化交换 | 主机名只用于辨认；聚合与完整标准化明细包分别导入，保留修订、冲突和封存 |
-| 内置编译型适配器及独立版本目录 | 按应用升级分发，产品内维护历史实现；未知版本先兼容尝试，通过后保留未核验版本标记 |
+| Tauri 2 with a Rust backend | System WebView; local backend owns file/database access. Measure package size, all-process resources and platform behavior in the actual environment. |
+| SQLite, one writer and WAL | Local transactions, unique constraints, revisions and summaries without a database service. Retention/recovery never modifies source databases. |
+| Svelte/TypeScript, selective ECharts imports and SVG | Filters, settings and charts. Artifacts/resources have measurements; no pure-TypeScript comparison was run, so no performance difference is claimed. |
+| Local history, explicit telemetry and local session exports | Verify each source's version, fields, lifecycle and local origin independently. Unverified IDE formats move to F1; no remote usage API. |
+| Separate events, cumulative values, interval reports and quotas | Message rows, histogram sample counts and credits are not requests or tokens. Check samples per field. |
+| Stable host/source identity and versioned exchange | Hostname is descriptive. Aggregate and complete normalized-detail packages import separately, retaining revisions, conflicts and archived partitions. |
+| Built-in compiled adapters with version directories | Ship through application upgrades and retain historical implementations. Unknown versions try compatibility reading and keep unverified-version markers after successful validation. |
 
-技术依据及替代方案见 [架构](architecture.md)；来源依据见 [调研记录](research.md)。
+See [architecture](architecture.md) for alternatives and [research](research.md) for source references.
 
-## 页面与交互
+<a id="页面与交互"></a>
 
-首版为一个主窗口、五个导航入口：总览、趋势、数据源、详情、设置（M6 已按此实施）。
-总览/趋势的面板可隐藏与拖拽排序。自动提取为单一全局间隔（默认 1 小时，0=关闭），
-逐源可启停并配置间隔/每日/每周计划；开机启动和 Windows 后台任务默认关闭。
-系统任务每分钟检查应用到期规则，期望与实际生效状态分开；关闭自动提取后不扫描。
-关闭窗口、退出进程、休眠和注销时能否提取在设置页分别说明，详见 [调度合同](scheduling.md)。
+## Pages and interactions
 
-| 页面 | 显示内容 | 操作及失败反馈 |
+M6 implements one main window and five navigation pages: Overview, Trends, Sources, Details
+and Settings. Overview/Trends panels can be hidden and dragged into order. Automatic collection
+has one global interval, initially one hour; 0 disables it. Each source can be enabled/disabled
+and use an interval/daily/weekly schedule. Login startup and Windows background tasks default
+off. System tasks check saved due rules every minute, reporting requested and actual state
+separately. Disabling automatic collection prevents scans. Settings explains collection
+with a closed window, exited process, sleeping computer or signed-out user; see [scheduling](scheduling.md).
+
+| Page | Contents | Operations and failure feedback |
 | --- | --- | --- |
-| 总览 | 今日汇总、小时图、模型/Agent 分布和明细；历史调用与会话、token 用量图 | 今日/近 2 个自然日/7 天/30 天/365 天；今日和历史独立拖选时段，汇总及分布联动；刷新进度与失败时间可见 |
-| 趋势 | 调用与会话、token 用量（日/周/月/时）、API 价格参考、模型/Agent 分布及模型表；最后展示活动热力图和周分布 | 点击或横向拖选时段，汇总、分布及模型表统一限制范围；恢复操作清除选区；热力图和周分布显示完整范围 |
-| 数据源 | 发现/启用状态、版本、本机归属、字段支持、最近/下次提取、错误摘要、归属用户与用户切换 | 添加本地目录、逐源启停、立即提取、重扫、移除、重新分配归属用户；显示受限原因 |
-| 详情 | 用量明细分页表（时间、Agent、模型、类别、输入、缓存读、输出、总 token、耗时、会话）；不显示提示词、回答和工具输出 | Agent/模型筛选；上/下页与跳页 |
-| 设置 | 常规（时区/语言/周起始/刷新间隔）、分级归档保留（各层统计与手动清理、清理全部数据）、开机与后台、来源身份（主机别名）、导出/导入 | 预览下次执行与配置影响；Windows 系统任务显式开启/关闭，失败显示实际生效状态 |
+| Overview | Today summary, hourly charts, model/Agent distributions and tables; historical calls/sessions and token charts | Today, last 2 calendar days, 7/30/365 days; separate today/history drag selections update summaries/distributions. Show collection progress and failure time. |
+| Trends | Calls/sessions, daily/weekly/monthly/hourly tokens, API price references, model/Agent distributions and model table; activity calendar and weekday distribution last | Click/drag selects a shared range for summaries, distributions and model table. Reset clears selection. Calendar/weekday panels show the full range. |
+| Sources | Discovery/enabled state, versions, local origin, fields, last/next collection, errors and assigned user | Add roots, enable/disable, collect now, rescan, remove, reassign users and switch user; explain limitations. |
+| Details | Paginated usage: time, Agent, model, category, input/cache read/output/total, duration and session; no prompts, responses or tool output | Agent/model filters, previous/next page and page jump. |
+| Settings | Timezone/language/week start/interval; tiered retention, per-tier statistics and manual/all-data cleanup; startup/background; host alias; export/import | Preview schedules/configuration effects. Explicitly enable/disable Windows tasks and report actual state on failure. |
 
-“直观图表”具体包括：调用与会话图、token 图（总 token/输入——缓存命中与未命中
-堆叠——/输出/缓存命中率四个子图）、模型/Agent 占比饼图与明细表、
-今日小时图、活动日历热力图及周分布。费用、错误率和延迟图按来源能力启用。
-同一图避免把 request 和 token 放在相同数轴；比例不能与数量堆叠。
-图表必须同时提供可读表格，支持键盘、深浅主题、色觉友好配色及明确单位。
-应用图标和界面静态资源见 [资源合同](../../../desktop/assets/README.md)，已有本地预览页；
-业务界面、托盘和空状态交互验收随 M6 桌面逐操作验收进行。
+Charts include calls/sessions; total tokens, stacked cached/uncached input, output and weighted
+cache-input ratio; model/Agent pies with tables; today's hourly usage; activity calendar and
+weekday distribution. Cost/error/latency charts depend on source capabilities. Requests and
+tokens do not share one numeric axis; ratios are not stacked with counts. Every chart provides
+a readable table, keyboard access, both themes, color-accessible palettes and explicit units.
+Icons/static assets are specified in [asset guidance](../../../desktop/assets/README.md),
+with local previews. UI/tray/empty-state interactions have separate M6 desktop checks.
 
-示意布局用于说明信息层级（M6 已按此实现，面板可隐藏与拖拽排序）：
+The implemented M6 layout illustrates information groups; panels remain hideable/reorderable:
 
 ```text
-[总览] [趋势] [数据源] [详情] [设置]     [时间范围] [刷新今日] [用户]
-输入（含缓存命中）| 输出 | 总 token | 缓存命中 | 未命中缓存 | 缓存命中率
-今日小时图 · 模型/Agent 饼图与明细表（总览-今日区块）
-调用与会话 · token 用量 · 热力图 · 周分布（总览-历史/趋势页）
-用量明细分页表（详情页）：时间 / Agent / 模型 / 类别 / 输入 / 缓存读 / 输出 / 总 / 耗时 / 会话
+[Overview] [Trends] [Sources] [Details] [Settings]   [Time range] [Refresh today] [User]
+Input (including cache) | Output | Total tokens | Cached | Uncached | Cache-input ratio
+Today's hourly chart, model/Agent pies and tables (Overview: today)
+Calls/sessions, tokens, activity calendar, weekday distribution (Overview: history/Trends)
+Details: time / Agent / model / category / input / cache read / output / total / duration / session
 ```
 
-## 建议增加的统计
+<a id="建议增加的统计"></a>
 
-| 内容 | 用户价值 | 数据条件与限制 | 阶段 |
+## Additional statistics
+
+| Statistic | Purpose | Data requirements and limitations | Stage |
 | --- | --- | --- | --- |
-| 缓存读取/创建拆分及加权命中率 | 定位高输入消耗和缓存复用变化 | 缓存创建计入总输入；未知字段不补零 | 首版 |
-| 单次调用 token 均值、P50/P95、异常大请求 | 识别大上下文、少量高消耗调用 | 只用逐请求完整数据；不混入会话累计记录 | 首版，按能力 |
-| 项目/工作区、主调用/子 Agent/辅助调用占比 | 识别标题生成、压缩和后台工作的消耗 | 项目维度默认关闭；父级汇总和子级事件不可双计 | 首版，按能力 |
-| 重试、错误、取消及错误请求的已知 token | 解释消耗增长和服务稳定性 | 需要请求生命周期或遥测；日志只记录成功时不显示“成功率 100%” | M5 |
-| TTFT、请求时长 P50/P95、输出速度 | 了解交互等待和服务变化 | TTFT 要有首 token 时间；速度用对应生成时段，不能从文件时间推断 | M5 |
-| 估算费用、记录费用、本机可归属的积分消耗 | 管理消耗；比较模型与缓存成本 | 本地用量与版本化价目；渠道不明不套价，参考估算不等于实际账单 | F2；估算与在线刷新默认关闭 |
-| 同期对比、预算提醒、趋势异常 | 发现持续增加或某日激增 | 今天对比昨日相同已过时段；默认关闭的日/月 token 或单币种估算提醒；未知覆盖附说明 | M6/F2，[预算](budget-reminders.md) |
-| 采集新鲜度、解析失败、字段完整性 | 让总计可解释、可核查 | 只表示已发现来源/已观测记录的覆盖，不能估计未被记录的调用总数 | 首版 |
-| 会话数、活跃天数和用量热力图 | 回看使用习惯 | 独立会话做 DISTINCT；活跃日期不等于工作时长或生产力 | 首版 |
+| Cache read/write and weighted hit ratio | Explain high input usage and cache reuse | Cache creation belongs to total input; unknown fields remain unknown | First version |
+| Per-call token average, P50/P95 and large requests | Identify large context/high-consumption calls | Complete per-request data only; exclude session cumulative records | First version, by capability |
+| Project/workspace and primary/sub-agent/auxiliary shares | Identify title generation, compaction and background usage | Project grouping defaults off; parent totals and child events must not double count | First version, by capability |
+| Retries/errors/cancellation and known tokens on failed calls | Explain consumption growth and reliability changes | Request lifecycle/telemetry required; success-only logs cannot imply 100% success | M5 |
+| TTFT, duration P50/P95 and output speed | Describe waiting and service changes | TTFT needs first-token time; speed uses the actual generation interval, never file times | M5 |
+| Estimated/reported costs and locally attributable credits | Manage usage and compare models/cache | Local usage with versioned prices; ambiguous channels receive no price; estimates are not bills | F2; estimation/online refresh default off |
+| Period comparisons, usage/cost alerts and trend anomalies | Identify sustained increases or daily spikes | Today compares equal elapsed time yesterday; daily/monthly token or single-currency estimate alerts default off; explain incomplete coverage | M6/F2; [alert rules](budget-reminders.md) |
+| Freshness, parse errors and field completeness | Explain and inspect totals | Coverage describes discovered sources/observed records, never estimated unrecorded calls | First version |
+| Sessions, active days and activity calendar | Review usage patterns | DISTINCT session identities; active dates are not work duration or productivity | First version |
 
-不从 token 推导代码质量、节省工时、个人绩效或模型能力排名。
-碳排放、GPU 时间和真实缓存内部命中概率缺乏必要数据，暂不设计为产品指标。
-界面显示名为“缓存命中率”，数学定义仍是缓存输入占比（cache_input_ratio），
-详见 [统计公式](data-contract.md#metrics)。
+Do not derive code quality, saved hours, personal performance or model rankings from tokens.
+Carbon, GPU time and true internal cache-hit probability lack required data and have no product
+metrics. The UI calls cache_input_ratio “Cache hit rate”; its formula remains cached input
+as a fraction of input. See [metric formulas](data-contract.md#metrics).
 
-## 需求映射
+<a id="需求映射"></a>
 
-| 用户要求 | 设计合同 | 验收落点 |
+## Requirement mapping
+
+| User requirement | Design reference | Acceptance checks |
 | --- | --- | --- |
-| 参考 previous-draft | [原型核对](research.md#prototype)，保留有用的维度及图表交互 | 不修改原型；历史迁移独立审计 |
-| 各模型统计与汇总 | [数据合同](data-contract.md)，模型/供应商/Agent 分离 | V01–V06，M1/M6 |
-| 历史落盘包含主机等来源，支持导入/导出/Merge 判断 | [来源身份](data-contract.md#provenance)、[明细合并](detail-merge.md) | V28，M1a/M6；聚合和完整标准化明细均已实施 |
-| 模型 API 按量价格快照与 token 费用估算 | [费用合同](data-contract.md#pricing)及 [价格合同](pricing.md) | V29/F2，发生时估算与当前 API 参考分别核对 |
-| 界面多语言与本地化格式 | [多语言方案调研](execution.md#f3) | V31，F3 调研 + M6 实施 |
-| 当天刷新 | [采集流程](architecture.md#refresh) | V07–V12，M2/M6 |
-| 自动任务定时提取 | [调度与后台生命周期](scheduling.md) | V23/V24，M1/M6 |
-| 仅本地；全部 Agent 分期尝试提取 | 本文来源边界及 [矩阵](adapters.md) | V17/V25，M2–M5/M8 逐适配器验收；本地用量格式尚未核验的 IDE 留 F1 |
-| 实施可用本机真实数据；IDE 后移；平台方案确认 | [开工准备](implementation-readiness.md) | 许可与阶段明确；准备检查通过，实施结果另记 |
-| Windows 首发、三平台 CI、WSL 构建 | [平台与 CI](platform-ci.md) | V26/V27，M0/M7 |
-| Windows 本机与 Linux Podman 安装生命周期；取消 macOS 桌面及特定硬件要求 | [安装合同](installation-lifecycle.md)、[真实来源准备](implementation-readiness.md) | [安装验收](../../validation/desktop-usage/installation-lifecycle.md)、[容器来源](../../validation/desktop-usage/container-sources.md)；宿主系统集成另验 |
-| 日/周/月汇总 | [时间合同](data-contract.md#time) | V04–V06 |
-| 其他有意义的统计 | 本文建议表，按字段能力分期 | V01–V06、V18 |
-| 保留和维度有界面配置 | [设置合同](data-contract.md#settings) | V13–V16，M6 |
-| 图表展示 | 本文页面合同 | V18，真实桌面检查 |
-| 国内外 Agent 扩展 | [全部指定工具矩阵](adapters.md)及[扩展覆盖矩阵](adapters.md#扩展覆盖) | M2–M5/M8 逐适配器验收；F1 不参与首版必验 |
-| 每个 Agent 一个目录，兼容的历史版本在其内部实现 | [目录与版本组织](architecture.md#adapter-layout)、[迁移步骤](execution.md#m2-layout) | V30，M2–M5；F1 开始实施时沿用 |
-| 未知版本先尝试最新解析器 | [兼容尝试合同](architecture.md#unknown-version) | V17/V30，M2–M5；F1 沿用 |
-| 小巧数据库 | [数据库决策](architecture.md#database) | V11/V15/V20 |
-| 轻量客户端 | [资源目标](architecture.md#budgets) | V19–V21，实际 release 制品 |
-| 初始设计后继续实施 | [Plan.md](../../../Plan.md)、[实施边界](implementation-readiness.md) | 当前交付与剩余条件见计划，原始设计调研保留历史范围 |
+| Refer to previous-draft | [Prototype review](research.md#prototype), retaining useful groupings/chart interactions | Preserve prototype; audit historical migration separately |
+| Model statistics and summaries | [Data rules](data-contract.md), separating model/provider/Agent | V01–V06, M1/M6 |
+| Persist host/source history and support export/import/Merge decisions | [Provenance](data-contract.md#provenance), [detail merge](detail-merge.md) | V28, M1a/M6; aggregate and complete normalized-detail exchange implemented |
+| API price snapshots and token estimates | [Cost rules](data-contract.md#pricing), [pricing](pricing.md) | V29/F2; check observation-time estimates/current API references separately |
+| Languages and localized formats | [Localization research](execution.md#f3) | V31; F3 research and M6 implementation |
+| Refresh today | [Collection](architecture.md#refresh) | V07–V12, M2/M6 |
+| Scheduled collection | [Scheduling/lifecycle](scheduling.md) | V23/V24, M1/M6 |
+| Local only; attempt all Agents in stages | This page's scope and the [matrix](adapters.md) | V17/V25; per-adapter M2–M5/M8 checks; unverified IDE formats remain F1 |
+| Use native local data; defer IDEs; confirm platforms | [Implementation prerequisites](implementation-readiness.md) | Permission/stages clear; preparation passed, execution recorded separately |
+| Windows first, three-platform CI and WSL builds | [Platform/CI](platform-ci.md) | V26/V27, M0/M7 |
+| Windows/Linux Podman installation; no macOS desktop/specific hardware requirement this round | [Installation](installation-lifecycle.md), [native source preparation](implementation-readiness.md) | [Lifecycle checks](../../validation/desktop-usage/installation-lifecycle.md), [container sources](../../validation/desktop-usage/container-sources.md); host integration checked separately |
+| Daily/weekly/monthly summaries | [Time rules](data-contract.md#time) | V04–V06 |
+| Other meaningful statistics | The capability-dependent table above | V01–V06, V18 |
+| Retention/grouping settings | [Settings rules](data-contract.md#settings) | V13–V16, M6 |
+| Charts | Page specifications above | V18, native desktop checks |
+| Domestic/international Agent extensions | [Tool matrix](adapters.md), [extended coverage](adapters.md#扩展覆盖) | Per-adapter M2–M5/M8 checks; F1 is not mandatory first-version acceptance |
+| One directory per Agent, historical versions within it | [Adapter layout](architecture.md#adapter-layout), [migration](execution.md#m2-layout) | V30, M2–M5; reused when F1 implementation begins |
+| Unknown versions try the latest parser | [Compatibility rules](architecture.md#unknown-version) | V17/V30, M2–M5; reused for F1 |
+| Small local database | [Database decision](architecture.md#database) | V11/V15/V20 |
+| Resource-efficient desktop | [Resource targets](architecture.md#budgets) | V19–V21, actual release artifacts |
+| Continue implementation after design | [Plan.md](../../../Plan.md), [implementation scope](implementation-readiness.md) | Current work/remaining conditions in Plan; original research retains historical scope |
 
-## 文档职责
+<a id="文档职责"></a>
 
-Plan.md 维护未完成任务；execution.md 描述任务输出和先后关系；data-contract.md 是统计行为权威源；
-adapters.md 维护工具支持范围；research.md 保存来源调研；validation.md 保留稳定验收条件。
-current-acceptance.md 汇总最新结果，专项验证记录保存环境、命令、首次失败和历史范围。
-实现改变合同前先更新对应设计，不在多个地方复制公式或散落互相冲突的支持声明。
+## Document responsibilities
+
+Plan.md maintains unfinished work; execution.md defines outputs/order; data-contract.md defines
+statistics; adapters.md defines supported tools; research.md records sources; validation.md
+defines stable acceptance criteria. current-acceptance.md indexes current results. Detailed
+records preserve environment, commands, first failures and historical scope. Update the relevant
+design before changing behavior. Do not duplicate formulas or contradictory support statements.

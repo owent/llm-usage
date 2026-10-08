@@ -17,7 +17,7 @@ pub fn automatic_allowed(interval: u64, pause_on_saver: bool, saver: bool) -> bo
 }
 
 /// Pending settings stop reads before acquiring the writer mutex. Failure drops
-/// only this request; the last persisted settings remain authoritative.
+/// only this request; the last persisted settings remain in effect.
 pub struct PauseIntent<'a>(&'a std::sync::atomic::AtomicUsize);
 impl<'a> PauseIntent<'a> {
     pub fn new(counter: &'a std::sync::atomic::AtomicUsize) -> Self {

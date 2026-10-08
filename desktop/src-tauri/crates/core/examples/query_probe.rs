@@ -1,4 +1,4 @@
-//! 诊断探针：复现 app 层 summary 命令的构建与查询步骤，定位查询失败原因。
+//! Reproduce the application summary setup and query steps to diagnose query failures.
 use llm_usage_core::calendar::{parse_date, Calendar, WeekStart};
 use llm_usage_core::query::{
     agent_breakdown, heatmap_cells, hourly_breakdown, query_summary, Filters, Granularity,
@@ -8,7 +8,7 @@ use llm_usage_core::storage::Storage;
 
 fn main() {
     let db = std::env::args().nth(1).expect("db path");
-    // 可选第三参 repair：<tz> 时先在用户时区重算（app init 修复路径的等价入口）。
+    // Optional third argument repair:<tz> recomputes in the user timezone, like app init repair.
     if let Some(mode) = std::env::args().nth(3) {
         if mode == "repair" {
             let storage = Storage::open(std::path::Path::new(&db)).unwrap();

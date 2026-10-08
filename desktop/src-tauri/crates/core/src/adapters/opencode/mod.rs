@@ -1,21 +1,21 @@
-//! OpenCode 适配器（独立目录约定 architecture.md#adapter-layout）：
-//! - 本模块是该 Agent 的稳定入口（统一接口实现与再导出）；
-//! - [`detect`]：opencode.db schema 指纹（产品互斥）+ session.version 注册表；
-//! - [`versions`]：按逐记录版本选择已验证实现或 latest_fallback；
-//! - [`common`]：产品互斥 schema 指纹 + 源库只读/暂存副本约定；
-//! - wire 解析核心在家族共享模块 [`crate::adapters::opencode_family`]。
+//! OpenCode adapter; see architecture.md#adapter-layout.
+//! - Stable entry point implements the shared interface and re-exports modules.
+//! - detect checks product-specific opencode.db schema and the session.version registry.
+//! - versions selects a verified implementation or latest_fallback per record.
+//! - common checks product-specific schema and read-only/staged source access.
+//! - Wire parsing lives in the shared crate::adapters::opencode_family module.
 //!
-//! 格式依据：A17 固定源码 0027387dc5c59793c12dfc531abc78f825ed6868；
-//! 1.18.34（aec0b9a6）的官方 CLI / 本地模型真实样本已核对主循环及缓存读。
-//! 真实样本通过不代表同库其他版本或所有调用已认证：
-//! - 路径：xdg-basedir 的 opencode 数据目录（`$XDG_DATA_HOME/opencode`，
-//!   缺省 `~/.local/share/opencode`；Windows 布局未经真实样本核验）下
-//!   `opencode.db`（安装通道变体 `opencode-<channel>.db`），WAL；
-//! - 逐次 usage：`part` 表 step-finish 部件（family 模块头证据链）；
-//! - 调研备注"精确逐请求映射尚未实现"经 pinned 源码核验修正为：
-//!   step-finish 部件携带逐 step usage（projector 计数即由其推导），
-//!   按部件行逐次映射；逐调用的精确时间/模型切换序仍待 event 层，
-//!   时间依据如实标 observed_at。
+//! Reference A17: commit 0027387dc5c59793c12dfc531abc78f825ed6868.
+//! Official CLI/local-model 1.18.34 (aec0b9a6) samples verified main-loop usage and cache reads.
+//! These checks do not verify other versions in the same database or every call path.
+//! - xdg-basedir data lives at $XDG_DATA_HOME/opencode, defaulting to
+//!   ~/.local/share/opencode; Windows layout has no real-sample verification.
+//!   WAL databases use opencode.db or the channel variant opencode-<channel>.db.
+//! - Per-step usage comes from part rows of type step-finish; see family module references.
+//! - The earlier research note that exact per-request mapping was unimplemented was
+//!   corrected after source inspection: step-finish carries usage per step and drives upstream projector counts.
+//!   Map each part row; exact call timestamps and model-switch order require further event-level data.
+//!   Timestamp basis remains observed_at.
 
 pub mod common;
 pub mod detect;
@@ -25,7 +25,7 @@ pub use detect::OPENCODE_FORMAT;
 pub use versions::step_finish_parts_v1;
 pub use versions::{LATEST_IMPL_ID, VERIFIED_VERSION_IMPLS};
 
-/// OpenCode 适配器（无状态）。
+/// Stateless OpenCode adapter.
 pub struct OpenCodeAdapter;
 
 impl Default for OpenCodeAdapter {
@@ -55,7 +55,7 @@ impl crate::adapters::framework::SourceAdapter for OpenCodeAdapter {
     ) -> Vec<crate::adapters::framework::DiscoveredRoot> {
         use crate::adapters::framework::{DiscoveredRoot, RootBasis};
         let mut roots: Vec<(std::path::PathBuf, RootBasis)> = Vec::new();
-        // xdg-basedir 数据目录（固定源码 global.ts：data = xdgData/opencode）。
+        // xdg-basedir path from the referenced global.ts: data = xdgData/opencode.
         if let Some(xdg) = ctx.env.get("XDG_DATA_HOME") {
             if !xdg.trim().is_empty() {
                 roots.push((
@@ -73,10 +73,10 @@ impl crate::adapters::framework::SourceAdapter for OpenCodeAdapter {
         for manual in &ctx.manual_roots {
             roots.push((manual.clone(), RootBasis::Manual));
         }
-        // 发现范围按**数据目录名**限定（不按文件名全盘递归）：opencode*.db 只在
-        // 名为 opencode 的数据目录内接受。手工根兼容三种形状：数据目录本身、
-        // <root>/opencode、<root>/.local/share/opencode——防止把 kilo 等同血统
-        // 产品目录里的 opencode-rc.db（同名前缀、schema 同形）误认为本产品。
+        // Inspect opencode*.db directly under each candidate data directory without recursive disk searches.
+        // Manual roots may themselves contain databases, or provide <root>/opencode
+        // or <root>/.local/share/opencode. Names alone cannot distinguish related products
+        // such as Kilo with opencode-rc.db; detection must check the product-specific schema.
         let is_db_name = |p: &std::path::Path| {
             p.file_name()
                 .and_then(|n| n.to_str())
@@ -145,7 +145,7 @@ impl crate::adapters::framework::SourceAdapter for OpenCodeAdapter {
         limits: &crate::adapters::framework::ScanLimits,
         now_ms: i64,
     ) -> Result<crate::adapters::framework::ScanOutcome, crate::error::CoreError> {
-        // 当前所有可尝试版本共用 step_finish_parts_v1；注册表扩展后在此分派。
+        // All currently attempted versions use step_finish_parts_v1; extend dispatch with the registry.
         versions::step_finish_parts_v1::scan(target, stored, limits, now_ms)
     }
 

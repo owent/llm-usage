@@ -1,37 +1,37 @@
-//! Kiro 版本注册表（V30 目录约定）：两个输入类型各自登记。
-//! 依据（第三方解析器 tokscale 1d9a939；闭源产品 AWS，本机未安装）：
-//! - CLI `~/.kiro/sessions/cli/*.json` 会话头 user_turn_metadatas（按 turn 真实
-//!   计数；Auto agent 常记 0 ⇒ 只采显式非零计数，估算路径不采纳）。
-//! - kiro-cli `~/.local/share/kiro-cli/data.sqlite3` conversations_v2 的
-//!   request_metadata（毫秒时间戳 + 五桶真实计数）。
+//! Kiro V30 registry: register the two input formats separately.
+//! References: third-party tokscale 1d9a939; closed-source AWS client, not installed locally.
+//! - CLI ~/.kiro/sessions/cli/*.json user_turn_metadatas reports turn counts.
+//!   Auto agents often write zero; read explicit positive counts and exclude estimates.
+//! - kiro-cli ~/.local/share/kiro-cli/data.sqlite3 conversations_v2
+//!   request_metadata has millisecond timestamps and five reported token buckets.
 //!
-//! IDE session.json/messages.jsonl 载体在第三方解析器中按估算处理：不实施。
+//! Third-party parsing estimates IDE session.json/messages.jsonl usage; do not implement that route.
 
 pub mod cli_turns_v1;
 pub mod sqlite_v1;
 
-/// 当前格式实现标识（CLI turns；SQLite 见第二登记条目）。
+/// Current CLI-turn implementation ID; SQLite uses the second registry entry.
 pub const LATEST_IMPL_ID: &str = "cli_turns_v1";
 
-/// 文档级格式版本。
+/// Format identifier based on documentation/source.
 pub const KIRO_FORMAT_VERSION: &str = "kiro-cli-turns-1";
-/// kiro-cli SQLite 载体锚点。
+/// kiro-cli SQLite format identifier.
 pub const KIRO_SQLITE_FORMAT_VERSION: &str = "kiro-cli-sqlite-1";
 
-/// 已验证支持的格式版本 → 格式实现（两个输入类型）。
+/// Format IDs mapped to implementations for the two input types, without native version acceptance.
 pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[
     ("kiro-cli-turns-1", "cli_turns_v1"),
     ("kiro-cli-sqlite-1", "sqlite_v1"),
 ];
 
-/// 版本分派结论。
+/// Version selection result.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Selection {
     pub impl_id: &'static str,
     pub basis: crate::domain::VersionBasis,
 }
 
-/// 按格式版本选择实现；探测与扫描共用本函数（V30）。
+/// Detection and scanning share this V30 format-selection function.
 pub fn select(found: Option<&str>) -> Selection {
     match found {
         Some(version) => {

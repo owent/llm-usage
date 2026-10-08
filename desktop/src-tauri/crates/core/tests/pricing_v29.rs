@@ -1,10 +1,10 @@
-//! V29：价格快照、费用估算引擎与汇总的约定测试。
+//! V29 tests for price snapshots, cost estimation, and summaries.
 //!
-//! 价格样本取自 [价格规范](../../../docs/design/desktop-usage/pricing.md) V29 固定样本
-//! （P1–P6，单位换算为"最小货币单位百分之一/百万 token"，即表值 ×100）；
-//! 期望金额为人工核算值。E2 说明：原样本 token 量（输入合计 1.3M）按上下文档
-//! 阈值语义应命中 P3 长档而非 P2（与 E4/E5 语义一致），测试同时覆盖
-//! P2 全维度（token 量缩至阈值内）与原量值命中 P3 两种情形。
+//! Fixed P1–P6 samples come from the pricing specification. Rates use hundredths of a
+//! minor currency unit per million tokens (displayed major-unit prices multiplied by 10,000).
+//! Expected amounts are calculated manually. Original E2 input totals 1.3M and therefore
+//! selects the P3 long-context tier. This file tests the scaled 130K-input E2' under P2
+//! and P2/P3 threshold boundaries; do not claim a separate original-1.3M test here.
 
 mod common;
 
@@ -16,7 +16,7 @@ use llm_usage_core::retention_tiered::{enforce_tiered_retention, TieredRetention
 use llm_usage_core::storage::pricing::{CostFilters, CostSummaryRequest};
 use llm_usage_core::storage::Storage;
 
-/// P1–P6 固定价格样本 + A4 batch 档对照行（不参与 standard 匹配）。
+/// Fixed P1–P6 samples plus A4's batch comparison row, excluded from standard matching.
 const SNAPSHOT: &str = r#"{
   "format": "llm-usage-price-snapshot/1",
   "snapshot": {"id": "v29-sample", "source_type": "manual", "source_urls": [],
@@ -62,13 +62,13 @@ fn options() -> EstimateOptions {
     options
         .provider_channels
         .insert("moonshot".into(), ("global".into(), "api".into()));
-    // A6/E3：moonshot 缓存写默认 1h 档；E2'：openai 默认 5m 档（P2 有 5m 写价）。
+    // Test options: moonshot cache writes use 1h (A6/E3); openai uses 5m (E2', with P2 write prices).
     options.cache_ttl_minutes.insert("moonshot".into(), 60);
     options.cache_ttl_minutes.insert("openai".into(), 5);
     options
 }
 
-/// 构造带完整四分量 token 的事件（Some 字段标 reported；UTC 2026-09-26 12:00 发生）。
+/// Build an event with four token components; present values are Reported, occurring at 2026-09-26 12:00 UTC.
 fn priced_evt(
     key: &str,
     provider: &str,
@@ -94,7 +94,7 @@ fn priced_evt(
         (Some(t), Some(o)) => Some(t + o),
         _ => None,
     };
-    // quality 与取值一致（None ⇒ Unknown），否则 ingest 校验拒绝。
+    // Match quality to values (None means Unknown), as required by ingest validation.
     e.quality.input_uncached = opt_quality(uncached);
     e.quality.input_cache_read = opt_quality(read);
     e.quality.input_cache_write = opt_quality(write);
@@ -293,7 +293,7 @@ fn current_reference_rates_curve_and_hour_selection_preserve_frozen_costs() {
         .is_err());
 }
 
-/// E1/E3/E4–E7/E8 + A1–A8 全过程（导入→入库→回填→汇总）。
+/// Test import, persistence, backfill, and summaries for E1/E3/E4–E7/E8 and A1–A8.
 #[test]
 fn v29_contract_amounts_and_anomalies() {
     let (_dir, storage) = temp_storage("v29");
@@ -302,7 +302,7 @@ fn v29_contract_amounts_and_anomalies() {
         .import_price_snapshot(&snapshot, ts("2026-09-25T00:00:00Z"))
         .unwrap();
     assert_eq!(imported.inserted_rows, 7);
-    // A10：同快照重复导入幂等跳过。
+    // A10: repeated import of the same snapshot is idempotent.
     let again = storage
         .import_price_snapshot(&snapshot, ts("2026-09-26T00:00:00Z"))
         .unwrap();
@@ -311,7 +311,7 @@ fn v29_contract_amounts_and_anomalies() {
 
     let now = ts("2026-09-27T12:00:00Z");
     let events = vec![
-        // E1 混合输入（P1，CNY）：988+100+968 = 2056 分；写分量未计价。
+        // E1 mixed input (P1, CNY): 988+100+968=2056 fen; cache writes remain unpriced.
         priced_evt(
             "e1",
             "zhipuai",
@@ -321,7 +321,7 @@ fn v29_contract_amounts_and_anomalies() {
             Some(200_000),
             Some(345_678),
         ),
-        // E2' 全维度 P2（输入合计 130K < 272K）：100+2+13+125 = 240 美分。
+        // E2' has all four components under P2 (130K input <272K): 100+2+13+125=240 US cents.
         priced_evt(
             "e2",
             "openai",
@@ -331,7 +331,7 @@ fn v29_contract_amounts_and_anomalies() {
             Some(10_000),
             Some(25_000),
         ),
-        // E3 TTL 1h（P4，moonshot 默认 60 分钟）：120+9+360+225 = 714 美分。
+        // E3 1h TTL (P4; test moonshot default 60 minutes): 120+9+360+225=714 US cents.
         priced_evt(
             "e3",
             "moonshot",
@@ -341,7 +341,7 @@ fn v29_contract_amounts_and_anomalies() {
             Some(600_000),
             Some(150_000),
         ),
-        // E4 阶梯上界（输入合计 272,000 → P3）：544+60 = 604 美分。
+        // E4 upper-tier boundary (272,000 total input selects P3): 544+60=604 US cents.
         priced_evt(
             "e4",
             "openai",
@@ -351,7 +351,7 @@ fn v29_contract_amounts_and_anomalies() {
             Some(0),
             Some(8_000),
         ),
-        // E5 阶梯下界（271,999 → P2）：272+40 = 312 美分。
+        // E5 below the boundary (271,999 selects P2): 272+40=312 US cents.
         priced_evt(
             "e5",
             "openai",
@@ -361,7 +361,7 @@ fn v29_contract_amounts_and_anomalies() {
             Some(0),
             Some(8_000),
         ),
-        // E6 GLM 阶梯（32,768 → P6）：26+3 = 29 分。
+        // E6 GLM threshold (32,768 selects P6): 26+3=29 fen.
         priced_evt(
             "e6",
             "zhipuai",
@@ -371,7 +371,7 @@ fn v29_contract_amounts_and_anomalies() {
             Some(0),
             Some(1_000),
         ),
-        // E7 GLM 阶梯下界（32,767 → P5）：20+2 = 22 分。
+        // E7 below the GLM threshold (32,767 selects P5): 20+2=22 fen.
         priced_evt(
             "e7",
             "zhipuai",
@@ -381,7 +381,7 @@ fn v29_contract_amounts_and_anomalies() {
             Some(0),
             Some(1_000),
         ),
-        // A1 无按量价模型：未计价。
+        // A1: a model without pay-as-you-go prices remains unpriced.
         priced_evt(
             "a1",
             "moonshot",
@@ -391,7 +391,7 @@ fn v29_contract_amounts_and_anomalies() {
             Some(0),
             Some(1_000),
         ),
-        // A2 部分可计价：输出未知、输入已知（P1）。
+        // A2: partially priced P1 usage with known input and unknown output.
         priced_evt(
             "a2",
             "zhipuai",
@@ -401,7 +401,7 @@ fn v29_contract_amounts_and_anomalies() {
             Some(0),
             None,
         ),
-        // A3 推理不重复计价：reasoning ⊂ output（P2 输入 130K 档）。
+        // A3: reasoning is a subset of output, without an additional charge (130K-input P2 tier).
         {
             let mut e = priced_evt(
                 "a3",
@@ -416,7 +416,7 @@ fn v29_contract_amounts_and_anomalies() {
             e.quality.output_reasoning = FieldQuality::Reported;
             e
         },
-        // A5 缓存读价缺失（P5/P6 read NULL）：读分量未计价，其余照计。
+        // A5: absent cache-read prices (NULL in P5/P6) leave reads unpriced; price other components normally.
         priced_evt(
             "a5",
             "zhipuai",
@@ -426,8 +426,8 @@ fn v29_contract_amounts_and_anomalies() {
             Some(0),
             Some(1_000),
         ),
-        // A6 TTL 未知：zhipuai 未设默认档且 P1 无写价 → 写分量未计价（E1 已覆盖）。
-        // A7 历史复现：事件早于快照生效起点 → at_time 未计价，current_sim 可计。
+        // A6: unknown TTL, no zhipuai default, and no P1 write price leave writes unpriced, as in E1.
+        // A7: an event before snapshot effectiveness is unpriced at_time but can use current_sim.
         priced_evt(
             "a7",
             "zhipuai",
@@ -437,7 +437,7 @@ fn v29_contract_amounts_and_anomalies() {
             Some(0),
             Some(1_000),
         ),
-        // A8 异常 token：缓存读写合计大于已知总输入 → 拒绝计价。
+        // A8: reject pricing when cache reads+writes exceed known total input.
         {
             let mut e = priced_evt(
                 "a8",
@@ -448,11 +448,11 @@ fn v29_contract_amounts_and_anomalies() {
                 Some(50_000),
                 Some(1_000),
             );
-            // 源端矛盾：总输入 60,000 < read+write 100,000。
+            // Contradictory source fields: total input 60,000 < reads+writes 100,000.
             e.usage.input_total = Some(60_000);
             e
         },
-        // 来源记录金额（crush 形态）：reported 1000 美分 + 来源估算 500 美分。
+        // Source-recorded amounts in Crush's shape: 1000 US cents Reported +500 US cents source-estimated.
         {
             let mut e = priced_evt(
                 "src1",
@@ -492,13 +492,13 @@ fn v29_contract_amounts_and_anomalies() {
             e
         },
     ];
-    // A7 事件改到快照生效前（2026-09-20）与独立来源实例。
+    // Move A7 to 2026-09-20, before snapshot effectiveness, and a separate source instance.
     let mut events: Vec<_> = events;
     if let Some(a7) = events.iter_mut().find(|e| e.source_record_key == "a7") {
         a7.occurred_at_ms = ts("2026-09-20T12:00:00Z");
         a7.source_instance_id = "inst2".to_string();
     }
-    // 提交两个批次（不同日，验证回填按日执行）。
+    // Commit batches on two days to check backfill by day.
     let (a7, rest): (Vec<_>, Vec<_>) = events
         .into_iter()
         .partition(|e| e.source_record_key == "a7");
@@ -511,7 +511,7 @@ fn v29_contract_amounts_and_anomalies() {
     )
     .unwrap();
 
-    // 回填两个日（09-20 与 09-26）。
+    // Backfill 09-20 and 09-26.
     let outcomes = storage
         .recompute_unsealed_cost_days("UTC", now, &options())
         .unwrap();
@@ -520,24 +520,24 @@ fn v29_contract_amounts_and_anomalies() {
 
     let summary = run_summary(&storage, now);
 
-    // E1（P1/CNY）：2056 分；E6/E7/E5 档位、A2 部分计价、A5 与 src2 见下。
+    // E1 (P1/CNY): 2056 fen; check E6/E7/E5 tiers, partial A2, A5, and src2 below.
     let cny = currency_row(&summary, at_time, "CNY");
-    // GLM-5.3 未缓存输入先累计 987.6536+800+0.8=1788.4536 → 1788 分，
-    // 避免分别舍入产生 988+800+1。GLM-5.1 输入 72 分，CNY 合计 2939 分。
-    // A5：read 100,000 使输入合计 132,767 ≥ 32,768 → P6 档（读价 NULL 未计价）。
+    // Sum GLM-5.3 uncached input before rounding: 987.6536+800+0.8=1788.4536→1788 fen,
+    // rather than 988+800+1. GLM-5.1 input is 72 fen; total CNY amount is 2939 fen.
+    // A5 reads of 100,000 make total input 132,767≥32,768, selecting P6; NULL read prices remain unpriced.
     assert_eq!(cny.total_amount_minor, 2939);
     assert_eq!(cny.input_amount_minor, Some(1788 + 72));
-    // E1 的 200,000 写 token 与 A5 的 100,000 读 token 未计价 → known > priced。
+    // E1's 200,000 write tokens and A5's 100,000 read tokens are unpriced: known > priced.
     assert!(cny.known_tokens > cny.priced_tokens);
-    // 部分：E1（写未计价）、A2（输出未知）、A5（读未计价）。
+    // Partial cases: E1 unpriced writes, A2 unknown output, A5 unpriced reads.
     assert_eq!(cny.partial_event_count, 3);
 
-    // E2'/E4/E5/E3 + A3 + src1 估算（USD）。
+    // E2'/E4/E5/E3 + A3 + src1 estimation in USD.
     let usd = currency_row(&summary, at_time, "USD");
-    // 240 + 604 + 312 + 714 + 1100 + 6 = 2976 美分。
+    // Total USD amount: 240+604+312+714+1100+6=2976 cents.
     assert_eq!(usd.total_amount_minor, 240 + 604 + 312 + 714 + 1100 + 6);
 
-    // E8：多币种分列，无汇率不合并。
+    // E8: retain separate currencies without exchange-rate conversion.
     assert_eq!(
         summary
             .at_time
@@ -548,14 +548,14 @@ fn v29_contract_amounts_and_anomalies() {
         2
     );
 
-    // A1/A8 未计价计数与原因。
+    // Check A1/A8 unpriced counts and reasons.
     let unpriced = currency_row(&summary, at_time, "");
     assert_eq!(unpriced.unpriced_event_count, 2);
     let reasons = &summary.at_time.unpriced_reasons;
-    assert_eq!(reasons.get("no_price_row"), Some(&1)); // A1
-    assert_eq!(reasons.get("token_anomaly"), Some(&1)); // A8
+    assert_eq!(reasons.get("no_price_row"), Some(&1)); // A1: no_price_row.
+    assert_eq!(reasons.get("token_anomaly"), Some(&1)); // A8: token_anomaly.
 
-    // 来源金额分列（reported 与 source_estimate 同币种合并展示）。
+    // Source amounts are separate from app estimates; Reported and source_estimate share a same-currency display total.
     let src = summary
         .source_amounts
         .iter()
@@ -563,19 +563,19 @@ fn v29_contract_amounts_and_anomalies() {
         .expect("source USD row");
     assert_eq!(src.total_amount_minor, 1500);
 
-    // A7：at_time 汇总（09-26 范围）不含 09-20 事件；current_sim 同理（范围外）。
-    // A4：batch 档行不串用——E3 金额按 standard P4 计（已由 714 断言覆盖）。
-    // A3：reasoning 不重复计价（A3 事件金额 = 100 输入 + 1000 输出，无推理加成）。
+    // A7: the 09-26 range excludes its 09-20 event in both at_time and current_sim.
+    // A4: do not use batch prices for standard service; E3 uses P4, verified by the 714-cent assertion.
+    // A3: 100 input +1000 output cents, without charging reasoning again.
 
-    // 按当前价格模拟：09-26 范围内事件存在 → 非 detail_limited；
-    // 金额始终按当前行计算（本快照区间覆盖 now，数值与 at_time 一致）。
+    // Current simulation has events in the 09-26 range, so detail_limited is false;
+    // current rows cover now and give the same amounts as at_time in this snapshot.
     assert!(!summary.current_sim.detail_limited);
     let sim_usd = currency_row(&summary, current_sim, "USD");
     assert_eq!(sim_usd.total_amount_minor, usd.total_amount_minor);
     assert_eq!(sim_usd.unpriced_event_count, 0);
 
-    // A7 单独范围（09-20）：at_time 有该日行（未计价原因 no_price_row），
-    // current_sim 有当前价模拟金额（区间有效）。
+    // A7's 09-20 range has an at_time row with reason no_price_row;
+    // current_sim has an amount using an effective current price row.
     let a7_summary = storage
         .cost_summary(&CostSummaryRequest {
             timezone: "UTC".to_string(),
@@ -587,7 +587,7 @@ fn v29_contract_amounts_and_anomalies() {
         })
         .unwrap();
     let a7_cny = currency_row(&a7_summary, current_sim, "CNY");
-    // 1M×80000/1e8 = 800 输入 + 1000×280000/1e8 = 3 输出。
+    // Input 1M×80000/1e8=800 + output 1000×280000/1e8 rounds to 3 fen.
     assert_eq!(a7_cny.total_amount_minor, 803);
     let a7_at = currency_row(&a7_summary, at_time, "");
     assert_eq!(a7_at.unpriced_event_count, 1);
@@ -596,11 +596,11 @@ fn v29_contract_amounts_and_anomalies() {
         Some(&1)
     );
 
-    // 估算引用：价格基础含样本快照，数据修订 > 0。
+    // Estimation references include the sample snapshot and a positive data revision.
     assert!(summary.price_basis.contains(&"v29-sample".to_string()));
     assert!(summary.data_revision > 0);
 
-    // 幂等：重复回填不增长。
+    // Repeated backfill is idempotent.
     storage
         .recompute_unsealed_cost_days("UTC", now, &options())
         .unwrap();
@@ -615,7 +615,7 @@ fn v29_contract_amounts_and_anomalies() {
     );
 }
 
-/// 未配置渠道且缺少官方价行时保留未计价，不把非官方手工价当参考。
+/// Without a configured channel or an official rate, leave usage unpriced; do not use unofficial manual rates as references.
 #[test]
 fn v29_unconfigured_channel_leaves_events_unpriced() {
     let (_dir, storage) = temp_storage("v29chan");
@@ -920,8 +920,8 @@ fn run_summary_channel_none(
         .unwrap()
 }
 
-/// 采集后回填选日语义：只选"修订号大于刷新前值"的未封存日——
-/// 分级保留在扫描后再 bump 修订号不得使选日落空，封存日不入选。
+/// After collection, select unsealed days with revisions above the pre-refresh revision;
+/// later retention revision increases must not hide them. Exclude sealed days.
 #[test]
 fn v29_backfill_day_selection_uses_revision_floor() {
     let (_dir, storage) = temp_storage("v29backfill");
@@ -942,19 +942,19 @@ fn v29_backfill_day_selection_uses_revision_floor() {
     commit_batch(&storage, &batch("inst", "UTC", now, events), None).unwrap();
     let revision_after_scan = storage.data_revision().unwrap();
 
-    // 刷新前修订号 < 扫描修订号 → 该日入选。
+    // A revision above the pre-refresh value selects the day.
     let days = storage
         .cost_backfill_days_since("UTC", revision_after_scan - 1)
         .unwrap();
     assert_eq!(days, vec!["2026-09-26".to_string()]);
 
-    // 无新写入的刷新（下限 = 当前修订号）→ 空集，不重复回填。
+    // A refresh with no new writes and a lower bound equal to the current revision selects nothing.
     let days_none = storage
         .cost_backfill_days_since("UTC", revision_after_scan)
         .unwrap();
     assert!(days_none.is_empty());
 
-    // 封存日不入选：封存后即使修订号更大也跳过。
+    // Exclude sealed days even when their revision increases.
     storage
         .conn()
         .execute(
@@ -968,7 +968,7 @@ fn v29_backfill_day_selection_uses_revision_floor() {
     assert!(days_sealed.is_empty());
 }
 
-/// 种子快照导入 + 校验（schema 校验/区间重叠/币种枚举在 pricing 单测覆盖）。
+/// Import and validate the seed snapshot; pricing unit tests cover schema, interval overlap, and currency checks.
 #[test]
 fn v29_seed_snapshot_imports_idempotently() {
     let (_dir, storage) = temp_storage("v29seed");
@@ -1007,8 +1007,8 @@ fn v29_seed_snapshot_imports_idempotently() {
     );
 }
 
-/// 维度筛选语义：provider/model 筛选只命中所选值（空值事件不算入任何具体
-/// 供应商筛选）；"unknown" 筛选值命中空 provider 事件（与 query::Filters 一致）。
+/// Provider/model filters match selected values; missing providers do not match any named
+/// provider. The "unknown" filter selects missing providers, as query::Filters does.
 #[test]
 fn v29_dimension_filters_do_not_include_empty_values() {
     let (_dir, storage) = temp_storage("v29filter");
@@ -1017,7 +1017,7 @@ fn v29_dimension_filters_do_not_include_empty_values() {
         .import_price_snapshot(&snapshot, ts("2026-09-25T00:00:00Z"))
         .unwrap();
     let now = ts("2026-09-27T12:00:00Z");
-    // 三个事件：openai 有价、无 provider（不套价）、zhipuai 有价。
+    // Three events: priced openai, missing provider, and priced zhipuai.
     let events = vec![
         priced_evt(
             "f1",
@@ -1069,8 +1069,8 @@ fn v29_dimension_filters_do_not_include_empty_values() {
             .unwrap()
     };
 
-    // 只筛 openai：不含无 provider 事件。输入合计 1M ≥ 272K → P3 长档：
-    // in 1M×200000/1e8 = 2000 + out 1M×750000/1e8 = 7500 → 9500 美分。
+    // Filter openai only, excluding missing-provider events. Total input 1M≥272K selects P3:
+    // input 1M×200000/1e8=2000 + output 1M×750000/1e8=7500 gives 9500 US cents.
     let openai_only = summary_with(llm_usage_core::storage::pricing::CostFilters {
         providers: vec!["openai".to_string()],
         ..Default::default()
@@ -1084,7 +1084,7 @@ fn v29_dimension_filters_do_not_include_empty_values() {
     assert_eq!(usd.total_amount_minor, 9500);
     assert_eq!(usd.priced_event_count, 1);
 
-    // "unknown" 筛选：只命中无 provider 事件（未计价，channel_unknown）。
+    // The "unknown" filter selects only missing-provider events, unpriced with channel_unknown.
     let unknown_only = summary_with(llm_usage_core::storage::pricing::CostFilters {
         providers: vec!["unknown".to_string()],
         ..Default::default()
@@ -1103,7 +1103,7 @@ fn v29_dimension_filters_do_not_include_empty_values() {
         Some(&1)
     );
 
-    // 模型筛选同理：只筛 glm-5.3（P1：in 800 + out 2800 = 3600 分，不含 gpt 事件）。
+    // Model filtering selects glm-5.3 only: P1 input 800 + output 2800=3600 fen, excluding GPT events.
     let glm_only = summary_with(llm_usage_core::storage::pricing::CostFilters {
         models: vec!["glm-5.3".to_string()],
         ..Default::default()
@@ -1117,13 +1117,13 @@ fn v29_dimension_filters_do_not_include_empty_values() {
     assert_eq!(cny.total_amount_minor, 3600);
 }
 
-/// 官方供应商回退端到端（当前规则）：事件 provider 无精确价格行时
-/// 参考官方 provider 按量价，日成本行与汇总记录 fallback_event_count；
-/// 未配置渠道同样可参考已标官方的同型号价格，实际渠道保持未知。
+/// Test official-provider fallback when the event provider has no exact price row:
+/// use the official pay-as-you-go rate and retain fallback_event_count in daily costs and summaries.
+/// Unconfigured channels may use an explicitly official same-model reference; actual channel remains unknown.
 #[test]
 fn v29_official_provider_fallback_end_to_end() {
     let (_dir, storage) = temp_storage("v29fallback");
-    // 社区快照：官方 vendorA 的 m-one（official_vendor 默认 true；USD $10/$50）。
+    // Synthetic community snapshot: official vendorA m-one; official_vendor defaults true, with $10/$50 USD rates.
     let community = parse_snapshot_json(
         r#"{"format":"llm-usage-price-snapshot/1",
             "snapshot":{"id":"models-dev-2026-09-25-test","source_type":"community",
@@ -1139,7 +1139,7 @@ fn v29_official_provider_fallback_end_to_end() {
 
     let now = ts("2026-09-27T12:00:00Z");
     let events = vec![
-        // relay-x 无精确行 → 回退 vendorA 官方行：1M×$10 + 1M×$50 = $60（6000 美分）。
+        // relay-x lacks an exact row; vendorA's official reference gives 1M×$10 +1M×$50=$60, or 6000 US cents.
         priced_evt(
             "fb1",
             "relay-x",
@@ -1149,7 +1149,7 @@ fn v29_official_provider_fallback_end_to_end() {
             Some(0),
             Some(1_000_000),
         ),
-        // 未配置渠道同样可参考该型号已明确标记的官方价格。
+        // An unconfigured channel may also use this model's explicitly official reference price.
         priced_evt(
             "fb2",
             "relay-unconfigured",
@@ -1188,7 +1188,7 @@ fn v29_official_provider_fallback_end_to_end() {
         .price_basis
         .contains(&"models-dev-2026-09-25-test".to_string()));
     assert!(summary.at_time.unpriced_reasons.is_empty());
-    // 按当前价格模拟同样走回退并计数。
+    // Current simulation also uses and counts official-provider fallback.
     let sim_usd = currency_row(&summary, current_sim, "USD");
     assert_eq!(sim_usd.fallback_event_count, 2);
 }

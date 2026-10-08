@@ -1,30 +1,30 @@
-//! Junie CLI events.jsonl 格式实现（`events_doc1`，文档级 junie-events-doc-1）。
+//! Junie CLI events.jsonl implementation events_doc1; format junie-events-doc-1.
 //!
-//! 格式依据（第三方开源解析器 tokscale 固定提交
-//! 1d9a9395418efc6952944b794097935d7d6fa1e8 sessions/junie.rs；闭源产品，
-//! 以及官方 26.9.22（3419.29）发行包与真实本地 OpenAICompletion 样本）：
-//! - 路径 `~/.junie/sessions/<session-id>/events.jsonl`（clients.rs:757-766）；
-//!   官方 JUNIE_HOME 覆盖已实际核验。
-//! - 用量事件判定 `event.agentEvent.kind == "LlmResponseMetadataEvent"`
-//!   （junie.rs:54-57）；顶层 `timestampMs`（int 毫秒，**响应结束时刻**，
-//!   junie.rs:113-119）；`event.agentEvent.modelUsage[]` 逐轮：
-//!   `model`、input=`inputTokens|input`、output=`outputTokens|output`、
-//!   cache_read=`cacheInputTokens|cacheReadInputTokens|cacheRead`、
-//!   cache_write=`cacheCreateTokens|cacheCreationInputTokens|cacheWrite`、
-//!   reasoning=`reasoningTokens|reasoningOutputTokens|thinkingTokens`、
-//!   `cost`（正值为客户端 Estimated USD；付费渠道未验收）、`time`（正调用延迟 ms）、
-//!   `provider`（junie.rs:224-245）。
-//! - 起始时间 = timestampMs − time（仅当 time 在场，junie.rs:126-130）⇒
-//!   occurred_at 取 timestampMs（SourceCompletion），duration=time。
-//! - 会话目录名 `session-<yyMMdd>-<HHmmss>` 仅作备用时间来源（未采用：timestampMs
-//!   在场才入账，缺时间戳跳行记诊断）。
-//! - 对账键：junie:&lt;session&gt;:&lt;ts&gt;:&lt;model&gt;:&lt;五桶值&gt;:&lt;cost12位&gt;
-//!   :&lt;行号&gt;:&lt;数组内索引&gt;（tokscale junie.rs:100-108 原键不含行号——
-//!   两条不同行的同毫秒同内容事件会折叠；本仓约定要求同毫秒重复记录都入账，
-//!   键含行号区分；JSONL 追加源行号稳定，rescan 重放行号一致，幂等性不变）。
-//! - 官方 UsageTokens/inputTokens 是非缓存输入；缺字段默认零会进入
-//!   ModelUsage，五桶、费用及耗时的零不能认证报告零。正桶独立保留，
-//!   无 API 类型/产品版本及完整桶依据，不派生总输入/总 token。
+//! References: third-party tokscale commit
+//! 1d9a9395418efc6952944b794097935d7d6fa1e8 sessions/junie.rs for the proprietary product,
+//! plus official 26.9.22 (3419.29) packages and native local OpenAICompletion samples.
+//! - ~/.junie/sessions/<session-id>/events.jsonl (clients.rs:757-766);
+//!   official JUNIE_HOME override was checked in actual use.
+//! - Select event.agentEvent.kind=LlmResponseMetadataEvent (junie.rs:54-57).
+//!   Top-level timestampMs is integer response-completion milliseconds (junie.rs:113-119).
+//!   Each event.agentEvent.modelUsage[] entry supplies:
+//!   model; inputTokens/input for input; outputTokens/output for output;
+//!   cacheInputTokens/cacheReadInputTokens/cacheRead for cache read;
+//!   cacheCreateTokens/cacheCreationInputTokens/cacheWrite for cache write;
+//!   reasoningTokens/reasoningOutputTokens/thinkingTokens for reasoning;
+//!   positive cost as client-estimated USD (paid channels unaccepted), positive time as duration in ms,
+//!   and provider (junie.rs:224-245).
+//! - A present positive time permits start=timestampMs-time (junie.rs:126-130);
+//!   occurrence uses timestampMs/SourceCompletion, with duration=time.
+//! - Do not derive timestamps from session-<yyMMdd>-<HHmmss> directories;
+//!   require timestampMs and diagnose rows without it.
+//! - Event identity: junie:<session>:<ts>:<model>:<five-bucket-values>:<cost-to-12-decimals>
+//!   :<line-number>:<array-index>. The tokscale key (junie.rs:100-108) omits line numbers,
+//!   which would collapse different same-millisecond/content rows. Retain each source row
+//!   with stable JSONL line identity across appends/rescans.
+//! - Official UsageTokens/inputTokens is uncached input. ModelUsage carries zero defaults;
+//!   zero token/cost/duration fields do not establish reported zero. Retain positive buckets independently.
+//!   Without verified API/version/inclusion rules, do not derive total input or total tokens.
 
 use crate::adapters::framework::{
     ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -99,9 +99,9 @@ fn session_id_of(path: &std::path::Path) -> String {
         .to_string()
 }
 
-/// 别名组取值：第一个在场的有效数值别名；越界（负/超限）返回 None
-/// （调用方记诊断）；非整数别名不遮蔽同层后续有效别名（多版本兼容分支
-/// 必须可达），全部别名非法才算形状偏离。
+/// Read numeric aliases in order; reject negative/out-of-range values.
+/// Noninteger aliases do not hide later valid aliases at the same level, preserving compatibility;
+/// diagnose a set whose present aliases are all invalid.
 fn alias_u64(
     obj: &serde_json::Map<String, serde_json::Value>,
     keys: &[&str],
@@ -123,10 +123,10 @@ fn alias_u64(
         }
     }
     if type_deviation {
-        // 有别名在场但全非整数：形状偏离（调用方记诊断跳过该条目）。
+        // Present aliases without an integer value are malformed; the caller diagnoses/skips the entry.
         None
     } else {
-        // 无一别名在场。
+        // No alias is present.
         Some(None)
     }
 }
@@ -287,8 +287,8 @@ pub fn scan(
                     total_tokens: None,
                     source_total: None,
                 },
-                // 在场桶必须标 Reported：TokenQuality::default() 全 Unknown 会在
-                // ingest 校验（domain.rs:421 值与质量不一致）被拒，整批事件无法入账。
+                // Known positive buckets require Reported quality; default Unknown with a value
+                // would reject that event during ingest validation. finish() preserves absent values as unknown.
                 crate::domain::TokenQuality {
                     input_cache_read: crate::domain::FieldQuality::Reported,
                     input_cache_write: crate::domain::FieldQuality::Reported,
@@ -332,10 +332,10 @@ pub fn scan(
                 occurred_at_ms: timestamp_ms,
                 observed_at_ms: Some(now_ms),
                 source_time: Some(timestamp_ms.to_string()),
-                // timestampMs 是响应结束时刻（依据第三方解析器 junie.rs:113-119）。
+                // timestampMs is response completion according to junie.rs:113-119.
                 time_basis: TimeBasis::SourceCompletion,
-                // duration 超过响应结束时刻 ⇒ 起点为负（数据矛盾）：
-                // 起点置未知不编负值，端点保持真实报告。
+                // Duration above response completion would create a negative start;
+                // leave the start unknown while retaining the native endpoint.
                 interval_start_ms: duration
                     .and_then(|d| timestamp_ms.checked_sub(d))
                     .filter(|s| *s >= 0),

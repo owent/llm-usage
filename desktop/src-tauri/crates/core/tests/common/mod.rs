@@ -1,4 +1,4 @@
-//! 集成测试公共辅助：真实临时 SQLite 文件库与事件构造器。
+//! Integration-test helpers for temporary file-backed SQLite databases and synthetic events.
 #![allow(dead_code)]
 
 use llm_usage_core::domain::*;
@@ -40,19 +40,19 @@ impl Drop for TempDir {
     }
 }
 
-/// 打开真实临时文件库（WAL）。
+/// Open temporary file-backed storage with WAL.
 pub fn temp_storage(tag: &str) -> (TempDir, Storage) {
     let dir = TempDir::new(tag);
     let storage = Storage::open(&dir.db_path()).unwrap();
     (dir, storage)
 }
 
-/// ISO 8601 字符串 → UTC 毫秒。
+/// Parse ISO 8601 into UTC milliseconds.
 pub fn ts(s: &str) -> i64 {
     s.parse::<jiff::Timestamp>().unwrap().as_millisecond()
 }
 
-/// 构造一个默认事件：provider "prov"、model "m"、final、verified、model_call。
+/// Synthetic default event: provider prov, model m, final/verified model_call.
 pub fn evt(instance: &str, key: &str, occurred_ms: i64) -> EventInput {
     EventInput {
         source_instance_id: instance.to_string(),
@@ -91,7 +91,7 @@ pub fn evt(instance: &str, key: &str, occurred_ms: i64) -> EventInput {
     }
 }
 
-/// 给事件设置统一 token 值（input_total/output_total/total_tokens reported）。
+/// Assign synthetic reported input/output/total values to a test event.
 pub fn with_tokens(mut e: EventInput, input: i64, output: i64) -> EventInput {
     e.usage.input_total = Some(input);
     e.usage.output_total = Some(output);
@@ -116,7 +116,7 @@ pub fn batch(instance: &str, tz: &str, now_ms: i64, events: Vec<EventInput>) -> 
     }
 }
 
-// ---- M2-A：Codex 适配器测试辅助 ----
+// M2-A Codex adapter helpers.
 
 use llm_usage_core::adapters::codex::CodexAdapter;
 use llm_usage_core::adapters::framework::{
@@ -124,9 +124,9 @@ use llm_usage_core::adapters::framework::{
 };
 use llm_usage_core::jobs::TriggerKind;
 
-/// 把 M0 脱敏 fixture（sanitized projection）还原为 rollout JSONL 字节流。
-/// 脱敏数据保留了每行的 timestamp/type/payload 白名单结构，正文为常量占位；
-/// 去掉提取器附加的 `line` 键后逐行序列化即得原始形状的 JSONL。
+/// Reconstruct rollout JSONL from the M0 redacted test dataset.
+/// Preserve selected timestamp/type/payload fields; message bodies remain fixed placeholders.
+/// Remove extractor line metadata and serialize each retained object as JSONL.
 pub fn reconstruct_codex_jsonl(sanitized_path: &Path) -> Vec<u8> {
     let text = std::fs::read_to_string(sanitized_path).unwrap();
     let fixture: serde_json::Value = serde_json::from_str(&text).unwrap();
@@ -140,7 +140,7 @@ pub fn reconstruct_codex_jsonl(sanitized_path: &Path) -> Vec<u8> {
     out
 }
 
-/// 在临时目录构造 <root>/sessions/2026/09/24/rollout-reconstructed.jsonl 布局。
+/// Build temporary sessions/2026/09/24/rollout-reconstructed.jsonl layout.
 pub fn codex_root_with_file(dir: &TempDir, file_name: &str, contents: &[u8]) -> PathBuf {
     let day_dir = dir
         .path()
@@ -153,7 +153,7 @@ pub fn codex_root_with_file(dir: &TempDir, file_name: &str, contents: &[u8]) -> 
     dir.path().to_path_buf()
 }
 
-/// M0 真实 fixture（本机 0.155.0-alpha.16.3 脱敏提取）在仓库内的路径。
+/// Repository path to M0 redacted native 0.155.0-alpha.16.3 samples.
 pub fn codex_fixture(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests")
@@ -162,7 +162,7 @@ pub fn codex_fixture(name: &str) -> PathBuf {
         .join(name)
 }
 
-/// 运行一次完整采集（发现→探测→扫描→commit_batch→查询就绪）。
+/// Run discovery, detection, scanning, and commit so the results are ready for queries.
 pub fn run_codex(storage: &Storage, root: &Path, now_ms: i64) -> Vec<SourceRunReport> {
     run_codex_with_limits(storage, root, now_ms, ScanLimits::default())
 }
@@ -192,7 +192,7 @@ pub fn run_codex_with_limits(
     reports
 }
 
-/// UTC 日汇总查询（测试期望均为人工核算值）。
+/// UTC daily query helper for independently calculated expectations.
 pub fn summary(
     storage: &Storage,
     first_day: &str,
@@ -214,15 +214,15 @@ pub fn summary(
     .unwrap()
 }
 
-// ---- M2-C：Claude Code / Qwen Code / Gemini CLI 适配器测试辅助 ----
+// M2-C Claude Code, Qwen Code, and Gemini CLI helpers.
 
 use llm_usage_core::adapters::claude::ClaudeAdapter;
 use llm_usage_core::adapters::framework::SourceAdapter;
 use llm_usage_core::adapters::gemini::GeminiAdapter;
 use llm_usage_core::adapters::qwen::QwenAdapter;
 
-/// 在临时目录构造 <root>/projects/<rel> 布局（rel 如 "proj/sess-1.jsonl" 或
-/// "proj/sess-1/subagents/a.jsonl"），返回配置根。
+/// Build projects/<rel>, such as proj/sess-1.jsonl or
+/// proj/sess-1/subagents/a.jsonl, and return the temporary configuration root.
 pub fn claude_root_with_file(dir: &TempDir, rel: &str, contents: &[u8]) -> PathBuf {
     let path = dir.path().join("projects").join(rel);
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -230,7 +230,7 @@ pub fn claude_root_with_file(dir: &TempDir, rel: &str, contents: &[u8]) -> PathB
     dir.path().to_path_buf()
 }
 
-/// 在临时目录构造 <root>/tmp/<rel> 布局（rel 如 "proj-1/chats/sess-1.jsonl"），返回配置根。
+/// Build tmp/<rel> Qwen layout, such as proj-1/chats/sess-1.jsonl.
 pub fn qwen_root_with_file(dir: &TempDir, rel: &str, contents: &[u8]) -> PathBuf {
     let path = dir.path().join("tmp").join(rel);
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -238,7 +238,7 @@ pub fn qwen_root_with_file(dir: &TempDir, rel: &str, contents: &[u8]) -> PathBuf
     dir.path().to_path_buf()
 }
 
-/// 在临时目录构造 <root>/tmp/<rel> 布局（rel 如 "hash-1/chats/session-1.json"），返回配置根。
+/// Build tmp/<rel> Gemini layout, such as hash-1/chats/session-1.json.
 pub fn gemini_root_with_file(dir: &TempDir, rel: &str, contents: &[u8]) -> PathBuf {
     let path = dir.path().join("tmp").join(rel);
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -246,7 +246,7 @@ pub fn gemini_root_with_file(dir: &TempDir, rel: &str, contents: &[u8]) -> PathB
     dir.path().to_path_buf()
 }
 
-/// 合成 fixture 在仓库内的路径（目录/文件头均标 synthetic；三者本机无真实样本）。
+/// Repository path for synthetic Claude datasets; native datasets have separate validation records.
 pub fn claude_fixture(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests")
@@ -344,13 +344,13 @@ pub fn run_gemini(storage: &Storage, root: &Path, now_ms: i64) -> Vec<SourceRunR
     )
 }
 
-// ---- M2-B/C 恢复：pi / oh-my-pi 适配器测试辅助 ----
+// M2-B/C pi and oh-my-pi helpers.
 
 use llm_usage_core::adapters::omp::OmpAdapter;
 use llm_usage_core::adapters::pi::PiAdapter;
 
-/// 通用：把脱敏数据（{records:[{line, ...条目}]}）还原为 JSONL 字节流。
-/// 与 reconstruct_codex_jsonl 同逻辑，命名不绑定具体 Agent。
+/// Reconstruct JSONL from redacted records carrying extractor line metadata.
+/// Share Codex reconstruction rules without tying this helper to one Agent.
 pub fn reconstruct_jsonl_projection(sanitized_path: &Path) -> Vec<u8> {
     let text = std::fs::read_to_string(sanitized_path).unwrap();
     let fixture: serde_json::Value = serde_json::from_str(&text).unwrap();
@@ -364,8 +364,8 @@ pub fn reconstruct_jsonl_projection(sanitized_path: &Path) -> Vec<u8> {
     out
 }
 
-/// 在临时目录构造 <root>/sessions/<rel> 布局（rel 如 "--C--Users-anon--/2026-...jsonl"），
-/// 返回配置根（手工根语义：含 sessions 子目录按 agent 根解析）。
+/// Build sessions/<rel>, such as --C--Users-anon--/2026-...jsonl,
+/// returning an Agent root containing its sessions child for manual discovery.
 pub fn pi_root_with_file(dir: &TempDir, rel: &str, contents: &[u8]) -> PathBuf {
     let path = dir.path().join("sessions").join(rel);
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -373,13 +373,13 @@ pub fn pi_root_with_file(dir: &TempDir, rel: &str, contents: &[u8]) -> PathBuf {
     dir.path().to_path_buf()
 }
 
-/// omp 同 pi 布局；rel 可为深层（子 Agent 文件：
-/// "--CWD--/<ts>_<父UUID>/SubAgent.jsonl" 或更深的嵌套子目录）。
+/// omp shares the layout and can use nested subagent paths
+/// like --CWD--/<ts>_<parentUUID>/SubAgent.jsonl or deeper named directories.
 pub fn omp_root_with_file(dir: &TempDir, rel: &str, contents: &[u8]) -> PathBuf {
     pi_root_with_file(dir, rel, contents)
 }
 
-/// pi 真实/合成 fixture 在仓库内的路径。
+/// Repository path to pi native or synthetic datasets.
 pub fn pi_fixture(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests")
@@ -388,7 +388,7 @@ pub fn pi_fixture(name: &str) -> PathBuf {
         .join(name)
 }
 
-/// omp 真实/合成 fixture 在仓库内的路径。
+/// Repository path to omp native or synthetic datasets.
 pub fn omp_fixture(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests")
@@ -435,12 +435,12 @@ pub fn run_omp_with_limits(
     run_adapter(&OmpAdapter::new(), storage, root, now_ms, limits)
 }
 
-// ---- M4：ZCode 适配器测试辅助 ----
+// M4 ZCode adapter helpers.
 
 use llm_usage_core::adapters::zcode::ZcodeAdapter;
 
-/// 在临时目录构造 <root>/rollout/<rel> 布局（rel 如 "model-io-sess-1.jsonl"），
-/// 返回配置根（手工根语义：含 rollout 子目录按 cli 根解析）。
+/// Build rollout/<rel>, such as model-io-sess-1.jsonl,
+/// returning the CLI root containing rollout for manual discovery.
 pub fn zcode_root_with_file(dir: &TempDir, rel: &str, contents: &[u8]) -> PathBuf {
     let path = dir.path().join("rollout").join(rel);
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -448,8 +448,8 @@ pub fn zcode_root_with_file(dir: &TempDir, rel: &str, contents: &[u8]) -> PathBu
     dir.path().to_path_buf()
 }
 
-/// zcode 真实/合成 fixture 在仓库内的路径（real-* 为真实脱敏样本，
-/// synthetic-* 为合成缺口场景，均带 _expectations.md 人工核算）。
+/// ZCode dataset paths: real-* contains redacted native records;
+/// synthetic-* contains edge-case data with manually calculated _expectations.md.
 pub fn zcode_fixture(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests")
@@ -477,12 +477,12 @@ pub fn run_zcode_with_limits(
     run_adapter(&ZcodeAdapter::new(), storage, root, now_ms, limits)
 }
 
-// ---- M3：Kilo Code CLI 适配器测试辅助 ----
+// M3 Kilo Code CLI helpers.
 
 use llm_usage_core::adapters::kilo::KiloAdapter;
 use rusqlite::Connection;
 
-/// kilo 真实/合成 fixture 在仓库内的路径。
+/// Repository path to Kilo native or synthetic datasets.
 pub fn kilo_fixture(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests")
@@ -491,8 +491,8 @@ pub fn kilo_fixture(name: &str) -> PathBuf {
         .join(name)
 }
 
-/// serde_json 值 → SQLite 值（脱敏数据中的数字保持整/浮形态；嵌套结构序列化为文本，
-/// 与实读脱敏数据里 time_created 持 JSON 字符串等异形一致）。
+/// Convert JSON to SQLite values, preserving integer/float types and serializing nested values,
+/// including irregular source values represented by JSON strings.
 fn json_to_sql(value: &serde_json::Value) -> rusqlite::types::Value {
     use rusqlite::types::Value as Sql;
     match value {
@@ -508,17 +508,17 @@ fn json_to_sql(value: &serde_json::Value) -> rusqlite::types::Value {
     }
 }
 
-/// 按脱敏数据（{schema:{message_ddl,session_ddl}, sessions, messages}）在
-/// <dir>/.local/share/kilo/kilo.db 重建真实 SQLite 库（原始 DDL + 脱敏值），
-/// 返回可作为手工根传入 discover 的目录（默认 home 形状）。
-/// 脱敏数据可以是仓库 fixture 文件解析结果，也可以是测试内联构造的合成 JSON。
+/// Rebuild message/session DDL and redacted records in
+/// <dir>/.local/share/kilo/kilo.db using a real SQLite database engine.
+/// Return the home-shaped directory for manual discovery.
+/// Input can be a parsed redacted dataset or inline synthetic JSON.
 pub fn build_kilo_db(dir: &TempDir, projection: &serde_json::Value) -> PathBuf {
     let kilo_home = dir.path().join(".local").join("share").join("kilo");
     std::fs::create_dir_all(&kilo_home).unwrap();
     let db_path = kilo_home.join("kilo.db");
     let conn = Connection::open(&db_path).unwrap();
-    // bundled SQLite 默认开外键；脱敏数据只重建 message/session 两表，
-    // 显式关闭以允许 FK 指向未重建的 project 表（源库行为不受影响）。
+    // The test rebuilds only message/session, while bundled SQLite enables foreign keys.
+    // Disable them here because project references are not rebuilt; do not change the source database.
     conn.execute_batch("PRAGMA foreign_keys = OFF;").unwrap();
     conn.execute_batch(projection["schema"]["message_ddl"].as_str().unwrap())
         .unwrap();
@@ -533,8 +533,8 @@ pub fn build_kilo_db(dir: &TempDir, projection: &serde_json::Value) -> PathBuf {
             columns.join(", "),
             placeholders.join(", ")
         );
-        // 脱敏数据里 session.time_created 在源端是异形值（脱敏后为 null / 权限数组
-        // 字符串）；DDL NOT NULL 下 null 以 0 占位（适配器从不读该列）。
+        // Redacted session.time_created can be null or an irregular JSON string;
+        // use zero solely for a NOT NULL test column that the adapter never reads.
         let values: Vec<rusqlite::types::Value> = obj
             .iter()
             .map(|(k, v)| match (k.as_str(), v) {
@@ -566,14 +566,14 @@ pub fn build_kilo_db(dir: &TempDir, projection: &serde_json::Value) -> PathBuf {
     dir.path().to_path_buf()
 }
 
-/// 读取仓库内脱敏 fixture 并重建为临时目录中的 kilo.db。
+/// Rebuild temporary kilo.db from a redacted repository dataset.
 pub fn build_kilo_db_from_fixture(dir: &TempDir, sanitized_name: &str) -> PathBuf {
     let text = std::fs::read_to_string(kilo_fixture(sanitized_name)).unwrap();
     let projection: serde_json::Value = serde_json::from_str(&text).unwrap();
     build_kilo_db(dir, &projection)
 }
 
-/// 真实脱敏 fixture 的原始 DDL（合成库复用同形 schema）。
+/// Original message DDL from redacted native data, reused for synthetic databases.
 pub const KILO_MESSAGE_DDL: &str = "CREATE TABLE `message` ( `id` text PRIMARY KEY, \
 `session_id` text NOT NULL, `time_created` integer NOT NULL, `time_updated` integer NOT NULL, \
 `data` text NOT NULL, CONSTRAINT `fk_message_session_id_session_id_fk` FOREIGN KEY \
@@ -590,7 +590,7 @@ NOT NULL, `tokens_cache_read` integer DEFAULT 0 NOT NULL, `tokens_cache_write` i
 DEFAULT 0 NOT NULL, `metadata` text, CONSTRAINT `fk_session_project_id_project_id_fk` \
 FOREIGN KEY (`project_id`) REFERENCES `project`(`id`) ON DELETE CASCADE )";
 
-/// 用测试提供的 sessions/messages 构造合成数据（schema 同真实 fixture DDL）。
+/// Build synthetic sessions/messages with the same DDL as native test data.
 pub fn synthetic_kilo_projection(
     sessions: serde_json::Value,
     messages: serde_json::Value,
@@ -616,20 +616,20 @@ pub fn run_kilo(storage: &Storage, root: &Path, now_ms: i64) -> Vec<SourceRunRep
     )
 }
 
-/// 对指定 kilo.db 路径做一次直接探测（不经 discover）。
+/// Detect one specified kilo.db directly, without discovery.
 pub fn kilo_detect(db_path: &Path) -> llm_usage_core::adapters::framework::DetectOutcome {
     use llm_usage_core::adapters::framework::SourceAdapter;
     KiloAdapter::new().detect(db_path).unwrap()
 }
 
-// ---- M4：Kimi Code / Kimi Work 适配器测试辅助 ----
+// M4 Kimi Code and Kimi Work helpers.
 
 use llm_usage_core::adapters::kimi_code::KimiCodeAdapter;
 use llm_usage_core::adapters::kimi_work::KimiWorkAdapter;
 
-/// 在临时目录构造 <root>/sessions/<wd>/<session>/agents/<agent>/wire.jsonl 布局
-/// （rel 如 "wd_syn/session_syn-1/agents/main/wire.jsonl"；kimi-work 传
-/// "wd_syn/conv_syn-1/agents/main/wire.jsonl"），返回配置根。
+/// Build sessions/<wd>/<session>/agents/<agent>/wire.jsonl under a temporary root.
+/// Example Code rel: wd_syn/session_syn-1/agents/main/wire.jsonl;
+/// Work rel: wd_syn/conv_syn-1/agents/main/wire.jsonl; return the configuration root.
 pub fn kimi_root_with_file(dir: &TempDir, rel: &str, contents: &[u8]) -> PathBuf {
     let path = dir.path().join("sessions").join(rel);
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -637,13 +637,13 @@ pub fn kimi_root_with_file(dir: &TempDir, rel: &str, contents: &[u8]) -> PathBuf
     dir.path().to_path_buf()
 }
 
-/// 把 M4 脱敏数据（{records:[{line, ...条目}]}）还原为 wire JSONL 字节流。
-/// 重建时保持提取器保留的行序（原始行号不要求连续，JSONL 语义不受影响）。
+/// Reconstruct wire JSONL from M4 redacted records and line metadata.
+/// Preserve extracted row order even when original line numbers are not consecutive.
 pub fn reconstruct_kimi_wire(sanitized_path: &Path) -> Vec<u8> {
     reconstruct_jsonl_projection(sanitized_path)
 }
 
-/// kimi-code 真实/合成 fixture 在仓库内的路径。
+/// Repository path to Kimi Code native or synthetic datasets.
 pub fn kimi_code_fixture(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests")
@@ -652,7 +652,7 @@ pub fn kimi_code_fixture(name: &str) -> PathBuf {
         .join(name)
 }
 
-/// kimi-work 真实/合成 fixture 在仓库内的路径。
+/// Repository path to Kimi Work native or synthetic datasets.
 pub fn kimi_work_fixture(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests")

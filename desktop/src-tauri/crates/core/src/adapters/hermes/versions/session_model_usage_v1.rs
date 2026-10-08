@@ -1,45 +1,45 @@
-//! state.db `session_model_usage` 模型/任务累计行 → 来源原生区间汇总
-//! （`session_model_usage_v1`）。
+//! Map state.db session_model_usage model/task cumulative rows to native interval aggregates:
+//! session_model_usage_v1.
 //!
-//! 格式依据（A24 固定源码 ef70b3661cbfcf57e583008ad91dd04d8ba46070，
-//! hermes_state_common.py SCHEMA_SQL / hermes_state_usage.py / agent/turn_usage.py；
-//! 官方存储文档 website/docs/developer-guide/session-storage.md）：
-//! - 库布局：`get_hermes_home()/state.db`（HERMES_HOME → Windows
-//!   %LOCALAPPDATA%/hermes → 其他 ~/.hermes；命名 profile
-//!   `<root>/profiles/<name>/state.db`），WAL 模式，state.db/-wal/-shm 同目录。
-//! - `session_model_usage` 按六列组合键（session/model/billing_provider/
-//!   billing_base_url/billing_mode/task）累计：api_call_count 与五个 token
-//!   计数列 ADD 式增长；first_seen 仅插入时写，last_seen 每次冲突更新推进；
-//!   task != '' 的行来自 record_auxiliary_usage（辅助任务累计，不进主会话
-//!   总量），task = '' 是主会话模型行。绝对路径写 sessions 总量、不写模型行。
-//! - 时间列 REAL Unix epoch 秒（time.time()）；first_seen/last_seen 是聚合
-//!   写入边界，不是逐请求时间。
-//! - v20 把历史 sessions 汇总回填成模型行（INSERT OR IGNORE ... SELECT ...
-//!   FROM sessions）；v22 重建表把 task 纳入主键。回填行不证明历史全部
-//!   调用使用该模型。
+//! Fixed reference A24: ef70b3661cbfcf57e583008ad91dd04d8ba46070,
+//! hermes_state_common.py schema, hermes_state_usage.py, and agent/turn_usage.py,
+//! plus website/docs/developer-guide/session-storage.md.
+//! - get_hermes_home()/state.db uses HERMES_HOME, then Windows LOCALAPPDATA/hermes
+//!   or ~/.hermes elsewhere. Named profiles use <root>/profiles/<name>/state.db.
+//!   state.db, -wal, and -shm share a directory under WAL mode.
+//! - session/model/billing_provider/billing_base_url/billing_mode/task identify
+//!   cumulative rows. api_call_count and five token columns increase by addition;
+//!   first_seen is inserted once, while last_seen updates with subsequent contributions.
+//!   Nonempty task rows record auxiliary consumption outside the main session total.
+//!   Empty task rows are main model totals; absolute updates write sessions without model rows.
+//! - REAL Unix-second first_seen/last_seen record aggregate writes,
+//!   not individual request timestamps.
+//! - Schema v20 backfills model rows from sessions with INSERT OR IGNORE;
+//!   v22 adds task to the primary key. Neither backfilled rows nor the database-wide
+//!   schema version identify every historical call's model or client release.
 //!
-//! 映射约定（adapters.md「Hermes Agent 本地约定」/ V03 固定数学样本）：
-//! - 每行 → 一条 `SourceAggregateInput`（interval_aggregate，保留原生区间），
-//!   **不**产生 model_call/usage_observation 事件：api_call_count 只作为
-//!   `reported_call_count` 汇总，绝不拆成伪造调用事件；
-//! - 跨日累计行按 first_seen..last_seen 区间保存，不把全部 token 记入某一天
-//!   （日汇总无详单不落账，不按时长摊分）；
-//! - 主模型行与 task 辅助行互斥（源 upsert 键互斥、辅助不进主总量），
-//!   coverage=Exclusive：100 + 20 = 120，不是 220；
-//! - 主/辅助行归属同一来源表，不读 sessions 累计列（避免 absolute 覆盖与
-//!   v20 回填值叠加而双计）；子 Agent/压缩子会话是独立 session 行、各有
-//!   自己的模型行，无跨行继承双计；未解释残差保持未知，不强归当前模型。
-//! - billing_base_url 只在内存规范化（scheme/host[:port] 或本地摘要），
-//!   不持久化完整 URL/查询参数；scope_key 用六键摘要。
+//! Mapping follows Hermes local data rules and V03 numeric examples:
+//! - Each row contributes one SourceAggregateInput retaining its native interval.
+//!   Do not create model_call/usage_observation events; api_call_count is only
+//!   reported_call_count, with default zero remaining unknown.
+//! - Retain cross-day first_seen..last_seen intervals without assigning the entire
+//!   sum to a day or distributing unknown request usage by duration.
+//! - Main model and auxiliary task rows contribute independently under exclusive
+//!   keys: coverage=Exclusive yields 100+20=120, with neither sum counted twice.
+//! - Do not also read sessions cumulative columns, which can overlap absolute updates
+//!   and v20 backfills. Subagent/compaction sessions own their model rows;
+//!   do not attribute unexplained differences to the current model.
+//! - Normalize billing_base_url in memory to scheme/host[:port] or a local digest.
+//!   Never persist its full URL/query; scope_key hashes the six identity fields.
 //!
-//! 增量约定（SQLite 行）：
-//! - schema 指纹持久化于解析上下文；指纹变化 ⇒ 已处理位置重置全量重读
-//!   （scope_key upsert 幂等）；
-//! - 已处理位置 = 行的有效结束毫秒（last_seen，回退 session ended_at → started_at
-//!   → first_seen）+ 60s 有界重叠窗；source_revision = 有效结束毫秒
-//!   （last_seen 单调推进）；
-//! - 单轮行数上限 50,000：触顶 BudgetExhausted；
-//! - 游标 `offset` 恒 0（WAL 下文件字节长度不能作为无变化短路依据）。
+//! Incremental database reads:
+//! - Persist schema fingerprints; a change restarts reading at the head.
+//!   Stable scope_key updates prevent duplicate aggregates.
+//! - Track effective end milliseconds: last_seen, then session ended_at/started_at/
+//!   first_seen, with a 60-second overlap. source_revision uses the effective end
+//!   when source last_seen advances.
+//! - Limit each scan to 50,000 rows; reaching the limit returns BudgetExhausted.
+//! - Keep offset=0; database bytes under WAL cannot identify unchanged records.
 
 use crate::adapters::framework::{
     ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -56,7 +56,7 @@ use serde::{Deserialize, Serialize};
 
 pub const HERMES_PARSER_VERSION: &str = "hermes-session-model-usage-2";
 
-/// Reconstruct the complete old mapping. No arbitrary zero masks or token changes.
+/// Reconstruct complete old summaries without arbitrary zero masks or token changes.
 pub(crate) fn prior_usage_hashes(input: &SourceAggregateInput) -> Vec<String> {
     use crate::domain::FieldQuality as Q;
     if input.scope != AggregateScope::Session || !input.scope_key.starts_with("smu:") {
@@ -112,27 +112,27 @@ pub(crate) fn prior_usage_hashes(input: &SourceAggregateInput) -> Vec<String> {
     old.reported_call_count = Some(input.reported_call_count.unwrap_or(0));
     vec![crate::identity::content_hash(&old)]
 }
-/// 已处理时间的回看窗（毫秒）：覆盖同秒乱序的聚合写入。
+/// Processing-time overlap in milliseconds for out-of-order aggregate writes within a second.
 pub const WATERMARK_OVERLAP_MS: i64 = 60_000;
-/// 单轮行数上限。
+/// Maximum rows per scan.
 pub const MAX_ROWS_PER_ROUND: i64 = 50_000;
 
-/// 行的有效结束秒表达式（NULL 全空时取哨兵，交由 Rust 层判定跳过）。
+/// Effective end seconds; all missing values use a sentinel rejected by Rust validation.
 const EFFECTIVE_END_S: &str =
     "COALESCE(u.last_seen, s.ended_at, s.started_at, u.first_seen, -1.0e18)";
 
-/// 游标（持久化在 ingestion_checkpoints.cursor_value）。
+/// Cursor stored in ingestion_checkpoints.cursor_value.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 struct HermesCursor {
     generation: i64,
-    /// 恒为 0：DB 不用字节偏移做无变化判定（WAL，同 kilo 约定）。
+    /// Keep zero offset; WAL database reads do not use byte-size unchanged checks.
     #[allow(dead_code)]
     offset: u64,
-    /// 已处理到的有效结束时间（毫秒，含该值）；None = 从头全量。
+    /// Last processed effective end in milliseconds, inclusive; None restarts at the head.
     watermark_ms: Option<i64>,
 }
 
-/// 解析上下文：schema 指纹 + 库版本快照。
+/// Schema fingerprint and database schema snapshot; neither identifies each record's client version.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 struct HermesParseContext {
     schema_fingerprint: Option<String>,
@@ -144,7 +144,7 @@ fn diag(code: &str, field: Option<&str>, id_pos: &str, message: &str) -> Diagnos
         event_id: None,
         code: code.to_string(),
         field: field.map(str::to_string),
-        // 位置只存组合键摘要（稳定身份，非路径/正文/URL）。
+        // Diagnostic position stores only an identity digest, excluding paths, bodies, and URLs.
         position: Some(id_pos.to_string()),
         message: message.to_string(),
     }
@@ -175,7 +175,7 @@ impl SmuRow {
         seconds_to_ms(end_s.unwrap_or(f64::NAN))
     }
 
-    /// 区间汇总稳定身份：六键摘要（base_url 已规范化，不落原文）。
+    /// Aggregate identity hashes six fields with a normalized base URL rather than the raw value.
     fn scope_key(&self) -> String {
         let route = normalize_base_url(&self.billing_base_url);
         let raw = [
@@ -236,7 +236,7 @@ fn load_window(
     Ok(rows.collect())
 }
 
-/// 增量扫描一个 state.db（统一入口 `HermesAdapter::scan` 分派到本实现）。
+/// Scan state.db, dispatched by HermesAdapter::scan.
 pub fn scan(
     target: &ScanTarget,
     stored: &StoredScanState,
@@ -262,13 +262,13 @@ pub fn scan(
     let conn = source.conn();
     let probe = schema_probe(conn)?;
     let Some(fingerprint) = probe.fingerprint else {
-        // 探测层保证不会走到这里（指纹不符在 detect fail closed）；
-        // 游标期间库被换掉时按未知格式拒绝，保留旧结果。
+        // Detection rejects incompatible schemas; if the database changes before scanning,
+        // reject the now-unknown format and preserve previous results.
         return Err(CoreError::Validation(
             "hermes state.db schema fingerprint no longer matches; fail closed".to_string(),
         ));
     };
-    // schema 指纹变化 ⇒ 旧的已处理位置不可信，全量重读（scope_key 幂等，不双计）。
+    // Changed schema fingerprints restart reading; stable aggregate keys prevent duplicate counts.
     let fingerprint_reset = context.schema_fingerprint.is_some()
         && context.schema_fingerprint.as_deref() != Some(fingerprint.as_str());
     let watermark = if fingerprint_reset {
@@ -356,22 +356,22 @@ pub fn scan(
             scope_key: scope_key.clone(),
             interval_start_ms: start_ms,
             interval_end_ms: end_ms,
-            // last_seen 是瞬时边界（闭区间语义）。
+            // last_seen represents an inclusive instant at the end of the aggregate interval.
             interval_end_inclusive: true,
             usage: mapped.usage,
             quality: mapped.quality,
-            // 来源报告调用汇总；不伪造逐次 model_call。
+            // Keep source-reported call sums without constructing individual model_call events.
             reported_call_count: (row.api_call_count != 0).then_some(row.api_call_count),
-            // 源组合键互斥（主/task 辅助行分别累计，辅助不进主总量）。
+            // Main/task keys are separate; auxiliary amounts are not already in the main total.
             coverage: Coverage::Exclusive,
             duplicate_of: None,
-            // first_seen/last_seen 是聚合写入边界，不是逐请求时间。
+            // first_seen/last_seen identify aggregate writes rather than individual request timestamps.
             time_basis: TimeBasis::Uncertain,
             source_revision: Some(end_ms),
         });
     }
 
-    // 更新已处理位置：触顶停在最后一个完整毫秒（重叠窗下轮重读，幂等）。
+    // At the limit, retain the last complete millisecond and reread the overlap next scan.
     let last_end = rows
         .last()
         .and_then(|r| r.as_ref().ok())

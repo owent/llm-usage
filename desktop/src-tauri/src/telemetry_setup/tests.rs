@@ -55,7 +55,7 @@ fn exporter_evidence_is_automatic_cached_and_does_not_override_configuration() {
         ),
         ("configured", "verified", 1)
     );
-    // Identical bytes use cached evidence; a changed file invalidates it.
+    // Identical bytes reuse the cached check; file changes invalidate it.
     evidence::verify(&mut row);
     assert_eq!(row.dto.verified_records, 1);
     f.write(&output, "{\"body\":\"unrelated log\"}\n");
@@ -571,7 +571,7 @@ fn codebuddy_authentication_is_limited_to_its_documented_installed_version() {
                 .contains("OTEL_EXPORTER_OTLP_HEADERS"));
         }
     }
-    // A manifest under a later PATH entry cannot certify the first launcher.
+    // A manifest in a later PATH entry cannot verify the first launcher.
     let first = f.root.join("different-install");
     std::fs::create_dir_all(&first).unwrap();
     f.write(
@@ -651,7 +651,7 @@ fn http_preview_redacts_existing_headers_and_checking_never_creates_credentials(
         readable(&path).unwrap().unwrap(),
         std::fs::read(&path).unwrap()
     );
-    // Static inspection remains usable on CI; the actual UI fails closed without a native vault.
+    // CI can run static inspection; the actual UI refuses setup without a native credential store.
     if !crate::receiver_auth::available() {
         let supported = inspect_supported(discover(&f.ctx).remove(0));
         assert_eq!(supported.dto.reason, "credential_store_unavailable");

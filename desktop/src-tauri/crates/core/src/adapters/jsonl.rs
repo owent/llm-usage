@@ -1,26 +1,26 @@
-//! 有界 JSONL 读取器（V07）。
+//! Bounded JSONL reader (V07).
 //!
-//! 约定（architecture.md「各输入的增量策略」）：
-//! - 游标 = 文件身份 + generation + 完整行字节偏移 + 解析上下文；
-//! - 默认单行上限 8 MiB、单块 4 MiB（允许跨块组装行）；超限不静默丢弃，
-//!   状态显示位置与原因，允许受控重试；
-//! - 半行留待下次（游标不前移）；跨块 UTF-8 正确组装；跳过 UTF-8 BOM；
-//! - 坏行隔离：诊断只存错误码与位置（行号/字节偏移），不复制原始行内容；
-//! - 截断/同大小替换/改名时重探测；变更检测不限于文件长度。
+//! Incremental input rules in architecture.md:
+//! - cursors keep file identity, generation, complete-line byte offset and parse context;
+//! - default line limit 8 MiB and chunk size 4 MiB; assemble lines across chunks;
+//!   report oversized positions/reasons without silent dropping, and permit controlled retries;
+//! - leave incomplete lines for the next run without advancing cursors; assemble UTF-8 and skip its BOM;
+//! - isolate invalid lines with error codes/line numbers/byte offsets, without copying raw content;
+//! - detect truncation, same-size replacement and rename; file length alone does not establish continuity.
 
 use std::io::{Read, Seek, SeekFrom};
 use std::path::Path;
 
-/// 单行上限初值 8 MiB。
+/// Default line limit: 8 MiB.
 pub const DEFAULT_MAX_LINE_BYTES: usize = 8 * 1024 * 1024;
-/// 单块上限初值 4 MiB。
+/// Default chunk size: 4 MiB.
 pub const DEFAULT_CHUNK_BYTES: usize = 4 * 1024 * 1024;
-/// 身份采样字节数（首/尾各取这么多做内容指纹）。
+/// Bytes sampled at each end for content fingerprints.
 const SAMPLE_BYTES: usize = 4096;
 const UTF8_BOM: &[u8] = b"\xEF\xBB\xBF";
 
-/// 读取限制。`max_lines` 是确定性行数上限（测试与受控重试用）；
-/// `time_budget` 是墙钟超时（单源每轮 30 秒初值）。
+/// max_lines is a deterministic line limit for tests and controlled retries;
+/// time_budget is a wall-clock timeout, defaulting to 30 seconds per source run.
 #[derive(Debug, Clone)]
 pub struct JsonlLimits {
     pub chunk_bytes: usize,
@@ -40,7 +40,7 @@ impl Default for JsonlLimits {
     }
 }
 
-/// 一条完整行（含字节位置；`end` 为行终止符之后的偏移）。
+/// Complete line with byte positions; end is the offset after its terminator.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RawLine {
     pub number: u64,
@@ -49,7 +49,7 @@ pub struct RawLine {
     pub text: String,
 }
 
-/// 坏行诊断（无正文）。
+/// Invalid-line diagnostic without message content.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BadLine {
     pub code: &'static str,
@@ -57,34 +57,34 @@ pub struct BadLine {
     pub offset: u64,
 }
 
-/// 读取停止原因。
+/// Why reading stopped.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StopReason {
-    /// 读到当前文件尾。
+    /// Reached the current end of file.
     Eof,
-    /// 某完整行超过单行上限：游标停在该行起点，可受控重试（提高上限）。
+    /// Oversized complete line: keep its start as the cursor and permit retry with a higher limit.
     LineTooLong { number: u64, offset: u64 },
-    /// 达到确定性行数或字节上限。
+    /// Reached the configured line/byte limit.
     LineBudget,
-    /// 达到墙钟超时时间。
+    /// Reached the wall-clock timeout.
     TimeBudget,
 }
 
-/// 一次增量读取的结果。
+/// Incremental read result.
 #[derive(Debug, Clone)]
 pub struct ReadOutcome {
     pub lines: Vec<RawLine>,
     pub bad_lines: Vec<BadLine>,
-    /// 下一 unread 偏移（最后一条完整行之后；半行不前移）。
+    /// Next unread offset, after the last complete line; incomplete lines do not advance it.
     pub next_offset: u64,
-    /// 下一行号（1 起始）。
+    /// Next line number, starting at one.
     pub next_line_number: u64,
-    /// 半行字节数（留待下次）。
+    /// Incomplete bytes retained for the next read.
     pub pending_bytes: u64,
     pub stop: StopReason,
 }
 
-/// 从 `start_offset`（完整行边界）读取 JSONL。`first_line_number` 为该偏移处的行号。
+/// Read from a complete-line start_offset; first_line_number identifies that position.
 pub fn read_jsonl(
     path: &Path,
     start_offset: u64,
@@ -116,7 +116,7 @@ pub fn read_jsonl_with_byte_budget(
         pending_bytes: 0,
         stop: StopReason::Eof,
     };
-    // 起点为 0 时跳过 BOM；BOM 不计入行内容但计入字节偏移。
+    // At offset zero, skip the BOM as line content while retaining it in byte offsets.
     let mut absolute = start_offset;
     if start_offset == 0 {
         let mut bom = [0u8; 3];
@@ -156,14 +156,14 @@ pub fn read_jsonl_with_byte_budget(
         let take = remaining.map_or(chunk.len(), |n| chunk.len().min(n as usize));
         let n = file.read(&mut chunk[..take])?;
         if n == 0 {
-            // EOF：carry 中的残余是半行，留待下次。
+            // EOF leaves carry as an incomplete line for the next run.
             outcome.pending_bytes = carry.len() as u64;
             outcome.stop = StopReason::Eof;
             break;
         }
         let mut search_from = carry.len();
         carry.extend_from_slice(&chunk[..n]);
-        // 逐条提取完整行；0x0A 不会出现在 UTF-8 多字节序列内，按字节切分安全。
+        // Split complete lines by byte: 0x0A cannot occur within a UTF-8 multibyte sequence.
         let mut consumed = 0usize;
         while let Some(pos) = carry[search_from..].iter().position(|b| *b == b'\n') {
             super::run_policy::check_io()?;
@@ -212,7 +212,7 @@ pub fn read_jsonl_with_byte_budget(
                 }
             }
         }
-        // 无换行符的残余：若已超过单行上限，同样按超长行处理（不等待它继续增长）。
+        // Incomplete data above the line limit is already oversized; do not wait for further growth.
         if carry.len() - consumed > limits.max_line_bytes {
             let line_number = outcome.next_line_number;
             outcome.stop = StopReason::LineTooLong {
@@ -234,15 +234,15 @@ fn finish_carry(mut outcome: ReadOutcome, carry_start: u64, carry: &[u8]) -> Rea
     outcome
 }
 
-/// 文件身份探测：长度、mtime、创建时间与首/尾采样指纹。变更检测不限于长度。
+/// Probe length, mtime, creation time and prefix/suffix fingerprints, not length alone.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FileProbe {
     pub len: u64,
     pub mtime_ms: i64,
     pub created_ms: Option<i64>,
-    /// 首采样指纹（采样长度 `head_len`）。
+    /// Prefix fingerprint for head_len sampled bytes.
     pub head_hash: u64,
-    /// 首采样长度：len >= 4096 时固定 4096；小文件为当前长度（增长后不可比）。
+    /// Prefix length: 4096 for larger files, otherwise current length; changed lengths are not comparable.
     pub head_len: u64,
     pub tail_hash: u64,
 }
@@ -293,31 +293,31 @@ pub fn probe_file(path: &Path) -> std::io::Result<FileProbe> {
     })
 }
 
-/// 已存储的扫描状态（source_files 行 + 游标）。
+/// Stored source_files state and cursor.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct StoredFileState {
     pub generation: i64,
     pub len: u64,
     pub created_ms: Option<i64>,
     pub head_hash: u64,
-    /// 首采样长度：与探测值不一致时首指纹不可比（小文件增长跨过采样边界）。
+    /// Prefix hashes are not comparable when sample lengths differ, such as a growing small file.
     pub head_len: u64,
     pub tail_hash: u64,
     pub cursor_offset: u64,
 }
 
-/// 代数裁决。
+/// Decide whether file continuity permits resuming or requires a new generation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GenerationDecision {
-    /// 同一文件代：从游标继续（含未变化与纯追加）。
+    /// Same generation: resume from the cursor for unchanged or appended content.
     Continue,
-    /// 文件被替换/截断/重建：generation+1 从头重扫，解析上下文作废。
+    /// Replacement/truncation/rebuilding requires generation+1, a full reread and discarded parse context.
     Rescan(&'static str),
 }
 
-/// 比较存储状态与当前探测。身份要点：创建时间变化 → 新文件；
-/// 长度小于游标 → 截断；同长但首/尾指纹不同 → 同长替换；首指纹不同 → 原地改写。
-/// 首采样长度不一致（小文件增长）时首指纹不可比，依靠创建时间与长度单调性裁决。
+/// Compare stored/probed state: changed creation time indicates a recreated file;
+/// length below the cursor means truncation; comparable changed prefix or same-size suffix means replacement.
+/// When growing small files change sample length, rely on creation time and monotonic length instead.
 pub fn decide_generation(stored: &StoredFileState, probe: &FileProbe) -> GenerationDecision {
     if let (Some(old), Some(new)) = (stored.created_ms, probe.created_ms) {
         if old != new {
@@ -336,7 +336,7 @@ pub fn decide_generation(stored: &StoredFileState, probe: &FileProbe) -> Generat
     GenerationDecision::Continue
 }
 
-/// JSONL 游标（持久化在 ingestion_checkpoints.cursor_value）。
+/// JSONL cursor persisted in ingestion_checkpoints.cursor_value.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct JsonlCursor {
     pub generation: i64,
@@ -367,7 +367,7 @@ mod tests {
             head_len: 150,
             tail_hash: 3,
         };
-        // 小文件增长：首采样长度变化，指纹不可比，但创建时间一致且长度递增 → 追加。
+        // A growing small file changes prefix length; unchanged creation time and increasing length permit append.
         assert_eq!(
             decide_generation(&stored, &same),
             GenerationDecision::Continue

@@ -1,12 +1,17 @@
-# synthetic-negative-tokens 期望（人工核算，全合成样本）
+# synthetic-negative-tokens expectations (manually calculated, synthetic)
 
-syn-msg-bad 的 tokens.input=-100（负值，超界）：形状偏离但**不** fail closed，
-跳过该消息并记 `usage_shape_deviation`；其余消息正常入账。
+<a id="synthetic-negative-tokens-期望人工核算全合成样本"></a>
 
-## 期望
+syn-msg-bad has tokens.input=-100, outside the permitted range. This shape deviation
+does **not** reject the whole file. Skip that message, record usage_shape_deviation,
+and import the remaining messages normally.
 
-- 事件数 = 1（syn-msg-ok）：input_total=1000、output_total=50、cache_read=400、
-  total_tokens=1050；files[0].status="complete"，源文件 health=degraded。
-- diagnostics 1 条 code=usage_shape_deviation。
-- 汇总：call_count=1；input_total_known=1000；output_total_known=50；
-  cache_read_known=400；total_tokens_known=1050。
+<a id="期望"></a>
+
+## Expectations
+
+- One event, syn-msg-ok: input_total=1000, output_total=50, cache_read=400,
+  total_tokens=1050; files[0].status="complete", source health=degraded.
+- One diagnostic, code=usage_shape_deviation.
+- Summary: call_count=1, input_total_known=1000, output_total_known=50,
+  cache_read_known=400, total_tokens_known=1050.

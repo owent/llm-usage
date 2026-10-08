@@ -1,6 +1,8 @@
-# synthetic-cache-write 期望（全合成）
+# synthetic-cache-write expectations (synthetic)
 
-缺口：cacheWriteTokens=200>0（本机真实样本全 0；M0 记待合成补充）且 anthropic
-  cache_creation_input_tokens=200 在场，双口径一致（1000+800+200=2000）。
+<a id="synthetic-cache-write-期望全合成"></a>
 
-详见 tests/zcode_gaps_synthetic.rs 头部人工核算注释。
+cacheWriteTokens=200>0 covers a gap in native samples, where all values were zero. Anthropic
+cache_creation_input_tokens=200 is also present. Both representations agree: 1000+800+200=2000.
+
+See the manually calculated expectations in the header of tests/zcode_gaps_synthetic.rs.

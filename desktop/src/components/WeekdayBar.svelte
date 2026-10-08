@@ -17,7 +17,7 @@
     cells?: { weekday: number; calls: number; available?: boolean; partial?: boolean }[];
     query?: SummaryQuery;
     reloadKey?: number;
-    /** 深色主题（父级传入；变化时重绘轴文字与分隔线）。 */
+    /** Parent-provided dark theme; changes redraw axis labels and separators. */
     isDark?: boolean;
   } = $props();
 
@@ -41,12 +41,12 @@
     return () => { cancelled = true; };
   });
 
-  /** 主题感知色：全局文字（axis 继承）与 y 轴分隔线。 */
+  /** Theme colors for inherited axis text and y-axis separators. */
   const chartText = $derived(isDark ? '#b0bfd4' : '#5b6a82');
   const splitColor = $derived(isDark ? '#2c3a52' : '#e8edf5');
 
-  // 周一=0 … 周日=6（后端 weekday 1–7）；周名按当前语言 Intl 生成。
-  // 2024-01-01 是周一，作为周名基准日。
+  // Monday=0 through Sunday=6; backend uses 1–7. Intl generates localized weekday names.
+  // 2024-01-01 is Monday, the reference date for weekday names.
   const weekdayLabels = $derived(
     Array.from({ length: 7 }, (_, i) =>
       new Intl.DateTimeFormat(i18n.locale, { weekday: 'short', timeZone: 'UTC' }).format(
@@ -101,12 +101,12 @@
   onMount(() => {
     chart = echarts.init(el, i18n.locale === 'zh-CN' ? 'ZH' : 'EN', { renderer: 'svg' });
 
-    // Tooltip：hideDelay 0（ECharts 6 手动 hideTip 也走 hideLater(hideDelay)，不可用大值）+ 离开画布/移出窗口/失焦即隐藏（统一封装）。
+    // Use hideDelay=0: ECharts 6 hideTip also uses hideLater. Hide on canvas/window exit or blur.
     const disposeTipHide = setupTooltipAutoHide(chart!);
     render();
     const onResize = () => chart?.resize();
     window.addEventListener('resize', onResize);
-    // 面板显示/隐藏或网格变化时容器尺寸变化（含 display:none 恢复），自动重设画布。
+    // Resize the canvas when panel visibility or grid changes, including recovery from display:none.
     const observer = new ResizeObserver(() => chart?.resize());
     observer.observe(el);
     return () => {

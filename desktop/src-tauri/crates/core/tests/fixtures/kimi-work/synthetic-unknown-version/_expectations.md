@@ -1,6 +1,8 @@
-# synthetic-unknown-version._expectations.md（SYNTHETIC）
+# synthetic-unknown-version._expectations.md (synthetic)
 
-protocol_version="1.5"：kimi-code 注册表已验证、kimi-work 注册表只锚定 1.4——
-同一文件在 kimi-work 侧必须走 latest_fallback（A12/A13 注册表独立）。
-期望：latest_fallback 诊断 1 条；1 事件照常入账（parse_basis=latest_fallback）；
-usage {100,50,400,0}：input_total=500、total_tokens=550；回声不双计。
+<a id="synthetic-unknown-version_expectationsmdsynthetic"></a>
+
+protocol_version="1.5" is verified in kimi-code, while kimi-work verifies only 1.4.
+The same file must use latest_fallback in kimi-work; A12/A13 registries are independent.
+Expect one latest_fallback diagnostic and one event with parse_basis=latest_fallback.
+Usage {100,50,400,0} yields input_total=500 and total_tokens=550; count no duplicate repeat.

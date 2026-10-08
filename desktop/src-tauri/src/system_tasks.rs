@@ -1,5 +1,5 @@
-//! Persisted consent and native Task Scheduler reconciliation. Status reads never
-//! register a task; failures retain the desired state and expose the actual state.
+//! Saved consent and native Task Scheduler readback. Status reads never
+//! register tasks; failures preserve desired state and expose actual state.
 use llm_usage_core::storage::Storage;
 use rusqlite::OptionalExtension;
 use serde::{Deserialize, Serialize};
@@ -87,7 +87,7 @@ pub fn mark_global_run(storage: &Storage, now: i64, interval: u64) -> Result<(),
     Ok(())
 }
 
-/// The losing process uses a plain connection, without recovering the owner's jobs.
+/// Losing process uses plain SQLite without recovering the owner's jobs.
 pub fn request_if_enabled(path: &Path, now: i64) -> Result<bool, String> {
     let conn =
         rusqlite::Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE)
@@ -162,7 +162,7 @@ pub mod native {
         )
     }
 
-    // Each invocation owns its COM apartment, independently of Tauri's threads.
+    // Each invocation owns its COM apartment independently of Tauri threads.
     fn com<T: Send + 'static>(
         f: impl FnOnce(ITaskService, ITaskFolder) -> windows::core::Result<T> + Send + 'static,
     ) -> Result<T, String> {
@@ -305,7 +305,7 @@ pub mod native {
             settings.SetMultipleInstances(TASK_INSTANCES_IGNORE_NEW)?;
             settings.SetExecutionTimeLimit(&BSTR::from("PT5M"))?;
             let trigger = definition.Triggers()?.Create(TASK_TRIGGER_TIME)?;
-            // Explicit UTC boundary avoids ambiguous local time on the registration day.
+            // Explicit UTC boundary avoids ambiguous local time on registration day.
             let start = jiff::Timestamp::now()
                 .checked_add(jiff::Span::new().minutes(1))
                 .map_err(|_| {
@@ -330,8 +330,8 @@ pub mod native {
         })
     }
 
-    /// Enumerate only the task root used by apply. Foreign names, users, executables
-    /// or altered arguments remain untouched. Hold database owner locks until done.
+    /// Enumerate only the apply task root; keep foreign names/users/executables
+    /// and changed arguments. Hold database ownership locks until finished.
     pub fn remove_installation_tasks() -> Result<(), String> {
         let executable = std::env::current_exe().map_err(|e| e.to_string())?;
         let user_sid = crate::installation::current_user_sid()?;
@@ -391,8 +391,8 @@ pub mod native {
             owners.push(crate::installation::disable_existing_intent(database)?);
         }
         com(move |_, folder| unsafe {
-            // Validate every definition again before any deletion; changed ownership
-            // must abort uninstall rather than remove a replacement task.
+            // Revalidate every definition before deletion; changed ownership
+            // aborts uninstall instead of deleting a replacement task.
             for (name, _, xml) in &candidates {
                 match folder.GetTask(&BSTR::from(name)) {
                     Ok(task) if task.Xml()? == xml.as_str() => {}
@@ -476,7 +476,7 @@ fn set_enabled_with(
     let _mutation = MUTATION.lock().map_err(|_| "task_state_busy")?;
     {
         let storage = state.storage.lock().unwrap();
-        // Commit disabling before calling the OS: an undeleted trigger must not scan.
+        // Save disabling before calling the OS; an undeleted trigger must not scan.
         write_intent(
             &storage,
             &TaskIntent {

@@ -1,5 +1,5 @@
-//! 诊断探针：按 app 层相同的 discover 上下文（home/env，无手工根）逐适配器
-//! 打印发现根数，用于排查“应用看不到某数据源”类问题。只读，不采集。
+//! Use the application discovery context: home/env, without manual roots.
+//! Print each adapter's root count to diagnose missing sources; read-only, no collection.
 use llm_usage_core::adapters::framework::{DiscoverContext, SourceAdapter};
 
 fn main() {

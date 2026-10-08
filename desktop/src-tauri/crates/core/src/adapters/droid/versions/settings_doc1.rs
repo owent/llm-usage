@@ -1,22 +1,22 @@
-//! Droid `<uuid>.settings.json` 格式实现（`settings_doc1`，文档级
-//! droid-settings-doc-1）。
+//! Droid `<uuid>.settings.json` reader (`settings_doc1`, document format
+//! droid-settings-doc-1).
 //!
-//! 格式依据（第三方解析器 tokscale 固定提交
-//! 1d9a9395418efc6952944b794097935d7d6fa1e8 sessions/droid.rs:16-39；
-//! 闭源产品 Factory.ai，本机未安装、无真实样本）：
-//! - 路径 `~/.factory/sessions/<uuid>.settings.json`（clients.rs:473-482）；
-//!   源码未见环境覆盖/多根。
-//! - JSON：`model`、`providerLock`、`providerLockTimestamp`（RFC3339）、
+//! Format reference: third-party tokscale parser at fixed commit
+//! 1d9a9395418efc6952944b794097935d7d6fa1e8, sessions/droid.rs:16-39.
+//! Factory.ai is closed source; no local installation or real samples were checked.
+//! - Path: `~/.factory/sessions/<uuid>.settings.json` (clients.rs:473-482);
+//!   the inspected parser shows no environment override or multiple roots.
+//! - JSON: `model`, `providerLock`, RFC3339 `providerLockTimestamp`, and
 //!   `tokenUsage{ inputTokens, outputTokens, cacheCreationTokens,
-//!   cacheReadTokens, thinkingTokens }`。
-//! - 语义：**会话级累计快照**（IntervalAggregate，不展开伪造逐次）；
-//!   同名 `<uuid>.jsonl` 转录不含 token（tokscale 按字节权重分摊属估计，
-//!   **不采纳**——M8 估算路径一律不采信）；无费用字段。
-//! - 端点 = max(mtime, providerLockTimestamp)（tokscale droid.rs:186-193
-//!   单行回退同款）；模型名规范化（去 `custom:` 前缀与 `[...]`）不沿用
-//!   （按原文入账）。
-//! - dedup `droid:<uuid>`。
-//! - 五桶包含关系未知 ⇒ 并列报告不派生总量（hermes 同型）。
+//!   cacheReadTokens, thinkingTokens }`.
+//! - A cumulative session snapshot (IntervalAggregate) never invents per-call events.
+//!   The matching `<uuid>.jsonl` transcript has no tokens; tokscale byte-weight
+//!   allocation is an estimate, excluded under M8. No cost field is available.
+//! - Endpoint is max(mtime, providerLockTimestamp), following droid.rs:186-193;
+//!   preserve model spelling instead of stripping `custom:` or `[...]`
+//!   as the third-party parser does.
+//! - Deduplication key: `droid:<uuid>`.
+//! - Unknown inclusion relationships among five buckets prevent total derivation.
 
 use crate::adapters::framework::{
     ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -28,7 +28,7 @@ use crate::ingest::DiagnosticInput;
 use std::io::Read;
 
 pub const DROID_PARSER_VERSION: &str = "droid-settings-doc1";
-/// 单文件有界读取上限。
+/// Maximum bytes read from one file.
 pub const DROID_MAX_FILE_BYTES: u64 = 8 * 1024 * 1024;
 const MAX_REASONABLE_TOKEN: i64 = crate::domain::MAX_TOKEN_VALUE;
 
@@ -219,7 +219,7 @@ pub fn scan(
             health: "active".to_string(),
         });
     }
-    // 端点 = max(mtime, providerLockTimestamp)。
+    // Endpoint = max(mtime, providerLockTimestamp).
     let end_ms = rfc3339_ms(document.get("providerLockTimestamp"))
         .map(|lock| lock.max(target.probe.mtime_ms))
         .unwrap_or(target.probe.mtime_ms);

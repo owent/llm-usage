@@ -1,16 +1,15 @@
 /**
- * 图表 Tooltip 离开即隐藏（统一封装；2026-09-27 浏览器实测定论）。
- * **机制**：ECharts 6 的手动 hideTip 动作内部同样走 hideLater(hideDelay)，
- * 因此 tooltip 必须 `hideDelay: 0`（大值会把手动的隐藏也延迟掉，之前
- * hideDelay: 999999 导致一切隐藏路径失效）。正常离开由 ECharts 内部处理
- * 即时隐藏；本封装覆盖无事件路径：
- * - globalout：指针离开画布；
- * - document mousemove 目标不在本图表容器内（含其 tooltip 子元素）：
- *   兜底"画布从指针底下移走"（点击选点后汇总条展开导致布局位移，浏览器
- *   不派发 mouseout）与 WebView2 漏派发 mouseout 的情况；
- * - document mouseout 且 relatedTarget 为空：指针移出应用窗口；
- * - window blur：窗口失焦（切应用/点标题栏）。
- * 返回清理函数（组件卸载时调用）。
+ * Hide chart tooltips on exit; browser behavior checked on 2026-09-27.
+ * ECharts 6 manual hideTip also calls hideLater(hideDelay), so use hideDelay: 0.
+ * The old 999999 value delayed every hide path. ECharts handles ordinary exits;
+ * this wrapper handles missed events:
+ * - globalout when the pointer leaves the canvas;
+ * - document mousemove outside this chart, including its tooltip children,
+ *   when selecting a point expands a summary and moves the canvas without mouseout,
+ *   or WebView2 misses mouseout;
+ * - document mouseout with no relatedTarget when leaving the application window;
+ * - window blur when changing apps or clicking the title bar.
+ * Returns cleanup for component unmount.
  */
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
 
@@ -23,8 +22,8 @@ export function escapeHtml(value: unknown): string {
 
 export const CHART_PALETTE = ['#5470e8', '#21a590', '#eda853', '#9270dc', '#dc7595', '#52a7ca', '#7b9561', '#ac8064'];
 
-/** ECharts axes and legends have their own defaults; global textStyle alone
- * does not make them readable on a dark canvas. Keep one theme boundary. */
+/** ECharts axes/legends have independent defaults. Apply theme colors to each;
+ * global textStyle alone does not ensure readability on a dark canvas. */
 export function setChartOption(chart: ECharts, dark: boolean, option: EChartsCoreOption, options: { notMerge?: boolean } = {}): void {
   const color = dark ? '#b0bfd4' : '#5b6a82';
   const border = dark ? '#34435d' : '#dfe6f0';
@@ -58,7 +57,7 @@ export function setupTooltipAutoHide(chart: ECharts): () => void {
   chart.on('showTip', shown);
   chart.on('hideTip', hidden);
   const onDocMouseMove = (e: MouseEvent): void => {
-    // 事件目标在本图表容器（含 tooltip 子元素）内 = 仍在浏览本图表，不隐藏。
+    // A target inside this chart or its tooltip means the pointer is still browsing it.
     if (e.target instanceof Node && dom.contains(e.target)) return;
     hide();
   };
@@ -80,9 +79,9 @@ export function setupTooltipAutoHide(chart: ECharts): () => void {
 }
 
 /**
- * item 触发图表（饼图/热力图）的图内空白隐藏：从图形移到画布空白处时
- * 立即隐藏——zr mousemove 无命中图形（e.target 为空）即派发 hideTip。
- * axis 触发图表勿用（网格区按设计持续显示）。
+ * For item-triggered pies/heatmaps, hide when zr mousemove has no target,
+ * indicating blank canvas. Do not apply to axis-triggered charts, whose
+ * grid areas intentionally retain tooltips.
  */
 export function hideTooltipOnBlank(chart: ECharts): () => void {
   const onMove = (e: { target?: unknown }): void => {

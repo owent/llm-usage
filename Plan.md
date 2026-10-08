@@ -1,43 +1,101 @@
-# 桌面用量客户端执行计划
+# Desktop usage execution plan
 
-当前版本 0.2.1，Windows 11 x64 首发，保留 Windows/Linux/macOS CI。
-本文件维护本轮可执行工作；移出范围及首次失败见
-[本轮记录](docs/validation/desktop-usage/plan-20261007.md)，移出不表示验证通过。
-历史结果见 [最新验收](docs/validation/desktop-usage/current-acceptance.md)。
-设计入口：[产品与架构](docs/design/desktop-usage/README.md)、[交付要求](docs/design/desktop-usage/execution.md)、
-[数据规则](docs/design/desktop-usage/data-contract.md)、[接入矩阵](docs/design/desktop-usage/adapters.md)、
-[验收要求](docs/design/desktop-usage/validation.md)。
+<a id="桌面用量客户端执行计划"></a>
 
-## 当前进度
+Current version: 0.2.1. Windows 11 x64 is the first desktop target; Windows/Linux/macOS CI
+is retained. This file owns the executable work for the current round. Removed scope and
+first failures are recorded in the [round record](docs/validation/desktop-usage/plan-20261007.md);
+removal does not mean acceptance passed. Historical results are indexed in
+[current acceptance](docs/validation/desktop-usage/current-acceptance.md).
 
-| 阶段 | 已实施范围与记录 |
+Design entry points: [product and architecture](docs/design/desktop-usage/README.md),
+[deliverables](docs/design/desktop-usage/execution.md), [data rules](docs/design/desktop-usage/data-contract.md),
+[adapter matrix](docs/design/desktop-usage/adapters.md) and [acceptance criteria](docs/design/desktop-usage/validation.md).
+
+<a id="当前进度"></a>
+
+## Current implementation
+
+| Stage | Implemented scope and results |
 | --- | --- |
-| M0/M1/M1a | 工程基线、SQLite 事务/恢复/统计/备份、来源身份及聚合交换；本轮新增完整标准化明细导出、预览与事务 Merge，保留修订、冲突、未知、累计和归档；[明细合同](docs/design/desktop-usage/detail-merge.md) |
-| M2–M5/M8/M9 | 已注册来源解析与本机遥测/接收认证；真实标签仅限受测版本与载体。M8 的 Zed 新增 1.22.0 内置 Agent 外部 Provider 两模型、缓存真实样本；Claude Code 2.1.197 已由国内镜像完成智谱两模型原生主循环及旧库回读，[专项记录](docs/validation/desktop-usage/claude-container-sample.md)；逐源边界见接入矩阵 |
-| M6/F3 | 五页、选区、保留/导出、逐源计划、暂停/取消、两来源并行、Windows 托盘/节能/通知及十语言；[交互与调度](docs/validation/desktop-usage/plan-finalization.md)、[Linux Orca](docs/validation/desktop-usage/orca-multilang.md) |
-| M7 | 既有 Windows NSIS、Linux 包/GTK/WebKit/FUSE/Orca、规模及资源验收；历史 CI 与制品核验不能认证本轮代码；[安装](docs/validation/desktop-usage/installation-lifecycle.md)、[规模](docs/validation/desktop-usage/plan-execution.md)、[既有 CI](docs/validation/desktop-usage/ci-plan-validation.md) |
-| F2 | 费用、价格快照、在线缓存/失败回退及官方 API 参考；本轮新增默认关闭的日/月 token 或单币种发生时估算预算提醒、精确阈值和持久去重；[预算合同](docs/design/desktop-usage/budget-reminders.md) |
-| F1 | 已按授权核查候选 IDE 安装及数据路径，当前没有可测试安装/本地用量载体，移出本轮，不认证产品不支持 |
+| M0/M1/M1a | Engineering baseline, SQLite transactions/recovery/statistics/backups, provenance and aggregate exchange. This round added complete normalized detail export, preview and transactional Merge, preserving revisions, conflicts, unknown values, cumulative data and archives; [detail merge rules](docs/design/desktop-usage/detail-merge.md). |
+| M2–M5/M8/M9 | Registered parsers, local telemetry and receiver authentication; real-sample labels apply only to tested versions/formats. M8 Zed adds 1.22.0 native external-provider samples for two models and caching. Claude Code 2.1.197 was downloaded through a domestic mirror and validated with native Zhipu main-loop usage for two models and old-database rereads; [record](docs/validation/desktop-usage/claude-container-sample.md). Per-source limits remain in the matrix. |
+| M6/F3 | Five pages, selections, retention/export, source schedules, pause/cancel, two-source concurrency, Windows tray/power/notifications and ten languages; [interaction/scheduling](docs/validation/desktop-usage/plan-finalization.md), [Linux Orca](docs/validation/desktop-usage/orca-multilang.md). |
+| M7 | Existing Windows NSIS, Linux packages/GTK/WebKit/FUSE/Orca, scale and resource acceptance. Historical CI/artifacts do not verify this round's code; [installation](docs/validation/desktop-usage/installation-lifecycle.md), [scale](docs/validation/desktop-usage/plan-execution.md), [existing CI](docs/validation/desktop-usage/ci-plan-validation.md). |
+| F2 | Costs, price snapshots, online cache/failure fallback and official API references. This round added default-off daily/monthly token or single-currency observation-time estimate reminders, exact thresholds and persistent deduplication; [usage and cost alert rules](docs/design/desktop-usage/budget-reminders.md). |
+| F1 | Authorized checks of candidate IDE installations and data paths found no testable installation/local usage files/database. Removed from this round without claiming the product is unsupported. |
 
-## 本轮结果
+<a id="本轮结果"></a>
 
-新增功能的统一检查、浏览器、Windows release/真实 IPC、无界面及 Zed 原生重扫已完成，
-实际结果、首次失败及范围条件见本轮记录。受影响合同、来源能力和最新验收索引已同步。
-Claude 专项另完成国内下载完整性、真实主循环、默认零修正及新库/旧库成品回读；
-本次未追加 GUI/IPC 或发行验收，范围见专项记录。
-本轮可执行范围没有剩余活动待办；环境无法执行的项按用户要求移出，原核验限制保留。
+## Application repair results
 
-更多 DPI、完整读屏、宿主登录/注销及 OS 唤醒测量按用户要求不再执行。
-主分支合并、发行签名/公证及 Release 按用户说明已完成，从执行计划移除；
-本轮不另行提交、推送或发布。缺少账户、协议、发行物、历史证据或当前权限的
-来源/系统场景移出活动待办，条件见本轮记录；原始验收要求和历史证据保留。
+Unified checks, browser tests, Windows release/native IPC, headless collection and native
+Zed rescans completed for the new features. Actual results, first failures and scope
+conditions are in the round record; affected design specifications, capabilities and acceptance indexes
+were synchronized. Claude's separate work verified domestic download integrity, real
+main-loop usage, default-zero correction and new/old-database executable rereads, without
+additional GUI/IPC or release acceptance.
 
-## 执行边界
+Missing current-day Codex collection was fixed by prioritizing unvisited files and rotating
+visits across scans when large historical files exhaust the bounded read window. The local
+old database was backfilled and independently reconciled; see the
+[recovery record](docs/validation/desktop-usage/codex-today-recovery.md).
 
-- 先核对源码、配置、测试和版本依据；只同步受影响的规则、Skills、设计和记录。
-- 只统计本机来源，未知不补零，调用/消息/累计/额度分开；费用默认关闭，多币种不合并。
-- 本机只读提取按 [准备规则](docs/design/desktop-usage/implementation-readiness.md) 白名单与脱敏执行。
-- 本轮已授权 Podman、指定 Provider 最小真实请求、本机 Zed 配置/测试与 F1 核查；凭据只用于目标进程或系统存储，不进入记录或版本库。
-- 指定端点已核验为 Coding Plan，不认证按量 API 实付，不对套餐用量套按量发生时价格；其他真实记录缺渠道依据时仍受限。
-- 保留用户修改；临时产物只放根 build/；不登录其他产品账户或构造认证状态。
-- 依据按记录所属版本保留；发现、旧处理位置、修订/冲突/封存规则以数据合同为准，只凭实际结果更新状态。
+Visual Studio Copilot discovery was repaired for TMP/TEMP and launcher environment differences,
+with a read-only official-vswhere inspection tool covering all versions/SKUs. Investigated
+VS 2022 components lack the verified VS 18 JSONL exporter; this does not verify all versions
+with native samples. See [cross-version references](docs/validation/desktop-usage/m9-vs-copilot-discovery.md).
+The previously authorized application round has no remaining active executable items;
+environment-blocked work was removed at the user's request while its limits were preserved.
+
+Additional DPI, complete screen-reader coverage, host login/logout and OS wake measurements
+were removed at the user's request. Main-branch merge, signing/notarization and Release were
+reported complete by the user and removed from that application round; this statement is
+not new release verification. Sources/system cases missing accounts, protocols, artifacts,
+historical records or permission remain outside active application work with their original
+conditions and historical acceptance requirements preserved.
+
+<a id="文档发布进行中"></a>
+
+## Documentation publication in progress
+
+The user has now explicitly authorized an English-default repository documentation/comment
+migration, complete Chinese counterparts, an Astro documentation site, real localized
+screenshots, a gh-pages branch, automatic CI publication and `llm-usage.atframe.work`.
+The [documentation requirements](docs/design/documentation-site.md) define content ownership,
+language behavior, screenshot provenance and deployment acceptance.
+
+- [x] Translate user, architecture and development documents and source comments, preserving original sources and results and complete Chinese
+  counterparts. AI rules, Skills and execution plans keep one original.
+- [x] Write 21 paired user/developer guides, with matching localized links and screenshots.
+- [x] Complete required-document translation and source-comment reference checks.
+- [x] Verify the local production build, localized search, language negotiation, themes, keyboard navigation and mobile layout.
+- [x] Review 20 real English/Chinese screenshots from isolated synthetic sources, in both themes at 2880×2000 pixels.
+- [ ] Publish the compiled site to gh-pages and configure/test automatic publication.
+- [ ] Verify Pages deployment, custom-domain DNS and HTTPS independently.
+
+Current coverage: all 199 required repository document pairs and 21 guide pairs reviewed,
+and all 7939 comment pairs across 460 source files reviewed. Complete product/document checks
+passed; 1363 pages and 2851 files built, with 12 browser checks passed. Remote publication still
+needs verification. Remote main is behind local main by an existing application commit whose
+push scope awaits user clarification. Translation uses the current language model, with complete
+pair review and contextual wording checks. First failures, validation commands and exact remaining work are in the
+[documentation record](docs/validation/desktop-usage/documentation-site.md).
+
+<a id="执行边界"></a>
+
+## Execution boundaries
+
+- Inspect source, configuration, tests and version references before conclusions; synchronize affected rules, skills, design specifications and records.
+- Collect only local sources. Preserve unknown values and separate calls/messages/cumulative data/quotas. Estimates default off; currencies stay separate.
+- Read-only real-data extraction follows the [readiness rules](docs/design/desktop-usage/implementation-readiness.md), allowlist and redaction.
+- Existing authorization covers Podman, specified-provider minimal requests, local Zed
+  configuration/tests and F1 inspection. Credentials stay in the target process or OS store,
+  never records or Git.
+- Specified endpoints were verified as Coding Plan, not actual pay-as-you-go bills; do not
+  price subscription usage as observation-time API spend. Other records without channel
+  information remain limited.
+- Preserve user changes. Temporary artifacts stay in root build/. Do not sign into another product or fabricate authentication state.
+- Keep source references/checks per record version. Discovery, old positions, revisions/conflicts and sealed
+  partitions follow the data rules. Update status only from observed results.
+- Documentation publication is authorized; unrelated application changes are preserved and kept outside the documentation deployment snapshot.

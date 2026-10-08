@@ -1,22 +1,22 @@
-//! ZCode 产品特有的两类 usage 字段映射（从根级 usage_map.rs 下沉，V30 目录约定）。
-//! 共享的 MappedUsage/finish/sub_checked/矛盾检测仍留在跨 Agent 的 usage_map.rs。
+//! ZCode-specific mappings for two usage shapes, moved from root usage_map.rs under V30.
+//! Shared MappedUsage/finish/sub_checked/contradiction checks remain in cross-product usage_map.rs.
 //!
-//! 两种字段语义的依据（m0-agent-fixtures.md，本机 ZCode 3.14.3 model-io JSONL 实读）：
-//! 同一请求同一记录内两个 usage 视图，语义相反：
+//! References: m0-agent-fixtures.md native ZCode 3.14.3 model-io JSONL checks.
+//! One request record contains two usage representations with different input semantics:
 //!
-//! - AI SDK camelCase `response.usage`：`inputTokens` **含**缓存读、`outputTokens`、
-//!   `totalTokens`、`cacheReadTokens`、`cacheWriteTokens`（五键全，主视图）；
-//! - anthropic snake_case `response.providerMetadata.anthropic.usage`：
-//!   `input_tokens` **不含**缓存、`output_tokens`、`cache_read_input_tokens`、
-//!   `cache_creation_input_tokens?`（对照视图）。
+//! - AI SDK camelCase response.usage: inputTokens includes cache read; outputTokens,
+//!   totalTokens, cacheReadTokens and cacheWriteTokens complete its five keys; primary representation.
+//! - Anthropic snake_case response.providerMetadata.anthropic.usage:
+//!   input_tokens excludes cache; output_tokens, cache_read_input_tokens and
+//!   optional cache_creation_input_tokens form the comparison representation.
 //!
-//! 两视图互斥，绝不相加（计入即双计）；矛盾进诊断，主视图保留。
+//! Choose one representation without adding them. Contradictions produce diagnostics; retain the primary.
 
 use crate::adapters::usage_map::{finish, sub_checked, MappedUsage};
 use crate::domain::{FieldQuality as Q, TokenQuality, TokenUsage};
 use crate::metrics::Contradiction;
 
-/// zcode AI SDK camelCase 字段语义：`inputTokens` 含缓存读。
+/// ZCode AI SDK camelCase inputTokens includes cache read.
 #[derive(Debug, Clone, Copy)]
 pub struct ZcodeAiSdkUsage {
     pub input_tokens: i64,
@@ -29,7 +29,7 @@ pub struct ZcodeAiSdkUsage {
 
 pub fn map_zcode_ai_sdk(raw: &ZcodeAiSdkUsage) -> MappedUsage {
     let mut diagnostics = Vec::new();
-    // 缺少任一互斥部分时，不能用零补出未缓存输入。
+    // Missing exclusive cache components cannot be replaced with zero to derive uncached input.
     let uncached = raw
         .cached_input_tokens
         .zip(raw.cache_creation_input_tokens)
@@ -83,7 +83,7 @@ pub fn map_zcode_ai_sdk(raw: &ZcodeAiSdkUsage) -> MappedUsage {
     finish(usage, quality, diagnostics)
 }
 
-/// zcode anthropic snake_case 字段语义：`input_tokens` 不含缓存（与 AI SDK 相反）。
+/// ZCode Anthropic snake_case input_tokens excludes cache, unlike the AI SDK representation.
 #[derive(Debug, Clone, Copy)]
 pub struct ZcodeAnthropicUsage {
     pub input_tokens: i64,

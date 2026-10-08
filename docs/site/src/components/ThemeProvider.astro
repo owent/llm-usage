@@ -1,0 +1,39 @@
+---
+import { Icon } from '@astrojs/starlight/components';
+---
+<script is:inline>
+  (() => {
+    const scheme = matchMedia('(prefers-color-scheme: dark)');
+    let choice = 'auto';
+    try {
+      const saved = localStorage.getItem('starlight-theme');
+      if (saved === 'light' || saved === 'dark') choice = saved;
+    } catch { /* System theme remains available without browser storage. */ }
+    function updatePickers() {
+      document.querySelectorAll('starlight-theme-select').forEach(picker => {
+        const select = picker.querySelector('select');
+        if (select) select.value = choice;
+        const icon = document.querySelector('#docs-theme-icons')?.content.querySelector('.' + choice);
+        const target = picker.querySelector('svg.label-icon');
+        if (icon && target) target.replaceChildren(...icon.cloneNode(true).childNodes);
+      });
+    }
+    function apply(theme, persist = false) {
+      choice = theme === 'light' || theme === 'dark' ? theme : 'auto';
+      document.documentElement.dataset.theme = choice === 'auto' ? scheme.matches ? 'dark' : 'light' : choice;
+      updatePickers();
+      if (persist) {
+        try { localStorage.setItem('starlight-theme', choice === 'auto' ? '' : choice); }
+        catch { /* The current page still changes theme. */ }
+      }
+    }
+    window.LLMUsageDocsTheme = { apply, updatePickers };
+    scheme.addEventListener('change', () => { if (choice === 'auto') apply('auto'); });
+    apply(choice);
+  })();
+</script>
+<template id="docs-theme-icons">
+  <Icon name="sun" class="light" />
+  <Icon name="moon" class="dark" />
+  <Icon name="laptop" class="auto" />
+</template>

@@ -1,36 +1,36 @@
-//! ZCode model-io JSONL 格式实现（`modelio_v1`）。
+//! ZCode model-io JSONL parser (modelio_v1).
 //!
-//! 格式依据（M0 fixtures + tests/fixtures/zcode/real-*，本机 ZCode 3.14.3 实读）：
-//! - 路径：`~/.zcode/cli/rollout/model-io-<sessionId>.jsonl`（append-only JSONL，
-//!   每次模型调用一条记录；无文档化环境覆盖）。
-//! - 每条：`type="model_io"`、`attempt`、`sessionId`、`requestId`、`turnId`、`traceId`、
-//!   `querySource ∈ {main_turn, subagent, session_title}`（db.model_usage 实读另证
-//!   session_title 来源）、`model{modelId,providerId}`、`startedAt/completedAt`
-//!   ISO8601 UTC 毫秒字符串、`durationMs`、`request.headers["x-zcode-app-version"]`。
-//! - **两种字段语义**（同一记录两个 usage 视图，互斥不混算）：
-//!   - 主视图 AI SDK camelCase `response.usage` 五键：`inputTokens`（含缓存读）、
-//!     `outputTokens`、`totalTokens`、`cacheReadTokens`、`cacheWriteTokens`；
-//!   - 对照视图 anthropic snake_case `response.providerMetadata.anthropic.usage`：
-//!     `input_tokens`（不含缓存）、`output_tokens`、`cache_read_input_tokens`、
-//!     `cache_creation_input_tokens?`；缓存创建亦见 camel
-//!     `providerMetadata.anthropic.cacheCreationInputTokens`（null 表示未报）。
+//! Format references: M0 test data, tests/fixtures/zcode/real-*, and local ZCode 3.14.3 reads.
+//! - Path: ~/.zcode/cli/rollout/model-io-<sessionId>.jsonl, append-only JSONL
+//!   with one record per model call; no documented environment override.
+//! - Records: type="model_io", attempt, sessionId, requestId, turnId, traceId,
+//!   querySource in {main_turn, subagent, session_title}; native db.model_usage separately
+//!   confirms session_title. model{modelId,providerId}, startedAt/completedAt
+//!   as ISO8601 UTC millisecond strings, durationMs, and request.headers["x-zcode-app-version"].
+//! - Two usage views have different field meanings; select one without summing them:
+//!   - Primary AI SDK camelCase response.usage: inputTokens includes cache reads;
+//!     outputTokens, totalTokens, cacheReadTokens, and cacheWriteTokens.
+//!   - Anthropic snake_case response.providerMetadata.anthropic.usage:
+//!     input_tokens excludes cache; output_tokens, cache_read_input_tokens,
+//!     and optional cache_creation_input_tokens. Cache creation may also appear as
+//!     providerMetadata.anthropic.cacheCreationInputTokens; null means unreported.
 //!
-//! 两视图同时在场时做一致性校验（in+cr+cw 与 out 逐条对比），矛盾记
-//! `dual_caliber_mismatch` 诊断并保留 AI SDK 主视图；AI SDK 视图缺席而
-//! anthropic 在场时回退对照视图（记诊断），绝不相加。
-//! - 在途尾部：`response.finishReason=null` 且无 usage/providerMetadata 属正常形状，
-//!   不产事件、不失败。
-//! - 缺 requestId：回退身份 `seq:{sessionId}:{行号}` 并记诊断（不得全部变成
-//!   zcode:None，adapters.md ZCode 行）。
+//! When both views exist, compare total input (in+cr+cw) and output for each record.
+//! Report dual_caliber_mismatch and keep the primary AI SDK view on disagreement. When
+//! only the Anthropic view exists, use it with a diagnostic; never add both views.
+//! - An unfinished tail with response.finishReason=null and no usage/providerMetadata
+//!   produces no event and no failure.
+//! - Missing requestId uses seq:{sessionId}:{line number} with a diagnostic, avoiding
+//!   a shared zcode:None key; see the ZCode row in adapters.md.
 //!
-//! fail closed（V17）：`type` 非 `model_io` 的未文档化记录类型整文件拒绝
-//!（事件清空、游标不推进、下轮确定性再拒）——model-io 文件实读只含 model_io
-//! 一种类型，出现其他类型即格式漂移，不得静默跳过。
+//! V17 rejects an entire file containing an undocumented type other than model_io:
+//! clear events, preserve the cursor, and reject again on the next scan. Native model-io
+//! files contained only model_io; do not silently ignore a changed record format.
 //!
-//! 版本策略（architecture.md#unknown-version）：版本锚点
-//! `x-zcode-app-version` 经 [`super::super::versions::select`] 分派；未收录/缺失
-//! 版本用本实现（当前最新）兼容尝试，事件带 `parse_basis` 标记，不因版本号
-//! 未收录直接拒绝。
+//! Version policy (architecture.md#unknown-version): the version field
+//! x-zcode-app-version is selected through super::super::versions::select. Unlisted or absent
+//! versions try this latest parser and retain event parse_basis markers;
+//! an unlisted version alone does not reject the file.
 
 use crate::domain::{
     AttributionStatus, CallCategory, EventInput, Lifecycle, ModelAttribution, RecordKind,
@@ -50,11 +50,11 @@ use crate::adapters::zcode::common::{
 
 pub const ZCODE_PARSER_VERSION: &str = "zcode-modelio-1";
 const MAX_REASONABLE_TOKEN: i64 = crate::domain::MAX_TOKEN_VALUE;
-/// epoch 数值折算阈值：小于该值视为秒（synthetic-epoch-timestamps 防御约定）。
+/// Values below this epoch threshold use seconds; defensive rule tested by synthetic-epoch-timestamps.
 const EPOCH_SECONDS_THRESHOLD: i64 = 100_000_000_000;
 
-/// 已证实的 querySource → 调用分类（db.model_usage 实读值域：
-/// main_turn / subagent / session_title）。
+/// Observed db.model_usage querySource values mapped to call categories:
+/// main_turn / subagent / session_title, as verified in local reads.
 fn map_query_source(source: Option<&str>) -> (CallCategory, bool) {
     match source {
         Some("main_turn") => (CallCategory::Primary, false),
@@ -64,18 +64,18 @@ fn map_query_source(source: Option<&str>) -> (CallCategory, bool) {
     }
 }
 
-/// 持久化解析上下文（一次性诊断标志与版本选择依据）。
+/// Persisted parsing context for one-time diagnostics and version selection.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 struct ZcodeParseContext {
     #[serde(default)]
     unmapped_query_source_reported: bool,
-    /// 版本选择依据（known_version / latest_fallback）；旧解析上下文缺省为 None，
-    /// 迁移不重建来源、不重置游标（V30）。
+    /// Version basis (known_version / latest_fallback); old contexts default to None.
+    /// V30 migration preserves sources and cursors.
     #[serde(default)]
     version_basis: Option<VersionBasis>,
 }
 
-/// 从存储的游标 JSON 还原；重扫或无效时回到文件头。
+/// Restore the saved JSON cursor; invalid state or a rescan starts at the file beginning.
 fn restore_cursor(stored: &StoredScanState, generation: i64, rescan: bool) -> JsonlCursor {
     if rescan {
         return JsonlCursor {
@@ -121,7 +121,7 @@ fn json_str<'a>(value: &'a serde_json::Value, key: &str) -> Option<&'a str> {
     value.get(key)?.as_str()
 }
 
-/// 数值字段：存在时必须是有界非负整数（违例返回 None，调用方记诊断）。
+/// Present numeric fields must be bounded nonnegative integers; return None on invalid data for caller diagnostics.
 fn token_field(obj: &serde_json::Map<String, serde_json::Value>, key: &str) -> Option<Option<i64>> {
     match obj.get(key) {
         None => Some(None),
@@ -135,8 +135,8 @@ fn token_field(obj: &serde_json::Map<String, serde_json::Value>, key: &str) -> O
     }
 }
 
-/// AI SDK camelCase 五键视图：inputTokens/outputTokens 必填，
-/// cacheRead/cacheWrite/total/reasoning 可选；任一在场键违例返回 None。
+/// AI SDK camelCase usage requires inputTokens/outputTokens;
+/// cacheRead/cacheWrite/total/reasoning are optional. An invalid present field returns None.
 fn parse_ai_sdk_usage(value: &serde_json::Value) -> Option<ZcodeAiSdkUsage> {
     let obj = value.as_object()?;
     Some(ZcodeAiSdkUsage {
@@ -149,8 +149,8 @@ fn parse_ai_sdk_usage(value: &serde_json::Value) -> Option<ZcodeAiSdkUsage> {
     })
 }
 
-/// anthropic snake_case 视图（含 camel `cacheCreationInputTokens` 回退）。
-/// `anthropic_parent` 是 `providerMetadata.anthropic` 对象。
+/// Anthropic snake_case usage, with camelCase cacheCreationInputTokens fallback.
+/// anthropic_parent is the providerMetadata.anthropic object.
 fn parse_anthropic_usage(
     usage: &serde_json::Value,
     anthropic_parent: &serde_json::Value,
@@ -170,8 +170,8 @@ fn parse_anthropic_usage(
     })
 }
 
-/// 时间戳：实读为 ISO8601 毫秒字符串；数值按防御约定折算毫秒（<1e11 视为秒）。
-/// 返回 (ms, 原始白名单字符串)。
+/// Native timestamps are ISO8601 millisecond strings; defensive numeric inputs use seconds below 1e11.
+/// Return (milliseconds, original timestamp text).
 fn parse_ts(value: &serde_json::Value) -> Option<(i64, String)> {
     match value {
         serde_json::Value::String(s) => s
@@ -191,7 +191,7 @@ fn parse_ts(value: &serde_json::Value) -> Option<(i64, String)> {
     }
 }
 
-/// 版本锚点（每条记录自带；探测与事件 schema_version 共用）。
+/// Per-record version field shared by detection and event schema_version.
 pub fn version_anchor(line: &serde_json::Value) -> Option<&str> {
     line.get("request")?
         .get("headers")?
@@ -199,7 +199,7 @@ pub fn version_anchor(line: &serde_json::Value) -> Option<&str> {
         .as_str()
 }
 
-/// 增量扫描一个 model-io JSONL 文件（统一入口 `ZcodeAdapter::scan` 分派到本实现）。
+/// Incrementally scan one model-io JSONL file, called by ZcodeAdapter::scan.
 pub fn scan(
     target: &ScanTarget,
     stored: &StoredScanState,
@@ -208,8 +208,8 @@ pub fn scan(
 ) -> Result<ScanOutcome, CoreError> {
     let cursor = restore_cursor(stored, target.generation, target.rescan);
     let mut context = restore_context(stored, target.rescan);
-    // 版本分派（探测/扫描同一注册表）：首条记录的版本锚点决定解析依据并持久化
-    //（跨增量轮次稳定）；锚点缺失 ⇒ latest_fallback 兼容尝试（V17/V30）。
+    // Detection and scanning use the same version registry. Persist the first encountered record's
+    // parse basis across incremental rounds; missing version selects latest_fallback (V17/V30).
     let mut events: Vec<EventInput> = Vec::new();
     let mut diagnostics: Vec<DiagnosticInput> = Vec::new();
     let mut records_seen: u64 = 0;
@@ -244,7 +244,7 @@ pub fn scan(
         };
         let record_type = line.get("type").and_then(|t| t.as_str()).unwrap_or("");
         if record_type != "model_io" {
-            // 未文档化记录类型：fail closed（事件清空、游标不推进、下轮确定性再拒）。
+            // Undocumented record types reject the file: clear events, preserve the cursor, and reject again next round.
             fail_closed = Some((
                 raw.number,
                 format!("record type {record_type:?} not model_io"),
@@ -252,13 +252,13 @@ pub fn scan(
             ));
             break;
         }
-        // 版本锚点：首次见到时按注册表确定解析依据并持久化。
+        // Persist the registry's parse basis on the first encountered version field.
         let anchor = version_anchor(&line);
         if context.version_basis.is_none() {
             let selection = super::super::versions::select(anchor);
             context.version_basis = Some(selection.basis);
         }
-        // 解析两个 usage 视图。
+        // Read both usage views.
         let response = line
             .get("response")
             .cloned()
@@ -270,11 +270,11 @@ pub fn scan(
             .cloned()
             .unwrap_or(serde_json::Value::Null);
         let anthropic_value = anthropic_parent.get("usage").filter(|u| u.is_object());
-        // 在途尾部（无任何 usage 视图）：正常形状，不产事件、不失败。
+        // A tail without either usage view produces no event and no failure.
         if ai_sdk_value.is_none() && anthropic_value.is_none() {
             continue;
         }
-        // 时间：completedAt 优先，缺失/不可解析回退 startedAt；均失败跳过该条。
+        // Prefer completedAt, then startedAt if missing or unparseable; skip when neither is usable.
         let (occurred_ms, source_time) = match line
             .get("completedAt")
             .and_then(parse_ts)
@@ -291,7 +291,7 @@ pub fn scan(
                 continue;
             }
         };
-        // usage 解析 + 视图选择（互斥取一，绝不相加）。
+        // Parse usage and select exactly one view.
         let mapped = match ai_sdk_value {
             Some(value) => {
                 let Some(sdk) = parse_ai_sdk_usage(value) else {
@@ -303,7 +303,7 @@ pub fn scan(
                     ));
                     continue;
                 };
-                // 两个 usage 视图的一致性校验（对照视图在场时）：矛盾进诊断，主视图保留。
+                // Compare both usage views when the comparison view exists; diagnose differences and keep the primary view.
                 if let Some(anth_usage) =
                     anthropic_value.and_then(|v| parse_anthropic_usage(v, &anthropic_parent))
                 {
@@ -328,7 +328,7 @@ pub fn scan(
                 map_zcode_ai_sdk(&sdk)
             }
             None => {
-                // AI SDK 视图缺席、anthropic 在场：回退对照视图并记诊断。
+                // When AI SDK usage is absent, use Anthropic usage and record a diagnostic.
                 let anth_usage =
                     anthropic_value.and_then(|v| parse_anthropic_usage(v, &anthropic_parent));
                 let Some(anth) = anth_usage else {
@@ -357,7 +357,7 @@ pub fn scan(
                 &contradiction.detail,
             ));
         }
-        // 分类（querySource 实读值域；未映射值一次诊断 + unknown，不猜）。
+        // Map observed querySource values; diagnose unlisted values once and leave their category unknown.
         let query_source = json_str(&line, "querySource");
         let (category, unmapped) = map_query_source(query_source);
         if unmapped && !context.unmapped_query_source_reported {
@@ -369,7 +369,7 @@ pub fn scan(
                 "querySource value outside evidenced set {main_turn, subagent, session_title}; classified unknown",
             ));
         }
-        // 身份：zcode:{requestId}:{attempt}；缺 requestId 回退 seq:{sessionId}:{行号}。
+        // Identity: zcode:{requestId}:{attempt}; missing requestId uses seq:{sessionId}:{line number}.
         let session_id = json_str(&line, "sessionId");
         let attempt = line.get("attempt").and_then(|v| v.as_i64()).unwrap_or(1);
         let (source_record_key, origin_call_id) = match json_str(&line, "requestId") {
@@ -469,7 +469,7 @@ pub fn scan(
                     | "line_too_long"
             )
         });
-    // fail closed：本轮事件清空、游标不推进（不提交 checkpoint），下轮确定性再拒。
+    // Reject the file: clear this round's events, retain the old checkpoint, and reject again next round.
     let (cursor_out, context_out) = if let Some((line_no, detail, code)) = fail_closed {
         diagnostics.push(diag(code, Some("type"), line_no, &detail));
         events.clear();
@@ -509,10 +509,10 @@ mod tests {
         let (ms1, raw1) = parse_ts(&serde_json::json!(1_800_000_000_000_i64)).unwrap();
         assert_eq!(ms1, 1_800_000_000_000);
         assert_eq!(raw1, "1800000000000");
-        // 秒级数值（<1e11）折算毫秒。
+        // Convert numeric seconds below 1e11 to milliseconds.
         let (ms2, _) = parse_ts(&serde_json::json!(1_800_000_000_i64)).unwrap();
         assert_eq!(ms2, 1_800_000_000_000);
-        // ISO 字符串（实读形状）。
+        // ISO strings match the observed native format.
         let (ms3, raw3) = parse_ts(&serde_json::json!("2026-09-25T09:10:45.285Z")).unwrap();
         assert_eq!(raw3, "2026-09-25T09:10:45.285Z");
         assert_eq!(
@@ -535,7 +535,7 @@ mod tests {
         assert_eq!(sdk.cache_creation_input_tokens, Some(200));
         let missing = serde_json::json!({"inputTokens": 10});
         assert!(parse_ai_sdk_usage(&missing).is_none());
-        // 负值（synthetic-negative-usage）：违例返回 None。
+        // Negative values (synthetic-negative-usage) return None.
         let negative = serde_json::json!({
             "inputTokens": -5, "outputTokens": 10, "totalTokens": 5,
             "cacheReadTokens": 0, "cacheWriteTokens": 0
@@ -551,7 +551,7 @@ mod tests {
         });
         let anth = parse_anthropic_usage(&parent["usage"], &parent).unwrap();
         assert_eq!(anth.cache_creation_input_tokens, Some(200));
-        // snake 在场优先；两者均缺（实读形状：null/缺席）⇒ None。
+        // Prefer snake_case when present; null or absence in both native representations leaves None.
         let real = serde_json::json!({
             "usage": {
                 "input_tokens": 139, "output_tokens": 120, "cache_read_input_tokens": 390976
@@ -585,8 +585,8 @@ mod tests {
 
     #[test]
     fn old_parse_context_without_basis_still_restores() {
-        // 旧解析上下文（无 version_basis 字段）反序列化不失败，basis 为 None；
-        // 目录迁移不重建来源/重置游标（V30）。
+        // Old contexts without version_basis deserialize with basis=None;
+        // V30 directory migration preserves sources and cursors.
         let legacy = serde_json::json!({"unmapped_query_source_reported": true});
         let ctx: ZcodeParseContext = serde_json::from_value(legacy).expect("restore");
         assert!(ctx.unmapped_query_source_reported);

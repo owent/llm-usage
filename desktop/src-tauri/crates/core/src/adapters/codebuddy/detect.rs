@@ -1,5 +1,5 @@
-//! CodeBuddy 会话格式探测入口。CLI JSONL 与扩展存储 index.json 两个格式锚点，
-//! 路径形状分派见 [`super::CodeBuddyAdapter::detect`]。
+//! Detect CodeBuddy sessions using CLI JSONL or extension index.json format markers.
+//! Path-based dispatch is defined in [`super::CodeBuddyAdapter::detect`].
 pub const FORMAT: &str = "tencent-buddy-session-doc1";
 pub const EXT_FORMAT: &str = super::extension_store::EXT_FORMAT;
 

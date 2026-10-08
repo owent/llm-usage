@@ -1,8 +1,8 @@
-//! V28（M1a）：历史来源身份与存储分区。
-//! 主机身份稳定（改名不重复计数、同名不同主机不键冲突）、v3→v4 迁移
-//! （legacy_unknown 命名空间、封存保留、认领与分区重算）、交换约定
-//! （格式版本/来源注册/字段完整性/修订/快照-增量性质）与合并判定
-//! （幂等跳过/权威替换/互斥新增/冲突保留）用脱敏固定样本验证。
+//! V28/M1a tests for historical source identity, partitions, and record exchange.
+//! Check stable host IDs across renames and equal names, plus legacy_unknown ownership.
+//! Current prerelease storage rejects older schemas; it does not migrate v3 to v4.
+//! Check archive identity, ownership claims, partition rebuilding, versioned exchange fields,
+//! duplicate skips, newer revision replacement, independent additions, and retained conflicts.
 
 mod common;
 
@@ -39,7 +39,7 @@ fn local_host_identity_is_stable_across_rename_and_calls() {
     let h1 = storage.ensure_local_host("machine-a", 1_000).unwrap();
     let h2 = storage.ensure_local_host("machine-a", 2_000).unwrap();
     assert_eq!(h1, h2, "same machine keeps one host id");
-    // 改名：同一主机 ID，新增主机名观察，不产生第二个本机身份。
+    // Renaming a host adds a name observation without creating a second local host ID.
     let h3 = storage.ensure_local_host("machine-b", 3_000).unwrap();
     assert_eq!(h1, h3, "rename does not change origin_host_id");
     let hosts: i64 = storage
@@ -64,7 +64,7 @@ fn local_host_identity_is_stable_across_rename_and_calls() {
 
 #[test]
 fn same_hostname_different_hosts_do_not_collide() {
-    // 两台同名主机：键用 host_id，不用主机名；同名不发生键冲突（V28）。
+    // Equal hostnames remain distinct because keys use host_id (V28).
     let (_dir, storage) = temp_storage("v28-samename");
     let a = storage.ensure_local_host("same-name", 1_000).unwrap();
     storage
@@ -80,7 +80,7 @@ fn same_hostname_different_hosts_do_not_collide() {
         )
         .unwrap();
     assert_eq!(n, 2, "same hostname can belong to different hosts");
-    // 两主机的同名实例注册互不覆盖（instance_id 主键不同命名空间）。
+    // Instance registrations under distinct host namespaces do not overwrite each other.
     for (instance, host) in [
         ("codex@a", a.as_str()),
         ("codex@host-external1", "host-external1"),
@@ -151,7 +151,7 @@ fn legacy_instances_claimed_only_by_verified_local_scan() {
         "no host evidence → legacy namespace"
     );
 
-    // 本机核验采集认领（文件就在本机 + locality 已核验 = 可证明映射）。
+    // Verified local file ownership allows claiming the source as local.
     let local = storage.ensure_local_host("machine-a", 2_000).unwrap();
     upsert_source_instance(
         &storage,
@@ -182,7 +182,7 @@ fn legacy_instances_claimed_only_by_verified_local_scan() {
         .unwrap();
     assert_eq!(host, local, "verified local scan claims legacy instance");
 
-    // 已属于其他主机的来源不被覆盖（导入来源不因本机扫描改归属）。
+    // Local scans must not change imported sources already assigned to another host.
     upsert_source_instance(
         &storage,
         &SourceInstanceInput {
@@ -237,11 +237,11 @@ fn legacy_instances_claimed_only_by_verified_local_scan() {
 
 #[test]
 fn old_version_database_rejected_not_migrated() {
-    // 预发布约定：旧版本库直接拒绝打开（应用层提示重建），不做迁移。
+    // Prerelease storage rejects older schemas; the app offers rebuilding rather than migration.
     let dir = TempDir::new("v28-old-version");
     {
         let storage = Storage::open(&dir.db_path()).unwrap();
-        // 手动写一个事件让库非空。
+        // Write one event so the database is nonempty.
         commit_batch(
             &storage,
             &batch(
@@ -257,7 +257,7 @@ fn old_version_database_rejected_not_migrated() {
             None,
         )
         .unwrap();
-        // 强制设置旧版本号。
+        // Set the schema version to an older value.
         storage
             .conn()
             .pragma_update(None, "user_version", 3u32)
@@ -272,8 +272,8 @@ fn old_version_database_rejected_not_migrated() {
 
 #[test]
 fn cross_source_query_sums_while_partitions_keep_identity() {
-    // 两个来源实例各写一天数据：日分区按来源落盘，查询跨来源求和；
-    // 删除明细后分区与来源注册仍保留来源身份。
+    // Two instances have separate daily partitions; queries sum their contributions.
+    // Source registration and partition identity survive detail deletion.
     let (_dir, storage) = temp_storage("v28-partition");
     let host = storage.ensure_local_host("machine-a", 1_000).unwrap();
     for (instance, key) in [("codex@a", "ra"), ("codex@b", "rb")] {
@@ -312,7 +312,7 @@ fn cross_source_query_sums_while_partitions_keep_identity() {
     let s = query_summary(&storage, &summary_request("2026-09-21", "2026-09-21")).unwrap();
     assert_eq!(s.totals.call_count, 2, "cross-source sum in query");
     assert_eq!(s.totals.total_tokens_known, Some(220));
-    // 删除明细：分区与来源注册保留来源身份（不随清理丢失）。
+    // Deleting details retains source identity in partitions and registrations.
     storage
         .conn()
         .execute("DELETE FROM usage_events", [])
@@ -333,7 +333,7 @@ fn cross_source_query_sums_while_partitions_keep_identity() {
 fn export_contains_contract_fields_and_round_trips() {
     let (_dir, storage) = temp_storage("v28-export");
     let host = storage.ensure_local_host("machine-a", 1_000).unwrap();
-    // 导出按来源注册表关联记录；采集流程会先注册实例（run_adapter_scan）。
+    // Exports join source registrations; run_adapter_scan registers instances before ingestion.
     upsert_source_instance(
         &storage,
         &SourceInstanceInput {
@@ -385,7 +385,7 @@ fn export_contains_contract_fields_and_round_trips() {
     assert_eq!(record.usage.total_tokens, Some(110));
     assert_eq!(export.sources.len(), 1);
     assert_eq!(export.sources[0].source_instance_id, "codex@a");
-    // JSON 往返稳定（版本化格式可被导入端解析）。
+    // Versioned exchange JSON survives serialization and parsing.
     let json = serde_json::to_string(&export).unwrap();
     let back: llm_usage_core::exchange::ExchangeExport = serde_json::from_str(&json).unwrap();
     assert_eq!(back, export);
@@ -422,7 +422,7 @@ fn merge_decisions_follow_contract_table() {
     };
     let hash = content_hash(&"payload-a").to_string();
 
-    // 无现存 → 新增独立贡献。
+    // No existing record: add the independent contribution.
     assert_eq!(
         decide_record_merge(&base, &hash, Lifecycle::Final, None),
         llm_usage_core::exchange::MergeDecision::AddIndependent
@@ -435,20 +435,20 @@ fn merge_decisions_follow_contract_table() {
         source_revision: Some(5),
         content_hash: hash.clone(),
     };
-    // 同来源同键、同修订、内容一致 → 幂等跳过。
+    // Same source, key, revision, and content: skip the duplicate.
     assert_eq!(
         decide_record_merge(&base, &hash, Lifecycle::Final, Some(&existing)),
         llm_usage_core::exchange::MergeDecision::SkipIdempotent
     );
 
-    // 同修订不同内容 → 冲突（不按 token 大小裁决）。
+    // Same revision with different content: retain a conflict regardless of token magnitude.
     let hash_b = content_hash(&"payload-b").to_string();
     assert_eq!(
         decide_record_merge(&base, &hash_b, Lifecycle::Final, Some(&existing)),
         llm_usage_core::exchange::MergeDecision::Conflict
     );
 
-    // 更权威修订（修订号更高）→ 撤销旧贡献后替换。
+    // A higher revision replaces the old contribution.
     let mut revised = base.clone();
     revised.source_revision = Some(6);
     assert_eq!(
@@ -456,14 +456,14 @@ fn merge_decisions_follow_contract_table() {
         llm_usage_core::exchange::MergeDecision::ReplaceAfterRevoke
     );
 
-    // 修订同级更正但修订号相同：无法确认哪条修订更新，内容不同 → 冲突可见
-    //（与 ingest 仲裁一致：修订号相等只比内容；更正要替换须携带更高修订号）。
+    // Equal revision numbers cannot identify a newer correction; changed content stays conflicting.
+    // This matches ingest: ordinary replacement requires a higher revision number.
     assert_eq!(
         decide_record_merge(&base, &hash_b, Lifecycle::Corrected, Some(&existing)),
         llm_usage_core::exchange::MergeDecision::Conflict
     );
 
-    // 无修订号记录（两侧）：corrected 生命周期是权威顺序 → 替换。
+    // With neither revision number present, a later corrected lifecycle can replace final.
     let mut no_rev = base.clone();
     no_rev.source_revision = None;
     let existing_no_rev = ExistingRecord {
@@ -487,7 +487,7 @@ fn merge_decisions_follow_contract_table() {
         llm_usage_core::exchange::MergeDecision::ReplaceAfterRevoke
     );
 
-    // 更低修订 → 保留现存（Keep + 内容不同）→ 冲突可见。
+    // A lower revision retains the existing record and reports differing content as a conflict.
     let mut older = base.clone();
     older.source_revision = Some(4);
     assert_eq!(
@@ -495,7 +495,7 @@ fn merge_decisions_follow_contract_table() {
         llm_usage_core::exchange::MergeDecision::Conflict
     );
 
-    // 不同记录键 → 互斥来源新增。
+    // A different record key adds an independent contribution.
     let mut other_key = base.clone();
     other_key.source_record_key = "resp:2".into();
     assert_eq!(
@@ -506,10 +506,10 @@ fn merge_decisions_follow_contract_table() {
 
 #[test]
 fn tz_partition_repair_makes_history_visible_in_user_timezone() {
-    // 回归（2026-09-26 缺陷）：扫描以 UTC 写日分区而用户按 Asia/Shanghai 查询
-    // ⇒ tz_version 不匹配导致 UI 永远为空。事件仍在 ⇒ 重算是推导非猜测。
+    // Regression: scans wrote UTC partitions while users queried Asia/Shanghai.
+    // Different tz_version values hid retained events; rebuild partitions from those events.
     let (_dir, storage) = temp_storage("tz-repair");
-    // 模拟旧行为：UTC 日界提交（2026-09-25 18:30 UTC = 上海 09-26 02:30）。
+    // Simulate UTC partitioning: 2026-09-25 18:30 UTC is Shanghai 09-26 02:30.
     commit_batch(
         &storage,
         &batch(
@@ -540,7 +540,7 @@ fn tz_partition_repair_makes_history_visible_in_user_timezone() {
         before.totals.call_count, 0,
         "UTC 分区在上海时区下不可见（缺陷复现）"
     );
-    // 修复：在用户时区重算事件覆盖范围。
+    // Rebuild the event range in the user's timezone.
     llm_usage_core::ingest::recompute_days_in_tz(
         &storage,
         "Asia/Shanghai",
@@ -552,9 +552,9 @@ fn tz_partition_repair_makes_history_visible_in_user_timezone() {
     let after = query_summary(&storage, &sh).unwrap();
     assert_eq!(after.totals.call_count, 1);
     assert_eq!(after.totals.total_tokens_known, Some(110));
-    // 事件归属上海日 2026-09-26（18:30Z = 02:30+08）。
+    // Attribute the event to Shanghai date 2026-09-26 (18:30Z = 02:30+08).
     assert_eq!(after.periods[0].label, "2026-09-26");
-    // UTC 分区保留（多时区并存按 tz_version 区分，不互相污染）。
+    // Retain UTC partitions separately under tz_version.
     let utc_rows: i64 = storage
         .conn()
         .query_row(
@@ -568,8 +568,8 @@ fn tz_partition_repair_makes_history_visible_in_user_timezone() {
 
 #[test]
 fn readonly_queries_do_not_block_behind_writer_transaction() {
-    // WAL 约定：一个后台写者 + 只读连接并发。写事务未提交期间，
-    // open_readonly 的查询照常进行（M6 修复：UI 查询不再被长扫描阻塞）。
+    // WAL allows one writer and concurrent read-only connections during an uncommitted
+    // transaction; M6 queries no longer wait for a whole scan to release the writer.
     let (_dir, storage) = temp_storage("wal-concurrent");
     commit_batch(
         &storage,
@@ -589,7 +589,7 @@ fn readonly_queries_do_not_block_behind_writer_transaction() {
     let conn = storage.conn();
     let held = conn.unchecked_transaction().unwrap();
     held.execute_batch("INSERT INTO settings (key, value, schema_version, updated_at_ms) VALUES ('hold', '1', 1, 1)").unwrap();
-    // 写事务未提交：只读连接读到的仍是提交前视图，且不被阻塞。
+    // Read-only connections see the committed view while the writer transaction remains open.
     let reader = Storage::open_readonly(storage.path()).unwrap();
     let req = llm_usage_core::query::SummaryRequest {
         timezone: "UTC".to_string(),

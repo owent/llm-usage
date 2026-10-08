@@ -1,5 +1,5 @@
-//! V16（预发布阶段简化版）：schema 建库、幂等重开、PRAGMA 约定、
-//! 版本不匹配拒绝打开（提示重建而非迁移）。
+//! Simplified prerelease V16: database creation, repeat opening and PRAGMA settings;
+//! version mismatch refuses opening and asks for rebuilding rather than migration.
 
 mod common;
 
@@ -93,7 +93,7 @@ fn v16_pragmas_match_contract() {
 
 #[test]
 fn v16_schema_mismatch_rejected() {
-    // 用错误版本号打开 ⇒ 报错（应用层提示重建或退出）。
+    // Opening with the wrong version errors; the application offers rebuilding or exit.
     let dir = TempDir::new("v16-mismatch");
     {
         let storage = Storage::open(&dir.db_path()).unwrap();

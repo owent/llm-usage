@@ -1,4 +1,4 @@
-//! Official Roo VSIX: real native/API coverage and complete old-digest migration.
+//! Official Roo VSIX native/API checks and complete old-summary migration.
 mod common;
 use common::{summary, temp_storage, TempDir};
 use llm_usage_core::adapters::{framework::*, roo::RooAdapter};

@@ -24,12 +24,12 @@
     selectedRange = null,
   }: {
     periods: PeriodDto[];
-    /** 当前查询（chart_series 分组数据用；随筛选/范围变化重新拉取）。 */
+    /** Current query for grouped chart_series; reload on filter/range changes. */
     query: SummaryQuery;
     granularity: 'hour' | 'day' | 'week' | 'month';
-    /** 深色主题（父级传入；变化时重绘轴/legend 文字与分隔线）。 */
+    /** Parent-provided dark theme; redraw axes/legend text and separators when changed. */
     isDark?: boolean;
-    /** 点击数据点回调（携带该点的时间轴标签；总用量/分组两模式均生效）。 */
+    /** Point-click callback receives the time label in both total and grouped views. */
     onperiodclick?: (label: string) => void;
     onrangechange?: (first:string,last:string)=>void;
     selectedRange?: {first:string;last:string} | null;
@@ -44,9 +44,9 @@
   let chart: echarts.ECharts | null = null;
 
   /**
-   * 增量渲染（2026-09-26 用户反馈）：渲染结构签名（维度/标签/系列名/主题/语言）
-   * 与上次相同 → setOption 合并更新（ECharts 内部 diff，不整图重建）；结构变化
-   * → notMerge 整体重建。数据刷新时避免可见闪烁。
+   * Incremental rendering for 2026-09-26 feedback: unchanged grouping/labels/series/theme/language
+   * uses setOption merging and ECharts diff; changed structure uses notMerge rebuilds.
+   * Refresh data without visibly rebuilding the chart.
    */
   let lastRenderKey = '';
 
@@ -62,13 +62,13 @@
 
   const duration = $derived(durationStatsOf(periods));
 
-  /** 主题感知色：全局文字（axis/legend 继承）与 y 轴分隔线。 */
+  /** Theme colors for global text inherited by axes/legend, and y-axis separators. */
   const chartText = $derived(isDark ? '#b0bfd4' : '#5b6a82');
   const splitColor = $derived(isDark ? '#2c3a52' : '#e8edf5');
 
   const PALETTE = CHART_PALETTE;
 
-  // 分组数据：dimension/query 变化时经 chart_series 拉取；失败时保底显示错误文案。
+  // Fetch chart_series when dimension/query changes; show errors on failure.
   $effect(() => {
     const q = query;
     void periods;
@@ -240,17 +240,17 @@
   onMount(() => {
     chart = echarts.init(el, i18n.locale === 'zh-CN' ? 'ZH' : 'EN', { renderer: 'svg' });
 
-    // Tooltip：hideDelay 0（ECharts 6 手动 hideTip 也走 hideLater(hideDelay)，不可用大值）+ 离开画布/移出窗口/失焦即隐藏（统一封装）。
+    // Tooltip hideDelay=0: ECharts 6 hideTip uses hideLater too; avoid large delays and hide on canvas/window leave or blur.
     const disposeTipHide = setupTooltipAutoHide(chart!);
-    // 数据点/横轴任意位置点击：网格内像素 → 最近类目索引（不要求命中数据点，
-    // 2026-09-26 用户需求）；zr 级事件覆盖整个画布，legend/坐标轴外区域被
-    // containPixel('grid') 排除。
+    // Click anywhere inside the grid: pixels map to the nearest category, without hitting a point;
+    // requested 2026-09-26. zr events span the canvas, while legend/outside-axis regions are
+    // excluded by containPixel('grid').
     const disposeSelection=setupRangeSelection(chart,()=>dimension==='total'?periods.map((p)=>p.label):grouped?.labels??[],
       (label)=>onperiodclick?.(label),(first,last)=>onrangechange?.(first,last));
     render();
     const onResize = () => chart?.resize();
     window.addEventListener('resize', onResize);
-    // 面板显示/隐藏或网格变化时容器尺寸变化（含 display:none 恢复），自动重设画布。
+    // Resize canvas after panel/grid size changes, including restoration from display:none.
     const observer = new ResizeObserver(() => chart?.resize());
     observer.observe(el);
     return () => {
@@ -294,7 +294,7 @@
 </p>
 
 <style>
-  /* 分组维度选择行（面板顶部；维度为分段按钮组，见 DimensionPicker）。 */
+  /* Top grouping selector uses segmented buttons; see DimensionPicker. */
   .dim-row {
     display: flex;
     align-items: center;

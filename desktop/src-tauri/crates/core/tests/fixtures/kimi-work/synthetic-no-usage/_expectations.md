@@ -1,5 +1,7 @@
-# synthetic-no-usage._expectations.md（SYNTHETIC）
+# synthetic-no-usage._expectations.md (synthetic)
 
-无任何 usage.record 的 wire（error 步；tools.register_user_tool 为 1.4 特有
-已知类型，实读 650 条，静默忽略不诊断）。期望：status=complete、0 事件、
-0 诊断（无 usage 是正常形状，不补零不报错）。
+<a id="synthetic-no-usage_expectationsmdsynthetic"></a>
+
+An error-step wire contains no usage.record. tools.register_user_tool is a known
+1.4-specific type, observed in 650 native records and skipped without diagnostics.
+Expected: status=complete, no events/diagnostics. Absent usage is valid; do not fill zeros.

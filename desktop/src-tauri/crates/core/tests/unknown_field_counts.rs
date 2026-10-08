@@ -1,4 +1,4 @@
-//! 缺字段计数：无用量记录、部分用量、零值及估算；日/小时查询使用同一规则。
+//! Missing-field counts: no usage, partial usage, zeros and estimates use the same daily/hourly rules.
 mod common;
 
 use common::{batch, evt, temp_storage, ts};
@@ -54,7 +54,7 @@ fn field_gaps_preserve_partial_usage_and_zero_across_day_and_hour() {
         }
         events.push(e);
     }
-    // 即使传输尝试带 token，也不能进入用量或缺字段统计。
+    // Transport attempts cannot contribute usage or missing-field counts, even with tokens.
     let mut attempt = evt("inst", "retry", base);
     attempt.model_raw = Some("transport".into());
     attempt.record_kind = RecordKind::TransportAttempt;

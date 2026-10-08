@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
-"""copilot 采集器：~/.copilot/session-store.db 与各 session-state/*/session.db 的 assistant_usage_events。
+"""Copilot collector: assistant_usage_events in ~/.copilot/session-store.db
+and each session-state/*/session.db.
 
-input_tokens 含缓存命中部分，这里拆分为：input = input_tokens - cache_read_tokens。
+input_tokens includes cache hits; split input = input_tokens - cache_read_tokens.
 """
 import glob
 import os
@@ -28,7 +29,7 @@ def _ts(iso) -> float:
 
 
 def _read_db(path, ctx):
-    """复制活库后查询增量事件。"""
+    """Copy the live database before querying incremental events."""
     tmp = tempfile.mkdtemp(prefix="copilot-db-")
     dst = os.path.join(tmp, "s.db")
     rows = []
@@ -71,7 +72,7 @@ def collect(ctx):
             if ts <= 0:
                 continue
             max_seen = max(max_seen, ts)
-            if ts < cursor - 3600:          # 增量窗口外，靠 request_id 幂等兜底
+            if ts < cursor - 3600:          # Outside the incremental window; request_id deduplication provides idempotency.
                 pass
             cr = int(cr or 0)
             events.append(Event(

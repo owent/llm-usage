@@ -1,4 +1,4 @@
-//! Antigravity 探测：conversations/&lt;uuid&gt;.db 的 gen_metadata 表指纹。
+//! Detect the gen_metadata table in Antigravity conversations/&lt;uuid&gt;.db.
 
 use crate::adapters::framework::DetectOutcome;
 use crate::domain::VersionBasis;
@@ -21,14 +21,14 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
             });
         }
     };
-    // 空库（0 字节新文件）：尚无内容可判定，Pending 下轮重探。
+    // A new zero-byte database has no detectable content; return Pending and retry later.
     let is_empty = std::fs::metadata(path)
         .map(|m| m.len() == 0)
         .unwrap_or(false);
     if is_empty {
         return Ok(DetectOutcome::Pending);
     }
-    // busy 是瞬态（宿主写库中）：Pending 下轮重探，不误报 UnknownFormat。
+    // Host writes can cause transient busy errors; return Pending rather than UnknownFormat.
     if conn
         .busy_timeout(std::time::Duration::from_millis(150))
         .is_err()

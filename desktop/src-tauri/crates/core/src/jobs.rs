@@ -1,6 +1,6 @@
-//! 采集作业约定：ingest_runs 状态机（running/interrupted/succeeded/failed/cancelled）。
-//! 同源最多一个运行作业；重叠触发合并进既有作业（M6 才接调度并发控制，这里
-//! 只提供结构与存储语义）。进程重启由 Storage::open 把 running 标记为 interrupted。
+//! Collection jobs: ingest_runs states running/interrupted/succeeded/failed/cancelled.
+//! One running job per source; overlapping triggers merge into it. Scheduling/concurrency
+//! integrate through M6; this module stores jobs. Storage::open marks running as interrupted.
 
 use crate::error::CoreError;
 use crate::storage::Storage;
@@ -63,13 +63,13 @@ impl TriggerKind {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RunStart {
-    /// 新建作业。
+    /// A new job.
     Started(String),
-    /// 同源已有运行作业：触发被合并，返回既有作业 ID。
+    /// Merge the trigger into the existing running source job and return its ID.
     Merged(String),
 }
 
-/// 启动同源采集作业；已有 running 作业时合并触发原因并返回 Merged。
+/// Start collection, or merge trigger reasons and return Merged for a running source.
 pub fn start_run(
     storage: &Storage,
     run_id: &str,
@@ -116,7 +116,7 @@ pub struct RunStats {
     pub errors: i64,
 }
 
-/// 把 running 作业置为结束状态：succeeded/failed/cancelled/interrupted；其他转移非法。
+/// End running as succeeded/failed/cancelled/interrupted; other transitions are invalid.
 pub fn finish_run(
     storage: &Storage,
     run_id: &str,
@@ -191,7 +191,7 @@ pub fn run_status(storage: &Storage, run_id: &str) -> Result<Option<RunStatus>, 
     row.map(|s| RunStatus::parse(&s)).transpose()
 }
 
-/// 批次内更新作业计数（与事件/游标/聚约定事务提交进度）。
+/// Update counts in the same batch transaction as events, cursors and aggregates.
 pub(crate) fn merge_run_stats_tx(
     tx: &rusqlite::Transaction<'_>,
     run_id: &str,
@@ -216,7 +216,7 @@ pub(crate) fn merge_run_stats_tx(
     Ok(())
 }
 
-/// 无法获得单调时钟时的回退时间戳（打开/迁移路径）。
+/// Fallback timestamp when a monotonic clock is unavailable during open/migration.
 pub(crate) fn now_ms_fallback() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)

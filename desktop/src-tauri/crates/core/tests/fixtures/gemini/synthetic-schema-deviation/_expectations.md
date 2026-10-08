@@ -1,11 +1,17 @@
-# synthetic-schema-deviation 期望（人工核算，全合成样本）
+# synthetic-schema-deviation expectations (manually calculated, synthetic)
 
-顶层形状偏离文档化 schema，整文件 fail closed（`session_schema_deviation`）：
+<a id="synthetic-schema-deviation-期望人工核算全合成样本"></a>
 
-- session-sid-not-string.json：`sessionId` 不是字符串（detect 只做键名指纹，扫描期核验类型）。
-- session-msgs-not-array.json：`messages` 不是数组。
+A top-level shape differing from the documented schema rejects the whole file,
+with session_schema_deviation:
 
-## 期望
+- session-sid-not-string.json: sessionId is not a string. Detection checks key names
+  only; scanning validates types.
+- session-msgs-not-array.json: messages is not an array.
 
-- 两文件 files[*].status 均为 "pending"；0 事件入库；游标不推进。
-- diagnostics 2 条 code=session_schema_deviation（每文件一条）。
+<a id="期望"></a>
+
+## Expectations
+
+- Both files have files[*].status="pending"; no imported events or cursor advancement.
+- Two diagnostics, code=session_schema_deviation, one per file.

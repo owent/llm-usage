@@ -1,6 +1,6 @@
-//! CodeBuddy 的两个本机载体：CLI `~/.codebuddy/projects` 会话 JSONL（复用
-//! tencent_buddy_wire，与 WorkBuddy 保持独立来源身份）和 IDE/插件
-//! CodeBuddyExtension 存储的请求级 index.json（extension_store）。
+//! CodeBuddy reads two local formats: CLI session JSONL under ~/.codebuddy/projects, using
+//! tencent_buddy_wire with source identity separate from WorkBuddy, and IDE/plugin
+//! per-request index.json in CodeBuddyExtension storage (extension_store).
 pub mod detect;
 pub mod extension_store;
 pub mod versions;
@@ -14,8 +14,8 @@ use std::path::Path;
 
 pub use crate::adapters::tencent_buddy_wire::BuddyAdapter as BuddyAdapterGeneric;
 
-/// CLI JSONL 载体与扩展存储载体的复合入口。两个载体共用 agent 身份
-/// `codebuddy`，但实例、文件与解析按路径形状分派，互不重叠。
+/// Combined entry for CLI JSONL and extension storage. Both use agent identity
+/// codebuddy; path layout selects distinct instances, files and parsers without overlap.
 pub struct CodeBuddyAdapter {
     cli: BuddyAdapterGeneric<false>,
 }
@@ -76,7 +76,7 @@ impl SourceAdapter for CodeBuddyAdapter {
 
     fn capability(&self) -> CapabilityTable {
         let mut table = self.cli.capability();
-        // 复合能力：登记扩展存储的发现根、格式锚点与限制（已在本机只读核验）。
+        // Add extension discovery roots, verified format and limits from read-only local checks.
         if let Some(default_roots) = table
             .discovery
             .get_mut("default_roots")

@@ -1,5 +1,5 @@
-//! V06：日→周/月加总、加权比例 18% 用例、distinct 会话、部分周期标记。
-//! 不平均百分比、不叠加每日 distinct。
+//! V06 daily-to-weekly/monthly sums, weighted 18% ratio, distinct sessions and partial-period flags.
+//! Do not average daily percentages or sum daily distinct counts.
 
 mod common;
 
@@ -29,11 +29,11 @@ fn request(
     }
 }
 
-/// 日→周/月加总一致；跨天加权比例为 18%（不取各日平均 50%）。
+/// Weekly/monthly sums agree; weighted cross-day ratio is 18%, unlike the 50% daily-percentage average.
 #[test]
 fn v06_rollup_sums_and_weighted_ratio() {
     let (_dir, storage) = temp_storage("v06rollup");
-    // 甲（day1）：输入 100/缓存读 90；乙（day2）：输入 900/缓存读 90。
+    // Day one: input 100/cache read 90; day two: input 900/cache read 90.
     let mut a = with_tokens(evt("inst", "a", ts("2026-09-22T12:00:00Z")), 100, 10);
     a.usage.input_cache_read = Some(90);
     a.quality.input_cache_read = FieldQuality::Reported;
@@ -60,7 +60,7 @@ fn v06_rollup_sums_and_weighted_ratio() {
     )
     .unwrap();
     assert_eq!(daily.periods.len(), 2);
-    // 各日比例 90% / 10%。
+    // Daily ratios are 90% and 10%.
     assert!((daily.periods[0].sums.cache_input_ratio().unwrap().as_f64() - 0.90).abs() < 1e-12);
     assert!((daily.periods[1].sums.cache_input_ratio().unwrap().as_f64() - 0.10).abs() < 1e-12);
 
@@ -79,7 +79,7 @@ fn v06_rollup_sums_and_weighted_ratio() {
         .unwrap();
         assert_eq!(s.periods.len(), 1);
         let p = &s.periods[0];
-        // 加总与比例重新计算：180/1000 = 18%。
+        // Recalculate from summed values: 180/1000 = 18%.
         assert_eq!(p.sums.input_total_known, Some(1000));
         assert_eq!(p.sums.cache_read_known, Some(180));
         let ratio = p.sums.cache_input_ratio().unwrap();
@@ -89,7 +89,7 @@ fn v06_rollup_sums_and_weighted_ratio() {
     }
 }
 
-/// 分母为零：无有效占比（显示"—"），不是 0%。
+/// Zero denominator yields no valid ratio, displayed as — rather than 0%.
 #[test]
 fn v06_zero_denominator_ratio_is_none() {
     let (_dir, storage) = temp_storage("v06zero");
@@ -116,10 +116,10 @@ fn v06_zero_denominator_ratio_is_none() {
     .unwrap();
     let sums = &s.periods[0].sums;
     assert_eq!(sums.cache_input_ratio(), None);
-    assert_eq!(sums.ratio_sample_count(), 1); // 字段已知但分母为零
+    assert_eq!(sums.ratio_sample_count(), 1); // Fields are known but the denominator is zero.
 }
 
-/// distinct 会话不叠加每日：同会话两天 → 周 distinct=1；另一天另一会话 → 2。
+/// One session over two days counts once weekly; another session brings the total to two.
 #[test]
 fn v06_distinct_sessions_not_summed_across_days() {
     let (_dir, storage) = temp_storage("v06sess");
@@ -167,18 +167,18 @@ fn v06_distinct_sessions_not_summed_across_days() {
         ),
     )
     .unwrap();
-    // 周 DISTINCT = 2，不是每日之和 1+2=3。
+    // Weekly DISTINCT is two, unlike the daily-count sum 1+2=3.
     assert_eq!(weekly.periods[0].distinct_sessions, Some(2));
     assert_eq!(weekly.periods[0].active_days, Some(2));
 }
 
-/// 部分周期：当前周标记“进行中”；被保留截断的最早周标记“部分历史”。
+/// Current week is in progress; the earliest retention-truncated week has partial history.
 #[test]
 fn v06_partial_period_flags() {
     let (_dir, storage) = temp_storage("v06partial");
     let events = vec![
-        with_tokens(evt("inst", "old", ts("2026-08-03T10:00:00Z")), 1, 0), // 2026-W32
-        with_tokens(evt("inst", "now", ts("2026-09-24T10:00:00Z")), 2, 0), // 2026-W39
+        with_tokens(evt("inst", "old", ts("2026-08-03T10:00:00Z")), 1, 0), // ISO week 2026-W32.
+        with_tokens(evt("inst", "now", ts("2026-09-24T10:00:00Z")), 2, 0), // ISO week 2026-W39.
     ];
     commit_batch(
         &storage,
@@ -187,7 +187,7 @@ fn v06_partial_period_flags() {
     )
     .unwrap();
 
-    let today = ymd(2026, 9, 24); // 周四
+    let today = ymd(2026, 9, 24); // Thursday.
     let s = query_summary(
         &storage,
         &request(
@@ -196,7 +196,7 @@ fn v06_partial_period_flags() {
             ymd(2026, 9, 24),
             Granularity::Week,
             today,
-            Some(ymd(2026, 8, 20)), // 保留截止：8-20 之前的周期被截断
+            Some(ymd(2026, 8, 20)), // Retention cutoff: periods before August 20 have truncated history.
         ),
     )
     .unwrap();
@@ -207,9 +207,9 @@ fn v06_partial_period_flags() {
     assert!(!old_week.in_progress);
     let current_week = &s.periods[1];
     assert_eq!(current_week.label, "2026-W39");
-    assert!(current_week.in_progress); // 今天仍在该周
+    assert!(current_week.in_progress); // Today remains inside this week.
     assert!(!current_week.partial_history);
 
-    // 已结束的周期不是"进行中"。
+    // A completed period is not in progress.
     assert!(!old_week.in_progress);
 }

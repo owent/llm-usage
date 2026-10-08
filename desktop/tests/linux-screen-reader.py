@@ -72,7 +72,7 @@ def verify(root, script, ipc):
     assert 'SPEECH DISPATCHER: Speaking' in debug
     locale_navigation = []
     # Prepare each locale through the product form, then require fresh native
-    # focus events and Orca speech. Earlier English speech cannot certify a
+    # focus events and Orca speech. Earlier English speech does not verify a
     # subsequent locale, even when a translated control has the same spelling.
     locales = ['zh-CN', 'zh-TW', 'en', 'ja', 'ko', 'es', 'fr', 'de', 'pt-BR', 'ru']
     script('document.querySelector("nav").querySelectorAll("button")[4].click();')

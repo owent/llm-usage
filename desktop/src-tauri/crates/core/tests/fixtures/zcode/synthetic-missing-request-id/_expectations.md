@@ -1,5 +1,7 @@
-# synthetic-missing-request-id 期望（全合成）
+# synthetic-missing-request-id expectations (synthetic)
 
-缺口：缺 requestId（adapters.md：不得全部变成 zcode:None）⇒ 回退身份 seq:{sessionId}:{行号} 并记诊断。
+<a id="synthetic-missing-request-id-期望全合成"></a>
 
-详见 tests/zcode_gaps_synthetic.rs 头部人工核算注释。
+Missing requestId uses seq:{sessionId}:{line} with a diagnostic. Do not give all missing IDs the same zcode:None identity; see adapters.md.
+
+See the manually calculated expectations in the header of tests/zcode_gaps_synthetic.rs.

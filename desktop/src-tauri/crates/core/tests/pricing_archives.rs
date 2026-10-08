@@ -56,7 +56,7 @@ fn sealed_usage_is_priced_once_and_preserves_six_hundred_million_cached_tokens()
     let before = s.cost_summary(&q).unwrap();
     assert_eq!(before.current_sim.rows[0].priced_tokens, 600_066_000);
     assert_eq!(before.current_sim.rows[0].total_amount_minor, 18_027);
-    // Imported/sealed aggregate can coexist with details; it must replace them.
+    // Imported or archived aggregates can coexist with details; select aggregates instead of adding both.
     s.conn()
         .execute("UPDATE daily_usage SET sealed=1", [])
         .unwrap();

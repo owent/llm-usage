@@ -1,29 +1,29 @@
-//! Zed 产品特有的公共部分（独立目录约定 architecture.md#adapter-layout）：
-//! 本轮 1.22.0 / 76659a55 的 OpenAI-compatible mapper 扣除缓存后保存 input；
-//! llm-usage-zhipu 的正桶为报告值，默认零/缺项未知，不派生完整总量。
-//! 下列 bd74733 依据与缺省零规则仅描述原有 hosted 映射。
-//! - usage 映射（`map_zed`/`ZedUsage`，字段依据为 Zed 官方源码 bd74733，A38）；
-//! - threads.db 源库只读访问实现（复制自 `adapters/hermes/common.rs` 的
-//!   kilo 同款实现：只读连接 + Online Backup 暂存副本，各 Agent 目录独立）。
+//! Zed-specific helpers; independent layout: architecture.md#adapter-layout.
+//! Verified 1.22.0 / 76659a55 OpenAI-compatible mapping stores input after removing cache reads.
+//! For llm-usage-zhipu, positive buckets are reported; default zero/absence is unknown, no total derived.
+//! The bd74733 references and omitted-zero rules below describe only the historical hosted mapper.
+//! - map_zed/ZedUsage field references: official Zed bd74733, A38.
+//! - Read-only threads.db helpers copied from adapters/hermes/common.rs, matching kilo:
+//!   read-only connections/Online Backup snapshots in independent Agent modules.
 //!
-//! 固定源码依据（zed-industries/zed bd747337d7be138834e20972b9e203c7b239cc47）：
-//! - `crates/agent/src/db.rs:451-483`：threads 表（id/summary/updated_at/
-//!   data_type/data + 迁移列 parent_id/folder_paths/folder_paths_order/created_at）；
-//!   data_type ∈ {json, zstd}（db.rs:363-385），当前写入固定 zstd（db.rs:536）。
-//! - `crates/language_model_core/src/language_model_core.rs:525-535`：
-//!   TokenUsage 平铺四 u64：input_tokens/output_tokens/cache_creation_input_tokens/
-//!   cache_read_input_tokens，**0 值序列化时整体缺省**（skip_serializing_if），
-//!   因此字段缺失 = 已报告 0（官方序列化语义，非猜测补零）。
-//! - input 与 cache 两桶的包含关系官方源码未见声明 ⇒ 不推导互斥/子集，
-//!   按 hermes 同型并列报告，不派生总量。
-//! - 仅 provider=="zed.dev" 的 hosted 调用计入（A38）；request_token_usage
-//!   在 turn 内多请求时后写覆盖前写（官方 thread.rs:2893 清零语义），
-//!   求和会漏计 ⇒ 线程总量以 cumulative_token_usage 为准，逐桶只作对账。
+//! Fixed source: zed-industries/zed bd747337d7be138834e20972b9e203c7b239cc47.
+//! - crates/agent/src/db.rs:451-483: threads id/summary/updated_at/data_type/data plus
+//!   migrated parent_id/folder_paths/folder_paths_order/created_at.
+//!   data_type is json or zstd (db.rs:363-385); the referenced writer uses zstd (db.rs:536).
+//! - crates/language_model_core/src/language_model_core.rs:525-535 defines
+//!   four flat u64 TokenUsage fields: input_tokens/output_tokens/cache_creation_input_tokens/
+//!   cache_read_input_tokens. Zero fields are omitted by skip_serializing_if,
+//!   so the historical mapper treats absence as reported zero under that serialization rule.
+//! - Input/cache inclusion is not declared in that source; do not infer exclusive/subset buckets.
+//!   The historical mapper reports them separately without deriving totals.
+//! - That hosted path accepts provider=="zed.dev" (A38). Within a turn, request_token_usage
+//!   overwrites earlier requests (thread.rs:2893 reset), so summing it misses usage.
+//!   Use cumulative_token_usage for thread totals; request buckets reconcile only.
 
 use crate::adapters::usage_map::{finish_parallel, MappedUsage};
 use crate::domain::{FieldQuality as Q, TokenQuality, TokenUsage};
 
-/// threads.data blob 内 TokenUsage 四桶（缺省=0：官方 skip_serializing_if 语义）。
+/// Historical hosted TokenUsage in threads.data; omitted fields decode as zero.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct ZedUsage {
     pub input_tokens: i64,
@@ -33,8 +33,8 @@ pub struct ZedUsage {
 }
 
 impl ZedUsage {
-    /// 四桶合计（派生值，checked 算术约定：任一桶可达 MAX_TOKEN_VALUE，
-    /// 四桶相加可溢出 i64 ⇒ None 表示溢出，调用方拒绝该线程而非饱和隐藏）。
+    /// Checked four-bucket sum; each may reach MAX_TOKEN_VALUE.
+    /// Overflow returns None so the caller can reject the thread rather than saturate.
     pub fn total(&self) -> Option<i64> {
         self.input_tokens
             .checked_add(self.output_tokens)?
@@ -43,8 +43,8 @@ impl ZedUsage {
     }
 }
 
-/// 包含关系未验证 ⇒ input_uncached/派生总量保持 None（不猜互斥关系），
-/// 四桶并列直报（与 map_hermes 同型）。
+/// Historical hosted input/cache inclusion is unverified: uncached/derived totals remain None.
+/// Report all four buckets separately; the current Hermes mapper has independent verified rules.
 pub fn map_zed(raw: &ZedUsage) -> MappedUsage {
     let usage = TokenUsage {
         input_uncached: None,
@@ -69,8 +69,8 @@ pub fn map_zed(raw: &ZedUsage) -> MappedUsage {
     finish_parallel(usage, quality, Vec::new())
 }
 
-/// Zed 1.22.0 OpenAI chat mapper subtracts cache reads from prompt_tokens.
-/// Its serialized default zeroes carry no provider validity bit.
+/// Zed 1.22.0 OpenAI chat mapping subtracts cache reads from prompt_tokens.
+/// Serialized default zeros lack a provider validity marker.
 pub fn map_verified_openai(raw: &ZedUsage) -> MappedUsage {
     let positive = |n: i64| (n > 0).then_some(n);
     let usage = TokenUsage {
@@ -97,7 +97,7 @@ pub fn map_verified_openai(raw: &ZedUsage) -> MappedUsage {
     finish_parallel(usage, quality, Vec::new())
 }
 
-// ---- 源库只读访问（复制自 adapters/hermes/common.rs，各目录独立约定）----
+// Independent read-only database helpers copied from adapters/hermes/common.rs.
 
 use crate::error::CoreError;
 use rusqlite::backup::{Backup, StepResult};
@@ -105,7 +105,7 @@ use rusqlite::{Connection, OpenFlags};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-/// 一次只读访问：成功时直接用源库连接；busy/锁时自动切换到暂存副本。
+/// Read-only source access; busy-like probe failures switch to a staging snapshot.
 pub struct SourceDb {
     conn: Connection,
     _staging: Option<StagingGuard>,
@@ -129,7 +129,7 @@ impl Drop for StagingGuard {
     }
 }
 
-/// busy/锁/CANTOPEN 判定（这些错误表示无法一致读取）。
+/// SQLite busy/locked/CANTOPEN errors prevent a successful consistency probe.
 pub(crate) fn is_busy_like(err: &rusqlite::Error) -> bool {
     matches!(
         err.sqlite_error_code(),
@@ -139,7 +139,7 @@ pub(crate) fn is_busy_like(err: &rusqlite::Error) -> bool {
     )
 }
 
-/// 暂存副本参数（architecture.md：设置页/时间/空间上限并清理）。
+/// Staging page/time/size limits and cleanup follow architecture.md.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct StagingLimits {
     pub pages_per_step: i32,
@@ -157,7 +157,7 @@ impl Default for StagingLimits {
     }
 }
 
-/// 打开源库只读连接。busy_timeout 设短：快速失败转暂存副本路径。
+/// Open read-only; short busy_timeout bounds probe waits before a staging fallback.
 pub(crate) fn open_readonly(path: &Path) -> Result<Connection, rusqlite::Error> {
     let conn = Connection::open_with_flags(
         path,
@@ -170,7 +170,7 @@ pub(crate) fn open_readonly(path: &Path) -> Result<Connection, rusqlite::Error> 
     Ok(conn)
 }
 
-/// Online Backup 到系统临时目录的一致暂存副本（从只读连接发起，不写源库）。
+/// Online Backup creates a consistent system-temp snapshot without writing the source.
 fn backup_to_staging(
     source: &Connection,
     limits: &StagingLimits,
@@ -201,7 +201,7 @@ fn backup_to_staging(
             crate::adapters::run_policy::check_sqlite()?;
             match backup.step(limits.pages_per_step) {
                 Ok(StepResult::Done) => break Ok(()),
-                // More：实际拷贝了页，计入空间限制。
+                // More means pages were copied; count those pages toward the size limit.
                 Ok(StepResult::More) => {
                     done_pages += i64::from(limits.pages_per_step);
                     if done_pages > max_pages {
@@ -212,9 +212,9 @@ fn backup_to_staging(
                     }
                     std::thread::sleep(Duration::from_millis(20));
                 }
-                // Busy/Locked（#[non_exhaustive] 其余）：无进展重试，仍计入超时时间。
-                // 2026-09-30 修复：此前重试也计入页数，与超时出口竞速产生
-                // 平台相关的 space cap 误报（CI Linux 页上限先于超时触发）。
+                // Busy/Locked or other non-exhaustive results retry without progress, within the timeout.
+                // 2026-09-30 fix: retries previously added pages and raced the timeout, causing
+                // platform-specific false size-limit failures (Linux CI hit the page cap before timeout).
                 Ok(_) => {
                     std::thread::sleep(Duration::from_millis(20));
                 }
@@ -233,8 +233,8 @@ fn backup_to_staging(
     }
 }
 
-/// 打开 threads.db 的只读访问：直接只读短查询 → busy 时暂存副本 → 仍失败上抛。
-/// 绝不写源库。
+/// Read threads.db directly; busy-like probe failures try staging, other errors propagate.
+/// Never write the source database.
 pub(crate) fn open_source_db<F>(
     path: &Path,
     probe: F,
@@ -261,11 +261,11 @@ where
     }
 }
 
-/// 短查询事务探测（与 kilo 遵守同一规则）。
+/// Short sqlite_master count probe, following kilo; it creates no explicit transaction.
 pub(crate) fn short_probe(conn: &Connection) -> Result<(), rusqlite::Error> {
     conn.query_row("SELECT COUNT(*) FROM sqlite_master", [], |_| Ok(()))
 }
 
-/// threads 表必需列（固定源码建表 + 迁移列集；created_at 缺列时探测层降级）。
+/// Required threads columns from fixed creation/migrations; detection separately handles absent created_at.
 pub(crate) const REQUIRED_THREADS_COLUMNS: &[&str] =
     &["id", "summary", "updated_at", "data_type", "data"];

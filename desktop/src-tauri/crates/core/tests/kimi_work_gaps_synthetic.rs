@@ -1,8 +1,8 @@
-//! Kimi Work（A13，M4）缺口场景：合成样本（目录/文件头均标 synthetic）。
-//! 覆盖：无 usage 事件、未知 protocol_version fallback（含 1.5——Kimi Code 的
-//! 锚点在本产品注册表未收录，证明两注册表独立）、回声/micro_compaction 双计
-//! 防御、坏形状（负值/未知 scope/秒级时间）、1.4 无 agentId 的目录身份回退、
-//! detect 直测。
+//! Kimi Work (A13, M4) boundary tests use directories and headers marked synthetic.
+//! Cover absent usage, unknown protocol_version fallback (including Kimi Code 1.5,
+//! absent from this product's registry), echo/micro_compaction duplicate prevention,
+//! invalid negative values/scopes/second timestamps, 1.4 directory identity without agentId,
+//! and direct detection.
 
 mod common;
 
@@ -39,8 +39,8 @@ fn no_usage_records_is_normal_shape() {
     assert_eq!(diags, 0);
 }
 
-/// "1.5" 在 kimi-work 注册表未收录（锚点只有 1.4）⇒ latest_fallback：
-/// 同一 wire 家族的两产品验证态独立（A12/A13）。
+/// kimi-work registers only 1.4, so "1.5" selects latest_fallback.
+/// Products sharing the wire family retain independent verification (A12/A13).
 #[test]
 fn code_anchor_1_5_is_fallback_in_work_registry() {
     let (_db, storage) = temp_storage("kimi-work-unknown");
@@ -64,12 +64,12 @@ fn code_anchor_1_5_is_fallback_in_work_registry() {
     assert_eq!(summary.totals.call_count, 1);
     assert_eq!(summary.totals.input_total_known, Some(500));
     assert_eq!(summary.totals.total_tokens_known, Some(550));
-    // 回声与记录同值：只计记录侧。
+    // Equal echo and record values count only the usage.record side.
     assert_eq!(summary.totals.uncached_known, Some(100));
 }
 
-/// 回声/micro_compaction 防双计：step.end 回声与 usage.record 相同只计一次；
-/// micro_compaction.apply 控制记录不产事件；session scope 独立计 auxiliary。
+/// Equal step.end echo and usage.record count once; micro_compaction.apply
+/// creates no event, while separate session-scoped usage counts as auxiliary.
 #[test]
 fn echo_and_micro_compaction_never_double_count() {
     let (_db, storage) = temp_storage("kimi-work-echo");
@@ -100,8 +100,8 @@ fn echo_and_micro_compaction_never_double_count() {
         .any(|r| r.series == "kimi_wire_step_end_echo" && r.verdict == "matched"));
 }
 
-/// 坏形状隔离：沿用同家族处理规则——负值/未知 scope/秒级时间各记诊断跳过；
-/// 唯一正常记录 {200,60,800,10} 入账。
+/// Diagnose and skip negative values, unknown scope and second timestamps under shared rules.
+/// Only the valid record {200,60,800,10} contributes usage.
 #[test]
 fn bad_shapes_skip_without_guessing() {
     let (_db, storage) = temp_storage("kimi-work-bad");
@@ -132,8 +132,8 @@ fn bad_shapes_skip_without_guessing() {
     assert_eq!((input_uncached, cache_write, total), (200, 10, 1_070));
 }
 
-/// 1.4 usage.record 无 agentId：代理身份回退到 agents/<id>/ 目录名；
-/// 非 main 目录 ⇒ sub_agent（真实 agent-44 fixture 行为的合成最小化）。
+/// In 1.4, absent agentId uses agents/<id>/ for identity;
+/// a nonmain directory is sub_agent, using minimal synthetic data based on real agent-44 behavior.
 #[test]
 fn agent_identity_falls_back_to_directory_when_agentid_absent() {
     let dir = TempDir::new("kimi-work-noagentid");
@@ -163,8 +163,8 @@ fn agent_identity_falls_back_to_directory_when_agentid_absent() {
     assert_eq!(session, "conv_syn-ag", "会话身份来自 conv 目录名");
 }
 
-/// detect 直测：空文件 Pending；非 JSON / 非 metadata ⇒ UnknownFormat；
-/// 1.4 ⇒ KnownVersion；1.5（kimi-code 锚点）⇒ LatestFallback。
+/// Direct detection: empty is Pending; non-JSON/nonmetadata is UnknownFormat;
+/// 1.4 is KnownVersion; Kimi Code's 1.5 is LatestFallback here.
 #[test]
 fn detect_dispatches_by_own_anchor() {
     let adapter = KimiWorkAdapter::new();
@@ -208,9 +208,9 @@ fn detect_dispatches_by_own_anchor() {
     }
 }
 
-/// 发现边界：无 home 上下文（测试/隔离运行）只用手工根——不探测本机实测
-/// 候选（DefaultHome 候选随 home_dir 上下文启用，同 claude/pi/qwen 惯例；
-/// 真实候选路径在本机的存在性由 real_verify_kimi_work 覆盖，不在单测断言）。
+/// Without a home context, discovery uses only manual roots. DefaultHome candidates
+/// require home_dir as in claude/pi/qwen; an isolated home must not access the personal install.
+/// Real candidate existence belongs to real_verify_kimi_work, not unit-test assertions.
 #[test]
 fn discover_uses_observed_candidate_and_manual_roots() {
     let adapter = KimiWorkAdapter::new();
@@ -236,7 +236,7 @@ fn discover_uses_observed_candidate_and_manual_roots() {
     let ctx = llm_usage_core::adapters::framework::DiscoverContext {
         home_dir: None,
         env: Default::default(),
-        manual_roots: vec![home_root], // 含 sessions 子目录 ⇒ 按 home 解析
+        manual_roots: vec![home_root], // A sessions child makes this a home-style root.
     };
     let roots = adapter.discover(&ctx);
     assert_eq!(
@@ -254,7 +254,7 @@ fn discover_uses_observed_candidate_and_manual_roots() {
         llm_usage_core::adapters::framework::RootBasis::Manual
     );
     let root = roots[0].root.clone();
-    // 同一根再按 sessions 目录本身传入也可解析（幂等语义）。
+    // Passing the same sessions directory directly also resolves to the same root.
     let ctx2 = llm_usage_core::adapters::framework::DiscoverContext {
         home_dir: None,
         env: Default::default(),

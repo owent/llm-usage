@@ -1,4 +1,4 @@
-//! Whitelisted real npm rc.2 v4 sample; mutations below are explicitly synthetic.
+//! Selected fields from the native npm rc.2 v4 sample; mutations below are synthetic.
 mod common;
 use common::{summary, temp_storage, TempDir};
 use llm_usage_core::{

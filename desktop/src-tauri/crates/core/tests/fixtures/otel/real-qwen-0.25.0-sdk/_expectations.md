@@ -1,24 +1,31 @@
-# Qwen Code 0.25.0 SDK file 真实脱敏样本
+# Qwen Code 0.25.0 SDK file: anonymized native sample
 
-官方 CLI、固定本地 llama.cpp / Qwen2.5 模型的无网络 Podman 会话，来源与版本见
-[provenance.json](provenance.json)；原始 SHA-256 与 [容器来源记录](../../../../../../../../docs/validation/desktop-usage/container-sources.md)
-一致。保留 SDK `_rawAttributes` 数组、`_spanContext`、时间、kind 与白名单属性；
-会话及 trace/span ID 等值替换，不保留 prompt、响应正文、URL、账户或主机信息。
-metrics 只保留非调用判别结构。此文件是 25 个连续多行 JSON 对象，不是 JSONL。
+<a id="qwen-code-0250-sdk-file-真实脱敏样本"></a>
 
-| 来源 | 次数 | 输入（含缓存） | 输出 | 缓存读 | thoughts | 总量 |
+The official CLI called a fixed local llama.cpp/Qwen2.5 model in Podman with networking
+disabled. [provenance.json](provenance.json) records source and version; original SHA-256
+matches the [container source record](../../../../../../../../docs/validation/desktop-usage/container-sources.md).
+Retain SDK `_rawAttributes` arrays, `_spanContext`, timestamps, kind and permitted attributes.
+Replace session and trace/span IDs consistently; exclude prompts, response bodies, URLs,
+accounts and host information. Metrics retain only structure needed to distinguish them
+from calls. The file contains 25 consecutive multiline JSON objects, rather than JSONL.
+
+| Source | Count | Input (including cache) | Output | Cache read | thoughts | Total |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| interaction 主循环 | 1 | 10,226 | 2 | 0 | 0 | 10,228 |
+| interaction main loop | 1 | 10,226 | 2 | 0 | 0 | 10,228 |
 | standalone managed-auto-memory-extractor | 1 | 5,639 | 556 | 3 | 0 | 6,195 |
-| CLI 全部请求 | 2 | 15,865 | 558 | 3 | 0 | 16,423 |
+| All CLI requests | 2 | 15,865 | 558 | 3 | 0 | 16,423 |
 
-[native.jsonl](native.jsonl) 包含同一真实会话的首用户记录形状（message.parts 内容删除）
-及唯一 assistant 用量记录，只有主循环 10,228 token；首记录用于核验手工根路由。
-[cli-stats.json](cli-stats.json) 为 CLI 最终白名单统计。log API response
-与 llm_request span 是相同请求的两种观测，只采用 span；HTTP/interaction/metrics 不相加。
-后台 span 没有 parentSpanContext；共用 session.id 不认证子会话父子关系。
+[native.jsonl](native.jsonl) retains the first user record's shape from this same native
+session, without message.parts contents, and its only assistant usage record: the
+main-loop 10,228 tokens. The first record tests manual-root routing.
+[cli-stats.json](cli-stats.json) contains permitted final CLI statistics. The API-response
+log and llm_request span observe the same request: select the span. Do not add HTTP,
+interaction or metrics values. Background spans have no parentSpanContext; a shared
+session.id does not establish a parent/child relationship.
 
-未返回的缓存写/provider 保持未知。样本 thoughts=0，不认证非零 reasoning 的包含关系
-或其他供应商/版本。跨原生载体按已核验主机/用户/会话/本地日择一；不按时间或 token
-相等猜调用 ID，导出开启前的覆盖受限。边界、混合版本、错误与回滚控制是合成变体，
-不能认证相应真实 SDK 场景。
+Unreturned cache write/provider remain unknown. thoughts=0 does not verify inclusion
+rules for positive reasoning or other providers/versions. Select one native/exported
+representation per verified host/user/session/local-day partition. Do not infer call IDs
+from equal timestamps or tokens. Coverage before export was enabled is limited. Boundary,
+mixed-version, error and rollback cases are synthetic variants, without native SDK verification.

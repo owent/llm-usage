@@ -16,9 +16,9 @@
     height = 280,
   }: {
     data: { name: string; value: number | null; input?: number | null; output?: number | null }[];
-    /** 深色主题（父级传入；变化时重绘 legend 文字）。 */
+    /** Parent-provided dark theme; changes redraw legend text. */
     isDark?: boolean;
-    /** 画布高度（px；无数据时折叠为细条）。 */
+    /** Canvas height in pixels; no data collapses it to a thin strip. */
     height?: number;
   } = $props();
   let metric = $state<'total' | 'input' | 'output'>('total');
@@ -30,15 +30,15 @@
   let el: HTMLDivElement;
   let chart: echarts.ECharts | null = null;
 
-  /** 主题感知色：全局文字（legend 继承）。 */
+  /** Theme text color inherited by the legend. */
   const chartText = $derived(isDark ? '#b0bfd4' : '#5b6a82');
 
   const PALETTE = CHART_PALETTE;
 
   /**
-   * 增量渲染（2026-09-26 用户反馈）：构成（名称集合/主题/语言/高度）未变 →
-   * setOption 合并更新（数值变化原地动画过渡，不重建画布）；构成变化 →
-   * notMerge 重建。
+   * Incremental rendering, feedback on 2026-09-26: unchanged names/theme/language/height
+   * uses merged setOption updates, animating values without recreating the canvas.
+   * A changed structure rebuilds through notMerge.
    */
   let lastRenderKey = '';
 
@@ -87,14 +87,14 @@
   onMount(() => {
     chart = echarts.init(el, i18n.locale === 'zh-CN' ? 'ZH' : 'EN', { renderer: 'svg' });
 
-    // Tooltip 持续显示（hideDelay 0；ECharts 6 的手动 hideTip 同样被 hideDelay 延迟，不可用大值）+ 离开画布/移出窗口/失焦即隐藏（统一封装）；
-    // item 触发：图内空白处（无命中图形）也立即隐藏。
+    // hideDelay=0 gives immediate hiding; ECharts 6 manual hideTip also honors that delay. Hide on canvas/window exit or blur.
+    // Item-triggered charts hide immediately over blank canvas without a hit.
     const disposeTipHide = setupTooltipAutoHide(chart!);
     const disposeBlankHide = hideTooltipOnBlank(chart!);
     render();
     const onResize = () => { chart?.resize(); render(); };
     window.addEventListener('resize', onResize);
-    // 面板显示/隐藏或网格变化时容器尺寸变化（含 display:none 恢复），自动重设画布。
+    // Resize when panel visibility/grid changes, including return from display:none.
     const observer = new ResizeObserver(onResize);
     observer.observe(el);
     return () => {

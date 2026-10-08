@@ -1,0 +1,99 @@
+name: Documentation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'README.md'
+      - 'desktop/assets/*.md'
+      - 'desktop/src-tauri/crates/core/tests/fixtures/**/*.md'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.markdownlint-cli2.jsonc'
+      - '.github/workflows/docs.yml'
+      - 'desktop/**'
+      - 'previous-draft/**'
+      - '.github/workflows/ci.yml'
+      - '.gitignore'
+      - '.gitattributes'
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'README.md'
+      - 'desktop/assets/*.md'
+      - 'desktop/src-tauri/crates/core/tests/fixtures/**/*.md'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.markdownlint-cli2.jsonc'
+      - '.github/workflows/docs.yml'
+      - 'desktop/**'
+      - 'previous-draft/**'
+      - '.github/workflows/ci.yml'
+      - '.gitignore'
+      - '.gitattributes'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.event_name == 'pull_request' && github.ref || 'publication' }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          lfs: true
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm --prefix desktop ci --ignore-scripts
+      - run: npm run lint:md
+      - run: npm run check:docs
+      - run: npm run test:docs
+      - run: npm run build:docs
+      - run: npx playwright install --with-deps chromium
+        working-directory: desktop
+      - run: npm run test:docs:browser
+      - run: node docs/site/scripts/stamp-output.mjs
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: documentation-site
+          path: build/documentation-site/dist/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    needs: build
+    if: github.repository == 'owent/llm-usage' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pages: write
+    environment:
+      name: github-pages
+      url: https://llm-usage.atframe.work
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '24'
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: documentation-site
+          path: build/documentation-site/dist/
+      - name: Publish gh-pages and request its Pages build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node docs/site/scripts/publish.mjs

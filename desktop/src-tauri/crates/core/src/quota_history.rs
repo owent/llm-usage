@@ -1,44 +1,44 @@
-//! 通用额度时序（agent 无关）。
+//! Agent-independent quota history.
 //!
-//! 任何 Agent 暴露的账户级 / 速率限额 / 额度余额观测都归一到本模块的
-//! [`QuotaObservation`] 并落入 `quota_history` 表。请求/额度计数，**非 token**，
-//! 独立展示、绝不折算成 token（data-contract：额度独立）。Copilot premium
-//! 请求额度是首个接入者，未来同形态的 Agent（Warp 请求额度、各家积分余额等）
-//! 复用同一表与查询，不再新增 agent 专用表。
+//! Normalize account/rate-limit/remaining-quota observations into QuotaObservation
+//! and quota_history. These observations remain separate from recorded token usage;
+//! display independently and never convert requests/credits into usage tokens (data-contract).
+//! Copilot premium requests are the first integration. Other verified local quota formats
+//! can reuse this table/query interface; examples do not establish Warp or other-client support.
 
 use crate::calendar::Calendar;
 use crate::error::CoreError;
 use crate::storage::Storage;
 use rusqlite::OptionalExtension;
 
-/// 一次额度观测（归一化，agent 无关）。
+/// One normalized quota observation, independent of Agent.
 #[derive(Debug, Clone, PartialEq)]
 pub struct QuotaObservation {
-    /// 来源快照时刻；缺失时才使用本次观察时间。
+    /// Source snapshot time; use collection time only when absent.
     pub observed_at_ms: Option<i64>,
-    /// 统计 Agent 名（如 "copilot"）。
+    /// Statistics Agent name, such as "copilot".
     pub agent: String,
-    /// 额度标识（如 "premium_interactions"）。
+    /// Quota identifier, such as "premium_interactions".
     pub quota_id: String,
-    /// rate_limit / credits / balance / subscription_window。
+    /// Quota kind: rate_limit / credits / balance / subscription_window.
     pub kind: String,
-    /// requests / credits / tokens / usd_minor …。
+    /// Source unit: requests / credits / tokens / usd_minor, among others.
     pub unit: String,
-    /// 周期上限（None = 无上限/未知）。
+    /// Period limit; None means unlimited or unknown.
     pub limit_value: Option<i64>,
-    /// 已用（None = 未知，不补零）。
+    /// Used amount; None is unknown, without substituting zero.
     pub used: Option<i64>,
-    /// 剩余（None = 未知）。
+    /// Remaining amount; None is unknown.
     pub remaining: Option<i64>,
     pub percent_remaining: Option<f64>,
     pub window_start_ms: Option<i64>,
     pub window_end_ms: Option<i64>,
-    /// 仅在可证明属于本机使用时 true；账户总额跨设备共享 ⇒ false。
+    /// True only for verified local usage; account-wide cross-device totals use false.
     pub locality_verified: bool,
     pub detail: Option<serde_json::Value>,
 }
 
-/// 最新额度（每 (agent, quota_id) 一行，供总览展示）。
+/// Latest quota row per (agent, quota_id), for the overview.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct QuotaLatest {
     pub agent: String,
@@ -53,7 +53,7 @@ pub struct QuotaLatest {
     pub observed_at_ms: i64,
 }
 
-/// 每日额度点（趋势用；每天取该天最后一次观测）。
+/// Daily trend point: last observation on each local day.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct QuotaDayPoint {
     pub local_day: String,
@@ -62,8 +62,8 @@ pub struct QuotaDayPoint {
     pub limit_value: Option<i64>,
 }
 
-/// 同来源快照时刻及所有字段均相同才跳过；同刻更正原子替换。
-/// 使用来源时间分日，新时间同值仍为一次新观测。
+/// Skip identical snapshot times/fields; atomically replace corrections at the same time.
+/// Use source time for local-day grouping; equal values at a new time remain a new observation.
 pub fn record(
     storage: &Storage,
     observations: &[QuotaObservation],
@@ -166,7 +166,7 @@ pub fn record(
     Ok(inserted)
 }
 
-/// 每 (agent, quota_id) 的最新额度行；agent=None 取全部。
+/// Latest row per (agent, quota_id); agent=None selects all Agents.
 pub fn latest(storage: &Storage, agent: Option<&str>) -> Result<Vec<QuotaLatest>, CoreError> {
     let mut sql = String::from(
         "SELECT h.agent, h.quota_id, h.kind, h.unit, h.limit_value, h.used, h.remaining,
@@ -202,7 +202,7 @@ pub fn latest(storage: &Storage, agent: Option<&str>) -> Result<Vec<QuotaLatest>
     Ok(rows?)
 }
 
-/// 某 (agent, quota_id) 的每日趋势点（每天该天最后一次观测）。
+/// Daily trend for (agent, quota_id), selecting the last observation of each local day.
 pub fn daily_series(
     storage: &Storage,
     agent: &str,
@@ -282,12 +282,12 @@ mod tests {
             record(&storage, &[obs("copilot", 1300, 200)], "UTC", 1000).unwrap(),
             1
         );
-        // 同值再记：跳过。
+        // Identical source time and values: skip.
         assert_eq!(
             record(&storage, &[obs("copilot", 1300, 200)], "UTC", 2000).unwrap(),
             0
         );
-        // 变化：记录。
+        // Changed values at the same source time: record the correction.
         assert_eq!(
             record(&storage, &[obs("copilot", 1363, 137)], "UTC", 3000).unwrap(),
             1

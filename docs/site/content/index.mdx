@@ -1,0 +1,51 @@
+---
+title: Local AI usage dashboard
+description: A private desktop dashboard for the AI usage recorded on your computer.
+template: splash
+hero:
+  title: Local AI usage dashboard
+  tagline: See which agents and models use your tokens, how caching changes the picture, and where collection is incomplete. Your records stay on your computer.
+  image:
+    file: ../../../desktop/assets/app-icon.svg
+  actions:
+    - text: Quick start
+      link: /start/quick-start/
+      icon: right-arrow
+    - text: Dashboard guide
+      link: /guide/dashboard/
+      variant: minimal
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+<CardGrid>
+  <Card title="Token and quota statistics" icon="chart">
+    Input, output and cache usage are kept separate. Missing values remain unknown,
+    and subscription quotas are shown independently of tokens.
+  </Card>
+  <Card title="Local storage" icon="shield-check">
+    Read local agent files and explicitly enabled local telemetry. No account login,
+    cloud database or remote usage report is required.
+  </Card>
+  <Card title="Collection status" icon="magnifier">
+    Collection status explains versions, incomplete fields and parsing failures.
+    A supported parser does not imply that every client records every request.
+  </Card>
+  <Card title="Development references" icon="document">
+    Developers can inspect the data model, adapter sources, migrations and native
+    acceptance records alongside the implementation.
+  </Card>
+</CardGrid>
+
+## Documentation
+
+<CardGrid>
+  <LinkCard title="Quick start" description="Install, collect, inspect and manage your local history." href="/start/quick-start/" />
+  <LinkCard title="Developer setup" description="Set up the project and read its development requirements." href="/development/setup/" />
+  <LinkCard title="Client support" description="Find each client's verified versions, local files and limitations." href="/guide/clients/" />
+  <LinkCard title="Validation records" description="See what was actually tested and what remains outside the verified scope." href="/reference/evidence/current-acceptance/" />
+</CardGrid>
+
+LLM Usage is currently **pre-alpha, version 0.2.1**, with Windows 11 x64 as the first
+desktop target. Windows, Linux and macOS build jobs are kept in CI; their results are
+reported separately from native desktop and installation acceptance.

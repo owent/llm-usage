@@ -1,10 +1,10 @@
-//! 只读探针：对给定 home 跑全部或指定内置适配器的
-//! 发现 → 探测 → 扫描 → 提交（内存库，不落盘），打印逐实例真实结果。
-//! 用于 WSL/外部 home 的真实验证与"应用看不到某源"排查。
+//! Read-only source probe: run all or selected built-in adapters for a supplied home,
+//! discover→detect→scan→commit in memory, without disk writes; print instance results.
+//! Checks real WSL/external-home data and diagnoses missing sources.
 //!
-//! 用法：`cargo run --release -p llm-usage-core --example probe_home -- <home> [adapter_id ...]`
-//! 例（Windows 侧对 WSL home）：`... -- '\\wsl.localhost\Debian\home\owent'`
-//! 或指定适配器：`... -- /home/owent opencode claude gemini qwen`。
+//! Usage: cargo run --release -p llm-usage-core --example probe_home -- <home> [adapter_id ...]
+//! Windows example for a WSL home: ... -- '\\wsl.localhost\Debian\home\<user>'
+//! Or select adapters: ... -- /home/<user> opencode claude gemini qwen.
 use llm_usage_core::adapters::built_in_adapters;
 use llm_usage_core::adapters::framework::{
     run_adapter_scan, DiscoverContext, RunConfig, ScanLimits,
@@ -98,7 +98,7 @@ fn main() {
             Err(e) => println!("[{id}] ADAPTER ERROR: {e}"),
         }
     }
-    // 只取计数与维度分布，不打印事件正文。
+    // Print counts/group distributions only, without event bodies.
     let (events, sessions, models): (i64, i64, i64) = {
         let conn = storage.conn();
         let events: i64 = conn

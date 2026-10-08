@@ -1,5 +1,5 @@
-//! Qwen 0.25.0 SDK spans are authoritative for a verified local session/day.
-//! Native and duplicate exports stay stored; token/time equality is not identity.
+//! Prefer Qwen 0.25.0 SDK spans for a verified local session/day.
+//! Native/duplicate exports remain stored; equal tokens/times do not establish identity.
 use crate::{calendar::Calendar, error::CoreError, ingest::IngestBatch};
 use jiff::civil::Date;
 use rusqlite::{params, OptionalExtension, Transaction};
@@ -26,7 +26,7 @@ pub(crate) fn select(
         )
         .optional()?;
     let owner = owner.filter(|(h, u)| !h.is_empty() && h != "legacy_unknown" && !u.is_empty());
-    // Missing provenance cannot safely replace or add to a native partition.
+    // Missing source attribution cannot safely replace or add to a native partition.
     if owner.is_none() {
         for e in batch.events.iter().filter(|e| e.parser_version == PARSER) {
             let changed=tx.execute("UPDATE usage_events SET attribution_status='excluded',exclusion_reason='qwen_sdk_owner_unverified' WHERE source_instance_id=?1 AND source_record_key=?2 AND attribution_status='verified'",params![e.source_instance_id,e.source_record_key])?;
@@ -83,7 +83,7 @@ pub(crate) fn select(
             };
             let day = calendar.local_day_of(ms)?.to_string();
             // A sealed SDK source/day may have lost its trace/span details.
-            // Its aggregate cannot be split to prove another export disjoint.
+            // Its aggregate cannot be split to establish that another export is disjoint.
             let sdk_sealed: bool=tx.query_row("SELECT EXISTS(SELECT 1 FROM daily_usage d JOIN source_instances s ON s.instance_id=d.instance_id WHERE d.agent='qwen-code' AND s.agent='otel' AND s.origin_host_id=?1 AND s.user_id=?2 AND d.tz_version=?3 AND d.local_day=?4 AND d.sealed=1)",params![host,user,calendar.tz_name(),day],|r|r.get(0))?;
             if sdk_sealed {
                 tx.execute("UPDATE usage_events SET attribution_status='excluded',exclusion_reason='qwen_sdk_partition_sealed' WHERE source_instance_id=?1 AND source_record_key=?2",params![e.source_instance_id,e.source_record_key])?;

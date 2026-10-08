@@ -1,7 +1,7 @@
-//! Aider 探测：`--analytics-log` JSONL 的文档级指纹。
+//! Detect the documented --analytics-log JSONL format for Aider.
 //!
-//! 约定（V17 fail closed）：首行 JSON 不含 event/properties/time 结构 ⇒ 未知格式；
-//! 空文件 ⇒ Pending 下轮重探。无版本字段：文档级锚点恒为 KnownVersion。
+//! V17: first-line JSON without event/properties/time is unknown format;
+//! empty files are Pending. No version field; the documented format selects KnownVersion.
 
 use crate::adapters::framework::DetectOutcome;
 use crate::domain::VersionBasis;
@@ -12,11 +12,11 @@ use super::versions;
 
 pub const AIDER_FORMAT: &str = "aider-analytics-jsonl";
 
-/// 探测窗口：文件头 64 KiB（首行可能很长，指纹只看结构键）。
+/// Inspect at most 64 KiB from the header; check structural fields of possibly long first lines.
 const DETECT_HEAD_BYTES: usize = 64 * 1024;
 
 pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
-    // 瞬态不可读（持锁/超时/枚举后被清理）⇒ Pending 下轮重探，不固化失败。
+    // Temporary lock/timeout/removal after enumeration is Pending; retry next run.
     let Some(head) = crate::adapters::framework::read_detect_head(path, DETECT_HEAD_BYTES)? else {
         return Ok(DetectOutcome::Pending);
     };
@@ -27,9 +27,9 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     }
     let Ok(value) = crate::adapters::run_policy::json_from_str::<serde_json::Value>(first_line)
     else {
-        // 窗口已满且未见换行 ⇒ 首行可能超窗被截断（半截 JSON 必然解析失败），
-        // 不能固化格式判定——Pending 下轮带完整行重探；窗口未满说明已读
-        // 完整文件，单行解析失败即真实的未知格式。
+        // A full window without newline may truncate the first line and invalidate partial JSON.
+        // Keep Pending and retry a complete line, rather than permanently classifying the format.
+        // A short window read the whole file; a failed single-line parse is truly unknown format.
         if head.len() == DETECT_HEAD_BYTES && !text.contains('\n') {
             return Ok(DetectOutcome::Pending);
         }

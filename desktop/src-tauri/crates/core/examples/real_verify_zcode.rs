@@ -1,10 +1,10 @@
-//! 对本机真实 ZCode 数据做只读核对（已获用户允许的本机数据验证）。
-//! 只输出白名单聚合：文件数、记录数、事件数、token 合计、幂等结论、
-//! db.sqlite 的 Σmodel_usage==turn_usage 对账计数与诊断计数；
-//! 不打印路径、会话 ID、requestId、正文等任何记录内容。
-//! 只读采集 model_usage 到隔离应用库；turn_usage 仅对照，不参与计量。
-//! 用法：cargo run -p llm-usage-core --example real_verify_zcode -- <zcode_cli_root> <work_dir>
-//!（<zcode_cli_root> 为含 rollout/ 与 db/ 的 cli 根，如 <home>/.zcode/cli）
+//! Read-only checks of native local ZCode data, authorized by the user.
+//! Output only permitted aggregates: file/record/event/token counts, stable rescans,
+//! db.sqlite comparison counts for sum(model_usage)==turn_usage and diagnostics;
+//! never print paths, session IDs, requestId, message text or other record content.
+//! Read model_usage into an isolated app DB; turn_usage is comparison-only.
+//! Usage: cargo run -p llm-usage-core --example real_verify_zcode -- <zcode_cli_root> <work_dir>
+//! <zcode_cli_root> contains rollout/ and db/, for example <home>/.zcode/cli.
 
 use llm_usage_core::adapters::framework::{
     run_adapter_scan, DiscoverContext, RunConfig, ScanLimits,
@@ -75,7 +75,7 @@ fn main() {
             );
         }
     }
-    // 二次扫描：幂等（重复扫描不增量）。
+    // A second scan must add nothing for unchanged data.
     assert!(!reports.is_empty());
     assert!(reports.iter().all(|r| r.error.is_none()));
     let revision = storage.data_revision().unwrap();
@@ -93,7 +93,7 @@ fn main() {
     println!("rescan_added={added2}");
     assert_eq!(added2, 0);
 
-    // 汇总查询白名单核对：调用数与 token 合计（UTC 全区间）。
+    // Check only permitted UTC full-range call/token aggregates.
     let summary = llm_usage_core::query::query_summary(
         &storage,
         &llm_usage_core::query::SummaryRequest {
@@ -117,7 +117,7 @@ fn main() {
         summary.totals.output_total_known,
         summary.totals.total_tokens_known
     );
-    // 分类分布（白名单计数）。
+    // Classification counts only, without record content.
     let (primary, sub, aux, unknown): (i64, i64, i64, i64) = storage
         .conn()
         .query_row(
@@ -136,7 +136,7 @@ fn main() {
         .expect("diagnostics");
     println!("diagnostics_total={diag_total}");
 
-    // cli/db/db.sqlite 只读对照（Σmodel_usage==turn_usage 对账；不入库计量）。
+    // Read-only cli/db/db.sqlite comparison: sum(model_usage)==turn_usage; not usage input.
     let db_sqlite = PathBuf::from(&root).join("db").join("db.sqlite");
     match db_reconciliation(&db_sqlite) {
         Ok(rec) => {

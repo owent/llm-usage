@@ -1,10 +1,10 @@
-//! 对本机真实 OpenCode 数据（$XDG_DATA_HOME/opencode 或 ~/.local/share/opencode
-//! 的 opencode*.db）做只读核对。本机未安装（not_found，2026-09-25 盘点）时期望
-//! discovered_roots=0。只输出白名单聚合：发现根数、文件数、记录数、事件数、
-//! 对账结论、token 合计、诊断计数；不打印路径、会话 ID、消息 ID、模型以外的
-//! 任何记录内容。源库只读（必要时 Online Backup 暂存副本，用完清理），绝不写源库。
-//! 适配器为按已核对的文档或源码实现，真实数据出现后按本入口复验。
-//! 用法：cargo run -p llm-usage-core --example real_verify_opencode -- <opencode根或其父目录或用户home> <work_dir>
+//! Read-only checks of native OpenCode opencode*.db under $XDG_DATA_HOME/opencode
+//! or ~/.local/share/opencode. The 2026-09-25 not_found inventory expected
+//! discovered_roots=0. Output only roots/files/records/events,
+//! reconciliation, tokens and diagnostics; no paths, session/message IDs or
+//! content beyond models. Source is read-only; remove any temporary Online Backup copy.
+//! Implementation follows inspected documents/source; use this entry to verify native data.
+//! Usage: cargo run -p llm-usage-core --example real_verify_opencode -- <opencode-root-or-parent-or-user-home> <work_dir>
 
 use llm_usage_core::adapters::framework::{
     run_adapter_scan, DiscoverContext, RunConfig, ScanLimits,
@@ -84,7 +84,7 @@ fn main() {
         reconciliations.len()
     );
 
-    // 二次扫描：幂等（重复扫描不增量）。
+    // A second scan adds no duplicate records.
     let reports2 = run_adapter_scan(&storage, &adapter, &ctx, &config).expect("rescan");
     let added2: i64 = reports2
         .iter()
@@ -92,7 +92,7 @@ fn main() {
         .sum();
     println!("rescan_added={added2}");
 
-    // 汇总查询白名单核对：调用数与 token 合计（UTC）。
+    // Check permitted UTC summary fields: calls and token sums.
     let summary = llm_usage_core::query::query_summary(
         &storage,
         &llm_usage_core::query::SummaryRequest {

@@ -1,6 +1,6 @@
-//! Tauri IPC 命令：查询/来源/刷新/设置/导出。
-//! DTO 约定（architecture.md）：token 等大数值用十进制字符串传输，
-//! 避免前端浮点舍入；错误返回结构化 code+message，不回传内部 SQL/游标。
+//! Tauri IPC commands for queries, sources, collection, settings, and exports.
+//! DTO rules in architecture.md transmit large token values as decimal strings
+//! to avoid frontend float rounding; return structured code/message errors without internal cursors.
 
 use crate::app_state::{load_settings, save_settings, AppSettings, AppState};
 use crate::scanner::{now_ms, run_refresh};
@@ -16,7 +16,7 @@ use serde::Deserialize;
 use std::io::Write;
 use std::sync::Arc;
 
-/// Empty ownership must select no rows; it must never mean all users.
+/// Empty source ownership selects no rows rather than every user's records.
 fn user_instances(
     storage: &llm_usage_core::storage::Storage,
     user_id: &str,
@@ -32,7 +32,7 @@ fn user_instances(
     Ok(instances)
 }
 
-/// 写操作日志到诊断表（白名单 code，无正文）。
+/// Write application operation diagnostics without importing conversation bodies.
 pub(crate) fn log_operation(storage: &llm_usage_core::storage::Storage, code: &str, message: &str) {
     let _ = storage.conn().execute(
         "INSERT INTO diagnostics (code, message, created_ms) VALUES (?1, ?2, ?3)",
@@ -220,8 +220,8 @@ pub(crate) fn remove_owned_auto_start() -> Result<(), String> {
     win_tasks::remove_owned_auto_start()
 }
 
-/// 系统保存对话框：用户选定导出位置（返回 None = 取消）。
-/// 后端只把文件写到该路径（architecture.md 导出约定）。
+/// Native save dialog; None means the user canceled.
+/// The backend writes the selected file path under the export interface rules.
 #[tauri::command]
 pub fn pick_save_path(default_name: String) -> Option<String> {
     rfd::FileDialog::new()
@@ -288,12 +288,12 @@ pub fn set_refresh_task(
     }
 }
 
-/// 查询请求 DTO。
+/// Usage query DTO.
 #[derive(Debug, Clone, Deserialize)]
 pub struct SummaryQuery {
     pub first_day: String,
     pub last_day: String,
-    /// day | week | month。
+    /// Requested grouping interval; parsed by the shared query builder.
     pub granularity: String,
     #[serde(default)]
     pub agents: Vec<String>,
@@ -349,7 +349,7 @@ fn build_request(
     })
 }
 
-/// token 数值 → 十进制字符串（unknown 保持 null）。
+/// Convert known tokens to decimal strings; preserve unknown as null.
 fn opt_num(v: Option<i64>) -> Option<String> {
     v.map(|n| n.to_string())
 }
@@ -401,7 +401,7 @@ fn summary_query(
     q: &SummaryQuery,
 ) -> Result<serde_json::Value, String> {
     let request = build_request(settings, q, Vec::new())?;
-    // 读路径：常驻只读连接（WAL 与后台扫描并发；失败回退写连接）。
+    // Use the read-only connection pool with WAL; unavailable readers fall back to the writer.
     let storage = crate::app_state::read_conn(state);
     let instances = user_instances(&storage, current_user)?;
     let request = SummaryRequest {
@@ -514,8 +514,8 @@ fn heatmap_query(
     }))
 }
 
-/// 来源清单：实例注册 + 最近运行 + 兼容标记计数 + 失踪文件数
-/// （磁盘已不存在的注册文件：Agent 自行清理/压实产生，其历史只存于本应用）。
+/// Sources include registration, latest run, compatibility counts, and missing registered files.
+/// Agent cleanup/compaction may remove source files while history remains in application storage.
 #[tauri::command]
 pub fn list_sources(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_json::Value, String> {
     let storage = crate::app_state::read_conn(&state);
@@ -596,7 +596,7 @@ pub fn list_sources(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_json
             }
         }
     }
-    // 失踪文件计数（SQLite 无文件系统访问，磁盘检查逐实例做；只统计不改状态）。
+    // Check disk files per instance and report missing counts without changing source state.
     for s in sources.iter_mut() {
         let instance = s["instance_id"].as_str().unwrap_or("").to_string();
         let mut stmt = storage
@@ -616,7 +616,7 @@ pub fn list_sources(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_json
     Ok(serde_json::json!({ "sources": sources }))
 }
 
-/// 启用/停用来源（停用后自动提取不再读取该实例）。
+/// Enable/disable a source; automatic collection skips disabled instances.
 #[tauri::command]
 pub fn set_source_enabled(
     state: tauri::State<'_, Arc<AppState>>,
@@ -640,8 +640,8 @@ pub fn set_source_enabled(
     Ok(())
 }
 
-/// 设置逐源提取计划（rule=None 删除，恢复继承全局；M6 逐源定时接线）。
-/// 固定间隔 15s–24h / 每日 HH:MM / 每周 ISO weekday+HH:MM；时区独立保存。
+/// Set a per-source schedule; None deletes the custom rule and restores global timing.
+/// Intervals 15s-24h or daily/weekly local times keep a separately persisted timezone.
 #[tauri::command]
 pub fn set_source_schedule(
     state: tauri::State<'_, Arc<AppState>>,
@@ -685,7 +685,7 @@ pub fn set_source_schedule(
                 .map_err(|e| err("db", e.to_string()))?;
         }
     }
-    // 回读新状态（nextDue 供 UI 显示）。
+    // Read back the saved schedule, including nextDue for the UI.
     let current = llm_usage_core::schedules::source_schedule(&storage_lock, &instance_id)
         .map_err(|e| err("db", e.to_string()))?;
     let next_due: Option<i64> = storage_lock
@@ -711,9 +711,9 @@ pub fn set_source_schedule(
     }))
 }
 
-/// 触发一次手动刷新（已在执行时合并返回）。
-/// 后台线程执行（同步命令会阻塞主线程冻结 UI；整轮扫描可达分钟级），
-/// 进度经 state.refresh 由顶栏轮询展示。
+/// Request a manual refresh; merge it with an already running refresh.
+/// Collect on a background thread so long scans do not block the GUI event loop.
+/// The top bar polls state.refresh for progress.
 #[tauri::command]
 pub fn refresh_sources(
     state: tauri::State<'_, Arc<AppState>>,
@@ -733,7 +733,7 @@ pub fn refresh_sources(
     }
     let refresh = state.refresh.lock().unwrap();
     Ok(serde_json::json!({
-        // 后台启动是乐观值：极小并发窗口内重复触发由 run_refresh 合并。
+        // The initial started value is optimistic; run_refresh merges concurrent triggers.
         "started": !already,
         "running": refresh.running || !already,
         "last_finished_ms": refresh.last_finished_ms,
@@ -772,12 +772,12 @@ fn apply_settings(
         .budget
         .validate()
         .map_err(|e| err("invalid_budget", e.to_string()))?;
-    // Receiver lifecycle is owned by telemetry setup. A settings form opened earlier
-    // must not silently turn it back off when saving unrelated preferences.
+    // Telemetry setup owns receiver lifecycle. Saving an older settings form
+    // must not disable the receiver when changing unrelated preferences.
     if let Some(w) = settings.week_start {
         week_start_of(w)?;
     }
-    // 分级保留层级合法性（复用 core 校验）。
+    // Validate retention tiers using the core rules.
     llm_usage_core::retention_tiered::TieredRetentionPolicy {
         events_days: settings.retention.events_days,
         hourly_days: settings.retention.hourly_days,
@@ -796,7 +796,7 @@ fn apply_settings(
             )
         })?;
     }
-    // F2 费用设置校验：供应商默认字段非空去空格；TTL 仅 5/60 分钟档。
+    // Validate provider defaults after trimming and restrict cache TTL to 5/60 minutes.
     for d in &settings.pricing.provider_defaults {
         for (name, value) in [
             ("provider_id", &d.provider_id),
@@ -821,7 +821,7 @@ fn apply_settings(
             }
         }
     }
-    // F2 在线刷新：缓存 TTL 天数范围（1–365）。
+    // Online price-cache TTL must be within 1-365 days.
     if settings.pricing.online_cache_ttl_days < crate::price_refresh::MIN_TTL_DAYS
         || settings.pricing.online_cache_ttl_days > crate::price_refresh::MAX_TTL_DAYS
     {
@@ -846,7 +846,7 @@ fn apply_settings(
         let mut live = state.settings.lock().unwrap();
         settings.otel_receiver_enabled = live.otel_receiver_enabled;
         settings.otel_receiver_port = live.otel_receiver_port;
-        // 时区变更 ⇒ 在新时区重算日分区（事件仍在 ⇒ 推导；封存日跳过）。
+        // Rebuild retained event days for a changed statistics timezone, skipping sealed days.
         let old_tz = live.timezone.clone();
         if old_tz != settings.timezone {
             crate::app_state::repair_tz_partitions(&storage, &settings.timezone, true)?;
@@ -880,8 +880,8 @@ pub fn app_info(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_json::Va
     }))
 }
 
-/// 额度总览（通用 quota_history 最新快照；agent=None 取全部）。
-/// 请求/额度计数，非 token，独立展示。
+/// Latest generic quota_history snapshots; None selects all Agents.
+/// Preserve native quota units separately from observed token usage.
 #[tauri::command]
 pub fn quota_summary(
     state: tauri::State<'_, Arc<AppState>>,
@@ -910,7 +910,7 @@ pub fn quota_summary(
     Ok(serde_json::json!({ "quotas": quotas }))
 }
 
-/// 某 (agent, quota_id) 的每日额度趋势（used=已用请求/额度数）。
+/// Daily usage of one Agent/quota ID in its native request or quota unit.
 #[tauri::command]
 pub fn quota_series(
     state: tauri::State<'_, Arc<AppState>>,
@@ -936,9 +936,9 @@ pub fn quota_series(
     Ok(serde_json::json!({ "agent": agent, "quota_id": quota_id, "points": points }))
 }
 
-/// 导出：summary-csv（展示用）或 exchange（无损交换 JSON，M1a 约定）。
-/// target_dir 为空时写应用数据目录 exports/ 下；返回写入的完整路径。
-/// CSV 防公式注入：以 = + - @ 开头的单元格加 `'` 前缀。
+/// Export presentation summary CSV or versioned record exchange JSON.
+/// No target_dir uses application exports/; return the full written path.
+/// Prefix CSV cells beginning =, +, -, or @ with an apostrophe to prevent formula execution.
 #[tauri::command]
 pub fn export_data(
     state: tauri::State<'_, Arc<AppState>>,
@@ -1027,7 +1027,7 @@ pub fn export_data(
         }
         "exchange" | "details" => {
             let storage = crate::app_state::read_conn(&state);
-            // 按用户/主机过滤导出范围（默认当前用户+当前主机）。
+            // Filter exports by user/host, defaulting to the current user and local host.
             let instances: Vec<String> = {
                 let mut sql = String::from("SELECT instance_id FROM source_instances WHERE 1=1");
                 let mut vals: Vec<rusqlite::types::Value> = Vec::new();
@@ -1086,7 +1086,7 @@ pub fn export_data(
     }
 }
 
-/// 应用数据库里刷新一次设置（导入/回填工具用；当前主要是测试钩子）。
+/// Reload settings from application storage for import/backfill tooling and tests.
 #[allow(dead_code)]
 #[tauri::command]
 pub fn reload_settings(state: tauri::State<'_, Arc<AppState>>) -> Result<(), String> {
@@ -1097,7 +1097,7 @@ pub fn reload_settings(state: tauri::State<'_, Arc<AppState>>) -> Result<(), Str
     Ok(())
 }
 
-// ---- 多用户（v6）与导入/归档统计命令 ----
+// Multiuser v6 and import/archive commands.
 
 #[tauri::command]
 pub fn list_users(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_json::Value, String> {
@@ -1121,7 +1121,7 @@ pub fn list_users(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_json::
     Ok(serde_json::json!({ "users": users, "current": current }))
 }
 
-/// 创建用户并（可选）立即切换。
+/// Create a statistics user and optionally switch to it.
 #[tauri::command]
 pub fn create_user(
     state: tauri::State<'_, Arc<AppState>>,
@@ -1146,7 +1146,7 @@ pub fn create_user(
     Ok(serde_json::json!({ "user_id": user_id }))
 }
 
-/// 切换当前统计用户（持久化 settings.current_user）。
+/// Persist the current statistics user in settings.current_user.
 #[tauri::command]
 pub fn set_current_user(
     state: tauri::State<'_, Arc<AppState>>,
@@ -1187,7 +1187,7 @@ fn set_current_user_locked(
     Ok(())
 }
 
-/// 把来源实例改归指定用户（多用户分开统计的分配入口）。
+/// Assign a source instance to the selected statistics user.
 #[tauri::command]
 pub fn assign_source_user(
     state: tauri::State<'_, Arc<AppState>>,
@@ -1205,7 +1205,7 @@ pub fn assign_source_user(
     Ok(())
 }
 
-/// 导入聚合交换包（导出 → 导入与查询验证；M1a 合并规则）。
+/// Import record/aggregate exchange data using the M1a merge rules.
 #[tauri::command]
 pub fn import_exchange(
     state: tauri::State<'_, Arc<AppState>>,
@@ -1319,7 +1319,7 @@ pub async fn budget_status(
     .map_err(|_| err("budget", "budget worker failed"))?
 }
 
-/// 各归档层条目数 + 库文件占用（含 WAL）。
+/// Counts per retention tier and database bytes, including WAL.
 #[tauri::command]
 pub fn storage_stats(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_json::Value, String> {
     let storage = crate::app_state::read_conn(&state);
@@ -1351,7 +1351,7 @@ pub fn storage_stats(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_jso
     }))
 }
 
-/// 手动清理：按"days_before 天之前"执行一次分层保留（各层 cutoff = min(设置, days_before)）。
+/// Run tiered retention once using the smaller of configured days and days_before.
 #[tauri::command]
 pub async fn manual_cleanup(
     state: tauri::State<'_, Arc<AppState>>,
@@ -1383,7 +1383,7 @@ pub async fn manual_cleanup(
     .map_err(|e| err("cleanup", e.to_string()))?
 }
 
-/// This command never waits for the database mutex held by a cleanup operation.
+/// Cancellation never waits for the database mutex held by cleanup.
 #[tauri::command]
 pub fn cancel_cleanup(state: tauri::State<'_, Arc<AppState>>) -> bool {
     state.cleanup_control.cancel()
@@ -1452,7 +1452,7 @@ fn run_manual_cleanup(
     }))
 }
 
-/// 原生打开对话框（导入文件选择）。
+/// Native import-file selection dialog.
 #[tauri::command]
 pub fn pick_open_path(extension: String) -> Option<String> {
     rfd::FileDialog::new()
@@ -1461,8 +1461,8 @@ pub fn pick_open_path(extension: String) -> Option<String> {
         .map(|p| p.to_string_lossy().to_string())
 }
 
-/// 清空预检（确认层展示）：事件总量 + 已注册但磁盘已不存在的源文件数
-/// （这些历史清空后无法从源重采，见 2026-09-27 zcode 数据丢失分析）。
+/// Preview event count and registered source files no longer on disk before clearing.
+/// Cleared history cannot be recollected from absent sources; see the 2026-09-27 ZCode analysis.
 #[tauri::command]
 pub fn clear_all_preview(
     state: tauri::State<'_, Arc<AppState>>,
@@ -1493,9 +1493,9 @@ pub fn clear_all_preview(
     )
 }
 
-/// 清空前自动备份整库（共享助手：VACUUM INTO 一致快照 + 空间检查 + 保留 3 份）。
-/// Agent 会清理/压实自己的源文件，清空后部分历史无法重采（2026-09-27
-/// zcode 数据丢失教训）；备份给恢复留一条路。无数据时不备份。
+/// Before clearing, create a space-checked VACUUM INTO backup and retain three copies.
+/// Source cleanup/compaction can make recollection incomplete, as in the ZCode analysis;
+/// the backup preserves recovery data. Skip backup only when no retained usage exists.
 const CLEAR_ALL_TABLES: &[&str] = &[
     "usage_events",
     "hourly_usage",
@@ -1553,15 +1553,15 @@ fn backup_before_clear(state: &Arc<AppState>) -> Result<Option<String>, String> 
     .map(|p| p.map(|path| path.to_string_lossy().to_string()))
 }
 
-/// 清理全部数据（所有归档层+诊断+游标），并触发全量重新采集。
-/// 主机身份、用户、设置保留；source_files 状态重置为 new 使探测重新执行。
-/// 清空前自动备份（见 backup_before_clear）。
+/// Clear usage/archive/diagnostic/cursor data and request a full collection.
+/// Preserve hosts/users/settings and mark source_files new for fresh detection.
+/// Create the automatic backup first; see backup_before_clear.
 ///
-/// 后台执行（UI 不阻塞，同步命令会冻结主线程事件循环）：
-/// 阶段进度经 `clear-all-progress` 事件推送——
-/// waiting（等当前采集结束）→ backup → clearing → cleared（各表计数）
-/// → rescan → done；任一步失败发 failed（含 error）并终止。
-/// 重复触发直接返回 started=false（任务单例）。
+/// Run in the background without blocking the GUI event loop.
+/// Send stage changes through clear-all-progress:
+/// waiting for collection, backup, clearing, cleared with table counts,
+/// rescan, then done. Any failure emits failed with the error and stops the job.
+/// Repeated triggers return started=false while the singleton job runs.
 #[tauri::command]
 pub fn clear_all_data(
     state: tauri::State<'_, Arc<AppState>>,
@@ -1575,7 +1575,7 @@ pub fn clear_all_data(
     let state = state.inner().clone();
     std::thread::spawn(move || {
         let _run = CleanupRun(&state);
-        // panic 也要复位标志并发失败事件，否则按钮会永久停留在忙碌态。
+        // Reset the running flag and report failure even after a panic so controls do not stay busy.
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             run_clear_all_job(&state, &app)
         }))
@@ -1598,10 +1598,10 @@ fn tauri_event(app: &tauri::AppHandle, payload: serde_json::Value) -> Result<(),
         .map_err(|e| err("emit", e.to_string()))
 }
 
-/// 清理+重采后台任务主体；错误向上传递由调用方发 failed 事件。
+/// Background clear/recollect job; propagate errors so callers can emit failed.
 fn run_clear_all_job(state: &Arc<AppState>, app: &tauri::AppHandle) -> Result<(), String> {
-    // 清库与扫描并发会让进行中的采集把已清表回写（数据复活），
-    // 先等当前采集结束再清。
+    // Wait for active collection before deleting data, preventing its writer
+    // from repopulating tables during cleanup.
     if state.refresh.lock().unwrap().running {
         let _ = tauri_event(app, serde_json::json!({ "phase": "waiting" }));
         while state.refresh.lock().unwrap().running {
@@ -1623,7 +1623,7 @@ fn run_clear_all_job(state: &Arc<AppState>, app: &tauri::AppHandle) -> Result<()
             "backup": backup_path,
         }),
     );
-    // 游标已重置，本轮刷新即全量重新采集；进度由 state.refresh 顶栏轮询展示。
+    // Reset cursors request a full collection; the top bar polls refresh progress.
     let _ = tauri_event(app, serde_json::json!({ "phase": "rescan" }));
     let rescan_started = crate::scanner::run_refresh_after_clear(state);
     let _ = tauri_event(
@@ -1633,7 +1633,7 @@ fn run_clear_all_job(state: &Arc<AppState>, app: &tauri::AppHandle) -> Result<()
     Ok(())
 }
 
-/// 清库事务：各表 DELETE + source_files 状态重置 + 保留已处理位置设置清除 + 修订号推进。
+/// In one transaction, clear tables/reset file state and retention markers, then advance revision.
 fn clear_all_tables(
     state: &Arc<AppState>,
 ) -> Result<(serde_json::Map<String, serde_json::Value>, i64), String> {
@@ -1655,8 +1655,8 @@ fn clear_all_tables(
             .map_err(|e| err("db", format!("{table}: {e}")))?;
         cleared.insert(table.to_string(), serde_json::json!(n));
     }
-    // 游标清除后 source_files 的代数/身份保留（避免同文件重复探测），
-    // 但状态重置为 new 让下一轮扫描重新判定。
+    // Retain file generation and identity after deleting cursors;
+    // status=new still requires the next scan to perform detection again.
     tx.execute("UPDATE source_files SET status = 'new'", [])
         .map_err(|e| err("db", e.to_string()))?;
     tx.execute(
@@ -1696,7 +1696,7 @@ pub fn event_details(
     let storage = crate::app_state::read_conn(&state);
     let instances = user_instances(&storage, &current_user)?;
     let request = build_request(&settings, &q, instances)?;
-    // 日期范围由请求给出（避免全量扫描；近 24h/当天时精确到小时）。
+    // Use the requested day to bound hourly aggregation.
     let calendar = llm_usage_core::calendar::Calendar::new(&settings.timezone)
         .map_err(|e| err("calendar", e.to_string()))?;
     let (from_ms, to_ms) = calendar
@@ -1743,7 +1743,7 @@ pub fn event_details(
     }))
 }
 
-/// 导出过滤选项：可用的用户与主机列表（含当前值）。
+/// Available export users/hosts, including current selections.
 #[tauri::command]
 pub fn export_filter_options(
     state: tauri::State<'_, Arc<AppState>>,
@@ -1786,7 +1786,7 @@ pub fn export_filter_options(
     }))
 }
 
-/// 按维度分组的时间序列（图表数据源；直接从聚合表读，低计算量）。
+/// Grouped chart time series from the shared retained usage view.
 #[tauri::command]
 pub fn chart_series(
     state: tauri::State<'_, Arc<AppState>>,
@@ -1828,7 +1828,7 @@ pub fn chart_series(
     }))
 }
 
-/// 最近诊断日志（设置页日志 Tab）。
+/// Recent diagnostics for the settings log tab.
 #[tauri::command]
 pub fn diagnostic_logs(
     state: tauri::State<'_, Arc<AppState>>,
@@ -1868,7 +1868,7 @@ fn insert_user(
     ).map_err(|e| err("db", e.to_string()))
 }
 
-/// Current API reference and optional selected hours; frozen daily history is preserved.
+/// Current API reference with optional selected hours; preserve historical daily amounts.
 #[tauri::command]
 pub async fn cost_summary(
     state: tauri::State<'_, Arc<AppState>>,
@@ -1930,7 +1930,7 @@ fn cost_summary_query(
     serde_json::to_value(&summary).map_err(|e| err("serialize", e.to_string()))
 }
 
-/// F2 显式重算费用（后台线程执行；完成写操作日志，UI 稍后刷新查看）。
+/// Recalculate eligible costs on a background thread and record the completed operation.
 #[tauri::command]
 pub fn recompute_costs(
     state: tauri::State<'_, Arc<AppState>>,
@@ -1967,7 +1967,7 @@ pub fn recompute_costs(
     Ok(serde_json::json!({ "started": true }))
 }
 
-/// F2 价格快照列表（来源/新鲜度/行数）。
+/// Price snapshot source, age, and row count.
 #[tauri::command]
 pub fn list_price_snapshots(
     state: tauri::State<'_, Arc<AppState>>,
@@ -1978,7 +1978,7 @@ pub fn list_price_snapshots(
         .map_err(|e| err("list_price_snapshots", e.to_string()))
 }
 
-/// F2 手工导入本地价格快照 JSON（schema 校验 + 区间重叠检查 + 幂等）。
+/// Import local price JSON after schema/interval checks, skipping identical snapshots.
 #[tauri::command]
 pub fn import_price_snapshot(
     state: tauri::State<'_, Arc<AppState>>,
@@ -2006,8 +2006,8 @@ pub fn import_price_snapshot(
     }))
 }
 
-/// F2 在线刷新（models.dev）：手动触发（force 绕过 TTL）。需费用估算与
-/// 在线刷新均已启用；后台线程执行，结果经 price_refresh_status 轮询。
+/// Manually refresh models.dev prices; force bypasses TTL. Estimation and online
+/// refresh must both be enabled; poll price_refresh_status for background results.
 #[tauri::command]
 pub fn refresh_prices_online(
     state: tauri::State<'_, Arc<AppState>>,
@@ -2026,7 +2026,7 @@ pub fn refresh_prices_online(
     Ok(serde_json::json!({ "started": started }))
 }
 
-/// F2 在线刷新状态：启用位、TTL、缓存新鲜度、运行标记与最近一次结果。
+/// Price refresh enablement, TTL, cache age, running state, and latest result.
 #[tauri::command]
 pub fn price_refresh_status(
     state: tauri::State<'_, Arc<AppState>>,
@@ -2069,8 +2069,8 @@ mod clear_all_tests {
     use std::sync::atomic::Ordering;
     use std::sync::Arc;
 
-    /// 后台清理任务的清库事务：各表清空、source_files 状态重置为 new、
-    /// 修订号推进；操作日志补写一条 diagnostics。
+    /// Clear-job transaction empties usage tables, marks source_files new,
+    /// advances revision, and adds one operation diagnostic.
     #[test]
     fn clear_all_tables_clears_resets_status_and_bumps_revision() {
         let dir =
@@ -2131,7 +2131,7 @@ mod clear_all_tests {
                 )
                 .unwrap();
         }
-        // 明细已过期但日费用尚存时，清空前仍须保存一致备份。
+        // Retained daily costs still require a consistent backup after detail events expire.
         let backup = backup_before_clear(&state)
             .unwrap()
             .expect("backup created");
@@ -2165,7 +2165,7 @@ mod clear_all_tests {
             )
             .unwrap();
         assert_eq!(status, "new");
-        // 操作日志补写一条；清空前的诊断已删除。
+        // Add one operation log after old diagnostics were deleted.
         let n: i64 = storage
             .conn()
             .query_row("SELECT COUNT(*) FROM diagnostics", [], |r| r.get(0))
