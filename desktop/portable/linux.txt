@@ -1,0 +1,23 @@
+LLM Usage portable for Linux
+
+Extract with: tar --zstd -xf LLMUsage-<version>-linux-<arch>-portable.tar.zst
+Run ./AppRun from the extracted directory. Keep the entire directory together.
+Bundled AppDir libraries are included; no application installation or FUSE is required.
+Built on Ubuntu 22.04 with glibc 2.35. A compatible Linux desktop/display is required;
+other distributions and older glibc releases need separate validation.
+Optional credential integration needs the system Secret Service and a persistent unlocked
+default collection on D-Bus. The archive does not install desktop/system services.
+Use x64 for Intel/AMD Linux and arm64 for 64-bit Arm Linux.
+Data remains in the existing per-user location; moving this folder does not migrate it.
+Disable owned scheduled tasks in Settings before moving or removing the folder.
+
+Linux 便携版
+
+使用 tar --zstd -xf LLMUsage-<version>-linux-<arch>-portable.tar.zst 完整解压，
+在解压后的目录运行 ./AppRun；请保留整个目录。已包含 AppDir 依赖库，无须安装应用或使用 FUSE。
+使用 Ubuntu 22.04、glibc 2.35 构建，需要兼容的 Linux 桌面和显示环境；
+其他发行版和更旧的 glibc 需要独立验证。
+可选凭据集成需要系统 D-Bus 上 Secret Service 的持久、已解锁默认集合；本包不安装系统服务。
+Intel/AMD Linux 使用 x64，64 位 Arm Linux 使用 arm64。
+数据仍保存在原有用户目录，移动本目录不会迁移数据。
+移动或删除本目录前请在设置中停用应用创建的计划任务。

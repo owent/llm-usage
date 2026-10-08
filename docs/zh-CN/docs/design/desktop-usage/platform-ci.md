@@ -8,7 +8,8 @@
 用户已确认 Windows 11 x64 首发，
 同时保留 macOS/Linux 的 GitHub CI。本文件保留验收要求；实际执行情况见验证记录。
 用户已确认按本方案推进：runner/工具链/Linux 基线在 M0 固定，WSL/WSLg 可用性在 M0 探测；
-macOS/Linux 不承诺首发发行支持。这些属于实施核验，不再作为开工前待用户确认事项。
+当前发行范围包含 Windows、Linux 和 macOS 的 x64、arm64 便携包。
+这些属于实施核验，不再作为开工前待用户确认事项。
 2026-10-05 验收范围调整：不要求 macOS 桌面或特定硬件；保留 macOS 构建与 Rust CI。
 Linux 实际 GUI/安装生命周期接受 WSL/Debian 内的独立 Podman 环境，
 记录发行版、镜像 digest、用户、显示与沙箱条件；不扩展为宿主登录/完整桌面支持。
@@ -20,15 +21,19 @@ Windows 本机安装/升级/回滚/卸载已授权；新增设计说明见 [安�
 
 | 平台 | 首发定位 | CI 初始目标 | 交付和验证结果 |
 | --- | --- | --- | --- |
-| Windows 11 x64 | 正式首发目标 | windows-2022；x86_64-pc-windows-msvc | NSIS 安装包候选、无界面采集、原生 IPC/安装/任务验证；另需真实 Windows 11 验收 |
-| Linux x64 | 持续兼容构建 | ubuntu-22.04；x86_64-unknown-linux-gnu | release 编译、Debian 包及 AppImage 候选；原生/虚拟显示测试与打包分别记录 |
-| macOS arm64 | 持续兼容构建 | macos-15；aarch64-apple-darwin | Rust/前端测试、release .app 构建；未签名或仅临时签名制品标作 CI 产物 |
+| Windows x64 | Windows 11 首发桌面目标 | windows-2022；x86_64-pc-windows-msvc | 便携 exe 归档及现有 NSIS 安装包；原生 IPC/安装/任务验收仍分别记录 |
+| Windows arm64 | 必需的便携发行目标 | windows-11-arm；aarch64-pc-windows-msvc | 原生 release exe 归档及解压后的真实无界面测试 |
+| Linux x64 | 必需的便携发行目标 | ubuntu-22.04；x86_64-unknown-linux-gnu | 解压后的 AppDir 归档及原生无界面测试；Release 不包含 Debian 包 |
+| Linux arm64 | 必需的便携发行目标 | ubuntu-22.04-arm；aarch64-unknown-linux-gnu | 原生 AppImage 构建、解压后的 AppDir 归档及原生无界面测试 |
+| macOS x64 | 必需的便携发行目标 | macos-15-intel；x86_64-apple-darwin | 应用包归档及解压后的真实无界面测试 |
+| macOS arm64 | 必需的便携发行目标 | macos-15；aarch64-apple-darwin | 应用包归档、原生无界面测试及现有 Rust/凭据检查 |
 | 本地 WSL 2 Linux x64 | 开发及已授权的容器验收 | 记录实际发行版与工具链 | 构建、测试、打包单独记录；独立 Podman 的实际 GTK/WebKit GUI 与软件包生命周期按本轮范围验收 |
 
-以上 runner 是当前可用候选，M0 复核并锁定版本化标签；不使用浮动 latest 隐式改变架构。
-macOS Intel、Linux arm64、Windows arm64 不在首批必需矩阵，后续扩展需独立验证。
-GitHub Windows runner 的构建结果不等于 Windows 11 用户环境通过；macOS/Linux CI 保持运行，
-其制品不自动变成首发支持承诺。未通过项必须在结果中可见，不能长期 continue-on-error 掩盖失败。
+使用版本化 runner 标签和明确 Rust target，并核对 runner 与二进制架构；
+不使用浮动 latest 隐式改变架构。发布需要全部六种组合，缺少任何归档都会阻止更新草稿。
+GitHub Windows runner 的构建结果不等于 Windows 11 用户环境通过。
+归档可下载和原生无界面测试不建立完整桌面支持结论。
+未通过项必须在结果中可见，不能长期 continue-on-error 掩盖失败。
 
 依据：[GitHub runner 列表](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)、
 [Tauri 多平台流水线](https://v2.tauri.app/distribute/pipelines/github/)、
@@ -45,12 +50,12 @@ GitHub Windows runner 的构建结果不等于 Windows 11 用户环境通过；m
 
 三平台作业已存在；M7 持续验收须有实际运行结果。任务触发为 PR、主分支 push、
 tag push 和手动执行。用户已授权自动发布 Draft Release，并删除后重建 v0.2.1
-验证发布；其他远端写入仍需相应授权。
+验证发布，并授权通过 v0.2.2 发布版本 0.2.2 的便携包；其他远端写入仍需相应授权。
 
 1. 公共检查：Markdown/本地链接、前端类型和单元测试、Rust fmt/clippy；命令从实际锁文件确定。
 2. OS 矩阵：在每个原生 runner 运行领域/适配器 fixture、真实临时 SQLite、调度器、路径和锁测试，
    构建同一源码的前端与 Rust release。外部 Agent 不需安装，不读取 runner 个人目录。
-3. 制品：Windows 安装包、Linux 包、macOS .app，附源码 revision、OS/arch、依赖版本、大小和校验和。
+3. 制品：六种便携归档及 Windows x64 安装包，附源码 revision、OS/arch、依赖版本、大小和校验和。
    打包失败与测试失败分别报出，不能用 cargo check 代替成品构建。
 4. 桌面集成：Windows 使用实际 WebView2 CDP，Linux 使用实际 GTK/WebKit WebDriver 与
    Tauri 自动化环境开关。发布包不增加常驻监听；macOS 桌面已取消本轮要求。
@@ -62,7 +67,7 @@ tag push 和手动执行。用户已授权自动发布 Draft Release，并删除
 `cargo clippy --workspace --all-targets --locked -- -D warnings` 覆盖核心 crate 与测试目标；
 前端作业运行 TypeScript 纯逻辑测试和 Playwright 浏览器回归。后者使用合成 IPC 数据，
 覆盖主题、时区、快速筛选、用户隔离和刷新，不计为第 4 项原生桌面验收。
-Windows 构建后执行真实可执行文件的 `test:headless`，隔离合成来源并检查来源类别。
+六种构建都从解压目录执行真实可执行文件的 `test:headless`，隔离合成来源并检查来源类别。
 Rust fmt/Clippy/test 作业分别在三个原生 runner 执行，平台存储实现纳入各自编译。
 Linux 另运行 `test:credentials:linux`，使用独立 D-Bus 与一次性加密 keyring；
 凭据只在 stdin 传给测试子进程。macOS Rust 作业另显式运行系统凭据跨进程往返与
@@ -73,7 +78,7 @@ Windows 原生凭据在本机显式执行，默认忽略项不能当作系统存
 
 矩阵使用 fail-fast=false 留下全部结果；每作业有超时，重跑只针对已定位的临时基础设施故障。
 缓存键包含 OS、架构、Rust/Node 版本和锁文件摘要，隔离不同 target，不缓存真实 Agent 数据。
-既有应用检查使用 Action 主版本号浮动引用，发行步骤固定完整提交 SHA；PR 保持只读权限。
+应用 Action 使用完整提交 SHA 固定版本；PR 保持只读权限。
 仅 tag push 的发行作业在公共检查和全部平台构建成功后，通过 GitHub 短期 token
 取得 contents: write 权限；不在特权 pull_request_target 中执行 PR 代码。
 CI artifact 与 GitHub Release 分开。tag push 按 tag_name 创建或更新同一个草稿，覆盖
@@ -83,8 +88,34 @@ CI artifact 与 GitHub Release 分开。tag push 按 tag_name 创建或更新同
 和 overwrite: true 替换同名附件，重复运行覆盖同一草稿的元数据和附件。
 平台报告使用不同附件名，发布前核对包的 revision、大小和 SHA-256，上传后再次核对附件。
 此流水线不建立签名、公证或桌面安装验收结论。
-上传仅包含安装包、macOS `.app.tar.gz` 与大小/校验和报告；Debian 的
-`control.tar.gz`/`data.tar.gz`、AppDir 和其他打包暂存目录不计为发布制品。
+上传仅包含六种 `.tar.zst` 归档、现有 Windows x64 NSIS 安装包及不同名称的大小/校验和报告。
+不上传 Debian 包或原始 AppImage。
+
+## 便携归档要求
+
+文件名包含版本、系统和架构：`LLMUsage-<version>-<windows|linux|macos>-<x64|arm64>-portable.tar.zst`。
+每个归档包含同名目录，内含 Windows exe、带 `AppRun` 的 Linux AppDir 或 macOS `.app`，
+以及完整的中英文使用说明。便携指解压后无须安装应用；仍使用现有的用户数据目录和
+系统凭据存储，移动归档不会迁移这些数据。保留完整资源、执行权限和符号链接，不裁剪语言。
+
+Windows 使用系统 WebView2 Runtime，Windows 11 通常自带；本包不包含固定版本离线浏览器运行时。
+macOS 使用系统 WebKit，流水线不进行发行公证。Linux 两种架构都使用 Ubuntu 22.04 构建，
+归档 AppImage 解压后的依赖，避免 FUSE 和第二层压缩容器；仍需要兼容的 glibc（2.35 或更高）、
+桌面显示环境，以及可选凭据集成所需的 D-Bus/Secret Service 等系统设施。
+其他发行版需独立验证；包内说明标明这些条件，不承诺适用于所有运行环境。
+
+打包脚本先生成完整 tar，使用 `zstd -19 -T2 --long=27` 压缩并运行 `zstd -t`，
+解压到全新的校验目录后比较全部文件摘要、符号链接目标和 Unix 权限。
+核对解压后的 PE/ELF/Mach-O CPU 类型是否匹配预期架构，再从解压目录运行真实无界面/SQLite 测试。
+Linux 两种架构还在 Xvfb 与独立 D-Bus 下，通过原生 WebKitWebDriver 启动解压后的 AppRun，
+检查真实窗口、五个页面、IPC 和合成 SQLite 结果。
+仅通过校验的归档生成报告并进入发布。构建或压缩失败、架构错误、归档损坏、平台报告缺失都会阻止发布。
+重复打包在校验后替换同名归档；重复发布保留草稿身份并替换同名附件。
+回滚通过修复源码并重新运行已授权的 tag 流水线完成；tag 移动后不得使用旧构建。
+
+依据：[Tauri ARM AppImage](https://v2.tauri.app/distribute/appimage/#appimages-for-arm-based-devices)、
+[AppImage 解压](https://docs.appimage.org/user-guide/run-appimages.html#extract-the-contents-of-an-appimage)及
+[Tauri WebView2 条件](https://v2.tauri.app/distribute/windows-installer/#webview2-installation-options)。
 
 桌面测试依据：[Tauri WebDriver](https://v2.tauri.app/develop/tests/webdriver/)。
 Linux 本轮直接使用 WebKitWebDriver 原生 capabilities，启动真实打包应用；

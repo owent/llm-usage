@@ -1,7 +1,7 @@
 name: CI
 
 # Platform checks: docs/design/desktop-usage/platform-ci.md.
-# Build all three platforms with fail-fast=false and read-only PR permissions.
+# Build portable x64/arm64 packages on all three platforms with read-only PR permissions.
 # Tag pushes update a draft Release after all checks; artifacts record revision, size and digest.
 
 on:
@@ -24,10 +24,10 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           lfs: true
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -42,10 +42,10 @@ jobs:
       run:
         working-directory: desktop
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           lfs: true
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -72,14 +72,14 @@ jobs:
       run:
         working-directory: desktop/src-tauri
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           lfs: true
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
           components: clippy, rustfmt
-      - uses: swatinem/rust-cache@v2
+      - uses: swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
         with:
           key: ${{ runner.os }}-${{ runner.arch }}-rust-${{ env.RUST_TOOLCHAIN }}
           workspaces: desktop/src-tauri
@@ -92,7 +92,7 @@ jobs:
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - run: cargo test --locked
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         if: runner.os == 'Linux'
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -109,41 +109,72 @@ jobs:
           cargo test --locked receiver_auth::tests::native_credential_http_revocation -- --exact --ignored --nocapture
 
   build:
-    name: ${{ matrix.os }} release 构建
+    name: ${{ matrix.platform }} ${{ matrix.arch }} portable release
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 40
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: windows-2022
-            bundles: nsis
+            platform: windows
+            arch: x64
+            target: x86_64-pc-windows-msvc
+            args: --bundles nsis
+          - os: windows-11-arm
+            platform: windows
+            arch: arm64
+            target: aarch64-pc-windows-msvc
+            args: --no-bundle
           - os: ubuntu-22.04
-            bundles: deb,appimage
+            platform: linux
+            arch: x64
+            target: x86_64-unknown-linux-gnu
+            args: --bundles appimage
+          - os: ubuntu-22.04-arm
+            platform: linux
+            arch: arm64
+            target: aarch64-unknown-linux-gnu
+            args: --bundles appimage
+          - os: macos-15-intel
+            platform: macos
+            arch: x64
+            target: x86_64-apple-darwin
+            args: --bundles app
           - os: macos-15
-            bundles: app
+            platform: macos
+            arch: arm64
+            target: aarch64-apple-darwin
+            args: --bundles app
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           lfs: true
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: desktop/package-lock.json
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
-      - uses: swatinem/rust-cache@v2
+          targets: ${{ matrix.target }}
+      - uses: swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
         with:
-          key: ${{ runner.os }}-${{ runner.arch }}-rust-${{ env.RUST_TOOLCHAIN }}
+          key: ${{ matrix.target }}-rust-${{ env.RUST_TOOLCHAIN }}
           workspaces: desktop/src-tauri
       - name: Linux WebKitGTK 等系统依赖
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libssl-dev libgtk-3-dev \
-            libayatana-appindicator3-dev librsvg2-dev patchelf build-essential curl wget file
+            libayatana-appindicator3-dev librsvg2-dev patchelf build-essential curl wget file zstd \
+            webkit2gtk-driver xvfb xauth dbus-x11
+      - name: Archive tools
+        shell: bash
+        run: |
+          tar --version
+          zstd --version
       - name: 前端安装与构建
         working-directory: desktop
         run: |
@@ -153,25 +184,20 @@ jobs:
           npm run build
       - name: Tauri release 构建
         working-directory: desktop
-        run: npx tauri build --bundles ${{ matrix.bundles }}
-      - name: Windows 真实无界面采集回归
-        if: runner.os == 'Windows'
-        run: npm run test:headless
-      - name: 制品大小与校验和
+        run: npx tauri build --target ${{ matrix.target }} ${{ matrix.args }} -- --locked
+      - name: Portable archive, extraction and native headless tests
         if: success()
-        run: node desktop/scripts/bundle-report.mjs desktop/src-tauri/target/release/bundle
-      - uses: actions/upload-artifact@v7
+        env:
+          PORTABLE_GUI_CHECK: ${{ runner.os == 'Linux' && '1' || '0' }}
+        run: node desktop/scripts/portable.mjs desktop/src-tauri/target/${{ matrix.target }}/release build/release/${{ matrix.platform }}-${{ matrix.arch }} ${{ matrix.platform }} ${{ matrix.arch }}
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: success()
         with:
-          name: llm-usage-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
+          name: llm-usage-${{ matrix.platform }}-${{ matrix.arch }}-${{ github.sha }}
           path: |
-            desktop/src-tauri/target/release/bundle/**/*.exe
-            desktop/src-tauri/target/release/bundle/**/*.msi
-            desktop/src-tauri/target/release/bundle/**/*.deb
-            desktop/src-tauri/target/release/bundle/**/*.AppImage
-            desktop/src-tauri/target/release/bundle/**/*.dmg
-            desktop/src-tauri/target/release/bundle/**/*.app.tar.gz
-            desktop/src-tauri/target/release/bundle/bundle-report.json
+            build/release/${{ matrix.platform }}-${{ matrix.arch }}/*-portable.tar.zst
+            build/release/${{ matrix.platform }}-${{ matrix.arch }}/*-setup.exe
+            build/release/${{ matrix.platform }}-${{ matrix.arch }}/bundle-report.json
           if-no-files-found: error
           retention-days: 14
 
@@ -202,7 +228,9 @@ jobs:
             const { createHash } = require('node:crypto');
             const path = require('node:path');
             const tag = context.ref.slice('refs/tags/'.length);
-            const platforms = ['Windows-X64', 'Linux-X64', 'macOS-ARM64'];
+            const version = JSON.parse(await fs.readFile('package.json', 'utf8')).version;
+            if (tag !== `v${version}`) throw new Error('Tag does not match the release version');
+            const platforms = ['windows-x64', 'windows-arm64', 'linux-x64', 'linux-arm64', 'macos-x64', 'macos-arm64'];
             const assets = 'build/github-release/assets';
             await fs.mkdir(assets, { recursive: true });
             const names = new Set();
@@ -210,7 +238,13 @@ jobs:
               const root = path.resolve('build/github-release/artifacts', `llm-usage-${platform}-${context.sha}`);
               const reportPath = path.join(root, 'bundle-report.json');
               const report = JSON.parse(await fs.readFile(reportPath, 'utf8'));
-              if (report.revision !== context.sha || !report.bundles?.length) {
+              const [os, arch] = platform.split('-');
+              const portableName = `LLMUsage-${version}-${platform}-portable.tar.zst`;
+              if (report.revision !== context.sha || report.portable?.platform !== os || report.portable?.arch !== arch ||
+                  report.portable?.version !== version || !report.portable?.extracted_verified || !report.portable?.headless_verified ||
+                  (os === 'linux' && !report.portable?.gui_verified) ||
+                  report.bundles?.filter(bundle => path.basename(bundle.path) === portableName).length !== 1 ||
+                  report.bundles.length !== (platform === 'windows-x64' ? 2 : 1)) {
                 throw new Error(`Missing packages or wrong revision: ${platform}`);
               }
               for (const bundle of report.bundles) {
@@ -218,7 +252,8 @@ jobs:
                 const name = path.basename(source);
                 const relative = path.relative(root, source);
                 if (relative.startsWith('..') || path.isAbsolute(relative) ||
-                    !/\.(exe|msi|deb|AppImage|dmg|app\.tar\.gz)$/.test(name) || names.has(name.toLowerCase())) {
+                    (name !== portableName && !(platform === 'windows-x64' && name === `LLMUsage_${version}_x64-setup.exe`)) ||
+                    names.has(name.toLowerCase())) {
                   throw new Error(`Invalid or duplicate release package: ${bundle.path}`);
                 }
                 const hash = createHash('sha256');
@@ -243,7 +278,10 @@ jobs:
             }
             const body = `Automated draft for ${tag}.\n\nSource commit: ${context.sha}\n` +
               `Build: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n\n` +
-              'Windows x64 NSIS, Linux x64 Debian/AppImage and macOS arm64 app archive.\n' +
+              'Portable .tar.zst archives for Windows, Linux and macOS, each in x64 and arm64; Windows x64 NSIS is also included.\n' +
+              'Extract and run LLMUsage.exe (Windows), AppRun (Linux, no FUSE) or LLMUsage.app (macOS).\n' +
+              'Windows requires system WebView2; Linux uses an Ubuntu 22.04/glibc 2.35 baseline and a desktop display.\n' +
+              'The archives include runtime instructions; data and credentials retain their existing per-user storage.\n' +
               'Platform bundle reports contain package sizes and SHA-256 digests.\n' +
               'These CI packages do not establish signing, notarization or desktop installation acceptance.';
             const releases = await github.paginate(github.rest.repos.listReleases, { ...context.repo, per_page: 100 });

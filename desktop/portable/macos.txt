@@ -1,0 +1,22 @@
+LLM Usage portable for macOS
+
+Extract with: tar --zstd -xf LLMUsage-<version>-macos-<arch>-portable.tar.zst
+Use a zstd-capable archive tool; install zstd separately if your tar lacks support.
+Open LLMUsage.app in the extracted directory. Keep its complete bundle together.
+Use x64 for Intel Macs and arm64 for Apple silicon. Built on macOS 15 and requires
+a compatible macOS with system WebKit; the CI build is not notarized for Gatekeeper distribution.
+Downloaded unsigned/ad-hoc-signed apps may require the macOS security approval flow.
+Data remains in the existing per-user location and credentials use macOS Keychain.
+Moving this folder does not migrate data. Disable owned scheduled tasks in Settings
+before moving or removing the folder.
+
+macOS 便携版
+
+使用支持 zstd 的解压工具完整解压；支持时可运行
+tar --zstd -xf LLMUsage-<version>-macos-<arch>-portable.tar.zst。
+若系统 tar 不支持该格式，需要另行安装 zstd 或使用兼容的解压工具。
+打开解压目录中的 LLMUsage.app，保留完整应用包。
+Intel Mac 使用 x64，Apple silicon 使用 arm64；使用 macOS 15 构建，需要兼容系统及系统 WebKit。
+此 CI 包未进行 Gatekeeper 发行公证，下载的未签名或临时签名应用可能需要经过 macOS 安全批准流程。
+数据仍使用原有的用户目录，凭据使用 macOS Keychain，移动本目录不会迁移数据。
+移动或删除本目录前请在设置中停用应用创建的计划任务。

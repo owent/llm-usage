@@ -2,7 +2,7 @@
 
 <a id="桌面用量客户端执行计划"></a>
 
-Current version: 0.2.1. Windows 11 x64 is the first desktop target; Windows/Linux/macOS CI
+Current version: 0.2.2. Windows 11 x64 is the first desktop target; Windows/Linux/macOS CI
 is retained. This file owns the executable work for the current round. Removed scope and
 first failures are recorded in the [round record](docs/validation/desktop-usage/plan-20261007.md);
 removal does not mean acceptance passed. Historical results are indexed in
@@ -11,6 +11,14 @@ removal does not mean acceptance passed. Historical results are indexed in
 Design entry points: [product and architecture](docs/design/desktop-usage/README.md),
 [deliverables](docs/design/desktop-usage/execution.md), [data rules](docs/design/desktop-usage/data-contract.md),
 [adapter matrix](docs/design/desktop-usage/adapters.md) and [acceptance criteria](docs/design/desktop-usage/validation.md).
+
+## Portable release work
+
+- [ ] Implement and verify six native Windows/Linux/macOS x64/arm64 portable `.tar.zst`
+  archives under the [platform requirements](docs/design/desktop-usage/platform-ci.md).
+  Release contains no Debian package; extracted programs, architecture, integrity and overwrite are checked.
+- [ ] Synchronize release version 0.2.2, commit/push the authorized change and publish v0.2.2
+  through the tag workflow. Record actual CI jobs, uploaded archive sizes/digests and remaining desktop limits.
 
 <a id="当前进度"></a>
 
@@ -83,7 +91,7 @@ language behavior, screenshot provenance and deployment acceptance.
   check contrast and review screenshots in both languages and themes.
 
 Current coverage: all 199 required repository document pairs and 21 guide pairs reviewed,
-and all 7944 comment pairs across 460 source files reviewed. Complete product/document checks
+and all 7943 comment pairs across 461 source files reviewed. Complete product/document checks
 passed; the local theme build has 1363 pages and 2853 files, with 31 unit and 30 browser checks passed.
 Screenshot source db44b0300750ef4f3e00c89ad21edbfa83e60813 was published, and run 37716140836 attempt 2
 passed build/publication after the explicitly authorized exact main deployment rule was added.

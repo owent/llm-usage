@@ -28,7 +28,9 @@ The execution plan records support and current acceptance. Complete normalized d
 and optional daily/monthly token or single-currency estimated-cost reminders are implemented.
 
 Windows 11 x64 is the first desktop target; GitHub CI retains macOS/Linux, and local WSL builds
-can be attempted separately. The adapter matrix preserves source capabilities and environment limits.
+can be attempted separately. Tagged releases provide Windows/Linux/macOS x64 and arm64
+portable `.tar.zst` archives; see [package instructions](https://llm-usage.atframe.work/start/installation/).
+The adapter matrix preserves source capabilities and environment limits.
 F1 IDEs without an installation/local usage files were removed from this round, without claiming unsupported
 products. Collection is limited to local sources and can be scheduled in the UI. Read-only extraction
 of local real agent data for implementation validation has already been authorized.

@@ -28,7 +28,7 @@
       ]
     },
     ".github/workflows/ci.yml": {
-      "codeHash": "b841ecdf6a1d9b6b005ea0e14c05a58702f4851aa73efa1823df701770c6c7fa",
+      "codeHash": "e8f373f914297ced62f676639aa788777939ed3d9c3be104b8c3833ba92b6846",
       "comments": [
         {
           "id": "de393e7c2ad7dd27",
@@ -38,11 +38,11 @@
           "zh": "# 平台检查：docs/design/desktop-usage/platform-ci.md。"
         },
         {
-          "id": "6d27f188b0d169d5",
+          "id": "81d6e3032d07b85e",
           "line": 4,
           "kind": "line",
-          "en": "# Build all three platforms with fail-fast=false and read-only PR permissions.",
-          "zh": "# 三平台构建使用 fail-fast=false，PR 保持只读权限。"
+          "en": "# Build portable x64/arm64 packages on all three platforms with read-only PR permissions.",
+          "zh": "# 在 Windows、Linux、macOS 构建 x64/arm64 便携包，PR 权限保持只读。"
         },
         {
           "id": "2f197c9354249a73",
@@ -53,35 +53,35 @@
         },
         {
           "id": "5c4aea539de1cf92",
-          "line": 190,
+          "line": 216,
           "kind": "line",
           "en": "# v7",
           "zh": "# v7 固定提交"
         },
         {
           "id": "8d354d8f03723bbc",
-          "line": 191,
+          "line": 217,
           "kind": "line",
           "en": "# v8",
           "zh": "# v8 固定提交"
         },
         {
           "id": "8cb924b747b0c458",
-          "line": 197,
+          "line": 223,
           "kind": "line",
           "en": "# v8",
           "zh": "# v8 固定提交"
         },
         {
           "id": "ed6a6dd5b2894d23",
-          "line": 259,
+          "line": 297,
           "kind": "line",
           "en": "# v1",
           "zh": "# v1 固定提交"
         },
         {
           "id": "71617036ab2341ca",
-          "line": 268,
+          "line": 306,
           "kind": "line",
           "en": "# v8",
           "zh": "# v8 固定提交"
@@ -195,42 +195,14 @@
       ]
     },
     "desktop/scripts/bundle-report.mjs": {
-      "codeHash": "8c0b1e5f9c5a7f238b6f03ef476c6db51ca85bb7cbb140d41ba2874edd2686d6",
+      "codeHash": "c349c74f656f78a33137777d55188d78dfa816224549bc3a8ed2a9afc3166681",
       "comments": [
         {
-          "id": "4e3abc7fa24b1c2e",
-          "line": 8,
+          "id": "a0cbf6b056959c29",
+          "line": 7,
           "kind": "line",
-          "en": "// macOS .app is a directory. Archive it before upload to preserve modes/symlinks.",
-          "zh": "// macOS .app 是目录；上传前归档，以保留文件权限和符号链接。"
-        },
-        {
-          "id": "a6b57a401d861680",
-          "line": 17,
-          "kind": "line",
-          "en": "// A relative archive name avoids Windows drive-colon interpretation",
-          "zh": "// 相对归档名避免 Windows 将盘符冒号解释为远端路径，"
-        },
-        {
-          "id": "7445fb9040984848",
-          "line": 18,
-          "kind": "line",
-          "en": "// without GNU-only flags (macOS and Windows ship BSD tar).",
-          "zh": "// 无需 GNU 专用参数；macOS 和 Windows 自带 BSD tar。"
-        },
-        {
-          "id": "f288e988043795ee",
-          "line": 26,
-          "kind": "line",
-          "en": "// Debian staging contains control.tar.gz/data.tar.gz. Only the macOS",
-          "zh": "// Debian 暂存目录有 control.tar.gz 和 data.tar.gz；本项目发布包约定中，"
-        },
-        {
-          "id": "ccaef1cb0bafdd28",
-          "line": 27,
-          "kind": "line",
-          "en": "// .app archive is the release tarball under this project's packaging rules.",
-          "zh": "// 仅 macOS .app 归档作为 release tarball。"
+          "en": "// Portable archives are validated before reporting; staging directories are excluded.",
+          "zh": "// 便携归档在生成报告前完成校验，排除打包暂存目录。"
         }
       ]
     },
@@ -288,6 +260,32 @@
         }
       ]
     },
+    "desktop/scripts/portable.mjs": {
+      "codeHash": "500e410d0739f887f77fb73380c7cb512c9e2d39a283eaa45342d6f3f2e4bf45",
+      "comments": [
+        {
+          "id": "5925fb57f5edb42b",
+          "line": 116,
+          "kind": "line",
+          "en": "// Materialize tar before compression; an external tar/zstd pipe can stall on large Windows archives.",
+          "zh": "// 先生成完整 tar 再压缩；外部 tar/zstd 管道在大型 Windows 归档上可能停滞。"
+        },
+        {
+          "id": "76debcf3c9ae02df",
+          "line": 126,
+          "kind": "line",
+          "en": "// Run from the extraction: Linux AppRun supplies bundled library paths without FUSE.",
+          "zh": "// 从解压目录运行；Linux AppRun 提供包内依赖库路径，无须 FUSE。"
+        },
+        {
+          "id": "7912402270ce9b45",
+          "line": 167,
+          "kind": "line",
+          "en": "// linuxdeploy may adjust ELF library paths; validate the bundled executable itself.",
+          "zh": "// linuxdeploy 可能调整 ELF 库路径，因此核对包内实际可执行文件。"
+        }
+      ]
+    },
     "desktop/src-tauri/build.rs": {
       "codeHash": "02b95371633c90d8491125460be425f26fbfb188ec70dfd9286e28340bfc6933",
       "comments": [
@@ -301,7 +299,7 @@
       ]
     },
     "desktop/src-tauri/Cargo.toml": {
-      "codeHash": "c2f4eeaf3e2067422353485f2d2e11e4a4ef3bf2fc807eeb5cb439fa2dc9245d",
+      "codeHash": "1d96341c3da25d714e10b5ee4eba1a968463481890a207fb2702c1e1d1d816cf",
       "comments": [
         {
           "id": "6b9f8559a21a75a8",
@@ -341,7 +339,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/Cargo.toml": {
-      "codeHash": "64105d5cc35ae59c2eb03e6516af7dde30eed1c6e9243c9b203fa39c234b5842",
+      "codeHash": "d620149e7855d890dbd6cd1f17e01f006d92dad5bf6f06102bc7232797f98ced",
       "comments": [
         {
           "id": "e82798efdbcdcbfa",

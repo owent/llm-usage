@@ -30,6 +30,8 @@ LLM Usage 是 AI 用量看板，统计各模型的 token、请求和缓存使用
 支持完整标准化明细导入/Merge，以及默认关闭的日/月 token 或单币种估算用量和费用提醒。
 
 已确认 Windows 11 x64 首发，GitHub CI 保留 macOS/Linux，本地可尝试 WSL 构建。
+tag 发行提供 Windows/Linux/macOS 各自 x64、arm64 的 `.tar.zst` 便携包，
+使用方式见[安装说明](https://llm-usage.atframe.work/zh-cn/start/installation/)。
 来源能力与环境受限条件保留在接入矩阵，缺安装或本地记录的 F1 IDE 已移出本轮；仅统计本机来源，支持在界面配置定时提取。
 用户已允许实施时提取本机真实 Agent 数据验证。
 
@@ -81,7 +83,7 @@ npm run test:ui         # 前端纯逻辑回归
 npm run test:browser    # 五页浏览器回归（模拟 IPC；Windows 使用已安装的 Edge）
 npm run clippy          # Rust 静态检查（-D warnings）
 npm run fmt:check       # Rust 格式检查
-npm run build:desktop   # 桌面 release 构建（产出 NSIS/deb/AppImage/.app 按平台）
+npm run build:desktop   # 桌面 release 构建（按平台产出 NSIS/AppImage/.app）
 npm run test:headless   # 真实可执行文件与 SQLite，隔离合成来源；先构建
 npm run test:desktop    # Windows 原生 WebView2/IPC，要求 CDP 可用；先构建
 npm run verify          # 文档、类型、脚本/前端单元测试、Rust 检查与测试、前端构建

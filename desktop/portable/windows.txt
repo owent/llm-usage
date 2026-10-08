@@ -1,0 +1,20 @@
+LLM Usage portable for Windows
+
+Extract the complete .tar.zst archive using tar with zstd support or a current 7-Zip.
+Open LLMUsage.exe. No application installation is required.
+Requires Windows 11 and the system Microsoft Edge WebView2 Runtime. Windows 11 normally
+includes WebView2; a system without it needs Microsoft's Evergreen WebView2 Runtime.
+The archive does not include a fixed offline browser runtime.
+Choose x64 for Intel/AMD Windows and arm64 for Windows on Arm.
+Application data uses the existing per-user location and system credential store;
+moving this folder does not move data. Optional scheduled tasks remember the exe path.
+Disable owned scheduled tasks in Settings before moving or removing the folder.
+
+Windows 便携版
+
+使用支持 zstd 的 tar 或新版 7-Zip 完整解压 .tar.zst，运行 LLMUsage.exe，无须安装应用。
+需要 Windows 11 和系统 Microsoft Edge WebView2 Runtime；Windows 11 通常自带 WebView2，
+缺失时需要安装微软 Evergreen WebView2 Runtime。本包不包含固定版本离线浏览器运行时。
+Intel/AMD Windows 使用 x64，Windows on Arm 使用 arm64。
+数据仍保存在原有的用户目录，凭据仍使用系统存储；移动本目录不会迁移数据。
+可选计划任务会记录 exe 路径，移动或删除本目录前请在设置中停用应用创建的计划任务。

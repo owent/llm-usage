@@ -10,7 +10,8 @@ Windows 11 x64 is the user-confirmed first desktop target, with macOS/Linux GitH
 This file preserves acceptance requirements; validation records own actual results.
 
 The user authorized this plan: fix runner/toolchain/Linux baselines in M0 and probe WSL/WSLg
-availability in M0. macOS/Linux have no first-release distribution commitment. These are
+availability in M0. The current release scope includes portable x64 and arm64 packages for
+Windows, Linux and macOS. These are
 implementation checks rather than prerequisites requiring another startup approval.
 The 2026-10-05 scope adjustment removed macOS desktop and specific hardware requirements,
 retaining macOS builds and Rust CI. Actual Linux GUI/installation lifecycle may use isolated
@@ -24,16 +25,19 @@ upgrade, rollback and uninstall are authorized; see [installation lifecycle](ins
 
 | Platform | First-release role | Initial CI target | Delivery and validation results |
 | --- | --- | --- | --- |
-| Windows 11 x64 | Official first desktop target | windows-2022; x86_64-pc-windows-msvc | NSIS candidate, headless collection, native IPC/install/task checks; actual Windows 11 acceptance remains separate |
-| Linux x64 | Ongoing compatible builds | ubuntu-22.04; x86_64-unknown-linux-gnu | Release compilation, Debian/AppImage candidates; native/virtual-display tests and packaging recorded separately |
-| macOS arm64 | Ongoing compatible builds | macos-15; aarch64-apple-darwin | Rust/frontend tests and release .app builds; unsigned/ad-hoc-signed artifacts labeled as CI output |
+| Windows x64 | First desktop target on Windows 11 | windows-2022; x86_64-pc-windows-msvc | Portable exe archive and existing NSIS installer; native IPC/install/task acceptance remains separate |
+| Windows arm64 | Required portable distribution | windows-11-arm; aarch64-pc-windows-msvc | Native release exe archive and extracted executable headless tests |
+| Linux x64 | Required portable distribution | ubuntu-22.04; x86_64-unknown-linux-gnu | Extracted AppDir archive, native headless tests; no Debian package in the Release |
+| Linux arm64 | Required portable distribution | ubuntu-22.04-arm; aarch64-unknown-linux-gnu | Native AppImage build, extracted AppDir archive and native headless tests |
+| macOS x64 | Required portable distribution | macos-15-intel; x86_64-apple-darwin | App bundle archive and extracted executable headless tests |
+| macOS arm64 | Required portable distribution | macos-15; aarch64-apple-darwin | App bundle archive, native headless tests and existing Rust/credential checks |
 | Local WSL 2 Linux x64 | Development and authorized container acceptance | Actual distribution/toolchain recorded | Builds, tests and packaging recorded separately; isolated Podman GTK/WebKit GUI and package lifecycle checked within this round's scope |
 
-These runners are available candidates; verify and fix versioned labels in M0.
-Floating latest labels cannot silently change architecture. macOS Intel, Linux arm64 and
-Windows arm64 are outside the first required matrix and need independent verification later.
+Use versioned runner labels and explicit Rust targets; verify runner and binary architectures.
+Floating latest labels cannot silently change architecture. All six combinations are required
+for publication; one missing archive prevents the release job from updating a draft.
 A GitHub Windows runner build does not establish success in a Windows 11 user's environment.
-macOS/Linux CI remains active without automatically promising first-release desktop support.
+Archive availability and native headless tests do not establish complete desktop support.
 Keep failures visible; do not hide them indefinitely with continue-on-error.
 
 Sources: [GitHub runners](https://docs.github.com/en/actions/reference/runners/github-hosted-runners),
@@ -52,7 +56,8 @@ for every Linux environment.
 
 Three-platform jobs exist; ongoing M7 acceptance needs actual runs. Triggers are PRs,
 main-branch pushes, tag pushes and manual dispatch. The user authorized automatic draft
-Release publication and deletion/recreation of v0.2.1 to validate it. Other remote writes
+Release publication, deletion/recreation of v0.2.1 to validate it, and version 0.2.2 portable
+publication through v0.2.2. Other remote writes
 still need authorization.
 
 1. Shared checks: Markdown/local links, frontend types/unit tests and Rust fmt/clippy;
@@ -60,7 +65,7 @@ still need authorization.
 2. OS matrix: run domain/adapter test data, real temporary SQLite, scheduler, path and lock
    tests on each native runner, then build the same source's frontend/Rust release.
    External Agents need no installation; do not read a runner's personal directories.
-3. Artifacts: Windows installer, Linux packages and macOS .app with source revision,
+3. Artifacts: six portable archives and the Windows x64 installer with source revision,
    OS/architecture, dependency versions, size and digests. Separate package/test failures;
    cargo check cannot replace a complete build.
 4. Desktop integration: actual WebView2 CDP on Windows; GTK/WebKit WebDriver with Tauri's
@@ -76,7 +81,7 @@ Checks include cargo fmt --all --check and cargo clippy --workspace --all-target
 -- -D warnings across the core crate and test targets. Frontend jobs run TypeScript logic
 tests and Playwright browser regressions with synthetic IPC, covering themes, timezones,
 quick filters, user isolation and refresh. This is separate from item 4's native acceptance.
-Windows builds run the actual executable's test:headless with isolated synthetic sources
+All six builds run the extracted executable's test:headless with isolated synthetic sources
 and source-category assertions. Rust fmt/Clippy/test run on all three native runners, compiling
 their platform storage implementations.
 
@@ -92,8 +97,7 @@ for local results and remote CI gaps.
 Use fail-fast=false to retain all matrix results and timeouts per job. Retry only diagnosed
 temporary infrastructure failures. Cache keys include OS, architecture, Rust/Node versions
 and lockfile digests; separate targets and never cache real Agent data.
-Existing application checks use floating Action major-version tags; release Actions use
-fixed commit SHAs. PR permissions remain read-only. Only the tag-push release job receives
+Application Actions use fixed commit SHAs. PR permissions remain read-only. Only the tag-push release job receives
 contents: write through GitHub's short-lived token, after all shared checks and platform
 builds succeed. Privileged pull_request_target cannot execute PR code.
 CI artifacts and GitHub Releases are separate. Tag pushes create or update one draft by
@@ -105,8 +109,41 @@ release ID and overwrite: true to replace same-name assets. Repeated runs replac
 metadata and assets of the same draft. Platform reports have distinct asset names;
 package revisions, sizes and SHA-256 digests are checked before publication and uploaded
 assets are checked afterward. This workflow does not establish signing/notarization or
-desktop installation acceptance. Upload only installers, macOS .app.tar.gz and size/digest reports.
-Debian control.tar.gz/data.tar.gz, AppDir and packaging staging directories are not release artifacts.
+desktop installation acceptance. Upload only the six `.tar.zst` archives, the existing Windows
+x64 NSIS installer and distinct size/digest reports. Debian packages and raw AppImages are not uploaded.
+
+## Portable archive requirements
+
+Names include version, OS and architecture: `LLMUsage-<version>-<windows|linux|macos>-<x64|arm64>-portable.tar.zst`.
+Each archive has one equally named directory, containing the Windows exe, Linux AppDir with
+`AppRun`, or macOS `.app`, plus English/Chinese usage instructions.
+Portable means extraction without installing the application. Existing per-user data and
+system credential storage remain in use; moving the archive does not migrate those stores.
+Retain complete bundled resources, executable modes and symlinks. Do not trim locales.
+
+Windows uses the system WebView2 Runtime; Windows 11 normally supplies it. These archives do
+not embed a fixed offline browser runtime. macOS uses system WebKit and is not notarized by
+this pipeline. Linux builds on Ubuntu 22.04 for both architectures and archives the extracted
+AppImage dependencies, avoiding FUSE and a second compressed container. It still requires a
+compatible glibc (2.35 or later), desktop display and system facilities such as D-Bus/Secret
+Service for optional credential integration; other distributions require separate validation.
+The archive instructions identify these requirements without claiming a universal runtime.
+
+The packaging script writes a materialized tar, compresses with `zstd -19 -T2 --long=27`,
+checks `zstd -t`, decompresses and extracts into a fresh verification directory, then compares
+all file digests, symlink targets and Unix modes. It verifies the extracted PE/ELF/Mach-O CPU
+type against the expected architecture and runs real headless/SQLite tests from that extraction.
+Both Linux architectures additionally launch the extracted AppRun through native WebKitWebDriver
+under Xvfb and isolated D-Bus, checking the window, five pages, real IPC and synthetic SQLite results.
+Only validated archives receive reports and enter publication. A failed build/compression,
+wrong architecture, corrupt archive or incomplete platform report blocks publication.
+Repeated packaging replaces the same archive after validation; repeated publication retains
+the draft identity and replaces same-name assets. Roll back by fixing the source and rerunning
+the authorized tag workflow; never reuse an older build after its tag has moved.
+
+Sources: [Tauri ARM AppImages](https://v2.tauri.app/distribute/appimage/#appimages-for-arm-based-devices),
+[AppImage extraction](https://docs.appimage.org/user-guide/run-appimages.html#extract-the-contents-of-an-appimage)
+and [Tauri WebView2 requirements](https://v2.tauri.app/distribute/windows-installer/#webview2-installation-options).
 
 Desktop source: [Tauri WebDriver](https://v2.tauri.app/develop/tests/webdriver/).
 This round's Linux tests use native WebKitWebDriver capabilities directly to launch actual

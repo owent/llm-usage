@@ -1,31 +1,19 @@
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { readdir, stat, writeFile } from 'node:fs/promises';
-import { basename, dirname, join, relative, resolve } from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-// macOS .app is a directory. Archive it before upload to preserve modes/symlinks.
-export async function reportBundles(directory, revision) {
+// Portable archives are validated before reporting; staging directories are excluded.
+export async function reportBundles(directory, revision, metadata = {}) {
   const root = resolve(directory);
   const artifacts = [];
   async function visit(dir) {
     for (const entry of await readdir(dir, { withFileTypes: true })) {
       const path = join(dir, entry.name);
-      if (entry.isDirectory() && entry.name.endsWith('.app')) {
-        const archive = `${path}.tar.gz`;
-        // A relative archive name avoids Windows drive-colon interpretation
-        // without GNU-only flags (macOS and Windows ship BSD tar).
-        const result = spawnSync('tar', ['-czf', basename(archive), basename(path)], {
-          cwd: dirname(path), encoding: 'utf8', timeout: 120_000, windowsHide: true,
-        });
-        if (result.error || result.status !== 0) throw new Error(`App archive failed: ${result.error?.message ?? result.stderr}`);
-        artifacts.push(archive);
-      } else if (entry.isDirectory()) {
+      if (entry.isDirectory()) {
         await visit(path);
-      // Debian staging contains control.tar.gz/data.tar.gz. Only the macOS
-      // .app archive is the release tarball under this project's packaging rules.
-      } else if (entry.isFile() && /\.(?:exe|msi|deb|AppImage|dmg|app\.tar\.gz)$/.test(entry.name)) {
+      } else if (entry.isFile() && /(?:-setup\.exe|-portable\.tar\.zst)$/.test(entry.name)) {
         artifacts.push(path);
       }
     }
@@ -38,7 +26,7 @@ export async function reportBundles(directory, revision) {
     for await (const chunk of createReadStream(path)) hash.update(chunk);
     bundles.push({ path: relative(root, path).split('\\').join('/'), bytes: (await stat(path)).size, sha256: hash.digest('hex') });
   }
-  const report = { revision, bundles };
+  const report = { revision, ...metadata, bundles };
   await writeFile(join(root, 'bundle-report.json'), JSON.stringify(report, null, 2) + '\n');
   return report;
 }

@@ -522,8 +522,8 @@
       "zh": "0e96ff8aa960f553a5f4c4c6d4f6a13a4f7fca95f85ffdd19305bfce88c9640c"
     },
     "docs/design/desktop-usage/platform-ci.md": {
-      "en": "740aa0d3300caa9421136dc6a28375d9df027e8a75e8282565f0c255021bf578",
-      "zh": "2330d4f4b4a2570898e5b4e6f1a1a4c249cb58aae6386652e94d5516941f88dc"
+      "en": "244b05dc3840a6f6bc7d33e07f0f00f0105524e6af082e8bec54f8d0fea426cd",
+      "zh": "dc4fbb4974645ad170548c3a93e57471e05b92de131c441ae0d0d6130de4e577"
     },
     "docs/design/desktop-usage/pricing.md": {
       "en": "aeb621bf04ac5889577f51857f03b76f197764a43ef237bb008fa5185c4f1985",
@@ -794,8 +794,8 @@
       "zh": "d5963238079a03a2ab2da5eeb22e2f08570040f32b6f9275ff27349d3f77f1f2"
     },
     "README.md": {
-      "en": "36d0b497425d4969e6cd6ef9f7969b06a8201730a34a1828690aa2eafe5b9e42",
-      "zh": "ebddda1a211bd2f302959b316993993d61a47d7420e9fb86e49b285d60f03668"
+      "en": "8e93e76d092a7dc068d106b94790e491f50d9472b43e6737b5b07c59c1199846",
+      "zh": "29577a9c8dac98709a97916cd2bc49e3a7cb3ae1075e7630485d25a8c61b3a47"
     }
   },
   "guides": {
@@ -816,8 +816,8 @@
       "zh": "8a1995c69881014019dc4f423511473842dc9353dffe1088b6740650d8858656"
     },
     "docs/site/content/development/releases.md": {
-      "en": "1e52675b219620cffbce988911e60a81b0df32c8c2589b09bcd9d769f97ba6d2",
-      "zh": "9716ac020afbebc01ee9001e238a6bb19163daf469534d169fece01d3f9adfb7"
+      "en": "8981cf143e70fc9289f91654db315d8c5ad897630857827df57de2867993dfc1",
+      "zh": "e0454e3b61753a4ed016a233f343f22f57a6864b5929ea743ce0baed826cc673"
     },
     "docs/site/content/development/setup.md": {
       "en": "0dd665c1833d9f9252c2f6f6cfbcd67d6a5724c995caf9e5dc5a69d9386892d6",
@@ -876,8 +876,8 @@
       "zh": "607c7a0f41812d4c30fd6264ab1aea68f1019c449770008289240a312bbb9b46"
     },
     "docs/site/content/start/installation.md": {
-      "en": "7764f6266609c97fb8e11a831daf791e98f9215f93478ef31e608eb750f4bf02",
-      "zh": "9dc4bf9fecf1273a6818153dffb58e9bc9ff4af8616764ab3198a49f9ffdde6f"
+      "en": "d7d4e06970878cbadf2824eefd4face4eac3a01e9ba5b44d2037fe986ee86436",
+      "zh": "e719d79ea5259b1b927192da738ecec0528c8fc9028eeb9d660f77bf03a5e5ef"
     },
     "docs/site/content/start/quick-start.md": {
       "en": "2bb0c7c93f0fa6ce200fe0f0501ea892d28d640bb851673580826b95a5092278",
