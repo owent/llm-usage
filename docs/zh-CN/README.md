@@ -25,7 +25,7 @@
 [英文文档](https://llm-usage.atframe.work/) · [中文文档](https://llm-usage.atframe.work/zh-cn/) ·
 [英文仓库 README](../../README.md)
 
-本项目提供本地 AI Agent 用量桌面客户端，统计各模型的 token、请求和缓存使用。
+LLM Usage 是 AI 用量看板，统计各模型的 token、请求和缓存使用。
 目前处于预发布阶段，已实现总览、趋势、详情、数据源和设置；支持范围及本轮结果见执行计划。
 支持完整标准化明细导入/Merge，以及默认关闭的日/月 token 或单币种估算用量和费用提醒。
 

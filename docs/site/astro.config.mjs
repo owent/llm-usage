@@ -1,5 +1,6 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import { documentationSidebar } from './scripts/sidebar.mjs';
 
 export default defineConfig({
   site: 'https://llm-usage.atframe.work',
@@ -9,8 +10,8 @@ export default defineConfig({
   // Bundle each importer's YAML dependency: Starlight uses v4, markdownlint uses v5.
   vite: { environments: { prerender: { resolve: { noExternal: ['js-yaml'] } } } },
   integrations: [starlight({
-    title: 'LLM Usage',
-    description: 'Understand the AI usage recorded on your computer.',
+    title: { en: 'AI usage dashboard', 'zh-CN': 'AI 用量看板' },
+    description: 'Explore AI agent tokens, calls and cache usage.',
     logo: { src: './public/brand.svg', replacesTitle: false },
     favicon: '/favicon.svg',
     defaultLocale: 'root',
@@ -26,15 +27,7 @@ export default defineConfig({
       ThemeProvider: './src/components/ThemeProvider.astro',
       ThemeSelect: './src/components/ThemeSelect.astro',
     },
-    sidebar: [
-      { label: 'Start here', translations: { 'zh-CN': '开始使用' }, items: [{ autogenerate: { directory: 'start' } }] },
-      { label: 'User guide', translations: { 'zh-CN': '用户指南' }, items: [{ autogenerate: { directory: 'guide' } }] },
-      { label: 'Developer guide', translations: { 'zh-CN': '开发指南' }, items: [{ autogenerate: { directory: 'development' } }] },
-      { label: 'Design specifications', translations: { 'zh-CN': '设计说明' }, items: [{ autogenerate: { directory: 'reference/design' } }], collapsed: true },
-      { label: 'Development records', translations: { 'zh-CN': '开发验证记录' }, items: [{ autogenerate: { directory: 'reference/evidence' } }], collapsed: true },
-      { label: 'Project reference', translations: { 'zh-CN': '项目说明' }, items: [{ autogenerate: { directory: 'reference/repository' } }], collapsed: true },
-      { label: 'Test data', translations: { 'zh-CN': '测试数据说明' }, items: [{ autogenerate: { directory: 'reference/fixtures' } }], collapsed: true },
-    ],
+    sidebar: await documentationSidebar(),
     editLink: { baseUrl: 'https://github.com/owent/llm-usage/edit/main/' },
     lastUpdated: false,
     tableOfContents: { minHeadingLevel: 2, maxHeadingLevel: 3 },

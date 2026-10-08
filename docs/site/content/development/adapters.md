@@ -5,7 +5,9 @@ sidebar:
   order: 3
 ---
 
-## Specify local formats and fields
+<a id="specify-local-formats-and-fields"></a>
+
+## Specify record formats and fields
 
 Read the native writer, configuration and fixed-version upstream source before coding.
 Record the product/version, exact local layout, environment overrides, schema, timestamps,

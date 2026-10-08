@@ -22,7 +22,7 @@
 [![issues](https://img.shields.io/github/issues/owent/llm-usage)](https://github.com/owent/llm-usage/issues)
 [![languages](https://img.shields.io/github/languages/count/owent/llm-usage)](https://github.com/owent/llm-usage)
 
-LLM Usage is a local desktop dashboard for AI agent usage: model tokens, requests and caching.
+LLM Usage is an AI usage dashboard: model tokens, requests and caching.
 It is currently pre-alpha, with Overview, Trends, Details, Sources and Settings implemented.
 The execution plan records support and current acceptance. Complete normalized detail import/merge
 and optional daily/monthly token or single-currency estimated-cost reminders are implemented.

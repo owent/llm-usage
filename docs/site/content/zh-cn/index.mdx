@@ -1,16 +1,19 @@
 ---
-title: 本机 AI 用量看板
-description: 在本机保存和查看 AI Agent 用量的桌面看板。
+title: AI 用量看板
+description: 查看 AI Agent 的 token、调用、缓存用量与变化趋势。
 template: splash
 hero:
-  title: 本机 AI 用量看板
-  tagline: 查看哪些 Agent 和模型消耗了 token，缓存如何影响用量，以及哪些数据尚未完整采集。记录保存在您的电脑上。
+  title: AI 用量看板
+  tagline: 统计 Agent 与模型的 token，比较用量趋势和缓存命中，查看采集状态。
   image:
     file: ../../../../desktop/assets/app-icon.svg
   actions:
+    - text: 下载
+      link: /zh-cn/start/installation/#downloads
     - text: 快速开始
       link: /zh-cn/start/quick-start/
       icon: right-arrow
+      variant: secondary
     - text: 看板指南
       link: /zh-cn/guide/dashboard/
       variant: minimal
@@ -29,8 +32,8 @@ import AppScreenshot from '@docs/components/AppScreenshot.astro';
   <Card title="Token 与额度统计" icon="chart">
     输入、输出和缓存用量分别记录。缺失值保持未知，订阅额度与 token 分开展示。
   </Card>
-  <Card title="本机存储" icon="shield-check">
-    读取本机 Agent 文件及显式开启的本机遥测。不需要账户登录、云端数据库或远端用量报表。
+  <Card title="隐私保护" icon="shield-check">
+    用量记录保存在您的电脑上。采集读取 Agent 文件及显式开启的遥测，看板不包含提示词与回答。
   </Card>
   <Card title="采集状态" icon="magnifier">
     采集状态说明版本、字段缺口和解析失败。已有解析器不代表每个客户端都记录了每次请求。
@@ -61,7 +64,7 @@ Agent 和模型筛选表格。记录不包含提示词、回答或工具输出�
 
 ## 数据源管理
 
-启用本机来源、指定所属用户并选择采集计划。来源状态及最近成功采集时间帮助定位
+启用数据源、指定所属用户并选择采集计划。来源状态及最近成功采集时间帮助定位
 需要检查的文件。已核验格式见[数据源管理](/zh-cn/guide/sources/)及[客户端支持](/zh-cn/guide/clients/)。
 
 <AppScreenshot page="sources" language="zh-CN" alt="中文数据源页，展示 Codex 来源、启用开关、采集计划及用户归属">
@@ -81,9 +84,9 @@ Agent 和模型筛选表格。记录不包含提示词、回答或工具输出�
 ## 文档
 
 <CardGrid>
-  <LinkCard title="快速开始" description="安装、采集、查看并管理本机历史记录。" href="/zh-cn/start/quick-start/" />
+  <LinkCard title="快速开始" description="安装、采集、查看并管理用量历史。" href="/zh-cn/start/quick-start/" />
   <LinkCard title="开发环境" description="准备开发环境，阅读开发要求。" href="/zh-cn/development/setup/" />
-  <LinkCard title="客户端支持" description="查看各客户端已核验的版本、本机文件和限制。" href="/zh-cn/guide/clients/" />
+  <LinkCard title="客户端支持" description="查看各客户端已核验的版本、记录格式和限制。" href="/zh-cn/guide/clients/" />
   <LinkCard title="验证记录" description="了解实际执行过的测试及尚未核验的范围。" href="/zh-cn/reference/evidence/current-acceptance/" />
 </CardGrid>
 

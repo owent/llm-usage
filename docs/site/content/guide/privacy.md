@@ -23,8 +23,8 @@ gateways and cloud-synchronized sessions are outside the local-source boundary.
   running app. It is disabled by default.
 - Explicit IDE telemetry configuration can change how that client exports locally;
   inspect the preview and preserve its existing targets.
-- The documentation site uses local search and bundled assets, with no analytics or
-  remote font requests. Following an external source link opens that external site.
+- The documentation build uses local search and bundled assets, with no built-in analytics
+  or remote font requests. Following an external source link opens that external site.
 
 ## Credentials and sharing
 

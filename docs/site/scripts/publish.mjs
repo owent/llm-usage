@@ -1,17 +1,18 @@
 import { execFileSync } from 'node:child_process';
 import { mkdir, readFile, writeFile, readdir, rm, cp, realpath, lstat } from 'node:fs/promises';
 import { resolve, join, sep } from 'node:path';
-import { configurePages, configuredPages } from './pages-config.mjs';
+import { configurePages, configuredPages, configurePublicationEnvironment } from './pages-config.mjs';
 import { verifyPublication } from './publication-checks.mjs';
 
 const root = resolve(import.meta.dirname, '../../..');
 const args = process.argv.slice(2);
 if (args.includes('--help')) {
-  console.log('Publish a checked static site to gh-pages and request/verify its GitHub Pages build.\nUsage: node docs/site/scripts/publish.mjs [--dry-run] [--configure-pages] [--source-revision <full-sha>]\nRequires an authorized origin and GitHub CLI authentication. Writes only gh-pages; no force push.\n--configure-pages requires an administrator for first-time Pages setup; ordinary CI only uses contents/pages permissions.\nOutput must already exist in build/documentation-site/dist/. Temporary worktree stays under root build/.');
+  console.log('Publish a checked static site to gh-pages and request/verify its GitHub Pages build.\nUsage: node docs/site/scripts/publish.mjs [--dry-run] [--configure-pages] [--configure-environment] [--source-revision <full-sha>]\nRequires an authorized origin and GitHub CLI authentication. Writes the gh-pages branch; no force push.\n--configure-pages requires an administrator for first-time Pages setup.\n--configure-environment separately authorizes adding the exact main branch to custom github-pages deployment rules; other rules and protections remain unchanged.\nOrdinary CI only uses contents/pages permissions. Output must already exist in build/documentation-site/dist/. Temporary worktree stays under root build/.');
   process.exit(0);
 }
 const dryRun = args.includes('--dry-run');
 const initialConfiguration = args.includes('--configure-pages');
+const environmentConfiguration = args.includes('--configure-environment');
 const sourceIndex = args.indexOf('--source-revision');
 const sourceRevision = sourceIndex < 0 ? process.env.GITHUB_SHA : args[sourceIndex + 1];
 if (!/^[0-9a-f]{40}$/.test(sourceRevision ?? '')) throw new Error('Provide a full source revision');
@@ -71,6 +72,7 @@ try {
   const actual = git(['ls-remote', 'origin', 'refs/heads/gh-pages']).split(/\s/)[0];
   if (actual !== published) throw new Error('Published branch revision did not match');
   if (initialConfiguration) configurePages();
+  if (environmentConfiguration) configurePublicationEnvironment();
   exec('gh', ['api', '--method', 'POST', 'repos/owent/llm-usage/pages/builds']);
   const deadline = Date.now() + 600000;
   for (let attempt = 0; attempt < 60; attempt++) {

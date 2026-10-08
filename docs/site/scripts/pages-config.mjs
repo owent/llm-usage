@@ -1,9 +1,9 @@
 import { execFileSync } from 'node:child_process';
 
 const endpoint = 'repos/owent/llm-usage/pages';
-function request(method, body) {
+function request(method, body, target = endpoint) {
   const args = ['api', '--method', method, '-H', 'Accept: application/vnd.github+json',
-    '-H', 'X-GitHub-Api-Version: 2026-03-10', endpoint];
+    '-H', 'X-GitHub-Api-Version: 2026-03-10', target];
   if (body) args.push('--input', '-');
   const result = execFileSync('gh', args, { encoding: 'utf8', input: body ? JSON.stringify(body) : undefined,
     timeout: 60000, env: { ...process.env, GH_PROMPT_DISABLED: '1' }, stdio: ['pipe', 'pipe', 'pipe'] }).trim();
@@ -39,4 +39,27 @@ export function configurePages() {
     request('PUT', { cname: 'llm-usage.atframe.work', build_type: 'legacy' });
   }
   return configuredPages();
+}
+
+export function configurePublicationEnvironment(api = request) {
+  const environment = 'repos/owent/llm-usage/environments/github-pages';
+  const settings = api('GET', undefined, environment);
+  if (!settings.deployment_branch_policy?.custom_branch_policies) return;
+  const policies = `${environment}/deployment-branch-policies`;
+  const read = () => {
+    const result = api('GET', undefined, `${policies}?per_page=100`);
+    if (!Array.isArray(result.branch_policies) || result.total_count !== result.branch_policies.length) {
+      throw new Error('Incomplete deployment branch rules; inspect the environment before modifying it');
+    }
+    return result.branch_policies;
+  };
+  const previous = read();
+  const allowsMain = rules => rules.some(rule => rule.name === 'main' && rule.type !== 'tag');
+  if (allowsMain(previous)) return;
+  api('POST', { name: 'main', type: 'branch' }, policies);
+  const actual = read();
+  if (!allowsMain(actual) || previous.some(rule => !actual.some(item =>
+    item.id === rule.id && item.name === rule.name && item.type === rule.type))) {
+    throw new Error('Deployment branch rule read-back differs; inspect existing rules before retrying');
+  }
 }

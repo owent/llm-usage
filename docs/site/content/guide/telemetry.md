@@ -1,6 +1,6 @@
 ---
-title: Local telemetry
-description: Check and enable verified local exports without duplicating native records.
+title: Telemetry exports
+description: Check and enable verified exports without duplicating native records.
 sidebar:
   order: 5
 ---

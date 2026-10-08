@@ -41,6 +41,16 @@ Markdown 指南可以直接链接对应语言的 PNG；仓库 README 的相对�
 `zh-cn`，避免 Starlight 在同一 URL 生成英文回退页。根目录 `index.mdx` 保持 ID `index`，
 由 Starlight 自行规范。其他 ID 中的版本标点保持不变。
 
+`scripts/sidebar.mjs` 读取英文撰写页元数据及仓库文档清单，保留页面顺序和嵌套版本目录，
+向 Starlight 提供 `slug` 链接，由其解析对应语言标题和当前页状态。Starlight 0.42.5
+按目录自动生成的功能假设内容位于 `src/content/docs/`；本工程生成文件位于根 `build/`，
+因此该模式会产生空分组。未经实际链接核验不要恢复它。产物检查拒绝缺少必需链接，
+浏览器检查展开七个分组，并在桌面和手机视口使用鼠标及键盘导航。
+
+宽屏布局为左侧菜单和右侧目录各留固定空间，剩余内容扩展至最多 110rem，首页为 100rem。
+检查响应式边界及 1920、2560 像素屏幕。首页下载按钮指向对应语言的安装页；
+修改下载说明前核对实际可用的软件包。
+
 翻译核验清单保存已检查双方哈希。缺配对或修改后未经对应审查时内容检查失败。
 更新核验条目前检查双方含义和完整性；哈希相符本身不证明翻译质量。
 
@@ -70,12 +80,18 @@ git diff --check
 `--configure-pages` 参数。创建或修改 Pages 设置需要 Administration 与 Pages 权限；
 普通 CI 不授予 Administration 权限。后续构建更新线上分支前，会核对已配置的来源分支、
 根目录和自定义域名。
+单独的管理员参数 `--configure-environment` 会在 `github-pages` 部署环境采用自定义分支
+规则时添加精确的 `main` 分支，保留既有规则及其他保护设置，并读回核对。文档发布作业从 `main` 运行，
+Pages 构建已编译的 `gh-pages` 分支。普通 CI 仍仅使用既有 contents/pages 权限。
+只有得到部署分支规则修改授权后才能使用此参数；单独使用 `--configure-pages` 不会修改这些规则。
+接口说明见 GitHub 的[部署分支规则 API](https://docs.github.com/en/rest/deployments/branch-policies?apiVersion=2026-03-10)。
 在干净的源码提交上完成内容、单元、生产构建和浏览器检查后，运行
 `node docs/site/scripts/stamp-output.mjs` 记录源码 revision 及输出文件摘要。
 发布脚本拒绝未记录验收的输出、变更后的资源及与当前 `main` 不一致的 revision。
 流水线在上传已验收制品前完成此步骤。
 
-域名为 `llm-usage.atframe.work`，DNS CNAME 指向 `owent.github.io`。
+域名为 `llm-usage.atframe.work`，DNS 路由指向 `owent.github.io`。
+启用 DNS 代理后，公开查询可能返回代理的 A/AAAA 地址，不显示原始 CNAME。
 GitHub Pages 设置、DNS 和 HTTPS 分别核验，域名文件本身不代表自定义域名部署成功。
 失败构建不进入线上分支。恢复时构建已知良好源码 revision 后重新发布，不强推其他分支，
 不删除应用数据。

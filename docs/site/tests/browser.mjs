@@ -25,6 +25,7 @@ await once(server, 'listening');
 const base = `http://127.0.0.1:${server.address().port}`;
 const browser = await chromium.launch(process.platform === 'win32' ? { channel: 'msedge', headless: true } : { headless: true });
 const checks = [];
+const layouts = [];
 const errors = [];
 const outbound = [];
 const contexts = [];
@@ -100,6 +101,9 @@ try {
     await localized.locator('button[popovertarget="starlight__sidebar"]').click();
     await localized.locator('#starlight__sidebar').waitFor({ state: 'visible' });
     await localized.screenshot({ path: join(artifacts, `${language}-mobile.png`) });
+    await localized.locator(`#starlight__sidebar a[href="${prefix}/guide/sources/"]`).click();
+    await localized.waitForURL(`${base}${prefix}/guide/sources/`);
+    assert.equal(await localized.locator('#starlight__sidebar a[aria-current="page"]').getAttribute('href'), `${prefix}/guide/sources/`);
     checks.push(`${language} mobile navigation`);
   }
   const keyboard = await pageFor({ locale: 'en' });
@@ -108,6 +112,16 @@ try {
     const home = await pageFor({ locale: language, colorScheme: 'dark' });
     await home.goto(`${base}${prefix}/`);
     await home.waitForFunction(() => document.documentElement.dataset.theme === 'dark');
+    const expectedTitle = language === 'en' ? 'AI usage dashboard' : 'AI 用量看板';
+    assert.equal(await home.locator('h1').innerText(), expectedTitle);
+    assert.equal(await home.locator('.site-title span').innerText(), expectedTitle);
+    const download = home.locator('.hero .actions a').filter({ hasText: language === 'en' ? /^Download$/ : /^下载$/ });
+    assert.equal(await download.getAttribute('href'), `${prefix}/start/installation/#downloads`);
+    await download.click();
+    await home.waitForURL(`${base}${prefix}/start/installation/#downloads`);
+    assert.equal(await home.locator('a[href="https://github.com/owent/llm-usage/actions/workflows/ci.yml"]').count(), 1);
+    await home.goto(`${base}${prefix}/`);
+    checks.push(`${language} homepage title and download instructions`);
     const figures = home.locator('figure.app-screenshot');
     assert.equal(await figures.count(), 5, 'All five application pages have homepage examples');
     for (const theme of ['light', 'dark']) {
@@ -165,6 +179,42 @@ try {
       assert.equal(await image.locator('..').getAttribute('href'), `/screenshots/${language}/${section}-light.png`);
     }
     checks.push(`${language} README and dashboard: localized examples and original-image links`);
+    for (const width of [800, 1024, 1152, 1440, 1920, 2560]) {
+      await home.setViewportSize({ width, height: 1000 });
+      await home.goto(`${base}${prefix}/guide/dashboard/`);
+      assert.ok(await home.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `Guide fits ${width}px`);
+      const bodyWidth = await home.locator('.sl-markdown-content').evaluate(el => el.getBoundingClientRect().width);
+      layouts.push({ language, viewport: width, content: bodyWidth });
+      if (width >= 1920) assert.ok(bodyWidth > width * .6, 'Guide content expands on wide screens');
+      if (width >= 1152) {
+        const body = await home.locator('.main-pane').boundingBox();
+        const toc = await home.locator('.right-sidebar-container').boundingBox();
+        assert.ok(toc.x >= body.x + body.width - 1, 'Table of contents does not cover the guide');
+      }
+      if (width === 2560) await home.screenshot({ path: join(artifacts, `${language}-guide-wide.png`) });
+    }
+    await home.goto(`${base}${prefix}/`);
+    assert.ok(await home.locator('figure.app-screenshot').first().evaluate(el => el.getBoundingClientRect().width) >= 1500, 'Homepage examples use wide-screen space');
+    await home.screenshot({ path: join(artifacts, `${language}-home-wide.png`) });
+    checks.push(`${language} wide-screen guides and homepage, breakpoint overflow and table of contents`);
+    await home.setViewportSize({ width: 1440, height: 1000 });
+    await home.goto(`${base}${prefix}/guide/dashboard/`);
+    const groups = home.locator('#starlight__sidebar .top-level > li > details');
+    assert.equal(await groups.count(), 7);
+    for (const group of await groups.all()) {
+      assert.ok(await group.locator('a').count() > 0, 'Every menu category contains links');
+      const summary = group.locator(':scope > summary');
+      const before = await group.evaluate(el => el.open);
+      await summary.click();
+      assert.equal(await group.evaluate(el => el.open), !before, 'Pointer opens and closes a category');
+      await summary.focus();
+      await home.keyboard.press('Enter');
+      assert.equal(await group.evaluate(el => el.open), before, 'Keyboard toggles the category');
+    }
+    await home.locator(`#starlight__sidebar a[href="${prefix}/guide/sources/"]`).click();
+    await home.waitForURL(`${base}${prefix}/guide/sources/`);
+    assert.equal(await home.locator('#starlight__sidebar a[aria-current="page"]').getAttribute('href'), `${prefix}/guide/sources/`);
+    checks.push(`${language} seven sidebar categories, pointer/keyboard toggling and page navigation`);
   }
   await keyboard.goto(`${base}/guide/dashboard/`);
   await keyboard.keyboard.press('Tab');
@@ -178,7 +228,7 @@ try {
   assert.deepEqual(outbound, [], 'Documentation makes no third-party runtime requests');
   console.log(`Passed ${checks.length} documentation browser checks.`);
 } finally {
-  await writeFile(join(artifacts, 'report.json'), JSON.stringify({ checks, errors, outbound }, null, 2));
+  await writeFile(join(artifacts, 'report.json'), JSON.stringify({ checks, layouts, errors, outbound }, null, 2));
   await Promise.all(contexts.map(context => context.close()));
   await browser.close();
   await new Promise(done => server.close(done));

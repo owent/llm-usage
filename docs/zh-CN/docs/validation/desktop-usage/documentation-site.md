@@ -3,7 +3,7 @@
 <a id="documentation-site-implementation-record"></a>
 
 开始日期：2026-10-07；审阅日期：2026-10-08。全部文档与源码注释配对已完成审阅；
-完整本机检查通过；远端发布尚未完成。
+本地检查通过；截图发布、自动 CI 和自定义域名 HTTPS 已核验，最新导航及布局修改尚待发布。
 [Plan.md](../../../Plan.md)维护活动状态，[文档要求](../../design/documentation-site.md)维护行为。
 
 <a id="environment-and-scope"></a>
@@ -13,11 +13,12 @@
 工作目录：D:/workspace/projs/github/owent/llm-usage。Windows、PowerShell 7.6.6、
 Node 24.21.0、Git 2.56。根目录锁定 Astro 7.3.6 与 Starlight 0.42.5。
 文档站使用英文根路径及 /zh-cn/ 中文路径，支持浏览器语言选择及显式偏好、
-系统/亮色/暗色主题与本机 Pagefind 搜索。浏览器检查未观察到第三方请求。
+系统/亮色/暗色主题与本地 Pagefind 搜索。本地构建检查未观察到第三方请求。
+公开域名的 Cloudflare 代理额外注入分析脚本；编译产物中没有该脚本。
 
 用户已授权文档发布，包括 gh-pages 与自定义域名。此次补充截图前，用户已将初步双语
 文档提交并推送为 af64b8951936c5b009640537cdad51e1f4da4164，其中包含此前应用提交。
-本次截图更新修改文档和站点工具。临时日志、数据库、生成内容和预览均位于
+本次截图、导航及布局更新修改文档和站点工具。临时日志、数据库、生成内容和预览均位于
 build/documentation-site/。
 
 <a id="implemented-content-and-remaining-coverage"></a>
@@ -47,7 +48,8 @@ build/documentation-site/。
 扫描器现跳过完整模板表达式，包括带引号的结束符；仍保留
 [NSIS 语法说明](https://nsis.sourceforge.io/Docs/Chapter4.html#4.1)允许的行内 hash 注释。
 新增两项回归检查模板及非注释内容保留，并确认实际安装器的全部 32 条条件和循环指令。
-仓库现统计 539 个源文件，其中 460 个文件含有 7939 条实际注释。
+安装器审阅后统计 539 个源文件，其中 460 个文件含有 7939 条实际注释。
+当前共 541 个源文件；新增两个侧栏模块没有注释。
 真实安装器回归首次因仓库相对路径错误而报 ENOENT；修正路径后，22 项文档测试全部通过。
 安装器注释翻译保留可执行内容、模板指令及许可证声明；这不代表重新完成软件包安装生命周期验收。
 
@@ -125,21 +127,42 @@ WebView2 CDP 无法启动；仅隔离 HOME 仍会访问固定绝对路径候选�
 尺寸检查随后发现 Playwright 截图只有 1440×1000，与两倍缩放记录不符。
 改用显式设备参数的原生 CDP 截图并断言像素尺寸后，最终全部图片符合 2880×2000 及记录摘要。
 
+## 导航与布局修复
+
+在公开 HTTPS 看板指南复现了两种语言的空侧栏分组。点击标题可改变展开状态，但分组
+内没有页面链接。已安装 Starlight 0.42.5 导航在目录匹配前，从 entry.filePath 去除假定
+的 `src/content/docs/` 前缀；本工程加载的是根 `build/documentation-site/content/`，
+因此没有记录匹配。`sidebar.mjs` 现按已审阅原件清单生成显式 Starlight `slug` 链接，
+保留顺序、嵌套版本目录、译文标题和当前页标识。七个分组均包含链接；产物检查拒绝缺失必需页面。
+
+2560 像素视口下，原指南正文实测只有 832 像素。新桌面布局为左菜单留 19rem、右目录
+留 16rem；两种语言正文在 1920 像素视口为 1312 像素，在 2560 像素视口为 1760 像素，
+首页示例可扩展到 1600 像素。浏览器检查覆盖 320、390、768、800、1024、1152、1440、
+1920、2560 像素，无整页横向溢出或目录重叠。鼠标/键盘分组展开及桌面/手机实际跳转
+通过。旧检查只确认手机菜单可见，没有检查其内容；新增检查实际使用菜单链接。
+
+站点、页头和首页标题统一为“AI usage dashboard” / “AI 用量看板”。相关介绍、导航名称
+及指南减少重复强调本机的措辞，保留本地来源与隐私限制。既有章节别名及应用截图像素
+保持原样。首页第一个按钮打开对应语言的下载章节。GitHub 只读查询没有 Release 条目，
+因此说明如何下载应用 CI 制品及登录要求，不链接尚不存在的安装包。译文审阅首次拒绝
+英文正文中引述的中文标题；用代码格式保留准确名称，不将其判为未翻译正文。
+首次临时在线检查脚本的 Playwright 相对导入路径有误；修正后完成实际站点检查。
+
 <a id="validation-results"></a>
 
 ## 验证结果
 
 命令从仓库根执行，使用已安装工具链。下表于 2026-10-08 更新，覆盖全部
-460 个含注释源码文件与 220 组文档。最新文档检查覆盖功能截图及中文首页修复。
+460 个含注释源码文件与 220 组文档。最新文档检查覆盖截图、中文首页路由、导航、下载及宽屏布局。
 下表产品结果及原生截图采集早于这些仅涉及文档的改动。
 
 | 检查 | 实际结果 |
 | --- | --- |
 | npm run verify | 完整语料上通过：1032 项 Rust 测试通过、8 项按原设置跳过；22 项界面测试、5 项脚本测试通过；Markdown、Svelte、fmt、clippy 和前端构建通过 |
-| npm run test:docs | 24 项通过，覆盖语言首页 index ID、站内截图链接、NSIS 模板保留、非空注释不能使用空行对照、所需文档范围、语言选择、Markdown 链接及章节标识、源码解析、Pages 配置和发布完整性 |
-| npm run check:docs | 199 组仓库文档、21 组指南及全部源码注释同步；Astro 检查 30 个文件，零错误、警告及提示 |
-| npm run build:docs | 完整构建 1363 页、2851 文件通过；检查链接/片段、语言入口、本机搜索、域名标记及截图摘要/尺寸 |
-| npm run test:docs:browser | 已安装 Edge 的 18 项通过；首页五类双语亮暗截图、原 PNG 链接及尺寸、320/390/768 像素布局、README/详情示例、搜索、语言选择、存储拒绝、无 JavaScript 回退及键盘访问；零 JS 错误/出站请求 |
+| npm run test:docs | 31 项通过，覆盖侧栏原件清单/顺序/嵌套版本、精确管理员分支配置及读回、语言首页 index ID、截图链接、NSIS 模板保留、注释对照、文档范围、语言选择、链接/章节标识、源码解析及发布完整性 |
+| npm run check:docs | 199 组仓库文档、21 组指南及全部源码注释同步；Astro 检查 32 个文件，零错误、警告及提示 |
+| npm run build:docs | 完整构建 1363 页、2852 文件通过；检查必需侧栏链接、链接/片段、语言入口、本地搜索、域名标记及截图摘要/尺寸 |
+| npm run test:docs:browser | 已安装 Edge 的 24 项通过；侧栏分组链接/展开/跳转、标题/下载、320–2560 像素布局及目录重叠、五类双语亮暗截图、原 PNG 链接/尺寸、README/详情示例、搜索、语言选择、存储拒绝、无 JavaScript 回退及键盘访问；本地构建零 JS 错误/出站请求 |
 | npm run docs:screenshots | 20 张真实原生截图，语言/主题正确，240 次隔离调用，像素尺寸符合声明 |
 | npm run lint:md | 451 个文件，零问题，包括本记录 |
 | cargo fmt --manifest-path desktop/src-tauri/Cargo.toml --all --check | 通过 |
@@ -173,8 +196,8 @@ WebView2 CDP 无法启动；仅隔离 HOME 仍会访问固定绝对路径候选�
 修正后，工具在写入前校验全部计划文件；继续执行仅接受原文或已翻译内容的精确匹配。
 这些准备工具失败与产品测试分开记录。
 
-以上属于本机、静态、浏览器与原生截图结果。远端 Actions、Pages 部署、DNS/HTTPS
-尚未通过验收。
+以上区分本地、静态、浏览器检查与原生截图采集。远端 Actions、Pages 部署及公开域名
+HTTPS 结果在后文单独记录。
 
 进一步逐篇审阅了本机 Copilot/WSL 安装、版本迁移、平台凭据/Hermes、价格与看板修复、
 调度及 Buddy/遥测历史记录，以及另外 26 个源码文件。明确了 Copilot 保存请求对象与
@@ -206,21 +229,36 @@ plan-finalization.md 的翻译曾被自动审批拒绝，原因是按文件名�
 不修改共享仓库配置。
 
 首次 Pages 设置由已授权管理员的 GitHub CLI 会话使用 --configure-pages 参数完成。
-普通 CI 仅有 contents/pages 权限，没有 Administration 权限。
-来源为 gh-pages 根目录 /，域名为 llm-usage.atframe.work。
-最初只读核查没有 gh-pages 分支，Pages API 返回 404，域名没有 CNAME/A 结果。
-后续 GitHub 回查遇到连接重置，只能确认网络失败，无法据此确认远端配置发生变化。
-用户随后推送 main，其中包含此前应用提交 4296121185af04456d1e5fef29294781f4a100c7。
-2026-10-08 只读回查确认远端及本地 main 均为 af64b8951936c5b009640537cdad51e1f4da4164，
-此前推送范围问题已由用户的这一操作解决。已登录用户具备仓库管理权限。
-尚无 gh-pages，Pages API 仍返回 404。文档运行 37712495970 的构建作业通过，
-包括所有与本机对应的检查；发布在读取未初始化的 Pages 设置时失败。
-保留 build/documentation-site/initial-remote-docs-ci-failure.log，仍需通过已授权管理员
-会话完成首次设置。域名权威 DNS 使用 Cloudflare；当前查询仍无所需 CNAME，
-现有工具没有该区域的 DNS 编辑连接。
+普通 CI 仅有 contents/pages 权限，没有 Administration 权限。来源为 gh-pages 根目录 /，
+域名为 llm-usage.atframe.work。最初核查没有分支，Pages API 返回 404；运行 37712495970
+成功构建 af64b8951936c5b009640537cdad51e1f4da4164，但发布在读取未初始化设置时失败。
+保留 build/documentation-site/initial-remote-docs-ci-failure.log。一次回查连接重置属于
+网络失败，不证明配置变化。用户已经推送该双语提交，其中包含应用提交
+4296121185af04456d1e5fef29294781f4a100c7，此前推送范围问题已解决。已登录管理员随后
+发布截图源码 db44b0300750ef4f3e00c89ad21edbfa83e60813 并初始化 Pages；分支版本
+ac2547f2bc1b084a1b4d6ce2b1aa8c8489fa50f4 达到 built。
 
-DNS 需要 llm-usage.atframe.work 的 CNAME 指向 owent.github.io。
-配置 Pages 后分别核验 DNS 与 HTTPS；CNAME 文件本身不能据此确认二者。
+推送触发的运行 37716140836 首次构建通过，但 github-pages 自定义部署分支规则不含
+main，GitHub 拒绝发布。check-run 提示明确指出 main 不允许部署。自动审批首次拒绝
+修改这一持久环境规则，原因是没有针对该规则的具体授权。用户随后明确允许仅添加
+{"name":"main","type":"branch"}。读回保留 gh-pages 规则 62317275，新增 main 规则
+62317907，并比较确认其他保护设置未变。发布工具现提供单独管理员参数
+--configure-environment，只执行这项写入并核对读回，已有回归检查；单独使用
+--configure-pages 不修改分支规则。
+
+运行 37716140836 的第 2 次尝试在 db44b03 上构建与发布均成功，产出的 gh-pages 版本
+d9e2ea32d1c36d6b81e0faed6f2d5458a9e96c44 达到 built。远端 20 张 PNG 的 Git blob 均
+与原文件一致，归属标记记录准确源码。Pages 历史还保留此前两个分支版本的通用
+Page build failed 结果；其原因尚未核验，后续 built 不删除此前失败。
+
+公开 HTTPS 检查中，两种语言首页均返回 200，核对实际语言内容及主题图片，下载全部
+20 张 PNG 并比较 SHA-256 与原图一致。线上源码标记为 db44b03，浏览器没有 JavaScript
+错误。DNS 返回 Cloudflare 代理 A 地址 104.21.30.73 与 172.67.172.61；启用代理时，仅查
+CNAME 不能证明缺少路由。公开 HTTPS 通过不证明 GitHub 源站强制证书状态。代理注入
+static.cloudflareinsights.com 分析脚本，受查编译产物中没有该脚本或第三方请求。
+未修改 DNS 或 Cloudflare 设置。报告为 build/documentation-site/ 下的
+remote-screenshot-publication.json、pages-environment-readback.json 和 live-before.json。
+最新导航及布局修改已有本地检查；推送受查原件后仍须观察新 CI 与公开域名结果。
 
 曾提议在已忽略 build/ 下建立可选离线翻译环境，使用固定版本 CTranslate2/
 SentencePiece/PyYAML 和官方 OPUS-MT 权重，本机推理，不把仓库文本发送到翻译服务。

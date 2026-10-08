@@ -1,16 +1,19 @@
 ---
-title: Local AI usage dashboard
-description: A private desktop dashboard for the AI usage recorded on your computer.
+title: AI usage dashboard
+description: Explore AI agent tokens, calls, caching and usage trends.
 template: splash
 hero:
-  title: Local AI usage dashboard
-  tagline: See which agents and models use your tokens, how caching changes the picture, and where collection is incomplete. Your records stay on your computer.
+  title: AI usage dashboard
+  tagline: Track agent and model tokens, compare usage trends and cache hits, and inspect collection status.
   image:
     file: ../../../desktop/assets/app-icon.svg
   actions:
+    - text: Download
+      link: /start/installation/#downloads
     - text: Quick start
       link: /start/quick-start/
       icon: right-arrow
+      variant: secondary
     - text: Dashboard guide
       link: /guide/dashboard/
       variant: minimal
@@ -31,9 +34,9 @@ Screenshots use English application labels and follow this site's theme. See
     Input, output and cache usage are kept separate. Missing values remain unknown,
     and subscription quotas are shown independently of tokens.
   </Card>
-  <Card title="Local storage" icon="shield-check">
-    Read local agent files and explicitly enabled local telemetry. No account login,
-    cloud database or remote usage report is required.
+  <Card title="Privacy" icon="shield-check">
+    Usage records stay on your computer. Collection reads agent files and explicitly
+    enabled telemetry; prompts and responses are excluded from the dashboard.
   </Card>
   <Card title="Collection status" icon="magnifier">
     Collection status explains versions, incomplete fields and parsing failures.
@@ -67,7 +70,7 @@ are excluded. Read [record fields](/guide/dashboard/#record-details).
 
 ## Source management
 
-Enable local sources, assign their user and choose their collection schedule. Source status
+Enable sources, assign their user and choose their collection schedule. Source status
 and the last successful collection help identify which files need attention. See
 [source management](/guide/sources/) and [client support](/guide/clients/) for verified formats.
 
@@ -88,9 +91,9 @@ Manual source directories can restrict collection to the files you select. See
 ## Documentation
 
 <CardGrid>
-  <LinkCard title="Quick start" description="Install, collect, inspect and manage your local history." href="/start/quick-start/" />
+  <LinkCard title="Quick start" description="Install, collect, inspect and manage usage history." href="/start/quick-start/" />
   <LinkCard title="Developer setup" description="Set up the project and read its development requirements." href="/development/setup/" />
-  <LinkCard title="Client support" description="Find each client's verified versions, local files and limitations." href="/guide/clients/" />
+  <LinkCard title="Client support" description="Find each client's verified versions, record formats and limitations." href="/guide/clients/" />
   <LinkCard title="Validation records" description="See what was actually tested and what remains outside the verified scope." href="/reference/evidence/current-acceptance/" />
 </CardGrid>
 

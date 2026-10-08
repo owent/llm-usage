@@ -21,6 +21,14 @@ for (const path of paths.filter(path => path.endsWith('.html'))) {
 for (const path of paths.filter(path => path.endsWith('.html'))) {
   const { body } = html.get(path);
   const language = relative(output, path).replaceAll('\\', '/').startsWith('zh-cn/') ? 'zh-CN' : 'en';
+  const sidebar = body.match(/<sl-sidebar-pane\b[\s\S]*?<\/sl-sidebar-pane>/)?.[0];
+  if (sidebar) {
+    const prefix = language === 'en' ? '' : '/zh-cn';
+    for (const required of ['start/installation', 'guide/dashboard', 'guide/sources', 'development/setup',
+      'reference/design/documentation-site', 'reference/evidence/current-acceptance', 'reference/repository/readme']) {
+      if (!sidebar.includes(`href="${prefix}/${required}/"`)) failures.push(`${path}: missing sidebar page ${required}`);
+    }
+  }
   for (const [, imageLanguage] of body.matchAll(/<img\b[^>]*\bsrc="\/screenshots\/([^/]+)\//g)) {
     if (imageLanguage !== language) failures.push(`${path}: screenshot language differs from page language`);
   }

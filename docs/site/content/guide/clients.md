@@ -1,6 +1,6 @@
 ---
 title: Client support and verification
-description: Find the verified local formats, client versions and validation scope.
+description: Find the verified record formats, client versions and validation scope.
 sidebar:
   order: 3
 ---
@@ -12,14 +12,14 @@ engine or model name as proof of compatibility.
 
 ## Common families
 
-| Client family | Local collection route and important boundary |
+| Client family | Collection method and scope |
 | --- | --- |
 | Codex | Native rollout JSONL and verified usage records; bounded backfill preserves cursors and rotates file visits. |
 | Claude Code | Native messages and record-specific versions; repeated content blocks deduplicate by message identity. |
 | OpenCode and derivatives | Product-specific records and schemas. A shared kernel does not establish another product's mapping. |
 | Gemini, Qwen, Pi and Oh My Pi | Dedicated adapters with per-version rules; missing/default zero values are not blindly treated as reported usage. |
 | Cline and Roo | Independently verified VS Code files/databases. Cline SDK metrics can be observations covering multiple requests. |
-| Zed and Junie | See the tested local-provider and native-file records; hosted and untested provider routes are separate. |
+| Zed and Junie | See the tested provider configurations and native-file records; hosted and untested provider routes are separate. |
 | Local OTel exports | Only verified senders, file/database formats and local attribution qualify. The receiver is not a general-purpose collector. |
 | Other registered clients | Consult the complete matrix, including document-level implementations, probes and excluded routes. |
 

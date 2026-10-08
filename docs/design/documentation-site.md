@@ -6,7 +6,7 @@
 
 <a id="文档站与语言合同"></a>
 
-Status: implementation in progress. The existing desktop specifications remain authoritative
+Status: published; navigation and layout improvements are being verified. The existing desktop specifications remain authoritative
 for application behavior; [Plan.md](../../Plan.md) owns current work and acceptance conditions.
 
 <a id="内容与归属"></a>
@@ -62,6 +62,18 @@ with project branding and responsive typography. System, light and dark themes a
 supported. Navigation, search labels, content and screenshot captions use the selected
 language. No analytics, remote fonts, login or third-party runtime requests are required.
 
+Use `AI usage dashboard` / `AI 用量看板` for the site and homepage titles. Introductions
+describe tokens, calls, cache usage and trends; explain data storage and local-source limits
+in the privacy and source instructions. The homepage's leading Download action opens the
+matching-language installation/download section. Link existing build artifacts when no
+Release packages have been published, and state their sign-in requirement.
+
+Wide screens expand the main content area, including tables and screenshots. Keep the
+left menu and right table of contents independently usable; avoid empty navigation groups
+and content overlap. Generate localized Starlight `slug` links from the reviewed source
+inventory rather than its assumed content directory. Verify actual category links, expansion,
+keyboard navigation, active-page indication and mobile navigation in both languages.
+
 <a id="截图"></a>
 
 ## Screenshots
@@ -103,9 +115,18 @@ Git and GitHub commands time out after 60 seconds without interactive prompts. P
 polling has a ten-minute deadline, including request time. After a timeout, inspect the
 actual remote branch/build before retrying a write. CI jobs also have fifteen-minute limits.
 
+The separate administrator flag `--configure-environment` checks the `github-pages`
+deployment environment.
+If it uses custom branch rules, add the exact `main` branch required by the documentation
+publisher and read the rules back. Preserve every existing branch/tag rule and all other
+environment protections. Routine CI does not change these settings or receive administration
+permission. Pages itself continues to build the compiled `gh-pages` branch.
+
 Configure GitHub Pages and its custom domain through the supported GitHub API. A DNS
-CNAME from `llm-usage.atframe.work` to `owent.github.io` is a separate prerequisite; the
-presence of a `CNAME` file alone does not establish DNS or HTTPS. Report build, branch
+CNAME from `llm-usage.atframe.work` to `owent.github.io` is configured separately. A DNS
+proxy may return A/AAAA addresses instead of exposing its CNAME; inspect actual DNS and
+HTTPS responses before reporting a missing record. The presence of a `CNAME` file alone
+does not establish DNS or HTTPS. Report build, branch
 publication, Pages deployment, DNS and HTTPS as separate verified states.
 
 <a id="验收"></a>
@@ -141,6 +162,17 @@ Retrieved on 2026-10-07:
 - [GitHub Pages publishing sources](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site).
 - [GitHub Pages REST API](https://docs.github.com/en/rest/pages/pages).
 - [GitHub custom domains](https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/managing-a-custom-domain-for-your-github-pages-site).
+
+Retrieved on 2026-10-08:
+
+- [Starlight sidebar navigation](https://starlight.astro.build/guides/sidebar/): explicit
+  `slug` links obtain translated page titles and target the corresponding locale.
+- [Starlight styling](https://starlight.astro.build/guides/css-and-tailwind/): content-width
+  variables and custom CSS. Installed 0.42.5 source defines the actual layout and sidebar assumptions.
+- [GitHub artifact downloads](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/download-workflow-artifacts): sign-in and read access are required.
+- [GitHub deployment branch policies](https://docs.github.com/en/rest/deployments/branch-policies?apiVersion=2026-03-10).
+- [Cloudflare DNS proxy behavior](https://developers.cloudflare.com/dns/proxy-status/):
+  proxied records expose Cloudflare addresses rather than the origin address.
 
 The registry reports Astro 7.3.6 and Starlight 0.42.5. Their documented Node engine and
 peer ranges will be checked against the installed lockfile; this does not upgrade the

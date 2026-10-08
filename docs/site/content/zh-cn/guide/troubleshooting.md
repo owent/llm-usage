@@ -19,7 +19,7 @@ sidebar:
 轮转扫描；未完成游标保留，避免旧大文件持续推迟今日文件。请刷新、查看进度并使用
 修正后的可执行程序，不要清库。
 
-[恢复记录](/zh-cn/reference/evidence/codex-today-recovery/)保存真实本机旧库修复、
+[恢复记录](/zh-cn/reference/evidence/codex-today-recovery/)保存实际设备上的旧库修复、
 独立逐条对账及剩余回填边界。
 
 ## Visual Studio Enterprise 或 VS 2022 没有数据
@@ -46,5 +46,5 @@ Windows 上比较保存意图与实际任务定义、可执行路径。休眠/�
 ## 提供有效问题报告
 
 包含应用版本、OS、精确客户端版本、记录类型、查询范围、预期/实测数值、来源状态及
-只含相关用量字段的最小脱敏记录。首次失败和后续重试分开记录，不包含秘密、完整聊天
+只含相关用量字段的最小脱敏记录。首次失败和后续重试分开记录，不包含凭据、完整聊天
 日志或账户报表。通过 [GitHub issues](https://github.com/owent/llm-usage/issues)反馈。

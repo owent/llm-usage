@@ -57042,11 +57042,11 @@
       ]
     },
     "docs/site/astro.config.mjs": {
-      "codeHash": "0f053b7a7557ea5146bff63a0d6f8ba82a64882589ae6f7b19bf99b9b53c04de",
+      "codeHash": "5847e5d179ee9022f14cc7e9f80523c775b02cf013a76446f5034b8eb4696d52",
       "comments": [
         {
           "id": "f2c97086492f2a3a",
-          "line": 9,
+          "line": 10,
           "kind": "line",
           "en": "// Bundle each importer's YAML dependency: Starlight uses v4, markdownlint uses v5.",
           "zh": "// 打包各导入方自己的 YAML 依赖：Starlight 使用 v4，markdownlint 使用 v5。"
@@ -57085,25 +57085,25 @@
       ]
     },
     "docs/site/scripts/publish.mjs": {
-      "codeHash": "c900adfee51ff7b2f859957a121461e4574862d9cbeebe470a81baedde781d7c",
+      "codeHash": "2a86d640ead77bf6474526d7b850b80a0da07b61850a30fb22cf98d859a71b6e",
       "comments": [
         {
           "id": "6d3f915a9f4e0fc2",
-          "line": 56,
+          "line": 57,
           "kind": "line",
           "en": "// The isolated worktree inherits checkout authentication without reading or copying credentials.",
           "zh": "// 隔离工作树继承 checkout 的认证，不读取或复制凭据。"
         },
         {
           "id": "d272fbadddab16f0",
-          "line": 62,
+          "line": 63,
           "kind": "line",
           "en": "// Compiled branch assets must be ordinary files: GitHub Pages does not expand LFS pointers.",
           "zh": "// 编译分支资源必须是普通文件：GitHub Pages 不会展开 LFS 指针。"
         },
         {
           "id": "04eb13476b0517fb",
-          "line": 69,
+          "line": 70,
           "kind": "line",
           "en": "// No force push: a concurrent unexpected update fails instead of discarding its history.",
           "zh": "// 不强制推送；遇到意外并发更新时失败，保留已有历史。"

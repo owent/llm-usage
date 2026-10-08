@@ -72,15 +72,19 @@ language behavior, screenshot provenance and deployment acceptance.
 - [x] Verify the local production build, localized search, language negotiation, themes, keyboard navigation and mobile layout.
 - [x] Review 20 real English/Chinese screenshots from isolated synthetic sources, in both themes at 2880×2000 pixels.
 - [x] Add five localized feature screenshots to each homepage, plus README and record-details examples; verify theme switching and original-image links.
-- [ ] Publish the compiled site to gh-pages and configure/test automatic publication.
-- [ ] Verify Pages deployment, custom-domain DNS and HTTPS independently.
+- [x] Publish the compiled site to gh-pages and configure/test automatic publication.
+- [x] Verify Pages deployment, custom-domain DNS and HTTPS independently.
+- [x] Repair empty sidebar groups, expand wide-screen content, add localized download actions and simplify related titles/copy; pass local checks.
+- [ ] Observe successful CI publication and public-domain navigation for the latest layout update.
 
 Current coverage: all 199 required repository document pairs and 21 guide pairs reviewed,
 and all 7939 comment pairs across 460 source files reviewed. Complete product/document checks
-passed; 1363 pages and 2851 files built, with 18 browser checks passed. Remote publication still
-needs verification. The user pushed the initial bilingual documentation and preceding application
-commit as af64b8951936c5b009640537cdad51e1f4da4164. Its CI build passed; publication failed because
-Pages settings have not been initialized. First-time setup and DNS remain pending. Translation uses the current language model, with complete
+passed; the layout update builds 1363 pages and 2852 files, with 31 unit and 24 browser checks passed.
+Screenshot source db44b0300750ef4f3e00c89ad21edbfa83e60813 was published, and run 37716140836 attempt 2
+passed build/publication after the explicitly authorized exact main deployment rule was added.
+Both language homepages and all 20 original PNGs were checked through the custom HTTPS domain.
+The latest navigation/layout source awaits its own CI publication and live interaction checks.
+Translation uses the current language model, with complete
 pair review and contextual wording checks. First failures, validation commands and exact remaining work are in the
 [documentation record](docs/validation/desktop-usage/documentation-site.md).
 

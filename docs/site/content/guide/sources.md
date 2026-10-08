@@ -1,5 +1,5 @@
 ---
-title: Manage local sources
+title: Manage data sources
 description: Discovery, manual roots, users, versions and collection health.
 sidebar:
   order: 2

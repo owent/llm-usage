@@ -49,6 +49,19 @@ The content loader removes a trailing `/index` from nested page IDs. This makes
 creating an English fallback at the same URL. The root `index.mdx` retains ID `index`,
 which Starlight normalizes itself. Version punctuation in all other IDs is preserved.
 
+`scripts/sidebar.mjs` reads the authored English page metadata and repository document
+inventory, preserving page order and nested version directories. It supplies Starlight
+`slug` links, which resolve localized titles and active-page states. Starlight 0.42.5's
+directory autogeneration assumes `src/content/docs/`; our generated files live under root
+`build/`, so that mode produces empty categories. Do not restore it without checking
+actual menu links. Output checks reject missing required links, and browser checks open
+all seven categories and navigate with pointer and keyboard on desktop/mobile screens.
+
+Wide-screen layouts reserve fixed space for the left menu and right table of contents
+and expand the remaining content up to 110rem (100rem on the homepage). Check responsive
+boundaries as well as 1920px and 2560px screens. The homepage Download action targets the
+localized installation page; verify available packages before changing its instructions.
+
 The translation review manifest stores the checked English/Chinese hashes. Missing pairs
 or changes without corresponding review fail the content check. Check both languages for
 meaning and completeness before updating a review entry; matching hashes alone do not
@@ -83,12 +96,20 @@ GitHub CLI session after all checks pass. Creating or changing Pages settings re
 administration permission in addition to Pages permission; ordinary CI does not receive
 administration permission. Later builds verify the configured branch, root and custom domain
 before updating the live branch.
+The separate administrator flag `--configure-environment` adds the exact `main` branch to
+`github-pages` when that deployment environment uses custom branch rules. It retains existing rules and other protections, and
+reads the resulting rules back. The documentation publisher runs on `main`; Pages builds
+the compiled `gh-pages` branch. Routine CI keeps its existing contents/pages permissions.
+Use that flag only with authorization to change deployment branch rules; `--configure-pages`
+alone does not change them. See GitHub's
+[deployment branch policy API](https://docs.github.com/en/rest/deployments/branch-policies?apiVersion=2026-03-10).
 After the content, unit, production-build and browser checks pass on a clean source commit,
 run `node docs/site/scripts/stamp-output.mjs` to record the source revision and output digests.
 The publisher rejects unstamped output, changed assets and a revision that differs from current
 `main`. The workflow performs this step before uploading its checked artifact.
 
-The custom domain is `llm-usage.atframe.work`, with a DNS CNAME to `owent.github.io`.
+The custom domain is `llm-usage.atframe.work`, with DNS routing to `owent.github.io`.
+An enabled DNS proxy can expose its A/AAAA addresses rather than the underlying CNAME.
 GitHub Pages settings, DNS and HTTPS must be checked separately. A domain file alone is
 not a successful custom-domain deployment. Keep failed-build output out of the live branch.
 To recover, rebuild a known-good source revision and republish it; do not force-push

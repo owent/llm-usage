@@ -6,7 +6,7 @@
 
 <a id="documentation-site-and-language-contract"></a>
 
-状态：实施中。既有桌面设计说明仍是应用行为的主要说明；[Plan.md](../../Plan.md)
+状态：已发布，正在核验导航和布局优化。既有桌面设计说明仍是应用行为的主要说明；[Plan.md](../../Plan.md)
 统一维护当前工作和验收条件。
 
 <a id="content-and-ownership"></a>
@@ -51,6 +51,14 @@
 支持跟随系统、亮色、暗色。导航、搜索文案、内容及截图说明使用所选语言。
 不需要分析追踪、远端字体、登录或第三方运行时请求。
 
+站点和首页标题使用“AI usage dashboard” / “AI 用量看板”。介绍突出 token、调用、缓存
+及趋势；数据存储和本地来源限制在隐私与数据源说明中解释。首页首个下载按钮打开对应
+语言的安装页下载章节。尚无 Release 安装包时，链接已有构建制品并说明登录要求。
+
+宽屏下扩展正文、表格和截图。左侧菜单与右侧目录各自可操作，避免空导航分组及内容
+重叠。按已审阅原件清单生成 Starlight 多语言 `slug` 链接，不依赖其默认内容目录。
+两种语言均核验实际分组链接、展开、键盘导航、当前页标识及手机菜单。
+
 <a id="screenshots"></a>
 
 ## 截图
@@ -85,8 +93,15 @@ Git 与 GitHub 命令最长运行 60 秒，不等待交互输入。Pages 构建�
 包含请求时间。写操作超时后先检查远端分支或构建实际状态，再决定是否重试。
 CI 作业另有十五分钟运行上限。
 
+单独的管理员参数 `--configure-environment` 检查 `github-pages` 部署环境。如果环境使用
+自定义分支规则，
+添加文档发布作业需要的精确 `main` 分支，并读回核对。保留全部既有分支、标签规则
+及其他环境保护设置。普通 CI 不修改这些设置，也不获得 Administration 权限。
+Pages 本身仍构建已编译的 `gh-pages` 分支。
+
 通过受支持的 GitHub API 配置 Pages 与域名。`llm-usage.atframe.work` 指向
-`owent.github.io` 的 DNS CNAME 是独立前提；`CNAME` 文件本身不建立 DNS 或 HTTPS。
+`owent.github.io` 的 DNS CNAME 单独配置。DNS 代理可能返回 A/AAAA 地址，不公开原 CNAME；
+报告缺少记录前须核对实际 DNS 与 HTTPS 响应。`CNAME` 文件本身不建立 DNS 或 HTTPS。
 构建、分支发布、Pages 部署、DNS 和 HTTPS 分别报告核验状态。
 
 <a id="acceptance"></a>
@@ -119,6 +134,14 @@ CI 作业另有十五分钟运行上限。
 - [GitHub Pages 发布源](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site)。
 - [GitHub Pages REST API](https://docs.github.com/en/rest/pages/pages)。
 - [GitHub 自定义域名](https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/managing-a-custom-domain-for-your-github-pages-site)。
+
+2026-10-08 获取：
+
+- [Starlight 侧栏导航](https://starlight.astro.build/guides/sidebar/)：显式 `slug` 链接使用译文标题并指向对应语言页面。
+- [Starlight 样式](https://starlight.astro.build/guides/css-and-tailwind/)：内容宽度变量与自定义 CSS。实际布局及侧栏目录假设以已安装 0.42.5 源码为依据。
+- [GitHub 制品下载](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/download-workflow-artifacts)：需要登录并具备读取权限。
+- [GitHub 部署分支规则](https://docs.github.com/en/rest/deployments/branch-policies?apiVersion=2026-03-10)。
+- [Cloudflare DNS 代理行为](https://developers.cloudflare.com/dns/proxy-status/)：代理记录公开 Cloudflare 地址，而非源站地址。
 
 registry 报告 Astro 7.3.6、Starlight 0.42.5。其 Node engine 与 peer 范围按安装后的
 锁文件检查，不升级桌面应用依赖。

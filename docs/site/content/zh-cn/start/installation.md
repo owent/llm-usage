@@ -11,13 +11,16 @@ Windows 11 x64 是首发桌面平台。Windows 使用 NSIS 安装包和系统 We
 Linux 构建产出 deb、AppImage，macOS 构建产出 app。跨平台构建成功本身不能据此确认该平台的
 安装、桌面集成或 GUI 行为。
 
-仓库目前没有已发布的 GitHub Release 条目。请使用
-[GitHub Actions 构建制品](https://github.com/owent/llm-usage/actions)，核对受测 revision
-及包报告，或[自行构建应用](/zh-cn/development/setup/)。未签名的 pre-alpha 制品不等于已签名的正式发行。
-
 平台验证结果见[安装记录](/zh-cn/reference/evidence/installation-lifecycle/)和
 [最新验收](/zh-cn/reference/evidence/current-acceptance/)。Linux 容器 GUI 与 Windows
 原生验收的范围分别记录，WSL 编译是另一类结果。
+
+## 下载
+
+仓库目前没有已发布的 [GitHub Release 安装包](https://github.com/owent/llm-usage/releases)。
+现有安装包可在[应用构建流水线](https://github.com/owent/llm-usage/actions/workflows/ci.yml)下载：
+打开成功的运行，核对提交及软件包报告，下载对应平台的制品。下载流水线制品需要登录 GitHub。
+也可以[自行构建应用](/zh-cn/development/setup/)。未签名的 pre-alpha 制品不等于已签名的正式发行。
 
 ## 应用数据
 

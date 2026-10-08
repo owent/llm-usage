@@ -5,7 +5,7 @@ sidebar:
   order: 1
 ---
 
-LLM Usage reads usage already recorded by agents on this computer. You do not need to
+LLM Usage reads usage records already saved by agents. You do not need to
 sign into your model provider or make an additional model request to view statistics.
 
 ## Install and open

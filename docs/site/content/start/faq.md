@@ -1,6 +1,6 @@
 ---
 title: Frequently asked questions
-description: Local collection, billing, unknown values and supported clients.
+description: Usage collection, billing, unknown values and supported clients.
 sidebar:
   order: 3
 ---

@@ -12,15 +12,19 @@ and uses the system WebView2 runtime. Linux builds produce deb and AppImage pack
 macOS builds produce an app bundle. A successful cross-platform build does not by itself
 verify installation, desktop integration or GUI behavior on that platform.
 
-The repository currently has no published GitHub Release entries. Use the packages in
-the [GitHub Actions build artifacts](https://github.com/owent/llm-usage/actions), checking
-the tested revision and bundle report, or [build the application](/development/setup/).
-Do not interpret an unsigned pre-alpha artifact as a signed production release.
-
 For the platform-specific results, read the [installation record](/reference/evidence/installation-lifecycle/)
 and [current acceptance](/reference/evidence/current-acceptance/). Linux container GUI
 acceptance and Windows native acceptance have separate scopes; WSL compilation is a
 different result.
+
+## Downloads
+
+The repository currently has no published [GitHub Release packages](https://github.com/owent/llm-usage/releases).
+Download existing packages from the [application build workflow](https://github.com/owent/llm-usage/actions/workflows/ci.yml):
+open a successful run, check its revision and bundle report, and download the artifact for
+your platform. GitHub requires sign-in to download workflow artifacts.
+You can also [build the application](/development/setup/).
+Unsigned pre-alpha artifacts do not establish a signed production release.
 
 ## Application data
 

@@ -9,7 +9,9 @@ sidebar:
 Windows、Linux、macOS，使用 `fail-fast: false`。包报告记录 revision、大小和 SHA-256，
 请检查真实制品，不假定绿色任务产出了目标安装包。
 
-## 本机构建
+<a id="本机构建"></a>
+
+## 自行构建
 
 ```powershell
 npm run pack:desktop
