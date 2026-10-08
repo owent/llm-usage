@@ -195,7 +195,7 @@ This was a visual separation problem, not a demonstrated text-contrast failure. 
 non-text and decorative-CSS guidance and the official Material color-role documentation were
 read on 2026-10-08; links and requirements are in the documentation design specification.
 
-The new light theme separates a slate page/side menu, an opaque off-white reading area,
+The initial theme source 6025b075 separates a slate page/side menu, an opaque off-white reading area,
 deep navy navigation/hero and teal actions. Dark pages use navy backgrounds, lighter cards
 and mint actions. Sparse dots are 48px apart in outer margins and 40px apart around the hero
 illustration; circular outlines are static and cannot intercept pointer input. Reading text,
@@ -223,6 +223,28 @@ to RGB corrected the test; the UI outline already had sufficient contrast. Prese
 theme-browser-first.log. An automatic approval review timed out before a subsequent browser
 command started; one retry ran successfully. A temporary screenshot probe also waited for
 an MDX figure absent on the Markdown guide; limiting that wait to the homepage corrected it.
+
+### Cooler, less bright backgrounds
+
+The user requested backgrounds without a yellow cast or large bright-white areas. Installed
+Starlight Card.astro used orange/yellow and green decorative icon fills; the initial palette
+also used pure-white cards and a near-white reading area. The follow-up uses cool gray-blue
+page (#dde6f1), reading (#edf2f8), card (#e8eef6) and sidebar (#d3deec) backgrounds. Decorative
+card accents/fills now use teal, blue, indigo and cyan. All base background RGB values have
+blue >= green >= red. Their calculated relative luminance is 0.783 for the page, 0.883 for
+reading areas and 0.850 for cards, compared with 1.000 for pure white; this describes colors,
+not a measurement of eye comfort. Light-theme code blocks also use the card background.
+Dark backgrounds retain their navy colors.
+
+Both languages/themes were visually reviewed at 1920px and 390px under
+build/documentation-site/theme/cool-background/. The same 30 browser checks passed, with
+minimum measured text contrast 4.93674:1 in light mode and 5.54803:1 in dark mode; minimum
+keyboard-outline contrast is 4.57120:1. JavaScript errors and local third-party requests
+remain zero. The production build still has 1363 pages/2853 files. Logs are
+cool-background-build-final.log, cool-background-browser-final.log and cool-background-screenshots.log
+under build/documentation-site/. These are local follow-up checks; earlier remote run IDs
+below identify the preceding source revisions. Automatic publication results for pushed
+changes are available in the [documentation workflow](https://github.com/owent/llm-usage/actions/workflows/docs.yml).
 
 <a id="验证结果"></a>
 

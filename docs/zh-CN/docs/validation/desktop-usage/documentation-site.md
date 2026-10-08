@@ -158,7 +158,7 @@ WebView2 CDP 无法启动；仅隔离 HOME 仍会访问固定绝对路径候选�
 2026-10-08 查阅 W3C 文字、非文字及 CSS 装饰说明，以及 Material 官方颜色用途文档；
 链接与要求见文档站设计说明。
 
-新亮色主题区分灰蓝页面及菜单、不透明的近白阅读区、深蓝导航及首页主区域，以及
+初始主题源码 6025b075 区分灰蓝页面及菜单、不透明的近白阅读区、深蓝导航及首页主区域，以及
 青绿操作按钮。暗色页面采用深蓝背景、较亮卡片及薄荷绿按钮。外侧留白点阵间隔为
 48px，首页插图区为 40px；圆弧保持静态，不会拦截鼠标。正文、表格、卡片和图注保持
 纯色背景。打印和强制颜色模式移除装饰，打印卡片标题保持黑色。已目视审阅中英文
@@ -180,6 +180,27 @@ chart/shield-check 名称，analytics/padlock 则包含实际 SVG 路径。两�
 限定使用 RGB 后检查通过；界面原有轮廓对比度已足够。保留 theme-browser-first.log。
 后续一次浏览器命令开始前，自动批准审核超时；重试一次后正常运行。临时截图工具
 还曾等待 Markdown 指南中不存在的 MDX 图形；仅在首页等待该图后恢复。
+
+<a id="cooler-less-bright-backgrounds"></a>
+
+### 冷色与较低亮度背景
+
+用户要求背景不偏黄，也不要出现大面积亮白。已安装 Starlight Card.astro 的装饰图标
+默认使用橙黄和绿色背景；初始配色还包含纯白卡片及近白阅读区。本次调整采用冷灰蓝的
+页面（#dde6f1）、阅读区（#edf2f8）、卡片（#e8eef6）和侧栏（#d3deec）背景。
+卡片装饰边线及图标背景改用青绿、蓝、靛蓝和青色。基础背景的 RGB 数值均满足
+蓝 >= 绿 >= 红。计算相对亮度为页面 0.783、阅读区 0.883、卡片 0.850，纯白为
+1.000；这些数值说明颜色，不代表眼睛舒适度测量。亮色主题代码块也使用卡片背景。
+暗色背景保持深蓝配色。
+
+已在 1920 及 390 像素视口审阅中英文亮暗截图，位于
+build/documentation-site/theme/cool-background/。原有 30 项浏览器检查通过，
+实测最低文字对比度为亮色 4.93674:1、暗色 5.54803:1；键盘轮廓最低为 4.57120:1。
+JavaScript 错误及本地第三方请求仍为零，生产构建仍为 1363 页、2853 文件。
+日志位于 build/documentation-site/ 下的 cool-background-build-final.log、
+cool-background-browser-final.log 和 cool-background-screenshots.log。这些是本次调整的
+本地检查；下方既有远端运行编号对应此前源码版本。推送后的自动发布结果可在
+[文档流水线](https://github.com/owent/llm-usage/actions/workflows/docs.yml)查看。
 
 <a id="validation-results"></a>
 

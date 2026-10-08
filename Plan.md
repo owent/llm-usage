@@ -79,6 +79,8 @@ language behavior, screenshot provenance and deployment acceptance.
 - [x] Improve light/dark color separation and sparse decorative backgrounds; measure contrast
   and review both languages, responsive layouts, forced colors and printing.
 - [x] Commit/push the theme update and verify its automatic publication and public HTTPS pages.
+- [x] Apply the requested cooler, less bright background colors and decorative card fills;
+  check contrast and review screenshots in both languages and themes.
 
 Current coverage: all 199 required repository document pairs and 21 guide pairs reviewed,
 and all 7939 comment pairs across 460 source files reviewed. Complete product/document checks
@@ -89,11 +91,13 @@ Both language homepages and all 20 original PNGs were checked through the custom
 Navigation/layout source 16c77e3fd386071ce266d862e70914a33cf2b4ed passed automatic run 37719512134;
 its Pages deployment and public HTTPS menu/download interactions passed. Both guide languages use
 1760px content at a 2560px viewport, with no mobile overflow. Theme review measured minimum text
-contrast of 5.34665:1 (light) and 5.54803:1 (dark), with keyboard outlines at least 5.16081:1.
+contrast of 4.93674:1 (light) and 5.54803:1 (dark), with keyboard outlines at least 4.57120:1
+after the cooler, less bright background adjustment. All 30 browser checks still pass.
 Theme source 6025b0750f852686f9e874ea6f9a1b97f70887dd passed automatic run 37722735785;
 its Pages build and public HTTPS light/dark checks passed in both languages. Menu, download and
-mobile navigation passed; all 20 remote PNGs match their originals. This documentation round
-has no remaining active items.
+mobile navigation passed; all 20 remote PNGs match their originals. The cooler background
+follow-up has passed local checks; publication of pushed documentation uses the same automatic
+[workflow](https://github.com/owent/llm-usage/actions/workflows/docs.yml).
 Translation uses the current language model, with complete
 pair review and contextual wording checks. First failures, validation commands and exact remaining work are in the
 [documentation record](docs/validation/desktop-usage/documentation-site.md).

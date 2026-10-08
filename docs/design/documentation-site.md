@@ -77,8 +77,10 @@ keyboard navigation, active-page indication and mobile navigation in both langua
 ## Visual design
 
 Use separate colors for the page background, reading area, navigation and cards. The light
-theme combines a pale slate background, an opaque off-white reading area, a deep navy header
-and teal actions. The dark theme uses navy backgrounds, lighter cards and mint actions.
+theme combines muted cool gray-blue page and reading backgrounds, a deep navy header
+and teal actions. Avoid yellow/cream backgrounds and large areas of bright white. Cards
+and decorative icon fills also use cool colors. The dark theme uses navy backgrounds,
+lighter cards and mint actions.
 Keep text and captions legible in default, hover, selected and focused states. Measure normal
 text at a minimum 4.5:1 contrast and essential control indicators at 3:1 against adjacent colors;
 decorative dividers do not carry control state. Keep inline links underlined and selected
