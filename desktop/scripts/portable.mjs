@@ -119,9 +119,14 @@ export async function archivePortable({ platform, arch, version, input, binary, 
     run('zstd', ['-t', 'portable.tar.zst'], work);
     run('zstd', ['-d', '-f', 'portable.tar.zst', '-o', 'verified.tar'], work);
     await mkdir(unpack);
-    run('tar', ['-xf', '../verified.tar'], unpack);
+    // Restore Unix modes explicitly; tar otherwise applies the extracting user's umask.
+    run('tar', [process.platform === 'win32' ? '-xf' : '-xpf', '../verified.tar'], unpack);
     const actual = await tree(join(unpack, name));
-    if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error('Extracted archive contents or modes differ');
+    if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+      const difference = expected.find((entry, index) => JSON.stringify(entry) !== JSON.stringify(actual[index]));
+      const extracted = actual.find(entry => entry.path === difference?.path);
+      throw new Error(`Extracted archive contents or modes differ: ${JSON.stringify({ expected: difference, actual: extracted, counts: [expected.length, actual.length] })}`);
+    }
     if (smoke) {
       // Run from the extraction: Linux AppRun supplies bundled library paths without FUSE.
       run(process.execPath, [join(repository, 'desktop/tests/headless-smoke.mjs'), '--exe', join(unpack, name, entrypoint)], repository);

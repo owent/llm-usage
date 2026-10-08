@@ -35,8 +35,10 @@ async function fixture(root, platform, arch) {
   await chmod(executable, 0o755);
   if (platform === 'linux') {
     await writeFile(join(input, 'AppRun'), '#!/bin/sh\nexec "$(dirname "$0")/usr/bin/LLMUsage" "$@"\n');
-    await chmod(join(input, 'AppRun'), 0o755);
+    await chmod(join(input, 'AppRun'), 0o775);
     await writeFile(join(input, '.hidden-resource'), 'retain-hidden-files');
+    await chmod(join(input, '.hidden-resource'), 0o664);
+    await chmod(join(input, 'usr'), 0o775);
     if (process.platform !== 'win32') await symlink('usr/bin/LLMUsage', join(input, 'native-link'));
   }
   return { input, binary: executable };

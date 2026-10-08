@@ -261,7 +261,7 @@
       ]
     },
     "desktop/scripts/portable.mjs": {
-      "codeHash": "500e410d0739f887f77fb73380c7cb512c9e2d39a283eaa45342d6f3f2e4bf45",
+      "codeHash": "4945607e0735d25298c63699996220f3de83930f3fe0c373a0155f13f80cd714",
       "comments": [
         {
           "id": "5925fb57f5edb42b",
@@ -271,15 +271,22 @@
           "zh": "// 先生成完整 tar 再压缩；外部 tar/zstd 管道在大型 Windows 归档上可能停滞。"
         },
         {
+          "id": "1d326a72a9fb0fd7",
+          "line": 122,
+          "kind": "line",
+          "en": "// Restore Unix modes explicitly; tar otherwise applies the extracting user's umask.",
+          "zh": "// 显式恢复 Unix 权限，否则 tar 会应用解压用户的 umask。"
+        },
+        {
           "id": "76debcf3c9ae02df",
-          "line": 126,
+          "line": 131,
           "kind": "line",
           "en": "// Run from the extraction: Linux AppRun supplies bundled library paths without FUSE.",
           "zh": "// 从解压目录运行；Linux AppRun 提供包内依赖库路径，无须 FUSE。"
         },
         {
           "id": "7912402270ce9b45",
-          "line": 167,
+          "line": 172,
           "kind": "line",
           "en": "// linuxdeploy may adjust ELF library paths; validate the bundled executable itself.",
           "zh": "// linuxdeploy 可能调整 ELF 库路径，因此核对包内实际可执行文件。"
