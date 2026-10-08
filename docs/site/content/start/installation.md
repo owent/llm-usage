@@ -44,6 +44,28 @@ directories** and configure those roots in Settings.
 
 ## Upgrade, rollback and removal
 
+In **Settings > Software updates**, choose every launch, daily, weekly or manual checks.
+Daily/weekly checks use elapsed time since the last successful check and run while the app
+is open. Automatic downloads default off; manual checks are always available. Save changes
+to apply them. The global notice and settings page show download progress, errors and cancellation.
+After a verified download, click **Install update** for NSIS or **Restart and update** for portable.
+
+Updates keep the OS, architecture and package type. Windows installed copies receive an NSIS
+installer; portable copies receive the matching portable archive. Portable updates retain the
+existing executable path and a backup under `.llmusage-update/backup`, preserving unrelated
+files at the package root. Keep personal files outside package-managed subdirectories.
+New portable archives contain `llmusage-package.json`; keep the complete package together.
+Raw executables without a verified package identity cannot choose an automatic update.
+If collection/maintenance is running, finish it and retry installation. Replacement failures restore the
+original files; an interrupted portable update is recovered on the next GUI launch.
+If the main Windows executable is missing after interruption, open the retained
+`.llmusage-update/helper.exe` to recover and restart.
+
+Checks contact the public GitHub release service without sending local usage. Downloads
+require an exact size and SHA-256 match. This verifies the HTTPS GitHub release asset;
+it does not provide an independent publisher signature. Native update results and platform
+limits are recorded in [update validation](/reference/evidence/application-updates/).
+
 Keep a consistent database backup before an upgrade or rollback. SQLite migrations and
 their backups are implemented by the backend; an older executable may not support a newer
 schema. Keep a backup compatible with the version you plan to run.
@@ -55,5 +77,6 @@ IDE configuration or remove another installation's data.
 
 Portable packages retain the same per-user data and system credentials; moving their directory
 does not migrate data. Stop the app and disable its owned scheduled tasks before moving/removing
-the directory. Extract an update to a new directory, retain your database backup and re-enable
-tasks with the new path when needed.
+the directory. For a manual replacement, extract the new complete package to a new directory,
+retain your database backup and re-enable tasks with the new path when needed. The application's
+portable update keeps the existing path.

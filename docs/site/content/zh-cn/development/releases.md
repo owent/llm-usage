@@ -47,6 +47,10 @@ npm run pack:desktop
 在解压后的 Windows、Linux、macOS 目录分别运行 `LLMUsage.exe`、`AppRun`、`LLMUsage.app`，
 保留全部资源。每个归档包含完整中英文运行说明。
 
+新归档还包含 `llmusage-package.json`，标识版本、平台、架构、原生可执行文件、启动
+入口和受管理的顶层文件。更新器核对该身份后选择同格式的便携包；请将清单与包放在
+一起。没有清单的旧归档需要手动替换一次，才能采用本更新器。
+
 Windows 需要系统 WebView2，Windows 11 通常自带；本包不包含固定版本离线运行时。
 Linux 包含 AppDir 依赖库，无须 FUSE，使用 Ubuntu 22.04/glibc 2.35 基线，仍需要兼容的桌面和显示环境。
 可选凭据集成使用系统 Secret Service/D-Bus。macOS 使用系统 WebKit，下载的应用仍受 Gatekeeper 管理。
@@ -57,6 +61,14 @@ Linux 包含 AppDir 依赖库，无须 FUSE，使用 Ubuntu 22.04/glibc 2.35 基
 核对压缩完整性、全新解压目录的文件摘要/链接/权限和二进制 CPU 类型，
 并在全部六种原生 runner 上运行解压后真实程序的隔离无界面/SQLite 回归。
 随后才记录用于发布的大小和 SHA-256。
+
+应用检查 GitHub 公开的最新稳定版，核对对应资产的 API 大小和 SHA-256。保留完整的
+便携包及 NSIS 文件名，公开发行前上传全部对应资产，并保留 API 摘要。更新器信任
+HTTPS 和仓库发行管理权限；摘要不是发布者签名。草稿、预发行、相同或较旧版本及
+未支持的包身份不会提供更新。见[更新设计](/zh-cn/reference/design/application-updates/)及
+[验证记录](/zh-cn/reference/evidence/application-updates/)。构建后运行
+`npm run test:update:windows`，使用合成更新检查真实便携 IPC/辅助进程替换；该检查
+不能建立公开发行升级或 NSIS 生命周期验收。
 
 构建与发行授权分开，设计计划不提供推送、部署、签名或外部凭据修改授权。
 需要最终批准时，先完成可审阅产物、测试、身份检查和回滚方案。

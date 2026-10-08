@@ -214,7 +214,7 @@ WSL/containers require explicit roots/identity and are never automatically start
 directories, account reports and synced remote sessions are outside local scope; check origin
 before import, under [source requirements](README.md).
 
-Refresh today performs:
+Selecting “Collect & refresh” performs:
 
 1. Return job ID and merge requests for already-running sources; show per-source UI state.
 2. Find new/changed files/session directories; read increments and unfinished records.

@@ -9,6 +9,11 @@ Choose x64 for Intel/AMD Windows and arm64 for Windows on Arm.
 Application data uses the existing per-user location and system credential store;
 moving this folder does not move data. Optional scheduled tasks remember the exe path.
 Disable owned scheduled tasks in Settings before moving or removing the folder.
+Keep llmusage-package.json with the executable. Use Settings > Software updates for
+manual and scheduled checks, optional downloads and progress. Click Restart and update
+after download to replace this portable package at the same path, retaining data and a
+backup under .llmusage-update/backup. If interruption leaves LLMUsage.exe missing, open
+.llmusage-update/helper.exe to restore and restart. Keep personal files outside managed folders.
 
 Windows 便携版
 
@@ -18,3 +23,7 @@ Windows 便携版
 Intel/AMD Windows 使用 x64，Windows on Arm 使用 arm64。
 数据仍保存在原有的用户目录，凭据仍使用系统存储；移动本目录不会迁移数据。
 可选计划任务会记录 exe 路径，移动或删除本目录前请在设置中停用应用创建的计划任务。
+将 llmusage-package.json 与可执行文件放在一起。“设置 > 软件更新”支持手动及定期检查、
+可选下载和进度。下载后点击“重启并更新”，在原路径替换便携包，保留数据并在
+.llmusage-update/backup 保存备份。中断后若 LLMUsage.exe 缺失，可打开
+.llmusage-update/helper.exe 恢复并重启。请将个人文件放在受管理目录之外。

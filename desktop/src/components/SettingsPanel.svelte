@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import TelemetrySetup from './TelemetrySetup.svelte';
   import BudgetSettings from './BudgetSettings.svelte';
+  import UpdateSettings from './UpdateSettings.svelte';
   import { api, parseError } from '../lib/api';
   import type {
     AppSettings,
@@ -36,7 +37,7 @@
     initialSection?: 'general' | 'telemetry';
   } = $props();
 
-  type SubTab = 'general' | 'telemetry' | 'retention' | 'costs' | 'system' | 'identity' | 'export' | 'logs';
+  type SubTab = 'general' | 'updates' | 'telemetry' | 'retention' | 'costs' | 'system' | 'identity' | 'export' | 'logs';
   type RetentionField = 'events' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly';
 
   let sub = $state<SubTab>('general');
@@ -46,6 +47,7 @@
   // Capture settings at mount intentionally; the parent remounts this editor for external updates.
   let draft = $state<AppSettings>({
     ...settings,
+    updates: { schedule: 'daily', auto_download: false, ...settings.updates },
     budget: { enabled: false, metric: 'total_tokens', period: 'month', threshold: '1000000', currency: 'USD', ...settings.budget },
     manual_roots: [...settings.manual_roots],
     retention: { ...settings.retention },
@@ -73,7 +75,7 @@
   let rootsText = $state(settings.manual_roots.join('\n'));
 
   let saving = $state(false);
-  let message = $state('');
+  let messageKey = $state<'settings.saved' | 'settings.defaultsPending' | ''>('');
   let errorMessage = $state('');
 
   let info = $state<{ db_path: string; host_id: string; schema_version: number } | null>(null);
@@ -256,6 +258,7 @@
 
   const subTabs = $derived.by(() => [
     ['general', t('settings.tab.general')],
+    ['updates', t('updates.title')],
     ['telemetry', t('telemetry.title')],
     ['retention', t('settings.tab.retention')],
     ['costs', t('settings.tab.costs')],
@@ -505,7 +508,7 @@
     draft.close_to_tray = false;
     draft.file_watch_enabled = false;
     errorMessage = '';
-    message = t('settings.defaultsPending');
+    messageKey = 'settings.defaultsPending';
   }
 
   /** Restore draft retention: 7/3/90/1095/3650 days, with empty yearly for lifetime retention. */
@@ -517,13 +520,13 @@
     inputs.monthly = '3650';
     inputs.yearly = '';
     errorMessage = '';
-    message = t('settings.defaultsPending');
+    messageKey = 'settings.defaultsPending';
   }
 
   // Save general/retention/host-identity settings; startup/background task toggles apply separately.
   async function save() {
     saving = true;
-    message = '';
+    messageKey = '';
     errorMessage = '';
     const timezone = draft.timezone.trim();
     if (timezone === '') {
@@ -579,7 +582,7 @@
     };
     try {
       await api.setSettings(next);
-      message = t('settings.saved');
+      messageKey = 'settings.saved';
       onsaved(next);
     } catch (e) {
       errorMessage = t('settings.saveFailed', { message: parseError(e) });
@@ -898,7 +901,9 @@
     </nav>
 
     <div class="content">
-      {#if sub === 'general'}
+      {#if sub === 'updates'}
+        <UpdateSettings bind:value={draft.updates!} />
+      {:else if sub === 'general'}
         <section class="panel">
           <div class="frow">
             <span class="flabel">{t('settings.language')}</span>
@@ -999,7 +1004,7 @@
             <div class="fvalue">
               <input type="number" min="0" max="86400" bind:value={draft.refresh_interval_secs} aria-label={t('settings.interval')} />
               <span class="hint">{t('settings.interval.hint')}</span>
-              <label><input type="checkbox" bind:checked={draft.pause_on_battery_saver} /> {t('settings.pauseOnSaver')}</label>
+              <label class="switch-field"><input class="switch" role="switch" type="checkbox" bind:checked={draft.pause_on_battery_saver} /> <span>{t('settings.pauseOnSaver')}</span></label>
             </div>
           </div>
           <div class="frow">
@@ -1014,7 +1019,7 @@
             <span class="flabel">{t('settings.manualRoots')}</span>
             <div class="fvalue">
               <textarea bind:value={rootsText} rows="3" spellcheck="false" aria-label={t('settings.manualRoots')}></textarea>
-              <label><input type="checkbox" bind:checked={draft.manual_roots_only} /> {t('settings.manualRootsOnly')}</label>
+              <label class="switch-field"><input class="switch" role="switch" type="checkbox" bind:checked={draft.manual_roots_only} /> <span>{t('settings.manualRootsOnly')}</span></label>
             </div>
           </div>
           <p class="note">{t('settings.note')}</p>
@@ -1201,13 +1206,14 @@
           <p class="note">{t('cost.refresh.hint')}</p>
         </section>
         <section class="panel">
-          <h4>{t('cost.settings.addProvider')}</h4>
+          <h4>{t('cost.settings.defaults')}</h4>
           {#each draft.pricing?.provider_defaults ?? [] as d, i}
             <div class="tier">
               <input placeholder={t('cost.settings.provider')} bind:value={d.provider_id} />
               <input placeholder={t('cost.settings.region')} bind:value={d.region} />
               <input placeholder={t('cost.settings.channel')} bind:value={d.channel} />
               <select
+                aria-label={t('cost.settings.ttl')}
                 value={d.cache_ttl_minutes === null || d.cache_ttl_minutes === undefined ? '' : String(d.cache_ttl_minutes)}
                 onchange={(e) => {
                   const v = e.currentTarget.value;
@@ -1240,8 +1246,8 @@
           {:else if taskStatus.unsupported}
             <p class="hint">{t('system.unsupported')}</p>
           {:else}
-            <label><input type="checkbox" bind:checked={draft.close_to_tray} /> {t('settings.closeToTray')}</label>
-            <label><input type="checkbox" bind:checked={draft.file_watch_enabled} /> {t('settings.fileWatch')}</label>
+            <label class="switch-field"><input class="switch" role="switch" type="checkbox" bind:checked={draft.close_to_tray} /> <span>{t('settings.closeToTray')}</span></label>
+            <label class="switch-field"><input class="switch" role="switch" type="checkbox" bind:checked={draft.file_watch_enabled} /> <span>{t('settings.fileWatch')}</span></label>
             <div class="sysrow">
               <div class="sysinfo">
                 <span class="name">{t('system.autoStart')} · {taskStatus.auto_start ? t('system.state.on') : t('system.state.off')}</span>
@@ -1252,6 +1258,7 @@
                 type="checkbox"
                 role="switch"
                 checked={taskStatus.auto_start}
+                aria-label={t('system.autoStart')}
                 disabled={autoBusy}
                 onchange={() => void toggleAutoStart()}
               />
@@ -1317,7 +1324,7 @@
                 <div class="echecks">
                   {#each filterOptions.users as u (u.user_id)}
                     <label class="echeck">
-                      <input type="checkbox" value={u.user_id} bind:group={selectedUsers} />
+                      <input class="check" type="checkbox" value={u.user_id} bind:group={selectedUsers} />
                       <span class="ename">{u.name || u.user_id}</span>
                       {#if u.is_current}<span class="etag">{t('export.currentTag')}</span>{/if}
                     </label>
@@ -1332,7 +1339,7 @@
                 <div class="echecks">
                   {#each filterOptions.hosts as h (h.host_id)}
                     <label class="echeck">
-                      <input type="checkbox" value={h.host_id} bind:group={selectedHosts} />
+                      <input class="check" type="checkbox" value={h.host_id} bind:group={selectedHosts} />
                       <span class="ename">{h.name || h.host_id}</span>
                       {#if h.is_current}<span class="etag">{t('export.currentTag')}</span>{/if}
                     </label>
@@ -1433,10 +1440,10 @@
         </section>
       {/if}
 
-      {#if sub === 'general' || sub === 'retention' || sub === 'costs' || sub === 'identity'}
+      {#if sub === 'general' || sub === 'updates' || sub === 'retention' || sub === 'costs' || sub === 'identity'}
         <div class="save-row">
           <button type="submit" class="primary" disabled={saving}>{t('settings.save')}</button>
-          {#if message}<span class="ok">{message}</span>{/if}
+          {#if messageKey}<span class="ok" data-testid="settings-feedback">{t(messageKey)}</span>{/if}
           {#if errorMessage}<span class="bad">{errorMessage}</span>{/if}
         </div>
       {/if}

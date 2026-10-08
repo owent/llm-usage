@@ -3,10 +3,16 @@ import { writeFile, mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { spawn } from 'node:child_process';
 import assert from 'node:assert/strict';
+import { freeHttpPort } from './http-test-port.mjs';
 
 const out = resolve('build/browser-smoke') + '/';
 await mkdir(out, {recursive:true});
-const server = spawn(process.execPath, [resolve('desktop/node_modules/vite/bin/vite.js'), '--host', '127.0.0.1', '--port', '1421', '--strictPort'], {cwd:resolve('desktop'),stdio:['ignore','pipe','pipe'],windowsHide:true});
+const testPort = await freeHttpPort();
+const baseUrl = `http://127.0.0.1:${testPort}`;
+const cacheDir = resolve(out, `vite-cache-${Date.now()}`).replaceAll('\\','/');
+const config = resolve(out, 'vite.config.mjs');
+await writeFile(config, `import config from '../../desktop/vite.config.ts';\nexport default {...config,cacheDir:${JSON.stringify(cacheDir)},optimizeDeps:{include:['echarts/core']}};\n`);
+const server = spawn(process.execPath, [resolve('desktop/node_modules/vite/bin/vite.js'), '--config', config, '--host', '127.0.0.1', '--port', String(testPort), '--strictPort'], {cwd:resolve('desktop'),stdio:['ignore','pipe','pipe'],windowsHide:true});
 let browser;
 let testPage;
 const errors = [];
@@ -18,7 +24,7 @@ try {
   let available = false;
   for (let i=0;i<600;i++) {
     if (server.exitCode !== null) throw new Error('Vite test server exited before startup');
-    try { available = (await fetch('http://127.0.0.1:1421')).ok; } catch {}
+    try { available = (await fetch(baseUrl)).ok; } catch {}
     if (available) break;
     await new Promise(r=>setTimeout(r,100));
   }
@@ -30,6 +36,7 @@ testPage = page;
 page.on('pageerror', (e) => errors.push(e.message));
 page.on('console', (message) => { if (message.type() === 'error') browserConsole.push(message.text()); });
 await page.clock.install({ time: new Date('2026-09-27T23:30:00Z') });
+await page.addInitScript(url=>{window.chartModuleUrl=url;}, `/@fs/${cacheDir}/deps/echarts_core.js`);
 await page.addInitScript(() => {
   const stats = (n=1) => ({ input_total_known: String(125000*n), uncached_known: String(25000*n), cache_read_known: String(100000*n), cache_write_known: '0', output_total_known: String(8000*n), total_tokens_known: String(133000*n), input_known_count: 40*n, input_unknown_count: 2*n, output_known_count: 42*n, output_unknown_count: 0, total_known_count: 40*n, total_unknown_count: 2*n, event_count: 42*n, call_count: 42*n, attempt_count: 0, conflict_count: 0, cache_input_ratio: .8, avg_duration_ms:'4250', total_duration_ms:String(170000*n), duration_sample_count: 40*n });
   let settings = { timezone: 'Asia/Shanghai', week_start: 0, retention: { events_days: 7, hourly_days: 3, daily_days: 90, weekly_days: 1095, monthly_days: 3650, yearly_days: null }, refresh_interval_secs: 300, language: 'zh-CN', theme: 'light', manual_roots: [], hostname_alias: null, pricing: {enabled:true,provider_defaults:[],online_refresh_enabled:false} };
@@ -40,6 +47,13 @@ await page.addInitScript(() => {
   let finished = 1790550000000;
   let shortRefreshEndsAt = null;
   window.appCalls = [];
+  window.updateMock = {phase:'idle',current_version:'0.2.2',package_kind:'portable',version:null,asset_name:null,downloaded_bytes:0,total_bytes:0,last_checked_ms:null,error:null};
+  window.updateAutoDownloads = 0;
+  const mockDownload = () => {
+    window.updateMock.phase='downloading';window.updateMock.downloaded_bytes=1024;
+    setTimeout(()=>{if(window.updateMock.phase==='downloading') window.updateMock.downloaded_bytes=2048;},300);
+    setTimeout(()=>{if(window.updateMock.phase==='downloading') {window.updateMock.downloaded_bytes=4096;window.updateMock.phase='ready';}},1500);
+  };
   const budgetClaims=new Set();
   window.detailTotal = 123;
   const telemetryTarget = {id:'copilot-vscode',name:'Copilot · Code',config_path:'C:/Users/local/Code/User/settings.json',output_path:'C:/Users/local/telemetry/events.jsonl',status:'missing',reason:'',configurable:true,kind:'jsonc',docs_url:'https://code.visualstudio.com/docs/agents/guides/monitoring-agents'};
@@ -70,6 +84,25 @@ await page.addInitScript(() => {
     if(cmd==='plugin:event|listen') { (eventListeners[args.event] ??= []).push(args.handler); return; }
     if(cmd==='plugin:event|unlisten') return;
     if(cmd==='get_settings') return settings;
+    if(cmd==='update_status') return {...window.updateMock};
+    if(cmd==='check_update') {
+      window.updateMock.phase='checking';window.updateMock.error=null;
+      setTimeout(()=>{
+        if(window.updateMock.phase!=='checking') return;
+        Object.assign(window.updateMock,{phase:'available',version:'0.3.0',asset_name:'LLMUsage-0.3.0-windows-x64-portable.tar.zst',total_bytes:4096,last_checked_ms:Date.now()});
+        if(settings.updates?.auto_download) {window.updateAutoDownloads++;mockDownload();}
+      },800);return;
+    }
+    if(cmd==='download_update') {mockDownload();return;}
+    if(cmd==='cancel_update') {window.updateMock.phase='cancelled';return;}
+    if(cmd==='install_update') {
+      if(window.updateSlowPreparation) {
+        window.updateMock.phase='verifying';
+        await new Promise(resolve=>setTimeout(resolve,2500));
+        if(window.updateMock.phase==='cancelled') return;
+      }
+      window.updateMock.phase='installing';return;
+    }
     if(cmd==='set_settings') { settings=args.settings; return; }
     if(cmd==='budget_status') {
       const cfg=settings.budget??{enabled:false,metric:'total_tokens',period:'month',threshold:'1000000',currency:'USD'};
@@ -116,6 +149,7 @@ await page.addInitScript(() => {
         unit_prices:i===2?[]:[{price_id:`mock-${i}`,snapshot_id:'Synthetic unit prices',provider_id:['openai','anthropic'][i],model,currency:row.currency,region:'global',channel:'api',service_tier:'standard',context_threshold_tokens:i===1?200000:0,input_per_mtok_hundredths:window.cnyReference?200000:30000,output_per_mtok_hundredths:150000,cache_read_per_mtok_hundredths:3000,cache_write_5m_per_mtok_hundredths:37500,cache_write_1h_per_mtok_hundredths:null}]}));
       models[0].unit_prices.push({...models[0].unit_prices[0],price_id:'mock-long',context_threshold_tokens:272001,input_per_mtok_hundredths:60000});
       const currentRows=[{...row,total_amount_minor:window.cnyReference?12000:q.first_period?500:2468},...(window.multiCurrency?[{...row,currency:'USD',total_amount_minor:2468,partial_event_count:5},{...row,currency:'',priced_event_count:0,unpriced_event_count:197}]:[])];
+      if(window.largeReference) currentRows[0].total_amount_minor=12345678901234;
       if(window.archivePricing) {
         mode.detail_limited=true;
         for(const value of [...currentRows,...models.flatMap(model=>model.current_sim)].filter(value=>value.priced_event_count>0)) {value.upper_amount_minor=value.total_amount_minor*2;value.aggregate_event_count=3;}
@@ -190,7 +224,7 @@ await page.addInitScript(() => {
     throw new Error(`Unhandled command ${cmd}`);
   };
 });
-await page.goto('http://127.0.0.1:1421');
+await page.goto(baseUrl);
 await page.waitForSelector('.today-cards .value');
 await page.clock.runFor(800);
 assert.equal(await page.locator('.quota-card .used').textContent(),'50','fractional quota units are displayed as requests');
@@ -258,13 +292,13 @@ assert.match(await overviewTelemetry.textContent(),/4 暂无数据[\s\S]*0 已�
 assert.doesNotMatch(await overviewTelemetry.textContent(),/配置受限/);
 const todayPanel=page.locator('[data-panel-group="overviewToday"]').filter({has:page.locator('.hourly')});
 const getChartOptions = async (selector) => page.evaluate(async (sel) => {
-  const echarts = await import('/node_modules/.vite/deps/echarts_core.js');
+  const echarts = await import(window.chartModuleUrl);
   return echarts.getInstanceByDom(document.querySelector(sel)).getOption();
 }, selector);
 const dragPeriods = async (selector, first, last) => {
   await page.locator(selector).scrollIntoViewIfNeeded();
   const points = await page.locator(selector).evaluate(async (el, [first,last]) => {
-    const echarts = await import('/node_modules/.vite/deps/echarts_core.js');
+    const echarts = await import(window.chartModuleUrl);
     const chart = echarts.getInstanceByDom(el), box = el.getBoundingClientRect();
     return {first:box.left+chart.convertToPixel({xAxisIndex:0},first),last:box.left+chart.convertToPixel({xAxisIndex:0},last),y:box.top+box.height/2};
   }, [first,last]);
@@ -275,7 +309,7 @@ const dragPeriods = async (selector, first, last) => {
   await page.mouse.up();await page.clock.runFor(400);
 };
 const todayTotalTypes=await page.evaluate(async ()=>{
-  const echarts=await import('/node_modules/.vite/deps/echarts_core.js');
+  const echarts=await import(window.chartModuleUrl);
   return echarts.getInstanceByDom(document.querySelector('[data-panel-group="overviewToday"] .hourly')).getOption().series.map(s=>s.type);
 });
 assert.deepEqual(todayTotalTypes,['line','line'],'today overview keeps a line (curve) chart for calls and tokens');
@@ -298,7 +332,7 @@ for(const [index,dimension] of [[1,'model'],[3,'agent_model'],[2,'agent']]) {
   assert.equal(request.dimension,dimension);assert.equal(request.q.granularity,'hour');
 }
 await page.evaluate(async () => {
-  const echarts=await import('/node_modules/.vite/deps/echarts_core.js');
+  const echarts=await import(window.chartModuleUrl);
   echarts.getInstanceByDom(document.querySelector('[data-panel-group="overviewToday"] .hourly')).dispatchAction({type:'showTip',seriesIndex:0,dataIndex:0});
 });await page.clock.runFor(100);
 assert.match(await todayPanel.textContent(),/vscode-copilot-chat: ≥ 300,000/,'overview hover uses a compact observed total');
@@ -330,7 +364,7 @@ const todayAgentPie=page.locator('[data-panel-group="overviewToday"]').filter({h
 assert.match(await todayAgentPie.textContent(),/vscode-copilot-chat/,'unknown totals retain the Agent name beside the pie');
 await todayAgentPie.getByRole('button',{name:'输入 token',exact:true}).click();await page.clock.runFor(300);
 assert.ok(await todayAgentPie.locator('.pie').evaluate(async el=>{
-  const echarts=await import('/node_modules/.vite/deps/echarts_core.js');return echarts.getInstanceByDom(el).getOption().series[0].data.some(d=>d.name==='vscode-copilot-chat'&&d.value===300000);
+  const echarts=await import(window.chartModuleUrl);return echarts.getInstanceByDom(el).getOption().series[0].data.some(d=>d.name==='vscode-copilot-chat'&&d.value===300000);
 }),'known Copilot input appears in the input pie');
 assert.equal(await page.evaluate(()=>window.appCalls.find(c=>c.cmd==='summary').args.q.last_day),'2026-09-28');
 
@@ -417,7 +451,7 @@ assert.equal(inputOptions.series.find(s=>s.name==='vscode-copilot-chat · 输入
 assert.equal(inputOptions.series.find(s=>s.name==='vscode-copilot-chat · 缓存读取').data[0],null,'unknown cache input is not invented');
 await trendTokens.getByRole('button',{name:'总 token',exact:true}).click();await page.clock.runFor(300);
 await page.evaluate(async (sel) => {
-  const echarts = await import('/node_modules/.vite/deps/echarts_core.js');
+  const echarts = await import(window.chartModuleUrl);
   const chart=echarts.getInstanceByDom(document.querySelector(sel));
   chart.dispatchAction({type:'showTip',seriesIndex:0,dataIndex:0});
 },tokenSelector);await page.clock.runFor(100);
@@ -472,7 +506,7 @@ await page.locator('[data-panel-group="trendMain"] .curve').scrollIntoViewIfNeed
 await page.locator('[data-panel-group="trendMain"] .controls').getByRole('button',{name:'按模型',exact:true}).click();await page.clock.runFor(100);
 assert.equal((await getChartOptions('[data-panel-group="trendMain"] .curve')).series.length,3,'cost curve can compare individual models');
 const tooltipValues=await page.locator('[data-panel-group="trendMain"] .curve').evaluate(async el=>{
-  const echarts=await import('/node_modules/.vite/deps/echarts_core.js');const chart=echarts.getInstanceByDom(el);
+  const echarts=await import(window.chartModuleUrl);const chart=echarts.getInstanceByDom(el);
   chart.dispatchAction({type:'showTip',seriesIndex:0,dataIndex:0});
   const formatter=chart.getOption().tooltip[0].formatter;
   return ['-',null,0,100].map(value=>formatter([{value,axisValue:'2026-09-15',seriesName:'USD / sample',marker:''}]));
@@ -483,7 +517,7 @@ assert.match(tooltipValues[2],/0\.00/,'known zero is a real zero, not missing');
 assert.match(tooltipValues[3],/1\.00/);
 await trendTokens.scrollIntoViewIfNeeded();
 const selectionPoint=await page.locator(tokenSelector).evaluate(async el=>{
-  const echarts=await import('/node_modules/.vite/deps/echarts_core.js');const chart=echarts.getInstanceByDom(el);
+  const echarts=await import(window.chartModuleUrl);const chart=echarts.getInstanceByDom(el);
   const bounds=el.getBoundingClientRect();const point=chart.convertToPixel({gridIndex:0},[1,100000]);
   return {x:bounds.left+point[0],y:bounds.top+point[1]};
 });
@@ -505,31 +539,31 @@ for(const [selector,first,last] of [[tokenSelector,1,3],['[data-panel-group="tre
   if(selector===tokenSelector)await page.locator(selector).screenshot({path:out+'trend-drag-selection.png'});
   await page.locator('.range-reset').click();await page.clock.runFor(100);
   assert.equal(await page.locator(selector).evaluate(async el=>{
-    const echarts=await import('/node_modules/.vite/deps/echarts_core.js');
+    const echarts=await import(window.chartModuleUrl);
     return echarts.getInstanceByDom(el).getModel().getComponent('brush').areas.length;
   }),0,'reset clears the visible brush');
 }
 assert.ok((await getChartOptions('[data-panel-group="trendMain"] .pie')).series[0].data.some(row=>row.name==='gpt-5.4'&&row.value===798000),'reset restores full-query distributions');
 await page.evaluate(async sel=>{
-  const echarts=await import('/node_modules/.vite/deps/echarts_core.js');
+  const echarts=await import(window.chartModuleUrl);
   echarts.getInstanceByDom(document.querySelector(sel)).dispatchAction({type:'dataZoom',startValue:2,endValue:4});
 },tokenSelector);await page.clock.runFor(400);
 assert.match(await page.locator('.range-summary .range-caption').textContent(),/2026-09-17 ~ 2026-09-19/,'zooming selects the visible x-axis range');
 const selectionRequest=await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='summary'&&c.args.q.first_period).at(-1).args.q);
 assert.equal(selectionRequest.first_day,'2026-09-17');assert.equal(selectionRequest.last_day,'2026-09-19');
 await page.evaluate(async sel=>{
-  const echarts=await import('/node_modules/.vite/deps/echarts_core.js');
+  const echarts=await import(window.chartModuleUrl);
   echarts.getInstanceByDom(document.querySelector(sel)).trigger('click',{componentType:'xAxis',value:'2026-09-18'});
 },tokenSelector);await page.clock.runFor(300);
 assert.match(await page.locator('.range-summary .range-caption').textContent(),/选定范围[：:]2026-09-18/,'x-axis labels also select a period');
 await page.evaluate(async sel=>{
   window.selectionDelay=900;
-  const echarts=await import('/node_modules/.vite/deps/echarts_core.js');
+  const echarts=await import(window.chartModuleUrl);
   echarts.getInstanceByDom(document.querySelector(sel)).trigger('click',{componentType:'xAxis',value:'2026-09-19'});
 },tokenSelector);await page.clock.runFor(100);
 await page.evaluate(async sel=>{
   window.selectionDelay=0;
-  const echarts=await import('/node_modules/.vite/deps/echarts_core.js');
+  const echarts=await import(window.chartModuleUrl);
   echarts.getInstanceByDom(document.querySelector(sel)).trigger('click',{componentType:'xAxis',value:'2026-09-18'});
 },tokenSelector);await page.clock.runFor(1_000);
 assert.equal(await page.locator('.range-summary .scard').first().locator('.svalue').textContent(),'84','an older selection response cannot replace the current summary');
@@ -546,7 +580,7 @@ await page.locator('.filters select').first().selectOption('today');await page.c
 const hourlyCost=await getChartOptions('[data-panel-group="trendMain"] .curve');
 assert.equal(hourlyCost.xAxis[0].data.length,1,'hourly usage keeps costs on one daily axis');
 await page.evaluate(async sel=>{
-  const echarts=await import('/node_modules/.vite/deps/echarts_core.js');
+  const echarts=await import(window.chartModuleUrl);
   const chart=echarts.getInstanceByDom(document.querySelector(sel));
   chart.dispatchAction({type:'dataZoom',startValue:1,endValue:3});
 },tokenSelector);await page.clock.runFor(300);
@@ -603,11 +637,44 @@ assert.equal(await page.locator('#price-refresh-enabled').isChecked(),true,'the 
 await page.locator('label[for="price-refresh-enabled"]').click();
 assert.equal(await page.locator('#price-refresh-enabled').isChecked(),false);
 await page.screenshot({path:out+'settings-switches-light.png',fullPage:true});
+for(const section of ['general','system','costs','updates']) {
+  await page.locator(`[data-settings-section="${section}"]`).click();
+  const controls=page.locator('.settings-layout input[type="checkbox"]');
+  assert.ok(await controls.count()>0,section+' has switches');
+  for(const control of await controls.all()) {
+    assert.equal(await control.getAttribute('role'),'switch',section);
+    assert.equal(await control.evaluate(el=>getComputedStyle(el).appearance),'none',section);
+    assert.equal(await control.evaluate(el=>getComputedStyle(el).width),'40px',section);
+  }
+}
+await page.locator('[data-settings-section="general"]').click();
+const saver=page.locator('.switch-field input').first();
+const savedSaver=await saver.isChecked();
+await saver.focus();await page.keyboard.press('Space');
+assert.equal(await saver.isChecked(),!savedSaver);
+await page.getByRole('button',{name:'保存',exact:true}).click();
+assert.equal(await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='set_settings').at(-1).args.settings.pause_on_battery_saver),!savedSaver);
+await saver.locator('..').click();
+assert.equal(await saver.isChecked(),savedSaver);
+await page.getByRole('button',{name:'保存',exact:true}).click();
+await page.locator('[data-settings-section="export"]').click();
+const exportCheck=page.locator('input.check').first();
+assert.ok(await page.locator('input.check').count()>1);
+assert.equal(await exportCheck.getAttribute('role'),null,'multiple selections retain checkbox semantics');
+assert.equal(await exportCheck.evaluate(el=>getComputedStyle(el).appearance),'none');
+const selected=await exportCheck.isChecked();
+await exportCheck.focus();await page.keyboard.press('Space');
+assert.equal(await exportCheck.isChecked(),!selected);
+await exportCheck.locator('..').click();assert.equal(await exportCheck.isChecked(),selected);
+await page.screenshot({path:out+'settings-export-custom.png',fullPage:true});
+await page.emulateMedia({forcedColors:'active'});
+assert.equal(await exportCheck.evaluate(el=>getComputedStyle(el).appearance),'auto','system high contrast keeps native checkbox visibility');
+await page.emulateMedia({forcedColors:'none'});
 await page.locator('[data-settings-section="telemetry"]').click();
 assert.equal(await page.locator('[data-telemetry-id="copilot-vscode"]').count(),1,'settings provides the same merge-configuration entry');
 await page.locator('[data-settings-section="general"]').click();
 await page.screenshot({path:out+'settings-light.png',fullPage:true});
-await page.getByRole('radio',{name:'暗色',exact:true}).click();
+await page.getByRole('radio',{name:'深色',exact:true}).click();
 await page.getByRole('button',{name:'保存',exact:true}).click();
 await page.getByRole('navigation').first().getByRole('button',{name:'总览',exact:true}).click();
 await page.clock.runFor(500);
@@ -632,11 +699,22 @@ await page.getByRole('navigation').first().getByRole('button',{name:'設定',exa
 await page.getByLabel('表示言語',{exact:true}).selectOption('es');
 await page.getByRole('button',{name:'保存',exact:true}).click();
 assert.equal(await page.getByRole('navigation').first().getByRole('button',{name:'Tendencias',exact:true}).count(),1,'Spanish navigation updates immediately');
-for (const locale of ['zh-TW','ko','fr','de','pt-BR','ru','en','zh-CN']) {
+const savedLabels = {ja:'保存しました',es:'Guardado','zh-TW':'已儲存',ko:'저장됨',fr:'Enregistré',de:'Gespeichert','pt-BR':'Salvo',ru:'Сохранено',en:'Saved','zh-CN':'已保存'};
+for (const locale of ['ja','es','zh-TW','ko','fr','de','pt-BR','ru','en','zh-CN']) {
   await page.locator('[data-testid="language-select"]').selectOption(locale);
   await page.locator('form button[type="submit"]').click();
   assert.equal(await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='set_settings').at(-1).args.settings.language),locale,locale+' persists');
   assert.equal(await page.locator('[data-testid="language-select"]').inputValue(),locale,locale+' remains selected');
+  await page.getByTestId('settings-feedback').filter({hasText:savedLabels[locale]}).waitFor({state:'visible'});
+  assert.equal(await page.getByTestId('settings-feedback').textContent(),savedLabels[locale],locale+' save feedback uses the new language');
+  await page.locator('[data-settings-section="updates"]').click();
+  await page.setViewportSize({width:760,height:1000});
+  assert.equal(await page.getByTestId('update-schedule').locator('option').count(),4,locale+' update choices remain available');
+  assert.equal(/updates\./.test(await page.getByTestId('update-settings').textContent()),false,locale+' update labels resolve');
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth > innerWidth),false,locale+' update settings fit narrow layout');
+  await page.screenshot({path:out+'updates-'+locale+'-narrow.png',fullPage:true});
+  await page.locator('[data-settings-section="general"]').click();
+  await page.setViewportSize({width:1440,height:1100});
   if (locale==='de' || locale==='ru') {
     await page.setViewportSize({width:760,height:1000});
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth > innerWidth),false,locale+' settings fit narrow layout');
@@ -677,7 +755,7 @@ for(const index of [1,3,2]) {
   assert.deepEqual(option.series[0].data,[115000]);assert.deepEqual(option.series[1].data,[null]);
   assert.match(option.yAxis[0].name,/token/i);
 }
-await page.evaluate(async ()=>{const echarts=await import('/node_modules/.vite/deps/echarts_core.js');echarts.getInstanceByDom(document.querySelector('[data-panel-group="overviewToday"] .hourly')).dispatchAction({type:'showTip',seriesIndex:0,dataIndex:0});});await page.clock.runFor(100);
+await page.evaluate(async ()=>{const echarts=await import(window.chartModuleUrl);echarts.getInstanceByDom(document.querySelector('[data-panel-group="overviewToday"] .hourly')).dispatchAction({type:'showTip',seriesIndex:0,dataIndex:0});});await page.clock.runFor(100);
 assert.match(await singlePanel.textContent(),/vscode-copilot-chat: ≥ 300,000/,'single-hour hover retains the observed lower bound');
 await page.screenshot({path:out+'overview-narrow.png',fullPage:true});
 assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth > innerWidth),false,'no horizontal page overflow');
@@ -726,6 +804,26 @@ assert.match(await page.locator('.tables').textContent(),/k28-agent-preview[\s\S
 assert.match(await feePanel.locator('.unit-prices').textContent(),/kimi-k2\.8-preview[\s\S]*kimi-k2\.7-code/,'unit prices keep identity distinct from price substitution');
 assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth > innerWidth),false,'substitute labels do not overflow narrow layouts');
 await feePanel.screenshot({path:out+'cost-substitute-narrow.png'});
+await page.evaluate(()=>{window.largeReference=true;});
+await page.getByRole('button',{name:'采集并刷新',exact:true}).click();await page.clock.runFor(800);
+const overflowChecks=[];
+for(const view of ['趋势','总览']) {
+  await page.getByRole('navigation').first().getByRole('button',{name:view,exact:true}).click();await page.clock.runFor(400);
+  for(const width of [760,1440,1660,1920]) {
+    await page.setViewportSize({width,height:1100});await page.clock.runFor(100);
+    const card=page.locator(view==='趋势'?'.range-summary .cost-ref':'.today-cards .cost-ref');
+    await card.screenshot({path:out+`cost-overflow-${view==='趋势'?'trend':'overview'}-${width}.png`});
+    const bounds=await card.evaluate(el=>({cardWidth:el.clientWidth,scrollWidth:el.scrollWidth,children:[...el.querySelectorAll('.money, .money > span, .money > small')].map(child=>({width:child.getBoundingClientRect().width,clientWidth:child.clientWidth,scrollWidth:child.scrollWidth,right:child.getBoundingClientRect().right,cardRight:el.getBoundingClientRect().right,text:child.textContent}))}));
+    overflowChecks.push({view,width,...bounds});
+    assert.ok((await card.locator('.money').first().getAttribute('title')).length>30,'full amount range remains available');
+    const converted=card.locator('.money > small').filter({hasText:'≈ USD'}).first();
+    assert.ok((await converted.getAttribute('title')).includes(await converted.textContent()),'full converted range remains available');
+  }
+}
+await writeFile(out+'cost-overflow.json',JSON.stringify(overflowChecks,null,2));
+assert.ok(overflowChecks.every(card=>card.scrollWidth<=card.cardWidth && card.children.every(child=>child.right<=child.cardRight+1)),'every amount and supplemental label stays inside its reference card: '+JSON.stringify(overflowChecks));
+await page.evaluate(()=>{window.largeReference=false;});
+await page.setViewportSize({width:760,height:1000});
 await page.getByRole('navigation').first().getByRole('button',{name:'设置',exact:true}).click();
 await page.locator('[data-settings-section="costs"]').click();
 await page.getByRole('switch',{name:'启用提醒',exact:true}).check();
@@ -739,9 +837,63 @@ assert.match(await reminder.textContent(),/未知用量/);
 await reminder.getByRole('button').click();
 await page.clock.runFor(11000);
 assert.equal(await reminder.count(),0,'a dismissed claimed threshold does not reappear');
+await page.locator('[data-settings-section="updates"]').click();
+assert.equal(await page.getByTestId('update-schedule').inputValue(),'daily');
+assert.equal(await page.getByTestId('update-auto-download').isChecked(),false);
+await page.getByTestId('update-schedule').selectOption('weekly');
+await page.getByTestId('update-auto-download').check();
+await page.getByRole('button',{name:'保存',exact:true}).click();await page.clock.runFor(300);
+assert.deepEqual(await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='set_settings').at(-1).args.settings.updates),{schedule:'weekly',auto_download:true});
+await page.getByTestId('update-auto-download').uncheck();
+await page.getByTestId('update-schedule').selectOption('manual');
+await page.getByRole('button',{name:'保存',exact:true}).click();await page.clock.runFor(300);
+await page.getByTestId('check-update').click();await page.clock.runFor(900);
+const updateNotice=page.getByTestId('update-notice');
+await updateNotice.waitFor({state:'visible'});
+assert.match(await updateNotice.textContent(),/0\.3\.0/);
+assert.equal(await page.evaluate(()=>window.updateAutoDownloads),0);
+assert.equal(await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='install_update').length),0);
+await updateNotice.getByTestId('download-update').click();await page.clock.runFor(1200);
+assert.equal(await updateNotice.locator('progress').getAttribute('value'),'2048');
+await page.getByRole('navigation').first().getByRole('button',{name:'趋势',exact:true}).click();
+assert.equal(await updateNotice.locator('progress').count(),1,'download progress persists across pages');
+await page.clock.runFor(1600);
+assert.equal(await updateNotice.getByTestId('install-update').textContent(),'重启并更新');
+await updateNotice.getByTestId('dismiss-update').click();await page.clock.runFor(2000);
+assert.equal(await updateNotice.count(),0,'dismissed ready notice stays hidden until status changes');
+await page.getByRole('navigation').first().getByRole('button',{name:'设置',exact:true}).click();
+await page.locator('[data-settings-section="updates"]').click();
+await page.getByTestId('update-settings').getByTestId('install-update').click();await page.clock.runFor(100);
+assert.equal(await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='install_update').length),1,'installation requires an explicit click');
+await page.evaluate(()=>{Object.assign(window.updateMock,{phase:'available',package_kind:'portable'});});await page.clock.runFor(1100);
+await updateNotice.getByTestId('download-update').click();await page.clock.runFor(200);
+await updateNotice.getByTestId('cancel-update').click();await page.clock.runFor(1800);
+assert.equal(await page.getByTestId('update-settings').locator('progress').count(),0);
+assert.match(await page.getByTestId('update-settings').textContent(),/已取消/);
+await page.getByTestId('update-auto-download').check();
+await page.getByRole('button',{name:'保存',exact:true}).click();await page.clock.runFor(300);
+await page.getByTestId('check-update').click();await page.clock.runFor(1100);
+assert.equal(await page.evaluate(()=>window.updateAutoDownloads),1);
+await page.setViewportSize({width:760,height:1000});
+await page.screenshot({path:out+'update-downloading-narrow.png',fullPage:true});
+assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+await page.clock.runFor(1800);
+assert.equal(await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='install_update').length),1,'automatic download never installs');
+await page.evaluate(()=>{Object.assign(window.updateMock,{phase:'ready',package_kind:'installer',asset_name:'LLMUsage_0.3.0_x64-setup.exe'});});await page.clock.runFor(1100);
+assert.equal(await updateNotice.getByTestId('install-update').textContent(),'安装更新');
+await page.evaluate(()=>{Object.assign(window.updateMock,{phase:'error',error:'update_package_digest_mismatch'});});await page.clock.runFor(1100);
+assert.match(await updateNotice.textContent(),/update_package_digest_mismatch/);
+await page.screenshot({path:out+'update-error-narrow.png',fullPage:true});
+await page.evaluate(()=>{Object.assign(window.updateMock,{phase:'up_to_date',error:null,previous_error:'update_parent_exit_timeout'});});await page.clock.runFor(1100);
+assert.match(await updateNotice.textContent(),/update_parent_exit_timeout/,'previous helper failures remain visible after a successful check');
+await page.evaluate(()=>{Object.assign(window.updateMock,{phase:'ready',error:null,previous_error:null});window.updateSlowPreparation=true;});await page.clock.runFor(1100);
+await updateNotice.getByTestId('install-update').click();await page.clock.runFor(1100);
+assert.equal(await updateNotice.getByTestId('cancel-update').isEnabled(),true,'preparation can be cancelled while install IPC is pending');
+await updateNotice.getByTestId('cancel-update').click();await page.clock.runFor(3000);
+assert.match(await page.getByTestId('update-settings').textContent(),/已取消更新/);
 assert.deepEqual(errors,[]);
-await writeFile(out+'browser-results.json',JSON.stringify({errors,requests:await page.evaluate(()=>window.appCalls.length),checks:['five pages','hourly tokens across three dimensions and single-hour views','concise token tooltip with one lower-bound note','compact multi-currency summary and panel','expanded narrow price details without overflow','full-year light/dark heatmap','year navigation and leap days','future/retained dates','Copilot input with unknown cache split','Copilot unknown total hover and zero output','async telemetry discovery','compact overview with two actions','details navigation and focus','batch partial failure and retry','existing/managed outputs preserved','cross-page progress and undo','installed Agents only','merge configuration preview/apply/undo','ten locale switches','narrow telemetry layout in Chinese/German/Russian','default panel order','source health and compatibility','statistics timezone','initial/idle query counts','stale filter responses','user isolation','source membership without revision','refresh preserves pagination','retention clamps pagination']},null,2));
-console.log('Browser checks passed: hourly tokens in all three grouped dimensions and single-hour views, concise token tooltips, compact multi-currency reference cards/panels and expanded narrow details, total-only series, partial share pies, telemetry batch setup/retry/undo, ten locales, themes, timezone, filters and pagination.');
+await writeFile(out+'browser-results.json',JSON.stringify({errors,requests:await page.evaluate(()=>window.appCalls.length),checks:['update settings save and defaults','manual update check and package labels','global cross-page download progress and cancellation','automatic download requires explicit installation','update failure and saved helper failure notices','five pages','hourly tokens across three dimensions and single-hour views','concise token tooltip with one lower-bound note','compact multi-currency summary and panel','expanded narrow price details without overflow','full-year light/dark heatmap','year navigation and leap days','future/retained dates','Copilot input with unknown cache split','Copilot unknown total hover and zero output','async telemetry discovery','compact overview with two actions','details navigation and focus','batch partial failure and retry','existing/managed outputs preserved','cross-page progress and undo','installed Agents only','merge configuration preview/apply/undo','ten locale switches','narrow telemetry layout in Chinese/German/Russian','default panel order','source health and compatibility','statistics timezone','initial/idle query counts','stale filter responses','user isolation','source membership without revision','refresh preserves pagination','retention clamps pagination']},null,2));
+console.log('Browser checks passed: update settings/progress/cancellation/explicit install/errors, hourly tokens in all three grouped dimensions and single-hour views, concise token tooltips, compact multi-currency reference cards/panels and expanded narrow details, total-only series, partial share pies, telemetry batch setup/retry/undo, ten locales, themes, timezone, filters and pagination.');
 } catch (error) {
   const snapshot = testPage ? await testPage.evaluate(() => ({ calls: window.appCalls ?? [], text: document.body.innerText })).catch(() => null) : null;
   await writeFile(out+'failure.json',JSON.stringify({error:String(error),errors,console:browserConsole,snapshot},null,2));

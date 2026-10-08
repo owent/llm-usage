@@ -2,7 +2,7 @@
 
 <a id="桌面用量客户端执行计划"></a>
 
-Current version: 0.2.2. Windows 11 x64 is the first desktop target; Windows/Linux/macOS CI
+Current version: 0.3.0. Windows 11 x64 is the first desktop target; Windows/Linux/macOS CI
 is retained. This file owns the executable work for the current round. Removed scope and
 first failures are recorded in the [round record](docs/validation/desktop-usage/plan-20261007.md);
 removal does not mean acceptance passed. Historical results are indexed in
@@ -105,6 +105,13 @@ pair review and contextual wording checks. First failures, validation commands a
 <a id="执行边界"></a>
 
 ## Execution boundaries
+
+Software updates follow [the update requirements](docs/design/desktop-usage/application-updates.md);
+implementation and local results are in [update validation](docs/validation/desktop-usage/application-updates.md).
+Version 0.3.0 cost-card, settings and native Codex corrections are recorded in
+[local release checks](docs/validation/desktop-usage/release-030.md).
+Remaining acceptance: run real NSIS updater/lifecycle checks when the existing application is stopped;
+verify a newer public release when available, and record Linux/macOS native GUI updates separately.
 
 - Inspect source, configuration, tests and version references before conclusions; synchronize affected rules, skills, design specifications and records.
 - Collect only local sources. Preserve unknown values and separate calls/messages/cumulative data/quotas. Estimates default off; currencies stay separate.

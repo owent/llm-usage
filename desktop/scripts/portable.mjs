@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { chmod, copyFile, cp, lstat, mkdir, mkdtemp, readFile, readdir, readlink, rename, rm, writeFile } from 'node:fs/promises';
+import { chmod, copyFile, cp, lstat, mkdir, mkdtemp, readFile, readdir, readlink, realpath, rename, rm, writeFile } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -69,6 +69,7 @@ async function tree(root) {
         entry.link = await readlink(path);
         const target = resolve(directory, entry.link);
         if (relative(root, target).startsWith('..')) throw new Error(`Archive symlink escapes its directory: ${entry.path}`);
+        if (relative(root, await realpath(path)).startsWith('..')) throw new Error(`Resolved archive symlink escapes its directory: ${entry.path}`);
       } else if (info.isDirectory()) {
         entry.directory = true;
       } else if (info.isFile()) {
@@ -111,6 +112,13 @@ export async function archivePortable({ platform, arch, version, input, binary, 
     await lstat(join(stage, entrypoint));
     const instructions = await readFile(join(repository, 'desktop', 'portable', `${platform}.txt`));
     await writeFile(join(stage, 'README.txt'), instructions);
+    const native = (await tree(stage)).find(entry => entry.sha256 === binaryHash);
+    if (!native) throw new Error('Staging omitted the native executable');
+    const managed = [...await readdir(stage), 'llmusage-package.json'].sort();
+    await writeFile(join(stage, 'llmusage-package.json'), JSON.stringify({
+      schema: 1, kind: 'portable', platform, arch, version,
+      executable: native.path, entrypoint, managed,
+    }, null, 2) + '\n');
     const expected = await tree(stage);
     if (!expected.some(entry => entry.sha256 === binaryHash)) throw new Error('Staging omitted the native executable');
     // Materialize tar before compression; an external tar/zstd pipe can stall on large Windows archives.

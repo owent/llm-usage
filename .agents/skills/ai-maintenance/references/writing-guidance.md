@@ -55,6 +55,18 @@ captions and repeated patterns in neighboring docs/navigation/footers. Write nat
 explanations independently in each language. Do not preserve English slogans for literal
 equivalence or bulk-rewrite ordinary technical sequences.
 
+## Interface terminology and localization
+
+Review labels against the actual control/action and official localized software interfaces.
+Use familiar terms in each locale rather than translating an English noun mechanically.
+Simplified Chinese uses `软件更新`, `浅色`/`深色` and `登录时自动启动` for these controls;
+Traditional Chinese uses `軟體更新`. Keep collection, screen refresh and software updates
+distinct. Name the object of defaults, durations and status labels; buttons describe the
+action they actually perform. A dismiss button cannot promise a scheduled reminder.
+Review complete messages, placeholders, regional word choices and neighboring help/docs.
+Retain valid technical terms, identifiers and verb uses such as `应用配置` (apply settings).
+Record sources and review scope; language completeness tests do not establish linguistic quality.
+
 <a id="中文表达"></a>
 
 ## Chinese wording

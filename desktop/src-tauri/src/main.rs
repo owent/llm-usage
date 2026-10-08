@@ -22,6 +22,8 @@ mod source_intervals;
 mod system_tasks;
 mod telemetry_setup;
 mod tray;
+mod update_package;
+mod updates;
 
 use app_state::AppState;
 use std::sync::atomic::AtomicBool;
@@ -81,6 +83,9 @@ fn db_path() -> Result<std::path::PathBuf, String> {
 }
 
 fn main() {
+    if update_package::helper_entry() {
+        return;
+    }
     if std::env::args().any(|arg| arg == "--uninstall-cleanup") {
         #[cfg(windows)]
         if let Err(error) = installation::cleanup() {
@@ -91,6 +96,20 @@ fn main() {
         return;
     }
     let headless = std::env::args().any(|a| a == "--headless" || a == "--scan-once");
+    match update_package::recover_before_startup(headless) {
+        Ok(true) => return,
+        Ok(false) => {}
+        Err(error) => {
+            if headless {
+                eprintln!("{error}");
+                std::process::exit(1);
+            }
+            rfd::MessageDialog::new().set_title("LLM Usage update")
+                .set_description(format!("更新恢复未完成，请检查应用目录中的 .llmusage-update/apply.json。\nUpdate recovery requires review: {error}"))
+                .show();
+            return;
+        }
+    }
     let path = db_path().unwrap_or_else(|error| {
         eprintln!("{error}");
         std::process::exit(2);
@@ -203,6 +222,7 @@ fn main() {
     tauri::Builder::default()
         .setup(|app| {
             let state = app.state::<Arc<AppState>>();
+            updates::start_scheduler(app.handle().clone(), Arc::clone(&state));
             if let Err(error) = crate::tray::apply(app.handle(), &state.settings.lock().unwrap()) {
                 eprintln!("tray setup failed: {error}");
             }
@@ -224,6 +244,7 @@ fn main() {
             Ok(())
         })
         .manage(Arc::clone(&state))
+        .manage(updates::UpdateService::default())
         .on_window_event(crate::tray::close_requested)
         .invoke_handler(tauri::generate_handler![
             commands::summary,
@@ -234,6 +255,11 @@ fn main() {
             commands::refresh_sources,
             commands::refresh_status,
             commands::get_settings,
+            updates::update_status,
+            updates::check_update,
+            updates::download_update,
+            updates::cancel_update,
+            updates::install_update,
             commands::set_settings,
             commands::app_info,
             commands::export_data,

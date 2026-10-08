@@ -35,6 +35,10 @@ Zed 外部 Provider 实样见 [本轮记录](../../validation/desktop-usage/plan
 成功解析的数据可正常统计，并单独展示未验证兼容状态、所用解析器及覆盖缺口；
 不能仅因版本未收录就设为 unsupported_format，也不能把兼容尝试成功写成逐版本验证通过。
 
+0.3.0 补充八个逐一核对的 Codex 原生版本，精确注册表现有 26 个旧格式和七个新格式版本。
+下表原有的 21 个旧格式映射仍是历史依据，详见[新增样本与恢复](../../validation/desktop-usage/release-030.md)。
+其他版本继续进行兼容检查，不继承这些核验结论。
+
 <a id="user-specified-tools"></a>
 
 ## 用户指定工具

@@ -60,6 +60,9 @@ See [architecture](architecture.md) for alternatives and [research](research.md)
 
 ## Pages and interactions
 
+[Software updates](application-updates.md) defines automatic/manual checks, optional downloads,
+global progress, package identity and installation/portable replacement with recovery.
+
 M6 implements one main window and five navigation pages: Overview, Trends, Sources, Details
 and Settings. Overview/Trends panels can be hidden and dragged into order. Automatic collection
 has one global interval, initially one hour; 0 disables it. Each source can be enabled/disabled
@@ -87,7 +90,7 @@ with local previews. UI/tray/empty-state interactions have separate M6 desktop c
 The implemented M6 layout illustrates information groups; panels remain hideable/reorderable:
 
 ```text
-[Overview] [Trends] [Sources] [Details] [Settings]   [Time range] [Refresh today] [User]
+[Overview] [Trends] [Sources] [Details] [Settings]   [Time range] [Collect & refresh] [User]
 Input (including cache) | Output | Total tokens | Cached | Uncached | Cache-input ratio
 Today's hourly chart, model/Agent pies and tables (Overview: today)
 Calls/sessions, tokens, activity calendar, weekday distribution (Overview: history/Trends)

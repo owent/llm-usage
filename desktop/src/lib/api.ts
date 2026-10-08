@@ -34,8 +34,27 @@ export interface AppSettings {
   /** F2 cost estimation, off by default and when absent from historical settings JSON. */
   pricing?: PricingSettings;
   budget?: BudgetSettings;
+  updates?: UpdateSettings;
   otel_receiver_enabled?: boolean;
   otel_receiver_port?: number;
+}
+
+export interface UpdateSettings {
+  schedule: 'manual' | 'launch' | 'daily' | 'weekly';
+  auto_download: boolean;
+}
+
+export interface UpdateStatusDto {
+  phase: 'idle' | 'checking' | 'up_to_date' | 'available' | 'downloading' | 'verifying' | 'ready' | 'installing' | 'cancelled' | 'error';
+  current_version: string;
+  package_kind: 'portable' | 'installer' | 'unknown';
+  version: string | null;
+  asset_name: string | null;
+  downloaded_bytes: number;
+  total_bytes: number;
+  last_checked_ms: number | null;
+  error: string | null;
+  previous_error?: string | null;
 }
 
 export interface BudgetSettings {
@@ -508,6 +527,11 @@ export interface QuotaSeriesDto {
 }
 
 export const api = {
+  updateStatus: () => invoke<UpdateStatusDto>('update_status'),
+  checkUpdate: () => invoke<void>('check_update'),
+  downloadUpdate: () => invoke<void>('download_update'),
+  cancelUpdate: () => invoke<void>('cancel_update'),
+  installUpdate: () => invoke<void>('install_update'),
   telemetryCheck: () => invoke<TelemetryTargetDto[]>('telemetry_check'),
   telemetryPreview: (id: string) => invoke<TelemetryPreviewDto>('telemetry_preview', { id }),
   telemetryApply: (token: string) => invoke<void>('telemetry_apply', { token }),

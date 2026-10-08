@@ -164,6 +164,12 @@ choices and specified time, token or cost limits.
 
 ## Work routing
 
+Update/package maintenance follows [software updates](../../../../docs/design/desktop-usage/application-updates.md).
+Retain installed/portable identity and executable paths, strict release selection and verified digests.
+Test helper exit waits, interrupted journals, rollback, unrelated files and database preservation.
+Public release checks and injected native updates are separate evidence; Windows tests do not verify
+Linux/macOS desktop updates. Do not add signing credentials or publish releases without authorization.
+
 For cumulative semantics, inspect normalization, actual APIs and native records. Distinguish total/uncached
 input, output/reasoning subsets and default/reported zeros. Database migrations do not identify historical
 client versions. Regress complete old summaries, consumed positions, concurrency/rollback and invalid rows.

@@ -31,6 +31,16 @@ pub const LATEST_IMPL_ID: &str = "rollout_v1";
 /// explained. Representative 0.139.0/0.142.5/0.146.0-alpha.3 samples verify
 /// reading/parsing/storage/queries; see rollout_legacy.rs and the M2-D validation record.
 pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[
+    // Eight native versions independently checked on 2026-10-08; release-030 samples
+    // cover dispatch, six token fields, null compaction carries and repeat reads.
+    ("0.162.0-alpha.2", "rollout_v1"),
+    ("0.155.0-alpha.16", "rollout_v1"),
+    ("0.153.4", "rollout_v1"),
+    ("0.151.0-alpha.7.2", "rollout_legacy"),
+    ("0.150.0-alpha.12.2", "rollout_legacy"),
+    ("0.150.0-alpha.8", "rollout_legacy"),
+    ("0.149.0-alpha.4", "rollout_legacy"),
+    ("0.148.0-alpha.21", "rollout_legacy"),
     // M2-A native samples: reading/parsing/storage/query expectations for three sessions/49 calls.
     ("0.155.0-alpha.16.3", "rollout_v1"),
     // M2-D version-specific redacted rollout-v*.sanitized.json samples and _expectations.md:

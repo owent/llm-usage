@@ -29,9 +29,10 @@ test('real source inventory produces every required menu page without generated 
   const groups = await documentationSidebar();
   const ids = slugs(groups);
   for (const id of ['start/installation', 'guide/dashboard', 'guide/sources', 'development/documentation',
-    'reference/design/documentation-site', 'reference/evidence/documentation-site', 'reference/repository/readme']) {
+    'reference/design/documentation-site', 'reference/evidence/documentation-site', 'reference/repository/readme',
+    'reference/design/application-updates', 'reference/evidence/application-updates', 'reference/evidence/release-030']) {
     assert.ok(ids.includes(id), id);
   }
-  assert.equal(ids.length, 219);
+  assert.equal(ids.length, 222);
   assert.ok(!ids.some(id => id.includes('build/') || id.includes('zh-cn/') || id.endsWith('/plan')));
 });

@@ -35,7 +35,7 @@ use crate::adapters::jsonl::{read_jsonl, JsonlCursor, StopReason};
 use super::super::common::{map_codex_record, CodexRecordUsage};
 
 // Registry rule changes replay consumed files; retain cumulative mismatches and per-call errors across batches.
-pub const CODEX_PARSER_VERSION: &str = "codex-rollout-4";
+pub const CODEX_PARSER_VERSION: &str = "codex-rollout-5";
 const MAX_REASONABLE_TOKEN: i64 = crate::domain::MAX_TOKEN_VALUE;
 
 /// Six usage-field sums for snapshot/carried reconciliation; i128 protects additions.
@@ -418,7 +418,10 @@ pub fn scan(
             }
             "compacted" => {
                 context.compacted_since_snapshot = true;
-                let carried = payload.get("latest_token_usage_record").cloned();
+                let carried = payload
+                    .get("latest_token_usage_record")
+                    .filter(|value| !value.is_null())
+                    .cloned();
                 if let Some(carried) = carried {
                     match carried.get("usage").and_then(parse_usage) {
                         Some(usage) => {

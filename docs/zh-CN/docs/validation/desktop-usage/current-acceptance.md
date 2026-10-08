@@ -18,6 +18,8 @@ Linux 使用 WSL/Debian 独立 rootless Podman；CI runner 与受测提交另见
 
 | 检查 | 已核对结果 | 记录与适用范围 |
 | --- | --- | --- |
+| 0.3.0 本地修复 | 费用卡片无溢出，设置使用自定义控件，登记八个 Codex 原生版本并修正压缩携带记录为空的处理；旧库副本的 332 个 Codex 文件恢复正常且原有用量完整保留 | [0.3.0 检查](release-030.md)；Windows 本地构建、合成更新替换和原生数据副本检查与远程发布/平台验收分列 |
+| 软件更新 | 本机实现每次启动/每天/每周/手动检查、可选自动下载、共用进度及显式安装；合成更新已验证 Windows 原生便携替换 | [更新验证](application-updates.md)，最终检查见该记录；真实公开新版本、NSIS 更新器执行及 Linux/macOS GUI 更新验收分列 |
 | 本机统一检查及浏览器 | verify 退出 0：Rust 1,032、前端 22、脚本 5，8 项平台条件测试忽略，类型无错误/告警；另 Claude 专项六项通过（与统一检查重叠）；此前 Edge 提醒显示/去重回归保留 | [VS 发现修复](m9-vs-copilot-discovery.md)、[Codex 修复](codex-today-recovery.md)、[本轮](plan-20261007.md)、[Claude](claude-container-sample.md)；本次未重跑浏览器，既有模拟 IPC、[三源](m3-container-samples.md)/[M8](m8-container-samples.md) 结果保留 |
 | Windows 成品 | 0.2.1 业务 release/无界面 11 项、VS 本机 4 调用允许字段核对及重扫、Codex 本机旧库补采与重扫、Claude 新库/旧库自动纠正通过；此前原生 WebView2/IPC 19 项（含明细 Merge/提醒）、20 次首屏及接收器 8 项保留 | [VS](m9-vs-copilot-discovery.md)、[Codex](codex-today-recovery.md)、[Claude](claude-container-sample.md)、[本轮](plan-20261007.md)、[三源](m3-container-samples.md)；该修复未重跑 GUI/IPC；合成检查隔离 SQLite 与来源环境，真实样本另列 |
 | Windows 安装 | NSIS 12 项升级/回滚/卸载/重装与失败中止通过 | [生命周期](installation-lifecycle.md)；仅自有任务/启动项，其他值保留 |

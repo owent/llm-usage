@@ -19,9 +19,9 @@ sidebar:
 可将汇总、占比和模型表限定到该时段；恢复操作清除选区。活动热力图和周分布显示完整
 查询范围，不随临时图表选区缩小。
 
-[![暗色主题的中文趋势页](/screenshots/zh-CN/trend-dark.png)](/screenshots/zh-CN/trend-dark.png)
+[![深色主题的中文趋势页](/screenshots/zh-CN/trend-dark.png)](/screenshots/zh-CN/trend-dark.png)
 
-*真实中文桌面界面，使用隔离合成用量。暗色主题，不包含个人数据。*
+*真实中文桌面界面，使用隔离合成用量。深色主题，不包含个人数据。*
 
 ## token、调用和观测
 
@@ -51,7 +51,7 @@ Agent、供应商、模型和计费渠道是独立身份。模型名不能证明
 
 [![中文详情表，展示时间、模型及 token 字段](/screenshots/zh-CN/details-light.png)](/screenshots/zh-CN/details-light.png)
 
-*实际中文桌面界面，使用隔离的合成 Codex 记录，亮色主题。未知耗时显示为 —。
+*实际中文桌面界面，使用隔离的合成 Codex 记录，浅色主题。未知耗时显示为 —。
 选择图片可查看 2880×2000 原 PNG。*
 
 ## 布局与无障碍

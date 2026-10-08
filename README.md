@@ -58,7 +58,7 @@ with Chinese counterparts maintained alongside them.
 - [Implementation readiness](docs/design/desktop-usage/implementation-readiness.md): confirmed scope and real-data validation procedure.
 - [Detailed design](docs/design/desktop-usage/README.md): architecture, statistics, adapters, configuration and tests.
 - [Research sources](docs/design/desktop-usage/research.md): official sources, fixed code and static prototype review.
-- [Collection scheduling](docs/design/desktop-usage/scheduling.md) and [platform/CI](docs/design/desktop-usage/platform-ci.md): background and platform requirementss.
+- [Collection scheduling](docs/design/desktop-usage/scheduling.md) and [platform/CI](docs/design/desktop-usage/platform-ci.md): background and platform requirements.
 - [Validation records](docs/validation/desktop-usage/): actual execution records starting at M0.
 - [Application assets](desktop/assets/README.md): Usage U design, previews, regeneration and Git LFS.
 - [previous-draft](previous-draft/README.md): historical reference; runtime behavior has not been accepted.

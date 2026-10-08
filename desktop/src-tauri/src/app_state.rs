@@ -136,6 +136,8 @@ pub struct AppSettings {
     pub pricing: PricingSettings,
     #[serde(default)]
     pub budget: llm_usage_core::budgets::BudgetSettings,
+    #[serde(default)]
+    pub updates: crate::updates::UpdateSettings,
 }
 
 fn default_otel_receiver_port() -> u16 {
@@ -173,6 +175,7 @@ impl Default for AppSettings {
             otel_receiver_port: default_otel_receiver_port(),
             pricing: PricingSettings::default(),
             budget: llm_usage_core::budgets::BudgetSettings::default(),
+            updates: crate::updates::UpdateSettings::default(),
         }
     }
 }

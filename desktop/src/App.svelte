@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import BudgetReminder from './components/BudgetReminder.svelte';
+  import UpdateNotice from './components/UpdateNotice.svelte';
   import { calendarDay, offsetDay } from './lib/calendar';
   import { api, parseError } from './lib/api';
   import type {
@@ -931,6 +932,7 @@
     </button>
   </header>
   <BudgetReminder {settings} user={currentUser} />
+  <UpdateNotice />
   <div class="workspace-status" role="status">
     <span class="status-dot" class:busy={collecting || summaryLoading}></span>
     {#if refresh?.last_finished_ms}

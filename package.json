@@ -1,6 +1,6 @@
 {
   "name": "llm-usage",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "private": true,
   "description": "Doc tooling and root command entry for the llm-usage repository; the desktop app keeps its own manifest under desktop/.",
   "scripts": {
@@ -31,6 +31,7 @@
     "test:receiver": "node desktop/tests/native-receiver-auth.mjs",
     "test:credentials:linux": "node desktop/tests/linux-credential-store.mjs",
     "test:install:windows": "node desktop/tests/windows-install-lifecycle.mjs",
+    "test:update:windows": "node desktop/tests/windows-update.mjs",
     "test:install:linux": "node desktop/tests/linux-install-lifecycle.mjs",
     "test:import": "node desktop/tests/native-first-import.mjs",
     "test:headless": "node desktop/tests/headless-smoke.mjs",

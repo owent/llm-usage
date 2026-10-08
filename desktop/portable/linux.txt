@@ -10,6 +10,10 @@ default collection on D-Bus. The archive does not install desktop/system service
 Use x64 for Intel/AMD Linux and arm64 for 64-bit Arm Linux.
 Data remains in the existing per-user location; moving this folder does not migrate it.
 Disable owned scheduled tasks in Settings before moving or removing the folder.
+Keep llmusage-package.json and the complete extracted directory together. Use Settings >
+Software updates for manual/scheduled checks, optional downloads and progress.
+Restart and update selects the same portable package and retains the executable path,
+per-user data and a backup under .llmusage-update/backup. Keep personal files outside managed folders.
 
 Linux 便携版
 
@@ -21,3 +25,6 @@ Linux 便携版
 Intel/AMD Linux 使用 x64，64 位 Arm Linux 使用 arm64。
 数据仍保存在原有用户目录，移动本目录不会迁移数据。
 移动或删除本目录前请在设置中停用应用创建的计划任务。
+将 llmusage-package.json 与完整解压目录放在一起。“设置 > 软件更新”支持手动及定期
+检查、可选下载和进度。“重启并更新”选择对应便携包，保留可执行文件路径和用户数据，
+并在 .llmusage-update/backup 保存备份。请将个人文件放在受管理目录之外。

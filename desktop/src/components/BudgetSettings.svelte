@@ -17,7 +17,7 @@
 </script>
 
 <h4>{t('budget.title')}</h4>
-<label><input type="checkbox" role="switch" bind:checked={value.enabled} /> {t('budget.enabled')}</label>
+<label class="switch-field"><input class="switch" type="checkbox" role="switch" bind:checked={value.enabled} /> <span>{t('budget.enabled')}</span></label>
 <div class="fields">
   <label>{t('budget.period')}<select bind:value={value.period}><option value="day">{t('budget.day')}</option><option value="month">{t('budget.month')}</option></select></label>
   <label>{t('budget.metric')}<select value={value.metric} onchange={(e) => { value.metric = e.currentTarget.value as Settings['metric']; value.threshold = value.metric === 'total_tokens' ? '1000000' : '100000000'; invalid = false; }}><option value="total_tokens">{t('budget.tokens')}</option><option value="estimated_cost">{t('budget.cost')}</option></select></label>

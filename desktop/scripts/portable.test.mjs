@@ -54,6 +54,16 @@ for (const platform of ['windows', 'linux', 'macos']) {
       assert.equal(first.portable.extracted_verified, true);
       assert.equal(first.portable.headless_verified, false);
       const initial = await readFile(first.archive);
+      const tar = join(root, 'verified.tar');
+      const decompressed = spawnSync('zstd', ['-d', '-f', first.archive, '-o', tar], {encoding:'utf8',windowsHide:true});
+      assert.equal(decompressed.status,0,decompressed.stderr);
+      const markerName = `LLMUsage-0.2.2-${platform}-${arch}-portable/llmusage-package.json`;
+      const markerResult = spawnSync('tar',['-xOf',tar,markerName],{encoding:'utf8',windowsHide:true});
+      assert.equal(markerResult.status,0,markerResult.stderr);
+      const marker = JSON.parse(markerResult.stdout);
+      assert.equal(marker.kind,'portable');assert.equal(marker.platform,platform);assert.equal(marker.arch,arch);
+      assert.equal(marker.version,'0.2.2');assert.ok(marker.managed.includes('llmusage-package.json'));
+      assert.ok(marker.managed.includes(marker.executable.split('/')[0]));
       await writeFile(source.binary, Buffer.concat([binary(platform, arch), Buffer.from('updated executable')]));
       const repeated = await archivePortable(options);
       assert.notDeepEqual(await readFile(repeated.archive), initial);

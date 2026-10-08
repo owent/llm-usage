@@ -44,6 +44,11 @@ with an unverified-compatibility notice, reader identity and coverage gaps. Unre
 versions alone cannot become unsupported_format; successful compatibility reading does not
 verify each version.
 
+Version 0.3.0 adds eight individually checked native Codex versions, bringing the exact
+registry to 26 legacy and seven modern entries. The table's original 21 legacy mappings
+remain historical evidence; see [new samples and recovery](../../validation/desktop-usage/release-030.md).
+Other versions retain compatibility checks without inheriting these results.
+
 <a id="用户指定工具"></a>
 
 ## User-specified tools

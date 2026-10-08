@@ -50,6 +50,11 @@ or `tar --zstd -xf <archive>` where supported). Run `LLMUsage.exe`, `AppRun`, or
 from the extracted Windows, Linux, or macOS directory respectively. Keep bundled resources
 together. Each archive includes English/Chinese runtime instructions.
 
+New archives also include `llmusage-package.json`, identifying the version, platform,
+architecture, native executable, launch entry and managed top-level files. The updater
+verifies this identity before selecting the same portable format. Keep the marker with
+the package; an old archive without it needs a manual replacement to adopt this updater.
+
 Windows requires system WebView2, normally present in Windows 11; these packages do not embed
 a fixed offline runtime. Linux includes AppDir libraries without requiring FUSE, uses an
 Ubuntu 22.04/glibc 2.35 baseline, and still needs a compatible desktop/display. Optional
@@ -62,6 +67,16 @@ The packager materializes tar then uses `zstd -19 -T2 --long=27`, preserving all
 It validates compression, a fresh extraction's digests/links/modes and binary CPU type, and
 runs the actual extracted application's isolated headless/SQLite regression on all six native
 runners. Only then are archive sizes and SHA-256 recorded for publication.
+
+The application checks the public GitHub latest stable release and verifies the matching
+asset's API size and SHA-256. Preserve exact portable and NSIS names, publish all matching
+assets before making a release public, and retain the API digests. The updater trusts HTTPS
+and repository release ownership; these digests are not publisher signatures. It ignores
+drafts, prereleases, same/older versions and unsupported package identities. See the
+[update design](/reference/design/application-updates/) and
+[validation record](/reference/evidence/application-updates/). Run `npm run test:update:windows`
+after building to check actual portable IPC/helper replacement using a synthetic update;
+this does not establish a public release upgrade or NSIS lifecycle acceptance.
 
 Authorization to build and to publish is separate. A design plan is not authorization to push,
 deploy, sign or change external credentials. Complete a reviewable artifact, tests,

@@ -1,0 +1,65 @@
+{
+  "source": "Read-only native Codex rollout, 2026-10-08; bodies removed, relational IDs anonymized.",
+  "records": [
+    {
+      "timestamp": "2026-10-08T14:07:24.347Z",
+      "type": "session_meta",
+      "payload": {
+        "id": "native-52756880a91d182f1560d56c",
+        "cli_version": "0.162.0-alpha.2",
+        "timestamp": "2026-10-08T14:07:24.241Z",
+        "model_provider": "openai",
+        "originator": "codex_vscode"
+      }
+    },
+    {
+      "timestamp": "2026-10-08T14:07:25.706Z",
+      "type": "turn_context",
+      "payload": {
+        "model": "codex-auto-review"
+      }
+    },
+    {
+      "timestamp": "2026-10-08T14:07:27.887Z",
+      "type": "token_usage_record",
+      "payload": {
+        "session_id": "native-52756880a91d182f1560d56c",
+        "thread_id": "native-52756880a91d182f1560d56c",
+        "response_id": "145777086b469312773ee2f0",
+        "usage": {
+          "input_tokens": 30839,
+          "cached_input_tokens": 11008,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 119,
+          "reasoning_output_tokens": 51,
+          "total_tokens": 30958
+        }
+      }
+    },
+    {
+      "timestamp": "2026-10-08T14:07:27.893Z",
+      "type": "event_msg",
+      "payload": {
+        "type": "token_count",
+        "info": {
+          "total_token_usage": {
+            "input_tokens": 30839,
+            "cached_input_tokens": 11008,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 119,
+            "reasoning_output_tokens": 51,
+            "total_tokens": 30958
+          },
+          "last_token_usage": {
+            "input_tokens": 30839,
+            "cached_input_tokens": 11008,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 119,
+            "reasoning_output_tokens": 51,
+            "total_tokens": 30958
+          }
+        }
+      }
+    }
+  ]
+}

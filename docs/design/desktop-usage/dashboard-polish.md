@@ -49,6 +49,16 @@ amounts, with coverage counts in tooltips. The cost panel normally shows amounts
 counts and curves, expanding explanations on demand so currencies/long text do not
 make it much taller than neighboring components.
 
+Compact monetary rows, converted amounts and tier/substitute hints must fit their card
+at both four-column and eight-column breakpoints. Bound each child to its content width
+and truncate long single-line text with an ellipsis. Tooltips retain the full original
+and converted amount ranges. Never change rounding or amounts to make text fit.
+
+Settings use the existing styled switches for on/off options, with stable accessible
+names, keyboard Space support and visible focus. Export user/host selections keep
+checkbox semantics with custom check marks and a system high-contrast fallback, following
+the [WAI switch pattern](https://www.w3.org/WAI/ARIA/apg/patterns/switch/).
+
 Costs are off by default. The dashboard shows current-price “API usage-based price
 reference”; historical event-time estimates/source amounts remain in the database/API
 without repeated dashboard display. Unknown amounts remain gaps; currencies never

@@ -28,7 +28,7 @@ AI 规则、`.agents/skills/`、`Plan.md` 和 `docs/design/desktop-usage/executi
 
 MDX 页面导入 `@docs/components/AppScreenshot.astro`，传入页面名（`overview`、`trend`、`details`、
 `sources` 或 `settings`）、对应语言（`en` 或 `zh-CN`）及该语言的替代文字。
-图注放在组件内部。组件按站点主题选择亮色或暗色原图，并链接到完整尺寸的 PNG。
+图注放在组件内部。组件按站点主题选择浅色或深色原图，并链接到完整尺寸的 PNG。
 首张示例使用 `eager`，后续图片按需加载。示例占满内容行，给控件和文字留出空间。
 Markdown 指南可以直接链接对应语言的 PNG；仓库 README 的相对截图链接在发布到
 站点时转换为站内 `/screenshots/` 链接。
@@ -78,7 +78,7 @@ git diff --check
 
 更新 UI 截图前构建桌面 release，再运行 `npm run docs:screenshots`。
 采集工具初始化隔离存储，GUI 启动前保存仅手工根，通过真实 IPC 核对 240 次合成调用，
-并分别采集中英文亮暗主题。目视检查图片、核对来源并提交真实 LFS 资源。
+并分别采集中英文浅色、深色主题。目视检查图片、核对来源并提交真实 LFS 资源。
 截图是界面示例，不能据此确认真实供应商/版本。
 
 ## 发布与恢复

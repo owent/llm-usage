@@ -9,6 +9,10 @@ Downloaded unsigned/ad-hoc-signed apps may require the macOS security approval f
 Data remains in the existing per-user location and credentials use macOS Keychain.
 Moving this folder does not migrate data. Disable owned scheduled tasks in Settings
 before moving or removing the folder.
+Keep llmusage-package.json with the complete extracted directory, including the app bundle.
+Use Settings > Software updates for manual/scheduled checks, optional downloads and
+progress. Restart and update selects the same portable package and retains the executable
+path, data and a backup under .llmusage-update/backup. Keep personal files outside managed folders.
 
 macOS 便携版
 
@@ -20,3 +24,6 @@ Intel Mac 使用 x64，Apple silicon 使用 arm64；使用 macOS 15 构建，需
 此 CI 包未进行 Gatekeeper 发行公证，下载的未签名或临时签名应用可能需要经过 macOS 安全批准流程。
 数据仍使用原有的用户目录，凭据使用 macOS Keychain，移动本目录不会迁移数据。
 移动或删除本目录前请在设置中停用应用创建的计划任务。
+将 llmusage-package.json 与包含应用包的完整解压目录放在一起。“设置 > 软件更新”
+支持手动及定期检查、可选下载和进度。“重启并更新”选择对应便携包，保留可执行
+文件路径和数据，并在 .llmusage-update/backup 保存备份。请将个人文件放在受管理目录之外。
