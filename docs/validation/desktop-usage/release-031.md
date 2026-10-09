@@ -79,7 +79,40 @@ root `build/`; personal Agent data was not used in this dependency round.
 | Documentation checks/build/browser | Pass: clean Astro types, 39 unit tests, 1,379 pages/2,889 files, 31 browser checks |
 
 The source update snapshot was refreshed from the real public v0.3.0 release on
-2026-10-09; the draft v0.3.1 is not a public stable update. Remote tag CI, release assets and documentation
-deployment remain separate from the local checks above. The existing tag workflow
+2026-10-09; the draft v0.3.1 is not a public stable update. Remote results below are
+separate from these local checks. The existing tag workflow
 creates a draft release after all platform jobs pass; it does not establish signing,
 notarization, a new NSIS installation lifecycle or other-platform update GUI acceptance.
+
+## Remote release and deployment
+
+Source: `55b440e379a020e991c501f74b84d6b7d2ef0706`, annotated tag `v0.3.1`, pushed
+atomically with main on 2026-10-09. The tag was not moved after validation.
+
+- [Tag CI 37879955917](https://github.com/owent/llm-usage/actions/runs/37879955917):
+  all 12 jobs passed, including the release asset checks. Six native archives passed
+  extracted executable checks; both Linux archives also passed GTK/WebKit GUI checks.
+- [Main CI 37879956064](https://github.com/owent/llm-usage/actions/runs/37879956064):
+  all 11 applicable jobs passed; the tag-only release job was skipped. Both Windows
+  Rust runs passed 1,054 tests with eight explicit ignores across 105 test binaries.
+- Release ID `407495650` is a draft with 13 assets: six portable archives, the Windows
+  x64 NSIS installer and six platform reports. All were downloaded and matched API
+  size/SHA-256 values. Six zstd streams/TAR layouts and the NSIS compressed archive
+  passed integrity checks. Every report matches the exact tag revision and its packages.
+- The downloaded Windows x64 portable package passed 19 native WebView2/IPC checks,
+  with 20 query samples and a local P95 of 912.61 ms. This result concerns the CI-built
+  executable; the local build's native checks are recorded separately above.
+- [Documentation 37879956018](https://github.com/owent/llm-usage/actions/runs/37879956018)
+  built and published successfully. The public publication marker matched the source
+  revision. `/updates/latest.json` changed from HTTP 404 to 200; its fresh v0.3.0
+  snapshot matched all seven public package names, sizes and digests.
+
+The first draft asset probe used GitHub's published-release tag endpoint and received
+404. Paginated release enumeration located the exact draft ID and the final checks
+succeeded. No release or tag was recreated. Draft notes now describe the update-check
+fix, dependency upgrades, pnpm workspace and verified assets.
+
+The acceptance-record follow-up changes only documentation and the plan. Its documentation
+workflow validates and publishes the updated records independently of the tag's product CI.
+Public Release-triggered metadata refresh and a newer public-version update remain
+unobserved while v0.3.1 is a draft.

@@ -16,15 +16,9 @@ Design entry points: [product and architecture](docs/design/desktop-usage/README
 
 ## Current implementation
 
-Release 0.3.1: upgrade registry dependencies and pinned Actions to latest compatible
-stable versions, synchronize npm/pnpm/Cargo locks and verify both package managers.
-Preserve installer/portable identity and package integrity. Publish `v0.3.1` through the
-existing tag-triggered workflow after local product/native/documentation checks pass;
-verify every CI job and uploaded package against its source revision and SHA-256.
-
-Software update checks: verify publication of `/updates/latest.json` and observe a real
-Release-triggered main refresh; local repair evidence is in the
-[check repair record](docs/validation/desktop-usage/update-check-repair.md).
+Software update checks: observe a public Release-triggered main metadata refresh and a
+real newer public-version update. Endpoint publication and the v0.3.1 draft/source/asset
+checks are verified in the [release record](docs/validation/desktop-usage/release-031.md).
 
 | Stage | Implemented scope and results |
 | --- | --- |
