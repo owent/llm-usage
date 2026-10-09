@@ -132,6 +132,13 @@ publishes only successful builds from the default branch. Pull requests can chec
 preview the build without publication permission. Deployment concurrency is serialized;
 publishing preserves branch history and does not force-push other branches.
 
+The same publication includes `/updates/latest.json`, a minimal public stable-release
+snapshot for software update request fallback. CI refreshes it on main builds and daily;
+Release changes dispatch the workflow on main rather than deploy from a tag. Only the
+GitHub metadata read receives a scoped CI token. No token, usage or local paths enter the
+snapshot. Build checks validate its package fields; clients enforce its seven-day expiry.
+See the [update rules](desktop-usage/application-updates.md) for source and package checks.
+
 Git and GitHub commands time out after 60 seconds without interactive prompts. Pages build
 polling has a ten-minute deadline, including request time. After a timeout, inspect the
 actual remote branch/build before retrying a write. CI jobs also have fifteen-minute limits.

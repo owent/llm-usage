@@ -2,10 +2,16 @@ import { readFile } from 'node:fs/promises';
 import { resolve, dirname, relative } from 'node:path';
 import { output, files } from './content.mjs';
 import { screenshotProblems } from './screenshots-check.mjs';
+import { validateFeed } from './update-feed.mjs';
 
 const paths = await files(output);
 const known = new Set(paths);
 const failures = [];
+try {
+  validateFeed(JSON.parse(await readFile(resolve(output, 'updates/latest.json'), 'utf8')), { fresh: false });
+} catch {
+  failures.push('Missing or invalid public software update metadata');
+}
 failures.push(...await screenshotProblems(output));
 const html = new Map();
 const entities = value => value.replace(/&(?:amp|quot|apos|lt|gt|#\d+|#x[0-9a-f]+);/gi, match => {
@@ -53,4 +59,4 @@ if (!known.has(resolve(output, '.nojekyll'))) failures.push('Missing .nojekyll')
 if (!known.has(resolve(output, 'index.html')) || !known.has(resolve(output, 'zh-cn/index.html'))) failures.push('Missing language home page');
 if (!paths.some(path => path.includes('pagefind') && path.endsWith('.js'))) failures.push('Missing local search index');
 if (failures.length) { console.error([...new Set(failures)].join('\n')); process.exitCode = 1; }
-else console.log(`Checked ${paths.length} published files, local links and fragments, screenshots, language roots, search and domain markers.`);
+else console.log(`Checked ${paths.length} published files, local links and fragments, screenshots, language roots, search, update metadata and domain markers.`);

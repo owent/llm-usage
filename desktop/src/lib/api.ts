@@ -47,7 +47,7 @@ export interface UpdateSettings {
 export interface UpdateStatusDto {
   phase: 'idle' | 'checking' | 'up_to_date' | 'available' | 'downloading' | 'verifying' | 'ready' | 'installing' | 'cancelled' | 'error';
   current_version: string;
-  package_kind: 'portable' | 'installer' | 'unknown';
+  package_kind: 'portable' | 'installer' | 'development' | 'unknown';
   version: string | null;
   asset_name: string | null;
   downloaded_bytes: number;

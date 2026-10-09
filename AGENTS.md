@@ -192,6 +192,8 @@ or derived caches, read [query acceleration](docs/design/desktop-usage/query-acc
 writer invalidation, rollback, unknown values, DST, overflow and identity cleanup after retention/clearing.
 
 For software updates or package changes, read the [update rules](docs/design/desktop-usage/application-updates.md).
+Version checks also work in development/unidentified binaries; downloading/applying still requires verified package identity.
+GitHub request failures may use only the exact documentation feed, with bounded freshness and the same asset checks.
 Match actual installed/portable identity, platform, architecture and exact release asset; never switch
 package types or downgrade. Verify size/SHA-256 before reuse/apply, preserve original paths and data,
 and regress interrupted replacement/rollback. Installation always needs an explicit user click.
@@ -236,6 +238,7 @@ npm run test:headless   # Real executable/SQLite, isolated synthetic sources; bu
 npm run test:import     # Windows million-record first GUI import/process-tree peaks; isolate and build first
 npm run test:desktop    # Native Windows WebView2/IPC; working CDP required; build first
 npm run test:update:windows # Real Windows portable IPC/helper replacement; synthetic update, build first
+npm run test:update:check # Real Windows unpackaged executable/version-check IPC; build first
 npm run test:receiver   # Real Windows IPC/HTTP/credential store; isolate, reclaim owned credentials, build first
 npm run test:install:windows -- --help # Real NSIS lifecycle; old/new packages, no existing current-user installation
 npm run test:install:linux -- --help   # Rootless Podman, real deb/AppImage and GTK/WebKit; --screen-reader tests Orca

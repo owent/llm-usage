@@ -474,8 +474,8 @@
       "zh": "acb8f20c2f7e977206cbdddb81e6ebe5558e9fb484db10d4c7f933e6d13a29e7"
     },
     "docs/design/desktop-usage/application-updates.md": {
-      "en": "9bd29570f57c7030206985d546f36db085e03f851273ce13ec82507b1c47f810",
-      "zh": "57269b2c5efdc0a14936d28cdf6f5fbf09868714e801ffc14c512db78946c503"
+      "en": "740b3717783589d10df00cd90124f145e45078781cc73aac429055ad007275a2",
+      "zh": "e6cc26265908e78b4bd9f8770b2f6fb1caec08b8dd67729987a67f08a84b323c"
     },
     "docs/design/desktop-usage/architecture.md": {
       "en": "d88c37973cd308f02f25c69ed555c8fb8d5c6a9d1bc0fe961982919b0d28f3bf",
@@ -558,8 +558,8 @@
       "zh": "719e6a8f9183306fc59ce944a986edc5c8d2bc21744f5e127f5c4ddc27cf1398"
     },
     "docs/design/documentation-site.md": {
-      "en": "c30a7d5cb0798c5b42a9fc7692bd3081d46fcb2ae5c3a419dc7f4b88073b9617",
-      "zh": "371f0d9c4e1a9a42ec762ecb1983434e88895c29fcfa8ee60e8cddd212684c86"
+      "en": "2b7ec29018bed5b22ae4cafc88ffd51eea0f797acfba341f7cc74d66e5989c72",
+      "zh": "6b4c24689917de44cc9243bd7e99580784c3ba8815b6ba551c275ba66210e02d"
     },
     "docs/validation/desktop-usage/application-updates.md": {
       "en": "46081b3c08f3102648b4728e87f786f238b42e54ae3a99b7788f485218b6f7a3",
@@ -586,8 +586,8 @@
       "zh": "05487c61a562fc8c06812798033494b0346d106f01b5d9ded5ac881f88c21bca"
     },
     "docs/validation/desktop-usage/current-acceptance.md": {
-      "en": "bebc18eb5684917335a92e83bca29f5fcaee26b96a5076846e41c9e698713460",
-      "zh": "f871758e5670afed110d1680b4d4197011311cdd7543d408b10df4ab297ec7da"
+      "en": "270a2053ed96394e95f4a1265eb67ac8ee0b3eacfab032fa083f5b46cdb12951",
+      "zh": "ec9a68f272f815d3be5a4fdbf0508bc30c1da3759c66f7a8f530d576b4b0643b"
     },
     "docs/validation/desktop-usage/dashboard-fixes.md": {
       "en": "f0a44b626817b915bc6fc0a814fc296b2858d024bdc11775d53588bcebd1cf97",
@@ -797,6 +797,10 @@
       "en": "e02dbfe891e50f7ae6de998695d6bc1f63f7404098a67d40a4546f84427e54ef",
       "zh": "ec7c988bfc9dad3344d2767ef399e8979e70a0c4d7fed389ace1833e9280d3bc"
     },
+    "docs/validation/desktop-usage/update-check-repair.md": {
+      "en": "d133f62e1d99a7e4f0b21717ab5f360c98233d2954a2de30fe9fe9d7e9965d6c",
+      "zh": "2039135b40b17632c28a5ce8f4b593b1c261ff9bc814f6dead8e00ab67415662"
+    },
     "docs/validation/desktop-usage/wsl-agent-installs.md": {
       "en": "a013aaf4a60e0a65118cbc40d34fb931ec558607909502000fd04e6efc6acabd",
       "zh": "584a73953afa500ff804aa61c2f4b357555bff2c94c58a9c99e5ea6e4caa472c"
@@ -828,8 +832,8 @@
       "zh": "eb7e0ad7141267ea9e5505d3e4a3ea5c4387d187ffaf9d9c9673d677ce4fb50c"
     },
     "docs/site/content/development/releases.md": {
-      "en": "b4d5f0f30194d45b102f5b3b45d906b1aa55a0e0c4e253096e80d332d13e98d4",
-      "zh": "2bad2f88b05701e5578894d104fbbe0104991afe3cf0cf690b8356ca27995aff"
+      "en": "e7c658e2bdfe990cce6d406f848f0759e6c2aad897c61e5859b1ee5c5d6a06a2",
+      "zh": "e37bd9980d9504ee83443d93708fa24bdf588730c4643c77a18004c72bc0ae15"
     },
     "docs/site/content/development/setup.md": {
       "en": "0dd665c1833d9f9252c2f6f6cfbcd67d6a5724c995caf9e5dc5a69d9386892d6",

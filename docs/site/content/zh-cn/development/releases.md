@@ -64,11 +64,24 @@ Linux 包含 AppDir 依赖库，无须 FUSE，使用 Ubuntu 22.04/glibc 2.35 基
 
 应用检查 GitHub 公开的最新稳定版，核对对应资产的 API 大小和 SHA-256。保留完整的
 便携包及 NSIS 文件名，公开发行前上传全部对应资产，并保留 API 摘要。更新器信任
-HTTPS 和仓库发行管理权限；摘要不是发布者签名。草稿、预发行、相同或较旧版本及
-未支持的包身份不会提供更新。见[更新设计](/zh-cn/reference/design/application-updates/)及
+HTTPS 和仓库发行管理权限；摘要不是发布者签名。草稿、预发行、相同或较旧版本
+不会提供更新。开发构建和身份未识别的程序可以检查版本，但不能选择、下载或安装
+更新包。见[更新设计](/zh-cn/reference/design/application-updates/)及
 [验证记录](/zh-cn/reference/evidence/application-updates/)。构建后运行
 `npm run test:update:windows`，使用合成更新检查真实便携 IPC/辅助进程替换；该检查
 不能建立公开发行升级或 NSIS 生命周期验收。
+
+GitHub 元数据请求失败后，会从文档站点 `/updates/latest.json` 再尝试一次。
+快照保留完整的更新包 URL、大小和 SHA-256 摘要；下载文件仍来自 GitHub。
+客户端拒绝超过七天或生成时间晚于当前时间五分钟以上的快照。文档 CI 在 main 构建时
+以及每天 UTC 04:17（北京时间 12:17）刷新。Release 发布、编辑、撤回或删除时，
+会触发 main 分支的文档构建，保留 Pages 环境的分支限制。PR 构建使用已提交的快照，
+无须联网刷新。生成器要求七个更新包均已上传；复用有效快照时不修改原始生成时间。
+本地可运行 `node docs/site/scripts/update-feed.mjs` 刷新，结果仅保存在忽略的根目录
+`build/` 下。构建后运行 `npm run test:update:check`，检查隔离 Windows 程序的真实
+IPC 版本查询；带有内嵌前端的调试构建使用
+`node desktop/tests/native-update-check.mjs --exe desktop/src-tauri/target/debug/LLMUsage.exe --development`。
+详见[检查更新修复记录](/zh-cn/reference/evidence/update-check-repair/)。
 
 构建与发行授权分开，设计计划不提供推送、部署、签名或外部凭据修改授权。
 需要最终批准时，先完成可审阅产物、测试、身份检查和回滚方案。

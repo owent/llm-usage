@@ -20,6 +20,7 @@
     <p class="muted">{t('updates.current', { version: status.current_version })} · {t(`updates.kind.${status.package_kind}`)}</p>
     {#if status.last_checked_ms}<p class="muted">{t('updates.lastCheck', { time: new Date(status.last_checked_ms).toLocaleString(i18n.locale) })}</p>{/if}
     {#if status.package_kind === 'unknown'}<p>{t('updates.unknownHint')}</p>{/if}
+    {#if status.package_kind === 'development'}<p>{t('updates.developmentHint')}</p>{/if}
     {#if status.asset_name}<p class="asset">{status.asset_name}</p>{/if}
   {/if}
   {#if status?.error || updateState.error}

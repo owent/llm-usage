@@ -11,6 +11,7 @@ use std::time::Duration;
 use tauri::Manager;
 
 const RELEASE_API: &str = "https://api.github.com/repos/owent/llm-usage/releases/latest";
+const DOCUMENTATION_FEED: &str = "https://llm-usage.atframe.work/updates/latest.json";
 pub(crate) const MAX_DOWNLOAD: u64 = 512 * 1024 * 1024;
 const DAY: i64 = 86_400_000;
 
@@ -138,11 +139,17 @@ fn stable_version(value: &str) -> Result<semver::Version, String> {
     Ok(version)
 }
 
-fn select_release(
+#[derive(Debug, PartialEq, Eq)]
+struct CheckedRelease {
+    version: Option<String>,
+    candidate: Option<Candidate>,
+}
+
+fn check_release(
     bytes: &[u8],
     current: &str,
-    identity: &PackageIdentity,
-) -> Result<Option<Candidate>, String> {
+    identity: Option<&PackageIdentity>,
+) -> Result<CheckedRelease, String> {
     let release: Release = serde_json::from_slice(bytes).map_err(|_| "invalid_release_metadata")?;
     if release.draft || release.prerelease {
         return Err("release_is_not_stable".into());
@@ -152,8 +159,17 @@ fn select_release(
         .strip_prefix('v')
         .ok_or("invalid_release_tag")?;
     if stable_version(value)? <= stable_version(current)? {
-        return Ok(None);
+        return Ok(CheckedRelease {
+            version: None,
+            candidate: None,
+        });
     }
+    let Some(identity) = identity else {
+        return Ok(CheckedRelease {
+            version: Some(value.into()),
+            candidate: None,
+        });
+    };
     let name = identity.asset_name(value)?;
     let matches: Vec<_> = release.assets.iter().filter(|a| a.name == name).collect();
     if matches.len() != 1 {
@@ -176,7 +192,19 @@ fn select_release(
     if asset.state != "uploaded" {
         return Err("update_asset_not_uploaded".into());
     }
-    Ok(Some(candidate))
+    Ok(CheckedRelease {
+        version: Some(value.into()),
+        candidate: Some(candidate),
+    })
+}
+
+#[cfg(test)]
+fn select_release(
+    bytes: &[u8],
+    current: &str,
+    identity: &PackageIdentity,
+) -> Result<Option<Candidate>, String> {
+    Ok(check_release(bytes, current, Some(identity))?.candidate)
 }
 
 pub(crate) fn validate_candidate(
@@ -205,7 +233,7 @@ pub(crate) fn validate_candidate(
 
 fn allowed_url(url: &str, metadata: bool) -> bool {
     if metadata {
-        return url == RELEASE_API;
+        return url == RELEASE_API || url == DOCUMENTATION_FEED;
     }
     url.starts_with("https://github.com/owent/llm-usage/releases/download/")
         || url.starts_with("https://release-assets.githubusercontent.com/")
@@ -231,8 +259,10 @@ fn http_get(url: &str, metadata: bool) -> Result<ureq::http::Response<ureq::Body
             .get(&target)
             .header(
                 "Accept",
-                if metadata {
+                if metadata && target == RELEASE_API {
                     "application/vnd.github+json"
+                } else if metadata {
+                    "application/json"
                 } else {
                     "application/octet-stream"
                 },
@@ -249,6 +279,9 @@ fn http_get(url: &str, metadata: bool) -> Result<ureq::http::Response<ureq::Body
                 .and_then(|v| v.to_str().ok())
                 .ok_or("invalid_update_redirect")?
                 .into();
+            if metadata && target != url {
+                return Err("update_redirect_rejected".into());
+            }
         } else {
             return Err(format!("update_http_{}", response.status().as_u16()));
         }
@@ -256,13 +289,69 @@ fn http_get(url: &str, metadata: bool) -> Result<ureq::http::Response<ureq::Body
     Err("too_many_update_redirects".into())
 }
 
-fn fetch_release() -> Result<Vec<u8>, String> {
-    http_get(RELEASE_API, true)?
+fn read_metadata(url: &str) -> Result<Vec<u8>, String> {
+    http_get(url, true)?
         .body_mut()
         .with_config()
         .limit(1024 * 1024)
         .read_to_vec()
         .map_err(|_| "update_metadata_too_large_or_unreadable".into())
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DocumentationFeed {
+    schema: u32,
+    repository: String,
+    generated_at: String,
+    release: serde_json::Value,
+}
+
+fn documentation_release(bytes: &[u8], now: i64) -> Result<Vec<u8>, String> {
+    let feed: DocumentationFeed =
+        serde_json::from_slice(bytes).map_err(|_| "invalid_documentation_update_feed")?;
+    if feed.schema != 1 || feed.repository != "owent/llm-usage" || !feed.generated_at.ends_with('Z')
+    {
+        return Err("invalid_documentation_update_feed".into());
+    }
+    let generated = feed
+        .generated_at
+        .parse::<jiff::Timestamp>()
+        .map_err(|_| "invalid_documentation_update_feed")?
+        .as_millisecond();
+    if generated > now.saturating_add(300_000) || now.saturating_sub(generated) > 7 * DAY {
+        return Err("stale_documentation_update_feed".into());
+    }
+    let release =
+        serde_json::to_vec(&feed.release).map_err(|_| "invalid_documentation_update_feed")?;
+    check_release(&release, "0.0.0", None)?;
+    Ok(release)
+}
+
+fn fetch_release_with(
+    mut read: impl FnMut(&str) -> Result<Vec<u8>, String>,
+    now: i64,
+    mut cancel: impl FnMut() -> Result<(), String>,
+) -> Result<Vec<u8>, String> {
+    cancel()?;
+    match read(RELEASE_API) {
+        Ok(bytes) => Ok(bytes),
+        Err(primary) => {
+            cancel()?;
+            let fallback =
+                read(DOCUMENTATION_FEED).and_then(|bytes| documentation_release(&bytes, now));
+            cancel()?;
+            fallback.map_err(|secondary| {
+                format!(
+                    "update_metadata_sources_failed: github={primary}; documentation={secondary}"
+                )
+            })
+        }
+    }
+}
+
+fn fetch_release(cancel: impl FnMut() -> Result<(), String>) -> Result<Vec<u8>, String> {
+    fetch_release_with(read_metadata, crate::scanner::now_ms(), cancel)
 }
 
 #[derive(Default)]
@@ -318,6 +407,9 @@ pub fn start_scheduler(app: tauri::AppHandle, state: Arc<AppState>) {
     {
         let mut op = service.inner.lock().unwrap();
         op.identity = update_package::detect_identity().ok();
+        if op.identity.is_none() && cfg!(debug_assertions) {
+            op.status.package_kind = "development".into();
+        }
         if let Some(identity) = op.identity.clone() {
             op.status.package_kind = identity.kind.clone();
             op.status.previous_error =
@@ -348,8 +440,7 @@ pub fn start_scheduler(app: tauri::AppHandle, state: Arc<AppState>) {
             let should_check = {
                 let service = app.state::<UpdateService>();
                 let op = service.inner.lock().unwrap();
-                op.identity.is_some()
-                    && !busy(&op.status.phase)
+                !busy(&op.status.phase)
                     && due(schedule, &op.clock, crate::scanner::now_ms(), launch)
             };
             if should_check {
@@ -464,17 +555,11 @@ fn begin_check(app: &tauri::AppHandle, state: Arc<AppState>) -> Result<(), Strin
             std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<(), String> {
                 save_clock(&state, &cache, &attempt)?;
                 cancelled(&app.state::<UpdateService>())?;
-                let bytes = fetch_release()?;
+                let bytes = fetch_release(|| cancelled(&app.state::<UpdateService>()))?;
                 let service = app.state::<UpdateService>();
                 cancelled(&service)?;
-                let identity = service
-                    .inner
-                    .lock()
-                    .unwrap()
-                    .identity
-                    .clone()
-                    .ok_or("update_package_identity_unknown")?;
-                let candidate = select_release(&bytes, env!("CARGO_PKG_VERSION"), &identity)?;
+                let identity = service.inner.lock().unwrap().identity.clone();
+                let checked = check_release(&bytes, env!("CARGO_PKG_VERSION"), identity.as_ref())?;
                 let success = {
                     let mut op = service.inner.lock().unwrap();
                     op.clock.success_ms = Some(crate::scanner::now_ms());
@@ -485,24 +570,24 @@ fn begin_check(app: &tauri::AppHandle, state: Arc<AppState>) -> Result<(), Strin
                 {
                     let mut op = service.inner.lock().unwrap();
                     op.status.last_checked_ms = op.clock.success_ms;
-                    op.status.version = candidate.as_ref().map(|v| v.version.clone());
-                    op.status.asset_name = candidate.as_ref().map(|v| v.name.clone());
-                    op.status.total_bytes = candidate.as_ref().map_or(0, |v| v.size);
+                    op.status.version = checked.version.clone();
+                    op.status.asset_name = checked.candidate.as_ref().map(|v| v.name.clone());
+                    op.status.total_bytes = checked.candidate.as_ref().map_or(0, |v| v.size);
                     op.status.downloaded_bytes = 0;
-                    op.status.phase = if candidate.is_some() {
+                    op.status.phase = if checked.version.is_some() {
                         "available"
                     } else {
                         "up_to_date"
                     }
                     .into();
-                    op.candidate = candidate;
+                    op.candidate = checked.candidate;
                 }
                 let has_candidate = service.inner.lock().unwrap().candidate.is_some();
                 if has_candidate {
                     restore_download(&app);
                 }
                 let auto = state.settings.lock().unwrap().updates.auto_download;
-                if auto {
+                if auto && has_candidate {
                     begin_download(&app, true)?;
                 }
                 Ok(())
@@ -722,6 +807,219 @@ pub async fn install_update(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn feed_fixture() -> (serde_json::Value, i64) {
+        let generated = "2026-10-09T00:00:00.000Z";
+        let now = generated
+            .parse::<jiff::Timestamp>()
+            .unwrap()
+            .as_millisecond();
+        (
+            serde_json::json!({"schema":1,"repository":"owent/llm-usage","generated_at":generated,"release":{"tag_name":"v0.4.0","draft":false,"prerelease":false,"assets":[]}}),
+            now,
+        )
+    }
+
+    #[test]
+    fn failed_github_requests_try_only_one_documentation_snapshot() {
+        let (feed, now) = feed_fixture();
+        for error in [
+            "update_http_403",
+            "update_http_429",
+            "update_http_500",
+            "update_network_request_failed",
+            "update_metadata_too_large_or_unreadable",
+        ] {
+            let mut requests = Vec::new();
+            let bytes = fetch_release_with(
+                |url| {
+                    requests.push(url.to_string());
+                    if url == RELEASE_API {
+                        Err(error.into())
+                    } else {
+                        Ok(serde_json::to_vec(&feed).unwrap())
+                    }
+                },
+                now,
+                || Ok(()),
+            )
+            .unwrap();
+            assert_eq!(requests, vec![RELEASE_API, DOCUMENTATION_FEED]);
+            let checked = check_release(&bytes, "0.3.0", None).unwrap();
+            assert_eq!(checked.version.as_deref(), Some("0.4.0"));
+            assert!(checked.candidate.is_none());
+        }
+    }
+
+    #[test]
+    fn successful_api_metadata_never_uses_fallback_to_bypass_asset_errors() {
+        let (feed, now) = feed_fixture();
+        let mut requests = Vec::new();
+        let bytes = fetch_release_with(
+            |url| {
+                requests.push(url.to_string());
+                Ok(serde_json::to_vec(&feed["release"]).unwrap())
+            },
+            now,
+            || Ok(()),
+        )
+        .unwrap();
+        assert_eq!(requests, vec![RELEASE_API]);
+        assert!(check_release(
+            &bytes,
+            "0.3.0",
+            Some(&PackageIdentity::test_portable("windows", "x64"))
+        )
+        .is_err());
+        assert!(check_release(&bytes, "0.4.0", None)
+            .unwrap()
+            .version
+            .is_none());
+    }
+
+    #[test]
+    fn documentation_snapshot_schema_freshness_and_stability_are_required() {
+        let (original, now) = feed_fixture();
+        let bytes = serde_json::to_vec(&original).unwrap();
+        assert!(documentation_release(&bytes, now + 7 * DAY).is_ok());
+        assert!(documentation_release(&bytes, now + 7 * DAY + 1).is_err());
+        assert!(documentation_release(&bytes, now - 300_001).is_err());
+        for (key, value) in [
+            ("schema", serde_json::json!(2)),
+            ("repository", serde_json::json!("other/repository")),
+            ("generated_at", serde_json::json!("invalid")),
+            ("extra", serde_json::json!(true)),
+        ] {
+            let mut feed = original.clone();
+            feed[key] = value;
+            assert!(documentation_release(&serde_json::to_vec(&feed).unwrap(), now).is_err());
+        }
+        for flag in ["draft", "prerelease"] {
+            let mut feed = original.clone();
+            feed["release"][flag] = serde_json::json!(true);
+            assert!(documentation_release(&serde_json::to_vec(&feed).unwrap(), now).is_err());
+        }
+    }
+
+    #[test]
+    fn cancelled_or_failed_fallback_retains_the_correct_failure() {
+        let (_, now) = feed_fixture();
+        let mut requests = Vec::new();
+        let mut checks = 0;
+        let result = fetch_release_with(
+            |url| {
+                requests.push(url.to_string());
+                Err("update_http_429".into())
+            },
+            now,
+            || {
+                checks += 1;
+                if checks == 2 {
+                    Err("update_cancelled".into())
+                } else {
+                    Ok(())
+                }
+            },
+        );
+        assert_eq!(result.unwrap_err(), "update_cancelled");
+        assert_eq!(requests, vec![RELEASE_API]);
+        let result = fetch_release_with(
+            |url| {
+                Err(if url == RELEASE_API {
+                    "update_http_403"
+                } else {
+                    "update_http_404"
+                }
+                .into())
+            },
+            now,
+            || Ok(()),
+        );
+        let error = result.unwrap_err();
+        assert!(error.contains("github=update_http_403"));
+        assert!(error.contains("documentation=update_http_404"));
+        assert!(allowed_url(DOCUMENTATION_FEED, true));
+        assert!(!allowed_url(DOCUMENTATION_FEED, false));
+        assert!(!allowed_url(
+            "http://llm-usage.atframe.work/updates/latest.json",
+            true
+        ));
+        assert!(!allowed_url(
+            "https://llm-usage.atframe.work/updates/latest.json?source=other",
+            true
+        ));
+    }
+
+    #[test]
+    fn published_documentation_fixture_uses_the_same_package_digest_checks() {
+        let raw = include_bytes!("../../../docs/site/public/updates/latest.json");
+        let feed: DocumentationFeed = serde_json::from_slice(raw).unwrap();
+        let now = feed
+            .generated_at
+            .parse::<jiff::Timestamp>()
+            .unwrap()
+            .as_millisecond();
+        let bytes = documentation_release(raw, now).unwrap();
+        for platform in ["windows", "linux", "macos"] {
+            for arch in ["x64", "arm64"] {
+                let identity = PackageIdentity::test_portable(platform, arch);
+                let checked = check_release(&bytes, "0.0.0", Some(&identity)).unwrap();
+                let candidate = checked.candidate.unwrap();
+                assert_eq!(
+                    candidate.name,
+                    identity.asset_name(&candidate.version).unwrap()
+                );
+                assert_eq!(candidate.sha256.len(), 64);
+                let mut invalid: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+                for asset in invalid["assets"].as_array_mut().unwrap() {
+                    asset["digest"] = serde_json::Value::Null;
+                }
+                assert!(check_release(
+                    &serde_json::to_vec(&invalid).unwrap(),
+                    "0.0.0",
+                    Some(&identity)
+                )
+                .is_err());
+            }
+        }
+    }
+
+    #[test]
+    fn version_checks_do_not_require_or_invent_an_installation_identity() {
+        let release =
+            serde_json::json!({"tag_name":"v0.4.0","draft":false,"prerelease":false,"assets":[]});
+        let bytes = serde_json::to_vec(&release).unwrap();
+        let found = check_release(&bytes, "0.3.0", None).unwrap();
+        assert_eq!(found.version.as_deref(), Some("0.4.0"));
+        assert!(found.candidate.is_none());
+        for current in ["0.4.0", "0.5.0"] {
+            let checked = check_release(&bytes, current, None).unwrap();
+            assert!(checked.version.is_none() && checked.candidate.is_none());
+        }
+        assert!(check_release(
+            &bytes,
+            "0.3.0",
+            Some(&PackageIdentity::test_portable("windows", "x64"))
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn informational_checks_still_reject_invalid_or_unstable_release_metadata() {
+        let original =
+            serde_json::json!({"tag_name":"v0.4.0","draft":false,"prerelease":false,"assets":[]});
+        for (key, value) in [
+            ("draft", serde_json::json!(true)),
+            ("prerelease", serde_json::json!(true)),
+            ("tag_name", serde_json::json!("v0.4.0-preview")),
+            ("tag_name", serde_json::json!("v0.4.0+build")),
+            ("tag_name", serde_json::json!("0.4.0")),
+        ] {
+            let mut release = original.clone();
+            release[key] = value;
+            assert!(check_release(&serde_json::to_vec(&release).unwrap(), "0.3.0", None).is_err());
+        }
+    }
 
     #[test]
     fn persisted_deadlines_manual_launch_failure_and_clock_rollback() {

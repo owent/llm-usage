@@ -89,8 +89,9 @@ await page.addInitScript(() => {
       window.updateMock.phase='checking';window.updateMock.error=null;
       setTimeout(()=>{
         if(window.updateMock.phase!=='checking') return;
-        Object.assign(window.updateMock,{phase:'available',version:'0.3.0',asset_name:'LLMUsage-0.3.0-windows-x64-portable.tar.zst',total_bytes:4096,last_checked_ms:Date.now()});
-        if(settings.updates?.auto_download) {window.updateAutoDownloads++;mockDownload();}
+        const packaged=['portable','installer'].includes(window.updateMock.package_kind);
+        Object.assign(window.updateMock,{phase:'available',version:'0.3.0',asset_name:packaged?'LLMUsage-0.3.0-windows-x64-portable.tar.zst':null,total_bytes:packaged?4096:0,last_checked_ms:Date.now()});
+        if(settings.updates?.auto_download && packaged) {window.updateAutoDownloads++;mockDownload();}
       },800);return;
     }
     if(cmd==='download_update') {mockDownload();return;}
@@ -891,6 +892,16 @@ await updateNotice.getByTestId('install-update').click();await page.clock.runFor
 assert.equal(await updateNotice.getByTestId('cancel-update').isEnabled(),true,'preparation can be cancelled while install IPC is pending');
 await updateNotice.getByTestId('cancel-update').click();await page.clock.runFor(3000);
 assert.match(await page.getByTestId('update-settings').textContent(),/已取消更新/);
+await page.evaluate(()=>{Object.assign(window.updateMock,{phase:'idle',package_kind:'development',asset_name:null,error:null,previous_error:null});});await page.clock.runFor(1100);
+const priorDownloads=await page.evaluate(()=>window.updateAutoDownloads);
+await page.getByTestId('check-update').click();await page.clock.runFor(2200);
+assert.match(await page.getByTestId('update-settings').textContent(),/开发模式可以检查新版本/);
+assert.match(await page.getByTestId('update-settings').textContent(),/发现新版本 0\.3\.0/);
+assert.equal(await page.getByTestId('update-settings').getByTestId('download-update').count(),0);
+assert.equal(await page.getByTestId('update-settings').getByTestId('install-update').count(),0);
+assert.equal(await page.getByTestId('update-settings').getByRole('alert').count(),0);
+assert.equal(await page.evaluate(()=>window.updateAutoDownloads),priorDownloads);
+await page.screenshot({path:out+'update-development-check.png',fullPage:true});
 assert.deepEqual(errors,[]);
 await writeFile(out+'browser-results.json',JSON.stringify({errors,requests:await page.evaluate(()=>window.appCalls.length),checks:['update settings save and defaults','manual update check and package labels','global cross-page download progress and cancellation','automatic download requires explicit installation','update failure and saved helper failure notices','five pages','hourly tokens across three dimensions and single-hour views','concise token tooltip with one lower-bound note','compact multi-currency summary and panel','expanded narrow price details without overflow','full-year light/dark heatmap','year navigation and leap days','future/retained dates','Copilot input with unknown cache split','Copilot unknown total hover and zero output','async telemetry discovery','compact overview with two actions','details navigation and focus','batch partial failure and retry','existing/managed outputs preserved','cross-page progress and undo','installed Agents only','merge configuration preview/apply/undo','ten locale switches','narrow telemetry layout in Chinese/German/Russian','default panel order','source health and compatibility','statistics timezone','initial/idle query counts','stale filter responses','user isolation','source membership without revision','refresh preserves pagination','retention clamps pagination']},null,2));
 console.log('Browser checks passed: update settings/progress/cancellation/explicit install/errors, hourly tokens in all three grouped dimensions and single-hour views, concise token tooltips, compact multi-currency reference cards/panels and expanded narrow details, total-only series, partial share pies, telemetry batch setup/retry/undo, ten locales, themes, timezone, filters and pagination.');

@@ -24,7 +24,7 @@ changes. Update controls remain available in Settings; dismissal does not schedu
 
 ## Release and package identity
 
-The source is the public HTTPS GitHub Releases API for `owent/llm-usage`. Use the latest
+The primary source is the public HTTPS GitHub Releases API for `owent/llm-usage`. Use the latest
 published stable release, strict semantic version comparison and exact asset names.
 Never downgrade, cross architectures or switch installation types. A Windows NSIS
 installation selects `LLMUsage_<version>_x64-setup.exe`; a portable installation selects
@@ -37,13 +37,44 @@ InstallLocation, MainBinaryName and DisplayVersion, using the actual executable 
 binaries and unsupported installed package formats cannot automatically select an asset.
 Development builds therefore require a packaged copy to exercise installation.
 
+Version discovery is independent of installation identity. Development builds and
+unidentified executables can check the public stable version and show availability,
+without choosing an installer/portable asset. They cannot download or install through
+the updater. Development builds explain this restriction with a localized notice.
+Automatic checks follow the saved schedule in this mode; automatic download requires
+a verified package identity and a selected asset.
+
 Requests send an application User-Agent and public release identifiers only, without usage,
 local paths, credentials or account identifiers. Production endpoints and redirects are
-restricted to GitHub HTTPS release infrastructure. Read bounded metadata and stream bounded
+restricted to GitHub HTTPS release infrastructure and the exact documentation metadata
+URL below. Read bounded metadata and stream bounded
 downloads to disk. Verify exact size and the GitHub API asset SHA-256 before extraction,
 again before applying, and when reusing a completed download after restart. Missing digests,
 duplicate assets, mismatched URLs, versions or sizes fail closed. A `.part` file is never
 installable; interrupted downloads restart from byte zero.
+
+If the GitHub metadata request fails (including HTTP 403/429, timeout or unreadable/oversize
+responses), try `https://llm-usage.atframe.work/updates/latest.json` once. Do not retry the
+GitHub API immediately or use the fallback to bypass invalid versions/assets in a successful
+API response. Cancellation is checked between requests. Both sources failing preserve
+both error codes. Metadata is limited to 1 MiB and metadata redirects to other URLs are refused.
+
+The site snapshot has schema 1, repository `owent/llm-usage`, UTC `generated_at` and a
+minimal public release with exact asset names, GitHub URLs, sizes and SHA-256 digests.
+Reject snapshots older than seven days or more than five minutes in the future. The site
+still references GitHub downloads; it does not mirror installers. Asset selection and
+size/digest validation are identical for both metadata sources. Trust extends to HTTPS
+and this repository's documentation publication, without an independent publisher signature.
+
+Documentation CI refreshes the snapshot on main publication, daily and on published/edited/
+unpublished/deleted Releases. Release events build current main, preserving its source
+revision rather than deploying an old tag's documentation. The generator requires all six
+portable assets and Windows x64 NSIS to be uploaded with valid digests before publishing
+metadata. CI authenticates only the GitHub read using its scoped token; the token never
+enters the feed or documentation requests. Failed refresh can reuse a still-valid site or
+committed snapshot without changing its original generation time. If none is valid, existing
+publication remains unchanged. Normal local documentation builds can use the committed
+snapshot offline; desktop clients still reject it after expiry.
 
 This design trusts HTTPS and the repository's GitHub release ownership. SHA-256 detects
 corruption and asset changes; it is not an independent publisher signature. Existing CI
@@ -120,3 +151,14 @@ Retrieved on 2026-10-08:
 - Repository `desktop/scripts/portable.mjs`, NSIS template pinned to tauri-cli-v2.12.0,
   and `.github/workflows/ci.yml`; live v0.2.2 release metadata verified all seven package
   sizes and SHA-256 digests.
+
+Additional references checked on 2026-10-09:
+
+- [GitHub REST rate limits](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api):
+  HTTP 403/429 and bounded retry behavior; no immediate API retry on failure.
+- [Release workflow events](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#release):
+  release events use the tag revision.
+- [Triggering workflows](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow):
+  explicit workflow_dispatch can trigger a workflow with GITHUB_TOKEN.
+- [Workflow dispatch API](https://docs.github.com/en/rest/actions/workflows#create-a-workflow-dispatch-event):
+  main ref selection and scoped Actions write permission.

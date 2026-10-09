@@ -10,7 +10,7 @@
     "assets:check": "node desktop/scripts/assets.mjs --check",
     "lint:md": "markdownlint-cli2",
     "dev:docs": "node docs/site/scripts/prepare.mjs && astro dev --root docs/site --host 127.0.0.1",
-    "build:docs": "node docs/site/scripts/prepare.mjs && astro build --root docs/site && node docs/site/scripts/check-output.mjs",
+    "build:docs": "node docs/site/scripts/prepare.mjs && astro build --root docs/site && node docs/site/scripts/stage-update-feed.mjs && node docs/site/scripts/check-output.mjs",
     "check:docs": "node docs/site/scripts/check-content.mjs && astro check --root docs/site",
     "test:docs": "node --test docs/site/tests/*.test.mjs",
     "test:docs:browser": "node docs/site/tests/browser.mjs",
@@ -37,7 +37,8 @@
     "test:headless": "node desktop/tests/headless-smoke.mjs",
     "clippy": "cargo clippy --manifest-path desktop/src-tauri/Cargo.toml --workspace --all-targets --locked -- -D warnings",
     "fmt:check": "cargo fmt --manifest-path desktop/src-tauri/Cargo.toml --all --check",
-    "verify": "npm run lint:md && npm run assets:check && npm run test:scripts && npm run test:ui && npm run check && npm run fmt:check && npm run clippy && npm run test:rust && npm run build:web"
+    "verify": "npm run lint:md && npm run assets:check && npm run test:scripts && npm run test:ui && npm run check && npm run fmt:check && npm run clippy && npm run test:rust && npm run build:web",
+    "test:update:check": "node desktop/tests/native-update-check.mjs"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",

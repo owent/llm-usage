@@ -5,6 +5,7 @@ import { mkdir, readFile, writeFile, stat } from 'node:fs/promises';
 import { resolve, join, extname, sep } from 'node:path';
 import { chromium } from '../../../desktop/node_modules/playwright/index.mjs';
 import { output, root } from '../scripts/content.mjs';
+import { validateFeed } from '../scripts/update-feed.mjs';
 
 const artifacts = resolve(root, 'build/documentation-site/browser', String(Date.now()));
 await mkdir(artifacts, { recursive: true });
@@ -106,6 +107,11 @@ const measureContrast = async page => page.evaluate(() => {
   return { samples: samples.length, minimum: Math.min(...samples.map(s => s.ratio)), failures: samples.filter(s => s.ratio < s.minimum), focus };
 });
 try {
+  const metadata = await fetch(`${base}/updates/latest.json`);
+  assert.equal(metadata.status, 200);
+  assert.match(metadata.headers.get('content-type'), /application\/json/);
+  assert.equal(validateFeed(await metadata.json(), { fresh: false }).release.assets.length, 7);
+  checks.push('published static update endpoint serves seven verified package references');
   for (const [locale, expected] of [['en-US', '/'], ['zh-CN', '/zh-cn/'], ['zh-TW', '/zh-cn/'], ['fr-FR', '/']]) {
     const page = await pageFor({ locale });
     await page.goto(`${base}/`);

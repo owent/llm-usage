@@ -16,6 +16,10 @@ Design entry points: [product and architecture](docs/design/desktop-usage/README
 
 ## Current implementation
 
+Software update checks: verify publication of `/updates/latest.json` and observe a real
+Release-triggered main refresh; local repair evidence is in the
+[check repair record](docs/validation/desktop-usage/update-check-repair.md).
+
 | Stage | Implemented scope and results |
 | --- | --- |
 | M0/M1/M1a | Engineering baseline, SQLite transactions/recovery/statistics/backups, provenance and aggregate exchange. This round added complete normalized detail export, preview and transactional Merge, preserving revisions, conflicts, unknown values, cumulative data and archives; [detail merge rules](docs/design/desktop-usage/detail-merge.md). |

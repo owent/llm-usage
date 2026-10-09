@@ -72,11 +72,25 @@ The application checks the public GitHub latest stable release and verifies the 
 asset's API size and SHA-256. Preserve exact portable and NSIS names, publish all matching
 assets before making a release public, and retain the API digests. The updater trusts HTTPS
 and repository release ownership; these digests are not publisher signatures. It ignores
-drafts, prereleases, same/older versions and unsupported package identities. See the
+drafts, prereleases and same/older versions. Development builds and unidentified executables
+can check versions but cannot select, download or install a package. See the
 [update design](/reference/design/application-updates/) and
 [validation record](/reference/evidence/application-updates/). Run `npm run test:update:windows`
 after building to check actual portable IPC/helper replacement using a synthetic update;
 this does not establish a public release upgrade or NSIS lifecycle acceptance.
+
+GitHub metadata request failures try the documentation site's `/updates/latest.json` once.
+The snapshot preserves exact package URLs, sizes and SHA-256 digests; downloads still use
+GitHub. Clients reject snapshots older than seven days or more than five minutes in the future.
+Documentation CI refreshes it during main builds and daily at 04:17 UTC. Release publication,
+editing, unpublication or deletion dispatches a main-branch documentation build, preserving
+the Pages environment's branch restriction. PR builds use the committed snapshot offline.
+The generator requires all seven uploaded packages and never replaces the original timestamp
+when reusing a valid snapshot. Refresh locally with
+`node docs/site/scripts/update-feed.mjs`; the result stays under ignored root `build/`.
+Run `npm run test:update:check` after building for an isolated Windows IPC version check,
+or run `node desktop/tests/native-update-check.mjs --exe desktop/src-tauri/target/debug/LLMUsage.exe --development`
+for an embedded debug build. See the [check repair record](/reference/evidence/update-check-repair/).
 
 Authorization to build and to publish is separate. A design plan is not authorization to push,
 deploy, sign or change external credentials. Complete a reviewable artifact, tests,
