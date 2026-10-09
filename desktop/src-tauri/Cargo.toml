@@ -1,9 +1,9 @@
 [package]
 name = "llm-usage-desktop"
-version = "0.3.0"
+version = "0.3.1"
 description = "llm-usage desktop client"
 edition = "2021"
-rust-version = "1.89"
+rust-version = "1.90"
 
 [workspace]
 members = ["crates/core"]
@@ -11,49 +11,49 @@ members = ["crates/core"]
 default-members = [".", "crates/core"]
 
 [build-dependencies]
-tauri-build = { version = "^2.7.0", features = [] }
+tauri-build = { version = "^2.7.1", features = [] }
 
 [[bin]]
 name = "LLMUsage"
 path = "src/main.rs"
 
 [dependencies]
-tauri = { version = "^2.12.0", features = [] }
+tauri = { version = "^2.12.2", features = [] }
 serde = { version = "^1.0.229", features = ["derive"] }
 serde_json = { version = "^1.0.151" }
 rusqlite = { version = "^0.40.2", features = ["bundled"] }
 llm-usage-core = { path = "crates/core" }
-jiff = { version = "^0.2.37" }
+jiff = { version = "^0.2.38" }
 rfd = { version = "^0.17.2" }
 # fs4: available-space checks before backups (V15 consistent backups before migration/cleanup).
-fs4 = { version = "^0.13" }
+fs4 = { version = "^1.1.0" }
 # flate2: bounded OTLP receiver gzip decompression (V22 decompression-bomb protection).
-flate2 = { version = "^1" }
+flate2 = { version = "^1.1.10" }
 # Edit JSONC by value ranges; unrelated configuration and comments stay intact.
-jsonc-parser = { version = "^0.34", features = ["serde"] }
-toml_edit = { version = "^0.25", features = ["serde"] }
+jsonc-parser = { version = "^0.34.0", features = ["serde"] }
+toml_edit = { version = "^0.25.17", features = ["serde"] }
 # ureq: F2 HTTPS GET refresh of models.dev api.json (rustls, no local-data upload, bounded response).
-ureq = "3.4.2"
+ureq = "^3.4.2"
 semver = "^1.0.28"
-sha2 = "^0.10.9"
-tar = "^0.4"
-zstd = { version = "^0.13", default-features = false }
+sha2 = "^0.11.0"
+tar = "^0.4.46"
+zstd = { version = "^0.14.0", default-features = false }
 
 [target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
-getrandom = "^0.3.4"
-libc = "^0.2"
+getrandom = "^0.4.3"
+libc = "^0.2.190"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 secret-service = { version = "^5.2.0", features = ["rt-tokio-crypto-rust"] }
-tokio = { version = "^1", features = ["rt", "time"] }
+tokio = { version = "^1.53.2", features = ["rt", "time"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = "^3.7.0"
 security-framework-sys = "^2.17.0"
-core-foundation = "^0.10"
+core-foundation = "^0.10.1"
 
 [target.'cfg(windows)'.dependencies]
-tauri = { version = "^2.12.0", features = ["tray-icon"] }
+tauri = { version = "^2.12.2", features = ["tray-icon"] }
 windows = { version = "^0.62.2", features = ["Win32_System_Com", "Win32_System_TaskScheduler", "Win32_System_Variant", "Win32_System_Ole", "Win32_System_Registry", "Win32_System_Power", "Win32_System_Threading", "Win32_Storage_FileSystem", "Win32_Security", "Win32_Security_Authorization", "Win32_Security_Credentials", "Win32_Security_Cryptography"] }
 
 [profile.release]

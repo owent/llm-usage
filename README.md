@@ -7,7 +7,7 @@
 [![license](https://img.shields.io/badge/license-Not_specified-lightgrey)](https://github.com/owent/llm-usage)
 
 [![Tauri](https://img.shields.io/badge/Tauri-2.12-FFC131?logo=tauri)](https://tauri.app)
-[![Rust](https://img.shields.io/badge/Rust-1.98.x-DEA584?logo=rust)](https://www.rust-lang.org)
+[![Rust](https://img.shields.io/badge/Rust-1.99.x-DEA584?logo=rust)](https://www.rust-lang.org)
 [![Svelte](https://img.shields.io/badge/Svelte-5.57-FF3E00?logo=svelte)](https://svelte.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178C6?logo=typescript)](https://www.typescriptlang.org)
 [![Node.js](https://img.shields.io/badge/node.js-%E2%89%A522_%C2%B7_24-339933?logo=nodedotjs)](https://nodejs.org)
@@ -69,7 +69,7 @@ with Chinese counterparts maintained alongside them.
 
 ## Common commands
 
-Use Node.js 22+ (24 in current CI) and Rust (1.98.x in current CI). The Astro site requires Node 22.12+.
+Use Node.js 22+ (24 in current CI) and Rust (1.99.0, selected by `rust-toolchain.toml`). The Astro site requires Node 22.12+.
 Run commands from the repository root:
 
 ```powershell
@@ -98,6 +98,10 @@ npm run build:docs      # Production site and local-link checks.
 npm run test:docs       # Documentation behavior regressions.
 npm run test:docs:browser # Production-site browser checks.
 ```
+
+Alternatively, `pnpm install --frozen-lockfile` restores the root and desktop workspace
+using the pinned pnpm 12.10.1. The same commands support `pnpm run`; keep both npm locks
+and the shared pnpm lock synchronized when changing dependencies.
 
 `test:browser` starts and stops its own Vite server and writes screenshots to `build/browser-smoke/`.
 On other platforms, first run `npx playwright install chromium` inside `desktop`.

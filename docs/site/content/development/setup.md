@@ -8,8 +8,9 @@ sidebar:
 ## Prerequisites and dependency ownership
 
 Use Node.js 22 or newer for repository tooling; the Astro site specifically requires
-Node 22.12 or newer. CI selects Node 24 and Rust 1.98.0. The Rust manifest declares an
-MSRV of 1.89; use the tested toolchain when reproducing current acceptance.
+Node 22.12 or newer. CI selects Node 24 and Rust 1.99.0. The root `rust-toolchain.toml`
+selects that Rust version locally. The desktop manifest declares an MSRV of 1.90,
+as required by Tauri 2.12.2; use the tested toolchain when reproducing current acceptance.
 Documentation comment checks also need Python 3 and PowerShell 7: they parse Python and
 PowerShell source without executing it. Install them through your usual development
 environment if absent; `check:docs` does not install tools automatically.
@@ -26,6 +27,17 @@ npm ci
 npm --prefix desktop ci
 npm run assets:check
 ```
+
+Alternatively, run `pnpm install --frozen-lockfile` from the root. The workspace includes
+both the root and `desktop`, using pnpm 12.10.1 pinned by `packageManager`; the root
+postinstall skips the nested npm install for pnpm. Existing commands also work through
+`pnpm run`. Keep both npm locks and the shared pnpm lock synchronized. The workspace
+allows build scripts for esbuild and sharp and records exact exceptions for newly
+released dependencies; retain peer checks and scoped approvals.
+
+TypeScript remains at 6.0.3 because Astro and Svelte checkers require the compiler API
+and accept TypeScript 5 or 6. TypeScript 7.0.2 lacks that API; see the
+[TypeScript 7 announcement](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/).
 
 Linux Tauri builds require the packages listed in `.github/workflows/ci.yml`, including
 WebKitGTK 4.1, GTK, OpenSSL, appindicator and build tools. macOS requires the corresponding

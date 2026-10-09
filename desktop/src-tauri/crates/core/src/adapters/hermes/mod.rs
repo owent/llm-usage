@@ -89,7 +89,7 @@ impl HermesAdapter {
                     3 => {
                         rel.components().next().and_then(|c| c.as_os_str().to_str())
                             == Some("profiles")
-                            && p.parent().is_some_and(&profile_id_ok)
+                            && p.parent().is_some_and(profile_id_ok)
                     }
                     _ => false,
                 }

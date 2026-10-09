@@ -204,15 +204,19 @@ fn revocation_rechecks_missing_values_and_confirms_delete_without_removing_repla
             self.inner.random(bytes)
         }
         fn read(&self, name: &str) -> Result<Option<Vec<u8>>, String> {
-            if self
-                .missing
-                .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_sub(1))
-                .is_ok()
-            {
-                Ok(None)
-            } else {
-                self.inner.read(name)
+            let mut remaining = self.missing.load(Ordering::SeqCst);
+            while remaining > 0 {
+                match self.missing.compare_exchange_weak(
+                    remaining,
+                    remaining - 1,
+                    Ordering::SeqCst,
+                    Ordering::SeqCst,
+                ) {
+                    Ok(_) => return Ok(None),
+                    Err(actual) => remaining = actual,
+                }
             }
+            self.inner.read(name)
         }
         fn read_for_mutation(&self, name: &str) -> Result<Option<Vec<u8>>, String> {
             read_visible_after_write(|| self.read(name))

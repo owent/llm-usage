@@ -1,10 +1,10 @@
 {
   "name": "llm-usage",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "description": "Doc tooling and root command entry for the llm-usage repository; the desktop app keeps its own manifest under desktop/.",
   "scripts": {
-    "postinstall": "node -e \"process.env.CI || require('child_process').execSync('npm --prefix desktop install', { stdio: 'inherit' })\"",
+    "postinstall": "node -e \"process.env.CI || /pnpm/.test(process.env.npm_execpath || '') || require('child_process').execSync('npm --prefix desktop install', { stdio: 'inherit' })\"",
     "setup": "npm install && npm --prefix desktop install",
     "assets:generate": "node desktop/scripts/assets.mjs --generate",
     "assets:check": "node desktop/scripts/assets.mjs --check",
@@ -32,25 +32,26 @@
     "test:credentials:linux": "node desktop/tests/linux-credential-store.mjs",
     "test:install:windows": "node desktop/tests/windows-install-lifecycle.mjs",
     "test:update:windows": "node desktop/tests/windows-update.mjs",
+    "test:update:check": "node desktop/tests/native-update-check.mjs",
     "test:install:linux": "node desktop/tests/linux-install-lifecycle.mjs",
     "test:import": "node desktop/tests/native-first-import.mjs",
     "test:headless": "node desktop/tests/headless-smoke.mjs",
     "clippy": "cargo clippy --manifest-path desktop/src-tauri/Cargo.toml --workspace --all-targets --locked -- -D warnings",
     "fmt:check": "cargo fmt --manifest-path desktop/src-tauri/Cargo.toml --all --check",
-    "verify": "npm run lint:md && npm run assets:check && npm run test:scripts && npm run test:ui && npm run check && npm run fmt:check && npm run clippy && npm run test:rust && npm run build:web",
-    "test:update:check": "node desktop/tests/native-update-check.mjs"
+    "verify": "npm run lint:md && npm run assets:check && npm run test:scripts && npm run test:ui && npm run check && npm run fmt:check && npm run clippy && npm run test:rust && npm run build:web"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
-    "@astrojs/starlight": "^0.42.5",
-    "astro": "^7.3.6",
-    "typescript": "^6.0.3",
-    "unified": "^11.0.5",
-    "remark-parse": "^11.0.0",
-    "remark-gfm": "^4.0.1",
-    "unist-util-visit": "^5.1.0",
+    "@astrojs/starlight": "^0.42.6",
+    "astro": "^7.3.8",
     "github-slugger": "^2.0.0",
     "markdownlint-cli2": "^0.23.3",
+    "remark-gfm": "^4.0.1",
+    "remark-parse": "^11.0.0",
+    "typescript": "^6.0.3",
+    "unified": "^11.0.5",
+    "unist-util-visit": "^5.1.0",
     "yaml": "^2.9.1"
-  }
+  },
+  "packageManager": "pnpm@12.10.1"
 }

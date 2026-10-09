@@ -57,8 +57,9 @@ for every Linux environment.
 Three-platform jobs exist; ongoing M7 acceptance needs actual runs. Triggers are PRs,
 main-branch pushes, tag pushes and manual dispatch. The user authorized automatic draft
 Release publication, deletion/recreation of v0.2.1 to validate it, and version 0.2.2 portable
-publication through v0.2.2. Other remote writes
-still need authorization.
+publication through v0.2.2. On 2026-10-09 the user authorized dependency upgrades,
+version 0.3.1, the v0.3.1 tag and pushing to trigger release, including pnpm configuration
+and lock synchronization. Other remote writes still need authorization.
 
 1. Shared checks: Markdown/local links, frontend types/unit tests and Rust fmt/clippy;
    determine commands from actual lockfiles.

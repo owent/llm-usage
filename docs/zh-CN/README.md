@@ -7,7 +7,7 @@
 [![license](https://img.shields.io/badge/license-%E6%9C%AA%E6%8C%87%E5%AE%9A-lightgrey)](https://github.com/owent/llm-usage)
 
 [![Tauri](https://img.shields.io/badge/Tauri-2.12-FFC131?logo=tauri)](https://tauri.app)
-[![Rust](https://img.shields.io/badge/Rust-1.98.x-DEA584?logo=rust)](https://www.rust-lang.org)
+[![Rust](https://img.shields.io/badge/Rust-1.99.x-DEA584?logo=rust)](https://www.rust-lang.org)
 [![Svelte](https://img.shields.io/badge/Svelte-5.57-FF3E00?logo=svelte)](https://svelte.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178C6?logo=typescript)](https://www.typescriptlang.org)
 [![Node.js](https://img.shields.io/badge/node.js-%E2%89%A522_%C2%B7_24-339933?logo=nodedotjs)](https://nodejs.org)
@@ -66,7 +66,8 @@ Astro/Starlight 文档站包含用户与开发指南、来源说明和验证依�
 
 ## 常用命令
 
-Node.js 22+（当前锁定 24）与 Rust（当前锁定 1.98.x）。在仓库根直接执行：
+使用 Node.js 22+（当前 CI 使用 24）与 Rust 1.99.0（由 `rust-toolchain.toml` 选择）。
+Astro 文档站要求 Node 22.12+。在仓库根直接执行：
 
 ```powershell
 git lfs install --local  # 为当前克隆启用 LFS（首次）
@@ -94,6 +95,9 @@ npm run build:docs      # 生产站点和本地链接检查
 npm run test:docs       # 文档行为回归
 npm run test:docs:browser # 生产站点浏览器检查
 ```
+
+也可以执行 `pnpm install --frozen-lockfile`，通过固定的 pnpm 12.10.1 恢复根目录和 desktop 工作区。
+同一组命令也支持 `pnpm run`；更改依赖时同步维护两个 npm 锁文件和共享的 pnpm 锁文件。
 
 `test:browser` 单独执行，会启动并关闭临时 Vite 服务；截图写入 `build/browser-smoke/`。
 非 Windows 环境先在 `desktop` 中运行 `npx playwright install chromium`。

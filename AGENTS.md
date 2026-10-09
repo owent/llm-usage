@@ -227,6 +227,11 @@ Use Node.js 22+ from the repository root; Astro documentation requires 22.12+.
 Root package.json/package-lock.json provide the unified tool entry point. Run documentation and product
 checks from the root:
 
+The pnpm workspace includes the root and `desktop`, with its version pinned in `package.json`.
+`pnpm install --frozen-lockfile` can replace both npm restore commands below. Keep both npm lockfiles
+and `pnpm-lock.yaml` synchronized with manifest changes. Retain scoped build approvals and peer checks.
+`rust-toolchain.toml` selects the same Rust version as CI without changing the global default.
+
 ```powershell
 npm ci
 npm --prefix desktop ci

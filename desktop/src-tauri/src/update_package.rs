@@ -175,6 +175,10 @@ pub(crate) fn write_json(path: &Path, value: &impl Serialize) -> Result<(), Stri
     replace_cache_file(&tmp, path)
 }
 
+fn digest_hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
 pub(crate) fn file_hash(path: &Path) -> Result<String, String> {
     regular(path)?;
     let mut file = File::open(path).map_err(|e| e.to_string())?;
@@ -187,7 +191,7 @@ pub(crate) fn file_hash(path: &Path) -> Result<String, String> {
         }
         hash.update(&buffer[..n]);
     }
-    Ok(format!("{:x}", hash.finalize()))
+    Ok(digest_hex(&hash.finalize()))
 }
 
 pub(crate) fn verify_file(path: &Path, size: u64, hash: &str) -> Result<(), String> {
@@ -220,7 +224,7 @@ pub(crate) fn cache_directory(db: &Path) -> PathBuf {
     } else {
         identity.to_string()
     };
-    let hash = format!("{:x}", Sha256::digest(normalized.as_bytes()));
+    let hash = digest_hex(&Sha256::digest(normalized.as_bytes()));
     db.parent()
         .unwrap_or_else(|| Path::new("."))
         .join("update-cache")
@@ -637,7 +641,7 @@ fn tree_hash(path: &Path) -> Result<String, String> {
     } else {
         return Err("unsupported_update_target_entry".into());
     }
-    Ok(format!("{:x}", hash.finalize()))
+    Ok(digest_hex(&hash.finalize()))
 }
 
 fn remove_owned(path: &Path, parent: &Path) -> Result<(), String> {
@@ -1373,6 +1377,22 @@ mod tests {
         fn drop(&mut self) {
             fs::remove_dir_all(&self.0).unwrap();
         }
+    }
+
+    #[test]
+    fn sha256_upgrade_preserves_padded_lowercase_file_digests() {
+        let workspace = Workspace::new();
+        let path = workspace.0.join("digest.txt");
+        fs::write(&path, b"hello world").unwrap();
+        let expected = "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9";
+        assert_eq!(file_hash(&path).unwrap(), expected);
+        verify_file(&path, 11, expected).unwrap();
+        assert!(verify_file(&path, 11, &"0".repeat(64)).is_err());
+        fs::write(&path, []).unwrap();
+        assert_eq!(
+            file_hash(&path).unwrap(),
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
     }
 
     fn pe(arch: &str) -> Vec<u8> {

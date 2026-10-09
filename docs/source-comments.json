@@ -28,7 +28,7 @@
       ]
     },
     ".github/workflows/ci.yml": {
-      "codeHash": "e8f373f914297ced62f676639aa788777939ed3d9c3be104b8c3833ba92b6846",
+      "codeHash": "57c35d1ca1a551c6b6bad9818a09e371a3ffaebcde4b2e7ac3d5801688a65ab8",
       "comments": [
         {
           "id": "de393e7c2ad7dd27",
@@ -53,92 +53,92 @@
         },
         {
           "id": "5c4aea539de1cf92",
-          "line": 216,
+          "line": 226,
           "kind": "line",
           "en": "# v7",
           "zh": "# v7 固定提交"
         },
         {
           "id": "8d354d8f03723bbc",
-          "line": 217,
+          "line": 227,
           "kind": "line",
           "en": "# v8",
           "zh": "# v8 固定提交"
         },
         {
-          "id": "8cb924b747b0c458",
-          "line": 223,
+          "id": "f16f41b7faaa6f42",
+          "line": 233,
           "kind": "line",
-          "en": "# v8",
-          "zh": "# v8 固定提交"
+          "en": "# v9",
+          "zh": "# v9 版本"
         },
         {
           "id": "ed6a6dd5b2894d23",
-          "line": 297,
+          "line": 307,
           "kind": "line",
           "en": "# v1",
           "zh": "# v1 固定提交"
         },
         {
-          "id": "71617036ab2341ca",
-          "line": 306,
+          "id": "76286df8f579b6d3",
+          "line": 316,
           "kind": "line",
-          "en": "# v8",
-          "zh": "# v8 固定提交"
+          "en": "# v9",
+          "zh": "# v9 版本"
         }
       ]
     },
     ".github/workflows/docs.yml": {
-      "codeHash": "ec8afdeb6f8dc5a8433b676045d2b30e9e46b5cba0f878063d315d4a3901dcd7",
+      "codeHash": "1acd16c05a4a5b686600d69559f313a2f90e12d4380ec0b0d6612c569908e628",
       "comments": [
         {
-          "id": "4f284c32a0a3bcbd",
-          "line": 57,
+          "id": "3a682471528b7580",
+          "line": 63,
           "kind": "line",
-          "en": "# v8",
-          "zh": "# 第 8 主版本。"
+          "en": "# v9",
+          "zh": "# v9 版本"
         },
         {
           "id": "51f8de7d15f14971",
-          "line": 68,
+          "line": 74,
           "kind": "line",
           "en": "# v7",
           "zh": "# 第 7 主版本。"
         },
         {
           "id": "70409c282bb4c7b7",
-          "line": 71,
+          "line": 77,
           "kind": "line",
           "en": "# v7",
           "zh": "# 第 7 主版本。"
         },
         {
           "id": "148ccd847b02cef7",
-          "line": 90,
+          "line": 96,
           "kind": "line",
           "en": "# v7",
           "zh": "# 第 7 主版本。"
         },
         {
           "id": "3c836c70722827c1",
-          "line": 110,
+          "line": 116,
           "kind": "line",
           "en": "# v7",
           "zh": "# 第 7 主版本。"
         },
         {
           "id": "174058e441c4f73e",
-          "line": 113,
+          "line": 119,
           "kind": "line",
           "en": "# v7",
           "zh": "# 第 7 主版本。"
         },
         {
-          "id": "28c1891f94a401e6",
-          "line": 116,
+          "id": "4f284c32a0a3bcbd",
+          "line": 122,
           "kind": "line",
           "en": "# v8",
-          "zh": "# v8 版本"
+          "zh": "# 第 8 主版本。"
         }
       ]
     },
@@ -313,7 +313,7 @@
       ]
     },
     "desktop/src-tauri/Cargo.toml": {
-      "codeHash": "4cb26fafda99baca4f6157b0aa1a3ade9dab7e8ef6283bc4737c231b52ef6ded",
+      "codeHash": "fc97fef3b427a789b65d43311de8d7d69ac346267a3062f563171235e0fddfc5",
       "comments": [
         {
           "id": "6b9f8559a21a75a8",
@@ -353,7 +353,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/Cargo.toml": {
-      "codeHash": "3ee873a20f76a3ad50bcdc49936fed31d9b891bf48d9acfdcc84fb705a9dfa34",
+      "codeHash": "b2b9b76df17720e4c9f1061894b5381200ea0b45942c9cb18861e78bb3c1b665",
       "comments": [
         {
           "id": "e82798efdbcdcbfa",
@@ -14734,7 +14734,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/hermes/mod.rs": {
-      "codeHash": "e49cbd29ef5058038b3033a2555f466233f94dfeb367fc80870327386576d6c7",
+      "codeHash": "e73f578bfd6f6e8827c56612230913eb129e1b0d4cabaf003e2a8a9360ad2ad0",
       "comments": [
         {
           "id": "03e402cd26444faf",
@@ -53305,46 +53305,46 @@
       ]
     },
     "desktop/src-tauri/src/receiver_auth/tests.rs": {
-      "codeHash": "b8071ae57eadb71c71b51d48bde705b8938feca6f837ae62e4fa0e866f003f21",
+      "codeHash": "1de52fa49a7755f28a24ace096bff890e281b4161bcd6af14fb4dd63c676cf6d",
       "comments": [
         {
           "id": "b0295ee11f2e4c47",
-          "line": 372,
+          "line": 376,
           "kind": "line",
           "en": "// A unique session-only copy is also unusable: it would disappear on",
           "zh": "// 唯一的临时会话副本也不可使用：它会在"
         },
         {
           "id": "bf3d4b0a406be351",
-          "line": 373,
+          "line": 377,
           "kind": "line",
           "en": "// logout and must not silently satisfy a persisted exporter binding.",
           "zh": "// 注销时消失，不能用于已保存的 exporter 绑定。"
         },
         {
           "id": "8dea0a5e5bd4f54d",
-          "line": 413,
+          "line": 417,
           "kind": "line",
           "en": "// A separate process must read and revoke the persisted entry. Transfer the",
           "zh": "// 独立进程须读取并撤销已保存条目。传递"
         },
         {
           "id": "ab67e12192f9c929",
-          "line": 414,
+          "line": 418,
           "kind": "line",
           "en": "// synthetic credential only over stdin, never argv, environment or a file.",
           "zh": "// 合成测试凭据时只用 stdin，不用 argv、环境变量或文件。"
         },
         {
           "id": "56b55ac8c0cc129d",
-          "line": 489,
+          "line": 493,
           "kind": "line",
           "en": "// Register cleanup before the first write, including later issue/bind failures.",
           "zh": "// 首次写入前注册清理，包括后续签发或绑定失败。"
         },
         {
           "id": "3a5fb1102b4a5d9a",
-          "line": 547,
+          "line": 551,
           "kind": "line",
           "en": "// Direct explicit --ignored runs have no parent input and need no vault writes.",
           "zh": "// 直接显式运行 --ignored 时没有父进程输入，也无需写凭据库。"

@@ -23,6 +23,9 @@ Maintenance guidance uses one root entry, one Skill and selective references. Co
 live in references/records and are read only for initialization recovery or delivery review. Documentation
 lint and unified verification run from the root; M0 restored package.json/package-lock.json. Product
 dependencies remain governed by desktop npm/Cargo manifests and lockfiles. Retain Kilo's local ignore file.
+Dependency changes also synchronize the root/desktop npm locks and the shared pnpm workspace lock.
+Verify frozen installs with both package managers. Check compiler API consumers before upgrading
+TypeScript majors; retain peer checks. The root Rust toolchain file and CI must select the same version.
 No module differences require nested rules. No adopted Claude workflow currently requires CLAUDE.md.
 Without independent roles, product changes, deployment resources or configuration needs, do not create
 empty client configurations, OpenSpec changes, roadmaps, development guides or secret examples. Unconfirmed

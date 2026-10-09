@@ -2,7 +2,7 @@
 
 <a id="桌面用量客户端执行计划"></a>
 
-Current version: 0.3.0. Windows 11 x64 is the first desktop target; Windows/Linux/macOS CI
+Current version: 0.3.1. Windows 11 x64 is the first desktop target; Windows/Linux/macOS CI
 is retained. This file owns the executable work for the current round. Removed scope and
 first failures are recorded in the [round record](docs/validation/desktop-usage/plan-20261007.md);
 removal does not mean acceptance passed. Historical results are indexed in
@@ -15,6 +15,12 @@ Design entry points: [product and architecture](docs/design/desktop-usage/README
 <a id="当前进度"></a>
 
 ## Current implementation
+
+Release 0.3.1: upgrade registry dependencies and pinned Actions to latest compatible
+stable versions, synchronize npm/pnpm/Cargo locks and verify both package managers.
+Preserve installer/portable identity and package integrity. Publish `v0.3.1` through the
+existing tag-triggered workflow after local product/native/documentation checks pass;
+verify every CI job and uploaded package against its source revision and SHA-256.
 
 Software update checks: verify publication of `/updates/latest.json` and observe a real
 Release-triggered main refresh; local repair evidence is in the
