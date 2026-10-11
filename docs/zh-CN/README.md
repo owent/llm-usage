@@ -1,26 +1,9 @@
 # llm-usage
 
 [![status](https://img.shields.io/badge/status-Pre--Alpha-orange)](Plan.md)
-[![platform](https://img.shields.io/badge/platform-Windows_11_x64_%E9%A6%96%E5%8F%91-0078D6)](docs/design/desktop-usage/platform-ci.md)
-[![CI targets](https://img.shields.io/badge/CI-Windows_%C2%B7_macOS_%C2%B7_Linux-informational)](docs/design/desktop-usage/platform-ci.md)
-[![数据范围](https://img.shields.io/badge/%E7%BB%9F%E8%AE%A1%E8%8C%83%E5%9B%B4-%E4%BB%85%E6%9C%AC%E6%9C%BA_Agent_%E6%95%B0%E6%8D%AE-blue)](docs/design/desktop-usage/data-contract.md)
-[![license](https://img.shields.io/badge/license-%E6%9C%AA%E6%8C%87%E5%AE%9A-lightgrey)](https://github.com/owent/llm-usage)
-
-[![Tauri](https://img.shields.io/badge/Tauri-2.12-FFC131?logo=tauri)](https://tauri.app)
-[![Rust](https://img.shields.io/badge/Rust-1.99.x-DEA584?logo=rust)](https://www.rust-lang.org)
-[![Svelte](https://img.shields.io/badge/Svelte-5.57-FF3E00?logo=svelte)](https://svelte.dev)
-[![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178C6?logo=typescript)](https://www.typescriptlang.org)
-[![Node.js](https://img.shields.io/badge/node.js-%E2%89%A522_%C2%B7_24-339933?logo=nodedotjs)](https://nodejs.org)
-[![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite)](https://vite.dev)
-[![SQLite](https://img.shields.io/badge/SQLite-rusqlite_0.40-003B57?logo=sqlite)](https://www.sqlite.org)
-[![ECharts](https://img.shields.io/badge/ECharts-6.1-AA344D?logo=apacheecharts)](https://echarts.apache.org)
-
-[![verify](https://img.shields.io/badge/npm_run_verify-%E9%80%9A%E8%BF%87_2026--10--07-brightgreen)](docs/validation/desktop-usage/current-acceptance.md)
-[![Git LFS](https://img.shields.io/badge/Git_LFS-%E9%9D%99%E6%80%81%E8%B5%84%E6%BA%90-blue?logo=git)](desktop/assets/README.md)
-[![repo size](https://img.shields.io/github/repo-size/owent/llm-usage)](https://github.com/owent/llm-usage)
-[![last commit](https://img.shields.io/github/last-commit/owent/llm-usage)](https://github.com/owent/llm-usage/commits)
-[![issues](https://img.shields.io/github/issues/owent/llm-usage)](https://github.com/owent/llm-usage/issues)
-[![languages](https://img.shields.io/github/languages/count/owent/llm-usage)](https://github.com/owent/llm-usage)
+[![release](https://img.shields.io/github/v/release/owent/llm-usage)](https://github.com/owent/llm-usage/releases/latest)
+[![CI](https://github.com/owent/llm-usage/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/owent/llm-usage/actions/workflows/ci.yml)
+[![license](https://img.shields.io/badge/license-MIT-blue)](../../LICENSE)
 
 [英文文档](https://llm-usage.atframe.work/) · [中文文档](https://llm-usage.atframe.work/zh-cn/) ·
 [英文仓库 README](../../README.md)
