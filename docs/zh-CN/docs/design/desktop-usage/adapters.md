@@ -35,8 +35,10 @@ Zed 外部 Provider 实样见 [本轮记录](../../validation/desktop-usage/plan
 成功解析的数据可正常统计，并单独展示未验证兼容状态、所用解析器及覆盖缺口；
 不能仅因版本未收录就设为 unsupported_format，也不能把兼容尝试成功写成逐版本验证通过。
 
-0.3.0 补充八个逐一核对的 Codex 原生版本，精确注册表现有 26 个旧格式和七个新格式版本。
-下表原有的 21 个旧格式映射仍是历史依据，详见[新增样本与恢复](../../validation/desktop-usage/release-030.md)。
+Codex 精确注册表现有 26 个旧格式和 11 个新格式版本。0.3.2 补充四个独立核对的
+新格式版本及 27 个 Kilo 会话版本，每个版本均有原生脱敏样本和独立计算的期望值，
+详见[版本核验与恢复](../../validation/desktop-usage/release-032.md)。
+下表原有的 21 个 Codex 旧格式映射仍是历史依据，详见[0.3.0 样本](../../validation/desktop-usage/release-030.md)。
 其他版本继续进行兼容检查，不继承这些核验结论。
 
 <a id="user-specified-tools"></a>
@@ -57,7 +59,7 @@ Zed 外部 Provider 实样见 [本轮记录](../../validation/desktop-usage/plan
 | Hermes Agent（原需求 Harness Agent） | M3 已实现；0.21.5/v2026.9.24 官方镜像的真实本地请求/续会话已核对，schema 30 不能核验其他历史版本 | session_model_usage 为非缓存输入/缓存读写/输出/推理区间累计；默认零未知，api_call_count 不拆调用；完整旧摘要/旧处理位置重评；模型/费用维度与日志详单另验 | M3 本地样本已核对，A24 |
 | OpenClaw | schema 24 只读读取已实现（M3，2026-10-06；官方 npm 2026.9.8 CLI/续会话真实本地模型样本） | transcript_events TEXT/zstd 正文；本地已核验 provenance，外部/迁移输入隔离；input 为非缓存，默认零、计算总量/费用及底层调用未知，整库版本不能核验历史行；冷归档显式覆盖缺口，其他协议/schema 不套用 | M3 真实 CLI 专项 11 项、原库升级与 Windows 成品双读通过，A09；[读取规则](openclaw-runtime.md)、[真实验收](../../validation/desktop-usage/openclaw-container-sample.md) |
 | Gemini CLI | 官方会话存储 ~/.gemini/tmp/<project_hash>/chats/ 含 token；OTel 提供 input/output/thought/cache/tool 和请求统计 | JSON/JSONL 具体版本探测；thought/cache/tool 字段的包含关系逐 provider 核验；Gemini 网页和 Code Assist 不冒充 CLI | M2/M5；本地候选/需启用，A10 |
-| Kilo Code CLI / 桌面 / IDE 扩展 | 适配器已实现（M3，2026-09-25）：SQLite 只读 + 暂存副本规则；message.data.tokens 逐次五互斥；按处理位置增量；session 行 tokens 列仅作会话对账（275/276 matched，列级语义随版本不稳定不映射事件）；真实核对 13,342 调用/1.65B token 与独立求和一致，重复读取不新增用量 | 已验证 7.4.8/7.4.9/7.8.1（测试文件）；库内其余 7.3.42–7.7.12 等未收录走 latest_fallback；7.8.1 为本机实读脱敏（顶层 modelID/providerID 记录，与 7.4.x 同形共用 message_tokens_v1）；新 core 数据层（session_message，当前 0 行）切换后需专用实现核验；IDE 扩展后移 F1；不能拿 CLI 通过代表 IDE 通过 | CLI/桌面 M3 已实施；本地用量格式尚未核验的 IDE 变体 F1，A11 |
+| Kilo Code CLI / 桌面 / IDE 扩展 | 适配器已实现（M3，2026-09-25）：SQLite 只读 + 暂存副本规则；message.data.tokens 逐次五互斥；按处理位置增量；session 行 tokens 列仅作会话对账（275/276 matched，列级语义随版本不稳定不映射事件）；真实核对 13,342 调用/1.65B token 与独立求和一致，重复读取不新增用量 | 已核验 30 个精确会话版本，包含 7.8.3/7.8.7；[0.3.2 样本](../../validation/desktop-usage/release-032.md)新增 27 个完整会话、787 次调用。每条消息绑定所属 session.version；未登记或缺失版本继续 latest_fallback。新 core 数据层（session_message，当前 0 行）切换后需专用实现核验；IDE 扩展后移 F1；不能拿 CLI 通过代表 IDE 通过 | CLI/桌面 M3 已实施；本地用量格式尚未核验的 IDE 变体 F1，A11 |
 | 新版 Kimi Code | 适配器已实现（M4，2026-09-25）：家族共享 kimi_wire.rs；注册表参考版本 protocol_version=1.5；真实核对 13 文件 965 调用 total 116,428,813 与 jq 逐字段相等，重复读取不新增用量；打断步回声缺失以 echo_subset 可见 | usage.record 无稳定 ID ⇒ provider/逐次延迟不入账（如实 unavailable）；旧会话 1.4 走 latest_fallback；其他版本仍需各自 fixture | M4 已实施；跨版本待核验，A12 |
 | Kimi Work | 适配器已实现（M4，2026-09-25）：独立目录（A13 不与 Kimi Code 合并）；conv-*/ctitle-* 布局（daimon 宿主）；参考版本 1.4；真实核对 69 文件 1,337 调用 total 125,225,933 逐字段相等、69/69 对账 matched；跨文件同毫秒（swarm）事件键含 session:agent 身份段 | 官方默认布局/env 未见文档（迁移需手工加根）；subagent.completed 与缓存写>0 无本机真实样本；与 Kimi Code 共享 wire 解析但统计分列 | M4 已实施，A13 |
 | MiMo Code | 官方 0.1.15 CLI/续会话八条 step-finish 与 API 已逐条核对，Windows/Linux 原始 SQLite/WAL 新包升级通过 | 自身 SDK 归一 input/output 与缓存/推理反变换；零缓存/推理/费用未知，不叠加 message 副本；所属会话版本逐记录 latest_fallback；MIMOCODE_HOME/data 与 MIMOCODE_DB 优先级独立核验；八次 length 不能核验任务成功 | M3 当前主循环完成；其他版本/协议/非截断任务另验，[规则](m3-runtime-samples.md)，A14 |

@@ -1,0 +1,603 @@
+{
+  "source": "Read-only complete native Kilo session, 2026-10-11. Bodies removed; identifiers, provider and paths anonymized; usage numbers, times and owning session version retained.",
+  "schema": {
+    "message_ddl": "CREATE TABLE `message` ( `id` text PRIMARY KEY, `session_id` text NOT NULL, `time_created` integer NOT NULL, `time_updated` integer NOT NULL, `data` text NOT NULL, CONSTRAINT `fk_message_session_id_session_id_fk` FOREIGN KEY (`session_id`) REFERENCES `session`(`id`) ON DELETE CASCADE )",
+    "session_ddl": "CREATE TABLE `session` ( `id` text PRIMARY KEY, `project_id` text NOT NULL, `parent_id` text, `slug` text NOT NULL, `directory` text NOT NULL, `title` text NOT NULL, `version` text NOT NULL, `share_url` text, `summary_additions` integer, `summary_deletions` integer, `summary_files` integer, `summary_diffs` text, `revert` text, `permission` text, `time_created` integer NOT NULL, `time_updated` integer NOT NULL, `time_compacting` integer, `time_archived` integer, `workspace_id` text, `path` text, `agent` text, `model` text, `cost` real DEFAULT 0 NOT NULL, `tokens_input` integer DEFAULT 0 NOT NULL, `tokens_output` integer DEFAULT 0 NOT NULL, `tokens_reasoning` integer DEFAULT 0 NOT NULL, `tokens_cache_read` integer DEFAULT 0 NOT NULL, `tokens_cache_write` integer DEFAULT 0 NOT NULL, `metadata` text, CONSTRAINT `fk_session_project_id_project_id_fk` FOREIGN KEY (`project_id`) REFERENCES `project`(`id`) ON DELETE CASCADE )"
+  },
+  "sessions": [
+    {
+      "id": "native-session",
+      "parent_id": null,
+      "version": "7.4.7",
+      "time_created": 1784122408018,
+      "time_updated": 1784122780712,
+      "tokens_input": 82469,
+      "tokens_output": 4411,
+      "tokens_reasoning": 6708,
+      "tokens_cache_read": 1016576,
+      "tokens_cache_write": 0,
+      "project_id": "anon-proj",
+      "slug": "session",
+      "directory": "/work",
+      "title": "REDACTED"
+    }
+  ],
+  "messages": [
+    {
+      "id": "native-message-1",
+      "session_id": "native-session",
+      "time_created": 1784122408075,
+      "time_updated": 1784122780718,
+      "data": {
+        "role": "user",
+        "time": {
+          "created": 1784122408075
+        }
+      }
+    },
+    {
+      "id": "native-message-2",
+      "session_id": "native-session",
+      "time_created": 1784122408150,
+      "time_updated": 1784122420398,
+      "data": {
+        "role": "assistant",
+        "finish": "tool-calls",
+        "modelID": "glm-5.2",
+        "time": {
+          "created": 1784122408150,
+          "completed": 1784122420396
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 20976,
+          "output": 43,
+          "reasoning": 61,
+          "cache": {
+            "read": 0,
+            "write": 0
+          },
+          "total": 21080
+        },
+        "providerID": "native-provider"
+      }
+    },
+    {
+      "id": "native-message-3",
+      "session_id": "native-session",
+      "time_created": 1784122420402,
+      "time_updated": 1784122432362,
+      "data": {
+        "role": "assistant",
+        "finish": "tool-calls",
+        "modelID": "glm-5.2",
+        "time": {
+          "created": 1784122420402,
+          "completed": 1784122432360
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 8783,
+          "output": 49,
+          "reasoning": 64,
+          "cache": {
+            "read": 20928,
+            "write": 0
+          },
+          "total": 29824
+        },
+        "providerID": "native-provider"
+      }
+    },
+    {
+      "id": "native-message-4",
+      "session_id": "native-session",
+      "time_created": 1784122432365,
+      "time_updated": 1784122443358,
+      "data": {
+        "role": "assistant",
+        "finish": "tool-calls",
+        "modelID": "glm-5.2",
+        "time": {
+          "created": 1784122432365,
+          "completed": 1784122443356
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 952,
+          "output": 64,
+          "reasoning": 57,
+          "cache": {
+            "read": 29696,
+            "write": 0
+          },
+          "total": 30769
+        },
+        "providerID": "native-provider"
+      }
+    },
+    {
+      "id": "native-message-5",
+      "session_id": "native-session",
+      "time_created": 1784122443362,
+      "time_updated": 1784122471907,
+      "data": {
+        "role": "assistant",
+        "finish": "tool-calls",
+        "modelID": "glm-5.2",
+        "time": {
+          "created": 1784122443362,
+          "completed": 1784122471905
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 15446,
+          "output": 88,
+          "reasoning": 663,
+          "cache": {
+            "read": 30592,
+            "write": 0
+          },
+          "total": 46789
+        },
+        "providerID": "native-provider"
+      }
+    },
+    {
+      "id": "native-message-6",
+      "session_id": "native-session",
+      "time_created": 1784122471910,
+      "time_updated": 1784122542181,
+      "data": {
+        "role": "assistant",
+        "finish": "tool-calls",
+        "modelID": "glm-5.2",
+        "time": {
+          "created": 1784122471910,
+          "completed": 1784122542179
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 1119,
+          "output": 929,
+          "reasoning": 3368,
+          "cache": {
+            "read": 46016,
+            "write": 0
+          },
+          "total": 51432
+        },
+        "providerID": "native-provider"
+      }
+    },
+    {
+      "id": "native-message-7",
+      "session_id": "native-session",
+      "time_created": 1784122542186,
+      "time_updated": 1784122559589,
+      "data": {
+        "role": "assistant",
+        "finish": "tool-calls",
+        "modelID": "glm-5.2",
+        "time": {
+          "created": 1784122542186,
+          "completed": 1784122559587
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 4336,
+          "output": 667,
+          "reasoning": 0,
+          "cache": {
+            "read": 47104,
+            "write": 0
+          },
+          "total": 52107
+        },
+        "providerID": "native-provider"
+      }
+    },
+    {
+      "id": "native-message-8",
+      "session_id": "native-session",
+      "time_created": 1784122559594,
+      "time_updated": 1784122574758,
+      "data": {
+        "role": "assistant",
+        "finish": "tool-calls",
+        "modelID": "glm-5.2",
+        "time": {
+          "created": 1784122559594,
+          "completed": 1784122574756
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 723,
+          "output": 89,
+          "reasoning": 265,
+          "cache": {
+            "read": 51392,
+            "write": 0
+          },
+          "total": 52469
+        },
+        "providerID": "native-provider"
+      }
+    },
+    {
+      "id": "native-message-9",
+      "session_id": "native-session",
+      "time_created": 1784122574762,
+      "time_updated": 1784122612103,
+      "data": {
+        "role": "assistant",
+        "finish": "tool-calls",
+        "modelID": "glm-5.2",
+        "time": {
+          "created": 1784122574762,
+          "completed": 1784122612101
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 1750,
+          "output": 1226,
+          "reasoning": 1101,
+          "cache": {
+            "read": 52096,
+            "write": 0
+          },
+          "total": 56173
+        },
+        "providerID": "native-provider"
+      }
+    },
+    {
+      "id": "native-message-10",
+      "session_id": "native-session",
+      "time_created": 1784122612107,
+      "time_updated": 1784122622497,
+      "data": {
+        "role": "assistant",
+        "finish": "tool-calls",
+        "modelID": "glm-5.2",
+        "time": {
+          "created": 1784122612107,
+          "completed": 1784122622495
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 2357,
+          "output": 85,
+          "reasoning": 27,
+          "cache": {
+            "read": 53824,
+            "write": 0
+          },
+          "total": 56293
+        },
+        "providerID": "native-provider"
+      }
+    },
+    {
+      "id": "native-message-11",
+      "session_id": "native-session",
+      "time_created": 1784122622501,
+      "time_updated": 1784122637603,
+      "data": {
+        "role": "assistant",
+        "finish": "tool-calls",
+        "modelID": "glm-5.2",
+        "time": {
+          "created": 1784122622501,
+          "completed": 1784122637602
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 1280,
+          "output": 72,
+          "reasoning": 246,
+          "cache": {
+            "read": 56128,
+            "write": 0
+          },
+          "total": 57726
+        },
+        "providerID": "native-provider"
+      }
+    },
+    {
+      "id": "native-message-12",
+      "session_id": "native-session",
+      "time_created": 1784122637607,
+      "time_updated": 1784122654204,
+      "data": {
+        "role": "assistant",
+        "finish": "tool-calls",
+        "modelID": "glm-5.2",
+        "time": {
+          "created": 1784122637607,
+          "completed": 1784122654202
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 1853,
+          "output": 55,
+          "reasoning": 92,
+          "cache": {
+            "read": 57344,
+            "write": 0
+          },
+          "total": 59344
+        },
+        "providerID": "native-provider"
+      }
+    },
+    {
+      "id": "native-message-13",
+      "session_id": "native-session",
+      "time_created": 1784122654209,
+      "time_updated": 1784122664945,
+      "data": {
+        "role": "assistant",
+        "finish": "tool-calls",
+        "modelID": "glm-5.2",
+        "time": {
+          "created": 1784122654209,
+          "completed": 1784122664943
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 259,
+          "output": 78,
+          "reasoning": 0,
+          "cache": {
+            "read": 59136,
+            "write": 0
+          },
+          "total": 59473
+        },
+        "providerID": "native-provider"
+      }
+    },
+    {
+      "id": "native-message-14",
+      "session_id": "native-session",
+      "time_created": 1784122664950,
+      "time_updated": 1784122679221,
+      "data": {
+        "role": "assistant",
+        "finish": "tool-calls",
+        "modelID": "glm-5.2",
+        "time": {
+          "created": 1784122664950,
+          "completed": 1784122679219
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 91,
+          "output": 134,
+          "reasoning": 42,
+          "cache": {
+            "read": 59392,
+            "write": 0
+          },
+          "total": 59659
+        },
+        "providerID": "native-provider"
+      }
+    },
+    {
+      "id": "native-message-15",
+      "session_id": "native-session",
+      "time_created": 1784122679225,
+      "time_updated": 1784122691151,
+      "data": {
+        "role": "assistant",
+        "finish": "tool-calls",
+        "modelID": "glm-5.2",
+        "time": {
+          "created": 1784122679225,
+          "completed": 1784122691150
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 2030,
+          "output": 83,
+          "reasoning": 95,
+          "cache": {
+            "read": 59456,
+            "write": 0
+          },
+          "total": 61664
+        },
+        "providerID": "native-provider"
+      }
+    },
+    {
+      "id": "native-message-16",
+      "session_id": "native-session",
+      "time_created": 1784122691156,
+      "time_updated": 1784122700418,
+      "data": {
+        "role": "assistant",
+        "finish": "tool-calls",
+        "modelID": "glm-5.2",
+        "time": {
+          "created": 1784122691156,
+          "completed": 1784122700416
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 263,
+          "output": 92,
+          "reasoning": 0,
+          "cache": {
+            "read": 61440,
+            "write": 0
+          },
+          "total": 61795
+        },
+        "providerID": "native-provider"
+      }
+    },
+    {
+      "id": "native-message-17",
+      "session_id": "native-session",
+      "time_created": 1784122700422,
+      "time_updated": 1784122714018,
+      "data": {
+        "role": "assistant",
+        "finish": "tool-calls",
+        "modelID": "glm-5.2",
+        "time": {
+          "created": 1784122700422,
+          "completed": 1784122714016
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 148,
+          "output": 63,
+          "reasoning": 100,
+          "cache": {
+            "read": 61696,
+            "write": 0
+          },
+          "total": 62007
+        },
+        "providerID": "native-provider"
+      }
+    },
+    {
+      "id": "native-message-18",
+      "session_id": "native-session",
+      "time_created": 1784122714023,
+      "time_updated": 1784122741129,
+      "data": {
+        "role": "assistant",
+        "finish": "tool-calls",
+        "modelID": "glm-5.2",
+        "time": {
+          "created": 1784122714023,
+          "completed": 1784122741127
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 1581,
+          "output": 154,
+          "reasoning": 393,
+          "cache": {
+            "read": 61824,
+            "write": 0
+          },
+          "total": 63952
+        },
+        "providerID": "native-provider"
+      }
+    },
+    {
+      "id": "native-message-19",
+      "session_id": "native-session",
+      "time_created": 1784122741133,
+      "time_updated": 1784122756191,
+      "data": {
+        "role": "assistant",
+        "finish": "tool-calls",
+        "modelID": "glm-5.2",
+        "time": {
+          "created": 1784122741133,
+          "completed": 1784122756189
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 621,
+          "output": 87,
+          "reasoning": 0,
+          "cache": {
+            "read": 63360,
+            "write": 0
+          },
+          "total": 64068
+        },
+        "providerID": "native-provider"
+      }
+    },
+    {
+      "id": "native-message-20",
+      "session_id": "native-session",
+      "time_created": 1784122756197,
+      "time_updated": 1784122770846,
+      "data": {
+        "role": "assistant",
+        "finish": "tool-calls",
+        "modelID": "glm-5.2",
+        "time": {
+          "created": 1784122756197,
+          "completed": 1784122770845
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 17305,
+          "output": 175,
+          "reasoning": 72,
+          "cache": {
+            "read": 63936,
+            "write": 0
+          },
+          "total": 81488
+        },
+        "providerID": "native-provider"
+      }
+    },
+    {
+      "id": "native-message-21",
+      "session_id": "native-session",
+      "time_created": 1784122770852,
+      "time_updated": 1784122780691,
+      "data": {
+        "role": "assistant",
+        "finish": "tool-calls",
+        "modelID": "glm-5.2",
+        "time": {
+          "created": 1784122770852,
+          "completed": 1784122780689
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 596,
+          "output": 178,
+          "reasoning": 62,
+          "cache": {
+            "read": 81216,
+            "write": 0
+          },
+          "total": 82052
+        },
+        "providerID": "native-provider"
+      }
+    },
+    {
+      "id": "native-message-22",
+      "session_id": "native-session",
+      "time_created": 1784122780697,
+      "time_updated": 1784122780697,
+      "data": {
+        "role": "assistant",
+        "modelID": "glm-5.2",
+        "time": {
+          "created": 1784122780697
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "reasoning": 0,
+          "cache": {
+            "read": 0,
+            "write": 0
+          }
+        },
+        "providerID": "native-provider"
+      }
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "source": "Read-only native Codex sample, 2026-10-11. Bodies removed; identifiers anonymized; usage numbers and source version retained.",
+  "records": [
+    {
+      "timestamp": "2026-10-06T14:00:21.458Z",
+      "type": "session_meta",
+      "payload": {
+        "cli_version": "0.160.1",
+        "timestamp": "2026-10-06T14:00:21.347Z",
+        "model_provider": "openai",
+        "originator": "codex_vscode",
+        "id": "native-1",
+        "parent_thread_id": "native-2"
+      }
+    },
+    {
+      "timestamp": "2026-10-06T14:00:55.103Z",
+      "type": "turn_context",
+      "payload": {
+        "model": "codex-auto-review"
+      }
+    },
+    {
+      "timestamp": "2026-10-06T14:01:01.215Z",
+      "type": "token_usage_record",
+      "payload": {
+        "usage": {
+          "input_tokens": 35556,
+          "cached_input_tokens": 17152,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 138,
+          "reasoning_output_tokens": 62,
+          "total_tokens": 35694
+        },
+        "session_id": "native-2",
+        "thread_id": "native-1",
+        "response_id": "native-3"
+      }
+    },
+    {
+      "timestamp": "2026-10-06T14:01:01.222Z",
+      "type": "event_msg",
+      "payload": {
+        "type": "token_count",
+        "info": {
+          "total_token_usage": {
+            "input_tokens": 35556,
+            "cached_input_tokens": 17152,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 138,
+            "reasoning_output_tokens": 62,
+            "total_tokens": 35694
+          },
+          "last_token_usage": {
+            "input_tokens": 35556,
+            "cached_input_tokens": 17152,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 138,
+            "reasoning_output_tokens": 62,
+            "total_tokens": 35694
+          }
+        }
+      }
+    }
+  ]
+}

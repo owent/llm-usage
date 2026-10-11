@@ -11,7 +11,8 @@
 //! - 7.8.1: session-7.8.1-k3 redacts a native local session with 34 k3-256k calls,
 //!   top-level modelID/providerID and five token fields; session reconciliation matched.
 //!
-//! All three use the same message.data.tokens shape through message_tokens_v1.
+//! Checked versions use message.data.tokens through message_tokens_v1; releases-032
+//! contains complete native sessions and independent expectations for 27 additional versions.
 //!
 //! Selection rules:
 //! - Registered version: KnownVersion, dispatch through the mapping.
@@ -30,9 +31,36 @@ pub const LATEST_IMPL_ID: &str = "message_tokens_v1";
 /// Each version has native redacted samples and manually calculated expectations. Shared formats
 /// retain separate version entries; add entries without deleting historical implementations.
 pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[
+    ("7.3.42", "message_tokens_v1"),
+    ("7.3.45", "message_tokens_v1"),
+    ("7.3.46", "message_tokens_v1"),
+    ("7.3.49", "message_tokens_v1"),
+    ("7.3.50", "message_tokens_v1"),
+    ("7.3.54", "message_tokens_v1"),
+    ("7.3.63", "message_tokens_v1"),
+    ("7.4.1", "message_tokens_v1"),
+    ("7.4.2", "message_tokens_v1"),
+    ("7.4.5", "message_tokens_v1"),
+    ("7.4.7", "message_tokens_v1"),
     ("7.4.8", "message_tokens_v1"),
     ("7.4.9", "message_tokens_v1"),
+    ("7.4.11", "message_tokens_v1"),
+    ("7.4.13", "message_tokens_v1"),
+    ("7.4.15", "message_tokens_v1"),
+    ("7.4.16", "message_tokens_v1"),
+    ("7.4.17", "message_tokens_v1"),
+    ("7.4.20", "message_tokens_v1"),
+    ("7.4.22", "message_tokens_v1"),
+    ("7.4.23", "message_tokens_v1"),
+    ("7.5.6", "message_tokens_v1"),
+    ("7.5.14", "message_tokens_v1"),
+    ("7.6.0", "message_tokens_v1"),
+    ("7.6.2", "message_tokens_v1"),
+    ("7.7.5", "message_tokens_v1"),
+    ("7.7.12", "message_tokens_v1"),
     ("7.8.1", "message_tokens_v1"),
+    ("7.8.3", "message_tokens_v1"),
+    ("7.8.7", "message_tokens_v1"),
 ];
 
 /// Version selection result.
@@ -95,7 +123,7 @@ mod tests {
 
     #[test]
     fn verified_versions_dispatch_known() {
-        for v in ["7.4.8", "7.4.9", "7.8.1"] {
+        for (v, _) in VERIFIED_VERSION_IMPLS {
             assert_eq!(
                 select(Some(v)),
                 Selection {
@@ -108,8 +136,8 @@ mod tests {
 
     #[test]
     fn unrecorded_version_falls_back_to_latest() {
-        // Unregistered versions, including those observed locally, use latest_fallback without rejection.
-        for v in ["7.3.42", "7.4.20", "7.7.12", "9.0.0"] {
+        // Unregistered versions use latest_fallback without rejection.
+        for v in ["7.3.43", "7.4.6", "7.8.99", "9.0.0"] {
             assert_eq!(select(Some(v)).basis, VersionBasis::LatestFallback);
         }
         assert_eq!(select(None).basis, VersionBasis::LatestFallback);

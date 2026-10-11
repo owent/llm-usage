@@ -114,6 +114,9 @@ Software updates follow [the update requirements](docs/design/desktop-usage/appl
 implementation and local results are in [update validation](docs/validation/desktop-usage/application-updates.md).
 Version 0.3.0 cost-card, settings and native Codex corrections are recorded in
 [local release checks](docs/validation/desktop-usage/release-030.md).
+Version 0.3.2 registers individually checked Codex/Kilo native versions and clarifies
+Copilot telemetry wording, and saves updated creation fingerprints so large Codex files
+can finish rereading; local checks are recorded in [0.3.2 validation](docs/validation/desktop-usage/release-032.md).
 Remaining acceptance: run real NSIS updater/lifecycle checks when the existing application is stopped;
 verify a newer public release when available, and record Linux/macOS native GUI updates separately.
 

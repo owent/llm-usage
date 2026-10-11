@@ -1,0 +1,50 @@
+[
+  {
+    "version": "0.159.0-alpha.12.1",
+    "fixture": "rollout-0.159.0-alpha.12.1.sanitized.json",
+    "calls": 3,
+    "input": 81454,
+    "cached": 58368,
+    "write": 0,
+    "output": 756,
+    "reasoning": 71,
+    "total": 82210,
+    "native_files": 5
+  },
+  {
+    "version": "0.160.0",
+    "fixture": "rollout-0.160.0.sanitized.json",
+    "calls": 1,
+    "input": 22600,
+    "cached": 4864,
+    "write": 0,
+    "output": 203,
+    "reasoning": 140,
+    "total": 22803,
+    "native_files": 116
+  },
+  {
+    "version": "0.160.1",
+    "fixture": "rollout-0.160.1.sanitized.json",
+    "calls": 1,
+    "input": 35556,
+    "cached": 17152,
+    "write": 0,
+    "output": 138,
+    "reasoning": 62,
+    "total": 35694,
+    "native_files": 12
+  },
+  {
+    "version": "0.162.0-alpha.17.2",
+    "fixture": "rollout-0.162.0-alpha.17.2.sanitized.json",
+    "calls": 14,
+    "input": 392480,
+    "cached": 350720,
+    "write": 0,
+    "output": 1443,
+    "reasoning": 345,
+    "total": 393923,
+    "native_files": 8
+  }
+]

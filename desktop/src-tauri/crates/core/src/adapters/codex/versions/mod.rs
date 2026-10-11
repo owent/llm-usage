@@ -31,6 +31,11 @@ pub const LATEST_IMPL_ID: &str = "rollout_v1";
 /// explained. Representative 0.139.0/0.142.5/0.146.0-alpha.3 samples verify
 /// reading/parsing/storage/queries; see rollout_legacy.rs and the M2-D validation record.
 pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[
+    // Four native releases checked independently in releases-032; registry updates replay old cursors.
+    ("0.159.0-alpha.12.1", "rollout_v1"),
+    ("0.160.0", "rollout_v1"),
+    ("0.160.1", "rollout_v1"),
+    ("0.162.0-alpha.17.2", "rollout_v1"),
     // Eight native versions independently checked on 2026-10-08; release-030 samples
     // cover dispatch, six token fields, null compaction carries and repeat reads.
     ("0.162.0-alpha.2", "rollout_v1"),

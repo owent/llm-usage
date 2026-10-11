@@ -30,6 +30,85 @@ fn limits() -> ScanLimits {
 }
 
 #[test]
+fn changed_creation_fingerprint_is_saved_so_old_cursors_can_finish_after_reopening() {
+    let dir = TempDir::new("codex-created-fingerprint");
+    let usage = json!({"input_tokens":100,"cached_input_tokens":50,"cache_write_input_tokens":0,
+        "output_tokens":20,"reasoning_output_tokens":5,"total_tokens":120});
+    let mut contents = format!(
+        "{}\n",
+        json!({"type":"session_meta","payload":{
+        "id":"synthetic-created", "cli_version":"0.162.0-alpha.2"}})
+    );
+    for index in 0..3 {
+        contents.push_str(&format!(
+            "{}\n",
+            json!({"type":"token_usage_record",
+            "timestamp":"2026-10-07T02:00:00Z", "payload":{
+                "response_id":format!("synthetic-{index}"), "usage":usage}})
+        ));
+    }
+    let root = codex_root_with_file(&dir, "rollout-created.jsonl", contents.as_bytes());
+    let path = root.join("sessions/2026/09/24/rollout-created.jsonl");
+    let Some(created) = llm_usage_core::adapters::jsonl::probe_file(&path)
+        .unwrap()
+        .created_ms
+    else {
+        return;
+    };
+    let db = TempDir::new("codex-created-fingerprint-db");
+    let now = ts("2026-10-07T04:00:00Z");
+    let mut scan_limits = limits();
+    scan_limits.jsonl.max_lines = Some(2);
+    let generation;
+    {
+        let storage = Storage::open(&db.db_path()).unwrap();
+        run_codex_with_limits(&storage, &root, now, scan_limits.clone());
+        assert_eq!(
+            summary(&storage, "2026-10-07", "2026-10-07")
+                .totals
+                .call_count,
+            1
+        );
+        let fingerprint: String = storage
+            .conn()
+            .query_row("SELECT content_hash FROM source_files", [], |r| r.get(0))
+            .unwrap();
+        let (prefix, _) = fingerprint.rsplit_once(':').unwrap();
+        let old = format!("{prefix}:{}", created - 1);
+        storage
+            .conn()
+            .execute("UPDATE source_files SET content_hash=?1", [old])
+            .unwrap();
+        generation = storage
+            .conn()
+            .query_row::<i64, _, _>("SELECT generation FROM source_files", [], |r| r.get(0))
+            .unwrap();
+        run_codex_with_limits(&storage, &root, now + 1, scan_limits.clone());
+        assert_eq!(
+            summary(&storage, "2026-10-07", "2026-10-07")
+                .totals
+                .call_count,
+            1
+        );
+    }
+    let storage = Storage::open(&db.db_path()).unwrap();
+    run_codex_with_limits(&storage, &root, now + 2, scan_limits.clone());
+    let totals = summary(&storage, "2026-10-07", "2026-10-07").totals;
+    assert_eq!(
+        (totals.call_count, totals.total_tokens_known),
+        (3, Some(360))
+    );
+    let saved = storage
+        .conn()
+        .query_row::<i64, _, _>("SELECT generation FROM source_files", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(saved, generation + 1);
+    run_codex_with_limits(&storage, &root, now + 3, scan_limits);
+    assert_eq!(summary(&storage, "2026-10-07", "2026-10-07").totals, totals);
+    assert_eq!(std::fs::read(path).unwrap(), contents.as_bytes());
+}
+
+#[test]
 fn today_is_read_before_an_unconsumed_historical_window() {
     let dir = TempDir::new("codex-newest-first");
     write_rollout(dir.path(), "05", "historical", 15);

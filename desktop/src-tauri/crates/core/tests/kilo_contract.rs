@@ -365,7 +365,7 @@ fn empty_unverified_new_version_does_not_certify_the_source_or_change_known_usag
     let source = rusqlite::Connection::open(root.join(".local/share/kilo/kilo.db")).unwrap();
     source.execute_batch("PRAGMA foreign_keys=OFF").unwrap();
     source.execute("INSERT INTO session(id,project_id,slug,directory,title,version,time_created,time_updated)
-        VALUES('synthetic-empty','anon-proj','stub','/work','SYNTHETIC','7.8.3',?1,?1)",[NOW]).unwrap();
+        VALUES('synthetic-empty','anon-proj','stub','/work','SYNTHETIC','7.8.99',?1,?1)",[NOW]).unwrap();
     let (_db, storage) = temp_storage("kilo-empty-unverified");
     let reports = run_kilo(&storage, &root, NOW);
     assert_eq!(reports[0].files[0].events, 34);
@@ -377,7 +377,7 @@ fn empty_unverified_new_version_does_not_certify_the_source_or_change_known_usag
         .unwrap();
     let format: serde_json::Value = serde_json::from_str(&format).unwrap();
     assert_eq!(status, "active_compat");
-    assert_eq!(format["found_version"], "7.8.3");
+    assert_eq!(format["found_version"], "7.8.99");
     assert_eq!(format["compat"], "unverified");
     assert_eq!(
         summary(&storage, "2026-01-01", "2026-12-31")
@@ -404,7 +404,7 @@ fn highest_verified_database_version_does_not_certify_older_unverified_messages(
     let source = rusqlite::Connection::open(root.join(".local/share/kilo/kilo.db")).unwrap();
     source
         .execute_batch(
-            "PRAGMA foreign_keys=OFF; UPDATE session SET version='7.4.7';
+            "PRAGMA foreign_keys=OFF; UPDATE session SET version='7.4.6';
         INSERT INTO session(id,project_id,slug,directory,title,version,time_created,time_updated)
         VALUES('synthetic-empty','anon-proj','stub','/work','SYNTHETIC','7.8.1',0,0);",
         )
@@ -423,7 +423,7 @@ fn highest_verified_database_version_does_not_certify_older_unverified_messages(
     for now in [NOW, NOW + 1] {
         run_kilo(&storage, &root, now + 1);
         let (status,basis):(String,String)=storage.conn().query_row(
-            "SELECT f.status,e.parse_basis FROM source_files f JOIN usage_events e ON e.source_instance_id=f.instance_id WHERE e.schema_version='7.4.7' LIMIT 1",
+            "SELECT f.status,e.parse_basis FROM source_files f JOIN usage_events e ON e.source_instance_id=f.instance_id WHERE e.schema_version='7.4.6' LIMIT 1",
             [],|r|Ok((r.get(0)?,r.get(1)?))).unwrap();
         assert_eq!(status, "active_compat");
         assert_eq!(basis, "latest_fallback");
@@ -447,7 +447,13 @@ fn capability_table_is_structured_and_complete() {
     assert_eq!(json["adapter_id"], "kilo");
     assert_eq!(
         json["supported_versions"],
-        serde_json::json!(["7.4.8", "7.4.9", "7.8.1"])
+        serde_json::to_value(
+            llm_usage_core::adapters::kilo::VERIFIED_VERSION_IMPLS
+                .iter()
+                .map(|(version, _)| *version)
+                .collect::<Vec<_>>()
+        )
+        .unwrap()
     );
     assert_eq!(json["discovery"]["env_override"], serde_json::Value::Null);
     for key in [

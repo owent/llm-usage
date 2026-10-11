@@ -1,0 +1,228 @@
+{
+  "source": "Read-only complete native Kilo session, 2026-10-11. Bodies removed; identifiers, provider and paths anonymized; usage numbers, times and owning session version retained.",
+  "schema": {
+    "message_ddl": "CREATE TABLE `message` ( `id` text PRIMARY KEY, `session_id` text NOT NULL, `time_created` integer NOT NULL, `time_updated` integer NOT NULL, `data` text NOT NULL, CONSTRAINT `fk_message_session_id_session_id_fk` FOREIGN KEY (`session_id`) REFERENCES `session`(`id`) ON DELETE CASCADE )",
+    "session_ddl": "CREATE TABLE `session` ( `id` text PRIMARY KEY, `project_id` text NOT NULL, `parent_id` text, `slug` text NOT NULL, `directory` text NOT NULL, `title` text NOT NULL, `version` text NOT NULL, `share_url` text, `summary_additions` integer, `summary_deletions` integer, `summary_files` integer, `summary_diffs` text, `revert` text, `permission` text, `time_created` integer NOT NULL, `time_updated` integer NOT NULL, `time_compacting` integer, `time_archived` integer, `workspace_id` text, `path` text, `agent` text, `model` text, `cost` real DEFAULT 0 NOT NULL, `tokens_input` integer DEFAULT 0 NOT NULL, `tokens_output` integer DEFAULT 0 NOT NULL, `tokens_reasoning` integer DEFAULT 0 NOT NULL, `tokens_cache_read` integer DEFAULT 0 NOT NULL, `tokens_cache_write` integer DEFAULT 0 NOT NULL, `metadata` text, CONSTRAINT `fk_session_project_id_project_id_fk` FOREIGN KEY (`project_id`) REFERENCES `project`(`id`) ON DELETE CASCADE )"
+  },
+  "sessions": [
+    {
+      "id": "native-session",
+      "parent_id": "native-parent",
+      "version": "7.4.11",
+      "time_created": 1784443087118,
+      "time_updated": 1784443087150,
+      "tokens_input": 50704,
+      "tokens_output": 2196,
+      "tokens_reasoning": 262,
+      "tokens_cache_read": 181248,
+      "tokens_cache_write": 0,
+      "project_id": "anon-proj",
+      "slug": "session",
+      "directory": "/work",
+      "title": "REDACTED"
+    }
+  ],
+  "messages": [
+    {
+      "id": "native-message-1",
+      "session_id": "native-session",
+      "time_created": 1784443087141,
+      "time_updated": 1784443087145,
+      "data": {
+        "role": "user",
+        "time": {
+          "created": 1784443087141
+        }
+      }
+    },
+    {
+      "id": "native-message-2",
+      "session_id": "native-session",
+      "time_created": 1784443087178,
+      "time_updated": 1784443093388,
+      "data": {
+        "role": "assistant",
+        "finish": "tool-calls",
+        "modelID": "deepseek-v4-pro",
+        "time": {
+          "created": 1784443087178,
+          "completed": 1784443093387
+        },
+        "cost": 0.007898382,
+        "tokens": {
+          "input": 17670,
+          "output": 203,
+          "reasoning": 39,
+          "cache": {
+            "read": 384,
+            "write": 0
+          },
+          "total": 18296
+        },
+        "providerID": "native-provider"
+      }
+    },
+    {
+      "id": "native-message-3",
+      "session_id": "native-session",
+      "time_created": 1784443093390,
+      "time_updated": 1784443155920,
+      "data": {
+        "role": "assistant",
+        "finish": "tool-calls",
+        "modelID": "deepseek-v4-pro",
+        "time": {
+          "created": 1784443093390,
+          "completed": 1784443155919
+        },
+        "cost": 0.001449188,
+        "tokens": {
+          "input": 2664,
+          "output": 217,
+          "reasoning": 41,
+          "cache": {
+            "read": 18176,
+            "write": 0
+          },
+          "total": 21098
+        },
+        "providerID": "native-provider"
+      }
+    },
+    {
+      "id": "native-message-4",
+      "session_id": "native-session",
+      "time_created": 1784443155925,
+      "time_updated": 1784443169327,
+      "data": {
+        "role": "assistant",
+        "finish": "tool-calls",
+        "modelID": "deepseek-v4-pro",
+        "time": {
+          "created": 1784443155925,
+          "completed": 1784443169326
+        },
+        "cost": 0.001083556,
+        "tokens": {
+          "input": 1782,
+          "output": 214,
+          "reasoning": 53,
+          "cache": {
+            "read": 20992,
+            "write": 0
+          },
+          "total": 23041
+        },
+        "providerID": "native-provider"
+      }
+    },
+    {
+      "id": "native-message-5",
+      "session_id": "native-session",
+      "time_created": 1784443169331,
+      "time_updated": 1784443233390,
+      "data": {
+        "role": "assistant",
+        "finish": "tool-calls",
+        "modelID": "deepseek-v4-pro",
+        "time": {
+          "created": 1784443169331,
+          "completed": 1784443233389
+        },
+        "cost": 0.00539139,
+        "tokens": {
+          "input": 11696,
+          "output": 224,
+          "reasoning": 29,
+          "cache": {
+            "read": 23040,
+            "write": 0
+          },
+          "total": 34989
+        },
+        "providerID": "native-provider"
+      }
+    },
+    {
+      "id": "native-message-6",
+      "session_id": "native-session",
+      "time_created": 1784443233394,
+      "time_updated": 1784443240598,
+      "data": {
+        "role": "assistant",
+        "finish": "tool-calls",
+        "modelID": "deepseek-v4-pro",
+        "time": {
+          "created": 1784443233394,
+          "completed": 1784443240597
+        },
+        "cost": 0.001550427,
+        "tokens": {
+          "input": 2843,
+          "output": 167,
+          "reasoning": 48,
+          "cache": {
+            "read": 34944,
+            "write": 0
+          },
+          "total": 38002
+        },
+        "providerID": "native-provider"
+      }
+    },
+    {
+      "id": "native-message-7",
+      "session_id": "native-session",
+      "time_created": 1784443240601,
+      "time_updated": 1784443245343,
+      "data": {
+        "role": "assistant",
+        "finish": "tool-calls",
+        "modelID": "deepseek-v4-pro",
+        "time": {
+          "created": 1784443240601,
+          "completed": 1784443245342
+        },
+        "cost": 0.003702604,
+        "tokens": {
+          "input": 7840,
+          "output": 152,
+          "reasoning": 26,
+          "cache": {
+            "read": 37888,
+            "write": 0
+          },
+          "total": 45906
+        },
+        "providerID": "native-provider"
+      }
+    },
+    {
+      "id": "native-message-8",
+      "session_id": "native-session",
+      "time_created": 1784443245347,
+      "time_updated": 1784443259582,
+      "data": {
+        "role": "assistant",
+        "finish": "stop",
+        "modelID": "deepseek-v4-pro",
+        "time": {
+          "created": 1784443245347,
+          "completed": 1784443259581
+        },
+        "cost": 0.003776177,
+        "tokens": {
+          "input": 6209,
+          "output": 1019,
+          "reasoning": 26,
+          "cache": {
+            "read": 45824,
+            "write": 0
+          },
+          "total": 53078
+        },
+        "providerID": "native-provider"
+      }
+    }
+  ]
+}

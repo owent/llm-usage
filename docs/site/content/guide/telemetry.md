@@ -28,9 +28,10 @@ File output can continue while LLM Usage is closed and be collected later. It do
 recover requests that occurred before export was enabled, and the client's own retention
 can remove historical files.
 
-Verified VS Code Copilot file spans replace eligible native contributions by host, user,
-session and local day. Original records remain stored; approximate timestamps or equal
-tokens do not establish call identity. Sealed partitions keep their chosen contribution.
+For the same host, user, session and local day, statistics use verified, matching VS Code
+Copilot telemetry exports in place of usage extracted from session records. Original
+records remain stored; approximate timestamps or equal tokens do not establish call identity.
+Sealed partitions retain the data source already selected for their statistics.
 Other exports are isolated until their shape and overlap are independently verified.
 
 ## Local HTTP receiver

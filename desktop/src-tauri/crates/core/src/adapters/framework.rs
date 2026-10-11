@@ -1780,6 +1780,7 @@ fn scan_one_file<S: StorageAccess>(
         reconciliations.extend(outcome.reconciliations.iter().cloned());
         row.len = probe.len;
         row.mtime_ms = probe.mtime_ms;
+        row.created_ms = probe.created_ms;
         row.head_hash = probe.head_hash;
         row.head_len = probe.head_len;
         row.tail_hash = probe.tail_hash;

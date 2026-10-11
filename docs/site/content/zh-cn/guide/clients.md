@@ -25,7 +25,7 @@ sidebar:
 
 - **CLI：** 旧 `assistant_usage_events` 与新版 chronicle 能力不同，不重建已经缺失的逐次 token。
 - **VS Code：** `copilot_chat` 读取原生 `chatSessions/*.jsonl`；已核验本地 OTel file
-  可替代符合条件的原生贡献，避免重复计算。
+  遥测导出数据可替代从会话记录提取的匹配用量，避免重复计算。
 - **Visual Studio：** `vs_copilot` 读取 `%TEMP%`/`%TMP%` 下已经核验的
   `VSGitHubCopilotLogs/traces` 遥测文件，临时文件不承诺完整历史。
 - **账户额度：** 客户端保存的 `copilot-user-cache.json` 提供独立额度快照，premium 请求和 credit 不折算为 token。

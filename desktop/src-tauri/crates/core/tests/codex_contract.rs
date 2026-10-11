@@ -353,6 +353,10 @@ fn capability_table_is_structured_and_complete() {
     assert_eq!(
         json["supported_versions"],
         serde_json::json!([
+            "0.159.0-alpha.12.1",
+            "0.160.0",
+            "0.160.1",
+            "0.162.0-alpha.17.2",
             "0.162.0-alpha.2",
             "0.155.0-alpha.16",
             "0.153.4",

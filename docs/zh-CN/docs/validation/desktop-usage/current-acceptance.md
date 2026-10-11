@@ -18,6 +18,7 @@ Linux 使用 WSL/Debian 独立 rootless Podman；CI runner 与受测提交另见
 
 | 检查 | 已核对结果 | 记录与适用范围 |
 | --- | --- | --- |
+| 0.3.2 兼容读取修复 | 逐一核验四个 Codex 和 27 个 Kilo 版本；创建时间指纹不再导致大文件反复重读；独立旧库副本中 493 个 Codex 文件和一个 Kilo 数据库恢复，原有用量不变；十种语言 OTel 文案、统一/浏览器/文档检查、Windows 构建和 11 项 headless 检查通过 | [0.3.2 核验](release-032.md)；未知版本保留兼容提示；没有新增原生 GUI、安装生命周期或远端发布验收 |
 | 0.3.1 依赖升级 | 最新兼容直接依赖、Rust 1.99，npm/pnpm/Cargo 锁文件同步；本地产品、原生与文档检查通过；12 个 tag 作业全部通过，13 个下载制品与摘要及源码报告一致，下载的 Windows 包通过 19 项原生 GUI 检查 | [0.3.1 核验](release-031.md)；记录 TypeScript 6 编译器 API 例外及上游间接依赖固定约束；草稿 ID 407495650；公开元数据地址核验为 v0.3.0 |
 | 检查软件更新 | 开发模式检查不再要求安装类型；GitHub 请求失败后可使用有效期受限的站点快照，沿用相同包校验 | [检查更新修复](update-check-repair.md)；独立原生开发模式 IPC 与本地回退测试，部署观察分列 |
 | 0.3.0 本地修复 | 费用卡片无溢出，设置使用自定义控件，登记八个 Codex 原生版本并修正压缩携带记录为空的处理；旧库副本的 332 个 Codex 文件恢复正常且原有用量完整保留 | [0.3.0 检查](release-030.md)；Windows 本地构建、合成更新替换和原生数据副本检查与远程发布/平台验收分列 |
@@ -45,7 +46,7 @@ Linux 使用 WSL/Debian 独立 rootless Podman；CI runner 与受测提交另见
 | 核心存储、来源身份/聚合交换 | [M1](m1-core.md)、[M1a](m1a-provenance.md) |
 | 完整标准化明细 Merge、用量及费用提醒、Zed 外部 Provider | [本轮](plan-20261007.md)；事务内冲突处理/重扫、单币种/未知/去重及 Zed 1.22.0 两模型非空实样分列；指定端点为 Coding Plan |
 | Codex、pi/oh-my-pi、Claude/Gemini/Qwen 初始读取及版本分派 | [Codex](m2a-codex.md)、[M2 恢复](m2bc-resumed.md)、[版本目录](m2d-layout-versions.md)、[CLI 安装边界](wsl-agent-installs.md)；初始记录保留当时样本状态 |
-| Codex 当天漏采集 | [读取窗轮转与旧库恢复](codex-today-recovery.md)；历史大文件不再持续推迟未访问文件，本机逐条核对及重扫；新版本仍保留兼容状态 |
+| Codex 当天漏采集 | [读取窗轮转与旧库恢复](codex-today-recovery.md)；历史大文件不再持续推迟未访问文件，本机逐条核对及重扫；后续逐版本与创建时间指纹修正见 [0.3.2 核验](release-032.md) |
 | Claude Code 2.1.197 | [国内下载与原生实样](claude-container-sample.md)；智谱两模型主循环、逐条版本、多块去重、默认零未知及旧库回读；Anthropic 自家模型和其他场景另验 |
 | Qwen 0.25.0 原生/SDK、OpenCode 1.18.34 | [容器来源](container-sources.md)；逐次/原生/封存分区择一，标题与后台覆盖分列 |
 | Cline SDK、Hermes、OpenClaw schema 24、MiMo/Zoo/DSH | [Cline](cline-container-sample.md)、[Hermes](hermes-container-sample.md)、[OpenClaw](openclaw-container-sample.md)、[三源](m3-container-samples.md)；真实非空记录与当前成品升级/重扫已核对 |

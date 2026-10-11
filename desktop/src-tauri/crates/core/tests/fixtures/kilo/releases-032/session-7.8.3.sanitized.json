@@ -1,0 +1,228 @@
+{
+  "source": "Read-only complete native Kilo session, 2026-10-11. Bodies removed; identifiers, provider and paths anonymized; usage numbers, times and owning session version retained.",
+  "schema": {
+    "message_ddl": "CREATE TABLE `message` ( `id` text PRIMARY KEY, `session_id` text NOT NULL, `time_created` integer NOT NULL, `time_updated` integer NOT NULL, `data` text NOT NULL, CONSTRAINT `fk_message_session_id_session_id_fk` FOREIGN KEY (`session_id`) REFERENCES `session`(`id`) ON DELETE CASCADE )",
+    "session_ddl": "CREATE TABLE `session` ( `id` text PRIMARY KEY, `project_id` text NOT NULL, `parent_id` text, `slug` text NOT NULL, `directory` text NOT NULL, `title` text NOT NULL, `version` text NOT NULL, `share_url` text, `summary_additions` integer, `summary_deletions` integer, `summary_files` integer, `summary_diffs` text, `revert` text, `permission` text, `time_created` integer NOT NULL, `time_updated` integer NOT NULL, `time_compacting` integer, `time_archived` integer, `workspace_id` text, `path` text, `agent` text, `model` text, `cost` real DEFAULT 0 NOT NULL, `tokens_input` integer DEFAULT 0 NOT NULL, `tokens_output` integer DEFAULT 0 NOT NULL, `tokens_reasoning` integer DEFAULT 0 NOT NULL, `tokens_cache_read` integer DEFAULT 0 NOT NULL, `tokens_cache_write` integer DEFAULT 0 NOT NULL, `metadata` text, CONSTRAINT `fk_session_project_id_project_id_fk` FOREIGN KEY (`project_id`) REFERENCES `project`(`id`) ON DELETE CASCADE )"
+  },
+  "sessions": [
+    {
+      "id": "native-session",
+      "parent_id": null,
+      "version": "7.8.3",
+      "time_created": 1791191188035,
+      "time_updated": 1791191265552,
+      "tokens_input": 18708,
+      "tokens_output": 699,
+      "tokens_reasoning": 91,
+      "tokens_cache_read": 130304,
+      "tokens_cache_write": 0,
+      "project_id": "anon-proj",
+      "slug": "session",
+      "directory": "/work",
+      "title": "REDACTED"
+    }
+  ],
+  "messages": [
+    {
+      "id": "native-message-1",
+      "session_id": "native-session",
+      "time_created": 1791191188077,
+      "time_updated": 1791191265556,
+      "data": {
+        "role": "user",
+        "time": {
+          "created": 1791191188077
+        }
+      }
+    },
+    {
+      "id": "native-message-2",
+      "session_id": "native-session",
+      "time_created": 1791191188200,
+      "time_updated": 1791191197927,
+      "data": {
+        "role": "assistant",
+        "finish": "tool-calls",
+        "modelID": "k3-256k",
+        "time": {
+          "created": 1791191188200,
+          "completed": 1791191197926
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 16019,
+          "output": 69,
+          "reasoning": 18,
+          "cache": {
+            "read": 4096,
+            "write": 0
+          },
+          "total": 20202
+        },
+        "providerID": "native-provider"
+      }
+    },
+    {
+      "id": "native-message-3",
+      "session_id": "native-session",
+      "time_created": 1791191197931,
+      "time_updated": 1791191204511,
+      "data": {
+        "role": "assistant",
+        "finish": "tool-calls",
+        "modelID": "k3-256k",
+        "time": {
+          "created": 1791191197931,
+          "completed": 1791191204510
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 811,
+          "output": 96,
+          "reasoning": 0,
+          "cache": {
+            "read": 19968,
+            "write": 0
+          },
+          "total": 20875
+        },
+        "providerID": "native-provider"
+      }
+    },
+    {
+      "id": "native-message-4",
+      "session_id": "native-session",
+      "time_created": 1791191204514,
+      "time_updated": 1791191215379,
+      "data": {
+        "role": "assistant",
+        "finish": "tool-calls",
+        "modelID": "k3-256k",
+        "time": {
+          "created": 1791191204514,
+          "completed": 1791191215377
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 288,
+          "output": 97,
+          "reasoning": 0,
+          "cache": {
+            "read": 20736,
+            "write": 0
+          },
+          "total": 21121
+        },
+        "providerID": "native-provider"
+      }
+    },
+    {
+      "id": "native-message-5",
+      "session_id": "native-session",
+      "time_created": 1791191215383,
+      "time_updated": 1791191244112,
+      "data": {
+        "role": "assistant",
+        "finish": "tool-calls",
+        "modelID": "k3-256k",
+        "time": {
+          "created": 1791191215383,
+          "completed": 1791191244111
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 299,
+          "output": 114,
+          "reasoning": 58,
+          "cache": {
+            "read": 20992,
+            "write": 0
+          },
+          "total": 21463
+        },
+        "providerID": "native-provider"
+      }
+    },
+    {
+      "id": "native-message-6",
+      "session_id": "native-session",
+      "time_created": 1791191244115,
+      "time_updated": 1791191252782,
+      "data": {
+        "role": "assistant",
+        "finish": "tool-calls",
+        "modelID": "k3-256k",
+        "time": {
+          "created": 1791191244115,
+          "completed": 1791191252781
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 432,
+          "output": 96,
+          "reasoning": 0,
+          "cache": {
+            "read": 21248,
+            "write": 0
+          },
+          "total": 21776
+        },
+        "providerID": "native-provider"
+      }
+    },
+    {
+      "id": "native-message-7",
+      "session_id": "native-session",
+      "time_created": 1791191252786,
+      "time_updated": 1791191258503,
+      "data": {
+        "role": "assistant",
+        "finish": "tool-calls",
+        "modelID": "k3-256k",
+        "time": {
+          "created": 1791191252786,
+          "completed": 1791191258502
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 299,
+          "output": 99,
+          "reasoning": 0,
+          "cache": {
+            "read": 21504,
+            "write": 0
+          },
+          "total": 21902
+        },
+        "providerID": "native-provider"
+      }
+    },
+    {
+      "id": "native-message-8",
+      "session_id": "native-session",
+      "time_created": 1791191258507,
+      "time_updated": 1791191265541,
+      "data": {
+        "role": "assistant",
+        "finish": "stop",
+        "modelID": "k3-256k",
+        "time": {
+          "created": 1791191258507,
+          "completed": 1791191265539
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 560,
+          "output": 128,
+          "reasoning": 15,
+          "cache": {
+            "read": 21760,
+            "write": 0
+          },
+          "total": 22463
+        },
+        "providerID": "native-provider"
+      }
+    }
+  ]
+}

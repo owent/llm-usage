@@ -28,7 +28,7 @@ compatible records.
 - **CLI:** older `assistant_usage_events` and newer chronicle formats have different
   capabilities; unavailable per-request token fields are not reconstructed.
 - **VS Code:** native `chatSessions/*.jsonl` is read by `copilot_chat`; verified local
-  OTel file output can replace eligible native contributions without double counting.
+  OTel file exports can replace matching usage extracted from session records without double counting.
 - **Visual Studio:** `vs_copilot` reads verified `%TEMP%`/`%TMP%` trace files under
   `VSGitHubCopilotLogs/traces`. These temporary files do not promise complete history.
 - **Account quota:** local `copilot-user-cache.json` provides separate quota snapshots.

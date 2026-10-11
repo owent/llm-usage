@@ -162,7 +162,7 @@ fn snapshot_audit_does_not_certify_an_unverified_message_version() {
     let dir = TempDir::new("kilo-unverified-audit");
     let root = build_kilo_db_from_fixture(&dir, "session-7.8.1-k3.sanitized.json");
     let source = rusqlite::Connection::open(root.join(".local/share/kilo/kilo.db")).unwrap();
-    source.execute_batch("UPDATE session SET version='7.3.42',tokens_input=0,tokens_output=0,tokens_reasoning=0,tokens_cache_read=0,tokens_cache_write=0").unwrap();
+    source.execute_batch("UPDATE session SET version='7.3.43',tokens_input=0,tokens_output=0,tokens_reasoning=0,tokens_cache_read=0,tokens_cache_write=0").unwrap();
     let (_db, storage) = temp_storage("kilo-unverified-audit");
     run_kilo(&storage, &root, NOW);
     assert_eq!(health(&storage), "active_compat");
