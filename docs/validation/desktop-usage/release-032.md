@@ -4,8 +4,8 @@
 
 Scope: repair Codex/Kilo compatibility notices using version-specific native samples,
 clarify the local OTel description and set application manifests to 0.3.2.
-The results below cover local validation before tagging or remote CI; they do not establish
-release publication. Native source extraction is read-only and follows
+The local checks below preceded tagging and remote CI; subsequent tagged-build results
+are recorded separately. Native source extraction is read-only and follows
 the [redaction requirements](../../design/desktop-usage/implementation-readiness.md).
 
 ## Compatibility notices
@@ -114,3 +114,62 @@ backup completed in five collection rounds and the next round was idempotent. Th
 documentation check also rejected an unfenced Chinese runtime quotation in the English
 record; it is now a literal code example. The navigation count was updated from 224 to
 225 with an explicit assertion for the new validation page.
+
+## Tagged CI and Release
+
+The `v0.3.2` tag points to `12207ea1a6c710c67ef681a6adc44b3041dc9128`.
+[CI run 38156835286](https://github.com/owent/llm-usage/actions/runs/38156835286)
+completed successfully: Markdown, frontend, three native Rust jobs, six portable builds
+and Draft Release, for 12 successful jobs. The release job waited for those builds;
+it completed at 01:13 on 2026-10-12, Asia/Shanghai.
+
+Draft Release ID `409806776` contains six portable archives, the Windows x64 NSIS installer
+and six platform reports: 13 assets. The release job verified their sizes and SHA-256
+digests after upload and checked the tagged source revision. Its `draft: true` setting
+keeps it out of the public Release list until it is published. Draft creation and public
+publication are separate results; the tagged workflow has succeeded.
+
+During the subsequent checks, this same Release was published at 01:16 on 2026-10-12,
+Asia/Shanghai. The current API state is `draft: false`, with the same tagged source and
+13 assets, at [v0.3.2](https://github.com/owent/llm-usage/releases/tag/v0.3.2).
+Six downloaded platform reports match their API digests, the tagged revision and version;
+all seven package API sizes/digests match those reports. The initial follow-up probe
+expected a draft and rejected the changed state; a fresh API read established publication
+before the public-state check was rerun. No release metadata was changed by these probes.
+The [Release-triggered documentation job](https://github.com/owent/llm-usage/actions/runs/38158980685)
+and its [main-branch refresh](https://github.com/owent/llm-usage/actions/runs/38158986481)
+both completed successfully on the same source revision. This does not verify a real
+installed-client upgrade.
+
+## Actions version references
+
+The subsequent maintenance changes both workflows to upstream numeric version tags,
+following the user's 2026-10-12 instruction. Latest stable upstream releases and tag
+contents were checked through the official GitHub API:
+
+| Action | Workflow reference | Verified stable release |
+| --- | --- | --- |
+| [actions/checkout](https://github.com/actions/checkout/releases) | `v7` | `v7.0.1` |
+| [actions/setup-node](https://github.com/actions/setup-node/releases) | `v7` | `v7.1.0` |
+| [actions/upload-artifact](https://github.com/actions/upload-artifact/releases) | `v7` | `v7.0.2` |
+| [actions/download-artifact](https://github.com/actions/download-artifact/releases) | `v8` | `v8.0.2` |
+| [actions/github-script](https://github.com/actions/github-script/releases) | `v9` | `v9.0.0` |
+| [pnpm/action-setup](https://github.com/pnpm/action-setup/releases) | `v6.1.0` | `v6.1.0` |
+| [dtolnay/rust-toolchain](https://github.com/dtolnay/rust-toolchain/releases) | `v1` | `v1` |
+| [Swatinem/rust-cache](https://github.com/Swatinem/rust-cache/releases) | `v2` | `v2.9.2` |
+| [xresloader/upload-to-github-release](https://github.com/xresloader/upload-to-github-release/releases) | `v1.6.2` | `v1.6.2` |
+
+The pnpm `v6` tag trails `v6.1.0`; the upload Action has no `v1` tag, so both use the
+latest full numeric version. The Rust Action's `v1` commit has the same files as the
+previously referenced revision. Input names, toolchain/target settings and the existing
+tag-only draft publication rules were checked. Root instructions, the operating guidance,
+coverage records and English/Chinese platform/release documents use the same convention.
+These edits follow the tagged build; run 38156835286 verifies its own source revision.
+
+Follow-up local checks on Windows/Node 24.21.0: all 26 Action references match nine latest
+stable upstream releases, and all supplied inputs exist in their published manifests.
+The public Release/report audit, `npm run lint:md`, `npm run check:docs` and
+`npm run test:docs` exited 0; 39 documentation tests passed. The generated scripts, API
+snapshots and downloaded reports are under ignored root `build/actions-tags-032/`.
+`npm run build:docs` also exited 0: 1,381 pages and 2,893 published files, with local
+links, language roots, search and publication markers checked.

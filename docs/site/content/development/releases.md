@@ -35,7 +35,8 @@ size/SHA-256 report for each OS/architecture. Debian packages and raw AppImages 
 Package reports must match the tagged source revision. The release job verifies uploaded
 sizes and digests, using
 [xresloader/upload-to-github-release](https://github.com/xresloader/upload-to-github-release)
-at a fixed commit with `overwrite: true`.
+at `v1.6.2` with `overwrite: true`. Actions use verified upstream numeric version tags;
+prefer the latest stable release and use its full tag when a major tag is absent or trails it.
 
 Recreating a tag or rerunning its workflow updates the same draft's name, body and target
 commit, replacing same-name assets. Publication is serialized per tag, and an older build

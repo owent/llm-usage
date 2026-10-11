@@ -31,9 +31,10 @@ npm run pack:desktop
 草稿包含 Windows、Linux 和 macOS 各自 x64、arm64 的六种 `.tar.zst` 便携归档，
 现有 Windows x64 NSIS 安装包，以及每个系统/架构的大小/SHA-256 报告。
 不上传 Debian 包或原始 AppImage。包报告必须匹配 tag 对应的源码 revision。
-发行作业核对上传后的大小和摘要，通过固定提交版本的
+发行作业核对上传后的大小和摘要，通过 `v1.6.2` 版本的
 [xresloader/upload-to-github-release](https://github.com/xresloader/upload-to-github-release)
-使用 `overwrite: true` 上传。
+使用 `overwrite: true` 上传。Actions 使用经上游核验的数字版本 tag，优先选择最新稳定版；
+主版本 tag 不存在或落后时，使用该稳定版的完整 tag。
 
 重建 tag 或重新运行对应流水线会更新同一草稿的名称、正文和目标提交，并替换同名附件。
 同一 tag 的发布串行执行；tag 已指向其他提交时，旧构建拒绝发布。Release 保持草稿状态，

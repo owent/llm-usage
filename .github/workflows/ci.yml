@@ -24,10 +24,10 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@v7
         with:
           lfs: true
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -42,10 +42,10 @@ jobs:
       run:
         working-directory: desktop
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@v7
         with:
           lfs: true
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -59,7 +59,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run test:browser
         working-directory: .
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
+      - uses: pnpm/action-setup@v6.1.0
         with:
           run_install: false
       - name: pnpm workspace frozen install and checks
@@ -82,14 +82,14 @@ jobs:
       run:
         working-directory: desktop/src-tauri
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@v7
         with:
           lfs: true
-      - uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249
+      - uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
           components: clippy, rustfmt
-      - uses: swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+      - uses: swatinem/rust-cache@v2
         with:
           key: ${{ runner.os }}-${{ runner.arch }}-rust-${{ env.RUST_TOOLCHAIN }}
           workspaces: desktop/src-tauri
@@ -102,7 +102,7 @@ jobs:
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - run: cargo test --locked
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+      - uses: actions/setup-node@v7
         if: runner.os == 'Linux'
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -157,19 +157,19 @@ jobs:
             target: aarch64-apple-darwin
             args: --bundles app
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@v7
         with:
           lfs: true
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: desktop/package-lock.json
-      - uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249
+      - uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
           targets: ${{ matrix.target }}
-      - uses: swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+      - uses: swatinem/rust-cache@v2
         with:
           key: ${{ matrix.target }}-rust-${{ env.RUST_TOOLCHAIN }}
           workspaces: desktop/src-tauri
@@ -200,7 +200,7 @@ jobs:
         env:
           PORTABLE_GUI_CHECK: ${{ runner.os == 'Linux' && '1' || '0' }}
         run: node desktop/scripts/portable.mjs desktop/src-tauri/target/${{ matrix.target }}/release build/release/${{ matrix.platform }}-${{ matrix.arch }} ${{ matrix.platform }} ${{ matrix.arch }}
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      - uses: actions/upload-artifact@v7
         if: success()
         with:
           name: llm-usage-${{ matrix.platform }}-${{ matrix.arch }}-${{ github.sha }}
@@ -223,14 +223,14 @@ jobs:
       group: github-release-${{ github.ref }}
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           pattern: llm-usage-*-${{ github.sha }}
           path: build/github-release/artifacts
       - name: Verify packages and update draft metadata
         id: draft
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('node:fs/promises');
@@ -304,7 +304,7 @@ jobs:
               : await github.rest.repos.createRelease(metadata);
             core.setOutput('release_id', release.id);
       - name: Upload all platform packages
-        uses: xresloader/upload-to-github-release@7c5757a90c0bcf0c0e1741da8f2abd7b85e675d0 # v1
+        uses: xresloader/upload-to-github-release@v1.6.2
         with:
           file: build/github-release/assets/*
           release_id: ${{ steps.draft.outputs.release_id }}
@@ -313,7 +313,7 @@ jobs:
           draft: true
           overwrite: true
       - name: Verify uploaded assets
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@v9
         env:
           RELEASE_ID: ${{ steps.draft.outputs.release_id }}
         with:

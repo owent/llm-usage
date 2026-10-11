@@ -98,7 +98,9 @@ for local results and remote CI gaps.
 Use fail-fast=false to retain all matrix results and timeouts per job. Retry only diagnosed
 temporary infrastructure failures. Cache keys include OS, architecture, Rust/Node versions
 and lockfile digests; separate targets and never cache real Agent data.
-Application Actions use fixed commit SHAs. PR permissions remain read-only. Only the tag-push release job receives
+Application Actions use upstream numeric version tags, preferring the latest stable release.
+Use its full numeric tag when the major tag is absent or trails that release.
+PR permissions remain read-only. Only the tag-push release job receives
 contents: write through GitHub's short-lived token, after all shared checks and platform
 builds succeed. Privileged pull_request_target cannot execute PR code.
 CI artifacts and GitHub Releases are separate. Tag pushes create or update one draft by
@@ -157,7 +159,7 @@ build/credential tests from desktop acceptance. Basic builds do not require paid
 
 The explicitly authorized documentation publication has a separate workflow under
 .github/workflows/docs.yml and [documentation requirements](../documentation-site.md).
-It uses verified pinned Action revisions, Node 24, paired-content/comment checks, Astro checks,
+It uses verified numeric Action version tags, Node 24, paired-content/comment checks, Astro checks,
 unit tests, production output validation and browser regressions before uploading a static
 artifact. Documentation changes trigger it automatically; source changes also check comment
 references. Pull requests have read-only permissions and cannot publish.

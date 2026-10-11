@@ -28,7 +28,7 @@
       ]
     },
     ".github/workflows/ci.yml": {
-      "codeHash": "57c35d1ca1a551c6b6bad9818a09e371a3ffaebcde4b2e7ac3d5801688a65ab8",
+      "codeHash": "fe762d0d8d52db85abb1a5fd04b5520fb7085115e7ef7d07a972064c32ec5f82",
       "comments": [
         {
           "id": "de393e7c2ad7dd27",
@@ -50,95 +50,6 @@
           "kind": "line",
           "en": "# Tag pushes update a draft Release after all checks; artifacts record revision, size and digest.",
           "zh": "# tag 推送在全部检查通过后更新 Draft Release；制品记录 revision、大小和摘要。"
-        },
-        {
-          "id": "5c4aea539de1cf92",
-          "line": 226,
-          "kind": "line",
-          "en": "# v7",
-          "zh": "# v7 固定提交"
-        },
-        {
-          "id": "8d354d8f03723bbc",
-          "line": 227,
-          "kind": "line",
-          "en": "# v8",
-          "zh": "# v8 固定提交"
-        },
-        {
-          "id": "f16f41b7faaa6f42",
-          "line": 233,
-          "kind": "line",
-          "en": "# v9",
-          "zh": "# v9 版本"
-        },
-        {
-          "id": "ed6a6dd5b2894d23",
-          "line": 307,
-          "kind": "line",
-          "en": "# v1",
-          "zh": "# v1 固定提交"
-        },
-        {
-          "id": "76286df8f579b6d3",
-          "line": 316,
-          "kind": "line",
-          "en": "# v9",
-          "zh": "# v9 版本"
-        }
-      ]
-    },
-    ".github/workflows/docs.yml": {
-      "codeHash": "1acd16c05a4a5b686600d69559f313a2f90e12d4380ec0b0d6612c569908e628",
-      "comments": [
-        {
-          "id": "3a682471528b7580",
-          "line": 63,
-          "kind": "line",
-          "en": "# v9",
-          "zh": "# v9 版本"
-        },
-        {
-          "id": "51f8de7d15f14971",
-          "line": 74,
-          "kind": "line",
-          "en": "# v7",
-          "zh": "# 第 7 主版本。"
-        },
-        {
-          "id": "70409c282bb4c7b7",
-          "line": 77,
-          "kind": "line",
-          "en": "# v7",
-          "zh": "# 第 7 主版本。"
-        },
-        {
-          "id": "148ccd847b02cef7",
-          "line": 96,
-          "kind": "line",
-          "en": "# v7",
-          "zh": "# 第 7 主版本。"
-        },
-        {
-          "id": "3c836c70722827c1",
-          "line": 116,
-          "kind": "line",
-          "en": "# v7",
-          "zh": "# 第 7 主版本。"
-        },
-        {
-          "id": "174058e441c4f73e",
-          "line": 119,
-          "kind": "line",
-          "en": "# v7",
-          "zh": "# 第 7 主版本。"
-        },
-        {
-          "id": "4f284c32a0a3bcbd",
-          "line": 122,
-          "kind": "line",
-          "en": "# v8",
-          "zh": "# 第 8 主版本。"
         }
       ]
     },

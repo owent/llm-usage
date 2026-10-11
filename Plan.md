@@ -2,7 +2,7 @@
 
 <a id="桌面用量客户端执行计划"></a>
 
-Current version: 0.3.1. Windows 11 x64 is the first desktop target; Windows/Linux/macOS CI
+Current version: 0.3.2. Windows 11 x64 is the first desktop target; Windows/Linux/macOS CI
 is retained. This file owns the executable work for the current round. Removed scope and
 first failures are recorded in the [round record](docs/validation/desktop-usage/plan-20261007.md);
 removal does not mean acceptance passed. Historical results are indexed in
@@ -16,9 +16,11 @@ Design entry points: [product and architecture](docs/design/desktop-usage/README
 
 ## Current implementation
 
-Software update checks: observe a public Release-triggered main metadata refresh and a
-real newer public-version update. Endpoint publication and the v0.3.1 draft/source/asset
-checks are verified in the [release record](docs/validation/desktop-usage/release-031.md).
+Software update checks: verify a real newer public-version update. The v0.3.2 public
+Release-triggered main documentation refresh is verified in
+[0.3.2 checks](docs/validation/desktop-usage/release-032.md). Endpoint publication and the
+earlier v0.3.1 draft/source/asset checks retain their scope in
+[the earlier release record](docs/validation/desktop-usage/release-031.md).
 
 | Stage | Implemented scope and results |
 | --- | --- |
@@ -116,7 +118,10 @@ Version 0.3.0 cost-card, settings and native Codex corrections are recorded in
 [local release checks](docs/validation/desktop-usage/release-030.md).
 Version 0.3.2 registers individually checked Codex/Kilo native versions and clarifies
 Copilot telemetry wording, and saves updated creation fingerprints so large Codex files
-can finish rereading; local checks are recorded in [0.3.2 validation](docs/validation/desktop-usage/release-032.md).
+can finish rereading. Its tagged commit passed all 12 CI jobs and produced a Release
+with 13 verified assets, now publicly available. Actions now use verified numeric version tags;
+local and tagged-build results are recorded in
+[0.3.2 validation](docs/validation/desktop-usage/release-032.md).
 Remaining acceptance: run real NSIS updater/lifecycle checks when the existing application is stopped;
 verify a newer public release when available, and record Linux/macOS native GUI updates separately.
 

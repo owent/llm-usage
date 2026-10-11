@@ -232,6 +232,10 @@ The pnpm workspace includes the root and `desktop`, with its version pinned in `
 and `pnpm-lock.yaml` synchronized with manifest changes. Retain scoped build approvals and peer checks.
 `rust-toolchain.toml` selects the same Rust version as CI without changing the global default.
 
+GitHub Actions use upstream numeric version tags such as `@v7`. Verify the latest stable release
+before changing references; when a major tag is absent or trails that release, use its full
+numeric version tag.
+
 ```powershell
 npm ci
 npm --prefix desktop ci

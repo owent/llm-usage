@@ -33,8 +33,10 @@ For actual workflows:
 
 - Establish target environments, artifact identities, migration sequence, health checks,
   acceptance and rollback triggers.
-- Use short-lived CI/CD credentials and minimum token permissions. Pin third-party GitHub Actions
-  to full commit SHAs. Separate untrusted PR jobs from jobs with publication credentials.
+- Use short-lived CI/CD credentials and minimum token permissions. Use upstream numeric version
+  tags for GitHub Actions and verify the latest stable release. If a major tag is absent or
+  trails that release, use the full numeric version tag. Separate untrusted PR jobs from jobs
+  with publication credentials.
 - Report local/mock, real dependencies, staging and production separately. Preparation does not
   establish deployment authorization.
 - After timed-out writes, query actual state before retrying.

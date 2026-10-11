@@ -80,7 +80,8 @@ Windows 原生凭据在本机显式执行，默认忽略项不能当作系统存
 
 矩阵使用 fail-fast=false 留下全部结果；每作业有超时，重跑只针对已定位的临时基础设施故障。
 缓存键包含 OS、架构、Rust/Node 版本和锁文件摘要，隔离不同 target，不缓存真实 Agent 数据。
-应用 Action 使用完整提交 SHA 固定版本；PR 保持只读权限。
+应用 Action 使用上游数字版本 tag，优先选择最新稳定版；主版本 tag 不存在或落后时，
+使用该稳定版的完整数字版本 tag。PR 保持只读权限。
 仅 tag push 的发行作业在公共检查和全部平台构建成功后，通过 GitHub 短期 token
 取得 contents: write 权限；不在特权 pull_request_target 中执行 PR 代码。
 CI artifact 与 GitHub Release 分开。tag push 按 tag_name 创建或更新同一个草稿，覆盖
@@ -129,7 +130,7 @@ Linux 本轮直接使用 WebKitWebDriver 原生 capabilities，启动真实打�
 ## 文档 CI 与 Pages
 
 明确授权的文档发布使用 .github/workflows/docs.yml 独立流水线，按[文档要求](../documentation-site.md)执行。
-使用已核验的 Action 固定 revision、Node 24、双语内容和注释检查、Astro 检查、单元测试、
+使用已核验的 Action 数字版本 tag、Node 24、双语内容和注释检查、Astro 检查、单元测试、
 生产输出校验及浏览器回归，全部通过后上传静态制品。文档变化自动触发；源码变化也检查注释对照。
 PR 只读，不能发布。
 

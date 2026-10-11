@@ -3,8 +3,8 @@
 <a id="version-032-compatibility-and-telemetry-wording-checks"></a>
 
 范围：根据逐版本原生样本修复 Codex/Kilo 兼容提示，改进本地 OTel 说明，
-并将应用清单版本更新为 0.3.2。下述结果记录打 tag 或运行远端 CI 前的本地验证，
-不据此确认版本已发布。原生来源只读提取遵循
+并将应用清单版本更新为 0.3.2。下述本地检查在打 tag 和运行远端 CI 前完成；
+后续 tag 构建结果单独记录。原生来源只读提取遵循
 [脱敏要求](../../design/desktop-usage/implementation-readiness.md)。
 
 ## 兼容读取提示
@@ -95,3 +95,57 @@ Windows 安装生命周期、原生 GUI/IPC、远端 CI 或版本发布；浏览
 全新备份经过五轮采集完成，下一轮无重复计数。首次文档检查还拒绝了英文记录中
 未放入代码块的中文界面原文，现已改为字面代码示例。导航数量由 224 更新为 225，
 并明确断言新增验证页存在。
+
+## Tag CI 与 Release
+
+`v0.3.2` tag 指向 `12207ea1a6c710c67ef681a6adc44b3041dc9128`。
+[CI 运行 38156835286](https://github.com/owent/llm-usage/actions/runs/38156835286)
+已成功完成：Markdown、前端、三个原生 Rust 作业、六个平台便携包构建和 Draft Release，
+共 12 个作业全部通过。发行作业需要等待这些构建完成；
+它于亚洲/上海时区 2026-10-12 01:13 完成。
+
+草稿 Release ID `409806776` 包含六种便携归档、Windows x64 NSIS 安装包和六份平台报告，
+共 13 个附件。发行作业在上传后核验了大小和 SHA-256 摘要，并检查了 tag 对应的源码 revision。
+`draft: true` 设置使它在公开发布前不显示在公开 Release 列表中。
+创建草稿与公开发布分别记录；该 tag 的流水线已经成功完成。
+
+后续检查期间，同一 Release 于亚洲/上海时区 2026-10-12 01:16 公开发布。
+当前 API 状态为 `draft: false`，仍对应同一 tag 源码和 13 个附件，地址为
+[v0.3.2](https://github.com/owent/llm-usage/releases/tag/v0.3.2)。
+六份已下载平台报告与 API 摘要、tag revision 和版本一致，七个包的 API 大小/摘要与报告一致。
+后续核验最初要求草稿状态，因状态已变化而失败；重新读取 API 确认公开发布后，
+再次执行公开状态检查。这些核验没有修改 Release 元数据。
+[Release 触发的文档作业](https://github.com/owent/llm-usage/actions/runs/38158980685)
+及其[主分支刷新](https://github.com/owent/llm-usage/actions/runs/38158986481)
+均在同一源码 revision 成功完成，不据此确认真实已安装客户端的升级已通过。
+
+## Actions 版本引用
+
+后续维护按用户 2026-10-12 的指令，将两个工作流改为上游数字版本 tag。
+已通过官方 GitHub API 核对最新稳定发行和 tag 内容：
+
+| Action | 工作流引用 | 已核验稳定发行 |
+| --- | --- | --- |
+| [actions/checkout](https://github.com/actions/checkout/releases) | `v7` | `v7.0.1` |
+| [actions/setup-node](https://github.com/actions/setup-node/releases) | `v7` | `v7.1.0` |
+| [actions/upload-artifact](https://github.com/actions/upload-artifact/releases) | `v7` | `v7.0.2` |
+| [actions/download-artifact](https://github.com/actions/download-artifact/releases) | `v8` | `v8.0.2` |
+| [actions/github-script](https://github.com/actions/github-script/releases) | `v9` | `v9.0.0` |
+| [pnpm/action-setup](https://github.com/pnpm/action-setup/releases) | `v6.1.0` | `v6.1.0` |
+| [dtolnay/rust-toolchain](https://github.com/dtolnay/rust-toolchain/releases) | `v1` | `v1` |
+| [Swatinem/rust-cache](https://github.com/Swatinem/rust-cache/releases) | `v2` | `v2.9.2` |
+| [xresloader/upload-to-github-release](https://github.com/xresloader/upload-to-github-release/releases) | `v1.6.2` | `v1.6.2` |
+
+pnpm 的 `v6` tag 落后于 `v6.1.0`，上传 Action 没有 `v1` tag，因此这两项使用最新的完整数字版本。
+Rust Action 的 `v1` 提交与原引用 revision 的文件内容一致。
+已核对输入参数名称、工具链/target 设置和现有仅由 tag 触发的草稿发行规则。
+根规则、执行指引、覆盖记录以及中英文平台/发行文档使用相同约定。
+这些修改发生在该 tag 构建之后；运行 38156835286 核验的是它自己的源码 revision。
+
+后续本地检查使用 Windows/Node 24.21.0：26 处 Action 引用均匹配九项上游最新稳定发行，
+全部传入参数都存在于对应发行的清单中。
+公开 Release/报告核验、`npm run lint:md`、`npm run check:docs` 和 `npm run test:docs`
+均退出 0；39 项文档测试通过。临时脚本、API 快照和下载报告位于根目录下被忽略的
+`build/actions-tags-032/`。
+`npm run build:docs` 同样退出 0：1,381 页、2,893 个发布文件，本地链接、语言目录、
+搜索和发布标记检查通过。
