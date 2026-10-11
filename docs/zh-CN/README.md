@@ -5,6 +5,10 @@
 [![CI](https://github.com/owent/llm-usage/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/owent/llm-usage/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-blue)](../../LICENSE)
 
+[![Release 总下载量](https://img.shields.io/github/downloads/owent/llm-usage/total)](https://github.com/owent/llm-usage/releases)
+[![Windows x64 便携包大小](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgithub.com%2Fowent%2Fllm-usage%2Freleases%2Flatest%2Fdownload%2Fbundle-report-windows-x64.json&query=%24.bundles%5B0%5D.bytes&label=Windows%20x64%20portable&suffix=%20B&color=blue)](https://github.com/owent/llm-usage/releases/latest)
+[![仓库大小](https://img.shields.io/github/repo-size/owent/llm-usage)](https://github.com/owent/llm-usage)
+
 [英文文档](https://llm-usage.atframe.work/) · [中文文档](https://llm-usage.atframe.work/zh-cn/) ·
 [英文仓库 README](../../README.md)
 

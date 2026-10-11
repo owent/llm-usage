@@ -5,6 +5,10 @@
 [![CI](https://github.com/owent/llm-usage/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/owent/llm-usage/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
+[![total release downloads](https://img.shields.io/github/downloads/owent/llm-usage/total)](https://github.com/owent/llm-usage/releases)
+[![Windows x64 portable size](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fgithub.com%2Fowent%2Fllm-usage%2Freleases%2Flatest%2Fdownload%2Fbundle-report-windows-x64.json&query=%24.bundles%5B0%5D.bytes&label=Windows%20x64%20portable&suffix=%20B&color=blue)](https://github.com/owent/llm-usage/releases/latest)
+[![repo size](https://img.shields.io/github/repo-size/owent/llm-usage)](https://github.com/owent/llm-usage)
+
 LLM Usage is an AI usage dashboard: model tokens, requests and caching.
 It is currently pre-alpha, with Overview, Trends, Details, Sources and Settings implemented.
 It supports complete normalized detail import/merge and optional daily/monthly token or
