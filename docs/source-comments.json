@@ -54583,7 +54583,7 @@
       ]
     },
     "desktop/src/components/CallsChart.svelte": {
-      "codeHash": "db6eed26e0854e9f88c21b5ccfe9c816b93cb424e56b01682ae694626b2cc7c4",
+      "codeHash": "1169a8b32b20cf74fb2a789c6ae603f8f0fc8e3cb4c8059183a01a1e6ee5be4c",
       "comments": [
         {
           "id": "10fdd82eca6c5c1f",
@@ -54672,7 +54672,7 @@
       ]
     },
     "desktop/src/components/CostChart.svelte": {
-      "codeHash": "8d5db7f3ef40d9f5649c4e2f8baa662ed4512345cf16636966d1ece2d702d2ff",
+      "codeHash": "24b0d7b8d23263b77e0daa54c0697ac144401e194a3d62651a0e75ccd188901a",
       "comments": [
         {
           "id": "b948136852464e88",
@@ -55599,7 +55599,7 @@
       ]
     },
     "desktop/src/components/TokenChart.svelte": {
-      "codeHash": "9af8159c16ba2332c272ac186205433c9fadc550d6ff6c89dd4a1fccb8998f8e",
+      "codeHash": "f1648e19592ea4a2bb7f64842c0524235899ecafd657ad059c7031c97e64325c",
       "comments": [
         {
           "id": "0e03d1b53e40b927",
@@ -56544,7 +56544,7 @@
       ]
     },
     "desktop/tests/browser-smoke.mjs": {
-      "codeHash": "66214e585a1b82d08a9f3cb7a838b270ca79fa61f814aab767689125ad2f770b",
+      "codeHash": "fdfc84b6dc732993326894a2189f0ee0c727306079ab997230db55b2925a7cba",
       "comments": [
         {
           "id": "5ba4dca837379ee2",
@@ -56576,21 +56576,21 @@
         },
         {
           "id": "d8e64c2d0b757e81",
-          "line": 378,
+          "line": 406,
           "kind": "line",
           "en": "// Accepted before the worker starts; a short scan finishes between status polls.",
           "zh": "// 工作线程启动前已受理；短扫描可能在状态轮询之间完成。"
         },
         {
           "id": "cef2412556e04173",
-          "line": 730,
+          "line": 791,
           "kind": "line",
           "en": "// Clear-all confirmation shows missing-file warnings and phase progress;",
           "zh": "// 清理全部数据的确认界面显示缺失文件提示及阶段进度；"
         },
         {
           "id": "b8b8b9c2332d0d40",
-          "line": 731,
+          "line": 792,
           "kind": "line",
           "en": "// done closes it automatically and shows the cleared summary.",
           "zh": "// done 后自动关闭，并显示清理汇总。"

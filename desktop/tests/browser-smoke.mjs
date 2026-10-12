@@ -296,6 +296,31 @@ const getChartOptions = async (selector) => page.evaluate(async (sel) => {
   const echarts = await import(window.chartModuleUrl);
   return echarts.getInstanceByDom(document.querySelector(sel)).getOption();
 }, selector);
+const wheelWithoutSelection = async (selector) => {
+  const snapshot = () => page.locator(selector).evaluate(async el => {
+    const echarts = await import(window.chartModuleUrl);
+    const chart = echarts.getInstanceByDom(el);
+    return {
+      queries: window.appCalls.filter(c => ['summary','cost_summary'].includes(c.cmd) && c.args.q.first_period).length,
+      zoom: (chart.getOption().dataZoom ?? []).map(({start,end,startValue,endValue}) => ({start,end,startValue,endValue})),
+      brush: chart.getModel().getComponent('brush').areas.map(({coordRange}) => coordRange),
+      captions: [...document.querySelectorAll('.today-range-caption,.period-label,.range-summary .range-caption')].map(el => el.textContent),
+    };
+  });
+  const before = await snapshot();
+  for (const [deltaX,deltaY] of [[0,-240],[0,240],[240,0]]) {
+    await page.locator(selector).scrollIntoViewIfNeeded();
+    const box = await page.locator(selector).boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    const scroll = await page.evaluate(() => ({top:scrollY,max:document.documentElement.scrollHeight-innerHeight}));
+    await page.mouse.wheel(deltaX,deltaY);
+    await page.clock.runFor(400);
+    await page.waitForTimeout(100);
+    assert.deepEqual(await snapshot(),before,'wheel leaves the range, highlight and scoped queries unchanged: '+selector);
+    if (deltaY > 0 && scroll.top < scroll.max - 1) assert.ok(await page.evaluate(() => scrollY) > scroll.top,'wheel over the chart still scrolls the page: '+selector);
+    if (deltaY < 0 && scroll.top > 1) assert.ok(await page.evaluate(() => scrollY) < scroll.top,'reverse wheel over the chart still scrolls the page: '+selector);
+  }
+};
 const dragPeriods = async (selector, first, last) => {
   await page.locator(selector).scrollIntoViewIfNeeded();
   const points = await page.locator(selector).evaluate(async (el, [first,last]) => {
@@ -314,6 +339,7 @@ const todayTotalTypes=await page.evaluate(async ()=>{
   return echarts.getInstanceByDom(document.querySelector('[data-panel-group="overviewToday"] .hourly')).getOption().series.map(s=>s.type);
 });
 assert.deepEqual(todayTotalTypes,['line','line'],'today overview keeps a line (curve) chart for calls and tokens');
+await wheelWithoutSelection('[data-panel-group="overviewToday"] .hourly');
 await dragPeriods('[data-panel-group="overviewToday"] .hourly',0,2);
 assert.match(await page.locator('.today-range-caption').textContent(),/08:00 ~ .*10:00/,'today hourly chart also supports continuous selection');
 assert.equal(await page.locator('.today-cards .card').first().locator('.value').textContent(),'84');
@@ -321,10 +347,12 @@ const todaySelectedQuery=await page.evaluate(()=>window.appCalls.filter(c=>c.cmd
 assert.equal(todaySelectedQuery.granularity,'hour');assert.equal(todaySelectedQuery.first_day,todaySelectedQuery.last_day);
 const todaySelectedPrice=await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='cost_summary'&&c.args.q.first_period).at(-1).args.q);
 assert.equal(todaySelectedPrice.first_period,todaySelectedQuery.first_period);assert.equal(todaySelectedPrice.last_period,todaySelectedQuery.last_period);
+await wheelWithoutSelection('[data-panel-group="overviewToday"] .hourly');
 await page.locator('.today-range-reset').click();await page.clock.runFor(100);
 for(const [index,dimension] of [[1,'model'],[3,'agent_model'],[2,'agent']]) {
   await todayPanel.locator('.dim-seg button').nth(index).click();await page.clock.runFor(300);
   const option=await getChartOptions('[data-panel-group="overviewToday"] .hourly');
+  await wheelWithoutSelection('[data-panel-group="overviewToday"] .hourly');
   assert.ok(option.series.every(s=>s.type==='line'&&!s.name.includes('调用')),'hourly grouping uses token curves: '+dimension);
   assert.deepEqual(option.series[0].data.slice(0,2),[115000,0],'plots token values, including true zero, rather than call counts');
   assert.match(option.yAxis[0].name,/token/i);assert.equal(option.yAxis.length,1);
@@ -408,11 +436,13 @@ await page.locator('.user-picker select').selectOption('default');
 await page.clock.runFor(500);
 assert.match(await page.locator('[data-panel-group="overviewHistory"] .phead h3').first().textContent(),/token 用量/,'overview defaults to tokens before calls');
 for (const selector of ['[data-panel-group="overviewHistory"] .token-chart','[data-panel-group="overviewHistory"] .calls-chart']) {
+  await wheelWithoutSelection(selector);
   await dragPeriods(selector,1,3);
   assert.match(await page.locator('.period-label').textContent(),/2026-09-16 ~ 2026-09-18/,'overview supports the same continuous range');
   assert.equal(await page.locator('.period-summary .scard').first().locator('.svalue').textContent(),'84');
   const selectedPie=await getChartOptions('.period-pies .pie');
   assert.ok(selectedPie.series[0].data.some(row=>row.name==='gpt-5.4' && row.value===133000),'overview distribution comes from the scoped summary');
+  await wheelWithoutSelection(selector);
   await page.locator('.period-clear').click();await page.clock.runFor(100);
 }
 await page.getByRole('navigation').first().getByRole('button',{name:'趋势',exact:true}).click();
@@ -441,6 +471,8 @@ assert.deepEqual((await getChartOptions('.weekday')).series[0].data,weekdayBefor
 await page.getByRole('button',{name:'下一年',exact:true}).click();await page.clock.runFor(500);
 await page.getByRole('button',{name:'下一年',exact:true}).click();await page.clock.runFor(500);
 const trendTokens=page.locator('[data-panel-group="trendMain"]').filter({has:page.locator('.token-chart')});
+await wheelWithoutSelection('[data-panel-group="trendMain"] .token-chart');
+await wheelWithoutSelection('[data-panel-group="trendMain"] .calls-chart');
 await trendTokens.getByRole('button',{name:'按Agent',exact:true}).click();await page.clock.runFor(300);
 const tokenSelector='[data-panel-group="trendMain"] .token-chart';
 const unknownTotal=await getChartOptions(tokenSelector);
@@ -503,6 +535,7 @@ const trendModels=page.locator('[data-panel-group="trendMain"]').filter({has:pag
 assert.match(await trendModels.locator('tfoot').textContent(),/24\.68/,'trend model table also includes the current subtotal');
 const costOption=await getChartOptions('[data-panel-group="trendMain"] .curve');
 assert.deepEqual(costOption.series[0].data.slice(0,3),[1200,800,468],'cost curve uses current per-day amounts rather than historical prices');
+await wheelWithoutSelection('[data-panel-group="trendMain"] .curve');
 await page.locator('[data-panel-group="trendMain"] .curve').scrollIntoViewIfNeeded();
 await page.locator('[data-panel-group="trendMain"] .controls').getByRole('button',{name:'按模型',exact:true}).click();await page.clock.runFor(100);
 assert.equal((await getChartOptions('[data-panel-group="trendMain"] .curve')).series.length,3,'cost curve can compare individual models');
@@ -530,6 +563,7 @@ assert.match(await trendModels.locator('tfoot').textContent(),/5\.00/,'model tab
 assert.ok((await getChartOptions('[data-panel-group="trendMain"] .pie')).series[0].data.some(row=>row.name==='gpt-5.4'&&row.value===133000),'model share uses the selected token totals');
 const heatmapBefore=await page.locator('.heatmap .days').innerHTML();
 for(const [selector,first,last] of [[tokenSelector,1,3],['[data-panel-group="trendMain"] .calls-chart',4,2],['[data-panel-group="trendMain"] .curve',0,2]]) {
+  await wheelWithoutSelection(selector);
   await dragPeriods(selector,first,last);
   const request=await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='summary'&&c.args.q.first_period).at(-1).args.q);
   assert.equal(request.first_period,`2026-09-${String(15+Math.min(first,last)).padStart(2,'0')}`);
@@ -537,6 +571,7 @@ for(const [selector,first,last] of [[tokenSelector,1,3],['[data-panel-group="tre
   assert.match(await trendModels.locator('tfoot').textContent(),/5\.00/);
   assert.ok((await getChartOptions('[data-panel-group="trendMain"] .pie')).series[0].data.some(row=>row.name==='gpt-5.4'&&row.value===133000));
   assert.equal(await page.locator('.heatmap .days').innerHTML(),heatmapBefore,'range selection leaves the activity calendar unchanged');
+  await wheelWithoutSelection(selector);
   if(selector===tokenSelector)await page.locator(selector).screenshot({path:out+'trend-drag-selection.png'});
   await page.locator('.range-reset').click();await page.clock.runFor(100);
   assert.equal(await page.locator(selector).evaluate(async el=>{
@@ -545,6 +580,32 @@ for(const [selector,first,last] of [[tokenSelector,1,3],['[data-panel-group="tre
   }),0,'reset clears the visible brush');
 }
 assert.ok((await getChartOptions('[data-panel-group="trendMain"] .pie')).series[0].data.some(row=>row.name==='gpt-5.4'&&row.value===798000),'reset restores full-query distributions');
+await page.locator(tokenSelector).focus();
+await page.keyboard.press('Home');await page.keyboard.press('Shift+ArrowRight');
+await page.keyboard.press('Enter');await page.clock.runFor(400);
+assert.match(await page.locator('.range-summary .range-caption').textContent(),/2026-09-15 ~ 2026-09-16/,'keyboard range selection remains available');
+await wheelWithoutSelection(tokenSelector);
+await page.locator('.range-reset').click();await page.clock.runFor(100);
+const costSelector='[data-panel-group="trendMain"] .curve';
+await page.locator(costSelector).scrollIntoViewIfNeeded();
+const sliderPoints=await page.locator(costSelector).evaluate(async el=>{
+  const echarts=await import(window.chartModuleUrl),chart=echarts.getInstanceByDom(el);
+  const box=el.getBoundingClientRect(),grid=chart.getModel().getComponent('grid').coordinateSystem.getRect();
+  return {first:box.left+grid.x+grid.width,last:box.left+grid.x+grid.width*.55,y:box.bottom-10};
+});
+await page.mouse.move(sliderPoints.first,sliderPoints.y);await page.mouse.down();
+await page.mouse.move(sliderPoints.last,sliderPoints.y,{steps:12});await page.mouse.up();await page.clock.runFor(400);
+const sliderOption=await getChartOptions(costSelector);
+assert.ok(sliderOption.dataZoom[0].end<100,'dragging the cost slider still changes its visible range');
+const sliderQuery=await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='summary'&&c.args.q.first_period).at(-1).args.q);
+assert.equal(sliderQuery.first_period,sliderOption.xAxis[0].data[sliderOption.dataZoom[0].startValue]);
+assert.equal(sliderQuery.last_period,sliderOption.xAxis[0].data[sliderOption.dataZoom[0].endValue]);
+await wheelWithoutSelection(costSelector);
+await page.evaluate(async sel=>{
+  const echarts=await import(window.chartModuleUrl);
+  echarts.getInstanceByDom(document.querySelector(sel)).dispatchAction({type:'dataZoom',start:0,end:100});
+},costSelector);await page.clock.runFor(400);
+await page.locator('.range-reset').click();await page.clock.runFor(100);
 await page.evaluate(async sel=>{
   const echarts=await import(window.chartModuleUrl);
   echarts.getInstanceByDom(document.querySelector(sel)).dispatchAction({type:'dataZoom',startValue:2,endValue:4});

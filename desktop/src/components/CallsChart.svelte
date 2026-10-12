@@ -145,7 +145,7 @@
             axisLabel: { formatter: (v: number) => fmtSmart(v) },
           },
         ],
-        dataZoom: granularity === 'hour' || granularity === 'day' ? [{ type: 'inside', moveOnMouseMove:false }] : [],
+        dataZoom: granularity === 'hour' || granularity === 'day' ? [{ type: 'inside', disabled:true }] : [],
         series: [
           {
             type: 'line',
@@ -206,7 +206,7 @@
           axisLabel: { formatter: (v: number) => fmtSmart(v) },
           splitLine: { lineStyle: { color: splitColor } },
         },
-        dataZoom: [{ type: 'inside', moveOnMouseMove:false }],
+        dataZoom: [{ type: 'inside', disabled:true }],
         color: PALETTE,
         series: g.names.map(
           (name): LineSeriesOption => ({

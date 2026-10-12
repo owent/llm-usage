@@ -156,3 +156,35 @@ Browser assertions cover restricted/no-data overview, retained detail restrictio
 transition to verified without erasing restrictions, and return to no-data after valid output
 disappears. No rebuilt installer/native GUI launch; browser results do not establish actual
 IDE settings taking effect or complete historical collection.
+
+<a id="滚轮选区修复2026-10-12"></a>
+
+## Wheel selection repair, 2026-10-12
+
+Version 0.3.2, Windows 11 Pro x64 build 26300, Node.js 24.21.0, Edge 155.0.4283.45,
+locked ECharts 6.1.0/Playwright 1.64.0. Inside dataZoom enabled wheel zoom by default;
+the shared datazoom handler converted it into a selected range. The regression reproduced
+an unintended overview range and two scoped summary/cost requests without a click.
+Disable inside dataZoom input in total/grouped token, call and cost curves. Keep cost-slider
+input and point/axis clicks, horizontal brushes and keyboard selection.
+
+Actual Edge wheel input checks upward/downward/horizontal scrolling over overview history,
+today's hourly curves and trend token/call/cost curves, with and without selections.
+Ranges, highlights, captions and scoped-query counts stay unchanged; vertical wheel input
+still scrolls the page. Actual point clicks, forward/reverse drags, keyboard Enter and
+cost-slider dragging continue to select, with existing reset/stale-response checks passing.
+
+| Repository-root command | Result |
+| --- | --- |
+| npm run test:browser | Exit 0; actual Edge input with synthetic IPC; wheel and existing interaction checks pass |
+| npm run test:ui | Exit 0; 22 tests |
+| npm run check | Exit 0; Svelte zero errors/warnings |
+| npm run build:web | Exit 0; production frontend build |
+| npm run lint:md | Exit 0; 463 files, no issues |
+| npm run check:docs | Exit 0; 205 repository pairs/21 guide pairs checked, Astro 35 files without errors/warnings/hints |
+| git diff --check | Exit 0; no whitespace errors |
+
+Evidence stays under build/chart-wheel/ and build/browser-smoke/. The first reproduction
+failure is retained. An additional page-scroll assertion initially failed; adding a 100 ms
+wait for asynchronous browser scrolling after wheel delivery passed the complete rerun. This is browser
+verification with synthetic data/IPC; no native GUI, installer or published-release check.

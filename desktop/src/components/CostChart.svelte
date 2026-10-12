@@ -52,7 +52,7 @@
       legend:{type:'scroll',top:0},grid:{left:12,right:20,top:42,bottom:52,containLabel:true},
       xAxis:{type:'category',data:plotPeriods.map((p)=>p.label),triggerEvent:true},
       yAxis:{type:'value',name:selectedCurrency,axisLabel:{formatter:(v:number)=>(v/100).toLocaleString(i18n.locale)}},
-      dataZoom:[{type:'slider',bottom:0,height:20},{type:'inside',moveOnMouseMove:false}],
+      dataZoom:[{type:'slider',bottom:0,height:20},{type:'inside',disabled:true}],
       series:groups.map((group)=>({name:group.name,type:'line',lineStyle:{type:group.upper?'dashed':'solid'},showSymbol:true,symbolSize:7,connectNulls:false,data:group.values})),
     },{notMerge:true});
     enableRangeBrush(chart);

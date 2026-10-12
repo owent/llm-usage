@@ -117,7 +117,8 @@ periods; a DST calendar day is not assumed to last 24 hours.
 Trend usage, calls/sessions and cost curves, plus overview history/today's hourly charts,
 support point/x-axis-label clicks and horizontal mouse-drag selection. On release query
 the continuous range by corresponding period boundaries, including reverse drags.
-Dragging selects rather than pans; wheel/slider zoom still chooses visible ranges.
+Dragging selects rather than pans. Wheel scrolling neither zooms/pans the chart nor
+creates or changes a selection. Clicking or dragging the cost slider still chooses visible ranges.
 Show highlight, start/end and reset; reset clears every related highlight. Trend selection
 restricts summaries, model/Agent distribution, model-table usage and current-price
 references together. Overview history uses the same summary/distribution rules; today's
@@ -152,7 +153,8 @@ keyboard use the same range/revision rules.
 Test configured/waiting/valid/invalid/shared mixed data, current conflicts despite historical
 samples, newline preservation, model subtotals equaling currency totals, curves equaling
 current-price summaries, unit prices matching selected tiers, date/user/model filters,
-archive coverage, actual forward/reverse mouse drags, no query before release, rapid
+archive coverage, wheel scrolling over unselected/selected total and grouped curves without
+changing ranges/highlights or issuing scoped queries, actual forward/reverse mouse drags, no query before release, rapid
 clicks/stale responses, consistent selected distribution/model usage/cost, calendar-day
 boundaries, full reset and wide/narrow layouts. Original sources/configuration stay
 read-only; scripts/copies belong under the task's root build/ directory. Record final

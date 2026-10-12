@@ -148,7 +148,7 @@
       grid: { left: 70, right: 80, top: 48, bottom: 44, containLabel: true },
       textStyle: { color: chartText },
       xAxis: { type: 'category', data: labels, triggerEvent:true },
-      dataZoom: granularity === 'hour' || granularity === 'day' ? [{ type: 'inside', moveOnMouseMove:false }] : [],
+      dataZoom: granularity === 'hour' || granularity === 'day' ? [{ type: 'inside', disabled:true }] : [],
     };
 
     if (sub === 'ratio') {
@@ -290,7 +290,7 @@
       textStyle: { color: chartText },
       grid: { left: 70, right: 80, top: 48, bottom: 44, containLabel: true },
       xAxis: { type: 'category', data: g.labels, triggerEvent:true },
-      dataZoom: [{ type: 'inside', moveOnMouseMove:false }],
+      dataZoom: [{ type: 'inside', disabled:true }],
       color: PALETTE,
     };
 
