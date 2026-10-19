@@ -49,17 +49,13 @@ fn changed_creation_fingerprint_is_saved_so_old_cursors_can_finish_after_reopeni
     }
     let root = codex_root_with_file(&dir, "rollout-created.jsonl", contents.as_bytes());
     let path = root.join("sessions/2026/09/24/rollout-created.jsonl");
-    let Some(created) = llm_usage_core::adapters::jsonl::probe_file(&path)
-        .unwrap()
-        .created_ms
-    else {
-        return;
-    };
+    let probe = llm_usage_core::adapters::jsonl::probe_file(&path).unwrap();
     let db = TempDir::new("codex-created-fingerprint-db");
     let now = ts("2026-10-07T04:00:00Z");
     let mut scan_limits = limits();
     scan_limits.jsonl.max_lines = Some(2);
     let generation;
+    let fingerprint;
     {
         let storage = Storage::open(&db.db_path()).unwrap();
         run_codex_with_limits(&storage, &root, now, scan_limits.clone());
@@ -69,12 +65,21 @@ fn changed_creation_fingerprint_is_saved_so_old_cursors_can_finish_after_reopeni
                 .call_count,
             1
         );
-        let fingerprint: String = storage
+        fingerprint = storage
             .conn()
-            .query_row("SELECT content_hash FROM source_files", [], |r| r.get(0))
+            .query_row::<String, _, _>("SELECT content_hash FROM source_files", [], |r| r.get(0))
             .unwrap();
-        let (prefix, _) = fingerprint.rsplit_once(':').unwrap();
-        let old = format!("{prefix}:{}", created - 1);
+        // Without birthtime, a stale prefix forces a rescan that must clear the old creation time.
+        let old_head = probe.head_hash ^ u64::from(probe.created_ms.is_none());
+        let old_created = match probe.created_ms {
+            Some(0) => 1,
+            Some(created) => created - 1,
+            None => 0,
+        };
+        let old = format!(
+            "{old_head}:{}:{}:{old_created}",
+            probe.head_len, probe.tail_hash
+        );
         storage
             .conn()
             .execute("UPDATE source_files SET content_hash=?1", [old])
@@ -92,19 +97,32 @@ fn changed_creation_fingerprint_is_saved_so_old_cursors_can_finish_after_reopeni
         );
     }
     let storage = Storage::open(&db.db_path()).unwrap();
+    let saved = storage
+        .conn()
+        .query_row::<(String, i64), _, _>(
+            "SELECT content_hash, generation FROM source_files",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(saved, (fingerprint, generation + 1));
     run_codex_with_limits(&storage, &root, now + 2, scan_limits.clone());
     let totals = summary(&storage, "2026-10-07", "2026-10-07").totals;
     assert_eq!(
         (totals.call_count, totals.total_tokens_known),
         (3, Some(360))
     );
-    let saved = storage
-        .conn()
-        .query_row::<i64, _, _>("SELECT generation FROM source_files", [], |r| r.get(0))
-        .unwrap();
-    assert_eq!(saved, generation + 1);
     run_codex_with_limits(&storage, &root, now + 3, scan_limits);
     assert_eq!(summary(&storage, "2026-10-07", "2026-10-07").totals, totals);
+    let repeated = storage
+        .conn()
+        .query_row::<(String, i64), _, _>(
+            "SELECT content_hash, generation FROM source_files",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(repeated, saved);
     assert_eq!(std::fs::read(path).unwrap(), contents.as_bytes());
 }
 

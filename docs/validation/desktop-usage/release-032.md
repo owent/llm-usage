@@ -57,6 +57,43 @@ and cursors in the same transaction. An independent regression failed with one c
 instead of three before the fix; it now verifies one reset, progress after database
 reopening, all three calls and unchanged source bytes.
 
+### Creation-fingerprint regression coverage
+
+[Issue #1](https://github.com/owent/llm-usage/issues/1) identified a valid test gap:
+`codex_file_fairness.rs` returned before any assertions when the filesystem supplied no
+creation time. The test now always runs. With a native creation time it retains the
+recreated-file case; without one it seeds an old creation time and a mismatched prefix
+to force a rescan. After reopening SQLite it checks the complete persisted fingerprint,
+including clearing the stale creation time, and exactly one generation increment.
+It then checks all three calls/360 tokens, stable fingerprints/generation on repeat reads
+and unchanged source bytes. Product code and collection behavior are unchanged.
+
+Follow-up validation on 2026-10-19 used Windows x64, Node 24.22.0 and Rust/Cargo 1.99.0
+with locked dependencies. All four file-fairness tests passed both with native birthtime
+and with a temporary probe mutation returning `created_ms = None`. Temporarily removing
+`row.created_ms = probe.created_ms` made the repaired regression fail in both modes
+(exit 101): the persisted fingerprint retained the stale creation time. Both production
+files were restored before the final checks. The missing-birthtime run is a simulation;
+it does not establish Linux filesystem or remote CI acceptance. Logs and independent
+temporary databases are under ignored `build/issue-1/`.
+
+Final checks, all exit 0:
+
+| Command | Result |
+| --- | --- |
+| `cargo test --manifest-path desktop/src-tauri/Cargo.toml --locked -p llm-usage-core --lib --test codex_file_fairness --test jsonl_v07 --test compatibility_release_032` | 282 passed; none failed or ignored |
+| `cargo clippy --manifest-path desktop/src-tauri/Cargo.toml --locked -p llm-usage-core --test codex_file_fairness -- -D warnings` | No warnings |
+| `cargo fmt --manifest-path desktop/src-tauri/Cargo.toml --all --check` | Passed |
+| `npm run lint:md` | No issues |
+| `npm run check:docs` | 207 repository pairs, 21 guide pairs and source comments checked; Astro has no errors/warnings |
+| `npm run test:docs` | 39 passed; none skipped |
+| `git diff --check` | Passed |
+
+The initial PowerShell launcher failed with `CreateProcessAsUserW failed: 5`; checks used
+`cmd.exe`. Sandboxed Node/Git subprocess startup also failed with `EPERM`; platform-approved
+reruns completed the existing comment-review and documentation scripts without changes.
+These process-start failures are separate from the expected mutation-test failures above.
+
 ## OTel wording
 
 The Simplified Chinese description now reads:

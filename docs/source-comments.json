@@ -40268,7 +40268,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/tests/codex_file_fairness.rs": {
-      "codeHash": "af9fd378046d6409e0454b26f45a81a2fd49c94c3f3cb67702fd01dcddf8d082",
+      "codeHash": "5f66b05926e8b3814ff7c8b955c41ac357ec1512809176a549366a1a36d17ad2",
       "comments": [
         {
           "id": "51739b8b65c33bde",
@@ -40283,6 +40283,13 @@
           "kind": "line",
           "en": "// Deterministic stand-in for the default 32 MiB file read window.",
           "zh": "// 用确定的测试值模拟默认 32 MiB 文件读取窗口。"
+        },
+        {
+          "id": "b21377fd91226b87",
+          "line": 72,
+          "kind": "line",
+          "en": "// Without birthtime, a stale prefix forces a rescan that must clear the old creation time.",
+          "zh": "// 缺少创建时间时，过期的文件头指纹触发重扫，重扫必须清除旧创建时间。"
         }
       ]
     },

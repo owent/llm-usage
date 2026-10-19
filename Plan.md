@@ -136,6 +136,8 @@ can finish rereading. Its tagged commit passed all 12 CI jobs and produced a Rel
 with 13 verified assets, now publicly available. Actions now use verified numeric version tags;
 local and tagged-build results are recorded in
 [0.3.2 validation](docs/validation/desktop-usage/release-032.md).
+The creation-fingerprint regression now also runs without filesystem birthtime and checks
+the persisted fingerprint after reopening; native and simulated coverage is recorded there.
 Remaining acceptance: run real NSIS updater/lifecycle checks when the existing application is stopped;
 verify a newer public release when available, and record Linux/macOS native GUI updates separately.
 

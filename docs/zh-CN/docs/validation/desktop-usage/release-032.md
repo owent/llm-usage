@@ -49,6 +49,38 @@ Kilo 的 27 个完整原生会话包含 787 次 assistant 调用。新增的精�
 只读到一次调用，期望为三次；修复后核对仅重置一次、重开数据库后继续前进、
 读完三次调用且源文件字节不变。
 
+### 创建时间指纹回归覆盖
+
+[Issue #1](https://github.com/owent/llm-usage/issues/1) 指出的测试缺口成立：
+文件系统未提供创建时间时，`codex_file_fairness.rs` 在任何断言之前就直接返回。
+现已让测试始终执行。有原生创建时间时保留文件重建场景；缺少创建时间时，写入旧创建时间
+和不匹配的文件头指纹以触发重扫。重开 SQLite 后检查完整的持久化指纹，包含清除过期创建时间，
+以及文件代数恰好增加一次。随后检查三次调用/360 token、重复读取后的指纹和代数稳定，
+以及源文件字节不变。产品代码和采集行为没有变化。
+
+2026-10-19 的后续验证使用 Windows x64、Node 24.22.0、Rust/Cargo 1.99.0 和锁定依赖。
+四项文件轮转测试在原生创建时间和临时将探测值改为 `created_ms = None` 的两种模式下均通过。
+临时移除 `row.created_ms = probe.created_ms` 后，修复后的回归在两种模式下都失败
+（退出 101）：持久化指纹仍保留过期创建时间。两份产品源文件均在最终检查前恢复。
+缺少创建时间的运行属于模拟，不据此确认 Linux 文件系统或远端 CI 验收通过。
+日志和独立临时数据库位于被忽略的 `build/issue-1/`。
+
+最终检查均退出 0：
+
+| 命令 | 结果 |
+| --- | --- |
+| `cargo test --manifest-path desktop/src-tauri/Cargo.toml --locked -p llm-usage-core --lib --test codex_file_fairness --test jsonl_v07 --test compatibility_release_032` | 282 项通过，无失败或忽略 |
+| `cargo clippy --manifest-path desktop/src-tauri/Cargo.toml --locked -p llm-usage-core --test codex_file_fairness -- -D warnings` | 无警告 |
+| `cargo fmt --manifest-path desktop/src-tauri/Cargo.toml --all --check` | 通过 |
+| `npm run lint:md` | 无问题 |
+| `npm run check:docs` | 检查了 207 对仓库文档、21 对指南及源注释；Astro 无错误或警告 |
+| `npm run test:docs` | 39 项通过，无跳过 |
+| `git diff --check` | 通过 |
+
+首次 PowerShell 启动报 `CreateProcessAsUserW failed: 5`，后续检查改用 `cmd.exe`。
+沙箱内 Node/Git 子进程启动也曾报 `EPERM`；通过平台允许的重试方式，原有注释审核和文档脚本
+均已完成，无需修改脚本。这些进程启动失败与上述故意撤掉赋值后的预期测试失败分别记录。
+
 ## OTel 文案
 
 简体中文说明更新为：
