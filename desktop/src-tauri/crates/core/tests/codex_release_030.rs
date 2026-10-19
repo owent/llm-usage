@@ -36,7 +36,7 @@ fn checked_native_versions_select_their_format_and_preserve_usage_on_repeat() {
             "{version}: {:?}",
             reports[0].error
         );
-        let totals = summary(&storage, "2020-01-01", "2100-01-01").totals;
+        let totals = summary_of_event_days(&storage).totals;
         assert_eq!(
             totals.call_count,
             exp["calls"].as_i64().unwrap(),
@@ -64,11 +64,7 @@ fn checked_native_versions_select_their_format_and_preserve_usage_on_repeat() {
             .unwrap();
         assert_eq!(status, "active", "{version}");
         run_codex(&storage, &source, 1_800_000_000_001);
-        assert_eq!(
-            summary(&storage, "2020-01-01", "2100-01-01").totals,
-            totals,
-            "{version}"
-        );
+        assert_eq!(summary_of_event_days(&storage).totals, totals, "{version}");
         let diagnostics: i64 = storage
             .conn()
             .query_row("SELECT COUNT(*) FROM diagnostics", [], |r| r.get(0))
@@ -80,7 +76,7 @@ fn checked_native_versions_select_their_format_and_preserve_usage_on_repeat() {
             "{version}: consumed unchanged bytes must be checked again"
         );
         assert_eq!(
-            summary(&storage, "2020-01-01", "2100-01-01").totals,
+            summary_of_event_days(&storage).totals,
             totals,
             "{version}: replay must preserve usage"
         );

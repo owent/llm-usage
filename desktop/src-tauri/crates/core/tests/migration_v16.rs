@@ -76,6 +76,36 @@ fn v16_reopen_is_idempotent() {
 }
 
 #[test]
+fn v16_failed_creation_rolls_back_schema_and_can_be_retried() {
+    let dir = TempDir::new("v16-create-rollback");
+    let conn = rusqlite::Connection::open(dir.db_path()).unwrap();
+    conn.execute_batch("CREATE TABLE diagnostics (sentinel TEXT);")
+        .unwrap();
+    assert!(matches!(
+        Storage::open(&dir.db_path()),
+        Err(CoreError::Sqlite(_))
+    ));
+    let tables: Vec<String> = conn
+        .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+        .unwrap()
+        .query_map([], |row| row.get(0))
+        .unwrap()
+        .map(Result::unwrap)
+        .collect();
+    assert_eq!(tables, ["diagnostics"]);
+    assert_eq!(
+        conn.pragma_query_value::<u32, _>(None, "user_version", |row| row.get(0))
+            .unwrap(),
+        0
+    );
+    conn.execute_batch("DROP TABLE diagnostics;").unwrap();
+    drop(conn);
+    let storage = Storage::open(&dir.db_path()).unwrap();
+    assert_eq!(storage.schema_version().unwrap(), SCHEMA_VERSION);
+    assert!(storage.conn().is_autocommit());
+}
+
+#[test]
 fn v16_pragmas_match_contract() {
     let dir = TempDir::new("v16-pragmas");
     let storage = Storage::open(&dir.db_path()).unwrap();

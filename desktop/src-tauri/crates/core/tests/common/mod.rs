@@ -214,6 +214,24 @@ pub fn summary(
     .unwrap()
 }
 
+/// Summarize every retained event in a nonempty detail-only sample, without decades of empty days.
+pub fn summary_of_event_days(storage: &Storage) -> llm_usage_core::query::Summary {
+    let (first, last): (i64, i64) = storage
+        .conn()
+        .query_row(
+            "SELECT MIN(occurred_at_ms), MAX(occurred_at_ms) FROM usage_events",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .unwrap();
+    let calendar = llm_usage_core::calendar::Calendar::utc();
+    summary(
+        storage,
+        &calendar.local_day_of(first).unwrap().to_string(),
+        &calendar.local_day_of(last).unwrap().to_string(),
+    )
+}
+
 // M2-C Claude Code, Qwen Code, and Gemini CLI helpers.
 
 use llm_usage_core::adapters::claude::ClaudeAdapter;
@@ -520,9 +538,12 @@ pub fn build_kilo_db(dir: &TempDir, projection: &serde_json::Value) -> PathBuf {
     // The test rebuilds only message/session, while bundled SQLite enables foreign keys.
     // Disable them here because project references are not rebuilt; do not change the source database.
     conn.execute_batch("PRAGMA foreign_keys = OFF;").unwrap();
-    conn.execute_batch(projection["schema"]["message_ddl"].as_str().unwrap())
+    let creation = conn.unchecked_transaction().unwrap();
+    creation
+        .execute_batch(projection["schema"]["message_ddl"].as_str().unwrap())
         .unwrap();
-    conn.execute_batch(projection["schema"]["session_ddl"].as_str().unwrap())
+    creation
+        .execute_batch(projection["schema"]["session_ddl"].as_str().unwrap())
         .unwrap();
     for session in projection["sessions"].as_array().unwrap() {
         let obj = session.as_object().unwrap();
@@ -542,26 +563,29 @@ pub fn build_kilo_db(dir: &TempDir, projection: &serde_json::Value) -> PathBuf {
                 (_, v) => json_to_sql(v),
             })
             .collect();
-        conn.execute(
-            &sql,
-            rusqlite::params_from_iter(values.iter().map(|v| v as &dyn rusqlite::ToSql)),
-        )
-        .unwrap();
+        creation
+            .execute(
+                &sql,
+                rusqlite::params_from_iter(values.iter().map(|v| v as &dyn rusqlite::ToSql)),
+            )
+            .unwrap();
     }
     for message in projection["messages"].as_array().unwrap() {
-        conn.execute(
-            "INSERT INTO message (id, session_id, time_created, time_updated, data) \
+        creation
+            .execute(
+                "INSERT INTO message (id, session_id, time_created, time_updated, data) \
              VALUES (?1, ?2, ?3, ?4, ?5)",
-            rusqlite::params![
-                message["id"].as_str().unwrap(),
-                message["session_id"].as_str().unwrap(),
-                message["time_created"].as_i64().unwrap(),
-                message["time_updated"].as_i64().unwrap(),
-                serde_json::to_string(&message["data"]).unwrap(),
-            ],
-        )
-        .unwrap();
+                rusqlite::params![
+                    message["id"].as_str().unwrap(),
+                    message["session_id"].as_str().unwrap(),
+                    message["time_created"].as_i64().unwrap(),
+                    message["time_updated"].as_i64().unwrap(),
+                    serde_json::to_string(&message["data"]).unwrap(),
+                ],
+            )
+            .unwrap();
     }
+    creation.commit().unwrap();
     drop(conn);
     dir.path().to_path_buf()
 }

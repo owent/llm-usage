@@ -182,5 +182,50 @@ Rust 1,066 项通过／0 项失败／8 项按平台条件忽略，前端 24 项�
 `npm run check:docs` 以 0 退出，207 组仓库文档、21 组指南及 Astro 检查均通过。
 首次受限环境的 Node 测试启动返回 `EPERM`；上述完整验证使用获授权的正常 Windows 进程环境。
 
+### Windows CI 超时与测试性能
+
+[运行 39268764091](https://github.com/owent/llm-usage/actions/runs/39268764091) 的六个平台包均构建成功。
+Windows Rust 作业超过 30 分钟上限；GitHub 作业注释已确认超时。
+其测试步骤先用 216 秒编译，随后完成 77 个测试程序，累计执行测试 1,394 秒后被取消，
+此前没有断言失败。超时清理未执行 Rust 缓存保存。由于必需检查未完成，Release 作业跳过。
+
+源码检查及本地测量发现两处可避免的开销：
+
+- 新统计库原来将 42 条结构写入语句及 `user_version` 分别放在隐式事务中执行。
+  现在在一个事务中提交结构和版本；创建失败会回滚全部新建表，排除原因后可重试。
+  保留 WAL、`synchronous=FULL`、外键、版本检查和已有数据库行为。
+  此处理遵循 SQLite 的[事务规则](https://www.sqlite.org/lang_transaction.html)。
+- Kilo 样本重建现在将结构和行统一提交。0.3.0/0.3.2 原生样本检查查询覆盖全部保留事件的 UTC
+  日期范围，不再反复遍历 2020–2100。仍核验全部事件、token 字段、版本、完整注册表发现、
+  旧处理位置、冲突、诊断和重复读取。没有删除测试或持久化检查，产品查询行为未变。
+
+CI 将 `cargo test --locked --no-run` 与 `cargo test --locked` 分步执行，分别显示编译和运行耗时。
+保留三个 Rust 平台及 30 分钟上限。
+
+本地测量使用 Windows x64、Node 24.22.0、Rust/Cargo 1.99.0，在 `build/ci-windows-perf/`
+下创建全新独立文件数据库。临时测量程序在事务修改前后分别调用实际的 `Storage::open` 40 次，
+每个数据库还重开一次：
+
+| 测量 | 修改前 | 修改后 |
+| --- | --- | --- |
+| 新建数据库，中位数 / P95 | 70.907 / 79.997 ms | 10.923 / 11.866 ms |
+| 重开已有数据库，中位数 / P95 | 4.028 / 4.545 ms | 3.786 / 4.243 ms |
+| `compatibility_release_032`，两项测试 | 44.89 s | 1.56 s |
+
+仅修改事务时，该测试组耗时 42.55 秒；去掉无关空日期遍历贡献了这个测试组的主要改进。
+最终专项运行还通过两项 `codex_release_030` 和五项 `migration_v16`，涵盖 WAL/FULL、
+重复打开、版本不匹配及新增的回滚重试用例。回滚用例先在原代码上失败，当时留下了部分新建表。
+这些是本地测量，托管 runner 的性能需要另行核对新 tag 的 CI 结果。
+
+最终本地命令均退出 0：`npm run verify`（1,067 项 Rust 测试通过，八项已有平台条件测试忽略；
+20 项脚本和 24 项前端测试通过，Markdown、资源、类型、fmt、Clippy 和前端构建通过）、
+`npm run check:docs`（207 对仓库文档、21 对指南，Astro 无问题）、`npm run test:docs`
+（39 项通过）以及 `git diff --check`。专项命令为
+`cargo test --manifest-path desktop/src-tauri/Cargo.toml --locked -p llm-usage-core --test compatibility_release_032 --test codex_release_030 --test migration_v16`。
+
+首次完整检查停在缩短后的测试断言格式差异；最终重跑前已使用 `cargo fmt --all` 修正。
+首次受限环境中的 GitHub 注释请求超时；获允许的只读重试返回了明确的 30 分钟超时信息。
+日志保留首次失败与后续成功检查。
+
 本记录不代表安装生命周期或已安装客户端升级，上述原生 GUI 验收仅限隔离的 OpenCode 样本。
 重新构建的 0.3.3 采集器读取现有来源时会执行恢复；大量历史可能需要几轮有界扫描，无须清空数据库。

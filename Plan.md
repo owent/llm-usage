@@ -48,6 +48,10 @@ output/total coverage against complete old summaries; unknown input detail remai
 Draft Release notes now use the annotated tag message and verify the body after asset upload.
 Checks and remaining acceptance
 boundaries are in the [0.3.3 repair record](docs/validation/desktop-usage/release-033.md).
+Windows CI test timeout repair batches new-database creation and Kilo sample writes, and
+keeps native-sample queries within the dates of all retained events. Local timing, rollback
+coverage and the original remote timeout are recorded there; CI shows test compilation and
+execution separately without removing platform or durability checks.
 
 Unified checks, browser tests, Windows release/native IPC, headless collection and native
 Zed rescans completed for the new features. Actual results, first failures and scope

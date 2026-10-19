@@ -28,7 +28,7 @@
       ]
     },
     ".github/workflows/ci.yml": {
-      "codeHash": "8c612a3f691c5c3a67314103737cf2ce0d6492778ca0b1b00e108ab19676f63f",
+      "codeHash": "6df15d22cacdf30b1c8630e7c32a875d6f8d62ca6722cca57a69c6a60ce0f774",
       "comments": [
         {
           "id": "de393e7c2ad7dd27",
@@ -38307,7 +38307,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/storage/mod.rs": {
-      "codeHash": "e46fbb34a381030a9adcedc2be77d1cbf78b99af1e7816d351d80ff62c96ecd2",
+      "codeHash": "a651c2f8b94748da3ff66a876800388ac607ab0cd9dcf16928e0915702471bf0",
       "comments": [
         {
           "id": "9c9641854234d29d",
@@ -38422,148 +38422,148 @@
           "zh": "// 检查 settings 表，区分新数据库与未记录版本的旧数据库。"
         },
         {
-          "id": "364b1e276eded81a",
+          "id": "2a8ed83a0b77108b",
           "line": 119,
           "kind": "line",
-          "en": "// Create the schema in one step for a new database.",
-          "zh": "// 全新库：一步建表。"
+          "en": "// Commit schema and version together, avoiding a durable commit per statement.",
+          "zh": "// 在同一事务中提交结构和版本，避免每条语句分别持久化提交。"
         },
         {
           "id": "c86dcfc2c7142a85",
-          "line": 123,
+          "line": 125,
           "kind": "line",
           "en": "// A settings table without a version identifies an old database requiring rebuilding.",
           "zh": "// 已有 settings 表但无版本号的旧数据库要求重建。"
         },
         {
           "id": "9aecf23671c93ee6",
-          "line": 130,
+          "line": 132,
           "kind": "line",
           "en": "// Prerelease version mismatches require rebuilding rather than automatic migration.",
           "zh": "// 预发布阶段：任何版本差异都要求重建（不尝试迁移）。"
         },
         {
           "id": "e675236a80192413",
-          "line": 138,
+          "line": 140,
           "kind": "line",
           "en": "// journal_mode persists; in-memory databases return memory instead of WAL.",
           "zh": "// journal_mode 是持久化设置；内存库返回 memory，可忽略其结果差异。"
         },
         {
           "id": "44e0f3a700c304ed",
-          "line": 143,
+          "line": 145,
           "kind": "line",
           "en": "// These optional acceleration indexes do not change the schema version.",
           "zh": "// 这些可选查询加速索引不改变 schema 版本。"
         },
         {
           "id": "94a625d98423cbb8",
-          "line": 144,
+          "line": 146,
           "kind": "line",
           "en": "// Partial indexes avoid repeated full scans for uncommon coverage gaps.",
           "zh": "// 部分索引避免为少量覆盖缺口反复全表扫描。"
         },
         {
           "id": "db00c950dfaf5d15",
-          "line": 165,
+          "line": 167,
           "kind": "line",
           "en": "/// Drop only the optional query cache for explicit uncached measurements.",
           "zh": "/// 仅清除可选查询缓存，用于明确测试无缓存查询。"
         },
         {
           "id": "b30be81e3c51db18",
-          "line": 174,
+          "line": 176,
           "kind": "line",
           "en": "/// Current user_version.",
           "zh": "/// 当前 user_version。"
         },
         {
           "id": "6676534b44b2cb27",
-          "line": 181,
+          "line": 183,
           "kind": "line",
           "en": "/// Monotonic data revision; queries use one revision for a consistent view.",
           "zh": "/// 数据修订号：单调递增，查询按同一修订号返回一致视图。"
         },
         {
           "id": "b2858f1229586aca",
-          "line": 186,
+          "line": 188,
           "kind": "line",
           "en": "/// Increment and return the data revision, within a transaction only.",
           "zh": "/// 提升数据修订号并返回新值。仅在事务内调用。"
         },
         {
           "id": "98ba1d245f754130",
-          "line": 203,
+          "line": 205,
           "kind": "line",
           "en": "/// Recover jobs by marking running as interrupted, without relying on PID files.",
           "zh": "/// 进程重启恢复：把 running 作业标记为 interrupted（不依赖 PID 文件）。"
         },
         {
           "id": "2e4142356770eb5b",
-          "line": 213,
+          "line": 215,
           "kind": "line",
           "en": "/// Ensure this source host exists and return its opaque stable ID (data-contract.md#provenance).",
           "zh": "/// 确保本机来源主机身份存在并返回其不透明稳定 ID（data-contract.md#provenance）。"
         },
         {
           "id": "88cf037ee9f14b19",
-          "line": 214,
+          "line": 216,
           "kind": "line",
           "en": "/// - First call persists host-<32hex> in origin_hosts with is_local=1 and",
           "zh": "/// - 首次调用生成 `host-<32hex>` 持久化于 origin_hosts（is_local=1），"
         },
         {
           "id": "932b914fe5308396",
-          "line": 215,
+          "line": 217,
           "kind": "line",
           "en": "///   settings.local_origin_host_id; do not identify hosts by name, IP or hardware fingerprint.",
           "zh": "///   并把 settings.local_origin_host_id 指向它；不使用主机名/IP/硬件指纹作身份。"
         },
         {
           "id": "720eefc8d0e04b1b",
-          "line": 216,
+          "line": 218,
           "kind": "line",
           "en": "/// - Later calls return the same ID and record hostname observations; a rename",
           "zh": "/// - 后续调用返回同一 ID 并记录主机名观察（改名不换 ID、不重复计数；"
         },
         {
           "id": "c2863e8dfe1b7177",
-          "line": 217,
+          "line": 219,
           "kind": "line",
           "en": "///   creates no new identity or duplicate usage, and names never enter keys.",
           "zh": "///   主机名只进观察表用于辨认，不参与任何键）。"
         },
         {
           "id": "a9101156caf70cec",
-          "line": 218,
+          "line": 220,
           "kind": "line",
           "en": "/// - Copying a database to another machine does not claim its history automatically.",
           "zh": "/// - 复制数据库到新机器时不自动认领历史：身份与采集由调用方显式传入，"
         },
         {
           "id": "504b5cf11c0b7089",
-          "line": 219,
+          "line": 221,
           "kind": "line",
           "en": "///   Callers supply ownership explicitly; source conflicts require mapping/confirmation (M1a).",
           "zh": "///   来源注册冲突走映射/确认流程（M1a 只提供判定，不做静默合并）。"
         },
         {
           "id": "2192e79549310171",
-          "line": 269,
+          "line": 271,
           "kind": "line",
           "en": "/// Current local host ID, or None before initialization.",
           "zh": "/// 当前本机主机 ID（未初始化时为 None）。"
         },
         {
           "id": "e4cd9353bf9ba772",
-          "line": 282,
+          "line": 284,
           "kind": "line",
           "en": "/// Retain historical hostname observations without changing host identity.",
           "zh": "/// 记录主机名观察（同一主机的历史名称都保留；改名不换 ID）。"
         },
         {
           "id": "5487dbbec8b04801",
-          "line": 302,
+          "line": 304,
           "kind": "line",
           "en": "/// Register an imported source host and return host_id; repeated registration keeps the same identity.",
           "zh": "/// 注册导入来源主机并返回 host_id；同一 host_id 再次登记仍保留同一标识。"
@@ -40575,7 +40575,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/tests/codex_release_030.rs": {
-      "codeHash": "04a3cb695b56165aab722cec93a40466f385688c9243595aa3b69a5b1a8c1bb2",
+      "codeHash": "d8ef4f63dff1534c7a8aa2ea060bd6093e0654748f1f5040438c0380c49d48fb",
       "comments": [
         {
           "id": "b9587f0c66821272",
@@ -40837,7 +40837,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/tests/common/mod.rs": {
-      "codeHash": "2f15dfc6c7bf910f9ff6eb2a198704070db7d645566c520a7ef7b25a2b779186",
+      "codeHash": "8b649f0298eb8da7e41f71101e04aae8167d861f468c3d1cbe12d8ecd45490fb",
       "comments": [
         {
           "id": "d02c790bf6d800b2",
@@ -40931,309 +40931,316 @@
           "zh": "/// UTC 日汇总查询（测试期望均为人工核算值）。"
         },
         {
-          "id": "1c415acdcc8399ed",
+          "id": "8adff51aff4f213a",
           "line": 217,
+          "kind": "line",
+          "en": "/// Summarize every retained event in a nonempty detail-only sample, without decades of empty days.",
+          "zh": "/// 汇总非空、仅含明细样本中的全部保留事件，避免遍历数十年的空日期。"
+        },
+        {
+          "id": "1c415acdcc8399ed",
+          "line": 235,
           "kind": "line",
           "en": "// M2-C Claude Code, Qwen Code, and Gemini CLI helpers.",
           "zh": "// ---- M2-C：Claude Code / Qwen Code / Gemini CLI 适配器测试辅助 ----"
         },
         {
           "id": "1bc62541456a7b4e",
-          "line": 224,
+          "line": 242,
           "kind": "line",
           "en": "/// Build projects/<rel>, such as proj/sess-1.jsonl or",
           "zh": "/// 在临时目录构造 <root>/projects/<rel> 布局（rel 如 \"proj/sess-1.jsonl\" 或"
         },
         {
           "id": "198a8934c66bb0f7",
-          "line": 225,
+          "line": 243,
           "kind": "line",
           "en": "/// proj/sess-1/subagents/a.jsonl, and return the temporary configuration root.",
           "zh": "/// \"proj/sess-1/subagents/a.jsonl\"），返回配置根。"
         },
         {
           "id": "2ee8ce0b2cd61e0d",
-          "line": 233,
+          "line": 251,
           "kind": "line",
           "en": "/// Build tmp/<rel> Qwen layout, such as proj-1/chats/sess-1.jsonl.",
           "zh": "/// 在临时目录构造 <root>/tmp/<rel> 布局（rel 如 \"proj-1/chats/sess-1.jsonl\"），返回配置根。"
         },
         {
           "id": "bbd3280dcbfc0d4b",
-          "line": 241,
+          "line": 259,
           "kind": "line",
           "en": "/// Build tmp/<rel> Gemini layout, such as hash-1/chats/session-1.json.",
           "zh": "/// 在临时目录构造 <root>/tmp/<rel> 布局（rel 如 \"hash-1/chats/session-1.json\"），返回配置根。"
         },
         {
           "id": "c358a441d2a10fa1",
-          "line": 249,
+          "line": 267,
           "kind": "line",
           "en": "/// Repository path for synthetic Claude datasets; native datasets have separate validation records.",
           "zh": "/// 合成 Claude 测试数据的仓库路径，原生数据有独立验证记录。"
         },
         {
           "id": "4fb720b6e8088b0f",
-          "line": 347,
+          "line": 365,
           "kind": "line",
           "en": "// M2-B/C pi and oh-my-pi helpers.",
           "zh": "// ---- M2-B/C 恢复：pi / oh-my-pi 适配器测试辅助 ----"
         },
         {
           "id": "942f523d5ae6ee46",
-          "line": 352,
+          "line": 370,
           "kind": "line",
           "en": "/// Reconstruct JSONL from redacted records carrying extractor line metadata.",
           "zh": "/// 通用：把脱敏数据（{records:[{line, ...条目}]}）还原为 JSONL 字节流。"
         },
         {
           "id": "fc808e94b3feeb19",
-          "line": 353,
+          "line": 371,
           "kind": "line",
           "en": "/// Share Codex reconstruction rules without tying this helper to one Agent.",
           "zh": "/// 与 reconstruct_codex_jsonl 同逻辑，命名不绑定具体 Agent。"
         },
         {
           "id": "6b0f3517f2ceae72",
-          "line": 367,
+          "line": 385,
           "kind": "line",
           "en": "/// Build sessions/<rel>, such as --C--Users-anon--/2026-...jsonl,",
           "zh": "/// 在临时目录构造 <root>/sessions/<rel> 布局（rel 如 \"--C--Users-anon--/2026-...jsonl\"），"
         },
         {
           "id": "b761b0bf3a44155b",
-          "line": 368,
+          "line": 386,
           "kind": "line",
           "en": "/// returning an Agent root containing its sessions child for manual discovery.",
           "zh": "/// 返回配置根（手工根语义：含 sessions 子目录按 agent 根解析）。"
         },
         {
           "id": "b6252c86fae6a686",
-          "line": 376,
+          "line": 394,
           "kind": "line",
           "en": "/// omp shares the layout and can use nested subagent paths",
           "zh": "/// omp 同 pi 布局；rel 可为深层（子 Agent 文件："
         },
         {
           "id": "3fd339e77a6e19b6",
-          "line": 377,
+          "line": 395,
           "kind": "line",
           "en": "/// like --CWD--/<ts>_<parentUUID>/SubAgent.jsonl or deeper named directories.",
           "zh": "/// \"--CWD--/<ts>_<父UUID>/SubAgent.jsonl\" 或更深的嵌套子目录）。"
         },
         {
           "id": "80acbce366dfd857",
-          "line": 382,
+          "line": 400,
           "kind": "line",
           "en": "/// Repository path to pi native or synthetic datasets.",
           "zh": "/// pi 真实/合成 测试数据 在仓库内的路径。"
         },
         {
           "id": "6551c4f2ee45b32d",
-          "line": 391,
+          "line": 409,
           "kind": "line",
           "en": "/// Repository path to omp native or synthetic datasets.",
           "zh": "/// omp 真实/合成 测试数据 在仓库内的路径。"
         },
         {
           "id": "2bad07d71bb1fa0e",
-          "line": 438,
+          "line": 456,
           "kind": "line",
           "en": "// M4 ZCode adapter helpers.",
           "zh": "// ---- M4：ZCode 适配器测试辅助 ----"
         },
         {
           "id": "01c4e826aab56a11",
-          "line": 442,
+          "line": 460,
           "kind": "line",
           "en": "/// Build rollout/<rel>, such as model-io-sess-1.jsonl,",
           "zh": "/// 在临时目录构造 <root>/rollout/<rel> 布局（rel 如 \"model-io-sess-1.jsonl\"），"
         },
         {
           "id": "4e8fd44d91985337",
-          "line": 443,
+          "line": 461,
           "kind": "line",
           "en": "/// returning the CLI root containing rollout for manual discovery.",
           "zh": "/// 返回配置根（手工根语义：含 rollout 子目录按 cli 根解析）。"
         },
         {
           "id": "762ccb552de74604",
-          "line": 451,
+          "line": 469,
           "kind": "line",
           "en": "/// ZCode dataset paths: real-* contains redacted native records;",
           "zh": "/// zcode 真实/合成 测试数据 在仓库内的路径（real-* 为真实脱敏样本，"
         },
         {
           "id": "e39e85ab676422e3",
-          "line": 452,
+          "line": 470,
           "kind": "line",
           "en": "/// synthetic-* contains edge-case data with manually calculated _expectations.md.",
           "zh": "/// synthetic-* 为合成缺口场景，均带 _expectations.md 人工核算）。"
         },
         {
           "id": "19553b4edf20f5db",
-          "line": 480,
+          "line": 498,
           "kind": "line",
           "en": "// M3 Kilo Code CLI helpers.",
           "zh": "// ---- M3：Kilo Code CLI 适配器测试辅助 ----"
         },
         {
           "id": "cf95e74d789722e8",
-          "line": 485,
+          "line": 503,
           "kind": "line",
           "en": "/// Repository path to Kilo native or synthetic datasets.",
           "zh": "/// kilo 真实/合成 测试数据 在仓库内的路径。"
         },
         {
           "id": "e00490ef25829e87",
-          "line": 494,
+          "line": 512,
           "kind": "line",
           "en": "/// Convert JSON to SQLite values, preserving integer/float types and serializing nested values,",
           "zh": "/// serde_json 值 → SQLite 值（脱敏数据中的数字保持整/浮形态；嵌套结构序列化为文本，"
         },
         {
           "id": "182beff999b9bafe",
-          "line": 495,
+          "line": 513,
           "kind": "line",
           "en": "/// including irregular source values represented by JSON strings.",
           "zh": "/// 与实读脱敏数据里 time_created 持 JSON 字符串等异形一致）。"
         },
         {
           "id": "01a8795acd004e9a",
-          "line": 511,
+          "line": 529,
           "kind": "line",
           "en": "/// Rebuild message/session DDL and redacted records in",
           "zh": "/// 按脱敏数据（{schema:{message_ddl,session_ddl}, sessions, messages}）在"
         },
         {
           "id": "7dbb64678305a16a",
-          "line": 512,
+          "line": 530,
           "kind": "line",
           "en": "/// <dir>/.local/share/kilo/kilo.db using a real SQLite database engine.",
           "zh": "/// <dir>/.local/share/kilo/kilo.db 重建真实 SQLite 库（原始 DDL + 脱敏值），"
         },
         {
           "id": "5f5aff70fd8a1e0d",
-          "line": 513,
+          "line": 531,
           "kind": "line",
           "en": "/// Return the home-shaped directory for manual discovery.",
           "zh": "/// 返回可作为手工根传入 discover 的目录（默认 home 形状）。"
         },
         {
           "id": "90fc211270f00130",
-          "line": 514,
+          "line": 532,
           "kind": "line",
           "en": "/// Input can be a parsed redacted dataset or inline synthetic JSON.",
           "zh": "/// 脱敏数据可以是仓库 测试数据 文件解析结果，也可以是测试内联构造的合成 JSON。"
         },
         {
           "id": "2fcbd16f34aeb465",
-          "line": 520,
+          "line": 538,
           "kind": "line",
           "en": "// The test rebuilds only message/session, while bundled SQLite enables foreign keys.",
           "zh": "// bundled SQLite 默认开外键；脱敏数据只重建 message/session 两表，"
         },
         {
           "id": "df66ea9ca80145ff",
-          "line": 521,
+          "line": 539,
           "kind": "line",
           "en": "// Disable them here because project references are not rebuilt; do not change the source database.",
           "zh": "// 显式关闭以允许 FK 指向未重建的 project 表（源库行为不受影响）。"
         },
         {
           "id": "79120d63d1842b03",
-          "line": 536,
+          "line": 557,
           "kind": "line",
           "en": "// Redacted session.time_created can be null or an irregular JSON string;",
           "zh": "// 脱敏数据里 session.time_created 在源端是异形值（脱敏后为 null / 权限数组"
         },
         {
           "id": "2c220b21d3569d80",
-          "line": 537,
+          "line": 558,
           "kind": "line",
           "en": "// use zero solely for a NOT NULL test column that the adapter never reads.",
           "zh": "// 字符串）；DDL NOT NULL 下 null 以 0 占位（适配器从不读该列）。"
         },
         {
           "id": "02c14918af74ccbc",
-          "line": 569,
+          "line": 593,
           "kind": "line",
           "en": "/// Rebuild temporary kilo.db from a redacted repository dataset.",
           "zh": "/// 读取仓库内脱敏 测试数据 并重建为临时目录中的 kilo.db。"
         },
         {
           "id": "6cbc2be8429f06b5",
-          "line": 576,
+          "line": 600,
           "kind": "line",
           "en": "/// Original message DDL from redacted native data, reused for synthetic databases.",
           "zh": "/// 真实脱敏 测试数据 的原始 DDL（合成库复用同形 schema）。"
         },
         {
           "id": "ada63f2024a4266a",
-          "line": 593,
+          "line": 617,
           "kind": "line",
           "en": "/// Build synthetic sessions/messages with the same DDL as native test data.",
           "zh": "/// 用测试提供的 sessions/messages 构造合成数据（schema 同真实 测试数据 DDL）。"
         },
         {
           "id": "75c1ce60a5fa2dce",
-          "line": 619,
+          "line": 643,
           "kind": "line",
           "en": "/// Detect one specified kilo.db directly, without discovery.",
           "zh": "/// 对指定 kilo.db 路径做一次直接探测（不经 discover）。"
         },
         {
           "id": "de2f6a89e990f3db",
-          "line": 625,
+          "line": 649,
           "kind": "line",
           "en": "// M4 Kimi Code and Kimi Work helpers.",
           "zh": "// ---- M4：Kimi Code / Kimi Work 适配器测试辅助 ----"
         },
         {
           "id": "b4410523d49d7ba2",
-          "line": 630,
+          "line": 654,
           "kind": "line",
           "en": "/// Build sessions/<wd>/<session>/agents/<agent>/wire.jsonl under a temporary root.",
           "zh": "/// 在临时目录构造 <root>/sessions/<wd>/<session>/agents/<agent>/wire.jsonl 布局"
         },
         {
           "id": "acd1a70ef94b281d",
-          "line": 631,
+          "line": 655,
           "kind": "line",
           "en": "/// Example Code rel: wd_syn/session_syn-1/agents/main/wire.jsonl;",
           "zh": "/// （rel 如 \"wd_syn/session_syn-1/agents/main/wire.jsonl\"；kimi-work 传"
         },
         {
           "id": "17ab35bb9d406019",
-          "line": 632,
+          "line": 656,
           "kind": "line",
           "en": "/// Work rel: wd_syn/conv_syn-1/agents/main/wire.jsonl; return the configuration root.",
           "zh": "/// Work 相对路径为 wd_syn/conv_syn-1/agents/main/wire.jsonl；返回配置根目录。"
         },
         {
           "id": "79ec9c22785c8df5",
-          "line": 640,
+          "line": 664,
           "kind": "line",
           "en": "/// Reconstruct wire JSONL from M4 redacted records and line metadata.",
           "zh": "/// 把 M4 脱敏数据（{records:[{line, ...条目}]}）还原为 wire JSONL 字节流。"
         },
         {
           "id": "a0a175958e48c789",
-          "line": 641,
+          "line": 665,
           "kind": "line",
           "en": "/// Preserve extracted row order even when original line numbers are not consecutive.",
           "zh": "/// 重建时保持提取器保留的行序（原始行号不要求连续，JSONL 语义不受影响）。"
         },
         {
           "id": "fedc5d64ef778e47",
-          "line": 646,
+          "line": 670,
           "kind": "line",
           "en": "/// Repository path to Kimi Code native or synthetic datasets.",
           "zh": "/// kimi-code 真实/合成 测试数据 在仓库内的路径。"
         },
         {
           "id": "5abdc86befe7e6a2",
-          "line": 655,
+          "line": 679,
           "kind": "line",
           "en": "/// Repository path to Kimi Work native or synthetic datasets.",
           "zh": "/// kimi-work 真实/合成 测试数据 在仓库内的路径。"
@@ -41241,7 +41248,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/tests/compatibility_release_032.rs": {
-      "codeHash": "f2562141f3a730425bb4b8e8097bdbc5ba60fd043d985dfba529edf5cee66e05",
+      "codeHash": "b09b2d7eeb204151b84d2760a4b88a229b6401d155d7394ef1adfaf3b1b40c07",
       "comments": [
         {
           "id": "5e94e753e2a61bf7",
@@ -45306,7 +45313,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/tests/migration_v16.rs": {
-      "codeHash": "fe4ecbb0f296e1c96441d0446d7adc27002b572fc0636e356d15adfd0d1a2f9b",
+      "codeHash": "6c7560c137441fcf2c9700abe61a01ca8dea66e6305ddeb7f32a4ccc7eeeaab8",
       "comments": [
         {
           "id": "e4418d4a2f8b3fd9",
@@ -45324,7 +45331,7 @@
         },
         {
           "id": "69c6dd5ad3029158",
-          "line": 96,
+          "line": 126,
           "kind": "line",
           "en": "// Opening with the wrong version errors; the application offers rebuilding or exit.",
           "zh": "// 错误版本号打开失败；应用提示重建或退出。"

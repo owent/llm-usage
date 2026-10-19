@@ -116,9 +116,11 @@ impl Storage {
                 |r| r.get(0),
             )?;
             if !has_tables {
-                // Create the schema in one step for a new database.
-                conn.execute_batch(schema::FULL_SCHEMA)?;
-                conn.pragma_update(None, "user_version", supported)?;
+                // Commit schema and version together, avoiding a durable commit per statement.
+                let creation = conn.unchecked_transaction()?;
+                creation.execute_batch(schema::FULL_SCHEMA)?;
+                creation.pragma_update(None, "user_version", supported)?;
+                creation.commit()?;
             } else {
                 // A settings table without a version identifies an old database requiring rebuilding.
                 return Err(CoreError::SchemaTooNew {

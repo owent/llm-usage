@@ -224,6 +224,60 @@ Reviewing the unchanged English/Chinese comments and updating the reference reso
 The initial sandboxed Node test launch returned `EPERM`; the complete verification above used
 the authorized normal Windows process environment.
 
+### Windows CI timeout and test performance
+
+[Run 39268764091](https://github.com/owent/llm-usage/actions/runs/39268764091) built all six
+platform packages successfully. The Windows Rust job exceeded its 30-minute limit;
+GitHub's job annotation confirms the timeout. Its test step spent 216 seconds compiling,
+then completed 77 test executables with 1,394 seconds of test execution before cancellation.
+No test assertion had failed. The job could not save its Rust cache during timeout cleanup.
+The Release job was skipped because a required check did not finish.
+
+Two avoidable costs were identified in source and measured locally:
+
+- A new statistics database executed 42 schema writes plus `user_version` in separate
+  implicit transactions. Creation now commits the schema and version in one transaction.
+  Failed creation rolls back all new tables and can be retried after removing the cause.
+  WAL, `synchronous=FULL`, foreign keys, version checks and existing-database behavior remain.
+  This follows SQLite's [transaction rules](https://www.sqlite.org/lang_transaction.html).
+- Kilo sample setup now commits its reconstructed schema and rows together. The 0.3.0/0.3.2
+  native sample checks query the UTC date range spanning every retained event instead of
+  repeatedly traversing 2020–2100. They still verify all events, token fields, versions,
+  full-registry discovery, old processing positions, conflicts, diagnostics and repeat reads.
+  No tests or durability checks were removed. Production query behavior is unchanged.
+
+CI separates `cargo test --locked --no-run` from `cargo test --locked` so compile and execution
+times are visible independently. All three Rust platforms and the 30-minute limit remain.
+
+Windows x64, Node 24.22.0, Rust/Cargo 1.99.0 measurements use fresh independent file databases
+under `build/ci-windows-perf/`. A temporary harness calls the actual `Storage::open` 40 times
+before and after the transaction change, including one reopen per database:
+
+| Measurement | Before | After |
+| --- | --- | --- |
+| New database, median / P95 | 70.907 / 79.997 ms | 10.923 / 11.866 ms |
+| Existing database reopen, median / P95 | 4.028 / 4.545 ms | 3.786 / 4.243 ms |
+| `compatibility_release_032`, two tests | 44.89 s | 1.56 s |
+
+The suite's intermediate transaction-only result was 42.55 seconds; removing irrelevant
+empty dates accounts for most of that suite's improvement. The final targeted run also
+passed both `codex_release_030` tests and all five `migration_v16` tests, including WAL/FULL,
+repeat opening, version mismatch and the new rollback/retry case. The rollback case first
+failed against the original code, which left partially created tables. These are local
+measurements; hosted-runner performance requires the new tagged CI result.
+
+Final local commands exited 0: `npm run verify` (1,067 Rust tests passed, eight existing
+platform-conditional tests ignored; 20 script and 24 frontend tests passed; Markdown,
+assets, types, fmt, Clippy and frontend build passed), `npm run check:docs` (207 repository
+pairs, 21 guide pairs and no Astro findings), `npm run test:docs` (39 passed), and
+`git diff --check`. The targeted command was
+`cargo test --manifest-path desktop/src-tauri/Cargo.toml --locked -p llm-usage-core --test compatibility_release_032 --test codex_release_030 --test migration_v16`.
+
+The first full verification stopped at a rustfmt difference in a shortened test assertion;
+`cargo fmt --all` corrected it before the final run. The initial sandboxed GitHub annotation
+request timed out; the approved read-only retry returned the explicit 30-minute failure.
+Logs retain both first failures and the later successful checks.
+
 No installer lifecycle or installed-client upgrade is implied. Native GUI
 acceptance above is limited to the isolated OpenCode fixture. Recovery runs when the rebuilt
 0.3.3 collector reads the existing sources; large

@@ -80,7 +80,7 @@ fn verify_native_sample(adapter: &dyn SourceAdapter, root: &Path, exp: &Value) {
     let old = run_adapter_scan(&storage, &BeforeRegistration(adapter), &ctx, &config).unwrap();
     assert_eq!(old.len(), 1);
     assert!(old[0].error.is_none(), "{:?}", old[0].error);
-    let before = summary(&storage, "2020-01-01", "2100-01-01").totals;
+    let before = summary_of_event_days(&storage).totals;
     assert_eq!(before.call_count, exp["calls"].as_i64().unwrap());
     for (field, actual) in [
         ("input", before.input_total_known),
@@ -141,7 +141,7 @@ fn verify_native_sample(adapter: &dyn SourceAdapter, root: &Path, exp: &Value) {
     assert_eq!(state.0, "active", "{}", exp["version"]);
     assert_eq!(state.1, before.call_count);
     assert!(state.2 >= diagnostics_before);
-    assert_eq!(summary(&storage, "2020-01-01", "2100-01-01").totals, before);
+    assert_eq!(summary_of_event_days(&storage).totals, before);
     for (id, created) in first_observations {
         let retained: i64 = storage
             .conn()
@@ -178,7 +178,7 @@ fn verify_native_sample(adapter: &dyn SourceAdapter, root: &Path, exp: &Value) {
         (0, 0, 0)
     );
     assert_eq!(storage.data_revision().unwrap(), revision);
-    assert_eq!(summary(&storage, "2020-01-01", "2100-01-01").totals, before);
+    assert_eq!(summary_of_event_days(&storage).totals, before);
 }
 
 #[test]
