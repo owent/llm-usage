@@ -9,7 +9,7 @@
   import { api, parseError } from '../lib/api';
   import type { ChartDimension, PeriodDto, SummaryQuery } from '../lib/api';
   import { t, i18n, fmtSmart, fmtPrecise, fmtPercent, fmtDurationShort } from '../lib/i18n.svelte';
-  import { durationStatsOf, pivotChartSeries, tokenTotalLabel, type ChartGroupData } from '../lib/derive';
+  import { durationStatsOf, pivotChartSeries, tokenDisplay, formatTokenDisplay, type ChartGroupData } from '../lib/derive';
   import DimensionPicker from './DimensionPicker.svelte';
 
   echarts.use([LineChart, GridComponent, LegendComponent, TooltipComponent, DataZoomComponent, BrushComponent, SVGRenderer]);
@@ -132,15 +132,15 @@
             );
           } else if (sub === 'input') {
             lines.push(
-              `${t('cards.input')}: ${fmtPrecise(p.sums.input_total_known)}`,
+              `${t('cards.input')}: ${formatTokenDisplay(tokenDisplay(p.sums,'input'),fmtPrecise)}`,
               `${t('cards.cacheRead')}: ${fmtPrecise(p.sums.cache_read_known)}`,
               `${t('cards.cacheWrite')}: ${fmtPrecise(p.sums.cache_write_known)}`,
               `${t('cards.cacheMiss')}: ${fmtPrecise(p.sums.uncached_known)}`
             );
           } else if (sub === 'output') {
-            lines.push(`${t('cards.output')}: ${fmtPrecise(p.sums.output_total_known)}`);
+            lines.push(`${t('cards.output')}: ${formatTokenDisplay(tokenDisplay(p.sums,'output'),fmtPrecise)}`);
           } else {
-            lines.push(`${t('cards.total')}: ${fmtPrecise(p.sums.total_tokens_known)}`);
+            lines.push(`${t('cards.total')}: ${formatTokenDisplay(tokenDisplay(p.sums,'total'),fmtPrecise)}`);
           }
           return lines.join('<br/>');
         },
@@ -210,7 +210,7 @@
             type: 'line', name: t('cards.input'), smooth: true,
             symbol: 'circle', symbolSize: 4, lineStyle: { width: 2, type: 'dashed' },
             itemStyle: { color: '#5470e8' },
-            data: periods.map((p) => p.sums.input_total_known === null ? null : Number(p.sums.input_total_known)),
+            data: periods.map((p) => tokenDisplay(p.sums,'input').value===null?null:Number(tokenDisplay(p.sums,'input').value)),
           }]),
         },
         `total-${sub}|${i18n.locale}|${chartText}|${granularity}|${labels.join('\u0001')}`
@@ -238,11 +238,10 @@
             symbolSize: 3,
             lineStyle: { width: 2 },
             itemStyle: { color: sub === 'output' ? '#3f8f5f' : '#1a56c4' },
-            data: periods.map((p) =>
-              metric === 'output'
-                ? p.sums.output_total_known === null ? null : Number(p.sums.output_total_known)
-                : p.sums.total_tokens_known === null ? null : Number(p.sums.total_tokens_known)
-            ),
+            data: periods.map((p) => {
+              const value=tokenDisplay(p.sums,metric).value;
+              return value===null?null:Number(value);
+            }),
           },
         ],
       },
@@ -255,22 +254,24 @@
     return (params: { dataIndex: number; marker: string; seriesName?: string; value: number | null }[]) => {
       const label = g.labels[params[0]?.dataIndex ?? 0] ?? '';
       const lines = [`<b>${escapeHtml(label)}</b>`];
-      for (const p of params) {
-        if (typeof p.value === 'number' && Number.isFinite(p.value)) {
-          lines.push(`${p.marker}${escapeHtml(p.seriesName)}: ${fmtPrecise(p.value)}`);
-        }
-      }
       if (sub === 'total' || sub === 'output') {
-        let hasLowerBound=false;
+        const markers=new Map(params.map(p=>[p.seriesName,p.marker]));
         const selected = (chart?.getOption().legend as { selected?: Record<string, boolean> }[] | undefined)?.[0]?.selected ?? {};
         for (const name of g.names) {
           const cell = g.cell(name, label);
-          if (!cell || selected[name] === false || cell[sub === 'total' ? 'total' : 'output'] !== null) continue;
-          const value=sub==='total' ? tokenTotalLabel(i18n.locale,null,cell.input,cell.output) : '—';
-          hasLowerBound ||= value.startsWith('≥');
-          lines.push(`${escapeHtml(name)}: ${value}`);
+          if (!cell || selected[name] === false) continue;
+          lines.push(`${markers.get(name)??''}${escapeHtml(name)}: ${formatTokenDisplay(cell.display[sub],fmtPrecise)}`);
         }
-        if(hasLowerBound) lines.push(`<small>${escapeHtml(t('tokens.lowerBound'))}</small>`);
+        if (g.names.some(name=>selected[name]!==false && g.cell(name,label)?.display[sub as 'total'|'output'].lower)) {
+          lines.push(`<small>${escapeHtml(t('tokens.lowerBound'))}</small>`);
+        }
+      } else {
+        for (const p of params) {
+          if (typeof p.value !== 'number' || !Number.isFinite(p.value)) continue;
+          const name=g.names.find(name=>p.seriesName===`${name} · ${t('cards.input')}`);
+          const lower=name && g.cell(name,label)?.display.input.lower;
+          lines.push(`${p.marker}${escapeHtml(p.seriesName)}: ${lower?'≥ ':''}${fmtPrecise(p.value)}`);
+        }
       }
       return lines.join('<br/>');
     };
@@ -341,7 +342,7 @@
           type: 'line', name: `${name} · ${t('cards.input')}`, smooth: true,
           symbol: 'circle', symbolSize: 4, lineStyle: { width: 2, type: 'dashed' },
           itemStyle: { color: PALETTE[i % PALETTE.length] },
-          data: g.labels.map((label) => g.cell(name, label)?.input ?? null),
+          data: g.labels.map((label) => g.cell(name,label)?.display.input.value==null?null:Number(g.cell(name,label)!.display.input.value)),
         }])
       );
       applyOption(
@@ -382,7 +383,7 @@
             symbolSize: 3,
             lineStyle: { width: 1.5 },
             itemStyle: { color: PALETTE[i % PALETTE.length] },
-            data: g.labels.map((label) => (g.cell(name, label)?.[metric] as number | null) ?? null),
+            data: g.labels.map((label) => g.cell(name,label)?.display[metric].value==null?null:Number(g.cell(name,label)!.display[metric].value)),
           }]
         ),
       },
@@ -459,9 +460,7 @@
   {/each}
 </div>
 <div bind:this={el} class="token-chart" role="group" aria-label={`${t('trend.chart.tokens')}. ${t('dashboard.keyboardHint')}`}></div>
-{#if dimension !== 'total' && grouped && sub === 'total'}
-  <p class="dur-summary" title={t('tokens.observedTotalHint')}>{t('tokens.lowerBound')}</p>
-{/if}
+<p class="dur-summary" title={t('tokens.knownBoundHint')}>{t('tokens.lowerBound')}</p>
 <p class="dur-summary">
   {t('panel.durationSummary', {
     avg: fmtDurationShort(duration.avgMs),

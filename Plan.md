@@ -2,7 +2,7 @@
 
 <a id="桌面用量客户端执行计划"></a>
 
-Current version: 0.3.2. Windows 11 x64 is the first desktop target; Windows/Linux/macOS CI
+Current version: 0.3.3. Windows 11 x64 is the first desktop target; Windows/Linux/macOS CI
 is retained. This file owns the executable work for the current round. Removed scope and
 first failures are recorded in the [round record](docs/validation/desktop-usage/plan-20261007.md);
 removal does not mean acceptance passed. Historical results are indexed in
@@ -34,6 +34,20 @@ earlier v0.3.1 draft/source/asset checks retain their scope in
 <a id="本轮结果"></a>
 
 ## Application repair results
+
+0.3.3 fixes Codex inherited-compaction ownership conflicts and adds the independent OpenCode v2
+projection reader. Valid compatible reads no longer show a source warning; missing-file notices
+describe the observed path state and history limits. Real local read-only samples and a consistent
+statistics-database backup verify recovery without clearing data. Windows release/headless and
+native v2 fixture repeat reads passed. A follow-up traced invisible OpenCode usage to null-total
+display filtering; overview/trend now show known bounds across cards, tables, shares and curves,
+with field-specific coverage tooltips. The rebuilt Windows executable passed isolated native
+WebView2/IPC checks for those seven calls and bounds. Further source tracing found discarded raw
+usage in v2.0.32 and verified independent recovery of inclusive output. Parser 2 corrects
+output/total coverage against complete old summaries; unknown input detail remains unknown.
+Draft Release notes now use the annotated tag message and verify the body after asset upload.
+Checks and remaining acceptance
+boundaries are in the [0.3.3 repair record](docs/validation/desktop-usage/release-033.md).
 
 Unified checks, browser tests, Windows release/native IPC, headless collection and native
 Zed rescans completed for the new features. Actual results, first failures and scope

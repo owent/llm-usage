@@ -1002,8 +1002,12 @@ fn capability_table_keeps_real_sample_scope_and_compatibility_limits() {
         );
     }
     assert!(json["fields"]["latency"]["availability"]
-        .get("unavailable")
+        .get("partial")
         .is_some());
+    let latency = json["fields"]["latency"]["note"].as_str().unwrap();
+    assert!(latency.contains("v2 completed-created"));
+    assert!(latency.contains("v1 不提供延迟"));
+    assert!(latency.contains("TTFT 未读取"));
     assert!(json["fields"]["per_request_calls"]["availability"]
         .get("partial")
         .is_some());

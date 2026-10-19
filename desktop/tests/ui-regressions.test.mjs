@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { calendarDay, offsetDay, calendarYearRange } from '../src/lib/calendar.ts';
 import { loadPanelGroup, savePanelGroup, clearPanelPage } from '../src/lib/panels.ts';
-import { durationStatsOf, pivotChartSeries, mergeNamedValues, observedTokenTotal, tokenTotalLabel } from '../src/lib/derive.ts';
+import { durationStatsOf, pivotChartSeries, mergeNamedValues, observedTokenTotal, tokenTotalLabel, tokenDisplay,tokenShare } from '../src/lib/derive.ts';
 import {modelKey} from '../src/lib/model-names.ts';
 import { escapeHtml } from '../src/lib/chart.ts';
 import {formatAmount,formatCostRange,formatUnitPrice,unpricedReasonKey} from '../src/lib/costs.ts';
@@ -53,8 +53,35 @@ test('duration mean uses only known samples and preserves unknown values', () =>
 
 test('chart pivot preserves unknown token values and exact series names', () => {
   const grouped = pivotChartSeries([{label:'2026-09-27',series:'model-a',calls:2,input:null,cache_read:null,output:'0',total:null}]);
-  assert.deepEqual(grouped.cell('model-a','2026-09-27'),{calls:2,input:null,cacheRead:null,cacheWrite:null,uncached:null,cacheRatio:null,output:0,total:null});
+  assert.deepEqual(grouped.cell('model-a','2026-09-27'),{calls:2,input:null,cacheRead:null,cacheWrite:null,uncached:null,cacheRatio:null,output:0,total:null,
+    display:{input:{value:null,lower:false},output:{value:'0',lower:false},total:{value:'0',lower:true}}});
   assert.equal(grouped.cell('missing','2026-09-27'),undefined);
+});
+
+test('OpenCode partial buckets remain visible without manufacturing complete totals',()=>{
+  const sums={input_total_known:null,uncached_known:'78811',cache_read_known:'93632',cache_write_known:null,
+    output_total_known:'7888',total_tokens_known:null,input_unknown_count:7,total_unknown_count:7,output_unknown_count:0};
+  assert.deepEqual(tokenDisplay(sums,'input'),{value:'172443',lower:true});
+  assert.deepEqual(tokenDisplay(sums,'total'),{value:'180331',lower:true});
+  assert.deepEqual(tokenDisplay(sums,'output'),{value:'7888',lower:false});
+  assert.deepEqual(tokenDisplay({...sums,output_unknown_count:1},'output'),{value:'7888',lower:true});
+  assert.deepEqual(tokenShare(sums),{value:180331,input:172443,output:7888,lower:{total:true,input:true,output:false}});
+  assert.equal(sums.total_tokens_known,null);
+  const mixed={...sums,input_total_known:'1000',total_tokens_known:'1010',uncached_known:'79811',output_total_known:'7898'};
+  assert.deepEqual(tokenDisplay(mixed,'total'),{value:'181341',lower:true});
+  assert.deepEqual(tokenDisplay({...sums,input_total_known:'200000'},'input'),{value:'200000',lower:true});
+  assert.deepEqual(tokenDisplay({...sums,total_tokens_known:'300000'},'total'),{value:'300000',lower:true});
+});
+
+test('display bounds preserve unknowns, exact zeros, nonoverlap and integer precision',()=>{
+  assert.deepEqual(tokenDisplay({},'total'),{value:null,lower:false});
+  assert.deepEqual(tokenDisplay({total_tokens_known:'0',total_unknown_count:0},'total'),{value:'0',lower:false});
+  assert.deepEqual(tokenDisplay({input_total_known:'100',cache_read_known:'80',uncached_known:'20',output_total_known:'5'},'total'),{value:'105',lower:true});
+  assert.deepEqual(tokenDisplay({uncached_known:'9007199254740993',cache_read_known:'1'},'total'),{value:'9007199254740994',lower:true});
+  assert.deepEqual(tokenDisplay({uncached_known:'-1',cache_read_known:'NaN',output_total_known:'1.5'},'total'),{value:null,lower:false});
+  const sums={uncached_known:'10',cache_read_known:'20',cache_write_known:null,output_total_known:'4',total_tokens_known:'2',total_unknown_count:1};
+  const row=pivotChartSeries([{label:'today',series:'opencode',calls:1,input:null,output:'4',total:'2',sums}]).cell('opencode','today');
+  assert.deepEqual(row.display.total,{value:'34',lower:true});
 });
 
 test('name-only shares combine provider rows without splitting case', () => {

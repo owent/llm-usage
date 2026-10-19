@@ -432,7 +432,8 @@ usage are dimensions of one record, rather than two additive events.
 
 Unknown versions try the latest built-in reader under [compatibility policy](architecture.md#unknown-version).
 Validated data can enter statistics; compatibility state survives queries, daily summaries,
-sealing and exports. Aggregation cannot discard notices. Compatibility does not change
+sealing and exports. Aggregation retains coverage notices; a valid, complete expected shape needs no
+source compatibility warning merely because its version is unlisted. Compatibility does not change
 reported/derived field categories or turn absent values into zeros. Partial reads show
 coverage gaps. Later dedicated-reader rescans correct old contributions using stable identity
 without duplicate accumulation.
@@ -448,6 +449,17 @@ Later metadata updates in the same batch cannot remove real conflicts; a repeate
 version cannot clear them either. Missing sources cannot directly clear flags. Sealed summaries
 stay unchanged. Codex/Kilo upgrades use existing parser-version cursor replay and resume
 incremental reading after completion.
+
+The explicit Codex 0.3.3 ownership correction is narrower than a general content upgrade:
+foreign-thread `compacted.latest_token_usage_record` is inherited context, not a child call.
+Only an exact complete old `codex-rollout-5` summary reconstructed from that carry, identical
+usage/quality/revision and the native response from the declared owning thread permit correction
+to `codex-rollout-6`. Preserve first observation, real conflicts and all diagnostics; persist
+pending candidates across bounded scans and recompute both affected unsealed days transactionally.
+Missing source evidence cannot clear a conflict. See the [repair record](../../validation/desktop-usage/release-033.md).
+
+OpenCode v2 uses its independent [projection rules](opencode-runtime.md); shared field names do
+not inherit v1 semantics or version certification.
 
 <a id="provenance"></a>
 

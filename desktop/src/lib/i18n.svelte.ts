@@ -188,8 +188,8 @@ const zhCN: Record<string, string> = {
   'sources.degradedFiles': '需核对 {count} 个文件',
   'sources.unsupportedFiles': '未识别 {count} 个文件',
   'sources.incompatibleFiles': '不兼容 {count} 个文件',
-  'sources.missingFiles': '源文件已被清理 {count} 个',
-  'sources.missingFiles.hint': '这些源文件已被对应 Agent 自行删除或压实，其历史用量只保存在本应用存档中；清空数据后无法从源重采（清空前会自动备份）。',
+  'sources.missingFiles': '源文件已被清理或归档 {count} 个',
+  'sources.missingFiles.hint': '之前采集的文件在原路径已不存在，可能被移动、删除或由 Agent 清理。已采集的历史用量仍按保留设置保存；不存在的文件无法重新采集，清空数据前请保留备份。',
   'sources.enabled': '启用',
   'sources.disabled': '停用',
   'sources.none': '未发现本机数据源。安装并使用对应 Agent 后重启应用。',
@@ -542,8 +542,8 @@ const en: Record<string, string> = {
   'sources.degradedFiles': '{count} files need review',
   'sources.unsupportedFiles': '{count} unrecognized files',
   'sources.incompatibleFiles': '{count} incompatible files',
-  'sources.missingFiles': '{count} source files removed',
-  'sources.missingFiles.hint': 'These source files were deleted or compacted by their agent. Their usage history only exists in this app\u2019s archive and cannot be re-collected after clearing (an automatic backup is made first).',
+  'sources.missingFiles': '{count} source files cleaned up or archived',
+  'sources.missingFiles.hint': 'Previously collected files no longer exist at their recorded paths. They may have been moved, deleted or cleaned up by the Agent. Collected history follows your retention settings. Missing files cannot be collected again; keep a backup before clearing data.',
   'sources.enabled': 'Enabled',
   'sources.disabled': 'Disabled',
   'sources.none': 'No local sources discovered. Install and use an agent, then restart.',
@@ -820,6 +820,9 @@ export function t(key: string, params?: Record<string, string | number>): string
 /** Locale-specific number grouping without changing statistical values. */
 export function fmtNumber(value: number | string | null | undefined): string {
   if (value === null || value === undefined || value === '') return '—';
+  if (typeof value === 'string' && /^-?\d+$/.test(value)) {
+    return new Intl.NumberFormat(i18n.locale).format(BigInt(value));
+  }
   const n = typeof value === 'string' ? Number(value) : value;
   if (!Number.isFinite(n)) return String(value);
   return new Intl.NumberFormat(i18n.locale).format(n);

@@ -43,12 +43,22 @@ start disabled and require explicit review before local collection.
 | --- | --- |
 | Ready | The checked file/database can be read. Inspect field coverage separately. |
 | Waiting for collection | No qualifying collection has completed yet. Refresh and inspect the native file/database. |
-| Some data needs review | Inspect unsupported versions, invalid fields, attribution or conflicts. Valid records can still be present. |
+| Some data needs review | Inspect unsupported formats, invalid fields, attribution or conflicts. Valid records can still be present. |
 | Read failed | Check the real error, access, data path and file state; other sources continue collecting. |
-| Version not verified | A compatibility parser may have accepted the format, but this does not verify that client version. |
+| Source files cleaned up or archived | Previously recorded paths no longer exist. The notice does not identify which program moved, archived or deleted them. |
 | Input incomplete | A reported value is a lower bound; this alone does not make source health fail. |
 
 A newly installed version must be checked against its own nonempty records. The highest
 version in a database does not identify older sessions’ versions. Rescanning is idempotent and can
 reevaluate parser rules on previously consumed, unchanged files; clearing the database is
 not the normal recovery method.
+
+When the expected structure is complete and reads normally, an unlisted client version does
+not produce a compatibility warning. Internal version/parser references remain available;
+this does not certify every feature or scenario of that version. Actual malformed or missing
+required data still produces a notice.
+
+Missing source files do not erase already collected history; retention rules still apply.
+The app cannot determine why a path disappeared. Uncollected content and deleted originals
+cannot be recovered by rescanning. Back up statistics before clearing the database, because
+missing originals cannot refill it.

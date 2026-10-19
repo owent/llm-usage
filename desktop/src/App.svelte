@@ -1,4 +1,5 @@
 <script lang="ts">
+  import {tokenDisplay,formatTokenDisplay,tokenShare} from './lib/derive';
   import { onMount } from 'svelte';
   import BudgetReminder from './components/BudgetReminder.svelte';
   import UpdateNotice from './components/UpdateNotice.svelte';
@@ -454,38 +455,30 @@
     return list;
   });
 
-  // Today shares use total_tokens by model/Agent; group unknown names and exclude zero values.
+  // Today shares include known lower bounds without replacing complete stored totals.
   const todayModelPie = $derived(
     (todayScopeSummary?.models ?? [])
       .map((m) => ({
         name: m.model ?? t('common.unknown'),
-        value: m.sums.total_tokens_known === null ? null : Number(m.sums.total_tokens_known),
-        input: m.sums.input_total_known === null ? null : Number(m.sums.input_total_known),
-        output: m.sums.output_total_known === null ? null : Number(m.sums.output_total_known),
+        ...tokenShare(m.sums),
       }))
   );
   const todayAgentPie = $derived(
     (todayScopeSummary?.agents ?? [])
-      .map((a) => ({ name: a.agent, value: a.sums.total_tokens_known === null ? null : Number(a.sums.total_tokens_known),
-        input: a.sums.input_total_known === null ? null : Number(a.sums.input_total_known),
-        output: a.sums.output_total_known === null ? null : Number(a.sums.output_total_known) }))
+      .map((a) => ({ name: a.agent, ...tokenShare(a.sums) }))
   );
 
-  // Trend shares use model/Agent total_tokens from the selected-range summary.
+  // Trend shares use the same display bounds over the selected range.
   const trendModelPie = $derived(
     (trendScopeSummary?.models ?? [])
       .map((m) => ({
         name: m.model ?? t('common.unknown'),
-        value: m.sums.total_tokens_known === null ? null : Number(m.sums.total_tokens_known),
-        input: m.sums.input_total_known === null ? null : Number(m.sums.input_total_known),
-        output: m.sums.output_total_known === null ? null : Number(m.sums.output_total_known),
+        ...tokenShare(m.sums),
       }))
   );
   const trendAgentPie = $derived(
     (trendScopeSummary?.agents ?? [])
-      .map((a) => ({ name: a.agent, value: a.sums.total_tokens_known === null ? null : Number(a.sums.total_tokens_known),
-        input: a.sums.input_total_known === null ? null : Number(a.sums.input_total_known),
-        output: a.sums.output_total_known === null ? null : Number(a.sums.output_total_known) }))
+      .map((a) => ({ name: a.agent, ...tokenShare(a.sums) }))
   );
 
   const trendSessions = $derived(trendScopeSummary?.distinct_sessions ?? null);
@@ -499,15 +492,15 @@
       {
         key: 'input',
         label: t('cards.input'),
-        value: fmtSmart(totals.input_total_known),
+        value: formatTokenDisplay(tokenDisplay(totals,'input'),fmtSmart),
         hint: t('cards.input.hint'),
         sub: t('overview.breakdown.input', {
           hit: fmtSmart(totals.cache_read_known),
           miss: fmtSmart(totals.uncached_known),
         }),
       },
-      { key: 'output', label: t('cards.output'), value: fmtSmart(totals.output_total_known) },
-      { key: 'total', label: t('cards.total'), value: fmtSmart(totals.total_tokens_known) },
+      { key: 'output', label: t('cards.output'), value: formatTokenDisplay(tokenDisplay(totals,'output'),fmtSmart) },
+      { key: 'total', label: t('cards.total'), value: formatTokenDisplay(tokenDisplay(totals,'total'),fmtSmart) },
       { key: 'ratio', label: t('cards.cacheRatio'), value: fmtPercent(totals.cache_input_ratio) },
       { key: 'sessions', label: t('trend.sessions'), value: fmtSmart(trendSessions) },
       { key: 'avg', label: t('cards.avgDuration'), value: fmtDurationShort(avgMs) },

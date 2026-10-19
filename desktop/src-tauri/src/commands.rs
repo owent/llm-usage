@@ -458,6 +458,7 @@ fn summary_query(
         "today_hourly": today_hourly.iter().map(|h| serde_json::json!({
             "hour": h.hour,
             "calls": h.call_count,
+            "sums": metric_sums_dto(&h.sums),
             "total_tokens": opt_num(h.total_tokens_known),
             "input_total": opt_num(h.input_total_known),
             "cache_read": opt_num(h.cache_read_known),
@@ -609,7 +610,7 @@ pub fn list_sources(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_json
             .map_err(|e| err("db", e.to_string()))?;
         let missing = files
             .iter()
-            .filter(|f| !std::path::Path::new(f.as_str()).exists())
+            .filter(|f| matches!(std::path::Path::new(f.as_str()).try_exists(), Ok(false)))
             .count();
         s["missing_files"] = serde_json::json!(missing);
     }
@@ -1824,6 +1825,7 @@ pub fn chart_series(
             "cache_ratio": r.cache_ratio,
             "output": opt_num(r.output_total),
             "total": opt_num(r.total_tokens),
+            "sums": metric_sums_dto(&r.sums),
         })).collect::<Vec<_>>(),
     }))
 }

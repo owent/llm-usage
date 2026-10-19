@@ -11,8 +11,22 @@ Check the selected user and date range, including the statistical timezone. Insp
 for enablement, discovered paths, actual nonempty files/databases, record versions and diagnostics.
 An empty session has no usage to collect, and a known model cannot supply missing token fields.
 
+Known components still appear when the source cannot provide complete totals. A value marked
+≥ is a lower bound; hover over a table value for coverage details. Charts and shares include
+this known usage, and shares describe only the displayed amounts. Missing components are
+never filled with zero. OpenCode v2 default-zero cache buckets can cause this limited coverage
+even when its completed calls have been collected successfully.
+
+OpenCode being open source does not mean every response field is saved locally. In the
+checked v2.0.32 path, missing values and reported zeros become identical stored zeros, and
+original usage may be discarded before the session is saved. This affects field coverage,
+not call recognition. Positive visible output can recover inclusive output independently of
+missing input details. See the [OpenCode field rules](/reference/design/opencode-runtime/).
+Rescanning cannot restore detail that the source never saved; keep the existing statistics.
+
 If a client version is newer than the verified matrix, compatibility parsing can preserve
-valid observations with an unverified-version note. Preserve the exact version and file/database
+valid observations and internal version references. A complete, valid expected shape produces no
+compatibility warning; actual parsing and coverage errors remain visible. Preserve the exact version and file/database
 shape when reporting the problem; do not label the whole product unsupported from one
 missing field.
 

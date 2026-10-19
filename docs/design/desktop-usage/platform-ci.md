@@ -104,7 +104,11 @@ PR permissions remain read-only. Only the tag-push release job receives
 contents: write through GitHub's short-lived token, after all shared checks and platform
 builds succeed. Privileged pull_request_target cannot execute PR code.
 CI artifacts and GitHub Releases are separate. Tag pushes create or update one draft by
-tag_name, including its name, body and target commit. Publication is serialized per tag;
+tag_name, including its name, body and target commit. The complete annotated tag message
+becomes the Release body, preserving Markdown and line breaks without generated boilerplate.
+Lightweight tags and empty messages fail publication. Nested tags use the outer annotation;
+all tags must resolve to the built commit. Upload verification also checks the body, and a
+rerun refreshes it from the current annotation. Publication is serialized per tag;
 the job checks the current tag commit before updating a draft, so an older build cannot
 overwrite a recreated tag. Draft lookup covers all release pages. The
 [upload Action](https://github.com/xresloader/upload-to-github-release) receives the exact

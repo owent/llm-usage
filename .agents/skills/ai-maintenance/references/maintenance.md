@@ -21,8 +21,10 @@ is authoritative.
 
 Maintenance guidance uses one root entry, one Skill and selective references. Coverage/validation records
 live in references/records and are read only for initialization recovery or delivery review. Documentation
-lint and unified verification run from the root; M0 restored package.json/package-lock.json. Product
-dependencies remain governed by desktop npm/Cargo manifests and lockfiles. Retain Kilo's local ignore file.
+lint and unified verification run from the root; M0 restored package.json/package-lock.json.
+Astro check/build/dev commands share generated content and cache paths; run them sequentially
+within one checkout to avoid concurrent data-store writes.
+Product dependencies remain governed by desktop npm/Cargo manifests and lockfiles. Retain Kilo's local ignore file.
 Dependency changes also synchronize the root/desktop npm locks and the shared pnpm workspace lock.
 Verify frozen installs with both package managers. Check compiler API consumers before upgrading
 TypeScript majors; retain peer checks. The root Rust toolchain file and CI must select the same version.
@@ -210,7 +212,11 @@ test counts in plans. Acceptance indexes summarize tested scope/results. Authori
 delivery requirements; old restrictions on installation/client execution cannot override later permission.
 
 Source health distinguishes record errors, independent reconciliation, coverage limits and version
-compatibility per file/database format. Verify reevaluation with real unchanged old cursors. SQLite invalid-row state
+compatibility per file/database format. Unlisted versions alone do not produce a warning when the expected
+shape is valid and complete. Missing paths do not prove Agent cleanup. For projection upgrades and inherited
+history, trace the writer and fork/compaction ownership before counting calls; see the
+[OpenCode v2 rules](../../../../docs/design/desktop-usage/opencode-runtime.md).
+Verify reevaluation with real unchanged old cursors. SQLite invalid-row state
 persists across incremental windows and recovers after correction/deletion. Invalid reconciliation types
 must not bulk-fail valid messages. Mouse tests cover no query before release, forward/reverse selection,
 matching distribution/table/cost ranges, reset and stale responses.

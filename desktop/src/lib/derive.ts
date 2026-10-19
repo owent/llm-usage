@@ -1,7 +1,40 @@
 /**
  * Pure frontend calculations without IPC: period durations and grouped chart data.
  */
-import type { ChartSeriesRowDto, PeriodDto } from './api';
+import type { ChartSeriesRowDto, PeriodDto, MetricSumsDto } from './api';
+
+export type TokenMetric = 'input' | 'output' | 'total';
+export interface TokenDisplay { value: string | null; lower: boolean }
+
+/** Conservative display bounds over identical partitions; never add overlapping totals and buckets. */
+export function tokenDisplay(sums: Partial<MetricSumsDto>, metric: TokenMetric): TokenDisplay {
+  const integer = (v: unknown): bigint | null => typeof v === 'string' && /^\d+$/.test(v) ? BigInt(v) : null;
+  const sum = (values: (bigint | null)[]) => values.every(v=>v===null) ? null : values.reduce<bigint>((a,v)=>a+(v??0n),0n);
+  const max = (a: bigint | null,b: bigint | null) => a===null ? b : b===null ? a : a>b ? a : b;
+  const input = integer(sums.input_total_known);
+  const output = integer(sums.output_total_known);
+  const total = integer(sums.total_tokens_known);
+  const inputBound = max(input,sum([sums.uncached_known,sums.cache_read_known,sums.cache_write_known].map(integer)));
+  const incompleteInput = input===null || (sums.input_unknown_count??0)>0;
+  const incompleteTotal = total===null || (sums.total_unknown_count??0)>0;
+  const value = metric==='input' ? (incompleteInput ? inputBound : input)
+    : metric==='output' ? output : incompleteTotal ? max(total,sum([inputBound,output])) : total;
+  const lower = metric==='input' ? incompleteInput : metric==='output'
+    ? (sums.output_unknown_count??0)>0 : incompleteTotal;
+  return {value:value?.toString()??null,lower:value!==null && lower};
+}
+
+export function formatTokenDisplay(value: TokenDisplay, format: (value:string|null)=>string): string {
+  return `${value.lower ? '≥ ' : ''}${format(value.value)}`;
+}
+
+export function tokenShare(sums: MetricSumsDto) {
+  const metrics = Object.fromEntries((['input','output','total'] as const).map(metric=>[metric,tokenDisplay(sums,metric)])) as Record<TokenMetric,TokenDisplay>;
+  return {value:metrics.total.value===null?null:Number(metrics.total.value),
+    input:metrics.input.value===null?null:Number(metrics.input.value),
+    output:metrics.output.value===null?null:Number(metrics.output.value),
+    lower:{total:metrics.total.lower,input:metrics.input.lower,output:metrics.output.lower}};
+}
 
 /** Native Copilot turn input is a lower bound for display only;
  * never replace complete query/export totals with it. */
@@ -64,6 +97,7 @@ export interface ChartGroupCell {
   cacheRatio: number | null;
   output: number | null;
   total: number | null;
+  display: Record<TokenMetric,TokenDisplay>;
 }
 
 /** chart_series output: chronological labels, series names and cells keyed by series/label. */
@@ -96,6 +130,8 @@ export function pivotChartSeries(rows: ChartSeriesRowDto[]): ChartGroupData {
       names.push(r.series);
     }
     if (!cells.has(key(r.series, r.label))) {
+      const sums = r.sums ?? {input_total_known:r.input,output_total_known:r.output,total_tokens_known:r.total,
+        uncached_known:r.uncached,cache_read_known:r.cache_read,cache_write_known:r.cache_write};
       cells.set(key(r.series, r.label), {
         calls: r.calls,
         input: r.input === null ? null : Number(r.input),
@@ -105,6 +141,7 @@ export function pivotChartSeries(rows: ChartSeriesRowDto[]): ChartGroupData {
         cacheRatio: r.cache_ratio ?? null,
         output: r.output === null ? null : Number(r.output),
         total: r.total === null ? null : Number(r.total),
+        display:{input:tokenDisplay(sums,'input'),output:tokenDisplay(sums,'output'),total:tokenDisplay(sums,'total')},
       });
     }
   }

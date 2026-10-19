@@ -22,10 +22,6 @@
     pricing?: boolean;
   } = $props();
 
-  function unknownNote(sums: MetricSumsDto): string {
-    const unknown = sums.input_unknown_count + sums.output_unknown_count;
-    return unknown > 0 ? t('table.unknownFields', { count: unknown }) : '';
-  }
   const key=modelKey;
   function costOf(provider:string|null,model:string|null) {
     return costs?.models?.find((r)=>r.provider.toLowerCase()===(provider??'').toLowerCase() && key(r.model)===key(model));
@@ -53,9 +49,9 @@
             <tr>
               <td><strong>{m.model ?? t('common.unknown')}</strong><small>{m.provider ?? t('common.unknown')}</small></td>
               <td class="num" title={m.sums.call_count === 0 && m.sums.event_count > 0 ? t('dashboard.callsUnknown') : ''}>{fmtNumber(m.sums.call_count === 0 && m.sums.event_count > 0 ? null : m.sums.call_count)}</td>
-              <td class="num">{fmtNumber(m.sums.input_total_known)}</td>
-              <td class="num">{fmtNumber(m.sums.output_total_known)}</td>
-               <td class="num"><TokenTotal sums={m.sums} allowObserved={m.provider==='github-copilot'} /></td>
+              <td class="num"><TokenTotal sums={m.sums} metric="input" /></td>
+              <td class="num"><TokenTotal sums={m.sums} metric="output" /></td>
+               <td class="num"><TokenTotal sums={m.sums} /></td>
               <td class="num">{fmtNumber(m.sums.cache_read_known)}</td>
               {#if pricing}
                 <td class="num"><CostAmounts rows={costOf(m.provider,m.model)?.current_sim} />
@@ -65,16 +61,13 @@
                 </td>
               {/if}
             </tr>
-            {#if unknownNote(m.sums)}
-              <tr class="note-row"><td colspan={pricing ? 7 : 6}>{unknownNote(m.sums)}</td></tr>
-            {/if}
           {/each}
         </tbody>
         {#if totals}
           <tfoot><tr>
             <th>{t('dashboard.subtotal')}</th><td class="num">{fmtNumber(totals.call_count)}</td>
-            <td class="num">{fmtNumber(totals.input_total_known)}</td><td class="num">{fmtNumber(totals.output_total_known)}</td>
-            <td class="num">{fmtNumber(totals.total_tokens_known)}</td><td class="num">{fmtNumber(totals.cache_read_known)}</td>
+            <td class="num"><TokenTotal sums={totals} metric="input" /></td><td class="num"><TokenTotal sums={totals} metric="output" /></td>
+            <td class="num"><TokenTotal sums={totals} /></td><td class="num">{fmtNumber(totals.cache_read_known)}</td>
             {#if pricing}<td class="num"><CostAmounts rows={costs?.current_sim.rows} /></td>{/if}
           </tr></tfoot>
         {/if}
@@ -100,9 +93,9 @@
             <tr>
               <td>{a.agent}</td>
               <td class="num" title={a.sums.call_count === 0 && a.sums.event_count > 0 ? t('dashboard.callsUnknown') : ''}>{fmtNumber(a.sums.call_count === 0 && a.sums.event_count > 0 ? null : a.sums.call_count)}</td>
-              <td class="num">{fmtNumber(a.sums.input_total_known)}</td>
-              <td class="num">{fmtNumber(a.sums.output_total_known)}</td>
-               <td class="num"><TokenTotal sums={a.sums} allowObserved={a.agent==='vscode-copilot-chat'} /></td>
+              <td class="num"><TokenTotal sums={a.sums} metric="input" /></td>
+              <td class="num"><TokenTotal sums={a.sums} metric="output" /></td>
+               <td class="num"><TokenTotal sums={a.sums} /></td>
             </tr>
           {/each}
         </tbody>
@@ -153,11 +146,6 @@
   .num {
     text-align: right;
     font-variant-numeric: tabular-nums;
-  }
-  .note-row td {
-    color: var(--warning);
-    font-size: 12px;
-    white-space: normal;
   }
   td:first-child { white-space:normal; overflow-wrap:anywhere; min-width:140px; }
   tfoot { background:var(--bg-hover); font-weight:600; }

@@ -35,7 +35,7 @@ use crate::adapters::jsonl::{read_jsonl, JsonlCursor, StopReason};
 use super::super::common::{map_codex_record, CodexRecordUsage};
 
 // Registry rule changes replay consumed files; retain cumulative mismatches and per-call errors across batches.
-pub const CODEX_PARSER_VERSION: &str = "codex-rollout-5";
+pub const CODEX_PARSER_VERSION: &str = "codex-rollout-6";
 const MAX_REASONABLE_TOKEN: i64 = crate::domain::MAX_TOKEN_VALUE;
 
 /// Six usage-field sums for snapshot/carried reconciliation; i128 protects additions.
@@ -103,6 +103,16 @@ struct CodexParseContext {
     /// Adding the field alone does not rebuild sources or reset cursors (V30).
     #[serde(default)]
     version_basis: Option<VersionBasis>,
+    /// Complete old-reader output for inherited carries; used only to repair a
+    /// matching stored digest when the original owning thread is also available.
+    #[serde(default)]
+    inherited_carries: Vec<InheritedCarry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct InheritedCarry {
+    pub prior: EventInput,
+    pub owner_thread: String,
 }
 
 /// Restore a JSON cursor; rescan or invalid state starts at the file beginning.
@@ -425,6 +435,43 @@ pub fn scan(
                 if let Some(carried) = carried {
                     match carried.get("usage").and_then(parse_usage) {
                         Some(usage) => {
+                            if let (Some(owner), Some(current)) = (
+                                json_str(&carried, "thread_id"),
+                                context.thread_id.as_deref(),
+                            ) {
+                                if owner != current {
+                                    if let Some((occurred_ms, source_time)) =
+                                        parse_envelope_ts(&line)
+                                    {
+                                        let ids = UsageRecordIds {
+                                            response_id: json_str(&carried, "response_id"),
+                                            thread_id: Some(owner),
+                                            session_id: json_str(&carried, "session_id"),
+                                        };
+                                        if ids.response_id.is_some() {
+                                            let mut prior = build_usage_event(
+                                                target,
+                                                &context,
+                                                &ids,
+                                                &usage,
+                                                occurred_ms,
+                                                &source_time,
+                                                raw.number,
+                                                now_ms,
+                                                &mut Vec::new(),
+                                            );
+                                            prior.parser_version = "codex-rollout-5".into();
+                                            context.inherited_carries.push(InheritedCarry {
+                                                prior,
+                                                owner_thread: owner.into(),
+                                            });
+                                        }
+                                    }
+                                    diagnostics.push(diag("inherited_compaction_usage", Some("thread_id"), raw.number,
+                                        "compaction carries another thread's response; use the owning thread's native call"));
+                                    continue;
+                                }
+                            }
                             context.sum_carried.add(&usage);
                             let rid = json_str(&carried, "response_id");
                             // A carried record normally also exists in the detailed stream. If absent,

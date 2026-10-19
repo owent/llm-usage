@@ -39,6 +39,10 @@ await page.clock.install({ time: new Date('2026-09-27T23:30:00Z') });
 await page.addInitScript(url=>{window.chartModuleUrl=url;}, `/@fs/${cacheDir}/deps/echarts_core.js`);
 await page.addInitScript(() => {
   const stats = (n=1) => ({ input_total_known: String(125000*n), uncached_known: String(25000*n), cache_read_known: String(100000*n), cache_write_known: '0', output_total_known: String(8000*n), total_tokens_known: String(133000*n), input_known_count: 40*n, input_unknown_count: 2*n, output_known_count: 42*n, output_unknown_count: 0, total_known_count: 40*n, total_unknown_count: 2*n, event_count: 42*n, call_count: 42*n, attempt_count: 0, conflict_count: 0, cache_input_ratio: .8, avg_duration_ms:'4250', total_duration_ms:String(170000*n), duration_sample_count: 40*n });
+  const partialStats=(calls,input,read,output)=>({...stats(0),input_total_known:null,total_tokens_known:null,cache_write_known:null,
+    uncached_known:String(input),cache_read_known:String(read),output_total_known:String(output),call_count:calls,event_count:calls,
+    input_unknown_count:calls,total_unknown_count:calls,output_known_count:calls});
+  const openCodeStats=partialStats(7,78811,93632,7888);
   let settings = { timezone: 'Asia/Shanghai', week_start: 0, retention: { events_days: 7, hourly_days: 3, daily_days: 90, weekly_days: 1095, monthly_days: 3650, yearly_days: null }, refresh_interval_secs: 300, language: 'zh-CN', theme: 'light', manual_roots: [], hostname_alias: null, pricing: {enabled:true,provider_defaults:[],online_refresh_enabled:false} };
   let current = 'default';
   const users = [{user_id:'default',name:'本机用户',created_at_ms:0},{user_id:'empty',name:'新用户',created_at_ms:0}];
@@ -116,6 +120,13 @@ await page.addInitScript(() => {
     if(cmd==='list_users') return {users,current};
     if(cmd==='set_current_user') {current=args.userId;return;}
     if(cmd==='summary') {
+      if(window.openCodeUsage) return {data_revision:revision,timezone:settings.timezone,totals:openCodeStats,distinct_sessions:2,active_days:1,excluded_event_count:0,
+        models:[{model:'deepseek-v4.1-flash-free',provider:'opencode',sums:partialStats(1,3466,1792,17)},
+          {model:'kimi-for-coding',provider:'kimi-code-plan-cn',sums:partialStats(4,30941,57088,5182)},
+          {model:'glm-5.3-flash',provider:'zhipuai-coding-plan',sums:partialStats(2,44404,34752,2689)}],
+        agents:[{agent:'opencode',sums:openCodeStats}],
+        periods:[{label:q.granularity==='hour'?`${q.last_day} 10:00`:q.last_day,start_day:q.last_day,end_day:q.last_day,in_progress:true,partial_history:false,sums:openCodeStats,distinct_sessions:2,active_days:1}],
+        today_hourly:[{hour:10,calls:7,total_tokens:null,input_total:null,cache_read:'93632',output_total:'7888',sessions:2,avg_duration_ms:null,sums:openCodeStats}]};
       const empty = current==='empty';
       const models = [window.substitutePricing?'k28-agent-preview':'gpt-5.4','claude-sonnet-4.6','glm-5.3'];
       const selected = q.models?.[0];
@@ -167,6 +178,8 @@ await page.addInitScript(() => {
         daily:models.map((model,i)=>({day:day(i),provider:model.provider,model:model.model,sums:model.at_time[0]})),
         daily_current:models.map((model,i)=>({day:day(i),provider:model.provider,model:model.model,sums:model.current_sim[0]}))};
     }
+    if(cmd==='chart_series' && window.openCodeUsage) return {rows:[{label:q.granularity==='hour'?`${q.last_day} 10:00`:q.last_day,
+      series:'opencode',calls:7,input:null,cache_read:'93632',cache_write:null,uncached:'78811',output:'7888',total:null,sums:openCodeStats}]};
     if(cmd==='chart_series') return {rows:Array.from({length:window.singleChartPeriod?1:12},(_,i)=>{
       const label=q.granularity==='hour'?`${q.last_day} ${String(8+i).padStart(2,'0')}:00`:`2026-09-${String(15+i).padStart(2,'0')}`;
       return [{label,series:args.dimension==='agent'?'codex':args.dimension==='agent_model'?'codex · gpt-5.4':'gpt-5.4',calls:10+i,input:String(100000*(i+1)),cache_read:String(80000*(i+1)),cache_write:'0',uncached:String(20000*(i+1)),cache_ratio:.8,output:'15000',total:i===1?'0':String(115000*(i+1))},
@@ -356,7 +369,7 @@ for(const [index,dimension] of [[1,'model'],[3,'agent_model'],[2,'agent']]) {
   assert.ok(option.series.every(s=>s.type==='line'&&!s.name.includes('调用')),'hourly grouping uses token curves: '+dimension);
   assert.deepEqual(option.series[0].data.slice(0,2),[115000,0],'plots token values, including true zero, rather than call counts');
   assert.match(option.yAxis[0].name,/token/i);assert.equal(option.yAxis.length,1);
-  assert.ok(option.series[1].data.every(v=>v===null),'missing complete totals remain gaps');
+  assert.deepEqual(option.series[1].data.slice(0,2),[300000,301235],'partial usage is plotted as a known lower bound');
   const request=await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='chart_series').at(-1).args);
   assert.equal(request.dimension,dimension);assert.equal(request.q.granularity,'hour');
 }
@@ -476,7 +489,7 @@ await wheelWithoutSelection('[data-panel-group="trendMain"] .calls-chart');
 await trendTokens.getByRole('button',{name:'按Agent',exact:true}).click();await page.clock.runFor(300);
 const tokenSelector='[data-panel-group="trendMain"] .token-chart';
 const unknownTotal=await getChartOptions(tokenSelector);
-assert.ok(unknownTotal.series.find(s=>s.name==='vscode-copilot-chat').data.every(v=>v===null),'unknown Copilot totals are preserved');
+assert.equal(unknownTotal.series.find(s=>s.name==='vscode-copilot-chat').data[0],300000,'Copilot known usage is displayed without claiming a complete total');
 assert.equal(unknownTotal.series.filter(s=>s.name.startsWith('vscode-copilot-chat')).length,1,'total usage renders exactly one Copilot series');
 await trendTokens.getByRole('button',{name:'输入 token',exact:true}).click();await page.clock.runFor(300);
 const inputOptions=await getChartOptions(tokenSelector);
@@ -654,8 +667,12 @@ assert.equal(hourlyPrice.first_period.slice(-5),'09:00');assert.equal(hourlyPric
 await page.locator('.filters select').first().selectOption('30');await page.clock.runFor(500);
 assert.equal(await page.locator('.range-reset').count(),0,'changing the query clears the old selection');
 await page.getByRole('navigation').first().getByRole('button',{name:'数据源',exact:true}).click();
-assert.match(await page.locator('.source-card').filter({has:page.getByRole('heading',{name:'opencode',exact:true})}).textContent(),/已就绪[\s\S]*兼容读取 1 个文件/,'compatible parser is informational when the source is healthy');
-assert.match(await page.locator('.source-card').filter({has:page.getByRole('heading',{name:'opencode',exact:true})}).locator('.tag.compat').getAttribute('title'),/已自动检查[\s\S]*自动复核/,'compatibility status explains automatic checks and future re-evaluation');
+const compatibleSource=page.locator('.source-card').filter({has:page.getByRole('heading',{name:'opencode',exact:true})});
+assert.match(await compatibleSource.textContent(),/已就绪/);
+assert.doesNotMatch(await compatibleSource.textContent(),/兼容读取/,'validated compatible records need no source warning');
+const missingFileSource=page.locator('.source-card').filter({has:page.getByRole('heading',{name:'codex',exact:true})});
+assert.match(await missingFileSource.textContent(),/源文件已被清理或归档 2 个/);
+assert.match(await missingFileSource.locator('[title]').filter({hasText:'源文件已被清理或归档'}).getAttribute('title'),/可能被移动、删除或由 Agent 清理/,'the requested label retains the observed path limits in its tooltip');
 assert.match(await page.locator('.source-card').filter({has:page.getByRole('heading',{name:'zcode',exact:true})}).textContent(),/部分数据需核对[\s\S]*未识别 1 个文件/,'unrecognized usage carrier remains visible');
 assert.match(await page.locator('.source-card').filter({has:page.getByRole('heading',{name:'kimi-code',exact:true})}).textContent(),/部分数据需核对[\s\S]*需核对 1 个文件/,'degraded source shows a concrete file count');
 const absentSource=page.locator('.source-card').filter({has:page.getByRole('heading',{name:'gemini',exact:true})});
@@ -814,7 +831,7 @@ for(const index of [1,3,2]) {
   const option=await getChartOptions('[data-panel-group="overviewToday"] .hourly');
   assert.equal(option.xAxis[0].data.length,1);assert.match(option.xAxis[0].data[0],/08:00$/);
   assert.ok(option.series.every(s=>s.type==='line'));
-  assert.deepEqual(option.series[0].data,[115000]);assert.deepEqual(option.series[1].data,[null]);
+  assert.deepEqual(option.series[0].data,[115000]);assert.deepEqual(option.series[1].data,[300000]);
   assert.match(option.yAxis[0].name,/token/i);
 }
 await page.evaluate(async ()=>{const echarts=await import(window.chartModuleUrl);echarts.getInstanceByDom(document.querySelector('[data-panel-group="overviewToday"] .hourly')).dispatchAction({type:'showTip',seriesIndex:0,dataIndex:0});});await page.clock.runFor(100);
@@ -963,6 +980,43 @@ assert.equal(await page.getByTestId('update-settings').getByTestId('install-upda
 assert.equal(await page.getByTestId('update-settings').getByRole('alert').count(),0);
 assert.equal(await page.evaluate(()=>window.updateAutoDownloads),priorDownloads);
 await page.screenshot({path:out+'update-development-check.png',fullPage:true});
+await page.evaluate(()=>{window.openCodeUsage=true;window.singleChartPeriod=false;});
+await page.setViewportSize({width:1440,height:1100});
+await page.getByRole('navigation').first().getByRole('button',{name:'总览',exact:true}).click();
+await page.locator('.collect-button').click();await page.clock.runFor(1200);
+const openCodeRow=page.locator('[data-panel-group="overviewToday"] tr').filter({has:page.getByText('opencode',{exact:true})}).last();
+assert.match(await openCodeRow.textContent(),/opencode[\s\S]*7[\s\S]*≥ 172,443[\s\S]*7,888[\s\S]*≥ 180,331/);
+assert.equal(await openCodeRow.locator('td').nth(3).textContent(),'7,888');
+assert.equal(await openCodeRow.locator('td').nth(3).locator('span').getAttribute('title'),'');
+assert.equal(await page.locator('.note-row').count(),0,'coverage is explained at the metric instead of repeated unknown-field rows');
+const partialCell=page.locator('[data-panel-group="overviewToday"] tr').filter({hasText:'kimi-for-coding'}).locator('td').nth(2).locator('span');
+assert.match(await partialCell.textContent(),/≥ 88,029/);
+assert.match(await partialCell.getAttribute('title'),/4 条用量记录未提供此项完整值/);
+const openCodePies=await page.locator('[data-panel-group="overviewToday"] .pie').evaluateAll(async elements=>{
+  const echarts=await import(window.chartModuleUrl);return elements.flatMap(el=>echarts.getInstanceByDom(el).getOption().series[0].data);
+});
+assert.ok(openCodePies.some(r=>r.name==='opencode'&&r.value===180331),'today Agent share includes partial OpenCode usage');
+assert.ok(openCodePies.some(r=>r.name==='kimi-for-coding'&&r.value===93211),'today model share includes all known buckets');
+assert.deepEqual((await getChartOptions('[data-panel-group="overviewToday"] .hourly')).series[1].data,[180331]);
+await page.locator('[data-panel-group="overviewToday"]').filter({has:page.locator('.hourly')}).getByRole('button',{name:'按Agent',exact:true}).click();await page.clock.runFor(300);
+assert.deepEqual((await getChartOptions('[data-panel-group="overviewToday"] .hourly')).series[0].data,[180331]);
+await page.screenshot({path:out+'opencode-today.png',fullPage:true});
+await page.getByRole('navigation').first().getByRole('button',{name:'趋势',exact:true}).click();await page.clock.runFor(500);
+await page.locator('.filters select').first().selectOption('today');await page.clock.runFor(500);
+const openCodeTrend=page.locator('[data-panel-group="trendMain"]').filter({has:page.locator('.token-chart')});
+assert.deepEqual((await getChartOptions('[data-panel-group="trendMain"] .token-chart')).series[0].data,[180331],'ungrouped trend totals include known OpenCode components');
+await openCodeTrend.getByRole('button',{name:'按Agent',exact:true}).click();await page.clock.runFor(300);
+assert.deepEqual((await getChartOptions('[data-panel-group="trendMain"] .token-chart')).series[0].data,[180331]);
+assert.doesNotMatch(await page.locator('main').textContent(),/未知字段/);
+await page.screenshot({path:out+'opencode-trend.png',fullPage:true});
+await page.setViewportSize({width:390,height:844});await page.clock.runFor(100);
+assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'partial usage fits the narrow layout');
+await page.screenshot({path:out+'opencode-trend-narrow.png',fullPage:true});
+const preciseTokens=await page.evaluate(async()=>{
+  const {fmtNumber,fmtPrecise}=await import('/src/lib/i18n.svelte.ts');
+  return [fmtNumber('9007199254740993'),fmtPrecise('9007199254740993'),fmtNumber('0'),fmtNumber(null)];
+});
+assert.deepEqual(preciseTokens,['9,007,199,254,740,993','9,007,199,254,740,993','0','—'],'table and tooltip formatting preserves exact decimal integers');
 assert.deepEqual(errors,[]);
 await writeFile(out+'browser-results.json',JSON.stringify({errors,requests:await page.evaluate(()=>window.appCalls.length),checks:['update settings save and defaults','manual update check and package labels','global cross-page download progress and cancellation','automatic download requires explicit installation','update failure and saved helper failure notices','five pages','hourly tokens across three dimensions and single-hour views','concise token tooltip with one lower-bound note','compact multi-currency summary and panel','expanded narrow price details without overflow','full-year light/dark heatmap','year navigation and leap days','future/retained dates','Copilot input with unknown cache split','Copilot unknown total hover and zero output','async telemetry discovery','compact overview with two actions','details navigation and focus','batch partial failure and retry','existing/managed outputs preserved','cross-page progress and undo','installed Agents only','merge configuration preview/apply/undo','ten locale switches','narrow telemetry layout in Chinese/German/Russian','default panel order','source health and compatibility','statistics timezone','initial/idle query counts','stale filter responses','user isolation','source membership without revision','refresh preserves pagination','retention clamps pagination']},null,2));
 console.log('Browser checks passed: update settings/progress/cancellation/explicit install/errors, hourly tokens in all three grouped dimensions and single-hour views, concise token tooltips, compact multi-currency reference cards/panels and expanded narrow details, total-only series, partial share pies, telemetry batch setup/retry/undo, ten locales, themes, timezone, filters and pagination.');

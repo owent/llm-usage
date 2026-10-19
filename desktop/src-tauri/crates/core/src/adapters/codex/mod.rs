@@ -114,6 +114,15 @@ impl crate::adapters::framework::SourceAdapter for CodexAdapter {
         versions::dispatch_scan(target, stored, limits, now_ms)
     }
 
+    fn has_validated_usage(&self, outcome: &crate::adapters::framework::ScanOutcome) -> bool {
+        !outcome.events.is_empty()
+            || outcome
+                .parse_context
+                .as_ref()
+                .and_then(|value| value["inherited_carries"].as_array())
+                .is_some_and(|v| !v.is_empty())
+    }
+
     fn capability(&self) -> crate::adapters::framework::CapabilityTable {
         use crate::adapters::framework::{Availability, CapabilityTable};
         let mut fields = serde_json::Map::new();
@@ -190,7 +199,7 @@ impl crate::adapters::framework::SourceAdapter for CodexAdapter {
                 "version_field": "payload.cli_version",
                 "registry": "adapters/codex/versions 注册表分派",
                 "fail_closed": true,
-                "unknown_version": "未收录/缺失版本先尝试最新内置解析器（latest_fallback），通过校验的数据带兼容标记统计；有证据不兼容才拒绝",
+                "unknown_version": "未收录/缺失版本先尝试最新内置解析器（latest_fallback），保留内部版本依据；预期结构完整且有效时不显示兼容警告，真实错误仍提示",
             }),
             fields,
             lifecycle: serde_json::json!({
@@ -200,6 +209,7 @@ impl crate::adapters::framework::SourceAdapter for CodexAdapter {
                 "aborted": "turn_aborted 已观测；已返回部分按 token_count 回声记账",
                 "retries": "格式内未观测到 transport 重试记录",
                 "subagent": "session_meta.parent_thread_id 存在 ⇒ sub_agent；子 Agent 是独立 rollout 文件",
+                "inherited_compaction": "compacted 携带的 thread_id 不属于当前线程时不是新调用；仅完整旧摘要与原始所属线程的相同用量匹配时修正历史归属，保留观测时间、真实冲突及诊断",
             }),
             incremental: serde_json::json!({
                 "cursor": "文件身份 + generation + 完整行字节偏移 + 解析上下文",

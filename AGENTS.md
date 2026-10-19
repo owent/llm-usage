@@ -21,6 +21,17 @@ Database-wide app_version does not identify historical record versions; retain e
 cold archives. Empty sessions do not verify a usage format. Compatibility reading is checked
 automatically, and support updates trigger reevaluation.
 
+Valid reads with a complete expected structure need no compatibility warning solely for an unlisted
+version. Retain internal version/parser references and real field/coverage errors. Missing source paths
+do not establish deletion by an Agent and do not erase collected history; rescans cannot restore missing originals.
+OpenCode v2 follows the independent [projection rules](docs/design/desktop-usage/opencode-runtime.md).
+Trace raw usage through event metadata and persistence. Missing input detail must not invalidate
+recoverable output; zero visible output cannot establish an inclusive output total. Preserve
+default-zero uncertainty and compare complete old summaries when correcting output coverage.
+Codex foreign-thread compaction usage is inherited context. Correct old ownership only with the complete
+old summary and matching native owner evidence; preserve first observation, real conflicts and diagnostics.
+See the [0.3.3 repair record](docs/validation/desktop-usage/release-033.md).
+
 Verify OpenCode versions against the session owning each step-finish. Upgrading old processing positions
 must cover pagination within the same millisecond and complete old summaries. Mark rules updated only
 after a complete valid scan. Qwen 0.25.0 SDK files contain consecutive multiline JSON objects; resume
@@ -187,7 +198,10 @@ content only. Revocation also reevaluates missing items and confirms deletion; e
 Preserve first failures in parallel/cross-process tests; later passes do not replace cause verification.
 
 For status notices, model cost details, trend layout or selection queries, read the
-[dashboard interaction specification](docs/design/desktop-usage/dashboard-polish.md). For daily query performance
+[dashboard interaction specification](docs/design/desktop-usage/dashboard-polish.md).
+Display known token bounds when complete totals are missing; never add overlapping totals and buckets.
+Keep coverage in metric tooltips and carry the same components through summary/hourly/grouped queries.
+For daily query performance
 or derived caches, read [query acceleration](docs/design/desktop-usage/query-acceleration.md). Verify old
 writer invalidation, rollback, unknown values, DST, overflow and identity cleanup after retention/clearing.
 

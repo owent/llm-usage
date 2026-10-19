@@ -13,6 +13,7 @@
 //! - Detection rejects verified incompatible shapes: missing tables/key columns or only the new
 //!   core derived-view format; they do not enter compatibility fallback.
 
+pub mod session_messages_v2;
 pub mod step_finish_parts_v1;
 
 /// This constant selects the latest built-in implementation without network access.

@@ -130,7 +130,8 @@ explicitly chooses latest, meaning a shipped implementation, never a downloaded 
 Allow additional nonessential fields while validating required structure, types/units, token
 relationships, identities and cumulative/per-call meanings. Missing optional values stay
 unknown. Never fill zeros or guess units to pass validation. Import valid records into normal
-statistics with “latest parser; version compatibility unverified” markers. Retain independently
+statistics with internal parser/version references. When the expected structure is complete and
+reads normally, do not show a compatibility warning solely for an unlisted version. Retain independently
 valid partial records and return coverage limits instead of excluding an entire unknown release.
 Skipping unexplained records cannot establish complete success; stop calculations depending
 on affected baselines/call associations. Source health follows actual parsing: normal when

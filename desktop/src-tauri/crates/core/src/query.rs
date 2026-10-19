@@ -1291,6 +1291,7 @@ pub fn agent_breakdown(
 /// Both occurrences of a repeated DST hour share the displayed local-hour label.
 #[derive(Debug, Clone, Default)]
 pub struct HourBucket {
+    pub sums: MetricSums,
     pub hour: u32,
     pub event_count: i64,
     pub call_count: i64,
@@ -1339,6 +1340,7 @@ pub fn hourly_breakdown(
             total_tokens_known: p.sums.total_tokens_known,
             session_count: p.distinct_sessions,
             avg_duration_ms: p.sums.avg_duration_ms,
+            sums: p.sums,
         })
         .collect())
 }
@@ -1769,6 +1771,7 @@ pub struct ChartSeriesRow {
     pub cache_ratio: Option<f64>,
     pub output_total: Option<i64>,
     pub total_tokens: Option<i64>,
+    pub sums: MetricSums,
 }
 
 /// Query grouped time series using the same retained partitions as query_summary.
@@ -1825,6 +1828,7 @@ pub fn chart_series(
             uncached: sums.uncached_known,
             cache_ratio: sums.cache_input_ratio().map(|r| r.as_f64()),
             total_tokens: sums.total_tokens_known,
+            sums,
         })
         .collect())
 }

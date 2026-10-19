@@ -32,7 +32,8 @@ Zed 外部 Provider 实样见 [本轮记录](../../validation/desktop-usage/plan
 并展示 token、缓存读、缓存写、逐次请求、模型、时间、费用、延迟分别是否可用。
 来源“有文件”与格式“支持”必须分开；无法读取时不得生成全零记录。
 未知或缺失版本默认按 [最新解析器兼容策略](architecture.md#unknown-version) 尝试读取。
-成功解析的数据可正常统计，并单独展示未验证兼容状态、所用解析器及覆盖缺口；
+成功解析的数据可正常统计，内部保留兼容状态与解析器依据，并展示真实覆盖缺口；
+预期结构完整且有效时，无须显示兼容警告。
 不能仅因版本未收录就设为 unsupported_format，也不能把兼容尝试成功写成逐版本验证通过。
 
 Codex 精确注册表现有 26 个旧格式和 11 个新格式版本。0.3.2 补充四个独立核对的
@@ -65,7 +66,7 @@ Codex 精确注册表现有 26 个旧格式和 11 个新格式版本。0.3.2 补
 | MiMo Code | 官方 0.1.15 CLI/续会话八条 step-finish 与 API 已逐条核对，Windows/Linux 原始 SQLite/WAL 新包升级通过 | 自身 SDK 归一 input/output 与缓存/推理反变换；零缓存/推理/费用未知，不叠加 message 副本；所属会话版本逐记录 latest_fallback；MIMOCODE_HOME/data 与 MIMOCODE_DB 优先级独立核验；八次 length 不能核验任务成功 | M3 当前主循环完成；其他版本/协议/非截断任务另验，[规则](m3-runtime-samples.md)，A14 |
 | oh-my-pi | 官方 session 文档确认 ~/.omp/agent/sessions/...jsonl，assistant usage 与模型/provider | 本机 18.2.7 已取 3 个脱敏测试文件（2026-09-25，[M2-B/C 恢复记录](../../validation/desktop-usage/m2bc-resumed.md)）：assistant 全带 usage + duration/ttft 浮点毫秒；model_change 写入文件为 `model`="provider/model" 组合字段（非 pi 分字段）；子 Agent 文件在 `<ts>_<父UUID>/` 目录按路径形状归父；~/.omp/logs 仅上下文估算 debug 行、无逐次用量，title-generator 尚无重叠依据；compaction/branch_summary 本机均无 usage（辅助记录规则已实现，待真实样本） | M2；本地候选，A15 |
 | pi | 固定源码 Usage 含 input/output/cacheRead/cacheWrite/reasoning；session 有 message、独立 usage、compaction/branch summary usage | 推理已含于 output；仅 assistant message 会漏辅助用量；分支继承不代表新调用；目录由该版本配置函数解析；本机 0.87.1 已取真实测试文件 并通过重复读取核对（2026-09-25，[M2-B/C 恢复记录](../../validation/desktop-usage/m2bc-resumed.md)）；fork 复制条目带 fork 会话身份，冲突处理为 conflict 保留先扫者，净效果不双计 | M2；本地候选，A16 |
-| OpenCode | 适配器已实现；1.18.34（固定源码 aec0b9a6）在独立 Podman 真实主循环及缓存读与 API/CLI/原生库/应用一致，重扫不新增用量；1.18.34 已逐记录核验，混合版本与旧处理位置升级回归通过 | part 的 input 为未缓存桶；session.tokens_* 仅对账、message 聚合不叠加；默认标题另有 549 token API 调用，未进入主循环 part/累计，matched 不证明全覆盖；明确标题对照 1 次/299 token。一条真实会话不能确认同库其他版本、空会话或旧游标的格式 | M3 主循环真实兼容验收；其他版本/云端/未写入文件标题记录另验；[容器记录](../../validation/desktop-usage/container-sources.md)，A17 |
+| OpenCode | v1 part 与 v2 session_message 独立读取器。1.18.34 隔离主循环/缓存样本与 API/CLI/原生库/应用一致。2.0.32 Windows 原生投影：7 条完成 assistant，已独立核对、重复读取并恢复旧的未识别登记 | v2 input 是未缓存桶，默认零 token/费用未知；compaction 为观测，排除分支继承历史，不叠加会话/事件表。两套非空布局仍属于未核验重叠；v1 默认标题 API 的 549 token 缺口保留 | v1 真实主循环验收；v2 仅原生存储，Provider/API 与真实分支/压缩另验。[规则](opencode-runtime.md)、[0.3.3 记录](../../validation/desktop-usage/release-033.md)、[v1 容器记录](../../validation/desktop-usage/container-sources.md)，A17 |
 | Qwen Code | recording service 记录 usageMetadata/model；0.25.0 独立 Podman 真实主循环与 CLI/模型服务/SQLite 一致、重扫不新增用量；真实 file 导出已核对主循环与后台两条 API 日志/LLM span，含后台缓存读 | 默认自动记忆调用未进入会话逐次记录，不从累计量补造事件；file 为连续多行 SDK JSON，须使用独立读取器，不能作为通用 OTel JSONL；2026-10-06 已实施按已核验主机/用户/会话/本地日选择 SDK、保留原生历史并排除封存重叠；Goal 不叠加，活动/归档按 uuid 去重；未知本地模型名不套价；云端、其他版本/主循环缓存命中待验 | M2 主循环真实验收，M5 0.25.0 SDK 读取与范围选择已实施；[容器记录](../../validation/desktop-usage/container-sources.md)、[数据规则](data-contract.md)，A18 |
 | Zoo Code | 官方 VSIX 3.86.0 在独立 VS Code GUI/公开 API 调用本地模型，原生数组/回调/API 与 Windows/Linux 新包回读一致 | 完整 ask/say 枚举；正 tokensIn 含缓存，默认零桶/费用未知；缓存未齐不派生未缓存；模型/客户端版本不从全局配置补造；旧 finished LIFO/condense 文档路径保留；真实任务主动取消，不声明完成 | M3 当前扩展主调用完成；CLI/删除/压缩/其他版本另验，JetBrains 变体 F1，[规则](m3-runtime-samples.md)，A19 |
 | TRAE / TraeCode 及插件 | 后续探测本地 IDE/CLI 日志、会话库、插件数据和本机会话导出 | A20 企业 API/控制台报表不纳入；2026-09-29 复核：tokscale 的 TRAE 路线源自其远端 usage API 写入文件缓存（dollar_float/extra_info 形态），同样不符合本机来源边界；本地逐次格式仍缺少可核验的资料，整个产品家族继续后移 | F1；后续支持，A20 为范围排除依据 |

@@ -1,0 +1,229 @@
+{
+  "provenance": {
+    "platform": "Windows 11 x64",
+    "extracted": "2026-10-19",
+    "scope": "Local native assistant projection only; no Provider/API acceptance. Identity aliases replace original IDs. Bodies and paths omitted."
+  },
+  "sessions": [
+    {
+      "id": "session-1",
+      "version": "2.0.32"
+    },
+    {
+      "id": "session-2",
+      "version": "2.0.32"
+    }
+  ],
+  "messages": [
+    {
+      "id": "message-1",
+      "session_id": "session-2",
+      "type": "assistant",
+      "seq": 6,
+      "time_created": 1792381872091,
+      "time_updated": 1792381874183,
+      "data": {
+        "time": {
+          "created": 1792381872091,
+          "streamed": 1792381874181,
+          "completed": 1792381874182
+        },
+        "model": {
+          "id": "deepseek-v4.1-flash-free",
+          "providerID": "opencode",
+          "variant": "default"
+        },
+        "tokens": {
+          "input": 3466,
+          "output": 17,
+          "reasoning": 0,
+          "cache": {
+            "read": 1792,
+            "write": 0
+          }
+        },
+        "cost": 0
+      }
+    },
+    {
+      "id": "message-2",
+      "session_id": "session-1",
+      "type": "assistant",
+      "seq": 6,
+      "time_created": 1792393219190,
+      "time_updated": 1792393275984,
+      "data": {
+        "time": {
+          "created": 1792393219190,
+          "streamed": 1792393254976,
+          "completed": 1792393275983
+        },
+        "model": {
+          "id": "kimi-for-coding",
+          "providerID": "kimi-code-plan-cn",
+          "variant": "max"
+        },
+        "tokens": {
+          "input": 1855,
+          "output": 158,
+          "reasoning": 1811,
+          "cache": {
+            "read": 4352,
+            "write": 0
+          }
+        },
+        "cost": 0
+      }
+    },
+    {
+      "id": "message-3",
+      "session_id": "session-1",
+      "type": "assistant",
+      "seq": 28,
+      "time_created": 1792393276008,
+      "time_updated": 1792393295987,
+      "data": {
+        "time": {
+          "created": 1792393276008,
+          "streamed": 1792393294519,
+          "completed": 1792393295986
+        },
+        "model": {
+          "id": "kimi-for-coding",
+          "providerID": "kimi-code-plan-cn",
+          "variant": "max"
+        },
+        "tokens": {
+          "input": 12667,
+          "output": 168,
+          "reasoning": 478,
+          "cache": {
+            "read": 6144,
+            "write": 0
+          }
+        },
+        "cost": 0
+      }
+    },
+    {
+      "id": "message-4",
+      "session_id": "session-1",
+      "type": "assistant",
+      "seq": 47,
+      "time_created": 1792393295999,
+      "time_updated": 1792393333018,
+      "data": {
+        "time": {
+          "created": 1792393295999,
+          "streamed": 1792393332810,
+          "completed": 1792393333017
+        },
+        "model": {
+          "id": "kimi-for-coding",
+          "providerID": "kimi-code-plan-cn",
+          "variant": "max"
+        },
+        "tokens": {
+          "input": 9447,
+          "output": 75,
+          "reasoning": 1319,
+          "cache": {
+            "read": 18688,
+            "write": 0
+          }
+        },
+        "cost": 0
+      }
+    },
+    {
+      "id": "message-5",
+      "session_id": "session-1",
+      "type": "assistant",
+      "seq": 58,
+      "time_created": 1792393333030,
+      "time_updated": 1792393363726,
+      "data": {
+        "time": {
+          "created": 1792393333030,
+          "streamed": 1792393363724,
+          "completed": 1792393363725
+        },
+        "model": {
+          "id": "kimi-for-coding",
+          "providerID": "kimi-code-plan-cn",
+          "variant": "max"
+        },
+        "tokens": {
+          "input": 6972,
+          "output": 592,
+          "reasoning": 581,
+          "cache": {
+            "read": 27904,
+            "write": 0
+          }
+        },
+        "cost": 0
+      }
+    },
+    {
+      "id": "message-6",
+      "session_id": "session-1",
+      "type": "assistant",
+      "seq": 71,
+      "time_created": 1792393781535,
+      "time_updated": 1792393807030,
+      "data": {
+        "time": {
+          "created": 1792393781535,
+          "streamed": 1792393805898,
+          "completed": 1792393807029
+        },
+        "model": {
+          "id": "glm-5.3-flash",
+          "providerID": "zhipuai-coding-plan",
+          "variant": "max"
+        },
+        "tokens": {
+          "input": 34758,
+          "output": 98,
+          "reasoning": 778,
+          "cache": {
+            "read": 0,
+            "write": 0
+          }
+        },
+        "cost": 0
+      }
+    },
+    {
+      "id": "message-7",
+      "session_id": "session-1",
+      "type": "assistant",
+      "seq": 90,
+      "time_created": 1792393807043,
+      "time_updated": 1792393851592,
+      "data": {
+        "time": {
+          "created": 1792393807043,
+          "streamed": 1792393851591,
+          "completed": 1792393851592
+        },
+        "model": {
+          "id": "glm-5.3-flash",
+          "providerID": "zhipuai-coding-plan",
+          "variant": "max"
+        },
+        "tokens": {
+          "input": 9646,
+          "output": 827,
+          "reasoning": 986,
+          "cache": {
+            "read": 34752,
+            "write": 0
+          }
+        },
+        "cost": 0
+      }
+    }
+  ]
+}

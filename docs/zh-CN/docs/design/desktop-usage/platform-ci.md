@@ -85,7 +85,10 @@ Windows 原生凭据在本机显式执行，默认忽略项不能当作系统存
 仅 tag push 的发行作业在公共检查和全部平台构建成功后，通过 GitHub 短期 token
 取得 contents: write 权限；不在特权 pull_request_target 中执行 PR 代码。
 CI artifact 与 GitHub Release 分开。tag push 按 tag_name 创建或更新同一个草稿，覆盖
-名称、正文和目标提交；同一 tag 的发布串行执行。更新前核对远端 tag 的当前提交，
+名称、正文和目标提交。Release 正文使用 annotated tag 的完整 message，保留 Markdown
+和换行，不追加自动生成的模板文字。轻量 tag 或空 message 会阻止发布。嵌套 tag 使用
+最外层注释，所有 tag 都必须解析到本次构建的提交。上传后也核对正文；重新运行时
+按当前 tag message 更新正文。同一 tag 的发布串行执行。更新前核对远端 tag 的当前提交，
 防止旧构建覆盖重建的 tag；查找草稿时读取全部 Release 分页。
 [上传 Action](https://github.com/xresloader/upload-to-github-release) 使用明确的 release ID
 和 overwrite: true 替换同名附件，重复运行覆盖同一草稿的元数据和附件。

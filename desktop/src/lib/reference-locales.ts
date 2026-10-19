@@ -49,8 +49,41 @@ const compatibilityHints:Record<string,string>={
   'pt-BR':'O uso reconhecido foi verificado automaticamente. A versão não foi validada; atualizações de suporte farão nova verificação.',
   ru:'Распознанные данные проверены автоматически. Версия не подтверждена; после обновления поддержки проверка повторится.',
 };
+const missingFileMessages:Record<string,[string,string]>={
+  'zh-CN':['源文件已被清理或归档 {count} 个','先前采集的源文件已不在原路径，可能被移动、删除或由 Agent 清理。已采集历史仍按保留设置保存；缺失文件无法重新采集，清空数据前请保留备份。'],
+  en:['{count} source files cleaned up or archived','Previously collected files no longer exist at their recorded paths. They may have been moved, deleted or cleaned up by the Agent. Collected history follows your retention settings. Missing files cannot be collected again; keep a backup before clearing data.'],
+  'zh-TW':['來源檔案已清理或封存 {count} 個','先前收集的檔案已不在原路徑，可能被移動、刪除或由 Agent 清理。已收集的歷史用量仍依保留設定儲存；不存在的檔案無法重新收集，清空資料前請保留備份。'],
+  ja:['整理またはアーカイブされたソースファイル：{count} 件','以前収集したファイルが元の場所にありません。移動、削除、Agent による整理などが考えられます。収集済みの履歴は保持設定に従って保存されます。見つからないファイルは再収集できないため、データ消去前にバックアップを保管してください。'],
+  ko:['정리 또는 보관된 원본 파일 {count}개','이전에 수집한 파일이 원래 경로에 없습니다. 이동, 삭제 또는 Agent의 정리 때문일 수 있습니다. 수집된 기록은 보존 설정에 따라 유지됩니다. 없는 파일은 다시 수집할 수 없으므로 데이터를 지우기 전에 백업을 보관하세요.'],
+  es:['{count} archivos de origen limpiados o archivados','Los archivos recopilados ya no están en sus rutas originales. Pueden haberse movido, eliminado o limpiado por el Agent. El historial recopilado se conserva según tus ajustes. Los archivos ausentes no se pueden recopilar de nuevo; guarda una copia antes de borrar los datos.'],
+  fr:['{count} fichiers source nettoyés ou archivés','Les fichiers collectés ne sont plus à leur emplacement enregistré. Ils peuvent avoir été déplacés, supprimés ou nettoyés par l’Agent. L’historique suit vos paramètres de conservation. Les fichiers absents ne peuvent pas être collectés à nouveau ; gardez une sauvegarde avant d’effacer les données.'],
+  de:['{count} Quelldateien bereinigt oder archiviert','Bereits erfasste Dateien fehlen am gespeicherten Pfad. Sie wurden möglicherweise verschoben, gelöscht oder vom Agent bereinigt. Der erfasste Verlauf bleibt gemäß Ihren Aufbewahrungseinstellungen erhalten. Fehlende Dateien können nicht erneut erfasst werden; bewahren Sie vor dem Löschen der Daten eine Sicherung auf.'],
+  'pt-BR':['{count} arquivos de origem removidos ou arquivados','Os arquivos coletados não estão mais nos caminhos registrados. Podem ter sido movidos, excluídos ou removidos pelo Agent. O histórico segue suas configurações de retenção. Arquivos ausentes não podem ser coletados novamente; guarde um backup antes de limpar os dados.'],
+  ru:['Исходные файлы очищены или архивированы: {count}','Ранее собранные файлы отсутствуют по сохранённым путям. Их могли переместить, удалить или очистить средствами Agent. Собранная история хранится согласно настройкам. Отсутствующие файлы нельзя собрать повторно; сохраните резервную копию перед очисткой данных.'],
+};
 for(const [locale,catalog] of Object.entries(referenceCatalogs)) {
   catalog['sources.compatHint']=compatibilityHints[locale];
+  if(missingFileMessages[locale]) {
+    catalog['sources.missingFiles']=missingFileMessages[locale][0];
+    catalog['sources.missingFiles.hint']=missingFileMessages[locale][1];
+  }
+}
+
+const knownUsageKeys=['tokens.knownBoundHint','tokens.missingRecords','tokens.partialShareHint'];
+const knownUsagePhrases:Record<string,string[]>={
+  'zh-CN':['≥ 表示至少已记录这些用量；缺失分项仍未知，不补零。','{count} 条用量记录未提供此项完整值。','占比按已知用量计算；≥ 为下界，完整占比未知。'],
+  'zh-TW':['≥ 表示至少已記錄這些用量；缺失分項仍未知，不補零。','{count} 筆用量記錄未提供此項完整值。','占比按已知用量計算；≥ 為下界，完整占比未知。'],
+  en:['≥ means at least this usage was recorded; missing components remain unknown.','{count} usage records lack a complete value for this metric.','Shares use known usage; ≥ marks a lower bound. Complete shares are unknown.'],
+  ja:['≥ は記録済み使用量の下限です。未取得の内訳は不明のままです。','{count} 件の使用記録でこの項目の完全な値がありません。','割合は既知の使用量に基づきます。≥ は下限で、完全な割合は不明です。'],
+  ko:['≥는 기록된 사용량의 하한입니다. 누락된 항목은 알 수 없는 상태로 유지됩니다.','사용 기록 {count}개에 이 항목의 전체 값이 없습니다.','비율은 알려진 사용량 기준입니다. ≥는 하한이며 전체 비율은 알 수 없습니다.'],
+  es:['≥ indica el uso mínimo registrado; los componentes ausentes siguen siendo desconocidos.','{count} registros de uso no tienen un valor completo para esta métrica.','Proporciones sobre el uso conocido; ≥ indica un límite inferior. Las proporciones completas son desconocidas.'],
+  fr:['≥ indique le minimum enregistré ; les composantes absentes restent inconnues.','{count} relevés ne fournissent pas de valeur complète pour cette mesure.','Parts calculées sur l’usage connu ; ≥ indique une borne inférieure. Les parts complètes sont inconnues.'],
+  de:['≥ bezeichnet mindestens die erfasste Nutzung; fehlende Bestandteile bleiben unbekannt.','{count} Nutzungsdatensätze enthalten keinen vollständigen Wert für diese Kennzahl.','Anteile basieren auf bekannter Nutzung; ≥ markiert eine Untergrenze. Vollständige Anteile sind unbekannt.'],
+  'pt-BR':['≥ indica o uso mínimo registrado; componentes ausentes continuam desconhecidos.','{count} registros de uso não têm um valor completo para esta métrica.','Proporções sobre o uso conhecido; ≥ indica um limite inferior. As proporções completas são desconhecidas.'],
+  ru:['≥ означает минимум учтённого использования; отсутствующие компоненты остаются неизвестными.','В {count} записях нет полного значения этого показателя.','Доли рассчитаны по известным данным; ≥ означает нижнюю границу. Полные доли неизвестны.'],
+};
+for(const [locale,catalog] of Object.entries(referenceCatalogs)) {
+  knownUsageKeys.forEach((key,index)=>catalog[key]=knownUsagePhrases[locale][index]);
 }
 
 const repairKeys=['sources.notFound','sources.otelHint','tokens.observedTotalHint'];

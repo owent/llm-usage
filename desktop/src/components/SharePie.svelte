@@ -15,7 +15,7 @@
     isDark = false,
     height = 280,
   }: {
-    data: { name: string; value: number | null; input?: number | null; output?: number | null }[];
+    data: { name: string; value: number | null; input?: number | null; output?: number | null; lower?: Record<'total'|'input'|'output',boolean> }[];
     /** Parent-provided dark theme; changes redraw legend text. */
     isDark?: boolean;
     /** Canvas height in pixels; no data collapses it to a thin strip. */
@@ -26,6 +26,7 @@
   const values = $derived(rawData.map((r) => ({ name: r.name, value: metric === 'total' ? r.value : r[metric] ?? null })));
   const data = $derived(mergeNamedValues(values.filter((r): r is {name: string; value: number} => r.value !== null && r.value > 0)));
   const missing = $derived(values.filter((r) => r.value === null).map((r) => r.name));
+  const lowerNames = $derived(new Set(rawData.filter(r=>r.lower?.[metric]).map(r=>r.name.toLowerCase())));
 
   let el: HTMLDivElement;
   let chart: echarts.ECharts | null = null;
@@ -57,7 +58,7 @@
         trigger: 'item',
         hideDelay: 0, transitionDuration: 0,
         formatter: (p: { name: string; value: number; percent: number }) =>
-          `${escapeHtml(p.name)}: ${fmtPrecise(p.value)} (${p.percent}%)`,
+          `${escapeHtml(p.name)}: ${lowerNames.has(p.name.toLowerCase())?'≥ ':''}${fmtPrecise(p.value)} (${p.percent}%)`,
       },
       legend: {
         type: 'scroll',
@@ -109,6 +110,7 @@
 
   $effect(() => {
     void data;
+    void lowerNames;
     void i18n.locale;
     void isDark;
     render();
@@ -123,6 +125,7 @@
   </div>
 {/if}
 {#if missing.length}<p class="muted">{t('dashboard.shareUnknown', {names: missing.join(', ')})}</p>{/if}
+{#if lowerNames.size}<p class="muted">{t('tokens.partialShareHint')}</p>{/if}
 {#if data.length === 0}
   <p class="muted">{t('common.empty')}</p>
 {/if}

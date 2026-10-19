@@ -277,23 +277,10 @@ jobs:
               }
               await fs.copyFile(reportPath, path.join(assets, `bundle-report-${platform}.json`));
             }
-            let { data: ref } = await github.rest.git.getRef({ ...context.repo, ref: `tags/${tag}` });
-            let object = ref.object;
-            while (object.type === 'tag') {
-              const { data } = await github.rest.git.getTag({ ...context.repo, tag_sha: object.sha });
-              object = data.object;
-            }
-            if (object.type !== 'commit' || object.sha !== context.sha) {
-              throw new Error('Tag changed while building; refusing to upload an older revision');
-            }
-            const body = `Automated draft for ${tag}.\n\nSource commit: ${context.sha}\n` +
-              `Build: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n\n` +
-              'Portable .tar.zst archives for Windows, Linux and macOS, each in x64 and arm64; Windows x64 NSIS is also included.\n' +
-              'Extract and run LLMUsage.exe (Windows), AppRun (Linux, no FUSE) or LLMUsage.app (macOS).\n' +
-              'Windows requires system WebView2; Linux uses an Ubuntu 22.04/glibc 2.35 baseline and a desktop display.\n' +
-              'The archives include runtime instructions; data and credentials retain their existing per-user storage.\n' +
-              'Platform bundle reports contain package sizes and SHA-256 digests.\n' +
-              'These CI packages do not establish signing, notarization or desktop installation acceptance.';
+            const { pathToFileURL } = require('node:url');
+            const { tagReleaseBody } = await import(pathToFileURL(path.resolve('desktop/scripts/release-notes.mjs')).href);
+            const body = await tagReleaseBody(github, context.repo, tag, context.sha);
+            await fs.writeFile('build/github-release/release-notes.md', body, 'utf8');
             const releases = await github.paginate(github.rest.repos.listReleases, { ...context.repo, per_page: 100 });
             const matches = releases.filter(release => release.tag_name === tag);
             if (matches.length > 1) throw new Error(`Multiple releases exist for ${tag}`);
@@ -322,8 +309,9 @@ jobs:
             const { createHash } = require('node:crypto');
             const release_id = Number(process.env.RELEASE_ID);
             const { data: release } = await github.rest.repos.getRelease({ ...context.repo, release_id });
+            const body = await fs.readFile('build/github-release/release-notes.md', 'utf8');
             if (!release.draft || release.tag_name !== context.ref.slice('refs/tags/'.length) ||
-                release.target_commitish !== context.sha) throw new Error('Release metadata mismatch');
+                release.target_commitish !== context.sha || release.body !== body) throw new Error('Release metadata mismatch');
             const assets = await github.paginate(github.rest.repos.listReleaseAssets, { ...context.repo, release_id, per_page: 100 });
             for (const name of await fs.readdir('build/github-release/assets')) {
               const data = await fs.readFile(`build/github-release/assets/${name}`);

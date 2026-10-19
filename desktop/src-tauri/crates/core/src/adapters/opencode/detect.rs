@@ -3,8 +3,7 @@
 //!
 //! Rules: architecture.md#unknown-version / adapters.md A17.
 //! - Missing part/session/message tables or key columns: unknown format, reject.
-//!   Also reject new-core session_message databases without part;
-//!   verify that format and implement separately; new core and old message layouts differ, A17.
+//!   V2 session_message uses a separate schema and implementation.
 //! - No usage parts: Pending, retry next run; empty sessions do not verify versions.
 //! - Validate each step-finish against its session.version; retain mixed-version compatibility flags.
 
@@ -38,6 +37,30 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
         Err(e) => return Err(e),
     };
     let conn = source.conn();
+    if versions::session_messages_v2::matches_schema(conn)? {
+        let has_v2: bool =
+            conn.query_row("SELECT EXISTS(SELECT 1 FROM session_message)", [], |r| {
+                r.get(0)
+            })?;
+        let has_v1 = schema_fingerprint(conn)?.is_some()
+            && conn.query_row("SELECT EXISTS(SELECT 1 FROM part)", [], |r| {
+                r.get::<_, bool>(0)
+            })?;
+        if has_v2 && has_v1 {
+            return Ok(DetectOutcome::UnknownFormat { reason:
+                "OpenCode has populated legacy and v2 projections; migration overlap is not verified".into() });
+        }
+        if !has_v2 && !has_v1 {
+            return Ok(DetectOutcome::Pending);
+        }
+        if has_v2 {
+            return Ok(DetectOutcome::Supported {
+                format: versions::session_messages_v2::FORMAT.into(),
+                format_version: None,
+                basis: crate::domain::VersionBasis::LatestFallback,
+            });
+        }
+    }
     match schema_fingerprint(conn) {
         Ok(None) => {
             let has_session_message: bool = conn

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import {tokenDisplay,formatTokenDisplay} from '../lib/derive';
   import type { MetricSumsDto, CostSummaryDto } from '../lib/api';
   import CostReferenceSummary from './CostReferenceSummary.svelte';
   import { t, fmtSmart, fmtPercent, fmtDurationShort } from '../lib/i18n.svelte';
@@ -26,15 +27,15 @@
       { key: 'overview.today.calls', value: fmtSmart(totals.call_count) },
       {
         key: 'overview.today.input',
-        value: fmtSmart(totals.input_total_known),
+        value: formatTokenDisplay(tokenDisplay(totals,'input'),fmtSmart),
         hint: t('cards.input.hint'),
         sub: t('overview.breakdown.input', {
           hit: fmtSmart(totals.cache_read_known),
           miss: fmtSmart(totals.uncached_known),
         }),
       },
-      { key: 'overview.today.output', value: fmtSmart(totals.output_total_known) },
-      { key: 'overview.today.total', value: fmtSmart(totals.total_tokens_known) },
+      { key: 'overview.today.output', value: formatTokenDisplay(tokenDisplay(totals,'output'),fmtSmart) },
+      { key: 'overview.today.total', value: formatTokenDisplay(tokenDisplay(totals,'total'),fmtSmart) },
       { key: 'overview.today.cacheRatio', value: fmtPercent(totals.cache_input_ratio) },
       { key: 'overview.today.sessions', value: fmtSmart(sessions) },
       { key: 'overview.today.avgDuration', value: fmtDurationShort(avgMs) },

@@ -281,6 +281,7 @@ export interface SummaryDto {
   models: { provider: string | null; model: string | null; sums: MetricSumsDto }[];
   agents: { agent: string; sums: MetricSumsDto }[];
   today_hourly: {
+    sums: MetricSumsDto;
     hour: number;
     calls: number;
     total_tokens: string | null;
@@ -469,6 +470,7 @@ export type ChartDimension = 'total' | 'model' | 'agent' | 'agent_model';
 
 /** Grouped time-series row; tokens are decimal strings or null for unknown. */
 export interface ChartSeriesRowDto {
+  sums: MetricSumsDto;
   cache_write: string | null;
   uncached: string | null;
   cache_ratio: number | null;

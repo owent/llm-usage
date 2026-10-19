@@ -7,9 +7,9 @@
   import { BrushComponent, GridComponent, LegendComponent, TooltipComponent } from 'echarts/components';
   import { SVGRenderer } from 'echarts/renderers';
   import { api, parseError } from '../lib/api';
-  import type { ChartDimension, SummaryQuery } from '../lib/api';
+  import type { ChartDimension, SummaryQuery, MetricSumsDto } from '../lib/api';
   import { t, i18n, fmtSmart, fmtPrecise } from '../lib/i18n.svelte';
-  import { pivotChartSeries, tokenTotalLabel, type ChartGroupData } from '../lib/derive';
+  import { pivotChartSeries, tokenDisplay, formatTokenDisplay, type ChartGroupData } from '../lib/derive';
   import DimensionPicker from './DimensionPicker.svelte';
 
   echarts.use([LineChart, GridComponent, LegendComponent, TooltipComponent, BrushComponent, SVGRenderer]);
@@ -22,6 +22,7 @@
     onrangechange,
   }: {
     hourly: {
+      sums: MetricSumsDto;
       hour: number;
       calls: number;
       total_tokens: string | null;
@@ -70,10 +71,10 @@
 
   const PALETTE = CHART_PALETTE;
 
-  /** Hours with data: call_count>0 or nonnull total_tokens; do not zero-fill absent hours. */
+  /** Keep hours with calls or known token components; absent hours remain gaps. */
   const activeHours = $derived(
     hourly
-      .filter((h) => h.calls > 0 || h.total_tokens !== null)
+      .filter((h) => h.calls > 0 || display(h,'total').value !== null)
       .slice()
       .sort((a, b) => a.hour - b.hour)
   );
@@ -103,6 +104,10 @@
     };
   });
 
+  function display(h: typeof hourly[number],metric: 'input'|'output'|'total') {
+    return tokenDisplay(h.sums??{input_total_known:h.input_total,output_total_known:h.output_total,total_tokens_known:h.total_tokens,cache_read_known:h.cache_read},metric);
+  }
+
   function renderTotal() {
     if (!chart) return;
     const rows = activeHours;
@@ -113,7 +118,7 @@
     }
     const labels = rows.map((h) => `${query.last_day} ${String(h.hour).padStart(2, '0')}:00`);
     const calls = rows.map((h) => h.calls);
-    const tokens = rows.map((h) => h.total_tokens === null ? null : Number(h.total_tokens));
+    const tokens = rows.map((h) => display(h,'total').value===null?null:Number(display(h,'total').value));
     applyOption(
       {
         tooltip: {
@@ -125,10 +130,10 @@
             return [
               `<b>${String(h.hour).padStart(2, '0')}:00</b>`,
               `${t('trend.calls')}: ${fmtPrecise(h.calls)}`,
-              `${t('cards.total')}: ${fmtPrecise(h.total_tokens)}`,
-              `${t('cards.input')}: ${fmtPrecise(h.input_total)}`,
+              `${t('cards.total')}: ${formatTokenDisplay(display(h,'total'),fmtPrecise)}`,
+              `${t('cards.input')}: ${formatTokenDisplay(display(h,'input'),fmtPrecise)}`,
               `${t('cards.cacheRead')}: ${fmtPrecise(h.cache_read)}`,
-              `${t('cards.output')}: ${fmtPrecise(h.output_total)}`,
+              `${t('cards.output')}: ${formatTokenDisplay(display(h,'output'),fmtPrecise)}`,
               `${t('trend.sessions')}: ${fmtPrecise(h.sessions)}`,
             ].join('<br/>');
           },
@@ -191,7 +196,7 @@
         showSymbol: true,
         connectNulls: false,
         itemStyle: { color },
-        data: g.labels.map((l) => g.cell(name, l)?.total ?? null),
+        data: g.labels.map((l) => g.cell(name,l)?.display.total.value==null?null:Number(g.cell(name,l)!.display.total.value)),
       });
     });
     applyOption(
@@ -208,7 +213,7 @@
             for (const name of g.names) {
               const cell = g.cell(name, label);
               if (!cell || selected[name] === false) continue;
-              const total=tokenTotalLabel(i18n.locale,cell.total,cell.input,cell.output);
+              const total=formatTokenDisplay(cell.display.total,fmtPrecise);
               hasLowerBound ||= total.startsWith('≥');
               lines.push(`${markers.get(name)??''}${escapeHtml(name)}: ${total}`);
             }
@@ -301,7 +306,7 @@
     <span class="dim-error">{t('chart.loadFailed', { message: groupedError })}</span>
   {/if}
 </div>
-{#if dimension!=='total'}<p class="coverage-hint" title={t('tokens.observedTotalHint')}>{t('tokens.lowerBound')}</p>{/if}
+<p class="coverage-hint" title={t('tokens.knownBoundHint')}>{t('tokens.lowerBound')}</p>
 {#if dimension === 'total' && activeHours.length === 0}
   <p class="muted">{t('common.empty')}</p>
 {/if}

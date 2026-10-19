@@ -262,6 +262,15 @@ pub trait SourceAdapter: Send + Sync {
     fn scan_format(&self, _outcome: &ScanOutcome) -> Option<DetectOutcome> {
         None
     }
+    /// A valid record in an earlier page can establish partial usability. An
+    /// adapter may also recognize verified non-counting native records explicitly.
+    fn has_validated_usage(&self, outcome: &ScanOutcome) -> bool {
+        !outcome.events.is_empty()
+            || outcome.aggregates.iter().any(|aggregate| {
+                aggregate.coverage == crate::aggregates::Coverage::Exclusive
+                    && aggregate.validate().is_ok()
+            })
+    }
     /// Structured capability declaration.
     fn capability(&self) -> CapabilityTable;
 
@@ -1755,11 +1764,7 @@ fn scan_one_file<S: StorageAccess>(
         });
         let fallback_failed = (stored.cursor.is_none() || target.rescan)
             && compat_basis == Some(crate::domain::VersionBasis::LatestFallback)
-            && outcome.events.is_empty()
-            && !outcome.aggregates.iter().any(|aggregate| {
-                aggregate.coverage == crate::aggregates::Coverage::Exclusive
-                    && aggregate.validate().is_ok()
-            })
+            && !adapter.has_validated_usage(&outcome)
             && outcome.records_seen > 0
             && !outcome.diagnostics.is_empty();
         batch.events.extend(outcome.events.iter().cloned());

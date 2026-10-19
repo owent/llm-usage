@@ -42,12 +42,24 @@ between polls still refreshes; do not revert prematurely to idle waiting.
 
 Today's hourly model, Agent and Agent-plus-model groups all plot token curves, including
 one-hour ranges with the same axis/curve logic. Do not switch to call counts or bars.
-Unknown totals remain gaps. Tooltip rows show only name/value (≥ for lower bounds, —
+Unknown totals with no known components remain gaps. Tooltip rows show only name/value (≥ for lower bounds, —
 for unknowns); explain lower bounds once. Full coverage explanations remain available
 on demand. Limit tooltip width and wrap long model names. Cost cards show compact
 amounts, with coverage counts in tooltips. The cost panel normally shows amounts, gap
 counts and curves, expanding explanations on demand so currencies/long text do not
 make it much taller than neighboring components.
+
+Version 0.3.3 also displays known token lower bounds in overview/trend cards, tables,
+curves and shares. Use the larger of known input totals and the sum of independent
+uncached/cache-read/cache-write components; for overall usage use the larger of known
+totals and known input plus output. Never add overlapping totals and components. These
+conservative aggregate bounds need no source rewrite and remain valid for retained archives.
+Preserve decimal-integer precision, reported zeros and wholly unknown values. Mark partial
+values with ≥, including mixed complete/partial groups; show coverage counts in the relevant
+cell's tooltip instead of ambiguous “unknown fields” rows. Judge output coverage from output
+itself: missing input or overall totals alone must not turn known inclusive output into a
+lower bound. Share percentages describe displayed known usage only.
+Grouped/hourly IPC must retain the same components and coverage counts as summary queries.
 
 Compact monetary rows, converted amounts and tier/substitute hints must fit their card
 at both four-column and eight-column breakpoints. Bound each child to its content width
