@@ -50,6 +50,19 @@ is open. Automatic downloads default off; manual checks are always available. Sa
 to apply them. The global notice and settings page show download progress, errors and cancellation.
 After a verified download, click **Install update** for NSIS or **Restart and update** for portable.
 
+System update notifications default on. A successful automatic or manual check that finds a
+new version sends a notification through Windows Notification Center, macOS Notification
+Center or the Linux desktop notification service, including while the app is in the tray.
+Each version is announced once for this application path and data directory, even after a
+restart. Turn off **Send a system notification when a new version is available** and save
+to disable these notifications. Allow LLM Usage notifications in your system settings;
+macOS may ask for permission on first use. Focus modes and desktop notification preferences
+control whether a banner appears. If a notification cannot be sent, the update remains
+available in the app. Each version has at most three notification attempts (the initial
+attempt plus two retries), at least one hour apart after a failure. Restarting, manual
+checks or toggling the switch cannot reset this limit; another version has its own limit.
+Notifications do not install updates.
+
 Updates keep the OS, architecture and package type. Windows installed copies receive an NSIS
 installer; portable copies receive the matching portable archive. Portable updates retain the
 existing executable path and a backup under `.llmusage-update/backup`, preserving unrelated
@@ -70,8 +83,8 @@ Keep a consistent database backup before an upgrade or rollback. SQLite migratio
 their backups are implemented by the backend; an older executable may not support a newer
 schema. Keep a backup compatible with the version you plan to run.
 
-Windows uninstall preserves usage and settings by default and removes startup entries and
-scheduled tasks created for that installation. Upgrading preserves enabled background
+Windows uninstall preserves usage and settings by default and removes startup entries,
+scheduled tasks and notification registration created for that installation. Upgrading preserves enabled background
 settings and updates the executable path. Uninstall does not restore unrelated
 IDE configuration or remove another installation's data.
 

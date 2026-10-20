@@ -22,6 +22,48 @@ The settings section is Software updates in English, `软件更新` in Simplifie
 Dismiss notification hides the current notice until its phase, version, package or error
 changes. Update controls remain available in Settings; dismissal does not schedule a reminder.
 
+### System notifications
+
+System notifications default on and have a separate saved switch in Software updates.
+After either a manual or automatic check validates a newer stable release, the GUI process
+submits a localized notification containing the application name and version. This also
+works while the Windows window is hidden in the tray. No notification is sent for a failed,
+cancelled, unchanged or older release, or by headless collection. Download and installation
+consent remain independent; a notification never starts installation.
+
+Store the highest successfully submitted version per executable and application database.
+Repeated checks and restarts do not repeat that version. Each version has at most three total
+submission attempts (the initial attempt plus two retries), persisted before calling the OS.
+Unsuccessful attempts have a one-hour retry interval, including manual checks. Restarting,
+toggling the notification switch, clock rollback and alternating release versions cannot
+reset a version's budget. Exhaustion stops notification submission for that version and shows
+a separate notice; a different version has its own budget. Legacy attempts with no count
+have an unknown retry history and conservatively exhaust that version's budget on migration.
+Do not mark a rejected submission as delivered. A crash between submission and saving success
+may consume an attempt and permit another only within the remaining budget. Concurrent checks
+serialize notification delivery without holding the statistics database lock during
+operating-system calls. Notification failure is
+shown separately from update failure and cannot prevent downloads or replace update status.
+
+Windows uses WinRT Toast notifications with a per-executable application ID and an owned
+current-user registration, so installed and portable copies have their own LLM Usage identity.
+Only that identity's registration is created or cleaned up; system notification preferences
+are never changed. The notification opens the official release page when clicked, without
+installing anything. macOS uses UserNotifications under the actual application bundle identity
+and requests normal system authorization when needed; a raw executable lacks that identity.
+Linux uses the session bus's `org.freedesktop.Notifications` service. Missing desktop services,
+denied permissions and operating-system failures retain the application notice. Focus modes
+and banner/history policies remain controlled by the operating system; API acceptance does
+not prove that the user saw a banner. Native submission runs outside the update worker so
+permission dialogs or a stalled desktop service do not block update checks and downloads.
+
+Verify persisted deduplication, new versions, disabled settings, old settings defaults,
+concurrent checks, capped failed/interrupted submissions across database reopen, version
+alternation, legacy history, storage errors, clock rollback and localization. Native
+Windows acceptance uses a unique owned test identity, reads back its notification history,
+and removes only that test notification and registration. Linux/macOS desktop acceptance is
+recorded independently from compilation and simulated delivery.
+
 ## Release and package identity
 
 The primary source is the public HTTPS GitHub Releases API for `owent/llm-usage`. Use the latest
@@ -162,3 +204,16 @@ Additional references checked on 2026-10-09:
   explicit workflow_dispatch can trigger a workflow with GITHUB_TOKEN.
 - [Workflow dispatch API](https://docs.github.com/en/rest/actions/workflows#create-a-workflow-dispatch-event):
   main ref selection and scoped Actions write permission.
+
+Notification references checked on 2026-10-20:
+
+- [Tauri notifications](https://v2.tauri.app/plugin/notification/):
+  Windows installed-app limitation.
+- [Microsoft Toolkit ToastNotifierCompat](https://github.com/CommunityToolkit/WindowsCommunityToolkit/blob/main/Microsoft.Toolkit.Uwp.Notifications/Toasts/Compat/ToastNotifierCompat.cs):
+  first Show precedes querying an unpackaged app's notification setting.
+- [Windows desktop notification options](https://learn.microsoft.com/cs-cz/windows/apps/design/shell/tiles-and-notifications/toast-desktop-apps):
+  protocol activation with a stub CLSID.
+- [mac-usernotifications](https://docs.rs/mac-usernotifications/0.3.1/mac_usernotifications/):
+  signed bundle identity, authorization and asynchronous delivery through UserNotifications.
+- [Desktop Notifications Specification](https://specifications.freedesktop.org/notification/latest/):
+  Linux session D-Bus delivery.

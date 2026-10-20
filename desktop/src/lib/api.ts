@@ -42,6 +42,7 @@ export interface AppSettings {
 export interface UpdateSettings {
   schedule: 'manual' | 'launch' | 'daily' | 'weekly';
   auto_download: boolean;
+  system_notifications: boolean;
 }
 
 export interface UpdateStatusDto {
@@ -55,6 +56,7 @@ export interface UpdateStatusDto {
   last_checked_ms: number | null;
   error: string | null;
   previous_error?: string | null;
+  notification_error?: string | null;
 }
 
 export interface BudgetSettings {

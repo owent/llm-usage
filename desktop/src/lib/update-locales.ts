@@ -23,7 +23,31 @@ const development: Record<string, [string, string]> = {
   'pt-BR': ['Modo de desenvolvimento', 'O modo de desenvolvimento permite verificar novas versões. Para baixar e instalar atualizações, use a versão oficial instalada ou portátil totalmente extraída.'],
   ru: ['Режим разработки', 'В режиме разработки можно проверять наличие новых версий. Для загрузки и установки обновлений используйте официальную установленную или полностью распакованную переносную версию.'],
 };
+const notifications: Record<string, [string, string, string]> = {
+  'zh-CN': ['发现新版本时发送系统通知', '保存后生效。同一版本仅提醒一次；请在系统设置中允许 LLM Usage 发送通知。', '系统通知未发送，请检查系统通知权限。仍可在此查看、下载和安装更新。'],
+  'zh-TW': ['發現新版本時傳送系統通知', '儲存後生效。同一版本僅提醒一次；請在系統設定中允許 LLM Usage 傳送通知。', '系統通知未傳送，請檢查系統通知權限。仍可在此查看、下載及安裝更新。'],
+  en: ['Send a system notification when a new version is available', 'Takes effect after saving. Each version is announced once. Allow notifications from LLM Usage in your system settings.', 'The system notification was not sent. Check your system notification permissions. You can still view, download and install updates here.'],
+  ja: ['新しいバージョンをシステム通知で知らせる', '保存後に反映されます。各バージョンにつき1回通知します。システム設定で LLM Usage の通知を許可してください。', 'システム通知を送信できませんでした。通知の権限を確認してください。ここで更新の確認、ダウンロード、インストールは引き続き行えます。'],
+  ko: ['새 버전이 있으면 시스템 알림 보내기', '저장 후 적용됩니다. 버전마다 한 번 알립니다. 시스템 설정에서 LLM Usage의 알림을 허용하세요.', '시스템 알림을 보내지 못했습니다. 시스템 알림 권한을 확인하세요. 여기에서 업데이트를 확인하고 다운로드 및 설치할 수 있습니다.'],
+  es: ['Enviar una notificación del sistema cuando haya una nueva versión', 'Se aplica al guardar. Cada versión se anuncia una vez. Permite las notificaciones de LLM Usage en los ajustes del sistema.', 'No se envió la notificación del sistema. Comprueba los permisos de notificación. Puedes seguir viendo, descargando e instalando actualizaciones aquí.'],
+  fr: ['Envoyer une notification système pour les nouvelles versions', 'Prend effet après l’enregistrement. Chaque version est annoncée une fois. Autorisez les notifications de LLM Usage dans les paramètres système.', 'La notification système n’a pas été envoyée. Vérifiez les autorisations de notification. Vous pouvez toujours consulter, télécharger et installer les mises à jour ici.'],
+  de: ['Bei einer neuen Version eine Systembenachrichtigung senden', 'Wird nach dem Speichern wirksam. Jede Version wird einmal angekündigt. Benachrichtigungen von LLM Usage in den Systemeinstellungen erlauben.', 'Die Systembenachrichtigung wurde nicht gesendet. Bitte die Benachrichtigungsberechtigungen prüfen. Updates können hier weiterhin angezeigt, heruntergeladen und installiert werden.'],
+  'pt-BR': ['Enviar uma notificação do sistema quando houver uma nova versão', 'Entra em vigor após salvar. Cada versão é anunciada uma vez. Permita notificações do LLM Usage nas configurações do sistema.', 'A notificação do sistema não foi enviada. Verifique as permissões de notificação. Você ainda pode ver, baixar e instalar atualizações aqui.'],
+  ru: ['Отправлять системное уведомление о новой версии', 'Применяется после сохранения. Каждая версия объявляется один раз. Разрешите уведомления LLM Usage в настройках системы.', 'Системное уведомление не отправлено. Проверьте разрешения на уведомления. Здесь по-прежнему можно посмотреть, загрузить и установить обновления.'],
+};
+const notificationLimits: Record<string, string> = {
+  'zh-CN': '当前版本的系统通知已停止重试。仍可在此查看、下载和安装更新。',
+  'zh-TW': '目前版本的系統通知已停止重試。仍可在此查看、下載及安裝更新。',
+  en: 'System notification retries have stopped for this version. You can still view, download and install the update here.',
+  ja: 'このバージョンのシステム通知の再試行は終了しました。ここで更新の確認、ダウンロード、インストールは引き続き行えます。',
+  ko: '이 버전의 시스템 알림 재시도를 중단했습니다. 여기에서 업데이트를 확인하고 다운로드 및 설치할 수 있습니다.',
+  es: 'Se han detenido los reintentos de notificación del sistema para esta versión. Puedes seguir viendo, descargando e instalando la actualización aquí.',
+  fr: 'Les nouvelles tentatives de notification système pour cette version ont cessé. Vous pouvez toujours consulter, télécharger et installer la mise à jour ici.',
+  de: 'Für diese Version werden keine weiteren Systembenachrichtigungen versucht. Das Update kann hier weiterhin angezeigt, heruntergeladen und installiert werden.',
+  'pt-BR': 'As tentativas de notificação do sistema para esta versão foram encerradas. Você ainda pode ver, baixar e instalar a atualização aqui.',
+  ru: 'Повторные попытки отправки системного уведомления для этой версии прекращены. Здесь по-прежнему можно посмотреть, загрузить и установить обновление.',
+};
 export const updateCatalogs = Object.fromEntries(Object.entries(phrases).map(([locale, values]) => {
   if (values.length !== keys.length) throw new Error(`Incomplete update translations: ${locale}`);
-  return [locale, {...Object.fromEntries(keys.map((key, index) => [`updates.${key}`, values[index]])), 'updates.kind.development': development[locale][0], 'updates.developmentHint': development[locale][1]}];
+  return [locale, {...Object.fromEntries(keys.map((key, index) => [`updates.${key}`, values[index]])), 'updates.kind.development': development[locale][0], 'updates.developmentHint': development[locale][1], 'updates.systemNotifications': notifications[locale][0], 'updates.notificationHint': notifications[locale][1], 'updates.notificationWarning': notifications[locale][2], 'updates.notificationLimit': notificationLimits[locale]}];
 })) as Record<string, Record<string, string>>;

@@ -22,6 +22,7 @@
     {#if status.package_kind === 'unknown'}<p>{t('updates.unknownHint')}</p>{/if}
     {#if status.package_kind === 'development'}<p>{t('updates.developmentHint')}</p>{/if}
     {#if status.asset_name}<p class="asset">{status.asset_name}</p>{/if}
+    {#if status.notification_error}<p role="status" data-testid="update-notification-warning">{t(status.notification_error === 'notification_attempt_limit' ? 'updates.notificationLimit' : 'updates.notificationWarning')}</p>{/if}
   {/if}
   {#if status?.error || updateState.error}
     <p class="error" role="alert">{t('updates.error', { message: updateState.error || status?.error || '' })}</p>

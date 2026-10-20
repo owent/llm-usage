@@ -180,3 +180,67 @@ selection and post-install registry/version checks do not establish real NSIS up
 Linux/macOS native update GUI execution, platform-specific permissions and relaunch remain
 separate acceptance. Six-layout packaging tests and retained CI definitions do not establish
 execution of this uncommitted source on remote runners. No signing credentials were added.
+
+## System update notifications (2026-10-20)
+
+Implemented on Windows 11 x64 with Node 24.22.0 and Rust 1.99.0, on base
+`94ef98594e4b29832429411b394265b8d415fdf8`. This is local, uncommitted feature validation.
+Task scripts, isolated temporary directories and logs are under `build/update-notifications/`.
+The notification contains only public release information; no Agent data is required.
+
+Successful automatic/manual checks enqueue native notifications outside the update worker.
+The saved switch defaults on, including old settings. SQLite records successful versions
+and attempts separately; the same or an older version cannot repeat a successful notice
+after restart, and failed attempts have a one-hour cooldown. Checks, downloads and the
+in-app notice continue independently of notification errors. Ten interface languages are
+covered. Headless collection has no notification entry point.
+
+| Check | Result and scope |
+| --- | --- |
+| `npm run verify` | Exit 0: 1,073 Rust tests passed, nine native/platform cases ignored; 24 frontend and 20 script tests passed, clean Svelte/fmt/clippy and frontend build |
+| Focused `update_notifications` Rust tests | Exit 0: six tests passed and the native notification test remained explicitly ignored; SQLite reopen/deduplication, rollback versions, cooldown, clock rollback, interrupted attempts, invalid versions, persistence failure, serialized queue, old settings and locale coverage |
+| `npm run test:browser` | Exit 0: simulated IPC verifies default-on/opt-out persistence, separate notification warning, usable download action and existing update interactions; ten-language narrow screenshots generated, with Simplified Chinese and English visually reviewed |
+| `cargo test --manifest-path desktop/src-tauri/Cargo.toml --locked -p llm-usage-desktop update_notifications::windows::tests::native_notification_center_roundtrip -- --exact --ignored --nocapture` | Exit 0 after the first-delivery correction below: real WinRT delivery and Notification Center history read-back, foreign-owner refusal, owned notification removal and registry cleanup |
+| `npm run check:docs`, `npm run test:docs`, `git diff --check` | Exit 0: 207 repository pairs/21 guide pairs, clean Astro diagnostics, 39 documentation tests and no whitespace errors |
+| WSL Debian extracted Linux notification function | Exit 0: the exact native function compiled with notify-rust 4.18.2/Tokio 1.53.2 and reported the deliberately missing session service; this projection uses its own probe lockfile, not the full application's locked build or desktop acceptance |
+
+The first Windows native run failed. Reading `ToastNotifier.Setting` before the first
+notification returned `0x80070490` (element not found). Inspection of Microsoft's Toolkit
+confirmed that an unpackaged identity is registered with the service on its first Show.
+The implementation permits only that specific pre-registration result, then checks the
+setting again after Show; permission blocks and other errors still fail. The following
+native run read the test notification from the actual Notification Center and reclaimed
+only its unique identity. The original failures remain in the task logs. The first Svelte
+check and documentation tests were also blocked by sandbox child-process restrictions;
+the same checks and complete verify gate passed in the normal local process environment.
+
+Windows delivery was verified through native history, not a visual assertion that a banner
+was seen or that a user clicked it. No existing notification preferences were changed.
+Native NSIS lifecycle/replacement and real public newer-release discovery were not repeated
+for this change. Linux lacks GTK/WebKit development packages in the available WSL environment;
+there is no Linux desktop notification acceptance. macOS uses the actual signed application
+bundle and UserNotifications authorization; its build, permission dialog and Notification
+Center delivery remain unverified on a macOS host.
+
+### Retry limit follow-up
+
+Each version now has at most three persisted submission attempts: one initial attempt and
+two retries. A failed attempt keeps its one-hour cooldown. Clock rollback does not bypass
+the cooldown, and restarting, manual checks, switching notifications off/on or alternating
+versions cannot reset an exhausted budget. A successful version still suppresses itself and
+older versions. Old uncounted attempts have unknown retry totals, so migration preserves
+their failure and conservatively stops retries for that version.
+
+The counter is saved before calling the OS. If a submission succeeds but saving its result
+fails, the persisted attempt still consumes the budget. The settings page shows a distinct
+localized notice when retries stop and continues to offer update downloads/installations.
+
+On the same Windows/Node/Rust environment, logs and independent temporary directories are
+under `build/update-notification-retry-limit/`. Focused `update_notifications` tests exited 0
+with nine passed and one native test ignored. New regression cases cover real SQLite reopen,
+version alternation, clock extremes, failed result persistence, legacy history and invalid
+counters. `npm run verify` exited 0 with 1,076 Rust tests passed/nine ignored, 24 frontend
+tests and 20 script tests, clean types/fmt/clippy and a frontend build.
+`npm run test:browser` exited 0, including the stopped-retry notice and an enabled download
+action. Retry tests simulate OS submission; they do not repeat native notification delivery
+or change the platform acceptance limits above.

@@ -22,6 +22,7 @@ mod source_intervals;
 mod system_tasks;
 mod telemetry_setup;
 mod tray;
+mod update_notifications;
 mod update_package;
 mod updates;
 

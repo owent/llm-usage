@@ -53,6 +53,14 @@ keeps native-sample queries within the dates of all retained events. Local timin
 coverage and the original remote timeout are recorded there; CI shows test compilation and
 execution separately without removing platform or durability checks.
 
+System update notifications are implemented under the [software update specification](docs/design/desktop-usage/application-updates.md#system-notifications):
+native Windows/macOS/Linux delivery, persisted version deduplication, an independent saved
+switch, and isolated notification failures. Each version has three persisted submission
+attempts at most, including interrupted attempts; restarts and version alternation retain the
+limit. Windows Notification Center read-back and local
+regression gates passed; Linux function compilation/error handling and macOS source review
+remain distinct from desktop acceptance. See the [notification validation record](docs/validation/desktop-usage/application-updates.md#system-update-notifications-2026-10-20).
+
 Unified checks, browser tests, Windows release/native IPC, headless collection and native
 Zed rescans completed for the new features. Actual results, first failures and scope
 conditions are in the round record; affected design specifications, capabilities and acceptance indexes

@@ -186,7 +186,8 @@ pub(crate) fn principal_matches_sid(account: &str, expected: &str) -> windows::c
 
 pub fn cleanup() -> Result<(), String> {
     crate::system_tasks::native::remove_installation_tasks()?;
-    crate::commands::remove_owned_auto_start()
+    crate::commands::remove_owned_auto_start()?;
+    crate::update_notifications::cleanup()
 }
 
 #[cfg(test)]

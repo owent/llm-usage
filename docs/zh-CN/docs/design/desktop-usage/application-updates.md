@@ -16,6 +16,35 @@ headless 采集不检查或安装更新。手动检查跳过时间限制。检�
 其他语言采用各自常见的软件界面用语。“关闭通知”隐藏当前通知，直到阶段、版本、包或
 错误变化；设置页仍可操作更新。关闭通知不会安排稍后提醒。
 
+### 系统通知
+
+系统通知默认开启，在“软件更新”中提供独立的保存开关。手动或自动检查确认存在更新的
+稳定版本后，由 GUI 进程提交包含应用名称和版本号的本地化通知；Windows 窗口隐藏到
+托盘时也适用。检查失败、取消、版本未变化或变旧，以及无界面采集时不发送通知。
+下载和安装的确认规则保持独立，通知不会触发安装。
+
+按可执行文件和应用数据库保存已经成功提交通知的最高版本，重复检查和重启不再提醒
+同一版本。每个版本最多尝试三次（首次发送加两次重试），调用系统前先持久化本次尝试。
+失败尝试间隔一小时才能重试，手动检查也遵守此限制。重启、切换通知开关、时钟回退
+或交替发现不同版本，都不能重置某个版本的次数。达到上限后停止向系统提交该版本的
+通知并单独提示；其他版本使用独立次数。没有计数的旧尝试记录无法确定既往重试次数，
+迁移时保守地视为该版本次数已用完。系统拒绝提交时不能记为已送达。提交后、保存成功
+记录前发生崩溃仍消耗一次尝试，只能在剩余次数内重试。并发检查串行发送通知，
+调用系统时不持有统计数据库锁。通知失败与更新失败分别显示，不能阻止下载或替换更新状态。
+
+Windows 使用 WinRT Toast，并按可执行文件建立应用 ID 和属于该应用的当前用户注册，
+使安装版和便携版都使用自己的 LLM Usage 身份。只创建或清理该身份的注册，不改变系统
+通知偏好。点击通知打开官方发行页面，不执行安装。macOS 使用实际应用包身份下的
+UserNotifications，必要时申请正常的系统授权；单独的可执行文件没有该身份。Linux
+使用会话总线的 `org.freedesktop.Notifications` 服务。桌面服务缺失、权限被拒绝或系统
+调用失败时，保留应用内提示。专注模式以及横幅、历史记录的显示规则由系统控制；API
+接受通知不表示用户已看到横幅。原生提交在更新工作线程之外执行，权限对话框或无响应
+的桌面服务不能阻塞更新检查和下载。
+
+验证持久化去重、新版本、关闭开关、旧设置默认值、并发检查、数据库重开后失败或中断
+尝试的次数上限、版本交替、旧记录、存储错误、时钟回退和本地化。Windows 原生验收
+使用独立的测试身份，读取该身份的通知历史，再仅移除测试通知和注册。Linux/macOS 桌面验收与编译、模拟发送分别记录。
+
 ## 发行与包身份
 
 主要更新来源是 `owent/llm-usage` 的公开 HTTPS GitHub Releases API。读取最新公开稳定版，
@@ -130,3 +159,16 @@ NSIS 更新使用已有 `/UPDATE /P` 模式和原安装目录，安装器处理�
   显式 workflow_dispatch 可使用 GITHUB_TOKEN 触发工作流。
 - [工作流 dispatch API](https://docs.github.com/en/rest/actions/workflows#create-a-workflow-dispatch-event)：
   选择 main ref 及限定范围的 Actions 写权限。
+
+2026-10-20 核对的通知参考：
+
+- [Tauri 通知](https://v2.tauri.app/plugin/notification/)：
+  Windows 仅支持安装应用的限制。
+- [微软 Toolkit ToastNotifierCompat](https://github.com/CommunityToolkit/WindowsCommunityToolkit/blob/main/Microsoft.Toolkit.Uwp.Notifications/Toasts/Compat/ToastNotifierCompat.cs)：
+  无包身份应用首次 Show 后才能查询通知设置。
+- [Windows 桌面通知选项](https://learn.microsoft.com/cs-cz/windows/apps/design/shell/tiles-and-notifications/toast-desktop-apps)：
+  通过占位 CLSID 使用协议激活。
+- [mac-usernotifications](https://docs.rs/mac-usernotifications/0.3.1/mac_usernotifications/)：
+  签名应用包身份、授权及通过 UserNotifications 异步投递。
+- [桌面通知规范](https://specifications.freedesktop.org/notification/latest/)：
+  Linux 会话 D-Bus 投递。

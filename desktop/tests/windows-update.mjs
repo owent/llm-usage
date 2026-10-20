@@ -112,7 +112,7 @@ try {
   const settings = JSON.parse(connection.prepare("SELECT value FROM settings WHERE key='app_settings'").get()?.value ?? '{}');
   Object.assign(settings, { timezone: 'Asia/Shanghai', week_start: null, language: 'en', theme: 'light', manual_roots: [],
     manual_roots_only: true, hostname_alias: null, refresh_interval_secs: 0, close_to_tray: false,
-    updates: { schedule: 'manual', auto_download: false } });
+    updates: { schedule: 'manual', auto_download: false, system_notifications: false } });
   connection.prepare("INSERT OR REPLACE INTO settings(key,value,schema_version,updated_at_ms) VALUES('app_settings',?,1,0)").run(JSON.stringify(settings));
   connection.exec("CREATE TABLE update_acceptance(value TEXT); INSERT INTO update_acceptance VALUES('retained usage sentinel')");
   connection.close();
@@ -123,11 +123,11 @@ try {
   assert.ok(checked.last_checked_ms);
   assert.equal(checked.current_version, version);
   const saved = await ipc('get_settings');
-  assert.deepEqual(saved.updates, { schedule: 'manual', auto_download: false });
-  saved.updates = { schedule: 'weekly', auto_download: true };
+  assert.deepEqual(saved.updates, { schedule: 'manual', auto_download: false, system_notifications: false });
+  saved.updates = { schedule: 'weekly', auto_download: true, system_notifications: false };
   await ipc('set_settings', { settings: saved });
   assert.deepEqual((await ipc('get_settings')).updates, saved.updates);
-  saved.updates = { schedule: 'manual', auto_download: false };
+  saved.updates = { schedule: 'manual', auto_download: false, system_notifications: false };
   await ipc('set_settings', { settings: saved });
   operations.push({ check: 'real public release check and native settings', status: checked });
   await close();
@@ -174,7 +174,7 @@ try {
   assert.equal(JSON.parse(await readFile(join(packageRoot, 'llmusage-package.json'), 'utf8')).version, nextVersion);
   const retained = new DatabaseSync(join(data, 'llm-usage.sqlite'), { readOnly: true });
   assert.equal(retained.prepare('SELECT value FROM update_acceptance').get().value, 'retained usage sentinel');
-  assert.deepEqual(JSON.parse(retained.prepare("SELECT value FROM settings WHERE key='app_settings'").get().value).updates, { schedule: 'manual', auto_download: false });
+  assert.deepEqual(JSON.parse(retained.prepare("SELECT value FROM settings WHERE key='app_settings'").get().value).updates, { schedule: 'manual', auto_download: false, system_notifications: false });
   retained.close();
   operations.push({ check: 'real update IPC, helper exit wait, in-place replacement, backup, restart, unrelated file and SQLite preservation',
     artifact: 'synthetic native executable, injected completed portable archive', ready, phase: journal.phase });

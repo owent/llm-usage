@@ -15,6 +15,8 @@
     </select>
   </label>
   <label class="switch-field"><input class="switch" role="switch" type="checkbox" bind:checked={value.auto_download} data-testid="update-auto-download" /> <span>{t('updates.autoDownload')}</span></label>
+  <label class="switch-field"><input class="switch" role="switch" type="checkbox" bind:checked={value.system_notifications} data-testid="update-system-notifications" /> <span>{t('updates.systemNotifications')}</span></label>
+  <p class="muted">{t('updates.notificationHint')}</p>
   <p class="muted">{t('updates.settingsHint')}</p>
   <UpdateProgress detailed />
 </section>

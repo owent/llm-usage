@@ -30,6 +30,7 @@ pub enum Schedule {
 pub struct UpdateSettings {
     pub schedule: Schedule,
     pub auto_download: bool,
+    pub system_notifications: bool,
 }
 
 impl Default for UpdateSettings {
@@ -37,6 +38,7 @@ impl Default for UpdateSettings {
         Self {
             schedule: Schedule::Daily,
             auto_download: false,
+            system_notifications: true,
         }
     }
 }
@@ -86,6 +88,7 @@ pub struct UpdateStatus {
     pub last_checked_ms: Option<i64>,
     pub error: Option<String>,
     pub previous_error: Option<String>,
+    pub notification_error: Option<String>,
 }
 
 impl Default for UpdateStatus {
@@ -101,6 +104,7 @@ impl Default for UpdateStatus {
             last_checked_ms: None,
             error: None,
             previous_error: None,
+            notification_error: None,
         }
     }
 }
@@ -131,7 +135,7 @@ struct Asset {
     browser_download_url: String,
 }
 
-fn stable_version(value: &str) -> Result<semver::Version, String> {
+pub(crate) fn stable_version(value: &str) -> Result<semver::Version, String> {
     let version = semver::Version::parse(value).map_err(|_| "invalid_release_version")?;
     if !version.pre.is_empty() || !version.build.is_empty() || version.to_string() != value {
         return Err("invalid_release_version".into());
@@ -367,6 +371,7 @@ struct Operation {
 pub struct UpdateService {
     inner: Mutex<Operation>,
     cancel: AtomicBool,
+    notifications: crate::update_notifications::Service,
 }
 
 fn busy(phase: &str) -> bool {
@@ -570,6 +575,9 @@ fn begin_check(app: &tauri::AppHandle, state: Arc<AppState>) -> Result<(), Strin
                 {
                     let mut op = service.inner.lock().unwrap();
                     op.status.last_checked_ms = op.clock.success_ms;
+                    if op.status.version != checked.version {
+                        op.status.notification_error = None;
+                    }
                     op.status.version = checked.version.clone();
                     op.status.asset_name = checked.candidate.as_ref().map(|v| v.name.clone());
                     op.status.total_bytes = checked.candidate.as_ref().map_or(0, |v| v.size);
@@ -581,6 +589,14 @@ fn begin_check(app: &tauri::AppHandle, state: Arc<AppState>) -> Result<(), Strin
                     }
                     .into();
                     op.candidate = checked.candidate;
+                }
+                if let Some(version) = checked.version {
+                    service.notifications.notify_available(
+                        app.clone(),
+                        Arc::clone(&state),
+                        cache.clone(),
+                        version,
+                    );
                 }
                 let has_candidate = service.inner.lock().unwrap().candidate.is_some();
                 if has_candidate {
@@ -598,6 +614,18 @@ fn begin_check(app: &tauri::AppHandle, state: Arc<AppState>) -> Result<(), Strin
         }
     });
     Ok(())
+}
+
+pub(crate) fn notification_result(
+    app: &tauri::AppHandle,
+    version: &str,
+    result: Result<(), String>,
+) {
+    let service = app.state::<UpdateService>();
+    let mut op = service.inner.lock().unwrap();
+    if op.status.version.as_deref() == Some(version) {
+        op.status.notification_error = result.err();
+    }
 }
 
 fn begin_download(app: &tauri::AppHandle, automatic: bool) -> Result<(), String> {
@@ -711,8 +739,16 @@ fn stream_download(
 }
 
 #[tauri::command]
-pub fn update_status(service: tauri::State<'_, UpdateService>) -> UpdateStatus {
-    service.inner.lock().unwrap().status.clone()
+pub fn update_status(
+    service: tauri::State<'_, UpdateService>,
+    state: tauri::State<'_, Arc<AppState>>,
+) -> UpdateStatus {
+    let enabled = state.settings.lock().unwrap().updates.system_notifications;
+    let mut status = service.inner.lock().unwrap().status.clone();
+    if !enabled {
+        status.notification_error = None;
+    }
+    status
 }
 
 #[tauri::command]

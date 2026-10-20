@@ -55,7 +55,7 @@ try {
   settings.refresh_interval_secs = 0;
   settings.manual_roots_only = true;
   settings.manual_roots = [];
-  settings.updates = { schedule: 'manual', auto_download: true };
+  settings.updates = { schedule: 'manual', auto_download: true, system_notifications: false };
   await invoke('set_settings', { settings });
   for (let n = 0; n < 450; n++) {
     if ((await invoke('update_status')).phase !== 'checking') break;

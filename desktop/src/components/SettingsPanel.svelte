@@ -47,7 +47,7 @@
   // Capture settings at mount intentionally; the parent remounts this editor for external updates.
   let draft = $state<AppSettings>({
     ...settings,
-    updates: { schedule: 'daily', auto_download: false, ...settings.updates },
+    updates: { schedule: 'daily', auto_download: false, system_notifications: true, ...settings.updates },
     budget: { enabled: false, metric: 'total_tokens', period: 'month', threshold: '1000000', currency: 'USD', ...settings.budget },
     manual_roots: [...settings.manual_roots],
     retention: { ...settings.retention },

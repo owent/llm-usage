@@ -224,7 +224,7 @@
       ]
     },
     "desktop/src-tauri/Cargo.toml": {
-      "codeHash": "5ad445c7578e164862e28b8a9954c6ac8a46633f917b03675101c867a32330fa",
+      "codeHash": "f6a0d451bfa3d29ef758f202af492c1ba3cd60424ce7f083cde0b3650b4178e4",
       "comments": [
         {
           "id": "6b9f8559a21a75a8",
@@ -52367,7 +52367,7 @@
       ]
     },
     "desktop/src-tauri/src/installation.rs": {
-      "codeHash": "d309c402eed14a5565a1f63e16deb8513877b38cda528e0139419c2e034e459c",
+      "codeHash": "22165a8218d860a90876539fb0505f9ec8a0f5646e69c5b106eb27111bfd1475",
       "comments": [
         {
           "id": "764ac7c9ec059747",
@@ -52428,7 +52428,7 @@
       ]
     },
     "desktop/src-tauri/src/main.rs": {
-      "codeHash": "d480623a555d2e2b5e1155e46ead69d3643d5d7b0b98e764e4099bd4b3968ef9",
+      "codeHash": "9b747653b11abeb75779983893ceb91e405027a6255138f879b8ec7ab14ef99a",
       "comments": [
         {
           "id": "899b21e209b60a67",
@@ -52453,63 +52453,63 @@
         },
         {
           "id": "46385d14f5a62530",
-          "line": 66,
+          "line": 67,
           "kind": "line",
           "en": "// Before a Tauri handle, headless/prestartup DB is under APPDATA/llm-usage-desktop/ or",
           "zh": "// 无 Tauri 句柄时，headless 或启动前数据库位于 APPDATA/llm-usage-desktop/，或"
         },
         {
           "id": "c5c2920edf8eeb69",
-          "line": 67,
+          "line": 68,
           "kind": "line",
           "en": "// ~/.local/share/llm-usage-desktop/, named llm-usage.sqlite;",
           "zh": "// ~/.local/share/llm-usage-desktop/ 下，文件名为 llm-usage.sqlite；"
         },
         {
           "id": "148cb05d6c0b6fbd",
-          "line": 68,
+          "line": 69,
           "kind": "line",
           "en": "// matching architecture.md system application-data storage rules.",
           "zh": "// 符合 architecture.md 的系统应用数据目录规则。"
         },
         {
           "id": "217f0410d2747931",
-          "line": 69,
+          "line": 70,
           "kind": "line",
           "en": "// Avoid existing third-party Roaming placeholder file llm-usage; preserve it.",
           "zh": "// 避开 Roaming 中既有的第三方占位文件 llm-usage，保留该文件。"
         },
         {
           "id": "72910e4646a32c44",
-          "line": 95,
+          "line": 96,
           "kind": "line",
           "en": "// This branch precedes db_path, migrations, collection and GUI startup.",
           "zh": "// 此分支先于 db_path、迁移、采集和 GUI 启动执行。"
         },
         {
           "id": "1d306e24e7d03bc7",
-          "line": 164,
+          "line": 165,
           "kind": "line",
           "en": "// Headless without WebView: collect once then exit, no window/scheduler thread.",
           "zh": "// 无 WebView 模式采集一次后退出，不启动窗口或调度线程。"
         },
         {
           "id": "a6337adfcde691ee",
-          "line": 199,
+          "line": 200,
           "kind": "line",
           "en": "// M5 local OTLP receiver: opt-in, 127.0.0.1 only, thread ends with the process;",
           "zh": "// M5 本地 OTLP 接收器：按需启用，仅 127.0.0.1，线程随进程结束；"
         },
         {
           "id": "2d9f6e88b405eb2e",
-          "line": 200,
+          "line": 201,
           "kind": "line",
           "en": "// setting changes take effect after restart.",
           "zh": "// 设置变化在重启后生效。"
         },
         {
           "id": "789ede743dae2884",
-          "line": 229,
+          "line": 230,
           "kind": "line",
           "en": "// Size from primary-display resolution, 60-85%, maximum 1600x1000.",
           "zh": "// 按主显示器分辨率调整窗口，60–85%，上限 1600×1000。"
@@ -54374,6 +54374,58 @@
         }
       ]
     },
+    "desktop/src-tauri/src/update_notifications.rs": {
+      "codeHash": "38f2d603821ad865ecdce76858f80880fa133d78b621bd243f2561a75f47c78c",
+      "comments": [
+        {
+          "id": "44f06deb137ce48e",
+          "line": 55,
+          "kind": "line",
+          "en": "// The old format did not count retries; it cannot establish remaining attempts.",
+          "zh": "// 旧格式没有统计重试次数，无法确定剩余尝试次数。"
+        },
+        {
+          "id": "793f4b76c0b4b1f5",
+          "line": 151,
+          "kind": "line",
+          "en": "// Persist before touching the OS; a crash must not cause repeated startup notifications.",
+          "zh": "// 先持久化再调用系统接口，避免崩溃后每次启动都重复通知。"
+        }
+      ]
+    },
+    "desktop/src-tauri/src/update_notifications/windows.rs": {
+      "codeHash": "6328dd3a5ba7da27072b90e9e58812fb757771559915f48db60b8a784efe876f",
+      "comments": [
+        {
+          "id": "0c3cac076a1216fd",
+          "line": 127,
+          "kind": "line",
+          "en": "// Protocol activation uses a stub CLSID; it never launches an installer or a COM server.",
+          "zh": "// 协议激活使用占位 CLSID，不会启动安装程序或 COM 服务器。"
+        },
+        {
+          "id": "c1199c8a70e5494b",
+          "line": 159,
+          "kind": "line",
+          "en": "// An identity-less app's first Show registers it with the notification service.",
+          "zh": "// 无包身份的应用通过首次 Show 向通知服务注册。"
+        },
+        {
+          "id": "a2b2d1562da42f90",
+          "line": 160,
+          "kind": "line",
+          "en": "// Setting returns ERROR_NOT_FOUND before that call; other errors remain failures.",
+          "zh": "// 此前读取 Setting 会返回 ERROR_NOT_FOUND，其他错误仍视为失败。"
+        },
+        {
+          "id": "0a26916d2ed58b5f",
+          "line": 205,
+          "kind": "line",
+          "en": "// Delete only known values; an unrelated value or child key preserves the registration.",
+          "zh": "// 只删除已知自有值；存在无关值或子项时保留注册项。"
+        }
+      ]
+    },
     "desktop/src/App.svelte": {
       "codeHash": "35602049eed73968494159c5892f5010741705d15a137f47b7a11221651f790a",
       "comments": [
@@ -55225,7 +55277,7 @@
       ]
     },
     "desktop/src/components/SettingsPanel.svelte": {
-      "codeHash": "27c54e889845a3361299e9fb498abe29672898f14d46e1c3e23a118020c0d8d6",
+      "codeHash": "46960002cc69b6d373d49b62287a99838e6d2bb56ddc73f66ae9618ca1959178",
       "comments": [
         {
           "id": "7663cb0620896410",
@@ -56037,7 +56089,7 @@
       ]
     },
     "desktop/src/lib/api.ts": {
-      "codeHash": "f96d17c021c92acd0b1640abb9b1402f96683aad51d0186a5d2416e892f3965d",
+      "codeHash": "0d1caa7c777331d791172c6b55ae667cc8e46eebce4a922be7462888c090ac8b",
       "comments": [
         {
           "id": "5097c19a8a6ab908",
@@ -56083,245 +56135,245 @@
         },
         {
           "id": "4b9a590f28dff5a4",
-          "line": 105,
+          "line": 107,
           "kind": "block",
           "en": "/** Provider pricing preferences; absent preferences allow only an unambiguous official API reference for the same model. */",
           "zh": "/** 供应商级估算偏好；未配置时仅允许同型号无歧义的官方 API 参考。 */"
         },
         {
           "id": "2d244ca18d6c62a1",
-          "line": 110,
+          "line": 112,
           "kind": "block",
           "en": "/** Default cache-write TTL tier in minutes; null leaves that component unpriced. */",
           "zh": "/** 缓存写默认 TTL 档（分钟；null = 未设，写分量不计价）。 */"
         },
         {
           "id": "e5d1a9f9a526d3fc",
-          "line": 117,
+          "line": 119,
           "kind": "block",
           "en": "/** F2 models.dev catalog refresh, off by default and when absent from historical settings JSON. */",
           "zh": "/** F2 在线刷新（models.dev 社区目录；默认关闭；旧设置 JSON 无此字段时视为关闭）。 */"
         },
         {
           "id": "cbe695e5fdea0618",
-          "line": 119,
+          "line": 121,
           "kind": "block",
           "en": "/** Online cache TTL: 1-365 days, default 3; fresh caches avoid network requests. */",
           "zh": "/** 在线缓存 TTL 为 1–365 天，默认 3 天；新鲜期内不发网络请求。 */"
         },
         {
           "id": "e3bd6a7364f20d60",
-          "line": 123,
+          "line": 125,
           "kind": "block",
           "en": "/** Amount rows by currency in smallest units; keep currencies separate. */",
           "zh": "/** 按币种分列的金额行（最小货币单位；不同币种不合并）。 */"
         },
         {
           "id": "89b4aa4192e2e84b",
-          "line": 140,
+          "line": 142,
           "kind": "block",
           "en": "/** Events priced through official-provider fallback when the recorded provider lacks an exact entry. */",
           "zh": "/** 经官方提供商回退定价的事件数（provider 无精确价目时参考模型官方方按量价）。 */"
         },
         {
           "id": "d6358a96557862c6",
-          "line": 191,
+          "line": 193,
           "kind": "block",
           "en": "/** Raw online-response cache metadata for displaying freshness. */",
           "zh": "/** 在线刷新原始响应缓存信息（展示新鲜度）。 */"
         },
         {
           "id": "f6bd6a995a69cb70",
-          "line": 199,
+          "line": 201,
           "kind": "block",
           "en": "/** Refresh result: fetched, cache_fresh, fetch_failed_used_cache or fetch_failed_no_cache. */",
           "zh": "/** 一次在线刷新的结果。status: fetched / cache_fresh / fetch_failed_used_cache / fetch_failed_no_cache。 */"
         },
         {
           "id": "bfb8de8ffa022978",
-          "line": 217,
+          "line": 219,
           "kind": "block",
           "en": "/** Intended/actual system-task state; Windows checks due sources each minute. */",
           "zh": "/** 系统任务期望与实际状态（Windows，每分钟检查到期来源）。 */"
         },
         {
           "id": "7d2ed2696c841d4a",
-          "line": 302,
+          "line": 304,
           "kind": "block",
           "en": "/** null means presence could not be checked; do not hide a real read failure. */",
           "zh": "/** null 表示无法检查是否存在，不能掩盖实际读取失败。 */"
         },
         {
           "id": "60567b7525da32a6",
-          "line": 316,
+          "line": 318,
           "kind": "block",
           "en": "/** Registered files no longer on disk after Agent cleanup/compaction; only retained application history remains. */",
           "zh": "/** 注册过但磁盘已不存在（Agent 自行清理/压实）：其历史只存于本应用存档。 */"
         },
         {
           "id": "7cb7fa920784a8d2",
-          "line": 318,
+          "line": 320,
           "kind": "block",
           "en": "/** Source collection schedule; null inherits the global interval (M6). */",
           "zh": "/** 逐源提取计划（null = 继承全局间隔；M6 逐源定时）。 */"
         },
         {
           "id": "3d626ce0c15d901a",
-          "line": 335,
+          "line": 337,
           "kind": "block",
           "en": "/** Collection progress: 0-100 percent and estimated remaining seconds; null ETA means unavailable. */",
           "zh": "/** 采集进度（0–100 百分比 + 预计剩余秒；null = 暂不可估）。 */"
         },
         {
           "id": "817194596d0da717",
-          "line": 338,
+          "line": 340,
           "kind": "block",
           "en": "/** Completed adapter names in completion order. */",
           "zh": "/** 已完成的适配器名（按完成顺序）。 */"
         },
         {
           "id": "7044bedb448d46d9",
-          "line": 362,
+          "line": 364,
           "kind": "block",
           "en": "/** v6 user list and currently selected statistics user. */",
           "zh": "/** 多用户（v6）：用户清单 + 当前统计用户。 */"
         },
         {
           "id": "0762dc03966eb1db",
-          "line": 374,
+          "line": 376,
           "kind": "block",
           "en": "/** Row counts by retention layer and database bytes, including WAL. */",
           "zh": "/** 各归档层条目数 + 库文件占用（含 WAL）。 */"
         },
         {
           "id": "b438066154151f3e",
-          "line": 385,
+          "line": 387,
           "kind": "block",
           "en": "/** Aggregate exchange-package import counts (M1a). */",
           "zh": "/** 聚合交换包导入计数（M1a 约定）。 */"
         },
         {
           "id": "4a9e4ab8e0edd423",
-          "line": 403,
+          "line": 405,
           "kind": "block",
           "en": "/** Manual tiered-cleanup result. */",
           "zh": "/** 手动分层清理结果。 */"
         },
         {
           "id": "934db3782a54119e",
-          "line": 412,
+          "line": 414,
           "kind": "block",
           "en": "/** Background clear-all start; started=false means a task is already running. */",
           "zh": "/** 清理全部数据：后台任务启动结果（started=false 表示已有任务在执行）。 */"
         },
         {
           "id": "60812875ac913013",
-          "line": 417,
+          "line": 419,
           "kind": "block",
           "en": "/** Background clear-all-progress stages.\n * waiting: wait for collection; backup: copy database; clearing: clear transaction;\n * cleared: tables cleared with counts/backup path; rescan: full collection started;\n * done: rescan finished; failed: stopped with error details; cancelled: cancellation acknowledged. */",
           "zh": "/** 清理全部数据的 clear-all-progress 阶段。\n * waiting=等待采集；backup=备份数据库；clearing=清空事务；\n * cleared=清空完成，附表计数和备份路径；rescan=全量重采开始；\n * done=重采结束；failed=停止并附错误；cancelled=已确认取消。 */"
         },
         {
           "id": "5840dea51fa94992",
-          "line": 430,
+          "line": 432,
           "kind": "block",
           "en": "/** Clear-all preview: event count and registered missing source files that cannot be recollected. */",
           "zh": "/** 清空预检：事件总量 + 已注册但磁盘不存在的源文件数（这些历史无法重采）。 */"
         },
         {
           "id": "11e19fe112e588a9",
-          "line": 437,
+          "line": 439,
           "kind": "block",
           "en": "/** event_details page row; token integers use decimal strings. */",
           "zh": "/** 用量明细分页行（event_details 命令）。token 为十进制字符串。 */"
         },
         {
           "id": "5bee92aa1a165842",
-          "line": 460,
+          "line": 462,
           "kind": "block",
           "en": "/** Export user/host options and current values; is_current selects defaults. */",
           "zh": "/** 导出过滤选项：可用用户/主机 + 当前值（is_current 标记默认选中项）。 */"
         },
         {
           "id": "18c2c5f04791cffc",
-          "line": 468,
+          "line": 470,
           "kind": "block",
           "en": "/** chart_series grouping dimension, queried directly from aggregate tables. */",
           "zh": "/** chart_series 图表分组方式，直接读取聚合表。 */"
         },
         {
           "id": "c0aad8a3a8dd9561",
-          "line": 471,
+          "line": 473,
           "kind": "block",
           "en": "/** Grouped time-series row; tokens are decimal strings or null for unknown. */",
           "zh": "/** 分组时间序列行；token 是十进制字符串，null 表示未知。 */"
         },
         {
           "id": "200d20088ca5fdbf",
-          "line": 490,
+          "line": 492,
           "kind": "block",
           "en": "/** diagnostic_logs row; time is a millisecond timestamp. */",
           "zh": "/** 诊断日志行（diagnostic_logs 命令；时间为毫秒时间戳）。 */"
         },
         {
           "id": "d43284b7fcfe7973",
-          "line": 503,
+          "line": 505,
           "kind": "block",
           "en": "/** Generic quota snapshot; retain native units separately from recorded usage. */",
           "zh": "/** 通用额度快照，保留原单位，与已记录用量分开。 */"
         },
         {
           "id": "c1f85679ae2357dc",
-          "line": 578,
+          "line": 580,
           "kind": "block",
           "en": "/** Diagnostic logs: null code_filter selects all; a code string selects that category. */",
           "zh": "/** 诊断日志（code_filter 为 null = 全部；传 code 字符串只取该类）。 */"
         },
         {
           "id": "8bb4cf04c804f53b",
-          "line": 582,
+          "line": 584,
           "kind": "block",
           "en": "/** Current API reference, model unit rates and curve; frozen history remains in the response. */",
           "zh": "/** 当前 API 参考价、模型单价和曲线；响应仍保留历史价格。 */"
         },
         {
           "id": "c106d7857fdbc28d",
-          "line": 591,
+          "line": 593,
           "kind": "block",
           "en": "/** Background models.dev refresh/import; force=true bypasses cache TTL. */",
           "zh": "/** F2 在线刷新：后台抓取 models.dev 并导入（force=true 绕过缓存 TTL）。 */"
         },
         {
           "id": "752620d89ba89b61",
-          "line": 613,
+          "line": 615,
           "kind": "block",
           "en": "/** Subscribe to background clear-all stages and return the unsubscribe callback. */",
           "zh": "/** 订阅清理全部数据后台任务的阶段进度；返回取消订阅函数。 */"
         },
         {
           "id": "01deb7596dca0a14",
-          "line": 618,
+          "line": 620,
           "kind": "block",
           "en": "/** Generic quota overview; agent=null selects all, with native units separate from recorded usage. */",
           "zh": "/** 通用额度总览，agent=null 取全部；保留原单位，与已记录用量分开。 */"
         },
         {
           "id": "45543526c58bf74e",
-          "line": 621,
+          "line": 623,
           "kind": "block",
           "en": "/** Daily quota trend for (agent, quota_id). */",
           "zh": "/** 某 (agent, quota_id) 的每日额度趋势。 */"
         },
         {
           "id": "6b87c24868ebc8c6",
-          "line": 626,
+          "line": 628,
           "kind": "block",
           "en": "/** Parse a backend JSON-string error containing code/message. */",
           "zh": "/** 结构化错误解析（后端返回 JSON 字符串 code+message）。 */"
         },
         {
           "id": "d1c3662699ec760d",
-          "line": 633,
+          "line": 635,
           "kind": "block",
           "en": "/* Return the original string when JSON parsing fails. */",
           "zh": "/* 原样返回 */"
@@ -56827,7 +56879,7 @@
       ]
     },
     "desktop/tests/browser-smoke.mjs": {
-      "codeHash": "519c1e6d817c716273bb6d5a41bbd3a791d538f858d0ce4dae6c96f6ac390ea7",
+      "codeHash": "2f0879f6502253265b6a17e07ccf8bc4bc7d325a0c9cc0fc45b9be334e87d3e6",
       "comments": [
         {
           "id": "5ba4dca837379ee2",
