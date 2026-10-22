@@ -6,7 +6,7 @@ Initial research: 2026-09-24; archive behavior reviewed 2026-09-27, as described
 in [the review](../../validation/desktop-usage/review-2026-09-27.md). Expanded Agent research
 (A25–A48) and M8 documentation-based implementation are complete
 ([M8 results](../../validation/desktop-usage/m8-second-batch.md)): 18 registered adapters,
-17 parsers plus a Qoder probe. Source inspection found no local per-call token records for
+originally 17 parsers plus a Qoder probe; source-derived CLI reading now extends Qoder. Source inspection found no local per-call token records for
 Amazon Q/Codebuff; iFlow has shut down. They are excluded under the local-source boundary.
 The tables distinguish implementation candidates from verified support.
 
@@ -51,6 +51,13 @@ native redacted samples and calculated expectations; see [version checks and rec
 The table's original 21 legacy Codex mappings remain historical evidence;
 see [0.3.0 samples](../../validation/desktop-usage/release-030.md).
 Other versions retain compatibility checks without inheriting these results.
+
+Codex streams complete oversized `response_item`/`world_state` records through a
+separate 64 MiB limit, validates a JSON object and UTF-8, and retains only its record type.
+Each such record ends the current scan window. Usage, unknown types, malformed or
+incomplete records and positional arrays retain the ordinary 8 MiB limit and held cursor. Parser 8 rechecks
+old cursors without deleting history; [native recovery](../../validation/desktop-usage/release-033.md#oversized-codex-records)
+does not certify every field of the new client version.
 
 <a id="用户指定工具"></a>
 
@@ -125,11 +132,72 @@ Grok cumulative/compaction differences and Goose reasoning differences; use nati
 | gajae-code (gjc) | `~/.gjc/agent/sessions/<slug>/*.jsonl` session v5, assistant model/provider/usage/Estimated cost. | GJC_CODING_AGENT_DIR overrides. OpenAI-completions missing-field zero cannot establish cache/reported-zero usage. message.timestamp is request start. | M8 real 0.18.7 API/CLI/native 412/2/414; recognize nonusage configuration chains, unknown cache/uncached and complete old-summary/cursor upgrade. Other APIs/versions/branches separate. [Samples](../../validation/desktop-usage/m8-container-samples.md), A42. |
 | Xum (Coder, formerly mux) | .xum/.mux/sessions, XUM_ROOT/MUX_ROOT or RUN_SESSION_ROOT session-usage.json v1. Official 0.30.0 source/two native local calls checked. | Input uncached, default zeros unknown. Positive text output + known reasoning; unknown reasoning gives lower bound. Complete input/total unknown. CLI temporary-session deletion/default custom-provider missing streaming usage distinguished from gateway comparison. | M8, without invented cost/per-call identity. Complete old-summary/cursor/rollback/conflict regressions passed. [Samples/executable status](../../validation/desktop-usage/m8-container-samples.md), A43. |
 | iFlow CLI (Alibaba, closed source) | Official 4642808 announcement: service ended 2026-04-17. Default local per-call format unverified; opt-in OTel separately checked under M5. | Do not borrow Gemini-family formats; excluded as a current M8 local candidate. | Unimplemented, consistent with AGENTS/M8; A46. |
-| Qoder CLI (Alibaba, formerly Tongyi Lingma) | CLI device flow `~/.qoder/`; Electron IDE `%APPDATA%\com.qoder.app.stable*`; globalStorage/`~/.local/share/qoder` leads. | CLI session/usage fields unverified: inspect local samples before selecting implementation. Brand evolution recorded; JetBrains F1. | M8 discovery-only probe: verified paths, unverified fields, no parsing/import; await native session.jsonl/state.json checks; A47. |
+| Qoder CLI / IDE / JetBrains plugin | CLI session JSONL/state.json; IDE/plugin transcript paths and SDK usage fields have separate official references below. | Verify persisted token semantics, versions and local ownership for each interface; SDK fields do not establish native storage. | CLI 1.1.76 source-derived transcript reader with synthetic tests; real-client acceptance and IDE/plugin token formats remain pending. All three are requested support targets; see [Qoder requirements](#qoder-local-support). A47. |
 | AtomCode (AtomGit ecosystem) | .meta turn_stats/model_usage per-model session aggregate; round_count source call summary; legacy single-file equivalent layout. | Real 5.2.1 API/CLI/.meta input 6,176/output 2. Default-zero cache/invalid buckets unknown; no guessed uncached input. Exclude only complete paired UI v1/rewind v2, diagnose other files. | M8 official e4215f7/45e05cb/native samples, old-summary/cursor/parallel/rollback passed. Product version does not verify other records; InsCode IDE F1. [Samples](../../validation/desktop-usage/m8-container-samples.md), A48. |
 | Warp | Local account/workspace usage cache requestsUsed/spendCents/syncedAt only. | No token detail, account quota excluded from token totals; at most show limited status. | Deferred quota category; A44. |
 | Cursor CLI/IDE | CLI `~/.cursor/projects/<slug>/agent-transcripts/<uuid>/*.jsonl` has sessions without per-call tokens/models. IDE state.vscdb format unverified. | Per-call usage found only in remote dashboard get-filtered-usage-events/CSV and excluded. Do not estimate with a tokenizer. | Local-format F1; A45. |
 | Windsurf IDE/CLI | IDE Cascade/CLI confirmed in 2026; local usage storage unverified. | No discovery/implementation without verified per-call format; retain future F1 support. | F1 future support. |
+
+<a id="qoder-local-support"></a>
+
+## Local Qoder support requirements
+
+The requested scope includes CLI, IDE and JetBrains. The 2026-10-22 read-only local
+check found no CLI executable, default `.qoder`/`.qoder-cn` directory or Qoder entry
+in the inspected Windows application directories. The user confirmed no local installation and authorized source-derived synthetic data.
+No client was initialized and no login, hooks or model requests were added.
+
+| Interface | Current official reference | Required before importing usage |
+| --- | --- | --- |
+| CLI | [Sessions](https://docs.qoder.com/zh/cli/sessions) documents project JSONL/state.json and `QODER_CONFIG_DIR`. [SDK assistant messages](https://docs.qoder.com/cli/sdk/references-typescript#sdkassistantmessage) declare optional input/output/cache-read/cache-creation tokens. | Version-bound native persistence, input/cache inclusion, default-zero validity, model/time/request identity, resume/fork/compaction and failed-call coverage. Do not apply SDK field names to state.json without checking the writer and samples. |
+| IDE | [Hooks/transcripts](https://docs.qoder.com/extensions/hooks#transcript-file-format) documents `~/.qoder/projects/<project>/transcript/<session-id>.jsonl`, with session metadata, user/assistant/progress records. The published transcript examples do not specify token usage. | Inspect the installed IDE writer and a nonempty local transcript/database; establish usage and per-call identity independently of assistant-message counts. Hooks are unnecessary for reading existing files and are not enabled automatically. |
+| JetBrains plugin | The same [hooks documentation](https://docs.qoder.com/extensions/hooks) explicitly covers the IDE and JetBrains, while noting that CLI hooks differ. | Check plugin/version-specific paths, persistence and usage fields; the shared hooks documentation does not verify that IDE transcript examples or CLI usage fields apply to the plugin. |
+
+[Credits](https://docs.qoder.com/cli/sdk/cost-usage) are distinct from tokens and currency.
+Request Credits, cumulative session totals and account quotas are separate scopes;
+do not add them or convert them into tokens. Remote account/usage queries remain
+outside collection. Context-window occupancy is not consumed token usage. Missing
+fields remain unknown; model family names and subscription plans do not identify prices.
+The independent Qoder desktop product stores history separately from the IDE, according
+to its [product overview](https://docs.qoder.com/qoder/overview); imported history needs
+explicit duplicate handling before any later support extension.
+
+Keep one Agent directory with independent version/format readers and interface
+attribution. Share only proven field mappings; one physical file has one reader.
+Each interface needs writer-bound fixtures and independent sums, real registry
+discovery, repeat reads, old-cursor recovery, malformed/partial records, transaction
+rollback and cross-interface duplication tests. The authorized CLI source fixtures
+satisfy implementation regression; real-client acceptance is recorded separately.
+Unverified formats retain the probe and diagnostics without importing guessed values.
+An incompatible upgrade preserves earlier statistics and falls back to detection only.
+
+### Source-derived CLI reader
+
+The user authorized source analysis and synthetic data instead of local installation.
+Official npm `@qoder-ai/qodercli` 1.1.76 and SDK 1.0.55 were downloaded without running
+installation scripts. The CLI tarball's verified npm SHA-512 is
+`N4GLhnDoCOUBL8Ei5JY53u57/hQcXgu+W83mXwGJraSfohwmldnQnsb+/vKOu6ysl228+UNcOqFQe3abybFmGw==`.
+The following requirements permit a source-derived CLI reader with synthetic regression
+data; real-client acceptance remains pending. IDE and JetBrains formats require their
+own writer checks and cannot inherit this mapping from their CLI integration.
+
+| Requirement | CLI 1.1.76 writer/normalization basis |
+| --- | --- |
+| Native file | `Mm` chooses `projects/<project>/<session>.jsonl`; `KLo` and `SessionTranscriptWriter.insertMessageChain` write per-record `sessionId`, `version`, `entrypoint`, `userType`, UUID and ISO timestamp. Require the CLI structure plus a custom-model or native Credits marker in the same file; official responses need no modelSource field. Indistinguishable chat-only transcripts retain the probe, rather than accepting every sessionId-shaped JSON file. |
+| Counted response | Read completed assistant `message.id`/model/stop_reason; skip buffered partial responses, `<synthetic>` API/error messages and copied records with valid `forkedFrom`. Message ID deduplicates multiple content records and copies; no user/tool/system or `token-stats` call counts. |
+| Token fields | `cU` maps inclusive `prompt_tokens` to native `input_tokens`. `uot` adds Anthropic uncached/read/write before that conversion. Positive input is inclusive; positive output/cache-read/cache-creation remain independent reported fields. `za` and `A$n` insert default zeros, which stay unknown. Derive uncached input only with both cache components known; derive total only with complete input/output. |
+| Redaction | `bxu`/`kU` preserve custom-model token counts, but ordinary official-channel serialization masks counters to zero. Such completed calls count with unknown tokens. Do not enable token logging or infer consumption from Credits. |
+| Missing detail | `XVe` and `gpt` attach reasoning/source-total values as non-enumerable properties, lost by object spreading/JSON serialization. Do not recover them from source field names or zero defaults. Credits do not identify currency/provider. |
+| Time/ownership | The native timestamp is the persistence observation time. Retain each row's version; `isSidechain`/agent ID identify subagent category without creating another call. Reject unsupported remote entrypoints and malformed ownership; do not infer a host application from the common CLI entrypoint. |
+| Upgrade/failure | Route the complete CLI envelope to Qoder before shared transcript detectors; transfer an old misrouted file only without statistical history, preserving other invalid files and diagnostics. Replay the old probe's processing state without clearing statistics/history. Preserve record errors across windows, isolate malformed fields, retry partial lines, and verify repeated reads, conflicts and rollback. Unverified state.json, IDE/plugin records and other formats retain explicit diagnostics. |
+
+The native marker probe examines complete lines within 32 MiB and 200 ms, with an 8 MiB
+line cap and one retained line. It handles BOMs, long initial messages and metadata prefixes;
+outside this bound, provenance remains unverified. Metadata-only windows advance without
+certifying usage. A verified native envelope also permits progress past earlier invalid
+records, whose diagnostics and degraded health remain. Filename substrings such as
+subagents/segments do not establish auxiliary content and never suppress manual files.
+Reader 2 rechecks consumed old probe/reader positions without clearing history or conflicts.
 
 <a id="hermes-agent-本地规则"></a>
 
@@ -319,7 +387,7 @@ design; it cannot recover earlier history or necessarily cover subscription chan
 not the current general fallback.
 
 [M8 registration](../../validation/desktop-usage/m8-second-batch.md) includes 18 adapters,
-17 parsers and Qoder probe. Amazon Q/Codebuff source confirms absent local per-call tokens;
+originally 17 parsers and Qoder probe; the CLI transcript extension is recorded above. Amazon Q/Codebuff source confirms absent local per-call tokens;
 iFlow ended 2026-04-17 and its identified usage route requires enabled OTel under M5. These
 three have no token adapter. Cursor/Windsurf retain F1. Historical ten-source samples are in
 [the container record](../../validation/desktop-usage/m8-container-samples.md); new Zed samples,

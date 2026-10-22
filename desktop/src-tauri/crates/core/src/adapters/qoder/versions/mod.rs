@@ -1,15 +1,16 @@
-//! Qoder version registry following V30; qoder-pending-evidence remains unverified.
+//! Qoder per-record CLI versions; source-derived verification is distinct from native acceptance.
 
 pub mod probe_only;
+pub mod transcript_v1;
 
 /// Identifier of the current format implementation.
-pub const LATEST_IMPL_ID: &str = "probe_only";
+pub const LATEST_IMPL_ID: &str = "transcript_v1";
 
 /// Format version established by documentation/source inspection.
-pub const QODER_FORMAT_VERSION: &str = "qoder-pending-evidence";
+pub const QODER_FORMAT_VERSION: &str = "qoder-cli-transcript-1";
 
 /// Supported format versions mapped to implementations.
-pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[("qoder-pending-evidence", "probe_only")];
+pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[("1.1.76", "transcript_v1")];
 
 /// Result of selecting a version implementation.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -18,8 +19,7 @@ pub struct Selection {
     pub basis: crate::domain::VersionBasis,
 }
 
-/// Select by format version (V30 registry layout). Qoder usage fields are unverified;
-/// detection does not parse them. Reserve this entry for dispatch after a local sample is obtained.
+/// Select each record's version; compatible structures do not require an allowlist entry.
 pub fn select(found: Option<&str>) -> Selection {
     match found {
         Some(version) => {
@@ -52,10 +52,7 @@ mod tests {
 
     #[test]
     fn doc_anchor_dispatches_known() {
-        assert_eq!(
-            select(Some("qoder-pending-evidence")).basis,
-            VersionBasis::KnownVersion
-        );
+        assert_eq!(select(Some("1.1.76")).basis, VersionBasis::KnownVersion);
     }
 
     #[test]

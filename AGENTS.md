@@ -32,6 +32,13 @@ Codex foreign-thread compaction usage is inherited context. Correct old ownershi
 old summary and matching native owner evidence; preserve first observation, real conflicts and diagnostics.
 See the [0.3.3 repair record](docs/validation/desktop-usage/release-033.md).
 
+Codex oversized non-usage skips require a complete JSON object, valid UTF-8 and newline;
+positional arrays never establish a native record. Qoder CLI 1.1.76 uses the independent
+[source-derived contract](docs/design/desktop-usage/adapters.md#qoder-local-support): positive
+input includes cache, default/redacted zeros remain unknown, and Credits never supply cost.
+Keep CLI/IDE/JetBrains evidence separate. Regress long initial messages, metadata/error-only
+windows and manual filenames through real discovery; preserve diagnostic history during replay.
+
 Verify OpenCode versions against the session owning each step-finish. Upgrading old processing positions
 must cover pagination within the same millisecond and complete old summaries. Mark rules updated only
 after a complete valid scan. Qwen 0.25.0 SDK files contain consecutive multiline JSON objects; resume

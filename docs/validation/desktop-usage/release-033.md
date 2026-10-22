@@ -50,6 +50,146 @@ no longer classified as missing paths.
 Collected history remains subject to retention; missing originals and uncollected content
 cannot be recovered by rescanning. Keep a statistics backup before clearing data.
 
+<a id="oversized-codex-records"></a>
+
+## Oversized Codex records
+
+The 2026-10-22 read-only check reproduced one degraded Codex file, with native
+`cli_version=0.163.0-alpha.11` and a retained `line_too_long` diagnostic. Three
+`response_item/custom_tool_call_output` lines were 10,309,637, 17,985,371 and
+10,427,395 bytes. The 8 MiB reader stopped before subsequent usage. All inspected
+usage records had valid required counters; registering a version would not fix this.
+
+The Codex reader now streams and validates complete non-usage `response_item` and
+`world_state` records up to 64 MiB without retaining their bodies. It validates the
+whole JSON object and UTF-8, including ignored strings, before advancing. Positional
+arrays cannot establish a native envelope. Each such
+record ends the scan window. Unknown types, usage records, malformed JSON, invalid
+UTF-8, missing newlines and records above the cap retain their held cursor/error.
+Cancellation and deadlines remain effective. Parser 8 automatically rechecks old
+positions and preserves parser 6's complete-summary ownership correction.
+After a held line is completed and validated, its limit error no longer keeps file
+health degraded; earlier malformed-record errors and all diagnostics remain.
+
+The initial parser-7 validation used a SQLite Online Backup including the live WAL. Only the independent statistics copy
+was written; a bounded native probe used normal Codex discovery filtered to the one
+affected file, with its original source read-only. Three bounded windows and one
+completion window reached EOF; the fifth scan was unchanged. The file became
+`active_compat`, without registering the client version. The other 563 Codex paths
+were not rescanned in this probe. It added 772 events and preserved all 10,025 prior
+events, including token/quality/model/ownership/cost, first observation and creation
+fields. Parser references and update bookkeeping were excluded from that comparison.
+Conflicts remained zero and the original `line_too_long` diagnostic remained.
+
+An independent Python calculation compared native records through the committed
+byte offset, excluding newer concurrent appends. All 1,097 unique native calls matched
+the stored six counters: input 209,623,066; cache read 204,910,208; cache write 0;
+output 1,033,033; reasoning 454,809; total 210,656,099. Another 49 already collected
+session events absent from that retained stream remained in history.
+
+The new integration test failed on the original reader because the post-output call
+was never imported. Final targeted checks pass: two streaming validation unit tests,
+six oversized-record integrations, five health/replay and nine 0.3.3 regressions.
+They cover both readers, old parser metadata/unchanged cursors, exact byte positions,
+repeat reads, unknown/usage/malformed types, invalid UTF-8, CRLF, escaped text, missing
+newlines, partial-line completion, array rejection, transactional rollback/reopen and the byte cap.
+Sanitized logs and probe code are under ignored
+`build/codex-qoder-review/`; the native statistics backup/WAL/SHM were removed after comparison. This is local parser/SQLite acceptance, without a rebuilt
+installed application, GUI/package lifecycle or other-platform acceptance.
+
+<a id="source-derived-qoder"></a>
+
+## Source-derived Qoder support
+
+On 2026-10-22 the user confirmed that no Qoder client was installed and authorized
+source-derived synthetic data. Official distributions were downloaded/unpacked only;
+no installation scripts, client, login, hooks or model requests were run. This is
+compiled-distribution source inspection, not a claim that the full product is open source.
+
+| Artifact | Pinned evidence and result |
+| --- | --- |
+| npm CLI 1.1.76 | Verified npm SHA-512 in the [field contract](../../design/desktop-usage/adapters.md#qoder-local-support). Traced `Mm` → `SessionTranscriptWriter` → `KLo` → `bxu/kU`, and `uot/cU` normalization. Token field names alone were not used as persistence proof. |
+| npm Agent SDK 1.0.55 | Checked optional assistant usage declarations independently; those declarations do not establish IDE/plugin storage. |
+| IDE 1.35.0 Linux distribution | Official `qoder-ide_amd64.deb`, SHA-256 `bafe5243bc3b4fee2a37477f185365506daeed93b4e5cee52deaaeb7545d0a9c`; backend config commit `2c56c21`. Workbench context counters concern context occupancy; the native Go backend's per-call token writer remains unverified. This does not establish absence of local usage. |
+| JetBrains 2026.1021.81866741 | Official plugin ZIP, SHA-256 `66e88ca23cfb42a054e6dc7d3012ea5e04504eb7cfac48ae19fddc36ccc20104`; backend 2026.1021.1 commit `275db5b`. Inspected `ChatRecord`, ACP adapter bytecode and native database column strings. The `extra` payload and native token persistence remain unverified; shared CLI integration does not certify them. |
+
+The CLI reader first verifies a native custom-model or Credits marker within 32 MiB/200 ms,
+reading complete lines of at most 8 MiB and retaining only one line. Long initial messages,
+BOMs and preceding metadata do not impose a separate 32-line/64-KiB cutoff. Beyond the
+bounded probe, files remain unverified. It
+then imports completed native assistant responses from that file, with positive inclusive
+input/output/cache buckets. Official responses need no `modelSource`: it is assigned only
+for the direct custom route. Indistinguishable chat-only transcripts retain the probe.
+Default or redacted zeros remain unknown. Official-channel
+responses can therefore count calls without known tokens. Credits never supply cost,
+currency or provider. Reasoning and source totals are not reconstructed from properties
+lost during native serialization. Persisted observation times and each record's version
+remain explicit. Partial/synthetic/error responses, inherited fork copies, context stats
+and compaction records add no calls or tokens. Subagents retain their category.
+
+[Source-derived fixtures](../../../desktop/src-tauri/crates/core/tests/fixtures/qoder/source-cli-1.1.76/provenance.json)
+contain no native user data. Independent expectations are four completed calls, known
+input 170, output 36, cache read 30, cache write 10 and complete total 197; the remaining
+output-only response cannot establish a complete total. One official response has entirely
+unknown tokens. Duplicate content records do not increase counts. Each row retains its
+own version; the compatible 1.1.99 test is not certified by the 1.1.76 source.
+
+Sixteen integration tests cover the full registry, shared-format routing, default/manual
+roots, old probe cursors, an old misrouted owner with real Junie parent-directory
+promotion and a retained invalid sibling file, partial writes and bounded windows,
+field errors, unknown ownership/interfaces, repeat reads, genuine conflicts and atomic
+checkpoint rollback. They also cover long/BOM prefixes, metadata/error-only first windows,
+manual filenames containing subagents/segments, and unchanged parser-1 health recovery
+after SQLite reopen with first observation, real conflicts and diagnostic history retained.
+Parser 2 triggers this replay. Source identification permits bounded progress but does not
+certify token fields or erase malformed-record diagnostics.
+Ownership transfer requires no old statistical history. Source
+bytes are unchanged. Initial regressions exposed a test-fixture foreign-key violation,
+an internal compatibility diagnostic assertion and reused test run IDs; corrected fixtures retain real
+constraints and the compatibility history. IDE/plugin negative fixtures prove rejection,
+not successful token support. All real-client and other-platform runtime acceptance
+remains pending.
+
+### Codex and Qoder verification
+
+Before the follow-up review, Windows x64, Node 24.22.0 and Rust 1.99.0: `npm run verify` exited 0 with 1,093 Rust
+tests passed, nine existing tests ignored, 20 script tests and 24 frontend tests passed.
+Markdown/assets, Svelte types, rustfmt, Clippy and the frontend build passed. Afterward,
+the same eleven Qoder tests were strengthened with actual parent-directory discovery
+and invalid sibling retention; all eleven, rustfmt and workspace/all-targets Clippy
+passed again. The original 19-test M8 suite also passed with the new reader.
+
+`npm run check:docs` checked 207 repository pairs and 21 guide pairs with no Astro
+findings; `npm run test:docs` passed 39 tests. A native-environment `npm run build:docs`
+produced 1,401 pages and checked 2,935 published files, local links, fragments, search,
+sitemap, language roots and publication markers. Nothing was published.
+
+The first checks retained their failures: one Markdown line exceeded 160 characters,
+and two Option APIs exceeded MSRV 1.77.2. Wrapping the paragraph and using compatible
+APIs fixed those causes. Existing native credential tests were denied in the sandbox;
+the unchanged tests passed with isolated temporary directories and native access.
+Pagefind similarly returned PermissionDenied in the sandbox and passed in the native
+build environment. Logs retain these first failures and subsequent results under
+`build/codex-qoder-review/`, including `verify-qoder-final-4.log`,
+`qoder-tests-promoted-final.log` and `clippy-promoted-final.log`.
+
+The follow-up review reproduced Qoder's long-prefix detection failure, stalled metadata/error-only
+first windows and filename-based exclusions. It also reproduced Codex accepting positional arrays
+as record objects. These checks failed before their fixes. Seven additional integration tests and
+expanded streaming unit assertions cover the repairs, rollback, SQLite reopen and unchanged old
+processing positions. Final `npm run verify` exited 0: 1,100 Rust tests passed, nine ignored;
+20 script and 24 frontend tests passed, along with formatting, Clippy, types and frontend build.
+Logs are under `build/review-codex-qoder/`, including `qoder-before.log`, `corrupt-before.log`,
+`codex-before.log` and `verify2.log`. The first full verification stopped at workspace formatting;
+`cargo fmt --all` corrected the test files before the passing rerun. One new Codex integration
+initially expected a held-line result for an unlisted version that correctly returned incompatible;
+the fixture now uses a registered version to test the held cursor independently.
+
+The installed collector was not rebuilt/upgraded, no statistics database was cleared,
+and no GUI, installer or real Qoder request acceptance is implied. Codex recovery runs
+when the rebuilt collector scans existing sources, potentially over several bounded
+windows.
+
 ## OpenCode v2
 
 The local 2.0.32 database has `session_v2` and `session_message`, without the legacy

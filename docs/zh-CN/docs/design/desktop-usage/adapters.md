@@ -6,7 +6,7 @@
 [本轮验证](../../validation/desktop-usage/review-2026-09-27.md)。
 国内外流行 Agent 覆盖扩展调研（A25–A48）与 M8 文档级
 实施均已完成（[M8 验证记录](../../validation/desktop-usage/m8-second-batch.md)）：
-18 个适配器（17 个解析 + Qoder 探针）已注册；Amazon Q/Codebuff/iFlow 经源码核验
+18 个适配器已注册，最初为 17 个解析和 Qoder 探针；现依据源码扩展了 Qoder CLI 读取器。Amazon Q/Codebuff/iFlow 经源码核验
 证实本地无逐次 token 记录（或已停服），按边界排除。
 下表区分实施候选与核验状态。
 初始实施阶段只读核对本机数据；此后真实请求及容器验收按各专项授权执行。
@@ -41,6 +41,13 @@ Codex 精确注册表现有 26 个旧格式和 11 个新格式版本。0.3.2 补
 详见[版本核验与恢复](../../validation/desktop-usage/release-032.md)。
 下表原有的 21 个 Codex 旧格式映射仍是历史依据，详见[0.3.0 样本](../../validation/desktop-usage/release-030.md)。
 其他版本继续进行兼容检查，不继承这些核验结论。
+
+Codex 对完整的超长 `response_item`/`world_state` 记录使用独立的 64 MiB 限制，
+流式校验 JSON 和 UTF-8，只保留记录类型。每条此类记录结束当前扫描窗口。
+用量、未知类型、损坏或不完整记录仍遵循普通的 8 MiB 限制，并停留在原游标。
+位置数组不能建立原生记录结构。解析器 8 自动重读旧游标且不删除历史；
+[原生恢复结果](../../validation/desktop-usage/release-033.md#oversized-codex-records)
+不代表新客户端版本的每个字段均已核验。
 
 <a id="user-specified-tools"></a>
 
@@ -118,11 +125,64 @@ Codex 精确注册表现有 26 个旧格式和 11 个新格式版本。0.3.2 补
 | gajae-code（gjc） | `~/.gjc/agent/sessions/<slug>/*.jsonl`：session v5 头、assistant model/provider/usage 与 Estimated 成本 | GJC_CODING_AGENT_DIR 等覆盖；OpenAI-completions 缺字段零回退不能核验缓存/零用量；message.timestamp 为请求开始 | M8 已实施；0.18.7 真实 API/CLI/记录 412/2/414 一致，补配置链非用量类型、未知缓存/未缓存与旧完整摘要/游标升级；其他 API/版本/分支待验，见 [真实样本](../../validation/desktop-usage/m8-container-samples.md)，A42 |
 | Xum（Coder；原 mux） | `.xum/.mux/sessions`、XUM_ROOT/MUX_ROOT 或 RUN_SESSION_ROOT 下的 `session-usage.json` v1；0.30.0 官方源码与两次真实本地调用已核对 | input 为未缓存输入；默认零未知；正文本输出加已知推理，推理未知时为下界；完整输入/总量未知。默认 CLI 临时会话删除且 custom provider 未请求流式 usage，网关对照单独记录 | M8 已实施；成本/逐次调用不虚构；完整旧摘要/游标与回滚/冲突专项通过，成品状态见 [M8 容器样本](../../validation/desktop-usage/m8-container-samples.md)，A43 |
 | iFlow CLI（阿里心流，闭源） | 官方固定提交 4642808 已公告 2026-04-17 停服；本地默认逐次用量记录未核验，需启用的 OTel 按 M5 规则另行核验 | 不套用 Gemini 家族格式；不作为现行 M8 本地候选 | 不实施；与 AGENTS/M8 边界一致，A46 |
-| Qoder CLI（阿里，前通义灵码） | CLI 设备流 `~/.qoder/`；IDE 为 Electron `%APPDATA%\com.qoder.app.stable*`；另有 globalStorage/`~/.local/share/qoder` 线索 | CLI 会话格式与 usage 字段尚未核验：先本机核验再定实现；与灵码品牌演化记录在案；JetBrains 插件归 F1 | M8 探针级接入（路径已核验、字段尚未核验：只发现识别不解析，fail closed；待本机实测 `<session>.jsonl` 与 `state.json`），A47 |
+| Qoder CLI / IDE / JetBrains 插件 | CLI 会话 JSONL/state.json、IDE/插件转录路径及 SDK 用量字段各有下述官方资料 | 按产品分别核验持久用量语义、版本和本机归属；SDK 字段不能证实原生存储 | CLI 1.1.76 已有基于源码的转录读取器及合成测试；实机验收和 IDE/插件 token 格式待核验。三者均纳入用户要求的支持目标，见 [Qoder 要求](#qoder-local-support)，A47 |
 | AtomCode（AtomGit 生态） | `.meta` turn_stats/model_usage 按模型会话聚合；round_count 来源报告调用汇总；旧单文件同构 | 5.2.1 真实 API/CLI/.meta 为 6,176 输入/2 输出；缓存默认零与坏桶保持未知，未缓存不猜测；有界排除完整配对的 UI v1/rewind v2，其他仍诊断 | M8 已实施；官方 e4215f7/45e05cb 与真实样本、旧完整摘要/游标及并行/回滚通过；产品版本不能核验其他记录，InsCode IDE 归 F1，见 [真实样本](../../validation/desktop-usage/m8-container-samples.md)，A48 |
 | Warp | 本地仅账户级用量缓存（requestsUsed/spendCents/syncedAt，工作区级） | 无 token 明细且属账户额度数据：不入 token 统计，最多以状态行展示受限 | 暂缓（额度类），A44 |
 | Cursor（CLI/IDE） | CLI 转录 `~/.cursor/projects/<slug>/agent-transcripts/<uuid>/*.jsonl`（有会话、无逐次 token/模型字段）；IDE state.vscdb 记录格式待核验 | 逐次用量仅存在于远端 dashboard（get-filtered-usage-events/CSV 导出），按本地边界排除；不以 tokenizer 从转录估算 | F1（本地用量格式待核验），A45 |
 | Windsurf（IDE+CLI） | IDE Cascade 与 2026 年确认存在的 windsurf CLI；本地 usage 存储尚未核验 | 本地逐次 token 格式尚未核验时不探测/不实施；列入 F1 后续支持计划 | F1；后续支持 |
+
+<a id="qoder-local-support"></a>
+
+## Qoder 本地支持要求
+
+用户要求覆盖 CLI、IDE 和 JetBrains。2026-10-22 只读本机检查未发现 CLI 可执行文件、
+默认 `.qoder`/`.qoder-cn` 目录，受查 Windows 应用目录也没有 Qoder 项。
+用户确认本机未安装，授权依据源码构造数据；未初始化客户端、登录、添加 hooks 或发起模型请求。
+
+| 产品 | 当前官方资料 | 导入用量前的必要检查 |
+| --- | --- | --- |
+| CLI | [会话管理](https://docs.qoder.com/zh/cli/sessions)说明项目 JSONL/state.json 和 `QODER_CONFIG_DIR`；[SDK assistant 消息](https://docs.qoder.com/cli/sdk/references-typescript#sdkassistantmessage)声明可选输入、输出、缓存读取和缓存创建 token | 绑定版本的原生持久化、输入与缓存包含关系、默认零有效性、模型/时间/请求身份、恢复/分支/压缩及失败调用覆盖。未经写入器和样本核对，不将 SDK 字段直接用于 state.json |
+| IDE | [Hooks/转录说明](https://docs.qoder.com/extensions/hooks#transcript-file-format)记录 `~/.qoder/projects/<project>/transcript/<session-id>.jsonl`，含会话元数据及 user/assistant/progress 记录；公开转录示例未说明 token 用量 | 检查已安装 IDE 的写入器及非空本地转录/数据库；独立证实用量和逐次请求身份，不按 assistant 消息数计调用。读取已有文件不需要 hooks，也不自动启用 |
+| JetBrains 插件 | 同一份 [hooks 文档](https://docs.qoder.com/extensions/hooks)明确适用于 IDE 和 JetBrains，并指出 CLI hooks 不同 | 按插件和版本核查路径、持久化及用量字段；共用 hooks 文档不能证实 IDE 转录示例或 CLI 用量字段适用于插件 |
+
+[Credits](https://docs.qoder.com/cli/sdk/cost-usage) 与 token、货币分别保存。
+逐次请求 Credits、会话累计和账户额度覆盖范围不同，不能相加或转换为 token。
+远端账户/用量查询仍在采集范围外。上下文窗口占用不是已消耗用量；
+缺字段保持未知，模型家族名和订阅套餐不能确定价格。
+独立的 Qoder 桌面产品在[产品说明](https://docs.qoder.com/qoder/overview)中明确与 IDE 分别保存历史；
+以后扩展支持时，导入的历史需要显式去重。
+
+保留一个 Agent 目录，按版本/格式拆分读取器，并标明客户端归属。
+只有已证明一致的映射才共用，同一物理文件仅有一个读取器。
+每个产品都需要绑定写入器的样本与独立求和、真实注册表发现、重复读取、旧游标恢复、
+损坏/不完整记录、事务回滚和跨产品重复测试。已授权的 CLI 源码构造样本用于实现回归，
+真实客户端验收单独记录；未核验格式保留探针与诊断，不导入推测数值。
+不兼容升级保留已有统计，并退回仅发现状态。
+
+### 基于源码的 CLI 读取器
+
+用户授权用源码分析和合成数据代替本机安装。已下载官方 npm
+`@qoder-ai/qodercli` 1.1.76 和 SDK 1.0.55，未运行安装脚本。
+CLI tarball 已核对 npm SHA-512：
+`N4GLhnDoCOUBL8Ei5JY53u57/hQcXgu+W83mXwGJraSfohwmldnQnsb+/vKOu6ysl228+UNcOqFQe3abybFmGw==`。
+以下要求允许依据源码实现 CLI 读取器并使用合成数据回归；真实客户端验收仍待完成。
+IDE 和 JetBrains 格式需要各自的写入检查，不能因集成 CLI 就继承这套映射。
+
+| 要求 | CLI 1.1.76 写入器/归一化依据 |
+| --- | --- |
+| 原生文件 | `Mm` 选择 `projects/<project>/<session>.jsonl`；`KLo` 和 `SessionTranscriptWriter.insertMessageChain` 写入每行 `sessionId`、`version`、`entrypoint`、`userType`、UUID 和 ISO 时间戳。要求 CLI 记录结构及同文件中的自定义模型或原生 Credits 标记；官方响应不要求 modelSource 字段。无法区分产品的纯聊天转录保留探针，不接受所有含 sessionId 的 JSON 文件 |
+| 计数响应 | 读取已完成 assistant 的 `message.id`、model 和 stop_reason；跳过缓存中的部分响应、`<synthetic>` API/错误消息以及有效 `forkedFrom` 标记的复制记录。按消息 ID 去重多个内容记录和副本；user/tool/system 与 `token-stats` 不计调用 |
+| Token 字段 | `cU` 将含缓存的 `prompt_tokens` 写为原生 `input_tokens`；`uot` 在此转换前将 Anthropic 非缓存、缓存读取及创建相加。正输入含缓存，正输出/缓存读取/创建分别保留报告值；`za` 和 `A$n` 填入的默认零保持未知。仅两个缓存分项都已知时派生非缓存输入，仅完整输入/输出都已知时派生总量 |
+| 隐去计数 | `bxu`/`kU` 保留自定义模型计数，普通官方通道序列化则将 token 计数置零。这些已完成调用仍计次数，token 未知；不启用 token 日志，也不从 Credits 推测消耗 |
+| 缺失明细 | `XVe` 和 `gpt` 将推理/源总量附为不可枚举属性，对象展开及 JSON 序列化会丢失；不从源码字段名或默认零恢复。Credits 不能确定货币或供应商 |
+| 时间/归属 | 原生时间戳是持久化观察时刻。逐行保留版本；`isSidechain`/agent ID 标识子 Agent 类别，不额外制造调用。拒绝未支持的远端入口及损坏归属；不从通用 CLI 入口推断宿主应用 |
+| 升级/失败 | 在共用转录检测器之前将完整 CLI 结构路由给 Qoder；只在没有统计历史时转移旧的错误归属文件，保留其他坏文件和诊断。重读旧探针的处理状态，不清空统计或历史；跨窗口保留坏记录状态，隔离损坏字段，重试不完整行，并验证重复读取、冲突及回滚。未核验的 state.json、IDE/插件及其他格式继续显示明确诊断 |
+
+原生标记探针在 32 MiB、200 ms 范围内检查完整行，单行上限 8 MiB，每次只保留一行。
+支持 BOM、初始长消息及元数据前缀；超出该边界时，来源仍未验证。只有元数据的窗口允许推进，
+但不认证用量。已核验的原生结构也允许继续读取更早的坏记录之后的数据，同时保留坏记录诊断
+和降级状态。文件名包含 subagents/segments 不能证明其为辅助内容，也不能据此隐藏手工文件。
+读取器 2 重新核对旧探针/读取器已消耗的位置，不清空历史或冲突。
 
 <a id="hermes-agent-本地合同"></a>
 
@@ -295,7 +355,7 @@ Cursor/TRAE 的逐次用量在远端，均按本地边界排除且不以估算�
 也不一定覆盖官方订阅通道，因此不是当前通用回退方案。
 
 M8 注册范围见 [第二批实施记录](../../validation/desktop-usage/m8-second-batch.md)：18 个适配器
-（17 个解析 + Qoder 探针）；Amazon Q/Codebuff 经源码核验确认本地无逐次 token 记录、
+（最初为 17 个解析和 Qoder 探针，CLI 转录扩展见上文）；Amazon Q/Codebuff 经源码核验确认本地无逐次 token 记录、
 iFlow 已停服（2026-04-17）且唯一已识别的用量格式是需启用的 OTel（归 M5），三者不实施
 token 适配器；Cursor/Windsurf 维持 F1。历史十源样本见
 [容器样本](../../validation/desktop-usage/m8-container-samples.md)；本轮另取得 Zed 实样，

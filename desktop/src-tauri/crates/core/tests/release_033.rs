@@ -647,7 +647,7 @@ fn codex_correction_survives_separate_windows_and_transaction_rollback() {
             if mode == "outside_policy" {
                 "codex-rollout-5"
             } else {
-                "codex-rollout-6"
+                llm_usage_core::adapters::codex::rollout_v1::CODEX_PARSER_VERSION
             }
         );
     }

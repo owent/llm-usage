@@ -171,6 +171,9 @@ pub(super) fn accepts_manual_file(
     if !instance.starts_with("dsh@") && dsh_native_record(path) {
         return Ok(false);
     }
+    if !instance.starts_with("qoder@") && super::qoder::detect::native_record(path) {
+        return Ok(false);
+    }
     let owner: Option<String> = storage
         .conn()
         .query_row(
@@ -185,8 +188,21 @@ pub(super) fn accepts_manual_file(
     match owner {
         None => Ok(true),
         Some(owner) => Ok(recoverable_qwen_owner(storage, instance, &owner, path)?
+            || recoverable_qoder_owner(storage, instance, &owner, path)?
             || recoverable_dsh_owner(storage, instance, &owner, path)?),
     }
+}
+
+fn recoverable_qoder_owner(
+    storage: &Storage,
+    instance: &str,
+    owner: &str,
+    path: &Path,
+) -> Result<bool, CoreError> {
+    if !instance.starts_with("qoder@") || !super::qoder::detect::native_record(path) {
+        return Ok(false);
+    }
+    storage.conn().query_row("SELECT NOT EXISTS(SELECT 1 FROM usage_events WHERE source_instance_id=?1) AND NOT EXISTS(SELECT 1 FROM daily_usage WHERE instance_id=?1) AND NOT EXISTS(SELECT 1 FROM period_usage WHERE instance_id=?1) AND NOT EXISTS(SELECT 1 FROM source_aggregates WHERE instance_id=?1)", [owner], |r| r.get(0)).map_err(Into::into)
 }
 
 fn dsh_native_record(path: &Path) -> bool {
@@ -228,7 +244,7 @@ fn recoverable_dsh_owner(
     storage.conn().query_row("SELECT NOT EXISTS(SELECT 1 FROM usage_events WHERE source_instance_id=?1) AND NOT EXISTS(SELECT 1 FROM daily_usage WHERE instance_id=?1) AND NOT EXISTS(SELECT 1 FROM period_usage WHERE instance_id=?1) AND NOT EXISTS(SELECT 1 FROM source_aggregates WHERE instance_id=?1)",[owner],|r|r.get(0)).map_err(Into::into)
 }
 
-/// Each physical file has one owner. Verified Qwen/DSH ownership repairs require no statistical history.
+/// Each physical file has one owner. Verified Qwen/DSH/Qoder repairs require no statistical history.
 /// Other unrecognized registrations also require no checkpoint; never transfer valid historical contributions.
 pub(super) fn claim_file(
     storage: &Storage,
@@ -236,6 +252,9 @@ pub(super) fn claim_file(
     instance: &str,
     path: &Path,
 ) -> Result<bool, CoreError> {
+    if adapter.adapter_id() != "qoder" && super::qoder::detect::native_record(path) {
+        return Ok(false);
+    }
     let file = normalize_path(path);
     let owner: Option<(String, bool)> = storage
         .conn()
@@ -252,7 +271,9 @@ pub(super) fn claim_file(
     if owner == instance {
         return Ok(true);
     }
-    if recoverable_dsh_owner(storage, instance, &owner, path)? {
+    if recoverable_dsh_owner(storage, instance, &owner, path)?
+        || recoverable_qoder_owner(storage, instance, &owner, path)?
+    {
         let tx = storage.conn().unchecked_transaction()?;
         tx.execute("DELETE FROM ingestion_checkpoints WHERE instance_id=?1 AND scope_key=(SELECT file_identity FROM source_files WHERE file_id=?2 AND instance_id=?1)",params![owner,file])?;
         let changed=tx.execute("UPDATE source_files SET instance_id=?1,status='new',format_status=NULL WHERE file_id=?2 AND instance_id=?3",params![instance,file,owner])?;

@@ -1,17 +1,5 @@
-//! Qoder CLI session-file probe: probe_only, qoder-pending-evidence.
-//!
-//! Preimplementation format checks on 2026-09-29: official documentation, unpacked
-//! npm @qoder-ai/qodercli 1.1.64 and third-party scripts.
-//! - Verified paths: ~/.qoder/projects/<processed-project-path-name>/<session-id>.jsonl
-//!   conversation logs and <session-id>/state.json; QODER_CONFIG_DIR redirects
-//!   the root directory.
-//! - Persisted usage fields remain unverified. Obfuscated bundle code contains state.json
-//!   modelRequests[]/compact_token_usage_json schema strings and OTel-to-storage
-//!   input_tokens/cache_read_tokens mappings, without verifying actual persistence.
-//!   /usage reports cloud Credits under docs.qoder.com/cli/usage.md.
-//! - Discover/identify session files only, without parsing any usage field.
-//!   Reject unverified reading with diagnostics until native samples establish actual
-//!   state.json/session JSONL fields.
+//! Fallback probe for unverified state.json and other Qoder persistence formats.
+//! CLI transcript fields have an independent source-derived reader; Credits are not tokens.
 
 use crate::adapters::framework::{
     ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
@@ -34,7 +22,7 @@ pub fn scan(
     _limits: &ScanLimits,
     _now_ms: i64,
 ) -> Result<ScanOutcome, CoreError> {
-    // Do not parse/import usage; diagnostics describe unverified fields and required samples.
+    // Do not parse/import usage from unverified formats.
     // Store file length as cursor so unchanged files skip repeated diagnostics in the framework.
     // Later file changes trigger another probe through framework change detection.
     Ok(ScanOutcome {
@@ -43,7 +31,9 @@ pub fn scan(
             generation: target.generation,
             offset: target.probe.len,
         })?),
-        parse_context: None,
+        parse_context: Some(
+            serde_json::json!({"parser_version":super::transcript_v1::PARSER_VERSION}),
+        ),
         events: Vec::new(),
         aggregates: Vec::new(),
         diagnostics: vec![DiagnosticInput {
@@ -51,9 +41,8 @@ pub fn scan(
             code: "usage_fields_unverified".to_string(),
             field: None,
             position: Some(crate::adapters::framework::normalize_path(&target.path)),
-            message: "Qoder usage persistence is unverified (bundle schema hints only; \
-billing is cloud Credits); parsing disabled pending a local fixture of \
-<session-id>.jsonl and <session-id>/state.json"
+            message: "This Qoder persistence format has no verified local token mapping; \
+only the independently validated CLI transcript envelope is parsed"
                 .to_string(),
         }],
         lines_read: 0,

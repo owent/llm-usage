@@ -27,15 +27,16 @@ use crate::ingest::DiagnosticInput;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
+use super::super::reader::read_jsonl;
 use crate::adapters::framework::{
     Reconciliation, ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
 };
-use crate::adapters::jsonl::{read_jsonl, JsonlCursor, StopReason};
+use crate::adapters::jsonl::{JsonlCursor, StopReason};
 
 use super::super::common::{map_codex_record, CodexRecordUsage};
 
 // Registry rule changes replay consumed files; retain cumulative mismatches and per-call errors across batches.
-pub const CODEX_PARSER_VERSION: &str = "codex-rollout-6";
+pub const CODEX_PARSER_VERSION: &str = "codex-rollout-8";
 const MAX_REASONABLE_TOKEN: i64 = crate::domain::MAX_TOKEN_VALUE;
 
 /// Six usage-field sums for snapshot/carried reconciliation; i128 protects additions.
@@ -703,7 +704,7 @@ pub fn scan(
         || diagnostics
             .iter()
             .any(super::super::common::is_record_error);
-    let degraded = context.has_record_errors;
+    let degraded = context.has_record_errors || status == ScanStatus::LineTooLong;
     Ok(ScanOutcome {
         status,
         cursor: Some(serde_json::to_value(new_cursor)?),

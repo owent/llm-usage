@@ -8,6 +8,7 @@
 
 pub mod common;
 pub mod detect;
+mod reader;
 pub mod versions;
 
 pub use common::{map_codex, map_codex_record, CodexRecordUsage, CodexUsage};

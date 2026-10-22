@@ -1,0 +1,42 @@
+{
+  "kind": "synthetic-source-derived",
+  "native_client_acceptance": false,
+  "source_package": "@qoder-ai/qodercli",
+  "source_version": "1.1.76",
+  "npm_integrity": "sha512-N4GLhnDoCOUBL8Ei5JY53u57/hQcXgu+W83mXwGJraSfohwmldnQnsb+/vKOu6ysl228+UNcOqFQe3abybFmGw==",
+  "writers": [
+    "KLo",
+    "bxu",
+    "kU",
+    "SessionTranscriptWriter",
+    "cU",
+    "uot",
+    "buildForkEntries",
+    "yfe",
+    "uau",
+    "Mxu"
+  ],
+  "expected": {
+    "calls": 4,
+    "input_total_known": 170,
+    "output_total_known": 36,
+    "cache_read_known": 30,
+    "cache_write_known": 10,
+    "complete_total_known": 197
+  },
+  "excluded": [
+    "partial response",
+    "duplicate content response",
+    "synthetic API error",
+    "forked inherited response",
+    "context occupancy",
+    "compaction usage"
+  ],
+  "limits": [
+    "No CLI/IDE/JetBrains installation or real model request",
+    "IDE and JetBrains native token persistence unverified",
+    "Official-channel zero counters are redacted/unknown",
+    "Reasoning, source total, currency, provider and duration unverified",
+    "Indistinguishable chat-only files retain the probe; native marker detection is bounded to 32 MiB, 8 MiB per complete line and 200 ms"
+  ]
+}

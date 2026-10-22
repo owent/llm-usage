@@ -43,10 +43,11 @@
 //! Registry parser/supported-version changes reset stored checkpoints and revisit consumed files.
 //! Previously incompatible legacy files had no advanced cursor; registering them permits a full read.
 
+use super::super::reader::read_jsonl;
 use crate::adapters::framework::{
     Reconciliation, ScanLimits, ScanOutcome, ScanStatus, ScanTarget, StoredScanState,
 };
-use crate::adapters::jsonl::{read_jsonl, JsonlCursor, StopReason};
+use crate::adapters::jsonl::{JsonlCursor, StopReason};
 use crate::aggregates::{AggregateScope, Coverage, SourceAggregateInput};
 use crate::domain::{
     AttributionStatus, CallCategory, EventInput, Lifecycle, ModelAttribution, RecordKind,
@@ -654,13 +655,10 @@ pub fn scan(
             // Legacy call classification requires total and last together; malformed snapshots can hide observed calls.
             matches!(
                 d.code.as_str(),
-                "bad_json_line"
-                    | "usage_shape_deviation"
-                    | "timestamp_unparseable"
-                    | "line_too_long"
+                "bad_json_line" | "usage_shape_deviation" | "timestamp_unparseable"
             )
         });
-    let degraded = context.has_record_errors;
+    let degraded = context.has_record_errors || status == ScanStatus::LineTooLong;
     Ok(ScanOutcome {
         status,
         cursor: Some(serde_json::to_value(new_cursor)?),

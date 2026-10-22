@@ -9,7 +9,7 @@ use crate::metrics::Contradiction;
 pub(crate) fn is_record_error(diagnostic: &crate::ingest::DiagnosticInput) -> bool {
     matches!(
         diagnostic.code.as_str(),
-        "bad_json_line" | "usage_shape_deviation" | "timestamp_unparseable" | "line_too_long"
+        "bad_json_line" | "usage_shape_deviation" | "timestamp_unparseable"
     ) && diagnostic.field.as_deref() != Some("info.total_token_usage")
 }
 

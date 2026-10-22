@@ -432,7 +432,10 @@ pub(crate) fn commit_batch_tx(
             }
             Arbitration::Conflict => {
                 if event.agent == "codex"
-                    && event.parser_version == "codex-rollout-6"
+                    && matches!(
+                        event.parser_version.as_str(),
+                        "codex-rollout-6" | "codex-rollout-7" | "codex-rollout-8"
+                    )
                     && existing
                         .as_ref()
                         .is_some_and(|old| old.5 == "codex-rollout-5")
@@ -619,7 +622,10 @@ fn codex_inherited_carry_upgrade(
     carries: &[crate::adapters::codex::rollout_v1::InheritedCarry],
 ) -> bool {
     if event.agent != "codex"
-        || event.parser_version != "codex-rollout-6"
+        || !matches!(
+            event.parser_version.as_str(),
+            "codex-rollout-6" | "codex-rollout-7" | "codex-rollout-8"
+        )
         || old.5 != "codex-rollout-5"
         || event.record_kind != crate::domain::RecordKind::ModelCall
         || event.source_revision.is_some()

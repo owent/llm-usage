@@ -2,7 +2,7 @@
 
 <a id="桌面用量客户端执行计划"></a>
 
-Current version: 0.3.3. Windows 11 x64 is the first desktop target; Windows/Linux/macOS CI
+Current version: 0.3.4. Windows 11 x64 is the first desktop target; Windows/Linux/macOS CI
 is retained. This file owns the executable work for the current round. Removed scope and
 first failures are recorded in the [round record](docs/validation/desktop-usage/plan-20261007.md);
 removal does not mean acceptance passed. Historical results are indexed in
@@ -48,6 +48,17 @@ output/total coverage against complete old summaries; unknown input detail remai
 Draft Release notes now use the annotated tag message and verify the body after asset upload.
 Checks and remaining acceptance
 boundaries are in the [0.3.3 repair record](docs/validation/desktop-usage/release-033.md).
+Codex parser 8 handles validated oversized non-usage objects in bounded streaming
+windows and rechecks old cursors; native statistics-copy recovery preserves prior
+events and restores usage after the blocked line. See the same record's
+[oversized-record checks](docs/validation/desktop-usage/release-033.md#oversized-codex-records).
+Qoder CLI, IDE and JetBrains are requested local-support targets. User-authorized
+source inspection now implements CLI 1.1.76 transcripts with synthetic fixtures,
+positive token buckets, redacted-zero uncertainty and completed-response counts.
+IDE 1.35.0 and JetBrains 2026.1021.81866741 distribution inspection has not established
+native per-call token persistence; those readers and all real-client acceptance remain
+pending. See the [field contract](docs/design/desktop-usage/adapters.md#qoder-local-support)
+and [source checks](docs/validation/desktop-usage/release-033.md#source-derived-qoder).
 Windows CI test timeout repair batches new-database creation and Kilo sample writes, and
 keeps native-sample queries within the dates of all retained events. Local timing, rollback
 coverage and the original remote timeout are recorded there; CI shows test compilation and
