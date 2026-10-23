@@ -17,7 +17,8 @@ The standard Tauri updater cannot consume the existing Windows portable tar.zst 
 The implementation therefore shares strict GitHub release selection and streaming
 verification across packages, then applies NSIS or portable updates with a separate helper.
 The trust boundary is HTTPS plus repository release ownership, without an independent
-publisher signature. Automatic downloads default off; installation always requires a click.
+publisher signature. Automatic downloads defaulted off in that validation; the current
+default is covered below. Installation always requires a click.
 
 ## Environment and commands
 
@@ -244,3 +245,31 @@ tests and 20 script tests, clean types/fmt/clippy and a frontend build.
 `npm run test:browser` exited 0, including the stopped-retry notice and an enabled download
 action. Retry tests simulate OS submission; they do not repeat native notification delivery
 or change the platform acceptance limits above.
+
+## Automatic settings persistence (2026-10-23)
+
+Version 0.3.4, Windows 11 x64, Node 24.22.0 and Rust 1.99.0. Settings now use immediate
+selection commits, a 600 ms text debounce, blur/Enter flushing and IME deferral. Validation
+keeps incomplete drafts. Requests serialize immutable snapshots; an older acknowledgement
+cannot replace newer edits. Navigation waits for persistence and retains failed drafts.
+Repeated blur/change/navigation events cannot retry the same failed draft; an edit or
+explicit retry is required. Unrelated settings no longer start cost recomputation.
+Automatic downloads default on for new/missing fields; explicit false values survive
+serialization and restart. Installation continues to require a click.
+
+| Command/check | Result and scope |
+| --- | --- |
+| `npm run verify` | Exit 0: 20 script tests, 32 frontend tests, 1,100 Rust tests passed, nine ignored; types, fmt, clippy and frontend build passed |
+| `npm run test:browser` | Exit 0: immediate choices, 600 ms debounce, blur/Enter, IME, slow/failed requests, navigation, invalid retention/budget/provider drafts, defaults, operational controls, ten locales and update flows |
+| Native debug build through the locked Tauri CLI | Exit 0, no installer or bundle created |
+| Focused Windows WebView2/IPC run | Exit 0: five checks cover initial automatic-download default, language autosave, pending alias flushed by navigation, explicit opt-out and real SQLite persistence after restart |
+| `npm run check:docs`, `npm run test:docs`, `npm run build:docs` | Exit 0: 207 repository pairs, 21 guide pairs, 39 tests, clean Astro diagnostics and 2,931 published files with valid local links/search |
+
+Logs and disposable probes are under `build/settings-autosave/`; the native run uses an
+independent source environment/database under `build/plan-completion/native/1792686632416/`.
+The browser test uses mocked IPC and release metadata; the native run uses real IPC and
+isolated synthetic sources. No installation or public-release upgrade was performed.
+Initial sandbox runs hit Windows rename permissions, Pagefind index permissions and Edge startup failures; the final
+checks ran outside that sandbox with isolated temporary directories. An earlier browser
+run stopped at a chart-selection assertion; the complete final rerun passed. Linux/macOS
+desktop lifecycle and abrupt process termination were not revalidated.

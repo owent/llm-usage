@@ -8,10 +8,15 @@ sidebar:
 ## Language and timezone
 
 The app includes Simplified Chinese, Traditional Chinese, English, Japanese, Korean,
-Spanish, French, German, Brazilian Portuguese and Russian. Save a language in Settings
+Spanish, French, German, Brazilian Portuguese and Russian. Select a language in Settings
 to update labels, accessible names and locale formatting immediately. Timezone and week
 start remain separate settings. Exported ISO dates, exact values and stable column names
 are not rewritten into locale-dependent formats.
+
+Settings save automatically. Switches and selections save immediately; text and numeric
+fields save after a short pause or on blur/Enter. Saving waits until IME composition ends.
+The status shows pending changes, saving, success or an error. Errors keep the draft for
+correction or retry. Leaving Settings waits for a successful save.
 
 The documentation has English and Simplified Chinese editions. The root defaults to
 English, with initial browser-language selection and a persistent manual language choice.

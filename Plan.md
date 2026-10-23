@@ -151,6 +151,10 @@ pair review and contextual wording checks. First failures, validation commands a
 
 Software updates follow [the update requirements](docs/design/desktop-usage/application-updates.md);
 implementation and local results are in [update validation](docs/validation/desktop-usage/application-updates.md).
+Settings now save automatically with immediate selection commits, 600 ms text debounce,
+IME deferral, serialized writes and navigation flushing under the
+[interaction requirements](docs/design/desktop-usage/dashboard-polish.md). Automatic downloads
+default on for new/missing settings; explicit opt-outs are preserved.
 Version 0.3.0 cost-card, settings and native Codex corrections are recorded in
 [local release checks](docs/validation/desktop-usage/release-030.md).
 Version 0.3.2 registers individually checked Codex/Kilo native versions and clarifies

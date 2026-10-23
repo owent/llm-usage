@@ -8,6 +8,22 @@
 
 ## Setup and collection status
 
+Settings save automatically. Switches, selects, theme/timezone choices and restoring
+defaults commit immediately. Text and numeric edits commit after 600 ms without input,
+or on blur/Enter. IME composition defers saving until composition ends. Opening Settings,
+switching sections and using export/log/cleanup controls do not write unchanged settings.
+Startup/task controls and telemetry setup retain their existing explicit actions.
+
+Validate the complete draft before writing; incomplete numbers, budget amounts and provider
+rows stay editable and show a reason. Show pending, saving, saved and failure states. Serialize
+writes, retain edits made during a request and send the latest complete snapshot next.
+Failures keep the draft; retry on the next edit or an explicit retry, without periodic retries.
+Before leaving Settings, flush pending edits and wait for writes; on failure keep the editor
+open. Changing sections keeps the same draft so users can correct an invalid field.
+Only enabling estimates or changing pricing defaults starts cost recomputation.
+Acceptance covers debounce, blur/Enter, IME, concurrent edits/reverts, failures, navigation,
+nested update/budget/provider settings and restoration of defaults.
+
 Overview retains one status line with enable/details actions. Only missing configuration
 eligible for automatic setup counts as waiting to enable. Other items without verified
 valid data display “No data”, including those currently ineligible for automatic setup;

@@ -44,6 +44,8 @@
 
   let tab = $state<Tab>('overview');
   let settingsSection = $state<'general' | 'telemetry'>('general');
+  let settingsPanel = $state<SettingsPanel>();
+  let navigating = false;
   let settings = $state<AppSettings | null>(null);
   let ready = $state(false);
   let clockNow = $state(new Date());
@@ -820,15 +822,29 @@
   });
 
   function onSettingsSaved(next: AppSettings) {
+    const previous = settings;
     settings = next;
     const locale = normalizeLocale(next.language);
     if (locale) setLocale(locale);
     // Timezone/week-start changes affect date ranges without changing the query key; force reload.
     dataReloadKey += 1;
     // F2: enabling pricing starts a background cost recomputation for retained details.
-    // Repeated recomputation is safe; skip when disabled, as collection does not backfill it.
-    if (next.pricing?.enabled) {
+    // Autosaving unrelated preferences must not start another cost recomputation.
+    if (next.pricing?.enabled && (!previous?.pricing?.enabled
+      || JSON.stringify(previous.pricing.provider_defaults) !== JSON.stringify(next.pricing.provider_defaults))) {
       void api.recomputeCosts().catch(() => undefined);
+    }
+  }
+
+  async function navigate(next: Tab) {
+    if (navigating) return;
+    navigating = true;
+    try {
+      if (tab === 'settings' && next !== tab && settingsPanel && !await settingsPanel.flush()) return;
+      if (next === 'settings') settingsSection = 'general';
+      tab = next;
+    } finally {
+      navigating = false;
     }
   }
 
@@ -850,13 +866,13 @@
 
 <div class="app-shell">
   <aside class="sidebar">
-    <a class="brand" href="#overview" aria-label={t('app.title')} onclick={() => (tab = 'overview')}>
+    <a class="brand" href="#overview" aria-label={t('app.title')} onclick={(e) => { e.preventDefault(); void navigate('overview'); }}>
       <img src="/brand/app-icon.svg" width="36" height="36" alt="" />
       <span><strong>{t('app.title')}</strong><small>Usage / Desktop</small></span>
     </a>
     <nav aria-label={t('app.subtitle')}>
       {#each ['overview', 'trend', 'sources', 'details', 'settings'] as id (id)}
-        <button class:active={tab === id} aria-label={t('nav.' + id)} aria-current={tab === id ? 'page' : undefined} onclick={() => { if (id === 'settings') settingsSection = 'general'; tab = id as Tab; }}>
+        <button class:active={tab === id} aria-label={t('nav.' + id)} aria-current={tab === id ? 'page' : undefined} onclick={() => void navigate(id as Tab)}>
           <Icon name={id} /><span>{t('nav.' + id)}</span>
         </button>
       {/each}
@@ -1265,7 +1281,7 @@
     <SourceList {sources} users={userOptions} onchanged={reloadUserData} />
   {:else if tab === 'settings'}
     {#if settings}
-      <SettingsPanel settings={settings} initialSection={settingsSection} collecting={!!refresh?.running} onsaved={onSettingsSaved} ondatachanged={() => void reloadUserData()} />
+      <SettingsPanel bind:this={settingsPanel} settings={settings} initialSection={settingsSection} collecting={!!refresh?.running} onsaved={onSettingsSaved} ondatachanged={() => void reloadUserData()} />
     {/if}
   {/if}
 </main>

@@ -37,7 +37,7 @@ impl Default for UpdateSettings {
     fn default() -> Self {
         Self {
             schedule: Schedule::Daily,
-            auto_download: false,
+            auto_download: true,
             system_notifications: true,
         }
     }
@@ -1082,12 +1082,17 @@ mod tests {
         assert!(!due(Schedule::Weekly, &decoded, 2 * DAY, true));
         let defaults: UpdateSettings = serde_json::from_str("{}").unwrap();
         assert_eq!(defaults.schedule, Schedule::Daily);
-        assert!(!defaults.auto_download);
+        assert!(defaults.auto_download);
         let mut old = serde_json::to_value(crate::app_state::AppSettings::default()).unwrap();
         old.as_object_mut().unwrap().remove("updates");
         let decoded: crate::app_state::AppSettings = serde_json::from_value(old).unwrap();
         assert_eq!(decoded.updates.schedule, Schedule::Daily);
-        assert!(!decoded.updates.auto_download);
+        assert!(decoded.updates.auto_download);
+        let disabled: UpdateSettings = serde_json::from_str(r#"{"auto_download":false}"#).unwrap();
+        assert!(!disabled.auto_download);
+        let decoded: UpdateSettings =
+            serde_json::from_str(&serde_json::to_string(&disabled).unwrap()).unwrap();
+        assert!(!decoded.auto_download);
         assert!(due(
             Schedule::Weekly,
             &CheckClock {

@@ -3,11 +3,10 @@
   import { api } from '../lib/api';
   import { budgetDisplay, budgetThreshold } from '../lib/budget-threshold';
   import { t } from '../lib/i18n.svelte';
-  let { value = $bindable(), pricingEnabled }: { value: Settings; pricingEnabled: boolean } = $props();
+  let { value = $bindable(), invalid = $bindable(false), pricingEnabled }: { value: Settings; invalid?: boolean; pricingEnabled: boolean } = $props();
   let status = $state<BudgetStatusDto | null>(null);
   let raw = $state('');
-  let invalid = $state(false);
-  $effect(() => { try { raw = budgetDisplay(value.threshold, value.metric); } catch { /* Keep incomplete decimal input for validation. */ } });
+  $effect(() => { try { raw = budgetDisplay(value.threshold, value.metric); } catch { raw = value.threshold; } });
   $effect(() => { void api.budgetStatus().then((s) => { status = s; }).catch(() => { status = null; }); });
   function update(rawValue: string) {
     raw = rawValue;
@@ -20,7 +19,7 @@
 <label class="switch-field"><input class="switch" type="checkbox" role="switch" bind:checked={value.enabled} /> <span>{t('budget.enabled')}</span></label>
 <div class="fields">
   <label>{t('budget.period')}<select bind:value={value.period}><option value="day">{t('budget.day')}</option><option value="month">{t('budget.month')}</option></select></label>
-  <label>{t('budget.metric')}<select value={value.metric} onchange={(e) => { value.metric = e.currentTarget.value as Settings['metric']; value.threshold = value.metric === 'total_tokens' ? '1000000' : '100000000'; invalid = false; }}><option value="total_tokens">{t('budget.tokens')}</option><option value="estimated_cost">{t('budget.cost')}</option></select></label>
+  <label>{t('budget.metric')}<select aria-label={t('budget.metric')} value={value.metric} onchange={(e) => { value.metric = e.currentTarget.value as Settings['metric']; value.threshold = value.metric === 'total_tokens' ? '1000000' : '100000000'; invalid = false; }}><option value="total_tokens">{t('budget.tokens')}</option><option value="estimated_cost">{t('budget.cost')}</option></select></label>
   {#if value.metric === 'estimated_cost'}<label>{t('budget.currency')}<input maxlength="3" value={value.currency} oninput={(e) => { value.currency = e.currentTarget.value.toUpperCase(); }} /></label>{/if}
   <label>{t('budget.threshold')}<input inputmode="decimal" value={raw} aria-invalid={invalid} oninput={(e) => update(e.currentTarget.value)} /></label>
 </div>

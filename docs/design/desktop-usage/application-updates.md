@@ -10,12 +10,13 @@ retry delay. GUI startup and a minute timer check deadlines; headless collection
 checks or installs updates. Manual checks bypass deadlines. Checks and downloads share
 one operation slot.
 
-Automatic downloads default off. A discovered release prompts Download; with automatic
-downloads enabled the application downloads and verifies the matching package, then
+Automatic downloads default on for new settings and missing fields. Preserve an explicitly
+saved false value. With automatic downloads disabled a discovered release prompts Download;
+otherwise the application downloads and verifies the matching package, then
 prompts Install update or Restart and update. Installation always needs an explicit
 click. A global notice and Settings > Software updates show version, package type, downloaded
 bytes, total bytes, progress, cancellation and errors. Switching pages preserves progress.
-Successful checks display their time. Settings changes take effect after Save.
+Successful checks display their time. Settings changes save automatically.
 
 The settings section is Software updates in English, `软件更新` in Simplified Chinese and
 `軟體更新` in Traditional Chinese. Other locales follow their own software interface usage.

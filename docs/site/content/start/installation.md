@@ -46,16 +46,17 @@ directories** and configure those roots in Settings.
 
 In **Settings > Software updates**, choose every launch, daily, weekly or manual checks.
 Daily/weekly checks use elapsed time since the last successful check and run while the app
-is open. Automatic downloads default off; manual checks are always available. Save changes
-to apply them. The global notice and settings page show download progress, errors and cancellation.
+is open. Automatic downloads default on; a previously saved choice to disable them is preserved.
+Manual checks are always available. Settings save automatically. The global notice and settings
+page show download progress, errors and cancellation.
 After a verified download, click **Install update** for NSIS or **Restart and update** for portable.
 
 System update notifications default on. A successful automatic or manual check that finds a
 new version sends a notification through Windows Notification Center, macOS Notification
 Center or the Linux desktop notification service, including while the app is in the tray.
 Each version is announced once for this application path and data directory, even after a
-restart. Turn off **Send a system notification when a new version is available** and save
-to disable these notifications. Allow LLM Usage notifications in your system settings;
+restart. Turn off **Send a system notification when a new version is available** to disable
+these notifications. Allow LLM Usage notifications in your system settings;
 macOS may ask for permission on first use. Focus modes and desktop notification preferences
 control whether a banner appears. If a notification cannot be sent, the update remains
 available in the app. Each version has at most three notification attempts (the initial

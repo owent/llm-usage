@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy, tick, untrack } from 'svelte';
+  import { createAutosave, type AutosaveStatus } from '../lib/autosave';
   import TelemetrySetup from './TelemetrySetup.svelte';
   import BudgetSettings from './BudgetSettings.svelte';
   import UpdateSettings from './UpdateSettings.svelte';
@@ -44,10 +45,14 @@
   $effect(() => { sub = initialSection; });
 
   // svelte-ignore state_referenced_locally
-  // Capture settings at mount intentionally; the parent remounts this editor for external updates.
+  // Keep the draft while saving; parent acknowledgements must not overwrite newer edits.
   let draft = $state<AppSettings>({
     ...settings,
-    updates: { schedule: 'daily', auto_download: false, system_notifications: true, ...settings.updates },
+    pause_on_battery_saver: settings.pause_on_battery_saver ?? true,
+    close_to_tray: settings.close_to_tray ?? false,
+    file_watch_enabled: settings.file_watch_enabled ?? false,
+    manual_roots_only: settings.manual_roots_only ?? false,
+    updates: { schedule: 'daily', auto_download: true, system_notifications: true, ...settings.updates },
     budget: { enabled: false, metric: 'total_tokens', period: 'month', threshold: '1000000', currency: 'USD', ...settings.budget },
     manual_roots: [...settings.manual_roots],
     retention: { ...settings.retention },
@@ -74,9 +79,31 @@
   // svelte-ignore state_referenced_locally
   let rootsText = $state(settings.manual_roots.join('\n'));
 
-  let saving = $state(false);
-  let messageKey = $state<'settings.saved' | 'settings.defaultsPending' | ''>('');
+  let saveStatus = $state<AutosaveStatus>('idle');
   let errorMessage = $state('');
+  let budgetInvalid = $state(false);
+  const editorKey = $derived(JSON.stringify({ draft, inputs, rootsText, budgetInvalid }));
+  const autosave = createAutosave({
+    initialKey: untrack(() => editorKey),
+    read: prepareSettings,
+    save: (next) => api.setSettings(next),
+    onSaved: (next) => onsaved(next),
+    onStatus: (status, error) => {
+      saveStatus = status;
+      errorMessage = error === undefined ? '' : t('settings.saveFailed', { message: parseError(error) });
+    },
+  });
+  $effect(() => {
+    const key = editorKey;
+    untrack(() => autosave.edit(key));
+  });
+  onDestroy(() => autosave.dispose());
+
+  export async function flush(retry = false): Promise<boolean> {
+    await tick();
+    autosave.edit(editorKey);
+    return autosave.flush(retry);
+  }
 
   let info = $state<{ db_path: string; host_id: string; schema_version: number } | null>(null);
   let taskStatus = $state<SystemTaskStatusDto | null>(null);
@@ -239,6 +266,7 @@
   function pickTz(z: string): void {
     draft.timezone = z;
     tzOpen = false;
+    void flush();
   }
 
   /** Svelte action focuses search as the picker opens and its input is inserted. */
@@ -488,13 +516,8 @@
     return n;
   }
 
-  function fail(msg: string): void {
-    errorMessage = t('settings.saveFailed', { message: msg });
-    saving = false;
-  }
-
   /**
-   * Restore general draft defaults, effective after save: zh-CN, system theme/timezone,
+   * Restore and autosave general defaults: zh-CN, system theme/timezone,
    * automatic week start and 3600-second collection. Keep manual source roots because
    * they are the user source list rather than preference defaults.
    */
@@ -507,8 +530,7 @@
     draft.pause_on_battery_saver = true;
     draft.close_to_tray = false;
     draft.file_watch_enabled = false;
-    errorMessage = '';
-    messageKey = 'settings.defaultsPending';
+    void flush();
   }
 
   /** Restore draft retention: 7/3/90/1095/3650 days, with empty yearly for lifetime retention. */
@@ -519,19 +541,14 @@
     inputs.weekly = '1095';
     inputs.monthly = '3650';
     inputs.yearly = '';
-    errorMessage = '';
-    messageKey = 'settings.defaultsPending';
+    void flush();
   }
 
-  // Save general/retention/host-identity settings; startup/background task toggles apply separately.
-  async function save() {
-    saving = true;
-    messageKey = '';
-    errorMessage = '';
+  // Validate before IPC and detach the snapshot from edits made during the request.
+  function prepareSettings(): AppSettings {
     const timezone = draft.timezone.trim();
     if (timezone === '') {
-      fail(t('settings.invalidTimezone'));
-      return;
+      throw new Error(t('settings.invalidTimezone'));
     }
     const interval = draft.refresh_interval_secs;
     if (
@@ -540,15 +557,13 @@
       interval < 0 ||
       interval > 86_400
     ) {
-      fail(t('settings.invalidInterval'));
-      return;
+      throw new Error(t('settings.invalidInterval'));
     }
     const tiers: Partial<Record<RetentionField, number | null>> = {};
     for (const field of ['events', 'hourly', 'daily', 'weekly', 'monthly', 'yearly'] as RetentionField[]) {
       const v = tierValue(inputs[field], field === 'yearly');
       if (v === undefined) {
-        fail(t('settings.invalidNumber'));
-        return;
+        throw new Error(t('settings.invalidNumber'));
       }
       tiers[field] = v;
     }
@@ -564,8 +579,13 @@
     const alias = inputs.alias.trim();
     const refreshTtl = Number(inputs.refreshTtl.trim());
     if (!Number.isInteger(refreshTtl) || refreshTtl < 1 || refreshTtl > 365) {
-      fail(t('settings.invalidNumber'));
-      return;
+      throw new Error(t('settings.invalidNumber'));
+    }
+    if (budgetInvalid) throw new Error(t('budget.invalid'));
+    for (const row of draft.pricing?.provider_defaults ?? []) {
+      if (![row.provider_id, row.region, row.channel].every((v) => v.trim())) {
+        throw new Error(t('settings.invalidProvider'));
+      }
     }
     const pricing = draft.pricing
       ? { ...draft.pricing, online_cache_ttl_days: refreshTtl }
@@ -580,15 +600,7 @@
       hostname_alias: alias === '' ? null : alias,
       pricing,
     };
-    try {
-      await api.setSettings(next);
-      messageKey = 'settings.saved';
-      onsaved(next);
-    } catch (e) {
-      errorMessage = t('settings.saveFailed', { message: parseError(e) });
-    } finally {
-      saving = false;
-    }
+    return JSON.parse(JSON.stringify(next)) as AppSettings;
   }
 
   async function toggleAutoStart() {
@@ -885,22 +897,46 @@
   onkeydown={(e) => {
     if (clearAllOpen && !clearAllBusy && e.key === 'Escape') clearAllOpen = false;
     if (tzOpen && e.key === 'Escape') tzOpen = false;
+    if (e.key === 'Enter' && !e.isComposing && e.target instanceof HTMLInputElement
+      && e.target.closest('[data-settings-editor]')) {
+      e.preventDefault();
+      void flush();
+    }
   }}
   onpointerdown={(e) => {
-    // 时区覆盖层点击外部关闭（命中层内元素不关）。
+    // Close the timezone picker on outside clicks; keep clicks inside the picker open.
     if (tzOpen && tzRoot && !tzRoot.contains(e.target as Node)) tzOpen = false;
   }}
 />
 
-<form onsubmit={(e) => { e.preventDefault(); void save(); }}>
+<form
+  data-settings-editor
+  onsubmit={(e) => { e.preventDefault(); void flush(); }}
+  onchange={() => void flush()}
+  onfocusout={() => void flush()}
+  oncompositionstart={() => autosave.composition(true)}
+  oncompositionend={() => autosave.composition(false)}
+>
   <div class="settings-layout">
     <nav class="sidebar">
       {#each subTabs as [id, label] (id)}
-        <button type="button" data-settings-section={id} class:active={sub === id} onclick={() => (sub = id)}>{label}</button>
+        <button type="button" data-settings-section={id} class:active={sub === id} onclick={() => { void flush(); sub = id; }}>{label}</button>
       {/each}
     </nav>
 
     <div class="content">
+      <div class="save-status">
+        <span class="hint">{t('settings.autoSaveHint')}</span>
+        <span role="status" aria-live="polite" data-testid="settings-feedback">
+          {#if saveStatus === 'saving'}{t('settings.saving')}
+          {:else if saveStatus === 'pending'}{t('settings.pending')}
+          {:else if saveStatus === 'saved'}{t('settings.saved')}{/if}
+        </span>
+        {#if errorMessage}
+          <span class="bad" role="alert" data-testid="settings-error">{errorMessage}</span>
+          <button type="button" onclick={() => void flush(true)}>{t('settings.retrySave')}</button>
+        {/if}
+      </div>
       {#if sub === 'updates'}
         <UpdateSettings bind:value={draft.updates!} />
       {:else if sub === 'general'}
@@ -925,7 +961,7 @@
                     class:active={draft.theme === opt}
                     role="radio"
                     aria-checked={draft.theme === opt}
-                    onclick={() => (draft.theme = opt)}
+                    onclick={() => { draft.theme = opt; void flush(); }}
                   >
                     {t(`settings.theme.${opt}`)}
                   </button>
@@ -1097,7 +1133,7 @@
         <p class="hint">{t('settings.archives.hint')}</p>
       {:else if sub === 'costs'}
         <section class="panel">
-          {#if draft.budget}<BudgetSettings bind:value={draft.budget} pricingEnabled={draft.pricing?.enabled ?? false} />{/if}
+          {#if draft.budget}<BudgetSettings bind:value={draft.budget} bind:invalid={budgetInvalid} pricingEnabled={draft.pricing?.enabled ?? false} />{/if}
         </section>
         <section class="panel">
           <h4>{t('cost.title')}</h4>
@@ -1299,7 +1335,7 @@
               <dd class="mono">{info.host_id}</dd>
               <dt>{t('settings.hostnameAlias')}</dt>
               <dd>
-                <input bind:value={inputs.alias} placeholder="—" spellcheck="false" />
+                <input bind:value={inputs.alias} placeholder="—" spellcheck="false" aria-label={t('settings.hostnameAlias')} />
                 <span class="hint">{t('settings.hostnameAlias.hint')}</span>
               </dd>
               <dt>{t('settings.dbPath')}</dt>
@@ -1440,13 +1476,6 @@
         </section>
       {/if}
 
-      {#if sub === 'general' || sub === 'updates' || sub === 'retention' || sub === 'costs' || sub === 'identity'}
-        <div class="save-row">
-          <button type="submit" class="primary" disabled={saving}>{t('settings.save')}</button>
-          {#if messageKey}<span class="ok" data-testid="settings-feedback">{t(messageKey)}</span>{/if}
-          {#if errorMessage}<span class="bad">{errorMessage}</span>{/if}
-        </div>
-      {/if}
     </div>
   </div>
 
@@ -1947,17 +1976,6 @@
     cursor: pointer;
     font-size: 13px;
   }
-  button.primary {
-    background: var(--accent);
-    color: var(--accent-text);
-    border: none;
-    border-radius: 6px;
-  }
-  button.primary:disabled {
-    background: var(--accent);
-    opacity: 0.55;
-    cursor: wait;
-  }
   button.danger {
     color: var(--danger);
     border: 1px solid var(--danger);
@@ -2046,11 +2064,12 @@
     gap: 10px;
     margin-top: 14px;
   }
-  .save-row {
+  .save-status {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 10px;
-    padding-top: 8px;
+    margin-bottom: 12px;
   }
   .ok {
     color: var(--success);

@@ -134,6 +134,7 @@ try {
   await launch();
   await settled();
   const initialSettings = await invoke('get_settings');
+  assert.equal(initialSettings.updates.auto_download,true,'automatic downloads default on');
   const initialDay = new Intl.DateTimeFormat('en-CA',{timeZone:initialSettings.timezone,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(at));
   const original = await invoke('summary',{q:{...query,first_day:initialDay,last_day:initialDay}});
   assert.equal(original.totals.call_count,1); assert.equal(original.totals.total_tokens_known,'15');
@@ -264,13 +265,11 @@ try {
   await page.locator('[data-testid="schedule-preview"]').waitFor({state:'visible'});
   await page.getByRole('button',{name:'Settings',exact:true}).click();
   await page.locator('[data-testid="language-select"]').selectOption('zh-CN');
-  await page.getByRole('button',{name:'Save',exact:true}).click();
   await page.getByRole('button',{name:'数据源',exact:true}).waitFor({state:'visible'});
   checks.push('real DOM schedule preview and language save through IPC');
   const locales=['zh-CN','zh-TW','en','ja','ko','es','fr','de','pt-BR','ru'];
   for (const locale of locales) {
     await page.locator('[data-testid="language-select"]').selectOption(locale);
-    await page.locator('button[type="submit"]').click();
     await page.waitForFunction(locale=>document.documentElement.lang===locale,locale);
     assert.equal((await invoke('get_settings')).language,locale);
     const unnamed=await page.locator('input:not([type="hidden"]),select,textarea').evaluateAll(els=>els.filter(el=>el.offsetWidth && !el.getAttribute('aria-label') && !el.labels?.length).map(el=>el.tagName+':'+el.className));
@@ -280,12 +279,19 @@ try {
       await pause(50);
       const width=await page.evaluate(()=>({client:document.documentElement.clientWidth,scroll:document.documentElement.scrollWidth}));
       assert.ok(width.scroll<=width.client+2,`${locale} zoom ${zoom}: no document overflow`);
-      assert.ok(await page.locator('button[type="submit"]').isVisible());
+      assert.ok(await page.getByTestId('settings-feedback').isVisible());
     }
     await page.evaluate(()=>{document.documentElement.style.zoom='';});
     assert.equal((await invoke('summary',{q:query})).totals.total_tokens_known,'40');
   }
   checks.push('ten languages saved through real IPC, accessible settings names, 100–200% page zoom and stable totals');
+  await page.locator('[data-settings-section="identity"]').click();
+  await page.getByLabel('显示别名',{exact:true}).fill('Autosaved native alias');
+  await page.getByRole('navigation').first().getByRole('button',{name:'总览',exact:true}).click();
+  await page.waitForFunction(async () => (await window.__TAURI_INTERNALS__.invoke('get_settings')).hostname_alias === 'Autosaved native alias');
+  await close(); await launch();
+  assert.equal((await invoke('get_settings')).hostname_alias,'Autosaved native alias');
+  checks.push('pending text autosaves before navigation and survives a native restart');
   settings=await invoke('get_settings');settings.refresh_interval_secs=15;
   await invoke('set_source_schedule',{instanceId:source.instance_id,rule:null});
   settings.manual_roots=[join(sourceHome,'.codex')];settings.manual_roots_only=true;
