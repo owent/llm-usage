@@ -32,9 +32,9 @@ test('real source inventory produces every required menu page without generated 
     'reference/design/documentation-site', 'reference/evidence/documentation-site', 'reference/repository/readme',
     'reference/design/application-updates', 'reference/evidence/application-updates', 'reference/evidence/release-030',
     'reference/evidence/update-check-repair', 'reference/evidence/release-031', 'reference/evidence/release-032',
-    'reference/design/opencode-runtime', 'reference/evidence/release-033']) {
+    'reference/design/opencode-runtime', 'reference/evidence/release-033', 'reference/evidence/issues-3-4']) {
     assert.ok(ids.includes(id), id);
   }
-  assert.equal(ids.length, 227);
+  assert.equal(ids.length, 228);
   assert.ok(!ids.some(id => id.includes('build/') || id.includes('zh-cn/') || id.endsWith('/plan')));
 });

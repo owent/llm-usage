@@ -59,6 +59,8 @@ IDE 1.35.0 and JetBrains 2026.1021.81866741 distribution inspection has not esta
 native per-call token persistence; those readers and all real-client acceptance remain
 pending. See the [field contract](docs/design/desktop-usage/adapters.md#qoder-local-support)
 and [source checks](docs/validation/desktop-usage/release-033.md#source-derived-qoder).
+Qoder marker detection now shares a bounded fingerprint cache and runs outside the writer;
+ownership/history protection is retained. See [issue 3/4 validation](docs/validation/desktop-usage/issues-3-4.md).
 Windows CI test timeout repair batches new-database creation and Kilo sample writes, and
 keeps native-sample queries within the dates of all retained events. Local timing, rollback
 coverage and the original remote timeout are recorded there; CI shows test compilation and
@@ -155,6 +157,8 @@ Settings now save automatically with immediate selection commits, 600 ms text de
 IME deferral, serialized writes and navigation flushing under the
 [interaction requirements](docs/design/desktop-usage/dashboard-polish.md). Automatic downloads
 default on for new/missing settings; explicit opt-outs are preserved.
+Unrelated autosaves retain statistics and trend/today selections; calendar settings still
+invalidate them, with regression evidence in the same issue 3/4 record.
 Version 0.3.0 cost-card, settings and native Codex corrections are recorded in
 [local release checks](docs/validation/desktop-usage/release-030.md).
 Version 0.3.2 registers individually checked Codex/Kilo native versions and clarifies

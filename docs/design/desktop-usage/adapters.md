@@ -199,6 +199,14 @@ records, whose diagnostics and degraded health remain. Filename substrings such 
 subagents/segments do not establish auxiliary content and never suppress manual files.
 Reader 2 rechecks consumed old probe/reader positions without clearing history or conflicts.
 
+Routing and format detection run outside the statistics writer lock. The CLI marker probe
+shares a process-local cache of at most 4,096 paths across manual routing, ownership claims
+and parser windows. Reuse completed positive/negative decisions only when length, mtime,
+creation time and both sampled fingerprints match; recheck after probing before caching.
+Changed files are probed again. Interrupted, timed-out, unreadable or unstable probes do
+not become cached negative evidence. Cache eviction/restart may repeat bounded detection;
+neither caching nor lock separation relaxes old-owner history checks or corruption diagnostics.
+
 <a id="hermes-agent-本地规则"></a>
 
 <a id="hermes-agent-本地合同"></a>

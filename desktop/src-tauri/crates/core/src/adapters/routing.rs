@@ -147,9 +147,10 @@ fn recoverable_qwen_owner(
     instance: &str,
     owner: &str,
     path: &Path,
+    evidence: &FileEvidence,
 ) -> Result<bool, CoreError> {
     if !instance.starts_with("qwen@")
-        || !qwen_record(path)
+        || !evidence.qwen
         || !path
             .ancestors()
             .skip(1)
@@ -161,17 +162,35 @@ fn recoverable_qwen_owner(
     storage.conn().query_row("SELECT NOT EXISTS(SELECT 1 FROM usage_events WHERE source_instance_id=?1) AND NOT EXISTS(SELECT 1 FROM daily_usage WHERE instance_id=?1) AND NOT EXISTS(SELECT 1 FROM period_usage WHERE instance_id=?1) AND NOT EXISTS(SELECT 1 FROM source_aggregates WHERE instance_id=?1)",[owner],|r|r.get(0)).map_err(Into::into)
 }
 
+pub(super) struct FileEvidence {
+    qoder: bool,
+    dsh: bool,
+    qwen: bool,
+}
+
+impl FileEvidence {
+    // Inspect source content before acquiring the storage writer; locked decisions use facts only.
+    pub(super) fn inspect(path: &Path, instance: &str, manual: bool) -> Self {
+        Self {
+            qoder: super::qoder::detect::native_record(path),
+            dsh: (manual || instance.starts_with("dsh@")) && dsh_native_record(path),
+            qwen: instance.starts_with("qwen@") && qwen_record(path),
+        }
+    }
+}
+
 pub(super) fn accepts_manual_file(
     storage: &Storage,
     instance: &str,
     path: &Path,
+    evidence: &FileEvidence,
 ) -> Result<bool, CoreError> {
     // Exact DSH framing identifies its format more precisely than a shared
     // type=session field; corrupt manual files still receive normal diagnostics.
-    if !instance.starts_with("dsh@") && dsh_native_record(path) {
+    if !instance.starts_with("dsh@") && evidence.dsh {
         return Ok(false);
     }
-    if !instance.starts_with("qoder@") && super::qoder::detect::native_record(path) {
+    if !instance.starts_with("qoder@") && evidence.qoder {
         return Ok(false);
     }
     let owner: Option<String> = storage
@@ -187,9 +206,11 @@ pub(super) fn accepts_manual_file(
     // adapter routing; retain actual corruption reports.
     match owner {
         None => Ok(true),
-        Some(owner) => Ok(recoverable_qwen_owner(storage, instance, &owner, path)?
-            || recoverable_qoder_owner(storage, instance, &owner, path)?
-            || recoverable_dsh_owner(storage, instance, &owner, path)?),
+        Some(owner) => Ok(
+            recoverable_qwen_owner(storage, instance, &owner, path, evidence)?
+                || recoverable_qoder_owner(storage, instance, &owner, evidence)?
+                || recoverable_dsh_owner(storage, instance, &owner, evidence)?,
+        ),
     }
 }
 
@@ -197,9 +218,9 @@ fn recoverable_qoder_owner(
     storage: &Storage,
     instance: &str,
     owner: &str,
-    path: &Path,
+    evidence: &FileEvidence,
 ) -> Result<bool, CoreError> {
-    if !instance.starts_with("qoder@") || !super::qoder::detect::native_record(path) {
+    if !instance.starts_with("qoder@") || !evidence.qoder {
         return Ok(false);
     }
     storage.conn().query_row("SELECT NOT EXISTS(SELECT 1 FROM usage_events WHERE source_instance_id=?1) AND NOT EXISTS(SELECT 1 FROM daily_usage WHERE instance_id=?1) AND NOT EXISTS(SELECT 1 FROM period_usage WHERE instance_id=?1) AND NOT EXISTS(SELECT 1 FROM source_aggregates WHERE instance_id=?1)", [owner], |r| r.get(0)).map_err(Into::into)
@@ -236,9 +257,9 @@ fn recoverable_dsh_owner(
     storage: &Storage,
     instance: &str,
     owner: &str,
-    path: &Path,
+    evidence: &FileEvidence,
 ) -> Result<bool, CoreError> {
-    if !instance.starts_with("dsh@") || !dsh_native_record(path) {
+    if !instance.starts_with("dsh@") || !evidence.dsh {
         return Ok(false);
     }
     storage.conn().query_row("SELECT NOT EXISTS(SELECT 1 FROM usage_events WHERE source_instance_id=?1) AND NOT EXISTS(SELECT 1 FROM daily_usage WHERE instance_id=?1) AND NOT EXISTS(SELECT 1 FROM period_usage WHERE instance_id=?1) AND NOT EXISTS(SELECT 1 FROM source_aggregates WHERE instance_id=?1)",[owner],|r|r.get(0)).map_err(Into::into)
@@ -246,14 +267,17 @@ fn recoverable_dsh_owner(
 
 /// Each physical file has one owner. Verified Qwen/DSH/Qoder repairs require no statistical history.
 /// Other unrecognized registrations also require no checkpoint; never transfer valid historical contributions.
+/// None requests format detection outside the writer before retrying the ownership decision.
 pub(super) fn claim_file(
     storage: &Storage,
     adapter: &dyn SourceAdapter,
     instance: &str,
     path: &Path,
-) -> Result<bool, CoreError> {
-    if adapter.adapter_id() != "qoder" && super::qoder::detect::native_record(path) {
-        return Ok(false);
+    evidence: &FileEvidence,
+    detected: Option<&DetectOutcome>,
+) -> Result<Option<bool>, CoreError> {
+    if adapter.adapter_id() != "qoder" && evidence.qoder {
+        return Ok(Some(false));
     }
     let file = normalize_path(path);
     let owner: Option<(String, bool)> = storage
@@ -266,13 +290,13 @@ pub(super) fn claim_file(
         )
         .optional()?;
     let Some((owner, unrecognized)) = owner else {
-        return Ok(true);
+        return Ok(Some(true));
     };
     if owner == instance {
-        return Ok(true);
+        return Ok(Some(true));
     }
-    if recoverable_dsh_owner(storage, instance, &owner, path)?
-        || recoverable_qoder_owner(storage, instance, &owner, path)?
+    if recoverable_dsh_owner(storage, instance, &owner, evidence)?
+        || recoverable_qoder_owner(storage, instance, &owner, evidence)?
     {
         let tx = storage.conn().unchecked_transaction()?;
         tx.execute("DELETE FROM ingestion_checkpoints WHERE instance_id=?1 AND scope_key=(SELECT file_identity FROM source_files WHERE file_id=?2 AND instance_id=?1)",params![owner,file])?;
@@ -281,9 +305,9 @@ pub(super) fn claim_file(
             tx.execute("UPDATE source_instances SET health='not_applicable' WHERE instance_id=?1 AND NOT EXISTS(SELECT 1 FROM source_files WHERE instance_id=?1)",[&owner])?;
         }
         tx.commit()?;
-        return Ok(changed == 1);
+        return Ok(Some(changed == 1));
     }
-    if recoverable_qwen_owner(storage, instance, &owner, path)? {
+    if recoverable_qwen_owner(storage, instance, &owner, path, evidence)? {
         let tx = storage.conn().unchecked_transaction()?;
         tx.execute("DELETE FROM ingestion_checkpoints WHERE instance_id=?1 AND scope_key=(SELECT file_identity FROM source_files WHERE file_id=?2 AND instance_id=?1)",params![owner,file])?;
         let changed=tx.execute("UPDATE source_files SET instance_id=?1,status='new',format_status=NULL WHERE file_id=?2 AND instance_id=?3",params![instance,file,owner])?;
@@ -292,10 +316,16 @@ pub(super) fn claim_file(
             [owner],
         )?;
         tx.commit()?;
-        return Ok(changed == 1);
+        return Ok(Some(changed == 1));
     }
-    if !unrecognized || !matches!(adapter.detect(path)?, DetectOutcome::Supported { .. }) {
-        return Ok(false);
+    if !unrecognized {
+        return Ok(Some(false));
+    }
+    let Some(detected) = detected else {
+        return Ok(None);
+    };
+    if !matches!(detected, DetectOutcome::Supported { .. }) {
+        return Ok(Some(false));
     }
     let tx = storage.conn().unchecked_transaction()?;
     let changed = tx.execute(
@@ -314,5 +344,5 @@ pub(super) fn claim_file(
         tx.execute("UPDATE source_instances SET health='not_applicable' WHERE instance_id=?1 AND NOT EXISTS(SELECT 1 FROM source_files WHERE instance_id=?1)",[&owner])?;
     }
     tx.commit()?;
-    Ok(changed == 1)
+    Ok(Some(changed == 1))
 }

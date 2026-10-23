@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { spawn } from 'node:child_process';
 import assert from 'node:assert/strict';
 import { freeHttpPort } from './http-test-port.mjs';
+import { settingsInvalidationChecks } from './settings-invalidation.mjs';
 
 const out = resolve('build/browser-smoke') + '/';
 await mkdir(out, {recursive:true});
@@ -710,6 +711,7 @@ assert.match(await page.locator('.page-info').textContent(),/第 1 \/ 1 页/,'re
 assert.equal(await page.locator('.details tbody tr').count(),12);
 await page.getByRole('navigation').first().getByRole('button',{name:'设置',exact:true}).click();
 assert.equal(await page.locator('#telemetry-settings').count(),0,'normal settings navigation starts at general');
+await settingsInvalidationChecks(page);
 assert.equal(await page.getByRole('button',{name:'保存',exact:true}).count(),0,'settings do not require a Save button');
 await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100));
 const settingsWriteCount = () => page.evaluate(() => window.appCalls.filter(c => c.cmd === 'set_settings').length);

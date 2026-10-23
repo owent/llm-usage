@@ -1058,8 +1058,10 @@ pub fn run_adapter_scan_filtered_access<S: StorageAccess>(
         if root.basis == RootBasis::Manual {
             let mut files = Vec::new();
             for path in &root.files {
+                let evidence = super::routing::FileEvidence::inspect(path, &instance_id, true);
+                super::run_policy::check()?;
                 if access.with_storage(|storage| {
-                    super::routing::accepts_manual_file(storage, &instance_id, path)
+                    super::routing::accepts_manual_file(storage, &instance_id, path, &evidence)
                 })? {
                     files.push(path.clone());
                 }
@@ -1463,6 +1465,7 @@ pub fn run_adapter_scan_filtered_access<S: StorageAccess>(
 }
 
 enum FilePreparation {
+    NeedsDetection,
     Skipped(FileReport, bool),
     Read(Box<PreparedFile>),
 }
@@ -1497,9 +1500,16 @@ fn scan_one_file<S: StorageAccess>(
             .map(|budget| file_started + budget),
         None,
     );
-    let prepared_result = access.with_storage(|storage| {
+    let evidence = super::routing::FileEvidence::inspect(path, instance_id, false);
+    super::run_policy::check()?;
+    let mut detected = None;
+    let prepared = loop {
+        let prepared_result = access.with_storage(|storage| {
     let file_id = normalize_path(path);
-    if !super::routing::claim_file(storage, adapter, instance_id, path)? {
+    let Some(claimed) = super::routing::claim_file(storage, adapter, instance_id, path, &evidence, detected.as_ref())? else {
+        return Ok(FilePreparation::NeedsDetection);
+    };
+    if !claimed {
         return Ok(FilePreparation::Skipped(
             FileReport {
                 file_id,
@@ -1576,9 +1586,10 @@ fn scan_one_file<S: StorageAccess>(
     // Unknown/missing versions use the latest registered Agent reader and retain compatibility metadata.
     let mut detect_basis: Option<crate::domain::VersionBasis> = None;
     if stored.cursor.is_none() || rescan {
-            let detected = adapter.detect(path);
-            super::run_policy::check()?;
-            match detected? {
+            let Some(detected) = detected.clone() else {
+                return Ok(FilePreparation::NeedsDetection);
+            };
+            match detected {
             DetectOutcome::Supported {
                 format,
                 format_version,
@@ -1681,14 +1692,23 @@ fn scan_one_file<S: StorageAccess>(
     };
     Ok(FilePreparation::Read(Box::new(PreparedFile { target, stored, row, detect_basis })))
     });
-    super::run_policy::check()?;
-    let prepared = prepared_result?;
+        super::run_policy::check()?;
+        let prepared = prepared_result?;
+        if matches!(prepared, FilePreparation::NeedsDetection) {
+            let result = adapter.detect(path);
+            super::run_policy::check()?;
+            detected = Some(result?);
+            continue;
+        }
+        break prepared;
+    };
     let PreparedFile {
         target,
         stored,
         mut row,
         mut detect_basis,
     } = match prepared {
+        FilePreparation::NeedsDetection => unreachable!(),
         FilePreparation::Skipped(report, scanned) => return Ok((report, scanned)),
         FilePreparation::Read(prepared) => *prepared,
     };

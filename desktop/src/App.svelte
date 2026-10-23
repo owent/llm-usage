@@ -328,7 +328,7 @@
     if(todaySelection?.first!==start || todaySelection.last!==end) todaySelection={first:start,last:end};
   }
   $effect(()=>{
-    void todayQuery;void currentUser;void settings?.timezone;void settings?.week_start;
+    void todayQuery;void currentUser;void settings?.timezone;void settings?.week_start;void settings?.language;
     todaySelection=null;
   });
   $effect(()=>{
@@ -823,15 +823,26 @@
 
   function onSettingsSaved(next: AppSettings) {
     const previous = settings;
-    settings = next;
-    const locale = normalizeLocale(next.language);
-    if (locale) setLocale(locale);
-    // Timezone/week-start changes affect date ranges without changing the query key; force reload.
-    dataReloadKey += 1;
+    const calendarChanged = !previous || previous.timezone !== next.timezone
+      || previous.week_start !== next.week_start || previous.language !== next.language;
+    const pricingChanged = next.pricing?.enabled && (!previous?.pricing?.enabled
+      || JSON.stringify(previous.pricing.provider_defaults) !== JSON.stringify(next.pricing.provider_defaults));
+    // Preserve unchanged reactive fields and nested objects across autosave acknowledgements.
+    if (previous) {
+      for (const key of Object.keys(next) as (keyof AppSettings)[]) {
+        if (JSON.stringify(previous[key]) !== JSON.stringify(next[key])) {
+          Object.assign(previous, { [key]: next[key] });
+        }
+      }
+    } else settings = next;
+    if (calendarChanged) {
+      const locale = normalizeLocale(next.language);
+      if (locale) setLocale(locale);
+      dataReloadKey += 1;
+    }
     // F2: enabling pricing starts a background cost recomputation for retained details.
     // Autosaving unrelated preferences must not start another cost recomputation.
-    if (next.pricing?.enabled && (!previous?.pricing?.enabled
-      || JSON.stringify(previous.pricing.provider_defaults) !== JSON.stringify(next.pricing.provider_defaults))) {
+    if (pricingChanged) {
       void api.recomputeCosts().catch(() => undefined);
     }
   }

@@ -11253,7 +11253,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/framework.rs": {
-      "codeHash": "9099c4cbff4f484ea10500d8e0839cf35db61472a758e9aaf3b2516e2c792afa",
+      "codeHash": "f52d8704c91273198ca6f1e9ecc188145737de7edca8fd1c6afffa1b76997d41",
       "comments": [
         {
           "id": "e7ed0434fb68aedc",
@@ -12041,126 +12041,126 @@
         },
         {
           "id": "d21394a0a2e0e5ef",
-          "line": 1067,
+          "line": 1069,
           "kind": "line",
           "en": "// Archive adapters use an empty file list and perform their own detection.",
           "zh": "// 归档适配器使用空文件列表，自行完成格式探测。"
         },
         {
           "id": "bac97781806969ca",
-          "line": 1146,
+          "line": 1148,
           "kind": "line",
           "en": "// A merged request performed no scan here; do not report it as completed.",
           "zh": "// 本次未执行扫描；不能把合并请求报告为已成功完成。"
         },
         {
           "id": "5dde7288e8077ed8",
-          "line": 1196,
+          "line": 1198,
           "kind": "line",
           "en": "// Preparation failures and cancellation finish the run just",
           "zh": "// 准备失败和取消均应结束本次运行，"
         },
         {
           "id": "57b3ae77e44f2296",
-          "line": 1197,
+          "line": 1199,
           "kind": "line",
           "en": "// like archive failures, without leaving a running job behind.",
           "zh": "// 与归档失败一致，避免留下运行中的任务。"
         },
         {
           "id": "438624318f5ed045",
-          "line": 1381,
+          "line": 1383,
           "kind": "line",
           "en": "// Skip commits when no file changed; unchanged scans do not advance the data revision.",
           "zh": "// 无任何文件变化时跳过提交（无变化扫描不推进修订号）。"
         },
         {
           "id": "fabc00fa613e0cb1",
-          "line": 1399,
+          "line": 1401,
           "kind": "line",
           "en": "// Commit native aggregates with events and cursors; any failure permits a complete replay.",
           "zh": "// 原生汇总与事件、游标一起提交；任一失败均可完整重放。"
         },
         {
           "id": "089e13456a9d10f0",
-          "line": 1476,
+          "line": 1479,
           "kind": "line",
           "en": "/// Register one file, check continuity, detect when needed, scan and collect batch results.",
           "zh": "/// 注册单个文件、检查续读状态，按需探测后增量读取并收集批次结果。"
         },
         {
           "id": "40c68af8f54b4c9a",
-          "line": 1477,
+          "line": 1480,
           "kind": "line",
           "en": "/// Return the file report and whether an actual read occurred.",
           "zh": "/// 返回（文件报告， 是否发生了实际读取）。"
         },
         {
           "id": "3ee4c9451471341c",
-          "line": 1518,
+          "line": 1528,
           "kind": "line",
           "en": "// After a path miss, check file identity; renaming the same stream does not create a new file.",
           "zh": "// 注册/改名探测：路径未命中时按身份命中（同一内容流改名不算新文件）。"
         },
         {
           "id": "02528c8dd91c4214",
-          "line": 1553,
+          "line": 1563,
           "kind": "line",
           "en": "// Skip unchanged files whose bytes are fully consumed and continuity is intact.",
           "zh": "// 文件字节已全部读取且续读状态连续时，跳过未变化文件。"
         },
         {
           "id": "9d0c2e91509c108c",
-          "line": 1575,
+          "line": 1585,
           "kind": "line",
           "en": "// Detect again on first scan/rescan; restrict verified incompatible versions and unknown formats (V17).",
           "zh": "// 首次或重扫时重新探测格式；已确认不兼容的版本与未知格式 fail closed（V17），"
         },
         {
           "id": "198b859d7d61f323",
-          "line": 1576,
+          "line": 1586,
           "kind": "line",
           "en": "// Unknown/missing versions use the latest registered Agent reader and retain compatibility metadata.",
           "zh": "// 未知/缺失版本按该 Agent 注册表选择最新内置解析器并带兼容标记。"
         },
         {
           "id": "616f191a375ddba7",
-          "line": 1714,
+          "line": 1734,
           "kind": "line",
           "en": "// File error isolation must not classify cancellation or another control stop as invalid data.",
           "zh": "// 文件错误隔离不能把取消或其他控制性停止判为数据错误。"
         },
         {
           "id": "54161423f8c8db7d",
-          "line": 1742,
+          "line": 1762,
           "kind": "line",
           "en": "// V30 fallback with structural diagnostics and no events/valid exclusive aggregate is incompatible.",
           "zh": "// 未知版本兼容尝试（V30）：无事件或独立有效累计行且带结构诊断 ⇒ 不兼容。"
         },
         {
           "id": "9f7386b606dcd1c5",
-          "line": 1743,
+          "line": 1763,
           "kind": "line",
           "en": "// Duplicate/OverlapUnknown reconciliation snapshots do not establish valid usage, such as old Codex without calls.",
           "zh": "// Duplicate/OverlapUnknown 对账快照不能替代有效的用量记录，如缺少逐次记录的旧 Codex。"
         },
         {
           "id": "07e4d297d19a4f7b",
-          "line": 1744,
+          "line": 1764,
           "kind": "line",
           "en": "// Keep prior results without new cursors/aggregates; retry after a parser update or explicit rescan.",
           "zh": "// 保留旧结果、不提交事件/游标/聚合；下轮解析器更新或显式重扫可重新尝试。"
         },
         {
           "id": "9422581303f5f5e3",
-          "line": 1837,
+          "line": 1857,
           "kind": "line",
           "en": "/// Detection JSON in source_files.format_status (v3): selected metadata fields, without message content.",
           "zh": "/// source_files.format_status（v3）的探测 JSON，仅含选定元数据，不含正文。"
         },
         {
           "id": "8c2e0b42d3403f51",
-          "line": 1864,
+          "line": 1884,
           "kind": "line",
           "en": "/// File-stream identity: creation time and sampled prefix fingerprint/length, independent of path.",
           "zh": "/// 文件内容流身份：创建时间 + 首采样指纹（追加稳定，不依赖路径）。"
@@ -25724,7 +25724,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/qoder/detect.rs": {
-      "codeHash": "5f61c3a2ce4ac828723bb95ef692e137474855ebd8b7715070ef750c36f48936",
+      "codeHash": "049648294a88e5b1614603be23759e241ddf028d8a5bb79fe2b4cfe0aff1be02",
       "comments": [
         {
           "id": "44192f73ec64ce49",
@@ -25734,50 +25734,57 @@
           "zh": "//! 识别候选 Qoder 文件；扫描时核对 CLI 结构和每行版本。"
         },
         {
+          "id": "0754323ab6351587",
+          "line": 54,
+          "kind": "line",
+          "en": "// Do not cache interrupted/unstable reads or retain the cache lock during source I/O.",
+          "zh": "// 不缓存中断或不稳定的读取；来源 I/O 期间不持有缓存锁。"
+        },
+        {
           "id": "83040868ee587ff3",
-          "line": 21,
+          "line": 92,
           "kind": "line",
           "en": "// User/tool content may precede the first identifying assistant. Inspect complete",
           "zh": "// 用户或工具内容可能位于首条可识别的 assistant 之前。检查完整行，"
         },
         {
           "id": "41368e153599448b",
-          "line": 22,
+          "line": 93,
           "kind": "line",
           "en": "// lines within the normal 32 MiB window, retaining at most one 8 MiB line.",
           "zh": "// 遵循普通的 32 MiB 窗口，每次最多保留一条 8 MiB 的行。"
         },
         {
           "id": "ad4e87e086ca8bf4",
-          "line": 73,
+          "line": 142,
           "kind": "line",
           "en": "// Temporary lock/timeout/removal after enumeration is Pending; retry detection next run.",
           "zh": "// 临时锁定、超时或枚举后被清理记为 Pending，下轮重新探测。"
         },
         {
           "id": "7447683d081586cd",
-          "line": 82,
+          "line": 151,
           "kind": "line",
           "en": "// Recognize JSONL sessions or state.json objects as Qoder session files,",
           "zh": "// 将 JSONL 会话或 state.json 对象识别为 Qoder 会话文件，"
         },
         {
           "id": "430764255ba01f51",
-          "line": 83,
+          "line": 152,
           "kind": "line",
           "en": "// and let the scanner validate each native CLI record independently.",
           "zh": "// 由扫描器独立校验每条原生 CLI 记录。"
         },
         {
           "id": "11e166bab127b195",
-          "line": 84,
+          "line": 153,
           "kind": "line",
           "en": "// A session_id substring match also requires an opening brace; otherwise unrelated",
           "zh": "// session_id 子串匹配还须以左花括号开头，否则其他来源中"
         },
         {
           "id": "da74866216dd510e",
-          "line": 85,
+          "line": 154,
           "kind": "line",
           "en": "// files containing \"session_id\" could be incorrectly claimed.",
           "zh": "// 包含 \"session_id\" 的文件可能被错误认领。"
@@ -27308,7 +27315,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/routing.rs": {
-      "codeHash": "5ef518d3555127a1be4027d4967ba4428674b5a68b3daa50654283b8c24a8539",
+      "codeHash": "a56b9fcf18938538247c8c15306b20d173979c0faeea56785b59d92526466cd5",
       "comments": [
         {
           "id": "ef1e40955fe881fb",
@@ -27367,57 +27374,71 @@
           "zh": "// 不提供 home 和环境根，只核对旧广播的应用管理输入。"
         },
         {
+          "id": "c7351dc751b8ceca",
+          "line": 172,
+          "kind": "line",
+          "en": "// Inspect source content before acquiring the storage writer; locked decisions use facts only.",
+          "zh": "// 获取存储写锁前检查来源内容；持锁时仅使用已有事实进行判定。"
+        },
+        {
           "id": "93b62dfe81100497",
-          "line": 169,
+          "line": 188,
           "kind": "line",
           "en": "// Exact DSH framing identifies its format more precisely than a shared",
           "zh": "// 完整 DSH 文件结构比共享的 type=session 字段更能识别格式，"
         },
         {
           "id": "91ceec270e8ba2b1",
-          "line": 170,
+          "line": 189,
           "kind": "line",
           "en": "// type=session field; corrupt manual files still receive normal diagnostics.",
           "zh": "// 手工选择的坏文件仍按正常规则显示诊断。"
         },
         {
           "id": "6d6de2467f418697",
-          "line": 186,
+          "line": 205,
           "kind": "line",
           "en": "// Unknown manual files need diagnostics. Only application-managed roots have explicit",
           "zh": "// 未知手工文件需要诊断，仅应用管理根有明确适配器选择规则，"
         },
         {
           "id": "557c76e725fc3198",
-          "line": 187,
+          "line": 206,
           "kind": "line",
           "en": "// adapter routing; retain actual corruption reports.",
           "zh": "// 保留真实文件损坏的报告。"
         },
         {
           "id": "73252ead554034ea",
-          "line": 247,
+          "line": 268,
           "kind": "line",
           "en": "/// Each physical file has one owner. Verified Qwen/DSH/Qoder repairs require no statistical history.",
           "zh": "/// 每个物理文件只有一个归属；已核验的 Qwen、DSH、Qoder 修复要求旧来源没有统计历史。"
         },
         {
           "id": "d3f6c75bc25dcbb6",
-          "line": 248,
+          "line": 269,
           "kind": "line",
           "en": "/// Other unrecognized registrations also require no checkpoint; never transfer valid historical contributions.",
           "zh": "/// 其他未识别登记还要求没有检查点，不能转移有效历史贡献。"
         },
         {
+          "id": "eb8f82e992d8e946",
+          "line": 270,
+          "kind": "line",
+          "en": "/// None requests format detection outside the writer before retrying the ownership decision.",
+          "zh": "/// 返回 None 时，先在写锁外检测格式，再重新判定归属。"
+        },
+        {
           "id": "f845422e38f41884",
-          "line": 312,
+          "line": 342,
           "kind": "line",
           "en": "// Hide only an empty unrecognized owner after its final file transfers.",
           "zh": "// 最后文件转移后，仅隐藏没有历史的未识别旧来源。"
         },
         {
           "id": "6a2583ea68e2b30b",
-          "line": 313,
+          "line": 343,
           "kind": "line",
           "en": "// Retain visible diagnostics for other invalid manual files.",
           "zh": "// 其他手工选择的坏文件仍保留可见诊断。"
@@ -54461,7 +54482,7 @@
       ]
     },
     "desktop/src/App.svelte": {
-      "codeHash": "63d19ab57e8bdc449b89c1e4dd2d871a65704b9c968d60db0f0ed6e9b3c5670d",
+      "codeHash": "d812a8de1bae2ed4aac375e61079a31649ee23dec8cca9ad995f4104cd97fa0a",
       "comments": [
         {
           "id": "b2ed83086f00e614",
@@ -54772,141 +54793,141 @@
           "zh": "// 查询条件变化后防抖 200ms 重查，并清空可能已失效的时间点选择。"
         },
         {
-          "id": "0e37a396f7754ede",
-          "line": 829,
+          "id": "957c9467404d4222",
+          "line": 830,
           "kind": "line",
-          "en": "// Timezone/week-start changes affect date ranges without changing the query key; force reload.",
-          "zh": "// 时区/周起始影响统计范围但不改查询键，需强制重查。"
+          "en": "// Preserve unchanged reactive fields and nested objects across autosave acknowledgements.",
+          "zh": "// 自动保存确认时，保留未变化的响应式字段和嵌套对象。"
         },
         {
           "id": "2553abb6fde2c462",
-          "line": 831,
+          "line": 843,
           "kind": "line",
           "en": "// F2: enabling pricing starts a background cost recomputation for retained details.",
           "zh": "// F2：费用估算配置变化后既有明细尚未估过价——启用时自动触发一次后台重算"
         },
         {
           "id": "f1dca4869b6a95ea",
-          "line": 832,
+          "line": 844,
           "kind": "line",
           "en": "// Autosaving unrelated preferences must not start another cost recomputation.",
           "zh": "// 自动保存无关偏好时，不得再次启动费用重算。"
         },
         {
           "id": "2c6ee16d5ec8d6e6",
-          "line": 863,
+          "line": 874,
           "kind": "line",
           "en": "// Collection ETA is empty when unavailable so the template hides it.",
           "zh": "// 采集中：ETA 文案（null/不可估时为空串，模板据此隐藏）。"
         },
         {
           "id": "cad6ada72424fddb",
-          "line": 927,
+          "line": 938,
           "kind": "markup",
           "en": "<!-- Query-refresh interval is independent of background collection; disabled means manual refresh. -->",
           "zh": "<!-- 数据自动重查间隔（与后台采集间隔独立；关闭 = 只手动刷新）。 -->"
         },
         {
           "id": "f7f864e81f30d904",
-          "line": 1091,
+          "line": 1102,
           "kind": "markup",
           "en": "<!-- Put range/granularity inside history because today uses an independent query. -->",
           "zh": "<!-- 范围/粒度只影响历史趋势区（今日数据独立查询），故放在该分区内侧而非页面顶部。 -->"
         },
         {
           "id": "d1499eb8b83c4654",
-          "line": 1114,
+          "line": 1125,
           "kind": "markup",
           "en": "<!-- Selecting a historical chart point shows period cards matching the today layout. -->",
           "zh": "<!-- 选中时间点汇总（点击任一历史趋势图的数据点出现；结构同今日汇总）。 -->"
         },
         {
           "id": "393d344c83fff426",
-          "line": 1141,
+          "line": 1152,
           "kind": "markup",
           "en": "<!-- Model/Agent pies use chart_series with the same selected-period filters.\n                 Match loading/chart heights and retain the old chart while replacing data to reduce movement. -->",
           "zh": "<!-- 选中时间点的模型/Agent 占比饼图（chart_series 数据，采用相同筛选条件）。\n                 加载占位与饼图同高度、换选保留旧图原地换数据，避免布局跳动。 -->"
         },
         {
           "id": "82f04520e6bee869",
-          "line": 1203,
+          "line": 1214,
           "kind": "markup",
           "en": "<!-- Seven fixed range-summary cards above charts use summary.totals. -->",
           "zh": "<!-- 范围汇总面板（图表区上方固定位置）：7 张小卡片，取 summary.totals。 -->"
         },
         {
           "id": "bd693448c75de9b1",
-          "line": 1354,
+          "line": 1365,
           "kind": "block",
           "en": "/* Highlight the panel-layout edit toggle when active. */",
           "zh": "/* 布局编辑模式开关（🔧；激活时高亮）。 */"
         },
         {
           "id": "9b846b05c8286025",
-          "line": 1389,
+          "line": 1400,
           "kind": "block",
           "en": "/* Header query-refresh selector shares a row with collection progress and refresh. */",
           "zh": "/* 顶部自动刷新间隔（与采集进度条/刷新按钮同行）。 */"
         },
         {
           "id": "4f793d40805a359e",
-          "line": 1398,
+          "line": 1409,
           "kind": "block",
           "en": "/* Collection progress width follows its percentage, alongside percentage/ETA text. */",
           "zh": "/* 采集中：简洁进度条（宽度 = 百分比）+ 百分比/剩余时间文案。 */"
         },
         {
           "id": "b82395ab9c34456a",
-          "line": 1476,
+          "line": 1487,
           "kind": "block",
           "en": "/* D8 today/history headings; history range/granularity filters affect that section only. */",
           "zh": "/* 今日/历史醒目分区标题（任务 D8）；历史区标题右侧内联范围/粒度筛选（只影响该区）。 */"
         },
         {
           "id": "3d8622d4958cc8d3",
-          "line": 1499,
+          "line": 1510,
           "kind": "block",
           "en": "/* History range/granularity controls sit beside its heading, separate from today. */",
           "zh": "/* 历史趋势区标题右侧的范围/粒度下拉（与今日数据区视觉分离）。 */"
         },
         {
           "id": "7fb67d0f12d4b2cd",
-          "line": 1513,
+          "line": 1524,
           "kind": "block",
           "en": "/* Selected-period heading and reused summary-cards grid inside history. */",
           "zh": "/* 选中时间点汇总（历史趋势区内）：标题行 + 复用 summary-cards 卡片网格。 */"
         },
         {
           "id": "c0312d6bff3f4032",
-          "line": 1547,
+          "line": 1558,
           "kind": "block",
           "en": "/* Model/Agent pies use two columns, stacking on narrow screens. */",
           "zh": "/* 选中时间点饼图行：模型/Agent 两列卡片（窄屏叠一行一个）。 */"
         },
         {
           "id": "b48df1aef5fe9b02",
-          "line": 1560,
+          "line": 1571,
           "kind": "block",
           "en": "/* Match loading/empty-state height to reduce movement when changing selected periods. */",
           "zh": "/* 与加载占位和空数据状态保持同高，减少切换时间点时的布局变化。 */"
         },
         {
           "id": "cb3bd4c6ed36efa2",
-          "line": 1568,
+          "line": 1579,
           "kind": "block",
           "en": "/* Match the SharePie loading placeholder to its 190px chart height. */",
           "zh": "/* 饼图加载占位：高度与 SharePie 190px 一致，加载完成不产生布局跳动。 */"
         },
         {
           "id": "08b467f511a78f78",
-          "line": 1574,
+          "line": 1585,
           "kind": "block",
           "en": "/* E10 six-column panel grid; Panel span classes set column widths. */",
           "zh": "/* 面板 6 列格子布局（任务 E10）；跨列数由 Panel 的 span 类决定。 */"
         },
         {
           "id": "faa68baa8e9a9ab7",
-          "line": 1582,
+          "line": 1593,
           "kind": "block",
           "en": "/* Keep metric rows compact; account quota has an independent full-width strip. */",
           "zh": "/* 指标行保持紧凑；账号额度使用独立的整行区域。 */"
@@ -56901,53 +56922,53 @@
       ]
     },
     "desktop/tests/browser-smoke.mjs": {
-      "codeHash": "d33d453145d640e10b935ba64cfb9c3950e804899e7dc420afa5d5c8c1134a10",
+      "codeHash": "50c51ab7cace1ed8f9aea36f0dc301ef5ae323235e8d6bca434717ea12a902d2",
       "comments": [
         {
           "id": "5ba4dca837379ee2",
-          "line": 72,
+          "line": 73,
           "kind": "line",
           "en": "// Event subscriptions such as clear-all-progress: transformCallback registers handlers,",
           "zh": "// clear-all-progress 等事件订阅：transformCallback 注册回调，"
         },
         {
           "id": "97dad2e11092771c",
-          "line": 73,
+          "line": 74,
           "kind": "line",
           "en": "// plugin:event|listen/unlisten records them; emitLater sends mock phase events.",
           "zh": "// plugin:event|listen/unlisten 登记；emitLater 发送模拟阶段事件。"
         },
         {
           "id": "732abf8fae82fd5f",
-          "line": 83,
+          "line": 84,
           "kind": "line",
           "en": "// Internal plugin object required by API 2.12 listen/unlisten without a native runtime.",
           "zh": "// 无原生运行时时，API 2.12 listen/unlisten 所需的插件内部对象。"
         },
         {
           "id": "fe244fc846d84c29",
-          "line": 238,
+          "line": 239,
           "kind": "line",
           "en": "// Fake-clock job phases: waiting→backup→clearing→cleared→rescan→done.",
           "zh": "// 模拟时钟驱动任务阶段：waiting→backup→clearing→cleared→rescan→done。"
         },
         {
           "id": "d8e64c2d0b757e81",
-          "line": 428,
+          "line": 429,
           "kind": "line",
           "en": "// Accepted before the worker starts; a short scan finishes between status polls.",
           "zh": "// 工作线程启动前已受理；短扫描可能在状态轮询之间完成。"
         },
         {
           "id": "cef2412556e04173",
-          "line": 917,
+          "line": 919,
           "kind": "line",
           "en": "// Clear-all confirmation shows missing-file warnings and phase progress;",
           "zh": "// 清理全部数据的确认界面显示缺失文件提示及阶段进度；"
         },
         {
           "id": "b8b8b9c2332d0d40",
-          "line": 918,
+          "line": 920,
           "kind": "line",
           "en": "// done closes it automatically and shows the cleared summary.",
           "zh": "// done 后自动关闭，并显示清理汇总。"

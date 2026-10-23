@@ -21,6 +21,10 @@ Failures keep the draft; retry on the next edit or an explicit retry, without pe
 Before leaving Settings, flush pending edits and wait for writes; on failure keep the editor
 open. Changing sections keeps the same draft so users can correct an invalid field.
 Only enabling estimates or changing pricing defaults starts cost recomputation.
+Acknowledgements update only changed settings fields and retain unchanged nested objects.
+Alias, manual-root, update, theme and other unrelated preferences must not reload statistics
+or discard trend/today selections. Timezone, week-start and language changes invalidate
+calendar queries and selections; pricing changes refresh costs separately.
 Acceptance covers debounce, blur/Enter, IME, concurrent edits/reverts, failures, navigation,
 nested update/budget/provider settings and restoration of defaults.
 

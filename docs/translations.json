@@ -470,8 +470,8 @@
       "zh": "de0cbc03eabe4bde140b6e658bac6fc4bdfe4ac1df4d6d87ed747b07ab3d65ce"
     },
     "docs/design/desktop-usage/adapters.md": {
-      "en": "3a244a4ca35efb62c610f00b0402486236439e33dfbbb5f0b51a47db0e1e9b61",
-      "zh": "05e7efbc9fdcb135a31cf28d7d6441874fbeaa2b4923a30b2203bb27157e7231"
+      "en": "39ccb9e89a8958597632cb22e888d9fb53d61f82cd4c3676ea94fa4196839575",
+      "zh": "1641942d7fd2545aa1206428e67240a31aac17f75288e4bcde63c038f947ed27"
     },
     "docs/design/desktop-usage/application-updates.md": {
       "en": "6430e0c9d57dbf01b4c7511f5f23c9d6de30b60b1dd1737625d11be1baf637ac",
@@ -490,8 +490,8 @@
       "zh": "d83ecf840a2ffa34085c7a01aa5b7b9c2ffe1372cfeac54e7d7048af1928a59b"
     },
     "docs/design/desktop-usage/dashboard-polish.md": {
-      "en": "a9d4e057a0972491f3417e58fcc46bb2097b942d6decea160243a1818566b281",
-      "zh": "4e3b15accd83ef62dfa86bd465185828268f58df8e90bde550b66870c262de45"
+      "en": "6c28f7ef0c965bf3ea8bf0aa78adc700a53e752c5985880cf32ee603b6d7164e",
+      "zh": "452df962ae25089123e87b7449b898d241a5dbd06f414f49188be487c12568c9"
     },
     "docs/design/desktop-usage/dashboard-repair.md": {
       "en": "2d20c39e91e51b6681e7b44a3755a397fef058fdef1a0a7e6e9cb7fab6757b66",
@@ -636,6 +636,10 @@
     "docs/validation/desktop-usage/installation-lifecycle.md": {
       "en": "903fa33aab047fd2c830e90507102460ced7efd7abb22599d3f48e7c946136fa",
       "zh": "67f6728a0bcce9487446ed2a12c3a35714c4d4f2a10de9081300193937f6367a"
+    },
+    "docs/validation/desktop-usage/issues-3-4.md": {
+      "en": "1ac119a8a0d4cb356f0ddf0f663a79c6d18a13b7452d655c4911df96958e5a71",
+      "zh": "a88641729b46a717ef312b198f65e29c8f8313e086692eb46c30dc4b31e72009"
     },
     "docs/validation/desktop-usage/m0-agent-fixtures.md": {
       "en": "1533e4baf86d00b9b2738c86e61690804f230768a9e570d962ccfb1080d9fb83",
