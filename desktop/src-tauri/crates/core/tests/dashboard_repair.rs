@@ -791,6 +791,7 @@ fn kimi_profile_alias_and_official_global_named_channels_have_reference_prices()
     configured.model = "kimi-code/k3-256k".into();
     configured.region = "configured".into();
     configured.channel = "configured".into();
+    configured.effective_from_ms = now;
     book.rows.push(configured);
     let mut options = EstimateOptions::default();
     options.provider_channels.insert(

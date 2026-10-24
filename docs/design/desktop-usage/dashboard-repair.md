@@ -90,6 +90,12 @@ incremental rounds, reevaluated after rule-upgrade replay.
   Official Kimi model table maps k3/k3-256k to K3 for kimi-k3 reference only. Alias applies
   to bare model_raw k3/k3-256k from native Kilo/oh-my-pi custom Kimi providers and prefixed
   forms, official moonshot assignment. Keep original profile; exact profile-channel rates first.
+  Kimi Code k3.1-pro and k3.1-pro-highspeed reference kimi-k3.1-pro and
+  kimi-k3.1-pro-highspeed respectively, with separate official rates. The offline
+  [K3.1 snapshot](../../../desktop/src-tauri/crates/core/prices/seed-2026-10-24-kimi-k3.1.json)
+  retains CN CNY/global USD input, output, cache-read and 5m/1h write rates, effective from
+  2026-10-24 verification. Startup adds it to existing databases without rewriting earlier
+  snapshots or occurrence-time estimates; [validation](../../validation/desktop-usage/kimi-k31-pricing.md).
   Strip custom namespaces only when prefix matches the record provider or verified prefix
   table. Verified backup profiles follow the same rule; unknown namespaces/suffixes retained.
   Official GPT-5.5 snapshot gpt-5.5-2026-04-23 may reference gpt-5.5; no inferred other dates.

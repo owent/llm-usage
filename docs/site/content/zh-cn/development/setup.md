@@ -7,9 +7,10 @@ sidebar:
 
 ## 前提与依赖归属
 
-仓库工具使用 Node.js 22+，Astro 文档站要求至少 22.12。CI 选择 Node 24 和 Rust 1.99.0。
-根目录的 `rust-toolchain.toml` 在本地选择同一 Rust 版本。桌面 manifest 声明 MSRV 1.90，
-这是 Tauri 2.12.2 的要求；复现当前验收时使用受测工具链。
+仓库工具使用 Node.js 22+，Astro 文档站要求至少 22.23.4。CI 选择 Node 24 和 Rust 1.99.1。
+根目录的 `rust-toolchain.toml` 在本地选择同一 Rust 版本。两个 workspace manifest
+均声明 Rust 最低版本 1.90，覆盖 Tauri 2.12.5 的要求以及 rusqlite 0.41.0 的
+Rust 1.89 最低版本；复现当前验收时使用受测工具链。
 文档注释检查还需要 Python 3 和 PowerShell 7，用于解析 Python 与 PowerShell 源码，
 不执行被检查文件。缺少时通过惯用开发环境准备；`check:docs` 不自动安装工具。
 
@@ -27,7 +28,7 @@ npm run assets:check
 ```
 
 也可以在根目录执行 `pnpm install --frozen-lockfile`。工作区包含根目录和 `desktop`，
-通过 `packageManager` 固定 pnpm 12.10.1；使用 pnpm 时，根 postinstall 跳过嵌套的 npm 安装。
+通过 `packageManager` 固定 pnpm 12.15.0；使用 pnpm 时，根 postinstall 跳过嵌套的 npm 安装。
 现有命令也支持 `pnpm run`。两个 npm 锁文件与共享的 pnpm 锁文件须同步维护。
 工作区允许 esbuild 和 sharp 的构建脚本，并为刚发布的依赖记录精确版本例外；
 保留 peer 检查和限定范围的批准。

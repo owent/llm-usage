@@ -291,7 +291,7 @@ impl crate::adapters::framework::SourceAdapter for ZcodeAdapter {
 ///
 /// References: local 3.14.3 inspection found 4169 model_usage per-call rows and
 /// 438 turn_usage aggregate rows, whose computed_total_tokens can be compared.
-/// All 16/16 M0 sample turns matched; live snapshots have some unfinished/cancelled-turn differences.
+/// All 16/16 M0 sample turns matched; live snapshots can differ even for completed or cancelled turns.
 /// Return comparison results only, without correcting or importing totals as usage.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DbReconciliation {
@@ -300,7 +300,7 @@ pub struct DbReconciliation {
     pub turns_total: i64,
     /// Turns classified matched by comparing model_usage sums with turn_usage.computed_total_tokens.
     pub turns_matched: i64,
-    /// Turns with a present model sum differing from the turn total; live snapshots include unfinished/cancelled turns.
+    /// Turns with a present model sum differing from the turn total; live snapshots include completed and cancelled turns.
     pub turns_mismatched: i64,
     /// Turns whose joined model computed-total sum is NULL.
     pub turns_without_model_rows: i64,
@@ -316,8 +316,8 @@ pub fn db_reconciliation(
     let flags = rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY
         | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX
         | rusqlite::OpenFlags::SQLITE_OPEN_URI;
-    let conn = Connection::open_with_flags(db_path, flags)?;
-    crate::adapters::run_policy::install_sqlite_control(&conn)?;
+    let mut conn = Connection::open_with_flags(db_path, flags)?;
+    crate::adapters::run_policy::install_sqlite_control(&mut conn)?;
     conn.busy_timeout(std::time::Duration::from_secs(5))?;
     let snapshot = conn.unchecked_transaction()?;
     let (model_rows, model_computed_total_sum): (i64, i64) = conn.query_row(

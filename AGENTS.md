@@ -30,7 +30,9 @@ recoverable output; zero visible output cannot establish an inclusive output tot
 default-zero uncertainty and compare complete old summaries when correcting output coverage.
 Codex foreign-thread compaction usage is inherited context. Correct old ownership only with the complete
 old summary and matching native owner evidence; preserve first observation, real conflicts and diagnostics.
-See the [0.3.3 repair record](docs/validation/desktop-usage/release-033.md).
+Retain every conflicting candidate and its completeness marker from the first conflict. Later candidates
+cannot turn `legacy_unknown` into a complete history or clear its conflict; preserve candidates through
+corrections and parser upgrades. See the [0.3.3 repair record](docs/validation/desktop-usage/release-033.md).
 
 Codex oversized non-usage skips require a complete JSON object, valid UTF-8 and newline;
 positional arrays never establish a native record. Qoder CLI 1.1.76 uses the independent
@@ -38,10 +40,13 @@ positional arrays never establish a native record. Qoder CLI 1.1.76 uses the ind
 input includes cache, default/redacted zeros remain unknown, and Credits never supply cost.
 Keep CLI/IDE/JetBrains evidence separate. Regress long initial messages, metadata/error-only
 windows and manual filenames through real discovery; preserve diagnostic history during replay.
+Qoder deep probes must not cache incomplete tails or let an older concurrent result overwrite a newer classification.
 
 Verify OpenCode versions against the session owning each step-finish. Upgrading old processing positions
 must cover pagination within the same millisecond and complete old summaries. Mark rules updated only
-after a complete valid scan. Qwen 0.25.0 SDK files contain consecutive multiline JSON objects; resume
+after a complete valid scan. Invalid SQLite column types produce row diagnostics without blocking other
+valid messages or trapping pagination; advance a stable typed-ID cursor and report null IDs separately.
+Qwen 0.25.0 SDK files contain consecutive multiline JSON objects; resume
 bounded reads at complete objects. Select per-call spans or native data by host/user/session/local day,
 preserve sealed partitions, and do not add logs or metrics. Isolate other versions and unknown ownership;
 see the data and telemetry configuration requirements.
@@ -145,6 +150,11 @@ separate from unknown-version compatibility; incremental windows must not concea
 Reevaluate old processing positions through real discovery for health corrections. Invalid types must
 not prevent other valid messages from being imported; see the data rules.
 
+Kimi Code protocol 1.5 follows the official 2.3.1 wire manifest at commit
+684bae9ea6a437f3bae98bba1dcb797a917d500b for durable state/control records. Do not turn goal or
+other cumulative fields into model calls; unlisted record types retain diagnostics. Protocol 1.4
+has independent native verification and remains separate from Kimi Work.
+
 Xum 0.30.0 display input is uncached input, and default zero remains unknown. Add positive text output
 and known reasoning. Unknown reasoning allows only a lower bound and leaves the complete total unknown.
 Record default CLI temporary usage files, custom provider streaming usage gaps and gateway controls that
@@ -244,7 +254,7 @@ Read initialization coverage records through the Skill when needed.
 
 ## Development, builds and verification
 
-Use Node.js 22+ from the repository root; Astro documentation requires 22.12+.
+Use Node.js 22+ from the repository root; Astro documentation requires 22.23.4+.
 Root package.json/package-lock.json provide the unified tool entry point. Run documentation and product
 checks from the root:
 

@@ -54,7 +54,7 @@ window icon. Dedicated monochrome resources and other platforms do not establish
 
 ## Generation and checks
 
-From the repository root with Node.js 22+, use desktop's locked `@tauri-apps/cli` (currently 2.12.0).
+From the repository root with Node.js 22+, use desktop's locked `@tauri-apps/cli` (currently 2.12.4).
 No additional drawing dependencies:
 
 ```powershell

@@ -76,6 +76,113 @@ fn repeat_scan_does_not_increment() {
     assert_eq!(summary.totals.total_tokens_known, Some(1_610));
 }
 
+#[test]
+fn official_state_records_do_not_create_calls_or_unknown_type_diagnostics() {
+    // Protocol 1.5 manifest at Kimi Code 2.3.1 commit 684bae9ea6a437f3bae98bba1dcb797a917d500b.
+    let state_records = [
+        "changeNotifier.snapshot",
+        "context.clear",
+        "cron.add",
+        "cron.cursor",
+        "cron.delete",
+        "forked",
+        "full_compaction.cancel",
+        "goal.clear",
+        "goal.create",
+        "goal.update",
+        "interaction.request",
+        "interaction.resolved",
+        "interruptionReminder.recorded",
+        "plan_mode.cancel",
+        "plan_mode.enter",
+        "plan_mode.exit",
+        "plan.revision",
+        "tools.reset_active_tools",
+        "tools.unregister_user_tool",
+        "tower_mode.enter",
+        "tower_mode.exit",
+    ];
+    let dir = TempDir::new("kimi-code-state-records");
+    let mut bytes = base_file();
+    for (index, record_type) in state_records.iter().enumerate() {
+        let payload = match *record_type {
+            "changeNotifier.snapshot" => {
+                r#","agentsMdHash":null,"skillsHash":"synthetic","subagentNames":[]"#
+            }
+            "goal.update" => {
+                r#","goalId":"synthetic-goal","status":"active","turnsUsed":2,"tokensUsed":12345"#
+            }
+            _ => "",
+        };
+        bytes.extend_from_slice(
+            format!(
+                "{{\"type\":\"{record_type}\",\"agentId\":\"main\"{payload},\"time\":{}}}\n",
+                1_767_225_603_000 + index
+            )
+            .as_bytes(),
+        );
+    }
+    let root = kimi_root_with_file(
+        &dir,
+        "wd_syn/session_syn-state/agents/main/wire.jsonl",
+        &bytes,
+    );
+    let (_db, storage) = temp_storage("kimi-code-state-records");
+    let reports = run_kimi_code(&storage, &root, NOW);
+    assert_eq!(reports[0].files[0].records_seen, 24);
+    assert_eq!(reports[0].outcome.as_ref().unwrap().added, 2);
+    let unknown: i64 = storage
+        .conn()
+        .query_row(
+            "SELECT COUNT(*) FROM diagnostics WHERE code='unknown_record_type'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(unknown, 0);
+    let summary = summary(&storage, "2026-01-01", "2026-01-01");
+    assert_eq!(summary.totals.call_count, 2);
+    assert_eq!(summary.totals.total_tokens_known, Some(1_610));
+}
+
+#[test]
+fn kimi_code_v15_state_types_remain_unknown_in_other_versions() {
+    for protocol in ["1.4", "9.9"] {
+        let dir = TempDir::new("kimi-code-other-version-state-type");
+        let mut bytes = String::from_utf8(base_file())
+            .unwrap()
+            .replace(
+                "\"protocol_version\":\"1.5\"",
+                &format!("\"protocol_version\":\"{protocol}\""),
+            )
+            .into_bytes();
+        bytes.extend_from_slice(b"{\"type\":\"goal.update\",\"agentId\":\"main\",\"goalId\":\"synthetic-goal\",\"status\":\"active\",\"turnsUsed\":2,\"tokensUsed\":12345,\"time\":1767225603000}\n");
+        let root = kimi_root_with_file(
+            &dir,
+            "wd_syn/session_syn-other-state/agents/main/wire.jsonl",
+            &bytes,
+        );
+        let (_db, storage) = temp_storage("kimi-code-other-version-state-type");
+        let reports = run_kimi_code(&storage, &root, NOW);
+        assert_eq!(reports[0].outcome.as_ref().unwrap().added, 2);
+        let unknown: i64 = storage
+            .conn()
+            .query_row(
+                "SELECT COUNT(*) FROM diagnostics WHERE code='unknown_record_type'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(unknown, 1, "protocol {protocol}");
+        assert_eq!(
+            summary(&storage, "2026-01-01", "2026-01-01")
+                .totals
+                .total_tokens_known,
+            Some(1_610)
+        );
+    }
+}
+
 /// Appended reads add only new records and preserve cumulative reconciliation across rounds.
 /// Echo starts at zero; the appended echo still covers only part of the record sum.
 #[test]

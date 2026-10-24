@@ -2,7 +2,7 @@
 
 <a id="桌面用量客户端执行计划"></a>
 
-Current version: 0.3.4. Windows 11 x64 is the first desktop target; Windows/Linux/macOS CI
+Current version: 0.3.5. Windows 11 x64 is the first desktop target; Windows/Linux/macOS CI
 is retained. This file owns the executable work for the current round. Removed scope and
 first failures are recorded in the [round record](docs/validation/desktop-usage/plan-20261007.md);
 removal does not mean acceptance passed. Historical results are indexed in
@@ -66,6 +66,21 @@ keeps native-sample queries within the dates of all retained events. Local timin
 coverage and the original remote timeout are recorded there; CI shows test compilation and
 execution separately without removing platform or durability checks.
 
+The 2026-10-24 maintenance round updates dependencies and offline prices, repairs source
+pagination/conflict/detection and SQLite cancellation, and adds regression coverage.
+The [maintenance record](docs/validation/desktop-usage/maintenance-2026-10-24.md) holds
+current verification results and the limits of real-source and platform acceptance.
+
+Kimi K3.1 Pro and Highspeed pricing now includes verified model aliases and independent
+CN/global offline rates. Existing databases import the added snapshot on startup; historical
+estimates remain unchanged. [Pricing repair validation](docs/validation/desktop-usage/kimi-k31-pricing.md)
+records regression coverage and verification limits.
+
+Release 0.3.5 includes this pricing repair and the existing dependency/source maintenance.
+The user authorized the version bump, commit, annotated tag and push on 2026-10-25.
+See the [release preparation record](docs/validation/desktop-usage/release-035.md) for local
+verification and the tag workflow's draft-release behavior.
+
 System update notifications are implemented under the [software update specification](docs/design/desktop-usage/application-updates.md#system-notifications):
 native Windows/macOS/Linux delivery, persisted version deduplication, an independent saved
 switch, and isolated notification failures. Each version has three persisted submission
@@ -127,9 +142,9 @@ language behavior, screenshot provenance and deployment acceptance.
 - [x] Apply the requested cooler, less bright background colors and decorative card fills;
   check contrast and review screenshots in both languages and themes.
 
-Current coverage: all 199 required repository document pairs and 21 guide pairs reviewed,
-and all 7944 comment pairs across 461 source files reviewed. Complete product/document checks
-passed; the local theme build has 1363 pages and 2853 files, with 31 unit and 30 browser checks passed.
+Current coverage: all 209 required repository document pairs and 21 guide pairs reviewed,
+and all 8007 comment pairs across 470 source files reviewed. Complete product/document checks
+passed; the local theme build has 1403 pages and 2939 files, with 41 unit and 31 browser checks passed.
 Screenshot source db44b0300750ef4f3e00c89ad21edbfa83e60813 was published, and run 37716140836 attempt 2
 passed build/publication after the explicitly authorized exact main deployment rule was added.
 Both language homepages and all 20 original PNGs were checked through the custom HTTPS domain.

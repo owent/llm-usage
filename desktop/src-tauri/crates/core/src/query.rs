@@ -55,7 +55,7 @@ impl Filters {
             && self
                 .instances
                 .as_ref()
-                .map_or(true, |ids| ids.contains(&row.instance_id))
+                .is_none_or(|ids| ids.contains(&row.instance_id))
             && (self.quality_buckets.is_empty()
                 || self
                     .quality_buckets
@@ -635,9 +635,7 @@ fn detail_stats_days(
     loop {
         let (label, _, _) =
             period_key_of(calendar, request.granularity, request.week_start, day, None);
-        if selection.map_or(true, |(first, last)| {
-            label.as_str() >= first && label.as_str() <= last
-        }) {
+        if selection.is_none_or(|(first, last)| label.as_str() >= first && label.as_str() <= last) {
             let (start, end) = calendar.day_range_ms(day)?;
             values[0] = start.into();
             values[1] = end.into();

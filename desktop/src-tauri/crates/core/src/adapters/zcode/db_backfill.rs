@@ -38,10 +38,10 @@ pub fn zcode_db_backfill(
     let flags = OpenFlags::SQLITE_OPEN_READ_ONLY
         | OpenFlags::SQLITE_OPEN_NO_MUTEX
         | OpenFlags::SQLITE_OPEN_URI;
-    let db = Connection::open_with_flags(zcode_db_path, flags)
+    let mut db = Connection::open_with_flags(zcode_db_path, flags)
         .map_err(|e| CoreError::Query(format!("open zcode db: {e}")))?;
 
-    crate::adapters::run_policy::install_sqlite_control(&db)?;
+    crate::adapters::run_policy::install_sqlite_control(&mut db)?;
     db.busy_timeout(std::time::Duration::from_secs(5))?;
     let snapshot = db.unchecked_transaction()?;
 

@@ -1,7 +1,14 @@
 //! Cooperative source deadline and retries; parser/permission errors are final.
 use crate::error::CoreError;
 use std::time::Duration;
-use std::{cell::RefCell, sync::Arc, time::Instant};
+use std::{
+    cell::RefCell,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    time::Instant,
+};
 
 pub type Allowed = Arc<dyn Fn() -> bool + Send + Sync>;
 pub type InstanceAllowed = Arc<dyn Fn(&str) -> bool + Send + Sync>;
@@ -10,6 +17,7 @@ struct Control {
     deadline: Option<Instant>,
     allowed: Option<Allowed>,
     last_allowed: Option<(Instant, bool)>,
+    interrupted: Vec<Arc<AtomicBool>>,
     instance_allowed: Option<InstanceAllowed>,
 }
 thread_local! {
@@ -39,6 +47,7 @@ pub fn enter(deadline: Option<Instant>, allowed: Option<Allowed>) -> ControlScop
             deadline,
             allowed: allowed.or_else(|| previous.allowed.clone()),
             last_allowed,
+            interrupted: previous.interrupted.clone(),
             instance_allowed: previous.instance_allowed.clone(),
         };
         ControlScope(previous, std::marker::PhantomData)
@@ -54,7 +63,7 @@ pub fn enter_source(instance: &str, deadline: Option<Instant>) -> ControlScope {
         let instance = instance.to_owned();
         let global = current.allowed;
         Arc::new(move || {
-            global.as_ref().map_or(true, |allowed| allowed()) && source_allowed(&instance)
+            global.as_ref().is_none_or(|allowed| allowed()) && source_allowed(&instance)
         }) as Allowed
     });
     enter(deadline, allowed)
@@ -68,6 +77,13 @@ pub fn check() -> Result<(), CoreError> {
         .is_some_and(|deadline| Instant::now() >= deadline)
     {
         return Err(CoreError::Interrupted("scan_time_budget_exhausted"));
+    }
+    if control
+        .interrupted
+        .iter()
+        .any(|interrupted| interrupted.load(Ordering::SeqCst))
+    {
+        return Err(CoreError::Interrupted("automatic_scan_paused"));
     }
     if let Some(allowed) = control.allowed {
         let now = Instant::now();
@@ -152,20 +168,49 @@ pub fn check_sqlite() -> rusqlite::Result<()> {
         )
     })
 }
-pub fn install_sqlite_control(connection: &rusqlite::Connection) -> rusqlite::Result<()> {
+pub fn install_sqlite_control(connection: &mut rusqlite::Connection) -> rusqlite::Result<()> {
     connection.progress_handler(1000, Some(|| check().is_err()))
 }
 /// Only for this app's archive/maintenance connection under its writer lock.
-pub struct SqliteScope<'a>(&'a rusqlite::Connection);
+pub struct SqliteScope<'a> {
+    _connection: std::marker::PhantomData<&'a rusqlite::Connection>,
+    _worker: crate::cancellation::SqlInterrupt,
+}
 impl<'a> SqliteScope<'a> {
-    pub fn new(connection: &'a rusqlite::Connection) -> rusqlite::Result<Self> {
-        install_sqlite_control(connection)?;
-        Ok(Self(connection))
+    pub fn new(connection: &'a rusqlite::Connection) -> Result<Self, crate::error::CoreError> {
+        let (deadline, allowed) = CONTROL.with(|current| {
+            let current = current.borrow();
+            (current.deadline, current.allowed.clone())
+        });
+        let cancelled = Arc::new(move || {
+            deadline.is_some_and(|deadline| Instant::now() >= deadline)
+                || allowed.as_ref().is_some_and(|allowed| !allowed())
+        });
+        let worker = crate::cancellation::interrupt_on(connection, cancelled)?;
+        CONTROL.with(|current| {
+            current
+                .borrow_mut()
+                .interrupted
+                .push(Arc::clone(&worker.interrupted));
+        });
+        Ok(Self {
+            _connection: std::marker::PhantomData,
+            _worker: worker,
+        })
     }
 }
 impl Drop for SqliteScope<'_> {
     fn drop(&mut self) {
-        let _ = self.0.progress_handler(0, None::<fn() -> bool>);
+        self._worker.stop();
+        CONTROL.with(|current| {
+            let mut current = current.borrow_mut();
+            if self._worker.interrupted.load(Ordering::SeqCst) {
+                current.last_allowed = Some((Instant::now(), false));
+            }
+            current
+                .interrupted
+                .retain(|interrupted| !Arc::ptr_eq(interrupted, &self._worker.interrupted));
+        });
     }
 }
 
@@ -203,6 +248,80 @@ pub(super) fn retry_delay(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sqlite_cancellation_overrides_cached_permission_and_survives_scope_drop() {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        let enabled = Arc::new(AtomicBool::new(true));
+        let _outer = enter(
+            None,
+            Some({
+                let enabled = Arc::clone(&enabled);
+                Arc::new(move || enabled.load(Ordering::SeqCst))
+            }),
+        );
+        check().unwrap();
+        {
+            let scope = SqliteScope::new(&conn).unwrap();
+            enabled.store(false, Ordering::SeqCst);
+            let deadline = Instant::now() + Duration::from_secs(2);
+            while !scope._worker.interrupted.load(Ordering::SeqCst) {
+                assert!(Instant::now() < deadline);
+                std::thread::sleep(Duration::from_millis(1));
+            }
+            CONTROL.with(|current| {
+                current.borrow_mut().last_allowed = Some((Instant::now(), true));
+            });
+            assert!(matches!(
+                check(),
+                Err(CoreError::Interrupted("automatic_scan_paused"))
+            ));
+            drop(scope);
+        }
+        enabled.store(true, Ordering::SeqCst);
+        CONTROL.with(|current| {
+            assert!(matches!(current.borrow().last_allowed, Some((_, false))));
+        });
+        assert!(matches!(
+            check(),
+            Err(CoreError::Interrupted("automatic_scan_paused"))
+        ));
+    }
+
+    #[test]
+    fn nested_sql_scopes_keep_outer_cancellation() {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        let outer_control = enter(None, Some(Arc::new(|| false)));
+        let outer = SqliteScope::new(&conn).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while !outer._worker.interrupted.load(Ordering::SeqCst) {
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        let inner_control = enter(None, Some(Arc::new(|| true)));
+        let inner = SqliteScope::new(&conn).unwrap();
+        assert!(!Arc::ptr_eq(
+            &outer._worker.interrupted,
+            &inner._worker.interrupted
+        ));
+        assert!(!inner._worker.interrupted.load(Ordering::SeqCst));
+        CONTROL.with(|current| {
+            current.borrow_mut().last_allowed = Some((Instant::now(), true));
+        });
+        assert!(matches!(
+            check(),
+            Err(CoreError::Interrupted("automatic_scan_paused"))
+        ));
+        drop(inner);
+        assert!(matches!(
+            check(),
+            Err(CoreError::Interrupted("automatic_scan_paused"))
+        ));
+        drop(inner_control);
+        drop(outer);
+        drop(outer_control);
+    }
+
     #[test]
     fn retry_classification_attempt_limit_and_deadline_are_independent() {
         let busy = CoreError::Io(std::io::ErrorKind::WouldBlock.into());

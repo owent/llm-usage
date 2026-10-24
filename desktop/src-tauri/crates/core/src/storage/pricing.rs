@@ -101,6 +101,13 @@ impl Storage {
         let current =
             crate::pricing::parse_snapshot_json(include_str!("../../prices/seed-2026-10-05.json"))?;
         import_price_snapshot_tx(&tx, &current, now_ms)?;
+        let october_24 =
+            crate::pricing::parse_snapshot_json(include_str!("../../prices/seed-2026-10-24.json"))?;
+        import_price_snapshot_tx(&tx, &october_24, now_ms)?;
+        let kimi_k31 = crate::pricing::parse_snapshot_json(include_str!(
+            "../../prices/seed-2026-10-24-kimi-k3.1.json"
+        ))?;
+        import_price_snapshot_tx(&tx, &kimi_k31, now_ms)?;
         tx.commit()?;
         // Preserve the original seed snapshot's public return values.
         Ok(result)
@@ -648,7 +655,7 @@ impl Storage {
                     ranges.iter().any(|(start, end, h)| {
                         *start <= r.event.occurred_at_ms
                             && r.event.occurred_at_ms < *end
-                            && h.map_or(true, |h| h == i64::from(hour))
+                            && h.is_none_or(|h| h == i64::from(hour))
                     })
                 });
             if !sealed {

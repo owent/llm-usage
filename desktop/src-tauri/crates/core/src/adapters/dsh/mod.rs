@@ -72,7 +72,7 @@ fn files(root: &Path, manual: bool) -> Vec<PathBuf> {
     candidates
         .into_iter()
         .filter(|p| {
-            versions::session_v4::generation(p).map_or(true, |v| latest[p.parent().unwrap()] == v)
+            versions::session_v4::generation(p).is_none_or(|v| latest[p.parent().unwrap()] == v)
         })
         .collect()
 }

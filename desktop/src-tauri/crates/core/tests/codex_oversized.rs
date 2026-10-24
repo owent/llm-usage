@@ -26,7 +26,7 @@ fn oversized_tool_output_does_not_block_later_usage_or_repeat_imports() {
             report[0]
                 .error
                 .as_deref()
-                .map_or(true, |e| e.starts_with("source_window_budget_exhausted")),
+                .is_none_or(|e| e.starts_with("source_window_budget_exhausted")),
             "{:?}",
             report[0].error
         );

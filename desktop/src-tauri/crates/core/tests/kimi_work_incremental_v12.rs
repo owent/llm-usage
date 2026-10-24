@@ -79,6 +79,35 @@ fn repeat_scan_does_not_increment() {
 }
 
 #[test]
+fn kimi_code_v15_state_types_remain_unknown_in_kimi_work_v14() {
+    let dir = TempDir::new("kimi-work-v14-state-type");
+    let path = wire_path(&dir);
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    let mut bytes = base_file();
+    bytes.extend_from_slice(b"{\"type\":\"goal.update\",\"goalId\":\"synthetic-goal\",\"status\":\"active\",\"turnsUsed\":2,\"tokensUsed\":12345,\"time\":1767225603000}\n");
+    std::fs::write(&path, bytes).unwrap();
+    let root = dir.path().to_path_buf();
+    let (_db, storage) = temp_storage("kimi-work-v14-state-type");
+    let reports = run_kimi_work(&storage, &root, NOW);
+    assert_eq!(reports[0].outcome.as_ref().unwrap().added, 2);
+    let unknown: i64 = storage
+        .conn()
+        .query_row(
+            "SELECT COUNT(*) FROM diagnostics WHERE code='unknown_record_type'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(unknown, 1);
+    assert_eq!(
+        summary(&storage, "2026-01-01", "2026-01-01")
+            .totals
+            .total_tokens_known,
+        Some(1_610)
+    );
+}
+
+#[test]
 fn append_continues_from_cursor() {
     let dir = TempDir::new("kimi-work-append");
     let path = wire_path(&dir);

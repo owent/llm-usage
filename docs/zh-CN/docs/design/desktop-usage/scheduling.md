@@ -4,7 +4,7 @@
 
 当前实现为全局间隔、逐源间隔/每日/每周、启动校对、手动合并、单写者及 Windows
 可选原生系统任务。Windows 托盘可选，节能暂停与协作式扫描时间限制已接入，
-具体验收状态见 [Plan.md](../../../Plan.md)。Windows 文件监听与逐源间隔单调计时
+具体验收状态见 [Plan.md](../../../../../Plan.md)。Windows 文件监听与逐源间隔单调计时
 已接入；来源实例有两个解析槽，文件/数据库读取与后续处理通过作用域控制协作中断。
 
 <a id="settings-and-execution"></a>
@@ -62,8 +62,9 @@ Codex 跨轮扫描优先未访问的文件，其余按库中上次确认访问�
 避免历史回填持续推迟新用量；轮转不把中断标为完整采集。其他适配器沿用自己的
 发现顺序，只有核验文件间不存在读取顺序要求后才能启用轮转。
 JSON 有控制时每 32 KiB 检查，IO 每次至多 64 KiB；开关检查最多缓存 20 ms，
-期限每次检查。SQLite 每 1,000 VM 指令和备份每页组检查，回调内不调用 SQL。
-应用归档/保留/费用连接的回调在解锁前撤销，未确认维护事务回滚；已中断的轮次
+期限每次检查。本地源的 progress handler 每 1,000 VM 指令检查一次，备份页组保留检查。
+应用归档/保留/费用的共享连接使用作用域内 InterruptHandle 工作线程，每 20 ms 检查一次，
+解锁前唤醒并等待线程退出；回调内不调用 SQL。未确认维护事务回滚；已中断的轮次
 不继续启动保留、费用或可选价格刷新。未访问、中断或合并请求不推进逐源到期时间。
 任何阻塞 OS 调用仍只能在返回后检查，不能声称硬实时终止。
 
@@ -164,9 +165,11 @@ OS 锁使用 [File.try_lock](https://doc.rust-lang.org/stable/std/fs/struct.File
 两个工作槽使用 [Rust scoped threads](https://doc.rust-lang.org/std/thread/fn.scope.html)；
 控制读取遵守 [Read 的错误语义](https://doc.rust-lang.org/std/io/trait.Read.html#method.read_to_end)，
 用带类型的 Other 错误返回暂停，避免 Interrupted 被 read_to_end 自动重试。
-SQLite 控制依据 [progress handler](https://www.sqlite.org/c3ref/progress_handler.html)，
-锁内访问符合 [rusqlite 0.40.2 Connection](https://docs.rs/rusqlite/0.40.2/rusqlite/struct.Connection.html)
-的 Send / 非 Sync 约束。2026-10-04 核对官方正文、锁版本及当前编译/回归，
+SQLite 控制依据 [progress handler](https://www.sqlite.org/c3ref/progress_handler.html) 和
+[InterruptHandle](https://docs.rs/rusqlite/0.41.0/rusqlite/struct.InterruptHandle.html)。
+共享连接使用作用域内工作线程，本地源以可变引用安装处理器。锁内访问符合
+[rusqlite 0.41.0 Connection](https://docs.rs/rusqlite/0.41.0/rusqlite/struct.Connection.html)
+的 Send / 非 Sync 约束。2026-10-24 核对官方正文、锁版本及当前编译/回归，
 不将官方滚动 Rust 文档版本当作本机工具链。
 V23/V24/V25 覆盖暂停、到期、DST、重启、竞争、来源边界与无窗口运行；GUI 和
 headless 资源分别测量，实际结果只在验证记录与 Plan.md 登记。

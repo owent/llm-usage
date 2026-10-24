@@ -61,6 +61,9 @@ pub fn reference_model_key_at(model: &str, occurred_at_ms: i64) -> String {
         // oh-my-pi under a custom Kimi provider) or provider-prefixed. This is an
         // API reference alias only; statistics keep the serving profile.
         "k3" | "k3-256k" => "kimi-k3".into(),
+        // Official Kimi Code model table (2026-10-24): Pro and Highspeed have separate API rates.
+        "k3.1-pro" => "kimi-k3.1-pro".into(),
+        "k3.1-pro-highspeed" => "kimi-k3.1-pro-highspeed".into(),
         // User-confirmed serving identity (2026-10-05); price substitution is separate.
         "k28-agent-preview" => "kimi-k2.8-preview".into(),
         // Official Kimi Code release notes: upgraded in place on 2026-09-11.

@@ -14,13 +14,45 @@ use crate::domain::{
 };
 use crate::error::CoreError;
 use crate::ingest::DiagnosticInput;
-use rusqlite::Connection;
+use rusqlite::{types::Value as SqlValue, Connection};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::BTreeSet;
 
 pub const FORMAT: &str = "opencode-sqlite-session-messages-v2";
 pub const PARSER_VERSION: &str = "opencode-session-messages-2";
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+enum CursorId {
+    Integer(i64),
+    Real(f64),
+    Text(String),
+    Blob(Vec<u8>),
+}
+
+impl CursorId {
+    fn to_sql(&self) -> SqlValue {
+        match self {
+            Self::Integer(value) => SqlValue::Integer(*value),
+            Self::Real(value) => SqlValue::Real(*value),
+            Self::Text(value) => SqlValue::Text(value.clone()),
+            Self::Blob(value) => SqlValue::Blob(value.clone()),
+        }
+    }
+}
+
+impl From<SqlValue> for CursorId {
+    fn from(value: SqlValue) -> Self {
+        match value {
+            SqlValue::Integer(value) => Self::Integer(value),
+            SqlValue::Real(value) => Self::Real(value),
+            SqlValue::Text(value) => Self::Text(value),
+            SqlValue::Blob(value) => Self::Blob(value),
+            SqlValue::Null => Self::Text(String::new()),
+        }
+    }
+}
 
 pub(crate) fn matches_schema(conn: &Connection) -> Result<bool, CoreError> {
     for (table, required) in [
@@ -64,7 +96,11 @@ struct Context {
     validated_usage: bool,
     #[serde(default)]
     policy: String,
-    after_id: Option<String>,
+    after_id: Option<CursorId>,
+    #[serde(default)]
+    skip_nonfinite: bool,
+    #[serde(default)]
+    completed: Option<bool>,
     #[serde(default)]
     errors: BTreeSet<String>,
     #[serde(default)]
@@ -181,10 +217,24 @@ pub fn scan(
     if context.policy != PARSER_VERSION {
         context = Context::default();
     }
-    if context.after_id.is_none() {
+    if context.after_id.is_none() && context.completed.unwrap_or(true) {
         context.pending_errors.clear();
+        context.skip_nonfinite = false;
     }
     let limit = limits.jsonl.max_lines.unwrap_or(50_000).clamp(1, 50_000) as i64;
+    let mut diagnostics = Vec::new();
+    if conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM session_message WHERE id IS NULL)",
+        [],
+        |row| row.get::<_, bool>(0),
+    )? {
+        context.pending_errors.insert("<null>".into());
+        diagnostics.push(diagnostic(
+            "<null>",
+            "invalid_message_identity",
+            "OpenCode v2 message has a null ID; other messages remain readable",
+        ));
+    }
     // Extract only usage/identity/time metadata; message bodies never leave SQLite.
     let mut stmt = conn.prepare(
         "SELECT m.id,m.session_id,m.type,m.seq,m.time_updated,s.id,s.parent_id,s.version,
@@ -197,41 +247,96 @@ pub fn scan(
          FROM session_message m LEFT JOIN session_v2 s ON s.id=m.session_id
          LEFT JOIN session_message b ON b.session_id=s.fork_session_id AND b.id=
            CASE WHEN json_valid(s.fork_boundary) THEN json_extract(s.fork_boundary,'$.messageID') END
-         WHERE (?1 IS NULL OR m.id>?1) ORDER BY m.id LIMIT ?2")?;
-    let mut rows = stmt.query(rusqlite::params![context.after_id, limit + 1])?;
+         WHERE m.id IS NOT NULL AND (?1 IS NULL OR m.id>?1)
+           AND (?2 = 0 OR (m.id NOT IN (-1e999,1e999) AND m.id = m.id))
+         ORDER BY m.id LIMIT ?3")?;
+    let after_id = context.after_id.as_ref().map(CursorId::to_sql);
+    let rows = stmt.query_map(
+        rusqlite::params![after_id, context.skip_nonfinite, limit + 1],
+        |row| {
+            let id = row.get::<_, SqlValue>(0)?;
+            Ok((
+                id,
+                (|| {
+                    Ok::<_, rusqlite::Error>((
+                        row.get::<_, String>(1)?,
+                        row.get::<_, String>(2)?,
+                        row.get::<_, i64>(3)?,
+                        row.get::<_, i64>(4)?,
+                        row.get::<_, Option<String>>(5)?,
+                        row.get::<_, Option<String>>(6)?,
+                        row.get::<_, Option<String>>(7)?,
+                        row.get::<_, Option<String>>(8)?,
+                        row.get::<_, Option<String>>(9)?,
+                        row.get::<_, Option<i64>>(10)?,
+                        row.get::<_, Option<String>>(11)?,
+                    ))
+                })(),
+            ))
+        },
+    )?;
     let mut events = Vec::new();
-    let mut diagnostics = Vec::new();
     let mut count = 0;
-    let mut last = None;
+    let mut last = context.after_id.clone();
     let mut capped = false;
-    while let Some(row) = rows.next()? {
+    for row in rows {
         crate::adapters::run_policy::check()?;
         if count == limit {
             capped = true;
             break;
         }
         count += 1;
-        let id: String = row.get(0)?;
-        last = Some(id.clone());
-        let session: String = row.get(1)?;
-        let kind: String = row.get(2)?;
-        let seq: i64 = row.get(3)?;
-        let revision: i64 = row.get(4)?;
-        let owner: Option<String> = row.get(5)?;
-        let parent: Option<String> = row.get(6)?;
-        let version: Option<String> = row.get(7)?;
-        let fork: Option<String> = row.get(8)?;
-        let boundary_type: Option<String> = row.get(9)?;
-        let boundary: Option<i64> = row.get(10)?;
-        let data: Option<String> = row.get(11)?;
-        let data: Value = data
-            .and_then(|s| serde_json::from_str(&s).ok())
-            .unwrap_or(Value::Null);
+        let (cursor, values) = row?;
+        let cursor = CursorId::from(cursor);
+        let nonfinite = matches!(&cursor, CursorId::Real(value) if !value.is_finite());
+        if !nonfinite {
+            last = Some(cursor.clone());
+        }
+        let id = match cursor {
+            CursorId::Text(value) if !value.is_empty() => value,
+            _ => {
+                if nonfinite {
+                    context.skip_nonfinite = true;
+                }
+                context.pending_errors.insert("<invalid-id>".into());
+                diagnostics.push(diagnostic(
+                    "<invalid-id>",
+                    "invalid_message_identity",
+                    "OpenCode v2 message ID must be nonempty text; other messages remain readable",
+                ));
+                continue;
+            }
+        };
         let mut problem = |code, message| {
             context.pending_errors.insert(id.clone());
             diagnostics.push(diagnostic(&id, code, message));
         };
-        if id.is_empty() || owner.is_none() || revision < crate::domain::MIN_PLAUSIBLE_MS {
+        let (
+            session,
+            kind,
+            seq,
+            revision,
+            owner,
+            parent,
+            version,
+            fork,
+            boundary_type,
+            boundary,
+            data,
+        ) = match values {
+            Ok(values) => values,
+            Err(_) => {
+                problem(
+                    "row_read_failed",
+                    "OpenCode v2 required SQLite columns have unexpected types; message skipped",
+                );
+                continue;
+            }
+        };
+        let data: Value = data
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or(Value::Null);
+        if owner.is_none() || revision < crate::domain::MIN_PLAUSIBLE_MS {
             problem(
                 "invalid_message_identity",
                 "OpenCode v2 message lacks a valid owning session or revision",
@@ -385,6 +490,7 @@ pub fn scan(
     }
     context.validated_usage |= !events.is_empty();
     context.after_id = if capped { last } else { None };
+    context.completed = Some(!capped);
     if !capped {
         context.errors = context.pending_errors.clone();
     }

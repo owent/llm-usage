@@ -1,6 +1,6 @@
 [package]
 name = "llm-usage-desktop"
-version = "0.3.4"
+version = "0.3.5"
 description = "llm-usage desktop client"
 edition = "2021"
 rust-version = "1.90"
@@ -11,17 +11,17 @@ members = ["crates/core"]
 default-members = [".", "crates/core"]
 
 [build-dependencies]
-tauri-build = { version = "^2.7.1", features = [] }
+tauri-build = { version = "^2.7.4", features = [] }
 
 [[bin]]
 name = "LLMUsage"
 path = "src/main.rs"
 
 [dependencies]
-tauri = { version = "^2.12.2", features = [] }
+tauri = { version = "^2.12.5", features = [] }
 serde = { version = "^1.0.229", features = ["derive"] }
-serde_json = { version = "^1.0.151" }
-rusqlite = { version = "^0.40.2", features = ["bundled"] }
+serde_json = { version = "^1.0.154" }
+rusqlite = { version = "^0.41.0", features = ["bundled"] }
 llm-usage-core = { path = "crates/core" }
 jiff = { version = "^0.2.38" }
 rfd = { version = "^0.17.2" }
@@ -33,19 +33,19 @@ flate2 = { version = "^1.1.10" }
 jsonc-parser = { version = "^0.34.0", features = ["serde"] }
 toml_edit = { version = "^0.25.17", features = ["serde"] }
 # ureq: F2 HTTPS GET refresh of models.dev api.json (rustls, no local-data upload, bounded response).
-ureq = "^3.4.2"
+ureq = "^3.5.0"
 semver = "^1.0.28"
-sha2 = "^0.11.0"
+sha2 = "^0.11.1"
 tar = "^0.4.46"
-zstd = { version = "^0.14.0", default-features = false }
+zstd = { version = "^0.14.3", default-features = false }
 
 [target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
 getrandom = "^0.4.3"
-libc = "^0.2.190"
+libc = "^0.2.191"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 secret-service = { version = "^5.2.0", features = ["rt-tokio-crypto-rust"] }
-tokio = { version = "^1.53.2", features = ["rt", "time"] }
+tokio = { version = "^1.54.1", features = ["rt", "time"] }
 notify-rust = { version = "^4.18.2", default-features = false, features = ["z-with-tokio"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
@@ -53,10 +53,10 @@ security-framework = "^3.7.0"
 security-framework-sys = "^2.17.0"
 core-foundation = "^0.10.1"
 mac-usernotifications = "^0.3.1"
-tokio = { version = "^1.53.2", features = ["rt", "time"] }
+tokio = { version = "^1.54.1", features = ["rt", "time"] }
 
 [target.'cfg(windows)'.dependencies]
-tauri = { version = "^2.12.2", features = ["tray-icon"] }
+tauri = { version = "^2.12.5", features = ["tray-icon"] }
 windows = { version = "^0.62.2", features = ["Win32_System_Com", "Win32_System_TaskScheduler", "Win32_System_Variant", "Win32_System_Ole", "Win32_System_Registry", "Win32_System_Power", "Win32_System_Threading", "Win32_Storage_FileSystem", "Win32_Security", "Win32_Security_Authorization", "Win32_Security_Credentials", "Win32_Security_Cryptography", "Win32_System_WinRT", "Data_Xml_Dom", "UI_Notifications"] }
 
 [profile.release]

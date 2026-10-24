@@ -78,6 +78,12 @@ Kilo 按逐消息的 session.version 标记依据，库内最高版本不替代�
   别名对裸 model_raw（`k3`/`k3-256k`，Kilo Code / oh-my-pi 在自定义 Kimi provider
   下的真实上报形态）与 provider 前缀形态都生效，并归属官方 moonshot；
   统计保留原始 profile，精确 profile 渠道价格优先。
+  Kimi Code 的 k3.1-pro 和 k3.1-pro-highspeed 分别参考 kimi-k3.1-pro 与
+  kimi-k3.1-pro-highspeed，使用各自的官方价格。离线
+  [K3.1 快照](../../../desktop/src-tauri/crates/core/prices/seed-2026-10-24-kimi-k3.1.json)
+  保留国内 CNY、国际 USD 的输入、输出、缓存读取及 5 分钟/1 小时写入价格，
+  从 2026-10-24 核验日起生效。启动时向已有数据库补充快照，不改写旧快照或发生时估算；
+  见 [验证记录](../../validation/desktop-usage/kimi-k31-pricing.md)。
   自定义模型命名空间仅在前缀与该记录的 provider 一致，或已核验前缀表命中时剥离；
   已核验的备份 profile 支持相同规则，不任意删除未知命名空间/后缀。
   GPT-5.5 官方快照 `gpt-5.5-2026-04-23` 可参考 `gpt-5.5`；其他日期不自动推断。

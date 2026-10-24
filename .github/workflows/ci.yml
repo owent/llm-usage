@@ -16,7 +16,7 @@ permissions:
 
 env:
   NODE_VERSION: "24"
-  RUST_TOOLCHAIN: "1.99.0"
+  RUST_TOOLCHAIN: "1.99.1"
 
 jobs:
   docs:

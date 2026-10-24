@@ -2,8 +2,8 @@
   "schema": 1,
   "documents": {
     "desktop/assets/README.md": {
-      "en": "ef129103169c49f83b16d527c261e17f302f79a301f70ef7097077455f10ec50",
-      "zh": "bc75b3d861c9c20c1b33d1fe731a436dde00f2257ce80ab914d97b31f38ab8e3"
+      "en": "8bc0c512b569ffc2ca3ff79a3b9761b773516c7c02006cbe6b34f16473b46682",
+      "zh": "a127b1fb3ea437148b97143da6e8dc3b6631417f773732f79b7eccd0462068b3"
     },
     "desktop/src-tauri/crates/core/tests/fixtures/claude/real-2.1.197-queue-metadata/_expectations.md": {
       "en": "6975dcfabd39ce75fe2506c8277646e1500a527992a94a7a00c25677898543cd",
@@ -470,12 +470,12 @@
       "zh": "de0cbc03eabe4bde140b6e658bac6fc4bdfe4ac1df4d6d87ed747b07ab3d65ce"
     },
     "docs/design/desktop-usage/adapters.md": {
-      "en": "39ccb9e89a8958597632cb22e888d9fb53d61f82cd4c3676ea94fa4196839575",
-      "zh": "1641942d7fd2545aa1206428e67240a31aac17f75288e4bcde63c038f947ed27"
+      "en": "a5a8d4a09c9dd6e3f7b267566a871580521a366ba35506bf3bcdd0aa73925cfc",
+      "zh": "96447d7c8c70013fbfe309d838edbf774ed867311ff185713e835782dbea1908"
     },
     "docs/design/desktop-usage/application-updates.md": {
-      "en": "6430e0c9d57dbf01b4c7511f5f23c9d6de30b60b1dd1737625d11be1baf637ac",
-      "zh": "744f139de316bfd27da123bdf58fa900e7655c5545e08089d05772e7230d760b"
+      "en": "db274379d7ce2678ac0024579d333d800166b41929f2eeb86bf6bf152b1f51a4",
+      "zh": "1c392531f193bf16b037fd5eb278b5193b89998615ff4ecc83debbc2792ed54d"
     },
     "docs/design/desktop-usage/architecture.md": {
       "en": "456bd20e872fb3034054f700912aa4c8415b1dc4dde033923c355ee15c5f710f",
@@ -494,12 +494,12 @@
       "zh": "452df962ae25089123e87b7449b898d241a5dbd06f414f49188be487c12568c9"
     },
     "docs/design/desktop-usage/dashboard-repair.md": {
-      "en": "2d20c39e91e51b6681e7b44a3755a397fef058fdef1a0a7e6e9cb7fab6757b66",
-      "zh": "89833ba15c417ae71f8a1cd3daa4f56eba1b600548897c60d9bdb39dbb87437d"
+      "en": "4656feea3c2cfb93687239ee3eb3d603387e8a260df320f6c2ad6d57eafb45d6",
+      "zh": "16daaccb8ab8e3d2c1013481d47c3e5650b0fcb054b6a3b85f70ab9b47bb3c6b"
     },
     "docs/design/desktop-usage/data-contract.md": {
-      "en": "00a07f80fa85580028d1702d33fa6da392ff19b2703fc046e8174b93ebed669e",
-      "zh": "b68dbfe7ab2173e06c764f79fbf0a18035c375641084e3ec8cd2c999c9b5caad"
+      "en": "1c63c3a4ba2e62ae414cacf33e969b67a9e7235ceb177dd4be6fe8a4c548d21c",
+      "zh": "f134ff422989a606903d14127a183bf0c32ac965a2bc7f9b6ec76e4e9ce02a03"
     },
     "docs/design/desktop-usage/detail-merge.md": {
       "en": "a180539e195a469e16c0f9e22fa49eb0573a45892e00d2802f5826dd8a93a3f2",
@@ -514,8 +514,8 @@
       "zh": "461612c9cac11469017c936f3242453f4ea373f44ef4148206c139ea2b55ded7"
     },
     "docs/design/desktop-usage/installation-lifecycle.md": {
-      "en": "b0590adbe2e3a2ae6d0089a077e9bbda4ec09e25e3d3c9c8051d1a176a95b490",
-      "zh": "48a867057af84ef21b62c081e297a8da9bcab1400df229bbcc74d17a4cad39f7"
+      "en": "7e788abf3fd3fe75bd2d31353218c4f83154e64759aa17fd7c81b550e7535f0f",
+      "zh": "a71a8be212dd6b3c02a47ab13942e22adb6d595132ac7e0c9416a52294daff73"
     },
     "docs/design/desktop-usage/m3-runtime-samples.md": {
       "en": "c941719816f8d4f810ad7bc8647e4772b981d0ce8413cb00a826cbfc6f1ce1dc",
@@ -526,16 +526,16 @@
       "zh": "0e96ff8aa960f553a5f4c4c6d4f6a13a4f7fca95f85ffdd19305bfce88c9640c"
     },
     "docs/design/desktop-usage/opencode-runtime.md": {
-      "en": "3791a6effea9fd6ea56ec3b56f9ec27f4a351e896565bd02c89f5c62a6cd1acd",
-      "zh": "7896c2f8fc608b94c30744403087c83c444626a62df4b294aa41ea3bcd43ba45"
+      "en": "6c1784c469e873d00f08ab0c4abc8dcd83f11676a2f861863eabc9c010673408",
+      "zh": "c7e8130fc8105791ac8d6397f5d5d6489bdb774f05cabbfad9510f8ec677689f"
     },
     "docs/design/desktop-usage/platform-ci.md": {
       "en": "2dc7a02dc646ebafb4f001760f556bebac00bfcc38183809558eacdf47a7f090",
       "zh": "6dcb3bcb409ae90b0eeace305d639f2d96b2efdccf074620051e48a78e8c47d1"
     },
     "docs/design/desktop-usage/pricing.md": {
-      "en": "aeb621bf04ac5889577f51857f03b76f197764a43ef237bb008fa5185c4f1985",
-      "zh": "100d00938c2b810eecc834b3d5016421b58b00e1e9df0766dbe7b0973f12235e"
+      "en": "9f0006f9d1a640b1f04d8144682ce896136a5bcf639d03af395732fcf6164745",
+      "zh": "7d994b25794b8d54bd4c0baf1b94ff2e169854174da37dca374d27f9111cc31a"
     },
     "docs/design/desktop-usage/query-acceleration.md": {
       "en": "24897bf6abcfe62f4e22c0fe826667e602aaf245d42ce883568fe0f15ce3f530",
@@ -554,8 +554,8 @@
       "zh": "70d3fa278ac328d52a5f1ec9879324e768e1881882aff4dd33a98bd32275b8e4"
     },
     "docs/design/desktop-usage/scheduling.md": {
-      "en": "4fe285801c77bc8d49a087198360dfae96be2dce270baae49544ccb885ebe4ad",
-      "zh": "e281967192788d81f83cef7e3c8c12d631ffeabdb4a954529f451829cf53d413"
+      "en": "4ffff8f2fa170376b776686b3e97bf3b0b2cdbb8dec6f948ffa3a1fe0f159ae3",
+      "zh": "174bcc9cd66aac561437f01f96e302ee2a7ebea84bdaec63ea6ba18677d4969f"
     },
     "docs/design/desktop-usage/validation.md": {
       "en": "e4ac44a9cbacc7594584eddad54ad862ca03735fa6a9154eaf96a0e0dcbabde6",
@@ -590,8 +590,8 @@
       "zh": "05487c61a562fc8c06812798033494b0346d106f01b5d9ded5ac881f88c21bca"
     },
     "docs/validation/desktop-usage/current-acceptance.md": {
-      "en": "fdb3c0d3c0ec48bd61c7f738cf1973920d677989b1913d30b21e74f70e67e7e5",
-      "zh": "db397fa764e7a97ada79469aeb5c9c8e6b8b0c4ab9530c53426896fcbbfff657"
+      "en": "d70097fdc908a55f825554b67d4c66a6d67ad32f8b2965cec869b639589305eb",
+      "zh": "ef970bcbe1ff16c5a0f09e6af6c65de725466838b9b19303d58f47cebf8a3e78"
     },
     "docs/validation/desktop-usage/dashboard-fixes.md": {
       "en": "f0a44b626817b915bc6fc0a814fc296b2858d024bdc11775d53588bcebd1cf97",
@@ -640,6 +640,10 @@
     "docs/validation/desktop-usage/issues-3-4.md": {
       "en": "1ac119a8a0d4cb356f0ddf0f663a79c6d18a13b7452d655c4911df96958e5a71",
       "zh": "a88641729b46a717ef312b198f65e29c8f8313e086692eb46c30dc4b31e72009"
+    },
+    "docs/validation/desktop-usage/kimi-k31-pricing.md": {
+      "en": "b895275f47eb0fe9906b50040b4d70282944fc3e1487b35caa06fa7eabab6091",
+      "zh": "39dfba710325599117ebf773eb50c61cef1589d8ad06fa5c44945f143be328bc"
     },
     "docs/validation/desktop-usage/m0-agent-fixtures.md": {
       "en": "1533e4baf86d00b9b2738c86e61690804f230768a9e570d962ccfb1080d9fb83",
@@ -741,6 +745,10 @@
       "en": "09ebd996edadf7ce0ebd2ee8242cc52303f99c5e9da8589e29753e3a1b2fd6d7",
       "zh": "bfafb51abb15697f95e9b9d7859ce76dddba7b423148d717e5ad4562d4206f51"
     },
+    "docs/validation/desktop-usage/maintenance-2026-10-24.md": {
+      "en": "fdad8de49f4b4a25d7b0b413d9f60d656c3fdd0a85ee66a55a1591e630645bd9",
+      "zh": "1999399485f1abf112feea2cb77b51507170b86077e76586f567b7c9aac662ef"
+    },
     "docs/validation/desktop-usage/openclaw-container-sample.md": {
       "en": "adbe8c9d12fbdf66a1889b7c39bf67c675e68e610e0d684da16f172d87351df8",
       "zh": "a1eba4684dd68b627fb2d323b8e5aa50a506f11a466f65e711f85aba3ae3fb07"
@@ -793,6 +801,10 @@
       "en": "01b1ba0933602cc85ec9269a09ac7c9c7759f5a71b0be30523a4d1fb8464fccd",
       "zh": "c0b134f8762304d47b805ae363ffa45c62148a6f41f613e59b7e1a04989aaec1"
     },
+    "docs/validation/desktop-usage/release-035.md": {
+      "en": "73ddfaf648436fc54f160fee5cbbba2f47fa49ea916e1243a355dcab21a7ad76",
+      "zh": "145ad819348bf6741b99d121ce1dfabdb054cb8ccf3137feba70ee9bb48c323b"
+    },
     "docs/validation/desktop-usage/review-2026-09-27.md": {
       "en": "ba981d6017f8344fcb58e54ea19ce2271be0e5503865156129fad29b4e53f3a9",
       "zh": "ad8bd075900e4396f345e45472b67a9f82a7b1539564a5cac38b85e869f01c30"
@@ -830,8 +842,8 @@
       "zh": "d5963238079a03a2ab2da5eeb22e2f08570040f32b6f9275ff27349d3f77f1f2"
     },
     "README.md": {
-      "en": "69c06f9aa5564972a583a92684aa64ca9535446a4d6b61505dab9c3b438b122e",
-      "zh": "f1a07b074a423c5da889658643d5abb738e71ead54e2db8a827166d5d0d1398d"
+      "en": "edec405e5db0fa0bbf94875567b357e7cf2931bcadda56a99f061ea8661088a1",
+      "zh": "d433b12b4a9c06b16efcda54436637b64bcc61b941ada55d09e532200215817a"
     }
   },
   "guides": {
@@ -856,8 +868,8 @@
       "zh": "6a3c822a852e0ad406820acbd290ad8978b353b4fe343ff60e190c0f14ec8cb3"
     },
     "docs/site/content/development/setup.md": {
-      "en": "88e694c4ce49ce973dd93d245c65c46f47dbd5a83081a5ac2520c0d5c6f94190",
-      "zh": "46b846fdbf36c8cbf1c02cfeaf261aab5fca00d455662fb32de820de6c8af775"
+      "en": "7f921e0a99425b131ffe3910bef0c2a065adf578d4ac8a4d952e03603913ee29",
+      "zh": "23dd8ef4db889c46cd5440375bfa8b0bca6c058491445c797e9bccc3d1d00e5b"
     },
     "docs/site/content/development/testing.md": {
       "en": "3adf3b0c7b8bb7d47aac9de77d43175edb408402a456eb639e662b9851291ad1",

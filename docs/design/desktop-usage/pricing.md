@@ -108,14 +108,14 @@ tokens; unverified means the page did not establish that dimension, without gues
 | Dimension | OpenAI | Anthropic | Gemini | Kimi | GLM |
 | --- | --- | --- | --- | --- | --- |
 | Ordinary input | Yes | Yes | Yes | Cache-miss price | Yes |
-| Cache read | One tenth input | 0.1x, some0.025x/0.05x | Context-cache price | One tenth miss price | Cache-hit price |
-| Cache write5m | 1.25x input | 1.25x input | No separate write price | Miss-input price | No separate write price |
-| Cache write1h | Unverified/not found | 2x input | — | 2x miss-input | — |
+| Cache read | Model-specific 0.05x/0.1x in the new GPT-6 rows | 0.1x, some0.025x/0.05x | Context-cache price | One tenth miss price | Cache-hit price |
+| First cache-write TTL | 30m: 1.25x input | 5m: 1.25x input | No separate write price | 5m: miss-input price | No separate write price |
+| Second cache-write TTL | 12h: 2x input | 1h: 2x input | — | 1h: 2x miss-input | — |
 | Cache storage | — | — | Million tokens/hour | Unverified | Temporarily free by policy |
 | Output | Yes | Yes | Yes | Yes | Yes |
 | Reasoning output | No separate rate; input/output rates | Thinking as output | Included in output | reasoning_content in input/output quotas | Official rule unspecified below |
 | Batch | Batch/Flex 50% | 50%, combines cache discount | Batch/Flex 50% | BatchJob 60% | bigmodel50%; z.ai unverified |
-| Long context | Two tiers; GPT-6 threshold absent on page, catalogs272K | 4.6+ standard at 1M, no tiers | Pro >200K | No tiers found | GLM-5.1 32K; none found5.2/5.3 |
+| Long context | Two tiers; short≤272K, long>272K | Haiku 5.5 long>100K; previously checked 4.6+ models standard at 1M | Pro >200K | No tiers found | GLM-5.1 32K; none found5.2/5.3 |
 | Currency | USD | USD | USD | CN CNY/global USD excluding tax | bigmodel CNY/z.ai USD |
 | Region/channel | FedRAMP/data residency+10% | US-only inference1.1x for4.6+ | Not found/unverified | Two platforms/two rates | Two channels/two rates |
 
@@ -123,35 +123,60 @@ tokens; unverified means the page did not establish that dimension, without gues
 
 ### Provider details and observed-model prices
 
-OpenAI S01, undated page, locally observed Codex gpt-6-astra/gpt-6-sol: short astra input $10,
-cache read $1, write $12.50, output $50; sol $2/$0.20/$2.50/$10. Long astra$20/$2/$25/$75.
-The page does not show GPT-6's tier threshold although older families show272K; models.dev/
-OpenRouter use272,000 (S18/S20), requiring official recheck before formal adoption. Fast,
-renamed from Priority2026-07-30, costs2x; FedRAMP/residency+10% for models released after
-2026-03-05. No separate reasoning rate; tokens use the chosen model's input/output rates.
+OpenAI S01/S27, retrieved 2026-10-24, has these standard global API rates in USD per million
+tokens. Long context means more than 272,000 input tokens, represented by threshold 272001.
 
-Anthropic S03, research target with no local Claude data then: Opus 5.5 input $4/output $20,
-write $5/$8, read $0.20 (0.05x); Sonnet 5$2/$10, Haiku 4.5$1/$5. Sonnet 5 promotional$2/$10
-became permanent instead of the planned2026-09-01 increase. Batch 50% combines cache discounts
-(S06). Thinking is output; usage.output_tokens_details.thinking_tokens breaks out billed
-internal reasoning (S05). Retained historical thinking blocks count as input for Opus 4.5/4.6+.
+| Model | Short input/read/output | Long input/read/output |
+| --- | --- | --- |
+| gpt-6-astra | $10/$1/$50 | $20/$2/$75 |
+| gpt-6-sol | $2/$0.20/$10 | $4/$0.40/$15 |
+| gpt-6.1-sol | $2/$0.10/$10 | $4/$0.20/$15 |
+| gpt-6-luna | $0.10/$0.01/$0.50 | $0.20/$0.02/$0.75 |
 
-Gemini S07, Last updated 2026-09-24 UTC:3.8 Flash standard input $0.75 through 2026-12-31,
-$1.50 from 2027-01-01; output $3.75 including thinking; cache read $0.075/storage$0.50 per
-million tokens/hour. Batch/Flex 50%;2.5 Pro >200K input $1.25/$2.50/output $10/$15.
+Official cache writes use 30m/12h TTLs, not the schema's 5m/1h fields. All eight new rows leave
+both write prices NULL and unpriced. Their notes identify the unsupported TTLs and record the
+short-tier 30m/12h prices: Astra $12.50/$25, Sol and 6.1 Sol $2.50/$5, Luna $0.125/$0.25.
+Fast, renamed from Priority2026-07-30, costs2x; FedRAMP/residency+10% applies to models released
+after 2026-03-05. No separate reasoning rate; tokens use the chosen model's input/output rates.
+
+Anthropic S03/S28 standard global API rates are USD per million tokens:
+
+| Official model ID | Tier | Input | Cache read | Write5m | Write1h | Output |
+| --- | --- | --- | --- | --- | --- | --- |
+| claude-opus-5-5 | standard | $4 | $0.20 | $5 | $8 | $20 |
+| claude-sonnet-5 | standard | $2 | $0.20 | $2.50 | $4 | $10 |
+| claude-haiku-4-5 | standard | $1 | $0.10 | $1.25 | $2 | $5 |
+| claude-haiku-4-5-20251001 | standard | $1 | $0.10 | $1.25 | $2 | $5 |
+| claude-sonnet-5-5 | standard | $2 | $0.10 | $2.50 | $4 | $10 |
+| claude-haiku-5-5 | short | $0.10 | $0.01 | $0.125 | $0.20 | $0.50 |
+| claude-haiku-5-5 | >100,000 input | $0.50 | $0.05 | $0.625 | $1 | $2.50 |
+
+The new seed uses these hyphenated official IDs and leaves old dotted IDs unchanged. Sonnet 5
+promotional$2/$10 became permanent instead of the planned2026-09-01 increase. Batch 50% combines
+cache discounts (S06). Thinking is output; usage.output_tokens_details.thinking_tokens breaks out
+billed internal reasoning (S05). Retained historical thinking blocks count as input for Opus 4.5/4.6+.
+
+Gemini S07/S29, Last updated 2026-10-22:3.8 Flash standard input $0.75 through 2026-12-31;
+from 2027-01-01 input $1.50, cache read $0.15, output $7.50 including thinking, and storage
+$1.00 per million tokens/hour. The earlier output $3.75/cache read $0.075/storage$0.50 rates remain
+in their original interval. Gemini 4 Argon is an independent model, not a 3.8 Flash successor or
+alias: through 2026-11-30 input $2/cache read$0.10/output$10; from 2026-12-01 $4/$0.20/$20.
+Argon cache writes/storage stay NULL. Batch/Flex 50%;2.5 Pro >200K input $1.25/$2.50/output $10/$15.
 English/machine-translated3.1Pro preview fetches disagree on >200K presentation; recheck before
 adoption, as noted in S07.
 
-Kimi S09–S13, observed Kimi Code/Work kimi-code/kimi-for-coding, wire inputOther/inputCacheRead/
-inputCacheCreation align with dimensions. kimi-k3 CN hit¥2/miss¥20/output¥100; global $0.30/$3/$15,
-excluding tax. kimi-k2.7-code CN¥1.30/¥6.50/¥27, global $0.19/$0.95/$4.
-Separate cache-write policy S12: global k3 five-minute $3=miss input, one-hour $6=2x; hits renew
-expiry. CN separate rates not found/unverified. BatchJob 60%, not50%(S13); reasoning_content
-counts toward input/output quotas(S11).
+Kimi S09–S13/S30, observed Kimi Code/Work kimi-code/kimi-for-coding, wire inputOther/
+inputCacheRead/inputCacheCreation align with dimensions. kimi-k3 CN hit¥2/miss¥20/output¥100;
+global $0.30/$3/$15, excluding tax. kimi-k2.7-code CN¥1.30/¥6.50/¥27, global $0.19/$0.95/$4.
+Separate cache-write policy S12/S30: global k3 five-minute $3=miss input, one-hour $6=2x;
+CN five-minute¥20=miss input, one-hour¥40=2x. Hits renew expiry; CN storage remains unverified.
+BatchJob 60%, not50%(S13); reasoning_content counts toward input/output quotas(S11).
 
-GLM S15/S17, observed omp/pi/zcode glm-5.3-flash/GLM-5.3: bigmodelCN GLM-5.3 input¥8/cache¥2/
-output¥28 at 1M context. Flash temporary50% rates¥0.4/¥0.115/¥1.4 versus standard¥0.8/¥0.23/¥2.8.
-GLM-5.2 matches5.3;5.1 tiers[0,32K)/[32K+); Batch 50%; cache storage temporarily free.
+GLM S15/S17/S31/S32, observed omp/pi/zcode glm-5.3-flash/GLM-5.3: bigmodelCN GLM-5.3 input¥8/
+cache¥2/output¥28 at 1M context. Flash's current standard rates are¥0.8/¥0.23/¥2.8; the earlier
+50% row¥0.4/¥0.115/¥1.4 remains unchanged without inferring a historical expiry. GLM-5.2 matches
+5.3;5.1 tiers[0,32K)/[32K+) use the existing 32768-token boundary and cache-hit¥1.3/¥2.
+Batch 50%; bigmodel and z.ai cache storage is temporarily free, not permanently zero-priced.
 International z.ai GLM-5.3$1.4/$0.26/$4.4, Flash $0.15/$0.03/$0.50, FlashX $0.37/$0.075/$1.25.
 Batch/tier statements not found/unverified. Official thinking docs only mention additional tokens;
 examples combine reasoning_content/content in completion_tokens without reasoning_tokens(S16).
@@ -203,8 +228,19 @@ price_versions mandatory region/channel, service_tier/context_threshold_tokens/f
 
 Versioned seeds desktop/src-tauri/crates/core/prices/seed-2026-09-25.json and seed-2026-10-02.json
 import once on startup. Later seed adds Opus 4.8/GPT-4o mini2024-07-18 standard rates effective
-from verification date, without backdating. Settings costs imports use the same JSON/manual
-source_type. Monetary values/prices never use binary floats; [data rules](data-contract.md#pricing).
+from verification date, without backdating. The 2026-10-03, 2026-10-05 and 2026-10-24 snapshots
+retain separate IDs; ensure_seed_price_snapshot imports all five snapshots in one transaction and
+skips identical content on repeated runs.
+
+The 2026-10-24 seed adds 25 official_vendor=true standard rows: OpenAI8, Anthropic7, Google3,
+Moonshot1, bigmodel3 and Z.ai3. Current rows start 2026-10-24; Gemini4 Argon's announced
+2026-12-01 row and Gemini3.8 Flash's 2027-01-01 row retain their future dates. Unverified
+components stay NULL. The four earlier snapshots are unchanged. No exact K2.8 row is added and
+the existing K2.7 substitute rule remains unchanged. GPT-5.5 rows also remain unchanged; this
+update does not independently recheck the long-tier cache_read price.
+
+Settings costs imports use the same JSON/manual source_type. Monetary values/prices never use
+binary floats; [data rules](data-contract.md#pricing).
 Format llm-usage-price-snapshot/1; ISO UTC YYYY-MM-DD dates, half-open effective interval,
 null end=open; prices hundredths of minor currency units/million; null component=no applicable rate:
 
@@ -497,8 +533,12 @@ updates explicitly noted below:
   international rates; retain recognizable community provenance.
 - Limited-time GLM Flash discounts/free cache storage/Kimi separate-write policy may expire;
   rows express effective changes but detection depends on checking/refresh.
-- Unverified/inconsistent: GPT-6 official threshold, GLM thinking billing, KimiCN write components,
-  z.ai batch discount, Gemini3.1Pro preview tier presentation. Recheck officially before adoption.
+- OpenAI publishes 30m/12h cache-write rates, but the schema supports only 5m/1h. All eight
+  2026-10-24 OpenAI rows keep both write prices NULL and leave cache writes unpriced; notes are
+  provenance and are not rates used by the engine.
+- Unverified/inconsistent: GLM thinking billing, z.ai batch discount, Gemini3.1Pro preview tier
+  presentation, Anthropic page versioning and Kimi's public model-list endpoint. Recheck officially
+  before adoption.
 - The research batch had no direct OpenAI/Anthropic/Gemini provider usage samples for API-bill
   comparison; page-level price checks do not establish local end-to-end billing matches.
 - models.dev remains community data. zhipuai links z.aiUSD; -cn USD entries' derivation from CNY
@@ -541,9 +581,14 @@ Windows 11 x64/Git Bash/curl-jq public JSON/Markdown/WebFetch-web-reader page bo
 | S24 | models.dev api.json2026-10-01,5.28 MB/HTTP200 | Provider{id,env,npm,name,doc,models}; cost{input,output,cache_read,cache_write,tiers,context_over_200k,input_audio,output_audio,reasoning}; canonical_model_id 5274/8339;658 context tiers; no currency,USD/million. Official canonical-prefix/-cn selection26 eligible providers/408 models/473 rows; empty-priced poolside/sarvam excluded, rows24 providers, verified by probe. Plans all0. Official matching astra$10/$50,K3 $3/$15,GLM-5.3$1.4/$4.4,Opus 5.5$4/$20,Flash 3.8$0.75/$3.75; zhipuai/zai same docs.z.ai price |
 | S25 | [ECB daily rates XML](https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml),fetched 2026-10-03/effective 2026-10-02 | EUR/USD1.1225,EUR/CNY7.5259; CNY=>USD1.1225/7.5259 for reference display, not bills/trades |
 | S26 | [Kimi model table](https://www.kimi.com/code/docs/en/kimi-code/models.html),[global API](https://platform.kimi.ai/docs/pricing/chat),[models.dev README](https://github.com/anomalyco/models.dev),reread2026-10-03 | k3/k3-256k mapK3; USD/million input 3/read 0.30/output 15/write5m-1h 3/6. models.dev alreadyUSD/million; CN provider names do not justify reconversion; exact bare-profile aliases leave statistics names unchanged |
+| S27 | [OpenAI pricing](https://developers.openai.com/api/docs/pricing) and [Markdown body](https://developers.openai.com/api/docs/pricing.md), retrieved2026-10-24 | GPT-6 Astra/Sol/6.1Sol/Luna standard short/long rates; short≤272K/long>272K; official30m/12h writes. The seed leaves unsupported write fields NULL and does not re-endorse GPT-5.5 long cache_read |
+| S28 | [Anthropic pricing](https://platform.claude.com/docs/en/about-claude/pricing), retrieved2026-10-24 | Correct hyphenated Opus5.5/Haiku4.5 IDs; Sonnet5/Sonnet5.5/Haiku5.5 rates; Haiku5.5 long>100K; complete5m/1h/read components |
+| S29 | [Gemini pricing](https://ai.google.dev/gemini-api/docs/pricing), Last updated2026-10-22, retrieved2026-10-24 | Complete3.8Flash2027 input/read/output/storage; independent4Argon current and2026-12-01 intervals, without alias/succession inference |
+| S30 | [Kimi CN pricing](https://platform.kimi.com/docs/pricing/chat.md) and [context caching](https://platform.kimi.com/docs/guide/context-caching.md), retrieved2026-10-24 | K3 CN¥20 input/¥2 read/¥100 output;5m¥20/1h¥40 writes; storage unverified |
+| S31 | [bigmodel pricing Markdown](https://docs.bigmodel.cn/cn/guide/start/pricing.md), retrieved2026-10-24 | Flash current standard rates; GLM-5.1 input/read/output tiers and existing32768-token boundary; limited-time free storage; old50% row retained without inferred expiry |
+| S32 | [Z.AI pricing](https://docs.z.ai/guides/overview/pricing), retrieved2026-10-24 | GLM-5.3/Flash/FlashX USD input/read/output rates; cache storage limited-time free rather than permanently free; writes remain NULL |
 
-Still unverified: official GPT-6 threshold/OpenAI1h/Anthropic page version/Gemini3.1Pro tiers/
-KimiCN write rates/public model-list endpoint/z.ai batch/GLM thinking billing/bigmodel model
-endpoint/OpenRouter license. The original research wrote no business code/seeds and made no
-credentialed requests; research alone did not establish automated pricing. Later implementation
-is explicitly recorded above.
+Still unverified: Anthropic page version/Gemini3.1Pro tiers/Kimi public model-list endpoint/
+z.ai batch/GLM thinking billing/bigmodel model endpoint/OpenRouter license. The original research
+wrote no business code/seeds and made no credentialed requests; research alone did not establish
+automated pricing. Later implementation is explicitly recorded above.

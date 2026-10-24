@@ -146,7 +146,7 @@ fn message_event(
         .into_iter()
         .flatten()
         .try_fold(0i64, |sum, value| sum.checked_add(value));
-        if minimum.map_or(true, |minimum| minimum > total) {
+        if minimum.is_none_or(|minimum| minimum > total) {
             diagnostics.push(diag(
                 "usage_contradiction",
                 position,

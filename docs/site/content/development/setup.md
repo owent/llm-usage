@@ -8,9 +8,10 @@ sidebar:
 ## Prerequisites and dependency ownership
 
 Use Node.js 22 or newer for repository tooling; the Astro site specifically requires
-Node 22.12 or newer. CI selects Node 24 and Rust 1.99.0. The root `rust-toolchain.toml`
-selects that Rust version locally. The desktop manifest declares an MSRV of 1.90,
-as required by Tauri 2.12.2; use the tested toolchain when reproducing current acceptance.
+Node 22.23.4 or newer. CI selects Node 24 and Rust 1.99.1. The root `rust-toolchain.toml`
+selects that Rust version locally. Both workspace manifests declare an MSRV of 1.90,
+covering Tauri 2.12.5 and rusqlite 0.41.0's Rust 1.89 requirement; use the tested
+toolchain when reproducing current acceptance.
 Documentation comment checks also need Python 3 and PowerShell 7: they parse Python and
 PowerShell source without executing it. Install them through your usual development
 environment if absent; `check:docs` does not install tools automatically.
@@ -29,7 +30,7 @@ npm run assets:check
 ```
 
 Alternatively, run `pnpm install --frozen-lockfile` from the root. The workspace includes
-both the root and `desktop`, using pnpm 12.10.1 pinned by `packageManager`; the root
+both the root and `desktop`, using pnpm 12.15.0 pinned by `packageManager`; the root
 postinstall skips the nested npm install for pnpm. Existing commands also work through
 `pnpm run`. Keep both npm locks and the shared pnpm lock synchronized. The workspace
 allows build scripts for esbuild and sharp and records exact exceptions for newly

@@ -968,7 +968,7 @@ fn v29_backfill_day_selection_uses_revision_floor() {
     assert!(days_sealed.is_empty());
 }
 
-/// Import and validate the seed snapshot; pricing unit tests cover schema, interval overlap, and currency checks.
+/// Import and validate all seed snapshots in one idempotent startup sequence.
 #[test]
 fn v29_seed_snapshot_imports_idempotently() {
     let (_dir, storage) = temp_storage("v29seed");
@@ -983,7 +983,7 @@ fn v29_seed_snapshot_imports_idempotently() {
     assert!(out2.already_present);
     assert_eq!(out2.inserted_rows, 0);
     let snapshots = storage.list_price_snapshots().unwrap();
-    assert_eq!(snapshots.len(), 4);
+    assert_eq!(snapshots.len(), 6);
     let original = snapshots
         .iter()
         .find(|s| s.snapshot_id == "seed-2026-09-25")
@@ -1005,6 +1005,456 @@ fn v29_seed_snapshot_imports_idempotently() {
             .row_count,
         1
     );
+    let october_24 = snapshots
+        .iter()
+        .find(|s| s.snapshot_id == "seed-2026-10-24")
+        .unwrap();
+    assert_eq!(october_24.row_count, 25);
+    assert_eq!(october_24.source_urls.len(), 7);
+    assert!(october_24
+        .source_urls
+        .contains(&"https://platform.kimi.com/docs/guide/context-caching.md".into()));
+    assert!(october_24
+        .source_urls
+        .contains(&"https://docs.bigmodel.cn/cn/guide/start/pricing.md".into()));
+    let book = storage.load_price_book().unwrap();
+    assert_eq!(book.rows.len(), 55);
+    for retained_id in [
+        "openai-gpt-5.5-20261005-long",
+        "anthropic-opus-5.5",
+        "zhipuai-glm-5.3-flash-cn",
+    ] {
+        assert!(book.rows.iter().any(|row| row.price_id == retained_id));
+    }
+}
+
+#[test]
+fn v29_october_24_seed_rates_and_unknown_components() {
+    let snapshot = parse_snapshot_json(include_str!("../prices/seed-2026-10-24.json")).unwrap();
+    assert_eq!(snapshot.snapshot_id, "seed-2026-10-24");
+    assert_eq!(snapshot.source_urls.len(), 7);
+    assert_eq!(snapshot.rows.len(), 25);
+
+    // Rates are input/read/write5m/write1h/output/storage, in stored integer units.
+    let expected = [
+        (
+            "openai",
+            "gpt-6-astra",
+            "openai-gpt-6-astra-20261024-short",
+            0,
+            [Some(100000), Some(10000), None, None, Some(500000), None],
+        ),
+        (
+            "openai",
+            "gpt-6-astra",
+            "openai-gpt-6-astra-20261024-long",
+            272001,
+            [Some(200000), Some(20000), None, None, Some(750000), None],
+        ),
+        (
+            "openai",
+            "gpt-6-sol",
+            "openai-gpt-6-sol-20261024-short",
+            0,
+            [Some(20000), Some(2000), None, None, Some(100000), None],
+        ),
+        (
+            "openai",
+            "gpt-6-sol",
+            "openai-gpt-6-sol-20261024-long",
+            272001,
+            [Some(40000), Some(4000), None, None, Some(150000), None],
+        ),
+        (
+            "openai",
+            "gpt-6.1-sol",
+            "openai-gpt-6.1-sol-20261024-short",
+            0,
+            [Some(20000), Some(1000), None, None, Some(100000), None],
+        ),
+        (
+            "openai",
+            "gpt-6.1-sol",
+            "openai-gpt-6.1-sol-20261024-long",
+            272001,
+            [Some(40000), Some(2000), None, None, Some(150000), None],
+        ),
+        (
+            "openai",
+            "gpt-6-luna",
+            "openai-gpt-6-luna-20261024-short",
+            0,
+            [Some(1000), Some(100), None, None, Some(5000), None],
+        ),
+        (
+            "openai",
+            "gpt-6-luna",
+            "openai-gpt-6-luna-20261024-long",
+            272001,
+            [Some(2000), Some(200), None, None, Some(7500), None],
+        ),
+        (
+            "anthropic",
+            "claude-opus-5-5",
+            "anthropic-claude-opus-5-5-20261024",
+            0,
+            [
+                Some(40000),
+                Some(2000),
+                Some(50000),
+                Some(80000),
+                Some(200000),
+                None,
+            ],
+        ),
+        (
+            "anthropic",
+            "claude-sonnet-5",
+            "anthropic-claude-sonnet-5-20261024",
+            0,
+            [
+                Some(20000),
+                Some(2000),
+                Some(25000),
+                Some(40000),
+                Some(100000),
+                None,
+            ],
+        ),
+        (
+            "anthropic",
+            "claude-haiku-4-5",
+            "anthropic-claude-haiku-4-5-20261024",
+            0,
+            [
+                Some(10000),
+                Some(1000),
+                Some(12500),
+                Some(20000),
+                Some(50000),
+                None,
+            ],
+        ),
+        (
+            "anthropic",
+            "claude-haiku-4-5-20251001",
+            "anthropic-claude-haiku-4-5-20251001-standard-20261024",
+            0,
+            [
+                Some(10000),
+                Some(1000),
+                Some(12500),
+                Some(20000),
+                Some(50000),
+                None,
+            ],
+        ),
+        (
+            "anthropic",
+            "claude-sonnet-5-5",
+            "anthropic-claude-sonnet-5-5-20261024",
+            0,
+            [
+                Some(20000),
+                Some(1000),
+                Some(25000),
+                Some(40000),
+                Some(100000),
+                None,
+            ],
+        ),
+        (
+            "anthropic",
+            "claude-haiku-5-5",
+            "anthropic-claude-haiku-5-5-20261024-short",
+            0,
+            [
+                Some(1000),
+                Some(100),
+                Some(1250),
+                Some(2000),
+                Some(5000),
+                None,
+            ],
+        ),
+        (
+            "anthropic",
+            "claude-haiku-5-5",
+            "anthropic-claude-haiku-5-5-20261024-long",
+            100001,
+            [
+                Some(5000),
+                Some(500),
+                Some(6250),
+                Some(10000),
+                Some(25000),
+                None,
+            ],
+        ),
+        (
+            "google",
+            "gemini-3.8-flash",
+            "google-gemini-3.8-flash-2027-full-20261024",
+            0,
+            [
+                Some(15000),
+                Some(1500),
+                None,
+                None,
+                Some(75000),
+                Some(10000),
+            ],
+        ),
+        (
+            "google",
+            "gemini-4-argon",
+            "google-gemini-4-argon-20261024",
+            0,
+            [Some(20000), Some(1000), None, None, Some(100000), None],
+        ),
+        (
+            "google",
+            "gemini-4-argon",
+            "google-gemini-4-argon-20261201",
+            0,
+            [Some(40000), Some(2000), None, None, Some(200000), None],
+        ),
+        (
+            "moonshot",
+            "kimi-k3",
+            "moonshot-kimi-k3-cn-20261024",
+            0,
+            [
+                Some(200000),
+                Some(20000),
+                Some(200000),
+                Some(400000),
+                Some(1000000),
+                None,
+            ],
+        ),
+        (
+            "zhipuai",
+            "glm-5.3-flash",
+            "zhipuai-glm-5.3-flash-cn-20261024",
+            0,
+            [Some(8000), Some(2300), None, None, Some(28000), Some(0)],
+        ),
+        (
+            "zhipuai",
+            "glm-5.1",
+            "zhipuai-glm-5.1-cn-0-20261024",
+            0,
+            [Some(60000), Some(13000), None, None, Some(240000), Some(0)],
+        ),
+        (
+            "zhipuai",
+            "glm-5.1",
+            "zhipuai-glm-5.1-cn-32k-20261024",
+            32768,
+            [Some(80000), Some(20000), None, None, Some(280000), Some(0)],
+        ),
+        (
+            "zai",
+            "glm-5.3",
+            "zai-glm-5.3-20261024",
+            0,
+            [Some(14000), Some(2600), None, None, Some(44000), Some(0)],
+        ),
+        (
+            "zai",
+            "glm-5.3-flash",
+            "zai-glm-5.3-flash-20261024",
+            0,
+            [Some(1500), Some(300), None, None, Some(5000), Some(0)],
+        ),
+        (
+            "zai",
+            "glm-5.3-flashx",
+            "zai-glm-5.3-flashx-20261024",
+            0,
+            [Some(3700), Some(750), None, None, Some(12500), Some(0)],
+        ),
+    ];
+    for (provider, model, price_id, threshold, rates) in expected {
+        let row = snapshot
+            .rows
+            .iter()
+            .find(|row| row.price_id == price_id)
+            .unwrap_or_else(|| panic!("missing {price_id}"));
+        let (region, channel, currency) = match provider {
+            "openai" | "anthropic" | "google" => ("global", "api", "USD"),
+            "moonshot" => ("cn", "api", "CNY"),
+            "zhipuai" => ("cn", "bigmodel", "CNY"),
+            "zai" => ("global", "zai", "USD"),
+            other => panic!("unexpected provider {other}"),
+        };
+        assert_eq!(row.provider_id, provider, "{price_id}");
+        assert_eq!(row.model, model, "{price_id}");
+        assert_eq!(row.region, region, "{price_id}");
+        assert_eq!(row.channel, channel, "{price_id}");
+        assert_eq!(row.currency, currency, "{price_id}");
+        assert_eq!(row.service_tier, "standard", "{price_id}");
+        assert!(row.official_vendor, "{price_id}");
+        assert_eq!(row.context_threshold_tokens, threshold, "{price_id}");
+        let (effective_from, effective_to) = match price_id {
+            "google-gemini-3.8-flash-2027-full-20261024" => (ts("2027-01-01T00:00:00Z"), None),
+            "google-gemini-4-argon-20261024" => {
+                (ts("2026-10-24T00:00:00Z"), Some(ts("2026-12-01T00:00:00Z")))
+            }
+            "google-gemini-4-argon-20261201" => (ts("2026-12-01T00:00:00Z"), None),
+            _ => (ts("2026-10-24T00:00:00Z"), None),
+        };
+        assert_eq!(row.effective_from_ms, effective_from, "{price_id}");
+        assert_eq!(row.effective_to_ms, effective_to, "{price_id}");
+        let actual_rates = [
+            row.input_per_mtok_hundredths,
+            row.cache_read_per_mtok_hundredths,
+            row.cache_write_5m_per_mtok_hundredths,
+            row.cache_write_1h_per_mtok_hundredths,
+            row.output_per_mtok_hundredths,
+            row.cache_storage_per_mtok_hour_hundredths,
+        ];
+        assert_eq!(actual_rates, rates, "{price_id}");
+    }
+
+    let openai_rows: Vec<_> = snapshot
+        .rows
+        .iter()
+        .filter(|row| row.provider_id == "openai")
+        .collect();
+    assert_eq!(openai_rows.len(), 8);
+    for row in openai_rows {
+        assert_eq!(row.cache_write_5m_per_mtok_hundredths, None);
+        assert_eq!(row.cache_write_1h_per_mtok_hundredths, None);
+        assert_eq!(row.cache_storage_per_mtok_hour_hundredths, None);
+        let note = row.note.as_deref().unwrap();
+        assert!(note.contains("30m/12h"), "{}", row.price_id);
+        assert!(
+            note.contains("schema supports only 5m/1h"),
+            "{}",
+            row.price_id
+        );
+        assert!(note.contains("unpriced"), "{}", row.price_id);
+    }
+    for (price_id, short_write_prices) in [
+        ("openai-gpt-6-astra-20261024-short", "$12.50/$25.00"),
+        ("openai-gpt-6-sol-20261024-short", "$2.50/$5.00"),
+        ("openai-gpt-6.1-sol-20261024-short", "$2.50/$5.00"),
+        ("openai-gpt-6-luna-20261024-short", "$0.125/$0.25"),
+    ] {
+        let note = snapshot
+            .rows
+            .iter()
+            .find(|row| row.price_id == price_id)
+            .unwrap()
+            .note
+            .as_deref()
+            .unwrap();
+        assert!(note.contains(short_write_prices), "{price_id}");
+    }
+    assert!(!snapshot.rows.iter().any(|row| row.model == "gpt-5.5"));
+    assert!(!snapshot
+        .rows
+        .iter()
+        .any(|row| { row.model == "kimi-k2.8-preview" || row.model == "k28-agent-preview" }));
+}
+
+#[test]
+fn v29_october_24_thresholds_future_rows_and_openai_writes() {
+    let (_dir, storage) = temp_storage("v29-october-24-selection");
+    storage
+        .ensure_seed_price_snapshot(ts("2026-10-24T00:00:00Z"))
+        .unwrap();
+    let book = storage.load_price_book().unwrap();
+    let mut options = options();
+    options
+        .provider_channels
+        .insert("anthropic".into(), ("global".into(), "api".into()));
+    options
+        .provider_channels
+        .insert("google".into(), ("global".into(), "api".into()));
+    let event = |provider: &str, model: &str, day: &str, input: i64| PricingEvent {
+        provider_id: Some(provider.into()),
+        model_raw: Some(model.into()),
+        occurred_at_ms: ts(&format!("{day}T12:00:00Z")),
+        input_uncached: Some(input),
+        input_cache_read: Some(0),
+        input_cache_write: Some(0),
+        input_total: Some(input),
+        output_total: Some(0),
+        ..Default::default()
+    };
+    let estimate = |event: &PricingEvent| match book.estimate_at_time(event, &options) {
+        EventEstimate::Priced(amounts) => amounts,
+        other => panic!("expected priced event, got {other:?}"),
+    };
+
+    let short = estimate(&event("openai", "gpt-6-astra", "2026-10-24", 272000));
+    assert_eq!(
+        short.matched_price_ids,
+        ["openai-gpt-6-astra-20261024-short"]
+    );
+    assert_eq!(short.total_amount_minor, 272);
+    let long = estimate(&event("openai", "gpt-6-astra", "2026-10-24", 272001));
+    assert_eq!(long.matched_price_ids, ["openai-gpt-6-astra-20261024-long"]);
+    assert_eq!(long.total_amount_minor, 544);
+
+    let short = estimate(&event(
+        "anthropic",
+        "claude-haiku-5-5",
+        "2026-10-24",
+        100000,
+    ));
+    assert_eq!(
+        short.matched_price_ids,
+        ["anthropic-claude-haiku-5-5-20261024-short"]
+    );
+    let long = estimate(&event(
+        "anthropic",
+        "claude-haiku-5-5",
+        "2026-10-24",
+        100001,
+    ));
+    assert_eq!(
+        long.matched_price_ids,
+        ["anthropic-claude-haiku-5-5-20261024-long"]
+    );
+
+    let short = estimate(&event("zhipuai", "glm-5.1", "2026-10-24", 32767));
+    assert_eq!(short.matched_price_ids, ["zhipuai-glm-5.1-cn-0-20261024"]);
+    let long = estimate(&event("zhipuai", "glm-5.1", "2026-10-24", 32768));
+    assert_eq!(long.matched_price_ids, ["zhipuai-glm-5.1-cn-32k-20261024"]);
+
+    let before = estimate(&event("google", "gemini-4-argon", "2026-11-30", 1000000));
+    assert_eq!(before.matched_price_ids, ["google-gemini-4-argon-20261024"]);
+    assert_eq!(before.total_amount_minor, 200);
+    let after = estimate(&event("google", "gemini-4-argon", "2026-12-01", 1000000));
+    assert_eq!(after.matched_price_ids, ["google-gemini-4-argon-20261201"]);
+    assert_eq!(after.total_amount_minor, 400);
+
+    let before = estimate(&event("google", "gemini-3.8-flash", "2026-12-31", 1000000));
+    assert_eq!(before.matched_price_ids, ["google-gemini-3.8-flash"]);
+    assert_eq!(before.total_amount_minor, 75);
+    let after = estimate(&event("google", "gemini-3.8-flash", "2027-01-01", 1000000));
+    assert_eq!(
+        after.matched_price_ids,
+        ["google-gemini-3.8-flash-2027-full-20261024"]
+    );
+    assert_eq!(after.total_amount_minor, 150);
+
+    let mut write_event = event("openai", "gpt-6.1-sol", "2026-10-24", 100000);
+    write_event.input_cache_write = Some(10000);
+    write_event.input_total = Some(110000);
+    let amounts = estimate(&write_event);
+    assert_eq!(
+        amounts.matched_price_ids,
+        ["openai-gpt-6.1-sol-20261024-short"]
+    );
+    assert_eq!(amounts.cache_write_amount_minor, None);
+    assert_eq!(amounts.total_amount_minor, 20);
+    assert!(amounts.priced_tokens < amounts.known_tokens);
+    assert!(!amounts.ttl_defaulted);
 }
 
 /// Provider/model filters match selected values; missing providers do not match any named

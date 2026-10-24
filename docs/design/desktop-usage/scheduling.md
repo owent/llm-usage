@@ -77,9 +77,10 @@ adapters keep their discovery order; enable rotation only after verifying files 
 read-order dependency.
 
 Controlled JSON checks every 32 KiB, IO reads at most 64 KiB. Switch checks cached for at
-most 20 ms; deadlines checked each time. SQLite checks every 1,000 VM instructions and
-backup page group; callbacks execute no SQL. Archive/retention/cost callbacks removed
-before unlocking; unaccepted maintenance transactions roll back. Interrupted rounds do
+most 20 ms; deadlines checked each time. Local source progress handlers check every 1,000
+VM instructions; backup page groups retain their checks. Shared archive/retention/cost
+connections use scoped InterruptHandle workers polled every 20 ms, awakened and joined
+before unlocking; callbacks execute no SQL. Unaccepted maintenance transactions roll back. Interrupted rounds do
 not start retention/cost/optional price refresh. Unvisited/interrupted/merged requests do
 not advance per-source due times. Blocking OS calls can only be checked after return;
 no hard real-time termination guarantee.
@@ -198,10 +199,12 @@ OS locks use [File.try_lock](https://doc.rust-lang.org/stable/std/fs/struct.File
 minimum Rust 1.89; actual CI toolchains come from repository configuration. Two slots use
 [Rust scoped threads](https://doc.rust-lang.org/std/thread/fn.scope.html). Controlled reads
 follow [Read errors](https://doc.rust-lang.org/std/io/trait.Read.html#method.read_to_end), returning
-typed Other for pause so read_to_end cannot automatically retry Interrupted. SQLite control:
-[progress handler](https://www.sqlite.org/c3ref/progress_handler.html). Locked access follows
-[rusqlite 0.40.2 Connection](https://docs.rs/rusqlite/0.40.2/rusqlite/struct.Connection.html)
+typed Other for pause so read_to_end cannot automatically retry Interrupted. SQLite control uses
+[progress handler](https://www.sqlite.org/c3ref/progress_handler.html) and
+[InterruptHandle](https://docs.rs/rusqlite/0.41.0/rusqlite/struct.InterruptHandle.html).
+Shared connections use scoped workers; local source handlers use mutable connections. Locked
+access follows [rusqlite 0.41.0 Connection](https://docs.rs/rusqlite/0.41.0/rusqlite/struct.Connection.html)
 Send/non-Sync constraints. Official text/locked versions/current compilation and regressions
-checked 2026-10-04; rolling Rust documentation is not the installed toolchain. V23/V24/V25
+checked 2026-10-24; rolling Rust documentation is not the installed toolchain. V23/V24/V25
 cover pause/due/DST/restart/contention/source scope/headless runs. GUI/headless resources
 measured separately; actual results recorded only in validation records and Plan.md.

@@ -7,9 +7,10 @@
 [刷新](../../validation/desktop-usage/f2-online-refresh.md)及[当前 API 参考](../../validation/desktop-usage/dashboard-reference.md)。
 真实数据的发生时估算仍需核验并配置供应商渠道；当前参考核对不能验证实际账单。
 [费用提醒](budget-reminders.md) 已实施且默认关闭；按用户日/月和单币种发生时估算判断，
-未知量不补零。本轮指定 Coding Plan 不证明按量实付，其他范围见 [Plan.md](../../../Plan.md)。
+未知量不补零。本轮指定 Coding Plan 不证明按量实付，其他范围见 [Plan.md](../../../../../Plan.md)。
 调研完成于 2026-09-25；费用规则以 [数据规则](data-contract.md#pricing) 为准，
-本文补渠道依据与本地快照设计。
+本文补渠道依据与本地快照设计。下文价格是注明日期的调研快照与测试值，
+不承诺持续为当前价格。
 
 <a id="research-scope-and-method"></a>
 
@@ -20,7 +21,8 @@
 Moonshot Kimi（kimi-code/kimi-for-coding/k3）、Anthropic 与 Google
 （本机暂无数据，但属设计覆盖的接入目标，一并核验）。
 渠道比较分三类：官方机器可读接口、官方定价页面、第三方社区目录；另评估手工维护快照。
-外部来源检索日期均为 2026-09-25，清单见文末；缺少可核验资料的项目写明"未核实"。
+除后文另行标注的日期外，外部来源检索日期为 2026-09-25，清单见文末；
+缺少可核验资料的项目写明"未核实"。
 官方页面正文与可 curl 的公开 JSON 是事实来源，搜索摘要只用于定位。
 多数官方页无版本号或日期，快照标识以 URL、检索日期与页面可见的
 更新标记为准（如 Gemini 页脚 "Last updated"）；社区目录以数据文件内容
@@ -36,7 +38,7 @@ Moonshot Kimi（kimi-code/kimi-for-coding/k3）、Anthropic 与 Google
 
 已核对的 OpenAI、Anthropic 和 Gemini 模型列表 API 均需鉴权且不含价格字段；
 仅 Moonshot 因文档平台（Mintlify）提供与 HTML 同源的 `.md` 与 `llms.txt`
-索引，构成官方机器可读价格来源。未发现任何一家提供免鉴权价格 JSON/YAML API。
+索引，构成官方机器可读价格来源。未发现任何一家提供免鉴权价格 JSON/YAML API；未找到已验证端点不证明其不存在。
 
 | 供应商 | 模型列表 API | 响应含价格 | 公开价格机器可读文件 | 来源依据 |
 | --- | --- | --- | --- | --- |
@@ -108,14 +110,14 @@ OpenRouter 仅作参照，不作为快照来源（含聚合商自定费率）。
 | 维度 | OpenAI | Anthropic | Gemini | Kimi | GLM |
 | --- | --- | --- | --- | --- | --- |
 | 普通输入 | 有 | 有 | 有 | 有（未命中价） | 有 |
-| 缓存读 | 有，输入价 1/10 | 有，0.1x（个别模型 0.025x/0.05x） | 有（context caching 价） | 有，未命中价 1/10 | 有（缓存命中价） |
-| 缓存写 5m | 有，1.25x 输入 | 有，1.25x 输入 | 无单独写价 | 有，等于未命中输入价 | 无单独写价 |
-| 缓存写 1h | 未核实（未见 1h 档） | 有，2x 输入 | — | 有，2x 未命中输入 | — |
+| 缓存读 | 新 GPT-6 行按型号为输入价 0.05x/0.1x | 有，0.1x（个别模型 0.025x/0.05x） | 有（context caching 价） | 有，未命中价 1/10 | 有（缓存命中价） |
+| 缓存写第一档 TTL | 30m：1.25x 输入 | 5m：1.25x 输入 | 无单独写价 | 5m：等于未命中输入价 | 无单独写价 |
+| 缓存写第二档 TTL | 12h：2x 输入 | 1h：2x 输入 | — | 1h：2x 未命中输入 | — |
 | 缓存存储 | — | — | 有，按百万 token/小时 | 未核实 | 限时免费（政策性） |
 | 输出 | 有 | 有 | 有 | 有 | 有 |
 | 推理输出 | 无单独费率，按输入/输出价计 | thinking 按输出计 | 含在输出价 | reasoning_content 计入输入/输出配额 | 官方未明示（见下） |
 | 批处理 | Batch/Flex 五折 | Batch 五折，可与缓存叠加 | Batch/Flex 五折 | BatchJob 六折 | bigmodel Batch 五折；z.ai 未核实 |
-| 长上下文阶梯 | 有（短/长两档；GPT-6 阈值页面未标注，目录记 272K） | 4.6+ 无阶梯（1M 标准价） | Pro 系列有 >200K 档 | 未见阶梯 | GLM-5.1 有 32K 档；5.2/5.3 未见 |
+| 长上下文阶梯 | 短档 ≤272K、长档 >272K | Haiku 5.5 长档 >100K；此前核对的 4.6+ 型号为 1M 标准价 | Pro 系列有 >200K 档 | 未见阶梯 | GLM-5.1 有 32K 档；5.2/5.3 未见 |
 | 币种 | USD | USD | USD | CN 站 CNY、global 站 USD（不含税） | bigmodel CNY、z.ai USD |
 | 地区/渠道附加 | FedRAMP 与数据驻留端点 +10% | US-only inference 1.1x（4.6+） | 未见（未核实） | 双平台双价 | 双渠道双价 |
 
@@ -123,42 +125,62 @@ OpenRouter 仅作参照，不作为快照来源（含聚合商自定费率）。
 
 ### 各家要点与本机在用模型价目
 
-OpenAI（来源 S01，页面无日期；gpt-6-astra/gpt-6-sol 为本机 Codex 观测模型）：
-短上下文 astra 输入 $10、缓存读 $1、缓存写 $12.50、输出 $50；
-sol $2/$0.20/$2.50/$10；长上下文档翻倍（astra $20/$2/$25/$75）。
-页面未标注 GPT-6 长/短档阈值（旧系列标注 272K）；models.dev 与 OpenRouter
-均以 272,000 为 gpt-6-astra 长档起点（S18、S20），正式采纳前需官方复核。
+OpenAI（S01/S27，2026-10-24 检索）的标准 global API 价格如下，单位为 USD/百万 token。
+长上下文指输入超过 272,000 token，种子以阈值 272001 表示。
+
+| 型号 | 短档输入/缓存读/输出 | 长档输入/缓存读/输出 |
+| --- | --- | --- |
+| gpt-6-astra | $10/$1/$50 | $20/$2/$75 |
+| gpt-6-sol | $2/$0.20/$10 | $4/$0.40/$15 |
+| gpt-6.1-sol | $2/$0.10/$10 | $4/$0.20/$15 |
+| gpt-6-luna | $0.10/$0.01/$0.50 | $0.20/$0.02/$0.75 |
+
+官方缓存写使用 30m/12h TTL，并非 schema 的 5m/1h 字段。八个新行的两个写价均保留
+NULL、不予计价；行注释标明不支持的 TTL，并记录短档 30m/12h 价格：Astra
+$12.50/$25，Sol 与 6.1 Sol $2.50/$5，Luna $0.125/$0.25。
 Fast 档（原 Priority，2026-07-30 更名）2 倍；FedRAMP/数据驻留端点 +10%
-（2026-03-05 后发布模型）。推理 token 页面无单独费率：
-"Tokens are billed at the chosen model's input and output rates"。
+（2026-03-05 后发布模型）。推理 token 无单独费率，按所选型号的输入/输出价计。
 
-Anthropic（来源 S03；本机 Claude 暂无数据，为设计覆盖目标）：
-Opus 5.5 $4/$20（缓存写 $5/$8、读 $0.20，读为 0.05x）、Sonnet 5 $2/$10、
-Haiku 4.5 $1/$5；Sonnet 5 的 $2/$10 促销价已转正（原定 2026-09-01 上调取消）。
-Batch 一律五折且与缓存折扣叠加（S06）；thinking token 按输出计费，
-`usage.output_tokens_details.thinking_tokens` 是"已计费输出中内部推理"的拆示（S05）；
-多轮保留的历史 thinking 块按输入计费（Opus 4.5/4.6+）。
+Anthropic（S03/S28）标准 global API 价格如下，单位为 USD/百万 token：
 
-Gemini（来源 S07，页脚 "Last updated 2026-09-24 UTC"）：
-3.8 Flash 标准档输入 $0.75（公示 2026-12-31 前价，2027-01-01 起 $1.50）、
-输出 $3.75（含 thinking token）、缓存读 $0.075、缓存存储 $0.50/百万 token/小时；
-Batch/Flex 五折；2.5 Pro 有 >200K 阶梯（输入 $1.25/$2.50、输出 $10/$15）。
-3.1 Pro（preview）两次抓取（英文与机器翻译版本）对 >200K 档的呈现不一致，
-正式收录前需复核（S07 附注）。
+| 官方型号 ID | 档 | 输入 | 缓存读 | 缓存写 5m | 缓存写 1h | 输出 |
+| --- | --- | --- | --- | --- | --- | --- |
+| claude-opus-5-5 | standard | $4 | $0.20 | $5 | $8 | $20 |
+| claude-sonnet-5 | standard | $2 | $0.20 | $2.50 | $4 | $10 |
+| claude-haiku-4-5 | standard | $1 | $0.10 | $1.25 | $2 | $5 |
+| claude-haiku-4-5-20251001 | standard | $1 | $0.10 | $1.25 | $2 | $5 |
+| claude-sonnet-5-5 | standard | $2 | $0.10 | $2.50 | $4 | $10 |
+| claude-haiku-5-5 | 短档 | $0.10 | $0.01 | $0.125 | $0.20 | $0.50 |
+| claude-haiku-5-5 | 输入 >100,000 | $0.50 | $0.05 | $0.625 | $1 | $2.50 |
 
-Kimi（来源 S09–S13；本机 Kimi Code/Work 观测 kimi-code/kimi-for-coding，wire 字段
-inputOther/inputCacheRead/inputCacheCreation 与计费维度对齐）：
+新种子采用上述连字符官方 ID，旧点号 ID 行不变。Sonnet 5 的 $2/$10 促销价已转正
+（原定 2026-09-01 上调取消）。Batch 五折且与缓存折扣叠加（S06）；thinking token
+按输出计费，`usage.output_tokens_details.thinking_tokens` 是已计费输出中内部推理的
+拆示（S05）；多轮保留的历史 thinking 块按输入计费（Opus 4.5/4.6+）。
+
+Gemini（S07/S29，页脚 Last updated 2026-10-22）：3.8 Flash 标准档输入 $0.75
+持续至 2026-12-31；2027-01-01 起输入 $1.50、缓存读 $0.15、输出 $7.50
+（含 thinking）、缓存存储 $1.00/百万 token/小时。原输出 $3.75、缓存读 $0.075、
+存储 $0.50 价格保留在原区间。Gemini 4 Argon 是独立型号，不是 3.8 Flash 的继任或别名：
+截至 2026-11-30 输入 $2/缓存读 $0.10/输出 $10；2026-12-01 起 $4/$0.20/$20。
+Argon 缓存写和存储保持 NULL。Batch/Flex 五折；2.5 Pro 有 >200K 阶梯
+（输入 $1.25/$2.50、输出 $10/$15）。3.1 Pro（preview）两次抓取对 >200K 档的呈现
+不一致，正式收录前需复核（S07 附注）。
+
+Kimi（S09–S13/S30；本机 Kimi Code/Work 观测 kimi-code/kimi-for-coding，wire 字段
+inputOther/inputCacheRead/inputCacheCreation 与计费字段对应）：
 kimi-k3 CN 站 ¥2（命中）/¥20（未命中）/¥100（输出），global 站 $0.30/$3.00/$15.00
 （不含税）；kimi-k2.7-code CN ¥1.30/¥6.50/¥27、global $0.19/$0.95/$4.00。
-缓存写单列为新政策（S12）：global k3 写 5m $3.00（=未命中输入价）、1h $6.00（2 倍），
-命中续期；CN 站未见对应分项价（未核实）。BatchJob 六折（S13，非五折）。
-`reasoning_content` 计入输入/输出 token 配额（S11）。
+缓存写单列政策（S12/S30）：global k3 写 5m $3.00（=未命中输入价）、1h $6.00（2 倍）；
+CN 写 5m ¥20（=未命中输入价）、1h ¥40（2 倍）。命中续期；CN 缓存存储仍未核实。
+BatchJob 六折（S13，非五折）。`reasoning_content` 计入输入/输出 token 配额（S11）。
 
-GLM（来源 S15、S17；本机 omp/pi/zcode 观测 glm-5.3-flash/GLM-5.3）：
+GLM（S15/S17/S31/S32；本机 omp/pi/zcode 观测 glm-5.3-flash/GLM-5.3）：
 bigmodel CN：GLM-5.3 输入 ¥8/缓存命中 ¥2/输出 ¥28（1M 上下文）；
-GLM-5.3-Flash 限时五折 ¥0.4/¥0.115/¥1.4（标准 ¥0.8/¥0.23/¥2.8）；
-GLM-5.2 同 5.3；GLM-5.1 有 [0,32K)/[32K+) 阶梯；Batch 五折；
-缓存存储限时免费。z.ai 国际：GLM-5.3 $1.4/$0.26/$4.4、Flash $0.15/$0.03/$0.50、
+Flash 当前标准价 ¥0.8/¥0.23/¥2.8；旧五折行 ¥0.4/¥0.115/¥1.4 保持不变，
+不倒推未知截止日。GLM-5.2 同 5.3；GLM-5.1 的 [0,32K)/[32K+) 阶梯沿用旧种子
+32768 token 边界，缓存命中 ¥1.3/¥2。Batch 五折；bigmodel 与 z.ai 缓存存储均限时免费，
+不表示永久零价。z.ai 国际：GLM-5.3 $1.4/$0.26/$4.4、Flash $0.15/$0.03/$0.50、
 FlashX $0.37/$0.075/$1.25；未见批处理与阶梯说明（未核实）。
 思考 token 计费官方未明示：能力文档仅说"思考过程会消耗额外的 Token"，
 示例 usage 将 reasoning_content 与 content 并列、completion_tokens 合并计数，
@@ -180,7 +202,7 @@ FlashX $0.37/$0.075/$1.25；未见批处理与阶梯说明（未核实）。
 
 Coding Plan 与按量价是两种计费体系：models.dev 的 `kimi-code-plan-*`、
 `zai-coding-plan` 条目 cost 全 0，是"订阅非按量"的占位表示，不是免费价格（S18）；
-本设计禁止把 0 当作价格写入快照。
+禁止导入这些订阅占位零；有政策依据的临时免费零价须保留元数据。
 
 <a id="snapshot"></a>
 
@@ -214,6 +236,16 @@ cache_storage 小时价），与下表定案一致。
 种子快照随仓库版本化：`desktop/src-tauri/crates/core/prices/seed-2026-09-25.json`
 及 `seed-2026-10-02.json`（应用启动导入，重复导入不新增记录）。后者补充 Opus 4.8 与
 GPT-4o mini 2024-07-18 标准价，核验当日开始有效，不倒填历史日期。
+2026-10-03、2026-10-05 和 2026-10-24 快照保留各自 ID；
+`ensure_seed_price_snapshot` 在同一事务中导入全部五个快照，重复执行时跳过相同内容。
+
+2026-10-24 种子新增 25 行 `official_vendor=true` 的 standard 价格：OpenAI 8 行、
+Anthropic 7 行、Google 3 行、Moonshot 1 行、bigmodel 3 行、Z.ai 3 行。
+当前价行自 2026-10-24 起有效；Gemini 4 Argon 已公示的 2026-12-01 行和
+Gemini 3.8 Flash 的 2027-01-01 行保留未来日期。未核实分项保持 NULL。
+四个旧快照不变；不新增 K2.8 精确价格行，现有 K2.7 替代规则不变。
+GPT-5.5 行同样不变，本次未独立复核其长档 `cache_read` 价格。
+
 用户在「设置 → 费用」导入的本地快照同格式（JSON），
 来源类型标 `manual`。金额与价格一律不用二进制浮点（沿用
 [数据规则](data-contract.md#pricing)）。
@@ -303,7 +335,7 @@ seed/community 行默认 true，manual 行默认 false（手工添加官方价�
 <a id="在线刷新设计modelsdev-社区目录2026-10-01-实施"></a>
 
 任务 5 实施定案。默认关闭（设置 → 费用 → 在线刷新）；开启后仅 HTTPS GET
-`https://models.dev/api.json`（MIT 社区目录，S18/S19/S24），请求不携带任何
+[models.dev api.json](https://models.dev/api.json)（MIT 社区目录，S18/S19/S24），请求不携带任何
 本地用量、主机/来源身份、会话内容或账户密钥（仅 User-Agent 含应用名与版本）。
 离线时核心统计与既有估算不受影响；该功能不接远端用量/账单 API 的边界不变。
 
@@ -358,7 +390,7 @@ input_audio/output_audio/reasoning/tiers/context_over_200k；无币种字段
   时间度量）。
 - 单位折算：美元/百万 token ×10⁴ → 百分之一美分/百万 token，四舍五入；
   极低分项（如 deepseek 缓存读 $0.003625/M）有 ≤0.5 单位舍入（<$0.00005/M），
-  可忽略并在 note 标注。
+  并在 note 标注舍入误差上界。
 - 规模实测：26 个符合条件的提供商过滤后得到 408 模型 / 473 行每快照；其中 poolside/sarvam 没有按量价模型，实际入库行覆盖 24 个提供商（S24）。
 
 <a id="official-provider-fallback"></a>
@@ -480,7 +512,7 @@ V29 行见 [验证清单](validation.md)。样本分三部分：固定价格样�
 | E5 阶梯下界 | 输入合计 271,999 / 0 / 0 / 8,000 | P2 | 272+40 = 312 美分 |
 | E6 GLM 阶梯 | 输入 32,768 / 0 / 0 / 输出 1,000 | P6 | 26+3 = 29 分 |
 | E7 GLM 阶梯下界 | 输入 32,767 / 0 / 0 / 输出 1,000 | P5 | 20+2 = 22 分 |
-| E8 多币种分列 | E1 + E2 事件并存 | P1 + P2 | ¥2056 与 $2395 分列小计，无汇率不合并 |
+| E8 多币种分列 | E1 + 原 E2 示例 | P1 + P2 | 原示例分别为 2056 人民币分（¥20.56）和 2395 美分（$23.95），分币种列示，不做汇率转换或合并；E2 的阶梯修正仍适用 |
 
 <a id="error-and-boundary-scenarios"></a>
 
@@ -543,9 +575,10 @@ V29 行见 [验证清单](validation.md)。样本分三部分：固定价格样�
   条目混用国际站价），采纳社区数据必须保留来源标注并可被用户识别。
 - 限时政策（GLM Flash 五折、GLM 缓存存储免费、Kimi 缓存写单列新政）
   随时可能到期；生效区间行能表达切换，但到期检测依赖人工或刷新。
-- OpenAI GPT-6 长上下文阈值、GLM 思考 token 计费、Kimi CN 站缓存写分项、
-  z.ai 批处理折扣、Gemini 3.1 Pro preview 阶梯呈现均为未核实或资料不一致项，
-  收录前需官方复核。
+- OpenAI 官方缓存写为 30m/12h，schema 仅支持 5m/1h。2026-10-24 的八个 OpenAI 行
+  两个写价均保持 NULL，缓存写不计价；行注释只记录来源信息，不参与引擎计价。
+- GLM 思考 token 计费、z.ai 批处理折扣、Gemini 3.1 Pro preview 阶梯呈现、
+  Anthropic 页面版本标识和 Kimi 公开模型列表端点仍未核实或资料不一致，收录前需官方复核。
 - 本机未见 OpenAI/Anthropic/Gemini 真实用量（适配器 no_data/not_found），
   对应价格核验只到官方页面层级，未经过本机端到端对账。
 - 在线刷新的固有限制：models.dev 为社区目录，与官方页
@@ -560,7 +593,7 @@ V29 行见 [验证清单](validation.md)。样本分三部分：固定价格样�
 ## 调研记录
 
 环境：Windows 11 x64、Git Bash、curl/jq 直接抓取公开 JSON 与 Markdown、
-WebFetch/web reader 抓取官方页面正文。检索日期均为 2026-09-25；
+WebFetch/web reader 抓取官方页面正文。除另行标注外，检索日期为 2026-09-25；
 status=调研依据，非运行验收。
 
 | ID | 来源 | 采用的事实 |
@@ -591,10 +624,15 @@ status=调研依据，非运行验收。
 | S24 | models.dev `api.json` 复核（2026-10-01 抓取 5.28 MB，HTTP 200） | 结构实测：提供商 `{id,env,npm,name,doc,models}`；模型 `cost{input,output,cache_read,cache_write,tiers,context_over_200k,input_audio,output_audio,reasoning}`；`canonical_model_id` 官方归属（5274/8339 条目有）；tier 仅 context 类型（658 条）；无币种字段（全美元/百万 token）；官方判定（canonical 前缀 ∪ `-cn` 变体）得 26 提供商、过滤后 408 模型/473 行（poolside/sarvam 无按量价模型被跳过，入库行覆盖 24 提供商，探针测试实断）；coding-plan/token-plan 系 cost 全 0；gpt-6-astra $10/$50、moonshotai kimi-k3 $3/$15、zhipuai glm-5.3 $1.4/$4.4、anthropic claude-opus-5-5 $4/$20、google gemini-3.8-flash $0.75/$3.75 与官方页一致；zhipuai 与 zai 条目同价（docs.z.ai 来源） |
 | S25 | [ECB 日参考汇率 XML](https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml)，2026-10-03 抓取、有效日期 2026-10-02 | 同日 EUR/USD=1.1225、EUR/CNY=7.5259，交叉得 CNY→USD=1.1225/7.5259；用于展示折算，非实际账单或交易汇率 |
 | S26 | [Kimi Code 模型表](https://www.kimi.com/code/docs/en/kimi-code/models.html)、[全球 API 定价](https://platform.kimi.ai/docs/pricing/chat)、[models.dev README](https://github.com/anomalyco/models.dev)，2026-10-03 重读 | k3/k3-256k 对应 K3；全球每百万 token 输入 USD 3、缓存读 0.30、输出 15，缓存写 5m/1h 为 3/6；models.dev cost 本身为 USD/百万 token，不能按 CN 提供商名称再换汇；裸 profile 用精确别名，统计不改名 |
+| S27 | [OpenAI 定价页](https://developers.openai.com/api/docs/pricing)及 [Markdown 正文](https://developers.openai.com/api/docs/pricing.md)，2026-10-24 检索 | GPT-6 Astra/Sol/6.1Sol/Luna 标准短/长档价格；短档 ≤272K、长档 >272K；官方 30m/12h 写价。种子对不支持的写字段保留 NULL，不为 GPT-5.5 长档 cache_read 重新背书 |
+| S28 | [Anthropic 定价页](https://platform.claude.com/docs/en/about-claude/pricing)，2026-10-24 检索 | 正确的连字符 Opus 5.5/Haiku 4.5 ID；Sonnet 5/Sonnet 5.5/Haiku 5.5 价格；Haiku 5.5 长档 >100K；完整 5m/1h/缓存读分项 |
+| S29 | [Gemini 定价页](https://ai.google.dev/gemini-api/docs/pricing)，Last updated 2026-10-22，2026-10-24 检索 | 完整 3.8 Flash 2027 输入/读/输出/存储价；独立 4 Argon 当前与 2026-12-01 区间，不推断别名或继任关系 |
+| S30 | [Kimi CN 定价](https://platform.kimi.com/docs/pricing/chat.md)及[上下文缓存](https://platform.kimi.com/docs/guide/context-caching.md)，2026-10-24 检索 | K3 CN 输入 ¥20/缓存读 ¥2/输出 ¥100；缓存写 5m ¥20、1h ¥40；存储未核实 |
+| S31 | [bigmodel 定价 Markdown](https://docs.bigmodel.cn/cn/guide/start/pricing.md)，2026-10-24 检索 | Flash 当前标准价；GLM-5.1 输入/缓存读/输出档及既有 32768 token 边界；缓存存储限时免费；旧五折行保留且不推断截止日 |
+| S32 | [Z.AI 定价页](https://docs.z.ai/guides/overview/pricing)，2026-10-24 检索 | GLM-5.3/Flash/FlashX 的 USD 输入/缓存读/输出价；缓存存储限时免费而非永久免费；写价保持 NULL |
 
-未核实项：OpenAI GPT-6 长上下文阈值官方标注；OpenAI 1h 缓存档；
-Anthropic 页面版本标识；Gemini 3.1 Pro preview 阶梯规则；
-Kimi CN 站缓存写分项价与公开模型列表端点；z.ai 批处理折扣；
-GLM 思考 token 计费规则；bigmodel 公开模型列表端点；
-OpenRouter 数据许可。本轮未对本仓库写任何业务代码、未制作种子快照、
-未发起带凭据的请求；调研完成不等于已具备自动计价能力。
+未核实项：Anthropic 页面版本标识；Gemini 3.1 Pro preview 阶梯规则；
+Kimi 公开模型列表端点；z.ai 批处理折扣；GLM 思考 token 计费规则；
+bigmodel 公开模型列表端点；OpenRouter 数据许可。原始调研未对本仓库写任何业务代码、
+未制作种子快照、未发起带凭据的请求；调研完成不等于已具备自动计价能力。
+后续实施情况已在上文明确记录。

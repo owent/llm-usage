@@ -181,6 +181,11 @@ client versions. Regress complete old summaries, consumed positions, concurrency
 Repeated reconciliation snapshots do not verify formats; see
 [real Hermes acceptance](../../../../docs/validation/desktop-usage/hermes-container-sample.md).
 
+For SQLite API upgrades, check callback ownership and cancellation lifetimes. rusqlite 0.41 requires
+a mutable connection for progress handlers; shared storage uses a scoped `InterruptHandle` worker
+that is awakened and joined before connection reuse. Local source connections install handlers
+mutably. Regress interruption, rollback, commit/cancel races and the next query after scope drop.
+
 For SDK saved-format changes, inspect writers/codecs/migrations instead of reusing namesake fields. Mutable
 session versions support compatible reads without verifying historical records. Metrics merging runs/retries
 are observations, not one call each. Do not add duplicate message/manifest/database totals. Verify root/
@@ -223,9 +228,13 @@ matching distribution/table/cost ranges, reset and stale responses.
 
 Parser-upgrade regressions need genuine old summaries, not old version columns/new summaries. Check complete
 fields, source revision priority, same-batch conflict order, old cursor/position replay and rollback.
-Verify unchanged counts/usage on consistent backups before authorized statistics databases under a
-single-writer lock. Do not edit original Agent sources. Update these requirements for later work;
-ordinary maintenance adds no approval requirement.
+Codex ownership corrections also retain every conflicting candidate and its completeness marker from the
+first conflict. Later candidates cannot turn `legacy_unknown` into a complete history or clear its conflict.
+Distinguish exact carry summaries from native responses by their complete digests even when both lack
+revisions; contradictory native candidates must not be skipped or regress parser references during replay.
+Test candidate ordering and evidence retention through parser upgrades. Verify unchanged counts/usage on
+consistent backups before authorized statistics databases under a single-writer lock. Do not edit original
+Agent sources. Update these requirements for later work; ordinary maintenance adds no approval requirement.
 
 Cost fixes compare usage/cost scopes/retention before model identity/official prices. Verify coexisting
 archives/details, detail deletion, hourly/weekly/monthly selections and many small calls. Compare independent

@@ -104,7 +104,6 @@ pub(crate) struct WireProduct {
 }
 
 /// Observed non-usage types are ignored; diagnose unlisted types once.
-/// Covers the union of observed types across 82 native protocol-1.5/1.4 wire.jsonl files.
 pub(crate) const KNOWN_IGNORED_TYPES: &[&str] = &[
     // Lifecycle/control records.
     "agent.message.appended",
@@ -159,6 +158,33 @@ pub(crate) const KNOWN_IGNORED_TYPES: &[&str] = &[
     // File history and miscellaneous records.
     "file_history.tracked",
     "file_history.checkpoint",
+];
+
+/// The protocol-1.5 manifest at Kimi Code 2.3.1 commit 684bae9ea6a437f3bae98bba1dcb797a917d500b
+/// confirms these durable state/control records only for that product/version; state and cumulative
+/// fields are not per-call usage. Other products, protocol versions and fallbacks retain diagnostics.
+pub(crate) const KIMI_CODE_V15_STATE_TYPES: &[&str] = &[
+    "changeNotifier.snapshot",
+    "context.clear",
+    "cron.add",
+    "cron.cursor",
+    "cron.delete",
+    "forked",
+    "full_compaction.cancel",
+    "goal.clear",
+    "goal.create",
+    "goal.update",
+    "interaction.request",
+    "interaction.resolved",
+    "interruptionReminder.recorded",
+    "plan_mode.cancel",
+    "plan_mode.enter",
+    "plan_mode.exit",
+    "plan.revision",
+    "tools.reset_active_tools",
+    "tools.unregister_user_tool",
+    "tower_mode.enter",
+    "tower_mode.exit",
 ];
 
 /// Shared first-line metadata detection result for detect and scan.
@@ -577,6 +603,11 @@ pub(crate) fn scan_wire(
                 context.subagent_completed += 1;
             }
             other if KNOWN_IGNORED_TYPES.contains(&other) => {}
+            other
+                if product.ns == "kimi-code"
+                    && context.protocol_version.as_deref() == Some("1.5")
+                    && context.version_basis == Some(VersionBasis::KnownVersion)
+                    && KIMI_CODE_V15_STATE_TYPES.contains(&other) => {}
             "(no-type)" => {
                 diagnostics.push(diag(
                     "missing_record_type",

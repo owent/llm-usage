@@ -71,7 +71,7 @@ fn cancellation_is_checked_between_stream_chunks_without_replaying_partial_bytes
 }
 
 #[test]
-fn sqlite_vm_interrupt_rolls_back_and_removes_hook_before_next_job() {
+fn sqlite_vm_interrupt_rolls_back_and_stops_worker_before_next_job() {
     let conn = rusqlite::Connection::open_in_memory().unwrap();
     conn.execute_batch("CREATE TABLE confirmed (n INTEGER)")
         .unwrap();

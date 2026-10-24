@@ -253,12 +253,12 @@ pub fn scan(
             .map(|c| c.last_idx)
             .unwrap_or(0)
     };
-    let conn = rusqlite::Connection::open_with_flags(
+    let mut conn = rusqlite::Connection::open_with_flags(
         &target.path,
         rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
     )
     .map_err(CoreError::Sqlite)?;
-    crate::adapters::run_policy::install_sqlite_control(&conn)?;
+    crate::adapters::run_policy::install_sqlite_control(&mut conn)?;
     conn.busy_timeout(std::time::Duration::from_millis(150))
         .map_err(CoreError::Sqlite)?;
     let mut stmt = conn

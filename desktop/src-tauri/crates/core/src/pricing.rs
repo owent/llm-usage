@@ -671,7 +671,7 @@ impl PriceBook {
                 || crate::model_names::model_key(&r.model) == reference_model)
                 && r.service_tier == "standard"
                 && r.effective_from_ms <= at_ms
-                && r.effective_to_ms.map_or(true, |to| at_ms < to)
+                && r.effective_to_ms.is_none_or(|to| at_ms < to)
         };
         let mut candidates: Vec<&PriceRow> = self
             .rows

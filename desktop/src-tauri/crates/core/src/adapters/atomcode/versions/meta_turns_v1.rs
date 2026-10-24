@@ -423,7 +423,7 @@ pub fn scan(
                 .sum
                 .checked_add(entry.cached_input.sum)
                 .and_then(|i| i.checked_add(entry.output.sum))
-                .map_or(true, |n| n > crate::domain::MAX_TOKEN_VALUE)
+                .is_none_or(|n| n > crate::domain::MAX_TOKEN_VALUE)
         {
             diagnostics.push(diag(
                 "token_sum_overflow",

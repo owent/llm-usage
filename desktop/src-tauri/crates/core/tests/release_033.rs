@@ -333,6 +333,254 @@ fn opencode_v2_pages_health_updates_and_forks() {
     assert_eq!(status(), "degraded");
 }
 
+#[test]
+fn opencode_v2_sqlite_type_errors_preserve_valid_rows_and_page_progress() {
+    for (column, value) in [
+        ("time_updated", "'invalid'"),
+        ("seq", "'invalid'"),
+        ("session_id", "42"),
+        ("type", "42"),
+        ("id", "CAST('b' AS BLOB)"),
+        ("id", "NULL"),
+    ] {
+        let dir = TempDir::new("opencode-v2-column-types");
+        let db = opencode_db(&dir);
+        message(&db, "a", "s", "assistant", 1, assistant(100));
+        message(&db, "b", "s", "assistant", 2, assistant(10));
+        message(&db, "c", "s", "assistant", 3, assistant(200));
+        db.execute(
+            &format!("UPDATE session_message SET {column}={value} WHERE id='b'"),
+            [],
+        )
+        .unwrap();
+        let (_tmp, storage) = temp_storage("opencode-v2-column-types");
+        let cfg = config(Some(1));
+        for _ in 0..8 {
+            registry(&storage, dir.path(), &cfg);
+        }
+        assert_eq!(
+            summary(&storage, "2026-10-18", "2026-10-18")
+                .totals
+                .call_count,
+            2,
+            "{column} must not hide later valid messages"
+        );
+        let diagnostics: i64 = storage
+            .conn()
+            .query_row("SELECT COUNT(*) FROM diagnostics", [], |r| r.get(0))
+            .unwrap();
+        assert!(diagnostics > 0, "{column} must retain a row diagnostic");
+        db.execute("DELETE FROM session_message WHERE rowid=2", [])
+            .unwrap();
+        for _ in 0..3 {
+            registry(&storage, dir.path(), &cfg);
+        }
+        assert_eq!(
+            storage
+                .conn()
+                .query_row("SELECT status FROM source_files", [], |r| r
+                    .get::<_, String>(0))
+                .unwrap(),
+            "active_compat",
+            "{column} correction must recover after a complete valid scan"
+        );
+    }
+}
+
+#[test]
+fn opencode_v2_nonfinite_id_does_not_restart_pages() {
+    let dir = TempDir::new("opencode-v2-nonfinite-id");
+    let root = dir.path().join("opencode");
+    std::fs::create_dir_all(&root).unwrap();
+    let db = rusqlite::Connection::open(root.join("opencode.db")).unwrap();
+    db.execute_batch("CREATE TABLE session_v2(id TEXT PRIMARY KEY,parent_id TEXT,version TEXT,fork_session_id TEXT,fork_boundary TEXT);
+        CREATE TABLE session_message(id BLOB PRIMARY KEY,session_id TEXT,type TEXT,seq INTEGER,time_created INTEGER,time_updated INTEGER,data TEXT);
+        INSERT INTO session_v2(id,version) VALUES ('s','2.0.32');")
+        .unwrap();
+    message(&db, "a", "s", "assistant", 1, assistant(100));
+    message(&db, "c", "s", "assistant", 3, assistant(200));
+    db.execute(
+        "INSERT INTO session_message VALUES (-1e999,'s','assistant',2,?1,?1,?2)",
+        rusqlite::params![ts("2026-10-18T00:01:00Z"), assistant(10).to_string()],
+    )
+    .unwrap();
+    let path = root.join("opencode.db");
+    let target = ScanTarget {
+        instance_id: "opencode-nonfinite-test".into(),
+        path: path.clone(),
+        file_id: normalize_path(&path),
+        file_identity: "opencode.db".into(),
+        probe: llm_usage_core::adapters::jsonl::probe_file(&path).unwrap(),
+        generation: 1,
+        rescan: false,
+    };
+    let limits = config(Some(2)).limits;
+    let now = ts("2026-10-19T00:00:00Z");
+    let first = llm_usage_core::adapters::opencode::versions::session_messages_v2::scan(
+        &target,
+        &StoredScanState {
+            cursor: None,
+            parse_context: Some(json!({
+                "policy":"opencode-session-messages-2",
+                "after_id":null,
+                "validated_usage":true
+            })),
+        },
+        &limits,
+        now,
+    )
+    .unwrap();
+    assert_eq!(first.events.len(), 1);
+    assert_eq!(first.events[0].source_record_key, "opencode:v2:a");
+    assert_eq!(first.parse_context.as_ref().unwrap()["after_id"], "a");
+    assert_eq!(
+        first.parse_context.as_ref().unwrap()["skip_nonfinite"],
+        true
+    );
+    let second = llm_usage_core::adapters::opencode::versions::session_messages_v2::scan(
+        &target,
+        &StoredScanState {
+            cursor: first.cursor.clone(),
+            parse_context: first.parse_context.clone(),
+        },
+        &limits,
+        now + 1,
+    )
+    .unwrap();
+    assert_eq!(second.events.len(), 1);
+    assert_eq!(second.events[0].source_record_key, "opencode:v2:c");
+    assert_eq!(second.status, ScanStatus::Complete);
+    message(&db, "y", "s", "assistant", 4, assistant(300));
+    let third = llm_usage_core::adapters::opencode::versions::session_messages_v2::scan(
+        &target,
+        &StoredScanState {
+            cursor: second.cursor.clone(),
+            parse_context: second.parse_context.clone(),
+        },
+        &limits,
+        now + 2,
+    )
+    .unwrap();
+    assert_eq!(third.events.len(), 1);
+    assert_eq!(third.events[0].source_record_key, "opencode:v2:a");
+    assert_eq!(
+        third.parse_context.as_ref().unwrap()["skip_nonfinite"],
+        true
+    );
+    let fourth = llm_usage_core::adapters::opencode::versions::session_messages_v2::scan(
+        &target,
+        &StoredScanState {
+            cursor: third.cursor.clone(),
+            parse_context: third.parse_context.clone(),
+        },
+        &limits,
+        now + 3,
+    )
+    .unwrap();
+    assert_eq!(fourth.status, ScanStatus::Complete);
+    let keys: Vec<&str> = fourth
+        .events
+        .iter()
+        .map(|event| event.source_record_key.as_str())
+        .collect();
+    assert_eq!(keys, ["opencode:v2:c", "opencode:v2:y"]);
+}
+
+#[test]
+fn opencode_v2_nonfinite_first_page_preserves_the_page_position() {
+    let dir = TempDir::new("opencode-v2-first-nonfinite-id");
+    let root = dir.path().join("opencode");
+    std::fs::create_dir_all(&root).unwrap();
+    let db = rusqlite::Connection::open(root.join("opencode.db")).unwrap();
+    db.execute_batch("CREATE TABLE session_v2(id TEXT PRIMARY KEY,parent_id TEXT,version TEXT,fork_session_id TEXT,fork_boundary TEXT);
+        CREATE TABLE session_message(id BLOB PRIMARY KEY,session_id TEXT,type TEXT,seq INTEGER,time_created INTEGER,time_updated INTEGER,data TEXT);
+        INSERT INTO session_v2(id,version) VALUES ('s','2.0.32');")
+        .unwrap();
+    message(&db, "a", "s", "assistant", 1, assistant(100));
+    message(&db, "c", "s", "assistant", 3, assistant(200));
+    db.execute(
+        "INSERT INTO session_message VALUES (-1e999,'s','assistant',2,?1,?1,?2)",
+        rusqlite::params![ts("2026-10-18T00:01:00Z"), assistant(10).to_string()],
+    )
+    .unwrap();
+    let path = root.join("opencode.db");
+    let target = ScanTarget {
+        instance_id: "opencode-first-nonfinite-test".into(),
+        path: path.clone(),
+        file_id: normalize_path(&path),
+        file_identity: "opencode.db".into(),
+        probe: llm_usage_core::adapters::jsonl::probe_file(&path).unwrap(),
+        generation: 1,
+        rescan: false,
+    };
+    let limits = config(Some(1)).limits;
+    let now = ts("2026-10-19T00:00:00Z");
+    let first = llm_usage_core::adapters::opencode::versions::session_messages_v2::scan(
+        &target,
+        &StoredScanState::default(),
+        &limits,
+        now,
+    )
+    .unwrap();
+    assert!(first.events.is_empty());
+    assert_eq!(first.status, ScanStatus::BudgetExhausted);
+    assert_eq!(first.records_seen, 1);
+    assert_eq!(
+        first.parse_context.as_ref().unwrap()["after_id"],
+        Value::Null
+    );
+    assert_eq!(
+        first.parse_context.as_ref().unwrap()["skip_nonfinite"],
+        true
+    );
+    assert_eq!(first.parse_context.as_ref().unwrap()["completed"], false);
+    let second = llm_usage_core::adapters::opencode::versions::session_messages_v2::scan(
+        &target,
+        &StoredScanState {
+            cursor: first.cursor.clone(),
+            parse_context: first.parse_context.clone(),
+        },
+        &limits,
+        now + 1,
+    )
+    .unwrap();
+    assert_eq!(second.events.len(), 1);
+    assert_eq!(second.events[0].source_record_key, "opencode:v2:a");
+    assert_eq!(second.parse_context.as_ref().unwrap()["after_id"], "a");
+    assert_eq!(second.parse_context.as_ref().unwrap()["completed"], false);
+    let third = llm_usage_core::adapters::opencode::versions::session_messages_v2::scan(
+        &target,
+        &StoredScanState {
+            cursor: second.cursor.clone(),
+            parse_context: second.parse_context.clone(),
+        },
+        &limits,
+        now + 2,
+    )
+    .unwrap();
+    assert_eq!(third.events.len(), 1);
+    assert_eq!(third.events[0].source_record_key, "opencode:v2:c");
+    assert_eq!(third.status, ScanStatus::Complete);
+    assert_eq!(third.parse_context.as_ref().unwrap()["completed"], true);
+    let fourth = llm_usage_core::adapters::opencode::versions::session_messages_v2::scan(
+        &target,
+        &StoredScanState {
+            cursor: third.cursor.clone(),
+            parse_context: third.parse_context.clone(),
+        },
+        &limits,
+        now + 3,
+    )
+    .unwrap();
+    assert!(fourth.events.is_empty());
+    assert_eq!(fourth.records_seen, 1);
+    assert_eq!(
+        fourth.parse_context.as_ref().unwrap()["after_id"],
+        Value::Null
+    );
+    assert_eq!(fourth.parse_context.as_ref().unwrap()["completed"], false);
+}
+
 struct OldCodex;
 impl SourceAdapter for OldCodex {
     fn adapter_id(&self) -> &'static str {
@@ -441,6 +689,14 @@ fn codex_inherited_carry_corrects_complete_old_summary_without_clearing_history(
         )
         .unwrap();
     assert_eq!(row, ("owner".into(), "codex-auto-review".into(), first));
+    let parser: String = storage
+        .conn()
+        .query_row("SELECT parser_version FROM usage_events", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(
+        parser,
+        llm_usage_core::adapters::codex::rollout_v1::CODEX_PARSER_VERSION
+    );
     let history: i64 = storage
         .conn()
         .query_row(
@@ -549,7 +805,13 @@ fn codex_correction_requires_full_digest_and_retains_real_conflicts() {
 
 #[test]
 fn codex_correction_survives_separate_windows_and_transaction_rollback() {
-    for mode in ["matching", "contradictory", "outside_policy"] {
+    for mode in [
+        "matching",
+        "contradictory",
+        "legacy_conflict",
+        "historical_unknown",
+        "outside_policy",
+    ] {
         let contradictory = mode != "matching";
         let dir = TempDir::new("codex-carry-windows");
         let root = codex_files(&dir);
@@ -560,6 +822,15 @@ fn codex_correction_survives_separate_windows_and_transaction_rollback() {
         };
         let cfg = config(None);
         run_adapter_scan(&storage, &OldCodex, &ctx, &cfg).unwrap();
+        if mode == "historical_unknown" {
+            storage
+                .conn()
+                .execute(
+                    "DELETE FROM ingestion_checkpoints WHERE scope_key LIKE 'codex-carry-%'",
+                    [],
+                )
+                .unwrap();
+        }
         let discovered = CodexAdapter.discover(&ctx).remove(0);
         let instance = CodexAdapter.instance_id(&discovered);
         let scan = |part: &str| {
@@ -590,16 +861,22 @@ fn codex_correction_survives_separate_windows_and_transaction_rollback() {
         if mode == "outside_policy" {
             owner.events[0].error_status = Some("unrelated-change".into());
         }
-        if mode == "contradictory" {
+        if matches!(mode, "contradictory" | "legacy_conflict") {
             let mut conflicting = owner.events.clone();
             conflicting[0].usage.output_total = Some(73);
             conflicting[0].usage.total_tokens = Some(174122);
+            if mode == "legacy_conflict" {
+                conflicting[0].parser_version = "codex-rollout-5".into();
+            }
             llm_usage_core::ingest::commit_batch(
                 &storage,
                 &batch(&instance, "UTC", cfg.now_ms + 1, conflicting),
                 None,
             )
             .unwrap();
+            if mode == "legacy_conflict" {
+                assert_eq!(storage.conn().query_row("SELECT COUNT(*) FROM ingestion_checkpoints WHERE scope_key LIKE 'codex-carry-candidate:%'",[],|r|r.get::<_,i64>(0)).unwrap(),2);
+            }
         }
         llm_usage_core::ingest::commit_batch(
             &storage,
@@ -635,9 +912,24 @@ fn codex_correction_survives_separate_windows_and_transaction_rollback() {
             summary(&storage, "2026-10-01", "2026-10-31")
                 .totals
                 .conflict_count,
-            i64::from(contradictory)
+            i64::from(contradictory),
+            "{mode}"
         );
-        assert_eq!(storage.conn().query_row("SELECT COUNT(*) FROM ingestion_checkpoints WHERE scope_key LIKE 'codex-carry-candidate:%'",[],|r|r.get::<_,i64>(0)).unwrap(),i64::from(mode == "outside_policy"));
+        let expected_candidates = match mode {
+            "matching" => 2,
+            "contradictory" | "legacy_conflict" => 3,
+            "historical_unknown" => 1,
+            "outside_policy" => 2,
+            _ => unreachable!(),
+        };
+        let candidates: i64 = storage.conn().query_row("SELECT COUNT(*) FROM ingestion_checkpoints WHERE scope_key LIKE 'codex-carry-candidate:%'",[],|r|r.get::<_,i64>(0)).unwrap();
+        assert_eq!(candidates, expected_candidates, "{mode}");
+        if mode == "historical_unknown" {
+            let provenance: String = storage.conn().query_row("SELECT parse_context FROM ingestion_checkpoints WHERE scope_key LIKE 'codex-carry-provenance:%'",[],|r|r.get(0)).unwrap();
+            assert_eq!(provenance, "\"legacy_unknown\"");
+            let unresolved: i64 = storage.conn().query_row("SELECT COUNT(*) FROM diagnostics WHERE code='inherited_compaction_conflict_unresolved'",[],|r|r.get(0)).unwrap();
+            assert_eq!(unresolved, 1);
+        }
         let parser: String = storage
             .conn()
             .query_row("SELECT parser_version FROM usage_events", [], |r| r.get(0))
@@ -648,7 +940,125 @@ fn codex_correction_survives_separate_windows_and_transaction_rollback() {
                 "codex-rollout-5"
             } else {
                 llm_usage_core::adapters::codex::rollout_v1::CODEX_PARSER_VERSION
-            }
+            },
+            "{mode}"
+        );
+    }
+}
+
+#[test]
+fn codex_multiple_inherited_carries_resolve_without_real_conflict() {
+    for contradictory in [false, true] {
+        let dir = TempDir::new("codex-multiple-carries");
+        let root = codex_files(&dir);
+        let (_tmp, storage) = temp_storage("codex-multiple-carries");
+        let ctx = DiscoverContext {
+            manual_roots: vec![root],
+            ..Default::default()
+        };
+        let cfg = config(None);
+        run_adapter_scan(&storage, &OldCodex, &ctx, &cfg).unwrap();
+        let discovered = CodexAdapter.discover(&ctx).remove(0);
+        let instance = CodexAdapter.instance_id(&discovered);
+        let scan = |part: &str| {
+            let path = discovered
+                .files
+                .iter()
+                .find(|p| p.to_string_lossy().contains(part))
+                .unwrap();
+            let target = ScanTarget {
+                instance_id: instance.clone(),
+                path: path.clone(),
+                file_id: normalize_path(path),
+                file_identity: part.into(),
+                probe: llm_usage_core::adapters::jsonl::probe_file(path).unwrap(),
+                generation: 1,
+                rescan: true,
+            };
+            CodexAdapter
+                .scan(
+                    &target,
+                    &StoredScanState::default(),
+                    &ScanLimits::default(),
+                    cfg.now_ms + 1,
+                )
+                .unwrap()
+        };
+        let child = scan("z-child");
+        let prior: EventInput = serde_json::from_value(
+            child.parse_context.as_ref().unwrap()["inherited_carries"][0]["prior"].clone(),
+        )
+        .unwrap();
+        let mut second = prior.clone();
+        second.session_id = Some("child-two".into());
+        second.occurred_at_ms += 1000;
+        if contradictory {
+            second.usage.output_total = Some(73);
+            second.usage.total_tokens = Some(174122);
+        }
+        let owner = scan("a-owner");
+        if contradictory {
+            let mut conflicting = owner.events.clone();
+            conflicting[0].usage.output_total = Some(73);
+            conflicting[0].usage.total_tokens = Some(174122);
+            llm_usage_core::ingest::commit_batch(
+                &storage,
+                &batch(&instance, "UTC", cfg.now_ms + 1, conflicting),
+                None,
+            )
+            .unwrap();
+        }
+        llm_usage_core::ingest::commit_batch(
+            &storage,
+            &batch(&instance, "UTC", cfg.now_ms + 1, vec![second.clone()]),
+            None,
+        )
+        .unwrap();
+        assert_eq!(
+            summary(&storage, "2026-10-01", "2026-10-31")
+                .totals
+                .conflict_count,
+            1
+        );
+        let mut carry_context = child.parse_context.clone().unwrap();
+        let mut second_carry = carry_context["inherited_carries"][0].clone();
+        second_carry["prior"] = serde_json::to_value(&second).unwrap();
+        carry_context["inherited_carries"]
+            .as_array_mut()
+            .unwrap()
+            .push(second_carry);
+        let mut repair = batch(&instance, "UTC", cfg.now_ms + 2, owner.events);
+        repair
+            .checkpoints
+            .push(llm_usage_core::ingest::CheckpointUpdate {
+                scope_key: "child".into(),
+                cursor_value: child.cursor,
+                parse_context: Some(carry_context),
+                source_revision: None,
+            });
+        llm_usage_core::ingest::commit_batch(&storage, &repair, None).unwrap();
+        let totals = summary(&storage, "2026-10-01", "2026-10-31").totals;
+        assert_eq!(
+            (totals.call_count, totals.conflict_count),
+            (1, i64::from(contradictory)),
+            "{contradictory}"
+        );
+        let row: (String, String, Option<i64>) = storage
+            .conn()
+            .query_row(
+                "SELECT session_id,parser_version,output_total FROM usage_events",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .unwrap();
+        assert_eq!(
+            row,
+            (
+                "owner".into(),
+                llm_usage_core::adapters::codex::rollout_v1::CODEX_PARSER_VERSION.into(),
+                Some(72),
+            ),
+            "{contradictory}"
         );
     }
 }

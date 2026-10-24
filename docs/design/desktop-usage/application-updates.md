@@ -191,7 +191,7 @@ Retrieved on 2026-10-08:
   replacing files and keeping originals.
 - [ReplaceFileW](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-replacefilew):
   same-volume replacement/backup, preserved attributes and partial-failure states.
-- Repository `desktop/scripts/portable.mjs`, NSIS template pinned to tauri-cli-v2.12.0,
+- Repository `desktop/scripts/portable.mjs`, NSIS template pinned to tauri-cli-v2.12.4,
   and `.github/workflows/ci.yml`; live v0.2.2 release metadata verified all seven package
   sizes and SHA-256 digests.
 

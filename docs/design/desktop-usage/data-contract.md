@@ -458,6 +458,19 @@ to `codex-rollout-6`. Preserve first observation, real conflicts and all diagnos
 pending candidates across bounded scans and recompute both affected unsealed days transactionally.
 Missing source evidence cannot clear a conflict. See the [repair record](../../validation/desktop-usage/release-033.md).
 
+From the first conflict, retain every Codex candidate and a completeness marker in the same
+transaction. Conflicts recorded before complete candidate tracking are monotonically
+`legacy_unknown`; later candidates cannot erase that uncertainty. Replay candidates from older
+to newer parsers and retain conflict evidence during corrections and parser upgrades. Exact
+inherited-carry summaries and native responses can both lack a source revision; distinguish them
+by their complete summaries. Compare full carry-normalized native digests, blocking replay
+shortcuts for an unmatched or contradictory native candidate. Replayed parser metadata may retain
+or advance a numeric Codex parser version, never regress it. A complete set containing only
+resolvable ownership conflicts may clear its flag after correction. Any real differing candidate
+preserves the conflict. `legacy_unknown` permits the proven ownership repair but retains the
+conflict and an `inherited_compaction_conflict_unresolved` diagnostic. Candidates, events,
+cursors and affected summaries roll back together.
+
 OpenCode v2 uses its independent [projection rules](opencode-runtime.md); shared field names do
 not inherit v1 semantics or version certification.
 

@@ -107,7 +107,7 @@ fn event(
         return None;
     }
     if let Some(fork) = row.get("forkedFrom") {
-        if text(fork, "sessionId").map_or(true, |owner| owner == session)
+        if text(fork, "sessionId").is_none_or(|owner| owner == session)
             || text(fork, "messageUuid") != Some(uuid)
         {
             diagnostics.push(diag("ownership_unverified", "forkedFrom", line));
@@ -263,7 +263,7 @@ pub fn scan(
     let replay = target.rescan
         || saved
             .as_ref()
-            .map_or(true, |c| c.parser_version != PARSER_VERSION);
+            .is_none_or(|c| c.parser_version != PARSER_VERSION);
     let mut context = if replay {
         Context::default()
     } else {

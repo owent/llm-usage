@@ -23,7 +23,7 @@ fn event(instance: &str, i: u64, day: i64, model: &str, first_ms: i64) -> EventI
         parse_basis: None,
         origin_call_id: None,
         attempt_id: None,
-        session_id: Some(if i % 5 == 0 {
+        session_id: Some(if i.is_multiple_of(5) {
             format!("large-{}", i % 2)
         } else {
             format!("sess-{}", i / 64)

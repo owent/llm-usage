@@ -56,7 +56,7 @@ with Chinese counterparts maintained alongside them.
 
 ## Common commands
 
-Use Node.js 22+ (24 in current CI) and Rust (1.99.0, selected by `rust-toolchain.toml`). The Astro site requires Node 22.12+.
+Use Node.js 22+ (24 in current CI) and Rust (1.99.1, selected by `rust-toolchain.toml`). The Astro site requires Node 22.23.4+.
 Run commands from the repository root:
 
 ```powershell
@@ -87,7 +87,7 @@ npm run test:docs:browser # Production-site browser checks.
 ```
 
 Alternatively, `pnpm install --frozen-lockfile` restores the root and desktop workspace
-using the pinned pnpm 12.10.1. The same commands support `pnpm run`; keep both npm locks
+using the pinned pnpm 12.15.0. The same commands support `pnpm run`; keep both npm locks
 and the shared pnpm lock synchronized when changing dependencies.
 
 `test:browser` starts and stops its own Vite server and writes screenshots to `build/browser-smoke/`.

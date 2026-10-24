@@ -2,14 +2,16 @@
 
 <a id="最新实施与验收"></a>
 
-Latest full application round: 2026-10-07, version 0.2.1; portable draft publication:
+Latest release preparation: 2026-10-25, version 0.3.5; local unified/documentation checks passed.
+Latest maintenance round: 2026-10-24, version 0.3.4. Latest full application round:
+2026-10-07, version 0.2.1; portable draft publication:
 2026-10-08, version 0.2.2. This is a result index; active
 scope/removed conditions are in [Plan](../../../Plan.md), criteria in
 [V01–V31](../../design/desktop-usage/validation.md). Detailed records retain complete
 commands/counts/environments/first failures/recovery; this page does not repeat every stage.
 
 Local environment: Windows 11 Pro x64 10.0.26300, Ryzen 9 9950X3D, about 125 GiB RAM;
-Node 24.21.0, Rust 1.98, Tauri CLI 2.12.0, WebView2 154.0.4258.53, locked dependencies.
+Node 24.21.0, Rust 1.99.1, Tauri CLI 2.12.4, WebView2 155.0.4283.62, locked dependencies.
 Linux uses isolated rootless Podman on WSL/Debian. CI runners/commits are recorded separately.
 
 <a id="当前结果"></a>
@@ -18,6 +20,8 @@ Linux uses isolated rootless Podman on WSL/Debian. CI runners/commits are record
 
 | Check | Verified result | Record and scope |
 | --- | --- | --- |
+| 0.3.5 release preparation | All version sources/locks agree; Kimi K3.1 Pro/Highspeed prices and old-DB imports verified; 1,127 Rust, 20 script, 32 frontend and 41 documentation tests passed | [Release preparation](release-035.md), [Kimi pricing](kimi-k31-pricing.md); remote packaging and public release completion are separate from local checks |
+| 0.3.4 dependency and source maintenance | Compatible dependencies with TypeScript 6.0.3; zero npm/pnpm audit findings; 25 new official price rows; 1,123 Rust tests and 27 native GUI checks; nine real sources extracted with idempotent rescans | [2026-10-24 record](maintenance-2026-10-24.md); OpenAI 30m/12h cache writes remain unpriced; two empty sources and 30 without roots have no new real-format acceptance; not all 41 native sources or other platforms are verified |
 | 0.3.3 source and conflict repairs | Three false Codex inherited-compaction conflicts corrected in a consistent old-DB copy without changing existing usage; OpenCode 2.0.32 native projections import seven calls without repeats; valid compatible reads need no warning, missing-file wording states observed path absence | [0.3.3 checks](release-033.md); native storage, synthetic boundaries and UI checks are separate from Provider/API, installed upgrade and release acceptance |
 | Chart wheel selection | Overview/trend wheel input preserves range/highlight/query counts and still scrolls the page; point/drag/keyboard/cost-slider selection passes | [2026-10-12 checks](dashboard-polish.md#wheel-selection-repair-2026-10-12); Edge with synthetic IPC, frontend types/22 UI tests/build pass; no native GUI or release check |
 | 0.3.2 compatibility repairs | Four Codex and 27 Kilo versions checked individually; creation fingerprints no longer reset large-file reads repeatedly; 493 Codex files/one Kilo database recover in an independent old-DB copy without changing prior usage; ten-locale OTel wording, local checks, Windows build and 11 headless checks pass; all 12 tag CI jobs pass, 13 assets are verified and Release-triggered documentation refresh passes | [0.3.2 checks](release-032.md); unknown versions keep compatibility notices; public Release ID 409806776; no additional local native GUI, installer lifecycle or installed-client upgrade acceptance |

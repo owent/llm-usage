@@ -147,7 +147,7 @@ NSIS 更新使用已有 `/UPDATE /P` 模式和原安装目录，安装器处理�
   替换文件并保留原件。
 - [ReplaceFileW](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-replacefilew)：
   同卷替换与备份、保留属性及部分失败状态。
-- 仓库 `desktop/scripts/portable.mjs`、固定到 tauri-cli-v2.12.0 的 NSIS 模板和
+- 仓库 `desktop/scripts/portable.mjs`、固定到 tauri-cli-v2.12.4 的 NSIS 模板和
   `.github/workflows/ci.yml`；已读取实际 v0.2.2 发行元数据，核对七个包的大小和 SHA-256。
 
 2026-10-09 补充核对：

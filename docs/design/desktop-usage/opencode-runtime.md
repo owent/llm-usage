@@ -89,6 +89,13 @@ last page, begin another cycle so earlier mutable IDs are revisited without assu
 timestamps. Large sources require multiple scans; changes behind the position appear next cycle.
 The cursor and contributions commit together. Keep previous errors through partial cycles;
 replace them only when every row has been revisited. A successful empty page cannot erase errors.
+Validate SQLite column types per row. Invalid ID, owner, kind, sequence or revision types produce
+row diagnostics without aborting other valid messages or trapping pagination. Advance a stable
+typed-ID cursor past malformed non-null IDs; exclude null IDs with a visible diagnostic. A complete
+valid cycle may then replace those retained errors. Skip non-finite IDs only after a diagnostic
+encounter. Saved cycle-completion state preserves that exclusion when a bounded page contains
+only such an ID; it cannot repeatedly reset the first page. A fresh cycle checks it again.
+Contexts written before this state retain the old initial-cycle behavior.
 
 The adapter parser upgrade reevaluates old unsupported registrations through normal discovery,
 including parent-directory manual roots. Keep v1 and other products' readers separate. Valid

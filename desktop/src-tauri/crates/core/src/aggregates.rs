@@ -152,7 +152,7 @@ pub(crate) fn upsert_source_aggregate_with_prior_hashes_tx(
 ) -> Result<bool, CoreError> {
     input.validate()?;
     if let Some(floor) = crate::retention::hard_retention_floor(tx)? {
-        if input.interval_start_ms.map_or(true, |start| start < floor)
+        if input.interval_start_ms.is_none_or(|start| start < floor)
             || input.interval_end_ms < floor
         {
             return Ok(false);

@@ -69,14 +69,14 @@ impl Default for StagingLimits {
 }
 
 pub(crate) fn open_readonly(path: &Path) -> Result<Connection, rusqlite::Error> {
-    let conn = Connection::open_with_flags(
+    let mut conn = Connection::open_with_flags(
         path,
         OpenFlags::SQLITE_OPEN_READ_ONLY
             | OpenFlags::SQLITE_OPEN_NO_MUTEX
             | OpenFlags::SQLITE_OPEN_URI,
     )?;
     conn.busy_timeout(Duration::from_millis(150))?;
-    crate::adapters::run_policy::install_sqlite_control(&conn)?;
+    crate::adapters::run_policy::install_sqlite_control(&mut conn)?;
     Ok(conn)
 }
 

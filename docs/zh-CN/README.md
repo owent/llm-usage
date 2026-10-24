@@ -1,6 +1,6 @@
 # llm-usage
 
-[![status](https://img.shields.io/badge/status-Pre--Alpha-orange)](Plan.md)
+[![status](https://img.shields.io/badge/status-Pre--Alpha-orange)](../../Plan.md)
 [![release](https://img.shields.io/github/v/release/owent/llm-usage)](https://github.com/owent/llm-usage/releases/latest)
 [![CI](https://github.com/owent/llm-usage/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/owent/llm-usage/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-blue)](../../LICENSE)
@@ -14,7 +14,7 @@
 
 LLM Usage 是 AI 用量看板，统计各模型的 token、请求和缓存使用。
 目前处于预发布阶段，已实现总览、趋势、详情、数据源和设置。
-支持完整标准化明细导入/Merge，以及默认关闭的日/月 token 或单币种估算用量和费用提醒。
+支持完整标准化明细导入/Merge，以及默认关闭的日/月 token 或单币种估算费用提醒。
 
 [下载最新 Release](https://github.com/owent/llm-usage/releases/latest)，选择适合 Windows、Linux 或 macOS
 的 x64、arm64 软件包。便携包使用 `.tar.zst`，同时提供 Windows x64 安装器。
@@ -33,11 +33,11 @@ LLM Usage 是 AI 用量看板，统计各模型的 token、请求和缓存使用
 
 ## 文档
 
-Astro/Starlight 文档站包含用户与开发指南、来源说明和验证依据。文档默认英文，首页按
+Astro/Starlight 文档站包含用户与开发指南、设计规范和验证记录。文档默认英文，首页按
 受支持浏览器语言选择并保存明确选择，支持浅色和深色主题。仓库文档和源码注释使用英文，
 中文对应版本同步维护。
 
-- [执行计划](Plan.md)：当前结果、执行范围与移出条件。
+- [执行计划](../../Plan.md)：当前结果、执行范围与移出条件。
 - [开工准备](docs/design/desktop-usage/implementation-readiness.md)：已确认范围、真实数据验证流程与检查结论。
 - [详细设计](docs/design/desktop-usage/README.md)：架构、统计规则、Agent 接入、配置与测试。
 - [调研依据](docs/design/desktop-usage/research.md)：官方资料、固定源码和原型静态核对。
@@ -46,15 +46,15 @@ Astro/Starlight 文档站包含用户与开发指南、来源说明和验证依�
 - [应用图标与静态资源](desktop/assets/README.md)：Usage U 设计、预览、重新生成与 Git LFS 约定。
 - 已有 [previous-draft](previous-draft/README.md) 作为参考，未进行运行验收。
 
-- 共享规则：[AGENTS.md](AGENTS.md)。
-- 维护流程与按需资源：[Skills](.agents/skills/README.md)。
+- 共享规则：[AGENTS.md](../../AGENTS.md)。
+- 维护流程与按需资源：[Skills](../../.agents/skills/README.md)。
 
 <a id="common-commands"></a>
 
 ## 常用命令
 
-使用 Node.js 22+（当前 CI 使用 24）与 Rust 1.99.0（由 `rust-toolchain.toml` 选择）。
-Astro 文档站要求 Node 22.12+。在仓库根直接执行：
+使用 Node.js 22+（当前 CI 使用 24）与 Rust 1.99.1（由 `rust-toolchain.toml` 选择）。
+Astro 文档站要求 Node 22.23.4+。在仓库根直接执行：
 
 ```powershell
 git lfs install --local  # 为当前克隆启用 LFS（首次）
@@ -83,7 +83,7 @@ npm run test:docs       # 文档行为回归
 npm run test:docs:browser # 生产站点浏览器检查
 ```
 
-也可以执行 `pnpm install --frozen-lockfile`，通过固定的 pnpm 12.10.1 恢复根目录和 desktop 工作区。
+也可以执行 `pnpm install --frozen-lockfile`，通过固定的 pnpm 12.15.0 恢复根目录和 desktop 工作区。
 同一组命令也支持 `pnpm run`；更改依赖时同步维护两个 npm 锁文件和共享的 pnpm 锁文件。
 
 `test:browser` 单独执行，会启动并关闭临时 Vite 服务；截图写入 `build/browser-smoke/`。
@@ -103,4 +103,4 @@ Windows 后台提取默认关闭，设置页可启用当前用户的分钟任务
 
 图片（含 SVG）、字体、媒体及二进制文件使用 Git LFS；首次构建前须下载实际资源。
 重新生成图标：`npm run assets:generate`。资源预览页：
-`npm run dev:web` 后打开 `http://127.0.0.1:1421/asset-preview.html`。
+`npm run dev:web` 后打开 `http://127.0.0.1:1421/asset-preview.html`。文档输出目录为 `build/documentation-site/dist/`。

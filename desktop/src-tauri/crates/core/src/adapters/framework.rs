@@ -428,7 +428,9 @@ pub fn upsert_source_instance(
             || old["supported_versions"] != input.capabilities["supported_versions"]
     }) {
         tx.execute(
-            "DELETE FROM ingestion_checkpoints WHERE instance_id=?1",
+            "DELETE FROM ingestion_checkpoints WHERE instance_id=?1
+             AND scope_key NOT LIKE 'codex-carry-candidate:%'
+             AND scope_key NOT LIKE 'codex-carry-provenance:%'",
             [&input.instance_id],
         )?;
         tx.execute(

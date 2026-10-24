@@ -52,7 +52,7 @@ to disable background intent/pending requests. Create/migrate no database; retai
 settings, usage and schema. Verify task absence after deletion. Reinstallation does not
 automatically restore background consent.
 
-The NSIS template is pinned to official tauri-cli-v2.12.0 and retains its MIT license.
+The NSIS template is pinned to official tauri-cli-v2.12.4 and retains its MIT license.
 The only body change replaces the default Run deletion without path verification with
 this installation's ownership-checking cleanup command. Tool upgrades require reviewing
 template differences. PREUNINSTALL calls --uninstall-cleanup only for standalone

@@ -1,6 +1,6 @@
 {
   "name": "llm-usage",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "private": true,
   "description": "Doc tooling and root command entry for the llm-usage repository; the desktop app keeps its own manifest under desktop/.",
   "scripts": {
@@ -41,11 +41,12 @@
     "verify": "npm run lint:md && npm run assets:check && npm run test:scripts && npm run test:ui && npm run check && npm run fmt:check && npm run clippy && npm run test:rust && npm run build:web"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.10",
-    "@astrojs/starlight": "^0.42.6",
-    "astro": "^7.3.8",
+    "@astrojs/check": "^0.9.12",
+    "@astrojs/starlight": "^0.42.7",
+    "astro": "^7.4.2",
     "github-slugger": "^2.0.0",
-    "markdownlint-cli2": "^0.23.3",
+    "katex": "^0.19.1",
+    "markdownlint-cli2": "^0.24.0",
     "remark-gfm": "^4.0.1",
     "remark-parse": "^11.0.0",
     "typescript": "^6.0.3",
@@ -53,5 +54,8 @@
     "unist-util-visit": "^5.1.0",
     "yaml": "^2.9.1"
   },
-  "packageManager": "pnpm@12.10.1"
+  "overrides": {
+    "katex": "^0.19.1"
+  },
+  "packageManager": "pnpm@12.15.0"
 }

@@ -110,12 +110,12 @@ pub fn scan(
 ) -> Result<ScanOutcome, CoreError> {
     // Open read-only without a staging copy; busy_timeout bounds waits for contention.
     // Connection/read failures leave previously stored results intact through the framework.
-    let conn = Connection::open_with_flags(
+    let mut conn = Connection::open_with_flags(
         &target.path,
         OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
     )
     .map_err(CoreError::Sqlite)?;
-    crate::adapters::run_policy::install_sqlite_control(&conn)?;
+    crate::adapters::run_policy::install_sqlite_control(&mut conn)?;
     conn.busy_timeout(Duration::from_millis(150))
         .map_err(CoreError::Sqlite)?;
     let columns: Vec<String> = {

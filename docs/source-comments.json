@@ -28,7 +28,7 @@
       ]
     },
     ".github/workflows/ci.yml": {
-      "codeHash": "6df15d22cacdf30b1c8630e7c32a875d6f8d62ca6722cca57a69c6a60ce0f774",
+      "codeHash": "9a0be7ea9811c24d4591fa441d9336ac19286efce68016db31a100eef7854cfe",
       "comments": [
         {
           "id": "de393e7c2ad7dd27",
@@ -224,7 +224,7 @@
       ]
     },
     "desktop/src-tauri/Cargo.toml": {
-      "codeHash": "4da534986eef607893abc5b038dc0a7e80506b32b699688ab66306d1c39244c8",
+      "codeHash": "226783b37b1b428ea406e7154e2d29f467e3a9b55b3db26b81c4f8a2a1a7512a",
       "comments": [
         {
           "id": "6b9f8559a21a75a8",
@@ -264,7 +264,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/Cargo.toml": {
-      "codeHash": "6e20feb33b8baa35f8cde23babde98a3630600abc3aaefd30ea8f7b6fda10074",
+      "codeHash": "308a79868d91ab6fa9d6116ab7b24eaea4f5d3ba4518ed747891e9d679d191fa",
       "comments": [
         {
           "id": "e82798efdbcdcbfa",
@@ -283,7 +283,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/examples/bench_v20.rs": {
-      "codeHash": "25ff188fae0a8c3eb5b9bc72f2305ce7620d20a7a05b51264a2ba8d655c6314b",
+      "codeHash": "c5802457e6440ba242000244005cd64ce0e8387ab0942daefd96c5eacad61b8a",
       "comments": [
         {
           "id": "324b334babefc86d",
@@ -770,7 +770,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/examples/real_verify_copilot.rs": {
-      "codeHash": "6112209c9135491181027f42d062dcf55a360ed449ea97655f5e18861db83962",
+      "codeHash": "7339f70f208960b59ef8fcc12e4158aa80c703c212e5afb049663051c10a7aa1",
       "comments": [
         {
           "id": "483350ce401fd2fc",
@@ -809,14 +809,14 @@
         },
         {
           "id": "0ef38ee6637aa3d5",
-          "line": 44,
+          "line": 55,
           "kind": "line",
           "en": "// Do not print instance_id: it contains local paths excluded by the output rules above.",
           "zh": "// 不打印 instance_id：它含本机路径，不在上述允许输出字段中。"
         },
         {
           "id": "3fc1e9ee6d7549b0",
-          "line": 86,
+          "line": 88,
           "kind": "line",
           "en": "// Repeated scans add no duplicates.",
           "zh": "// 重复扫描不重复入库。"
@@ -2700,7 +2700,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/antigravity/versions/gen_metadata_v1.rs": {
-      "codeHash": "397bb62fad18a8f3fbb9d81c60986c155bd24e92b04e7126bb29f9dde7b20d1c",
+      "codeHash": "e6359bcf30ccce47f8f73e1bb8128722818083684cab987123ce82b37855f8f0",
       "comments": [
         {
           "id": "ac4eb5cbaca527ed",
@@ -3252,7 +3252,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/atomcode/versions/meta_turns_v1.rs": {
-      "codeHash": "e50c2f84cfead797044947b488b332ad9958e2bad80a2a17faefeb6f682d617f",
+      "codeHash": "26f07ee4928e4cd115baa2b8c4908056bb7f766a6b16e66c4af8c7e22b8df6a5",
       "comments": [
         {
           "id": "c06e8fce9837a045",
@@ -8906,7 +8906,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/copilot/common.rs": {
-      "codeHash": "bd52c3cf24e70e188703e70435e17745a76a4d2a9699ce107e52602c05d8e2a2",
+      "codeHash": "0e7ca402b820be2d02c380a9641ff9af392466d2164c2ad92caad7e348f5d275",
       "comments": [
         {
           "id": "37052cb22864d749",
@@ -9568,7 +9568,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/crush/common.rs": {
-      "codeHash": "d6427d787c0ef22887c39971e1158c141fd8e455ccd0fc96cadf92dfc51c0284",
+      "codeHash": "b7cdf9e56f54d04a7939a23f47c19a185ffd47606e7cabba9fc2296caadbfcbb",
       "comments": [
         {
           "id": "f8e5a03d0d926d95",
@@ -10512,7 +10512,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/dsh/mod.rs": {
-      "codeHash": "e809c98ae229075fc44d1f6240111bad890a59f7a5e0743466014fe5ca10e73d",
+      "codeHash": "7d04028b58320ba71ad73ea8271a6fbdca66490998b71cf90e7198ddcdf4d365",
       "comments": [
         {
           "id": "90d1d6475e2088e5",
@@ -11206,7 +11206,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/dsh/versions/session_v4.rs": {
-      "codeHash": "2087ef913a0f77bf0a447e14811794bccfcd91c89c42cc060e79954be7708e95",
+      "codeHash": "3e1fcc66bd5e2c414fe62b9b1a0d76fa5f2e7f2491a0c6fa4c5019fd411492b8",
       "comments": [
         {
           "id": "661d0fae52a58206",
@@ -11253,7 +11253,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/framework.rs": {
-      "codeHash": "f52d8704c91273198ca6f1e9ecc188145737de7edca8fd1c6afffa1b76997d41",
+      "codeHash": "bf0436d52ec903bbea87b3edb4eea9f3d5feec8c8a13ca30ae78838173dd4202",
       "comments": [
         {
           "id": "e7ed0434fb68aedc",
@@ -11852,315 +11852,315 @@
         },
         {
           "id": "d5501b8a7fc5f8b0",
-          "line": 482,
+          "line": 484,
           "kind": "line",
           "en": "/// source_files row used for registration, rename and replacement detection.",
           "zh": "/// source_files 行（注册与改名/替换探测用）。"
         },
         {
           "id": "e513c31ec2060186",
-          "line": 495,
+          "line": 497,
           "kind": "line",
           "en": "/// Detection JSON: native version, selected format/parser, selection basis and compatibility (v3 column).",
           "zh": "/// 探测结论（JSON）：原始版本、所选格式/parser、选择依据、兼容状态（v3 列）。"
         },
         {
           "id": "9e1174405efdba21",
-          "line": 562,
+          "line": 564,
           "kind": "line",
           "en": "/// Find by file identity: a supported rename preserves the content stream while changing its path.",
           "zh": "/// 按文件身份查找（改名探测：内容流身份稳定，路径可变）。"
         },
         {
           "id": "693e154d17823b5e",
-          "line": 625,
+          "line": 627,
           "kind": "line",
           "en": "/// Load cursor and parse context from the checkpoint.",
           "zh": "/// 读取检查点（游标 + 解析上下文）。"
         },
         {
           "id": "584604079c93f0ad",
-          "line": 649,
+          "line": 651,
           "kind": "line",
           "en": "/// Build StoredFileState from source_files for file-continuity checks.",
           "zh": "/// 由 source_files 行构造 StoredFileState，供文件续读检查使用。"
         },
         {
           "id": "844db40db194471b",
-          "line": 662,
+          "line": 664,
           "kind": "line",
           "en": "/// Configuration for one collection run.",
           "zh": "/// 一次源采集运行的配置。"
         },
         {
           "id": "dc51b09d0053d22d",
-          "line": 669,
+          "line": 671,
           "kind": "line",
           "en": "/// Run/batch ID prefix, with the instance sequence appended.",
           "zh": "/// 运行/批次 ID 前缀；实际 ID 追加实例序号。"
         },
         {
           "id": "9c9454ca8afe00c7",
-          "line": 671,
+          "line": 673,
           "kind": "line",
           "en": "/// Local source-host ID (M1a); None denotes legacy_unknown ownership.",
           "zh": "/// 采集归属的本机来源主机 ID（M1a）；None 表示未区分（legacy_unknown）。"
         },
         {
           "id": "d8110350cfef1779",
-          "line": 672,
+          "line": 674,
           "kind": "line",
           "en": "/// The application obtains it through Storage::ensure_local_host.",
           "zh": "/// 由应用层经 `Storage::ensure_local_host` 取得后传入。"
         },
         {
           "id": "79a62671e2001727",
-          "line": 676,
+          "line": 678,
           "kind": "line",
           "en": "/// Per-file run report.",
           "zh": "/// 逐文件运行报告。"
         },
         {
           "id": "3c74d866fe60a096",
-          "line": 688,
+          "line": 690,
           "kind": "line",
           "en": "/// Per-instance run report.",
           "zh": "/// 逐实例运行报告。"
         },
         {
           "id": "6fbb96a9f3446074",
-          "line": 701,
+          "line": 703,
           "kind": "line",
           "en": "/// Discover and detect/scan each file, then commit the instance in one transaction (V12).",
           "zh": "/// 运行一个适配器：发现 → 逐文件探测/扫描 → 单事务提交（V12 语义）。"
         },
         {
           "id": "976c1bfdde487496",
-          "line": 702,
+          "line": 704,
           "kind": "line",
           "en": "/// Return instance reports; isolate file failures and mark an unsuccessful instance commit failed.",
           "zh": "/// 返回逐实例报告；单文件失败不中断其他文件，实例提交失败标 failed。"
         },
         {
           "id": "8bbaad48b4ab22d3",
-          "line": 712,
+          "line": 714,
           "kind": "line",
           "en": "/// Instance filters support source schedules: custom-scheduled sources use their own triggers,",
           "zh": "/// 实例过滤（逐源定时：自定义计划的来源只按自身节奏触发，"
         },
         {
           "id": "f888952000f96b42",
-          "line": 713,
+          "line": 715,
           "kind": "line",
           "en": "/// global refresh excludes them, and due-source refresh includes only due instances.",
           "zh": "/// 全局刷新排除它们；到期刷新只包含到期实例）。"
         },
         {
           "id": "3140da4f38f3d036",
-          "line": 716,
+          "line": 718,
           "kind": "line",
           "en": "/// Include these instances only; None imposes no inclusion filter.",
           "zh": "/// 仅这些实例参与（None = 不限）。"
         },
         {
           "id": "c789c6a9f9c80d61",
-          "line": 718,
+          "line": 720,
           "kind": "line",
           "en": "/// Skip these instances; None imposes no exclusion filter.",
           "zh": "/// 这些实例跳过（None = 不排除）。"
         },
         {
           "id": "048e42168dbe22d2",
-          "line": 738,
+          "line": 740,
           "kind": "line",
           "en": "/// Filtered run_adapter_scan for source scheduling.",
           "zh": "/// 带实例过滤的运行（run_adapter_scan 的过滤版；逐源定时接线用）。"
         },
         {
           "id": "5f26167d6c4054ad",
-          "line": 739,
+          "line": 741,
           "kind": "line",
           "en": "/// Check source_instances.enabled before reading from any trigger:",
           "zh": "/// 读取前检查 source_instances.enabled，所有触发方式均遵循该设置："
         },
         {
           "id": "abf4fb547ade849d",
-          "line": 740,
+          "line": 742,
           "kind": "line",
           "en": "/// Interval, Startup, Manual or FixedTime. Read only enabled local sources,",
           "zh": "/// Interval、Startup、Manual 和 FixedTime 仅读取已启用的本地来源。"
         },
         {
           "id": "15eb7375e57a7184",
-          "line": 741,
+          "line": 743,
           "kind": "line",
           "en": "/// preserving set_source_enabled behavior after an instance is disabled.",
           "zh": "/// 保持 set_source_enabled 的行为，实例停用后不再读取。"
         },
         {
           "id": "e0b49ef56b24a6ad",
-          "line": 742,
+          "line": 744,
           "kind": "line",
           "en": "/// If disabled-instance loading fails, stop this adapter before reading sources.",
           "zh": "/// 停用集加载失败时本适配器 fail-closed（宁可不扫，不越权读取）。"
         },
         {
           "id": "484b660b1b61f503",
-          "line": 796,
+          "line": 798,
           "kind": "line",
           "en": "/// Keep source parsing outside the writer lock; metadata and commits use it.",
           "zh": "/// 解析来源文件时不持有写入锁；元数据处理和提交使用该锁。"
         },
         {
           "id": "f3fa767c7b31f833",
-          "line": 868,
+          "line": 870,
           "kind": "line",
           "en": "/// Two source-instance slots, one existing writer; results retain request/root order.",
           "zh": "/// 两个来源实例可并行解析，共用现有写入器；结果保留请求和根目录顺序。"
         },
         {
           "id": "175e462dc31a22e2",
-          "line": 963,
+          "line": 965,
           "kind": "line",
           "en": "// A worker panic may leave a running job; normal Storage recovery handles it.",
           "zh": "// 工作线程 panic 可能留下运行中的任务；由 Storage 的常规恢复处理。"
         },
         {
           "id": "199054fc86dbcaf7",
-          "line": 1016,
+          "line": 1018,
           "kind": "line",
           "en": "/// Metadata and commits share the existing writer; source parsing holds no writer lock.",
           "zh": "/// 元数据处理和提交共用现有写入器；来源解析不持有写入锁。"
         },
         {
           "id": "cae6d76672a75006",
-          "line": 1038,
+          "line": 1040,
           "kind": "line",
           "en": "// Deduplicate environment/default/manual roots; normalize Windows case aliases first.",
           "zh": "// 根去重（环境覆盖/默认/手工可能指向同一目录；Windows 大小写别名先归一）。"
         },
         {
           "id": "d21394a0a2e0e5ef",
-          "line": 1069,
+          "line": 1071,
           "kind": "line",
           "en": "// Archive adapters use an empty file list and perform their own detection.",
           "zh": "// 归档适配器使用空文件列表，自行完成格式探测。"
         },
         {
           "id": "bac97781806969ca",
-          "line": 1148,
+          "line": 1150,
           "kind": "line",
           "en": "// A merged request performed no scan here; do not report it as completed.",
           "zh": "// 本次未执行扫描；不能把合并请求报告为已成功完成。"
         },
         {
           "id": "5dde7288e8077ed8",
-          "line": 1198,
+          "line": 1200,
           "kind": "line",
           "en": "// Preparation failures and cancellation finish the run just",
           "zh": "// 准备失败和取消均应结束本次运行，"
         },
         {
           "id": "57b3ae77e44f2296",
-          "line": 1199,
+          "line": 1201,
           "kind": "line",
           "en": "// like archive failures, without leaving a running job behind.",
           "zh": "// 与归档失败一致，避免留下运行中的任务。"
         },
         {
           "id": "438624318f5ed045",
-          "line": 1383,
+          "line": 1385,
           "kind": "line",
           "en": "// Skip commits when no file changed; unchanged scans do not advance the data revision.",
           "zh": "// 无任何文件变化时跳过提交（无变化扫描不推进修订号）。"
         },
         {
           "id": "fabc00fa613e0cb1",
-          "line": 1401,
+          "line": 1403,
           "kind": "line",
           "en": "// Commit native aggregates with events and cursors; any failure permits a complete replay.",
           "zh": "// 原生汇总与事件、游标一起提交；任一失败均可完整重放。"
         },
         {
           "id": "089e13456a9d10f0",
-          "line": 1479,
+          "line": 1481,
           "kind": "line",
           "en": "/// Register one file, check continuity, detect when needed, scan and collect batch results.",
           "zh": "/// 注册单个文件、检查续读状态，按需探测后增量读取并收集批次结果。"
         },
         {
           "id": "40c68af8f54b4c9a",
-          "line": 1480,
+          "line": 1482,
           "kind": "line",
           "en": "/// Return the file report and whether an actual read occurred.",
           "zh": "/// 返回（文件报告， 是否发生了实际读取）。"
         },
         {
           "id": "3ee4c9451471341c",
-          "line": 1528,
+          "line": 1530,
           "kind": "line",
           "en": "// After a path miss, check file identity; renaming the same stream does not create a new file.",
           "zh": "// 注册/改名探测：路径未命中时按身份命中（同一内容流改名不算新文件）。"
         },
         {
           "id": "02528c8dd91c4214",
-          "line": 1563,
+          "line": 1565,
           "kind": "line",
           "en": "// Skip unchanged files whose bytes are fully consumed and continuity is intact.",
           "zh": "// 文件字节已全部读取且续读状态连续时，跳过未变化文件。"
         },
         {
           "id": "9d0c2e91509c108c",
-          "line": 1585,
+          "line": 1587,
           "kind": "line",
           "en": "// Detect again on first scan/rescan; restrict verified incompatible versions and unknown formats (V17).",
           "zh": "// 首次或重扫时重新探测格式；已确认不兼容的版本与未知格式 fail closed（V17），"
         },
         {
           "id": "198b859d7d61f323",
-          "line": 1586,
+          "line": 1588,
           "kind": "line",
           "en": "// Unknown/missing versions use the latest registered Agent reader and retain compatibility metadata.",
           "zh": "// 未知/缺失版本按该 Agent 注册表选择最新内置解析器并带兼容标记。"
         },
         {
           "id": "616f191a375ddba7",
-          "line": 1734,
+          "line": 1736,
           "kind": "line",
           "en": "// File error isolation must not classify cancellation or another control stop as invalid data.",
           "zh": "// 文件错误隔离不能把取消或其他控制性停止判为数据错误。"
         },
         {
           "id": "54161423f8c8db7d",
-          "line": 1762,
+          "line": 1764,
           "kind": "line",
           "en": "// V30 fallback with structural diagnostics and no events/valid exclusive aggregate is incompatible.",
           "zh": "// 未知版本兼容尝试（V30）：无事件或独立有效累计行且带结构诊断 ⇒ 不兼容。"
         },
         {
           "id": "9f7386b606dcd1c5",
-          "line": 1763,
+          "line": 1765,
           "kind": "line",
           "en": "// Duplicate/OverlapUnknown reconciliation snapshots do not establish valid usage, such as old Codex without calls.",
           "zh": "// Duplicate/OverlapUnknown 对账快照不能替代有效的用量记录，如缺少逐次记录的旧 Codex。"
         },
         {
           "id": "07e4d297d19a4f7b",
-          "line": 1764,
+          "line": 1766,
           "kind": "line",
           "en": "// Keep prior results without new cursors/aggregates; retry after a parser update or explicit rescan.",
           "zh": "// 保留旧结果、不提交事件/游标/聚合；下轮解析器更新或显式重扫可重新尝试。"
         },
         {
           "id": "9422581303f5f5e3",
-          "line": 1857,
+          "line": 1859,
           "kind": "line",
           "en": "/// Detection JSON in source_files.format_status (v3): selected metadata fields, without message content.",
           "zh": "/// source_files.format_status（v3）的探测 JSON，仅含选定元数据，不含正文。"
         },
         {
           "id": "8c2e0b42d3403f51",
-          "line": 1884,
+          "line": 1886,
           "kind": "line",
           "en": "/// File-stream identity: creation time and sampled prefix fingerprint/length, independent of path.",
           "zh": "/// 文件内容流身份：创建时间 + 首采样指纹（追加稳定，不依赖路径）。"
@@ -13258,7 +13258,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/goose/common.rs": {
-      "codeHash": "71333ced93f95f10b0a4893a8b17f2eb708886a5a5a93a2a87efbf2882c43921",
+      "codeHash": "a1d6d6399565372b74007967148dce898d719f63bfe68b0e9b7c862496bbe2b2",
       "comments": [
         {
           "id": "f0d68d33110988f0",
@@ -14248,7 +14248,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/hermes/common.rs": {
-      "codeHash": "d76b1ec9af17b5a4197d0d36bf92a60f6ecc03e23dd1faff7fa2c63f5c9c4eb1",
+      "codeHash": "8d03b92b288d1bc14948d173e814757e6d3ea52be6b60565ce57414f157d4987",
       "comments": [
         {
           "id": "14805871abda1442",
@@ -16740,7 +16740,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/kilo/common.rs": {
-      "codeHash": "fe92ef1eac270bc8b44d8220535b255cffbb720b662441dbede4d9cf39dd778f",
+      "codeHash": "af23b420cc8a722bfec8da3d42c223bac9c1b0b74a435449e9e0ac4983789aa3",
       "comments": [
         {
           "id": "0b2f444fc393d9a9",
@@ -18053,7 +18053,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/kimi_wire.rs": {
-      "codeHash": "7fbf60f2e9c92c7fa7e4e10cf069e53a48ecd2876efc9c461932efc5c76ac4d2",
+      "codeHash": "3a0e49c5b2e8f37b75eaa2662d16f2f32b1c35e10a0f895477a2da95f8e32934",
       "comments": [
         {
           "id": "978f0dd9b9f0ed0d",
@@ -18364,295 +18364,309 @@
           "zh": "/// 实读已观测、明确不产事件的记录类型（静默忽略；清单外类型一次性诊断）。"
         },
         {
-          "id": "dd5244da774a15fc",
-          "line": 107,
-          "kind": "line",
-          "en": "/// Covers the union of observed types across 82 native protocol-1.5/1.4 wire.jsonl files.",
-          "zh": "/// 覆盖本机 82 个 wire.jsonl 的全部观测类型（1.5 + 1.4 并集）。"
-        },
-        {
           "id": "704802210ba8b896",
-          "line": 109,
+          "line": 108,
           "kind": "line",
           "en": "// Lifecycle/control records.",
-          "zh": "// 生命周期/控制"
+          "zh": "/// Kimi Code 2.3.1 对应提交 684bae9ea6a437f3bae98bba1dcb797a917d500b 中的协议 1.5 清单"
         },
         {
           "id": "e33cef776a7c6280",
-          "line": 134,
+          "line": 133,
           "kind": "line",
           "en": "// Child-agent lifecycle; completed snapshots have separate non-event handling.",
-          "zh": "// 子代理生命周期（completed 单独处理：快照不产事件）"
+          "zh": "/// 确认这些持久状态/控制记录仅适用于该产品/版本；状态字段和累计字段不属于逐次调用用量。"
         },
         {
           "id": "97faae79d6cc9c9c",
-          "line": 139,
+          "line": 138,
           "kind": "line",
           "en": "// Context/compaction control records.",
-          "zh": "// 上下文/压缩控制"
+          "zh": "/// 其他产品、协议版本和回退读取保留诊断。"
         },
         {
           "id": "78ad72a5c6731a95",
-          "line": 147,
+          "line": 146,
           "kind": "line",
           "en": "// Request/tool snapshots; llm.request has no stable key linking it to usage.record, so do not combine them.",
-          "zh": "// 请求/工具快照（llm.request 与 usage.record 无稳定关联键，不并账）"
+          "zh": "// 生命周期/控制"
         },
         {
           "id": "2dc96c01bb230b7e",
-          "line": 154,
+          "line": 153,
           "kind": "line",
           "en": "// token_counting describes estimated/cumulative context; exclude it from per-call usage.",
-          "zh": "// token_counting 是上下文估算/累计表（非逐次 usage），计入会造成计算错误"
+          "zh": "// 子代理生命周期（completed 单独处理：快照不产事件）"
         },
         {
           "id": "740bc221a7f4ee63",
-          "line": 159,
+          "line": 158,
           "kind": "line",
           "en": "// File history and miscellaneous records.",
+          "zh": "// 上下文/压缩控制"
+        },
+        {
+          "id": "b0e989e76bbb555a",
+          "line": 163,
+          "kind": "line",
+          "en": "/// The protocol-1.5 manifest at Kimi Code 2.3.1 commit 684bae9ea6a437f3bae98bba1dcb797a917d500b",
+          "zh": "// 请求/工具快照（llm.request 与 usage.record 无稳定关联键，不并账）"
+        },
+        {
+          "id": "9e0a64f52b0f794d",
+          "line": 164,
+          "kind": "line",
+          "en": "/// confirms these durable state/control records only for that product/version; state and cumulative",
+          "zh": "// token_counting 是上下文估算/累计表（非逐次 usage），计入会造成计算错误"
+        },
+        {
+          "id": "e700a9322ae5182a",
+          "line": 165,
+          "kind": "line",
+          "en": "/// fields are not per-call usage. Other products, protocol versions and fallbacks retain diagnostics.",
           "zh": "// 文件历史/杂项"
         },
         {
           "id": "98704c9dafd56530",
-          "line": 164,
+          "line": 190,
           "kind": "line",
           "en": "/// Shared first-line metadata detection result for detect and scan.",
           "zh": "/// metadata 首行探测结果（家族共享；detect 与 scan 共用）。"
         },
         {
           "id": "da080225615987bb",
-          "line": 170,
+          "line": 196,
           "kind": "line",
           "en": "/// First-line result: Pending without a complete line; Metadata with an identified header;",
           "zh": "/// 首行探测结论：Pending（无完整行）/ Metadata（身份确认）/ NotMetadata"
         },
         {
           "id": "07105ea4085ab289",
-          "line": 171,
+          "line": 197,
           "kind": "line",
           "en": "/// NotMetadata with a rejection reason. I/O failures return Err.",
           "zh": "/// （fail closed 原因）。IO 错误走 `Err`。"
         },
         {
           "id": "6f53f0bd176c8168",
-          "line": 179,
+          "line": 205,
           "kind": "line",
           "en": "/// Bounded first-line read identifying the family's metadata fingerprint.",
           "zh": "/// 有界读取首行并按家族指纹识别 metadata 头。"
         },
         {
           "id": "b3c6a806099f3031",
-          "line": 201,
+          "line": 227,
           "kind": "line",
           "en": "// Observed protocol versions 1.4/1.5 are strings; other types become None for registry fallback.",
           "zh": "// 实读 1.4/1.5 均为字符串；非字符串形态按 None 处理（走注册表回退语义）。"
         },
         {
           "id": "bb26096666420c35",
-          "line": 209,
+          "line": 235,
           "kind": "line",
           "en": "/// Persist counters, reconciliation totals, and one-time diagnostics across incremental rounds.",
           "zh": "/// 持久化解析上下文（跨增量轮次的计数、对账累计与一次性诊断标志）。"
         },
         {
           "id": "ad4ed5e4edb7a6e8",
-          "line": 214,
+          "line": 240,
           "kind": "line",
           "en": "/// Increment the event-key sequence for same-millisecond repeats within one file; none were locally observed.",
           "zh": "/// 事件键序号状态：同毫秒冲突时递增（本机实读未观测到冲突）。"
         },
         {
           "id": "ecebb302cbe0df42",
-          "line": 218,
+          "line": 244,
           "kind": "line",
           "en": "/// Saturating i64 reconciliation totals; repeated values do not contribute to usage.",
           "zh": "/// 对账累计（i64 饱和；回声侧只用于对账不用于计账）。"
         },
         {
           "id": "c63f5fffc6390d21",
-          "line": 219,
+          "line": 245,
           "kind": "line",
           "en": "/// Sum only turn-scope records: session-scope compaction has no corresponding repeated usage.",
           "zh": "/// 记录侧只累计 **turn scope**：session scope（压缩摘要）无回声"
         },
         {
           "id": "2340e7117fb0d4da",
-          "line": 220,
+          "line": 246,
           "kind": "line",
           "en": "/// Native 1.4 had 1329 repeats for 1329 turn records and no repeats for 8 session records.",
           "zh": "/// （实读 1.4：1329 回声 == 1329 turn 记录；session 8 条全无回声）。"
         },
         {
           "id": "0c6957f8c69431b1",
-          "line": 271,
+          "line": 297,
           "kind": "line",
           "en": "/// Check plausible epoch milliseconds; diagnose out-of-range times without converting seconds.",
           "zh": "/// epoch 毫秒合理性（实读全为毫秒；越界记诊断，不换算秒值）。"
         },
         {
           "id": "4286cdc1ea241783",
-          "line": 276,
+          "line": 302,
           "kind": "line",
           "en": "/// Parse four exclusive usage fields; missing/invalid/negative/excessive values return None for caller diagnostics.",
           "zh": "/// 解析 usage 四互斥字段；缺失/类型错误/负值/超限返回 None（调用方记诊断跳过）。"
         },
         {
           "id": "00a9e842f039522d",
-          "line": 301,
+          "line": 327,
           "kind": "line",
           "en": "/// Derive identity from …/<session>/agents/<agent>/wire.jsonl:",
           "zh": "/// 由文件路径推导会话/代理身份：`…/<session>/agents/<agent>/wire.jsonl`"
         },
         {
           "id": "9c1c841e2ea3d68f",
-          "line": 302,
+          "line": 328,
           "kind": "line",
           "en": "/// agent is the parent directory; session is the parent of the agents directory.",
           "zh": "/// （agent = 父目录名；session = 再上一层的 agents 目录的父目录名）。"
         },
         {
           "id": "2e1aa44a6f8a8ade",
-          "line": 303,
+          "line": 329,
           "kind": "line",
           "en": "/// Kimi Work 1.4 usage.record has no agentId; obtain identity from directories.",
           "zh": "/// Kimi Work 1.4 的 usage.record 无 agentId 字段，身份只能来自目录。"
         },
         {
           "id": "0817588c62783041",
-          "line": 320,
+          "line": 346,
           "kind": "line",
           "en": "/// Build a shared usage.record event; identity and calculation references are in the module documentation.",
           "zh": "/// 构造一条 usage.record 事件（家族共享；身份与计算规则的依据见模块头）。"
         },
         {
           "id": "7da3c8a3b06c07d9",
-          "line": 337,
+          "line": 363,
           "kind": "line",
           "en": "// Stable identity: namespace + session directory + agent + record time + same-millisecond sequence.",
           "zh": "// 稳定身份：ns + 会话目录 + 代理 + 记录侧 time + 同毫秒序号"
         },
         {
           "id": "3cad083bc815515b",
-          "line": 338,
+          "line": 364,
           "kind": "line",
           "en": "// usage.record lacks uuid/messageId. Keep session/agent because Kimi Work had two pairs",
           "zh": "// （usage.record 无 uuid/messageId）。session/agent 段必需：本机 Kimi Work"
         },
         {
           "id": "347d2cbd07fd42c8",
-          "line": 339,
+          "line": 365,
           "kind": "line",
           "en": "// of child/main usage.record completions sharing a millisecond across files;",
           "zh": "// 实测存在**跨文件同毫秒**的 usage.record（swarm 并行子代理与主线同毫秒"
         },
         {
           "id": "4f8e034ea5e14d73",
-          "line": 340,
+          "line": 366,
           "kind": "line",
           "en": "// time+sequence alone would collide across those files and lose events during conflict handling.",
           "zh": "// 完成 2 对），仅靠 time+序号会跨文件撞键（conflict 丢事件）。"
         },
         {
           "id": "c60fc4096759636c",
-          "line": 390,
+          "line": 416,
           "kind": "line",
           "en": "/// Shared incremental scan called by kimi-code and kimi-work version implementations.",
           "zh": "/// 家族共享增量扫描（kimi-code / kimi-work 的版本实现统一委托到这里）。"
         },
         {
           "id": "790c836603ae983a",
-          "line": 448,
+          "line": 474,
           "kind": "line",
           "en": "// Product-supplied version registry shared by detection and scanning.",
           "zh": "// 版本分派（探测/扫描同一注册表，由产品目录注入）。"
         },
         {
           "id": "32b5ac1a1fa1b97e",
-          "line": 493,
+          "line": 519,
           "kind": "line",
           "en": "// Deterministic same-millisecond sequence remains stable on rescans.",
           "zh": "// 同毫秒序号（重扫稳定的确定性身份）。"
         },
         {
           "id": "8091084b2341a60d",
-          "line": 524,
+          "line": 550,
           "kind": "line",
           "en": "// session scope identifies auxiliary compaction calls in native samples;",
           "zh": "// 实际样本中 session scope 是压缩摘要辅助调用；"
         },
         {
           "id": "2a2ced1ba2bff7fd",
-          "line": 525,
+          "line": 551,
           "kind": "line",
           "en": "// turn scope uses agent identity: an agent other than main is sub_agent.",
           "zh": "// turn scope 按代理身份：非 main 目录 = sub_agent。"
         },
         {
           "id": "78c2f210f2c4834a",
-          "line": 561,
+          "line": 587,
           "kind": "line",
           "en": "// step.end event.usage repeats usage.record; count usage.record only:",
           "zh": "// step.end 的 event.usage 是 usage.record 的回声（防双计二选一）："
         },
         {
           "id": "72e4c3bbd0a805e9",
-          "line": 562,
+          "line": 588,
           "kind": "line",
           "en": "// retain repeated totals for reconciliation without creating events.",
           "zh": "// 只累计对账，不产事件。"
         },
         {
           "id": "cdb439d921f1bc4f",
-          "line": 575,
+          "line": 601,
           "kind": "line",
           "en": "// The main-wire snapshot matched child-wire sums through completed.time in M0/local checks.",
           "zh": "// 主线快照：等于子代理 wire 截至 completed.time 的 Σ（M0 + 本机复证）。"
         },
         {
           "id": "7b95c6c30633b467",
-          "line": 576,
+          "line": 602,
           "kind": "line",
           "en": "// Child-wire calls count independently; retain only a completed-snapshot count for reconciliation notes.",
           "zh": "// 子代理 wire 已逐次入账 ⇒ 不产事件；仅计数供对账说明。"
         },
         {
           "id": "f3864866f35d69ef",
-          "line": 619,
+          "line": 650,
           "kind": "line",
           "en": "// Reconcile repeated totals only at end-of-file, avoiding comparisons against a partial read.",
           "zh": "// 回声对账只在读到文件尾时进行（文件仍在增长时半程对账无意义）。"
         },
         {
           "id": "678fe44c3af5479f",
-          "line": 622,
+          "line": 653,
           "kind": "line",
           "en": "// Sum turn records; repeated usage is a subset because interrupted steps can lack it (observed 958/960).",
           "zh": "// 记录侧 = turn scope Σ；回声 ⊆ turn 记录（打断步无回声，实读 958/960）："
         },
         {
           "id": "748e234c815d5c52",
-          "line": 623,
+          "line": 654,
           "kind": "line",
           "en": "// A positive difference describes that subset; repeated totals exceeding records signal a possible format change.",
           "zh": "// 差值>0 是信息性子集关系；回声超过记录侧才是异常（格式变化信号）。"
         },
         {
           "id": "8b36a88da1548e17",
-          "line": 650,
+          "line": 681,
           "kind": "line",
           "en": "// Main-wire subagent.completed details live in another child wire file/instance;",
           "zh": "// 主线 subagent.completed 快照：明细在子代理自己的 wire（另一文件/实例），"
         },
         {
           "id": "091e5686a062fc87",
-          "line": 651,
+          "line": 682,
           "kind": "line",
           "en": "// retain the count and no_detail_in_file without inventing a comparison.",
           "zh": "// 本文件无对账明细侧——如实报告计数与 no_detail_in_file，不伪造比较。"
         },
         {
           "id": "bad56654a1279cad",
-          "line": 665,
+          "line": 696,
           "kind": "line",
           "en": "// Files without usage, such as error-only steps, remain valid; do not degrade health or insert zero usage.",
           "zh": "// 无 usage 记录的文件是正常形态（如仅 error 步的 wire）：不降级、不补零。"
@@ -20141,7 +20155,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/kiro/versions/sqlite_v1.rs": {
-      "codeHash": "85c7fa2a8e133e01931857c091687fa6e16152f12de7f8d7ef85019154b8a3b6",
+      "codeHash": "f2b0849d7d22aef17bcb0bb43f92515667650a7392829c962dd7e747fbf444ff",
       "comments": [
         {
           "id": "b11d2791c38fa715",
@@ -20419,7 +20433,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/mimo-code/common.rs": {
-      "codeHash": "f92cc57909f405654e067c10815955f31085931f1f7d815354e0b24d97b44ccb",
+      "codeHash": "34f430dcd84cef84cea11f19a960eae880825f5a6a5c0e9449d6f051f7cdbab8",
       "comments": [
         {
           "id": "a40f37a393349d2e",
@@ -22191,7 +22205,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/openclaw/common.rs": {
-      "codeHash": "3452bc0ee5712d0d47653cd9b11b1f2205475c3b8e2b331b58c7e215241a563e",
+      "codeHash": "f5a3dc330d3a2cbaee83ed67781e61222cd0e2cc8213fc4f73b2f16b987f1b09",
       "comments": [
         {
           "id": "360e2b065e4eb5f0",
@@ -22421,7 +22435,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/openclaw/versions/runtime_store.rs": {
-      "codeHash": "5b14b9574190aadbf50805e5c29f61e26222791d2d9fe2ac36710bebf5782637",
+      "codeHash": "b5e80bed1a8a3fa457c1a86021dbaa660be2f2559e242095faa5c46bb576b7fc",
       "comments": [
         {
           "id": "283535be1a600597",
@@ -23257,7 +23271,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/opencode/common.rs": {
-      "codeHash": "c2429ee5f458423b8df74e3761fa5750841477f2e33bd949b0dcd41161b05a3f",
+      "codeHash": "f6a0f63d7227d911b99de393c3efcbae82ddf38156705c706db0d8d2561f2049",
       "comments": [
         {
           "id": "dff5e871174c0ab5",
@@ -23928,7 +23942,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/opencode/versions/session_messages_v2.rs": {
-      "codeHash": "bf58eabe877682d5856a76adf334d66ab543192cb4062ca68aa0d96f2f168336",
+      "codeHash": "928b8c638bfd1f295acb06fb087f6470542eaac1b3cd34b689f40b31cd631e84",
       "comments": [
         {
           "id": "2a7cf6293cc2f5d2",
@@ -23967,70 +23981,70 @@
         },
         {
           "id": "33f5b005c3a4c394",
-          "line": 94,
+          "line": 130,
           "kind": "line",
           "en": "/// SessionUsage.tokens supplies zero for absent/invalid provider components.",
           "zh": "/// SessionUsage.tokens 将缺失或无效的供应商分量设为零。"
         },
         {
           "id": "d8a411ae5b4757ef",
-          "line": 95,
+          "line": 131,
           "kind": "line",
           "en": "/// Positive visible output proves the upstream subtraction was not clamped, so",
           "zh": "/// 正文输出为正证明上游减法未被截断，因此"
         },
         {
           "id": "0a9c169a3e622b32",
-          "line": 96,
+          "line": 132,
           "kind": "line",
           "en": "/// visible + reasoning recovers inclusive output even without a reasoning breakdown.",
           "zh": "/// 即使缺少推理拆分，正文加推理仍可恢复含推理输出。"
         },
         {
           "id": "7440729c3d1e3df9",
-          "line": 97,
+          "line": 133,
           "kind": "line",
           "en": "/// Zero visible output cannot distinguish absent output from a clamped contradiction.",
           "zh": "/// 正文输出为零无法区分输出缺失与矛盾值被截断。"
         },
         {
           "id": "f39562c9de62d053",
-          "line": 158,
+          "line": 194,
           "kind": "line",
           "en": "/// Revisit the full projection in bounded ID pages. Updated earlier IDs are read",
           "zh": "/// 按 ID 有界分页重新访问完整投影；前面 ID 的更新"
         },
         {
           "id": "acfdfa9950891244",
-          "line": 159,
+          "line": 195,
           "kind": "line",
           "en": "/// in the next cycle; timestamps need no uniqueness assumption or overlap heuristic.",
           "zh": "/// 在下一轮读取；无需假设时间戳唯一或估计重叠窗口。"
         },
         {
           "id": "3efaa8fc558e8386",
-          "line": 160,
+          "line": 196,
           "kind": "line",
           "en": "/// Complete-cycle health replaces old errors only after every row was visited.",
           "zh": "/// 只有整轮访问了每一行，才用本轮健康结果替换旧错误。"
         },
         {
           "id": "5faed417afe6f5d3",
-          "line": 188,
+          "line": 238,
           "kind": "line",
           "en": "// Extract only usage/identity/time metadata; message bodies never leave SQLite.",
           "zh": "// 仅提取用量、身份和时间元数据；消息正文不离开 SQLite。"
         },
         {
           "id": "58facc1e412bfbaa",
-          "line": 302,
+          "line": 407,
           "kind": "line",
           "en": "// Failed requests may finish without returned usage; calls still count.",
           "zh": "// 失败请求可能完成但未返回用量；仍计调用次数。"
         },
         {
           "id": "9066cdf978a7948d",
-          "line": 330,
+          "line": 435,
           "kind": "line",
           "en": "// Compaction.spend adds all attempts into one projection; it has no per-call count.",
           "zh": "// Compaction.spend 将所有尝试累计到同一投影，不提供逐次调用数。"
@@ -25724,7 +25738,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/qoder/detect.rs": {
-      "codeHash": "049648294a88e5b1614603be23759e241ddf028d8a5bb79fe2b4cfe0aff1be02",
+      "codeHash": "969b9d4bff1c1eaf2b0b2cbbb64bf215b925ce3dca670253e5acd74c4447d91e",
       "comments": [
         {
           "id": "44192f73ec64ce49",
@@ -25735,56 +25749,56 @@
         },
         {
           "id": "0754323ab6351587",
-          "line": 54,
+          "line": 106,
           "kind": "line",
           "en": "// Do not cache interrupted/unstable reads or retain the cache lock during source I/O.",
           "zh": "// 不缓存中断或不稳定的读取；来源 I/O 期间不持有缓存锁。"
         },
         {
           "id": "83040868ee587ff3",
-          "line": 92,
+          "line": 164,
           "kind": "line",
           "en": "// User/tool content may precede the first identifying assistant. Inspect complete",
           "zh": "// 用户或工具内容可能位于首条可识别的 assistant 之前。检查完整行，"
         },
         {
           "id": "41368e153599448b",
-          "line": 93,
+          "line": 165,
           "kind": "line",
           "en": "// lines within the normal 32 MiB window, retaining at most one 8 MiB line.",
           "zh": "// 遵循普通的 32 MiB 窗口，每次最多保留一条 8 MiB 的行。"
         },
         {
           "id": "ad4e87e086ca8bf4",
-          "line": 142,
+          "line": 219,
           "kind": "line",
           "en": "// Temporary lock/timeout/removal after enumeration is Pending; retry detection next run.",
           "zh": "// 临时锁定、超时或枚举后被清理记为 Pending，下轮重新探测。"
         },
         {
           "id": "7447683d081586cd",
-          "line": 151,
+          "line": 228,
           "kind": "line",
           "en": "// Recognize JSONL sessions or state.json objects as Qoder session files,",
           "zh": "// 将 JSONL 会话或 state.json 对象识别为 Qoder 会话文件，"
         },
         {
           "id": "430764255ba01f51",
-          "line": 152,
+          "line": 229,
           "kind": "line",
           "en": "// and let the scanner validate each native CLI record independently.",
           "zh": "// 由扫描器独立校验每条原生 CLI 记录。"
         },
         {
           "id": "11e166bab127b195",
-          "line": 153,
+          "line": 230,
           "kind": "line",
           "en": "// A session_id substring match also requires an opening brace; otherwise unrelated",
           "zh": "// session_id 子串匹配还须以左花括号开头，否则其他来源中"
         },
         {
           "id": "da74866216dd510e",
-          "line": 154,
+          "line": 231,
           "kind": "line",
           "en": "// files containing \"session_id\" could be incorrectly claimed.",
           "zh": "// 包含 \"session_id\" 的文件可能被错误认领。"
@@ -25912,7 +25926,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/qoder/versions/transcript_v1.rs": {
-      "codeHash": "76bff1ad522f41941b799849ccdd2a15dd4f91fa4a4ea8126f0c3eb06faa63fe",
+      "codeHash": "257494c5d12a291c759947ca6e36c35e60f0d7415ec5344b5d12adb99372daab",
       "comments": [
         {
           "id": "33a9fd6a1ef9f6f2",
@@ -27446,7 +27460,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/run_policy.rs": {
-      "codeHash": "1e7be4d115a47bf1fd53dfc53a2f6a3a91a4952030e655d2add64ad98a39d7ec",
+      "codeHash": "f979c26dc04718db554bbe87122327017f0cba5714cf627a4033cea404aa2bef",
       "comments": [
         {
           "id": "4558519a9065fed2",
@@ -27457,35 +27471,35 @@
         },
         {
           "id": "e33c752a37b805a6",
-          "line": 25,
+          "line": 33,
           "kind": "line",
           "en": "/// Nest source/file deadlines without carrying control into the next worker job.",
           "zh": "/// 嵌套来源和文件截止时间，不将控制状态带入下一工作任务。"
         },
         {
           "id": "132993a875716b5b",
-          "line": 64,
+          "line": 73,
           "kind": "line",
           "en": "// Do not hold the thread-local borrow while invoking a callback.",
           "zh": "// 调用回调时不持有线程局部状态的借用。"
         },
         {
           "id": "f93b209efeb2dc95",
-          "line": 99,
+          "line": 115,
           "kind": "line",
           "en": "// Read::read_to_end automatically retries ErrorKind::Interrupted. Use a",
           "zh": "// Read::read_to_end 自动重试 ErrorKind::Interrupted，因此使用"
         },
         {
           "id": "94036efd9f5d75ba",
-          "line": 100,
+          "line": 116,
           "kind": "line",
           "en": "// typed Other error so cancellation returns instead of spinning forever.",
           "zh": "// 带具体类型的 Other 错误，让取消直接返回，避免无限循环。"
         },
         {
           "id": "5a5b3be084b4a333",
-          "line": 158,
+          "line": 174,
           "kind": "line",
           "en": "/// Only for this app's archive/maintenance connection under its writer lock.",
           "zh": "/// 仅用于持有写入锁的本应用归档或维护连接。"
@@ -29019,7 +29033,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/zcode/db_backfill.rs": {
-      "codeHash": "68cac03379cb0ef905505dbe8170a376f7ad88f90ace0fb38c48eaf7797190ac",
+      "codeHash": "a31fb32d12cff0b633734765711b20af442a88f5dea91c8635d6d4e35e09596f",
       "comments": [
         {
           "id": "bbc507e09c288ec0",
@@ -29253,7 +29267,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/zcode/mod.rs": {
-      "codeHash": "19571fe92020ab89a953b7a9a762d2d4580e61b88974ac526ae872edcce208c9",
+      "codeHash": "66ff277d85fdabf3b6c42a8805f8ce19427a79595b04c9e43c7e33d0461e66f6",
       "comments": [
         {
           "id": "be48f92515e9b2c0",
@@ -29424,11 +29438,11 @@
           "zh": "/// `turn_usage` 逐轮聚合（438 行），computed_total_tokens 可对账；"
         },
         {
-          "id": "3d1505d22829a4f5",
+          "id": "55f11f3fb3c0f757",
           "line": 294,
           "kind": "line",
-          "en": "/// All 16/16 M0 sample turns matched; live snapshots have some unfinished/cancelled-turn differences.",
-          "zh": "/// M0 样本 16/16 轮相等；活库快照上少量在途/取消轮存在差异，"
+          "en": "/// All 16/16 M0 sample turns matched; live snapshots can differ even for completed or cancelled turns.",
+          "zh": "/// M0 样本的 16/16 个轮次全部匹配；即使轮次已完成或已取消，活库快照也可能存在差异。"
         },
         {
           "id": "d4ef9b880686f46a",
@@ -29445,11 +29459,11 @@
           "zh": "/// 比较 model_usage 合计与 turn_usage.computed_total_tokens 后归类为 matched 的轮数。"
         },
         {
-          "id": "f00ec51ef561eca3",
+          "id": "75f1eaf526d33552",
           "line": 303,
           "kind": "line",
-          "en": "/// Turns with a present model sum differing from the turn total; live snapshots include unfinished/cancelled turns.",
-          "zh": "/// 有 model_usage 行但合计不等的轮数（活库快照下含在途/取消轮）。"
+          "en": "/// Turns with a present model sum differing from the turn total; live snapshots include completed and cancelled turns.",
+          "zh": "/// 模型合计存在但与轮次总计不等的轮数；活库快照包括已完成和已取消的轮次。"
         },
         {
           "id": "b1744c6bd381a852",
@@ -30143,7 +30157,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/zed/common.rs": {
-      "codeHash": "61f58d4a1af802b13bacaea7e166427f78254b6ddb9c36d3677530d7cde83dee",
+      "codeHash": "8489a6b8c86c3ecf8ae9630d43afb9275470ef45c4010895c1cd073079bf425e",
       "comments": [
         {
           "id": "e97bffc1e9227f02",
@@ -32363,7 +32377,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/aggregates.rs": {
-      "codeHash": "41a9d28a06ea3d766cbc975aaa7be6fe80167c486c3b5ede6f2633aefa240210",
+      "codeHash": "22e35faa72b548ebca0eeb14ec7563dacffa49b5cd0601584cd83f37cf6caa6f",
       "comments": [
         {
           "id": "4e6398b88d6727b1",
@@ -32889,7 +32903,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/cancellation.rs": {
-      "codeHash": "2bd7c01b351ec736897af0259ef51aa9ebb694c02958a8854e3a14e417487ee3",
+      "codeHash": "4433023d291d3cbf56119dd683447f0577ecae9f465161f04240fe82ec47a43d",
       "comments": [
         {
           "id": "855e59285bb90eca",
@@ -32900,7 +32914,7 @@
         },
         {
           "id": "359fe10e7bc65779",
-          "line": 40,
+          "line": 107,
           "kind": "line",
           "en": "/// Once this succeeds, cancellation cannot claim to undo the transaction.",
           "zh": "/// 此操作成功后，取消请求不能再撤销该事务。"
@@ -34313,7 +34327,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/ingest.rs": {
-      "codeHash": "f32f37bae466f02b1bc01c4c3bfa12c4e76bce067203f82ecbc40574499814ab",
+      "codeHash": "eb85186e724f2ab0dd3968e4b0f6fdf0817f59ba66310a8ea7d9153c64b3082b",
       "comments": [
         {
           "id": "7c022cf5ea79dd1b",
@@ -34421,764 +34435,757 @@
           "zh": "// 新字段不持久化（等价历史行为）。正常运行总是先迁移到 SCHEMA_VERSION。"
         },
         {
+          "id": "667b635cc1cb9a1b",
+          "line": 183,
+          "kind": "line",
+          "en": "// Existing conflicts predate complete candidate recording unless a provenance marker says otherwise.",
+          "zh": "// 既有冲突产生于完整候选记录机制之前，除非来源标记另有说明。"
+        },
+        {
           "id": "422388dc021845b5",
-          "line": 199,
+          "line": 219,
           "kind": "line",
           "en": "// 1. Insert or update events.",
           "zh": "// 1. 事件 upsert。"
         },
         {
           "id": "a2ee82b18528c19f",
-          "line": 258,
+          "line": 283,
           "kind": "line",
           "en": "// The v1 content hash included observed_at; an observation-time change alone is duplicate content.",
           "zh": "// v1 的内容摘要包含 observed_at；仅观察时间改变仍视为同一内容。"
         },
         {
           "id": "2779dbefd5237790",
-          "line": 259,
+          "line": 284,
           "kind": "line",
           "en": "// Same-key final repeats differing only in occurrence/observation/native time are repeated reports, not conflicts.",
           "zh": "// 同键同内容的重复 final（仅发生/观察/源时间文本不同）是重报而非冲突，同样视为同一内容。"
         },
         {
           "id": "e1685d493a5d0a5e",
-          "line": 318,
+          "line": 369,
           "kind": "line",
           "en": "// Full prior hashes permit only parser-metadata changes; retain original time, usage and source revision.",
           "zh": "// 完整旧摘要只允许解析器依据变化；保留原时间、用量和源修订。"
         },
         {
           "id": "fe42a83803e412fd",
-          "line": 319,
+          "line": 370,
           "kind": "line",
           "en": "// Later metadata updates cannot clear a real conflict already observed in this batch.",
           "zh": "// 同批次已观测的实际冲突不能被后续的元数据更新清除。"
         },
         {
           "id": "c3597a6718166c27",
-          "line": 367,
+          "line": 418,
           "kind": "line",
           "en": "// Explicit source-correction policies compare the complete old hash.",
           "zh": "// 明确的来源修正规则比较完整旧摘要，"
         },
         {
           "id": "6f6542f1ceb8fc7c",
-          "line": 368,
+          "line": 419,
           "kind": "line",
           "en": "// Retain first observation, real conflict flags and all change history",
           "zh": "// 修正已核对字段时保留首次观察、真实冲突标记"
         },
         {
           "id": "2c0dad2466588034",
-          "line": 369,
+          "line": 420,
           "kind": "line",
           "en": "// while correcting only verified fields.",
           "zh": "// 和全部变更历史。"
         },
         {
-          "id": "88789431d28c704b",
-          "line": 443,
+          "id": "c8eaa20cea428b8f",
+          "line": 486,
           "kind": "line",
-          "en": "// Keep every distinct native candidate across bounded windows; a later",
-          "zh": "// 跨有界窗口保留每个不同的原生候选；之后匹配的继承快照"
-        },
-        {
-          "id": "983eb12ebcfa4782",
-          "line": 444,
-          "kind": "line",
-          "en": "// matching carry cannot erase an earlier contradictory native response.",
-          "zh": "// 不能抹去先前相互矛盾的原生响应。"
+          "en": "// Every conflicting native version remains available across bounded windows and parser upgrades.",
+          "zh": "// 所有相互冲突的原生候选都会跨有界窗口保留，并在解析器升级后仍然可用。"
         },
         {
           "id": "ac3bdef5ccf31e61",
-          "line": 450,
+          "line": 497,
           "kind": "line",
           "en": "// Keep the existing conflicting value rather than choose a larger one; diagnose and recompute its daily conflict count.",
           "zh": "// 不任意择大：保留现存，标 conflict 并记诊断；所在日重算以反映冲突计数。"
         },
         {
           "id": "5546cf564467cb42",
-          "line": 472,
+          "line": 519,
           "kind": "line",
           "en": "// Record mathematical contradictions as diagnostics instead of hiding them with max(0, ...).",
           "zh": "// 数学矛盾进入受限诊断（不用 max(0,…) 隐藏）。"
         },
         {
           "id": "89e36fbc15000c01",
-          "line": 491,
+          "line": 538,
           "kind": "line",
           "en": "// 2. Commit cursors and parse context together; separate stages make fault-injection points explicit.",
           "zh": "// 2. 游标与解析上下文（同事务；分两段以便故障点语义清晰）。"
         },
         {
           "id": "57060a1e8520c191",
-          "line": 527,
+          "line": 574,
           "kind": "line",
           "en": "// 3. Advance the data revision when days are affected; recomputed daily rows carry that revision.",
           "zh": "// 3. 有受影响日期时递增数据修订号；重算的日汇总携带该修订号。"
         },
         {
           "id": "ee64954ead7265dd",
-          "line": 536,
+          "line": 583,
           "kind": "line",
           "en": "// 4. Recompute affected timezone/day partitions without adding to sealed days; persist hours",
           "zh": "// 4. 受影响日按（时区, 日）分区重算；封存日不追加。小时分桶同事务持久化"
         },
         {
           "id": "07e2ab0d9f78b737",
-          "line": 537,
+          "line": 584,
           "kind": "line",
           "en": "// in the same transaction so hourly archives survive later deletion of details.",
           "zh": "//    （分级归档：明细删除后小时层仍有数据）。"
         },
         {
           "id": "05bcdf5d6368ca27",
-          "line": 546,
+          "line": 593,
           "kind": "line",
           "en": "// 5. Store redacted diagnostics.",
           "zh": "// 5. 诊断（脱敏）。"
         },
         {
           "id": "9265171a3b52c2c3",
-          "line": 556,
+          "line": 603,
           "kind": "line",
           "en": "// 6. Commit job progress in the same transaction.",
           "zh": "// 6. 作业进度同事务提交。"
         },
         {
           "id": "59f973de7110a9ba",
-          "line": 576,
+          "line": 623,
           "kind": "line",
           "en": "/// Read inherited ownership evidence from committed and pending bounded scan contexts.",
           "zh": "/// 从已提交及待提交的有界扫描上下文读取继承归属证据。"
         },
         {
           "id": "69f47d5be88748bc",
-          "line": 594,
+          "line": 641,
           "kind": "line",
           "en": "// Contexts from earlier bounded windows survive until the original thread is visited.",
           "zh": "// 保留早先有界窗口的上下文，直至访问到原始线程。"
         },
         {
-          "id": "8d8aa86919eb15e5",
-          "line": 654,
-          "kind": "line",
-          "en": "// Only native ownership/model/time and their parsing references may change.",
-          "zh": "// 仅允许原生归属、模型、时间及其解析依据发生变化。"
-        },
-        {
           "id": "cba7a6da46cb21fb",
-          "line": 670,
+          "line": 803,
           "kind": "line",
           "en": "/// Reconstruct the complete v2 parser-1 summary before correcting output coverage.",
           "zh": "/// 修正输出覆盖前，重建 v2 parser-1 的完整摘要。"
         },
         {
           "id": "d586fbbdc96650ac",
-          "line": 671,
+          "line": 804,
           "kind": "line",
           "en": "/// All other fields, source revisions, ownership and real conflicts remain authoritative.",
           "zh": "/// 其他字段、源修订、归属及真实冲突均继续作为依据。"
         },
         {
           "id": "79574c301d43e92c",
-          "line": 701,
+          "line": 849,
           "kind": "line",
           "en": "/// Only parser references can change after the complete previous digest matches.",
           "zh": "/// 完整旧摘要匹配后只允许变更解析器依据。"
         },
         {
           "id": "02738ff38f83e147",
-          "line": 709,
+          "line": 857,
           "kind": "line",
           "en": "// Match normal same-key final-repeat time handling; metadata updates still retain original timestamps.",
           "zh": "// 同键重复 final 的时间兼容与普通冲突处理一致；元数据更新仍保留原时间。"
         },
         {
           "id": "3a06d6db2dab6161",
-          "line": 726,
+          "line": 874,
           "kind": "line",
           "en": "/// Reconstruct the complete doc1 event for the verified native writer only.",
           "zh": "/// 仅为已核对的原生写入器重建完整 doc1 事件。"
         },
         {
           "id": "805d67f52a944fd5",
-          "line": 727,
+          "line": 875,
           "kind": "line",
           "en": "/// All positive counters, identity and attribution must still match the old hash.",
           "zh": "/// 所有正数计数、标识和归属仍须与旧摘要一致。"
         },
         {
           "id": "5fa0694b02627f9c",
-          "line": 777,
+          "line": 925,
           "kind": "line",
           "en": "/// Only the verified gajae v5/OpenAI-completions policy permits these v2",
           "zh": "/// 仅已核对的 gajae v5/OpenAI-completions 规则允许这些 v2"
         },
         {
           "id": "8c77beca501a3ec5",
-          "line": 778,
+          "line": 926,
           "kind": "line",
           "en": "/// unknown fields/start-time basis. Reconstruct every old field before comparing",
           "zh": "/// 未知字段和开始时间依据；重建每个旧字段后再比较"
         },
         {
           "id": "2ca1c91a94be81ad",
-          "line": 779,
+          "line": 927,
           "kind": "line",
           "en": "/// canonical or legacy full hashes; resolve unrelated content changes normally.",
           "zh": "/// 完整规范化或历史哈希，其他内容变化仍按常规规则处理。"
         },
         {
           "id": "4196d9b8a4cb91bd",
-          "line": 867,
+          "line": 1015,
           "kind": "line",
           "en": "/// Junie native uncached input and default-zero corrections compare at most 128",
           "zh": "/// Junie 原生非缓存输入及默认零修正最多比较 128 个候选。"
         },
         {
           "id": "a3584dd606e87545",
-          "line": 868,
+          "line": 1016,
           "kind": "line",
           "en": "/// candidates restoring only missing/default-zero fields from the old parser;",
           "zh": "/// 候选仅恢复旧解析器中缺失或默认零的字段；"
         },
         {
           "id": "a83e51ec099ce2e0",
-          "line": 869,
+          "line": 1017,
           "kind": "line",
           "en": "/// every other field must match its full canonical or legacy hash.",
           "zh": "/// 其他字段须与完整规范化或历史摘要一致。"
         },
         {
           "id": "1658d7a429391d35",
-          "line": 950,
+          "line": 1098,
           "kind": "line",
           "en": "/// MiMo required raw counters and client prices default to zero. Restore only those",
           "zh": "/// MiMo 必填原始计数和客户端价格默认为零，仅恢复这些"
         },
         {
           "id": "0d91619cfb12609d",
-          "line": 951,
+          "line": 1099,
           "kind": "line",
           "en": "/// absent/default fields and their old derived values; the complete prior hash",
           "zh": "/// 缺失或默认字段及旧派生值；完整旧摘要仍须保留"
         },
         {
           "id": "e61a52525c26259e",
-          "line": 952,
+          "line": 1100,
           "kind": "line",
           "en": "/// still preserves identity, every positive value, quality and attribution.",
           "zh": "/// 标识、所有正数、质量和归属。"
         },
         {
           "id": "87024e89b0273376",
-          "line": 986,
+          "line": 1134,
           "kind": "line",
           "en": "// The old parser required five raw counters. Reconstruct its complete summary;",
           "zh": "// 旧解析器要求五个原始计数；重建其完整"
         },
         {
           "id": "386dd921be927d7b",
-          "line": 987,
+          "line": 1135,
           "kind": "line",
           "en": "// an unchanged part ID alone cannot authorize a correction.",
           "zh": "// 摘要，不能仅凭未变化的 part ID 允许修正。"
         },
         {
           "id": "a1bd2fd1fc400481",
-          "line": 1292,
+          "line": 1440,
           "kind": "line",
           "en": "/// Shared INSERT/UPDATE parameter order; ?41 is conflict (INSERT uses literal zero).",
           "zh": "/// 与 INSERT/UPDATE 共用的参数顺序；?41 为 conflict（仅 INSERT 使用字面 0，占位一致），"
         },
         {
           "id": "9b11c6edbeeffcd1",
-          "line": 1293,
+          "line": 1441,
           "kind": "line",
           "en": "/// ?48 created_at_ms is used only by INSERT, not UPDATE.",
           "zh": "/// ?48 created_at_ms 仅 INSERT 有意义（UPDATE 不引用）。"
         },
         {
           "id": "970b180793129603",
-          "line": 1315,
+          "line": 1463,
           "kind": "line",
           "en": "// 1 event_id",
           "zh": "// 参数 1：event_id"
         },
         {
           "id": "f890d8dc0bef13ad",
-          "line": 1316,
+          "line": 1464,
           "kind": "line",
           "en": "// 2 source_instance_id",
           "zh": "// 参数 2：source_instance_id"
         },
         {
           "id": "0cfcb6a7fa19764f",
-          "line": 1317,
+          "line": 1465,
           "kind": "line",
           "en": "// 3 source_record_key",
           "zh": "// 参数 3：source_record_key"
         },
         {
           "id": "8c6c0154069dfbe0",
-          "line": 1318,
+          "line": 1466,
           "kind": "line",
           "en": "// 4 record_kind",
           "zh": "// 参数 4：record_kind"
         },
         {
           "id": "45e88cf15a9f8f80",
-          "line": 1319,
+          "line": 1467,
           "kind": "line",
           "en": "// 5 schema_version",
           "zh": "// 参数 5：schema_version"
         },
         {
           "id": "ac9462387463aaf3",
-          "line": 1320,
+          "line": 1468,
           "kind": "line",
           "en": "// 6 parser_version",
           "zh": "// 参数 6：parser_version"
         },
         {
           "id": "150fcf69745cbb21",
-          "line": 1321,
+          "line": 1469,
           "kind": "line",
           "en": "// 7 origin_call_id",
           "zh": "// 参数 7：origin_call_id"
         },
         {
           "id": "504a5f8190a04d3b",
-          "line": 1322,
+          "line": 1470,
           "kind": "line",
           "en": "// 8 attempt_id",
           "zh": "// 参数 8：attempt_id"
         },
         {
           "id": "70c80badeebf1402",
-          "line": 1323,
+          "line": 1471,
           "kind": "line",
           "en": "// 9 session_id",
           "zh": "// 参数 9：session_id"
         },
         {
           "id": "0458bd0dbeda2613",
-          "line": 1324,
+          "line": 1472,
           "kind": "line",
           "en": "// 10 parent_session_id",
           "zh": "// 参数 10：parent_session_id"
         },
         {
           "id": "d23c9e3d3e7d47ee",
-          "line": 1325,
+          "line": 1473,
           "kind": "line",
           "en": "// 11 host_application",
           "zh": "// 参数 11：host_application"
         },
         {
           "id": "5b0f0bc12644e042",
-          "line": 1326,
+          "line": 1474,
           "kind": "line",
           "en": "// 12 agent",
           "zh": "// 参数 12：agent"
         },
         {
           "id": "8becb9afbca940e2",
-          "line": 1327,
+          "line": 1475,
           "kind": "line",
           "en": "// 13 call_category",
           "zh": "// 参数 13：call_category"
         },
         {
           "id": "1d65e98083c289bc",
-          "line": 1328,
+          "line": 1476,
           "kind": "line",
           "en": "// 14 occurred_at_ms",
           "zh": "// 参数 14：occurred_at_ms"
         },
         {
           "id": "7dce218a08b21e47",
-          "line": 1329,
+          "line": 1477,
           "kind": "line",
           "en": "// 15 observed_at_ms",
           "zh": "// 参数 15：observed_at_ms"
         },
         {
           "id": "ed1fc8fbaff0156c",
-          "line": 1330,
+          "line": 1478,
           "kind": "line",
           "en": "// 16 source_time",
           "zh": "// 参数 16：source_time"
         },
         {
           "id": "70ba2ca607afe3dd",
-          "line": 1331,
+          "line": 1479,
           "kind": "line",
           "en": "// 17 time_basis",
           "zh": "// 参数 17：time_basis"
         },
         {
           "id": "331ba2ae986fe9b3",
-          "line": 1332,
+          "line": 1480,
           "kind": "line",
           "en": "// 18 interval_start_ms",
           "zh": "// 参数 18：interval_start_ms"
         },
         {
           "id": "90256a2bf3c047a5",
-          "line": 1333,
+          "line": 1481,
           "kind": "line",
           "en": "// 19 interval_end_ms",
           "zh": "// 参数 19：interval_end_ms"
         },
         {
           "id": "53a611103448532a",
-          "line": 1334,
+          "line": 1482,
           "kind": "line",
           "en": "// 20 provider_id",
           "zh": "// 参数 20：provider_id"
         },
         {
           "id": "e8506e57c225837b",
-          "line": 1335,
+          "line": 1483,
           "kind": "line",
           "en": "// 21 model_raw",
           "zh": "// 参数 21：model_raw"
         },
         {
           "id": "20a40b3197db4755",
-          "line": 1336,
+          "line": 1484,
           "kind": "line",
           "en": "// 22 model_canonical",
           "zh": "// 参数 22：model_canonical"
         },
         {
           "id": "f6037cf3f60d6965",
-          "line": 1337,
+          "line": 1485,
           "kind": "line",
           "en": "// 23 model_attribution",
           "zh": "// 参数 23：model_attribution"
         },
         {
           "id": "00d518e6b41c5acd",
-          "line": 1338,
+          "line": 1486,
           "kind": "line",
           "en": "// 24 input_uncached",
           "zh": "// 参数 24：input_uncached"
         },
         {
           "id": "da249aec0d958252",
-          "line": 1339,
+          "line": 1487,
           "kind": "line",
           "en": "// 25 input_cache_read",
           "zh": "// 参数 25：input_cache_read"
         },
         {
           "id": "22eeb0453f2ea3b1",
-          "line": 1340,
+          "line": 1488,
           "kind": "line",
           "en": "// 26 input_cache_write",
           "zh": "// 参数 26：input_cache_write"
         },
         {
           "id": "b60dbab28742a7c5",
-          "line": 1341,
+          "line": 1489,
           "kind": "line",
           "en": "// 27 input_total",
           "zh": "// 参数 27：input_total"
         },
         {
           "id": "32df47a4e8c7d763",
-          "line": 1342,
+          "line": 1490,
           "kind": "line",
           "en": "// 28 output_total",
           "zh": "// 参数 28：output_total"
         },
         {
           "id": "8c25f38d7b3618e6",
-          "line": 1343,
+          "line": 1491,
           "kind": "line",
           "en": "// 29 output_reasoning",
           "zh": "// 参数 29：output_reasoning"
         },
         {
           "id": "f6d3ca8d3cb5ea4c",
-          "line": 1344,
+          "line": 1492,
           "kind": "line",
           "en": "// 30 total_tokens",
           "zh": "// 参数 30：total_tokens"
         },
         {
           "id": "91cc6b69a44cdfc0",
-          "line": 1345,
+          "line": 1493,
           "kind": "line",
           "en": "// 31 source_total",
           "zh": "// 参数 31：source_total"
         },
         {
           "id": "443e6086e62d074e",
-          "line": 1346,
+          "line": 1494,
           "kind": "line",
           "en": "// 32 quality_json",
           "zh": "// 参数 32：quality_json"
         },
         {
           "id": "9a4db12ebd02702d",
-          "line": 1347,
+          "line": 1495,
           "kind": "line",
           "en": "// 33 quality_bucket",
           "zh": "// 参数 33：quality_bucket"
         },
         {
           "id": "1638dd2edb198fe7",
-          "line": 1348,
+          "line": 1496,
           "kind": "line",
           "en": "// 34 lifecycle",
           "zh": "// 参数 34：lifecycle"
         },
         {
           "id": "801b522c9a503f24",
-          "line": 1349,
+          "line": 1497,
           "kind": "line",
           "en": "// 35 source_revision",
           "zh": "// 参数 35：source_revision"
         },
         {
           "id": "c0913a222259fd4a",
-          "line": 1350,
+          "line": 1498,
           "kind": "line",
           "en": "// 36 error_status",
           "zh": "// 参数 36：error_status"
         },
         {
           "id": "33b9b99ef4fcac98",
-          "line": 1351,
+          "line": 1499,
           "kind": "line",
           "en": "// 37 duration_ms",
           "zh": "// 参数 37：duration_ms"
         },
         {
           "id": "2ff7bf4fe0c22cfb",
-          "line": 1352,
+          "line": 1500,
           "kind": "line",
           "en": "// 38 ttft_ms",
           "zh": "// 参数 38：ttft_ms"
         },
         {
           "id": "e813f7d1189f0432",
-          "line": 1353,
+          "line": 1501,
           "kind": "line",
           "en": "// 39 attribution_status",
           "zh": "// 参数 39：attribution_status"
         },
         {
           "id": "1ae6aa58442cf9ec",
-          "line": 1354,
+          "line": 1502,
           "kind": "line",
           "en": "// 40 exclusion_reason",
           "zh": "// 参数 40：exclusion_reason"
         },
         {
           "id": "028f83f0158d586b",
-          "line": 1355,
+          "line": 1503,
           "kind": "line",
           "en": "// 41 conflict placeholder",
           "zh": "// 参数 41：conflict 占位值。"
         },
         {
           "id": "c71b87ad459ba045",
-          "line": 1356,
+          "line": 1504,
           "kind": "line",
           "en": "// 42 content_hash",
           "zh": "// 参数 42：content_hash"
         },
         {
           "id": "c229fe3adbddb7ac",
-          "line": 1357,
+          "line": 1505,
           "kind": "line",
           "en": "// 43 cost_minor",
           "zh": "// 参数 43：cost_minor"
         },
         {
           "id": "7b94e76bf9e5f52b",
-          "line": 1358,
+          "line": 1506,
           "kind": "line",
           "en": "// 44 cost_currency",
           "zh": "// 参数 44：cost_currency"
         },
         {
           "id": "065034e6f3e92e98",
-          "line": 1359,
+          "line": 1507,
           "kind": "line",
           "en": "// 45 cost_kind",
           "zh": "// 参数 45：cost_kind"
         },
         {
           "id": "0195a11be0d9fd38",
-          "line": 1360,
+          "line": 1508,
           "kind": "line",
           "en": "// 46 price_version",
           "zh": "// 参数 46：price_version"
         },
         {
           "id": "e279b23b643d755f",
-          "line": 1361,
+          "line": 1509,
           "kind": "line",
           "en": "// 47 billing_scope",
           "zh": "// 参数 47：billing_scope"
         },
         {
           "id": "293e1d3c752b11f5",
-          "line": 1362,
+          "line": 1510,
           "kind": "line",
           "en": "// 48 created_at_ms (INSERT)",
           "zh": "// 参数 48：created_at_ms，仅 INSERT 使用。"
         },
         {
           "id": "1881edf7344b70e6",
-          "line": 1363,
+          "line": 1511,
           "kind": "line",
           "en": "// 49 updated_at_ms",
           "zh": "// 参数 49：updated_at_ms"
         },
         {
           "id": "c43590b5ae1d4418",
-          "line": 1364,
+          "line": 1512,
           "kind": "line",
           "en": "// 50 parse_basis",
           "zh": "// 参数 50：parse_basis"
         },
         {
           "id": "a5aff0aab35b002d",
-          "line": 1382,
+          "line": 1530,
           "kind": "line",
           "en": "/// Rebuild one local day from usage_events after deleting its unsealed rows.",
           "zh": "/// 重算单个本地日：删除未封存行后从 usage_events 重建。"
         },
         {
           "id": "ead099f78ae40d71",
-          "line": 1383,
+          "line": 1531,
           "kind": "line",
           "en": "/// Include only verified ownership in totals; transport_attempt contributes to attempt_count only.",
           "zh": "/// 只有归属已核验的事件进入总计；transport_attempt 只计入 attempt_count。"
         },
         {
           "id": "f1dd9dc544f9943c",
-          "line": 1396,
+          "line": 1544,
           "kind": "line",
           "en": "// Since v4, daily_usage keeps each source-instance contribution; queries sum across sources (M1a).",
           "zh": "// v4 起 daily_usage 按来源实例分区（M1a：查询跨来源求和，落盘保留每来源贡献）。"
         },
         {
           "id": "8d711db3c1fb8ce7",
-          "line": 1397,
+          "line": 1545,
           "kind": "line",
           "en": "// A v2 migration rebuilds before v4 partitioning, using the old shape without instance_id.",
           "zh": "// v2 迁移的旧库重算发生在 v4 分区之前，按旧形状（无 instance_id 列）写入。"
         },
         {
           "id": "41603023b16e3422",
-          "line": 1445,
+          "line": 1593,
           "kind": "line",
           "en": "// input/output/total_unknown_count exclude quality_bucket='unknown' records:",
           "zh": "// 未知字段计数（input/output/total_unknown_count）排除 quality_bucket='unknown'"
         },
         {
           "id": "8b4c878ec82a97f5",
-          "line": 1446,
+          "line": 1594,
           "kind": "line",
           "en": "// records with no known token field include failed calls and Copilot round markers.",
           "zh": "// 的记录：没有任何已知 token 字段的记录是“无用量调用/观测”（失败调用、"
         },
         {
           "id": "90078b7501093877",
-          "line": 1447,
+          "line": 1595,
           "kind": "line",
           "en": "// Calls remain counted while turn observations supply usage separately;",
           "zh": "// Copilot 工具循环 round 等计调用但用量由 turn observation 承载），计入"
         },
         {
           "id": "7d054ef2c0ba8582",
-          "line": 1448,
+          "line": 1596,
           "kind": "line",
           "en": "// include call/event counts without treating these as partially observed missing token fields.",
           "zh": "// call/event，但不算作观测缺字段的未知字段（数据规范「请求、消息与累计值」）。"
         },
         {
           "id": "61f64a4077e7e8a3",
-          "line": 1500,
+          "line": 1648,
           "kind": "line",
           "en": "/// Repair only the verified v1/v2 total omission; every other native field must match.",
           "zh": "/// 仅修正已核对的 v1/v2 总量遗漏，其他来源字段必须完全一致。"
         },
         {
           "id": "f9fea38e30ac1810",
-          "line": 1531,
+          "line": 1679,
           "kind": "line",
           "en": "/// Recompute local days covering inclusive [from_ms, to_ms] in the requested timezone.",
           "zh": "/// 按目标时区重算 [from_ms, to_ms] 覆盖的本地日（维护/修复路径：时区分区修复）。"
         },
         {
           "id": "964d37ec740ff75f",
-          "line": 1532,
+          "line": 1680,
           "kind": "line",
           "en": "/// Use retained events, skip sealed days and commit recomputation with its revision in one transaction.",
           "zh": "/// 事件仍在 ⇒ 重算是推导不是猜测；该时区下已封存的日跳过；单事务 + 修订号。"
         },
         {
           "id": "508799e1e22cfdcb",
-          "line": 1533,
+          "line": 1681,
           "kind": "line",
           "en": "/// Return the new revision committed by this transaction.",
           "zh": "/// 返回本次事务提交的新数据修订号。"
         },
         {
           "id": "bcb6e6dbed20d23b",
-          "line": 1544,
+          "line": 1692,
           "kind": "line",
           "en": "// Limit recomputation to 750 days; reject larger ranges for the caller to split.",
           "zh": "// 有界防护：最多重算 750 天（超出报错，由调用方分批）。"
         },
         {
           "id": "ae50a9db8ef8b11d",
-          "line": 1566,
+          "line": 1714,
           "kind": "line",
           "en": "/// Rebuild hourly aggregates by local day for the hourly retention layer.",
           "zh": "/// 按本地日重建各小时汇总，供小时数据保留层使用。"
         },
         {
           "id": "57c855b8a6357f7e",
-          "line": 1567,
+          "line": 1715,
           "kind": "line",
           "en": "/// Use the same instance/Agent/provider/model/category/quality dimensions as daily totals.",
           "zh": "/// 分组字段与日汇总一致：实例、Agent、provider、模型、类别与质量。"
         },
         {
           "id": "26b6006b02864f59",
-          "line": 1568,
+          "line": 1716,
           "kind": "line",
           "en": "/// Call with recompute_day in the same transaction; sealed days keep their frozen hourly rows.",
           "zh": "/// 与 recompute_day 同事务调用；封存日的小时层同样冻结（不重算）。"
         },
         {
           "id": "9fb499abffe02f14",
-          "line": 1569,
+          "line": 1717,
           "kind": "line",
           "en": "/// Use the local offset at each event time, preserving 23/25-hour DST days.",
           "zh": "/// 小时换算按事件时刻的本地偏移（DST 日 23/25 小时自然正确）。"
         },
         {
           "id": "b518673fb79c4b65",
-          "line": 1576,
+          "line": 1724,
           "kind": "line",
           "en": "// Test-frozen schemas before v5 have no hourly_usage table; skip hourly persistence.",
           "zh": "// schema < 5（测试钩子冻结的旧库）没有 hourly_usage 表：跳过"
         },
         {
           "id": "84438a1922c978e2",
-          "line": 1577,
+          "line": 1725,
           "kind": "line",
           "en": "// Migration enables it later without changing daily/detail meanings.",
           "zh": "//（迁移到当前版本后自然生效；不影响日/明细层语义）。"
@@ -35411,7 +35418,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/model_names.rs": {
-      "codeHash": "61b6aa59df86a9205945e04dce816773c58339dea0d2cdeec92a12f53e335475",
+      "codeHash": "cef5623b24728c7fd8139ad4f385f72e1e1be0b5020108b0c835f04ff2b981ab",
       "comments": [
         {
           "id": "90ce3eda03caa5d3",
@@ -35505,50 +35512,57 @@
           "zh": "// API 参考价格别名；统计仍保留实际服务模型 ID。"
         },
         {
-          "id": "48c65b5d57b40d6a",
+          "id": "e42928e03c6be5fe",
           "line": 64,
+          "kind": "line",
+          "en": "// Official Kimi Code model table (2026-10-24): Pro and Highspeed have separate API rates.",
+          "zh": "// 官方 Kimi Code 模型表（2026-10-24）：Pro 和 Highspeed 使用各自的 API 价格。"
+        },
+        {
+          "id": "48c65b5d57b40d6a",
+          "line": 67,
           "kind": "line",
           "en": "// User-confirmed serving identity (2026-10-05); price substitution is separate.",
           "zh": "// 用户于 2026-10-05 确认的服务模型身份；替代价格另行处理。"
         },
         {
           "id": "1cf4be9f034c790e",
-          "line": 66,
+          "line": 69,
           "kind": "line",
           "en": "// Official Kimi Code release notes: upgraded in place on 2026-09-11.",
           "zh": "// 官方 Kimi Code 发布说明记载此 ID 于 2026-09-11 改用新版本。"
         },
         {
           "id": "15264aace7d96271",
-          "line": 67,
+          "line": 70,
           "kind": "line",
           "en": "// Older records remain unresolved; a future profile change must close this interval.",
           "zh": "// 更早记录的身份仍未知；将来 ID 改用其他版本时必须结束此日期区间。"
         },
         {
           "id": "e3ee42248316e126",
-          "line": 69,
+          "line": 72,
           "kind": "line",
           "en": "// Official CodeBuddy local model catalog (2026-10-03): id -> display name.",
           "zh": "// 官方 CodeBuddy 本地模型目录（2026-10-03）：ID 对应显示名称。"
         },
         {
           "id": "1761e2ec0112f27b",
-          "line": 75,
+          "line": 78,
           "kind": "line",
           "en": "/// Explicit user-authorized substitute for CURRENT reference estimates only.",
           "zh": "/// 用户明确授权的替代价格，仅用于当前参考费用估算。"
         },
         {
           "id": "c64011d473549af4",
-          "line": 76,
+          "line": 79,
           "kind": "line",
           "en": "/// Preserve model identity; this exception does not permit general nearest-model pricing.",
           "zh": "/// 保留模型身份；此例外不允许普遍采用相近模型的价格。"
         },
         {
           "id": "c88205c60074ce17",
-          "line": 84,
+          "line": 87,
           "kind": "line",
           "en": "/// Vendor identity is separate from the Agent's billing channel.",
           "zh": "/// 模型供应商身份与 Agent 的计费渠道分别保存。"
@@ -35911,7 +35925,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/pricing.rs": {
-      "codeHash": "2996926cd15e0203a5539c5023f19279b6d05924dc70744a3d74c003f7bd48e9",
+      "codeHash": "c8067ae15ddc42ad596eaaecbc09aba45c3e3f063e0c9454f6bee047fd689775",
       "comments": [
         {
           "id": "b330b53a6b7c1551",
@@ -36901,7 +36915,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/query.rs": {
-      "codeHash": "7d9721906234e262e1c99617479c7919e4fdb1d73294d1d0b94c734b7cac67bd",
+      "codeHash": "240d819ad0cdf0af0d60fd0a80bda9faefc7ce3a492d1bf26ec8a1f67bdb776d",
       "comments": [
         {
           "id": "ee37860e9b51633d",
@@ -37150,259 +37164,259 @@
         },
         {
           "id": "1f110a701a76edf9",
-          "line": 743,
+          "line": 741,
           "kind": "line",
           "en": "/// Select one coverage representation for totals, models, Agents, and charts.",
           "zh": "/// 总计、模型、Agent 和图表使用同一组明细或归档记录。"
         },
         {
           "id": "3dbf12dac4dc054f",
-          "line": 744,
+          "line": 742,
           "kind": "line",
           "en": "/// A complete materialized partition replaces only its matching daily source partition;",
           "zh": "/// 完整的周期汇总只替换同来源对应的日分区，"
         },
         {
           "id": "131c5668fb710b49",
-          "line": 745,
+          "line": 743,
           "kind": "line",
           "en": "/// it cannot replace another source or be assigned to a clipped interval.",
           "zh": "/// 不替换其他来源，也不将不可拆分的汇总计入截断区间。"
         },
         {
           "id": "3e076f1563502ae6",
-          "line": 872,
+          "line": 870,
           "kind": "line",
           "en": "/// Current reference pricing uses the same archived usage selection as usage queries.",
           "zh": "/// 当前参考价与用量查询选择相同的归档记录。"
         },
         {
           "id": "7d5e8b5e3fad9692",
-          "line": 912,
+          "line": 910,
           "kind": "line",
           "en": "// Aggregate fields can represent different sample sets; retain saved component sums.",
           "zh": "// 汇总字段可能覆盖不同记录集合，保留已保存的各项合计。"
         },
         {
           "id": "dafda1dfc8e63186",
-          "line": 913,
+          "line": 911,
           "kind": "line",
           "en": "// Subtracting independently known sums would invent uncached input.",
           "zh": "// 对独立已知合计做减法会虚构未缓存输入。"
         },
         {
           "id": "fe7de204e05ed3c7",
-          "line": 935,
+          "line": 933,
           "kind": "line",
           "en": "// Aggregate total input is not a per-request context size or necessarily the same sample set.",
           "zh": "// 汇总输入不是单次请求上下文规模，也不一定覆盖同一组记录。"
         },
         {
           "id": "40ce1ba409804417",
-          "line": 1109,
+          "line": 1107,
           "kind": "line",
           "en": "/// Count unverified/excluded events outside totals, with their exclusion reasons.",
           "zh": "/// 归属未核验/被排除的事件数：不进入总计，可按排除原因列出。"
         },
         {
           "id": "d7e1eabc230aed38",
-          "line": 1155,
+          "line": 1153,
           "kind": "line",
           "en": "/// Group excluded records by reason.",
           "zh": "/// 按排除原因分组记录。"
         },
         {
           "id": "595019860ba52104",
-          "line": 1264,
+          "line": 1262,
           "kind": "line",
           "en": "/// Agent rows share ModelRow metric structure and total rules.",
           "zh": "/// Agent 分组行（与 ModelRow 同构；总计规则一致）。"
         },
         {
           "id": "e2aea4edb4dcea1c",
-          "line": 1271,
+          "line": 1269,
           "kind": "line",
           "en": "/// Group by Agent, retaining unknown models/providers under that Agent.",
           "zh": "/// 按 Agent 分组（含 unknown 独立行：provider/model 为空的记录归入该 Agent 名下）。"
         },
         {
           "id": "bddfac2cff659144",
-          "line": 1290,
+          "line": 1288,
           "kind": "line",
           "en": "/// One day's local-hour buckets use each event's retained occurrence-time basis.",
           "zh": "/// 按单日各事件保存的发生时间规则统计本地小时。"
         },
         {
           "id": "4228d94580400ae1",
-          "line": 1291,
+          "line": 1289,
           "kind": "line",
           "en": "/// Both occurrences of a repeated DST hour share the displayed local-hour label.",
           "zh": "/// DST 重复小时的两次出现共用一个显示标签。"
         },
         {
           "id": "735dc50e03888a95",
-          "line": 1302,
+          "line": 1300,
           "kind": "line",
           "en": "/// Distinct sessions in this hour.",
           "zh": "/// 该小时的 DISTINCT 会话数。"
         },
         {
           "id": "42bf1023f8dc22ae",
-          "line": 1304,
+          "line": 1302,
           "kind": "line",
           "en": "/// Mean known duration in milliseconds.",
           "zh": "/// 平均耗时（毫秒）。"
         },
         {
           "id": "fc8241db3472cced",
-          "line": 1348,
+          "line": 1346,
           "kind": "line",
           "en": "/// Heatmap date cell; archived periods that cannot be assigned to individual dates remain unavailable.",
           "zh": "/// 热力图单元格：一个本地日。日层已清理且无法再分配到日期的周期汇总标为不可用。"
         },
         {
           "id": "81cdeb2f7accbc6b",
-          "line": 1379,
+          "line": 1377,
           "kind": "line",
           "en": "// Query only required heatmap columns with ownership/model filters applied in SQLite",
           "zh": "// 在 SQLite 中应用来源和模型筛选，只查询热力图所需列，"
         },
         {
           "id": "109f625a38aa7e32",
-          "line": 1380,
+          "line": 1378,
           "kind": "line",
           "en": "// rather than loading every grouped daily row.",
           "zh": "// 不加载所有按字段分组的日汇总行。"
         },
         {
           "id": "f8a166a97580eb9f",
-          "line": 1407,
+          "line": 1405,
           "kind": "line",
           "en": "// Period-only imports may lack the local daily_retention_floor setting.",
           "zh": "// 仅含周期汇总的导入可能没有本机 daily_retention_floor 设置。"
         },
         {
           "id": "9d6d73de53f08cf1",
-          "line": 1408,
+          "line": 1406,
           "kind": "line",
           "en": "// Detect their materialized partitions directly without assigning period sums to one date.",
           "zh": "// 直接判断其完整周期分区，不将整个周期合计分配到某一天。"
         },
         {
           "id": "7f4445b1577179e8",
-          "line": 1474,
+          "line": 1472,
           "kind": "line",
           "en": "/// Paginated detail row.",
           "zh": "/// 明细行（详情页分页展示）。"
         },
         {
           "id": "9909fa703fd29f0c",
-          "line": 1507,
+          "line": 1505,
           "kind": "line",
           "en": "/// Query detail events in descending occurrence-time order.",
           "zh": "/// 分页查询明细事件（详情页；按时间倒序）。"
         },
         {
           "id": "579da86e6ecae3f9",
-          "line": 1567,
+          "line": 1565,
           "kind": "line",
           "en": "/// Expose hourly_usage in the shared DailyRow shape, retaining the local hour",
           "zh": "/// 将 hourly_usage 转换为共享的 DailyRow 结构，保留本地小时，"
         },
         {
           "id": "cbda647984ab5b39",
-          "line": 1568,
+          "line": 1566,
           "kind": "line",
           "en": "/// so summary grouping and merging can reuse the same implementation.",
           "zh": "/// 供 query_summary 的通用分组/合并逻辑复用。"
         },
         {
           "id": "d81a13ab1f594785",
-          "line": 1649,
+          "line": 1647,
           "kind": "line",
           "en": "/// Recover completeness metadata absent from older hourly storage using retained records;",
           "zh": "/// 用保留的明细恢复旧小时存储缺少的完整性计数；"
         },
         {
           "id": "196e024da1bf047b",
-          "line": 1650,
+          "line": 1648,
           "kind": "line",
           "en": "/// do not derive unknown fields by subtracting sums from unlike sample sets.",
           "zh": "/// 不通过相减不同记录集合的合计派生未知字段。"
         },
         {
           "id": "ce605cc8cd3e24d6",
-          "line": 1723,
+          "line": 1721,
           "kind": "line",
           "en": "// Like recompute_day, unknown-quality markers report no known token fields.",
           "zh": "// 与 recompute_day 一致：quality_bucket='unknown'（无任何已知 token 字段）的"
         },
         {
           "id": "913ba6094a697646",
-          "line": 1724,
+          "line": 1722,
           "kind": "line",
           "en": "// Count their calls/events without treating them as missing fields of token observations.",
           "zh": "// 记录是无用量的调用/观测，计 call/event 但不计作观测缺字段的未知字段。"
         },
         {
           "id": "bc49a504bf865e57",
-          "line": 1750,
+          "line": 1748,
           "kind": "line",
           "en": "/// Chart grouping mode.",
           "zh": "/// 图表数据分组方式。"
         },
         {
           "id": "2f53c06e490889b5",
-          "line": 1759,
+          "line": 1757,
           "kind": "line",
           "en": "/// Grouped time-series row for trend charts.",
           "zh": "/// 趋势图按所选字段分组的时间序列行。"
         },
         {
           "id": "694293f5ef4f8128",
-          "line": 1777,
+          "line": 1775,
           "kind": "line",
           "en": "/// Query grouped time series using the same retained partitions as query_summary.",
           "zh": "/// 图表查询与 query_summary 使用同一组保留分区。"
         },
         {
           "id": "6afb913f298ff5c3",
-          "line": 1778,
+          "line": 1776,
           "kind": "line",
           "en": "/// Hourly queries use hourly_usage; date-based queries use daily_usage and eligible",
           "zh": "/// 小时查询使用 hourly_usage；按日期查询使用 daily_usage，以及适用的"
         },
         {
           "id": "dda830cd5ea7482c",
-          "line": 1779,
+          "line": 1777,
           "kind": "line",
           "en": "/// materialized period_usage archives for week/month/year views.",
           "zh": "/// period_usage 周、月、年归档。"
         },
         {
           "id": "6ac7c0ffa5448de5",
-          "line": 1780,
+          "line": 1778,
           "kind": "line",
           "en": "/// Exclude archives already covered by daily rows and retain Agent/provider/model/instance filters.",
           "zh": "/// （日层已覆盖的周期不重复计入）；筛选（Agent/provider/model/实例）同样生效。"
         },
         {
           "id": "ad3df2efdf3d029a",
-          "line": 1781,
+          "line": 1779,
           "kind": "line",
           "en": "/// Shared period_key_of labels match the total usage timeline.",
           "zh": "/// 标签经共享 period_key_of 生成，与总用量视图时间轴一致。"
         },
         {
           "id": "72119fbbf8d0ee2f",
-          "line": 1836,
+          "line": 1834,
           "kind": "line",
           "en": "/// Diagnostic row for the settings log viewer.",
           "zh": "/// 诊断日志行（设置页日志查看器）。"
         },
         {
           "id": "ab4edac436d9a09f",
-          "line": 1846,
+          "line": 1844,
           "kind": "line",
           "en": "/// Read bounded recent diagnostics in descending time order, excluding message bodies.",
           "zh": "/// 有界读取近期诊断，按时间倒序，不包含消息正文。"
@@ -38602,7 +38616,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/storage/pricing.rs": {
-      "codeHash": "c7fce695d3ee0898768b935a320daaa9e4bf17bc52a02afd4631ef97f6d5dd05",
+      "codeHash": "1e97815cb417b85f1467b8603f59c962622b6a302998c244e2d2b0dc8305f658",
       "comments": [
         {
           "id": "978cd10bc2f8338c",
@@ -38711,385 +38725,385 @@
         },
         {
           "id": "25be410d62d042a7",
-          "line": 105,
+          "line": 112,
           "kind": "line",
           "en": "// Preserve the original seed snapshot's public return values.",
           "zh": "// 保留原始种子快照的公开返回值。"
         },
         {
           "id": "e30462249a017460",
-          "line": 109,
+          "line": 116,
           "kind": "line",
           "en": "/// Load all price rows into the estimation price book.",
           "zh": "/// 载入全部价格行（估算用价格簿）。"
         },
         {
           "id": "7784e5d7eb6f7129",
-          "line": 114,
+          "line": 121,
           "kind": "line",
           "en": "/// List price snapshots with row counts.",
           "zh": "/// 价格快照列表（含行数）。"
         },
         {
           "id": "606ca5e26eb17ef3",
-          "line": 143,
+          "line": 150,
           "kind": "line",
           "en": "/// Select unsealed days in this timezone with revisions greater than revision_before.",
           "zh": "/// 采集后费用回填的选日：返回时区下\"修订号大于 `revision_before` 的"
         },
         {
           "id": "918267f99f688504",
-          "line": 144,
+          "line": 151,
           "kind": "line",
           "en": "/// These days were rewritten by this collection batch; sealed days remain unchanged.",
           "zh": "/// 未封存日\"（本轮事件批次重写过的日；封存日不动）。调用方在刷新起点"
         },
         {
           "id": "8c7b32760fd70ef3",
-          "line": 145,
+          "line": 152,
           "kind": "line",
           "en": "/// Capture revision_before at refresh start: retention can increment the revision after",
           "zh": "/// 捕获 revision_before——分级保留在扫描后还会 bump 修订号，不能用"
         },
         {
           "id": "f0e9ce68b4ff2f43",
-          "line": 146,
+          "line": 153,
           "kind": "line",
           "en": "/// scanning, so comparing against only the final current revision would omit changed days.",
           "zh": "/// \"当前修订号相等\"过滤。"
         },
         {
           "id": "5c9f2c9c7c737171",
-          "line": 165,
+          "line": 172,
           "kind": "line",
           "en": "/// Correct retained, unsealed estimates once after a price matching rule changes.",
           "zh": "/// 匹配规则更改后，一次性修正仍保留的未封存估算。"
         },
         {
           "id": "7c0a2fccbde26c1b",
-          "line": 166,
+          "line": 173,
           "kind": "line",
           "en": "/// Catalog refreshes do not change this marker or historical amounts.",
           "zh": "/// 价格目录刷新不会更改此标记或历史金额。"
         },
         {
           "id": "66c081dd259666a1",
-          "line": 189,
+          "line": 196,
           "kind": "line",
           "en": "/// Rebuild an unsealed day after an event batch or an explicit recalculation.",
           "zh": "/// 回填单日成本（事件批次提交后/显式重算调用；只重写未封存日）。"
         },
         {
           "id": "053c7cd8da2b4f85",
-          "line": 190,
+          "line": 197,
           "kind": "line",
           "en": "/// Keep existing costs when no detail events remain; they may represent expired details.",
           "zh": "/// 该日无明细事件时不重建（历史行可能来自已过期的明细，保持不动）。"
         },
         {
           "id": "a4ad843c4935361d",
-          "line": 208,
+          "line": 215,
           "kind": "line",
           "en": "/// Explicitly rebuild all unsealed days in this timezone that still contain detail events.",
           "zh": "/// 显式重算：回填时区下所有\"仍有明细事件的未封存日\"。"
         },
         {
           "id": "c3bc43aea947c682",
-          "line": 240,
+          "line": 247,
           "kind": "line",
           "en": "/// Historical estimates and source amounts come from daily costs. Current reference prices",
           "zh": "/// 历史估算和来源金额取自日成本行；当前参考价覆盖与用量统计相同的范围，"
         },
         {
           "id": "bf705ffab2fb115c",
-          "line": 241,
+          "line": 248,
           "kind": "line",
           "en": "/// apply to the same usage view, using mutually exclusive retained details or archives.",
           "zh": "/// 互斥使用仍保留的明细或归档用量进行计算。"
         },
         {
           "id": "cb38e2134320eb20",
-          "line": 246,
+          "line": 253,
           "kind": "line",
           "en": "/// Current references can select local hours; historical daily costs remain unchanged.",
           "zh": "/// 当前参考价可按本地小时筛选；历史日成本保持不变。"
         },
         {
           "id": "cf64a04d1b6699f6",
-          "line": 299,
+          "line": 306,
           "kind": "line",
           "en": "// 1) Daily historical estimates and source amounts.",
           "zh": "// 1) 日成本行（按发生时价 + 来源金额）。"
         },
         {
           "id": "f9492ac1dd1afda3",
-          "line": 425,
+          "line": 432,
           "kind": "line",
           "en": "// Empty-currency rows carry only unpriced event counts.",
           "zh": "// currency='' 行只携带未计价计数。"
         },
         {
           "id": "719e2942a511c7f7",
-          "line": 461,
+          "line": 468,
           "kind": "line",
           "en": "// Aggregate unpriced reasons from empty-currency rows.",
           "zh": "// 未计价原因直方图（currency='' 行聚合）。"
         },
         {
           "id": "6db2a6e04f642d14",
-          "line": 483,
+          "line": 490,
           "kind": "line",
           "en": "// Use the maximum cost-row revision in the selected range.",
           "zh": "// 数据修订引用（该范围成本行的最大修订号）。"
         },
         {
           "id": "229d5c9856e22730",
-          "line": 495,
+          "line": 502,
           "kind": "line",
           "en": "// 2) Apply current reference prices to the same detail/archive view.",
           "zh": "// 2) 按当前价格模拟，覆盖相同视图的明细与归档。"
         },
         {
           "id": "8736cfbe3e20d8b4",
-          "line": 586,
+          "line": 593,
           "kind": "line",
           "en": "/// Apply current prices to either details or the sealed summaries selected by usage queries.",
           "zh": "/// 按当前价格模拟：明细与用量查询选中的封存汇总互斥计价。"
         },
         {
           "id": "c4fb6f51a7bd14ee",
-          "line": 619,
+          "line": 626,
           "kind": "line",
           "en": "// Retained details can coexist with an imported or sealed aggregate.",
           "zh": "// 仍保留的明细可能与导入或封存的汇总同时存在。"
         },
         {
           "id": "a6e66445247d68d2",
-          "line": 620,
+          "line": 627,
           "kind": "line",
           "en": "// Match the complete source partition and count only one representation.",
           "zh": "// 按完整来源分区匹配，只统计其中一种记录。"
         },
         {
           "id": "a940679c518e140f",
-          "line": 794,
+          "line": 801,
           "kind": "line",
           "en": "// Sum exact component numerators within each displayed day/model/currency or indivisible",
           "zh": "// 在每个展示日、模型、币种或不可拆分的归档期间内，先累加各费用项的精确分子，"
         },
         {
           "id": "a571e953fb003cc2",
-          "line": 795,
+          "line": 802,
           "kind": "line",
           "en": "// archive period before rounding; roll up those amounts to keep rows and totals consistent.",
           "zh": "// 然后舍入；按这些金额计算合计，使表格各行与合计一致。"
         },
         {
           "id": "34572b7087d5c795",
-          "line": 902,
+          "line": 909,
           "kind": "line",
           "en": "/// Import within a transaction: skip identical IDs/content and reject changed content.",
           "zh": "/// 事务内导入快照（幂等：同 ID 同内容跳过；同 ID 异内容拒绝）。"
         },
         {
           "id": "3fe955923a74bf00",
-          "line": 1000,
+          "line": 1007,
           "kind": "line",
           "en": "/// Older stored hashes cover price fields only. Reimports must also compare source metadata",
           "zh": "/// 旧库中的内容哈希只覆盖价格字段；重复导入还须核对来源元数据和行注释，"
         },
         {
           "id": "128eac458aa3e1bd",
-          "line": 1001,
+          "line": 1008,
           "kind": "line",
           "en": "/// and row notes; retain the old hash algorithm while detecting changes under the same ID.",
           "zh": "/// 否则同 ID 修改这些字段会被误判为幂等。保留旧哈希算法以兼容已导入快照。"
         },
         {
           "id": "14e944513905b057",
-          "line": 1056,
+          "line": 1063,
           "kind": "line",
           "en": "/// Build case-insensitive SQL filters. Selecting unknown also includes empty and NULL",
           "zh": "/// 生成忽略大小写的 SQL 筛选条件；选择 unknown 时，空值和 NULL 也匹配，"
         },
         {
           "id": "647307ad58340281",
-          "line": 1057,
+          "line": 1064,
           "kind": "line",
           "en": "/// values, matching query::Filters; other selections exclude those values.",
           "zh": "/// 与 query::Filters 一致；其他选择不匹配空值。"
         },
         {
           "id": "f4b2584303e0a8bb",
-          "line": 1058,
+          "line": 1065,
           "kind": "line",
           "en": "/// Callers supply fixed column names; strip single quotes from selected values.",
           "zh": "/// 调用方提供固定列名；筛选值中的单引号会被剔除。"
         },
         {
           "id": "f0e92cfd4bf6932b",
-          "line": 1134,
+          "line": 1141,
           "kind": "line",
           "en": "/// Filtered, time-bounded model_call or usage_observation events with verified ownership.",
           "zh": "/// 所属来源已核对、符合时间和筛选条件的 model_call 或 usage_observation 事件。"
         },
         {
           "id": "718fc2ba9351910d",
-          "line": 1135,
+          "line": 1142,
           "kind": "line",
           "en": "/// Map token fields with quality other than reported/derived to None.",
           "zh": "/// token 字段的 quality 不是 reported/derived 时设为 None。"
         },
         {
           "id": "4d813835b8804e4e",
-          "line": 1144,
+          "line": 1151,
           "kind": "line",
           "en": "/// Source amounts from cost_* columns; keep Reported and Estimated rows separate.",
           "zh": "/// 来源记录金额（cost_* 列；Reported/Estimated 分别成行）。"
         },
         {
           "id": "88c65b1265a72e30",
-          "line": 1277,
+          "line": 1284,
           "kind": "line",
           "en": "/// Rebuild a day in one transaction: replace unsealed costs with estimates and source amounts.",
           "zh": "/// 单日回填的事务内实现：删除未封存成本行 → 事件计价 + 来源金额 → 重插。"
         },
         {
           "id": "d2ee250db2edacbf",
-          "line": 1308,
+          "line": 1315,
           "kind": "line",
           "en": "// Group by instance, agent, provider, model, currency, and cost kind.",
           "zh": "// 累计键：instance/agent/provider/model/currency/kind。"
         },
         {
           "id": "c87d341f0a690fb4",
-          "line": 1424,
+          "line": 1431,
           "kind": "line",
           "en": "// 1) Estimate using prices at occurrence time.",
           "zh": "// 1) 按发生时价估算。"
         },
         {
           "id": "45cb525b2a66eeca",
-          "line": 1484,
+          "line": 1491,
           "kind": "line",
           "en": "// 2) Retain reported amounts and source estimates as separate kinds.",
           "zh": "// 2) 来源记录金额（reported / 来源自身估算，分列）。"
         },
         {
           "id": "e20dda71c5970454",
-          "line": 1577,
+          "line": 1584,
           "kind": "line",
           "en": "/// Cost filters use query::Filters rules: AND across fields, OR within a field;",
           "zh": "/// 费用筛选与 query::Filters 一致：不同字段使用 AND，同一字段使用 OR；"
         },
         {
           "id": "46b3027fdbe9e8a0",
-          "line": 1578,
+          "line": 1585,
           "kind": "line",
           "en": "/// unknown matches empty values, and instances Some([]) selects no available source.",
           "zh": "/// \"unknown\" 匹配空值；instances Some([]) = 无可用来源）。"
         },
         {
           "id": "818bc9b5946e61ab",
-          "line": 1587,
+          "line": 1594,
           "kind": "line",
           "en": "/// Cost summary request.",
           "zh": "/// 费用汇总请求。"
         },
         {
           "id": "82db2dfd3ba792b5",
-          "line": 1591,
+          "line": 1598,
           "kind": "line",
           "en": "/// Inclusive local date in YYYY-MM-DD format.",
           "zh": "/// 本地日 YYYY-MM-DD（含端点）。"
         },
         {
           "id": "3c49a27949132dcd",
-          "line": 1599,
+          "line": 1606,
           "kind": "line",
           "en": "/// Amounts by currency; currencies are never merged (E8).",
           "zh": "/// 按币种分列的金额行（不同币种不合并；E8）。"
         },
         {
           "id": "73bc7effe2c06643",
-          "line": 1603,
+          "line": 1610,
           "kind": "line",
           "en": "/// Upper bound for the same priced components when archived request tiers are unknown.",
           "zh": "/// 归档中各请求的上下文档位未知时，对同一组已计价费用项给出上界。"
         },
         {
           "id": "c5aeae007b75a69a",
-          "line": 1622,
+          "line": 1629,
           "kind": "line",
           "en": "/// Events priced with an official pay-as-you-go reference because no exact match exists.",
           "zh": "/// 官方提供商回退计价的事件数（无精确匹配时参考官方按量价）。"
         },
         {
           "id": "a71da51e835e720d",
-          "line": 1725,
+          "line": 1732,
           "kind": "line",
           "en": "/// One estimation mode: currency rows and unpriced reasons.",
           "zh": "/// 单一估算模式的汇总（按币种行 + 未计价原因）。"
         },
         {
           "id": "1a622aedae673e45",
-          "line": 1729,
+          "line": 1736,
           "kind": "line",
           "en": "/// Counts of events by unpriced reason.",
           "zh": "/// 未计价原因直方图（reason → 事件数）。"
         },
         {
           "id": "6c1e01dca4131250",
-          "line": 1731,
+          "line": 1738,
           "kind": "line",
           "en": "/// Reference evaluation time and detail coverage flag; unused by at_time.",
           "zh": "/// 模拟模式的评估时点/明细受限标记（at_time 不用）。"
         },
         {
           "id": "dc111db69b827563",
-          "line": 1736,
+          "line": 1743,
           "kind": "line",
           "en": "/// Cost response with data_revision and the referenced price_basis snapshot set.",
           "zh": "/// 费用汇总响应（估算引用 data_revision 与 price_basis 快照集合）。"
         },
         {
           "id": "6aec168f85e7ab6d",
-          "line": 1739,
+          "line": 1746,
           "kind": "line",
           "en": "/// Historical estimates stored in daily cost rows.",
           "zh": "/// 按发生时价估算（持久化日成本行）。"
         },
         {
           "id": "00b6c7a4c734c132",
-          "line": 1741,
+          "line": 1748,
           "kind": "line",
           "en": "/// Source reports and source estimates, kept separate by kind and currency.",
           "zh": "/// 来源记录金额（reported + 来源自身估算，分列币种）。"
         },
         {
           "id": "7e846f8e8fb75930",
-          "line": 1743,
+          "line": 1750,
           "kind": "line",
           "en": "/// Current reference estimates from mutually exclusive known detail or archive usage.",
           "zh": "/// 按当前价格模拟（互斥使用明细或归档中的已知用量）。"
         },
         {
           "id": "6af02e9ed8fd6d19",
-          "line": 1745,
+          "line": 1752,
           "kind": "line",
           "en": "/// Price snapshots referenced by at_time.",
           "zh": "/// at_time 引用的价格快照。"
         },
         {
           "id": "793d347297bf20ca",
-          "line": 1777,
+          "line": 1784,
           "kind": "line",
           "en": "/// Seal daily costs at detail retention expiry, preserving historical amounts.",
           "zh": "/// 封存日成本行（明细层保留截止时调用；历史金额不再改写）。"
         },
         {
           "id": "975b4cf0c325d6ba",
-          "line": 1790,
+          "line": 1797,
           "kind": "line",
           "en": "/// Delete daily costs with daily_usage using the same daily retention cutoff.",
           "zh": "/// 日层清理时同步清理日成本行（随日层保留期；与 daily_usage 同 cutoff）。"
@@ -39212,7 +39226,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/tests/adapter_layout_v30.rs": {
-      "codeHash": "94cabd4ab1bcf7a2b3ffe13ed271cb1fc7a146c941c5f0b2e17f4dd9e17e1126",
+      "codeHash": "f8f15542df50ac1c99bd8a68b959e18f4f2547d7641f7241cbfce7412f79d05b",
       "comments": [
         {
           "id": "3c1575d985af2fd8",
@@ -39243,64 +39257,64 @@
           "zh": "//! 本测试只锁定目录约定本身，防止后续新增 Agent 又回到根级单文件。"
         },
         {
-          "id": "55d3940ad196a9ad",
-          "line": 6,
+          "id": "daa8aafddc94cf7c",
+          "line": 31,
           "kind": "line",
-          "en": "// M8 second-batch adapters (documentation-level implementation, 2026-09-29) follow the same layout.",
-          "zh": "// M8 第二批（2026-09-29 文档级实施）同受目录约定约束："
+          "en": "// Rust module aliases do not rename directories: continue, gajae-code,",
+          "zh": "// Rust 模块别名不会重命名目录：continue、gajae-code、"
         },
         {
-          "id": "65e8450f906f5a72",
-          "line": 7,
+          "id": "3ceb7a3b4531fbd4",
+          "line": 32,
           "kind": "line",
-          "en": "// gajae-code/continue directory names differ from module names through #[path]; check directories.",
-          "zh": "// gajae-code/continue 目录名与模块名分离（#[path] 映射），按目录检查。"
+          "en": "// kimi-code, kimi-work and mimo-code already use their literal IDs.",
+          "zh": "// kimi-code、kimi-work 和 mimo-code 的目录名也已与其 ID 字面形式一致。"
         },
         {
           "id": "12cbb68a588cf2ee",
-          "line": 61,
+          "line": 70,
           "kind": "line",
           "en": "// No root-level single-file implementation for this agent.",
           "zh": "// 根级不再有该 Agent 的单文件实现。"
         },
         {
           "id": "4caee1da24c9659a",
-          "line": 71,
+          "line": 80,
           "kind": "line",
           "en": "// V30: Codex/Claude product mappings moved into their directories.",
           "zh": "// V30：产品特有映射不留在根级单文件。codex/claude 映射已下沉；"
         },
         {
           "id": "b9e6de02b1c497af",
-          "line": 72,
+          "line": 81,
           "kind": "line",
           "en": "// pi/omp map_pi_family and gemini/qwen map_genai_usage have source-verified",
           "zh": "// pi/omp（map_pi_family）与 gemini/qwen（map_genai_usage）是固定源码证实的"
         },
         {
           "id": "ece5b7d87b8748b5",
-          "line": 73,
+          "line": 82,
           "kind": "line",
           "en": "// shared field semantics and may remain at root, as documented in usage_map.rs.",
           "zh": "// 跨 Agent 共享字段语义，允许留在根级（usage_map.rs 文件头有登记）。"
         },
         {
           "id": "f72f91f0026c3aa0",
-          "line": 87,
+          "line": 96,
           "kind": "line",
           "en": "// Retain the permitted shared mappings.",
           "zh": "// 允许保留的跨 Agent 共享映射确实存在（防止误删共享件）。"
         },
         {
           "id": "df3239223bc81746",
-          "line": 94,
+          "line": 103,
           "kind": "line",
           "en": "// Every versions/mod.rs declares verified version mappings and the latest",
           "zh": "// 注册表形状检查：每个 Agent 的 versions/mod.rs 登记已验证版本映射与"
         },
         {
           "id": "8f95eb85202394f1",
-          "line": 95,
+          "line": 104,
           "kind": "line",
           "en": "// implementation constant; detection/scanning share select as their version policy.",
           "zh": "// 最新实现常量（探测/扫描共用 select 的单一事实来源）。"
@@ -40606,7 +40620,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/tests/codex_oversized.rs": {
-      "codeHash": "d6177d2c1b49d5da35d45233dab2f14a003a55f338c86dc76f1978f9373248ad",
+      "codeHash": "59eecc09063e700d8ee34d28d4343e06b873dbd63120c342ea26c570ec289de3",
       "comments": [
         {
           "id": "36520da80b0993d5",
@@ -41461,7 +41475,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/tests/dashboard_repair.rs": {
-      "codeHash": "4bef06e2ed3326c45a540829f7e617c835067f90678b7754f824047ec92954ea",
+      "codeHash": "467e3681a77187294771c7002455e085061efae61fb6236f8d8aa9a5ec35a4ad",
       "comments": [
         {
           "id": "3684e16de2e46162",
@@ -43774,7 +43788,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/tests/kimi_code_incremental_v12.rs": {
-      "codeHash": "2f1cb4604df52d2239a2c97a5b97f538aa63424b3413f408598534687d2c3bd4",
+      "codeHash": "064cfb3ac87cfd20847a38b425aff7051ed3e1e034a438ce1d10613e912bf644",
       "comments": [
         {
           "id": "c0d827bd5e0466ae",
@@ -43795,137 +43809,144 @@
           "line": 30,
           "kind": "line",
           "en": "/// Base file: three lines, metadata and two turn records",
-          "zh": "/// 基础文件（3 行）：metadata + 两条 turn 记录"
+          "zh": "// 官方协议 1.5 manifest 取自 Kimi Code 2.3.1 提交 684bae9ea6a437f3bae98bba1dcb797a917d500b。"
         },
         {
           "id": "ab6494d9f0502988",
           "line": 31,
           "kind": "line",
           "en": "/// {100,50,400} and {200,60,800}, with totals 550/1060.",
+          "zh": "/// 基础文件（3 行）：metadata + 两条 turn 记录"
+        },
+        {
+          "id": "d5c768460b02e295",
+          "line": 81,
+          "kind": "line",
+          "en": "// Protocol 1.5 manifest at Kimi Code 2.3.1 commit 684bae9ea6a437f3bae98bba1dcb797a917d500b.",
           "zh": "/// {100,50,400} 与 {200,60,800}（total 550/1060）。"
         },
         {
           "id": "70ef4808abbc3d1b",
-          "line": 79,
+          "line": 186,
           "kind": "line",
           "en": "/// Appended reads add only new records and preserve cumulative reconciliation across rounds.",
           "zh": "/// 追加续读：活文件追加一条记录，仅新行入账；对账累计跨轮持久"
         },
         {
           "id": "4f733a065c305502",
-          "line": 80,
+          "line": 187,
           "kind": "line",
           "en": "/// Echo starts at zero; the appended echo still covers only part of the record sum.",
           "zh": "/// 回声首轮为零；追加后的回声仍只覆盖部分记录累计量。"
         },
         {
           "id": "da83f55ff1859af9",
-          "line": 99,
+          "line": 206,
           "kind": "line",
           "en": "// Base has no step.end: two usage records and zero echo give echo_subset.",
           "zh": "// 第一轮无回声（基础文件未带 step.end）：记录侧 2 条，回声 0 ⇒ echo_subset。"
         },
         {
           "id": "7bd3436558b558bd",
-          "line": 105,
+          "line": 212,
           "kind": "line",
           "en": "// Append one usage.record and a step.end echo matching the first existing usage record.",
           "zh": "// 追加一条 usage.record，以及与第一条已有用量记录相同的 step.end 回声。"
         },
         {
           "id": "931d6d7b7edebb4e",
-          "line": 116,
+          "line": 223,
           "kind": "line",
           "en": "// Persisted sums: three records 550+1060+1270=2880 versus echo 550, giving echo_subset.",
           "zh": "// 对账累计跨轮持久：记录侧 3 条 Σ=550+1060+1270=2880，回声侧 550 ⇒ echo_subset。"
         },
         {
           "id": "c6caca6ce6ff25c1",
-          "line": 130,
+          "line": 237,
           "kind": "line",
           "en": "/// Leave a final line without newline unread; consume it after the newline is appended.",
           "zh": "/// 半行跨轮：末行无换行不消费，补齐换行后下轮读完整行。"
         },
         {
           "id": "f934cdf816811138",
-          "line": 143,
+          "line": 250,
           "kind": "line",
           "en": "// Metadata and the first record are complete; the last record has no newline.",
           "zh": "// metadata + 第一条完整；第二条无换行（半行）。"
         },
         {
           "id": "c9b435629412b34d",
-          "line": 162,
+          "line": 269,
           "kind": "line",
           "en": "/// Truncation increments generation and rescans; stored history survives source truncation",
           "zh": "/// 截断重写：generation 递增、整文件重扫；已入库历史不因源截断而消失"
         },
         {
           "id": "b30bac8c68499e5f",
-          "line": 163,
+          "line": 270,
           "kind": "line",
           "en": "/// under V12, as for Codex. Rescanning adds only events with new keys.",
           "zh": "/// （V12 语义，同 codex），重扫仅新增新键事件。"
         },
         {
           "id": "1f1397c883193972",
-          "line": 183,
+          "line": 290,
           "kind": "line",
           "en": "// Rewrite with metadata and one different usage record.",
           "zh": "// 截断为首行（metadata）+ 换一条不同 usage。"
         },
         {
           "id": "d9747d19bf9af5a0",
-          "line": 199,
+          "line": 306,
           "kind": "line",
           "en": "// Keep two historical events and add one new event despite source truncation.",
           "zh": "// 已入库历史不因源截断而消失：旧 2 条 + 新 1 条。"
         },
         {
           "id": "874e01764b621203",
-          "line": 205,
+          "line": 312,
           "kind": "line",
           "en": "/// Stop at a complete line on reaching the line limit; resume from the consumed-line cursor.",
           "zh": "/// 按行数上限分批：达到上限停在完整行边界，下轮续读；游标推进按行消费。"
         },
         {
           "id": "7d06e9d776b0e09c",
-          "line": 216,
+          "line": 323,
           "kind": "line",
           "en": "// Limit this round to two lines: metadata and first record; status budget_exhausted.",
           "zh": "// 本轮上限 2 行：metadata + 第一条记录；状态 budget_exhausted。"
         },
         {
           "id": "193795c7f2334908",
-          "line": 220,
+          "line": 327,
           "kind": "line",
           "en": "// Reconcile only at EOF; this limited round produces no reconciliation row.",
           "zh": "// 仅到文件末尾才对账；此轮受读取上限限制，不产生对账行。"
         },
         {
           "id": "9ef3005ca35da782",
-          "line": 223,
+          "line": 330,
           "kind": "line",
           "en": "// The next normal-limit round reads the remaining record and completes.",
           "zh": "// 下轮使用普通读取上限，续读剩余一条记录并完成。"
         },
         {
           "id": "ad91117fec543e12",
-          "line": 237,
+          "line": 344,
           "kind": "line",
           "en": "/// Rename the unchanged stream while keeping wire.jsonl and changing its agent directory.",
           "zh": "/// 改名重探测：同内容流换路径（文件名保持 wire.jsonl，换代理目录）按"
         },
         {
           "id": "d5ba489b7da3c05e",
-          "line": 238,
+          "line": 345,
           "kind": "line",
           "en": "/// file_identity matches the stream, preventing duplicate events.",
           "zh": "/// file_identity 命中，事件不重复。"
         },
         {
           "id": "9bcf02ccd2a9abd4",
-          "line": 254,
+          "line": 361,
           "kind": "line",
           "en": "// Change the agent directory; the unchanged stream remains discoverable.",
           "zh": "// 换代理目录（文件内容流不变，仍在发现范围内）。"
@@ -44265,7 +44286,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/tests/kimi_work_incremental_v12.rs": {
-      "codeHash": "130ba5c2bce2deddb79ff8d7c9dd97f135764d4a211dec93d4d86af95a6feecb",
+      "codeHash": "616414f9e6a358feab00b14cf1adb3f08af383fc882a380b3a5731ec4a064eaf",
       "comments": [
         {
           "id": "96f708c3cf1a3500",
@@ -44290,10 +44311,10 @@
         },
         {
           "id": "b5d187c3080d054b",
-          "line": 152,
+          "line": 181,
           "kind": "line",
           "en": "// Source truncation leaves imported history intact, as in Codex V12.",
-          "zh": "// 来源截断不会删除已导入历史，与 Codex V12 相同。"
+          "zh": "// 来源截断仍保留已导入历史，与 Codex V12 相同。"
         }
       ]
     },
@@ -47759,7 +47780,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/tests/pricing_v29.rs": {
-      "codeHash": "e5fca0463722e99757eeef72cbfd008e8c52bc90f74fca08dca6c622b155bb75",
+      "codeHash": "93eab99dc9ad1e4fef14ca6634bfdd1c0cae856b32abc9c79bc1104f5575484d",
       "comments": [
         {
           "id": "5acb158e2019cf74",
@@ -48189,106 +48210,113 @@
           "zh": "// 封存日不入选：封存后即使修订号更大也跳过。"
         },
         {
-          "id": "86a84bbecec547db",
+          "id": "02664e7744f20eea",
           "line": 971,
           "kind": "line",
-          "en": "/// Import and validate the seed snapshot; pricing unit tests cover schema, interval overlap, and currency checks.",
-          "zh": "/// 种子快照导入 + 校验（schema 校验/区间重叠/币种枚举在 pricing 单测覆盖）。"
+          "en": "/// Import and validate all seed snapshots in one idempotent startup sequence.",
+          "zh": "/// 在同一个幂等启动流程中导入并校验所有种子快照。"
+        },
+        {
+          "id": "806003777b88546d",
+          "line": 1038,
+          "kind": "line",
+          "en": "// Rates are input/read/write5m/write1h/output/storage, in stored integer units.",
+          "zh": "// 费率依次为 input/read/write5m/write1h/output/storage，采用存储所用的整数单位。"
         },
         {
           "id": "636dd1e27cf6a0a1",
-          "line": 1010,
+          "line": 1460,
           "kind": "line",
           "en": "/// Provider/model filters match selected values; missing providers do not match any named",
           "zh": "/// provider/model 筛选只匹配所选值；缺失 provider 的事件不匹配具体"
         },
         {
           "id": "a0217e291f50ed4c",
-          "line": 1011,
+          "line": 1461,
           "kind": "line",
           "en": "/// provider. The \"unknown\" filter selects missing providers, as query::Filters does.",
           "zh": "/// 供应商筛选）；\"unknown\" 筛选值命中空 provider 事件（与 query::Filters 一致）。"
         },
         {
           "id": "cae0e3157becf437",
-          "line": 1020,
+          "line": 1470,
           "kind": "line",
           "en": "// Three events: priced openai, missing provider, and priced zhipuai.",
           "zh": "// 三个事件：openai 有价、无 provider（不套价）、zhipuai 有价。"
         },
         {
           "id": "c97a85809bc67c67",
-          "line": 1072,
+          "line": 1522,
           "kind": "line",
           "en": "// Filter openai only, excluding missing-provider events. Total input 1M≥272K selects P3:",
           "zh": "// 只筛 openai：不含无 provider 事件。输入合计 1M ≥ 272K → P3 长档："
         },
         {
           "id": "c974f2203cb1bd26",
-          "line": 1073,
+          "line": 1523,
           "kind": "line",
           "en": "// input 1M×200000/1e8=2000 + output 1M×750000/1e8=7500 gives 9500 US cents.",
           "zh": "// in 1M×200000/1e8 = 2000 + out 1M×750000/1e8 = 7500 → 9500 美分。"
         },
         {
           "id": "6b07955eda701665",
-          "line": 1087,
+          "line": 1537,
           "kind": "line",
           "en": "// The \"unknown\" filter selects only missing-provider events, unpriced with channel_unknown.",
           "zh": "// \"unknown\" 筛选：只命中无 provider 事件（未计价，channel_unknown）。"
         },
         {
           "id": "e9ca90045ade19ff",
-          "line": 1106,
+          "line": 1556,
           "kind": "line",
           "en": "// Model filtering selects glm-5.3 only: P1 input 800 + output 2800=3600 fen, excluding GPT events.",
           "zh": "// 模型筛选同理：只筛 glm-5.3（P1：in 800 + out 2800 = 3600 分，不含 gpt 事件）。"
         },
         {
           "id": "a61c9e2ee48f2112",
-          "line": 1120,
+          "line": 1570,
           "kind": "line",
           "en": "/// Test official-provider fallback when the event provider has no exact price row:",
           "zh": "/// 官方供应商回退端到端（当前规则）：事件 provider 无精确价格行时"
         },
         {
           "id": "aa5ab57f370b3ad2",
-          "line": 1121,
+          "line": 1571,
           "kind": "line",
           "en": "/// use the official pay-as-you-go rate and retain fallback_event_count in daily costs and summaries.",
           "zh": "/// 参考官方 provider 按量价，日成本行与汇总记录 fallback_event_count；"
         },
         {
           "id": "91fc73db4062cab8",
-          "line": 1122,
+          "line": 1572,
           "kind": "line",
           "en": "/// Unconfigured channels may use an explicitly official same-model reference; actual channel remains unknown.",
           "zh": "/// 未配置渠道同样可参考已标官方的同型号价格，实际渠道保持未知。"
         },
         {
           "id": "a4c06b48ddc7411c",
-          "line": 1126,
+          "line": 1576,
           "kind": "line",
           "en": "// Synthetic community snapshot: official vendorA m-one; official_vendor defaults true, with $10/$50 USD rates.",
           "zh": "// 社区快照：官方 vendorA 的 m-one（official_vendor 默认 true；USD $10/$50）。"
         },
         {
           "id": "fc99b674dceb81a0",
-          "line": 1142,
+          "line": 1592,
           "kind": "line",
           "en": "// relay-x lacks an exact row; vendorA's official reference gives 1M×$10 +1M×$50=$60, or 6000 US cents.",
           "zh": "// relay-x 无精确行 → 回退 vendorA 官方行：1M×$10 + 1M×$50 = $60（6000 美分）。"
         },
         {
           "id": "8eb3902bb643fdbf",
-          "line": 1152,
+          "line": 1602,
           "kind": "line",
           "en": "// An unconfigured channel may also use this model's explicitly official reference price.",
           "zh": "// 未配置渠道同样可参考该型号已明确标记的官方价格。"
         },
         {
           "id": "2d9835e2589668e6",
-          "line": 1191,
+          "line": 1641,
           "kind": "line",
           "en": "// Current simulation also uses and counts official-provider fallback.",
           "zh": "// 按当前价格模拟同样走回退并计数。"
@@ -48646,7 +48674,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/tests/release_033.rs": {
-      "codeHash": "335f3506edb9abc2fe8bac1eecb9169a2a18790aaa627511bea3c671a8772e72",
+      "codeHash": "d8e5e13a3216153c13587ba1b1c384fa41fd26228b5a82e39eb3ee83138429e7",
       "comments": [
         {
           "id": "ccd121366291fcf6",
@@ -48671,42 +48699,42 @@
         },
         {
           "id": "3d12afb99145a132",
-          "line": 366,
+          "line": 614,
           "kind": "line",
           "en": "// Freeze the complete old carry output: old parser emitted it in the child",
           "zh": "// 固定完整旧快照输出：旧解析器在子线程上下文中、"
         },
         {
           "id": "a99290c90e84282a",
-          "line": 367,
+          "line": 615,
           "kind": "line",
           "en": "// context, before any model turn, with the compaction timestamp.",
           "zh": "// 首个模型轮次之前，使用压缩时间戳生成该记录。"
         },
         {
           "id": "2497cccb191711fa",
-          "line": 510,
+          "line": 766,
           "kind": "line",
           "en": "// A real contradictory report in the original thread remains a conflict,",
           "zh": "// 原始线程中真实矛盾的报告仍保留为冲突，"
         },
         {
           "id": "4944621a28f08c72",
-          "line": 511,
+          "line": 767,
           "kind": "line",
           "en": "// even when a verified inherited-carry correction occurs in the same batch.",
           "zh": "// 即使同批次进行了已核验的继承快照修正也不清除。"
         },
         {
           "id": "d038bc36bf16a4cd",
-          "line": 689,
+          "line": 1099,
           "kind": "line",
           "en": "// Frozen parser-1 results for the two independently specified source rows.",
           "zh": "// 固定两条独立定义源记录的 parser-1 输出结果。"
         },
         {
           "id": "3f857f8f34ede62c",
-          "line": 817,
+          "line": 1227,
           "kind": "line",
           "en": "// Same revision with an unrelated complete prior summary must not be corrected.",
           "zh": "// 同修订下不匹配的完整旧摘要不能被修正。"
@@ -50108,21 +50136,21 @@
       ]
     },
     "desktop/src-tauri/installer/windows.nsi": {
-      "codeHash": "84d83113eadc62bcbcb53023a6bc419c7a7d053bb19b754209f825eec97d9af1",
+      "codeHash": "c0e44c90980a331edafe07dc7766b09639b107b9bdad68836a96749100eb0190",
       "comments": [
         {
-          "id": "13ff63115d82c014",
+          "id": "b84920ca3e3aad3a",
           "line": 1,
           "kind": "line",
-          "en": "; Based on Tauri CLI v2.12.0, MIT license in LICENSE-MIT.upstream.",
-          "zh": "; 参考 Tauri CLI v2.12.0，MIT 许可证见 LICENSE-MIT.upstream。"
+          "en": "; Based on Tauri CLI v2.12.4, MIT license in LICENSE-MIT.upstream.",
+          "zh": "; 基于 Tauri CLI v2.12.4，MIT 许可证见 LICENSE-MIT.upstream。"
         },
         {
-          "id": "14c7e93ddb196ca7",
+          "id": "a7b462a46ff93d6c",
           "line": 2,
           "kind": "line",
-          "en": "; Source: https://raw.githubusercontent.com/tauri-apps/tauri/tauri-cli-v2.12.0/crates/tauri-bundler/src/bundle/windows/nsis/installer.nsi",
-          "zh": "; 源码：https://raw.githubusercontent.com/tauri-apps/tauri/tauri-cli-v2.12.0/crates/tauri-bundler/src/bundle/windows/nsis/installer.nsi"
+          "en": "; Source: https://raw.githubusercontent.com/tauri-apps/tauri/tauri-cli-v2.12.4/crates/tauri-bundler/src/bundle/windows/nsis/installer.nsi",
+          "zh": "; 源码：https://raw.githubusercontent.com/tauri-apps/tauri/tauri-cli-v2.12.4/crates/tauri-bundler/src/bundle/windows/nsis/installer.nsi"
         },
         {
           "id": "048f45e14528feca",
@@ -50314,11 +50342,11 @@
           "zh": "; 仅在发现已有安装时显示。"
         },
         {
-          "id": "7c05b973ec541727",
+          "id": "a80f42af857e3c4b",
           "line": 193,
           "kind": "line",
-          "en": "; Find a matching previous WiX installation.",
-          "zh": "; 查找符合条件的已有 WiX 安装。"
+          "en": "; Find a matching previous WiX installation and set $R6 to its uninstall registry key, or to \"\" if none.",
+          "zh": "; 查找匹配的已有 WiX 安装；找到时将 $R6 设为其卸载信息所在的注册表键，否则设为 \"\"。"
         },
         {
           "id": "07c27b2ae5e49682",
@@ -50392,833 +50420,938 @@
         },
         {
           "id": "c894b46010ddb8e6",
-          "line": 207,
+          "line": 209,
           "kind": "line",
           "en": "; Exit loop if there is no more keys to loop on",
           "zh": "; 没有更多注册表键时退出循环。"
         },
         {
+          "id": "be20a019050fa233",
+          "line": 223,
+          "kind": "line",
+          "en": "; Uninstall previous WiX installation if exists.",
+          "zh": "; 若存在旧 WiX 安装，则将其卸载。"
+        },
+        {
           "id": "339002f94a6a8cd8",
-          "line": 221,
+          "line": 230,
           "kind": "line",
           "en": "; Check if there is an existing installation, if not, abort the reinstall page",
           "zh": "; 没有已有安装时跳过重新安装页面。"
         },
         {
           "id": "b4983bd86369ca7c",
-          "line": 226,
+          "line": 235,
           "kind": "line",
           "en": "; Compare this installer version with the existing installation",
           "zh": "; 比较安装包版本与已有安装版本，"
         },
         {
           "id": "fb81c0ab3e5d5585",
-          "line": 227,
+          "line": 236,
           "kind": "line",
           "en": "; and modify the messages presented to the user accordingly",
           "zh": "; 按结果设置提示文字。"
         },
         {
+          "id": "66a169c386ab29c1",
+          "line": 249,
+          "kind": "line",
+          "en": "; Read the install choice header through $R5 so a custom language file that only",
+          "zh": "; 通过 $R5 读取安装选项标题，使仅定义了"
+        },
+        {
+          "id": "12e5092bd85a6801",
+          "line": 250,
+          "kind": "line",
+          "en": "; defines the misspelled `choowHowToInstall` still shows its own text",
+          "zh": "; 错误拼写 `choowHowToInstall` 的自定义语言文件仍能显示自身文本"
+        },
+        {
+          "id": "c5c2e06e9d397557",
+          "line": 251,
+          "kind": "line",
+          "en": "; TODO: remove the `choowHowToInstall` fallback in a future major version",
+          "zh": "; TODO：在未来主版本中移除 `choowHowToInstall` 回退逻辑"
+        },
+        {
           "id": "dccd460e11b5109e",
-          "line": 239,
+          "line": 255,
           "kind": "line",
           "en": "; Reinstalling the same version",
           "zh": "; 重新安装相同版本"
         },
         {
           "id": "d1f7c03188db0f47",
-          "line": 245,
+          "line": 261,
           "kind": "line",
           "en": "; Upgrading",
           "zh": "; 升级"
         },
         {
           "id": "c73f1311c07ee1a6",
-          "line": 251,
+          "line": 267,
           "kind": "line",
           "en": "; Downgrading",
           "zh": "; 降级"
         },
         {
           "id": "fc273fcd20a0b50f",
-          "line": 265,
+          "line": 281,
           "kind": "line",
           "en": "; Skip showing the page if passive",
           "zh": "; passive 模式跳过此页面。"
         },
         {
           "id": "6778ed77f4cfd4cf",
-          "line": 266,
+          "line": 282,
           "kind": "line",
           "en": ";",
           "zh": ";（空行）"
         },
         {
           "id": "fa7479567d90bfdb",
-          "line": 267,
+          "line": 283,
           "kind": "line",
           "en": "; Note that we don't call this earlier at the beginning",
           "zh": "; 此判断放在版本读取之后，"
         },
         {
           "id": "e2a305d148403139",
-          "line": 268,
+          "line": 284,
           "kind": "line",
           "en": "; of this function because we need to populate some variables",
           "zh": "; 让相关变量先取得"
         },
         {
           "id": "4d8a960d40339de8",
-          "line": 269,
+          "line": 285,
           "kind": "line",
           "en": "; related to current installed version if detected and whether",
           "zh": "; 已安装版本信息，"
         },
         {
           "id": "1c5d0af874435c47",
-          "line": 270,
+          "line": 286,
           "kind": "line",
           "en": "; we are downgrading or not.",
           "zh": "; 并确定是否为降级。"
         },
         {
           "id": "09ce265bf523c0ae",
-          "line": 287,
+          "line": 303,
           "kind": "line",
           "en": "; Disable this radio button if downgrading and downgrades are disabled",
-          "zh": "; 不允许降级时，禁用降级选项对应的单选按钮。"
+          "zh": "; 正在降级且不允许降级时，禁用此单选按钮。"
         },
         {
           "id": "f0b8981630879cad",
-          "line": 293,
+          "line": 309,
           "kind": "line",
           "en": "; Check the first radio button if this the first time",
           "zh": "; 初次进入此页面时选中第一个按钮；"
         },
         {
           "id": "c723b869dc152bbb",
-          "line": 294,
+          "line": 310,
           "kind": "line",
           "en": "; we enter this page or if the second button wasn't",
           "zh": "; 之前未选择第二个按钮时，"
         },
         {
           "id": "d00fdd74a774826f",
-          "line": 295,
+          "line": 311,
           "kind": "line",
           "en": "; selected the last time we were on this page",
           "zh": "; 再次进入也选中第一个。"
         },
         {
           "id": "ac948b8251d0cc92",
-          "line": 317,
+          "line": 333,
           "kind": "line",
           "en": "; If migrating from Wix, always uninstall",
           "zh": "; WiX 迁移总是卸载旧包。"
         },
         {
           "id": "a48684793f17f806",
-          "line": 322,
+          "line": 338,
           "kind": "line",
           "en": "; In update mode, always proceeds without uninstalling",
           "zh": "; update 模式继续安装，不执行卸载。"
         },
         {
           "id": "c16ed690ca640eb9",
-          "line": 327,
+          "line": 343,
           "kind": "line",
           "en": "; $R0 holds whether same(0)/upgrading(1)/downgrading(-1) version",
           "zh": "; $R0：相同版本为 0，升级为 1，降级为 -1。"
         },
         {
           "id": "8309127b4d3f93a3",
-          "line": 328,
+          "line": 344,
           "kind": "line",
           "en": "; $R1 holds the radio buttons state:",
           "zh": "; $R1 保存单选按钮状态："
         },
         {
           "id": "3eeb9ca90e1ca911",
-          "line": 329,
+          "line": 345,
           "kind": "line",
           "en": ";   1 => first choice was selected",
           "zh": "; 值 1 表示选择第一项。"
         },
         {
           "id": "a576968831244727",
-          "line": 330,
+          "line": 346,
           "kind": "line",
           "en": ";   0 => second choice was selected",
           "zh": "; 值 0 表示选择第二项。"
         },
         {
           "id": "40a8243f27d0110b",
-          "line": 331,
+          "line": 347,
           "kind": "line",
           "en": "; Same version, proceed",
           "zh": "; 版本相同，继续。"
         },
         {
           "id": "20d7d3350a7f026e",
-          "line": 332,
+          "line": 348,
           "kind": "line",
           "en": "; User chose to add/reinstall",
           "zh": "; 用户选择添加或重新安装。"
         },
         {
           "id": "460b707bcc1522c8",
-          "line": 334,
+          "line": 350,
           "kind": "line",
           "en": "; User chose to uninstall",
           "zh": "; 用户选择卸载。"
         },
         {
           "id": "4b2c2a0b5d7f079e",
-          "line": 337,
+          "line": 353,
           "kind": "line",
           "en": "; Upgrading",
           "zh": "; 升级"
         },
         {
           "id": "45130fd711398629",
-          "line": 338,
+          "line": 354,
           "kind": "line",
           "en": "; User chose to uninstall",
           "zh": "; 用户选择卸载。"
         },
         {
           "id": "de8387c0d8ace5bb",
-          "line": 341,
+          "line": 357,
           "kind": "line",
           "en": "; User chose NOT to uninstall",
           "zh": "; 用户选择保留已有安装。"
         },
         {
           "id": "77b60e38eb55f66c",
-          "line": 343,
+          "line": 359,
           "kind": "line",
           "en": "; Downgrading",
           "zh": "; 降级"
         },
         {
           "id": "5ead6aa3eb3fd70b",
-          "line": 344,
+          "line": 360,
           "kind": "line",
           "en": "; User chose to uninstall",
           "zh": "; 用户选择卸载。"
         },
         {
           "id": "9bfb07f20f4c4c8e",
-          "line": 347,
+          "line": 363,
           "kind": "line",
           "en": "; User chose NOT to uninstall",
           "zh": "; 用户选择保留已有安装。"
         },
         {
           "id": "71ec7f29a33dbb64",
-          "line": 361,
+          "line": 377,
           "kind": "line",
           "en": "; append /UPDATE",
           "zh": "; 添加 /UPDATE 参数。"
         },
         {
           "id": "94a3e7a50b503d39",
-          "line": 362,
+          "line": 378,
           "kind": "line",
           "en": "; append /P",
           "zh": "; 添加 /P 参数。"
         },
         {
           "id": "78faae518e696638",
-          "line": 363,
+          "line": 379,
           "kind": "line",
           "en": "; append uninstall directory",
           "zh": "; 添加卸载目录参数。"
         },
         {
           "id": "691038ec67bdaf2e",
-          "line": 369,
+          "line": 385,
           "kind": "line",
           "en": "; ExecWait failed, set fake exit code",
           "zh": "; ExecWait 失败时设置人工错误码。"
         },
         {
           "id": "3c15bd40e7616820",
-          "line": 373,
+          "line": 389,
           "kind": "line",
           "en": "; User cancelled wix uninstaller? return to select un/reinstall page",
           "zh": "; WiX 卸载被取消时返回维护选项页面。"
         },
         {
           "id": "f0229704ea44c680",
-          "line": 379,
+          "line": 395,
           "kind": "line",
           "en": "; User cancelled NSIS uninstaller? return to select un/reinstall page",
           "zh": "; NSIS 卸载被取消时返回维护选项页面。"
         },
         {
           "id": "fd506478952ef998",
-          "line": 384,
+          "line": 400,
           "kind": "line",
           "en": "; Other errors? show generic error message and return to select un/reinstall page",
           "zh": "; 其他错误显示通用错误提示，再返回维护选项页面。"
         },
         {
+          "id": "9777a20b73a9633d",
+          "line": 405,
+          "kind": "line",
+          "en": "; The NSIS uninstaller was run in place (`_?=`), so it cannot delete itself",
+          "zh": "; NSIS 卸载程序通过 `_?=` 在原位置运行，因此无法删除自身"
+        },
+        {
+          "id": "7a8815bd4c275471",
+          "line": 406,
+          "kind": "line",
+          "en": "; and the install directory, clean them up here once the uninstall succeeded",
+          "zh": "; 和安装目录；卸载成功后，在此处清理二者"
+        },
+        {
+          "id": "406dbae1efe2903c",
+          "line": 407,
+          "kind": "line",
+          "en": "; https://nsis.sourceforge.io/Docs/Chapter3.html#:~:text=path%20contains%20spaces.-,3.2.3%20Examples,-installer.exe%20/NCRC",
+          "zh": "; 参考：https://nsis.sourceforge.io/Docs/Chapter3.html#:~:text=path%20contains%20spaces.-,3.2.3%20Examples,-installer.exe%20/NCRC"
+        },
+        {
           "id": "398d461889891c05",
-          "line": 391,
+          "line": 416,
           "kind": "line",
           "en": "; 5. Choose install directory page",
           "zh": "; 第 5 页：安装目录"
         },
         {
           "id": "a553dcb6cd993ce5",
-          "line": 395,
+          "line": 420,
           "kind": "line",
           "en": "; 6. Start menu shortcut page",
           "zh": "; 第 6 页：开始菜单快捷方式"
         },
         {
           "id": "cda51f48268fe9ca",
-          "line": 405,
+          "line": 430,
           "kind": "line",
           "en": "; 7. Installation page",
           "zh": "; 第 7 页：安装过程"
         },
         {
           "id": "cecc8249cc0fe16a",
-          "line": 408,
+          "line": 433,
           "kind": "line",
           "en": "; 8. Finish page",
           "zh": "; 第 8 页：完成"
         },
         {
           "id": "040ed560606d5648",
-          "line": 409,
+          "line": 434,
           "kind": "line",
           "en": ";",
           "zh": ";（空行）"
         },
         {
           "id": "8f37797ce05501cb",
-          "line": 410,
+          "line": 435,
           "kind": "line",
           "en": "; Don't auto jump to finish page after installation page,",
           "zh": "; 安装过程结束后不自动跳到完成页，"
         },
         {
           "id": "fa7f6d92b3e595e6",
-          "line": 411,
+          "line": 436,
           "kind": "line",
           "en": "; because the installation page has useful info that can be used debug any issues with the installer.",
           "zh": "; 保留安装过程信息供故障排查。"
         },
         {
           "id": "9dfff636ed311407",
-          "line": 413,
+          "line": 438,
           "kind": "line",
           "en": "; Use show readme button in the finish page as a button create a desktop shortcut",
           "zh": "; 将完成页的显示说明按钮用于创建桌面快捷方式。"
         },
         {
           "id": "2bcf9d6ba4820097",
-          "line": 417,
+          "line": 442,
           "kind": "line",
           "en": "; Show run app after installation.",
           "zh": "; 显示安装后启动应用选项。"
         },
         {
           "id": "7db84e06ae047c87",
-          "line": 427,
+          "line": 452,
           "kind": "line",
           "en": "; Uninstaller Pages",
           "zh": "; 卸载页面"
         },
         {
           "id": "15d018e19e3a1ae8",
-          "line": 428,
+          "line": 453,
           "kind": "line",
           "en": "; 1. Confirm uninstall page",
           "zh": "; 第 1 页：确认卸载"
         },
         {
           "id": "b4e90e53797705ae",
-          "line": 433,
+          "line": 458,
           "kind": "line",
           "en": "; Add a Delete app data checkbox.",
           "zh": "; 添加删除应用数据复选框。"
         },
         {
           "id": "be486a34f9862ffb",
-          "line": 434,
+          "line": 459,
           "kind": "line",
           "en": "; $1 inner dialog HWND",
           "zh": "; $1：内部对话框 HWND"
         },
         {
           "id": "44e544dcca8e7896",
-          "line": 435,
+          "line": 460,
           "kind": "line",
           "en": "; $2 window DPI",
           "zh": "; $2：窗口 DPI"
         },
         {
           "id": "080638ff868a062a",
-          "line": 436,
+          "line": 461,
           "kind": "line",
           "en": "; $3 style",
           "zh": "; $3：样式"
         },
         {
           "id": "76e8f6b7fd48819c",
-          "line": 437,
+          "line": 462,
           "kind": "line",
           "en": "; $4 x",
           "zh": "; $4：横坐标"
         },
         {
           "id": "ac498836a0d8a8ce",
-          "line": 438,
+          "line": 463,
           "kind": "line",
           "en": "; $5 y",
           "zh": "; $5：纵坐标"
         },
         {
           "id": "fd7da9e176dd1501",
-          "line": 439,
+          "line": 464,
           "kind": "line",
           "en": "; $6 width",
           "zh": "; $6：宽度"
         },
         {
           "id": "c4c9599470d37e3b",
-          "line": 440,
+          "line": 465,
           "kind": "line",
           "en": "; $7 height",
           "zh": "; $7：高度"
         },
         {
           "id": "1659615a11a6d91c",
-          "line": 441,
+          "line": 466,
           "kind": "line",
           "en": "; Find inner dialog",
           "zh": "; 查找内部对话框。"
         },
         {
           "id": "5cb5aea34c7633c1",
-          "line": 469,
+          "line": 494,
           "kind": "line",
           "en": "; 2. Uninstalling Page",
           "zh": "; 第 2 页：卸载过程"
         },
         {
           "id": "4a3cd7ef7772d5be",
-          "line": 472,
+          "line": 497,
           "kind": "line",
           "en": ";Languages",
           "zh": "; 语言配置"
         },
         {
+          "id": "ca45cd59c703299c",
+          "line": 498,
+          "kind": "line",
+          "en": "; PageReinstall reads the misspelled `choowHowToInstall` as a fallback, and makensis warns",
+          "zh": "; PageReinstall 会回退读取拼写有误的 `choowHowToInstall`；makensis 会针对"
+        },
+        {
+          "id": "7cf4885850cabb57",
+          "line": 499,
+          "kind": "line",
+          "en": "; about a language string that is read but never set, so default it to an empty string for",
+          "zh": "; 已读取但从未设置的语言字符串发出警告，因此在"
+        },
+        {
+          "id": "7bdeac3a499d2ab2",
+          "line": 500,
+          "kind": "line",
+          "en": "; every language. This runs before the language files are included, so a custom language",
+          "zh": "; 每种语言中将该字符串默认设为空字符串。此逻辑在包含语言文件之前运行，因此"
+        },
+        {
+          "id": "1fa041e7a893bba9",
+          "line": 501,
+          "kind": "line",
+          "en": "; file that only defines the old spelling overrides the default and the fallback shows its",
+          "zh": "; 仅定义旧拼写的自定义语言文件会覆盖默认值，回退逻辑将显示其"
+        },
+        {
+          "id": "a7a11275474e19d1",
+          "line": 502,
+          "kind": "line",
+          "en": "; text. `0` as the language id means the language inserted right above.",
+          "zh": "; 文本。语言 ID `0` 表示紧邻上方插入的语言。"
+        },
+        {
+          "id": "cdf977f85dbae9f5",
+          "line": 503,
+          "kind": "line",
+          "en": "; TODO: remove the `choowHowToInstall` fallback in a future major version",
+          "zh": "; TODO：在未来主版本中移除 `choowHowToInstall` 回退逻辑"
+        },
+        {
           "id": "278380699d0c2af8",
-          "line": 504,
+          "line": 536,
           "kind": "line",
           "en": "; Set default install location",
           "zh": "; 设置默认安装位置。"
         },
         {
-          "id": "d3625b18a136fb76",
-          "line": 532,
+          "id": "cfe7567c6d7b824d",
+          "line": 561,
           "kind": "line",
-          "en": "; Abort silent installer if downgrades is disabled",
-          "zh": "; 不允许降级时中止静默安装。"
+          "en": "; Abort downgrades if they are disabled, in the modes that skip the reinstall page choice:",
+          "zh": "; 在跳过重新安装页面选择的模式中，若禁用降级，则中止降级："
+        },
+        {
+          "id": "b8fa34d84ece0c11",
+          "line": 562,
+          "kind": "line",
+          "en": "; silent, passive and update",
+          "zh": "; 静默、passive 和 update 模式"
+        },
+        {
+          "id": "582780cb88c7f0cd",
+          "line": 567,
+          "kind": "line",
+          "en": "; Compare with the same installation the reinstall page would: a WiX one first",
+          "zh": "; 与重新安装页面会选择的同一已有安装比较：优先选择 WiX 安装"
         },
         {
           "id": "0dc200504a4db673",
-          "line": 535,
+          "line": 576,
           "kind": "line",
           "en": "; If downgrading",
           "zh": "; 检查是否降级。"
         },
         {
           "id": "e17860084abe9798",
-          "line": 540,
+          "line": 582,
           "kind": "line",
           "en": "; set red color",
           "zh": "; 设置红色文字。"
         },
         {
           "id": "555b0b3bf3567f98",
-          "line": 551,
+          "line": 595,
           "kind": "line",
           "en": "; Read the installed WebView2 version and install or update as required.",
           "zh": "; 读取 WebView2 已安装版本，根据条件安装或更新。"
         },
         {
           "id": "ac99e305c856384e",
-          "line": 562,
+          "line": 606,
           "kind": "line",
           "en": "; Webview2 installation",
           "zh": "; 安装 WebView2"
         },
         {
           "id": "e2f3906fb2f021c8",
-          "line": 563,
+          "line": 607,
           "kind": "line",
           "en": ";",
           "zh": ";（空行）"
         },
         {
           "id": "aab76e2f705540d9",
-          "line": 564,
+          "line": 608,
           "kind": "line",
           "en": "; Skip if updating",
           "zh": "; update 模式跳过。"
         },
         {
           "id": "70054e87191a67bb",
-          "line": 601,
+          "line": 645,
           "kind": "line",
           "en": "; $6 holds the path to the webview2 installer",
           "zh": "; $6 保存 WebView2 安装包路径。"
         },
         {
           "id": "72b97f61bf23b5ff",
-          "line": 626,
+          "line": 670,
           "kind": "line",
           "en": "; Chromium updater docs: https://source.chromium.org/chromium/chromium/src/+/main:docs/updater/user_manual.md",
           "zh": "; Chromium 更新文档：https://source.chromium.org/chromium/chromium/src/+/main:docs/updater/user_manual.md"
         },
         {
           "id": "102bc752f7fd1a18",
-          "line": 627,
+          "line": 671,
           "kind": "line",
           "en": "; Modified from \"HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Microsoft EdgeWebView\\ModifyPath\"",
           "zh": "; 参考注册表 HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Microsoft EdgeWebView\\ModifyPath。"
         },
         {
           "id": "60df2b327210837a",
-          "line": 651,
+          "line": 695,
           "kind": "line",
           "en": "; Copy main executable",
           "zh": "; 复制主程序。"
         },
         {
           "id": "ce376bd663ff690c",
-          "line": 654,
+          "line": 698,
           "kind": "line",
           "en": "; Copy resources",
           "zh": "; 复制资源。"
         },
         {
           "id": "ba0083d7e09adc84",
-          "line": 662,
+          "line": 706,
           "kind": "line",
           "en": "; Copy external binaries",
           "zh": "; 复制外部可执行文件。"
         },
         {
           "id": "48cfc1461336ac17",
-          "line": 667,
+          "line": 711,
           "kind": "line",
           "en": "; Create file associations",
           "zh": "; 创建文件关联。"
         },
         {
           "id": "6e61915686d712d9",
-          "line": 674,
+          "line": 718,
           "kind": "line",
           "en": "; Register deep links",
           "zh": "; 注册深层链接协议。"
         },
         {
           "id": "ed842a4d50b6a10c",
-          "line": 682,
+          "line": 726,
           "kind": "line",
           "en": "; Create uninstaller",
           "zh": "; 创建卸载程序。"
         },
         {
           "id": "8c805d661317d48e",
-          "line": 685,
+          "line": 729,
           "kind": "line",
           "en": "; Save $INSTDIR in registry for future installations",
           "zh": "; 在注册表保存 $INSTDIR，供后续安装读取。"
         },
         {
           "id": "edef88d1ceaeda15",
-          "line": 689,
+          "line": 733,
           "kind": "line",
           "en": "; Save install mode to be selected by default for the next installation such as updating",
           "zh": "; 保存安装范围，供后续更新"
         },
         {
           "id": "30534e56f4172669",
-          "line": 690,
+          "line": 734,
           "kind": "line",
           "en": "; or when uninstalling",
           "zh": "; 或卸载时默认选用。"
         },
         {
           "id": "e5d31deefde31a8f",
-          "line": 694,
+          "line": 738,
           "kind": "line",
           "en": "; Remove old main binary if it doesn't match new main binary name",
           "zh": "; 主程序名改变时删除旧主程序。"
         },
         {
           "id": "a904125dc3d20f46",
-          "line": 701,
+          "line": 745,
           "kind": "line",
           "en": "; Save current MAINBINARYNAME for future updates",
           "zh": "; 保存当前 MAINBINARYNAME，供后续更新读取。"
         },
         {
           "id": "6a249079bbb0cb3d",
-          "line": 704,
+          "line": 748,
           "kind": "line",
           "en": "; Registry information for add/remove programs",
           "zh": "; 添加或删除程序界面的注册表信息。"
         },
         {
           "id": "79d9fc543184f396",
-          "line": 725,
+          "line": 769,
           "kind": "line",
           "en": "; Create start menu shortcut",
           "zh": "; 创建开始菜单快捷方式。"
         },
         {
           "id": "b3442ab2e48fcfcb",
-          "line": 730,
+          "line": 774,
           "kind": "line",
           "en": "; Create desktop shortcut for silent and passive installers",
           "zh": "; 为静默及 passive 安装创建桌面快捷方式，"
         },
         {
           "id": "2f1b97600d3baa57",
-          "line": 731,
+          "line": 775,
           "kind": "line",
           "en": "; because finish page will be skipped",
           "zh": "; 因为这些模式会跳过完成页。"
         },
         {
           "id": "d9fb0f6ccdd450a5",
-          "line": 741,
+          "line": 785,
           "kind": "line",
           "en": "; Auto close this page for passive mode",
           "zh": "; passive 模式自动关闭此页。"
         },
         {
           "id": "caf30d2a0c37e865",
-          "line": 748,
+          "line": 792,
           "kind": "line",
           "en": "; Check for `/R` flag only in silent and passive installers because",
           "zh": "; 仅静默及 passive 安装检查 /R，"
         },
         {
           "id": "1160ae85c1118bea",
-          "line": 749,
+          "line": 793,
           "kind": "line",
           "en": "; GUI installer has a toggle for the user to (re)start the app",
-          "zh": "; GUI 安装使用复选项控制是否重新启动应用。"
+          "zh": "; GUI 安装提供复选项，供用户选择是否启动或重新启动应用。"
         },
         {
           "id": "8b779d157387df1b",
-          "line": 788,
+          "line": 832,
           "kind": "line",
           "en": "; Delete owned installation files and attempt to remove the installation directory.",
           "zh": "; 删除本安装拥有的文件，并尝试删除安装目录。"
         },
         {
           "id": "95ad7b37eec4f9f6",
-          "line": 789,
+          "line": 833,
           "kind": "line",
           "en": "; Delete main executable.",
           "zh": "; 删除主程序。"
         },
         {
           "id": "f9974a95facfbfc2",
-          "line": 792,
+          "line": 836,
           "kind": "line",
           "en": "; Delete resources",
           "zh": "; 删除资源。"
         },
         {
           "id": "81396b103a0c5c44",
-          "line": 797,
+          "line": 841,
           "kind": "line",
           "en": "; Delete external binaries",
           "zh": "; 删除外部可执行文件。"
         },
         {
           "id": "ebe5d14f942f25be",
-          "line": 802,
+          "line": 846,
           "kind": "line",
           "en": "; Delete app associations",
           "zh": "; 删除应用文件关联。"
         },
         {
           "id": "e3c81c7891a39a59",
-          "line": 809,
+          "line": 853,
           "kind": "line",
           "en": "; Delete deep links",
           "zh": "; 删除深层链接协议。"
         },
         {
           "id": "0bc074e0a39dc827",
-          "line": 818,
+          "line": 862,
           "kind": "line",
           "en": "; Delete uninstaller",
           "zh": "; 删除卸载程序。"
         },
         {
           "id": "b94589bc416cacdb",
-          "line": 826,
+          "line": 870,
           "kind": "line",
           "en": "; Remove shortcuts if not updating",
           "zh": "; 非 update 模式才删除快捷方式。"
         },
         {
           "id": "022dce7045c0e96c",
-          "line": 830,
+          "line": 874,
           "kind": "line",
           "en": "; Remove start menu shortcut",
           "zh": "; 删除开始菜单快捷方式。"
         },
         {
           "id": "17f17d66369438c3",
-          "line": 846,
+          "line": 890,
           "kind": "line",
           "en": "; Remove desktop shortcuts",
           "zh": "; 删除桌面快捷方式。"
         },
         {
           "id": "57612262a47a069b",
-          "line": 855,
+          "line": 899,
           "kind": "line",
           "en": "; Remove registry information for add/remove programs",
           "zh": "; 删除添加或删除程序的注册表信息。"
         },
         {
           "id": "24c841465708dcf4",
-          "line": 864,
+          "line": 908,
           "kind": "line",
           "en": "; The executable pre-uninstall cleanup checks this installation's owned HKCU Run value.",
           "zh": "; 可执行程序的卸载前置清理负责检查 HKCU Run 中属于本安装的自启动项。"
         },
         {
           "id": "a2e710e14d5977b5",
-          "line": 865,
+          "line": 909,
           "kind": "line",
           "en": "; Cleanup removes owned autostart content while preserving foreign values.",
           "zh": "; 清理仅删除本安装拥有的值，保留其他软件或安装的值。"
         },
         {
           "id": "bc84e157b998a0c4",
-          "line": 866,
+          "line": 910,
           "kind": "line",
           "en": "; An absent owned value requires no deletion.",
           "zh": "; 自有值不存在时，无需删除。"
         },
         {
           "id": "72f5fe807cac2f01",
-          "line": 867,
+          "line": 911,
           "kind": "line",
           "en": "; Update mode skips cleanup and retains autostart.",
           "zh": "; update 模式保留自启动项，不执行此清理。"
         },
         {
           "id": "f7012feb8192b5db",
-          "line": 869,
+          "line": 913,
           "kind": "line",
           "en": "; --uninstall-cleanup removed only this installation's autostart value.",
           "zh": "; --uninstall-cleanup 已删除本安装拥有的自启动项。"
         },
         {
           "id": "b44f86ea4e1ea32a",
-          "line": 872,
+          "line": 916,
           "kind": "line",
           "en": "; Delete app data if the checkbox is selected",
           "zh": "; 勾选删除应用数据时执行删除，"
         },
         {
           "id": "602b9548ee98f1ae",
-          "line": 873,
+          "line": 917,
           "kind": "line",
           "en": "; and if not updating",
           "zh": "; 同时必须为非 update 模式。"
         },
         {
           "id": "05333b88bd012774",
-          "line": 876,
+          "line": 920,
           "kind": "line",
           "en": "; Clear the install location $INSTDIR from registry",
           "zh": "; 从注册表清除安装位置 $INSTDIR。"
         },
         {
           "id": "2ee6c0b804db06f0",
-          "line": 880,
+          "line": 924,
           "kind": "line",
           "en": "; Clear the install language from registry",
           "zh": "; 从注册表清除安装语言。"
         },
         {
           "id": "92a15ce12d9a7211",
-          "line": 894,
+          "line": 938,
           "kind": "line",
           "en": "; Auto close if passive mode or updating",
           "zh": "; passive 或 update 模式自动关闭。"
         },
         {
           "id": "66451b8ffa371003",
-          "line": 919,
+          "line": 963,
           "kind": "line",
           "en": "; We used to use product name as MAINBINARYNAME",
           "zh": "; 早期主程序名等于产品名称，"
         },
         {
           "id": "0a9bff558e37a41a",
-          "line": 920,
+          "line": 964,
           "kind": "line",
           "en": "; migrate old shortcuts to target the new MAINBINARYNAME",
           "zh": "; 将旧快捷方式改为新的 MAINBINARYNAME。"
         },
         {
           "id": "a10d624106ca744d",
-          "line": 941,
+          "line": 985,
           "kind": "line",
           "en": "; Skip creating shortcut if in update mode or no shortcut mode",
           "zh": "; update 或 no-shortcut 模式跳过创建快捷方式，"
         },
         {
           "id": "1e8e041a60554707",
-          "line": 942,
+          "line": 986,
           "kind": "line",
           "en": "; but always create if migrating from wix",
           "zh": "; WiX 迁移仍创建快捷方式。"
         },
         {
           "id": "23ed07848f0d188b",
-          "line": 961,
+          "line": 1005,
           "kind": "line",
           "en": "; We used to use product name as MAINBINARYNAME",
           "zh": "; 早期主程序名等于产品名称，"
         },
         {
           "id": "1c309a9d660c1117",
-          "line": 962,
+          "line": 1006,
           "kind": "line",
           "en": "; migrate old shortcuts to target the new MAINBINARYNAME",
           "zh": "; 将旧快捷方式改为新的 MAINBINARYNAME。"
         },
         {
           "id": "345e1ebd44324eb0",
-          "line": 970,
+          "line": 1014,
           "kind": "line",
           "en": "; Skip creating shortcut if in update mode or no shortcut mode",
           "zh": "; update 或 no-shortcut 模式跳过创建快捷方式，"
         },
         {
           "id": "9ac6c8d8f80fba36",
-          "line": 971,
+          "line": 1015,
           "kind": "line",
           "en": "; but always create if migrating from wix",
           "zh": "; WiX 迁移仍创建快捷方式。"
@@ -52209,7 +52342,7 @@
       ]
     },
     "desktop/src-tauri/src/db_backup.rs": {
-      "codeHash": "77ca4dbad4daa8dac7880dd684cbd21a20404fe236f2998eaca7c5c3d0ddd6bc",
+      "codeHash": "70643aa6730a6c83cb08ac16e972d8bc0a08f755bc409f06be71d6432e3f6693",
       "comments": [
         {
           "id": "1ccae4ec7f1b7b3a",
@@ -57316,7 +57449,7 @@
       ]
     },
     "desktop/tests/native-smoke.mjs": {
-      "codeHash": "8ac1b70585cd1a5f8a9a5c28425931465b93a4e695e3eb43ff95f5a4c0495b4d",
+      "codeHash": "36f93b79d04897bfb6aa2cc7529fb0bd6c1a1f25dfb7ad4ab1dc157fb0ddcea6",
       "comments": [
         {
           "id": "b665e4cb5bd19c7a",

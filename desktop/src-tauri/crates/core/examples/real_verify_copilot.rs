@@ -12,6 +12,17 @@ use llm_usage_core::jobs::TriggerKind;
 use llm_usage_core::storage::Storage;
 use std::path::PathBuf;
 
+type CopilotSums = (
+    i64,
+    Option<i64>,
+    Option<i64>,
+    Option<i64>,
+    Option<i64>,
+    Option<i64>,
+    Option<i64>,
+    Option<i64>,
+);
+
 fn main() {
     let root = std::env::args()
         .nth(1)
@@ -50,16 +61,7 @@ fn main() {
         );
     }
     let conn = storage.conn();
-    let (count, in_sum, out_sum, cr_sum, cw_sum, r_sum, unc_sum, total_sum): (
-        i64,
-        i64,
-        i64,
-        i64,
-        i64,
-        i64,
-        i64,
-        i64,
-    ) = conn
+    let (count, in_sum, out_sum, cr_sum, cw_sum, r_sum, unc_sum, total_sum): CopilotSums = conn
         .query_row(
             "SELECT COUNT(*), SUM(input_total), SUM(output_total),
                     SUM(input_cache_read), SUM(input_cache_write),
@@ -81,7 +83,7 @@ fn main() {
         )
         .expect("query");
     println!(
-        "collected: count={count} input={in_sum} output={out_sum} cache_read={cr_sum} cache_write={cw_sum} reasoning={r_sum} uncached={unc_sum} total={total_sum}"
+        "collected: count={count} input={in_sum:?} output={out_sum:?} cache_read={cr_sum:?} cache_write={cw_sum:?} reasoning={r_sum:?} uncached={unc_sum:?} total={total_sum:?}"
     );
     // Repeated scans add no duplicates.
     let reports2 = run_adapter_scan(&storage, &adapter, &ctx, &config).expect("rescan");

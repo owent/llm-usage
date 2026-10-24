@@ -1,11 +1,78 @@
 //! Cooperative SQL cancellation with an atomic boundary before commit.
-use std::sync::atomic::{AtomicU8, Ordering};
-use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+use std::sync::{Arc, Condvar, Mutex};
+use std::time::Duration;
 
 const IDLE: u8 = 0;
 const RUNNING: u8 = 1;
 const CANCELLED: u8 = 2;
 const COMMITTING: u8 = 3;
+
+pub(crate) struct SqlInterrupt {
+    stop: Arc<(Mutex<bool>, Condvar)>,
+    worker: Option<std::thread::JoinHandle<()>>,
+    pub(crate) interrupted: Arc<AtomicBool>,
+    #[cfg(test)]
+    called: Arc<AtomicBool>,
+}
+
+pub(crate) fn interrupt_on(
+    connection: &rusqlite::Connection,
+    cancelled: Arc<dyn Fn() -> bool + Send + Sync>,
+) -> Result<SqlInterrupt, crate::error::CoreError> {
+    let interrupt = connection.get_interrupt_handle();
+    let interrupted = Arc::new(AtomicBool::new(false));
+    let worker_interrupted = Arc::clone(&interrupted);
+    #[cfg(test)]
+    let called = Arc::new(AtomicBool::new(false));
+    #[cfg(test)]
+    let worker_called = Arc::clone(&called);
+    let stop = Arc::new((Mutex::new(false), Condvar::new()));
+    let worker_stop = Arc::clone(&stop);
+    let worker = std::thread::Builder::new()
+        .name("sqlite-cancel".into())
+        .spawn(move || {
+            let (lock, wake) = &*worker_stop;
+            loop {
+                if cancelled() {
+                    worker_interrupted.store(true, Ordering::SeqCst);
+                    interrupt.interrupt();
+                    #[cfg(test)]
+                    worker_called.store(true, Ordering::SeqCst);
+                }
+                let guard = lock.lock().unwrap();
+                let (stopped, _) = wake.wait_timeout(guard, Duration::from_millis(20)).unwrap();
+                if *stopped {
+                    break;
+                }
+            }
+        })
+        .map_err(crate::error::CoreError::Io)?;
+    Ok(SqlInterrupt {
+        stop,
+        worker: Some(worker),
+        interrupted,
+        #[cfg(test)]
+        called,
+    })
+}
+
+impl SqlInterrupt {
+    pub(crate) fn stop(&mut self) {
+        let (lock, wake) = &*self.stop;
+        *lock.lock().unwrap() = true;
+        wake.notify_one();
+        if let Some(worker) = self.worker.take() {
+            let _ = worker.join();
+        }
+    }
+}
+
+impl Drop for SqlInterrupt {
+    fn drop(&mut self) {
+        self.stop();
+    }
+}
 
 #[derive(Default)]
 pub struct OperationControl(AtomicU8);
@@ -52,18 +119,18 @@ impl OperationControl {
     pub fn install<'a>(
         self: &Arc<Self>,
         conn: &'a rusqlite::Connection,
-    ) -> Result<SqlCancellation<'a>, rusqlite::Error> {
+    ) -> Result<SqlCancellation<'a>, crate::error::CoreError> {
         let control = Arc::clone(self);
-        conn.progress_handler(1000, Some(move || control.is_cancelled()))?;
-        Ok(SqlCancellation(conn))
+        Ok(SqlCancellation {
+            _connection: std::marker::PhantomData,
+            _worker: interrupt_on(conn, Arc::new(move || control.is_cancelled()))?,
+        })
     }
 }
 
-pub struct SqlCancellation<'a>(&'a rusqlite::Connection);
-impl Drop for SqlCancellation<'_> {
-    fn drop(&mut self) {
-        let _ = self.0.progress_handler(0, None::<fn() -> bool>);
-    }
+pub struct SqlCancellation<'a> {
+    _connection: std::marker::PhantomData<&'a rusqlite::Connection>,
+    _worker: SqlInterrupt,
 }
 
 #[cfg(test)]
@@ -87,7 +154,42 @@ mod tests {
     }
 
     #[test]
-    fn cancellation_rolls_back_sql_and_removes_the_progress_handler() {
+    fn cancellation_before_sql_interrupts_a_later_long_statement() {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        conn.execute_batch("CREATE TABLE t(value)").unwrap();
+        let control = Arc::new(OperationControl::default());
+        assert!(control.begin());
+        let sql = control.install(&conn).unwrap();
+        assert!(control.cancel());
+        let deadline = std::time::Instant::now() + Duration::from_secs(2);
+        while !sql._worker.called.load(Ordering::SeqCst) {
+            assert!(std::time::Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        let tx = conn.unchecked_transaction().unwrap();
+        let error = tx.execute_batch("INSERT INTO t VALUES(1); WITH RECURSIVE n(x) AS (VALUES(0) UNION ALL SELECT x+1 FROM n WHERE x<100000000) INSERT INTO t SELECT x FROM n").unwrap_err();
+        assert!(
+            matches!(error, rusqlite::Error::SqliteFailure(e, _) if e.code == rusqlite::ErrorCode::OperationInterrupted)
+        );
+        drop(tx);
+        assert!(conn.is_autocommit());
+        assert_eq!(
+            conn.query_row("SELECT COUNT(*) FROM t", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
+        drop(sql);
+        control.finish();
+        conn.execute("INSERT INTO t VALUES(1)", []).unwrap();
+        assert_eq!(
+            conn.query_row("SELECT COUNT(*) FROM t", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            1
+        );
+    }
+
+    #[test]
+    fn cancellation_rolls_back_sql_and_stops_the_interrupt_worker() {
         let conn = rusqlite::Connection::open_in_memory().unwrap();
         conn.execute_batch("CREATE TABLE t(value); INSERT INTO t VALUES(1)")
             .unwrap();

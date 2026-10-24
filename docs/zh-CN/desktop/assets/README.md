@@ -54,7 +54,7 @@
 
 ## 生成和检查
 
-仓库根，Node.js 22+；使用 desktop 锁文件中的 `@tauri-apps/cli`（当前 2.12.0），无额外绘图依赖：
+仓库根，Node.js 22+；使用 desktop 锁文件中的 `@tauri-apps/cli`（当前 2.12.4），无额外绘图依赖：
 
 ```powershell
 git lfs install --local

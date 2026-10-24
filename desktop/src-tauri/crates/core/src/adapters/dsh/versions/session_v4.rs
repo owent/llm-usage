@@ -139,11 +139,11 @@ pub(crate) fn header(doc: &Value) -> bool {
         && doc["isSeeded"].is_boolean()
         && obj
             .get("cwd")
-            .map_or(true, |v| v.as_str().is_some_and(absolute_text))
+            .is_none_or(|v| v.as_str().is_some_and(absolute_text))
         && ["parentSession", "agentPreset"]
             .iter()
-            .all(|k| obj.get(*k).map_or(true, |v| v.is_string()))
-        && obj.get("origin").map_or(true, |v| v == "subagent")
+            .all(|k| obj.get(*k).is_none_or(|v| v.is_string()))
+        && obj.get("origin").is_none_or(|v| v == "subagent")
 }
 fn diag(code: &str, line: usize) -> DiagnosticInput {
     DiagnosticInput {
@@ -302,11 +302,11 @@ fn envelope(row: &Value, seq: usize) -> bool {
             .is_some_and(|v| (-MAX_SAFE_INTEGER..=MAX_SAFE_INTEGER).contains(&v))
         && row["type"].is_string()
         && obj.contains_key("data")
-        && obj.get("ignorable").map_or(true, |v| v == true)
+        && obj.get("ignorable").is_none_or(|v| v == true)
         && obj
             .get("sourceEventSeqs")
-            .map_or(true, |v| source_ranges(v, seq))
-        && obj.get("surfaceOp").map_or(true, |v| surface_op(v, seq))
+            .is_none_or(|v| source_ranges(v, seq))
+        && obj.get("surfaceOp").is_none_or(|v| surface_op(v, seq))
 }
 fn source_ranges(value: &Value, seq: usize) -> bool {
     let Some(items) = value.as_array() else {
@@ -336,7 +336,7 @@ fn source_ranges(value: &Value, seq: usize) -> bool {
         if count > seq as u64 {
             return false;
         }
-        increasing &= previous.map_or(true, |v| start > v);
+        increasing &= previous.is_none_or(|v| start > v);
         previous = Some(end);
     }
     !has_range || increasing

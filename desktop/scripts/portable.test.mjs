@@ -58,7 +58,7 @@ for (const platform of ['windows', 'linux', 'macos']) {
       const decompressed = spawnSync('zstd', ['-d', '-f', first.archive, '-o', tar], {encoding:'utf8',windowsHide:true});
       assert.equal(decompressed.status,0,decompressed.stderr);
       const markerName = `LLMUsage-0.2.2-${platform}-${arch}-portable/llmusage-package.json`;
-      const markerResult = spawnSync('tar',['-xOf',tar,markerName],{encoding:'utf8',windowsHide:true});
+      const markerResult = spawnSync('tar',['-xOf','verified.tar',markerName],{cwd:root,encoding:'utf8',windowsHide:true});
       assert.equal(markerResult.status,0,markerResult.stderr);
       const marker = JSON.parse(markerResult.stdout);
       assert.equal(marker.kind,'portable');assert.equal(marker.platform,platform);assert.equal(marker.arch,arch);

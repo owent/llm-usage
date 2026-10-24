@@ -180,6 +180,14 @@ pub(crate) fn commit_batch_tx(
     let mut affected: BTreeSet<Date> = BTreeSet::new();
     let mut pending_diagnostics: Vec<(Option<String>, DiagnosticInput)> = Vec::new();
     let mut content_conflicts = BTreeSet::new();
+    // Existing conflicts predate complete candidate recording unless a provenance marker says otherwise.
+    tx.execute(
+        "INSERT INTO ingestion_checkpoints(instance_id,scope_key,parse_context,updated_at_ms)
+         SELECT source_instance_id,'codex-carry-provenance:'||event_id,'\"legacy_unknown\"',?2
+         FROM usage_events WHERE source_instance_id=?1 AND agent='codex' AND conflict=1
+         ON CONFLICT(instance_id,scope_key) DO NOTHING",
+        params![batch.instance_id, batch.now_ms],
+    )?;
     let inherited_carries = codex_inherited_carries(tx, batch)?;
     let mut replay_candidates = Vec::new();
     if !inherited_carries.is_empty() {
@@ -195,9 +203,26 @@ pub(crate) fn commit_batch_tx(
             }
         }
     }
+    replay_candidates.sort_by(|a, b| {
+        a.parser_version
+            .cmp(&b.parser_version)
+            .then_with(|| a.source_record_key.cmp(&b.source_record_key))
+            .then_with(|| event_content_hash(a).cmp(&event_content_hash(b)))
+    });
+
+    let native_candidates: Vec<&EventInput> = batch
+        .events
+        .iter()
+        .chain(replay_candidates.iter())
+        .collect();
 
     // 1. Insert or update events.
-    for event in batch.events.iter().chain(&replay_candidates) {
+    for (event, replay_candidate) in batch
+        .events
+        .iter()
+        .map(|event| (event, false))
+        .chain(replay_candidates.iter().map(|event| (event, true)))
+    {
         crate::adapters::run_policy::check()?;
         let eid = event_id(&event.source_instance_id, &event.source_record_key);
         if let Err(e) = event.validate() {
@@ -278,10 +303,32 @@ pub(crate) fn commit_batch_tx(
             event,
             &hash,
         );
+        if replay_candidate
+            && !codex_inherited_carry_candidates_conflict(
+                event,
+                &inherited_carries,
+                &native_candidates,
+            )
+            && (codex_inherited_carry_prior_match(event, &inherited_carries, &native_candidates)
+                || ((event.parser_version == "codex-rollout-5"
+                    || existing
+                        .as_ref()
+                        .is_some_and(|old| old.5 != "codex-rollout-5"))
+                    && codex_inherited_carry_native_candidate(event, &inherited_carries)))
+        {
+            outcome.unchanged += 1;
+            continue;
+        }
         if let Some(old) = existing
             .as_ref()
             .filter(|old| codex_inherited_carry_upgrade(old, event, &inherited_carries))
         {
+            let legacy_unknown: bool = tx.query_row(
+                "SELECT EXISTS(SELECT 1 FROM ingestion_checkpoints WHERE instance_id=?1 AND scope_key=?2 AND json_extract(parse_context,'$')='legacy_unknown')",
+                params![batch.instance_id, format!("codex-carry-provenance:{eid}")],
+                |r| r.get(0),
+            )?;
+            let preserve_conflict = legacy_unknown || content_conflicts.contains(&eid);
             let mut current = event.clone();
             current.observed_at_ms = old.3;
             update_event(
@@ -292,28 +339,32 @@ pub(crate) fn commit_batch_tx(
                 batch.now_ms,
                 parse_basis_column,
             )?;
-            if content_conflicts.contains(&eid) {
+            if preserve_conflict {
                 tx.execute(
                     "UPDATE usage_events SET conflict=1 WHERE event_id=?1",
                     [&eid],
                 )?;
             }
             outcome.updated += 1;
-            tx.execute(
-                "DELETE FROM ingestion_checkpoints WHERE instance_id=?1 AND substr(scope_key,1,length(?2))=?2",
-                params![batch.instance_id, format!("codex-carry-candidate:{eid}:")],
-            )?;
             affected.insert(calendar.local_day_of(old.1)?);
             affected.insert(calendar.local_day_of(current.occurred_at_ms)?);
-            pending_diagnostics.push((Some(eid), DiagnosticInput {
+            pending_diagnostics.push((Some(eid.clone()), DiagnosticInput {
                 event_id: None, code: "inherited_compaction_corrected".into(), field: Some("session_id".into()),
                 position: None, message: "complete old inherited-carry digest matched; restored the owning thread's native call with identical usage".into(),
             }));
+            if legacy_unknown {
+                pending_diagnostics.push((Some(eid), DiagnosticInput {
+                    event_id: None, code: "inherited_compaction_conflict_unresolved".into(), field: None,
+                    position: None, message: "native ownership corrected; conflict retained because historical candidates are incomplete".into(),
+                }));
+            }
             continue;
         }
         if matches!(arbitration, Arbitration::Conflict | Arbitration::Keep) {
             if let Some(old) = existing.as_ref().filter(|old| {
-                !opencode_v2_policy_upgrade(old, event) && parser_metadata_upgrade(old, event)
+                !opencode_v2_policy_upgrade(old, event)
+                    && (!replay_candidate || codex_replay_parser_is_monotonic(old, event))
+                    && parser_metadata_upgrade(old, event)
             }) {
                 // Full prior hashes permit only parser-metadata changes; retain original time, usage and source revision.
                 // Later metadata updates cannot clear a real conflict already observed in this batch.
@@ -431,20 +482,16 @@ pub(crate) fn commit_batch_tx(
                 outcome.unchanged += 1;
             }
             Arbitration::Conflict => {
-                if event.agent == "codex"
-                    && matches!(
-                        event.parser_version.as_str(),
-                        "codex-rollout-6" | "codex-rollout-7" | "codex-rollout-8"
-                    )
-                    && existing
-                        .as_ref()
-                        .is_some_and(|old| old.5 == "codex-rollout-5")
-                {
-                    // Keep every distinct native candidate across bounded windows; a later
-                    // matching carry cannot erase an earlier contradictory native response.
+                if event.agent == "codex" {
+                    // Every conflicting native version remains available across bounded windows and parser upgrades.
                     tx.execute("INSERT INTO ingestion_checkpoints(instance_id,scope_key,parse_context,updated_at_ms)
                         VALUES (?1,?2,?3,?4) ON CONFLICT(instance_id,scope_key) DO UPDATE SET parse_context=excluded.parse_context,updated_at_ms=excluded.updated_at_ms",
                         params![batch.instance_id, format!("codex-carry-candidate:{eid}:{hash}"), serde_json::to_string(event)?, batch.now_ms])?;
+                    tx.execute(
+                        "INSERT INTO ingestion_checkpoints(instance_id,scope_key,parse_context,updated_at_ms)
+                         VALUES (?1,?2,'\"complete\"',?3) ON CONFLICT(instance_id,scope_key) DO NOTHING",
+                        params![batch.instance_id, format!("codex-carry-provenance:{eid}"), batch.now_ms],
+                    )?;
                 }
                 content_conflicts.insert(eid.clone());
                 // Keep the existing conflicting value rather than choose a larger one; diagnose and recompute its daily conflict count.
@@ -621,18 +668,50 @@ fn codex_inherited_carry_upgrade(
     event: &EventInput,
     carries: &[crate::adapters::codex::rollout_v1::InheritedCarry],
 ) -> bool {
+    matches!(
+        event.parser_version.as_str(),
+        "codex-rollout-6" | "codex-rollout-7" | "codex-rollout-8"
+    ) && codex_inherited_carry_match(old, event, carries)
+}
+
+fn codex_inherited_carry_prior_report(
+    event: &EventInput,
+    carry: &crate::adapters::codex::rollout_v1::InheritedCarry,
+) -> bool {
+    let prior = &carry.prior;
+    let mut prior_for_comparison = prior.clone();
+    prior_for_comparison.observed_at_ms = event.observed_at_ms;
+    event.agent == "codex"
+        && prior.session_id == event.session_id
+        && prior.source_instance_id == event.source_instance_id
+        && prior.source_record_key == event.source_record_key
+        && event_content_hash(&prior_for_comparison) == event_content_hash(event)
+}
+
+fn codex_inherited_carry_prior_match(
+    event: &EventInput,
+    carries: &[crate::adapters::codex::rollout_v1::InheritedCarry],
+    native_candidates: &[&EventInput],
+) -> bool {
+    carries.iter().any(|carry| {
+        codex_inherited_carry_prior_report(event, carry)
+            && native_candidates.iter().any(|native| {
+                codex_inherited_carry_native_candidate(native, std::slice::from_ref(carry))
+            })
+    })
+}
+
+fn codex_inherited_carry_normalize(
+    event: &EventInput,
+    carries: &[crate::adapters::codex::rollout_v1::InheritedCarry],
+) -> Option<EventInput> {
     if event.agent != "codex"
-        || !matches!(
-            event.parser_version.as_str(),
-            "codex-rollout-6" | "codex-rollout-7" | "codex-rollout-8"
-        )
-        || old.5 != "codex-rollout-5"
         || event.record_kind != crate::domain::RecordKind::ModelCall
         || event.source_revision.is_some()
     {
-        return false;
+        return None;
     }
-    carries.iter().any(|carry| {
+    carries.iter().find_map(|carry| {
         let prior = &carry.prior;
         if event.session_id.as_deref() != Some(carry.owner_thread.as_str())
             || prior.session_id == event.session_id
@@ -640,19 +719,11 @@ fn codex_inherited_carry_upgrade(
             || prior.source_record_key != event.source_record_key
             || prior.usage != event.usage
             || prior.quality != event.quality
-            || prior.source_revision != old.0.source_revision
         {
-            return false;
+            return None;
         }
-        let mut prior = prior.clone();
-        prior.observed_at_ms = old.3;
-        if event_content_hash(&prior) != old.0.content_hash
-            && content_hash(&prior) != old.0.content_hash
-        {
-            return false;
-        }
-        // Only native ownership/model/time and their parsing references may change.
         let mut restricted = event.clone();
+        restricted.observed_at_ms = prior.observed_at_ms;
         restricted.parser_version = prior.parser_version.clone();
         restricted.schema_version = prior.schema_version.clone();
         restricted.session_id = prior.session_id.clone();
@@ -663,7 +734,69 @@ fn codex_inherited_carry_upgrade(
         restricted.model_attribution = prior.model_attribution;
         restricted.occurred_at_ms = prior.occurred_at_ms;
         restricted.source_time = prior.source_time.clone();
-        event_content_hash(&restricted) == event_content_hash(&prior)
+        (event_content_hash(&restricted) == event_content_hash(prior)).then_some(restricted)
+    })
+}
+
+fn codex_inherited_carry_candidates_conflict(
+    event: &EventInput,
+    carries: &[crate::adapters::codex::rollout_v1::InheritedCarry],
+    native_candidates: &[&EventInput],
+) -> bool {
+    if carries.is_empty() {
+        return false;
+    }
+    let mut candidates = native_candidates
+        .iter()
+        .filter(|candidate| {
+            candidate.source_record_key == event.source_record_key
+                && candidate.agent == "codex"
+                && candidate.record_kind == crate::domain::RecordKind::ModelCall
+                && candidate.source_revision.is_none()
+                && !carries
+                    .iter()
+                    .any(|carry| codex_inherited_carry_prior_report(candidate, carry))
+        })
+        .map(|candidate| {
+            codex_inherited_carry_normalize(candidate, carries).map(|candidate| {
+                let hash = event_content_hash(&candidate);
+                (candidate.source_record_key, hash)
+            })
+        });
+    let Some(first) = candidates.next() else {
+        return false;
+    };
+    first.is_none() || candidates.any(|candidate| candidate != first)
+}
+
+fn codex_inherited_carry_native_candidate(
+    event: &EventInput,
+    carries: &[crate::adapters::codex::rollout_v1::InheritedCarry],
+) -> bool {
+    codex_inherited_carry_normalize(event, carries).is_some()
+}
+
+fn codex_inherited_carry_match(
+    old: &ExistingRow,
+    event: &EventInput,
+    carries: &[crate::adapters::codex::rollout_v1::InheritedCarry],
+) -> bool {
+    if old.5 != "codex-rollout-5" {
+        return false;
+    }
+    carries.iter().any(|carry| {
+        let prior = &carry.prior;
+        if prior.source_revision != old.0.source_revision {
+            return false;
+        }
+        let mut prior = prior.clone();
+        prior.observed_at_ms = old.3;
+        if event_content_hash(&prior) != old.0.content_hash
+            && content_hash(&prior) != old.0.content_hash
+        {
+            return false;
+        }
+        codex_inherited_carry_native_candidate(event, std::slice::from_ref(carry))
     })
 }
 
@@ -696,6 +829,21 @@ fn opencode_v2_policy_upgrade(old: &ExistingRow, event: &EventInput) -> bool {
         legacy.quality.total_tokens = Q::Unknown;
     }
     event_content_hash(&legacy) == old.0.content_hash || content_hash(&legacy) == old.0.content_hash
+}
+
+fn codex_replay_parser_is_monotonic(old: &ExistingRow, event: &EventInput) -> bool {
+    if event.agent != "codex" || old.5 == event.parser_version {
+        return true;
+    }
+    let version = |value: &str| {
+        value
+            .strip_prefix("codex-rollout-")
+            .and_then(|value| value.parse::<u64>().ok())
+    };
+    match (version(&old.5), version(&event.parser_version)) {
+        (Some(old), Some(new)) => new >= old,
+        _ => false,
+    }
 }
 
 /// Only parser references can change after the complete previous digest matches.

@@ -164,7 +164,7 @@ mod tests {
             ));
         std::fs::create_dir_all(&root).unwrap();
         let db = root.join("app.sqlite");
-        let conn = Connection::open(&db).unwrap();
+        let mut conn = Connection::open(&db).unwrap();
         conn.execute_batch("CREATE TABLE t(x); WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<10000) INSERT INTO t SELECT x FROM n;").unwrap();
         let dir = backup_dir(&db);
         std::fs::create_dir_all(&dir).unwrap();
