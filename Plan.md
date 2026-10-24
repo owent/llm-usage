@@ -80,6 +80,9 @@ Release 0.3.5 includes this pricing repair and the existing dependency/source ma
 The user authorized the version bump, commit, annotated tag and push on 2026-10-25.
 See the [release preparation record](docs/validation/desktop-usage/release-035.md) for local
 verification and the tag workflow's draft-release behavior.
+The SQL cancellation tests synchronize with actual worker interrupts to avoid macOS
+timing failures; [repair validation](docs/validation/desktop-usage/release-035.md#macos-cancellation-test-repair)
+records the original CI failure, regression checks and current verification limits.
 
 System update notifications are implemented under the [software update specification](docs/design/desktop-usage/application-updates.md#system-notifications):
 native Windows/macOS/Linux delivery, persisted version deduplication, an independent saved

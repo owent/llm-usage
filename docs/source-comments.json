@@ -32903,7 +32903,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/cancellation.rs": {
-      "codeHash": "4433023d291d3cbf56119dd683447f0577ecae9f465161f04240fe82ec47a43d",
+      "codeHash": "24d34db3d4804fae304323554fc74d7e55ec255b4a7d3ac8ca267a7e157cd42b",
       "comments": [
         {
           "id": "855e59285bb90eca",
@@ -32914,10 +32914,24 @@
         },
         {
           "id": "359fe10e7bc65779",
-          "line": 107,
+          "line": 112,
           "kind": "line",
           "en": "/// Once this succeeds, cancellation cannot claim to undo the transaction.",
           "zh": "/// 此操作成功后，取消请求不能再撤销该事务。"
+        },
+        {
+          "id": "9511e4c8c5e45cfc",
+          "line": 145,
+          "kind": "line",
+          "en": "// The recursive step checks the interrupt after the blocking function returns.",
+          "zh": "// 阻塞函数返回后，递归步骤会检查中断标志。"
+        },
+        {
+          "id": "0bf552c02aad408f",
+          "line": 175,
+          "kind": "line",
+          "en": "// Hold the statement open until the worker interrupts this running SQL.",
+          "zh": "// 保持语句执行状态，直到工作线程中断当前 SQL。"
         }
       ]
     },

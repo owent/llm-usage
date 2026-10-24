@@ -41,3 +41,44 @@ Windows x64、Node 24.21.0、Rust 1.99.1。检查均在仓库根执行，退出�
 
 推送 tag 和触发工作流与远程打包成功、公开 Release 分别判断。本地准备记录不代表
 远程已完成或下载制品已核验，工作流沿用已有草稿发布行为。
+
+## macOS 取消测试修复
+
+用户报告的 [main CI 作业](https://github.com/owent/llm-usage/actions/runs/40112357943/job/120926546175)
+对应提交 `03443085d4900f8f268ebead2b21a465a2e3693d`，在 macOS 15 上以退出码 101
+失败：281 项 core 单元测试通过，`cancellation_rolls_back_sql_and_stops_the_interrupt_worker`
+失败。格式、Clippy 和测试编译均通过。Windows/Linux Rust 作业及六个便携包构建作业
+均通过。同一提交的独立 [tag 运行](https://github.com/owent/llm-usage/actions/runs/40112357959)
+通过，符合测试偶发失败的表现。这些结果不代表已核验下载后的发布包。
+
+原测试在取消操作后，预期固定写入 100,001 行的递归语句失败。取消线程每 20 毫秒轮询
+一次，语句可能在下次中断前完成。[SQLite 文档](https://www.sqlite.org/c3ref/interrupt.html)
+说明，接近完成的语句可能继续完成；没有运行中语句时调用中断，不会影响后续语句。
+SQL 工作量无法确定测试需要的执行顺序。
+
+两项 SQL 取消测试现使用标量函数回调和条件变量，保持 SQL 执行，直到真实工作线程调用
+`sqlite3_interrupt()`，随后由短递归步骤检查中断标志。仅测试使用的计数器在中断调用和
+通知期间持锁，防止此前没有运行中语句时的中断满足回调的等待条件。测试明确要求
+`OperationInterrupted`、事务自动回滚、原有数据保留，以及等待工作线程退出后连接可复用。
+提前取消测试还会在启动后续语句前，等待一次没有运行中语句时的中断。生产环境的取消和
+轮询行为保持不变；两秒等待仅限制缺少工作线程通知的情况，不要求 SQL 执行至少多长时间。
+
+本地首次仅使用回调的 INSERT 在中断后仍成功完成，因为后续没有检查中断标志的执行步骤。
+补充短递归步骤后，两项测试均通过。临时仅禁用 `interrupt.interrupt()` 后，即使通知成功，
+两项测试仍以退出码 101 失败；随后已逐字节恢复源码。
+
+最终修复检查在仓库根执行，环境为 Windows x64、Node 24.21.0、Rust 1.99.1。
+下列命令退出码均为 0；上文单独保留临时禁用中断的预期失败结果。
+
+| 命令 | 结果 |
+| --- | --- |
+| core 测试程序，`cancellation::tests --quiet`，200 轮 | 600 项测试通过 |
+| `npm run test:rust` | 1,127 项通过，九项需显式启用或限定平台的测试忽略 |
+| `npm run clippy` / `npm run fmt:check` | 整个工作区严格 Clippy 及格式检查通过 |
+| `npm run lint:md` | 475 个文件，无问题 |
+| `npm run check:docs` | 211 对仓库文档、21 对指南；Astro 无错误、警告或提示 |
+| `npm run test:docs` | 41 项通过 |
+| `git diff --check` | 通过；仅修改本次修复及同步记录 |
+
+日志位于已忽略的 `build/ci-macos-40112357943/`。这些本地检查不代表修复已在 macOS
+执行；推送后仍需根据修复提交核对 CI。
