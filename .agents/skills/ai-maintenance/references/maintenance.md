@@ -205,6 +205,11 @@ parallel application entry before changing priority rules. Use original filesyst
 normalized identity strings may lose native path syntax. Regress that distinction without changing
 persisted source identities.
 
+Adapter wrappers must forward behavioral hooks, including validation of native records that do not
+count toward usage. Regress compatibility through the full registry and parallel application entry,
+with isolated native discovery roots and distinct per-adapter run IDs. Check unchanged old files,
+malformed records, repeated reads and transactional rollback; serial parser checks alone are insufficient.
+
 For Qoder detection-cache changes, exercise superseded probes as well as initial reads.
 Keep source I/O outside the cache mutex and recheck newer published results after a retry;
 use synchronized tests to verify unrelated-file access and preserve generation cleanup.

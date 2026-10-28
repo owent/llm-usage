@@ -890,6 +890,9 @@ impl SourceAdapter for RootAdapter<'_> {
     fn scan_format(&self, outcome: &ScanOutcome) -> Option<DetectOutcome> {
         self.adapter.scan_format(outcome)
     }
+    fn has_validated_usage(&self, outcome: &ScanOutcome) -> bool {
+        self.adapter.has_validated_usage(outcome)
+    }
     fn capability(&self) -> CapabilityTable {
         self.adapter.capability()
     }

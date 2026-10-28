@@ -224,7 +224,7 @@
       ]
     },
     "desktop/src-tauri/Cargo.toml": {
-      "codeHash": "a4b9958fe338fbd15c8bd1b3bd98d867497d946bffb098fa37ecd8fb26601b32",
+      "codeHash": "b15284c2916bd040b022c1d2aadcd9f9548243b299295fbd66a12a40e7721cbd",
       "comments": [
         {
           "id": "6b9f8559a21a75a8",
@@ -264,7 +264,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/Cargo.toml": {
-      "codeHash": "c41512001cc3eb65909619f982f43b70e01535dfc1dcd143a77032f36f9a3700",
+      "codeHash": "a68b369660b179fcea15908f3ac817d31d48d718f431c770d25748386226a238",
       "comments": [
         {
           "id": "e82798efdbcdcbfa",
@@ -11253,7 +11253,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/framework.rs": {
-      "codeHash": "630820f895946479054dba7e723f516ce39368db0e6534c5f3405b63f00fae7f",
+      "codeHash": "0ca4b5bf9b2042bab3427a934532a5441d0e1d7b2c206af6c08dfb104322bf2a",
       "comments": [
         {
           "id": "e7ed0434fb68aedc",
@@ -12020,161 +12020,161 @@
         },
         {
           "id": "f3fa767c7b31f833",
-          "line": 912,
+          "line": 915,
           "kind": "line",
           "en": "/// Two source-instance slots, one existing writer; results retain request/root order.",
           "zh": "/// 两个来源实例可并行解析，共用现有写入器；结果保留请求和根目录顺序。"
         },
         {
           "id": "175e462dc31a22e2",
-          "line": 1007,
+          "line": 1010,
           "kind": "line",
           "en": "// A worker panic may leave a running job; normal Storage recovery handles it.",
           "zh": "// 工作线程 panic 可能留下运行中的任务；由 Storage 的常规恢复处理。"
         },
         {
           "id": "199054fc86dbcaf7",
-          "line": 1060,
+          "line": 1063,
           "kind": "line",
           "en": "/// Metadata and commits share the existing writer; source parsing holds no writer lock.",
           "zh": "/// 元数据处理和提交共用现有写入器；来源解析不持有写入锁。"
         },
         {
           "id": "cae6d76672a75006",
-          "line": 1082,
+          "line": 1085,
           "kind": "line",
           "en": "// Deduplicate environment/default/manual roots; normalize Windows case aliases first.",
           "zh": "// 根去重（环境覆盖/默认/手工可能指向同一目录；Windows 大小写别名先归一）。"
         },
         {
           "id": "d21394a0a2e0e5ef",
-          "line": 1113,
+          "line": 1116,
           "kind": "line",
           "en": "// Archive adapters use an empty file list and perform their own detection.",
           "zh": "// 归档适配器使用空文件列表，自行完成格式探测。"
         },
         {
           "id": "bac97781806969ca",
-          "line": 1192,
+          "line": 1195,
           "kind": "line",
           "en": "// A merged request performed no scan here; do not report it as completed.",
           "zh": "// 本次未执行扫描；不能把合并请求报告为已成功完成。"
         },
         {
           "id": "5dde7288e8077ed8",
-          "line": 1242,
+          "line": 1245,
           "kind": "line",
           "en": "// Preparation failures and cancellation finish the run just",
           "zh": "// 准备失败和取消均应结束本次运行，"
         },
         {
           "id": "57b3ae77e44f2296",
-          "line": 1243,
+          "line": 1246,
           "kind": "line",
           "en": "// like archive failures, without leaving a running job behind.",
           "zh": "// 与归档失败一致，避免留下运行中的任务。"
         },
         {
           "id": "438624318f5ed045",
-          "line": 1427,
+          "line": 1430,
           "kind": "line",
           "en": "// Skip commits when no file changed; unchanged scans do not advance the data revision.",
           "zh": "// 无任何文件变化时跳过提交（无变化扫描不推进修订号）。"
         },
         {
           "id": "fabc00fa613e0cb1",
-          "line": 1445,
+          "line": 1448,
           "kind": "line",
           "en": "// Commit native aggregates with events and cursors; any failure permits a complete replay.",
           "zh": "// 原生汇总与事件、游标一起提交；任一失败均可完整重放。"
         },
         {
           "id": "089e13456a9d10f0",
-          "line": 1523,
+          "line": 1526,
           "kind": "line",
           "en": "/// Register one file, check continuity, detect when needed, scan and collect batch results.",
           "zh": "/// 注册单个文件、检查续读状态，按需探测后增量读取并收集批次结果。"
         },
         {
           "id": "40c68af8f54b4c9a",
-          "line": 1524,
+          "line": 1527,
           "kind": "line",
           "en": "/// Return the file report and whether an actual read occurred.",
           "zh": "/// 返回（文件报告， 是否发生了实际读取）。"
         },
         {
           "id": "3ee4c9451471341c",
-          "line": 1572,
+          "line": 1575,
           "kind": "line",
           "en": "// After a path miss, check file identity; renaming the same stream does not create a new file.",
           "zh": "// 注册/改名探测：路径未命中时按身份命中（同一内容流改名不算新文件）。"
         },
         {
           "id": "02528c8dd91c4214",
-          "line": 1607,
+          "line": 1610,
           "kind": "line",
           "en": "// Skip unchanged files whose bytes are fully consumed and continuity is intact.",
           "zh": "// 文件字节已全部读取且续读状态连续时，跳过未变化文件。"
         },
         {
           "id": "9d0c2e91509c108c",
-          "line": 1629,
+          "line": 1632,
           "kind": "line",
           "en": "// Detect again on first scan/rescan; restrict verified incompatible versions and unknown formats (V17).",
           "zh": "// 首次或重扫时重新探测格式；已确认不兼容的版本与未知格式 fail closed（V17），"
         },
         {
           "id": "198b859d7d61f323",
-          "line": 1630,
+          "line": 1633,
           "kind": "line",
           "en": "// Unknown/missing versions use the latest registered Agent reader and retain compatibility metadata.",
           "zh": "// 未知/缺失版本按该 Agent 注册表选择最新内置解析器并带兼容标记。"
         },
         {
           "id": "616f191a375ddba7",
-          "line": 1778,
+          "line": 1781,
           "kind": "line",
           "en": "// File error isolation must not classify cancellation or another control stop as invalid data.",
           "zh": "// 文件错误隔离不能把取消或其他控制性停止判为数据错误。"
         },
         {
           "id": "54161423f8c8db7d",
-          "line": 1806,
+          "line": 1809,
           "kind": "line",
           "en": "// V30 fallback with structural diagnostics and no events/valid exclusive aggregate is incompatible.",
           "zh": "// 未知版本兼容尝试（V30）：无事件或独立有效累计行且带结构诊断 ⇒ 不兼容。"
         },
         {
           "id": "9f7386b606dcd1c5",
-          "line": 1807,
+          "line": 1810,
           "kind": "line",
           "en": "// Duplicate/OverlapUnknown reconciliation snapshots do not establish valid usage, such as old Codex without calls.",
           "zh": "// Duplicate/OverlapUnknown 对账快照不能替代有效的用量记录，如缺少逐次记录的旧 Codex。"
         },
         {
           "id": "07e4d297d19a4f7b",
-          "line": 1808,
+          "line": 1811,
           "kind": "line",
           "en": "// Keep prior results without new cursors/aggregates; retry after a parser update or explicit rescan.",
           "zh": "// 保留旧结果、不提交事件/游标/聚合；下轮解析器更新或显式重扫可重新尝试。"
         },
         {
           "id": "970b8f6a24b72d08",
-          "line": 1845,
+          "line": 1848,
           "kind": "line",
           "en": "// EOF may leave an incomplete last line; a later append must still get priority.",
           "zh": "// 读到文件末尾时最后一行可能尚未写完，后续追加仍应优先读取。"
         },
         {
           "id": "9422581303f5f5e3",
-          "line": 1914,
+          "line": 1917,
           "kind": "line",
           "en": "/// Detection JSON in source_files.format_status (v3): selected metadata fields, without message content.",
           "zh": "/// source_files.format_status（v3）的探测 JSON，仅含选定元数据，不含正文。"
         },
         {
           "id": "8c2e0b42d3403f51",
-          "line": 1941,
+          "line": 1944,
           "kind": "line",
           "en": "/// File-stream identity: creation time and sampled prefix fingerprint/length, independent of path.",
           "zh": "/// 文件内容流身份：创建时间 + 首采样指纹（追加稳定，不依赖路径）。"
@@ -40684,6 +40684,25 @@
           "kind": "line",
           "en": "// Put type after the large payload to require complete structural validation.",
           "zh": "// 将类型放在大正文之后，要求校验完整结构。"
+        }
+      ]
+    },
+    "desktop/src-tauri/crates/core/tests/codex_parallel_compat.rs": {
+      "codeHash": "8ef52a318eaf1658323425c193218b04ef39c4a0a3e43bb817f184f047f4ef1a",
+      "comments": [
+        {
+          "id": "cb7520aee426c966",
+          "line": 1,
+          "kind": "line",
+          "en": "//! Parallel collection must retain Codex's validated, non-counting inherited records.",
+          "zh": "//! 并行采集必须保留 Codex 已验证但不计数的继承记录。"
+        },
+        {
+          "id": "528c47ee496b27d4",
+          "line": 164,
+          "kind": "line",
+          "en": "// The old parallel wrapper rejected these files without persisting their cursors.",
+          "zh": "// 旧并行包装层拒绝了这些文件，未保存其游标。"
         }
       ]
     },

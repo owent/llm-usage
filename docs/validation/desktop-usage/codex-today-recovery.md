@@ -196,3 +196,62 @@ Final Windows x64 / Rust 1.99.1 checks on both issue repairs passed: `npm run fm
 `npm run clippy` and `npm run test:rust` exited 0, with 1,139 Rust tests passed and nine
 conditional ignores. Markdown lint and `npm run check:docs` also exited 0. This adds no
 GUI or installation acceptance.
+
+### Inherited-only files in parallel collection
+
+On 2026-10-28, two real Codex files from 0.164.0-alpha.11.1 and 0.165.0-alpha.1.2
+were marked incompatible. Each contained nine complete native records, including a
+foreign-thread compaction carry, but no new per-call usage. Direct parsing correctly
+validated the inherited record without counting it. The desktop parallel runner's
+`RootAdapter` did not forward `has_validated_usage`, so its default check rejected
+the valid non-counting result and left no checkpoint.
+
+The wrapper now delegates that hook to the underlying adapter. No version registration,
+parser identity or token accounting changes are required. Malformed carries still fail
+validation, and inherited values remain excluded from the receiving session's totals.
+
+Three `codex_parallel_compat` regressions exercise the full registry with isolated native
+discovery and the parallel entry: both versions alongside malformed usage, reopening an
+unchanged old incompatible state, and failed-commit rollback followed by recovery. They
+preserve first observations and diagnostic history and verify that repeated reads add
+no usage. The old-state recovery and rollback checks failed before the wrapper repair.
+The fixtures use native `.codex` discovery and distinct per-adapter run IDs, matching
+the desktop entry.
+
+On an independent SQLite Online Backup copy including WAL, both files became readable;
+a second pass reported unchanged. All 25,163 original usage rows retained their content
+digests, conflict flags and creation times. Settings, first observations and diagnostics
+were preserved; `quick_check=ok` and no foreign-key violations. The Windows x64 / Rust
+1.99.1 targeted parallel, Codex ownership and Qoder suite passed 35 tests, exit 0.
+
+The same native core then recovered only those two files in the actual database under
+the application's OS file lock. Both passes succeeded with zero added or updated usage;
+the incompatible count fell from two to zero. All 25,163 original rows, settings, first
+observations and diagnostic history were retained. Source-file SHA-256 values were
+unchanged, and integrity/foreign-key checks passed. Recovery used the parallel core
+entry; it did not replace an installed executable.
+
+`npm run fmt:check`, `npm run clippy` and `npm run test:rust` exited 0: 1,142 Rust tests
+passed and nine conditional tests were ignored. Markdown lint, `npm run check:docs` and
+all 41 documentation tests passed.
+
+`npm run build:desktop` exited 0 and produced the Windows x64 executable and NSIS
+package. Three real executable `--scan-once` runs with isolated synthetic sources
+confirmed two readable inherited-only files, one still-incompatible malformed file,
+old-state recovery, retained first observations/diagnostics and zero counted usage.
+Source bytes and database integrity remained intact. These executable checks used the
+local 0.3.6 repair build before the version bump; no installed executable was replaced.
+
+Version 0.3.7 includes this correction, the Qoder detection-cache retry-lock repair from
+issue #5 and the native-path scan-priority repair from issue #6. Root/desktop manifests,
+npm locks, Tauri configuration and both Cargo package versions/lock entries agree.
+The pnpm lock has no application-version entries and requires no dependency change.
+On Windows x64 / Rust 1.99.1, `npm run verify` passed for 0.3.7: 1,142 Rust tests,
+nine conditional ignores, 20 script tests, 32 frontend tests, Svelte, formatting, Clippy
+and the production frontend build. `npm run check:docs` also passed. Release preparation
+logs are under `build/release-037/`; cross-platform packages are built by tag CI.
+
+Task artifacts are under `build/codex-incompatible/`; source inspection is read-only and
+outputs only allowlisted structure/version/usage fields. Sensitive backup copies were
+removed after verification. This does not establish GUI, installation or other-platform
+acceptance.
