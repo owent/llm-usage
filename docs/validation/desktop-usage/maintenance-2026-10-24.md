@@ -174,3 +174,28 @@ Blocking OS calls still have no guaranteed immediate interruption, and tests can
 all possible concurrent schedules. The original Kimi snapshot and real verification databases
 were deleted after redacted inspection. Receiver credentials and owned OS tasks are cleaned;
 work is not committed, pushed or released.
+
+## Qoder cache-lock repair, 2026-10-28
+
+[Issue #5](https://github.com/owent/llm-usage/issues/5) is valid on revision `221c226ed`.
+When a newer same-file probe is incomplete and has no cached result, the superseded probe
+repeats source I/O while holding the process-wide detection-cache mutex. The 200 ms probe
+deadline is checked between reads; blocking file I/O does not have a strict 200 ms bound.
+Unrelated files can therefore wait for that read as well.
+
+The retry now releases the mutex before reading and checks for a newer published cache entry
+afterward. It never publishes its own superseded result. Three synchronized regressions cover
+unrelated-file detection during the retry, publication of a newer same-file result, and read
+failure followed by recovery. They also check cache contents and active-probe cleanup.
+All three failed against the original implementation with the mutex still held; the repaired
+Qoder detection suite passed all 13 tests. No timing threshold is used to establish lock ownership.
+
+Tests use isolated source-derived files under `build/`; this adds no real Qoder client or
+GUI acceptance. Logs for the repair are in `build/issue-5/`.
+
+Windows x64 / Rust 1.99.1 validation passed 1,138 Rust tests with nine conditional ignores,
+20 script tests, 32 frontend tests and 41 documentation tests. Markdown/assets, Svelte,
+rustfmt, Clippy, the production frontend build and bilingual documentation checks passed.
+The initial `npm run verify` stopped at the unchanged Copilot temporary-directory rename
+test with Windows sandbox error 5. The complete `npm run test:rust` rerun with normal user
+permissions and the remaining `npm run build:web` both exited 0; no assertion was changed.

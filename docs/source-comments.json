@@ -25745,7 +25745,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/qoder/detect.rs": {
-      "codeHash": "969b9d4bff1c1eaf2b0b2cbbb64bf215b925ce3dca670253e5acd74c4447d91e",
+      "codeHash": "3d04d28b469a0b0f45b4c98bec3889376719fd3a07abb8ce1c32294908fe434c",
       "comments": [
         {
           "id": "44192f73ec64ce49",
@@ -25762,53 +25762,67 @@
           "zh": "// 不缓存中断或不稳定的读取；来源 I/O 期间不持有缓存锁。"
         },
         {
+          "id": "585f9f45a2afb6bb",
+          "line": 128,
+          "kind": "line",
+          "en": "// A newer probe may publish while this uncached retry reads the source.",
+          "zh": "// 本次不写缓存的重试读取源文件期间，较新的探针可能已发布结果。"
+        },
+        {
           "id": "83040868ee587ff3",
-          "line": 164,
+          "line": 171,
           "kind": "line",
           "en": "// User/tool content may precede the first identifying assistant. Inspect complete",
           "zh": "// 用户或工具内容可能位于首条可识别的 assistant 之前。检查完整行，"
         },
         {
           "id": "41368e153599448b",
-          "line": 165,
+          "line": 172,
           "kind": "line",
           "en": "// lines within the normal 32 MiB window, retaining at most one 8 MiB line.",
           "zh": "// 遵循普通的 32 MiB 窗口，每次最多保留一条 8 MiB 的行。"
         },
         {
           "id": "ad4e87e086ca8bf4",
-          "line": 219,
+          "line": 226,
           "kind": "line",
           "en": "// Temporary lock/timeout/removal after enumeration is Pending; retry detection next run.",
           "zh": "// 临时锁定、超时或枚举后被清理记为 Pending，下轮重新探测。"
         },
         {
           "id": "7447683d081586cd",
-          "line": 228,
+          "line": 235,
           "kind": "line",
           "en": "// Recognize JSONL sessions or state.json objects as Qoder session files,",
           "zh": "// 将 JSONL 会话或 state.json 对象识别为 Qoder 会话文件，"
         },
         {
           "id": "430764255ba01f51",
-          "line": 229,
+          "line": 236,
           "kind": "line",
           "en": "// and let the scanner validate each native CLI record independently.",
           "zh": "// 由扫描器独立校验每条原生 CLI 记录。"
         },
         {
           "id": "11e166bab127b195",
-          "line": 230,
+          "line": 237,
           "kind": "line",
           "en": "// A session_id substring match also requires an opening brace; otherwise unrelated",
           "zh": "// session_id 子串匹配还须以左花括号开头，否则其他来源中"
         },
         {
           "id": "da74866216dd510e",
-          "line": 231,
+          "line": 238,
           "kind": "line",
           "en": "// files containing \"session_id\" could be incorrectly claimed.",
           "zh": "// 包含 \"session_id\" 的文件可能被错误认领。"
+        },
+        {
+          "id": "b8294f94a2001869",
+          "line": 612,
+          "kind": "line",
+          "en": "// Leave a lock regression observable without deadlocking or poisoning it.",
+          "zh": "// 保留可检测的持锁回归结果，避免测试死锁或使互斥锁进入中毒状态。"
         }
       ]
     },

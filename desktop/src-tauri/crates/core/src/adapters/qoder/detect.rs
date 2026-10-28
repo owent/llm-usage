@@ -121,10 +121,17 @@ pub(crate) fn native_record(path: &Path) -> bool {
         return cached.native;
     }
     if latest_probe_id(&probe) > probe.id {
+        drop(entries);
         let Ok((native, complete)) = probe_native(path) else {
             return false;
         };
-        return complete && native;
+        // A newer probe may publish while this uncached retry reads the source.
+        return cache()
+            .lock()
+            .unwrap()
+            .get(&key)
+            .filter(|cached| cached.probe_id > probe.id)
+            .map_or(complete && native, |cached| cached.native);
     }
     if !stable {
         return false;
@@ -574,6 +581,111 @@ mod tests {
         assert!(!worker.join().unwrap());
         assert!(cached(&file).is_none());
         assert!(!native_record(&file));
+    }
+
+    fn superseded_probe_with_retry_hook(
+        file: &Path,
+        on_retry: impl Fn(&Path) + Send + 'static,
+    ) -> (bool, usize, Option<bool>) {
+        std::fs::write(file, fixture()).unwrap();
+        let writing = Arc::new(Barrier::new(2));
+        let release = Arc::new(Barrier::new(2));
+        let worker = {
+            let file = file.to_path_buf();
+            let writing = writing.clone();
+            let release = release.clone();
+            std::thread::spawn(move || {
+                CACHE_WRITE_HOOK.with(|hook| {
+                    *hook.borrow_mut() = Some(Box::new(move || {
+                        writing.wait();
+                        release.wait();
+                    }));
+                });
+                let unlocked = Rc::new(Cell::new(None));
+                PROBE_HOOK.with(|hook| {
+                    let unlocked = unlocked.clone();
+                    let file = file.clone();
+                    *hook.borrow_mut() = Some(Box::new(move || {
+                        if PROBE_COUNT.with(|count| count.get()) == 2 {
+                            let available = cache().try_lock().is_ok();
+                            unlocked.set(Some(available));
+                            // Leave a lock regression observable without deadlocking or poisoning it.
+                            if available {
+                                CACHE_WRITE_HOOK.with(|hook| *hook.borrow_mut() = None);
+                                on_retry(&file);
+                            }
+                        }
+                    }));
+                });
+                let native = native_record(&file);
+                (
+                    native,
+                    PROBE_COUNT.with(|count| count.get()),
+                    unlocked.get(),
+                )
+            })
+        };
+        writing.wait();
+        let foreign = fixture().replace("\"entrypoint\":\"cli\"", "\"entrypoint\":\"ide\"");
+        std::fs::write(file, foreign.trim_end_matches('\n')).unwrap();
+        let newer = native_record(file);
+        release.wait();
+        let result = worker.join().unwrap();
+        assert!(!newer);
+        assert!(probe_ids().lock().unwrap().is_empty());
+        result
+    }
+
+    #[test]
+    fn superseded_retry_allows_unrelated_detection_without_caching_its_own_result() {
+        let _cache = CacheIsolation::new();
+        let files = Files::new();
+        let file = files.transcript();
+        let other = files.0.join("projects/project/other.jsonl");
+        std::fs::write(&other, "{}\n").unwrap();
+        let result = superseded_probe_with_retry_hook(&file, {
+            let other = other.clone();
+            move |file| {
+                assert!(!native_record(&other));
+                std::fs::write(file, fixture()).unwrap();
+            }
+        });
+        assert_eq!(result, (true, 3, Some(true)));
+        assert!(cached(&file).is_none());
+        assert_eq!(cached(&other).map(|entry| entry.1), Some(false));
+        assert!(native_record(&file));
+        assert_eq!(cached(&file).map(|entry| entry.1), Some(true));
+    }
+
+    #[test]
+    fn superseded_retry_prefers_a_newer_cache_entry_written_during_its_read() {
+        let _cache = CacheIsolation::new();
+        let files = Files::new();
+        let file = files.transcript();
+        let result = superseded_probe_with_retry_hook(&file, |file| {
+            std::fs::write(file, fixture()).unwrap();
+            assert!(native_record(file));
+            let foreign = fixture().replace("\"entrypoint\":\"cli\"", "\"entrypoint\":\"ide\"");
+            std::fs::write(file, foreign).unwrap();
+        });
+        assert_eq!(result, (true, 3, Some(true)));
+        assert_eq!(cached(&file).map(|entry| entry.1), Some(true));
+        assert!(!native_record(&file));
+        assert_eq!(cached(&file).map(|entry| entry.1), Some(false));
+    }
+
+    #[test]
+    fn superseded_retry_read_error_leaves_no_cache_or_active_probe() {
+        let _cache = CacheIsolation::new();
+        let files = Files::new();
+        let file = files.transcript();
+        let result = superseded_probe_with_retry_hook(&file, |file| {
+            std::fs::remove_file(file).unwrap();
+        });
+        assert_eq!(result, (false, 2, Some(true)));
+        assert!(cached(&file).is_none());
+        std::fs::write(&file, fixture()).unwrap();
+        assert!(native_record(&file));
     }
 
     #[test]

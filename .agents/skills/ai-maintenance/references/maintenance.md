@@ -203,6 +203,10 @@ partial final line, old cursors without new markers, unknown modification times 
 rotation. Persist visit/EOF evidence with accepted cursors; verify rollback, database reopen and the
 parallel application entry before changing priority rules.
 
+For Qoder detection-cache changes, exercise superseded probes as well as initial reads.
+Keep source I/O outside the cache mutex and recheck newer published results after a retry;
+use synchronized tests to verify unrelated-file access and preserve generation cleanup.
+
 | Task | Action and reviewable result | Acceptance |
 | --- | --- | --- |
 | Copy/format/simple local change | Small sufficient change; research as needed | Lint, links, facts and diff |
