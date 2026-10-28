@@ -69,11 +69,15 @@ Complete lines can commit; remainder marked interrupted, source schedule stays d
 uses at most half the remaining per-file time to leave parsing/commit time. Pause/expiry
 rolls back unaccepted batches. Newline searches examine newly read bytes only.
 
-Codex prioritizes unvisited files across runs, rotating others by last confirmed visit time
-in the database; ties use reverse date-path order. Large files retain cursors after exhausting
-the window and yield to other unvisited files next run, preventing historical backfill from
-postponing fresh usage. Rotation does not mark interrupted collection complete. Other
-adapters keep their discovery order; enable rotation only after verifying files have no
+Codex first visits files previously read to EOF whose size or known modification time has changed.
+Persist the EOF marker with the cursor, including EOF with an unfinished final JSONL line;
+an appended newline can then complete that record promptly. Old cursors without the marker
+use offset equal to saved file size as evidence. Missing timestamps alone establish no change.
+Within that group and then the remaining files, it rotates by last confirmed visit time;
+unvisited files lead the remaining group, and ties retain reverse date-path order. This lets
+new usage in existing sessions precede historical backfill. An incomplete file whose saved
+fingerprint is unchanged yields to other unvisited files next run. Rotation does not mark
+interrupted collection complete. Other adapters keep their discovery order; enable rotation only after verifying files have no
 read-order dependency.
 
 Controlled JSON checks every 32 KiB, IO reads at most 64 KiB. Switch checks cached for at

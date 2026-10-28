@@ -99,8 +99,8 @@ were synchronized. Claude's separate work verified domestic download integrity, 
 main-loop usage, default-zero correction and new/old-database executable rereads, without
 additional GUI/IPC or release acceptance.
 
-Missing current-day Codex collection was fixed by prioritizing unvisited files and rotating
-visits across scans when large historical files exhaust the bounded read window. The local
+Missing current-day Codex collection was fixed by prioritizing appended content after EOF
+(including partial final lines), then rotating historical files across bounded windows. The local
 old database was backfilled and independently reconciled; see the
 [recovery record](docs/validation/desktop-usage/codex-today-recovery.md).
 

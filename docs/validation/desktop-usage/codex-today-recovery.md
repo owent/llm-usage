@@ -93,3 +93,80 @@ documentation lint and git diff --check exited 0, without temporary artifacts in
 Initial terminal startup failed with CreateProcessAsUserW failed: 5. Retrying with the
 execution environment's permissions restored it. This tool-startup error was not a
 product-test result. No new GUI/IPC, cross-platform CI or release-installation acceptance.
+
+<a id="astra-appended-session-recovery"></a>
+
+## Astra usage appended to an existing session
+
+On 2026-10-28, native Codex 0.164.0-alpha.11.1 records for Beijing date 2026-10-27
+contained 83 `gpt-6-astra` calls: input 11,504,926, cache read 11,247,104, cache write 0,
+output 81,528, reasoning output 24,139 and total 11,586,454. The statistics database
+contained none of these calls. The existing six-field parser and preceding
+`turn_context.model` could read them; the model name and unregistered client version
+did not prevent ingestion.
+
+The session's committed cursor was at byte 16,357,786 / next line 3,772, while its
+current file had 32,295,275 bytes. The model switched to Astra at line 6,013,
+2026-10-27 21:00:11.425 +08:00. Recent startup scans ended with
+`source_window_budget_exhausted`; 462 registered Codex files still had status `new`.
+The previous rotation prioritized that backlog over newly appended usage in a
+previously consumed session.
+
+Rotation now first visits previously consumed files whose size or modification time
+changed, ordered by confirmed visits within that group. Other files retain the existing
+rotation. A partial window receives no continuing priority merely because its cursor
+has not reached EOF. Per-file/source budgets, parser identity, atomic acceptance and
+diagnostic history remain in effect. The new model-switch regression failed against
+the old implementation (exit 101). Regressions cover reopening an old database, both
+complete and incomplete appended windows, and yielding back to historical files.
+
+SQLite Online Backup preserved the original WAL state. The corrected native core
+collected 1,749 additional Codex events in that copy; a repeat added 1,147 other events,
+while Astra remained exactly 83 calls / 11,586,454 tokens. All 16,602 original Codex
+event digests, conflict flags and creation times were preserved. The rebuilt Windows
+`LLMUsage.exe --scan-once --data-dir <copy>` exited 0 and retained the same Astra
+identities, completion times and six token fields. Its source report remained interrupted
+because historical file windows still need backfill; exit 0 does not establish completion.
+
+The corrected core then collected only Codex into the actual statistics database under
+the same OS file lock used by the application: 1,772 added, zero updated. Read-only
+comparison matched all 83 native Astra records, retained all 16,602 original Codex rows,
+and returned `quick_check=ok` / no foreign-key violations. The product's day-summary
+query filtered by Codex and `gpt-6-astra` returned the same calls, input, cache read,
+output and total for Asia/Shanghai date 2026-10-27. Original sources and user settings
+were unchanged. The rebuilt executable was checked on the backup; actual database
+recovery used the native core probe, without GUI/IPC or installation acceptance.
+
+On Windows x64, `cargo build --manifest-path desktop/src-tauri/Cargo.toml --locked
+--release -p llm-usage-desktop` exited 0. The root `npm run verify` passed Markdown,
+assets, script/UI tests, Svelte, formatting and Clippy, then stopped at a Copilot test's
+sandbox temporary-directory rename (`PermissionDenied`, Windows error 5). That unchanged
+test passed with normal user permissions; the full `npm run test:rust` rerun passed
+1,105 tests with nine platform-dependent ignores. Frontend production build and
+`npm run check:docs` also passed. That recovery run did not replace installed binaries or publish a release.
+
+### Version 0.3.6 review
+
+The release incorporates the published 0.3.5 baseline. Review found two additional cases:
+unknown modification times could promote unchanged files, and EOF with an unfinished
+JSONL line could leave its later completion behind historical backfill. The comparison now
+uses known timestamps only. A transactional `file_read_complete` cursor marker distinguishes
+EOF from exhausted read windows; legacy cursors still use offset equal to saved size.
+Subsequent bounded windows clear the marker, so further appends cannot keep an unfinished
+window ahead of historical work. No schema migration or usage/parser identity change is needed.
+
+Eight added regressions bring `codex_file_fairness` to 12 tests. They cover complete and
+partial appended windows, newline completion across reopen, missing modification times,
+same-size rewrites, old cursors, failed-commit visit/cursor rollback, the parallel application
+entry and model-filtered daily totals. The focused collection/rollback/control/parallel suite
+passed 21 tests. AI maintenance guidance and both scheduling specifications follow these rules.
+
+Version 0.3.6 passed `npm run verify` on Windows x64 / Rust 1.99.1: 1,135 Rust tests,
+nine conditional ignores, 20 script tests, 32 frontend tests, Svelte, formatting, Clippy
+and production frontend build. `npm run check:docs`, all 41 documentation tests and
+`npm run build:docs` passed (1,407 pages / 2,947 published files checked). Both npm
+and frozen pnpm restores passed; package, Tauri and Cargo versions agree. These checks
+do not add GUI/installation acceptance; native release packaging runs in tag CI.
+
+Task artifacts are under `build/astra-recovery/`. Original Agent files are read-only;
+only allowlisted usage/model/time/version fields enter validation output.

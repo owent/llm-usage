@@ -195,6 +195,83 @@ fn partial_file_yields_to_unvisited_files_after_reopening_database() {
 }
 
 #[test]
+fn appended_model_switch_is_read_before_unvisited_historical_windows() {
+    check_appended_model_switch(0);
+}
+
+#[test]
+fn incomplete_appended_window_yields_to_historical_files_on_the_next_run() {
+    check_appended_model_switch(15);
+}
+
+fn check_appended_model_switch(padding_lines: usize) {
+    use std::io::Write;
+
+    let dir = TempDir::new("codex-appended-model");
+    write_rollout(dir.path(), "06", "active", 0);
+    let db = TempDir::new("codex-appended-model-db");
+    let now = ts("2026-10-07T04:00:00Z");
+    {
+        let storage = Storage::open(&db.db_path()).unwrap();
+        assert_eq!(
+            run_codex(&storage, dir.path(), now)[0].finish,
+            RunStatus::Succeeded
+        );
+    }
+    // Older, never visited windows reproduce a database still catching up with history.
+    for day in ["01", "02", "03"] {
+        write_rollout(dir.path(), day, day, 15);
+    }
+    let path = dir.path().join("sessions/2026/10/06/rollout-active.jsonl");
+    let model = json!({"type":"turn_context","payload":{"model":"gpt-6-astra"}});
+    let call = json!({"type":"token_usage_record","timestamp":"2026-10-07T03:00:00Z",
+        "payload":{"response_id":"astra-call","usage":{"input_tokens":100,
+        "cached_input_tokens":50,"cache_write_input_tokens":0,"output_tokens":20,
+        "reasoning_output_tokens":5,"total_tokens":120}}});
+    let mut file = std::fs::OpenOptions::new()
+        .append(true)
+        .open(&path)
+        .unwrap();
+    writeln!(file, "{model}\n{call}").unwrap();
+    for _ in 0..padding_lines {
+        writeln!(file, "{{\"type\":\"response_item\",\"payload\":{{}}}}").unwrap();
+    }
+    drop(file);
+    let storage = Storage::open(&db.db_path()).unwrap();
+    let reports = run_codex_with_limits(&storage, dir.path(), now + 1, limits());
+    assert!(reports[0].files[0]
+        .file_id
+        .ends_with("rollout-active.jsonl"));
+    let astra: (i64, i64) = storage
+        .conn()
+        .query_row(
+            "SELECT COUNT(*),SUM(total_tokens) FROM usage_events WHERE model_raw='gpt-6-astra'",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(astra, (1, 120));
+    assert_eq!(reports[0].finish, RunStatus::Interrupted);
+    // An unfinished bounded window yields even after further appends.
+    if padding_lines > 0 {
+        append_text(&path, "{\"type\":\"response_item\",\"payload\":{}}\n");
+    }
+    let next = run_codex_with_limits(&storage, dir.path(), now + 2, limits());
+    assert!(!next[0].files[0].file_id.ends_with("rollout-active.jsonl"));
+    assert_eq!(
+        storage
+            .conn()
+            .query_row::<i64, _, _>(
+                "SELECT COUNT(*) FROM usage_events WHERE model_raw='gpt-6-astra'",
+                [],
+                |r| r.get(0)
+            )
+            .unwrap(),
+        1
+    );
+}
+
+#[test]
 fn parallel_desktop_entry_preserves_codex_file_rotation() {
     use llm_usage_core::adapters::codex::CodexAdapter;
     use llm_usage_core::adapters::framework::{
@@ -245,5 +322,257 @@ fn parallel_desktop_entry_preserves_codex_file_rotation() {
             .totals
             .call_count,
         2
+    );
+}
+
+fn append_text(path: &std::path::Path, text: &str) {
+    use std::io::Write;
+    std::fs::OpenOptions::new()
+        .append(true)
+        .open(path)
+        .unwrap()
+        .write_all(text.as_bytes())
+        .unwrap();
+}
+
+fn astra_record() -> String {
+    format!(
+        "{}\n{}\n",
+        json!({"type":"turn_context","payload":{"model":"gpt-6-astra"}}),
+        json!({"type":"token_usage_record","timestamp":"2026-10-07T03:00:00Z",
+        "payload":{"response_id":"new-astra","usage":{"input_tokens":100,
+        "cached_input_tokens":50,"cache_write_input_tokens":0,"output_tokens":20,
+        "reasoning_output_tokens":5,"total_tokens":120}}})
+    )
+}
+
+#[test]
+fn completed_partial_line_is_prioritized_after_database_reopen() {
+    let dir = TempDir::new("codex-partial-tail-priority");
+    write_rollout(dir.path(), "06", "active", 0);
+    let path = dir.path().join("sessions/2026/10/06/rollout-active.jsonl");
+    let appended = astra_record();
+    append_text(&path, &appended[..appended.len() - 1]);
+    let db = TempDir::new("codex-partial-tail-priority-db");
+    let now = ts("2026-10-07T04:00:00Z");
+    {
+        let storage = Storage::open(&db.db_path()).unwrap();
+        assert_eq!(
+            run_codex(&storage, dir.path(), now)[0].finish,
+            RunStatus::Succeeded
+        );
+        assert_eq!(
+            summary(&storage, "2026-10-07", "2026-10-07")
+                .totals
+                .call_count,
+            1
+        );
+    }
+    write_rollout(dir.path(), "01", "history", 15);
+    append_text(&path, "\n");
+    let storage = Storage::open(&db.db_path()).unwrap();
+    let report = run_codex_with_limits(&storage, dir.path(), now + 1, limits());
+    assert!(report[0].files[0].file_id.ends_with("rollout-active.jsonl"));
+    assert_eq!(
+        storage
+            .conn()
+            .query_row::<i64, _, _>(
+                "SELECT COUNT(*) FROM usage_events WHERE model_raw='gpt-6-astra'",
+                [],
+                |r| r.get(0)
+            )
+            .unwrap(),
+        1
+    );
+    assert_eq!(
+        std::fs::read_to_string(path)
+            .unwrap()
+            .matches("new-astra")
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn missing_saved_mtime_does_not_promote_an_unchanged_file() {
+    let dir = TempDir::new("codex-unknown-mtime");
+    write_rollout(dir.path(), "06", "active", 0);
+    let (_db, storage) = temp_storage("codex-unknown-mtime");
+    let now = ts("2026-10-07T04:00:00Z");
+    run_codex(&storage, dir.path(), now);
+    storage
+        .conn()
+        .execute("UPDATE source_files SET mtime_ms=NULL", [])
+        .unwrap();
+    write_rollout(dir.path(), "01", "history", 15);
+    let report = run_codex_with_limits(&storage, dir.path(), now + 1, limits());
+    assert!(report[0].files[0]
+        .file_id
+        .ends_with("rollout-history.jsonl"));
+    assert_eq!(
+        summary(&storage, "2026-10-07", "2026-10-07")
+            .totals
+            .call_count,
+        2
+    );
+}
+
+#[test]
+fn same_size_rewrite_with_changed_mtime_is_prioritized() {
+    let dir = TempDir::new("codex-mtime-rewrite-priority");
+    write_rollout(dir.path(), "06", "active", 0);
+    let path = dir.path().join("sessions/2026/10/06/rollout-active.jsonl");
+    let (_db, storage) = temp_storage("codex-mtime-rewrite-priority");
+    let now = ts("2026-10-07T04:00:00Z");
+    run_codex(&storage, dir.path(), now);
+    let mtime = std::fs::metadata(&path).unwrap().modified().unwrap();
+    let original = std::fs::read_to_string(&path).unwrap();
+    let changed = original.replace("\"response_id\":\"active\"", "\"response_id\":\"second\"");
+    assert_ne!(changed, original);
+    assert_eq!(changed.len(), original.len());
+    std::fs::write(&path, &changed).unwrap();
+    std::fs::File::options()
+        .write(true)
+        .open(&path)
+        .unwrap()
+        .set_times(
+            std::fs::FileTimes::new().set_modified(mtime + std::time::Duration::from_secs(10)),
+        )
+        .unwrap();
+    write_rollout(dir.path(), "01", "history", 15);
+    let report = run_codex_with_limits(&storage, dir.path(), now + 1, limits());
+    assert!(report[0].files[0].file_id.ends_with("rollout-active.jsonl"));
+    assert_eq!(storage.conn().query_row::<i64,_,_>("SELECT COUNT(*) FROM usage_events WHERE source_record_key IN ('resp:active','resp:second')",[],|r|r.get(0)).unwrap(),2);
+}
+
+#[test]
+fn old_cursor_without_eof_marker_still_prioritizes_growth_with_unknown_mtime() {
+    let dir = TempDir::new("codex-old-cursor-priority");
+    write_rollout(dir.path(), "06", "active", 0);
+    let (_db, storage) = temp_storage("codex-old-cursor-priority");
+    let now = ts("2026-10-07T04:00:00Z");
+    run_codex(&storage, dir.path(), now);
+    storage.conn().execute_batch("UPDATE ingestion_checkpoints SET cursor_value=json_remove(cursor_value,'$.file_read_complete'); UPDATE source_files SET mtime_ms=NULL;").unwrap();
+    append_text(
+        &dir.path().join("sessions/2026/10/06/rollout-active.jsonl"),
+        &astra_record(),
+    );
+    write_rollout(dir.path(), "01", "history", 15);
+    let report = run_codex_with_limits(&storage, dir.path(), now + 1, limits());
+    assert!(report[0].files[0].file_id.ends_with("rollout-active.jsonl"));
+    assert_eq!(
+        storage
+            .conn()
+            .query_row::<i64, _, _>(
+                "SELECT COUNT(*) FROM usage_events WHERE model_raw='gpt-6-astra'",
+                [],
+                |r| r.get(0)
+            )
+            .unwrap(),
+        1
+    );
+}
+
+#[test]
+fn failed_priority_batch_preserves_visits_and_retries_after_reopen() {
+    let dir = TempDir::new("codex-priority-rollback");
+    write_rollout(dir.path(), "06", "active", 0);
+    let path = dir.path().join("sessions/2026/10/06/rollout-active.jsonl");
+    let db = TempDir::new("codex-priority-rollback-db");
+    let now = ts("2026-10-07T04:00:00Z");
+    {
+        let storage = Storage::open(&db.db_path()).unwrap();
+        run_codex(&storage, dir.path(), now);
+        let prior: (String,i64,String)=storage.conn().query_row("SELECT f.content_hash,f.last_seen_ms,c.cursor_value FROM source_files f JOIN ingestion_checkpoints c ON c.instance_id=f.instance_id AND c.scope_key=f.file_identity",[],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).unwrap();
+        let revision = storage.data_revision().unwrap();
+        append_text(&path, &astra_record());
+        write_rollout(dir.path(), "01", "history", 15);
+        storage.conn().execute_batch("CREATE TRIGGER reject_priority BEFORE INSERT ON usage_events BEGIN SELECT RAISE(ABORT,'synthetic priority failure'); END").unwrap();
+        let report = run_codex_with_limits(&storage, dir.path(), now + 1, limits());
+        assert_eq!(report[0].finish, RunStatus::Failed);
+        let after: (String,i64,String)=storage.conn().query_row("SELECT f.content_hash,f.last_seen_ms,c.cursor_value FROM source_files f JOIN ingestion_checkpoints c ON c.instance_id=f.instance_id AND c.scope_key=f.file_identity",[],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).unwrap();
+        assert_eq!(prior, after);
+        assert_eq!(storage.data_revision().unwrap(), revision);
+        storage
+            .conn()
+            .execute_batch("DROP TRIGGER reject_priority")
+            .unwrap();
+    }
+    let storage = Storage::open(&db.db_path()).unwrap();
+    let report = run_codex_with_limits(&storage, dir.path(), now + 2, limits());
+    assert!(report[0].files[0].file_id.ends_with("rollout-active.jsonl"));
+    assert_eq!(
+        storage
+            .conn()
+            .query_row::<i64, _, _>(
+                "SELECT COUNT(*) FROM usage_events WHERE model_raw='gpt-6-astra'",
+                [],
+                |r| r.get(0)
+            )
+            .unwrap(),
+        1
+    );
+}
+
+#[test]
+fn parallel_entry_prioritizes_appends_and_model_summary_matches() {
+    use llm_usage_core::adapters::codex::CodexAdapter;
+    use llm_usage_core::adapters::framework::{
+        run_adapter_scans_parallel, DiscoverContext, InstanceFilter, ParallelScanRequest, RunConfig,
+    };
+    use llm_usage_core::jobs::TriggerKind;
+    use std::sync::{Arc, Mutex};
+    let dir = TempDir::new("codex-parallel-append");
+    write_rollout(dir.path(), "06", "active", 0);
+    let (_db, storage) = temp_storage("codex-parallel-append");
+    let now = ts("2026-10-07T04:00:00Z");
+    run_codex(&storage, dir.path(), now);
+    append_text(
+        &dir.path().join("sessions/2026/10/06/rollout-active.jsonl"),
+        &astra_record(),
+    );
+    write_rollout(dir.path(), "01", "history", 15);
+    let storage = Mutex::new(storage);
+    let request = ParallelScanRequest {
+        adapter: &CodexAdapter::new(),
+        context: DiscoverContext {
+            manual_roots: vec![dir.path().to_path_buf()],
+            ..Default::default()
+        },
+        config: RunConfig {
+            timezone: "UTC".into(),
+            now_ms: now + 1,
+            limits: limits(),
+            trigger: TriggerKind::Manual,
+            origin_host_id: None,
+            run_id_prefix: "parallel-appended".into(),
+        },
+        filter: InstanceFilter::default(),
+    };
+    let reports = run_adapter_scans_parallel(&storage, &[request], None, Arc::new(|| true), None);
+    assert!(reports[0].as_ref().unwrap()[0].files[0]
+        .file_id
+        .ends_with("rollout-active.jsonl"));
+    let day = llm_usage_core::calendar::parse_date("2026-10-07").unwrap();
+    let result = llm_usage_core::query::query_summary(
+        &storage.lock().unwrap(),
+        &llm_usage_core::query::SummaryRequest {
+            timezone: "UTC".into(),
+            week_start: llm_usage_core::calendar::WeekStart::Monday,
+            first_day: day,
+            last_day: day,
+            today: day,
+            retention_cutoff: None,
+            granularity: llm_usage_core::query::Granularity::Day,
+            filters: llm_usage_core::query::Filters {
+                models: vec!["gpt-6-astra".into()],
+                ..Default::default()
+            },
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        (result.totals.call_count, result.totals.total_tokens_known),
+        (1, Some(120))
     );
 }

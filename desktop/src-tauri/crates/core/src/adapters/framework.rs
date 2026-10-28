@@ -349,7 +349,7 @@ pub fn enumerate_files_bounded(
     files
 }
 
-/// Rotate bounded file windows using persisted visits; unvisited files go first.
+/// Prioritize changed files previously read to EOF, then rotate by persisted visits.
 /// Equal visits retain the adapter's discovery order. Only committed file rows
 /// count as visits, so a rolled-back read keeps its place for the next run.
 fn files_in_scan_order(
@@ -361,21 +361,62 @@ fn files_in_scan_order(
         .iter()
         .map(|path| (normalize_path(path), None))
         .collect();
-    let mut stmt = storage
-        .conn()
-        .prepare("SELECT file_id,last_seen_ms FROM source_files WHERE instance_id=?1")?;
+    let mut changed_consumed = std::collections::BTreeSet::new();
+    let mut stmt = storage.conn().prepare(
+        "SELECT f.file_id,f.last_seen_ms,f.byte_size,f.mtime_ms,c.cursor_value
+         FROM source_files f LEFT JOIN ingestion_checkpoints c
+         ON c.instance_id=f.instance_id AND c.scope_key=f.file_identity
+         WHERE f.instance_id=?1",
+    )?;
     let rows = stmt.query_map([instance_id], |row| {
-        Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, i64>(1)?,
+            row.get::<_, Option<i64>>(2)?,
+            row.get::<_, Option<i64>>(3)?,
+            row.get::<_, Option<String>>(4)?,
+        ))
     })?;
     for row in rows {
         super::run_policy::check()?;
-        let (file_id, seen_ms) = row?;
+        let (file_id, seen_ms, size, mtime_ms, cursor) = row?;
+        let size = size.and_then(|value| u64::try_from(value).ok());
         if let Some(visit) = visits.get_mut(&file_id) {
             *visit = Some(seen_ms);
+            let consumed = cursor
+                .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
+                .is_some_and(|value| {
+                    value["offset"]
+                        .as_u64()
+                        .is_some_and(|offset| Some(offset) == size)
+                        || value["file_read_complete"].as_bool() == Some(true)
+                });
+            if consumed {
+                if let Ok(metadata) = std::fs::metadata(&file_id) {
+                    let modified_ms = metadata
+                        .modified()
+                        .ok()
+                        .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+                        .and_then(|duration| i64::try_from(duration.as_millis()).ok());
+                    if Some(metadata.len()) != size
+                        || modified_ms
+                            .zip(mtime_ms)
+                            .is_some_and(|(current, saved)| current != saved)
+                    {
+                        changed_consumed.insert(file_id);
+                    }
+                }
+            }
         }
     }
     let mut ordered = files.to_vec();
-    ordered.sort_by_cached_key(|path| visits.get(&normalize_path(path)).copied().flatten());
+    ordered.sort_by_cached_key(|path| {
+        let id = normalize_path(path);
+        (
+            !changed_consumed.contains(&id),
+            visits.get(&id).copied().flatten(),
+        )
+    });
     Ok(ordered)
 }
 
@@ -1794,9 +1835,22 @@ fn scan_one_file<S: StorageAccess>(
             .diagnostics
             .extend(outcome.diagnostics.iter().cloned());
         if !fallback_failed && (outcome.cursor.is_some() || outcome.parse_context.is_some()) {
+            let mut cursor_value = outcome.cursor.clone();
+            if adapter.rotate_file_windows() {
+                if let Some(cursor) = cursor_value
+                    .as_mut()
+                    .and_then(serde_json::Value::as_object_mut)
+                {
+                    // EOF may leave an incomplete last line; a later append must still get priority.
+                    cursor.insert(
+                        "file_read_complete".into(),
+                        (outcome.status == ScanStatus::Complete).into(),
+                    );
+                }
+            }
             batch.checkpoints.push(CheckpointUpdate {
                 scope_key: row.file_identity.clone(),
-                cursor_value: outcome.cursor.clone(),
+                cursor_value,
                 parse_context: outcome.parse_context.clone(),
                 source_revision: None,
             });

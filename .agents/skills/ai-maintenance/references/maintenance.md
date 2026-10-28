@@ -198,6 +198,11 @@ derived versions/expression indexes. Measure unfiltered/provider/model/Agent/com
 one tested query does not verify other queries. Aggregate native resources across all processes/fixed roles;
 command lines/paths never enter records.
 
+For collection-order fixes, test appended existing sessions alongside historical backlog, EOF with a
+partial final line, old cursors without new markers, unknown modification times and bounded-window
+rotation. Persist visit/EOF evidence with accepted cursors; verify rollback, database reopen and the
+parallel application entry before changing priority rules.
+
 | Task | Action and reviewable result | Acceptance |
 | --- | --- | --- |
 | Copy/format/simple local change | Small sufficient change; research as needed | Lint, links, facts and diff |
