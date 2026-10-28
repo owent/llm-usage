@@ -201,7 +201,9 @@ command lines/paths never enter records.
 For collection-order fixes, test appended existing sessions alongside historical backlog, EOF with a
 partial final line, old cursors without new markers, unknown modification times and bounded-window
 rotation. Persist visit/EOF evidence with accepted cursors; verify rollback, database reopen and the
-parallel application entry before changing priority rules.
+parallel application entry before changing priority rules. Use original filesystem paths for I/O;
+normalized identity strings may lose native path syntax. Regress that distinction without changing
+persisted source identities.
 
 For Qoder detection-cache changes, exercise superseded probes as well as initial reads.
 Keep source I/O outside the cache mutex and recheck newer published results after a retry;

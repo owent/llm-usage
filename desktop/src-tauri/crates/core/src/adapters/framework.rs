@@ -357,9 +357,9 @@ fn files_in_scan_order(
     instance_id: &str,
     files: &[PathBuf],
 ) -> Result<Vec<PathBuf>, CoreError> {
-    let mut visits: std::collections::BTreeMap<String, Option<i64>> = files
+    let mut visits: std::collections::BTreeMap<String, (&PathBuf, Option<i64>)> = files
         .iter()
-        .map(|path| (normalize_path(path), None))
+        .map(|path| (normalize_path(path), (path, None)))
         .collect();
     let mut changed_consumed = std::collections::BTreeSet::new();
     let mut stmt = storage.conn().prepare(
@@ -381,7 +381,7 @@ fn files_in_scan_order(
         super::run_policy::check()?;
         let (file_id, seen_ms, size, mtime_ms, cursor) = row?;
         let size = size.and_then(|value| u64::try_from(value).ok());
-        if let Some(visit) = visits.get_mut(&file_id) {
+        if let Some((path, visit)) = visits.get_mut(&file_id) {
             *visit = Some(seen_ms);
             let consumed = cursor
                 .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
@@ -392,7 +392,8 @@ fn files_in_scan_order(
                         || value["file_read_complete"].as_bool() == Some(true)
                 });
             if consumed {
-                if let Ok(metadata) = std::fs::metadata(&file_id) {
+                // Normalized identities may lose native path syntax, such as a Windows UNC prefix.
+                if let Ok(metadata) = std::fs::metadata(*path) {
                     let modified_ms = metadata
                         .modified()
                         .ok()
@@ -414,7 +415,7 @@ fn files_in_scan_order(
         let id = normalize_path(path);
         (
             !changed_consumed.contains(&id),
-            visits.get(&id).copied().flatten(),
+            visits.get(&id).and_then(|(_, visit)| *visit),
         )
     });
     Ok(ordered)

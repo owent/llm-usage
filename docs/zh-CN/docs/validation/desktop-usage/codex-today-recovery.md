@@ -146,3 +146,26 @@ Clippy 和前端生产构建全部通过。`npm run check:docs`、41 项文档�
 
 本次临时产物位于 `build/astra-recovery/`。原始 Agent 文件只读，验证输出只包含
 允许提取的用量、模型、时间及版本字段。
+
+### 扫描优先级中的原生路径
+
+2026-10-28，[issue #6](https://github.com/owent/llm-usage/issues/6) 指出
+`files_in_scan_order` 把规范化后的数据库身份用作元数据读取路径。去掉 Windows
+verbatim 前缀后，规范 UNC 身份变成 `UNC/server/share/...`，不再是原始文件系统路径。
+元数据读取失败会使追加内容失去优先级。
+
+排序映射现在同时保留发现时的原始 `PathBuf` 和上次访问时间，并用原始路径读取元数据。
+已保存的身份、游标及轮转规则保持不变。回归使用真实 Windows verbatim 路径和名称末尾
+带点的目录，先确认原始路径可读而身份字符串不可读。原实现在优先读取历史文件、未先读
+追加用量处失败；修复后验证重开数据库、身份稳定、追加模型的调用数及 token、后续历史
+轮转和无重复调用。Unix 分支使用目录名中的字面反斜杠。
+
+Windows 采集、回滚、中断和并行专项通过 22 项，包括全部 13 项 Codex 文件轮转测试。
+首次重读断言需要补入第二份未访问的历史文件：访问时间相同的文件按设计保留发现顺序。
+本次没有挂载或修改 SMB 共享，未在本地执行真实 UNC 共享访问或 Unix 分支。
+日志位于 `build/issue-6/`。
+
+两项 issue 修复的最终 Windows x64 / Rust 1.99.1 检查通过：`npm run fmt:check`、
+`npm run clippy` 和 `npm run test:rust` 均以 0 退出，1,139 项 Rust 测试通过，
+9 项按条件忽略。Markdown lint 和 `npm run check:docs` 也以 0 退出。
+这些检查不增加 GUI 或安装验收。

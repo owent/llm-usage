@@ -11253,7 +11253,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/framework.rs": {
-      "codeHash": "e6c6cec9b1862c5ad79534a035c1e38bf3add2265df30b6cf78457f9a5f6aa7c",
+      "codeHash": "630820f895946479054dba7e723f516ce39368db0e6534c5f3405b63f00fae7f",
       "comments": [
         {
           "id": "e7ed0434fb68aedc",
@@ -11809,365 +11809,372 @@
           "zh": "/// 计为已访问，因此事务回滚后的读取仍保留下一轮的位置。"
         },
         {
+          "id": "8a8e1889399771bf",
+          "line": 395,
+          "kind": "line",
+          "en": "// Normalized identities may lose native path syntax, such as a Windows UNC prefix.",
+          "zh": "// 规范化身份可能丢失原生路径语法，例如 Windows UNC 前缀。"
+        },
+        {
           "id": "21425afe618ef6b7",
-          "line": 423,
+          "line": 424,
           "kind": "line",
           "en": "/// source_instances registration input; preserve user settings such as enabled during conflict updates.",
           "zh": "/// source_instances 注册输入。enabled 等用户设置在冲突更新时保留。"
         },
         {
           "id": "3990d9ee65f2e75a",
-          "line": 424,
+          "line": 425,
           "kind": "line",
           "en": "/// Verified local collection supplies origin_host_id; None denotes legacy_unknown ownership.",
           "zh": "/// origin_host_id：本机核验采集传入本地主机 ID；None 表示未区分（legacy_unknown）。"
         },
         {
           "id": "e59afdfd876163d5",
-          "line": 425,
+          "line": 426,
           "kind": "line",
           "en": "/// Preserve sources owned by another host; verified local collection may claim legacy_unknown sources",
           "zh": "/// 已属于其他主机的来源不被覆盖；legacy_unknown 来源可被本机核验采集认领"
         },
         {
           "id": "9fb58313785e9ca0",
-          "line": 426,
+          "line": 427,
           "kind": "line",
           "en": "/// when file locality and ownership mapping are verified (data-contract.md#provenance).",
           "zh": "/// （文件就在本机且 locality 已核验 = 可证明映射，data-contract.md#provenance）。"
         },
         {
           "id": "f75b7e8fcd283e90",
-          "line": 440,
+          "line": 441,
           "kind": "line",
           "en": "/// Source host ownership (M1a); None uses the legacy_unknown namespace.",
           "zh": "/// 来源归属主机（M1a）；None → legacy_unknown 命名空间。"
         },
         {
           "id": "dbc7fb057700dae5",
-          "line": 444,
+          "line": 445,
           "kind": "line",
           "en": "/// Historical namespace for databases before v4 host ownership.",
           "zh": "/// 迁移前的历史来源命名空间（v4 前未记录主机身份）。"
         },
         {
           "id": "d5501b8a7fc5f8b0",
-          "line": 525,
+          "line": 526,
           "kind": "line",
           "en": "/// source_files row used for registration, rename and replacement detection.",
           "zh": "/// source_files 行（注册与改名/替换探测用）。"
         },
         {
           "id": "e513c31ec2060186",
-          "line": 538,
+          "line": 539,
           "kind": "line",
           "en": "/// Detection JSON: native version, selected format/parser, selection basis and compatibility (v3 column).",
           "zh": "/// 探测结论（JSON）：原始版本、所选格式/parser、选择依据、兼容状态（v3 列）。"
         },
         {
           "id": "9e1174405efdba21",
-          "line": 605,
+          "line": 606,
           "kind": "line",
           "en": "/// Find by file identity: a supported rename preserves the content stream while changing its path.",
           "zh": "/// 按文件身份查找（改名探测：内容流身份稳定，路径可变）。"
         },
         {
           "id": "693e154d17823b5e",
-          "line": 668,
+          "line": 669,
           "kind": "line",
           "en": "/// Load cursor and parse context from the checkpoint.",
           "zh": "/// 读取检查点（游标 + 解析上下文）。"
         },
         {
           "id": "584604079c93f0ad",
-          "line": 692,
+          "line": 693,
           "kind": "line",
           "en": "/// Build StoredFileState from source_files for file-continuity checks.",
           "zh": "/// 由 source_files 行构造 StoredFileState，供文件续读检查使用。"
         },
         {
           "id": "844db40db194471b",
-          "line": 705,
+          "line": 706,
           "kind": "line",
           "en": "/// Configuration for one collection run.",
           "zh": "/// 一次源采集运行的配置。"
         },
         {
           "id": "dc51b09d0053d22d",
-          "line": 712,
+          "line": 713,
           "kind": "line",
           "en": "/// Run/batch ID prefix, with the instance sequence appended.",
           "zh": "/// 运行/批次 ID 前缀；实际 ID 追加实例序号。"
         },
         {
           "id": "9c9454ca8afe00c7",
-          "line": 714,
+          "line": 715,
           "kind": "line",
           "en": "/// Local source-host ID (M1a); None denotes legacy_unknown ownership.",
           "zh": "/// 采集归属的本机来源主机 ID（M1a）；None 表示未区分（legacy_unknown）。"
         },
         {
           "id": "d8110350cfef1779",
-          "line": 715,
+          "line": 716,
           "kind": "line",
           "en": "/// The application obtains it through Storage::ensure_local_host.",
           "zh": "/// 由应用层经 `Storage::ensure_local_host` 取得后传入。"
         },
         {
           "id": "79a62671e2001727",
-          "line": 719,
+          "line": 720,
           "kind": "line",
           "en": "/// Per-file run report.",
           "zh": "/// 逐文件运行报告。"
         },
         {
           "id": "3c74d866fe60a096",
-          "line": 731,
+          "line": 732,
           "kind": "line",
           "en": "/// Per-instance run report.",
           "zh": "/// 逐实例运行报告。"
         },
         {
           "id": "6fbb96a9f3446074",
-          "line": 744,
+          "line": 745,
           "kind": "line",
           "en": "/// Discover and detect/scan each file, then commit the instance in one transaction (V12).",
           "zh": "/// 运行一个适配器：发现 → 逐文件探测/扫描 → 单事务提交（V12 语义）。"
         },
         {
           "id": "976c1bfdde487496",
-          "line": 745,
+          "line": 746,
           "kind": "line",
           "en": "/// Return instance reports; isolate file failures and mark an unsuccessful instance commit failed.",
           "zh": "/// 返回逐实例报告；单文件失败不中断其他文件，实例提交失败标 failed。"
         },
         {
           "id": "8bbaad48b4ab22d3",
-          "line": 755,
+          "line": 756,
           "kind": "line",
           "en": "/// Instance filters support source schedules: custom-scheduled sources use their own triggers,",
           "zh": "/// 实例过滤（逐源定时：自定义计划的来源只按自身节奏触发，"
         },
         {
           "id": "f888952000f96b42",
-          "line": 756,
+          "line": 757,
           "kind": "line",
           "en": "/// global refresh excludes them, and due-source refresh includes only due instances.",
           "zh": "/// 全局刷新排除它们；到期刷新只包含到期实例）。"
         },
         {
           "id": "3140da4f38f3d036",
-          "line": 759,
+          "line": 760,
           "kind": "line",
           "en": "/// Include these instances only; None imposes no inclusion filter.",
           "zh": "/// 仅这些实例参与（None = 不限）。"
         },
         {
           "id": "c789c6a9f9c80d61",
-          "line": 761,
+          "line": 762,
           "kind": "line",
           "en": "/// Skip these instances; None imposes no exclusion filter.",
           "zh": "/// 这些实例跳过（None = 不排除）。"
         },
         {
           "id": "048e42168dbe22d2",
-          "line": 781,
+          "line": 782,
           "kind": "line",
           "en": "/// Filtered run_adapter_scan for source scheduling.",
           "zh": "/// 带实例过滤的运行（run_adapter_scan 的过滤版；逐源定时接线用）。"
         },
         {
           "id": "5f26167d6c4054ad",
-          "line": 782,
+          "line": 783,
           "kind": "line",
           "en": "/// Check source_instances.enabled before reading from any trigger:",
           "zh": "/// 读取前检查 source_instances.enabled，所有触发方式均遵循该设置："
         },
         {
           "id": "abf4fb547ade849d",
-          "line": 783,
+          "line": 784,
           "kind": "line",
           "en": "/// Interval, Startup, Manual or FixedTime. Read only enabled local sources,",
           "zh": "/// Interval、Startup、Manual 和 FixedTime 仅读取已启用的本地来源。"
         },
         {
           "id": "15eb7375e57a7184",
-          "line": 784,
+          "line": 785,
           "kind": "line",
           "en": "/// preserving set_source_enabled behavior after an instance is disabled.",
           "zh": "/// 保持 set_source_enabled 的行为，实例停用后不再读取。"
         },
         {
           "id": "e0b49ef56b24a6ad",
-          "line": 785,
+          "line": 786,
           "kind": "line",
           "en": "/// If disabled-instance loading fails, stop this adapter before reading sources.",
           "zh": "/// 停用集加载失败时本适配器 fail-closed（宁可不扫，不越权读取）。"
         },
         {
           "id": "484b660b1b61f503",
-          "line": 839,
+          "line": 840,
           "kind": "line",
           "en": "/// Keep source parsing outside the writer lock; metadata and commits use it.",
           "zh": "/// 解析来源文件时不持有写入锁；元数据处理和提交使用该锁。"
         },
         {
           "id": "f3fa767c7b31f833",
-          "line": 911,
+          "line": 912,
           "kind": "line",
           "en": "/// Two source-instance slots, one existing writer; results retain request/root order.",
           "zh": "/// 两个来源实例可并行解析，共用现有写入器；结果保留请求和根目录顺序。"
         },
         {
           "id": "175e462dc31a22e2",
-          "line": 1006,
+          "line": 1007,
           "kind": "line",
           "en": "// A worker panic may leave a running job; normal Storage recovery handles it.",
           "zh": "// 工作线程 panic 可能留下运行中的任务；由 Storage 的常规恢复处理。"
         },
         {
           "id": "199054fc86dbcaf7",
-          "line": 1059,
+          "line": 1060,
           "kind": "line",
           "en": "/// Metadata and commits share the existing writer; source parsing holds no writer lock.",
           "zh": "/// 元数据处理和提交共用现有写入器；来源解析不持有写入锁。"
         },
         {
           "id": "cae6d76672a75006",
-          "line": 1081,
+          "line": 1082,
           "kind": "line",
           "en": "// Deduplicate environment/default/manual roots; normalize Windows case aliases first.",
           "zh": "// 根去重（环境覆盖/默认/手工可能指向同一目录；Windows 大小写别名先归一）。"
         },
         {
           "id": "d21394a0a2e0e5ef",
-          "line": 1112,
+          "line": 1113,
           "kind": "line",
           "en": "// Archive adapters use an empty file list and perform their own detection.",
           "zh": "// 归档适配器使用空文件列表，自行完成格式探测。"
         },
         {
           "id": "bac97781806969ca",
-          "line": 1191,
+          "line": 1192,
           "kind": "line",
           "en": "// A merged request performed no scan here; do not report it as completed.",
           "zh": "// 本次未执行扫描；不能把合并请求报告为已成功完成。"
         },
         {
           "id": "5dde7288e8077ed8",
-          "line": 1241,
+          "line": 1242,
           "kind": "line",
           "en": "// Preparation failures and cancellation finish the run just",
           "zh": "// 准备失败和取消均应结束本次运行，"
         },
         {
           "id": "57b3ae77e44f2296",
-          "line": 1242,
+          "line": 1243,
           "kind": "line",
           "en": "// like archive failures, without leaving a running job behind.",
           "zh": "// 与归档失败一致，避免留下运行中的任务。"
         },
         {
           "id": "438624318f5ed045",
-          "line": 1426,
+          "line": 1427,
           "kind": "line",
           "en": "// Skip commits when no file changed; unchanged scans do not advance the data revision.",
           "zh": "// 无任何文件变化时跳过提交（无变化扫描不推进修订号）。"
         },
         {
           "id": "fabc00fa613e0cb1",
-          "line": 1444,
+          "line": 1445,
           "kind": "line",
           "en": "// Commit native aggregates with events and cursors; any failure permits a complete replay.",
           "zh": "// 原生汇总与事件、游标一起提交；任一失败均可完整重放。"
         },
         {
           "id": "089e13456a9d10f0",
-          "line": 1522,
+          "line": 1523,
           "kind": "line",
           "en": "/// Register one file, check continuity, detect when needed, scan and collect batch results.",
           "zh": "/// 注册单个文件、检查续读状态，按需探测后增量读取并收集批次结果。"
         },
         {
           "id": "40c68af8f54b4c9a",
-          "line": 1523,
+          "line": 1524,
           "kind": "line",
           "en": "/// Return the file report and whether an actual read occurred.",
           "zh": "/// 返回（文件报告， 是否发生了实际读取）。"
         },
         {
           "id": "3ee4c9451471341c",
-          "line": 1571,
+          "line": 1572,
           "kind": "line",
           "en": "// After a path miss, check file identity; renaming the same stream does not create a new file.",
           "zh": "// 注册/改名探测：路径未命中时按身份命中（同一内容流改名不算新文件）。"
         },
         {
           "id": "02528c8dd91c4214",
-          "line": 1606,
+          "line": 1607,
           "kind": "line",
           "en": "// Skip unchanged files whose bytes are fully consumed and continuity is intact.",
           "zh": "// 文件字节已全部读取且续读状态连续时，跳过未变化文件。"
         },
         {
           "id": "9d0c2e91509c108c",
-          "line": 1628,
+          "line": 1629,
           "kind": "line",
           "en": "// Detect again on first scan/rescan; restrict verified incompatible versions and unknown formats (V17).",
           "zh": "// 首次或重扫时重新探测格式；已确认不兼容的版本与未知格式 fail closed（V17），"
         },
         {
           "id": "198b859d7d61f323",
-          "line": 1629,
+          "line": 1630,
           "kind": "line",
           "en": "// Unknown/missing versions use the latest registered Agent reader and retain compatibility metadata.",
           "zh": "// 未知/缺失版本按该 Agent 注册表选择最新内置解析器并带兼容标记。"
         },
         {
           "id": "616f191a375ddba7",
-          "line": 1777,
+          "line": 1778,
           "kind": "line",
           "en": "// File error isolation must not classify cancellation or another control stop as invalid data.",
           "zh": "// 文件错误隔离不能把取消或其他控制性停止判为数据错误。"
         },
         {
           "id": "54161423f8c8db7d",
-          "line": 1805,
+          "line": 1806,
           "kind": "line",
           "en": "// V30 fallback with structural diagnostics and no events/valid exclusive aggregate is incompatible.",
           "zh": "// 未知版本兼容尝试（V30）：无事件或独立有效累计行且带结构诊断 ⇒ 不兼容。"
         },
         {
           "id": "9f7386b606dcd1c5",
-          "line": 1806,
+          "line": 1807,
           "kind": "line",
           "en": "// Duplicate/OverlapUnknown reconciliation snapshots do not establish valid usage, such as old Codex without calls.",
           "zh": "// Duplicate/OverlapUnknown 对账快照不能替代有效的用量记录，如缺少逐次记录的旧 Codex。"
         },
         {
           "id": "07e4d297d19a4f7b",
-          "line": 1807,
+          "line": 1808,
           "kind": "line",
           "en": "// Keep prior results without new cursors/aggregates; retry after a parser update or explicit rescan.",
           "zh": "// 保留旧结果、不提交事件/游标/聚合；下轮解析器更新或显式重扫可重新尝试。"
         },
         {
           "id": "970b8f6a24b72d08",
-          "line": 1844,
+          "line": 1845,
           "kind": "line",
           "en": "// EOF may leave an incomplete last line; a later append must still get priority.",
           "zh": "// 读到文件末尾时最后一行可能尚未写完，后续追加仍应优先读取。"
         },
         {
           "id": "9422581303f5f5e3",
-          "line": 1913,
+          "line": 1914,
           "kind": "line",
           "en": "/// Detection JSON in source_files.format_status (v3): selected metadata fields, without message content.",
           "zh": "/// source_files.format_status（v3）的探测 JSON，仅含选定元数据，不含正文。"
         },
         {
           "id": "8c2e0b42d3403f51",
-          "line": 1940,
+          "line": 1941,
           "kind": "line",
           "en": "/// File-stream identity: creation time and sampled prefix fingerprint/length, independent of path.",
           "zh": "/// 文件内容流身份：创建时间 + 首采样指纹（追加稳定，不依赖路径）。"
@@ -40348,7 +40355,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/tests/codex_file_fairness.rs": {
-      "codeHash": "8683e8bfd88cd7f9cb20a873067bb9dfc5d161fd821719eab3cc58e9cfa16ee7",
+      "codeHash": "4bd8bebbddf87bc260fdef8dfd83cb9904d6366ad7a7f51a8dcc23876d080606",
       "comments": [
         {
           "id": "51739b8b65c33bde",

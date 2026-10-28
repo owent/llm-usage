@@ -170,3 +170,29 @@ do not add GUI/installation acceptance; native release packaging runs in tag CI.
 
 Task artifacts are under `build/astra-recovery/`. Original Agent files are read-only;
 only allowlisted usage/model/time/version fields enter validation output.
+
+### Native paths in scan priority
+
+On 2026-10-28, [issue #6](https://github.com/owent/llm-usage/issues/6) identified that
+`files_in_scan_order` used a normalized database identity as the metadata path. Stripping
+the Windows verbatim prefix turns a canonical UNC identity into `UNC/server/share/...`,
+which is not the original filesystem path. A failed metadata read then loses append priority.
+
+The ordering map now retains each discovered `PathBuf` alongside its last visit and reads
+metadata through that original path. Stored identities, checkpoints and rotation rules remain
+unchanged. The regression uses a real Windows verbatim path with a trailing-dot directory;
+it first confirms that the original path can be read while its identity string cannot. The
+original implementation failed because history was read before appended usage. After repair,
+the test verifies reopen, stable identity, the appended model's call/tokens, later historical
+rotation and no duplicate call. The Unix variant uses a literal backslash in a directory name.
+
+The Windows collection/rollback/control/parallel suite passed 22 tests, including all 13
+Codex file-fairness tests. The initial repeat-scan assertion needed a second unvisited historical
+file: equally recent visits intentionally retain discovery order. No SMB share was mounted or
+changed; real UNC-share access and the Unix variant were not locally executed. Logs are under
+`build/issue-6/`.
+
+Final Windows x64 / Rust 1.99.1 checks on both issue repairs passed: `npm run fmt:check`,
+`npm run clippy` and `npm run test:rust` exited 0, with 1,139 Rust tests passed and nine
+conditional ignores. Markdown lint and `npm run check:docs` also exited 0. This adds no
+GUI or installation acceptance.

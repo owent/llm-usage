@@ -347,6 +347,71 @@ fn astra_record() -> String {
 }
 
 #[test]
+#[cfg(any(windows, unix))]
+fn appended_usage_uses_the_original_path_when_its_identity_is_not_a_filesystem_path() {
+    let dir = TempDir::new("codex-native-path-priority");
+    #[cfg(windows)]
+    let root = std::fs::canonicalize(dir.path())
+        .unwrap()
+        .join("verbatim-trailing-dot.");
+    #[cfg(unix)]
+    let root = dir.path().join(r"literal\backslash");
+    write_rollout(&root, "06", "active", 0);
+    let path = root.join("sessions/2026/10/06/rollout-active.jsonl");
+    let identity = llm_usage_core::adapters::framework::normalize_path(&path);
+    assert!(std::fs::metadata(&path).is_ok());
+    assert!(std::fs::metadata(&identity).is_err());
+    let db = TempDir::new("codex-native-path-priority-db");
+    let now = ts("2026-10-07T04:00:00Z");
+    {
+        let storage = Storage::open(&db.db_path()).unwrap();
+        assert_eq!(
+            run_codex(&storage, &root, now)[0].finish,
+            RunStatus::Succeeded
+        );
+        assert_eq!(
+            storage
+                .conn()
+                .query_row::<String, _, _>("SELECT file_id FROM source_files", [], |row| row.get(0))
+                .unwrap(),
+            identity
+        );
+    }
+    write_rollout(&root, "02", "history", 15);
+    write_rollout(&root, "01", "older-history", 15);
+    append_text(&path, &astra_record());
+    let storage = Storage::open(&db.db_path()).unwrap();
+    let reports = run_codex_with_limits(&storage, &root, now + 1, limits());
+    assert_eq!(reports[0].files[0].file_id, identity);
+    assert_eq!(
+        storage
+            .conn()
+            .query_row::<(i64, i64), _, _>(
+                "SELECT COUNT(*),SUM(total_tokens) FROM usage_events WHERE model_raw='gpt-6-astra'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?))
+            )
+            .unwrap(),
+        (1, 120)
+    );
+    let repeated = run_codex_with_limits(&storage, &root, now + 2, limits());
+    assert!(repeated[0].files[0]
+        .file_id
+        .ends_with("rollout-older-history.jsonl"));
+    assert_eq!(
+        storage
+            .conn()
+            .query_row::<i64, _, _>(
+                "SELECT COUNT(*) FROM usage_events WHERE model_raw='gpt-6-astra'",
+                [],
+                |row| row.get(0)
+            )
+            .unwrap(),
+        1
+    );
+}
+
+#[test]
 fn completed_partial_line_is_prioritized_after_database_reopen() {
     let dir = TempDir::new("codex-partial-tail-priority");
     write_rollout(dir.path(), "06", "active", 0);
