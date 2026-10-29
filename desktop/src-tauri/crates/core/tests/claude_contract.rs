@@ -193,7 +193,11 @@ fn capability_table_is_structured_and_complete() {
     assert_eq!(json["adapter_id"], "claude");
     assert_eq!(
         json["supported_versions"],
-        serde_json::json!(["transcript-doc-1", "2.1.197"])
+        serde_json::json!(["transcript-doc-1", "2.1.197", "2.1.312"])
+    );
+    assert_eq!(
+        json["detection"]["magic"],
+        "首行 JSONL type ∈ {user, assistant, system, queue-operation, attachment, last-prompt} 或已验证的原生元数据形状"
     );
     // All eight field-capability entries must exist.
     for key in [
@@ -273,7 +277,7 @@ fn capability_table_is_structured_and_complete() {
     assert_eq!(stored["detection"]["fail_closed"], true);
     assert_eq!(
         stored["supported_versions"],
-        serde_json::json!(["transcript-doc-1", "2.1.197"])
+        serde_json::json!(["transcript-doc-1", "2.1.197", "2.1.312"])
     );
 }
 

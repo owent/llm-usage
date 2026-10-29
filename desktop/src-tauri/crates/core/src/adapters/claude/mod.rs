@@ -9,6 +9,7 @@
 
 pub mod common;
 pub mod detect;
+mod metadata;
 pub mod versions;
 
 pub use common::{map_claude_transcript, ClaudeTranscriptUsage};
@@ -126,14 +127,14 @@ impl crate::adapters::framework::SourceAdapter for ClaudeAdapter {
         fields.insert(
             "cache_read".into(),
             field(
-                Availability::Partial("2.1.197 已核对；其他版本/协议未核验".into()),
+                Availability::Partial("2.1.197/2.1.312 已核对；其他版本/协议未核验".into()),
                 "原生正 cache_read_input_tokens 为 reported；零未知，本次无正缓存实样",
             ),
         );
         fields.insert(
             "cache_write".into(),
             field(
-                Availability::Partial("2.1.197 已核对；其他版本/协议未核验".into()),
+                Availability::Partial("2.1.197/2.1.312 已核对；其他版本/协议未核验".into()),
                 "原生正 cache_creation_input_tokens 为 reported；零未知，本次无正缓存实样",
             ),
         );
@@ -147,14 +148,14 @@ impl crate::adapters::framework::SourceAdapter for ClaudeAdapter {
         fields.insert(
             "model".into(),
             field(
-                Availability::Partial("2.1.197 已核对；其他版本/协议未核验".into()),
+                Availability::Partial("2.1.197/2.1.312 已核对；其他版本/协议未核验".into()),
                 "message.model 记录自带字段（request_field）",
             ),
         );
         fields.insert(
             "time".into(),
             field(
-                Availability::Partial("2.1.197 已核对；其他版本/协议未核验".into()),
+                Availability::Partial("2.1.197/2.1.312 已核对；其他版本/协议未核验".into()),
                 "条目 ISO8601 时间戳，source_completion 口径",
             ),
         );
@@ -192,8 +193,8 @@ impl crate::adapters::framework::SourceAdapter for ClaudeAdapter {
                 "profile": "无 profile 概念",
             }),
             detection: serde_json::json!({
-                "magic": "首行 JSONL type ∈ {user, assistant, system}",
-                "version_field": "assistant.version 逐条绑定；2.1.197 原生已核对；无版本旧文档锚点独立保留",
+                "magic": "首行 JSONL type ∈ {user, assistant, system, queue-operation, attachment, last-prompt} 或已验证的原生元数据形状",
+                "version_field": "assistant.version 逐条绑定；2.1.197/2.1.312 原生已核对；无版本旧文档锚点独立保留",
                 "fail_closed": true,
                 "unknown_version": "未文档化记录 type 或载体外 usage 字段：整文件拒绝，不猜格式",
             }),
@@ -227,7 +228,7 @@ impl crate::adapters::framework::SourceAdapter for ClaudeAdapter {
             }),
             maintenance: serde_json::json!({
                 "parser_version": versions::transcript_doc1::NATIVE_PARSER_VERSION,
-                "format_evidence": "A01 文档与 2.1.197 原生 GLM 两模型；API/CLI/原生日志的正输入/输出独立相符",
+                "format_evidence": "A01 与 2.1.197 GLM 两模型；2.1.312 Windows GLM/Kimi 三模型及工具循环，CLI/原生日志去重与正缓存回读通过",
                 "upgrade_policy": "transcript 条目格式官方明示不稳定；偏离（未知 type、载体外 usage）fail closed，取得真实样本后扩展",
             }),
             scheduling: serde_json::json!({
@@ -253,5 +254,11 @@ impl crate::adapters::framework::SourceAdapter for ClaudeAdapter {
             .and_then(|c| c.get("native_rules_version"))
             .and_then(serde_json::Value::as_u64)
             != Some(1)
+            || stored
+                .parse_context
+                .as_ref()
+                .and_then(|c| c.get("metadata_rules_version"))
+                .and_then(serde_json::Value::as_u64)
+                != Some(1)
     }
 }

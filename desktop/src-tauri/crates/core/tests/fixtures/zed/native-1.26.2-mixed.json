@@ -1,0 +1,57 @@
+{
+  "evidence": "User-generated Windows Zed 1.26.2 / c4273271092b0287f7d181f616bd5171e0a2f70c, DbThread 0.3.0, custom GLM and built-in DeepSeek in one thread; latest model is not historical attribution",
+  "threads": [
+    {
+      "id": "51a838f4d47011cd",
+      "updated_at": "2026-10-29T14:39:43.767808300+00:00",
+      "created_at": "2026-10-29T14:34:21.813502300+00:00",
+      "version": "0.3.0",
+      "model": {
+        "provider": "deepseek",
+        "model": "deepseek-flash"
+      },
+      "cumulative_token_usage": {
+        "input_tokens": 47748,
+        "output_tokens": 164
+      },
+      "request_token_usage": {
+        "2c3018413e172c56": {
+          "input_tokens": 24689,
+          "output_tokens": 69
+        },
+        "b97f3948efed2184": {
+          "input_tokens": 23059,
+          "output_tokens": 95
+        }
+      },
+      "messages": [
+        {
+          "User": {
+            "id": "b97f3948efed2184",
+            "content": []
+          }
+        },
+        {
+          "Agent": {
+            "content": [],
+            "tool_results": {},
+            "reasoning_details": null
+          }
+        },
+        {
+          "User": {
+            "id": "2c3018413e172c56",
+            "content": []
+          }
+        },
+        {
+          "Agent": {
+            "content": [],
+            "tool_results": {},
+            "reasoning_details": null
+          }
+        }
+      ]
+    }
+  ]
+}

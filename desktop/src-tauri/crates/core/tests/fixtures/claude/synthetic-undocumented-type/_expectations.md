@@ -2,7 +2,7 @@
 
 <a id="synthetic-undocumented-type_expectationsmdsynthetic"></a>
 
-**All files in this directory are synthetic test data, not extracts from real sessions.** An undocumented record type, file-history-snapshot, triggers V17 rejection
+**All files in this directory are synthetic test data, not extracts from real sessions.** An undocumented record type, future-unknown-record, triggers V17 rejection
 of the whole file. Clear the current scan's events and do not advance its cursor.
 Detection checks only the first line: type=user returns Supported; rejection occurs
 during scanning. Do not infer an unknown format.
@@ -16,7 +16,7 @@ Three lines:
 - Line 1: valid user, detect Supported.
 - Line 2: assistant syn-req-would has usage 10/5/0/0 and would produce one event,
   which is cleared when the file is rejected.
-- Line 3: type="file-history-snapshot" triggers undocumented_record_type.
+- Line 3: type="future-unknown-record" triggers undocumented_record_type.
 
 Expected results:
 

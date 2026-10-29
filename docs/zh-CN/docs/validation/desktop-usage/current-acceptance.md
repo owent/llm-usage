@@ -48,6 +48,7 @@ Linux 使用 WSL/Debian 独立 rootless Podman；CI runner 与受测提交另见
 
 | 范围 | 当前记录 |
 | --- | --- |
+| Claude 2.1.312 / DSH 0.2.1-rc.2 / Zed 1.26.2 Windows | [原生提取与恢复](agent-native-20261029.md)；CLI GLM/Kimi 样本、Zed GLM/DeepSeek 混合线程输出、未变文件及旧库重放。Zed 输入/模型归属和 macOS 仍未验证 |
 | 核心存储、来源身份/聚合交换 | [M1](m1-core.md)、[M1a](m1a-provenance.md) |
 | 完整标准化明细 Merge、用量及费用提醒、Zed 外部 Provider | [本轮](plan-20261007.md)；事务内冲突处理/重扫、单币种/未知/去重及 Zed 1.22.0 两模型非空实样分列；指定端点为 Coding Plan |
 | Codex、pi/oh-my-pi、Claude/Gemini/Qwen 初始读取及版本分派 | [Codex](m2a-codex.md)、[M2 恢复](m2bc-resumed.md)、[版本目录](m2d-layout-versions.md)、[CLI 安装边界](wsl-agent-installs.md)；初始记录保留当时样本状态 |

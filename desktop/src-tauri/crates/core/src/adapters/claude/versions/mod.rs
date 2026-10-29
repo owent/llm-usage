@@ -14,10 +14,11 @@ pub const LATEST_IMPL_ID: &str = "transcript_doc1";
 pub const CLAUDE_FORMAT_VERSION: &str = "transcript-doc-1";
 
 /// Registered format versions mapped to implementations.
-/// Retain the legacy format ID; only native 2.1.197 is explicitly registered.
+/// Retain the legacy format ID alongside independently checked native versions.
 pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[
     ("transcript-doc-1", "transcript_doc1"),
     ("2.1.197", "transcript_doc1"),
+    ("2.1.312", "transcript_doc1"),
 ];
 
 /// Version selection result.
@@ -61,14 +62,16 @@ mod tests {
     use crate::domain::VersionBasis;
 
     #[test]
-    fn doc_anchor_dispatches_known() {
-        assert_eq!(
-            select(Some("transcript-doc-1")),
-            Selection {
-                impl_id: "transcript_doc1",
-                basis: VersionBasis::KnownVersion
-            }
-        );
+    fn verified_versions_dispatch_known() {
+        for version in ["transcript-doc-1", "2.1.197", "2.1.312"] {
+            assert_eq!(
+                select(Some(version)),
+                Selection {
+                    impl_id: "transcript_doc1",
+                    basis: VersionBasis::KnownVersion
+                }
+            );
+        }
     }
 
     #[test]

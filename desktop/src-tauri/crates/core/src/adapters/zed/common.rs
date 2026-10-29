@@ -97,6 +97,16 @@ pub fn map_verified_openai(raw: &ZedUsage) -> MappedUsage {
     finish_parallel(usage, quality, Vec::new())
 }
 
+/// DbThread 0.3.0 keeps only the latest model, while its counters span model changes.
+/// In 1.26.2, OpenAI chat removes cache from input but DeepSeek keeps prompt_tokens.
+/// Preserve positive output/cache buckets; neither input interpretation is recoverable.
+pub fn map_native_mixed(raw: &ZedUsage) -> MappedUsage {
+    let mut mapped = map_verified_openai(raw);
+    mapped.usage.input_uncached = None;
+    mapped.quality.input_uncached = Q::Unknown;
+    mapped
+}
+
 // Independent read-only database helpers copied from adapters/hermes/common.rs.
 
 use crate::error::CoreError;

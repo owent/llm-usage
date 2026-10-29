@@ -34,9 +34,9 @@ test('real source inventory produces every required menu page without generated 
     'reference/evidence/update-check-repair', 'reference/evidence/release-031', 'reference/evidence/release-032',
     'reference/design/opencode-runtime', 'reference/evidence/release-033', 'reference/evidence/issues-3-4',
     'reference/evidence/maintenance-2026-10-24', 'reference/evidence/kimi-k31-pricing',
-    'reference/evidence/release-035']) {
+    'reference/evidence/release-035', 'reference/evidence/agent-native-20261029']) {
     assert.ok(ids.includes(id), id);
   }
-  assert.equal(ids.length, 231);
+  assert.equal(ids.length, 232);
   assert.ok(!ids.some(id => id.includes('build/') || id.includes('zh-cn/') || id.endsWith('/plan')));
 });

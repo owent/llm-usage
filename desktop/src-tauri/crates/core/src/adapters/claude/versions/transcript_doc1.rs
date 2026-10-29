@@ -56,6 +56,8 @@ struct ClaudeParseContext {
     #[serde(default)]
     native_rules_version: Option<u8>,
     #[serde(default)]
+    metadata_rules_version: Option<u8>,
+    #[serde(default)]
     native_rules_in_progress: bool,
     #[serde(default)]
     native_rules_invalid: bool,
@@ -163,12 +165,18 @@ pub fn scan(
     now_ms: i64,
 ) -> Result<ScanOutcome, CoreError> {
     let replay = stored.cursor.is_some()
-        && stored
+        && (stored
             .parse_context
             .as_ref()
             .and_then(|c| c.get("native_rules_version"))
             .and_then(serde_json::Value::as_u64)
             != Some(1)
+            || stored
+                .parse_context
+                .as_ref()
+                .and_then(|c| c.get("metadata_rules_version"))
+                .and_then(serde_json::Value::as_u64)
+                != Some(1))
         && !stored
             .parse_context
             .as_ref()
@@ -182,7 +190,7 @@ pub fn scan(
     let mut events: Vec<EventInput> = Vec::new();
     let mut diagnostics: Vec<DiagnosticInput> = Vec::new();
     let mut records_seen: u64 = 0;
-    let mut fail_closed: Option<(u64, String, &'static str)> = None;
+    let mut fail_closed: Option<(u64, String, &'static str, &'static str)> = None;
     let parent_from_path = subagent_parent_session(&target.path);
     let outcome = read_jsonl(
         &target.path,
@@ -395,18 +403,32 @@ pub fn scan(
                         raw.number,
                         format!("record type {record_type:?} carries a usage field"),
                         "usage_on_unexpected_record_type",
+                        "type",
                     ));
                     break;
                 }
             }
-            other => {
-                fail_closed = Some((
-                    raw.number,
-                    format!("record type {other:?} not in documented set"),
-                    "undocumented_record_type",
-                ));
-                break;
-            }
+            other => match super::super::metadata::validate(&line) {
+                Some(Ok(())) => {}
+                Some(Err(field)) => {
+                    fail_closed = Some((
+                        raw.number,
+                        format!("record type {other:?} has invalid metadata field {field}"),
+                        "metadata_shape_deviation",
+                        field,
+                    ));
+                    break;
+                }
+                None => {
+                    fail_closed = Some((
+                        raw.number,
+                        format!("record type {other:?} not in documented set"),
+                        "undocumented_record_type",
+                        "type",
+                    ));
+                    break;
+                }
+            },
         }
     }
     let mut status = match &outcome.stop {
@@ -436,12 +458,18 @@ pub fn scan(
         });
     // On rejection, discard this scan's events and retain the checkpoint for the next retry.
     context.native_rules_invalid |= health_degraded;
-    context.native_rules_in_progress = status == ScanStatus::BudgetExhausted;
-    if status == ScanStatus::Complete && !context.native_rules_invalid && fail_closed.is_none() {
+    context.native_rules_in_progress =
+        status == ScanStatus::BudgetExhausted || outcome.pending_bytes > 0;
+    if status == ScanStatus::Complete
+        && outcome.pending_bytes == 0
+        && !context.native_rules_invalid
+        && fail_closed.is_none()
+    {
         context.native_rules_version = Some(1);
+        context.metadata_rules_version = Some(1);
     }
-    let (cursor_out, context_out) = if let Some((line_no, detail, code)) = fail_closed {
-        diagnostics.push(diag(code, Some("type"), line_no, &detail));
+    let (cursor_out, context_out) = if let Some((line_no, detail, code, field)) = fail_closed {
+        diagnostics.push(diag(code, Some(field), line_no, &detail));
         events.clear();
         status = ScanStatus::Pending;
         health_degraded = true;

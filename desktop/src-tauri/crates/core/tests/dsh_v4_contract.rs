@@ -155,6 +155,187 @@ fn native_sums(s: &Storage) {
         (2, Some(11174), Some(105), Some(11279))
     );
 }
+
+#[test]
+fn native_021_three_models_preserve_settlement_usage_and_rescan() {
+    for (sample, input, output) in [
+        (
+            include_str!("fixtures/dsh/native-0.2.1-rc.2/glm-5.3-flash.jsonl"),
+            11190,
+            69,
+        ),
+        (
+            include_str!("fixtures/dsh/native-0.2.1-rc.2/glm-5.3.jsonl"),
+            11187,
+            34,
+        ),
+        (
+            include_str!("fixtures/dsh/native-0.2.1-rc.2/kimi-for-coding.jsonl"),
+            10760,
+            60,
+        ),
+    ] {
+        for compressed in [false, true] {
+            let dir = TempDir::new("dsh-native-021");
+            let (ctx, path) = carrier(&dir, sample.as_bytes(), compressed);
+            let parsed = direct(&path, &StoredScanState::default(), &ScanLimits::default());
+            assert_eq!(
+                parsed.status,
+                ScanStatus::Complete,
+                "diagnostics={:?}",
+                parsed.diagnostics
+            );
+            let (_db, s) = temp_storage("dsh-native-021");
+            run(&s, &ctx, "native-021");
+            let values:(i64,i64,i64,i64)=s.conn().query_row("SELECT COUNT(*),SUM(input_uncached),SUM(output_total),SUM(total_tokens) FROM usage_events",[],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?))).unwrap();
+            assert_eq!(values, (1, input, output, input + output));
+            assert_eq!(
+                count(
+                    &s,
+                    "SELECT COUNT(*) FROM source_files WHERE status='degraded'"
+                ),
+                0
+            );
+            assert_eq!(count(&s,"SELECT COUNT(*) FROM usage_events WHERE input_cache_read IS NOT NULL OR input_cache_write IS NOT NULL OR source_total IS NOT NULL OR cost_amount_minor IS NOT NULL OR conflict<>0"),0);
+            let rev = s.data_revision().unwrap();
+            run(&s, &ctx, "native-021-repeat");
+            assert_eq!(s.data_revision().unwrap(), rev);
+        }
+    }
+}
+
+fn current_metadata() -> [(&'static str, Value); 3] {
+    [
+        (
+            "job/registered",
+            json!({"jobId":"job","owner":"anonymous-session","kind":"shell","label":"synthetic","startedAt":NOW,"toolCall":{"callId":"call","rootCallId":"root"}}),
+        ),
+        (
+            "job/settled",
+            json!({"jobId":"job","owner":"anonymous-session","kind":"shell","label":"synthetic","startedAt":NOW,"finishedAt":NOW+1,"status":"completed","cause":"producer","producerReported":true,"detail":"synthetic detail"}),
+        ),
+        (
+            "working-directory/change",
+            json!({"cwd":"/synthetic/workspace"}),
+        ),
+    ]
+}
+
+#[test]
+fn current_job_and_working_directory_records_do_not_count_as_model_usage() {
+    let dir = TempDir::new("dsh-job-records");
+    let mut records = rows();
+    for (kind, data) in current_metadata() {
+        records.push(json!({"type":kind,"seq":records.len()-1,"time":NOW,"data":data}));
+    }
+    let (ctx, path) = carrier(&dir, encode(&records).as_bytes(), true);
+    let (_db, s) = temp_storage("dsh-job-records");
+    run(&s, &ctx, "dsh-job-records");
+    native_sums(&s);
+    let mut unknown = records.clone();
+    unknown.last_mut().unwrap()["type"] = "future/required".into();
+    std::fs::write(
+        &path,
+        zstd::stream::encode_all(encode(&unknown).as_bytes(), 3).unwrap(),
+    )
+    .unwrap();
+    let rejected = direct(&path, &StoredScanState::default(), &ScanLimits::default());
+    assert!(rejected.cursor.is_none());
+    assert!(rejected.events.is_empty());
+    assert!(rejected
+        .diagnostics
+        .iter()
+        .any(|d| d.code == "dsh_required_event_unknown"));
+}
+
+#[test]
+fn malformed_or_usage_bearing_current_metadata_fails_closed() {
+    for (kind, valid) in current_metadata() {
+        let required: &[&str] = match kind {
+            "job/registered" => &["jobId", "owner", "kind", "label", "startedAt"],
+            "job/settled" => &[
+                "jobId",
+                "owner",
+                "kind",
+                "label",
+                "startedAt",
+                "finishedAt",
+                "status",
+                "cause",
+                "producerReported",
+            ],
+            "working-directory/change" => &["cwd"],
+            _ => unreachable!(),
+        };
+        let mut cases = vec![];
+        for key in required {
+            let mut missing = valid.clone();
+            missing.as_object_mut().unwrap().remove(*key);
+            cases.push(missing);
+            let mut wrong_type = valid.clone();
+            wrong_type[*key] = Value::Null;
+            cases.push(wrong_type);
+        }
+        for key in ["usage", "stream", "futureField"] {
+            let mut extra = valid.clone();
+            extra[key] = json!({});
+            cases.push(extra);
+        }
+        match kind {
+            "job/registered" => {
+                for tool_call in [
+                    json!(null),
+                    json!({}),
+                    json!({"callId":1,"rootCallId":"root"}),
+                    json!({"callId":"call","rootCallId":"root","extra":true}),
+                ] {
+                    let mut invalid = valid.clone();
+                    invalid["toolCall"] = tool_call;
+                    cases.push(invalid);
+                }
+            }
+            "job/settled" => {
+                for (key, value) in [
+                    ("status", json!("cancelled")),
+                    ("cause", json!("cancelled")),
+                    ("finishedAt", json!(-1)),
+                    ("detail", json!(1)),
+                ] {
+                    let mut invalid = valid.clone();
+                    invalid[key] = value;
+                    cases.push(invalid);
+                }
+            }
+            "working-directory/change" => {
+                let mut invalid = valid.clone();
+                invalid["cwd"] = json!("relative/workspace");
+                cases.push(invalid);
+            }
+            _ => unreachable!(),
+        }
+        for (index, data) in cases.into_iter().enumerate() {
+            let dir = TempDir::new("dsh-invalid-current-metadata");
+            let mut records = rows();
+            records.push(json!({"type":kind,"seq":records.len()-1,"time":NOW,"data":data}));
+            let (_ctx, path) = carrier(&dir, encode(&records).as_bytes(), false);
+            let rejected = direct(&path, &StoredScanState::default(), &ScanLimits::default());
+            assert_eq!(rejected.status, ScanStatus::Pending, "{kind} case {index}");
+            assert_eq!(rejected.health, "degraded", "{kind} case {index}");
+            assert!(rejected.cursor.is_none(), "{kind} case {index}");
+            assert!(rejected.parse_context.is_none(), "{kind} case {index}");
+            assert!(rejected.events.is_empty(), "{kind} case {index}");
+            assert!(
+                rejected
+                    .diagnostics
+                    .iter()
+                    .any(|d| d.code == "dsh_event_data_invalid"),
+                "{kind} case {index}: {:?}",
+                rejected.diagnostics
+            );
+        }
+    }
+}
+
 #[test]
 fn genuine_main_api_pairs_match_plain_and_zstd_full_registry_without_title_or_stream_double_count()
 {

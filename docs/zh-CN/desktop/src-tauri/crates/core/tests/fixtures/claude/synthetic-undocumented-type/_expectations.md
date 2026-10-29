@@ -3,7 +3,7 @@
 <a id="synthetic-undocumented-type_expectationsmd-synthetic"></a>
 
 **本目录全部为合成样本（synthetic），不是真实会话提取。** 未文档化记录
-type（file-history-snapshot）：V17 fail closed，整文件拒绝——本轮事件清空、
+type（future-unknown-record）：V17 fail closed，整文件拒绝——本轮事件清空、
 游标不推进，不猜格式。注意与 detect 分层：detect 只看首行（type=user →
 Supported），fail closed 发生在扫描层。
 
@@ -16,7 +16,7 @@ Supported），fail closed 发生在扫描层。
 - 第 1 行 user 正常（detect Supported）；
 - 第 2 行 assistant syn-req-would 带 usage 10/5/0/0 —— 本可产 1 事件，
   但 fail closed 清空本轮事件；
-- 第 3 行 type="file-history-snapshot" → 触发 `undocumented_record_type`，
+- 第 3 行 type="future-unknown-record" → 触发 `undocumented_record_type`，
   整文件拒绝。
 
 期望：

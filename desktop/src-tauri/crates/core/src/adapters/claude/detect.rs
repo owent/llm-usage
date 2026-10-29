@@ -47,8 +47,18 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
                 basis: VersionBasis::KnownVersion,
             })
         }
-        other => Ok(DetectOutcome::UnknownFormat {
-            reason: format!("first record type {other:?} not in documented set"),
-        }),
+        other => match super::metadata::validate(&line) {
+            Some(Ok(())) => Ok(DetectOutcome::Supported {
+                format: CLAUDE_FORMAT.to_string(),
+                format_version: Some(CLAUDE_FORMAT_VERSION.to_string()),
+                basis: VersionBasis::KnownVersion,
+            }),
+            Some(Err(field)) => Ok(DetectOutcome::UnknownFormat {
+                reason: format!("first record type {other:?} has invalid metadata field {field}"),
+            }),
+            None => Ok(DetectOutcome::UnknownFormat {
+                reason: format!("first record type {other:?} not in documented set"),
+            }),
+        },
     }
 }

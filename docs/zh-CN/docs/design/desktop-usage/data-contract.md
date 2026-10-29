@@ -273,6 +273,23 @@ Claude Code 2.1.197 原生 assistant 自带 version，按记录所属版本绑�
 原完成时间、真实冲突与诊断，同事务重算未封存日。达到读取上限而中断可续读，只有完整有效
 扫描标记规则已更新，见 [实样与升级](../../validation/desktop-usage/claude-container-sample.md)。
 
+Claude 2.1.312 在 assistant 消息之外保存请求回放、工具跟踪和累计费用状态。
+只有已知元数据形状有效时才跳过，这些记录不增加调用、token、渠道或费用。
+未知类型、形状无效的元数据以及元数据上的 usage 仍拒绝并保留诊断。
+元数据规则改变后重新核对已消费且未变化的文件；只有完整有效扫描才标记完成，
+并保留原事件摘要、冲突和诊断历史。Windows 三模型、缓存和工具调用检查见
+[本次来源验证](../../validation/desktop-usage/agent-native-20261029.md)。
+
+Zed 1.26.2 的 DbThread 0.3.0 跨模型切换保存累计用量，但只保留最新模型选择。
+OpenAI chat 映射从输入中减去缓存；内置 DeepSeek 保留含缓存的 prompt_tokens 并丢弃缓存明细。
+因此混合原生线程只保留正输出、缓存桶，输入及完整总量未知；默认零仍未知。
+仅对完整且为正的输出桶对账，不相加含义不明的输入、缓存值。原生 session 区间独立于
+逐日、逐模型调用统计，turn 桶不能确定底层请求数。原 llm-usage-zhipu 窄规则及 hosted
+规则独立保留。完整原生结构优先于旧的仅统计 Provider 回退；已有输入、质量差异按普通聚合
+冲突保留，不能作为解析依据修正放行。独立规则标记使已消费的旧游标重新核验，不预先删除检查点；只有完整有效扫描
+才标记完成，保留诊断及事务回滚。序列化 schema 版本不代表每条记录的客户端版本。见
+[Windows 原生样本](../../validation/desktop-usage/agent-native-20261029.md)。
+
 手工 `.qwen` 根只有在文档布局的 chats 首记录具有完整 ChatRecord 身份，且出现
 Qwen `message.parts` 或 `usageMetadata` 时才定向给 Qwen；共享的 type 不证明 Claude 格式。
 坏行仍由 Qwen 报告。旧误认领只有整个来源无事件、日/周期/原生汇总时才恢复，

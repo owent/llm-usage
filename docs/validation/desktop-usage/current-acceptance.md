@@ -50,6 +50,7 @@ it includes no new signing/notarization. Later record-only commits are not anoth
 
 | Scope | Records |
 | --- | --- |
+| Claude 2.1.312 / DSH 0.2.1-rc.2 / Zed 1.26.2 Windows | [Native extraction and recovery](agent-native-20261029.md); CLI GLM/Kimi samples, Zed mixed GLM/DeepSeek native output, unchanged-file/old-DB replay. Zed input/model attribution and macOS remain unverified |
 | Core storage/source identity/aggregate exchange | [M1](m1-core.md), [M1a](m1a-provenance.md) |
 | Complete normalized detail Merge, alerts, Zed external provider | [Round](plan-20261007.md); transactional conflict/replay, single currency/unknown/deduplication and Zed 1.22.0 two nonempty model samples separately; endpoint is Coding Plan |
 | Initial Codex/Pi/OMP/Claude/Gemini/Qwen reads/version selection | [Codex](m2a-codex.md), [M2 recovery](m2bc-resumed.md), [version directories](m2d-layout-versions.md), [CLI install scope](wsl-agent-installs.md); initial sample state retained |

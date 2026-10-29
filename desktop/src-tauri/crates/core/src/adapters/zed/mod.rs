@@ -5,7 +5,10 @@
 //! - common owns product-specific mapping and read-only source access.
 //!
 //! Nonempty external-provider samples from 1.22.0 / 76659a55 were checked on 2026-10-07.
-//! Only llm-usage-zhipu with DbThread 0.3.0 uses the separately verified default-zero mapping.
+//! Legacy statistics-only llm-usage-zhipu data keeps the earlier verified mapping.
+//! Complete native DbThread structures take precedence over that provider-name fallback.
+//! Native 1.26.2 / c4273271 mixed custom OpenAI and DeepSeek samples verify output only.
+//! DbThread 0.3.0 retains the latest model; its cumulative input can mix inclusion rules.
 //! Hosted-format references: official Zed commit bd747337d7be138834e20972b9e203c7b239cc47, A38,
 //! plus read-only local inspection on 2026-09-29 of %LOCALAPPDATA%/Zed/threads/threads.db:
 //! matching threads schema with zero rows, without usage-format acceptance.
@@ -148,16 +151,20 @@ impl crate::adapters::framework::SourceAdapter for ZedAdapter {
         versions::threads_db_v1::scan(target, stored, limits, now_ms)
     }
 
+    fn should_scan_unchanged(&self, stored: &crate::adapters::framework::StoredScanState) -> bool {
+        versions::threads_db_v1::needs_policy_check(stored)
+    }
+
     fn capability(&self) -> crate::adapters::framework::CapabilityTable {
         use crate::adapters::framework::{Availability, CapabilityTable};
-        let note = "Zed 1.22.0 固定修订 76659a55；2026-10-07 本机内置 Agent 使用 llm-usage-zhipu 的 GLM 两模型/缓存真实样本；hosted 仍文档级".to_string();
+        let note = "Zed 1.22.0/76659a55 的 llm-usage-zhipu 缓存样本；1.26.2/c4273271 的自定义 GLM 与内置 DeepSeek 混合线程样本；DbThread 0.3.0，hosted 仍文档级".to_string();
         let mut fields = serde_json::Map::new();
         let field = |availability: Availability, detail: &str| serde_json::json!({ "availability": availability, "note": detail });
         fields.insert(
             "tokens".into(),
             field(
                 Availability::Partial(note.clone()),
-                "线程 cumulative 四桶；已核验 OpenAI chat 的 input 为非缓存输入，默认零未知；hosted 映射保持原依据，不能互相认证",
+                "0.3.0 原生线程保留正输出/缓存；最新模型不代表历史输入包含关系，输入及完整总量未知；旧 llm-usage-zhipu/hosted 规则独立保留",
             ),
         );
         fields.insert(
@@ -185,7 +192,7 @@ impl crate::adapters::framework::SourceAdapter for ZedAdapter {
             "model".into(),
             field(
                 Availability::Partial(note.clone()),
-                "线程级 DbThread.model（单模型）；模型中途切换未文档化",
+                "DbThread.model 仅为最新选择；线程累计没有逐模型归属",
             ),
         );
         fields.insert(
@@ -211,7 +218,7 @@ impl crate::adapters::framework::SourceAdapter for ZedAdapter {
         );
         CapabilityTable {
             adapter_id: "zed".to_string(),
-            product: "Zed（内置 hosted Agent，zed.dev）".to_string(),
+            product: "Zed（内置 Agent）".to_string(),
             surfaces: vec!["desktop".into()],
             supported_versions: versions::VERIFIED_VERSION_IMPLS
                 .iter()
@@ -248,7 +255,7 @@ impl crate::adapters::framework::SourceAdapter for ZedAdapter {
             }),
             dedup: serde_json::json!({
                 "primary": "zed:thread:<id>",
-                "cross_source": "zed.dev 或已核验 llm-usage-zhipu/DbThread 0.3.0；其他 provider 跳过，ACP 按底层来源计量",
+                "cross_source": "原生 DbThread 0.3.0 按结构读取；旧 zed.dev/llm-usage-zhipu 规则独立；ACP 按底层来源计量",
             }),
             integrity: serde_json::json!({
                 "success_only": false,
@@ -256,8 +263,9 @@ impl crate::adapters::framework::SourceAdapter for ZedAdapter {
             }),
             maintenance: serde_json::json!({
                 "parser_version": versions::threads_db_v1::ZED_PARSER_VERSION,
-                "format_evidence": "Zed 官方源码 bd74733（crates/agent/src/db.rs、crates/paths/src/paths.rs、language_model_core TokenUsage）+ 本机 schema 只读核验",
-                "evidence_level": "official-source + native Zed 1.22.0 OpenAI chat usage（两线程三 turn）",
+                "native_rules_version": versions::threads_db_v1::NATIVE_RULES_VERSION,
+                "format_evidence": "Zed 官方 bd74733/76659a55/c4273271；DbThread、thread 累计写者、OpenAI chat 与 DeepSeek mapper + 本机只读样本",
+                "evidence_level": "official-source + native 1.22.0 OpenAI chat + 1.26.2 mixed custom GLM/DeepSeek thread",
                 "upgrade_policy": "真实样本出现后按 DbThread 实际字段升级验证；zstd/json 双格式均有界",
             }),
             scheduling: serde_json::json!({
@@ -265,8 +273,8 @@ impl crate::adapters::framework::SourceAdapter for ZedAdapter {
                 "incremental_cost": "整表读（≤50k 行）+ 幂等聚合 upsert",
             }),
             limitations: vec![
-                "本机真实样本限内置 Agent 的 llm-usage-zhipu/DbThread 0.3.0；hosted/其他 provider 不因该样本取得真实认证".into(),
-                "线程级聚合：无逐次请求时间戳/延迟；模型维度仅线程级单模型".into(),
+                "本机真实样本为 1.22.0 llm-usage-zhipu 和 1.26.2 自定义 GLM/内置 DeepSeek；其他 Provider 只有结构兼容读取，非真实调用认证".into(),
+                "线程原生区间聚合：无逐次请求时间戳/延迟/逐模型归属，不加入主面板的逐日调用统计".into(),
                 "request_token_usage 覆盖语义：桶数是 turn 数下界，桶合计可能小于累计值（对账不 matched 时如实展示）".into(),
                 "ZED_STATELESS 模式不落盘；--user-data-dir 自定义路径需手工添加根".into(),
             ],

@@ -2,7 +2,7 @@
 
 <a id="桌面用量客户端执行计划"></a>
 
-Current version: 0.3.5. Windows 11 x64 is the first desktop target; Windows/Linux/macOS CI
+Current version: 0.3.7. Windows 11 x64 is the first desktop target; Windows/Linux/macOS CI
 is retained. This file owns the executable work for the current round. Removed scope and
 first failures are recorded in the [round record](docs/validation/desktop-usage/plan-20261007.md);
 removal does not mean acceptance passed. Historical results are indexed in
@@ -15,6 +15,11 @@ Design entry points: [product and architecture](docs/design/desktop-usage/README
 <a id="当前进度"></a>
 
 ## Current implementation
+
+Windows Claude 2.1.312 and DSH 0.2.1-rc.2 extraction/recovery checks are recorded in
+[native Agent validation](docs/validation/desktop-usage/agent-native-20261029.md).
+Zed 1.26.2 now has native mixed custom GLM/DeepSeek thread validation and old-database recovery;
+input inclusion/model ownership remain unknown. The reported macOS diagnostics remain unverified.
 
 Software update checks: verify a real newer public-version update. The v0.3.2 public
 Release-triggered main documentation refresh is verified in

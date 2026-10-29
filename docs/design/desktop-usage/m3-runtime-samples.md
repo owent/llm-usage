@@ -101,3 +101,10 @@ Transfer file and old checkpoint in one transaction. Retire the old empty instan
 when it has no other files; retain diagnostics and unrelated invalid user files. If a
 snapshot deletes existing attempts, retain old values and report snapshot_regressed;
 do not infer deletion intent or create offsetting events.
+
+Windows npm 0.2.1-rc.2 also writes v4 with pi-ai 1.4.0's independently checked
+OpenAI-completions normalization. Three native GLM/Kimi main-loop samples retain settlement
+usage without counting stream copies. The installed event catalog adds job/registered,
+job/settled and working-directory/change; their source definitions describe execution
+and directory metadata, not model usage. Those extensions have synthetic checks, separate
+from native main-loop acceptance. See [Windows validation](../../validation/desktop-usage/agent-native-20261029.md).

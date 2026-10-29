@@ -3617,7 +3617,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/claude/detect.rs": {
-      "codeHash": "aca9499a8e6d094876a7d70d769d9bbe06ac5ef19241c8afb7665f719eeac5db",
+      "codeHash": "b40028a89901816ef1059fa1fce065640791e3827a306151f05faaa6c7aca38f",
       "comments": [
         {
           "id": "c6fadef37db907f0",
@@ -3677,8 +3677,27 @@
         }
       ]
     },
+    "desktop/src-tauri/crates/core/src/adapters/claude/metadata.rs": {
+      "codeHash": "efcac02c43046d5d984a9e32fdfc5196c2134ba56db91ece3ca624ce893fecf2",
+      "comments": [
+        {
+          "id": "d50716ba0e908370",
+          "line": 3,
+          "kind": "line",
+          "en": "// Native 2.1.312 Windows samples and the distributed writer distinguish request",
+          "zh": "// 原生 2.1.312 Windows 样本与发行包写者将请求"
+        },
+        {
+          "id": "e9b43613b101f217",
+          "line": 4,
+          "kind": "line",
+          "en": "// replay/state records from assistant usage. Never count their cumulative copies.",
+          "zh": "// 回放、状态记录与 assistant 用量分开；不重复计入其累计副本。"
+        }
+      ]
+    },
     "desktop/src-tauri/crates/core/src/adapters/claude/mod.rs": {
-      "codeHash": "afee1d89a2d36e6b5f21bbd9c0de1bee5247aad665a81e92ac2cd7abb1aaebd6",
+      "codeHash": "9e5bf46f56e85cb5a99059a866561e0a2becf281e579281ceb742b239304a7c8",
       "comments": [
         {
           "id": "289095bcf8510834",
@@ -3738,21 +3757,21 @@
         },
         {
           "id": "4198c58db959b284",
-          "line": 23,
+          "line": 24,
           "kind": "line",
           "en": "/// Stateless Claude Code adapter.",
           "zh": "/// 无状态的 Claude Code 适配器。"
         },
         {
           "id": "cdaf06c69c87ce65",
-          "line": 71,
+          "line": 72,
           "kind": "line",
           "en": "// projects/<project>/<session>.jsonl depth 2; subagents/ transcripts depth 3.",
           "zh": "// projects/<project>/<session>.jsonl 深度 2；subagents/ 中转录深度 3。"
         },
         {
           "id": "35534b329425f97b",
-          "line": 106,
+          "line": 107,
           "kind": "line",
           "en": "// Verified formats currently share transcript_doc1; dispatch by selection when implementations grow.",
           "zh": "// 当前已验证格式共用 transcript_doc1；增加格式实现后，按版本选择分派。"
@@ -3760,7 +3779,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/claude/versions/mod.rs": {
-      "codeHash": "f1aa565f79161bc06a9898d608b0acb4eb0a87c2562b114da38977d8c4178388",
+      "codeHash": "b3c79807667b5fa8a5c80a46cfb2eb06bb169d9e5c3574c65611aac580335345",
       "comments": [
         {
           "id": "c3df74914c415934",
@@ -3826,43 +3845,43 @@
           "zh": "/// 已验证支持的格式版本 → 格式实现。"
         },
         {
-          "id": "92a051c43c0a3b59",
+          "id": "dee358e7f8ea031a",
           "line": 17,
           "kind": "line",
-          "en": "/// Retain the legacy format ID; only native 2.1.197 is explicitly registered.",
-          "zh": "/// 保留旧格式标识，原生版本仅登记已核验的 2.1.197。"
+          "en": "/// Retain the legacy format ID alongside independently checked native versions.",
+          "zh": "/// 保留旧格式标识，并登记独立核验的原生版本。"
         },
         {
           "id": "86809576e5bcbacd",
-          "line": 23,
+          "line": 24,
           "kind": "line",
           "en": "/// Version selection result.",
           "zh": "/// 版本分派结论。"
         },
         {
           "id": "a16a7156c7aa74d5",
-          "line": 30,
+          "line": 31,
           "kind": "line",
           "en": "/// Detection and scanning share this V30 format-selection function.",
           "zh": "/// 按格式版本选择实现；探测与扫描共用本函数保证同一策略（V30）。"
         },
         {
           "id": "1db7e72ec281d229",
-          "line": 43,
+          "line": 44,
           "kind": "line",
           "en": "// Read unverified native versions compatibly.",
           "zh": "// 未核验原生版本仅兼容读取。"
         },
         {
           "id": "6c7aa1f9868d36a9",
-          "line": 50,
+          "line": 51,
           "kind": "line",
           "en": "// Keep compatibility metadata when no version is supplied.",
           "zh": "// 未给定选择依据时保持兼容标记。"
         },
         {
           "id": "13631b214d6fb297",
-          "line": 76,
+          "line": 79,
           "kind": "line",
           "en": "// An unregistered native version does not become verified support.",
           "zh": "// 未登记原生版本不升级为真实支持。"
@@ -3870,7 +3889,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/claude/versions/transcript_doc1.rs": {
-      "codeHash": "e1e17b24a8e2c0b8b977b04c47a9d37f68a821eb172315599888ce2f727827e2",
+      "codeHash": "d833d3a4c1ae27dd4080dbecbf5b5c9756f6517ffe9ed749026fbf7d34844873",
       "comments": [
         {
           "id": "a9112b9b17811f63",
@@ -4049,112 +4068,112 @@
         },
         {
           "id": "30ee6c6460b8e563",
-          "line": 64,
+          "line": 66,
           "kind": "line",
           "en": "/// Restore stored cursor JSON; restart at the file head for rescans or invalid cursors.",
           "zh": "/// 从存储的游标 JSON 还原；重扫或无效时回到文件头。"
         },
         {
           "id": "26c89dadfbb18ab1",
-          "line": 116,
+          "line": 118,
           "kind": "line",
           "en": "/// Parse four required nonnegative, bounded message.usage fields from assistant entries.",
           "zh": "/// 解析 assistant 条目 message.usage 四字段；全部必需、非负、有界。"
         },
         {
           "id": "f30e436de395fc18",
-          "line": 117,
+          "line": 119,
           "kind": "line",
           "en": "/// Missing/invalid fields return None; extra keys produce diagnostics without dropping valid usage.",
           "zh": "/// 缺失/类型错误/负值/超限返回 None（调用方记诊断）；未知额外键另行诊断但保留记录。"
         },
         {
           "id": "92dc21aacfd6d134",
-          "line": 149,
+          "line": 151,
           "kind": "line",
           "en": "/// Return the parent session name for files under .../<session>/subagents/.",
           "zh": "/// 文件是否位于 `.../<session>/subagents/` 下；是则返回父会话目录名。"
         },
         {
           "id": "d13dd985557eef37",
-          "line": 158,
+          "line": 160,
           "kind": "line",
           "en": "/// Scan a transcript JSONL file, dispatched by ClaudeAdapter::scan.",
           "zh": "/// 增量扫描一个 transcript JSONL 文件（统一入口 `ClaudeAdapter::scan` 分派到本实现）。"
         },
         {
           "id": "29607fae94202fc0",
-          "line": 180,
+          "line": 188,
           "kind": "line",
           "en": "// File-format checks remain independent of the client version carried by each record.",
           "zh": "// 文件格式检查独立于每条记录携带的客户端版本。"
         },
         {
           "id": "de071a68758b79f5",
-          "line": 220,
+          "line": 228,
           "kind": "line",
           "en": "// Assistant entries without usage produce no event; diagnose once per file.",
           "zh": "// assistant 条目无 usage：未记录用量，不产事件（每文件一次性诊断）。"
         },
         {
           "id": "679b86fb85b993cf",
-          "line": 298,
+          "line": 306,
           "kind": "line",
           "en": "// 2.1.197 placeholder samples use model=<synthetic> with default-zero usage.",
           "zh": "// 2.1.197 占位响应样本使用 model=<synthetic>，usage 各项为默认零。"
         },
         {
           "id": "95dd42c1139c37b9",
-          "line": 299,
+          "line": 307,
           "kind": "line",
           "en": "// They do not establish a model call; skip the placeholder response.",
           "zh": "// 这些记录不表示已观察到模型调用，跳过占位响应。"
         },
         {
           "id": "83c159cbf902d380",
-          "line": 386,
+          "line": 394,
           "kind": "line",
           "en": "// 2.1.197 inspection identifies queue-operation as queue metadata, attachment",
           "zh": "// 2.1.197 检查确认 queue-operation 为排队元数据，attachment 为上下文附件，"
         },
         {
           "id": "559dd520dd63398c",
-          "line": 387,
+          "line": 395,
           "kind": "line",
           "en": "// as context data, and last-prompt as a session pointer; none report usage.",
           "zh": "// last-prompt 为会话指针；它们均不报告用量。"
         },
         {
           "id": "f0aa2071cb2e3ef8",
-          "line": 388,
+          "line": 396,
           "kind": "line",
           "en": "// Skip them unless they carry usage, which rejects the file as a format error.",
           "zh": "// 跳过上述记录；若携带 usage，则按格式错误拒绝整个文件。"
         },
         {
           "id": "01394384ac1e86e5",
-          "line": 390,
+          "line": 398,
           "kind": "line",
           "en": "// Usage on a non-usage record rejects the entire file.",
           "zh": "// 非用量记录携带 usage 时拒绝整个文件。"
         },
         {
           "id": "b094467d353a0fc7",
-          "line": 437,
+          "line": 459,
           "kind": "line",
           "en": "// On rejection, discard this scan's events and retain the checkpoint for the next retry.",
           "zh": "// fail closed：本轮事件清空、游标不推进（不提交 checkpoint），下轮确定性再拒。"
         },
         {
           "id": "b3d53ad809eb20fc",
-          "line": 528,
+          "line": 556,
           "kind": "line",
           "en": "// Older contexts without version_basis deserialize to None.",
           "zh": "// 旧解析上下文（无 version_basis 字段）反序列化不失败，basis 为 None；"
         },
         {
           "id": "e70202fcd9992287",
-          "line": 529,
+          "line": 557,
           "kind": "line",
           "en": "// The V30 directory move does not recreate sources or reset cursors.",
           "zh": "// 目录迁移不重建来源/重置游标（V30）。"
@@ -11206,7 +11225,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/dsh/versions/session_v4.rs": {
-      "codeHash": "3e1fcc66bd5e2c414fe62b9b1a0d76fa5f2e7f2491a0c6fa4c5019fd411492b8",
+      "codeHash": "9360c468bd1eba7e075033d293849e85ee917fa38a8c821e9f3d4548de577240",
       "comments": [
         {
           "id": "661d0fae52a58206",
@@ -11231,21 +11250,21 @@
         },
         {
           "id": "0368059f8f4bec27",
-          "line": 565,
+          "line": 637,
           "kind": "line",
           "en": "// Inherited rows establish lifecycle coordinates, but never local usage.",
           "zh": "// 继承行用于确定生命周期位置，不计为本机用量。"
         },
         {
           "id": "0b8b1298b8b5dfa9",
-          "line": 642,
+          "line": 714,
           "kind": "line",
           "en": "// A settlement without reported usage does not overwrite a prior sample.",
           "zh": "// 未报告用量的 settlement 不覆盖此前样本。"
         },
         {
           "id": "f6d2d828e818537d",
-          "line": 643,
+          "line": 715,
           "kind": "line",
           "en": "// It still establishes an observed attempt when no sample exists.",
           "zh": "// 没有此前样本时，它仍记录一次已观测尝试。"
@@ -30185,7 +30204,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/zed/common.rs": {
-      "codeHash": "8489a6b8c86c3ecf8ae9630d43afb9275470ef45c4010895c1cd073079bf425e",
+      "codeHash": "d7039c797afc440887503c345843cb29f8fe4dc82a5e457b6a755a710a1b27af",
       "comments": [
         {
           "id": "e97bffc1e9227f02",
@@ -30384,99 +30403,120 @@
           "zh": "/// 序列化的默认零没有提供商有效性标记。"
         },
         {
-          "id": "8efeea7ba14e3826",
+          "id": "c0716fbbb58d8d13",
           "line": 100,
+          "kind": "line",
+          "en": "/// DbThread 0.3.0 keeps only the latest model, while its counters span model changes.",
+          "zh": "/// DbThread 0.3.0 只保留最新模型，但计数跨模型切换累计。"
+        },
+        {
+          "id": "9ca52bce374abd25",
+          "line": 101,
+          "kind": "line",
+          "en": "/// In 1.26.2, OpenAI chat removes cache from input but DeepSeek keeps prompt_tokens.",
+          "zh": "/// 1.26.2 的 OpenAI chat 从输入减去缓存，DeepSeek 则保留 prompt_tokens。"
+        },
+        {
+          "id": "b8fdc37cc2e74444",
+          "line": 102,
+          "kind": "line",
+          "en": "/// Preserve positive output/cache buckets; neither input interpretation is recoverable.",
+          "zh": "/// 保留正输出、缓存桶；无法恢复任一种输入包含关系。"
+        },
+        {
+          "id": "8efeea7ba14e3826",
+          "line": 110,
           "kind": "line",
           "en": "// Independent read-only database helpers copied from adapters/hermes/common.rs.",
           "zh": "// ---- 源库只读访问（复制自 adapters/hermes/common.rs，各目录独立约定）----"
         },
         {
           "id": "27cab2805fd288e3",
-          "line": 108,
+          "line": 118,
           "kind": "line",
           "en": "/// Read-only source access; busy-like probe failures switch to a staging snapshot.",
           "zh": "/// 只读访问来源；探测出现 busy、locked 或 CANTOPEN 时切换到暂存副本。"
         },
         {
           "id": "ae98078733ce095b",
-          "line": 132,
+          "line": 142,
           "kind": "line",
           "en": "/// SQLite busy/locked/CANTOPEN errors prevent a successful consistency probe.",
           "zh": "/// busy/锁/CANTOPEN 判定（这些错误表示无法一致读取）。"
         },
         {
           "id": "0d320c78673baf79",
-          "line": 142,
+          "line": 152,
           "kind": "line",
           "en": "/// Staging page/time/size limits and cleanup follow architecture.md.",
           "zh": "/// 暂存副本参数（architecture.md：设置页/时间/空间上限并清理）。"
         },
         {
           "id": "9f1448d3af03ae84",
-          "line": 160,
+          "line": 170,
           "kind": "line",
           "en": "/// Open read-only; short busy_timeout bounds probe waits before a staging fallback.",
           "zh": "/// 打开源库只读连接。busy_timeout 设短：快速失败转暂存副本路径。"
         },
         {
           "id": "bd21eeae60749511",
-          "line": 173,
+          "line": 183,
           "kind": "line",
           "en": "/// Online Backup creates a consistent system-temp snapshot without writing the source.",
           "zh": "/// Online Backup 到系统临时目录的一致暂存副本（从只读连接发起，不写源库）。"
         },
         {
           "id": "f082bf9ce470b04c",
-          "line": 204,
+          "line": 214,
           "kind": "line",
           "en": "// More means pages were copied; count those pages toward the size limit.",
           "zh": "// More：实际拷贝了页，计入空间限制。"
         },
         {
           "id": "54459f276174cce2",
-          "line": 215,
+          "line": 225,
           "kind": "line",
           "en": "// Busy/Locked or other non-exhaustive results retry without progress, within the timeout.",
           "zh": "// Busy/Locked（#[non_exhaustive] 其余）：无进展重试，仍计入超时时间。"
         },
         {
           "id": "f3a2a78b3e0a15c0",
-          "line": 216,
+          "line": 226,
           "kind": "line",
           "en": "// 2026-09-30 fix: retries previously added pages and raced the timeout, causing",
           "zh": "// 2026-09-30 修复：此前重试也计入页数，与超时出口竞速产生"
         },
         {
           "id": "aa15c5e3f861a349",
-          "line": 217,
+          "line": 227,
           "kind": "line",
           "en": "// platform-specific false size-limit failures (Linux CI hit the page cap before timeout).",
           "zh": "// 平台相关的 space cap 误报（CI Linux 页上限先于超时触发）。"
         },
         {
           "id": "279fa9cfffce6f4f",
-          "line": 236,
+          "line": 246,
           "kind": "line",
           "en": "/// Read threads.db directly; busy-like probe failures try staging, other errors propagate.",
           "zh": "/// 先直接只读 threads.db；探测出现 busy 类错误时尝试暂存副本，其他错误向上传递。"
         },
         {
           "id": "10144ca5bc298bbb",
-          "line": 237,
+          "line": 247,
           "kind": "line",
           "en": "/// Never write the source database.",
           "zh": "/// 绝不写源库。"
         },
         {
           "id": "d29fadfb12218dd1",
-          "line": 264,
+          "line": 274,
           "kind": "line",
           "en": "/// Short sqlite_master count probe, following kilo; it creates no explicit transaction.",
           "zh": "/// 按 kilo 规则短查询 sqlite_master 的条目数，不显式建立事务。"
         },
         {
           "id": "b428f9461ee2db99",
-          "line": 269,
+          "line": 279,
           "kind": "line",
           "en": "/// Required threads columns from fixed creation/migrations; detection separately handles absent created_at.",
           "zh": "/// threads 表必需列（固定源码建表 + 迁移列集；created_at 缺列时探测层降级）。"
@@ -30580,7 +30620,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/zed/mod.rs": {
-      "codeHash": "e0ec1d2ec156d90b96315bc0cd10053e006c4e70f6a2e89688d3a755cbd2a6c6",
+      "codeHash": "4d1090976c008cbe7e6fd740d751bbe83fbbf16c0e4e94d3014e2d052bc453ed",
       "comments": [
         {
           "id": "dfe917f039a01b2e",
@@ -30632,120 +30672,141 @@
           "zh": "//! 2026-10-07 新增 1.22.0 / 76659a55 的非空外部 Provider 实样；"
         },
         {
-          "id": "14a04927d30ccd41",
+          "id": "d7b058fb56edcbca",
           "line": 8,
           "kind": "line",
-          "en": "//! Only llm-usage-zhipu with DbThread 0.3.0 uses the separately verified default-zero mapping.",
-          "zh": "//! 仅 llm-usage-zhipu + DbThread 0.3.0 采用独立默认零未知映射。"
+          "en": "//! Legacy statistics-only llm-usage-zhipu data keeps the earlier verified mapping.",
+          "zh": "//! 旧的仅统计 llm-usage-zhipu 数据保留此前验证的映射。"
+        },
+        {
+          "id": "1f9032f1f28f453b",
+          "line": 9,
+          "kind": "line",
+          "en": "//! Complete native DbThread structures take precedence over that provider-name fallback.",
+          "zh": "//! 完整原生 DbThread 结构优先于基于 Provider 名称的回退。"
+        },
+        {
+          "id": "28ea1f61f8324970",
+          "line": 10,
+          "kind": "line",
+          "en": "//! Native 1.26.2 / c4273271 mixed custom OpenAI and DeepSeek samples verify output only.",
+          "zh": "//! 原生 1.26.2 / c4273271 自定义 OpenAI、DeepSeek 混合样本仅验证输出。"
+        },
+        {
+          "id": "4b2e59af4de75872",
+          "line": 11,
+          "kind": "line",
+          "en": "//! DbThread 0.3.0 retains the latest model; its cumulative input can mix inclusion rules.",
+          "zh": "//! DbThread 0.3.0 保留最新模型；其累计输入可能混合不同包含规则。"
         },
         {
           "id": "bfc47a791576037f",
-          "line": 9,
+          "line": 12,
           "kind": "line",
           "en": "//! Hosted-format references: official Zed commit bd747337d7be138834e20972b9e203c7b239cc47, A38,",
           "zh": "//! 以下为原有 hosted 格式依据（Zed 官方源码 bd747337d7be138834e20972b9e203c7b239cc47，A38；"
         },
         {
           "id": "1cc934d254764061",
-          "line": 10,
+          "line": 13,
           "kind": "line",
           "en": "//! plus read-only local inspection on 2026-09-29 of %LOCALAPPDATA%/Zed/threads/threads.db:",
           "zh": "//! 本机 2026-09-29 只读核验 `%LOCALAPPDATA%/Zed/threads/threads.db` threads 表"
         },
         {
           "id": "dace94204e75b101",
-          "line": 11,
+          "line": 14,
           "kind": "line",
           "en": "//! matching threads schema with zero rows, without usage-format acceptance.",
           "zh": "//! threads 表的 schema 一致但为零行，不能据此确认用量格式。"
         },
         {
           "id": "7be11c977bcc273d",
-          "line": 12,
+          "line": 15,
           "kind": "line",
           "en": "//! - Layout is <data_dir>/threads/threads.db; common documents platform data directories.",
           "zh": "//! - 库布局 `<data_dir>/threads/threads.db`；data_dir 三平台默认见 common；"
         },
         {
           "id": "7205727ed9904d09",
-          "line": 13,
+          "line": 16,
           "kind": "line",
           "en": "//!   Zed has no ZED_DATA_DIR override; --user-data-dir is not visible to collection.",
           "zh": "//!   主程序无 ZED_DATA_DIR 环境变量（覆盖是 CLI --user-data-dir，采集不可见）。"
         },
         {
           "id": "c565840b6f02270f",
-          "line": 14,
+          "line": 17,
           "kind": "line",
           "en": "//! - JSON/zstd DbThread data has model{provider,model},",
           "zh": "//! JSON/zstd 的 DbThread 数据包含 model{provider,model}，"
         },
         {
           "id": "3c207e143ba8587c",
-          "line": 15,
+          "line": 18,
           "kind": "line",
           "en": "//!   cumulative_token_usage (thread total) and request_token_usage",
           "zh": "//! cumulative_token_usage 保存线程累计用量；request_token_usage 保存"
         },
         {
           "id": "6652e1aa91d64f9c",
-          "line": 16,
+          "line": 19,
           "kind": "line",
           "en": "//!   (turn buckets overwritten by later requests in that turn, used only for reconciliation).",
           "zh": "//!   （turn 级桶，turn 内多请求后写覆盖前写，仅作对账）。"
         },
         {
           "id": "e6b11653fd2d9109",
-          "line": 17,
+          "line": 20,
           "kind": "line",
           "en": "//! - The hosted path requires provider==\"zed.dev\"; shared imports with version \"1.0.0\"",
           "zh": "//! hosted 格式仅接受 provider==\"zed.dev\"；version \"1.0.0\" 的分享导入线程"
         },
         {
           "id": "88ed9cf8777ccf5e",
-          "line": 18,
+          "line": 21,
           "kind": "line",
           "en": "//!   have initialized zero usage and are skipped. External ACP threads are written to",
           "zh": "//!   用量置零跳过；外部 ACP Agent 会话不进 threads 表（官方 thread_import 写"
         },
         {
           "id": "82efc637969aec55",
-          "line": 19,
+          "line": 22,
           "kind": "line",
           "en": "//!   sidebar_threads, not threads; collect through their underlying source adapters.",
           "zh": "//!   sidebar_threads），按底层来源适配器计量，不计为 Zed 内置支持。"
         },
         {
           "id": "9d1da75ff1fa51f0",
-          "line": 30,
+          "line": 33,
           "kind": "line",
           "en": "/// Stateless Zed adapter.",
           "zh": "/// Zed 适配器（无状态）。"
         },
         {
           "id": "6e1a2c82982e8e45",
-          "line": 62,
+          "line": 65,
           "kind": "line",
           "en": "// Official paths.rs:161-165 uses dirs::data_local_dir() + \"Zed\".",
           "zh": "// 官方 paths.rs:161-165：dirs::data_local_dir() + \"Zed\"。"
         },
         {
           "id": "97206f09401759a9",
-          "line": 79,
+          "line": 82,
           "kind": "line",
           "en": "// Official paths.rs:155-160 uses XDG_DATA_HOME, default ~/.local/share, plus \"zed\";",
           "zh": "// 官方 paths.rs:155-160：XDG_DATA_HOME（默认 ~/.local/share）+ \"zed\""
         },
         {
           "id": "52e9941c79136f17",
-          "line": 80,
+          "line": 83,
           "kind": "line",
           "en": "// Linux uses lowercase and also has FLATPAK_XDG_DATA_HOME handling.",
           "zh": "//（Linux 用小写）；FLATPAK_XDG_DATA_HOME 特例。"
         },
         {
           "id": "d0167f65e3d1e78f",
-          "line": 103,
+          "line": 106,
           "kind": "line",
           "en": "// Accept a threads directory, an existing file, or a data directory named exactly \"Zed\".",
           "zh": "// 接受 threads 目录、已有文件，或名称严格为 \"Zed\" 的数据目录。"
@@ -30835,7 +30896,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/zed/versions/threads_db_v1.rs": {
-      "codeHash": "348f459a260ac41f4411aa90d664f3fd58eaf4d765f3e66a97ae3320c4ae3947",
+      "codeHash": "0e6ee72b7d7e8a421492ded88ddbd2c644d2318d868c52722a6ac46b151df9b0",
       "comments": [
         {
           "id": "a75903fecf483355",
@@ -30957,204 +31018,218 @@
           "zh": "//!   后写覆盖前写**，thread.rs:2893；求和会漏计，仅作对账）、顶层 `version`。"
         },
         {
-          "id": "cf3ccf4fbf96b71f",
+          "id": "0a46c2bc1d7f0730",
           "line": 18,
           "kind": "line",
-          "en": "//! - Accept historical zed.dev plus the separately checked llm-usage-zhipu/0.3.0 path.",
-          "zh": "//! - 读取历史 zed.dev，以及单独核对的 llm-usage-zhipu/0.3.0 路径。"
+          "en": "//! - Native 1.26.2 / c4273271 DbThread 0.3.0 output/cache buckets accept custom provider IDs.",
+          "zh": "//! - 原生 1.26.2 / c4273271 DbThread 0.3.0 输出、缓存桶接受自定义 Provider ID。"
         },
         {
-          "id": "e525d15927a4b05e",
+          "id": "85d9998a149ae0d6",
           "line": 19,
           "kind": "line",
-          "en": "//!   Skip other providers and 1.0.0 imported threads with no nonempty cumulative usage.",
-          "zh": "//!   其他供应商和缺少非空累计用量的 1.0.0 导入线程跳过。"
+          "en": "//!   OpenAI chat input excludes cache; DeepSeek input includes it and drops cache details.",
+          "zh": "//!   OpenAI chat 输入不含缓存；DeepSeek 输入含缓存且丢弃缓存明细。"
+        },
+        {
+          "id": "f9af1ba5f5994a40",
+          "line": 20,
+          "kind": "line",
+          "en": "//!   Latest model identity cannot determine historical input inclusion in a mixed thread.",
+          "zh": "//!   最新模型身份不能确定混合线程中历史输入的包含关系。"
+        },
+        {
+          "id": "3f03c8e85929c7b7",
+          "line": 21,
+          "kind": "line",
+          "en": "//!   Keep older hosted/llm-usage-zhipu rules separate; skip empty imported threads.",
+          "zh": "//!   旧 hosted、llm-usage-zhipu 规则独立保留；跳过空的导入线程。"
         },
         {
           "id": "05f2422025604f4f",
-          "line": 20,
+          "line": 22,
           "kind": "line",
           "en": "//!",
           "zh": "//!（空行）"
         },
         {
           "id": "9f5995b2443e0d84",
-          "line": 21,
+          "line": 23,
           "kind": "line",
           "en": "//! Each thread contributes a session SourceAggregateInput from cumulative usage,",
           "zh": "//! 映射约定（M8 会话级聚合边界）：每线程一条 `SourceAggregateInput`"
         },
         {
           "id": "2d2a1e1f8b948653",
-          "line": 22,
+          "line": 24,
           "kind": "line",
           "en": "//! without constructing individual call tokens, models, or timestamps.",
           "zh": "//! 不构造逐次调用的 token、模型或时间归属。"
         },
         {
           "id": "d0120da8e2317d47",
-          "line": 23,
+          "line": 25,
           "kind": "line",
           "en": "//! request_token_usage bucket count is a turn-count lower bound stored as reported_call_count.",
           "zh": "//! request_token_usage 桶数作 `reported_call_count`（=turn 数下界，覆盖语义"
         },
         {
           "id": "5c9a1660723ef6e8",
-          "line": 24,
+          "line": 26,
           "kind": "line",
           "en": "//! Bucket sums reconcile only; source records do not provide individual usage timestamps.",
           "zh": "//! 如实标注）、桶合计作 Reconciliation 对照，不入账；逐次 usage 无时间戳"
         },
         {
           "id": "4f8d1c72f6375ad1",
-          "line": 25,
+          "line": 27,
           "kind": "line",
           "en": "//! Use created_at..updated_at as the uncertain aggregate interval.",
           "zh": "//! （官方源码未见），区间用 created_at..updated_at，time_basis=Uncertain。"
         },
         {
           "id": "ce30fad217aec7fa",
-          "line": 26,
+          "line": 28,
           "kind": "line",
           "en": "//!",
           "zh": "//!（空行）"
         },
         {
           "id": "92beb93a66ca519e",
-          "line": 27,
+          "line": 29,
           "kind": "line",
           "en": "//! Page by thread ID and restart after the last page to revisit mutable cumulative rows.",
           "zh": "//! 增量约定（SQLite 行）：线程 id 分页，末页后从头复查可变累计行；"
         },
         {
           "id": "be266a91310b6724",
-          "line": 28,
+          "line": 30,
           "kind": "line",
           "en": "//! Keep offset=0 because database file size under WAL cannot identify unchanged rows.",
           "zh": "//! offset 恒 0（WAL 下字节长度不能作无变化判定）；聚合按 scope_key"
         },
         {
           "id": "4d0c18d74bac654b",
-          "line": 29,
+          "line": 31,
           "kind": "line",
           "en": "//! Upsert scope_key at updated_at revision; read up to 50,001 rows including a continuation check.",
           "zh": "//! 按 scope_key 更新，修订为 updated_at；含续页检查时最多读取 50,001 行。"
         },
         {
+          "id": "2c7bd4382988bbc4",
+          "line": 47,
+          "kind": "line",
+          "en": "/// Independent policy marker replays old cursors without deleting checkpoints before a scan.",
+          "zh": "/// 独立规则标记重放旧游标，不在扫描前删除检查点。"
+        },
+        {
           "id": "c21fb35bad170839",
-          "line": 45,
+          "line": 49,
           "kind": "line",
           "en": "/// Nominal row limit per scan; one extra row detects continuation.",
           "zh": "/// 每轮常规行数上限；多读一行检查是否需要续页。"
         },
         {
           "id": "7d43d03a4fe5aab5",
-          "line": 47,
+          "line": 51,
           "kind": "line",
           "en": "/// Decompressed thread data limit: 64 MiB; oversized blobs are skipped with diagnostics.",
           "zh": "/// 单线程 data blob 解压上限（64 MiB；超限跳过该行并记诊断）。"
         },
         {
           "id": "f3520912111968ee",
-          "line": 50,
+          "line": 54,
           "kind": "line",
           "en": "/// Database cursor keeps offset=0 rather than using byte positions to skip changed rows.",
           "zh": "/// 游标（offset 恒 0：DB 不用字节偏移做无变化判定）。"
         },
         {
           "id": "17f8dd559ccd673a",
-          "line": 70,
+          "line": 93,
           "kind": "line",
           "en": "/// Convert RFC3339 to UTC milliseconds.",
           "zh": "/// RFC3339 → UTC 毫秒。"
         },
         {
           "id": "cc684198d8be4edf",
-          "line": 79,
+          "line": 102,
           "kind": "line",
           "en": "/// Decode bounded zstd data; oversized/invalid blobs return None and skip the row.",
           "zh": "/// 解压 zstd blob（有界：超上限返回 None，调用方记诊断跳行）。"
         },
         {
           "id": "2c66a0025ff0508b",
-          "line": 80,
+          "line": 103,
           "kind": "line",
           "en": "/// Plain JSON shares the 64 MiB decoded-data limit.",
           "zh": "/// json 分支同样限长——64 MiB 上限约束的是\"单 blob 解压后大小\"，"
         },
         {
           "id": "f4c92b2e16fa9779",
-          "line": 81,
+          "line": 104,
           "kind": "line",
           "en": "/// Encoding does not change the field rules recorded in adapter capabilities.",
           "zh": "/// 与存储编码无关（字段语义以能力表声明为准）。"
         },
         {
           "id": "62e08e6c3e0304e3",
-          "line": 98,
+          "line": 121,
           "kind": "line",
           "en": "/// Decode historical TokenUsage defaults as zero; the native external mapper handles validity separately.",
           "zh": "/// 按历史 TokenUsage 规则将缺省值解码为零，原生外部供应商另行判断值是否有效。"
         },
         {
           "id": "fdd3dfa88bd495aa",
-          "line": 101,
+          "line": 124,
           "kind": "line",
           "en": "// Missing objects decode to default zeros; this alone does not verify reported native usage.",
           "zh": "// 缺少对象时解码为默认零；这不代表来源已报告有效的原生用量。"
         },
         {
           "id": "49d42585a0fe2d19",
-          "line": 126,
+          "line": 149,
           "kind": "line",
           "en": "/// Count and sum request_token_usage buckets from the current map or historical array.",
           "zh": "/// request_token_usage 的桶数与合计（map 新格式 / 数组旧格式都接受；"
         },
         {
           "id": "5c7173d75806d405",
-          "line": 127,
+          "line": 150,
           "kind": "line",
           "en": "/// Older vectors align with messages; upstream upgrades assign user-message keys.",
           "zh": "/// 旧 Vec 与 messages 等长按索引对齐，官方升级时已归到用户消息 key）。"
         },
         {
-          "id": "1098a430b25a52c9",
-          "line": 140,
-          "kind": "line",
-          "en": "// Checked arithmetic rejects overflow instead of replacing large values with a maximum.",
-          "zh": "// checked 算术约定：溢出（桶值极大时）拒绝该线程，不饱和隐藏。"
-        },
-        {
           "id": "2b97562609ce0f11",
-          "line": 154,
+          "line": 186,
           "kind": "line",
           "en": "// Read one extra row to distinguish an exact limit from a remaining page.",
           "zh": "// 多取一行判定是否还有更多（恰好 MAX 行不误报 BudgetExhausted）。"
         },
         {
           "id": "7f74357b9bfad1c6",
-          "line": 174,
+          "line": 206,
           "kind": "line",
           "en": "// Skip and diagnose SQLite row type errors without stopping other valid rows.",
           "zh": "// 行级容错：单行类型错误（SQLite 动态类型）跳行记诊断，不中止整轮。"
         },
         {
           "id": "71f621eb353f9dd2",
-          "line": 189,
+          "line": 221,
           "kind": "line",
           "en": "/// Scan threads.db, dispatched by ZedAdapter::scan.",
           "zh": "/// 增量扫描一个 threads.db（统一入口 `ZedAdapter::scan` 分派）。"
         },
         {
           "id": "9292ca6a0aa160e1",
-          "line": 365,
+          "line": 482,
           "kind": "line",
           "en": "// Overwritten request buckets can sum below the cumulative value (thread.rs:2893).",
           "zh": "// 覆盖语义（官方 thread.rs:2893）下逐桶和可能小于累计值。"
         },
         {
           "id": "cc0a070f5f64746e",
-          "line": 414,
+          "line": 537,
           "kind": "line",
           "en": "// Test historical decoding defaults only; native default-zero validity is checked separately.",
           "zh": "// 这里只测试历史解码默认值；原生默认零是否有效由独立规则检查。"
@@ -39704,7 +39779,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/tests/claude_contract.rs": {
-      "codeHash": "18e036227b051f1e25c46c4afa35d3131f7881ccc0a7afaa6294eaa462bd6653",
+      "codeHash": "9b2f516c0593e96f2f57dd5a24ed02f5b7212a6731f8acaf903fd7524ba0fefb",
       "comments": [
         {
           "id": "02b1fc72eeba3293",
@@ -39820,77 +39895,77 @@
         },
         {
           "id": "defe916fefc90035",
-          "line": 198,
+          "line": 202,
           "kind": "line",
           "en": "// All eight field-capability entries must exist.",
           "zh": "// 字段能力八项齐全。"
         },
         {
           "id": "75ab17bc9a745746",
-          "line": 243,
+          "line": 247,
           "kind": "line",
           "en": "// Persist structured capabilities in source_instances.capabilities.",
           "zh": "// 能力声明可落库（source_instances.capabilities）。"
         },
         {
           "id": "3a3fa3726edbda1c",
-          "line": 280,
+          "line": 284,
           "kind": "line",
           "en": "/// Real sanitized WSL 2.1.197 sample begins with queue-operation and has attachment/",
           "zh": "/// 真实 2.1.197 样本（WSL 脱敏提取）：queue-operation 开头 + attachment/"
         },
         {
           "id": "cb97aa80599a34d7",
-          "line": 281,
+          "line": 285,
           "kind": "line",
           "en": "/// last-prompt metadata plus a <synthetic> placeholder assistant: zero events,",
           "zh": "/// last-prompt 元数据 + `<synthetic>` 占位 assistant——0 事件、"
         },
         {
           "id": "f741f2f9ca84bbed",
-          "line": 282,
+          "line": 286,
           "kind": "line",
           "en": "/// a synthetic diagnostic and successful detection; repeated reads add nothing.",
           "zh": "/// synthetic 诊断、探测放行；重复扫描不增量。"
         },
         {
           "id": "6793961831f2632c",
-          "line": 298,
+          "line": 302,
           "kind": "line",
           "en": "// A zero-event batch either has no commit result or reports zero changes.",
           "zh": "// 空批次（0 事件）无提交结果；有也必须是零增量。"
         },
         {
           "id": "e00d6b837fd500eb",
-          "line": 307,
+          "line": 311,
           "kind": "line",
           "en": "// Skipped synthetic assistants leave diagnostics without message bodies.",
           "zh": "// synthetic 跳过以诊断留痕（不含正文）。"
         },
         {
           "id": "f3a226012a256fb7",
-          "line": 318,
+          "line": 322,
           "kind": "line",
           "en": "// Repeated reads add no duplicate events.",
           "zh": "// 重复扫描不增量。"
         },
         {
           "id": "3336a5c832eee17c",
-          "line": 335,
+          "line": 339,
           "kind": "line",
           "en": "/// Reject queue-operation/attachment records containing usage.",
           "zh": "/// 拒绝包含 usage 的 queue-operation/attachment 记录。"
         },
         {
           "id": "52465a807a7fa051",
-          "line": 336,
+          "line": 340,
           "kind": "line",
           "en": "/// Usage on a non-usage record deviates from the format and must not be silently skipped.",
           "zh": "/// 非用量记录中出现 usage 表示格式变化，不能静默跳过。"
         },
         {
           "id": "de608c1ad18ea624",
-          "line": 348,
+          "line": 352,
           "kind": "line",
           "en": "// Detection holds the file pending at its start for controlled retry, without importing events.",
           "zh": "// fail closed 约定：状态 pending（游标保持文件头等待受控重试），不产事件。"
@@ -39898,7 +39973,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/tests/claude_gaps_synthetic.rs": {
-      "codeHash": "c08cb59bbda37caca18a64d588413811d528f881b09356468a90c6893bdc751c",
+      "codeHash": "413a19916f4720ae58ede96ffc5b2e45770c685d7991f0d0f60ad4f15c5585c7",
       "comments": [
         {
           "id": "b9964ca844771a74",
@@ -41810,7 +41885,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/tests/dsh_v4_contract.rs": {
-      "codeHash": "6dc25988d424d61ac6f55592f52944e475de2ff07bc2e3769f9382e430d17405",
+      "codeHash": "1aa78e8051528e48cf91f6bf0385409dfdd34cb00e42bf143cc1610676860bbf",
       "comments": [
         {
           "id": "3a6fe6406c1b270c",

@@ -380,14 +380,17 @@ fn detect_undocumented_first_line_unknown_format() {
     let path = dir.path().join("bad.jsonl");
     std::fs::write(
         &path,
-        b"{\"type\":\"file-history-snapshot\",\"timestamp\":\"2026-09-24T10:00:00.000Z\"}\n",
+        b"{\"type\":\"future-unknown-record\",\"timestamp\":\"2026-09-24T10:00:00.000Z\"}\n",
     )
     .unwrap();
     let adapter = ClaudeAdapter::new();
     let outcome = adapter.detect(&path).unwrap();
-    assert!(
-        matches!(outcome, DetectOutcome::UnknownFormat { .. }),
-        "first record type outside documented set => UnknownFormat: {outcome:?}"
+    assert_eq!(
+        outcome,
+        DetectOutcome::UnknownFormat {
+            reason: "first record type Some(\"future-unknown-record\") not in documented set"
+                .into()
+        }
     );
 }
 

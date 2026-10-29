@@ -39,6 +39,8 @@ const TYPES: &[&str] = &[
     "hook/invoked",
     "hook/result",
     "image/offload",
+    "job/registered",
+    "job/settled",
     "llm/retry",
     "llm/retry-started",
     "model/selection",
@@ -75,6 +77,7 @@ const TYPES: &[&str] = &[
     "turn/start",
     "user/message",
     "web/deepseek-search-llm-request",
+    "working-directory/change",
     "workspace/changes",
 ];
 
@@ -280,6 +283,75 @@ fn failed(mut out: ScanOutcome, code: &str, line: usize) -> ScanOutcome {
     out.health = "degraded".into();
     out.diagnostics.push(diag(code, line));
     out
+}
+fn current_metadata_shape(kind: &str, data: &Value) -> bool {
+    let (allowed, required): (&[&str], &[&str]) = match kind {
+        "job/registered" => (
+            &["jobId", "owner", "kind", "label", "startedAt", "toolCall"],
+            &["jobId", "owner", "kind", "label", "startedAt"],
+        ),
+        "job/settled" => (
+            &[
+                "jobId",
+                "owner",
+                "kind",
+                "label",
+                "startedAt",
+                "toolCall",
+                "finishedAt",
+                "status",
+                "cause",
+                "producerReported",
+                "detail",
+            ],
+            &[
+                "jobId",
+                "owner",
+                "kind",
+                "label",
+                "startedAt",
+                "finishedAt",
+                "status",
+                "cause",
+                "producerReported",
+            ],
+        ),
+        "working-directory/change" => (&["cwd"], &["cwd"]),
+        _ => return true,
+    };
+    let Some(obj) = data.as_object() else {
+        return false;
+    };
+    if !obj.keys().all(|k| allowed.contains(&k.as_str()))
+        || !required.iter().all(|k| obj.contains_key(*k))
+    {
+        return false;
+    }
+    if kind == "working-directory/change" {
+        return data["cwd"].as_str().is_some_and(absolute_text);
+    }
+    let valid_job = ["jobId", "owner", "kind", "label"]
+        .iter()
+        .all(|k| data[*k].is_string())
+        && number(&data["startedAt"]).is_some()
+        && obj.get("toolCall").is_none_or(|value| {
+            value.as_object().is_some_and(|call| {
+                call.len() == 2 && call["callId"].is_string() && call["rootCallId"].is_string()
+            })
+        });
+    if kind == "job/registered" {
+        return valid_job;
+    }
+    valid_job
+        && number(&data["finishedAt"]).is_some()
+        && data["status"]
+            .as_str()
+            .is_some_and(|value| ["completed", "killed", "failed"].contains(&value))
+        && data["cause"]
+            .as_str()
+            .is_some_and(|value| ["producer", "kill", "teardown"].contains(&value))
+        && data["producerReported"].is_boolean()
+        && obj.get("detail").is_none_or(|value| value.is_string())
 }
 fn envelope(row: &Value, seq: usize) -> bool {
     let Some(obj) = row.as_object() else {
@@ -521,7 +593,7 @@ pub fn scan(
             }
             return Ok(failed(out, "dsh_required_event_unknown", seq + 2));
         }
-        if !row["data"].is_object() {
+        if !row["data"].is_object() || !current_metadata_shape(kind, &row["data"]) {
             return Ok(failed(out, "dsh_event_data_invalid", seq + 2));
         }
         if kind == "session/end-seed" && row["data"]["inherited"] == true {

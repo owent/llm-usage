@@ -77,3 +77,9 @@ max(0, prompt − cacheRead − cacheWrite)，output 已含 reasoning，total �
 且旧来源无明细/日/期间/来源汇总历史，文件与旧 checkpoint 转移同事务；只在没有
 其他文件时退役旧空实例，保留诊断和用户其他坏文件。快照删除既有尝试时保留旧值并
 提示 snapshot_regressed，不猜测删除意图或生成抵销事件。
+
+Windows npm 0.2.1-rc.2 仍写入 v4，pi-ai 1.4.0 的 OpenAI-completions 归一化已独立核对。
+GLM/Kimi 三个原生主循环样本保留 settlement 用量，不重复计入 stream 副本。
+安装包的事件表新增 job/registered、job/settled 和 working-directory/change；
+对应源码将其定义为执行或工作目录元数据，不提供模型用量。这些扩展有合成回归检查，
+与原生主循环验收分别记录，见 [Windows 验证](../../validation/desktop-usage/agent-native-20261029.md)。

@@ -346,6 +346,28 @@ Recompute unsealed days in the same transaction. Interrupted bounded scans can r
 mark rules updated only after a complete valid scan. See
 [native samples and upgrades](../../validation/desktop-usage/claude-container-sample.md).
 
+Claude 2.1.312 persists request replay, tool tracking and cumulative cost state alongside
+assistant messages. Validate the known metadata shape before skipping it; these records
+do not add calls, tokens, channels or costs. Unknown types, malformed metadata and usage
+on a metadata record retain rejection and diagnostics. A metadata-policy change reevaluates
+consumed unchanged files, marks completion only after a valid complete scan and keeps
+existing event summaries, conflicts and diagnostic history. Windows three-model/cache/tool
+checks are recorded in [current source validation](../../validation/desktop-usage/agent-native-20261029.md).
+
+Zed 1.26.2 DbThread 0.3.0 stores cumulative usage across model changes, but only the latest
+model selection. Its OpenAI chat mapper subtracts cache from input; built-in DeepSeek keeps
+inclusive prompt_tokens and discards cache details. Mixed native threads therefore retain
+positive output/cache buckets, leaving input and complete totals unknown. Default zeros
+remain unknown. Reconcile only positive, complete output buckets; do not add ambiguous
+input/cache values. Keep native session intervals separate from daily/model call statistics;
+turn buckets do not identify underlying requests. Existing narrow llm-usage-zhipu and hosted
+rules remain separate. Complete native structures take precedence over the legacy statistics-only
+provider fallback. Existing input/quality disagreements retain ordinary aggregate conflicts;
+they are not parser-reference corrections. An independent policy marker rechecks consumed old cursors without
+deleting checkpoints; only complete valid scans mark completion, retaining diagnostics and
+transaction rollback. The schema version is not each record's client version. See
+[Windows native samples](../../validation/desktop-usage/agent-native-20261029.md).
+
 Route manual .qwen roots to Qwen only when the first record in the documented chats layout
 has complete ChatRecord identity and Qwen message.parts or usageMetadata. A shared type
 field does not establish Claude format. Qwen still reports invalid rows. Recover old wrong

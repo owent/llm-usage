@@ -115,8 +115,17 @@ outside this round, with limits retained. M8's second batch of 18 adapters has b
 documentation level and registered. Source inspection found no local per-call token records for Amazon
 Q/Codebuff; iFlow has shut down, so none are implemented. Junie CLI and built-in Zed belong to M8.
 Zed 1.22.0 llm-usage-zhipu/DbThread 0.3.0 has native samples: OpenAI chat input is the uncached bucket,
-default zeros are unknown, and cumulative usage does not invent per-call/model ownership. Other Providers
-are not certified. Cursor/Warp/TRAE remote usage routes are excluded by the local-source boundary.
+default zeros are unknown, and cumulative usage does not invent per-call/model ownership.
+Zed 1.26.2 mixed custom GLM/DeepSeek DbThread 0.3.0 verifies positive output; its latest model
+cannot identify historical input inclusion. Preserve output/cache, leave input/complete totals unknown,
+and reconcile output only, including when the latest provider is llm-usage-zhipu. Complete native
+structures take precedence over the legacy statistics-only fallback. Keep existing input/quality
+disagreements as real aggregate conflicts; do not treat them as parser-reference corrections.
+Reevaluate old cursors through the independent native-policy marker;
+do not delete checkpoints before transactional scanning. Native intervals do not become daily/model calls.
+Other Providers have structural compatibility reads, without real-call certification; see the
+[Windows samples](docs/validation/desktop-usage/agent-native-20261029.md).
+Cursor/Warp/TRAE remote usage routes are excluded by the local-source boundary.
 JetBrains GitHub Copilot was inspected in source: default local Nitrite session credits and idea.log lack
 per-call tokens. The per-call records require opt-in OTel file export through a manual root in the existing
 otel adapter; see the M9 JetBrains analysis. JetBrains AI Assistant remains F1.
@@ -125,6 +134,9 @@ Read Claude Code 2.1.197's native per-record version and default-zero rules unde
 Deduplicate multiple content blocks by message.id. When source records lack a channel, provider/cost remain
 unknown; do not infer them from protocol or model names. Corrections of complete old summaries/unchanged
 processing positions must retain conflicts and history; see [Claude samples](docs/validation/desktop-usage/claude-container-sample.md).
+Claude 2.1.312 request-replay/state metadata is not extra usage. Validate its native shape before skipping it;
+recheck unchanged consumed files after metadata-rule changes. DSH 0.2.1-rc.2 job/directory records likewise
+do not supply model calls. See the [Windows source checks](docs/validation/desktop-usage/agent-native-20261029.md).
 
 Copilot has four interfaces. CLI reads assistant_usage_events (older versions)/chronicle with fail-closed
 handling (latest). VS Code reads native `chatSessions/*.jsonl` through copilot_chat, with real local acceptance.
