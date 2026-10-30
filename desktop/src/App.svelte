@@ -102,6 +102,7 @@
 
   /** Force child queries to reload after user switches/imports without a changed query. */
   let dataReloadKey = $state(0);
+  let copilotQuotaVisible = $state(false);
 
   // E10/E11 panel order/visibility, persisted per page in localStorage.
   type PanelGroupKey = 'overviewToday' | 'overviewHistory' | 'trendMain';
@@ -1038,11 +1039,13 @@
   {#if tab === 'overview'}
     <TelemetrySetup onDetails={() => { settingsSection = 'telemetry'; tab = 'settings'; }} />
     {#if summary}
-      <div class="section-head">
-        <h2>{t('quota.sectionTitle')}</h2>
-      </div>
-      <div class="quota-row">
-        <QuotaCard agent="copilot" timezone={settings?.timezone ?? 'UTC'} reloadKey={dataReloadKey + (summary?.data_revision ?? 0)} {isDark} />
+      {#if copilotQuotaVisible}
+        <div class="section-head">
+          <h2>{t('quota.sectionTitle')}</h2>
+        </div>
+      {/if}
+      <div class="quota-row" hidden={!copilotQuotaVisible}>
+        <QuotaCard agent="copilot" timezone={settings?.timezone ?? 'UTC'} reloadKey={dataReloadKey + (summary?.data_revision ?? 0)} {isDark} onvisibilitychange={(visible) => copilotQuotaVisible = visible} />
       </div>
       {#if summary.totals.call_count === 0 && summary.periods.length === 0 && !todaySummary?.periods.length}
         <p class="empty">{t('common.empty')}</p>
@@ -1232,8 +1235,8 @@
           {/each}
           {#if settings?.pricing?.enabled}<CostReferenceSummary summary={trendScopeCosts} error={trendSelection ? selectionCostsError : costsError} />{/if}
         </div>
-        <div class="summary-quota" aria-label={t('quota.sectionTitle')}>
-          <QuotaCard agent="copilot" compact timezone={settings?.timezone ?? 'UTC'} reloadKey={dataReloadKey + (summary?.data_revision ?? 0)} {isDark} />
+        <div class="summary-quota" aria-label={t('quota.sectionTitle')} hidden={!copilotQuotaVisible}>
+          <QuotaCard agent="copilot" compact timezone={settings?.timezone ?? 'UTC'} reloadKey={dataReloadKey + (summary?.data_revision ?? 0)} {isDark} onvisibilitychange={(visible) => copilotQuotaVisible = visible} />
         </div>
       </div>
       <div class="panel-grid">
@@ -1497,6 +1500,7 @@
     grid-template-columns: repeat(auto-fill, minmax(240px, 300px));
     gap: 12px;
   }
+  .quota-row[hidden], .summary-quota[hidden] { display: none; }
   .section-head h2 {
     font-size: 17px;
     margin: 0;

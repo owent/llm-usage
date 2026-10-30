@@ -230,7 +230,10 @@ await page.addInitScript(() => {
     if(cmd==='price_refresh_status') return {running:false};
     if(cmd==='export_filter_options') return {users:[{user_id:'default',name:'本机用户',is_current:true}],hosts:[{host_id:'local',hostname:'Local',is_current:true}]};
     if(cmd==='diagnostic_logs') return {rows:[]};
-    if(cmd==='quota_summary') return {quotas:[{agent:'copilot',quota_id:'premium_interactions',kind:'rate_limit',unit:'milli_requests',limit_value:100000,used:50000,remaining:50000,percent_remaining:50,locality_verified:false,observed_at_ms:1790550000000}]};
+    if(cmd==='quota_summary') {
+      const used=window.copilotQuotaUsed??50000;
+      return {quotas:window.copilotQuotaMissing?[]:[{agent:'copilot',quota_id:'premium_interactions',kind:'rate_limit',unit:'milli_requests',limit_value:100000,used,remaining:100000-used,percent_remaining:100-used/1000,locality_verified:false,observed_at_ms:1790550000000}]};
+    }
     if(cmd==='quota_series') return {agent:args?.agent??'copilot',quota_id:args?.quotaId??'premium_interactions',points:[]};
     if(cmd==='assign_source_user') {owners[args.instanceId]=args.userId;return;}
     if(cmd==='set_source_enabled') return;
@@ -534,6 +537,24 @@ assert.ok((await page.locator('.summary-quota').boundingBox()).height < 80,'quot
 await page.locator('.summary-quota summary').click();
 assert.match(await page.locator('.summary-quota .detail-content').textContent(),/快照|账户/,'quota details retain snapshot and account scope');
 await page.locator('.summary-quota summary').click();
+await page.evaluate(()=>{window.copilotQuotaUsed=0;});
+await page.getByRole('navigation').first().getByRole('button',{name:'总览',exact:true}).click();await page.clock.runFor(500);
+assert.equal(await page.locator('.quota-card').count(),0,'zero Copilot paid usage hides the overview quota card');
+assert.equal(await page.getByRole('heading',{name:'Agent 额度',exact:true}).count(),0,'zero Copilot paid usage also hides the overview quota heading');
+assert.equal(await page.locator('.quota-row').isVisible(),false,'zero Copilot paid usage leaves no empty overview quota row');
+await page.getByRole('navigation').first().getByRole('button',{name:'趋势',exact:true}).click();await page.clock.runFor(500);
+assert.equal(await page.locator('.summary-quota .quota-card').count(),0,'zero Copilot paid usage hides the trend quota card');
+assert.equal(await page.locator('.summary-quota').isVisible(),false,'zero Copilot paid usage leaves no empty trend quota strip');
+await page.evaluate(()=>{window.copilotQuotaMissing=true;});
+await page.getByRole('navigation').first().getByRole('button',{name:'总览',exact:true}).click();await page.clock.runFor(500);
+assert.equal(await page.locator('.quota-card').count(),0,'missing Copilot data hides the overview quota card');
+assert.equal(await page.getByRole('heading',{name:'Agent 额度',exact:true}).count(),0,'missing Copilot data also hides the overview quota heading');
+await page.getByRole('navigation').first().getByRole('button',{name:'趋势',exact:true}).click();await page.clock.runFor(500);
+assert.equal(await page.locator('.summary-quota .quota-card').count(),0,'missing Copilot data hides the trend quota card');
+assert.equal(await page.locator('.summary-quota').isVisible(),false,'missing Copilot data leaves no empty trend quota strip');
+await page.evaluate(()=>{window.copilotQuotaMissing=false;window.copilotQuotaUsed=50000;});
+await page.locator('.collect-button').click();await page.clock.runFor(1200);
+assert.equal(await page.locator('.summary-quota .used').textContent(),'50','positive Copilot paid usage restores the trend quota card');
 assert.match(await page.locator('.range-summary .cost-ref').textContent(),/24\.68/,'range summary includes the current full estimate');
 await page.setViewportSize({width:760,height:1000});await page.clock.runFor(100);
 assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'compact trend summaries fit a narrow window');

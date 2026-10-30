@@ -15,6 +15,7 @@
     isDark = false,
     timezone = 'UTC',
     compact = false,
+    onvisibilitychange,
   }: {
     agent: string;
     quotaId?: string;
@@ -22,6 +23,7 @@
     isDark?: boolean;
     timezone?: string;
     compact?: boolean;
+    onvisibilitychange?: (visible: boolean) => void;
   } = $props();
 
   const AGENT_LABELS: Record<string, string> = { copilot: 'GitHub Copilot' };
@@ -56,6 +58,8 @@
   });
 
   const primary = $derived(quotas.find((x) => x.quota_id === quotaId) ?? null);
+  const visible = $derived(error !== '' || (primary !== null && primary.used !== 0));
+  $effect(() => { onvisibilitychange?.(visible); });
   function fmtQuota(value: number | null): string {
     return fmtSmart(value == null ? null : primary?.unit === 'milli_requests' ? value / 1000 : value);
   }
@@ -112,6 +116,7 @@
   {/if}
 {/snippet}
 
+{#if visible}
 <div class="quota-card" class:dark={isDark} class:compact title={t('quota.note')}>
   <div class="head">
     <span class="agent">{agentLabel}</span>
@@ -140,6 +145,7 @@
     {:else}{@render quotaDetails()}{/if}
   {/if}
 </div>
+{/if}
 
 <style>
   .quota-card {
