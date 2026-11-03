@@ -231,6 +231,7 @@ await page.addInitScript(() => {
     if(cmd==='export_filter_options') return {users:[{user_id:'default',name:'本机用户',is_current:true}],hosts:[{host_id:'local',hostname:'Local',is_current:true}]};
     if(cmd==='diagnostic_logs') return {rows:[]};
     if(cmd==='quota_summary') {
+      if(window.copilotQuotaDelay) await new Promise(resolve=>setTimeout(resolve,window.copilotQuotaDelay));
       const used=window.copilotQuotaUsed??50000;
       return {quotas:window.copilotQuotaMissing?[]:[{agent:'copilot',quota_id:'premium_interactions',kind:'rate_limit',unit:'milli_requests',limit_value:100000,used,remaining:100000-used,percent_remaining:100-used/1000,locality_verified:false,observed_at_ms:1790550000000}]};
     }
@@ -537,6 +538,23 @@ assert.ok((await page.locator('.summary-quota').boundingBox()).height < 80,'quot
 await page.locator('.summary-quota summary').click();
 assert.match(await page.locator('.summary-quota .detail-content').textContent(),/快照|账户/,'quota details retain snapshot and account scope');
 await page.locator('.summary-quota summary').click();
+await page.evaluate(()=>{window.copilotQuotaDelay=1000;});
+const quotaRequestsBefore=await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='quota_summary').length);
+const quotaHeight=(await page.locator('.summary-quota').boundingBox()).height;
+await page.locator('.collect-button').click();await page.clock.runFor(100);
+assert.ok(await page.evaluate(before=>window.appCalls.filter(c=>c.cmd==='quota_summary').length>before,quotaRequestsBefore),'collection starts a delayed quota refresh');
+const pendingQuota=await page.evaluate(()=>({used:document.querySelector('.summary-quota .used')?.textContent??null,height:document.querySelector('.summary-quota')?.getBoundingClientRect().height??0}));
+assert.equal(pendingQuota.used,'50','quota snapshot stays visible while collection refreshes');
+assert.equal(Math.round(pendingQuota.height),Math.round(quotaHeight),'quota refresh does not collapse the trend layout');
+await page.clock.runFor(1200);
+await page.getByRole('navigation').first().getByRole('button',{name:'总览',exact:true}).click();await page.clock.runFor(100);
+const navigatedQuota=await page.evaluate(()=>({used:document.querySelector('.quota-card .used')?.textContent??null,headings:[...document.querySelectorAll('h2')].filter(el=>el.textContent==='Agent 额度').length}));
+assert.equal(navigatedQuota.used,'50','quota snapshot survives overview and trend remounts');
+assert.equal(navigatedQuota.headings,1,'quota heading stays mounted during navigation');
+await page.clock.runFor(1200);
+await page.evaluate(()=>{window.copilotQuotaDelay=0;});
+await page.getByRole('navigation').first().getByRole('button',{name:'趋势',exact:true}).click();await page.clock.runFor(500);
+assert.equal(await page.locator('.summary-quota .used').textContent(),'50','refreshed trend quota remains available');
 await page.evaluate(()=>{window.copilotQuotaUsed=0;});
 await page.getByRole('navigation').first().getByRole('button',{name:'总览',exact:true}).click();await page.clock.runFor(500);
 assert.equal(await page.locator('.quota-card').count(),0,'zero Copilot paid usage hides the overview quota card');

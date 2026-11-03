@@ -55584,18 +55584,18 @@
       ]
     },
     "desktop/src/components/QuotaCard.svelte": {
-      "codeHash": "fd6c1713c0e755e2b3ca795ab835c3dd135c35f184ce34fe98bbddc79bacd22b",
+      "codeHash": "7835b1af06de737c253698a85e19e3ac394bed5d5568f399b3b1aa734ddfe989",
       "comments": [
         {
           "id": "1f34cecf5027f325",
-          "line": 2,
+          "line": 8,
           "kind": "block",
           "en": "/**\n   * Generic account/rate quota card with daily trends; counts requests or quota, not tokens.\n   * Uses Agent-independent quota_history and can serve future Agents.\n   * Copilot premium-request quota is the first integration.\n   */",
           "zh": "/**\n   * 通用账户或速率额度卡片及日趋势；计请求或额度，不折算 token。\n   * 数据来自与 Agent 无关的 quota_history，可用于后续 Agent。\n   * 首个接入来源是 Copilot premium 请求额度。\n   */"
         },
         {
           "id": "9265e67a8435c834",
-          "line": 83,
+          "line": 100,
           "kind": "line",
           "en": "// Daily used trend; one point renders as a circle. viewBox is 100×32.",
           "zh": "// used 按日变化的折线；单点显示圆点。viewBox 为 100×32。"
@@ -57205,7 +57205,7 @@
       ]
     },
     "desktop/tests/browser-smoke.mjs": {
-      "codeHash": "fd8d751f46b2ac30e988455756f85c1fda2566a7024cdd393a832bdcd7e9fe8a",
+      "codeHash": "02564205390254195686b6947c1c2ca1586f7b8fcdd3c5a44fc258a8f35f4197",
       "comments": [
         {
           "id": "5ba4dca837379ee2",
@@ -57230,28 +57230,28 @@
         },
         {
           "id": "fe244fc846d84c29",
-          "line": 242,
+          "line": 243,
           "kind": "line",
           "en": "// Fake-clock job phases: waiting→backup→clearing→cleared→rescan→done.",
           "zh": "// 模拟时钟驱动任务阶段：waiting→backup→clearing→cleared→rescan→done。"
         },
         {
           "id": "d8e64c2d0b757e81",
-          "line": 432,
+          "line": 433,
           "kind": "line",
           "en": "// Accepted before the worker starts; a short scan finishes between status polls.",
           "zh": "// 工作线程启动前已受理；短扫描可能在状态轮询之间完成。"
         },
         {
           "id": "cef2412556e04173",
-          "line": 940,
+          "line": 958,
           "kind": "line",
           "en": "// Clear-all confirmation shows missing-file warnings and phase progress;",
           "zh": "// 清理全部数据的确认界面显示缺失文件提示及阶段进度；"
         },
         {
           "id": "b8b8b9c2332d0d40",
-          "line": 941,
+          "line": 959,
           "kind": "line",
           "en": "// done closes it automatically and shows the cleared summary.",
           "zh": "// done 后自动关闭，并显示清理汇总。"

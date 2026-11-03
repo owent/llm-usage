@@ -1,9 +1,16 @@
+<script module lang="ts">
+  type QuotaSnapshot = { quotas: import('../lib/api').QuotaDto[]; points: import('../lib/api').QuotaPointDto[] };
+  const quotaSnapshots = new Map<string, QuotaSnapshot>();
+  const quotaSnapshotKey = (agent: string, quotaId: string) => JSON.stringify([agent, quotaId]);
+</script>
+
 <script lang="ts">
   /**
    * Generic account/rate quota card with daily trends; counts requests or quota, not tokens.
    * Uses Agent-independent quota_history and can serve future Agents.
    * Copilot premium-request quota is the first integration.
    */
+  import { untrack } from 'svelte';
   import { api, parseError } from '../lib/api';
   import type { QuotaDto, QuotaPointDto } from '../lib/api';
   import { t, fmtSmart, i18n } from '../lib/i18n.svelte';
@@ -29,26 +36,36 @@
   const AGENT_LABELS: Record<string, string> = { copilot: 'GitHub Copilot' };
   const agentLabel = $derived(AGENT_LABELS[agent] ?? agent);
 
-  let quotas = $state<QuotaDto[]>([]);
-  let points = $state<QuotaPointDto[]>([]);
+  const initialSnapshotKey = untrack(() => quotaSnapshotKey(agent, quotaId));
+  const initialSnapshot = quotaSnapshots.get(initialSnapshotKey);
+  let quotas = $state<QuotaDto[]>(initialSnapshot?.quotas ?? []);
+  let points = $state<QuotaPointDto[]>(initialSnapshot?.points ?? []);
   let error = $state('');
+  let loadedSnapshotKey = initialSnapshotKey;
 
   $effect(() => {
     const a = agent;
     const q = quotaId;
     const key = reloadKey;
     const tz = timezone;
+    const cacheKey = quotaSnapshotKey(a, q);
     void key;
     void tz;
-    error = '';
-    quotas = [];
-    points = [];
+    if (loadedSnapshotKey !== cacheKey) {
+      const cached = quotaSnapshots.get(cacheKey);
+      quotas = cached?.quotas ?? [];
+      points = cached?.points ?? [];
+      error = '';
+      loadedSnapshotKey = cacheKey;
+    }
     let active = true;
     Promise.all([api.quotaSummary(a), api.quotaSeries(a, q)])
       .then(([summary, series]) => {
         if (!active) return;
+        error = '';
         quotas = summary.quotas;
         points = series.points;
+        quotaSnapshots.set(cacheKey, { quotas: summary.quotas, points: series.points });
       })
       .catch((e) => {
         if (!active) return;
