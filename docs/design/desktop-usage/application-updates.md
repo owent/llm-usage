@@ -18,6 +18,12 @@ click. A global notice and Settings > Software updates show version, package typ
 bytes, total bytes, progress, cancellation and errors. Switching pages preserves progress.
 Successful checks display their time. Settings changes save automatically.
 
+A current update error changes Download update to Retry update download. If an installation
+request fails while the status remains ready, this retry action replaces Install update or
+Restart and update. It starts the download flow again; successful download and verification
+restore the explicit installation action. A previous helper error retained after a later
+successful check does not replace the actions for the current status.
+
 The settings section is Software updates in English, `软件更新` in Simplified Chinese and
 `軟體更新` in Traditional Chinese. Other locales follow their own software interface usage.
 Dismiss notification hides the current notice until its phase, version, package or error

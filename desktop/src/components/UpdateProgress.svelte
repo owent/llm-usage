@@ -4,6 +4,7 @@
   let { detailed = false }: { detailed?: boolean } = $props();
   const status = $derived(updateState.status);
   const busy = $derived(updateBusy(status));
+  const hasError = $derived(Boolean(status?.error || updateState.error));
 </script>
 
 <div class="update-progress" data-testid="update-progress">
@@ -32,17 +33,17 @@
   {/if}
   <div class="actions">
     {#if detailed}<button type="button" data-testid="check-update" disabled={busy || updateState.pending} onclick={() => updateAction('check')}>{t('updates.check')}</button>{/if}
-    {#if status?.asset_name && !busy && status.phase !== 'ready'}
-      <button type="button" data-testid="download-update" disabled={updateState.pending} onclick={() => updateAction('download')}>{t('updates.download')}</button>
+    {#if status?.asset_name && !busy && (status.phase !== 'ready' || hasError)}
+      <button type="button" data-testid="download-update" disabled={updateState.pending} onclick={() => updateAction('download')}>{t(hasError ? 'updates.retryDownload' : 'updates.download')}</button>
     {/if}
-    {#if status?.phase === 'ready'}
+    {#if status?.phase === 'ready' && !hasError}
       <button type="button" class="primary" data-testid="install-update" disabled={updateState.pending} onclick={() => updateAction('install')}>{t(status.package_kind === 'installer' ? 'updates.install' : 'updates.restart')}</button>
     {/if}
     {#if busy && status?.phase !== 'installing'}
       <button type="button" data-testid="cancel-update" disabled={updateState.cancelling} onclick={() => updateAction('cancel')}>{t('updates.cancel')}</button>
     {/if}
   </div>
-  {#if status?.phase === 'ready'}<p class="muted">{t('updates.restartHint')}</p>{/if}
+  {#if status?.phase === 'ready' && !hasError}<p class="muted">{t('updates.restartHint')}</p>{/if}
 </div>
 
 <style>

@@ -55,7 +55,7 @@ await page.addInitScript(() => {
   window.updateMock = {phase:'idle',current_version:'0.2.2',package_kind:'portable',version:null,asset_name:null,downloaded_bytes:0,total_bytes:0,last_checked_ms:null,error:null};
   window.updateAutoDownloads = 0;
   const mockDownload = () => {
-    window.updateMock.phase='downloading';window.updateMock.downloaded_bytes=1024;
+    window.updateMock.phase='downloading';window.updateMock.error=null;window.updateMock.downloaded_bytes=1024;
     setTimeout(()=>{if(window.updateMock.phase==='downloading') window.updateMock.downloaded_bytes=2048;},300);
     setTimeout(()=>{if(window.updateMock.phase==='downloading') {window.updateMock.downloaded_bytes=4096;window.updateMock.phase='ready';}},1500);
   };
@@ -89,7 +89,10 @@ await page.addInitScript(() => {
     if(cmd==='plugin:event|listen') { (eventListeners[args.event] ??= []).push(args.handler); return; }
     if(cmd==='plugin:event|unlisten') return;
     if(cmd==='get_settings') return settings;
-    if(cmd==='update_status') return {...window.updateMock};
+    if(cmd==='update_status') {
+      if(window.updateStatusFailures>0) {--window.updateStatusFailures;throw 'update_status_unavailable';}
+      return {...window.updateMock};
+    }
     if(cmd==='check_update') {
       window.updateMock.phase='checking';window.updateMock.error=null;
       setTimeout(()=>{
@@ -102,6 +105,7 @@ await page.addInitScript(() => {
     if(cmd==='download_update') {mockDownload();return;}
     if(cmd==='cancel_update') {window.updateMock.phase='cancelled';return;}
     if(cmd==='install_update') {
+      if(window.updateInstallError) {const error=window.updateInstallError;window.updateInstallError=null;throw error;}
       if(window.updateSlowPreparation) {
         window.updateMock.phase='verifying';
         await new Promise(resolve=>setTimeout(resolve,2500));
@@ -1135,10 +1139,30 @@ await page.evaluate(()=>{Object.assign(window.updateMock,{phase:'ready',package_
 assert.equal(await updateNotice.getByTestId('install-update').textContent(),'安装更新');
 await page.evaluate(()=>{Object.assign(window.updateMock,{phase:'error',error:'update_package_digest_mismatch'});});await page.clock.runFor(1100);
 assert.match(await updateNotice.textContent(),/update_package_digest_mismatch/);
+assert.equal(await updateNotice.getByTestId('download-update').textContent(),'重试下载更新');
+assert.equal(await updateNotice.getByTestId('install-update').count(),0);
 await page.screenshot({path:out+'update-error-narrow.png',fullPage:true});
+const failedDownloads=await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='download_update').length);
+await updateNotice.getByTestId('download-update').click();await page.clock.runFor(100);
+assert.equal(await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='download_update').length),failedDownloads+1,'a failed download retries the download command');
+assert.equal(await page.evaluate(()=>window.updateMock.phase),'downloading');
 await page.evaluate(()=>{Object.assign(window.updateMock,{phase:'up_to_date',error:null,previous_error:'update_parent_exit_timeout'});});await page.clock.runFor(1100);
 assert.match(await updateNotice.textContent(),/update_parent_exit_timeout/,'previous helper failures remain visible after a successful check');
-await page.evaluate(()=>{Object.assign(window.updateMock,{phase:'ready',error:null,previous_error:null});window.updateSlowPreparation=true;});await page.clock.runFor(1100);
+await page.evaluate(()=>{Object.assign(window.updateMock,{phase:'ready',error:null,previous_error:null});window.updateInstallError='application_busy_retry_update';});await page.clock.runFor(1100);
+await updateNotice.getByTestId('install-update').click();await page.clock.runFor(100);
+assert.match(await updateNotice.textContent(),/application_busy_retry_update/);
+assert.equal(await updateNotice.getByTestId('download-update').textContent(),'重试下载更新');
+assert.equal(await updateNotice.getByTestId('install-update').count(),0,'a failed installation does not keep showing the install action');
+await page.screenshot({path:out+'update-install-busy-narrow.png',fullPage:true});
+const busyDownloads=await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='download_update').length);
+await page.evaluate(()=>{window.updateStatusFailures=1;});
+await updateNotice.getByTestId('download-update').click();await page.clock.runFor(100);
+assert.equal(await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='download_update').length),busyDownloads+1,'a ready package with an install error follows the requested retry-download flow');
+assert.equal(await updateNotice.getByRole('alert').count(),0,'a transient status reload failure is not an update failure');
+await page.clock.runFor(1600);
+assert.equal(await updateNotice.getByTestId('install-update').textContent(),'安装更新','polling restores installation after a successful download and transient status failure');
+assert.equal(await updateNotice.getByTestId('download-update').count(),0);
+await page.evaluate(()=>{window.updateSlowPreparation=true;});
 await updateNotice.getByTestId('install-update').click();await page.clock.runFor(1100);
 assert.equal(await updateNotice.getByTestId('cancel-update').isEnabled(),true,'preparation can be cancelled while install IPC is pending');
 await updateNotice.getByTestId('cancel-update').click();await page.clock.runFor(3000);

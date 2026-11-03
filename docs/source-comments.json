@@ -57169,7 +57169,7 @@
       ]
     },
     "desktop/src/lib/update-state.svelte.ts": {
-      "codeHash": "dd1acd721650541b0eeae108a866aa0e2490c07501059da08897a7430d06b693",
+      "codeHash": "f0cf35f64b81b350db0e47fe54822fb5c3f1ba9bc1a506e0608b9fa374868622",
       "comments": [
         {
           "id": "92f19b227ecbbb6f",
@@ -57205,7 +57205,7 @@
       ]
     },
     "desktop/tests/browser-smoke.mjs": {
-      "codeHash": "02564205390254195686b6947c1c2ca1586f7b8fcdd3c5a44fc258a8f35f4197",
+      "codeHash": "8a4086ce7b3270d083bf311a4db7fbb5af378aedfdee9f9248c6d69a04681b44",
       "comments": [
         {
           "id": "5ba4dca837379ee2",
@@ -57230,28 +57230,28 @@
         },
         {
           "id": "fe244fc846d84c29",
-          "line": 243,
+          "line": 247,
           "kind": "line",
           "en": "// Fake-clock job phases: waiting→backup→clearing→cleared→rescan→done.",
           "zh": "// 模拟时钟驱动任务阶段：waiting→backup→clearing→cleared→rescan→done。"
         },
         {
           "id": "d8e64c2d0b757e81",
-          "line": 433,
+          "line": 437,
           "kind": "line",
           "en": "// Accepted before the worker starts; a short scan finishes between status polls.",
           "zh": "// 工作线程启动前已受理；短扫描可能在状态轮询之间完成。"
         },
         {
           "id": "cef2412556e04173",
-          "line": 958,
+          "line": 962,
           "kind": "line",
           "en": "// Clear-all confirmation shows missing-file warnings and phase progress;",
           "zh": "// 清理全部数据的确认界面显示缺失文件提示及阶段进度；"
         },
         {
           "id": "b8b8b9c2332d0d40",
-          "line": 959,
+          "line": 963,
           "kind": "line",
           "en": "// done closes it automatically and shows the cleared summary.",
           "zh": "// done 后自动关闭，并显示清理汇总。"

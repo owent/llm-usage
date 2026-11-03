@@ -38,7 +38,7 @@ export async function updateAction(action: 'check' | 'download' | 'cancel' | 'in
   updateState.error = '';
   try {
     await ({ check: api.checkUpdate, download: api.downloadUpdate, cancel: api.cancelUpdate, install: api.installUpdate })[action]();
-    await loadUpdateStatus();
+    await loadUpdateStatus().catch(() => {});
   } catch (error) { updateState.error = parseError(error); }
   finally { updateState.pending = false; }
 }
