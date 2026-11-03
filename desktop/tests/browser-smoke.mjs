@@ -1028,7 +1028,20 @@ for(const view of ['趋势','总览']) {
     overflowChecks.push({view,width,...bounds});
     assert.ok((await card.locator('.money').first().getAttribute('title')).length>30,'full amount range remains available');
     const converted=card.locator('.money > small').filter({hasText:'≈ USD'}).first();
-    assert.ok((await converted.getAttribute('title')).includes(await converted.textContent()),'full converted range remains available');
+    const convertedText=(await converted.textContent()).replace(/\s+/g,'');
+    const convertedTitle=(await converted.getAttribute('title')).replace(/\s+/g,'');
+    assert.ok(convertedTitle.includes(convertedText),'full converted range remains available: '+JSON.stringify({convertedText,convertedTitle}));
+    const rangeLayout=await card.locator('.money > span.ranged').evaluateAll(ranges=>ranges.map(range=>({
+      tops:[...range.children].map(bound=>bound.getBoundingClientRect().top),
+      complete:[range,...range.children].every(bound=>bound.scrollWidth<=bound.clientWidth+1&&getComputedStyle(bound).textOverflow!=='ellipsis'),
+    })));
+    assert.ok(rangeLayout.length>0&&rangeLayout.every(range=>range.tops.length===2&&range.tops[1]>range.tops[0]&&range.complete),'compact ranges show complete lower and upper amounts on separate lines');
+    const supplementalLayout=await card.locator('.money > small').evaluateAll(labels=>labels.map(label=>({
+      complete:label.scrollWidth<=label.clientWidth+1,
+      whiteSpace:getComputedStyle(label).whiteSpace,
+      textOverflow:getComputedStyle(label).textOverflow,
+    })));
+    assert.ok(supplementalLayout.every(label=>label.complete&&label.whiteSpace==='normal'&&label.textOverflow!=='ellipsis'),'supplemental pricing labels wrap completely instead of being clipped');
   }
 }
 await writeFile(out+'cost-overflow.json',JSON.stringify(overflowChecks,null,2));
