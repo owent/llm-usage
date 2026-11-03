@@ -57169,11 +57169,11 @@
       ]
     },
     "desktop/src/lib/update-state.svelte.ts": {
-      "codeHash": "f0cf35f64b81b350db0e47fe54822fb5c3f1ba9bc1a506e0608b9fa374868622",
+      "codeHash": "4e1584afaee58dc0c49a4a6f35f4bf98c8cfdb5fcec706b9d39db7c48cab8a11",
       "comments": [
         {
           "id": "92f19b227ecbbb6f",
-          "line": 19,
+          "line": 28,
           "kind": "block",
           "en": "/* Status polling resumes when IPC is available again. */",
           "zh": "/* IPC 恢复可用后继续轮询状态。 */"
@@ -57205,7 +57205,7 @@
       ]
     },
     "desktop/tests/browser-smoke.mjs": {
-      "codeHash": "8a4086ce7b3270d083bf311a4db7fbb5af378aedfdee9f9248c6d69a04681b44",
+      "codeHash": "e02532931b039a82c0e3eb3ff0d5ab69bb5976fd0612abbc8229e930a3aea391",
       "comments": [
         {
           "id": "5ba4dca837379ee2",
@@ -57230,28 +57230,28 @@
         },
         {
           "id": "fe244fc846d84c29",
-          "line": 247,
+          "line": 251,
           "kind": "line",
           "en": "// Fake-clock job phases: waiting→backup→clearing→cleared→rescan→done.",
           "zh": "// 模拟时钟驱动任务阶段：waiting→backup→clearing→cleared→rescan→done。"
         },
         {
           "id": "d8e64c2d0b757e81",
-          "line": 437,
+          "line": 441,
           "kind": "line",
           "en": "// Accepted before the worker starts; a short scan finishes between status polls.",
           "zh": "// 工作线程启动前已受理；短扫描可能在状态轮询之间完成。"
         },
         {
           "id": "cef2412556e04173",
-          "line": 962,
+          "line": 966,
           "kind": "line",
           "en": "// Clear-all confirmation shows missing-file warnings and phase progress;",
           "zh": "// 清理全部数据的确认界面显示缺失文件提示及阶段进度；"
         },
         {
           "id": "b8b8b9c2332d0d40",
-          "line": 963,
+          "line": 967,
           "kind": "line",
           "en": "// done closes it automatically and shows the cleared summary.",
           "zh": "// done 后自动关闭，并显示清理汇总。"

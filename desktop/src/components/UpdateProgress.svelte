@@ -4,7 +4,11 @@
   let { detailed = false }: { detailed?: boolean } = $props();
   const status = $derived(updateState.status);
   const busy = $derived(updateBusy(status));
-  const hasError = $derived(Boolean(status?.error || updateState.error));
+  const packageActionError = $derived(Boolean(updateState.error)
+    && ['download', 'install'].includes(updateState.errorAction ?? '')
+    && updateState.errorVersion === (status?.version ?? null)
+    && updateState.errorAsset === (status?.asset_name ?? null));
+  const hasError = $derived(Boolean(status?.error) || packageActionError);
 </script>
 
 <div class="update-progress" data-testid="update-progress">

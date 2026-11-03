@@ -94,6 +94,7 @@ await page.addInitScript(() => {
       return {...window.updateMock};
     }
     if(cmd==='check_update') {
+      if(window.updateCheckError) {const error=window.updateCheckError;window.updateCheckError=null;throw error;}
       window.updateMock.phase='checking';window.updateMock.error=null;
       setTimeout(()=>{
         if(window.updateMock.phase!=='checking') return;
@@ -103,7 +104,10 @@ await page.addInitScript(() => {
       },800);return;
     }
     if(cmd==='download_update') {mockDownload();return;}
-    if(cmd==='cancel_update') {window.updateMock.phase='cancelled';return;}
+    if(cmd==='cancel_update') {
+      if(window.updateCancelError) {const error=window.updateCancelError;window.updateCancelError=null;throw error;}
+      window.updateMock.phase='cancelled';return;
+    }
     if(cmd==='install_update') {
       if(window.updateInstallError) {const error=window.updateInstallError;window.updateInstallError=null;throw error;}
       if(window.updateSlowPreparation) {
@@ -1123,6 +1127,15 @@ await page.getByTestId('update-settings').getByTestId('install-update').click();
 assert.equal(await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='install_update').length),1,'installation requires an explicit click');
 await page.evaluate(()=>{Object.assign(window.updateMock,{phase:'available',package_kind:'portable'});});await page.clock.runFor(1100);
 await updateNotice.getByTestId('download-update').click();await page.clock.runFor(200);
+await page.evaluate(()=>{window.updateCancelError='update_cancel_ipc_failed';});
+await updateNotice.getByTestId('cancel-update').click();await page.clock.runFor(100);
+assert.match(await updateNotice.textContent(),/update_cancel_ipc_failed/);
+await page.clock.runFor(1600);
+assert.equal(await updateNotice.getByTestId('install-update').textContent(),'重启并更新','a cancel failure does not hide installation after the download completes');
+assert.equal(await updateNotice.getByTestId('download-update').count(),0);
+assert.match(await updateNotice.textContent(),/更新时会关闭并重新启动软件/);
+await page.evaluate(()=>{Object.assign(window.updateMock,{phase:'available',package_kind:'portable'});});await page.clock.runFor(1100);
+await updateNotice.getByTestId('download-update').click();await page.clock.runFor(200);
 await updateNotice.getByTestId('cancel-update').click();await page.clock.runFor(1800);
 assert.equal(await page.getByTestId('update-settings').locator('progress').count(),0);
 assert.match(await page.getByTestId('update-settings').textContent(),/已取消/);
@@ -1137,6 +1150,14 @@ await page.clock.runFor(1800);
 assert.equal(await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='install_update').length),1,'automatic download never installs');
 await page.evaluate(()=>{Object.assign(window.updateMock,{phase:'ready',package_kind:'installer',asset_name:'LLMUsage_0.3.0_x64-setup.exe'});});await page.clock.runFor(1100);
 assert.equal(await updateNotice.getByTestId('install-update').textContent(),'安装更新');
+await page.evaluate(()=>{window.updateCheckError='update_check_ipc_failed';});
+await page.getByTestId('update-settings').getByTestId('check-update').click();await page.clock.runFor(1100);
+assert.match(await updateNotice.textContent(),/update_check_ipc_failed/);
+assert.equal(await updateNotice.getByTestId('install-update').textContent(),'安装更新','a check failure does not replace installation of the ready package');
+assert.equal(await updateNotice.getByTestId('download-update').count(),0);
+assert.match(await updateNotice.textContent(),/更新时会关闭并重新启动软件/);
+await page.getByTestId('update-settings').getByTestId('check-update').click();await page.clock.runFor(2500);
+assert.equal(await page.getByTestId('update-settings').getByTestId('install-update').textContent(),'安装更新');
 await page.evaluate(()=>{Object.assign(window.updateMock,{phase:'error',error:'update_package_digest_mismatch'});});await page.clock.runFor(1100);
 assert.match(await updateNotice.textContent(),/update_package_digest_mismatch/);
 assert.equal(await updateNotice.getByTestId('download-update').textContent(),'重试下载更新');

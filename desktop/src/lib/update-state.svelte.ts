@@ -1,6 +1,15 @@
 import { api, parseError, type UpdateStatusDto } from './api';
 
-export const updateState = $state({ status: null as UpdateStatusDto | null, error: '', pending: false, cancelling: false });
+type UpdateAction = 'check' | 'download' | 'cancel' | 'install';
+
+export const updateState = $state({ status: null as UpdateStatusDto | null, error: '', errorAction: null as UpdateAction | null, errorVersion: null as string | null, errorAsset: null as string | null, pending: false, cancelling: false });
+
+function recordUpdateError(action: UpdateAction, error: unknown): void {
+  updateState.error = parseError(error);
+  updateState.errorAction = action;
+  updateState.errorVersion = updateState.status?.version ?? null;
+  updateState.errorAsset = updateState.status?.asset_name ?? null;
+}
 
 export async function loadUpdateStatus(): Promise<void> {
   const status = await api.updateStatus();
@@ -24,22 +33,25 @@ export function pollUpdates(): () => void {
   return () => { active = false; clearInterval(timer); };
 }
 
-export async function updateAction(action: 'check' | 'download' | 'cancel' | 'install'): Promise<void> {
+export async function updateAction(action: UpdateAction): Promise<void> {
   if (action === 'cancel') {
     if (updateState.cancelling) return;
     updateState.cancelling = true;
     try { await api.cancelUpdate(); await loadUpdateStatus(); }
-    catch (error) { updateState.error = parseError(error); }
+    catch (error) { recordUpdateError('cancel', error); }
     finally { updateState.cancelling = false; }
     return;
   }
   if (updateState.pending) return;
   updateState.pending = true;
   updateState.error = '';
+  updateState.errorAction = null;
+  updateState.errorVersion = null;
+  updateState.errorAsset = null;
   try {
     await ({ check: api.checkUpdate, download: api.downloadUpdate, cancel: api.cancelUpdate, install: api.installUpdate })[action]();
     await loadUpdateStatus().catch(() => {});
-  } catch (error) { updateState.error = parseError(error); }
+  } catch (error) { recordUpdateError(action, error); }
   finally { updateState.pending = false; }
 }
 
