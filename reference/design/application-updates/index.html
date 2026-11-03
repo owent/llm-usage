@@ -90,6 +90,11 @@ prompts Install update or Restart and update. Installation always needs an expli
 click. A global notice and Settings &gt; Software updates show version, package type, downloaded
 bytes, total bytes, progress, cancellation and errors. Switching pages preserves progress.
 Successful checks display their time. Settings changes save automatically.</p>
+<p>A current update error changes Download update to Retry update download. If an installation
+request fails while the status remains ready, this retry action replaces Install update or
+Restart and update. It starts the download flow again; successful download and verification
+restore the explicit installation action. A previous helper error retained after a later
+successful check does not replace the actions for the current status.</p>
 <p>The settings section is Software updates in English, <code>软件更新</code> in Simplified Chinese and
 <code>軟體更新</code> in Traditional Chinese. Other locales follow their own software interface usage.
 Dismiss notification hides the current notice until its phase, version, package or error
