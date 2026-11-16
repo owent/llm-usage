@@ -190,7 +190,7 @@ await page.addInitScript(() => {
         models[0].reference_models=['kimi-k2.8-preview'];
         models[0].current_sim[0].substitute_models=['kimi-k2.7-code'];
         models[0].unit_prices=[{...models[0].unit_prices[0],model:'kimi-k2.7-code',provider_id:'moonshot',input_per_mtok_hundredths:9500,cache_read_per_mtok_hundredths:1900,output_per_mtok_hundredths:40000,cache_write_5m_per_mtok_hundredths:null}];
-        currentRows[0].substitute_models=['kimi-k2.7-code'];
+        currentRows[0].substitute_models=['kimi-k2.7-code','gpt-5.6-luna'];
       }
       const day=(i)=>q.first_day===q.last_day?q.last_day:`2026-09-${15+i}`;
       return {at_time:mode,current_sim:{...mode,rows:currentRows},source_amounts:[],price_basis:['Synthetic official reference'],data_revision:revision,models,
@@ -1037,8 +1037,12 @@ await feePanel.screenshot({path:out+'cost-archive-range-narrow.png'});
 await page.locator('.tables').screenshot({path:out+'model-archive-range-narrow.png'});
 await page.evaluate(()=>{window.substitutePricing=true;});
 await page.getByRole('button',{name:'采集并刷新',exact:true}).click();await page.clock.runFor(800);
-assert.match(await feeCard.textContent(),/替代参考/,'compact total labels cross-model substitute pricing');
-assert.match(await page.locator('.tables').textContent(),/k28-agent-preview[\s\S]*kimi-k2\.7-code/,'model costs preserve the original ID and explain the substitute');
+const substituteTotals=[feeCard,feePanel.locator('.cost-panel > ul'),page.locator('.tables section').first().locator('tfoot')];
+for(const region of substituteTotals) {
+  assert.match(await region.textContent(),/部分模型采用参考价格/,'aggregate cost labels summarize cross-model reference pricing');
+  assert.doesNotMatch(await region.textContent(),/缺少本型号价目|kimi-k2\.7-code|gpt-5\.6-luna/,'aggregate cost labels do not concatenate model-specific hints');
+}
+assert.match(await page.locator('.tables tbody').textContent(),/k28-agent-preview[\s\S]*缺少本型号价目，按 kimi-k2\.7-code 替代参考/,'model costs preserve the original ID and explain the substitute');
 assert.match(await feePanel.locator('.unit-prices').textContent(),/kimi-k2\.8-preview[\s\S]*kimi-k2\.7-code/,'unit prices keep identity distinct from price substitution');
 assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth > innerWidth),false,'substitute labels do not overflow narrow layouts');
 await feePanel.screenshot({path:out+'cost-substitute-narrow.png'});

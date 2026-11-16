@@ -6017,63 +6017,84 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/codex/reader.rs": {
-      "codeHash": "cf80b88ad894f3f0df5b23147c968e807092b3d21b2652bd0fdd6af5b45e5458",
+      "codeHash": "864d19d3a493f1d82793fd85b7f9d05f5e0df938af99199a2cb3d055688b59da",
       "comments": [
         {
-          "id": "be6203a6bba6bfdc",
+          "id": "dd2359eb9e3975ca",
           "line": 1,
           "kind": "line",
-          "en": "//! Validate oversized non-usage records without retaining their bodies.",
-          "zh": "//! 校验超长的不参与统计的记录，不保留正文。"
+          "en": "//! Stream oversized records without retaining non-usage bodies.",
+          "zh": "//! 流式读取超长记录，不保留不参与统计的正文。"
         },
         {
-          "id": "efce1ff61a53a0d0",
-          "line": 42,
+          "id": "77e1af3cdfdd8601",
+          "line": 19,
           "kind": "line",
-          "en": "// Derived structs also accept positional arrays; only native objects may be skipped.",
-          "zh": "// 派生结构也接受位置数组；只允许跳过原生对象。"
+          "en": "/// Ignore oversized payload fields, retaining only compaction's usage-bearing record.",
+          "zh": "/// 忽略超长负载字段，只保留压缩记录中携带用量的部分。"
+        },
+        {
+          "id": "ad49527c6b361b7e",
+          "line": 20,
+          "kind": "line",
+          "en": "/// Non-object payloads remain valid ignored JSON rather than becoming record errors.",
+          "zh": "/// 非对象负载仍作为有效的忽略 JSON 处理，不产生记录错误。"
+        },
+        {
+          "id": "332ff141c6209c05",
+          "line": 132,
+          "kind": "line",
+          "en": "// Derived structs also accept positional arrays; only native objects may advance.",
+          "zh": "// 派生结构也接受位置数组；只有原生对象才能推进游标。"
         },
         {
           "id": "f018e903cebaaf5d",
-          "line": 55,
+          "line": 147,
           "kind": "line",
           "en": "/// Read at most one line, checking UTF-8 even in JSON values ignored by serde.",
           "zh": "/// 每次最多读取一行，同时检查被 serde 忽略的 JSON 值中的 UTF-8。"
         },
         {
-          "id": "75c9ce64d84d55a2",
-          "line": 102,
+          "id": "5e9a734a0de0c056",
+          "line": 194,
           "kind": "line",
-          "en": "/// Keep the ordinary limit for usage, unknown types and malformed records. A complete,",
+          "en": "/// Keep the ordinary limit for usage, unknown types and malformed records. Complete,",
           "zh": "/// 用量、未知类型和损坏记录继续遵循普通限制。完整有效的"
         },
         {
-          "id": "6f9140b8342a7e02",
-          "line": 103,
+          "id": "f754b7ca9f8e80d2",
+          "line": 195,
           "kind": "line",
-          "en": "/// valid response_item/world_state may advance one line using bounded streaming reads.",
-          "zh": "/// response_item/world_state 可通过有界流式读取推进一行。"
+          "en": "/// valid response_item/world_state records retain only their type. Compacted records",
+          "zh": "/// response_item/world_state 只保留类型。compacted 记录"
+        },
+        {
+          "id": "cb595a2cf8418775",
+          "line": 196,
+          "kind": "line",
+          "en": "/// retain their timestamp and latest_token_usage_record for boundary usage recovery.",
+          "zh": "/// 保留时间戳和 latest_token_usage_record，用于恢复边界用量。"
         },
         {
           "id": "e5cd2ead3672f719",
-          "line": 129,
+          "line": 222,
           "kind": "line",
           "en": "// Cancellation and source deadlines must reach the framework, including when",
-          "zh": "// 取消和来源截止时间必须传回框架，包括"
+          "zh": "// 取消和来源截止时间必须传递到框架，包括"
         },
         {
           "id": "118978035144dd98",
-          "line": 130,
+          "line": 223,
           "kind": "line",
           "en": "// serde wraps the IO error as a JSON error.",
-          "zh": "// serde 将 IO 错误包装为 JSON 错误时。"
+          "zh": "// serde 将 IO 错误包装为 JSON 错误的情况。"
         },
         {
           "id": "683df473441a5e0d",
-          "line": 149,
+          "line": 248,
           "kind": "line",
           "en": "// Resume after this complete record in the next bounded scan window.",
-          "zh": "// 下一轮有界扫描从这条完整记录之后继续。"
+          "zh": "// 在这条完整记录之后，下一个有界扫描窗口继续读取。"
         }
       ]
     },
@@ -40810,7 +40831,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/tests/codex_oversized.rs": {
-      "codeHash": "59eecc09063e700d8ee34d28d4343e06b873dbd63120c342ea26c570ec289de3",
+      "codeHash": "13a5699138bec24632d52cebf56ec1340dbd8b8bb76c4d13ce8795748f591d3a",
       "comments": [
         {
           "id": "36520da80b0993d5",
@@ -57227,7 +57248,7 @@
       ]
     },
     "desktop/src/lib/reference-locales.ts": {
-      "codeHash": "61d2ad0a18a5e5c7883811d1f1755eabe4554809eaa2dfba97c547f053dcbfbf",
+      "codeHash": "9e37290f642af30e8c595a467de7bc953a17005fcc73192264725e0c75bfd269",
       "comments": [
         {
           "id": "d92071d7444c3b2c",
@@ -57325,7 +57346,7 @@
       ]
     },
     "desktop/tests/browser-smoke.mjs": {
-      "codeHash": "4fc09ec449fdbdcc2bc5aa64d3605f4919cb6f07f41797df56ffc52efbce51d9",
+      "codeHash": "2e3f601c9fa4eb3052de6821a3ab2e025a9b82baa293cb38f75a1ee8fc4ddbdb",
       "comments": [
         {
           "id": "5ba4dca837379ee2",
@@ -57378,7 +57399,7 @@
         },
         {
           "id": "c702dac0313ddbb3",
-          "line": 1091,
+          "line": 1095,
           "kind": "line",
           "en": "// Keep simulated download deadlines independent of real page-navigation latency.",
           "zh": "// 让模拟下载的完成时刻不受实际页面切换耗时影响。"

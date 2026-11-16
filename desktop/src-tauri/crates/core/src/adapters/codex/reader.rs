@@ -1,4 +1,4 @@
-//! Validate oversized non-usage records without retaining their bodies.
+//! Stream oversized records without retaining non-usage bodies.
 
 use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::path::Path;
@@ -9,17 +9,99 @@ use serde::Deserialize;
 use super::super::jsonl::{self, JsonlLimits, RawLine, ReadOutcome, StopReason};
 use super::super::run_policy;
 
-const MAX_NON_USAGE_LINE_BYTES: u64 = 64 * 1024 * 1024;
+const MAX_OVERSIZED_LINE_BYTES: u64 = 64 * 1024 * 1024;
 
-struct NonUsageEnvelope {
-    kind: NonUsageKind,
+#[derive(Default)]
+struct OversizedPayload {
+    latest_token_usage_record: Option<serde_json::Value>,
 }
 
-impl<'de> Deserialize<'de> for NonUsageEnvelope {
+/// Ignore oversized payload fields, retaining only compaction's usage-bearing record.
+/// Non-object payloads remain valid ignored JSON rather than becoming record errors.
+impl<'de> Deserialize<'de> for OversizedPayload {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(field_identifier)]
+        enum Field {
+            #[serde(rename = "latest_token_usage_record")]
+            LatestTokenUsageRecord,
+            #[serde(other)]
+            Other,
+        }
+
+        struct PayloadVisitor;
+        impl<'de> serde::de::Visitor<'de> for PayloadVisitor {
+            type Value = OversizedPayload;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("an ignored Codex payload")
+            }
+
+            fn visit_map<M: serde::de::MapAccess<'de>>(
+                self,
+                mut map: M,
+            ) -> Result<Self::Value, M::Error> {
+                let mut latest = None;
+                while let Some(field) = map.next_key::<Field>()? {
+                    match field {
+                        Field::LatestTokenUsageRecord => {
+                            latest = map.next_value()?;
+                        }
+                        Field::Other => {
+                            map.next_value::<serde::de::IgnoredAny>()?;
+                        }
+                    }
+                }
+                Ok(OversizedPayload {
+                    latest_token_usage_record: latest,
+                })
+            }
+
+            fn visit_seq<A: serde::de::SeqAccess<'de>>(
+                self,
+                mut seq: A,
+            ) -> Result<Self::Value, A::Error> {
+                while seq.next_element::<serde::de::IgnoredAny>()?.is_some() {}
+                Ok(OversizedPayload::default())
+            }
+
+            fn visit_bool<E: serde::de::Error>(self, _: bool) -> Result<Self::Value, E> {
+                Ok(OversizedPayload::default())
+            }
+            fn visit_i64<E: serde::de::Error>(self, _: i64) -> Result<Self::Value, E> {
+                Ok(OversizedPayload::default())
+            }
+            fn visit_u64<E: serde::de::Error>(self, _: u64) -> Result<Self::Value, E> {
+                Ok(OversizedPayload::default())
+            }
+            fn visit_f64<E: serde::de::Error>(self, _: f64) -> Result<Self::Value, E> {
+                Ok(OversizedPayload::default())
+            }
+            fn visit_str<E: serde::de::Error>(self, _: &str) -> Result<Self::Value, E> {
+                Ok(OversizedPayload::default())
+            }
+            fn visit_string<E: serde::de::Error>(self, _: String) -> Result<Self::Value, E> {
+                Ok(OversizedPayload::default())
+            }
+            fn visit_unit<E: serde::de::Error>(self) -> Result<Self::Value, E> {
+                Ok(OversizedPayload::default())
+            }
+        }
+        deserializer.deserialize_any(PayloadVisitor)
+    }
+}
+
+struct OversizedEnvelope {
+    kind: OversizedKind,
+    timestamp: Option<String>,
+    payload: OversizedPayload,
+}
+
+impl<'de> Deserialize<'de> for OversizedEnvelope {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         struct ObjectVisitor;
         impl<'de> serde::de::Visitor<'de> for ObjectVisitor {
-            type Value = NonUsageEnvelope;
+            type Value = OversizedEnvelope;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                 formatter.write_str("a Codex record object")
@@ -32,24 +114,34 @@ impl<'de> Deserialize<'de> for NonUsageEnvelope {
                 #[derive(Deserialize)]
                 struct Fields {
                     #[serde(rename = "type")]
-                    kind: NonUsageKind,
+                    kind: OversizedKind,
+                    #[serde(default)]
+                    timestamp: Option<String>,
+                    #[serde(default)]
+                    payload: OversizedPayload,
                 }
                 let fields =
                     Fields::deserialize(serde::de::value::MapAccessDeserializer::new(map))?;
-                Ok(NonUsageEnvelope { kind: fields.kind })
+                Ok(OversizedEnvelope {
+                    kind: fields.kind,
+                    timestamp: fields.timestamp,
+                    payload: fields.payload,
+                })
             }
         }
-        // Derived structs also accept positional arrays; only native objects may be skipped.
+        // Derived structs also accept positional arrays; only native objects may advance.
         deserializer.deserialize_map(ObjectVisitor)
     }
 }
 
 #[derive(Deserialize)]
-enum NonUsageKind {
+enum OversizedKind {
     #[serde(rename = "response_item")]
     ResponseItem,
     #[serde(rename = "world_state")]
     WorldState,
+    #[serde(rename = "compacted")]
+    Compacted,
 }
 
 /// Read at most one line, checking UTF-8 even in JSON values ignored by serde.
@@ -99,8 +191,9 @@ impl<R: Read> Read for SingleLine<R> {
     }
 }
 
-/// Keep the ordinary limit for usage, unknown types and malformed records. A complete,
-/// valid response_item/world_state may advance one line using bounded streaming reads.
+/// Keep the ordinary limit for usage, unknown types and malformed records. Complete,
+/// valid response_item/world_state records retain only their type. Compacted records
+/// retain their timestamp and latest_token_usage_record for boundary usage recovery.
 pub(super) fn read_jsonl(
     path: &Path,
     offset: u64,
@@ -120,9 +213,9 @@ pub(super) fn read_jsonl(
         utf8_tail: Vec::new(),
         deadline: limits.time_budget.map(|budget| Instant::now() + budget / 2),
         timed_out: false,
-        max_bytes: MAX_NON_USAGE_LINE_BYTES,
+        max_bytes: MAX_OVERSIZED_LINE_BYTES,
     };
-    let parsed = serde_json::from_reader::<_, NonUsageEnvelope>(BufReader::with_capacity(
+    let parsed = serde_json::from_reader::<_, OversizedEnvelope>(BufReader::with_capacity(
         32 * 1024,
         &mut line,
     ));
@@ -133,15 +226,21 @@ pub(super) fn read_jsonl(
         outcome.stop = StopReason::TimeBudget;
     } else if let Ok(envelope) = parsed {
         if line.complete && line.utf8_tail.is_empty() {
+            let text = match envelope.kind {
+                OversizedKind::ResponseItem => r#"{"type":"response_item"}"#.to_string(),
+                OversizedKind::WorldState => r#"{"type":"world_state"}"#.to_string(),
+                OversizedKind::Compacted => serde_json::json!({
+                    "type":"compacted",
+                    "timestamp":envelope.timestamp,
+                    "payload":{"latest_token_usage_record":envelope.payload.latest_token_usage_record}
+                })
+                .to_string(),
+            };
             outcome.lines.push(RawLine {
                 number,
                 start: offset,
                 end: offset + line.bytes,
-                text: match envelope.kind {
-                    NonUsageKind::ResponseItem => r#"{"type":"response_item"}"#,
-                    NonUsageKind::WorldState => r#"{"type":"world_state"}"#,
-                }
-                .to_string(),
+                text,
             });
             outcome.next_offset = offset + line.bytes;
             outcome.next_line_number = number + 1;
@@ -167,7 +266,7 @@ mod tests {
             timed_out: false,
             max_bytes,
         };
-        let parsed = serde_json::from_reader::<_, NonUsageEnvelope>(BufReader::with_capacity(
+        let parsed = serde_json::from_reader::<_, OversizedEnvelope>(BufReader::with_capacity(
             buffer, &mut line,
         ));
         parsed.is_ok() && line.complete && line.utf8_tail.is_empty()
@@ -175,7 +274,7 @@ mod tests {
 
     #[test]
     fn validates_full_envelopes_without_retaining_ignored_values() {
-        for kind in ["response_item", "world_state"] {
+        for kind in ["response_item", "world_state", "compacted"] {
             let text = format!(
                 "{{\"payload\":{{\"output\":\"{}😀\\\"\\n\"}},\"type\":\"{kind}\"}}\r\n",
                 "x".repeat(32700)
@@ -186,6 +285,10 @@ mod tests {
             let with_next = format!("{text}invalid next line\n");
             assert!(validate(with_next.as_bytes(), 32 * 1024, 64 * 1024));
         }
+        for payload in ["null", "[]", "\"ignored\"", "1", "true"] {
+            let text = format!("{{\"payload\":{payload},\"type\":\"response_item\"}}\n");
+            assert!(validate(text.as_bytes(), 7, 1024), "{text}");
+        }
     }
 
     #[test]
@@ -193,7 +296,6 @@ mod tests {
         for kind in [
             "token_usage_record",
             "event_msg",
-            "compacted",
             "turn_context",
             "session_meta",
             "future_type",

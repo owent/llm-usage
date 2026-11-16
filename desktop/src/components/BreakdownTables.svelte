@@ -68,7 +68,7 @@
             <th>{t('dashboard.subtotal')}</th><td class="num">{fmtNumber(totals.call_count)}</td>
             <td class="num"><TokenTotal sums={totals} metric="input" /></td><td class="num"><TokenTotal sums={totals} metric="output" /></td>
             <td class="num"><TokenTotal sums={totals} /></td><td class="num">{fmtNumber(totals.cache_read_known)}</td>
-            {#if pricing}<td class="num"><CostAmounts rows={costs?.current_sim.rows} /></td>{/if}
+            {#if pricing}<td class="num"><CostAmounts rows={costs?.current_sim.rows} aggregate /></td>{/if}
           </tr></tfoot>
         {/if}
       </table>

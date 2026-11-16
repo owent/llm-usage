@@ -3,7 +3,7 @@
   import { pricedAmounts, formatAmount, formatCostRange } from '../lib/costs';
   import { i18n,t } from '../lib/i18n.svelte';
   import {cnyToUsd,referenceFx} from '../lib/exchange-rates';
-  let {rows=[],compact=false}:{rows?:CostCurrencyRowDto[];compact?:boolean}=$props();
+  let {rows=[],compact=false,aggregate=false}:{rows?:CostCurrencyRowDto[];compact?:boolean;aggregate?:boolean}=$props();
   const priced=$derived(pricedAmounts(rows));
   const unpriced=$derived(rows.reduce((sum,r)=>sum+r.unpriced_event_count,0));
 </script>
@@ -12,6 +12,7 @@
   {@const usd=cnyToUsd(row.currency,row.total_amount_minor)}
   {@const usdUpper=cnyToUsd(row.currency,row.upper_amount_minor??null)}
   {@const ranged=typeof row.upper_amount_minor==='number' && Number.isFinite(row.upper_amount_minor)}
+  {@const substituteHint=compact||aggregate?t('cost.substituteSummary'):t('cost.substituteHint',{models:row.substitute_models?.join(', ')??''})}
   <div class="money" class:compact title={[`${row.currency} ${formatCostRange(i18n.locale,row)}`,t('cost.coverage',{priced:row.priced_tokens,known:row.known_tokens}),row.partial_event_count?t('cost.partialCount',{count:row.partial_event_count}):''].filter(Boolean).join(' · ')}>
     <span class:ranged={compact&&ranged}>
       {#if compact&&ranged}
@@ -19,7 +20,7 @@
         <span class="bound"> – {formatAmount(i18n.locale,row.currency,row.upper_amount_minor)}</span>
       {:else}{row.currency} {formatCostRange(i18n.locale,row)}{/if}
     </span>
-    {#if row.substitute_models?.length}<small title={t('cost.substituteHint',{models:row.substitute_models.join(', ')})}>{compact?t('cost.substituteShort'):t('cost.substituteHint',{models:row.substitute_models.join(', ')})}</small>{/if}
+    {#if row.substitute_models?.length}<small title={substituteHint}>{substituteHint}</small>{/if}
     {#if usd!==null}<small title={`${t('cost.fxHint',{date:referenceFx.date})} · ≈ USD ${formatCostRange(i18n.locale,{currency:'USD',total_amount_minor:usd,upper_amount_minor:usdUpper})}`}>
       {#if compact&&usdUpper!==null}<span class="converted-range"><span>≈ USD {formatAmount(i18n.locale,'USD',usd)}</span><span> – {formatAmount(i18n.locale,'USD',usdUpper)}</span></span>
       {:else}≈ USD {formatCostRange(i18n.locale,{currency:'USD',total_amount_minor:usd,upper_amount_minor:usdUpper})}{/if}

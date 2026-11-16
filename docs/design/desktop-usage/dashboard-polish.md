@@ -85,6 +85,10 @@ Compact monetary rows, converted amounts and tier/substitute hints must fit thei
 at both four-column and eight-column breakpoints. Bound each child to its content width
 and truncate long single-line text with an ellipsis. Tooltips retain the full original
 and converted amount ranges. Never change rounding or amounts to make text fit.
+When any model uses an authorized cross-model price, metric cards, cost summaries and table totals
+show one generic notice that some models use reference prices. Do not concatenate model-specific
+hints or substitute IDs in those aggregates. Each model row and unit-price detail retains the exact
+reference model and reason.
 
 Settings use the existing styled switches for on/off options, with stable accessible
 names, keyboard Space support and visible focus. Export user/host selections keep

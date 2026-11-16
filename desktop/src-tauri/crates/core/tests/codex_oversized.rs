@@ -103,6 +103,42 @@ fn legacy_reader_also_resumes_after_oversized_non_usage() {
 }
 
 #[test]
+fn oversized_compaction_preserves_carried_usage_and_later_calls() {
+    let dir = TempDir::new("codex-large-compaction");
+    let usage = json!({"input_tokens":100,"cached_input_tokens":50,"cache_write_input_tokens":0,
+        "output_tokens":20,"reasoning_output_tokens":5,"total_tokens":120});
+    let header = json!({"type":"session_meta","payload":{"id":"synthetic-session","cli_version":"0.154.0-alpha.6.2"}});
+    let model = json!({"type":"turn_context","payload":{"model":"gpt-6-sol"}});
+    let compacted = json!({"type":"compacted","timestamp":"2026-10-20T00:01:00Z","payload":{
+        "replacement_history":[{"content":"x".repeat(2048)}],
+        "latest_token_usage_record":{"response_id":"carried-call","thread_id":"synthetic-session","session_id":"synthetic-session","usage":usage.clone()}}});
+    let later = json!({"type":"token_usage_record","timestamp":"2026-10-20T00:02:00Z","payload":{
+        "response_id":"later-call","usage":usage}});
+    let text = format!("{header}\n{model}\n{compacted}\n{later}\n");
+    let root = codex_root_with_file(&dir, "rollout-large-compaction.jsonl", text.as_bytes());
+    let (_db, storage) = temp_storage("codex-large-compaction");
+    let mut limits = llm_usage_core::adapters::framework::ScanLimits::default();
+    limits.jsonl.max_line_bytes = 512;
+    for n in 0..4 {
+        run_codex_with_limits(&storage, &root, 1_800_000_000_000 + n, limits.clone());
+    }
+    let totals = summary_of_event_days(&storage).totals;
+    assert_eq!(
+        (totals.call_count, totals.total_tokens_known),
+        (2, Some(240)),
+        "compaction-carried usage and the later call must both be imported"
+    );
+    let status: String = storage
+        .conn()
+        .query_row("SELECT status FROM source_files", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(status, "active");
+    let repeated = run_codex_with_limits(&storage, &root, 1_800_000_000_004, limits);
+    assert_eq!(repeated[0].files[0].status, "unchanged");
+    assert_eq!(summary_of_event_days(&storage).totals, totals);
+}
+
+#[test]
 fn oversized_usage_holds_the_cursor_and_keeps_the_error_visible() {
     let dir = TempDir::new("codex-large-usage");
     let rows = records(1).lines().map(str::to_string).collect::<Vec<_>>();

@@ -135,6 +135,37 @@ Version 0.3.12 passed `npm run verify` again (1,189 Rust, 20 script and 34 front
 ten explicit native/platform ignores), release-version consistency, and documentation
 check/test/build before commit. These checks do not replace the tagged platform package jobs.
 
+## Aggregate price labels and oversized Codex compaction
+
+Metric cards, cost-panel summaries and model-table totals now show only “Some models use reference prices”
+when cross-model references contribute. They do not list substitute IDs or concatenate per-model reasons.
+Model rows and unit-price details retain the original model, exact reference and reason. The browser
+regression supplies two aggregate substitute IDs and checks all three aggregate regions separately from
+the model detail.
+
+The current application database copy had one degraded Codex file at a held line 1,492. Native version
+0.167.0-alpha.4.1 was structurally readable; `has_record_errors` was false. The 17,260,078-byte complete
+`compacted` line exceeded 8 MiB and contained valid six-field `latest_token_usage_record` usage. The reader
+now streams it under the existing 64 MiB cap, discarding replacement history while retaining only the
+timestamp and latest usage record. Other usage, unknown, malformed, incomplete and positional-array
+records retain the held-cursor behavior. No parser-version change is needed for a held, incomplete cursor.
+
+A fresh isolated scan of the real file copy completed in nine bounded windows and ended `active_compat`
+at offset/size 169,775,000. It imported 256 calls and 53,711,098 total tokens, exactly matching an
+independent native-record calculation. Original Agent data and the active application database were not
+modified. This verifies the real file/parser path, not an installed GUI or old-database rewrite.
+
+| Check | Result |
+| --- | --- |
+| `cargo test --manifest-path desktop/src-tauri/Cargo.toml --locked --test codex_oversized` | Exit 0: seven tests, including carried usage plus a later call after oversized compaction. |
+| Codex reader unit tests and `codex_health_replay` | Exit 0: two reader tests and five health/replay tests. |
+| `cargo clippy --manifest-path desktop/src-tauri/Cargo.toml --locked -p llm-usage-core --lib --test codex_oversized -- -D warnings` | Exit 0. |
+| `npm run check` and `desktop/tests/i18n.test.mjs` | Exit 0: Svelte types and ten-locale message/placeholder checks. |
+| `npm run test:browser` | Exit 0: Edge synthetic-IPC checks cover generic trend/card/table-total labels and exact model details without narrow-layout overflow. |
+
+Disposable database/file copies and the native probe were written under `build/codex-review-20261116/`
+and removed after validation.
+
 ## Verification
 
 | Command | Result |

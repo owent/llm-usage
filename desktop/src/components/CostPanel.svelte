@@ -22,7 +22,7 @@
               {#if row.fallback_event_count} · {t('cost.fallbackCount',{count:row.fallback_event_count})}{/if}
               {#if row.aggregate_event_count} · {t('cost.aggregateCount',{count:row.aggregate_event_count})}{/if}
               {#if row.upper_amount_minor!=null} · {t('cost.tierRange')}{/if}
-              {#if row.substitute_models?.length} · {t('cost.substituteHint',{models:row.substitute_models.join(', ')})}{/if}
+              {#if row.substitute_models?.length} · {t('cost.substituteSummary')}{/if}
             </span>
           </li>
         {/if}

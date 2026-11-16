@@ -140,17 +140,17 @@ const upperBounds:Record<string,string>={'zh-CN':'上界','zh-TW':'上界',en:'U
 for(const [locale,catalog] of Object.entries(referenceCatalogs)) catalog['cost.upperBound']=upperBounds[locale];
 
 const substitutePrices:Record<string,[string,string]>={
-  'zh-CN':['替代参考','缺少本型号价目，按 {models} 替代参考'],
-  'zh-TW':['替代參考','缺少本型號價目，按 {models} 替代參考'],
-  en:['Substitute rate','Model rate unavailable; using {models} as a substitute reference'],
-  ja:['代替料金','このモデルの料金がないため、{models} の料金を参考に使用'],
-  ko:['대체 요금','모델 요금 없음: {models} 요금을 대체 참고로 사용'],
-  es:['Tarifa sustituta','Sin tarifa del modelo; se usa {models} como referencia sustituta'],
-  fr:['Tarif de substitution','Tarif du modèle indisponible ; référence de substitution : {models}'],
-  de:['Ersatzpreis','Modellpreis fehlt; {models} dient als Ersatzreferenz'],
-  'pt-BR':['Tarifa substituta','Sem tarifa do modelo; usando {models} como referência substituta'],
-  ru:['Замещающий тариф','Тариф модели отсутствует; используется справочный тариф {models}'],
+  'zh-CN':['部分模型采用参考价格','缺少本型号价目，按 {models} 替代参考'],
+  'zh-TW':['部分模型採用參考價格','缺少本型號價目，按 {models} 替代參考'],
+  en:['Some models use reference prices','Model rate unavailable; using {models} as a substitute reference'],
+  ja:['一部のモデルは参考価格を使用','このモデルの料金がないため、{models} の料金を参考に使用'],
+  ko:['일부 모델은 참고 가격 사용','모델 요금 없음: {models} 요금을 대체 참고로 사용'],
+  es:['Algunos modelos usan precios de referencia','Sin tarifa del modelo; se usa {models} como referencia sustituta'],
+  fr:['Certains modèles utilisent des tarifs de référence','Tarif du modèle indisponible ; référence de substitution : {models}'],
+  de:['Einige Modelle verwenden Referenzpreise','Modellpreis fehlt; {models} dient als Ersatzreferenz'],
+  'pt-BR':['Alguns modelos usam preços de referência','Sem tarifa do modelo; usando {models} como referência substituta'],
+  ru:['Для некоторых моделей используются справочные цены','Тариф модели отсутствует; используется справочный тариф {models}'],
 };
 for(const [locale,catalog] of Object.entries(referenceCatalogs)) {
-  [catalog['cost.substituteShort'],catalog['cost.substituteHint']]=substitutePrices[locale];
+  [catalog['cost.substituteSummary'],catalog['cost.substituteHint']]=substitutePrices[locale];
 }

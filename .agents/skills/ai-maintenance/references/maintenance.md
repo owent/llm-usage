@@ -247,6 +247,9 @@ compatibility per file/database format. Unlisted versions alone do not produce a
 shape is valid and complete. Missing paths do not prove Agent cleanup. For projection upgrades and inherited
 history, trace the writer and fork/compaction ownership before counting calls; see the
 [OpenCode v2 rules](../../../../docs/design/desktop-usage/opencode-runtime.md).
+For Codex oversized compactions, validate the complete object/UTF-8/newline and retain only the timestamp
+and latest usage record while streaming past replacement history. Test both carried usage and later calls;
+held cursors recover without clearing old diagnostics or registering an unrelated client version.
 Verify reevaluation with real unchanged old cursors. SQLite invalid-row state
 persists across incremental windows and recovers after correction/deletion. Invalid reconciliation types
 must not bulk-fail valid messages. Mouse tests cover no query before release, forward/reverse selection,
@@ -269,6 +272,8 @@ Merge model rows by source provider/model, retaining multiple price bases; see t
 [pricing rules](../../../../docs/design/desktop-usage/pricing.md). Authorized cross-model references separate
 identity aliases/substitution rules and list approved mappings only. Regress exact-price priority,
 ambiguity rejection, unchanged history and substitution labels in summary/model amounts/unit prices.
+Aggregate cards, panels and table totals show one generic reference-price notice rather than joining
+model-specific hints; retain exact substitute identities and reasons in model rows and unit prices.
 
 Only local Agent sources are in scope. Platform/CI/scheduling use dedicated design specifications. Record local
 extraction attempts/field limits per new adapter; remote billing/APIs cannot substitute. Automation shares

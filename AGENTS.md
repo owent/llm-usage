@@ -34,8 +34,11 @@ Retain every conflicting candidate and its completeness marker from the first co
 cannot turn `legacy_unknown` into a complete history or clear its conflict; preserve candidates through
 corrections and parser upgrades. See the [0.3.3 repair record](docs/validation/desktop-usage/release-033.md).
 
-Codex oversized non-usage skips require a complete JSON object, valid UTF-8 and newline;
-positional arrays never establish a native record. Qoder CLI 1.1.76 uses the independent
+Codex oversized `response_item`/`world_state` skips and `compacted` reads require a complete JSON object,
+valid UTF-8 and newline; positional arrays never establish a native record. Stream oversized compaction
+without retaining replacement history, but preserve its timestamp and `latest_token_usage_record` for
+boundary usage and ownership checks. Held cursors retry after reader repairs without deleting diagnostics.
+Qoder CLI 1.1.76 uses the independent
 [source-derived contract](docs/design/desktop-usage/adapters.md#qoder-local-support): positive
 input includes cache, default/redacted zeros remain unknown, and Credits never supply cost.
 Keep CLI/IDE/JetBrains evidence separate. Regress long initial messages, metadata/error-only
@@ -92,6 +95,8 @@ Kimi K2.8 Preview (including k28-agent-preview) may then use the authorized offi
 OpenAI `codex-auto-review` may use GPT-5.6 Luna as a labeled API counterpart, without claiming native
 serving identity or actual billing. Preserve provider/channel/currency safeguards, missing components,
 model identity and occurrence-time amounts; see the [substitution rules](docs/design/desktop-usage/pricing.md#preview-and-approval-review-reference-prices).
+Aggregate cards, panels and table totals use one generic notice that some models employ reference prices;
+do not concatenate model-specific substitute IDs or hints. Model rows and unit-price details retain them.
 
 Cost and usage queries must cover the same retention range. Choose details or archives by complete source
 partition; sum before rounding. Do not infer missing archive components by subtraction. Without per-call
