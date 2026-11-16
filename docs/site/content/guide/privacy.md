@@ -19,6 +19,9 @@ gateways and cloud-synchronized sessions are outside the local-source boundary.
 - Statistics do not require an extra model request, account login or cloud database.
 - Optional price refresh requests the built-in public price catalog and sends no local
   usage. It is disabled by default.
+- Optional model mapping refresh downloads the project's public name catalogue, with an
+  exact repository fallback. It sends no local usage or credentials and is disabled by default.
+  These display names do not identify a hidden serving model or change prices.
 - Optional authenticated OTLP/HTTP reception listens only on loopback and requires the
   running app. It is disabled by default.
 - Explicit IDE telemetry configuration can change how that client exports locally;

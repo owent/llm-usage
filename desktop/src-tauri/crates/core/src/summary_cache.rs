@@ -92,6 +92,7 @@ mod tests {
     use super::*;
     fn summary() -> Summary {
         Summary {
+            model_alias_revision: "test".into(),
             data_revision: 1,
             timezone: "UTC".into(),
             week_start: crate::calendar::WeekStart::Monday,

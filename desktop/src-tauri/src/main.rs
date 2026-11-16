@@ -12,6 +12,7 @@ mod db_backup;
 mod file_watch;
 #[cfg(windows)]
 mod installation;
+mod model_alias_refresh;
 mod otel_receiver;
 mod power;
 mod price_refresh;
@@ -224,6 +225,7 @@ fn main() {
         .setup(|app| {
             let state = app.state::<Arc<AppState>>();
             updates::start_scheduler(app.handle().clone(), Arc::clone(&state));
+            model_alias_refresh::maybe_auto_refresh(&state, false);
             if let Err(error) = crate::tray::apply(app.handle(), &state.settings.lock().unwrap()) {
                 eprintln!("tray setup failed: {error}");
             }
@@ -292,6 +294,9 @@ fn main() {
             commands::import_price_snapshot,
             commands::refresh_prices_online,
             commands::price_refresh_status,
+            model_alias_refresh::model_alias_status,
+            model_alias_refresh::refresh_model_aliases,
+            model_alias_refresh::import_model_aliases,
             commands::quota_summary,
             commands::quota_series,
             telemetry_setup::telemetry_check,

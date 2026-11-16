@@ -4,6 +4,7 @@
   import BudgetReminder from './components/BudgetReminder.svelte';
   import UpdateNotice from './components/UpdateNotice.svelte';
   import { calendarDay, offsetDay } from './lib/calendar';
+  import { modelLabelFromRows } from './lib/model-names';
   import { api, parseError } from './lib/api';
   import type {
     AppSettings,
@@ -592,7 +593,7 @@
         : null;
       const [s, ts, choices] = await Promise.all([api.summary(q), api.summary(tq), unfiltered]);
       if (sequence !== summarySequence) return;
-      const key = `${scope}|${s.data_revision}|${ts.data_revision}`;
+      const key = `${scope}|${s.data_revision}|${ts.data_revision}|${s.model_alias_revision}|${ts.model_alias_revision}`;
       if (key !== loadedDataKey) {
         loadedDataKey = key;
         summary = s;
@@ -710,9 +711,11 @@
       const wasRunning = refresh?.running ?? false;
       const r = await api.refreshStatus();
       refresh = r;
+      const aliasChanged = r.model_alias_revision !== undefined && summary?.model_alias_revision !== r.model_alias_revision;
       if (pendingManualFinish !== null && (r.running || r.last_finished_ms !== pendingManualFinish)) {
         pendingManualFinish = null;
       }
+      if (aliasChanged && ready) await loadSummary();
       if (
         !r.running &&
         r.last_finished_ms > 0 &&
@@ -1003,7 +1006,7 @@
         <select bind:value={modelFilter} aria-label={t('filter.model')}>
           <option value="">{t('common.all')}</option>
           {#each modelsAvailable as m (m)}
-            <option value={m === '__unknown__' ? 'unknown' : m}>{m === '__unknown__' ? t('common.unknown') : m}</option>
+            <option value={m === '__unknown__' ? 'unknown' : m} title={m === '__unknown__' ? '' : m}>{m === '__unknown__' ? t('common.unknown') : modelLabelFromRows(catalog?.models,m)}</option>
           {/each}
         </select>
       </label>
@@ -1087,10 +1090,10 @@
                 <p class="period-hint">{t('dashboard.dragHint')}</p>
                 <TodayHourly hourly={todaySummary?.today_hourly ?? []} query={todayQuery} {isDark} selectedRange={todaySelection} onrangechange={onTodayRangeChange} />
               {:else if id === 'today-costs'}
-                <CostPanel summary={todayScopeCosts} error={todayScopeCostsError} />
-                <CostChart summary={costs} periods={todaySummary?.periods ?? []} {isDark} selectedRange={todaySelection} onperiodclick={(label)=>onTodayRangeChange(label,label)} onrangechange={onTodayRangeChange} />
+                <CostPanel summary={todayScopeCosts} error={todayScopeCostsError} modelLabels={todayScopeSummary?.models} />
+                <CostChart summary={costs} periods={todaySummary?.periods ?? []} modelLabels={todaySummary?.models} {isDark} selectedRange={todaySelection} onperiodclick={(label)=>onTodayRangeChange(label,label)} onrangechange={onTodayRangeChange} />
               {:else if id === 'today-model-pie'}
-                <SharePie data={todayModelPie} {isDark} />
+                <SharePie data={todayModelPie} displayName={(name)=>modelLabelFromRows(todayScopeSummary?.models,name)} {isDark} />
               {:else if id === 'today-agent-pie'}
                 <SharePie data={todayAgentPie} {isDark} />
               {:else if id === 'today-model-table'}
@@ -1161,7 +1164,7 @@
               <div class="period-pies">
                 <div class="ppie">
                   <div class="ppie-title">{t('trend.pie.model')}</div>
-                  <SharePie data={trendModelPie} {isDark} height={190} />
+                  <SharePie data={trendModelPie} displayName={(name)=>modelLabelFromRows(trendScopeSummary?.models,name)} {isDark} height={190} />
                 </div>
                 <div class="ppie">
                   <div class="ppie-title">{t('trend.pie.agent')}</div>
@@ -1261,8 +1264,8 @@
             {:else if id === 'trend-tokens'}
               <TokenChart periods={summary.periods} {query} {granularity} {isDark} selectedRange={trendSelection} onperiodclick={onTrendPeriodClick} onrangechange={onTrendRangeChange} />
             {:else if id === 'trend-costs'}
-              <CostPanel summary={trendScopeCosts} error={trendSelection ? selectionCostsError : costsError} />
-              <CostChart summary={costs} periods={summary.periods} {isDark} selectedRange={trendSelection} onperiodclick={onTrendPeriodClick} onrangechange={onTrendRangeChange} />
+              <CostPanel summary={trendScopeCosts} error={trendSelection ? selectionCostsError : costsError} modelLabels={trendScopeSummary?.models} />
+              <CostChart summary={costs} periods={summary.periods} modelLabels={summary.models} {isDark} selectedRange={trendSelection} onperiodclick={onTrendPeriodClick} onrangechange={onTrendRangeChange} />
             {:else if id === 'trend-heatmap'}
               <p class="range-caption">{t('dashboard.fullRangePanel')}</p>
               <UsageHeatmap {query} reloadKey={dataReloadKey + (summary?.data_revision ?? 0)} {isDark} />
@@ -1272,7 +1275,7 @@
             {:else if id === 'trend-model-pie'}
               <p class="range-caption">{trendRangeCaption}</p>
               {#if trendSelection && !selectionSummary}<p class="muted">{selectionError ? '—' : t('common.loading')}</p>{/if}
-              <SharePie data={trendModelPie} {isDark} />
+              <SharePie data={trendModelPie} displayName={(name)=>modelLabelFromRows(trendScopeSummary?.models,name)} {isDark} />
             {:else if id === 'trend-agent-pie'}
               <p class="range-caption">{trendRangeCaption}</p>
               {#if trendSelection && !selectionSummary}<p class="muted">{selectionError ? '—' : t('common.loading')}</p>{/if}
@@ -1290,7 +1293,7 @@
       <p class="muted">{t('common.loading')}</p>
     {/if}
   {:else if tab === 'details'}
-    <EventDetails {query} scopeKey={currentUser} timezone={settings?.timezone ?? 'UTC'} reloadKey={dataReloadKey + (summary?.data_revision ?? 0)} />
+    <EventDetails {query} scopeKey={currentUser} timezone={settings?.timezone ?? 'UTC'} reloadKey={`${dataReloadKey}|${summary?.data_revision}|${summary?.model_alias_revision}`} />
   {:else if tab === 'sources'}
     <SourceList {sources} users={userOptions} onchanged={reloadUserData} />
   {:else if tab === 'settings'}

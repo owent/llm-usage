@@ -1,10 +1,11 @@
 <script lang="ts">
-  import type {CostSummaryDto} from '../lib/api';
+  import type {CostSummaryDto,SummaryDto} from '../lib/api';
   import UnitPriceValue from './UnitPriceValue.svelte';
   import {referenceFx} from '../lib/exchange-rates';
   import {i18n,t} from '../lib/i18n.svelte';
   import {unpricedReasonKey} from '../lib/costs';
-  let {summary}:{summary:CostSummaryDto}=$props();
+  import {modelLabelFromRows} from '../lib/model-names';
+  let {summary,modelLabels}:{summary:CostSummaryDto;modelLabels?:SummaryDto['models']}=$props();
 </script>
 <details class="unit-prices">
   <summary>{t('cost.unitPrices')}</summary>
@@ -19,7 +20,7 @@
         {#each summary.models as model (`${model.provider}/${model.model}`)}
           {@const substitutes=[...new Set(model.current_sim.flatMap(row=>row.substitute_models??[]))]}
           <tr data-price-model={`${model.provider}/${model.model}`}>
-            <th class="model">{model.model || t('common.unknown')}<small>{model.provider || t('common.unknown')}</small>
+            <th class="model" title={model.model}>{modelLabelFromRows(modelLabels,model.model,model.provider) || t('common.unknown')}<small>{model.provider || t('common.unknown')}</small>
               {#each model.reference_models??[] as reference}{#if reference!==model.model}<small>→ {reference}</small>{/if}{/each}
               {#if substitutes.length}<small>{t('cost.substituteHint',{models:substitutes.join(', ')})}</small>{/if}
               {#if model.unit_prices?.length}

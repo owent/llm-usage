@@ -97,6 +97,11 @@ tiers, show known cost intervals. Regress queries before/after retention cleanup
 weekly/monthly archives, small-value aggregation and merged model rows; see the pricing rules.
 Keep model spellings, dynamic aliases and pricing channels separate. Resolve aliases by usage date;
 unknown suffixes and conflicts receive no price.
+For model display mappings, read the [versioned mapping rules](docs/design/desktop-usage/model-aliases.md).
+Preserve raw usage/export/filter/grouping keys and pricing. Resolve exact Agent/provider/time scopes
+in the same retained query snapshot; mixed names, gaps and conflicts retain raw keys. Refresh is
+default-off and uses only the two fixed public metadata URLs. Retain candidates, effective intervals,
+cache integrity and transactional stale-worker/settings checks; catalogue labels do not verify serving models.
 
 Discovery fixes must verify old-database recovery through the full registry's real discover path,
 including promotion to parent directories. Route application-managed roots by file/database format. Never

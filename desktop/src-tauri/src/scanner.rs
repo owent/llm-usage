@@ -521,6 +521,7 @@ fn run_refresh_in_context(
         // F2 models.dev refresh runs in the background only when enabled and stale.
         // Failures leave operation diagnostics without blocking collection or repricing existing estimates.
         crate::price_refresh::maybe_auto_refresh(state, false);
+        crate::model_alias_refresh::maybe_auto_refresh(state, false);
     }
     {
         // Advance next_due only for due instances with actual completed outcomes.

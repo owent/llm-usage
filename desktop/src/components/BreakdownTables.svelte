@@ -2,7 +2,7 @@
   import type { MetricSumsDto, CostSummaryDto } from '../lib/api';
   import CostAmounts from './CostAmounts.svelte';
   import TokenTotal from './TokenTotal.svelte';
-  import {modelKey} from '../lib/model-names';
+  import {modelKey, modelRowDisplayName} from '../lib/model-names';
   import {unpricedReasonKey} from '../lib/costs';
   import { t, fmtNumber } from '../lib/i18n.svelte';
 
@@ -14,7 +14,7 @@
     costs = null,
     pricing = false,
   }: {
-    models?: { provider: string | null; model: string | null; sums: MetricSumsDto }[];
+    models?: { provider: string | null; model: string | null; display_model?: string | null; sums: MetricSumsDto }[];
     agents?: { agent: string; sums: MetricSumsDto }[];
     kind?: 'both' | 'model' | 'agent';
     totals?: MetricSumsDto | null;
@@ -47,7 +47,7 @@
         <tbody>
           {#each models as m (`${m.provider ?? ''}/${m.model ?? ''}`)}
             <tr>
-              <td><strong>{m.model ?? t('common.unknown')}</strong><small>{m.provider ?? t('common.unknown')}</small></td>
+              <td><strong title={m.model ?? ''}>{modelRowDisplayName(m) ?? t('common.unknown')}</strong><small>{m.provider ?? t('common.unknown')}</small></td>
               <td class="num" title={m.sums.call_count === 0 && m.sums.event_count > 0 ? t('dashboard.callsUnknown') : ''}>{fmtNumber(m.sums.call_count === 0 && m.sums.event_count > 0 ? null : m.sums.call_count)}</td>
               <td class="num"><TokenTotal sums={m.sums} metric="input" /></td>
               <td class="num"><TokenTotal sums={m.sums} metric="output" /></td>

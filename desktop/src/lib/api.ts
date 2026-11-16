@@ -35,8 +35,26 @@ export interface AppSettings {
   pricing?: PricingSettings;
   budget?: BudgetSettings;
   updates?: UpdateSettings;
+  model_aliases?: ModelAliasSettings;
   otel_receiver_enabled?: boolean;
   otel_receiver_port?: number;
+}
+
+export interface ModelAliasSettings {
+  online_refresh_enabled: boolean;
+  cache_ttl_days: number;
+}
+
+export interface ModelAliasStatusDto {
+  enabled: boolean;
+  ttl_days: number;
+  running: boolean;
+  generation: number | null;
+  revision: string;
+  rules: number;
+  cache: { fetched_at_ms: number; rule_version: string; content_hash: string } | null;
+  error: string | null;
+  last_outcome: { status: string; error: string | null; first_error: string | null } | null;
 }
 
 export interface UpdateSettings {
@@ -275,12 +293,13 @@ export interface PeriodDto {
 
 export interface SummaryDto {
   data_revision: number;
+  model_alias_revision?: string;
   timezone: string;
   periods: PeriodDto[];
   totals: MetricSumsDto;
   distinct_sessions: number | null;
   active_days: number | null;
-  models: { provider: string | null; model: string | null; sums: MetricSumsDto }[];
+  models: { provider: string | null; model: string | null; display_model?: string | null; sums: MetricSumsDto }[];
   agents: { agent: string; sums: MetricSumsDto }[];
   today_hourly: {
     sums: MetricSumsDto;
@@ -331,6 +350,7 @@ export interface SourceDto {
 
 export interface RefreshStateDto {
   running: boolean;
+  model_alias_revision?: string;
   started_ms: number;
   last_finished_ms: number;
   trigger: string;
@@ -441,6 +461,7 @@ export interface EventDetailRowDto {
   event_id: string;
   agent: string;
   model: string | null;
+  display_model?: string | null;
   category: string | null;
   occurred_at_ms: number;
   session: string | null;
@@ -478,6 +499,7 @@ export interface ChartSeriesRowDto {
   cache_ratio: number | null;
   label: string;
   series: string;
+  display_series?: string;
   calls: number;
   input: string | null;
   cache_read: string | null;
@@ -556,6 +578,9 @@ export const api = {
   refreshSources: () =>
     invoke<{ started: boolean; running: boolean; last_finished_ms: number }>('refresh_sources'),
   refreshStatus: () => invoke<RefreshStateDto>('refresh_status'),
+  modelAliasStatus: () => invoke<ModelAliasStatusDto>('model_alias_status'),
+  refreshModelAliases: () => invoke<boolean>('refresh_model_aliases'),
+  importModelAliases: (path: string) => invoke<{generation: number; inserted_rules: number; already_present: boolean}>('import_model_aliases', {path}),
   getSettings: () => invoke<AppSettings>('get_settings'),
   setSettings: (settings: AppSettings) => invoke<void>('set_settings', { settings }),
   appInfo: () => invoke<AppInfoDto>('app_info'),

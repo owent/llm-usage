@@ -50,6 +50,13 @@ Agent, provider, model and billing channel are separate identities. A model name
 establish the actual billing provider or subscription channel. Price reference rows can
 therefore be incomplete even when token usage is known.
 
+Open **Settings → Model mappings** to import a versioned mapping JSON or enable public catalogue
+updates. Online refresh defaults off; its cache lasts three days, configurable from 1 to 365 days.
+Mappings change labels while filters, exports and prices retain the original model key. Conflicts
+and ranges spanning different mappings show the raw key. The bundled Qoder `qmodel_latest` display
+override is `Qwen4-Max-Preview`, as requested by the user; this does not verify the served model.
+The [mapping specification](/reference/design/model-aliases/) includes the import format and source limits.
+
 ## Record details
 
 Open Details to inspect normalized records for the selected user. Choose a time range,

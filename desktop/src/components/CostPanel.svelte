@@ -1,10 +1,10 @@
 <script lang="ts">
-  import type {CostSummaryDto} from '../lib/api';
+  import type {CostSummaryDto,SummaryDto} from '../lib/api';
   import {i18n,t} from '../lib/i18n.svelte';
   import {formatCostRange,unpricedReasonKey} from '../lib/costs';
   import {cnyToUsd,referenceFx} from '../lib/exchange-rates';
   import UnitPrices from './UnitPrices.svelte';
-  let {summary=null,error=''}:{summary?:CostSummaryDto|null;error?:string}=$props();
+  let {summary=null,error='',modelLabels}:{summary?:CostSummaryDto|null;error?:string;modelLabels?:SummaryDto['models']}=$props();
   function tokens(n:number) {return new Intl.NumberFormat(i18n.locale,{notation:n>=100000?'compact':'standard'}).format(n);}
 </script>
 <div class="cost-panel">
@@ -39,7 +39,7 @@
       {#if summary.current_sim.rows.some(row=>row.partial_event_count>0)}<p class="meta">{t('cost.partialHint')}</p>{/if}
       {#if summary.current_sim.detail_limited}<p class="meta">{t('cost.detailLimited')}</p>{/if}
     </details>
-    {#if summary.models.length}<UnitPrices {summary} />{/if}
+    {#if summary.models.length}<UnitPrices {summary} {modelLabels} />{/if}
     </div>
   {/if}
 </div>

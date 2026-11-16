@@ -10,6 +10,8 @@ are recorded separately. See the [adapter matrix](adapters.md) for capabilities/
 [Telemetry setup](copilot-otel.md), [dashboard interactions](dashboard-polish.md) and
 [pricing](pricing.md) define their respective behavior. Local HTTP source authentication,
 credentials, failure recovery and revocation are in [receiver authentication](receiver-auth.md).
+Versioned model labels, local imports and optional public catalogue refresh follow
+[model mappings](model-aliases.md); they preserve usage identity and pricing.
 
 <a id="产品目标与边界"></a>
 

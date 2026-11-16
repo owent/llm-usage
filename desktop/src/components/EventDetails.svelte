@@ -1,5 +1,6 @@
 <script lang="ts">
   import { api, parseError } from '../lib/api';
+  import { modelDisplayName } from '../lib/model-names';
   import type { EventDetailRowDto, SummaryQuery } from '../lib/api';
   import { i18n, t, fmtPrecise } from '../lib/i18n.svelte';
 
@@ -11,7 +12,7 @@
   }: {
     query: SummaryQuery;
     /** Force a query refresh for user switches/imports without changing query fields. */
-    reloadKey?: number;
+    reloadKey?: number | string;
     timezone?: string;
     scopeKey?: string;
   } = $props();
@@ -153,7 +154,7 @@
             <tr>
               <td class="time">{fmtTime(r.occurred_at_ms)}</td>
               <td>{r.agent}</td>
-              <td>{r.model ?? t('common.unknown')}</td>
+              <td title={r.model ?? ''}>{(r.display_model !== undefined ? r.display_model : modelDisplayName(r.model, r.agent)) ?? t('common.unknown')}</td>
               <td>{r.category ?? t('common.unknown')}</td>
               <td class="num">{fmtPrecise(r.input)}</td>
               <td class="num">{fmtPrecise(r.cache_read)}</td>

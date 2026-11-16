@@ -36,6 +36,11 @@ UI 接收带质量计数、范围、状态和数据修订的类型 DTO。大 tok
 前端不读取任意文件、执行 SQL、访问 Agent 凭据或启动 shell。后端筛选和分页有界。
 可选 HTTP 接收共享已校验采集边界，保持本地监听和认证。
 
+模型显示映射保存在独立且带版本的元数据设置中。下载在写入锁外执行，候选及成功缓存
+原文通过事务导入。查询保留原始分组/筛选键，在相同用量读取快照内按 Agent、供应商和时间
+解析名称。元数据修订只刷新前端名称，不改变用量修订或计价。
+来源、冲突和上限见[映射说明](/zh-cn/reference/design/model-aliases/)。
+
 修改前请阅读[架构说明](/zh-cn/reference/design/architecture/)、
 [数据规则](/zh-cn/reference/design/data-contract/)和
 [查询加速说明](/zh-cn/reference/design/query-acceleration/)。

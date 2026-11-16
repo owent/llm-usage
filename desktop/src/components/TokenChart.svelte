@@ -260,7 +260,7 @@
         for (const name of g.names) {
           const cell = g.cell(name, label);
           if (!cell || selected[name] === false) continue;
-          lines.push(`${markers.get(name)??''}${escapeHtml(name)}: ${formatTokenDisplay(cell.display[sub],fmtPrecise)}`);
+          lines.push(`${markers.get(name)??''}${escapeHtml(g.displayName(name))}: ${formatTokenDisplay(cell.display[sub],fmtPrecise)}`);
         }
         if (g.names.some(name=>selected[name]!==false && g.cell(name,label)?.display[sub as 'total'|'output'].lower)) {
           lines.push(`<small>${escapeHtml(t('tokens.lowerBound'))}</small>`);
@@ -270,7 +270,7 @@
           if (typeof p.value !== 'number' || !Number.isFinite(p.value)) continue;
           const name=g.names.find(name=>p.seriesName===`${name} · ${t('cards.input')}`);
           const lower=name && g.cell(name,label)?.display.input.lower;
-          lines.push(`${p.marker}${escapeHtml(p.seriesName)}: ${lower?'≥ ':''}${fmtPrecise(p.value)}`);
+          lines.push(`${p.marker}${escapeHtml(g.displayName(p.seriesName ?? ''))}: ${lower?'≥ ':''}${fmtPrecise(p.value)}`);
         }
       }
       return lines.join('<br/>');
@@ -287,7 +287,7 @@
     }
     const base = {
       tooltip: { trigger: 'axis', hideDelay: 0, transitionDuration: 0, formatter: groupedTooltip(g) },
-      legend: { top: 0, left: 'center', type: 'scroll', itemWidth: 12, itemHeight: 8, textStyle: { fontSize: 11 } },
+      legend: { formatter: g.displayName, top: 0, left: 'center', type: 'scroll', itemWidth: 12, itemHeight: 8, textStyle: { fontSize: 11 } },
       textStyle: { color: chartText },
       grid: { left: 70, right: 80, top: 48, bottom: 44, containLabel: true },
       xAxis: { type: 'category', data: g.labels, triggerEvent:true },

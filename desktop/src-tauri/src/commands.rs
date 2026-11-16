@@ -432,6 +432,7 @@ fn summary_query(
     drop(storage);
     Ok(serde_json::json!({
         "data_revision": s.data_revision,
+        "model_alias_revision": s.model_alias_revision,
         "timezone": s.timezone,
         "periods": s.periods.iter().map(|p| serde_json::json!({
             "label": p.label,
@@ -449,6 +450,7 @@ fn summary_query(
         "models": s.model_breakdown.iter().map(|m| serde_json::json!({
             "provider": m.provider_id,
             "model": m.model_raw,
+            "display_model": m.display_model,
             "sums": metric_sums_dto(&m.sums),
         })).collect::<Vec<_>>(),
         "agents": s.agent_breakdown.iter().map(|a| serde_json::json!({
@@ -743,8 +745,11 @@ pub fn refresh_sources(
 
 #[tauri::command]
 pub fn refresh_status(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_json::Value, String> {
-    let refresh = state.refresh.lock().unwrap();
-    serde_json::to_value(&*refresh).map_err(|e| err("serialize", e.to_string()))
+    let mut value = serde_json::to_value(&*state.refresh.lock().unwrap())
+        .map_err(|e| err("serialize", e.to_string()))?;
+    value["model_alias_revision"] =
+        llm_usage_core::model_aliases::revision(&crate::app_state::read_conn(&state)).into();
+    Ok(value)
 }
 
 #[tauri::command]
@@ -759,9 +764,13 @@ pub async fn set_settings(
     settings: AppSettings,
 ) -> Result<(), String> {
     let state = Arc::clone(&state);
-    tauri::async_runtime::spawn_blocking(move || apply_settings(&app, &state, settings))
-        .await
-        .map_err(|_| err("settings_save_failed", "settings worker failed"))?
+    tauri::async_runtime::spawn_blocking(move || {
+        apply_settings(&app, &state, settings)?;
+        crate::model_alias_refresh::maybe_auto_refresh(&state, false);
+        Ok(())
+    })
+    .await
+    .map_err(|_| err("settings_save_failed", "settings worker failed"))?
 }
 
 fn apply_settings(
@@ -823,6 +832,9 @@ fn apply_settings(
         }
     }
     // Online price-cache TTL must be within 1-365 days.
+    if !(1..=365).contains(&settings.model_aliases.cache_ttl_days) {
+        return Err(err("invalid_model_aliases", "model_alias_ttl"));
+    }
     if settings.pricing.online_cache_ttl_days < crate::price_refresh::MIN_TTL_DAYS
         || settings.pricing.online_cache_ttl_days > crate::price_refresh::MAX_TTL_DAYS
     {
@@ -1728,6 +1740,7 @@ pub fn event_details(
             "event_id": r.event_id,
             "agent": r.agent,
             "model": r.model_raw,
+            "display_model": r.display_model,
             "category": r.call_category,
             "occurred_at_ms": r.occurred_at_ms,
             "session": r.session_id,
@@ -1817,6 +1830,7 @@ pub fn chart_series(
         "rows": rows.iter().map(|r| serde_json::json!({
             "label": r.label,
             "series": r.series_name,
+            "display_series": r.display_series,
             "calls": r.call_count,
             "input": opt_num(r.input_total),
             "cache_read": opt_num(r.cache_read),

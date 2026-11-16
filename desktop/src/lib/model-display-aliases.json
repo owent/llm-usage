@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "rule_version": "model-display-2026-11-16",
+  "aliases": [
+    {
+      "key": "qmodel_latest",
+      "agent": "qoder",
+      "display_name": "Qwen4-Max-Preview",
+      "basis": "user_override",
+      "confirmed_at": "2026-11-16",
+      "scope": "current_display_only"
+    }
+  ]
+}

@@ -22,6 +22,7 @@ pub mod identity;
 pub mod ingest;
 pub mod jobs;
 pub mod metrics;
+pub mod model_aliases;
 pub mod model_names;
 pub mod models_dev;
 pub mod pricing;

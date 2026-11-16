@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { mergeNamedValues } from '../lib/derive';
+  import { modelDisplayName } from '../lib/model-names';
   import { hideTooltipOnBlank, setChartOption, setupTooltipAutoHide, escapeHtml, CHART_PALETTE } from '../lib/chart';
   import * as echarts from 'echarts/core';
   import { PieChart } from 'echarts/charts';
@@ -14,12 +15,14 @@
     data: rawData,
     isDark = false,
     height = 280,
+    displayName = (name: string) => modelDisplayName(name)!,
   }: {
     data: { name: string; value: number | null; input?: number | null; output?: number | null; lower?: Record<'total'|'input'|'output',boolean> }[];
     /** Parent-provided dark theme; changes redraw legend text. */
     isDark?: boolean;
     /** Canvas height in pixels; no data collapses it to a thin strip. */
     height?: number;
+    displayName?: (name: string) => string;
   } = $props();
   let metric = $state<'total' | 'input' | 'output'>('total');
   const selectMetric = $derived(rawData.some((r) => r.input !== undefined || r.output !== undefined));
@@ -58,9 +61,10 @@
         trigger: 'item',
         hideDelay: 0, transitionDuration: 0,
         formatter: (p: { name: string; value: number; percent: number }) =>
-          `${escapeHtml(p.name)}: ${lowerNames.has(p.name.toLowerCase())?'≥ ':''}${fmtPrecise(p.value)} (${p.percent}%)`,
+          `${escapeHtml(displayName(p.name))}: ${lowerNames.has(p.name.toLowerCase())?'≥ ':''}${fmtPrecise(p.value)} (${p.percent}%)`,
       },
       legend: {
+        formatter: displayName,
         type: 'scroll',
         orient: 'horizontal',
         left: 'center',
@@ -124,7 +128,7 @@
     {/each}
   </div>
 {/if}
-{#if missing.length}<p class="muted">{t('dashboard.shareUnknown', {names: missing.join(', ')})}</p>{/if}
+{#if missing.length}<p class="muted">{t('dashboard.shareUnknown', {names: missing.map(displayName).join(', ')})}</p>{/if}
 {#if lowerNames.size}<p class="muted">{t('tokens.partialShareHint')}</p>{/if}
 {#if data.length === 0}
   <p class="muted">{t('common.empty')}</p>

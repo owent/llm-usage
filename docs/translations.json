@@ -494,8 +494,8 @@
       "zh": "452df962ae25089123e87b7449b898d241a5dbd06f414f49188be487c12568c9"
     },
     "docs/design/desktop-usage/dashboard-repair.md": {
-      "en": "4656feea3c2cfb93687239ee3eb3d603387e8a260df320f6c2ad6d57eafb45d6",
-      "zh": "16daaccb8ab8e3d2c1013481d47c3e5650b0fcb054b6a3b85f70ab9b47bb3c6b"
+      "en": "a317a6d6f7ebd7f9592fbdcce5b22df3ee4baa5d59b2a7ec3d91b026f208569e",
+      "zh": "52c380a30a8d3cc909e639907abf98239192295ef3803d12962a04671cf69735"
     },
     "docs/design/desktop-usage/data-contract.md": {
       "en": "37e059eddea63e5533e6e94d86bfc01af9ada9c4afd49665f63d50f5a5afac9f",
@@ -521,6 +521,10 @@
       "en": "2c70b75c9ea52fe93f6a7ea60351a59a08800f69b436ad2164fafc19fc75cfd7",
       "zh": "259ace98644392384a35dc734539ab50d921d9a16451d6a3c2ae327145acd913"
     },
+    "docs/design/desktop-usage/model-aliases.md": {
+      "en": "22e1c15aed0fc58291c87cac1af52675d4cc105ea9b4fc0ba6e24fa1cf41df30",
+      "zh": "67ee191fc29fc710e80667ecd4f75680ceed0b7e76d68b6d6939ae5f8197b9ca"
+    },
     "docs/design/desktop-usage/openclaw-runtime.md": {
       "en": "794f0c6a9408c14a5cef52e99167fddf6eebd7c9bb65e69c0f0208b9735cb9b1",
       "zh": "0e96ff8aa960f553a5f4c4c6d4f6a13a4f7fca95f85ffdd19305bfce88c9640c"
@@ -542,8 +546,8 @@
       "zh": "605410c2d63bc398b47893d4f8b9160887d41b26b4cb0e1c471e45d613bf5e36"
     },
     "docs/design/desktop-usage/README.md": {
-      "en": "9b50141998b9db8a8bd336c5b60bc7c81730abf8fb9439218ce585920d17c44f",
-      "zh": "155b22447f7e2499848f6f5d84ebdf1fb0039dc7833b0599b4fa74fd589f1d1e"
+      "en": "d824cc917810c9913ea64caf1f22c605b9c7b165bade50ff4fd1926545ee2115",
+      "zh": "7abc95447c5e6e7abe66026139179efcca763d45f92c098b328cc44a5351ec9a"
     },
     "docs/design/desktop-usage/receiver-auth.md": {
       "en": "9699de5a2c39cf08a4b387604ffab63df24b8df998441208c457489a337b7aec",
@@ -757,6 +761,10 @@
       "en": "36daec769c0f146e128fdca5aafe7263bea7a97abda475662ba8cd32913bbab7",
       "zh": "1556d961a59ab0545795143024fb4f8670a4b069559f9afc952ad1a5d6e85638"
     },
+    "docs/validation/desktop-usage/model-aliases.md": {
+      "en": "7cd262d9367c7c2e9342ffae0c14ffa6a16aa84cb6c0074a8316327dd3685b68",
+      "zh": "851523ff9943328fc3a7a82c97365ddd1f3c3d0ff2191586edc342d3baf2b1a5"
+    },
     "docs/validation/desktop-usage/openclaw-container-sample.md": {
       "en": "adbe8c9d12fbdf66a1889b7c39bf67c675e68e610e0d684da16f172d87351df8",
       "zh": "a1eba4684dd68b627fb2d323b8e5aa50a506f11a466f65e711f85aba3ae3fb07"
@@ -860,8 +868,8 @@
       "zh": "4a5949ef45f5bcf2a7fd5f2dd40c01a2c321598b1782b609888ca388fcf0a17d"
     },
     "docs/site/content/development/architecture.md": {
-      "en": "cae2067b259ce2604224536feed7fa4ff242813efedb57dad3373a2bcfd3f523",
-      "zh": "75f98ed7b7fa0a3cc817045cb12ffffda5c288f5e3e0aca9e6298da9a53152d3"
+      "en": "92e123ded6f244dbdbf0a8969b4ca6a24dbdb5ad87e7b0fd17c1ef2f8b7cd5d4",
+      "zh": "236a3aef727d9f19432f03f6318a7fd4e948d4b4d8ebe100b0219f18a6565904"
     },
     "docs/site/content/development/comments.md": {
       "en": "5cdec60f37568d370dfd236a55fffec020d841b9dd0d2ff4f4659991a7e42297",
@@ -892,8 +900,8 @@
       "zh": "ecbbde6111a50b713196d10365e28dc2b557f05ce3f3e25d416e8ec8bb8df347"
     },
     "docs/site/content/guide/dashboard.md": {
-      "en": "16d405d2a4e9e789cd68aeade997ac93b21af6c222786bdde3b9758481b73469",
-      "zh": "a7a34c4247d1afbdb1a7a4d6ca2e1cdd78676cfd70d192c2a369ec78aaad07fd"
+      "en": "fc06f730accde9d46817e8c950300522d612413c94c45d735c421f4787eb0954",
+      "zh": "f0f7e3632222506755cee02ad690814bd7422d5c04df0af75ac26b62e753aa39"
     },
     "docs/site/content/guide/data.md": {
       "en": "04d73795a4f6db5b490917369bb1843865b2a4247458743d52bd470ed5e1cb04",
@@ -904,8 +912,8 @@
       "zh": "cd0ca20a9c3108ee52f2db2630c199d3d9bcd459566d753bf80a8fbe39cf6d0f"
     },
     "docs/site/content/guide/privacy.md": {
-      "en": "2f12c21f36992c5e723fe00997ab76980e03f786795d77217ec3cd86a1993323",
-      "zh": "f3c2fa58497994127636ee77422ea98f9775cd4b74ad0d92ac7e20e4da9d9f84"
+      "en": "6fc3bb962d7231104d53dd9bf93d929e8d69e697c68b4cd36ce63c559a17a9e6",
+      "zh": "04591d71ca7240fc038d938be6334cea3f5c30235be8d2dacfd4604985345eb7"
     },
     "docs/site/content/guide/scheduling.md": {
       "en": "b41ad4e52463f86b29640981ae9fd4babc81562c6dbc6a3b65730049f48b37f4",

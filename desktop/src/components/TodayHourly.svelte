@@ -215,13 +215,13 @@
               if (!cell || selected[name] === false) continue;
               const total=formatTokenDisplay(cell.display.total,fmtPrecise);
               hasLowerBound ||= total.startsWith('≥');
-              lines.push(`${markers.get(name)??''}${escapeHtml(name)}: ${total}`);
+              lines.push(`${markers.get(name)??''}${escapeHtml(g.displayName(name))}: ${total}`);
             }
             if(hasLowerBound) lines.push(`<small>${escapeHtml(t('tokens.lowerBound'))}</small>`);
             return lines.join('<br/>');
           },
         },
-        legend: { top: 0, left: 'center', type: 'scroll', itemWidth: 12, itemHeight: 8, textStyle: { fontSize: 11 } },
+        legend: { formatter: g.displayName, top: 0, left: 'center', type: 'scroll', itemWidth: 12, itemHeight: 8, textStyle: { fontSize: 11 } },
         textStyle: { color: chartText },
         grid: { left: 70, right: 80, top: 48, bottom: 28, containLabel: true },
         xAxis: { type: 'category', data: g.labels, triggerEvent:true, axisLabel:{formatter:(label:string)=>label.slice(-5)} },

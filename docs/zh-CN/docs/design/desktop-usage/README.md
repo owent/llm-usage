@@ -8,6 +8,8 @@
 [实施与验证边界](implementation-readiness.md)。Copilot 配置、看板交互和价格参考
 分别见 [遥测配置](copilot-otel.md)、[看板交互](dashboard-polish.md)及[价格](pricing.md)。
 本机 HTTP 的来源认证、凭据与失败/撤销规则见 [接收认证](receiver-auth.md)。
+带版本的模型名称、本地导入和可选公开目录刷新见[模型映射](model-aliases.md)，
+用量身份和计价保持原样。
 
 <a id="product-purpose-and-scope"></a>
 

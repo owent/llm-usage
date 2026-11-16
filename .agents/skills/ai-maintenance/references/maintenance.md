@@ -210,6 +210,16 @@ count toward usage. Regress compatibility through the full registry and parallel
 with isolated native discovery roots and distinct per-adapter run IDs. Check unchanged old files,
 malformed records, repeated reads and transactional rollback; serial parser checks alone are insufficient.
 
+For model display mappings, read the [versioned metadata rules](../../../../docs/design/desktop-usage/model-aliases.md).
+Keep display candidates separate from raw identity, native serving-model verification and pricing.
+Require exact Agent/provider/time scopes over the same retained query partitions, including accelerated
+and archived queries. Regress mixed names, gaps, expiration without revival, conflicting candidates,
+metadata-only UI refresh, old settings and unchanged usage/prices. Online refresh stays opt-in and
+uses only the two fixed public catalogue URLs, with bounded downloads and last-successful cache.
+Check complete-state and monotonic settings tokens inside the import transaction, including other
+processes and off/on settings changes during a download. Preserve first failures and distinguish
+synthetic HTTP, native IPC and actual public feed deployment.
+
 For Qoder detection-cache changes, exercise superseded probes as well as initial reads.
 Keep source I/O outside the cache mutex and recheck newer published results after a retry;
 use synchronized tests to verify unrelated-file access and preserve generation cleanup.

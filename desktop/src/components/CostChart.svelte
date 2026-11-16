@@ -6,10 +6,11 @@
   import {SVGRenderer} from 'echarts/renderers';
   import {setChartOption,setupTooltipAutoHide,setupRangeSelection,showRangeSelection,enableRangeBrush,RANGE_BRUSH,escapeHtml,CHART_PALETTE} from '../lib/chart';
   import {formatAmount} from '../lib/costs';
+  import {modelLabelFromRows} from '../lib/model-names';
   import {i18n,t} from '../lib/i18n.svelte';
-  import type {CostSummaryDto,PeriodDto} from '../lib/api';
+  import type {CostSummaryDto,PeriodDto,SummaryDto} from '../lib/api';
   echarts.use([LineChart,GridComponent,LegendComponent,TooltipComponent,DataZoomComponent,BrushComponent,SVGRenderer]);
-  let {summary,periods,isDark=false,onperiodclick,onrangechange,selectedRange=null}:{summary:CostSummaryDto|null;periods:PeriodDto[];isDark?:boolean;onperiodclick?:(label:string)=>void;onrangechange?:(first:string,last:string)=>void;selectedRange?:{first:string;last:string}|null}=$props();
+  let {summary,periods,isDark=false,onperiodclick,onrangechange,selectedRange=null,modelLabels}:{summary:CostSummaryDto|null;periods:PeriodDto[];isDark?:boolean;onperiodclick?:(label:string)=>void;onrangechange?:(first:string,last:string)=>void;selectedRange?:{first:string;last:string}|null;modelLabels?:SummaryDto['models']}=$props();
   let el:HTMLDivElement;
   let chart:echarts.ECharts|null=null;
   let currency=$state('');
@@ -39,6 +40,12 @@
       ...(group.bounded?[{name:`${name} · ${t('cost.upperBound')}`,values:group.upper,upper:true}]:[]),
     ]);
   });
+  function displayName(series:string):string {
+    if (!modelMode) return series;
+    const suffix=` · ${t('cost.upperBound')}`;
+    const raw=series.endsWith(suffix)?series.slice(0,-suffix.length):series;
+    return `${modelLabelFromRows(modelLabels,raw)}${series.endsWith(suffix)?suffix:''}`;
+  }
   function render() {
     if(!chart) return;
     if(!groups.length) {chart.clear();return;}
@@ -47,9 +54,9 @@
       color:CHART_PALETTE,
       tooltip:{trigger:'axis',hideDelay:0,transitionDuration:0,formatter:(params:{seriesName:string;value:unknown;dataIndex:number}[])=>{
         const period=plotPeriods[params[0]?.dataIndex??0];
-        return [escapeHtml(period?.label??''),...params.map((p)=>`${escapeHtml(p.seriesName)}: ${formatAmount(i18n.locale,selectedCurrency,p.value)}`)].join('<br/>');
+        return [escapeHtml(period?.label??''),...params.map((p)=>`${escapeHtml(displayName(p.seriesName))}: ${formatAmount(i18n.locale,selectedCurrency,p.value)}`)].join('<br/>');
       }},
-      legend:{type:'scroll',top:0},grid:{left:12,right:20,top:42,bottom:52,containLabel:true},
+      legend:{formatter:displayName,type:'scroll',top:0},grid:{left:12,right:20,top:42,bottom:52,containLabel:true},
       xAxis:{type:'category',data:plotPeriods.map((p)=>p.label),triggerEvent:true},
       yAxis:{type:'value',name:selectedCurrency,axisLabel:{formatter:(v:number)=>(v/100).toLocaleString(i18n.locale)}},
       dataZoom:[{type:'slider',bottom:0,height:20},{type:'inside',disabled:true}],

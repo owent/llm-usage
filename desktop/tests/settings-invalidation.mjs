@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 
 export async function settingsInvalidationChecks(page) {
+  // Isolate settings-triggered queries from the independent header refresh timer.
+  const autoRefresh = page.locator('.auto-refresh select');
+  const originalInterval = await autoRefresh.inputValue();
+  await autoRefresh.selectOption('0');
+  await page.clock.runFor(300);
   const nav = (index) => page.locator('.app-shell > aside nav button').nth(index);
   const trendReset = page.locator('.range-summary .range-reset');
   const trendCaption = page.locator('.range-summary .range-caption');
@@ -196,4 +201,5 @@ export async function settingsInvalidationChecks(page) {
   await page.clock.runFor(500);
   await go(4);
   await page.locator('[data-settings-section="general"]').click();
+  await autoRefresh.selectOption(originalInterval);
 }

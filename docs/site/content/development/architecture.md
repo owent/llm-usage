@@ -43,6 +43,12 @@ The frontend does not read arbitrary files, execute SQL, access agent credential
 shells. Backend filters and pagination are bounded. Optional HTTP reception shares the
 same validated ingest boundary and remains authenticated and local.
 
+Model display mappings use a separate versioned metadata setting. Downloads happen outside the
+writer lock; importing candidates and successful cache bytes is transactional. Queries retain raw
+grouping/filter keys and resolve labels by Agent/provider/time within the same usage snapshot.
+Metadata revisions refresh frontend labels without changing usage revisions or pricing.
+See the [mapping specification](/reference/design/model-aliases/) for sources, conflicts and bounds.
+
 Read the [architecture specification](/reference/design/architecture/),
 [data rules](/reference/design/data-contract/) and
 [query acceleration specification](/reference/design/query-acceleration/) before changing these boundaries.

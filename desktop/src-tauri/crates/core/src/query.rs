@@ -213,12 +213,14 @@ pub struct PeriodRow {
 pub struct ModelRow {
     pub provider_id: Option<String>,
     pub model_raw: Option<String>,
+    pub display_model: Option<String>,
     pub sums: MetricSums,
 }
 
 #[derive(Debug, Clone)]
 pub struct Summary {
     pub data_revision: i64,
+    pub model_alias_revision: String,
     pub timezone: String,
     pub week_start: WeekStart,
     pub periods: Vec<PeriodRow>,
@@ -320,6 +322,7 @@ pub fn query_summary_selected(
     }
     let calendar = Calendar::new(&request.timezone)?;
     let snapshot = storage.conn().unchecked_transaction()?;
+    let aliases = crate::model_aliases::Book::load(storage);
     let revision = storage.data_revision()?;
     let stamp = crate::summary_cache::Stamp {
         revision,
@@ -328,7 +331,10 @@ pub fn query_summary_selected(
             .pragma_query_value(None, "data_version", |row| row.get(0))?,
         total_changes: storage.conn().total_changes(),
     };
-    let cache_key = format!("{request:?}; selection={selection:?}");
+    let cache_key = format!(
+        "{request:?}; selection={selection:?}; aliases={}",
+        aliases.revision
+    );
     let cached = storage.summary_cache.borrow_mut().get(stamp, &cache_key);
     if let Some(cached) = cached {
         snapshot.commit()?;
@@ -464,9 +470,63 @@ pub fn query_summary_selected(
     if !sealed {
         set_duration(&mut totals, Some(&details));
     }
+    let alias_from = periods
+        .iter()
+        .map(|p| p.utc_start_ms)
+        .min()
+        .unwrap_or(calendar.day_range_ms(request.first_day)?.0);
+    let alias_to = periods
+        .iter()
+        .map(|p| p.utc_end_ms)
+        .max()
+        .unwrap_or(calendar.day_range_ms(request.last_day)?.1);
+    let mut labels: BTreeMap<(String, String), BTreeSet<String>> = BTreeMap::new();
+    let alias_keys: Vec<_> = models
+        .keys()
+        .filter(|(_, model)| aliases.contains(model))
+        .map(|(_, m)| m.clone())
+        .collect();
+    if !alias_keys.is_empty() {
+        let mut alias_request = request.clone();
+        alias_request.filters.models = alias_keys;
+        let mut scopes = BTreeMap::new();
+        // The accelerated model axis erases Agent scope; recover metadata from the same retained partitions/snapshot.
+        visit_summary_rows(storage, &alias_request, |row| {
+            let (label, _, _) = period_key_of(
+                &calendar,
+                request.granularity,
+                request.week_start,
+                row.local_day,
+                row.hour,
+            );
+            if selection
+                .is_some_and(|(first, last)| label.as_str() < first || label.as_str() > last)
+            {
+                return Ok(());
+            }
+            let provider = row.provider_id.trim().to_lowercase();
+            let model = crate::model_names::model_key(&row.model_raw);
+            let name = scopes
+                .entry((provider.clone(), model.clone(), row.agent.clone()))
+                .or_insert_with(|| {
+                    aliases.label(&model, &row.agent, Some(&provider), alias_from, alias_to)
+                })
+                .clone();
+            labels.entry((provider, model)).or_default().insert(name);
+            Ok(())
+        })?;
+    }
     let model_breakdown = models
         .into_iter()
         .map(|((provider, model), sums)| ModelRow {
+            display_model: (!model.is_empty()).then(|| {
+                labels
+                    .get(&(provider.clone(), model.clone()))
+                    .filter(|names| names.len() == 1)
+                    .and_then(|names| names.first())
+                    .cloned()
+                    .unwrap_or_else(|| model.clone())
+            }),
             provider_id: (!provider.is_empty()).then_some(provider),
             model_raw: (!model.is_empty()).then_some(model),
             sums,
@@ -480,6 +540,7 @@ pub fn query_summary_selected(
     snapshot.commit()?;
     let summary = Summary {
         data_revision: revision,
+        model_alias_revision: aliases.revision,
         timezone: request.timezone.clone(),
         week_start: request.week_start,
         periods,
@@ -1475,6 +1536,7 @@ pub struct EventDetailRow {
     pub event_id: String,
     pub agent: String,
     pub model_raw: Option<String>,
+    pub display_model: Option<String>,
     pub call_category: String,
     pub occurred_at_ms: i64,
     pub session_id: Option<String>,
@@ -1507,6 +1569,8 @@ pub fn event_details(
     storage: &Storage,
     request: &EventDetailRequest,
 ) -> Result<EventDetailPage, CoreError> {
+    let snapshot = storage.conn().unchecked_transaction()?;
+    let aliases = crate::model_aliases::Book::load(storage);
     let mut where_clause = String::from(
         "WHERE occurred_at_ms >= ?1 AND occurred_at_ms < ?2 AND attribution_status = 'verified'",
     );
@@ -1525,7 +1589,7 @@ pub fn event_details(
     )?;
     let sql = format!(
         "SELECT event_id, agent, model_raw, call_category, occurred_at_ms, session_id,
-                input_total, input_cache_read, output_total, total_tokens, duration_ms, lifecycle
+                input_total, input_cache_read, output_total, total_tokens, duration_ms, lifecycle,provider_id,model_canonical
          FROM usage_events {where_clause}
          ORDER BY occurred_at_ms DESC LIMIT ?{} OFFSET ?{}",
         values.len() + 1,
@@ -1535,10 +1599,21 @@ pub fn event_details(
     values.push(request.offset.into());
     let mut stmt = storage.conn().prepare(&sql)?;
     let rows = stmt.query_map(rusqlite::params_from_iter(values), |r| {
+        let model: Option<String> = r.get(2)?;
+        let canonical: Option<String> = r.get(13)?;
+        let at: i64 = r.get(4)?;
+        let agent: String = r.get(1)?;
+        let provider: Option<String> = r.get(12)?;
+        let display = canonical.filter(|m| !m.is_empty()).or_else(|| {
+            model
+                .as_ref()
+                .map(|m| aliases.label(m, &agent, provider.as_deref(), at, at.saturating_add(1)))
+        });
         Ok(EventDetailRow {
             event_id: r.get(0)?,
-            agent: r.get(1)?,
-            model_raw: r.get(2)?,
+            agent,
+            display_model: display,
+            model_raw: model,
             call_category: r.get(3)?,
             occurred_at_ms: r.get(4)?,
             session_id: r.get(5)?,
@@ -1554,6 +1629,8 @@ pub fn event_details(
     for row in rows {
         out.push(row?);
     }
+    drop(stmt);
+    snapshot.commit()?;
     Ok(EventDetailPage {
         rows: out,
         total_count: count,
@@ -1761,6 +1838,7 @@ pub struct ChartSeriesRow {
     pub start_day: Date,
     pub end_day: Date,
     pub series_name: String,
+    pub display_series: String,
     pub call_count: i64,
     pub input_total: Option<i64>,
     pub cache_read: Option<i64>,
@@ -1783,6 +1861,12 @@ pub fn chart_series(
     dimension: &ChartDimension,
 ) -> Result<Vec<ChartSeriesRow>, CoreError> {
     let calendar = Calendar::new(&request.timezone)?;
+    let snapshot = storage.conn().unchecked_transaction()?;
+    let aliases = crate::model_aliases::Book::load(storage);
+    let alias_from = calendar.day_range_ms(request.first_day)?.0;
+    let alias_to = calendar.day_range_ms(request.last_day)?.1;
+    let mut label_scopes = BTreeMap::new();
+    let mut names: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     let mut groups: BTreeMap<(Date, String, String), (Date, MetricSums)> = BTreeMap::new();
     visit_summary_rows(storage, request, |row| {
         let (label, start, end) = period_key_of(
@@ -1798,12 +1882,24 @@ pub fn chart_series(
             row.model_raw.to_lowercase()
         };
         let agent = row.agent.to_lowercase();
+        let display = label_scopes
+            .entry((agent.clone(), row.provider_id.clone(), model.clone()))
+            .or_insert_with(|| {
+                aliases.label(&model, &agent, Some(&row.provider_id), alias_from, alias_to)
+            })
+            .clone();
         let series = match dimension {
             ChartDimension::Total => "total".into(),
             ChartDimension::ByModel => model,
-            ChartDimension::ByAgent => agent,
+            ChartDimension::ByAgent => agent.clone(),
             ChartDimension::ByAgentModel => format!("{agent}/{model}"),
         };
+        let display = match dimension {
+            ChartDimension::ByModel => display,
+            ChartDimension::ByAgentModel => format!("{agent}/{display}"),
+            _ => series.clone(),
+        };
+        names.entry(series.clone()).or_default().insert(display);
         groups
             .entry((start, label, series))
             .or_insert_with(|| (end, MetricSums::default()))
@@ -1811,12 +1907,18 @@ pub fn chart_series(
             .add_row(&row)?;
         Ok(())
     })?;
-    Ok(groups
+    let result = groups
         .into_iter()
         .map(|((start, label, series), (end, sums))| ChartSeriesRow {
             label,
             start_day: start,
             end_day: end,
+            display_series: names
+                .get(&series)
+                .filter(|labels| labels.len() == 1)
+                .and_then(|labels| labels.first())
+                .cloned()
+                .unwrap_or_else(|| series.clone()),
             series_name: series,
             call_count: sums.call_count,
             input_total: sums.input_total_known,
@@ -1828,7 +1930,9 @@ pub fn chart_series(
             total_tokens: sums.total_tokens_known,
             sums,
         })
-        .collect())
+        .collect();
+    snapshot.commit()?;
+    Ok(result)
 }
 
 /// Diagnostic row for the settings log viewer.

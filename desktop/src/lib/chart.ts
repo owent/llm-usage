@@ -12,6 +12,7 @@
  * Returns cleanup for component unmount.
  */
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
+import { modelSeriesDisplayName } from './model-names.ts';
 
 /** Source names are data, including inside ECharts' HTML tooltips. */
 export function escapeHtml(value: unknown): string {
@@ -38,7 +39,7 @@ export function setChartOption(chart: ECharts, dark: boolean, option: EChartsCor
     animationDurationUpdate: 180,
     textStyle: { ...option.textStyle, color },
     xAxis: axes(option.xAxis as Axis | Axis[] | undefined), yAxis: axes(option.yAxis as Axis | Axis[] | undefined),
-    legend: legend ? { ...legend, textStyle: { ...legend.textStyle, color }, inactiveColor: dark ? '#687b99' : '#a0acc0' } : undefined,
+    legend: legend ? { formatter: modelSeriesDisplayName, ...legend, textStyle: { ...legend.textStyle, color }, inactiveColor: dark ? '#687b99' : '#a0acc0' } : undefined,
     tooltip: option.tooltip ? { ...option.tooltip, backgroundColor: dark ? '#1c2940' : '#ffffff', borderColor: border, textStyle: { color }, confine: true,
       extraCssText:'max-width:min(480px, calc(100vw - 48px));white-space:normal;overflow-wrap:anywhere;' } : undefined,
   }, options);

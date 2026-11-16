@@ -4,6 +4,7 @@
   import TelemetrySetup from './TelemetrySetup.svelte';
   import BudgetSettings from './BudgetSettings.svelte';
   import UpdateSettings from './UpdateSettings.svelte';
+  import ModelAliasSettings from './ModelAliasSettings.svelte';
   import { api, parseError } from '../lib/api';
   import type {
     AppSettings,
@@ -38,7 +39,7 @@
     initialSection?: 'general' | 'telemetry';
   } = $props();
 
-  type SubTab = 'general' | 'updates' | 'telemetry' | 'retention' | 'costs' | 'system' | 'identity' | 'export' | 'logs';
+  type SubTab = 'general' | 'updates' | 'models' | 'telemetry' | 'retention' | 'costs' | 'system' | 'identity' | 'export' | 'logs';
   type RetentionField = 'events' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly';
 
   let sub = $state<SubTab>('general');
@@ -53,6 +54,7 @@
     file_watch_enabled: settings.file_watch_enabled ?? false,
     manual_roots_only: settings.manual_roots_only ?? false,
     updates: { schedule: 'daily', auto_download: true, system_notifications: true, ...settings.updates },
+    model_aliases: { online_refresh_enabled: false, cache_ttl_days: 3, ...settings.model_aliases },
     budget: { enabled: false, metric: 'total_tokens', period: 'month', threshold: '1000000', currency: 'USD', ...settings.budget },
     manual_roots: [...settings.manual_roots],
     retention: { ...settings.retention },
@@ -75,6 +77,7 @@
     yearly: settings.retention.yearly_days === null ? '' : String(settings.retention.yearly_days),
     alias: settings.hostname_alias ?? '',
     refreshTtl: String(settings.pricing?.online_cache_ttl_days ?? 3),
+    modelTtl: String(settings.model_aliases?.cache_ttl_days ?? 3),
   });
   // svelte-ignore state_referenced_locally
   let rootsText = $state(settings.manual_roots.join('\n'));
@@ -287,6 +290,7 @@
   const subTabs = $derived.by(() => [
     ['general', t('settings.tab.general')],
     ['updates', t('updates.title')],
+    ['models', t('models.title')],
     ['telemetry', t('telemetry.title')],
     ['retention', t('settings.tab.retention')],
     ['costs', t('settings.tab.costs')],
@@ -581,6 +585,10 @@
     if (!Number.isInteger(refreshTtl) || refreshTtl < 1 || refreshTtl > 365) {
       throw new Error(t('settings.invalidNumber'));
     }
+    const modelTtl = Number(inputs.modelTtl.trim());
+    if (!Number.isInteger(modelTtl) || modelTtl < 1 || modelTtl > 365) {
+      throw new Error(t('settings.invalidNumber'));
+    }
     if (budgetInvalid) throw new Error(t('budget.invalid'));
     for (const row of draft.pricing?.provider_defaults ?? []) {
       if (![row.provider_id, row.region, row.channel].every((v) => v.trim())) {
@@ -599,6 +607,7 @@
       manual_roots: rootsText.split('\n').map((l) => l.trim()).filter(Boolean),
       hostname_alias: alias === '' ? null : alias,
       pricing,
+      model_aliases: { ...draft.model_aliases!, cache_ttl_days: modelTtl },
     };
     return JSON.parse(JSON.stringify(next)) as AppSettings;
   }
@@ -939,6 +948,8 @@
       </div>
       {#if sub === 'updates'}
         <UpdateSettings bind:value={draft.updates!} />
+      {:else if sub === 'models'}
+        <ModelAliasSettings bind:value={draft.model_aliases!} bind:ttl={inputs.modelTtl} beforeAction={() => flush()} onupdated={ondatachanged} />
       {:else if sub === 'general'}
         <section class="panel">
           <div class="frow">

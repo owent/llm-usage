@@ -2158,18 +2158,19 @@ checksum = "47d9d19d1d6efa0109d2f65ff4c85cddd50bd572e5a00127ab10987290bcefae"
 
 [[package]]
 name = "llm-usage-core"
-version = "0.3.10"
+version = "0.3.11"
 dependencies = [
  "jiff 1.0.0",
  "rusqlite",
  "serde",
  "serde_json",
+ "sha2 0.11.1",
  "zstd",
 ]
 
 [[package]]
 name = "llm-usage-desktop"
-version = "0.3.10"
+version = "0.3.11"
 dependencies = [
  "core-foundation",
  "flate2",

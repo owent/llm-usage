@@ -2,6 +2,7 @@
  * Pure frontend calculations without IPC: period durations and grouped chart data.
  */
 import type { ChartSeriesRowDto, PeriodDto, MetricSumsDto } from './api';
+import { modelSeriesDisplayName } from './model-names.ts';
 
 export type TokenMetric = 'input' | 'output' | 'total';
 export interface TokenDisplay { value: string | null; lower: boolean }
@@ -104,6 +105,7 @@ export interface ChartGroupCell {
 export interface ChartGroupData {
   labels: string[];
   names: string[];
+  displayName(name: string): string;
   cells: Map<string, ChartGroupCell>;
   cell(name: string, label: string): ChartGroupCell | undefined;
 }
@@ -119,8 +121,12 @@ export function pivotChartSeries(rows: ChartSeriesRowDto[]): ChartGroupData {
   const labelSet = new Set<string>();
   const nameSet = new Set<string>();
   const cells = new Map<string, ChartGroupCell>();
+  const displayNames = new Map<string, Set<string>>();
   const key = (name: string, label: string) => `${name}\u0000${label}`;
   for (const r of rows) {
+    const candidates = displayNames.get(r.series) ?? new Set<string>();
+    candidates.add(r.display_series ?? modelSeriesDisplayName(r.series));
+    displayNames.set(r.series, candidates);
     if (!labelSet.has(r.label)) {
       labelSet.add(r.label);
       labels.push(r.label);
@@ -149,6 +155,12 @@ export function pivotChartSeries(rows: ChartSeriesRowDto[]): ChartGroupData {
   return {
     labels,
     names,
+    displayName: (series) => {
+      const name = names.find(name => series === name || series.startsWith(`${name} · `));
+      if (name === undefined) return series;
+      const candidates = displayNames.get(name)!;
+      return `${candidates.size === 1 ? [...candidates][0] : name}${series.slice(name.length)}`;
+    },
     cells,
     cell: (name, label) => cells.get(key(name, label)),
   };

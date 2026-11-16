@@ -138,6 +138,8 @@ pub struct AppSettings {
     pub budget: llm_usage_core::budgets::BudgetSettings,
     #[serde(default)]
     pub updates: crate::updates::UpdateSettings,
+    #[serde(default)]
+    pub model_aliases: crate::model_alias_refresh::Settings,
 }
 
 fn default_otel_receiver_port() -> u16 {
@@ -176,6 +178,7 @@ impl Default for AppSettings {
             pricing: PricingSettings::default(),
             budget: llm_usage_core::budgets::BudgetSettings::default(),
             updates: crate::updates::UpdateSettings::default(),
+            model_aliases: crate::model_alias_refresh::Settings::default(),
         }
     }
 }
@@ -274,6 +277,7 @@ pub struct AppState {
     pub cleanup_control: std::sync::Arc<llm_usage_core::cancellation::OperationControl>,
     /// F2 models.dev refresh state: running flag and latest outcome for UI polling.
     pub price_refresh: Mutex<crate::price_refresh::PriceRefreshState>,
+    pub model_alias_refresh: Mutex<crate::model_alias_refresh::RefreshState>,
 }
 
 impl AppState {
@@ -383,6 +387,7 @@ impl AppState {
             clear_job_running: std::sync::atomic::AtomicBool::new(false),
             cleanup_control: std::sync::Arc::default(),
             price_refresh: Mutex::new(crate::price_refresh::PriceRefreshState::default()),
+            model_alias_refresh: Mutex::new(crate::model_alias_refresh::RefreshState::default()),
         })
     }
 }
@@ -514,6 +519,9 @@ pub fn load_settings(storage: &Storage) -> AppSettings {
     if !(crate::price_refresh::MIN_TTL_DAYS..=crate::price_refresh::MAX_TTL_DAYS).contains(&ttl) {
         settings.pricing.online_cache_ttl_days = crate::price_refresh::DEFAULT_TTL_DAYS;
     }
+    if !(1..=365).contains(&settings.model_aliases.cache_ttl_days) {
+        settings.model_aliases.cache_ttl_days = 3;
+    }
     settings
 }
 
@@ -524,7 +532,7 @@ pub fn save_settings(storage: &Storage, settings: &AppSettings) -> Result<(), St
         .execute(
             "INSERT INTO settings (key, value, schema_version, updated_at_ms)
              VALUES (?1, ?2, 1, ?3)
-             ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at_ms = excluded.updated_at_ms",
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at_ms = MAX(settings.updated_at_ms + 1, excluded.updated_at_ms)",
             rusqlite::params![
                 SETTINGS_KEY,
                 json,

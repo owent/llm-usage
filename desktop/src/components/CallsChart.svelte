@@ -189,12 +189,12 @@
             const label = g.labels[params[0]?.dataIndex ?? 0] ?? '';
             const lines = [`<b>${escapeHtml(label)}</b>`];
             for (const p of params) {
-              if (p.value != null) lines.push(`${p.marker}${escapeHtml(p.seriesName)}: ${fmtPrecise(p.value)}`);
+              if (p.value != null) lines.push(`${p.marker}${escapeHtml(g.displayName(p.seriesName ?? ''))}: ${fmtPrecise(p.value)}`);
             }
             return lines.join('<br/>');
           },
         },
-        legend: { top: 0, left: 'center', type: 'scroll', itemWidth: 12, itemHeight: 8, textStyle: { fontSize: 11 } },
+        legend: { formatter: g.displayName, top: 0, left: 'center', type: 'scroll', itemWidth: 12, itemHeight: 8, textStyle: { fontSize: 11 } },
         textStyle: { color: chartText },
         grid: { left: 70, right: 80, top: 48, bottom: 44, containLabel: true },
         xAxis: { type: 'category', data: g.labels, triggerEvent:true },

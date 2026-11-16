@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { calendarDay, offsetDay, calendarYearRange } from '../src/lib/calendar.ts';
 import { loadPanelGroup, savePanelGroup, clearPanelPage } from '../src/lib/panels.ts';
 import { durationStatsOf, pivotChartSeries, mergeNamedValues, observedTokenTotal, tokenTotalLabel, tokenDisplay,tokenShare } from '../src/lib/derive.ts';
-import {modelKey} from '../src/lib/model-names.ts';
+import {modelKey,modelDisplayName,modelSeriesDisplayName,modelRowDisplayName,modelLabelFromRows} from '../src/lib/model-names.ts';
 import { escapeHtml } from '../src/lib/chart.ts';
 import {formatAmount,formatCostRange,formatUnitPrice,unpricedReasonKey} from '../src/lib/costs.ts';
 import {cnyToUsd,referenceFx} from '../src/lib/exchange-rates.ts';
@@ -146,4 +146,45 @@ test('model lookup normalizes separators without guessing releases or suffixes',
   assert.equal(modelKey('GPT_6.1_sol'),'gpt-6.1-sol');
   assert.notEqual(modelKey('gpt-6-1-sol'),modelKey('gpt-6.1-sol'));
   assert.equal(modelKey('hy4-preview-f'),'hy4-preview-f');
+});
+
+test('current Qoder labels preserve raw filter/group identities and unrelated model routes',()=>{
+  for(const raw of ['qmodel_latest','qmodel-latest',' QMODEL_LATEST ']) {
+    assert.equal(modelDisplayName(raw),'Qwen4-Max-Preview');
+    assert.equal(modelDisplayName(raw,'qoder'),'Qwen4-Max-Preview');
+    assert.equal(modelDisplayName(raw,'other-agent'),raw);
+    assert.equal(modelKey(raw),'qmodel-latest');
+  }
+  for(const raw of ['qmodel_latest_old','qmodel','custom/qmodel_latest','qwen4-max',null]) {
+    assert.equal(modelDisplayName(raw),raw);
+  }
+  assert.equal(modelSeriesDisplayName('qoder/qmodel-latest · Input'),'qoder/Qwen4-Max-Preview · Input');
+  assert.equal(modelSeriesDisplayName('other/qmodel-latest'),'other/qmodel-latest');
+  const rows=['qmodel-latest','qwen4-max-preview'].map(series=>({label:'today',series,calls:1,input:null,output:null,total:null}));
+  const grouped=pivotChartSeries(rows);
+  assert.deepEqual(grouped.names,['qmodel-latest','qwen4-max-preview']);
+  assert.equal(grouped.cell('qmodel-latest','today').total,null);
+});
+
+test('scoped server labels preserve ambiguity and raw chart keys after metadata updates',()=>{
+  const rows = [
+    {provider:'a',model:'qmodel-latest',display_model:'Next model'},
+    {provider:'b',model:'qmodel-latest',display_model:'qmodel-latest'},
+  ];
+  assert.equal(modelRowDisplayName(rows[1]),'qmodel-latest');
+  assert.equal(modelLabelFromRows(rows,'qmodel_latest','a'),'Next model');
+  assert.equal(modelLabelFromRows(rows,'qmodel-latest'),'qmodel-latest');
+  assert.equal(modelLabelFromRows(rows,'custom/qmodel-latest'),'custom/qmodel-latest');
+  const chart = pivotChartSeries([
+    {label:'today',series:'qoder/qmodel-latest',display_series:'qoder/Next model',calls:1,input:null,output:null,total:null},
+    {label:'tomorrow',series:'qoder/qmodel-latest',display_series:'qoder/Next model',calls:1,input:null,output:null,total:null},
+  ]);
+  assert.deepEqual(chart.names,['qoder/qmodel-latest']);
+  assert.equal(chart.displayName('qoder/qmodel-latest · Input'),'qoder/Next model · Input');
+  assert.equal(chart.cell('qoder/qmodel-latest','today').total,null);
+  const conflicted = pivotChartSeries([
+    {label:'a',series:'raw',display_series:'Model A',calls:1,input:null,output:null,total:null},
+    {label:'b',series:'raw',display_series:'Model B',calls:1,input:null,output:null,total:null},
+  ]);
+  assert.equal(conflicted.displayName('raw'),'raw');
 });

@@ -121,6 +121,27 @@ incremental rounds, reevaluated after rule-upgrade replay.
   screens one column. Seven range metrics plus quota form eight cards, wide two rows/four
   columns, narrow two/one, without blank space beside quota.
 
+## Current model display aliases
+
+The user authorized `qmodel_latest` → `Qwen4-Max-Preview` on 2026-11-16 for the current
+application. The versioned [bundled display catalogue](../../../desktop/src/lib/model-display-aliases.json) supplies this label in model filters,
+tables, details, legends and tooltips. Separator variants use the existing spelling key;
+unknown suffixes and namespaces remain unchanged. Known non-Qoder detail records do not
+use the Qoder label. Preserve the original key in table/filter tooltips.
+
+This is a current display override, not historical serving-model verification. Keep raw
+event/export values, query/filter/grouping keys, attribution, provider and price-reference
+resolution unchanged. Do not merge this routing key with native Qwen model rows or apply
+Qwen4-Max prices to the preview. Updating a label does not reprice stored events.
+
+The [versioned mapping registry](model-aliases.md) now supports local JSON imports and
+optional public catalogue refresh, independently of application releases and pricing.
+Queries resolve Agent/provider scope and effective intervals in their usage snapshot;
+metadata-only changes refresh UI labels. Conflicts and mixed-name ranges retain the raw key.
+Online refresh defaults off and retains the successful cache on failure. The prepared public
+feed requires its corresponding documentation deployment. A mapping does not verify the
+model served; native readers still require independent product/version evidence.
+
 <a id="官方供应商依据"></a>
 
 <a id="官方供应商证据"></a>
