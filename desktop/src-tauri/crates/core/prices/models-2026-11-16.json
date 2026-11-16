@@ -1,0 +1,88 @@
+{
+  "verified_at": "2026-11-16",
+  "models": [
+    {
+      "id": "qwen4-max-preview",
+      "aliases": [
+        "qwen4.0-max-preview"
+      ],
+      "provider_id": "alibaba",
+      "pricing_available": false,
+      "source_urls": [
+        "https://docs.qwencloud.com/token-plan/personal/token-plan-personal-overview",
+        "https://docs.qwencloud.com/token-plan/token-plan-product-updates"
+      ],
+      "note": "Token Plan preview; no verified pay-as-you-go price. Never substitute qwen4-max rates."
+    },
+    {
+      "id": "qwen4-max",
+      "aliases": [],
+      "provider_id": "alibaba-cn",
+      "pricing_available": true,
+      "source_urls": [
+        "https://platform.qianwenai.com/docs/developer-guides/getting-started/model-prices"
+      ],
+      "note": "Independent official model identity; do not alias other releases or arbitrary suffixes."
+    },
+    {
+      "id": "qwen3.8-max",
+      "aliases": [],
+      "provider_id": "alibaba-cn",
+      "pricing_available": true,
+      "source_urls": [
+        "https://platform.qianwenai.com/docs/developer-guides/getting-started/model-prices"
+      ],
+      "note": "Independent official model identity; do not alias other releases or arbitrary suffixes."
+    },
+    {
+      "id": "qwen3.8-flash",
+      "aliases": [],
+      "provider_id": "alibaba-cn",
+      "pricing_available": true,
+      "source_urls": [
+        "https://platform.qianwenai.com/docs/developer-guides/getting-started/model-prices"
+      ],
+      "note": "Independent official model identity; do not alias other releases or arbitrary suffixes."
+    },
+    {
+      "id": "gpt-6.1-terra",
+      "aliases": [],
+      "provider_id": "openai",
+      "pricing_available": true,
+      "source_urls": [
+        "https://developers.openai.com/api/docs/pricing"
+      ],
+      "note": "Independent official model identity; do not alias other releases or arbitrary suffixes."
+    },
+    {
+      "id": "claude-fable-5-2",
+      "aliases": [],
+      "provider_id": "anthropic",
+      "pricing_available": true,
+      "source_urls": [
+        "https://platform.claude.com/docs/en/about-claude/pricing"
+      ],
+      "note": "Independent official model identity; do not alias other releases or arbitrary suffixes."
+    },
+    {
+      "id": "gemini-4-carbon",
+      "aliases": [],
+      "provider_id": "google",
+      "pricing_available": true,
+      "source_urls": [
+        "https://aistudio.google.com/docs/pricing"
+      ],
+      "note": "Independent official model identity; do not alias other releases or arbitrary suffixes."
+    },
+    {
+      "id": "gemini-4-hydrogen",
+      "aliases": [],
+      "provider_id": "google",
+      "pricing_available": true,
+      "source_urls": [
+        "https://aistudio.google.com/docs/pricing"
+      ],
+      "note": "Independent official model identity; do not alias other releases or arbitrary suffixes."
+    }
+  ]
+}

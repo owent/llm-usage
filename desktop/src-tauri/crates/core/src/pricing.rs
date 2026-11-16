@@ -151,7 +151,7 @@ pub(crate) fn iso_date_to_ms(text: &str, what: &str) -> Result<i64, CoreError> {
     })?;
     let dt = date
         .to_datetime(jiff::civil::time(0, 0, 0, 0))
-        .to_zoned(jiff::tz::TimeZone::UTC)
+        .to_zoned_datetime(jiff::tz::TimeZone::UTC)
         .map_err(|e| CoreError::Validation(format!("price snapshot {what}: {e}")))?;
     Ok(dt.timestamp().as_millisecond())
 }

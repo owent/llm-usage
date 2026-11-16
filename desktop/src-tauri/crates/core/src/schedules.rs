@@ -106,7 +106,7 @@ pub fn next_due_ms(rule: &SourceScheduleRule, now_ms: i64, fallback_tz: &str) ->
         .checked_add(jiff::Span::new().hours(24))
         .ok()?
         .as_millisecond();
-    let now_zoned = now.to_zoned(tz.clone());
+    let now_zoned = now.to_zoned_datetime(tz.clone());
     match rule.rule_kind.as_str() {
         "interval" => {
             let secs = rule.interval_seconds?;
@@ -530,7 +530,7 @@ mod tests {
         let due = next_due_ms(&daily, now.as_millisecond(), "UTC").unwrap();
         let due_zoned = jiff::Timestamp::from_millisecond(due)
             .unwrap()
-            .to_zoned(jiff::tz::TimeZone::UTC);
+            .to_zoned_datetime(jiff::tz::TimeZone::UTC);
         assert_eq!(due_zoned.hour(), 9);
         assert_eq!(due_zoned.date(), jiff::civil::date(2027, 1, 15));
     }
@@ -540,7 +540,7 @@ mod tests {
         // Friday 2027-01-15 (ISO 5) schedules Monday 09:00 on 2027-01-18.
         let now = jiff::Timestamp::from_millisecond(1_800_000_000_000).unwrap();
         assert_eq!(
-            now.to_zoned(jiff::tz::TimeZone::UTC)
+            now.to_zoned_datetime(jiff::tz::TimeZone::UTC)
                 .date()
                 .weekday()
                 .to_monday_zero_offset(),
@@ -558,7 +558,7 @@ mod tests {
         let due = next_due_ms(&weekly, now.as_millisecond(), "UTC").unwrap();
         let due_zoned = jiff::Timestamp::from_millisecond(due)
             .unwrap()
-            .to_zoned(jiff::tz::TimeZone::UTC);
+            .to_zoned_datetime(jiff::tz::TimeZone::UTC);
         assert_eq!(due_zoned.date(), jiff::civil::date(2027, 1, 18));
         assert_eq!(due_zoned.hour(), 9);
     }

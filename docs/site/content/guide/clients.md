@@ -20,6 +20,7 @@ compatible records.
 | Gemini, Qwen, Pi and Oh My Pi | Dedicated adapters with per-version rules; missing/default zero values are not blindly treated as reported usage. |
 | Cline and Roo | Independently verified VS Code files/databases. Cline SDK metrics can be observations covering multiple requests. |
 | Zed and Junie | See the tested provider configurations and native-file records; hosted and untested provider routes are separate. |
+| Qoder CN VS Code | Extension 2.6.11 stores chat metadata in `~/.lingma/vscode/sharedClientCache/cache/db/local.db`; it is discovered automatically. Saved requests appear as observations. Tokens and underlying model-call counts remain unknown because these records contain no usage. CLI/standalone IDE/JetBrains use separate readers and limits. |
 | Local OTel exports | Only verified senders, file/database formats and local attribution qualify. The receiver is not a general-purpose collector. |
 | Other registered clients | Consult the complete matrix, including document-level implementations, probes and excluded routes. |
 

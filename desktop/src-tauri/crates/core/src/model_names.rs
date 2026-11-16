@@ -1,5 +1,28 @@
 //! Verified model spelling and vendor families; never alias different releases.
 
+#[derive(serde::Deserialize)]
+pub struct OfflineModel {
+    pub id: String,
+    pub aliases: Vec<String>,
+    pub provider_id: String,
+    pub pricing_available: bool,
+    pub source_urls: Vec<String>,
+    pub note: String,
+}
+
+pub fn offline_model_catalog() -> &'static [OfflineModel] {
+    #[derive(serde::Deserialize)]
+    struct Catalog {
+        models: Vec<OfflineModel>,
+    }
+    static MODELS: std::sync::OnceLock<Vec<OfflineModel>> = std::sync::OnceLock::new();
+    MODELS.get_or_init(|| {
+        serde_json::from_str::<Catalog>(include_str!("../prices/models-2026-11-16.json"))
+            .map(|c| c.models)
+            .expect("validated bundled model references")
+    })
+}
+
 pub fn model_key(model: &str) -> String {
     // Separator spelling only: retain digits, decimal versions, suffixes and namespaces.
     let model = model
@@ -48,6 +71,8 @@ pub fn reference_model_key_at(model: &str, occurred_at_ms: i64) -> String {
         "kimi-for-coding-backup/",
         "tencent/",
         "codebuddy/",
+        "alibaba/",
+        "alibaba-cn/",
     ]
     .iter()
     .find_map(|prefix| key.strip_prefix(prefix))
@@ -71,7 +96,11 @@ pub fn reference_model_key_at(model: &str, occurred_at_ms: i64) -> String {
         "kimi-for-coding" if occurred_at_ms >= 1_789_084_800_000 => "kimi-k2.8-preview".into(),
         // Official CodeBuddy local model catalog (2026-10-03): id -> display name.
         "hy4-preview-f" | "hy-4-preview" => "hy4-preview".into(),
-        _ => model,
+        _ => offline_model_catalog()
+            .iter()
+            .find(|m| m.aliases.iter().any(|a| a == &model))
+            .map(|m| m.id.clone())
+            .unwrap_or(model),
     }
 }
 
@@ -108,6 +137,8 @@ pub fn official_providers(model: &str) -> &'static [&'static str] {
         &["deepseek"]
     } else if model.starts_with("hy4-") {
         &["tencent", "tencent-cloud"]
+    } else if model.starts_with("qwen") {
+        &["alibaba", "alibaba-cn"]
     } else {
         &[]
     }

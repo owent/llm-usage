@@ -1,6 +1,6 @@
 [package]
 name = "llm-usage-core"
-version = "0.3.9"
+version = "0.3.10"
 description = "Statistics core and SQLite storage for the llm-usage desktop client (M1)"
 edition = "2021"
 rust-version = "1.90"
@@ -8,7 +8,7 @@ license = "MIT"
 
 [dependencies]
 # backup: SQLite Online Backup API for a consistent staged source copy; Kilo read-only source rules.
-rusqlite = { version = "^0.41.0", features = [
+rusqlite = { version = "^0.43.0", features = [
   "bundled",
   "backup",
   "functions",
@@ -16,11 +16,11 @@ rusqlite = { version = "^0.41.0", features = [
 ] }
 serde = { version = "^1.0.229", features = ["derive"] }
 serde_json = { version = "^1.0.154" }
-jiff = { version = "^0.2.38" }
+jiff = { version = "^1.0.0" }
 # zstd: bounded decompression of Zed threads.db data blobs (data_type="zstd", M8/A38).
-zstd = { version = "^0.14.3", default-features = false }
+zstd = { version = "^0.14.4", default-features = false }
 
 [dev-dependencies]
 serde_json = { version = "^1.0.154" }
-jiff = { version = "^0.2.38" }
-rusqlite = { version = "^0.41.0", features = ["bundled", "backup"] }
+jiff = { version = "^1.0.0" }
+rusqlite = { version = "^0.43.0", features = ["bundled", "backup"] }

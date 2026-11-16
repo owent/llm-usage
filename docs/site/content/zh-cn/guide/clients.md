@@ -18,6 +18,7 @@ sidebar:
 | Gemini、Qwen、Pi、Oh My Pi | 独立适配器和逐版本规则，不盲目将缺项或默认零视为已报告用量。 |
 | Cline、Roo | 独立核验的 VS Code 记录格式；Cline SDK metrics 可能覆盖多个请求。 |
 | Zed、Junie | 参阅已测供应商配置和原生文件的测试记录，托管服务及未测供应商方式另行核验。 |
+| Qoder CN VS Code | 插件 2.6.11 将对话元数据保存在 `~/.lingma/vscode/sharedClientCache/cache/db/local.db`，应用自动发现。已保存请求显示为观察记录；原始记录没有用量字段，token 和底层模型调用次数保持未知。CLI、独立 IDE 和 JetBrains 使用各自的读取器及限制。 |
 | 本地 OTel 导出 | 仅允许已核验发送端、记录格式和本地归属；接收器不是通用 Collector。 |
 | 其他已注册客户端 | 查看完整矩阵，包含文档级实施、探针和排除路线。 |
 

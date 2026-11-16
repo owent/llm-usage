@@ -12,6 +12,22 @@
 本文补渠道依据与本地快照设计。下文价格是注明日期的调研快照与测试值，
 不承诺持续为当前价格。
 
+## 内置模型参考
+
+内置的十一月参考目录将已知模型身份与价格分别保存。收录 `qwen4-max-preview` 及其
+官方别名 `qwen4.0-max-preview`，不填入按量价格：[Token Plan 说明](https://docs.qwencloud.com/token-plan/personal/token-plan-personal-overview)
+和[产品更新](https://docs.qwencloud.com/token-plan/token-plan-product-updates)证明预览可用及 Credits，
+不能建立货币价格。不能将预览版合并为 `qwen4-max`，也不能从 Qoder 的 `qmodel_latest`
+路由标识推断具体模型。
+
+`seed-2026-11-16.json` 增加独立核验的 GPT-6.1 Terra、Claude Fable 5.2、Gemini 4
+Carbon/Hydrogen 及 Qwen4-Max/Qwen3.8-Max/Flash 官方 API 价格。Qwen 条目保留
+[官方价格表](https://platform.qianwenai.com/docs/developer-guides/getting-started/model-prices)中的原始 CNY。
+Carbon 分别保存当前优惠与已公布的十二月价格区间。未知缓存 TTL 不计价，OpenAI 的
+30m/12h 写入价格不映射到 5m/1h。启动时将新快照幂等导入旧数据库，不重算历史估算。
+其他模型继续保留已有的版本化参考。[当前检查](../../validation/desktop-usage/maintenance-current.md)
+记录具体条目、来源和回归范围。
+
 <a id="research-scope-and-method"></a>
 
 ## 调研范围与方法

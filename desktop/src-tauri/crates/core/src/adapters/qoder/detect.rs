@@ -227,6 +227,9 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     let Some(head) = crate::adapters::framework::read_detect_head(path, DETECT_HEAD_BYTES)? else {
         return Ok(DetectOutcome::Pending);
     };
+    if head.starts_with(b"SQLite format 3\0") {
+        return super::versions::cn_vscode_db::detect(path);
+    }
     let text = String::from_utf8_lossy(&head);
     let text = text.trim_start_matches('\u{feff}').trim_start();
     if text.trim().is_empty() {

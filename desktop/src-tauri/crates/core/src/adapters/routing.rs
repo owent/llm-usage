@@ -172,7 +172,8 @@ impl FileEvidence {
     // Inspect source content before acquiring the storage writer; locked decisions use facts only.
     pub(super) fn inspect(path: &Path, instance: &str, manual: bool) -> Self {
         Self {
-            qoder: super::qoder::detect::native_record(path),
+            qoder: super::qoder::detect::native_record(path)
+                || super::qoder::versions::cn_vscode_db::native(path),
             dsh: (manual || instance.starts_with("dsh@")) && dsh_native_record(path),
             qwen: instance.starts_with("qwen@") && qwen_record(path),
         }

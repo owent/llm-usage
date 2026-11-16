@@ -50,27 +50,63 @@ impl crate::adapters::framework::SourceAdapter for QoderAdapter {
         }
         if let Some(home) = &ctx.home_dir {
             roots.push((home.join(".qoder").join("projects"), RootBasis::DefaultHome));
+            roots.push((home.join(".qoder-cn/projects"), RootBasis::DefaultHome));
+            roots.push((
+                home.join(".lingma/vscode/sharedClientCache/cache/db"),
+                RootBasis::DefaultHome,
+            ));
         }
         for manual in &ctx.manual_roots {
             roots.push((manual.clone(), RootBasis::Manual));
         }
-        let mut out = Vec::new();
-        let mut seen: std::collections::BTreeSet<std::path::PathBuf> =
-            std::collections::BTreeSet::new();
+        let mut out: Vec<DiscoveredRoot> = Vec::new();
+        let mut add =
+            |root: std::path::PathBuf, basis: RootBasis, files: Vec<std::path::PathBuf>| {
+                if files.is_empty() {
+                    return;
+                }
+                if let Some(existing) = out.iter_mut().find(|entry| entry.root == root) {
+                    for file in files {
+                        if !existing.files.contains(&file) {
+                            existing.files.push(file);
+                        }
+                    }
+                } else {
+                    out.push(DiscoveredRoot { root, basis, files });
+                }
+            };
         for (root, basis) in roots {
             // Bounded discovery of session JSONL and sessions/<id>/state.json files.
             let accept = |p: &std::path::Path| {
                 let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
-                name == "state.json" || name.ends_with(".jsonl")
+                name == "state.json" || name.ends_with(".jsonl") || name == "local.db"
             };
-            let files = if root.is_file() && accept(&root) {
+            let mut files = if root.is_file() {
                 vec![root.clone()]
             } else {
                 crate::adapters::framework::enumerate_files_bounded(&root, 3, &accept)
             };
-            if !files.is_empty() && seen.insert(root.clone()) {
-                out.push(DiscoveredRoot { root, basis, files });
+            for suffix in [
+                "vscode/sharedClientCache/cache/db/local.db",
+                "sharedClientCache/cache/db/local.db",
+            ] {
+                let path = root.join(suffix);
+                if path.is_file() && !files.contains(&path) {
+                    files.push(path);
+                }
             }
+            let mut json_files = Vec::new();
+            for file in files {
+                if versions::cn_vscode_db::is_sqlite(&file)
+                    || file.file_name().is_some_and(|s| s == "local.db")
+                {
+                    let parent = file.parent().unwrap_or(&root).to_path_buf();
+                    add(parent, basis.clone(), vec![file]);
+                } else {
+                    json_files.push(file);
+                }
+            }
+            add(root, basis, json_files);
         }
         out
     }
@@ -96,7 +132,9 @@ impl crate::adapters::framework::SourceAdapter for QoderAdapter {
         limits: &crate::adapters::framework::ScanLimits,
         now_ms: i64,
     ) -> Result<crate::adapters::framework::ScanOutcome, crate::error::CoreError> {
-        if target.path.extension().is_some_and(|e| e == "jsonl") {
+        if versions::cn_vscode_db::is_sqlite(&target.path) {
+            versions::cn_vscode_db::scan(target, stored, limits, now_ms)
+        } else if target.path.extension().is_some_and(|e| e == "jsonl") {
             versions::transcript_v1::scan(target, stored, limits, now_ms)
         } else {
             versions::probe_only::scan(target, stored, limits, now_ms)
@@ -112,7 +150,11 @@ impl crate::adapters::framework::SourceAdapter for QoderAdapter {
             return None;
         }
         Some(crate::adapters::framework::DetectOutcome::Supported {
-            format: QODER_FORMAT_VERSION.into(),
+            format: if context["cn_database"] == true {
+                versions::cn_vscode_db::FORMAT.into()
+            } else {
+                QODER_FORMAT_VERSION.into()
+            },
             format_version: None,
             basis: if context["fallback"] == true {
                 crate::domain::VersionBasis::LatestFallback
@@ -123,10 +165,9 @@ impl crate::adapters::framework::SourceAdapter for QoderAdapter {
     }
 
     fn has_validated_usage(&self, outcome: &crate::adapters::framework::ScanOutcome) -> bool {
-        outcome
-            .parse_context
-            .as_ref()
-            .is_some_and(|context| context["native_envelope"] == true)
+        outcome.parse_context.as_ref().is_some_and(|context| {
+            context["native_envelope"] == true || context["cn_database"] == true
+        })
     }
 
     fn capability(&self) -> crate::adapters::framework::CapabilityTable {
@@ -143,7 +184,7 @@ impl crate::adapters::framework::SourceAdapter for QoderAdapter {
             fields.insert(
                 key.into(),
                 serde_json::json!({"availability":Availability::Partial("源码验证；实机未验".into()),
-                "note":"CLI 1.1.76 持久化源码及构造数据；正值可读，默认/脱敏零未知；实机未验"}),
+                "note":"CLI 1.1.76 源码与构造数据；正值可读，默认/脱敏零未知；CN VS Code 2.6.11 仅对话观察，token/逐模型调用次数未知"}),
             );
         }
         for key in ["cost", "latency"] {
@@ -155,31 +196,33 @@ impl crate::adapters::framework::SourceAdapter for QoderAdapter {
         }
         CapabilityTable {
             adapter_id: "qoder".into(),
-            product: "Qoder CLI".into(),
-            surfaces: vec!["cli".into()],
+            product: "Qoder CLI / Qoder CN VS Code".into(),
+            surfaces: vec!["cli".into(), "vscode".into()],
             supported_versions: versions::VERIFIED_VERSION_IMPLS
                 .iter()
                 .map(|(v, _)| v.to_string())
+                .chain(std::iter::once("CN VS Code 2.6.11 / chat DB 2".into()))
                 .collect(),
-            discovery: serde_json::json!({"default_roots":["~/.qoder/projects"],
-                "env_override":"QODER_CONFIG_DIR", "manual_roots":"projects 目录或会话文件", "bounded":true}),
-            detection: serde_json::json!({"magic":"CLI assistant envelope", "version_field":"每条记录 version",
+            discovery: serde_json::json!({"default_roots":["~/.qoder/projects","~/.qoder-cn/projects","~/.lingma/vscode/sharedClientCache/cache/db"],
+                "env_override":"QODER_CONFIG_DIR", "manual_roots":"projects 目录、会话文件或 CN VS Code local.db/父目录", "bounded":true}),
+            detection: serde_json::json!({"magic":"CLI assistant envelope / SQLite chat_session+chat_record+chat_message", "version_field":"CLI 每条记录 version；CN 会话 version 仅为格式版本",
                 "registry":"adapters/qoder/versions", "unknown_version":"结构校验后兼容读取"}),
             fields,
             lifecycle: serde_json::json!({"partials":"stop_reason=null 不计", "fork":"跳过 forkedFrom 副本",
                 "context":"token-stats/压缩/系统消息不计用量", "state":"state.json 保留未验证诊断"}),
-            incremental: serde_json::json!({"cursor":"完整 JSONL 行字节偏移", "upgrade":"旧探针游标重读"}),
-            dedup: serde_json::json!({"primary":"sessionId + message.id"}),
+            incremental: serde_json::json!({"cursor":"CLI 完整 JSONL 行字节偏移；CN rowid 分页并周期重读 WAL 可变记录", "upgrade":"旧探针游标重读"}),
+            dedup: serde_json::json!({"primary":"CLI sessionId + message.id；CN session_id + request_id"}),
             integrity: serde_json::json!({"default_zero":"unknown", "provider":"unknown",
                 "timestamp":"持久化观察时间", "invalid_fields":"保留其他有效桶并报告诊断"}),
-            maintenance: serde_json::json!({"parser_version":versions::transcript_v1::PARSER_VERSION,
-                "format_evidence":"@qoder-ai/qodercli 1.1.76 KLo/bxu/kU/cU/SessionTranscriptWriter",
-                "evidence_level":"source-derived / synthetic-regression / native-pending"}),
+            maintenance: serde_json::json!({"parser_version":format!("{}+{}",versions::transcript_v1::PARSER_VERSION,versions::cn_vscode_db::PARSER),
+                "format_evidence":"CLI 1.1.76 SessionTranscriptWriter；CN VS Code 2.6.11 本地 SQLite 及插件请求构造",
+                "evidence_level":"CLI source-derived/synthetic; CN local metadata observations; token fields absent"}),
             scheduling: serde_json::json!({"entry":"统一 run_adapter_scan"}),
             limitations: vec![
                 "官方渠道脱敏 token 为 0，只计已完成响应次数，token 未知".into(),
-                "IDE/JetBrains 独立格式尚未证实；不能沿用 CLI 字段".into(),
-                "源码构造数据已验证；未安装客户端，实机验收待完成".into(),
+                "CN VS Code 2.6.11 本地数据库只保留对话观察记录；token/金额/模型调用次数未知"
+                    .into(),
+                "独立 IDE/JetBrains 格式尚未证实；CLI 实机验收待完成".into(),
             ],
         }
     }

@@ -125,7 +125,7 @@ Codex 对完整的超长 `response_item`/`world_state` 记录使用独立的 64 
 | gajae-code（gjc） | `~/.gjc/agent/sessions/<slug>/*.jsonl`：session v5 头、assistant model/provider/usage 与 Estimated 成本 | GJC_CODING_AGENT_DIR 等覆盖；OpenAI-completions 缺字段零回退不能核验缓存/零用量；message.timestamp 为请求开始 | M8 已实施；0.18.7 真实 API/CLI/记录 412/2/414 一致，补配置链非用量类型、未知缓存/未缓存与旧完整摘要/游标升级；其他 API/版本/分支待验，见 [真实样本](../../validation/desktop-usage/m8-container-samples.md)，A42 |
 | Xum（Coder；原 mux） | `.xum/.mux/sessions`、XUM_ROOT/MUX_ROOT 或 RUN_SESSION_ROOT 下的 `session-usage.json` v1；0.30.0 官方源码与两次真实本地调用已核对 | input 为未缓存输入；默认零未知；正文本输出加已知推理，推理未知时为下界；完整输入/总量未知。默认 CLI 临时会话删除且 custom provider 未请求流式 usage，网关对照单独记录 | M8 已实施；成本/逐次调用不虚构；完整旧摘要/游标与回滚/冲突专项通过，成品状态见 [M8 容器样本](../../validation/desktop-usage/m8-container-samples.md)，A43 |
 | iFlow CLI（阿里心流，闭源） | 官方固定提交 4642808 已公告 2026-04-17 停服；本地默认逐次用量记录未核验，需启用的 OTel 按 M5 规则另行核验 | 不套用 Gemini 家族格式；不作为现行 M8 本地候选 | 不实施；与 AGENTS/M8 边界一致，A46 |
-| Qoder CLI / IDE / JetBrains 插件 | CLI 会话 JSONL/state.json、IDE/插件转录路径及 SDK 用量字段各有下述官方资料 | 按产品分别核验持久用量语义、版本和本机归属；SDK 字段不能证实原生存储 | CLI 1.1.76 已有基于源码的转录读取器及合成测试；实机验收和 IDE/插件 token 格式待核验。三者均纳入用户要求的支持目标，见 [Qoder 要求](#qoder-local-support)，A47 |
+| Qoder CLI / CN VS Code / IDE / JetBrains | CLI 会话 JSONL/state.json；CN VS Code 的旧 Lingma local.db；其他 IDE/插件格式分别核验 | CLI token 字段与 CN 对话观察使用独立映射；SDK 字段不能证实原生存储 | CLI 1.1.76 基于源码的解析器；CN VS Code 2.6.11 原生元数据观察，不含 token，也不推断模型调用。独立 IDE/JetBrains token 读取器和 CLI 实机验收仍待完成；见 [Qoder 要求](#qoder-local-support)，A47 |
 | AtomCode（AtomGit 生态） | `.meta` turn_stats/model_usage 按模型会话聚合；round_count 来源报告调用汇总；旧单文件同构 | 5.2.1 真实 API/CLI/.meta 为 6,176 输入/2 输出；缓存默认零与坏桶保持未知，未缓存不猜测；有界排除完整配对的 UI v1/rewind v2，其他仍诊断 | M8 已实施；官方 e4215f7/45e05cb 与真实样本、旧完整摘要/游标及并行/回滚通过；产品版本不能核验其他记录，InsCode IDE 归 F1，见 [真实样本](../../validation/desktop-usage/m8-container-samples.md)，A48 |
 | Warp | 本地仅账户级用量缓存（requestsUsed/spendCents/syncedAt，工作区级） | 无 token 明细且属账户额度数据：不入 token 统计，最多以状态行展示受限 | 暂缓（额度类），A44 |
 | Cursor（CLI/IDE） | CLI 转录 `~/.cursor/projects/<slug>/agent-transcripts/<uuid>/*.jsonl`（有会话、无逐次 token/模型字段）；IDE state.vscdb 记录格式待核验 | 逐次用量仅存在于远端 dashboard（get-filtered-usage-events/CSV 导出），按本地边界排除；不以 tokenizer 从转录估算 | F1（本地用量格式待核验），A45 |
@@ -135,12 +135,13 @@ Codex 对完整的超长 `response_item`/`world_state` 记录使用独立的 64 
 
 ## Qoder 本地支持要求
 
-用户要求覆盖 CLI、IDE 和 JetBrains。2026-10-22 只读本机检查未发现 CLI 可执行文件、
-默认 `.qoder`/`.qoder-cn` 目录，受查 Windows 应用目录也没有 Qoder 项。
-用户确认本机未安装，授权依据源码构造数据；未初始化客户端、登录、添加 hooks 或发起模型请求。
+用户要求覆盖 CLI、CN VS Code、独立 IDE 和 JetBrains。已安装的 CN VS Code 插件
+2.6.11 提供原生本地对话元数据，独立读取规则见下文。CLI 1.1.76 已通过源码构造数据验证。
+独立 IDE 和 JetBrains 的 token 持久化仍未核验。采集不启用 hooks、不登录，也不发起额外模型请求。
 
 | 产品 | 当前官方资料 | 导入用量前的必要检查 |
 | --- | --- | --- |
+| CN VS Code | 已安装 `Alibaba-Cloud.tongyi-lingma` 2.6.11 的请求构造及原生 SQLite 表；见[当前检查](../../validation/desktop-usage/maintenance-current.md) | 仅读取已保存对话观察；缺失的 token/模型调用身份保持未知。旧 Lingma 目录独立于 `.qoder-cn/projects` |
 | CLI | [会话管理](https://docs.qoder.com/zh/cli/sessions)说明项目 JSONL/state.json 和 `QODER_CONFIG_DIR`；[SDK assistant 消息](https://docs.qoder.com/cli/sdk/references-typescript#sdkassistantmessage)声明可选输入、输出、缓存读取和缓存创建 token | 绑定版本的原生持久化、输入与缓存包含关系、默认零有效性、模型/时间/请求身份、恢复/分支/压缩及失败调用覆盖。未经写入器和样本核对，不将 SDK 字段直接用于 state.json |
 | IDE | [Hooks/转录说明](https://docs.qoder.com/extensions/hooks#transcript-file-format)记录 `~/.qoder/projects/<project>/transcript/<session-id>.jsonl`，含会话元数据及 user/assistant/progress 记录；公开转录示例未说明 token 用量 | 检查已安装 IDE 的写入器及非空本地转录/数据库；独立证实用量和逐次请求身份，不按 assistant 消息数计调用。读取已有文件不需要 hooks，也不自动启用 |
 | JetBrains 插件 | 同一份 [hooks 文档](https://docs.qoder.com/extensions/hooks)明确适用于 IDE 和 JetBrains，并指出 CLI hooks 不同 | 按插件和版本核查路径、持久化及用量字段；共用 hooks 文档不能证实 IDE 转录示例或 CLI 用量字段适用于插件 |
@@ -158,6 +159,26 @@ Codex 对完整的超长 `response_item`/`world_state` 记录使用独立的 64 
 损坏/不完整记录、事务回滚和跨产品重复测试。已授权的 CLI 源码构造样本用于实现回归，
 真实客户端验收单独记录；未核验格式保留探针与诊断，不导入推测数值。
 不兼容升级保留已有统计，并退回仅发现状态。
+
+### Qoder CN VS Code 数据库
+
+Qoder CN（原 Lingma）VS Code 插件 `Alibaba-Cloud.tongyi-lingma` 2.6.11
+将本地对话元数据保存在
+`~/.lingma/vscode/sharedClientCache/cache/db/local.db`。该格式独立于 CLI 转录、
+独立 IDE 和 JetBrains 插件。自动发现旧目录；手工添加的数据库或父目录必须按 SQLite
+签名及 `chat_session`、`chat_record`、`chat_message` 的必要列验证。
+
+使用只读 SQLite 连接及其 WAL。只选择请求/会话 ID、创建/修改毫秒时间、会话格式版本，
+以及 `extra.modelConfig.key`；不选择问题、回答、上下文、工具或账号数据。
+每条具有已保存 assistant 消息的 `chat_record` 是一条用量观察记录，不能证明一次模型调用。
+按会话/请求 ID 去重。已检查记录没有持久化用量，所有 token 和金额均保持未知。
+`qmodel_latest` 是可变路由标识，不能作为 Qwen 模型别名；会话 `version=2` 表示存储格式，
+不能识别每条历史请求的插件版本。
+
+在一致性读取事务内按有类型的 rowid 有界分页，完成一轮后重读可变记录，包括仅写入 WAL 的更新。
+坏记录保留诊断，不阻止其他有效记录或游标推进。重复读取/升级保留首次观察、历史与冲突。
+手工父目录及旧的错误归属空实例须经完整注册表恢复，不清空统计。
+含 token 的格式及逐模型调用覆盖需要独立验证写入器和实际样本。
 
 ### 基于源码的 CLI 读取器
 

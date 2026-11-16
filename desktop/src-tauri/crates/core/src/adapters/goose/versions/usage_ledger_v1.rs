@@ -87,7 +87,7 @@ fn text_ts_ms(value: Option<&str>) -> Option<i64> {
         return Some(ts.as_millisecond());
     }
     let civil: jiff::civil::DateTime = raw.parse().ok()?;
-    let zoned = civil.to_zoned(jiff::tz::TimeZone::UTC).ok()?;
+    let zoned = civil.to_zoned_datetime(jiff::tz::TimeZone::UTC).ok()?;
     let ms = zoned.timestamp().as_millisecond();
     (crate::domain::MIN_PLAUSIBLE_MS..=4_102_444_800_000)
         .contains(&ms)

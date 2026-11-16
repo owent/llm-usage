@@ -2,11 +2,26 @@
 
 <a id="执行要求与交付顺序"></a>
 
-Current status and remaining work are maintained only in [Plan.md](../../../Plan.md).
-This file retains the applicable delivery requirements; behavior follows the data, scheduling,
+Current work and unresolved conditions are maintained only in [Plan.md](../../../Plan.md).
+This file consolidates completed delivery scope and the applicable requirements; behavior follows the data, scheduling,
 pricing and platform designs. Report implementation, synthetic tests, real sources, native desktop
 and CI results separately. Passing documentation or synthetic-data tests does not establish other versions
 or real environments.
+
+## Delivered scope
+
+| Stage | Current implementation |
+| --- | --- |
+| M0/M1/M1a | Unified engineering entry points, reproducible locks, SQLite transactions/recovery/backups, source provenance, aggregate exchange and complete normalized detail preview/Merge. |
+| M2–M5/M8/M9 | Registered local-source adapters, version/format dispatch, bounded incremental reads, telemetry configuration and authenticated local receiving. Each product's actual fields/native coverage are defined by the [adapter matrix](adapters.md); registration does not establish token support. |
+| M6/F3 | Five desktop pages, shared query/selection ranges, retention/export, schedules, pause/cancel, two-source collection, native platform integration and ten languages. |
+| M7 | Three-platform build/package CI, portable archives and platform-specific installation/update machinery. Actual GUI, installation and update acceptance retains its recorded platform scope. |
+| F2 | Versioned offline prices, default-off estimates/online refresh, official same-model API references, archive-aware cost queries and default-off usage/cost alerts. |
+| Documentation | English-default Astro/Starlight site, complete Chinese counterparts, reviewed source-comment references, localized real application screenshots, automatic Pages publication and custom-domain HTTPS. Deployment is complete as confirmed by the user. |
+
+Implementation and native acceptance limits are indexed in
+[current acceptance](../../validation/desktop-usage/current-acceptance.md). This summary
+replaces the completed execution narrative; Git retains earlier plans.
 
 <a id="m0m1基线与统计存储"></a>
 
@@ -72,7 +87,8 @@ provenance. Implement local HTTP authentication, system credentials and conditio
 The [adapter matrix](adapters.md#扩展覆盖) defines the M8 scope and required samples for each family.
 Built-in parsers with format references may be delivered at documentation level without expanding real
 acceptance labels. Exclude estimated-token routes; discover and deduplicate both roots after brand
-migration. Qoder is a limited probe. Verified Amazon Q/Codebuff versions have no local per-call token
+migration. Qoder has a CLI transcript parser and an independent CN VS Code metadata reader;
+standalone IDE/JetBrains token formats remain unverified. Verified Amazon Q/Codebuff versions have no local per-call token
 records; exclude iFlow under its shutdown boundary.
 
 <a id="m6m7桌面后台与发行验收"></a>

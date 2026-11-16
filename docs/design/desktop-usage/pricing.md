@@ -15,6 +15,24 @@ Research completed 2026-09-25. [Data pricing rules](data-contract.md#pricing) ar
 this document adds channel references/local snapshots. Prices below describe dated research
 snapshots and test values, rather than a promise of current rates.
 
+## Bundled model references
+
+The bundled November reference catalogue separates known model identities from prices.
+It includes `qwen4-max-preview` and the official `qwen4.0-max-preview` alias, with no
+pay-as-you-go price: the [Token Plan reference](https://docs.qwencloud.com/token-plan/personal/token-plan-personal-overview)
+and [product updates](https://docs.qwencloud.com/token-plan/token-plan-product-updates)
+establish preview availability and Credits, not a currency price. Never alias that preview
+to `qwen4-max`, or infer a model from Qoder's `qmodel_latest` routing key.
+
+`seed-2026-11-16.json` adds independently verified official prices for GPT-6.1 Terra,
+Claude Fable 5.2, Gemini 4 Carbon/Hydrogen and Qwen4-Max/Qwen3.8-Max/Flash. Qwen's rows
+retain native CNY from the [official price table](https://platform.qianwenai.com/docs/developer-guides/getting-started/model-prices).
+Carbon retains separate introductory and announced December intervals. Unknown cache TTLs
+stay unpriced; OpenAI's 30m/12h writes are not mapped to 5m/1h. Startup imports this snapshot
+once into existing databases without recalculating historical estimates. Other models keep
+their existing versioned references. [Current checks](../../validation/desktop-usage/maintenance-current.md)
+record exact rows, sources and regression scope.
+
 <a id="调研范围与方法"></a>
 
 ## Research scope and method

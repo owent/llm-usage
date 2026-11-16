@@ -108,6 +108,9 @@ impl Storage {
             "../../prices/seed-2026-10-24-kimi-k3.1.json"
         ))?;
         import_price_snapshot_tx(&tx, &kimi_k31, now_ms)?;
+        let latest =
+            crate::pricing::parse_snapshot_json(include_str!("../../prices/seed-2026-11-16.json"))?;
+        import_price_snapshot_tx(&tx, &latest, now_ms)?;
         tx.commit()?;
         // Preserve the original seed snapshot's public return values.
         Ok(result)

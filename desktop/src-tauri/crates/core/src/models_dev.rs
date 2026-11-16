@@ -148,7 +148,7 @@ pub fn snapshot_from_models_dev(
 
     let fetched_date = jiff::Timestamp::from_millisecond(fetched_at_ms)
         .map_err(|e| CoreError::Validation(format!("models.dev fetched_at: {e}")))?
-        .to_zoned(TimeZone::UTC)
+        .to_zoned_datetime(TimeZone::UTC)
         .date();
     let snapshot_id = format!("models-dev-{}-{:08x}", fetched_date, raw_hash as u32);
     let effective_from = fetched_date.to_string();

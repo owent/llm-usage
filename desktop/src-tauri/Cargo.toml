@@ -1,9 +1,9 @@
 [package]
 name = "llm-usage-desktop"
-version = "0.3.9"
+version = "0.3.10"
 description = "llm-usage desktop client"
 edition = "2021"
-rust-version = "1.90"
+rust-version = "1.92"
 
 [workspace]
 members = ["crates/core"]
@@ -21,23 +21,23 @@ path = "src/main.rs"
 tauri = { version = "^2.12.5", features = [] }
 serde = { version = "^1.0.229", features = ["derive"] }
 serde_json = { version = "^1.0.154" }
-rusqlite = { version = "^0.41.0", features = ["bundled"] }
+rusqlite = { version = "^0.43.0", features = ["bundled"] }
 llm-usage-core = { path = "crates/core" }
-jiff = { version = "^0.2.38" }
-rfd = { version = "^0.17.2" }
+jiff = { version = "^1.0.0" }
+rfd = { version = "^0.18.0" }
 # fs4: available-space checks before backups (V15 consistent backups before migration/cleanup).
 fs4 = { version = "^1.1.0" }
 # flate2: bounded OTLP receiver gzip decompression (V22 decompression-bomb protection).
-flate2 = { version = "^1.1.10" }
+flate2 = { version = "^1.1.11" }
 # Edit JSONC by value ranges; unrelated configuration and comments stay intact.
 jsonc-parser = { version = "^0.34.0", features = ["serde"] }
-toml_edit = { version = "^0.25.17", features = ["serde"] }
+toml_edit = { version = "^0.25.19", features = ["serde"] }
 # ureq: F2 HTTPS GET refresh of models.dev api.json (rustls, no local-data upload, bounded response).
-ureq = "^3.5.0"
+ureq = "^3.5.2"
 semver = "^1.0.28"
 sha2 = "^0.11.1"
 tar = "^0.4.46"
-zstd = { version = "^0.14.3", default-features = false }
+zstd = { version = "^0.14.4", default-features = false }
 
 [target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
 getrandom = "^0.4.3"
@@ -46,7 +46,7 @@ libc = "^0.2.191"
 [target.'cfg(target_os = "linux")'.dependencies]
 secret-service = { version = "^5.2.0", features = ["rt-tokio-crypto-rust"] }
 tokio = { version = "^1.54.1", features = ["rt", "time"] }
-notify-rust = { version = "^4.18.2", default-features = false, features = ["z-with-tokio"] }
+notify-rust = { version = "^4.19.0", default-features = false, features = ["z-with-tokio"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = "^3.7.0"

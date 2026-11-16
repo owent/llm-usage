@@ -132,7 +132,7 @@ Grok cumulative/compaction differences and Goose reasoning differences; use nati
 | gajae-code (gjc) | `~/.gjc/agent/sessions/<slug>/*.jsonl` session v5, assistant model/provider/usage/Estimated cost. | GJC_CODING_AGENT_DIR overrides. OpenAI-completions missing-field zero cannot establish cache/reported-zero usage. message.timestamp is request start. | M8 real 0.18.7 API/CLI/native 412/2/414; recognize nonusage configuration chains, unknown cache/uncached and complete old-summary/cursor upgrade. Other APIs/versions/branches separate. [Samples](../../validation/desktop-usage/m8-container-samples.md), A42. |
 | Xum (Coder, formerly mux) | .xum/.mux/sessions, XUM_ROOT/MUX_ROOT or RUN_SESSION_ROOT session-usage.json v1. Official 0.30.0 source/two native local calls checked. | Input uncached, default zeros unknown. Positive text output + known reasoning; unknown reasoning gives lower bound. Complete input/total unknown. CLI temporary-session deletion/default custom-provider missing streaming usage distinguished from gateway comparison. | M8, without invented cost/per-call identity. Complete old-summary/cursor/rollback/conflict regressions passed. [Samples/executable status](../../validation/desktop-usage/m8-container-samples.md), A43. |
 | iFlow CLI (Alibaba, closed source) | Official 4642808 announcement: service ended 2026-04-17. Default local per-call format unverified; opt-in OTel separately checked under M5. | Do not borrow Gemini-family formats; excluded as a current M8 local candidate. | Unimplemented, consistent with AGENTS/M8; A46. |
-| Qoder CLI / IDE / JetBrains plugin | CLI session JSONL/state.json; IDE/plugin transcript paths and SDK usage fields have separate official references below. | Verify persisted token semantics, versions and local ownership for each interface; SDK fields do not establish native storage. | CLI 1.1.76 source-derived transcript reader with synthetic tests; real-client acceptance and IDE/plugin token formats remain pending. All three are requested support targets; see [Qoder requirements](#qoder-local-support). A47. |
+| Qoder CLI / CN VS Code / IDE / JetBrains | CLI session JSONL/state.json; CN VS Code legacy Lingma local.db; other IDE/plugin formats remain separate. | CLI token fields and CN chat observations have independent mappings; SDK fields do not establish native storage. | CLI 1.1.76 source-derived parser; CN VS Code 2.6.11 native metadata observations, without tokens or inferred model calls. Standalone IDE/JetBrains token readers and CLI real-client acceptance remain pending; see [Qoder requirements](#qoder-local-support). A47. |
 | AtomCode (AtomGit ecosystem) | .meta turn_stats/model_usage per-model session aggregate; round_count source call summary; legacy single-file equivalent layout. | Real 5.2.1 API/CLI/.meta input 6,176/output 2. Default-zero cache/invalid buckets unknown; no guessed uncached input. Exclude only complete paired UI v1/rewind v2, diagnose other files. | M8 official e4215f7/45e05cb/native samples, old-summary/cursor/parallel/rollback passed. Product version does not verify other records; InsCode IDE F1. [Samples](../../validation/desktop-usage/m8-container-samples.md), A48. |
 | Warp | Local account/workspace usage cache requestsUsed/spendCents/syncedAt only. | No token detail, account quota excluded from token totals; at most show limited status. | Deferred quota category; A44. |
 | Cursor CLI/IDE | CLI `~/.cursor/projects/<slug>/agent-transcripts/<uuid>/*.jsonl` has sessions without per-call tokens/models. IDE state.vscdb format unverified. | Per-call usage found only in remote dashboard get-filtered-usage-events/CSV and excluded. Do not estimate with a tokenizer. | Local-format F1; A45. |
@@ -142,13 +142,15 @@ Grok cumulative/compaction differences and Goose reasoning differences; use nati
 
 ## Local Qoder support requirements
 
-The requested scope includes CLI, IDE and JetBrains. The 2026-10-22 read-only local
-check found no CLI executable, default `.qoder`/`.qoder-cn` directory or Qoder entry
-in the inspected Windows application directories. The user confirmed no local installation and authorized source-derived synthetic data.
-No client was initialized and no login, hooks or model requests were added.
+The requested scope includes CLI, CN VS Code, standalone IDE and JetBrains. The installed
+CN VS Code extension 2.6.11 supplies native local chat metadata; its independent reader
+is specified below. CLI 1.1.76 has source-derived synthetic validation. Standalone IDE
+and JetBrains token persistence remain unverified. Collection enables no hooks, login
+or additional model requests.
 
 | Interface | Current official reference | Required before importing usage |
 | --- | --- | --- |
+| CN VS Code | Installed `Alibaba-Cloud.tongyi-lingma` 2.6.11 request construction and native SQLite tables; [current checks](../../validation/desktop-usage/maintenance-current.md). | Read saved chat observations only; absent tokens/model-call identity remain unknown. The legacy Lingma directory is independent of `.qoder-cn/projects`. |
 | CLI | [Sessions](https://docs.qoder.com/zh/cli/sessions) documents project JSONL/state.json and `QODER_CONFIG_DIR`. [SDK assistant messages](https://docs.qoder.com/cli/sdk/references-typescript#sdkassistantmessage) declare optional input/output/cache-read/cache-creation tokens. | Version-bound native persistence, input/cache inclusion, default-zero validity, model/time/request identity, resume/fork/compaction and failed-call coverage. Do not apply SDK field names to state.json without checking the writer and samples. |
 | IDE | [Hooks/transcripts](https://docs.qoder.com/extensions/hooks#transcript-file-format) documents `~/.qoder/projects/<project>/transcript/<session-id>.jsonl`, with session metadata, user/assistant/progress records. The published transcript examples do not specify token usage. | Inspect the installed IDE writer and a nonempty local transcript/database; establish usage and per-call identity independently of assistant-message counts. Hooks are unnecessary for reading existing files and are not enabled automatically. |
 | JetBrains plugin | The same [hooks documentation](https://docs.qoder.com/extensions/hooks) explicitly covers the IDE and JetBrains, while noting that CLI hooks differ. | Check plugin/version-specific paths, persistence and usage fields; the shared hooks documentation does not verify that IDE transcript examples or CLI usage fields apply to the plugin. |
@@ -170,6 +172,31 @@ rollback and cross-interface duplication tests. The authorized CLI source fixtur
 satisfy implementation regression; real-client acceptance is recorded separately.
 Unverified formats retain the probe and diagnostics without importing guessed values.
 An incompatible upgrade preserves earlier statistics and falls back to detection only.
+
+### Qoder CN VS Code database
+
+Qoder CN (formerly Lingma) VS Code extension `Alibaba-Cloud.tongyi-lingma` 2.6.11
+keeps local chat metadata in
+`~/.lingma/vscode/sharedClientCache/cache/db/local.db`. This is independent of CLI
+transcripts, the standalone IDE and the JetBrains plugin. Discover the legacy root
+automatically, and accept a manual database or parent directory by SQLite signature
+and the required `chat_session`, `chat_record` and `chat_message` columns.
+
+Read with a read-only SQLite connection and its WAL. Select request/session IDs,
+creation/modification milliseconds, session format version, and only
+`extra.modelConfig.key`; never select question, answer, context, tools or account data.
+One `chat_record` with a matching persisted assistant message is a usage observation,
+not a verified model call. Deduplicate by session/request ID. All token/cost fields
+remain unknown: the inspected records have no persisted usage. `qmodel_latest` is a
+mutable routing key, not a Qwen model alias. Session `version=2` identifies the saved
+format, not the extension version of every historical request.
+
+Use bounded typed-rowid pagination in a consistent read transaction and revisit mutable
+rows after a complete pass, including WAL-only updates. Invalid rows produce diagnostics
+without blocking valid rows or cursor progress. Preserve first observation, history and
+conflicts on repeat reads/upgrades. Manual root promotion and old misrouted empty instances
+must recover through the full registry without clearing statistics. Token-bearing formats
+and per-model-call coverage require independent writer/sample verification.
 
 ### Source-derived CLI reader
 

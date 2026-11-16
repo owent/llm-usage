@@ -62,7 +62,7 @@ impl Calendar {
     pub fn local_day_of(&self, ms: i64) -> Result<Date, CoreError> {
         let ts = Timestamp::from_millisecond(ms)
             .map_err(|e| CoreError::Calendar(format!("timestamp {ms}ms out of range: {e}")))?;
-        Ok(ts.to_zoned(self.tz.clone()).date())
+        Ok(ts.to_zoned_datetime(self.tz.clone()).date())
     }
 
     /// UTC milliseconds to local hour 0-23; both occurrences of a repeated DST hour share a label.
@@ -70,7 +70,7 @@ impl Calendar {
     pub fn local_hour_of(&self, ms: i64) -> Result<u32, CoreError> {
         let ts = Timestamp::from_millisecond(ms)
             .map_err(|e| CoreError::Calendar(format!("timestamp {ms}ms out of range: {e}")))?;
-        let hour = ts.to_zoned(self.tz.clone()).hour();
+        let hour = ts.to_zoned_datetime(self.tz.clone()).hour();
         Ok(if hour < 0 { 0 } else { hour as u32 })
     }
 
@@ -78,7 +78,7 @@ impl Calendar {
     pub fn local_weekday_of(&self, ms: i64) -> Result<u8, CoreError> {
         let ts = Timestamp::from_millisecond(ms)
             .map_err(|e| CoreError::Calendar(format!("timestamp {ms}ms out of range: {e}")))?;
-        let wd = ts.to_zoned(self.tz.clone()).weekday();
+        let wd = ts.to_zoned_datetime(self.tz.clone()).weekday();
         let n = match wd {
             jiff::civil::Weekday::Monday => 1,
             jiff::civil::Weekday::Tuesday => 2,
@@ -95,16 +95,16 @@ impl Calendar {
     pub fn offset_seconds_at(&self, ms: i64) -> Result<i32, CoreError> {
         let ts = Timestamp::from_millisecond(ms)
             .map_err(|e| CoreError::Calendar(format!("timestamp {ms}ms out of range: {e}")))?;
-        Ok(ts.to_zoned(self.tz.clone()).offset().seconds())
+        Ok(ts.to_zoned_datetime(self.tz.clone()).offset().seconds())
     }
 
     /// Local date as UTC [start_ms, end_ms); DST days may contain 23 or 25 hours.
     /// jiff resolves a nonexistent local midnight to the next valid time.
     pub fn day_range_ms(&self, day: Date) -> Result<(i64, i64), CoreError> {
-        let start = day.to_zoned(self.tz.clone())?;
+        let start = day.to_zoned_datetime(self.tz.clone())?;
         let end = day
             .checked_add(Span::new().days(1))
-            .and_then(|d| d.to_zoned(self.tz.clone()))?;
+            .and_then(|d| d.to_zoned_datetime(self.tz.clone()))?;
         Ok((
             start.timestamp().as_millisecond(),
             end.timestamp().as_millisecond(),
@@ -166,10 +166,12 @@ impl Calendar {
             .map_err(CoreError::from)?;
         Ok((
             first
-                .to_zoned(self.tz.clone())?
+                .to_zoned_datetime(self.tz.clone())?
                 .timestamp()
                 .as_millisecond(),
-            next.to_zoned(self.tz.clone())?.timestamp().as_millisecond(),
+            next.to_zoned_datetime(self.tz.clone())?
+                .timestamp()
+                .as_millisecond(),
         ))
     }
 }

@@ -83,7 +83,7 @@ npm run test:docs       # 文档行为回归
 npm run test:docs:browser # 生产站点浏览器检查
 ```
 
-也可以执行 `pnpm install --frozen-lockfile`，通过固定的 pnpm 12.15.0 恢复根目录和 desktop 工作区。
+也可以执行 `pnpm install --frozen-lockfile`，通过固定的 pnpm 12.21.0 恢复根目录和 desktop 工作区。
 同一组命令也支持 `pnpm run`；更改依赖时同步维护两个 npm 锁文件和共享的 pnpm 锁文件。
 
 `test:browser` 单独执行，会启动并关闭临时 Vite 服务；截图写入 `build/browser-smoke/`。

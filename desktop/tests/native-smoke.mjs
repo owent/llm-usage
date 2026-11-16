@@ -149,6 +149,16 @@ async function createMultiSourceData() {
   const fixtures=resolve('desktop/src-tauri/crates/core/tests/fixtures');
   const projection=JSON.parse(await readFile(join(fixtures,'opencode/real-2.0.32-windows/projection.json'),'utf8'));
   assert.equal(projection.messages.length,7);
+  // Retimed projections are synthetic GUI inputs; preserve relative times and every usage field.
+  const firstDay=shiftDay(day,-5);
+  const originalStart=Math.min(...projection.messages.map(row=>row.time_created));
+  const timeDelta=Date.parse(firstDay+'T12:00:00+08:00')-originalStart;
+  for(const row of projection.messages) {
+    row.time_created+=timeDelta;row.time_updated+=timeDelta;
+    for(const key of ['created','streamed','completed']) {
+      if(Number.isSafeInteger(row.data.time?.[key])) row.data.time[key]+=timeDelta;
+    }
+  }
   const openCodeManual=join(sourceHome,'multi-opencode');
   const openCodeData=join(openCodeManual,'opencode');
   await mkdir(openCodeData,{recursive:true});
@@ -177,6 +187,11 @@ async function createMultiSourceData() {
       const row=JSON.parse(line);
       if(typeof row.sessionId==='string') row.sessionId=`${row.sessionId}-${suffix}`;
       if(typeof row.forkedFrom?.sessionId==='string') row.forkedFrom.sessionId=`${row.forkedFrom.sessionId}-${suffix}`;
+      if(typeof row.timestamp==='string') {
+        const timestamp=Date.parse(row.timestamp)+timeDelta;
+        assert.ok(timestamp>=Date.parse(firstDay+'T00:00:00+08:00') && timestamp<Date.parse(day+'T00:00:00+08:00'),'synthetic history stays within retention and before today');
+        row.timestamp=new Date(timestamp).toISOString();
+      } else if(Number.isSafeInteger(row.timestamp)) row.timestamp+=timeDelta;
       return JSON.stringify(row);
     });
     const project=join(qoderManual,'projects',`project-${suffix}`);
@@ -185,7 +200,7 @@ async function createMultiSourceData() {
     await writeFile(file,rows.join('\n')+'\n');
     qoderFiles.push(file);
   }
-  return {openCodeManual,qoderManual,openCodeDb,qoderFiles};
+  return {openCodeManual,qoderManual,openCodeDb,qoderFiles,firstDay};
 }
 function readMultiSnapshot() {
   const db=new DatabaseSync(join(data,'llm-usage.sqlite'),{readOnly:true});
@@ -514,7 +529,7 @@ try {
     assert.equal(matches[0].agent,agent);
     assert.ok(['active','active_compat'].includes(matches[0].status));
   }
-  const multiQuery={...query,first_day:'2026-10-19',last_day:day};
+  const multiQuery={...query,first_day:multi.firstDay,last_day:day};
   const firstMultiSummary=await invoke('summary',{q:multiQuery});
   assertSummaryMatches(firstMultiSnapshot,firstMultiSummary);
   checks.push('full-registry refresh uniquely owns Codex/OpenCode/Qoder files; IPC matches independent SQLite known tokens and unknown coverage');

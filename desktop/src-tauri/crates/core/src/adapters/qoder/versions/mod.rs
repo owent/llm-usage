@@ -1,5 +1,6 @@
 //! Qoder per-record CLI versions; source-derived verification is distinct from native acceptance.
 
+pub mod cn_vscode_db;
 pub mod probe_only;
 pub mod transcript_v1;
 

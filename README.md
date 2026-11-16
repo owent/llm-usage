@@ -87,7 +87,7 @@ npm run test:docs:browser # Production-site browser checks.
 ```
 
 Alternatively, `pnpm install --frozen-lockfile` restores the root and desktop workspace
-using the pinned pnpm 12.15.0. The same commands support `pnpm run`; keep both npm locks
+using the pinned pnpm 12.21.0. The same commands support `pnpm run`; keep both npm locks
 and the shared pnpm lock synchronized when changing dependencies.
 
 `test:browser` starts and stops its own Vite server and writes screenshots to `build/browser-smoke/`.

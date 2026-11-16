@@ -470,8 +470,8 @@
       "zh": "de0cbc03eabe4bde140b6e658bac6fc4bdfe4ac1df4d6d87ed747b07ab3d65ce"
     },
     "docs/design/desktop-usage/adapters.md": {
-      "en": "b3b828587a3d0f8fa05c81c79ebc3fda8e0fd433f3137ef4df2fd2b7f8acadef",
-      "zh": "925bec8047f0e41febc7736e1671bc221242587456872c612adf87a825e38af9"
+      "en": "3b200b3b3159c6e1ab2e5d1527f024582360cdcd28686a86cdf75390fbe3c329",
+      "zh": "5d8677cd4360672e1282b3a9788eb1ff6394bb5b7eceb815239cc4a38f4ae9c4"
     },
     "docs/design/desktop-usage/application-updates.md": {
       "en": "0b27fa4b068b91ed22599c07de880763977eb6ac7001378ec532c6503eb1b781",
@@ -534,8 +534,8 @@
       "zh": "6dcb3bcb409ae90b0eeace305d639f2d96b2efdccf074620051e48a78e8c47d1"
     },
     "docs/design/desktop-usage/pricing.md": {
-      "en": "9f0006f9d1a640b1f04d8144682ce896136a5bcf639d03af395732fcf6164745",
-      "zh": "7d994b25794b8d54bd4c0baf1b94ff2e169854174da37dca374d27f9111cc31a"
+      "en": "9c62724e2547e3d33b666e6fb2403d66d56c86af5cb8ba5c4abd0255b93e0465",
+      "zh": "38345526ad9f8ec7bfc37833387cc2c29cc91de0c0aa5944b7d8dd0cdfbc49bf"
     },
     "docs/design/desktop-usage/query-acceleration.md": {
       "en": "24897bf6abcfe62f4e22c0fe826667e602aaf245d42ce883568fe0f15ce3f530",
@@ -594,8 +594,8 @@
       "zh": "05487c61a562fc8c06812798033494b0346d106f01b5d9ded5ac881f88c21bca"
     },
     "docs/validation/desktop-usage/current-acceptance.md": {
-      "en": "ecbbc8f1b8561343c2ea03fde4496df9b1d965ead65e2f843973860a44ab6509",
-      "zh": "9ae33aabf27d49f91917e0cdedcbe6f8b8f3ac809ebc97ff41e7a626e80cb68e"
+      "en": "df78c950f7eb6699c67704227c6bf3891c308ada0c298f13029e05cc9ef76e01",
+      "zh": "3df1ecee15eed5e8b74d12d2792df15867bc3c321552b3d6ce81fff3067aaeb4"
     },
     "docs/validation/desktop-usage/dashboard-fixes.md": {
       "en": "f0a44b626817b915bc6fc0a814fc296b2858d024bdc11775d53588bcebd1cf97",
@@ -753,6 +753,10 @@
       "en": "a0203594df5ac4907023fcef7d0f5f6c4200568006844f325577014d5ff50b3d",
       "zh": "43c4e83a72688bdc8072934a6c94cde6f845efdd89dbdb5311041101eae63633"
     },
+    "docs/validation/desktop-usage/maintenance-current.md": {
+      "en": "36daec769c0f146e128fdca5aafe7263bea7a97abda475662ba8cd32913bbab7",
+      "zh": "1556d961a59ab0545795143024fb4f8670a4b069559f9afc952ad1a5d6e85638"
+    },
     "docs/validation/desktop-usage/openclaw-container-sample.md": {
       "en": "adbe8c9d12fbdf66a1889b7c39bf67c675e68e610e0d684da16f172d87351df8",
       "zh": "a1eba4684dd68b627fb2d323b8e5aa50a506f11a466f65e711f85aba3ae3fb07"
@@ -846,8 +850,8 @@
       "zh": "d5963238079a03a2ab2da5eeb22e2f08570040f32b6f9275ff27349d3f77f1f2"
     },
     "README.md": {
-      "en": "edec405e5db0fa0bbf94875567b357e7cf2931bcadda56a99f061ea8661088a1",
-      "zh": "d433b12b4a9c06b16efcda54436637b64bcc61b941ada55d09e532200215817a"
+      "en": "fc59e504f38b3c9e606ca840c518255d1be9068029e9b6532d431aa04a71fb31",
+      "zh": "973b0b0acd9f0a3e39e84c964a70383cd81e58b43e48112e1b29f5b6f1139b3b"
     }
   },
   "guides": {
@@ -872,8 +876,8 @@
       "zh": "6a3c822a852e0ad406820acbd290ad8978b353b4fe343ff60e190c0f14ec8cb3"
     },
     "docs/site/content/development/setup.md": {
-      "en": "7f921e0a99425b131ffe3910bef0c2a065adf578d4ac8a4d952e03603913ee29",
-      "zh": "23dd8ef4db889c46cd5440375bfa8b0bca6c058491445c797e9bccc3d1d00e5b"
+      "en": "51c0423a856c651e99fb3c45d1146a8e404191394e92bd251a493b8fc62bf08f",
+      "zh": "b54b9eef392435baa0246a98527dd7818cc6e3762535c14ee1fe61302a1dda3a"
     },
     "docs/site/content/development/testing.md": {
       "en": "3adf3b0c7b8bb7d47aac9de77d43175edb408402a456eb639e662b9851291ad1",
@@ -884,8 +888,8 @@
       "zh": "b838408bc73d3a7ad3f1d8369df6ff8a451b9258e6866cd3cebfe3ea4ff94f95"
     },
     "docs/site/content/guide/clients.md": {
-      "en": "e5a6e00579b2f1626b9b5a1bec2171fcc5fec8db83c9288e94e45b3ee4fc980b",
-      "zh": "4864a267030615f0ef8beb2a7e632d82475767048d777b9f447f37ec168c6f09"
+      "en": "e979628ed76d9e21debf6bce1ef5b66cb6fc7158488a5a1b42cba3836dfe88c6",
+      "zh": "ecbbde6111a50b713196d10365e28dc2b557f05ce3f3e25d416e8ec8bb8df347"
     },
     "docs/site/content/guide/dashboard.md": {
       "en": "16d405d2a4e9e789cd68aeade997ac93b21af6c222786bdde3b9758481b73469",
