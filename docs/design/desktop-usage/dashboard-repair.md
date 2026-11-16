@@ -108,8 +108,10 @@ incremental rounds, reevaluated after rule-upgrade replay.
   conflicts unpriced. All tiers from one preferred snapshot, without mixing new base/old long rates.
   User confirmed k28-agent-preview as Kimi K2.8 Preview on 2026-10-05 and authorized K2.7
   when official prices absent. Identity stays kimi-k2.8-preview. Current API reference uses
-  official kimi-k2.7-code only without exact channel/same-model official rate. This listed
-  cross-model exception does not apply to similar models or channel/tier ambiguity. Amounts/
+  official kimi-k2.7-code only without exact channel/same-model or suffixless K2.8 tariff.
+  The [Preview and approval-review rules](pricing.md#preview-and-approval-review-reference-prices)
+  also authorize terminal Preview removal and the OpenAI approval-review API counterpart;
+  these do not extend to arbitrary similar models or channel/tier ambiguity. Amounts/
   summaries/rate details identify substitute model. Occurrence-time estimates never use it;
   no historical amount rewriting.
 - Overview/trend show API references/partial coverage/official fallback/unpriced reasons.
@@ -131,8 +133,9 @@ use the Qoder label. Preserve the original key in table/filter tooltips.
 
 This is a current display override, not historical serving-model verification. Keep raw
 event/export values, query/filter/grouping keys, attribution, provider and price-reference
-resolution unchanged. Do not merge this routing key with native Qwen model rows or apply
-Qwen4-Max prices to the preview. Updating a label does not reprice stored events.
+resolution unchanged. Do not merge this routing key with native Qwen model rows. Native
+Qwen4-Max-Preview may use the separately authorized suffixless current-price reference;
+a display label alone does not enable pricing. Updating a label does not reprice stored events.
 
 The [versioned mapping registry](model-aliases.md) now supports local JSON imports and
 optional public catalogue refresh, independently of application releases and pricing.

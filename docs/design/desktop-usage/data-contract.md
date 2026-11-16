@@ -903,8 +903,11 @@ integer products before rounding by displayed partition so small costs are retai
 [pricing requirements](pricing.md) for rules/results. Cross-model references require explicit
 user authorization, retaining actual model and substitute price model. Exact-model entries
 take precedence; ambiguity never triggers substitution and occurrence-time amounts stay
-unchanged. The current K2.8 Preview → K2.7 Code exception and UI label are specified in
-[dashboard requirements](dashboard-repair.md).
+unchanged. Authorized current references remove one terminal `-preview` when the exact
+model lacks a tariff; the suffixless model precedes the K2.8 Preview → K2.7 Code exception.
+OpenAI `codex-auto-review` may use GPT-5.6 Luna as an explicitly labeled API counterpart,
+without asserting actual serving identity or billing. Provider/channel/currency safeguards
+and substitute labels are specified in [pricing requirements](pricing.md#preview-and-approval-review-reference-prices).
 
 Spending reminders use user-selected known metrics and notify without blocking Agent execution.
 Missing sources limit reminder coverage. Restart/backfill cannot repeat the same threshold notice.

@@ -71,12 +71,25 @@ fn preview_alias_is_known_without_inventing_a_price_or_aliasing_a_routing_key() 
     let (_dir, storage) = temp_storage("preview-price");
     storage.ensure_seed_price_snapshot(ts(DATE)).unwrap();
     let book = storage.load_price_book().unwrap();
-    for model in [
-        "qwen4-max-preview",
-        "qwen4.0-max-preview",
-        "qwen4-max-unknown",
-        "qmodel_latest",
-    ] {
+    for model in ["qwen4-max-preview", "qwen4.0-max-preview"] {
+        let e = event(model);
+        let EventEstimate::Priced(amount) =
+            book.for_model(&e)
+                .estimate(&e, &EstimateOptions::default(), ts(DATE))
+        else {
+            panic!("{model}")
+        };
+        assert_eq!(amount.substitute_model.as_deref(), Some("qwen4-max"));
+        assert_eq!(
+            (amount.currency.as_str(), amount.total_amount_minor),
+            ("CNY", 4000)
+        );
+        assert_eq!(
+            book.estimate_at_time(&e, &EstimateOptions::default()),
+            EventEstimate::Unpriced(UnpricedReason::NoPriceRow)
+        );
+    }
+    for model in ["qwen4-max-unknown", "qmodel_latest"] {
         let e = event(model);
         assert!(
             matches!(

@@ -86,10 +86,12 @@ approximate USD alongside them using verified, versioned exchange rates; retain 
 and sources without merging currencies or changing history. See the dashboard repair specification.
 Without an exact price entry, a verified official supplier price for the same model may provide an API
 reference. Do not price ambiguous channels/currencies or infer a model from its family; see
-[dashboard repair](docs/design/desktop-usage/dashboard-repair.md). Explicitly authorized exception:
-when Kimi K2.8 Preview (including k28-agent-preview) has no price for that model, the current reference
-may use the official K2.7 Code price and must identify the substitute. Preserve model identity and amounts
-at occurrence time.
+[dashboard repair](docs/design/desktop-usage/dashboard-repair.md). Current references may remove one
+terminal `-preview` when that model has no applicable tariff; match the suffixless model exactly.
+Kimi K2.8 Preview (including k28-agent-preview) may then use the authorized official K2.7 Code price.
+OpenAI `codex-auto-review` may use GPT-5.6 Luna as a labeled API counterpart, without claiming native
+serving identity or actual billing. Preserve provider/channel/currency safeguards, missing components,
+model identity and occurrence-time amounts; see the [substitution rules](docs/design/desktop-usage/pricing.md#preview-and-approval-review-reference-prices).
 
 Cost and usage queries must cover the same retention range. Choose details or archives by complete source
 partition; sum before rounding. Do not infer missing archive components by subtraction. Without per-call

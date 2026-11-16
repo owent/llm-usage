@@ -224,7 +224,7 @@
       ]
     },
     "desktop/src-tauri/Cargo.toml": {
-      "codeHash": "c547b53235b3717dcb1e64061214aaf6afbe145bf4e5e2305b03b10d11a00528",
+      "codeHash": "9242210cbd81fb268e7cd180d9e7f0859254337ce8e0ff24b842a0d376117eb3",
       "comments": [
         {
           "id": "6b9f8559a21a75a8",
@@ -264,7 +264,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/Cargo.toml": {
-      "codeHash": "3e075934bef73775004d54632f081d7fc431dc3526deef735d99d671d221f411",
+      "codeHash": "4af8776d856e193f7d47f5fa217683647ae0d5d535c2342bf45861ad7b9997b8",
       "comments": [
         {
           "id": "e82798efdbcdcbfa",
@@ -35594,7 +35594,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/model_names.rs": {
-      "codeHash": "e582b16e4fd9828225ed2bd95158a3ca15e7fe01276b3ea13f4393010253aafa",
+      "codeHash": "7a73393162241bf315776180e65572a80c1c58375219f7848f8ceb8adff451fd",
       "comments": [
         {
           "id": "90ce3eda03caa5d3",
@@ -35723,22 +35723,22 @@
           "zh": "// 官方 CodeBuddy 本地模型目录（2026-10-03）：ID 对应显示名称。"
         },
         {
-          "id": "1761e2ec0112f27b",
+          "id": "73a57c18ac1912ae",
           "line": 107,
           "kind": "line",
-          "en": "/// Explicit user-authorized substitute for CURRENT reference estimates only.",
-          "zh": "/// 用户明确授权的替代价格，仅用于当前参考费用估算。"
+          "en": "/// Ordered substitutes for current references; usage identity and saved estimates stay unchanged.",
+          "zh": "/// 当前参考的有序替代型号；用量身份及已保存估算保持不变。"
         },
         {
-          "id": "c64011d473549af4",
-          "line": 108,
+          "id": "02fb53401088af48",
+          "line": 122,
           "kind": "line",
-          "en": "/// Preserve model identity; this exception does not permit general nearest-model pricing.",
-          "zh": "/// 保留模型身份；此例外不允许普遍采用相近模型的价格。"
+          "en": "// Codex selects Luna for API-key approval review; the ChatGPT route's serving identity is opaque.",
+          "zh": "// Codex 为 API Key 自动审批选择 Luna；ChatGPT 路由的服务模型身份不透明。"
         },
         {
           "id": "c88205c60074ce17",
-          "line": 116,
+          "line": 131,
           "kind": "line",
           "en": "/// Vendor identity is separate from the Agent's billing channel.",
           "zh": "/// 模型供应商身份与 Agent 的计费渠道分别保存。"
@@ -36101,7 +36101,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/pricing.rs": {
-      "codeHash": "486abaac7f45e975d0dc9fcf752b252fa3762571669fac089ee55daa796ab84b",
+      "codeHash": "0d845e167d1383ab7be5634b3c64437b7f7b74586d455f534bf14641bde94343",
       "comments": [
         {
           "id": "b330b53a6b7c1551",
@@ -36588,420 +36588,413 @@
         },
         {
           "id": "d3f0c37607a2c81b",
-          "line": 569,
+          "line": 570,
           "kind": "line",
           "en": "/// Estimate using the price interval containing the event occurred_at timestamp.",
           "zh": "/// 按事件 occurred_at 所在的价格生效区间进行估算。"
         },
         {
           "id": "f48d489b5dafe195",
-          "line": 578,
+          "line": 579,
           "kind": "line",
           "en": "/// Estimate at at_ms; passing now selects the current price reference.",
           "zh": "/// 按指定参考时点计价：`at_ms` 传入评估时点（now）即为\"按当前价格模拟\"。"
         },
         {
           "id": "12100080de16bdd2",
-          "line": 588,
+          "line": 589,
           "kind": "line",
           "en": "/// Archived sums do not identify individual request context tiers. Return component bounds",
           "zh": "/// 归档中的 token 合计无法确定各请求的上下文档位；在同一组所选价格内"
         },
         {
           "id": "37ca1dceed4bb16d",
-          "line": 589,
+          "line": 590,
           "kind": "line",
           "en": "/// within one selected tariff; do not select a tier from a whole day's input sum.",
           "zh": "/// 给出各费用项的上下界，不用整天输入合计选择请求档位。"
         },
         {
           "id": "694389dc89fe617c",
-          "line": 630,
+          "line": 631,
           "kind": "line",
           "en": "// Reject negative tokens or cache exceeding known total input; do not replace them with zero.",
           "zh": "// 异常 token：负值 / 缓存大于已知总输入（不用 max(0,…) 修饰）。"
         },
         {
           "id": "d3a16aab8a834bf1",
-          "line": 668,
+          "line": 669,
           "kind": "line",
           "en": "// Select intervals where from <= at_ms < to; NULL to means open-ended.",
           "zh": "// 区间匹配：from ≤ at_ms < to（to NULL = 开放）。"
         },
         {
           "id": "fb4dfb603d77c990",
-          "line": 694,
+          "line": 695,
           "kind": "line",
           "en": "// Unknown billing channels/providers can still show a reference without inferring actual billing.",
           "zh": "// 实付渠道或供应商未知时也可展示参考估算，但不推断实际收费渠道。"
         },
         {
           "id": "7e7d9fa89a8cd202",
-          "line": 695,
+          "line": 696,
           "kind": "line",
           "en": "// Vendor families restrict fallback; the model release must still match exactly.",
           "zh": "// 模型供应商系列用于限制回退范围，模型版本仍须精确匹配。"
         },
         {
-          "id": "aa9306c5a0d4be59",
-          "line": 716,
+          "id": "138227ac01c19006",
+          "line": 718,
           "kind": "line",
-          "en": "// Reuse channel, currency, and tier checks; only official rows for this explicitly",
-          "zh": "// 继续检查渠道、币种和档位；只允许经明确授权的替代模型"
-        },
-        {
-          "id": "73aa4c08ab08ee14",
-          "line": 717,
-          "kind": "line",
-          "en": "// authorized substitute model may participate.",
-          "zh": "// 对应的官方价格行参与计价。"
+          "en": "// Only terminal-Preview fallback admits nonofficial configured tariffs.",
+          "zh": "// 仅末尾 Preview 回退允许采用已配置的非官方价目。"
         },
         {
           "id": "3833dce757bb615f",
-          "line": 796,
+          "line": 819,
           "kind": "line",
           "en": "// Select one vendor/channel before its context tier; mixing vendors or currencies",
           "zh": "// 先选择一个供应商和渠道，再确定上下文档位；混用供应商或币种"
         },
         {
           "id": "53df4a6ae848dbd6",
-          "line": 797,
+          "line": 820,
           "kind": "line",
           "en": "// could otherwise select an unrelated high tier.",
           "zh": "// 可能误选其他价格表中的高档位。"
         },
         {
           "id": "e54ed6ce9dc9d86d",
-          "line": 813,
+          "line": 836,
           "kind": "line",
           "en": "// Resolve catalog spelling before context tiers; a higher tier under a different",
           "zh": "// 先确定价格目录中的模型名称，再选择档位；其他名称下的高档位"
         },
         {
           "id": "1d28cbb392e3875e",
-          "line": 814,
+          "line": 837,
           "kind": "line",
           "en": "// spelling must not override an exact model ID.",
           "zh": "// 不能覆盖精确匹配的模型 ID。"
         },
         {
           "id": "645ad0ccd72d2110",
-          "line": 838,
+          "line": 861,
           "kind": "line",
           "en": "// Take all tariff tiers from one prioritized snapshot; mixing a new base rate",
           "zh": "// 各档位必须来自同一个按优先级选中的快照；混用新的基础价格"
         },
         {
           "id": "994038eb2b203c56",
-          "line": 839,
+          "line": 862,
           "kind": "line",
           "en": "// with an older long-context rate would invent a tariff.",
           "zh": "// 和旧的长上下文价格会形成不存在的价格表。"
         },
         {
           "id": "1024a76fe79c64c4",
-          "line": 875,
+          "line": 898,
           "kind": "line",
           "en": "// Even a lone high-tier row requires input at or above its threshold.",
           "zh": "// 即使只有一个高档价格行，也必须验证输入达到该行阈值。"
         },
         {
           "id": "6b48a70431f0acd8",
-          "line": 876,
+          "line": 899,
           "kind": "line",
           "en": "// Unknown input size cannot select among tiers by price-book order.",
           "zh": "// 多档且输入规模未知时不能从价格簿顺序猜测档位。"
         },
         {
           "id": "ea694d2adfb9d369",
-          "line": 897,
+          "line": 920,
           "kind": "line",
           "en": "// Candidates with the same tier are already ordered by snapshot priority.",
           "zh": "// 相同档位跨快照重复时，候选行已按快照优先级排序。"
         },
         {
           "id": "069e6ec902c10a1b",
-          "line": 908,
+          "line": 931,
           "kind": "line",
           "en": "/// Price components after selecting a price row.",
           "zh": "/// 已选定价格行后的分量计价。"
         },
         {
           "id": "ff29ca5995b7b2b4",
-          "line": 915,
+          "line": 938,
           "kind": "line",
           "en": "// Use the event provider's configured TTL default even when the fallback provider differs.",
           "zh": "// TTL 默认档按事件供应商的用户配置取（回退行 provider 与事件不同也适用）。"
         },
         {
           "id": "ab2302656557f2f9",
-          "line": 921,
+          "line": 944,
           "kind": "line",
           "en": "// Prefer explicit uncached input; otherwise derive total - read - write only if all are known.",
           "zh": "// 未缓存输入：优先显式值；否则 total − read − write（三者均已知时派生）。"
         },
         {
           "id": "bc75adb367949433",
-          "line": 966,
+          "line": 989,
           "kind": "line",
           "en": "// The component is unpriced because its rate is absent.",
           "zh": "// 分量未计价：价格列缺失"
         },
         {
           "id": "8aed9ad2c7a6930a",
-          "line": 1005,
+          "line": 1028,
           "kind": "line",
           "en": "// Use a user-selected TTL when the event lacks one; without a default, leave writes unpriced.",
           "zh": "// 缓存写：TTL 档由用户默认选定（事件未提供 TTL）；未设默认档不计价。"
         },
         {
           "id": "11db20d01a729bbb",
-          "line": 1014,
+          "line": 1037,
           "kind": "line",
           "en": "// Known zero writes require no TTL choice and incur no write amount.",
           "zh": "// 已知零写入无需猜测 TTL，也不会产生写入费用。"
         },
         {
           "id": "2a6041a24eb559b9",
-          "line": 1041,
+          "line": 1064,
           "kind": "line",
           "en": "// No default TTL or no rate for that tier leaves writes unpriced.",
           "zh": "// 无默认档或该档无价：写分量未计价"
         },
         {
           "id": "1b2340c9b31d07dc",
-          "line": 1055,
+          "line": 1078,
           "kind": "line",
           "en": "// With no priced components, return an unpriced event instead of a zero amount.",
           "zh": "// 所有分量均未计价（价格列缺失或 token 未知）：整条未计价。"
         },
         {
           "id": "74939a8c40343685",
-          "line": 1069,
+          "line": 1092,
           "kind": "line",
           "en": "/// Parse snapshot JSON from a repository seed or a user file.",
           "zh": "/// 解析快照 JSON 文本（种子或用户文件）。"
         },
         {
           "id": "f70ce5f298d7e5b0",
-          "line": 1109,
+          "line": 1132,
           "kind": "line",
           "en": "// The seed retains both nonoverlapping glm-5.1 context tiers.",
           "zh": "// 种子内 glm-5.1 两档阈值并存且不重叠。"
         },
         {
           "id": "31943f05bb5fe02e",
-          "line": 1122,
+          "line": 1145,
           "kind": "line",
           "en": "// Adjacent same-key intervals do not overlap; equal starts do.",
           "zh": "// 同键两行首尾相接不重叠（from 相同则重叠）。"
         },
         {
           "id": "c5a7dc31ed54ec8a",
-          "line": 1132,
+          "line": 1155,
           "kind": "line",
           "en": "// $10/M = 100000 hundredths of a cent; 1 * 100000 / 1e8 = 0.001 cent, rounded to 0.",
           "zh": "// $10/M = 100000 百分之一美分；1 token × 100000 / 1e8 → 0.001 美分 → 0。"
         },
         {
           "id": "5179f2cdf5e449b6",
-          "line": 1134,
+          "line": 1157,
           "kind": "line",
           "en": "// E1 input: 1,234,567 * 80000 / 1e8 = 987.6536, rounded to 988.",
           "zh": "// 1,234,567 × 80000 / 1e8 = 987.6536 → 988（E1 输入分量）。"
         },
         {
           "id": "bd0cd9ed64e7414d",
-          "line": 1136,
+          "line": 1159,
           "kind": "line",
           "en": "// E6 output: 1,000 * 280000 / 1e8 = 2.8, rounded half up to 3.",
           "zh": "// 1,000 × 280000 / 1e8 = 2.8 → 3（E6 输出分量，四舍五入）。"
         },
         {
           "id": "2097b5a690e56cf7",
-          "line": 1138,
+          "line": 1161,
           "kind": "line",
           "en": "// E6 input: 32,768 * 80000 / 1e8 = 26.2144, rounded to 26.",
           "zh": "// 32,768 × 80000 / 1e8 = 26.2144 → 26（E6 输入分量）。"
         },
         {
           "id": "354e8a486dce37b8",
-          "line": 1169,
+          "line": 1192,
           "kind": "line",
           "en": "// Configuring a channel enables pricing; a small known amount can round to zero.",
           "zh": "// 配置渠道后可计价（小 token 舍入为 0 是合法金额）。"
         },
         {
           "id": "d11aeeeed6c29b01",
-          "line": 1192,
+          "line": 1215,
           "kind": "line",
           "en": "// Cache sum 110 exceeds total input 100.",
           "zh": "// 缓存合计 110 超过总输入 100。"
         },
         {
           "id": "82b4b351b49324a3",
-          "line": 1204,
+          "line": 1227,
           "kind": "line",
           "en": "// P5/P6 rates: glm-5.1 [0,32K) at CNY 6/24 and [32K,+inf) at CNY 8/28 per M tokens.",
           "zh": "// P5/P6：glm-5.1 [0,32K) ¥6/¥24 与 [32K+) ¥8/¥28（百分之一分单位）。"
         },
         {
           "id": "e8d46ef30b6894b0",
-          "line": 1232,
+          "line": 1255,
           "kind": "line",
           "en": "// Unknown input size leaves the context tier unselected.",
           "zh": "// 输入规模未知 → 不猜档。"
         },
         {
           "id": "a6a99415c09c6a4a",
-          "line": 1237,
+          "line": 1260,
           "kind": "line",
           "en": "// E6: input 32,768 selects the high tier; 26 + 3 = 29 minor units.",
           "zh": "// E6：输入 32,768 命中高档 → 26 + 3 = 29 分。"
         },
         {
           "id": "a4b63f339851d2f4",
-          "line": 1253,
+          "line": 1276,
           "kind": "line",
           "en": "// E7: input 32,767 selects the low tier; 20 + 2 = 22 minor units.",
           "zh": "// E7：输入 32,767 命中低档 → 20 + 2 = 22 分。"
         },
         {
           "id": "e25c4e5d322fe297",
-          "line": 1310,
+          "line": 1333,
           "kind": "line",
           "en": "// Synthetic rates: $0.10/$0.01/$0.03/$0.50 per M tokens (1000/100/300/5000 hundredths of a cent).",
           "zh": "// 测试单价为每百万 token $0.10/$0.01/$0.03/$0.50，即 1000/100/300/5000 百分之一美分。"
         },
         {
           "id": "8b582e8e0df37166",
-          "line": 1331,
+          "line": 1354,
           "kind": "line",
           "en": "// No default TTL leaves writes unpriced; input/output still total 10 + 50 = 60 cents.",
           "zh": "// 未设默认 TTL 时写入不计价；已知输入和输出金额合计 10 + 50 = 60 美分。"
         },
         {
           "id": "444ff23225b6b289",
-          "line": 1340,
+          "line": 1363,
           "kind": "line",
           "en": "// Default 5m TTL prices writes at 1M * 300 / 1e8 = 3 cents and sets defaulted.",
           "zh": "// 设默认 5m 档后：写分量 1M×300/1e8=3，标 defaulted。"
         },
         {
           "id": "586d93dde72ff3bb",
-          "line": 1366,
+          "line": 1389,
           "kind": "line",
           "en": "// No explicit uncached input: total 3_000_000 - read 1_000_000 - write 1_000_000 = 1M.",
           "zh": "// 无显式 uncached：total 3_000_000 − read 1_000_000 − write 1_000_000 = 1M。"
         },
         {
           "id": "a26a16f50103c2b9",
-          "line": 1381,
+          "line": 1404,
           "kind": "line",
           "en": "// Divide each 1M * rate product by 1e8: 10 + 1 + 3 + 50 = 64 cents.",
           "zh": "// 各项 1M × 单价除以 1e8 后为 10 + 1 + 3 + 50 = 64 美分。"
         },
         {
           "id": "787c819ce7e7d799",
-          "line": 1400,
+          "line": 1423,
           "kind": "line",
           "en": "// Year 2001 precedes the effective start 2026-01-01.",
           "zh": "// 2001 年，早于 2026-01-01 生效起点"
         },
         {
           "id": "c061eae1852e0adc",
-          "line": 1411,
+          "line": 1434,
           "kind": "line",
           "en": "// ------------------------------------------------------------------",
           "zh": "//（分隔线）"
         },
         {
           "id": "643aebe7bd94cafd",
-          "line": 1412,
+          "line": 1435,
           "kind": "line",
           "en": "// Official supplier fallback matching; see the online price refresh specification.",
           "zh": "// 官方供应商回退匹配（当前规则；pricing.md 在线刷新设计）"
         },
         {
           "id": "5eb3bbd9bafd02c8",
-          "line": 1413,
+          "line": 1436,
           "kind": "line",
           "en": "// ------------------------------------------------------------------",
           "zh": "//（分隔线）"
         },
         {
           "id": "e50d330f05ed8288",
-          "line": 1415,
+          "line": 1438,
           "kind": "line",
           "en": "/// Row JSON with official_vendor; seed/community default true and manual defaults false.",
           "zh": "/// 带 official_vendor 标记的行 JSON（seed/community 默认 true；manual 默认 false）。"
         },
         {
           "id": "f078d99a4c421493",
-          "line": 1428,
+          "line": 1451,
           "kind": "line",
           "en": "// Synthetic community snapshot: vendorA/m-one with the default official flag true.",
           "zh": "// 模拟社区快照：vendorA/m-one 的 official 标记默认 true。"
         },
         {
           "id": "f41e4c786574431e",
-          "line": 1455,
+          "line": 1478,
           "kind": "line",
           "en": "// relay-x has no exact price row; select the flagged vendorA reference and record fallback.",
           "zh": "// 事件 provider「relay-x」无精确行；回退到官方 vendorA 行并标记。"
         },
         {
           "id": "09a40019abb04c0c",
-          "line": 1463,
+          "line": 1486,
           "kind": "line",
           "en": "// 1M * $10/M + 1M * $50/M = $60.",
           "zh": "// 参考金额：1M × $10/M + 1M × $50/M = $60。"
         },
         {
           "id": "7fd7c1309939fb83",
-          "line": 1468,
+          "line": 1491,
           "kind": "line",
           "en": "// Exact provider vendorA matches the same row without a fallback flag.",
           "zh": "// 精确链命中时不回退：provider=vendorA 精确命中同一行，无回退标记。"
         },
         {
           "id": "f9b9dabc9e59364d",
-          "line": 1482,
+          "line": 1505,
           "kind": "line",
           "en": "// An unambiguous official reference needs no channel configuration or actual billing inference.",
           "zh": "// 无渠道配置也能展示唯一官方模型价，实付渠道仍不推断。"
         },
         {
           "id": "64b980e04811afe6",
-          "line": 1491,
+          "line": 1514,
           "kind": "line",
           "en": "// A model with no official row returns no_price_row.",
           "zh": "// 模型无官方行 ⇒ no_price_row。"
         },
         {
           "id": "bfdc14ced8f085ae",
-          "line": 1500,
+          "line": 1523,
           "kind": "line",
           "en": "// Manual rows default to nonofficial and are excluded from fallback candidates.",
           "zh": "// 手工导入行默认非官方 ⇒ 不进回退候选池。"
         },
         {
           "id": "e0177060d1f514b4",
-          "line": 1516,
+          "line": 1539,
           "kind": "line",
           "en": "// Explicit official_vendor: true allows a manual row to participate in fallback.",
           "zh": "// 手工行显式 official_vendor: true ⇒ 参与回退。"
         },
         {
           "id": "86a6384258873854",
-          "line": 1535,
+          "line": 1558,
           "kind": "line",
           "en": "// Prefer the official row with region/channel matching the configured values.",
           "zh": "// 同一模型的两个官方行：region/channel 与配置一致者优先。"
         },
         {
           "id": "306d3e69e85a3aa9",
-          "line": 1573,
+          "line": 1596,
           "kind": "line",
           "en": "// Fallback also leaves unknown request tiers unselected when two context tiers exist.",
           "zh": "// 档位歧义在回退中同样不猜档：两个档位的官方行 + 输入规模未知。"
@@ -38799,7 +38792,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/storage/pricing.rs": {
-      "codeHash": "1e4c9d836a3bac8a9e99f5706c3289b13a707e4f2142897670a966b5859bbf88",
+      "codeHash": "b40c6b75d2c02ead6f2abcfae398f2c3b0f1aec3632efb06f006be12f8f62aad",
       "comments": [
         {
           "id": "978cd10bc2f8338c",
@@ -38908,385 +38901,385 @@
         },
         {
           "id": "25be410d62d042a7",
-          "line": 115,
+          "line": 119,
           "kind": "line",
           "en": "// Preserve the original seed snapshot's public return values.",
           "zh": "// 保留原始种子快照的公开返回值。"
         },
         {
           "id": "e30462249a017460",
-          "line": 119,
+          "line": 123,
           "kind": "line",
           "en": "/// Load all price rows into the estimation price book.",
           "zh": "/// 载入全部价格行（估算用价格簿）。"
         },
         {
           "id": "7784e5d7eb6f7129",
-          "line": 124,
+          "line": 128,
           "kind": "line",
           "en": "/// List price snapshots with row counts.",
           "zh": "/// 价格快照列表（含行数）。"
         },
         {
           "id": "606ca5e26eb17ef3",
-          "line": 153,
+          "line": 157,
           "kind": "line",
           "en": "/// Select unsealed days in this timezone with revisions greater than revision_before.",
           "zh": "/// 采集后费用回填的选日：返回时区下\"修订号大于 `revision_before` 的"
         },
         {
           "id": "918267f99f688504",
-          "line": 154,
+          "line": 158,
           "kind": "line",
           "en": "/// These days were rewritten by this collection batch; sealed days remain unchanged.",
           "zh": "/// 未封存日\"（本轮事件批次重写过的日；封存日不动）。调用方在刷新起点"
         },
         {
           "id": "8c7b32760fd70ef3",
-          "line": 155,
+          "line": 159,
           "kind": "line",
           "en": "/// Capture revision_before at refresh start: retention can increment the revision after",
           "zh": "/// 捕获 revision_before——分级保留在扫描后还会 bump 修订号，不能用"
         },
         {
           "id": "f0e9ce68b4ff2f43",
-          "line": 156,
+          "line": 160,
           "kind": "line",
           "en": "/// scanning, so comparing against only the final current revision would omit changed days.",
           "zh": "/// \"当前修订号相等\"过滤。"
         },
         {
           "id": "5c9f2c9c7c737171",
-          "line": 175,
+          "line": 179,
           "kind": "line",
           "en": "/// Correct retained, unsealed estimates once after a price matching rule changes.",
           "zh": "/// 匹配规则更改后，一次性修正仍保留的未封存估算。"
         },
         {
           "id": "7c0a2fccbde26c1b",
-          "line": 176,
+          "line": 180,
           "kind": "line",
           "en": "/// Catalog refreshes do not change this marker or historical amounts.",
           "zh": "/// 价格目录刷新不会更改此标记或历史金额。"
         },
         {
           "id": "66c081dd259666a1",
-          "line": 199,
+          "line": 203,
           "kind": "line",
           "en": "/// Rebuild an unsealed day after an event batch or an explicit recalculation.",
           "zh": "/// 回填单日成本（事件批次提交后/显式重算调用；只重写未封存日）。"
         },
         {
           "id": "053c7cd8da2b4f85",
-          "line": 200,
+          "line": 204,
           "kind": "line",
           "en": "/// Keep existing costs when no detail events remain; they may represent expired details.",
           "zh": "/// 该日无明细事件时不重建（历史行可能来自已过期的明细，保持不动）。"
         },
         {
           "id": "a4ad843c4935361d",
-          "line": 218,
+          "line": 222,
           "kind": "line",
           "en": "/// Explicitly rebuild all unsealed days in this timezone that still contain detail events.",
           "zh": "/// 显式重算：回填时区下所有\"仍有明细事件的未封存日\"。"
         },
         {
           "id": "c3bc43aea947c682",
-          "line": 250,
+          "line": 254,
           "kind": "line",
           "en": "/// Historical estimates and source amounts come from daily costs. Current reference prices",
           "zh": "/// 历史估算和来源金额取自日成本行；当前参考价覆盖与用量统计相同的范围，"
         },
         {
           "id": "bf705ffab2fb115c",
-          "line": 251,
+          "line": 255,
           "kind": "line",
           "en": "/// apply to the same usage view, using mutually exclusive retained details or archives.",
           "zh": "/// 互斥使用仍保留的明细或归档用量进行计算。"
         },
         {
           "id": "cb38e2134320eb20",
-          "line": 256,
+          "line": 260,
           "kind": "line",
           "en": "/// Current references can select local hours; historical daily costs remain unchanged.",
           "zh": "/// 当前参考价可按本地小时筛选；历史日成本保持不变。"
         },
         {
           "id": "cf64a04d1b6699f6",
-          "line": 309,
+          "line": 313,
           "kind": "line",
           "en": "// 1) Daily historical estimates and source amounts.",
           "zh": "// 1) 日成本行（按发生时价 + 来源金额）。"
         },
         {
           "id": "f9492ac1dd1afda3",
-          "line": 435,
+          "line": 439,
           "kind": "line",
           "en": "// Empty-currency rows carry only unpriced event counts.",
           "zh": "// currency='' 行只携带未计价计数。"
         },
         {
           "id": "719e2942a511c7f7",
-          "line": 471,
+          "line": 475,
           "kind": "line",
           "en": "// Aggregate unpriced reasons from empty-currency rows.",
           "zh": "// 未计价原因直方图（currency='' 行聚合）。"
         },
         {
           "id": "6db2a6e04f642d14",
-          "line": 493,
+          "line": 497,
           "kind": "line",
           "en": "// Use the maximum cost-row revision in the selected range.",
           "zh": "// 数据修订引用（该范围成本行的最大修订号）。"
         },
         {
           "id": "229d5c9856e22730",
-          "line": 505,
+          "line": 509,
           "kind": "line",
           "en": "// 2) Apply current reference prices to the same detail/archive view.",
           "zh": "// 2) 按当前价格模拟，覆盖相同视图的明细与归档。"
         },
         {
           "id": "8736cfbe3e20d8b4",
-          "line": 596,
+          "line": 600,
           "kind": "line",
           "en": "/// Apply current prices to either details or the sealed summaries selected by usage queries.",
           "zh": "/// 按当前价格模拟：明细与用量查询选中的封存汇总互斥计价。"
         },
         {
           "id": "c4fb6f51a7bd14ee",
-          "line": 629,
+          "line": 633,
           "kind": "line",
           "en": "// Retained details can coexist with an imported or sealed aggregate.",
           "zh": "// 仍保留的明细可能与导入或封存的汇总同时存在。"
         },
         {
           "id": "a6e66445247d68d2",
-          "line": 630,
+          "line": 634,
           "kind": "line",
           "en": "// Match the complete source partition and count only one representation.",
           "zh": "// 按完整来源分区匹配，只统计其中一种记录。"
         },
         {
           "id": "a940679c518e140f",
-          "line": 804,
+          "line": 814,
           "kind": "line",
           "en": "// Sum exact component numerators within each displayed day/model/currency or indivisible",
           "zh": "// 在每个展示日、模型、币种或不可拆分的归档期间内，先累加各费用项的精确分子，"
         },
         {
           "id": "a571e953fb003cc2",
-          "line": 805,
+          "line": 815,
           "kind": "line",
           "en": "// archive period before rounding; roll up those amounts to keep rows and totals consistent.",
           "zh": "// 然后舍入；按这些金额计算合计，使表格各行与合计一致。"
         },
         {
           "id": "34572b7087d5c795",
-          "line": 912,
+          "line": 922,
           "kind": "line",
           "en": "/// Import within a transaction: skip identical IDs/content and reject changed content.",
           "zh": "/// 事务内导入快照（幂等：同 ID 同内容跳过；同 ID 异内容拒绝）。"
         },
         {
           "id": "3fe955923a74bf00",
-          "line": 1010,
+          "line": 1020,
           "kind": "line",
           "en": "/// Older stored hashes cover price fields only. Reimports must also compare source metadata",
           "zh": "/// 旧库中的内容哈希只覆盖价格字段；重复导入还须核对来源元数据和行注释，"
         },
         {
           "id": "128eac458aa3e1bd",
-          "line": 1011,
+          "line": 1021,
           "kind": "line",
           "en": "/// and row notes; retain the old hash algorithm while detecting changes under the same ID.",
           "zh": "/// 否则同 ID 修改这些字段会被误判为幂等。保留旧哈希算法以兼容已导入快照。"
         },
         {
           "id": "14e944513905b057",
-          "line": 1066,
+          "line": 1076,
           "kind": "line",
           "en": "/// Build case-insensitive SQL filters. Selecting unknown also includes empty and NULL",
           "zh": "/// 生成忽略大小写的 SQL 筛选条件；选择 unknown 时，空值和 NULL 也匹配，"
         },
         {
           "id": "647307ad58340281",
-          "line": 1067,
+          "line": 1077,
           "kind": "line",
           "en": "/// values, matching query::Filters; other selections exclude those values.",
           "zh": "/// 与 query::Filters 一致；其他选择不匹配空值。"
         },
         {
           "id": "f4b2584303e0a8bb",
-          "line": 1068,
+          "line": 1078,
           "kind": "line",
           "en": "/// Callers supply fixed column names; strip single quotes from selected values.",
           "zh": "/// 调用方提供固定列名；筛选值中的单引号会被剔除。"
         },
         {
           "id": "f0e92cfd4bf6932b",
-          "line": 1144,
+          "line": 1154,
           "kind": "line",
           "en": "/// Filtered, time-bounded model_call or usage_observation events with verified ownership.",
           "zh": "/// 所属来源已核对、符合时间和筛选条件的 model_call 或 usage_observation 事件。"
         },
         {
           "id": "718fc2ba9351910d",
-          "line": 1145,
+          "line": 1155,
           "kind": "line",
           "en": "/// Map token fields with quality other than reported/derived to None.",
           "zh": "/// token 字段的 quality 不是 reported/derived 时设为 None。"
         },
         {
           "id": "4d813835b8804e4e",
-          "line": 1154,
+          "line": 1164,
           "kind": "line",
           "en": "/// Source amounts from cost_* columns; keep Reported and Estimated rows separate.",
           "zh": "/// 来源记录金额（cost_* 列；Reported/Estimated 分别成行）。"
         },
         {
           "id": "88c65b1265a72e30",
-          "line": 1287,
+          "line": 1297,
           "kind": "line",
           "en": "/// Rebuild a day in one transaction: replace unsealed costs with estimates and source amounts.",
           "zh": "/// 单日回填的事务内实现：删除未封存成本行 → 事件计价 + 来源金额 → 重插。"
         },
         {
           "id": "d2ee250db2edacbf",
-          "line": 1318,
+          "line": 1328,
           "kind": "line",
           "en": "// Group by instance, agent, provider, model, currency, and cost kind.",
           "zh": "// 累计键：instance/agent/provider/model/currency/kind。"
         },
         {
           "id": "c87d341f0a690fb4",
-          "line": 1434,
+          "line": 1450,
           "kind": "line",
           "en": "// 1) Estimate using prices at occurrence time.",
           "zh": "// 1) 按发生时价估算。"
         },
         {
           "id": "45cb525b2a66eeca",
-          "line": 1494,
+          "line": 1510,
           "kind": "line",
           "en": "// 2) Retain reported amounts and source estimates as separate kinds.",
           "zh": "// 2) 来源记录金额（reported / 来源自身估算，分列）。"
         },
         {
           "id": "e20dda71c5970454",
-          "line": 1587,
+          "line": 1603,
           "kind": "line",
           "en": "/// Cost filters use query::Filters rules: AND across fields, OR within a field;",
           "zh": "/// 费用筛选与 query::Filters 一致：不同字段使用 AND，同一字段使用 OR；"
         },
         {
           "id": "46b3027fdbe9e8a0",
-          "line": 1588,
+          "line": 1604,
           "kind": "line",
           "en": "/// unknown matches empty values, and instances Some([]) selects no available source.",
           "zh": "/// \"unknown\" 匹配空值；instances Some([]) = 无可用来源）。"
         },
         {
           "id": "818bc9b5946e61ab",
-          "line": 1597,
+          "line": 1613,
           "kind": "line",
           "en": "/// Cost summary request.",
           "zh": "/// 费用汇总请求。"
         },
         {
           "id": "82db2dfd3ba792b5",
-          "line": 1601,
+          "line": 1617,
           "kind": "line",
           "en": "/// Inclusive local date in YYYY-MM-DD format.",
           "zh": "/// 本地日 YYYY-MM-DD（含端点）。"
         },
         {
           "id": "3c49a27949132dcd",
-          "line": 1609,
+          "line": 1625,
           "kind": "line",
           "en": "/// Amounts by currency; currencies are never merged (E8).",
           "zh": "/// 按币种分列的金额行（不同币种不合并；E8）。"
         },
         {
           "id": "73bc7effe2c06643",
-          "line": 1613,
+          "line": 1629,
           "kind": "line",
           "en": "/// Upper bound for the same priced components when archived request tiers are unknown.",
           "zh": "/// 归档中各请求的上下文档位未知时，对同一组已计价费用项给出上界。"
         },
         {
           "id": "c5aeae007b75a69a",
-          "line": 1632,
+          "line": 1648,
           "kind": "line",
           "en": "/// Events priced with an official pay-as-you-go reference because no exact match exists.",
           "zh": "/// 官方提供商回退计价的事件数（无精确匹配时参考官方按量价）。"
         },
         {
           "id": "a71da51e835e720d",
-          "line": 1735,
+          "line": 1751,
           "kind": "line",
           "en": "/// One estimation mode: currency rows and unpriced reasons.",
           "zh": "/// 单一估算模式的汇总（按币种行 + 未计价原因）。"
         },
         {
           "id": "1a622aedae673e45",
-          "line": 1739,
+          "line": 1755,
           "kind": "line",
           "en": "/// Counts of events by unpriced reason.",
           "zh": "/// 未计价原因直方图（reason → 事件数）。"
         },
         {
           "id": "6c1e01dca4131250",
-          "line": 1741,
+          "line": 1757,
           "kind": "line",
           "en": "/// Reference evaluation time and detail coverage flag; unused by at_time.",
           "zh": "/// 模拟模式的评估时点/明细受限标记（at_time 不用）。"
         },
         {
           "id": "dc111db69b827563",
-          "line": 1746,
+          "line": 1762,
           "kind": "line",
           "en": "/// Cost response with data_revision and the referenced price_basis snapshot set.",
           "zh": "/// 费用汇总响应（估算引用 data_revision 与 price_basis 快照集合）。"
         },
         {
           "id": "6aec168f85e7ab6d",
-          "line": 1749,
+          "line": 1765,
           "kind": "line",
           "en": "/// Historical estimates stored in daily cost rows.",
           "zh": "/// 按发生时价估算（持久化日成本行）。"
         },
         {
           "id": "00b6c7a4c734c132",
-          "line": 1751,
+          "line": 1767,
           "kind": "line",
           "en": "/// Source reports and source estimates, kept separate by kind and currency.",
           "zh": "/// 来源记录金额（reported + 来源自身估算，分列币种）。"
         },
         {
           "id": "7e846f8e8fb75930",
-          "line": 1753,
+          "line": 1769,
           "kind": "line",
           "en": "/// Current reference estimates from mutually exclusive known detail or archive usage.",
           "zh": "/// 按当前价格模拟（互斥使用明细或归档中的已知用量）。"
         },
         {
           "id": "6af02e9ed8fd6d19",
-          "line": 1755,
+          "line": 1771,
           "kind": "line",
           "en": "/// Price snapshots referenced by at_time.",
           "zh": "/// at_time 引用的价格快照。"
         },
         {
           "id": "793d347297bf20ca",
-          "line": 1787,
+          "line": 1803,
           "kind": "line",
           "en": "/// Seal daily costs at detail retention expiry, preserving historical amounts.",
           "zh": "/// 封存日成本行（明细层保留截止时调用；历史金额不再改写）。"
         },
         {
           "id": "975b4cf0c325d6ba",
-          "line": 1800,
+          "line": 1816,
           "kind": "line",
           "en": "/// Delete daily costs with daily_usage using the same daily retention cutoff.",
           "zh": "/// 日层清理时同步清理日成本行（随日层保留期；与 daily_usage 同 cutoff）。"
@@ -47984,7 +47977,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/tests/pricing_substitutes.rs": {
-      "codeHash": "ce7f3602b2be37eec3dd0cb8823bff58a7efac9d828c3d7c31e234900c4bb9bd",
+      "codeHash": "823a05a70870e654cdc373374fd93246d168399be14bee9d737bd9e503070908",
       "comments": [
         {
           "id": "10f53c07b7cb915e",
@@ -47996,7 +47989,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/tests/pricing_v29.rs": {
-      "codeHash": "a116d81869d156241772f5a9f9ccc780031a61f657ea4ba5f9430abb75da2f56",
+      "codeHash": "b1b7b1b996b730a9cbc23a5259712e7aeaf1976523b5ba9d866385fc37c0faf3",
       "comments": [
         {
           "id": "5acb158e2019cf74",

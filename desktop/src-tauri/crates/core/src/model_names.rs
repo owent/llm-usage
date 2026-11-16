@@ -104,13 +104,28 @@ pub fn reference_model_key_at(model: &str, occurred_at_ms: i64) -> String {
     }
 }
 
-/// Explicit user-authorized substitute for CURRENT reference estimates only.
-/// Preserve model identity; this exception does not permit general nearest-model pricing.
-pub fn reference_price_substitute(reference_model: &str) -> Option<&'static str> {
-    match reference_model {
-        "kimi-k2.8-preview" => Some("kimi-k2.7-code"),
-        _ => None,
+/// Ordered substitutes for current references; usage identity and saved estimates stay unchanged.
+pub fn reference_price_substitutes<'a>(
+    reference_model: &'a str,
+    provider: Option<&str>,
+) -> Vec<&'a str> {
+    let mut candidates = Vec::new();
+    if let Some(base) = reference_model
+        .strip_suffix("-preview")
+        .filter(|s| !s.is_empty())
+    {
+        candidates.push(base);
     }
+    if reference_model == "kimi-k2.8-preview" {
+        candidates.push("kimi-k2.7-code");
+    }
+    // Codex selects Luna for API-key approval review; the ChatGPT route's serving identity is opaque.
+    if reference_model == "codex-auto-review"
+        && provider.is_some_and(|p| p.trim().eq_ignore_ascii_case("openai"))
+    {
+        candidates.push("gpt-5.6-luna");
+    }
+    candidates
 }
 
 /// Vendor identity is separate from the Agent's billing channel.

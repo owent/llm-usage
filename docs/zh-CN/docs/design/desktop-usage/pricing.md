@@ -17,8 +17,8 @@
 内置的十一月参考目录将已知模型身份与价格分别保存。收录 `qwen4-max-preview` 及其
 官方别名 `qwen4.0-max-preview`，不填入按量价格：[Token Plan 说明](https://docs.qwencloud.com/token-plan/personal/token-plan-personal-overview)
 和[产品更新](https://docs.qwencloud.com/token-plan/token-plan-product-updates)证明预览可用及 Credits，
-不能建立货币价格。不能将预览版合并为 `qwen4-max`，也不能从 Qoder 的 `qmodel_latest`
-路由标识推断具体模型。
+不能建立货币价格。按用户授权，当前参考可采用 `qwen4-max` 价格，保留 Preview 型号并标明
+替代价格模型。Qoder 的 `qmodel_latest` 显示映射不能建立计价身份。
 
 `seed-2026-11-16.json` 增加独立核验的 GPT-6.1 Terra、Claude Fable 5.2、Gemini 4
 Carbon/Hydrogen 及 Qwen4-Max/Qwen3.8-Max/Flash 官方 API 价格。Qwen 条目保留
@@ -453,6 +453,35 @@ provider/model 金额和实际匹配 price_id 单价。看板统一显示当前 
 缩小候选价目保留供应商、优先级、有效期和档位，不改估算规则或历史快照；见
 [交互要求](dashboard-polish.md) 与 [验证记录](../../validation/desktop-usage/dashboard-polish.md)。
 回退仅在精确匹配缺失时触发；精确链已命中（含 tier_ambiguous）时不回退。
+
+<a id="preview-and-approval-review-reference-prices"></a>
+
+### Preview 与自动审批的参考价格
+
+当前 API 参考在没有适用的原型号价目时，可以去掉规范化参考模型末尾的一个 `-preview`。
+结果必须精确匹配型号；不能删除其他后缀、改变版本、连续替换，也不能补齐已有价目的缺失分量。
+使用已配置的同供应商/渠道价格，或无歧义的官方供应商价格，保留币种、生效区间、优先级和
+上下文档位。手工价不会因此变成官方价。Kimi K2.8 优先尝试去后缀的型号，再尝试既有明确授权的
+K2.7 Code 替代；一旦存在有歧义或不完整的适用价目，就停止继续替换。
+K2.7 Code 和自动审批对应型号的价格仅取经核验的官方供应商条目。
+
+明确 provider 为 `openai` 的 `codex-auto-review`，在没有路由价目时，用 `gpt-5.6-luna`
+作为注明替代型号的当前 API 参考。[Codex 官方源码](https://github.com/openai/codex/blob/98e1584a082234ae716a3cc69d4c6f2d3631cf2d/codex-rs/model-provider/src/provider.rs)
+为 API Key 自动审批选择该模型，ChatGPT 路径则保留不透明路由。这只能证明 API 对应模型，
+不能证明该路由的历史或实际底层模型。其他或未知供应商、不相关命名空间不使用此替代。
+[ChatGPT 费率说明](https://help.openai.com/en/articles/20001415-chatgpt-rate-card-enterprise-token-based-pricing)
+指出当前通过 ChatGPT 登录的自动审批检查免费；单凭模型名不能确认认证方式、历史计费政策
+或实际零费用。
+
+独立的 `seed-2026-11-16-gpt-5.6-luna` 快照记录[官方模型页](https://developers.openai.com/api/docs/models/gpt-5.6-luna)价格：
+每百万 token 输入 0.20 USD、缓存输入 0.02 USD、输出 1.20 USD。输入超过 272,000 token 时，
+整次请求采用 2 倍输入价和 1.5 倍输出价。文档未明确的长上下文缓存输入价及缓存写入 TTL
+价格保留未知。
+
+这些替代仅影响当前参考。保留原始及规范化用量身份、已保存的发生时估算和未知 token 字段。
+模型、日、总计及单价详情展示实际价格模型。候选缓存键同时包含供应商、模型及按日期解析的
+参考身份。回归覆盖原型号价格优先、后缀边界、供应商/渠道与币种歧义、部分价格、上下文档位、
+旧数据库导入和保留归档。
 
 <a id="费用合同细则"></a>
 

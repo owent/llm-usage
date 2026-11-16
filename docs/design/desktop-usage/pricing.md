@@ -21,8 +21,9 @@ The bundled November reference catalogue separates known model identities from p
 It includes `qwen4-max-preview` and the official `qwen4.0-max-preview` alias, with no
 pay-as-you-go price: the [Token Plan reference](https://docs.qwencloud.com/token-plan/personal/token-plan-personal-overview)
 and [product updates](https://docs.qwencloud.com/token-plan/token-plan-product-updates)
-establish preview availability and Credits, not a currency price. Never alias that preview
-to `qwen4-max`, or infer a model from Qoder's `qmodel_latest` routing key.
+establish preview availability and Credits, not a currency price. The user-authorized current
+reference may substitute `qwen4-max` prices while retaining the Preview identity and labeling
+the substitute. Qoder's `qmodel_latest` display mapping does not establish a pricing identity.
 
 `seed-2026-11-16.json` adds independently verified official prices for GPT-6.1 Terra,
 Claude Fable 5.2, Gemini 4 Carbon/Hydrogen and Qwen4-Max/Qwen3.8-Max/Flash. Qwen's rows
@@ -423,6 +424,37 @@ unchanged. Hour-granularity usage may still show daily cost curves without prora
 Candidate reduction retains providers/priorities/dates/tiers; see
 [interactions](dashboard-polish.md)/[results](../../validation/desktop-usage/dashboard-polish.md).
 Never fallback after an exact-chain match, including tier_ambiguous.
+
+### Preview and approval-review reference prices
+
+Current API references may remove one terminal `-preview` from a normalized reference model
+when no applicable exact-model tariff exists. Match the resulting model exactly; do not strip
+other suffixes, change releases, chain substitutions, or fill missing components of an existing
+tariff. Use a configured same-provider/channel tariff or an unambiguous official supplier tariff,
+preserving currency, effective dates, priorities and context tiers. A manual tariff does not
+become official. Prefer the suffixless Kimi K2.8 tariff before the existing explicitly authorized
+K2.7 Code substitute; an existing ambiguous or incomplete tariff stops further substitution.
+The K2.7 Code and approval-review counterparts use verified official supplier rows only.
+
+For `codex-auto-review` with explicit provider `openai`, use `gpt-5.6-luna` as a labeled current
+API reference when no route tariff exists. The [official Codex source](https://github.com/openai/codex/blob/98e1584a082234ae716a3cc69d4c6f2d3631cf2d/codex-rs/model-provider/src/provider.rs)
+chooses that model for API-key approval review and retains the opaque route for ChatGPT.
+This establishes an API counterpart, not the route's historical or actual serving identity.
+Other/unknown providers and unrelated namespaces do not receive this substitution.
+The [ChatGPT rate card](https://help.openai.com/en/articles/20001415-chatgpt-rate-card-enterprise-token-based-pricing)
+says current ChatGPT-authenticated auto-review checks are free; a model name alone does not
+establish authentication, historical billing policy or an actual zero charge.
+
+The separate `seed-2026-11-16-gpt-5.6-luna` snapshot records the [official model page](https://developers.openai.com/api/docs/models/gpt-5.6-luna):
+USD 0.20 input, 0.02 cached input and 1.20 output per million tokens. More than 272,000 input
+tokens selects 2x input and 1.5x output for the full request. Long-context cached input and
+cache-write TTL prices remain unknown where the documentation does not establish them.
+
+These substitutions affect current references only. Retain raw/canonical usage identity,
+saved occurrence-time estimates and unknown token fields. Expose the actual price model in
+model/day/total and unit-price details. Candidate caches include provider as well as model
+and dated reference identity. Regress exact-price precedence, suffix boundaries, provider/channel
+and currency ambiguity, partial prices, context tiers, old-database imports and retained archives.
 
 <a id="费用规则细则"></a>
 

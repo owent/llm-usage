@@ -244,7 +244,11 @@ fn kimi_k31_old_database_loads_new_seed_and_prices_details_and_archives_without_
     );
     let retained: Vec<_> = snapshots
         .into_iter()
-        .filter(|s| s.snapshot_id != SNAPSHOT && s.snapshot_id != "seed-2026-11-16")
+        .filter(|s| {
+            s.snapshot_id != SNAPSHOT
+                && s.snapshot_id != "seed-2026-11-16"
+                && s.snapshot_id != "seed-2026-11-16-gpt-5.6-luna"
+        })
         .collect();
     assert_eq!(serde_json::to_value(retained).unwrap(), old_snapshots);
     let after = storage.cost_summary(&q).unwrap();

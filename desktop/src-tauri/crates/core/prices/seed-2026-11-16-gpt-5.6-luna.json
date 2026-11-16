@@ -1,0 +1,55 @@
+{
+  "format": "llm-usage-price-snapshot/1",
+  "snapshot": {
+    "id": "seed-2026-11-16-gpt-5.6-luna",
+    "source_type": "seed",
+    "source_urls": ["https://developers.openai.com/api/docs/models/gpt-5.6-luna"],
+    "fetched_at": "2026-11-16",
+    "verified_at": "2026-11-16",
+    "verified_by": "Official model page, standard text-token API rates",
+    "license": null,
+    "note": "Current API reference only; no inference of ChatGPT auto-review billing or historical serving identity."
+  },
+  "rows": [
+    {
+      "price_id": "openai-gpt-5.6-luna-20261116-short",
+      "provider_id": "openai",
+      "model": "gpt-5.6-luna",
+      "region": "global",
+      "channel": "api",
+      "service_tier": "standard",
+      "context_threshold_tokens": null,
+      "effective_from": "2026-11-16",
+      "effective_to": null,
+      "currency": "USD",
+      "input": 2000,
+      "cache_read": 200,
+      "output": 12000,
+      "cache_write_5m": null,
+      "cache_write_1h": null,
+      "cache_storage_hour": null,
+      "official_vendor": true,
+      "note": "USD per 1M: input 0.20, cached input 0.02, output 1.20. Cache-write TTL is unspecified."
+    },
+    {
+      "price_id": "openai-gpt-5.6-luna-20261116-long",
+      "provider_id": "openai",
+      "model": "gpt-5.6-luna",
+      "region": "global",
+      "channel": "api",
+      "service_tier": "standard",
+      "context_threshold_tokens": 272001,
+      "effective_from": "2026-11-16",
+      "effective_to": null,
+      "currency": "USD",
+      "input": 4000,
+      "cache_read": null,
+      "output": 18000,
+      "cache_write_5m": null,
+      "cache_write_1h": null,
+      "cache_storage_hour": null,
+      "official_vendor": true,
+      "note": "More than 272000 input tokens: 2x input and 1.5x output for the full request. Long-context cache-read multiplier and write TTL remain unverified."
+    }
+  ]
+}

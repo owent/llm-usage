@@ -136,6 +136,14 @@ fn substitute_keeps_official_channel_usage_and_missing_component_guards() {
         untrusted.estimate(&e, &options, e.occurred_at_ms),
         EventEstimate::Unpriced(UnpricedReason::NoPriceRow)
     );
+    let mut configured = options.clone();
+    configured
+        .provider_channels
+        .insert("custom".into(), ("global".into(), "api".into()));
+    assert_eq!(
+        untrusted.estimate(&e, &configured, e.occurred_at_ms),
+        EventEstimate::Unpriced(UnpricedReason::NoPriceRow)
+    );
 
     let mut conflicting = base.clone();
     conflicting.currency = "CNY".into();

@@ -494,12 +494,12 @@
       "zh": "452df962ae25089123e87b7449b898d241a5dbd06f414f49188be487c12568c9"
     },
     "docs/design/desktop-usage/dashboard-repair.md": {
-      "en": "a317a6d6f7ebd7f9592fbdcce5b22df3ee4baa5d59b2a7ec3d91b026f208569e",
-      "zh": "52c380a30a8d3cc909e639907abf98239192295ef3803d12962a04671cf69735"
+      "en": "45427647419f721d66ffef22c15babb90fdc7b796e4d148937e3379179075e33",
+      "zh": "0da3eb76bd4a40d914a98ae62f55e39aca11f08166e1da5a89e8b9025c18ae29"
     },
     "docs/design/desktop-usage/data-contract.md": {
-      "en": "37e059eddea63e5533e6e94d86bfc01af9ada9c4afd49665f63d50f5a5afac9f",
-      "zh": "a52a559814d8d61c4bcc63faf2cf231d3de92d7fd342d8f20fc6f58012134502"
+      "en": "be13fc303e1ffc78f2adc15a285646d51fab18a2cf051e32f0ba86011e3c5855",
+      "zh": "ec86876d04ec2fd31495ed8ccb433d98938868cc43d6926ff4911f66e3c8976d"
     },
     "docs/design/desktop-usage/detail-merge.md": {
       "en": "a180539e195a469e16c0f9e22fa49eb0573a45892e00d2802f5826dd8a93a3f2",
@@ -538,8 +538,8 @@
       "zh": "6dcb3bcb409ae90b0eeace305d639f2d96b2efdccf074620051e48a78e8c47d1"
     },
     "docs/design/desktop-usage/pricing.md": {
-      "en": "9c62724e2547e3d33b666e6fb2403d66d56c86af5cb8ba5c4abd0255b93e0465",
-      "zh": "38345526ad9f8ec7bfc37833387cc2c29cc91de0c0aa5944b7d8dd0cdfbc49bf"
+      "en": "8925b41fb4591aa65f5f4f44a7ec028760284ba6dd279fe94b5d567ad7a0c954",
+      "zh": "65e032c915c9091f77dd435b94798ed9f31df9488bd91ba757a5ecc47778eed8"
     },
     "docs/design/desktop-usage/query-acceleration.md": {
       "en": "24897bf6abcfe62f4e22c0fe826667e602aaf245d42ce883568fe0f15ce3f530",
@@ -758,8 +758,8 @@
       "zh": "43c4e83a72688bdc8072934a6c94cde6f845efdd89dbdb5311041101eae63633"
     },
     "docs/validation/desktop-usage/maintenance-current.md": {
-      "en": "36daec769c0f146e128fdca5aafe7263bea7a97abda475662ba8cd32913bbab7",
-      "zh": "1556d961a59ab0545795143024fb4f8670a4b069559f9afc952ad1a5d6e85638"
+      "en": "c56e4b6320912b7ebb1e047191aef6b59542b0c4b2913198cbecef558a3bb01d",
+      "zh": "803ee4cc3bbebfe75b78f1c26d9d76979f2d7f046e1adbe9c4ba0547a134eab6"
     },
     "docs/validation/desktop-usage/model-aliases.md": {
       "en": "7cd262d9367c7c2e9342ffae0c14ffa6a16aa84cb6c0074a8316327dd3685b68",

@@ -83,6 +83,58 @@ replay, empty misrouted ownership recovery, preserved diagnostics and transactio
 CLI transcript regressions remain separate. Agent/edit modes, token-bearing persistence,
 standalone IDE and JetBrains are not verified by these chat samples.
 
+## Preview and approval-review pricing
+
+The repair was verified on 0.3.11 and is prepared for release as 0.3.12. Disposable public-source extracts, isolated test
+databases and command logs use `build/pricing-preview-review-20261116/`.
+Current references now try the exact suffixless model after a terminal `-preview` when
+no applicable original tariff exists. Existing incomplete or ambiguous prices retain their
+result. Configured manual prices stay nonofficial; currencies, intervals and tiers are preserved.
+Kimi K2.8 tries its suffixless tariff before the previously authorized K2.7 Code exception.
+The display-only Qoder routing override remains independent of pricing; absent token data
+cannot produce a cost.
+
+Installed Codex 0.169.0-alpha.11.1 has a cached hidden `codex-auto-review` model entry
+described as automatic approval review. Allowlisted catalogue metadata contains no native
+served-model identity or price. The [official provider implementation](https://github.com/openai/codex/blob/98e1584a082234ae716a3cc69d4c6f2d3631cf2d/codex-rs/model-provider/src/provider.rs)
+at commit `98e1584a082234ae716a3cc69d4c6f2d3631cf2d` selects `gpt-5.6-luna` for API-key
+approval review and retains `codex-auto-review` for ChatGPT. Accordingly, only explicit
+OpenAI usage receives a labeled Luna current reference. This does not establish the route's
+actual or historical served model. The [official rate card](https://help.openai.com/en/articles/20001415-chatgpt-rate-card-enterprise-token-based-pricing)
+says current ChatGPT-authenticated auto-review safety checks are free; this does not identify
+authentication or historical policy from a local model name.
+
+The new immutable Luna snapshot uses [official API model prices](https://developers.openai.com/api/docs/models/gpt-5.6-luna):
+USD 0.20/0.02/1.20 per million input/cached-input/output tokens, with documented >272K
+input/output multipliers. Unverified long-context cache and write-TTL prices stay unknown.
+Old database startup imports the snapshot once without rewriting occurrence-time costs.
+Provider participates in the narrowed price-book cache key so an unrelated provider's
+opaque-route result cannot suppress the OpenAI counterpart.
+
+The first targeted run failed because a test expected the unpriced model to have no result
+rows. Storage intentionally retains an unknown-currency row with unpriced counts. The corrected
+assertion checks zero priced events and no substitute, preserving that reporting behavior.
+The five targeted suites then passed all 27 cases. Later checks also exposed fixed old
+snapshot inventories: the append adds one snapshot and two rows, giving eight snapshots
+and 66 rows. The original snapshot equality and historical amount assertions remain intact.
+
+| Check | Result |
+| --- | --- |
+| `npm run verify` | Exit 0: 1,189 Rust tests passed, ten explicit native/platform ignores; 20 script and 34 frontend tests, Svelte/fmt/clippy and frontend build passed. |
+| Final official-substitute restriction | After the full run, restricted nonofficial configured tariffs to terminal Preview fallback; K2.7 Code and Luna counterparts remain official-only. `npm run fmt:check`, `npm run clippy`, core library and all six pricing suites plus `model_reference` pass: 331 tests, exit 0. |
+| New regression scope | Eight tests cover Preview boundaries/precedence, manual/official safeguards, Codex provider isolation, context/cache uncertainty, old databases, rollback, selected hours and daily/weekly/monthly retention. |
+| Documentation checks | Exit 0: 215 repository pairs, 21 guide pairs, 41 documentation tests, 1,427 built pages and 3,018 checked output files. |
+
+These feature checks use local synthetic usage and public documentation/source metadata;
+they do not validate a real-provider bill or a new native GUI. The user has authorized the
+0.3.12 version bump, commit, annotated changelog tag, push and public Release. Release
+preparation logs use `build/release-0312/`; tagged CI separately verifies the exact 0.3.12
+source and packages before publication. npm/Rust manifests and locks are synchronized;
+the pnpm lock has no package-version field and its dependency graph is unchanged.
+Version 0.3.12 passed `npm run verify` again (1,189 Rust, 20 script and 34 frontend tests;
+ten explicit native/platform ignores), release-version consistency, and documentation
+check/test/build before commit. These checks do not replace the tagged platform package jobs.
+
 ## Verification
 
 | Command | Result |

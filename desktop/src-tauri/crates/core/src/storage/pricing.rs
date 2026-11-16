@@ -111,6 +111,10 @@ impl Storage {
         let latest =
             crate::pricing::parse_snapshot_json(include_str!("../../prices/seed-2026-11-16.json"))?;
         import_price_snapshot_tx(&tx, &latest, now_ms)?;
+        let luna = crate::pricing::parse_snapshot_json(include_str!(
+            "../../prices/seed-2026-11-16-gpt-5.6-luna.json"
+        ))?;
+        import_price_snapshot_tx(&tx, &luna, now_ms)?;
         tx.commit()?;
         // Preserve the original seed snapshot's public return values.
         Ok(result)
@@ -691,7 +695,7 @@ impl Storage {
         let mut by_currency: BTreeMap<String, CostCurrencyRow> = BTreeMap::new();
         let mut unpriced: BTreeMap<String, i64> = BTreeMap::new();
         let mut unpriced_events_total = 0i64;
-        let mut books: BTreeMap<(String, String), PriceBook> = BTreeMap::new();
+        let mut books: BTreeMap<(String, String, String), PriceBook> = BTreeMap::new();
         let mut daily = DayCosts::new();
         let mut coarse = DayCosts::new();
         let mut rates = ModelRates::new();
@@ -719,6 +723,12 @@ impl Storage {
             let book = books
                 .entry((
                     key.clone(),
+                    event
+                        .provider_id
+                        .as_deref()
+                        .unwrap_or_default()
+                        .trim()
+                        .to_lowercase(),
                     crate::model_names::reference_model_key_for(
                         &key,
                         event.provider_id.as_deref(),
@@ -1410,7 +1420,7 @@ pub(crate) fn recompute_cost_day_tx(
 
     let mut accounts: Vec<Acc> = Vec::new();
     let events = collect_events_for_pricing(tx, start_ms, end_ms, &CostFilters::default())?;
-    let mut books: BTreeMap<(String, String), PriceBook> = BTreeMap::new();
+    let mut books: BTreeMap<(String, String, String), PriceBook> = BTreeMap::new();
     for row in &events {
         crate::adapters::run_policy::check()?;
         let key = crate::model_names::model_key(
@@ -1424,6 +1434,12 @@ pub(crate) fn recompute_cost_day_tx(
         let book = books
             .entry((
                 key.clone(),
+                row.event
+                    .provider_id
+                    .as_deref()
+                    .unwrap_or_default()
+                    .trim()
+                    .to_lowercase(),
                 crate::model_names::reference_model_key_for(
                     &key,
                     row.event.provider_id.as_deref(),

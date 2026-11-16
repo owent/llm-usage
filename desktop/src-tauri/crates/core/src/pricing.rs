@@ -550,16 +550,17 @@ impl PriceBook {
             event.provider_id.as_deref(),
             event.occurred_at_ms,
         );
+        let substitutes = crate::model_names::reference_price_substitutes(
+            &reference,
+            event.provider_id.as_deref(),
+        );
         PriceBook {
             rows: self
                 .rows
                 .iter()
                 .filter(|r| {
                     let key = crate::model_names::model_key(&r.model);
-                    key == model
-                        || key == reference
-                        || crate::model_names::reference_price_substitute(&reference)
-                            == Some(key.as_str())
+                    key == model || key == reference || substitutes.contains(&key.as_str())
                 })
                 .cloned()
                 .collect(),
@@ -710,25 +711,41 @@ impl PriceBook {
                 .collect();
             if fallback.is_empty() {
                 if allow_substitute {
-                    if let Some(substitute) =
-                        crate::model_names::reference_price_substitute(&reference_model)
-                    {
-                        // Reuse channel, currency, and tier checks; only official rows for this explicitly
-                        // authorized substitute model may participate.
+                    for substitute in crate::model_names::reference_price_substitutes(
+                        &reference_model,
+                        event.provider_id.as_deref(),
+                    ) {
+                        // Only terminal-Preview fallback admits nonofficial configured tariffs.
+                        let suffixless =
+                            reference_model.strip_suffix("-preview") == Some(substitute);
                         let substitute_book = PriceBook {
                             rows: self
                                 .rows
                                 .iter()
                                 .filter(|r| {
-                                    r.official_vendor
-                                        && crate::model_names::model_key(&r.model) == substitute
-                                        && crate::model_names::official_providers(substitute)
-                                            .iter()
-                                            .any(|p| r.provider_id.eq_ignore_ascii_case(p))
+                                    crate::model_names::model_key(&r.model) == substitute
+                                        && r.service_tier == "standard"
+                                        && r.effective_from_ms <= at_ms
+                                        && r.effective_to_ms.is_none_or(|to| at_ms < to)
+                                        && ((suffixless
+                                            && r.provider_id.eq_ignore_ascii_case(&provider)
+                                            && configured.is_some_and(|(region, channel)| {
+                                                r.region.eq_ignore_ascii_case(region)
+                                                    && r.channel.eq_ignore_ascii_case(channel)
+                                            }))
+                                            || (r.official_vendor
+                                                && crate::model_names::official_providers(
+                                                    substitute,
+                                                )
+                                                .iter()
+                                                .any(|p| r.provider_id.eq_ignore_ascii_case(p))))
                                 })
                                 .cloned()
                                 .collect(),
                         };
+                        if substitute_book.rows.is_empty() {
+                            continue;
+                        }
                         let mut reference_event = event.clone();
                         reference_event.model_canonical = Some(substitute.into());
                         let mut result = substitute_book.estimate_inner(
@@ -740,7 +757,13 @@ impl PriceBook {
                         );
                         if let EventEstimate::Priced(amounts) = &mut result {
                             amounts.substitute_model = Some(substitute.into());
-                            amounts.official_fallback = true;
+                            amounts.official_fallback |=
+                                amounts.matched_price_ids.iter().all(|id| {
+                                    substitute_book
+                                        .rows
+                                        .iter()
+                                        .any(|r| &r.price_id == id && r.official_vendor)
+                                });
                         }
                         return result;
                     }
