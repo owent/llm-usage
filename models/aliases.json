@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "rule_version": "model-aliases-2026-11-16",
+  "published_at": "2026-11-16T00:00:00Z",
+  "aliases": [
+    {
+      "agent": "qoder",
+      "key": "qmodel_latest",
+      "display_name": "Qwen4-Max-Preview",
+      "effective_from": "2026-11-16T00:00:00Z",
+      "basis": "user_override",
+      "source_urls": ["https://docs.qoder.cn/user-guide/model-selector"]
+    }
+  ]
+}
