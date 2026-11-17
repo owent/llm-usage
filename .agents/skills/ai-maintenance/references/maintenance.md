@@ -247,9 +247,10 @@ compatibility per file/database format. Unlisted versions alone do not produce a
 shape is valid and complete. Missing paths do not prove Agent cleanup. For projection upgrades and inherited
 history, trace the writer and fork/compaction ownership before counting calls; see the
 [OpenCode v2 rules](../../../../docs/design/desktop-usage/opencode-runtime.md).
-For Codex oversized compactions, validate the complete object/UTF-8/newline and retain only the timestamp
-and latest usage record while streaming past replacement history. Test both carried usage and later calls;
-held cursors recover without clearing old diagnostics or registering an unrelated client version.
+For Codex oversized compactions, validate the complete object/UTF-8/newline and retain only the timestamp,
+three IDs and six numeric usage fields. Stream unknown fields without a generic JSON value tree and serialize
+the narrow record directly. Test carried usage, later calls and dense ignored fields; held cursors recover
+without clearing old diagnostics or registering an unrelated client version.
 Verify reevaluation with real unchanged old cursors. SQLite invalid-row state
 persists across incremental windows and recovers after correction/deletion. Invalid reconciliation types
 must not bulk-fail valid messages. Mouse tests cover no query before release, forward/reverse selection,

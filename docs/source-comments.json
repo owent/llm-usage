@@ -6017,7 +6017,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/codex/reader.rs": {
-      "codeHash": "864d19d3a493f1d82793fd85b7f9d05f5e0df938af99199a2cb3d055688b59da",
+      "codeHash": "a9f57d0e239e4dd790318dab9d74fbd5b80fa557326165deb511155776c0bba1",
       "comments": [
         {
           "id": "dd2359eb9e3975ca",
@@ -6028,70 +6028,70 @@
         },
         {
           "id": "77e1af3cdfdd8601",
-          "line": 19,
+          "line": 82,
           "kind": "line",
           "en": "/// Ignore oversized payload fields, retaining only compaction's usage-bearing record.",
           "zh": "/// 忽略超长负载字段，只保留压缩记录中携带用量的部分。"
         },
         {
           "id": "ad49527c6b361b7e",
-          "line": 20,
+          "line": 83,
           "kind": "line",
           "en": "/// Non-object payloads remain valid ignored JSON rather than becoming record errors.",
           "zh": "/// 非对象负载仍作为有效的忽略 JSON 处理，不产生记录错误。"
         },
         {
           "id": "332ff141c6209c05",
-          "line": 132,
+          "line": 195,
           "kind": "line",
           "en": "// Derived structs also accept positional arrays; only native objects may advance.",
           "zh": "// 派生结构也接受位置数组；只有原生对象才能推进游标。"
         },
         {
           "id": "f018e903cebaaf5d",
-          "line": 147,
+          "line": 210,
           "kind": "line",
           "en": "/// Read at most one line, checking UTF-8 even in JSON values ignored by serde.",
           "zh": "/// 每次最多读取一行，同时检查被 serde 忽略的 JSON 值中的 UTF-8。"
         },
         {
           "id": "5e9a734a0de0c056",
-          "line": 194,
+          "line": 257,
           "kind": "line",
           "en": "/// Keep the ordinary limit for usage, unknown types and malformed records. Complete,",
           "zh": "/// 用量、未知类型和损坏记录继续遵循普通限制。完整有效的"
         },
         {
           "id": "f754b7ca9f8e80d2",
-          "line": 195,
+          "line": 258,
           "kind": "line",
           "en": "/// valid response_item/world_state records retain only their type. Compacted records",
           "zh": "/// response_item/world_state 只保留类型。compacted 记录"
         },
         {
           "id": "cb595a2cf8418775",
-          "line": 196,
+          "line": 259,
           "kind": "line",
           "en": "/// retain their timestamp and latest_token_usage_record for boundary usage recovery.",
           "zh": "/// 保留时间戳和 latest_token_usage_record，用于恢复边界用量。"
         },
         {
           "id": "e5cd2ead3672f719",
-          "line": 222,
+          "line": 285,
           "kind": "line",
           "en": "// Cancellation and source deadlines must reach the framework, including when",
           "zh": "// 取消和来源截止时间必须传递到框架，包括"
         },
         {
           "id": "118978035144dd98",
-          "line": 223,
+          "line": 286,
           "kind": "line",
           "en": "// serde wraps the IO error as a JSON error.",
           "zh": "// serde 将 IO 错误包装为 JSON 错误的情况。"
         },
         {
           "id": "683df473441a5e0d",
-          "line": 248,
+          "line": 311,
           "kind": "line",
           "en": "// Resume after this complete record in the next bounded scan window.",
           "zh": "// 在这条完整记录之后，下一个有界扫描窗口继续读取。"

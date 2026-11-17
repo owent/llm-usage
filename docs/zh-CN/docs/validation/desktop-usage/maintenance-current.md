@@ -129,10 +129,16 @@ npm/Rust 清单与锁文件已同步；pnpm 锁文件不含包版本字段，依
 与独立逐条原生记录计算完全一致。原始 Agent 数据和正在使用的应用数据库均未修改。
 该结果只验证真实文件和解析器的读取路径，未对已安装的 GUI 或旧数据库改写进行验收。
 
+[Issue #9](https://github.com/owent/llm-usage/issues/9) 正确指出了首版实现仍把
+`latest_token_usage_record` 构造为通用 JSON 值的问题。稠密的未知字段可能使内存远超输入大小，
+生成精简记录时又会复制这些内容。携带记录现改用仅接受对象的窄结构，只保留三个 ID 和六项数值，
+流式忽略其他记录级及 `usage` 字段，并直接序列化为文本。回归在两层放置稠密数组和字符串，
+修复前失败；修复后保留有效用量，且精简行小于 1 KiB。位置数组形式的携带记录和 `usage` 仍被拒绝。
+
 | 检查 | 结果 |
 | --- | --- |
 | `cargo test --manifest-path desktop/src-tauri/Cargo.toml --locked --test codex_oversized` | 退出码 0：七项测试，包括超长压缩记录后的边界用量及后续调用。 |
-| Codex 读取器单元测试和 `codex_health_replay` | 退出码 0：两项读取器测试、五项健康/重放测试。 |
+| Codex 读取器单元测试和 `codex_health_replay` | 退出码 0：三项读取器测试、五项健康/重放测试。 |
 | `cargo clippy --manifest-path desktop/src-tauri/Cargo.toml --locked -p llm-usage-core --lib --test codex_oversized -- -D warnings` | 退出码 0。 |
 | `npm run check` 和 `desktop/tests/i18n.test.mjs` | 退出码 0：Svelte 类型及十种语言的消息/占位符检查。 |
 | `npm run test:browser` | 退出码 0：Edge 模拟 IPC 检查趋势区、指标卡和表格合计的通用提示及准确的模型明细，且窄屏布局无溢出。 |

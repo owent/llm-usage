@@ -36,8 +36,9 @@ corrections and parser upgrades. See the [0.3.3 repair record](docs/validation/d
 
 Codex oversized `response_item`/`world_state` skips and `compacted` reads require a complete JSON object,
 valid UTF-8 and newline; positional arrays never establish a native record. Stream oversized compaction
-without retaining replacement history, but preserve its timestamp and `latest_token_usage_record` for
-boundary usage and ownership checks. Held cursors retry after reader repairs without deleting diagnostics.
+without retaining replacement history or materializing a generic JSON value tree. Preserve only the timestamp,
+response/thread/session IDs and six numeric usage fields, stream unknown fields, and serialize the narrow
+record directly for boundary usage and ownership checks. Held cursors retry after reader repairs without deleting diagnostics.
 Qoder CLI 1.1.76 uses the independent
 [source-derived contract](docs/design/desktop-usage/adapters.md#qoder-local-support): positive
 input includes cache, default/redacted zeros remain unknown, and Credits never supply cost.

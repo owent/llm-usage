@@ -155,10 +155,18 @@ at offset/size 169,775,000. It imported 256 calls and 53,711,098 total tokens, e
 independent native-record calculation. Original Agent data and the active application database were not
 modified. This verifies the real file/parser path, not an installed GUI or old-database rewrite.
 
+[Issue #9](https://github.com/owent/llm-usage/issues/9) correctly identified that the first implementation
+still materialized `latest_token_usage_record` as a generic JSON value. Dense unknown fields could expand
+well beyond the input size, and the sanitized record then copied them again. The carried record now uses
+map-only narrow structs for three IDs and six numeric fields, ignores all other record/usage fields while
+streaming, and serializes directly to text. The regression places dense arrays and strings in both levels;
+it failed before the fix and now preserves valid usage while keeping the sanitized line below 1 KiB.
+Positional carried records and positional usage arrays remain rejected.
+
 | Check | Result |
 | --- | --- |
 | `cargo test --manifest-path desktop/src-tauri/Cargo.toml --locked --test codex_oversized` | Exit 0: seven tests, including carried usage plus a later call after oversized compaction. |
-| Codex reader unit tests and `codex_health_replay` | Exit 0: two reader tests and five health/replay tests. |
+| Codex reader unit tests and `codex_health_replay` | Exit 0: three reader tests and five health/replay tests. |
 | `cargo clippy --manifest-path desktop/src-tauri/Cargo.toml --locked -p llm-usage-core --lib --test codex_oversized -- -D warnings` | Exit 0. |
 | `npm run check` and `desktop/tests/i18n.test.mjs` | Exit 0: Svelte types and ten-locale message/placeholder checks. |
 | `npm run test:browser` | Exit 0: Edge synthetic-IPC checks cover generic trend/card/table-total labels and exact model details without narrow-layout overflow. |

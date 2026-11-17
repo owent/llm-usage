@@ -44,8 +44,9 @@ Codex 精确注册表现有 26 个旧格式和 11 个新格式版本。0.3.2 补
 
 Codex 对完整的超长 `response_item`/`world_state` 记录使用独立的 64 MiB 限制，
 流式校验 JSON 对象和 UTF-8，只保留记录类型。超长 `compacted` 记录采用相同的有界对象校验，
-但只保留外层时间戳和 `payload.latest_token_usage_record`，以便恢复压缩边界处的用量及其归属，
-不保留替换历史。每条此类记录结束当前扫描窗口。
+但只保留外层时间戳、response/thread/session ID 和六项数值用量。携带记录及其 `usage`
+对象中的未知字段均以流式方式忽略，不构造通用 JSON 值树；窄对象直接序列化，用于恢复压缩边界处的
+用量及其归属。非对象携带记录和位置数组继续阻止游标推进。每条此类记录结束当前扫描窗口。
 其他用量、未知类型、损坏或不完整记录以及位置数组仍遵循普通的 8 MiB 限制，并停留在原游标。
 解析器 8 会重读此前停留的旧游标且不删除历史；
 [原生恢复结果](../../validation/desktop-usage/release-033.md#oversized-codex-records)

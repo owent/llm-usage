@@ -55,8 +55,10 @@ Other versions retain compatibility checks without inheriting these results.
 Codex streams complete oversized `response_item`/`world_state` records through a
 separate 64 MiB limit, validates a JSON object and UTF-8, and retains only its record type.
 Oversized `compacted` records use the same bounded object validation but retain only the envelope
-timestamp and `payload.latest_token_usage_record`, allowing boundary usage and ownership recovery
-without retaining replacement history. Each such record ends the current scan window.
+timestamp, response/thread/session IDs and six numeric usage fields. Unknown fields in the carried
+record and its `usage` object stream past without constructing a generic JSON value tree; the narrow
+object serializes directly for boundary usage and ownership recovery. Non-object carried records and
+positional arrays stay blocked. Each such record ends the current scan window.
 Other usage, unknown types, malformed or incomplete records and positional arrays retain the
 ordinary 8 MiB limit and held cursor. Parser 8 rechecks held old cursors without deleting history;
 [native recovery](../../validation/desktop-usage/release-033.md#oversized-codex-records)
