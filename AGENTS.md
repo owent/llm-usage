@@ -98,6 +98,9 @@ Kimi K2.8 Preview (including k28-agent-preview) may then use the authorized offi
 OpenAI `codex-auto-review` may use GPT-5.6 Luna as a labeled API counterpart, without claiming native
 serving identity or actual billing. Preserve provider/channel/currency safeguards, missing components,
 model identity and occurrence-time amounts; see the [substitution rules](docs/design/desktop-usage/pricing.md#preview-and-approval-review-reference-prices).
+Copilot CLI records its documented provider-name/model-id selection in one `model` string. Strip exactly one
+leading prefix for this source only before exact official-model matching; preserve raw provider/model fields
+and do not generalize that exception to unknown namespaces in other sources.
 Aggregate cards, panels and table totals use one generic notice that some models employ reference prices;
 do not concatenate model-specific substitute IDs or hints. Model rows and unit-price details retain them.
 
@@ -171,6 +174,11 @@ see the [review](docs/validation/desktop-usage/m9-copilot-review.md). Copilot st
 must verify consumed old cursors whose bytes are unchanged. Replay retains monotonic revisions and history.
 Mark rules updated only for complete valid snapshots; do not clear the database to restore display.
 Quality partitioning must inspect every token field.
+
+oh-my-pi `model_usage` entries are auxiliary model calls outside the transcript, with independent
+provider/model/Usage/stopReason. Failed calls count; invalid usage stays unknown. `reset_boundary` and
+`mode_change` are metadata, not calls. Exclude `changes.jsonl` only when its filename and `call`/`change`
+audit shape are both verified and no model/token usage is present; do not hide other unknown files.
 
 Kilo's independent cumulative snapshot differences are reconciliation only. Keep real per-line errors
 separate from unknown-version compatibility; incremental windows must not conceal invalid lines.

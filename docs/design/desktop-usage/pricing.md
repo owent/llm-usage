@@ -402,6 +402,12 @@ Kimi/Moonshot Moonshot, GLM Zhipu/Z.ai, DeepSeek DeepSeek; references/IDs in
 tariff. Ambiguous regions/channels/currencies within that selected snapshot stay unpriced; no invented
 rates/conversion.
 
+Copilot CLI persists the documented provider-name/model-id selection in its `model` column, while the
+adapter's source channel is `github-copilot`. For this source only, remove exactly one leading namespace
+before resolving the official reference; the remaining model ID must still match exactly. Preserve the raw
+provider/model and do not apply this exception to unknown namespaces in other sources. See the
+[official custom-model configuration](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-llm-models).
+
 [Official Kimi model table](https://www.kimi.com/code/docs/en/kimi-code/models.html)
 maps k3/k3-256k toK3. Local kimi-code/ profiles can reference kimi-k3 for price matching only,
 without changing raw statistics; exact profile prices win. Missing official same-model row yields

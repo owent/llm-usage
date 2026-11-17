@@ -72,6 +72,53 @@ The complete annotated `v0.3.13` message supplies the Release body. The existing
 this exact source and six platform/architecture packages before creating a Draft Release; triggering
 that workflow does not itself establish remote packaging, asset verification or public-release completion.
 
+<a id="copilot-composite-and-omp-1822"></a>
+
+## Copilot composite pricing and oh-my-pi 18.22.0
+
+Reviewed on 2026-11-17 with Windows x64, Node.js 26.13.1 and Rust 1.99.1. Read-only probes and
+isolated scanner databases are under `build/pricing-followup-20261117/`. The reported 124 unpriced
+events have `provider_id=github-copilot` and `model_raw=ZhiPu AI (Coding Plan)/glm-5.3-flash` in
+`assistant_usage_events` schema 9. The native `model` column contains the documented provider-name/model-id
+selection, while `copilot_usage_model` is NULL. The old reference resolver preserved the whole string
+because the custom prefix differed from the source channel, producing `channel_unknown`.
+
+For Copilot CLI only, price resolution now removes exactly one leading namespace before requiring an
+exact official model match. Raw provider/model identity and all other sources' unknown namespaces are
+unchanged. The cost policy is `official-reference-7`, repairing retained unsealed detail once. Synthetic
+regressions cover both estimate modes and the SQLite event/rebuild/summary path.
+
+The [official oh-my-pi session specification](https://github.com/can1357/oh-my-pi/blob/main/docs/session.md)
+defines `model_usage` as model calls outside the transcript, with purpose/provider/model/Usage/stopReason.
+Parser `omp-session-2` imports them as auxiliary model calls and replays old cursors without conflicts.
+Invalid usage keeps the call with unknown tokens and degraded health; `reset_boundary` and `mode_change`
+remain non-usage metadata. `changes.jsonl` is excluded only when its filename and `call`/`change` audit
+shape match, never by suffix alone.
+
+A full read-only native scan of oh-my-pi 18.22.0 returned 216 active files, no unsupported files or
+diagnostics, and source health `ok`. It imported 835 `model_usage` records. Independent native-record
+recomputation exactly matched input total 9,974,920, uncached input 933,304, cache read 9,041,616,
+cache write 0, output 35,154 and total tokens 10,010,074. Three `changes.jsonl` files contained only
+file-edit audit fields and no model, usage or token fields. Invalid-usage and replay regressions remain
+separate from the successful native result.
+
+The Codex issue needed no product change. Line 1492 is a valid 17,260,078-byte `compacted` record with
+all six usage fields. The current file is `active_compat`, has `has_record_errors=false` and has advanced
+past that line. A release-build scan completed nine bounded windows and imported 256 calls and 53,711,098
+tokens, matching the independent calculation. Final source health is `ok`; the earlier display reflected
+an incomplete subsequent scan, not an unrecovered record. Historical diagnostics were not deleted.
+
+| Check | Result |
+| --- | --- |
+| Pre-fix regressions | Copilot composite pricing and both oh-my-pi `model_usage` cases failed before the changes. The changes now pass, including the unknown-usage failure branch. |
+| Focused suites | Exit 0: 75 tests across oh-my-pi contracts/incremental behavior, Codex oversized recovery, pricing archives/v29, dashboard repair and model reference. |
+| `npm run verify` | Exit 0: 1,195 Rust tests, ten existing native/platform ignores, 20 script tests and 34 frontend tests, plus Markdown, assets, Svelte, rustfmt, Clippy and production frontend build. |
+| Documentation and interaction checks | Exit 0: 215 repository pairs, 21 guide pairs, 41 documentation tests, 1,427 pages and 3,018 output files. Browser interaction checks passed; all nine changed Rust source files' comment references were reviewed. |
+
+These are native scanner checks with isolated databases and one staged Codex file copy. They do not
+constitute a native GUI run or a real-provider billing comparison. Original Agent sources and the active
+application database were not modified.
+
 ## Dependencies
 
 Direct package versions were checked against the npm and crates.io registries. npm and

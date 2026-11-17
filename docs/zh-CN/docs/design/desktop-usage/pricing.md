@@ -431,6 +431,10 @@ provider 缺失、未配置渠道或任意自定义名称都进入同一精确�
 Gemini → Google；Kimi/Moonshot → 月之暗面；GLM → 智谱/Z.ai；DeepSeek → DeepSeek，
 来源依据与目录 ID 见 [本轮要求](dashboard-repair.md)。较低优先级快照的冲突不能遮挡
 已选价目；已选快照内部的地区/渠道/币种歧义仍未计价，不换汇、不虚构费率。
+Copilot CLI 在 `model` 列中保存官方文档规定的 provider-name/model-id 选择形式，而适配器的来源渠道
+统一为 `github-copilot`。仅此来源在解析官方参考前去掉一个前导命名空间，剩余模型 ID 仍须精确匹配。
+原始 provider/model 不变，其他来源的未知命名空间不应用此例外。见
+[官方自定义模型配置](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-llm-models)。
 官方 [Kimi Code 模型表](https://www.kimi.com/code/docs/en/kimi-code/models.html)确认
 `k3`/`k3-256k` 对应 K3；本机 `kimi-code/` profile 可参考 `kimi-k3`，
 只影响参考价格匹配，原始统计归属保留；精确 profile 渠道价格优先。

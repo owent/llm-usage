@@ -7,7 +7,10 @@
 //! - Title without a session header in four lines: Pending, possibly an incomplete initial write.
 //! - Registered header version: KnownVersion; unregistered/missing: LatestFallback,
 //!   trying the latest built-in parser with compatibility metadata.
+//! - `changes.jsonl` is a non-usage file-edit audit log only when its filename and
+//!   `call`/`change` record shape match; model_usage remains a session entry.
 
+use crate::domain::VersionBasis;
 use crate::error::CoreError;
 use std::path::Path;
 
@@ -17,6 +20,7 @@ use crate::adapters::jsonl::{read_jsonl, JsonlLimits, DEFAULT_MAX_LINE_BYTES};
 use super::versions;
 
 pub const OMP_FORMAT: &str = "omp-session-jsonl";
+pub const OMP_CHANGE_AUDIT_FORMAT: &str = "omp-change-audit-jsonl";
 
 /// Detect an omp session file and select through its version registry.
 pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
@@ -42,6 +46,25 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
         .get("type")
         .and_then(|t| t.as_str())
         .unwrap_or("");
+    // Exclude file-change audit logs only when their filename and record shape both match.
+    if path.file_name().and_then(|name| name.to_str()) == Some("changes.jsonl") {
+        let audit_shape = match first_type {
+            "call" => ["agent", "tool", "start", "end"]
+                .iter()
+                .all(|key| first_line.get(key).is_some()),
+            "change" => ["path", "before", "after", "at"]
+                .iter()
+                .all(|key| first_line.get(key).is_some()),
+            _ => false,
+        };
+        if audit_shape {
+            return Ok(DetectOutcome::Supported {
+                format: OMP_CHANGE_AUDIT_FORMAT.to_string(),
+                format_version: None,
+                basis: VersionBasis::KnownVersion,
+            });
+        }
+    }
     if first_type != "session" && first_type != "title" {
         return Ok(DetectOutcome::UnknownFormat {
             reason: format!("first record type {first_type:?} is neither title nor session"),

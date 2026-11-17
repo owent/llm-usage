@@ -19,8 +19,10 @@ cache write, input, output and price thresholds use the source's verified semant
 
 If an exact channel price is unavailable, the product can show a clearly identified
 official API reference for the same verified model. Provider IDs may be custom names and need no
-provider-alias mapping for this search. Snapshot priority selects a tariff before channel/currency
-ambiguity is evaluated; conflicts within that selected tariff remain unpriced. Model-series similarity
+provider-alias mapping for this search. Copilot CLI's native provider-name/model-id selection loses one
+leading namespace for price lookup only, while its raw identity stays unchanged. Snapshot priority selects
+a tariff before channel/currency ambiguity is evaluated; conflicts within that selected tariff remain
+unpriced. Model-series similarity
 is not enough. The explicitly authorized Kimi K2.8 Preview to K2.7 Code reference is labeled as a
 substitute; it does not change model identity or historical amounts.
 

@@ -62,6 +62,47 @@ Clippy 和生产前端构建通过。`npm run test:browser` 也退出码 0。完
 消息作为 Release 正文。现有 tag 工作流先核验该准确源码和六个平台/架构包，再创建 Draft Release；
 触发工作流本身不代表远端打包、附件核验或公开发布已经完成。
 
+<a id="copilot-composite-and-omp-1822"></a>
+
+## Copilot 复合型号计价与 oh-my-pi 18.22.0
+
+2026-11-17 在 Windows x64、Node.js 26.13.1 和 Rust 1.99.1 环境核对。只读探针和隔离扫描数据库
+位于 `build/pricing-followup-20261117/`。报告的 124 条未计价事件在 `assistant_usage_events`
+schema 9 中分别为 `provider_id=github-copilot`、`model_raw=ZhiPu AI (Coding Plan)/glm-5.3-flash`。
+原生 `model` 列保存文档规定的 provider-name/model-id 选择形式，`copilot_usage_model` 为 NULL。
+旧参考解析因自定义前缀与来源渠道不同而保留完整字符串，产生 `channel_unknown`。
+
+现在仅 Copilot CLI 在解析官方价格前去掉一个前导命名空间，剩余模型 ID 仍须精确匹配。原始
+provider/model 及其他来源的未知命名空间不变。计价规则标记为 `official-reference-7`，只修正
+仍保留明细的未封存日期一次。合成回归覆盖两种估算模式及 SQLite 事件提交、重算和汇总路径。
+
+[oh-my-pi 官方 session 规范](https://github.com/can1357/oh-my-pi/blob/main/docs/session.md)将
+`model_usage` 定义为会话外的模型调用，包含 purpose/provider/model/Usage/stopReason。解析器
+`omp-session-2` 将其作为辅助模型调用导入，旧游标重放无冲突。无效 usage 保留调用和未知 token，
+并保持需核对状态；`reset_boundary`、`mode_change` 是非用量元数据。`changes.jsonl` 仅在文件名与
+`call`/`change` 审计形状同时匹配时排除，不只凭后缀跳过。
+
+对 oh-my-pi 18.22.0 的完整只读原生扫描得到 216 个 active 文件，无未识别文件或诊断，来源健康
+为 `ok`，共导入 835 条 `model_usage`。独立逐条原生记录重算完全一致：输入总量 9,974,920、
+未缓存输入 933,304、缓存读取 9,041,616、缓存写入 0、输出 35,154、总 token 10,010,074。
+三个 `changes.jsonl` 仅含文件变更审计字段，没有 model、usage 或 token 字段。无效 usage 和
+旧游标重放回归与成功原生结果分别保留。
+
+Codex 不需要修改产品代码。第 1492 行是有效的 17,260,078 字节 `compacted`，六项用量齐全。
+当前文件为 `active_compat`、`has_record_errors=false`，并已越过该行继续读取。发布构建连续完成
+九个有界窗口，导入 256 次调用和 53,711,098 token，与独立计算一致。最终来源健康为 `ok`；
+此前的提示来自后续尚未完成的扫描，不是未恢复的记录。历史诊断没有删除。
+
+| 检查 | 结果 |
+| --- | --- |
+| 修复前回归 | Copilot 复合型号计价及两个 oh-my-pi `model_usage` 用例在修改前失败；修改后均通过，包括无效 usage 分支。 |
+| 定向测试 | 退出码 0：75 项，覆盖 oh-my-pi 接口/增量行为、Codex 超限恢复、价格归档/v29、看板修复和型号参考。 |
+| `npm run verify` | 退出码 0：1,195 项 Rust 测试通过，十项既有原生/平台测试保持显式忽略；20 项脚本、34 项前端测试及 Markdown、资源、Svelte、rustfmt、Clippy 和生产前端构建通过。 |
+| 文档与交互检查 | 退出码 0：215 对仓库文档、21 对指南、41 项文档测试、构建 1,427 页并检查 3,018 个输出文件。浏览器交互检查通过；九个变更 Rust 源文件的注释参考均已复核。 |
+
+这些检查使用隔离数据库和一份 Codex 暂存副本执行原生扫描，不构成原生 GUI 或真实供应商
+账单验收。原始 Agent 来源和正在使用的应用数据库均未修改。
+
 ## 依赖
 
 直接依赖版本与 npm、crates.io 注册表逐项核对。npm 和 Cargo 更新同时刷新兼容范围内的

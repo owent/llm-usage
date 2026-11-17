@@ -45,13 +45,17 @@ pub fn reference_model_key(model: &str) -> String {
     reference_model_key_at(model, i64::MAX)
 }
 
-/// A provider-qualified ID can use a user-defined route name. Only strip a
-/// matching explicit provider; unrelated namespaces remain significant.
+/// A provider-qualified ID can use a user-defined route name. Strip a matching explicit
+/// provider, or one Copilot CLI provider-name/model-id prefix; other namespaces remain significant.
 pub fn reference_model_key_for(model: &str, provider: Option<&str>, at_ms: i64) -> String {
     let key = model_key(model);
     let bare = key
         .split_once('/')
-        .and_then(|(prefix, leaf)| provider.filter(|p| model_key(p) == prefix).map(|_| leaf))
+        .and_then(|(prefix, leaf)| {
+            (provider.filter(|p| model_key(p) == prefix).is_some()
+                || provider.is_some_and(|p| p.trim().eq_ignore_ascii_case("github-copilot")))
+            .then_some(leaf)
+        })
         .unwrap_or(&key);
     reference_model_key_at(bare, at_ms)
 }
@@ -185,6 +189,22 @@ mod tests {
         assert_eq!(
             reference_model_key_at("kimi-code/kimi-for-coding", 1_789_084_800_000),
             "kimi-k2.8-preview"
+        );
+        assert_eq!(
+            reference_model_key_for(
+                "ZhiPu AI (Coding Plan)/glm-5.3-flash",
+                Some("github-copilot"),
+                0,
+            ),
+            "glm-5.3-flash"
+        );
+        assert_eq!(
+            reference_model_key_for(
+                "ZhiPu AI (Coding Plan)/glm-5.3-flash",
+                Some("other-provider"),
+                0,
+            ),
+            "zhipu-ai-(coding-plan)/glm-5.3-flash"
         );
     }
 }

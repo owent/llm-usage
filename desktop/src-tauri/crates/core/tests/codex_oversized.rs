@@ -207,6 +207,11 @@ fn completing_a_large_line_recovers_health_but_cannot_erase_real_record_errors()
             .query_row("SELECT status FROM source_files", [], |r| r.get(0))
             .unwrap();
         assert_eq!(status, if bad_json { "degraded" } else { "active" });
+        let health: String = storage
+            .conn()
+            .query_row("SELECT health FROM source_instances", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(health, if bad_json { "degraded" } else { "ok" });
         let history: i64 = storage
             .conn()
             .query_row(

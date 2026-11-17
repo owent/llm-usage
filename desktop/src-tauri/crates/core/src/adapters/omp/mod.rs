@@ -10,7 +10,7 @@
 pub mod detect;
 pub mod versions;
 
-pub use detect::OMP_FORMAT;
+pub use detect::{OMP_CHANGE_AUDIT_FORMAT, OMP_FORMAT};
 pub use versions::{session_v3, LATEST_IMPL_ID, VERIFIED_VERSION_IMPLS};
 
 pub const OMP_ENV_AGENT_DIR: &str = "PI_CODING_AGENT_DIR";
@@ -148,7 +148,7 @@ impl crate::adapters::framework::SourceAdapter for OmpAdapter {
             "per_request_calls".into(),
             field(
                 Availability::Available,
-                "assistant message 每条一次调用；独立 usage/compaction/branch_summary/toolResult usage 各计一次辅助调用（本机后四者均未携带 usage）",
+                "assistant message 每条一次调用；独立 model_usage/usage/compaction/branch_summary/toolResult usage 各计一次辅助调用（后四者在本机旧样本均未携带 usage）",
             ),
         );
         fields.insert(
@@ -194,11 +194,11 @@ impl crate::adapters::framework::SourceAdapter for OmpAdapter {
                 "env_override": [OMP_ENV_AGENT_DIR, OMP_ENV_SESSION_DIR],
                 "manual_roots": "含 sessions 子目录按 agent 根解析，否则按 sessions 目录本身",
                 "bounded": true,
-                "pattern": "sessions/<encoded-cwd>/*.jsonl 主会话；<cwd>/<ts>_<父uuid>/*.jsonl 子 Agent（嵌套再深一层）；伴生 .json/.md/.log 不读",
+                "pattern": "sessions/<encoded-cwd>/*.jsonl 主会话；<cwd>/<ts>_<父uuid>/*.jsonl 子 Agent（嵌套再深一层）；changes.jsonl 仅在 call/change 形状匹配时按文件变更审计排除；伴生 .json/.md/.log 不读",
                 "profile": "OMP_PROFILE 存在（omp.exe 字符串证据）但目录规则未核验，仅支持默认 ~/.omp",
             }),
             detection: serde_json::json!({
-                "magic": "首行 title（v=1）或 session 记录；前 4 行内定位 session 头",
+                "magic": "首行 title（v=1）或 session 记录；前 4 行内定位 session 头；model_usage 按辅助调用读取；changes.jsonl 按 call/change 审计形状排除",
                 "version_field": "session.version（本机 58/58 全为 3）",
                 "registry": "adapters/omp/versions 注册表分派",
                 "fail_closed": true,
@@ -207,7 +207,7 @@ impl crate::adapters::framework::SourceAdapter for OmpAdapter {
             fields,
             lifecycle: serde_json::json!({
                 "model_call": "message(role=assistant).usage（final；responseId 作 origin_call_id）",
-                "auxiliary": "独立 usage 条目、compaction.usage、branch_summary.usage、toolResult.usage 各计一次辅助调用（本机均未携带 usage，实读核验）",
+                "auxiliary": "独立 model_usage/usage 条目、compaction.usage、branch_summary.usage、toolResult.usage 各计一次辅助调用（本机旧样本后三类均未携带 usage）",
                 "error_aborted": "stopReason=error/aborted → error_status；本机 147 条 error/aborted 全带 usage；无 usage 的 assistant 计调用、token 未知不补零",
                 "streaming": "流式部分值不落盘（同 pi 固定源码口径），文件内只有 final",
                 "compaction": "tokensBefore/tokensAfter 是上下文估算，不是 usage，不计账",
@@ -222,19 +222,19 @@ impl crate::adapters::framework::SourceAdapter for OmpAdapter {
                 "source_retention": "源端保留未知；可回填范围以现存文件为准",
             }),
             dedup: serde_json::json!({
-                "primary": "omp:{message|usage|compaction|branch_summary|toolresult}:{entry id}:{parentId}:{timestamp}（实例命名空间）",
+                "primary": "omp:{message|model_usage|usage|compaction|branch_summary|toolresult}:{entry id}:{parentId}:{timestamp}（实例命名空间）",
                 "fork_copies": "fork 复制件四元组逐字相同：内容逐字相同者 upsert 幂等 Keep；但复制条目在 fork 文件中会带 fork 会话身份（session_id/parent_session_id 与本文件头一致），与源文件已存事件同键不同内容，仲裁为 conflict 并保留先扫者——净效果不双计",
                 "cross_source": "~/.omp/logs 仅上下文估算 debug 行，无逐次用量，不存在与会话记录的重叠；agent.db/history.db 未取证不读",
             }),
             integrity: serde_json::json!({
                 "success_only": false,
-                "hidden_calls": "title-generator 等辅助调用在本机会话/日志中未观测到用量记录，不可见",
+                "hidden_calls": "model_usage 覆盖 title/job/task 等会话外辅助调用；未写入 usage 的其他辅助调用仍不可见",
                 "sampling": "未观测到采样；坏行逐条隔离记诊断",
                 "no_timestamp": "条目必有 timestamp；缺失跳过并记诊断",
             }),
             maintenance: serde_json::json!({
                 "parser_version": versions::session_v3::OMP_PARSER_VERSION,
-                "format_evidence": "本机 18.2.7（scoop）58 会话逐类型实读核验 + 固定源码 oh-my-pi 62bc57b（Usage 口径）+ omp.exe 字符串（env 覆盖/OMP_PROFILE）",
+                "format_evidence": "本机 18.2.7（scoop）58 会话逐类型实读核验 + 18.22.0 model_usage/changes 实读 + 官方 session.md/session-entries.ts + 固定源码 oh-my-pi 62bc57b（Usage 口径）+ omp.exe 字符串（env 覆盖/OMP_PROFILE）",
                 "upgrade_policy": "未收录版本 latest_fallback 兼容尝试；逐版本真实 fixture 核验后升为已验证",
             }),
             scheduling: serde_json::json!({
@@ -248,7 +248,7 @@ impl crate::adapters::framework::SourceAdapter for OmpAdapter {
                 "fork 继承条目归属到字典序首个被扫文件的会话（逐字相同，谁先谁留），distinct 会话数不因此虚增".into(),
                 "usage.cost 为 Agent 估算；0 与无价目不可区分，均不映射".into(),
                 "符号链接/junction 不跟随；Windows 身份靠创建时间+首采样".into(),
-                "独立 usage 条目、fork、带 usage 的 compaction/branch_summary 本机未观测，实现按 pi 同口径，待真实样本".into(),
+                "独立 usage 条目、fork、带 usage 的 compaction/branch_summary 本机未观测，实现按 pi 同口径，待真实样本；model_usage 已由 18.22.0 实读覆盖".into(),
                 "detect 接受 session 头在前的文件（与 pi 同形）；默认根 ~/.omp 与 ~/.pi 不重叠，把同一目录同时手工配给两个适配器会双计（用户配置责任）".into(),
                 "latest_fallback 文件的解析器升级后不自动重扫已消费游标；显式重扫可重新尝试".into(),
             ],

@@ -191,11 +191,11 @@ impl Storage {
                 r.get(0)
             })
             .optional()?;
-        if policy.as_deref() == Some("official-reference-6") {
+        if policy.as_deref() == Some("official-reference-7") {
             return Ok(());
         }
         self.recompute_unsealed_cost_days(timezone, now_ms, options)?;
-        self.conn().execute("INSERT INTO settings(key,value,schema_version,updated_at_ms) VALUES(?1,'official-reference-6',1,?2)
+        self.conn().execute("INSERT INTO settings(key,value,schema_version,updated_at_ms) VALUES(?1,'official-reference-7',1,?2)
             ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at_ms=excluded.updated_at_ms",params![key,now_ms])?;
         Ok(())
     }

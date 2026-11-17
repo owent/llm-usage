@@ -13,6 +13,7 @@ use llm_usage_core::adapters::framework::{DetectOutcome, SourceAdapter};
 use llm_usage_core::adapters::omp::OmpAdapter;
 use llm_usage_core::domain::VersionBasis;
 use rusqlite::OptionalExtension;
+use serde_json::json;
 
 fn synthetic_root(name: &str) -> std::path::PathBuf {
     omp_fixture(name)
@@ -708,4 +709,163 @@ fn unknown_record_type_ignored_with_single_diagnostic() {
         .optional()
         .unwrap();
     assert_eq!(status.as_deref(), Some("active"));
+}
+
+#[test]
+fn model_usage_entries_import_as_auxiliary_calls_and_change_logs_are_excluded() {
+    let dir = TempDir::new("omp-model-usage");
+    let root = dir.path().join("sessions/--C--syn--");
+    std::fs::create_dir_all(&root).unwrap();
+    let lines = [
+        json!({"type":"session","version":3,"id":"syn-session","timestamp":"2026-11-17T00:00:00.000Z"}),
+        json!({"type":"model_usage","id":"syn-mu-1","parentId":"syn-parent","timestamp":"2026-11-17T00:00:01.000Z",
+            "purpose":"task-completion-probe","api":"openai-completions","provider":"zhipu-coding-plan","model":"glm-5.3-flash",
+            "stopReason":"stop","usage":{"input":100,"output":20,"cacheRead":50,"cacheWrite":10,
+                "reasoningTokens":5,"totalTokens":180,"cost":{"total":0.0015}}}),
+        json!({"type":"model_usage","id":"syn-mu-2","parentId":"syn-mu-1","timestamp":"2026-11-17T00:00:02.000Z",
+            "purpose":"job-widget","api":"openai-completions","provider":"zhipu-coding-plan","model":"glm-5.3-flash",
+            "stopReason":"aborted","usage":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0,"totalTokens":0,"cost":{"total":0}}}),
+        json!({"type":"mode_change","id":"syn-mode","parentId":"syn-mu-2","timestamp":"2026-11-17T00:00:03.000Z","mode":"plan"}),
+        json!({"type":"reset_boundary","id":"syn-reset","parentId":"syn-mode","timestamp":"2026-11-17T00:00:04.000Z"}),
+    ];
+    let body = lines
+        .iter()
+        .map(|line| line.to_string() + "\n")
+        .collect::<String>();
+    let session = root.join("2026-11-17T00-00-00-000Z_00000000-0000-7000-8000-000000000001.jsonl");
+    std::fs::write(session, body).unwrap();
+    std::fs::write(
+        root.join("changes.jsonl"),
+        concat!(
+            "{\"type\":\"call\",\"agent\":\"editor\",\"tool\":\"write\",\"start\":1,\"end\":2,\"label\":\"write\"}\n",
+            "{\"type\":\"change\",\"path\":\"src/lib.rs\",\"before\":{},\"after\":{},\"at\":3}\n"
+        ),
+    )
+    .unwrap();
+
+    let (_db, storage) = temp_storage("omp-model-usage");
+    let reports = run_omp(&storage, &root, 1_800_000_000_000);
+    assert_eq!(reports[0].files.len(), 2);
+    assert_eq!(reports[0].outcome.as_ref().unwrap().added, 2);
+    assert_eq!(diag_count(&storage, "unknown_format"), 0);
+    assert_eq!(diag_count(&storage, "unknown_record_type"), 0);
+    let expected_summary = summary(&storage, "2026-11-17", "2026-11-17");
+    assert_eq!(expected_summary.totals.call_count, 2);
+    assert_eq!(expected_summary.totals.input_total_known, Some(160));
+    assert_eq!(expected_summary.totals.uncached_known, Some(100));
+    assert_eq!(expected_summary.totals.cache_read_known, Some(50));
+    assert_eq!(expected_summary.totals.cache_write_known, Some(10));
+    assert_eq!(expected_summary.totals.output_total_known, Some(20));
+    assert_eq!(expected_summary.totals.total_tokens_known, Some(180));
+
+    let row = storage
+        .conn()
+        .query_row(
+            "SELECT call_category, provider_id, model_raw, output_reasoning,
+                    cost_amount_minor, cost_currency, cost_kind, error_status
+             FROM usage_events WHERE source_record_key LIKE 'omp:model_usage:syn-mu-1:%'",
+            [],
+            |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, String>(2)?,
+                    r.get::<_, i64>(3)?,
+                    r.get::<_, i64>(4)?,
+                    r.get::<_, String>(5)?,
+                    r.get::<_, String>(6)?,
+                    r.get::<_, Option<String>>(7)?,
+                ))
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        row,
+        (
+            "auxiliary".into(),
+            "zhipu-coding-plan".into(),
+            "glm-5.3-flash".into(),
+            5,
+            1500,
+            "USD".into(),
+            "estimated".into(),
+            None,
+        )
+    );
+    let statuses: Vec<String> = storage
+        .conn()
+        .prepare("SELECT status FROM source_files ORDER BY status")
+        .unwrap()
+        .query_map([], |r| r.get(0))
+        .unwrap()
+        .map(|r| r.unwrap())
+        .collect();
+    assert_eq!(statuses, ["active", "active"]);
+    let health: String = storage
+        .conn()
+        .query_row("SELECT health FROM source_instances", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(health, "ok");
+
+    let repeated = run_omp(&storage, &root, 1_800_000_000_001);
+    assert!(repeated[0]
+        .files
+        .iter()
+        .all(|file| file.status == "unchanged"));
+    storage
+        .conn()
+        .execute_batch(
+            "UPDATE source_instances SET parser_version='omp-session-1';
+         UPDATE usage_events SET parser_version='omp-session-1';",
+        )
+        .unwrap();
+    let upgraded = run_omp(&storage, &root, 1_800_000_000_002);
+    assert_eq!(upgraded[0].outcome.as_ref().unwrap().conflicts, 0);
+    assert_eq!(
+        summary(&storage, "2026-11-17", "2026-11-17").totals,
+        expected_summary.totals
+    );
+}
+
+#[test]
+fn invalid_model_usage_keeps_the_call_and_degraded_health() {
+    let dir = TempDir::new("omp-invalid-model-usage");
+    let root = dir.path().join("sessions/--C--syn--");
+    std::fs::create_dir_all(&root).unwrap();
+    let lines = [
+        json!({"type":"session","version":3,"id":"syn-session","timestamp":"2026-11-17T00:00:00.000Z"}),
+        json!({"type":"model_usage","id":"syn-mu-invalid","parentId":null,"timestamp":"2026-11-17T00:00:01.000Z",
+            "purpose":"task-completion-probe","api":"openai-completions","provider":"zhipu-coding-plan","model":"glm-5.3-flash",
+            "stopReason":"error","usage":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0,"totalTokens":null,"cost":{"total":0}}}),
+    ];
+    let body = lines
+        .iter()
+        .map(|line| line.to_string() + "\n")
+        .collect::<String>();
+    std::fs::write(
+        root.join("2026-11-17T00-00-00-000Z_00000000-0000-7000-8000-000000000001.jsonl"),
+        body,
+    )
+    .unwrap();
+    let (_db, storage) = temp_storage("omp-invalid-model-usage");
+    let reports = run_omp(&storage, &root, 1_800_000_000_000);
+    assert_eq!(reports[0].outcome.as_ref().unwrap().added, 1);
+    assert_eq!(diag_count(&storage, "usage_shape_deviation"), 1);
+    let summary = summary(&storage, "2026-11-17", "2026-11-17");
+    assert_eq!(summary.totals.call_count, 1);
+    assert_eq!(summary.totals.total_tokens_known, None);
+    let row: (String, String) = storage
+        .conn()
+        .query_row(
+            "SELECT quality_bucket, error_status FROM usage_events",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(row, ("unknown".into(), "error".into()));
+    let status: String = storage
+        .conn()
+        .query_row("SELECT status FROM source_files", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(status, "degraded");
 }

@@ -292,6 +292,68 @@ fn custom_provider_uses_the_preferred_same_model_official_snapshot() {
 }
 
 #[test]
+fn copilot_composite_custom_provider_model_uses_the_exact_official_leaf() {
+    let (_dir, s) = temp_storage("price-copilot-composite");
+    let now = ts("2026-11-17T12:00:00Z");
+    s.ensure_seed_price_snapshot(now).unwrap();
+    let book = s.load_price_book().unwrap();
+    let pricing_event = PricingEvent {
+        provider_id: Some("github-copilot".into()),
+        model_raw: Some("ZhiPu AI (Coding Plan)/glm-5.3-flash".into()),
+        occurred_at_ms: now,
+        input_uncached: Some(1_000_000),
+        input_cache_read: Some(1_000_000),
+        input_cache_write: Some(0),
+        input_total: Some(2_000_000),
+        output_total: Some(1_000_000),
+        ..Default::default()
+    };
+    for result in [
+        book.for_model(&pricing_event)
+            .estimate(&pricing_event, &EstimateOptions::default(), now),
+        book.for_model(&pricing_event)
+            .estimate_at_time(&pricing_event, &EstimateOptions::default()),
+    ] {
+        let EventEstimate::Priced(amount) = result else {
+            panic!("Copilot composite model did not use the official leaf price")
+        };
+        assert!(amount.official_fallback);
+        assert_eq!(amount.currency, "USD");
+        assert_eq!(amount.total_amount_minor, 68);
+        assert_eq!(amount.matched_price_ids, ["zai-glm-5.3-flash-20261024"]);
+    }
+
+    let mut input = event(
+        "copilot-composite-call",
+        "ZhiPu AI (Coding Plan)/glm-5.3-flash",
+        "github-copilot",
+        1_000_000,
+        1_000_000,
+        1_000_000,
+    );
+    input.occurred_at_ms = now;
+    commit_batch(&s, &batch("source", "UTC", now, vec![input]), None).unwrap();
+    let query = CostSummaryRequest {
+        timezone: "UTC".into(),
+        first_day: "2026-11-17".into(),
+        last_day: "2026-11-17".into(),
+        now_ms: now,
+        options: EstimateOptions::default(),
+        filters: Default::default(),
+    };
+    s.recompute_unsealed_cost_days("UTC", now, &query.options)
+        .unwrap();
+    let summary = s.cost_summary(&query).unwrap();
+    for mode in [&summary.at_time, &summary.current_sim] {
+        assert_eq!(mode.rows[0].currency, "USD");
+        assert_eq!(mode.rows[0].total_amount_minor, 68);
+        assert_eq!(mode.rows[0].fallback_event_count, 1);
+        assert!(mode.unpriced_reasons.is_empty());
+    }
+    assert_eq!(summary.models[0].current_sim[0].total_amount_minor, 68);
+}
+
+#[test]
 fn model_rows_combine_spelling_and_provider_whitespace_across_agents() {
     let (_dir, s) = temp_storage("price-model-group");
     let q = request();

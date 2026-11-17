@@ -206,9 +206,11 @@ normalized identity strings may lose native path syntax. Regress that distinctio
 persisted source identities.
 
 Adapter wrappers must forward behavioral hooks, including validation of native records that do not
-count toward usage. Regress compatibility through the full registry and parallel application entry,
-with isolated native discovery roots and distinct per-adapter run IDs. Check unchanged old files,
-malformed records, repeated reads and transactional rollback; serial parser checks alone are insufficient.
+count toward usage. oh-my-pi `model_usage` entries are auxiliary model calls, with invalid usage kept
+unknown; `changes.jsonl` is excluded only when its filename and `call`/`change` audit shape both match.
+Regress compatibility through the full registry and parallel application entry, with isolated native
+discovery roots and distinct per-adapter run IDs. Check unchanged old files, malformed records,
+repeated reads and transactional rollback; serial parser checks alone are insufficient.
 
 For model display mappings, read the [versioned metadata rules](../../../../docs/design/desktop-usage/model-aliases.md).
 Keep display candidates separate from raw identity, native serving-model verification and pricing.
@@ -272,9 +274,11 @@ integer recomputation/application results. Unknown splits/tiers cannot be inferr
 Merge model rows by source provider/model, retaining multiple price bases; see the
 [pricing rules](../../../../docs/design/desktop-usage/pricing.md). Authorized cross-model references separate
 identity aliases/substitution rules and list approved mappings only. Custom provider names need no alias
-whitelist for an exact-model official reference. Apply snapshot priority before channel/currency ambiguity;
-lower-priority conflicts cannot hide the selected tariff, while conflicts within it remain unpriced.
-Regress exact-price priority, ambiguity rejection, unchanged history and substitution labels in summary/model amounts/unit prices.
+whitelist for an exact-model official reference. Copilot CLI's native provider-name/model-id string loses
+exactly one prefix for this source only; preserve raw identities and do not strip unknown namespaces elsewhere.
+Apply snapshot priority before channel/currency ambiguity; lower-priority conflicts cannot hide the selected
+tariff, while conflicts within it remain unpriced. Regress exact-price priority, ambiguity rejection,
+unchanged history and substitution labels in summary/model amounts/unit prices.
 Aggregate cards, panels and table totals show one generic reference-price notice rather than joining
 model-specific hints; retain exact substitute identities and reasons in model rows and unit prices.
 

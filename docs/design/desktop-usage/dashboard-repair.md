@@ -98,7 +98,9 @@ incremental rounds, reevaluated after rule-upgrade replay.
   2026-10-24 verification. Startup adds it to existing databases without rewriting earlier
   snapshots or occurrence-time estimates; [validation](../../validation/desktop-usage/kimi-k31-pricing.md).
   Strip custom namespaces only when prefix matches the record provider or verified prefix
-  table. Verified backup profiles follow the same rule; unknown namespaces/suffixes retained.
+  table. Copilot CLI's native provider-name/model-id selection is the only source-specific exception:
+  remove exactly one prefix while preserving raw identity and requiring an exact official model match.
+  Verified backup profiles follow the same rule; unknown namespaces/suffixes retained.
   Official GPT-5.5 snapshot gpt-5.5-2026-04-23 may reference gpt-5.5; no inferred other dates.
   Official Kimi release notes map kimi-for-coding from 2026-09-11 to kimi-k2.8-preview,
   without changing earlier identity. No verified original-provider public API rate yet;

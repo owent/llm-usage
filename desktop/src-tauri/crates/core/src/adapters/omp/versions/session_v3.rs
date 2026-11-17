@@ -17,6 +17,9 @@
 //!   Every checked row has totalTokens=input+output+cacheRead+cacheWrite.
 //! - 6643 toolResult, 37 compaction, and 2 branch_summary records have no usage.
 //!   tokensBefore/tokensAfter estimate context size; standalone usage was not observed.
+//! - ModelUsageEntry (18.22.0) records auxiliary model calls outside the transcript with
+//!   purpose/provider/model/Usage/stopReason. Invalid usage keeps the call with unknown tokens.
+//! - changes.jsonl contains file-edit call/change audit records, not model usage.
 //! - Ignore observed title/title_change/credential_pin/session_init/
 //!   ttsr_injection/service_tier_change/custom/custom_message metadata entries.
 //! - ~/.omp/logs/omp.*.log contained context-size debug estimates, not per-call usage.
@@ -46,7 +49,7 @@ use crate::adapters::pi::{
 };
 use crate::adapters::usage_map::PiFamilyUsage;
 
-pub const OMP_PARSER_VERSION: &str = "omp-session-1";
+pub const OMP_PARSER_VERSION: &str = "omp-session-2";
 
 /// Persist session identity, model state, unknown types, and version selection.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -446,6 +449,76 @@ pub fn scan(
                     _ => {}
                 }
             }
+            "model_usage" => {
+                // ModelUsageEntry records an auxiliary model call outside the conversation transcript.
+                // Failed calls still count; invalid usage stays unknown rather than becoming zero.
+                let usage_json = entry.get("usage").cloned();
+                let Some((occurred_ms, source_time)) = parse_entry_ts(&entry) else {
+                    diagnostics.push(diag(
+                        "timestamp_unparseable",
+                        Some("timestamp"),
+                        raw.number,
+                        "model_usage timestamp missing or unparseable; record skipped",
+                    ));
+                    continue;
+                };
+                let error_status = match entry
+                    .get("stopReason")
+                    .and_then(|reason| reason.as_str())
+                    .unwrap_or("")
+                {
+                    "error" => Some("error".to_string()),
+                    "aborted" => Some("aborted".to_string()),
+                    _ => None,
+                };
+                let base = UsageEventBase {
+                    key: entry_key("model_usage", &entry),
+                    category: CallCategory::Auxiliary,
+                    provider: json_str(&entry, "provider"),
+                    model: json_str(&entry, "model"),
+                    attribution: ModelAttribution::RequestField,
+                    origin_call_id: None,
+                    error_status,
+                };
+                match usage_json.as_ref().and_then(parse_usage) {
+                    Some(usage) => events.push(build_usage_event(
+                        target,
+                        &context,
+                        &base,
+                        Some((&usage, usage_json.as_ref().unwrap())),
+                        occurred_ms,
+                        &source_time,
+                        raw.number,
+                        now_ms,
+                        None,
+                        None,
+                        parent_from_path.as_deref(),
+                        &mut diagnostics,
+                    )),
+                    None => {
+                        diagnostics.push(diag(
+                            "usage_shape_deviation",
+                            Some("usage"),
+                            raw.number,
+                            "model_usage has invalid usage; call counted, tokens unknown",
+                        ));
+                        events.push(build_usage_event(
+                            target,
+                            &context,
+                            &base,
+                            None,
+                            occurred_ms,
+                            &source_time,
+                            raw.number,
+                            now_ms,
+                            None,
+                            None,
+                            parent_from_path.as_deref(),
+                            &mut diagnostics,
+                        ));
+                    }
+                }
+            }
             "usage" => {
                 // Standalone usage such as cache_warm is auxiliary with its own provider/model.
                 // The pi-compatible path exists without native omp samples for it.
@@ -552,6 +625,8 @@ pub fn scan(
                     &mut diagnostics,
                 ));
             }
+            // changes.jsonl contains file-edit audit records, not model usage.
+            "call" | "change" => {}
             "title"
             | "title_change"
             | "credential_pin"
@@ -563,7 +638,9 @@ pub fn scan(
             | "label"
             | "session_info"
             | "custom_message"
-            | "context_edit" => {}
+            | "context_edit"
+            | "reset_boundary"
+            | "mode_change" => {}
             other => {
                 if !context.unknown_types.iter().any(|t| t == other) {
                     context.unknown_types.push(other.to_string());
