@@ -57,6 +57,21 @@ price-row shapes rather than claiming real-event GUI or billing acceptance.
 | `npm run verify` | The first 120-second run was terminated with exit 143 during the full Rust tests. A complete rerun with a 300-second timeout exited 0, and the final rerun after adding the SQLite case also exited 0: 1,192 Rust tests passed, ten existing native/platform tests remained explicitly ignored; 20 script and 34 frontend tests, Svelte, rustfmt, Clippy and the production frontend build passed. |
 | `npm run check:docs` / `test:docs` / `build:docs` | Exit 0: 215 repository pairs, 21 guide pairs, 41 documentation tests, 1,427 built pages and 3,018 checked output files. Comment references were reviewed for all four changed Rust files. |
 
+### Release 0.3.13 preparation
+
+The user authorized the version bump, commit, annotated changelog tag, push and release workflow.
+Release preparation artifacts use `build/release-0313/`. The candidate includes the custom-provider
+pricing repair, bounded Codex oversized-compaction streaming and generic aggregate reference-price
+notices. Root/desktop npm manifests and locks, Tauri configuration, both Rust package versions and
+Cargo.lock agree on 0.3.13; the shared pnpm lock has no workspace version field to change.
+
+The packager's `releaseVersion()` returned 0.3.13. The final `npm run verify` exited 0 with 1,192 Rust
+tests, ten existing native/platform ignores, 20 script tests and 34 frontend tests, plus clean Markdown,
+assets, Svelte, rustfmt, Clippy and production frontend build. `npm run test:browser` also exited 0.
+The complete annotated `v0.3.13` message supplies the Release body. The existing tag workflow checks
+this exact source and six platform/architecture packages before creating a Draft Release; triggering
+that workflow does not itself establish remote packaging, asset verification or public-release completion.
+
 ## Dependencies
 
 Direct package versions were checked against the npm and crates.io registries. npm and

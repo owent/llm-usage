@@ -49,6 +49,19 @@ Z.ai 和智谱条目；回归验证较高优先级的内置官方条目优先。
 | `npm run verify` | 首次在 120 秒工具超时处以退出码 143 终止于全量 Rust 测试。将超时调整为 300 秒后完整重跑退出码 0；加入 SQLite 用例后的最终重跑也退出码 0：1,192 项 Rust 测试通过，十项既有原生/平台测试保持显式忽略；20 项脚本、34 项前端测试及 Svelte、rustfmt、Clippy 和生产前端构建通过。 |
 | `npm run check:docs` / `test:docs` / `build:docs` | 退出码 0：215 对仓库文档、21 对指南、41 项文档测试、构建 1,427 页并检查 3,018 个输出文件。四个变更 Rust 文件的注释参考均已复核。 |
 
+### 发布 0.3.13 的准备
+
+用户已授权提升版本、提交、附 changelog 的 annotated tag、推送及发布工作流。发布准备产物位于
+`build/release-0313/`。候选版本包含自定义 Provider 计价修复、有界 Codex 超长压缩记录流式读取
+及汇总参考价格通用提示。根/桌面 npm 清单与锁文件、Tauri 配置、两个 Rust 包版本和 Cargo.lock
+均为 0.3.13；共享 pnpm 锁文件没有需要修改的工作区版本字段。
+
+打包脚本的 `releaseVersion()` 返回 0.3.13。最终 `npm run verify` 退出码 0：1,192 项 Rust 测试通过，
+十项既有原生/平台测试保持显式忽略；20 项脚本、34 项前端测试及 Markdown、资源、Svelte、rustfmt、
+Clippy 和生产前端构建通过。`npm run test:browser` 也退出码 0。完整的 annotated `v0.3.13`
+消息作为 Release 正文。现有 tag 工作流先核验该准确源码和六个平台/架构包，再创建 Draft Release；
+触发工作流本身不代表远端打包、附件核验或公开发布已经完成。
+
 ## 依赖
 
 直接依赖版本与 npm、crates.io 注册表逐项核对。npm 和 Cargo 更新同时刷新兼容范围内的

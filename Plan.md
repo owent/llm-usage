@@ -2,8 +2,8 @@
 
 <a id="桌面用量客户端执行计划"></a>
 
-Version: 0.3.12. Reviewed against the current manifests, registered adapters, application
-entry points, tests and design requirements on 2026-11-16. Windows 11 x64 remains the
+Version: 0.3.13. Reviewed against the current manifests, registered adapters, application
+entry points, tests and design requirements on 2026-11-17. Windows 11 x64 remains the
 first desktop target; Linux/macOS CI is retained.
 
 The documentation deployment is complete, as confirmed by the user. Completed delivery
@@ -45,10 +45,10 @@ a passing result. Existing native/CI results and their platform limits are index
 Collect only local Agent records. Preserve unknowns, conflicts, first observations,
 diagnostic history and sealed partitions. Real read-only extraction is already authorized
 under the [implementation boundaries](docs/design/desktop-usage/implementation-readiness.md).
-Temporary artifacts stay in root `build/`. Version 0.3.12 includes the pricing changes;
-the user has authorized its commit, annotated changelog tag, push and public Release.
-The tag workflow verifies all six platform/architecture packages and creates a draft;
-publish only after matching its source, notes and uploaded package sizes/digests.
+Temporary artifacts stay in root `build/`. Version 0.3.13 includes the pricing and Codex
+large-record changes; the user has authorized its version bump, commit, annotated changelog tag,
+push and release workflow. The tag workflow verifies all six platform/architecture packages and
+creates a draft; publish only after matching its source, notes and uploaded package sizes/digests.
 Both public mapping endpoints and real Windows automatic HTTPS refresh/restart were verified
 for 0.3.11. Current pricing checks are recorded in [maintenance validation](docs/validation/desktop-usage/maintenance-current.md#preview-and-approval-review-pricing);
 tagged CI and public-release acceptance are checked separately.
