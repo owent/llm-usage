@@ -78,8 +78,8 @@
 <a href="#online-refresh">online refresh</a>, <a href="/reference/evidence/f2-cost-engine/">cost-engine results</a>,
 <a href="/reference/evidence/f2-online-refresh/">refresh results</a> and
 <a href="/reference/evidence/dashboard-reference/">current API references</a>.
-Occurrence-time estimates on real data still require verified/configured provider channels;
-reference-price comparison does not verify actual bills.
+Occurrence-time estimates on real data require applicable official or configured price rows;
+reference-price comparison does not verify actual bills or subscription channels.
 <a href="/reference/design/budget-reminders/">Spending reminders</a> are implemented/default off, using user daily/monthly
 occurrence-time estimates per currency without zero-filling unknowns. Specified Coding Plans
 do not verify actual pay-as-you-go payments; other scope remains in <a href="https://github.com/owent/llm-usage/blob/main/Plan.md">Plan.md</a>.
@@ -698,15 +698,18 @@ sarvam are skipped; persisted rows cover24 providers, as S24/test output disting
 <p><a id="官方提供商回退匹配2026-10-01-用户合同"></a></p>
 <p>official_vendor schema 11: seed/community true, manual false unless explicitly set. Only when
 exact provider=&gt;selected region/channel=&gt;model=&gt;standard=&gt;interval=&gt;tier finds no_price_row,
-search official rows for the same model/standard/date; selected region/channel first, otherwise
-manual&gt;seed&gt;community/newer within class. Unknown input/multiple tiers remains tier_ambiguous.
-Mark official_fallback and daily/summary fallback_event_count; UI shows official-reference
-count while retaining subscription-reference semantics. Missing provider/unconfigured channel
-enters reference search without premature no_provider/channel_unknown. Vendor-family restriction
-still requires an exact model: GPT/o OpenAI, Claude Anthropic, Gemini Google, Kimi/Moonshot
-Moonshot, GLM Zhipu/Z.ai, DeepSeek DeepSeek; references/IDs in <a href="/reference/design/dashboard-repair/">dashboard rules</a>.
-Prefer selected channel, then global official api (including vendor-named compatible channels).
-Ambiguous remaining regions/channels/currencies stay unpriced; no invented rates/conversion.</p>
+search official rows for the same model/standard/date. Select the configured region/channel or the
+official global scope, then apply manual&gt;seed&gt;community/newer snapshot priority within that scope.
+Prefer an api channel within the selected snapshot, while retaining vendor-named compatible channels.
+Unknown input/multiple tiers remains tier_ambiguous. Mark official_fallback and daily/summary
+fallback_event_count; UI shows official-reference count while retaining subscription-reference semantics.
+Missing providers, unconfigured channels and arbitrary custom provider names enter the same exact-model
+reference search without a provider-alias whitelist or premature no_provider/channel_unknown.
+Vendor-family restriction still requires an exact model: GPT/o OpenAI, Claude Anthropic, Gemini Google,
+Kimi/Moonshot Moonshot, GLM Zhipu/Z.ai, DeepSeek DeepSeek; references/IDs in
+<a href="/reference/design/dashboard-repair/">dashboard rules</a>. A conflicting lower-priority snapshot cannot hide the selected
+tariff. Ambiguous regions/channels/currencies within that selected snapshot stay unpriced; no invented
+rates/conversion.</p>
 <p><a href="https://www.kimi.com/code/docs/en/kimi-code/models.html">Official Kimi model table</a>
 maps k3/k3-256k toK3. Local kimi-code/ profiles can reference kimi-k3 for price matching only,
 without changing raw statistics; exact profile prices win. Missing official same-model row yields
@@ -1027,7 +1030,7 @@ filter/fallback schema 11/A9; <a href="#online-refresh">design</a>/<a href="/ref
 Reminders were deferred in the original2026-09-30 checklist; the opening update records later
 default-off implementation, with advisory behavior rather than blocking usage.</li>
 <li>Executed V29 fixed P1–P6/E/A cases and manual expectations. Real occurrence estimates still
-require verified/configured channels; current-reference checks recorded separately.</li>
+require applicable official or configured price rows; current-reference checks recorded separately.</li>
 </ol>
 <p><a id="风险与限制"></a></p>
 <h2 id="risks-and-limits">Risks and limits</h2>

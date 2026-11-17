@@ -135,10 +135,11 @@ Kilo 按逐消息的 session.version 标记依据，库内最高版本不替代�
 file/HTTP 同源副本以 trace+span 联合身份和原主机/用户去重；不同 trace 的相同 span ID
 仍是不同调用。旧版 span-only 游标重放保留旧记录并撤回旧贡献，不需清库。</li>
 <li>费用默认关闭。精确 provider、模型、用户配置渠道价格优先；没有精确项时，
-即使 provider/渠道缺失，也可使用同模型已核验官方供应商按量价作为参考。
-无渠道偏好时选官方 global 参考（优先 api 标签，也接受官方提供商名称的渠道标签）；
-没有该项再选有确定币种的官方渠道，
-候选渠道/币种仍有歧义则未计价。保留真实 provider、币种和 fallback_event_count。
+provider/渠道缺失或 provider 使用任意自定义名称，都可使用同模型已核验官方供应商按量价
+作为参考，不需要 provider 别名白名单。先限定用户配置的 region/channel 或官方 global 范围，
+再按价格快照优先级选择；所选快照内优先 api 标签，也接受官方提供商名称的渠道标签。
+较低优先级的冲突不能遮挡已选价目；已选快照内部的渠道/币种歧义仍未计价。
+没有该项再选有确定币种的官方渠道。保留真实 provider、币种和 fallback_event_count。
 不给同系列的不同型号套价，订阅专属模型无按量价时仍未知。
 官方模型表确认 Kimi Code 的 k3/k3-256k 对应 K3，只用于 kimi-k3 价格参考；
 别名对裸 model_raw（<code>k3</code>/<code>k3-256k</code>，Kilo Code / oh-my-pi 在自定义 Kimi provider

@@ -77,7 +77,7 @@
 <p>费用引擎及可选 models.dev 在线刷新已实施，均默认关闭；设计见
 <a href="#online-refresh">在线刷新</a>，结果见 <a href="/zh-cn/reference/evidence/f2-cost-engine/">费用引擎</a>、
 <a href="/zh-cn/reference/evidence/f2-online-refresh/">刷新</a>及<a href="/zh-cn/reference/evidence/dashboard-reference/">当前 API 参考</a>。
-真实数据的发生时估算仍需核验并配置供应商渠道；当前参考核对不能验证实际账单。
+真实数据的发生时估算需要适用的官方或已配置价目；参考价格核对不能验证实际账单或订阅渠道。
 <a href="/zh-cn/reference/design/budget-reminders/">费用提醒</a> 已实施且默认关闭；按用户日/月和单币种发生时估算判断，
 未知量不补零。本轮指定 Coding Plan 不证明按量实付，其他范围见 <a href="https://github.com/owent/llm-usage/blob/main/Plan.md">Plan.md</a>。
 调研完成于 2026-09-25；费用规则以 <a href="/zh-cn/reference/design/data-contract/#pricing">数据规则</a> 为准，
@@ -726,17 +726,18 @@ service_tier = standard（<code>experimental.modes</code> 的 fast/ultrafast 等
 手工导入行默认 false（导入文件可逐行置 true）。估算匹配链在原链
 （provider → 用户选定 region/channel → model → standard → 区间 → 档位）
 无适用价格行（<code>no_price_row</code>）时追加一次回退：在 official_vendor 行中按同
-model、standard、区间匹配，优先与所选 region/channel 一致的行，其余按价格簿
-优先级（手工 &gt; 种子 &gt; 社区，同类取较新）；档位规则不变（输入规模未知且多档
+model、standard、区间匹配，先限定用户配置的 region/channel 或官方 global 范围，
+再在该范围内按价格快照优先级选择（手工 &gt; 种子 &gt; 社区，同类取较新）。所选快照内
+优先 api 渠道，同时接受以官方供应商命名的兼容渠道。档位规则不变（输入规模未知且多档
 仍 <code>tier_ambiguous</code> 不猜档）。回退计价的事件在估算结果标记
 <code>official_fallback</code>，日成本行与汇总新增 <code>fallback_event_count</code>，界面以
 「官方回退」计数标注（参考估算语义不变：订阅实付不等于该值）。
-provider 缺失或未配置渠道也进入官方参考候选，不先返回
-<code>no_provider</code>/<code>channel_unknown</code>。系列限定官方供应商，具体型号仍须精确匹配：
-GPT/o → OpenAI；Claude → Anthropic；Gemini → Google；Kimi/Moonshot → 月之暗面；
-GLM → 智谱/Z.ai；DeepSeek → DeepSeek，来源依据与目录 ID 见 <a href="/zh-cn/reference/design/dashboard-repair/">本轮要求</a>。
-先选用户渠道，次选 global 官方参考（api 标签优先，兼容以官方提供商命名的渠道）；
-剩余地区/渠道/币种有歧义仍未计价，不换汇、不虚构费率。
+provider 缺失、未配置渠道或任意自定义名称都进入同一精确型号参考搜索，
+不需要 provider 别名白名单，也不先返回 <code>no_provider</code>/<code>channel_unknown</code>。
+系列限定官方供应商，具体型号仍须精确匹配：GPT/o → OpenAI；Claude → Anthropic；
+Gemini → Google；Kimi/Moonshot → 月之暗面；GLM → 智谱/Z.ai；DeepSeek → DeepSeek，
+来源依据与目录 ID 见 <a href="/zh-cn/reference/design/dashboard-repair/">本轮要求</a>。较低优先级快照的冲突不能遮挡
+已选价目；已选快照内部的地区/渠道/币种歧义仍未计价，不换汇、不虚构费率。
 官方 <a href="https://www.kimi.com/code/docs/en/kimi-code/models.html">Kimi Code 模型表</a>确认
 <code>k3</code>/<code>k3-256k</code> 对应 K3；本机 <code>kimi-code/</code> profile 可参考 <code>kimi-k3</code>，
 只影响参考价格匹配，原始统计归属保留；精确 profile 渠道价格优先。
@@ -1061,7 +1062,7 @@ price_versions 重定义 + daily_cost_usage；预发布规则走备份重建路�
 <li><strong>已实施</strong>：界面费用面板（默认关闭）、币种分组展示、价格管理
 （快照查看/手工导入/显式重算）；原 2026-09-30 清单中的费用提醒尚未实施；文首更新记录后续已实施且默认关闭，提醒仅提示不阻止。</li>
 <li><strong>已执行</strong>：V29 验收（固定测试文件形式的 P1–P6 与 E/A 场景 + 人工期望测试；
-真实数据发生时估算待核验并配置渠道；当前 API 参考核对另记）。</li>
+真实数据发生时估算仍需适用的官方或已配置价目；当前 API 参考核对另记）。</li>
 </ol>
 <p><a id="risks-and-limits"></a></p>
 <h2 id="风险与限制">风险与限制</h2>
