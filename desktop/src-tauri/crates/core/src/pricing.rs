@@ -792,29 +792,33 @@ impl PriceBook {
                     })
                 })
                 .collect();
-            candidates = if preferred.is_empty() {
+            let prefer_api;
+            if preferred.is_empty() {
                 let global: Vec<_> = fallback
                     .iter()
                     .copied()
                     .filter(|r| r.region.eq_ignore_ascii_case("global"))
                     .collect();
-                if global.is_empty() {
-                    fallback
-                } else {
-                    let api: Vec<_> = global
-                        .iter()
-                        .copied()
-                        .filter(|r| r.channel.eq_ignore_ascii_case("api"))
-                        .collect();
-                    if api.is_empty() {
-                        global
-                    } else {
-                        api
-                    }
-                }
+                prefer_api = !global.is_empty();
+                candidates = if global.is_empty() { fallback } else { global };
             } else {
-                preferred
-            };
+                prefer_api = false;
+                candidates = preferred;
+            }
+            // Apply snapshot priority before comparing currencies. A conflicting lower-priority
+            // snapshot must not hide an unambiguous selected tariff for a custom provider.
+            let fallback_snapshot = candidates[0].snapshot_id.clone();
+            candidates.retain(|r| r.snapshot_id == fallback_snapshot);
+            if prefer_api {
+                let api: Vec<_> = candidates
+                    .iter()
+                    .copied()
+                    .filter(|r| r.channel.eq_ignore_ascii_case("api"))
+                    .collect();
+                if !api.is_empty() {
+                    candidates = api;
+                }
+            }
             official_fallback = true;
             // Select one vendor/channel before its context tier; mixing vendors or currencies
             // could otherwise select an unrelated high tier.

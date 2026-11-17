@@ -36122,7 +36122,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/pricing.rs": {
-      "codeHash": "0d845e167d1383ab7be5634b3c64437b7f7b74586d455f534bf14641bde94343",
+      "codeHash": "97a9b3d148039ee7e08c7261350b1e4b727bb20befba029afa821501aca90be4",
       "comments": [
         {
           "id": "b330b53a6b7c1551",
@@ -36671,351 +36671,365 @@
           "zh": "// 仅末尾 Preview 回退允许采用已配置的非官方价目。"
         },
         {
+          "id": "c640c25ba4611600",
+          "line": 808,
+          "kind": "line",
+          "en": "// Apply snapshot priority before comparing currencies. A conflicting lower-priority",
+          "zh": "// 先按快照优先级筛选，再比较币种。较低优先级的冲突快照"
+        },
+        {
+          "id": "07c47975678fb65c",
+          "line": 809,
+          "kind": "line",
+          "en": "// snapshot must not hide an unambiguous selected tariff for a custom provider.",
+          "zh": "// 不能遮挡自定义 Provider 已选定的无歧义价目。"
+        },
+        {
           "id": "3833dce757bb615f",
-          "line": 819,
+          "line": 823,
           "kind": "line",
           "en": "// Select one vendor/channel before its context tier; mixing vendors or currencies",
           "zh": "// 先选择一个供应商和渠道，再确定上下文档位；混用供应商或币种"
         },
         {
           "id": "53df4a6ae848dbd6",
-          "line": 820,
+          "line": 824,
           "kind": "line",
           "en": "// could otherwise select an unrelated high tier.",
           "zh": "// 可能误选其他价格表中的高档位。"
         },
         {
           "id": "e54ed6ce9dc9d86d",
-          "line": 836,
+          "line": 840,
           "kind": "line",
           "en": "// Resolve catalog spelling before context tiers; a higher tier under a different",
           "zh": "// 先确定价格目录中的模型名称，再选择档位；其他名称下的高档位"
         },
         {
           "id": "1d28cbb392e3875e",
-          "line": 837,
+          "line": 841,
           "kind": "line",
           "en": "// spelling must not override an exact model ID.",
           "zh": "// 不能覆盖精确匹配的模型 ID。"
         },
         {
           "id": "645ad0ccd72d2110",
-          "line": 861,
+          "line": 865,
           "kind": "line",
           "en": "// Take all tariff tiers from one prioritized snapshot; mixing a new base rate",
           "zh": "// 各档位必须来自同一个按优先级选中的快照；混用新的基础价格"
         },
         {
           "id": "994038eb2b203c56",
-          "line": 862,
+          "line": 866,
           "kind": "line",
           "en": "// with an older long-context rate would invent a tariff.",
           "zh": "// 和旧的长上下文价格会形成不存在的价格表。"
         },
         {
           "id": "1024a76fe79c64c4",
-          "line": 898,
+          "line": 902,
           "kind": "line",
           "en": "// Even a lone high-tier row requires input at or above its threshold.",
           "zh": "// 即使只有一个高档价格行，也必须验证输入达到该行阈值。"
         },
         {
           "id": "6b48a70431f0acd8",
-          "line": 899,
+          "line": 903,
           "kind": "line",
           "en": "// Unknown input size cannot select among tiers by price-book order.",
           "zh": "// 多档且输入规模未知时不能从价格簿顺序猜测档位。"
         },
         {
           "id": "ea694d2adfb9d369",
-          "line": 920,
+          "line": 924,
           "kind": "line",
           "en": "// Candidates with the same tier are already ordered by snapshot priority.",
           "zh": "// 相同档位跨快照重复时，候选行已按快照优先级排序。"
         },
         {
           "id": "069e6ec902c10a1b",
-          "line": 931,
+          "line": 935,
           "kind": "line",
           "en": "/// Price components after selecting a price row.",
           "zh": "/// 已选定价格行后的分量计价。"
         },
         {
           "id": "ff29ca5995b7b2b4",
-          "line": 938,
+          "line": 942,
           "kind": "line",
           "en": "// Use the event provider's configured TTL default even when the fallback provider differs.",
           "zh": "// TTL 默认档按事件供应商的用户配置取（回退行 provider 与事件不同也适用）。"
         },
         {
           "id": "ab2302656557f2f9",
-          "line": 944,
+          "line": 948,
           "kind": "line",
           "en": "// Prefer explicit uncached input; otherwise derive total - read - write only if all are known.",
           "zh": "// 未缓存输入：优先显式值；否则 total − read − write（三者均已知时派生）。"
         },
         {
           "id": "bc75adb367949433",
-          "line": 989,
+          "line": 993,
           "kind": "line",
           "en": "// The component is unpriced because its rate is absent.",
           "zh": "// 分量未计价：价格列缺失"
         },
         {
           "id": "8aed9ad2c7a6930a",
-          "line": 1028,
+          "line": 1032,
           "kind": "line",
           "en": "// Use a user-selected TTL when the event lacks one; without a default, leave writes unpriced.",
           "zh": "// 缓存写：TTL 档由用户默认选定（事件未提供 TTL）；未设默认档不计价。"
         },
         {
           "id": "11db20d01a729bbb",
-          "line": 1037,
+          "line": 1041,
           "kind": "line",
           "en": "// Known zero writes require no TTL choice and incur no write amount.",
           "zh": "// 已知零写入无需猜测 TTL，也不会产生写入费用。"
         },
         {
           "id": "2a6041a24eb559b9",
-          "line": 1064,
+          "line": 1068,
           "kind": "line",
           "en": "// No default TTL or no rate for that tier leaves writes unpriced.",
           "zh": "// 无默认档或该档无价：写分量未计价"
         },
         {
           "id": "1b2340c9b31d07dc",
-          "line": 1078,
+          "line": 1082,
           "kind": "line",
           "en": "// With no priced components, return an unpriced event instead of a zero amount.",
           "zh": "// 所有分量均未计价（价格列缺失或 token 未知）：整条未计价。"
         },
         {
           "id": "74939a8c40343685",
-          "line": 1092,
+          "line": 1096,
           "kind": "line",
           "en": "/// Parse snapshot JSON from a repository seed or a user file.",
           "zh": "/// 解析快照 JSON 文本（种子或用户文件）。"
         },
         {
           "id": "f70ce5f298d7e5b0",
-          "line": 1132,
+          "line": 1136,
           "kind": "line",
           "en": "// The seed retains both nonoverlapping glm-5.1 context tiers.",
           "zh": "// 种子内 glm-5.1 两档阈值并存且不重叠。"
         },
         {
           "id": "31943f05bb5fe02e",
-          "line": 1145,
+          "line": 1149,
           "kind": "line",
           "en": "// Adjacent same-key intervals do not overlap; equal starts do.",
           "zh": "// 同键两行首尾相接不重叠（from 相同则重叠）。"
         },
         {
           "id": "c5a7dc31ed54ec8a",
-          "line": 1155,
+          "line": 1159,
           "kind": "line",
           "en": "// $10/M = 100000 hundredths of a cent; 1 * 100000 / 1e8 = 0.001 cent, rounded to 0.",
           "zh": "// $10/M = 100000 百分之一美分；1 token × 100000 / 1e8 → 0.001 美分 → 0。"
         },
         {
           "id": "5179f2cdf5e449b6",
-          "line": 1157,
+          "line": 1161,
           "kind": "line",
           "en": "// E1 input: 1,234,567 * 80000 / 1e8 = 987.6536, rounded to 988.",
           "zh": "// 1,234,567 × 80000 / 1e8 = 987.6536 → 988（E1 输入分量）。"
         },
         {
           "id": "bd0cd9ed64e7414d",
-          "line": 1159,
+          "line": 1163,
           "kind": "line",
           "en": "// E6 output: 1,000 * 280000 / 1e8 = 2.8, rounded half up to 3.",
           "zh": "// 1,000 × 280000 / 1e8 = 2.8 → 3（E6 输出分量，四舍五入）。"
         },
         {
           "id": "2097b5a690e56cf7",
-          "line": 1161,
+          "line": 1165,
           "kind": "line",
           "en": "// E6 input: 32,768 * 80000 / 1e8 = 26.2144, rounded to 26.",
           "zh": "// 32,768 × 80000 / 1e8 = 26.2144 → 26（E6 输入分量）。"
         },
         {
           "id": "354e8a486dce37b8",
-          "line": 1192,
+          "line": 1196,
           "kind": "line",
           "en": "// Configuring a channel enables pricing; a small known amount can round to zero.",
           "zh": "// 配置渠道后可计价（小 token 舍入为 0 是合法金额）。"
         },
         {
           "id": "d11aeeeed6c29b01",
-          "line": 1215,
+          "line": 1219,
           "kind": "line",
           "en": "// Cache sum 110 exceeds total input 100.",
           "zh": "// 缓存合计 110 超过总输入 100。"
         },
         {
           "id": "82b4b351b49324a3",
-          "line": 1227,
+          "line": 1231,
           "kind": "line",
           "en": "// P5/P6 rates: glm-5.1 [0,32K) at CNY 6/24 and [32K,+inf) at CNY 8/28 per M tokens.",
           "zh": "// P5/P6：glm-5.1 [0,32K) ¥6/¥24 与 [32K+) ¥8/¥28（百分之一分单位）。"
         },
         {
           "id": "e8d46ef30b6894b0",
-          "line": 1255,
+          "line": 1259,
           "kind": "line",
           "en": "// Unknown input size leaves the context tier unselected.",
           "zh": "// 输入规模未知 → 不猜档。"
         },
         {
           "id": "a6a99415c09c6a4a",
-          "line": 1260,
+          "line": 1264,
           "kind": "line",
           "en": "// E6: input 32,768 selects the high tier; 26 + 3 = 29 minor units.",
           "zh": "// E6：输入 32,768 命中高档 → 26 + 3 = 29 分。"
         },
         {
           "id": "a4b63f339851d2f4",
-          "line": 1276,
+          "line": 1280,
           "kind": "line",
           "en": "// E7: input 32,767 selects the low tier; 20 + 2 = 22 minor units.",
           "zh": "// E7：输入 32,767 命中低档 → 20 + 2 = 22 分。"
         },
         {
           "id": "e25c4e5d322fe297",
-          "line": 1333,
+          "line": 1337,
           "kind": "line",
           "en": "// Synthetic rates: $0.10/$0.01/$0.03/$0.50 per M tokens (1000/100/300/5000 hundredths of a cent).",
           "zh": "// 测试单价为每百万 token $0.10/$0.01/$0.03/$0.50，即 1000/100/300/5000 百分之一美分。"
         },
         {
           "id": "8b582e8e0df37166",
-          "line": 1354,
+          "line": 1358,
           "kind": "line",
           "en": "// No default TTL leaves writes unpriced; input/output still total 10 + 50 = 60 cents.",
           "zh": "// 未设默认 TTL 时写入不计价；已知输入和输出金额合计 10 + 50 = 60 美分。"
         },
         {
           "id": "444ff23225b6b289",
-          "line": 1363,
+          "line": 1367,
           "kind": "line",
           "en": "// Default 5m TTL prices writes at 1M * 300 / 1e8 = 3 cents and sets defaulted.",
           "zh": "// 设默认 5m 档后：写分量 1M×300/1e8=3，标 defaulted。"
         },
         {
           "id": "586d93dde72ff3bb",
-          "line": 1389,
+          "line": 1393,
           "kind": "line",
           "en": "// No explicit uncached input: total 3_000_000 - read 1_000_000 - write 1_000_000 = 1M.",
           "zh": "// 无显式 uncached：total 3_000_000 − read 1_000_000 − write 1_000_000 = 1M。"
         },
         {
           "id": "a26a16f50103c2b9",
-          "line": 1404,
+          "line": 1408,
           "kind": "line",
           "en": "// Divide each 1M * rate product by 1e8: 10 + 1 + 3 + 50 = 64 cents.",
           "zh": "// 各项 1M × 单价除以 1e8 后为 10 + 1 + 3 + 50 = 64 美分。"
         },
         {
           "id": "787c819ce7e7d799",
-          "line": 1423,
+          "line": 1427,
           "kind": "line",
           "en": "// Year 2001 precedes the effective start 2026-01-01.",
           "zh": "// 2001 年，早于 2026-01-01 生效起点"
         },
         {
           "id": "c061eae1852e0adc",
-          "line": 1434,
+          "line": 1438,
           "kind": "line",
           "en": "// ------------------------------------------------------------------",
           "zh": "//（分隔线）"
         },
         {
           "id": "643aebe7bd94cafd",
-          "line": 1435,
+          "line": 1439,
           "kind": "line",
           "en": "// Official supplier fallback matching; see the online price refresh specification.",
           "zh": "// 官方供应商回退匹配（当前规则；pricing.md 在线刷新设计）"
         },
         {
           "id": "5eb3bbd9bafd02c8",
-          "line": 1436,
+          "line": 1440,
           "kind": "line",
           "en": "// ------------------------------------------------------------------",
           "zh": "//（分隔线）"
         },
         {
           "id": "e50d330f05ed8288",
-          "line": 1438,
+          "line": 1442,
           "kind": "line",
           "en": "/// Row JSON with official_vendor; seed/community default true and manual defaults false.",
           "zh": "/// 带 official_vendor 标记的行 JSON（seed/community 默认 true；manual 默认 false）。"
         },
         {
           "id": "f078d99a4c421493",
-          "line": 1451,
+          "line": 1455,
           "kind": "line",
           "en": "// Synthetic community snapshot: vendorA/m-one with the default official flag true.",
           "zh": "// 模拟社区快照：vendorA/m-one 的 official 标记默认 true。"
         },
         {
           "id": "f41e4c786574431e",
-          "line": 1478,
+          "line": 1482,
           "kind": "line",
           "en": "// relay-x has no exact price row; select the flagged vendorA reference and record fallback.",
           "zh": "// 事件 provider「relay-x」无精确行；回退到官方 vendorA 行并标记。"
         },
         {
           "id": "09a40019abb04c0c",
-          "line": 1486,
+          "line": 1490,
           "kind": "line",
           "en": "// 1M * $10/M + 1M * $50/M = $60.",
           "zh": "// 参考金额：1M × $10/M + 1M × $50/M = $60。"
         },
         {
           "id": "7fd7c1309939fb83",
-          "line": 1491,
+          "line": 1495,
           "kind": "line",
           "en": "// Exact provider vendorA matches the same row without a fallback flag.",
           "zh": "// 精确链命中时不回退：provider=vendorA 精确命中同一行，无回退标记。"
         },
         {
           "id": "f9b9dabc9e59364d",
-          "line": 1505,
+          "line": 1509,
           "kind": "line",
           "en": "// An unambiguous official reference needs no channel configuration or actual billing inference.",
           "zh": "// 无渠道配置也能展示唯一官方模型价，实付渠道仍不推断。"
         },
         {
           "id": "64b980e04811afe6",
-          "line": 1514,
+          "line": 1518,
           "kind": "line",
           "en": "// A model with no official row returns no_price_row.",
           "zh": "// 模型无官方行 ⇒ no_price_row。"
         },
         {
           "id": "bfdc14ced8f085ae",
-          "line": 1523,
+          "line": 1527,
           "kind": "line",
           "en": "// Manual rows default to nonofficial and are excluded from fallback candidates.",
           "zh": "// 手工导入行默认非官方 ⇒ 不进回退候选池。"
         },
         {
           "id": "e0177060d1f514b4",
-          "line": 1539,
+          "line": 1543,
           "kind": "line",
           "en": "// Explicit official_vendor: true allows a manual row to participate in fallback.",
           "zh": "// 手工行显式 official_vendor: true ⇒ 参与回退。"
         },
         {
           "id": "86a6384258873854",
-          "line": 1558,
+          "line": 1562,
           "kind": "line",
           "en": "// Prefer the official row with region/channel matching the configured values.",
           "zh": "// 同一模型的两个官方行：region/channel 与配置一致者优先。"
         },
         {
           "id": "306d3e69e85a3aa9",
-          "line": 1596,
+          "line": 1600,
           "kind": "line",
           "en": "// Fallback also leaves unknown request tiers unselected when two context tiers exist.",
           "zh": "// 档位歧义在回退中同样不猜档：两个档位的官方行 + 输入规模未知。"
@@ -38813,7 +38827,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/storage/pricing.rs": {
-      "codeHash": "b40c6b75d2c02ead6f2abcfae398f2c3b0f1aec3632efb06f006be12f8f62aad",
+      "codeHash": "6be9f8c353e01e95f8d9e5f6841a0c27c751fb5c0ccb3d8908e399af6e4e5f5f",
       "comments": [
         {
           "id": "978cd10bc2f8338c",
@@ -41705,7 +41719,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/tests/dashboard_repair.rs": {
-      "codeHash": "467e3681a77187294771c7002455e085061efae61fb6236f8d8aa9a5ec35a4ad",
+      "codeHash": "102b29b592307a801be76c0042dafed9b3d65058fcc351549080def397636696",
       "comments": [
         {
           "id": "3684e16de2e46162",
@@ -47986,11 +48000,11 @@
       ]
     },
     "desktop/src-tauri/crates/core/tests/pricing_archives.rs": {
-      "codeHash": "3eea7b8b4c64d303da60d36c38a439ce464f631da3311d897ee94779240d19f2",
+      "codeHash": "c5846a1e8129b7d0295b53e513e82fcc03d5ba3c98d90ecd97f7cb91315660d0",
       "comments": [
         {
           "id": "de0d5f5d36013f25",
-          "line": 59,
+          "line": 60,
           "kind": "line",
           "en": "// Imported or archived aggregates can coexist with details; select aggregates instead of adding both.",
           "zh": "// 导入或归档汇总可能与明细并存；选择汇总，不将两者相加。"

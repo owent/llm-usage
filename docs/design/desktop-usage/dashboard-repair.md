@@ -81,12 +81,13 @@ incremental rounds, reevaluated after rule-upgrade replay.
   original host/user. Equal span IDs in different traces remain different calls. Replay old
   span-only cursors, retaining old records/removing old contribution without clearing the DB.
 - Costs off by default. Exact provider/model/user channel prices first. Without exact rows,
-  missing provider/channel can still use verified official same-model API reference rates.
-  Without channel preference choose official global, preferring api labels but also official
-  provider-name channel labels. Otherwise choose official channel with definite currency;
-  remaining channel/currency ambiguity stays unpriced. Preserve real provider/currency/
-  fallback_event_count. Never price another model from the same series; subscription-only
-  models without API rates stay unknown.
+  missing provider/channel and arbitrary custom provider names can use verified official same-model
+  API reference rates without a provider-alias whitelist. Select the configured region/channel or
+  official global scope, then apply snapshot priority before preferring api labels (official provider-name
+  channel labels remain eligible). Lower-priority conflicts cannot hide the selected tariff; channel/
+  currency ambiguity within that selected snapshot stays unpriced. Otherwise choose an official channel
+  with definite currency. Preserve real provider/currency/fallback_event_count. Never price another model
+  from the same series; subscription-only models without API rates stay unknown.
   Official Kimi model table maps k3/k3-256k to K3 for kimi-k3 reference only. Alias applies
   to bare model_raw k3/k3-256k from native Kilo/oh-my-pi custom Kimi providers and prefixed
   forms, official moonshot assignment. Keep original profile; exact profile-channel rates first.

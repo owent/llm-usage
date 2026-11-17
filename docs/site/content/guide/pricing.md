@@ -18,9 +18,11 @@ fields and incomplete tiers remain visible gaps. Currencies are not merged. Cach
 cache write, input, output and price thresholds use the source's verified semantics.
 
 If an exact channel price is unavailable, the product can show a clearly identified
-official API reference for the same verified model. Model-series similarity is not enough.
-The explicitly authorized Kimi K2.8 Preview to K2.7 Code reference is labeled as a substitute;
-it does not change model identity or historical amounts.
+official API reference for the same verified model. Provider IDs may be custom names and need no
+provider-alias mapping for this search. Snapshot priority selects a tariff before channel/currency
+ambiguity is evaluated; conflicts within that selected tariff remain unpriced. Model-series similarity
+is not enough. The explicitly authorized Kimi K2.8 Preview to K2.7 Code reference is labeled as a
+substitute; it does not change model identity or historical amounts.
 
 ## Optional online prices
 

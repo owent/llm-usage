@@ -1,6 +1,6 @@
 # Current maintenance validation
 
-Reviewed: 2026-11-16. Maintenance validation source: 0.3.9; release preparation: 0.3.10.
+Reviewed: 2026-11-17. Maintenance validation source: 0.3.9; release preparation: 0.3.10.
 Environment: Windows x64, Node 26.13.0,
 npm 12.0.2, pnpm 12.21.0 and Rust 1.99.1. Commands run from the repository root;
 disposable scripts, logs, raw public catalog and isolated databases are under
@@ -19,6 +19,43 @@ and unresolved conditions; [execution requirements](../../design/desktop-usage/e
 consolidates completed delivery scope. Standalone Qoder IDE/JetBrains token readers and
 other F1 candidates remain unimplemented/unverified. Native public-release/installer and
 other-platform GUI update acceptance remain separate from code completion.
+
+<a id="custom-provider-official-price-fallback"></a>
+
+## Custom-provider official price fallback
+
+Reviewed on 2026-11-17 with Windows x64, Node.js 26.13.1 and Rust 1.99.1. Disposable probes,
+public catalog data and translation inputs are under `build/pricing-custom-provider-20261117/`.
+A minimal regression used `zhipu-ai-(coding-plan)` with `glm-5.3-flash`, the latest bundled Z.ai
+USD tariff and a conflicting lower-priority CNY snapshot. The old candidate order returned
+`channel_unknown`: it compared currencies across snapshots before applying snapshot priority.
+Provider IDs were already intended to be customizable; no provider-name alias is added.
+
+Fallback selection now limits candidates to the configured region/channel or official global scope,
+applies snapshot priority, and then prefers an API channel within the selected snapshot. Lower-priority
+conflicts no longer suppress the selected tariff. A currency/channel conflict inside that snapshot still
+returns `channel_unknown`; exact model identity, official-vendor restrictions, token coverage and context
+tiers are unchanged. Both bare and provider-qualified model IDs cover occurrence-time and current-price
+estimates. The matching-policy marker is `official-reference-6`, which repairs retained unsealed detail
+once without rewriting sealed history or requiring a database reset.
+
+The [official Z.ai price page](https://docs.z.ai/guides/overview/pricing), rechecked on 2026-11-17,
+lists GLM-5.3-Flash at USD 0.15 input, 0.03 cached input and 0.50 output per million tokens. The public
+models.dev response was HTTP 200, 6,689,815 bytes with SHA-256
+`01221db67a47999df0d93c2e7d85ad70172bc6732815751da164ce875231c88e`. It contains both Z.ai and
+Zhipu rows for this model; the regression verifies that the higher-priority bundled official row wins.
+Read-only application inspection was limited to this model's price rows, pricing defaults, policy marker
+and aggregate cost/event dimensions; no session content, source paths or credentials were read. It did not
+contain the exact reported custom provider, so the new acceptance case uses synthetic tokens and real
+price-row shapes rather than claiming real-event GUI or billing acceptance.
+
+| Check | Result |
+| --- | --- |
+| Pre-fix custom-provider regression | Exit 1: `custom_provider_uses_the_preferred_same_model_official_snapshot` failed because the custom provider received no official same-model price. It passes after the change. |
+| Seven pricing/dashboard suites | Exit 0: 57 tests passed, including same-snapshot ambiguity, exact-price priority, old-policy repair and sealed-day preservation. |
+| Isolated SQLite custom-provider query | Exit 0: event commit, occurrence-day rebuild, current summary and model-row subtotal all select USD and the bundled Z.ai row. The first test-only compile attempt shadowed the event helper with a closure; renaming the closure fixed that error before the passing run. |
+| `npm run verify` | The first 120-second run was terminated with exit 143 during the full Rust tests. A complete rerun with a 300-second timeout exited 0, and the final rerun after adding the SQLite case also exited 0: 1,192 Rust tests passed, ten existing native/platform tests remained explicitly ignored; 20 script and 34 frontend tests, Svelte, rustfmt, Clippy and the production frontend build passed. |
+| `npm run check:docs` / `test:docs` / `build:docs` | Exit 0: 215 repository pairs, 21 guide pairs, 41 documentation tests, 1,427 built pages and 3,018 checked output files. Comment references were reviewed for all four changed Rust files. |
 
 ## Dependencies
 

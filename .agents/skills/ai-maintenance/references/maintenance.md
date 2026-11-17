@@ -271,8 +271,10 @@ archives/details, detail deletion, hourly/weekly/monthly selections and many sma
 integer recomputation/application results. Unknown splits/tiers cannot be inferred from zeros/total input.
 Merge model rows by source provider/model, retaining multiple price bases; see the
 [pricing rules](../../../../docs/design/desktop-usage/pricing.md). Authorized cross-model references separate
-identity aliases/substitution rules and list approved mappings only. Regress exact-price priority,
-ambiguity rejection, unchanged history and substitution labels in summary/model amounts/unit prices.
+identity aliases/substitution rules and list approved mappings only. Custom provider names need no alias
+whitelist for an exact-model official reference. Apply snapshot priority before channel/currency ambiguity;
+lower-priority conflicts cannot hide the selected tariff, while conflicts within it remain unpriced.
+Regress exact-price priority, ambiguity rejection, unchanged history and substitution labels in summary/model amounts/unit prices.
 Aggregate cards, panels and table totals show one generic reference-price notice rather than joining
 model-specific hints; retain exact substitute identities and reasons in model rows and unit prices.
 

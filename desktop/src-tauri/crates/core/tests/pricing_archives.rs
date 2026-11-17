@@ -4,10 +4,11 @@ use llm_usage_core::{
     calendar::{ymd, WeekStart},
     domain::{EventInput, FieldQuality},
     ingest::commit_batch,
-    pricing::{EstimateOptions, EventEstimate, PricingEvent},
+    pricing::{parse_snapshot_json, EstimateOptions, EventEstimate, PriceBook, PricingEvent},
     query::{query_summary, Filters, Granularity, SummaryRequest},
     storage::pricing::CostSummaryRequest,
 };
+use serde_json::json;
 
 fn event(
     id: &str,
@@ -160,6 +161,134 @@ fn official_reference_handles_snapshot_ids_custom_routes_and_boundary_without_ne
             EventEstimate::Unpriced(_)
         ));
     }
+}
+
+#[test]
+fn custom_provider_uses_the_preferred_same_model_official_snapshot() {
+    let (_dir, s) = temp_storage("price-custom-provider");
+    let now = ts("2026-11-17T12:00:00Z");
+    s.ensure_seed_price_snapshot(now).unwrap();
+    let older_conflict = parse_snapshot_json(
+        &json!({
+            "format": "llm-usage-price-snapshot/1",
+            "snapshot": {
+                "id": "seed-older-cny-conflict",
+                "source_type": "seed",
+                "source_urls": ["https://example.invalid/synthetic-lower-priority-cny-conflict"],
+                "fetched_at": "2026-09-26"
+            },
+            "rows": [{
+                "price_id": "older-global-cny-conflict",
+                "provider_id": "zai",
+                "model": "glm-5.3-flash",
+                "region": "global",
+                "channel": "zai",
+                "effective_from": "2026-09-26",
+                "currency": "CNY",
+                "input": 1500,
+                "cache_read": 300,
+                "output": 5000,
+                "official_vendor": true,
+                "note": "Synthetic lower-priority currency conflict for fallback-selection regression"
+            }]
+        })
+        .to_string(),
+    )
+    .unwrap();
+    s.import_price_snapshot(&older_conflict, now).unwrap();
+    let mut book = s.load_price_book().unwrap();
+
+    let pricing_event = |model: &str| PricingEvent {
+        provider_id: Some("zhipu-ai-(coding-plan)".into()),
+        model_raw: Some(model.into()),
+        occurred_at_ms: now,
+        input_uncached: Some(1_000_000),
+        input_cache_read: Some(1_000_000),
+        input_cache_write: Some(0),
+        input_total: Some(2_000_000),
+        output_total: Some(1_000_000),
+        ..Default::default()
+    };
+    let assert_preferred = |book: &PriceBook| {
+        for model in ["glm-5.3-flash", "zhipu-ai-(coding-plan)/glm-5.3-flash"] {
+            let event = pricing_event(model);
+            let narrowed = book.for_model(&event);
+            for result in [
+                narrowed.estimate(&event, &EstimateOptions::default(), now),
+                narrowed.estimate_at_time(&event, &EstimateOptions::default()),
+            ] {
+                let EventEstimate::Priced(amount) = result else {
+                    panic!("custom provider did not use the official same-model price: {model}")
+                };
+                assert!(amount.official_fallback);
+                assert_eq!(amount.currency, "USD");
+                assert_eq!(amount.total_amount_minor, 68);
+                assert_eq!(amount.matched_price_ids, ["zai-glm-5.3-flash-20261024"]);
+            }
+        }
+    };
+    assert_preferred(&book);
+
+    let mut input = event(
+        "custom-provider-call",
+        "glm-5.3-flash",
+        "zhipu-ai-(coding-plan)",
+        1_000_000,
+        1_000_000,
+        1_000_000,
+    );
+    input.occurred_at_ms = now;
+    commit_batch(&s, &batch("source", "UTC", now, vec![input]), None).unwrap();
+    let query = CostSummaryRequest {
+        timezone: "UTC".into(),
+        first_day: "2026-11-17".into(),
+        last_day: "2026-11-17".into(),
+        now_ms: now,
+        options: EstimateOptions::default(),
+        filters: Default::default(),
+    };
+    s.recompute_unsealed_cost_days("UTC", now, &query.options)
+        .unwrap();
+    let summary = s.cost_summary(&query).unwrap();
+    for mode in [&summary.at_time, &summary.current_sim] {
+        assert_eq!(mode.rows[0].currency, "USD");
+        assert_eq!(mode.rows[0].total_amount_minor, 68);
+        assert_eq!(mode.rows[0].fallback_event_count, 1);
+        assert!(mode.unpriced_reasons.is_empty());
+    }
+    assert_eq!(summary.models[0].current_sim[0].total_amount_minor, 68);
+
+    let mut community = book
+        .rows
+        .iter()
+        .find(|r| r.price_id == "zai-glm-5.3-flash-20261024")
+        .unwrap()
+        .clone();
+    community.price_id = "models-dev-newer:zhipuai:glm-5.3-flash".into();
+    community.snapshot_id = "models-dev-newer".into();
+    community.provider_id = "zhipuai".into();
+    community.channel = "api".into();
+    community.input_per_mtok_hundredths = Some(1195);
+    community.cache_read_per_mtok_hundredths = Some(344);
+    community.output_per_mtok_hundredths = Some(4183);
+    book.rows.push(community);
+    assert_preferred(&book);
+
+    let mut same_snapshot_conflict = book
+        .rows
+        .iter()
+        .find(|r| r.price_id == "zai-glm-5.3-flash-20261024")
+        .unwrap()
+        .clone();
+    same_snapshot_conflict.price_id = "same-snapshot-cny-conflict".into();
+    same_snapshot_conflict.currency = "CNY".into();
+    book.rows.push(same_snapshot_conflict);
+    let event = pricing_event("glm-5.3-flash");
+    assert_eq!(
+        book.for_model(&event)
+            .estimate(&event, &EstimateOptions::default(), now),
+        EventEstimate::Unpriced(llm_usage_core::pricing::UnpricedReason::ChannelUnknown)
+    );
 }
 
 #[test]

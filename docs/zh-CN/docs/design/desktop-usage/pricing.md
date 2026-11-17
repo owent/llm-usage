@@ -5,7 +5,7 @@
 费用引擎及可选 models.dev 在线刷新已实施，均默认关闭；设计见
 [在线刷新](#online-refresh)，结果见 [费用引擎](../../validation/desktop-usage/f2-cost-engine.md)、
 [刷新](../../validation/desktop-usage/f2-online-refresh.md)及[当前 API 参考](../../validation/desktop-usage/dashboard-reference.md)。
-真实数据的发生时估算仍需核验并配置供应商渠道；当前参考核对不能验证实际账单。
+真实数据的发生时估算需要适用的官方或已配置价目；参考价格核对不能验证实际账单或订阅渠道。
 [费用提醒](budget-reminders.md) 已实施且默认关闭；按用户日/月和单币种发生时估算判断，
 未知量不补零。本轮指定 Coding Plan 不证明按量实付，其他范围见 [Plan.md](../../../../../Plan.md)。
 调研完成于 2026-09-25；费用规则以 [数据规则](data-contract.md#pricing) 为准，
@@ -419,17 +419,18 @@ input_audio/output_audio/reasoning/tiers/context_over_200k；无币种字段
 手工导入行默认 false（导入文件可逐行置 true）。估算匹配链在原链
 （provider → 用户选定 region/channel → model → standard → 区间 → 档位）
 无适用价格行（`no_price_row`）时追加一次回退：在 official_vendor 行中按同
-model、standard、区间匹配，优先与所选 region/channel 一致的行，其余按价格簿
-优先级（手工 > 种子 > 社区，同类取较新）；档位规则不变（输入规模未知且多档
+model、standard、区间匹配，先限定用户配置的 region/channel 或官方 global 范围，
+再在该范围内按价格快照优先级选择（手工 > 种子 > 社区，同类取较新）。所选快照内
+优先 api 渠道，同时接受以官方供应商命名的兼容渠道。档位规则不变（输入规模未知且多档
 仍 `tier_ambiguous` 不猜档）。回退计价的事件在估算结果标记
 `official_fallback`，日成本行与汇总新增 `fallback_event_count`，界面以
 「官方回退」计数标注（参考估算语义不变：订阅实付不等于该值）。
-provider 缺失或未配置渠道也进入官方参考候选，不先返回
-`no_provider`/`channel_unknown`。系列限定官方供应商，具体型号仍须精确匹配：
-GPT/o → OpenAI；Claude → Anthropic；Gemini → Google；Kimi/Moonshot → 月之暗面；
-GLM → 智谱/Z.ai；DeepSeek → DeepSeek，来源依据与目录 ID 见 [本轮要求](dashboard-repair.md)。
-先选用户渠道，次选 global 官方参考（api 标签优先，兼容以官方提供商命名的渠道）；
-剩余地区/渠道/币种有歧义仍未计价，不换汇、不虚构费率。
+provider 缺失、未配置渠道或任意自定义名称都进入同一精确型号参考搜索，
+不需要 provider 别名白名单，也不先返回 `no_provider`/`channel_unknown`。
+系列限定官方供应商，具体型号仍须精确匹配：GPT/o → OpenAI；Claude → Anthropic；
+Gemini → Google；Kimi/Moonshot → 月之暗面；GLM → 智谱/Z.ai；DeepSeek → DeepSeek，
+来源依据与目录 ID 见 [本轮要求](dashboard-repair.md)。较低优先级快照的冲突不能遮挡
+已选价目；已选快照内部的地区/渠道/币种歧义仍未计价，不换汇、不虚构费率。
 官方 [Kimi Code 模型表](https://www.kimi.com/code/docs/en/kimi-code/models.html)确认
 `k3`/`k3-256k` 对应 K3；本机 `kimi-code/` profile 可参考 `kimi-k3`，
 只影响参考价格匹配，原始统计归属保留；精确 profile 渠道价格优先。
@@ -599,7 +600,7 @@ V29 行见 [验证清单](validation.md)。样本分三部分：固定价格样�
 6. **已实施**：界面费用面板（默认关闭）、币种分组展示、价格管理
    （快照查看/手工导入/显式重算）；原 2026-09-30 清单中的费用提醒尚未实施；文首更新记录后续已实施且默认关闭，提醒仅提示不阻止。
 7. **已执行**：V29 验收（固定测试文件形式的 P1–P6 与 E/A 场景 + 人工期望测试；
-   真实数据发生时估算待核验并配置渠道；当前 API 参考核对另记）。
+   真实数据发生时估算仍需适用的官方或已配置价目；当前 API 参考核对另记）。
 
 <a id="risks-and-limits"></a>
 

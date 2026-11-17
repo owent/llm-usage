@@ -89,7 +89,9 @@ Unknown actual channels do not justify billing inferences. CNY reference amounts
 approximate USD alongside them using verified, versioned exchange rates; retain original values, dates
 and sources without merging currencies or changing history. See the dashboard repair specification.
 Without an exact price entry, a verified official supplier price for the same model may provide an API
-reference. Do not price ambiguous channels/currencies or infer a model from its family; see
+reference. Custom provider names need no provider-alias whitelist. Within the selected region/global
+scope, apply snapshot priority before channel/currency ambiguity: lower-priority conflicts cannot hide
+the selected tariff, while conflicts within it remain unpriced. Do not infer a model from its family; see
 [dashboard repair](docs/design/desktop-usage/dashboard-repair.md). Current references may remove one
 terminal `-preview` when that model has no applicable tariff; match the suffixless model exactly.
 Kimi K2.8 Preview (including k28-agent-preview) may then use the authorized official K2.7 Code price.
