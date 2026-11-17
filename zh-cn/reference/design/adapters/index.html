@@ -112,8 +112,9 @@ Zed 外部 Provider 实样见 <a href="/zh-cn/reference/evidence/plan-20261007/"
 其他版本继续进行兼容检查，不继承这些核验结论。</p>
 <p>Codex 对完整的超长 <code>response_item</code>/<code>world_state</code> 记录使用独立的 64 MiB 限制，
 流式校验 JSON 对象和 UTF-8，只保留记录类型。超长 <code>compacted</code> 记录采用相同的有界对象校验，
-但只保留外层时间戳和 <code>payload.latest_token_usage_record</code>，以便恢复压缩边界处的用量及其归属，
-不保留替换历史。每条此类记录结束当前扫描窗口。
+但只保留外层时间戳、response/thread/session ID 和六项数值用量。携带记录及其 <code>usage</code>
+对象中的未知字段均以流式方式忽略，不构造通用 JSON 值树；窄对象直接序列化，用于恢复压缩边界处的
+用量及其归属。非对象携带记录和位置数组继续阻止游标推进。每条此类记录结束当前扫描窗口。
 其他用量、未知类型、损坏或不完整记录以及位置数组仍遵循普通的 8 MiB 限制，并停留在原游标。
 解析器 8 会重读此前停留的旧游标且不删除历史；
 <a href="/zh-cn/reference/evidence/release-033/#oversized-codex-records">原生恢复结果</a>

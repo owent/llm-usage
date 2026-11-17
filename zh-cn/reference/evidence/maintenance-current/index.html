@@ -201,6 +201,11 @@ npm/Rust 清单与锁文件已同步；pnpm 锁文件不含包版本字段，依
 游标和文件大小均为 169,775,000。共导入 256 次调用、53,711,098 总 token，
 与独立逐条原生记录计算完全一致。原始 Agent 数据和正在使用的应用数据库均未修改。
 该结果只验证真实文件和解析器的读取路径，未对已安装的 GUI 或旧数据库改写进行验收。</p>
+<p><a href="https://github.com/owent/llm-usage/issues/9">Issue #9</a> 正确指出了首版实现仍把
+<code>latest_token_usage_record</code> 构造为通用 JSON 值的问题。稠密的未知字段可能使内存远超输入大小，
+生成精简记录时又会复制这些内容。携带记录现改用仅接受对象的窄结构，只保留三个 ID 和六项数值，
+流式忽略其他记录级及 <code>usage</code> 字段，并直接序列化为文本。回归在两层放置稠密数组和字符串，
+修复前失败；修复后保留有效用量，且精简行小于 1 KiB。位置数组形式的携带记录和 <code>usage</code> 仍被拒绝。</p>
 <table>
 <thead>
 <tr>
@@ -215,7 +220,7 @@ npm/Rust 清单与锁文件已同步；pnpm 锁文件不含包版本字段，依
 </tr>
 <tr>
 <td>Codex 读取器单元测试和 <code>codex_health_replay</code></td>
-<td>退出码 0：两项读取器测试、五项健康/重放测试。</td>
+<td>退出码 0：三项读取器测试、五项健康/重放测试。</td>
 </tr>
 <tr>
 <td><code>cargo clippy --manifest-path desktop/src-tauri/Cargo.toml --locked -p llm-usage-core --lib --test codex_oversized -- -D warnings</code></td>
