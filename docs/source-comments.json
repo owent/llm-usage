@@ -224,7 +224,7 @@
       ]
     },
     "desktop/src-tauri/Cargo.toml": {
-      "codeHash": "fd30a5e0847b2def3d747ea54c94a6969d93af2dedb1e45d028c2ff8c4957378",
+      "codeHash": "dbcf63762f8a065b0de4c805d24df28c184a23176b1ecedc59d25b6dcd7703a3",
       "comments": [
         {
           "id": "6b9f8559a21a75a8",
@@ -264,7 +264,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/Cargo.toml": {
-      "codeHash": "878250a5a2331cd0d334da0ca1b2295c49e42f479f96b898adee328fefb96eb9",
+      "codeHash": "fa48e5d1e51719c829ae6855731f01226c4964c5859a4d66f7d02d7a5b9efae8",
       "comments": [
         {
           "id": "e82798efdbcdcbfa",
