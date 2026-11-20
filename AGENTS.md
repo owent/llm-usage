@@ -11,6 +11,10 @@ its runtime behavior has not been verified. See the [desktop design entry point]
 and [Plan.md](Plan.md). Read source, configuration, tests and version references before drawing conclusions.
 A plan does not establish an implementation or authorize execution.
 
+For user-installed Agent collectors, model/price feeds or export formats, read the
+[desktop plugin proposal](docs/design/desktop-usage/plugins.md) and its [pending stages](Plan.md#desktop-plugin-delivery).
+Check the host's grants, source ownership, pricing provenance and export dataset at their actual entry points.
+
 For collection and statistics, read the [data rules](docs/design/desktop-usage/data-contract.md)
 and [adapter matrix](docs/design/desktop-usage/adapters.md) as needed. Never replace unknown usage with zero.
 Keep messages, calls, cumulative values and quotas distinct. A shared engine or identical field names

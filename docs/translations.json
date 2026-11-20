@@ -537,6 +537,10 @@
       "en": "2dc7a02dc646ebafb4f001760f556bebac00bfcc38183809558eacdf47a7f090",
       "zh": "6dcb3bcb409ae90b0eeace305d639f2d96b2efdccf074620051e48a78e8c47d1"
     },
+    "docs/design/desktop-usage/plugins.md": {
+      "en": "3ecaf472f25001ea69adfe1eeb027b8526d6bf81a70ef4bc22a3a07123e5e017",
+      "zh": "4cd0703a0da0bcec48502fd45b2f5ad6cf95047ad4476740d4abbcb08815dccb"
+    },
     "docs/design/desktop-usage/pricing.md": {
       "en": "e9c8bb8ba7c1c87ab136a38648b2800b947fe4e030f0778b13393e9c7a25782b",
       "zh": "8991ddf5313826b63f041407fb01e7f04f9735a74f1671a5b75b3e540b614810"
@@ -546,8 +550,8 @@
       "zh": "605410c2d63bc398b47893d4f8b9160887d41b26b4cb0e1c471e45d613bf5e36"
     },
     "docs/design/desktop-usage/README.md": {
-      "en": "d824cc917810c9913ea64caf1f22c605b9c7b165bade50ff4fd1926545ee2115",
-      "zh": "7abc95447c5e6e7abe66026139179efcca763d45f92c098b328cc44a5351ec9a"
+      "en": "cc34fe093b32e6a10f501ced1666a0c1840d8eb9e97c375c2c53534b2bf23149",
+      "zh": "a12a9f129b49de326321bffdcc4dcd26ba36a576c1da6866007d275ac1f73794"
     },
     "docs/design/desktop-usage/receiver-auth.md": {
       "en": "9699de5a2c39cf08a4b387604ffab63df24b8df998441208c457489a337b7aec",
@@ -878,6 +882,10 @@
     "docs/site/content/development/documentation.md": {
       "en": "40bcefbdf49d888b6a8add19bb6c44da931d53854f8597a5ca5beacdd75a0762",
       "zh": "eb7e0ad7141267ea9e5505d3e4a3ea5c4387d187ffaf9d9c9673d677ce4fb50c"
+    },
+    "docs/site/content/development/plugins.md": {
+      "en": "76c77e52e1873a203800779a5fabf80413a8d13a19b76eb92f4d663eb5c186da",
+      "zh": "94a1830239b87f4384a14739e4120da4e145e5ef28665c03cbfbaa1088f90bf6"
     },
     "docs/site/content/development/releases.md": {
       "en": "b25b4df93b27d172c2f4e387e1f347d6982d2859e53b471ba27587e213154f4e",

@@ -45,6 +45,21 @@ export interface ModelAliasSettings {
   cache_ttl_days: number;
 }
 
+export interface PluginPackageDto {
+  manifest: {
+    id: string;
+    version: string;
+    name: string;
+    publisher: string;
+    license: string;
+    contribution: { id: string; kind: string };
+  };
+  digest: string;
+  rule_version: string;
+  rule_count: number;
+  enabled: boolean;
+}
+
 export interface ModelAliasStatusDto {
   enabled: boolean;
   ttl_days: number;
@@ -579,6 +594,16 @@ export const api = {
     invoke<{ started: boolean; running: boolean; last_finished_ms: number }>('refresh_sources'),
   refreshStatus: () => invoke<RefreshStateDto>('refresh_status'),
   modelAliasStatus: () => invoke<ModelAliasStatusDto>('model_alias_status'),
+  inspectPlugin: () => invoke<PluginPackageDto | null>('inspect_plugin_package'),
+  installPlugin: (digest: string) => invoke<PluginPackageDto[]>('install_plugin_package', { digest }),
+  listPlugins: () => invoke<PluginPackageDto[]>('list_plugins'),
+  setPluginEnabled: (pack: PluginPackageDto, enabled: boolean) =>
+    invoke<PluginPackageDto[]>('set_plugin_enabled', {
+      id: pack.manifest.id, version: pack.manifest.version, digest: pack.digest, enabled,
+    }),
+  removePlugin: (pack: PluginPackageDto) => invoke<PluginPackageDto[]>('remove_plugin_package', {
+    id: pack.manifest.id, version: pack.manifest.version, digest: pack.digest,
+  }),
   refreshModelAliases: () => invoke<boolean>('refresh_model_aliases'),
   importModelAliases: (path: string) => invoke<{generation: number; inserted_rules: number; already_present: boolean}>('import_model_aliases', {path}),
   getSettings: () => invoke<AppSettings>('get_settings'),

@@ -10,6 +10,7 @@
 本机 HTTP 的来源认证、凭据与失败/撤销规则见 [接收认证](receiver-auth.md)。
 带版本的模型名称、本地导入和可选公开目录刷新见[模型映射](model-aliases.md)，
 用量身份和计价保持原样。
+[桌面插件提案](plugins.md)说明用户安装的采集器、模型与价格数据源，以及可配置的导出。实施阶段均待执行。
 
 <a id="product-purpose-and-scope"></a>
 

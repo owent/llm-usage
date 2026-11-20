@@ -25,6 +25,7 @@ pub mod metrics;
 pub mod model_aliases;
 pub mod model_names;
 pub mod models_dev;
+pub mod plugins;
 pub mod pricing;
 pub mod query;
 mod query_acceleration;

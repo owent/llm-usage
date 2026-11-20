@@ -5,6 +5,7 @@
   import BudgetSettings from './BudgetSettings.svelte';
   import UpdateSettings from './UpdateSettings.svelte';
   import ModelAliasSettings from './ModelAliasSettings.svelte';
+  import PluginSettings from './PluginSettings.svelte';
   import { api, parseError } from '../lib/api';
   import type {
     AppSettings,
@@ -950,6 +951,7 @@
         <UpdateSettings bind:value={draft.updates!} />
       {:else if sub === 'models'}
         <ModelAliasSettings bind:value={draft.model_aliases!} bind:ttl={inputs.modelTtl} beforeAction={() => flush()} onupdated={ondatachanged} />
+        <PluginSettings onupdated={ondatachanged} />
       {:else if sub === 'general'}
         <section class="panel">
           <div class="frow">

@@ -373,19 +373,9 @@ fn import_inner(
     };
     if !already_present {
         for rule in &catalog.aliases {
-            state.candidates.push(Candidate {
-                agent: rule.agent.to_lowercase(),
-                key: model_key(&rule.key),
-                provider_id: rule.provider_id.as_ref().map(|p| p.to_lowercase()),
-                display_name: rule.display_name.clone(),
-                from_ms: timestamp(&rule.effective_from)?,
-                until_ms: rule.effective_until.as_deref().map(timestamp).transpose()?,
-                rule_version: catalog.rule_version.clone(),
-                content_hash: hash.clone(),
-                origin: origin.into(),
-                basis: rule.basis.clone(),
-                source_urls: rule.source_urls.clone(),
-            });
+            state
+                .candidates
+                .push(candidate(rule, &catalog.rule_version, &hash, origin)?);
         }
         state
             .versions
@@ -435,12 +425,41 @@ pub struct Book {
     pub revision: String,
     pub error: Option<String>,
     candidates: Vec<Candidate>,
+    plugin_candidates: Vec<Vec<Candidate>>,
+}
+
+fn candidate(rule: &Rule, version: &str, hash: &str, origin: &str) -> Result<Candidate, CoreError> {
+    Ok(Candidate {
+        agent: rule.agent.to_lowercase(),
+        key: model_key(&rule.key),
+        provider_id: rule.provider_id.as_ref().map(|p| p.to_lowercase()),
+        display_name: rule.display_name.clone(),
+        from_ms: timestamp(&rule.effective_from)?,
+        until_ms: rule.effective_until.as_deref().map(timestamp).transpose()?,
+        rule_version: version.to_owned(),
+        content_hash: hash.to_owned(),
+        origin: origin.to_owned(),
+        basis: rule.basis.clone(),
+        source_urls: rule.source_urls.clone(),
+    })
+}
+
+fn book_revision(generation: u64, plugins: &[(crate::plugins::Manifest, String)]) -> String {
+    let mut revision = format!("model-display-2026-11-16:{generation}");
+    if !plugins.is_empty() {
+        let digests: String = plugins.iter().map(|(_, digest)| digest.as_str()).collect();
+        revision.push(':');
+        revision.push_str(&digest(digests.as_bytes()));
+    }
+    revision
 }
 
 /// Validate metadata before publishing its revision to UI status polling.
 pub fn revision(storage: &Storage) -> String {
     match read_state(storage) {
-        Ok((state, _)) => format!("model-display-2026-11-16:{}", state.generation),
+        Ok((state, _)) => {
+            book_revision(state.generation, &crate::plugins::active_versions(storage))
+        }
         Err(_) => "model-alias-invalid".into(),
     }
 }
@@ -452,28 +471,58 @@ impl Book {
             Ok((state, _)) => {
                 let mut candidates = bundled_candidates();
                 candidates.extend(state.candidates);
+                let plugins = crate::plugins::active_versions(storage);
+                let mut error = None;
+                let mut plugin_candidates = Vec::new();
+                for (manifest, digest) in &plugins {
+                    let rules = crate::plugins::load_catalog(storage, manifest, digest).and_then(
+                        |catalog| {
+                            catalog
+                                .aliases
+                                .iter()
+                                .map(|rule| {
+                                    candidate(rule, &catalog.rule_version, digest, &manifest.id)
+                                })
+                                .collect::<Result<Vec<_>, _>>()
+                        },
+                    );
+                    match rules {
+                        Ok(rules) => plugin_candidates.push(rules),
+                        Err(_) => error = Some("plugin_alias_invalid".into()),
+                    }
+                }
                 Self {
-                    revision: format!("model-display-2026-11-16:{}", state.generation),
-                    error: None,
+                    revision: if error.is_some() {
+                        format!("{}:invalid", book_revision(state.generation, &plugins))
+                    } else {
+                        book_revision(state.generation, &plugins)
+                    },
+                    error,
                     candidates,
+                    plugin_candidates,
                 }
             }
             Err(_) => Self {
                 revision: "model-alias-invalid".into(),
                 error: Some("model_alias_state".into()),
                 candidates: Vec::new(),
+                plugin_candidates: Vec::new(),
             },
         }
     }
 
     pub fn contains(&self, raw: &str) -> bool {
         let key = model_key(raw);
-        self.candidates.iter().any(|c| c.key == key)
+        self.candidates
+            .iter()
+            .chain(self.plugin_candidates.iter().flatten())
+            .any(|c| c.key == key)
     }
 
     pub fn keys(&self) -> Vec<String> {
         self.candidates
             .iter()
+            .chain(self.plugin_candidates.iter().flatten())
             .map(|c| c.key.clone())
             .collect::<BTreeSet<_>>()
             .into_iter()
@@ -494,18 +543,31 @@ impl Book {
             return raw.into();
         }
         let provider = provider.filter(|p| !p.is_empty()).map(str::to_lowercase);
-        let rules: Vec<_> = self
-            .candidates
-            .iter()
-            .filter(|c| {
-                c.key == key
-                    && c.agent.eq_ignore_ascii_case(agent)
-                    && (c.provider_id.is_none() || c.provider_id == provider)
-            })
-            .collect();
-        if rules.is_empty() {
-            return raw.into();
+        let select = |c: &&Candidate| {
+            c.key == key
+                && c.agent.eq_ignore_ascii_case(agent)
+                && (c.provider_id.is_none() || c.provider_id == provider)
+                && c.from_ms < to
+        };
+        let legacy = self.candidates.iter().filter(select).collect::<Vec<_>>();
+        if !legacy.is_empty() {
+            return Self::resolve(raw, legacy, from, to);
         }
+        let mut labels = self.plugin_candidates.iter().filter_map(|feed| {
+            let rules = feed.iter().filter(select).collect::<Vec<_>>();
+            (!rules.is_empty()).then(|| Self::resolve(raw, rules, from, to))
+        });
+        let Some(label) = labels.next() else {
+            return raw.into();
+        };
+        if labels.all(|other| other == label) {
+            label
+        } else {
+            raw.into()
+        }
+    }
+
+    fn resolve(raw: &str, rules: Vec<&Candidate>, from: i64, to: i64) -> String {
         let mut groups: BTreeMap<(bool, i64), (BTreeSet<String>, i64)> = BTreeMap::new();
         for c in &rules {
             let group = groups

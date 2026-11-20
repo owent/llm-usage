@@ -18,6 +18,8 @@ serde = { version = "^1.0.229", features = ["derive"] }
 serde_json = { version = "^1.0.154" }
 jiff = { version = "^1.0.0" }
 sha2 = { version = "^0.11.1" }
+semver = "^1.0.28"
+tar = "^0.4.46"
 # zstd: bounded decompression of Zed threads.db data blobs (data_type="zstd", M8/A38).
 zstd = { version = "^0.14.4", default-features = false }
 

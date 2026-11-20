@@ -14,6 +14,7 @@ mod file_watch;
 mod installation;
 mod model_alias_refresh;
 mod otel_receiver;
+mod plugin_commands;
 mod power;
 mod price_refresh;
 mod process_guard;
@@ -248,6 +249,7 @@ fn main() {
         })
         .manage(Arc::clone(&state))
         .manage(updates::UpdateService::default())
+        .manage(plugin_commands::PackagePreview::default())
         .on_window_event(crate::tray::close_requested)
         .invoke_handler(tauri::generate_handler![
             commands::summary,
@@ -297,6 +299,11 @@ fn main() {
             model_alias_refresh::model_alias_status,
             model_alias_refresh::refresh_model_aliases,
             model_alias_refresh::import_model_aliases,
+            plugin_commands::inspect_plugin_package,
+            plugin_commands::install_plugin_package,
+            plugin_commands::list_plugins,
+            plugin_commands::set_plugin_enabled,
+            plugin_commands::remove_plugin_package,
             commands::quota_summary,
             commands::quota_series,
             telemetry_setup::telemetry_check,

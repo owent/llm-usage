@@ -5,9 +5,33 @@ export async function modelAliasBrowserChecks(page) {
   await page.evaluate(() => {
     const original = window.__TAURI_INTERNALS__.invoke;
     window.aliasMock = { generation: 0, label: 'Qwen4-Max-Preview', error: null, invalidImport: false };
+    const plugin = {
+      manifest: {id:'example.names',version:'1.0.0',name:'Demo names',publisher:'Example',license:'MIT',
+        contribution:{id:'names',kind:'model_aliases'}},
+      digest:'a'.repeat(64),rule_version:'example',rule_count:1,enabled:false,
+    };
+    let installed = [];
     window.__TAURI_INTERNALS__.invoke = async (cmd, args = {}) => {
       const state = window.aliasMock;
       const revision = `mock-aliases:${state.generation}`;
+      if (cmd === 'list_plugins') return structuredClone(installed);
+      if (cmd === 'inspect_plugin_package') return structuredClone(plugin);
+      if (cmd === 'install_plugin_package') {
+        if (args.digest !== plugin.digest) throw new Error('unexpected package digest');
+        installed = [structuredClone(plugin)];
+        return structuredClone(installed);
+      }
+      if (cmd === 'set_plugin_enabled') {
+        if (args.id !== plugin.manifest.id || args.version !== plugin.manifest.version || args.digest !== plugin.digest) {
+          throw new Error('unexpected installed package identity');
+        }
+        installed[0].enabled = args.enabled;
+        return structuredClone(installed);
+      }
+      if (cmd === 'remove_plugin_package') {
+        installed = [];
+        return [];
+      }
       if (['model_alias_status','refresh_model_aliases','import_model_aliases','pick_open_path'].includes(cmd)) {
         window.appCalls.push({cmd,args});
         if (cmd === 'pick_open_path') return 'C:/synthetic/catalogue.json';
@@ -38,6 +62,21 @@ export async function modelAliasBrowserChecks(page) {
   await page.setViewportSize({width:1440,height:1100});
   await nav(4).click(); await page.clock.runFor(300);
   await page.locator('[data-settings-section="models"]').click(); await page.clock.runFor(300);
+  await page.getByTestId('plugin-choose').click();
+  await page.getByTestId('plugin-preview').waitFor();
+  assert.match(await page.getByTestId('plugin-preview').textContent(), /Demo names.*1\.0\.0/s);
+  await page.getByTestId('plugin-install').click();
+  const pack = page.getByTestId('installed-plugin');
+  await pack.waitFor();
+  const disabledLabel = await pack.getByRole('status').textContent();
+  await pack.getByTestId('plugin-toggle').click();
+  await page.clock.runFor(200);
+  assert.notEqual(await pack.getByRole('status').textContent(), disabledLabel);
+  await pack.getByTestId('plugin-toggle').click();
+  await page.clock.runFor(200);
+  assert.equal(await pack.getByRole('status').textContent(), disabledLabel);
+  await pack.getByTestId('plugin-remove').click();
+  await pack.waitFor({state:'detached'});
   assert.equal(await page.getByTestId('model-alias-enabled').isChecked(),false,'legacy settings keep metadata downloads off');
   assert.equal(await page.getByTestId('model-alias-ttl').inputValue(),'3');
   assert.equal(await page.getByTestId('model-alias-refresh').isDisabled(),true);

@@ -156,6 +156,7 @@ impl Storage {
             path,
             summary_cache: Default::default(),
         };
+        crate::plugins::install_schema(&storage)?;
         storage.mark_running_jobs_interrupted(crate::jobs::now_ms_fallback())?;
         Ok(storage)
     }
