@@ -1,5 +1,5 @@
 //! Qoder CLI transcripts from the official 1.1.76 persistence writer.
-//! IDE/JetBrains and encrypted state remain unverified; source fixtures are not native acceptance.
+//! CLI-format request anchors identify transcripts with missing usage. Sealed session state adds no calls.
 
 pub mod detect;
 pub mod versions;
@@ -141,26 +141,38 @@ impl crate::adapters::framework::SourceAdapter for QoderAdapter {
         }
     }
 
+    fn should_scan_unchanged(&self, stored: &crate::adapters::framework::StoredScanState) -> bool {
+        probe_only::legacy_probe(stored)
+    }
+
     fn scan_format(
         &self,
         outcome: &crate::adapters::framework::ScanOutcome,
     ) -> Option<crate::adapters::framework::DetectOutcome> {
         let context = outcome.parse_context.as_ref()?;
-        if context["validated"] != true {
-            return None;
-        }
+        use crate::domain::VersionBasis::{KnownVersion, LatestFallback};
+        let (format, basis) = match context["sealed_state"].as_bool() {
+            Some(true) => (probe_only::SEALED_STATE_FORMAT, KnownVersion),
+            Some(false) => (QODER_FORMAT, LatestFallback),
+            None if context["validated"] == true => {
+                let format = if context["cn_database"] == true {
+                    versions::cn_vscode_db::FORMAT
+                } else {
+                    QODER_FORMAT_VERSION
+                };
+                let basis = if context["fallback"] == true {
+                    LatestFallback
+                } else {
+                    KnownVersion
+                };
+                (format, basis)
+            }
+            None => return None,
+        };
         Some(crate::adapters::framework::DetectOutcome::Supported {
-            format: if context["cn_database"] == true {
-                versions::cn_vscode_db::FORMAT.into()
-            } else {
-                QODER_FORMAT_VERSION.into()
-            },
+            format: format.into(),
             format_version: None,
-            basis: if context["fallback"] == true {
-                crate::domain::VersionBasis::LatestFallback
-            } else {
-                crate::domain::VersionBasis::KnownVersion
-            },
+            basis,
         })
     }
 
@@ -183,8 +195,8 @@ impl crate::adapters::framework::SourceAdapter for QoderAdapter {
         ] {
             fields.insert(
                 key.into(),
-                serde_json::json!({"availability":Availability::Partial("源码验证；实机未验".into()),
-                "note":"CLI 1.1.76 源码与构造数据；正值可读，默认/脱敏零未知；CN VS Code 2.6.11 仅对话观察，token/逐模型调用次数未知"}),
+                serde_json::json!({"availability":Availability::Partial("覆盖范围随本地记录格式而异".into()),
+                "note":"CLI 1.1.76 源码与构造数据；正值可读，默认/脱敏零未知。1.1.86-hotfix.5.3 本机样本可计已完成响应，token 未知。CN VS Code 2.6.11 仅对话观察，token/逐模型调用次数未知"}),
             );
         }
         for key in ["cost", "latency"] {
@@ -209,20 +221,20 @@ impl crate::adapters::framework::SourceAdapter for QoderAdapter {
                 "registry":"adapters/qoder/versions", "unknown_version":"结构校验后兼容读取"}),
             fields,
             lifecycle: serde_json::json!({"partials":"stop_reason=null 不计", "fork":"跳过 forkedFrom 副本",
-                "context":"token-stats/压缩/系统消息不计用量", "state":"state.json 保留未验证诊断"}),
+                "context":"token-stats/压缩/系统消息不计用量", "state":"已识别的加密会话状态不计用量，其他未验证结构保留诊断"}),
             incremental: serde_json::json!({"cursor":"CLI 完整 JSONL 行字节偏移；CN rowid 分页并周期重读 WAL 可变记录", "upgrade":"旧探针游标重读"}),
             dedup: serde_json::json!({"primary":"CLI sessionId + message.id；CN session_id + request_id"}),
             integrity: serde_json::json!({"default_zero":"unknown", "provider":"unknown",
                 "timestamp":"持久化观察时间", "invalid_fields":"保留其他有效桶并报告诊断"}),
             maintenance: serde_json::json!({"parser_version":format!("{}+{}",versions::transcript_v1::PARSER_VERSION,versions::cn_vscode_db::PARSER),
-                "format_evidence":"CLI 1.1.76 SessionTranscriptWriter；CN VS Code 2.6.11 本地 SQLite 及插件请求构造",
-                "evidence_level":"CLI source-derived/synthetic; CN local metadata observations; token fields absent"}),
+                "format_evidence":"CLI 1.1.76 SessionTranscriptWriter；本机 1.1.86-hotfix.5.3 请求锚点及加密状态结构；CN VS Code 2.6.11 本地 SQLite 及插件请求构造",
+                "evidence_level":"CLI 1.1.76 source-derived; 1.1.86-hotfix.5.3 native completion without tokens; CN VS Code local metadata observations"}),
             scheduling: serde_json::json!({"entry":"统一 run_adapter_scan"}),
             limitations: vec![
                 "官方渠道脱敏 token 为 0，只计已完成响应次数，token 未知".into(),
                 "CN VS Code 2.6.11 本地数据库只保留对话观察记录；token/金额/模型调用次数未知"
                     .into(),
-                "独立 IDE/JetBrains 格式尚未证实；CLI 实机验收待完成".into(),
+                "本机 1.1.86-hotfix.5.3 的 CLI 格式响应未报告 token；独立 IDE/JetBrains 格式仍待核验".into(),
             ],
         }
     }

@@ -21385,7 +21385,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/omp/detect.rs": {
-      "codeHash": "b81a9104f583b505bd080e7a5fd3fb33447b81d5ef326f6c6415700bd64c458e",
+      "codeHash": "2471c3e13293496b7f8e7135628ae13e24205f882bea0df523a1b036902cf563",
       "comments": [
         {
           "id": "8fbe026ed4d475de",
@@ -21466,42 +21466,42 @@
         },
         {
           "id": "9ad4778b8c4b2a43",
-          "line": 25,
+          "line": 60,
           "kind": "line",
           "en": "/// Detect an omp session file and select through its version registry.",
           "zh": "/// 探测一个 omp 会话文件并按注册表分派。"
         },
         {
           "id": "24a586ed615f62a5",
-          "line": 27,
+          "line": 62,
           "kind": "line",
           "en": "// Native omp files begin with title v=1 before session; locate the header within four lines.",
           "zh": "// omp 文件首行为 title（v=1），session 头在其后；有界读前 4 行定位。"
         },
         {
           "id": "b3a53f88681bdcf3",
-          "line": 49,
+          "line": 84,
           "kind": "line",
           "en": "// Exclude file-change audit logs only when their filename and record shape both match.",
           "zh": "// 仅在文件名与记录形状同时匹配时，排除文件变更审计日志。"
         },
         {
           "id": "aa7cc57e7eb574d3",
-          "line": 81,
+          "line": 105,
           "kind": "line",
           "en": "// With known product identity/input format, select through the registry; missing/unregistered",
           "zh": "// Agent 身份/输入类型已确认，按注册表分派；未收录/缺失版本回退最新"
         },
         {
           "id": "49c29560044d0102",
-          "line": 82,
+          "line": 106,
           "kind": "line",
           "en": "// versions try the latest parser with compatibility metadata. Older omp formats remain unverified (V30).",
           "zh": "// 内置解析器并带兼容标记（V30；omp 旧版格式尚未核验，不直接拒绝）。"
         },
         {
           "id": "1743947a121e5a91",
-          "line": 91,
+          "line": 115,
           "kind": "line",
           "en": "// Title without a session header in four lines may still be writing; retry next scan.",
           "zh": "// 有 title 但前 4 行内无 session 头：可能仍在首次写入中，下轮重探。"
@@ -21509,7 +21509,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/omp/mod.rs": {
-      "codeHash": "c798ca165f8fa9b98e204052c528611fb926305695943c111557c1f4747870af",
+      "codeHash": "f7feb0bef2c62f847aef019a875ed6c26948d1c8f8e15ee383303fbbbb206ce6",
       "comments": [
         {
           "id": "726ea5ce182438cf",
@@ -21792,7 +21792,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/omp/versions/session_v3.rs": {
-      "codeHash": "e3d3eb54033426675c47a3e6df09f47942b7ad08b6d0a469a5a528d19b40ff65",
+      "codeHash": "9df5aa053c90815de2630637b3de5be31015dbb3a71b4698f14d7b8b6cf2a921",
       "comments": [
         {
           "id": "14cc9553f58e825c",
@@ -22041,280 +22041,280 @@
         },
         {
           "id": "702160b3204002c5",
-          "line": 64,
+          "line": 66,
           "kind": "line",
           "en": "/// Format basis known_version/latest_fallback; older contexts default to None.",
           "zh": "/// 版本选择依据（known_version / latest_fallback）；旧解析上下文缺省为 None，"
         },
         {
           "id": "f8d3f50065c1ad9a",
-          "line": 65,
+          "line": 67,
           "kind": "line",
           "en": "/// The V30 move does not recreate sources or reset cursors.",
           "zh": "/// V30 目录迁移不重建来源、不重置游标。"
         },
         {
           "id": "1189d5d7fd439bc2",
-          "line": 101,
+          "line": 110,
           "kind": "line",
           "en": "/// Entry key in the omp namespace.",
           "zh": "/// omp 命名空间下的条目键。"
         },
         {
           "id": "a55e4f272c37c112",
-          "line": 106,
+          "line": 115,
           "kind": "line",
           "en": "/// Round float milliseconds to i64; nonfinite/negative/overflow values return None for diagnostics.",
           "zh": "/// 浮点毫秒 → i64 毫秒（四舍五入）；非有限/负值/溢出返回 None（调用方记诊断）。"
         },
         {
           "id": "931121e2e5d8e465",
-          "line": 120,
+          "line": 129,
           "kind": "line",
           "en": "/// Check the ts_uuid path shape, such as 2026-08-21T02-19-22-638Z_01a0221d-....",
           "zh": "/// `<ts>_<uuid>` 形状判定（如 `2026-08-21T02-19-22-638Z_01a0221d-...`）："
         },
         {
           "id": "43a12734cc05729e",
-          "line": 121,
+          "line": 130,
           "kind": "line",
           "en": "/// Require a digit-leading timestamp with T and a sufficiently long hex-leading ID suffix.",
           "zh": "/// 时间戳须以数字开头且含 T；ID 后缀须达到指定长度并以十六进制字符开头。"
         },
         {
           "id": "72a76b7f3f8a6eee",
-          "line": 122,
+          "line": 131,
           "kind": "line",
           "en": "/// All 58 checked main filenames match; subagent filenames/intermediate name directories do not.",
           "zh": "/// 本机 58 文件实读：主会话文件名全部匹配，子 Agent 文件名与中间目录均不匹配。"
         },
         {
           "id": "9edca4994925d2fd",
-          "line": 136,
+          "line": 145,
           "kind": "line",
           "en": "/// Main filename follows ts_uuid.jsonl after removing the extension.",
           "zh": "/// 主会话文件名 `<ts>_<uuid>.jsonl`（剥扩展名后同上形状）。"
         },
         {
           "id": "bf34bc60b8e3ee09",
-          "line": 144,
+          "line": 153,
           "kind": "line",
           "en": "/// For a non-main filename, select the nearest ts_uuid ancestor directory",
           "zh": "/// 子 Agent 判定：文件名不是 `<ts>_<uuid>.jsonl` 形状时，父会话 UUID 取最近的"
         },
         {
           "id": "72b789da73846c45",
-          "line": 145,
+          "line": 154,
           "kind": "line",
           "en": "/// and take the ID after its first underscore as parent session identity.",
           "zh": "/// `<ts>_<uuid>` 形状祖先目录名（首个下划线之后部分）。嵌套子 Agent（Named/ 目录）"
         },
         {
           "id": "1acc62b7c1856bf7",
-          "line": 146,
+          "line": 155,
           "kind": "line",
           "en": "/// Nested named directories do not become session IDs.",
           "zh": "/// 隔代不归名，归到最近的会话目录。"
         },
         {
           "id": "6dc2e7c6b0572048",
-          "line": 163,
+          "line": 172,
           "kind": "line",
           "en": "/// Construct omp events with rounded duration/ttft; share other mappings with pi.",
           "zh": "/// omp 会话事件构造：duration/ttft 浮点毫秒取整；其余与 pi 共享。"
         },
         {
           "id": "9e49321a377fea18",
-          "line": 164,
+          "line": 173,
           "kind": "line",
           "en": "/// V30 parse context selects known_version/latest_fallback,",
           "zh": "/// V30：版本选择依据（known_version / latest_fallback）取自解析上下文，"
         },
         {
           "id": "2b73ec0b9f61821d",
-          "line": 165,
+          "line": 174,
           "kind": "line",
           "en": "/// passed to storage through the shared pi-family constructor.",
           "zh": "/// 经 pi 家族共享构造器随事件落库。"
         },
         {
           "id": "4159f167461cf196",
-          "line": 186,
+          "line": 195,
           "kind": "line",
           "en": "// Prefer header parentSession; otherwise use the parent identified from the path.",
           "zh": "// 头里的 parentSession（fork）优先；否则用目录推定的父会话。"
         },
         {
           "id": "efd8be0bdad44e52",
-          "line": 202,
+          "line": 211,
           "kind": "line",
           "en": "/// Scan omp session JSONL, dispatched by OmpAdapter::scan.",
           "zh": "/// 增量扫描一个 omp session JSONL 文件（统一入口 `OmpAdapter::scan` 分派到本实现）。"
         },
         {
           "id": "2f305a2073a39a4e",
-          "line": 214,
+          "line": 229,
           "kind": "line",
           "en": "// Identify subagents from filename/ancestor shapes without depending on root paths",
           "zh": "// 子 Agent 判定：按文件名/祖先目录的 <ts>_<uuid> 形状（不依赖根路径，"
         },
         {
           "id": "06cc77109815974b",
-          "line": 215,
+          "line": 230,
           "kind": "line",
           "en": "// or separator differences between enumeration and normalized paths.",
           "zh": "// 避免规范化路径与枚举路径的分隔符差异）。"
         },
         {
           "id": "e35c279b8d35b5d5",
-          "line": 257,
+          "line": 272,
           "kind": "line",
           "en": "// Detection/scanning share the registry; registered versions use mapped implementations.",
           "zh": "// 版本分派（探测/扫描同一注册表）：已收录按映射；未收录/缺失回退"
         },
         {
           "id": "98de8c02ed36164b",
-          "line": 258,
+          "line": 273,
           "kind": "line",
           "en": "// Unknown/missing versions keep a compatibility marker and continue parsing.",
           "zh": "// 本实现（当前最新）继续解析并带兼容标记，不直接拒绝（V30；"
         },
         {
           "id": "303dac1bd4f15f42",
-          "line": 259,
+          "line": 274,
           "kind": "line",
           "en": "// Older omp formats lack the independently checked incompatible rules used by pi.",
           "zh": "// omp 旧版落盘格式尚未核验，与 pi 的 fail closed 分支不同）。"
         },
         {
           "id": "25a596bd137071aa",
-          "line": 276,
+          "line": 291,
           "kind": "line",
           "en": "// Three native redacted datasets use combined model_change.model",
           "zh": "// 本机真实形状（3 个脱敏 测试数据 一致）：`model` 为"
         },
         {
           "id": "f6924d1e29aa8c8b",
-          "line": 277,
+          "line": 292,
           "kind": "line",
           "en": "// as provider/model. Separate modelId/provider fields remain a compatibility fallback",
           "zh": "// \"provider/model\" 组合字段；pi 继承形状 modelId/provider"
         },
         {
           "id": "9862c8e4ac096bf0",
-          "line": 278,
+          "line": 293,
           "kind": "line",
           "en": "// without local omp acceptance for that shape.",
           "zh": "// 分字段作后备（omp 本机未观测）。"
         },
         {
           "id": "fadeb08109028ce9",
-          "line": 376,
+          "line": 391,
           "kind": "line",
           "en": "// Missing or invalid assistant usage still counts an observed call",
           "zh": "// assistant 用量缺失或格式错误时，仍计一次已观察到的调用，"
         },
         {
           "id": "cd9b098ccbcaf149",
-          "line": 377,
+          "line": 392,
           "kind": "line",
           "en": "// with unknown tokens; all 8752 checked local assistant entries carry usage.",
           "zh": "// 计调用数，token 全未知（不补零）。本机 8752 条均带 usage。"
         },
         {
           "id": "af55ec1ae32f09de",
-          "line": 402,
+          "line": 417,
           "kind": "line",
           "en": "// Tool execution usage maps to auxiliary consumption.",
           "zh": "// 工具执行自身的 usage（不进主上下文记账）→ 辅助调用。"
         },
         {
           "id": "2dd1b3c16c8afbb1",
-          "line": 403,
+          "line": 418,
           "kind": "line",
           "en": "// All 6643 checked local toolResult entries lack usage.",
           "zh": "// 本机 6643 条均无 usage。"
         },
         {
           "id": "26fe45aba8a10f0e",
-          "line": 453,
+          "line": 468,
           "kind": "line",
           "en": "// ModelUsageEntry records an auxiliary model call outside the conversation transcript.",
           "zh": "// ModelUsageEntry 记录会话外的辅助模型调用。"
         },
         {
           "id": "7e533aa70bde1bf7",
-          "line": 454,
+          "line": 469,
           "kind": "line",
           "en": "// Failed calls still count; invalid usage stays unknown rather than becoming zero.",
           "zh": "// 失败调用仍计数；无效 usage 保持未知，不补零。"
         },
         {
           "id": "3414fa1465580a0c",
-          "line": 523,
+          "line": 538,
           "kind": "line",
           "en": "// Standalone usage such as cache_warm is auxiliary with its own provider/model.",
           "zh": "// 独立 usage 条目（kind 如 cache_warm）：辅助调用，provider/model 自有字段。"
         },
         {
           "id": "f6a113995edaa359",
-          "line": 524,
+          "line": 539,
           "kind": "line",
           "en": "// The pi-compatible path exists without native omp samples for it.",
           "zh": "// 本机未出现，仍按与 pi 相同的规则支持。"
         },
         {
           "id": "e1770a9c17961af1",
-          "line": 572,
+          "line": 587,
           "kind": "line",
           "en": "// Optional compaction/branch_summary usage tracks preceding model_change ownership.",
           "zh": "// 总结/分支总结调用（usage 可选）：无模型字段，按不晚于它的"
         },
         {
           "id": "aa5a4bfcd5eb670e",
-          "line": 573,
+          "line": 588,
           "kind": "line",
           "en": "// The checked 37 compaction and 2 branch_summary entries have no usage;",
           "zh": "// model_change 归属。本机 37 条 compaction / 2 条 branch_summary"
         },
         {
           "id": "85985a2cf657d7c4",
-          "line": 574,
+          "line": 589,
           "kind": "line",
           "en": "// tokensBefore/tokensAfter are context estimates and do not count as consumption.",
           "zh": "// 均无 usage（tokensBefore/tokensAfter 是上下文估算，不计账）。"
         },
         {
           "id": "3a117f04491951e9",
-          "line": 628,
+          "line": 643,
           "kind": "line",
           "en": "// changes.jsonl contains file-edit audit records, not model usage.",
           "zh": "// changes.jsonl 包含文件变更审计记录，不是模型用量。"
         },
         {
           "id": "75d49f39f8e4bb9f",
-          "line": 737,
+          "line": 763,
           "kind": "line",
           "en": "// Intermediate directories lacking ts_uuid shape do not establish a subagent parent.",
           "zh": "// 非 <ts>_<uuid> 形状的中间目录不判为子 Agent 父级。"
         },
         {
           "id": "f6be3042cfa1786a",
-          "line": 740,
+          "line": 766,
           "kind": "line",
           "en": "// An underscore alone without timestamp shape must not identify a session directory.",
           "zh": "// 带下划线但非时间戳形状的目录名不误判。"
         },
         {
           "id": "f6bf18571b7d65f5",
-          "line": 761,
+          "line": 787,
           "kind": "line",
           "en": "// Older contexts without version_basis deserialize successfully to None.",
           "zh": "// 旧解析上下文（无 version_basis 字段）反序列化不失败，basis 为 None；"
         },
         {
           "id": "13e0c5430e39ec33",
-          "line": 762,
+          "line": 788,
           "kind": "line",
           "en": "// The V30 directory move does not recreate sources or reset cursors.",
           "zh": "// V30 目录迁移不重建来源、不重置游标。"
@@ -25855,7 +25855,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/qoder/detect.rs": {
-      "codeHash": "511ff2550c77d4238c76bb890fdfa2e1e212124d79092681949c2e4595669d42",
+      "codeHash": "b0ad796c9c4d8b6430834c7107e21f8a45a9d878b11b6010db04aca741d67154",
       "comments": [
         {
           "id": "44192f73ec64ce49",
@@ -25893,43 +25893,57 @@
           "zh": "// 遵循普通的 32 MiB 窗口，每次最多保留一条 8 MiB 的行。"
         },
         {
+          "id": "c03880dc18dfa8b5",
+          "line": 234,
+          "kind": "line",
+          "en": "// CLI persistence can omit usage while retaining the request and response digests.",
+          "zh": "CLI 会话可能只保留请求与响应摘要，省略用量字段。"
+        },
+        {
+          "id": "e674a0cb4f90e0b2",
+          "line": 235,
+          "kind": "line",
+          "en": "// The anchor identifies the envelope. The transcript reader still validates each call.",
+          "zh": "锚点用于识别记录格式，转录读取器仍会逐条核对调用。"
+        },
+        {
           "id": "ad4e87e086ca8bf4",
-          "line": 226,
+          "line": 248,
           "kind": "line",
           "en": "// Temporary lock/timeout/removal after enumeration is Pending; retry detection next run.",
           "zh": "// 临时锁定、超时或枚举后被清理记为 Pending，下轮重新探测。"
         },
         {
           "id": "7447683d081586cd",
-          "line": 238,
+          "line": 267,
           "kind": "line",
           "en": "// Recognize JSONL sessions or state.json objects as Qoder session files,",
           "zh": "// 将 JSONL 会话或 state.json 对象识别为 Qoder 会话文件，"
         },
         {
           "id": "430764255ba01f51",
-          "line": 239,
+          "line": 268,
           "kind": "line",
           "en": "// and let the scanner validate each native CLI record independently.",
           "zh": "// 由扫描器独立校验每条原生 CLI 记录。"
         },
         {
           "id": "11e166bab127b195",
-          "line": 240,
+          "line": 269,
           "kind": "line",
           "en": "// A session_id substring match also requires an opening brace; otherwise unrelated",
           "zh": "// session_id 子串匹配还须以左花括号开头，否则其他来源中"
         },
         {
           "id": "da74866216dd510e",
-          "line": 241,
+          "line": 270,
           "kind": "line",
           "en": "// files containing \"session_id\" could be incorrectly claimed.",
           "zh": "// 包含 \"session_id\" 的文件可能被错误认领。"
         },
         {
           "id": "b8294f94a2001869",
-          "line": 615,
+          "line": 644,
           "kind": "line",
           "en": "// Leave a lock regression observable without deadlocking or poisoning it.",
           "zh": "// 保留可检测的持锁回归结果，避免测试死锁或使互斥锁进入中毒状态。"
@@ -25937,7 +25951,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/qoder/mod.rs": {
-      "codeHash": "cbaee1060963adc15994aad38a0a1572cc4123a156b5d8dec5801073a6b62457",
+      "codeHash": "f4c9edb55f0d5d79d20cb60c3488afa58369b8bda88f1439e5565d502b85d209",
       "comments": [
         {
           "id": "4ef9c2a51ab10ce7",
@@ -25947,11 +25961,11 @@
           "zh": "//! 根据官方 1.1.76 持久化写入器读取 Qoder CLI 转录。"
         },
         {
-          "id": "98e785fd07f46837",
+          "id": "d739c7afea9a00c9",
           "line": 2,
           "kind": "line",
-          "en": "//! IDE/JetBrains and encrypted state remain unverified; source fixtures are not native acceptance.",
-          "zh": "//! IDE、JetBrains 和加密状态仍未核验；源码构造样本不代表实机验收。"
+          "en": "//! CLI-format request anchors identify transcripts with missing usage. Sealed session state adds no calls.",
+          "zh": "请求锚点可用于识别缺少用量的 CLI 会话。加密会话状态不增加调用。"
         },
         {
           "id": "0358932886bf2507",
@@ -26029,7 +26043,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/qoder/versions/probe_only.rs": {
-      "codeHash": "0816c67243d56a220e0d1e51b1d939f2f0c910623541c0cb7cd1b1e03651663e",
+      "codeHash": "59f66322973425c24d6e2cef5c460d1fff1a57c87ea4933c8b79cd347f62303e",
       "comments": [
         {
           "id": "a9122d9e0ef2e287",
@@ -26046,22 +26060,36 @@
           "zh": "//! CLI 转录字段使用独立的源码读取器；Credits 不是 token。"
         },
         {
+          "id": "46929a8cc7dd7c90",
+          "line": 15,
+          "kind": "line",
+          "en": "// Session state is a complete JSON document. Only an empty plaintext map plus",
+          "zh": "会话状态必须是完整的 JSON 文档。只有在明文映射为空，"
+        },
+        {
+          "id": "7aa322f9d2239116",
+          "line": 16,
+          "kind": "line",
+          "en": "// well-formed encrypted items establishes that this file has no readable usage.",
+          "zh": "且加密项符合已知结构时，才认定文件中没有可读取的用量。"
+        },
+        {
           "id": "31698e6e714fb55b",
-          "line": 25,
+          "line": 113,
           "kind": "line",
           "en": "// Do not parse/import usage from unverified formats.",
           "zh": "// 不从未核验的格式解析或导入用量。"
         },
         {
           "id": "1d4390ecbdb7add6",
-          "line": 26,
+          "line": 114,
           "kind": "line",
           "en": "// Store file length as cursor so unchanged files skip repeated diagnostics in the framework.",
           "zh": "// 游标取文件长度：内容未变化时走 framework 的 unchanged 短路，"
         },
         {
           "id": "9adf67aa2cff4c91",
-          "line": 27,
+          "line": 115,
           "kind": "line",
           "en": "// Later file changes trigger another probe through framework change detection.",
           "zh": "// 文件变化后由框架检查再次触发探测。"
@@ -27472,7 +27500,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/routing.rs": {
-      "codeHash": "4eff9891b9ceffc43f2db1770e1e37294897fa0ebedecb9e25e8339d90fd1e23",
+      "codeHash": "4203ea43255bbb4a070348799535b6f1e22b41766e10649686f00651e21096a5",
       "comments": [
         {
           "id": "ef1e40955fe881fb",
@@ -27539,63 +27567,63 @@
         },
         {
           "id": "93b62dfe81100497",
-          "line": 189,
+          "line": 190,
           "kind": "line",
           "en": "// Exact DSH framing identifies its format more precisely than a shared",
           "zh": "// 完整 DSH 文件结构比共享的 type=session 字段更能识别格式，"
         },
         {
           "id": "91ceec270e8ba2b1",
-          "line": 190,
+          "line": 191,
           "kind": "line",
           "en": "// type=session field; corrupt manual files still receive normal diagnostics.",
           "zh": "// 手工选择的坏文件仍按正常规则显示诊断。"
         },
         {
           "id": "6d6de2467f418697",
-          "line": 206,
+          "line": 207,
           "kind": "line",
           "en": "// Unknown manual files need diagnostics. Only application-managed roots have explicit",
           "zh": "// 未知手工文件需要诊断，仅应用管理根有明确适配器选择规则，"
         },
         {
           "id": "557c76e725fc3198",
-          "line": 207,
+          "line": 208,
           "kind": "line",
           "en": "// adapter routing; retain actual corruption reports.",
           "zh": "// 保留真实文件损坏的报告。"
         },
         {
           "id": "73252ead554034ea",
-          "line": 269,
+          "line": 270,
           "kind": "line",
           "en": "/// Each physical file has one owner. Verified Qwen/DSH/Qoder repairs require no statistical history.",
           "zh": "/// 每个物理文件只有一个归属；已核验的 Qwen、DSH、Qoder 修复要求旧来源没有统计历史。"
         },
         {
           "id": "d3f6c75bc25dcbb6",
-          "line": 270,
+          "line": 271,
           "kind": "line",
           "en": "/// Other unrecognized registrations also require no checkpoint; never transfer valid historical contributions.",
           "zh": "/// 其他未识别登记还要求没有检查点，不能转移有效历史贡献。"
         },
         {
           "id": "eb8f82e992d8e946",
-          "line": 271,
+          "line": 272,
           "kind": "line",
           "en": "/// None requests format detection outside the writer before retrying the ownership decision.",
           "zh": "/// 返回 None 时，先在写锁外检测格式，再重新判定归属。"
         },
         {
           "id": "f845422e38f41884",
-          "line": 343,
+          "line": 344,
           "kind": "line",
           "en": "// Hide only an empty unrecognized owner after its final file transfers.",
           "zh": "// 最后文件转移后，仅隐藏没有历史的未识别旧来源。"
         },
         {
           "id": "6a2583ea68e2b30b",
-          "line": 344,
+          "line": 345,
           "kind": "line",
           "en": "// Retain visible diagnostics for other invalid manual files.",
           "zh": "// 其他手工选择的坏文件仍保留可见诊断。"
@@ -46501,7 +46529,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/tests/omp_gaps_synthetic.rs": {
-      "codeHash": "e58fa482993b6037072f7b1143baaa0a5425fa6923d6a40b35bb1a1f5a9b62de",
+      "codeHash": "6ca9d068f3e57199d8c01a18c2ef4f19a44389f02049ad5488d8c464079b9d10",
       "comments": [
         {
           "id": "c1034bb35ea1f964",
@@ -48631,7 +48659,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/tests/qoder_transcript.rs": {
-      "codeHash": "b8b3688a8fd2269bbc274fc77ab2f57d4a7b8499d8ea01f64a1e2b7165a520ca",
+      "codeHash": "3f11790e46ad8cb9b821cf5696e7eafcf0cecb042414129b04651774afc3e8f6",
       "comments": [
         {
           "id": "c793db263bb5d0fc",
@@ -48639,6 +48667,13 @@
           "kind": "line",
           "en": "//! Source-derived fixtures only; no Qoder client or native request was executed.",
           "zh": "//! 仅使用源码构造样本；没有运行 Qoder 客户端或原生请求。"
+        },
+        {
+          "id": "59d6717bfdd9cafb",
+          "line": 100,
+          "kind": "line",
+          "en": "// Recreate the old probe's EOF checkpoints on the same bytes, with no imported calls.",
+          "zh": "在相同文件内容上重建旧探针读到文件末尾的检查点，模拟尚未导入调用的状态。"
         }
       ]
     },
@@ -54955,7 +54990,7 @@
       ]
     },
     "desktop/src/App.svelte": {
-      "codeHash": "018140d1b60f40b21bed74fa0526283e3be606d3c18aa188b07ba7a2b423e446",
+      "codeHash": "e16fc9d796f02ad79752b37dbf359e164866bf01c55e95da7337d7ec39ae2840",
       "comments": [
         {
           "id": "b2ed83086f00e614",
@@ -55330,77 +55365,77 @@
         },
         {
           "id": "bd693448c75de9b1",
-          "line": 1371,
+          "line": 1375,
           "kind": "block",
           "en": "/* Highlight the panel-layout edit toggle when active. */",
           "zh": "/* 布局编辑模式开关（🔧；激活时高亮）。 */"
         },
         {
           "id": "9b846b05c8286025",
-          "line": 1406,
+          "line": 1410,
           "kind": "block",
           "en": "/* Header query-refresh selector shares a row with collection progress and refresh. */",
           "zh": "/* 顶部自动刷新间隔（与采集进度条/刷新按钮同行）。 */"
         },
         {
           "id": "4f793d40805a359e",
-          "line": 1415,
+          "line": 1419,
           "kind": "block",
           "en": "/* Collection progress width follows its percentage, alongside percentage/ETA text. */",
           "zh": "/* 采集中：简洁进度条（宽度 = 百分比）+ 百分比/剩余时间文案。 */"
         },
         {
           "id": "b82395ab9c34456a",
-          "line": 1493,
+          "line": 1497,
           "kind": "block",
           "en": "/* D8 today/history headings; history range/granularity filters affect that section only. */",
           "zh": "/* 今日/历史醒目分区标题（任务 D8）；历史区标题右侧内联范围/粒度筛选（只影响该区）。 */"
         },
         {
           "id": "3d8622d4958cc8d3",
-          "line": 1517,
+          "line": 1521,
           "kind": "block",
           "en": "/* History range/granularity controls sit beside its heading, separate from today. */",
           "zh": "/* 历史趋势区标题右侧的范围/粒度下拉（与今日数据区视觉分离）。 */"
         },
         {
           "id": "7fb67d0f12d4b2cd",
-          "line": 1531,
+          "line": 1535,
           "kind": "block",
           "en": "/* Selected-period heading and reused summary-cards grid inside history. */",
           "zh": "/* 选中时间点汇总（历史趋势区内）：标题行 + 复用 summary-cards 卡片网格。 */"
         },
         {
           "id": "c0312d6bff3f4032",
-          "line": 1565,
+          "line": 1569,
           "kind": "block",
           "en": "/* Model/Agent pies use two columns, stacking on narrow screens. */",
           "zh": "/* 选中时间点饼图行：模型/Agent 两列卡片（窄屏叠一行一个）。 */"
         },
         {
           "id": "b48df1aef5fe9b02",
-          "line": 1578,
+          "line": 1582,
           "kind": "block",
           "en": "/* Match loading/empty-state height to reduce movement when changing selected periods. */",
           "zh": "/* 与加载占位和空数据状态保持同高，减少切换时间点时的布局变化。 */"
         },
         {
           "id": "cb3bd4c6ed36efa2",
-          "line": 1586,
+          "line": 1590,
           "kind": "block",
           "en": "/* Match the SharePie loading placeholder to its 190px chart height. */",
           "zh": "/* 饼图加载占位：高度与 SharePie 190px 一致，加载完成不产生布局跳动。 */"
         },
         {
           "id": "08b467f511a78f78",
-          "line": 1592,
+          "line": 1596,
           "kind": "block",
           "en": "/* E10 six-column panel grid; Panel span classes set column widths. */",
           "zh": "/* 面板 6 列格子布局（任务 E10）；跨列数由 Panel 的 span 类决定。 */"
         },
         {
           "id": "faa68baa8e9a9ab7",
-          "line": 1600,
+          "line": 1604,
           "kind": "block",
           "en": "/* Keep metric rows compact; account quota has an independent full-width strip. */",
           "zh": "/* 指标行保持紧凑；账号额度使用独立的整行区域。 */"
@@ -57423,7 +57458,7 @@
       ]
     },
     "desktop/tests/browser-smoke.mjs": {
-      "codeHash": "2e3f601c9fa4eb3052de6821a3ab2e025a9b82baa293cb38f75a1ee8fc4ddbdb",
+      "codeHash": "92511bf1cb53745dab11234080a00deddb2c170fb52d23cff07b5e08027a1668",
       "comments": [
         {
           "id": "5ba4dca837379ee2",
@@ -57455,28 +57490,28 @@
         },
         {
           "id": "d8e64c2d0b757e81",
-          "line": 442,
+          "line": 447,
           "kind": "line",
           "en": "// Accepted before the worker starts; a short scan finishes between status polls.",
           "zh": "// 工作线程启动前已受理；短扫描可能在状态轮询之间完成。"
         },
         {
           "id": "cef2412556e04173",
-          "line": 967,
+          "line": 975,
           "kind": "line",
           "en": "// Clear-all confirmation shows missing-file warnings and phase progress;",
           "zh": "// 清理全部数据的确认界面显示缺失文件提示及阶段进度；"
         },
         {
           "id": "b8b8b9c2332d0d40",
-          "line": 968,
+          "line": 976,
           "kind": "line",
           "en": "// done closes it automatically and shows the cleared summary.",
           "zh": "// done 后自动关闭，并显示清理汇总。"
         },
         {
           "id": "c702dac0313ddbb3",
-          "line": 1095,
+          "line": 1103,
           "kind": "line",
           "en": "// Keep simulated download deadlines independent of real page-navigation latency.",
           "zh": "// 让模拟下载的完成时刻不受实际页面切换耗时影响。"

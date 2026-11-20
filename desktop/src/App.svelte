@@ -1224,8 +1224,10 @@
           <h2>{t('trend.summary')}</h2>
           {#if trendSelection}<button class="range-reset" onclick={() => trendSelection = null}>{t('dashboard.resetRange')}</button>{/if}
         </div>
-        <p class="range-caption">{trendRangeCaption}{#if trendSelection && !selectionSummary && !selectionError} · {t('common.loading')}{/if}</p>
-        <p class="period-hint">{t('dashboard.dragHint')}</p>
+        <p class="range-hints">
+          <span class="range-caption">{trendRangeCaption}{#if trendSelection && !selectionSummary && !selectionError} · {t('common.loading')}{/if}</span>
+          <span>{t('dashboard.dragHint')}</span>
+        </p>
         {#if selectionError}<p class="error">{selectionError}</p>{/if}
         <div class="summary-cards" class:with-pricing={settings?.pricing?.enabled}>
           {#each trendSummaryCards as c (c.key)}
@@ -1306,6 +1308,8 @@
 
 <style>
   .range-caption {margin: 0 0 10px; font-size: 12px; color: var(--text-muted);}
+  .range-hints {display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; margin: 0 0 10px; font-size: 12px; color: var(--text-muted);}
+  .range-hints .range-caption {margin: 0;}
   .range-reset {border: 1px solid var(--border); background: var(--bg-input); color: var(--accent); border-radius: 6px; padding: 4px 10px; cursor: pointer;}
   .app-shell { min-height: 100vh; display: grid; grid-template-columns: 208px minmax(0, 1fr); }
   .sidebar { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; padding: 28px 16px 20px; border-right: 1px solid var(--border); background: var(--bg-card); box-sizing: border-box; }

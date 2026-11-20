@@ -54,15 +54,104 @@ fn count(storage: &Storage, sql: &str) -> i64 {
     storage.conn().query_row(sql, [], |r| r.get(0)).unwrap()
 }
 fn registry_run(storage: &Storage, root: &Path, now: i64) {
+    registry_scan(storage, &context(root), now);
+}
+fn registry_scan(storage: &Storage, discovery: &DiscoverContext, now: i64) {
     for adapter in built_in_adapters() {
         let mut cfg = config(now, None);
         cfg.run_id_prefix = format!("registry-{}-{now}", adapter.adapter_id());
-        let reports = run_adapter_scan(storage, adapter.as_ref(), &context(root), &cfg).unwrap();
+        let reports = run_adapter_scan(storage, adapter.as_ref(), discovery, &cfg).unwrap();
         assert!(
             reports.iter().all(|r| r.finish != RunStatus::Failed),
             "{reports:?}"
         );
     }
+}
+
+#[test]
+fn anchored_completion_and_sealed_state_recover_consumed_probe_files() {
+    const SESSION: &str = "12345678-1234-4567-8123-456789abcdef";
+    let dir = TempDir::new("qoder-anchor");
+    let project = dir.path().join(".qoder-cn/projects/project");
+    let state_dir = project.join(SESSION);
+    std::fs::create_dir_all(&state_dir).unwrap();
+    let file = project.join(format!("{SESSION}.jsonl"));
+    let mut row = first();
+    row.as_object_mut().unwrap().remove("modelSource");
+    row["message"].as_object_mut().unwrap().remove("usage");
+    row["sessionId"] = json!(SESSION);
+    row["version"] = json!("1.1.86-hotfix.5.3");
+    row["responseGroupId"] = json!("01234567-0123-4567-8123-456789abcdef");
+    row["requestTokenAnchor"] = json!({"request":"0".repeat(64),"response":"a".repeat(64),"requestId":"abcdef12-3456-4567-8123-456789abcdef"});
+    let mut partial = row.clone();
+    partial["message"]["stop_reason"] = Value::Null;
+    std::fs::write(&file, format!("{partial}\n{row}\n")).unwrap();
+    let state = json!({"sessionId":SESSION, "revision":3, "createdAt":row["timestamp"], "updatedAt":row["timestamp"],
+        "data":{}, "items":{"s0":{"c":row["timestamp"], "u":row["timestamp"], "n":"A".repeat(16), "p":"e30=", "t":"AAAAAAAAAAAAAAAAAAAAAA=="}}});
+    let state_path = state_dir.join("state.json");
+    std::fs::write(&state_path, state.to_string()).unwrap();
+    let discovery = DiscoverContext {
+        home_dir: Some(dir.path().into()),
+        ..Default::default()
+    };
+    let (_db, storage) = temp_storage("qoder-anchor");
+    registry_scan(&storage, &discovery, NOW);
+    assert_eq!(count(&storage, "SELECT COUNT(*) FROM source_files"), 2);
+    // Recreate the old probe's EOF checkpoints on the same bytes, with no imported calls.
+    storage.conn().execute_batch(r#"DELETE FROM usage_events;
+        DELETE FROM daily_usage;
+        UPDATE source_files SET status='degraded', format_status='{"basis":"latest_fallback","format":"qoder-session-jsonl","compat":"unverified","found_version":null}';
+        UPDATE source_instances SET health='degraded';
+        UPDATE ingestion_checkpoints SET cursor_value=json_remove(cursor_value,'$.line_number'),parse_context='{"parser_version":"qoder-transcript-2"}';
+        INSERT INTO diagnostics(instance_id,code,message,created_ms) SELECT instance_id,'usage_fields_unverified','old probe',1 FROM source_files;"#).unwrap();
+
+    for now in [NOW + 1, NOW + 2] {
+        registry_scan(&storage, &discovery, now);
+        assert_eq!(count(&storage,"SELECT COUNT(*) FROM usage_events WHERE agent='qoder' AND schema_version='1.1.86-hotfix.5.3' AND quality_bucket='unknown' AND total_tokens IS NULL AND cost_amount_minor IS NULL"),1);
+        assert_eq!(count(&storage, "SELECT COUNT(*) FROM usage_events"), 1);
+        assert_eq!(
+            count(
+                &storage,
+                "SELECT COUNT(*) FROM source_files WHERE status IN ('active', 'active_compat')"
+            ),
+            2
+        );
+        assert_eq!(count(&storage,"SELECT COUNT(*) FROM source_files WHERE json_extract(format_status,'$.format')='qoder-sealed-session-state'"),1);
+        assert_eq!(
+            count(
+                &storage,
+                "SELECT COUNT(*) FROM source_instances WHERE agent='qoder' AND health='ok'"
+            ),
+            1
+        );
+        assert_eq!(
+            count(
+                &storage,
+                "SELECT COUNT(*) FROM diagnostics WHERE code='usage_fields_unverified'"
+            ),
+            2
+        );
+    }
+    let mut invalid = state;
+    invalid["data"] = json!({"modelRequests":[]});
+    std::fs::write(&state_path, invalid.to_string()).unwrap();
+    row["requestTokenAnchor"]["response"] = json!("malformed");
+    std::fs::write(file, format!("{row}\n")).unwrap();
+    registry_scan(&storage, &discovery, NOW + 3);
+    assert_eq!(
+        count(
+            &storage,
+            "SELECT COUNT(*) FROM source_files WHERE status='degraded'"
+        ),
+        2
+    );
+    assert_eq!(
+        count(
+            &storage,
+            "SELECT COUNT(*) FROM diagnostics WHERE code='usage_fields_unverified'"
+        ),
+        4
+    );
 }
 fn first() -> Value {
     serde_json::from_str(fixture().lines().nth(1).unwrap()).unwrap()

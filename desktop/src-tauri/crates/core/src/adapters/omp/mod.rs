@@ -120,6 +120,10 @@ impl crate::adapters::framework::SourceAdapter for OmpAdapter {
         versions::session_v3::scan(target, stored, limits, now_ms)
     }
 
+    fn should_scan_unchanged(&self, stored: &crate::adapters::framework::StoredScanState) -> bool {
+        session_v3::unchecked_audit_context(stored)
+    }
+
     fn capability(&self) -> crate::adapters::framework::CapabilityTable {
         use crate::adapters::framework::{Availability, CapabilityTable};
         let mut fields = serde_json::Map::new();

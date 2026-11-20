@@ -714,8 +714,9 @@ fn unknown_record_type_ignored_with_single_diagnostic() {
 #[test]
 fn model_usage_entries_import_as_auxiliary_calls_and_change_logs_are_excluded() {
     let dir = TempDir::new("omp-model-usage");
-    let root = dir.path().join("sessions/--C--syn--");
-    std::fs::create_dir_all(&root).unwrap();
+    let root = dir.path().join(".omp/agent/sessions");
+    let project = root.join("--C--syn--");
+    std::fs::create_dir_all(&project).unwrap();
     let lines = [
         json!({"type":"session","version":3,"id":"syn-session","timestamp":"2026-11-17T00:00:00.000Z"}),
         json!({"type":"model_usage","id":"syn-mu-1","parentId":"syn-parent","timestamp":"2026-11-17T00:00:01.000Z",
@@ -732,10 +733,11 @@ fn model_usage_entries_import_as_auxiliary_calls_and_change_logs_are_excluded() 
         .iter()
         .map(|line| line.to_string() + "\n")
         .collect::<String>();
-    let session = root.join("2026-11-17T00-00-00-000Z_00000000-0000-7000-8000-000000000001.jsonl");
+    let session =
+        project.join("2026-11-17T00-00-00-000Z_00000000-0000-7000-8000-000000000001.jsonl");
     std::fs::write(session, body).unwrap();
     std::fs::write(
-        root.join("changes.jsonl"),
+        project.join("changes.jsonl"),
         concat!(
             "{\"type\":\"call\",\"agent\":\"editor\",\"tool\":\"write\",\"start\":1,\"end\":2,\"label\":\"write\"}\n",
             "{\"type\":\"change\",\"path\":\"src/lib.rs\",\"before\":{},\"after\":{},\"at\":3}\n"
@@ -815,15 +817,101 @@ fn model_usage_entries_import_as_auxiliary_calls_and_change_logs_are_excluded() 
     storage
         .conn()
         .execute_batch(
-            "UPDATE source_instances SET parser_version='omp-session-1';
-         UPDATE usage_events SET parser_version='omp-session-1';",
+            "UPDATE source_instances SET parser_version='omp-session-1',health='degraded';
+             UPDATE usage_events SET parser_version='omp-session-1';
+             UPDATE source_files SET status='unsupported',format_status=NULL WHERE file_id LIKE '%changes.jsonl';
+             DELETE FROM ingestion_checkpoints WHERE scope_key IN (SELECT file_identity FROM source_files WHERE status='unsupported');
+             INSERT INTO diagnostics(instance_id,code,message,created_ms) SELECT instance_id,'unknown_format','old audit detection',1 FROM source_instances;",
         )
         .unwrap();
-    let upgraded = run_omp(&storage, &root, 1_800_000_000_002);
-    assert_eq!(upgraded[0].outcome.as_ref().unwrap().conflicts, 0);
+    use llm_usage_core::adapters::{built_in_adapters, framework::*};
+    let discovery = DiscoverContext {
+        home_dir: Some(dir.path().into()),
+        ..Default::default()
+    };
+    for adapter in built_in_adapters() {
+        let config = RunConfig {
+            now_ms: 1_800_000_000_002,
+            timezone: "UTC".into(),
+            trigger: llm_usage_core::jobs::TriggerKind::Manual,
+            origin_host_id: None,
+            limits: ScanLimits::default(),
+            run_id_prefix: format!("recovery-{}", adapter.adapter_id()),
+        };
+        let reports = run_adapter_scan(&storage, adapter.as_ref(), &discovery, &config).unwrap();
+        if adapter.adapter_id() == "omp" {
+            assert_eq!(reports[0].outcome.as_ref().unwrap().conflicts, 0);
+        }
+    }
+    assert_eq!(diag_count(&storage, "unknown_format"), 1);
+    assert_eq!(
+        storage
+            .conn()
+            .query_row(
+                "SELECT COUNT(*) FROM source_files WHERE status='active'",
+                [],
+                |r| r.get::<_, i64>(0)
+            )
+            .unwrap(),
+        2
+    );
+    assert_eq!(
+        storage
+            .conn()
+            .query_row(
+                "SELECT health FROM source_instances WHERE agent='oh-my-pi'",
+                [],
+                |r| r.get::<_, String>(0)
+            )
+            .unwrap(),
+        "ok"
+    );
     assert_eq!(
         summary(&storage, "2026-11-17", "2026-11-17").totals,
         expected_summary.totals
+    );
+}
+
+#[test]
+fn audit_shape_is_checked_on_every_line_and_on_old_consumed_files() {
+    let dir = TempDir::new("omp-audit-shape");
+    let file = dir.path().join("changes.jsonl");
+    let valid = json!({"type":"call","agent":"editor","tool":"write","start":1,"end":2});
+    let mut unexpected = valid.clone();
+    unexpected["usage"] = json!({"output":10});
+    std::fs::write(&file, format!("{unexpected}\n")).unwrap();
+    assert!(matches!(
+        OmpAdapter::new().detect(&file).unwrap(),
+        DetectOutcome::UnknownFormat { .. }
+    ));
+
+    std::fs::write(&file, format!("{valid}\n{unexpected}\n{valid}\n")).unwrap();
+    let (_db, storage) = temp_storage("omp-audit-shape");
+    let now = 1_800_000_000_000;
+    run_omp(&storage, dir.path(), now);
+    assert_eq!(diag_count(&storage, "invalid_change_audit_record"), 1);
+    storage.conn().execute_batch("UPDATE ingestion_checkpoints SET parse_context=json_remove(parse_context,'$.invalid_audit_record'); UPDATE source_files SET status='active';").unwrap();
+    let mut limits = llm_usage_core::adapters::framework::ScanLimits::default();
+    limits.jsonl.max_lines = Some(1);
+    for i in 1..=4 {
+        run_omp_with_limits(&storage, dir.path(), now + i, limits.clone());
+    }
+    assert_eq!(diag_count(&storage, "invalid_change_audit_record"), 2);
+    assert_eq!(
+        storage
+            .conn()
+            .query_row("SELECT status FROM source_files", [], |r| r
+                .get::<_, String>(0))
+            .unwrap(),
+        "degraded"
+    );
+    assert_eq!(
+        storage
+            .conn()
+            .query_row("SELECT COUNT(*) FROM usage_events", [], |r| r
+                .get::<_, i64>(0))
+            .unwrap(),
+        0
     );
 }
 

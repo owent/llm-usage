@@ -61,10 +61,19 @@ struct OmpParseContext {
     model_provider: Option<String>,
     #[serde(default)]
     unknown_types: Vec<String>,
+    #[serde(default)]
+    invalid_audit_record: bool,
     /// Format basis known_version/latest_fallback; older contexts default to None.
     /// The V30 move does not recreate sources or reset cursors.
     #[serde(default)]
     version_basis: Option<VersionBasis>,
+}
+
+pub(crate) fn unchecked_audit_context(stored: &StoredScanState) -> bool {
+    stored.parse_context.as_ref().is_some_and(|ctx| {
+        ctx.get("version_basis").is_some_and(|v| v.is_null())
+            && ctx.get("invalid_audit_record").is_none()
+    })
 }
 
 fn restore_cursor(stored: &StoredScanState, generation: i64, rescan: bool) -> JsonlCursor {
@@ -206,8 +215,14 @@ pub fn scan(
     limits: &ScanLimits,
     now_ms: i64,
 ) -> Result<ScanOutcome, CoreError> {
-    let cursor = restore_cursor(stored, target.generation, target.rescan);
-    let mut context = restore_context(stored, target.rescan);
+    let replay = target.rescan
+        || (target
+            .path
+            .file_name()
+            .is_some_and(|n| n == "changes.jsonl")
+            && unchecked_audit_context(stored));
+    let cursor = restore_cursor(stored, target.generation, replay);
+    let mut context = restore_context(stored, replay);
     let mut events: Vec<EventInput> = Vec::new();
     let mut diagnostics: Vec<DiagnosticInput> = Vec::new();
     let mut records_seen: u64 = 0;
@@ -626,7 +641,17 @@ pub fn scan(
                 ));
             }
             // changes.jsonl contains file-edit audit records, not model usage.
-            "call" | "change" => {}
+            "call" | "change" => {
+                if !super::super::detect::change_audit_record(&target.path, &entry) {
+                    context.invalid_audit_record = true;
+                    diagnostics.push(diag(
+                        "invalid_change_audit_record",
+                        Some("type"),
+                        raw.number,
+                        "record does not match the file-change audit format",
+                    ));
+                }
+            }
             "title"
             | "title_change"
             | "credential_pin"
@@ -672,7 +697,8 @@ pub fn scan(
         offset: outcome.next_offset,
         line_number: outcome.next_line_number,
     };
-    let degraded = !outcome.bad_lines.is_empty()
+    let degraded = context.invalid_audit_record
+        || !outcome.bad_lines.is_empty()
         || diagnostics.iter().any(|d| {
             matches!(
                 d.code.as_str(),

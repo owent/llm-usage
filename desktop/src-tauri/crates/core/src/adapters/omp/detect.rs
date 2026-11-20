@@ -22,6 +22,41 @@ use super::versions;
 pub const OMP_FORMAT: &str = "omp-session-jsonl";
 pub const OMP_CHANGE_AUDIT_FORMAT: &str = "omp-change-audit-jsonl";
 
+pub(super) fn change_audit_record(path: &Path, row: &serde_json::Value) -> bool {
+    if path.file_name().is_none_or(|name| name != "changes.jsonl") {
+        return false;
+    }
+    let Some(fields) = row.as_object() else {
+        return false;
+    };
+    match row["type"].as_str() {
+        Some("call") => {
+            ["agent", "tool", "start", "end"]
+                .iter()
+                .all(|k| fields.contains_key(*k))
+                && fields.iter().all(|(k, v)| match k.as_str() {
+                    "type" | "agent" | "tool" | "label" | "parent" | "script" => v.is_string(),
+                    "start" | "end" => v.is_number(),
+                    _ => false,
+                })
+        }
+        Some("change") => {
+            ["path", "at", "before", "after"]
+                .iter()
+                .all(|k| fields.contains_key(*k))
+                && fields.iter().all(|(k, v)| match k.as_str() {
+                    "type" | "path" | "agent" | "tool" => v.is_string(),
+                    "at" | "beforeMtimeMs" => v.is_number(),
+                    "before" | "after" => {
+                        v.is_null() || v.is_string() || v.as_object().is_some_and(|o| o.is_empty())
+                    }
+                    _ => false,
+                })
+        }
+        _ => false,
+    }
+}
+
 /// Detect an omp session file and select through its version registry.
 pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     // Native omp files begin with title v=1 before session; locate the header within four lines.
@@ -47,23 +82,12 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
         .and_then(|t| t.as_str())
         .unwrap_or("");
     // Exclude file-change audit logs only when their filename and record shape both match.
-    if path.file_name().and_then(|name| name.to_str()) == Some("changes.jsonl") {
-        let audit_shape = match first_type {
-            "call" => ["agent", "tool", "start", "end"]
-                .iter()
-                .all(|key| first_line.get(key).is_some()),
-            "change" => ["path", "before", "after", "at"]
-                .iter()
-                .all(|key| first_line.get(key).is_some()),
-            _ => false,
-        };
-        if audit_shape {
-            return Ok(DetectOutcome::Supported {
-                format: OMP_CHANGE_AUDIT_FORMAT.to_string(),
-                format_version: None,
-                basis: VersionBasis::KnownVersion,
-            });
-        }
+    if change_audit_record(path, &first_line) {
+        return Ok(DetectOutcome::Supported {
+            format: OMP_CHANGE_AUDIT_FORMAT.to_string(),
+            format_version: None,
+            basis: VersionBasis::KnownVersion,
+        });
     }
     if first_type != "session" && first_type != "title" {
         return Ok(DetectOutcome::UnknownFormat {

@@ -28,7 +28,8 @@ calendar queries and selections; pricing changes refresh costs separately.
 Acceptance covers debounce, blur/Enter, IME, concurrent edits/reverts, failures, navigation,
 nested update/budget/provider settings and restoration of defaults.
 
-Overview retains one status line with enable/details actions. Only missing configuration
+Overview shows the status line and its enable/details actions only while an installed
+target has a configuration that can be enabled. Only missing configuration
 eligible for automatic setup counts as waiting to enable. Other items without verified
 valid data display “No data”, including those currently ineligible for automatic setup;
 valid incoming data changes status to “Verified”. Hide zero-count configuration-limit
@@ -155,7 +156,8 @@ support point/x-axis-label clicks and horizontal mouse-drag selection. On releas
 the continuous range by corresponding period boundaries, including reverse drags.
 Dragging selects rather than pans. Wheel scrolling neither zooms/pans the chart nor
 creates or changes a selection. Clicking or dragging the cost slider still chooses visible ranges.
-Show highlight, start/end and reset; reset clears every related highlight. Trend selection
+In the trend summary, place the displayed range and the drag hint on the same line when
+space permits. Show highlight, start/end and reset; reset clears every related highlight. Trend selection
 restricts summaries, model/Agent distribution, model-table usage and current-price
 references together. Overview history uses the same summary/distribution rules; today's
 hourly selection independently restricts today's summary/distribution/model/Agent table.

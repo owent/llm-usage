@@ -223,6 +223,15 @@ own writer checks and cannot inherit this mapping from their CLI integration.
 | Time/ownership | The native timestamp is the persistence observation time. Retain each row's version; `isSidechain`/agent ID identify subagent category without creating another call. Reject unsupported remote entrypoints and malformed ownership; do not infer a host application from the common CLI entrypoint. |
 | Upgrade/failure | Route the complete CLI envelope to Qoder before shared transcript detectors; transfer an old misrouted file only without statistical history, preserving other invalid files and diagnostics. Replay the old probe's processing state without clearing statistics/history. Preserve record errors across windows, isolate malformed fields, retry partial lines, and verify repeated reads, conflicts and rollback. Unverified state.json, IDE/plugin records and other formats retain explicit diagnostics. |
 
+Local CLI-format records from 1.1.86-hotfix.5.3 also identify a response by its
+`responseGroupId` and `requestTokenAnchor` (request ID and two 64-digit hex digests).
+The observed partial and completed blocks share a message ID. Only the completed response
+counts. Its missing usage leaves every token field and cost unknown. The matching
+`<sessionId>/state.json` has an empty plaintext map and timestamped encrypted items
+with a nonce, payload and tag. Recognize that complete structure without decrypting
+it or adding calls. Other state layouts still need verification. A rescan rechecks
+unchanged files consumed by the old probe and retains its diagnostic history.
+
 The native marker probe examines complete lines within 32 MiB and 200 ms, with an 8 MiB
 line cap and one retained line. It handles BOMs, long initial messages and metadata prefixes;
 outside this bound, provenance remains unverified. Metadata-only windows advance without

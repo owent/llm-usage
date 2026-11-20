@@ -295,6 +295,11 @@ assert.equal(await page.evaluate(()=>window.appCalls.filter(c=>c.cmd==='telemetr
 await page.locator('#telemetry-settings').getByRole('button',{name:'一键开启全部',exact:true}).click();
 await page.clock.runFor(500);
 assert.match(await page.locator('#telemetry-settings').textContent(),/0 待开启[\s\S]*4 等待数据[\s\S]*1 配置受限/,'retry clears pending configuration without pretending data exists');
+await page.getByRole('navigation').first().getByRole('button',{name:'总览',exact:true}).click();
+await page.clock.runFor(300);
+assert.equal(await overviewTelemetry.count(),0,'overview hides telemetry when only configured and restricted items remain');
+await page.getByRole('navigation').first().getByRole('button',{name:'设置',exact:true}).click();
+await page.locator('[data-settings-section="telemetry"]').click();
 await page.evaluate(()=>window.telemetryHasData=true);
 await page.clock.runFor(30_500);
 assert.match(await page.locator('[data-telemetry-id="copilot-vscode"] .data-state').textContent(),/30/,'newly produced data is verified automatically');
@@ -484,6 +489,9 @@ for (const selector of ['[data-panel-group="overviewHistory"] .token-chart','[da
 await page.getByRole('navigation').first().getByRole('button',{name:'趋势',exact:true}).click();
 await page.clock.runFor(500);
 assert.match(await page.locator('[data-panel-group="trendMain"] .phead h3').first().textContent(),/token 用量/,'trend defaults to tokens before calls');
+const hintTops = await page.locator('.range-hints > span').evaluateAll(items => items.map(el => el.getBoundingClientRect().top));
+assert.equal(hintTops.length,2);
+assert.equal(hintTops[0],hintTops[1],'both range summary hints share one desktop line');
 const tailTitles=await page.locator('[data-panel-group="trendMain"] .phead h3').allTextContents();
 assert.match(tailTitles.at(-2),/活跃热力图/);assert.match(tailTitles.at(-1),/周分布/);
 await page.locator('.filters select').first().selectOption('2');await page.clock.runFor(500);

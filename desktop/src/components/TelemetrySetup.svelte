@@ -8,7 +8,6 @@
   let { full = false, onDetails }: { full?: boolean; onDetails?: () => void } = $props();
   let section = $state<HTMLElement>();
   const pending = $derived(telemetry.rows.filter((row) => row.status === 'missing' && row.configurable));
-  const ready = $derived(telemetry.rows.filter((row) => row.status === 'missing' && row.configurable));
   const results = $derived(new Map(telemetrySetup.results.map((r) => [r.target.id, r])));
   const summary = $derived.by(() => {
     if (telemetrySetup.busy) return telemetrySetup.batch ? t('telemetry.progress', {
@@ -39,7 +38,7 @@
   });
 </script>
 
-{#if full || telemetry.rows.length || telemetrySetup.busy || telemetry.error || telemetrySetup.error}
+{#if full || pending.length > 0}
   <section bind:this={section} id={full ? 'telemetry-settings' : undefined} tabindex="-1"
     class="telemetry-setup" class:compact={!full} aria-label={t('telemetry.title')}>
     <div class="heading">
@@ -48,7 +47,7 @@
         {#if !full}<p class="hint" role="status">{summary}</p>{/if}
       </div>
       <div class="actions">
-        <button type="button" disabled={telemetrySetup.busy || telemetry.checking || !ready.length}
+        <button type="button" disabled={telemetrySetup.busy || telemetry.checking || !pending.length}
           onclick={() => void configureAllTelemetry()}>{t('telemetry.configureAll')}</button>
         {#if full}
           <button type="button" disabled={telemetrySetup.busy || telemetry.checking}

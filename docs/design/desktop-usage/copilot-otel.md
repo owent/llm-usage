@@ -52,8 +52,9 @@ do not verify every sender/version's authentication configuration; see
 
 After startup, bounded background discovery checks installation manifests and agent launchers
 on PATH. User directories locate settings without establishing installation; leftover directories
-after uninstall do not appear. Checks are read-only. Overview shows only a short notice,
-Enable all and View details. Details opens Settings → Local telemetry, listing installed
+after uninstall do not appear. Checks are read-only. While any installed target is eligible
+for setup, Overview shows a short notice, Enable all and View details. Settings → Local telemetry
+remains available when that notice disappears. View details opens this section, listing installed
 agents supported by these checks, with batch configuration, individual preview/apply/revoke
 and recheck. Do not show templates for uninstalled agents.
 

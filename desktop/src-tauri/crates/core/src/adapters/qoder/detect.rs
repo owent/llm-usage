@@ -208,7 +208,8 @@ fn probe_native(path: &Path) -> std::io::Result<(bool, bool)> {
             && row["message"]["id"]
                 .as_str()
                 .is_some_and(|v| !v.trim().is_empty())
-            && (row["modelSource"] == "custom"
+            && (has_request_anchor(&row)
+                || row["modelSource"] == "custom"
                 || row["message"]["usage"]["billable"].is_boolean()
                 || ["credits", "original_credits"].iter().any(|key| {
                     row["message"]["usage"][*key]
@@ -222,6 +223,27 @@ fn probe_native(path: &Path) -> std::io::Result<(bool, bool)> {
     Ok((false, false))
 }
 
+pub(super) fn is_uuid(value: &str) -> bool {
+    value.len() == 36
+        && value.bytes().enumerate().all(|(i, b)| match i {
+            8 | 13 | 18 | 23 => b == b'-',
+            _ => b.is_ascii_hexdigit(),
+        })
+}
+
+// CLI persistence can omit usage while retaining the request and response digests.
+// The anchor identifies the envelope. The transcript reader still validates each call.
+fn has_request_anchor(row: &serde_json::Value) -> bool {
+    let anchor = &row["requestTokenAnchor"];
+    row["responseGroupId"].as_str().is_some_and(is_uuid)
+        && anchor["requestId"].as_str().is_some_and(is_uuid)
+        && ["request", "response"].iter().all(|key| {
+            anchor[*key]
+                .as_str()
+                .is_some_and(|s| s.len() == 64 && s.bytes().all(|b| b.is_ascii_hexdigit()))
+        })
+}
+
 pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     // Temporary lock/timeout/removal after enumeration is Pending; retry detection next run.
     let Some(head) = crate::adapters::framework::read_detect_head(path, DETECT_HEAD_BYTES)? else {
@@ -229,6 +251,13 @@ pub fn detect(path: &Path) -> Result<DetectOutcome, CoreError> {
     };
     if head.starts_with(b"SQLite format 3\0") {
         return super::versions::cn_vscode_db::detect(path);
+    }
+    if super::versions::probe_only::sealed_state(path)? {
+        return Ok(DetectOutcome::Supported {
+            format: super::versions::probe_only::SEALED_STATE_FORMAT.into(),
+            format_version: None,
+            basis: VersionBasis::KnownVersion,
+        });
     }
     let text = String::from_utf8_lossy(&head);
     let text = text.trim_start_matches('\u{feff}').trim_start();
