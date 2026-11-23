@@ -1116,80 +1116,56 @@ fn antigravity_desktop_recovers_consumed_generations_and_late_responses() {
         assert!(reports[0].error.is_none(), "{reports:?}");
         reports[0].files[0].events
     };
-    let usage = |id: &[u8]| {
-        [
-            protobuf_field_varint(1, 1535),
-            protobuf_field_varint(2, 1000),
-            protobuf_field_varint(3, 35),
-            protobuf_field_varint(4, 0),
-            protobuf_field_varint(5, 500),
-            protobuf_field_varint(9, 20),
-            protobuf_field_varint(10, 15),
-            protobuf_field_bytes(11, id),
-        ]
-        .concat()
-    };
-    let timestamp = |seconds| {
-        [
-            protobuf_field_varint(1, seconds),
-            protobuf_field_varint(2, 123_456_789),
-        ]
-        .concat()
-    };
-    let step = |idx, id| {
-        [
-            protobuf_field_bytes(1, &timestamp(1_790_000_000)),
-            protobuf_field_bytes(7, &timestamp(1_790_000_002)),
-            protobuf_field_bytes(9, &usage(id)),
-            protobuf_field_bytes(
-                20,
-                &if idx == 0 {
-                    vec![]
-                } else {
-                    protobuf_field_varint(3, idx)
-                },
-            ),
-        ]
-        .concat()
-    };
-    let insert_step = |idx, id| {
-        source
-            .execute(
-                "INSERT INTO steps (step_type,status,metadata) VALUES (15,3,?1)",
-                [step(idx, id)],
-            )
-            .unwrap();
-    };
-    for (idx, id) in [(0, &b"response-zero"[..]), (1, &b"response-one"[..])] {
-        let row = [
-            protobuf_field_bytes(4, b"01234567-abcd-4567-89ab-0123456789ab"),
-            protobuf_field_bytes(
-                1,
-                &[
-                    protobuf_field_bytes(4, &usage(id)),
-                    protobuf_field_bytes(19, b"gemini-4-neon"),
-                ]
-                .concat(),
-            ),
-        ]
-        .concat();
-        source
-            .execute(
-                "INSERT INTO gen_metadata VALUES (?1,?2)",
-                rusqlite::params![idx, row],
-            )
-            .unwrap();
-    }
-    insert_step(1, b"wrong-response");
+    source
+        .execute(
+            "INSERT INTO gen_metadata VALUES (0,?1), (1,?2)",
+            rusqlite::params![
+                antigravity_generation(Some(b"response-zero")),
+                antigravity_generation(None),
+            ],
+        )
+        .unwrap();
+    insert_antigravity_step(&source, 1, b"wrong-response");
     assert_eq!(run(1), 0);
+    let missing_usage: i64 = storage
+        .conn()
+        .query_row(
+            "SELECT count(*) FROM diagnostics WHERE code='desktop_usage_unusable'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(missing_usage, 1);
+    let malformed: i64 = storage
+        .conn()
+        .query_row(
+            "SELECT count(*) FROM diagnostics WHERE code='protobuf_unparseable'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(malformed, 0);
+
     storage.conn().execute(
-        "UPDATE ingestion_checkpoints SET cursor_value=json_set(json_remove(cursor_value,'$.policy'),'$.last_idx',1)",
+        "UPDATE ingestion_checkpoints
+         SET cursor_value=json_set(json_remove(cursor_value,'$.pending'),'$.policy',2,'$.last_idx',1)",
         [],
     ).unwrap();
-
-    insert_step(0, b"response-zero");
+    source
+        .execute(
+            "UPDATE gen_metadata SET data=?1 WHERE idx=1",
+            [antigravity_generation(Some(b"invalid id"))],
+        )
+        .unwrap();
+    insert_antigravity_step(&source, 0, b"response-zero");
     assert_eq!(run(2), 1);
-    insert_step(1, b"response-one");
+    source
+        .execute(
+            "UPDATE gen_metadata SET data=?1 WHERE idx=1",
+            [antigravity_generation(Some(b"response-one"))],
+        )
+        .unwrap();
+    insert_antigravity_step(&source, 1, b"response-one");
     assert_eq!(run(3), 1);
     assert_eq!(run(4), 0);
     let mut stmt = storage
@@ -1232,6 +1208,178 @@ fn antigravity_desktop_recovers_consumed_generations_and_late_responses() {
             2
         ]
     );
+}
+
+#[test]
+fn antigravity_retries_only_unresolved_rows_and_never_rewinds_fresh_pages() {
+    use llm_usage_core::adapters::antigravity::AntigravityAdapter;
+    let dir = common::TempDir::new("agy-retry-pages");
+    let database = dir.db_path();
+    let source = rusqlite::Connection::open(&database).unwrap();
+    source.execute_batch(
+        "CREATE TABLE gen_metadata (idx INTEGER PRIMARY KEY, data BLOB);
+         CREATE TABLE steps (idx INTEGER PRIMARY KEY, step_type INTEGER, status INTEGER, metadata BLOB);",
+    ).unwrap();
+    for idx in 0..6 {
+        let id = format!("response-{idx}");
+        source
+            .execute(
+                "INSERT INTO gen_metadata VALUES (?1,?2)",
+                rusqlite::params![idx as i64, antigravity_generation(Some(id.as_bytes()))],
+            )
+            .unwrap();
+        insert_antigravity_step(&source, idx, id.as_bytes());
+    }
+    insert_antigravity_step(&source, 0, b"response-0");
+
+    let adapter = AntigravityAdapter::new();
+    let mut limits = ScanLimits::default();
+    limits.jsonl.max_lines = Some(2);
+    let target = target_for(&database);
+    let mut stored = StoredScanState::default();
+    for (last_idx, read, events, status, retries) in [
+        (1, 2, 1, ScanStatus::BudgetExhausted, Some(3)),
+        (3, 3, 2, ScanStatus::BudgetExhausted, Some(2)),
+        (5, 3, 2, ScanStatus::Complete, Some(1)),
+        (5, 1, 0, ScanStatus::Complete, None),
+        (5, 0, 0, ScanStatus::Complete, None),
+    ] {
+        let outcome = adapter.scan(&target, &stored, &limits, NOW).unwrap();
+        assert_eq!(outcome.records_seen, read);
+        assert_eq!(outcome.events.len(), events);
+        assert_eq!(outcome.status, status);
+        let cursor = outcome.cursor.as_ref().unwrap();
+        assert_eq!(cursor["last_idx"], last_idx);
+        assert_eq!(cursor["pending"]["0"].as_u64(), retries);
+        if read == 1 {
+            assert!(outcome
+                .diagnostics
+                .iter()
+                .any(|d| d.code == "desktop_generation_retry_limit"));
+        }
+        stored.cursor = outcome.cursor;
+    }
+}
+
+#[test]
+fn antigravity_rotates_to_another_conversation_after_a_bounded_page() {
+    use llm_usage_core::adapters::framework::{run_adapter_scan, DiscoverContext, RunConfig};
+    use llm_usage_core::jobs::TriggerKind;
+
+    let (dir, storage) = common::temp_storage("agy-rotate");
+    let root = dir.path().join(".gemini/antigravity/conversations");
+    std::fs::create_dir_all(&root).unwrap();
+    for (name, ids) in [
+        ("a.db", &["pending", "response-a"][..]),
+        ("b.db", &["response-b"][..]),
+    ] {
+        let source = rusqlite::Connection::open(root.join(name)).unwrap();
+        source.execute_batch(
+            "CREATE TABLE gen_metadata (idx INTEGER PRIMARY KEY, data BLOB);
+             CREATE TABLE steps (idx INTEGER PRIMARY KEY, step_type INTEGER, status INTEGER, metadata BLOB);",
+        ).unwrap();
+        for (idx, id) in ids.iter().enumerate() {
+            source
+                .execute(
+                    "INSERT INTO gen_metadata VALUES (?1,?2)",
+                    rusqlite::params![idx as i64, antigravity_generation(Some(id.as_bytes()))],
+                )
+                .unwrap();
+            if *id != "pending" {
+                insert_antigravity_step(&source, idx as u64, id.as_bytes());
+            }
+        }
+    }
+    let adapter = llm_usage_core::adapters::built_in_adapters()
+        .into_iter()
+        .find(|adapter| adapter.adapter_id() == "antigravity")
+        .unwrap();
+    let ctx = DiscoverContext {
+        home_dir: Some(dir.path().to_path_buf()),
+        ..Default::default()
+    };
+    let mut limits = ScanLimits::default();
+    limits.jsonl.max_lines = Some(1);
+    let run = |sequence: i64| {
+        run_adapter_scan(
+            &storage,
+            adapter.as_ref(),
+            &ctx,
+            &RunConfig {
+                timezone: "UTC".into(),
+                now_ms: NOW + sequence,
+                limits: limits.clone(),
+                trigger: TriggerKind::Manual,
+                run_id_prefix: format!("agy-rotate-{sequence}"),
+                origin_host_id: None,
+            },
+        )
+        .unwrap()
+    };
+    let first = run(1);
+    assert_eq!(first[0].files.len(), 1);
+    assert!(first[0].files[0].file_id.ends_with("a.db"));
+    assert_eq!(first[0].files[0].status, "budget_exhausted");
+    let next = run(2);
+    assert_eq!(next[0].files.len(), 2);
+    assert!(next[0].files[0].file_id.ends_with("b.db"));
+    assert_eq!(next[0].files[0].events, 1);
+    assert!(next[0].files[1].file_id.ends_with("a.db"));
+    assert_eq!(next[0].files[1].events, 1);
+}
+
+fn antigravity_usage(id: &[u8]) -> Vec<u8> {
+    [
+        protobuf_field_varint(1, 1535),
+        protobuf_field_varint(2, 1000),
+        protobuf_field_varint(3, 35),
+        protobuf_field_varint(4, 0),
+        protobuf_field_varint(5, 500),
+        protobuf_field_varint(9, 20),
+        protobuf_field_varint(10, 15),
+        protobuf_field_bytes(11, id),
+    ]
+    .concat()
+}
+
+fn antigravity_generation(id: Option<&[u8]>) -> Vec<u8> {
+    let mut chat = protobuf_field_bytes(19, b"gemini-4-neon");
+    if let Some(id) = id {
+        chat.extend(protobuf_field_bytes(4, &antigravity_usage(id)));
+    }
+    [
+        protobuf_field_bytes(4, b"01234567-abcd-4567-89ab-0123456789ab"),
+        protobuf_field_bytes(1, &chat),
+    ]
+    .concat()
+}
+
+fn insert_antigravity_step(source: &rusqlite::Connection, idx: u64, id: &[u8]) {
+    let stamp = |seconds| {
+        [
+            protobuf_field_varint(1, seconds),
+            protobuf_field_varint(2, 123_456_789),
+        ]
+        .concat()
+    };
+    let link = if idx == 0 {
+        vec![]
+    } else {
+        protobuf_field_varint(3, idx)
+    };
+    let step = [
+        protobuf_field_bytes(1, &stamp(1_790_000_000)),
+        protobuf_field_bytes(7, &stamp(1_790_000_002)),
+        protobuf_field_bytes(9, &antigravity_usage(id)),
+        protobuf_field_bytes(20, &link),
+    ]
+    .concat();
+    source
+        .execute(
+            "INSERT INTO steps (step_type,status,metadata) VALUES (15,3,?1)",
+            [step],
+        )
+        .unwrap();
 }
 
 fn protobuf_varint(mut v: u64) -> Vec<u8> {

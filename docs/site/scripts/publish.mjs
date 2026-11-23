@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdir, readFile, writeFile, readdir, rm, cp, realpath, lstat } from 'node:fs/promises';
 import { resolve, join, sep } from 'node:path';
 import { configurePages, configuredPages, configurePublicationEnvironment } from './pages-config.mjs';
-import { verifyPublication } from './publication-checks.mjs';
+import { verifyPublication, waitForPagesBuild } from './publication-checks.mjs';
 
 const root = resolve(import.meta.dirname, '../../..');
 const args = process.argv.slice(2);
@@ -74,20 +74,9 @@ try {
   if (initialConfiguration) configurePages();
   if (environmentConfiguration) configurePublicationEnvironment();
   exec('gh', ['api', '--method', 'POST', 'repos/owent/llm-usage/pages/builds']);
-  const deadline = Date.now() + 600000;
-  for (let attempt = 0; attempt < 60; attempt++) {
-    const remaining = deadline - Date.now();
-    if (remaining <= 0) throw new Error('Pages build did not complete within ten minutes; inspect existing build before retrying');
-    const build = JSON.parse(exec('gh', ['api', 'repos/owent/llm-usage/pages/builds/latest'], root, Math.min(60000, remaining)));
-    if (build.commit === published && build.status === 'built') {
-      console.log(`Published gh-pages ${published}; Pages build completed for source ${sourceRevision}.`);
-      process.exitCode = 0;
-      break;
-    }
-    if (build.commit === published && build.status === 'errored') throw new Error(`Pages build failed: ${build.error?.message ?? 'unknown error'}`);
-    if (attempt === 59) throw new Error('Pages build did not complete within ten minutes; inspect existing build before retrying');
-    await new Promise(done => setTimeout(done, Math.min(10000, Math.max(0, deadline - Date.now()))));
-  }
+  await waitForPagesBuild(published, timeout => JSON.parse(exec('gh',
+    ['api', 'repos/owent/llm-usage/pages/builds?per_page=10'], root, timeout)));
+  console.log(`Published gh-pages ${published}; Pages build completed for source ${sourceRevision}.`);
 } finally {
   if (registered) git(['worktree', 'remove', '--force', worktree]);
 }

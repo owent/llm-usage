@@ -87,6 +87,10 @@ git diff --check
 保留历史、`CNAME` 和 `.nojekyll`；PR 不能发布。Pages 部署显式执行，因为单独使用
 `GITHUB_TOKEN` 推送不会触发分支 Pages 构建。
 
+同一个 `gh-pages` 提交的构建还在运行时，GitHub Pages 可能已将另一次取消的构建记为失败。
+发布脚本检查最近构建中与该提交匹配的记录，最多等待十分钟。期限内没有成功记录时，脚本报告
+该提交的构建错误或等待超时。
+
 首次发布在所有检查通过后，由管理员的 GitHub CLI 会话使用发布脚本的
 `--configure-pages` 参数。创建或修改 Pages 设置需要 Administration 与 Pages 权限；
 普通 CI 不授予 Administration 权限。后续构建更新线上分支前，会核对已配置的来源分支、

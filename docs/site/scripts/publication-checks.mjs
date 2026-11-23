@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFile, readdir } from 'node:fs/promises';
 import { resolve, relative } from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 
 export const validationFile = '.llm-usage-validation.json';
 export const requiredChecks = ['content', 'unit', 'build', 'browser'];
@@ -32,4 +33,23 @@ export async function verifyPublication(directory, sourceRevision) {
   if (!evidence.files || keys.length !== Object.keys(evidence.files).length
     || keys.some(key => actual[key] !== evidence.files[key])) throw new Error('Compiled documentation changed after validation');
   return evidence;
+}
+
+export async function waitForPagesBuild(revision, listBuilds, {
+  timeoutMs = 600_000,
+  pollIntervalMs = 10_000,
+} = {}) {
+  const deadline = performance.now() + timeoutMs;
+  let lastFailure;
+  for (let remaining = deadline - performance.now(); remaining > 0; remaining = deadline - performance.now()) {
+    const builds = listBuilds(Math.min(60_000, Math.ceil(remaining)));
+    const matching = builds.filter(build => build.commit === revision);
+    if (matching.some(build => build.status === 'built')) return;
+    const failed = matching.find(build => build.status === 'errored');
+    if (failed) lastFailure = failed.error?.message ?? 'unknown error';
+    const waitMs = Math.min(pollIntervalMs, deadline - performance.now());
+    if (waitMs > 0) await delay(waitMs);
+  }
+  if (lastFailure) throw new Error(`Pages build failed for ${revision}: ${lastFailure}`);
+  throw new Error(`Pages build did not complete for ${revision}; inspect existing builds before retrying`);
 }

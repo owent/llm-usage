@@ -336,10 +336,14 @@ default zeros remain unknown. Complete input requires all three input buckets.
 The same SQLite read transaction matches each generation to one completed planner
 response in `steps` (`step_type=15`, `status=3`) by generation index
 (`metadata.#20.#3`) and response ID (`metadata.#9.#11`). The completion timestamp
-is `metadata.#7`. Missing or ambiguous responses are diagnosed and retried, including
-generations whose step appears later in the WAL. Updating the parser replays old
-positions including index zero and reuses the existing response keys. The older
-top-level usage layout keeps its own field mapping and timestamp checks.
+is `metadata.#7`. Missing or ambiguous responses and unusable nested usage have
+separate diagnostics. The forward generation cursor advances past these rows.
+Up to 512 pending indices are saved per database for three further scans, including
+when a step or usage update appears later in the WAL. Reaching either limit records
+a diagnostic. The scanner rotates between conversation files after a bounded page.
+Updating the scan policy replays old positions including index zero and reuses the
+existing response keys. The older top-level usage layout keeps its own field mapping
+and timestamp checks.
 
 <a id="每个适配器的交付要求"></a>
 

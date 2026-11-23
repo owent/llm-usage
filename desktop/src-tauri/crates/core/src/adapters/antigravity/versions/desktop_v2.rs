@@ -5,7 +5,7 @@ use crate::adapters::{run_policy, usage_map};
 use crate::domain::{FieldQuality, TokenQuality, TokenUsage, MIN_PLAUSIBLE_MS};
 use crate::error::CoreError;
 use rusqlite::Connection;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 pub const FORMAT_VERSION: &str = "antigravity-desktop-generation-2";
 
@@ -65,14 +65,17 @@ pub(super) type CompletionTimes = BTreeMap<i64, BTreeMap<String, Option<i64>>>;
 
 pub(super) fn completion_times(
     conn: &Connection,
-    after_idx: i64,
+    wanted: &BTreeSet<(i64, &str)>,
 ) -> Result<CompletionTimes, CoreError> {
+    let mut times = CompletionTimes::new();
+    if wanted.is_empty() {
+        return Ok(times);
+    }
     let has_steps: bool = conn.query_row(
         "SELECT EXISTS(SELECT 1 FROM sqlite_schema WHERE type='table' AND name='steps')",
         [],
         |r| r.get(0),
     )?;
-    let mut times = CompletionTimes::new();
     if !has_steps {
         return Ok(times);
     }
@@ -86,7 +89,9 @@ pub(super) fn completion_times(
         let rusqlite::types::ValueRef::Blob(blob) = row.get_ref(0)? else {
             continue;
         };
-        if let Some((index, id, ms)) = completion(blob).filter(|(index, _, _)| *index > after_idx) {
+        if let Some((index, id, ms)) =
+            completion(blob).filter(|&(index, id, _)| wanted.contains(&(index, id)))
+        {
             times
                 .entry(index)
                 .or_default()

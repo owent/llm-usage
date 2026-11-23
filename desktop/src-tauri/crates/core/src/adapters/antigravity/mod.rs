@@ -80,6 +80,10 @@ impl crate::adapters::framework::SourceAdapter for AntigravityAdapter {
         out
     }
 
+    fn rotate_file_windows(&self) -> bool {
+        true
+    }
+
     fn instance_id(&self, root: &crate::adapters::framework::DiscoveredRoot) -> String {
         format!(
             "antigravity@{}",
@@ -185,7 +189,7 @@ impl crate::adapters::framework::SourceAdapter for AntigravityAdapter {
                 "input_semantics": "桌面版输入桶独立，缺失字段保持未知；旧版映射按原规则处理",
             }),
             incremental: serde_json::json!({
-                "cursor": "按 generation index 分批，升级后重读旧位置；未匹配到完成记录的行再检查",
+                "cursor": "按 generation index 向前分批，升级后重读旧位置；未就绪行单独限次重试",
             }),
             dedup: serde_json::json!({
                 "primary": "antigravity:<file_identity>:<responseId>",

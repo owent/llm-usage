@@ -106,6 +106,11 @@ changes publish the compiled root to `gh-pages`, keeping history, `CNAME` and `.
 PRs cannot publish. The Pages deployment step is explicit because a `GITHUB_TOKEN` push
 alone does not start a branch-based Pages build.
 
+GitHub Pages can report a cancelled build as errored while another build of the same
+`gh-pages` revision is still running. The publisher checks recent builds for the exact
+revision and waits up to ten minutes for success. If it sees no success, it reports the
+failure recorded for that revision or the polling timeout.
+
 The first publication uses the publisher's `--configure-pages` flag with an administrator's
 GitHub CLI session after all checks pass. Creating or changing Pages settings requires
 administration permission in addition to Pages permission; ordinary CI does not receive
