@@ -1,60 +1,60 @@
 {
   "schema": 1,
   "repository": "owent/llm-usage",
-  "generated_at": "2026-11-23T11:53:26.472Z",
+  "generated_at": "2026-11-23T12:14:24.279Z",
   "release": {
-    "tag_name": "v0.5.0",
+    "tag_name": "v0.5.1",
     "draft": false,
     "prerelease": false,
     "assets": [
       {
-        "name": "LLMUsage-0.5.0-windows-x64-portable.tar.zst",
+        "name": "LLMUsage-0.5.1-windows-x64-portable.tar.zst",
         "state": "uploaded",
-        "size": 4392483,
-        "digest": "sha256:cdc741aebf6af28728e5cbc470810ffb0495bdf1dc7b4c066fb0f296dc5a5245",
-        "browser_download_url": "https://github.com/owent/llm-usage/releases/download/v0.5.0/LLMUsage-0.5.0-windows-x64-portable.tar.zst"
+        "size": 4418648,
+        "digest": "sha256:44731ba5be0a279837f90ad395be5c68cffd5e342db1f20114c0ac8951f41499",
+        "browser_download_url": "https://github.com/owent/llm-usage/releases/download/v0.5.1/LLMUsage-0.5.1-windows-x64-portable.tar.zst"
       },
       {
-        "name": "LLMUsage-0.5.0-windows-arm64-portable.tar.zst",
+        "name": "LLMUsage-0.5.1-windows-arm64-portable.tar.zst",
         "state": "uploaded",
-        "size": 4208586,
-        "digest": "sha256:acfc2d37678a800caa01fac351d2ba2fc92eefde83c6011657c42619cb1df6be",
-        "browser_download_url": "https://github.com/owent/llm-usage/releases/download/v0.5.0/LLMUsage-0.5.0-windows-arm64-portable.tar.zst"
+        "size": 4241325,
+        "digest": "sha256:3b4dc2da25d7859754281b329a053151788bd7b0ab059fa9b48012eb2f0b01fe",
+        "browser_download_url": "https://github.com/owent/llm-usage/releases/download/v0.5.1/LLMUsage-0.5.1-windows-arm64-portable.tar.zst"
       },
       {
-        "name": "LLMUsage-0.5.0-linux-x64-portable.tar.zst",
+        "name": "LLMUsage-0.5.1-linux-x64-portable.tar.zst",
         "state": "uploaded",
-        "size": 70785011,
-        "digest": "sha256:4f482086287eb0db780a0cd26d046f7665509cc7307e5d2b0d746fd824a3bbc2",
-        "browser_download_url": "https://github.com/owent/llm-usage/releases/download/v0.5.0/LLMUsage-0.5.0-linux-x64-portable.tar.zst"
+        "size": 70623564,
+        "digest": "sha256:f0f246133023e9bc811b356ae4d616b296315850c849ca469b5ec10b662cb756",
+        "browser_download_url": "https://github.com/owent/llm-usage/releases/download/v0.5.1/LLMUsage-0.5.1-linux-x64-portable.tar.zst"
       },
       {
-        "name": "LLMUsage-0.5.0-linux-arm64-portable.tar.zst",
+        "name": "LLMUsage-0.5.1-linux-arm64-portable.tar.zst",
         "state": "uploaded",
-        "size": 68965590,
-        "digest": "sha256:60e7258c6a2d6044de473d2bb797b9760b87269751d6a228fd5e827a1f849b97",
-        "browser_download_url": "https://github.com/owent/llm-usage/releases/download/v0.5.0/LLMUsage-0.5.0-linux-arm64-portable.tar.zst"
+        "size": 68822694,
+        "digest": "sha256:5b4a93376b79499f432303dcda0bc435fdc0923a6f8d25e23e778b1ccbb6fb31",
+        "browser_download_url": "https://github.com/owent/llm-usage/releases/download/v0.5.1/LLMUsage-0.5.1-linux-arm64-portable.tar.zst"
       },
       {
-        "name": "LLMUsage-0.5.0-macos-x64-portable.tar.zst",
+        "name": "LLMUsage-0.5.1-macos-x64-portable.tar.zst",
         "state": "uploaded",
-        "size": 4528666,
-        "digest": "sha256:954dd5e293630bcd0ad97ed9589bc84a9a2a91b00b6128e69d30a425b4716f42",
-        "browser_download_url": "https://github.com/owent/llm-usage/releases/download/v0.5.0/LLMUsage-0.5.0-macos-x64-portable.tar.zst"
+        "size": 4559243,
+        "digest": "sha256:a5b531febcc5c5544c16608e8048b304a437b80853608a766d10ed084cc598fb",
+        "browser_download_url": "https://github.com/owent/llm-usage/releases/download/v0.5.1/LLMUsage-0.5.1-macos-x64-portable.tar.zst"
       },
       {
-        "name": "LLMUsage-0.5.0-macos-arm64-portable.tar.zst",
+        "name": "LLMUsage-0.5.1-macos-arm64-portable.tar.zst",
         "state": "uploaded",
-        "size": 4226949,
-        "digest": "sha256:8e00d80ab44615c6df39a7db51604940eb6a8f3f4b3a410d55827d0d2b9637c7",
-        "browser_download_url": "https://github.com/owent/llm-usage/releases/download/v0.5.0/LLMUsage-0.5.0-macos-arm64-portable.tar.zst"
+        "size": 4268100,
+        "digest": "sha256:c69f125713e666ebe5fc0c403c92d5992a0e9d211695b3a9600ef48e768401d0",
+        "browser_download_url": "https://github.com/owent/llm-usage/releases/download/v0.5.1/LLMUsage-0.5.1-macos-arm64-portable.tar.zst"
       },
       {
-        "name": "LLMUsage_0.5.0_x64-setup.exe",
+        "name": "LLMUsage_0.5.1_x64-setup.exe",
         "state": "uploaded",
-        "size": 4308689,
-        "digest": "sha256:4bfc644d3e4aa4eeae81ac73c67a20b46e0223ccb67cdd8b6f0d1f1896462789",
-        "browser_download_url": "https://github.com/owent/llm-usage/releases/download/v0.5.0/LLMUsage_0.5.0_x64-setup.exe"
+        "size": 4334442,
+        "digest": "sha256:aa7b2df66a7e755852d9156032d47fe3a2be65df826305cc6efc9f4f3b5cb655",
+        "browser_download_url": "https://github.com/owent/llm-usage/releases/download/v0.5.1/LLMUsage_0.5.1_x64-setup.exe"
       }
     ]
   }
