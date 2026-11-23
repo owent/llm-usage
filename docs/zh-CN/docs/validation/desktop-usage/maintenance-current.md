@@ -267,3 +267,39 @@ pnpm 旧的间接依赖选择将 astro2tsx 0.1.3 与 emnapi 2 beta 配合使用�
 `expired_by_retention`，没有导入。GUI 测试现将 OpenCode/Qoder 的合成副本整体移到近期历史
 窗口，保留全部 token/身份/版本字段及相对时间，查询使用同一窗口。产品保留规则与原始测试
 文件均未改变。
+
+## Antigravity、依赖与模型清单
+
+2026-11-23，Windows 上的 Antigravity 2.34.0 在两个本机会话数据库中记录了 Gemini 4 Neon
+调用。旧读取器要求用量出现在 protobuf 顶层，并随生成记录写入时间戳，因此错过新版的嵌套
+用量和规划器完成记录。旧读取器也跳过了生成序号零。[适配器规范](../../design/desktop-usage/adapters.md#antigravity-desktop-generation-format)
+记录了调用识别字段及旧处理位置的恢复方法。
+
+只读探针在内存中读取 SQLite 已提交的数据页和 WAL 帧。验证数据库保留模型 ID、用量字段和
+统一偏移后的时间戳，并替换响应标识。Windows x64 上用 Rust 1.100.0 构建的调试可执行文件
+对隔离应用数据库运行了两次 `--scan-once`。两次均退出 0，51 条调用的模型、完成时间、
+未缓存输入、缓存读取、总输出和推理用量逐条吻合，重复扫描后仍为 51 条。独立无界面测试套件
+通过 11 项检查。这些结果验证本机采集和持久化，原生 GUI 和其他 Antigravity 客户端版本需要独立验证。
+
+从 npm 和 crates.io 核对直接依赖的当前版本。两份 npm 安装和 pnpm 冻结锁文件检查均退出 0。
+npm 和 Cargo 同时解析兼容的传递依赖更新。当前 Astro 和 Svelte 检查器的 TypeScript
+对等依赖上限为 6.x，因此保留 6.0.3。仓库和 GitHub 工作流使用 Rust 1.100.0。Linux
+Secret Service 6.0.0 分别启用 Tokio 和 Rust 加密功能。应用凭据模块使用这些功能通过
+`x86_64-unknown-linux-gnu` 目标的编译检查。Linux D-Bus 往返未验证。
+
+离线清单新增 GLM-5.4、Gemini 4 Neon、GPT-6.2 Astra 和 Sol、MAI Code 2 和 Flash、
+Hy4 Flash。[Coding Plan 清单](https://models.dev/providers/zai-coding-plan/)收录 GLM-5.4，
+其按量价在 [Z.ai 官方价目表](https://docs.z.ai/guides/overview/pricing)中仍未知。
+2026-11-23 快照新增 [Google](https://aistudio.google.com/docs/pricing#gemini-4-neon)、
+[OpenAI](https://developers.openai.com/api/docs/pricing)和
+[腾讯云](https://cloud.tencent.com/document/product/1823/130055)的官方标准 API 价。
+Hy4 Flash 优惠于北京时间 11 月 30 日中午结束。按日生效的快照将切换所在的 UTC 日期留空，
+12 月 1 日起采用标准价。
+
+`npm run check:docs`、`npm run test:docs` 和 `npm run build:docs` 均退出 0。
+标准浏览器测试脚本在当前沙箱内无法启动 Edge。用本机 Chrome 157 执行同一组 Playwright 断言通过。
+
+`npm run verify` 的 Markdown、资源、脚本、前端测试、Svelte、格式和 Clippy 检查通过。
+沙箱内 Rust 测试通过 1,201 项，按条件忽略十项。一项 Windows 接收器生命周期测试在
+只读凭据可用性探测时被拒绝。该项在沙箱外单独重跑通过。Rust 文档测试和前端生产构建
+另行执行，均退出 0。

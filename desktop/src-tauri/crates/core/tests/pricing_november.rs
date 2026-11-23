@@ -101,6 +101,64 @@ fn preview_alias_is_known_without_inventing_a_price_or_aliasing_a_routing_key() 
         );
     }
 }
+
+#[test]
+fn november_23_catalogue_keeps_glm_plan_unpriced_and_applies_official_api_tiers() {
+    let glm = offline_model_catalog()
+        .iter()
+        .find(|m| m.id == "glm-5.4")
+        .unwrap();
+    assert!(!glm.pricing_available);
+    let (_dir, storage) = temp_storage("nov-23-prices");
+    let now = ts("2026-11-23T12:00:00Z");
+    storage.ensure_seed_price_snapshot(now).unwrap();
+    storage.ensure_seed_price_snapshot(now + 1).unwrap();
+    let book = storage.load_price_book().unwrap();
+    let mut glm_event = event("glm-5.4");
+    glm_event.occurred_at_ms = now;
+    assert_eq!(
+        book.estimate_at_time(&glm_event, &EstimateOptions::default()),
+        EventEstimate::Unpriced(UnpricedReason::NoPriceRow)
+    );
+    for (model, tokens, amount) in [
+        ("gemini-4-neon", 1_000_000, 1800),
+        ("gpt-6.2-astra", 272_000, 4218),
+        ("gpt-6.2-astra", 272_001, 6435),
+        ("gpt-6.2-sol", 1_000_000, 1900),
+    ] {
+        let mut e = event(model);
+        e.occurred_at_ms = now;
+        e.input_uncached = Some(tokens);
+        e.input_total = Some(tokens);
+        let EventEstimate::Priced(result) = book.estimate_at_time(&e, &EstimateOptions::default())
+        else {
+            panic!("missing {model}");
+        };
+        assert_eq!(result.total_amount_minor, amount, "{model}");
+    }
+    let mut hy4 = event("hy4-flash");
+    hy4.provider_id = Some("tencent".into());
+    let mut options = EstimateOptions::default();
+    options
+        .provider_channels
+        .insert("tencent".into(), ("cn-guangzhou".into(), "api".into()));
+    for (date, amount) in [("2026-11-29T12:00:00Z", 125), ("2026-12-01T00:00:00Z", 250)] {
+        hy4.occurred_at_ms = ts(date);
+        let EventEstimate::Priced(result) = book.estimate_at_time(&hy4, &options) else {
+            panic!("missing Guangzhou rate on {date}");
+        };
+        assert_eq!(
+            (result.currency.as_str(), result.total_amount_minor),
+            ("CNY", amount)
+        );
+    }
+    hy4.occurred_at_ms = ts("2026-11-30T08:00:00Z");
+    assert!(matches!(
+        book.estimate_at_time(&hy4, &options),
+        EventEstimate::Unpriced(_)
+    ));
+}
+
 #[test]
 fn old_database_imports_november_snapshot_once_without_rewriting_estimates() {
     let (dir, storage) = temp_storage("nov-upgrade");

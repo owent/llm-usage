@@ -1075,6 +1075,165 @@ fn antigravity_protobuf_rows_and_timestamp_gate() {
         .any(|d| d.code == "rows_without_verifiable_timestamp"));
 }
 
+#[test]
+fn antigravity_desktop_recovers_consumed_generations_and_late_responses() {
+    use llm_usage_core::adapters::framework::{run_adapter_scan, DiscoverContext, RunConfig};
+    use llm_usage_core::jobs::TriggerKind;
+
+    let (dir, storage) = common::temp_storage("agy-desktop");
+    let root = dir.path().join(".gemini/antigravity/conversations");
+    std::fs::create_dir_all(&root).unwrap();
+    let source = rusqlite::Connection::open(root.join("session.db")).unwrap();
+    source.execute_batch(
+        "PRAGMA journal_mode=WAL;
+         CREATE TABLE gen_metadata (idx INTEGER PRIMARY KEY, data BLOB);
+         CREATE TABLE steps (idx INTEGER PRIMARY KEY, step_type INTEGER, status INTEGER, metadata BLOB);",
+    ).unwrap();
+    let adapter = llm_usage_core::adapters::built_in_adapters()
+        .into_iter()
+        .find(|adapter| adapter.adapter_id() == "antigravity")
+        .unwrap();
+    let ctx = DiscoverContext {
+        home_dir: Some(dir.path().to_path_buf()),
+        ..Default::default()
+    };
+    let run = |sequence: i64| {
+        let reports = run_adapter_scan(
+            &storage,
+            adapter.as_ref(),
+            &ctx,
+            &RunConfig {
+                timezone: "UTC".into(),
+                now_ms: NOW + sequence,
+                limits: ScanLimits::default(),
+                trigger: TriggerKind::Manual,
+                run_id_prefix: format!("agy-desktop-{sequence}"),
+                origin_host_id: None,
+            },
+        )
+        .unwrap();
+        assert_eq!(reports.len(), 1);
+        assert!(reports[0].error.is_none(), "{reports:?}");
+        reports[0].files[0].events
+    };
+    let usage = |id: &[u8]| {
+        [
+            protobuf_field_varint(1, 1535),
+            protobuf_field_varint(2, 1000),
+            protobuf_field_varint(3, 35),
+            protobuf_field_varint(4, 0),
+            protobuf_field_varint(5, 500),
+            protobuf_field_varint(9, 20),
+            protobuf_field_varint(10, 15),
+            protobuf_field_bytes(11, id),
+        ]
+        .concat()
+    };
+    let timestamp = |seconds| {
+        [
+            protobuf_field_varint(1, seconds),
+            protobuf_field_varint(2, 123_456_789),
+        ]
+        .concat()
+    };
+    let step = |idx, id| {
+        [
+            protobuf_field_bytes(1, &timestamp(1_790_000_000)),
+            protobuf_field_bytes(7, &timestamp(1_790_000_002)),
+            protobuf_field_bytes(9, &usage(id)),
+            protobuf_field_bytes(
+                20,
+                &if idx == 0 {
+                    vec![]
+                } else {
+                    protobuf_field_varint(3, idx)
+                },
+            ),
+        ]
+        .concat()
+    };
+    let insert_step = |idx, id| {
+        source
+            .execute(
+                "INSERT INTO steps (step_type,status,metadata) VALUES (15,3,?1)",
+                [step(idx, id)],
+            )
+            .unwrap();
+    };
+    for (idx, id) in [(0, &b"response-zero"[..]), (1, &b"response-one"[..])] {
+        let row = [
+            protobuf_field_bytes(4, b"01234567-abcd-4567-89ab-0123456789ab"),
+            protobuf_field_bytes(
+                1,
+                &[
+                    protobuf_field_bytes(4, &usage(id)),
+                    protobuf_field_bytes(19, b"gemini-4-neon"),
+                ]
+                .concat(),
+            ),
+        ]
+        .concat();
+        source
+            .execute(
+                "INSERT INTO gen_metadata VALUES (?1,?2)",
+                rusqlite::params![idx, row],
+            )
+            .unwrap();
+    }
+    insert_step(1, b"wrong-response");
+    assert_eq!(run(1), 0);
+    storage.conn().execute(
+        "UPDATE ingestion_checkpoints SET cursor_value=json_set(json_remove(cursor_value,'$.policy'),'$.last_idx',1)",
+        [],
+    ).unwrap();
+
+    insert_step(0, b"response-zero");
+    assert_eq!(run(2), 1);
+    insert_step(1, b"response-one");
+    assert_eq!(run(3), 1);
+    assert_eq!(run(4), 0);
+    let mut stmt = storage
+        .conn()
+        .prepare(
+            "SELECT model_raw, occurred_at_ms, input_uncached, input_cache_read, input_total,
+                output_total, output_reasoning, parser_version
+         FROM usage_events ORDER BY source_record_key",
+        )
+        .unwrap();
+    let rows = stmt
+        .query_map([], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, i64>(1)?,
+                r.get::<_, i64>(2)?,
+                r.get::<_, i64>(3)?,
+                r.get::<_, Option<i64>>(4)?,
+                r.get::<_, i64>(5)?,
+                r.get::<_, i64>(6)?,
+                r.get::<_, String>(7)?,
+            ))
+        })
+        .unwrap()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    assert_eq!(
+        rows,
+        vec![
+            (
+                "gemini-4-neon".to_string(),
+                1_790_000_002_123,
+                1000,
+                500,
+                None,
+                35,
+                20,
+                "antigravity-desktop-generation-2".to_string()
+            );
+            2
+        ]
+    );
+}
+
 fn protobuf_varint(mut v: u64) -> Vec<u8> {
     let mut out = Vec::new();
     loop {

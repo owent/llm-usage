@@ -127,7 +127,7 @@ Grok cumulative/compaction differences and Goose reasoning differences; use nati
 | Droid (Factory.ai, closed source) | `~/.factory/sessions/{uuid}.settings.json` cumulative tokenUsage input/output/cacheRead/cacheCreation/thinking, plus same-name JSONL transcript. | Retain cumulative interval semantics; turn allocation is an estimate, not per-call usage. No cost fields. providerLock/transcript time attribution needs samples. | M8 session aggregates; reject transcript-byte allocation; A32. |
 | Amazon Q Developer CLI | Timestamped JSON history under `~/.aws/amazonq/history/` from third-party references; official open-source repository. | History usage fields require source inspection first. SSO re-login may lose history; show gaps. | No token adapter: 2026-09-29 source shows tokenUsage lost in type conversion and absent from conversations/history; A33. |
 | Grok Build (xAI, closed source) | `~/.grok/sessions/<workspace>/<session>/` updates.jsonl/signals.json/summary.json/events.jsonl, plus `~/.grok/logs/unified.jsonl`. | Explicit five-bucket usage only. Cumulative totalTokens/compaction differences are rejected inference. PID reuse/subagent ownership complex; conflicting model references stay unknown. GROK_HOME. | M8 explicit updates.jsonl usage only, without cumulative compensation/PID attribution; A34. |
-| Antigravity CLI/extensions (Google) | `~/.gemini/antigravity[-cli]/conversations/<uuid>.db` gen_metadata protobuf per-turn usage; input=fixed system prompt+new input, cacheRead/output/thinking/responseId. | Reverse-engineered layout and changed 1.1.18 time fields require version-specific references. IDE language-server usage needs separate opt-in verification. Shared Gemini root, different subdirectories. | M8 reverse-engineered input=#1+#2/time=#9.#4; 1.1.18+ untimed rows rejected. Unverified IDE language-server format unimplemented; A35. |
+| Antigravity desktop/CLI/extensions (Google) | `~/.gemini/antigravity[-cli]/conversations/<uuid>.db`, generation usage in SQLite protobuf records. | Desktop 2.34.0 matches generation records to completed planner responses. Legacy CLI records require a verifiable timestamp in the generation. | Windows desktop verified with Gemini 4 Neon. Legacy CLI mapping retained from M8 source inspection, A35. |
 | Junie CLI (JetBrains) | `JUNIE_HOME/sessions` or `~/.junie/sessions/<session-id>/events.jsonl` modelUsage. Official 26.9.22/seven real failed-task calls match API/CLI. | inputTokens uncached; default-zero tokens/cost/duration unknown, positive cost Estimated. No API/provider/product version; no invented complete total. timestampMs completion; positive time alone supplies start. | M8 implemented; doc1→2 complete old-summary/unchanged-cursor correction, transactions/conflicts passed. [Executable/sample status](../../validation/desktop-usage/m8-container-samples.md), A36. |
 | Kiro (AWS CLI/IDE) | Three formats: CLI `~/.kiro/sessions/cli/*.json(+jsonl)`, kiro-cli `~/.local/share/kiro-cli/data.sqlite3` conversations_v2, IDE globalStorage kiro.kiroagent .chat/execution/promptLogs. | Auto agent often zero; explicit counts only, without inferred usage. execution/.chat deduplicated by executionId. Metering credits separate. Cross-format deduplication required. | M8 real CLI turns/kiro-cli SQLite request_metadata; Auto zeros/estimates rejected, IDE estimate format unimplemented; overlapping formats need real reconciliation; A37. |
 | Built-in Zed (moved from F1) | DbThread 0.3.0 thread counters span model changes; turn buckets do not establish per-call coverage. | Native custom IDs accepted by complete structure; mixed input semantics remain unknown. Keep old hosted/llm-usage-zhipu mappings separate, default zeros unknown and bounded decompression. | 1.22.0/76659a55: three GLM turns, 21,696 uncached input/10,816 cache read/61 output. 1.26.2/c4273271: mixed GLM/DeepSeek thread, 164 output; input/cache/totals unknown. [Current record](../../validation/desktop-usage/agent-native-20261029.md), A23/A38. |
@@ -321,6 +321,25 @@ mappings only after field/lifecycle tests establish equivalent semantics:
 - Goose/Xum/Droid session aggregates follow Hermes-like interval semantics, without synthetic calls.
 - Antigravity/Gemini share ~/.gemini but have independent subdirectories/discovery. iFlow's
   apparent Gemini similarity is only a research lead; verify every field separately.
+
+<a id="antigravity-desktop-generation-format"></a>
+
+### Antigravity desktop generation records
+
+Windows desktop 2.34.0 stores a generation UUID at `gen_metadata.data.#4`. Its
+model ID is `#1.#19`, and usage is `#1.#4`. In that usage message, `#1` is a model
+enum, `#2` is uncached input, `#3` is output including reasoning, `#4/#5` are
+cache write/read, `#9` is reasoning output, `#10` is text output, and `#11` is
+the response ID. Positive native fields are retained. Omitted fields and protobuf
+default zeros remain unknown. Complete input requires all three input buckets.
+
+The same SQLite read transaction matches each generation to one completed planner
+response in `steps` (`step_type=15`, `status=3`) by generation index
+(`metadata.#20.#3`) and response ID (`metadata.#9.#11`). The completion timestamp
+is `metadata.#7`. Missing or ambiguous responses are diagnosed and retried, including
+generations whose step appears later in the WAL. Updating the parser replays old
+positions including index zero and reuses the existing response keys. The older
+top-level usage layout keeps its own field mapping and timestamp checks.
 
 <a id="每个适配器的交付要求"></a>
 

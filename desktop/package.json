@@ -1,7 +1,7 @@
 {
   "name": "llm-usage-desktop",
   "private": true,
-  "version": "0.5.0",
+  "version": "0.5.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,14 +11,14 @@
     "tauri": "tauri"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2.12.4",
+    "@tauri-apps/api": "^2.12.5",
     "echarts": "^6.1.0"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
-    "@tauri-apps/cli": "^2.12.4",
+    "@tauri-apps/cli": "^2.12.6",
     "playwright": "^1.65.1",
-    "svelte": "^5.57.3",
+    "svelte": "^5.59.1",
     "svelte-check": "^4.7.8",
     "typescript": "^6.0.3",
     "vite": "^8.3.8"

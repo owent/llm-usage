@@ -56,7 +56,7 @@ with Chinese counterparts maintained alongside them.
 
 ## Common commands
 
-Use Node.js 22+ (24 in current CI) and Rust (1.99.1, selected by `rust-toolchain.toml`). The Astro site requires Node 22.23.4+.
+Use Node.js 22+ (24 in current CI) and Rust 1.100.0, selected by `rust-toolchain.toml`. The Astro site requires Node 22.23.4+.
 Run commands from the repository root:
 
 ```powershell

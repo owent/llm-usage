@@ -470,8 +470,8 @@
       "zh": "de0cbc03eabe4bde140b6e658bac6fc4bdfe4ac1df4d6d87ed747b07ab3d65ce"
     },
     "docs/design/desktop-usage/adapters.md": {
-      "en": "4cb0560a694ec01c2217cf78e1c758067a273cfc671068fb5c0dd3c786e44efd",
-      "zh": "eebc3e87269279a47b1f984f6eccfc072fcd11a38f424e8a9e8b571236b038aa"
+      "en": "df0a91d4afd60021002474ed967ab649c9e2fa0aaf23cf59030848569f1ebf49",
+      "zh": "2dede382a8fb608189e2f369065cdeb4fbbfccba6fed3c381d9def63e8ea924a"
     },
     "docs/design/desktop-usage/application-updates.md": {
       "en": "0b27fa4b068b91ed22599c07de880763977eb6ac7001378ec532c6503eb1b781",
@@ -762,8 +762,8 @@
       "zh": "43c4e83a72688bdc8072934a6c94cde6f845efdd89dbdb5311041101eae63633"
     },
     "docs/validation/desktop-usage/maintenance-current.md": {
-      "en": "0a36b07c11665fee17404f00b668732084e11c599f0795394e22f9173353d9ff",
-      "zh": "c1ba26cba5e7a43b5d559db97d173b59c49195eba65465e57977b29e2729056b"
+      "en": "82b6a6e2d4e825a786d6103c3d576b49aa2846825688e830d4c26a8d40cb3ed1",
+      "zh": "550191bb487f265dc15802de45770d56f334b57f399de5e86ffca593c88cc1e7"
     },
     "docs/validation/desktop-usage/model-aliases.md": {
       "en": "7cd262d9367c7c2e9342ffae0c14ffa6a16aa84cb6c0074a8316327dd3685b68",
@@ -862,8 +862,8 @@
       "zh": "d5963238079a03a2ab2da5eeb22e2f08570040f32b6f9275ff27349d3f77f1f2"
     },
     "README.md": {
-      "en": "fc59e504f38b3c9e606ca840c518255d1be9068029e9b6532d431aa04a71fb31",
-      "zh": "973b0b0acd9f0a3e39e84c964a70383cd81e58b43e48112e1b29f5b6f1139b3b"
+      "en": "b7b96aaf9ed9a6d72c80531aae7e5f8523ea4c144aa4d9df383d8019a99a5c6c",
+      "zh": "94feb6f021d9451d32591c8fe304a3b35f75a41c2328fc8e25f582d3d264ea2f"
     }
   },
   "guides": {
@@ -892,8 +892,8 @@
       "zh": "6a3c822a852e0ad406820acbd290ad8978b353b4fe343ff60e190c0f14ec8cb3"
     },
     "docs/site/content/development/setup.md": {
-      "en": "51c0423a856c651e99fb3c45d1146a8e404191394e92bd251a493b8fc62bf08f",
-      "zh": "b54b9eef392435baa0246a98527dd7818cc6e3762535c14ee1fe61302a1dda3a"
+      "en": "82800b6906f21d737dc1497b4f4a8a7f9295b0acb02124b566c56901be7efc15",
+      "zh": "b308dbb83ac709ae5b6778a2e217a5ef1fb9ed16552e0ab32c9774f48fb59eee"
     },
     "docs/site/content/development/testing.md": {
       "en": "3adf3b0c7b8bb7d47aac9de77d43175edb408402a456eb639e662b9851291ad1",

@@ -2,7 +2,7 @@
 
 <a id="桌面用量客户端执行计划"></a>
 
-Version: 0.5.0. Reviewed against the current manifests, registered adapters, application
+Version: 0.5.1. Reviewed against the current manifests, registered adapters, application
 entry points, tests and design requirements on 2026-11-17. Windows 11 x64 remains the
 first desktop target; Linux/macOS CI is retained.
 
@@ -259,6 +259,8 @@ diagnostic history and sealed partitions. Real read-only extraction is already a
 under the [implementation boundaries](docs/design/desktop-usage/implementation-readiness.md).
 Temporary artifacts stay in root `build/`. Version 0.5.0 includes offline model name plugins,
 Copilot CLI reference pricing, oh-my-pi and Qoder collection fixes, and dashboard layout updates.
+Version 0.5.1 adds Antigravity desktop generation recovery, dependency updates and the
+November 23 offline model catalogue.
 The tag workflow verifies all six platform/architecture packages and
 creates a draft; publish only after matching its source, notes and uploaded package sizes/digests.
 Both public mapping endpoints and real Windows automatic HTTPS refresh/restart were verified

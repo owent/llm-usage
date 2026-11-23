@@ -118,7 +118,7 @@ Codex 对完整的超长 `response_item`/`world_state` 记录使用独立的 64 
 | Droid（Factory.ai，闭源） | `~/.factory/sessions/{uuid}.settings.json` tokenUsage（input/output/cacheRead/cacheCreation/thinking，累计）+ 同名 jsonl 转录 | 累计值保留区间语义，分摊到回合属估计不采纳为逐次；无费用字段；providerLock 与转录时间归属待样本 | M8 已实施（tokenUsage 累计快照→会话聚合；转录字节分摊不采），A32 |
 | Amazon Q Developer CLI | `~/.aws/amazonq/history/` 按时间戳 JSON 会话（第三方资料）；官方仓库开源 | history 内 usage/token 字段未核验，先源码级核验再实现；SSO 重登录可能丢历史，保留缺口可见 | 不实施 token 适配器（2026-09-29 源码核验：API tokenUsage 在类型转换层被丢弃，conversations/history 均无 token 字段），A33 |
 | Grok Build（xAI，闭源） | `~/.grok/sessions/<workspace>/<session>/`（updates.jsonl、signals.json、summary.json、events.jsonl）与 `~/.grok/logs/unified.jsonl` | 仅取显式 usage 块五桶；累计 totalTokens 增量与压缩差额补偿是推断不采纳；PID 复用/子代理模型归属复杂，归属依据冲突时保持 unknown；GROK_HOME 覆盖 | M8 已实施（仅 updates.jsonl 显式 usage 块；累计差额/补偿/PID 归因不采），A34 |
-| Antigravity CLI/扩展（Google） | `~/.gemini/antigravity[-cli]/conversations/<uuid>.db`：gen_metadata protobuf 逐回合 usage（input=固定系统提示+新增、cacheRead、output、thinking、responseId） | protobuf 布局为逆向结论且 1.1.18 时间戳字段变更，须逐版本锚定；IDE 主体用量走 language server，另按需启用核验；与 Gemini CLI 目录同根不同子目录 | M8 已实施（逆向 protobuf：input=#1+#2、#9.#4 时间戳；1.1.18+ 无时间戳行 fail closed；IDE language server 记录格式尚未核验不实施），A35 |
+| Antigravity 桌面版、CLI 和扩展（Google） | `~/.gemini/antigravity[-cli]/conversations/<uuid>.db`，从 SQLite 的 protobuf 记录读取逐次生成用量。 | 桌面版 2.34.0 将生成记录与已完成的规划器响应关联。旧版 CLI 要求生成记录内含可核对的时间戳。 | Windows 桌面版已用 Gemini 4 Neon 本机记录核对。旧版 CLI 保留 M8 源码检查确定的映射，A35。 |
 | Junie CLI（JetBrains） | `JUNIE_HOME/sessions` 或 `~/.junie/sessions/<session-id>/events.jsonl`，逐次 modelUsage；26.9.22 官方发行包及失败任务中的七次真实调用已与 API/CLI 核对 | inputTokens 为非缓存输入，默认零/费用/耗时保持未知；正费用 Estimated；无 API/provider/产品版本，完整总量不推造；timestampMs 完成时刻，正 time 才补起点 | M8 已实施；doc1→2 完整旧摘要/未变游标修正、事务/冲突保留通过，成品状态见 [M8 容器样本](../../validation/desktop-usage/m8-container-samples.md)，A36 |
 | Kiro（AWS，CLI+IDE） | 三种记录格式：CLI `~/.kiro/sessions/cli/*.json(+jsonl)`；kiro-cli `~/.local/share/kiro-cli/data.sqlite3` conversations_v2；IDE globalStorage `kiro.kiroagent`（.chat 快照、execution、promptLogs） | Auto agent 常记 0：估算路径不采纳，仅采显式计数；execution 与 .chat 快照按 executionId 抑制重复；metering credit 独立计价单位；三种记录格式交叉去重 | M8 已实施（CLI turns 真实计数 + kiro-cli SQLite request_metadata；Auto 零计数/估算不采；IDE 估算记录不实施；两种记录格式重叠待真实样本对账），A37 |
 | Zed 内置（升级自 F1） | DbThread 0.3.0 线程计数跨模型切换累计，turn 桶不能建立逐次覆盖 | 按完整原生结构接受自定义 ID，混合输入语义未知；旧 hosted、llm-usage-zhipu 映射独立，默认零未知，有界解压 | 1.22.0/76659a55：三个 GLM turn、21,696 非缓存输入/10,816 缓存读/61 输出；1.26.2/c4273271：GLM/DeepSeek 混合线程、164 输出，输入/缓存/总量未知。[当前记录](../../validation/desktop-usage/agent-native-20261029.md)，A23/A38 |
@@ -278,8 +278,24 @@ A24 固定源码 `ef70b3661cbfcf57e583008ad91dd04d8ba46070` 与官方 0.21.5 发
 - Amp 的 usageLedger 与逐消息 usage、Kiro 的 execution 与 .chat 快照属于同源两种记录格式，
   对账去重规则各自验证，不能按时间接近或数值相同猜测同一请求。
 - Goose/Xum/Droid 等会话级聚合来源按 Hermes 区间语义处理，不展开成伪造逐次事件。
-- Antigravity CLI 与 Gemini CLI 同根（~/.gemini）不同子目录，目录发现互不推断；
+- Antigravity 与 Gemini CLI 同根（~/.gemini）不同子目录，目录发现互不推断；
   iFlow CLI 与 Gemini CLI 格式相似仅作线索，字段仍逐个核验。
+
+<a id="antigravity-desktop-generation-format"></a>
+
+### Antigravity 桌面版生成记录
+
+Windows 桌面版 2.34.0 在 `gen_metadata.data.#4` 存储生成记录 UUID，模型 ID 为
+`#1.#19`，用量位于 `#1.#4`。用量消息中，`#1` 为模型枚举，`#2` 为未缓存输入，
+`#3` 为含推理的总输出，`#4/#5` 为缓存写入和读取，`#9` 为推理输出，`#10`
+为文本输出，`#11` 为响应 ID。记录中已上报的正值保留，省略字段和 protobuf 默认零
+保持未知。完整输入要求三个输入分项均已知。
+
+在同一 SQLite 读事务中，按生成序号（`metadata.#20.#3`）和响应 ID
+（`metadata.#9.#11`）将生成记录与 `steps` 中唯一一条已完成的规划器响应
+（`step_type=15`、`status=3`）匹配。`metadata.#7` 提供完成时间。缺失或有歧义的
+响应保留诊断并重新检查，包括对应步骤稍后写入 WAL 的情况。解析器升级后重读旧位置，
+涵盖序号零，并复用原有响应键。顶层用量的旧布局继续使用独立的字段映射和时间戳检查。
 
 <a id="每个适配器的交付合同"></a>
 

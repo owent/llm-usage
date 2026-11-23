@@ -115,6 +115,9 @@ impl Storage {
             "../../prices/seed-2026-11-16-gpt-5.6-luna.json"
         ))?;
         import_price_snapshot_tx(&tx, &luna, now_ms)?;
+        let november_23 =
+            crate::pricing::parse_snapshot_json(include_str!("../../prices/seed-2026-11-23.json"))?;
+        import_price_snapshot_tx(&tx, &november_23, now_ms)?;
         tx.commit()?;
         // Preserve the original seed snapshot's public return values.
         Ok(result)

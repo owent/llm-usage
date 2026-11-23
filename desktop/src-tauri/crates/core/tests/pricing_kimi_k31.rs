@@ -248,6 +248,7 @@ fn kimi_k31_old_database_loads_new_seed_and_prices_details_and_archives_without_
             s.snapshot_id != SNAPSHOT
                 && s.snapshot_id != "seed-2026-11-16"
                 && s.snapshot_id != "seed-2026-11-16-gpt-5.6-luna"
+                && s.snapshot_id != "seed-2026-11-23"
         })
         .collect();
     assert_eq!(serde_json::to_value(retained).unwrap(), old_snapshots);

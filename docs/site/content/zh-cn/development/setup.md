@@ -7,7 +7,7 @@ sidebar:
 
 ## 前提与依赖归属
 
-仓库工具使用 Node.js 22+，Astro 文档站要求至少 22.23.4。CI 选择 Node 24 和 Rust 1.99.1。
+仓库工具使用 Node.js 22+，Astro 文档站要求至少 22.23.4。CI 选择 Node 24 和 Rust 1.100.0。
 根目录的 `rust-toolchain.toml` 在本地选择同一 Rust 版本。应用为 rfd 0.18 声明 Rust
 最低版本 1.92；核心保留 1.90，覆盖 rusqlite 0.43 的 Rust 1.89 要求。Jiff 1.0 使用
 `ZonedDateTime` 和 `to_zoned_datetime`；复现验收时使用受测工具链。

@@ -9,7 +9,7 @@ allowBuilds:
   sharp: true
 minimumReleaseAgeExclude:
   - '@astrojs/starlight@0.43.1'
-  - '@tauri-apps/api@2.12.4'
-  - astro@7.4.12
+  - '@tauri-apps/api@2.12.5'
+  - astro@7.4.13
   - vite@8.3.8
   - katex@0.19.1

@@ -1,6 +1,80 @@
 {
-  "verified_at": "2026-11-16",
+  "verified_at": "2026-11-23",
   "models": [
+    {
+      "id": "glm-5.4",
+      "aliases": [],
+      "provider_id": "zai",
+      "pricing_available": false,
+      "source_urls": [
+        "https://models.dev/providers/zai-coding-plan/",
+        "https://models.dev/providers/zhipuai-coding-plan/",
+        "https://docs.z.ai/guides/overview/pricing"
+      ],
+      "note": "GLM Coding Plan model. No verified pay-as-you-go API tariff."
+    },
+    {
+      "id": "gemini-4-neon",
+      "aliases": [],
+      "provider_id": "google",
+      "pricing_available": true,
+      "source_urls": [
+        "https://aistudio.google.com/docs/pricing#gemini-4-neon",
+        "https://antigravity.google/docs/models"
+      ],
+      "note": "Standard Gemini Developer API reference rates. Antigravity plan charges are independent."
+    },
+    {
+      "id": "gpt-6.2-astra",
+      "aliases": [],
+      "provider_id": "openai",
+      "pricing_available": true,
+      "source_urls": [
+        "https://developers.openai.com/api/docs/models/gpt-6.2-astra"
+      ],
+      "note": "Standard API rates with the documented long-context threshold."
+    },
+    {
+      "id": "gpt-6.2-sol",
+      "aliases": [],
+      "provider_id": "openai",
+      "pricing_available": true,
+      "source_urls": [
+        "https://developers.openai.com/api/docs/models/gpt-6.2-sol"
+      ],
+      "note": "Standard API rates with the documented long-context threshold."
+    },
+    {
+      "id": "mai-code-2",
+      "aliases": [],
+      "provider_id": "microsoft",
+      "pricing_available": false,
+      "source_urls": [
+        "https://github.blog/changelog/2026-11-17-mai-code-2-and-mai-code-2-flash-in-github-copilot/"
+      ],
+      "note": "GitHub Copilot model. No direct API tariff is bundled."
+    },
+    {
+      "id": "mai-code-2-flash",
+      "aliases": [],
+      "provider_id": "microsoft",
+      "pricing_available": false,
+      "source_urls": [
+        "https://github.blog/changelog/2026-11-17-mai-code-2-and-mai-code-2-flash-in-github-copilot/"
+      ],
+      "note": "GitHub Copilot model. No direct API tariff is bundled."
+    },
+    {
+      "id": "hy4-flash",
+      "aliases": [],
+      "provider_id": "tencent",
+      "pricing_available": true,
+      "source_urls": [
+        "https://cloud.tencent.com/tokenhub/hy4-flash",
+        "https://cloud.tencent.com/document/product/1823/130055"
+      ],
+      "note": "Guangzhou TokenHub postpaid standard API pricing in CNY."
+    },
     {
       "id": "qwen4-max-preview",
       "aliases": [

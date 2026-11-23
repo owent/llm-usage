@@ -8,7 +8,7 @@ sidebar:
 ## Prerequisites and dependency ownership
 
 Use Node.js 22 or newer for repository tooling; the Astro site specifically requires
-Node 22.23.4 or newer. CI selects Node 24 and Rust 1.99.1. The root `rust-toolchain.toml`
+Node 22.23.4 or newer. CI selects Node 24 and Rust 1.100.0. The root `rust-toolchain.toml`
 selects that Rust version locally. The application declares an MSRV of 1.92 for rfd 0.18;
 the core retains 1.90, covering rusqlite 0.43's Rust 1.89 requirement. Jiff 1.0 uses
 `ZonedDateTime` and `to_zoned_datetime`; use the tested toolchain to reproduce acceptance.

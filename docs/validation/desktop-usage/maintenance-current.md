@@ -158,6 +158,51 @@ price pages. Unrepresented/unknown cache TTLs remain unpriced. Existing snapshot
 historical estimates are preserved; new/old database imports, current references,
 future intervals and unknown-preview rejection have dedicated regressions.
 
+## Antigravity, dependencies and model catalogue
+
+On 2026-11-23, Windows Antigravity 2.34.0 recorded Gemini 4 Neon generations in two
+local conversation databases. The old reader expected top-level protobuf usage and an
+embedded timestamp, so it missed the new nested usage and planner completion records.
+It also started after generation index zero. The [adapter specification](../../design/desktop-usage/adapters.md#antigravity-desktop-generation-format)
+records which fields identify the call and how the scanner recovers old positions.
+
+A read-only probe loaded committed SQLite pages and WAL frames in memory. A reduced
+database retained model IDs, token fields and shifted timestamps, with replacement
+identifiers for each response. On Windows x64, the Rust 1.100.0 debug executable ran
+`--scan-once` twice against an isolated application database. Both runs exited 0 and
+matched all 51 calls by model, completion time, uncached input, cache read, output and
+reasoning. The repeat scan retained 51 calls. The standalone headless suite passed 11
+checks. This verifies the local scanner and persisted usage. Native GUI and other Antigravity
+client versions require separate checks.
+
+npm and crates.io were checked for current direct releases. Both npm installs and the pnpm
+frozen lockfile check exited 0. npm and Cargo resolved compatible transitive updates.
+TypeScript stays on 6.0.3 because the current Astro and Svelte checkers declare peers only
+through 6.x. The repository and GitHub workflow select Rust 1.100.0. Linux Secret Service
+6.0.0 uses the separate Tokio and Rust crypto features. The application credential
+module compiled for `x86_64-unknown-linux-gnu` with those features. No Linux D-Bus
+round trip was exercised.
+
+The refreshed offline catalogue includes GLM-5.4, Gemini 4 Neon, GPT-6.2 Astra and Sol,
+MAI Code 2 and Flash, and Hy4 Flash. [The Coding Plan catalogue](https://models.dev/providers/zai-coding-plan/)
+identifies GLM-5.4. Its pay-as-you-go price remains unknown in the [official Z.ai price list](https://docs.z.ai/guides/overview/pricing).
+The 2026-11-23 snapshot adds official standard API prices from
+[Google](https://aistudio.google.com/docs/pricing#gemini-4-neon),
+[OpenAI](https://developers.openai.com/api/docs/pricing) and
+[Tencent Cloud](https://cloud.tencent.com/document/product/1823/130055).
+The Hy4 Flash promotion ends at 12:00 Beijing time on November 30. The date-based
+snapshot leaves that transition UTC date unpriced and starts the standard rate on December 1.
+
+`npm run check:docs`, `npm run test:docs` and `npm run build:docs` all exited 0.
+The standard browser runner could not start Edge in this sandbox. The same Playwright
+assertions passed using the installed Chrome 157.
+
+`npm run verify` passed Markdown, assets, scripts, frontend tests, Svelte, formatting
+and Clippy. The sandboxed Rust run passed 1,201 tests with ten conditional ignores.
+One Windows receiver lifecycle test failed at the read-only credential availability
+probe with access denied. The exact test passed outside the sandbox. Rust doc tests and
+the production frontend build also exited 0 when run separately.
+
 Public models.dev was used to find candidates, not to copy incompatible TTLs or plan
 prices. The downloaded catalog has 324 providers, 6,655,210 bytes and SHA-256
 `d94a595fb045db95d8be9705958cb97b0c0a2c51dfa6dd6ac8a74e23a49349b8`.

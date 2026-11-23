@@ -1,7 +1,5 @@
-//! Antigravity adapter (Google, closed source; independent directory). Reads
-//! gen_metadata protobuf in ~/.gemini/antigravity[-cli]/conversations/<uuid>.db.
-//! Based on reverse engineering; reject rows without #9.#4 time instead of inventing it.
-//! IDE usage uses a language server; its local usage format remains unverified/unimplemented.
+//! Local Antigravity generation databases under ~/.gemini/antigravity[-cli]/conversations.
+//! Desktop 2.34.0 pairs generation usage with completed planner responses in SQLite.
 
 pub mod detect;
 pub mod versions;
@@ -108,14 +106,14 @@ impl crate::adapters::framework::SourceAdapter for AntigravityAdapter {
 
     fn capability(&self) -> crate::adapters::framework::CapabilityTable {
         use crate::adapters::framework::{Availability, CapabilityTable};
-        let note = "第三方逆向证据（tokscale 1d9a939 antigravity_cli.rs）；闭源 + 本机未安装，protobuf 布局须逐版本锚定".to_string();
+        let note = "桌面版 2.34.0 使用本机样本核对，旧版 CLI 布局依据第三方字段检查".to_string();
         let mut fields = serde_json::Map::new();
         let field = |availability: Availability, detail: &str| serde_json::json!({ "availability": availability, "note": detail });
         fields.insert(
             "tokens".into(),
             field(
                 Availability::Partial(note.clone()),
-                "gen_metadata #4 usage：input = #1 固定 system prompt + #2 新输入（逆向证据：固定提示计入计费输入）+ cacheRead/output/thinking",
+                "桌面版 gen_metadata #1.#4 提供未缓存输入、缓存读取、总输出和推理；旧格式使用顶层 #4",
             ),
         );
         fields.insert(
@@ -124,7 +122,7 @@ impl crate::adapters::framework::SourceAdapter for AntigravityAdapter {
         );
         fields.insert(
             "cache_write".into(),
-            field(Availability::Unavailable("逆向证据无该字段".into()), "无"),
+            field(Availability::Partial(note.clone()), "仅桌面布局的正值"),
         );
         fields.insert(
             "per_request_calls".into(),
@@ -137,14 +135,14 @@ impl crate::adapters::framework::SourceAdapter for AntigravityAdapter {
             "model".into(),
             field(
                 Availability::Partial(note.clone()),
-                "chatModel #19 responseModel（机器 id）；#21 显示名仅 join 不采；gemini-default 路由标签不采",
+                "chatModel #19 为原始模型 ID，省略 gemini-default 路由标签",
             ),
         );
         fields.insert(
             "time".into(),
             field(
                 Availability::Partial(note.clone()),
-                "agy 1.1.17 及更早的 #9.#4 Timestamp；1.1.18+ 布局变更的行无可靠时间戳，跳过不推造",
+                "桌面版按 generation index 与 response ID 匹配已完成的规划器响应；旧布局使用 #9.#4",
             ),
         );
         fields.insert(
@@ -157,8 +155,8 @@ impl crate::adapters::framework::SourceAdapter for AntigravityAdapter {
         );
         CapabilityTable {
             adapter_id: "antigravity".to_string(),
-            product: "Antigravity（Google，CLI/扩展 conversations 库）".to_string(),
-            surfaces: vec!["cli".into(), "vscode".into()],
+            product: "Antigravity（Google，桌面/CLI conversations 库）".to_string(),
+            surfaces: vec!["desktop".into(), "cli".into(), "vscode".into()],
             supported_versions: versions::VERIFIED_VERSION_IMPLS
                 .iter()
                 .map(|(v, _)| v.to_string())
@@ -176,18 +174,18 @@ impl crate::adapters::framework::SourceAdapter for AntigravityAdapter {
             }),
             detection: serde_json::json!({
                 "magic": "SQLite + gen_metadata 表",
-                "version_field": "无；文档级锚点 antigravity-gen-metadata-1（逆向布局）",
-                "registry": "adapters/antigravity/versions 注册表（唯一条目）",
+                "version_field": "按行识别 protobuf 布局",
+                "registry": "adapters/antigravity/versions",
                 "fail_closed": true,
-                "unknown_version": "1.1.18+ 时间戳布局变更行跳过；protobuf 畸形行跳过；真实样本后逐版本锚定",
+                "unknown_version": "布局不符、缺少可核对时间或 protobuf 畸形的记录保留诊断",
             }),
             fields,
             lifecycle: serde_json::json!({
                 "per_generation": "每 generation 一行 usage；responseId 文件内去重",
-                "input_semantics": "input = 固定 system prompt + 新输入（逆向证据）；cache_write 未知",
+                "input_semantics": "桌面版输入桶独立，缺失字段保持未知；旧版映射按原规则处理",
             }),
             incremental: serde_json::json!({
-                "cursor": "offset 恒 0（≤50k 行整读）；事件键 antigravity:<file_identity>:<responseId|idx>",
+                "cursor": "按 generation index 分批，升级后重读旧位置；未匹配到完成记录的行再检查",
             }),
             dedup: serde_json::json!({
                 "primary": "antigravity:<file_identity>:<responseId>",
@@ -195,19 +193,14 @@ impl crate::adapters::framework::SourceAdapter for AntigravityAdapter {
             }),
             integrity: serde_json::json!({
                 "success_only": false,
-                "hidden_calls": "IDE language server 主体用量无本地载体证据：不实施，如实标注",
+                "hidden_calls": "覆盖本地 SQLite 中有记录的调用",
             }),
             maintenance: serde_json::json!({
-                "parser_version": versions::gen_metadata_v1::ANTIGRAVITY_PARSER_VERSION,
-                "format_evidence": "tokscale 1d9a939 sessions/antigravity_cli.rs（protobuf 字段号逆向 + 1.1.18 变更注记）",
-                "evidence_level": "third-party-reverse-engineered（无本机样本；风险最高档）",
-                "upgrade_policy": "官方发行产物/固定版本反推核对后逐版本锚定；布局漂移即 fail closed",
+                "format_evidence": "Windows 桌面 2.34.0 本机 SQLite；旧版参考 tokscale 1d9a939",
             }),
             scheduling: serde_json::json!({ "entry": "统一 run_adapter_scan" }),
             limitations: vec![
-                "protobuf 布局为逆向结论：证据等级最低，真实 fixture 前按文档级交付".into(),
-                "1.1.18+ 无 #9.#4 时间戳的行跳过（8 字节编码推断与 steps 回退不采纳）".into(),
-                "IDE language server 用量载体未见证据：不实施".into(),
+                "旧 CLI 布局要求 #9.#4 时间戳；桌面版用量要求关联一条已完成规划器响应。".into(),
             ],
         }
     }

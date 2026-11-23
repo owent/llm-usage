@@ -17,7 +17,7 @@ pub fn offline_model_catalog() -> &'static [OfflineModel] {
     }
     static MODELS: std::sync::OnceLock<Vec<OfflineModel>> = std::sync::OnceLock::new();
     MODELS.get_or_init(|| {
-        serde_json::from_str::<Catalog>(include_str!("../prices/models-2026-11-16.json"))
+        serde_json::from_str::<Catalog>(include_str!("../prices/models-2026-11-23.json"))
             .map(|c| c.models)
             .expect("validated bundled model references")
     })

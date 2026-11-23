@@ -1,16 +1,19 @@
-//! ANTIGRAVITY version registry (V30 layout); documented format antigravity-gen-metadata-1.
+//! Antigravity generation layouts identified per SQLite row.
 
+mod desktop_v2;
 pub mod gen_metadata_v1;
 
 /// Identifier of the current format implementation.
-pub const LATEST_IMPL_ID: &str = "gen_metadata_v1";
+pub const LATEST_IMPL_ID: &str = "desktop_v2";
 
 /// Format version established by documentation/source inspection.
 pub const ANTIGRAVITY_FORMAT_VERSION: &str = "antigravity-gen-metadata-1";
 
 /// Supported format versions mapped to implementations.
-pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] =
-    &[("antigravity-gen-metadata-1", "gen_metadata_v1")];
+pub const VERIFIED_VERSION_IMPLS: &[(&str, &str)] = &[
+    (ANTIGRAVITY_FORMAT_VERSION, "gen_metadata_v1"),
+    (desktop_v2::FORMAT_VERSION, LATEST_IMPL_ID),
+];
 
 /// Result of selecting a version implementation.
 #[derive(Debug, Clone, PartialEq, Eq)]

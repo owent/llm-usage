@@ -983,7 +983,15 @@ fn v29_seed_snapshot_imports_idempotently() {
     assert!(out2.already_present);
     assert_eq!(out2.inserted_rows, 0);
     let snapshots = storage.list_price_snapshots().unwrap();
-    assert_eq!(snapshots.len(), 8);
+    assert_eq!(snapshots.len(), 9);
+    assert_eq!(
+        snapshots
+            .iter()
+            .find(|s| s.snapshot_id == "seed-2026-11-23")
+            .unwrap()
+            .row_count,
+        7
+    );
     let original = snapshots
         .iter()
         .find(|s| s.snapshot_id == "seed-2026-09-25")
@@ -1018,7 +1026,13 @@ fn v29_seed_snapshot_imports_idempotently() {
         .source_urls
         .contains(&"https://docs.bigmodel.cn/cn/guide/start/pricing.md".into()));
     let book = storage.load_price_book().unwrap();
-    assert_eq!(book.rows.len(), 66);
+    assert_eq!(
+        book.rows.len(),
+        snapshots
+            .iter()
+            .map(|s| s.row_count as usize)
+            .sum::<usize>()
+    );
     for retained_id in [
         "openai-gpt-5.5-20261005-long",
         "anthropic-opus-5.5",

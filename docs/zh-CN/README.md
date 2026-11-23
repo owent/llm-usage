@@ -53,7 +53,7 @@ Astro/Starlight 文档站包含用户与开发指南、设计规范和验证记�
 
 ## 常用命令
 
-使用 Node.js 22+（当前 CI 使用 24）与 Rust 1.99.1（由 `rust-toolchain.toml` 选择）。
+使用 Node.js 22+（当前 CI 使用 24）与 Rust 1.100.0（由 `rust-toolchain.toml` 选择）。
 Astro 文档站要求 Node 22.23.4+。在仓库根直接执行：
 
 ```powershell

@@ -2,8 +2,8 @@
 //! parser version antigravity-gen-metadata-1).
 //!
 //! Format reference: third-party reverse engineering in pinned tokscale commit 1d9a939,
-//! sessions/antigravity_cli.rs:20-60,313-321,466-556. Google's closed-source product has
-//! no local installation or native samples here; the protobuf layout is reverse-engineered.
+//! sessions/antigravity_cli.rs:20-60,313-321,466-556. The legacy mapping is retained
+//! for existing records. Desktop 2.34.0 uses the independently verified desktop_v2 layout.
 //! - CLI path: ~/.gemini/antigravity-cli/conversations/<uuid>.db; environment variable
 //!   GEMINI_CLI_HOME redirects the Gemini root. Extensions use
 //!   ~/.gemini/antigravity/conversations/*.db. They share Gemini CLI's root
@@ -16,9 +16,7 @@
 //!   #5 cacheRead, #9 output, #10 thinking, #11 responseId string
 //!   used for deduplication. Input=#1+#2, including the fixed system prompt.
 //! - Timestamp: agy ≤1.1.17 uses #9.#4 (protobuf Timestamp: #1 seconds varint,
-//!   #2 nanoseconds). That field disappears in 1.1.18. The issue's suggested 8-byte #10 encoding
-//!   and the complex steps-table fallback are not implemented. Rows without #9.#4
-//!   are skipped with diagnostics; do not invent timestamps.
+//!   #2 nanoseconds). Legacy rows without this timestamp are skipped with diagnostics.
 //! - gemini-default is a routing label; do not use it as a model ID.
 //! - Unverified cache_write remains Unknown; unverified cost remains None.
 
@@ -32,9 +30,10 @@ use crate::domain::{
 use crate::error::CoreError;
 use crate::ingest::DiagnosticInput;
 
-use super::ANTIGRAVITY_FORMAT_VERSION;
+use super::{desktop_v2, ANTIGRAVITY_FORMAT_VERSION};
 
 pub const ANTIGRAVITY_PARSER_VERSION: &str = "antigravity-gen-metadata-1";
+const SCAN_POLICY: u32 = 2;
 /// Maximum size of one protobuf blob in the data column.
 pub const ANTIGRAVITY_MAX_BLOB_BYTES: usize = 4 * 1024 * 1024;
 pub const MAX_ROWS_PER_ROUND: i64 = 50_000;
@@ -42,8 +41,12 @@ pub const MAX_ROWS_PER_ROUND: i64 = 50_000;
 #[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 struct AntigravityCursor {
     generation: i64,
+    #[serde(default)]
+    policy: u32,
     /// Highest processed idx; responseId/idx event keys make repeated reads idempotent.
     last_idx: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    retry_from: Option<i64>,
 }
 
 fn diag(code: &str, position: &str, message: &str) -> DiagnosticInput {
@@ -59,14 +62,14 @@ fn diag(code: &str, position: &str, message: &str) -> DiagnosticInput {
 // Protobuf wire reader for varints and length-delimited fields.
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-enum WireValue<'a> {
+pub(super) enum WireValue<'a> {
     Varint(u64),
     Bytes(&'a [u8]),
 }
 
 /// Visit fields in one message, skipping fixed-width values. Unsupported wire types, including groups,
 /// return None, rejecting the message.
-fn iter_fields<'a>(
+pub(super) fn iter_fields<'a>(
     data: &'a [u8],
     mut visit: impl FnMut(u64, WireValue<'a>) -> Option<()>,
 ) -> Option<()> {
@@ -75,6 +78,9 @@ fn iter_fields<'a>(
         let (tag, consumed) = read_varint(&data[pos..])?;
         pos += consumed;
         let field = tag >> 3;
+        if field == 0 {
+            return None;
+        }
         let wire = (tag & 0x7) as u8;
         match wire {
             0 => {
@@ -142,9 +148,10 @@ struct GenRow {
     thinking: Option<i64>,
     response_id: Option<String>,
     response_model: Option<String>,
+    desktop_usage: Option<crate::adapters::usage_map::MappedUsage>,
 }
 
-fn bounded(v: u64) -> Option<i64> {
+pub(super) fn bounded(v: u64) -> Option<i64> {
     i64::try_from(v)
         .ok()
         .filter(|n| (0..=crate::domain::MAX_TOKEN_VALUE).contains(n))
@@ -160,7 +167,10 @@ fn parse_gen_row(data: &[u8]) -> Option<GenRow> {
         thinking: None,
         response_id: None,
         response_model: None,
+        desktop_usage: None,
     };
+    let mut top_usage = None;
+    let mut nested_usage = None;
     iter_fields(data, |field, value| {
         match (field, value) {
             // #1 chatModel message.
@@ -169,6 +179,10 @@ fn parse_gen_row(data: &[u8]) -> Option<GenRow> {
                     match (sub, sub_value) {
                         (19, WireValue::Bytes(model)) => {
                             row.response_model = Some(String::from_utf8_lossy(model).to_string());
+                            Some(())
+                        }
+                        (4, WireValue::Bytes(usage)) => {
+                            nested_usage = Some(usage);
                             Some(())
                         }
                         // #9 time container (agy ≤1.1.17).
@@ -207,29 +221,34 @@ fn parse_gen_row(data: &[u8]) -> Option<GenRow> {
                         _ => Some(()),
                     }
                 })?;
-                Some(())
             }
-            // #4 usage message.
-            (4, WireValue::Bytes(usage)) => {
-                iter_fields(usage, |u, uv| {
-                    match (u, uv) {
-                        (1, WireValue::Varint(v)) => row.fixed_system = bounded(v),
-                        (2, WireValue::Varint(v)) => row.new_input = bounded(v),
-                        (5, WireValue::Varint(v)) => row.cache_read = bounded(v),
-                        (9, WireValue::Varint(v)) => row.output = bounded(v),
-                        (10, WireValue::Varint(v)) => row.thinking = bounded(v),
-                        (11, WireValue::Bytes(id)) => {
-                            row.response_id = Some(String::from_utf8_lossy(id).to_string());
-                        }
-                        _ => {}
-                    }
-                    Some(())
-                })?;
-                Some(())
-            }
-            _ => Some(()),
+            (4, WireValue::Bytes(usage)) => top_usage = Some(usage),
+            _ => (),
         }
+        Some(())
     })?;
+    if let Some(usage) = top_usage {
+        if desktop_v2::is_generation_uuid(usage) {
+            let (response_id, mapped) = desktop_v2::usage(nested_usage?)?;
+            row.response_id = Some(response_id.to_owned());
+            row.desktop_usage = Some(mapped);
+        } else {
+            iter_fields(usage, |u, uv| {
+                match (u, uv) {
+                    (1, WireValue::Varint(v)) => row.fixed_system = bounded(v),
+                    (2, WireValue::Varint(v)) => row.new_input = bounded(v),
+                    (5, WireValue::Varint(v)) => row.cache_read = bounded(v),
+                    (9, WireValue::Varint(v)) => row.output = bounded(v),
+                    (10, WireValue::Varint(v)) => row.thinking = bounded(v),
+                    (11, WireValue::Bytes(id)) => {
+                        row.response_id = Some(String::from_utf8_lossy(id).to_string());
+                    }
+                    _ => {}
+                }
+                Some(())
+            })?;
+        }
+    }
     Some(row)
 }
 
@@ -239,20 +258,14 @@ pub fn scan(
     _limits: &ScanLimits,
     now_ms: i64,
 ) -> Result<ScanOutcome, CoreError> {
-    // Resume by idx after the per-round limit. The old cursor stayed at zero, so repeated
-    // BudgetExhausted scans never reached later rows. Event keys include responseId/idx;
-    // upserts remain idempotent for replayed rows before cursor advancement.
-    let last_idx = if target.rescan {
-        0
-    } else {
-        stored
-            .cursor
-            .as_ref()
-            .and_then(|v| serde_json::from_value::<AntigravityCursor>(v.clone()).ok())
-            .filter(|c| c.generation == target.generation)
-            .map(|c| c.last_idx)
-            .unwrap_or(0)
-    };
+    // Replay pre-upgrade cursors once, including generation index zero.
+    let cursor = stored
+        .cursor
+        .as_ref()
+        .and_then(|v| serde_json::from_value::<AntigravityCursor>(v.clone()).ok())
+        .filter(|c| !target.rescan && c.generation == target.generation && c.policy == SCAN_POLICY);
+    let last_idx = cursor.map_or(-1, |c| c.last_idx);
+    let mut retry_from = cursor.and_then(|c| c.retry_from);
     let mut conn = rusqlite::Connection::open_with_flags(
         &target.path,
         rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
@@ -261,37 +274,47 @@ pub fn scan(
     crate::adapters::run_policy::install_sqlite_control(&mut conn)?;
     conn.busy_timeout(std::time::Duration::from_millis(150))
         .map_err(CoreError::Sqlite)?;
-    let mut stmt = conn
-        .prepare("SELECT idx, data FROM gen_metadata WHERE idx > ?1 ORDER BY idx LIMIT ?2")
-        .map_err(CoreError::Sqlite)?;
-    let rows = stmt
-        .query_map(rusqlite::params![last_idx, MAX_ROWS_PER_ROUND + 1], |r| {
-            Ok((r.get::<_, i64>(0)?, r.get::<_, Vec<u8>>(1)?))
-        })
-        .map_err(CoreError::Sqlite)?;
+    let tx = conn.transaction()?;
+    let mut stmt =
+        tx.prepare("SELECT idx, data FROM gen_metadata WHERE idx > ?1 ORDER BY idx LIMIT ?2")?;
+    let mut rows = stmt.query(rusqlite::params![last_idx, MAX_ROWS_PER_ROUND + 1])?;
     let mut events = Vec::new();
     let mut diagnostics = Vec::new();
     let mut records_seen: u64 = 0;
     let mut no_timestamp: u64 = 0;
+    let mut no_completion: u64 = 0;
     let mut max_idx = last_idx;
     let mut seen_response_ids: std::collections::BTreeSet<String> = Default::default();
-    for row in rows {
+    let mut completion_times = None;
+    let mut hit_cap = false;
+    while let Some(row) = rows.next()? {
         crate::adapters::run_policy::check()?;
+        if records_seen == MAX_ROWS_PER_ROUND as u64 {
+            hit_cap = true;
+            break;
+        }
+        records_seen += 1;
+        let Ok(idx) = row.get::<_, i64>(0) else {
+            diagnostics.push(diag(
+                "row_read_failed",
+                "gen_metadata",
+                "expected an integer generation index; row skipped",
+            ));
+            continue;
+        };
+        max_idx = idx;
         // Skip individual SQLite dynamic-type errors without stopping the scan.
-        let (idx, data) = match row {
-            Ok(r) => r,
-            Err(e) => {
-                records_seen += 1;
+        let data = match row.get_ref(1)? {
+            rusqlite::types::ValueRef::Blob(data) => data,
+            _ => {
                 diagnostics.push(diag(
                     "row_read_failed",
-                    "gen_metadata",
-                    &format!("row read failed: {e}; row skipped"),
+                    &format!("gen_metadata:{idx}"),
+                    "expected a protobuf blob; row skipped",
                 ));
                 continue;
             }
         };
-        records_seen += 1;
-        max_idx = max_idx.max(idx);
         if data.len() > ANTIGRAVITY_MAX_BLOB_BYTES {
             diagnostics.push(diag(
                 "blob_exceeds_cap",
@@ -300,7 +323,7 @@ pub fn scan(
             ));
             continue;
         }
-        let Some(parsed) = parse_gen_row(&data) else {
+        let Some(parsed) = parse_gen_row(data) else {
             diagnostics.push(diag(
                 "protobuf_unparseable",
                 &format!("gen_metadata:{idx}"),
@@ -308,16 +331,36 @@ pub fn scan(
             ));
             continue;
         };
-        // No #9.#4 timestamp, including the agy 1.1.18+ layout: skip without inventing a time.
-        let Some(occurred_ms) = parsed.timestamp_ms else {
-            no_timestamp += 1;
-            continue;
+        let desktop = parsed.desktop_usage.is_some();
+        let occurred_ms = if desktop {
+            let times = match &completion_times {
+                Some(times) => times,
+                None => completion_times.insert(desktop_v2::completion_times(&tx, last_idx)?),
+            };
+            let Some(ms) = parsed
+                .response_id
+                .as_ref()
+                .and_then(|id| times.get(&idx)?.get(id).copied().flatten())
+            else {
+                // The generation can be visible before its response completes.
+                retry_from = Some(retry_from.map_or(idx, |retry| retry.min(idx)));
+                no_completion += 1;
+                continue;
+            };
+            ms
+        } else {
+            let Some(ms) = parsed.timestamp_ms else {
+                no_timestamp += 1;
+                continue;
+            };
+            ms
         };
         let input_total = parsed
             .fixed_system
             .zip(parsed.new_input)
             .and_then(|(a, b)| a.checked_add(b));
-        if input_total.is_none()
+        if !desktop
+            && input_total.is_none()
             && parsed.output.is_none()
             && parsed.cache_read.is_none()
             && parsed.thinking.is_none()
@@ -338,34 +381,50 @@ pub fn scan(
         let model_raw = parsed
             .response_model
             .filter(|m| !m.is_empty() && m != "gemini-default");
-        let mapped = crate::adapters::usage_map::finish(
-            crate::domain::TokenUsage {
-                input_uncached: None,
-                input_cache_read: parsed.cache_read,
-                input_cache_write: None,
-                input_total,
-                output_total: parsed.output,
-                output_reasoning: parsed.thinking,
-                total_tokens: None,
-                source_total: None,
-            },
-            // Present values need appropriate quality markers. All-Unknown quality would fail ingest's
-            // value/quality consistency check in domain.rs and prevent import.
-            crate::domain::TokenQuality {
-                input_cache_read: crate::domain::FieldQuality::Reported,
-                input_total: crate::domain::FieldQuality::Reported,
-                output_total: crate::domain::FieldQuality::Reported,
-                output_reasoning: crate::domain::FieldQuality::Reported,
-                ..Default::default()
-            },
-            Vec::new(),
-        );
+        let mapped = parsed.desktop_usage.unwrap_or_else(|| {
+            crate::adapters::usage_map::finish(
+                crate::domain::TokenUsage {
+                    input_uncached: None,
+                    input_cache_read: parsed.cache_read,
+                    input_cache_write: None,
+                    input_total,
+                    output_total: parsed.output,
+                    output_reasoning: parsed.thinking,
+                    total_tokens: None,
+                    source_total: None,
+                },
+                // Present values need appropriate quality markers. All-Unknown quality would fail ingest's
+                // value/quality consistency check in domain.rs and prevent import.
+                crate::domain::TokenQuality {
+                    input_cache_read: crate::domain::FieldQuality::Reported,
+                    input_total: crate::domain::FieldQuality::Reported,
+                    output_total: crate::domain::FieldQuality::Reported,
+                    output_reasoning: crate::domain::FieldQuality::Reported,
+                    ..Default::default()
+                },
+                Vec::new(),
+            )
+        });
+        if desktop {
+            for item in mapped.diagnostics {
+                diagnostics.push(diag(
+                    item.code,
+                    &format!("gen_metadata:{idx}"),
+                    &item.detail,
+                ));
+            }
+        }
+        let format = if desktop {
+            desktop_v2::FORMAT_VERSION
+        } else {
+            ANTIGRAVITY_FORMAT_VERSION
+        };
         events.push(EventInput {
             source_instance_id: target.instance_id.clone(),
             source_record_key: format!("antigravity:{}:{response_key}", target.file_identity),
             record_kind: RecordKind::ModelCall,
-            schema_version: ANTIGRAVITY_FORMAT_VERSION.to_string(),
-            parser_version: ANTIGRAVITY_PARSER_VERSION.to_string(),
+            schema_version: format.to_string(),
+            parser_version: format.to_string(),
             parse_basis: Some(VersionBasis::KnownVersion),
             origin_call_id: parsed
                 .response_id
@@ -408,7 +467,18 @@ pub fn scan(
             ),
         ));
     }
-    let hit_cap = records_seen > MAX_ROWS_PER_ROUND as u64;
+    if no_completion > 0 {
+        diagnostics.push(diag(
+            "rows_without_matching_response_completion",
+            "gen_metadata",
+            &format!("{no_completion} generations lack a unique completed planner response with the same generation index and response ID"),
+        ));
+    }
+    if !hit_cap {
+        if let Some(retry) = retry_from.take() {
+            max_idx = retry - 1;
+        }
+    }
     Ok(ScanOutcome {
         status: if hit_cap {
             ScanStatus::BudgetExhausted
@@ -417,7 +487,9 @@ pub fn scan(
         },
         cursor: Some(serde_json::to_value(AntigravityCursor {
             generation: target.generation,
+            policy: SCAN_POLICY,
             last_idx: max_idx,
+            retry_from,
         })?),
         parse_context: None,
         events,

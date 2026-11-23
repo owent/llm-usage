@@ -16,7 +16,7 @@ permissions:
 
 env:
   NODE_VERSION: "24"
-  RUST_TOOLCHAIN: "1.99.1"
+  RUST_TOOLCHAIN: "1.100.0"
 
 jobs:
   docs:
@@ -59,7 +59,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run test:browser
         working-directory: .
-      - uses: pnpm/action-setup@v6.1.0
+      - uses: pnpm/action-setup@v6
         with:
           run_install: false
       - name: pnpm workspace frozen install and checks
