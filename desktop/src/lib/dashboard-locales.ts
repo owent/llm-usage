@@ -67,16 +67,16 @@ const messages: Record<string, string[]> = {
     'Рабочая область, среда или политики могут переопределять настройки. Проверенные файлы Copilot используются в статистике вызовов; прочие данные сохраняются для проверки.'],
 };
 const zedHourCoverage: Record<string, string> = {
-  'zh-CN': 'Zed 的区间用量只有能归到一个小时才进入小时图。跨小时的用量仍计入当日汇总。',
-  en: 'Zed usage appears in hourly charts only when its interval fits one hour. Usage spanning hours remains in the daily totals.',
-  'zh-TW': 'Zed 的區間用量只有能歸到一個小時才納入小時圖。跨小時的用量仍計入當日彙總。',
-  ja: 'Zed の使用量は、期間が 1 時間の枠内に収まる場合のみ時間別グラフに表示します。複数の時間帯にまたがる使用量は日別集計に含まれます。',
-  ko: 'Zed 사용량은 구간이 한 시간 안에 들어갈 때만 시간별 차트에 표시됩니다. 여러 시간에 걸친 사용량은 일별 합계에 포함됩니다.',
-  es: 'El uso de Zed solo aparece por hora si el intervalo cabe en una hora. El uso que abarca varias horas se mantiene en los totales diarios.',
-  fr: 'L’utilisation de Zed figure par heure si son intervalle tient dans une heure. Si elle s’étend sur plusieurs heures, elle reste dans le total quotidien.',
-  de: 'Die Zed-Nutzung erscheint nur dann im Stundendiagramm, wenn das Intervall in eine Stunde passt. Nutzungsintervalle über mehrere Stunden bleiben in den Tagessummen.',
-  'pt-BR': 'O uso do Zed só aparece por hora se o intervalo couber em uma hora. O uso que abrange várias horas permanece no total diário.',
-  ru: 'Использование Zed отображается по часам, только если интервал целиком входит в один час. Интервалы в несколько часов учитываются в дневных итогах.',
+  'zh-CN': 'Zed 区间用量和日志中已核实的调用计入结束时刻所在的小时。',
+  en: 'Zed interval usage and calls verified from the log are counted in the hour when the interval ends.',
+  'zh-TW': 'Zed 區間用量和日誌中已核實的呼叫計入結束時刻所在的小時。',
+  ja: 'Zed の区間使用量とログで確認できた呼び出しは、区間が終了した時間帯に集計されます。',
+  ko: 'Zed의 구간 사용량과 로그에서 확인한 호출은 구간이 끝난 시간대에 집계됩니다.',
+  es: 'El uso del intervalo de Zed y las llamadas verificadas en el registro se contabilizan en la hora en que termina el intervalo.',
+  fr: 'L’utilisation de Zed et les appels vérifiés dans le journal sont comptabilisés dans l’heure où l’intervalle se termine.',
+  de: 'Die Zed-Intervallnutzung und die im Protokoll bestätigten Aufrufe werden der Stunde zugeordnet, in der das Intervall endet.',
+  'pt-BR': 'O uso do intervalo do Zed e as chamadas verificadas no log são contabilizados na hora em que o intervalo termina.',
+  ru: 'Использование Zed и подтверждённые журналом вызовы учитываются в том часу, в котором заканчивается интервал.',
 };
 
 export const dashboardCatalogs = Object.fromEntries(Object.entries(messages).map(([locale, values]) => {

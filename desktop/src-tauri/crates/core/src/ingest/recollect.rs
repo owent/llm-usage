@@ -1,4 +1,7 @@
-use super::{insert_event, persist_source_hourly_day, recompute_source_day, update_event};
+use super::{
+    insert_event, invalidate_source_periods, persist_source_hourly_day, recompute_source_day,
+    update_event,
+};
 use crate::adapters::framework::{
     DetectOutcome, DiscoverContext, ScanLimits, ScanOutcome, ScanStatus, ScanTarget, SourceAdapter,
     StoredScanState,
@@ -13,6 +16,7 @@ use crate::storage::Storage;
 use rusqlite::{params, OptionalExtension, Transaction};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
+use std::ops::Range;
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct RecollectWindow {
@@ -166,7 +170,7 @@ pub fn replace_zed_window(
     control.check()?;
     let tx = storage.conn().unchecked_transaction()?;
     let calendar = Calendar::new(&window.timezone)?;
-    let (mut start, end) = (window.start_ms, window.end_ms);
+    let mut start = window.start_ms;
     let detail_floor: Option<String> = tx
         .query_row(
             "SELECT value FROM settings WHERE key='detail_retention_floor_ms'",
@@ -185,11 +189,11 @@ pub fn replace_zed_window(
         start = start.max(floor);
     }
     let calendars = stored_calendars(&tx, instance, &calendar, &mut start)?;
+    let range = start..window.end_ms;
     let mut outcome = RecollectOutcome::default();
-    let affected_times =
-        replace_events(&tx, instance, start, end, now_ms, scan.events, &mut outcome)?;
+    let affected_times = replace_events(&tx, instance, &range, now_ms, scan.events, &mut outcome)?;
     outcome.changed_aggregates =
-        replace_aggregates(&tx, instance, start, end, now_ms, scan.aggregates)?;
+        replace_aggregates(&tx, instance, &range, now_ms, scan.aggregates)?;
     outcome.data_revision = if affected_times.is_empty() && outcome.changed_aggregates == 0 {
         crate::storage::data_revision(&tx)?
     } else {
@@ -203,19 +207,7 @@ pub fn replace_zed_window(
             .collect::<Result<BTreeSet<_>, _>>()?;
         for day in days {
             control.check()?;
-            // Complete daily inputs remain queryable and can regenerate these derived periods.
-            tx.execute(
-                "DELETE FROM period_usage AS p WHERE instance_id=?1 AND tz_version=?2
-                 AND period_start_day<=?3 AND period_end_day>=?3 AND active_days>0
-                 AND period_start_day>=COALESCE((SELECT value FROM settings
-                   WHERE key='daily_retention_floor:'||?2), '')
-                 AND active_days=(SELECT COUNT(*) FROM daily_usage d
-                   WHERE d.tz_version=p.tz_version AND d.instance_id=p.instance_id
-                     AND d.local_day BETWEEN p.period_start_day AND p.period_end_day
-                     AND d.agent=p.agent AND d.provider_id=p.provider_id AND d.model_raw=p.model_raw
-                     AND d.call_category=p.call_category AND d.quality_bucket=p.quality_bucket)",
-                params![instance, calendar.tz_name(), day.to_string()],
-            )?;
+            invalidate_source_periods(&tx, calendar, day, instance)?;
             recompute_source_day(&tx, calendar, day, outcome.data_revision, Some(instance))?;
             if day >= hourly_floor {
                 persist_source_hourly_day(
@@ -266,8 +258,7 @@ fn stored_calendars(
 fn replace_events(
     tx: &Transaction<'_>,
     instance: &str,
-    start: i64,
-    end: i64,
+    range: &Range<i64>,
     now_ms: i64,
     events: Vec<crate::domain::EventInput>,
     outcome: &mut RecollectOutcome,
@@ -289,10 +280,9 @@ fn replace_events(
                 "unexpected Zed event ownership".into(),
             ));
         }
-        if event.occurred_at_ms < start
-            || event.occurred_at_ms >= end
+        if !range.contains(&event.occurred_at_ms)
             || (event.time_basis == TimeBasis::BoundedInterval
-                && !in_window(event.interval_start_ms, event.interval_end_ms, start, end))
+                && !in_window(event.interval_start_ms, event.interval_end_ms, range))
         {
             continue;
         }
@@ -311,7 +301,7 @@ fn replace_events(
             })
             .optional()?;
         if old.as_ref().is_some_and(|(_, _, at, from, to, _)| {
-            *at < start || *at >= end || !in_window(*from, *to, start, end)
+            !range.contains(at) || !in_window(*from, *to, range)
         }) {
             continue;
         }
@@ -347,7 +337,7 @@ fn replace_events(
              WHERE canonical_event_id=event_id OR member_event_id=event_id)",
     )?;
     let obsolete = stmt
-        .query_map(params![instance, start, end], |row| {
+        .query_map(params![instance, range.start, range.end], |row| {
             Ok((
                 row.get::<_, String>(0)?,
                 row.get::<_, String>(1)?,
@@ -371,8 +361,7 @@ fn replace_events(
 fn replace_aggregates(
     tx: &Transaction<'_>,
     instance: &str,
-    start: i64,
-    end: i64,
+    range: &Range<i64>,
     now_ms: i64,
     aggregates: Vec<crate::aggregates::SourceAggregateInput>,
 ) -> Result<usize, CoreError> {
@@ -391,8 +380,7 @@ fn replace_aggregates(
         if !in_window(
             aggregate.interval_start_ms,
             Some(aggregate.interval_end_ms),
-            start,
-            end,
+            range,
         ) {
             continue;
         }
@@ -410,7 +398,7 @@ fn replace_aggregates(
             )
             .optional()?;
         if let Some((id, hash, from, to)) = old {
-            if hash == content_hash(&aggregate) || !in_window(from, Some(to), start, end) {
+            if hash == content_hash(&aggregate) || !in_window(from, Some(to), range) {
                 continue;
             }
             tx.execute("DELETE FROM source_aggregates WHERE aggregate_id=?1", [id])?;
@@ -422,9 +410,9 @@ fn replace_aggregates(
     Ok(changed)
 }
 
-fn in_window(from: Option<i64>, to: Option<i64>, start: i64, end: i64) -> bool {
+fn in_window(from: Option<i64>, to: Option<i64>, range: &Range<i64>) -> bool {
     from.zip(to)
-        .is_some_and(|(from, to)| start <= from && from <= to && to < end)
+        .is_some_and(|(from, to)| range.start <= from && from <= to && to < range.end)
 }
 
 #[cfg(test)]

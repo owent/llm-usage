@@ -45,7 +45,7 @@ use std::io::Read;
 
 pub const ZED_PARSER_VERSION: &str = "zed-threads-db-2";
 /// Independent policy marker replays old cursors without deleting checkpoints before a scan.
-pub const NATIVE_RULES_VERSION: u8 = 4;
+pub const NATIVE_RULES_VERSION: u8 = 5;
 /// Nominal row limit per scan; one extra row detects continuation.
 pub const MAX_ROWS_PER_ROUND: i64 = 50_000;
 /// Decompressed thread data limit: 64 MiB; oversized blobs are skipped with diagnostics.

@@ -609,8 +609,7 @@ fn detail_stats(
     }
     let (start, end) = period_range_ms(calendar, request.first_day, request.last_day)?;
     let mut sql = String::from(
-        "SELECT source_instance_id, session_id, occurred_at_ms, duration_ms, record_kind,
-                 CASE WHEN time_basis='bounded_interval' THEN interval_start_ms END
+        "SELECT source_instance_id, session_id, occurred_at_ms, duration_ms, record_kind
          FROM usage_events WHERE occurred_at_ms >= ?1 AND occurred_at_ms < ?2
          AND attribution_status = 'verified'
          AND record_kind IN ('model_call', 'transport_attempt', 'usage_observation')",
@@ -630,11 +629,6 @@ fn detail_stats(
         let instance: String = r.get(0)?;
         let session: Option<String> = r.get(1)?;
         let ms: i64 = r.get(2)?;
-        if let Some(start) = r.get::<_, Option<i64>>(5)? {
-            if !calendar.interval_in_hour(start, ms)? {
-                continue;
-            }
-        }
         let duration: Option<i64> = r.get(3)?;
         let kind: String = r.get(4)?;
         let day = calendar.local_day_of(ms)?;
@@ -685,7 +679,6 @@ fn detail_stats_days(
         COUNT(CASE WHEN record_kind='model_call' AND duration_ms>=0 THEN 1 END)
         FROM usage_events WHERE occurred_at_ms>=?1 AND occurred_at_ms<?2
         AND attribution_status='verified'
-        AND (time_basis!='bounded_interval' OR interval_start_ms>=?1)
         AND record_kind IN ('model_call','transport_attempt','usage_observation')",
     );
     let mut values = vec![0.into(), 0.into()];
@@ -959,10 +952,7 @@ pub(crate) fn archived_pricing_rows(
     let calendar = Calendar::new(&request.timezone)?;
     let mut out = Vec::new();
     visit_summary_rows(storage, request, |row| {
-        if !row.sealed
-            || row.event_count <= row.attempt_count
-            || (row.agent == "zed" && row.call_count == 0)
-        {
+        if !row.sealed || row.event_count <= row.attempt_count || row.agent == "zed" {
             return Ok(());
         }
         let start = calendar.day_range_ms(row.local_day)?.0;
@@ -1603,7 +1593,9 @@ pub fn event_details(
                 input_total, input_cache_read, output_total, total_tokens, duration_ms, lifecycle,provider_id,model_canonical,
                 CASE WHEN time_basis='bounded_interval' THEN interval_start_ms END
          FROM usage_events {where_clause}
-         ORDER BY occurred_at_ms DESC LIMIT ?{} OFFSET ?{}",
+         ORDER BY occurred_at_ms DESC,
+                  (time_basis='bounded_interval' AND record_kind='model_call'),
+                  event_id LIMIT ?{} OFFSET ?{}",
         values.len() + 1,
         values.len() + 2
     );
@@ -1783,8 +1775,7 @@ fn enrich_hourly_metadata(
           CASE WHEN json_extract(quality_json,'$.output_total') IN ('reported','derived') THEN output_total END,
           CASE WHEN json_extract(quality_json,'$.total_tokens') IN ('reported','derived') THEN total_tokens END,
           CASE WHEN json_extract(quality_json,'$.input_uncached') IN ('reported','derived') THEN input_uncached END,
-          CASE WHEN json_extract(quality_json,'$.input_cache_read') IN ('reported','derived') THEN input_cache_read END,
-          CASE WHEN time_basis='bounded_interval' THEN interval_start_ms END
+          CASE WHEN json_extract(quality_json,'$.input_cache_read') IN ('reported','derived') THEN input_cache_read END
          FROM usage_events WHERE occurred_at_ms >= ?1 AND occurred_at_ms < ?2 AND attribution_status='verified'
           AND record_kind IN ('model_call','transport_attempt','usage_observation')");
     let mut values = vec![start.into(), end.into()];
@@ -1793,11 +1784,6 @@ fn enrich_hourly_metadata(
     let mut events = stmt.query(rusqlite::params_from_iter(values))?;
     while let Some(e) = events.next()? {
         let ms = e.get(0)?;
-        if let Some(start) = e.get::<_, Option<i64>>(13)? {
-            if !calendar.interval_in_hour(start, ms)? {
-                continue;
-            }
-        }
         let key = (
             calendar.local_day_of(ms)?,
             Some(calendar.local_hour_of(ms)? as i64),

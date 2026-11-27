@@ -90,8 +90,8 @@ fn parallel_checked(s: &Mutex<Storage>, path: &Path, now: i64, expected_failure:
 #[test]
 fn reconciled_local_completion_usage_replays_and_reaches_charts_and_details() {
     use llm_usage_core::query::{
-        event_details, hourly_breakdown, query_summary, EventDetailRequest, Filters, Granularity,
-        SummaryRequest,
+        event_details, hourly_breakdown, query_summary, query_summary_selected, EventDetailRequest,
+        Filters, Granularity, SummaryRequest,
     };
     let dir = TempDir::new("zed-logged-usage");
     let threads = dir.path().join("threads");
@@ -121,7 +121,16 @@ fn reconciled_local_completion_usage_replays_and_reaches_charts_and_details() {
         ("Agent Thread Completion", json!({"attempt":0})),
         (
             "Agent Thread Completion Usage Updated",
-            json!({"input_tokens":25,"output_tokens":5,"cache_read_input_tokens":110,"cache_creation_input_tokens":0}),
+            json!({"input_tokens":12,"output_tokens":2,"cache_read_input_tokens":55,"cache_creation_input_tokens":0}),
+        ),
+        (
+            "Agent Thread Completion Usage Updated",
+            json!({"input_tokens":12,"output_tokens":2,"cache_read_input_tokens":55,"cache_creation_input_tokens":0}),
+        ),
+        ("Agent Thread Completion", json!({"attempt":0})),
+        (
+            "Agent Thread Completion Usage Updated",
+            json!({"input_tokens":13,"output_tokens":3,"cache_read_input_tokens":55,"cache_creation_input_tokens":0}),
         ),
     ];
     let text: String = rows.into_iter().map(|(event_type,mut props)| {
@@ -130,7 +139,7 @@ fn reconciled_local_completion_usage_replays_and_reaches_charts_and_details() {
         }
         format!("{}\n", json!({"type":"Flexible","milliseconds_since_first_event":0,"event_type":event_type,"event_properties":props}))
     }).collect();
-    std::fs::write(&log, text.replace(":110", ":109")).unwrap();
+    std::fs::write(&log, text.replace(":55", ":54")).unwrap();
     parallel(&storage, &db, NOW + 1);
     assert_eq!(
         count(
@@ -161,10 +170,10 @@ fn reconciled_local_completion_usage_replays_and_reaches_charts_and_details() {
     let revision;
     {
         let s = storage.lock().unwrap();
-        assert_eq!(count(&s, "SELECT COUNT(*) FROM usage_events"), 1);
+        assert_eq!(count(&s, "SELECT COUNT(*) FROM usage_events"), 3);
         assert_eq!(count(&s, "SELECT COUNT(*) FROM source_aggregates"), 1);
         let dashboard = dashboard_for(&s, "Asia/Shanghai", day, Granularity::Day);
-        assert_eq!(dashboard.totals.call_count, 0);
+        assert_eq!(dashboard.totals.call_count, 2);
         assert_eq!(dashboard.totals.input_total_known, Some(135));
         assert_eq!(dashboard.totals.cache_read_known, Some(110));
         assert_eq!(dashboard.totals.output_total_known, Some(5));
@@ -188,43 +197,98 @@ fn reconciled_local_completion_usage_replays_and_reaches_charts_and_details() {
             },
         )
         .unwrap();
-        assert_eq!(page.rows[0].model_raw.as_deref(), Some("glm-5.4"));
-        assert_eq!(page.rows[0].input_total, Some(135));
-        assert_eq!(page.rows[0].cache_read, Some(110));
-        assert_eq!(page.rows[0].output_total, Some(5));
-        assert!(page.rows[0].interval_start_ms.unwrap() < page.rows[0].occurred_at_ms);
-        assert!(
-            hourly_breakdown(&s, "Asia/Shanghai", day, &Filters::default())
-                .unwrap()
-                .iter()
-                .all(|h| h.total_tokens_known.is_none())
-        );
+        let observed = page.rows.iter().find(|r| r.total_tokens.is_some()).unwrap();
+        assert_eq!(observed.model_raw.as_deref(), Some("glm-5.4"));
+        assert_eq!(observed.input_total, Some(135));
+        assert_eq!(observed.cache_read, Some(110));
+        assert_eq!(observed.output_total, Some(5));
+        assert!(observed.interval_start_ms.unwrap() < observed.occurred_at_ms);
+        let hours = hourly_breakdown(&s, "Asia/Shanghai", day, &Filters::default()).unwrap();
+        assert_eq!(hours.len(), 1);
+        assert_eq!(hours[0].hour, 15);
+        assert_eq!(hours[0].total_tokens_known, Some(140));
+        assert_eq!(hours[0].call_count, 2);
+        let selected = |hour| {
+            query_summary_selected(
+                &s,
+                &SummaryRequest {
+                    timezone: "Asia/Shanghai".into(),
+                    first_day: day,
+                    last_day: day,
+                    today: day,
+                    week_start: llm_usage_core::calendar::WeekStart::Monday,
+                    granularity: Granularity::Hour,
+                    filters: Filters::default(),
+                    retention_cutoff: None,
+                },
+                Some((hour, hour)),
+            )
+            .unwrap()
+        };
+        assert_eq!(selected("2026-11-27 14:00").totals.total_tokens_known, None);
+        let closing_hour = selected("2026-11-27 15:00");
+        assert_eq!(closing_hour.totals.total_tokens_known, Some(140));
+        assert_eq!(closing_hour.totals.call_count, 2);
+        assert_eq!(closing_hour.distinct_sessions, Some(1));
         revision = s.data_revision().unwrap();
     }
     parallel(&storage, &db, NOW + 3);
     assert_eq!(storage.lock().unwrap().data_revision().unwrap(), revision);
-    check_forced_recollection(&db);
-    thread["updated_at"] = "2026-11-27T17:28:00Z".into();
-    put(&db, "observed-thread", &thread);
-    parallel(&storage, &db, NOW + 4);
-    let s = storage.lock().unwrap();
-    assert_eq!(
-        dashboard_for(&s, "Asia/Shanghai", day, Granularity::Day)
-            .totals
-            .total_tokens_known,
-        Some(140)
-    );
-    assert_eq!(
-        dashboard_for(
+    {
+        let s = storage.lock().unwrap();
+        s.conn()
+            .execute_batch(
+                "DELETE FROM usage_events WHERE record_kind='model_call';
+              DELETE FROM hourly_usage;
+              UPDATE ingestion_checkpoints SET parse_context=json_set(parse_context,'$.version',4)",
+            )
+            .unwrap();
+        llm_usage_core::ingest::repair_bounded_interval_rollups(
             &s,
             "Asia/Shanghai",
-            "2026-11-28".parse().unwrap(),
-            Granularity::Day
+            3,
+            ts("2026-11-27T12:00:00Z"),
         )
-        .totals
-        .total_tokens_known,
-        None
-    );
+        .unwrap();
+        let repaired = hourly_breakdown(&s, "Asia/Shanghai", day, &Filters::default()).unwrap();
+        assert_eq!(repaired[0].total_tokens_known, Some(140));
+        assert_eq!(repaired[0].call_count, 0);
+    }
+    parallel(&storage, &db, NOW + 4);
+    {
+        let s = storage.lock().unwrap();
+        let rebuilt = dashboard_for(&s, "Asia/Shanghai", day, Granularity::Hour);
+        assert_eq!(rebuilt.totals.total_tokens_known, Some(140));
+        assert_eq!(rebuilt.totals.call_count, 2);
+    }
+    check_forced_recollection(&db);
+    let ordinary = Mutex::new(Storage::open_in_memory().unwrap());
+    parallel(&ordinary, &db, NOW + 4);
+    thread["updated_at"] = "2026-11-27T17:28:00Z".into();
+    put(&db, "observed-thread", &thread);
+    put(&db, "overnight-thread", &thread);
+    std::fs::write(
+        &log,
+        text.clone() + &text.replace("observed-thread", "overnight-thread"),
+    )
+    .unwrap();
+    parallel(&ordinary, &db, NOW + 5);
+    let ordinary = ordinary.lock().unwrap();
+    let s = storage.lock().unwrap();
+    check_cross_midnight_recollection(&s, &db);
+    let next_day = "2026-11-28".parse().unwrap();
+    for db in [&*s, &*ordinary] {
+        assert_eq!(
+            dashboard_for(db, "Asia/Shanghai", day, Granularity::Day)
+                .totals
+                .total_tokens_known,
+            None
+        );
+        let next = dashboard_for(db, "Asia/Shanghai", next_day, Granularity::Day);
+        assert_eq!(next.totals.total_tokens_known, Some(280));
+        assert_eq!(next.totals.call_count, 4);
+        assert_eq!(next.distinct_sessions, Some(2));
+    }
     let (start, end) = s
         .conn()
         .query_row(
@@ -238,10 +302,10 @@ fn reconciled_local_completion_usage_replays_and_reaches_charts_and_details() {
     assert_eq!(
         hours
             .iter()
-            .find(|h| h.hour == 13)
+            .find(|h| h.hour == 23)
             .unwrap()
             .total_tokens_known,
-        Some(140)
+        Some(280)
     );
     llm_usage_core::ingest::recompute_days_in_tz(&s, "America/Phoenix", start, end, NOW + 6)
         .unwrap();
@@ -249,8 +313,59 @@ fn reconciled_local_completion_usage_replays_and_reaches_charts_and_details() {
         dashboard_for(&s, "America/Phoenix", day, Granularity::Day)
             .totals
             .total_tokens_known,
-        None
+        Some(280)
     );
+}
+
+fn check_cross_midnight_recollection(storage: &Storage, path: &Path) {
+    use llm_usage_core::{cancellation::OperationControl, ingest::recollect::*};
+    let instance = ZedAdapter.instance_id(&ZedAdapter.discover(&ctx(path))[0]);
+    let now = ts("2026-11-27T18:00:00Z");
+    let mut revision = storage.data_revision().unwrap();
+    let ranges = [
+        RecollectRange::RecentDays { days: 3 },
+        RecollectRange::Hours {
+            start: RecollectHour {
+                day: "2026-11-27".into(),
+                hour: 14,
+            },
+            end: RecollectHour {
+                day: "2026-11-28".into(),
+                hour: 2,
+            },
+        },
+    ];
+    for (index, range) in ranges.into_iter().enumerate() {
+        let window = range.window("Asia/Shanghai", now, 7).unwrap();
+        let scan = read_zed_source(&ctx(path), &instance, now).unwrap();
+        assert_eq!(scan.events.len(), 6);
+        let control = OperationControl::default();
+        assert!(control.begin());
+        let result =
+            replace_zed_window(storage, &instance, &window, 3, now, scan, &control).unwrap();
+        if index == 0 {
+            assert_eq!(result.changed_events, 6);
+            assert_eq!(result.removed_events, 0);
+            assert!(result.data_revision > revision);
+            revision = result.data_revision;
+        } else {
+            assert_eq!(
+                result,
+                RecollectOutcome {
+                    data_revision: revision,
+                    ..Default::default()
+                }
+            );
+        }
+        assert_eq!(count(storage, "SELECT COUNT(*) FROM usage_events"), 6);
+        assert_eq!(
+            count(
+                storage,
+                "SELECT interval_end_ms FROM usage_events WHERE session_id='observed-thread'"
+            ),
+            ts("2026-11-27T17:28:00Z")
+        );
+    }
 }
 
 fn check_forced_recollection(path: &Path) {
@@ -366,13 +481,17 @@ fn check_forced_recollection(path: &Path) {
             first.removed_events,
             first.changed_aggregates
         ),
-        (1, 1, 1)
+        (3, 1, 1)
     );
     let revision = first.data_revision;
+    assert_eq!(
+        count(&storage, "SELECT SUM(call_count) FROM daily_usage"),
+        2
+    );
     let snapshot = || {
         let mut stmt = sql.prepare(
             "SELECT model_raw,event_count,input_known_sum,output_known_sum,cache_read_known_sum,data_revision
-             FROM daily_usage WHERE local_day='2026-11-27' ORDER BY model_raw",
+             FROM daily_usage WHERE local_day='2026-11-27' AND quality_bucket!='unknown' ORDER BY model_raw",
         ).unwrap();
         stmt.query_map([], |r| {
             Ok((
@@ -932,7 +1051,7 @@ fn consumed_old_cursor_replays_through_parallel_registry_and_write_rollback() {
         ),
         1
     );
-    assert_eq!(count(&s,"SELECT COUNT(*) FROM ingestion_checkpoints WHERE json_extract(parse_context,'$.version')=4"),1);
+    assert_eq!(count(&s,"SELECT COUNT(*) FROM ingestion_checkpoints WHERE json_extract(parse_context,'$.version')=5"),1);
     assert_eq!(std::fs::read(p).unwrap(), bytes);
 }
 
@@ -980,7 +1099,7 @@ fn native_policy_keeps_existing_input_and_real_conflicts_at_the_same_revision() 
         ),
         0
     );
-    assert_eq!(count(&s,"SELECT COUNT(*) FROM ingestion_checkpoints WHERE json_extract(parse_context,'$.version')=4"),1);
+    assert_eq!(count(&s,"SELECT COUNT(*) FROM ingestion_checkpoints WHERE json_extract(parse_context,'$.version')=5"),1);
 }
 
 #[test]
@@ -1017,7 +1136,7 @@ fn invalid_rows_keep_known_output_and_policy_updates_wait_for_a_valid_snapshot()
         ),
         1
     );
-    assert_eq!(count(&s,"SELECT COUNT(*) FROM ingestion_checkpoints WHERE json_extract(parse_context,'$.version')=4"),1);
+    assert_eq!(count(&s,"SELECT COUNT(*) FROM ingestion_checkpoints WHERE json_extract(parse_context,'$.version')=5"),1);
     assert!(
         count(
             &s,
@@ -1057,7 +1176,7 @@ fn continued_policy_page_does_not_restart_or_hide_earlier_errors() {
                 .unwrap()
                 .get("version")
                 .and_then(Value::as_u64),
-            (!invalid).then_some(4)
+            (!invalid).then_some(5)
         );
         assert_eq!(o.health, if invalid { "degraded" } else { "active" });
     }
@@ -1123,7 +1242,7 @@ fn native_overflowing_ambiguous_totals_preserve_reported_output_and_cache() {
                 .unwrap()
                 .get("version")
                 .and_then(Value::as_u64),
-            Some(4)
+            Some(5)
         );
     }
 }

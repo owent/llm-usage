@@ -180,6 +180,7 @@ pub(crate) fn commit_batch_tx(
         affected_days: Vec::new(),
     };
     let mut affected: BTreeSet<Date> = BTreeSet::new();
+    let mut bounded_affected = BTreeSet::new();
     let mut pending_diagnostics: Vec<(Option<String>, DiagnosticInput)> = Vec::new();
     let mut content_conflicts = BTreeSet::new();
     // Existing conflicts predate complete candidate recording unless a provenance marker says otherwise.
@@ -241,14 +242,6 @@ pub(crate) fn commit_batch_tx(
             ));
             continue;
         }
-        if !archive_snapshot
-            && event.time_basis == TimeBasis::BoundedInterval
-            && calendar.local_day_of(event.interval_start_ms.unwrap())?
-                != calendar.local_day_of(event.occurred_at_ms)?
-        {
-            outcome.skipped += 1;
-            continue;
-        }
         if let Some(cutoff) = cutoff.filter(|_| !archive_snapshot) {
             if event.occurred_at_ms < cutoff {
                 outcome.skipped += 1;
@@ -308,6 +301,19 @@ pub(crate) fn commit_batch_tx(
             .as_ref()
             .map(|(_, _, id, _, _, _, _)| id.clone())
             .unwrap_or(eid);
+        if !archive_snapshot
+            && event.time_basis == TimeBasis::BoundedInterval
+            && bounded_snapshot_overlaps_archive(
+                tx,
+                &calendar,
+                event,
+                existing.as_ref().map(|row| row.1),
+                persisted_cutoff,
+            )?
+        {
+            outcome.skipped += 1;
+            continue;
+        }
         let arbitration = arbitrate(
             existing.as_ref().map(|(m, _, _, _, _, _, _)| m),
             event,
@@ -478,14 +484,26 @@ pub(crate) fn commit_batch_tx(
             Arbitration::Insert => {
                 insert_event(tx, event, &eid, &hash, batch.now_ms, parse_basis_column)?;
                 outcome.added += 1;
-                affected.insert(calendar.local_day_of(event.occurred_at_ms)?);
+                let day = calendar.local_day_of(event.occurred_at_ms)?;
+                affected.insert(day);
+                if event.time_basis == TimeBasis::BoundedInterval {
+                    bounded_affected.insert(day);
+                }
             }
             Arbitration::Replace => {
                 update_event(tx, event, &eid, &hash, batch.now_ms, parse_basis_column)?;
                 outcome.updated += 1;
-                affected.insert(calendar.local_day_of(event.occurred_at_ms)?);
+                let day = calendar.local_day_of(event.occurred_at_ms)?;
+                affected.insert(day);
+                if event.time_basis == TimeBasis::BoundedInterval {
+                    bounded_affected.insert(day);
+                }
                 if let Some((_, old_ms, _, _, _, _, _)) = existing {
-                    affected.insert(calendar.local_day_of(old_ms)?);
+                    let old_day = calendar.local_day_of(old_ms)?;
+                    affected.insert(old_day);
+                    if event.time_basis == TimeBasis::BoundedInterval {
+                        bounded_affected.insert(old_day);
+                    }
                 }
             }
             Arbitration::Keep => {
@@ -594,6 +612,9 @@ pub(crate) fn commit_batch_tx(
     // in the same transaction so hourly archives survive later deletion of details.
     for day in &affected {
         crate::adapters::run_policy::check()?;
+        if bounded_affected.contains(day) {
+            invalidate_source_periods(tx, &calendar, *day, &batch.instance_id)?;
+        }
         recompute_day(tx, &calendar, *day, next_revision)?;
         persist_hourly_day(tx, &calendar, *day, next_revision)?;
     }
@@ -628,6 +649,47 @@ pub(crate) fn commit_batch_tx(
     check_fault(fault, FaultPoint::BeforeCommit)?;
 
     Ok(outcome)
+}
+
+fn bounded_snapshot_overlaps_archive(
+    tx: &Transaction<'_>,
+    calendar: &Calendar,
+    event: &EventInput,
+    previous_time: Option<i64>,
+    floor: Option<i64>,
+) -> Result<bool, CoreError> {
+    let (Some(start), Some(floor)) = (event.interval_start_ms, floor) else {
+        return Ok(false);
+    };
+    if let Some(previous_time) = previous_time {
+        return Ok(previous_time < floor);
+    }
+    if start >= floor {
+        return Ok(false);
+    }
+    // A new key whose interval overlaps an archive may include usage already
+    // counted there. Replay it only if retained detail can establish the snapshot.
+    let first_day = calendar.local_day_of(start)?.to_string();
+    let last_day = calendar.local_day_of(floor - 1)?.to_string();
+    tx.query_row(
+        "SELECT NOT EXISTS(SELECT 1 FROM usage_events
+             WHERE source_instance_id=?1 AND session_id=?2 AND occurred_at_ms>=?3
+               AND time_basis='bounded_interval' AND record_kind='usage_observation')
+         AND (EXISTS(SELECT 1 FROM daily_usage WHERE instance_id=?1 AND tz_version=?4
+               AND local_day BETWEEN ?5 AND ?6 AND sealed=1)
+           OR EXISTS(SELECT 1 FROM period_usage WHERE instance_id=?1 AND tz_version=?4
+               AND period_start_day<=?6 AND period_end_day>=?5))",
+        params![
+            event.source_instance_id,
+            event.session_id,
+            floor,
+            calendar.tz_name(),
+            first_day,
+            last_day
+        ],
+        |row| row.get(0),
+    )
+    .map_err(Into::into)
 }
 
 /// Read inherited ownership evidence from committed and pending bounded scan contexts.
@@ -1663,7 +1725,6 @@ fn recompute_source_day(
          WHERE occurred_at_ms >= ?4 AND occurred_at_ms < ?5
            AND (?6 IS NULL OR source_instance_id = ?6)
            AND attribution_status = 'verified'
-           AND (time_basis != 'bounded_interval' OR interval_start_ms >= ?4)
            AND record_kind IN ('model_call', 'transport_attempt', 'usage_observation')
          {unsealed} {group_by}"
     );
@@ -1711,6 +1772,65 @@ fn vs_copilot_policy_upgrade(existing: &crate::identity::ExistingMeta, event: &E
             legacy.parser_version = parser.into();
             existing.content_hash == event_content_hash(&legacy)
         })
+}
+
+/// Drop materialized periods that can be rebuilt from their complete daily inputs.
+fn invalidate_source_periods(
+    tx: &Transaction<'_>,
+    calendar: &Calendar,
+    day: Date,
+    instance: &str,
+) -> Result<(), CoreError> {
+    tx.execute(
+        "DELETE FROM period_usage AS p WHERE instance_id=?1 AND tz_version=?2
+         AND period_start_day<=?3 AND period_end_day>=?3 AND active_days>0
+         AND period_start_day>=COALESCE((SELECT value FROM settings
+           WHERE key='daily_retention_floor:'||?2), '')
+         AND active_days=(SELECT COUNT(*) FROM daily_usage d
+           WHERE d.tz_version=p.tz_version AND d.instance_id=p.instance_id
+             AND d.local_day BETWEEN p.period_start_day AND p.period_end_day
+             AND d.agent=p.agent AND d.provider_id=p.provider_id AND d.model_raw=p.model_raw
+             AND d.call_category=p.call_category AND d.quality_bucket=p.quality_bucket)",
+        params![instance, calendar.tz_name(), day.to_string()],
+    )?;
+    Ok(())
+}
+
+pub fn repair_bounded_interval_rollups(
+    storage: &Storage,
+    timezone: &str,
+    hourly_days: u32,
+    now_ms: i64,
+) -> Result<(), CoreError> {
+    let calendar = Calendar::new(timezone)?;
+    let hourly_floor = calendar.retention_cutoff_day(calendar.today(now_ms)?, hourly_days)?;
+    let tx = storage.conn().unchecked_transaction()?;
+    let mut partitions = BTreeSet::new();
+    {
+        let mut stmt = tx.prepare(
+            "SELECT DISTINCT source_instance_id, occurred_at_ms FROM usage_events
+             WHERE time_basis='bounded_interval' AND attribution_status='verified'",
+        )?;
+        let mut rows = stmt.query([])?;
+        while let Some(row) = rows.next()? {
+            partitions.insert((
+                row.get::<_, String>(0)?,
+                calendar.local_day_of(row.get(1)?)?,
+            ));
+        }
+    }
+    if !partitions.is_empty() {
+        let revision = Storage::bump_data_revision_tx(&tx, now_ms)?;
+        for (instance, day) in partitions {
+            invalidate_source_periods(&tx, &calendar, day, &instance)?;
+            recompute_source_day(&tx, &calendar, day, revision, Some(&instance))?;
+            if day >= hourly_floor {
+                persist_source_hourly_day(&tx, &calendar, day, revision, Some(&instance))?;
+            }
+        }
+    }
+    tx.commit()?;
+    Ok(())
 }
 
 /// Recompute local days covering inclusive [from_ms, to_ms] in the requested timezone.
@@ -1792,8 +1912,7 @@ fn persist_source_hourly_day(
         "SELECT source_instance_id, occurred_at_ms, record_kind, agent,
                 COALESCE(provider_id, ''), COALESCE(model_raw, ''), call_category,
                 quality_json, input_total, input_cache_read, input_cache_write,
-                output_total, total_tokens, quality_bucket, conflict,
-                CASE WHEN time_basis='bounded_interval' THEN interval_start_ms END
+                output_total, total_tokens, quality_bucket, conflict
          FROM usage_events
          WHERE occurred_at_ms >= ?1 AND occurred_at_ms < ?2
            AND (?5 IS NULL OR source_instance_id = ?5)
@@ -1818,11 +1937,6 @@ fn persist_source_hourly_day(
     let mut rows = stmt.query(params![start_ms, end_ms, tz, day_str, instance_id])?;
     while let Some(row) = rows.next()? {
         let at: i64 = row.get(1)?;
-        if let Some(start) = row.get::<_, Option<i64>>(15)? {
-            if !calendar.interval_in_hour(start, at)? {
-                continue;
-            }
-        }
         let hour = calendar.local_hour_of(at)?;
         let kind: String = row.get(2)?;
         let key = (

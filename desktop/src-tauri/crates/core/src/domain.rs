@@ -611,14 +611,16 @@ impl EventInput {
             }
         }
         if self.time_basis == TimeBasis::BoundedInterval
-            && (self.record_kind != RecordKind::UsageObservation
-                || self.interval_end_ms != Some(self.occurred_at_ms)
+            && (!matches!(
+                self.record_kind,
+                RecordKind::UsageObservation | RecordKind::ModelCall
+            ) || self.interval_end_ms != Some(self.occurred_at_ms)
                 || self
                     .interval_start_ms
                     .is_none_or(|start| start >= self.occurred_at_ms))
         {
             return Err(CoreError::Validation(
-                "a bounded usage observation requires valid start/end timestamps".into(),
+                "a bounded event requires valid start/end timestamps".into(),
             ));
         }
         Ok(())

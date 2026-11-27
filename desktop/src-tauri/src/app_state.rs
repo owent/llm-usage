@@ -4,6 +4,7 @@
 
 use llm_usage_core::adapters::framework::SourceRunReport;
 use llm_usage_core::storage::Storage;
+use rusqlite::OptionalExtension;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -412,16 +413,29 @@ pub fn repair_tz_partitions(storage: &Storage, timezone: &str, force: bool) -> R
             |r| r.get(0),
         )
         .unwrap_or(0);
-    let repaired: bool = storage
+    let repair_version: Option<String> = storage
         .conn()
         .query_row(
-            "SELECT EXISTS(SELECT 1 FROM settings WHERE key=?1 AND value='1')",
+            "SELECT value FROM settings WHERE key=?1",
             [format!("hourly_fields_version:{timezone}")],
             |r| r.get(0),
         )
+        .optional()
         .map_err(|e| e.to_string())?;
-    if has_user_tz > 0 && repaired && !force {
-        return Ok(());
+    if !force && has_user_tz > 0 {
+        if repair_version.as_deref() == Some("2") {
+            return Ok(());
+        }
+        if repair_version.as_deref() == Some("1") {
+            llm_usage_core::ingest::repair_bounded_interval_rollups(
+                storage,
+                timezone,
+                load_settings(storage).retention.hourly_days,
+                now_ms(),
+            )
+            .map_err(|e| format!("interval rollup rebuild failed: {e}"))?;
+            return save_hourly_fields_version(storage, timezone);
+        }
     }
     let range: Option<(i64, i64)> = storage
         .conn()
@@ -444,11 +458,15 @@ pub fn repair_tz_partitions(storage: &Storage, timezone: &str, force: bool) -> R
             [timezone],
         )
         .map_err(|e| e.to_string())?;
+    save_hourly_fields_version(storage, timezone)
+}
+
+fn save_hourly_fields_version(storage: &Storage, timezone: &str) -> Result<(), String> {
     storage
         .conn()
         .execute(
-            "INSERT INTO settings(key,value,schema_version,updated_at_ms) VALUES (?1,'1',1,?2)
-        ON CONFLICT(key) DO UPDATE SET value='1',updated_at_ms=excluded.updated_at_ms",
+            "INSERT INTO settings(key,value,schema_version,updated_at_ms) VALUES (?1,'2',1,?2)
+        ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at_ms=excluded.updated_at_ms",
             rusqlite::params![format!("hourly_fields_version:{timezone}"), now_ms()],
         )
         .map_err(|e| e.to_string())?;

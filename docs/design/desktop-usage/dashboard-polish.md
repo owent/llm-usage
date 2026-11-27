@@ -64,10 +64,11 @@ between polls still refreshes; do not revert prematurely to idle waiting.
 Show verified Zed model usage in the same token totals, charts, filters and Details as
 other sources. Use the local completion log only when the usage can be matched to its
 native thread and reconciled to all four saved counters. The latest model selection is
-not attribution. Details show the time bounds, and an interval can contribute to a
-day or hour only when both endpoints fall in that bucket. An interval observation
-does not add model calls or provide per-call pricing tiers. Keep unreconciled thread
-counters as source aggregates outside charts.
+not attribution. Details show the time bounds. The token amount and the count of
+matched requests go into the period containing the interval end. Calls with
+missing log evidence may be absent from the count. Keep unreconciled thread
+counters as source aggregates outside charts. Interval records are excluded from
+per-request pricing.
 
 <a id="费用和布局"></a>
 

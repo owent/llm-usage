@@ -14,6 +14,7 @@ struct Thread {
     bad: bool,
     last: Option<(String, Model, Option<ZedUsage>)>,
     sums: BTreeMap<Model, ZedUsage>,
+    paired_calls: BTreeMap<Model, BTreeMap<String, usize>>,
 }
 
 #[derive(Default)]
@@ -126,6 +127,12 @@ impl Log {
                     return (*prior == u).then_some(());
                 }
                 *last_usage = Some(u);
+                *thread
+                    .paired_calls
+                    .entry(id.clone())
+                    .or_default()
+                    .entry(prompt.into())
+                    .or_default() += 1;
                 let total = thread.sums.entry(id).or_default();
                 *total = add(*total, u)?;
                 Some(())
@@ -163,7 +170,8 @@ impl Log {
         thread
             .sums
             .iter()
-            .filter_map(|((provider, model), raw)| {
+            .filter_map(|(id, raw)| {
+                let (provider, model) = id;
                 let known = |v| (v > 0).then_some(v);
                 let q = |v: Option<i64>| {
                     if v.is_some() {
@@ -198,7 +206,7 @@ impl Log {
                     total_tokens: FieldQuality::Derived,
                     ..Default::default()
                 };
-                Some(EventInput {
+                let observation = EventInput {
                     source_instance_id: instance.into(),
                     source_record_key: format!(
                         "zed:local-usage:{}",
@@ -235,8 +243,29 @@ impl Log {
                     attribution_status: AttributionStatus::Verified,
                     exclusion_reason: None,
                     cost: None,
-                })
+                };
+                // Each matched start and usage update verifies one request within
+                // the thread. Its tokens already belong to the model observation.
+                let calls = thread.paired_calls.get(id)?;
+                let mut rows = vec![observation.clone()];
+                for (prompt, count) in calls {
+                    for ordinal in 0..*count {
+                        let mut call = observation.clone();
+                        call.source_record_key = format!(
+                            "zed:local-call:{}",
+                            crate::identity::content_hash(&(
+                                thread_id, prompt, provider, model, ordinal
+                            ))
+                        );
+                        call.record_kind = RecordKind::ModelCall;
+                        call.usage = TokenUsage::default();
+                        call.quality = TokenQuality::default();
+                        rows.push(call);
+                    }
+                }
+                Some(rows)
             })
+            .flatten()
             .collect()
     }
 }
