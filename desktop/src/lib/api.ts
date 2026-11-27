@@ -471,6 +471,32 @@ export interface ClearAllPreviewDto {
   total_files: number;
 }
 
+export interface RecollectWindowDto {
+  start: string;
+  end: string;
+  timezone: string;
+  start_ms: number;
+  end_ms: number;
+}
+
+export interface RecollectHourDto { day: string; hour: number }
+
+export type ZedRecollectRangeDto =
+  | { kind: 'recent_days'; days: number }
+  | { kind: 'hours'; start: RecollectHourDto; end: RecollectHourDto };
+
+export interface ZedRecollectPreviewDto {
+  window: RecollectWindowDto;
+  sources: { instance_id: string; location: string }[];
+}
+
+export interface ZedRecollectOutcomeDto {
+  changed_events: number;
+  removed_events: number;
+  changed_aggregates: number;
+  data_revision: number;
+}
+
 /** event_details page row; token integers use decimal strings. */
 export interface EventDetailRowDto {
   interval_start_ms?: number | null;
@@ -667,6 +693,9 @@ export const api = {
   onClearAllProgress: (handler: (p: ClearAllProgressDto) => void): Promise<UnlistenFn> =>
     listen<ClearAllProgressDto>('clear-all-progress', (e) => handler(e.payload)),
   clearAllPreview: () => invoke<ClearAllPreviewDto>('clear_all_preview'),
+  zedRecollectPreview: (range: ZedRecollectRangeDto) => invoke<ZedRecollectPreviewDto>('zed_recollect_preview', { range }),
+  zedRecollect: (range: ZedRecollectRangeDto, instanceId: string, window: RecollectWindowDto) =>
+    invoke<ZedRecollectOutcomeDto>('zed_recollect', { range, instanceId, window }),
   pickOpenPath: (extension: string) => invoke<string | null>('pick_open_path', { extension }),
   /** Generic quota overview; agent=null selects all, with native units separate from recorded usage. */
   quotaSummary: (agent: string | null = null) =>

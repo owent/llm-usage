@@ -74,6 +74,19 @@ impl Calendar {
         Ok(if hour < 0 { 0 } else { hour as u32 })
     }
 
+    pub(crate) fn hour_boundary_ms(&self, day: Date, hour: u8) -> Result<i64, CoreError> {
+        if hour > 23 {
+            return Err(CoreError::Calendar("hour must be 0 through 23".into()));
+        }
+        let boundary = self.tz.to_ambiguous_timestamp(day.at(hour as i8, 0, 0, 0));
+        if matches!(boundary.offset(), jiff::tz::AmbiguousOffset::Gap { .. }) {
+            return Err(CoreError::Calendar(
+                "selected hour does not exist in the statistics timezone".into(),
+            ));
+        }
+        Ok(boundary.earlier()?.as_millisecond())
+    }
+
     pub(crate) fn interval_in_hour(&self, start: i64, end: i64) -> Result<bool, CoreError> {
         let start_offset = i64::from(self.offset_seconds_at(start)?);
         let end_offset = i64::from(self.offset_seconds_at(end)?);

@@ -14,6 +14,8 @@ use jiff::civil::Date;
 use rusqlite::{params, OptionalExtension, Transaction};
 use std::collections::BTreeSet;
 
+pub mod recollect;
+
 /// Existing usage_events metadata used to resolve duplicates.
 type ExistingRow = (
     ExistingMeta,
@@ -1543,11 +1545,17 @@ pub(crate) fn recompute_day(
     day: Date,
     data_revision: i64,
 ) -> Result<(), CoreError> {
+    recompute_source_day(tx, calendar, day, data_revision, None)
+}
+
+fn recompute_source_day(
+    tx: &Transaction<'_>,
+    calendar: &Calendar,
+    day: Date,
+    data_revision: i64,
+    instance_id: Option<&str>,
+) -> Result<(), CoreError> {
     let day_str = day.to_string();
-    tx.execute(
-        "DELETE FROM daily_usage WHERE tz_version = ?1 AND local_day = ?2 AND sealed = 0",
-        params![calendar.tz_name(), day_str],
-    )?;
     let (start_ms, end_ms) = calendar.day_range_ms(day)?;
     // Since v4, daily_usage keeps each source-instance contribution; queries sum across sources (M1a).
     // A v2 migration rebuilds before v4 partitioning, using the old shape without instance_id.
@@ -1556,6 +1564,18 @@ pub(crate) fn recompute_day(
         [],
         |r| r.get(0),
     )?;
+    if partitioned {
+        tx.execute(
+            "DELETE FROM daily_usage WHERE tz_version = ?1 AND local_day = ?2 AND sealed = 0
+             AND (?3 IS NULL OR instance_id = ?3)",
+            params![calendar.tz_name(), day_str, instance_id],
+        )?;
+    } else {
+        tx.execute(
+            "DELETE FROM daily_usage WHERE tz_version = ?1 AND local_day = ?2 AND sealed = 0",
+            params![calendar.tz_name(), day_str],
+        )?;
+    }
     let insert_head = if partitioned {
         "INSERT INTO daily_usage (
            tz_version, local_day, instance_id, agent, provider_id, model_raw, call_category, quality_bucket,
@@ -1641,6 +1661,7 @@ pub(crate) fn recompute_day(
            FROM usage_events
          )
          WHERE occurred_at_ms >= ?4 AND occurred_at_ms < ?5
+           AND (?6 IS NULL OR source_instance_id = ?6)
            AND attribution_status = 'verified'
            AND (time_basis != 'bounded_interval' OR interval_start_ms >= ?4)
            AND record_kind IN ('model_call', 'transport_attempt', 'usage_observation')
@@ -1648,7 +1669,14 @@ pub(crate) fn recompute_day(
     );
     tx.execute(
         &sql,
-        params![calendar.tz_name(), day_str, data_revision, start_ms, end_ms],
+        params![
+            calendar.tz_name(),
+            day_str,
+            data_revision,
+            start_ms,
+            end_ms,
+            instance_id
+        ],
     )?;
     crate::query_acceleration::rebuild_day(tx, calendar, day)?;
     Ok(())
@@ -1730,6 +1758,16 @@ pub(crate) fn persist_hourly_day(
     day: Date,
     data_revision: i64,
 ) -> Result<(), CoreError> {
+    persist_source_hourly_day(tx, calendar, day, data_revision, None)
+}
+
+fn persist_source_hourly_day(
+    tx: &Transaction<'_>,
+    calendar: &Calendar,
+    day: Date,
+    data_revision: i64,
+    instance_id: Option<&str>,
+) -> Result<(), CoreError> {
     // Test-frozen schemas before v5 have no hourly_usage table; skip hourly persistence.
     // Migration enables it later without changing daily/detail meanings.
     let has_table: bool = tx.query_row(
@@ -1745,9 +1783,10 @@ pub(crate) fn persist_hourly_day(
     let (start_ms, end_ms) = calendar.day_range_ms(day)?;
     tx.execute(
         "DELETE FROM hourly_usage WHERE tz_version = ?1 AND local_day = ?2
+         AND (?3 IS NULL OR instance_id = ?3)
          AND NOT EXISTS(SELECT 1 FROM daily_usage d WHERE d.tz_version=?1 AND d.local_day=?2
            AND d.instance_id=hourly_usage.instance_id AND d.sealed=1)",
-        params![tz, day_str],
+        params![tz, day_str, instance_id],
     )?;
     let mut stmt = tx.prepare(
         "SELECT source_instance_id, occurred_at_ms, record_kind, agent,
@@ -1757,6 +1796,7 @@ pub(crate) fn persist_hourly_day(
                 CASE WHEN time_basis='bounded_interval' THEN interval_start_ms END
          FROM usage_events
          WHERE occurred_at_ms >= ?1 AND occurred_at_ms < ?2
+           AND (?5 IS NULL OR source_instance_id = ?5)
            AND attribution_status = 'verified'
            AND NOT EXISTS(SELECT 1 FROM daily_usage d WHERE d.tz_version=?3 AND d.local_day=?4
              AND d.instance_id=source_instance_id AND d.sealed=1)
@@ -1775,7 +1815,7 @@ pub(crate) fn persist_hourly_day(
     }
     type HourKey = (u32, String, String, String, String, String, String);
     let mut buckets: std::collections::BTreeMap<HourKey, Bucket> = Default::default();
-    let mut rows = stmt.query(params![start_ms, end_ms, tz, day_str])?;
+    let mut rows = stmt.query(params![start_ms, end_ms, tz, day_str, instance_id])?;
     while let Some(row) = rows.next()? {
         let at: i64 = row.get(1)?;
         if let Some(start) = row.get::<_, Option<i64>>(15)? {

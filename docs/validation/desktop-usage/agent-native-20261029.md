@@ -202,3 +202,25 @@ The Windows debug executable read the real local Zed source into an isolated
 application database. WebView2 and native IPC verified Overview, Trends, all
 three chart groupings, the heatmap, Details and the hourly gap. The installed
 application and its database were not changed.
+
+## Forced recollection in Settings
+
+The Windows debug executable read the same Zed source into an isolated application
+database. After seeding a wrong model name, wrong counters and an obsolete record,
+the Settings action repaired the model and thread summary and removed the obsolete
+record. Repeating the action preserved the stored rows, checkpoints, diagnostics,
+details, all three chart groupings and data revision. The restored totals for
+`glm-5.4` were 13,128,307 input, 154,148 output and 12,814,592 cache-read tokens.
+The test used read-only access to the Zed files and wrote only to the isolated
+application database.
+
+The focused `zed_mixed_contract` Rust suite passed all 12 tests. Its forced
+recollection check injects a rollup failure and verifies rollback. It also
+checks that a record outside the range and a record no longer covered by the
+local log survive replacement.
+
+The same isolated Windows WebView2 test exercised exact hours in Asia/Shanghai.
+The 14:00–15:00 range left the 14:44–15:28 thread intact. The 14:00–16:00 range
+repaired it, and repeating that range preserved the detail rows, chart totals
+and data revision. Rust checks cover records ending exactly at the excluded
+boundary and both skipped and repeated New York daylight saving hours.

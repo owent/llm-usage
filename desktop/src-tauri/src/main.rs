@@ -283,6 +283,8 @@ fn main() {
             commands::budget_status,
             commands::storage_stats,
             commands::manual_cleanup,
+            commands::zed_recollect_preview,
+            commands::zed_recollect,
             commands::cancel_cleanup,
             commands::pick_open_path,
             commands::clear_all_data,

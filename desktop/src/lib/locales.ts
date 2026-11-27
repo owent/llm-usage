@@ -1,5 +1,6 @@
 /** Complete locale catalogs; the ordered key list is shared by all eight added languages. */
 export const translatedKeys = [
+  'recollect.title', 'recollect.hint', 'recollect.days', 'recollect.preview', 'recollect.confirm', 'recollect.run', 'recollect.noSource', 'recollect.result', 'recollect.unchanged', 'recollect.hours', 'recollect.start', 'recollect.end',
   'quota.sectionTitle', 'quota.premiumRequests', 'quota.usedLabel', 'quota.remaining', 'quota.snapshotAt', 'quota.trend', 'quota.note', 'quota.empty',
   'nav.overview', 'nav.trend', 'nav.sources', 'nav.settings', 'nav.details',
   'workspace.local', 'workspace.private',
@@ -116,6 +117,7 @@ export const translatedKeys = [
 type ExtraLocale = 'zh-TW' | 'ja' | 'ko' | 'es' | 'fr' | 'de' | 'pt-BR' | 'ru';
 const phrases: Record<ExtraLocale, readonly string[]> = {
   'zh-TW': [
+    '強制重採近期 Zed 用量', '重新讀取本機 Zed 檔案的用量。來源檔案已無法還原的用量會保留。', '最近日曆日（含今天）', '預覽重採範圍', '將替換 {start} 至 {end}（{timezone}）內可重建的用量，結束時間不計入。', '確認刪除並重採', '目前統計使用者沒有已啟用的本機 Zed 來源。', '重採完成。更新 {events} 筆用量記錄，移除 {removed} 筆過時記錄，更新 {threads} 筆執行緒摘要。', '重採完成，既有用量未變更。', '依整點範圍', '開始時間', '結束時間',
     'Agent 額度', 'Premium 請求', '已用', '剩餘 {n}', '快照 {time}', '消耗趨勢', '帳戶級請求配額（非 token；所有裝置/入口共用）', '重新整理後顯示額度（本機快取）',
     '總覽', '趨勢', '資料來源', '設定', '詳細資料',
     '本機用量工作台', '資料保存在本機',
@@ -207,6 +209,7 @@ const phrases: Record<ExtraLocale, readonly string[]> = {
     '{count} 條官方回退定價',
   ],
   ja: [
+    '最近の Zed 使用量を強制再収集', 'ローカルの Zed ファイルから使用量を読み直します。元ファイルから復元できない使用量は保持されます。', '今日を含む直近の日数', '再収集範囲を確認', '{start} から {end}（{timezone}、終了時刻は含まない）までの復元可能な使用量を置き換えます。', '削除して再収集', '現在の統計ユーザーには有効なローカル Zed ソースがありません。', '再収集が完了しました。使用量レコード {events} 件とスレッド集計 {threads} 件を更新し、古いレコード {removed} 件を削除しました。', '再収集が完了しました。既存の使用量に変更はありません。', '時刻を指定', '開始時刻', '終了時刻',
     'エージェント枠', 'Premium リクエスト', '使用済み', '残り {n}', 'スナップショット {time}', '消費トレンド', 'アカウント単位のリクエスト枠（トークンではなく、全デバイス/入口で共有）', '更新後にクォータを表示（ローカルキャッシュ）',
     '概要', '推移', 'データソース', '設定', '詳細',
     'ローカル使用状況', 'データはこの端末に保存されます',
@@ -298,6 +301,7 @@ const phrases: Record<ExtraLocale, readonly string[]> = {
     '{count} 件が公式フォールバック価格',
   ],
   ko: [
+    '최근 Zed 사용량 강제 재수집', '로컬 Zed 파일에서 사용량을 다시 읽습니다. 원본 파일에서 복구할 수 없는 사용량은 보존됩니다.', '오늘을 포함한 최근 일수', '재수집 범위 미리 보기', '{start}부터 {end}까지({timezone}, 종료 시각 제외) 복구할 수 있는 사용량을 교체합니다.', '삭제 및 재수집 확인', '현재 통계 사용자에게 활성화된 로컬 Zed 소스가 없습니다.', '재수집이 완료되었습니다. 사용량 기록 {events}개와 스레드 요약 {threads}개를 갱신하고 이전 기록 {removed}개를 삭제했습니다.', '재수집이 완료되었습니다. 기존 사용량은 그대로입니다.', '시간 범위 지정', '시작 시간', '종료 시간',
     '에이전트 할당량', 'Premium 요청', '사용됨', '{n} 남음', '스냅샷 {time}', '사용 추세', '계정 단위 요청 할당량(토큰 아님, 모든 기기/입구 공유)', '새로고침 후 할당량 표시(로컬 캐시)',
     '개요', '추세', '데이터 소스', '설정', '상세',
     '로컬 사용량 작업 공간', '데이터는 이 기기에 저장됩니다',
@@ -389,6 +393,7 @@ const phrases: Record<ExtraLocale, readonly string[]> = {
     '{count}건 공식 대체 가격 적용',
   ],
   es: [
+    'Forzar la recopilación del uso reciente de Zed', 'Vuelve a leer el uso de los archivos locales de Zed. Se conserva el uso que ya no puede recuperarse de los archivos de origen.', 'Días naturales recientes, incluido hoy', 'Previsualizar el intervalo de recopilación', 'Se reemplazará el uso recuperable desde {start} hasta {end} ({timezone}), sin incluir la hora de fin.', 'Confirmar eliminación y recopilación', 'El usuario de estadísticas actual no tiene ninguna fuente local de Zed activada.', 'Recopilación completada. Se actualizaron {events} registros de uso y {threads} resúmenes de hilos. Se eliminaron {removed} registros obsoletos.', 'Recopilación completada. El uso existente no ha cambiado.', 'Intervalo por horas', 'Inicio', 'Fin',
     'Cuotas del agente', 'Solicitudes premium', 'usado', '{n} restantes', 'Instantánea {time}', 'Tendencia de uso', 'Cuota de solicitudes a nivel de cuenta (no tokens; compartida entre dispositivos/interfaces)', 'La cuota aparece tras actualizar (caché local)',
     'Resumen', 'Tendencias', 'Fuentes', 'Ajustes', 'Detalles',
     'Panel de uso local', 'Los datos permanecen en este dispositivo',
@@ -480,6 +485,7 @@ const phrases: Record<ExtraLocale, readonly string[]> = {
     '{count} con precio de respaldo oficial',
   ],
   fr: [
+    'Forcer la recollecte de l’utilisation récente de Zed', 'Relit l’utilisation dans les fichiers locaux de Zed. Les données qui ne peuvent plus être reconstruites à partir des fichiers sources sont conservées.', 'Derniers jours calendaires, aujourd’hui compris', 'Aperçu de la période à recollecter', 'Les données récupérables de {start} à {end} ({timezone}) seront remplacées. L’heure de fin est exclue.', 'Confirmer la suppression et la recollecte', 'Aucune source Zed locale activée pour l’utilisateur actuel des statistiques.', 'Recollecte terminée. {events} relevés d’utilisation et {threads} résumés de fils mis à jour. {removed} relevés obsolètes supprimés.', 'Recollecte terminée. Les données existantes sont inchangées.', 'Plage horaire précise', 'Début', 'Fin',
     'Quotas de l’agent', 'Requêtes premium', 'utilisé', '{n} restant', 'Instantané {time}', 'Tendance d’usage', 'Quota de requêtes au niveau du compte (pas des tokens ; partagé entre appareils/interfaces)', 'Le quota apparaît après actualisation (cache local)',
     'Vue d’ensemble', 'Tendances', 'Sources', 'Paramètres', 'Détails',
     'Tableau de bord local', 'Les données restent sur cet appareil',
@@ -571,6 +577,7 @@ const phrases: Record<ExtraLocale, readonly string[]> = {
     '{count} tarifés via le tarif officiel de repli',
   ],
   de: [
+    'Erneute Erfassung der jüngsten Zed-Nutzung erzwingen', 'Liest die Nutzung erneut aus lokalen Zed-Dateien. Daten, die sich aus den Quelldateien nicht mehr rekonstruieren lassen, bleiben erhalten.', 'Letzte Kalendertage einschließlich heute', 'Erfassungszeitraum prüfen', 'Rekonstruierbare Nutzungsdaten von {start} bis {end} ({timezone}, Ende ausgeschlossen) werden ersetzt.', 'Löschen und erneute Erfassung bestätigen', 'Für den aktuellen Statistikbenutzer ist keine lokale Zed-Quelle aktiviert.', 'Erneute Erfassung abgeschlossen. {events} Nutzungsdatensätze und {threads} Thread-Zusammenfassungen aktualisiert. {removed} veraltete Datensätze entfernt.', 'Erneute Erfassung abgeschlossen. Die vorhandenen Nutzungsdaten sind unverändert.', 'Stundenbereich', 'Beginn', 'Ende',
     'Agent-Kontingente', 'Premium-Anfragen', 'genutzt', '{n} übrig', 'Momentaufnahme {time}', 'Nutzungsverlauf', 'Anfragekontingent auf Kontoebene (keine Tokens; geräte-/oberflächenübergreifend geteilt)', 'Kontingent erscheint nach Aktualisierung (lokaler Cache)',
     'Übersicht', 'Trends', 'Datenquellen', 'Einstellungen', 'Details',
     'Lokale Nutzungsübersicht', 'Daten bleiben auf diesem Gerät',
@@ -662,6 +669,7 @@ const phrases: Record<ExtraLocale, readonly string[]> = {
     '{count} mit offiziellem Fallback-Preis',
   ],
   'pt-BR': [
+    'Forçar a nova coleta do uso recente do Zed', 'Lê o uso novamente dos arquivos locais do Zed. O uso que não pode mais ser reconstruído a partir dos arquivos de origem é mantido.', 'Dias corridos recentes, incluindo hoje', 'Prévia do período de coleta', 'O uso recuperável de {start} até {end} ({timezone}) será substituído. O horário final fica de fora.', 'Confirmar exclusão e nova coleta', 'O usuário atual das estatísticas não tem uma fonte local do Zed ativada.', 'Nova coleta concluída. Foram atualizados {events} registros de uso e {threads} resumos de conversas. Foram removidos {removed} registros obsoletos.', 'Nova coleta concluída. Os dados de uso existentes permanecem iguais.', 'Intervalo por horas', 'Início', 'Fim',
     'Cotas do agente', 'Solicitações premium', 'usado', '{n} restantes', 'Instantâneo {time}', 'Tendência de uso', 'Cota de solicitações no nível da conta (não são tokens; compartilhada entre dispositivos/interfaces)', 'A cota aparece após atualizar (cache local)',
     'Visão geral', 'Tendências', 'Fontes', 'Configurações', 'Detalhes',
     'Painel de uso local', 'Os dados ficam neste dispositivo',
@@ -753,6 +761,7 @@ const phrases: Record<ExtraLocale, readonly string[]> = {
     '{count} com preço oficial de fallback',
   ],
   ru: [
+    'Принудительно пересобрать свежие данные Zed', 'Данные повторно считываются из локальных файлов Zed. Данные, которые больше нельзя восстановить из исходных файлов, сохраняются.', 'Последние календарные дни, включая сегодня', 'Проверить период повторного сбора', 'Восстанавливаемые данные с {start} до {end} ({timezone}) будут заменены. Конечное время исключено.', 'Подтвердить удаление и повторный сбор', 'У текущего пользователя статистики нет включённых локальных источников Zed.', 'Повторный сбор завершён. Обновлено записей: {events}. Удалено устаревших записей: {removed}. Обновлено сводок по веткам: {threads}.', 'Повторный сбор завершён. Данные об использовании не изменились.', 'Диапазон по часам', 'Начало', 'Конец',
     'Квоты агента', 'Premium-запросы', 'использовано', 'осталось {n}', 'Снимок {time}', 'Динамика расхода', 'Квота запросов на уровне аккаунта (не токены; общая для всех устройств/интерфейсов)', 'Квота появится после обновления (локальный кэш)',
     'Обзор', 'Тенденции', 'Источники', 'Настройки', 'Подробности',
     'Локальная статистика', 'Данные хранятся на этом устройстве',

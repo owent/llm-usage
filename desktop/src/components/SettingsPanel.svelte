@@ -7,6 +7,7 @@
   import ModelAliasSettings from './ModelAliasSettings.svelte';
   import PluginSettings from './PluginSettings.svelte';
   import { api, parseError } from '../lib/api';
+  import { calendarDay, offsetDay } from '../lib/calendar';
   import type {
     AppSettings,
     ClearAllProgressDto,
@@ -17,10 +18,13 @@
     PriceSnapshotInfoDto,
     PriceRefreshOutcomeDto,
     PriceRefreshStatusDto,
+    RecollectHourDto,
     RetentionTiers,
     StorageStatsDto,
     SummaryQuery,
     SystemTaskStatusDto,
+    ZedRecollectPreviewDto,
+    ZedRecollectRangeDto,
   } from '../lib/api';
   import { i18n, t, fmtBytes, fmtNumber, LANGUAGE_OPTIONS } from '../lib/i18n.svelte';
 
@@ -133,6 +137,17 @@
   let cleanupMessage = $state('');
   let cleanupError = $state('');
   let cancelPending = $state(false);
+  let recollectMode = $state<ZedRecollectRangeDto['kind']>('recent_days');
+  let recollectDays = $state<number | undefined>(3);
+  let recollectStart = $state<RecollectHourDto>({ day: '', hour: 0 });
+  let recollectEnd = $state<RecollectHourDto>({ day: '', hour: 0 });
+  let recollectPreview = $state<ZedRecollectPreviewDto | null>(null);
+  let recollectInstance = $state('');
+  let recollectBusy = $state(false);
+  let recollectLoading = $state(false);
+  let recollectMessage = $state('');
+  let recollectError = $state('');
+  const recollectHours = Array.from({ length: 24 }, (_, hour) => hour);
 
   // Clear all and recollect, with confirmation, background progress and results.
   let clearAllOpen = $state(false);
@@ -832,17 +847,93 @@
     }
   }
 
+  function resetRecollectPreview() {
+    recollectPreview = null;
+    recollectMessage = '';
+    recollectError = '';
+  }
+
+  function changeRecollectMode(e: Event) {
+    recollectMode = (e.currentTarget as HTMLSelectElement).value === 'hours' ? 'hours' : 'recent_days';
+    if (recollectMode === 'hours' && !recollectStart.day && !recollectEnd.day) {
+      recollectStart.day = calendarDay(new Date(), draft.timezone);
+      recollectEnd.day = offsetDay(recollectStart.day, 1);
+    }
+    resetRecollectPreview();
+  }
+
+  function selectedRecollectRange(): ZedRecollectRangeDto | null {
+    if (recollectMode === 'hours') {
+      if (!recollectStart.day || !recollectEnd.day ||
+        recollectStart.day > recollectEnd.day ||
+        (recollectStart.day === recollectEnd.day && recollectStart.hour >= recollectEnd.hour)) return null;
+      return { kind: 'hours', start: { ...recollectStart }, end: { ...recollectEnd } };
+    }
+    const days = recollectDays ?? 0;
+    return Number.isInteger(days) && days >= 1 && days <= draft.retention.events_days
+      ? { kind: 'recent_days', days }
+      : null;
+  }
+
+  async function previewZedRecollect() {
+    const range = selectedRecollectRange();
+    if (!range) return;
+    resetRecollectPreview();
+    recollectLoading = true;
+    try {
+      await flush();
+      const preview = await api.zedRecollectPreview(range);
+      recollectInstance = preview.sources.some((s) => s.instance_id === recollectInstance)
+        ? recollectInstance
+        : (preview.sources[0]?.instance_id ?? '');
+      recollectPreview = preview;
+    } catch (e) {
+      recollectError = t('cleanup.failed', { message: parseError(e) });
+    } finally {
+      recollectLoading = false;
+    }
+  }
+
+  async function runZedRecollect() {
+    const range = selectedRecollectRange();
+    if (!recollectPreview || !recollectInstance || !range) return;
+    recollectBusy = true;
+    recollectMessage = '';
+    recollectError = '';
+    try {
+      const result = await api.zedRecollect(range, recollectInstance, recollectPreview.window);
+      const changed = result.changed_events + result.removed_events + result.changed_aggregates;
+      recollectMessage = changed
+        ? t('recollect.result', { events: result.changed_events, removed: result.removed_events, threads: result.changed_aggregates })
+        : t('recollect.unchanged');
+      if (changed) {
+        ondatachanged?.();
+        await loadStats();
+      }
+    } catch (e) {
+      if (String(e).includes('operation_cancelled')) recollectMessage = t('cleanup.cancelled');
+      else recollectError = t('cleanup.failed', { message: parseError(e) });
+    } finally {
+      recollectPreview = null;
+      recollectBusy = false;
+      cancelPending = false;
+    }
+  }
+
   async function cancelCleanup() {
+    const cancellingRecollect = recollectBusy;
     cancelPending = true;
     try {
       const accepted = await api.cancelCleanup();
       if (!accepted) {
         if (clearAllBusy) clearAllError = t('cleanup.committed');
+        else if (cancellingRecollect) return;
         else cleanupMessage = t('cleanup.committed');
         cancelPending = false;
       }
     } catch (e) {
       if (clearAllBusy) clearAllError = t('cleanup.failed', { message: parseError(e) });
+      else if (cancellingRecollect) recollectError = t('cleanup.failed', { message: parseError(e) });
       else cleanupError = t('cleanup.failed', { message: parseError(e) });
       cancelPending = false;
     }
@@ -1117,7 +1208,7 @@
             <div class="fvalue">
               <input class="days" inputmode="numeric" bind:value={cleanupDays} aria-label={t('cleanup.daysBefore')} />
               <span class="unit">{t('cleanup.daysUnit')}</span>
-              <button type="button" class="danger" disabled={cleaning} onclick={() => void runCleanup()}>
+              <button type="button" class="danger" disabled={cleaning || clearAllBusy || recollectBusy} onclick={() => void runCleanup()}>
                 {cleaning ? t('cleanup.running') : t('cleanup.run')}
               </button>
               {#if cleaning}
@@ -1129,11 +1220,88 @@
           {#if cleanupError}<p class="bad">{cleanupError}</p>{/if}
         </section>
         <section class="panel">
+          <h4>{t('recollect.title')}</h4>
+          <p class="hint">{t('recollect.hint')}</p>
+          <div class="frow">
+            <label class="flabel" for="zed-recollect-mode">{t('filter.range')}</label>
+            <div class="fvalue">
+              <select id="zed-recollect-mode" value={recollectMode} onchange={changeRecollectMode}
+                disabled={recollectLoading || recollectBusy}>
+                <option value="recent_days">{t('recollect.days')}</option>
+                <option value="hours">{t('recollect.hours')}</option>
+              </select>
+            </div>
+          </div>
+          {#if recollectMode === 'hours'}
+            {#each [{ key: 'start', boundary: recollectStart }, { key: 'end', boundary: recollectEnd }] as { key, boundary } (key)}
+              <div class="frow">
+                <label class="flabel" for={`zed-recollect-${key}`}>{t(`recollect.${key}`)}</label>
+                <div class="fvalue recollect-time">
+                  <input id={`zed-recollect-${key}`} type="date" bind:value={boundary.day}
+                    disabled={recollectLoading || recollectBusy} oninput={resetRecollectPreview} />
+                  <select aria-label={`${t(`recollect.${key}`)} · ${t('filter.granularity.hour')}`}
+                    bind:value={boundary.hour} disabled={recollectLoading || recollectBusy} onchange={resetRecollectPreview}>
+                    {#each recollectHours as hour (hour)}
+                      <option value={hour}>{String(hour).padStart(2, '0')}:00</option>
+                    {/each}
+                  </select>
+                </div>
+              </div>
+            {/each}
+          {:else}
+            <div class="frow">
+              <label class="flabel" for="zed-recollect-days">{t('recollect.days')}</label>
+              <div class="fvalue">
+                <input id="zed-recollect-days" class="days" type="number" min="1" max={draft.retention.events_days}
+                  bind:value={recollectDays} disabled={recollectLoading || recollectBusy} oninput={resetRecollectPreview} />
+                <span class="unit">{t('cleanup.daysUnit')}</span>
+              </div>
+            </div>
+          {/if}
+          <div class="clear-all-row">
+            <button type="button" disabled={recollectLoading || recollectBusy || cleaning || clearAllBusy || !selectedRecollectRange()}
+              onclick={() => void previewZedRecollect()}>
+              {recollectLoading ? t('common.loading') : t('recollect.preview')}
+            </button>
+          </div>
+          {#if recollectPreview}
+            {#if recollectPreview.sources.length}
+              <div class="frow">
+                <label class="flabel" for="zed-recollect-source">{t('sources.instance')}</label>
+                <select id="zed-recollect-source" bind:value={recollectInstance} disabled={recollectBusy}>
+                  {#each recollectPreview.sources as source (source.instance_id)}
+                    <option value={source.instance_id}>{source.location}</option>
+                  {/each}
+                </select>
+              </div>
+              <p class="warning">{t('recollect.confirm', {
+                start: recollectPreview.window.start,
+                end: recollectPreview.window.end,
+                timezone: recollectPreview.window.timezone,
+              })}</p>
+              <div class="clear-all-row">
+                <button type="button" class="danger solid" disabled={recollectBusy || cleaning || clearAllBusy}
+                  onclick={() => void runZedRecollect()}>
+                  {recollectBusy ? t('cleanup.running') : t('recollect.run')}
+                </button>
+                <button type="button" disabled={cancelPending}
+                  onclick={() => recollectBusy ? void cancelCleanup() : (recollectPreview = null)}>
+                  {recollectBusy ? t('cleanup.cancel') : t('users.createCancel')}
+                </button>
+              </div>
+            {:else}
+              <p class="hint">{t('recollect.noSource')}</p>
+            {/if}
+          {/if}
+          {#if recollectMessage}<p class="ok" role="status">{recollectMessage}</p>{/if}
+          {#if recollectError}<p class="bad" role="alert">{recollectError}</p>{/if}
+        </section>
+        <section class="panel">
           <div class="clear-all-row">
             <button
               type="button"
               class="danger solid"
-              disabled={clearAllBusy || collecting}
+              disabled={clearAllBusy || collecting || cleaning || recollectBusy}
               onclick={openClearAll}
             >
               {clearAllBusy ? t('cleanup.running') : t('cleanup.clearAll')}
@@ -1654,6 +1822,12 @@
   }
   .fvalue > input, .fvalue > select {
     width: 240px;
+  }
+  .fvalue.recollect-time > input {
+    width: 10rem;
+  }
+  .fvalue.recollect-time > select {
+    width: auto;
   }
   .fvalue > textarea {
     flex: 1;

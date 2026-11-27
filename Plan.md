@@ -2,7 +2,7 @@
 
 <a id="桌面用量客户端执行计划"></a>
 
-Version: 0.5.3. Reviewed against the current manifests, registered adapters, application
+Version: 0.5.4. Reviewed against the current manifests, registered adapters, application
 entry points, tests and design requirements on 2026-11-17. Windows 11 x64 remains the
 first desktop target; Linux/macOS CI is retained.
 
@@ -20,7 +20,7 @@ current work and unresolved limits, without the previous release/deployment narr
 | oh-my-pi | 18.22.0 `model_usage` imports as auxiliary model calls with independent provider/model/Usage/stopReason, including failed calls with unknown usage. `changes.jsonl` is excluded only when its filename and `call`/`change` audit shape match. All 216 real files are active, 835 auxiliary records match independent token recomputation, and old cursors replay without conflicts. Codex oversized recovery completes nine bounded scans with 256 calls/53,711,098 tokens and healthy sources. See [validation](docs/validation/desktop-usage/maintenance-current.md#copilot-composite-and-omp-1822). |
 | Model mappings | Versioned local JSON import and opt-in public feed refresh are implemented. Default-off downloads, three-day cache, effective intervals, retained conflicts, transactional stale-worker checks and metadata-only UI refresh preserve raw identity and prices. Core/app/browser and real Windows WebView2/IPC checks pass; see [validation](docs/validation/desktop-usage/model-aliases.md) and [requirements](docs/design/desktop-usage/model-aliases.md). |
 | Qoder CN VS Code | Independent 2.6.11 SQLite metadata reader, legacy Lingma discovery, WAL handling and request observations. Full-registry/old-cursor/bad-row/ownership/rollback regressions pass. The real release executable reads two native observations idempotently, with tokens/model-call counts unknown. Windows native GUI/IPC checks pass with isolated synthetic inputs. |
-| Zed | Reconciled OpenAI usage from the 1.30.2 local log appears in Overview, Trends and Details. The GLM-5.4 sample verifies total input, output and cache reads. Cross-hour intervals do not add hourly points or calls. See [Zed validation](docs/validation/desktop-usage/agent-native-20261029.md#zed-1302-model-usage). |
+| Zed | Reconciled OpenAI usage from the 1.30.2 local log appears in Overview, Trends and Details. The GLM-5.4 sample verifies total input, output and cache reads. Cross-hour intervals do not add hourly points or calls. Settings can replace recoverable usage for a local source using recent days or exact hour boundaries. See [Zed validation](docs/validation/desktop-usage/agent-native-20261029.md#zed-1302-model-usage). |
 | Documentation | Affected English/Chinese specifications, client guidance and comment references synchronized. Type/build/unit/browser checks pass. Exact commands/results are in [current maintenance validation](docs/validation/desktop-usage/maintenance-current.md). |
 
 ## Unimplemented or unverified scope
@@ -265,6 +265,7 @@ November 23 offline model catalogue. Version 0.5.2 adds Antigravity pending-gene
 retry bounds, GitHub Pages build-status retries, and Overview Zed thread interval visibility.
 Version 0.5.3 integrates verified Zed model usage into charts and Details and
 removes the separate Zed thread panel from Overview.
+Version 0.5.4 adds forced Zed recollection for recent calendar days or exact hour ranges.
 The tag workflow verifies all six platform/architecture packages and
 creates a draft; publish only after matching its source, notes and uploaded package sizes/digests.
 Both public mapping endpoints and real Windows automatic HTTPS refresh/restart were verified

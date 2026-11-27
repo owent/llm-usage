@@ -58,7 +58,7 @@ fn automatic_allowed(state: &AppState) -> bool {
     )
 }
 
-fn discover_context(manual_roots: Vec<String>, manual_only: bool) -> DiscoverContext {
+pub(crate) fn discover_context(manual_roots: Vec<String>, manual_only: bool) -> DiscoverContext {
     if manual_only {
         return DiscoverContext {
             home_dir: None,

@@ -8,6 +8,9 @@ use llm_usage_core::calendar::{parse_date, WeekStart};
 use llm_usage_core::exchange::{
     build_aggregate_export, ExchangeKind, ExportRequest, EXCHANGE_FORMAT_VERSION,
 };
+use llm_usage_core::ingest::recollect::{
+    read_zed_source, replace_zed_window, RecollectOutcome, RecollectRange, RecollectWindow,
+};
 use llm_usage_core::jobs::TriggerKind;
 use llm_usage_core::query::{
     heatmap_cells, hourly_breakdown, query_summary, Filters, Granularity, SummaryRequest,
@@ -1439,6 +1442,154 @@ pub async fn manual_cleanup(
 #[tauri::command]
 pub fn cancel_cleanup(state: tauri::State<'_, Arc<AppState>>) -> bool {
     state.cleanup_control.cancel()
+}
+
+#[derive(serde::Serialize)]
+pub struct ZedRecollectSource {
+    instance_id: String,
+    location: String,
+}
+
+#[derive(serde::Serialize)]
+pub struct ZedRecollectPreview {
+    window: RecollectWindow,
+    sources: Vec<ZedRecollectSource>,
+}
+
+fn zed_recollect_scope(
+    state: &AppState,
+    storage: &llm_usage_core::storage::Storage,
+    settings: &AppSettings,
+    now: i64,
+    range: &RecollectRange,
+) -> Result<ZedRecollectPreview, String> {
+    let user = state.current_user.lock().unwrap().clone();
+    let host = state.host_id.lock().unwrap().clone();
+    let window = range
+        .window(&settings.timezone, now, settings.retention.events_days)
+        .map_err(|e| err("zed_recollect_invalid_range", e.to_string()))?;
+    let sources = storage
+        .conn()
+        .prepare(
+            "SELECT instance_id, COALESCE(location_hint, instance_id) FROM source_instances
+         WHERE user_id=?1 AND origin_host_id=?2 AND agent='zed' AND enabled=1
+           AND locality_basis='local_filesystem' AND attribution_status='verified'
+         ORDER BY instance_id",
+        )
+        .and_then(|mut stmt| {
+            stmt.query_map(rusqlite::params![user, host], |row| {
+                Ok(ZedRecollectSource {
+                    instance_id: row.get(0)?,
+                    location: row.get(1)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()
+        })
+        .map_err(|e| err("db", e.to_string()))?;
+    Ok(ZedRecollectPreview { window, sources })
+}
+
+#[tauri::command]
+pub fn zed_recollect_preview(
+    state: tauri::State<'_, Arc<AppState>>,
+    range: RecollectRange,
+) -> Result<ZedRecollectPreview, String> {
+    let settings = state.settings.lock().unwrap().clone();
+    let storage = crate::app_state::read_conn(&state);
+    zed_recollect_scope(&state, &storage, &settings, now_ms(), &range)
+}
+
+#[tauri::command]
+pub async fn zed_recollect(
+    state: tauri::State<'_, Arc<AppState>>,
+    range: RecollectRange,
+    instance_id: String,
+    window: RecollectWindow,
+) -> Result<RecollectOutcome, String> {
+    use std::sync::atomic::Ordering;
+    if !state.cleanup_control.begin() {
+        return Err(err(
+            "cleanup_busy",
+            "a cleanup operation is already running",
+        ));
+    }
+    state.clear_job_running.store(true, Ordering::SeqCst);
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let _run = CleanupRun(&state);
+        let result = run_zed_recollect(&state, &range, &instance_id, &window);
+        if state.cleanup_control.is_cancelled() {
+            Err(err("operation_cancelled", "recollection cancelled"))
+        } else {
+            result
+        }
+    })
+    .await
+    .map_err(|e| err("zed_recollect", e.to_string()))?
+}
+
+fn run_zed_recollect(
+    state: &AppState,
+    range: &RecollectRange,
+    instance: &str,
+    window: &RecollectWindow,
+) -> Result<RecollectOutcome, String> {
+    let control = &state.cleanup_control;
+    while state.refresh.lock().unwrap().running {
+        control
+            .check()
+            .map_err(|e| err("zed_recollect", e.to_string()))?;
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+    let check_scope = |storage: &llm_usage_core::storage::Storage, settings: &AppSettings, now| {
+        let scope = zed_recollect_scope(state, storage, settings, now, range)?;
+        if scope.window != *window || !scope.sources.iter().any(|s| s.instance_id == instance) {
+            return Err(err(
+                "zed_recollect_scope_changed",
+                "recollection scope changed",
+            ));
+        }
+        Ok(())
+    };
+    let settings = state.settings.lock().unwrap().clone();
+    {
+        let storage = crate::app_state::read_conn(state);
+        check_scope(&storage, &settings, now_ms())?;
+    }
+    let scope_control = Arc::clone(control);
+    let _scan_control = llm_usage_core::adapters::run_policy::enter(
+        Some(std::time::Instant::now() + std::time::Duration::from_secs(120)),
+        Some(Arc::new(move || !scope_control.is_cancelled())),
+    );
+    let context =
+        crate::scanner::discover_context(settings.manual_roots.clone(), settings.manual_roots_only);
+    let scan = read_zed_source(&context, instance, now_ms())
+        .map_err(|e| err("zed_recollect_source", e.to_string()))?;
+    let storage = state.storage.lock().unwrap();
+    let current = state.settings.lock().unwrap().clone();
+    let now = now_ms();
+    check_scope(&storage, &current, now)?;
+    if current.manual_roots != settings.manual_roots
+        || current.manual_roots_only != settings.manual_roots_only
+    {
+        return Err(err(
+            "zed_recollect_scope_changed",
+            "source discovery settings changed",
+        ));
+    }
+    let _sql = control
+        .install(storage.conn())
+        .map_err(|e| err("zed_recollect", e.to_string()))?;
+    replace_zed_window(
+        &storage,
+        instance,
+        window,
+        current.retention.hourly_days,
+        now,
+        scan,
+        control,
+    )
+    .map_err(|e| err("zed_recollect", e.to_string()))
 }
 
 struct CleanupRun<'a>(&'a AppState);

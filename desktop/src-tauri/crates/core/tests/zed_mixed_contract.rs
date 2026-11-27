@@ -203,6 +203,7 @@ fn reconciled_local_completion_usage_replays_and_reaches_charts_and_details() {
     }
     parallel(&storage, &db, NOW + 3);
     assert_eq!(storage.lock().unwrap().data_revision().unwrap(), revision);
+    check_forced_recollection(&db);
     thread["updated_at"] = "2026-11-27T17:28:00Z".into();
     put(&db, "observed-thread", &thread);
     parallel(&storage, &db, NOW + 4);
@@ -250,6 +251,162 @@ fn reconciled_local_completion_usage_replays_and_reaches_charts_and_details() {
             .total_tokens_known,
         None
     );
+}
+
+fn check_forced_recollection(path: &Path) {
+    use llm_usage_core::{
+        cancellation::OperationControl,
+        ingest::{commit_batch, recollect::*, IngestBatch},
+    };
+    let storage = Storage::open_in_memory().unwrap();
+    let sql = storage.conn();
+    let instance = ZedAdapter.instance_id(&ZedAdapter.discover(&ctx(path))[0]);
+    let now = ts("2026-11-27T12:00:00Z");
+    let hour = |hour| RecollectHour {
+        day: "2026-11-27".into(),
+        hour,
+    };
+    let window_for = |start, end| {
+        RecollectRange::Hours {
+            start: hour(start),
+            end: hour(end),
+        }
+        .window("Asia/Shanghai", now, 7)
+        .unwrap()
+    };
+    let window = window_for(14, 16);
+    assert_eq!(window.start, "2026-11-27 14:00");
+    assert_eq!(window.end, "2026-11-27 16:00");
+    let read = || read_zed_source(&ctx(path), &instance, now).unwrap();
+    let scan = read();
+    let mut legacy = scan.events[0].clone();
+    legacy.model_raw = Some("incorrect-model".into());
+    legacy.usage.output_total = Some(800);
+    let mut stale = scan.events[0].clone();
+    stale.source_record_key = "legacy-stale-projection".into();
+    stale.model_raw = Some("incorrect-model".into());
+    let mut uncovered = stale.clone();
+    uncovered.source_record_key = "no-longer-in-log".into();
+    uncovered.session_id = Some("uncovered-thread".into());
+    let mut outside = stale.clone();
+    outside.source_record_key = "exact-end-boundary".into();
+    outside.occurred_at_ms = ts("2026-11-27T08:00:00Z");
+    outside.interval_start_ms = Some(outside.occurred_at_ms - 60_000);
+    outside.interval_end_ms = Some(outside.occurred_at_ms);
+    let batch = IngestBatch {
+        batch_id: "legacy-zed-fixture".into(),
+        instance_id: instance.clone(),
+        timezone: window.timezone.clone(),
+        now_ms: now,
+        events: vec![legacy, stale, uncovered, outside],
+        checkpoints: vec![],
+        diagnostics: vec![],
+        run_id: None,
+        retention_cutoff_ms: None,
+    };
+    let mut aggregate = scan.aggregates[0].clone();
+    aggregate.usage.output_total = Some(800);
+    llm_usage_core::aggregates::upsert_source_aggregate(&storage, &aggregate, now).unwrap();
+    let mut other = scan.events[0].clone();
+    other.source_instance_id = "zed@other".into();
+    other.model_raw = Some("other-source".into());
+    commit_batch(
+        &storage,
+        &IngestBatch {
+            batch_id: "other-zed-source".into(),
+            instance_id: other.source_instance_id.clone(),
+            events: vec![other],
+            ..batch.clone()
+        },
+        None,
+    )
+    .unwrap();
+    commit_batch(&storage, &batch, None).unwrap();
+
+    let run = |window: &RecollectWindow| {
+        let control = OperationControl::default();
+        assert!(control.begin());
+        replace_zed_window(&storage, &instance, window, 3, now, read(), &control)
+    };
+    let before = storage.data_revision().unwrap();
+    for partial_window in [window_for(14, 15), window_for(15, 16)] {
+        assert_eq!(
+            run(&partial_window).unwrap(),
+            RecollectOutcome {
+                data_revision: before,
+                ..Default::default()
+            }
+        );
+    }
+    sql.execute_batch(
+        "CREATE TRIGGER forced_recollect_rollback BEFORE INSERT ON daily_usage
+         BEGIN SELECT RAISE(ABORT, 'recollection test rollback'); END",
+    )
+    .unwrap();
+    assert!(run(&window).is_err());
+    assert_eq!(storage.data_revision().unwrap(), before);
+    assert_eq!(
+        count(
+            &storage,
+            "SELECT COUNT(*) FROM usage_events WHERE model_raw='incorrect-model'"
+        ),
+        4
+    );
+    assert_eq!(
+        count(&storage, "SELECT output_total FROM source_aggregates"),
+        800
+    );
+    sql.execute_batch("DROP TRIGGER forced_recollect_rollback")
+        .unwrap();
+
+    let first = run(&window).unwrap();
+    assert_eq!(
+        (
+            first.changed_events,
+            first.removed_events,
+            first.changed_aggregates
+        ),
+        (1, 1, 1)
+    );
+    let revision = first.data_revision;
+    let snapshot = || {
+        let mut stmt = sql.prepare(
+            "SELECT model_raw,event_count,input_known_sum,output_known_sum,cache_read_known_sum,data_revision
+             FROM daily_usage WHERE local_day='2026-11-27' ORDER BY model_raw",
+        ).unwrap();
+        stmt.query_map([], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, i64>(1)?,
+                r.get::<_, i64>(2)?,
+                r.get::<_, i64>(3)?,
+                r.get::<_, i64>(4)?,
+                r.get::<_, i64>(5)?,
+            ))
+        })
+        .unwrap()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap()
+    };
+    let corrected = vec![
+        ("glm-5.4".into(), 1, 135, 5, 110, revision),
+        ("incorrect-model".into(), 2, 270, 10, 220, revision),
+        ("other-source".into(), 1, 135, 5, 110, before),
+    ];
+    assert_eq!(snapshot(), corrected);
+    assert_eq!(count(&storage, "SELECT COUNT(*) FROM usage_events WHERE source_record_key IN ('no-longer-in-log', 'exact-end-boundary')"), 2);
+    assert_eq!(
+        count(&storage, "SELECT output_total FROM source_aggregates"),
+        5
+    );
+    assert_eq!(
+        run(&window).unwrap(),
+        RecollectOutcome {
+            data_revision: revision,
+            ..Default::default()
+        }
+    );
+    assert_eq!(snapshot(), corrected);
 }
 
 #[test]
