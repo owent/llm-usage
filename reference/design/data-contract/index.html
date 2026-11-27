@@ -1090,6 +1090,16 @@ entry against cancellation; after commit starts, reject cancellation and show co
 without promising to undo completed deletion. Clearing cancellation does not cover recollection
 after commit. Keep buttons disabled after accepted cancellation until completion. For rejected
 cancellation, distinguish finished work from commit entry; do not claim rollback.</p>
+<p>Settings can force recollection for one enabled local Zed source owned by the current
+statistics user. Confirm the source and choose recent calendar days or exact hour boundaries
+in the statistics timezone. The range includes the start and excludes the end. A Zed thread
+interval must fit entirely inside that range. During daylight saving transitions, a skipped
+hour cannot be a boundary, and a repeated hour uses its first occurrence as the boundary.
+Read the native source from the beginning before replacing recoverable records
+and rebuilding their summaries in one transaction. Keep sealed history, retention floors,
+records outside the selected range, and observations that the remaining native logs cannot
+reconstruct. Keep existing records if the source scan fails or is incomplete. Repeating the
+operation on the same source data keeps the results and data revision unchanged.</p>
 <p>Optional query indexes change neither fields nor schema version; add them on first opening
 old databases without requiring clearing. Daily summaries, Agent distribution and daily charts
 merge metrics per row, retaining only result groups and active-day sets rather than all input
