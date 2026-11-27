@@ -149,3 +149,34 @@ Sources: [Claude npm](https://www.npmjs.com/package/@anthropic-ai/claude-code),
 [fixed Zed usage mapper](https://github.com/zed-industries/zed/blob/c4273271092b0287f7d181f616bd5171e0a2f70c/crates/language_model_core/src/chat_completion.rs),
 [fixed DeepSeek mapper](https://github.com/zed-industries/zed/blob/c4273271092b0287f7d181f616bd5171e0a2f70c/crates/language_models/src/provider/deepseek.rs),
 [fixed thread accumulation](https://github.com/zed-industries/zed/blob/c4273271092b0287f7d181f616bd5171e0a2f70c/crates/agent/src/thread.rs).
+
+<a id="zed-1302-thread-visibility"></a>
+
+## Zed 1.30.2 thread visibility
+
+On 2026-11-27, a read-only check of Windows Zed 1.30.2 (610ea4b8) and the existing
+llm-usage SQLite database matched two DbThread 0.3.0 rows by anonymous thread identity.
+The collector had already retained both intervals with no Zed usage events. The longer
+interval started on October 29 and last showed `glm-5.4` as the selected model. It held
+6,498 output tokens, 786,240 cache-read tokens and four observed turn buckets. The thread
+created on November 27 held 154,148 output tokens, 12,814,592 cache-read tokens and one
+turn bucket. These figures are per-thread counters and do not establish a daily model total.
+
+The local telemetry log contained 70 GLM-5.4 completion-start entries and 65 usage
+updates. All matched the newly created thread by ID, and the raw output and cache-read
+sums matched its cumulative counters. The updates lacked an absolute time and an
+independent request ID. The writer resets the relative time origin at each flush and
+writes individual wrappers without
+the batch time anchor. Neither file creation time nor modification time restores it.
+The collector does not import these logs or treat updates as calls.
+[Thread writer](https://github.com/zed-industries/zed/blob/610ea4b8de1c6e887f03563f067278002f41256e/crates/agent/src/thread.rs),
+[local telemetry writer](https://github.com/zed-industries/zed/blob/610ea4b8de1c6e887f03563f067278002f41256e/crates/client/src/telemetry.rs).
+
+Overview reads retained Zed intervals directly for the selected statistics user. The parser,
+database schema and daily/model statistics do not change.
+
+| Windows verification | Result |
+| --- | --- |
+| Rust 1.100.0, `cargo test --locked -p llm-usage-core --test zed_mixed_contract --test zed_native_contract` from the Tauri directory | Exit 0, 10 tests. Includes retained intervals, user ownership, sorting and row limit, unknown buckets, and unchanged daily/model totals and data revision. |
+| `npm run test:browser` in Edge with simulated IPC | Exit 0. Checks statistics timezone, unknown fields, thread-only overview and user switches. |
+| `cargo build --features tauri/custom-protocol` and isolated Windows WebView2 check | Exit 0. Ingested a synthetic zstd DbThread into a fresh database, checked the retained row using native Tauri IPC and Overview, and verified unchanged daily/model totals. No existing installation or database was modified. |

@@ -253,6 +253,7 @@ fn main() {
         .on_window_event(crate::tray::close_requested)
         .invoke_handler(tauri::generate_handler![
             commands::summary,
+            commands::zed_thread_usage,
             commands::heatmap,
             commands::list_sources,
             commands::set_source_enabled,

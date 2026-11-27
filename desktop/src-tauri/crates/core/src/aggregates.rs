@@ -7,7 +7,7 @@
 //! - Process repeated series/start/end values once and deduplicate differences too.
 //! - Sum verified disjoint coverage; mark verified duplicates without counting them twice.
 
-use crate::domain::{TimeBasis, TokenQuality, TokenUsage};
+use crate::domain::{FieldQuality, TimeBasis, TokenQuality, TokenUsage};
 use crate::error::CoreError;
 use crate::identity::{content_hash, event_id};
 use crate::metrics::detect_contradictions;
@@ -256,6 +256,61 @@ pub(crate) fn upsert_source_aggregate_with_prior_hashes_tx(
     )?;
     Storage::bump_data_revision_tx(tx, now_ms)?;
     Ok(true)
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ZedThreadUsage {
+    pub id: String,
+    pub start_ms: Option<i64>,
+    pub end_ms: i64,
+    pub input_total: Option<i64>,
+    pub input_uncached: Option<i64>,
+    pub input_cache_read: Option<i64>,
+    pub input_cache_write: Option<i64>,
+    pub output_total: Option<i64>,
+    pub total_tokens: Option<i64>,
+    pub observed_turns: Option<i64>,
+}
+
+/// Read recent retained Zed thread intervals for one statistics user, without counting them as events.
+pub fn recent_zed_thread_usage(
+    storage: &Storage,
+    user_id: &str,
+) -> Result<Vec<ZedThreadUsage>, CoreError> {
+    let mut stmt = storage.conn().prepare(
+        "SELECT a.aggregate_id, a.interval_start_ms, a.interval_end_ms,
+                a.input_total, a.input_uncached, a.input_cache_read, a.input_cache_write,
+                a.output_total, a.total_tokens, a.reported_call_count, a.quality_json
+         FROM source_aggregates a
+         JOIN source_instances s ON s.instance_id = a.instance_id
+         WHERE s.user_id = ?1 AND s.agent = 'zed' AND s.attribution_status = 'verified'
+           AND a.scope = 'session' AND a.scope_key GLOB 'zed:thread:?*' AND a.coverage = 'exclusive'
+         ORDER BY a.interval_end_ms DESC, a.aggregate_id
+         LIMIT 20",
+    )?;
+    let mut rows = stmt.query([user_id])?;
+    let mut usage = Vec::new();
+    while let Some(row) = rows.next()? {
+        let quality_json: String = row.get(10)?;
+        let quality: TokenQuality = serde_json::from_str(&quality_json)?;
+        let known = |column: usize, field| match field {
+            FieldQuality::Reported | FieldQuality::Derived => row.get(column),
+            _ => Ok(None),
+        };
+        usage.push(ZedThreadUsage {
+            id: row.get(0)?,
+            start_ms: row.get(1)?,
+            end_ms: row.get(2)?,
+            input_total: known(3, quality.input_total)?,
+            input_uncached: known(4, quality.input_uncached)?,
+            input_cache_read: known(5, quality.input_cache_read)?,
+            input_cache_write: known(6, quality.input_cache_write)?,
+            output_total: known(7, quality.output_total)?,
+            total_tokens: known(8, quality.total_tokens)?,
+            observed_turns: row.get(9)?,
+        });
+    }
+    Ok(usage)
 }
 
 /// Sum verified disjoint token aggregates (Hermes sample 11: 100+20=120, not 220).

@@ -124,3 +124,30 @@ turn 桶，输入、缓存及总量未知。独立的旧失败导入数据库恢
 [固定 Zed 用量映射](https://github.com/zed-industries/zed/blob/c4273271092b0287f7d181f616bd5171e0a2f70c/crates/language_model_core/src/chat_completion.rs)、
 [固定 DeepSeek 映射](https://github.com/zed-industries/zed/blob/c4273271092b0287f7d181f616bd5171e0a2f70c/crates/language_models/src/provider/deepseek.rs)、
 [固定线程累计写者](https://github.com/zed-industries/zed/blob/c4273271092b0287f7d181f616bd5171e0a2f70c/crates/agent/src/thread.rs)。
+
+<a id="zed-1302-thread-visibility"></a>
+
+## Zed 1.30.2 线程用量显示
+
+2026-11-27，在 Windows 上只读检查 Zed 1.30.2（610ea4b8）和现有 llm-usage SQLite，
+按匿名线程标识匹配到两条 DbThread 0.3.0 记录。采集器已保留两个线程区间，没有生成 Zed
+逐次用量事件。较长的线程起于 10 月 29 日，最后选中的模型为 `glm-5.4`。该线程累计输出
+6,498 token，缓存读取 786,240 token，保留 4 个轮次记录。11 月 27 日新建的线程累计
+输出 154,148 token，缓存读取 12,814,592 token，保留 1 个轮次记录。这些都是线程计数，
+不能用来确定某天某个模型的总量。
+
+本地遥测日志有 70 条 GLM-5.4 请求开始记录和 65 条用量更新，按 ID 均属于当天新建的线程。
+更新记录中的原始输出、缓存读取之和分别与该线程累计值相同。用量更新没有绝对时间或独立
+请求 ID。写入器每次刷新都重置相对时间起点，写入单条记录时不保存该批次的绝对
+时间锚点。文件创建时间和修改时间均不能恢复该时间。采集器不导入这些日志，也不把
+用量更新计为调用。
+[线程写入器](https://github.com/zed-industries/zed/blob/610ea4b8de1c6e887f03563f067278002f41256e/crates/agent/src/thread.rs)、
+[本地遥测写入器](https://github.com/zed-industries/zed/blob/610ea4b8de1c6e887f03563f067278002f41256e/crates/client/src/telemetry.rs)。
+
+总览直接读取所选统计用户已保留的 Zed 线程区间。解析器、数据库结构、每日及模型统计不变。
+
+| Windows 验证 | 结果 |
+| --- | --- |
+| Rust 1.100.0，在 Tauri 目录执行 `cargo test --locked -p llm-usage-core --test zed_mixed_contract --test zed_native_contract` | 退出码 0，10 项测试通过。覆盖已保留的区间、用户归属、排序和行数限制、未知分项，以及每日／模型统计和数据修订不变。 |
+| `npm run test:browser`，Edge 模拟 IPC | 退出码 0。覆盖统计时区、未知分项、仅有线程汇总的总览，以及切换用户。 |
+| `cargo build --features tauri/custom-protocol` 与隔离 Windows WebView2 检查 | 退出码 0。将合成 zstd DbThread 采集到新数据库，通过原生 Tauri IPC 与总览核对线程记录，并核验每日／模型统计不变。未修改现有安装或数据库。 |

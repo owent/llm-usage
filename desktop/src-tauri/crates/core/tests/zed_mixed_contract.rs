@@ -2,6 +2,7 @@ mod common;
 use common::*;
 use llm_usage_core::{
     adapters::{built_in_adapters, framework::*, zed::ZedAdapter},
+    aggregates::recent_zed_thread_usage,
     error::CoreError,
     jobs::TriggerKind,
     storage::Storage,
@@ -146,6 +147,342 @@ fn native_mixed_thread_imports_output_without_inventing_input_or_model_calls() {
         parallel(&s, &p, NOW + 1);
         assert_eq!(s.lock().unwrap().data_revision().unwrap(), revision);
     }
+}
+
+#[test]
+fn recent_zed_usage_reads_retained_intervals_without_changing_daily_or_model_stats() {
+    let dir = TempDir::new("zed-thread-usage");
+    let path = source(&dir);
+    let mut doc = row();
+    doc["model"] = json!({"provider": "custom-zhipu", "model": "glm-5.4"});
+    doc["created_at"] = "2026-10-29T14:00:00Z".into();
+    doc["cumulative_token_usage"] = json!({
+        "input_tokens":213009,"output_tokens":6498,"cache_read_input_tokens":786240,
+    });
+    for day in 1..=22 {
+        doc["updated_at"] = format!("2026-11-{day:02}T06:35:39Z").into();
+        put(&path, &format!("usage-{day:02}"), &doc);
+    }
+    let other = TempDir::new("zed-thread-other-user");
+    let other_path = source(&other);
+    doc["updated_at"] = "2026-11-27T06:35:39Z".into();
+    put(&other_path, "other-user-thread", &doc);
+    let (_app, storage) = temp_storage("zed-thread-usage");
+    let storage = Mutex::new(storage);
+    parallel(&storage, &path, NOW);
+    parallel(&storage, &other_path, NOW + 1);
+    let storage = storage.lock().unwrap();
+    storage.conn().execute_batch(
+        "INSERT INTO users VALUES ('other-user', 'Other', 0);
+         UPDATE source_instances SET user_id = 'other-user' WHERE instance_id IN (
+           SELECT instance_id FROM source_aggregates WHERE scope_key = 'zed:thread:other-user-thread'
+         );
+         UPDATE source_aggregates SET coverage = 'overlap_unknown'
+           WHERE scope_key = 'zed:thread:usage-22';",
+    ).unwrap();
+
+    let revision = storage.data_revision().unwrap();
+    let rows = recent_zed_thread_usage(&storage, "default").unwrap();
+    assert_eq!(rows.len(), 20);
+    assert!(rows.windows(2).all(|pair| pair[0].end_ms > pair[1].end_ms));
+    let newest: i64 = storage
+        .conn()
+        .query_row(
+            "SELECT interval_end_ms FROM source_aggregates WHERE scope_key = 'zed:thread:usage-21'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(rows[0].end_ms, newest);
+    assert_eq!(rows[0].start_ms, Some(1_793_282_400_000));
+    assert_eq!(rows[0].output_total, Some(6498));
+    assert_eq!(rows[0].input_cache_read, Some(786240));
+    assert_eq!(rows[0].observed_turns, Some(2));
+    assert_eq!(rows[0].input_total, None);
+    assert_eq!(rows[0].input_uncached, None);
+    assert_eq!(rows[0].input_cache_write, None);
+    assert_eq!(rows[0].total_tokens, None);
+    assert_eq!(
+        recent_zed_thread_usage(&storage, "other-user")
+            .unwrap()
+            .len(),
+        1
+    );
+    assert!(recent_zed_thread_usage(&storage, "absent")
+        .unwrap()
+        .is_empty());
+    let day = summary(&storage, "2026-11-21", "2026-11-21");
+    assert_eq!(day.totals.output_total_known, None);
+    assert_eq!(day.totals.call_count, 0);
+    assert!(day.model_breakdown.is_empty());
+    assert_eq!(storage.data_revision().unwrap(), revision);
+}
+
+#[test]
+fn recent_zed_usage_excludes_unverified_non_zed_non_session_duplicate_and_empty_scope_rows() {
+    use llm_usage_core::aggregates::{
+        upsert_source_aggregate, AggregateScope, Coverage, SourceAggregateInput,
+    };
+    use llm_usage_core::domain::{FieldQuality, TimeBasis, TokenQuality, TokenUsage};
+
+    let (_app, storage) = temp_storage("zed-thread-filters");
+    storage
+        .conn()
+        .execute_batch(
+            "INSERT INTO source_instances (instance_id, agent, locality_basis, attribution_status, enabled, format, parser_version, capabilities, health, origin_host_id, user_id, created_at_ms, updated_at_ms) VALUES
+             ('zed@verified', 'zed', 'local_filesystem', 'verified', 1, 'zed_threads_db', 'zed-threads-db-2', '{}', 'ok', 'local', 'default', 1, 1),
+             ('zed@pending', 'zed', 'local_filesystem', 'pending', 1, 'zed_threads_db', 'zed-threads-db-2', '{}', 'ok', 'local', 'default', 1, 1),
+             ('zed@excluded', 'zed', 'local_filesystem', 'excluded', 1, 'zed_threads_db', 'zed-threads-db-2', '{}', 'ok', 'local', 'default', 1, 1),
+             ('hermes@verified', 'hermes', 'local_filesystem', 'verified', 1, 'hermes_db', 'hermes-1', '{}', 'ok', 'local', 'default', 1, 1);",
+        )
+        .unwrap();
+
+    let make = |instance_id: &str,
+                scope: AggregateScope,
+                scope_key: &str,
+                coverage: Coverage,
+                end_ms: i64| SourceAggregateInput {
+        instance_id: instance_id.into(),
+        scope,
+        scope_key: scope_key.into(),
+        interval_start_ms: Some(1_793_282_400_000),
+        interval_end_ms: end_ms,
+        interval_end_inclusive: false,
+        usage: TokenUsage {
+            output_total: Some(100),
+            ..Default::default()
+        },
+        quality: TokenQuality {
+            output_total: FieldQuality::Reported,
+            ..Default::default()
+        },
+        reported_call_count: Some(1),
+        coverage,
+        duplicate_of: (coverage == Coverage::Duplicate).then(|| "zed:thread:valid".into()),
+        time_basis: TimeBasis::Uncertain,
+        source_revision: Some(end_ms),
+    };
+
+    for input in [
+        make(
+            "zed@verified",
+            AggregateScope::Session,
+            "zed:thread:valid",
+            Coverage::Exclusive,
+            1_795_000_000_000,
+        ),
+        make(
+            "zed@pending",
+            AggregateScope::Session,
+            "zed:thread:pending-row",
+            Coverage::Exclusive,
+            1_795_100_000_000,
+        ),
+        make(
+            "zed@excluded",
+            AggregateScope::Session,
+            "zed:thread:excluded-row",
+            Coverage::Exclusive,
+            1_795_200_000_000,
+        ),
+        make(
+            "hermes@verified",
+            AggregateScope::Session,
+            "zed:thread:wrong-agent",
+            Coverage::Exclusive,
+            1_795_300_000_000,
+        ),
+        make(
+            "zed@verified",
+            AggregateScope::Day,
+            "zed:thread:wrong-scope",
+            Coverage::Exclusive,
+            1_795_400_000_000,
+        ),
+        make(
+            "zed@verified",
+            AggregateScope::Session,
+            "zed:thread:",
+            Coverage::Exclusive,
+            1_795_500_000_000,
+        ),
+        make(
+            "zed@verified",
+            AggregateScope::Session,
+            "zed:other:1",
+            Coverage::Exclusive,
+            1_795_600_000_000,
+        ),
+        make(
+            "zed@verified",
+            AggregateScope::Session,
+            "zed:thread:dup",
+            Coverage::Duplicate,
+            1_795_700_000_000,
+        ),
+        make(
+            "zed@verified",
+            AggregateScope::Session,
+            "zed:thread:overlap",
+            Coverage::OverlapUnknown,
+            1_795_800_000_000,
+        ),
+    ] {
+        upsert_source_aggregate(&storage, &input, NOW).unwrap();
+    }
+
+    let revision = storage.data_revision().unwrap();
+    let rows = recent_zed_thread_usage(&storage, "default").unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].end_ms, 1_795_000_000_000);
+    assert_eq!(rows[0].output_total, Some(100));
+    assert_eq!(storage.data_revision().unwrap(), revision);
+}
+
+#[test]
+fn recent_zed_usage_preserves_reported_zero_derived_large_tokens_null_start_and_tie_breaks() {
+    use llm_usage_core::aggregates::{
+        upsert_source_aggregate, AggregateScope, Coverage, SourceAggregateInput,
+    };
+    use llm_usage_core::domain::{
+        FieldQuality, TimeBasis, TokenQuality, TokenUsage, MAX_TOKEN_VALUE,
+    };
+
+    let (_app, storage) = temp_storage("zed-thread-semantics");
+    storage
+        .conn()
+        .execute_batch(
+            "INSERT INTO source_instances (instance_id, agent, locality_basis, attribution_status, enabled, format, parser_version, capabilities, health, origin_host_id, user_id, created_at_ms, updated_at_ms) VALUES
+             ('zed@root-a', 'zed', 'local_filesystem', 'verified', 1, 'zed_threads_db', 'zed-threads-db-2', '{}', 'ok', 'local', 'default', 1, 1),
+             ('zed@root-b', 'zed', 'local_filesystem', 'verified', 0, 'zed_threads_db', 'zed-threads-db-2', '{}', 'degraded', 'local', 'default', 1, 1);",
+        )
+        .unwrap();
+
+    let tie_end = 1_796_000_000_000;
+    let rich = SourceAggregateInput {
+        instance_id: "zed@root-a".into(),
+        scope: AggregateScope::Session,
+        scope_key: "zed:thread:rich".into(),
+        interval_start_ms: None,
+        interval_end_ms: tie_end + 1_000,
+        interval_end_inclusive: false,
+        usage: TokenUsage {
+            input_total: Some(0),
+            input_uncached: Some(42),
+            input_cache_read: Some(MAX_TOKEN_VALUE),
+            input_cache_write: Some(7),
+            output_total: Some(0),
+            output_reasoning: None,
+            total_tokens: Some(9_007_199_254_740_993),
+            source_total: None,
+        },
+        quality: TokenQuality {
+            input_total: FieldQuality::Reported,
+            input_uncached: FieldQuality::Derived,
+            input_cache_read: FieldQuality::Reported,
+            input_cache_write: FieldQuality::Estimated,
+            output_total: FieldQuality::Reported,
+            output_reasoning: FieldQuality::Unknown,
+            total_tokens: FieldQuality::Derived,
+            source_total: FieldQuality::Unknown,
+        },
+        reported_call_count: Some(0),
+        coverage: Coverage::Exclusive,
+        duplicate_of: None,
+        time_basis: TimeBasis::Uncertain,
+        source_revision: Some(tie_end + 1_000),
+    };
+    upsert_source_aggregate(&storage, &rich, NOW).unwrap();
+
+    for (instance, key, turns) in [
+        ("zed@root-a", "zed:thread:tie-1", None),
+        ("zed@root-b", "zed:thread:tie-2", Some(3)),
+    ] {
+        let input = SourceAggregateInput {
+            instance_id: instance.into(),
+            scope: AggregateScope::Session,
+            scope_key: key.into(),
+            interval_start_ms: Some(tie_end - 5_000),
+            interval_end_ms: tie_end,
+            interval_end_inclusive: false,
+            usage: TokenUsage {
+                output_total: Some(12),
+                ..Default::default()
+            },
+            quality: TokenQuality {
+                output_total: FieldQuality::Reported,
+                ..Default::default()
+            },
+            reported_call_count: turns,
+            coverage: Coverage::Exclusive,
+            duplicate_of: None,
+            time_basis: TimeBasis::Uncertain,
+            source_revision: Some(tie_end),
+        };
+        upsert_source_aggregate(&storage, &input, NOW).unwrap();
+    }
+    // Force an Unknown quality marker with a non-null SQLite integer to verify quality gating.
+    storage
+        .conn()
+        .execute(
+            "UPDATE source_aggregates SET input_uncached = 999 WHERE scope_key = 'zed:thread:tie-1'",
+            [],
+        )
+        .unwrap();
+
+    // Add 20 older rows across both roots so total exceeds 20 and tests cross-instance merging & cap.
+    for i in 0..20 {
+        let end_ms = tie_end - 10_000 - i * 1_000;
+        let input = SourceAggregateInput {
+            instance_id: if i % 2 == 0 {
+                "zed@root-a".into()
+            } else {
+                "zed@root-b".into()
+            },
+            scope: AggregateScope::Session,
+            scope_key: format!("zed:thread:older-{i:02}"),
+            interval_start_ms: Some(end_ms - 500),
+            interval_end_ms: end_ms,
+            interval_end_inclusive: false,
+            usage: TokenUsage {
+                output_total: Some(1 + i),
+                ..Default::default()
+            },
+            quality: TokenQuality {
+                output_total: FieldQuality::Reported,
+                ..Default::default()
+            },
+            reported_call_count: Some(1),
+            coverage: Coverage::Exclusive,
+            duplicate_of: None,
+            time_basis: TimeBasis::Uncertain,
+            source_revision: Some(end_ms),
+        };
+        upsert_source_aggregate(&storage, &input, NOW).unwrap();
+    }
+
+    let rows = recent_zed_thread_usage(&storage, "default").unwrap();
+    assert_eq!(rows.len(), 20);
+    assert_eq!(rows[0].start_ms, None);
+    assert_eq!(rows[0].end_ms, tie_end + 1_000);
+    assert_eq!(rows[0].input_total, Some(0));
+    assert_eq!(rows[0].input_uncached, Some(42));
+    assert_eq!(rows[0].input_cache_read, Some(MAX_TOKEN_VALUE));
+    assert_eq!(rows[0].input_cache_write, None);
+    assert_eq!(rows[0].output_total, Some(0));
+    assert_eq!(rows[0].total_tokens, Some(9_007_199_254_740_993));
+    assert_eq!(rows[0].observed_turns, Some(0));
+
+    // Equal end_ms rows are ordered deterministically by aggregate_id ascending.
+    assert_eq!(rows[1].end_ms, tie_end);
+    assert_eq!(rows[2].end_ms, tie_end);
+    assert!(rows[1].id < rows[2].id);
+    // Disabled/degraded instance rows are still retained and merged with active instances.
+    let tie_turns: Vec<Option<i64>> = rows[1..=2].iter().map(|r| r.observed_turns).collect();
+    assert!(tie_turns.contains(&None));
+    assert!(tie_turns.contains(&Some(3)));
+    // Non-null SQLite integer with Unknown quality must remain None.
+    assert!(rows[1..=2].iter().all(|r| r.input_uncached.is_none()));
 }
 
 struct OldSkip(bool);

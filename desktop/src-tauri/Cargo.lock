@@ -2094,7 +2094,7 @@ checksum = "47d9d19d1d6efa0109d2f65ff4c85cddd50bd572e5a00127ab10987290bcefae"
 
 [[package]]
 name = "llm-usage-core"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "jiff 1.0.2",
  "rusqlite",
@@ -2108,7 +2108,7 @@ dependencies = [
 
 [[package]]
 name = "llm-usage-desktop"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "core-foundation",
  "flate2",

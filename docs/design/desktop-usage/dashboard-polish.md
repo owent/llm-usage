@@ -57,6 +57,20 @@ accepted but before running is visible, retain the collection indicator and disa
 repeat requests until running or completion time changes. A short task finishing
 between polls still refreshes; do not revert prematurely to idle waiting.
 
+<a id="zed-thread-usage"></a>
+
+## Zed thread usage
+
+Overview lists up to 20 retained Zed session summaries for the current statistics user,
+most recently updated first. Show each thread's native start and end timestamps in the
+statistics timezone and keep unknown fields distinct from zero. The turn column counts only
+persisted turn buckets, not model calls. Read the existing summaries without rescanning or
+rewriting them. Show this section with All Agents or Zed selected and no model filter.
+
+The section is independent of chart selections and remains visible when there are no
+per-call records. Do not add these intervals to daily or model totals, calls or cost estimates.
+Zed stores the latest model selection, which cannot attribute the cumulative usage to a model.
+
 <a id="费用和布局"></a>
 
 ## Costs and layout

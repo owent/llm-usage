@@ -394,6 +394,45 @@ pub async fn summary(
     .map_err(|_| err("query", "query worker failed"))?
 }
 
+#[tauri::command]
+pub async fn zed_thread_usage(
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<serde_json::Value, String> {
+    let state = Arc::clone(&state);
+    let current_user = state.current_user.lock().unwrap().clone();
+    tauri::async_runtime::spawn_blocking(move || zed_thread_usage_query(&state, &current_user))
+        .await
+        .map_err(|_| err("query", "Zed thread usage query worker failed"))?
+}
+
+fn zed_thread_usage_query(
+    state: &Arc<AppState>,
+    current_user: &str,
+) -> Result<serde_json::Value, String> {
+    let storage = crate::app_state::read_conn(state);
+    let rows = llm_usage_core::aggregates::recent_zed_thread_usage(&storage, current_user)
+        .map_err(|e| err("db", e.to_string()))?;
+    drop(storage);
+    let rows: Vec<_> = rows
+        .into_iter()
+        .map(|row| {
+            serde_json::json!({
+                "id": row.id,
+                "start_ms": row.start_ms,
+                "end_ms": row.end_ms,
+                "input_total": opt_num(row.input_total),
+                "input_uncached": opt_num(row.input_uncached),
+                "input_cache_read": opt_num(row.input_cache_read),
+                "input_cache_write": opt_num(row.input_cache_write),
+                "output_total": opt_num(row.output_total),
+                "total_tokens": opt_num(row.total_tokens),
+                "observed_turns": opt_num(row.observed_turns),
+            })
+        })
+        .collect();
+    Ok(serde_json::json!({ "user_id": current_user, "rows": rows }))
+}
+
 fn summary_query(
     state: &Arc<AppState>,
     settings: &AppSettings,
@@ -2203,5 +2242,171 @@ mod clear_all_tests {
         let _ = std::fs::remove_file(&db);
         let _ = std::fs::remove_file(db.with_extension("sqlite-wal"));
         let _ = std::fs::remove_file(db.with_extension("sqlite-shm"));
+    }
+}
+
+#[cfg(test)]
+mod zed_thread_usage_tests {
+    use super::*;
+    use llm_usage_core::aggregates::{
+        upsert_source_aggregate, AggregateScope, Coverage, SourceAggregateInput,
+    };
+    use llm_usage_core::domain::{
+        FieldQuality, TimeBasis, TokenQuality, TokenUsage, MAX_TOKEN_VALUE,
+    };
+
+    #[test]
+    fn zed_thread_usage_query_encodes_decimal_strings_isolates_users_and_skips_unverified() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../build/zed-command-tests")
+            .join(format!(
+                "{}-{}",
+                std::process::id(),
+                crate::scanner::now_ms()
+            ));
+        std::fs::create_dir_all(&dir).unwrap();
+        struct Cleanup(std::path::PathBuf);
+        impl Drop for Cleanup {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_dir_all(&self.0);
+            }
+        }
+        let _cleanup = Cleanup(dir.clone());
+        let state = Arc::new(
+            crate::app_state::AppState::init(dir.join("zed-ipc.sqlite"), "test-host", false)
+                .expect("init state"),
+        );
+        let revision = {
+            let storage = state.storage.lock().unwrap();
+            storage
+                .conn()
+                .execute_batch(
+                    "INSERT INTO users (user_id, name, created_at_ms) VALUES ('other-user', 'Other', 1);
+                     INSERT INTO source_instances (instance_id, agent, locality_basis, attribution_status, enabled, format, parser_version, capabilities, health, origin_host_id, user_id, created_at_ms, updated_at_ms) VALUES
+                     ('zed@default', 'zed', 'local_filesystem', 'verified', 1, 'zed_threads_db', 'zed-threads-db-2', '{}', 'ok', 'local', 'default', 1, 1),
+                     ('zed@unverified', 'zed', 'local_filesystem', 'pending', 1, 'zed_threads_db', 'zed-threads-db-2', '{}', 'ok', 'local', 'default', 1, 1),
+                     ('zed@other', 'zed', 'local_filesystem', 'verified', 1, 'zed_threads_db', 'zed-threads-db-2', '{}', 'ok', 'local', 'other-user', 1, 1);",
+                )
+                .unwrap();
+            let now = 1_800_000_000_000;
+            upsert_source_aggregate(
+                &storage,
+                &SourceAggregateInput {
+                    instance_id: "zed@default".into(),
+                    scope: AggregateScope::Session,
+                    scope_key: "zed:thread:large".into(),
+                    interval_start_ms: None,
+                    interval_end_ms: 1_795_000_000_000,
+                    interval_end_inclusive: false,
+                    usage: TokenUsage {
+                        input_total: Some(0),
+                        input_uncached: None,
+                        input_cache_read: Some(MAX_TOKEN_VALUE),
+                        input_cache_write: None,
+                        output_total: Some(9_007_199_254_740_993),
+                        output_reasoning: None,
+                        total_tokens: None,
+                        source_total: None,
+                    },
+                    quality: TokenQuality {
+                        input_total: FieldQuality::Reported,
+                        input_cache_read: FieldQuality::Reported,
+                        output_total: FieldQuality::Reported,
+                        ..Default::default()
+                    },
+                    reported_call_count: Some(0),
+                    coverage: Coverage::Exclusive,
+                    duplicate_of: None,
+                    time_basis: TimeBasis::Uncertain,
+                    source_revision: Some(1_795_000_000_000),
+                },
+                now,
+            )
+            .unwrap();
+            upsert_source_aggregate(
+                &storage,
+                &SourceAggregateInput {
+                    instance_id: "zed@unverified".into(),
+                    scope: AggregateScope::Session,
+                    scope_key: "zed:thread:hidden".into(),
+                    interval_start_ms: Some(1_795_000_000_000),
+                    interval_end_ms: 1_796_000_000_000,
+                    interval_end_inclusive: false,
+                    usage: TokenUsage {
+                        output_total: Some(50),
+                        ..Default::default()
+                    },
+                    quality: TokenQuality {
+                        output_total: FieldQuality::Reported,
+                        ..Default::default()
+                    },
+                    reported_call_count: Some(1),
+                    coverage: Coverage::Exclusive,
+                    duplicate_of: None,
+                    time_basis: TimeBasis::Uncertain,
+                    source_revision: Some(1_796_000_000_000),
+                },
+                now,
+            )
+            .unwrap();
+            upsert_source_aggregate(
+                &storage,
+                &SourceAggregateInput {
+                    instance_id: "zed@other".into(),
+                    scope: AggregateScope::Session,
+                    scope_key: "zed:thread:other".into(),
+                    interval_start_ms: Some(1_794_000_000_000),
+                    interval_end_ms: 1_794_500_000_000,
+                    interval_end_inclusive: false,
+                    usage: TokenUsage {
+                        output_total: Some(77),
+                        ..Default::default()
+                    },
+                    quality: TokenQuality {
+                        output_total: FieldQuality::Reported,
+                        ..Default::default()
+                    },
+                    reported_call_count: None,
+                    coverage: Coverage::Exclusive,
+                    duplicate_of: None,
+                    time_basis: TimeBasis::Uncertain,
+                    source_revision: Some(1_794_500_000_000),
+                },
+                now,
+            )
+            .unwrap();
+            storage.data_revision().unwrap()
+        };
+
+        let default_dto = zed_thread_usage_query(&state, "default").unwrap();
+        assert_eq!(default_dto["user_id"], "default");
+        let rows = default_dto["rows"].as_array().unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["start_ms"], serde_json::Value::Null);
+        assert_eq!(rows[0]["end_ms"], 1_795_000_000_000i64);
+        assert_eq!(rows[0]["input_total"], "0");
+        assert_eq!(rows[0]["input_uncached"], serde_json::Value::Null);
+        assert_eq!(rows[0]["input_cache_read"], MAX_TOKEN_VALUE.to_string());
+        assert_eq!(rows[0]["input_cache_write"], serde_json::Value::Null);
+        assert_eq!(rows[0]["output_total"], "9007199254740993");
+        assert_eq!(rows[0]["total_tokens"], serde_json::Value::Null);
+        assert_eq!(rows[0]["observed_turns"], "0");
+
+        let other_dto = zed_thread_usage_query(&state, "other-user").unwrap();
+        assert_eq!(other_dto["user_id"], "other-user");
+        let other_rows = other_dto["rows"].as_array().unwrap();
+        assert_eq!(other_rows.len(), 1);
+        assert_eq!(other_rows[0]["start_ms"], 1_794_000_000_000i64);
+        assert_eq!(other_rows[0]["output_total"], "77");
+        assert_eq!(other_rows[0]["observed_turns"], serde_json::Value::Null);
+
+        let absent_dto = zed_thread_usage_query(&state, "absent").unwrap();
+        assert_eq!(absent_dto["user_id"], "absent");
+        assert_eq!(absent_dto["rows"].as_array().unwrap().len(), 0);
+
+        assert_eq!(
+            state.storage.lock().unwrap().data_revision().unwrap(),
+            revision
+        );
     }
 }
