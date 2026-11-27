@@ -143,10 +143,13 @@ cannot identify historical input inclusion. Preserve output/cache, leave input/c
 and reconcile output only, including when the latest provider is llm-usage-zhipu. Complete native
 structures take precedence over the legacy statistics-only fallback. Keep existing input/quality
 disagreements as real aggregate conflicts; do not treat them as parser-reference corrections.
-Reevaluate old cursors through the independent native-policy marker;
-do not delete checkpoints before transactional scanning. Native intervals do not become daily/model calls.
-Other Providers have structural compatibility reads, without real-call certification; see the
-[Windows samples](docs/validation/desktop-usage/agent-native-20261029.md).
+Reevaluate old cursors through the independent native-policy marker and preserve checkpoints until
+transactional scanning. Keep DbThread-only intervals as source aggregates. Zed 1.30.2's verified
+OpenAI logs supply one observed call per matched request start and usage update after the four
+counters reconcile with DbThread. Assign the usage and observed calls to the period containing the
+thread end in the statistics timezone. Keep both endpoints and count tokens once in the model
+observation. Other providers retain structural compatibility reads. See the
+[Windows Zed validation](docs/validation/desktop-usage/agent-native-20261029.md#zed-1302-end-period).
 Cursor/Warp/TRAE remote usage routes are excluded by the local-source boundary.
 JetBrains GitHub Copilot was inspected in source: default local Nitrite session credits and idea.log lack
 per-call tokens. The per-call records require opt-in OTel file export through a manual root in the existing

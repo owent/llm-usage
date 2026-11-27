@@ -190,9 +190,9 @@ thread and requires agreement on all four counters. The local sample's
 `openai/glm-5.4` is the writer's prefixed model ID. The latest model saved in
 the same thread differs. Reversing the OpenAI cache subtraction gives
 13,128,307 total input, including 12,814,592 cache-read tokens. Output is 154,148.
-The native interval is 14:44–15:28 on 2026-11-27 in Asia/Shanghai. The day is
-eligible for charts, but neither hour is assignable, and the 65 updates do
-not constitute a verified model-call count.
+The native interval is 14:44–15:28 on 2026-11-27 in Asia/Shanghai. The initial
+chart importer included the interval in the daily totals and left the hourly
+chart and model-call count empty.
 [OpenAI-compatible model writer](https://github.com/zed-industries/zed/blob/610ea4b8de1c6e887f03563f067278002f41256e/crates/language_models/src/provider/open_ai_compatible.rs),
 [chat token mapper](https://github.com/zed-industries/zed/blob/610ea4b8de1c6e887f03563f067278002f41256e/crates/language_model_core/src/chat_completion.rs#L230-L250).
 
@@ -224,3 +224,25 @@ The 14:00–15:00 range left the 14:44–15:28 thread intact. The 14:00–16:00 
 repaired it, and repeating that range preserved the detail rows, chart totals
 and data revision. Rust checks cover records ending exactly at the excluded
 boundary and both skipped and repeated New York daylight saving hours.
+
+<a id="zed-1302-end-period"></a>
+
+## Zed interval end and observed calls
+
+On Windows, the end-period reader imported the same Zed 1.30.2 source through
+`run_adapter_scan` into an isolated in-memory SQLite database. The 14:44:18–15:28:45
+interval produced 13,282,455 tokens and 65 observed calls in the 15:00 bucket
+and in the November 27 daily total in Asia/Shanghai. Each counted call had a
+matched request start and usage update in a thread whose four counters agreed
+with the local log. The sample contained 70 starts. The other five starts lacked
+paired usage updates. A repeat scan returned the same totals and data revision.
+This check exercised collection and queries without launching WebView2.
+
+The `zed_mixed_contract` suite exercises hourly and daily end attribution,
+older checkpoints and duplicate updates. Its SQLite archive cases reject a
+snapshot whose previous detail is older than the retention floor. A sealed
+day or a period archive alone blocks both a new overlapping observation and
+its call until retained usage detail for that session is available. Moving a
+retained interval between days invalidates the two rebuildable weekly caches
+for its source. An injected failure rolls back both changes, and the successful
+retry places the updated totals in the destination week.

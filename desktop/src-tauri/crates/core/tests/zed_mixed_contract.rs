@@ -14,6 +14,285 @@ use std::{
 };
 
 const NOW: i64 = 1_800_000_000_000;
+
+fn bounded_zed_event(
+    instance: &str,
+    key: &str,
+    session: &str,
+    start: i64,
+    end: i64,
+) -> llm_usage_core::domain::EventInput {
+    use llm_usage_core::domain::TimeBasis;
+    let mut event = evt(instance, key, end);
+    event.agent = "zed".into();
+    event.session_id = Some(session.into());
+    event.time_basis = TimeBasis::BoundedInterval;
+    event.interval_start_ms = Some(start);
+    event.interval_end_ms = Some(end);
+    event.source_revision = Some(end);
+    event
+}
+
+#[test]
+fn bounded_zed_replay_requires_retained_observation_when_it_overlaps_an_archive() {
+    use llm_usage_core::{
+        domain::RecordKind,
+        ingest::commit_batch,
+        retention::{enforce_retention, RetentionPolicy},
+        retention_tiered::{enforce_tiered_retention, TieredRetentionPolicy},
+    };
+    let storage = Storage::open_in_memory().unwrap();
+    let instance = "zed-archive";
+    let session = "thread";
+    let start = ts("2026-11-22T23:00:00Z");
+    let archived_end = ts("2026-11-22T23:30:00Z");
+    let floor = ts("2026-11-23T00:00:00Z");
+    let end = ts("2026-11-23T01:30:00Z");
+    let now = ts("2026-11-29T12:00:00Z");
+    let observation = |key, start, end| {
+        let mut event = with_tokens(bounded_zed_event(instance, key, session, start, end), 10, 2);
+        event.record_kind = RecordKind::UsageObservation;
+        event
+    };
+    let ingest =
+        |events| commit_batch(&storage, &batch(instance, "UTC", now, events), None).unwrap();
+    let assert_skipped = |events: Vec<_>| {
+        let expected = events.len() as i64;
+        let revision = storage.data_revision().unwrap();
+        let outcome = ingest(events);
+        assert_eq!(
+            (outcome.added, outcome.updated, outcome.skipped),
+            (0, 0, expected)
+        );
+        assert!(outcome.affected_days.is_empty());
+        assert_eq!(outcome.data_revision, revision);
+    };
+    assert_eq!(
+        ingest(vec![observation("prior", start, archived_end)]).added,
+        1
+    );
+
+    storage
+        .conn()
+        .execute(
+            "INSERT INTO settings (key,value,schema_version,updated_at_ms)
+         VALUES ('detail_retention_floor_ms',?1,1,?2)",
+            rusqlite::params![floor.to_string(), now],
+        )
+        .unwrap();
+    assert_skipped(vec![observation("prior", start, end)]);
+    assert_eq!(
+        count(&storage, "SELECT occurred_at_ms FROM usage_events"),
+        archived_end
+    );
+
+    let sealed = enforce_retention(
+        &storage,
+        "UTC",
+        now,
+        &RetentionPolicy {
+            detail_days: 7,
+            diagnostics_days: 7,
+            hard_max_days: None,
+        },
+    )
+    .unwrap();
+    assert_eq!(sealed.cutoff_ms, floor);
+    assert_eq!(sealed.deleted_events, 1);
+    assert_eq!(
+        count(
+            &storage,
+            "SELECT total_known_sum FROM daily_usage WHERE sealed=1"
+        ),
+        12
+    );
+    assert_eq!(count(&storage, "SELECT COUNT(*) FROM period_usage"), 0);
+
+    let replay = vec![
+        observation("next", start, end),
+        bounded_zed_event(instance, "call", session, start, end),
+    ];
+    assert_skipped(replay.clone());
+    assert_eq!(count(&storage, "SELECT COUNT(*) FROM usage_events"), 0);
+
+    enforce_tiered_retention(&storage, "UTC", now, &TieredRetentionPolicy::default()).unwrap();
+    assert_eq!(
+        count(
+            &storage,
+            "SELECT total_known_sum FROM period_usage WHERE granularity='week'"
+        ),
+        12
+    );
+    storage
+        .conn()
+        .execute("DELETE FROM daily_usage WHERE sealed=1", [])
+        .unwrap();
+    assert_skipped(replay.clone());
+
+    let retained_end = ts("2026-11-23T01:00:00Z");
+    assert_eq!(
+        ingest(vec![bounded_zed_event(
+            instance,
+            "retained-call",
+            session,
+            floor,
+            retained_end
+        )])
+        .added,
+        1
+    );
+    assert_skipped(replay.clone());
+    let mut retained = observation("retained-observation", floor, retained_end);
+    retained.model_raw = Some("retained-model".into());
+    assert_eq!(ingest(vec![retained]).added, 1);
+    let accepted = ingest(replay.clone());
+    assert_eq!((accepted.added, accepted.skipped), (2, 0));
+    assert_eq!(accepted.affected_days, ["2026-11-23"]);
+    assert_eq!(
+        count(
+            &storage,
+            "SELECT SUM(total_known_sum) FROM daily_usage WHERE local_day='2026-11-23'"
+        ),
+        24
+    );
+    assert_eq!(
+        count(
+            &storage,
+            "SELECT SUM(call_count) FROM daily_usage WHERE local_day='2026-11-23'"
+        ),
+        2
+    );
+    assert_eq!(
+        count(
+            &storage,
+            "SELECT total_known_sum FROM period_usage WHERE granularity='week'"
+        ),
+        12
+    );
+    let repeated = ingest(replay);
+    assert_eq!(repeated.unchanged, 2);
+    assert_eq!(repeated.data_revision, accepted.data_revision);
+}
+
+#[test]
+fn moving_bounded_zed_usage_invalidates_both_rebuildable_periods_atomically() {
+    use llm_usage_core::{
+        calendar::WeekStart,
+        domain::RecordKind,
+        ingest::{commit_batch, FaultPoint},
+        query::{query_summary, Filters, Granularity, SummaryRequest},
+        retention_tiered::{enforce_tiered_retention, TieredRetentionPolicy},
+    };
+    let storage = Storage::open_in_memory().unwrap();
+    let instance = "zed-moving";
+    let start = ts("2026-11-12T09:00:00Z");
+    let before = ts("2026-11-12T09:30:00Z");
+    let after = ts("2026-11-18T09:30:00Z");
+    let now = ts("2026-11-24T12:00:00Z");
+    let session_at = |end, input| {
+        let mut observation = with_tokens(
+            bounded_zed_event(instance, "observation", "moving-thread", start, end),
+            input,
+            2,
+        );
+        observation.record_kind = RecordKind::UsageObservation;
+        vec![
+            observation,
+            bounded_zed_event(instance, "call", "moving-thread", start, end),
+        ]
+    };
+    let anchor = |instance, key| {
+        let mut observation = with_tokens(
+            bounded_zed_event(
+                instance,
+                key,
+                "other-thread",
+                ts("2026-11-18T10:00:00Z"),
+                ts("2026-11-18T11:00:00Z"),
+            ),
+            20,
+            2,
+        );
+        observation.record_kind = RecordKind::UsageObservation;
+        observation
+    };
+    let mut rows = session_at(before, 10);
+    rows.push(anchor(instance, "anchor"));
+    commit_batch(&storage, &batch(instance, "UTC", now, rows), None).unwrap();
+    commit_batch(
+        &storage,
+        &batch("zed-other", "UTC", now, vec![anchor("zed-other", "other")]),
+        None,
+    )
+    .unwrap();
+    enforce_tiered_retention(
+        &storage,
+        "UTC",
+        now,
+        &TieredRetentionPolicy {
+            events_days: 30,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let periods = || {
+        count(
+            &storage,
+            "SELECT COUNT(DISTINCT period_key) FROM period_usage
+        WHERE granularity='week' AND instance_id='zed-moving'",
+        )
+    };
+    assert_eq!(periods(), 2);
+
+    let update = batch(instance, "UTC", now + 1, session_at(after, 13));
+    let revision = storage.data_revision().unwrap();
+    assert!(commit_batch(&storage, &update, Some(FaultPoint::AfterAggregates)).is_err());
+    assert_eq!(storage.data_revision().unwrap(), revision);
+    assert_eq!(periods(), 2);
+    assert_eq!(
+        count(
+            &storage,
+            "SELECT occurred_at_ms FROM usage_events
+        WHERE source_instance_id='zed-moving' AND source_record_key='observation'"
+        ),
+        before
+    );
+
+    let outcome = commit_batch(&storage, &update, None).unwrap();
+    assert_eq!(outcome.updated, 2);
+    assert_eq!(outcome.affected_days, ["2026-11-12", "2026-11-18"]);
+    assert_eq!(periods(), 0);
+    assert_eq!(
+        count(
+            &storage,
+            "SELECT COUNT(*) FROM period_usage
+        WHERE granularity='week' AND instance_id='zed-other'"
+        ),
+        1
+    );
+    let summary = query_summary(
+        &storage,
+        &SummaryRequest {
+            timezone: "UTC".into(),
+            week_start: WeekStart::Monday,
+            first_day: "2026-11-09".parse().unwrap(),
+            last_day: "2026-11-22".parse().unwrap(),
+            granularity: Granularity::Week,
+            filters: Filters {
+                instances: Some(vec![instance.into()]),
+                ..Default::default()
+            },
+            today: "2026-11-24".parse().unwrap(),
+            retention_cutoff: None,
+        },
+    )
+    .unwrap();
+    assert_eq!(summary.periods.len(), 1);
+    assert_eq!(summary.periods[0].start_day.to_string(), "2026-11-16");
+    assert_eq!(summary.totals.total_tokens_known, Some(37));
+    assert_eq!(summary.totals.call_count, 1);
+}
+
 fn row() -> Value {
     serde_json::from_str::<Value>(include_str!("fixtures/zed/native-1.26.2-mixed.json")).unwrap()
         ["threads"][0]
@@ -172,6 +451,14 @@ fn reconciled_local_completion_usage_replays_and_reaches_charts_and_details() {
         let s = storage.lock().unwrap();
         assert_eq!(count(&s, "SELECT COUNT(*) FROM usage_events"), 3);
         assert_eq!(count(&s, "SELECT COUNT(*) FROM source_aggregates"), 1);
+        assert_eq!(
+            count(
+                &s,
+                "SELECT COUNT(*) FROM source_instances WHERE agent='zed'
+            AND json_type(capabilities, '$.fields.per_request_calls.availability.partial')='text'"
+            ),
+            1
+        );
         let dashboard = dashboard_for(&s, "Asia/Shanghai", day, Granularity::Day);
         assert_eq!(dashboard.totals.call_count, 2);
         assert_eq!(dashboard.totals.input_total_known, Some(135));

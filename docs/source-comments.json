@@ -30714,7 +30714,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/zed/mod.rs": {
-      "codeHash": "38677693f2485d7fdd04efd6d05eb20f8d3db1ca01de26dc3bf67d87cdb0b879",
+      "codeHash": "997c1ffd4fe5c0ca2857e2c48ebc8a03dbc544030a60cbc03640e30b532fee84",
       "comments": [
         {
           "id": "dfe917f039a01b2e",
@@ -50352,39 +50352,39 @@
       ]
     },
     "desktop/src-tauri/crates/core/tests/zed_mixed_contract.rs": {
-      "codeHash": "9b3bf87c22daa5b109fa5e970936b3e9f04ed65099079ee392269ad818fbad2a",
+      "codeHash": "e3e90c1b577f7a5427be800accc66912c52d8a5e16e69bc16c6ab90b0aa5933c",
       "comments": [
         {
           "id": "7a9519b90eaf42eb",
-          "line": 865,
+          "line": 1152,
           "kind": "line",
           "en": "// Force an Unknown quality marker with a non-null SQLite integer to verify quality gating.",
           "zh": "// 强制写入带非空整数的 Unknown 质量标记，核验质量字段筛选生效。"
         },
         {
           "id": "da06594677636cc7",
-          "line": 874,
+          "line": 1161,
           "kind": "line",
           "en": "// Add 20 older rows across both roots so total exceeds 20 and tests cross-instance merging & cap.",
           "zh": "// 在两个来源根下再写入 20 条较早记录，使总数超过 20，验证跨实例合并与条数上限。"
         },
         {
           "id": "1b453a2c10b75079",
-          "line": 917,
+          "line": 1204,
           "kind": "line",
           "en": "// Equal end_ms rows are ordered deterministically by aggregate_id ascending.",
           "zh": "// end_ms 相同的记录按 aggregate_id 升序稳定排列。"
         },
         {
           "id": "b1eb167c1b5f2e24",
-          "line": 921,
+          "line": 1208,
           "kind": "line",
           "en": "// Disabled/degraded instance rows are still retained and merged with active instances.",
           "zh": "// 已停用或降级实例的历史汇总仍会保留，并与正常实例合并返回。"
         },
         {
           "id": "2ad449b4bc32b646",
-          "line": 925,
+          "line": 1212,
           "kind": "line",
           "en": "// Non-null SQLite integer with Unknown quality must remain None.",
           "zh": "// 质量标记为 Unknown 时，即使 SQLite 整数列非空也必须返回 None。"

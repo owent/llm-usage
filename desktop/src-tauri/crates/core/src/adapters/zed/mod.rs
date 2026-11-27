@@ -187,8 +187,8 @@ impl crate::adapters::framework::SourceAdapter for ZedAdapter {
         fields.insert(
             "per_request_calls".into(),
             field(
-                Availability::Unavailable("request_token_usage 是 turn 级桶且 turn 内多请求后写覆盖前写（官方 thread.rs:2893）；只作 reported_call_count（turn 数）与对账，不伪造逐次".into()),
-                "turn 级（下界），非逐请求",
+                Availability::Partial(note.clone()),
+                "本地 OpenAI 日志的请求开始与用量更新配对，且四项计数与线程一致时计入已核实的调用。request_token_usage 只提供轮次数下界和对账数据。",
             ),
         );
         fields.insert(
@@ -202,7 +202,7 @@ impl crate::adapters::framework::SourceAdapter for ZedAdapter {
             "time".into(),
             field(
                 Availability::Partial(note.clone()),
-                "线程 created_at..updated_at；区间完全落在同一天或同一小时才纳入对应统计，无逐次时间戳",
+                "保留线程 created_at 和 updated_at。用量和已核实调用计入结束时刻所在统计周期，单次请求的绝对时间未知。",
             ),
         );
         fields.insert(
@@ -248,8 +248,8 @@ impl crate::adapters::framework::SourceAdapter for ZedAdapter {
             }),
             fields,
             lifecycle: serde_json::json!({
-                "aggregate_only": "每线程一条 session 级聚合（cumulative_token_usage 权威）；不展开伪造逐次事件",
-                "model_observation": "四项计数与 OpenAI 本地日志一致时，记录每线程每模型的区间用量，不增加调用数",
+                "aggregate_only": "仅有 DbThread 时，每线程保存一条 cumulative_token_usage 会话汇总。",
+                "model_observation": "四项计数与本地 OpenAI 日志一致时，按线程和模型保存区间用量，每组配对的请求单独计一次调用。token 只计入区间用量。",
                 "overwrite_semantics": "request_token_usage turn 内后写覆盖前写：桶数=turn 数下界，桶合计仅作 Reconciliation 对照",
                 "imported": "SharedThread（version 1.0.0）用量置零，跳过；外部 ACP Agent 会话不进 threads 表",
             }),
@@ -263,7 +263,7 @@ impl crate::adapters::framework::SourceAdapter for ZedAdapter {
             }),
             integrity: serde_json::json!({
                 "success_only": false,
-                "hidden_calls": "累计未保存逐次请求时间；turn 桶不认证工具循环/辅助请求数或逐模型归属",
+                "hidden_calls": "未找到配对日志的调用可能遗漏。轮次桶无法确定工具循环、辅助请求数或各模型归属。",
             }),
             maintenance: serde_json::json!({
                 "parser_version": versions::threads_db_v1::ZED_PARSER_VERSION,
@@ -278,7 +278,7 @@ impl crate::adapters::framework::SourceAdapter for ZedAdapter {
             }),
             limitations: vec![
                 "1.30.2 本地日志只核验 OpenAI 映射；其他日志和旧线程按原生汇总规则读取".into(),
-                "原生线程汇总不认领模型；日志对账成功的区间可计 token，但不计逐次调用、延迟或阶梯费用".into(),
+                "原生线程汇总不确定模型归属。对账成功的日志提供区间 token 和已核实调用次数，逐次时间、延迟和阶梯费用仍未知。".into(),
                 "request_token_usage 覆盖语义：桶数是 turn 数下界，桶合计可能小于累计值（对账不 matched 时如实展示）".into(),
                 "ZED_STATELESS 模式不落盘；--user-data-dir 自定义路径需手工添加根".into(),
             ],
