@@ -473,11 +473,17 @@ from the model identifier and retain the actual provider ID. Both OpenAI mappers
 subtract cache buckets from input. Restore inclusive input from the positive residual
 and mapped cache buckets, preserving default-zero cache buckets as unknown. Do not use
 the latest model selection or treat log entries as independently timed requests.
-Use the saved thread’s bounds as a usage observation. Index by interval end, include
-only fully contained days or hours in the corresponding statistics, and display the
-interval in Details. A newer interval crossing a day does not replace previously
-accepted daily usage. Native counters remain separate, and observation amounts
-do not use per-request price tiers.</p>
+Record model usage with the saved thread bounds. Attribute the full amount to the
+statistics period containing the interval end, and show both endpoints in Details.
+When a newer interval moves a retained observation, recompute both affected days.
+If the preceding observation may already be in archived history, require retained
+detail before moving the cumulative amount. Keep native counters separate.</p>
+<p>Each matched start and accepted usage update supplies one observed model call.
+Repeated identical updates within the same completion count once. Call records
+retain the thread bounds and share the interval-end assignment. Their tokens are
+already present in the model usage observation. The observed count covers the
+calls verified in the local log. It can miss calls with no surviving paired usage
+update. Interval records do not use per-request price tiers.</p>
 <p>Route manual .qwen roots to Qwen only when the first record in the documented chats layout
 has complete ChatRecord identity and Qwen message.parts or usageMetadata. A shared type
 field does not establish Claude format. Qwen still reports invalid rows. Recover old wrong
