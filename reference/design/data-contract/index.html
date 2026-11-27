@@ -464,6 +464,20 @@ they are not parser-reference corrections. An independent policy marker rechecks
 deleting checkpoints; only complete valid scans mark completion, retaining diagnostics and
 transaction rollback. The schema version is not each record’s client version. See
 <a href="/reference/evidence/agent-native-20261029/">Windows native samples</a>.</p>
+<p>For Zed 1.30.2, a separate local completion-log reader can verify model usage.
+Pair completion starts and usage updates by thread, prompt and matching model/provider.
+Accept an entire thread for the OpenAI mappers only when the four counters reconcile
+exactly with the saved DbThread. Ignore identical repeated updates within the same
+completion and reject conflicting updates. Strip only the writer’s <code>openai/</code> prefix
+from the model identifier and retain the actual provider ID. Both OpenAI mappers
+subtract cache buckets from input. Restore inclusive input from the positive residual
+and mapped cache buckets, preserving default-zero cache buckets as unknown. Do not use
+the latest model selection or treat log entries as independently timed requests.
+Use the saved thread’s bounds as a usage observation. Index by interval end, include
+only fully contained days or hours in the corresponding statistics, and display the
+interval in Details. A newer interval crossing a day does not replace previously
+accepted daily usage. Native counters remain separate, and observation amounts
+do not use per-request price tiers.</p>
 <p>Route manual .qwen roots to Qwen only when the first record in the documented chats layout
 has complete ChatRecord identity and Qwen message.parts or usageMetadata. A shared type
 field does not establish Claude format. Qwen still reports invalid rows. Recover old wrong
