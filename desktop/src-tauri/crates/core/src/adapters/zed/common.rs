@@ -24,7 +24,7 @@ use crate::adapters::usage_map::{finish_parallel, MappedUsage};
 use crate::domain::{FieldQuality as Q, TokenQuality, TokenUsage};
 
 /// Historical hosted TokenUsage in threads.data; omitted fields decode as zero.
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct ZedUsage {
     pub input_tokens: i64,
     pub output_tokens: i64,

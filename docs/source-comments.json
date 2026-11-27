@@ -224,7 +224,7 @@
       ]
     },
     "desktop/src-tauri/Cargo.toml": {
-      "codeHash": "3417722bb1843f19bb7fc142a267bcc2d9c04883b82cf803a52f4f1720baba07",
+      "codeHash": "e5f15797cd576adaf3f93819073e4b2231fcfe4e64fa3305324b1bbd1b2466ac",
       "comments": [
         {
           "id": "6b9f8559a21a75a8",
@@ -264,7 +264,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/Cargo.toml": {
-      "codeHash": "384a0e8376aa9de6a7c7b631668bc774a7d7c3379ae2d0a99cc35bb023096f36",
+      "codeHash": "030a092a65b9f7cbe19067ae30d30d39eb4fec6992f285dd151c348e83dcb7a7",
       "comments": [
         {
           "id": "e82798efdbcdcbfa",
@@ -30298,7 +30298,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/zed/common.rs": {
-      "codeHash": "d7039c797afc440887503c345843cb29f8fe4dc82a5e457b6a755a710a1b27af",
+      "codeHash": "fecd621a7d0b8fc2cae5e8a01a92706f7320819d6c6ef7d32d8bf03ba5e3d357",
       "comments": [
         {
           "id": "e97bffc1e9227f02",
@@ -30714,7 +30714,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/zed/mod.rs": {
-      "codeHash": "4d1090976c008cbe7e6fd740d751bbe83fbbf16c0e4e94d3014e2d052bc453ed",
+      "codeHash": "38677693f2485d7fdd04efd6d05eb20f8d3db1ca01de26dc3bf67d87cdb0b879",
       "comments": [
         {
           "id": "dfe917f039a01b2e",
@@ -30872,38 +30872,57 @@
         },
         {
           "id": "9d1da75ff1fa51f0",
-          "line": 33,
+          "line": 34,
           "kind": "line",
           "en": "/// Stateless Zed adapter.",
           "zh": "/// Zed 适配器（无状态）。"
         },
         {
           "id": "6e1a2c82982e8e45",
-          "line": 65,
+          "line": 66,
           "kind": "line",
           "en": "// Official paths.rs:161-165 uses dirs::data_local_dir() + \"Zed\".",
           "zh": "// 官方 paths.rs:161-165：dirs::data_local_dir() + \"Zed\"。"
         },
         {
           "id": "97206f09401759a9",
-          "line": 82,
+          "line": 83,
           "kind": "line",
           "en": "// Official paths.rs:155-160 uses XDG_DATA_HOME, default ~/.local/share, plus \"zed\";",
           "zh": "// 官方 paths.rs:155-160：XDG_DATA_HOME（默认 ~/.local/share）+ \"zed\""
         },
         {
           "id": "52e9941c79136f17",
-          "line": 83,
+          "line": 84,
           "kind": "line",
           "en": "// Linux uses lowercase and also has FLATPAK_XDG_DATA_HOME handling.",
           "zh": "//（Linux 用小写）；FLATPAK_XDG_DATA_HOME 特例。"
         },
         {
           "id": "d0167f65e3d1e78f",
-          "line": 106,
+          "line": 107,
           "kind": "line",
           "en": "// Accept a threads directory, an existing file, or a data directory named exactly \"Zed\".",
           "zh": "// 接受 threads 目录、已有文件，或名称严格为 \"Zed\" 的数据目录。"
+        }
+      ]
+    },
+    "desktop/src-tauri/crates/core/src/adapters/zed/telemetry.rs": {
+      "codeHash": "a69acaaa79bb4660f2e6f6a9e08a2491c52e3924472a688755fe54869f288750",
+      "comments": [
+        {
+          "id": "57ce61ca8f099643",
+          "line": 43,
+          "kind": "line",
+          "en": "// Both Zed OpenAI mappers construct \"openai/\" + the original model ID.",
+          "zh": "// Zed 的两种 OpenAI 映射都在原始模型 ID 前拼接 \"openai/\"。"
+        },
+        {
+          "id": "4196e7fab82411f8",
+          "line": 62,
+          "kind": "line",
+          "en": "// A positive residual proves the subtraction did not saturate.",
+          "zh": "// 余量为正说明减法未触及零下限。"
         }
       ]
     },
@@ -30990,7 +31009,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/adapters/zed/versions/threads_db_v1.rs": {
-      "codeHash": "0e6ee72b7d7e8a421492ded88ddbd2c644d2318d868c52722a6ac46b151df9b0",
+      "codeHash": "ce588de11ed2c0a34f3bdbd61446c01f7519e4a83cbbd1f712c8e047eb45bddc",
       "comments": [
         {
           "id": "a75903fecf483355",
@@ -31316,14 +31335,14 @@
         },
         {
           "id": "9292ca6a0aa160e1",
-          "line": 482,
+          "line": 500,
           "kind": "line",
           "en": "// Overwritten request buckets can sum below the cumulative value (thread.rs:2893).",
           "zh": "// 覆盖语义（官方 thread.rs:2893）下逐桶和可能小于累计值。"
         },
         {
           "id": "cc0a070f5f64746e",
-          "line": 537,
+          "line": 555,
           "kind": "line",
           "en": "// Test historical decoding defaults only; native default-zero validity is checked separately.",
           "zh": "// 这里只测试历史解码默认值；原生默认零是否有效由独立规则检查。"
@@ -32892,7 +32911,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/calendar.rs": {
-      "codeHash": "7d9484214684f20b6b44a01bc766ae5cd0726c13c63acbc2a3556fb872cb7f5e",
+      "codeHash": "08a0a76221da543a7ef51c580d191c7bd670726c3b17b2902ef04844023aa473",
       "comments": [
         {
           "id": "a1407cef9e4b456a",
@@ -32945,161 +32964,161 @@
         },
         {
           "id": "1b24a2ffcb536dcc",
-          "line": 77,
+          "line": 85,
           "kind": "line",
           "en": "/// UTC milliseconds to ISO weekday, Monday=1 through Sunday=7.",
           "zh": "/// UTC 毫秒 → ISO 星期几（周一=1 … 周日=7）。"
         },
         {
           "id": "fe4709360c41c77d",
-          "line": 94,
+          "line": 102,
           "kind": "line",
           "en": "/// UTC offset seconds at this instant, distinguishing repeated DST hours.",
           "zh": "/// UTC 毫秒 → 该时刻的 UTC offset 秒（分辨 DST 重复小时）。"
         },
         {
           "id": "8b6b01909f713976",
-          "line": 101,
+          "line": 109,
           "kind": "line",
           "en": "/// Local date as UTC [start_ms, end_ms); DST days may contain 23 or 25 hours.",
           "zh": "/// 本地日的 UTC 半开区间 `[start_ms, end_ms)`。DST 日长度可为 23/25 小时；"
         },
         {
           "id": "6f35729f2d563007",
-          "line": 102,
+          "line": 110,
           "kind": "line",
           "en": "/// jiff resolves a nonexistent local midnight to the next valid time.",
           "zh": "/// 不存在的本地午夜由 jiff 顺延到首个有效时刻。"
         },
         {
           "id": "8f795c58fa65e426",
-          "line": 114,
+          "line": 122,
           "kind": "line",
           "en": "/// Local date containing now_ms.",
           "zh": "/// now 所在本地日。"
         },
         {
           "id": "e7e9b4ff7605687e",
-          "line": 119,
+          "line": 127,
           "kind": "line",
           "en": "/// Retain today and the preceding D-1 local dates; cutoff is today minus D-1 days.",
           "zh": "/// 有限保留 D 天的截止本地日：今天起点往前 D−1 天；今天与前 D−1 个本地日保留。"
         },
         {
           "id": "2c2d9cfb00624c95",
-          "line": 129,
+          "line": 137,
           "kind": "line",
           "en": "/// First date of this local week, using week_start.",
           "zh": "/// 本地日所在周的起始日（按 week_start）。"
         },
         {
           "id": "2d2c4ecedf36032f",
-          "line": 139,
+          "line": 147,
           "kind": "line",
           "en": "/// Monday-start labels use ISO week/year, such as 2026-W01;",
           "zh": "/// 周标签：周一起始用 ISO 周（标签含周所属年份，如 2026-W01）；"
         },
         {
           "id": "9adfe33a61bee227",
-          "line": 140,
+          "line": 148,
           "kind": "line",
           "en": "/// Sunday-start labels use their start date, such as 2025-12-28.",
           "zh": "/// 周日起始用开始日期（如 2025-12-28），不能冒充 ISO 周。"
         },
         {
           "id": "2b65076e6ec355b1",
-          "line": 151,
+          "line": 159,
           "kind": "line",
           "en": "/// First local date of the calendar month.",
           "zh": "/// 本地日所在自然月的第一天。"
         },
         {
           "id": "feea7221fedd8f36",
-          "line": 156,
+          "line": 164,
           "kind": "line",
           "en": "/// Month label, such as 2026-09.",
           "zh": "/// 月标签，如 2026-09。"
         },
         {
           "id": "9d3278ca073b1c96",
-          "line": 161,
+          "line": 169,
           "kind": "line",
           "en": "/// Calendar month as a half-open UTC interval.",
           "zh": "/// 月份 UTC 半开区间。"
         },
         {
           "id": "64d03b07832779d8",
-          "line": 179,
+          "line": 187,
           "kind": "line",
           "en": "/// ISO 8601 (week-year, week-number): the week's Thursday determines its year.",
           "zh": "/// ISO 8601 周：(周所属年份, 周号)。算法：本周周四所属年即 ISO 年；"
         },
         {
           "id": "a8c4995f19e5968a",
-          "line": 180,
+          "line": 188,
           "kind": "line",
           "en": "/// Week number = (Thursday day-of-year - 1) / 7 + 1.",
           "zh": "/// 周号 = (周四的年内序数 - 1) / 7 + 1。"
         },
         {
           "id": "2aa17cdaf97addb4",
-          "line": 191,
+          "line": 199,
           "kind": "line",
           "en": "/// Parse YYYY-MM-DD.",
           "zh": "/// 解析 YYYY-MM-DD。"
         },
         {
           "id": "24dea1862459ac85",
-          "line": 197,
+          "line": 205,
           "kind": "line",
           "en": "/// Last date of the month for displayed end labels.",
           "zh": "/// 月份最后一天（用于月区间结束标签显示）。"
         },
         {
           "id": "1d503a63d01a5be9",
-          "line": 202,
+          "line": 210,
           "kind": "line",
           "en": "/// Date constructor for tests and callers.",
           "zh": "/// 便捷构造（测试与调用方）。"
         },
         {
           "id": "2b882e6d9ae23446",
-          "line": 213,
+          "line": 221,
           "kind": "line",
           "en": "// Monday 2025-12-29 belongs to ISO 2026 week 1.",
           "zh": "// 2025-12-29 是周一，属于 ISO 2026 年第 1 周。"
         },
         {
           "id": "fc638c3dbef9d048",
-          "line": 217,
+          "line": 225,
           "kind": "line",
           "en": "// 2024-12-30 through 2025-01-05 belongs to 2025-W01.",
           "zh": "// 2024-12-30..2025-01-05 属 2025-W01。"
         },
         {
           "id": "074e45b59f72b319",
-          "line": 219,
+          "line": 227,
           "kind": "line",
           "en": "// The first ISO week of 2027 starts on 2027-01-04.",
           "zh": "// 2027 年第一周从 2027-01-04 开始。"
         },
         {
           "id": "16a8e4d7b3d3c24d",
-          "line": 227,
+          "line": 235,
           "kind": "line",
           "en": "// Spring-forward 2026-03-08 has 23 hours.",
           "zh": "// 2026-03-08 春季拨快：23 小时。"
         },
         {
           "id": "5015a75fb943da55",
-          "line": 230,
+          "line": 238,
           "kind": "line",
           "en": "// Fall-back 2026-11-01 has 25 hours.",
           "zh": "// 2026-11-01 秋季拨回：25 小时。"
         },
         {
           "id": "35929f55d6309208",
-          "line": 233,
+          "line": 241,
           "kind": "line",
           "en": "// An ordinary day has 24 hours.",
           "zh": "// 普通日 24 小时。"
@@ -33547,7 +33566,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/domain.rs": {
-      "codeHash": "a710e8b5800e9e743559961c543b43eaacb4650a4493ec934b35fee0f57164cf",
+      "codeHash": "8184cccccd438fd4db5c8beafac39bf0898a4f68dc961e046ee4bbbfa687428e",
       "comments": [
         {
           "id": "7236786dd91ce069",
@@ -33691,161 +33710,161 @@
         },
         {
           "id": "ebd5bd481f659cd3",
-          "line": 197,
+          "line": 198,
           "kind": "line",
           "en": "/// Native timezone/time configuration has not been verified.",
           "zh": "/// 没有可证实的源时区/时间配置。"
         },
         {
           "id": "96ba2762672a1db7",
-          "line": 226,
+          "line": 229,
           "kind": "line",
           "en": "/// Version selection follows architecture.md compatibility rules:",
           "zh": "/// 版本选择依据（architecture.md 未知版本兼容约定）："
         },
         {
           "id": "51383621a8339f3c",
-          "line": 227,
+          "line": 230,
           "kind": "line",
           "en": "/// dispatch known versions through the registry; unknown/missing versions try the latest built-in reader",
           "zh": "/// 已知版本按注册表映射分派；未知/缺失版本先尝试该 Agent 最新内置解析器，"
         },
         {
           "id": "56d8f4f59d995729",
-          "line": 228,
+          "line": 231,
           "kind": "line",
           "en": "/// for that Agent. Record compatibility separately from token-field quality.",
           "zh": "/// 结果带兼容标记，兼容状态与 token 字段质量分别记录。"
         },
         {
           "id": "9600acdb5f641b33",
-          "line": 255,
+          "line": 258,
           "kind": "line",
           "en": "/// Basis for identifying this device as the source.",
           "zh": "/// 本机归属依据。"
         },
         {
           "id": "7adedddea7557613",
-          "line": 294,
+          "line": 297,
           "kind": "line",
           "en": "/// Ownership verification; records with unverified ownership do not enter totals.",
           "zh": "/// 归属核验状态。无法确认归属的记录不进入总计。"
         },
         {
           "id": "884d1dc38e866e83",
-          "line": 324,
+          "line": 327,
           "kind": "line",
           "en": "/// Token fields; missing values are None (stored as NULL), without replacement zeros.",
           "zh": "/// token 字段集合。缺失为 None（落盘为 NULL），绝不补零。"
         },
         {
           "id": "a03427729387aa8c",
-          "line": 334,
+          "line": 337,
           "kind": "line",
           "en": "/// Original source total, compared with normalized totals; disagreements produce diagnostics.",
           "zh": "/// 来源原始总量，与规范化总量比较；不一致记诊断。"
         },
         {
           "id": "bf2007e7590cdc87",
-          "line": 339,
+          "line": 342,
           "kind": "line",
           "en": "/// Validate every field as nonnegative and within the limit; reject an out-of-range record.",
           "zh": "/// 逐字段校验：非负、不超过上限。超限拒绝整条记录。"
         },
         {
           "id": "470111e9d4dfd724",
-          "line": 369,
+          "line": 372,
           "kind": "line",
           "en": "/// Per-field quality matching TokenUsage; unknown fields must have no value.",
           "zh": "/// 逐字段质量，与 [`TokenUsage`] 同形。unknown 字段不允许有值。"
         },
         {
           "id": "608c0d35373c6c6b",
-          "line": 445,
+          "line": 448,
           "kind": "line",
           "en": "/// Event quality category, used when grouping daily aggregates.",
           "zh": "/// 事件质量类别，用于按质量分组的日汇总。"
         },
         {
           "id": "3eb17ec791eb90a0",
-          "line": 449,
+          "line": 452,
           "kind": "line",
           "en": "/// Both input and output totals are known.",
           "zh": "/// 输入与输出总量均已知。"
         },
         {
           "id": "b039487e88b9cdf0",
-          "line": 451,
+          "line": 454,
           "kind": "line",
           "en": "/// Some token fields are known.",
           "zh": "/// 部分字段已知。"
         },
         {
           "id": "76ce7582dd544b10",
-          "line": 453,
+          "line": 456,
           "kind": "line",
           "en": "/// At least one field is estimated.",
           "zh": "/// 任一字段为估算。"
         },
         {
           "id": "b8f4ca62c939ba40",
-          "line": 455,
+          "line": 458,
           "kind": "line",
           "en": "/// No token field is known.",
           "zh": "/// 没有任何已知 token 字段。"
         },
         {
           "id": "341cfa541ab68807",
-          "line": 507,
+          "line": 510,
           "kind": "line",
           "en": "/// Cost in integer smallest units with a currency; avoid floating-point accumulation.",
           "zh": "/// 费用：整数最小单位 + 币种，不用二进制浮点累加。"
         },
         {
           "id": "e60c29a2a5b38e30",
-          "line": 533,
+          "line": 536,
           "kind": "line",
           "en": "/// Normalized ingest event: model_call, transport_attempt or usage_observation.",
           "zh": "/// 进入 ingest 批次的标准化事件（model_call / transport_attempt / usage_observation）。"
         },
         {
           "id": "28db5db42718c82f",
-          "line": 537,
+          "line": 540,
           "kind": "line",
           "en": "/// Stable native key: response/request ID, session UUID plus sequence, or file identity plus position.",
           "zh": "/// 来源稳定记录键（response/request ID、会话 UUID+序号、文件身份+位置等）。"
         },
         {
           "id": "8f32df72ccd6a9b0",
-          "line": 542,
+          "line": 545,
           "kind": "line",
           "en": "/// Reader selection: known_version/latest_fallback; None identifies undifferentiated historical data.",
           "zh": "/// 版本选择依据（known_version / latest_fallback）；None 为未区分的历史数据。"
         },
         {
           "id": "f4d91bc5ac97552c",
-          "line": 543,
+          "line": 546,
           "kind": "line",
           "en": "/// Compatibility describes parsing, rather than event content, and is excluded from the content hash.",
           "zh": "/// 兼容状态是解析依据，不是记录内容，不参与内容哈希。"
         },
         {
           "id": "9915eb7373e234fc",
-          "line": 552,
+          "line": 555,
           "kind": "line",
           "en": "/// Integer UTC milliseconds.",
           "zh": "/// UTC 毫秒整数。"
         },
         {
           "id": "2a04ac7d20870bee",
-          "line": 566,
+          "line": 569,
           "kind": "line",
           "en": "/// Prefer source revision ordering when available; otherwise resolve by lifecycle.",
           "zh": "/// 源修订号；有则按修订号排序，否则按生命周期裁决。"
         },
         {
           "id": "13a6c34d070100b5",
-          "line": 577,
+          "line": 580,
           "kind": "line",
           "en": "/// Before storage, validate bounded nonnegative tokens and plausible millisecond timestamps.",
           "zh": "/// 入库前校验：token 字段非负有上限；时间戳 plausible（毫秒而非秒）。"
@@ -34545,7 +34564,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/ingest.rs": {
-      "codeHash": "eb85186e724f2ab0dd3968e4b0f6fdf0817f59ba66310a8ea7d9153c64b3082b",
+      "codeHash": "ad9b47a36c1fa5e5f49791f388e9d56ce221ac316df1e8394d63f6f319dd184b",
       "comments": [
         {
           "id": "7c022cf5ea79dd1b",
@@ -34668,742 +34687,742 @@
         },
         {
           "id": "a2ee82b18528c19f",
-          "line": 283,
+          "line": 291,
           "kind": "line",
           "en": "// The v1 content hash included observed_at; an observation-time change alone is duplicate content.",
           "zh": "// v1 的内容摘要包含 observed_at；仅观察时间改变仍视为同一内容。"
         },
         {
           "id": "2779dbefd5237790",
-          "line": 284,
+          "line": 292,
           "kind": "line",
           "en": "// Same-key final repeats differing only in occurrence/observation/native time are repeated reports, not conflicts.",
           "zh": "// 同键同内容的重复 final（仅发生/观察/源时间文本不同）是重报而非冲突，同样视为同一内容。"
         },
         {
           "id": "e1685d493a5d0a5e",
-          "line": 369,
+          "line": 377,
           "kind": "line",
           "en": "// Full prior hashes permit only parser-metadata changes; retain original time, usage and source revision.",
           "zh": "// 完整旧摘要只允许解析器依据变化；保留原时间、用量和源修订。"
         },
         {
           "id": "fe42a83803e412fd",
-          "line": 370,
+          "line": 378,
           "kind": "line",
           "en": "// Later metadata updates cannot clear a real conflict already observed in this batch.",
           "zh": "// 同批次已观测的实际冲突不能被后续的元数据更新清除。"
         },
         {
           "id": "c3597a6718166c27",
-          "line": 418,
+          "line": 426,
           "kind": "line",
           "en": "// Explicit source-correction policies compare the complete old hash.",
           "zh": "// 明确的来源修正规则比较完整旧摘要，"
         },
         {
           "id": "6f6542f1ceb8fc7c",
-          "line": 419,
+          "line": 427,
           "kind": "line",
           "en": "// Retain first observation, real conflict flags and all change history",
           "zh": "// 修正已核对字段时保留首次观察、真实冲突标记"
         },
         {
           "id": "2c0dad2466588034",
-          "line": 420,
+          "line": 428,
           "kind": "line",
           "en": "// while correcting only verified fields.",
           "zh": "// 和全部变更历史。"
         },
         {
           "id": "c8eaa20cea428b8f",
-          "line": 486,
+          "line": 494,
           "kind": "line",
           "en": "// Every conflicting native version remains available across bounded windows and parser upgrades.",
           "zh": "// 所有相互冲突的原生候选都会跨有界窗口保留，并在解析器升级后仍然可用。"
         },
         {
           "id": "ac3bdef5ccf31e61",
-          "line": 497,
+          "line": 505,
           "kind": "line",
           "en": "// Keep the existing conflicting value rather than choose a larger one; diagnose and recompute its daily conflict count.",
           "zh": "// 不任意择大：保留现存，标 conflict 并记诊断；所在日重算以反映冲突计数。"
         },
         {
           "id": "5546cf564467cb42",
-          "line": 519,
+          "line": 527,
           "kind": "line",
           "en": "// Record mathematical contradictions as diagnostics instead of hiding them with max(0, ...).",
           "zh": "// 数学矛盾进入受限诊断（不用 max(0,…) 隐藏）。"
         },
         {
           "id": "89e36fbc15000c01",
-          "line": 538,
+          "line": 546,
           "kind": "line",
           "en": "// 2. Commit cursors and parse context together; separate stages make fault-injection points explicit.",
           "zh": "// 2. 游标与解析上下文（同事务；分两段以便故障点语义清晰）。"
         },
         {
           "id": "57060a1e8520c191",
-          "line": 574,
+          "line": 582,
           "kind": "line",
           "en": "// 3. Advance the data revision when days are affected; recomputed daily rows carry that revision.",
           "zh": "// 3. 有受影响日期时递增数据修订号；重算的日汇总携带该修订号。"
         },
         {
           "id": "ee64954ead7265dd",
-          "line": 583,
+          "line": 591,
           "kind": "line",
           "en": "// 4. Recompute affected timezone/day partitions without adding to sealed days; persist hours",
           "zh": "// 4. 受影响日按（时区, 日）分区重算；封存日不追加。小时分桶同事务持久化"
         },
         {
           "id": "07e2ab0d9f78b737",
-          "line": 584,
+          "line": 592,
           "kind": "line",
           "en": "// in the same transaction so hourly archives survive later deletion of details.",
           "zh": "//    （分级归档：明细删除后小时层仍有数据）。"
         },
         {
           "id": "05bcdf5d6368ca27",
-          "line": 593,
+          "line": 601,
           "kind": "line",
           "en": "// 5. Store redacted diagnostics.",
           "zh": "// 5. 诊断（脱敏）。"
         },
         {
           "id": "9265171a3b52c2c3",
-          "line": 603,
+          "line": 611,
           "kind": "line",
           "en": "// 6. Commit job progress in the same transaction.",
           "zh": "// 6. 作业进度同事务提交。"
         },
         {
           "id": "59f973de7110a9ba",
-          "line": 623,
+          "line": 631,
           "kind": "line",
           "en": "/// Read inherited ownership evidence from committed and pending bounded scan contexts.",
           "zh": "/// 从已提交及待提交的有界扫描上下文读取继承归属证据。"
         },
         {
           "id": "69f47d5be88748bc",
-          "line": 641,
+          "line": 649,
           "kind": "line",
           "en": "// Contexts from earlier bounded windows survive until the original thread is visited.",
           "zh": "// 保留早先有界窗口的上下文，直至访问到原始线程。"
         },
         {
           "id": "cba7a6da46cb21fb",
-          "line": 803,
+          "line": 811,
           "kind": "line",
           "en": "/// Reconstruct the complete v2 parser-1 summary before correcting output coverage.",
           "zh": "/// 修正输出覆盖前，重建 v2 parser-1 的完整摘要。"
         },
         {
           "id": "d586fbbdc96650ac",
-          "line": 804,
+          "line": 812,
           "kind": "line",
           "en": "/// All other fields, source revisions, ownership and real conflicts remain authoritative.",
           "zh": "/// 其他字段、源修订、归属及真实冲突均继续作为依据。"
         },
         {
           "id": "79574c301d43e92c",
-          "line": 849,
+          "line": 857,
           "kind": "line",
           "en": "/// Only parser references can change after the complete previous digest matches.",
           "zh": "/// 完整旧摘要匹配后只允许变更解析器依据。"
         },
         {
           "id": "02738ff38f83e147",
-          "line": 857,
+          "line": 865,
           "kind": "line",
           "en": "// Match normal same-key final-repeat time handling; metadata updates still retain original timestamps.",
           "zh": "// 同键重复 final 的时间兼容与普通冲突处理一致；元数据更新仍保留原时间。"
         },
         {
           "id": "3a06d6db2dab6161",
-          "line": 874,
+          "line": 882,
           "kind": "line",
           "en": "/// Reconstruct the complete doc1 event for the verified native writer only.",
           "zh": "/// 仅为已核对的原生写入器重建完整 doc1 事件。"
         },
         {
           "id": "805d67f52a944fd5",
-          "line": 875,
+          "line": 883,
           "kind": "line",
           "en": "/// All positive counters, identity and attribution must still match the old hash.",
           "zh": "/// 所有正数计数、标识和归属仍须与旧摘要一致。"
         },
         {
           "id": "5fa0694b02627f9c",
-          "line": 925,
+          "line": 933,
           "kind": "line",
           "en": "/// Only the verified gajae v5/OpenAI-completions policy permits these v2",
           "zh": "/// 仅已核对的 gajae v5/OpenAI-completions 规则允许这些 v2"
         },
         {
           "id": "8c77beca501a3ec5",
-          "line": 926,
+          "line": 934,
           "kind": "line",
           "en": "/// unknown fields/start-time basis. Reconstruct every old field before comparing",
           "zh": "/// 未知字段和开始时间依据；重建每个旧字段后再比较"
         },
         {
           "id": "2ca1c91a94be81ad",
-          "line": 927,
+          "line": 935,
           "kind": "line",
           "en": "/// canonical or legacy full hashes; resolve unrelated content changes normally.",
           "zh": "/// 完整规范化或历史哈希，其他内容变化仍按常规规则处理。"
         },
         {
           "id": "4196d9b8a4cb91bd",
-          "line": 1015,
+          "line": 1023,
           "kind": "line",
           "en": "/// Junie native uncached input and default-zero corrections compare at most 128",
           "zh": "/// Junie 原生非缓存输入及默认零修正最多比较 128 个候选。"
         },
         {
           "id": "a3584dd606e87545",
-          "line": 1016,
+          "line": 1024,
           "kind": "line",
           "en": "/// candidates restoring only missing/default-zero fields from the old parser;",
           "zh": "/// 候选仅恢复旧解析器中缺失或默认零的字段；"
         },
         {
           "id": "a83e51ec099ce2e0",
-          "line": 1017,
+          "line": 1025,
           "kind": "line",
           "en": "/// every other field must match its full canonical or legacy hash.",
           "zh": "/// 其他字段须与完整规范化或历史摘要一致。"
         },
         {
           "id": "1658d7a429391d35",
-          "line": 1098,
+          "line": 1106,
           "kind": "line",
           "en": "/// MiMo required raw counters and client prices default to zero. Restore only those",
           "zh": "/// MiMo 必填原始计数和客户端价格默认为零，仅恢复这些"
         },
         {
           "id": "0d91619cfb12609d",
-          "line": 1099,
+          "line": 1107,
           "kind": "line",
           "en": "/// absent/default fields and their old derived values; the complete prior hash",
           "zh": "/// 缺失或默认字段及旧派生值；完整旧摘要仍须保留"
         },
         {
           "id": "e61a52525c26259e",
-          "line": 1100,
+          "line": 1108,
           "kind": "line",
           "en": "/// still preserves identity, every positive value, quality and attribution.",
           "zh": "/// 标识、所有正数、质量和归属。"
         },
         {
           "id": "87024e89b0273376",
-          "line": 1134,
+          "line": 1142,
           "kind": "line",
           "en": "// The old parser required five raw counters. Reconstruct its complete summary;",
           "zh": "// 旧解析器要求五个原始计数；重建其完整"
         },
         {
           "id": "386dd921be927d7b",
-          "line": 1135,
+          "line": 1143,
           "kind": "line",
           "en": "// an unchanged part ID alone cannot authorize a correction.",
           "zh": "// 摘要，不能仅凭未变化的 part ID 允许修正。"
         },
         {
           "id": "a1bd2fd1fc400481",
-          "line": 1440,
+          "line": 1448,
           "kind": "line",
           "en": "/// Shared INSERT/UPDATE parameter order; ?41 is conflict (INSERT uses literal zero).",
           "zh": "/// 与 INSERT/UPDATE 共用的参数顺序；?41 为 conflict（仅 INSERT 使用字面 0，占位一致），"
         },
         {
           "id": "9b11c6edbeeffcd1",
-          "line": 1441,
+          "line": 1449,
           "kind": "line",
           "en": "/// ?48 created_at_ms is used only by INSERT, not UPDATE.",
           "zh": "/// ?48 created_at_ms 仅 INSERT 有意义（UPDATE 不引用）。"
         },
         {
           "id": "970b180793129603",
-          "line": 1463,
+          "line": 1471,
           "kind": "line",
           "en": "// 1 event_id",
           "zh": "// 参数 1：event_id"
         },
         {
           "id": "f890d8dc0bef13ad",
-          "line": 1464,
+          "line": 1472,
           "kind": "line",
           "en": "// 2 source_instance_id",
           "zh": "// 参数 2：source_instance_id"
         },
         {
           "id": "0cfcb6a7fa19764f",
-          "line": 1465,
+          "line": 1473,
           "kind": "line",
           "en": "// 3 source_record_key",
           "zh": "// 参数 3：source_record_key"
         },
         {
           "id": "8c6c0154069dfbe0",
-          "line": 1466,
+          "line": 1474,
           "kind": "line",
           "en": "// 4 record_kind",
           "zh": "// 参数 4：record_kind"
         },
         {
           "id": "45e88cf15a9f8f80",
-          "line": 1467,
+          "line": 1475,
           "kind": "line",
           "en": "// 5 schema_version",
           "zh": "// 参数 5：schema_version"
         },
         {
           "id": "ac9462387463aaf3",
-          "line": 1468,
+          "line": 1476,
           "kind": "line",
           "en": "// 6 parser_version",
           "zh": "// 参数 6：parser_version"
         },
         {
           "id": "150fcf69745cbb21",
-          "line": 1469,
+          "line": 1477,
           "kind": "line",
           "en": "// 7 origin_call_id",
           "zh": "// 参数 7：origin_call_id"
         },
         {
           "id": "504a5f8190a04d3b",
-          "line": 1470,
+          "line": 1478,
           "kind": "line",
           "en": "// 8 attempt_id",
           "zh": "// 参数 8：attempt_id"
         },
         {
           "id": "70c80badeebf1402",
-          "line": 1471,
+          "line": 1479,
           "kind": "line",
           "en": "// 9 session_id",
           "zh": "// 参数 9：session_id"
         },
         {
           "id": "0458bd0dbeda2613",
-          "line": 1472,
+          "line": 1480,
           "kind": "line",
           "en": "// 10 parent_session_id",
           "zh": "// 参数 10：parent_session_id"
         },
         {
           "id": "d23c9e3d3e7d47ee",
-          "line": 1473,
+          "line": 1481,
           "kind": "line",
           "en": "// 11 host_application",
           "zh": "// 参数 11：host_application"
         },
         {
           "id": "5b0f0bc12644e042",
-          "line": 1474,
+          "line": 1482,
           "kind": "line",
           "en": "// 12 agent",
           "zh": "// 参数 12：agent"
         },
         {
           "id": "8becb9afbca940e2",
-          "line": 1475,
+          "line": 1483,
           "kind": "line",
           "en": "// 13 call_category",
           "zh": "// 参数 13：call_category"
         },
         {
           "id": "1d65e98083c289bc",
-          "line": 1476,
+          "line": 1484,
           "kind": "line",
           "en": "// 14 occurred_at_ms",
           "zh": "// 参数 14：occurred_at_ms"
         },
         {
           "id": "7dce218a08b21e47",
-          "line": 1477,
+          "line": 1485,
           "kind": "line",
           "en": "// 15 observed_at_ms",
           "zh": "// 参数 15：observed_at_ms"
         },
         {
           "id": "ed1fc8fbaff0156c",
-          "line": 1478,
+          "line": 1486,
           "kind": "line",
           "en": "// 16 source_time",
           "zh": "// 参数 16：source_time"
         },
         {
           "id": "70ba2ca607afe3dd",
-          "line": 1479,
+          "line": 1487,
           "kind": "line",
           "en": "// 17 time_basis",
           "zh": "// 参数 17：time_basis"
         },
         {
           "id": "331ba2ae986fe9b3",
-          "line": 1480,
+          "line": 1488,
           "kind": "line",
           "en": "// 18 interval_start_ms",
           "zh": "// 参数 18：interval_start_ms"
         },
         {
           "id": "90256a2bf3c047a5",
-          "line": 1481,
+          "line": 1489,
           "kind": "line",
           "en": "// 19 interval_end_ms",
           "zh": "// 参数 19：interval_end_ms"
         },
         {
           "id": "53a611103448532a",
-          "line": 1482,
+          "line": 1490,
           "kind": "line",
           "en": "// 20 provider_id",
           "zh": "// 参数 20：provider_id"
         },
         {
           "id": "e8506e57c225837b",
-          "line": 1483,
+          "line": 1491,
           "kind": "line",
           "en": "// 21 model_raw",
           "zh": "// 参数 21：model_raw"
         },
         {
           "id": "20a40b3197db4755",
-          "line": 1484,
+          "line": 1492,
           "kind": "line",
           "en": "// 22 model_canonical",
           "zh": "// 参数 22：model_canonical"
         },
         {
           "id": "f6037cf3f60d6965",
-          "line": 1485,
+          "line": 1493,
           "kind": "line",
           "en": "// 23 model_attribution",
           "zh": "// 参数 23：model_attribution"
         },
         {
           "id": "00d518e6b41c5acd",
-          "line": 1486,
+          "line": 1494,
           "kind": "line",
           "en": "// 24 input_uncached",
           "zh": "// 参数 24：input_uncached"
         },
         {
           "id": "da249aec0d958252",
-          "line": 1487,
+          "line": 1495,
           "kind": "line",
           "en": "// 25 input_cache_read",
           "zh": "// 参数 25：input_cache_read"
         },
         {
           "id": "22eeb0453f2ea3b1",
-          "line": 1488,
+          "line": 1496,
           "kind": "line",
           "en": "// 26 input_cache_write",
           "zh": "// 参数 26：input_cache_write"
         },
         {
           "id": "b60dbab28742a7c5",
-          "line": 1489,
+          "line": 1497,
           "kind": "line",
           "en": "// 27 input_total",
           "zh": "// 参数 27：input_total"
         },
         {
           "id": "32df47a4e8c7d763",
-          "line": 1490,
+          "line": 1498,
           "kind": "line",
           "en": "// 28 output_total",
           "zh": "// 参数 28：output_total"
         },
         {
           "id": "8c25f38d7b3618e6",
-          "line": 1491,
+          "line": 1499,
           "kind": "line",
           "en": "// 29 output_reasoning",
           "zh": "// 参数 29：output_reasoning"
         },
         {
           "id": "f6d3ca8d3cb5ea4c",
-          "line": 1492,
+          "line": 1500,
           "kind": "line",
           "en": "// 30 total_tokens",
           "zh": "// 参数 30：total_tokens"
         },
         {
           "id": "91cc6b69a44cdfc0",
-          "line": 1493,
+          "line": 1501,
           "kind": "line",
           "en": "// 31 source_total",
           "zh": "// 参数 31：source_total"
         },
         {
           "id": "443e6086e62d074e",
-          "line": 1494,
+          "line": 1502,
           "kind": "line",
           "en": "// 32 quality_json",
           "zh": "// 参数 32：quality_json"
         },
         {
           "id": "9a4db12ebd02702d",
-          "line": 1495,
+          "line": 1503,
           "kind": "line",
           "en": "// 33 quality_bucket",
           "zh": "// 参数 33：quality_bucket"
         },
         {
           "id": "1638dd2edb198fe7",
-          "line": 1496,
+          "line": 1504,
           "kind": "line",
           "en": "// 34 lifecycle",
           "zh": "// 参数 34：lifecycle"
         },
         {
           "id": "801b522c9a503f24",
-          "line": 1497,
+          "line": 1505,
           "kind": "line",
           "en": "// 35 source_revision",
           "zh": "// 参数 35：source_revision"
         },
         {
           "id": "c0913a222259fd4a",
-          "line": 1498,
+          "line": 1506,
           "kind": "line",
           "en": "// 36 error_status",
           "zh": "// 参数 36：error_status"
         },
         {
           "id": "33b9b99ef4fcac98",
-          "line": 1499,
+          "line": 1507,
           "kind": "line",
           "en": "// 37 duration_ms",
           "zh": "// 参数 37：duration_ms"
         },
         {
           "id": "2ff7bf4fe0c22cfb",
-          "line": 1500,
+          "line": 1508,
           "kind": "line",
           "en": "// 38 ttft_ms",
           "zh": "// 参数 38：ttft_ms"
         },
         {
           "id": "e813f7d1189f0432",
-          "line": 1501,
+          "line": 1509,
           "kind": "line",
           "en": "// 39 attribution_status",
           "zh": "// 参数 39：attribution_status"
         },
         {
           "id": "1ae6aa58442cf9ec",
-          "line": 1502,
+          "line": 1510,
           "kind": "line",
           "en": "// 40 exclusion_reason",
           "zh": "// 参数 40：exclusion_reason"
         },
         {
           "id": "028f83f0158d586b",
-          "line": 1503,
+          "line": 1511,
           "kind": "line",
           "en": "// 41 conflict placeholder",
           "zh": "// 参数 41：conflict 占位值。"
         },
         {
           "id": "c71b87ad459ba045",
-          "line": 1504,
+          "line": 1512,
           "kind": "line",
           "en": "// 42 content_hash",
           "zh": "// 参数 42：content_hash"
         },
         {
           "id": "c229fe3adbddb7ac",
-          "line": 1505,
+          "line": 1513,
           "kind": "line",
           "en": "// 43 cost_minor",
           "zh": "// 参数 43：cost_minor"
         },
         {
           "id": "7b94e76bf9e5f52b",
-          "line": 1506,
+          "line": 1514,
           "kind": "line",
           "en": "// 44 cost_currency",
           "zh": "// 参数 44：cost_currency"
         },
         {
           "id": "065034e6f3e92e98",
-          "line": 1507,
+          "line": 1515,
           "kind": "line",
           "en": "// 45 cost_kind",
           "zh": "// 参数 45：cost_kind"
         },
         {
           "id": "0195a11be0d9fd38",
-          "line": 1508,
+          "line": 1516,
           "kind": "line",
           "en": "// 46 price_version",
           "zh": "// 参数 46：price_version"
         },
         {
           "id": "e279b23b643d755f",
-          "line": 1509,
+          "line": 1517,
           "kind": "line",
           "en": "// 47 billing_scope",
           "zh": "// 参数 47：billing_scope"
         },
         {
           "id": "293e1d3c752b11f5",
-          "line": 1510,
+          "line": 1518,
           "kind": "line",
           "en": "// 48 created_at_ms (INSERT)",
           "zh": "// 参数 48：created_at_ms，仅 INSERT 使用。"
         },
         {
           "id": "1881edf7344b70e6",
-          "line": 1511,
+          "line": 1519,
           "kind": "line",
           "en": "// 49 updated_at_ms",
           "zh": "// 参数 49：updated_at_ms"
         },
         {
           "id": "c43590b5ae1d4418",
-          "line": 1512,
+          "line": 1520,
           "kind": "line",
           "en": "// 50 parse_basis",
           "zh": "// 参数 50：parse_basis"
         },
         {
           "id": "a5aff0aab35b002d",
-          "line": 1530,
+          "line": 1538,
           "kind": "line",
           "en": "/// Rebuild one local day from usage_events after deleting its unsealed rows.",
           "zh": "/// 重算单个本地日：删除未封存行后从 usage_events 重建。"
         },
         {
           "id": "ead099f78ae40d71",
-          "line": 1531,
+          "line": 1539,
           "kind": "line",
           "en": "/// Include only verified ownership in totals; transport_attempt contributes to attempt_count only.",
           "zh": "/// 只有归属已核验的事件进入总计；transport_attempt 只计入 attempt_count。"
         },
         {
           "id": "f1dd9dc544f9943c",
-          "line": 1544,
+          "line": 1552,
           "kind": "line",
           "en": "// Since v4, daily_usage keeps each source-instance contribution; queries sum across sources (M1a).",
           "zh": "// v4 起 daily_usage 按来源实例分区（M1a：查询跨来源求和，落盘保留每来源贡献）。"
         },
         {
           "id": "8d711db3c1fb8ce7",
-          "line": 1545,
+          "line": 1553,
           "kind": "line",
           "en": "// A v2 migration rebuilds before v4 partitioning, using the old shape without instance_id.",
           "zh": "// v2 迁移的旧库重算发生在 v4 分区之前，按旧形状（无 instance_id 列）写入。"
         },
         {
           "id": "41603023b16e3422",
-          "line": 1593,
+          "line": 1601,
           "kind": "line",
           "en": "// input/output/total_unknown_count exclude quality_bucket='unknown' records:",
           "zh": "// 未知字段计数（input/output/total_unknown_count）排除 quality_bucket='unknown'"
         },
         {
           "id": "8b4c878ec82a97f5",
-          "line": 1594,
+          "line": 1602,
           "kind": "line",
           "en": "// records with no known token field include failed calls and Copilot round markers.",
           "zh": "// 的记录：没有任何已知 token 字段的记录是“无用量调用/观测”（失败调用、"
         },
         {
           "id": "90078b7501093877",
-          "line": 1595,
+          "line": 1603,
           "kind": "line",
           "en": "// Calls remain counted while turn observations supply usage separately;",
           "zh": "// Copilot 工具循环 round 等计调用但用量由 turn observation 承载），计入"
         },
         {
           "id": "7d054ef2c0ba8582",
-          "line": 1596,
+          "line": 1604,
           "kind": "line",
           "en": "// include call/event counts without treating these as partially observed missing token fields.",
           "zh": "// call/event，但不算作观测缺字段的未知字段（数据规范「请求、消息与累计值」）。"
         },
         {
           "id": "61f64a4077e7e8a3",
-          "line": 1648,
+          "line": 1657,
           "kind": "line",
           "en": "/// Repair only the verified v1/v2 total omission; every other native field must match.",
           "zh": "/// 仅修正已核对的 v1/v2 总量遗漏，其他来源字段必须完全一致。"
         },
         {
           "id": "f9fea38e30ac1810",
-          "line": 1679,
+          "line": 1688,
           "kind": "line",
           "en": "/// Recompute local days covering inclusive [from_ms, to_ms] in the requested timezone.",
           "zh": "/// 按目标时区重算 [from_ms, to_ms] 覆盖的本地日（维护/修复路径：时区分区修复）。"
         },
         {
           "id": "964d37ec740ff75f",
-          "line": 1680,
+          "line": 1689,
           "kind": "line",
           "en": "/// Use retained events, skip sealed days and commit recomputation with its revision in one transaction.",
           "zh": "/// 事件仍在 ⇒ 重算是推导不是猜测；该时区下已封存的日跳过；单事务 + 修订号。"
         },
         {
           "id": "508799e1e22cfdcb",
-          "line": 1681,
+          "line": 1690,
           "kind": "line",
           "en": "/// Return the new revision committed by this transaction.",
           "zh": "/// 返回本次事务提交的新数据修订号。"
         },
         {
           "id": "bcb6e6dbed20d23b",
-          "line": 1692,
+          "line": 1701,
           "kind": "line",
           "en": "// Limit recomputation to 750 days; reject larger ranges for the caller to split.",
           "zh": "// 有界防护：最多重算 750 天（超出报错，由调用方分批）。"
         },
         {
           "id": "ae50a9db8ef8b11d",
-          "line": 1714,
+          "line": 1723,
           "kind": "line",
           "en": "/// Rebuild hourly aggregates by local day for the hourly retention layer.",
           "zh": "/// 按本地日重建各小时汇总，供小时数据保留层使用。"
         },
         {
           "id": "57c855b8a6357f7e",
-          "line": 1715,
+          "line": 1724,
           "kind": "line",
           "en": "/// Use the same instance/Agent/provider/model/category/quality dimensions as daily totals.",
           "zh": "/// 分组字段与日汇总一致：实例、Agent、provider、模型、类别与质量。"
         },
         {
           "id": "26b6006b02864f59",
-          "line": 1716,
+          "line": 1725,
           "kind": "line",
           "en": "/// Call with recompute_day in the same transaction; sealed days keep their frozen hourly rows.",
           "zh": "/// 与 recompute_day 同事务调用；封存日的小时层同样冻结（不重算）。"
         },
         {
           "id": "9fb499abffe02f14",
-          "line": 1717,
+          "line": 1726,
           "kind": "line",
           "en": "/// Use the local offset at each event time, preserving 23/25-hour DST days.",
           "zh": "/// 小时换算按事件时刻的本地偏移（DST 日 23/25 小时自然正确）。"
         },
         {
           "id": "b518673fb79c4b65",
-          "line": 1724,
+          "line": 1733,
           "kind": "line",
           "en": "// Test-frozen schemas before v5 have no hourly_usage table; skip hourly persistence.",
           "zh": "// schema < 5（测试钩子冻结的旧库）没有 hourly_usage 表：跳过"
         },
         {
           "id": "84438a1922c978e2",
-          "line": 1725,
+          "line": 1734,
           "kind": "line",
           "en": "// Migration enables it later without changing daily/detail meanings.",
           "zh": "//（迁移到当前版本后自然生效；不影响日/明细层语义）。"
@@ -37105,7 +37124,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/query_acceleration.rs": {
-      "codeHash": "fdd903561fb75c7c7296909d5ddaff860360d296d980947b1da3292eebdb9844",
+      "codeHash": "4515f5bc1d3ac90cecb340e508b90c493bea5d9417c41d79b09d90bb6cc79d3a",
       "comments": [
         {
           "id": "aa66e233eda0c650",
@@ -37158,28 +37177,28 @@
         },
         {
           "id": "729d16c943b5c20f",
-          "line": 197,
+          "line": 199,
           "kind": "line",
           "en": "// Outside this window, long retained histories use the original query.",
           "zh": "// 较长保留历史在此时间窗外使用原查询。"
         },
         {
           "id": "b1bb3ab950ba2835",
-          "line": 248,
+          "line": 250,
           "kind": "line",
           "en": "// Today, days before the first observation and calendar gaps need no",
           "zh": "// 今天、首次观察之前的空日期和日历空缺不需要"
         },
         {
           "id": "6211b8ebbccec15c",
-          "line": 249,
+          "line": 251,
           "kind": "line",
           "en": "// stored zero rows. Check absent partitions against daily_usage and usage_events",
           "zh": "// 保存零值行。缺少缓存分区时，检查 daily_usage 和 usage_events 是否都为空，"
         },
         {
           "id": "be68d1574c778112",
-          "line": 250,
+          "line": 252,
           "kind": "line",
           "en": "// so an older event-only writer cannot make a stale cache appear valid.",
           "zh": "// 防止旧程序仅写事件后仍将过期缓存视为有效。"
@@ -37187,7 +37206,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/query.rs": {
-      "codeHash": "d8d663fb53339aa823ed8d428d9b0edca1dedb7df2d0ca4e80c0a07856ce8b2c",
+      "codeHash": "eedca61ca237162f688043eb0268bce7f531b5fba4f70dcc748a5e83038f232d",
       "comments": [
         {
           "id": "ee37860e9b51633d",
@@ -37422,280 +37441,280 @@
         },
         {
           "id": "dd511f4fd1f1a38f",
-          "line": 664,
+          "line": 670,
           "kind": "line",
           "en": "/// Aggregate detail metrics in SQLite before transferring results to Rust.",
           "zh": "/// 在 SQLite 中汇总明细后，传回 Rust。"
         },
         {
           "id": "ac5e309147c77efa",
-          "line": 665,
+          "line": 671,
           "kind": "line",
           "en": "/// Exact calendar boundaries preserve DST and historical offsets; distinct sessions",
           "zh": "/// 使用准确的日历边界保留 DST 和历史时区偏移；跨日会话"
         },
         {
           "id": "9f20a0d0dfc1c6b9",
-          "line": 666,
+          "line": 672,
           "kind": "line",
           "en": "/// span days rather than summing independent daily session counts.",
           "zh": "/// 按身份去重，不累加每天独立计算的 DISTINCT 会话数。"
         },
         {
           "id": "1f110a701a76edf9",
-          "line": 802,
+          "line": 809,
           "kind": "line",
           "en": "/// Select one coverage representation for totals, models, Agents, and charts.",
           "zh": "/// 总计、模型、Agent 和图表使用同一组明细或归档记录。"
         },
         {
           "id": "3dbf12dac4dc054f",
-          "line": 803,
+          "line": 810,
           "kind": "line",
           "en": "/// A complete materialized partition replaces only its matching daily source partition;",
           "zh": "/// 完整的周期汇总只替换同来源对应的日分区，"
         },
         {
           "id": "131c5668fb710b49",
-          "line": 804,
+          "line": 811,
           "kind": "line",
           "en": "/// it cannot replace another source or be assigned to a clipped interval.",
           "zh": "/// 不替换其他来源，也不将不可拆分的汇总计入截断区间。"
         },
         {
           "id": "3e076f1563502ae6",
-          "line": 931,
+          "line": 938,
           "kind": "line",
           "en": "/// Current reference pricing uses the same archived usage selection as usage queries.",
           "zh": "/// 当前参考价与用量查询选择相同的归档记录。"
         },
         {
           "id": "7d5e8b5e3fad9692",
-          "line": 971,
+          "line": 981,
           "kind": "line",
           "en": "// Aggregate fields can represent different sample sets; retain saved component sums.",
           "zh": "// 汇总字段可能覆盖不同记录集合，保留已保存的各项合计。"
         },
         {
           "id": "dafda1dfc8e63186",
-          "line": 972,
+          "line": 982,
           "kind": "line",
           "en": "// Subtracting independently known sums would invent uncached input.",
           "zh": "// 对独立已知合计做减法会虚构未缓存输入。"
         },
         {
           "id": "fe7de204e05ed3c7",
-          "line": 994,
+          "line": 1004,
           "kind": "line",
           "en": "// Aggregate total input is not a per-request context size or necessarily the same sample set.",
           "zh": "// 汇总输入不是单次请求上下文规模，也不一定覆盖同一组记录。"
         },
         {
           "id": "40ce1ba409804417",
-          "line": 1168,
+          "line": 1178,
           "kind": "line",
           "en": "/// Count unverified/excluded events outside totals, with their exclusion reasons.",
           "zh": "/// 归属未核验/被排除的事件数：不进入总计，可按排除原因列出。"
         },
         {
           "id": "d7e1eabc230aed38",
-          "line": 1214,
+          "line": 1224,
           "kind": "line",
           "en": "/// Group excluded records by reason.",
           "zh": "/// 按排除原因分组记录。"
         },
         {
           "id": "595019860ba52104",
-          "line": 1323,
+          "line": 1333,
           "kind": "line",
           "en": "/// Agent rows share ModelRow metric structure and total rules.",
           "zh": "/// Agent 分组行（与 ModelRow 同构；总计规则一致）。"
         },
         {
           "id": "e2aea4edb4dcea1c",
-          "line": 1330,
+          "line": 1340,
           "kind": "line",
           "en": "/// Group by Agent, retaining unknown models/providers under that Agent.",
           "zh": "/// 按 Agent 分组（含 unknown 独立行：provider/model 为空的记录归入该 Agent 名下）。"
         },
         {
           "id": "bddfac2cff659144",
-          "line": 1349,
+          "line": 1359,
           "kind": "line",
           "en": "/// One day's local-hour buckets use each event's retained occurrence-time basis.",
           "zh": "/// 按单日各事件保存的发生时间规则统计本地小时。"
         },
         {
           "id": "4228d94580400ae1",
-          "line": 1350,
+          "line": 1360,
           "kind": "line",
           "en": "/// Both occurrences of a repeated DST hour share the displayed local-hour label.",
           "zh": "/// DST 重复小时的两次出现共用一个显示标签。"
         },
         {
           "id": "735dc50e03888a95",
-          "line": 1361,
+          "line": 1371,
           "kind": "line",
           "en": "/// Distinct sessions in this hour.",
           "zh": "/// 该小时的 DISTINCT 会话数。"
         },
         {
           "id": "42bf1023f8dc22ae",
-          "line": 1363,
+          "line": 1373,
           "kind": "line",
           "en": "/// Mean known duration in milliseconds.",
           "zh": "/// 平均耗时（毫秒）。"
         },
         {
           "id": "fc8241db3472cced",
-          "line": 1407,
+          "line": 1417,
           "kind": "line",
           "en": "/// Heatmap date cell; archived periods that cannot be assigned to individual dates remain unavailable.",
           "zh": "/// 热力图单元格：一个本地日。日层已清理且无法再分配到日期的周期汇总标为不可用。"
         },
         {
           "id": "81cdeb2f7accbc6b",
-          "line": 1438,
+          "line": 1448,
           "kind": "line",
           "en": "// Query only required heatmap columns with ownership/model filters applied in SQLite",
           "zh": "// 在 SQLite 中应用来源和模型筛选，只查询热力图所需列，"
         },
         {
           "id": "109f625a38aa7e32",
-          "line": 1439,
+          "line": 1449,
           "kind": "line",
           "en": "// rather than loading every grouped daily row.",
           "zh": "// 不加载所有按字段分组的日汇总行。"
         },
         {
           "id": "f8a166a97580eb9f",
-          "line": 1466,
+          "line": 1476,
           "kind": "line",
           "en": "// Period-only imports may lack the local daily_retention_floor setting.",
           "zh": "// 仅含周期汇总的导入可能没有本机 daily_retention_floor 设置。"
         },
         {
           "id": "9d6d73de53f08cf1",
-          "line": 1467,
+          "line": 1477,
           "kind": "line",
           "en": "// Detect their materialized partitions directly without assigning period sums to one date.",
           "zh": "// 直接判断其完整周期分区，不将整个周期合计分配到某一天。"
         },
         {
           "id": "7f4445b1577179e8",
-          "line": 1533,
+          "line": 1543,
           "kind": "line",
           "en": "/// Paginated detail row.",
           "zh": "/// 明细行（详情页分页展示）。"
         },
         {
           "id": "9909fa703fd29f0c",
-          "line": 1567,
+          "line": 1578,
           "kind": "line",
           "en": "/// Query detail events in descending occurrence-time order.",
           "zh": "/// 分页查询明细事件（详情页；按时间倒序）。"
         },
         {
           "id": "579da86e6ecae3f9",
-          "line": 1642,
+          "line": 1662,
           "kind": "line",
           "en": "/// Expose hourly_usage in the shared DailyRow shape, retaining the local hour",
           "zh": "/// 将 hourly_usage 转换为共享的 DailyRow 结构，保留本地小时，"
         },
         {
           "id": "cbda647984ab5b39",
-          "line": 1643,
+          "line": 1663,
           "kind": "line",
           "en": "/// so summary grouping and merging can reuse the same implementation.",
           "zh": "/// 供 query_summary 的通用分组/合并逻辑复用。"
         },
         {
           "id": "d81a13ab1f594785",
-          "line": 1724,
+          "line": 1744,
           "kind": "line",
           "en": "/// Recover completeness metadata absent from older hourly storage using retained records;",
           "zh": "/// 用保留的明细恢复旧小时存储缺少的完整性计数；"
         },
         {
           "id": "196e024da1bf047b",
-          "line": 1725,
+          "line": 1745,
           "kind": "line",
           "en": "/// do not derive unknown fields by subtracting sums from unlike sample sets.",
           "zh": "/// 不通过相减不同记录集合的合计派生未知字段。"
         },
         {
           "id": "ce605cc8cd3e24d6",
-          "line": 1798,
+          "line": 1824,
           "kind": "line",
           "en": "// Like recompute_day, unknown-quality markers report no known token fields.",
           "zh": "// 与 recompute_day 一致：quality_bucket='unknown'（无任何已知 token 字段）的"
         },
         {
           "id": "913ba6094a697646",
-          "line": 1799,
+          "line": 1825,
           "kind": "line",
           "en": "// Count their calls/events without treating them as missing fields of token observations.",
           "zh": "// 记录是无用量的调用/观测，计 call/event 但不计作观测缺字段的未知字段。"
         },
         {
           "id": "bc49a504bf865e57",
-          "line": 1825,
+          "line": 1851,
           "kind": "line",
           "en": "/// Chart grouping mode.",
           "zh": "/// 图表数据分组方式。"
         },
         {
           "id": "2f53c06e490889b5",
-          "line": 1834,
+          "line": 1860,
           "kind": "line",
           "en": "/// Grouped time-series row for trend charts.",
           "zh": "/// 趋势图按所选字段分组的时间序列行。"
         },
         {
           "id": "694293f5ef4f8128",
-          "line": 1853,
+          "line": 1879,
           "kind": "line",
           "en": "/// Query grouped time series using the same retained partitions as query_summary.",
           "zh": "/// 图表查询与 query_summary 使用同一组保留分区。"
         },
         {
           "id": "6afb913f298ff5c3",
-          "line": 1854,
+          "line": 1880,
           "kind": "line",
           "en": "/// Hourly queries use hourly_usage; date-based queries use daily_usage and eligible",
           "zh": "/// 小时查询使用 hourly_usage；按日期查询使用 daily_usage，以及适用的"
         },
         {
           "id": "dda830cd5ea7482c",
-          "line": 1855,
+          "line": 1881,
           "kind": "line",
           "en": "/// materialized period_usage archives for week/month/year views.",
           "zh": "/// period_usage 周、月、年归档。"
         },
         {
           "id": "6ac7c0ffa5448de5",
-          "line": 1856,
+          "line": 1882,
           "kind": "line",
           "en": "/// Exclude archives already covered by daily rows and retain Agent/provider/model/instance filters.",
           "zh": "/// （日层已覆盖的周期不重复计入）；筛选（Agent/provider/model/实例）同样生效。"
         },
         {
           "id": "ad3df2efdf3d029a",
-          "line": 1857,
+          "line": 1883,
           "kind": "line",
           "en": "/// Shared period_key_of labels match the total usage timeline.",
           "zh": "/// 标签经共享 period_key_of 生成，与总用量视图时间轴一致。"
         },
         {
           "id": "72119fbbf8d0ee2f",
-          "line": 1938,
+          "line": 1964,
           "kind": "line",
           "en": "/// Diagnostic row for the settings log viewer.",
           "zh": "/// 诊断日志行（设置页日志查看器）。"
         },
         {
           "id": "ab4edac436d9a09f",
-          "line": 1948,
+          "line": 1974,
           "kind": "line",
           "en": "/// Read bounded recent diagnostics in descending time order, excluding message bodies.",
           "zh": "/// 有界读取近期诊断，按时间倒序，不包含消息正文。"
@@ -38895,7 +38914,7 @@
       ]
     },
     "desktop/src-tauri/crates/core/src/storage/pricing.rs": {
-      "codeHash": "bfee341ba494a973ceec7ad93ead5744b4f38626fdb49f9decc35810d04dfc09",
+      "codeHash": "6cebb71e9fc420b66c1f5704f695ac7ed39c8f42c51581e55d0f0dfef4910b44",
       "comments": [
         {
           "id": "978cd10bc2f8338c",
@@ -39242,147 +39261,147 @@
         },
         {
           "id": "88c65b1265a72e30",
-          "line": 1300,
+          "line": 1301,
           "kind": "line",
           "en": "/// Rebuild a day in one transaction: replace unsealed costs with estimates and source amounts.",
           "zh": "/// 单日回填的事务内实现：删除未封存成本行 → 事件计价 + 来源金额 → 重插。"
         },
         {
           "id": "d2ee250db2edacbf",
-          "line": 1331,
+          "line": 1332,
           "kind": "line",
           "en": "// Group by instance, agent, provider, model, currency, and cost kind.",
           "zh": "// 累计键：instance/agent/provider/model/currency/kind。"
         },
         {
           "id": "c87d341f0a690fb4",
-          "line": 1453,
+          "line": 1454,
           "kind": "line",
           "en": "// 1) Estimate using prices at occurrence time.",
           "zh": "// 1) 按发生时价估算。"
         },
         {
           "id": "45cb525b2a66eeca",
-          "line": 1513,
+          "line": 1514,
           "kind": "line",
           "en": "// 2) Retain reported amounts and source estimates as separate kinds.",
           "zh": "// 2) 来源记录金额（reported / 来源自身估算，分列）。"
         },
         {
           "id": "e20dda71c5970454",
-          "line": 1606,
+          "line": 1607,
           "kind": "line",
           "en": "/// Cost filters use query::Filters rules: AND across fields, OR within a field;",
           "zh": "/// 费用筛选与 query::Filters 一致：不同字段使用 AND，同一字段使用 OR；"
         },
         {
           "id": "46b3027fdbe9e8a0",
-          "line": 1607,
+          "line": 1608,
           "kind": "line",
           "en": "/// unknown matches empty values, and instances Some([]) selects no available source.",
           "zh": "/// \"unknown\" 匹配空值；instances Some([]) = 无可用来源）。"
         },
         {
           "id": "818bc9b5946e61ab",
-          "line": 1616,
+          "line": 1617,
           "kind": "line",
           "en": "/// Cost summary request.",
           "zh": "/// 费用汇总请求。"
         },
         {
           "id": "82db2dfd3ba792b5",
-          "line": 1620,
+          "line": 1621,
           "kind": "line",
           "en": "/// Inclusive local date in YYYY-MM-DD format.",
           "zh": "/// 本地日 YYYY-MM-DD（含端点）。"
         },
         {
           "id": "3c49a27949132dcd",
-          "line": 1628,
+          "line": 1629,
           "kind": "line",
           "en": "/// Amounts by currency; currencies are never merged (E8).",
           "zh": "/// 按币种分列的金额行（不同币种不合并；E8）。"
         },
         {
           "id": "73bc7effe2c06643",
-          "line": 1632,
+          "line": 1633,
           "kind": "line",
           "en": "/// Upper bound for the same priced components when archived request tiers are unknown.",
           "zh": "/// 归档中各请求的上下文档位未知时，对同一组已计价费用项给出上界。"
         },
         {
           "id": "c5aeae007b75a69a",
-          "line": 1651,
+          "line": 1652,
           "kind": "line",
           "en": "/// Events priced with an official pay-as-you-go reference because no exact match exists.",
           "zh": "/// 官方提供商回退计价的事件数（无精确匹配时参考官方按量价）。"
         },
         {
           "id": "a71da51e835e720d",
-          "line": 1754,
+          "line": 1755,
           "kind": "line",
           "en": "/// One estimation mode: currency rows and unpriced reasons.",
           "zh": "/// 单一估算模式的汇总（按币种行 + 未计价原因）。"
         },
         {
           "id": "1a622aedae673e45",
-          "line": 1758,
+          "line": 1759,
           "kind": "line",
           "en": "/// Counts of events by unpriced reason.",
           "zh": "/// 未计价原因直方图（reason → 事件数）。"
         },
         {
           "id": "6c1e01dca4131250",
-          "line": 1760,
+          "line": 1761,
           "kind": "line",
           "en": "/// Reference evaluation time and detail coverage flag; unused by at_time.",
           "zh": "/// 模拟模式的评估时点/明细受限标记（at_time 不用）。"
         },
         {
           "id": "dc111db69b827563",
-          "line": 1765,
+          "line": 1766,
           "kind": "line",
           "en": "/// Cost response with data_revision and the referenced price_basis snapshot set.",
           "zh": "/// 费用汇总响应（估算引用 data_revision 与 price_basis 快照集合）。"
         },
         {
           "id": "6aec168f85e7ab6d",
-          "line": 1768,
+          "line": 1769,
           "kind": "line",
           "en": "/// Historical estimates stored in daily cost rows.",
           "zh": "/// 按发生时价估算（持久化日成本行）。"
         },
         {
           "id": "00b6c7a4c734c132",
-          "line": 1770,
+          "line": 1771,
           "kind": "line",
           "en": "/// Source reports and source estimates, kept separate by kind and currency.",
           "zh": "/// 来源记录金额（reported + 来源自身估算，分列币种）。"
         },
         {
           "id": "7e846f8e8fb75930",
-          "line": 1772,
+          "line": 1773,
           "kind": "line",
           "en": "/// Current reference estimates from mutually exclusive known detail or archive usage.",
           "zh": "/// 按当前价格模拟（互斥使用明细或归档中的已知用量）。"
         },
         {
           "id": "6af02e9ed8fd6d19",
-          "line": 1774,
+          "line": 1775,
           "kind": "line",
           "en": "/// Price snapshots referenced by at_time.",
           "zh": "/// at_time 引用的价格快照。"
         },
         {
           "id": "793d347297bf20ca",
-          "line": 1806,
+          "line": 1807,
           "kind": "line",
           "en": "/// Seal daily costs at detail retention expiry, preserving historical amounts.",
           "zh": "/// 封存日成本行（明细层保留截止时调用；历史金额不再改写）。"
         },
         {
           "id": "975b4cf0c325d6ba",
-          "line": 1819,
+          "line": 1820,
           "kind": "line",
           "en": "/// Delete daily costs with daily_usage using the same daily retention cutoff.",
           "zh": "/// 日层清理时同步清理日成本行（随日层保留期；与 daily_usage 同 cutoff）。"
@@ -50279,39 +50298,39 @@
       ]
     },
     "desktop/src-tauri/crates/core/tests/zed_mixed_contract.rs": {
-      "codeHash": "910b1d13dc5df415300b5a0a3d9205531fafcfadf0b1780feb10cd5bf2203bdf",
+      "codeHash": "0abf572b92f3cdc4d4cc33ad9aa30e29a7140ff717cfb3b02dfb0d3c407f5f17",
       "comments": [
         {
           "id": "7a9519b90eaf42eb",
-          "line": 424,
+          "line": 589,
           "kind": "line",
           "en": "// Force an Unknown quality marker with a non-null SQLite integer to verify quality gating.",
           "zh": "// 强制写入带非空整数的 Unknown 质量标记，核验质量字段筛选生效。"
         },
         {
           "id": "da06594677636cc7",
-          "line": 433,
+          "line": 598,
           "kind": "line",
           "en": "// Add 20 older rows across both roots so total exceeds 20 and tests cross-instance merging & cap.",
           "zh": "// 在两个来源根下再写入 20 条较早记录，使总数超过 20，验证跨实例合并与条数上限。"
         },
         {
           "id": "1b453a2c10b75079",
-          "line": 476,
+          "line": 641,
           "kind": "line",
           "en": "// Equal end_ms rows are ordered deterministically by aggregate_id ascending.",
           "zh": "// end_ms 相同的记录按 aggregate_id 升序稳定排列。"
         },
         {
           "id": "b1eb167c1b5f2e24",
-          "line": 480,
+          "line": 645,
           "kind": "line",
           "en": "// Disabled/degraded instance rows are still retained and merged with active instances.",
           "zh": "// 已停用或降级实例的历史汇总仍会保留，并与正常实例合并返回。"
         },
         {
           "id": "2ad449b4bc32b646",
-          "line": 484,
+          "line": 649,
           "kind": "line",
           "en": "// Non-null SQLite integer with Unknown quality must remain None.",
           "zh": "// 质量标记为 Unknown 时，即使 SQLite 整数列非空也必须返回 None。"
@@ -52122,7 +52141,7 @@
       ]
     },
     "desktop/src-tauri/src/commands.rs": {
-      "codeHash": "ee17115471521e4fd35598fdff73d8367ea95594f743dabe1eca41c6b3609649",
+      "codeHash": "43df9f38412e5d8b0435cfd582ca8127cf8be6e9d846138c478b55c1852535e3",
       "comments": [
         {
           "id": "e51b6015b03f1ad3",
@@ -52602,98 +52621,98 @@
         },
         {
           "id": "b21b1a599ff2f7fa",
-          "line": 1799,
+          "line": 1800,
           "kind": "line",
           "en": "/// Available export users/hosts, including current selections.",
           "zh": "/// 导出过滤选项：可用的用户与主机列表（含当前值）。"
         },
         {
           "id": "370fa2aa2c7eb9ff",
-          "line": 1842,
+          "line": 1843,
           "kind": "line",
           "en": "/// Grouped chart time series from the shared retained usage view.",
           "zh": "/// 从共享的保留用量记录中查询按所选字段分组的图表序列。"
         },
         {
           "id": "a9425a4613d83685",
-          "line": 1886,
+          "line": 1887,
           "kind": "line",
           "en": "/// Recent diagnostics for the settings log tab.",
           "zh": "/// 最近诊断日志（设置页日志 Tab）。"
         },
         {
           "id": "1eee79138c07378d",
-          "line": 1926,
+          "line": 1927,
           "kind": "line",
           "en": "/// Current API reference with optional selected hours; preserve historical daily amounts.",
           "zh": "/// 当前 API 参考价可筛选小时，历史日金额保持不变。"
         },
         {
           "id": "fc8f550666740d65",
-          "line": 1988,
+          "line": 1989,
           "kind": "line",
           "en": "/// Recalculate eligible costs on a background thread and record the completed operation.",
           "zh": "/// F2 显式重算费用（后台线程执行；完成写操作日志，UI 稍后刷新查看）。"
         },
         {
           "id": "a6ebc3790315578d",
-          "line": 2025,
+          "line": 2026,
           "kind": "line",
           "en": "/// Price snapshot source, age, and row count.",
           "zh": "/// F2 价格快照列表（来源/新鲜度/行数）。"
         },
         {
           "id": "37925a365f2e2604",
-          "line": 2036,
+          "line": 2037,
           "kind": "line",
           "en": "/// Import local price JSON after schema/interval checks, skipping identical snapshots.",
           "zh": "/// F2 手工导入本地价格快照 JSON（schema 校验 + 区间重叠检查 + 幂等）。"
         },
         {
           "id": "78130f0644bf5be1",
-          "line": 2064,
+          "line": 2065,
           "kind": "line",
           "en": "/// Manually refresh models.dev prices; force bypasses TTL. Estimation and online",
           "zh": "/// F2 在线刷新（models.dev）：手动触发（force 绕过 TTL）。需费用估算与"
         },
         {
           "id": "b252928dbf3a19d1",
-          "line": 2065,
+          "line": 2066,
           "kind": "line",
           "en": "/// refresh must both be enabled; poll price_refresh_status for background results.",
           "zh": "/// 在线刷新均已启用；后台线程执行，结果经 price_refresh_status 轮询。"
         },
         {
           "id": "ee897364f6c80517",
-          "line": 2084,
+          "line": 2085,
           "kind": "line",
           "en": "/// Price refresh enablement, TTL, cache age, running state, and latest result.",
           "zh": "/// F2 在线刷新状态：启用位、TTL、缓存新鲜度、运行标记与最近一次结果。"
         },
         {
           "id": "add769738b79bf30",
-          "line": 2127,
+          "line": 2128,
           "kind": "line",
           "en": "/// Clear-job transaction empties usage tables, marks source_files new,",
           "zh": "/// 后台清理任务的清库事务：各表清空、source_files 状态重置为 new、"
         },
         {
           "id": "5537c877af6398a5",
-          "line": 2128,
+          "line": 2129,
           "kind": "line",
           "en": "/// advances revision, and adds one operation diagnostic.",
           "zh": "/// 修订号推进；操作日志补写一条 diagnostics。"
         },
         {
           "id": "a7b4eab5830ce340",
-          "line": 2189,
+          "line": 2190,
           "kind": "line",
           "en": "// Retained daily costs still require a consistent backup after detail events expire.",
           "zh": "// 明细已过期但日费用尚存时，清空前仍须保存一致备份。"
         },
         {
           "id": "3c2e81bb53069922",
-          "line": 2223,
+          "line": 2224,
           "kind": "line",
           "en": "// Add one operation log after old diagnostics were deleted.",
           "zh": "// 操作日志补写一条；清空前的诊断已删除。"
@@ -55007,452 +55026,452 @@
       ]
     },
     "desktop/src/App.svelte": {
-      "codeHash": "de8f89a011ded641a4db06f78cf2bf45864b4da34c6f6ef3b96f0092952e542f",
+      "codeHash": "71ca8229baaf620eb1a47c11d7522a633a337829f12e7674d8ef0ee34c033e51",
       "comments": [
         {
           "id": "b2ed83086f00e614",
-          "line": 46,
+          "line": 44,
           "kind": "block",
           "en": "/** Today/two-calendar-day ranges use hourly data bounded by dates in the configured timezone. */",
           "zh": "/** 两个自然日/当天自动切小时粒度，以设置时区的日期为边界。 */"
         },
         {
           "id": "113e5f6cb1a1a69a",
-          "line": 62,
+          "line": 60,
           "kind": "block",
           "en": "/** Separate today query (D8): summary first_day=last_day for the current-day section. */",
           "zh": "/** 今日独立查询（任务 D8）：当日 first=last 的 summary，供今日分区使用。 */"
         },
         {
           "id": "1ded68a211f13c00",
-          "line": 73,
+          "line": 71,
           "kind": "line",
           "en": "// Theme: system/light/dark through data-theme and derived isDark for ECharts.",
           "zh": "// ---- 主题（跟随系统/亮色/暗色）：data-theme 属性 + isDark 派生（供 ECharts）。 ----"
         },
         {
           "id": "4c1344e3e4cff29a",
-          "line": 74,
+          "line": 72,
           "kind": "block",
           "en": "/** Track system dark-mode changes so system-theme charts update immediately. */",
           "zh": "/** 系统深色偏好实时状态（change 时更新；system 模式下系统切换立即重绘图表）。 */"
         },
         {
           "id": "250ab3c0c9fab046",
-          "line": 84,
+          "line": 82,
           "kind": "block",
           "en": "/** Explicit light/dark wins; other values, including unknown settings, use system. */",
           "zh": "/** 生效主题：设置显式 light/dark 优先，其余（含未知值）回落 system。 */"
         },
         {
           "id": "1f251c7721749f2c",
-          "line": 88,
+          "line": 86,
           "kind": "block",
           "en": "/** Effective dark mode supplied to ECharts: explicit dark or system with a dark preference. */",
           "zh": "/** 是否深色（显式 dark，或 system 且系统偏好深色）；传给各 ECharts 组件。 */"
         },
         {
           "id": "08b051c454268f03",
-          "line": 91,
+          "line": 89,
           "kind": "line",
           "en": "// For system theme, remove data-theme and let themes.css prefers-color-scheme apply.",
           "zh": "// system = 移除 data-theme（themes.css 的 prefers-color-scheme 媒体查询接管）。"
         },
         {
           "id": "2fe35b1ebf692bba",
-          "line": 98,
+          "line": 96,
           "kind": "line",
           "en": "// v6 users: header selection and creation.",
           "zh": "// 多用户（v6）：顶栏切换 + 新建。"
         },
         {
           "id": "e948b9f020f15590",
-          "line": 107,
+          "line": 105,
           "kind": "block",
           "en": "/** Force child queries to reload after user switches/imports without a changed query. */",
           "zh": "/** 用户切换/导入等不改变 query 的强制重查信号（传给子组件）。 */"
         },
         {
           "id": "2a2cf15e2bc888d3",
-          "line": 131,
+          "line": 109,
           "kind": "line",
           "en": "// E10/E11 panel order/visibility, persisted per page in localStorage.",
           "zh": "// ---- 面板布局（任务 E10/E11）：拖拽顺序 + 显示/隐藏，按页持久化 localStorage。 ----"
         },
         {
           "id": "8198a4d0e18b552c",
-          "line": 186,
+          "line": 164,
           "kind": "block",
           "en": "/** Default panel column span in the six-column grid. */",
           "zh": "/** 面板在 6 列网格中的默认跨列数。 */"
         },
         {
           "id": "cfef257b11cde4bd",
-          "line": 217,
+          "line": 195,
           "kind": "block",
           "en": "/** Hide trend cost panels when estimates are disabled, without rewriting the saved layout. */",
           "zh": "/** 趋势页面板顺序：费用估算未启用时隐藏费用面板（布局持久化不动）。 */"
         },
         {
           "id": "f30c341e1fe8e10a",
-          "line": 231,
+          "line": 209,
           "kind": "block",
           "en": "/** Prefer a resized edit-mode column span over the panel default. */",
           "zh": "/** 面板生效跨列数：编辑模式把手拖出的档位优先，其次面板默认值。 */"
         },
         {
           "id": "5a567f42d3623d40",
-          "line": 237,
+          "line": 215,
           "kind": "block",
           "en": "/** Panel height in pixels; unmodified panels size automatically. */",
           "zh": "/** 面板生效高度（px；未调整过 = 自适应）。 */"
         },
         {
           "id": "72da5ec72650c29d",
-          "line": 242,
+          "line": 220,
           "kind": "block",
           "en": "/** Persist span/height and layout when resize dragging ends. */",
           "zh": "/** resize 把手拖动结束：记录 span/height 并持久化布局。 */"
         },
         {
           "id": "36eec59be645257c",
-          "line": 249,
+          "line": 227,
           "kind": "block",
           "en": "/** Reset current-page localStorage layout to default order, dimensions and visibility. */",
           "zh": "/** 重置布局（编辑模式）：清除当前页 localStorage 记录，恢复默认顺序/尺寸/显隐。 */"
         },
         {
           "id": "2b44e2ff790d4692",
-          "line": 264,
+          "line": 242,
           "kind": "block",
           "en": "/** Shared overview/trend edit mode enables dragging and visibility controls. */",
           "zh": "/** 布局编辑模式：仅此时面板可拖拽/调整显隐（总览与趋势共用一个开关）。 */"
         },
         {
           "id": "9df3df0270493893",
-          "line": 270,
+          "line": 248,
           "kind": "block",
           "en": "/**\n   * Pointer-based panel dragging fixed on 2026-09-26. With default dragDropEnabled=true,\n   * Tauri WebView2 intercepted HTML5 dragstart/drop. Use panel pointerdown and window\n   * pointermove/pointerup/pointercancel instead. elementsFromPoint identifies the target\n   * data-panel-group/-index during movement; releasing swaps and persists panel order.\n   */",
           "zh": "/**\n   * 面板拖拽（Pointer Events；2026-09-26 修复“完全无法拖动”）：\n   * WebView2 在 Tauri 默认 dragDropEnabled=true 时拦截 HTML5 drag 事件，\n   * dragstart/drop 根本不触发。改为 pointerdown（Panel 内）+ window 级\n   * pointermove/pointerup/pointercancel：move 时 elementsFromPoint 命中\n   * 落点面板（data-panel-group/-index），抬起时交换 order 并持久化。\n   */"
         },
         {
           "id": "d4f6667e4ce7a038",
-          "line": 287,
+          "line": 265,
           "kind": "line",
           "en": "// A target in another group/page falls back to this panel, leaving its order unchanged.",
           "zh": "// 命中其它分组/页面区域：落点回退为自身（松手不产生交换）。"
         },
         {
           "id": "ad13ec21e983bc7c",
-          "line": 380,
+          "line": 358,
           "kind": "line",
           "en": "// One cost query feeds the summary, model rows and curve on the active page.",
           "zh": "// 同一费用查询为当前页面的汇总、模型行和曲线提供数据。"
         },
         {
           "id": "f50edf5aaff5903d",
-          "line": 418,
+          "line": 396,
           "kind": "line",
           "en": "// Cost curves are daily when usage is hourly; include all visible hours of the day.",
           "zh": "// 用量按小时显示时，费用曲线仍按日；包含该日所有可见小时。"
         },
         {
           "id": "f3d3e7744712adc7",
-          "line": 463,
+          "line": 441,
           "kind": "block",
           "en": "/** Overview history and trends share period selection; reselecting the same overview point clears it. */",
           "zh": "/** 总览历史与趋势共用周期选区；总览再次点击同一点取消。 */"
         },
         {
           "id": "7f01aef52087df38",
-          "line": 476,
+          "line": 454,
           "kind": "line",
           "en": "// User options include a synthetic current entry when absent from the list, such as initial default.",
           "zh": "// 下拉选项 = 用户列表 +（当前用户不在列表时合成一项，如初始 default）。"
         },
         {
           "id": "eaf5af05651196a9",
-          "line": 485,
+          "line": 463,
           "kind": "line",
           "en": "// Today shares include known lower bounds without replacing complete stored totals.",
           "zh": "// 今日占比包含已知下界，不替换已存储的完整总量。"
         },
         {
           "id": "04466566a9b813e0",
-          "line": 498,
+          "line": 476,
           "kind": "line",
           "en": "// Trend shares use the same display bounds over the selected range.",
           "zh": "// 趋势占比对选定范围使用相同的展示下界。"
         },
         {
           "id": "29b0cdaa2b692cae",
-          "line": 538,
+          "line": 516,
           "kind": "block",
           "en": "/** Date label for the today section. */",
           "zh": "/** 今日分区日期标签。 */"
         },
         {
           "id": "3a1a11728696c329",
-          "line": 541,
+          "line": 519,
           "kind": "block",
           "en": "/**\n   * Selected-period cards mirror today: calls, input/cache/uncached, output, total tokens,\n   * cache ratio and sessions; week/month selections also show active days.\n   */",
           "zh": "/**\n   * 选中时间点汇总卡（结构同今日汇总）：总调用、输入（总量 + 命中/未命中分解）、\n   * 输出、总 token、缓存命中率、会话数；周/月粒度附加活动天数。\n   */"
         },
         {
           "id": "07875bfb4291b587",
-          "line": 601,
+          "line": 579,
           "kind": "block",
           "en": "/** Load the main and today queries together for one interaction/refresh.\n   * Preserve object references when query keys and data revisions are unchanged, avoiding\n   * idle chart redraws and flicker reported on 2026-09-26. */",
           "zh": "/** 主查询 + 今日查询（同一次用户交互/刷新内成对加载）。\n   * 查询键与数据修订均未变化时保留现有对象引用：派生值/图表不重算，\n   * 避免空闲轮询导致的整体重绘闪烁（2026-09-26 用户反馈）。 */"
         },
         {
           "id": "ff263e9d85d2aac5",
-          "line": 654,
+          "line": 632,
           "kind": "block",
           "en": "/** Reload summary, heatmap and sources after a user switch/import without a changed query. */",
           "zh": "/** 用户切换/导入等不改变 query 的数据重载（summary/heatmap/sources 都要刷新）。 */"
         },
         {
           "id": "6813b591646cc6bd",
-          "line": 663,
+          "line": 641,
           "kind": "line",
           "en": "// Open user creation while keeping the dropdown on the current user.",
           "zh": "// 打开新建行；下拉回落到当前用户。"
         },
         {
           "id": "8b67f427a20a5b28",
-          "line": 684,
+          "line": 661,
           "kind": "line",
           "en": "// Backend summary/heatmap follow the current user and must reload after switching.",
           "zh": "// summary/heatmap 后端按当前用户过滤，切换后必须重拉。"
         },
         {
           "id": "30bf51e5301e1f78",
-          "line": 718,
+          "line": 694,
           "kind": "line",
           "en": "// Collection-status polling and automatic data refresh.",
           "zh": "// ---- 采集状态轮询与数据自动刷新 ----"
         },
         {
           "id": "b4865648f05dd651",
-          "line": 719,
+          "line": 695,
           "kind": "block",
           "en": "/** Last observed completed-collection timestamp; a change requires data reload. */",
           "zh": "/** 上次观察到\"已结束\"的采集完成时间（变化 = 一次采集结束，需要重查数据）。 */"
         },
         {
           "id": "91aed3bcf764d8f3",
-          "line": 721,
+          "line": 697,
           "kind": "block",
           "en": "/** Loaded summary query key and data revision, used to skip identical assignments. */",
           "zh": "/** 已加载 summary 的查询键 + 数据修订（loadSummary 跳过重复赋值用）。 */"
         },
         {
           "id": "228213b8b6914ed6",
-          "line": 724,
+          "line": 700,
           "kind": "block",
           "en": "/**\n   * Reload data when collection finishes or its completion timestamp changes, including\n   * scheduled/headless collection. Idle polling updates status without rebuilding charts,\n   * preventing periodic overview flicker.\n   */",
           "zh": "/**\n   * 轮询采集状态：只在采集刚结束（running→结束）或完成时间变化（计划任务/\n   * headless 触发的采集结束）时重查数据；空闲轮询仅更新进度条状态，\n   * 不触发查询与图表重建（修复总览页周期性闪烁）。\n   */"
         },
         {
           "id": "11c3bf9a838e6f51",
-          "line": 730,
+          "line": 706,
           "kind": "line",
           "en": "// An accepted request may not have set the worker's running flag yet.",
           "zh": "// 请求已接受时，工作线程可能尚未设置 running 标记。"
         },
         {
           "id": "739d2ad3d4155cd1",
-          "line": 757,
+          "line": 729,
           "kind": "block",
           "en": "/* Retry a failed poll on the next interval. */",
           "zh": "/* 轮询失败下次再试 */"
         },
         {
           "id": "9b5c51105361df5c",
-          "line": 763,
+          "line": 735,
           "kind": "block",
           "en": "/**\n   * Poll every 500 ms during collection and every 10 seconds when idle.\n   * Idle status checks detect system/scheduler collection without redrawing charts.\n   */",
           "zh": "/**\n   * 状态轮询间隔自适应：采集中 500 ms，空闲 10 秒\n   * （仅探测系统任务/调度器启动的采集；状态查询本身不重绘图表）。\n   */"
         },
         {
           "id": "26cfaaf319f24657",
-          "line": 774,
+          "line": 746,
           "kind": "line",
           "en": "// Header query-refresh interval: localStorage persistence, default five minutes.",
           "zh": "// ---- 顶部数据自动刷新间隔（UI 定时重查；localStorage 持久化，默认 5 分钟）。 ----"
         },
         {
           "id": "e5b4a3168f0f306f",
-          "line": 776,
+          "line": 748,
           "kind": "line",
           "en": "// The v2 key accompanies the default change from 60 to 300 seconds on 2026-09-26.",
           "zh": "// 键带 v2：默认值由 60 秒改为 300 秒（2026-09-26），旧默认的存量记录作废，"
         },
         {
           "id": "69f0a46ca92c9bfe",
-          "line": 777,
+          "line": 749,
           "kind": "line",
           "en": "// Ignore the old stored default on first startup with this key.",
           "zh": "// 已运行过的界面首次启动回落新默认而非保留旧默认 60。"
         },
         {
           "id": "3effe2f50b4d89f1",
-          "line": 795,
+          "line": 767,
           "kind": "block",
           "en": "/* Without storage access, keep the selection for this session only. */",
           "zh": "/* 存储不可用时仅本次会话生效 */"
         },
         {
           "id": "96a40c4674da34fd",
-          "line": 836,
+          "line": 808,
           "kind": "line",
           "en": "// Today/two-calendar-day ranges select hourly data.",
           "zh": "// 两个自然日/当天自动切到小时粒度。"
         },
         {
           "id": "48bb1bbb63028753",
-          "line": 842,
+          "line": 814,
           "kind": "line",
           "en": "// Debounce changed queries by 200 ms and clear a selection whose period label may be stale.",
           "zh": "// 查询条件变化后防抖 200ms 重查，并清空可能已失效的时间点选择。"
         },
         {
           "id": "957c9467404d4222",
-          "line": 863,
+          "line": 835,
           "kind": "line",
           "en": "// Preserve unchanged reactive fields and nested objects across autosave acknowledgements.",
           "zh": "// 自动保存确认时，保留未变化的响应式字段和嵌套对象。"
         },
         {
           "id": "2553abb6fde2c462",
-          "line": 876,
+          "line": 848,
           "kind": "line",
           "en": "// F2: enabling pricing starts a background cost recomputation for retained details.",
           "zh": "// F2：费用估算配置变化后既有明细尚未估过价——启用时自动触发一次后台重算"
         },
         {
           "id": "f1dca4869b6a95ea",
-          "line": 877,
+          "line": 849,
           "kind": "line",
           "en": "// Autosaving unrelated preferences must not start another cost recomputation.",
           "zh": "// 自动保存无关偏好时，不得再次启动费用重算。"
         },
         {
           "id": "2c6ee16d5ec8d6e6",
-          "line": 907,
+          "line": 879,
           "kind": "line",
           "en": "// Collection ETA is empty when unavailable so the template hides it.",
           "zh": "// 采集中：ETA 文案（null/不可估时为空串，模板据此隐藏）。"
         },
         {
           "id": "cad6ada72424fddb",
-          "line": 971,
+          "line": 943,
           "kind": "markup",
           "en": "<!-- Query-refresh interval is independent of background collection; disabled means manual refresh. -->",
           "zh": "<!-- 数据自动重查间隔（与后台采集间隔独立；关闭 = 只手动刷新）。 -->"
         },
         {
           "id": "f7f864e81f30d904",
-          "line": 1140,
+          "line": 1112,
           "kind": "markup",
           "en": "<!-- Put range/granularity inside history because today uses an independent query. -->",
           "zh": "<!-- 范围/粒度只影响历史趋势区（今日数据独立查询），故放在该分区内侧而非页面顶部。 -->"
         },
         {
           "id": "d1499eb8b83c4654",
-          "line": 1163,
+          "line": 1135,
           "kind": "markup",
           "en": "<!-- Selecting a historical chart point shows period cards matching the today layout. -->",
           "zh": "<!-- 选中时间点汇总（点击任一历史趋势图的数据点出现；结构同今日汇总）。 -->"
         },
         {
           "id": "393d344c83fff426",
-          "line": 1190,
+          "line": 1162,
           "kind": "markup",
           "en": "<!-- Model/Agent pies use chart_series with the same selected-period filters.\n                 Match loading/chart heights and retain the old chart while replacing data to reduce movement. -->",
           "zh": "<!-- 选中时间点的模型/Agent 占比饼图（chart_series 数据，采用相同筛选条件）。\n                 加载占位与饼图同高度、换选保留旧图原地换数据，避免布局跳动。 -->"
         },
         {
           "id": "82f04520e6bee869",
-          "line": 1252,
+          "line": 1224,
           "kind": "markup",
           "en": "<!-- Seven fixed range-summary cards above charts use summary.totals. -->",
           "zh": "<!-- 范围汇总面板（图表区上方固定位置）：7 张小卡片，取 summary.totals。 -->"
         },
         {
           "id": "bd693448c75de9b1",
-          "line": 1407,
+          "line": 1382,
           "kind": "block",
           "en": "/* Highlight the panel-layout edit toggle when active. */",
           "zh": "/* 布局编辑模式开关（🔧；激活时高亮）。 */"
         },
         {
           "id": "9b846b05c8286025",
-          "line": 1442,
+          "line": 1417,
           "kind": "block",
           "en": "/* Header query-refresh selector shares a row with collection progress and refresh. */",
           "zh": "/* 顶部自动刷新间隔（与采集进度条/刷新按钮同行）。 */"
         },
         {
           "id": "4f793d40805a359e",
-          "line": 1451,
+          "line": 1426,
           "kind": "block",
           "en": "/* Collection progress width follows its percentage, alongside percentage/ETA text. */",
           "zh": "/* 采集中：简洁进度条（宽度 = 百分比）+ 百分比/剩余时间文案。 */"
         },
         {
           "id": "b82395ab9c34456a",
-          "line": 1529,
+          "line": 1504,
           "kind": "block",
           "en": "/* D8 today/history headings; history range/granularity filters affect that section only. */",
           "zh": "/* 今日/历史醒目分区标题（任务 D8）；历史区标题右侧内联范围/粒度筛选（只影响该区）。 */"
         },
         {
           "id": "3d8622d4958cc8d3",
-          "line": 1553,
+          "line": 1528,
           "kind": "block",
           "en": "/* History range/granularity controls sit beside its heading, separate from today. */",
           "zh": "/* 历史趋势区标题右侧的范围/粒度下拉（与今日数据区视觉分离）。 */"
         },
         {
           "id": "7fb67d0f12d4b2cd",
-          "line": 1567,
+          "line": 1542,
           "kind": "block",
           "en": "/* Selected-period heading and reused summary-cards grid inside history. */",
           "zh": "/* 选中时间点汇总（历史趋势区内）：标题行 + 复用 summary-cards 卡片网格。 */"
         },
         {
           "id": "c0312d6bff3f4032",
-          "line": 1601,
+          "line": 1576,
           "kind": "block",
           "en": "/* Model/Agent pies use two columns, stacking on narrow screens. */",
           "zh": "/* 选中时间点饼图行：模型/Agent 两列卡片（窄屏叠一行一个）。 */"
         },
         {
           "id": "b48df1aef5fe9b02",
-          "line": 1614,
+          "line": 1589,
           "kind": "block",
           "en": "/* Match loading/empty-state height to reduce movement when changing selected periods. */",
           "zh": "/* 与加载占位和空数据状态保持同高，减少切换时间点时的布局变化。 */"
         },
         {
           "id": "cb3bd4c6ed36efa2",
-          "line": 1622,
+          "line": 1597,
           "kind": "block",
           "en": "/* Match the SharePie loading placeholder to its 190px chart height. */",
           "zh": "/* 饼图加载占位：高度与 SharePie 190px 一致，加载完成不产生布局跳动。 */"
         },
         {
           "id": "08b467f511a78f78",
-          "line": 1628,
+          "line": 1603,
           "kind": "block",
           "en": "/* E10 six-column panel grid; Panel span classes set column widths. */",
           "zh": "/* 面板 6 列格子布局（任务 E10）；跨列数由 Panel 的 span 类决定。 */"
         },
         {
           "id": "faa68baa8e9a9ab7",
-          "line": 1636,
+          "line": 1611,
           "kind": "block",
           "en": "/* Keep metric rows compact; account quota has an independent full-width strip. */",
           "zh": "/* 指标行保持紧凑；账号额度使用独立的整行区域。 */"
@@ -55585,7 +55604,7 @@
       ]
     },
     "desktop/src/components/EventDetails.svelte": {
-      "codeHash": "fbcfe6f2cee189be3dc2ba93136e550e4e50534c844173be60e787a165346448",
+      "codeHash": "c0f7a84bd7d04030a9c9980396e3b725266a8ddae70f38dc9089c505e2adab3f",
       "comments": [
         {
           "id": "b0cba36d0407eb0a",
@@ -56656,20 +56675,8 @@
         }
       ]
     },
-    "desktop/src/components/ZedThreadUsage.svelte": {
-      "codeHash": "f6672d2c139c89282278af92b5a404d2b10fe9df5074c051e455dcf7fb28269f",
-      "comments": [
-        {
-          "id": "15c7425302c0709f",
-          "line": 25,
-          "kind": "markup",
-          "en": "<!-- svelte-ignore a11y_no_noninteractive_tabindex (Keyboard users need to scroll the wide table.) -->",
-          "zh": "<!-- svelte-ignore a11y_no_noninteractive_tabindex（键盘用户需要滚动宽表格。） -->"
-        }
-      ]
-    },
     "desktop/src/lib/api.ts": {
-      "codeHash": "e4626c03139b3e6a3164c5615279b6ef592b6bb80233d699da94e0b937a1272f",
+      "codeHash": "6583166c6936bfdf57dba1c84e9993780b496e777baca247f25a6389f3ef9111",
       "comments": [
         {
           "id": "5097c19a8a6ab908",
@@ -56778,182 +56785,182 @@
         },
         {
           "id": "7d2ed2696c841d4a",
-          "line": 351,
+          "line": 338,
           "kind": "block",
           "en": "/** null means presence could not be checked; do not hide a real read failure. */",
           "zh": "/** null 表示无法检查是否存在，不能掩盖实际读取失败。 */"
         },
         {
           "id": "60567b7525da32a6",
-          "line": 365,
+          "line": 352,
           "kind": "block",
           "en": "/** Registered files no longer on disk after Agent cleanup/compaction; only retained application history remains. */",
           "zh": "/** 注册过但磁盘已不存在（Agent 自行清理/压实）：其历史只存于本应用存档。 */"
         },
         {
           "id": "7cb7fa920784a8d2",
-          "line": 367,
+          "line": 354,
           "kind": "block",
           "en": "/** Source collection schedule; null inherits the global interval (M6). */",
           "zh": "/** 逐源提取计划（null = 继承全局间隔；M6 逐源定时）。 */"
         },
         {
           "id": "3d626ce0c15d901a",
-          "line": 385,
+          "line": 372,
           "kind": "block",
           "en": "/** Collection progress: 0-100 percent and estimated remaining seconds; null ETA means unavailable. */",
           "zh": "/** 采集进度（0–100 百分比 + 预计剩余秒；null = 暂不可估）。 */"
         },
         {
           "id": "817194596d0da717",
-          "line": 388,
+          "line": 375,
           "kind": "block",
           "en": "/** Completed adapter names in completion order. */",
           "zh": "/** 已完成的适配器名（按完成顺序）。 */"
         },
         {
           "id": "7044bedb448d46d9",
-          "line": 412,
+          "line": 399,
           "kind": "block",
           "en": "/** v6 user list and currently selected statistics user. */",
           "zh": "/** 多用户（v6）：用户清单 + 当前统计用户。 */"
         },
         {
           "id": "0762dc03966eb1db",
-          "line": 424,
+          "line": 411,
           "kind": "block",
           "en": "/** Row counts by retention layer and database bytes, including WAL. */",
           "zh": "/** 各归档层条目数 + 库文件占用（含 WAL）。 */"
         },
         {
           "id": "b438066154151f3e",
-          "line": 435,
+          "line": 422,
           "kind": "block",
           "en": "/** Aggregate exchange-package import counts (M1a). */",
           "zh": "/** 聚合交换包导入计数（M1a 约定）。 */"
         },
         {
           "id": "4a9e4ab8e0edd423",
-          "line": 453,
+          "line": 440,
           "kind": "block",
           "en": "/** Manual tiered-cleanup result. */",
           "zh": "/** 手动分层清理结果。 */"
         },
         {
           "id": "934db3782a54119e",
-          "line": 462,
+          "line": 449,
           "kind": "block",
           "en": "/** Background clear-all start; started=false means a task is already running. */",
           "zh": "/** 清理全部数据：后台任务启动结果（started=false 表示已有任务在执行）。 */"
         },
         {
           "id": "60812875ac913013",
-          "line": 467,
+          "line": 454,
           "kind": "block",
           "en": "/** Background clear-all-progress stages.\n * waiting: wait for collection; backup: copy database; clearing: clear transaction;\n * cleared: tables cleared with counts/backup path; rescan: full collection started;\n * done: rescan finished; failed: stopped with error details; cancelled: cancellation acknowledged. */",
           "zh": "/** 清理全部数据的 clear-all-progress 阶段。\n * waiting=等待采集；backup=备份数据库；clearing=清空事务；\n * cleared=清空完成，附表计数和备份路径；rescan=全量重采开始；\n * done=重采结束；failed=停止并附错误；cancelled=已确认取消。 */"
         },
         {
           "id": "5840dea51fa94992",
-          "line": 480,
+          "line": 467,
           "kind": "block",
           "en": "/** Clear-all preview: event count and registered missing source files that cannot be recollected. */",
           "zh": "/** 清空预检：事件总量 + 已注册但磁盘不存在的源文件数（这些历史无法重采）。 */"
         },
         {
           "id": "11e19fe112e588a9",
-          "line": 487,
+          "line": 474,
           "kind": "block",
           "en": "/** event_details page row; token integers use decimal strings. */",
           "zh": "/** 用量明细分页行（event_details 命令）。token 为十进制字符串。 */"
         },
         {
           "id": "5bee92aa1a165842",
-          "line": 511,
+          "line": 499,
           "kind": "block",
           "en": "/** Export user/host options and current values; is_current selects defaults. */",
           "zh": "/** 导出过滤选项：可用用户/主机 + 当前值（is_current 标记默认选中项）。 */"
         },
         {
           "id": "18c2c5f04791cffc",
-          "line": 519,
+          "line": 507,
           "kind": "block",
           "en": "/** chart_series grouping dimension, queried directly from aggregate tables. */",
           "zh": "/** chart_series 图表分组方式，直接读取聚合表。 */"
         },
         {
           "id": "c0aad8a3a8dd9561",
-          "line": 522,
+          "line": 510,
           "kind": "block",
           "en": "/** Grouped time-series row; tokens are decimal strings or null for unknown. */",
           "zh": "/** 分组时间序列行；token 是十进制字符串，null 表示未知。 */"
         },
         {
           "id": "200d20088ca5fdbf",
-          "line": 542,
+          "line": 530,
           "kind": "block",
           "en": "/** diagnostic_logs row; time is a millisecond timestamp. */",
           "zh": "/** 诊断日志行（diagnostic_logs 命令；时间为毫秒时间戳）。 */"
         },
         {
           "id": "d43284b7fcfe7973",
-          "line": 555,
+          "line": 543,
           "kind": "block",
           "en": "/** Generic quota snapshot; retain native units separately from recorded usage. */",
           "zh": "/** 通用额度快照，保留原单位，与已记录用量分开。 */"
         },
         {
           "id": "c1f85679ae2357dc",
-          "line": 644,
+          "line": 631,
           "kind": "block",
           "en": "/** Diagnostic logs: null code_filter selects all; a code string selects that category. */",
           "zh": "/** 诊断日志（code_filter 为 null = 全部；传 code 字符串只取该类）。 */"
         },
         {
           "id": "8bb4cf04c804f53b",
-          "line": 648,
+          "line": 635,
           "kind": "block",
           "en": "/** Current API reference, model unit rates and curve; frozen history remains in the response. */",
           "zh": "/** 当前 API 参考价、模型单价和曲线；响应仍保留历史价格。 */"
         },
         {
           "id": "c106d7857fdbc28d",
-          "line": 657,
+          "line": 644,
           "kind": "block",
           "en": "/** Background models.dev refresh/import; force=true bypasses cache TTL. */",
           "zh": "/** F2 在线刷新：后台抓取 models.dev 并导入（force=true 绕过缓存 TTL）。 */"
         },
         {
           "id": "752620d89ba89b61",
-          "line": 679,
+          "line": 666,
           "kind": "block",
           "en": "/** Subscribe to background clear-all stages and return the unsubscribe callback. */",
           "zh": "/** 订阅清理全部数据后台任务的阶段进度；返回取消订阅函数。 */"
         },
         {
           "id": "01deb7596dca0a14",
-          "line": 684,
+          "line": 671,
           "kind": "block",
           "en": "/** Generic quota overview; agent=null selects all, with native units separate from recorded usage. */",
           "zh": "/** 通用额度总览，agent=null 取全部；保留原单位，与已记录用量分开。 */"
         },
         {
           "id": "45543526c58bf74e",
-          "line": 687,
+          "line": 674,
           "kind": "block",
           "en": "/** Daily quota trend for (agent, quota_id). */",
           "zh": "/** 某 (agent, quota_id) 的每日额度趋势。 */"
         },
         {
           "id": "6b87c24868ebc8c6",
-          "line": 692,
+          "line": 679,
           "kind": "block",
           "en": "/** Parse a backend JSON-string error containing code/message. */",
           "zh": "/** 结构化错误解析（后端返回 JSON 字符串 code+message）。 */"
         },
         {
           "id": "d1c3662699ec760d",
-          "line": 699,
+          "line": 686,
           "kind": "block",
           "en": "/* Return the original string when JSON parsing fails. */",
           "zh": "/* 原样返回 */"
@@ -57067,7 +57074,7 @@
       ]
     },
     "desktop/src/lib/dashboard-locales.ts": {
-      "codeHash": "842c63fbaa8ceb5b3effed3b2ed97654128242611667966b0345c511cdbf397f",
+      "codeHash": "21718d76be9a31e685c3a91859f8dbe4747e7a69e5e0194e08b8c53cbd53e8dc",
       "comments": [
         {
           "id": "8984d761f34b56fb",
@@ -57487,7 +57494,7 @@
       ]
     },
     "desktop/tests/browser-smoke.mjs": {
-      "codeHash": "3b181019150263407b70e3cac9921c39b1f0b021b70929f8af88e861339ce7b6",
+      "codeHash": "1fddeca682785cd51486ed6733fd92578a62787020fd44d741b35b4ed669bde5",
       "comments": [
         {
           "id": "5ba4dca837379ee2",
@@ -57512,35 +57519,35 @@
         },
         {
           "id": "fe244fc846d84c29",
-          "line": 268,
+          "line": 258,
           "kind": "line",
           "en": "// Fake-clock job phases: waiting→backup→clearing→cleared→rescan→done.",
           "zh": "// 模拟时钟驱动任务阶段：waiting→backup→clearing→cleared→rescan→done。"
         },
         {
           "id": "d8e64c2d0b757e81",
-          "line": 463,
+          "line": 453,
           "kind": "line",
           "en": "// Accepted before the worker starts; a short scan finishes between status polls.",
           "zh": "// 工作线程启动前已受理；短扫描可能在状态轮询之间完成。"
         },
         {
           "id": "cef2412556e04173",
-          "line": 1045,
+          "line": 985,
           "kind": "line",
           "en": "// Clear-all confirmation shows missing-file warnings and phase progress;",
           "zh": "// 清理全部数据的确认界面显示缺失文件提示及阶段进度；"
         },
         {
           "id": "b8b8b9c2332d0d40",
-          "line": 1046,
+          "line": 986,
           "kind": "line",
           "en": "// done closes it automatically and shows the cleared summary.",
           "zh": "// done 后自动关闭，并显示清理汇总。"
         },
         {
           "id": "c702dac0313ddbb3",
-          "line": 1173,
+          "line": 1113,
           "kind": "line",
           "en": "// Keep simulated download deadlines independent of real page-navigation latency.",
           "zh": "// 让模拟下载的完成时刻不受实际页面切换耗时影响。"
@@ -57983,7 +57990,7 @@
       ]
     },
     "desktop/tests/ui-regressions.test.mjs": {
-      "codeHash": "45f6cbce486bc3bbc00ec9f146dff93fe04afbcd95d52b7176ef9d0e26820aa0",
+      "codeHash": "1ee86bd852173696fc04e6beb5cfc12adcfb752ebf1606c6e1e0b7978edc8b78",
       "comments": [
         {
           "id": "8c1cf3858457e346",

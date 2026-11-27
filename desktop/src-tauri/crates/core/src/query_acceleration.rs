@@ -161,6 +161,7 @@ fn build_day(tx: &Transaction<'_>, calendar: &Calendar, day: Date) -> Result<(),
         SUM(CASE WHEN record_kind='model_call' AND duration_ms>=0 THEN duration_ms ELSE 0 END),
         COUNT(CASE WHEN record_kind='model_call' AND duration_ms>=0 THEN 1 END)
         FROM usage_events WHERE occurred_at_ms>=?3 AND occurred_at_ms<?4 AND attribution_status='verified'
+        AND (time_basis!='bounded_interval' OR interval_start_ms>=?3)
         AND record_kind IN ('model_call','transport_attempt','usage_observation')
         GROUP BY source_instance_id,COALESCE(session_id,'')",params![tz,date,start,end])?;
     tx.execute(
@@ -171,6 +172,7 @@ fn build_day(tx: &Transaction<'_>, calendar: &Calendar, day: Date) -> Result<(),
         SUM(CASE WHEN record_kind='model_call' AND duration_ms>=0 THEN duration_ms ELSE 0 END),
         COUNT(CASE WHEN record_kind='model_call' AND duration_ms>=0 THEN 1 END)
         FROM usage_events WHERE occurred_at_ms>=?3 AND occurred_at_ms<?4 AND attribution_status='verified'
+        AND (time_basis!='bounded_interval' OR interval_start_ms>=?3)
         AND record_kind IN ('model_call','transport_attempt','usage_observation')
         GROUP BY source_instance_id,COALESCE(fold_name(provider_id),''),COALESCE(session_id,'')",params![tz,date,start,end])?;
     tx.execute("INSERT INTO query_accel_days VALUES(?1,?2,?3,?4,1) ON CONFLICT(tz_version,local_day) DO UPDATE SET start_ms=excluded.start_ms,end_ms=excluded.end_ms,valid=1",params![tz,date,start,end])?;

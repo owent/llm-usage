@@ -14,7 +14,6 @@
     SummaryDto,
     SummaryQuery,
     UserDto,
-    ZedThreadUsageDto,
   } from './lib/api';
   import { i18n, initLocale, normalizeLocale, setLocale, t, fmtEtaDuration, fmtSmart, fmtPercent, fmtDurationShort } from './lib/i18n.svelte';
   import { loadPanelGroup, savePanelGroup, clearPanelPage } from './lib/panels';
@@ -30,8 +29,7 @@
   import CostChart from './components/CostChart.svelte';
   import TodayOverview from './components/TodayOverview.svelte';
   import QuotaCard from './components/QuotaCard.svelte';
-  import ZedThreadUsage from './components/ZedThreadUsage.svelte';
-  import { availableAgents, shouldHideEmptyOverview, shouldShowZedThreads } from './lib/zed-usage';
+  import { availableAgents } from './lib/zed-usage';
   import TelemetrySetup from './components/TelemetrySetup.svelte';
   import { checkTelemetry } from './lib/telemetry.svelte';
   import BreakdownTables from './components/BreakdownTables.svelte';
@@ -107,26 +105,6 @@
   /** Force child queries to reload after user switches/imports without a changed query. */
   let dataReloadKey = $state(0);
   let copilotQuotaVisible = $state(false);
-  const showZedThreads = $derived(shouldShowZedThreads(ready, tab, agentFilter, modelFilter));
-  let zedRetryKey = $state(0);
-  let zedThreadResult = $state<{ user: string; rows: ZedThreadUsageDto[]; error: string }>();
-  const zedThreads = $derived(zedThreadResult?.user === currentUser ? zedThreadResult.rows : []);
-  const zedThreadsError = $derived(zedThreadResult?.user === currentUser ? zedThreadResult.error : '');
-
-  $effect(() => {
-    const user = currentUser;
-    if (!showZedThreads || !user) return;
-    void dataReloadKey;
-    void zedRetryKey;
-    void summary?.data_revision;
-    let cancelled = false;
-    api.zedThreadUsage()
-      .then(result => {
-        if (!cancelled && result.user_id === user) zedThreadResult = { user, rows: result.rows, error: '' };
-      })
-      .catch(e => { if (!cancelled) zedThreadResult = { user, rows: [], error: parseError(e) }; });
-    return () => { cancelled = true; };
-  });
 
   // E10/E11 panel order/visibility, persisted per page in localStorage.
   type PanelGroupKey = 'overviewToday' | 'overviewHistory' | 'trendMain';
@@ -467,7 +445,7 @@
   }
 
   const agentsAvailable = $derived(
-    availableAgents(catalog?.agents, sources, currentUser, zedThreads.length > 0)
+    availableAgents(catalog?.agents, sources, currentUser)
   );
   const modelsAvailable = $derived(
     Array.from(new Set((catalog?.models ?? []).map((m) => m.model ?? '__unknown__'))).sort()
@@ -677,7 +655,6 @@
       ++summarySequence;
       pendingSummaryKey = '';
       summary = todaySummary = catalog = null;
-      zedThreadResult = undefined;
       agentFilter = modelFilter = '';
       currentUser = value;
       userSelect = value;
@@ -705,7 +682,6 @@
       await api.createUser(name, true);
       newUserOpen = false;
       newUserName = '';
-      zedThreadResult = undefined;
       await loadUsers();
       await reloadUserData();
     } catch (e) {
@@ -747,11 +723,7 @@
         (wasRunning || lastFinishedMs !== r.last_finished_ms)
       ) {
         lastFinishedMs = r.last_finished_ms;
-        const previousRevision = summary?.data_revision;
         if (ready) await Promise.all([loadSummary(), loadSources(), checkTelemetry(true)]);
-        if (ready && summary?.data_revision === previousRevision && (zedThreadsError || queryError)) {
-          zedRetryKey += 1;
-        }
       }
     } catch {
       /* Retry a failed poll on the next interval. */
@@ -1070,9 +1042,6 @@
 
   {#if tab === 'overview'}
     <TelemetrySetup onDetails={() => { settingsSection = 'telemetry'; tab = 'settings'; }} />
-    {#if showZedThreads && (zedThreads.length || zedThreadsError)}
-      <ZedThreadUsage rows={zedThreads} error={zedThreadsError} timezone={settings?.timezone ?? 'UTC'} />
-    {/if}
     {#if summary}
       {#if copilotQuotaVisible}
         <div class="section-head">
@@ -1083,7 +1052,7 @@
         <QuotaCard agent="copilot" timezone={settings?.timezone ?? 'UTC'} reloadKey={dataReloadKey + (summary?.data_revision ?? 0)} {isDark} onvisibilitychange={(visible) => copilotQuotaVisible = visible} />
       </div>
       {#if summary.totals.call_count === 0 && summary.periods.length === 0 && !todaySummary?.periods.length}
-        {#if !shouldHideEmptyOverview(showZedThreads, zedThreads.length, zedThreadsError)}<p class="empty">{t('common.empty')}</p>{/if}
+        <p class="empty">{t('common.empty')}</p>
       {:else}
         {#if todaySummary}<UsageInsights summary={todayScopeSummary} />{/if}
         <div class="section-head">
@@ -1121,6 +1090,9 @@
               {:else if id === 'today-hourly'}
                 <p class="period-hint">{t('dashboard.dragHint')}</p>
                 <TodayHourly hourly={todaySummary?.today_hourly ?? []} query={todayQuery} {isDark} selectedRange={todaySelection} onrangechange={onTodayRangeChange} />
+                {#if todaySummary?.agents.some(row => row.agent === 'zed')}
+                  <p class="range-caption">{t('zedUsage.hourCoverage')}</p>
+                {/if}
               {:else if id === 'today-costs'}
                 <CostPanel summary={todayScopeCosts} error={todayScopeCostsError} modelLabels={todayScopeSummary?.models} />
                 <CostChart summary={costs} periods={todaySummary?.periods ?? []} modelLabels={todaySummary?.models} {isDark} selectedRange={todaySelection} onperiodclick={(label)=>onTodayRangeChange(label,label)} onrangechange={onTodayRangeChange} />
@@ -1259,6 +1231,9 @@
         <p class="range-hints">
           <span class="range-caption">{trendRangeCaption}{#if trendSelection && !selectionSummary && !selectionError} · {t('common.loading')}{/if}</span>
           <span>{t('dashboard.dragHint')}</span>
+          {#if granularity === 'hour' && (agentFilter === 'zed' || todaySummary?.agents.some(row => row.agent === 'zed'))}
+            <span>{t('zedUsage.hourCoverage')}</span>
+          {/if}
         </p>
         {#if selectionError}<p class="error">{selectionError}</p>{/if}
         <div class="summary-cards" class:with-pricing={settings?.pricing?.enabled}>

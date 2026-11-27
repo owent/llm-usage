@@ -1782,6 +1782,7 @@ pub fn event_details(
             "display_model": r.display_model,
             "category": r.call_category,
             "occurred_at_ms": r.occurred_at_ms,
+            "interval_start_ms": r.interval_start_ms,
             "session": r.session_id,
             "input": opt_num(r.input_total),
             "cache_read": opt_num(r.cache_read),

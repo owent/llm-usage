@@ -23,6 +23,7 @@
 
 pub mod common;
 pub mod detect;
+mod telemetry;
 pub mod versions;
 
 pub use common::{map_zed, ZedUsage};
@@ -157,14 +158,16 @@ impl crate::adapters::framework::SourceAdapter for ZedAdapter {
 
     fn capability(&self) -> crate::adapters::framework::CapabilityTable {
         use crate::adapters::framework::{Availability, CapabilityTable};
-        let note = "Zed 1.22.0/76659a55 的 llm-usage-zhipu 缓存样本；1.26.2/c4273271 的自定义 GLM 与内置 DeepSeek 混合线程样本；DbThread 0.3.0，hosted 仍文档级".to_string();
+        let note =
+            "DbThread 0.3.0；Zed 1.22.0 缓存、1.26.2 混合线程及 1.30.2 本地 OpenAI 用量日志样本"
+                .to_string();
         let mut fields = serde_json::Map::new();
         let field = |availability: Availability, detail: &str| serde_json::json!({ "availability": availability, "note": detail });
         fields.insert(
             "tokens".into(),
             field(
                 Availability::Partial(note.clone()),
-                "0.3.0 原生线程保留正输出/缓存；最新模型不代表历史输入包含关系，输入及完整总量未知；旧 llm-usage-zhipu/hosted 规则独立保留",
+                "本地 OpenAI 日志与线程四项计数一致时还原总输入、输出、缓存；否则沿用原生线程规则",
             ),
         );
         fields.insert(
@@ -192,14 +195,14 @@ impl crate::adapters::framework::SourceAdapter for ZedAdapter {
             "model".into(),
             field(
                 Availability::Partial(note.clone()),
-                "DbThread.model 仅为最新选择；线程累计没有逐模型归属",
+                "请求开始与用量更新共同确定模型；DbThread.model 仅为最新选择",
             ),
         );
         fields.insert(
             "time".into(),
             field(
                 Availability::Partial(note.clone()),
-                "线程 created_at..updated_at（RFC3339）；逐次无时间戳（官方源码未见）",
+                "线程 created_at..updated_at；区间完全落在同一天或同一小时才纳入对应统计，无逐次时间戳",
             ),
         );
         fields.insert(
@@ -233,7 +236,7 @@ impl crate::adapters::framework::SourceAdapter for ZedAdapter {
                 "env_override": null,
                 "manual_roots": "threads 目录、threads.db 文件或 Zed data 目录",
                 "bounded": true,
-                "pattern": "单库 threads 表；data blob json/zstd（zstd 有 64 MiB 解压上限）",
+                "pattern": "threads 表（json/zstd，解压上限 64 MiB）及同一数据目录下可选 logs/telemetry.log（8 MiB）",
                 "profile": "无",
             }),
             detection: serde_json::json!({
@@ -246,6 +249,7 @@ impl crate::adapters::framework::SourceAdapter for ZedAdapter {
             fields,
             lifecycle: serde_json::json!({
                 "aggregate_only": "每线程一条 session 级聚合（cumulative_token_usage 权威）；不展开伪造逐次事件",
+                "model_observation": "四项计数与 OpenAI 本地日志一致时，记录每线程每模型的区间用量，不增加调用数",
                 "overwrite_semantics": "request_token_usage turn 内后写覆盖前写：桶数=turn 数下界，桶合计仅作 Reconciliation 对照",
                 "imported": "SharedThread（version 1.0.0）用量置零，跳过；外部 ACP Agent 会话不进 threads 表",
             }),
@@ -264,8 +268,8 @@ impl crate::adapters::framework::SourceAdapter for ZedAdapter {
             maintenance: serde_json::json!({
                 "parser_version": versions::threads_db_v1::ZED_PARSER_VERSION,
                 "native_rules_version": versions::threads_db_v1::NATIVE_RULES_VERSION,
-                "format_evidence": "Zed 官方 bd74733/76659a55/c4273271；DbThread、thread 累计写者、OpenAI chat 与 DeepSeek mapper + 本机只读样本",
-                "evidence_level": "official-source + native 1.22.0 OpenAI chat + 1.26.2 mixed custom GLM/DeepSeek thread",
+                "format_evidence": "Zed 官方 bd74733/76659a55/c4273271/610ea4b8；DbThread、线程累计、OpenAI 映射及本地日志写入器和本机样本",
+                "evidence_level": "official-source + native 1.22.0 OpenAI chat + 1.26.2 mixed thread + 1.30.2 local OpenAI completion log",
                 "upgrade_policy": "真实样本出现后按 DbThread 实际字段升级验证；zstd/json 双格式均有界",
             }),
             scheduling: serde_json::json!({
@@ -273,8 +277,8 @@ impl crate::adapters::framework::SourceAdapter for ZedAdapter {
                 "incremental_cost": "整表读（≤50k 行）+ 幂等聚合 upsert",
             }),
             limitations: vec![
-                "本机真实样本为 1.22.0 llm-usage-zhipu 和 1.26.2 自定义 GLM/内置 DeepSeek；其他 Provider 只有结构兼容读取，非真实调用认证".into(),
-                "线程原生区间聚合：无逐次请求时间戳/延迟/逐模型归属，不加入主面板的逐日调用统计".into(),
+                "1.30.2 本地日志只核验 OpenAI 映射；其他日志和旧线程按原生汇总规则读取".into(),
+                "原生线程汇总不认领模型；日志对账成功的区间可计 token，但不计逐次调用、延迟或阶梯费用".into(),
                 "request_token_usage 覆盖语义：桶数是 turn 数下界，桶合计可能小于累计值（对账不 matched 时如实展示）".into(),
                 "ZED_STATELESS 模式不落盘；--user-data-dir 自定义路径需手工添加根".into(),
             ],

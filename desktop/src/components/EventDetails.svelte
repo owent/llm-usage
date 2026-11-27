@@ -152,7 +152,7 @@
         <tbody>
           {#each rows as r (r.event_id)}
             <tr>
-              <td class="time">{fmtTime(r.occurred_at_ms)}</td>
+              <td class="time">{r.interval_start_ms == null ? '' : `${fmtTime(r.interval_start_ms)} – `}{fmtTime(r.occurred_at_ms)}</td>
               <td>{r.agent}</td>
               <td title={r.model ?? ''}>{(r.display_model !== undefined ? r.display_model : modelDisplayName(r.model, r.agent)) ?? t('common.unknown')}</td>
               <td>{r.category ?? t('common.unknown')}</td>

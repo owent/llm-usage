@@ -7,7 +7,7 @@ import {modelKey,modelDisplayName,modelSeriesDisplayName,modelRowDisplayName,mod
 import { escapeHtml } from '../src/lib/chart.ts';
 import {formatAmount,formatCostRange,formatUnitPrice,unpricedReasonKey} from '../src/lib/costs.ts';
 import {cnyToUsd,referenceFx} from '../src/lib/exchange-rates.ts';
-import {createZedTimeFormatter,formatZedInterval,shouldShowZedThreads,availableAgents,shouldHideEmptyOverview} from '../src/lib/zed-usage.ts';
+import {availableAgents} from '../src/lib/zed-usage.ts';
 
 test('compact total labels distinguish complete, lower-bound and missing usage',()=>{
   assert.equal(tokenTotalLabel('en-US',120,100,20),'120');
@@ -190,60 +190,22 @@ test('scoped server labels preserve ambiguity and raw chart keys after metadata 
   assert.equal(conflicted.displayName('raw'),'raw');
 });
 
-test('Zed thread interval formatting follows statistics timezone, preserves unknown start and handles invalid timezones', () => {
-  const start = Date.parse('2026-10-29T14:00:00Z');
-  const end = Date.parse('2026-11-21T06:35:39Z');
-  const shanghai = createZedTimeFormatter('en', 'Asia/Shanghai');
-  const la = createZedTimeFormatter('en', 'America/Los_Angeles');
-  const utc = createZedTimeFormatter('en', 'UTC');
-  const shanghaiText = formatZedInterval(start, end, shanghai);
-  const laText = formatZedInterval(start, end, la);
-  assert.notEqual(shanghaiText, laText);
-  assert.equal(shanghaiText, `${shanghai.format(start)} – ${shanghai.format(end)}`);
-  assert.equal(formatZedInterval(null, end, utc), `— – ${utc.format(end)}`);
-  assert.equal(formatZedInterval(Number.NaN, Number.POSITIVE_INFINITY, utc), '— – —');
-  const fallback = createZedTimeFormatter('en', 'Invalid/Timezone_Name');
-  assert.equal(formatZedInterval(start, end, fallback), formatZedInterval(start, end, utc));
-  const emptyTz = createZedTimeFormatter('zh-CN', '');
-  assert.equal(
-    formatZedInterval(start, end, emptyTz),
-    formatZedInterval(start, end, createZedTimeFormatter('zh-CN', 'UTC')),
-  );
-});
-
-test('Zed thread visibility, agent options and empty-state suppression match dashboard rules', () => {
-  assert.equal(shouldShowZedThreads(true, 'overview', '', ''), true);
-  assert.equal(shouldShowZedThreads(true, 'overview', 'zed', ''), true);
-  assert.equal(shouldShowZedThreads(true, 'overview', 'codex', ''), false);
-  assert.equal(shouldShowZedThreads(true, 'overview', '', 'glm-5.4'), false);
-  assert.equal(shouldShowZedThreads(true, 'overview', 'zed', 'glm-5.4'), false);
-  for (const tab of ['trend', 'sources', 'details', 'settings']) {
-    assert.equal(shouldShowZedThreads(true, tab, '', ''), false);
-    assert.equal(shouldShowZedThreads(true, tab, 'zed', ''), false);
-  }
-  assert.equal(shouldShowZedThreads(false, 'overview', '', ''), false);
-
+test('Zed is selectable when the current user owns a source or has chart data', () => {
   const sources = [
     { agent: 'zed', user_id: 'default' },
     { agent: 'codex', user_id: 'default' },
     { agent: 'zed', user_id: 'other' },
   ];
   assert.deepEqual(
-    availableAgents([{ agent: 'codex' }], sources, 'default', false),
+    availableAgents([{ agent: 'codex' }], sources, 'default'),
     ['codex', 'zed'],
   );
   assert.deepEqual(
-    availableAgents([{ agent: 'codex' }], [{ agent: 'zed', user_id: 'other' }], 'default', false),
+    availableAgents([{ agent: 'codex' }], [{ agent: 'zed', user_id: 'other' }], 'default'),
     ['codex'],
   );
   assert.deepEqual(
-    availableAgents(undefined, [], 'default', true),
+    availableAgents([{ agent: 'zed' }], [], 'default'),
     ['zed'],
   );
-
-  assert.equal(shouldHideEmptyOverview(true, 1, ''), true);
-  assert.equal(shouldHideEmptyOverview(true, 0, 'db: busy'), true);
-  assert.equal(shouldHideEmptyOverview(true, 0, ''), false);
-  assert.equal(shouldHideEmptyOverview(false, 2, ''), false);
-  assert.equal(shouldHideEmptyOverview(false, 0, 'db: busy'), false);
 });

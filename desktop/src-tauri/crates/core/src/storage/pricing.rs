@@ -1185,6 +1185,7 @@ pub(crate) fn collect_events_for_pricing(
                 cost_amount_minor, cost_currency, cost_kind, call_category, quality_bucket
          FROM usage_events
          WHERE occurred_at_ms >= ?1 AND occurred_at_ms < ?2
+           AND time_basis != 'bounded_interval'
            AND attribution_status = 'verified' AND record_kind IN ('model_call','usage_observation')",
     );
     if !filters.agents.is_empty() {

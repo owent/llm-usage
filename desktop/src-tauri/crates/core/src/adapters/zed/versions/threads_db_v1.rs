@@ -45,7 +45,7 @@ use std::io::Read;
 
 pub const ZED_PARSER_VERSION: &str = "zed-threads-db-2";
 /// Independent policy marker replays old cursors without deleting checkpoints before a scan.
-pub const NATIVE_RULES_VERSION: u8 = 3;
+pub const NATIVE_RULES_VERSION: u8 = 4;
 /// Nominal row limit per scan; one extra row detects continuation.
 pub const MAX_ROWS_PER_ROUND: i64 = 50_000;
 /// Decompressed thread data limit: 64 MiB; oversized blobs are skipped with diagnostics.
@@ -260,6 +260,8 @@ fn scan_with_row_limit(
         policy = ZedPolicy::default();
     }
     let mut aggregates = Vec::new();
+    let mut events = Vec::new();
+    let telemetry = super::super::telemetry::Log::read(&target.path);
     let mut diagnostics = Vec::new();
     let mut reconciliations = Vec::new();
     let mut external_reported = false;
@@ -438,6 +440,22 @@ fn scan_with_row_limit(
         if (verified_external || native) && empty {
             continue;
         }
+        if native {
+            let written_end = document["updated_at"].as_str().and_then(rfc3339_ms);
+            if let (Some(log), Some(start)) =
+                (&telemetry, created_at.as_deref().and_then(rfc3339_ms))
+            {
+                if written_end == Some(end_ms) {
+                    events.extend(log.events(
+                        &target.instance_id,
+                        thread_id,
+                        start,
+                        end_ms,
+                        cumulative,
+                    ));
+                }
+            }
+        }
         aggregates.push(SourceAggregateInput {
             instance_id: target.instance_id.clone(),
             scope: AggregateScope::Session,
@@ -507,7 +525,7 @@ fn scan_with_row_limit(
             },
         })?),
         parse_context: Some(serde_json::to_value(policy)?),
-        events: Vec::new(),
+        events,
         aggregates,
         diagnostics,
         lines_read: rows.len() as u64,

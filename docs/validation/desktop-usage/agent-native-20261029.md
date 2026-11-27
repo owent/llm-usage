@@ -180,3 +180,25 @@ database schema and daily/model statistics do not change.
 | Rust 1.100.0, `cargo test --locked -p llm-usage-core --test zed_mixed_contract --test zed_native_contract` from the Tauri directory | Exit 0, 10 tests. Includes retained intervals, user ownership, sorting and row limit, unknown buckets, and unchanged daily/model totals and data revision. |
 | `npm run test:browser` in Edge with simulated IPC | Exit 0. Checks statistics timezone, unknown fields, thread-only overview and user switches. |
 | `cargo build --features tauri/custom-protocol` and isolated Windows WebView2 check | Exit 0. Ingested a synthetic zstd DbThread into a fresh database, checked the retained row using native Tauri IPC and Overview, and verified unchanged daily/model totals. No existing installation or database was modified. |
+
+<a id="zed-1302-model-usage"></a>
+
+## Zed 1.30.2 model usage in charts
+
+The corrected reader matches completion starts and usage updates to the saved
+thread and requires agreement on all four counters. The local sample's
+`openai/glm-5.4` is the writer's prefixed model ID. The latest model saved in
+the same thread differs. Reversing the OpenAI cache subtraction gives
+13,128,307 total input, including 12,814,592 cache-read tokens. Output is 154,148.
+The native interval is 14:44–15:28 on 2026-11-27 in Asia/Shanghai. The day is
+eligible for charts, but neither hour is assignable, and the 65 updates do
+not constitute a verified model-call count.
+[OpenAI-compatible model writer](https://github.com/zed-industries/zed/blob/610ea4b8de1c6e887f03563f067278002f41256e/crates/language_models/src/provider/open_ai_compatible.rs),
+[chat token mapper](https://github.com/zed-industries/zed/blob/610ea4b8de1c6e887f03563f067278002f41256e/crates/language_model_core/src/chat_completion.rs#L230-L250).
+
+The focused Rust tests pass 13 cases, including unchanged v3 checkpoints, exact
+and mismatched counter reconciliation, timezone/hour boundaries and repeat import.
+The Windows debug executable read the real local Zed source into an isolated
+application database. WebView2 and native IPC verified Overview, Trends, all
+three chart groupings, the heatmap, Details and the hourly gap. The installed
+application and its database were not changed.

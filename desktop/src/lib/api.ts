@@ -334,19 +334,6 @@ export interface HeatmapDto {
   cells: { day: string; weekday: number; calls: number; total_tokens: string | null; available: boolean; partial: boolean }[];
 }
 
-export interface ZedThreadUsageDto {
-  id: string;
-  start_ms: number | null;
-  end_ms: number;
-  input_total: string | null;
-  input_uncached: string | null;
-  input_cache_read: string | null;
-  input_cache_write: string | null;
-  output_total: string | null;
-  total_tokens: string | null;
-  observed_turns: string | null;
-}
-
 export interface SourceDto {
   /** null means presence could not be checked; do not hide a real read failure. */
   available?: boolean | null;
@@ -486,6 +473,7 @@ export interface ClearAllPreviewDto {
 
 /** event_details page row; token integers use decimal strings. */
 export interface EventDetailRowDto {
+  interval_start_ms?: number | null;
   event_id: string;
   agent: string;
   model: string | null;
@@ -591,7 +579,6 @@ export const api = {
   telemetryApply: (token: string) => invoke<void>('telemetry_apply', { token }),
   telemetryUndo: (token: string) => invoke<string[]>('telemetry_undo', { token }),
   summary: (q: SummaryQuery) => invoke<SummaryDto>('summary', { q }),
-  zedThreadUsage: () => invoke<{ user_id: string; rows: ZedThreadUsageDto[] }>('zed_thread_usage'),
   heatmap: (q: SummaryQuery) => invoke<HeatmapDto>('heatmap', { q }),
   listSources: () => invoke<{ sources: SourceDto[] }>('list_sources'),
   setSourceSchedule: (instanceId: string, rule: {

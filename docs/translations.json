@@ -490,16 +490,16 @@
       "zh": "b456d3accf9671c420700bb41228f5605d325bde9444682d7a36187a95d75237"
     },
     "docs/design/desktop-usage/dashboard-polish.md": {
-      "en": "0fdb8d37a8de1da6a18e0dd2c119ad5dbb03764bd28037c29909ee644afa66da",
-      "zh": "e75c7ad4585c333c52c86a4ad721cb08f820b28b6c684abc243a855d12d4f045"
+      "en": "680b911636455b3e854c0950c5998111d210894bcafd6653bdd827668b1c9d59",
+      "zh": "bd989baaf0c28fa9098be6e22a854050c03754406f7b2cf99c0fa47f072e26f6"
     },
     "docs/design/desktop-usage/dashboard-repair.md": {
       "en": "7f63ff7bb920b9bd895376e7d53b1eb0f4d649655e8b22d911367b6e6a143a89",
       "zh": "15875b1b211f706a1d0e23a171b977becb1aff485ce4076c6bea10c38dfa9ab7"
     },
     "docs/design/desktop-usage/data-contract.md": {
-      "en": "be13fc303e1ffc78f2adc15a285646d51fab18a2cf051e32f0ba86011e3c5855",
-      "zh": "ec86876d04ec2fd31495ed8ccb433d98938868cc43d6926ff4911f66e3c8976d"
+      "en": "a3511baaeddaae6884ad111cd79a6d4c1c44c3b6bc97b7da79fd3ecf783d5551",
+      "zh": "5491545c7b13871d060ab532400ef72a2e9d3915b97a86156b13b1b9484dc184"
     },
     "docs/design/desktop-usage/detail-merge.md": {
       "en": "a180539e195a469e16c0f9e22fa49eb0573a45892e00d2802f5826dd8a93a3f2",
@@ -574,8 +574,8 @@
       "zh": "6b4c24689917de44cc9243bd7e99580784c3ba8815b6ba551c275ba66210e02d"
     },
     "docs/validation/desktop-usage/agent-native-20261029.md": {
-      "en": "df3ad61305b2b5a25442461a94dfe16e8bdfed71b19996f878949055012ccf0a",
-      "zh": "e093d6d85f6257049e13c58c56e2c5dfb6be217d2246884c1a0b500d73e38cf8"
+      "en": "1c3bc3445464e1fdeafe79519a9830a25f11dd0f0fd360aeac09f6ae5cba1067",
+      "zh": "612c6fbc0f1d60cc792b8b385c1ba063b27b965b68f7774852eaf6fe413e8405"
     },
     "docs/validation/desktop-usage/application-updates.md": {
       "en": "3f90fdf184ef3977a27d4a640217f0e4def459980111934fa152e7934167620e",
@@ -908,8 +908,8 @@
       "zh": "ecbbde6111a50b713196d10365e28dc2b557f05ce3f3e25d416e8ec8bb8df347"
     },
     "docs/site/content/guide/dashboard.md": {
-      "en": "61e11f8714af08284ce183c63859bcaf1e1481db2490d439d48c897178d64917",
-      "zh": "dcf8ff26c9773d8b1b996454b86ac35b6303904187264a44f03e4f568616a96c"
+      "en": "6545ea63d8307cf8b2324c42e4c75d5bedbb5164dffad5a0ee276cccd67464b9",
+      "zh": "dac5cc45d85579e3fae2fa61a2686c3466b5f22b3859e1d00ac0e6152f4ec7a2"
     },
     "docs/site/content/guide/data.md": {
       "en": "04d73795a4f6db5b490917369bb1843865b2a4247458743d52bd470ed5e1cb04",

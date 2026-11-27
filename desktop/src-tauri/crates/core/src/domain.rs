@@ -194,6 +194,7 @@ pub enum TimeBasis {
     SourceStart,
     ObservedAt,
     IntervalStart,
+    BoundedInterval,
     /// Native timezone/time configuration has not been verified.
     Uncertain,
 }
@@ -205,6 +206,7 @@ impl TimeBasis {
             TimeBasis::SourceStart => "source_start",
             TimeBasis::ObservedAt => "observed_at",
             TimeBasis::IntervalStart => "interval_start",
+            TimeBasis::BoundedInterval => "bounded_interval",
             TimeBasis::Uncertain => "uncertain",
         }
     }
@@ -215,6 +217,7 @@ impl TimeBasis {
             "source_start" => Ok(TimeBasis::SourceStart),
             "observed_at" => Ok(TimeBasis::ObservedAt),
             "interval_start" => Ok(TimeBasis::IntervalStart),
+            "bounded_interval" => Ok(TimeBasis::BoundedInterval),
             "uncertain" => Ok(TimeBasis::Uncertain),
             other => Err(CoreError::Validation(format!(
                 "unknown time basis: {other}"
@@ -606,6 +609,17 @@ impl EventInput {
                     "interval end {end} before start {start}"
                 )));
             }
+        }
+        if self.time_basis == TimeBasis::BoundedInterval
+            && (self.record_kind != RecordKind::UsageObservation
+                || self.interval_end_ms != Some(self.occurred_at_ms)
+                || self
+                    .interval_start_ms
+                    .is_none_or(|start| start >= self.occurred_at_ms))
+        {
+            return Err(CoreError::Validation(
+                "a bounded usage observation requires valid start/end timestamps".into(),
+            ));
         }
         Ok(())
     }

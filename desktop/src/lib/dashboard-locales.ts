@@ -66,26 +66,23 @@ const messages: Record<string, string[]> = {
     'Локальные снимки цен. Без настроенного канала возможна справочная официальная цена API той же модели. Валюты отображаются отдельно.',
     'Рабочая область, среда или политики могут переопределять настройки. Проверенные файлы Copilot используются в статистике вызовов; прочие данные сохраняются для проверки.'],
 };
-const zedKeys = ['zedUsage.title', 'zedUsage.hint', 'zedUsage.interval', 'zedUsage.turns'] as const;
-const zedMessages: Record<string, readonly string[]> = {
-  'zh-CN': ['Zed 线程用量', '最多显示最近更新的 20 条线程。累计值可能跨天、跨模型，不计入每日或模型统计。轮数不是调用数，— 表示未知。', '线程区间', '已记录轮数'],
-  en: ['Zed thread usage', 'Up to 20 recently updated threads. Usage may span days and models and is excluded from daily and model totals. Turns are not calls. — means unknown.', 'Thread interval', 'Recorded turns'],
-  'zh-TW': ['Zed 執行緒用量', '最多顯示最近更新的 20 個執行緒。累計值可能跨日、跨模型，不計入每日或模型統計。輪數不等於呼叫數，— 表示未知。', '執行緒區間', '已記錄輪數'],
-  ja: ['Zed スレッドの使用量', '最近更新されたスレッドを最大 20 件表示します。使用量は複数の日やモデルにまたがる場合があり、日別・モデル別の集計には含まれません。ターン数は呼び出し回数ではありません。— は不明です。', 'スレッドの期間', '記録されたターン'],
-  ko: ['Zed 스레드 사용량', '최근 업데이트된 스레드를 최대 20개 표시합니다. 사용량은 여러 날짜와 모델에 걸칠 수 있으며 일별·모델별 합계에 포함되지 않습니다. 턴은 호출이 아니며 —는 알 수 없음을 뜻합니다.', '스레드 기간', '기록된 턴'],
-  es: ['Uso de hilos de Zed', 'Hasta 20 hilos actualizados recientemente. El uso puede abarcar varios días y modelos y no se incluye en sus totales. Los turnos no son llamadas. — indica un valor desconocido.', 'Intervalo del hilo', 'Turnos registrados'],
-  fr: ['Utilisation par fil Zed', 'Jusqu’à 20 fils récemment mis à jour. L’utilisation peut couvrir plusieurs jours et modèles et n’entre pas dans leurs totaux. Les tours ne sont pas des appels. — indique une valeur inconnue.', 'Intervalle du fil', 'Tours enregistrés'],
-  de: ['Nutzung in Zed-Threads', 'Bis zu 20 zuletzt aktualisierte Threads. Die Nutzung kann mehrere Tage und Modelle umfassen und zählt nicht zu deren Summen. Dialogrunden sind keine Aufrufe. — bedeutet unbekannt.', 'Thread-Zeitraum', 'Erfasste Dialogrunden'],
-  'pt-BR': ['Uso por conversa no Zed', 'Até 20 conversas atualizadas recentemente. O uso pode abranger vários dias e modelos e não entra nesses totais. Turnos não são chamadas. — indica um valor desconhecido.', 'Intervalo da conversa', 'Turnos registrados'],
-  ru: ['Использование в диалогах Zed', 'До 20 недавно обновлённых диалогов. Использование может охватывать несколько дней и моделей и не включается в их итоги. Ходы не равны вызовам. — означает неизвестное значение.', 'Период диалога', 'Записанные ходы'],
+const zedHourCoverage: Record<string, string> = {
+  'zh-CN': 'Zed 的区间用量只有能归到一个小时才进入小时图。跨小时的用量仍计入当日汇总。',
+  en: 'Zed usage appears in hourly charts only when its interval fits one hour. Usage spanning hours remains in the daily totals.',
+  'zh-TW': 'Zed 的區間用量只有能歸到一個小時才納入小時圖。跨小時的用量仍計入當日彙總。',
+  ja: 'Zed の使用量は、期間が 1 時間の枠内に収まる場合のみ時間別グラフに表示します。複数の時間帯にまたがる使用量は日別集計に含まれます。',
+  ko: 'Zed 사용량은 구간이 한 시간 안에 들어갈 때만 시간별 차트에 표시됩니다. 여러 시간에 걸친 사용량은 일별 합계에 포함됩니다.',
+  es: 'El uso de Zed solo aparece por hora si el intervalo cabe en una hora. El uso que abarca varias horas se mantiene en los totales diarios.',
+  fr: 'L’utilisation de Zed figure par heure si son intervalle tient dans une heure. Si elle s’étend sur plusieurs heures, elle reste dans le total quotidien.',
+  de: 'Die Zed-Nutzung erscheint nur dann im Stundendiagramm, wenn das Intervall in eine Stunde passt. Nutzungsintervalle über mehrere Stunden bleiben in den Tagessummen.',
+  'pt-BR': 'O uso do Zed só aparece por hora se o intervalo couber em uma hora. O uso que abrange várias horas permanece no total diário.',
+  ru: 'Использование Zed отображается по часам, только если интервал целиком входит в один час. Интервалы в несколько часов учитываются в дневных итогах.',
 };
 
 export const dashboardCatalogs = Object.fromEntries(Object.entries(messages).map(([locale, values]) => {
   if (values.length !== keys.length) throw new Error('Incomplete dashboard translations: ' + locale);
-  const zedValues = zedMessages[locale];
-  if (zedValues?.length !== zedKeys.length) throw new Error('Incomplete Zed usage translations: ' + locale);
   return [locale, Object.fromEntries([
     ...keys.map((key, i) => [key, values[i]]),
-    ...zedKeys.map((key, i) => [key, zedValues[i]]),
+    ['zedUsage.hourCoverage', zedHourCoverage[locale]],
   ])];
 }));

@@ -2,7 +2,7 @@
 //! Replay uncommitted interrupted batches without duplicates: update events by key and recompute daily partitions.
 
 use crate::calendar::Calendar;
-use crate::domain::{EventInput, QualityBucket};
+use crate::domain::{EventInput, QualityBucket, TimeBasis};
 use crate::error::CoreError;
 use crate::identity::{
     arbitrate, content_hash, event_content_hash, event_id, Arbitration, ExistingMeta,
@@ -237,6 +237,14 @@ pub(crate) fn commit_batch_tx(
                     message: e.to_string(),
                 },
             ));
+            continue;
+        }
+        if !archive_snapshot
+            && event.time_basis == TimeBasis::BoundedInterval
+            && calendar.local_day_of(event.interval_start_ms.unwrap())?
+                != calendar.local_day_of(event.occurred_at_ms)?
+        {
+            outcome.skipped += 1;
             continue;
         }
         if let Some(cutoff) = cutoff.filter(|_| !archive_snapshot) {
@@ -1634,6 +1642,7 @@ pub(crate) fn recompute_day(
          )
          WHERE occurred_at_ms >= ?4 AND occurred_at_ms < ?5
            AND attribution_status = 'verified'
+           AND (time_basis != 'bounded_interval' OR interval_start_ms >= ?4)
            AND record_kind IN ('model_call', 'transport_attempt', 'usage_observation')
          {unsealed} {group_by}"
     );
@@ -1744,7 +1753,8 @@ pub(crate) fn persist_hourly_day(
         "SELECT source_instance_id, occurred_at_ms, record_kind, agent,
                 COALESCE(provider_id, ''), COALESCE(model_raw, ''), call_category,
                 quality_json, input_total, input_cache_read, input_cache_write,
-                output_total, total_tokens, quality_bucket, conflict
+                output_total, total_tokens, quality_bucket, conflict,
+                CASE WHEN time_basis='bounded_interval' THEN interval_start_ms END
          FROM usage_events
          WHERE occurred_at_ms >= ?1 AND occurred_at_ms < ?2
            AND attribution_status = 'verified'
@@ -1767,7 +1777,13 @@ pub(crate) fn persist_hourly_day(
     let mut buckets: std::collections::BTreeMap<HourKey, Bucket> = Default::default();
     let mut rows = stmt.query(params![start_ms, end_ms, tz, day_str])?;
     while let Some(row) = rows.next()? {
-        let hour = calendar.local_hour_of(row.get(1)?)?;
+        let at: i64 = row.get(1)?;
+        if let Some(start) = row.get::<_, Option<i64>>(15)? {
+            if !calendar.interval_in_hour(start, at)? {
+                continue;
+            }
+        }
+        let hour = calendar.local_hour_of(at)?;
         let kind: String = row.get(2)?;
         let key = (
             hour,

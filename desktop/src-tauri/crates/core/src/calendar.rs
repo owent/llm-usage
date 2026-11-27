@@ -74,6 +74,14 @@ impl Calendar {
         Ok(if hour < 0 { 0 } else { hour as u32 })
     }
 
+    pub(crate) fn interval_in_hour(&self, start: i64, end: i64) -> Result<bool, CoreError> {
+        let start_offset = i64::from(self.offset_seconds_at(start)?);
+        let end_offset = i64::from(self.offset_seconds_at(end)?);
+        Ok(start_offset == end_offset
+            && (start + start_offset * 1000).div_euclid(3_600_000)
+                == (end + end_offset * 1000).div_euclid(3_600_000))
+    }
+
     /// UTC milliseconds to ISO weekday, Monday=1 through Sunday=7.
     pub fn local_weekday_of(&self, ms: i64) -> Result<u8, CoreError> {
         let ts = Timestamp::from_millisecond(ms)

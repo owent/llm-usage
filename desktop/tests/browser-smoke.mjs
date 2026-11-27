@@ -138,21 +138,11 @@ await page.addInitScript(() => {
     }
     if(cmd==='list_users') return {users,current};
     if(cmd==='set_current_user') {current=args.userId;return;}
-    if(cmd==='zed_thread_usage') {
-      if(window.zedUsageError) throw JSON.stringify({code:'db',message:window.zedUsageError});
-      const owner = window.zedUsageWrongUser ? 'empty' : current;
-      const show = window.zedUsageFixture && (owner==='empty' || (window.zedUsageForDefault && owner==='default'));
-      const rows = show ? [{
-        id:'zed-synthetic',start_ms:1790463600000,end_ms:1790550000000,input_total:null,
-        input_uncached:null,input_cache_read:'786240',input_cache_write:null,output_total:'6498',
-        total_tokens:null,observed_turns:'4',
-      }, ...(window.zedUsageSecondRow ? [{
-        id:'zed-null-start',start_ms:null,end_ms:1790546400000,input_total:'0',
-        input_uncached:null,input_cache_read:null,input_cache_write:null,output_total:'0',
-        total_tokens:'9007199254740993',observed_turns:'0',
-      }] : [])] : [];
-      return {user_id:owner,rows};
-    }
+    if(cmd==='zed_thread_usage') return {user_id:current,rows:[{
+      id:'zed-synthetic',start_ms:1790463600000,end_ms:1790550000000,input_total:null,
+      input_uncached:null,input_cache_read:'786240',input_cache_write:null,output_total:'6498',
+      total_tokens:null,observed_turns:'4',
+    }]};
     if(cmd==='summary') {
       if(window.openCodeUsage) return {data_revision:revision,timezone:settings.timezone,totals:openCodeStats,distinct_sessions:2,active_days:1,excluded_event_count:0,
         models:[{model:'deepseek-v4.1-flash-free',provider:'opencode',sums:partialStats(1,3466,1792,17)},
@@ -184,7 +174,7 @@ await page.addInitScript(() => {
     }
     if(cmd==='refresh_sources') {
       if(window.shortRefreshGap) {shortRefreshEndsAt=Date.now()+window.shortRefreshGap;return {started:true,running:true,last_finished_ms:finished};}
-      if(!window.refreshNoRevisionBump) revision++;
+      revision++;
       finished++;return {started:true,running:false,last_finished_ms:finished};
     }
     if(cmd==='cost_summary') {
@@ -489,62 +479,12 @@ await page.clock.runFor(500);
 assert.equal(await page.locator('.today-cards .value').count(),0,'empty user cannot inherit old totals');
 assert.equal(await page.locator('.quota-card .used').textContent(),'50','quota remains visible when token history is empty');
 assert.match(await page.locator('main > .empty').textContent(),/尚无数据/);
-await page.evaluate(()=>{window.zedUsageFixture=true;window.zedUsageSecondRow=true;});
-await page.getByRole('navigation').first().getByRole('button',{name:'趋势',exact:true}).click();
-await page.getByRole('navigation').first().getByRole('button',{name:'总览',exact:true}).click();
-const zedUsage=page.getByRole('region',{name:'Zed 线程用量',exact:true}).filter({has:page.getByRole('heading',{name:'Zed 线程用量',exact:true})});
-await zedUsage.waitFor({state:'visible'});
-assert.deepEqual(await zedUsage.locator('tbody tr').nth(0).locator('td').allTextContents(),['6,498','—','—','786,240','—','—','4']);
-assert.deepEqual(await zedUsage.locator('tbody tr').nth(1).locator('td').allTextContents(),['0','0','—','—','—','9,007,199,254,740,993','0'],'reported zeros and large integers stay distinct from unknown');
-const zedEnd = await page.evaluate(() => new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',dateStyle:'medium',timeStyle:'short'}).format(1790550000000));
-assert.ok((await zedUsage.locator('tbody tr').nth(0).locator('th').textContent()).includes(zedEnd),'Zed intervals use the statistics timezone');
-assert.match(await zedUsage.locator('tbody tr').nth(1).locator('th').textContent(),/^— – /,'unknown start_ms renders as an em dash before the end timestamp');
-assert.equal(await page.locator('.today-cards .value, main > .empty').count(),0,'thread-only usage is visible without being counted as daily calls');
-await page.getByLabel('Agent',{exact:true}).selectOption('zed');
-await page.clock.runFor(300);
-assert.equal(await zedUsage.count(),1,'selecting Zed keeps Zed thread usage visible');
-await page.getByLabel('Agent',{exact:true}).selectOption('');
-await page.clock.runFor(300);
-await page.evaluate(()=>{window.zedUsageError='synthetic zed read failure';window.refreshNoRevisionBump=true;});
-await page.getByRole('navigation').first().getByRole('button',{name:'趋势',exact:true}).click();
-await page.getByRole('navigation').first().getByRole('button',{name:'总览',exact:true}).click();
-await zedUsage.getByRole('alert').waitFor({state:'visible'});
-assert.match(await zedUsage.getByRole('alert').textContent(),/synthetic zed read failure/,'Zed query failure shows an alert');
-assert.equal(await page.locator('main > .empty').count(),0,'Zed query failure does not display a misleading empty-data notice');
-await page.evaluate(()=>{window.zedUsageError='';});
-await page.locator('.collect-button').click();
-await page.clock.runFor(700);
-assert.equal(await zedUsage.getByRole('alert').count(),0,'manual refresh retries and clears a previous Zed error even without a revision bump');
-assert.equal(await zedUsage.locator('tbody tr').count(),2);
-await page.evaluate(()=>{window.refreshNoRevisionBump=false;window.zedUsageSecondRow=false;window.zedUsageWrongUser=true;});
+const zedThreadHeading=page.getByRole('heading',{name:'Zed 线程用量',exact:true});
+assert.equal(await zedThreadHeading.count(),0,'Overview with empty chart data omits the Zed thread section');
 await page.locator('.user-picker select').selectOption('default');
 await page.clock.runFor(500);
-assert.equal(await zedUsage.count(),0,'Zed thread rows do not leak when switching users');
-await page.evaluate(()=>{window.zedUsageWrongUser=false;window.zedUsageForDefault=true;});
-await page.getByRole('navigation').first().getByRole('button',{name:'趋势',exact:true}).click();
-await page.getByRole('navigation').first().getByRole('button',{name:'总览',exact:true}).click();
-await zedUsage.waitFor({state:'visible'});
-await page.getByLabel('Agent',{exact:true}).selectOption('codex');
-await page.clock.runFor(300);
-assert.equal(await zedUsage.count(),0,'filtering to another Agent hides Zed thread usage');
-await page.getByLabel('Agent',{exact:true}).selectOption('zed');
-await page.clock.runFor(300);
-assert.equal(await zedUsage.count(),1,'filtering to Zed shows Zed thread usage alongside per-call sources');
-await page.getByLabel('模型',{exact:true}).selectOption('gpt-5.4');
-await page.clock.runFor(1_100);
-assert.equal(await zedUsage.count(),0,'filtering by model hides Zed thread usage');
-await page.getByLabel('Agent',{exact:true}).selectOption('');
-await page.getByLabel('模型',{exact:true}).selectOption('');
-await page.clock.runFor(400);
-await zedUsage.waitFor({state:'visible'});
-await dragPeriods('[data-panel-group="overviewToday"] .hourly',0,1);
-assert.equal(await zedUsage.count(),1,'Zed thread usage stays visible and independent of chart selections');
-await page.locator('.today-range-reset').click();
-await page.clock.runFor(200);
-await page.evaluate(()=>{window.zedUsageForDefault=false;window.zedUsageFixture=false;});
-await page.getByRole('navigation').first().getByRole('button',{name:'趋势',exact:true}).click();
-await page.getByRole('navigation').first().getByRole('button',{name:'总览',exact:true}).click();
-await page.clock.runFor(300);
+assert.equal(await zedThreadHeading.count(),0,'Overview with chart data omits the Zed thread section');
+assert.equal(await page.evaluate(()=>window.appCalls.some(c=>c.cmd==='zed_thread_usage')),false,'Overview never queries the Zed thread section');
 assert.match(await page.locator('[data-panel-group="overviewHistory"] .phead h3').first().textContent(),/token 用量/,'overview defaults to tokens before calls');
 for (const selector of ['[data-panel-group="overviewHistory"] .token-chart','[data-panel-group="overviewHistory"] .calls-chart']) {
   await wheelWithoutSelection(selector);

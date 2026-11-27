@@ -12,7 +12,8 @@ export const digest = body => createHash('sha256').update(normalize(body)).diges
 
 export async function sourceFiles() {
   const paths = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z'], { cwd: root, encoding: 'utf8' });
-  return [...new Set(paths.split('\0').filter(Boolean).map(path => resolve(root, path)))].sort().filter(path => {
+  const deleted = new Set(execFileSync('git', ['ls-files', '--deleted', '-z'], { cwd: root, encoding: 'utf8' }).split('\0'));
+  return [...new Set(paths.split('\0').filter(path => path && !deleted.has(path)).map(path => resolve(root, path)))].sort().filter(path => {
     const key = repoPath(path);
     return !key.startsWith('docs/zh-CN/') && !key.startsWith('previous-draft/dashboard/assets/')
       && key !== 'previous-draft/dashboard/echarts.min.js'

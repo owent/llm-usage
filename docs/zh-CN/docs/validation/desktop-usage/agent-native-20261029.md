@@ -151,3 +151,21 @@ turn 桶，输入、缓存及总量未知。独立的旧失败导入数据库恢
 | Rust 1.100.0，在 Tauri 目录执行 `cargo test --locked -p llm-usage-core --test zed_mixed_contract --test zed_native_contract` | 退出码 0，10 项测试通过。覆盖已保留的区间、用户归属、排序和行数限制、未知分项，以及每日／模型统计和数据修订不变。 |
 | `npm run test:browser`，Edge 模拟 IPC | 退出码 0。覆盖统计时区、未知分项、仅有线程汇总的总览，以及切换用户。 |
 | `cargo build --features tauri/custom-protocol` 与隔离 Windows WebView2 检查 | 退出码 0。将合成 zstd DbThread 采集到新数据库，通过原生 Tauri IPC 与总览核对线程记录，并核验每日／模型统计不变。未修改现有安装或数据库。 |
+
+<a id="zed-1302-model-usage"></a>
+
+## Zed 1.30.2 图表中的模型用量
+
+修正后的采集器把请求开始与用量更新匹配到线程，要求四项计数均与线程保存值一致。
+本机日志的 `openai/glm-5.4` 是写入器添加前缀后的模型 ID，同一线程保存的最后
+一次模型选择与之不同。还原 OpenAI 映射减去的缓存后，总输入为 13,128,307，
+其中缓存读取 12,814,592 个 token，输出 154,148。原生区间是亚洲上海时区
+2026-11-27 14:44–15:28。该区间可计入当天的图表，但无法归到任一小时，
+65 条更新也不能确定模型调用数。
+[OpenAI 兼容模型写入器](https://github.com/zed-industries/zed/blob/610ea4b8de1c6e887f03563f067278002f41256e/crates/language_models/src/provider/open_ai_compatible.rs)、
+[Chat token 映射](https://github.com/zed-industries/zed/blob/610ea4b8de1c6e887f03563f067278002f41256e/crates/language_model_core/src/chat_completion.rs#L230-L250)。
+
+13 项定向 Rust 测试通过，覆盖未变化的 v3 检查点、计数一致和不一致的情况、时区与
+小时边界以及重复导入。Windows 调试版读取本机 Zed 来源并写入隔离的应用数据库。
+通过 WebView2 和原生 IPC 核验总览、趋势、三种图表分组、热力图、详情及小时缺口。
+现有安装和数据库未修改。

@@ -40,11 +40,10 @@ Unknown means that the source did not provide a verified value. It is not zero. 
 totals can be lower bounds when other fields are missing. Read coverage notes and known
 record counts alongside the amounts; a healthy source can still have incomplete fields.
 
-In **Overview → Zed thread usage**, see the most recently updated Zed thread summaries.
-Each row covers the displayed interval and lists retained token counters and observed
-turns. This section appears with All Agents or Zed selected and no model filter. Zed
-does not save a model or timestamp for each call in these summaries, so they do not
-feed daily, model or call totals.
+Verified Zed model usage appears in the normal token charts and Details. The Details
+row shows the interval rather than a single request time. Usage spanning multiple hours
+can appear in the daily totals without appearing in any hourly bucket. It does not
+count as a model call.
 
 ## Cache rate and models
 

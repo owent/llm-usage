@@ -59,17 +59,15 @@ between polls still refreshes; do not revert prematurely to idle waiting.
 
 <a id="zed-thread-usage"></a>
 
-## Zed thread usage
+## Zed model usage
 
-Overview lists up to 20 retained Zed session summaries for the current statistics user,
-most recently updated first. Show each thread's native start and end timestamps in the
-statistics timezone and keep unknown fields distinct from zero. The turn column counts only
-persisted turn buckets, not model calls. Read the existing summaries without rescanning or
-rewriting them. Show this section with All Agents or Zed selected and no model filter.
-
-The section is independent of chart selections and remains visible when there are no
-per-call records. Do not add these intervals to daily or model totals, calls or cost estimates.
-Zed stores the latest model selection, which cannot attribute the cumulative usage to a model.
+Show verified Zed model usage in the same token totals, charts, filters and Details as
+other sources. Use the local completion log only when the usage can be matched to its
+native thread and reconciled to all four saved counters. The latest model selection is
+not attribution. Details show the time bounds, and an interval can contribute to a
+day or hour only when both endpoints fall in that bucket. An interval observation
+does not add model calls or provide per-call pricing tiers. Keep unreconciled thread
+counters as source aggregates outside charts.
 
 <a id="费用和布局"></a>
 

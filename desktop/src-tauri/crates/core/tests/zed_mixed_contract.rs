@@ -88,6 +88,171 @@ fn parallel_checked(s: &Mutex<Storage>, path: &Path, now: i64, expected_failure:
 }
 
 #[test]
+fn reconciled_local_completion_usage_replays_and_reaches_charts_and_details() {
+    use llm_usage_core::query::{
+        event_details, hourly_breakdown, query_summary, EventDetailRequest, Filters, Granularity,
+        SummaryRequest,
+    };
+    let dir = TempDir::new("zed-logged-usage");
+    let threads = dir.path().join("threads");
+    let logs = dir.path().join("logs");
+    std::fs::create_dir(&threads).unwrap();
+    std::fs::create_dir(&logs).unwrap();
+    let db = threads.join("threads.db");
+    let template = source(&dir);
+    std::fs::rename(template, &db).unwrap();
+    let mut thread = row();
+    thread["model"] = json!({"provider":"deepseek","model":"masked-latest"});
+    thread["created_at"] = "2026-11-27T06:44:00Z".into();
+    thread["updated_at"] = "2026-11-27T07:28:00Z".into();
+    thread["cumulative_token_usage"] =
+        json!({"input_tokens":25,"output_tokens":5,"cache_read_input_tokens":110});
+    put(&db, "observed-thread", &thread);
+    let (_dir, storage) = temp_storage("zed-logged-usage-out");
+    let storage = Mutex::new(storage);
+    parallel(&storage, &db, NOW);
+    {
+        let s = storage.lock().unwrap();
+        assert_eq!(count(&s, "SELECT COUNT(*) FROM usage_events"), 0);
+        s.conn().execute("UPDATE ingestion_checkpoints SET parse_context=json_set(parse_context,'$.version',3)", []).unwrap();
+    }
+    let log = logs.join("telemetry.log");
+    let rows = [
+        ("Agent Thread Completion", json!({"attempt":0})),
+        (
+            "Agent Thread Completion Usage Updated",
+            json!({"input_tokens":25,"output_tokens":5,"cache_read_input_tokens":110,"cache_creation_input_tokens":0}),
+        ),
+    ];
+    let text: String = rows.into_iter().map(|(event_type,mut props)| {
+        for (key,value) in [("thread_id","observed-thread"),("prompt_id","prompt-1"),("event_source","zed"),("model","openai/glm-5.4"),("model_provider","example")] {
+            props[key] = value.into();
+        }
+        format!("{}\n", json!({"type":"Flexible","milliseconds_since_first_event":0,"event_type":event_type,"event_properties":props}))
+    }).collect();
+    std::fs::write(&log, text.replace(":110", ":109")).unwrap();
+    parallel(&storage, &db, NOW + 1);
+    assert_eq!(
+        count(
+            &storage.lock().unwrap(),
+            "SELECT COUNT(*) FROM usage_events"
+        ),
+        0
+    );
+    std::fs::write(&log, &text).unwrap();
+    parallel(&storage, &db, NOW + 2);
+    let day = "2026-11-27".parse().unwrap();
+    let dashboard_for = |storage: &Storage, timezone: &str, day, granularity| {
+        query_summary(
+            storage,
+            &SummaryRequest {
+                timezone: timezone.into(),
+                first_day: day,
+                last_day: day,
+                today: day,
+                week_start: llm_usage_core::calendar::WeekStart::Monday,
+                granularity,
+                filters: Filters::default(),
+                retention_cutoff: None,
+            },
+        )
+        .unwrap()
+    };
+    let revision;
+    {
+        let s = storage.lock().unwrap();
+        assert_eq!(count(&s, "SELECT COUNT(*) FROM usage_events"), 1);
+        assert_eq!(count(&s, "SELECT COUNT(*) FROM source_aggregates"), 1);
+        let dashboard = dashboard_for(&s, "Asia/Shanghai", day, Granularity::Day);
+        assert_eq!(dashboard.totals.call_count, 0);
+        assert_eq!(dashboard.totals.input_total_known, Some(135));
+        assert_eq!(dashboard.totals.cache_read_known, Some(110));
+        assert_eq!(dashboard.totals.output_total_known, Some(5));
+        assert_eq!(dashboard.totals.total_tokens_known, Some(140));
+        assert_eq!(dashboard.agent_breakdown[0].agent, "zed");
+        assert_eq!(
+            dashboard.model_breakdown[0].model_raw.as_deref(),
+            Some("glm-5.4")
+        );
+        let calendar = llm_usage_core::calendar::Calendar::new("Asia/Shanghai").unwrap();
+        let (from_ms, to_ms) = calendar.day_range_ms(day).unwrap();
+        let page = event_details(
+            &s,
+            &EventDetailRequest {
+                timezone: "Asia/Shanghai".into(),
+                from_ms,
+                to_ms,
+                offset: 0,
+                limit: 20,
+                filters: Filters::default(),
+            },
+        )
+        .unwrap();
+        assert_eq!(page.rows[0].model_raw.as_deref(), Some("glm-5.4"));
+        assert_eq!(page.rows[0].input_total, Some(135));
+        assert_eq!(page.rows[0].cache_read, Some(110));
+        assert_eq!(page.rows[0].output_total, Some(5));
+        assert!(page.rows[0].interval_start_ms.unwrap() < page.rows[0].occurred_at_ms);
+        assert!(
+            hourly_breakdown(&s, "Asia/Shanghai", day, &Filters::default())
+                .unwrap()
+                .iter()
+                .all(|h| h.total_tokens_known.is_none())
+        );
+        revision = s.data_revision().unwrap();
+    }
+    parallel(&storage, &db, NOW + 3);
+    assert_eq!(storage.lock().unwrap().data_revision().unwrap(), revision);
+    thread["updated_at"] = "2026-11-27T17:28:00Z".into();
+    put(&db, "observed-thread", &thread);
+    parallel(&storage, &db, NOW + 4);
+    let s = storage.lock().unwrap();
+    assert_eq!(
+        dashboard_for(&s, "Asia/Shanghai", day, Granularity::Day)
+            .totals
+            .total_tokens_known,
+        Some(140)
+    );
+    assert_eq!(
+        dashboard_for(
+            &s,
+            "Asia/Shanghai",
+            "2026-11-28".parse().unwrap(),
+            Granularity::Day
+        )
+        .totals
+        .total_tokens_known,
+        None
+    );
+    let (start, end) = s
+        .conn()
+        .query_row(
+            "SELECT interval_start_ms,interval_end_ms FROM usage_events",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .unwrap();
+    llm_usage_core::ingest::recompute_days_in_tz(&s, "Asia/Yangon", start, end, NOW + 5).unwrap();
+    let hours = hourly_breakdown(&s, "Asia/Yangon", day, &Filters::default()).unwrap();
+    assert_eq!(
+        hours
+            .iter()
+            .find(|h| h.hour == 13)
+            .unwrap()
+            .total_tokens_known,
+        Some(140)
+    );
+    llm_usage_core::ingest::recompute_days_in_tz(&s, "America/Phoenix", start, end, NOW + 6)
+        .unwrap();
+    assert_eq!(
+        dashboard_for(&s, "America/Phoenix", day, Granularity::Day)
+            .totals
+            .total_tokens_known,
+        None
+    );
+}
+
+#[test]
 fn native_mixed_thread_imports_output_without_inventing_input_or_model_calls() {
     for provider in [
         "deepseek",
@@ -610,7 +775,7 @@ fn consumed_old_cursor_replays_through_parallel_registry_and_write_rollback() {
         ),
         1
     );
-    assert_eq!(count(&s,"SELECT COUNT(*) FROM ingestion_checkpoints WHERE json_extract(parse_context,'$.version')=3"),1);
+    assert_eq!(count(&s,"SELECT COUNT(*) FROM ingestion_checkpoints WHERE json_extract(parse_context,'$.version')=4"),1);
     assert_eq!(std::fs::read(p).unwrap(), bytes);
 }
 
@@ -658,7 +823,7 @@ fn native_policy_keeps_existing_input_and_real_conflicts_at_the_same_revision() 
         ),
         0
     );
-    assert_eq!(count(&s,"SELECT COUNT(*) FROM ingestion_checkpoints WHERE json_extract(parse_context,'$.version')=3"),1);
+    assert_eq!(count(&s,"SELECT COUNT(*) FROM ingestion_checkpoints WHERE json_extract(parse_context,'$.version')=4"),1);
 }
 
 #[test]
@@ -695,7 +860,7 @@ fn invalid_rows_keep_known_output_and_policy_updates_wait_for_a_valid_snapshot()
         ),
         1
     );
-    assert_eq!(count(&s,"SELECT COUNT(*) FROM ingestion_checkpoints WHERE json_extract(parse_context,'$.version')=3"),1);
+    assert_eq!(count(&s,"SELECT COUNT(*) FROM ingestion_checkpoints WHERE json_extract(parse_context,'$.version')=4"),1);
     assert!(
         count(
             &s,
@@ -735,7 +900,7 @@ fn continued_policy_page_does_not_restart_or_hide_earlier_errors() {
                 .unwrap()
                 .get("version")
                 .and_then(Value::as_u64),
-            (!invalid).then_some(3)
+            (!invalid).then_some(4)
         );
         assert_eq!(o.health, if invalid { "degraded" } else { "active" });
     }
@@ -801,7 +966,7 @@ fn native_overflowing_ambiguous_totals_preserve_reported_output_and_cache() {
                 .unwrap()
                 .get("version")
                 .and_then(Value::as_u64),
-            Some(3)
+            Some(4)
         );
     }
 }
